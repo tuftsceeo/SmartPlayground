@@ -46,6 +46,13 @@ UART_TX = (UART_TX_CHAR_UUID, FLAG_READ | FLAG_NOTIFY,)
 UART_RX = (UART_RX_CHAR_UUID, FLAG_WRITE | FLAG_WRITE_NO_RESPONSE,)
 UART_SERVICE = (UART_UUID,(UART_TX, UART_RX),)
 
+MIDI_SERVICE_UUID = bluetooth.UUID("03B80E5A-EDE8-4B33-A751-6CE34EC4C700")
+MIDI_CHAR_UUID = bluetooth.UUID("7772E5DB-3868-4112-A1A9-F2669D106BF3")
+
+MIDI_UUID = MIDI_SERVICE_UUID
+MIDI_TXRX = (MIDI_CHAR_UUID, FLAG_READ | FLAG_NOTIFY | FLAG_WRITE_NO_RESPONSE,)
+MIDI_SERVICE = (MIDI_UUID,(MIDI_TXRX,),)
+
 class Useful:
     def setup(self, name, verbose, callback):
         self._ble = bluetooth.BLE()
@@ -294,10 +301,17 @@ class Listen(Useful):   # central
 
 #-------------------Peripheral---------------------------------------------------------------------------------------------------------------                
 class Yell(Useful): 
-    def __init__(self, name = 'Pico', interval_us=10000, verbose = True):
+    def __init__(self, name = 'Pico', interval_us=10000, verbose = True, type = 'uart'):
         self.setup(name, verbose, self._irq)
-        ((self._handle_tx, self._handle_rx),) = self._ble.gatts_register_services((UART_SERVICE,))
-        services = [UART_UUID]
+        self.service = UART_UUID if type == 'uart' else MIDI_UUID
+        services = [self.service]
+        if type == 'uart':
+            ((self._handle_tx, self._handle_rx),) = self._ble.gatts_register_services((UART_SERVICE,))
+        elif type == 'midi':
+            ((self._handle_tx, ),) = self._ble.gatts_register_services((MIDI_SERVICE,))
+            self._handle_rx = self._handle_tx   # same handle for both directions
+        else:
+            print('unsupported type')
         self._connections = set()
         self._write_callback = self.rx  
         self.interval_us = interval_us
@@ -305,7 +319,7 @@ class Yell(Useful):
     def advertise(self):
         short = self.name[:8]
         payload = struct.pack("BB", len(short) + 1, NAME_FLAG) + short  # byte length, byte type, value
-        value = bytes(UART_UUID)
+        value = bytes(self.service)
         payload += struct.pack("BB", len(value) + 1,ADV_TYPE_UUID128_COMPLETE) + value
 
         self._ble.gap_advertise(self.interval_us, adv_data=payload)
