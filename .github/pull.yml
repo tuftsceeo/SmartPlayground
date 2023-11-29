@@ -1,5 +1,5 @@
 version: "1"
 rules:
   - base: master
-    upstream: chrisbuerginrogers:main
+    upstream: chrisbuerginrogers:main  
     mergeMethod: rebase
