@@ -1,3 +1,5 @@
+*.sf2 # SoundFont Large Files
+
 #======== macOS ========
 
 # General
