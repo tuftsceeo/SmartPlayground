@@ -41,5 +41,5 @@ def central(name):
         L.disconnect()
         print('closing up')
 
-#peripheral('Fred')
-central('goodboy')
+peripheral('Maria')
+#central('Maria')

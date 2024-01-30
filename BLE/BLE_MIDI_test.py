@@ -1,4 +1,3 @@
-from hub import button
 import time
 from BLE_MIDI import *
 
@@ -11,7 +10,7 @@ def Music():
     Trumpet = MIDI_Instrument(midi, instruments['Trumpet'],channel = 1)
     
     try:
-        while not button.pressed(button.LEFT):
+        while True:
             for x in notes:
                 Trumpet.on(x,velocity['ff'])
                 Piano.on(x,velocity['ff'])
