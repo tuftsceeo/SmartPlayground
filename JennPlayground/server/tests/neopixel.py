@@ -3,7 +3,7 @@ import machine
 import time
 
 
-# 32 LED strip connected to X8.
+# 12 LED ring connected to P0.
 p = machine.Pin.board.P0
 n = neopixel.NeoPixel(p, 12)
 
