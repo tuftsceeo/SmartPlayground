@@ -1,7 +1,6 @@
-from machine import Pin, SPI
+from machine import Pin
 from micropython import const
 import framebuf
-import time
 
 _DIGIT_0 = const(0x1)
 
@@ -251,7 +250,7 @@ class Max7219(framebuf.FrameBuffer):
                 self.pixel(matrix_num * _MATRIX_SIZE + x_idx, y_idx, fb.pixel(x_idx, y_idx))
 
     def draw_5x3_list(self, num_list, x=1, y=1):
-        """
+         """
         Draw a list of two character strings or digits on MAX7219 matrices using
         the 5x3 font, one element per matrix.
 
@@ -263,25 +262,3 @@ class Max7219(framebuf.FrameBuffer):
         for m_idx, num in enumerate(num_list[:self.nb_matrices]):
             self.draw_5x3_num(m_idx, num, x, y)
            
-# --- Main Loop ---
-def main():
-    # Initialize MAX7219 display (8x32)
-    spi = SPI(1, baudrate=10000000, sck=Pin(8), mosi=Pin(10))
-    display = Max7219(32, 8, spi, Pin(2))
-    display.brightness(15)
-
-
-    # Example: Display numbers on each matrix individually
-    display.draw_5x3_num(0, 10)     
-    time.sleep(1)
-
-    display.draw_5x3_num(0, 9)     
-    time.sleep(1)
-
-    display.draw_5x3_num(0, 8)     
-    time.sleep(1)
-
-    display.draw_5x3_num(1, 7)    
-    time.sleep(1)
-
-main()
