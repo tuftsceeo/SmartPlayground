@@ -68,6 +68,92 @@ FONT_5x3 = {
     ':': [0b000, 0b010, 0b000, 0b010, 0b000],
 }
 
+ICONS = {
+    "SAVE": [
+        0b11111111,
+        0b10001101,
+        0b10000001,
+        0b10111101,
+        0b10111101,
+        0b10111101,
+        0b10000001,
+        0b11111111,
+        
+    ],
+    "LOAD": [
+        0b00000000,
+        0b00011000,
+        0b00011000,
+        0b00011000,
+        0b01111110,
+        0b00111100,
+        0b00011000,
+        0b00000000,
+    ],
+    "WAIT": [
+        0b11111110,
+        0b10000010,
+        0b01000100,
+        0b00101000,
+        0b00101000,
+        0b01010100,
+        0b10111010,
+        0b11111110,
+        
+    ],
+    "ERROR": [
+        0b11111111,
+        0b10111101,
+        0b11011011,
+        0b11100111,
+        0b11100111,
+        0b11011011,
+        0b10111101,
+        0b11111111,
+    ],
+    "REQUEST": [
+        0b11111111,
+        0b11000011,
+        0b11011011,
+        0b11110111,
+        0b11100111,
+        0b11111111,
+        0b11100111,
+        0b11111111,
+    ],
+    "QUESTION": [
+        
+        0b00111100,
+        0b01100110,
+        0b01100110,
+        0b00001100,
+        0b00011000,
+        0b00011000,
+        0b00000000,
+        0b00011000,
+        
+    ],
+    "READY": [
+        0b11111111,
+        0b11111101,
+        0b11111001,
+        0b11110011,
+        0b10100111,
+        0b10001111,
+        0b11011111,
+        0b11111111,
+    ],
+    "DONE": [
+        0b00000001,
+        0b00000011,
+        0b00000110,
+        0b00001100,
+        0b10011000,
+        0b11110000,
+        0b01100000,
+        0b00000000,
+    ],
+}
 
 
 class Max7219(framebuf.FrameBuffer):
@@ -163,7 +249,6 @@ class Max7219(framebuf.FrameBuffer):
 
             self.cs(1)
     
-    
     # Function to draw a single character at a specified position
     def _draw_5x3_char(self, fb, char, x, y):
         """
@@ -250,9 +335,9 @@ class Max7219(framebuf.FrameBuffer):
                 self.pixel(matrix_num * _MATRIX_SIZE + x_idx, y_idx, fb.pixel(x_idx, y_idx))
 
     def draw_5x3_list(self, num_list, x=1, y=1):
-         """
-        Draw a list of two character strings or digits on MAX7219 matrices using
-        the 5x3 font, one element per matrix.
+        """
+        Draw a two character string or digit on MAX7219 matrices using
+        the 5x3 font.
 
         :param matrix_num: The matrix to display on
         :param text: Space between characters (default is 1 pixel)
@@ -261,4 +346,23 @@ class Max7219(framebuf.FrameBuffer):
         """
         for m_idx, num in enumerate(num_list[:self.nb_matrices]):
             self.draw_5x3_num(m_idx, num, x, y)
+    
+    def show_icon(self, icon_name, matrix_index=0):
+        """
+        Display a predefined 8x8 icon on a specified matrix without overwriting other matrices.
+        
+        :param icon_name: The name of the icon ("SAVE", "LOAD", "WAIT", "ERROR", "REQUEST", "READY", "DONE")
+        :param matrix_index: The index of the matrix to display the icon on (0-based)
+        """
+        icon = ICONS.get(icon_name)
+        if not icon:
+            print(f"Icon '{icon_name}' not found.")
+            return
+
+        # Display the icon on the specified matrix only
+        for y, row in enumerate(icon):
+            for x in range(8):
+                if (row >> (7 - x)) & 1:
+                    self.pixel(matrix_index * _MATRIX_SIZE + x, y, 1)
+
            
