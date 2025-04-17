@@ -23,11 +23,21 @@ class Buzzer:
     }
     
     # Predefined sound patterns
-    PATTERN_DOUBLE = "DOUBLE"
-    PATTERN_TRIPLE = "TRIPLE"
-    PATTERN_ASCENDING = "ASCENDING"
-    PATTERN_DESCENDING = "DESCENDING"
-    PATTERN_SOS = "SOS"
+    DOUBLE = "DOUBLE"
+    TRIPLE = "TRIPLE"
+    ASCENDING = "ASCENDING"
+    DESCENDING = "DESCENDING"
+    SOS = "SOS"
+    DING = "DING"  # Short ascending ding for confirmation
+    ERROR = "ERROR"  # Descending error tone
+    INFO = "INFO"  # Single medium tone for information
+    CONNECTING = "CONNECTING"  # Ascending and descending for connecting
+    CONNECTED = "CONNECTED"  # Connection established melody
+    ATTENTION = "ATTENTION"  # Attention-grabbing melody
+    CALM = "CALM"  # Gentle descending tone
+    CELEBRATION = "CELEBRATION"  # Celebratory melody
+    SLEEP = "SLEEP"  # Soft descending tone for sleep
+    HELP = "HELP"  # Friendly alternating notes for help
     
     def __init__(self, pin_num=19):
         """Initialize the buzzer.
@@ -129,28 +139,48 @@ class Buzzer:
         """Play a predefined sound pattern.
         
         Args:
-            pattern_type: One of the PATTERN_* constants
-            base_frequency: Base frequency for patterns
+            pattern_type: One of the pattern constants
+            base_frequency: Base frequency in Hz
             
         Returns:
-            The running task
+            Task object that can be awaited
         """
-        # Cancel any existing sound
+        # Cancel any existing pattern
         self.cancel()
         
-        # Create new pattern task
+        # Set playing flag
         self.is_playing = True
         
-        if pattern_type == self.PATTERN_DOUBLE:
+        if pattern_type == self.DOUBLE:
             self.current_task = asyncio.create_task(self._double_pattern(base_frequency))
-        elif pattern_type == self.PATTERN_TRIPLE:
+        elif pattern_type == self.TRIPLE:
             self.current_task = asyncio.create_task(self._triple_pattern(base_frequency))
-        elif pattern_type == self.PATTERN_ASCENDING:
+        elif pattern_type == self.ASCENDING:
             self.current_task = asyncio.create_task(self._ascending_pattern())
-        elif pattern_type == self.PATTERN_DESCENDING:
+        elif pattern_type == self.DESCENDING:
             self.current_task = asyncio.create_task(self._descending_pattern())
-        elif pattern_type == self.PATTERN_SOS:
+        elif pattern_type == self.SOS:
             self.current_task = asyncio.create_task(self._sos_pattern(base_frequency))
+        elif pattern_type == self.DING:
+            self.current_task = asyncio.create_task(self._ding_pattern())
+        elif pattern_type == self.ERROR:
+            self.current_task = asyncio.create_task(self._error_pattern())
+        elif pattern_type == self.INFO:
+            self.current_task = asyncio.create_task(self._info_pattern())
+        elif pattern_type == self.CONNECTING:
+            self.current_task = asyncio.create_task(self._connecting_pattern())
+        elif pattern_type == self.CONNECTED:
+            self.current_task = asyncio.create_task(self._connected_pattern())
+        elif pattern_type == self.ATTENTION:
+            self.current_task = asyncio.create_task(self._attention_pattern())
+        elif pattern_type == self.CALM:
+            self.current_task = asyncio.create_task(self._calm_pattern())
+        elif pattern_type == self.CELEBRATION:
+            self.current_task = asyncio.create_task(self._celebration_pattern())
+        elif pattern_type == self.SLEEP:
+            self.current_task = asyncio.create_task(self._sleep_pattern())
+        elif pattern_type == self.HELP:
+            self.current_task = asyncio.create_task(self._help_pattern())
         
         return self.current_task
     
@@ -230,6 +260,100 @@ class Buzzer:
                 if self.is_playing:
                     await asyncio.sleep(0.1)
             self.is_playing = False
+    
+    async def _ding_pattern(self):
+        """Play a short ascending ding sound."""
+        await self._play_frequency(self.NOTES["C4"], 100)
+        await asyncio.sleep_ms(50)
+        await self._play_frequency(self.NOTES["C5"], 200)
+        self.is_playing = False
+    
+    async def _error_pattern(self):
+        """Play a descending error tone."""
+        await self._play_frequency(self.NOTES["C5"], 200)
+        await asyncio.sleep_ms(50)
+        await self._play_frequency(self.NOTES["C4"], 300)
+        self.is_playing = False
+    
+    async def _info_pattern(self):
+        """Play a single medium-pitched tone."""
+        await self._play_frequency(self.NOTES["A4"], 300)
+        self.is_playing = False
+    
+    async def _connecting_pattern(self):
+        """Play an ascending and descending connecting sound."""
+        await self._play_frequency(self.NOTES["C4"], 150)
+        await asyncio.sleep_ms(50)
+        await self._play_frequency(self.NOTES["E4"], 150)
+        await asyncio.sleep_ms(50)
+        await self._play_frequency(self.NOTES["G4"], 150)
+        await asyncio.sleep_ms(50)
+        await self._play_frequency(self.NOTES["E4"], 150)
+        await asyncio.sleep_ms(50)
+        await self._play_frequency(self.NOTES["C4"], 150)
+        self.is_playing = False
+    
+    async def _connected_pattern(self):
+        """Play a connection established melody."""
+        await self._play_frequency(self.NOTES["C4"], 100)
+        await asyncio.sleep_ms(50)
+        await self._play_frequency(self.NOTES["E4"], 100)
+        await asyncio.sleep_ms(50)
+        await self._play_frequency(self.NOTES["G4"], 100)
+        await asyncio.sleep_ms(50)
+        await self._play_frequency(self.NOTES["C5"], 200)
+        self.is_playing = False
+    
+    async def _attention_pattern(self):
+        """Play an attention-grabbing melody."""
+        await self._play_frequency(self.NOTES["C5"], 100)
+        await asyncio.sleep_ms(50)
+        await self._play_frequency(self.NOTES["E5"], 100)
+        await asyncio.sleep_ms(50)
+        await self._play_frequency(self.NOTES["G5"], 200)
+        self.is_playing = False
+    
+    async def _calm_pattern(self):
+        """Play a gentle descending tone."""
+        await self._play_frequency(self.NOTES["C5"], 200)
+        await asyncio.sleep_ms(50)
+        await self._play_frequency(self.NOTES["A4"], 200)
+        await asyncio.sleep_ms(50)
+        await self._play_frequency(self.NOTES["F4"], 300)
+        self.is_playing = False
+    
+    async def _celebration_pattern(self):
+        """Play a celebratory melody."""
+        await self._play_frequency(self.NOTES["C4"], 100)
+        await asyncio.sleep_ms(50)
+        await self._play_frequency(self.NOTES["E4"], 100)
+        await asyncio.sleep_ms(50)
+        await self._play_frequency(self.NOTES["G4"], 100)
+        await asyncio.sleep_ms(50)
+        await self._play_frequency(self.NOTES["C5"], 200)
+        await asyncio.sleep_ms(50)
+        await self._play_frequency(self.NOTES["G4"], 100)
+        await asyncio.sleep_ms(50)
+        await self._play_frequency(self.NOTES["C5"], 300)
+        self.is_playing = False
+    
+    async def _sleep_pattern(self):
+        """Play a soft descending tone for sleep."""
+        await self._play_frequency(self.NOTES["A4"], 200)
+        await asyncio.sleep_ms(50)
+        await self._play_frequency(self.NOTES["F4"], 300)
+        self.is_playing = False
+    
+    async def _help_pattern(self):
+        """Play friendly alternating notes for help."""
+        await self._play_frequency(self.NOTES["C4"], 150)
+        await asyncio.sleep_ms(50)
+        await self._play_frequency(self.NOTES["E4"], 150)
+        await asyncio.sleep_ms(50)
+        await self._play_frequency(self.NOTES["C4"], 150)
+        await asyncio.sleep_ms(50)
+        await self._play_frequency(self.NOTES["E4"], 300)
+        self.is_playing = False
     
     def play_demo(self):
         """Play a demonstration phone ring melody"""

@@ -12,12 +12,13 @@ class AsyncLEDRing:
     """Asynchronous interface for the 12 NeoPixel LED ring"""
     
     # LED patterns
-    PATTERN_SOLID = "SOLID"
-    PATTERN_BLINK = "BLINK"
-    PATTERN_BREATHE = "BREATHE"
-    PATTERN_CHASE = "CHASE"
-    PATTERN_RAINBOW = "RAINBOW"
-    PATTERN_ALTERNATE = "ALTERNATE"
+    SOLID = "SOLID"
+    BLINK = "BLINK"
+    BREATHE = "BREATHE"
+    CHASE = "CHASE"
+    RAINBOW = "RAINBOW"
+    ALTERNATE = "ALTERNATE"
+    RAINBOW_BLUE = "RAINBOW_BLUE"  # Blue-tinted rainbow for connection established
     
     def __init__(self, pin_num=20, num_pixels=12):
         """Initialize the LED ring.
@@ -103,37 +104,38 @@ class AsyncLEDRing:
                 pass
             self.current_task = None
     
-    def start_pattern(self, pattern, speed=5, duration_ms=1000):
+    async def start_pattern(self, pattern, speed=5, duration_ms=1000):
         """Start a pattern as a background task.
         
         Args:
-            pattern: One of the PATTERN_* constants
-            speed: Animation speed (1-10)
-            duration_ms: Duration in ms
+            pattern: Pattern to run
+            speed: Pattern speed (1-10)
+            duration_ms: Duration in milliseconds
             
         Returns:
-            The running task
+            Task object that can be awaited
         """
         # Cancel any existing pattern
         self.cancel_pattern()
         
-        # Create new pattern task
+        # Set running flag
         self.running = True
         
-        if pattern == self.PATTERN_BLINK:
+        if pattern == self.BLINK:
             self.current_task = asyncio.create_task(self._blink_pattern(speed, duration_ms))
-        elif pattern == self.PATTERN_BREATHE:
+        elif pattern == self.BREATHE:
             self.current_task = asyncio.create_task(self._breathe_pattern(speed, duration_ms))
-        elif pattern == self.PATTERN_CHASE:
+        elif pattern == self.CHASE:
             self.current_task = asyncio.create_task(self._chase_pattern(speed, duration_ms))
-        elif pattern == self.PATTERN_RAINBOW:
+        elif pattern == self.RAINBOW:
             self.current_task = asyncio.create_task(self._rainbow_pattern(speed, duration_ms))
-        elif pattern == self.PATTERN_ALTERNATE:
+        elif pattern == self.ALTERNATE:
             self.current_task = asyncio.create_task(self._alternate_pattern(speed, duration_ms))
-        elif pattern == self.PATTERN_SOLID:
+        elif pattern == self.SOLID:
             # Just set the solid color
             self.set_color(self.current_color)
-            self.current_task = None
+        elif pattern == self.RAINBOW_BLUE:
+            self.current_task = asyncio.create_task(self._rainbow_blue_pattern(speed, duration_ms))
         
         return self.current_task
     
@@ -259,7 +261,7 @@ class AsyncLEDRing:
             speed: Animation speed (1-10)
             duration_ms: Duration in ms
         """
-        delay = 0.02 / (speed / 5) if speed > 0 else 0.02
+        delay = 0.02 / (speed * 5) if speed > 0 else 0.02
         start_time = time.ticks_ms()
         max_duration = duration_ms / 1000  # Convert to seconds
         
@@ -347,31 +349,56 @@ class AsyncLEDRing:
             self.running = False
     
     def _hue(self, pos, brightness=10):
-        """Generate RGB color across 0-255 positions.
+        """Convert a position to an RGB color using the hue wheel.
         
         Args:
-            pos: Position in the color wheel (0-255)
-            brightness: Brightness scale (1-10)
+            pos: Position in the hue wheel (0-1)
+            brightness: Brightness value (0-255)
             
         Returns:
-            RGB color tuple
+            RGB tuple (r, g, b)
         """
-        bright_scale = brightness / 10
+        # Convert position to hue (0-360)
+        hue = pos * 360
         
-        if pos < 85:
-            return (int((255 - pos * 3) * bright_scale), 
-                    int((pos * 3) * bright_scale), 
-                    0)  # Red to green
-        elif pos < 170:
-            pos -= 85
-            return (0, 
-                    int((255 - pos * 3) * bright_scale), 
-                    int((pos * 3) * bright_scale))  # Green to blue
+        # Convert hue to RGB
+        r, g, b = self._hsv_to_rgb(hue / 360, 1.0, brightness / 255)
+        
+        return (r, g, b)
+    
+    def _hsv_to_rgb(self, h, s, v):
+        """Convert HSV to RGB.
+        
+        Args:
+            h: Hue (0-1)
+            s: Saturation (0-1)
+            v: Value (0-1)
+            
+        Returns:
+            RGB tuple (r, g, b) with values 0-255
+        """
+        if s == 0.0:
+            return (int(v * 255), int(v * 255), int(v * 255))
+        
+        i = int(h * 6.0)
+        f = (h * 6.0) - i
+        p = v * (1.0 - s)
+        q = v * (1.0 - s * f)
+        t = v * (1.0 - s * (1.0 - f))
+        i = i % 6
+        
+        if i == 0:
+            return (int(v * 255), int(t * 255), int(p * 255))
+        elif i == 1:
+            return (int(q * 255), int(v * 255), int(p * 255))
+        elif i == 2:
+            return (int(p * 255), int(v * 255), int(t * 255))
+        elif i == 3:
+            return (int(p * 255), int(q * 255), int(v * 255))
+        elif i == 4:
+            return (int(t * 255), int(p * 255), int(v * 255))
         else:
-            pos -= 170
-            return (int((pos * 3) * bright_scale), 
-                    0, 
-                    int((255 - pos * 3) * bright_scale))  # Blue to red
+            return (int(v * 255), int(p * 255), int(q * 255))
     
     def _scale_color(self, color, brightness):
         """Scale RGB color by brightness value"""
@@ -385,4 +412,35 @@ class AsyncLEDRing:
             except:
                 pass
         self.tasks.clear()
-        self.clear()  # Turn off all LEDs 
+        self.clear()  # Turn off all LEDs
+
+    async def _rainbow_blue_pattern(self, speed, duration_ms):
+        """Run a blue-tinted rainbow pattern.
+        
+        Args:
+            speed: Pattern speed (1-10)
+            duration_ms: Duration in milliseconds
+        """
+        start_time = time.ticks_ms()
+        step = 0
+        
+        while self.running and time.ticks_diff(time.ticks_ms(), start_time) < duration_ms:
+            for i in range(self.num_pixels):
+                # Create a blue-tinted rainbow effect
+                hue = (i * 360 / self.num_pixels + step) % 360
+                # Adjust hue to favor blue tones
+                if hue > 180:
+                    hue = 180 + (hue - 180) * 0.5  # Compress red/yellow range
+                
+                # Get color with blue emphasis
+                r, g, b = self._hsv_to_rgb(hue / 360, 1.0, 1.0)
+                # Enhance blue component
+                b = min(255, int(b * 1.5))
+                
+                self.pixels[i] = (r, g, b)
+            
+            self.pixels.write()
+            step = (step + speed * 5) % 360
+            await asyncio.sleep_ms(50)
+        
+        self.running = False 
