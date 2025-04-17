@@ -6,6 +6,10 @@
     },
     "python.terminal.activateEnvironment": false,
     "micropico.openOnStart": true,
-    "python.analysis.typeshedPaths": ["~/.micropico-stubs/micropython-esp32-stubs==1.24.1.post2"],
-    "python.analysis.extraPaths": ["~/.micropico-stubs/micropython-esp32-stubs==1.24.1.post2"]
+    "python.analysis.typeshedPaths": [
+        "~/.micropico-stubs/micropython-esp32-stubs==1.24.1.post2"
+    ],
+    "python.analysis.extraPaths": [
+        "~/.micropico-stubs/micropython-esp32-stubs==1.24.1.post2"
+    ]
 }

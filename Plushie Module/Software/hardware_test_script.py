@@ -1,97 +1,79 @@
 """
 Educational Module System - Hardware Test Script
------------------------------------------------
-This script tests all the hardware components on the educational module.
+----------------------------------------------
+This script tests all hardware components of the Educational Module System.
 """
 import time
-import gc
-from machine import Pin, SoftI2C, Timer
+import uasyncio as asyncio
+from hardware import HardwareInterface
 
-# Import the hardware interface
-from hardware_interface import Hardware, H3LIS331DL_SCALE_FS
+async def test_accelerometer(hardware):
+    """Test accelerometer functionality"""
+    print("\nTesting Accelerometer...")
+    
+    # Test raw readings
+    print("Reading raw accelerometer values...")
+    raw = hardware.accelerometer.read_raw()
+    print(f"Raw values: X={raw['x']}, Y={raw['y']}, Z={raw['z']}")
+    
+    # Test g readings
+    print("Reading g values...")
+    g = hardware.accelerometer.read_g()
+    print(f"G values: X={g['x']:.2f}g, Y={g['y']:.2f}g, Z={g['z']:.2f}g")
+    
+    # Test orientation detection
+    print("Testing orientation detection...")
+    orientation = hardware.accelerometer.get_orientation()
+    print(f"Current orientation: {orientation}")
+    
+    # Test tilt angles
+    print("Testing tilt angles...")
+    angles = hardware.accelerometer.get_tilt_angles()
+    print(f"Tilt angles: X={angles[0]:.1f}°, Y={angles[1]:.1f}°, Z={angles[2]:.1f}°")
+    
+    # Test shake detection
+    print("Testing shake detection (shake the device)...")
+    for _ in range(10):
+        shake = hardware.accelerometer.detect_shake()
+        print(f"Shake intensity: {shake}")
+        await asyncio.sleep(0.5)
+    
+    # Test movement detection
+    print("Testing movement detection (move the device)...")
+    for _ in range(10):
+        movement = hardware.accelerometer.detect_movement()
+        print(f"Movement intensity: {movement}")
+        await asyncio.sleep(0.5)
 
-def test_button(hardware):
-    """Test the button functionality"""
-    print("\n===== Button Test =====")
-    print("Press the button within the next 5 seconds...")
+async def test_led_ring(hardware):
+    """Test LED ring functionality"""
+    print("\nTesting LED Ring...")
     
-    # Setup counters and flags
-    press_count = 0
-    release_count = 0
-    hold_count = 0
-    double_tap_count = 0
+    # Test basic color setting
+    print("Testing color setting...")
+    hardware.led_ring.set_color((255, 0, 0))  # Red
+    await asyncio.sleep(1)
+    hardware.led_ring.set_color((0, 255, 0))  # Green
+    await asyncio.sleep(1)
+    hardware.led_ring.set_color((0, 0, 255))  # Blue
+    await asyncio.sleep(1)
     
-    # Define callback functions
-    def on_press():
-        nonlocal press_count
-        press_count += 1
-        print(f"Button pressed! (Count: {press_count})")
-        hardware.led_ring.set_color((255, 0, 0))  # Red when pressed
+    # Test brightness control
+    print("Testing brightness control...")
+    for brightness in range(0, 256, 51):
+        hardware.led_ring.set_brightness(brightness)
+        print(f"Brightness: {brightness}")
+        await asyncio.sleep(0.5)
     
-    def on_release(duration):
-        nonlocal release_count
-        release_count += 1
-        print(f"Button released after {duration}ms (Count: {release_count})")
-        hardware.led_ring.set_color((0, 0, 0))  # Off when released
-    
-    def on_hold(duration):
-        nonlocal hold_count
-        hold_count += 1
-        print(f"Button held for {duration}ms (Count: {hold_count})")
-        hardware.led_ring.set_color((0, 255, 0))  # Green when held
-    
-    def on_double_tap():
-        nonlocal double_tap_count
-        double_tap_count += 1
-        print(f"Double tap detected! (Count: {double_tap_count})")
-        hardware.led_ring.set_pattern(hardware.led_ring.PATTERN_BLINK, 5, 1000)
-    
-    # Register callbacks
-    hardware.button.add_callback("press", on_press)
-    hardware.button.add_callback("release", on_release)
-    hardware.button.add_callback("hold", on_hold)
-    hardware.button.add_callback("double_tap", on_double_tap)
-    
-    # Wait for button events
-    start_time = time.ticks_ms()
-    while time.ticks_diff(time.ticks_ms(), start_time) < 10000:
-        # Just wait for callbacks
-        time.sleep(0.1)
-    
-    # Clean up
-    hardware.button.remove_callback("press", on_press)
-    hardware.button.remove_callback("release", on_release)
-    hardware.button.remove_callback("hold", on_hold)
-    hardware.button.remove_callback("double_tap", on_double_tap)
-    
-    print("Button test complete:")
-    print(f"- Presses: {press_count}")
-    print(f"- Releases: {release_count}")
-    print(f"- Holds: {hold_count}")
-    print(f"- Double taps: {double_tap_count}")
-
-def test_led_ring(hardware):
-    """Test the LED ring"""
-    print("\n===== LED Ring Test =====")
-    
-    # Test colors
-    colors = [
-        (255, 0, 0),    # Red
-        (0, 255, 0),    # Green
-        (0, 0, 255),    # Blue
-        (255, 255, 0),  # Yellow
-        (255, 0, 255),  # Magenta
-        (0, 255, 255),  # Cyan
-        (255, 255, 255) # White
-    ]
-    
-    print("Testing colors...")
-    for color in colors:
-        print(f"Setting color to {color}")
-        hardware.led_ring.set_color(color)
-        time.sleep(0.5)
+    # Test LED count control
+    print("Testing LED count control...")
+    for count in range(13):
+        hardware.led_ring.set_count(count)
+        print(f"Active LEDs: {count}")
+        await asyncio.sleep(0.5)
     
     # Test patterns
+    print("Testing patterns...")
     patterns = [
         hardware.led_ring.PATTERN_BLINK,
         hardware.led_ring.PATTERN_BREATHE,
@@ -100,144 +82,148 @@ def test_led_ring(hardware):
         hardware.led_ring.PATTERN_ALTERNATE
     ]
     
-    print("Testing patterns...")
-    for i in range(len(patterns)):
-        print(f"Pattern: {patterns[i]}")
-        hardware.led_ring.set_color(colors[i])
-        hardware.led_ring.set_pattern(patterns[i], speed=5, duration_ms=5000)
-        time.sleep(1)  # Wait for pattern to complete
+    for pattern in patterns:
+        print(f"Running pattern: {pattern}")
+        task = hardware.led_ring.start_pattern(pattern, speed=5, duration_ms=2000)
+        await task
+        await asyncio.sleep(0.5)
     
     # Clear LEDs
     hardware.led_ring.clear()
-    print("LED ring test complete")
 
-def test_buzzer(hardware):
-    """Test the buzzer (sound)"""
-    print("\n===== Buzzer Test =====")
+async def test_button(hardware):
+    """Test button functionality"""
+    print("\nTesting Button...")
     
-    # Test different tones
-    print("Testing different tones...")
-    for freq in [262, 330, 392, 440, 523]:
-        print(f"Playing {freq}Hz")
-        hardware.buzzer.play(freq, 300)
-        time.sleep(0.1)
+    def on_press():
+        print("Button pressed!")
+    
+    def on_release(duration):
+        print(f"Button released! Hold duration: {duration}ms")
+    
+    def on_hold(duration):
+        print(f"Button held! Duration: {duration}ms")
+    
+    def on_double_tap():
+        print("Double tap detected!")
+    
+    # Add callbacks
+    hardware.button.add_callback("press", on_press)
+    hardware.button.add_callback("release", on_release)
+    hardware.button.add_callback("hold", on_hold)
+    hardware.button.add_callback("double_tap", on_double_tap)
+    
+    print("Press the button to test callbacks...")
+    print("Try: single press, hold, and double tap")
+    await asyncio.sleep(10)
+    
+    # Remove callbacks
+    hardware.button.remove_callback("press", on_press)
+    hardware.button.remove_callback("release", on_release)
+    hardware.button.remove_callback("hold", on_hold)
+    hardware.button.remove_callback("double_tap", on_double_tap)
+
+async def test_buzzer(hardware):
+    """Test buzzer functionality"""
+    print("\nTesting Buzzer...")
+    
+    # Test volume control
+    print("Testing volume control...")
+    hardware.buzzer.set_volume(50)
+    
+    # Test single frequency
+    print("Testing single frequency...")
+    task = hardware.buzzer.play_frequency(440, 1000)  # A4 note for 1 second
+    await task
     
     # Test musical notes
     print("Testing musical notes...")
-    for note in ["C4", "E4", "G4", "A4", "C5"]:
-        print(f"Playing {note}")
-        hardware.buzzer.note(note, 300)
-        time.sleep(0.1)
-    
-    print("Buzzer test complete")
-
-def test_vibration(hardware):
-    """Test the vibration motor"""
-    print("\n===== Vibration Test =====")
-    
-    # Test simple vibration
-    print("Testing simple vibration (500ms)...")
-    hardware.vibration.vibrate(500)
-    time.sleep(0.5)
+    notes = ["C4", "D4", "E4", "F4", "G4", "A4", "B4", "C5"]
+    for note in notes:
+        print(f"Playing note: {note}")
+        task = hardware.buzzer.play_note(note, 500)
+        await task
+        await asyncio.sleep(0.1)
     
     # Test patterns
+    print("Testing patterns...")
     patterns = [
+        hardware.buzzer.PATTERN_DOUBLE,
+        hardware.buzzer.PATTERN_TRIPLE,
+        hardware.buzzer.PATTERN_ASCENDING,
+        hardware.buzzer.PATTERN_DESCENDING,
+        hardware.buzzer.PATTERN_SOS
+    ]
+    
+    for pattern in patterns:
+        print(f"Playing pattern: {pattern}")
+        task = hardware.buzzer.play_pattern(pattern)
+        await task
+        await asyncio.sleep(0.5)
+    
+    # Test demo melody
+    print("Playing demo melody...")
+    task = hardware.buzzer.play_demo()
+    await task
+
+async def test_vibration(hardware):
+    """Test vibration motor functionality"""
+    print("\nTesting Vibration Motor...")
+    
+    # Test basic vibration
+    print("Testing basic vibration...")
+    task = hardware.vibration.start_vibration(1000)  # 1 second vibration
+    await task
+    
+    # Test patterns
+    print("Testing patterns...")
+    patterns = [
+        hardware.vibration.PATTERN_CONTINUOUS,
         hardware.vibration.PATTERN_PULSE,
         hardware.vibration.PATTERN_DOUBLE,
         hardware.vibration.PATTERN_TRIPLE,
         hardware.vibration.PATTERN_LONG_SHORT
     ]
     
-    print("Testing vibration patterns...")
     for pattern in patterns:
-        print(f"Pattern: {pattern}")
-        hardware.vibration.pattern(pattern)
-        time.sleep(1)
-    
-    print("Vibration test complete")
+        print(f"Running pattern: {pattern}")
+        task = hardware.vibration.start_pattern(pattern, repeat=2)
+        await task
+        await asyncio.sleep(0.5)
 
-def test_accelerometer(hardware):
-    """Test the accelerometer"""
-    print("\n===== Accelerometer Test =====")
-    
-    if not hardware.accelerometer.available:
-        print("Accelerometer not detected!")
-        return
-    
-    # Read raw and G values
-    print("Reading accelerometer values...")
-    for i in range(25):
-        raw = hardware.accelerometer.read_raw()
-        g_values = hardware.accelerometer.read_g()
-        
-        print(f"Raw: X={raw['x']}, Y={raw['y']}, Z={raw['z']}")
-        print(f"G:   X={g_values['x']:.3f}g, Y={g_values['y']:.3f}g, Z={g_values['z']:.3f}g")
-        
-        # Get orientation
-        orientation = hardware.accelerometer.get_orientation()
-        print(f"Orientation: {orientation}")
-        
-        # Detect motion and shake
-        movement = hardware.accelerometer.detect_movement()
-        shake = hardware.accelerometer.detect_shake()
-        print(f"Movement: {movement}, Shake: {shake}")
-        
-        time.sleep(0.5)
-    
-    print("Accelerometer test complete")
-
-def test_power_management(hardware):
-    """Test power management features"""
-    print("\n===== Power Management Test =====")
-    
-    # Get battery status
-    voltage = hardware.power.get_battery_voltage()
-    percentage = hardware.power.get_battery_percentage()
-    state = hardware.power.get_battery_state()
-    
-    print(f"Battery voltage: {voltage:.2f}V")
-    print(f"Battery percentage: {percentage}%")
-    print(f"Battery state: {state}")
+async def test_power_management(hardware):
+    """Test power management functionality"""
+    print("\nTesting Power Management...")
     
     # Test activity registration
     print("Testing activity registration...")
     hardware.power.register_activity()
     print("Activity registered, sleep timers reset")
-    
-    print("Power management test complete")
 
-def main():
+async def main():
     """Main test function"""
-    print("Starting Educational Module Hardware Test")
-    print("========================================")
+    print("Starting Hardware Test Script...")
     
-    # Initialize hardware
-    hardware = Hardware()
+    # Initialize hardware interface
+    hardware = HardwareInterface()
     
     try:
-        # Run individual component tests
-        test_led_ring(hardware)
-        test_button(hardware)
-        test_buzzer(hardware)
-        test_vibration(hardware)
-        test_accelerometer(hardware)
-        test_power_management(hardware)
+        # Run tests
+        #await test_accelerometer(hardware)
+        await test_led_ring(hardware)
+        #await test_button(hardware)
+        await test_buzzer(hardware)
+        #await test_vibration(hardware)
+        #await test_power_management(hardware)
         
-        print("\nAll hardware tests completed successfully!")
+        print("\nAll tests completed successfully!")
         
     except Exception as e:
-        print(f"Test failed with error: {e}")
-        import sys
-        sys.print_exception(e)
-    finally:
-        # Clean up hardware state
-        hardware.led_ring.clear()
-        hardware.buzzer.stop()
+        print(f"\nError during testing: {e}")
         
-        # Run garbage collection
-        gc.collect()
-        print(f"Free memory: {gc.mem_free()} bytes")
+    finally:
+        # Clean up hardware
+        hardware.cleanup()
 
-# Run the test when the script is executed
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
