@@ -79,14 +79,15 @@ async def test_led_ring(hardware):
         hardware.led_ring.BREATHE,
         hardware.led_ring.CHASE,
         hardware.led_ring.RAINBOW,
-        hardware.led_ring.ALTERNATE
+        hardware.led_ring.ALTERNATE,
+        hardware.led_ring.RAINBOW_BLUE
     ]
     
     for pattern in patterns:
         print(f"Running pattern: {pattern}")
         task = hardware.start_led_pattern(pattern, speed=5, duration_ms=3000)
         await task
-        await asyncio.sleep(0.5)
+        await asyncio.sleep(3)
     
     # Clear LEDs
     hardware.led_ring.clear()
@@ -151,8 +152,7 @@ async def test_buzzer(hardware):
         hardware.buzzer.DOUBLE,
         hardware.buzzer.TRIPLE,
         hardware.buzzer.ASCENDING,
-        hardware.buzzer.DESCENDING,
-        hardware.buzzer.SOS
+        hardware.buzzer.DESCENDING
     ]
     
     for pattern in patterns:
@@ -227,24 +227,29 @@ async def test_concurrent_components(hardware):
     hardware.add_button_callback("press", on_button_press)
     
     # Set initial LED color
-    hardware.set_led_color((255, 0, 0))  # Red
+    #hardware.set_led_color((255, 0, 0))  # Red
     
     # Start a pattern that runs for 5 seconds
     print("Starting 5-second pattern with LED, vibration, and buzzer...")
     print("Press the button to see interactive effects!")
     
     # Create tasks for concurrent operation
-    led_task = hardware.start_led_pattern(hardware.led_ring.BREATHE, speed=3)
+    print("START LED TASK?")
+    led_task = hardware.start_led_pattern(hardware.led_ring.RAINBOW, speed=3, duration_ms=5000)
+    print("START VIB TASK?")
     vib_task = hardware.start_vibration_pattern(hardware.vibration.PULSE, repeat=5)
+    print("START BUZZER TASK?")
     buzzer_task = hardware.start_buzzer_pattern(hardware.buzzer.ASCENDING)
     
     # Wait for 5 seconds
-    await asyncio.sleep(5)
+    #await asyncio.sleep(5)
+    await asyncio.gather(led_task, vib_task, buzzer_task)
     
-    # Cancel tasks
-    led_task.cancel()
-    vib_task.cancel()
-    buzzer_task.cancel()
+    # Instead of trying to cancel the tasks directly, use the hardware interface methods
+    # to stop the patterns
+    hardware.led_ring.cancel_pattern()
+    hardware.vibration.cancel_vibration()
+    hardware.buzzer.cancel_all()
     
     # Clear LEDs
     hardware.led_ring.clear()
@@ -264,12 +269,12 @@ async def main():
     try:
         # Run tests
         #await test_accelerometer(hardware)
-        await test_led_ring(hardware)
+        #await test_led_ring(hardware)
         #await test_button(hardware)
         #await test_buzzer(hardware)
         #await test_vibration(hardware)
         #await test_power_management(hardware)
-        #await test_concurrent_components(hardware)
+        await test_concurrent_components(hardware)
         
         print("\nAll tests completed successfully!")
         

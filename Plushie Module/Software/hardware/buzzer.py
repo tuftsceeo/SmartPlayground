@@ -71,10 +71,7 @@ class Buzzer:
         """Cancel current sound playback"""
         self.is_playing = False
         if self.current_task:
-            try:
-                self.current_task.cancel()
-            except:
-                pass
+            self.current_task.cancel()
             self.current_task = None
     
     def cancel_all(self):
@@ -259,131 +256,176 @@ class Buzzer:
                 await self._play_frequency(frequency, 200)
                 if self.is_playing:
                     await asyncio.sleep(0.1)
+            
             self.is_playing = False
     
     async def _ding_pattern(self):
-        """Play a short ascending ding sound."""
-        await self._play_frequency(self.NOTES["C4"], 100)
-        await asyncio.sleep_ms(50)
-        await self._play_frequency(self.NOTES["C5"], 200)
-        self.is_playing = False
+        """Internal method to play a short ascending ding pattern."""
+        if self.is_playing:
+            await self._play_frequency(self.NOTES["C4"], 100)
+            await asyncio.sleep(0.05)
+            await self._play_frequency(self.NOTES["E4"], 200)
+            self.is_playing = False
     
     async def _error_pattern(self):
-        """Play a descending error tone."""
-        await self._play_frequency(self.NOTES["C5"], 200)
-        await asyncio.sleep_ms(50)
-        await self._play_frequency(self.NOTES["C4"], 300)
-        self.is_playing = False
+        """Internal method to play an error pattern."""
+        if self.is_playing:
+            await self._play_frequency(self.NOTES["E4"], 200)
+            await asyncio.sleep(0.1)
+            await self._play_frequency(self.NOTES["C4"], 300)
+            self.is_playing = False
     
     async def _info_pattern(self):
-        """Play a single medium-pitched tone."""
-        await self._play_frequency(self.NOTES["A4"], 300)
-        self.is_playing = False
+        """Internal method to play an info pattern."""
+        if self.is_playing:
+            await self._play_frequency(self.NOTES["A4"], 300)
+            self.is_playing = False
     
     async def _connecting_pattern(self):
-        """Play an ascending and descending connecting sound."""
-        await self._play_frequency(self.NOTES["C4"], 150)
-        await asyncio.sleep_ms(50)
-        await self._play_frequency(self.NOTES["E4"], 150)
-        await asyncio.sleep_ms(50)
-        await self._play_frequency(self.NOTES["G4"], 150)
-        await asyncio.sleep_ms(50)
-        await self._play_frequency(self.NOTES["E4"], 150)
-        await asyncio.sleep_ms(50)
-        await self._play_frequency(self.NOTES["C4"], 150)
-        self.is_playing = False
-    
-    async def _connected_pattern(self):
-        """Play a connection established melody."""
-        await self._play_frequency(self.NOTES["C4"], 100)
-        await asyncio.sleep_ms(50)
-        await self._play_frequency(self.NOTES["E4"], 100)
-        await asyncio.sleep_ms(50)
-        await self._play_frequency(self.NOTES["G4"], 100)
-        await asyncio.sleep_ms(50)
-        await self._play_frequency(self.NOTES["C5"], 200)
-        self.is_playing = False
-    
-    async def _attention_pattern(self):
-        """Play an attention-grabbing melody."""
-        await self._play_frequency(self.NOTES["C5"], 100)
-        await asyncio.sleep_ms(50)
-        await self._play_frequency(self.NOTES["E5"], 100)
-        await asyncio.sleep_ms(50)
-        await self._play_frequency(self.NOTES["G5"], 200)
-        self.is_playing = False
-    
-    async def _calm_pattern(self):
-        """Play a gentle descending tone."""
-        await self._play_frequency(self.NOTES["C5"], 200)
-        await asyncio.sleep_ms(50)
-        await self._play_frequency(self.NOTES["A4"], 200)
-        await asyncio.sleep_ms(50)
-        await self._play_frequency(self.NOTES["F4"], 300)
-        self.is_playing = False
-    
-    async def _celebration_pattern(self):
-        """Play a celebratory melody."""
-        await self._play_frequency(self.NOTES["C4"], 100)
-        await asyncio.sleep_ms(50)
-        await self._play_frequency(self.NOTES["E4"], 100)
-        await asyncio.sleep_ms(50)
-        await self._play_frequency(self.NOTES["G4"], 100)
-        await asyncio.sleep_ms(50)
-        await self._play_frequency(self.NOTES["C5"], 200)
-        await asyncio.sleep_ms(50)
-        await self._play_frequency(self.NOTES["G4"], 100)
-        await asyncio.sleep_ms(50)
-        await self._play_frequency(self.NOTES["C5"], 300)
-        self.is_playing = False
-    
-    async def _sleep_pattern(self):
-        """Play a soft descending tone for sleep."""
-        await self._play_frequency(self.NOTES["A4"], 200)
-        await asyncio.sleep_ms(50)
-        await self._play_frequency(self.NOTES["F4"], 300)
-        self.is_playing = False
-    
-    async def _help_pattern(self):
-        """Play friendly alternating notes for help."""
-        await self._play_frequency(self.NOTES["C4"], 150)
-        await asyncio.sleep_ms(50)
-        await self._play_frequency(self.NOTES["E4"], 150)
-        await asyncio.sleep_ms(50)
-        await self._play_frequency(self.NOTES["C4"], 150)
-        await asyncio.sleep_ms(50)
-        await self._play_frequency(self.NOTES["E4"], 300)
-        self.is_playing = False
-    
-    def play_demo(self):
-        """Play a demonstration phone ring melody"""
-        self.cancel()
-        self.is_playing = True
-        
-        tones = [
-            (659.26, 150),  # E5
-            (587.33, 150),  # D5
-            (369.99, 300),  # F#4
-            (415.3, 300),   # G#4
-            (554.37, 150),  # C#5
-            (493.88, 150),  # B4
-            (293.66, 300),  # D4
-            (329.63, 300),  # E4
-            (493.88, 150),  # B4
-            (440, 150),     # A4
-            (277.18, 300),  # C#4
-            (329.62, 300),  # E4
-            (440, 600)      # A4
-        ]
-        
-        async def _play_demo():
-            for freq, duration in tones:
+        """Internal method to play a connecting pattern."""
+        if self.is_playing:
+            # Ascending
+            for note in ["C4", "E4", "G4", "C5"]:
                 if not self.is_playing:
                     break
-                await self._play_frequency(freq, duration)
-                if self.is_playing and freq != tones[-1][0]:
-                    await asyncio.sleep(0.05)
+                await self._play_frequency(self.NOTES[note], 150)
+                if self.is_playing:
+                    await asyncio.sleep(0.1)
+            
+            if self.is_playing:
+                await asyncio.sleep(0.2)
+            
+            # Descending
+            for note in ["C5", "G4", "E4", "C4"]:
+                if not self.is_playing:
+                    break
+                await self._play_frequency(self.NOTES[note], 150)
+                if self.is_playing:
+                    await asyncio.sleep(0.1)
+            
             self.is_playing = False
+    
+    async def _connected_pattern(self):
+        """Internal method to play a connection established pattern."""
+        if self.is_playing:
+            # Play a simple melody
+            await self._play_frequency(self.NOTES["C4"], 200)
+            await asyncio.sleep(0.1)
+            await self._play_frequency(self.NOTES["E4"], 200)
+            await asyncio.sleep(0.1)
+            await self._play_frequency(self.NOTES["G4"], 300)
+            self.is_playing = False
+    
+    async def _attention_pattern(self):
+        """Internal method to play an attention pattern."""
+        if self.is_playing:
+            # Play attention-grabbing notes
+            for _ in range(2):
+                if not self.is_playing:
+                    break
+                await self._play_frequency(self.NOTES["A4"], 200)
+                if self.is_playing:
+                    await asyncio.sleep(0.1)
+                await self._play_frequency(self.NOTES["C5"], 300)
+                if self.is_playing:
+                    await asyncio.sleep(0.2)
+            self.is_playing = False
+    
+    async def _calm_pattern(self):
+        """Internal method to play a calm pattern."""
+        if self.is_playing:
+            # Play a gentle descending tone
+            await self._play_frequency(self.NOTES["C5"], 200)
+            await asyncio.sleep(0.1)
+            await self._play_frequency(self.NOTES["A4"], 200)
+            await asyncio.sleep(0.1)
+            await self._play_frequency(self.NOTES["F4"], 300)
+            self.is_playing = False
+    
+    async def _celebration_pattern(self):
+        """Internal method to play a celebration pattern."""
+        if self.is_playing:
+            # Play a celebratory melody
+            notes = ["C4", "E4", "G4", "C5", "G4", "E4", "C4"]
+            for note in notes:
+                if not self.is_playing:
+                    break
+                await self._play_frequency(self.NOTES[note], 150)
+                if self.is_playing:
+                    await asyncio.sleep(0.05)
+            
+            # End with a flourish
+            if self.is_playing:
+                await asyncio.sleep(0.1)
+                await self._play_frequency(self.NOTES["C5"], 300)
+            
+            self.is_playing = False
+    
+    async def _sleep_pattern(self):
+        """Internal method to play a sleep pattern."""
+        if self.is_playing:
+            # Play a soft descending tone
+            await self._play_frequency(self.NOTES["A4"], 200)
+            await asyncio.sleep(0.1)
+            await self._play_frequency(self.NOTES["F4"], 200)
+            await asyncio.sleep(0.1)
+            await self._play_frequency(self.NOTES["D4"], 300)
+            self.is_playing = False
+    
+    async def _help_pattern(self):
+        """Internal method to play a help pattern."""
+        if self.is_playing:
+            # Play friendly alternating notes
+            for _ in range(2):
+                if not self.is_playing:
+                    break
+                await self._play_frequency(self.NOTES["C4"], 200)
+                if self.is_playing:
+                    await asyncio.sleep(0.1)
+                await self._play_frequency(self.NOTES["E4"], 200)
+                if self.is_playing:
+                    await asyncio.sleep(0.1)
+                await self._play_frequency(self.NOTES["G4"], 300)
+                if self.is_playing:
+                    await asyncio.sleep(0.2)
+            self.is_playing = False
+    
+    def play_demo(self):
+        """Play a demo melody showcasing various sounds.
         
-        self.current_task = asyncio.create_task(_play_demo())
-        return self.current_task 
+        Returns:
+            Task object that can be awaited
+        """
+        # Cancel any existing pattern
+        self.cancel()
+        
+        # Set playing flag
+        self.is_playing = True
+        
+        # Create demo task
+        self.current_task = asyncio.create_task(self._play_demo())
+        return self.current_task
+    
+    async def _play_demo(self):
+        """Internal method to play a demo melody."""
+        if self.is_playing:
+            # Play a simple melody
+            notes = ["C4", "D4", "E4", "F4", "G4", "A4", "B4", "C5"]
+            for note in notes:
+                if not self.is_playing:
+                    break
+                await self._play_frequency(self.NOTES[note], 300)
+                if self.is_playing:
+                    await asyncio.sleep(0.2)
+            
+            # Play a descending scale
+            if self.is_playing:
+                await asyncio.sleep(0.5)
+                for note in reversed(notes):
+                    if not self.is_playing:
+                        break
+                    await self._play_frequency(self.NOTES[note], 200)
+                    if self.is_playing:
+                        await asyncio.sleep(0.1)
+            
+            self.is_playing = False 

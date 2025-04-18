@@ -46,10 +46,7 @@ class Vibration:
         self.pin.off()  # Ensure motor is off
         
         if self.current_task:
-            try:
-                self.current_task.cancel()
-            except:
-                pass
+            self.current_task.cancel()
             self.current_task = None
     
     def start_vibration(self, duration_ms=500):
@@ -75,12 +72,10 @@ class Vibration:
         Args:
             duration_ms: Duration in milliseconds
         """
-        try:
-            self.pin.on()
-            await asyncio.sleep(duration_ms / 1000)
-        finally:
-            self.pin.off()
-            self.running = False
+        self.pin.on()
+        await asyncio.sleep(duration_ms / 1000)
+        self.pin.off()
+        self.running = False
     
     def start_pattern(self, pattern_type, repeat=1):
         """Start a vibration pattern.
@@ -133,12 +128,10 @@ class Vibration:
     
     async def _continuous_pattern(self):
         """Run a continuous vibration pattern."""
-        try:
-            self.pin.on()
-            await asyncio.sleep(0.5)
-        finally:
-            self.pin.off()
-            self.running = False
+        self.pin.on()
+        await asyncio.sleep(0.5)
+        self.pin.off()
+        self.running = False
     
     async def _pulse_pattern(self, repeat):
         """Run a pulse vibration pattern.
@@ -146,18 +139,17 @@ class Vibration:
         Args:
             repeat: Number of times to repeat
         """
-        try:
-            for _ in range(repeat):
-                if not self.running:
-                    break
-                    
-                self.pin.on()
-                await asyncio.sleep(0.2)
-                self.pin.off()
-                await asyncio.sleep(0.2)
-        finally:
+        for _ in range(repeat):
+            if not self.running:
+                break
+                
+            self.pin.on()
+            await asyncio.sleep(0.2)
             self.pin.off()
-            self.running = False
+            await asyncio.sleep(0.2)
+        
+        self.pin.off()
+        self.running = False
     
     async def _double_pattern(self, repeat):
         """Run a double pulse vibration pattern.
@@ -165,22 +157,21 @@ class Vibration:
         Args:
             repeat: Number of times to repeat
         """
-        try:
-            for _ in range(repeat):
-                if not self.running:
-                    break
-                    
-                self.pin.on()
-                await asyncio.sleep(0.1)
-                self.pin.off()
-                await asyncio.sleep(0.1)
-                self.pin.on()
-                await asyncio.sleep(0.1)
-                self.pin.off()
-                await asyncio.sleep(0.3)
-        finally:
+        for _ in range(repeat):
+            if not self.running:
+                break
+                
+            self.pin.on()
+            await asyncio.sleep(0.1)
             self.pin.off()
-            self.running = False
+            await asyncio.sleep(0.1)
+            self.pin.on()
+            await asyncio.sleep(0.1)
+            self.pin.off()
+            await asyncio.sleep(0.3)
+        
+        self.pin.off()
+        self.running = False
     
     async def _triple_pattern(self, repeat):
         """Run a triple pulse vibration pattern.
@@ -188,24 +179,23 @@ class Vibration:
         Args:
             repeat: Number of times to repeat
         """
-        try:
-            for _ in range(repeat):
+        for _ in range(repeat):
+            if not self.running:
+                break
+                
+            for _ in range(3):
                 if not self.running:
                     break
                     
-                for _ in range(3):
-                    if not self.running:
-                        break
-                        
-                    self.pin.on()
-                    await asyncio.sleep(0.1)
-                    self.pin.off()
-                    await asyncio.sleep(0.1)
-                
-                await asyncio.sleep(0.3)
-        finally:
-            self.pin.off()
-            self.running = False
+                self.pin.on()
+                await asyncio.sleep(0.1)
+                self.pin.off()
+                await asyncio.sleep(0.1)
+            
+            await asyncio.sleep(0.3)
+        
+        self.pin.off()
+        self.running = False
     
     async def _long_short_pattern(self, repeat):
         """Run a long-short vibration pattern.
@@ -213,22 +203,21 @@ class Vibration:
         Args:
             repeat: Number of times to repeat
         """
-        try:
-            for _ in range(repeat):
-                if not self.running:
-                    break
-                    
-                self.pin.on()
-                await asyncio.sleep(0.4)
-                self.pin.off()
-                await asyncio.sleep(0.1)
-                self.pin.on()
-                await asyncio.sleep(0.1)
-                self.pin.off()
-                await asyncio.sleep(0.3)
-        finally:
+        for _ in range(repeat):
+            if not self.running:
+                break
+                
+            self.pin.on()
+            await asyncio.sleep(0.4)
             self.pin.off()
-            self.running = False
+            await asyncio.sleep(0.1)
+            self.pin.on()
+            await asyncio.sleep(0.1)
+            self.pin.off()
+            await asyncio.sleep(0.3)
+        
+        self.pin.off()
+        self.running = False
     
     async def _confirm_pattern(self):
         """Single short pulse for confirmation."""
@@ -250,8 +239,12 @@ class Vibration:
     async def _connecting_pattern(self):
         """Continuous gentle pulsing for connecting."""
         for _ in range(5):
-            await self._vibrate(200)
-            await asyncio.sleep_ms(300)
+            if not self.running:
+                break
+            self.pin.on()
+            await asyncio.sleep(0.2)
+            self.pin.off()
+            await asyncio.sleep(0.2)
         self.running = False
     
     async def _connected_pattern(self):
@@ -265,33 +258,43 @@ class Vibration:
     
     async def _attention_pattern(self):
         """Long-short pattern for attention."""
-        await self._vibrate(500)
-        await asyncio.sleep_ms(100)
-        await self._vibrate(200)
+        self.pin.on()
+        await asyncio.sleep(0.5)
+        self.pin.off()
+        await asyncio.sleep(0.1)
+        self.pin.on()
+        await asyncio.sleep(0.2)
+        self.pin.off()
         self.running = False
     
     async def _calm_pattern(self):
         """Single gentle pulse for calm."""
-        await self._vibrate(300)
+        await self._vibrate(400)
         self.running = False
     
     async def _celebration_pattern(self):
         """Triple pulse with increasing intensity for celebration."""
-        await self._vibrate(200)
-        await asyncio.sleep_ms(100)
-        await self._vibrate(300)
-        await asyncio.sleep_ms(100)
-        await self._vibrate(400)
+        self.pin.on()
+        await asyncio.sleep(0.1)
+        self.pin.off()
+        await asyncio.sleep(0.1)
+        self.pin.on()
+        await asyncio.sleep(0.2)
+        self.pin.off()
+        await asyncio.sleep(0.1)
+        self.pin.on()
+        await asyncio.sleep(0.3)
+        self.pin.off()
         self.running = False
     
     async def _sleep_pattern(self):
         """Single gentle pulse for sleep."""
-        await self._vibrate(300)
+        await self._vibrate(500)
         self.running = False
     
     async def _help_pattern(self):
         """Double gentle pulse for help."""
-        await self._vibrate(200)
-        await asyncio.sleep_ms(100)
+        await self._vibrate(300)
+        await asyncio.sleep_ms(200)
         await self._vibrate(300)
         self.running = False 

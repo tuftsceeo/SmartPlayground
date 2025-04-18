@@ -17,21 +17,6 @@ class HardwareInterface:
     This class provides a simplified interface to all hardware components
     in the Educational Module System. It handles initialization, cleanup,
     and provides convenience methods for common operations.
-    
-    Example:
-        hardware = HardwareInterface()
-        
-        # Set LED color
-        hardware.set_led_color((255, 0, 0))  # Red
-        
-        # Play a note
-        hardware.play_note("C4", 500)  # Play C4 for 500ms
-        
-        # Vibrate
-        hardware.vibrate(1000)  # Vibrate for 1 second
-        
-        # Clean up when done
-        hardware.cleanup()
     """
     
     # Common colors for UI indicators
@@ -77,161 +62,71 @@ class HardwareInterface:
     
     # Convenience methods for LED ring
     def set_led_color(self, color):
-        """Set all LEDs to a specific color.
-        
-        Args:
-            color: RGB tuple (r, g, b) with values 0-255
-        """
+        """Set all LEDs to a specific color."""
         self.led_ring.set_color(color)
     
     def set_led_brightness(self, brightness):
-        """Set LED brightness.
-        
-        Args:
-            brightness: Value from 0-255
-        """
+        """Set LED brightness."""
         self.led_ring.set_brightness(brightness)
     
     def set_led_count(self, count):
-        """Set number of active LEDs.
-        
-        Args:
-            count: Number of LEDs to activate (0-12)
-        """
+        """Set number of active LEDs."""
         self.led_ring.set_count(count)
     
     def start_led_pattern(self, pattern, speed=5, duration_ms=1000):
-        """Start an LED pattern.
-        
-        Args:
-            pattern: Pattern to run (e.g., hardware.led_ring.BREATHE)
-            speed: Pattern speed (1-10)
-            duration_ms: Duration in milliseconds
-            
-        Returns:
-            Task object that can be awaited
-        """
+        """Start an LED pattern."""
         return self.led_ring.start_pattern(pattern, speed, duration_ms)
     
     # Convenience methods for buzzer
     def play_note(self, note_name, duration_ms=500):
-        """Play a musical note.
-        
-        Args:
-            note_name: Note name (e.g., "C4", "A4")
-            duration_ms: Duration in milliseconds
-            
-        Returns:
-            Task object that can be awaited
-        """
+        """Play a musical note."""
         return self.buzzer.play_note(note_name, duration_ms)
     
     def play_frequency(self, frequency, duration_ms=500):
-        """Play a specific frequency.
-        
-        Args:
-            frequency: Frequency in Hz
-            duration_ms: Duration in milliseconds
-            
-        Returns:
-            Task object that can be awaited
-        """
+        """Play a specific frequency."""
         return self.buzzer.play_frequency(frequency, duration_ms)
     
     def set_volume(self, volume):
-        """Set buzzer volume.
-        
-        Args:
-            volume: Volume level (0-100)
-        """
+        """Set buzzer volume."""
         self.buzzer.set_volume(volume)
     
     def start_buzzer_pattern(self, pattern, base_frequency=440):
-        """Start a buzzer pattern.
-        
-        Args:
-            pattern: Pattern to run (e.g., hardware.buzzer.ASCENDING)
-            base_frequency: Base frequency in Hz
-            
-        Returns:
-            Task object that can be awaited
-        """
+        """Start a buzzer pattern."""
         return self.buzzer.play_pattern(pattern, base_frequency)
     
     # Convenience methods for vibration
     def vibrate(self, duration_ms=500):
-        """Start vibration.
-        
-        Args:
-            duration_ms: Duration in milliseconds
-            
-        Returns:
-            Task object that can be awaited
-        """
+        """Start vibration."""
         return self.vibration.start_vibration(duration_ms)
     
     def start_vibration_pattern(self, pattern, repeat=1):
-        """Start a vibration pattern.
-        
-        Args:
-            pattern: Pattern to run (e.g., hardware.vibration.PULSE)
-            repeat: Number of times to repeat the pattern
-            
-        Returns:
-            Task object that can be awaited
-        """
+        """Start a vibration pattern."""
         return self.vibration.start_pattern(pattern, repeat)
     
     # Convenience methods for button
     def add_button_callback(self, event_type, callback):
-        """Add a button callback.
-        
-        Args:
-            event_type: Event type ("press", "release", "hold", "double_tap")
-            callback: Function to call when event occurs
-        """
+        """Add a button callback."""
         self.button.add_callback(event_type, callback)
     
     def remove_button_callback(self, event_type, callback):
-        """Remove a button callback.
-        
-        Args:
-            event_type: Event type ("press", "release", "hold", "double_tap")
-            callback: Function to remove
-        """
+        """Remove a button callback."""
         self.button.remove_callback(event_type, callback)
     
     # Convenience methods for accelerometer
     def get_orientation(self):
-        """Get current orientation.
-        
-        Returns:
-            String describing orientation ("flat", "upright", "upside_down", "left", "right")
-        """
+        """Get current orientation."""
         return self.accelerometer.get_orientation()
     
     def get_tilt_angles(self):
-        """Get tilt angles.
-        
-        Returns:
-            Tuple of (x_angle, y_angle, z_angle) in degrees
-        """
+        """Get tilt angles."""
         return self.accelerometer.get_tilt_angles()
     
     def detect_shake(self):
-        """Detect if device is being shaken.
-        
-        Returns:
-            Shake intensity (0-100)
-        """
+        """Detect if device is being shaken."""
         return self.accelerometer.detect_shake()
     
     def detect_movement(self):
-        """Detect if device is moving.
-        
-        Returns:
-            Movement intensity (0-100)
-        """
+        """Detect if device is moving."""
         return self.accelerometer.detect_movement()
     
     # Convenience methods for power management
@@ -249,164 +144,218 @@ class HardwareInterface:
         Returns:
             List of task objects that can be awaited
         """
-        tasks = []
-        self.set_led_color(self.GREEN)
-        tasks.append(self.start_led_pattern(self.led_ring.BREATHE, speed=5, duration_ms=1000))
-        tasks.append(self.start_buzzer_pattern(self.buzzer.DING))
-        tasks.append(self.start_vibration_pattern(self.vibration.CONFIRM))
-        return tasks
+        # Cancel any existing patterns
+        self.led_ring.cancel_pattern()
+        self.buzzer.cancel_all()
+        self.vibration.cancel_vibration()
+        self.set_led_color((255, 0, 0)) 
+        
+        # Create tasks for the indicator
+        led_task = self.led_ring.start_pattern(self.led_ring.BREATHE, speed=3, duration_ms=2000)
+        buzzer_task = self.buzzer.play_pattern(self.buzzer.DING)
+        vib_task = self.vibration.start_pattern(self.vibration.CONFIRM, repeat=1)
+        
+        return [led_task, buzzer_task, vib_task]
     
     def show_error(self):
         """Show an error indicator (red blinking light, descending error tone, double vibration).
         
         This indicator is designed for 5-year-olds and their teachers to indicate
-        something went wrong or an incorrect action.
+        an error or failed action.
         
         Returns:
             List of task objects that can be awaited
         """
-        tasks = []
-        self.set_led_color(self.RED)
-        tasks.append(self.start_led_pattern(self.led_ring.ALTERNATE, speed=8, duration_ms=1000))
-        tasks.append(self.start_buzzer_pattern(self.buzzer.ERROR))
-        tasks.append(self.start_vibration_pattern(self.vibration.ERROR))
-        return tasks
+        # Cancel any existing patterns
+        self.led_ring.cancel_pattern()
+        self.buzzer.cancel_all()
+        self.vibration.cancel_vibration()
+        self.set_led_color((255, 0, 0)) 
+        # Create tasks for the indicator
+        led_task = self.led_ring.start_pattern(self.led_ring.BLINK, speed=5, duration_ms=2000)
+        buzzer_task = self.buzzer.play_pattern(self.buzzer.ERROR)
+        vib_task = self.vibration.start_pattern(self.vibration.ERROR, repeat=1)
+        
+        return [led_task, buzzer_task, vib_task]
     
     def show_information(self):
-        """Show an information/warning indicator (yellow pulsing light, medium tone, single vibration).
-        
-        This indicator is designed for 5-year-olds and their teachers to provide
-        information or a gentle warning.
-        
-        Returns:
-            List of task objects that can be awaited
-        """
-        tasks = []
-        self.set_led_color(self.YELLOW)
-        tasks.append(self.start_led_pattern(self.led_ring.BREATHE, speed=4, duration_ms=1000))
-        tasks.append(self.start_buzzer_pattern(self.buzzer.INFO))
-        tasks.append(self.start_vibration_pattern(self.vibration.INFO))
-        return tasks
-    
-    def show_connecting(self):
-        """Show a searching/connecting indicator (blue chasing light, ascending/descending tones, continuous pulsing).
+        """Show an information indicator (yellow pulsing light, medium tone, single vibration).
         
         This indicator is designed for 5-year-olds and their teachers to indicate
-        the system is searching or trying to connect.
+        information or a warning.
         
         Returns:
             List of task objects that can be awaited
         """
-        tasks = []
-        self.set_led_color(self.BLUE)
-        tasks.append(self.start_led_pattern(self.led_ring.CHASE, speed=5, duration_ms=2000))
-        tasks.append(self.start_buzzer_pattern(self.buzzer.CONNECTING))
-        tasks.append(self.start_vibration_pattern(self.vibration.CONNECTING))
-        return tasks
+        # Cancel any existing patterns
+        self.led_ring.cancel_pattern()
+        self.buzzer.cancel_all()
+        self.vibration.cancel_vibration()
+        self.set_led_color((255, 255, 0)) 
+        
+        # Create tasks for the indicator
+        led_task = self.led_ring.start_pattern(self.led_ring.BREATHE, speed=4, duration_ms=2000)
+        buzzer_task = self.buzzer.play_pattern(self.buzzer.INFO)
+        vib_task = self.vibration.start_pattern(self.vibration.INFO, repeat=1)
+        
+        return [led_task, buzzer_task, vib_task]
+    
+    def show_connecting(self):
+        """Show a connecting indicator (blue chasing light, ascending/descending tones, continuous pulsing).
+        
+        This indicator is designed for 5-year-olds and their teachers to indicate
+        that the device is searching or connecting.
+        
+        Returns:
+            List of task objects that can be awaited
+        """
+        # Cancel any existing patterns
+        self.led_ring.cancel_pattern()
+        self.buzzer.cancel_all()
+        self.vibration.cancel_vibration()
+        self.set_led_color((0, 0, 255)) 
+        
+        # Create tasks for the indicator
+        led_task = self.led_ring.start_pattern(self.led_ring.CHASE, speed=3, duration_ms=5000)
+        buzzer_task = self.buzzer.play_pattern(self.buzzer.CONNECTING)
+        vib_task = self.vibration.start_pattern(self.vibration.CONNECTING, repeat=0)  # Repeat indefinitely
+        
+        return [led_task, buzzer_task, vib_task]
     
     def show_connection_established(self):
         """Show a connection established indicator (blue rainbow, connection melody, triple pulse).
         
         This indicator is designed for 5-year-olds and their teachers to indicate
-        a successful connection.
+        that a connection has been established.
         
         Returns:
             List of task objects that can be awaited
         """
-        tasks = []
-        self.set_led_color(self.BLUE)
-        tasks.append(self.start_led_pattern(self.led_ring.RAINBOW_BLUE, speed=5, duration_ms=2000))
-        tasks.append(self.start_buzzer_pattern(self.buzzer.CONNECTED))
-        tasks.append(self.start_vibration_pattern(self.vibration.CONNECTED))
-        return tasks
+        # Cancel any existing patterns
+        self.led_ring.cancel_pattern()
+        self.buzzer.cancel_all()
+        self.vibration.cancel_vibration()
+        self.set_led_color((0, 0, 255)) 
+        
+        # Create tasks for the indicator
+        led_task = self.led_ring.start_pattern(self.led_ring.RAINBOW_BLUE, speed=4, duration_ms=3000)
+        buzzer_task = self.buzzer.play_pattern(self.buzzer.CONNECTED)
+        vib_task = self.vibration.start_pattern(self.vibration.CONNECTED, repeat=1)
+        
+        return [led_task, buzzer_task, vib_task]
     
     def show_attention(self):
         """Show an attention indicator (multi-color alternating, attention melody, long-short vibration).
         
-        This indicator is designed for 5-year-olds and their teachers to get
-        the user's attention.
+        This indicator is designed for 5-year-olds and their teachers to indicate
+        that attention is needed.
         
         Returns:
             List of task objects that can be awaited
         """
-        tasks = []
-        # Set up multi-color alternating pattern
-        self.set_led_color(self.RED)
-        tasks.append(self.start_led_pattern(self.led_ring.ALTERNATE, speed=7, duration_ms=1500))
-        tasks.append(self.start_buzzer_pattern(self.buzzer.ATTENTION))
-        tasks.append(self.start_vibration_pattern(self.vibration.ATTENTION))
-        return tasks
+        # Cancel any existing patterns
+        self.led_ring.cancel_pattern()
+        self.buzzer.cancel_all()
+        self.vibration.cancel_vibration()
+        self.set_led_color((255, 255, 0)) 
+        # Create tasks for the indicator
+        led_task = self.led_ring.start_pattern(self.led_ring.ALTERNATE, speed=5, duration_ms=3000)
+        buzzer_task = self.buzzer.play_pattern(self.buzzer.ATTENTION)
+        vib_task = self.vibration.start_pattern(self.vibration.ATTENTION, repeat=1)
+        
+        return [led_task, buzzer_task, vib_task]
     
     def show_calm(self):
-        """Show a calm/ready indicator (soft blue breathing light, gentle descending tone, no vibration).
+        """Show a calm indicator (soft blue breathing light, gentle descending tone, no vibration).
         
         This indicator is designed for 5-year-olds and their teachers to indicate
-        the system is ready or in a calm state.
+        that the device is ready or in a calm state.
         
         Returns:
             List of task objects that can be awaited
         """
-        tasks = []
-        self.set_led_color(self.BLUE)
-        tasks.append(self.start_led_pattern(self.led_ring.BREATHE, speed=3, duration_ms=2000))
-        tasks.append(self.start_buzzer_pattern(self.buzzer.CALM))
-        return tasks
+        # Cancel any existing patterns
+        self.led_ring.cancel_pattern()
+        self.buzzer.cancel_all()
+        self.vibration.cancel_vibration()
+        self.set_led_color((0, 0, 255)) 
+        # Create tasks for the indicator
+        led_task = self.led_ring.start_pattern(self.led_ring.BREATHE, speed=2, duration_ms=3000)
+        buzzer_task = self.buzzer.play_pattern(self.buzzer.CALM)
+        
+        return [led_task, buzzer_task]
     
     def show_celebration(self):
         """Show a celebration indicator (rainbow pattern, celebratory melody, triple pulse).
         
-        This indicator is designed for 5-year-olds and their teachers to celebrate
-        an achievement or milestone.
+        This indicator is designed for 5-year-olds and their teachers to indicate
+        an achievement or celebration.
         
         Returns:
             List of task objects that can be awaited
         """
-        tasks = []
-        # Increase brightness for celebration
-        self.set_led_brightness(255)
-        tasks.append(self.start_led_pattern(self.led_ring.RAINBOW, speed=8, duration_ms=2000))
-        tasks.append(self.start_buzzer_pattern(self.buzzer.CELEBRATION))
-        tasks.append(self.start_vibration_pattern(self.vibration.CELEBRATION))
-        return tasks
+        # Cancel any existing patterns
+        self.led_ring.cancel_pattern()
+        self.buzzer.cancel_all()
+        self.vibration.cancel_vibration()
+                
+        # Create tasks for the indicator
+        led_task = self.led_ring.start_pattern(self.led_ring.RAINBOW, speed=5, duration_ms=3000)
+        buzzer_task = self.buzzer.play_pattern(self.buzzer.CELEBRATION)
+        vib_task = self.vibration.start_pattern(self.vibration.CELEBRATION, repeat=1)
+        
+        return [led_task, buzzer_task, vib_task]
     
     def show_sleep(self):
-        """Show a sleep/shutdown indicator (dimming light, soft descending tone, gentle pulse).
+        """Show a sleep indicator (dimming light, soft descending tone, gentle pulse).
         
         This indicator is designed for 5-year-olds and their teachers to indicate
-        the system is going to sleep or shutting down.
+        that the device is going to sleep or shutting down.
         
         Returns:
             List of task objects that can be awaited
         """
-        tasks = []
-        # Start with full brightness and gradually dim
-        self.set_led_brightness(255)
-        self.set_led_color(self.BLUE)
+        # Cancel any existing patterns
+        self.led_ring.cancel_pattern()
+        self.buzzer.cancel_all()
+        self.vibration.cancel_vibration()
+        self.set_led_color((0, 128, 255)) 
+        # Create tasks for the indicator
+        buzzer_task = self.buzzer.play_pattern(self.buzzer.SLEEP)
+        vib_task = self.vibration.start_pattern(self.vibration.SLEEP, repeat=1)
         
-        # Create a task to gradually dim the light
+        # Create a task for dimming the light
         async def dim_light():
-            for brightness in range(255, 0, -5):
-                self.set_led_brightness(brightness)
-                await asyncio.sleep_ms(50)
-            self.set_led_color(self.OFF)
+            # Start with current brightness
+            brightness = self.led_ring.current_brightness
+            steps = 20
+            for i in range(steps):
+                new_brightness = int(brightness * (1 - i / steps))
+                self.led_ring.set_brightness(new_brightness)
+                await asyncio.sleep_ms(100)
+            self.led_ring.clear()
         
-        tasks.append(asyncio.create_task(dim_light()))
-        tasks.append(self.start_buzzer_pattern(self.buzzer.SLEEP))
-        tasks.append(self.start_vibration_pattern(self.vibration.SLEEP))
-        return tasks
+        led_task = asyncio.create_task(dim_light())
+        
+        return [led_task, buzzer_task, vib_task]
     
     def show_help(self):
-        """Show a help/assistance indicator (purple pulsing light, friendly alternating notes, double gentle pulse).
+        """Show a help indicator (purple pulsing light, friendly alternating notes, double gentle pulse).
         
         This indicator is designed for 5-year-olds and their teachers to indicate
-        help is available.
+        that help is available.
         
         Returns:
             List of task objects that can be awaited
         """
-        tasks = []
-        self.set_led_color(self.PURPLE)
-        tasks.append(self.start_led_pattern(self.led_ring.BREATHE, speed=4, duration_ms=1500))
-        tasks.append(self.start_buzzer_pattern(self.buzzer.HELP))
-        tasks.append(self.start_vibration_pattern(self.vibration.HELP))
-        return tasks 
+        # Cancel any existing patterns
+        self.led_ring.cancel_pattern()
+        self.buzzer.cancel_all()
+        self.vibration.cancel_vibration()
+        self.set_led_color((128, 0, 255)) 
+        # Create tasks for the indicator
+        led_task = self.led_ring.start_pattern(self.led_ring.BREATHE, speed=3, duration_ms=3000)
+        buzzer_task = self.buzzer.play_pattern(self.buzzer.HELP)
+        vib_task = self.vibration.start_pattern(self.vibration.HELP, repeat=1)
+        
+        return [led_task, buzzer_task, vib_task] 

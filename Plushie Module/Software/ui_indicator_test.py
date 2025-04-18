@@ -55,10 +55,7 @@ class IndicatorTester:
     def cancel_current_tasks(self):
         """Cancel any running tasks"""
         for task in self.current_tasks:
-            try:
                 task.cancel()
-            except:
-                pass
         self.current_tasks = []
         
         # Clear outputs
