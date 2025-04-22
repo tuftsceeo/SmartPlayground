@@ -514,9 +514,18 @@ class RuleEngine:
         
         # LED actions
         if action_type == OutputTypes.LED_COLOR:
-            color = parameters.get('color', [255, 0, 0])
-            print(f"Setting LED color to {color}")
-            self.hardware.set_led_color(tuple(color))
+            # Check if we're using the new hue-based color
+            if 'hue' in parameters:
+                hue = parameters.get('hue', 0)  # 0-360 value
+                print(f"Setting LED color to hue {hue}")
+                # Use the _hue method from the LED ring to convert hue to RGB
+                rgb_color = self.hardware.led_ring._hue(hue, self.hardware.led_ring.current_brightness)
+                self.hardware.set_led_color(rgb_color)
+            else:
+                # Legacy RGB support for backwards compatibility during transition
+                color = parameters.get('color', [255, 0, 0])
+                print(f"Setting LED color using legacy RGB {color}")
+                self.hardware.set_led_color(tuple(color))
             return True
             
         elif action_type == OutputTypes.LED_BRIGHTNESS:
