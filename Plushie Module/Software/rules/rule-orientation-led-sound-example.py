@@ -119,6 +119,21 @@ async def run_example():
         }
     })
     
+    rule_engine.add_rule({
+        'name': 'Button Release -> Confirmation Sound',
+        'source': {
+            'module_id': 'self',
+            'type': InputTypes.BUTTON_PRESS
+        },
+        'target': {
+            'module_id': 'self',
+            'type': OutputTypes.VIBRATION_PATTERN,
+            'parameters': {
+                'pattern': 'PULSE'  # Short confirming sound
+            }
+        }
+    })
+    
     # Register input handlers
     rule_engine.register_input_handlers()
     
@@ -166,6 +181,9 @@ async def run_example():
 
 def main():
     """Main entry point."""
+    print("Starting Rules Demo")
+    print("Crtl-C to Stop")
+    time.sleep(3)
     try:
         asyncio.run(run_example())
     except KeyboardInterrupt:

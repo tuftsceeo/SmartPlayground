@@ -2,6 +2,7 @@
 Educational Module System - Hardware Interface
 -------------------------------------------
 This module provides a unified interface for all hardware components.
+Power is not used right now as it is not really implemented.
 """
 import uasyncio as asyncio
 from .accelerometer import Accelerometer
@@ -46,7 +47,7 @@ class HardwareInterface:
         self.vibration = Vibration(pin_num=21)
         
         # Initialize power management
-        self.power = PowerManagement(button_pin=17)  # Using same pin as button for wake-up
+        #self.power = PowerManagement(button_pin=17)  # Using same pin as button for wake-up
     
     def cleanup(self):
         """Clean up all hardware components"""

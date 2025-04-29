@@ -18,7 +18,7 @@ class Button:
         self.pin = Pin(pin_num, Pin.IN)
         self.press_time = 0
         self.last_state = True  # Pull-up, so True is not pressed
-        self.debounce_time = 20  # ms
+        self.debounce_time = 15  # ms
         self.last_debounce = 0
         self.press_count = 0
         self.press_count_time = 0
@@ -70,7 +70,7 @@ class Button:
             else:
                 hold_duration = time.ticks_diff(current_time, self.press_time)
                 self._trigger_callbacks("release", hold_duration)
-                if hold_duration > 500:  # Hold threshold
+                if hold_duration > 100:  # Hold threshold
                     self._trigger_callbacks("hold", hold_duration)
     
     def add_callback(self, event_type, callback):

@@ -30,6 +30,7 @@ class AsyncLEDRing:
         self.num_pixels = num_pixels
         self.pixels = neopixel.NeoPixel(Pin(pin_num), num_pixels)
         self.current_color = (0, 0, 0)
+        self.current_count = self.num_pixels
         self.current_brightness = 255
         
         # Task management
@@ -52,14 +53,7 @@ class AsyncLEDRing:
             color: RGB tuple (0-255, 0-255, 0-255)
         """
         self.current_color = color
-        scaled_color = self._scale_color(color, self.current_brightness)
-        
-        # Cancel any running pattern
-        self.cancel_pattern()
-        
-        for i in range(self.num_pixels):
-            self.pixels[i] = scaled_color
-        self.pixels.write()
+        self._update_pixels()
     
     def set_brightness(self, brightness):
         """Set the overall brightness.
@@ -68,10 +62,7 @@ class AsyncLEDRing:
             brightness: Brightness level (0-255)
         """
         self.current_brightness = max(0, min(255, brightness))
-        scaled_color = self._scale_color(self.current_color, self.current_brightness)
-        for i in range(self.num_pixels):
-            self.pixels[i] = scaled_color
-        self.pixels.write()
+        self._update_pixels()
     
     def set_count(self, count):
         """Illuminate a specific number of LEDs.
@@ -79,14 +70,19 @@ class AsyncLEDRing:
         Args:
             count: Number of LEDs to illuminate (0-12)
         """
-        count = max(0, min(self.num_pixels, count))
-        scaled_color = self._scale_color(self.current_color, self.current_brightness)
+        self.current_count = max(0, min(self.num_pixels, count))
+        self._update_pixels()
         
-        # Cancel any running pattern
+        
+      
+    
+    def _update_pixels(self):
+          # Cancel any running pattern
+        scaled_color = self._scale_color(self.current_color, self.current_brightness)
         self.cancel_pattern()
         
         for i in range(self.num_pixels):
-            if i < count:
+            if i < self.current_count:
                 self.pixels[i] = scaled_color
             else:
                 self.pixels[i] = (0, 0, 0)
