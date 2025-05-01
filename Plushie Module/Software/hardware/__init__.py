@@ -2,7 +2,6 @@
 Educational Module System - Hardware Interface
 -------------------------------------------
 This module provides a unified interface for all hardware components.
-Power is not used right now as it is not really implemented.
 """
 import uasyncio as asyncio
 from .accelerometer import Accelerometer
@@ -46,7 +45,7 @@ class HardwareInterface:
         # Initialize vibration motor
         self.vibration = Vibration(pin_num=21)
         
-        # Initialize power management
+        # Initialize power management (not implemented correctly)
         #self.power = PowerManagement(button_pin=17)  # Using same pin as button for wake-up
     
     def cleanup(self):
@@ -149,7 +148,6 @@ class HardwareInterface:
         self.led_ring.cancel_pattern()
         self.buzzer.cancel_all()
         self.vibration.cancel_vibration()
-        self.set_led_color((255, 0, 0)) 
         
         # Create tasks for the indicator
         led_task = self.led_ring.start_pattern(self.led_ring.BREATHE, speed=3, duration_ms=2000)

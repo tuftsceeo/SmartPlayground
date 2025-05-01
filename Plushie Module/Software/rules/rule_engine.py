@@ -2,6 +2,10 @@
 Educational Module System - Rule Engine
 --------------------------------------
 This module implements the rule engine for the Educational Module System.
+
+>>>> This file contains the methods that need to be added to the existing rule_engine.py
+file to support remote rule functionality.
+
 """
 
 import json
@@ -139,6 +143,15 @@ class RuleEngine:
         
         print("Rule Engine initialized")
     
+    def set_remote_manager(self, remote_manager):
+        """Set the remote manager for handling remote rules.
+        
+        Args:
+            remote_manager: RemoteRuleManager instance
+        """
+        self._remote_manager = remote_manager
+        print("Remote manager set in RuleEngine")
+        
     def load_rules(self):
         """Load all rules from storage."""
         print("Loading rules...")
@@ -616,11 +629,10 @@ class RuleEngine:
         return False
     
     def execute_remote_action(self, target_module, action_type, parameters, output_value):
-        """
-        Execute a remote action by sending a message to the target module.
+        """Execute a remote action by sending a message to the target module.
         
         Args:
-            target_module: Target module MAC address or identifier
+            target_module: Target module MAC address
             action_type: Action type
             parameters: Action parameters
             output_value: Output value from mapping
@@ -630,20 +642,13 @@ class RuleEngine:
         """
         print(f"Executing remote action: {action_type} on module {target_module}")
         
-        # In a real implementation, this would send a message via ESP-NOW
-        # For now, just log it
-        
-        # Example of how you might integrate with networking in the future:
-        # if hasattr(self.hardware, 'networking'):
-        #     message = {
-        #         'type': 'ACTION',
-        #         'action_type': action_type,
-        #         'parameters': parameters,
-        #         'value': output_value
-        #     }
-        #     self.hardware.networking.send(target_module, message)
-        
-        return True
+        # Check if remote manager is available
+        if hasattr(self, '_remote_manager'):
+            return self._remote_manager.send_action(
+                target_module, action_type, parameters, output_value)
+        else:
+            print("Remote manager not set - cannot execute remote action")
+            return False
     
     def register_input_handlers(self):
         """Register handlers for different input types."""
