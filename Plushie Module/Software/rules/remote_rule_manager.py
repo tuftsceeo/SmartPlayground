@@ -34,7 +34,7 @@ class RemoteRuleManager:
         """Send an action message to a remote module.
         
         Args:
-            target_module: Target module MAC address
+            target_module: Target module MAC address (string or bytes)
             action_type: Action type (OutputTypes)
             parameters: Action parameters
             output_value: Output value from mapping
@@ -42,6 +42,11 @@ class RemoteRuleManager:
         Returns:
             Success flag
         """
+        # Ensure target_module is a bytes object
+        if isinstance(target_module, str):
+            # Convert hex string MAC address to bytes
+            target_module = self._hex_string_to_bytes(target_module)
+        
         print(f"Sending action to {target_module}: {action_type}")
         
         # Create message
@@ -61,6 +66,21 @@ class RemoteRuleManager:
         except Exception as e:
             print(f"Error sending message: {e}")
             return False
+    
+    def _hex_string_to_bytes(self, mac_string):
+        """Convert MAC address hex string to bytes for use.
+        
+        Args:
+            mac_string: MAC address as hex string
+            
+        Returns:
+            MAC address as bytes object
+        """
+        if not isinstance(mac_string, str) or ":" not in mac_string:
+            return mac_string  # Return unchanged if not a hex string
+        
+        # Split by colon and convert each hex to byte
+        return bytes([int(x, 16) for x in mac_string.split(':')])
     
     def _on_message_received(self):
         """Handle message reception callback."""
@@ -88,7 +108,54 @@ class RemoteRuleManager:
             message: Message content
             timestamp: Message timestamp
         """
-        # In Phase 1, just log the message
         print(f"Message from {source_mac}: {message} (time: {timestamp})")
         
-        # Phase 3 will implement rule matching and execution
+        # Only process dictionaries
+        if not isinstance(message, dict):
+            print("Message is not a dictionary, ignoring")
+            return
+        
+        # Process action messages
+        if message.get('type') == 'ACTION':
+            self._process_action_message(source_mac, message)
+        elif message.get('type') == 'PING':
+            self._process_ping_message(source_mac, message)
+        # Add other message types as needed
+    
+    def _process_action_message(self, source_mac, message):
+        """Process an action message and execute the corresponding action.
+        
+        Args:
+            source_mac: Source module MAC address
+            message: Message content
+        """
+        action_type = message.get('action_type')
+        parameters = message.get('parameters', {})
+        output_value = message.get('value')
+        
+        print(f"Executing action: {action_type} with parameters: {parameters}")
+        
+        # Execute the action using the rule engine's direct action execution
+        self.rule_engine.execute_action_from_message(
+            source_mac, action_type, parameters, output_value)
+    
+    def _process_ping_message(self, source_mac, message):
+        """Process a ping message by sending a pong response.
+        
+        Args:
+            source_mac: Source module MAC address
+            message: Message content
+        """
+        print(f"Received ping from {source_mac}")
+        
+        # Send pong response
+        pong_message = {
+            'type': 'PONG',
+            'timestamp': time.ticks_ms()
+        }
+        
+        try:
+            self.networking.aen.send(source_mac, pong_message)
+            print(f"Sent pong response to {source_mac}")
+        except Exception as e:
+            print(f"Error sending pong response: {e}")

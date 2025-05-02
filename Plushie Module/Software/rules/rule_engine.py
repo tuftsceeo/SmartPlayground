@@ -2,10 +2,6 @@
 Educational Module System - Rule Engine
 --------------------------------------
 This module implements the rule engine for the Educational Module System.
-
->>>> This file contains the methods that need to be added to the existing rule_engine.py
-file to support remote rule functionality.
-
 """
 
 import json
@@ -143,6 +139,36 @@ class RuleEngine:
         
         print("Rule Engine initialized")
     
+    def _bytes_to_hex_string(self, mac_bytes):
+        """Convert MAC address bytes to a hex string for storage.
+        
+        Args:
+            mac_bytes: MAC address as bytes object
+            
+        Returns:
+            MAC address as hex string (e.g., "e4:b3:23:b5:73:74")
+        """
+        if not isinstance(mac_bytes, bytes):
+            return mac_bytes  # Return unchanged if not bytes
+        
+        # Convert each byte to hex and join with colons
+        return ":".join(["{:02x}".format(b) for b in mac_bytes])
+
+    def _hex_string_to_bytes(self, mac_string):
+        """Convert MAC address hex string to bytes for use.
+        
+        Args:
+            mac_string: MAC address as hex string
+            
+        Returns:
+            MAC address as bytes object
+        """
+        if not isinstance(mac_string, str) or ":" not in mac_string:
+            return mac_string  # Return unchanged if not a hex string
+        
+        # Split by colon and convert each hex to byte
+        return bytes([int(x, 16) for x in mac_string.split(':')])
+    
     def set_remote_manager(self, remote_manager):
         """Set the remote manager for handling remote rules.
         
@@ -175,15 +201,24 @@ class RuleEngine:
             # Clear existing rules
             rule_list.clear()
             
-            # Add new rules
+            # Deserialize MAC addresses
             for rule_data in rules_data:
+                # Deserialize MAC addresses in source
+                if 'source' in rule_data and 'module_id' in rule_data['source']:
+                    rule_data['source']['module_id'] = self._hex_string_to_bytes(rule_data['source']['module_id'])
+                
+                # Deserialize MAC addresses in target
+                if 'target' in rule_data and 'module_id' in rule_data['target']:
+                    rule_data['target']['module_id'] = self._hex_string_to_bytes(rule_data['target']['module_id'])
+                
+                # Add new rules
                 rule_list.append(Rule(rule_data))
             
             print(f"Loaded {len(rule_list)} rules from {filename}")
         except OSError:
             print(f"No rules file found at {filepath}, starting with empty rules")
-        except ValueError:
-            print(f"Error parsing rules from {filename}, starting with empty rules")
+        except ValueError as e:
+            print(f"Error parsing rules from {filename}, starting with empty rules: {e}")
     
     def save_rules(self):
         """Save all rules to storage."""
@@ -204,8 +239,20 @@ class RuleEngine:
         temp_filepath = self.storage_path + "/temp.new"
         
         try:
-            # Convert rules to dictionaries
-            rules_data = [rule.to_dict() for rule in rule_list]
+            # Convert rules to dictionaries with serialized MAC addresses
+            rules_data = []
+            for rule in rule_list:
+                rule_dict = rule.to_dict()
+                
+                # Serialize MAC addresses in source
+                if 'source' in rule_dict and 'module_id' in rule_dict['source']:
+                    rule_dict['source']['module_id'] = self._bytes_to_hex_string(rule_dict['source']['module_id'])
+                
+                # Serialize MAC addresses in target
+                if 'target' in rule_dict and 'module_id' in rule_dict['target']:
+                    rule_dict['target']['module_id'] = self._bytes_to_hex_string(rule_dict['target']['module_id'])
+                
+                rules_data.append(rule_dict)
             
             # Write to temporary file
             with open(temp_filepath, 'w') as f:
@@ -650,6 +697,26 @@ class RuleEngine:
             print("Remote manager not set - cannot execute remote action")
             return False
     
+    def execute_action_from_message(self, source_mac, action_type, parameters, output_value):
+        """Execute a local action based on a received message.
+        
+        This method allows the module to execute actions from incoming messages
+        without requiring an explicit incoming rule.
+        
+        Args:
+            source_mac: Source module MAC address
+            action_type: Action type
+            parameters: Action parameters
+            output_value: Output value
+            
+        Returns:
+            Success flag
+        """
+        print(f"Executing action from message: {action_type} from module {source_mac}")
+        
+        # Execute the local action directly
+        return self.execute_local_action(action_type, parameters, output_value)
+        
     def register_input_handlers(self):
         """Register handlers for different input types."""
         if self.handlers_registered:
