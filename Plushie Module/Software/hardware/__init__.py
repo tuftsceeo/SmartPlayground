@@ -46,7 +46,7 @@ class HardwareInterface:
         self.vibration = Vibration(pin_num=21)
         
         # Initialize power management (not implemented correctly)
-        #self.power = PowerManagement(button_pin=17)  # Using same pin as button for wake-up
+        #self.power = PowerManagement(button_pin=0)  # Using same pin as button for wake-up
     
     def cleanup(self):
         """Clean up all hardware components"""
