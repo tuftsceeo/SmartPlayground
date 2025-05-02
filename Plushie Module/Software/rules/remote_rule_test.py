@@ -29,17 +29,16 @@ class RemoteRuleTest:
         print(f"Remote Rule Test (Module {module_number})")
         print("===============================\n")
         
-        # Store module information
-        self.module_number = module_number
-        if module_number == 1:
-            self.my_mac = MODULE1_MAC
-            self.remote_mac = MODULE2_MAC
-        else:
-            self.my_mac = MODULE2_MAC
-            self.remote_mac = MODULE1_MAC
-        
-        print(f"My MAC: {self.my_mac}")
-        print(f"Remote MAC: {self.remote_mac}")
+        # Use internal Antenna
+        WIFI_ENABLE=Pin(3, Pin.OUT)
+        WIFI_ENABLE.off()
+
+        # Activate RF switch control
+
+        time.sleep(.1)
+        WIFI_EXT_ANT_CONFIG=Pin(14, Pin.OUT)
+        WIFI_EXT_ANT_CONFIG.off() # Use internal antenna
+
         
         # Initialize components
         print("\nInitializing hardware...")
@@ -50,7 +49,38 @@ class RemoteRuleTest:
         
         print("Initializing networking...")
         self.networking = Networking(True, False, True)  # info_msg=True, debug_msg=False
+        self.my_mac =  self.networking.sta.mac()
         
+        #New untested rule fixing
+        if self.my_mac == MODULE1_MAC:
+            print("THIS IS MODULE 1")
+            time.sleep(2)
+            self.module_number = 1
+            self.remote_mac = MODULE2_MAC
+        elif self.my_mac == MODULE2_MAC:
+            print("THIS IS MODULE 2")
+            time.sleep(2)
+            self.module_number = 2
+            self.remote_mac = MODULE1_MAC
+        else:
+            print("THIS IS NOT MODULE 1 or 2")
+            time.sleep(2)
+            self.module_number = 0
+            self.remote_mac = BROADCAST_MAC
+        # Store module information
+#         self.module_number = module_number
+#         if module_number == 1:
+#             self.my_mac = MODULE1_MAC
+#             self.remote_mac = MODULE2_MAC
+#         else:
+#             self.my_mac = MODULE2_MAC
+#             self.remote_mac = MODULE1_MAC
+        
+        print(f"My MAC: {self.my_mac}")
+        print(f"Remote MAC: {self.remote_mac}")
+        
+
+
         # Clear any existing rules
         print("Clearing existing rules...")
         self.rule_engine.clear_all_rules()
