@@ -1,7 +1,5 @@
-from machine import SoftI2C, Pin, PWM
+from machine import SoftI2C, Pin
 import time
-import neopixel
-
 
 # I2C address of the device
 H3LIS331DL_DEFAULT_ADDRESS = 0x19
@@ -106,99 +104,21 @@ class H3LIS331DL:
         if zAccl > H3LIS331DL_RAW_DATA_MAX / 2:
             zAccl -= H3LIS331DL_RAW_DATA_MAX
         
-        return {'x': xAccl, 'y': yAccl, 'z': zAccl}
-
-
-
-
-class SOUND():
-    def __init__(self, p):
-        self.pwm = PWM(Pin(p, Pin.OUT), freq=1000, duty=1000)  # Pin(5) in PWM mode here
-        self.pwm.duty(0)
-        
-    def play(self, frequency , hold):
-        self.pwm.duty(400)
-        self.pwm.freq(int(frequency))
-        time.sleep(hold)
-        self.pwm.duty(0)
-
-
-
-#switch
-sw = Pin(0, Pin.IN)
-
-
-#buzzer
-buzzer = Pin(21, Pin.OUT)
-
-#neopixel
-np = neopixel.NeoPixel(Pin(20), 12)
-
-
-#sound
-
-s= SOUND(19)
-
-
-def buzz(delay):
-    buzzer.on()
-    time.sleep(delay)
-    buzzer.off()
-
-
-
-def lightDemo():
-    for j in range(2):
-        for i in range(12):
-            np[i%12] = (255,0,0)
-            np[(i+1)%12] = (0,255,0)
-            np.write()
-
-
-def playsound():
-    s.play(659.26,0.15)
-    s.play(587.33,0.15)
-    s.play(369.99,0.3)
-    s.play(415.3,0.3)
-    s.play(554.37,0.15)
-    s.play(493.88,0.15)
-    s.play(293.66,0.3)
-    s.play(329.63,0.3)
-    s.play(493.88,0.15)
-    s.play(440,0.15)
-    s.play(277.18,0.3)
-    s.play(329.62,0.3)
-    s.play(440,0.6)
-
-
-
-i2c = SoftI2C(scl = Pin(23), sda = Pin(22))
-#Create accelerometer object
-h3lis331dl = H3LIS331DL(i2c)
-data = []
-h3lis331dl.select_datarate()
-h3lis331dl.select_data_config()
-
-
-playsound()
-lightDemo() 
-buzz(0.2) #buzz for 0.2 ms
-
-
+        return(xAccl/ H3LIS331DL_SCALE_FS, yAccl/ H3LIS331DL_SCALE_FS, zAccl/ H3LIS331DL_SCALE_FS)
 
 
 
 # Example usage
-def main():
+def demo():
+    i2c = SoftI2C(scl = Pin(23), sda = Pin(22))
+
+    h3lis331dl = H3LIS331DL(i2c)
+    data = []
+    h3lis331dl.select_datarate()
+    h3lis331dl.select_data_config()
     
-    for i in range(100):
+    while True:
         accl = h3lis331dl.read_accl()
         print("{0:6.3f},{1:6.3f},{2:6.3f}".format(accl['x'] / H3LIS331DL_SCALE_FS, accl['y'] / H3LIS331DL_SCALE_FS, accl['z'] / H3LIS331DL_SCALE_FS))
-        print(sw.value())
-        time.sleep(0.2)
+        time.sleep(0.5)
 
-        
-    
-
-if __name__ == '__main__':
-    main()
