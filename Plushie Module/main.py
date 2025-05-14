@@ -5,7 +5,7 @@ import neopixel
 import esp32
 from accel import H3LIS331DL
 import struct
-from bleCEEO import Yell
+
 
 import network
 import espnow
