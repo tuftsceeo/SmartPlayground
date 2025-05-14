@@ -219,7 +219,7 @@ def recv_cb(e):
             if(e.peers_table[key][0] > -70):
                 s.buzz()
                 s.color = s.bytearray_to_numbers(msg)
-                s.blinkLED()
+                s.blinkLED(10)
                 
                 
                 
