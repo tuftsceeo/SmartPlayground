@@ -22,7 +22,6 @@ e.active(True)
 class Plushie():
     def __init__(self):
         #Defining pins
-        print("I am back")
         self.np = neopixel.NeoPixel(Pin(20), 12)
         #button = Pin(0, Pin.IN)
         self.motor = Pin(21, Pin.OUT)
@@ -30,12 +29,11 @@ class Plushie():
         self.button = Pin(0, Pin.IN, Pin.PULL_UP)
         esp32.wake_on_ext1(pins = (self.button,), level = esp32.WAKEUP_ALL_LOW)
 
-        # Delete the pin object completely 
-        print(self.button.value())
-        
+        self.RSSIthreshold = -80
         #delaying
         a = self.button.value()
-            
+        self.ant = Pin(14, Pin.OUT)
+        self.ant.on()
         while a == 0:
             
             a = self.button.value()
@@ -51,8 +49,7 @@ class Plushie():
         self.h3lis331dl.select_data_config()
         
         #wake up condition
-        
-    
+          
         self.button_value = 1
     
         self.last_button_value = 1
@@ -72,9 +69,11 @@ class Plushie():
         
         #led tracker
         self.lednumber = 0
+        self.messageDetectedAt = 0 
 
         self.noColor = [0,0,0]
-        self.color = [50,50,50]
+        self.defaultColor = [50,50,50]
+        self.color = self.defaultColor
     
     def readAccel(self):
         accel = self.h3lis331dl.read_accl()
@@ -118,11 +117,12 @@ class Plushie():
             self.shuttingdown()
             machine.deepsleep()
         else:
-            
-            self.np[self.lednumber] = self.color #lock the LED color from the button
-            self.np.write()
-            self.lednumber += 1 #button pressed so go to next led
-            self.color = [50,50,50] #reset the color
+            if(not self.color is self.defaultColor): 
+                self.np[self.lednumber] = self.color #lock the LED color from the button
+                self.np.write()
+                if (self.lednumber < 11):
+                    self.lednumber += 1 #button pressed so go to next led
+                    self.color = self.defaultColor #reset the color
             
         
         
@@ -153,6 +153,9 @@ class Plushie():
         time.sleep(0.3)
         self.np[self.lednumber] = self.noColor
         self.np.write()
+        
+        if(time.ticks_ms() - self.messageDetectedAt >3000): #reset the color if button isn't pressed within 3 seconds
+            self.color = self.defaultColor
 
     def shuttingdown(self):
         for i in range(12):
@@ -211,22 +214,18 @@ def recv_cb(e):
         mac, msg = e.irecv(0)  # Don't wait if no messages left
         if mac is None:
             return
-        print(mac, msg)
         print(e.peers_table)
         
-        for key in e.peers_table:
-            print(key, e.peers_table[key])
-            if(e.peers_table[key][0] > -70):
-                s.buzz()
-                s.color = s.bytearray_to_numbers(msg)
-                s.blinkLED(10)
-                
-                
+        if(e.peers_table[mac][0] > s.RSSIthreshold): #make sure the RSSI value you are comparing is from the button you got the message from
+            s.buzz()
+            s.color = s.bytearray_to_numbers(msg)
+            s.messageDetectedAt = time.ticks_ms()
+               
+              
                 
 e.irq(recv_cb)
 
 
-    
 
 
 
