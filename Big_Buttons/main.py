@@ -31,7 +31,7 @@ class Button():
         self.np = neopixel.NeoPixel(Pin(20), 12)
         #button = Pin(0, Pin.IN)
         self.record = Pin(21, Pin.OUT)
-        self.record.off()
+        self.record.on()
 
         self.button = Pin(0, Pin.IN, Pin.PULL_UP)
         esp32.wake_on_ext1(pins = (self.button,), level = esp32.WAKEUP_ALL_LOW)
