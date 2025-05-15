@@ -6,7 +6,7 @@ import esp32
 from accel import H3LIS331DL
 import struct
 
-
+import config
 
 
 
@@ -38,7 +38,7 @@ class Button():
 
         # Delete the pin object completely 
         print(self.button.value())
-        self.color = [0,50,0]
+        self.color = config.config['color']
         
         
         #delaying
