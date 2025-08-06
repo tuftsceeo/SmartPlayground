@@ -229,7 +229,7 @@ async def button_handler():
                     "sound": setSound(sound),
                     "light": setColor(color),
                     "pattern": pattern_choice,
-                    "TrafficL": setPicture(picture)
+                    "TrafficL": setPicture(picture) # this is currently for the light panel (pre traffic light)
                 }
             }
             e.send(peer, str(config))
