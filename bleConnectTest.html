@@ -3,38 +3,62 @@
   <body>
     <button id="connect">Connect</button>
     <button id="send">Send "hi"</button>
+    <button id="light-on">Light ON</button>
+    <button id="light-off">Light OFF</button>
     <pre id="log"></pre>
+    
 
     <!-- 1) Load the helper first (NO type="module") -->
     <script src="./bleConnect.js"></script>
 
     <!-- 2) Your app code (can be module or not). Using window.WebBLEUART is
      safest. -->
-    <script>
-      const log = (...a) =>
-        (document.getElementById('log').textContent += a.join(' ') + '\n');
+<script>
+  const log = (...a) =>
+    (document.getElementById('log').textContent += a.join(' ') + '\n');
 
-      // Use the global explicitly to avoid module scoping issues:
-      const ble = new window.WebBLEUART();
+  const ble = new window.WebBLEUART();
 
-      document.getElementById('connect').addEventListener('click', async () => {
-        try {
-          await ble.connect();             // or { namePrefix: 'Fred' }
-          ble.onReceive = (bytes) => log('RX:', ble.bytesToString(bytes));
-          log('Connected to:', ble.device?.name || '(no name)');
-        } catch (e) {
-          log('Connect error:', e.message || e);
-        }
+  document.getElementById('connect').addEventListener('click', async () => {
+    try {
+      // If your MicroPython expects different commands, override here:
+      await ble.connect({
+        // commands: { lightOn: 'ON\n', lightOff: 'OFF\n' }
       });
+      ble.onReceive = (bytes) => log('RX:', ble.bytesToString(bytes));
+      log('Connected to:', ble.device?.name || '(no name)');
+    } catch (e) {
+      log('Connect error:', e.message || e);
+    }
+  });
 
-      document.getElementById('send').addEventListener('click', async () => {
-        try {
-          await ble.writeString('hi from web\n');
-          log('TX: hi from web');
-        } catch (e) {
-          log('Write error:', e.message || e);
-        }
-      });
-    </script>
+  document.getElementById('send').addEventListener('click', async () => {
+    try {
+      await ble.writeLine('hi from web');
+      log('TX: hi from web');
+    } catch (e) {
+      log('Write error:', e.message || e);
+    }
+  });
+
+  // NEW: light control
+  document.getElementById('light-on').addEventListener('click', async () => {
+    try {
+      await ble.lightOn();
+      log('TX: LED ON');
+    } catch (e) {
+      log('Write error:', e.message || e);
+    }
+  });
+
+  document.getElementById('light-off').addEventListener('click', async () => {
+    try {
+      await ble.lightOff();
+      log('TX: LED OFF');
+    } catch (e) {
+      log('Write error:', e.message || e);
+    }
+  });
+</script>
   </body>
 </html>
