@@ -1,4 +1,4 @@
-/* web_ble_uart.js
+/* bleConnect.js
  * Minimal Web Bluetooth helper for Nordic UART (ESP32 "Yell")
  * Usage (from a user-gesture, e.g. a button click):
  *   const ble = new WebBLEUART();
