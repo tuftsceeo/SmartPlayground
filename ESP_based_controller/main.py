@@ -42,7 +42,7 @@ e.active(True)
 peer = b'\xff\xff\xff\xff\xff\xff'   # MAC address of peer's wifi interface
 e.add_peer(peer)
 
-GAME_LUT = {0: "BATTERY CHECK", 1 : "COLOR BASED GROUP", 2: "NUMBER BASED GROUP", 3: "COLOR AND NUMBER"}
+GAME_LUT = {0: "BATTERY CHECK", 1 : "COLOR BASED GROUP", 2: "NUMBER BASED GROUP", 3: "COLOR AND NUMBER",4: "COLOR AND NUMBER",5: "RAINBOW NEAR", 6: "RAINBOW ALL", 7: "TURN OFF NEAR", 8: "TURN OFF ALL"}
 
 class ControlBox():
     def __init__(self):
@@ -69,7 +69,6 @@ class ControlBox():
         self.time_of_button_press = 0
         self.old_time_of_button_press = 0
 
-
         self.button.irq(trigger = Pin.IRQ_RISING, handler=self.check_switch) #timer to check button press
         
         
@@ -93,7 +92,7 @@ class ControlBox():
     def check_switch(self,p):
         print("pressed")
         self.time_of_button_press = time.ticks_ms()
-        if self.time_of_button_press - self.old_time_of_button_press < 200: #for debounce
+        if self.time_of_button_press - self.old_time_of_button_press < 500: #for debounce
             return
         self.old_time_of_button_press = self.time_of_button_press
         self.buttonAction()
@@ -101,11 +100,20 @@ class ControlBox():
 
 
     def buttonAction(self):
-              
-        message = {"updateGame": self.encoder_value}
+        if self.encoder_value == 0:
+            message  = {"batteryCheck": "please"}
+        elif self.encoder_value == 5:
+            message = {"rainbow": "please"}
+        elif self.encoder_value == 6:
+            message = {"shutDown": "please"}
+        elif self.encoder_value == 7:
+            message = {"rainbowAll": "please"}
+        elif self.encoder_value == 8:
+            message = {"shutDownAll": "please"}
+        else:
+            message = {"updateGame": self.encoder_value}
         print(message)
-        e.send(peer, str(message))
-        time.sleep(0.15)
+        
         e.send(peer, str(message)) # double to make sure
 
 
@@ -145,6 +153,8 @@ def recv_cb(e):
         #print(e.peers_table)
         
 e.irq(recv_cb)
+
+
 
 
 
