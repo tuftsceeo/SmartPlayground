@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="mobile-web-app-capable" content="yes">
+    <title>Smart Playground Control</title>
+    <link rel="manifest" href="manifest.json">
+    
+    <!-- PyScript -->
+    <link rel="stylesheet" href="https://pyscript.net/releases/2024.1.1/core.css">
+    <script type="module" src="https://pyscript.net/releases/2024.1.1/core.js"></script>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+                'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+                sans-serif;
+            min-height: 100vh;
+            min-height: -webkit-fill-available;
+        }
+        html {
+            height: -webkit-fill-available;
+        }
+        #root {
+            height: calc(100vh - 27px);
+            height: calc(100svh - 27px); /* Small viewport height - excludes address bar */
+        }
+        #footer-spacer {
+            height: 27px;
+            background-color: #292929;
+        }
+    </style>
+</head>
+<body>
+    <!-- Python Backend -->
+    <script type="py" src="main.py" config="pyscript.toml"></script>
+    
+    <!-- React Root -->
+    <div id="root"></div>
+    
+    <!-- Footer Spacer -->
+    <div id="footer-spacer"></div>
+    
+    <!-- Main Application - ES6 Module -->
+    <script type="module" src="js/main.js"></script>
+    
+    <!-- Request fullscreen on mobile -->
+    <script>
+        let fullscreenRequested = false;
+        
+        function requestFullscreen() {
+            if (fullscreenRequested) return;
+            fullscreenRequested = true;
+            
+            const elem = document.documentElement;
+            if (elem.requestFullscreen) {
+                elem.requestFullscreen().catch(err => console.log('Fullscreen failed:', err));
+            } else if (elem.webkitRequestFullscreen) {
+                elem.webkitRequestFullscreen();
+            }
+        }
+        
+        // Request on first user interaction
+        ['touchstart', 'click'].forEach(event => {
+            document.addEventListener(event, requestFullscreen, { once: true });
+        });
+    </script>
+</body>
+</html>
