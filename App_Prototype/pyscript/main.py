@@ -3,9 +3,12 @@ Smart Playground Control - Python Backend
 Handles ESP-NOW communication with ESP32 devices
 """
 
-from pyscript import document, window, when
+from pyscript import document, window
+from pyodide.ffi import create_proxy
 from js import console, CustomEvent
 import json
+import random
+import time
 
 # Mock device data (replace with actual ESP-NOW communication)
 devices = [
@@ -25,8 +28,33 @@ def get_devices():
 
 
 def refresh_devices():
-    """Refresh device list (simulate scanning for ESP32 devices)"""
-    console.log("Python: refresh_devices called")
+    """Refresh device list (simulate scanning for ESP32 devices with RSSI variation)"""
+    console.log("Python: refresh_devices called - simulating ping/pong")
+    
+
+    # # Simulate RSSI fluctuation (devices move or signal varies)
+    # for device in devices:
+    #     # Add random variation to RSSI (-5 to +5 dBm)
+    #     variation = random.randint(-5, 5)
+    #     new_rssi = device["rssi"] + variation
+        
+    #     # Keep RSSI in realistic bounds (-20 to -95 dBm)
+    #     device["rssi"] = max(-95, min(-20, new_rssi))
+        
+    #     # Update signal bars based on RSSI
+    #     if device["rssi"] >= -50:
+    #         device["signal"] = 3
+    #     elif device["rssi"] >= -70:
+    #         device["signal"] = 2
+    #     elif device["rssi"] >= -85:
+    #         device["signal"] = 1
+    #     else:
+    #         device["signal"] = 0
+
+       
+    # Ping-pong simulation is instant for prototype
+
+    console.log(f"Python: {len(devices)} devices responded to ping")
     return devices
 
 
@@ -50,15 +78,19 @@ def send_command(command, device_ids):
     return {"status": "success", "sent_to": len(device_ids)}
 
 
-@when("py-call", "window")
+# Set up event listener for JS calls
 def handle_py_call(event):
     """Handle function calls from JavaScript"""
-    detail = event.detail
+    console.log("===== Python: Event handler triggered =====")
+    detail = event.detail.to_py()  # Convert JS object to Python dict
     function_name = detail.get('function')
-    args = detail.get('args', [])
+    args_json = detail.get('args', '[]')
     callback_name = detail.get('callback')
     
-    console.log(f"Python: Received call to {function_name}")
+    # Parse JSON args
+    args = json.loads(args_json) if isinstance(args_json, str) else args_json
+    
+    console.log(f"Python: function={function_name}, callback={callback_name}, args={args}")
     
     # Call the appropriate function
     result = None
@@ -68,10 +100,26 @@ def handle_py_call(event):
         result = refresh_devices()
     elif function_name == 'send_command':
         result = send_command(*args)
+    else:
+        console.log(f"Python: ERROR - Unknown function: {function_name}")
+    
+    console.log(f"Python: Result ready, type={type(result).__name__}, len={len(result) if isinstance(result, list) else 'N/A'}")
     
     # Call back to JavaScript with result
     if callback_name:
-        window[callback_name](result)
+        console.log(f"Python: Calling window['{callback_name}']...")
+        callback = getattr(window, callback_name, None)
+        if callback:
+            callback(result)
+            console.log(f"Python: Callback invoked successfully")
+        else:
+            console.log(f"Python: ERROR - Callback '{callback_name}' not found!")
+    else:
+        console.log("Python: ERROR - No callback provided!")
 
+
+# Register event listener with proxy to prevent garbage collection
+proxy_handler = create_proxy(handle_py_call)
+window.addEventListener('py-call', proxy_handler)
 
 console.log("Python backend initialized!")

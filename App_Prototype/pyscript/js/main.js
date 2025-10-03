@@ -37,19 +37,28 @@ class App {
       { id: 'B-F8G376', name: 'B-F8G376', type: 'button', rssi: -85, signal: 1, battery: 'medium' }
     ];
     
-    setState({ allDevices: mockDevices });
+    setState({ 
+      allDevices: mockDevices,
+      lastUpdateTime: new Date()
+    });
     console.log('Mock devices loaded:', mockDevices);
     
     // Try Python in background (optional)
     PyBridge.call('get_devices').then(devices => {
       if (devices) {
         console.log('Real devices from Python:', devices);
-        setState({ allDevices: devices });
+        setState({ 
+          allDevices: devices,
+          lastUpdateTime: new Date()
+        });
       }
     }).catch(e => console.log('Python call failed:', e));
     
     // Listen for device updates
-    PyBridge.on('devices-updated', (devices) => setState({ allDevices: devices }));
+    PyBridge.on('devices-updated', (devices) => setState({ 
+      allDevices: devices,
+      lastUpdateTime: new Date()
+    }));
     PyBridge.on('message-sent', (data) => console.log('Message sent:', data));
     
     // Register for state changes
@@ -63,10 +72,46 @@ class App {
   }
   
   render() {
-    console.log('render() called');
+    console.log('render() called, isRefreshing:', state.isRefreshing);
     const devices = getAvailableDevices();
     console.log('Available devices:', devices);
     const canSend = state.currentMessage && devices.length > 0;
+    
+    // Don't clear and rebuild if an overlay is showing
+    if (state.showDeviceList || state.showMessageDetails) {
+      console.log('Overlay is open, skipping full render');
+      // Just update the overlay that's showing
+      if (state.showDeviceList && this.components.deviceListOverlay) {
+        const newOverlay = createDeviceListOverlay(
+          devices,
+          state.range,
+          state.isRefreshing,
+          state.editingDeviceId,
+          state.moduleNicknames,
+          () => {
+            setState({ showDeviceList: false });
+            this.components.deviceListOverlay.style.display = 'none';
+          },
+          (range) => setState({ range }),
+          () => this.handleRefreshDevices(),
+          (deviceId) => setState({ editingDeviceId: deviceId }),
+          (deviceId, nickname) => {
+            setState({
+              moduleNicknames: {
+                ...state.moduleNicknames,
+                [deviceId]: nickname.trim() || undefined
+              },
+              editingDeviceId: null
+            });
+          }
+        );
+        this.components.deviceListOverlay.replaceWith(newOverlay);
+        this.components.deviceListOverlay = newOverlay;
+        this.components.deviceListOverlay.style.display = 'flex';
+        if (window.lucide) window.lucide.createIcons();
+      }
+      return;
+    }
     
     // Clear container
     this.container.innerHTML = '';
@@ -77,11 +122,13 @@ class App {
     const recipientBar = createRecipientBar(
       devices,
       state.range,
+      state.lastUpdateTime,
       (range) => setState({ range }),
       () => {
         setState({ showDeviceList: true });
         this.components.deviceListOverlay.style.display = 'flex';
-      }
+      },
+      () => this.handleRefreshDevices()
     );
     
     const messageHistory = createMessageHistory(
@@ -152,6 +199,12 @@ class App {
     // Handle overlay visibility
     if (state.showDeviceList) {
       this.components.deviceListOverlay.style.display = 'flex';
+      // Force re-creation of icons after showing overlay
+      setTimeout(() => {
+        if (window.lucide) {
+          window.lucide.createIcons();
+        }
+      }, 0);
     }
     if (state.showMessageDetails) {
       this.components.messageDetailsOverlay.style.display = 'flex';
@@ -180,8 +233,23 @@ class App {
   }
   
   async handleSendMessage() {
-    const devices = getAvailableDevices();
-    if (!state.currentMessage || devices.length === 0) return;
+    const devicesBefore = getAvailableDevices();
+    if (!state.currentMessage || devicesBefore.length === 0) return;
+    
+    // Refresh devices before sending
+    await this.handleRefreshDevices();
+    const devicesAfter = getAvailableDevices();
+    
+    // Warn if device list changed
+    if (devicesBefore.length !== devicesAfter.length) {
+      const confirmed = confirm(
+        `Warning: Device list changed!\n\nBefore: ${devicesBefore.length} devices\nAfter: ${devicesAfter.length} devices\n\nSend message to ${devicesAfter.length} devices?`
+      );
+      if (!confirmed) return;
+    }
+    
+    // Use refreshed devices
+    const devices = devicesAfter;
     
     const now = new Date();
     const newMessage = {
@@ -198,25 +266,57 @@ class App {
       showCommandPalette: false
     });
     
-    // Send to Python backend
+    // TODO: PYTHON INTEGRATION - Send command via ESP-NOW
+    // When Python backend is ready, this should send the actual command
     try {
       await PyBridge.call('send_command', newMessage.command, devices.map(d => d.id));
+      console.log('Command sent to Python backend:', newMessage.command);
     } catch (e) {
-      console.error('Error sending command:', e);
+      console.log('Python backend not ready, send command logged only:', e);
     }
   }
   
   async handleRefreshDevices() {
-    setState({ isRefreshing: true });
+    console.log('=== REFRESH START ===');
+    console.log('Current state.allDevices:', state.allDevices);
     
-    try {
-      const devices = await PyBridge.call('refresh_devices');
-      setState({ allDevices: devices || [] });
-    } catch (e) {
-      console.error('Error refreshing:', e);
+    setState({ isRefreshing: true });
+    console.log('Set isRefreshing: true');
+    
+    // Update button state directly
+    const refreshBtn = this.components.deviceListOverlay?.querySelector('#refreshBtn');
+    if (refreshBtn) {
+      console.log('Adding spin to button');
+      refreshBtn.classList.add('animate-spin');
+    } else {
+      console.log('WARNING: refreshBtn not found');
     }
     
-    setTimeout(() => setState({ isRefreshing: false }), 1000);
+    try {
+      console.log('Calling PyBridge.call("refresh_devices")...');
+      const devices = await PyBridge.call('refresh_devices');
+      console.log('Python returned:', devices);
+      
+      console.log('Updating allDevices in state...');
+      setState({ 
+        allDevices: devices || [],
+        lastUpdateTime: new Date()
+      });
+      console.log('State updated, new allDevices:', state.allDevices);
+    } catch (e) {
+      console.log('Python backend not ready, refresh command logged only:', e);
+    }
+    
+    console.log('Setting timeout for isRefreshing: false...');
+    setTimeout(() => {
+      console.log('Timeout fired, setting isRefreshing: false');
+      setState({ isRefreshing: false });
+      // Remove spin directly
+      const refreshBtn = this.components.deviceListOverlay?.querySelector('#refreshBtn');
+      if (refreshBtn) {
+        refreshBtn.classList.remove('animate-spin');
+      }
+    }, 1000);
   }
 }
 

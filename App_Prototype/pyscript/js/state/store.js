@@ -10,6 +10,7 @@ export const state = {
   range: 40, // 0-100 slider value (40 = "Close")
   allDevices: [],
   moduleNicknames: {},
+  lastUpdateTime: null,
   
   // Message state
   messageHistory: [],
@@ -27,6 +28,10 @@ export const state = {
 // Render callbacks - components register themselves here
 const renderCallbacks = new Set();
 
+// Batch state updates
+let updatesPending = null;
+let renderScheduled = false;
+
 /**
  * Register a render callback
  */
@@ -39,8 +44,44 @@ export function onStateChange(callback) {
  * Update state and trigger re-renders
  */
 export function setState(updates) {
+  console.log('setState called with:', updates);
+  
+  // Check if ONLY isRefreshing is being updated
+  const keys = Object.keys(updates);
+  const isRefreshingOnly = keys.length === 1 && keys[0] === 'isRefreshing';
+  
   Object.assign(state, updates);
-  renderCallbacks.forEach(cb => cb(state));
+  console.log('State updated, new state:', state);
+  
+  // Don't re-render for isRefreshing only - just update button
+  if (isRefreshingOnly) {
+    console.log('isRefreshing only - NO RENDER, just update button');
+    const btn = document.getElementById('refreshBtn');
+    if (btn) {
+      if (state.isRefreshing) {
+        btn.classList.add('animate-spin');
+      } else {
+        btn.classList.remove('animate-spin');
+      }
+    }
+    return; // EXIT - don't schedule render
+  }
+  
+  // Always trigger render for other changes
+  if (!renderScheduled) {
+    renderScheduled = true;
+    console.log('Scheduling render...');
+    requestAnimationFrame(() => {
+      console.log('Executing scheduled render, callbacks:', renderCallbacks.size);
+      renderCallbacks.forEach(cb => {
+        console.log('Calling render callback');
+        cb(state);
+      });
+      renderScheduled = false;
+    });
+  } else {
+    console.log('Render already scheduled, skipping');
+  }
 }
 
 /**
