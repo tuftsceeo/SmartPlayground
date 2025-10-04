@@ -1,0 +1,13 @@
+name = "Talking on SPIKE Copy Copy"
+
+[files]
+"https://chrisrogers.pyscriptapps.com/talking-on-a-channel/latest/py/channel.py" = ""
+"https://chrisrogers.pyscriptapps.com/talking-on-spike/latest/py/RS232.py" = ""
+"./mpy/bledevice.py" = ""
+"./mpy/bleexample.py" = ""
+"./mpy/espConnectToPage.py" = ""
+"./mpy/webBluetooth.py" = ""
+"./mpy/ble_ceeo_lib.py" = ""
+
+[js_modules.main]
+"https://cdn.jsdelivr.net/npm/micro-repl@0.8.2/serial.js" = "micro_repl"

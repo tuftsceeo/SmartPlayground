@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1.0">
+    <link rel="stylesheet" href="https://pyscript.net/releases/2025.5.1/core.css">
+    <script type="module" src="https://pyscript.net/releases/2025.5.1/core.js"></script>
+</head>
+<body>
+    <!-- BLE Control Section -->
+    <div style="margin: 20px; padding: 20px; border: 2px solid #4CAF50; border-radius: 10px; background-color: #f0f0f0;">
+        <h2>ESP32C6 BLE Control (Wireless)</h2>
+        <button id="ble_connect_esp" style="background-color: #4CAF50; color: white; padding: 10px 20px; margin: 5px; border: none; border-radius: 5px; cursor: pointer;">
+            Connect ESP32
+        </button>
+        <button id="ble_connect_any" style="background-color: #00BCD4; color: white; padding: 10px 20px; margin: 5px; border: none; border-radius: 5px; cursor: pointer;">
+            Connect ANY Device (Test)
+        </button>
+        <button id="ble_disconnect" style="background-color: #f44336; color: white; padding: 10px 20px; margin: 5px; border: none; border-radius: 5px; cursor: pointer;">
+            Disconnect
+        </button>
+        <br><br>
+        <button id="led_on" style="background-color: #2196F3; color: white; padding: 10px 20px; margin: 5px; border: none; border-radius: 5px; cursor: pointer;">
+            LED ON
+        </button>
+        <button id="led_off" style="background-color: #FF9800; color: white; padding: 10px 20px; margin: 5px; border: none; border-radius: 5px; cursor: pointer;">
+            LED OFF
+        </button>
+        <button id="send_hi" style="background-color: #9C27B0; color: white; padding: 10px 20px; margin: 5px; border: none; border-radius: 5px; cursor: pointer;">
+            Send "Hi"
+        </button>
+        <br><br>
+        <input type="text" id="messageInput" placeholder="Enter message for display" style="padding: 10px; width: 300px; border: 2px solid #ddd; border-radius: 5px; font-size: 14px;">
+        <button id="send_custom" style="background-color: #E91E63; color: white; padding: 10px 20px; margin: 5px; border: none; border-radius: 5px; cursor: pointer;">
+            Send to Display
+        </button>
+        <br><br>
+        <div id="ble_status" style="margin-top: 10px; padding: 10px; background-color: white; border-radius: 5px;">
+            Status: Not connected
+        </div>
+        <div id="ble_messages" style="margin-top: 10px; padding: 10px; background-color: white; border-radius: 5px; max-height: 150px; overflow-y: auto;">
+            <strong>Messages:</strong><br>
+        </div>
+    </div>
+
+    <!-- RS232 Serial Upload Section -->
+    <div style="margin: 20px; padding: 20px; border: 2px solid #6C63FF; border-radius: 10px; background-color: #f9f9ff;">
+        <h2>ESP32C6 Setup via Serial (USB Cable)</h2>
+        <p style="color: #666; font-size: 14px;">Use this section to upload BLE firmware to your ESP32C6 via USB cable</p>
+        
+        <button id="rs232_load_ble" style="background-color: #6C63FF; color: white; padding: 10px 20px; margin: 5px; border: none; border-radius: 5px; cursor: pointer;">
+            📤 Load BLE Firmware
+        </button>
+        <button id="rs232_sample_code" style="background-color: #9C88FF; color: white; padding: 10px 20px; margin: 5px; border: none; border-radius: 5px; cursor: pointer;">
+            📝 Load Sample BLE Code
+        </button>
+        <button id="rs232_reset" style="background-color: #B0A3FF; color: white; padding: 10px 20px; margin: 5px; border: none; border-radius: 5px; cursor: pointer;">
+            🔄 Reset Board
+        </button>
+        
+        <div id="rs232_status" style="margin-top: 10px; padding: 10px; background-color: white; border-radius: 5px; font-size: 14px;">
+            Status: Use the RS232 terminal below to connect via USB
+        </div>
+    </div>
+
+    <script type="mpy-editor" src="./main.py" config="./pyscript.toml" env='su25' setup></script>
+    <div id='all_things_channels'></div>
+    <div id='all_things_rs232'></div>
+    <script type="mpy-editor" env='su25'>
+import json
+buffer = ''
+async def fred(event):
+    global buffer
+    buffer += event
+    if '\r\n' in buffer:
+        fred = buffer.split('\r\n')
+        buffer = fred[-1]
+        if '===' in fred[0] or '>>>' in fred[0]:
+            return
+        print(json.loads(fred[0]))
+        await myChannel.post('/SM1/data', json.loads(fred[0]))
+    
+myRS232.uboard.newData_callback = fred  
+    </script>
+</body>
+</html>
