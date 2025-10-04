@@ -15,6 +15,10 @@ name = "Playground App Front End V0"
 "js/components/messageInput.js" = "./js/components/messageInput.js"
 "js/components/deviceListOverlay.js" = "./js/components/deviceListOverlay.js"
 "js/components/messageDetailsOverlay.js" = "./js/components/messageDetailsOverlay.js"
+"js/components/hubConnectionBar.js" = "./js/components/hubConnectionBar.js"
+
+# Python modules
+"mpy/webBluetooth.py" = "./mpy/webBluetooth.py"
 
 # Install packages to be used in this project
 # packages = ["pandas"]

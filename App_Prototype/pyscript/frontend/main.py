@@ -1,6 +1,6 @@
 """
 Smart Playground Control - Python Backend
-Handles ESP-NOW communication with ESP32 devices
+Handles BLE communication with ESP32 hub and ESP-NOW with modules
 """
 
 from pyscript import document, window
@@ -10,76 +10,212 @@ import json
 import random
 import time
 
-# Mock device data (replace with actual ESP-NOW communication)
+# Import WebBLE class
+from mpy.webBluetooth import code
+exec(code)  # This executes the code and creates the WebBLE class
+ble = WebBLE()  # Create BLE instance
+
+# BLE connection state
+ble_connected = False
+hub_device_name = None
+
+# Device data (will be updated via BLE from hub)
 devices = [
     {"id": "M-A3F821", "name": "M-A3F821", "type": "module", "rssi": -25, "signal": 3, "battery": "full"},
     {"id": "M-B4C932", "name": "M-B4C932", "type": "module", "rssi": -40, "signal": 3, "battery": "high"},
     {"id": "M-C5D043", "name": "M-C5D043", "type": "module", "rssi": -58, "signal": 2, "battery": "medium"},
-    {"id": "E-D6E154", "name": "E-D6E154", "type": "extension", "rssi": -48, "signal": 2, "battery": "high"},
-    {"id": "E-E7F265", "name": "E-E7F265", "type": "extension", "rssi": -78, "signal": 1, "battery": "low"},
-    {"id": "B-F8G376", "name": "B-F8G376", "type": "button", "rssi": -85, "signal": 1, "battery": "medium"},
 ]
 
+def on_ble_data(data):
+    """Handle incoming data from hub"""
+    console.log(f"BLE Data: {data}")
+    
+    try:
+        # Parse JSON response from hub
+        parsed = json.loads(data)
+        
+        if parsed.get("type") == "devices":
+            # Update device list from hub
+            global devices
+            device_list = parsed.get("list", [])
+            
+            # Convert to expected format
+            devices = []
+            for dev in device_list:
+                # Calculate signal bars from RSSI
+                rssi = dev.get("rssi", -100)
+                if rssi >= -50:
+                    signal = 3
+                elif rssi >= -70:
+                    signal = 2
+                elif rssi >= -85:
+                    signal = 1
+                else:
+                    signal = 0
+                
+                # Convert battery percentage to level
+                battery_pct = dev.get("battery", 50)
+                if battery_pct >= 75:
+                    battery = "full"
+                elif battery_pct >= 50:
+                    battery = "high"
+                elif battery_pct >= 25:
+                    battery = "medium"
+                else:
+                    battery = "low"
+                
+                devices.append({
+                    "id": dev.get("id"),
+                    "name": dev.get("id"),
+                    "type": "module",
+                    "rssi": rssi,
+                    "signal": signal,
+                    "battery": battery
+                })
+            
+            # Dispatch event to JavaScript
+            event = CustomEvent.new("py-devices-updated", {
+                "detail": devices
+            })
+            window.dispatchEvent(event)
+            
+            console.log(f"Updated {len(devices)} devices from hub")
+            
+    except Exception as e:
+        console.log(f"Error parsing BLE data: {e}")
 
+# Set the callback for BLE data
+ble.on_data_callback = on_ble_data
+
+
+# BLE Connection Functions
+async def connect_hub():
+    """Connect to ESP32C6 hub via BLE"""
+    global ble_connected, hub_device_name
+    
+    try:
+        # Connect by service UUID to find any Nordic UART device
+        success = await ble.connect_by_service()
+        
+        if success:
+            ble_connected = True
+            hub_device_name = ble.device.name
+            console.log(f"Connected to hub: {hub_device_name}")
+            
+            # Dispatch event to JavaScript
+            event = CustomEvent.new("py-ble-connected", {
+                "detail": {"deviceName": hub_device_name}
+            })
+            window.dispatchEvent(event)
+            
+            return {"status": "success", "device": hub_device_name}
+        else:
+            return {"status": "failed", "error": "User cancelled or device not found"}
+            
+    except Exception as e:
+        console.log(f"Connection error: {e}")
+        return {"status": "error", "error": str(e)}
+
+async def disconnect_hub():
+    """Disconnect from hub"""
+    global ble_connected, hub_device_name
+    
+    await ble.disconnect()
+    ble_connected = False
+    hub_device_name = None
+    
+    # Dispatch event to JavaScript
+    event = CustomEvent.new("py-ble-disconnected", {"detail": {}})
+    window.dispatchEvent(event)
+    
+    return {"status": "disconnected"}
+
+async def send_command_to_hub(command, rssi_threshold="all"):
+    """Send command to hub for ESP-NOW broadcast"""
+    if not ble.is_connected():
+        return {"status": "error", "error": "Not connected to hub"}
+    
+    # Format command for hub using real protocol
+    # Hub expects: "[command]":"[rssi_threshold]"
+    message = f'"{command}":"{rssi_threshold}"'
+    
+    success = await ble.send(message)
+    
+    if success:
+        console.log(f"Sent to hub: {message}")
+        return {"status": "sent", "command": command, "threshold": rssi_threshold}
+    else:
+        return {"status": "error", "error": "Send failed"}
+
+def get_connection_status():
+    """Get current BLE connection status"""
+    return {
+        "connected": ble_connected,
+        "device": hub_device_name
+    }
+
+async def refresh_devices_from_hub():
+    """Request device list from hub via BLE"""
+    if not ble.is_connected():
+        console.log("Cannot refresh: Hub not connected")
+        return []
+    
+    global devices
+    
+    # Send PING command to hub using real protocol
+    # Hub will broadcast PING to modules and collect responses
+    await ble.send('"PING":"all"')
+    
+    # Wait for response (hub should send back device list)
+    # This requires implementing a response parser in on_ble_data callback
+    # For now, keep mock data structure
+    
+    console.log(f"Device scan requested from hub")
+    return devices  # Will be updated by incoming BLE data
+
+# Legacy functions (for compatibility)
 def get_devices():
     """Return list of available devices"""
     console.log("Python: get_devices called")
     return devices
 
-
 def refresh_devices():
-    """Refresh device list (simulate scanning for ESP32 devices with RSSI variation)"""
-    console.log("Python: refresh_devices called - simulating ping/pong")
+    """Refresh device list - now uses BLE if connected"""
+    console.log("Python: refresh_devices called")
     
-
-    # # Simulate RSSI fluctuation (devices move or signal varies)
-    # for device in devices:
-    #     # Add random variation to RSSI (-5 to +5 dBm)
-    #     variation = random.randint(-5, 5)
-    #     new_rssi = device["rssi"] + variation
-        
-    #     # Keep RSSI in realistic bounds (-20 to -95 dBm)
-    #     device["rssi"] = max(-95, min(-20, new_rssi))
-        
-    #     # Update signal bars based on RSSI
-    #     if device["rssi"] >= -50:
-    #         device["signal"] = 3
-    #     elif device["rssi"] >= -70:
-    #         device["signal"] = 2
-    #     elif device["rssi"] >= -85:
-    #         device["signal"] = 1
-    #     else:
-    #         device["signal"] = 0
-
-       
-    # Ping-pong simulation is instant for prototype
-
-    console.log(f"Python: {len(devices)} devices responded to ping")
-    return devices
-
+    if ble_connected:
+        # Use BLE to get real device list
+        return refresh_devices_from_hub()
+    else:
+        # Return mock data if not connected
+        console.log("Hub not connected, returning mock data")
+        return devices
 
 def send_command(command, device_ids):
-    """Send command to specific devices via ESP-NOW"""
+    """Send command to specific devices - now uses BLE if connected"""
     console.log(f"Python: Sending '{command}' to {len(device_ids)} devices")
     
-    for device_id in device_ids:
-        console.log(f"  -> Sending to {device_id}")
-    
-    # Dispatch event back to JavaScript
-    event_data = {
-        "command": command,
-        "devices": device_ids,
-        "status": "sent"
-    }
-    
-    event = CustomEvent.new("py-message-sent", {"detail": event_data})
-    window.dispatchEvent(event)
-    
-    return {"status": "success", "sent_to": len(device_ids)}
+    if ble_connected:
+        # Use BLE to send command to hub
+        # Convert range slider to RSSI threshold (this will be done in JS)
+        rssi_threshold = "all"  # Default to all
+        return send_command_to_hub(command, rssi_threshold)
+    else:
+        # Mock response if not connected
+        event_data = {
+            "command": command,
+            "devices": device_ids,
+            "status": "sent"
+        }
+        
+        event = CustomEvent.new("py-message-sent", {"detail": event_data})
+        window.dispatchEvent(event)
+        
+        return {"status": "success", "sent_to": len(device_ids)}
 
 
 # Set up event listener for JS calls
-def handle_py_call(event):
+async def handle_py_call(event):
     """Handle function calls from JavaScript"""
     console.log("===== Python: Event handler triggered =====")
     detail = event.detail.to_py()  # Convert JS object to Python dict
@@ -100,6 +236,14 @@ def handle_py_call(event):
         result = refresh_devices()
     elif function_name == 'send_command':
         result = send_command(*args)
+    elif function_name == 'connect_hub':
+        result = await connect_hub()
+    elif function_name == 'disconnect_hub':
+        result = await disconnect_hub()
+    elif function_name == 'send_command_to_hub':
+        result = await send_command_to_hub(*args)
+    elif function_name == 'get_connection_status':
+        result = get_connection_status()
     else:
         console.log(f"Python: ERROR - Unknown function: {function_name}")
     
