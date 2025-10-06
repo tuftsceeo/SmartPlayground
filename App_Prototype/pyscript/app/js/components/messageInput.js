@@ -54,23 +54,23 @@ export function createMessageInput(currentMessage, showPalette, canSend, onInput
     container.querySelector("#sendBtn").onclick = onSendMessage;
 
     // Add command buttons
-    console.log("Creating command buttons...");
+    // console.log("Creating command buttons...");
     const commandsContainer = container.querySelector("#commands");
-    console.log("Commands container:", commandsContainer);
-    console.log("COMMANDS array:", COMMANDS);
+    // console.log("Commands container:", commandsContainer);
+    // console.log("COMMANDS array:", COMMANDS);
 
     COMMANDS.forEach((command, index) => {
-        console.log(`Processing command ${index}:`, command);
+        // console.log(`Processing command ${index}:`, command);
         const btn = document.createElement("button");
         btn.className = "bg-gray-100 rounded-2xl p-3 flex-shrink-0 transition-all active:scale-95 flex flex-col items-center gap-2";
         btn.onclick = () => onCommandSelect(command);
 
-        console.log(`Getting icon for command: ${command.label}`);
+        // console.log(`Getting icon for command: ${command.label}`);
         const icon = getCommandIcon(command.label, "large");
-        console.log("Icon result:", icon, "Type:", typeof icon, "Is Node:", icon instanceof Node);
+        // console.log("Icon result:", icon, "Type:", typeof icon, "Is Node:", icon instanceof Node);
 
         if (icon) {
-            console.log("Appending icon to button");
+            // console.log("Appending icon to button");
             btn.appendChild(icon);
         } else {
             console.log("No icon found for command:", command.label);
@@ -81,7 +81,7 @@ export function createMessageInput(currentMessage, showPalette, canSend, onInput
         label.textContent = command.label;
         btn.appendChild(label);
 
-        console.log("Appending button to container");
+        // console.log("Appending button to container");
         commandsContainer.appendChild(btn);
     });
 

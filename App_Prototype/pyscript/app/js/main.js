@@ -60,27 +60,69 @@ class App {
         // Wait for Python to be ready, then initialize
         this.initializePython();
 
-        // Listen for device updates
-        PyBridgeToUse.on("devices-updated", (devices) =>
+        // Direct function for Python to call
+        window.onDevicesUpdated = (devices) => {
+            console.log("=== JavaScript onDevicesUpdated called ===");
+            console.log("Direct devices updated call:", devices);
+            console.log("Devices type:", typeof devices);
+            console.log("Devices length:", devices?.length);
+            console.log("First device:", devices?.[0]);
             setState({
                 allDevices: devices,
                 lastUpdateTime: new Date(),
-            }),
-        );
+            });
+            console.log("State updated with devices");
+        };
+
+        // Listen for device updates (fallback)
+        PyBridgeToUse.on("devices-updated", (devices) => {
+            console.log("Event-based devices updated:", devices);
+            setState({
+                allDevices: devices,
+                lastUpdateTime: new Date(),
+            });
+        });
         PyBridgeToUse.on("message-sent", (data) => console.log("Message sent:", data));
 
-        // Listen for BLE connection events
-        PyBridgeToUse.on("ble-connected", (data) => {
-            console.log("Hub connected:", data.deviceName);
+        // Direct function for Python to call
+        window.onBLEConnected = (data) => {
+            console.log("Direct BLE connected call:", data);
+            console.log("Data type:", typeof data);
+            console.log("Data keys:", Object.keys(data || {}));
+            console.log("Device name:", data?.deviceName);
             setState({
                 hubConnected: true,
-                hubDeviceName: data.deviceName,
+                hubDeviceName: data?.deviceName,
+                hubConnecting: false,
+            });
+        };
+
+        // Listen for BLE connection events (fallback)
+        PyBridgeToUse.on("ble-connected", (data) => {
+            console.log("Event-based BLE connected:", data);
+            console.log("Data type:", typeof data);
+            console.log("Data keys:", Object.keys(data || {}));
+            console.log("Device name:", data?.deviceName);
+            setState({
+                hubConnected: true,
+                hubDeviceName: data?.deviceName,
                 hubConnecting: false,
             });
         });
 
+        // Direct function for Python to call
+        window.onBLEDisconnected = () => {
+            console.log("Direct BLE disconnected call");
+            setState({
+                hubConnected: false,
+                hubDeviceName: null,
+                hubConnecting: false,
+            });
+        };
+
+        // Listen for BLE disconnection events (fallback)
         PyBridgeToUse.on("ble-disconnected", () => {
-            console.log("Hub disconnected");
+            console.log("Event-based BLE disconnected");
             setState({
                 hubConnected: false,
                 hubDeviceName: null,
@@ -478,6 +520,9 @@ class App {
 
         try {
             const result = await PyBridgeToUse.connectHub();
+            console.log("ConnectHub result:", result);
+            console.log("Result status:", result?.status);
+            console.log("Result type:", typeof result);
 
             if (result.status === "success") {
                 console.log("Successfully connected to hub");
@@ -487,19 +532,26 @@ class App {
                 console.log("User cancelled BLE connection");
                 setState({ hubConnecting: false });
             } else {
-                // Actual error occurred - only show if it's a real error, not user cancellation
-                const errorMsg = result.error || "Unknown error";
-                if (!errorMsg.toLowerCase().includes("cancelled") && 
-                    !errorMsg.toLowerCase().includes("user cancelled") &&
-                    !errorMsg.toLowerCase().includes("notallowederror") &&
-                    !errorMsg.toLowerCase().includes("aborterror")) {
-                    console.error("BLE connection error:", errorMsg);
-                    // Show a more user-friendly error message
-                    showToast("Bluetooth connection failed. Please try again.", "error");
+                // Check if we actually have a successful connection despite the status
+                if (state.hubConnected && state.hubDeviceName) {
+                    console.log("BLE connection successful despite status:", result.status);
+                    // Don't show error if we're actually connected
+                    setState({ hubConnecting: false });
                 } else {
-                    console.log("User cancelled connection (no error to show)");
+                    // Actual error occurred - only show if it's a real error, not user cancellation
+                    const errorMsg = result.error || "Unknown error";
+                    if (!errorMsg.toLowerCase().includes("cancelled") && 
+                        !errorMsg.toLowerCase().includes("user cancelled") &&
+                        !errorMsg.toLowerCase().includes("notallowederror") &&
+                        !errorMsg.toLowerCase().includes("aborterror")) {
+                        console.error("BLE connection error:", errorMsg);
+                        // Show a more user-friendly error message
+                        showToast("Bluetooth connection failed. Please try again.", "error");
+                    } else {
+                        console.log("User cancelled connection (no error to show)");
+                    }
+                    setState({ hubConnecting: false });
                 }
-                setState({ hubConnecting: false });
             }
         } catch (e) {
             // Only show error if it's not a user cancellation

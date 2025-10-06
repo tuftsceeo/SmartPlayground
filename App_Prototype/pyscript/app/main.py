@@ -5,7 +5,7 @@ Handles BLE communication with ESP32 hub and ESP-NOW with modules
 
 from pyscript import document, window
 from pyodide.ffi import create_proxy
-from js import console, CustomEvent
+from js import console, CustomEvent, Object
 import json
 import random
 import time
@@ -28,13 +28,20 @@ devices = [
 
 def on_ble_data(data):
     """Handle incoming data from hub"""
+    console.log(f"=== BLE DATA RECEIVED ===")
     console.log(f"BLE Data: {data}")
+    console.log(f"Data type: {type(data)}")
+    console.log(f"Data length: {len(data) if hasattr(data, '__len__') else 'N/A'}")
     
     try:
         # Parse JSON response from hub
+        console.log(f"Attempting to parse JSON: {data}")
         parsed = json.loads(data)
+        console.log(f"Parsed JSON: {parsed}")
+        console.log(f"Type field: {parsed.get('type')}")
         
         if parsed.get("type") == "devices":
+            console.log("Found devices type - processing device list")
             # Update device list from hub
             global devices
             device_list = parsed.get("list", [])
@@ -73,16 +80,106 @@ def on_ble_data(data):
                     "battery": battery
                 })
             
-            # Dispatch event to JavaScript
-            event = CustomEvent.new("py-devices-updated", {
-                "detail": devices
-            })
-            window.dispatchEvent(event)
+            # Dispatch event to JavaScript - try direct function call first
+            if hasattr(window, 'onDevicesUpdated'):
+                console.log("Python: Calling onDevicesUpdated directly")
+                console.log(f"Devices to send: {devices}")
+                # Convert Python list to JavaScript array
+                js_devices = []
+                for device in devices:
+                    js_device = Object.new()
+                    js_device.id = device.get("id")
+                    js_device.name = device.get("name")
+                    js_device.type = device.get("type")
+                    js_device.rssi = device.get("rssi")
+                    js_device.signal = device.get("signal")
+                    js_device.battery = device.get("battery")
+                    js_devices.append(js_device)
+                console.log(f"Created {len(js_devices)} JS devices")
+                window.onDevicesUpdated(js_devices)
+                console.log("onDevicesUpdated called successfully")
+            else:
+                console.log("Python: onDevicesUpdated not available, using event dispatch")
+                # Convert Python list to JavaScript array for event dispatch too
+                js_devices = []
+                for device in devices:
+                    js_device = Object.new()
+                    js_device.id = device.get("id")
+                    js_device.name = device.get("name")
+                    js_device.type = device.get("type")
+                    js_device.rssi = device.get("rssi")
+                    js_device.signal = device.get("signal")
+                    js_device.battery = device.get("battery")
+                    js_devices.append(js_device)
+                event = CustomEvent.new("py-devices-updated", {
+                    "detail": js_devices
+                })
+                window.dispatchEvent(event)
             
             console.log(f"Updated {len(devices)} devices from hub")
             
     except Exception as e:
         console.log(f"Error parsing BLE data: {e}")
+        # Try to handle truncated JSON by adding missing closing braces
+        if "Unterminated string" in str(e) or "Expecting" in str(e):
+            console.log("Attempting to fix truncated JSON...")
+            try:
+                # Try to complete the JSON
+                fixed_data = data + '"]}'
+                parsed = json.loads(fixed_data)
+                console.log("Successfully fixed truncated JSON")
+                # Process the fixed data
+                if parsed.get("type") == "devices":
+                    # Process devices with fixed data
+                    global devices
+                    device_list = parsed.get("list", [])
+                    devices = []
+                    for dev in device_list:
+                        rssi = dev.get("rssi", -100)
+                        if rssi >= -50:
+                            signal = 3
+                        elif rssi >= -70:
+                            signal = 2
+                        elif rssi >= -85:
+                            signal = 1
+                        else:
+                            signal = 0
+                        
+                        battery_pct = dev.get("battery", 50)
+                        if battery_pct >= 75:
+                            battery = "full"
+                        elif battery_pct >= 50:
+                            battery = "high"
+                        elif battery_pct >= 25:
+                            battery = "medium"
+                        else:
+                            battery = "low"
+                        
+                        devices.append({
+                            "id": dev.get("id"),
+                            "name": dev.get("id"),
+                            "type": "module",
+                            "rssi": rssi,
+                            "signal": signal,
+                            "battery": battery
+                        })
+                    
+                    # Send to JavaScript
+                    if hasattr(window, 'onDevicesUpdated'):
+                        js_devices = []
+                        for device in devices:
+                            js_device = Object.new()
+                            js_device.id = device.get("id")
+                            js_device.name = device.get("name")
+                            js_device.type = device.get("type")
+                            js_device.rssi = device.get("rssi")
+                            js_device.signal = device.get("signal")
+                            js_device.battery = device.get("battery")
+                            js_devices.append(js_device)
+                        window.onDevicesUpdated(js_devices)
+                        console.log("Fixed JSON processed successfully")
+            except Exception as fix_error:
+                console.log(f"Failed to fix JSON: {fix_error}")
 
 # Set the callback for BLE data
 ble.on_data_callback = on_ble_data
@@ -102,17 +199,38 @@ async def connect_hub():
             hub_device_name = ble.device.name
             console.log(f"Connected to hub: {hub_device_name}")
             
-            # Dispatch event to JavaScript
-            event = CustomEvent.new("py-ble-connected", {
-                "detail": {"deviceName": hub_device_name}
-            })
-            window.dispatchEvent(event)
+            # Dispatch event to JavaScript - try direct function call first
+            event_data = {"deviceName": hub_device_name}
+            console.log(f"Python: Creating BLE connected event with data: {event_data}")
             
-            return {"status": "success", "device": hub_device_name}
+            # Try direct function call if available
+            if hasattr(window, 'onBLEConnected'):
+                console.log("Python: Calling onBLEConnected directly")
+                # Create proper JavaScript object
+                js_data = Object.new()
+                js_data.deviceName = hub_device_name
+                window.onBLEConnected(js_data)
+            else:
+                console.log("Python: onBLEConnected not available, using event dispatch")
+                event = CustomEvent.new("py-ble-connected", {
+                    "detail": event_data
+                })
+                window.dispatchEvent(event)
+            console.log("Python: BLE connected event dispatched")
+            
+            # Return proper JavaScript object
+            js_result = Object.new()
+            js_result.status = "success"
+            js_result.device = hub_device_name
+            return js_result
         else:
             # User cancelled or no device found - this is normal, not an error
             console.log("BLE connection cancelled or no device found")
-            return {"status": "cancelled", "error": "User cancelled or device not found"}
+            # Return proper JavaScript object
+            js_result = Object.new()
+            js_result.status = "cancelled"
+            js_result.error = "User cancelled or device not found"
+            return js_result
             
     except Exception as e:
         error_msg = str(e)
@@ -124,10 +242,16 @@ async def connect_hub():
             "AbortError" in error_msg or
             "cancelled" in error_msg.lower()):
             console.log("User cancelled BLE connection - this is normal")
-            return {"status": "cancelled", "error": "User cancelled connection"}
+            js_result = Object.new()
+            js_result.status = "cancelled"
+            js_result.error = "User cancelled connection"
+            return js_result
         else:
             console.log(f"Real BLE error: {error_msg}")
-            return {"status": "error", "error": error_msg}
+            js_result = Object.new()
+            js_result.status = "error"
+            js_result.error = error_msg
+            return js_result
 
 async def disconnect_hub():
     """Disconnect from hub"""
@@ -137,16 +261,26 @@ async def disconnect_hub():
     ble_connected = False
     hub_device_name = None
     
-    # Dispatch event to JavaScript
-    event = CustomEvent.new("py-ble-disconnected", {"detail": {}})
-    window.dispatchEvent(event)
+    # Dispatch event to JavaScript - try direct function call first
+    if hasattr(window, 'onBLEDisconnected'):
+        console.log("Python: Calling onBLEDisconnected directly")
+        window.onBLEDisconnected()
+    else:
+        console.log("Python: onBLEDisconnected not available, using event dispatch")
+        event = CustomEvent.new("py-ble-disconnected", {"detail": {}})
+        window.dispatchEvent(event)
     
-    return {"status": "disconnected"}
+    js_result = Object.new()
+    js_result.status = "disconnected"
+    return js_result
 
 async def send_command_to_hub(command, rssi_threshold="all"):
     """Send command to hub for ESP-NOW broadcast"""
     if not ble.is_connected():
-        return {"status": "error", "error": "Not connected to hub"}
+        js_result = Object.new()
+        js_result.status = "error"
+        js_result.error = "Not connected to hub"
+        return js_result
     
     # Format command for hub using real protocol
     # Hub expects: "[command]":"[rssi_threshold]"
@@ -154,11 +288,16 @@ async def send_command_to_hub(command, rssi_threshold="all"):
     
     success = await ble.send(message)
     
+    js_result = Object.new()
     if success:
         console.log(f"Sent to hub: {message}")
-        return {"status": "sent", "command": command, "threshold": rssi_threshold}
+        js_result.status = "sent"
+        js_result.command = command
+        js_result.threshold = rssi_threshold
     else:
-        return {"status": "error", "error": "Send failed"}
+        js_result.status = "error"
+        js_result.error = "Send failed"
+    return js_result
 
 def get_connection_status():
     """Get current BLE connection status"""

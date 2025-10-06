@@ -10,8 +10,6 @@ export function createIcon(name, className = "w-4 h-4") {
 }
 
 export function getCommandIcon(commandLabel, size = "small") {
-    console.log(`getCommandIcon called with: "${commandLabel}", size: "${size}"`);
-
     const commands = {
         Play: { bgColor: "#7eb09b", icon: "play" },
         Pause: { bgColor: "#d4a574", icon: "pause" },
@@ -22,7 +20,6 @@ export function getCommandIcon(commandLabel, size = "small") {
     };
 
     const cmd = commands[commandLabel];
-    console.log(`Command lookup result:`, cmd);
 
     if (!cmd) {
         console.warn(`No icon found for command: ${commandLabel}`);
@@ -34,17 +31,13 @@ export function getCommandIcon(commandLabel, size = "small") {
     div.className = `${isSmall ? "w-8 h-8" : "w-16 h-16"} ${isSmall ? "rounded-lg" : "rounded-xl"} flex items-center justify-center flex-shrink-0`;
     div.style.backgroundColor = cmd.bgColor;
 
-    console.log(`Creating icon for: ${cmd.icon}`);
-
     if (cmd.icon === "1" || cmd.icon === "2") {
         div.innerHTML = `<span class="${isSmall ? "text-lg" : "text-3xl"} font-bold text-white">${cmd.icon}</span>`;
     } else {
         const icon = createIcon(cmd.icon, `${isSmall ? "w-4 h-4" : "w-8 h-8"} text-white`);
-        console.log(`Created icon element:`, icon, "Type:", typeof icon, "Is Node:", icon instanceof Node);
         div.appendChild(icon);
     }
 
-    console.log(`Returning div:`, div, "Type:", typeof div, "Is Node:", div instanceof Node);
     return div;
 }
 
