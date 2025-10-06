@@ -6,10 +6,15 @@
  */
 
 export const state = {
-    // Hub connection state (NEW)
+    // Hub connection state (existing BLE backend)
     hubConnected: false,
     hubDeviceName: null,
     hubConnecting: false,
+
+    // UI state (new design features)
+    showSettings: false,
+    showConnectionWarning: false,
+    flashMessageBox: false,
 
     // Device state
     range: 40, // 0-100 slider value (40 = "Close")
@@ -103,14 +108,19 @@ function sliderToRSSI(position) {
 // Get range label for slider position
 export function getRangeLabel(position) {
     if (position === 100) return "All";
-    if (position >= 84) return "Far";
-    if (position >= 68) return "Distant";
-    if (position >= 51) return "Close";
-    if (position >= 34) return "Near";
+    if (position >= 75) return "Far";
+    if (position >= 50) return "Distant";
+    if (position >= 25) return "Close";
+    if (position >= 2) return "Near";
     return "Here";
 }
 
 export function getAvailableDevices() {
+    // Check hub connection first - return empty array if disconnected
+    if (!state.hubConnected) {
+        return [];
+    }
+    
     const rssiThreshold = sliderToRSSI(state.range);
     return state.allDevices.filter((d) => d.rssi >= rssiThreshold);
 }

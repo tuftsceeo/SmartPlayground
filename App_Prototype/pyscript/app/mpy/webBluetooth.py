@@ -63,16 +63,28 @@ class WebBLE:
             # Start notifications
             print("Starting notifications...")
             await self.tx_char.startNotifications()
-            self.tx_char.addEventListener('characteristicvaluechanged', self._on_notification)
+            # Create proxy for event listener to prevent garbage collection
+            from pyodide.ffi import create_proxy
+            self.notification_proxy = create_proxy(self._on_notification)
+            self.tx_char.addEventListener('characteristicvaluechanged', self.notification_proxy)
             print("Notifications started - Connected!")
             
             return True
             
         except Exception as e:
-            print(f"Connection error: {e}")
-            import traceback
-            traceback.print_exc()
-            return False
+            # Handle specific user cancellation error
+            error_msg = str(e)
+            if ("User cancelled" in error_msg or 
+                "NotAllowedError" in error_msg or 
+                "AbortError" in error_msg or
+                "cancelled" in error_msg.lower()):
+                print("User cancelled BLE connection dialog - this is normal")
+                return False
+            else:
+                print(f"Connection error: {e}")
+                import traceback
+                traceback.print_exc()
+                return False
     
     async def connect_by_service(self):
         """Connect to BLE device by service UUID - finds any device with Nordic UART service"""
@@ -117,16 +129,28 @@ class WebBLE:
             # Start notifications
             print("Starting notifications...")
             await self.tx_char.startNotifications()
-            self.tx_char.addEventListener('characteristicvaluechanged', self._on_notification)
+            # Create proxy for event listener to prevent garbage collection
+            from pyodide.ffi import create_proxy
+            self.notification_proxy = create_proxy(self._on_notification)
+            self.tx_char.addEventListener('characteristicvaluechanged', self.notification_proxy)
             print("Notifications started - Connected!")
             
             return True
             
         except Exception as e:
-            print(f"Connection error: {e}")
-            import traceback
-            traceback.print_exc()
-            return False
+            # Handle specific user cancellation error
+            error_msg = str(e)
+            if ("User cancelled" in error_msg or 
+                "NotAllowedError" in error_msg or 
+                "AbortError" in error_msg or
+                "cancelled" in error_msg.lower()):
+                print("User cancelled BLE connection dialog - this is normal")
+                return False
+            else:
+                print(f"Connection error: {e}")
+                import traceback
+                traceback.print_exc()
+                return False
     
     def _on_notification(self, event):
         """Handle incoming notifications from ESP32"""
@@ -170,6 +194,10 @@ class WebBLE:
         except Exception as e:
             print(f"Disconnect error: {e}")
         finally:
+            # Clean up proxy to prevent memory leaks
+            if hasattr(self, 'notification_proxy'):
+                self.notification_proxy.destroy()
+                self.notification_proxy = None
             self.device = None
             self.server = None
             self.service = None

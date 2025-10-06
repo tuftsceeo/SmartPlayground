@@ -110,11 +110,24 @@ async def connect_hub():
             
             return {"status": "success", "device": hub_device_name}
         else:
-            return {"status": "failed", "error": "User cancelled or device not found"}
+            # User cancelled or no device found - this is normal, not an error
+            console.log("BLE connection cancelled or no device found")
+            return {"status": "cancelled", "error": "User cancelled or device not found"}
             
     except Exception as e:
-        console.log(f"Connection error: {e}")
-        return {"status": "error", "error": str(e)}
+        error_msg = str(e)
+        console.log(f"Connection error: {error_msg}")
+        
+        # Check if it's a user cancellation error
+        if ("User cancelled" in error_msg or 
+            "NotAllowedError" in error_msg or 
+            "AbortError" in error_msg or
+            "cancelled" in error_msg.lower()):
+            console.log("User cancelled BLE connection - this is normal")
+            return {"status": "cancelled", "error": "User cancelled connection"}
+        else:
+            console.log(f"Real BLE error: {error_msg}")
+            return {"status": "error", "error": error_msg}
 
 async def disconnect_hub():
     """Disconnect from hub"""
@@ -263,7 +276,22 @@ async def handle_py_call(event):
 
 
 # Register event listener with proxy to prevent garbage collection
+# Store proxy globally to prevent garbage collection
+global proxy_handler
 proxy_handler = create_proxy(handle_py_call)
 window.addEventListener('py-call', proxy_handler)
+
+# Expose functions directly to global scope - simplified approach
+# Use create_proxy only for async functions to prevent garbage collection
+window.get_devices = get_devices
+window.get_connection_status = get_connection_status
+window.connect_hub = create_proxy(connect_hub)
+window.disconnect_hub = create_proxy(disconnect_hub)
+window.send_command_to_hub = create_proxy(send_command_to_hub)
+window.refresh_devices = create_proxy(refresh_devices)
+
+# Dispatch ready event to JavaScript
+ready_event = CustomEvent.new("py-ready", {"detail": {}})
+window.dispatchEvent(ready_event)
 
 console.log("Python backend initialized!")

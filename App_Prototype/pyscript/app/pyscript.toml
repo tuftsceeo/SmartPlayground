@@ -16,6 +16,7 @@ name = "Playground App Front End V0"
 "js/components/deviceListOverlay.js" = "./js/components/deviceListOverlay.js"
 "js/components/messageDetailsOverlay.js" = "./js/components/messageDetailsOverlay.js"
 "js/components/hubConnectionBar.js" = "./js/components/hubConnectionBar.js"
+"js/components/toast.js" = "./js/components/toast.js"
 
 # Python modules
 "mpy/webBluetooth.py" = "./mpy/webBluetooth.py"

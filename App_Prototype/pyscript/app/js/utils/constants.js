@@ -11,12 +11,3 @@ export const COMMANDS = [
     { id: "off", label: "Off", bgColor: "#e98973", icon: "poweroff", textColor: "white" },
 ];
 
-// Get range label for slider position (1-100)
-export function getRangeLabel(position) {
-    if (position === 100) return "All";
-    if (position >= 84) return "Far";
-    if (position >= 68) return "Distant";
-    if (position >= 51) return "Close";
-    if (position >= 34) return "Near";
-    return "Here";
-}

@@ -16,7 +16,7 @@ export function createMessageHistory(messages, onMessageClick) {
   
   messages.forEach(message => {
     const bubble = document.createElement('div');
-    bubble.className = 'bg-gray-200 text-gray-900 rounded-2xl rounded-br-sm p-3 ml-auto max-w-[85%] cursor-pointer hover:bg-gray-300 transition-colors flex items-start gap-2';
+    bubble.className = 'bg-gray-200 text-gray-900 rounded-2xl rounded-br-sm p-3 ml-auto max-w-[85%] cursor-pointer message-bubble flex items-start gap-2';
     bubble.onclick = () => onMessageClick(message);
     
     const icon = getCommandIcon(message.command, 'small');
