@@ -50,28 +50,44 @@ from ble_uart import Yell
 
 # === CONFIGURATION ===
 HUB_NAME = "SPHub"
-WIFI_CHANNEL = 1
+
 BROADCAST_MAC = b'\xff\xff\xff\xff\xff\xff'  # Broadcast to all modules
 
 # Status LED for visual feedback
 led = Pin(2, Pin.OUT)  # Built-in LED
 led.value(0)
 
-# === ESP-NOW SETUP (PLACEHOLDER) ===
-print("ESP-NOW setup (placeholder - no modules connected)")
-# TODO: Uncomment when ESP-NOW modules are available
-# import espnow
-# wlan = network.WLAN(network.STA_IF)
-# wlan.active(True)
-# wlan.config(channel=WIFI_CHANNEL)
-# try:
-#     wlan.disconnect()
-# except:
-#     pass
-# espnow_interface = espnow.ESPNow()
-# espnow_interface.active(True)
-# espnow_interface.add_peer(BROADCAST_MAC)
-# print("ESP-NOW initialized with broadcast peer")
+# === ESP-NOW SETUP ===
+print("Initializing ESP-NOW...")
+import espnow
+
+# A WLAN interface must be active to send()/recv()
+sta = network.WLAN(network.WLAN.IF_STA)
+sta.active(True)
+sta.disconnect() 
+
+# Wait for 100 milliseconds
+time.sleep_ms(100)
+
+espnow_interface = espnow.ESPNow()
+espnow_interface.active(True)
+
+
+peer = b'\xff\xff\xff\xff\xff\xff'   # MAC address of peer's wifi interface
+espnow_interface.add_peer(peer)
+BROADCAST_MAC = peer
+
+print(f"ESP-NOW initialized")
+print(f"Broadcast peer added: {BROADCAST_MAC.hex()}")
+
+# Optional: Configure external antenna if physical antenna is connected
+# Uncomment these lines if you have an external antenna:
+# WIFI_ENABLE = Pin(3, Pin.OUT)
+# WIFI_ANT_CONFIG = Pin(14, Pin.OUT)
+# WIFI_ENABLE.value(0)  # Low
+# time.sleep_ms(100)
+# WIFI_ANT_CONFIG.value(1)  # High - use external antenna
+# print("External antenna configured")
 
 # === BLE UART SETUP ===
 # Yell is a BLE Peripheral (server) class from ble_uart.py
@@ -94,6 +110,39 @@ mock_devices = [
     {"id": "M-002", "rssi": -60, "battery": 92, "type": "module", "mac": "aa:bb:cc:dd:ee:02"},
     {"id": "M-003", "rssi": -75, "battery": 78, "type": "module", "mac": "aa:bb:cc:dd:ee:03"}
 ]
+
+# === WEB APP TO ESP-NOW COMMAND MAPPING ===
+# Maps web app commands (as sent by main.js) to ESP-NOW protocol format
+# Format: {"espnowCommand": {"RSSI": threshold, "value": value}}
+#
+# Web app sends command.label from COMMANDS array in constants.js:
+# - "Play" (play command)
+# - "Pause" (pause/lightOff command)
+# - "Win" (rainbow/winning animation)
+# - "Color Game" (color-based game)
+# - "Number Game" (number-based game)
+# - "Off" (deep sleep)
+COMMAND_MAP = {
+    # Main commands from web app
+    "Play": "updateGame",           # Start game - uses game value
+    "Pause": "lightOff",             # Pause/turn off modules
+    "Win": "rainbow",                # Winning animation
+    "Color Game": "updateGame",      # Color-based grouping game (value: 1)
+    "Number Game": "updateGame",     # Number-based grouping game (value: 2)
+    "Off": "deepSleep",              # Deep sleep mode
+    
+    # Legacy/alternative command names (for backwards compatibility)
+    "BATTERY CHECK": "batteryCheck",
+    "RAINBOW": "rainbow",
+    "TURN OFF": "lightOff",
+}
+
+# Game values for updateGame command
+GAME_VALUES = {
+    "Play": 0,              # Generic play (no specific game)
+    "Color Game": 1,        # Color-based grouping
+    "Number Game": 2,       # Number-based grouping
+}
 
 # === COMMAND PROTOCOL IMPLEMENTATION ===
 def parse_web_command(command_str):
@@ -139,49 +188,96 @@ def parse_web_command(command_str):
         print(f"Command parse error: {e}")
         return command_str, "all"
 
+def rssi_threshold_to_int(rssi_threshold):
+    """
+    Convert RSSI threshold string to integer value.
+    
+    Handles special cases:
+    - "all" -> -90 (weakest threshold, includes all devices)
+    - Numeric string -> convert to int
+    - Invalid -> default to -90
+    """
+    if rssi_threshold == "all":
+        return -90
+    try:
+        return int(rssi_threshold)
+    except:
+        print(f"Invalid RSSI threshold: {rssi_threshold}, defaulting to -90")
+        return -90
+
 def send_espnow_command(command, rssi_threshold="all"):
     """
-    Send command to ESP-NOW modules with RSSI filtering (PLACEHOLDER)
+    Send command to ESP-NOW modules using the proper protocol format.
+    
+    Protocol Format (from espnow_protocol_hub_to_controller.md):
+    {"commandName": {"RSSI": <threshold>, "value": <value>}}
+    
+    Examples:
+    - {"batteryCheck": {"RSSI": -40, "value": 0}}
+    - {"rainbow": {"RSSI": -40, "value": 0}}
+    - {"lightOff": {"RSSI": -90, "value": 0}}
+    - {"updateGame": {"RSSI": -40, "value": 1}}
+    
+    Parameters:
+    -----------
+    command : str
+        Web app command (e.g., "BATTERY CHECK", "COLOR BASED GROUP")
+    rssi_threshold : str
+        RSSI filter ("all" or numeric string like "-60")
+    
+    Returns:
+    --------
+    bool : True if transmission successful, False otherwise
     """
-    global scan_in_progress, discovered_devices
+    # Map web app command to ESP-NOW protocol command
+    if command not in COMMAND_MAP:
+        print(f"Unknown command: {command}")
+        return False
     
-    print(f"ESP-NOW PLACEHOLDER: Would send command '{command}' with threshold: {rssi_threshold}")
+    espnow_command = COMMAND_MAP[command]
+    rssi_value = rssi_threshold_to_int(rssi_threshold)
     
-    # Create command message
-    if rssi_threshold == "all":
-        message = {"command": command, "rssi_threshold": None}
+    # Determine command value
+    if espnow_command == "updateGame":
+        # Game commands need specific game values
+        value = GAME_VALUES.get(command, 0)
     else:
-        try:
-            rssi_val = int(rssi_threshold)
-            message = {"command": command, "rssi_threshold": rssi_val}
-        except:
-            message = {"command": command, "rssi_threshold": None}
+        # Other commands use value: 0
+        value = 0
     
-    message_str = json.dumps(message)
-    print(f"ESP-NOW PLACEHOLDER: Message would be: {message_str}")
+    # Create ESP-NOW protocol message
+    message = {
+        espnow_command: {
+            "RSSI": rssi_value,
+            "value": value
+        }
+    }
     
-    # TODO: Uncomment when ESP-NOW modules are available
-    # try:
-    #     success = espnow_interface.send(BROADCAST_MAC, message_str.encode())
-    #     print(f"ESP-NOW send result: {success}")
-    #     
-    #     # Flash LED to indicate transmission
-    #     led.value(1)
-    #     time.sleep_ms(50)
-    #     led.value(0)
-    #     
-    #     return success
-    # except Exception as e:
-    #     print(f"ESP-NOW send error: {e}")
-    #     return False
+    message_str = str(message)  # Convert dict to string for ESP-NOW transmission
+    print(f"ESP-NOW: Sending")
+    print(message)
+    print(f"  Target RSSI: {rssi_value} dBm (modules stronger than this will respond)")
     
-    # Flash LED to simulate transmission
-    led.value(1)
-    time.sleep_ms(50)
-    led.value(0)
-    
-    print("ESP-NOW PLACEHOLDER: Simulating successful transmission")
-    return True
+    try:
+        # Send via ESP-NOW broadcast
+        # IMPORTANT: ESP-NOW send() expects a STRING, not bytes!
+        # MicroPython's espnow.send() will handle the encoding internally
+        success = espnow_interface.send(BROADCAST_MAC, message_str)
+        
+        if success:
+            print(f"ESP-NOW: Transmission successful")
+            # Flash LED to indicate successful transmission
+            led.value(1)
+            time.sleep_ms(50)
+            led.value(0)
+        else:
+            print(f"ESP-NOW: Transmission failed")
+        
+        return success
+        
+    except Exception as e:
+        print(f"ESP-NOW send error: {e}")
+        return False
 
 def send_ble_framed(data_bytes, chunk_size=100):
     """
@@ -267,7 +363,7 @@ def handle_ping_command(rssi_threshold="all"):
     discovered_devices = []
     
     # Send PING command to modules (placeholder)
-    send_espnow_command("PING", rssi_threshold)
+    # send_espnow_command("PING", rssi_threshold)
     
     # TODO: Uncomment when ESP-NOW modules are available
     # # Wait for responses
@@ -353,7 +449,16 @@ def handle_ping_command(rssi_threshold="all"):
 
 def handle_ble_command(command_str):
     """
-    Main command handler for BLE UART commands from web app
+    Main command handler for BLE UART commands from web app.
+    
+    Processes commands from web app and translates them to ESP-NOW messages
+    for the playground modules.
+    
+    Command Flow:
+    1. Parse command string from web app ("COMMAND":"RSSI")
+    2. Map to ESP-NOW protocol format
+    3. Broadcast via ESP-NOW to modules
+    4. Send acknowledgment back to web app via BLE
     """
     print(f"BLE command received: {repr(command_str)}")
     
@@ -363,36 +468,49 @@ def handle_ble_command(command_str):
     
     # Handle different commands
     if command == "PING":
+        # Device discovery - uses mock data for now
+        # In the future, this would send ESP-NOW ping and wait for responses
         handle_ping_command(threshold)
         
-    elif command == "BATTERY CHECK":
-        print("Battery check requested (PLACEHOLDER)")
-        send_espnow_command("BATTERY CHECK", threshold)
-        # Send acknowledgment - must encode to bytes for BLE UART
-        try:
-            p.send(b'{"type":"ack","command":"BATTERY CHECK","status":"sent"}')
-        except:
-            pass
-            
-    elif command in ["COLOR BASED GROUP", "NUMBER BASED GROUP", "RAINBOW", "TURN OFF"]:
-        print(f"Game command: {command} (PLACEHOLDER)")
+    elif command in COMMAND_MAP:
+        # Known ESP-NOW command - send it
+        print(f"Processing command: {command}")
         success = send_espnow_command(command, threshold)
         
-        # Send acknowledgment - must encode to bytes for BLE UART
+        if success:
+            print(f"✓ Command '{command}' sent successfully")
+        else:
+            print(f"✗ Command '{command}' failed to send")
+        
+        # Send acknowledgment back to web app via BLE
         try:
-            ack_msg = '{"type":"ack","command":"' + command + '","status":"' + ("sent" if success else "failed") + '"}'
-            p.send(ack_msg.encode())
-        except:
-            pass
+            ack_response = {
+                "type": "ack",
+                "command": command,
+                "status": "sent" if success else "failed",
+                "rssi": threshold
+            }
+            ack_json = json.dumps(ack_response)
+            
+            # Use framed sending for reliability
+            send_ble_framed(ack_json.encode(), chunk_size=100)
+            print(f"Sent acknowledgment to web app")
+        except Exception as e:
+            print(f"Failed to send acknowledgment: {e}")
             
     else:
+        # Unknown command
         print(f"Unknown command: {command}")
-        # Send error response - must encode to bytes for BLE UART
         try:
-            error_msg = '{"type":"error","message":"Unknown command: ' + command + '"}'
-            p.send(error_msg.encode())
-        except:
-            pass
+            error_response = {
+                "type": "error",
+                "message": f"Unknown command: {command}",
+                "available_commands": list(COMMAND_MAP.keys())
+            }
+            error_json = json.dumps(error_response)
+            send_ble_framed(error_json.encode(), chunk_size=100)
+        except Exception as e:
+            print(f"Failed to send error response: {e}")
 
 def handle_cmd(chunk):
     """
@@ -470,17 +588,25 @@ print("Connect via BLE from web application")
 print("=" * 50)
 
 # === MAIN LOOP (Continuous operation) ===
-print("Hub ready for BLE connections (ISOLATED MODE).")
-print("Supported commands:")
-print("  - PING: Scan for nearby modules (returns mock data)")
-print("  - BATTERY CHECK: Check module batteries (placeholder)")
-print("  - COLOR BASED GROUP: Start color-based game (placeholder)")
-print("  - NUMBER BASED GROUP: Start number-based game (placeholder)")
-print("  - RAINBOW: Rainbow effect (placeholder)")
-print("  - TURN OFF: Turn off modules (placeholder)")
+print("Hub ready for BLE connections and ESP-NOW communication.")
 print("")
-print("NOTE: ESP-NOW communication is disabled (no modules connected)")
-print("All commands will be simulated with LED feedback")
+print("=== SUPPORTED COMMANDS ===")
+print("  - PING: Scan for nearby modules (currently returns mock data)")
+print("  - BATTERY CHECK: Request battery display on modules")
+print("  - COLOR BASED GROUP: Start color-based game (game 1)")
+print("  - NUMBER BASED GROUP: Start number-based game (game 2)")
+print("  - RAINBOW: Send rainbow/winning animation")
+print("  - TURN OFF: Turn off/pause modules")
+print("")
+print("=== ESP-NOW STATUS ===")
+print(f"  Broadcast MAC: {BROADCAST_MAC.hex()}")
+print(f"  Commands will be sent to modules via ESP-NOW")
+print("")
+print("=== BLE STATUS ===")
+print(f"  Device Name: {HUB_NAME}")
+print(f"  Advertising: Active")
+print(f"  Waiting for web app connection...")
+print("")
 print("Hub running autonomously - no USB serial input required")
 print("")
 
@@ -550,3 +676,5 @@ while True:
         else:
             print("Hub status: BLE disconnected, advertising for connections...")
         last_status_time = current_time
+
+
