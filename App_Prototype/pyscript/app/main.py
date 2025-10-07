@@ -28,6 +28,7 @@ devices = [
 
 def on_ble_data(data):
     """Handle incoming data from hub"""
+    global devices
     console.log(f"=== BLE DATA RECEIVED ===")
     console.log(f"BLE Data: {data}")
     console.log(f"Data type: {type(data)}")
@@ -43,7 +44,6 @@ def on_ble_data(data):
         if parsed.get("type") == "devices":
             console.log("Found devices type - processing device list")
             # Update device list from hub
-            global devices
             device_list = parsed.get("list", [])
             
             # Convert to expected format
@@ -131,7 +131,6 @@ def on_ble_data(data):
                 # Process the fixed data
                 if parsed.get("type") == "devices":
                     # Process devices with fixed data
-                    global devices
                     device_list = parsed.get("list", [])
                     devices = []
                     for dev in device_list:
