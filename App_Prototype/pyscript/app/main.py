@@ -1,6 +1,29 @@
 """
 Smart Playground Control - Python Backend
-Handles BLE communication with ESP32 hub and ESP-NOW with modules
+
+This module serves as the PyScript backend for the Smart Playground Control application.
+It handles Bluetooth Low Energy (BLE) communication with ESP32 hub devices and manages
+the ESP-NOW protocol for communicating with playground modules.
+
+Key Responsibilities:
+- BLE connection management with ESP32C6 hub using Nordic UART Service
+- Device discovery and RSSI-based filtering of playground modules
+- Command transmission and response handling via ESP-NOW protocol
+- Data parsing and format conversion between JSON and JavaScript objects
+- Event dispatching to JavaScript frontend for real-time UI updates
+
+Communication Flow:
+1. Web app connects to ESP32 hub via BLE (Nordic UART Service)
+2. Hub broadcasts commands to playground modules via ESP-NOW
+3. Modules respond with status/sensor data back through hub
+4. Hub forwards responses to web app via BLE notifications
+5. Python backend parses responses and updates JavaScript frontend
+
+Dependencies:
+- PyScript/Pyodide for browser Python execution
+- webBluetooth.py for Web Bluetooth API wrapper
+- JavaScript bridge for frontend communication
+
 """
 
 from pyscript import document, window
@@ -27,7 +50,36 @@ devices = [
 ]
 
 def on_ble_data(data):
-    """Handle incoming data from hub"""
+    """
+    Handle incoming data from ESP32 hub via BLE notifications.
+    
+    This function processes JSON responses from the hub containing device lists,
+    status updates, and other system information. It performs data parsing,
+    format conversion, and state updates for the JavaScript frontend.
+    
+    Parameters:
+    -----------
+    data : str
+        Raw string data received from BLE notification, typically JSON format
+        Expected format: {"type": "devices", "list": [{"id": "...", "rssi": -50, "battery": 75}, ...]}
+    
+    Processing Steps:
+    1. Parse JSON data from hub
+    2. Handle device list updates (type: "devices")
+    3. Convert RSSI values to signal strength bars (0-3)
+    4. Convert battery percentages to level categories (low/medium/high/full)
+    5. Format data for JavaScript consumption
+    6. Dispatch updates to frontend via direct function calls or events
+    
+    Error Handling:
+    - Handles truncated JSON by attempting to complete missing braces
+    - Logs all parsing errors for debugging
+    - Gracefully continues operation on parse failures
+    
+    Output:
+    -------
+    Updates global 'devices' list and notifies JavaScript frontend
+    """
     global devices
     console.log(f"=== BLE DATA RECEIVED ===")
     console.log(f"BLE Data: {data}")
@@ -186,7 +238,37 @@ ble.on_data_callback = on_ble_data
 
 # BLE Connection Functions
 async def connect_hub():
-    """Connect to ESP32C6 hub via BLE"""
+    """
+    Connect to ESP32C6 hub via Bluetooth Low Energy.
+    
+    This function initiates a BLE connection to an ESP32 hub device using the
+    Nordic UART Service. It handles device discovery, connection establishment,
+    and error management including user cancellation scenarios.
+    
+    Connection Process:
+    1. Use WebBLE to scan for devices with Nordic UART Service
+    2. Present device selection dialog to user
+    3. Establish GATT connection and service discovery
+    4. Set up notification handlers for incoming data
+    5. Update connection state and notify JavaScript frontend
+    
+    Returns:
+    --------
+    dict : JavaScript object with connection result
+        - status: "success" | "cancelled" | "error"
+        - device: Device name if successful
+        - error: Error message if failed
+    
+    Error Handling:
+    - User cancellation is treated as normal operation (not an error)
+    - Connection failures are logged and reported to user
+    - Graceful fallback for various BLE error conditions
+    
+    Side Effects:
+    - Updates global ble_connected and hub_device_name variables
+    - Dispatches BLE connection events to JavaScript frontend
+    - Sets up data callback for ongoing communication
+    """
     global ble_connected, hub_device_name
     
     try:
@@ -274,7 +356,40 @@ async def disconnect_hub():
     return js_result
 
 async def send_command_to_hub(command, rssi_threshold="all"):
-    """Send command to hub for ESP-NOW broadcast"""
+    """
+    Send command to hub for ESP-NOW broadcast to playground modules.
+    
+    This function formats and transmits commands to the ESP32 hub, which then
+    broadcasts them to playground modules via ESP-NOW protocol. The hub uses
+    RSSI thresholding to control which modules receive the command.
+    
+    Parameters:
+    -----------
+    command : str
+        Command to send to modules (e.g., "play", "pause", "win", "off")
+    rssi_threshold : str, optional
+        RSSI filter for command broadcast:
+        - "all": Send to all modules regardless of signal strength
+        - "-XX": Send only to modules with RSSI >= -XX dBm
+        
+    Message Format:
+    The hub expects commands in the format: "[command]":"[rssi_threshold]"
+    Example: "play":"all" or "pause":"-50"
+    
+    Returns:
+    --------
+    dict : JavaScript object with transmission result
+        - status: "sent" | "error"
+        - command: Original command if successful
+        - threshold: RSSI threshold used
+        - error: Error message if failed
+    
+    Communication Flow:
+    1. Format command according to hub protocol
+    2. Send via BLE to hub
+    3. Hub broadcasts via ESP-NOW to modules within RSSI range
+    4. Modules execute command and may send responses back
+    """
     if not ble.is_connected():
         js_result = Object.new()
         js_result.status = "error"

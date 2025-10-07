@@ -1,4 +1,30 @@
 <!DOCTYPE html>
+<!--
+Smart Playground Control - Main HTML Entry Point
+
+This is the primary HTML file for the Smart Playground Control web application.
+It serves as the entry point that integrates PyScript (Python in browser) with
+vanilla JavaScript to create a mobile-first web app for controlling playground modules.
+
+Key Features:
+- PyScript integration for Python backend execution in browser
+- Mobile-optimized viewport with touch-friendly interactions
+- Progressive Web App (PWA) capabilities via manifest
+- Designed with Tailwind CSS framework
+- Web Bluetooth API support for ESP32 communication
+
+Architecture:
+- PyScript backend (main.py) handles BLE communication
+- JavaScript frontend (main.js) manages UI components and state
+- Component-based UI with reactive state management
+- Event-driven communication between Python and JavaScript layers
+
+Browser Requirements:
+- Chrome/Edge with Web Bluetooth API support
+- HTTPS or localhost for Bluetooth access
+- Modern JavaScript ES6+ module support
+
+-->
 <html lang="en">
 <head>
     <meta charset="UTF-8">

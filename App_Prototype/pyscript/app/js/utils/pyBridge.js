@@ -1,6 +1,38 @@
 /**
- * Simplified Python Bridge for PyScript
- * Direct function calls with proper initialization handling
+ * Smart Playground Control - Python-JavaScript Communication Bridge
+ * 
+ * This module provides a clean interface for JavaScript to communicate with the
+ * Python backend running in PyScript. It handles async function calls, error
+ * handling, initialization checks, and event listening for Python callbacks.
+ * 
+ * Key Features:
+ * - Direct function calls to Python backend via window object
+ * - Async/await support for Python function calls
+ * - Automatic Python readiness detection and waiting
+ * - Comprehensive error handling with fallback values
+ * - Event system for Python-initiated callbacks
+ * - Timeout handling for initialization
+ * 
+ * Python Integration:
+ * - Python functions are exposed to JavaScript via window object
+ * - PyBridge provides a consistent interface regardless of Python readiness
+ * - Handles connection between JavaScript frontend and Python BLE backend
+ * - Manages device data flow and command transmission
+ * 
+ * Available Functions:
+ * - getDevices(): Retrieve current device list
+ * - getConnectionStatus(): Check BLE hub connection status
+ * - connectHub(): Initiate BLE connection to ESP32 hub
+ * - disconnectHub(): Disconnect from BLE hub
+ * - sendCommandToHub(): Send command via BLE to hub for ESP-NOW broadcast
+ * - refreshDevices(): Request fresh device scan from hub
+ * 
+ * Error Handling:
+ * - Graceful degradation when Python backend unavailable
+ * - Consistent return values for failed operations
+ * - Logging of all errors for debugging
+ * - Fallback to empty/default values when appropriate
+ * 
  */
 
 const PyBridge = {

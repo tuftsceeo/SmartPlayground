@@ -1,5 +1,40 @@
 /**
- * Playground Control App - Recipient Bar Component
+ * Smart Playground Control - Recipient Bar Component
+ * 
+ * This component displays the main control bar at the top of the application,
+ * showing device count, connection status, range controls, and system buttons.
+ * It serves as the primary interface for device management and connection status.
+ * 
+ * Key Features:
+ * - Device count display with visual device avatars
+ * - Range slider for RSSI-based device filtering (Near to Far)
+ * - Last update timestamp with refresh capability
+ * - BLE connection status and controls
+ * - Settings access button
+ * - Touch-optimized interactions for mobile use
+ * 
+ * Visual Elements:
+ * - Device avatars showing connected module types
+ * - Bluetooth status indicator (connected/disconnected)
+ * - Range slider with Near/Far labels
+ * - Timestamp showing data freshness
+ * - Settings gear icon
+ * 
+ * Interactions:
+ * - Click entire bar to open device list overlay
+ * - Drag range slider to filter devices by signal strength
+ * - Click timestamp to refresh device list
+ * - Click Bluetooth button to connect/disconnect hub
+ * - Click settings button to open configuration
+ * 
+ * Props:
+ * - devices: Array of available devices to display
+ * - range: Current RSSI range filter value (1-100)
+ * - lastUpdateTime: Timestamp of last device refresh
+ * - hubConnected: BLE connection status
+ * - hubDeviceName: Name of connected hub device
+ * - Various callback functions for user interactions
+ * 
  */
 
 import { getDeviceIcon } from './icons.js';

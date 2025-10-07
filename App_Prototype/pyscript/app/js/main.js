@@ -1,5 +1,31 @@
 /**
- * Playground Control App - Main Application
+ * Smart Playground Control - Main Application Controller
+ * 
+ * This module contains the main App class that orchestrates the entire frontend application.
+ * It manages the component rendering, state synchronization, and
+ * communication with the Python backend via PyBridge.
+ * 
+ * Key Responsibilities:
+ * - Application initialization and Python backend integration
+ * - Component lifecycle management and DOM rendering
+ * - State management coordination with reactive updates
+ * - Event handling for user interactions and system events
+ * - BLE connection management and device communication
+ * - Error handling and user feedback via toasts and modals
+ * 
+ * Architecture:
+ * - Single App class managing entire application state
+ * - Component-based UI with functional component pattern
+ * - Reactive rendering triggered by state changes
+ * - Event-driven communication with Python backend
+ * - Mobile-first responsive design with touch optimizations
+ * 
+ * Dependencies:
+ * - state/store.js: Centralized state management
+ * - utils/pyBridge.js: Python-JavaScript communication bridge
+ * - components/*: UI component modules
+ * - utils/helpers.js: Utility functions
+ * 
  */
 
 console.log("main.js loading...");
@@ -36,6 +62,29 @@ class App {
     }
 
     async init() {
+        /**
+         * Initialize the application and set up all core systems.
+         * 
+         * This method handles the complete application startup sequence including:
+         * - Loading mock device data for immediate UI feedback
+         * - Setting up Python backend integration and event handlers
+         * - Registering state change listeners for reactive updates
+         * - Configuring click-outside handlers for UI interactions
+         * - Performing initial render of all components
+         * 
+         * Initialization Flow:
+         * 1. Load mock devices for immediate UI responsiveness
+         * 2. Set up direct function callbacks for Python integration
+         * 3. Register event listeners for Python backend events
+         * 4. Set up state management and reactive rendering
+         * 5. Initialize Python backend when ready
+         * 6. Render initial UI components
+         * 
+         * Error Handling:
+         * - Graceful fallback to mock data if Python unavailable
+         * - Comprehensive logging for debugging initialization issues
+         * - Continues operation even if some systems fail to initialize
+         */
         console.log("init() called");
 
         // Use mock devices for now (Python call not completing)
@@ -398,6 +447,40 @@ class App {
     }
 
     async handleSendMessage() {
+        /**
+         * Handle command transmission to playground modules with comprehensive validation.
+         * 
+         * This method implements a priority-based validation system to ensure commands
+         * are only sent when all prerequisites are met. It handles connection checking,
+         * device availability validation, command selection verification, and actual
+         * command transmission via the BLE hub.
+         * 
+         * Validation Priority Order:
+         * 1. PRIORITY 1: Hub connection status (must be connected)
+         * 2. PRIORITY 2: Device availability (must have devices in range)
+         * 3. PRIORITY 3: Command selection (must have selected a command)
+         * 
+         * Process Flow:
+         * 1. Check BLE hub connection, show warning modal if disconnected
+         * 2. Verify devices are available within selected range
+         * 3. Validate command selection, open palette if needed
+         * 4. Refresh device list to ensure current data
+         * 5. Warn user if device count changed during refresh
+         * 6. Format and send command via BLE to hub
+         * 7. Update message history and clear input
+         * 
+         * Error Handling:
+         * - Connection warnings with modal prompts
+         * - Device availability checks with user feedback
+         * - Command validation with visual feedback (flashing)
+         * - BLE transmission error handling with toast notifications
+         * 
+         * User Experience:
+         * - Progressive disclosure of requirements (connection → devices → command)
+         * - Visual feedback for all validation states
+         * - Confirmation prompts for potentially destructive actions
+         * - Automatic state cleanup after successful transmission
+         */
         // PRIORITY 1: Check hub connection first
         if (!state.hubConnected) {
             this.showConnectionWarningModal();
@@ -473,6 +556,41 @@ class App {
     }
 
     async handleRefreshDevices() {
+        /**
+         * Refresh device list from ESP32 hub with visual feedback and state management.
+         * 
+         * This method performs a complete device discovery cycle by communicating with
+         * the ESP32 hub to get the latest list of available playground modules. It
+         * provides visual feedback during the refresh process and handles both success
+         * and failure scenarios gracefully.
+         * 
+         * Refresh Process:
+         * 1. Set refresh state to show loading animation
+         * 2. Update UI immediately to show spinner on refresh button
+         * 3. Call Python backend to request device scan from hub
+         * 4. Hub broadcasts PING command via ESP-NOW to all modules
+         * 5. Modules respond with their current status (RSSI, battery, etc.)
+         * 6. Hub collects responses and sends device list back via BLE
+         * 7. Python backend processes response and updates JavaScript state
+         * 8. UI automatically re-renders with new device data
+         * 
+         * Visual Feedback:
+         * - Immediate spinner animation on refresh button
+         * - State management prevents multiple concurrent refreshes
+         * - Minimum 1-second duration for user feedback consistency
+         * - Automatic cleanup of loading states
+         * 
+         * Error Handling:
+         * - Graceful fallback if Python backend unavailable
+         * - Logging of all errors for debugging
+         * - Guaranteed cleanup of loading states even on failure
+         * - User feedback via console logging (not toast to avoid spam)
+         * 
+         * Performance Considerations:
+         * - Direct DOM manipulation for immediate visual feedback
+         * - Timeout-based cleanup to prevent stuck loading states
+         * - State-based refresh prevention to avoid multiple concurrent requests
+         */
         console.log("=== REFRESH START ===");
         console.log("Current state.allDevices:", state.allDevices);
 

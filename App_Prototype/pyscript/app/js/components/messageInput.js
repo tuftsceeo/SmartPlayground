@@ -1,5 +1,45 @@
 /**
- * Playground Control App - Message Input Component
+ * Smart Playground Control - Message Input Component
+ * 
+ * This component provides the command input interface at the bottom of the application.
+ * It includes a text input area that expands to show a command palette with available
+ * playground commands, and a send button to transmit commands to devices.
+ * 
+ * Key Features:
+ * - Command selection interface with visual command palette
+ * - Expandable drawer design for space efficiency
+ * - Visual command icons with color-coded backgrounds
+ * - Send button with state-aware styling
+ * - Clear command functionality
+ * - Touch-optimized command buttons for mobile use
+ * 
+ * Visual Elements:
+ * - Message input box showing selected command or placeholder
+ * - Command palette with icon buttons for each available command
+ * - Send button that changes color based on readiness
+ * - Clear button (X) when command is selected
+ * - Smooth expand/collapse animations
+ * 
+ * Interactions:
+ * - Click input area to open command palette
+ * - Click command buttons to select commands
+ * - Click clear button to deselect command
+ * - Click send button to transmit command
+ * - Palette automatically closes after command selection
+ * 
+ * Props:
+ * - currentMessage: Currently selected command text
+ * - showPalette: Whether command palette is expanded
+ * - canSend: Whether send button should be enabled
+ * - flashMessageBox: Whether to flash input for attention
+ * - Various callback functions for user interactions
+ * 
+ * Command Flow:
+ * 1. User clicks input area → palette opens
+ * 2. User selects command → palette closes, command appears in input
+ * 3. User clicks send → command transmitted to devices
+ * 4. Input clears and ready for next command
+ * 
  */
 
 import { getCommandIcon } from "./icons.js";
