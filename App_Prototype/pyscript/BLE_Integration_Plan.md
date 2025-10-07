@@ -81,7 +81,7 @@ This document outlines the plan to integrate working Bluetooth Low Energy (BLE) 
 - App continues to work even if Python fails to load
 - **Clear error states for users** (no mock data shown to users)
 - User-friendly error messages instead of crashes
-- **Development mode** for testing (separate from production)
+- **Development mode** for testing (separate from MVP prototype)
 
 **4. Maintainable Code Structure**
 - Single file with clear, documented functions
@@ -135,9 +135,9 @@ PyBridge.on('ble-connected', (data) => {
 - ✅ **"Connect to hub first"** - Clear next steps for users
 - ❌ **Never show fake devices** - Would confuse users about real functionality
 
-**3. Development vs Production**
+**3. Development vs MVP**
 - ✅ **Development mode** - Mock data for testing (developer-only)
-- ✅ **Production mode** - Real data only, clear error states
+- ✅ **Main MVP  mode** - Real data only, clear error states
 - ✅ **Environment detection** - Automatically switch between modes
 
 ---
@@ -1014,7 +1014,7 @@ if (!navigator.bluetooth) {
 
 -   Save last connected hub device ID
 -   Attempt reconnection on app load
--   Better UX for production use
+-   Better UX for MVP use
 
 ---
 

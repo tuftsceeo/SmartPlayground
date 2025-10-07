@@ -28,8 +28,6 @@
  * 
  */
 
-console.log("main.js loading...");
-
 import { state, setState, getAvailableDevices, onStateChange } from "./state/store.js";
 import { PyBridge } from "./utils/pyBridge.js";
 
@@ -50,13 +48,90 @@ import { createConnectionWarningModal } from "./components/connectionWarningModa
 import { createSettingsOverlay } from "./components/settingsOverlay.js";
 import { showToast } from "./components/toast.js";
 
-console.log("All imports loaded");
+/**
+ * Unified error handler for Python backend responses.
+ * 
+ * This function provides consistent error handling across all Python function calls.
+ * It distinguishes between real errors (which should show toasts) and user-initiated
+ * cancellations (which should be handled silently).
+ * 
+ * @param {Object} result - Python function result with status field
+ * @param {string} context - Context description for logging
+ * @returns {boolean} - True if handled as error, false if normal operation
+ */
+function handleError(result, context) {
+    if (!result || !result.status) {
+        console.error(`${context}: Invalid result format`, result);
+        showToast("Unexpected response from backend", "error");
+        return true;
+    }
+    
+    // Handle different status types
+    switch (result.status) {
+        case "success":
+        case "sent":
+        case "disconnected":
+            // These are successful operations, not errors
+            return false;
+            
+        case "cancelled":
+            // User cancelled - this is normal, don't show error
+            console.log(`${context}: User cancelled operation`);
+            return false;
+            
+        case "error":
+            // Real error - show to user
+            const errorMsg = result.error || "Unknown error";
+            console.error(`${context}: ${errorMsg}`);
+            showToast(`Error: ${errorMsg}`, "error");
+            return true;
+            
+        default:
+            // Unknown status - treat as error
+            console.error(`${context}: Unknown status '${result.status}'`, result);
+            showToast(`Unexpected status: ${result.status}`, "error");
+            return true;
+    }
+}
+
+/**
+ * Synchronize connection state with Python backend.
+ * 
+ * This function polls the Python backend to get the actual BLE connection status
+ * and updates the JavaScript state accordingly. It's called after connection
+ * operations and can be used for auto-disconnect detection.
+ * 
+ * @returns {Promise<boolean>} - True if state was updated, false if no change
+ */
+async function syncConnectionState() {
+    try {
+        const status = await PyBridgeToUse.getConnectionStatus();
+        console.log("Sync connection state:", status);
+        
+        const wasConnected = state.hubConnected;
+        const wasDevice = state.hubDeviceName;
+        
+        setState({
+            hubConnected: status.connected,
+            hubDeviceName: status.device,
+            hubConnecting: false, // Clear connecting state
+        });
+        
+        const stateChanged = (wasConnected !== status.connected) || (wasDevice !== status.device);
+        if (stateChanged) {
+            console.log(`Connection state changed: ${wasConnected}->${status.connected}, device: ${wasDevice}->${status.device}`);
+        }
+        
+        return stateChanged;
+    } catch (e) {
+        console.error("Failed to sync connection state:", e);
+        return false;
+    }
+}
 
 class App {
     constructor() {
-        console.log("App constructor called");
         this.container = document.getElementById("root");
-        console.log("Container element:", this.container);
         this.components = {};
         this.init();
     }
@@ -66,14 +141,13 @@ class App {
          * Initialize the application and set up all core systems.
          * 
          * This method handles the complete application startup sequence including:
-         * - Loading mock device data for immediate UI feedback
          * - Setting up Python backend integration and event handlers
          * - Registering state change listeners for reactive updates
          * - Configuring click-outside handlers for UI interactions
          * - Performing initial render of all components
          * 
          * Initialization Flow:
-         * 1. Load mock devices for immediate UI responsiveness
+         * 1. Initialize with empty device list
          * 2. Set up direct function callbacks for Python integration
          * 3. Register event listeners for Python backend events
          * 4. Set up state management and reactive rendering
@@ -81,27 +155,15 @@ class App {
          * 6. Render initial UI components
          * 
          * Error Handling:
-         * - Graceful fallback to mock data if Python unavailable
+         * - Graceful fallback if Python unavailable
          * - Comprehensive logging for debugging initialization issues
          * - Continues operation even if some systems fail to initialize
          */
-        console.log("init() called");
-
-        // Use mock devices for now (Python call not completing)
-        const mockDevices = [
-            { id: "M-A3F821", name: "M-A3F821", type: "module", rssi: -25, signal: 3, battery: "full" },
-            { id: "M-B4C932", name: "M-B4C932", type: "module", rssi: -40, signal: 3, battery: "high" },
-            { id: "M-C5D043", name: "M-C5D043", type: "module", rssi: -58, signal: 2, battery: "medium" },
-            { id: "E-D6E154", name: "E-D6E154", type: "extension", rssi: -48, signal: 2, battery: "high" },
-            { id: "E-E7F265", name: "E-E7F265", type: "extension", rssi: -78, signal: 1, battery: "low" },
-            { id: "B-F8G376", name: "B-F8G376", type: "button", rssi: -85, signal: 1, battery: "medium" },
-        ];
-
+        // Initialize with empty device list - will be populated by Python backend
         setState({
-            allDevices: mockDevices,
-            lastUpdateTime: new Date(),
+            allDevices: [],
+            lastUpdateTime: null,
         });
-        console.log("Mock devices loaded:", mockDevices);
 
         // Add click-outside handler for command palette
         this.setupClickOutsideHandler();
@@ -123,15 +185,7 @@ class App {
             console.log("State updated with devices");
         };
 
-        // Listen for device updates (fallback)
-        PyBridgeToUse.on("devices-updated", (devices) => {
-            console.log("Event-based devices updated:", devices);
-            setState({
-                allDevices: devices,
-                lastUpdateTime: new Date(),
-            });
-        });
-        PyBridgeToUse.on("message-sent", (data) => console.log("Message sent:", data));
+        // Direct function calls only - no event listeners needed
 
         // Direct function for Python to call
         window.onBLEConnected = (data) => {
@@ -146,18 +200,7 @@ class App {
             });
         };
 
-        // Listen for BLE connection events (fallback)
-        PyBridgeToUse.on("ble-connected", (data) => {
-            console.log("Event-based BLE connected:", data);
-            console.log("Data type:", typeof data);
-            console.log("Data keys:", Object.keys(data || {}));
-            console.log("Device name:", data?.deviceName);
-            setState({
-                hubConnected: true,
-                hubDeviceName: data?.deviceName,
-                hubConnecting: false,
-            });
-        });
+        // Direct function calls only - no event listeners needed
 
         // Direct function for Python to call
         window.onBLEDisconnected = () => {
@@ -169,40 +212,54 @@ class App {
             });
         };
 
-        // Listen for BLE disconnection events (fallback)
-        PyBridgeToUse.on("ble-disconnected", () => {
-            console.log("Event-based BLE disconnected");
-            setState({
-                hubConnected: false,
-                hubDeviceName: null,
-                hubConnecting: false,
-            });
-        });
+        // Direct function calls only - no event listeners needed
 
         // Register for state changes
         onStateChange(() => this.render());
-        console.log("Registered state change listener");
+
+        // Start auto-disconnect detection
+        this.startConnectionMonitoring();
 
         // Initial render
-        console.log("Calling initial render...");
         this.render();
-        console.log("init() complete");
+    }
+
+    startConnectionMonitoring() {
+        /**
+         * Start auto-disconnect detection by polling Python backend.
+         * 
+         * This method sets up a polling mechanism that checks the actual BLE
+         * connection status every 5 seconds when connected. It helps detect
+         * unexpected disconnections that might not trigger the normal disconnect
+         * callbacks.
+         * 
+         * Note: Interval runs for application lifetime. This is acceptable for MVP.
+         * For production, consider storing interval ID and clearing on app cleanup.
+         */
+        // Clear any existing monitor to prevent duplicates
+        if (this.connectionMonitor) {
+            clearInterval(this.connectionMonitor);
+        }
+        
+        this.connectionMonitor = setInterval(async () => {
+            // Only poll when we think we're connected
+            if (state.hubConnected) {
+                console.log("Auto-checking connection status...");
+                const stateChanged = await syncConnectionState();
+                if (stateChanged) {
+                    console.log("Connection state changed during auto-check");
+                }
+            }
+        }, 5000); // Check every 5 seconds
     }
 
     async initializePython() {
-        console.log("Waiting for Python to be ready...");
-        
-        // Listen for Python ready event
-        window.addEventListener('py-ready', async () => {
-            console.log("Python ready event received");
-            await this.loadPythonData();
-        });
+        // Python functions are available directly - no event needed
 
         // Also try waiting for functions to be available
         if (typeof PyBridgeToUse.waitForPython === 'function') {
             const isReady = await PyBridgeToUse.waitForPython(5000);
             if (isReady) {
-                console.log("Python functions are ready");
                 await this.loadPythonData();
             } else {
                 console.warn("Python not ready after timeout, using mock data");
@@ -215,23 +272,7 @@ class App {
 
     async loadPythonData() {
         try {
-            console.log("loadPythonData called");
-            
-            // Try to get real devices from Python
-            if (typeof PyBridgeToUse.getDevices === 'function') {
-                const devices = await PyBridgeToUse.getDevices();
-                if (devices && devices.length > 0) {
-                    console.log("Real devices from Python:", devices);
-                    setState({
-                        allDevices: devices,
-                        lastUpdateTime: new Date(),
-                    });
-                }
-            } else {
-                console.error("PyBridge.getDevices is not a function!");
-            }
-
-            // Check connection status
+            // Check connection status first
             if (typeof PyBridgeToUse.getConnectionStatus === 'function') {
                 const status = await PyBridgeToUse.getConnectionStatus();
                 if (status && status.connected) {
@@ -239,6 +280,15 @@ class App {
                         hubConnected: true,
                         hubDeviceName: status.device,
                     });
+                    
+                    // Only get devices if connected
+                    if (typeof PyBridgeToUse.getDevices === 'function') {
+                        const devices = await PyBridgeToUse.getDevices();
+                        setState({
+                            allDevices: devices || [],
+                            lastUpdateTime: new Date(),
+                        });
+                    }
                 }
             } else {
                 console.error("PyBridge.getConnectionStatus is not a function!");
@@ -249,14 +299,11 @@ class App {
     }
 
     render() {
-        console.log("render() called, isRefreshing:", state.isRefreshing);
         const devices = getAvailableDevices();
-        console.log("Available devices:", devices);
         const canSend = state.currentMessage && devices.length > 0;
 
         // Don't clear and rebuild if an overlay is showing
         if (state.showDeviceList || state.showMessageDetails) {
-            console.log("Overlay is open, skipping full render");
             // Just update the overlay that's showing
             if (state.showDeviceList && this.components.deviceListOverlay) {
                 const newOverlay = createDeviceListOverlay(
@@ -281,6 +328,8 @@ class App {
                             editingDeviceId: null,
                         });
                     },
+                    state.hubConnected,
+                    () => this.handleHubConnect(),
                 );
                 this.components.deviceListOverlay.replaceWith(newOverlay);
                 this.components.deviceListOverlay = newOverlay;
@@ -293,7 +342,6 @@ class App {
         // Clear container
         this.container.innerHTML = "";
         this.container.className = "flex flex-col max-w-2xl mx-auto bg-white relative";
-        console.log("Container cleared and styled");
 
 
         // Create components
@@ -320,7 +368,6 @@ class App {
             this.renderMessageDetails();
         });
 
-        console.log("Creating message input component...");
         const messageInput = createMessageInput(
             state.currentMessage,
             state.showCommandPalette,
@@ -331,7 +378,6 @@ class App {
             () => this.handleSendMessage(),
             state.flashMessageBox,
         );
-        console.log("Message input created:", messageInput);
 
         this.components.deviceListOverlay = createDeviceListOverlay(
             devices,
@@ -370,11 +416,6 @@ class App {
         );
 
         // Append to DOM
-        console.log("Appending components to DOM...");
-        console.log("Recipient bar:", recipientBar);
-        console.log("Message history:", messageHistory);
-        console.log("Message input:", messageInput);
-
         this.container.appendChild(recipientBar);
         this.container.appendChild(messageHistory);
         this.container.appendChild(messageInput);
@@ -402,8 +443,6 @@ class App {
             this.components.settingsOverlay = createSettingsOverlay(() => this.handleSettingsBack());
             this.container.appendChild(this.components.settingsOverlay);
         }
-
-        console.log("All components appended. Container children count:", this.container.children.length);
 
         // Initialize Lucide icons
         if (window.lucide) {
@@ -543,11 +582,14 @@ class App {
 
             const result = await PyBridgeToUse.sendCommandToHub(newMessage.command, rssiThreshold);
 
+            // Use unified error handler
+            const isError = handleError(result, "Send Command");
+            
             if (result.status === "sent") {
                 console.log("Command sent to hub:", newMessage.command, "with threshold:", rssiThreshold);
-            } else {
-                console.error("Send failed:", result.error);
-                showToast(`Failed to send command: ${result.error}`, "error");
+            } else if (isError) {
+                // Error handler already showed toast
+                console.log("Command send failed");
             }
         } catch (e) {
             console.error("Send error:", e);
@@ -591,39 +633,28 @@ class App {
          * - Timeout-based cleanup to prevent stuck loading states
          * - State-based refresh prevention to avoid multiple concurrent requests
          */
-        console.log("=== REFRESH START ===");
-        console.log("Current state.allDevices:", state.allDevices);
-
         setState({ isRefreshing: true });
-        console.log("Set isRefreshing: true");
 
         // Update button state directly
         const refreshBtn = this.components.deviceListOverlay?.querySelector("#refreshBtn");
         if (refreshBtn) {
-            console.log("Adding spin to button");
             refreshBtn.classList.add("animate-spin");
-        } else {
-            console.log("WARNING: refreshBtn not found");
         }
 
         try {
-            console.log('Calling PyBridge.refreshDevices()...');
             const devices = await PyBridgeToUse.refreshDevices();
-            console.log("Python returned:", devices);
 
-            console.log("Updating allDevices in state...");
+            // Note: refreshDevices returns array directly, not status object
+            // So we don't use handleError here
             setState({
                 allDevices: devices || [],
                 lastUpdateTime: new Date(),
             });
-            console.log("State updated, new allDevices:", state.allDevices);
         } catch (e) {
             console.log("Python backend not ready, refresh command logged only:", e);
         }
 
-        console.log("Setting timeout for isRefreshing: false...");
         setTimeout(() => {
-            console.log("Timeout fired, setting isRefreshing: false");
             setState({ isRefreshing: false });
             // Remove spin directly
             const refreshBtn = this.components.deviceListOverlay?.querySelector("#refreshBtn");
@@ -639,60 +670,47 @@ class App {
         try {
             const result = await PyBridgeToUse.connectHub();
             console.log("ConnectHub result:", result);
-            console.log("Result status:", result?.status);
-            console.log("Result type:", typeof result);
 
+            // Use unified error handler
+            const isError = handleError(result, "BLE Connection");
+            
             if (result.status === "success") {
                 console.log("Successfully connected to hub");
                 // State will be updated by the BLE connected event
             } else if (result.status === "cancelled") {
-                // User cancelled - this is normal, don't show error
+                // User cancelled - handled by error handler (no toast shown)
                 console.log("User cancelled BLE connection");
                 setState({ hubConnecting: false });
-            } else {
-                // Check if we actually have a successful connection despite the status
-                if (state.hubConnected && state.hubDeviceName) {
-                    console.log("BLE connection successful despite status:", result.status);
-                    // Don't show error if we're actually connected
-                    setState({ hubConnecting: false });
-                } else {
-                    // Actual error occurred - only show if it's a real error, not user cancellation
-                    const errorMsg = result.error || "Unknown error";
-                    if (!errorMsg.toLowerCase().includes("cancelled") && 
-                        !errorMsg.toLowerCase().includes("user cancelled") &&
-                        !errorMsg.toLowerCase().includes("notallowederror") &&
-                        !errorMsg.toLowerCase().includes("aborterror")) {
-                        console.error("BLE connection error:", errorMsg);
-                        // Show a more user-friendly error message
-                        showToast("Bluetooth connection failed. Please try again.", "error");
-                    } else {
-                        console.log("User cancelled connection (no error to show)");
-                    }
-                    setState({ hubConnecting: false });
-                }
+            } else if (isError) {
+                // Real error occurred - error handler already showed toast
+                setState({ hubConnecting: false });
             }
+            
+            // Always sync state after connection attempt
+            await syncConnectionState();
         } catch (e) {
-            // Only show error if it's not a user cancellation
-            const errorMsg = e.message || e.toString();
-            if (!errorMsg.toLowerCase().includes("cancelled") && 
-                !errorMsg.toLowerCase().includes("user cancelled") &&
-                !errorMsg.toLowerCase().includes("notallowederror") &&
-                !errorMsg.toLowerCase().includes("aborterror")) {
-                console.error("BLE connection exception:", errorMsg);
-                showToast("Bluetooth connection failed. Please try again.", "error");
-            } else {
-                console.log("User cancelled connection (no error to show)");
-            }
+            // Handle exceptions that don't go through Python result format
+            console.error("BLE connection exception:", e);
+            showToast("Bluetooth connection failed. Please try again.", "error");
             setState({ hubConnecting: false });
         }
     }
 
     async handleHubDisconnect() {
         try {
-            await PyBridgeToUse.disconnectHub();
-            console.log("Disconnected from hub");
+            const result = await PyBridgeToUse.disconnectHub();
+            console.log("Disconnect result:", result);
+            
+            // Use unified error handler
+            handleError(result, "Hub Disconnect");
+            
+            // Always sync state after disconnect attempt
+            await syncConnectionState();
         } catch (e) {
             console.error("Disconnect error:", e);
+            showToast("Error disconnecting from hub", "error");
+            // Sync state even on exception
+            await syncConnectionState();
         }
     }
 
@@ -776,10 +794,8 @@ class App {
 }
 
 // Initialize app
-console.log("About to create App instance...");
 try {
     const app = new App();
-    console.log("App created successfully:", app);
 } catch (error) {
     console.error("Error creating App:", error);
 }

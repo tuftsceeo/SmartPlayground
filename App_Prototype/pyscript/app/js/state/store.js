@@ -54,7 +54,10 @@ export const state = {
     showMessageDetails: false,
     viewingMessage: null,
     editingDeviceId: null,
-    isRefreshing: false
+    isRefreshing: false,
+    
+    // Connection state sync
+    connectionLastChecked: null
 };
 
 // Render callbacks - components register themselves here
@@ -109,18 +112,14 @@ export function onStateChange(callback) {
  * - Batched callback execution for efficiency
  */
 export function setState(updates) {
-    console.log("setState called with:", updates);
-
     // Check if ONLY isRefreshing is being updated
     const keys = Object.keys(updates);
     const isRefreshingOnly = keys.length === 1 && keys[0] === "isRefreshing";
 
     Object.assign(state, updates);
-    console.log("State updated, new state:", state);
 
     // Don't re-render for isRefreshing only - just update button
     if (isRefreshingOnly) {
-        console.log("isRefreshing only - NO RENDER, just update button");
         const btn = document.getElementById("refreshBtn");
         if (btn) {
             if (state.isRefreshing) {
@@ -135,17 +134,12 @@ export function setState(updates) {
     // Always trigger render for other changes
     if (!renderScheduled) {
         renderScheduled = true;
-        console.log("Scheduling render...");
         requestAnimationFrame(() => {
-            console.log("Executing scheduled render, callbacks:", renderCallbacks.size);
             renderCallbacks.forEach((cb) => {
-                console.log("Calling render callback");
                 cb(state);
             });
             renderScheduled = false;
         });
-    } else {
-        console.log("Render already scheduled, skipping");
     }
 }
 
@@ -197,6 +191,11 @@ export function getRangeLabel(position) {
 export function getAvailableDevices() {
     // Check hub connection first - return empty array if disconnected
     if (!state.hubConnected) {
+        return [];
+    }
+    
+    // If no devices available, return empty array
+    if (!state.allDevices || state.allDevices.length === 0) {
         return [];
     }
     

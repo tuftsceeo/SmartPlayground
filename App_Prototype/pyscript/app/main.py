@@ -28,7 +28,7 @@ Dependencies:
 
 from pyscript import document, window
 from pyodide.ffi import create_proxy
-from js import console, CustomEvent, Object
+from js import console, Object
 import json
 import random
 import time
@@ -43,11 +43,50 @@ ble_connected = False
 hub_device_name = None
 
 # Device data (will be updated via BLE from hub)
-devices = [
-    {"id": "M-A3F821", "name": "M-A3F821", "type": "module", "rssi": -25, "signal": 3, "battery": "full"},
-    {"id": "M-B4C932", "name": "M-B4C932", "type": "module", "rssi": -40, "signal": 3, "battery": "high"},
-    {"id": "M-C5D043", "name": "M-C5D043", "type": "module", "rssi": -58, "signal": 2, "battery": "medium"},
-]
+devices = []
+
+def parse_hub_response(data):
+    """
+    Parse and validate JSON response from ESP32 hub.
+    
+    This function handles JSON parsing with a single repair attempt for truncated data.
+    It validates required fields and logs parsing failures for debugging.
+    
+    Parameters:
+    -----------
+    data : str
+        Raw JSON string from hub
+        
+    Returns:
+    --------
+    dict or None: Parsed JSON data if successful, None if parsing failed
+        
+    Error Handling:
+    - Single repair attempt for truncated JSON
+    - Logs all parsing failures for debugging
+    - Validates required fields before returning
+    """
+    try:
+        # Try to parse JSON normally first
+        parsed = json.loads(data)
+        console.log(f"Successfully parsed JSON: {parsed}")
+        return parsed
+    except Exception as e:
+        console.log(f"JSON parsing failed: {e}")
+        
+        # Single repair attempt for truncated JSON
+        if "Unterminated string" in str(e) or "Expecting" in str(e):
+            console.log("Attempting to fix truncated JSON...")
+            try:
+                fixed_data = data + '"]}'
+                parsed = json.loads(fixed_data)
+                console.log("Successfully fixed truncated JSON")
+                return parsed
+            except Exception as fix_error:
+                console.log(f"Failed to fix JSON: {fix_error}")
+                return None
+        else:
+            return None
 
 def on_ble_data(data):
     """
@@ -64,16 +103,18 @@ def on_ble_data(data):
         Expected format: {"type": "devices", "list": [{"id": "...", "rssi": -50, "battery": 75}, ...]}
     
     Processing Steps:
-    1. Parse JSON data from hub
-    2. Handle device list updates (type: "devices")
-    3. Convert RSSI values to signal strength bars (0-3)
-    4. Convert battery percentages to level categories (low/medium/high/full)
-    5. Format data for JavaScript consumption
-    6. Dispatch updates to frontend via direct function calls or events
+    1. Parse JSON data from hub using parse_hub_response()
+    2. Validate required fields (type, list)
+    3. Handle device list updates (type: "devices")
+    4. Convert RSSI values to signal strength bars (0-3)
+    5. Convert battery percentages to level categories (low/medium/high/full)
+    6. Format data for JavaScript consumption
+    7. Dispatch updates to frontend via direct function calls
     
     Error Handling:
-    - Handles truncated JSON by attempting to complete missing braces
-    - Logs all parsing errors for debugging
+    - Uses centralized JSON parsing with single repair attempt
+    - Logs parsing failures for debugging
+    - Validates data before processing
     - Gracefully continues operation on parse failures
     
     Output:
@@ -86,151 +127,88 @@ def on_ble_data(data):
     console.log(f"Data type: {type(data)}")
     console.log(f"Data length: {len(data) if hasattr(data, '__len__') else 'N/A'}")
     
-    try:
-        # Parse JSON response from hub
-        console.log(f"Attempting to parse JSON: {data}")
-        parsed = json.loads(data)
-        console.log(f"Parsed JSON: {parsed}")
-        console.log(f"Type field: {parsed.get('type')}")
+    # Parse JSON using centralized function
+    parsed = parse_hub_response(data)
+    if not parsed:
+        console.log("Failed to parse hub data - skipping")
+        return
+    
+    # Validate required fields
+    if 'type' not in parsed:
+        console.log("Missing 'type' field in hub response")
+        return
+    
+    if parsed.get("type") == "devices":
+        console.log("Found devices type - processing device list")
         
-        if parsed.get("type") == "devices":
-            console.log("Found devices type - processing device list")
-            # Update device list from hub
-            device_list = parsed.get("list", [])
+        # Validate device list
+        if 'list' not in parsed:
+            console.log("Missing 'list' field in devices response")
+            return
             
-            # Convert to expected format
-            devices = []
-            for dev in device_list:
-                # Calculate signal bars from RSSI
-                rssi = dev.get("rssi", -100)
-                if rssi >= -50:
-                    signal = 3
-                elif rssi >= -70:
-                    signal = 2
-                elif rssi >= -85:
-                    signal = 1
-                else:
-                    signal = 0
-                
-                # Convert battery percentage to level
-                battery_pct = dev.get("battery", 50)
-                if battery_pct >= 75:
-                    battery = "full"
-                elif battery_pct >= 50:
-                    battery = "high"
-                elif battery_pct >= 25:
-                    battery = "medium"
-                else:
-                    battery = "low"
-                
-                devices.append({
-                    "id": dev.get("id"),
-                    "name": dev.get("id"),
-                    "type": "module",
-                    "rssi": rssi,
-                    "signal": signal,
-                    "battery": battery
-                })
-            
-            # Dispatch event to JavaScript - try direct function call first
-            if hasattr(window, 'onDevicesUpdated'):
-                console.log("Python: Calling onDevicesUpdated directly")
-                console.log(f"Devices to send: {devices}")
-                # Convert Python list to JavaScript array
-                js_devices = []
-                for device in devices:
-                    js_device = Object.new()
-                    js_device.id = device.get("id")
-                    js_device.name = device.get("name")
-                    js_device.type = device.get("type")
-                    js_device.rssi = device.get("rssi")
-                    js_device.signal = device.get("signal")
-                    js_device.battery = device.get("battery")
-                    js_devices.append(js_device)
-                console.log(f"Created {len(js_devices)} JS devices")
-                window.onDevicesUpdated(js_devices)
-                console.log("onDevicesUpdated called successfully")
+        device_list = parsed.get("list", [])
+        if not isinstance(device_list, list):
+            console.log("Device list is not an array")
+            return
+        
+        # Convert to expected format
+        devices = []
+        for dev in device_list:
+            # Calculate signal bars from RSSI
+            rssi = dev.get("rssi", -100)
+            if rssi >= -50:
+                signal = 3
+            elif rssi >= -70:
+                signal = 2
+            elif rssi >= -85:
+                signal = 1
             else:
-                console.log("Python: onDevicesUpdated not available, using event dispatch")
-                # Convert Python list to JavaScript array for event dispatch too
-                js_devices = []
-                for device in devices:
-                    js_device = Object.new()
-                    js_device.id = device.get("id")
-                    js_device.name = device.get("name")
-                    js_device.type = device.get("type")
-                    js_device.rssi = device.get("rssi")
-                    js_device.signal = device.get("signal")
-                    js_device.battery = device.get("battery")
-                    js_devices.append(js_device)
-                event = CustomEvent.new("py-devices-updated", {
-                    "detail": js_devices
-                })
-                window.dispatchEvent(event)
+                signal = 0
             
-            console.log(f"Updated {len(devices)} devices from hub")
+            # Convert battery percentage to level
+            battery_pct = dev.get("battery", 50)
+            if battery_pct >= 75:
+                battery = "full"
+            elif battery_pct >= 50:
+                battery = "high"
+            elif battery_pct >= 25:
+                battery = "medium"
+            else:
+                battery = "low"
             
-    except Exception as e:
-        console.log(f"Error parsing BLE data: {e}")
-        # Try to handle truncated JSON by adding missing closing braces
-        if "Unterminated string" in str(e) or "Expecting" in str(e):
-            console.log("Attempting to fix truncated JSON...")
-            try:
-                # Try to complete the JSON
-                fixed_data = data + '"]}'
-                parsed = json.loads(fixed_data)
-                console.log("Successfully fixed truncated JSON")
-                # Process the fixed data
-                if parsed.get("type") == "devices":
-                    # Process devices with fixed data
-                    device_list = parsed.get("list", [])
-                    devices = []
-                    for dev in device_list:
-                        rssi = dev.get("rssi", -100)
-                        if rssi >= -50:
-                            signal = 3
-                        elif rssi >= -70:
-                            signal = 2
-                        elif rssi >= -85:
-                            signal = 1
-                        else:
-                            signal = 0
-                        
-                        battery_pct = dev.get("battery", 50)
-                        if battery_pct >= 75:
-                            battery = "full"
-                        elif battery_pct >= 50:
-                            battery = "high"
-                        elif battery_pct >= 25:
-                            battery = "medium"
-                        else:
-                            battery = "low"
-                        
-                        devices.append({
-                            "id": dev.get("id"),
-                            "name": dev.get("id"),
-                            "type": "module",
-                            "rssi": rssi,
-                            "signal": signal,
-                            "battery": battery
-                        })
-                    
-                    # Send to JavaScript
-                    if hasattr(window, 'onDevicesUpdated'):
-                        js_devices = []
-                        for device in devices:
-                            js_device = Object.new()
-                            js_device.id = device.get("id")
-                            js_device.name = device.get("name")
-                            js_device.type = device.get("type")
-                            js_device.rssi = device.get("rssi")
-                            js_device.signal = device.get("signal")
-                            js_device.battery = device.get("battery")
-                            js_devices.append(js_device)
-                        window.onDevicesUpdated(js_devices)
-                        console.log("Fixed JSON processed successfully")
-            except Exception as fix_error:
-                console.log(f"Failed to fix JSON: {fix_error}")
+            devices.append({
+                "id": dev.get("id"),
+                "name": dev.get("id"),
+                "type": "module",
+                "rssi": rssi,
+                "signal": signal,
+                "battery": battery
+            })
+        
+        # Call JavaScript directly
+        if hasattr(window, 'onDevicesUpdated'):
+            console.log("Python: Calling onDevicesUpdated directly")
+            console.log(f"Devices to send: {devices}")
+            # Convert Python list to JavaScript array
+            js_devices = []
+            for device in devices:
+                js_device = Object.new()
+                js_device.id = device.get("id")
+                js_device.name = device.get("name")
+                js_device.type = device.get("type")
+                js_device.rssi = device.get("rssi")
+                js_device.signal = device.get("signal")
+                js_device.battery = device.get("battery")
+                js_devices.append(js_device)
+            console.log(f"Created {len(js_devices)} JS devices")
+            window.onDevicesUpdated(js_devices)
+            console.log("onDevicesUpdated called successfully")
+        else:
+            console.log("Python: onDevicesUpdated not available")
+        
+        console.log(f"Updated {len(devices)} devices from hub")
+    else:
+        console.log(f"Unknown message type: {parsed.get('type')}")
 
 # Set the callback for BLE data
 ble.on_data_callback = on_ble_data
@@ -280,24 +258,16 @@ async def connect_hub():
             hub_device_name = ble.device.name
             console.log(f"Connected to hub: {hub_device_name}")
             
-            # Dispatch event to JavaScript - try direct function call first
-            event_data = {"deviceName": hub_device_name}
-            console.log(f"Python: Creating BLE connected event with data: {event_data}")
-            
-            # Try direct function call if available
+            # Call JavaScript directly
             if hasattr(window, 'onBLEConnected'):
                 console.log("Python: Calling onBLEConnected directly")
                 # Create proper JavaScript object
                 js_data = Object.new()
                 js_data.deviceName = hub_device_name
                 window.onBLEConnected(js_data)
+                console.log("Python: BLE connected callback called")
             else:
-                console.log("Python: onBLEConnected not available, using event dispatch")
-                event = CustomEvent.new("py-ble-connected", {
-                    "detail": event_data
-                })
-                window.dispatchEvent(event)
-            console.log("Python: BLE connected event dispatched")
+                console.log("Python: onBLEConnected not available")
             
             # Return proper JavaScript object
             js_result = Object.new()
@@ -342,14 +312,12 @@ async def disconnect_hub():
     ble_connected = False
     hub_device_name = None
     
-    # Dispatch event to JavaScript - try direct function call first
+    # Call JavaScript directly
     if hasattr(window, 'onBLEDisconnected'):
         console.log("Python: Calling onBLEDisconnected directly")
         window.onBLEDisconnected()
     else:
-        console.log("Python: onBLEDisconnected not available, using event dispatch")
-        event = CustomEvent.new("py-ble-disconnected", {"detail": {}})
-        window.dispatchEvent(event)
+        console.log("Python: onBLEDisconnected not available")
     
     js_result = Object.new()
     js_result.status = "disconnected"
@@ -414,11 +382,27 @@ async def send_command_to_hub(command, rssi_threshold="all"):
     return js_result
 
 def get_connection_status():
-    """Get current BLE connection status"""
-    return {
-        "connected": ble_connected,
-        "device": hub_device_name
-    }
+    """Get current BLE connection status - Python is source of truth"""
+    # Check actual BLE connection status, not stored variable
+    actual_connected = ble.is_connected()
+    
+    # Convert None to False for JavaScript compatibility
+    # ble.is_connected() can return None, True, or False
+    # JavaScript needs explicit True/False, not None (which becomes undefined)
+    actual_connected_bool = bool(actual_connected) if actual_connected is not None else False
+    
+    # Update stored variable to match reality
+    global ble_connected
+    if actual_connected_bool != ble_connected:
+        console.log(f"BLE state mismatch: stored={ble_connected}, actual={actual_connected_bool}")
+        ble_connected = actual_connected_bool
+    
+    # Return proper JavaScript object
+    js_result = Object.new()
+    js_result.connected = actual_connected_bool
+    # Use empty string instead of None to avoid undefined in JavaScript
+    js_result.device = hub_device_name if (actual_connected_bool and hub_device_name) else ""
+    return js_result
 
 async def refresh_devices_from_hub():
     """Request device list from hub via BLE"""
@@ -433,106 +417,71 @@ async def refresh_devices_from_hub():
     await ble.send('"PING":"all"')
     
     # Wait for response (hub should send back device list)
-    # This requires implementing a response parser in on_ble_data callback
-    # For now, keep mock data structure
+    # The response will be handled by on_ble_data callback
+    # which will update the global devices list
     
     console.log(f"Device scan requested from hub")
-    return devices  # Will be updated by incoming BLE data
+    
+    # Convert Python list to JavaScript array
+    js_devices = []
+    for device in devices:
+        js_device = Object.new()
+        js_device.id = device.get("id")
+        js_device.name = device.get("name")
+        js_device.type = device.get("type")
+        js_device.rssi = device.get("rssi")
+        js_device.signal = device.get("signal")
+        js_device.battery = device.get("battery")
+        js_devices.append(js_device)
+    return js_devices
 
 # Legacy functions (for compatibility)
 def get_devices():
     """Return list of available devices"""
     console.log("Python: get_devices called")
-    return devices
+    # Convert Python list to JavaScript array
+    js_devices = []
+    for device in devices:
+        js_device = Object.new()
+        js_device.id = device.get("id")
+        js_device.name = device.get("name")
+        js_device.type = device.get("type")
+        js_device.rssi = device.get("rssi")
+        js_device.signal = device.get("signal")
+        js_device.battery = device.get("battery")
+        js_devices.append(js_device)
+    return js_devices
 
 def refresh_devices():
-    """Refresh device list - now uses BLE if connected"""
+    """Refresh device list - requires BLE connection"""
     console.log("Python: refresh_devices called")
     
-    if ble_connected:
+    if ble.is_connected():
         # Use BLE to get real device list
         return refresh_devices_from_hub()
     else:
-        # Return mock data if not connected
-        console.log("Hub not connected, returning mock data")
-        return devices
+        # Return empty list if not connected
+        console.log("Hub not connected, returning empty device list")
+        return []
 
 def send_command(command, device_ids):
-    """Send command to specific devices - now uses BLE if connected"""
+    """Send command to specific devices - requires BLE connection"""
     console.log(f"Python: Sending '{command}' to {len(device_ids)} devices")
     
-    if ble_connected:
+    if ble.is_connected():
         # Use BLE to send command to hub
         # Convert range slider to RSSI threshold (this will be done in JS)
         rssi_threshold = "all"  # Default to all
         return send_command_to_hub(command, rssi_threshold)
     else:
-        # Mock response if not connected
-        event_data = {
-            "command": command,
-            "devices": device_ids,
-            "status": "sent"
-        }
-        
-        event = CustomEvent.new("py-message-sent", {"detail": event_data})
-        window.dispatchEvent(event)
-        
-        return {"status": "success", "sent_to": len(device_ids)}
+        # Return error if not connected
+        js_result = Object.new()
+        js_result.status = "error"
+        js_result.error = "Not connected to hub"
+        return js_result
 
 
-# Set up event listener for JS calls
-async def handle_py_call(event):
-    """Handle function calls from JavaScript"""
-    console.log("===== Python: Event handler triggered =====")
-    detail = event.detail.to_py()  # Convert JS object to Python dict
-    function_name = detail.get('function')
-    args_json = detail.get('args', '[]')
-    callback_name = detail.get('callback')
-    
-    # Parse JSON args
-    args = json.loads(args_json) if isinstance(args_json, str) else args_json
-    
-    console.log(f"Python: function={function_name}, callback={callback_name}, args={args}")
-    
-    # Call the appropriate function
-    result = None
-    if function_name == 'get_devices':
-        result = get_devices()
-    elif function_name == 'refresh_devices':
-        result = refresh_devices()
-    elif function_name == 'send_command':
-        result = send_command(*args)
-    elif function_name == 'connect_hub':
-        result = await connect_hub()
-    elif function_name == 'disconnect_hub':
-        result = await disconnect_hub()
-    elif function_name == 'send_command_to_hub':
-        result = await send_command_to_hub(*args)
-    elif function_name == 'get_connection_status':
-        result = get_connection_status()
-    else:
-        console.log(f"Python: ERROR - Unknown function: {function_name}")
-    
-    console.log(f"Python: Result ready, type={type(result).__name__}, len={len(result) if isinstance(result, list) else 'N/A'}")
-    
-    # Call back to JavaScript with result
-    if callback_name:
-        console.log(f"Python: Calling window['{callback_name}']...")
-        callback = getattr(window, callback_name, None)
-        if callback:
-            callback(result)
-            console.log(f"Python: Callback invoked successfully")
-        else:
-            console.log(f"Python: ERROR - Callback '{callback_name}' not found!")
-    else:
-        console.log("Python: ERROR - No callback provided!")
-
-
-# Register event listener with proxy to prevent garbage collection
-# Store proxy globally to prevent garbage collection
-global proxy_handler
-proxy_handler = create_proxy(handle_py_call)
-window.addEventListener('py-call', proxy_handler)
+# Direct function calls only - no event system needed
 
 # Expose functions directly to global scope - simplified approach
 # Use create_proxy only for async functions to prevent garbage collection
@@ -543,8 +492,6 @@ window.disconnect_hub = create_proxy(disconnect_hub)
 window.send_command_to_hub = create_proxy(send_command_to_hub)
 window.refresh_devices = create_proxy(refresh_devices)
 
-# Dispatch ready event to JavaScript
-ready_event = CustomEvent.new("py-ready", {"detail": {}})
-window.dispatchEvent(ready_event)
+# Python backend is ready
 
 console.log("Python backend initialized!")

@@ -22,7 +22,7 @@ This is the **demo version** of the Smart Playground Control application. It pro
 
 ## 🔧 Technical Details
 
-### What's Different from Production Version
+### What's Different from MVP Prototype Version
 
 - **Python Backend**: Uses `main.py` with demo mode simulation instead of BLE connections
 - **JavaScript State**: Always shows as "connected" with "Demo Hub"
@@ -54,13 +54,13 @@ This is the **demo version** of the Smart Playground Control application. It pro
 - **Training**: User training without risk of real device interference
 - **Presentations**: Clean demo environment for presentations
 
-## 🔄 Switching to Production
+## 🔄 Switching to MVP Prototype
 
 To use the real app with actual Bluetooth hardware:
 
 1. Use the files in the main `app/` directory (not `app_mock_data/`)
 2. Ensure you have Bluetooth-enabled devices
-3. Follow the production setup instructions in the main README
+3. Follow the MVP Prototype setup instructions in the main README
 
 ## 📱 Browser Compatibility
 

@@ -126,10 +126,7 @@ const PyBridge = {
     }
   },
 
-  // Event listeners for Python events
-  on(eventName, callback) {
-    window.addEventListener(`py-${eventName}`, (e) => callback(e.detail));
-  }
+  // Direct function calls only - no event system needed
 };
 
 // Make PyBridge available globally and as export

@@ -6,6 +6,40 @@
 # - No USB serial input required
 # - Automatically reconnects on BLE disconnection
 # - Continuous operation without user intervention
+#
+# =============================================================================
+# BLE & GATT CONCEPTS FOR BEGINNERS:
+# =============================================================================
+# 
+# BLE (Bluetooth Low Energy):
+# - Wireless protocol designed for low power consumption
+# - Devices advertise their presence and services
+# - Central device (web browser) connects to Peripheral device (this ESP32)
+#
+# GATT (Generic Attribute Profile):
+# - Defines how BLE devices exchange data
+# - Organizes data into Services → Characteristics → Values
+# - Like a file system: Service = folder, Characteristic = file
+#
+# Nordic UART Service (NUS):
+# - Standard BLE service that emulates a serial/UART connection
+# - Service UUID: 6E400001-B5A3-F393-E0A9-E50E24DCCA9E
+# - Two characteristics:
+#   * RX (6E400002...): Central writes commands → Peripheral reads (web → ESP32)
+#   * TX (6E400003...): Peripheral sends data → Central reads (ESP32 → web)
+#
+# Data Flow in this application:
+# 1. ESP32 advertises "SPHub" name with Nordic UART service
+# 2. Web browser scans for devices and connects to ESP32
+# 3. Browser writes commands to RX characteristic (e.g., "PING":"all")
+# 4. ESP32's handle_cmd() processes the command
+# 5. ESP32 sends responses via TX characteristic using p.send()
+# 6. Browser receives notifications and updates UI
+#
+# CRITICAL: All data sent via BLE UART must be BYTES, not strings!
+# - Use .encode() to convert strings: "hello".encode() → b"hello"
+# - Use b'...' for literals: b'{"status":"ok"}'
+# =============================================================================
 
 import network
 import time
@@ -40,6 +74,11 @@ print("ESP-NOW setup (placeholder - no modules connected)")
 # print("ESP-NOW initialized with broadcast peer")
 
 # === BLE UART SETUP ===
+# Yell is a BLE Peripheral (server) class from ble_uart.py
+# It creates a GATT server with Nordic UART Service
+# - Automatically registers the service and characteristics
+# - Sets up interrupt handlers for connection events
+# - Provides send() method to transmit data to connected central device
 print("Initializing BLE UART service...")
 p = Yell(HUB_NAME, verbose=True)
 print(f"BLE advertising as '{HUB_NAME}'")
@@ -60,10 +99,21 @@ mock_devices = [
 def parse_web_command(command_str):
     """
     Parse commands from web app in format: "command":"rssi_threshold"
+    
+    BLE UART receives data as bytes, but we work with strings after decoding.
+    The web app sends commands in a simple JSON-like format without outer braces.
+    
     Examples:
     - "PING":"all" -> scan all devices
     - "COLOR BASED GROUP":"-60" -> send to devices with RSSI >= -60
     - "BATTERY CHECK":"all" -> check battery on all devices
+    
+    RSSI (Received Signal Strength Indicator):
+    - Measured in dBm (negative numbers)
+    - -30 dBm = very close (excellent signal)
+    - -60 dBm = moderate distance (good signal)
+    - -90 dBm = far away (weak signal)
+    - "all" = no filtering, send to all devices
     """
     try:
         # Remove any whitespace and newlines
@@ -200,7 +250,16 @@ def handle_ping_command(rssi_threshold="all"):
     
     try:
         print(f"DEBUG: Sending device list, p.is_connected: {p.is_connected}")
-        p.send(json.dumps(device_list_response))
+        
+        # CRITICAL: BLE UART p.send() requires BYTES, not strings!
+        # The underlying GATT gatts_notify() function only accepts bytes.
+        # We must:
+        # 1. Convert Python dict to JSON string with json.dumps()
+        # 2. Encode the string to bytes with .encode()
+        # Without encoding, the data will be corrupted or transmission will fail.
+        response_json = json.dumps(device_list_response)
+        p.send(response_json.encode())
+        
         print("Sent device list to web app")
     except Exception as e:
         print(f"Error sending device list: {e}")
@@ -222,9 +281,9 @@ def handle_ble_command(command_str):
     elif command == "BATTERY CHECK":
         print("Battery check requested (PLACEHOLDER)")
         send_espnow_command("BATTERY CHECK", threshold)
-        # Send acknowledgment
+        # Send acknowledgment - must encode to bytes for BLE UART
         try:
-            p.send('{"type":"ack","command":"BATTERY CHECK","status":"sent"}')
+            p.send(b'{"type":"ack","command":"BATTERY CHECK","status":"sent"}')
         except:
             pass
             
@@ -232,25 +291,42 @@ def handle_ble_command(command_str):
         print(f"Game command: {command} (PLACEHOLDER)")
         success = send_espnow_command(command, threshold)
         
-        # Send acknowledgment
+        # Send acknowledgment - must encode to bytes for BLE UART
         try:
             ack_msg = '{"type":"ack","command":"' + command + '","status":"' + ("sent" if success else "failed") + '"}'
-            p.send(ack_msg)
+            p.send(ack_msg.encode())
         except:
             pass
             
     else:
         print(f"Unknown command: {command}")
-        # Send error response
+        # Send error response - must encode to bytes for BLE UART
         try:
             error_msg = '{"type":"error","message":"Unknown command: ' + command + '"}'
-            p.send(error_msg)
+            p.send(error_msg.encode())
         except:
             pass
 
 def handle_cmd(chunk):
     """
-    BLE UART command handler - processes incoming commands from web app
+    BLE UART command handler - processes incoming commands from web app.
+    
+    HOW THIS WORKS (BLE Peripheral perspective):
+    1. Web browser writes data to RX characteristic (6E400002...)
+    2. BLE stack triggers IRQ_GATTS_WRITE interrupt
+    3. ble_uart.py's _irq() handler calls this callback function
+    4. This function receives the raw bytes written by the browser
+    
+    IMPORTANT PATTERNS:
+    - Data arrives as bytes (chunk parameter)
+    - Data may arrive in fragments (partial messages)
+    - We buffer incomplete messages until newline (\n) received
+    - Must decode bytes to string before processing
+    
+    COMMON ISSUES:
+    - If chunk is None/empty, ignore it (connection event, not data)
+    - Always check if data is complete before processing
+    - Handle decode errors gracefully (invalid UTF-8)
     """
     global _rxbuf
     print(f"DEBUG: handle_cmd called with chunk: {chunk}")
@@ -260,14 +336,24 @@ def handle_cmd(chunk):
     if not chunk:
         return
     
-    # Add to buffer
+    # Buffer overflow protection - prevent memory exhaustion from malformed data
+    # If buffer would exceed limit, clear it and start fresh
+    # Normal commands should be < 100 bytes, 1KB is very generous
+    if len(_rxbuf) + len(chunk) > MAX_BUFFER_SIZE:
+        print(f"WARNING: RX buffer overflow ({len(_rxbuf)} + {len(chunk)} > {MAX_BUFFER_SIZE}), clearing")
+        _rxbuf = b""
+    
+    # Buffer incoming data - commands may arrive in multiple chunks
+    # Replace \r with \n to normalize line endings (cross-platform compatibility)
     _rxbuf += chunk.replace(b"\r", b"\n")
     
-    # Process complete lines
+    # Process complete lines (delimited by \n)
+    # Commands from web app are terminated with newline
     while b"\n" in _rxbuf:
         line, _, _rxbuf = _rxbuf.partition(b"\n")
         if line.strip():
             try:
+                # Decode bytes to string for processing
                 command = line.decode().strip()
                 print(f"DEBUG: Processing command: {command}")
                 handle_ble_command(command)
@@ -275,9 +361,15 @@ def handle_cmd(chunk):
                 print(f"Command handler error: {e}")
 
 # === INITIALIZATION ===
+# Buffer for incoming BLE data - commands may arrive fragmented
+# MUST be bytes (b""), not string ("")
 _rxbuf = b""
+MAX_BUFFER_SIZE = 1024  # Max 1KB for command buffer (prevents memory exhaustion)
 
 # Set up BLE command handler (using working pattern)
+# This registers our handle_cmd function to be called when data arrives
+# The ble_uart.Yell class calls this callback from its IRQ handler
+# when the central device (browser) writes to the RX characteristic
 p._write_callback = handle_cmd
 
 print("Hub initialization complete!")
@@ -316,34 +408,55 @@ print(f"Hub name: {HUB_NAME}")
 print(f"BLE object: {p}")
 print("Hub should now be visible in Bluetooth scan...")
 
-# Start advertising
+# Start advertising - makes this device visible to BLE scanners
+# The ble_uart.Yell class handles:
+# - Building advertisement packet with device name and service UUIDs
+# - Starting GATT server with Nordic UART service
+# - Setting up interrupt handlers for connection events
 p.advertise()
 
+# === MAIN EVENT LOOP ===
+# BLE operates on an interrupt-driven model:
+# - Connection events trigger IRQ handlers in ble_uart.py
+# - Data writes trigger our handle_cmd() callback
+# - This loop handles housekeeping and connection recovery
+#
+# IMPORTANT: Do NOT block or use long delays here!
+# - Blocking prevents BLE interrupts from being processed
+# - Keep delays short (100ms max) to maintain responsiveness
+# - Heavy processing should be done in callbacks, not here
+
 while True:
-    time.sleep(0.1)  # Check more frequently
+    time.sleep(0.1)  # Short sleep to prevent CPU spinning
     
     current_time = time.time()
     
-    # Check for BLE connection
+    # Monitor BLE connection state
+    # p.is_connected is updated by ble_uart.py IRQ handlers:
+    # - Set to True on IRQ_CENTRAL_CONNECT
+    # - Set to False on IRQ_CENTRAL_DISCONNECT
     if p.is_connected:
-        # Connection is active - process commands
-        if current_time - last_connection_check > 1.0:  # Check every second
+        # Connection is active - commands are processed via handle_cmd() callback
+        # No action needed here, just update timestamp
+        if current_time - last_connection_check > 1.0:
             last_connection_check = current_time
-            # Connection is maintained, continue processing
+            # Connection maintained - callbacks handle all data processing
             pass
     else:
-        # No connection - restart advertising if needed
+        # No connection - ensure we're advertising for new connections
+        # BLE peripheral should auto-restart advertising after disconnect,
+        # but we explicitly restart it here for reliability
         if current_time - last_connection_check > connection_timeout:
             print("Waiting for BLE connection...")
-            # Check if we need to restart advertising
             try:
-                p.advertise()  # Restart advertising
+                p.advertise()  # Make device discoverable again
                 print("Advertising restarted")
             except Exception as e:
                 print(f"Error restarting advertising: {e}")
             last_connection_check = current_time
     
-    # Periodic status updates (every 60 seconds)
+    # Periodic status logging (every 60 seconds)
+    # Helps with debugging and monitoring hub health
     if current_time - last_status_time >= 60:
         if p.is_connected:
             print(f"Hub status: BLE connected, {len(discovered_devices)} devices known (mock data)")
