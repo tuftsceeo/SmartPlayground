@@ -42,8 +42,9 @@ e.active(True)
 peer = b'\xff\xff\xff\xff\xff\xff'   # MAC address of peer's wifi interface
 e.add_peer(peer)
 
-GAME_LUT = {0: "BATTERY CHECK", 1 : "COLOR BASED GROUP", 2: "NUMBER BASED GROUP", 3: "COLOR AND NUMBER",4: "COLOR AND NUMBER",5: "RAINBOW NEAR", 6: "RAINBOW ALL", 7: "TURN OFF NEAR", 8: "TURN OFF ALL"}
+GAME_LUT = {0: "BATTERY CHECK", 1 : "NUMBER BASED COLOR", 2: "TYPE BASED COLOR", 3: "NUMBER BASED NUMBER",4: "THRESHOLD UPDATE",5: "RAINBOW TO NEAR", 6: "RAINBOW TO ALL", 7: "LIGHTS OFF NEAR", 8: "LIGHTS OFF ALL", 9: "SLEEP ALL"}
 
+THRESHOLD = -45
 class ControlBox():
     def __init__(self):
 
@@ -101,17 +102,21 @@ class ControlBox():
 
     def buttonAction(self):
         if self.encoder_value == 0:
-            message  = {"batteryCheck": "please"}
+            message  = {"batteryCheck": {"RSSI": -40, "value": 0}}
         elif self.encoder_value == 5:
-            message = {"rainbow": "please"}
+            message = {"rainbow": {"RSSI": -40, "value": 0}}
         elif self.encoder_value == 6:
-            message = {"shutDown": "please"}
+            message = {"rainbow":  {"RSSI": -90, "value": 0} }
         elif self.encoder_value == 7:
-            message = {"rainbowAll": "please"}
+            message = {"lightOff":  {"RSSI": -40, "value": 0} }
         elif self.encoder_value == 8:
-            message = {"shutDownAll": "please"}
+            message = {"lightOff": {"RSSI": -90, "value": 0}}
+        elif self.encoder_value == 9:
+            message = {"deepSleep": {"RSSI": -90, "value": 0}}
+        elif self.encoder_value == 4:
+            message = {"updateThreshold": {"RSSI": -40, "value": THRESHOLD}}
         else:
-            message = {"updateGame": self.encoder_value}
+            message = {"updateGame": {"RSSI": -40, "value": self.encoder_value}}
         print(message)
         
         e.send(peer, str(message)) # double to make sure

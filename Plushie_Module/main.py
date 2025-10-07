@@ -11,8 +11,7 @@ import game
 import network
 import espnow
 import sys
-
-
+import threshold
 #fuel gauge
 import lc709203f
 
@@ -45,6 +44,7 @@ peer = b'\xff\xff\xff\xff\xff\xff'   # MAC address of peer's wifi interface
 e.add_peer(peer)
 
 
+
 class Plushie():
     def __init__(self):
         #Defining pins
@@ -56,7 +56,7 @@ class Plushie():
         self.button = Pin(0, Pin.IN, Pin.PULL_UP)
         esp32.wake_on_ext1(pins = (self.button,), level = esp32.WAKEUP_ALL_LOW)
 
-        self.RSSIthreshold = - 45
+        self.THRESHOLD_RSSI = threshold.THRESHOLD
      
         self.current_time = 0
         self.old_time = 0
@@ -174,7 +174,8 @@ class Plushie():
             self.GAME_TIME = time.ticks_ms()
            
             #send a lead call claiming your status as a leader
-            message = {"pingCall": self.name} #can be modified to send animal name number whatever you choose
+            message = {"pingCall": {"RSSI": self.THRESHOLD_RSSI, "id": self.name}} #can be modified to send animal name number whatever you choose
+            #print("Ping message", message)
             e.send(peer, str(message))
             time.sleep(0.15)
             e.send(peer, str(message)) # double to make sure
@@ -202,12 +203,12 @@ class Plushie():
             if (self.PINGED and (not self.PONGED)):
                 
                 friends_count = len(s.FRIEND_LIST)
-                message = {"finalCall":{"index": friends_count}}
-
+                message = {"finalCall":{"RSSI": self.THRESHOLD_RSSI, "index": friends_count}}
+                #print("finalCall message", message)
                 for new_friend in self.FRIEND_LIST:
                     e.add_peer(new_friend)
                     e.send(new_friend, str(message))
-                print("Sending %s"% friends_count )
+                #print("Sending %s"% friends_count )
                 self.playGame(friends_count)
   
         
@@ -229,7 +230,7 @@ class Plushie():
     def findandShowBattery(self):
         x = self.readBattery()
         LED_num = int(1 + (x - 1) * 11 / 99)
-        print("percentage", LED_num,x)
+        #print("percentage", LED_num,x)
         self.showBattery(LED_num)
         
         
@@ -295,17 +296,16 @@ class Plushie():
             self.log_collected_color(s.PINGED, s.PONGED, index)
             self.reset()
         elif self.game == 2:
-            print("game 2 ")
+            #print("game 2 ")
             self.reset()
             
         elif self.game == 3:
-            print("game 3")
+            #print("game 3")
             self.reset()
             
         elif self.game == 4:
-            print("game 4")
+            #print("game 4")
             self.reset()
-        
         
         
     
@@ -313,7 +313,8 @@ class Plushie():
         machine.deepsleep()
         
     def __del__(self):
-        print("deleted")
+        pass
+        #print("deleted")
         
     def bytearray_to_numbers(self, byte_arr):
         str_data = byte_arr.decode('utf-8')
@@ -326,7 +327,8 @@ try:
     del s
     
 except:
-    print("doesn't exist")
+    pass
+    #print("doesn't exist")
     
     
 s= Plushie()
@@ -336,36 +338,46 @@ def recv_cb(e):
         mac, msg = e.irecv(0)  # Don't wait if no messages left
         if mac is None:
             return
-        #print(e.peers_table)
+        ##print(e.peers_table)
         
-        receivedMessage = eval(msg.decode('utf-8')) 
-        
-        
-        # the message from control panel should be
-        # message = {"updateGame": 1}}
-                # only for the close modules
-                
-              
-        for key in receivedMessage: # no RSSI filter for messages for all plushies        
-            if (key == "rainbowAll"): # Rainbow
-                s.showRainbow()
-                
-                
-            elif (key == "shutDownAll"): # turnOff
-                s.turnoff()
-                    
-                    
-        if(e.peers_table[mac][0] > s.RSSIthreshold): #make sure the RSSI value you are comparing is from the button you got the message from         
+        receivedMessage = eval(msg.decode('utf-8'))
 
-            for key in receivedMessage:
-                if (key == "updateGame"): # updateGame
+        #print(receivedMessage)
+           
+        for key in receivedMessage: 
+            #print(receivedMessage[key]["RSSI"])
+            #print(type(receivedMessage[key]["RSSI"]))
+            
+            
+            #print(e.peers_table[mac][0], receivedMessage[key])
+            if (key == "rainbow"): # Rainbow
+                if(e.peers_table[mac][0] > receivedMessage[key]["RSSI"]):
+                    s.showRainbow()
+            elif(key == "lightOff"): # Light off
+                if(e.peers_table[mac][0] > receivedMessage[key]["RSSI"]):
+                    s.turnoff()
+            elif(key == "deepSleep"):
+                if(e.peers_table[mac][0] > receivedMessage[key]["RSSI"]):
+                    #print("deepsleep")
+                    s.animate((50,0,0),repeat = 1, timeout = 1) #deepsleep
+                    machine.deepsleep()
+            elif (key == "batteryCheck"): # batteryCheck
+                if(e.peers_table[mac][0] > receivedMessage[key]["RSSI"]):
+                    s.findandShowBattery()
+
+                  
                     
-                    print("updating game", receivedMessage["updateGame"])
+         #make sure the RSSI value you are comparing is from the button you got the message from         
+
+
+            elif (key == "updateGame"): # updateGame
+                if(e.peers_table[mac][0] > receivedMessage[key]["RSSI"]):
+                    ##print("updating game", receivedMessage[key]["game"])
                     f = open("game.py","w")
-                    f.write(f'game = {receivedMessage["updateGame"]}')
+                    f.write(f'game = {receivedMessage[key]["value"]}')
                     f.close()
 
-                    print("received")
+                    ##print("received")
                     if 'game' in sys.modules:
                         del sys.modules['game']
 
@@ -373,28 +385,42 @@ def recv_cb(e):
                         s.game = game.game
                         
                     s.animate((0,50,0), timeout = 0.2)
+        
+            elif (key == "updateThreshold"): # updateThreshold
+                if(e.peers_table[mac][0] > receivedMessage[key]["RSSI"]):
+                    ##print("updating game", receivedMessage[key]["game"])
+                    f = open("threshold.py","w")
+                    f.write(f'THRESHOLD = {receivedMessage[key]["value"]}')
+                    f.close()
+
+                    ##print("received")
+                    if 'threshold' in sys.modules:
+                        del sys.modules['threshold']
+
+                        import threshold
+                        s.THRESHOLD_RSSI = threshold.THRESHOLD
                         
-                elif (key == "batteryCheck"): # batteryCheck
-                    print("checkingBattery")
+                    s.animate((0,50,0), timeout = 0.2)
+                        
+                        
+                        
+            elif (key == "batteryCheck"): # batteryCheck
+                if(e.peers_table[mac][0] > receivedMessage[key]["RSSI"]):
                     s.findandShowBattery()
 
-                                    
-                elif (key == "rainbow"): # Rainbow
-                    s.showRainbow()
-                
-                
-                elif (key == "shutDown"): # turnOff
-                    s.turnoff() 
 
 
-                # RECEIVERS - FOR PLUSHIES RECEIVING the first call 
-                elif (key == "pingCall"): 
+            # RECEIVERS - FOR PLUSHIES RECEIVING the first call 
+            elif (key == "pingCall"):
+                #print("Received ping")
+                if(e.peers_table[mac][0] > receivedMessage[key]["RSSI"]):
                     #start by reseting everything (leaders can be overridden by receivers if they press the button
                     s.reset()
                      
-                    print("Ping is - %s"% (receivedMessage["pingCall"]))
+                    #print("Ping is - %s"% (receivedMessage[key]["id"]))
                     #send out PONG message
-                    message = {"pongCall": s.name} # this could be animal name etc.
+                    message = {"pongCall": {"RSSI": s.THRESHOLD_RSSI, "id": s.name}} # this could be animal name etc.
+                    #print("Ponged call", message)
                     e.send(peer, str(message))
                     
                 
@@ -403,32 +429,32 @@ def recv_cb(e):
                     s.PONGED = True
                    
             
-                #  LEADERS - FOR PLUSHIES WHO INITIATED PING PONG
-                elif (key == "pongCall"):
-                    
-                    # Only if you have pinged and your Leadership has not been revoked
+            #  LEADERS - FOR PLUSHIES WHO INITIATED PING PONG
+            elif (key == "pongCall"):
+                if(e.peers_table[mac][0] > receivedMessage[key]["RSSI"]):
+                    #print("received Pong")
+                    # Only if you have pinged and your Leadership status has not been revoked
                     if s.PINGED == True:
                         # Only add folks to the list who haven't already been added
                         if not mac in s.FRIEND_LIST:
-                            print("Leading - %s"% (receivedMessage["pongCall"]))
+                            #print("Leading - %s"% (receivedMessage[key]["id"]))
                             s.FRIEND_LIST.append(mac)  
                         else:
                             pass
        
-                # RECEIVERS - This is the last message from LEADERs to set the color
-                elif (key == "finalCall"): 
+            # RECEIVERS - This is the last message from LEADERs to set the color
+            elif (key == "finalCall"):
+                if(e.peers_table[mac][0] > receivedMessage[key]["RSSI"]):
                     # Only if you are a receiver
                     if(s.PONGED == True):
-                        print("Final call for %s"%(receivedMessage["finalCall"]["index"]))
+                        #print("Final call for %s"%(receivedMessage[key]["index"]))
                         # parse the color value from the message
-                        index = receivedMessage["finalCall"]["index"]
+                        index = receivedMessage[key]["index"]
                         s.playGame(index)
 
  
- 
+
 e.irq(recv_cb)
-
-
 
 #GAME 1
 # There will be one leader who initaes the communication with a ping
