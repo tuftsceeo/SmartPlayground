@@ -169,8 +169,9 @@ Browser Requirements:
     </style>
 </head>
 <body>
-    <!-- Python Backend -->
-    <script type="py" src="main.py" config="pyscript.toml"></script>
+    <!-- Python Backend with cache-busting -->
+    <!-- Version: v2.2 - Message Framing Protocol (Fixed proxy lifetime) -->
+    <script type="py" src="main.py?v=2.2" config="pyscript.toml"></script>
     
     <!-- React Root -->
     <div id="root"></div>

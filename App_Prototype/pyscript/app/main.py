@@ -27,8 +27,8 @@ Dependencies:
 """
 
 from pyscript import document, window
-from pyodide.ffi import create_proxy
-from js import console, Object
+from pyodide.ffi import create_proxy, to_js
+from js import console, Object, Array
 import json
 import random
 import time
@@ -44,6 +44,15 @@ hub_device_name = None
 
 # Device data (will be updated via BLE from hub)
 devices = []
+
+# Message framing state for BLE transmission reassembly
+# Protocol: MSG:<length>|<payload>
+_frame_state = "waiting_header"  # States: "waiting_header", "receiving_payload"
+_expected_payload_length = 0
+_payload_buffer = ""
+_frame_buffer = ""  # Buffer for header parsing
+_last_fragment_time = 0
+_buffer_timeout = 2.0  # 2 second timeout for message completion
 
 def parse_hub_response(data):
     """
@@ -88,47 +97,21 @@ def parse_hub_response(data):
         else:
             return None
 
-def on_ble_data(data):
+def process_complete_message(message_data):
     """
-    Handle incoming data from ESP32 hub via BLE notifications.
+    Process a complete message received from the hub.
     
-    This function processes JSON responses from the hub containing device lists,
-    status updates, and other system information. It performs data parsing,
-    format conversion, and state updates for the JavaScript frontend.
-    
-    Parameters:
-    -----------
-    data : str
-        Raw string data received from BLE notification, typically JSON format
-        Expected format: {"type": "devices", "list": [{"id": "...", "rssi": -50, "battery": 75}, ...]}
-    
-    Processing Steps:
-    1. Parse JSON data from hub using parse_hub_response()
-    2. Validate required fields (type, list)
-    3. Handle device list updates (type: "devices")
-    4. Convert RSSI values to signal strength bars (0-3)
-    5. Convert battery percentages to level categories (low/medium/high/full)
-    6. Format data for JavaScript consumption
-    7. Dispatch updates to frontend via direct function calls
-    
-    Error Handling:
-    - Uses centralized JSON parsing with single repair attempt
-    - Logs parsing failures for debugging
-    - Validates data before processing
-    - Gracefully continues operation on parse failures
-    
-    Output:
-    -------
-    Updates global 'devices' list and notifies JavaScript frontend
+    This is called once we've reassembled a complete framed message.
+    It parses the JSON and updates the UI accordingly.
     """
     global devices
-    console.log(f"=== BLE DATA RECEIVED ===")
-    console.log(f"BLE Data: {data}")
-    console.log(f"Data type: {type(data)}")
-    console.log(f"Data length: {len(data) if hasattr(data, '__len__') else 'N/A'}")
+    
+    console.log("=== PROCESSING COMPLETE MESSAGE ===")
+    console.log(f"Message length: {len(message_data)}")
+    console.log(f"Message: {message_data}")
     
     # Parse JSON using centralized function
-    parsed = parse_hub_response(data)
+    parsed = parse_hub_response(message_data)
     if not parsed:
         console.log("Failed to parse hub data - skipping")
         return
@@ -138,6 +121,7 @@ def on_ble_data(data):
         console.log("Missing 'type' field in hub response")
         return
     
+    # Handle different message types
     if parsed.get("type") == "devices":
         console.log("Found devices type - processing device list")
         
@@ -189,18 +173,12 @@ def on_ble_data(data):
         if hasattr(window, 'onDevicesUpdated'):
             console.log("Python: Calling onDevicesUpdated directly")
             console.log(f"Devices to send: {devices}")
-            # Convert Python list to JavaScript array
-            js_devices = []
-            for device in devices:
-                js_device = Object.new()
-                js_device.id = device.get("id")
-                js_device.name = device.get("name")
-                js_device.type = device.get("type")
-                js_device.rssi = device.get("rssi")
-                js_device.signal = device.get("signal")
-                js_device.battery = device.get("battery")
-                js_devices.append(js_device)
-            console.log(f"Created {len(js_devices)} JS devices")
+            
+            # Convert Python list to JavaScript array using to_js()
+            # This creates proper JavaScript objects that won't be garbage collected
+            js_devices = to_js(devices, dict_converter=Object.fromEntries)
+            
+            console.log(f"Converted to JS: {len(devices)} devices")
             window.onDevicesUpdated(js_devices)
             console.log("onDevicesUpdated called successfully")
         else:
@@ -209,6 +187,136 @@ def on_ble_data(data):
         console.log(f"Updated {len(devices)} devices from hub")
     else:
         console.log(f"Unknown message type: {parsed.get('type')}")
+
+def on_ble_data(data):
+    """
+    Handle incoming BLE data with message framing protocol.
+    
+    Message Framing Protocol:
+    -------------------------
+    Format: MSG:<length>|<payload>
+    
+    Example:
+    - Fragment 1: "MSG:330|"  (header indicating 330 bytes follow)
+    - Fragment 2-N: Payload chunks (100 bytes each typically)
+    
+    State Machine:
+    1. waiting_header: Looking for "MSG:<length>|" header
+    2. receiving_payload: Accumulating payload bytes until we have <length> bytes
+    
+    This approach is much more robust than trying to detect JSON completeness,
+    as it explicitly tells us how many bytes to expect.
+    
+    Parameters:
+    -----------
+    data : str
+        Raw string fragment from BLE notification
+    """
+    global _frame_state, _expected_payload_length, _payload_buffer, _frame_buffer, _last_fragment_time
+    
+    console.log(f"=== BLE FRAGMENT v2.0 (FRAMED) ===")
+    console.log(f"State: {_frame_state}")
+    console.log(f"Fragment: {data[:50]}{'...' if len(data) > 50 else ''}")
+    console.log(f"Fragment length: {len(data)}")
+    
+    # Timeout handling
+    current_time = time.time()
+    if _frame_buffer or _payload_buffer:
+        if (current_time - _last_fragment_time) > _buffer_timeout:
+            console.log(f"TIMEOUT: Resetting frame state (no data for {_buffer_timeout}s)")
+            _frame_state = "waiting_header"
+            _frame_buffer = ""
+            _payload_buffer = ""
+            _expected_payload_length = 0
+    
+    _last_fragment_time = current_time
+    
+    # State machine for framed message reception
+    # Track if we just transitioned states in this call
+    state_changed = False
+    
+    if _frame_state == "waiting_header":
+        # Accumulate data until we find the header
+        _frame_buffer += data
+        
+        # Look for frame header: MSG:<length>|
+        if "MSG:" in _frame_buffer and "|" in _frame_buffer:
+            # Extract header
+            header_start = _frame_buffer.index("MSG:")
+            header_end = _frame_buffer.index("|", header_start)
+            
+            # Parse length from header
+            try:
+                length_str = _frame_buffer[header_start + 4:header_end]
+                _expected_payload_length = int(length_str)
+                console.log(f"HEADER RECEIVED: Expecting {_expected_payload_length} bytes of payload")
+                
+                # Any data after the "|" is the start of the payload
+                payload_start = header_end + 1
+                _payload_buffer = _frame_buffer[payload_start:]
+                _frame_buffer = ""
+                
+                # Transition to receiving payload state
+                _frame_state = "receiving_payload"
+                state_changed = True  # Mark that we just transitioned
+                console.log(f"State -> receiving_payload (already have {len(_payload_buffer)} bytes)")
+                
+                # Check if header fragment contained complete payload
+                if len(_payload_buffer) >= _expected_payload_length:
+                    # Complete message was in header fragment!
+                    complete_payload = _payload_buffer[:_expected_payload_length]
+                    console.log(f"PAYLOAD COMPLETE: {len(complete_payload)} bytes received (in header fragment)")
+                    console.log(f"Processing complete framed message...")
+                    
+                    # Process the complete message
+                    process_complete_message(complete_payload)
+                    
+                    # Reset state for next message
+                    _frame_state = "waiting_header"
+                    _payload_buffer = ""
+                    _frame_buffer = ""
+                    _expected_payload_length = 0
+                    console.log("State -> waiting_header (ready for next message)")
+                    return
+                
+            except (ValueError, IndexError) as e:
+                console.log(f"ERROR: Failed to parse header: {e}")
+                console.log(f"Header buffer: {_frame_buffer}")
+                _frame_buffer = ""
+                return
+        else:
+            console.log(f"Still waiting for header (buffer: {len(_frame_buffer)} bytes)")
+            return
+    
+    # Only process payload if we're already in receiving_payload state 
+    # (not if we just transitioned to it in this same call)
+    if _frame_state == "receiving_payload" and not state_changed:
+        # Add new fragment to payload buffer
+        _payload_buffer += data
+        
+        console.log(f"Payload progress: {len(_payload_buffer)}/{_expected_payload_length} bytes")
+        
+        # Check if we have the complete payload
+        if len(_payload_buffer) >= _expected_payload_length:
+            # Extract exact payload (trim any extra data)
+            complete_payload = _payload_buffer[:_expected_payload_length]
+            
+            console.log(f"PAYLOAD COMPLETE: {len(complete_payload)} bytes received")
+            console.log(f"Processing complete framed message...")
+            
+            # Process the complete message
+            process_complete_message(complete_payload)
+            
+            # Reset state for next message
+            _frame_state = "waiting_header"
+            _payload_buffer = ""
+            _frame_buffer = ""
+            _expected_payload_length = 0
+            
+            console.log("State -> waiting_header (ready for next message)")
+        else:
+            console.log(f"Waiting for more payload ({_expected_payload_length - len(_payload_buffer)} bytes remaining)")
+
 
 # Set the callback for BLE data
 ble.on_data_callback = on_ble_data
@@ -408,7 +516,7 @@ async def refresh_devices_from_hub():
     """Request device list from hub via BLE"""
     if not ble.is_connected():
         console.log("Cannot refresh: Hub not connected")
-        return []
+        return to_js([])
     
     global devices
     
@@ -422,35 +530,15 @@ async def refresh_devices_from_hub():
     
     console.log(f"Device scan requested from hub")
     
-    # Convert Python list to JavaScript array
-    js_devices = []
-    for device in devices:
-        js_device = Object.new()
-        js_device.id = device.get("id")
-        js_device.name = device.get("name")
-        js_device.type = device.get("type")
-        js_device.rssi = device.get("rssi")
-        js_device.signal = device.get("signal")
-        js_device.battery = device.get("battery")
-        js_devices.append(js_device)
-    return js_devices
+    # Convert Python list to JavaScript array using to_js()
+    return to_js(devices, dict_converter=Object.fromEntries)
 
 # Legacy functions (for compatibility)
 def get_devices():
     """Return list of available devices"""
     console.log("Python: get_devices called")
-    # Convert Python list to JavaScript array
-    js_devices = []
-    for device in devices:
-        js_device = Object.new()
-        js_device.id = device.get("id")
-        js_device.name = device.get("name")
-        js_device.type = device.get("type")
-        js_device.rssi = device.get("rssi")
-        js_device.signal = device.get("signal")
-        js_device.battery = device.get("battery")
-        js_devices.append(js_device)
-    return js_devices
+    # Convert Python list to JavaScript array using to_js()
+    return to_js(devices, dict_converter=Object.fromEntries)
 
 def refresh_devices():
     """Refresh device list - requires BLE connection"""

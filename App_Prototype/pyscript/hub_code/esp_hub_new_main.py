@@ -183,6 +183,79 @@ def send_espnow_command(command, rssi_threshold="all"):
     print("ESP-NOW PLACEHOLDER: Simulating successful transmission")
     return True
 
+def send_ble_framed(data_bytes, chunk_size=100):
+    """
+    Send large data over BLE with message framing protocol.
+    
+    Message Framing Protocol:
+    -------------------------
+    Each message is sent with a header indicating the total payload size:
+    
+    Format: MSG:<length>|<payload_chunk_1><payload_chunk_2>...<payload_chunk_n>
+    
+    Example:
+    - Header: "MSG:330|"  (indicates 330 bytes of payload will follow)
+    - Payload: Sent in 100-byte chunks after the header
+    
+    Why Message Framing?
+    --------------------
+    - Receiver knows exactly how many bytes to expect
+    - No need to guess when message is complete (JSON brace counting is fragile)
+    - Handles any data format, not just JSON
+    - More robust than timeout-based buffering
+    
+    BLE MTU (Maximum Transmission Unit) limits:
+    - BLE 4.0: 20 bytes default
+    - BLE 4.2+: 23-244 bytes (negotiated)
+    - Web Bluetooth API: Often 512 bytes, but not guaranteed
+    
+    We use 100 bytes as a safe chunk size that works across all versions.
+    
+    Parameters:
+    -----------
+    data_bytes : bytes
+        The complete message payload to send (must be bytes, not string)
+    chunk_size : int
+        Maximum bytes per BLE notification (default: 100 bytes)
+    """
+    if not p.is_connected:
+        print("Cannot send: BLE not connected")
+        return False
+    
+    payload_length = len(data_bytes)
+    
+    # Create framing header: MSG:<length>|
+    header = f"MSG:{payload_length}|".encode()
+    
+    # Send header first
+    try:
+        p.send(header)
+        print(f"Sent message header: {header.decode()} ({len(header)} bytes)")
+        time.sleep_ms(20)  # Small delay after header
+    except Exception as e:
+        print(f"Error sending header: {e}")
+        return False
+    
+    # Send payload in chunks
+    num_chunks = (payload_length + chunk_size - 1) // chunk_size  # Ceiling division
+    print(f"Sending payload: {payload_length} bytes in {num_chunks} chunks")
+    
+    for i in range(0, payload_length, chunk_size):
+        chunk = data_bytes[i:i+chunk_size]
+        chunk_num = i // chunk_size + 1
+        
+        try:
+            p.send(chunk)
+            print(f"Sent payload chunk {chunk_num}/{num_chunks}: {len(chunk)} bytes")
+            # Small delay between chunks to prevent buffer overflow
+            time.sleep_ms(20)
+        except Exception as e:
+            print(f"Error sending payload chunk {chunk_num}: {e}")
+            return False
+    
+    print(f"Successfully sent framed message: {len(header)} byte header + {payload_length} byte payload")
+    return True
+
 def handle_ping_command(rssi_threshold="all"):
     """
     Handle PING command - scan for nearby modules (PLACEHOLDER)
@@ -251,16 +324,30 @@ def handle_ping_command(rssi_threshold="all"):
     try:
         print(f"DEBUG: Sending device list, p.is_connected: {p.is_connected}")
         
-        # CRITICAL: BLE UART p.send() requires BYTES, not strings!
-        # The underlying GATT gatts_notify() function only accepts bytes.
-        # We must:
+        # CRITICAL: BLE UART transmission with chunking for large messages
+        # 
+        # Problem: BLE MTU limits (20-244 bytes) cause large messages to be truncated
+        # Solution: Split message into chunks and send separately
+        # 
+        # Steps:
         # 1. Convert Python dict to JSON string with json.dumps()
         # 2. Encode the string to bytes with .encode()
-        # Without encoding, the data will be corrupted or transmission will fail.
+        # 3. Split bytes into chunks of 100 bytes (safe for all BLE versions)
+        # 4. Send each chunk with small delay to prevent buffer overflow
+        # 5. Web app buffers chunks and reassembles complete JSON message
         response_json = json.dumps(device_list_response)
-        p.send(response_json.encode())
+        response_bytes = response_json.encode()
         
-        print("Sent device list to web app")
+        print(f"Response size: {len(response_bytes)} bytes")
+        print(f"Response preview: {response_json[:100]}...")
+        
+        # Use framed sending with header for reliable transmission
+        success = send_ble_framed(response_bytes, chunk_size=100)
+        
+        if success:
+            print("Device list sent successfully to web app")
+        else:
+            print("Failed to send device list")
     except Exception as e:
         print(f"Error sending device list: {e}")
 
