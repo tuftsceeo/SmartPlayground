@@ -64,7 +64,22 @@ import espnow
 # A WLAN interface must be active to send()/recv()
 sta = network.WLAN(network.WLAN.IF_STA)
 sta.active(True)
-sta.disconnect() 
+sta.disconnect()
+
+EXTERNAL_ANT = False
+if EXTERNAL_ANT:
+    # Define pins
+    WIFI_ENABLE = Pin(3, Pin.OUT)
+    WIFI_ANT_CONFIG = Pin(14, Pin.OUT)
+
+    # Activate RF switch control
+    WIFI_ENABLE.value(0) #Low
+
+    # Wait for 100 milliseconds
+    time.sleep_ms(100)
+
+    # Use external antenna
+    WIFI_ANT_CONFIG.value(1) #High
 
 # Wait for 100 milliseconds
 time.sleep_ms(100)
@@ -79,6 +94,41 @@ BROADCAST_MAC = peer
 
 print(f"ESP-NOW initialized")
 print(f"Broadcast peer added: {BROADCAST_MAC.hex()}")
+
+# === ESP-NOW INTERRUPT CALLBACK ===
+# This function is called automatically when ESP-NOW messages arrive
+# Using IRQ ensures we don't miss any messages during scanning
+def espnow_recv_callback(e):
+    """
+    ESP-NOW receive callback - called on message reception interrupt.
+    
+    Pattern copied from working module code (esp_module_main.py).
+    Keep this SIMPLE - just read and buffer messages.
+    """
+    global espnow_message_buffer, espnow_irq_count
+    
+    espnow_irq_count += 1  # Track callback invocations
+    
+    # Read all messages waiting in the buffer (same pattern as module code)
+    while True:
+        mac, msg = e.irecv(0)  # Don't wait if no messages left
+        if mac is None:
+            return  # Use return like module code, not break
+        
+        # Get RSSI from peers_table (same as module code)
+        rssi = -100  # Default fallback
+        try:
+            if mac in e.peers_table:
+                rssi = e.peers_table[mac][0]
+        except:
+            pass
+        
+        # Simple append - no locks, no filtering in IRQ
+        # Let the main loop handle filtering
+        espnow_message_buffer.append((mac, msg, rssi))
+
+# NOTE: IRQ callback will be registered AFTER BLE initialization
+# to avoid conflicts on ESP32C3
 
 # Optional: Configure external antenna if physical antenna is connected
 # Uncomment these lines if you have an external antenna:
@@ -99,17 +149,22 @@ print("Initializing BLE UART service...")
 p = Yell(HUB_NAME, verbose=True)
 print(f"BLE advertising as '{HUB_NAME}'")
 
+# Register ESP-NOW IRQ callback AFTER BLE initialization
+# This avoids conflicts on ESP32C3
+espnow_interface.irq(espnow_recv_callback)
+print("ESP-NOW interrupt callback registered (after BLE init)")
+
 # === DEVICE DISCOVERY STATE ===
 discovered_devices = []
-device_scan_timeout = 5.0  # seconds to wait for device responses
+device_scan_timeout = 3.0  # seconds to wait for device responses (increased to ensure modules have time to respond)
 scan_in_progress = False
 
-# === MOCK DEVICE DATA (for testing without modules) ===
-mock_devices = [
-    {"id": "M-001", "rssi": -45, "battery": 85, "type": "module", "mac": "aa:bb:cc:dd:ee:01"},
-    {"id": "M-002", "rssi": -60, "battery": 92, "type": "module", "mac": "aa:bb:cc:dd:ee:02"},
-    {"id": "M-003", "rssi": -75, "battery": 78, "type": "module", "mac": "aa:bb:cc:dd:ee:03"}
-]
+# === ESP-NOW MESSAGE BUFFER ===
+# Buffer for incoming ESP-NOW messages (received via IRQ callback)
+# Each entry is a tuple: (mac, message, rssi)
+# NOTE: No lock needed - MicroPython list append is atomic
+espnow_message_buffer = []
+espnow_irq_count = 0  # Counter to track IRQ callback invocations
 
 # === WEB APP TO ESP-NOW COMMAND MAPPING ===
 # Maps web app commands (as sent by main.js) to ESP-NOW protocol format
@@ -130,6 +185,7 @@ COMMAND_MAP = {
     "Color Game": "updateGame",      # Color-based grouping game (value: 1)
     "Number Game": "updateGame",     # Number-based grouping game (value: 2)
     "Off": "deepSleep",              # Deep sleep mode
+    "PING": "pingCall",              # Device discovery - modules respond with their info
     
     # Legacy/alternative command names (for backwards compatibility)
     "BATTERY CHECK": "batteryCheck",
@@ -217,6 +273,7 @@ def send_espnow_command(command, rssi_threshold="all"):
     - {"rainbow": {"RSSI": -40, "value": 0}}
     - {"lightOff": {"RSSI": -90, "value": 0}}
     - {"updateGame": {"RSSI": -40, "value": 1}}
+    - {"pingCall": {"RSSI": -40, "value": "app"}}
     
     Parameters:
     -----------
@@ -241,6 +298,9 @@ def send_espnow_command(command, rssi_threshold="all"):
     if espnow_command == "updateGame":
         # Game commands need specific game values
         value = GAME_VALUES.get(command, 0)
+    elif espnow_command == "pingCall":
+        # Ping command needs value: "app" to identify source
+        value = "app"
     else:
         # Other commands use value: 0
         value = 0
@@ -354,62 +414,234 @@ def send_ble_framed(data_bytes, chunk_size=100):
 
 def handle_ping_command(rssi_threshold="all"):
     """
-    Handle PING command - scan for nearby modules (PLACEHOLDER)
-    """
-    global scan_in_progress, discovered_devices
+    Handle PING command - scan for nearby modules
+    Sends ESP-NOW pingCall and waits for device responses
     
-    print("Starting device scan (PLACEHOLDER)...")
+    Uses interrupt-based message reception (ESPNow.irq callback)
+    to ensure no messages are missed during the scan window.
+    """
+    global scan_in_progress, discovered_devices, espnow_message_buffer
+    
+    print("=" * 60)
+    print("STARTING DEVICE SCAN")
+    print("=" * 60)
     scan_in_progress = True
     discovered_devices = []
     
-    # Send PING command to modules (placeholder)
-    # send_espnow_command("PING", rssi_threshold)
+    # Clear message buffer before starting scan
+    # List operations in MicroPython are atomic, no lock needed
+    espnow_message_buffer.clear()
+    print("Message buffer cleared")
     
-    # TODO: Uncomment when ESP-NOW modules are available
-    # # Wait for responses
-    # start_time = time.time()
-    # while time.time() - start_time < device_scan_timeout:
-    #     # Check for ESP-NOW responses
-    #     try:
-    #         mac, msg = espnow_interface.irecv(0)  # Non-blocking
-    #         if mac is not None:
-    #             try:
-    #                 response = json.loads(msg.decode())
-    #                 print(f"Device response from {mac.hex()}: {response}")
-    #                 
-    #                 # Add to discovered devices
-    #                 device_info = {
-    #                     "id": response.get("id", f"M-{mac.hex()[:6]}"),
-    #                     "rssi": response.get("rssi", -100),
-    #                     "battery": response.get("battery", 50),
-    #                     "type": response.get("type", "module"),
-    #                     "mac": mac.hex()
-    #                 }
-    #                 discovered_devices.append(device_info)
-    #                 print(f"Added device: {device_info}")
-    #                 
-    #             except Exception as e:
-    #                 print(f"Response parse error: {e}")
-    #     except:
-    #         pass
-    #     
-    #     time.sleep_ms(100)
+    # Send PING command to modules via ESP-NOW
+    print(f"Sending pingCall with RSSI threshold: {rssi_threshold}")
+    success = send_espnow_command("PING", rssi_threshold)
     
-    # PLACEHOLDER: Use mock devices for testing
-    print("ESP-NOW PLACEHOLDER: Using mock device data")
-    discovered_devices = mock_devices.copy()
+    if not success:
+        print("ERROR: Failed to send pingCall command")
+        scan_in_progress = False
+        return
     
-    # Apply RSSI filtering if specified
-    if rssi_threshold != "all":
-        try:
-            threshold_val = int(rssi_threshold)
-            discovered_devices = [d for d in discovered_devices if d["rssi"] >= threshold_val]
-            print(f"ESP-NOW PLACEHOLDER: Filtered to {len(discovered_devices)} devices above {threshold_val} dBm")
-        except:
-            pass
+    print(f"Ping sent successfully. Waiting {device_scan_timeout}s for device responses...")
+    print(f"Messages are captured by interrupt callback and buffered")
+    print(f"Scan start time: {time.time()}")
+    print(f"IRQ callback registered: {espnow_interface.irq}")
+    print(f"IRQ count at start: {espnow_irq_count}")
+    print("-" * 60)
+    
+    # CRITICAL: Non-blocking approach to avoid blocking IRQ handler
+    # ============================================================
+    # Problem: Long time.sleep_ms() calls block IRQ processing
+    # Solution: Use 1ms sleeps + periodic buffer checks
+    # 
+    # Strategy:
+    # - Sleep for only 1ms at a time (allows IRQs to fire)
+    # - Check message buffer every 100ms
+    # - Process messages incrementally as they arrive
+    # - This ensures IRQ handler can run promptly between sleeps
+    start_time = time.time()
+    last_check_time = start_time
+    total_processed = 0
+    loop_iterations = 0
+    
+    while True:
+        current_time = time.time()
+        elapsed = current_time - start_time
+        
+        # Exit when scan timeout reached
+        if elapsed >= device_scan_timeout:
+            break
+        
+        loop_iterations += 1
+        
+        # Very short sleep to allow IRQs to fire
+        # IMPORTANT: 1ms is short enough that IRQs won't be delayed
+        time.sleep_ms(1)
+        
+        # Check buffer every 100ms to process new messages
+        if current_time - last_check_time >= 0.1:  # Check every 100ms
+            last_check_time = current_time
+            
+            # Process any new messages in buffer
+            buffer_count = len(espnow_message_buffer)
+            if buffer_count > 0:
+                print(f"[{elapsed:.1f}s] Found {buffer_count} messages in buffer, processing...")
+                
+                # Get messages from buffer (atomic operation)
+                messages_to_process = espnow_message_buffer.copy()
+                espnow_message_buffer.clear()
+                
+                # Filter and process device scan responses
+                for mac, msg, rssi in messages_to_process:
+                    # FILTER: Only process device scan responses
+                    # Accept both 'pongCall' and 'deviceScan' formats
+                    try:
+                        if b'pongCall' not in msg and b'deviceScan' not in msg:
+                            continue  # Skip non-device-scan messages
+                    except:
+                        continue
+                    total_processed += 1
+                    print(f"\n>>> RESPONSE #{total_processed} RECEIVED <<<")
+                    print(f"From MAC: {mac.hex()}")
+                    print(f"Raw message bytes: {msg}")
+                    print(f"Message length: {len(msg)} bytes")
+                    print(f"Real RSSI: {rssi} dBm")
+                    
+                    # Try to decode and display the message
+                    try:
+                        decoded_msg = msg.decode()
+                        print(f"Decoded string: {decoded_msg}")
+                        
+                        # Parse the response - devices send Python dict format, not JSON
+                        # Formats:
+                        # - Old: {'pongCall': {'RSSI': -40, 'id': 'Zebra'}}
+                        # - New: {"deviceScan": {"RSSI": <threshold>, "value": <name>}}
+                        try:
+                            # Convert Python dict format (single quotes) to JSON (double quotes)
+                            # This is a workaround since MicroPython doesn't have ast.literal_eval
+                            json_str = decoded_msg.replace("'", '"')
+                            response = json.loads(json_str)
+                            print(f"Parsed response: {response}")
+                            
+                            # Handle deviceScan format (new, preferred)
+                            if 'deviceScan' in response:
+                                scan_data = response['deviceScan']
+                                device_name = scan_data.get('value', f"Module-{mac.hex()[:6]}")
+                                # module_rssi_threshold = scan_data.get('RSSI', -90)  # Module's threshold
+                                
+                                # Use MAC as ID, name as nickname
+                                device_info = {
+                                    "id": mac.hex(),  # MAC address as unique ID
+                                    "name": device_name,  # Module's name as display name
+                                    "rssi": rssi,  # Real RSSI from ESP-NOW reception
+                                    "battery": 0,  # Placeholder until real battery implemented
+                                    "type": "module",
+                                    "mac": mac.hex()
+                                }
+                                discovered_devices.append(device_info)
+                                print(f"✓ Added device: {device_info}")
+                            
+                            # Handle legacy pongCall format
+                            elif 'pongCall' in response:
+                                pong_data = response['pongCall']
+                                device_id = pong_data.get('id', f"M-{mac.hex()[:6]}")
+                                
+                                device_info = {
+                                    "id": mac.hex(),  # MAC address as unique ID
+                                    "name": device_id,  # Old ID becomes name
+                                    "rssi": rssi,  # Real RSSI from ESP-NOW reception
+                                    "battery": 0,  # Placeholder until real battery implemented
+                                    "type": "module",
+                                    "mac": mac.hex()
+                                }
+                                discovered_devices.append(device_info)
+                                print(f"✓ Added device (legacy format): {device_info}")
+                            else:
+                                print(f"⚠ Unexpected response format (no 'deviceScan' or 'pongCall' key)")
+                            
+                        except (ValueError, KeyError) as e:
+                            print(f"⚠ Failed to parse response: {e}")
+                            print(f"  (Message format may be different than expected)")
+                            
+                    except UnicodeDecodeError as ue:
+                        print(f"⚠ Cannot decode as UTF-8: {ue}")
+                        print(f"  (Message may be binary or use different encoding)")
+                    
+                    print("-" * 60)
+    
+    # Check for any remaining messages in buffer one final time
+    if len(espnow_message_buffer) > 0:
+        print("\nProcessing final buffered messages...")
+        final_messages = espnow_message_buffer.copy()
+        espnow_message_buffer.clear()
+        
+        for mac, msg, rssi in final_messages:
+            # Filter device scan responses
+            try:
+                if b'pongCall' not in msg and b'deviceScan' not in msg:
+                    continue
+            except:
+                continue
+            total_processed += 1
+            print(f"\n>>> FINAL RESPONSE #{total_processed} <<<")
+            try:
+                decoded_msg = msg.decode()
+                json_str = decoded_msg.replace("'", '"')
+                response = json.loads(json_str)
+                
+                # Handle deviceScan format (new, preferred)
+                if 'deviceScan' in response:
+                    scan_data = response['deviceScan']
+                    device_name = scan_data.get('value', f"Module-{mac.hex()[:6]}")
+                    device_info = {
+                        "id": mac.hex(),
+                        "name": device_name,
+                        "rssi": rssi,
+                        "battery": 0,
+                        "type": "module",
+                        "mac": mac.hex()
+                    }
+                    discovered_devices.append(device_info)
+                    print(f"✓ Added device: {device_info}")
+                
+                # Handle legacy pongCall format
+                elif 'pongCall' in response:
+                    pong_data = response['pongCall']
+                    device_id = pong_data.get('id', f"M-{mac.hex()[:6]}")
+                    device_info = {
+                        "id": mac.hex(),
+                        "name": device_id,
+                        "rssi": rssi,
+                        "battery": 0,
+                        "type": "module",
+                        "mac": mac.hex()
+                    }
+                    discovered_devices.append(device_info)
+                    print(f"✓ Added device: {device_info}")
+            except Exception as e:
+                print(f"⚠ Error processing final message: {e}")
     
     scan_in_progress = False
-    print(f"Device scan complete. Found {len(discovered_devices)} devices")
+    
+    scan_end_time = time.time()
+    actual_duration = scan_end_time - start_time
+    
+    print("=" * 60)
+    print(f"SCAN COMPLETE")
+    print(f"Duration: {actual_duration:.2f}s (target: {device_scan_timeout}s)")
+    print(f"Loop iterations: {loop_iterations}")
+    print(f"IRQ callback invoked: {espnow_irq_count} times total")
+    print(f"Received {total_processed} responses")
+    print(f"Successfully parsed {len(discovered_devices)} devices")
+    print("=" * 60)
+    
+    if len(discovered_devices) == 0:
+        print("\n⚠ No devices responded to ping")
+    
+    print(f"\nFinal device list: {len(discovered_devices)} devices")
+    for i, dev in enumerate(discovered_devices, 1):
+        name = dev.get('name', dev['id'])
+        print(f"  {i}. {name} (MAC: {dev['mac'][:12]}) - RSSI: {dev['rssi']} dBm")
     
     # Send device list back to web app
     device_list_response = {
@@ -468,8 +700,8 @@ def handle_ble_command(command_str):
     
     # Handle different commands
     if command == "PING":
-        # Device discovery - uses mock data for now
-        # In the future, this would send ESP-NOW ping and wait for responses
+        # Device discovery - sends ESP-NOW pingCall and waits for responses
+        # Falls back to mock data if no real devices respond
         handle_ping_command(threshold)
         
     elif command in COMMAND_MAP:
@@ -591,7 +823,7 @@ print("=" * 50)
 print("Hub ready for BLE connections and ESP-NOW communication.")
 print("")
 print("=== SUPPORTED COMMANDS ===")
-print("  - PING: Scan for nearby modules (currently returns mock data)")
+print("  - PING: Scan for nearby modules")
 print("  - BATTERY CHECK: Request battery display on modules")
 print("  - COLOR BASED GROUP: Start color-based game (game 1)")
 print("  - NUMBER BASED GROUP: Start number-based game (game 2)")
@@ -672,9 +904,13 @@ while True:
     # Helps with debugging and monitoring hub health
     if current_time - last_status_time >= 60:
         if p.is_connected:
-            print(f"Hub status: BLE connected, {len(discovered_devices)} devices known (mock data)")
+            print(f"Hub status: BLE connected, {len(discovered_devices)} devices known")
         else:
             print("Hub status: BLE disconnected, advertising for connections...")
         last_status_time = current_time
+
+
+
+
 
 

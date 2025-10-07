@@ -32,6 +32,7 @@ export const state = {
     hubConnected: false,
     hubDeviceName: null,
     hubConnecting: false,
+    pythonReady: false, // PyScript initialization state
 
     // UI state (new design features)
     showSettings: false,
@@ -165,28 +166,25 @@ export function getRangeLabel(position) {
 }
 
 /**
- * Get list of devices available within current range filter.
+ * Get list of all available devices (NO client-side filtering).
  * 
- * This computed function filters the complete device list based on the current
- * range slider setting and hub connection status. It converts the slider position
- * to an RSSI threshold and returns only devices with signal strength above that threshold.
+ * IMPORTANT: Filtering is done at the module level, not here!
  * 
- * @returns {Array} Filtered array of device objects within range
+ * When the slider changes, a PING command is sent with the RSSI threshold.
+ * Only modules that can receive the hub's signal at that strength respond.
+ * This ensures the device list only contains modules that can actually
+ * receive commands at the current range setting.
  * 
- * Filtering Logic:
- * 1. Return empty array if hub is disconnected (no devices available)
- * 2. Convert range slider position (1-100) to RSSI threshold (-30 to -90 dBm)
- * 3. Filter devices where device.rssi >= threshold
- * 4. Range 100 = "All" devices (no filtering)
+ * @returns {Array} All devices from last PING response
  * 
- * RSSI Mapping:
- * - Range 1 (Near): RSSI >= -30 dBm (very close devices only)
- * - Range 50 (Close): RSSI >= -60 dBm (moderate distance)
- * - Range 100 (All): No RSSI filtering (all devices)
+ * Why No Client-Side Filtering:
+ * - Hub's RSSI receiving FROM modules ≠ modules' RSSI receiving FROM hub
+ * - What matters: Can modules receive hub's commands?
+ * - Solution: Modules self-filter by only responding if RSSI is strong enough
  * 
  * Usage:
  * const availableDevices = getAvailableDevices();
- * // Returns devices that match current range and connection status
+ * // Returns all devices that responded to last PING at current range
  */
 export function getAvailableDevices() {
     // Check hub connection first - return empty array if disconnected
@@ -194,11 +192,7 @@ export function getAvailableDevices() {
         return [];
     }
     
-    // If no devices available, return empty array
-    if (!state.allDevices || state.allDevices.length === 0) {
-        return [];
-    }
-    
-    const rssiThreshold = sliderToRSSI(state.range);
-    return state.allDevices.filter((d) => d.rssi >= rssiThreshold);
+    // Return all devices from last refresh - they've already been filtered
+    // by the PING command sent with RSSI threshold
+    return state.allDevices || [];
 }

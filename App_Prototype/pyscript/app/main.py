@@ -135,9 +135,22 @@ def process_complete_message(message_data):
             console.log("Device list is not an array")
             return
         
+        # Deduplicate devices by MAC address (keep first occurrence)
+        seen_macs = set()
+        unique_devices = []
+        for dev in device_list:
+            mac = dev.get("mac", "")
+            if mac and mac not in seen_macs:
+                seen_macs.add(mac)
+                unique_devices.append(dev)
+            elif mac in seen_macs:
+                console.log(f"Skipping duplicate device with MAC: {mac}")
+        
+        console.log(f"Filtered {len(device_list)} devices to {len(unique_devices)} unique devices")
+        
         # Convert to expected format
         devices = []
-        for dev in device_list:
+        for dev in unique_devices:
             # Calculate signal bars from RSSI
             rssi = dev.get("rssi", -100)
             if rssi >= -50:
@@ -160,9 +173,20 @@ def process_complete_message(message_data):
             else:
                 battery = "low"
             
+            # Get original device name
+            device_name = dev.get("id", "Unknown")
+            
+            # Create sanitized ID for DOM selectors (remove spaces and special chars)
+            # Replace spaces with hyphens and remove any characters that aren't alphanumeric or hyphens
+            sanitized_id = device_name.replace(" ", "-").replace("_", "-")
+            # Remove any remaining special characters
+            sanitized_id = ''.join(c for c in sanitized_id if c.isalnum() or c == '-')
+            
+            console.log(f"DEBUG SANITIZATION: '{device_name}' -> '{sanitized_id}'")
+            
             devices.append({
-                "id": dev.get("id"),
-                "name": dev.get("id"),
+                "id": sanitized_id,  # Sanitized ID for DOM selectors
+                "name": device_name,  # Original name for display
                 "type": "module",
                 "rssi": rssi,
                 "signal": signal,
@@ -185,6 +209,30 @@ def process_complete_message(message_data):
             console.log("Python: onDevicesUpdated not available")
         
         console.log(f"Updated {len(devices)} devices from hub")
+    elif parsed.get("type") == "ack":
+        # Acknowledgment from hub that command was sent
+        console.log("Received acknowledgment from hub")
+        command = parsed.get("command", "unknown")
+        status = parsed.get("status", "unknown")
+        rssi = parsed.get("rssi", "all")
+        
+        if status == "sent":
+            console.log(f"✓ Command '{command}' sent successfully (RSSI: {rssi})")
+            # Optionally show toast for user feedback
+            # showToast(f"Command '{command}' sent to modules", "success")
+        else:
+            console.log(f"✗ Command '{command}' failed to send (status: {status})")
+            # Optionally show error toast
+            # showToast(f"Command '{command}' failed", "error")
+    elif parsed.get("type") == "error":
+        # Error message from hub
+        console.log("Received error from hub")
+        error_msg = parsed.get("message", "Unknown error")
+        console.log(f"Hub error: {error_msg}")
+        
+        # Show error to user
+        if hasattr(window, 'showToast'):
+            window.showToast(error_msg, "error")
     else:
         console.log(f"Unknown message type: {parsed.get('type')}")
 
@@ -512,23 +560,40 @@ def get_connection_status():
     js_result.device = hub_device_name if (actual_connected_bool and hub_device_name) else ""
     return js_result
 
-async def refresh_devices_from_hub():
-    """Request device list from hub via BLE"""
+async def refresh_devices_from_hub(rssi_threshold="all"):
+    """
+    Request device list from hub via BLE with RSSI filtering.
+    
+    Parameters:
+    -----------
+    rssi_threshold : str or int
+        RSSI threshold for device filtering:
+        - "all": Return all devices that respond (no filtering)
+        - "-XX": Only devices with RSSI >= -XX dBm will respond
+        
+    The filtering happens at the module level - only modules that can
+    receive the hub's broadcast at the specified RSSI will respond to the ping.
+    """
     if not ble.is_connected():
         console.log("Cannot refresh: Hub not connected")
         return to_js([])
     
     global devices
     
-    # Send PING command to hub using real protocol
-    # Hub will broadcast PING to modules and collect responses
-    await ble.send('"PING":"all"')
+    # Convert rssi_threshold to string for protocol
+    threshold_str = str(rssi_threshold)
+    
+    # Send PING command to hub with RSSI threshold using real protocol
+    # Hub will broadcast PING to modules and only those with strong enough
+    # signal will respond
+    ping_command = f'"PING":"{threshold_str}"'
+    await ble.send(ping_command)
     
     # Wait for response (hub should send back device list)
     # The response will be handled by on_ble_data callback
     # which will update the global devices list
     
-    console.log(f"Device scan requested from hub")
+    console.log(f"Device scan requested from hub with RSSI threshold: {threshold_str}")
     
     # Convert Python list to JavaScript array using to_js()
     return to_js(devices, dict_converter=Object.fromEntries)
@@ -579,6 +644,7 @@ window.connect_hub = create_proxy(connect_hub)
 window.disconnect_hub = create_proxy(disconnect_hub)
 window.send_command_to_hub = create_proxy(send_command_to_hub)
 window.refresh_devices = create_proxy(refresh_devices)
+window.refresh_devices_from_hub = create_proxy(refresh_devices_from_hub)
 
 # Python backend is ready
 

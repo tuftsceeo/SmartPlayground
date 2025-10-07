@@ -41,7 +41,10 @@ export function createDeviceListOverlay(devices, range, isRefreshing, editingDev
   // Event handlers
   overlay.querySelector('#backBtn').onclick = onClose;
   overlay.querySelector('#refreshBtn').onclick = onRefresh;
-  overlay.querySelector('#rangeSlider').onchange = (e) => onRangeChange(parseInt(e.target.value));
+  overlay.querySelector('#rangeSlider').onchange = (e) => {
+    onRangeChange(parseInt(e.target.value));
+    onRefresh(); // Trigger device refresh when slider changes
+  };
   
   // Add devices
   const deviceList = overlay.querySelector('#deviceList');

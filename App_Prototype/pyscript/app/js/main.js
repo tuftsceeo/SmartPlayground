@@ -111,11 +111,19 @@ async function syncConnectionState() {
         const wasConnected = state.hubConnected;
         const wasDevice = state.hubDeviceName;
         
-        setState({
+        // If disconnecting, cancel any pending device scans
+        const newState = {
             hubConnected: status.connected,
             hubDeviceName: status.device,
             hubConnecting: false, // Clear connecting state
-        });
+        };
+        
+        // Cancel pending scans if we're disconnecting
+        if (wasConnected && !status.connected) {
+            newState.isRefreshing = false;
+        }
+        
+        setState(newState);
         
         const stateChanged = (wasConnected !== status.connected) || (wasDevice !== status.device);
         if (stateChanged) {
@@ -174,15 +182,19 @@ class App {
         // Direct function for Python to call
         window.onDevicesUpdated = (devices) => {
             console.log("=== JavaScript onDevicesUpdated called ===");
+            console.log("STACK TRACE:", new Error().stack);
             console.log("Direct devices updated call:", devices);
             console.log("Devices type:", typeof devices);
             console.log("Devices length:", devices?.length);
             console.log("First device:", devices?.[0]);
+            console.log("Current state.allDevices length BEFORE update:", state.allDevices?.length);
             setState({
                 allDevices: devices,
                 lastUpdateTime: new Date(),
+                isRefreshing: false, // Clear loading state when devices received
             });
-            console.log("State updated with devices");
+            console.log("State updated with devices, loading cleared");
+            console.log("NEW state.allDevices length AFTER update:", devices?.length);
         };
 
         // Direct function calls only - no event listeners needed
@@ -198,6 +210,10 @@ class App {
                 hubDeviceName: data?.deviceName,
                 hubConnecting: false,
             });
+            
+            // Auto-refresh devices on connection
+            console.log("Auto-refreshing devices on BLE connection...");
+            this.handleRefreshDevices();
         };
 
         // Direct function calls only - no event listeners needed
@@ -209,6 +225,7 @@ class App {
                 hubConnected: false,
                 hubDeviceName: null,
                 hubConnecting: false,
+                isRefreshing: false, // Cancel any pending device scans
             });
         };
 
@@ -254,19 +271,25 @@ class App {
     }
 
     async initializePython() {
+        console.log("Waiting for Python to initialize...");
+        
         // Python functions are available directly - no event needed
 
         // Also try waiting for functions to be available
         if (typeof PyBridgeToUse.waitForPython === 'function') {
             const isReady = await PyBridgeToUse.waitForPython(10000);
             if (isReady) {
+                console.log("Python backend ready!");
+                setState({ pythonReady: true });
                 await this.loadPythonData();
             } else {
                 console.warn("Python not ready after 10 second timeout.");
+                setState({ pythonReady: true }); // Allow UI to proceed anyway
             }
         } else {
             console.error("PyBridge.waitForPython is not a function!");
             console.log("Available PyBridge methods:", Object.keys(PyBridgeToUse));
+            setState({ pythonReady: true }); // Allow UI to proceed anyway
         }
     }
 
@@ -300,7 +323,9 @@ class App {
 
     render() {
         const devices = getAvailableDevices();
-        const canSend = state.currentMessage && devices.length > 0;
+        // Allow sending if hub is connected, even if no devices detected
+        // (device scan can be unreliable but commands may still work)
+        const canSend = state.currentMessage && state.hubConnected;
 
         // Don't clear and rebuild if an overlay is showing
         if (state.showDeviceList || state.showMessageDetails) {
@@ -360,6 +385,8 @@ class App {
             () => this.handleHubConnect(),
             () => this.handleHubDisconnect(),
             () => this.handleSettingsClick(),
+            state.isRefreshing, // Pass refresh state for loading animation
+            state.pythonReady, // Pass Python initialization state
         );
 
         const messageHistory = createMessageHistory(state.messageHistory, (message) => {
@@ -526,15 +553,27 @@ class App {
             return;
         }
 
-        // PRIORITY 2: Check if devices are available
-        const devicesBefore = getAvailableDevices();
-        if (devicesBefore.length === 0) {
-            showToast("No devices available. Please check your connection and device range.", "warning");
+        // PRIORITY 2: Check if refresh is in progress
+        if (state.isRefreshing) {
+            showToast("Please wait for device scan to complete", "warning");
             return;
         }
 
-        // PRIORITY 3: Check message selection
-        if (!state.currentMessage) {
+        // PRIORITY 3: Log device availability (but don't block sending)
+        // Device scan can be unreliable, but commands may still work via ESP-NOW broadcast
+        const devices = getAvailableDevices();
+        console.log("=== SEND MESSAGE: Device check ===");
+        console.log("state.allDevices length:", state.allDevices?.length);
+        console.log("getAvailableDevices() length:", devices?.length);
+        console.log("All devices:", state.allDevices);
+        console.log("Available devices:", devices);
+        
+        if (devices.length === 0) {
+            console.log("⚠ No devices detected, but sending command anyway (broadcast mode)");
+        }
+
+        // PRIORITY 4: Check message selection
+        if (!state.currentMessage || state.currentMessage.trim() === "") {
             if (!state.showCommandPalette) {
                 // Drawer closed - open it
                 setState({ showCommandPalette: true });
@@ -544,21 +583,6 @@ class App {
             }
             return;
         }
-
-        // Refresh devices before sending
-        await this.handleRefreshDevices();
-        const devicesAfter = getAvailableDevices();
-
-        // Warn if device list changed
-        if (devicesBefore.length !== devicesAfter.length) {
-            const confirmed = confirm(
-                `Warning: Device list changed!\n\nBefore: ${devicesBefore.length} devices\nAfter: ${devicesAfter.length} devices\n\nSend message to ${devicesAfter.length} devices?`,
-            );
-            if (!confirmed) return;
-        }
-
-        // Use refreshed devices
-        const devices = devicesAfter;
 
         const now = new Date();
         const newMessage = {
@@ -597,71 +621,72 @@ class App {
         }
     }
 
-    async handleRefreshDevices() {
+    async handleRefreshDevices(rssiThreshold = null) {
         /**
-         * Refresh device list from ESP32 hub with visual feedback and state management.
+         * Refresh device list from ESP32 hub with RSSI-based filtering.
          * 
-         * This method performs a complete device discovery cycle by communicating with
-         * the ESP32 hub to get the latest list of available playground modules. It
-         * provides visual feedback during the refresh process and handles both success
-         * and failure scenarios gracefully.
+         * This method performs a device discovery cycle by sending a PING command
+         * with an RSSI threshold to the hub. Only modules that can receive the hub's
+         * broadcast at the specified signal strength will respond.
          * 
-         * Refresh Process:
-         * 1. Set refresh state to show loading animation
-         * 2. Update UI immediately to show spinner on refresh button
-         * 3. Call Python backend to request device scan from hub
-         * 4. Hub broadcasts PING command via ESP-NOW to all modules
-         * 5. Modules respond with their current status (RSSI, battery, etc.)
-         * 6. Hub collects responses and sends device list back via BLE
-         * 7. Python backend processes response and updates JavaScript state
-         * 8. UI automatically re-renders with new device data
+         * IMPORTANT: Filtering happens at the module level, not client-side!
+         * - Hub broadcasts PING with RSSI threshold
+         * - Only modules with strong enough signal respond
+         * - This ensures modules CAN receive commands at that strength
+         * 
+         * Parameters:
+         * -----------
+         * rssiThreshold : int or null
+         *     RSSI threshold in dBm (e.g., -60)
+         *     If null, uses current slider position converted to RSSI
          * 
          * Visual Feedback:
-         * - Immediate spinner animation on refresh button
-         * - State management prevents multiple concurrent refreshes
-         * - Minimum 1-second duration for user feedback consistency
-         * - Automatic cleanup of loading states
-         * 
-         * Error Handling:
-         * - Graceful fallback if Python backend unavailable
-         * - Logging of all errors for debugging
-         * - Guaranteed cleanup of loading states even on failure
-         * - User feedback via console logging (not toast to avoid spam)
-         * 
-         * Performance Considerations:
-         * - Direct DOM manipulation for immediate visual feedback
-         * - Timeout-based cleanup to prevent stuck loading states
-         * - State-based refresh prevention to avoid multiple concurrent requests
+         * - Shows loading spinner during entire ping/response cycle
+         * - Minimum 5 second duration to wait for module responses
+         * - Loading state shown in recipient bar and device list overlay
          */
+        
+        // Prevent concurrent refreshes - don't send another PING while waiting for response
+        if (state.isRefreshing) {
+            console.log("Refresh already in progress, ignoring duplicate request");
+            return;
+        }
+        
         setState({ isRefreshing: true });
 
-        // Update button state directly
+        // Calculate RSSI threshold from slider if not provided
+        if (rssiThreshold === null) {
+            // Convert slider position to RSSI threshold
+            const sliderPosition = state.range;
+            if (sliderPosition === 100) {
+                rssiThreshold = "all";
+            } else {
+                // Map 1-99 to RSSI range: -30 (closest) to -90 (farthest)
+                rssiThreshold = Math.round(-30 - ((sliderPosition - 1) / 98) * 60);
+            }
+        }
+        
+        console.log(`Refreshing devices with RSSI threshold: ${rssiThreshold}`);
+
+        // Update button state directly for immediate feedback
         const refreshBtn = this.components.deviceListOverlay?.querySelector("#refreshBtn");
         if (refreshBtn) {
             refreshBtn.classList.add("animate-spin");
         }
 
         try {
-            const devices = await PyBridgeToUse.refreshDevices();
-
-            // Note: refreshDevices returns array directly, not status object
-            // So we don't use handleError here
-            setState({
-                allDevices: devices || [],
-                lastUpdateTime: new Date(),
-            });
+            // Send PING with RSSI threshold - modules will filter themselves
+            // The loading state will be cleared when onDevicesUpdated is called
+            await PyBridgeToUse.refreshDevices(rssiThreshold);
+            
+            console.log("PING sent, waiting for device responses from hub...");
+            // Note: isRefreshing will be cleared by onDevicesUpdated callback
+            // when the hub sends back the device list
         } catch (e) {
             console.log("Python backend not ready, refresh command logged only:", e);
-        }
-
-        setTimeout(() => {
+            // Clear loading state on error
             setState({ isRefreshing: false });
-            // Remove spin directly
-            const refreshBtn = this.components.deviceListOverlay?.querySelector("#refreshBtn");
-            if (refreshBtn) {
-                refreshBtn.classList.remove("animate-spin");
-            }
-        }, 1000);
+        }
     }
 
     async handleHubConnect() {

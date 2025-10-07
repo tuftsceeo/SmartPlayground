@@ -113,15 +113,15 @@ const PyBridge = {
     }
   },
 
-  async refreshDevices() {
+  async refreshDevices(rssiThreshold = "all") {
     if (!this.isPythonReady()) {
       console.warn("Python not ready, returning empty array");
       return [];
     }
     try {
-      return await window.refresh_devices();
+      return await window.refresh_devices_from_hub(rssiThreshold);
     } catch (e) {
-      console.error("refresh_devices failed:", e);
+      console.error("refresh_devices_from_hub failed:", e);
       return [];
     }
   },

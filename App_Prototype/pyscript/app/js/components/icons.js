@@ -19,11 +19,13 @@ export function getCommandIcon(commandLabel, size = "small") {
         Off: { bgColor: "#e98973", icon: "power-off" },
     };
 
-    const cmd = commands[commandLabel];
-
+    // Get command config or use placeholder for unknown commands
+    let cmd = commands[commandLabel];
+    
     if (!cmd) {
         console.warn(`No icon found for command: ${commandLabel}`);
-        return null;
+        // Use placeholder icon for unknown/empty commands
+        cmd = { bgColor: "#9ca3af", icon: "help-circle" };
     }
 
     const div = document.createElement("div");

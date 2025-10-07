@@ -43,7 +43,7 @@ import { getRelativeTime } from '../utils/helpers.js';
 import { createBluetoothStatusButton } from './bluetoothStatusButton.js';
 import { createSettingsButton } from './settingsButton.js';
 
-export function createRecipientBar(devices, range, lastUpdateTime, onRangeChange, onClick, onRefresh, hubConnected, hubDeviceName, onHubConnect, onHubDisconnect, onSettingsClick) {
+export function createRecipientBar(devices, range, lastUpdateTime, onRangeChange, onClick, onRefresh, hubConnected, hubDeviceName, onHubConnect, onHubDisconnect, onSettingsClick, isRefreshing = false, pythonReady = true) {
   const container = document.createElement('div');
   container.className = 'bg-white border-b border-gray-200 px-4 py-2 cursor-pointer';
   container.onclick = onClick;
@@ -52,6 +52,7 @@ export function createRecipientBar(devices, range, lastUpdateTime, onRangeChange
     <div class="flex items-center gap-3 mb-2">
       <span class="text-gray-500 text-sm">To:</span>
       <span class="text-gray-700 text-sm font-medium">${devices.length} device${devices.length !== 1 ? 's' : ''}</span>
+      ${isRefreshing ? '<i data-lucide="loader" class="w-4 h-4 text-gray-500 animate-spin"></i>' : ''}
       
       <!-- BLE Status Controls (right-aligned) -->
       <div class="flex items-center gap-1 ml-auto">
@@ -136,7 +137,7 @@ export function createRecipientBar(devices, range, lastUpdateTime, onRangeChange
   const bluetoothButtonContainer = container.querySelector('#bluetoothStatusButton');
   const settingsButtonContainer = container.querySelector('#settingsButton');
   
-  const bluetoothButton = createBluetoothStatusButton(hubConnected, hubDeviceName, onHubConnect, onHubDisconnect);
+  const bluetoothButton = createBluetoothStatusButton(hubConnected, hubDeviceName, onHubConnect, onHubDisconnect, pythonReady);
   const settingsButton = createSettingsButton(onSettingsClick);
   
   bluetoothButtonContainer.appendChild(bluetoothButton);
