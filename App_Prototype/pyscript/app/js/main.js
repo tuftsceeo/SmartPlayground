@@ -258,11 +258,11 @@ class App {
 
         // Also try waiting for functions to be available
         if (typeof PyBridgeToUse.waitForPython === 'function') {
-            const isReady = await PyBridgeToUse.waitForPython(5000);
+            const isReady = await PyBridgeToUse.waitForPython(10000);
             if (isReady) {
                 await this.loadPythonData();
             } else {
-                console.warn("Python not ready after timeout, using mock data");
+                console.warn("Python not ready after 10 second timeout.");
             }
         } else {
             console.error("PyBridge.waitForPython is not a function!");
