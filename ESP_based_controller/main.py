@@ -16,8 +16,6 @@ import json
 import sensors
 sens=sensors.SENSORS()
 
-
-
 # A WLAN interface must be active to send()/recv()
 sta = network.WLAN(network.WLAN.IF_STA)
 sta.active(True)
@@ -31,7 +29,7 @@ e.active(True)
 peer = b'\xff\xff\xff\xff\xff\xff'   # MAC address of peer's wifi interface
 e.add_peer(peer)
 
-GAME_LUT = {0: "BATTERY CHECK", 1 : "NUMBER BASED COLOR", 2: "TURN ALL RED", 3: "TURN ALL GREEN",4: "THRESHOLD UPDATE",5: "RAINBOW TO NEAR", 6: "RAINBOW TO ALL", 7: "LIGHTS OFF NEAR", 8: "LIGHTS OFF ALL", 9: "SLEEP ALL"}
+GAME_LUT = {0: "BATTERY CHECK", 1 : "NUMBER BASED GAME", 2: "UPDATE THRESHOLD", 3: "SEND GREEN",4: "SEND RED",5: "SEND BLUE", 6: "SEND RAINBOW", 7: "LIGHTS OFF NEAR", 8: "BACK TO NORMAL", 9: "SLEEP ALL"}
 
 THRESHOLD = -45
 
@@ -60,7 +58,7 @@ class ControlBox():
         self.old_time_of_button_press = 0
 
         self.count = 0
-
+        self.potValue = 0
         
         self.noColor = [0,0,0]
         self.defaultColor = [50,50,50]
@@ -119,6 +117,7 @@ class ControlBox():
         
 
         
+
         
     def check_switch(self, p):
 
@@ -171,21 +170,25 @@ class ControlBox():
     def buttonAction(self):
         
         if self.count == 0:
-            message  = {"batteryCheck": {"RSSI": -40, "value": 0}}
-        elif self.count == 5:
-            message = {"rainbow": {"RSSI": -40, "value": 0}}
-        elif self.count == 6:
-            message = {"rainbow":  {"RSSI": -90, "value": 0} }
-        elif self.count == 7:
-            message = {"lightOff":  {"RSSI": -40, "value": 0} }
-        elif self.count == 8:
-            message = {"lightOff": {"RSSI": -90, "value": 0}}
-        elif self.count == 9:
-            message = {"deepSleep": {"RSSI": -90, "value": 0}}
+            message  = {"batteryCheck": {"RSSI": app.potValue, "value": 0}}
+        elif self.count == 3:
+            message = {"color": {"RSSI": app.potValue, "value": (0,255,0)}}
         elif self.count == 4:
-            message = {"updateThreshold": {"RSSI": -40, "value": THRESHOLD}}
+            message = {"color":  {"RSSI": app.potValue, "value": (255,0,0)} }
+        elif self.count == 5:
+            message = {"color":  {"RSSI": app.potValue, "value": (0,0,255)} }
+        elif self.count == 6:
+            message = {"rainbow": {"RSSI": app.potValue, "value": 0}}
+        elif self.count == 7:
+            message = {"lightOff": {"RSSI": app.potValue, "value": 0}}
+        elif self.count == 8:
+            message = {"normalMode": {"RSSI": app.potValue, "value": 0}}
+        elif self.count == 9:
+            message = {"deepSleep": {"RSSI": app.potValue, "value": 0}}
+        elif self.count == 2:
+            message = {"updateThreshold": {"RSSI": app.potValue, "value": THRESHOLD}}
         else:
-            message = {"updateGame": {"RSSI": -40, "value": self.count}}
+            message = {"updateGame": {"RSSI": app.potValue, "value": self.count}}
         print(message)
         
         e.send(peer, json.dumps(message)) # double to make sure
@@ -209,10 +212,14 @@ class ControlBox():
         self.display.show()
         self.displaytext(GAME_LUT[num]) if len(GAME_LUT) > num else self.displaytext("BLANK")
         
- 
+    def drawRect(self):
+        self.display.fill_rect(120, 0, 10, 64, 1)
+        self.display.fill_rect(120, 0, 10, app.potValue + 90, 0)
+        self.display.show()
  
 app =   ControlBox()   
-app.shownum(0,10,10)       
+app.shownum(0,10,10)
+sens.final =  [-90, -30]
         
 def recv_cb(e):
     while True:  # Read out all messages waiting in the buffer
@@ -223,6 +230,11 @@ def recv_cb(e):
         
 e.irq(recv_cb)
 
+while True:
+    time.sleep(0.1)
+    app.potValue = sens.readpoint()[1]
+    app.drawRect()
+    
 
 
     
