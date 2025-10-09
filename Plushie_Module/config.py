@@ -1,1 +1,1 @@
-name = "Leopard 3"
+name = "Lion 1"
