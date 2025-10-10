@@ -29,12 +29,11 @@ e.active(True)
 peer = b'\xff\xff\xff\xff\xff\xff'   # MAC address of peer's wifi interface
 e.add_peer(peer)
 
-GAME_LUT = {0: "BATTERY CHECK", 1 : "NUMBER BASED GAME", 2: "UPDATE THRESHOLD", 3: "SEND GREEN",4: "SEND RED",5: "SEND BLUE", 6: "SEND RAINBOW", 7: "LIGHTS OFF NEAR", 8: "BACK TO NORMAL", 9: "SLEEP ALL"}
+GAME_LUT = {0: "BATTERY CHECK", 1 : "RESET LOG", 2: "UPDATE THRESHOLD", 3: "SEND GREEN",4: "SEND RED",5: "SEND BLUE", 6: "SEND RAINBOW", 7: "LIGHTS OFF NEAR", 8: "BACK TO NORMAL", 9: "SLEEP ALL"}
 
 THRESHOLD = -45
 
 #flags
-
 class ControlBox():
     def __init__(self):
 
@@ -48,7 +47,8 @@ class ControlBox():
         i2c = SoftI2C(scl = Pin(7), sda = Pin(6))
         self.display = ssd1306.SSD1306_I2C(128,64,i2c)
 
-  
+        self.num_of_options = 10
+        
         self.button_value = 1
         self.last_button_value = 1
         self.button_event = False
@@ -106,7 +106,7 @@ class ControlBox():
 
     def displayNumber(self, c):
         self.count += c
-        self.count = abs(self.count%10)
+        self.count = abs(self.count%self.num_of_options)
         self.shownum(self.count, 10,10)
         self.lastPressed=time.ticks_ms()
         
@@ -185,8 +185,12 @@ class ControlBox():
             message = {"normalMode": {"RSSI": app.potValue, "value": 0}}
         elif self.count == 9:
             message = {"deepSleep": {"RSSI": app.potValue, "value": 0}}
+        elif self.count == 10:
+            message = {"deleteLog": {"RSSI": app.potValue, "value": 0}}
         elif self.count == 2:
-            message = {"updateThreshold": {"RSSI": app.potValue, "value": THRESHOLD}}
+            message = {"updateThreshold": {"RSSI": app.potValue, "value": -45}}
+        elif self.count == 1:
+            message = {"resetLog": {"RSSI": app.potValue, "value": 0}}
         else:
             message = {"updateGame": {"RSSI": app.potValue, "value": self.count}}
         print(message)
@@ -238,6 +242,7 @@ while True:
 
 
     
+
 
 
 

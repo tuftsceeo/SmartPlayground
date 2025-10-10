@@ -49,8 +49,8 @@ from ucollections import deque
 
 msg_buffer = deque((), 50, 2)  # Max 50 messages
 
-
 import json
+
 
 class Plushie():
     def __init__(self):
@@ -68,15 +68,17 @@ class Plushie():
      
         self.current_time = 0
         self.old_time = 0
-
-        self.COLOR = {0:(50,50,50), 1:(0,50,25), 2:(50,50,0),3:(0,0,50),4:(50,0,0),5:(15,0,25), 6:(5,50,0),7:(10,60,50),8:(50,10,50),9:(30,50,25), 10:(50,50,10),11:(10,0,50),12:(50,0,10), 13:(2,50,15), 14:(10,20,30),15:(10,5,50),16:(5,10,50)}
+        self.i = 1
+        self.COLOR = {0:(200*self.i,0,0), 1:(200*self.i,50*self.i,0), 2:(200*self.i, 200*self.i, 0), 3:(0, 200*self.i, 0), 4:(0 , 0 , 200*self.i), 5:(0, 200*self.i, 200*self.i), 6:(100*self.i, 200*self.i, 200*self.i)}
+        
+        #self.COLOR = {0:(50,50,50), 1:(0,50,25), 2:(50,50,0),3:(0,0,50),4:(50,0,0),5:(15,0,25), 6:(5,50,0),7:(10,60,50),8:(50,10,50),9:(30,50,25), 10:(50,50,10),11:(10,0,50),12:(50,0,10), 13:(2,50,15), 14:(10,20,30),15:(10,5,50),16:(5,10,50)}
         self.PONGED = False
         self.PINGED = False
         self.GAME_TIME = 0
         self.PONG_TIME = 0
         self.FRIEND_LIST = []
         self.collected_color = 0
- 
+        self.MAX_FRIEND = 7
         
         self.name = config.name
         self.game = game.game
@@ -101,6 +103,7 @@ class Plushie():
         self.old_pressed_time = 0
         self.time_of_button_released = 0
         
+        
         self.animate((0,50,0), timeout = 1.0)
 
         self.clearBuffer = False
@@ -110,6 +113,8 @@ class Plushie():
         self.mac_value = None
         self.argument = None
         self.functionName = None
+        
+        self.colorMode = False
 
         #tim0 = Timer(0)
         #tim0.init(period=10, mode=Timer.PERIODIC, callback=self.check_switch) #timer to check button press
@@ -117,7 +122,7 @@ class Plushie():
         
         #tim1 = Timer(1)
         #tim1.init(period=200, mode=Timer.PERIODIC, callback=self.timedAction) #blink the LED with new color
-        
+    
         #led tracker
         self.lednumber = 0
         self.messageDetectedAt = 0 
@@ -125,6 +130,8 @@ class Plushie():
         self.noColor = [0,0,0]
         self.defaultColor = [50,50,50]
         self.color = self.defaultColor
+        
+        self.log_collected_color("PINGED", "PONGED", "COLOR")
     
     def readAccel(self):
         accel = self.h3lis331dl.read_accl()
@@ -144,7 +151,7 @@ class Plushie():
             return
         self.old_pressed_time = self.time_of_button_press
         
-        print("button pressed")
+        #print("button pressed")
         # Haptic feedback
         self.buzz(0.08,1)
         
@@ -156,7 +163,7 @@ class Plushie():
         #send a lead call claiming your status as a leader
         message = {"pingCall": {"RSSI": self.THRESHOLD_RSSI, "value": self.name}} #can be modified to send animal name number whatever you choose
         #print("Ping message", message)
-        print(json.dumps(message))
+        #print(json.dumps(message))
         e.send(peer, json.dumps(message))
 
 
@@ -164,11 +171,16 @@ class Plushie():
         #to make sure the button is not pressed for too long
         #if self.button.value() == 0: #check this even when the button is not released
         #    self.buttonAction()        
-       
-
+    
+    
+    def resetLog(self, argument):
+        f = open("log.txt","w")
+        f.close()
+        
+        
     def log_collected_color(self, pinged, ponged, color):
         f = open("log.txt","a")
-        f.write(f'[{str(self.game)}, {str(pinged)} , {str(ponged)} , {str(color)}]')
+        f.write(f'[{str(self.game)}, {str(pinged)} , {str(ponged)} , {str(color)}, {str(time.ticks_ms())}]')
         f.close()
       
     def showBattery(self, battery_level):
@@ -212,6 +224,7 @@ class Plushie():
         
         
     def saveThreshold(self, argument):
+        #print("update threshold")
         f = open("threshold.py", "w")
         f.write(f'THRESHOLD = {argument} ')
         f.close()
@@ -281,7 +294,7 @@ class Plushie():
         else:
             message = {"pongCall": {"RSSI": self.THRESHOLD_RSSI, "value": self.name}} # this could be animal name etc.
             e.send(peer, json.dumps(message))
-        print("seding ponding")
+        #print("seding ponding")
         #set PONGED = True to indicate you are a receiver
         s.PONG_TIME = time.ticks_ms() #for timeout
         s.PONGED = True
@@ -290,30 +303,44 @@ class Plushie():
         if self.PINGED == True:
             # Only add folks to the list who haven't already been added
             if not self.mac_value in self.FRIEND_LIST:
-                print("Leading - %s"% (argument))
+                #print("Leading - %s"% (argument))
                 self.FRIEND_LIST.append(self.mac_value)  
             else:
                 pass
     
+    
+    def normalMode(self, argument):
+        self.animate((0,200,0), number = 12, repeat= 1, timeout = 0.2, speed = 0.02)
+        self.colorMode = False
         
+        
+    def colorUpdate(self, argument):
+        self.colorMode = True
+        self.animate(argument, number = 12, repeat= 1, timeout = 0.0, speed = 0)
+        
+    
         
     def playGame(self, argument):
-        if self.game == 1:
-            self.animate(s.COLOR[argument], speed = 0)
-            self.log_collected_color(s.PINGED, s.PONGED, argument)
-            self.reset()
-        elif self.game == 2:
-            #print("game 2 ")
-            self.reset()
-            
-        elif self.game == 3:
-            #print("game 3")
-            self.reset()
-            
-        elif self.game == 4:
-            #print("game 4")
-            self.reset()
-            
+        if self.colorMode == False:
+            if self.game == 1:
+                self.animate(s.COLOR[argument], speed = 0)
+                self.log_collected_color(s.PINGED, s.PONGED, argument)
+                self.reset()
+            elif self.game == 2:
+                #print("game 2 ")
+                self.reset()
+                
+            elif self.game == 3:
+                #print("game 3")
+                self.reset()
+                
+            elif self.game == 4:
+                pass
+                #print("game 4")
+        print("resetting")
+        self.reset()
+   
+   
     
     def gotosleep(self):
         machine.deepsleep()
@@ -349,16 +376,17 @@ def recv_cb(a):
         mac, msg = a.irecv(0)
         if mac is None:
             return
+        #print("Received", msg)
         try:
             receivedMessage = json.loads(msg)
             msg_buffer.append((bytes(mac), receivedMessage))
-            
+
         except Exception as error:
             print(error)
     
 e.irq(recv_cb)
 
-functionLUT = {"rainbow":s.showRainbow, "lightOff": s.turnoff, "deepSleep":s.deepSleep, "batteryCheck":s.findandShowBattery, "updateGame": s.saveGame, "updateThreshold": s.saveThreshold, "pingCall":s.sendPong, "pongCall":s.react2Pong, "finalCall":s.playGame}
+functionLUT = {"rainbow":s.showRainbow, "resetLog": s.resetLog, "lightOff": s.turnoff, "deepSleep":s.deepSleep, "batteryCheck":s.findandShowBattery, "normalMode": s.normalMode, "color": s.colorUpdate, "updateGame": s.saveGame, "updateThreshold": s.saveThreshold, "pingCall":s.sendPong, "pongCall":s.react2Pong, "finalCall":s.playGame}
 
 while True:
     time.sleep(0.1)
@@ -366,32 +394,37 @@ while True:
         mac, receivedMessage = msg_buffer.popleft()  # FIFO: oldest first
         
         for key in receivedMessage:
-            if(e.peers_table[mac][0] > receivedMessage[key]["RSSI"]):
-                s.mac_value = bytes(mac)  
-                if functionLUT.get(key):
-                    functionLUT[key](receivedMessage[key]["value"])
+            try:
+                if(e.peers_table[mac][0] > receivedMessage[key]["RSSI"]):
+                    s.mac_value = bytes(mac)  
+                    if functionLUT.get(key):
+                        functionLUT[key](receivedMessage[key]["value"])
+            except Exception as err:
+                print(err)
    
    
-        
-    # Enough time has passed between the first press of the button from LEADER to send out colors
-    if(time.ticks_ms() - s.GAME_TIME > 1000):
-        if (s.PINGED and (not s.PONGED)):
-            
-            friends_count = len(s.FRIEND_LIST)
-            message = {"finalCall":{"RSSI": s.THRESHOLD_RSSI, "value": friends_count}}
-            print("timeout", message)
-            for new_friend in s.FRIEND_LIST:
-                print("new friend", new_friend)
-                e.add_peer(new_friend)
-                e.send(new_friend, json.dumps(message))
-            print("Sending %s"% friends_count )
-            s.playGame(friends_count)
+    try: 
+        # Enough time has passed between the first press of the button from LEADER to send out colors
+        if(time.ticks_ms() - s.GAME_TIME > 1000):
+            if (s.PINGED and (not s.PONGED)):
+                
+                friends_count = len(s.FRIEND_LIST)%s.MAX_FRIEND
+                message = {"finalCall":{"RSSI": s.THRESHOLD_RSSI, "value": friends_count}}
+                #print("timeout", message)
+                for new_friend in s.FRIEND_LIST:
+                    #print("new friend", new_friend)
+                    e.add_peer(new_friend)
+                    e.send(new_friend, json.dumps(message))
+                print("Sending %s"% friends_count )
+                s.playGame(friends_count)
 
-    # time out for PONGED at 2 seconds
-    if(time.ticks_ms() - s.PONG_TIME) > 2000:
-        if(s.PONGED):
-            s.reset()
-
+        # time out for PONGED at 2 seconds
+        if(time.ticks_ms() - s.PONG_TIME) > 2000:
+            if(s.PONGED):
+                s.reset()
+    
+    except Exception as err:
+        print(err)
 
 
 
@@ -399,6 +432,7 @@ while True:
 # There will be one leader who initaes the communication with a ping
 # Everyone in the close proximity responds with a pong message and will be called receiver
 # After 1 seconds of sending the initiation ping, the leader counts receivers and sends the corresponding color
+
 
 
 
