@@ -141,6 +141,9 @@ class App {
     constructor() {
         this.container = document.getElementById("root");
         this.components = {};
+        this.refreshTimeout = null; // Track refresh timeout to prevent hanging
+        this.REFRESH_TIMEOUT_MS = 10000; // 10 seconds - easy to adjust
+        this.MAX_GATT_RETRIES = 2; // Retry GATT errors 2 times (3 total attempts)
         this.init();
     }
 
@@ -182,19 +185,20 @@ class App {
         // Direct function for Python to call
         window.onDevicesUpdated = (devices) => {
             console.log("=== JavaScript onDevicesUpdated called ===");
-            console.log("STACK TRACE:", new Error().stack);
-            console.log("Direct devices updated call:", devices);
-            console.log("Devices type:", typeof devices);
-            console.log("Devices length:", devices?.length);
-            console.log("First device:", devices?.[0]);
-            console.log("Current state.allDevices length BEFORE update:", state.allDevices?.length);
+            console.log(`Received ${devices?.length || 0} devices from hub`);
+            
+            // Clear refresh timeout since we got a response
+            if (this.refreshTimeout) {
+                clearTimeout(this.refreshTimeout);
+                this.refreshTimeout = null;
+                console.log("Cleared refresh timeout (successful response)");
+            }
+            
             setState({
                 allDevices: devices,
                 lastUpdateTime: new Date(),
                 isRefreshing: false, // Clear loading state when devices received
             });
-            console.log("State updated with devices, loading cleared");
-            console.log("NEW state.allDevices length AFTER update:", devices?.length);
         };
 
         // Direct function calls only - no event listeners needed
@@ -621,7 +625,7 @@ class App {
         }
     }
 
-    async handleRefreshDevices(rssiThreshold = null) {
+    async handleRefreshDevices(rssiThreshold = null, retryCount = 0) {
         /**
          * Refresh device list from ESP32 hub with RSSI-based filtering.
          * 
@@ -639,24 +643,34 @@ class App {
          * rssiThreshold : int or null
          *     RSSI threshold in dBm (e.g., -60)
          *     If null, uses current slider position converted to RSSI
+         * retryCount : int (internal)
+         *     Number of retry attempts so far
          * 
          * Visual Feedback:
          * - Shows loading spinner during entire ping/response cycle
-         * - Minimum 5 second duration to wait for module responses
+         * - Maximum 10 second timeout per attempt to prevent hanging
          * - Loading state shown in recipient bar and device list overlay
+         * 
+         * Error Handling:
+         * - GATT errors: Automatically retries up to MAX_GATT_RETRIES times with 1s delays
+         * - Empty device lists: No retry (legitimate result)
+         * - Timeout per attempt: 10 seconds (prevents hanging)
+         * - Silent retries (no user interruption)
          */
         
-        // Prevent concurrent refreshes - don't send another PING while waiting for response
-        if (state.isRefreshing) {
+        // Prevent concurrent refreshes (but allow internal retries)
+        if (state.isRefreshing && retryCount === 0) {
             console.log("Refresh already in progress, ignoring duplicate request");
             return;
         }
         
-        setState({ isRefreshing: true });
+        // Only set refreshing state on initial attempt
+        if (retryCount === 0) {
+            setState({ isRefreshing: true });
+        }
 
-        // Calculate RSSI threshold from slider if not provided
-        if (rssiThreshold === null) {
-            // Convert slider position to RSSI threshold
+        // Calculate RSSI threshold from slider if not provided (only on initial call)
+        if (rssiThreshold === null && retryCount === 0) {
             const sliderPosition = state.range;
             if (sliderPosition === 100) {
                 rssiThreshold = "all";
@@ -666,26 +680,85 @@ class App {
             }
         }
         
-        console.log(`Refreshing devices with RSSI threshold: ${rssiThreshold}`);
+        // Log attempt
+        if (retryCount > 0) {
+            console.log(`🔄 Retry ${retryCount}/${this.MAX_GATT_RETRIES} - RSSI threshold: ${rssiThreshold}`);
+        } else {
+            console.log(`Refreshing devices with RSSI threshold: ${rssiThreshold}`);
+        }
 
-        // Update button state directly for immediate feedback
-        const refreshBtn = this.components.deviceListOverlay?.querySelector("#refreshBtn");
-        if (refreshBtn) {
-            refreshBtn.classList.add("animate-spin");
+        // Set up timeout to prevent hanging per attempt
+        if (this.refreshTimeout) {
+            clearTimeout(this.refreshTimeout);
+            this.refreshTimeout = null;
+        }
+        
+        this.refreshTimeout = setTimeout(() => {
+            console.warn(`⚠️ Refresh timeout: No response within ${this.REFRESH_TIMEOUT_MS / 1000}s (attempt ${retryCount + 1})`);
+            setState({ isRefreshing: false });
+            this.refreshTimeout = null;
+        }, this.REFRESH_TIMEOUT_MS);
+
+        // Update button state directly for immediate feedback (only on first attempt)
+        if (retryCount === 0) {
+            const refreshBtn = this.components.deviceListOverlay?.querySelector("#refreshBtn");
+            if (refreshBtn) {
+                refreshBtn.classList.add("animate-spin");
+            }
         }
 
         try {
-            // Send PING with RSSI threshold - modules will filter themselves
-            // The loading state will be cleared when onDevicesUpdated is called
-            await PyBridgeToUse.refreshDevices(rssiThreshold);
+            // Send PING with RSSI threshold
+            const result = await PyBridgeToUse.refreshDevices(rssiThreshold);
             
-            console.log("PING sent, waiting for device responses from hub...");
+            console.log("✓ PING sent, waiting for device responses from hub...");
             // Note: isRefreshing will be cleared by onDevicesUpdated callback
-            // when the hub sends back the device list
+            // when hub sends back device list, OR by timeout
+            
+            // Empty array is legitimate - no retry needed
+            
         } catch (e) {
-            console.log("Python backend not ready, refresh command logged only:", e);
-            // Clear loading state on error
-            setState({ isRefreshing: false });
+            // Check if it's a GATT error that should be retried
+            if (e.isGattError && retryCount < this.MAX_GATT_RETRIES) {
+                console.warn(`⚠️ GATT error on attempt ${retryCount + 1}: ${e.message}`);
+                console.log(`Retrying in 1 second... (${retryCount + 1}/${this.MAX_GATT_RETRIES} retries)`);
+                
+                // Clear current timeout
+                if (this.refreshTimeout) {
+                    clearTimeout(this.refreshTimeout);
+                    this.refreshTimeout = null;
+                }
+                
+                // Wait 1 second before retry (short delay for transient GATT errors)
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                // Retry with same threshold, increment retry count
+                return this.handleRefreshDevices(rssiThreshold, retryCount + 1);
+                
+            } else if (e.isGattError) {
+                // Max retries reached for GATT error
+                console.error(`❌ GATT error after ${this.MAX_GATT_RETRIES + 1} attempts: ${e.message}`);
+                console.log("Clearing refresh state - user can retry manually");
+                
+                // Clear timeout and loading state
+                if (this.refreshTimeout) {
+                    clearTimeout(this.refreshTimeout);
+                    this.refreshTimeout = null;
+                }
+                setState({ isRefreshing: false });
+                
+                // Silent failure - no toast to avoid interruption
+                
+            } else {
+                // Non-GATT error - clear state immediately
+                console.error("Non-GATT error during refresh:", e);
+                
+                if (this.refreshTimeout) {
+                    clearTimeout(this.refreshTimeout);
+                    this.refreshTimeout = null;
+                }
+                setState({ isRefreshing: false });
+            }
         }
     }
 

@@ -121,8 +121,25 @@ const PyBridge = {
     try {
       return await window.refresh_devices_from_hub(rssiThreshold);
     } catch (e) {
-      console.error("refresh_devices_from_hub failed:", e);
-      return [];
+      // Check if it's a GATT error (transient, should retry)
+      const isGattError = e.message && (
+        e.message.includes("GATT") || 
+        e.message.includes("Bluetooth") ||
+        e.message.includes("NetworkError")
+      );
+      
+      if (isGattError) {
+        // GATT error - log and throw for retry handling
+        console.warn("⚠️ GATT operation failed (will retry):", e.message);
+        const gattError = new Error(`GATT Error: ${e.message}`);
+        gattError.isGattError = true;
+        throw gattError;
+      } else {
+        // Non-GATT exception - log details and return empty array
+        console.error("Unexpected exception during refresh:", e);
+        console.error("Exception type:", e.name, "| Message:", e.message);
+        return [];
+      }
     }
   },
 

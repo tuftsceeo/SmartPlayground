@@ -26,6 +26,16 @@ import json
 import random
 from machine import Pin
 from ble_uart import Yell
+from twist_iot import TwistIOT
+
+twist = TwistIOT()
+twist.setup_modes([
+    ("Off", 0, 0, 0),
+    ("Waiting", 255, 0, 255),
+    ("Paired", 0, 255, 0),
+    ("Devices", 0, 128, 255),
+])
+    
 
 # === CONFIGURATION ===
 HUB_NAME = "SPHub"
@@ -87,11 +97,14 @@ device_scan_timeout = 5.0  # seconds to wait for device responses
 scan_in_progress = False
 
 # === MOCK DEVICE DATA (for testing without modules) ===
+"""
 mock_devices = [
     {"id": "M-001", "rssi": -45, "battery": 85, "type": "module", "mac": "aa:bb:cc:dd:ee:01"},
     {"id": "M-002", "rssi": -60, "battery": 92, "type": "module", "mac": "aa:bb:cc:dd:ee:02"},
     {"id": "M-003", "rssi": -75, "battery": 78, "type": "module", "mac": "aa:bb:cc:dd:ee:03"}
 ]
+"""
+
 # === WEB APP TO ESP-NOW COMMAND MAPPING ===
 # Maps web app commands (as sent by main.js) to ESP-NOW protocol format
 # Format: {"espnowCommand": {"RSSI": threshold, "value": value}}
@@ -173,17 +186,23 @@ def rssi_threshold_to_int(rssi_threshold):
     Convert RSSI threshold string to integer value.
     
     Handles special cases:
-    - "all" -> -90 (weakest threshold, includes all devices)
+    - "all" -> -100 (weakest threshold, includes all devices)
     - Numeric string -> convert to int
-    - Invalid -> default to -90
+    - Invalid -> default to -100
+    
+    RSSI approximates:
+        RSSI < -90 dBm: this signal is extremely weak, at the edge of what a receiver can receive.
+        RSSI -67dBm: this is a fairly strong signal.
+        RSSI > -55dBm: this is a very strong signal.
+        RSSI > -30dBm: your sniffer is sitting right next to the transmitter.
     """
     if rssi_threshold == "all":
-        return -90
+        return -100
     try:
         return int(rssi_threshold)
     except:
         print(f"Invalid RSSI threshold: {rssi_threshold}, defaulting to -90")
-        return -90
+        return -100
 
 def send_espnow_command(command, rssi_threshold="all"):
     """
@@ -339,15 +358,15 @@ def send_ble_framed(data_bytes, chunk_size=100):
 
 def handle_ping_command(rssi_threshold="all"):
     """
-    Handle PING command - scan for nearby modules (PLACEHOLDER)
+    Handle PING command - scan for nearby modules
     """
     global scan_in_progress, discovered_devices
     
-    print("Starting device scan (PLACEHOLDER)...")
+    print("Starting device scan ...")
     scan_in_progress = True
     discovered_devices = []
     
-    # Send PING command to modules (placeholder)
+    # Send PING command to modules
     send_espnow_command("PING", rssi_threshold)
     
     # # Wait for responses
@@ -381,22 +400,22 @@ def handle_ping_command(rssi_threshold="all"):
         
         time.sleep_ms(100)
     
-    # PLACEHOLDER: Use mock devices for testing
+    # PLACEHOLDER: Use mock devices for testing ===
     # print("ESP-NOW PLACEHOLDER: Using mock device data")
     # discovered_devices = mock_devices.copy()
-    
+    # ======
+    print(f"Device scan complete. Found {len(discovered_devices)} devices")
     # Apply RSSI filtering if specified
     if rssi_threshold != "all":
         try:
             threshold_val = int(rssi_threshold)
             discovered_devices = [d for d in discovered_devices if d["rssi"] >= threshold_val]
-            print(f"ESP-NOW PLACEHOLDER: Filtered to {len(discovered_devices)} devices above {threshold_val} dBm")
+            print(f"ESP-NOW: Filtered to {len(discovered_devices)} devices above {threshold_val} dBm")
         except:
             pass
     
     scan_in_progress = False
-    print(f"Device scan complete. Found {len(discovered_devices)} devices")
-    
+
     # Send device list back to web app
     device_list_response = {
         "type": "devices",
@@ -406,10 +425,7 @@ def handle_ping_command(rssi_threshold="all"):
     try:
         print(f"DEBUG: Sending device list, p.is_connected: {p.is_connected}")
         
-        # CRITICAL: BLE UART transmission with chunking for large messages
-        # 
-        # Problem: BLE MTU limits (20-244 bytes) cause large messages to be truncated
-        # Solution: Split message into chunks and send separately
+        # Split large messages into chunks and send separately
         # 
         # Steps:
         # 1. Convert Python dict to JSON string with json.dumps()
@@ -454,8 +470,6 @@ def handle_ble_command(command_str):
     
     # Handle different commands
     if command == "PING":
-        # Device discovery - uses mock data for now
-        # In the future, this would send ESP-NOW ping and wait for responses
         handle_ping_command(threshold)
         
     elif command in COMMAND_MAP:
@@ -576,14 +590,6 @@ print("=" * 50)
 # === MAIN LOOP (Continuous operation) ===
 print("Hub ready for BLE connections and ESP-NOW communication.")
 print("")
-print("=== SUPPORTED COMMANDS ===")
-print("  - PING: Scan for nearby modules (currently returns mock data)")
-print("  - BATTERY CHECK: Request battery display on modules")
-print("  - COLOR BASED GROUP: Start color-based game (game 1)")
-print("  - NUMBER BASED GROUP: Start number-based game (game 2)")
-print("  - RAINBOW: Send rainbow/winning animation")
-print("  - TURN OFF: Turn off/pause modules")
-print("")
 print("=== ESP-NOW STATUS ===")
 print(f"  Broadcast MAC: {BROADCAST_MAC.hex()}")
 print(f"  Commands will be sent to modules via ESP-NOW")
@@ -592,8 +598,6 @@ print("=== BLE STATUS ===")
 print(f"  Device Name: {HUB_NAME}")
 print(f"  Advertising: Active")
 print(f"  Waiting for web app connection...")
-print("")
-print("Hub running autonomously - no USB serial input required")
 print("")
 
 # Continuous operational loop
@@ -607,12 +611,17 @@ print(f"Hub name: {HUB_NAME}")
 print(f"BLE object: {p}")
 print("Hub should now be visible in Bluetooth scan...")
 
+twist.current_mode = 0
+twist.show_mode()
+twist.start_breathe((255, 0, 255), duration=4000)
+
 # Start advertising - makes this device visible to BLE scanners
 # The ble_uart.Yell class handles:
 # - Building advertisement packet with device name and service UUIDs
 # - Starting GATT server with Nordic UART service
 # - Setting up interrupt handlers for connection events
 p.advertise()
+
 
 # === MAIN EVENT LOOP ===
 # BLE operates on an interrupt-driven model:
@@ -626,8 +635,8 @@ p.advertise()
 # - Heavy processing should be done in callbacks, not here
 
 while True:
-    time.sleep(0.1)  # Short sleep to prevent CPU spinning
-    
+    time.sleep(0.05)  # Short sleep to prevent CPU spinning
+    twist.update_animations()
     current_time = time.time()
     
     # Monitor BLE connection state
@@ -648,6 +657,7 @@ while True:
         if current_time - last_connection_check > connection_timeout:
             print("Waiting for BLE connection...")
             try:
+                twist.start_breathe((255, 0, 255), duration=4000)
                 p.advertise()  # Make device discoverable again
                 print("Advertising restarted")
             except Exception as e:
@@ -658,7 +668,7 @@ while True:
     # Helps with debugging and monitoring hub health
     if current_time - last_status_time >= 60:
         if p.is_connected:
-            print(f"Hub status: BLE connected, {len(discovered_devices)} devices known (mock data)")
+            print(f"Hub status: BLE connected, {len(discovered_devices)} devices known")
         else:
             print("Hub status: BLE disconnected, advertising for connections...")
         last_status_time = current_time
