@@ -81,6 +81,30 @@ BROADCAST_MAC = peer
 print(f"ESP-NOW initialized")
 print(f"Broadcast peer added: {BROADCAST_MAC.hex()}")
 
+# ESP-NOW message buffer for interrupt handler
+from ucollections import deque
+espnow_msg_buffer = deque((), 50, 2)  # Max 50 messages
+
+def espnow_recv_cb(interface):
+    """
+    ESP-NOW interrupt callback - buffers incoming messages
+    This prevents messages from being dropped during polling delays
+    """
+    global espnow_msg_buffer
+    while True:
+        mac, msg = interface.irecv(0)
+        if mac is None:
+            return
+        try:
+            espnow_msg_buffer.append((bytes(mac), msg))
+            print("ESP-NOW RX:", mac.hex()[:12], "buffered")
+        except Exception as err:
+            print("ESP-NOW recv error:", err)
+
+# Set up interrupt handler for ESP-NOW
+espnow_interface.irq(espnow_recv_cb)
+print("ESP-NOW interrupt handler registered")
+
 # === BLE UART SETUP ===
 # Yell is a BLE Peripheral (server) class from ble_uart.py
 # It creates a GATT server with Nordic UART Service
@@ -360,45 +384,56 @@ def handle_ping_command(rssi_threshold="all"):
     """
     Handle PING command - scan for nearby modules
     """
-    global scan_in_progress, discovered_devices
+    global scan_in_progress, discovered_devices, espnow_msg_buffer
     
     print("Starting device scan ...")
     scan_in_progress = True
     discovered_devices = []
     
+    # Clear any old messages from buffer
+    while len(espnow_msg_buffer) > 0:
+        espnow_msg_buffer.popleft()
+    print("Cleared ESP-NOW buffer")
+    
     # Send PING command to modules
     send_espnow_command("PING", rssi_threshold)
     
-    # # Wait for responses
+    # Wait for responses from buffer
     start_time = time.time()
     while time.time() - start_time < device_scan_timeout:
-        # Check for ESP-NOW responses
-        try:
-            mac, msg = espnow_interface.irecv(0)  # Non-blocking
-            if mac is not None:
+        # Check for buffered ESP-NOW responses
+        if len(espnow_msg_buffer) > 0:
+            mac, msg = espnow_msg_buffer.popleft()
+            try:
+                response = json.loads(msg.decode())
+                print("Device response from", mac.hex(), ":", response)
+                
+                device_scan_data = response.get("deviceScan", None)
+                if device_scan_data is None:
+                    print("Not a deviceScan response, ignoring")
+                    continue
+                
+                # Add to discovered devices
                 try:
-                    response = json.loads(msg.decode())
-                    print(f"Device response from {mac.hex()}: {response}")
+                    rssi = espnow_interface.peers_table[mac][0]
+                except (KeyError, IndexError):
+                    rssi = -50  # Default if not in peers table
                     
-                    response = response.get("deviceScan", None)
-                    # Add to discovered devices
-                    
-                    device_info = {
-                        "id": response.get("value", f"M-{mac.hex()[:6]}"),
-                        "rssi": espnow_interface.peers_table[mac][0],
-                        "battery": response.get("battery", -1),
-                        "type": response.get("type", "Unknown"),
-                        "mac": mac.hex()
-                    }
-                    discovered_devices.append(device_info)
-                    print(f"Added device: {device_info}")
-                    
-                except Exception as e:
-                    print(f"Response parse error: {e}")
-        except:
-            pass
-        
-        time.sleep_ms(100)
+                device_info = {
+                    "id": device_scan_data.get("value", "M-" + mac.hex()[:6]),
+                    "rssi": rssi,
+                    "battery": device_scan_data.get("battery", -1),
+                    "type": device_scan_data.get("type", "Unknown"),
+                    "mac": mac.hex()
+                }
+                discovered_devices.append(device_info)
+                print("Added device:", device_info)
+                
+            except Exception as err:
+                print("Response parse error:", err)
+        else:
+            # No messages in buffer, wait a bit
+            time.sleep_ms(100)
     
     # PLACEHOLDER: Use mock devices for testing ===
     # print("ESP-NOW PLACEHOLDER: Using mock device data")
