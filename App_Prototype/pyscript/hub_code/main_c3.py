@@ -151,10 +151,18 @@ print(f"BLE advertising as '{HUB_NAME}'")
 
 # === DEVICE DISCOVERY STATE ===
 discovered_devices = []
-device_scan_timeout = 5.0  # seconds to wait for device responses
+device_scan_timeout = 5.0  # seconds total (3s for 3 pings @ 1s intervals + 2s buffer for responses)
 scan_in_progress = False
 scan_start_time = 0
 scan_rssi_threshold = "all"  # Store current scan threshold
+
+# Redundant scan settings to overcome unreliable ESP-NOW reception
+# Since transmission works reliably but reception is flaky on ESP32-C3,
+# we send multiple PINGs and accumulate all responses
+scan_redundancy_count = 3  # Number of PINGs to send per scan
+scan_redundancy_delay = 1.0  # seconds between redundant PINGs (1.0s * 3 = 3.0s total)
+scan_ping_counter = 0  # Track how many PINGs sent in current scan
+last_ping_time = 0  # Track timing of last PING
 
 # BLE/ESP-NOW Radio Conflict Mitigation:
 # ESP32-C3 has a single 2.4GHz radio shared between BLE and WiFi (ESP-NOW).
@@ -440,11 +448,18 @@ def send_ble_framed(data_bytes, chunk_size=100):
 
 def start_device_scan(rssi_threshold="all"):
     """
-    Initiate device scan - NON-BLOCKING.
-    Pauses BLE during scan to prevent radio conflicts with ESP-NOW.
-    ESP-NOW IRQ remains active and continues buffering messages.
+    Initiate device scan - NON-BLOCKING with REDUNDANCY.
+    
+    Strategy for ESP32-C3 radio conflicts:
+    1. FORCE BLE to stop advertising (frees radio for ESP-NOW)
+    2. Send multiple redundant PINGs (transmission works, reception is flaky)
+    3. Accumulate all unique responses
+    4. Resume BLE after timeout
+    
+    This provides both radio isolation AND message redundancy.
     """
-    global scan_in_progress, scan_start_time, scan_rssi_threshold, discovered_devices, ble_paused, espnow_msg_buffer
+    global scan_in_progress, scan_start_time, scan_rssi_threshold, discovered_devices
+    global ble_paused, espnow_msg_buffer, scan_ping_counter, last_ping_time
     
     # CRITICAL: Prevent overlapping scans (rapid re-polling protection)
     if scan_in_progress:
@@ -458,8 +473,20 @@ def start_device_scan(rssi_threshold="all"):
         ble_paused = False
         time.sleep_ms(50)
     
-    print("Starting device scan, RSSI:", rssi_threshold)
-    print("Pausing BLE to avoid ESP-NOW IRQ conflicts...")
+    scan_start_timestamp = time.ticks_ms()
+    print(f"[T+{scan_start_timestamp}ms] === STARTING REDUNDANT DEVICE SCAN ===")
+    print("RSSI threshold:", rssi_threshold)
+    print("Will send", scan_redundancy_count, "PINGs at", scan_redundancy_delay, "s intervals")
+    
+    # AGGRESSIVE BLE SUPPRESSION: Force BLE to stop advertising
+    # This frees the radio completely for ESP-NOW during scan window
+    try:
+        print("Stopping BLE advertising to free radio for ESP-NOW...")
+        p.stop_advertising()  # Proper method from Yell class
+        time.sleep_ms(100)  # Let BLE release radio
+        print("BLE advertising stopped")
+    except Exception as e:
+        print("Warning: Could not stop BLE advertising:", e)
     
     # Clear any stale ESP-NOW messages from previous scans
     old_buffer_size = len(espnow_msg_buffer)
@@ -467,26 +494,35 @@ def start_device_scan(rssi_threshold="all"):
         print(f"Clearing {old_buffer_size} stale ESP-NOW messages from buffer")
         espnow_msg_buffer.clear()
     
+    # Initialize scan state
     scan_in_progress = True
     scan_start_time = time.time()
     scan_rssi_threshold = rssi_threshold
     discovered_devices = []
-    ble_paused = True  # Pause BLE operations during ESP-NOW scan
+    ble_paused = True  # Flag to prevent BLE transmission attempts
+    scan_ping_counter = 0  # Will increment with each PING sent
+    last_ping_time = 0  # Will track timing
     
     # Show on display
-    show_display("SCAN STARTED",
+    show_display("REDUNDANT SCAN",
                 "RSSI: " + str(rssi_threshold),
-                "BLE paused",
+                "BLE stopped",
                 "ESP-NOW active")
     
-    # Send PING command to modules
+    # Send FIRST PING immediately (subsequent PINGs sent from main loop)
     send_espnow_command("PING", rssi_threshold)
+    scan_ping_counter = 1
+    last_ping_time = time.time()
+    print(f"Sent PING 1/{scan_redundancy_count}")
     print("Waiting for module responses (ESP-NOW IRQ active)...")
 
 def handle_device_scan(mac, data):
     """
     Handle deviceScan messages from modules.
     State check is INSIDE handler (like module's react2Pong pattern).
+    
+    With redundant PINGs, we may receive multiple responses from the same device.
+    We deduplicate by MAC and keep the best (strongest) RSSI reading.
     """
     global discovered_devices
     
@@ -502,23 +538,40 @@ def handle_device_scan(mac, data):
         except (KeyError, IndexError):
             rssi = -50  # Default if not in peers table
         
-        # Build device info
-        device_info = {
-            "id": data.get("value", "M-" + mac.hex()[:6]),
-            "rssi": rssi,
-            "battery": data.get("battery", -1),
-            "type": data.get("type", "Unknown"),
-            "mac": mac.hex()
-        }
+        mac_hex = mac.hex()
         
-        discovered_devices.append(device_info)
-        print("Device found:", device_info["id"], "RSSI:", rssi)
+        # Check if we already have this device (deduplicate)
+        existing_device = None
+        for device in discovered_devices:
+            if device["mac"] == mac_hex:
+                existing_device = device
+                break
         
-        # Update display to show device was found
-        show_display("Device Found!",
-                    device_info["id"][:16],
+        if existing_device:
+            # Already seen this device - update RSSI if stronger
+            if rssi > existing_device["rssi"]:
+                print(f"Device {existing_device['id']} updated: RSSI {existing_device['rssi']} -> {rssi}")
+                existing_device["rssi"] = rssi
+            else:
+                print(f"Device {existing_device['id']} duplicate response (RSSI {rssi}, keeping {existing_device['rssi']})")
+        else:
+            # New device - add it
+            device_info = {
+                "id": data.get("value", "M-" + mac_hex[:6]),
+                "rssi": rssi,
+                "battery": data.get("battery", -1),
+                "type": data.get("type", "Unknown"),
+                "mac": mac_hex
+                    }
+            discovered_devices.append(device_info)
+            print("NEW device found:", device_info["id"], "RSSI:", rssi)
+        
+        # Update display to show current unique device count
+        unique_count = len(discovered_devices)
+        show_display("Device Response",
+                    str(unique_count) + " unique",
                     "RSSI: " + str(rssi),
-                    "Count: " + str(len(discovered_devices)))
+                    "Ping: " + str(scan_ping_counter))
         
     except Exception as err:
         print("handle_device_scan error:", err)
@@ -538,8 +591,10 @@ def finish_device_scan():
     """
     global scan_in_progress, discovered_devices, ble_paused
     
-    print("\n=== SCAN COMPLETE - FINISHING ===")
-    print(f"Raw devices found: {len(discovered_devices)}")
+    scan_finish_timestamp = time.ticks_ms()
+    print(f"\n[T+{scan_finish_timestamp}ms] === SCAN COMPLETE - FINISHING ===")
+    print(f"Sent {scan_ping_counter}/{scan_redundancy_count} redundant PINGs")
+    print(f"Unique devices found: {len(discovered_devices)}")
     print(f"Scan threshold was: {scan_rssi_threshold}")
     if len(discovered_devices) > 0:
         for d in discovered_devices:
@@ -547,10 +602,17 @@ def finish_device_scan():
     
     scan_in_progress = False
     
-    # Resume BLE operations BEFORE sending results
+    # CRITICAL: Resume BLE advertising (was stopped during scan)
     ble_paused = False
-    print("Resuming BLE operations...")
-    time.sleep_ms(50)  # Brief delay to let BLE stabilize
+    print("Resuming BLE advertising...")
+    try:
+        # Restart BLE advertising with same parameters
+        # This reconnects us to the web app without re-pairing
+        p.advertise()
+        time.sleep_ms(100)  # Let BLE stabilize
+        print("BLE advertising resumed")
+    except Exception as e:
+        print("Warning: Could not resume BLE advertising:", e)
     
     # Apply RSSI filtering if specified
     if scan_rssi_threshold != "all":
@@ -776,9 +838,22 @@ while True:
             except Exception as err:
                 print("Message processing error:", err)
     
-    # 3. Check scan timeout (non-blocking state check)
+    # 3. Check scan timeout AND send redundant PINGs (non-blocking state check)
     if scan_in_progress:
         elapsed = current_time - scan_start_time
+        
+        # REDUNDANT PING LOGIC: Send additional PINGs at intervals
+        if scan_ping_counter < scan_redundancy_count:
+            time_since_last_ping = current_time - last_ping_time
+            if time_since_last_ping >= scan_redundancy_delay:
+                # Time to send next redundant PING
+                try:
+                    send_espnow_command("PING", scan_rssi_threshold)
+                    scan_ping_counter += 1
+                    last_ping_time = current_time
+                    print(f"Sent redundant PING {scan_ping_counter}/{scan_redundancy_count}")
+                except Exception as err:
+                    print("Redundant PING error:", err)
         
         # WATCHDOG: Force reset if scan stuck for too long (>10s = 2x normal timeout)
         if elapsed > (device_scan_timeout * 2):
@@ -786,6 +861,12 @@ while True:
             scan_in_progress = False
             ble_paused = False
             espnow_msg_buffer.clear()
+            # CRITICAL: Resume BLE advertising after watchdog reset
+            try:
+                p.advertise()
+                print("BLE advertising restarted after watchdog")
+            except:
+                pass
             print("State forcibly reset. System recovered.")
         elif elapsed > device_scan_timeout:
             # Normal timeout
@@ -795,6 +876,11 @@ while True:
                 print("Scan finish error:", err)
                 scan_in_progress = False
                 ble_paused = False  # CRITICAL: Always resume BLE even on error
+                # Try to restart advertising on error
+                try:
+                    p.advertise()
+                except:
+                    pass
     
     # 4. Update animations (fast, non-blocking)
     try:

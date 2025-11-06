@@ -142,7 +142,10 @@ class App {
         this.container = document.getElementById("root");
         this.components = {};
         this.refreshTimeout = null; // Track refresh timeout to prevent hanging
+        this.cooldownRetryTimeout = null; // Track pending cooldown retry
         this.REFRESH_TIMEOUT_MS = 7000; // 7 seconds (hub scans for 5s + 2s buffer for BLE resume/response)
+        this.SCAN_COOLDOWN_MS = 2000; // 2 seconds minimum between scans (prevents radio conflicts)
+        this.lastRefreshTime = 0; // Track last scan completion time
         this.MAX_GATT_RETRIES = 2; // Retry GATT errors 2 times (3 total attempts)
         this.init();
     }
@@ -194,6 +197,9 @@ class App {
                 console.log("Cleared refresh timeout (successful response)");
             }
             
+            // Update cooldown timer on successful scan completion
+            this.lastRefreshTime = Date.now();
+            
             setState({
                 allDevices: devices,
                 lastUpdateTime: new Date(),
@@ -225,6 +231,17 @@ class App {
         // Direct function for Python to call
         window.onBLEDisconnected = () => {
             console.log("Direct BLE disconnected call");
+            
+            // Clean up any pending timeouts
+            if (this.refreshTimeout) {
+                clearTimeout(this.refreshTimeout);
+                this.refreshTimeout = null;
+            }
+            if (this.cooldownRetryTimeout) {
+                clearTimeout(this.cooldownRetryTimeout);
+                this.cooldownRetryTimeout = null;
+            }
+            
             setState({
                 hubConnected: false,
                 hubDeviceName: null,
@@ -679,6 +696,49 @@ class App {
             return;
         }
         
+        // Cancel any pending cooldown retry (user triggered new scan)
+        if (this.cooldownRetryTimeout) {
+            clearTimeout(this.cooldownRetryTimeout);
+            this.cooldownRetryTimeout = null;
+            console.log("Cancelled pending cooldown retry (new scan requested)");
+        }
+        
+        // Enforce cooldown period between scans (only for new scans, not retries)
+        if (retryCount === 0 && this.lastRefreshTime > 0) {
+            const timeSinceLastScan = Date.now() - this.lastRefreshTime;
+            if (timeSinceLastScan < this.SCAN_COOLDOWN_MS) {
+                const remainingCooldown = this.SCAN_COOLDOWN_MS - timeSinceLastScan;
+                console.log(`⏳ Scan cooldown: Wait ${Math.ceil(remainingCooldown / 1000)}s (prevents ESP32-C3 radio conflicts)`);
+                console.log(`   Will automatically retry in ${remainingCooldown}ms...`);
+                
+                // Calculate RSSI threshold NOW before scheduling retry
+                let thresholdForRetry = rssiThreshold;
+                if (thresholdForRetry === null) {
+                    const sliderPosition = state.range;
+                    if (sliderPosition === 100) {
+                        thresholdForRetry = "all";
+                    } else {
+                        thresholdForRetry = Math.round(-30 - ((sliderPosition - 1) / 98) * 60);
+                    }
+                }
+                
+                // Automatically retry after cooldown expires
+                this.cooldownRetryTimeout = setTimeout(() => {
+                    console.log("⏰ Cooldown expired, retrying scan...");
+                    this.cooldownRetryTimeout = null;
+                    this.handleRefreshDevices(thresholdForRetry, 0);
+                }, remainingCooldown);
+                
+                return;
+            }
+        }
+        
+        // Check if hub is connected before attempting scan
+        if (!state.hubConnected) {
+            console.warn("⚠️ Cannot scan: Hub not connected");
+            return;
+        }
+        
         // Only set refreshing state on initial attempt
         if (retryCount === 0) {
             setState({ isRefreshing: true });
@@ -711,6 +771,7 @@ class App {
         this.refreshTimeout = setTimeout(() => {
             console.warn(`⚠️ Refresh timeout: No response within ${this.REFRESH_TIMEOUT_MS / 1000}s (attempt ${retryCount + 1})`);
             setState({ isRefreshing: false });
+            this.lastRefreshTime = Date.now(); // Update cooldown timer
             this.refreshTimeout = null;
         }, this.REFRESH_TIMEOUT_MS);
 
@@ -760,6 +821,7 @@ class App {
                     clearTimeout(this.refreshTimeout);
                     this.refreshTimeout = null;
                 }
+                this.lastRefreshTime = Date.now(); // Update cooldown timer
                 setState({ isRefreshing: false });
                 
                 // Silent failure - no toast to avoid interruption
@@ -772,6 +834,7 @@ class App {
                     clearTimeout(this.refreshTimeout);
                     this.refreshTimeout = null;
                 }
+                this.lastRefreshTime = Date.now(); // Update cooldown timer
                 setState({ isRefreshing: false });
             }
         }
