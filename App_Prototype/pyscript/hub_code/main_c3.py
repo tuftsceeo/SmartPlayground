@@ -122,27 +122,18 @@ from ucollections import deque
 espnow_msg_buffer = deque((), 50, 2)  # Buffer for ESP-NOW messages
 ble_command_buffer = deque((), 10, 2)  # Buffer for BLE commands
 
-# Counters for display (updated in interrupts, displayed in main loop)
-espnow_rx_count = 0
-espnow_tx_count = 0
-last_rx_mac = "none"
-
 def espnow_recv_cb(interface):
-    """
-    ESP-NOW interrupt callback - buffers incoming messages.
-    FAST, NON-BLOCKING: Just buffer and increment counter.
-    """
-    global espnow_msg_buffer, espnow_rx_count, last_rx_mac
+    global espnow_msg_buffer
     while True:
         mac, msg = interface.irecv(0)
         if mac is None:
             return
         try:
-            espnow_msg_buffer.append((bytes(mac), msg))
-            espnow_rx_count += 1
-            last_rx_mac = mac.hex()[:12]
-        except Exception as err:
-            print("ESP-NOW recv error:", err)
+            receivedMessage = json.loads(msg)
+            print("Received from", mac.hex(), ":", receivedMessage)
+            espnow_msg_buffer.append((bytes(mac), receivedMessage))
+        except Exception as error:
+            print("recv_cb error:", error)
 
 # Set up interrupt handler for ESP-NOW
 espnow_interface.irq(espnow_recv_cb)
@@ -164,6 +155,20 @@ device_scan_timeout = 5.0  # seconds to wait for device responses
 scan_in_progress = False
 scan_start_time = 0
 scan_rssi_threshold = "all"  # Store current scan threshold
+
+# BLE/ESP-NOW Radio Conflict Mitigation:
+# ESP32-C3 has a single 2.4GHz radio shared between BLE and WiFi (ESP-NOW).
+# During device scans, we pause BLE transmission to prevent radio conflicts
+# that can block ESP-NOW IRQ from firing. The strategy:
+#   1. Web app sends PING command via BLE (received and buffered)
+#   2. Hub pauses BLE operations (sets ble_paused=True)
+#   3. Hub sends ESP-NOW PING to modules
+#   4. ESP-NOW IRQ continues to work and buffer responses (NOT paused!)
+#   5. After 5-second timeout, hub resumes BLE (ble_paused=False)
+#   6. Hub sends results back to web app via BLE
+# This keeps BLE connection alive (no re-pairing needed) while giving
+# ESP-NOW exclusive radio access during the critical scan window.
+ble_paused = False
 
 # === MOCK DEVICE DATA (for testing without modules) ===
 """
@@ -327,19 +332,19 @@ def send_espnow_command(command, rssi_threshold="all"):
     }
     
     message_str = json.dumps(message)  # Convert dict to string for ESP-NOW transmission
-    print(f"ESP-NOW: Sending")
-    print(message)
+    print(f"\nESP-NOW: Sending {espnow_command}")
+    print(f"  Message: {message}")
     print(f"  Target RSSI: {rssi_value} dBm (modules stronger than this will respond)")
+    print(f"  Broadcast to: {BROADCAST_MAC.hex()}")
     
     try:
-        global espnow_tx_count
         # Send via ESP-NOW broadcast
         # IMPORTANT: ESP-NOW send() expects a STRING, not bytes!
         # MicroPython's espnow.send() will handle the encoding internally
         success = espnow_interface.send(BROADCAST_MAC, message_str)
+        print(f"  Send() returned: {success}")
         
         if success:
-            espnow_tx_count += 1
             print(f"ESP-NOW: Transmission successful")
             # Flash LED to indicate successful transmission
             led.value(1)
@@ -389,6 +394,12 @@ def send_ble_framed(data_bytes, chunk_size=100):
     chunk_size : int
         Maximum bytes per BLE notification (default: 100 bytes)
     """
+    global ble_paused
+    
+    if ble_paused:
+        print("Cannot send: BLE paused during ESP-NOW scan")
+        return False
+    
     if not p.is_connected:
         print("Cannot send: BLE not connected")
         return False
@@ -430,58 +441,61 @@ def send_ble_framed(data_bytes, chunk_size=100):
 def start_device_scan(rssi_threshold="all"):
     """
     Initiate device scan - NON-BLOCKING.
-    Just sends the ping and sets up state for collecting responses.
+    Pauses BLE during scan to prevent radio conflicts with ESP-NOW.
+    ESP-NOW IRQ remains active and continues buffering messages.
     """
-    global scan_in_progress, scan_start_time, scan_rssi_threshold, discovered_devices
+    global scan_in_progress, scan_start_time, scan_rssi_threshold, discovered_devices, ble_paused, espnow_msg_buffer
+    
+    # CRITICAL: Prevent overlapping scans (rapid re-polling protection)
+    if scan_in_progress:
+        print("WARNING: Scan already in progress! Ignoring duplicate request.")
+        print("This prevents state corruption from rapid re-polling.")
+        return
+    
+    # CRITICAL: Force BLE resume if stuck from previous scan
+    if ble_paused:
+        print("WARNING: BLE was stuck paused! Forcing resume before new scan.")
+        ble_paused = False
+        time.sleep_ms(50)
     
     print("Starting device scan, RSSI:", rssi_threshold)
+    print("Pausing BLE to avoid ESP-NOW IRQ conflicts...")
+    
+    # Clear any stale ESP-NOW messages from previous scans
+    old_buffer_size = len(espnow_msg_buffer)
+    if old_buffer_size > 0:
+        print(f"Clearing {old_buffer_size} stale ESP-NOW messages from buffer")
+        espnow_msg_buffer.clear()
+    
     scan_in_progress = True
     scan_start_time = time.time()
     scan_rssi_threshold = rssi_threshold
     discovered_devices = []
+    ble_paused = True  # Pause BLE operations during ESP-NOW scan
     
     # Show on display
     show_display("SCAN STARTED",
                 "RSSI: " + str(rssi_threshold),
-                "Waiting...",
-                "")
+                "BLE paused",
+                "ESP-NOW active")
     
     # Send PING command to modules
     send_espnow_command("PING", rssi_threshold)
+    print("Waiting for module responses (ESP-NOW IRQ active)...")
 
-def process_espnow_message(mac, msg):
+def handle_device_scan(mac, data):
     """
-    Process a single ESP-NOW message - NON-BLOCKING.
-    Called from main loop for each buffered message.
+    Handle deviceScan messages from modules.
+    State check is INSIDE handler (like module's react2Pong pattern).
     """
     global discovered_devices
     
-    print("=== PROCESS ESP-NOW MSG ===")
-    print("From:", mac.hex())
-    print("Scan active:", scan_in_progress)
-    
-    # Only process deviceScan responses when scan is active
     if not scan_in_progress:
-        print("IGNORED: scan not active")
-        show_display("MSG IGNORED",
-                    "No scan active",
-                    "From:" + mac.hex()[:12],
-                    "")
+        # Not currently scanning - ignore gracefully
+        print("deviceScan received but no scan active (ignored)")
         return
     
     try:
-        response = json.loads(msg.decode())
-        print("Decoded JSON:", response)
-        device_scan_data = response.get("deviceScan", None)
-        
-        if device_scan_data is None:
-            print("IGNORED: not deviceScan")
-            show_display("MSG IGNORED",
-                        "Not deviceScan",
-                        str(list(response.keys())[:16]),
-                        "")
-            return  # Not a deviceScan response, ignore
-        
         # Get RSSI from peers table or use default
         try:
             rssi = espnow_interface.peers_table[mac][0]
@@ -490,10 +504,10 @@ def process_espnow_message(mac, msg):
         
         # Build device info
         device_info = {
-            "id": device_scan_data.get("value", "M-" + mac.hex()[:6]),
+            "id": data.get("value", "M-" + mac.hex()[:6]),
             "rssi": rssi,
-            "battery": device_scan_data.get("battery", -1),
-            "type": device_scan_data.get("type", "Unknown"),
+            "battery": data.get("battery", -1),
+            "type": data.get("type", "Unknown"),
             "mac": mac.hex()
         }
         
@@ -507,18 +521,36 @@ def process_espnow_message(mac, msg):
                     "Count: " + str(len(discovered_devices)))
         
     except Exception as err:
-        print("Parse error:", err)
+        print("handle_device_scan error:", err)
+
+# Function lookup table - matches module pattern
+# Hub only handles deviceScan (module-to-hub responses)
+# Other message types (pongCall, finalCall) are module-to-module only
+functionLUT = {
+    "deviceScan": handle_device_scan,
+}
 
 def finish_device_scan():
     """
     Complete device scan and send results - NON-BLOCKING.
     Called from main loop when scan timeout expires.
+    Resumes BLE operations before sending results.
     """
-    global scan_in_progress, discovered_devices
+    global scan_in_progress, discovered_devices, ble_paused
     
-    print("=== SCAN TIMEOUT - FINISHING ===")
-    print("Devices found:", len(discovered_devices))
+    print("\n=== SCAN COMPLETE - FINISHING ===")
+    print(f"Raw devices found: {len(discovered_devices)}")
+    print(f"Scan threshold was: {scan_rssi_threshold}")
+    if len(discovered_devices) > 0:
+        for d in discovered_devices:
+            print(f"  - {d['id']} (MAC: {d['mac']}, RSSI: {d['rssi']})")
+    
     scan_in_progress = False
+    
+    # Resume BLE operations BEFORE sending results
+    ble_paused = False
+    print("Resuming BLE operations...")
+    time.sleep_ms(50)  # Brief delay to let BLE stabilize
     
     # Apply RSSI filtering if specified
     if scan_rssi_threshold != "all":
@@ -529,7 +561,7 @@ def finish_device_scan():
         except:
             pass
     
-    # Send device list back to web app
+    # Send device list back to web app (BLE now active again)
     device_list_response = {
         "type": "devices",
         "list": discovered_devices
@@ -539,7 +571,7 @@ def finish_device_scan():
         response_json = json.dumps(device_list_response)
         response_bytes = response_json.encode()
         
-        print("Sending", len(response_bytes), "bytes to app")
+        print("Sending", len(response_bytes), "bytes to app via BLE")
         
         # Use framed sending for reliable transmission
         success = send_ble_framed(response_bytes, chunk_size=100)
@@ -713,22 +745,56 @@ while True:
         except Exception as err:
             print("BLE command error:", err)
     
-    # 2. Process ESP-NOW messages from buffer
+    # 2. Process ESP-NOW messages from buffer (matches module pattern)
     if len(espnow_msg_buffer) > 0:
-        mac, msg = espnow_msg_buffer.popleft()
-        try:
-            process_espnow_message(mac, msg)
-        except Exception as err:
-            print("ESP-NOW message error:", err)
+        mac, receivedMessage = espnow_msg_buffer.popleft()  # Now unpacking dict, not raw bytes
+        print("Processing buffered ESP-NOW message (buffer size:", len(espnow_msg_buffer), ")")
+        
+        # Process each key in the message (like module does)
+        for key in receivedMessage:
+            try:
+                # Optional: RSSI filtering (modules do this, hub can too)
+                try:
+                    sender_rssi = espnow_interface.peers_table[mac][0]
+                    threshold = receivedMessage[key]["RSSI"]
+                    passes = sender_rssi > threshold
+                    print("Msg:", key, "| Sender RSSI:", sender_rssi, "| Threshold:", threshold, "| Pass:", passes)
+                except (KeyError, IndexError):
+                    # Unknown sender or missing RSSI - assume it passes
+                    sender_rssi = 0
+                    threshold = receivedMessage[key].get("RSSI", -100)
+                    passes = True
+                    print("Msg:", key, "| Sender RSSI: unknown | Threshold:", threshold, "| Pass:", passes)
+                
+                if passes:
+                    # Route to handler via functionLUT (like module does)
+                    if functionLUT.get(key):
+                        print("Calling", key, "handler")
+                        functionLUT[key](mac, receivedMessage[key])
+                    else:
+                        print("No handler for", key, "(ignored)")
+            except Exception as err:
+                print("Message processing error:", err)
     
     # 3. Check scan timeout (non-blocking state check)
     if scan_in_progress:
-        if (current_time - scan_start_time) > device_scan_timeout:
+        elapsed = current_time - scan_start_time
+        
+        # WATCHDOG: Force reset if scan stuck for too long (>10s = 2x normal timeout)
+        if elapsed > (device_scan_timeout * 2):
+            print(f"!!! WATCHDOG: Scan stuck for {elapsed:.1f}s! Force resetting state...")
+            scan_in_progress = False
+            ble_paused = False
+            espnow_msg_buffer.clear()
+            print("State forcibly reset. System recovered.")
+        elif elapsed > device_scan_timeout:
+            # Normal timeout
             try:
                 finish_device_scan()
             except Exception as err:
                 print("Scan finish error:", err)
                 scan_in_progress = False
+                ble_paused = False  # CRITICAL: Always resume BLE even on error
     
     # 4. Update animations (fast, non-blocking)
     try:
@@ -750,9 +816,9 @@ while True:
     if not scan_in_progress and (current_time - last_display_update) > 0.5:
         try:
             show_display("Hub Status",
-                        "RX:" + str(espnow_rx_count) + " TX:" + str(espnow_tx_count),
                         "Buf:" + str(len(espnow_msg_buffer)),
-                        "BLE:" + ("Y" if p.is_connected else "N"))
+                        "BLE:" + ("Y" if p.is_connected else "N"),
+                        "Scan:" + ("Y" if scan_in_progress else "N"))
             last_display_update = current_time
         except Exception as err:
             print("Display update error:", err)

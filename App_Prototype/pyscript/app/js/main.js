@@ -106,7 +106,7 @@ function handleError(result, context) {
 async function syncConnectionState() {
     try {
         const status = await PyBridgeToUse.getConnectionStatus();
-        console.log("Sync connection state:", status);
+        // Only log if state actually changes (reduce noise)
         
         const wasConnected = state.hubConnected;
         const wasDevice = state.hubDeviceName;
@@ -142,7 +142,7 @@ class App {
         this.container = document.getElementById("root");
         this.components = {};
         this.refreshTimeout = null; // Track refresh timeout to prevent hanging
-        this.REFRESH_TIMEOUT_MS = 10000; // 10 seconds - easy to adjust
+        this.REFRESH_TIMEOUT_MS = 7000; // 7 seconds (hub scans for 5s + 2s buffer for BLE resume/response)
         this.MAX_GATT_RETRIES = 2; // Retry GATT errors 2 times (3 total attempts)
         this.init();
     }
@@ -249,10 +249,18 @@ class App {
         /**
          * Start auto-disconnect detection by polling Python backend.
          * 
+         * IMPORTANT: Polling paused during ESP-NOW device scans to prevent
+         * BLE traffic from interfering with ESP-NOW IRQ on ESP32-C3's shared radio.
+         * 
          * This method sets up a polling mechanism that checks the actual BLE
-         * connection status every 5 seconds when connected. It helps detect
-         * unexpected disconnections that might not trigger the normal disconnect
-         * callbacks.
+         * connection status every 30 seconds when connected AND not scanning.
+         * It helps detect unexpected disconnections that might not trigger the
+         * normal disconnect callbacks.
+         * 
+         * Timing rationale:
+         * - 30 second interval (was 5s) reduces BLE traffic by 6x
+         * - Skips polling during device scans (isRefreshing flag)
+         * - Only logs when state actually changes (reduces noise)
          * 
          * Note: Interval runs for application lifetime. This is acceptable for MVP.
          * For production, consider storing interval ID and clearing on app cleanup.
@@ -263,15 +271,22 @@ class App {
         }
         
         this.connectionMonitor = setInterval(async () => {
+            // CRITICAL: Skip polling during ESP-NOW device scans
+            // BLE traffic would interfere with ESP-NOW IRQ on ESP32-C3's shared radio
+            if (state.isRefreshing) {
+                // Silent skip - scan in progress
+                return;
+            }
+            
             // Only poll when we think we're connected
             if (state.hubConnected) {
-                console.log("Auto-checking connection status...");
                 const stateChanged = await syncConnectionState();
                 if (stateChanged) {
                     console.log("Connection state changed during auto-check");
                 }
+                // Removed noisy "Auto-checking..." log - only log changes
             }
-        }, 5000); // Check every 5 seconds
+        }, 30000); // Check every 30 seconds (was 5s - reduced to minimize BLE interference)
     }
 
     async initializePython() {
@@ -648,13 +663,13 @@ class App {
          * 
          * Visual Feedback:
          * - Shows loading spinner during entire ping/response cycle
-         * - Maximum 10 second timeout per attempt to prevent hanging
+         * - Maximum 7 second timeout per attempt (5s scan + 2s buffer)
          * - Loading state shown in recipient bar and device list overlay
          * 
          * Error Handling:
          * - GATT errors: Automatically retries up to MAX_GATT_RETRIES times with 1s delays
          * - Empty device lists: No retry (legitimate result)
-         * - Timeout per attempt: 10 seconds (prevents hanging)
+         * - Timeout per attempt: 7 seconds (hub scans for 5s + buffer for response)
          * - Silent retries (no user interruption)
          */
         
