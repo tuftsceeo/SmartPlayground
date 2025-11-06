@@ -21,7 +21,13 @@ import collections
 # A WLAN interface must be active to send()/recv()
 sta = network.WLAN(network.WLAN.IF_STA)
 sta.active(True)
-sta.disconnect() 
+sta.disconnect()
+
+# CRITICAL: Set WiFi channel for ESP-NOW reliability
+# Both hub and modules MUST be on the same channel
+WIFI_CHANNEL = 1
+sta.config(channel=WIFI_CHANNEL)
+print("WiFi channel set to:", WIFI_CHANNEL) 
 
 
 ##Changing from internal to external antenna

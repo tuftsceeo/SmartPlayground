@@ -24,11 +24,15 @@ import network
 import time
 import json
 import random
-from machine import Pin
+from machine import Pin, I2C
 from ble_uart import Yell
 from twist_iot import TwistIOT
+import ssd1306
 
-twist = TwistIOT()
+# Shared I2C bus for Twist and OLED display
+i2c = I2C(0, sda=Pin(6), scl=Pin(7), freq=100000)
+
+twist = TwistIOT(i2c)
 twist.setup_modes([
     ("Off", 0, 0, 0),
     ("Waiting", 255, 0, 255),
@@ -54,6 +58,12 @@ import espnow
 sta = network.WLAN(network.WLAN.IF_STA)
 sta.active(True)
 sta.disconnect()
+
+# CRITICAL: Set WiFi channel for ESP-NOW reliability
+# Both hub and modules MUST be on the same channel
+WIFI_CHANNEL = 1
+sta.config(channel=WIFI_CHANNEL)
+print("WiFi channel set to:", WIFI_CHANNEL)
 
 # ESP32-C3 uses external antenna by default?
 # EXTERNAL_ANT = False
@@ -81,23 +91,56 @@ BROADCAST_MAC = peer
 print(f"ESP-NOW initialized")
 print(f"Broadcast peer added: {BROADCAST_MAC.hex()}")
 
-# ESP-NOW message buffer for interrupt handler
+# === OLED DISPLAY SETUP FOR DEBUGGING ===
+try:
+    # Use shared I2C bus (already initialized above)
+    display = ssd1306.SSD1306_I2C(128, 64, i2c)
+    display.fill(0)
+    display.text("Hub Ready", 0, 0, 1)
+    display.show()
+    print("OLED display initialized")
+except Exception as err:
+    print("OLED init failed:", err)
+    display = None
+
+def show_display(line1="", line2="", line3="", line4=""):
+    """Update OLED display with up to 4 lines of text"""
+    if display is None:
+        return
+    try:
+        display.fill(0)
+        if line1: display.text(line1[:16], 0, 0, 1)
+        if line2: display.text(line2[:16], 0, 16, 1)
+        if line3: display.text(line3[:16], 0, 32, 1)
+        if line4: display.text(line4[:16], 0, 48, 1)
+        display.show()
+    except Exception as err:
+        print("Display error:", err)
+
+# === MESSAGE BUFFERS FOR INTERRUPT HANDLERS ===
 from ucollections import deque
-espnow_msg_buffer = deque((), 50, 2)  # Max 50 messages
+espnow_msg_buffer = deque((), 50, 2)  # Buffer for ESP-NOW messages
+ble_command_buffer = deque((), 10, 2)  # Buffer for BLE commands
+
+# Counters for display (updated in interrupts, displayed in main loop)
+espnow_rx_count = 0
+espnow_tx_count = 0
+last_rx_mac = "none"
 
 def espnow_recv_cb(interface):
     """
-    ESP-NOW interrupt callback - buffers incoming messages
-    This prevents messages from being dropped during polling delays
+    ESP-NOW interrupt callback - buffers incoming messages.
+    FAST, NON-BLOCKING: Just buffer and increment counter.
     """
-    global espnow_msg_buffer
+    global espnow_msg_buffer, espnow_rx_count, last_rx_mac
     while True:
         mac, msg = interface.irecv(0)
         if mac is None:
             return
         try:
             espnow_msg_buffer.append((bytes(mac), msg))
-            print("ESP-NOW RX:", mac.hex()[:12], "buffered")
+            espnow_rx_count += 1
+            last_rx_mac = mac.hex()[:12]
         except Exception as err:
             print("ESP-NOW recv error:", err)
 
@@ -119,6 +162,8 @@ print(f"BLE advertising as '{HUB_NAME}'")
 discovered_devices = []
 device_scan_timeout = 5.0  # seconds to wait for device responses
 scan_in_progress = False
+scan_start_time = 0
+scan_rssi_threshold = "all"  # Store current scan threshold
 
 # === MOCK DEVICE DATA (for testing without modules) ===
 """
@@ -287,12 +332,14 @@ def send_espnow_command(command, rssi_threshold="all"):
     print(f"  Target RSSI: {rssi_value} dBm (modules stronger than this will respond)")
     
     try:
+        global espnow_tx_count
         # Send via ESP-NOW broadcast
         # IMPORTANT: ESP-NOW send() expects a STRING, not bytes!
         # MicroPython's espnow.send() will handle the encoding internally
         success = espnow_interface.send(BROADCAST_MAC, message_str)
         
         if success:
+            espnow_tx_count += 1
             print(f"ESP-NOW: Transmission successful")
             # Flash LED to indicate successful transmission
             led.value(1)
@@ -380,77 +427,108 @@ def send_ble_framed(data_bytes, chunk_size=100):
     print(f"Successfully sent framed message: {len(header)} byte header + {payload_length} byte payload")
     return True
 
-def handle_ping_command(rssi_threshold="all"):
+def start_device_scan(rssi_threshold="all"):
     """
-    Handle PING command - scan for nearby modules
+    Initiate device scan - NON-BLOCKING.
+    Just sends the ping and sets up state for collecting responses.
     """
-    global scan_in_progress, discovered_devices, espnow_msg_buffer
+    global scan_in_progress, scan_start_time, scan_rssi_threshold, discovered_devices
     
-    print("Starting device scan ...")
+    print("Starting device scan, RSSI:", rssi_threshold)
     scan_in_progress = True
+    scan_start_time = time.time()
+    scan_rssi_threshold = rssi_threshold
     discovered_devices = []
     
-    # Clear any old messages from buffer
-    while len(espnow_msg_buffer) > 0:
-        espnow_msg_buffer.popleft()
-    print("Cleared ESP-NOW buffer")
+    # Show on display
+    show_display("SCAN STARTED",
+                "RSSI: " + str(rssi_threshold),
+                "Waiting...",
+                "")
     
     # Send PING command to modules
     send_espnow_command("PING", rssi_threshold)
+
+def process_espnow_message(mac, msg):
+    """
+    Process a single ESP-NOW message - NON-BLOCKING.
+    Called from main loop for each buffered message.
+    """
+    global discovered_devices
     
-    # Wait for responses from buffer
-    start_time = time.time()
-    while time.time() - start_time < device_scan_timeout:
-        # Check for buffered ESP-NOW responses
-        if len(espnow_msg_buffer) > 0:
-            mac, msg = espnow_msg_buffer.popleft()
-            try:
-                response = json.loads(msg.decode())
-                print("Device response from", mac.hex(), ":", response)
-                
-                device_scan_data = response.get("deviceScan", None)
-                if device_scan_data is None:
-                    print("Not a deviceScan response, ignoring")
-                    continue
-                
-                # Add to discovered devices
-                try:
-                    rssi = espnow_interface.peers_table[mac][0]
-                except (KeyError, IndexError):
-                    rssi = -50  # Default if not in peers table
-                    
-                device_info = {
-                    "id": device_scan_data.get("value", "M-" + mac.hex()[:6]),
-                    "rssi": rssi,
-                    "battery": device_scan_data.get("battery", -1),
-                    "type": device_scan_data.get("type", "Unknown"),
-                    "mac": mac.hex()
-                }
-                discovered_devices.append(device_info)
-                print("Added device:", device_info)
-                
-            except Exception as err:
-                print("Response parse error:", err)
-        else:
-            # No messages in buffer, wait a bit
-            time.sleep_ms(100)
+    print("=== PROCESS ESP-NOW MSG ===")
+    print("From:", mac.hex())
+    print("Scan active:", scan_in_progress)
     
-    # PLACEHOLDER: Use mock devices for testing ===
-    # print("ESP-NOW PLACEHOLDER: Using mock device data")
-    # discovered_devices = mock_devices.copy()
-    # ======
-    print(f"Device scan complete. Found {len(discovered_devices)} devices")
-    # Apply RSSI filtering if specified
-    if rssi_threshold != "all":
+    # Only process deviceScan responses when scan is active
+    if not scan_in_progress:
+        print("IGNORED: scan not active")
+        show_display("MSG IGNORED",
+                    "No scan active",
+                    "From:" + mac.hex()[:12],
+                    "")
+        return
+    
+    try:
+        response = json.loads(msg.decode())
+        print("Decoded JSON:", response)
+        device_scan_data = response.get("deviceScan", None)
+        
+        if device_scan_data is None:
+            print("IGNORED: not deviceScan")
+            show_display("MSG IGNORED",
+                        "Not deviceScan",
+                        str(list(response.keys())[:16]),
+                        "")
+            return  # Not a deviceScan response, ignore
+        
+        # Get RSSI from peers table or use default
         try:
-            threshold_val = int(rssi_threshold)
+            rssi = espnow_interface.peers_table[mac][0]
+        except (KeyError, IndexError):
+            rssi = -50  # Default if not in peers table
+        
+        # Build device info
+        device_info = {
+            "id": device_scan_data.get("value", "M-" + mac.hex()[:6]),
+            "rssi": rssi,
+            "battery": device_scan_data.get("battery", -1),
+            "type": device_scan_data.get("type", "Unknown"),
+            "mac": mac.hex()
+        }
+        
+        discovered_devices.append(device_info)
+        print("Device found:", device_info["id"], "RSSI:", rssi)
+        
+        # Update display to show device was found
+        show_display("Device Found!",
+                    device_info["id"][:16],
+                    "RSSI: " + str(rssi),
+                    "Count: " + str(len(discovered_devices)))
+        
+    except Exception as err:
+        print("Parse error:", err)
+
+def finish_device_scan():
+    """
+    Complete device scan and send results - NON-BLOCKING.
+    Called from main loop when scan timeout expires.
+    """
+    global scan_in_progress, discovered_devices
+    
+    print("=== SCAN TIMEOUT - FINISHING ===")
+    print("Devices found:", len(discovered_devices))
+    scan_in_progress = False
+    
+    # Apply RSSI filtering if specified
+    if scan_rssi_threshold != "all":
+        try:
+            threshold_val = int(scan_rssi_threshold)
             discovered_devices = [d for d in discovered_devices if d["rssi"] >= threshold_val]
-            print(f"ESP-NOW: Filtered to {len(discovered_devices)} devices above {threshold_val} dBm")
+            print("Filtered to", len(discovered_devices), "devices above", threshold_val, "dBm")
         except:
             pass
     
-    scan_in_progress = False
-
     # Send device list back to web app
     device_list_response = {
         "type": "devices",
@@ -458,66 +536,48 @@ def handle_ping_command(rssi_threshold="all"):
     }
     
     try:
-        print(f"DEBUG: Sending device list, p.is_connected: {p.is_connected}")
-        
-        # Split large messages into chunks and send separately
-        # 
-        # Steps:
-        # 1. Convert Python dict to JSON string with json.dumps()
-        # 2. Encode the string to bytes with .encode()
-        # 3. Split bytes into chunks of 100 bytes (safe for all BLE versions)
-        # 4. Send each chunk with small delay to prevent buffer overflow
-        # 5. Web app buffers chunks and reassembles complete JSON message
         response_json = json.dumps(device_list_response)
         response_bytes = response_json.encode()
         
-        print(f"Response size: {len(response_bytes)} bytes")
-        print(f"Response preview: {response_json[:100]}...")
+        print("Sending", len(response_bytes), "bytes to app")
         
-        # Use framed sending with header for reliable transmission
+        # Use framed sending for reliable transmission
         success = send_ble_framed(response_bytes, chunk_size=100)
         
         if success:
-            print("Device list sent successfully to web app")
+            print("Device list sent to app")
         else:
             print("Failed to send device list")
-    except Exception as e:
-        print(f"Error sending device list: {e}")
+    except Exception as err:
+        print("Error sending device list:", err)
 
-def handle_ble_command(command_str):
+def process_ble_command(command_str):
     """
-    Main command handler for BLE UART commands from web app.
-    
-    Processes commands from web app and translates them to ESP-NOW messages
-    for the playground modules.
-    
-    Command Flow:
-    1. Parse command string from web app ("COMMAND":"RSSI")
-    2. Map to ESP-NOW protocol format
-    3. Broadcast via ESP-NOW to modules
-    4. Send acknowledgment back to web app via BLE
+    Process BLE command - NON-BLOCKING dispatcher.
+    Called from main loop, just initiates actions.
     """
-    print(f"BLE command received: {repr(command_str)}")
+    print("BLE command:", command_str)
     
     # Parse command
     command, threshold = parse_web_command(command_str)
-    print(f"Parsed: command='{command}', threshold='{threshold}'")
+    print("Parsed:", command, "threshold:", threshold)
     
     # Handle different commands
     if command == "PING":
-        handle_ping_command(threshold)
+        # Initiate device scan (non-blocking)
+        start_device_scan(threshold)
         
     elif command in COMMAND_MAP:
-        # Known ESP-NOW command - send it
-        print(f"Processing command: {command}")
+        # Send ESP-NOW command (fast, non-blocking)
+        print("Sending:", command)
         success = send_espnow_command(command, threshold)
         
         if success:
-            print(f"✓ Command '{command}' sent successfully")
+            print("Command sent")
         else:
-            print(f"✗ Command '{command}' failed to send")
+            print("Command failed")
         
-        # Send acknowledgment back to web app via BLE
+        # Send quick acknowledgment to web app
         try:
             ack_response = {
                 "type": "ack",
@@ -526,79 +586,51 @@ def handle_ble_command(command_str):
                 "rssi": threshold
             }
             ack_json = json.dumps(ack_response)
-            
-            # Use framed sending for reliability
             send_ble_framed(ack_json.encode(), chunk_size=100)
-            print(f"Sent acknowledgment to web app")
-        except Exception as e:
-            print(f"Failed to send acknowledgment: {e}")
+        except Exception as err:
+            print("Ack failed:", err)
             
     else:
         # Unknown command
-        print(f"Unknown command: {command}")
+        print("Unknown command:", command)
         try:
             error_response = {
                 "type": "error",
-                "message": f"Unknown command: {command}",
+                "message": "Unknown command: " + command,
                 "available_commands": list(COMMAND_MAP.keys())
             }
             error_json = json.dumps(error_response)
             send_ble_framed(error_json.encode(), chunk_size=100)
-        except Exception as e:
-            print(f"Failed to send error response: {e}")
+        except Exception as err:
+            print("Error response failed:", err)
 
 def handle_cmd(chunk):
     """
-    BLE UART command handler - processes incoming commands from web app.
-    
-    HOW THIS WORKS (BLE Peripheral perspective):
-    1. Web browser writes data to RX characteristic (6E400002...)
-    2. BLE stack triggers IRQ_GATTS_WRITE interrupt
-    3. ble_uart.py's _irq() handler calls this callback function
-    4. This function receives the raw bytes written by the browser
-    
-    IMPORTANT PATTERNS:
-    - Data arrives as bytes (chunk parameter)
-    - Data may arrive in fragments (partial messages)
-    - We buffer incomplete messages until newline (\n) received
-    - Must decode bytes to string before processing
-    
-    COMMON ISSUES:
-    - If chunk is None/empty, ignore it (connection event, not data)
-    - Always check if data is complete before processing
-    - Handle decode errors gracefully (invalid UTF-8)
+    BLE UART interrupt handler - FAST, NON-BLOCKING.
+    Just buffers commands for processing in main loop.
     """
-    global _rxbuf
-    print(f"DEBUG: handle_cmd called with chunk: {chunk}")
-    print(f"DEBUG: p.is_connected: {p.is_connected}")
-    print(f"DEBUG: p._write_callback: {p._write_callback}")
+    global _rxbuf, ble_command_buffer
     
     if not chunk:
         return
     
-    # Buffer overflow protection - prevent memory exhaustion from malformed data
-    # If buffer would exceed limit, clear it and start fresh
-    # Normal commands should be < 100 bytes, 1KB is very generous
+    # Buffer overflow protection
     if len(_rxbuf) + len(chunk) > MAX_BUFFER_SIZE:
-        print(f"WARNING: RX buffer overflow ({len(_rxbuf)} + {len(chunk)} > {MAX_BUFFER_SIZE}), clearing")
+        print("RX buffer overflow, clearing")
         _rxbuf = b""
     
-    # Buffer incoming data - commands may arrive in multiple chunks
-    # Replace \r with \n to normalize line endings (cross-platform compatibility)
+    # Buffer incoming data
     _rxbuf += chunk.replace(b"\r", b"\n")
     
-    # Process complete lines (delimited by \n)
-    # Commands from web app are terminated with newline
+    # Extract complete lines and buffer them
     while b"\n" in _rxbuf:
         line, _, _rxbuf = _rxbuf.partition(b"\n")
         if line.strip():
             try:
-                # Decode bytes to string for processing
                 command = line.decode().strip()
-                print(f"DEBUG: Processing command: {command}")
-                handle_ble_command(command)
-            except Exception as e:
-                print(f"Command handler error: {e}")
+                ble_command_buffer.append(command)
+            except Exception as err:
+                print("Decode error:", err)
 
 # === INITIALIZATION ===
 # Buffer for incoming BLE data - commands may arrive fragmented
@@ -658,55 +690,83 @@ twist.start_breathe((255, 0, 255), duration=4000)
 p.advertise()
 
 
-# === MAIN EVENT LOOP ===
-# BLE operates on an interrupt-driven model:
-# - Connection events trigger IRQ handlers in ble_uart.py
-# - Data writes trigger our handle_cmd() callback
-# - This loop handles housekeeping and connection recovery
-#
-# IMPORTANT: Do NOT block or use long delays here!
-# - Blocking prevents BLE interrupts from being processed
-# - Keep delays short (100ms max) to maintain responsiveness
-# - Heavy processing should be done in callbacks, not here
+# === MAIN EVENT LOOP (FULLY REACTIVE, NON-BLOCKING) ===
+# Following the proven module pattern:
+# - Interrupt handlers buffer messages
+# - Main loop processes buffers reactively
+# - NO blocking operations or long delays
+# - System always responsive to interrupts
+
+print("Starting reactive main loop...")
+last_connection_check = time.time()
+last_status_time = time.time()
+last_display_update = time.time()
 
 while True:
-    time.sleep(0.05)  # Short sleep to prevent CPU spinning
-    twist.update_animations()
     current_time = time.time()
     
-    # Monitor BLE connection state
-    # p.is_connected is updated by ble_uart.py IRQ handlers:
-    # - Set to True on IRQ_CENTRAL_CONNECT
-    # - Set to False on IRQ_CENTRAL_DISCONNECT
-    if p.is_connected:
-        # Connection is active - commands are processed via handle_cmd() callback
-        # No action needed here, just update timestamp
-        if current_time - last_connection_check > 1.0:
-            last_connection_check = current_time
-            # Connection maintained - callbacks handle all data processing
-            pass
-    else:
-        # No connection - ensure we're advertising for new connections
-        # BLE peripheral should auto-restart advertising after disconnect,
-        # but we explicitly restart it here for reliability
-        if current_time - last_connection_check > connection_timeout:
-            print("Waiting for BLE connection...")
+    # 1. Process BLE commands from buffer (highest priority)
+    if len(ble_command_buffer) > 0:
+        command_str = ble_command_buffer.popleft()
+        try:
+            process_ble_command(command_str)
+        except Exception as err:
+            print("BLE command error:", err)
+    
+    # 2. Process ESP-NOW messages from buffer
+    if len(espnow_msg_buffer) > 0:
+        mac, msg = espnow_msg_buffer.popleft()
+        try:
+            process_espnow_message(mac, msg)
+        except Exception as err:
+            print("ESP-NOW message error:", err)
+    
+    # 3. Check scan timeout (non-blocking state check)
+    if scan_in_progress:
+        if (current_time - scan_start_time) > device_scan_timeout:
+            try:
+                finish_device_scan()
+            except Exception as err:
+                print("Scan finish error:", err)
+                scan_in_progress = False
+    
+    # 4. Update animations (fast, non-blocking)
+    try:
+        twist.update_animations()
+    except Exception as err:
+        print("Animation error:", err)
+    
+    # 5. Monitor BLE connection periodically
+    if not p.is_connected:
+        if current_time - last_connection_check > 5.0:
             try:
                 twist.start_breathe((255, 0, 255), duration=4000)
-                p.advertise()  # Make device discoverable again
-                print("Advertising restarted")
-            except Exception as e:
-                print(f"Error restarting advertising: {e}")
+                p.advertise()
+            except Exception as err:
+                print("Advertise error:", err)
             last_connection_check = current_time
     
-    # Periodic status logging (every 60 seconds)
-    # Helps with debugging and monitoring hub health
+    # 6. Update display periodically (every 0.5 seconds) if not scanning
+    if not scan_in_progress and (current_time - last_display_update) > 0.5:
+        try:
+            show_display("Hub Status",
+                        "RX:" + str(espnow_rx_count) + " TX:" + str(espnow_tx_count),
+                        "Buf:" + str(len(espnow_msg_buffer)),
+                        "BLE:" + ("Y" if p.is_connected else "N"))
+            last_display_update = current_time
+        except Exception as err:
+            print("Display update error:", err)
+    
+    # 7. Periodic status logging (every 60 seconds)
     if current_time - last_status_time >= 60:
         if p.is_connected:
-            print(f"Hub status: BLE connected, {len(discovered_devices)} devices known")
+            print("Hub: BLE connected,", len(discovered_devices), "devices")
         else:
-            print("Hub status: BLE disconnected, advertising for connections...")
+            print("Hub: BLE disconnected, advertising")
         last_status_time = current_time
+    
+    # NO SLEEP - loop immediately for maximum responsiveness
+    # Interrupts will fill buffers, main loop processes them as fast as possible
 
 
 
