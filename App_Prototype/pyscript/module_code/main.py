@@ -227,8 +227,8 @@ class Plushie():
                     print("Deleting peer:", peer_mac.hex())
                     try:
                         e.del_peer(peer_mac)
-                    except Exception as e:
-                        print("Failed to delete peer:", e)
+                    except Exception as err:  # Use 'err' not 'e' to avoid shadowing global
+                        print("Failed to delete peer:", err)
                 else:
                     print("Keeping broadcast peer")
             
