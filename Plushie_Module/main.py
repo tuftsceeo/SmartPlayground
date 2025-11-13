@@ -21,7 +21,6 @@ sta = network.WLAN(network.WLAN.IF_STA)
 sta.active(True)
 sta.disconnect() 
 
-
 ##Changing from internal to external antenna
 # Only add this if physical antenna is connected
 
@@ -31,6 +30,7 @@ WIFI_ANT_CONFIG = Pin(14, Pin.OUT)
 
 # Activate RF switch control
 WIFI_ENABLE.value(0) #Low
+
 
 # Wait for 100 milliseconds
 time.sleep_ms(100)
@@ -49,8 +49,8 @@ from ucollections import deque
 
 msg_buffer = deque((), 50, 2)  # Max 50 messages
 
-import json
 
+import json
 
 class Plushie():
     def __init__(self):
@@ -71,10 +71,11 @@ class Plushie():
         self.i = 1
         self.COLOR = {0:(200*self.i,0,0), 1:(200*self.i,50*self.i,0), 2:(200*self.i, 200*self.i, 0), 3:(0, 200*self.i, 0), 4:(0 , 0 , 200*self.i), 5:(0, 200*self.i, 200*self.i), 6:(100*self.i, 200*self.i, 200*self.i)}
         
-        #self.COLOR = {0:(50,50,50), 1:(0,50,25), 2:(50,50,0),3:(0,0,50),4:(50,0,0),5:(15,0,25), 6:(5,50,0),7:(10,60,50),8:(50,10,50),9:(30,50,25), 10:(50,50,10),11:(10,0,50),12:(50,0,10), 13:(2,50,15), 14:(10,20,30),15:(10,5,50),16:(5,10,50)}
         self.PONGED = False
         self.PINGED = False
-        self.GAME_TIME = 0
+        self.GAME_TIME = 0 
+        self.GAME_TIME_TIMEOUT = 500 # when the plushie sends out the color
+        self.PONG_TIME_TIMEOUT = 600
         self.PONG_TIME = 0
         self.FRIEND_LIST = []
         self.collected_color = 0
@@ -103,7 +104,6 @@ class Plushie():
         self.old_pressed_time = 0
         self.time_of_button_released = 0
         
-        
         self.animate((0,50,0), timeout = 1.0)
 
         self.clearBuffer = False
@@ -122,7 +122,7 @@ class Plushie():
         
         #tim1 = Timer(1)
         #tim1.init(period=200, mode=Timer.PERIODIC, callback=self.timedAction) #blink the LED with new color
-    
+        
         #led tracker
         self.lednumber = 0
         self.messageDetectedAt = 0 
@@ -318,7 +318,7 @@ class Plushie():
         self.colorMode = True
         self.animate(argument, number = 12, repeat= 1, timeout = 0.0, speed = 0)
         
-    
+        
         
     def playGame(self, argument):
         if self.colorMode == False:
@@ -337,7 +337,7 @@ class Plushie():
             elif self.game == 4:
                 pass
                 #print("game 4")
-        print("resetting")
+        
         self.reset()
    
    
@@ -405,34 +405,22 @@ while True:
    
     try: 
         # Enough time has passed between the first press of the button from LEADER to send out colors
-        if(time.ticks_ms() - s.GAME_TIME > 1000):
-            if (s.PINGED and (not s.PONGED)):
-                
+        if(time.ticks_ms() - s.GAME_TIME > s.GAME_TIME_TIMEOUT):
+            if (s.PINGED and (not s.PONGED)): 
                 friends_count = len(s.FRIEND_LIST)%s.MAX_FRIEND
                 message = {"finalCall":{"RSSI": s.THRESHOLD_RSSI, "value": friends_count}}
-                #print("timeout", message)
                 for new_friend in s.FRIEND_LIST:
-                    #print("new friend", new_friend)
                     e.add_peer(new_friend)
                     e.send(new_friend, json.dumps(message))
                 print("Sending %s"% friends_count )
                 s.playGame(friends_count)
 
-        # time out for PONGED at 2 seconds
-        if(time.ticks_ms() - s.PONG_TIME) > 2000:
-            if(s.PONGED):
+        if(s.PONGED):
+            if(time.ticks_ms() - s.PONG_TIME) > s.PONG_TIME_TIMEOUT:
                 s.reset()
     
     except Exception as err:
         print(err)
-
-
-
-#GAME 1
-# There will be one leader who initaes the communication with a ping
-# Everyone in the close proximity responds with a pong message and will be called receiver
-# After 1 seconds of sending the initiation ping, the leader counts receivers and sends the corresponding color
-
 
 
 
