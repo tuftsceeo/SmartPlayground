@@ -46,7 +46,6 @@ e.add_peer(peer)
 
 
 from ucollections import deque
-
 msg_buffer = deque((), 50, 2)  # Max 50 messages
 
 

@@ -27,7 +27,7 @@ class OpenSplat():
         self._date_time = None
         self._time_schedule = []
         
-        
+        self.on_splat_pressed = None  # Callback function
         
         self.sound = config.sound
         self.volume = config.volume
@@ -50,6 +50,12 @@ class OpenSplat():
         self.button3_pressed = False
         self.button4_pressed = False
         self.splat_pressed = False
+    
+    
+
+
+
+            
         
     def _irq_handler(self, event, data):
         """Handle BLE IRQ events"""
@@ -148,7 +154,6 @@ class OpenSplat():
     
     def _process_notification(self, buffer):
         sound = 0
-        print("somethig")
         """Process notifications from the Splat device"""
         if len(buffer) >= 11 and buffer[0] == 0x66 and buffer[11] == 0x99:
             value = ':'.join(['%02X' % i for i in buffer])
@@ -161,12 +166,12 @@ class OpenSplat():
             # Implement Protocol.decode_date_time if needed
         else:
             data = [d for d in buffer]
-            print("return set of data", data)
-            if (data[0] ==3 and len(data)==3):
-                print("dfgh")
+            #print("return set of data", data)
+            if (data[0] == 3 and len(data)==3):
                 sound = self.decode_button(data[2])
             else:
-                print("something else came through")
+                pass
+                #print("something else came through")
 
             
             #if sound:
@@ -196,43 +201,18 @@ class OpenSplat():
     
     def decode_button(self,value):
         sound = 0
+        was_pressed = self.splat_pressed  # Remember previous state
+        
         if(value & 0b1000 or value & 0b0100 or value & 0b0010 or value & 0b0001):
-             self.playSound(self.sound, self.volume)
-             self.splat_pressed =True
-             print("ble splat pressed")
-             #### Maybe here???? self.toSend = True
-        
-        if(value & 0b1000):
-            print("Button 1 was pressed")
-            self.button1_pressed =True
-            sound += 1
+            self.playSound(self.sound, self.volume)
+            self.splat_pressed = True
+            print("ble splat pressed")
             
-            
-    
-        if(value & 0b0100):
-            print("Button 2 was pressed")
-            self.button2_pressed =True
-            sound += 2
+            # Only call callback on NEW press (transition from False to True)
+            if not was_pressed and self.on_splat_pressed:
+                self.on_splat_pressed()
 
-        if(value & 0b0010):
-            print("Button 3 was pressed")
-            self.button3_pressed =True
-            sound += 4
-
-
-        if(value & 0b0001):
-            print("Button 4 was pressed")
-            self.button4_pressed =True
-            sound += 8
-            
-    
-        
-            
         if(value == 0):
-            self.button1_pressed =True
-            self.button2_pressed =True
-            self.button3_pressed =True
-            self.button4_pressed =True
             self.splat_pressed = False
             sound = 0
         
@@ -240,6 +220,7 @@ class OpenSplat():
        
     def connect(self, timeout=30):
         """Connect to the Splat device"""
+        self._ble.active(True) 
         if self.connected:
             return True
             
@@ -291,6 +272,7 @@ class OpenSplat():
             self._conn_handle = None
             self.connected = False
             if self._verbose: print("Disconnected from Splat")
+            self._ble.active(False)  # Then deactivate the radio
     
     def is_connected(self):
         """Check if connected to device"""
@@ -329,6 +311,7 @@ class OpenSplat():
         """Turn sound off"""
         packet = bytearray([0x02, 0x00])
         return self._write_command(packet)
+    
     
     def allLEDsOff(self):
         """Turn all LEDs Off"""
@@ -406,4 +389,3 @@ class OpenSplat():
         """Flash LEDs"""
         packet = bytearray([0x01, 0x70, lowByte, highByte, red, green, blue, duration, flashes])
         return self._write_command(packet)
-

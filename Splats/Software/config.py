@@ -1,13 +1,39 @@
-sound = 19
+#config.py -- splat companions
+#Check documentation for a more extensive list of options
+
+name = "Splat1E7B"
+## Splat changes
+sound = 9
 volume = 255
-color = 'cactus'
+
+#splat number identifier
+splat_num = '4' 
+
+#splat color
+red = 100
+green = 0
+blue = 200
+
+
+##LED matrix image
+#color = 'cactus'
+image = 'cactus'
+
+##LED strip
 L_red = 0
 L_green = 0
 L_blue = 255
-L_pattern = 2
-red = 200
-green = 0
-blue = 200
-all_leds = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14]
-leds = all_leds
+L_pattern = 4
+
+#Dancing cactus
+cactus_state = 'danceCW' #options = 'danceCW', 'danceCCW'  'off'
+cactus_time = 3
+cactus_speed = 'fast' # 'fast' or 'slow'
+
+#Robot
+robot = 'turnR' #change the action here # main options: turnL  turnR  slideF 
+
+#Traffic light lamp
+traffic_color = "green"
+
 

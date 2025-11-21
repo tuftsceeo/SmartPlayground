@@ -1,4 +1,7 @@
+# Splat companion - main.py
 ## Plushie_connect.py
+
+## Change the MAC address to correspond with the Splat
 
 from machine import Pin, Timer, SoftI2C
 import machine
@@ -9,11 +12,12 @@ from accel import H3LIS331DL
 import struct
 import config
 from ble_splat import OpenSplat
-#import ble_splat
-#import config
-
+import threshold
+import json
+import game
 import network
 import espnow
+
 sta = network.WLAN(network.WLAN.IF_STA)
 sta.active(True)
 sta.disconnect()   # Because ESP8266 auto-connects to last Access Point
@@ -25,7 +29,22 @@ e.add_peer(peer)
 
 
 
+# Define pins
+WIFI_ENABLE = Pin(3, Pin.OUT)
+WIFI_ANT_CONFIG = Pin(14, Pin.OUT)
 
+# Activate RF switch control
+WIFI_ENABLE.value(0) #Low
+
+# Wait for 100 milliseconds
+time.sleep_ms(100)
+
+# Use external antenna
+WIFI_ANT_CONFIG.value(1) #High
+
+
+from ucollections import deque
+msg_buffer = deque((), 100, 2)  # Max 50 messages
 
 #Splat constants
 splatRed = config.red
@@ -34,32 +53,45 @@ splatBlue = config.blue
 
 
 
-class Plushie():
+class SplatButton():
     def __init__(self):
         #Defining pins
         self.np = neopixel.NeoPixel(Pin(20), 12)
         #button = Pin(0, Pin.IN)
         self.motor = Pin(21, Pin.OUT)
-
         self.button = Pin(0, Pin.IN, Pin.PULL_UP)
         esp32.wake_on_ext1(pins = (self.button,), level = esp32.WAKEUP_ALL_LOW)
 
-        self.RSSIthreshold = -80
+        self.RSSIthreshold = threshold.THRESHOLD
         #connecting
         
+        self.current_time = 0
+        self.old_time = 0
+        self.i = 1
+        self.COLOR = {0:(200*self.i,0,0), 1:(200*self.i,50*self.i,0), 2:(200*self.i, 200*self.i, 0), 3:(0, 200*self.i, 0), 4:(0 , 0 , 200*self.i), 5:(0, 200*self.i, 200*self.i), 6:(100*self.i, 200*self.i, 200*self.i)}
         
-        self.lred = config.L_red
-        self.lgreen = config.L_green
-        self.lblue = config.L_blue
-        self.lpattern = config.L_pattern
-        self.Tcolor = config.color
-        
-        
-        
+        self.PINGED = False
+        self.PONGED = False
+        self.GAME_TIME = 0 
+        self.GAME_TIME_TIMEOUT = 1000 # when the plushie sends out the color
+
+        self.FRIEND_LIST = []
+        self.collected_color = 0
+        self.MAX_FRIEND = 7
+        self.colorMode = False
+        self.splat_num = config.splat_num
+    
         self.showConnecting()
-        self.splat = OpenSplat("AB:42:00:00:B2:16")
+        
+        self.name = config.name
+        self.game = game.game
+        #setting up accelerometer
+        i2c = SoftI2C(scl = Pin(23), sda = Pin(22))
+        
+        ##Splat MAC
+        #self.splat = OpenSplat("AB:42:00:00:B2:16")
         #self.splat = OpenSplat("AB:42:00:00:A7:A6")
-        #self.splat = OpenSplat("AB:42:00:00:1E:7B")
+        self.splat = OpenSplat("AB:42:00:00:1E:7B")
         #self.splat = OpenSplat("AB:42:00:00:1A:C4")
         
         self.splat.connect()
@@ -89,28 +121,41 @@ class Plushie():
 
         #self.loading() #show animating LED
         self.ledOn= True
-        tim0 = Timer(0)
-        tim0.init(period=200, mode=Timer.PERIODIC, callback=self.check_switch) #timer to check button press
+        self.button_value = 1
+        self.last_button_value = 1
+        self.button_event = False
+        self.button_pressed = False
         
+        self.time_of_button_press = 0
+        self.old_pressed_time = 0
+        self.time_of_button_released = 0
         
-        tim1 = Timer(1)
-        tim1.init(period=60000, mode=Timer.PERIODIC, callback=self.keepAwake) #blink the LED with new color
+        self.animate((0,50,0), timeout = 1.0)
+
+        self.clearBuffer = False
+
+        self.button.irq(handler=self.check_switch, trigger=Pin.IRQ_FALLING)
         
-        #led tracker
+        self.mac_value = None
+        self.argument = None
+        self.functionName = None
+        
+        self.THRESHOLD_RSSI = threshold.THRESHOLD
+                #led tracker
         self.lednumber = 0
         self.messageDetectedAt = 0 
 
-#         self.noColor = [0,0,0]
-#         self.defaultColor = [50,50,50]
-#         self.color = self.defaultColor
-        self.color =  config.color
-        #self.splat = ble_splat.OpenSplat("AB:42:00:00:1E:7B") #Test to see if this fixes the connection issue
-        #self.splat_BLE()
-        #flags
+        self.noColor = [0,0,0]
+        self.defaultColor = [50,50,50]
+        self.color = self.defaultColor
         
-        
-        
-        
+        self.log_collected_color("PINGED", "PONGED", "COLOR")
+    
+        self.last_update = 0 
+        self.current_pixel = 0 
+        self.update_interval = 100
+
+
     def readAccel(self):
         accel = self.h3lis331dl.read_accl()
         
@@ -124,81 +169,120 @@ class Plushie():
         return self.button_pressed
     
     def check_switch(self,p):
-        self.button_value = self.button.value()
-        if self.button_value != self.last_button_value:
-            self.button_event = True
- 
-        if self.button_event == True:
+        # debouce stuff ^^
+        self.time_of_button_press = time.ticks_ms()
+        if(self.time_of_button_press - self.old_pressed_time) < 350:
+            return
+        self.old_pressed_time = self.time_of_button_press
+        
+
+       
+
+        
+    def deepSleep(self, argument = None):
+        self.animate((50,0,0),repeat = 1, timeout = 1) #deepsleep
+        machine.deepsleep()
+
+
+    def reset(self):
+        self.PINGED = False
+        self.PONGED = False
+        self.GAME_TIME = 0
+        try:
+            for old_friend in e.get_peers():
+                e.del_peer(old_friend[0])
+        except Exception as error:
+            print(error)
+        self.FRIEND_LIST = []
+        self.clearBuffer = True
+    
+    
+    def turnoff(self, argument = None):
+        for i in range(12):
+            self.np[i] = (0,0,0)
+        self.np.write()
+        
+        
+    def saveThreshold(self, argument):
+        #print("update threshold")
+        f = open("threshold.py", "w")
+        f.write(f'THRESHOLD = {argument} ')
+        f.close()
+
+        if 'threshold' in sys.modules:
+            del sys.modules['threshold']
+
+            import threshold
+            self.threshold = threshold.THRESHOLD
             
-            if self.button.value() == 0:
-                self.button_pressed = True
-                self.time_of_button_press = time.time()
-                self.buzz()
-                          
+        s.animate((0,50,0), timeout = 0.01)
+        
+
+    def saveGame(self, argument):
+        f = open("game.py", "w")
+        f.write(f'game = {argument} ')
+        f.close()
+
+        if 'game' in sys.modules:
+            del sys.modules['game']
+
+            import game
+            self.game = game.game
+            
+        s.animate((0,50,0), timeout = 0.01)
+
+       
+    def showRainbow(self, argument = None):
+        def wheel(pos):
+            if pos < 85:
+                return (pos * 3, 255 - pos * 3, 0)
+            elif pos < 170:
+                pos -= 85
+                return (255 - pos * 3, 0, pos * 3)
             else:
-                self.button_pressed = False
-                self.run_time_related_action()
-                #machine.deepsleep()
-                
-                
-            self.button_event = False
-        self.last_button_value = self.button_value
+                pos -= 170
+                return (0, pos * 3, 255 - pos * 3)
         
-        #to make sure the button is not pressed for too long
-        if self.button.value() == 0:
-             self.run_time_related_action()
-        
-        
-        
-        #Possible location for the if statements
-        if self.splat.splat_pressed ==True :
-            self.toSend = True
-        else:
-            self.toSend = False
-        
-        if(self.toSend == True):
-        #if(self.toSend == True):
-            #e.send(peer, str(self.color), True)
-            toSend ={'ledstrip': [self.lpattern , self.lred, self.lgreen, self.lblue] , 'trafficL': self.Tcolor }
-            e.send(peer, str(toSend), True)
+        for i in range(12):
+            self.np[i] = wheel((i * 256 // 12) & 255)
+        self.np.write()      
+
+    def animate(self, color, number = 12, repeat= 1, timeout = 0.0, speed = 0.1):
+        for j in range(repeat):
+            for i in range(number):
+                self.np[i%12] = color
+                self.np[(i+1)%12] = (0,0,0)
+                self.np.write()
+                time.sleep(speed)
+            self.np[0] = color
+            self.np.write()
             
-            print("splat pressed")
-            self.toSend = False
-        else:
-            pass
-            
-    def run_time_related_action(self):
-        # Create Splat instance
-        #self.splat = OpenSplat("AB:42:00:00:1E:7B") #test to see how to fix stuff
-        if(abs(time.time() - self.time_of_button_press)>2):
-            self.shuttingdown()
-            print("shut off")
-            self.splat.playSound(3,155)
-            print("off sound")
-            self.splat.allLEDsOff()
-            time.sleep(4)
-            self.splat.disconnect()
-            machine.deepsleep()
+        if timeout > 0.0:
+            #turn off all LEDs
+            time.sleep(timeout)
+            for i in range(12):
+                self.np[i] = [0,0,0]
+            self.np.write()
+     
+    def resetLog(self, argument):
+        f = open("log.txt","w")
+        f.close()
         
-        else:
-            print("sending signal to board")
-            e.send(peer, str({"boardMessage": [config.red, config.green, config.blue]}), True)
-            '''
-            e.send(peer, "Starting...")
-            
-            #Possible location for the if statements
-            if self.splat.splat_pressed =True
-                self.toSend = True
-            else:
-                self.toSend = False
-            
-            if(self.toSend == True):
-            #if(self.toSend == True):
-                e.send(peer, str(self.color), True)
-                self.toSend = False
+        
+    def log_collected_color(self, pinged, ponged, color):
+        f = open("log.txt","a")
+        f.write(f'[{str(self.game)}, {str(pinged)} , {str(ponged)} , {str(color)}, {str(time.ticks_ms())}]')
+        f.close()
+      
+        
+    def react2Pong(self, argument):
+        if self.PINGED == True:
+            # Only add folks to the list who haven't already been added
+            if not self.mac_value in self.FRIEND_LIST:
+                #print("Leading - %s"% (argument))
+                self.FRIEND_LIST.append(self.mac_value)  
             else:
                 pass
-            '''
     
  
         
@@ -244,7 +328,7 @@ class Plushie():
         if(time.ticks_ms() - self.messageDetectedAt >3000): #reset the color if button isn't pressed within 3 seconds
             self.color = self.defaultColor
 
-    def shuttingdown(self):
+    def shuttingdown(self,argument = None):
         for i in range(12):
             self.np[i] = (50,0,0)
             self.np.write()
@@ -252,7 +336,32 @@ class Plushie():
 
         self.turn_off()
     
-    
+    def findandShowBattery(self, argument = None):
+        print("not implemented yet")
+        
+        
+    def playGame(self, argument):
+        if self.colorMode == False:
+            if self.game == 1:
+                self.animate(s.COLOR[argument], speed = 0)
+                self.log_collected_color(s.PINGED, s.PONGED, argument)
+                print("resseting")
+                self.reset()
+            elif self.game == 2:
+                #print("game 2 ")
+                self.reset()
+                
+            elif self.game == 3:
+                #print("game 3")
+                self.reset()
+                
+            elif self.game == 4:
+                pass
+                #print("game 4")
+        
+        self.reset()
+   
+   
     def gotConfigFile(self):
         for i in range(12):
             self.np[i] = (50,50,0)
@@ -293,6 +402,25 @@ class Plushie():
         numbers = [int(num) for num in num_strings]
         
         return numbers
+    
+    def update_loading_animation(self):
+        global last_update, current_pixel
+        
+        current_time = time.ticks_ms()
+        
+        if time.ticks_diff(current_time, self.last_update) >= self.update_interval:
+            self.last_update = current_time
+            
+            # Clear all pixels
+            for i in range(12):
+                self.np[i] = (0, 0, 0)
+            
+            # Light up current pixel (spinning dot)
+            self.np[self.current_pixel] = (0, 150, 255)
+            self.np.write()
+            
+            # Move to next pixel
+            self.current_pixel = (self.current_pixel + 1) % 12
 
 
 import sys
@@ -322,48 +450,113 @@ leds = all_leds
     import config
     
     
-s= Plushie()
+    
+try:
+    del s
+    
+except:
+    pass
+    #print("doesn't exist")
+
+s= SplatButton()
 # A WLAN interface must be active to send()/recv()
 
-import network
-import espnow
+
+values = (None, None)
+new_msg = False
+count = 0
 
 
-e = espnow.ESPNow()
-e.active(True)
 
-sta = network.WLAN(network.WLAN.IF_STA)
-sta.active(True)
-sta.disconnect()   # Because ESP8266 auto-connects to last Access Point
-    
-def recv_cb(e):
-
-    while True:  # Read out all messages waiting in the buffer
-        mac, msg = e.irecv(0)  # Don't wait if no messages left
+def recv_cb(a):
+    global msg_buffer
+    while True:
+        mac, msg = a.irecv(0)
         if mac is None:
             return
-        print(e.peers_table)
-        
-        if(e.peers_table[mac][0] > s.RSSIthreshold): #make sure the RSSI value you are comparing is from the button you got the message from
-            #s.buzz()
-            receivedMessage = eval(msg.decode('utf-8'))
-            for key in receivedMessage:
-                if key == 'SetConfig':
-                    s.buzz()
-                    s.gotConfigFile()
-                    print(receivedMessage)
-                    msg = receivedMessage[key]
-            #s.color = s.bytearray_to_numbers(msg)
-                    updateConfig(msg["sound"],msg["TrafficL"], msg["pattern"], msg["light"][0], msg["light"][1], msg["light"][2])
-                    s.splat.sound = msg["sound"]
-                    s.lred = msg["light"][0]
-                    s.lgreen = msg["light"][1]
-                    s.lblue = msg["light"][2]
-                    s.lpattern = msg["pattern"]
-                    s.Tcolor = msg["TrafficL"]
-                    
-            s.messageDetectedAt = time.ticks_ms()
-                              
+        print("Received", msg)
+        try:
+            receivedMessage = json.loads(msg)
+            msg_buffer.append((bytes(mac), receivedMessage))
+
+        except Exception as error:
+            print(error)
+    
 e.irq(recv_cb)
+
+functionLUT = {"rainbow":s.showRainbow, "resetLog": s.resetLog, "lightOff": s.turnoff, "deepSleep":s.deepSleep, "batteryCheck":s.findandShowBattery,  "updateGame": s.saveGame, "updateThreshold": s.saveThreshold, "pongCall":s.react2Pong, "finalCall":s.playGame}
+
+
+button_flag = False
+def handle_splat_press():
+    global button_flag
+    button_flag = True 
+    print("nutton pressed")
+    
+s.splat.on_splat_pressed = handle_splat_press
+
+
+while True:
+    if s.PINGED:
+        s.update_loading_animation()
+    if button_flag:
+        s.splat.disconnect()
+        time.sleep(0.1)
+        e.active(True)
+        s.buzz(0.08,1)
+        s.reset()
+        
+        s.PINGED = True
+        s.GAME_TIME = time.ticks_ms()
+        
+        message = {"pingCall": {"RSSI": s.THRESHOLD_RSSI, "value": s.name}}
+
+        e.send(peer, json.dumps(message))
+        button_flag = False
+        
+        
+    if len(msg_buffer) > 0:
+        mac, receivedMessage = msg_buffer.popleft()  # FIFO: oldest first
+        
+        for key in receivedMessage:
+            try:
+                if(e.peers_table[mac][0] > receivedMessage[key]["RSSI"]):
+                    s.mac_value = bytes(mac)  
+                    if functionLUT.get(key):
+                        functionLUT[key](receivedMessage[key]["value"])
+            except Exception as err:
+                print(err)
+   
+   
+    try: 
+        # Enough time has passed between the first press of the button from LEADER to send out colors
+        if(time.ticks_ms() - s.GAME_TIME > s.GAME_TIME_TIMEOUT):
+            if (s.PINGED and (not s.PONGED)): 
+                friends_count = len(s.FRIEND_LIST)%s.MAX_FRIEND
+                message = {"finalCall":{"RSSI": s.THRESHOLD_RSSI, "value": friends_count}}
+                for new_friend in s.FRIEND_LIST:
+                    e.add_peer(new_friend)
+                    e.send(new_friend, json.dumps(message))
+                print("Sending %s"% friends_count )
+                s.playGame(friends_count)
+                
+                time.sleep(0.1)
+                s.splat.connect()
+                s.splat.readSwitches()
+
+
+
+
+    
+    except Exception as err:
+        print(err)
+
+    
+
+
+
+
+
+   
 
 
