@@ -402,7 +402,7 @@ class App {
 
         // Clear container
         this.container.innerHTML = "";
-        this.container.className = "flex flex-col max-w-2xl mx-auto bg-white relative";
+        this.container.className = "flex flex-col max-w-md mx-auto bg-white relative";
 
 
         // Create components

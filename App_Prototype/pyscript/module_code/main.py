@@ -1,5 +1,3 @@
-# With Fix for Removing Hub Broadcast from Peers Table
-
 from machine import Pin, Timer, SoftI2C
 import machine
 import time
@@ -21,14 +19,7 @@ import collections
 # A WLAN interface must be active to send()/recv()
 sta = network.WLAN(network.WLAN.IF_STA)
 sta.active(True)
-sta.disconnect()
-
-# CRITICAL: Set WiFi channel for ESP-NOW reliability
-# Both hub and modules MUST be on the same channel
-WIFI_CHANNEL = 1
-sta.config(channel=WIFI_CHANNEL)
-print("WiFi channel set to:", WIFI_CHANNEL) 
-
+sta.disconnect() 
 
 ##Changing from internal to external antenna
 # Only add this if physical antenna is connected
@@ -40,6 +31,7 @@ WIFI_ANT_CONFIG = Pin(14, Pin.OUT)
 # Activate RF switch control
 WIFI_ENABLE.value(0) #Low
 
+
 # Wait for 100 milliseconds
 time.sleep_ms(100)
 
@@ -50,17 +42,10 @@ e.active(True)
 
 
 peer = b'\xff\xff\xff\xff\xff\xff'   # MAC address of peer's wifi interface
-print("Adding broadcast peer...")
-try:
-    e.add_peer(peer)
-    print("Broadcast peer added successfully")
-    print("Total peers:", len(list(e.get_peers())))
-except Exception as err:
-    print("Failed to add broadcast peer:", err)
+e.add_peer(peer)
 
 
 from ucollections import deque
-
 msg_buffer = deque((), 50, 2)  # Max 50 messages
 
 
@@ -219,36 +204,14 @@ class Plushie():
             time.sleep(dur)
 
     def reset(self):
-        print("=== RESET CALLED ===")
-        print("Peers before reset:", len(list(e.get_peers())))
         self.PINGED = False
         self.PONGED = False
         self.GAME_TIME = 0
         try:
-            # Don't delete the broadcast peer - we need it to receive hub commands!
-            BROADCAST_PEER = b'\xff\xff\xff\xff\xff\xff'
             for old_friend in e.get_peers():
-                peer_mac = old_friend[0]
-                if peer_mac != BROADCAST_PEER:
-                    print("Deleting peer:", peer_mac.hex())
-                    try:
-                        e.del_peer(peer_mac)
-                    except Exception as err:  # Use 'err' not 'e' to avoid shadowing global
-                        print("Failed to delete peer:", err)
-                else:
-                    print("Keeping broadcast peer")
-            
-            # Ensure broadcast peer exists (re-add if needed)
-            # add_peer() will fail gracefully if already exists
-            try:
-                e.add_peer(BROADCAST_PEER)
-                print("Ensured broadcast peer exists")
-            except:
-                pass  # Already exists, that's fine
-                
+                e.del_peer(old_friend[0])
         except Exception as error:
-            print("Reset error:", error)
-        print("Peers after reset:", len(list(e.get_peers())))
+            print(error)
         self.FRIEND_LIST = []
         self.clearBuffer = True
     
@@ -322,27 +285,21 @@ class Plushie():
      
      
     def sendPong(self, argument = None):
-        print("sendPong called with argument:", argument)
+        self.reset()
         
         if(argument == "app"):
-            # Hub app is scanning for devices - just respond, don't reset game state
-            message = {"deviceScan": {"RSSI": self.THRESHOLD_RSSI, "value": self.name}}
-            print("Sending deviceScan:", message)
-            result = e.send(peer, json.dumps(message))
-            print("Send result:", result)
+            message = {"deviceScan": {"RSSI": self.THRESHOLD_RSSI, "value": self.name}} # this could be animal name etc.
+            e.send(peer, json.dumps(message))
+            self.animate((0,120,240), speed = 0, timeout = 0.05)
+            
+            
         else:
-            # Another module is pinging - this is for gameplay
-            message = {"pongCall": {"RSSI": self.THRESHOLD_RSSI, "value": self.name}}
-            print("Sending pongCall:", message)
-            result = e.send(peer, json.dumps(message))
-            print("Send result:", result)
-            
-            # Only reset and set PONGED state for actual gameplay, not app scans
-            self.reset()
-            s.PONG_TIME = time.ticks_ms()
-            s.PONGED = True
-            
-        print("Message sent (or attempted)")
+            message = {"pongCall": {"RSSI": self.THRESHOLD_RSSI, "value": self.name}} # this could be animal name etc.
+            e.send(peer, json.dumps(message))
+        #print("seding ponding")
+        #set PONGED = True to indicate you are a receiver
+        s.PONG_TIME = time.ticks_ms() #for timeout
+        s.PONGED = True
         
     def react2Pong(self, argument):
         if self.PINGED == True:
@@ -421,13 +378,13 @@ def recv_cb(a):
         mac, msg = a.irecv(0)
         if mac is None:
             return
+        #print("Received", msg)
         try:
             receivedMessage = json.loads(msg)
-            print("Received from", mac.hex(), ":", receivedMessage)
             msg_buffer.append((bytes(mac), receivedMessage))
 
         except Exception as error:
-            print("recv_cb error:", error)
+            print(error)
     
 e.irq(recv_cb)
 
@@ -440,20 +397,9 @@ while True:
         
         for key in receivedMessage:
             try:
-                # For broadcast messages or missing peers, assume good RSSI
-                try:
-                    sender_rssi = e.peers_table[mac][0]
-                except (KeyError, IndexError):
-                    # Broadcast or unknown sender, set rssi to -1 (an invalid RSSI value otherwise)
-                    sender_rssi = -1                
-                threshold = receivedMessage[key]["RSSI"]
-                passes = sender_rssi > threshold
-                print("Msg:", key, "| Sender RSSI:", sender_rssi, "| Threshold:", threshold, "| Pass:", passes)
-                
-                if sender_rssi > receivedMessage[key]["RSSI"]:
+                if(e.peers_table[mac][0] > receivedMessage[key]["RSSI"]):
                     s.mac_value = bytes(mac)  
                     if functionLUT.get(key):
-                        print("Calling", key, "function")
                         functionLUT[key](receivedMessage[key]["value"])
             except Exception as err:
                 print(err)
