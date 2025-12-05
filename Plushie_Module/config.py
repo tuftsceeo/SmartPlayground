@@ -1,5 +1,14 @@
-config = {"hw_version": 1, "sw_version": 1, "module_type": 0}
+config = {"hw_version": 2, "sw_version": 3, "module_type": 0}
 #module type :
 # 0 - plushies
 # 1 - button
 # and so on
+
+#hw_version:
+#sophies version : 1
+#current version : 2
+
+#sw_version :
+#sophies version : 1
+#october_version : 2
+#current _version : 3
