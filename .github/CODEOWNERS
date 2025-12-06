@@ -1,11 +1,13 @@
 
-/Plushie_Module/ @milandahal213
+/Plushie_Module/ @milandahal213 @chrisbuerginrogers
 
 # This is a comment.
 # Each line is a file pattern followed by one or more owners.
 
 # These owners will be the default owners for everything in
-# the repo. Unless a later match takes precedence,
+# the repo. Unless a later match takes precedence, 
+# When reviews from code owners are required, an approval from 
+# any of the owners is sufficient to meet this requirement. 
 # @global-owner1 and @global-owner2 will be requested for
 # review when someone opens a pull request.
 # *       @global-owner1 @global-owner2
