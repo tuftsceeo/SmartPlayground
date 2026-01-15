@@ -26,7 +26,7 @@ ADDRESS = 0x19
 class Battery:
     def __init__(self):
         i2c = SoftI2C(scl = Pin(SCL), sda = Pin(SDA))
-        self.battery_sensor = utilities.lc709203f.LC709203F(i2c)
+        self.battery_sensor = 100#utilities.lc709203f.LC709203F(i2c)
 
     def read(self):
         return self.battery_sensor.cell_percent

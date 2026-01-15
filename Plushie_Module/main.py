@@ -56,6 +56,8 @@ class Stuffie:
         self.mac = self.espnow.wifi.config('mac')
         print('my mac address is ',[hex(b) for b in self.mac])
         self.lights.on(2)
+        self.topic = ''
+        self.msg = ''
         
     def start_game(self, number):
         if number < 0 or number >= len(self.game_names):
@@ -98,17 +100,17 @@ class Stuffie:
             (msg, mac, rssi) = self.queue.pop()
             #print(msg, mac, rssi)
             payload = json.loads(msg)
-            topic = payload['topic']
-            value = payload['value']
+            self.topic = payload['topic']
+            self.value = payload['value']
 
-            if topic == '/ping':
+            if self.topic == '/ping':
                 self.rssi = rssi
                 return
             else:
                 #print(mac, msg, rssi)
                 self.lights.all_on(GREEN)
-                print(topic)
-                await self.execute_queue(topic, value, self.game)
+                print(self.topic)
+                await self.execute_queue(self.topic, self.value, self.game)
                 self.lights.all_off()
             
         except Exception as e:

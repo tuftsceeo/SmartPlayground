@@ -2,13 +2,16 @@ import random
 import asyncio
 
 from games.game import Game
+from utilities.colors import *
 
-class pattern(Game):
+INTENSITY = 1
+
+class Pattern_btn(Game):
     def __init__(self, main):
         super().__init__(main, 'Pattern Game Btn')
         
     def start(self):
-        self.main.lights.all_on(PURPLE, 0.1)
+        self.main.lights.all_on(WHITE, INTENSITY)
         print("starting up ")
 
     async def loop(self):
@@ -17,6 +20,9 @@ class pattern(Game):
         """
         if self.main.button.pressed:  # Button pressed
             self.main.buzzer.play(440)
+            #send out over NOW a new random color
+            
+            self.main.lights.all_on(random.choice(COLORS), INTENSITY)
         else:  # Button released
             self.main.buzzer.stop()  # Silence
 

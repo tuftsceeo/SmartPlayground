@@ -64,3 +64,4 @@ Possible ESP topics are:
 1. "/game" defines the game number you want to start (main.py will stop the old one and start the new number)
 2. "/gem" defines the mac address of the hidden gem for hot/cold
 3. "/ping" is a simple ping to give the game guts an rssi strength
+4. Everything else is put in the '/notify' topic (in main).
