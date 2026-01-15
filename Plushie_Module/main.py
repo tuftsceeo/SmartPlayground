@@ -84,13 +84,19 @@ class Stuffie:
         self.buzzer.stop()
 
     def now_callback(self, msg, mac, rssi):
-        self.queue.append((mac, msg, rssi))
+        try:
+            self.queue.append((msg, mac, rssi))
+        except Exception as e:
+            print(f"Callback error: {e}")
+    
             
     async def pop_queue(self):
         if not len(self.queue):
             return
+        await asyncio.sleep(0)  # yield to wifi
         try:
-            (mac, msg, rssi) = self.queue.pop()
+            (msg, mac, rssi) = self.queue.pop()
+            #print(msg, mac, rssi)
             payload = json.loads(msg)
             topic = payload['topic']
             value = payload['value']
@@ -109,7 +115,7 @@ class Stuffie:
             print('pop error ',e)
                 
     async def execute_queue(self, topic, value, game):
-        print('running queue', topic, value, game)
+        await asyncio.sleep(0)  #yield to WiFi
         try:
             if topic == "/gem": 
                 bytes_from_string = value.encode('ascii')
