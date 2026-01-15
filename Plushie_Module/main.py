@@ -18,6 +18,8 @@ from games.hotcold import Hot_cold
 from games.clap import Clap
 from games.rainbow import Rainbow
 from games.hibernate import Hibernate
+import config
+
 
 class Stuffie:
     def __init__(self):
@@ -46,6 +48,8 @@ class Stuffie:
         
         self.game_names = [Notes(self), Shake(self), Hot_cold(self), Jump(self), Clap(self), Rainbow(self), Hibernate(self)]
         self.response_times = [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1]
+
+        self.type = utilities.config.config['module_type'] 
 
     def startup(self):
         print('Starting up')
