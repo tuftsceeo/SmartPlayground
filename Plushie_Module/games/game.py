@@ -1,4 +1,5 @@
 import asyncio
+import json
 
 from utilities.colors import *
 
@@ -24,7 +25,10 @@ class Game:
         try:
             print(f'starting game {self.name}')
             self.start()
+            i=0 
             while self.main.running:
+                i = i+1 if i < 60/response else 0
+                if not i: self.main.espnow.publish(json.dumps({'topic':'/battery', 'value':self.main.battery.read()}))
                 await self.loop()
                 await asyncio.sleep(response)
         finally:

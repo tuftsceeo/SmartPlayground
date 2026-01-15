@@ -3,6 +3,8 @@ import machine
 import esp32
 import time
 
+from config import config
+
 BUTTON_PIN = 0
 BUZZER_PIN = 19
 MOTOR_PIN = 21
@@ -43,8 +45,10 @@ class Button:
 class Motor:
     def __init__(self):
         self.motor = Pin(MOTOR_PIN, Pin.OUT)
+        self.btn = config['hub_type'] == "button"
 
     def run(self, duration = 0.08):
+        if self.btn: return
         self.motor.on()
         time.sleep(duration)
         self.motor.off()

@@ -2,6 +2,7 @@ import random
 import math
 import asyncio
 import time
+import json
 
 from games.game import Game
 from utilities.colors import *
@@ -17,6 +18,7 @@ class Rainbow(Game):
         self.bat = max(1, min(self.bat,12))
         print('Battery: ',self.bat)
         self.main.lights.all_on(GREEN, 0.1, self.bat)
+        self.main.espnow.publish(json.dumps({'topic':'/battery', 'value':self.bat}))
         time.sleep(2)
         for i in range(12):
             self.main.lights.on(i, COLORS[i%7], INTENSITY)
