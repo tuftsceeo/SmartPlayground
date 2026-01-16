@@ -54,9 +54,9 @@ def battery_test():
     print('percentage = ',b.read())
 
     
-#button_test()
-#motor_test()
-#buzzer_test()
-#light_test()
+button_test()
+motor_test()
+buzzer_test()
+light_test()
 accel_test()
 battery_test()
