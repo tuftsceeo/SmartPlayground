@@ -6,8 +6,8 @@ import time
 from games.game import Game
 from utilities.colors import *
 
-FREEFALL_THRESHOLD = 0.2  # Magnitude below this = free fall (adjust as needed)
-MIN_EVENT_SPACING = 500   # Minimum ms between jumps (prevents double-counting)
+FREEFALL_THRESHOLD = 0.3  # Magnitude below this = free fall (adjust as needed)
+MIN_EVENT_SPACING = 1000   # Minimum ms between jumps (prevents double-counting)
 
 class Jump(Game):
     def __init__(self, main):
