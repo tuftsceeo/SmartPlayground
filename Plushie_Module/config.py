@@ -1,4 +1,4 @@
-config = {"hw_version": 2.0, "sw_version": 3.1, "module_type": "plushie"}
+config = {"hw_version": 2.0, "sw_version": 3.1, "module_type": "button"}
 #module type :
 # 0 - plushies
 # 1 - button

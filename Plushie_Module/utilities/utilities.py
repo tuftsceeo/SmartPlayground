@@ -45,7 +45,7 @@ class Button:
 class Motor:
     def __init__(self):
         self.motor = Pin(MOTOR_PIN, Pin.OUT)
-        self.btn = config['module_type'] == "button"
+        self.btn = config['hub_type'] == "button"
 
     def run(self, duration = 0.08):
         if self.btn: return
