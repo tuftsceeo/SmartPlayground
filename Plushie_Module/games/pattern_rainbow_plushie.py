@@ -4,7 +4,7 @@ import asyncio
 from games.game import Game
 from utilities.colors import *
 
-INTENSITY = 1
+INTENSITY = 0.1
 FIFO = 12
 
 class Pattern_plush(Game):

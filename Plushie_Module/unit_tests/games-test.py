@@ -67,8 +67,8 @@ quinn = Hibernate(plush)
 #asyncio.run(main(quinn))
 
 becky = Pattern_btn(plush)
-#asyncio.run(main(becky))
+asyncio.run(main(becky))
 
 suzie = Pattern_plush(plush)
-asyncio.run(main(suzie))
+#asyncio.run(main(suzie))
 

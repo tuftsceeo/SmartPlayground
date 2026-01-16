@@ -44,6 +44,7 @@ class Stuffie:
         self.buzzer.stop()
         self.hibernate = utilities.Hibernate()
         
+        # this will initialize each game and pass in attributes of this class - (self) - 
         self.game_names = [Notes(self), Shake(self), Hot_cold(self), Jump(self), Clap(self), Rainbow(self), Hibernate(self)]
         self.response_times = [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1]
 
@@ -70,6 +71,8 @@ class Stuffie:
         print('starting game ', number)
         self.running = True
         self.game = number
+        
+        # now run the game -each game class should have a def run(response time) in it
         self.task = asyncio.create_task(self.game_names[number].run(self.response_times[number]))
         print(f'started {number}')
         
@@ -158,10 +161,8 @@ class Stuffie:
         finally:
             print('main shutting down')
             self.close()
-   
-   
+    
+    
 me = Stuffie()
         
 asyncio.run(me.main())
-    
-     

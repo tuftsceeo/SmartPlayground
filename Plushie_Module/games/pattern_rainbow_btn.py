@@ -21,7 +21,7 @@ class Pattern_btn(Game):
         if self.main.button.pressed:  # Button pressed
             self.main.buzzer.play(440)
             #send out over NOW a new random color
-            
+            self.main.espnow.publish(json.dumps({'topic':'/color', 'value':2}))
             self.main.lights.all_on(random.choice(COLORS), INTENSITY)
         else:  # Button released
             self.main.buzzer.stop()  # Silence
