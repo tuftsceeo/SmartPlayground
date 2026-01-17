@@ -27,10 +27,12 @@ class Game:
             self.start()
             i=0 
             while self.main.running:
+                if not i:
+                    self.main.publish({'topic':'/battery', 'value':self.main.battery.read()})
                 i = i+1 if i < 60/response else 0
-                if not i: self.main.espnow.publish(json.dumps({'topic':'/battery', 'value':self.main.battery.read()}))
                 await self.loop()
                 await asyncio.sleep(response)
         finally:
             self.close()
             print(f"ending game {self.name}")
+

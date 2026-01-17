@@ -1,7 +1,7 @@
 import time, json
 
 import utilities.now as now
-import utilities.base64 as base64
+import ubinascii
 
 
 def now_callback(msg, mac, rssi):
@@ -14,7 +14,7 @@ def now_callback(msg, mac, rssi):
         
         if topic == "/gem":  #do this here because you do not want to miss it
             bytes_from_string = value.encode('ascii')
-            gem_mac = base64.b64decode(bytes_from_string)
+            gem_mac = ubinascii.a2b_base64(bytes_from_string)
             print('hidden gem = ',gem_mac)
             hidden_gem = gem_mac
         
@@ -25,7 +25,7 @@ espnow = now.Now(now_callback)
 espnow.connect()
 mac = espnow.wifi.config('mac')
 print('my mac address is ',[hex(b) for b in mac])
-espnow.antenna()
+#espnow.antenna()
 
 print('ESPNow is running')
 

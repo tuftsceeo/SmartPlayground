@@ -18,6 +18,8 @@ from games.hotcold import Hot_cold
 from games.clap import Clap
 from games.rainbow import Rainbow
 from games.hibernate import Hibernate
+from games.pattern_rainbow_btn import Pattern_btn
+from games.pattern_rainbow_plushie import Pattern_plush
 
 class Stuffie:
     def __init__(self):
@@ -30,6 +32,7 @@ class Stuffie:
         self.value = -1
         self.task = None
         self.hidden_gem = None
+        self.color = GREEN
         self.queue = deque([], 20)
 
         self.lights = lights.Lights()
@@ -45,9 +48,11 @@ class Stuffie:
         self.hibernate = utilities.Hibernate()
         
         # this will initialize each game and pass in attributes of this class - (self) - 
-        self.game_names = [Notes(self), Shake(self), Hot_cold(self), Jump(self), Clap(self), Rainbow(self), Hibernate(self)]
-        self.response_times = [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1]
-
+        self.game_names = [Notes(self), Shake(self), Hot_cold(self), Jump(self),
+                           Clap(self), Rainbow(self), Hibernate(self), Pattern_btn(self), 
+                           Pattern_plush(self)]
+        self.response_times = [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.5]
+        
     def startup(self):
         print('Starting up')
         self.lights.on(0)
@@ -59,6 +64,9 @@ class Stuffie:
         self.lights.on(2)
         self.topic = ''
         self.msg = ''
+        
+    def publish(self, msg):
+        self.espnow.publish(json.dumps(msg))
         
     def start_game(self, number):
         if number < 0 or number >= len(self.game_names):
@@ -121,6 +129,7 @@ class Stuffie:
                 
     async def execute_queue(self, topic, value, game):
         await asyncio.sleep(0)  #yield to WiFi
+        #print(topic, value, game)
         try:
             if topic == "/gem": 
                 bytes_from_string = value.encode('ascii')
@@ -128,7 +137,7 @@ class Stuffie:
                 print('hidden gem = ',gem_mac)
                 self.hidden_gem = gem_mac
             
-            if topic == '/game':
+            elif topic == '/game':
                 if value != game:
                     print('Game ',value)
                     if game >= 0:
@@ -142,6 +151,12 @@ class Stuffie:
                 else:
                     print('notifying')
                     topic = '/notify'
+            elif topic == '/color':
+                self.color = value
+                print(self.color)
+            else:
+                print('unrecognized topic')
+
             self.topic =  topic
             self.value = value
         except Exception as e:
@@ -150,9 +165,10 @@ class Stuffie:
     async def main(self):
         try:
             self.startup()
-            self.start_game(0)
-            while self.game >= 0:
-                print(len(self.queue),' ',end='')
+            time.sleep(5)
+            self.start_game(8)
+            while self.game >= 0:  # just sit here looking at the queue
+                #print(len(self.queue),' ',end='')   # here is your print statement
                 while len(self.queue):
                     await self.pop_queue()
                 await asyncio.sleep(0.1)

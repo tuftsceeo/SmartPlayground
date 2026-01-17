@@ -67,20 +67,23 @@ Possible ESP topics are:
 4. Everything else is put in the '/notify' topic (in main).
 
 General hints on debugging:
-1. main.py 
-    a. sets up the WiFi/NOW
-    b. sets up all utilities (motor/btn/buzzer in utilities, battery/accel in i2c_bus and LEDs in lights
-    c. initializes all games (runs the def __init__, passing all the stuffie parameters)
-    d. runs the appropriate game (change the game when requested to do so)
-    e. appends anything that comes over the NOW on to the queue
-    f. execute everything on the queue
+1. Plushie class (in main.py) 
+    1. sets up the WiFi/NOW
+    2. sets up all utilities 
+        1. motor/btn/buzzer in utilities, 
+        2. battery/accel in i2c_bus and 
+        3. LEDs in lights
+    3. initializes all games (runs the def __init__, passing all the stuffie parameters)
+    4. runs the appropriate game (change the game when requested to do so)
+    5. appends anything that comes over the NOW on to the queue
+    6. execute everything on the queue
 
 2. Game class
-    a. runs game-defined start()
-    b. def run() sends out the battery level and runs def loop() until main.running is false (from Stuffie class)
-    c. closes everything up.
+    1. runs game-defined start()
+    2. def run() sends out the battery level and runs def loop() until main.running is false (from Stuffie class)
+    3. closes everything up.
     
 3. The Game
-    a. define your name and link to plushie class
-    b. defines your start(), run(), and close() that are unique to each game.
+    1. define your name and link to plushie class
+    2. defines your start(), run(), and close() that are unique to each game.
     
