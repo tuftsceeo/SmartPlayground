@@ -8,10 +8,21 @@ from utilities.colors import *
 
 # Frequencies for all 12 notes (in Hz)
 NOTES = {
-    'C4': 262, 'C#4': 277, 'D4': 294, 'D#4': 311,
-    'E4': 330, 'F4': 349, 'F#4': 370, 'G4': 392,
-    'G#4': 415, 'A4': 440, 'A#4': 466, 'B4': 494,
+    'C4': 262, 'D4': 294,
+    'E4': 330, 'F4': 349, 'G4': 392,
+    'A4': 440, 'B4': 494,
     'C5': 523,
+}
+
+NOTE_COLORS = {
+    'C4': RED,
+    'D4': ORANGE,
+    'E4': YELLOW,
+    'F4': GREEN,
+    'G4': BLUE,
+    'A4': INDIGO,
+    'B4': VIOLET,
+    'C5': WHITE,
 }
 
 class Notes(Game):
@@ -21,7 +32,7 @@ class Notes(Game):
     def start(self):
         self.note = random.choice(list(NOTES.keys()))
         self.frequency = NOTES[self.note]
-        print(f"You were assigned {self.note} at a frequency of {self.frequency}")
+        print(f"You were assigned {self.note} at a frequency of {self.frequency}.")
 
     async def loop(self):
         """
@@ -30,7 +41,8 @@ class Notes(Game):
         """
         if self.main.button.pressed:  # Button pressed
             self.main.buzzer.play(self.frequency)
-            self.main.lights.all_on(GREEN, 0.1)
+            color = NOTE_COLORS[self.note]
+            self.main.lights.all_on(color, 0.1)
         else:  # Button released
             self.main.buzzer.stop()  # Silence
             self.main.lights.all_off()
@@ -38,4 +50,3 @@ class Notes(Game):
     def close(self):
         self.main.lights.all_off() 
         self.main.buzzer.stop()
-
