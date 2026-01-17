@@ -2,6 +2,7 @@ import asyncio
 import json
 
 from utilities.colors import *
+from config import config
 
 class Game:
     def __init__(self, main, name = 'test'):
@@ -24,11 +25,12 @@ class Game:
         """
         try:
             print(f'starting game {self.name}')
+            hub_name = config['name']
             self.start()
             i=0 
             while self.main.running:
                 if not i:
-                    self.main.publish({'topic':'/battery', 'value':self.main.battery.read()})
+                    self.main.publish({'topic':f'/battery/{hub_name}', 'value':self.main.battery.read()})
                 i = i+1 if i < 60/response else 0
                 await self.loop()
                 await asyncio.sleep(response)

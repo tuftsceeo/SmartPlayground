@@ -21,19 +21,15 @@ class Pattern_plush(Game):
         """
         Async task to wait for a message from a button and then show the color from the message
         """
-        print(self.main.color)
         if self.main.topic == '/color':  #might be better to just look at self.value...
             new_color = self.main.color
             if new_color != self.old_color:
+                print(self.main.color)
                 self.pattern.append(new_color)
                 self.pattern = self.pattern[-FIFO:]
                 for i, c in enumerate(self.pattern):
                     self.main.lights.on(i, c, INTENSITY)
                 self.old_color = new_color
-        if self.main.button.pressed:  # Button pressed
-            self.main.buzzer.play(440)
-        else:  # Button released
-            self.main.buzzer.stop()  # Silence
 
     def close(self):
         self.main.lights.all_off() 

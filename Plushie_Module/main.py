@@ -57,7 +57,7 @@ class Stuffie:
         print('Starting up')
         self.lights.on(0)
         self.espnow = now.Now(self.now_callback)
-        self.espnow.connect(True)
+        self.espnow.connect()
         self.lights.on(1)
         self.mac = self.espnow.wifi.config('mac')
         print('my mac address is ',[hex(b) for b in self.mac])
@@ -119,10 +119,13 @@ class Stuffie:
                 return
             else:
                 #print(mac, msg, rssi)
+                current = self.lights.last_pattern
+                print('last ',current)
                 self.lights.all_on(GREEN)
                 print(self.topic)
                 await self.execute_queue(self.topic, self.value, self.game)
-                self.lights.all_off()
+                self.lights.array_on(current)
+                #self.lights.all_off()
             
         except Exception as e:
             print('pop error ',e)
@@ -151,11 +154,16 @@ class Stuffie:
                 else:
                     print('notifying')
                     topic = '/notify'
+                    
             elif topic == '/color':
                 self.color = value
                 print(self.color)
+                
+            elif '/battery' in topic:
+                pass
+            
             else:
-                print('unrecognized topic')
+                print('unrecognized topic:', topic)
 
             self.topic =  topic
             self.value = value
@@ -166,7 +174,7 @@ class Stuffie:
         try:
             self.startup()
             time.sleep(5)
-            self.start_game(8)
+            self.start_game(7)
             while self.game >= 0:  # just sit here looking at the queue
                 #print(len(self.queue),' ',end='')   # here is your print statement
                 while len(self.queue):
