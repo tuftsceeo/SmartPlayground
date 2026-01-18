@@ -29,6 +29,7 @@ class Pattern_btn(Game):
                     new_color = random.choice(COLORS)
                 self.main.publish({'topic':'/color', 'value':new_color})
                 self.last_color = new_color
+                print('sent ', new_color)
         else:  # Button released
             self.pressed = False
             self.main.buzzer.stop()  # Silence

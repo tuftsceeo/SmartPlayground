@@ -158,7 +158,7 @@ class Stuffie:
                 print(self.color)
                 
             elif '/battery' in topic:
-                pass
+                print(topic, value)
             
             else:
                 print('unrecognized topic:', topic)

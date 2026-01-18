@@ -30,7 +30,9 @@ class Game:
             i=0 
             while self.main.running:
                 if not i:
-                    self.main.publish({'topic':f'/battery/{hub_name}', 'value':self.main.battery.read()})
+                    msg = {'topic':f'/battery/{hub_name}', 'value':self.main.battery.read()}
+                    self.main.publish(msg)
+                    print(f'sent battery level {msg}')
                 i = i+1 if i < 60/response else 0
                 await self.loop()
                 await asyncio.sleep(response)
