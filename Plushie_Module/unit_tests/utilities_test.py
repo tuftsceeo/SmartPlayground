@@ -53,6 +53,13 @@ def battery_test():
     b = i2c_bus.Battery()
     print('percentage = ',b.read())
 
+def hibernate_test():
+    print('Testing the hibernation')
+    a = lights.Lights()
+    a.all_off()
+    h = utilities.Hibernate()
+    h.hibernate()
+
     
 button_test()
 motor_test()
