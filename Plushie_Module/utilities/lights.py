@@ -33,10 +33,9 @@ class Lights():
             self.last_pattern[i] = self.np[i]
         self.np.write()
         
-    def array_on(self, colors = [], intensity = None):
-        _, intensity = self.defaults(None, intensity)
+    def array_on(self, colors = []):
         for i,color in enumerate(colors):
-            self.np[i] = [int(c*intensity) for c in color]
+            self.np[i] = color
             self.last_pattern[i] = self.np[i]
         self.np.write()
         

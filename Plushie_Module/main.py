@@ -119,10 +119,8 @@ class Stuffie:
                 return
             else:
                 #print(mac, msg, rssi)
-                current = self.lights.last_pattern
-                print('last ',current)
+                current = list(self.lights.last_pattern)
                 self.lights.all_on(GREEN)
-                print(self.topic)
                 await self.execute_queue(self.topic, self.value, self.game)
                 self.lights.array_on(current)
                 #self.lights.all_off()
