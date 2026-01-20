@@ -4,8 +4,6 @@ import asyncio
 from games.game import Game
 from utilities.colors import *
 
-INTENSITY = 0.5
-
 class Pattern_btn(Game):
     def __init__(self, main):
         super().__init__(main, 'Pattern Game Btn')
@@ -22,7 +20,7 @@ class Pattern_btn(Game):
         if self.main.button.pressed:  # Button pressed
             if not self.pressed:
                 self.pressed = True
-                self.main.lights.all_on(WHITE, INTENSITY)
+                self.main.lights.all_on(WHITE, self.main.intensity)
                 self.main.buzzer.play(440)
                 new_color = self.last_color
                 while new_color == self.last_color:
@@ -33,11 +31,12 @@ class Pattern_btn(Game):
         else:  # Button released
             self.pressed = False
             self.main.buzzer.stop()  # Silence
-            self.main.lights.all_on(GREEN, INTENSITY)
+            self.main.lights.all_on(self.main.color, self.main.intensity)
 
     def close(self):
         self.main.lights.all_off() 
         self.main.buzzer.stop()
+
 
 
 

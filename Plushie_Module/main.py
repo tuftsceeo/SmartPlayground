@@ -10,6 +10,7 @@ import utilities.lights as lights
 import utilities.now as now
 import utilities.i2c_bus as i2c_bus
 from utilities.colors import *
+from config import config
 
 from games.sound import Notes
 from games.shake import Shake
@@ -32,12 +33,13 @@ class Stuffie:
         self.value = -1
         self.task = None
         self.hidden_gem = None
-        self.color = GREEN
+        self.color = config['default_color']
+        self.intensity = config['default_intensity']
         self.queue = deque([], 20)
 
         self.lights = lights.Lights()
-        self.lights.default_color = GREEN
-        self.lights.default_intensity = 0.1
+        self.lights.default_color = config['default_color']
+        self.lights.default_intensity = config['default_intensity']
         self.lights.all_off()
         
         self.accel = i2c_bus.LIS2DW12()
@@ -120,7 +122,7 @@ class Stuffie:
             else:
                 #print(mac, msg, rssi)
                 current = list(self.lights.last_pattern)
-                self.lights.all_on(GREEN)
+                self.lights.all_on(self.color)
                 await self.execute_queue(self.topic, self.value, self.game)
                 self.lights.array_on(current)
                 #self.lights.all_off()
@@ -172,7 +174,8 @@ class Stuffie:
         try:
             self.startup()
             time.sleep(5)
-            self.start_game(7)
+            first_game = 7 if config['module_type'] == 'button' else 0
+            self.start_game(first_game)
             while self.game >= 0:  # just sit here looking at the queue
                 #print(len(self.queue),' ',end='')   # here is your print statement
                 while len(self.queue):
@@ -188,3 +191,4 @@ class Stuffie:
 me = Stuffie()
         
 asyncio.run(me.main())
+

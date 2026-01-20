@@ -65,7 +65,7 @@ class Buzzer:
         if frequency == self.freq: return
         self.freq = frequency
         self.buzzer.freq(self.freq)
-        self.buzzer.duty(512)  # 50% duty cycle
+        self.buzzer.duty(int(config['default_volume']*1000))  # 50% duty cycle
 
     def stop(self):
         self.freq = 0
@@ -80,3 +80,4 @@ class Hibernate:
     
     def hibernate(self):
         deepsleep()
+
