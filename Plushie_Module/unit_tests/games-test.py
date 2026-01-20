@@ -13,6 +13,8 @@ from games.jump import Jump
 from games.hotcold import Hot_cold
 from games.rainbow import Rainbow
 from games.hibernate import Hibernate
+from games.pattern_rainbow_btn import Pattern_btn
+from games.pattern_rainbow_plushie import Pattern_plush
 
 class SimplePlushie:
     def __init__(self):
@@ -32,6 +34,8 @@ class SimplePlushie:
         
         self.hidden_gem = None
         self.rssi = None
+        self.topic = None
+        self.msg = None
         
 plush = SimplePlushie()
 
@@ -67,4 +71,7 @@ cath = Hot_cold(plush)
 quinn = Hibernate(plush)
 #asyncio.run(main(quinn))
 
+
+suzie = Pattern_plush(plush)
+#asyncio.run(main(suzie))
 

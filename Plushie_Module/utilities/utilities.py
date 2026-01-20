@@ -9,6 +9,7 @@ BUTTON_PIN = 0
 BUZZER_PIN = 19
 MOTOR_PIN = 21
 
+
 class Button:
     def __init__(self, callback = None):
         self.motor = Motor()
@@ -48,7 +49,8 @@ class Motor:
         self.btn = config['module_type'] == "button"
 
     def run(self, duration = 0.08):
-        if self.btn: return
+        if self.btn:
+            return
         self.motor.on()
         time.sleep(duration)
         self.motor.off()

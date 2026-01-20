@@ -2,6 +2,7 @@ import asyncio
 import json
 
 from utilities.colors import *
+from config import config
 
 class Game:
     def __init__(self, main, name = 'test'):
@@ -24,13 +25,18 @@ class Game:
         """
         try:
             print(f'starting game {self.name}')
+            hub_name = config['name']
             self.start()
             i=0 
             while self.main.running:
+                if not i:
+                    msg = {'topic':f'/battery/{hub_name}', 'value':self.main.battery.read()}
+                    self.main.publish(msg)
+                    print(f'sent battery level {msg}')
                 i = i+1 if i < 60/response else 0
-                if not i: self.main.espnow.publish(json.dumps({'topic':'/battery', 'value':self.main.battery.read()}))
                 await self.loop()
                 await asyncio.sleep(response)
         finally:
             self.close()
             print(f"ending game {self.name}")
+
