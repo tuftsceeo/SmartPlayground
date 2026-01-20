@@ -23,8 +23,9 @@ class Pattern_btn(Game):
                 self.main.lights.all_on(WHITE, self.main.intensity)
                 self.main.buzzer.play(440)
                 new_color = self.last_color
-                while new_color == self.last_color:
-                    new_color = random.choice(COLORS)
+                #while new_color == self.last_color:
+                #new_color = random.choice(COLORS)
+                new_color = self.main.color
                 self.main.publish({'topic':'/color', 'value':new_color})
                 self.last_color = new_color
                 print('sent ', new_color)

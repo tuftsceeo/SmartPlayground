@@ -2,7 +2,6 @@ import asyncio
 import json
 
 from utilities.colors import *
-from config import config
 
 class Game:
     def __init__(self, main, name = 'test'):
@@ -11,7 +10,7 @@ class Game:
     
     async def loop(self):
         if self.main.button.pressed:  # Button pressed
-            self.main.lights.all_on(GREEN, 0.1)
+            self.main.lights.all_on(self.main.color, self.main.intensity)
         else:  # Button released
             self.main.lights.all_off()
 
@@ -25,7 +24,7 @@ class Game:
         """
         try:
             print(f'starting game {self.name}')
-            hub_name = config['name']
+            hub_name = self.main.name
             self.start()
             i=0 
             while self.main.running:

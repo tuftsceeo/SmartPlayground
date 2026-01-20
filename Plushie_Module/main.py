@@ -10,17 +10,10 @@ import utilities.lights as lights
 import utilities.now as now
 import utilities.i2c_bus as i2c_bus
 from utilities.colors import *
-from config import config
+import config 
 
-from games.sound import Notes
-from games.shake import Shake
-from games.jump import Jump
-from games.hotcold import Hot_cold
-from games.clap import Clap
-from games.rainbow import Rainbow
-from games.hibernate import Hibernate
-from games.pattern_rainbow_btn import Pattern_btn
-from games.pattern_rainbow_plushie import Pattern_plush
+config = config.Button_settings
+
 
 class Stuffie:
     def __init__(self):
@@ -33,13 +26,16 @@ class Stuffie:
         self.value = -1
         self.task = None
         self.hidden_gem = None
-        self.color = config['default_color']
-        self.intensity = config['default_intensity']
+        
+        self.name = config.name
+        self.color = config.default_color
+        self.intensity = config.default_intensity
+        
         self.queue = deque([], 20)
 
         self.lights = lights.Lights()
-        self.lights.default_color = config['default_color']
-        self.lights.default_intensity = config['default_intensity']
+        self.lights.default_color = config.default_color
+        self.lights.default_intensity = config.default_intensity
         self.lights.all_off()
         
         self.accel = i2c_bus.LIS2DW12()
@@ -50,10 +46,8 @@ class Stuffie:
         self.hibernate = utilities.Hibernate()
         
         # this will initialize each game and pass in attributes of this class - (self) - 
-        self.game_names = [Notes(self), Shake(self), Hot_cold(self), Jump(self),
-                           Clap(self), Rainbow(self), Hibernate(self), Pattern_btn(self), 
-                           Pattern_plush(self)]
-        self.response_times = [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.5]
+        self.game_names = [g[0](self) for g in config.games]
+        self.response_times = [g[1] for g in config.games]
         
     def startup(self):
         print('Starting up')
@@ -174,7 +168,7 @@ class Stuffie:
         try:
             self.startup()
             time.sleep(5)
-            first_game = 7 if config['module_type'] == 'button' else 0
+            first_game = config.first_game
             self.start_game(first_game)
             while self.game >= 0:  # just sit here looking at the queue
                 #print(len(self.queue),' ',end='')   # here is your print statement
