@@ -11,7 +11,7 @@ from utilities.colors import *
 
 class Config:
     name = "button"
-    hw_version = 2.0
+    hw_version = 3
     sw_version = 3.2
     module_type = "button"
     first_game = 0
@@ -22,12 +22,16 @@ class Config:
     games = [(Notes,0.1), (Shake,0.1), (Hot_cold,0.1), (Jump,0.1),
              (Clap,0.1), (Rainbow,0.1), (Hibernate,0.1),
              (Pattern_btn,0.1), (Pattern_plush,0.5)]
+    number_of_leds = 12
     
 class Plushie_settings(Config):
     module_type = "plushie"
+    number_of_leds = 25
+
     
 class Splats_settings(Config):
     module_type = "splats"
+    number_of_leds = 2
     
 class Button_settings(Config):
     module_type = "button"

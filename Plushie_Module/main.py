@@ -12,7 +12,7 @@ import utilities.i2c_bus as i2c_bus
 from utilities.colors import *
 import config 
 
-config = config.Button_settings
+config = config.Plushie_settings
 
 
 class Stuffie:
@@ -31,28 +31,42 @@ class Stuffie:
         self.color = config.default_color
         self.intensity = config.default_intensity
         
+        
+        self.name = config.name
+        self.hw_version = config.hw_version
+        self.sw_version = config.sw_version
+        self.module_type = config.module_type
+        self.first_game = config.first_game
+        self.default_color = config.default_color
+        self.default_intensity = config.default_intensity
+        self.default_volume = config.default_volume
+        self.antenna = config.antenna
+        self.games = config.games
+        self.number_of_leds = config.number_of_leds
+    
+    
         self.queue = deque([], 20)
 
-        self.lights = lights.Lights()
-        self.lights.default_color = config.default_color
-        self.lights.default_intensity = config.default_intensity
+        self.lights = lights.Lights(self.number_of_leds)
+        self.lights.default_color = self.default_color
+        self.lights.default_intensity = self.default_intensity
         self.lights.all_off()
         
         self.accel = i2c_bus.LIS2DW12()
         self.battery = i2c_bus.Battery()
-        self.button = utilities.Button()
-        self.buzzer = utilities.Buzzer()
+        self.button = utilities.Button(self.module_type)
+        self.buzzer = utilities.Buzzer(self.default_volume)
         self.buzzer.stop()
         self.hibernate = utilities.Hibernate()
         
         # this will initialize each game and pass in attributes of this class - (self) - 
-        self.game_names = [g[0](self) for g in config.games]
-        self.response_times = [g[1] for g in config.games]
+        self.game_names = [g[0](self) for g in self.games]
+        self.response_times = [g[1] for g in self.games]
         
     def startup(self):
         print('Starting up')
         self.lights.on(0)
-        self.espnow = now.Now(self.now_callback)
+        self.espnow = now.Now(self.antenna, self.now_callback)
         self.espnow.connect()
         self.lights.on(1)
         self.mac = self.espnow.wifi.config('mac')
