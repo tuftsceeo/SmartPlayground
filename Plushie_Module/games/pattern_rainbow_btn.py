@@ -20,19 +20,19 @@ class Pattern_btn(Game):
         if self.main.button.pressed:  # Button pressed
             if not self.pressed:
                 self.pressed = True
-                self.main.lights.all_on(WHITE, self.main.tool.default_intensity)
+                self.main.lights.all_on(WHITE, self.main.tool.intensity)
                 self.main.buzzer.play(440)
                 new_color = self.last_color
                 #while new_color == self.last_color:
                 #new_color = random.choice(COLORS)
-                new_color = self.main.tool.default_color
+                new_color = self.main.tool.color
                 self.main.publish({'topic':'/color', 'value':new_color})
                 self.last_color = new_color
                 print('sent ', new_color)
         else:  # Button released
             self.pressed = False
             self.main.buzzer.stop()  # Silence
-            self.main.lights.all_on(self.main.tool.default_color, self.main.tool.default_intensity)
+            self.main.lights.all_on(self.main.tool.color, self.main.tool.intensity)
 
     def close(self):
         self.main.lights.all_off() 

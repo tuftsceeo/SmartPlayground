@@ -8,17 +8,17 @@ LED_PIN = 20
 from utilities.colors import *
 
 class Lights:
-    def __init__(self, number_of_leds = 12):
-        self.NUM_LED = number_of_leds
+    def __init__(self, num_of_leds = 12):
+        self.NUM_LED = num_of_leds
         self.np = neopixel.NeoPixel(Pin(LED_PIN), self.NUM_LED)
-        self.default_color = RED
-        self.default_intensity = 1
+        self.color = RED
+        self.intensity = 1
         self.last_pattern = [0]*self.NUM_LED
         
         
     def defaults(self, color = None, intensity = None):
-        color = color if color else self.default_color
-        intensity = intensity  if intensity else self.default_intensity
+        color = color if color else self.color
+        intensity = intensity  if intensity else self.intensity
         return color, intensity
 
 

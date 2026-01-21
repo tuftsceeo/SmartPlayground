@@ -9,7 +9,7 @@ class Hot_cold(Game):
         
     def start(self):
         self.main.lights.all_off()
-        self.maxleds = self.main.tool.number_of_leds -1
+        self.maxleds = self.main.tool.num_of_leds -1
         
     async def loop(self):
         """
@@ -23,7 +23,7 @@ class Hot_cold(Game):
             strength = max(0, min(s, self.maxleds))
             print('strength = ',strength)
             self.main.lights.all_off()
-            self.main.lights.all_on(RED, self.main.tool.default_intensity, self.maxleds-strength)
+            self.main.lights.all_on(RED, self.main.tool.intensity, self.maxleds-strength)
         except Exception as e:
             print(e)
 

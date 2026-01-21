@@ -59,8 +59,8 @@ class Motor:
         self.motor.off()
 
 class Buzzer:
-    def __init__(self, default_volume = 1):
-        self.default_volume = default_volume
+    def __init__(self, volume = 1):
+        self.volume = volume
         self.buzzer = PWM(Pin(BUZZER_PIN))
         self.freq = 0
         self.buzzer.duty(0)
@@ -69,7 +69,7 @@ class Buzzer:
         if frequency == self.freq: return
         self.freq = frequency
         self.buzzer.freq(self.freq)
-        self.buzzer.duty(int(self.default_volume *1000))  # 50% duty cycle
+        self.buzzer.duty(int(self.volume *1000))  # 50% duty cycle
 
     def stop(self):
         self.freq = 0

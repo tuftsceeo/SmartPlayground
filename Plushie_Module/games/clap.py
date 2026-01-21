@@ -12,7 +12,7 @@ class Clap(Game):
         
     def start(self):
         self.main.lights.all_off()
-        self.maxled = self.main.tool.number_of_leds-1
+        self.maxled = self.main.tool.num_of_leds-1
         
     async def loop(self):
         if self.main.topic == '/notify':
@@ -22,7 +22,7 @@ class Clap(Game):
                 strength = max(0, min(s, self.maxled))
                 print('strength = ',strength)
                 self.main.lights.all_off()
-                self.main.lights.all_on(RED, self.main.tool.default_intensity, self.maxled+1-strength)
+                self.main.lights.all_on(RED, self.main.tool.intensity, self.maxled+1-strength)
                 if strength < int((self.maxled+1)/2):
                     self.main.buzzer.play(440)
                     time.sleep(1)

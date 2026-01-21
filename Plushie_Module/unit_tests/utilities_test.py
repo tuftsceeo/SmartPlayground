@@ -31,8 +31,8 @@ def light_test():
     print('Testing the neopixels - animate red then only 5 leds in purple twice')
     async def main():
         a = lights.Lights(25)
-        a.default_intensity = 0.1
-        a.default_color = lights.RED
+        a.intensity = 0.1
+        a.color = lights.RED
         await a.animate()
         await a.animate(color = lights.PURPLE, intensity = 0.2, number = 5, repeat= 2, timeout = 2.0, speed = 0.5)
     

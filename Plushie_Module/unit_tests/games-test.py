@@ -20,8 +20,8 @@ class SimplePlushie:
     def __init__(self):
         self.running = True
         self.lights = lights.Lights()
-        self.lights.default_color = GREEN
-        self.lights.default_intensity = 0.1
+        self.lights.color = GREEN
+        self.lights.intensity = 0.1
         self.lights.all_off()
         
         self.accel = i2c_bus.LIS2DW12()

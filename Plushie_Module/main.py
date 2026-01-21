@@ -26,15 +26,15 @@ class Tool:
         self.hidden_gem = None
         self.queue = deque([], 20)
 
-        self.lights = lights.Lights(self.tool.number_of_leds)
-        self.lights.default_color = self.tool.default_color
-        self.lights.default_intensity = self.tool.default_intensity
+        self.lights = lights.Lights(self.tool.num_of_leds)
+        self.lights.color = self.tool.color
+        self.lights.intensity = self.tool.intensity
         self.lights.all_off()
         
         self.accel = i2c_bus.LIS2DW12()
         self.battery = i2c_bus.Battery()
         self.button = utilities.Button(self.tool.module_type)
-        self.buzzer = utilities.Buzzer(self.tool.default_volume)
+        self.buzzer = utilities.Buzzer(self.tool.volume)
         self.buzzer.stop()
         self.hibernate = utilities.Hibernate()
         
@@ -109,7 +109,7 @@ class Tool:
             else:
                 #print(mac, msg, rssi)
                 current = list(self.lights.last_pattern)
-                self.lights.all_on(self.tool.default_color)
+                self.lights.all_on(self.tool.color)
                 await self.execute_queue(self.topic, self.value, self.game)
                 self.lights.array_on(current)
                 #self.lights.all_off()
