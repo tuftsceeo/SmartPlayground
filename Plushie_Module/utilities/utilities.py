@@ -11,7 +11,7 @@ MOTOR_PIN = 21
 
 
 class Button:
-    def __init__(self, module_type, callback = None):
+    def __init__(self, module_type = 'plushie', callback = None):
         self.module_type = module_type
         self.motor = Motor(self.module_type)
         self.pressed = False
@@ -46,7 +46,7 @@ class Button:
         self.flag = False
 
 class Motor:
-    def __init__(self, module_type):
+    def __init__(self, module_type = 'plushie'):
         self.module_type = module_type
         self.motor = Pin(MOTOR_PIN, Pin.OUT)
         self.btn = self.module_type == "button"
@@ -59,7 +59,7 @@ class Motor:
         self.motor.off()
 
 class Buzzer:
-    def __init__(self, default_volume):
+    def __init__(self, default_volume = 1):
         self.default_volume = default_volume
         self.buzzer = PWM(Pin(BUZZER_PIN))
         self.freq = 0

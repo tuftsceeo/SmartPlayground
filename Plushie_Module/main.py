@@ -12,11 +12,9 @@ import utilities.i2c_bus as i2c_bus
 from utilities.colors import *
 import config 
 
-config = config.Plushie_settings
-
-
-class Stuffie:
+class Tool:
     def __init__(self):
+        self.tool = config.Plushie_settings
         self.mac = None
         self.espnow = None
 
@@ -26,47 +24,28 @@ class Stuffie:
         self.value = -1
         self.task = None
         self.hidden_gem = None
-        
-        self.name = config.name
-        self.color = config.default_color
-        self.intensity = config.default_intensity
-        
-        
-        self.name = config.name
-        self.hw_version = config.hw_version
-        self.sw_version = config.sw_version
-        self.module_type = config.module_type
-        self.first_game = config.first_game
-        self.default_color = config.default_color
-        self.default_intensity = config.default_intensity
-        self.default_volume = config.default_volume
-        self.antenna = config.antenna
-        self.games = config.games
-        self.number_of_leds = config.number_of_leds
-    
-    
         self.queue = deque([], 20)
 
-        self.lights = lights.Lights(self.number_of_leds)
-        self.lights.default_color = self.default_color
-        self.lights.default_intensity = self.default_intensity
+        self.lights = lights.Lights(self.tool.number_of_leds)
+        self.lights.default_color = self.tool.default_color
+        self.lights.default_intensity = self.tool.default_intensity
         self.lights.all_off()
         
         self.accel = i2c_bus.LIS2DW12()
         self.battery = i2c_bus.Battery()
-        self.button = utilities.Button(self.module_type)
-        self.buzzer = utilities.Buzzer(self.default_volume)
+        self.button = utilities.Button(self.tool.module_type)
+        self.buzzer = utilities.Buzzer(self.tool.default_volume)
         self.buzzer.stop()
         self.hibernate = utilities.Hibernate()
         
         # this will initialize each game and pass in attributes of this class - (self) - 
-        self.game_names = [g[0](self) for g in self.games]
-        self.response_times = [g[1] for g in self.games]
+        self.game_names = [g[0](self) for g in self.tool.games]
+        self.response_times = [g[1] for g in self.tool.games]
         
     def startup(self):
         print('Starting up')
         self.lights.on(0)
-        self.espnow = now.Now(self.antenna, self.now_callback)
+        self.espnow = now.Now(self.tool.antenna, self.now_callback)
         self.espnow.connect()
         self.lights.on(1)
         self.mac = self.espnow.wifi.config('mac')
@@ -130,7 +109,7 @@ class Stuffie:
             else:
                 #print(mac, msg, rssi)
                 current = list(self.lights.last_pattern)
-                self.lights.all_on(self.color)
+                self.lights.all_on(self.tool.default_color)
                 await self.execute_queue(self.topic, self.value, self.game)
                 self.lights.array_on(current)
                 #self.lights.all_off()
@@ -181,8 +160,8 @@ class Stuffie:
     async def main(self):
         try:
             self.startup()
-            time.sleep(5)
-            first_game = config.first_game
+            time.sleep(1)
+            first_game = self.tool.first_game
             self.start_game(first_game)
             while self.game >= 0:  # just sit here looking at the queue
                 #print(len(self.queue),' ',end='')   # here is your print statement
@@ -196,7 +175,7 @@ class Stuffie:
             self.close()
     
     
-me = Stuffie()
+me = Tool()
         
 asyncio.run(me.main())
 

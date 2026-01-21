@@ -42,7 +42,7 @@ class Notes(Game):
         if self.main.button.pressed:  # Button pressed
             self.main.buzzer.play(self.frequency)
             color = NOTE_COLORS[self.note]
-            self.main.lights.all_on(color, 0.1)
+            self.main.lights.all_on(color, self.main.tool.default_intensity)
         else:  # Button released
             self.main.buzzer.stop()  # Silence
             self.main.lights.all_off()

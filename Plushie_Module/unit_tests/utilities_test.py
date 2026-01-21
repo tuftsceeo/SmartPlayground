@@ -5,9 +5,11 @@ import utilities.utilities as utilities
 import utilities.lights as lights
 import utilities.i2c_bus as i2c_bus
 
+module_type = 'plushie'
+
 def button_test():
     print('Testing the button - click it any time')
-    button = utilities.Button()
+    button = utilities.Button(module_type)
     while not button.pressed:
         print('.', end='')
         time.sleep(0.1)
@@ -15,12 +17,12 @@ def button_test():
 
 def motor_test():
     print('Testing the motor - haptic feedback')
-    motor = utilities.Motor()
+    motor = utilities.Motor(module_type)
     motor.run()
     
 def buzzer_test():
     print('Testing the buzzer playing A4 for 2 sec')
-    buzzer = utilities.Buzzer()
+    buzzer = utilities.Buzzer(1)
     buzzer.play(440)
     time.sleep(2)
     buzzer.stop()
@@ -28,7 +30,7 @@ def buzzer_test():
 def light_test():
     print('Testing the neopixels - animate red then only 5 leds in purple twice')
     async def main():
-        a = lights.Lights()
+        a = lights.Lights(25)
         a.default_intensity = 0.1
         a.default_color = lights.RED
         await a.animate()

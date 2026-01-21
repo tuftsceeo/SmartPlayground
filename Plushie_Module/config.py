@@ -16,13 +16,13 @@ class Config:
     module_type = "button"
     first_game = 0
     default_color = PURPLE
+    number_of_leds = 12
     default_intensity = 0.1
     default_volume = 1.0
     antenna = True
     games = [(Notes,0.1), (Shake,0.1), (Hot_cold,0.1), (Jump,0.1),
              (Clap,0.1), (Rainbow,0.1), (Hibernate,0.1),
              (Pattern_btn,0.1), (Pattern_plush,0.5)]
-    number_of_leds = 12
     
 class Plushie_settings(Config):
     module_type = "plushie"
@@ -31,12 +31,11 @@ class Plushie_settings(Config):
     
 class Splats_settings(Config):
     module_type = "splats"
-    number_of_leds = 2
+    number_of_leds = 3
     
 class Button_settings(Config):
     module_type = "button"
     first_game = 7
-    
 
 #hw_version:
 #sophies version : 1
