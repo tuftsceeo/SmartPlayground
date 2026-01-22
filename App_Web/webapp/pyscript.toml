@@ -1,0 +1,104 @@
+name = "Playground App Front End V0"
+# PyScript Configuration for Smart Playground Control
+
+# Files to include
+[files]
+# JavaScript modules
+"js/main.js" = "./js/main.js"
+"js/state/store.js" = "./js/state/store.js"
+"js/utils/constants.js" = "./js/utils/constants.js"
+"js/utils/helpers.js" = "./js/utils/helpers.js"
+"js/utils/pyBridge.js" = "./js/utils/pyBridge.js"
+# Components - Common
+"js/components/common/icons.js" = "./js/components/common/icons.js"
+"js/components/common/settingsButton.js" = "./js/components/common/settingsButton.js"
+"js/components/common/toast.js" = "./js/components/common/toast.js"
+
+# Components - Messaging
+"js/components/messaging/recipientBar.js" = "./js/components/messaging/recipientBar.js"
+"js/components/messaging/messageHistory.js" = "./js/components/messaging/messageHistory.js"
+"js/components/messaging/messageInput.js" = "./js/components/messaging/messageInput.js"
+
+# Components - Overlays
+"js/components/overlays/deviceListOverlay.js" = "./js/components/overlays/deviceListOverlay.js"
+"js/components/overlays/messageDetailsOverlay.js" = "./js/components/overlays/messageDetailsOverlay.js"
+"js/components/overlays/settingsOverlay.js" = "./js/components/overlays/settingsOverlay.js"
+"js/components/overlays/commandInfoOverlay.js" = "./js/components/overlays/commandInfoOverlay.js"
+
+# Components - Modals
+"js/components/modals/connectionWarningModal.js" = "./js/components/modals/connectionWarningModal.js"
+"js/components/modals/connectionModal.js" = "./js/components/modals/connectionModal.js"
+"js/components/modals/hubSetupModal.js" = "./js/components/modals/hubSetupModal.js"
+"js/components/modals/browserCompatibilityModal.js" = "./js/components/modals/browserCompatibilityModal.js"
+"js/components/modals/permissionBlockedModal.js" = "./js/components/modals/permissionBlockedModal.js"
+"js/components/modals/errorDetailModal.js" = "./js/components/modals/errorDetailModal.js"
+
+# Components - Connection
+"js/components/connection/hubConnectionBar.js" = "./js/components/connection/hubConnectionBar.js"
+"js/components/connection/bluetoothStatusButton.js" = "./js/components/connection/bluetoothStatusButton.js"
+
+# Components - States
+"js/components/states/connectedEmptyState.js" = "./js/components/states/connectedEmptyState.js"
+"js/components/states/welcomeState.js" = "./js/components/states/welcomeState.js"
+
+# Hub firmware files
+"hubCode/manifest.js" = "./hubCode/manifest.js"
+"hubCode/main.py" = "./hubCode/main.py"
+"hubCode/controller.py" = "./hubCode/controller.py"
+"hubCode/ssd1306.py" = "./hubCode/ssd1306.py"
+"hubCode/utilities/utilities.py" = "./hubCode/utilities/utilities.py"
+"hubCode/utilities/lights.py" = "./hubCode/utilities/lights.py"
+"hubCode/utilities/i2c_bus.py" = "./hubCode/utilities/i2c_bus.py"
+"hubCode/utilities/wifi.py" = "./hubCode/utilities/wifi.py"
+"hubCode/utilities/now.py" = "./hubCode/utilities/now.py"
+"hubCode/utilities/colors.py" = "./hubCode/utilities/colors.py"
+"hubCode/utilities/base64.py" = "./hubCode/utilities/base64.py"
+"hubCode/utilities/lc709203f.py" = "./hubCode/utilities/lc709203f.py"
+"hubCode/utilities/secrets.py" = "./hubCode/utilities/secrets.py"
+
+# Python modules (refactored)
+"mpy/hub_bluetooth.py" = "./mpy/hub_bluetooth.py"
+"mpy/hub_serial.py" = "./mpy/hub_serial.py"
+"mpy/repl_controller.py" = "./mpy/repl_controller.py"
+"mpy/firmware_manager.py" = "./mpy/firmware_manager.py"
+
+# Install packages to be used in this project
+# packages = ["pandas"]
+
+# Bundle your project into a zip file which can be downloaded or used
+# as a module in your Anaconda Toolbox Excel Add-in
+# export = true
+
+# Fetch arbitrary content from URLs onto the virtual filesystem, just map a valid
+# URL to a destination in the filesystem path
+# [files]
+# "https://example.com/data.csv" = "./data.csv"
+
+# Import JavaScript modules in your project (load them in the main thread of the browser)
+# [js_modules.main]
+# "https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet-src.esm.js" = "leaflet"
+# "https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" = "leaflet" # CSS
+#
+# You can also import them in the worker thread of the browser
+# [js_modules.worker]
+# "https://module" = "mymodule"
+
+# Pin the Python interpreter to a specific value - for example making sure that
+# pyscript uses a specific version of pyodide or micropython
+# interpreter = "0.23.4"
+
+# Set the interaction between the main thread and worker limited to one way
+# calls from the main thread
+# sync_main_only = true
+
+# The plugin options allow you to either augment or exclude, the list of
+# plugins imported out of the box from core during bootstrap
+# plugins = ["custom_plugin", "!error"]
+
+# Make PyScript to try to automagically handle code where one would require
+# to use create_proxy (this is Pyodide specific)
+# experimental_create_proxy = "auto"
+
+## Please use the official documentation for further explanation and examples
+# of how to use these features if they are unfamiliar to you.
+# https://docs.pyscript.net/2025.7.3/user-guide/configuration

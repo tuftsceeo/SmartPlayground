@@ -173,3 +173,5 @@ cython_debug/
 # PyPI configuration file
 .pypirc
 .DS_Store
+App_Prototype/pyscript/esp_based_controller_firmware.py
+App_Prototype/pyscript/module_firmware.py
