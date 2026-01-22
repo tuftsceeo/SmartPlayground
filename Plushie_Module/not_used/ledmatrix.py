@@ -84,7 +84,7 @@ class LEDMATRIX:
         self.current_device_address = self.base_address + self.offset_address
         time.time.sleep_ms(200)
 
-    def default_device_address(self):
+    def device_address(self):
         self._i2c_send_byte(self.current_device_address, I2C_CMD_RST_ADDR)
         self.base_address = GROVE_TWO_RGB_LED_MATRIX_DEF_I2C_ADDR
         self.current_device_address = self.base_address + self.offset_address

@@ -64,3 +64,26 @@ Possible ESP topics are:
 1. "/game" defines the game number you want to start (main.py will stop the old one and start the new number)
 2. "/gem" defines the mac address of the hidden gem for hot/cold
 3. "/ping" is a simple ping to give the game guts an rssi strength
+4. Everything else is put in the '/notify' topic (in main).
+
+General hints on debugging:
+1. Plushie class (in main.py) 
+    1. sets up the WiFi/NOW
+    2. sets up all utilities 
+        1. motor/btn/buzzer in utilities, 
+        2. battery/accel in i2c_bus and 
+        3. LEDs in lights
+    3. initializes all games (runs the def __init__, passing all the stuffie parameters)
+    4. runs the appropriate game (change the game when requested to do so)
+    5. appends anything that comes over the NOW on to the queue
+    6. execute everything on the queue
+
+2. Game class
+    1. runs game-defined start()
+    2. def run() sends out the battery level and runs def loop() until main.running is false (from Stuffie class)
+    3. closes everything up.
+    
+3. The Game
+    1. define your name and link to plushie class
+    2. defines your start(), run(), and close() that are unique to each game.
+    

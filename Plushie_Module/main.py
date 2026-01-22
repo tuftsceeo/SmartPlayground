@@ -10,17 +10,11 @@ import utilities.lights as lights
 import utilities.now as now
 import utilities.i2c_bus as i2c_bus
 from utilities.colors import *
+import config 
 
-from games.sound import Notes
-from games.shake import Shake
-from games.jump import Jump
-from games.hotcold import Hot_cold
-from games.clap import Clap
-from games.rainbow import Rainbow
-from games.hibernate import Hibernate
-
-class Stuffie:
+class Tool:
     def __init__(self):
+        self.tool = config.Plushie_settings
         self.mac = None
         self.espnow = None
 
@@ -32,30 +26,36 @@ class Stuffie:
         self.hidden_gem = None
         self.queue = deque([], 20)
 
-        self.lights = lights.Lights()
-        self.lights.default_color = GREEN
-        self.lights.default_intensity = 0.1
+        self.lights = lights.Lights(self.tool.num_of_leds)
+        self.lights.color = self.tool.color
+        self.lights.intensity = self.tool.intensity
         self.lights.all_off()
         
         self.accel = i2c_bus.LIS2DW12()
         self.battery = i2c_bus.Battery()
-        self.button = utilities.Button()
-        self.buzzer = utilities.Buzzer()
+        self.button = utilities.Button(self.tool.module_type)
+        self.buzzer = utilities.Buzzer(self.tool.volume)
         self.buzzer.stop()
         self.hibernate = utilities.Hibernate()
         
-        self.game_names = [Notes(self), Shake(self), Hot_cold(self), Jump(self), Clap(self), Rainbow(self), Hibernate(self)]
-        self.response_times = [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1]
-
+        # this will initialize each game and pass in attributes of this class - (self) - 
+        self.game_names = [g[0](self) for g in self.tool.games]
+        self.response_times = [g[1] for g in self.tool.games]
+        
     def startup(self):
         print('Starting up')
         self.lights.on(0)
-        self.espnow = now.Now(self.now_callback)
-        self.espnow.connect(True)
+        self.espnow = now.Now(self.tool.antenna, self.now_callback)
+        self.espnow.connect()
         self.lights.on(1)
         self.mac = self.espnow.wifi.config('mac')
         print('my mac address is ',[hex(b) for b in self.mac])
         self.lights.on(2)
+        self.topic = ''
+        self.msg = ''
+        
+    def publish(self, msg):
+        self.espnow.publish(json.dumps(msg))
         
     def start_game(self, number):
         if number < 0 or number >= len(self.game_names):
@@ -68,6 +68,8 @@ class Stuffie:
         print('starting game ', number)
         self.running = True
         self.game = number
+        
+        # now run the game -each game class should have a def run(response time) in it
         self.task = asyncio.create_task(self.game_names[number].run(self.response_times[number]))
         print(f'started {number}')
         
@@ -84,40 +86,47 @@ class Stuffie:
         self.buzzer.stop()
 
     def now_callback(self, msg, mac, rssi):
-        self.queue.append((mac, msg, rssi))
+        try:
+            self.queue.append((msg, mac, rssi))
+        except Exception as e:
+            print(f"Callback error: {e}")
+    
             
     async def pop_queue(self):
         if not len(self.queue):
             return
+        await asyncio.sleep(0)  # yield to wifi
         try:
-            (mac, msg, rssi) = self.queue.pop()
+            (msg, mac, rssi) = self.queue.pop()
+            #print(msg, mac, rssi)
             payload = json.loads(msg)
-            topic = payload['topic']
-            value = payload['value']
+            self.topic = payload['topic']
+            self.value = payload['value']
 
-            if topic == '/ping':
+            if self.topic == '/ping':
                 self.rssi = rssi
                 return
             else:
                 #print(mac, msg, rssi)
-                self.lights.all_on(GREEN)
-                print(topic)
-                await self.execute_queue(topic, value, self.game)
-                self.lights.all_off()
+                current = list(self.lights.last_pattern)
+                self.lights.all_on(self.tool.color)
+                await self.execute_queue(self.topic, self.value, self.game)
+                self.lights.array_on(current)
+                #self.lights.all_off()
             
         except Exception as e:
             print('pop error ',e)
                 
-    async def execute_queue(self, topic, value, game):
-        print('running queue', topic, value, game)
+    async def execute_queue(self, topic, reply, game):
+        await asyncio.sleep(0)  #yield to WiFi
+        #print(topic, value, game)
         try:
-            if topic == "/gem": 
-                bytes_from_string = value.encode('ascii')
-                gem_mac = ubinascii.a2b_base64(bytes_from_string)
-                print('hidden gem = ',gem_mac)
-                self.hidden_gem = gem_mac
-            
             if topic == '/game':
+                value, gem_mac = reply
+                gem_mac = ubinascii.a2b_base64(gem_mac.encode('ascii'))
+                print('controller mac address = ',gem_mac)
+                self.hidden_gem = gem_mac
+                
                 if value != game:
                     print('Game ',value)
                     if game >= 0:
@@ -131,6 +140,17 @@ class Stuffie:
                 else:
                     print('notifying')
                     topic = '/notify'
+                    
+            elif topic == '/color':
+                self.color = value
+                print(self.color)
+                
+            elif '/battery' in topic:
+                print(topic, value)
+            
+            else:
+                print('unrecognized topic:', topic)
+
             self.topic =  topic
             self.value = value
         except Exception as e:
@@ -139,9 +159,11 @@ class Stuffie:
     async def main(self):
         try:
             self.startup()
-            self.start_game(0)
-            while self.game >= 0:
-                print(len(self.queue),' ',end='')
+            time.sleep(1)
+            first_game = self.tool.first_game
+            self.start_game(first_game)
+            while self.game >= 0:  # just sit here looking at the queue
+                #print(len(self.queue),' ',end='')   # here is your print statement
                 while len(self.queue):
                     await self.pop_queue()
                 await asyncio.sleep(0.1)
@@ -150,10 +172,9 @@ class Stuffie:
         finally:
             print('main shutting down')
             self.close()
-   
-   
-me = Stuffie()
+    
+    
+me = Tool()
         
 asyncio.run(me.main())
-    
-     
+
