@@ -117,17 +117,16 @@ class Tool:
         except Exception as e:
             print('pop error ',e)
                 
-    async def execute_queue(self, topic, value, game):
+    async def execute_queue(self, topic, reply, game):
         await asyncio.sleep(0)  #yield to WiFi
         #print(topic, value, game)
         try:
-            if topic == "/gem": 
-                bytes_from_string = value.encode('ascii')
-                gem_mac = ubinascii.a2b_base64(bytes_from_string)
-                print('hidden gem = ',gem_mac)
+            if topic == '/game':
+                value, gem_mac = reply
+                gem_mac = ubinascii.a2b_base64(gem_mac.encode('ascii'))
+                print('controller mac address = ',gem_mac)
                 self.hidden_gem = gem_mac
-            
-            elif topic == '/game':
+                
                 if value != game:
                     print('Game ',value)
                     if game >= 0:
