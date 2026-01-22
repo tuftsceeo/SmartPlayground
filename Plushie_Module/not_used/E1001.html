@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<!-- https://sensecraft.seeed.cc/hmi/device/20221222 -->
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Plot</title>
+</head>
+<body>
+    <h1>Data Plot</h1>
+    <p>Current time: <span id="time">--:--:--</span></p>
+    
+    <canvas id="chart" width="400" height="200" style="border: 1px solid #ccc; background: #fff;"></canvas>
+
+    <script>
+        // Update time every second
+        function updateTime() {
+            const now = new Date();
+            document.getElementById('time').textContent = now.toLocaleTimeString();
+        }
+        
+        updateTime();
+        setInterval(updateTime, 1000);
+        
+        // Generate random data and plot
+        function plotOnCanvas() {
+            const canvas = document.getElementById('chart');
+            const ctx = canvas.getContext('2d');
+            
+            // Generate random data
+            const values = [];
+            for (let i = 0; i < 100; i++) {
+                values.push(Math.random() * 100);
+            }
+            
+            const minVal = Math.min(...values);
+            const maxVal = Math.max(...values);
+            const range = maxVal - minVal || 1;
+            
+            // Canvas dimensions
+            const padding = 40;
+            const width = canvas.width - 2 * padding;
+            const height = canvas.height - 2 * padding;
+            
+            // Clear canvas
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw axes
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(padding, padding);
+            ctx.lineTo(padding, canvas.height - padding);
+            ctx.lineTo(canvas.width - padding, canvas.height - padding);
+            ctx.stroke();
+            
+            // Draw labels
+            ctx.fillStyle = '#000';
+            ctx.font = '12px Arial';
+            ctx.textAlign = 'right';
+            ctx.fillText(maxVal.toFixed(1), padding - 10, padding + 5);
+            ctx.fillText(minVal.toFixed(1), padding - 10, canvas.height - padding + 5);
+            
+            // Plot data
+            ctx.strokeStyle = '#0066cc';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            
+            for (let i = 0; i < values.length; i++) {
+                const x = padding + (i / (values.length - 1)) * width;
+                const y = canvas.height - padding - ((values[i] - minVal) / range) * height;
+                
+                if (i === 0) {
+                    ctx.moveTo(x, y);
+                } else {
+                    ctx.lineTo(x, y);
+                }
+            }
+            
+            ctx.stroke();
+            
+            // Plot points
+            ctx.fillStyle = '#0066cc';
+            for (let i = 0; i < values.length; i++) {
+                const x = padding + (i / (values.length - 1)) * width;
+                const y = canvas.height - padding - ((values[i] - minVal) / range) * height;
+                ctx.beginPath();
+                ctx.arc(x, y, 3, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+        
+        // Plot on page load
+        plotOnCanvas();
+    </script>
+</body>
+</html>
