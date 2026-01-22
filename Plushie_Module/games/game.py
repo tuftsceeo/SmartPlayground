@@ -23,7 +23,7 @@ class Game:
         Async task that continually runs
         """
         try:
-            print(f'starting game {self.name}')
+            self.main.log_message(f'starting game {self.name}')
             hub_name = self.main.tool.name
             self.start()
             i=0 
@@ -31,11 +31,11 @@ class Game:
                 if not i:
                     msg = {'topic':f'/battery/{hub_name}', 'value':self.main.battery.read()}
                     self.main.publish(msg)
-                    print(f'sent battery level {msg}')
+                    self.main.log_message(f'sent battery level {msg}')
                 i = i+1 if i < 60/response else 0
                 await self.loop()
                 await asyncio.sleep(response)
         finally:
             self.close()
-            print(f"ending game {self.name}")
+            self.main.log_message(f"ending game {self.name}")
 

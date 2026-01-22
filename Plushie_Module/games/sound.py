@@ -32,7 +32,7 @@ class Notes(Game):
     def start(self):
         self.note = random.choice(list(NOTES.keys()))
         self.frequency = NOTES[self.note]
-        print(f"You were assigned {self.note} at a frequency of {self.frequency}.")
+        self.main.log_message(f"You were assigned {self.note} at a frequency of {self.frequency}.")
 
     async def loop(self):
         """
