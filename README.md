@@ -4,7 +4,7 @@ An interactive playground control system developed by the Tufts University Cente
 
 ## Overview
 
-We combine the novel smart tools developed at the center with the kids and the physical playground equipment to create engaging, interactive play experiences. The system uses ESP-based controllers and wireless communication to enable remote control and monitoring of playground elements.
+We combine the novel smart tools developed at the center and the physical playground equipment to create engaging, interactive play experiences. The system uses ESP-based controllers and wireless communication to enable remote control and monitoring of playground elements.
 
 ## Features
 
