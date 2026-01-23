@@ -139,7 +139,11 @@ class Tool:
         try:
             self.log_message(f'received {topic} {reply}')
             if topic == '/game':
-                value, gem_mac = reply
+                try:
+                    value, gem_mac = reply
+                except:
+                    self.log_message('received /game request for old firmware')
+                    return
                 gem_mac = ubinascii.a2b_base64(gem_mac.encode('ascii'))
                 self.log_message(f'controller mac address = {gem_mac}')
                 self.hidden_gem = gem_mac
@@ -153,6 +157,7 @@ class Tool:
                     if value >= 0:
                         self.log_message('starting game ',value)
                         await self.lights.animate(COLORS[value],timeout = 0, speed = 0.03)
+                        self.start_time = time.ticks_ms()
                         self.start_game(value)
                 else:
                     self.log_message('notifying')
@@ -180,14 +185,14 @@ class Tool:
             first_game = self.tool.first_game
             self.start_game(first_game)
             while self.game >= 0:  # just sit here looking at the queue
-                #print(len(self.queue),' ',end='')   # here is your print statement
+                #print(len(self.queue),' ',end='')   
                 while len(self.queue):
                     await self.pop_queue()
                 await asyncio.sleep(0.1)
         except Exception as e:
-            print('main error: ',e)
+            self.log_message(f'main error: {e}')
         finally:
-            print('main shutting down')
+            self.log_message('main shutting down')
             self.close()
     
     
