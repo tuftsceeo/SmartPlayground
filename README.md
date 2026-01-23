@@ -40,7 +40,7 @@ SmartPlayground/
     2. main.py
 - Modify the contents of config.py based on the type/name of your hardware
 
-### using the App
+### Using the App
 - Connect the controller module to your computer using a USB-C cable
 - Open the following link on Chrome browser https://tuftsceeo.github.io/SmartPlayground/
 - If you are setting up the controller module for the first time, click Set up as a New Hub. Otherwise, click Connect to an Existing Hub. Select your device from the list.
