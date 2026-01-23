@@ -27,25 +27,15 @@ class Button:
         self.callback = callback
         
     def update(self, p):
-        if self.flag: return  #keeps multiple calls at bay
-        self.flag = True
-        press = self.button.value() == 0
-        if press == self.pressed:
-            self.flag = False
-            return
-        if press:  #if pressed
-            self.time_of_button_press = time.ticks_ms()
-            self.motor.start()
-        else:  #if released
-            self.motor.stop()
-            if(time.ticks_ms() - self.time_of_button_press) > 10000:
-                print('reset')
-                machine.reset()
-                
-        self.pressed = press
-        if self.callback: self.callback
-        self.flag = False
 
+        if self.button.value() :
+            self.motor.stop()
+        else:
+            self.motor.start()
+        self.pressed = self.button.value() == 0
+        if self.callback: self.callback
+
+        
 class Motor:
     def __init__(self, module_type = 'plushie'):
         self.module_type = module_type
