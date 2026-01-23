@@ -31,7 +31,7 @@ class Tool:
         self.lights = lights.Lights(self.tool.num_of_leds)
         self.lights.color = self.tool.color
         self.lights.intensity = self.tool.intensity
-        self.lights.all_off()
+        self.lights.on(0)
         
         self.accel = i2c_bus.LIS2DW12()
         self.battery = i2c_bus.Battery()
@@ -58,19 +58,20 @@ class Tool:
 
     def startup(self):
         self.log_message('Starting up...')
-        self.lights.on(0)
+        self.lights.on(1)
         self.espnow = now.Now(self.tool.antenna, self.now_callback)
         self.espnow.connect()
-        self.lights.on(1)
+        self.lights.on(2)
         self.mac = self.espnow.wifi.config('mac')
         self.log_message(f'my mac address is {[hex(b) for b in self.mac]}')
-        self.lights.on(2)
+        self.lights.on(3)
         self.topic = ''
         self.msg = ''
         self.log_message('Started up') 
         
     def publish(self, msg):
         self.espnow.publish(json.dumps(msg))
+        #self.log_message(f'published {msg}')
         
     def start_game(self, number):
         if number < 0 or number >= len(self.game_names):
@@ -149,7 +150,7 @@ class Tool:
                 self.hidden_gem = gem_mac
                 
                 if value != game:
-                    self.Button.flag = True #ignore button presses
+                    self.button.flag = True #ignore button presses
                     self.log_message(f'Game {value}')
                     if game >= 0:
                         await self.stop_game(game)
@@ -160,7 +161,7 @@ class Tool:
                         await self.lights.animate(COLORS[value],timeout = 0, speed = 0.01)
                         self.start_time = time.ticks_ms()
                         self.start_game(value)
-                    self.Button.flag = False 
+                    self.button.flag = False 
                 else:
                     self.log_message('notifying')
                     topic = '/notify'
