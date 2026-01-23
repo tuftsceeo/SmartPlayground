@@ -35,8 +35,9 @@ class Button:
             return
         if press:  #if pressed
             self.time_of_button_press = time.ticks_ms()
-            self.motor.run(0.08)
+            self.motor.start()
         else:  #if released
+            self.motor.stop()
             if(time.ticks_ms() - self.time_of_button_press) > 10000:
                 print('reset')
                 machine.reset()
@@ -51,11 +52,14 @@ class Motor:
         self.motor = Pin(MOTOR_PIN, Pin.OUT)
         self.btn = self.module_type == "button"
 
-    def run(self, duration = 0.08):
+    def start(self):
         if self.btn:
             return
         self.motor.on()
-        time.sleep(duration)
+
+    def stop(self):
+        if self.btn:
+            return
         self.motor.off()
 
 class Buzzer:
