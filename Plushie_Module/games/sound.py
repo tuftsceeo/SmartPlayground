@@ -42,8 +42,8 @@ class Notes(Game):
         Stops when self.running is set to False.
         """
         if self.main.topic == '/reset':
-            self.start()
             self.main.topic = '/notify'
+            self.start()
         if self.main.button.pressed:  # Button pressed
             self.main.buzzer.play(self.frequency)
             color = NOTE_COLORS[self.note]
