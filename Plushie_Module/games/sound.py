@@ -41,6 +41,9 @@ class Notes(Game):
         Async task to play a random note while button is pressed.
         Stops when self.running is set to False.
         """
+        if self.main.topic == '/reset':
+            self.start()
+            self.main.topic = '/notify'
         if self.main.button.pressed:  # Button pressed
             self.main.buzzer.play(self.frequency)
             color = NOTE_COLORS[self.note]
@@ -52,3 +55,4 @@ class Notes(Game):
     def close(self):
         self.main.lights.all_off() 
         self.main.buzzer.stop()
+

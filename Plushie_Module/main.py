@@ -161,7 +161,10 @@ class Tool:
                         await self.lights.animate(COLORS[value],timeout = 0, speed = 0.01)
                         self.start_time = time.ticks_ms()
                         self.start_game(value)
-                    self.button.flag = False 
+                    self.button.flag = False
+                elif game == 0:
+                    self.log_message('reset')
+                    topic = '/reset'
                 else:
                     self.log_message('notifying')
                     topic = '/notify'
@@ -203,4 +206,5 @@ class Tool:
 me = Tool()
         
 asyncio.run(me.main())
+
 

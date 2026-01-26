@@ -28,8 +28,7 @@ class Button:
         self.callback = callback
         
     def update(self, p):
-
-        if self.button.value() :
+        if self.button.value():
             self.motor.stop()
         else:
             self.motor.start()
