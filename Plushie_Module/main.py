@@ -184,7 +184,7 @@ class Tool:
     async def main(self):
         try:
             self.startup()
-            time.sleep(1)
+            await asyncio.sleep(1)
             first_game = self.tool.first_game
             self.start_game(first_game)
             while self.game >= 0:  # just sit here looking at the queue

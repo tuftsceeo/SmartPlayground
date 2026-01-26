@@ -1,3 +1,5 @@
+# make sure to copy over the games folder
+
 from machine import SoftI2C, Pin, ADC
 import time, json
 import ubinascii
