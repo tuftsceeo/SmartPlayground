@@ -1,3 +1,5 @@
+# shake to fill - harder you shake the closer you get to purple (ROYGBIV) - all the LEDs light up
+
 import math
 import asyncio
 

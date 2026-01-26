@@ -1,3 +1,5 @@
+# Countin number of jumps
+
 import random
 import math
 import asyncio

@@ -1,3 +1,5 @@
+# random music note and color assignment 
+
 import random
 import asyncio
 

@@ -1,3 +1,5 @@
+# FInd the controller - hide and seek
+
 import time, json
 
 from games.game import Game

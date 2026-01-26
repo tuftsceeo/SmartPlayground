@@ -1,3 +1,5 @@
+# shake to fill - harder you shake the more LEDs light up - can't go back - so always shows the greatest
+
 import random
 import math
 import asyncio
