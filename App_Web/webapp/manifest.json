@@ -1,0 +1,21 @@
+{
+    "name": "Smart Playground Control",
+    "short_name": "Playground Control",
+    "description": "Control system for Smart Playground modules",
+    "start_url": "/SmartPlayground/",
+    "display": "standalone",
+    "background_color": "#ffffff",
+    "theme_color": "#3b82f6",
+    "icons": [
+        {
+            "src": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTkyIiBoZWlnaHQ9IjE5MiIgdmlld0JveD0iMCAwIDE5MiAxOTIiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxOTIiIGhlaWdodD0iMTkyIiByeD0iMjQiIGZpbGw9IiMzYjgyZjYiLz4KPHBhdGggZD0iTTk2IDQ4QzEwOC4yODQgNDggMTE4IDU3LjcxNiAxMTggNzBWNzJIMTIyQzEzNC4yODQgMTIyIDEyMiAxMzEuNzE2IDEyMiAxNDRIMTIyQzEwOS43MTYgMTQ0IDEwMCAxMzQuMjg0IDEwMCAxMjJIMTAwQzg3LjcxNiAxMjIgNzggMTEyLjI4NCA3OCAxMDBINzRDNjEuNzE2IDEwMCA1MiAxMDkuNzE2IDUyIDEyMkg1MkM1MiAxMzQuMjg0IDYxLjcxNiAxNDQgNzQgMTQ0SDc0Qzg2LjI4NCAxNDQgOTYgMTM0LjI4NCA5NiAxMjJINjRDNjQgMTA5LjcxNiA3My43MTYgMTAwIDg2IDEwMEg5NlY0OFoiIGZpbGw9IndoaXRlIi8+Cjwvc3ZnPgo=",
+            "sizes": "192x192",
+            "type": "image/svg+xml"
+        },
+        {
+            "src": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiIgdmlld0JveD0iMCAwIDUxMiA1MTIiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSI1MTIiIGhlaWdodD0iNTEyIiByeD0iNjQiIGZpbGw9IiMzYjgyZjYiLz4KPHBhdGggZD0iTTI1NiAxMjhDMjI4LjNzIDEyOCAyMDggMTQ4LjMgMjA4IDE3NlYxOTJIMjI0QzI5Ni4zcyAyMjQgMzE2IDI0NCAzNDRIMjQ0QzIxNi4zIDM0NCAxOTYgMzIzLjcgMTk2IDI5NkgyMDBDMjAwIDI2OC4zIDIyOC4zIDI0MCAyNTYgMjQwSDI3MkMyNzIgMjY4LjMgMzAwLjMgMjk2IDMyOCAyOTZIMzM2QzMzNiAzMjMuNyAzMTUuNyAzNDQgMjg4IDM0NEgyODhDMzE1LjcgMzQ0IDMzNiAzMjMuNyAzMzYgMjk2SDI3MkMyNzIgMjY4LjMgMzAwLjMgMjQwIDMyOCAyNDBIMjU2VjEyOFoiIGZpbGw9IndoaXRlIi8+Cjwvc3ZnPgo=",
+            "sizes": "512x512",
+            "type": "image/svg+xml"
+        }
+    ]
+}

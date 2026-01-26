@@ -44,7 +44,7 @@ class Jump(Game):
                     if self.in_jump:
                         self.in_jump = False
 
-            self.level = self.level%12
+            self.level = self.level% self.main.tool.num_of_leds
             self.main.lights.all_on(self.color, 0.1, self.level)
 
     def close(self):

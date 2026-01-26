@@ -4,7 +4,6 @@ import asyncio
 from games.game import Game
 from utilities.colors import *
 
-INTENSITY = 0.1
 FIFO = 12
 
 class Pattern_plush(Game):
@@ -22,13 +21,12 @@ class Pattern_plush(Game):
         Async task to wait for a message from a button and then show the color from the message
         """
         if self.main.topic == '/color':  #might be better to just look at self.value...
-            new_color = self.main.color
+            new_color = self.main.tool.color
             if new_color != self.old_color:
-                print(self.main.color)
                 self.pattern.append(new_color)
                 self.pattern = self.pattern[-FIFO:]
                 for i, c in enumerate(self.pattern):
-                    self.main.lights.on(i, c, INTENSITY)
+                    self.main.lights.on(i, c, self.main.tool.intensity)
                 self.old_color = new_color
 
     def close(self):

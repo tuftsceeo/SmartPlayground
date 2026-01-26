@@ -1,13 +1,41 @@
-config = {"name": "Tiger",
-          "hw_version": 2.0,
-          "sw_version": 3.1,
-          "module_type": "button",
-          'antenna': True}
+from games.sound import Notes
+from games.shake import Shake
+from games.jump import Jump
+from games.hotcold import Hot_cold
+from games.clap import Clap
+from games.rainbow import Rainbow
+from games.hibernate import Hibernate
+from games.pattern_rainbow_btn import Pattern_btn
+from games.pattern_rainbow_plushie import Pattern_plush
+from utilities.colors import *
 
-#module type :
-# 0 - plushies
-# 1 - button
-# and so on
+class Config:
+    name = "button"
+    hw_version = 3
+    sw_version = 3.2
+    module_type = "button"
+    first_game = 0
+    color = PURPLE
+    num_of_leds = 12
+    intensity = 0.1
+    volume = 1.0
+    antenna = True
+    games = [(Notes,0.1), (Shake,0.1), (Hot_cold,0.1), (Jump,0.1),
+             (Clap,0.1), (Rainbow,0.1), (Hibernate,0.1),
+             (Pattern_btn,0.1), (Pattern_plush,0.5)]
+    
+class Plushie_settings(Config):
+    module_type = "plushie"
+    num_of_leds = 25
+
+    
+class Splats_settings(Config):
+    module_type = "splats"
+    num_of_leds = 3
+    
+class Button_settings(Config):
+    module_type = "button"
+    first_game = 7
 
 #hw_version:
 #sophies version : 1
