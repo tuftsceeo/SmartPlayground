@@ -1,3 +1,5 @@
+# physical representation of the antennna's range - everyone in a range recieves a buzz - take a step back and press the controller button again
+
 import random
 import math
 import asyncio

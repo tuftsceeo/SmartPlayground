@@ -1,3 +1,5 @@
+# shows a battery check and then goes rainbow
+
 import random
 import math
 import asyncio

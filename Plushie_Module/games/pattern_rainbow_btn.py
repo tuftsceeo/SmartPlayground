@@ -1,3 +1,6 @@
+# Series of different color buttons - when you press the button, one LED of that color shows up on all the stuffies
+# goes with pattern_rainbow_plushie
+
 import random
 import asyncio
 
