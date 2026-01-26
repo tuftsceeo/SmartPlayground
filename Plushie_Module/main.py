@@ -171,6 +171,7 @@ class Tool:
                 self.log_message(f"color  {self.color}")
                 
             elif '/battery' in topic:
+                value = reply
                 self.log_message(f"{topic}  {value}")
             
             else:
