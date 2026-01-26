@@ -7,12 +7,12 @@ import  utilities.now as now
 ROW = 10
 
 class Control:
-    def connect(self):
+    def connect(self, antenna):
         def my_callback(msg, mac, rssi):
             if not ('/ping' in msg):
                 print(mac, msg, rssi)
 
-        self.n = now.Now(my_callback)
+        self.n = now.Now(antenna, my_callback)
         self.n.connect(False)
         self.mac = self.n.wifi.config('mac')
         print(self.mac)
