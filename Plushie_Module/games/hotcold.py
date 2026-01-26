@@ -26,7 +26,10 @@ class Hot_cold(Game):
             print('strength = ',strength)
             led = []
             for i in range(self.main.tool.num_of_leds):
-                if led.append(self.main.tool.intensity*RED if (i < self.maxleds-strength) else OFF)
+                if (i < self.main.tool.num_of_leds-strength):
+                    led.append(tuple([int(x * self.main.tool.intensity) for x in RED]))
+                else:
+                    led.append(OFF)
             self.main.lights.array_on(led)
         except Exception as e:
             print(e)
