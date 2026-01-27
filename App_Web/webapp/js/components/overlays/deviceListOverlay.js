@@ -4,6 +4,7 @@
 
 import { getDeviceIcon, getSignalIcon, getBatteryIcon } from '../common/icons.js';
 import { getRangeLabel } from '../../state/store.js';
+import { getRelativeTime } from '../../utils/helpers.js';
 
 export function createDeviceListOverlay(devices, range, isRefreshing, editingDeviceId, nicknames, onClose, onRangeChange, onRefresh, onStartEdit, onSaveNickname, hubConnected, onHubConnect) {
   const overlay = document.createElement('div');
@@ -11,14 +12,19 @@ export function createDeviceListOverlay(devices, range, isRefreshing, editingDev
   overlay.style.display = 'none';
   
   overlay.innerHTML = `
-    <div class="bg-white border-b border-gray-200 px-4 py-3 flex items-center gap-3">
-      <button class="w-9 h-9 flex items-center justify-center rounded-full transition-colors" id="backBtn">
-        <i data-lucide="arrow-left" class="w-5 h-5 text-gray-700"></i>
-      </button>
-      <h2 class="text-lg font-semibold text-gray-900">Devices</h2>
-      <button class="ml-auto w-9 h-9 flex items-center justify-center rounded-full transition-colors ${isRefreshing ? 'animate-spin' : ''}" id="refreshBtn">
-        <i data-lucide="refresh-cw" class="w-5 h-5 text-gray-700"></i>
-      </button>
+    <div class="bg-white border-b border-gray-200 px-4 py-3">
+      <div class="flex items-center gap-3">
+        <button class="w-9 h-9 flex items-center justify-center rounded-full transition-colors" id="backBtn">
+          <i data-lucide="arrow-left" class="w-5 h-5 text-gray-700"></i>
+        </button>
+        <h2 class="text-lg font-semibold text-gray-900">Devices</h2>
+        <button class="ml-auto w-9 h-9 flex items-center justify-center rounded-full transition-colors opacity-50 cursor-not-allowed" id="refreshBtn" disabled title="Passive tracking (auto-updates every 30s)">
+          <i data-lucide="refresh-cw" class="w-5 h-5 text-gray-700"></i>
+        </button>
+      </div>
+      <div class="text-xs text-gray-500 mt-1 ml-12">
+        Passive tracking active • Updates every 30s via battery messages
+      </div>
     </div>
     
     <div class="px-4 py-3 bg-gray-50 border-b border-gray-200">
@@ -40,10 +46,11 @@ export function createDeviceListOverlay(devices, range, isRefreshing, editingDev
   
   // Event handlers
   overlay.querySelector('#backBtn').onclick = onClose;
-  overlay.querySelector('#refreshBtn').onclick = onRefresh;
+  // Refresh button disabled for passive tracking - no manual refresh needed
+  // overlay.querySelector('#refreshBtn').onclick = onRefresh;
   overlay.querySelector('#rangeSlider').onchange = (e) => {
     onRangeChange(parseInt(e.target.value));
-    onRefresh(); // Trigger device refresh when slider changes
+    // No manual refresh needed with passive tracking
   };
   
   // Add devices
@@ -79,6 +86,11 @@ export function createDeviceListOverlay(devices, range, isRefreshing, editingDev
       const displayName = nicknames[device.id] || device.id;
       const isEditing = editingDeviceId === device.id;
       
+      // Format last seen time and stale status
+      const lastSeenText = device.lastSeenTime ? getRelativeTime(device.lastSeenTime) : 'unknown';
+      const isStale = device.isStale || false;
+      const batteryPct = device.battery_pct !== undefined ? device.battery_pct : '?';
+      
       card.innerHTML += `
         <div class="flex-1 min-w-0">
           ${isEditing 
@@ -86,7 +98,14 @@ export function createDeviceListOverlay(devices, range, isRefreshing, editingDev
                       class="w-full px-2 py-1 border border-gray-300 rounded text-sm font-medium text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500" id="edit-${device.id}" autofocus>`
             : `<div class="font-medium text-gray-900">${displayName}</div>`
           }
-          <div class="text-xs text-gray-500">${device.type === 'module' ? 'Module' : device.type === 'extension' ? 'Extension' : 'Button'} • ${device.id}</div>
+          <div class="text-xs text-gray-500">
+            ${device.type === 'module' ? 'Module' : device.type === 'extension' ? 'Extension' : 'Button'} • 
+            ${device.id} • 
+            Battery: ${batteryPct}% • 
+            <span class="${isStale ? 'text-amber-600 font-medium' : ''}">
+              ${lastSeenText}${isStale ? ' ⚠' : ''}
+            </span>
+          </div>
         </div>
         <div class="flex items-center gap-3" id="status-${device.id}">
           <button class="w-8 h-8 flex items-center justify-center rounded-full transition-colors" id="edit-btn-${device.id}">
