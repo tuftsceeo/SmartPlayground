@@ -11,8 +11,7 @@ tool = config.Controller_settings
 
 ROW = 10
 
-possible_games = ['1: Music','2: Shake','3: Hot Cold',
-                '4: Jump','5: Clap','6: Rainbow','7: Shutdown']
+possible_games = [f'{i}: {game[0].__name__}' for i,game in enumerate(tool.games)]
 
 class Control:
     def connect(self):
@@ -67,6 +66,7 @@ class Control:
         encoded_string = encoded_bytes.decode('ascii')
 
         setup = json.dumps({'topic':'/game', 'value':(game,encoded_string)})
+        print(setup)
         self.n.publish(setup)
 
 
@@ -106,14 +106,14 @@ class Button:
         self.last_trigger = 0
         
     def update(self, p):
+        micropython.schedule(self.run_callback, p)
+
+    def run_callback(self, p):
         current = time.ticks_ms()
         if time.ticks_diff(current, self.last_trigger) > 50:
             self.last_trigger = current
-            micropython.schedule(self.run_callback, p)
-
-    def run_callback(self, p):
-        self.state = p.value()
-        if self.callback: self.callback(self.state)
+            self.state = p.value()
+            if self.callback: self.callback(self.state)
                
     def close(self):
         self.button.irq = None
@@ -132,6 +132,11 @@ class Controller(Control):
             self.display.clear_screen()
             self.game = (self.game + inc) % len(possible_games)
             self.display.add_text(possible_games[self.game])
+            if inc == 0:
+                self.choose(self.game)
+                print(f'choose {self.game}')
+                time.sleep(0.1)
+                self.choose(self.game)
             
         def up(state):
             update(state, 1)
@@ -139,6 +144,7 @@ class Controller(Control):
         
         def select(state):
             self.display.box_on()
+            update(state, 0)
         self.button_select = Button(9, select)
         
         def down(state):
@@ -176,22 +182,8 @@ async def main():
     finally:
         print('main shutting down')
 
-
-        
-
-'''
-        if controller.button_select.state == 1:
-            controller.button_select.state = 0
-            print('select ', select)
-            controller.choose(select)
-            time.sleep(1)
-                
-        else:
-            if controller.button_select.state == 1:
-                controller.button_select.state = 0
-                print('select again ', select)
-                controller.choose(select)
-'''
-
 asyncio.run(main())
+
+
+
 

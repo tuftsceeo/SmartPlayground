@@ -1,15 +1,13 @@
 from machine import Pin, PWM, deepsleep
-import machine 
+import machine
+import micropython
 import esp32
 import time
 import asyncio
 
-
-
 BUTTON_PIN = 0
 BUZZER_PIN = 19
 MOTOR_PIN = 21
-
 
 class Button:
     def __init__(self, module_type = 'plushie', callback = None):
@@ -28,6 +26,12 @@ class Button:
         self.callback = callback
         
     def update(self, p):
+        try:
+            micropython.schedule(self.run_callback, p)
+        except:
+            pass
+    
+    def run_callback(self, p):
         if self.button.value():
             self.motor.stop()
         else:
@@ -78,4 +82,5 @@ class Hibernate:
     
     def hibernate(self):
         deepsleep()
+
 

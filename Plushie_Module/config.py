@@ -12,7 +12,11 @@ from games.color_press_mult import Color_Press_Mult
 from utilities.colors import *
 
 class Config:
-    name = "button"
+    try:
+        with open('hubname', 'r') as f:
+            name = f.read()
+    except:
+        name = "button"
     hw_version = 3
     sw_version = 3.2
     module_type = "button"
@@ -58,4 +62,6 @@ class Controller_settings(Config):
 #sophies version : 1
 #october_version : 2
 #current _version : 3
+
+
 
