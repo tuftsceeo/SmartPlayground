@@ -598,14 +598,14 @@ export class HubSetupModal {
                 // Antenna configuration
                 console.log(`Configuring antenna: external=${this.hasExternalAntenna}`);
                 if (!this.hasExternalAntenna) {
-                    // Remove the antenna configuration line
+                    // Set antenna_enabled to False for internal antenna
                     mainPyFile.content = mainPyFile.content.replace(
-                        /\s*# Add C6 external antenna configuration\s*\n\s*self\.n\.antenna\(\)\s*\n/,
-                        '\n'
+                        /(# __ANTENNA_CONFIG_START__\s*\n\s*antenna_enabled = )True(\s*# C6 external antenna \(set to False for internal\)\s*\n\s*# __ANTENNA_CONFIG_END__)/,
+                        '$1False$2'
                     );
-                    console.log('Removed external antenna configuration from main.py');
+                    console.log('Configured for internal antenna (antenna_enabled = False)');
                 } else {
-                    console.log('Keeping external antenna configuration in main.py');
+                    console.log('Configured for external antenna (antenna_enabled = True)');
                 }
                 
                 // Display I2C pin configuration
