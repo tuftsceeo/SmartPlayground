@@ -14,7 +14,7 @@ import config
 
 class Tool:
     def __init__(self):
-        self.tool = config.Plushie_settings
+        self.tool = config.Box_settings
         self.mac = None
         self.espnow = None
         self.start_time = time.ticks_ms()

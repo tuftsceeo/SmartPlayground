@@ -3,17 +3,20 @@ import time, json
 import ubinascii
 
 import  utilities.now as now
+import config 
+tool = config.Controller_settings
+sophie = True
 
 ROW = 10
 
 class Control:
-    def connect(self, antenna):
+    def connect(self):
         def my_callback(msg, mac, rssi):
             if not ('/ping' in msg):
                 print(mac, msg, rssi)
 
-        self.n = now.Now(antenna, my_callback)
-        self.n.connect(False)
+        self.n = now.Now(tool.antenna, my_callback)
+        self.n.connect()
         self.mac = self.n.wifi.config('mac')
         print(self.mac)
         
@@ -41,12 +44,13 @@ class Control:
 class Display:
     def __init__(self):
         import ssd1306
-        import ledmatrix
+        if sophie: import ledmatrix
         
         i2c = SoftI2C(scl = Pin(7), sda = Pin(6))
         self.display = ssd1306.SSD1306_I2C(128, 64,i2c)
-        self.leds = ledmatrix.LEDMATRIX(i2c)
-        ledmatrix.apple(self.leds)
+        if sophie:
+            self.leds = ledmatrix.LEDMATRIX(i2c)
+            ledmatrix.apple(self.leds)
         self.row = 1
         self.last_row = None
         
@@ -133,20 +137,20 @@ if __name__ == '__main__':
         if scroll_val != old_scroll_val:
             if controller.button_select.state == 1:
                 controller.button_select.state = 0
-                controller.display.leds.display_emoji(20+select,1,1)
+                if sophie: controller.display.leds.display_emoji(20+select,1,1)
                 print('select ', select)
                 controller.choose(select)
-                controller.display.leds.display_color_bar(0,10)
+                if sophie: controller.display.leds.display_color_bar(0,10)
                 time.sleep(1)
                 old_scroll_val = scroll_val
                 
         else:
             if controller.button_select.state == 1:
                 controller.button_select.state = 0
-                controller.display.leds.display_emoji(29,1,1)
+                if sophie: controller.display.leds.display_emoji(29,1,1)
                 print('select again ', select)
                 controller.choose(select)
-                controller.display.leds.display_color_bar(0,10)
+                if sophie: controller.display.leds.display_color_bar(0,10)
 
 # *    emoji: Set a number from 0 to 29 for different emoji.
 # *        0    smile        10    heart           20    house
@@ -161,3 +165,5 @@ if __name__ == '__main__':
 # *        9    awkward      19    crystal sword   29    cat
 # *        30   up           31    down            32    left
 # *        33   right        34    smile face 3
+
+
