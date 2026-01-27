@@ -48,25 +48,17 @@
     "description": "All plushies within range show their battery level in green, then light up with a rainbow pattern at the same time. Use it to get everyone's attention or as a celebration for the whole group."
   },
   {
-    "id": "Off",
-    "label": "Off",
-    "bgColor": "#93d5a8",
-    "icon": "power-off",
-    "textColor": "white",
-    "description": "Puts plushies to sleep to save battery when not in use. The red lights flash as a warning - hold the button to keep it awake, or let it go to sleep. Press the button again later to wake it back up."
-  },
-  {
     "id": "Pattern_btn",
-    "label": "Pattern Match (Button)",
-    "bgColor": "#b8d896",
+    "label": "Pattern Button",
+    "bgColor": "#93d5a8",
     "icon": "grid-3x3",
     "textColor": "white",
     "description": "The buttons show a pattern of lights and you try to copy it by pressing in the same order. Great for memory practice and pattern recognition."
   },
   {
     "id": "Pattern_plush",
-    "label": "Pattern Match (Plushie)",
-    "bgColor": "#d4d884",
+    "label": "Pattern Plushie",
+    "bgColor": "#b8d896",
     "icon": "sparkles",
     "textColor": "white",
     "description": "The plushies show a pattern of movements or lights and you try to copy it with your own plushie. A fun way to practice following sequences and taking turns."
@@ -74,7 +66,7 @@
   {
     "id": "Color_Press",
     "label": "Color Pick",
-    "bgColor": "#e8c878",
+    "bgColor": "#d4d884",
     "icon": "palette",
     "textColor": "white",
     "description": "Press the button to cycle through different colors, then hold it down to choose your favorite. Each plushie can glow in its own color."
@@ -82,7 +74,7 @@
   {
     "id": "Color_Press_Mult",
     "label": "Color Stack",
-    "bgColor": "#eba76f",
+    "bgColor": "#e8c878",
     "icon": "layers",
     "textColor": "white",
     "description": "Build up layers of colors by pressing the button multiple times. Each press adds a new color, creating colorful patterns on your plushie."
@@ -90,9 +82,17 @@
   {
     "id": "Stop",
     "label": "Stop",
-    "bgColor": "#8a8a8a",
+    "bgColor": "#eba76f",
     "icon": "square",
     "textColor": "white",
     "description": "Stops whatever activity the plushies are doing and returns them to rest mode. The lights go back to their gentle glow, ready for the next activity."
+  },
+  {
+    "id": "Off",
+    "label": "Hibernate",
+    "bgColor": "#8a8a8a",
+    "icon": "power-off",
+    "textColor": "white",
+    "description": "Puts plushies to sleep to save battery when not in use. The red lights flash as a warning - hold the button to keep it awake, or let it go to sleep. Press the button again later to wake it back up."
   }
 ]

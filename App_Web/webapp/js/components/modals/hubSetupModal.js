@@ -52,8 +52,20 @@ export class HubSetupModal {
 
     /**
      * Hide and destroy the modal
+     * @param {boolean} keepConnection - If true, keeps serial connection open (for successful uploads)
      */
-    hide() {
+    async hide(keepConnection = false) {
+        // Cleanup: disconnect if upload failed/cancelled or explicitly requested
+        if (!keepConnection && (this.state === 'error' || this.state === 'loading' || this.state === 'initial')) {
+            console.log('🔌 Disconnecting serial connection (upload did not complete successfully)...');
+            try {
+                await PyBridge.disconnectHub();
+                console.log('✅ Disconnected serial connection');
+            } catch (error) {
+                console.warn('⚠️ Error during disconnect:', error);
+            }
+        }
+        
         if (this.modal && this.modal.parentNode) {
             this.modal.parentNode.removeChild(this.modal);
         }
@@ -543,13 +555,15 @@ export class HubSetupModal {
                         console.warn('⚠️ Reset completed but with warning:', result.error);
                     }
                     
-                    // Close modal after brief delay
-                    setTimeout(() => this.hide(), 500);
+                    // Close modal after brief delay, keeping connection open
+                    // Device is now running the new firmware
+                    setTimeout(() => this.hide(true), 500);
                     
                 } catch (error) {
                     console.error('❌ Reset error:', error);
                     // Close anyway - device may have reset despite error
-                    setTimeout(() => this.hide(), 500);
+                    // Keep connection open since firmware was uploaded
+                    setTimeout(() => this.hide(true), 500);
                 }
             };
         }
