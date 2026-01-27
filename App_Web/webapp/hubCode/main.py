@@ -172,8 +172,11 @@ class SimpleHub(Control):
     """Simple USB Serial to ESP-NOW bridge hub - inherits ESP-NOW methods from Control"""
     
     def __init__(self):
-        """Initialize simple hub - transmit-only, no device scanning"""
+        """Initialize simple hub - passive device tracking via battery messages"""
         self.running = False
+        
+        # Device tracking (passive via battery messages)
+        self.recent_devices = {}  # {mac_hex: {mac, rssi, battery, last_seen}}
         
         # Display for debug messages
         self.display = HubDisplay()
@@ -192,14 +195,39 @@ class SimpleHub(Control):
         self.display.update(msg)
     
     def connect(self):
-        """Initialize ESP-NOW using Control.connect() with C6 external antenna"""
+        """Initialize ESP-NOW with custom callback for passive device tracking"""
         self._debug("Connecting")
         
-        # Call parent's connect() to set up ESP-NOW
+        # Custom ESP-NOW callback to track battery messages (passive, no responses)
+        def battery_callback(msg, mac, rssi):
+            try:
+                payload = json.loads(msg)
+                topic = payload.get('topic', '')
+                
+                # Only track battery messages (sent by modules every 60s)
+                if '/battery/' in topic:
+                    # Convert MAC bytes to hex string for dictionary key
+                    mac_hex = ''.join(f'{b:02x}' for b in mac)
+                    
+                    # Update device tracking
+                    self.recent_devices[mac_hex] = {
+                        'mac': mac_hex,
+                        'rssi': rssi,
+                        'battery': payload.get('value', 0),
+                        'last_seen': time.ticks_ms()
+                    }
+                    
+                    print(f"Battery: {mac_hex[-6:]} {rssi}dBm {payload.get('value')}%", file=sys.stderr)
+            except Exception as e:
+                print(f"Callback error: {e}", file=sys.stderr)
+        
+        # Initialize ESP-NOW with our custom callback
         # __ANTENNA_CONFIG_START__
         antenna_enabled = True  # C6 external antenna (set to False for internal)
         # __ANTENNA_CONFIG_END__
-        super().connect(antenna_enabled)
+        self.n = now.Now(antenna_enabled, battery_callback)
+        self.n.connect()
+        self.mac = self.n.wifi.config('mac')
         
         mac_str = ':'.join(f'{b:02x}' for b in self.mac)
         self._debug(f"MAC:{mac_str[-8:]}")
@@ -239,18 +267,59 @@ class SimpleHub(Control):
             unk_display = str(cmd_type)[:8] if cmd_type else "None"
             self._debug(f"Unk:{unk_display}")
     
+    def _send_device_list(self):
+        """Send device list to webapp with stale device expiry (5 min)"""
+        current_time = time.ticks_ms()
+        
+        # Remove devices not seen for 5 minutes
+        stale_macs = []
+        for mac, data in self.recent_devices.items():
+            if time.ticks_diff(current_time, data['last_seen']) > 300000:  # 5 min
+                stale_macs.append(mac)
+        
+        for mac in stale_macs:
+            del self.recent_devices[mac]
+            print(f"Expired device: {mac[-6:]}", file=sys.stderr)
+        
+        # Build device list
+        device_list = []
+        for mac, data in self.recent_devices.items():
+            device_list.append({
+                'id': f"M-{mac[-6:]}",  # Module with last 6 chars of MAC
+                'mac': mac,
+                'rssi': data['rssi'],
+                'battery': data['battery'],
+                'last_seen': data['last_seen']
+            })
+        
+        # Send to webapp
+        self.serial.send({
+            'type': 'devices',
+            'list': device_list,
+            'timestamp': current_time
+        })
+    
     async def run(self):
-        """Main event loop"""
+        """Main event loop with 30-second device list updates"""
         self.connect()
         self.running = True
         
         self._debug("Running")
         self._debug("Wait CMD")
         
+        # Timer for device list updates (every 30 seconds)
+        last_device_update = time.ticks_ms()
+        
         try:
             while self.running:
                 # Check for Serial commands
                 self.serial.check_input()
+                
+                # Send device list every 30 seconds
+                current_time = time.ticks_ms()
+                if time.ticks_diff(current_time, last_device_update) > 30000:  # 30s
+                    self._send_device_list()
+                    last_device_update = current_time
                 
                 # Small delay for responsiveness
                 await asyncio.sleep(0.01)

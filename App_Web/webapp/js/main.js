@@ -161,10 +161,11 @@ class App {
         // Wait for Python to be ready, then initialize
         this.initializePython();
 
-        // Direct function for Python to call
-        window.onDevicesUpdated = (devices) => {
+        // Direct function for Python to call (with hub timestamp for age calculation)
+        window.onDevicesUpdated = (devices, hubTimestamp) => {
             console.log("=== JavaScript onDevicesUpdated called ===");
             console.log(`Received ${devices?.length || 0} devices from hub`);
+            console.log(`Hub timestamp: ${hubTimestamp}`);
             
             // Clear refresh timeout since we got a response
             if (this.refreshTimeout) {
@@ -176,8 +177,30 @@ class App {
             // Update cooldown timer on successful scan completion
             this.lastRefreshTime = Date.now();
             
+            // Process each device to calculate age and stale status
+            const processedDevices = devices.map(device => {
+                // Calculate device age in milliseconds
+                const ageMs = hubTimestamp - device.last_seen;
+                
+                // Convert to local browser time (Date object)
+                // Age = how long ago device was last seen
+                // Current time - age = when device was last seen
+                const lastSeenTime = new Date(Date.now() - ageMs);
+                
+                // Mark as stale if not seen for more than 3 minutes
+                const isStale = ageMs > 180000;  // 3 minutes in milliseconds
+                
+                console.log(`Device ${device.id}: age=${ageMs}ms, lastSeen=${lastSeenTime.toISOString()}, stale=${isStale}`);
+                
+                return {
+                    ...device,
+                    lastSeenTime,   // Date object for getRelativeTime()
+                    isStale         // Boolean for UI warning
+                };
+            });
+            
             setState({
-                allDevices: devices,
+                allDevices: processedDevices,
                 lastUpdateTime: new Date(),
                 isRefreshing: false, // Clear loading state when devices received
             });

@@ -178,6 +178,9 @@ def process_complete_message(message_data):
         
         console.log(f"Filtered {len(device_list)} devices to {len(unique_devices)} unique devices")
         
+        # Extract hub timestamp for client-side age calculation
+        hub_timestamp = parsed.get("timestamp", 0)
+        
         # Convert to expected format
         devices = []
         for dev in unique_devices:
@@ -192,7 +195,7 @@ def process_complete_message(message_data):
             else:
                 signal = 0
             
-            # Convert battery percentage to level
+            # Get battery percentage and convert to level string
             battery_pct = dev.get("battery", 50)
             if battery_pct >= 75:
                 battery = "full"
@@ -220,20 +223,23 @@ def process_complete_message(message_data):
                 "type": "module",
                 "rssi": rssi,
                 "signal": signal,
-                "battery": battery
+                "battery": battery,
+                "battery_pct": battery_pct,  # Percentage for display
+                "last_seen": dev.get("last_seen", 0)  # Hub timestamp (ticks_ms)
             })
         
-        # Call JavaScript directly
+        # Call JavaScript directly with hub timestamp
         if hasattr(window, 'onDevicesUpdated'):
             console.log("Python: Calling onDevicesUpdated directly")
             console.log(f"Devices to send: {devices}")
+            console.log(f"Hub timestamp: {hub_timestamp}")
             
             # Convert Python list to JavaScript array using to_js()
             # This creates proper JavaScript objects that won't be garbage collected
             js_devices = to_js(devices, dict_converter=Object.fromEntries)
             
             console.log(f"Converted to JS: {len(devices)} devices")
-            window.onDevicesUpdated(js_devices)
+            window.onDevicesUpdated(js_devices, hub_timestamp)
             console.log("onDevicesUpdated called successfully")
         else:
             console.log("Python: onDevicesUpdated not available")
