@@ -1,3 +1,5 @@
+# FInd the controller - hide and seek
+
 import time, json
 
 from games.game import Game
@@ -22,8 +24,13 @@ class Hot_cold(Game):
             s = int((-self.maxleds) * (strength+20)/50)   # assuming -60dB to -10dB is the best
             strength = max(0, min(s, self.maxleds))
             print('strength = ',strength)
-            self.main.lights.all_off()
-            self.main.lights.all_on(RED, self.main.tool.intensity, self.maxleds-strength)
+            led = []
+            for i in range(self.main.tool.num_of_leds):
+                if (i < self.main.tool.num_of_leds-strength):
+                    led.append(tuple([int(x * self.main.tool.intensity) for x in RED]))
+                else:
+                    led.append(OFF)
+            self.main.lights.array_on(led)
         except Exception as e:
             print(e)
 

@@ -1,3 +1,5 @@
+# random music note and color assignment 
+
 import random
 import asyncio
 
@@ -32,13 +34,16 @@ class Notes(Game):
     def start(self):
         self.note = random.choice(list(NOTES.keys()))
         self.frequency = NOTES[self.note]
-        print(f"You were assigned {self.note} at a frequency of {self.frequency}.")
+        self.main.log_message(f"You were assigned {self.note} at a frequency of {self.frequency}.")
 
     async def loop(self):
         """
         Async task to play a random note while button is pressed.
         Stops when self.running is set to False.
         """
+        if self.main.topic == '/reset':
+            self.main.topic = '/notify'
+            self.start()
         if self.main.button.pressed:  # Button pressed
             self.main.buzzer.play(self.frequency)
             color = NOTE_COLORS[self.note]
@@ -50,3 +55,4 @@ class Notes(Game):
     def close(self):
         self.main.lights.all_off() 
         self.main.buzzer.stop()
+

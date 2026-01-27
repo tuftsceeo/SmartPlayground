@@ -1,3 +1,5 @@
+# How we turn them all off
+
 import time
 
 from games.game import Game

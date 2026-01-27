@@ -1,3 +1,5 @@
+# Press stuffie button - press button x times and scoup - ice cream shop
+
 import time, json
 
 from games.game import Game

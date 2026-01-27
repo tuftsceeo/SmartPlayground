@@ -2,7 +2,7 @@
     "name": "Smart Playground Control",
     "short_name": "Playground Control",
     "description": "Control system for Smart Playground modules",
-    "start_url": "/",
+    "start_url": "/SmartPlayground/",
     "display": "standalone",
     "background_color": "#ffffff",
     "theme_color": "#3b82f6",

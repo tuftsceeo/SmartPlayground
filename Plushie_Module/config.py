@@ -7,6 +7,8 @@ from games.rainbow import Rainbow
 from games.hibernate import Hibernate
 from games.pattern_rainbow_btn import Pattern_btn
 from games.pattern_rainbow_plushie import Pattern_plush
+from games.color_press import Color_Press
+from games.color_press_mult import Color_Press_Mult
 from utilities.colors import *
 
 class Config:
@@ -22,7 +24,7 @@ class Config:
     antenna = True
     games = [(Notes,0.1), (Shake,0.1), (Hot_cold,0.1), (Jump,0.1),
              (Clap,0.1), (Rainbow,0.1), (Hibernate,0.1),
-             (Pattern_btn,0.1), (Pattern_plush,0.5)]
+             (Pattern_btn,0.1), (Pattern_plush,0.5), (Color_Press, 0.1), (Color_Press_Mult, 0.1)]
     
 class Plushie_settings(Config):
     module_type = "plushie"
@@ -45,3 +47,4 @@ class Button_settings(Config):
 #sophies version : 1
 #october_version : 2
 #current _version : 3
+
