@@ -72,7 +72,7 @@ export function createMessageInput(currentMessage, showPalette, canSend, onInput
         wrapper.className = "relative flex flex-col items-center gap-2";
         
         const btn = document.createElement("button");
-        btn.className = "bg-gray-100 rounded-2xl p-3 flex-shrink-0 transition-all active:scale-95 flex flex-col items-center gap-2";
+        btn.className = "bg-gray-100 rounded-2xl p-3 flex-shrink-0 transition-all active:scale-95 flex flex-col items-center gap-2 w-[88px]";
         btn.onclick = () => onCommandSelect(command);
 
         // console.log(`Getting icon for command: ${command.label}`);
@@ -87,7 +87,7 @@ export function createMessageInput(currentMessage, showPalette, canSend, onInput
         }
 
         const label = document.createElement("span");
-        label.className = "text-xs text-gray-600 font-medium whitespace-nowrap";
+        label.className = "text-xs text-gray-600 font-medium text-center leading-tight";
         label.textContent = command.label;
         btn.appendChild(label);
 

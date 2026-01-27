@@ -27,15 +27,27 @@ try:
 except ImportError:
     DISPLAY_AVAILABLE = False
 
-# Game command mapping (matching headless_controller CLAUDE:DO NOT MODIFY)
+# Game command mapping - synchronized with Plushie_Module/config.py
+# Last synced: 2026-01-26
+# IMPORTANT: Keep in sync with plushie games list (0-10) plus stop command (-1)
 GAME_MAP = {
-    "Notes": 0,
-    "Shake": 1,
-    "Hot_cold": 2,
-    "Jump": 3,
-    "Clap": 4,
-    "Rainbow": 5,
-    "Off": 6,          # Hibernate game → deep sleep
+    # Core games (indices 0-10 from config.py)
+    "Notes": 0,           # Music/sound notes
+    "Shake": 1,           # Motion detection / shake counter
+    "Hot_cold": 2,        # Proximity finding game
+    "Jump": 3,            # Jump counter
+    "Clap": 4,            # Range/connectivity test
+    "Rainbow": 5,         # Battery check + celebration
+    "Hibernate": 6,       # Sleep mode with button warning
+    "Pattern_btn": 7,     # Button pattern matching
+    "Pattern_plush": 8,   # Plushie pattern matching
+    "Color_Press": 9,     # Single color selection
+    "Color_Press_Mult": 10,  # Multi-color stacking
+    
+    # Command aliases (backwards compatibility & user convenience)
+    "Off": 6,             # Alias for Hibernate
+    "Stop": -1,           # Stop current game, return to idle
+    "Pause": -1,          # Alias for Stop
 }
 
 class SerialBridge:
@@ -180,14 +192,14 @@ class SimpleHub(Control):
         self.display.update(msg)
     
     def connect(self):
-        """Initialize ESP-NOW using Control.connect() + C6 external antenna"""
+        """Initialize ESP-NOW using Control.connect() with C6 external antenna"""
         self._debug("Connecting")
         
         # Call parent's connect() to set up ESP-NOW
-        super().connect()
-        
-        # Add C6 external antenna configuration
-        self.n.antenna()
+        # __ANTENNA_CONFIG_START__
+        antenna_enabled = True  # C6 external antenna (set to False for internal)
+        # __ANTENNA_CONFIG_END__
+        super().connect(antenna_enabled)
         
         mac_str = ':'.join(f'{b:02x}' for b in self.mac)
         self._debug(f"MAC:{mac_str[-8:]}")
@@ -203,25 +215,22 @@ class SimpleHub(Control):
         """Handle command from webapp (callback from SerialBridge)"""
         if cmd_type in GAME_MAP:
             # Send game command using inherited choose() method
+            # choose() handles all game numbers including -1 (stop)
             game_num = GAME_MAP[cmd_type]
-            # Show game name (truncate to fit 12 char limit: "Gm:" + 9 chars)
+            
+            # Show game name on display (truncate to fit 12 char limit: "Gm:" + 9 chars)
             game_display = cmd_type[:9] if len(cmd_type) <= 9 else cmd_type[:8] + "."
             self._debug(f"Gm:{game_display}")
+            
+            # Send game command via ESP-NOW
+            # For games 0-10: starts that game
+            # For game -1 (Stop/Pause): stops current game, returns to idle
             self.choose(game_num)
             
             # Send acknowledgment to webapp
             self.serial.send({
                 "type": "ack",
                 "command": cmd_type,
-                "status": "sent"
-            })
-        
-        elif cmd_type == "Off":
-            # Use inherited shutdown() method
-            self.shutdown()
-            self.serial.send({
-                "type": "ack",
-                "command": "Off",
                 "status": "sent"
             })
         

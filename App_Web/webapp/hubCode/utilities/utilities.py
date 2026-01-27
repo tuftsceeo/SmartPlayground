@@ -2,19 +2,25 @@ from machine import Pin, PWM, deepsleep
 import machine 
 import esp32
 import time
+import asyncio
+
+
 
 BUTTON_PIN = 0
 BUZZER_PIN = 19
 MOTOR_PIN = 21
 
+
 class Button:
-    def __init__(self, callback = None):
-        self.motor = Motor()
+    def __init__(self, module_type = 'plushie', callback = None):
+        self.module_type = module_type
+        self.motor = Motor(self.module_type)
         self.pressed = False
         self.time_of_button_press = 0
         self.old_pressed_time = 0
         self.time_of_button_released = 0
         self.flag = False
+        
 
         self.button = Pin(BUTTON_PIN, Pin.IN, Pin.PULL_UP)
         self.button.irq(handler=self.update, trigger=Pin.IRQ_FALLING | Pin.IRQ_RISING)       
@@ -22,35 +28,33 @@ class Button:
         self.callback = callback
         
     def update(self, p):
-        if self.flag: return  #keeps multiple calls at bay
-        self.flag = True
-        press = self.button.value() == 0
-        if press == self.pressed:
-            self.flag = False
-            return
-        if press:  #if pressed
-            self.time_of_button_press = time.ticks_ms()
-            self.motor.run(0.08)
-        else:  #if released
-            if(time.ticks_ms() - self.time_of_button_press) > 10000:
-                print('reset')
-                machine.reset()
-                
-        self.pressed = press
+        if self.button.value():
+            self.motor.stop()
+        else:
+            self.motor.start()
+        self.pressed = self.button.value() == 0
         if self.callback: self.callback
-        self.flag = False
 
+        
 class Motor:
-    def __init__(self):
+    def __init__(self, module_type = 'plushie'):
+        self.module_type = module_type
         self.motor = Pin(MOTOR_PIN, Pin.OUT)
+        self.btn = self.module_type == "button"
 
-    def run(self, duration = 0.08):
+    def start(self):
+        if self.btn:
+            return
         self.motor.on()
-        time.sleep(duration)
+
+    def stop(self):
+        if self.btn:
+            return
         self.motor.off()
 
 class Buzzer:
-    def __init__(self):
+    def __init__(self, volume = 1):
+        self.volume = volume
         self.buzzer = PWM(Pin(BUZZER_PIN))
         self.freq = 0
         self.buzzer.duty(0)
@@ -59,7 +63,7 @@ class Buzzer:
         if frequency == self.freq: return
         self.freq = frequency
         self.buzzer.freq(self.freq)
-        self.buzzer.duty(512)  # 50% duty cycle
+        self.buzzer.duty(int(self.volume *1000))  # 50% duty cycle
 
     def stop(self):
         self.freq = 0
@@ -74,3 +78,4 @@ class Hibernate:
     
     def hibernate(self):
         deepsleep()
+
