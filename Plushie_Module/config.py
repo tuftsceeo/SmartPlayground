@@ -12,7 +12,11 @@ from games.color_press_mult import Color_Press_Mult
 from utilities.colors import *
 
 class Config:
-    name = "button"
+    try:
+        with open('hubname', 'r') as f:
+            name = f.read()
+    except:
+        name = "button"
     hw_version = 3
     sw_version = 3.2
     module_type = "button"
@@ -24,12 +28,17 @@ class Config:
     antenna = True
     games = [(Notes,0.1), (Shake,0.1), (Hot_cold,0.1), (Jump,0.1),
              (Clap,0.1), (Rainbow,0.1), (Hibernate,0.1),
-             (Pattern_btn,0.1), (Pattern_plush,0.5), (Color_Press, 0.1), (Color_Press_Mult, 0.1)]
+             (Pattern_btn,0.1), (Pattern_plush,0.5),
+             (Color_Press, 0.1), (Color_Press_Mult, 0.1)]
     
 class Plushie_settings(Config):
     module_type = "plushie"
-    num_of_leds = 25
+    num_of_leds = 12
 
+class Box_settings(Config):
+    module_type = "box"
+    hw_version = 2
+    num_of_leds = 25
     
 class Splats_settings(Config):
     module_type = "splats"
@@ -39,12 +48,20 @@ class Button_settings(Config):
     module_type = "button"
     first_game = 7
 
+class Controller_settings(Config):
+    module_type = "controller"
+    num_of_leds = 0
+    first_game = 0
+
 #hw_version:
-#sophies version : 1
-#current version : 2
+# sophies version : 1
+# 2nd version     : 2
+# box verson      : 3
 
 #sw_version :
 #sophies version : 1
 #october_version : 2
 #current _version : 3
+
+
 
