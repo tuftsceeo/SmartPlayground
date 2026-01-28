@@ -163,22 +163,25 @@ class App {
 
         // Direct function for Python to call (with hub timestamp for age calculation)
         window.onDevicesUpdated = (devices, hubTimestamp) => {
-            console.log("=== JavaScript onDevicesUpdated called ===");
-            console.log(`Received ${devices?.length || 0} devices from hub`);
-            console.log(`Hub timestamp: ${hubTimestamp}`);
+            console.log("=" + "=".repeat(80));
+            console.log("🟢 JavaScript window.onDevicesUpdated() CALLED");
+            console.log(`📋 Received ${devices?.length || 0} devices from Python`);
+            console.log(`⏰ Hub timestamp: ${hubTimestamp}`);
+            console.log(`📊 State before update: ${state.allDevices?.length || 0} devices`);
+            console.log("=" + "=".repeat(80));
             
             // Clear refresh timeout since we got a response
             if (this.refreshTimeout) {
                 clearTimeout(this.refreshTimeout);
                 this.refreshTimeout = null;
-                console.log("Cleared refresh timeout (successful response)");
+                console.log("⏰ Cleared refresh timeout (successful response)");
             }
             
             // Update cooldown timer on successful scan completion
             this.lastRefreshTime = Date.now();
             
             // Process each device to calculate age and stale status
-            const processedDevices = devices.map(device => {
+            const processedDevices = devices.map((device, index) => {
                 // Calculate device age in milliseconds
                 const ageMs = hubTimestamp - device.last_seen;
                 
@@ -190,7 +193,7 @@ class App {
                 // Mark as stale if not seen for more than 3 minutes
                 const isStale = ageMs > 180000;  // 3 minutes in milliseconds
                 
-                console.log(`Device ${device.id}: age=${ageMs}ms, lastSeen=${lastSeenTime.toISOString()}, stale=${isStale}`);
+                console.log(`  Device ${index + 1}: ${device.name} | RSSI: ${device.rssi} | Battery: ${device.battery_pct}% | Age: ${ageMs}ms | Stale: ${isStale}`);
                 
                 return {
                     ...device,
@@ -199,11 +202,15 @@ class App {
                 };
             });
             
+            console.log(`✅ Processed ${processedDevices.length} devices, updating state...`);
+            
             setState({
                 allDevices: processedDevices,
                 lastUpdateTime: new Date(),
                 isRefreshing: false, // Clear loading state when devices received
             });
+            
+            console.log(`✅ State updated! New device count: ${state.allDevices?.length || 0}`);
         };
 
         // Direct function calls only - no event listeners needed
@@ -234,12 +241,12 @@ class App {
             });
             showToast(`Connected to ${mode === "serial" ? "USB Serial" : "Bluetooth"} hub`, "success");
             
-            // Auto-refresh devices on connection (only if scanning enabled)
+            // No auto-refresh needed - using passive battery tracking
+            // Devices will appear automatically within 0-60s as they send battery messages
             if (state.deviceScanningEnabled) {
-                console.log("Auto-refreshing devices on connection...");
-                this.handleRefreshDevices();
+                console.log("Passive device tracking active - devices will appear within 60s");
             } else {
-                console.log("Device scanning disabled - skipping auto-refresh");
+                console.log("Device scanning disabled - command-only mode");
             }
         };
 
@@ -431,6 +438,18 @@ class App {
             return;
         }
 
+        // Don't rebuild main UI if settings overlay is open
+        // (prevents disconnect issues when toggling settings)
+        if (state.showSettings) {
+            // Settings overlay handles its own state - just ensure it's rendered
+            if (!this.components.settingsOverlay) {
+                this.components.settingsOverlay = createSettingsOverlay(() => this.handleSettingsBack());
+                this.container.appendChild(this.components.settingsOverlay);
+                if (window.lucide) window.lucide.createIcons();
+            }
+            return;
+        }
+        
         // Clear container
         this.container.innerHTML = "";
         this.container.className = "flex flex-col max-w-md mx-auto bg-white relative";
@@ -543,8 +562,16 @@ class App {
         }
         
         if (state.showSettings) {
+            // Remove old overlay if it exists before creating new one
+            if (this.components.settingsOverlay) {
+                this.components.settingsOverlay.remove();
+            }
             this.components.settingsOverlay = createSettingsOverlay(() => this.handleSettingsBack());
             this.container.appendChild(this.components.settingsOverlay);
+        } else if (this.components.settingsOverlay) {
+            // Remove overlay when settings closed
+            this.components.settingsOverlay.remove();
+            this.components.settingsOverlay = null;
         }
         
         // Show browser compatibility modal if needed (blocking, highest z-index)
@@ -896,11 +923,8 @@ class App {
                     hubConnecting: false
                 });
                 
-                // Auto-refresh devices only if scanning is enabled
-                if (state.deviceScanningEnabled) {
-                    console.log("Auto-refreshing devices on connection...");
-                    await this.handleRefreshDevices();
-                }
+                // No manual refresh needed - passive tracking via battery messages
+                // Devices will appear automatically within 0-60s
             } else if (result.status === "cancelled") {
                 console.log("❌ Serial connection cancelled by user");
                 setState({ hubConnecting: false });

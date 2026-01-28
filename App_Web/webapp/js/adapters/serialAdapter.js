@@ -312,6 +312,7 @@ export const SerialAdapter = {
 
           if (value) {
             const text = new TextDecoder().decode(value);
+            console.log(`🟢 [SerialAdapter] Read ${value.length} bytes: ${text.substring(0, 150)}`);
             onData(text);
           }
         }

@@ -131,14 +131,17 @@ def process_complete_message(message_data):
     # Quick check: Is this JSON or a debug message?
     message_data = message_data.strip()
     
+    console.log(f"🔵 process_complete_message: stripped data = '{message_data[:100]}'")
+    console.log(f"🔵 process_complete_message: starts with '{{' ? {message_data.startswith('{')}")
+    
     if not message_data.startswith('{'):
         # Not JSON - this is a debug/print statement from the hub
-        console.info(f"📡 Hub: {message_data}")
+        console.info(f"📡 Hub debug: {message_data}")
         return
     
     # It's JSON - try to parse it
     console.log("=== PROCESSING HUB JSON ===")
-    console.log(f"Message: {message_data}")
+    console.log(f"Full JSON message: {message_data}")
     
     # Parse JSON using centralized function
     parsed = parse_hub_response(message_data)
@@ -146,14 +149,17 @@ def process_complete_message(message_data):
         console.error(f"❌ Failed to parse hub JSON: {message_data}")
         return
     
+    console.log(f"✅ JSON parsed successfully: type = '{parsed.get('type', 'MISSING')}'")
+    
     # Validate required fields
     if 'type' not in parsed:
-        console.log("Missing 'type' field in hub response")
+        console.log("❌ Missing 'type' field in hub response")
         return
     
     # Handle different message types
     if parsed.get("type") == "devices":
-        console.log("Found devices type - processing device list")
+        console.log("🎯 Found 'devices' type - processing device list")
+        console.log(f"Device list length: {len(parsed.get('list', []))}")
         
         # Validate device list
         if 'list' not in parsed:
@@ -230,19 +236,21 @@ def process_complete_message(message_data):
         
         # Call JavaScript directly with hub timestamp
         if hasattr(window, 'onDevicesUpdated'):
-            console.log("Python: Calling onDevicesUpdated directly")
-            console.log(f"Devices to send: {devices}")
-            console.log(f"Hub timestamp: {hub_timestamp}")
+            console.log("🟢 Python: Calling window.onDevicesUpdated()")
+            console.log(f"📋 Devices to send: {len(devices)} devices")
+            for i, dev in enumerate(devices):
+                console.log(f"  Device {i+1}: {dev.get('name')} (RSSI: {dev.get('rssi')}, Battery: {dev.get('battery_pct')}%)")
+            console.log(f"⏰ Hub timestamp: {hub_timestamp}")
             
             # Convert Python list to JavaScript array using to_js()
             # This creates proper JavaScript objects that won't be garbage collected
             js_devices = to_js(devices, dict_converter=Object.fromEntries)
             
-            console.log(f"Converted to JS: {len(devices)} devices")
+            console.log(f"✅ Converted to JS: {len(devices)} devices")
             window.onDevicesUpdated(js_devices, hub_timestamp)
-            console.log("onDevicesUpdated called successfully")
+            console.log("✅ onDevicesUpdated() called successfully")
         else:
-            console.log("Python: onDevicesUpdated not available")
+            console.log("❌ Python: window.onDevicesUpdated not available!")
         
         console.log(f"Updated {len(devices)} devices from hub")
     elif parsed.get("type") == "ack":
@@ -402,8 +410,8 @@ def on_ble_data(data):
             console.log(f"Waiting for more payload ({_expected_payload_length - len(_payload_buffer)} bytes remaining)")
 
 
-# Set the callback for BLE data
-ble.on_data_callback = on_ble_data
+# Set the callback for BLE data (proxied for JS)
+ble.on_data_callback = create_proxy(on_ble_data)
 
 
 # BLE Connection Functions
@@ -504,8 +512,8 @@ async def connect_hub_serial():
             hub_device_name = "USB Serial Hub"
             hub_connection_mode = "serial"
             
-            # Set up data callback to reuse BLE data processing
-            serial.on_data_callback = on_serial_data
+            # Set up data callback to reuse BLE data processing (proxied for JS)
+            serial.on_data_callback = create_proxy(on_serial_data)
             
             console.log("Serial connected successfully")
             
@@ -570,6 +578,11 @@ async def disconnect_hub_serial():
 
 def on_serial_data(data):
     """Handle incoming Serial data (line-delimited JSON or debug output)."""
+    console.log("=" * 80)
+    console.log("🟢 on_serial_data() CALLED")
+    console.log(f"📥 Serial data received ({len(data)} chars): {data[:200]}")
+    console.log(f"Data type: {type(data)}")
+    console.log("=" * 80)
     # Process the message (it will handle JSON vs debug message filtering)
     process_complete_message(data)
 
@@ -1111,8 +1124,8 @@ window.execute_file_on_device = create_proxy(execute_file_on_device)
 window.soft_reset_device = create_proxy(soft_reset_device)
 window.hard_reset_device = create_proxy(hard_reset_device)
 
-# Set up serial connection lost callback
-serial.on_connection_lost_callback = on_serial_connection_lost
+# Set up serial connection lost callback (proxied for JS)
+serial.on_connection_lost_callback = create_proxy(on_serial_connection_lost)
 
 # Python backend is ready
 

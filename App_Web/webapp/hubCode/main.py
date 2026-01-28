@@ -69,9 +69,12 @@ class SerialBridge:
         """Send JSON message to webapp via Serial"""
         try:
             msg = json.dumps(data)
-            print(msg)  # Print to stdout (USB Serial) - JSON only!
+            print(msg, flush=True)  # Print to stdout with explicit flush!
+            sys.stdout.flush()  # Double flush to ensure ESP32 sends it
+            print(f"DEBUG: Successfully sent {len(msg)} bytes", file=sys.stderr)
         except Exception as e:
             self.debug("Ser TX Err")
+            print(f"ERROR: Serial send failed: {e}", file=sys.stderr)
     
     def check_input(self):
         """Check for incoming Serial data (non-blocking)"""
@@ -209,15 +212,30 @@ class SimpleHub(Control):
                     # Convert MAC bytes to hex string for dictionary key
                     mac_hex = ''.join(f'{b:02x}' for b in mac)
                     
+                    # Extract RSSI value from neighbor dict
+                    # rssi is a dict: {mac_bytes: [rssi_value, timestamp], ...}
+                    rssi_value = -100  # Default fallback
+                    if isinstance(rssi, dict):
+                        # Look up this sender's MAC in the neighbor table
+                        if mac in rssi:
+                            rssi_data = rssi[mac]
+                            if isinstance(rssi_data, list) and len(rssi_data) > 0:
+                                rssi_value = rssi_data[0]  # First element is RSSI
+                    elif isinstance(rssi, int):
+                        rssi_value = rssi
+                    
                     # Update device tracking
                     self.recent_devices[mac_hex] = {
                         'mac': mac_hex,
-                        'rssi': rssi,
+                        'rssi': rssi_value,
                         'battery': payload.get('value', 0),
                         'last_seen': time.ticks_ms()
                     }
                     
-                    print(f"Battery: {mac_hex[-6:]} {rssi}dBm {payload.get('value')}%", file=sys.stderr)
+                    # Show on display and stderr
+                    battery_val = payload.get('value', 0)
+                    self._debug(f"Dev:{len(self.recent_devices)} {mac_hex[-6:]}")
+                    print(f"Battery: {mac_hex[-6:]} RSSI={rssi_value}dBm Batt={battery_val}%", file=sys.stderr)
             except Exception as e:
                 print(f"Callback error: {e}", file=sys.stderr)
         
@@ -298,6 +316,15 @@ class SimpleHub(Control):
             'list': device_list,
             'timestamp': current_time
         })
+        
+        # Debug: Confirm send (to stderr so it doesn't interfere with JSON)
+        print(f"DEBUG: Sent device list JSON to stdout", file=sys.stderr)
+        
+        # Show on display (update count)
+        if device_list:
+            self._debug(f"Sent:{len(device_list)} devs")
+        else:
+            self._debug("Sent:0 devs")
     
     async def run(self):
         """Main event loop with 30-second device list updates"""

@@ -16,6 +16,7 @@ Architecture:
 """
 
 from pyscript import window
+from pyodide.ffi import create_proxy
 import asyncio
 import json
 
@@ -145,21 +146,20 @@ class SerialConnection:
             """Handle incoming data from JS adapter"""
             if not data:
                 return
+            
+            print(f"🔵 hub_serial.py: Received {len(data)} bytes")
                 
-            # Parse line-delimited JSON messages
+            # Pass line-delimited messages (both JSON and debug text)
             lines = data.split('\n')
             for line in lines:
                 line = line.strip()
                 if not line:
                     continue
                 
-                try:
-                    message = json.loads(line)
-                    if self.on_data_callback:
-                        self.on_data_callback(message)
-                except json.JSONDecodeError:
-                    # Not valid JSON, ignore
-                    pass
+                # Pass raw line data to callback (let main.py handle JSON parsing)
+                print(f"🔵 hub_serial.py: Passing line to callback: {line[:100]}")
+                if self.on_data_callback:
+                    self.on_data_callback(line)
         
         def on_error(error):
             """Handle read errors"""
@@ -167,8 +167,12 @@ class SerialConnection:
             if self.on_connection_lost_callback:
                 self.on_connection_lost_callback()
         
+        # Wrap callbacks with create_proxy to prevent destruction
+        on_data_proxy = create_proxy(on_data)
+        on_error_proxy = create_proxy(on_error)
+        
         # Start loop and store stop function
-        self.read_loop_stop = self.adapter.startReadLoop(on_data, on_error)
+        self.read_loop_stop = self.adapter.startReadLoop(on_data_proxy, on_error_proxy)
     
     async def _stop_json_read_loop(self):
         """Stop the JSON read loop and wait for cleanup to complete"""

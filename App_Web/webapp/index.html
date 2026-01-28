@@ -49,13 +49,13 @@ Browser Requirements:
     <!-- These handle browser API operations natively to avoid Pyodide async issues -->
     <script type="module">
         // Import and expose adapters to window for Python access
-        import { SerialAdapter } from './js/adapters/serialAdapter.js';
-        import { BluetoothAdapter } from './js/adapters/bluetoothAdapter.js';
+        import { SerialAdapter } from './js/adapters/serialAdapter.js?v=3.0';
+        import { BluetoothAdapter } from './js/adapters/bluetoothAdapter.js?v=3.0';
         
         window.serialAdapter = SerialAdapter;
         window.bluetoothAdapter = BluetoothAdapter;
         
-        console.log('✅ API adapters loaded and exposed to window');
+        console.log('✅ JavaScript adapters detected [v3.0 - Serial Debug Logging]');
     </script>
     
     <style>
@@ -200,8 +200,8 @@ Browser Requirements:
 </head>
 <body>
     <!-- Python Backend with cache-busting -->
-    <!-- Version: v2.8 - Debug Logging for Device List Issues -->
-    <script type="py" src="main.py?v=2.8" config="pyscript.toml"></script>
+    <!-- Version: v3.1 - Fixed proxy destruction error -->
+    <script type="py" src="main.py?v=3.1" config="pyscript.toml"></script>
     
     <!-- App Root Container -->
     <div id="root"></div>
@@ -210,7 +210,7 @@ Browser Requirements:
     <div id="footer-spacer"></div>
     
     <!-- Main Application - ES6 Module -->
-    <script type="module" src="js/main.js?v=2.9"></script>
+    <script type="module" src="js/main.js?v=3.0"></script>
     
     <!-- Simple mobile detection for basic optimizations -->
     <script>
