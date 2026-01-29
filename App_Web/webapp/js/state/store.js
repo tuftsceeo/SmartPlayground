@@ -31,7 +31,8 @@ export const state = {
     deviceScanningEnabled: true, // Enabled by default - passive tracking via battery messages
 
     // Device state
-    range: 40, // 0-100 slider value (40 = "Close")
+    targetingMode: 'all', // 'all' | 'near' | 'target' - Recipient targeting mode
+    selectedDevice: null, // {mac: string, name: string, id: string} | null - Selected device for target mode
     allDevices: [],
     moduleNicknames: {},
     lastUpdateTime: null,
@@ -115,22 +116,39 @@ export function setState(updates) {
 /**
  * Get computed values
  */
-// Convert slider position (1-100) to RSSI threshold
-function sliderToRSSI(position) {
-    if (position === 100) return -999; // "All" - no cutoff
-    // Map 1-99 to RSSI range: -30 (closest) to -90 (farthest)
-    // Linear interpolation: position 1 = -30, position 99 = -90
-    return -30 - ((position - 1) / 98) * 60;
+
+// RSSI threshold for "Near" mode (fixed at -60 dBm)
+const NEAR_RSSI_THRESHOLD = -60;
+
+/**
+ * Count devices that meet the "Near" RSSI threshold.
+ * 
+ * @returns {number} Count of devices with RSSI >= -60 dBm
+ */
+export function getNearDeviceCount() {
+    if (!state.allDevices || state.allDevices.length === 0) {
+        return 0;
+    }
+    
+    return state.allDevices.filter(device => {
+        // Device must have RSSI value and meet threshold
+        return device.rssi !== undefined && device.rssi >= NEAR_RSSI_THRESHOLD;
+    }).length;
 }
 
-// Get range label for slider position
-export function getRangeLabel(position) {
-    if (position === 100) return "All";
-    if (position >= 75) return "Far";
-    if (position >= 50) return "Distant";
-    if (position >= 25) return "Close";
-    if (position >= 2) return "Near";
-    return "Here";
+/**
+ * Get devices that meet the "Near" RSSI threshold.
+ * 
+ * @returns {Array} Devices with RSSI >= -60 dBm
+ */
+export function getNearDevices() {
+    if (!state.allDevices || state.allDevices.length === 0) {
+        return [];
+    }
+    
+    return state.allDevices.filter(device => {
+        return device.rssi !== undefined && device.rssi >= NEAR_RSSI_THRESHOLD;
+    });
 }
 
 /**
@@ -160,4 +178,79 @@ export function getAvailableDevices() {
     
     // Return all devices from passive tracking (updated every 30s by hub)
     return state.allDevices || [];
+}
+
+/**
+ * Save targeting preferences to localStorage.
+ * 
+ * Persists targetingMode and selectedDevice across browser sessions.
+ */
+export function saveTargetingPreferences() {
+    try {
+        localStorage.setItem('targetingMode', state.targetingMode);
+        
+        if (state.selectedDevice) {
+            localStorage.setItem('selectedDevice', JSON.stringify(state.selectedDevice));
+        } else {
+            localStorage.removeItem('selectedDevice');
+        }
+    } catch (error) {
+        console.warn('Failed to save targeting preferences:', error);
+    }
+}
+
+/**
+ * Load targeting preferences from localStorage.
+ * 
+ * Restores targetingMode and selectedDevice from previous session.
+ * Validates that selected device still exists in current device list.
+ */
+export function loadTargetingPreferences() {
+    try {
+        const savedMode = localStorage.getItem('targetingMode');
+        if (savedMode && ['all', 'near', 'target'].includes(savedMode)) {
+            state.targetingMode = savedMode;
+        }
+        
+        const savedDevice = localStorage.getItem('selectedDevice');
+        if (savedDevice) {
+            try {
+                const device = JSON.parse(savedDevice);
+                // Validate device has required properties
+                if (device && device.mac && device.id) {
+                    state.selectedDevice = device;
+                }
+            } catch (e) {
+                console.warn('Failed to parse saved device:', e);
+                localStorage.removeItem('selectedDevice');
+            }
+        }
+    } catch (error) {
+        console.warn('Failed to load targeting preferences:', error);
+    }
+}
+
+/**
+ * Update targeting mode and persist to localStorage.
+ * 
+ * @param {string} mode - 'all' | 'near' | 'target'
+ */
+export function setTargetingMode(mode) {
+    if (['all', 'near', 'target'].includes(mode)) {
+        setState({ targetingMode: mode });
+        saveTargetingPreferences();
+    }
+}
+
+/**
+ * Update selected device and persist to localStorage.
+ * 
+ * @param {Object|null} device - {mac: string, name: string, id: string} or null
+ */
+export function setSelectedDevice(device) {
+    setState({ 
+        selectedDevice: device,
+        targetingMode: device ? 'target' : state.targetingMode 
+    });
+    saveTargetingPreferences();
 }

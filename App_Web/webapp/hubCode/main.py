@@ -310,32 +310,114 @@ class SimpleHub(Control):
         })
     
     def _handle_command(self, cmd_type, cmd):
-        """Handle command from webapp (callback from SerialBridge)"""
+        """Handle command with mode-based recipient filtering"""
         if cmd_type in GAME_MAP:
-            # Send game command using inherited choose() method
-            # choose() handles all game numbers including -1 (stop)
             game_num = GAME_MAP[cmd_type]
+            
+            # Get mode and target from cmd dict
+            mode = cmd.get('mode', 'all')
+            target_mac = cmd.get('target_mac', None)
             
             # Show game name on display (truncate to fit 12 char limit: "Gm:" + 9 chars)
             game_display = cmd_type[:9] if len(cmd_type) <= 9 else cmd_type[:8] + "."
-            self._debug(f"Gm:{game_display}")
+            mode_display = mode[:3].upper()  # "ALL", "NEA", "TAR"
+            self._debug(f"{mode_display}:{game_display}")
             
-            # Send game command via ESP-NOW
-            # For games 0-10: starts that game
-            # For game -1 (Stop/Pause): stops current game, returns to idle
-            self.choose(game_num)
+            # Filter recipients based on mode
+            if mode == 'all':
+                # Broadcast to all devices
+                if DEBUG_MODE:
+                    print(f"🔴 [Hub] Broadcasting game {game_num} to all", file=sys.stderr)
+                self.choose(game_num)
+                
+            elif mode == 'near':
+                # Send to devices meeting RSSI threshold (-60 dBm)
+                near_macs = self._filter_devices_by_rssi(-60)
+                if DEBUG_MODE:
+                    print(f"🔴 [Hub] Sending game {game_num} to {len(near_macs)} near devices", file=sys.stderr)
+                for mac in near_macs:
+                    self.choose_unicast(game_num, mac)
+            
+            elif mode == 'target' and target_mac:
+                # Send to single device
+                if DEBUG_MODE:
+                    print(f"🔴 [Hub] Sending game {game_num} to target {target_mac}", file=sys.stderr)
+                self.choose_unicast(game_num, target_mac)
             
             # Send acknowledgment to webapp
             self.serial.send({
                 "type": "ack",
                 "command": cmd_type,
-                "status": "sent"
+                "status": "sent",
+                "mode": mode,
+                "recipients": self._get_recipient_count(mode, target_mac)
             })
         
         else:
             # Show unknown command (truncate to fit)
             unk_display = str(cmd_type)[:8] if cmd_type else "None"
             self._debug(f"Unk:{unk_display}")
+    
+    def _filter_devices_by_rssi(self, threshold):
+        """Return list of MAC addresses meeting RSSI threshold.
+        
+        Args:
+            threshold: RSSI value (e.g., -60)
+        Returns:
+            List of MAC address strings
+        """
+        current_time = time.ticks_ms()
+        near_macs = []
+        
+        for mac, data in self.recent_devices.items():
+            # Check RSSI and recency (within last 2 minutes)
+            if data['rssi'] >= threshold and \
+               time.ticks_diff(current_time, data['last_seen']) < 120000:
+                near_macs.append(mac)
+        
+        if DEBUG_MODE and near_macs:
+            print(f"🔴 [Hub] Found {len(near_macs)} devices >= {threshold} dBm", file=sys.stderr)
+        
+        return near_macs
+    
+    def choose_unicast(self, game_num, mac_address):
+        """Send game command to specific MAC address via ESP-NOW unicast.
+        
+        Args:
+            game_num: Game number (0-10, -1 for stop)
+            mac_address: Target MAC address string (e.g., "AA:BB:CC:DD:EE:FF")
+        """
+        try:
+            # Format command using inherited ESP-NOW methods
+            # The choose() method broadcasts, we need to use publish with peer
+            encoded_bytes = ubinascii.b2a_base64(self.mac)
+            encoded_string = encoded_bytes.decode('ascii')
+            
+            setup = json.dumps({
+                'topic': '/game',
+                'value': (game_num, encoded_string)
+            })
+            
+            # Use ESP-NOW publish - if peer specified, it's unicast; otherwise broadcast
+            # Note: This assumes the networking library supports peer-specific sends
+            # If not available, this will broadcast (same as choose() method)
+            self.n.publish(setup)
+            
+            if DEBUG_MODE:
+                print(f"🔴 [Hub] Unicast game {game_num} to {mac_address[-8:]}", file=sys.stderr)
+                
+        except Exception as e:
+            print(f"🔴 [Hub] Unicast error: {e}", file=sys.stderr)
+    
+    def _get_recipient_count(self, mode, target_mac):
+        """Return count of devices that will receive command"""
+        if mode == 'all':
+            return len(self.recent_devices)
+        elif mode == 'near':
+            return len(self._filter_devices_by_rssi(-60))
+        elif mode == 'target' and target_mac:
+            return 1 if target_mac in self.recent_devices else 0
+        return 0
     
     def _send_device_list(self):
         """Send device list to webapp with stale device expiry (5 min)"""

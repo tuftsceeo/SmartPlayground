@@ -83,8 +83,8 @@ const PyBridge = {
     return await callPython('disconnect_hub_serial');
   },
 
-  async sendCommandToHub(command, rssiThreshold) {
-    return await callPython('send_command_to_hub', command, rssiThreshold);
+  async sendCommandToHub(command, mode = 'all', targetMac = null) {
+    return await callPython('send_command_to_hub', command, mode, targetMac);
   },
 
   // Firmware upload functions

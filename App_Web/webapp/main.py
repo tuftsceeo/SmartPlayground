@@ -586,7 +586,9 @@ async def connect_hub_serial():
             hub_device_name = "USB Serial Hub"
             hub_connection_mode = "serial"
             
-            console.log("Serial connected successfully")
+            console.log("✅ Serial connected successfully")
+            console.log(f"✅ Serial callback is set: {serial.on_data_callback is not None}")
+            console.log(f"✅ Read loop should now be active")
             
             # Notify JavaScript
             if hasattr(window, 'onHubConnected'):
@@ -755,65 +757,52 @@ def on_serial_connection_lost():
     console.log(f"AFTER: serial_connected={serial_connected}, mode={hub_connection_mode}")
     console.log(f"serial.is_connected() = {serial.is_connected()}")
 
-async def send_command_to_hub(command, rssi_threshold="all"):
-    """Send command to hub for ESP-NOW broadcast to modules.
+async def send_command_to_hub(command, mode="all", target_mac=None):
+    """Send command to hub with targeting mode.
     
     Args:
-        command: Command name (e.g., "play", "pause", "win")
-        rssi_threshold: "all" or "-XX" for RSSI >= -XX dBm
+        command: Command name (e.g., "Rainbow", "Jump", "Clap")
+        mode: 'all' | 'near' | 'target' - Recipient targeting mode
+        target_mac: MAC address for target mode (optional)
     
     Returns:
         JavaScript object with status: "sent"|"error"
     """
     global pending_commands
     
-    # Check connection based on mode
-    if hub_connection_mode == "serial":
-        if not serial.is_connected():
-            console.log("❌ Serial not connected - cannot send command")
-            js_result = Object.new()
-            js_result.status = "error"
-            js_result.error = "Not connected to hub"
-            return js_result
-        
-        # Generate command ID for tracking
-        cmd_id = f"{command}_{int(time.time() * 1000)}"
-        
-        # Track pending command
-        pending_commands[cmd_id] = {
-            'command': command,
-            'timestamp': time.time(),
-            'timeout_ms': 2000
-        }
-        
-        # Format for Serial (JSON)
-        cmd_obj = {"cmd": command, "rssi": rssi_threshold}
-        message = json.dumps(cmd_obj)
-        success = await serial.send_json(message)
-        
-    elif hub_connection_mode == "ble":
-        if not ble.is_connected():
-            js_result = Object.new()
-            js_result.status = "error"
-            js_result.error = "Not connected to hub"
-            return js_result
-        
-        # Format for BLE (legacy format)
-        message = f'"{command}":"{rssi_threshold}"'
-        success = await ble.send(message)
-    
-    else:
+    # Check if connected via Serial (only supported connection mode)
+    if not serial.is_connected():
+        console.log("❌ Serial not connected - cannot send command")
         js_result = Object.new()
         js_result.status = "error"
         js_result.error = "Not connected to hub"
         return js_result
     
+    # Generate command ID for tracking
+    cmd_id = f"{command}_{int(time.time() * 1000)}"
+    
+    # Track pending command
+    pending_commands[cmd_id] = {
+        'command': command,
+        'timestamp': time.time(),
+        'timeout_ms': 2000
+    }
+    
+    # Format command with mode-based targeting
+    cmd_obj = {"cmd": command, "mode": mode}
+    if mode == 'target' and target_mac:
+        cmd_obj["target_mac"] = target_mac
+    
+    message = json.dumps(cmd_obj)
+    console.log(f"📤 Sending command to hub: {message}")
+    success = await serial.send_json(message)
+    
     js_result = Object.new()
     if success:
-        console.log(f"Sent to hub ({hub_connection_mode}): {command}")
+        console.log(f"Sent to hub: {command} (mode: {mode})")
         js_result.status = "sent"
         js_result.command = command
-        js_result.threshold = rssi_threshold
+        js_result.mode = mode
     else:
         js_result.status = "error"
         js_result.error = "Send failed"

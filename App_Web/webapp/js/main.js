@@ -22,7 +22,7 @@
  * - components/* (UI modules)
  */
 
-import { state, setState, getAvailableDevices, onStateChange } from "./state/store.js";
+import { state, setState, getAvailableDevices, onStateChange, loadTargetingPreferences, setSelectedDevice } from "./state/store.js";
 import { PyBridge } from "./utils/pyBridge.js";
 
 // Use global PyBridge as fallback if import fails
@@ -39,6 +39,7 @@ import { createMessageInput } from "./components/messaging/messageInput.js";
 import { createDeviceListOverlay } from "./components/overlays/deviceListOverlay.js";
 import { createMessageDetailsOverlay } from "./components/overlays/messageDetailsOverlay.js";
 import { createConnectionWarningModal } from "./components/modals/connectionWarningModal.js";
+import { showRecipientSelectionModal } from "./components/modals/recipientSelectionModal.js";
 import { createSettingsOverlay } from "./components/overlays/settingsOverlay.js";
 import { showToast } from "./components/common/toast.js";
 import { createBrowserCompatibilityModal, isBrowserCompatible } from "./components/modals/browserCompatibilityModal.js";
@@ -143,6 +144,9 @@ class App {
             isBrowserCompatible: browserCompatible,
             showBrowserCompatibilityModal: !browserCompatible,
         });
+        
+        // Load saved targeting preferences from localStorage
+        loadTargetingPreferences();
 
         // Add click-outside handler for command palette
         this.setupClickOutsideHandler();
@@ -251,6 +255,7 @@ class App {
                 hubDeviceName: null,
                 hubConnectionMode: null,
                 hubConnecting: false,
+                showCommandPalette: false, // Minimize command palette on disconnect
             });
         };
         
@@ -356,14 +361,12 @@ class App {
             if (state.showDeviceList && this.components.deviceListOverlay) {
                 const newOverlay = createDeviceListOverlay(
                     devices,
-                    state.range,
                     state.editingDeviceId,
                     state.moduleNicknames,
                     () => {
                         setState({ showDeviceList: false });
                         this.components.deviceListOverlay.style.display = "none";
                     },
-                    (range) => setState({ range }),
                     (deviceId) => setState({ editingDeviceId: deviceId }),
                     (deviceId, nickname) => {
                         setState({
@@ -376,6 +379,9 @@ class App {
                     },
                     state.hubConnected,
                     () => this.handleHubConnect(),
+                    false, // selectionMode = false (normal mode)
+                    null,  // selectedDevice (not used in normal mode)
+                    null   // onDeviceSelect (not used in normal mode)
                 );
                 this.components.deviceListOverlay.replaceWith(newOverlay);
                 this.components.deviceListOverlay = newOverlay;
@@ -405,13 +411,11 @@ class App {
         // Create components
         const recipientBar = createRecipientBar(
             devices,
-            state.range,
+            state.targetingMode,
+            state.selectedDevice,
             state.lastUpdateTime,
-            (range) => setState({ range }),
-            () => {
-                setState({ showDeviceList: true });
-                this.components.deviceListOverlay.style.display = "flex";
-            },
+            () => this.handleRecipientClick(),
+            () => this.handleDeviceListClick(),
             state.hubConnected,
             state.hubDeviceName,
             () => this.handleHubConnect(),
@@ -448,14 +452,12 @@ class App {
 
         this.components.deviceListOverlay = createDeviceListOverlay(
             devices,
-            state.range,
             state.editingDeviceId,
             state.moduleNicknames,
             () => {
                 setState({ showDeviceList: false });
                 this.components.deviceListOverlay.style.display = "none";
             },
-            (range) => setState({ range }),
             (deviceId) => setState({ editingDeviceId: deviceId }),
             (deviceId, nickname) => {
                 setState({
@@ -468,6 +470,9 @@ class App {
             },
             state.hubConnected,
             () => this.handleHubConnect(),
+            false, // selectionMode = false for normal device list view
+            null,  // selectedDevice
+            null   // onDeviceSelect
         );
 
         this.components.messageDetailsOverlay = createMessageDetailsOverlay(
@@ -653,23 +658,34 @@ class App {
 
         // SEND COMMAND VIA SERIAL/BLE
         try {
-            // Use RSSI threshold only if device scanning is enabled, otherwise broadcast to all
-            let rssiThreshold;
+            // Determine targeting mode and target MAC based on state
+            let mode = 'all';
+            let targetMac = null;
+            
             if (state.deviceScanningEnabled) {
-                // Convert range slider to RSSI threshold
-                rssiThreshold = state.range === 100 ? "all" : Math.round(-30 - ((state.range - 1) / 98) * 60).toString();
+                if (state.targetingMode === 'all') {
+                    mode = 'all';
+                } else if (state.targetingMode === 'near') {
+                    mode = 'near';
+                } else if (state.targetingMode === 'target' && state.selectedDevice) {
+                    mode = 'target';
+                    targetMac = state.selectedDevice.mac;
+                } else {
+                    // Fallback to all if target mode but no device selected
+                    mode = 'all';
+                }
             } else {
-                // Broadcast mode - send to all modules
-                rssiThreshold = "all";
+                // Device scanning disabled - broadcast to all modules
+                mode = 'all';
             }
 
-            const result = await PyBridgeToUse.sendCommandToHub(newMessage.command, rssiThreshold);
+            const result = await PyBridgeToUse.sendCommandToHub(newMessage.command, mode, targetMac);
 
             // Use unified error handler
             const isError = handleError(result, "Send Command");
             
             if (result.status === "sent") {
-                console.log("Command sent to hub:", newMessage.command, "with threshold:", rssiThreshold);
+                console.log("Command sent to hub:", newMessage.command, "with mode:", mode, targetMac ? `to ${targetMac}` : '');
             } else if (isError) {
                 // Error handler already showed toast
                 console.log("Command send failed");
@@ -770,6 +786,53 @@ class App {
 
     handleSettingsBack() {
         setState({ showSettings: false });
+    }
+    
+    handleRecipientClick() {
+        // Open recipient selection modal
+        showRecipientSelectionModal(() => this.handleDeviceListClickForSelection());
+    }
+    
+    handleDeviceListClick() {
+        // Open device list overlay in normal mode (for viewing/editing)
+        setState({ showDeviceList: true });
+        this.components.deviceListOverlay.style.display = "flex";
+    }
+    
+    handleDeviceListClickForSelection() {
+        // Open device list overlay in selection mode (for target selection)
+        const devices = getAvailableDevices();
+        
+        // Create new overlay in selection mode
+        const selectionOverlay = createDeviceListOverlay(
+            devices,
+            null, // no editing in selection mode
+            state.moduleNicknames,
+            () => {
+                // Close overlay
+                selectionOverlay.remove();
+            },
+            null, // no onStartEdit
+            null, // no onSaveNickname
+            state.hubConnected,
+            () => this.handleHubConnect(),
+            true, // selectionMode = true
+            state.selectedDevice, // currently selected device
+            (device) => {
+                // Device selected - update state and close overlay
+                setSelectedDevice(device);
+                selectionOverlay.remove();
+            }
+        );
+        
+        // Add to DOM and show
+        this.container.appendChild(selectionOverlay);
+        selectionOverlay.style.display = 'flex';
+        
+        // Initialize Lucide icons
+        if (window.lucide) {
+            window.lucide.createIcons();
+        }
     }
 
     showConnectionWarningModal() {
