@@ -196,6 +196,23 @@ Browser Requirements:
         .animate-fade-in {
             animation: fadeIn 0.2s ease-out;
         }
+        
+        /* Modal backdrop and panel animations */
+        .modal-backdrop {
+            transition: opacity 300ms ease;
+        }
+        
+        .modal-backdrop.show {
+            opacity: 1 !important;
+        }
+        
+        .modal-panel {
+            transition: transform 300ms ease-out;
+        }
+        
+        .modal-panel.show {
+            transform: translateY(0) !important;
+        }
     </style>
 </head>
 <body>

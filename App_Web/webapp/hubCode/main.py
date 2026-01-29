@@ -6,6 +6,17 @@ This hub connects the webapp (via USB Serial/WebUSB) to playground modules (via 
 Based on the headless_controller.py pattern with added Serial communication.
 
 Hardware: ESP32-C6 with external antenna
+
+KNOWN LIMITATION:
+-----------------
+The recipient targeting modes (Near/Target) currently BROADCAST to all devices instead of
+sending unicast messages. This means:
+- "All Devices" mode: ✅ Works correctly (broadcasts)
+- "Near" mode: ⚠️ Broadcasts to all (should filter by RSSI)
+- "Target" mode: ⚠️ Broadcasts to all (should send to single device)
+
+TO FIX: See choose_unicast() method for detailed implementation notes on how to use the
+ESP-NOW peer table for true unicast messaging.
 """
 
 # Debug mode flag
@@ -19,6 +30,7 @@ import select
 import json
 import time
 import asyncio
+import ubinascii
 import utilities.now as now
 from controller import Control
 
@@ -332,16 +344,22 @@ class SimpleHub(Control):
                 
             elif mode == 'near':
                 # Send to devices meeting RSSI threshold (-60 dBm)
+                # NOTE: This uses choose_unicast() which currently broadcasts to all
+                # Once true unicast is implemented, this will properly filter by proximity
                 near_macs = self._filter_devices_by_rssi(-60)
                 if DEBUG_MODE:
                     print(f"🔴 [Hub] Sending game {game_num} to {len(near_macs)} near devices", file=sys.stderr)
+                    print(f"🔴 [Hub] ⚠️ Currently broadcasts to all (unicast not yet implemented)", file=sys.stderr)
                 for mac in near_macs:
                     self.choose_unicast(game_num, mac)
             
             elif mode == 'target' and target_mac:
                 # Send to single device
+                # NOTE: This uses choose_unicast() which currently broadcasts to all
+                # Once true unicast is implemented, only the target device will receive this
                 if DEBUG_MODE:
                     print(f"🔴 [Hub] Sending game {game_num} to target {target_mac}", file=sys.stderr)
+                    print(f"🔴 [Hub] ⚠️ Currently broadcasts to all (unicast not yet implemented)", file=sys.stderr)
                 self.choose_unicast(game_num, target_mac)
             
             # Send acknowledgment to webapp
@@ -385,11 +403,10 @@ class SimpleHub(Control):
         
         Args:
             game_num: Game number (0-10, -1 for stop)
-            mac_address: Target MAC address string (e.g., "AA:BB:CC:DD:EE:FF")
+            mac_address: Target MAC address string (e.g., "aabbccddeeff" hex format)
         """
         try:
             # Format command using inherited ESP-NOW methods
-            # The choose() method broadcasts, we need to use publish with peer
             encoded_bytes = ubinascii.b2a_base64(self.mac)
             encoded_string = encoded_bytes.decode('ascii')
             
@@ -398,13 +415,40 @@ class SimpleHub(Control):
                 'value': (game_num, encoded_string)
             })
             
-            # Use ESP-NOW publish - if peer specified, it's unicast; otherwise broadcast
-            # Note: This assumes the networking library supports peer-specific sends
-            # If not available, this will broadcast (same as choose() method)
+            # ============================================================================
+            # TODO: IMPLEMENT TRUE UNICAST USING ESP-NOW PEER TABLE
+            # ============================================================================
+            # CURRENT ISSUE: This currently broadcasts to ALL devices, not just the target.
+            # The publish() method without a peer argument sends to everyone.
+            #
+            # TO FIX THIS, YOU NEED TO:
+            # 1. Convert mac_address string (hex format like "aabbccddeeff") to bytes:
+            #    mac_bytes = bytes.fromhex(mac_address)
+            #    
+            # 2. Check if peer exists in ESP-NOW peer table:
+            #    peers = self.n.wifi.espnow.get_peers()
+            #    peer_exists = mac_bytes in [p[0] for p in peers]
+            #    
+            # 3. If peer doesn't exist, add it:
+            #    if not peer_exists:
+            #        self.n.wifi.espnow.add_peer(mac_bytes)
+            #    
+            # 4. Send unicast message to specific peer:
+            #    self.n.wifi.espnow.send(mac_bytes, setup)
+            #    
+            # NOTES:
+            # - The ESP-NOW peer table has a limit (usually 20 peers on ESP32)
+            # - You may need to manage peer table (remove old peers when full)
+            # - Check utilities/now.py for the ESP-NOW API methods available
+            # - The networking layer in controller.py may need updates too
+            # ============================================================================
+            
+            # TEMPORARY: This broadcasts to all (not true unicast)
             self.n.publish(setup)
             
             if DEBUG_MODE:
-                print(f"🔴 [Hub] Unicast game {game_num} to {mac_address[-8:]}", file=sys.stderr)
+                print(f"🔴 [Hub] BROADCAST (not unicast!) game {game_num} - target was {mac_address[-8:]}", file=sys.stderr)
+                print(f"🔴 [Hub] ⚠️ True unicast not yet implemented, all devices will receive this", file=sys.stderr)
                 
         except Exception as e:
             print(f"🔴 [Hub] Unicast error: {e}", file=sys.stderr)
