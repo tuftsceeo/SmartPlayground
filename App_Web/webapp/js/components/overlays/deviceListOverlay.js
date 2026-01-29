@@ -6,7 +6,7 @@ import { getDeviceIcon, getSignalIcon, getBatteryIcon } from '../common/icons.js
 import { getRangeLabel } from '../../state/store.js';
 import { getRelativeTime } from '../../utils/helpers.js';
 
-export function createDeviceListOverlay(devices, range, isRefreshing, editingDeviceId, nicknames, onClose, onRangeChange, onRefresh, onStartEdit, onSaveNickname, hubConnected, onHubConnect) {
+export function createDeviceListOverlay(devices, range, editingDeviceId, nicknames, onClose, onRangeChange, onStartEdit, onSaveNickname, hubConnected, onHubConnect) {
   const overlay = document.createElement('div');
   overlay.className = 'absolute inset-0 bg-white z-50 flex flex-col';
   overlay.style.display = 'none';
@@ -18,12 +18,9 @@ export function createDeviceListOverlay(devices, range, isRefreshing, editingDev
           <i data-lucide="arrow-left" class="w-5 h-5 text-gray-700"></i>
         </button>
         <h2 class="text-lg font-semibold text-gray-900">Devices</h2>
-        <button class="ml-auto w-9 h-9 flex items-center justify-center rounded-full transition-colors opacity-50 cursor-not-allowed" id="refreshBtn" disabled title="Passive tracking (auto-updates every 30s)">
-          <i data-lucide="refresh-cw" class="w-5 h-5 text-gray-700"></i>
-        </button>
       </div>
       <div class="text-xs text-gray-500 mt-1 ml-12">
-        Passive tracking active • Updates every 30s via battery messages
+        Auto-updates every 30s
       </div>
     </div>
     
@@ -32,9 +29,6 @@ export function createDeviceListOverlay(devices, range, isRefreshing, editingDev
   
   // Event handlers
   overlay.querySelector('#backBtn').onclick = onClose;
-  // Refresh button disabled for passive tracking - no manual refresh needed
-  // overlay.querySelector('#refreshBtn').onclick = onRefresh;
-  // No manual refresh needed with passive tracking
  
   
   // Add devices

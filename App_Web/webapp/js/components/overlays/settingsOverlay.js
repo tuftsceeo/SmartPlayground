@@ -43,6 +43,19 @@ export function createSettingsOverlay(onBack) {
                     </div>
                 </div>
             </div>
+            
+            <!-- Version Section -->
+            <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                <div class="px-4 py-3 border-b border-gray-200">
+                    <h3 class="font-semibold text-gray-900">About</h3>
+                </div>
+                <div class="p-4">
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm text-gray-500">Version</span>
+                        <span class="text-sm font-mono text-gray-900" id="appVersion">Loading...</span>
+                    </div>
+                </div>
+            </div>
         </div>
     `;
     
@@ -55,6 +68,24 @@ export function createSettingsOverlay(onBack) {
         setState({ deviceScanningEnabled: e.target.checked });
         console.log(`Device scanning ${e.target.checked ? 'enabled' : 'disabled'}`);
     };
+    
+    // Load and display version
+    fetch('/version.json')
+        .then(response => response.json())
+        .then(data => {
+            const versionElement = overlay.querySelector('#appVersion');
+            if (versionElement) {
+                // Show main version (or beta if needed)
+                versionElement.textContent = data.main.full_version;
+            }
+        })
+        .catch(error => {
+            console.warn('Could not load version:', error);
+            const versionElement = overlay.querySelector('#appVersion');
+            if (versionElement) {
+                versionElement.textContent = 'Unknown';
+            }
+        });
     
     return overlay;
 }

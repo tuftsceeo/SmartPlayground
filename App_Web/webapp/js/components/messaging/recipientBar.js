@@ -11,7 +11,7 @@ import { getRelativeTime } from '../../utils/helpers.js';
 import { createBluetoothStatusButton } from '../connection/bluetoothStatusButton.js';
 import { createSettingsButton } from '../common/settingsButton.js';
 
-export function createRecipientBar(devices, range, lastUpdateTime, onRangeChange, onClick, onRefresh, hubConnected, hubDeviceName, onHubConnect, onHubDisconnect, onSettingsClick, isRefreshing = false, pythonReady = true, deviceScanningEnabled = false, isBrowserCompatible = true) {
+export function createRecipientBar(devices, range, lastUpdateTime, onRangeChange, onClick, hubConnected, hubDeviceName, onHubConnect, onHubDisconnect, onSettingsClick, pythonReady = true, deviceScanningEnabled = false, isBrowserCompatible = true) {
   const container = document.createElement('div');
   container.className = `bg-white border-b border-gray-200 px-4 py-2 ${deviceScanningEnabled ? 'cursor-pointer' : ''}`;
   if (deviceScanningEnabled) {
@@ -23,7 +23,6 @@ export function createRecipientBar(devices, range, lastUpdateTime, onRangeChange
       <span class="text-gray-500 text-sm">To:</span>
       ${deviceScanningEnabled ? `
         <span class="text-gray-700 text-sm font-medium">${devices.length} device${devices.length !== 1 ? 's' : ''}</span>
-        ${isRefreshing ? '<i data-lucide="loader" class="w-4 h-4 text-gray-500 animate-spin"></i>' : ''}
       ` : `
         <span class="text-gray-700 text-sm font-medium">All Modules</span>
       `}
@@ -106,13 +105,14 @@ export function createRecipientBar(devices, range, lastUpdateTime, onRangeChange
       };
     }
     
-    // Range slider handler - trigger refresh on change
+    // Range slider handler - updates command RSSI threshold (for passive tracking, doesn't affect device discovery)
     const slider = container.querySelector('input[type="range"]');
     if (slider) {
       slider.onclick = (e) => e.stopPropagation();
       slider.onchange = (e) => {
         onRangeChange(parseInt(e.target.value));
-        onRefresh();
+        // Note: With passive tracking, this only affects which modules respond to commands,
+        // not which devices appear in the list (all discovered devices are shown)
       };
     }
   }
