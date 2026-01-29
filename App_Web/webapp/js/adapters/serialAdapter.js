@@ -7,10 +7,20 @@
  * Used by: mpy/hub_serial.py
  */
 
+// Debug mode flag
+const _DEBUG_MODE = true;
+
+console.log('✅ serialAdapter.js LOADED');
+if (_DEBUG_MODE) {
+  window._serialAdapterDebug = true;
+}
+
 export const SerialAdapter = {
   port: null,
   reader: null,
   writer: null,
+  readLoopActive: false,
+  currentStopFunction: null,
 
   /**
    * Check if serial port is connected
@@ -78,6 +88,12 @@ export const SerialAdapter = {
    */
   async disconnect() {
     try {
+      // Stop read loop if active
+      if (this.currentStopFunction) {
+        console.log('Stopping active read loop before disconnect...');
+        this.currentStopFunction();
+      }
+      
       // Release locks first
       await this.releaseReader();
       await this.releaseWriter();
@@ -88,6 +104,10 @@ export const SerialAdapter = {
         this.port = null;
         console.log('Serial port closed');
       }
+      
+      // Clear state
+      this.readLoopActive = false;
+      this.currentStopFunction = null;
 
       return true;
 
@@ -288,6 +308,33 @@ export const SerialAdapter = {
    * @returns {Function} Stop function to cancel the loop
    */
   startReadLoop(onData, onError) {
+    // Debug logging at function entry
+    if (_DEBUG_MODE) {
+      console.log('[SerialAdapter] startReadLoop CALLED with:', {
+        onData: typeof onData,
+        onError: typeof onError,
+        portExists: !!this.port,
+        portReadable: this.port ? !!this.port.readable : 'no port',
+        readLoopActive: this.readLoopActive
+      });
+    }
+    
+    // Check if read loop is already active
+    if (this.readLoopActive) {
+      console.warn('[SerialAdapter] ⚠️ Read loop already active, stopping previous loop first');
+      if (this.currentStopFunction) {
+        this.currentStopFunction();
+      }
+    }
+    
+    // Validate callbacks
+    if (typeof onData !== 'function') {
+      console.error('[SerialAdapter] ERROR: onData is not a function!', typeof onData);
+      return () => {}; // Return dummy stop function
+    }
+    
+    // Mark read loop as active
+    this.readLoopActive = true;
     let running = true;
     let currentReader = null;
 
@@ -296,14 +343,36 @@ export const SerialAdapter = {
         // Get fresh reader for this loop
         if (!this.port || !this.port.readable) {
           console.error('❌ [SerialAdapter] startReadLoop: Port not available');
+          if (_DEBUG_MODE) {
+            console.log('  Port exists:', !!this.port);
+            console.log('  Port readable:', this.port ? !!this.port.readable : 'N/A');
+          }
           throw new Error('Port not available');
         }
 
         console.log('🔁 [SerialAdapter] Starting read loop');
         currentReader = this.port.readable.getReader();
+        
+        if (_DEBUG_MODE) {
+          console.log('[SerialAdapter] Got reader, entering read loop...');
+        }
 
+        let readCount = 0;
         while (running) {
+          if (_DEBUG_MODE) {
+            readCount++;
+            console.log(`[SerialAdapter] Read attempt #${readCount}`);
+          }
+          
           const { value, done } = await currentReader.read();
+          
+          if (_DEBUG_MODE) {
+            console.log(`[SerialAdapter] Read returned:`, { 
+              hasValue: !!value, 
+              done, 
+              valueLength: value ? value.length : 0 
+            });
+          }
 
           if (done) {
             console.log('🛑 [SerialAdapter] Serial stream closed');
@@ -313,7 +382,24 @@ export const SerialAdapter = {
           if (value) {
             const text = new TextDecoder().decode(value);
             console.log(`🟢 [SerialAdapter] Read ${value.length} bytes: ${text.substring(0, 150)}`);
-            onData(text);
+            
+            // Call onData with error handling
+            try {
+              if (_DEBUG_MODE) {
+                console.log('[SerialAdapter] About to call onData with:', text.substring(0, 50));
+              }
+              onData(text);
+              if (_DEBUG_MODE) {
+                console.log('[SerialAdapter] onData call succeeded');
+              }
+            } catch (error) {
+              console.error('[SerialAdapter] onData threw error:', error);
+              if (onError) onError(error);
+            }
+          } else {
+            if (_DEBUG_MODE) {
+              console.warn('[SerialAdapter] Read returned no value (but not done)');
+            }
           }
         }
 
@@ -340,14 +426,22 @@ export const SerialAdapter = {
     // Start the loop
     loop();
 
-    // Return stop function
-    return () => {
+    // Create and store stop function
+    const stopFunction = () => {
       console.log('⏹️ [SerialAdapter] Stopping read loop');
       running = false;
+      this.readLoopActive = false;
+      this.currentStopFunction = null;
       if (currentReader) {
         currentReader.cancel().catch(() => {});
       }
     };
+    
+    // Store stop function for state management
+    this.currentStopFunction = stopFunction;
+    
+    // Return stop function
+    return stopFunction;
   }
 };
 

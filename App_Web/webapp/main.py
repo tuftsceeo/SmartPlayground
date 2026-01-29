@@ -32,6 +32,12 @@ import random
 import time
 import asyncio
 
+# Debug mode flag
+_DEBUG_SERIAL = True
+
+print("✅ main.py LOADED")
+console.log("✅ main.py visible in browser console")
+
 # Check if JavaScript adapters are loaded (hybrid architecture)
 if not hasattr(window, 'serialAdapter'):
     console.error("❌ FATAL: serialAdapter not found!")
@@ -68,6 +74,12 @@ hub_connection_mode = None  # "ble" or "serial"
 
 # Device data (will be updated via BLE from hub)
 devices = []
+
+# Connection health monitoring
+last_hub_ready_time = 0
+last_device_list_time = 0
+last_heartbeat_time = 0
+pending_commands = {}  # {command_id: {command, timestamp, timeout_ms}}
 
 # Message framing state for BLE transmission reassembly
 # Protocol: MSG:<length>|<payload>
@@ -157,7 +169,33 @@ def process_complete_message(message_data):
         return
     
     # Handle different message types
-    if parsed.get("type") == "devices":
+    if parsed.get("type") == "ready":
+        # Hub startup handshake
+        global last_hub_ready_time
+        last_hub_ready_time = time.time()
+        
+        console.log("🟢 Hub ready handshake received")
+        hub_version = parsed.get("version", "unknown")
+        hub_mac = parsed.get("mac", "unknown")
+        hub_timestamp = parsed.get("timestamp", 0)
+        
+        console.log(f"Hub Version: {hub_version}")
+        console.log(f"Hub MAC: {hub_mac}")
+        console.log(f"Hub Timestamp: {hub_timestamp}")
+        
+        # Notify JavaScript if handler exists
+        if hasattr(window, 'onHubReady'):
+            js_data = Object.new()
+            js_data.version = hub_version
+            js_data.mac = hub_mac
+            js_data.timestamp = hub_timestamp
+            window.onHubReady(js_data)
+            console.log("✅ onHubReady() called")
+        
+    elif parsed.get("type") == "devices":
+        global last_device_list_time
+        last_device_list_time = time.time()
+        
         console.log("🎯 Found 'devices' type - processing device list")
         console.log(f"Device list length: {len(parsed.get('list', []))}")
         
@@ -253,12 +291,41 @@ def process_complete_message(message_data):
             console.log("❌ Python: window.onDevicesUpdated not available!")
         
         console.log(f"Updated {len(devices)} devices from hub")
+    elif parsed.get("type") == "heartbeat":
+        # Heartbeat from hub
+        global last_heartbeat_time
+        last_heartbeat_time = time.time()
+        
+        if _DEBUG_SERIAL:
+            hub_timestamp = parsed.get("timestamp", 0)
+            uptime = parsed.get("uptime", 0)
+            console.log(f"💓 Heartbeat received (uptime: {uptime}ms)")
+        
+        # Update last heartbeat time for connection health monitoring
+        if hasattr(window, 'onHubHeartbeat'):
+            js_data = Object.new()
+            js_data.timestamp = parsed.get("timestamp", 0)
+            js_data.uptime = parsed.get("uptime", 0)
+            window.onHubHeartbeat(js_data)
+    
     elif parsed.get("type") == "ack":
         # Acknowledgment from hub that command was sent
+        global pending_commands
+        
         console.log("Received acknowledgment from hub")
         command = parsed.get("command", "unknown")
         status = parsed.get("status", "unknown")
         rssi = parsed.get("rssi", "all")
+        
+        # Clear pending command(s) for this command type
+        cleared_commands = []
+        for cmd_id, cmd_info in list(pending_commands.items()):
+            if cmd_info['command'] == command:
+                cleared_commands.append(cmd_id)
+                del pending_commands[cmd_id]
+        
+        if cleared_commands and _DEBUG_SERIAL:
+            console.log(f"Cleared {len(cleared_commands)} pending command(s)")
         
         if status == "sent":
             console.log(f"✓ Command '{command}' sent successfully (RSSI: {rssi})")
@@ -505,15 +572,19 @@ async def connect_hub_serial():
     console.log("Attempting Serial connection...")
     
     try:
+        # Set up data callback BEFORE connecting (to avoid missing initial messages)
+        serial.on_data_callback = create_proxy(on_serial_data)
+        
+        if _DEBUG_SERIAL:
+            console.log(f"🟡 [main.py] Serial callback set to: {serial.on_data_callback}")
+            console.log(f"🟡 [main.py] Callback is function: {callable(serial.on_data_callback)}")
+        
         success = await serial.connect()
         
         if success:
             serial_connected = True
             hub_device_name = "USB Serial Hub"
             hub_connection_mode = "serial"
-            
-            # Set up data callback to reuse BLE data processing (proxied for JS)
-            serial.on_data_callback = create_proxy(on_serial_data)
             
             console.log("Serial connected successfully")
             
@@ -578,13 +649,91 @@ async def disconnect_hub_serial():
 
 def on_serial_data(data):
     """Handle incoming Serial data (line-delimited JSON or debug output)."""
-    console.log("=" * 80)
-    console.log("🟢 on_serial_data() CALLED")
-    console.log(f"📥 Serial data received ({len(data)} chars): {data[:200]}")
-    console.log(f"Data type: {type(data)}")
-    console.log("=" * 80)
+    if _DEBUG_SERIAL:
+        console.log("=" * 80)
+        console.log("🟡 [main.py] on_serial_data() CALLED")
+        console.log(f"🟡 [main.py] Serial data received ({len(data)} chars): {data[:200]}")
+        console.log(f"🟡 [main.py] Data type: {type(data)}")
+        console.log("=" * 80)
+    else:
+        console.log("🟡 on_serial_data() CALLED")
+        console.log(f"📥 Serial data received ({len(data)} chars): {data[:200]}")
+    
     # Process the message (it will handle JSON vs debug message filtering)
     process_complete_message(data)
+
+def check_pending_commands():
+    """
+    Check for timed out commands and return list of timed out commands.
+    
+    Returns JavaScript array of timed out command objects.
+    """
+    global pending_commands
+    
+    current_time = time.time()
+    timed_out = []
+    
+    for cmd_id, cmd_info in list(pending_commands.items()):
+        age_ms = (current_time - cmd_info['timestamp']) * 1000
+        if age_ms > cmd_info['timeout_ms']:
+            timed_out.append({
+                'id': cmd_id,
+                'command': cmd_info['command'],
+                'age_ms': int(age_ms)
+            })
+            # Remove from pending
+            del pending_commands[cmd_id]
+    
+    if timed_out:
+        console.log(f"⚠️ {len(timed_out)} command(s) timed out without ACK")
+        for cmd in timed_out:
+            console.log(f"  - {cmd['command']} (waited {cmd['age_ms']}ms)")
+    
+    return to_js(timed_out, dict_converter=Object.fromEntries)
+
+def check_connection_health():
+    """
+    Check connection health and return status info.
+    
+    Returns JavaScript object with:
+    - healthy: bool
+    - issues: array of issue descriptions
+    - last_heartbeat: seconds since last heartbeat
+    - last_device_list: seconds since last device list
+    """
+    global last_hub_ready_time, last_device_list_time, last_heartbeat_time
+    
+    current_time = time.time()
+    issues = []
+    
+    # Check if we have a hub connection
+    if hub_connection_mode != "serial" or not serial.is_connected():
+        issues.append("Not connected to hub")
+    
+    # Check heartbeat (should be every 5s, warn if > 10s)
+    if last_heartbeat_time > 0:
+        heartbeat_age = current_time - last_heartbeat_time
+        if heartbeat_age > 10:
+            issues.append(f"No heartbeat for {int(heartbeat_age)}s")
+    
+    # Check device list (should be every 30s after ready, warn if > 40s)
+    if last_hub_ready_time > 0 and last_device_list_time == 0:
+        ready_age = current_time - last_hub_ready_time
+        if ready_age > 35:
+            issues.append(f"No device list received ({int(ready_age)}s since ready)")
+    elif last_device_list_time > 0:
+        list_age = current_time - last_device_list_time
+        if list_age > 40:
+            issues.append(f"Device list stale ({int(list_age)}s)")
+    
+    # Build result
+    js_result = Object.new()
+    js_result.healthy = len(issues) == 0
+    js_result.issues = to_js(issues)
+    js_result.last_heartbeat = (current_time - last_heartbeat_time) if last_heartbeat_time > 0 else -1
+    js_result.last_device_list = (current_time - last_device_list_time) if last_device_list_time > 0 else -1
+    
+    return js_result
 
 def on_serial_connection_lost():
     """
@@ -616,6 +765,8 @@ async def send_command_to_hub(command, rssi_threshold="all"):
     Returns:
         JavaScript object with status: "sent"|"error"
     """
+    global pending_commands
+    
     # Check connection based on mode
     if hub_connection_mode == "serial":
         if not serial.is_connected():
@@ -624,6 +775,16 @@ async def send_command_to_hub(command, rssi_threshold="all"):
             js_result.status = "error"
             js_result.error = "Not connected to hub"
             return js_result
+        
+        # Generate command ID for tracking
+        cmd_id = f"{command}_{int(time.time() * 1000)}"
+        
+        # Track pending command
+        pending_commands[cmd_id] = {
+            'command': command,
+            'timestamp': time.time(),
+            'timeout_ms': 2000
+        }
         
         # Format for Serial (JSON)
         cmd_obj = {"cmd": command, "rssi": rssi_threshold}
@@ -1123,6 +1284,10 @@ window.get_device_board_info = create_proxy(get_device_board_info)
 window.execute_file_on_device = create_proxy(execute_file_on_device)
 window.soft_reset_device = create_proxy(soft_reset_device)
 window.hard_reset_device = create_proxy(hard_reset_device)
+
+# Connection health and retry functions
+window.check_connection_health = check_connection_health
+window.check_pending_commands = check_pending_commands
 
 # Set up serial connection lost callback (proxied for JS)
 serial.on_connection_lost_callback = create_proxy(on_serial_connection_lost)

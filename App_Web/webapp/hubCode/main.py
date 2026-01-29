@@ -8,6 +8,12 @@ Based on the headless_controller.py pattern with added Serial communication.
 Hardware: ESP32-C6 with external antenna
 """
 
+# Debug mode flag
+DEBUG_MODE = True
+
+# Hub firmware version
+HUB_VERSION = "v2.1.0"
+
 import sys
 import select
 import json
@@ -15,6 +21,8 @@ import time
 import asyncio
 import utilities.now as now
 from controller import Control
+
+print("✅ Hub main.py LOADED", file=sys.stderr)
 
 # Try to import display support
 ROW_HEIGHT = 10  # Pixels per line on 128x64 display (can fit 6 lines)
@@ -68,25 +76,51 @@ class SerialBridge:
     def send(self, data):
         """Send JSON message to webapp via Serial"""
         try:
+            if DEBUG_MODE:
+                print(f"🔴 [Hub] About to send data: {data}", file=sys.stderr)
+            
             msg = json.dumps(data)
-            print(msg, flush=True)  # Print to stdout with explicit flush!
-            sys.stdout.flush()  # Double flush to ensure ESP32 sends it
-            print(f"DEBUG: Successfully sent {len(msg)} bytes", file=sys.stderr)
+            
+            if DEBUG_MODE:
+                print(f"🔴 [Hub] JSON serialized, length: {len(msg)} bytes", file=sys.stderr)
+            
+            # Print to stdout (MicroPython automatically flushes on newline)
+            print(msg)
+            # Note: sys.stdout.flush() not supported on all ESP32 MicroPython builds
+            
+            if DEBUG_MODE:
+                print(f"🔴 [Hub] Successfully sent {len(msg)} bytes", file=sys.stderr)
+            else:
+                print(f"DEBUG: Successfully sent {len(msg)} bytes", file=sys.stderr)
         except Exception as e:
             self.debug("Ser TX Err")
-            print(f"ERROR: Serial send failed: {e}", file=sys.stderr)
+            print(f"🔴 ERROR: Serial send failed: {e}", file=sys.stderr)
     
     def check_input(self):
-        """Check for incoming Serial data (non-blocking)"""
-        # Use select to check if stdin has data
-        rlist, _, _ = select.select([sys.stdin], [], [], 0)
+        """Check for incoming Serial data (non-blocking with select() fallback)"""
+        try:
+            # Try using select to check if stdin has data
+            rlist, _, _ = select.select([sys.stdin], [], [], 0)
+            has_data = bool(rlist)
+        except (OSError, ValueError, NotImplementedError) as e:
+            # Fallback for platforms where select() doesn't work
+            # Some ESP32 MicroPython builds don't support select on stdin
+            if DEBUG_MODE:
+                print(f"🔴 [Hub] select() not supported, using fallback: {e}", file=sys.stderr)
+            # Use a simple try-read approach as fallback
+            has_data = True  # Assume data might be available, try reading
         
-        if rlist:
+        if has_data:
             try:
-                # Read available data
+                # Read available data (non-blocking, 1 byte at a time)
                 chunk = sys.stdin.read(1)
                 if chunk:
+                    if DEBUG_MODE:
+                        print(f"🔴 [Hub] stdin has data available", file=sys.stderr)
+                        print(f"🔴 [Hub] Read chunk: {repr(chunk)}", file=sys.stderr)
                     self.buffer += chunk
+                    if DEBUG_MODE:
+                        print(f"🔴 [Hub] Buffer now: {repr(self.buffer)}", file=sys.stderr)
                     
                     # Check for complete lines
                     while '\n' in self.buffer:
@@ -94,18 +128,34 @@ class SerialBridge:
                         line = line.strip()
                         
                         if line:
+                            if DEBUG_MODE:
+                                print(f"🔴 [Hub] Complete line received: {line}", file=sys.stderr)
                             self._process_command(line)
             except Exception as e:
                 self.debug("Ser RX Err")
+                print(f"🔴 [Hub] ERROR in check_input: {e}", file=sys.stderr)
     
     def _process_command(self, line):
         """Parse JSON command and call callback"""
         try:
+            # Echo received command for debugging
+            if DEBUG_MODE:
+                print(f"🔴 [Hub] Processing command: {line}", file=sys.stderr)
+            
             cmd = json.loads(line)
             cmd_type = cmd.get("cmd")
+            
+            if DEBUG_MODE:
+                print(f"🔴 [Hub] Parsed command type: {cmd_type}", file=sys.stderr)
+            
             self.command_callback(cmd_type, cmd)
+        except json.JSONDecodeError as e:
+            self.debug("JSON Err")
+            print(f"🔴 [Hub] JSON parse error: {e}", file=sys.stderr)
+            print(f"🔴 [Hub] Failed to parse: {repr(line)}", file=sys.stderr)
         except Exception as e:
             self.debug("CMD Err")
+            print(f"🔴 [Hub] Command processing error: {e}", file=sys.stderr)
 
 class HubDisplay:
     """Simple rolling display for hub debug messages"""
@@ -254,7 +304,9 @@ class SimpleHub(Control):
         # Send ready message to webapp via Serial
         self.serial.send({
             "type": "ready",
-            "mac": mac_str
+            "mac": mac_str,
+            "version": HUB_VERSION,
+            "timestamp": time.ticks_ms()
         })
     
     def _handle_command(self, cmd_type, cmd):
@@ -337,13 +389,35 @@ class SimpleHub(Control):
         # Timer for device list updates (every 30 seconds)
         last_device_update = time.ticks_ms()
         
+        # Timer for heartbeat (every 5 seconds)
+        last_heartbeat = time.ticks_ms()
+        
+        # Heartbeat counter for debug logging
+        loop_counter = 0
+        
         try:
             while self.running:
+                # Heartbeat logging (every 1000 iterations)
+                loop_counter += 1
+                if DEBUG_MODE and loop_counter % 1000 == 0:
+                    print(f"🔴 [Hub] Loop iteration {loop_counter}", file=sys.stderr)
+                
                 # Check for Serial commands
                 self.serial.check_input()
                 
-                # Send device list every 30 seconds
+                # Get current time for periodic tasks
                 current_time = time.ticks_ms()
+                
+                # Send heartbeat every 5 seconds
+                if time.ticks_diff(current_time, last_heartbeat) > 5000:  # 5s
+                    self.serial.send({
+                        "type": "heartbeat",
+                        "timestamp": current_time,
+                        "uptime": time.ticks_diff(current_time, last_device_update)
+                    })
+                    last_heartbeat = current_time
+                
+                # Send device list every 30 seconds
                 if time.ticks_diff(current_time, last_device_update) > 30000:  # 30s
                     self._send_device_list()
                     last_device_update = current_time

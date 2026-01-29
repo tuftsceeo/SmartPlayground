@@ -27,20 +27,6 @@ export function createDeviceListOverlay(devices, range, isRefreshing, editingDev
       </div>
     </div>
     
-    <div class="px-4 py-3 bg-gray-50 border-b border-gray-200">
-      <div class="flex items-center gap-3 mb-2">
-        <span class="text-sm text-gray-700 font-medium">Range</span>
-        <div class="flex-1"></div>
-        <span class="text-sm font-semibold text-gray-700 text-right whitespace-nowrap" style="width: 70px">${getRangeLabel(range)}</span>
-      </div>
-      <div class="flex items-center gap-3">
-        <span class="text-xs text-gray-500 whitespace-nowrap">Near</span>
-        <input type="range" class="flex-1 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-600" 
-               min="1" max="100" step="1" value="${range}" id="rangeSlider">
-        <span class="text-xs text-gray-500 whitespace-nowrap">Far</span>
-      </div>
-    </div>
-    
     <div class="flex-1 overflow-y-auto" id="deviceList"></div>
   `;
   
@@ -48,10 +34,8 @@ export function createDeviceListOverlay(devices, range, isRefreshing, editingDev
   overlay.querySelector('#backBtn').onclick = onClose;
   // Refresh button disabled for passive tracking - no manual refresh needed
   // overlay.querySelector('#refreshBtn').onclick = onRefresh;
-  overlay.querySelector('#rangeSlider').onchange = (e) => {
-    onRangeChange(parseInt(e.target.value));
-    // No manual refresh needed with passive tracking
-  };
+  // No manual refresh needed with passive tracking
+ 
   
   // Add devices
   const deviceList = overlay.querySelector('#deviceList');
