@@ -1,0 +1,70 @@
+name: Version Bump
+
+on:
+  push:
+    branches:
+      - main
+      - 'beta*'  # matches beta, beta_January_2026, etc.
+
+jobs:
+  bump-version:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Determine branch and increment version
+        id: version
+        run: |
+          BRANCH="${{ github.ref_name }}"
+          
+          # Check if branch is main or contains beta
+          if [ "$BRANCH" = "main" ]; then
+            VERSION_KEY="main"
+          elif [[ "$BRANCH" == *"beta"* ]]; then
+            VERSION_KEY="beta"
+          else
+            echo "Branch $BRANCH is not main or beta, skipping version bump"
+            exit 0
+          fi
+          
+          # Read version for the appropriate key
+          MAJOR=$(jq -r ".$VERSION_KEY.major" version.json)
+          MINOR=$(jq -r ".$VERSION_KEY.minor" version.json)
+          AUTO=$(jq -r ".$VERSION_KEY.auto" version.json)
+          
+          # Increment auto version
+          NEW_AUTO=$((AUTO + 1))
+          
+          # Create full version string
+          if [ "$VERSION_KEY" = "main" ]; then
+            FULL_VERSION="${MAJOR}.${MINOR}.${NEW_AUTO}"
+          else
+            FULL_VERSION="${MAJOR}.${MINOR}.${NEW_AUTO}-beta"
+          fi
+          
+          # Update version.json
+          jq --arg key "$VERSION_KEY" \
+             --arg major "$MAJOR" \
+             --arg minor "$MINOR" \
+             --arg auto "$NEW_AUTO" \
+             --arg full "$FULL_VERSION" \
+             '.[$key].major = ($major | tonumber) | 
+              .[$key].minor = ($minor | tonumber) | 
+              .[$key].auto = ($auto | tonumber) | 
+              .[$key].full_version = $full' \
+             version.json > version.tmp && mv version.tmp version.json
+          
+          echo "version=$FULL_VERSION" >> $GITHUB_OUTPUT
+          echo "branch=$BRANCH" >> $GITHUB_OUTPUT
+      
+      - name: Commit version file
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add version.json
+          git diff --staged --quiet || git commit -m "Bump version to ${{ steps.version.outputs.version }} [${{ steps.version.outputs.branch }}]"
+          git push
