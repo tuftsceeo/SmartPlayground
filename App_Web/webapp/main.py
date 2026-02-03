@@ -754,6 +754,13 @@ def on_serial_connection_lost():
     
     console.log(f"AFTER: serial_connected={serial_connected}, mode={hub_connection_mode}")
     console.log(f"serial.is_connected() = {serial.is_connected()}")
+    
+    # Notify JavaScript UI immediately for real-time feedback
+    if hasattr(window, 'onHubDisconnected'):
+        console.log("🔔 Notifying UI of disconnection via onHubDisconnected()")
+        window.onHubDisconnected()
+    else:
+        console.warn("⚠️ onHubDisconnected callback not found in window")
 
 async def send_command_to_hub(command, rssi_threshold="all"):
     """Send command to hub for ESP-NOW broadcast to modules.
