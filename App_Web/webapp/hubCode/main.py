@@ -274,6 +274,9 @@ class SimpleHub(Control):
                     # Convert MAC bytes to hex string for dictionary key
                     mac_hex = ''.join(f'{b:02x}' for b in mac)
                     
+                    # Extract device name from topic (e.g., '/battery/GREEN1' -> 'GREEN1')
+                    device_name = topic.split('/')[-1] if '/' in topic else 'Unknown'
+                    
                     # Extract RSSI value from neighbor dict
                     # rssi is a dict: {mac_bytes: [rssi_value, timestamp], ...}
                     rssi_value = -100  # Default fallback
@@ -289,6 +292,7 @@ class SimpleHub(Control):
                     # Update device tracking
                     self.recent_devices[mac_hex] = {
                         'mac': mac_hex,
+                        'name': device_name,
                         'rssi': rssi_value,
                         'battery': payload.get('value', 0),
                         'last_seen': time.ticks_ms()
@@ -296,8 +300,8 @@ class SimpleHub(Control):
                     
                     # Show on display and stderr
                     battery_val = payload.get('value', 0)
-                    self._debug(f"Dev:{len(self.recent_devices)} {mac_hex[-6:]}")
-                    print(f"Battery: {mac_hex[-6:]} RSSI={rssi_value}dBm Batt={battery_val}%", file=sys.stderr)
+                    self._debug(f"Dev:{len(self.recent_devices)} {device_name[:6]}")
+                    print(f"Battery: {device_name} ({mac_hex[-6:]}) RSSI={rssi_value}dBm Batt={battery_val}%", file=sys.stderr)
             except Exception as e:
                 print(f"Callback error: {e}", file=sys.stderr)
         
@@ -481,7 +485,8 @@ class SimpleHub(Control):
         device_list = []
         for mac, data in self.recent_devices.items():
             device_list.append({
-                'id': f"M-{mac[-6:]}",  # Module with last 6 chars of MAC
+                'id': data.get('name', f"M-{mac[-6:]}"),  # Use device name or fallback to MAC
+                'name': data.get('name', 'Unknown'),
                 'mac': mac,
                 'rssi': data['rssi'],
                 'battery': data['battery'],
