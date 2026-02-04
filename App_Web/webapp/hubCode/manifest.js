@@ -18,7 +18,6 @@ export const HUB_FILES = [
     { path: 'utilities/wifi.py', remotePath: 'utilities/wifi.py' },
     { path: 'utilities/now.py', remotePath: 'utilities/now.py' },
     { path: 'utilities/colors.py', remotePath: 'utilities/colors.py' },
-    { path: 'utilities/base64.py', remotePath: 'utilities/base64.py' },
     { path: 'utilities/lc709203f.py', remotePath: 'utilities/lc709203f.py' },
     { path: 'utilities/secrets.py', remotePath: 'utilities/secrets.py' },
 ];

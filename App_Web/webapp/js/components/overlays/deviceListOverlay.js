@@ -4,34 +4,23 @@
 
 import { getDeviceIcon, getSignalIcon, getBatteryIcon } from '../common/icons.js';
 import { getRangeLabel } from '../../state/store.js';
+import { getRelativeTime } from '../../utils/helpers.js';
 
-export function createDeviceListOverlay(devices, range, isRefreshing, editingDeviceId, nicknames, onClose, onRangeChange, onRefresh, onStartEdit, onSaveNickname, hubConnected, onHubConnect) {
+export function createDeviceListOverlay(devices, range, editingDeviceId, nicknames, onClose, onRangeChange, onStartEdit, onSaveNickname, hubConnected, onHubConnect) {
   const overlay = document.createElement('div');
   overlay.className = 'absolute inset-0 bg-white z-50 flex flex-col';
   overlay.style.display = 'none';
   
   overlay.innerHTML = `
-    <div class="bg-white border-b border-gray-200 px-4 py-3 flex items-center gap-3">
-      <button class="w-9 h-9 flex items-center justify-center rounded-full transition-colors" id="backBtn">
-        <i data-lucide="arrow-left" class="w-5 h-5 text-gray-700"></i>
-      </button>
-      <h2 class="text-lg font-semibold text-gray-900">Devices</h2>
-      <button class="ml-auto w-9 h-9 flex items-center justify-center rounded-full transition-colors ${isRefreshing ? 'animate-spin' : ''}" id="refreshBtn">
-        <i data-lucide="refresh-cw" class="w-5 h-5 text-gray-700"></i>
-      </button>
-    </div>
-    
-    <div class="px-4 py-3 bg-gray-50 border-b border-gray-200">
-      <div class="flex items-center gap-3 mb-2">
-        <span class="text-sm text-gray-700 font-medium">Range</span>
-        <div class="flex-1"></div>
-        <span class="text-sm font-semibold text-gray-700 text-right whitespace-nowrap" style="width: 70px">${getRangeLabel(range)}</span>
-      </div>
+    <div class="bg-white border-b border-gray-200 px-4 py-3">
       <div class="flex items-center gap-3">
-        <span class="text-xs text-gray-500 whitespace-nowrap">Near</span>
-        <input type="range" class="flex-1 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-600" 
-               min="1" max="100" step="1" value="${range}" id="rangeSlider">
-        <span class="text-xs text-gray-500 whitespace-nowrap">Far</span>
+        <button class="w-9 h-9 flex items-center justify-center rounded-full transition-colors" id="backBtn">
+          <i data-lucide="arrow-left" class="w-5 h-5 text-gray-700"></i>
+        </button>
+        <h2 class="text-lg font-semibold text-gray-900">Devices</h2>
+      </div>
+      <div class="text-xs text-gray-500 mt-1 ml-12">
+        Auto-updates every 30s
       </div>
     </div>
     
@@ -40,11 +29,7 @@ export function createDeviceListOverlay(devices, range, isRefreshing, editingDev
   
   // Event handlers
   overlay.querySelector('#backBtn').onclick = onClose;
-  overlay.querySelector('#refreshBtn').onclick = onRefresh;
-  overlay.querySelector('#rangeSlider').onchange = (e) => {
-    onRangeChange(parseInt(e.target.value));
-    onRefresh(); // Trigger device refresh when slider changes
-  };
+ 
   
   // Add devices
   const deviceList = overlay.querySelector('#deviceList');
@@ -79,6 +64,11 @@ export function createDeviceListOverlay(devices, range, isRefreshing, editingDev
       const displayName = nicknames[device.id] || device.id;
       const isEditing = editingDeviceId === device.id;
       
+      // Format last seen time and stale status
+      const lastSeenText = device.lastSeenTime ? getRelativeTime(device.lastSeenTime) : 'unknown';
+      const isStale = device.isStale || false;
+      const batteryPct = device.battery_pct !== undefined ? device.battery_pct : '?';
+      
       card.innerHTML += `
         <div class="flex-1 min-w-0">
           ${isEditing 
@@ -86,7 +76,14 @@ export function createDeviceListOverlay(devices, range, isRefreshing, editingDev
                       class="w-full px-2 py-1 border border-gray-300 rounded text-sm font-medium text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500" id="edit-${device.id}" autofocus>`
             : `<div class="font-medium text-gray-900">${displayName}</div>`
           }
-          <div class="text-xs text-gray-500">${device.type === 'module' ? 'Module' : device.type === 'extension' ? 'Extension' : 'Button'} • ${device.id}</div>
+          <div class="text-xs text-gray-500">
+            ${device.type === 'module' ? 'Module' : device.type === 'extension' ? 'Extension' : 'Button'} • 
+            ${device.id} • 
+            Battery: ${batteryPct}% • 
+            <span class="${isStale ? 'text-amber-600 font-medium' : ''}">
+              ${lastSeenText}${isStale ? ' ⚠' : ''}
+            </span>
+          </div>
         </div>
         <div class="flex items-center gap-3" id="status-${device.id}">
           <button class="w-8 h-8 flex items-center justify-center rounded-full transition-colors" id="edit-btn-${device.id}">

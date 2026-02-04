@@ -7,13 +7,13 @@ import  utilities.now as now
 ROW = 10
 
 class Control:
-    def connect(self):
+    def connect(self, antenna):
         def my_callback(msg, mac, rssi):
             if not ('/ping' in msg):
                 print(mac, msg, rssi)
 
-        self.n = now.Now(my_callback)
-        self.n.connect(False)
+        self.n = now.Now(antenna, my_callback)
+        self.n.connect() # antenna is handled in the Now class (no parameter)
         self.mac = self.n.wifi.config('mac')
         print(self.mac)
         
@@ -118,7 +118,7 @@ if __name__ == '__main__':
 
     old_scroll_val = scroll()
     controller.display.box_row(old_scroll_val)
-    controller.connect()
+    controller.connect(antenna=False)  # Set to True if external antenna connected
 
     i = 0
     while True:

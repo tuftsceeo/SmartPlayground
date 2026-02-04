@@ -28,7 +28,7 @@ export const state = {
     errorDetail: null, // Error data: {title, message, causes[], solutions[]}
 
     // Device scanning toggle (webapp setting)
-    deviceScanningEnabled: false, // Set to false by default for command-only mode
+    deviceScanningEnabled: true, // Enabled by default - passive tracking via battery messages
 
     // Device state
     range: 40, // 0-100 slider value (40 = "Close")
@@ -46,7 +46,6 @@ export const state = {
     showMessageDetails: false,
     viewingMessage: null,
     editingDeviceId: null,
-    isRefreshing: false,
     
     // Connection state sync
     connectionLastChecked: null
@@ -87,43 +86,21 @@ export function onStateChange(callback) {
  * 
  * @param {Object} updates - Object containing state properties to update
  * 
- * Special Optimizations:
- * - isRefreshing-only updates skip full re-renders and only update button states
+ * Performance Features:
  * - Batched rendering prevents multiple renders in the same frame
  * - requestAnimationFrame ensures renders happen at optimal timing
+ * - Prevents duplicate renders in the same frame
+ * - Batched callback execution for efficiency
  * 
  * State Update Flow:
  * 1. Merge updates into current state
- * 2. Check for optimization opportunities (isRefreshing-only)
- * 3. Schedule render callback execution
- * 4. Execute all registered component callbacks
- * 
- * Performance Features:
- * - Prevents duplicate renders in the same frame
- * - Direct DOM manipulation for specific optimizations
- * - Batched callback execution for efficiency
+ * 2. Schedule render callback execution
+ * 3. Execute all registered component callbacks
  */
 export function setState(updates) {
-    // Check if ONLY isRefreshing is being updated
-    const keys = Object.keys(updates);
-    const isRefreshingOnly = keys.length === 1 && keys[0] === "isRefreshing";
-
     Object.assign(state, updates);
 
-    // Don't re-render for isRefreshing only - just update button
-    if (isRefreshingOnly) {
-        const btn = document.getElementById("refreshBtn");
-        if (btn) {
-            if (state.isRefreshing) {
-                btn.classList.add("animate-spin");
-            } else {
-                btn.classList.remove("animate-spin");
-            }
-        }
-        return; // EXIT - don't schedule render
-    }
-
-    // Always trigger render for other changes
+    // Trigger render for state changes
     if (!renderScheduled) {
         renderScheduled = true;
         requestAnimationFrame(() => {
@@ -157,25 +134,23 @@ export function getRangeLabel(position) {
 }
 
 /**
- * Get list of all available devices (NO client-side filtering).
+ * Get list of all available devices from passive tracking.
  * 
- * IMPORTANT: Filtering is done at the module level, not here!
+ * Devices are automatically tracked via battery messages sent every 60s.
+ * The hub maintains a list of recently seen devices and sends updates every 30s.
+ * Devices that haven't been seen for 5+ minutes are automatically expired.
  * 
- * When the slider changes, a PING command is sent with the RSSI threshold.
- * Only modules that can receive the hub's signal at that strength respond.
- * This ensures the device list only contains modules that can actually
- * receive commands at the current range setting.
+ * @returns {Array} All devices seen recently (includes battery%, RSSI, last seen time)
  * 
- * @returns {Array} All devices from last PING response
- * 
- * Why No Client-Side Filtering:
- * - Hub's RSSI receiving FROM modules ≠ modules' RSSI receiving FROM hub
- * - What matters: Can modules receive hub's commands?
- * - Solution: Modules self-filter by only responding if RSSI is strong enough
+ * Device Information:
+ * - Battery percentage (from module battery messages)
+ * - RSSI signal strength (hub's reception of module signals)
+ * - Last seen timestamp (for age/stale detection)
+ * - Stale warning (>3 minutes = warning, >5 minutes = removed)
  * 
  * Usage:
  * const availableDevices = getAvailableDevices();
- * // Returns all devices that responded to last PING at current range
+ * // Returns all devices with recent battery messages
  */
 export function getAvailableDevices() {
     // Check hub connection first - return empty array if disconnected
@@ -183,7 +158,6 @@ export function getAvailableDevices() {
         return [];
     }
     
-    // Return all devices from last refresh - they've already been filtered
-    // by the PING command sent with RSSI threshold
+    // Return all devices from passive tracking (updated every 30s by hub)
     return state.allDevices || [];
 }

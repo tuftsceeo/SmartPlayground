@@ -4,6 +4,7 @@ from time import sleep_ms, ticks_ms, ticks_diff
 from micropython import const
 
 import utilities.lc709203f
+import utilities.max17048
 
 # Register addresses
 _WHO_AM_I = const(0x0F)
@@ -25,11 +26,18 @@ ADDRESS = 0x19
 
 class Battery:
     def __init__(self):
+        self.battery_sensor = None
         i2c = SoftI2C(scl = Pin(SCL), sda = Pin(SDA))
-        self.battery_sensor = utilities.lc709203f.LC709203F(i2c)
+        try:
+            self.battery_sensor = utilities.lc709203f.LC709203F(i2c)
+        except:
+            try:
+                self.battery_sensor = utilities.max17048.MAX17048(i2c)
+            except:
+                print('no battery')
 
     def read(self):
-        return self.battery_sensor.cell_percent
+        return self.battery_sensor.cell_percent if self.battery_sensor else None
     
 
 class LIS2DW12:

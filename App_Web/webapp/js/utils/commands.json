@@ -5,7 +5,7 @@
     "bgColor": "#e88a82",
     "icon": "music",
     "textColor": "white",
-    "description": "Each stuffy plays a different musical note when you hold down its button. The stuffies can be arranged from low to high to create a musical scale, or lined up to play a melody together."
+    "description": "Each plushie plays a different musical note when you hold down its button. The plushies can be arranged from low to high to create a musical scale, or lined up to play a melody together."
   },
   {
     "id": "Shake",
@@ -13,7 +13,7 @@
     "bgColor": "#d57aae",
     "icon": "zap",
     "textColor": "white",
-    "description": "Shake a stuffy and watch its lights fill up. Gentle shakes light up just a few LEDs, while harder shakes fill up the whole ring. Each stuffy glows in its own random color. Press the button to start over."
+    "description": "Shake a plushie and watch its lights fill up. Gentle shakes light up just a few LEDs, while harder shakes fill up the whole ring. Each plushie glows in its own random color. Press the button to start over."
   },
   {
     "id": "Hot_cold",
@@ -21,7 +21,7 @@
     "bgColor": "#bf75c9",
     "icon": "thermometer",
     "textColor": "white",
-    "description": "Hide one component (stuffy, button, or splat) somewhere in the space. The other stuffies show how close they are to the hidden one using red lights - more lights mean farther away, fewer lights mean getting closer. It works like a game of \"hot and cold\" but the stuffies tell you instead of a person."
+    "description": "Hide one component (plushie, button, or splat) somewhere in the space. The other plushies show how close they are to the hidden one using red lights - more lights mean farther away, fewer lights mean getting closer. It works like a game of \"hot and cold\" but the plushies tell you instead of a person."
   },
   {
     "id": "Jump",
@@ -29,7 +29,7 @@
     "bgColor": "#a082cf",
     "icon": "arrow-up",
     "textColor": "white",
-    "description": "Hold a stuffy while jumping and it counts each jump with its lights. The lights fill up one by one, keeping track up to 12 jumps before starting over. Press the button to reset the count."
+    "description": "Hold a plushie while jumping and it counts each jump with its lights. The lights fill up one by one, keeping track up to 12 jumps before starting over. Press the button to reset the count."
   },
   {
     "id": "Clap",
@@ -37,7 +37,7 @@
     "bgColor": "#6397b5",
     "icon": "hand",
     "textColor": "white",
-    "description": "Send this signal from the web app and stuffies that are close enough to the hub will buzz. This shows how far the wireless signal reaches - perfect for understanding which stuffies can \"hear\" the hub from different spots in the room or playground."
+    "description": "Send this signal from the web app and plushies that are close enough to the hub will buzz. This shows how far the wireless signal reaches - perfect for understanding which plushies can \"hear\" the hub from different spots in the room or playground."
   },
   {
     "id": "Rainbow",
@@ -45,14 +45,54 @@
     "bgColor": "#8fd3c9",
     "icon": "rainbow",
     "textColor": "white",
-    "description": "All stuffies within range show their battery level in green, then light up with a rainbow pattern at the same time. Use it to get everyone's attention or as a celebration for the whole group."
+    "description": "All plushies within range show their battery level in green, then light up with a rainbow pattern at the same time. Use it to get everyone's attention or as a celebration for the whole group."
+  },
+  {
+    "id": "Pattern_btn",
+    "label": "Pattern Button",
+    "bgColor": "#93d5a8",
+    "icon": "grid-3x3",
+    "textColor": "white",
+    "description": "The buttons show a pattern of lights and you try to copy it by pressing in the same order. Great for memory practice and pattern recognition."
+  },
+  {
+    "id": "Pattern_plush",
+    "label": "Pattern Plushie",
+    "bgColor": "#b8d896",
+    "icon": "sparkles",
+    "textColor": "white",
+    "description": "The plushies show a pattern of movements or lights and you try to copy it with your own plushie. A fun way to practice following sequences and taking turns."
+  },
+  {
+    "id": "Color_Press",
+    "label": "Color Pick",
+    "bgColor": "#d4d884",
+    "icon": "palette",
+    "textColor": "white",
+    "description": "Press the button to cycle through different colors, then hold it down to choose your favorite. Each plushie can glow in its own color."
+  },
+  {
+    "id": "Color_Press_Mult",
+    "label": "Color Stack",
+    "bgColor": "#e8c878",
+    "icon": "layers",
+    "textColor": "white",
+    "description": "Build up layers of colors by pressing the button multiple times. Each press adds a new color, creating colorful patterns on your plushie."
+  },
+  {
+    "id": "Stop",
+    "label": "Stop",
+    "bgColor": "#eba76f",
+    "icon": "square",
+    "textColor": "white",
+    "description": "Stops whatever activity the plushies are doing and returns them to rest mode. The lights go back to their gentle glow, ready for the next activity."
   },
   {
     "id": "Off",
-    "label": "Off",
-    "bgColor": "#93d5a8",
+    "label": "Hibernate",
+    "bgColor": "#8a8a8a",
     "icon": "power-off",
     "textColor": "white",
-    "description": "Puts stuffies to sleep to save battery when not in use. The red lights flash as a warning - hold the button to keep it awake, or let it go to sleep. Press the button again later to wake it back up."
+    "description": "Puts plushies to sleep to save battery when not in use. The red lights flash as a warning - hold the button to keep it awake, or let it go to sleep. Press the button again later to wake it back up."
   }
 ]

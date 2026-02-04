@@ -52,8 +52,20 @@ export class HubSetupModal {
 
     /**
      * Hide and destroy the modal
+     * @param {boolean} keepConnection - If true, keeps serial connection open (for successful uploads)
      */
-    hide() {
+    async hide(keepConnection = false) {
+        // Cleanup: disconnect if upload failed/cancelled or explicitly requested
+        if (!keepConnection && (this.state === 'error' || this.state === 'loading' || this.state === 'initial')) {
+            console.log('🔌 Disconnecting serial connection (upload did not complete successfully)...');
+            try {
+                await PyBridge.disconnectHub();
+                console.log('✅ Disconnected serial connection');
+            } catch (error) {
+                console.warn('⚠️ Error during disconnect:', error);
+            }
+        }
+        
         if (this.modal && this.modal.parentNode) {
             this.modal.parentNode.removeChild(this.modal);
         }
@@ -543,13 +555,15 @@ export class HubSetupModal {
                         console.warn('⚠️ Reset completed but with warning:', result.error);
                     }
                     
-                    // Close modal after brief delay
-                    setTimeout(() => this.hide(), 500);
+                    // Close modal after brief delay, keeping connection open
+                    // Device is now running the new firmware
+                    setTimeout(() => this.hide(true), 500);
                     
                 } catch (error) {
                     console.error('❌ Reset error:', error);
                     // Close anyway - device may have reset despite error
-                    setTimeout(() => this.hide(), 500);
+                    // Keep connection open since firmware was uploaded
+                    setTimeout(() => this.hide(true), 500);
                 }
             };
         }
@@ -598,14 +612,14 @@ export class HubSetupModal {
                 // Antenna configuration
                 console.log(`Configuring antenna: external=${this.hasExternalAntenna}`);
                 if (!this.hasExternalAntenna) {
-                    // Remove the antenna configuration line
+                    // Set antenna_enabled to False for internal antenna
                     mainPyFile.content = mainPyFile.content.replace(
-                        /\s*# Add C6 external antenna configuration\s*\n\s*self\.n\.antenna\(\)\s*\n/,
-                        '\n'
+                        /(# __ANTENNA_CONFIG_START__\s*\n\s*antenna_enabled = )True(\s*# C6 external antenna \(set to False for internal\)\s*\n\s*# __ANTENNA_CONFIG_END__)/,
+                        '$1False$2'
                     );
-                    console.log('Removed external antenna configuration from main.py');
+                    console.log('Configured for internal antenna (antenna_enabled = False)');
                 } else {
-                    console.log('Keeping external antenna configuration in main.py');
+                    console.log('Configured for external antenna (antenna_enabled = True)');
                 }
                 
                 // Display I2C pin configuration

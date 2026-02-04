@@ -175,3 +175,4 @@ cython_debug/
 .DS_Store
 App_Prototype/pyscript/esp_based_controller_firmware.py
 App_Prototype/pyscript/module_firmware.py
+/App_Web/webapp/docs

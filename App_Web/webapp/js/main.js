@@ -107,11 +107,6 @@ async function syncConnectionState() {
             hubConnecting: false, // Clear connecting state
         };
         
-        // Cancel pending scans if we're disconnecting
-        if (wasConnected && !status.connected) {
-            newState.isRefreshing = false;
-        }
-        
         setState(newState);
         
         const stateChanged = (wasConnected !== status.connected) || (wasDevice !== status.device);
@@ -130,12 +125,6 @@ class App {
     constructor() {
         this.container = document.getElementById("root");
         this.components = {};
-        this.refreshTimeout = null; // Track refresh timeout to prevent hanging
-        this.cooldownRetryTimeout = null; // Track pending cooldown retry
-        this.REFRESH_TIMEOUT_MS = 7000; // 7 seconds (hub scans for 5s + 2s buffer for BLE resume/response)
-        this.SCAN_COOLDOWN_MS = 2000; // 2 seconds minimum between scans (prevents radio conflicts)
-        this.lastRefreshTime = 0; // Track last scan completion time
-        this.MAX_GATT_RETRIES = 2; // Retry GATT errors 2 times (3 total attempts)
         this.init();
     }
 
@@ -161,26 +150,45 @@ class App {
         // Wait for Python to be ready, then initialize
         this.initializePython();
 
-        // Direct function for Python to call
-        window.onDevicesUpdated = (devices) => {
-            console.log("=== JavaScript onDevicesUpdated called ===");
-            console.log(`Received ${devices?.length || 0} devices from hub`);
+        // Direct function for Python to call (with hub timestamp for age calculation)
+        window.onDevicesUpdated = (devices, hubTimestamp) => {
+            console.log("=" + "=".repeat(80));
+            console.log("🟢 JavaScript window.onDevicesUpdated() CALLED");
+            console.log(`📋 Received ${devices?.length || 0} devices from Python`);
+            console.log(`⏰ Hub timestamp: ${hubTimestamp}`);
+            console.log(`📊 State before update: ${state.allDevices?.length || 0} devices`);
+            console.log("=" + "=".repeat(80));
             
-            // Clear refresh timeout since we got a response
-            if (this.refreshTimeout) {
-                clearTimeout(this.refreshTimeout);
-                this.refreshTimeout = null;
-                console.log("Cleared refresh timeout (successful response)");
-            }
+            // Process each device to calculate age and stale status
+            const processedDevices = devices.map((device, index) => {
+                // Calculate device age in milliseconds
+                const ageMs = hubTimestamp - device.last_seen;
+                
+                // Convert to local browser time (Date object)
+                // Age = how long ago device was last seen
+                // Current time - age = when device was last seen
+                const lastSeenTime = new Date(Date.now() - ageMs);
+                
+                // Mark as stale if not seen for more than 3 minutes
+                const isStale = ageMs > 180000;  // 3 minutes in milliseconds
+                
+                console.log(`  Device ${index + 1}: ${device.name} | RSSI: ${device.rssi} | Battery: ${device.battery_pct}% | Age: ${ageMs}ms | Stale: ${isStale}`);
+                
+                return {
+                    ...device,
+                    lastSeenTime,   // Date object for getRelativeTime()
+                    isStale         // Boolean for UI warning
+                };
+            });
             
-            // Update cooldown timer on successful scan completion
-            this.lastRefreshTime = Date.now();
+            console.log(`✅ Processed ${processedDevices.length} devices, updating state...`);
             
             setState({
-                allDevices: devices,
+                allDevices: processedDevices,
                 lastUpdateTime: new Date(),
-                isRefreshing: false, // Clear loading state when devices received
             });
+            
+            console.log(`✅ State updated! New device count: ${state.allDevices?.length || 0}`);
         };
 
         // Direct function calls only - no event listeners needed
@@ -211,12 +219,12 @@ class App {
             });
             showToast(`Connected to ${mode === "serial" ? "USB Serial" : "Bluetooth"} hub`, "success");
             
-            // Auto-refresh devices on connection (only if scanning enabled)
+            // No auto-refresh needed - using passive battery tracking
+            // Devices will appear automatically within 0-60s as they send battery messages
             if (state.deviceScanningEnabled) {
-                console.log("Auto-refreshing devices on connection...");
-                this.handleRefreshDevices();
+                console.log("Passive device tracking active - devices will appear within 60s");
             } else {
-                console.log("Device scanning disabled - skipping auto-refresh");
+                console.log("Device scanning disabled - command-only mode");
             }
         };
 
@@ -226,22 +234,11 @@ class App {
         window.onBLEDisconnected = () => {
             console.log("Direct BLE disconnected call");
             
-            // Clean up any pending timeouts
-            if (this.refreshTimeout) {
-                clearTimeout(this.refreshTimeout);
-                this.refreshTimeout = null;
-            }
-            if (this.cooldownRetryTimeout) {
-                clearTimeout(this.cooldownRetryTimeout);
-                this.cooldownRetryTimeout = null;
-            }
-            
             setState({
                 hubConnected: false,
                 hubDeviceName: null,
                 hubConnectionMode: null,
                 hubConnecting: false,
-                isRefreshing: false, // Cancel any pending device scans
             });
         };
 
@@ -249,22 +246,11 @@ class App {
         window.onHubDisconnected = () => {
             console.log("Hub disconnected");
             
-            // Clean up any pending timeouts
-            if (this.refreshTimeout) {
-                clearTimeout(this.refreshTimeout);
-                this.refreshTimeout = null;
-            }
-            if (this.cooldownRetryTimeout) {
-                clearTimeout(this.cooldownRetryTimeout);
-                this.cooldownRetryTimeout = null;
-            }
-            
             setState({
                 hubConnected: false,
                 hubDeviceName: null,
                 hubConnectionMode: null,
                 hubConnecting: false,
-                isRefreshing: false, // Cancel any pending device scans
             });
         };
         
@@ -288,7 +274,7 @@ class App {
 
     startConnectionMonitoring() {
         /**
-         * Poll connection status every 30s (paused during scans to avoid radio interference).
+         * Poll hub connection status every 30s to detect disconnections.
          */
         // Clear any existing monitor to prevent duplicates
         if (this.connectionMonitor) {
@@ -296,13 +282,6 @@ class App {
         }
         
         this.connectionMonitor = setInterval(async () => {
-            // CRITICAL: Skip polling during ESP-NOW device scans
-            // BLE traffic would interfere with ESP-NOW IRQ on ESP32-C3's shared radio
-            if (state.isRefreshing) {
-                // Silent skip - scan in progress
-                return;
-            }
-            
             // Only poll when we think we're connected
             if (state.hubConnected) {
                 const stateChanged = await syncConnectionState();
@@ -378,7 +357,6 @@ class App {
                 const newOverlay = createDeviceListOverlay(
                     devices,
                     state.range,
-                    state.isRefreshing,
                     state.editingDeviceId,
                     state.moduleNicknames,
                     () => {
@@ -386,7 +364,6 @@ class App {
                         this.components.deviceListOverlay.style.display = "none";
                     },
                     (range) => setState({ range }),
-                    () => this.handleRefreshDevices(),
                     (deviceId) => setState({ editingDeviceId: deviceId }),
                     (deviceId, nickname) => {
                         setState({
@@ -408,6 +385,18 @@ class App {
             return;
         }
 
+        // Don't rebuild main UI if settings overlay is open
+        // (prevents disconnect issues when toggling settings)
+        if (state.showSettings) {
+            // Settings overlay handles its own state - just ensure it's rendered
+            if (!this.components.settingsOverlay) {
+                this.components.settingsOverlay = createSettingsOverlay(() => this.handleSettingsBack());
+                this.container.appendChild(this.components.settingsOverlay);
+                if (window.lucide) window.lucide.createIcons();
+            }
+            return;
+        }
+        
         // Clear container
         this.container.innerHTML = "";
         this.container.className = "flex flex-col max-w-md mx-auto bg-white relative";
@@ -423,13 +412,11 @@ class App {
                 setState({ showDeviceList: true });
                 this.components.deviceListOverlay.style.display = "flex";
             },
-            () => this.handleRefreshDevices(),
             state.hubConnected,
             state.hubDeviceName,
             () => this.handleHubConnect(),
             () => this.handleHubDisconnect(),
             () => this.handleSettingsClick(),
-            state.isRefreshing, // Pass refresh state for loading animation
             state.pythonReady, // Pass Python initialization state
             state.deviceScanningEnabled, // Pass device scanning toggle
             state.isBrowserCompatible, // Pass browser compatibility status
@@ -462,7 +449,6 @@ class App {
         this.components.deviceListOverlay = createDeviceListOverlay(
             devices,
             state.range,
-            state.isRefreshing,
             state.editingDeviceId,
             state.moduleNicknames,
             () => {
@@ -470,7 +456,6 @@ class App {
                 this.components.deviceListOverlay.style.display = "none";
             },
             (range) => setState({ range }),
-            () => this.handleRefreshDevices(),
             (deviceId) => setState({ editingDeviceId: deviceId }),
             (deviceId, nickname) => {
                 setState({
@@ -520,8 +505,16 @@ class App {
         }
         
         if (state.showSettings) {
+            // Remove old overlay if it exists before creating new one
+            if (this.components.settingsOverlay) {
+                this.components.settingsOverlay.remove();
+            }
             this.components.settingsOverlay = createSettingsOverlay(() => this.handleSettingsBack());
             this.container.appendChild(this.components.settingsOverlay);
+        } else if (this.components.settingsOverlay) {
+            // Remove overlay when settings closed
+            this.components.settingsOverlay.remove();
+            this.components.settingsOverlay = null;
         }
         
         // Show browser compatibility modal if needed (blocking, highest z-index)
@@ -614,13 +607,7 @@ class App {
             return;
         }
 
-        // PRIORITY 2: Check if refresh is in progress (only if device scanning enabled)
-        if (state.deviceScanningEnabled && state.isRefreshing) {
-            showToast("Please wait for device scan to complete", "warning");
-            return;
-        }
-
-        // PRIORITY 3: Log device availability (only if device scanning enabled)
+        // PRIORITY 2: Log device availability (only if device scanning enabled)
         let devices = [];
         if (state.deviceScanningEnabled) {
             devices = getAvailableDevices();
@@ -693,170 +680,6 @@ class App {
         }
     }
 
-    async handleRefreshDevices(rssiThreshold = null, retryCount = 0) {
-        /**
-         * Refresh device list with RSSI filter (7s timeout, auto-retries GATT errors).
-         * 
-         * @param {number|null} rssiThreshold - RSSI in dBm or null for current slider value
-         * @param {number} retryCount - Internal retry counter
-         */
-        
-        // Skip device scanning if disabled in settings
-        if (!state.deviceScanningEnabled) {
-            console.log("Device scanning disabled - skipping PING");
-            return;
-        }
-        
-        // Prevent concurrent refreshes (but allow internal retries)
-        if (state.isRefreshing && retryCount === 0) {
-            console.log("Refresh already in progress, ignoring duplicate request");
-            return;
-        }
-        
-        // Cancel any pending cooldown retry (user triggered new scan)
-        if (this.cooldownRetryTimeout) {
-            clearTimeout(this.cooldownRetryTimeout);
-            this.cooldownRetryTimeout = null;
-            console.log("Cancelled pending cooldown retry (new scan requested)");
-        }
-        
-        // Enforce cooldown period between scans (only for new scans, not retries)
-        if (retryCount === 0 && this.lastRefreshTime > 0) {
-            const timeSinceLastScan = Date.now() - this.lastRefreshTime;
-            if (timeSinceLastScan < this.SCAN_COOLDOWN_MS) {
-                const remainingCooldown = this.SCAN_COOLDOWN_MS - timeSinceLastScan;
-                console.log(`⏳ Scan cooldown: Wait ${Math.ceil(remainingCooldown / 1000)}s (prevents ESP32-C3 radio conflicts)`);
-                console.log(`   Will automatically retry in ${remainingCooldown}ms...`);
-                
-                // Calculate RSSI threshold NOW before scheduling retry
-                let thresholdForRetry = rssiThreshold;
-                if (thresholdForRetry === null) {
-                    const sliderPosition = state.range;
-                    if (sliderPosition === 100) {
-                        thresholdForRetry = "all";
-                    } else {
-                        thresholdForRetry = Math.round(-30 - ((sliderPosition - 1) / 98) * 60);
-                    }
-                }
-                
-                // Automatically retry after cooldown expires
-                this.cooldownRetryTimeout = setTimeout(() => {
-                    console.log("⏰ Cooldown expired, retrying scan...");
-                    this.cooldownRetryTimeout = null;
-                    this.handleRefreshDevices(thresholdForRetry, 0);
-                }, remainingCooldown);
-                
-                return;
-            }
-        }
-        
-        // Check if hub is connected before attempting scan
-        if (!state.hubConnected) {
-            console.warn("⚠️ Cannot scan: Hub not connected");
-            return;
-        }
-        
-        // Only set refreshing state on initial attempt
-        if (retryCount === 0) {
-            setState({ isRefreshing: true });
-        }
-
-        // Calculate RSSI threshold from slider if not provided (only on initial call)
-        if (rssiThreshold === null && retryCount === 0) {
-            const sliderPosition = state.range;
-            if (sliderPosition === 100) {
-                rssiThreshold = "all";
-            } else {
-                // Map 1-99 to RSSI range: -30 (closest) to -90 (farthest)
-                rssiThreshold = Math.round(-30 - ((sliderPosition - 1) / 98) * 60);
-            }
-        }
-        
-        // Log attempt
-        if (retryCount > 0) {
-            console.log(`🔄 Retry ${retryCount}/${this.MAX_GATT_RETRIES} - RSSI threshold: ${rssiThreshold}`);
-        } else {
-            console.log(`Refreshing devices with RSSI threshold: ${rssiThreshold}`);
-        }
-
-        // Set up timeout to prevent hanging per attempt
-        if (this.refreshTimeout) {
-            clearTimeout(this.refreshTimeout);
-            this.refreshTimeout = null;
-        }
-        
-        this.refreshTimeout = setTimeout(() => {
-            console.warn(`⚠️ Refresh timeout: No response within ${this.REFRESH_TIMEOUT_MS / 1000}s (attempt ${retryCount + 1})`);
-            setState({ isRefreshing: false });
-            this.lastRefreshTime = Date.now(); // Update cooldown timer
-            this.refreshTimeout = null;
-        }, this.REFRESH_TIMEOUT_MS);
-
-        // Update button state directly for immediate feedback (only on first attempt)
-        if (retryCount === 0) {
-            const refreshBtn = this.components.deviceListOverlay?.querySelector("#refreshBtn");
-            if (refreshBtn) {
-                refreshBtn.classList.add("animate-spin");
-            }
-        }
-
-        try {
-            // Send PING with RSSI threshold
-            const result = await PyBridgeToUse.refreshDevices(rssiThreshold);
-            
-            console.log("✓ PING sent, waiting for device responses from hub...");
-            // Note: isRefreshing will be cleared by onDevicesUpdated callback
-            // when hub sends back device list, OR by timeout
-            
-            // Empty array is legitimate - no retry needed
-            
-        } catch (e) {
-            // Check if it's a GATT error that should be retried
-            if (e.isGattError && retryCount < this.MAX_GATT_RETRIES) {
-                console.warn(`⚠️ GATT error on attempt ${retryCount + 1}: ${e.message}`);
-                console.log(`Retrying in 1 second... (${retryCount + 1}/${this.MAX_GATT_RETRIES} retries)`);
-                
-                // Clear current timeout
-                if (this.refreshTimeout) {
-                    clearTimeout(this.refreshTimeout);
-                    this.refreshTimeout = null;
-                }
-                
-                // Wait 1 second before retry (short delay for transient GATT errors)
-                await new Promise(resolve => setTimeout(resolve, 1000));
-                
-                // Retry with same threshold, increment retry count
-                return this.handleRefreshDevices(rssiThreshold, retryCount + 1);
-                
-            } else if (e.isGattError) {
-                // Max retries reached for GATT error
-                console.error(`❌ GATT error after ${this.MAX_GATT_RETRIES + 1} attempts: ${e.message}`);
-                console.log("Clearing refresh state - user can retry manually");
-                
-                // Clear timeout and loading state
-                if (this.refreshTimeout) {
-                    clearTimeout(this.refreshTimeout);
-                    this.refreshTimeout = null;
-                }
-                this.lastRefreshTime = Date.now(); // Update cooldown timer
-                setState({ isRefreshing: false });
-                
-                // Silent failure - no toast to avoid interruption
-                
-            } else {
-                // Non-GATT error - clear state immediately
-                console.error("Non-GATT error during refresh:", e);
-                
-                if (this.refreshTimeout) {
-                    clearTimeout(this.refreshTimeout);
-                    this.refreshTimeout = null;
-                }
-                this.lastRefreshTime = Date.now(); // Update cooldown timer
-                setState({ isRefreshing: false });
-            }
-        }
-    }
-
     async handleHubConnect() {
         // Connect directly via Serial (no modal - BLE removed for now)
         setState({ hubConnecting: true });
@@ -873,11 +696,8 @@ class App {
                     hubConnecting: false
                 });
                 
-                // Auto-refresh devices only if scanning is enabled
-                if (state.deviceScanningEnabled) {
-                    console.log("Auto-refreshing devices on connection...");
-                    await this.handleRefreshDevices();
-                }
+                // No manual refresh needed - passive tracking via battery messages
+                // Devices will appear automatically within 0-60s
             } else if (result.status === "cancelled") {
                 console.log("❌ Serial connection cancelled by user");
                 setState({ hubConnecting: false });

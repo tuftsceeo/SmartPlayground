@@ -6,7 +6,7 @@
 
 export function createConnectedEmptyState(onFocusCommandField) {
     const container = document.createElement('div');
-    container.className = 'text-center py-8 text-sm';
+    container.className = 'flex-1 overflow-y-auto bg-gray-50 flex items-center justify-center text-center text-sm';
     
     container.innerHTML = `
         <div class="max-w-md mx-auto">

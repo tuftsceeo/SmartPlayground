@@ -87,30 +87,6 @@ const PyBridge = {
     return await callPython('send_command_to_hub', command, rssiThreshold);
   },
 
-  async refreshDevices(rssiThreshold = "all") {
-    try {
-      return await callPython('refresh_devices_from_hub', rssiThreshold);
-    } catch (e) {
-      // Check if it's a GATT error (transient, should retry)
-      const isGattError = e.message && (
-        e.message.includes("GATT") || 
-        e.message.includes("Bluetooth") ||
-        e.message.includes("NetworkError")
-      );
-      
-      if (isGattError) {
-        // GATT error - log and throw for retry handling
-        console.warn("⚠️ GATT operation failed (will retry):", e.message);
-        const gattError = new Error(`GATT Error: ${e.message}`);
-        gattError.isGattError = true;
-        throw gattError;
-      } else {
-        // Re-throw other errors for caller to handle
-        throw e;
-      }
-    }
-  },
-
   // Firmware upload functions
   async uploadFirmware(files) {
     return await callPython('upload_firmware', files);
