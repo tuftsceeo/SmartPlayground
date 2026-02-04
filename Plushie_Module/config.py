@@ -1,5 +1,6 @@
 from games.sound import Notes
 from games.shake import Shake
+from games.shake_rainbow import Shake_Rainbow
 from games.jump import Jump
 from games.hotcold import Hot_cold
 from games.clap import Clap
@@ -26,7 +27,7 @@ class Config:
     intensity = 0.1
     volume = 1.0
     antenna = True
-    games = [(Notes,0.1), (Shake,0.1), (Hot_cold,0.1), (Jump,0.1),
+    games = [(Notes,0.1), (Shake,0.1), (Shake_Rainbow,0.1), (Hot_cold,0.1), (Jump,0.1),
              (Clap,0.1), (Rainbow,0.1), (Hibernate,0.1),
              (Pattern_btn,0.1), (Pattern_plush,0.5),
              (Color_Press, 0.1), (Color_Press_Mult, 0.1)]
@@ -52,6 +53,7 @@ class Controller_settings(Config):
     module_type = "controller"
     num_of_leds = 0
     first_game = 0
+    antenna = False
 
 #hw_version:
 # sophies version : 1
