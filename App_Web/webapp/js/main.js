@@ -680,6 +680,36 @@ class App {
         }
     }
 
+    async validateHub() {
+        const boardInfo = await PyBridgeToUse.getBoardInfo();
+        if (boardInfo.status !== "success") {
+            console.error("❌ Failed to read device information:", boardInfo.error);
+            showToast("Failed to validate device type", "error");
+            
+            // Disconnect since validation failed
+            await PyBridgeToUse.disconnectHubSerial();
+            setState({ hubConnecting: false });
+            return false;
+        }
+        const boardType = boardInfo.info;
+        console.log("Board type: ", boardInfo);
+
+        const isESPDevice = boardType.toUpperCase().includes("ESP");
+
+        if (!isESPDevice) {
+            console.error(`❌ Device is not an ESP. Detected: ${boardInfo}`);
+            showToast(`Wrong device type.\nNeed ESP for ESP-NOW.\nDetected: ${boardInfo}`, "error");
+            
+            // Disconnect the wrong device
+            await PyBridgeToUse.disconnectHubSerial();
+            setState({ hubConnecting: false });
+            return false;
+        }
+
+        console.log(`✅ Validated: Device is ESP32 (${boardType})`);
+        return true;
+    }
+
     async handleHubConnect() {
         // Connect directly via Serial (no modal - BLE removed for now)
         setState({ hubConnecting: true });
@@ -688,13 +718,18 @@ class App {
             const result = await PyBridgeToUse.connectHubSerial();
             
             if (result.status === "success") {
-                console.log("✅ Serial connected:", result.device);
-                setState({
-                    hubConnected: true,
-                    hubDeviceName: result.device,
-                    hubConnectionMode: "serial",
-                    hubConnecting: false
-                });
+                const isValid = await this.validateHub();
+                if (isValid) {
+                    console.log("✅ Serial connected:", result.device);
+                    setState({
+                        hubConnected: true,
+                        hubDeviceName: result.device,
+                        hubConnectionMode: "serial",
+                        hubConnecting: false
+                    });
+                    showToast("Connected to ESP hub!", "success");
+                }
+                
                 
                 // No manual refresh needed - passive tracking via battery messages
                 // Devices will appear automatically within 0-60s
