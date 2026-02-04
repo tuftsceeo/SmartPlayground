@@ -140,7 +140,7 @@ class Controller(Control):
             
         def up(state):
             update(state, 1)
-        self.button_up = Button(8, up)
+        self.button_up = Button(10, up)
         
         def select(state):
             self.display.box_on()
@@ -149,7 +149,7 @@ class Controller(Control):
         
         def down(state):
             update(state, -1)
-        self.button_down = Button(10, down)
+        self.button_down = Button(8, down)
         
         self.pot = ADC(Pin(3))
         self.pot.atten(ADC.ATTN_11DB) # the pin expects a voltage range up to 3.3V
