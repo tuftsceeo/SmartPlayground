@@ -1,7 +1,5 @@
 /**
- * Error Detail Modal
- * 
- * Detailed error messages with troubleshooting steps (for errors needing more than a toast).
+ * Error Detail Modal - detailed error messages with troubleshooting steps.
  */
 
 import { setState } from "../../state/store.js";
@@ -11,12 +9,11 @@ export function createErrorDetailModal(errorData) {
     modal.className = 'fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4';
     modal.id = 'errorDetailModal';
     
-    // Parse error data
     const title = errorData.title || "Error";
     const message = errorData.message || "";
     const causes = errorData.causes || [];
     const solutions = errorData.solutions || [];
-    const actions = errorData.actions || []; // New: support for action buttons
+    const actions = errorData.actions || [];
     
     modal.innerHTML = `
         <div class="bg-white rounded-xl p-6 max-w-sm mx-auto shadow-xl border border-gray-200 text-center" onclick="event.stopPropagation()">
@@ -41,7 +38,6 @@ export function createErrorDetailModal(errorData) {
                 <div class="space-y-3">
                     ${actions.map((action, index) => {
                         if (action.type === 'button') {
-                            // Primary or secondary button (matching welcome state style)
                             const isPrimary = action.style === 'primary';
                             const isDisabled = action.disabled || false;
                             return `
@@ -51,7 +47,6 @@ export function createErrorDetailModal(errorData) {
                                 </button>
                             `;
                         } else if (action.type === 'section') {
-                            // Instructional section with optional button
                             const isDisabled = action.disabled || (action.button && action.button.disabled) || false;
                             return `
                                 <div class="space-y-2 px-2">
@@ -108,7 +103,6 @@ export function createErrorDetailModal(errorData) {
         </div>
     `;
     
-    // Attach event handlers
     const closeBtn = modal.querySelector('#closeBtn');
     if (closeBtn) {
         closeBtn.onclick = (e) => {
@@ -120,7 +114,6 @@ export function createErrorDetailModal(errorData) {
         };
     }
     
-    // Attach action button handlers
     actions.forEach(action => {
         if (action.type === 'button' && action.onClick) {
             const btn = modal.querySelector(`[data-action-id="${action.id}"]`);
@@ -141,7 +134,6 @@ export function createErrorDetailModal(errorData) {
         }
     });
     
-    // Close on backdrop click
     modal.onclick = (e) => {
         if (e.target === modal) {
             setState({ 
@@ -151,7 +143,6 @@ export function createErrorDetailModal(errorData) {
         }
     };
     
-    // Close on Escape key
     const handleEscape = (e) => {
         if (e.key === 'Escape') {
             setState({ 
@@ -163,7 +154,6 @@ export function createErrorDetailModal(errorData) {
     };
     document.addEventListener('keydown', handleEscape);
     
-    // Initialize Lucide icons after adding to DOM
     setTimeout(() => {
         if (window.lucide) {
             window.lucide.createIcons();
@@ -192,9 +182,6 @@ export function showSerialConnectionLostError() {
     });
 }
 
-/**
- * Helper function to show port in use error
- */
 export function showPortInUseError() {
     setState({
         showErrorDetailModal: true,

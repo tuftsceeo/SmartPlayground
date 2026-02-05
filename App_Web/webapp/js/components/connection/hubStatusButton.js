@@ -1,12 +1,10 @@
 /**
- * Hub Status Button Component
- * Displays USB Serial hub connection status with proper styling and layout stability
+ * Hub Status Button - displays hub connection status.
  */
 
 export function createHubStatusButton(isConnected, deviceName, onConnect, onDisconnect, pythonReady = true, isBrowserCompatible = true, isConnecting = false) {
     const button = document.createElement('button');
     
-    // Show error state for incompatible browsers
     if (!isBrowserCompatible) {
         button.className = 'hub-status-button px-2 py-1 rounded-lg flex items-center gap-1.5 bg-red-100 cursor-not-allowed';
         button.style.width = '130px';
@@ -23,7 +21,6 @@ export function createHubStatusButton(isConnected, deviceName, onConnect, onDisc
         return button;
     }
     
-    // Show loading state while Python initializes OR while connecting/validating hub
     if (!pythonReady || isConnecting) {
         button.className = 'hub-status-button px-2 py-1 rounded-lg flex items-center gap-1.5 bg-gray-100 cursor-wait';
         button.style.width = '130px';
@@ -38,13 +35,12 @@ export function createHubStatusButton(isConnected, deviceName, onConnect, onDisc
         return button;
     }
     
-    // Normal connected/disconnected states
     button.className = `hub-status-button px-2 py-1 rounded-lg flex items-center gap-1.5 transition-colors ${
         isConnected
             ? ''
             : 'bg-amber-100'
     }`;
-    button.style.width = '130px'; // Fixed width to prevent layout shift
+    button.style.width = '130px';
     button.title = isConnected ? "Disconnect Hub" : "Connect Hub (USB)";
     
     button.innerHTML = `
