@@ -44,6 +44,7 @@ import { showToast } from "./components/common/toast.js";
 import { createBrowserCompatibilityModal, isBrowserCompatible } from "./components/modals/browserCompatibilityModal.js";
 import { createPermissionBlockedModal, isPermissionBlockedError } from "./components/modals/permissionBlockedModal.js";
 import { createErrorDetailModal, showSerialConnectionLostError, showPortInUseError } from "./components/modals/errorDetailModal.js";
+import HubSetupModal from "./components/modals/hubSetupModal.js";
 
 /**
  * Unified error handler for Python backend responses.
@@ -125,6 +126,7 @@ class App {
     constructor() {
         this.container = document.getElementById("root");
         this.components = {};
+        this._hubValidationTimeout = null;
         this.init();
     }
 
@@ -192,32 +194,209 @@ class App {
         };
 
         // Direct function calls only - no event listeners needed
+        
+        // Store reference to app methods for use in error modals and other components
+        window.appHandleHubConnect = () => this.handleHubConnect();
+        window.appShowHubSetup = () => HubSetupModal.show();
 
-        // Direct function for Python to call (BLE connections)
-        window.onBLEConnected = (data) => {
-            console.log("Direct BLE connected call:", data);
-            console.log("Data type:", typeof data);
-            console.log("Data keys:", Object.keys(data || {}));
-            console.log("Device name:", data?.deviceName);
-            setState({
+        // ⚠️ DEPRECATED: BLE connection callbacks - NOT USED
+        // Bluetooth was never implemented. These are kept to prevent errors from old code.
+        window.onBLEConnected = () => {
+            console.error("❌ onBLEConnected called - BLE not supported");
+        };
+
+        // Hub "ready" handshake validation (called when hub sends ready message)
+        window.onHubReady = (data) => {
+            console.log("✅ Hub ready handshake received:", data);
+            console.log(`  Version: ${data?.version}`);
+            console.log(`  MAC: ${data?.mac}`);
+            console.log(`  Timestamp: ${data?.timestamp}`);
+            
+            // Store hub info and mark as validated
+            state.hubVersion = data?.version;
+            state.hubMac = data?.mac;
+            state.hubValidated = true;
+            
+            // Clear validation timeout if set
+            if (this._hubValidationTimeout) {
+                clearTimeout(this._hubValidationTimeout);
+                this._hubValidationTimeout = null;
+            }
+            
+            console.log("Hub identity validated successfully (via ready message)");
+            
+            // NOW we can set hubConnected: true and exit connecting state
+            setState({ 
                 hubConnected: true,
-                hubDeviceName: data?.deviceName,
-                hubConnectionMode: "ble",
-                hubConnecting: false,
+                hubConnecting: false 
             });
+            showToast("Connected to USB Serial hub", "success");
+        };
+        
+        // Hub heartbeat validation (hubs send heartbeat every 5s, accept this as validation too)
+        window.onHubHeartbeat = (data) => {
+            // If not yet validated, accept heartbeat as validation
+            // (means we connected to an already-running hub that sent its "ready" before we connected)
+            if (!state.hubValidated) {
+                console.log("✅ Hub identity validated via heartbeat (hub was already running)");
+                console.log(`  Uptime: ${data?.uptime}ms`);
+                console.log(`  Timestamp: ${data?.timestamp}`);
+                state.hubValidated = true;
+                
+                // Clear validation timeout if set
+                if (this._hubValidationTimeout) {
+                    clearTimeout(this._hubValidationTimeout);
+                    this._hubValidationTimeout = null;
+                }
+                
+                // NOW we can set hubConnected: true and exit connecting state
+                setState({ 
+                    hubConnected: true,
+                    hubConnecting: false 
+                });
+                showToast("Connected to USB Serial hub", "success");
+            }
+            // Heartbeats continue after validation for connection health monitoring
         };
 
         // Direct function for Python to call (both BLE and Serial connections)
         window.onHubConnected = (data) => {
             console.log("Hub connected:", data);
             const mode = data?.mode || "ble";
-            setState({
-                hubConnected: true,
-                hubDeviceName: data?.deviceName,
-                hubConnectionMode: mode,
-                hubConnecting: false,
-            });
-            showToast(`Connected to ${mode === "serial" ? "USB Serial" : "Bluetooth"} hub`, "success");
+            
+            if (mode === "ble") {
+                // BLE: Show connected immediately (no validation needed)
+                setState({
+                    hubConnected: true,
+                    hubDeviceName: data?.deviceName,
+                    hubConnectionMode: mode,
+                    hubConnecting: false,
+                });
+                showToast("Connected to Bluetooth hub", "success");
+            } else {
+                // Serial: Keep in "connecting" state until validation completes
+                // DON'T set hubConnected: true yet! Wait for onHubReady/onHubHeartbeat
+                // UNLESS validation is disabled (during setup/flashing)
+                if (state.hubValidationEnabled) {
+                    setState({
+                        hubConnected: false,  // STAY disconnected until validated
+                        hubDeviceName: data?.deviceName,
+                        hubConnectionMode: mode,
+                        hubConnecting: true,  // KEEP showing loading state
+                    });
+                    console.log("   Serial connected, now validating hub...");
+                } else {
+                    // Validation disabled (setup mode) - set connected immediately
+                    setState({
+                        hubConnected: true,  // Connected for setup/REPL access
+                        hubDeviceName: data?.deviceName,
+                        hubConnectionMode: mode,
+                        hubConnecting: false,
+                    });
+                    console.log("   Serial connected (validation disabled for setup mode)");
+                }
+            }
+            // For serial, toast will show after validation in onHubReady/onHubHeartbeat
+            
+            // Start validation timeout for serial connections (hub should send "ready" or "heartbeat" within 10s)
+            // Hubs send "ready" on boot (1-3s) and heartbeat every 5s, so 10s timeout allows for boot + first message
+            // SKIP validation if hubValidationEnabled is false (during setup/flashing)
+            if (mode === "serial" && state.hubValidationEnabled) {
+                console.log("⏱️ Starting hub validation timeout (10 seconds)...");
+                console.log("   Waiting for 'ready' handshake or 'heartbeat' message...");
+                console.log("   💡 If you just plugged in the hub, wait 2-3 seconds for it to boot before connecting");
+                this._hubValidationTimeout = setTimeout(async () => {
+                    console.warn("⚠️ Hub validation timeout - no hub messages received after 10 seconds");
+                    
+                    // Double-check: validation might have been disabled (e.g., setup modal opened)
+                    if (!state.hubValidationEnabled) {
+                        console.log("⏭️ Validation was disabled - ignoring timeout");
+                        return;
+                    }
+                    
+                    // Check if hub was validated
+                    if (!state.hubValidated) {
+                        console.error("❌ Connected device is not a hub (no ready message)");
+                        
+                        // Attempt to disconnect from non-hub device
+                        let disconnectSuccess = false;
+                        try {
+                            await PyBridgeToUse.disconnectHubSerial();
+                            console.log("✅ Disconnected from non-hub device");
+                            disconnectSuccess = true;
+                        } catch (e) {
+                            console.error("Failed to disconnect:", e);
+                            console.warn("Will force state cleanup");
+                        }
+                        
+                        // Force UI state cleanup (disconnectHubSerial should trigger onHubDisconnected, 
+                        // but if it fails we need to manually reset the UI)
+                        if (!disconnectSuccess) {
+                            setState({
+                                hubConnected: false,
+                                hubDeviceName: null,
+                                hubConnectionMode: null,
+                                hubConnecting: false,
+                                hubValidated: false,
+                                hubVersion: null,
+                                hubMac: null,
+                            });
+                        }
+                        
+                        // Show error modal with action buttons (matching welcome screen style, flipped order)
+                        // Note: Buttons are not disabled since we just disconnected (hubConnecting is now false)
+                        setState({
+                            showErrorDetailModal: true,
+                            errorDetail: {
+                                title: "Not a Hub Device",
+                                message: "Choose connection option below:",
+                                actions: [
+                                    {
+                                        type: 'button',
+                                        id: 'setupHub',
+                                        label: 'Setup as New Hub (ESP32)',
+                                        icon: 'upload-cloud',
+                                        style: 'secondary',
+                                        disabled: false, // Always enabled after disconnect
+                                        onClick: () => {
+                                            // Close error modal
+                                            setState({ 
+                                                showErrorDetailModal: false,
+                                                errorDetail: null 
+                                            });
+                                            // Open hub setup modal
+                                            window.appShowHubSetup();
+                                        }
+                                    },
+                                    {
+                                        type: 'section',
+                                        label: 'or',
+                                        steps: [
+                                            'Disconnect the current device',
+                                            'Connect a different ESP32 via USB'
+                                        ],
+                                        button: {
+                                            id: 'connectExisting',
+                                            label: 'Connect to Existing Hub',
+                                            icon: 'plug',
+                                            disabled: false, // Always enabled after disconnect
+                                            onClick: () => {
+                                                // Close error modal
+                                                setState({ 
+                                                    showErrorDetailModal: false,
+                                                    errorDetail: null 
+                                                });
+                                                // Trigger connection flow (will prompt for device selection)
+                                                window.appHandleHubConnect();
+                                            }
+                                        }
+                                    }
+                                ]
+                            }
+                        });
+                    }
+                }, 10000); // 10 second timeout (allows for boot time 1-3s + heartbeat at 5s)
+            }
             
             // No auto-refresh needed - using passive battery tracking
             // Devices will appear automatically within 0-60s as they send battery messages
@@ -230,27 +409,30 @@ class App {
 
         // Direct function calls only - no event listeners needed
 
-        // Direct function for Python to call
+        // ⚠️ DEPRECATED: BLE disconnection callback - NOT USED  
         window.onBLEDisconnected = () => {
-            console.log("Direct BLE disconnected call");
-            
-            setState({
-                hubConnected: false,
-                hubDeviceName: null,
-                hubConnectionMode: null,
-                hubConnecting: false,
-            });
+            console.error("❌ onBLEDisconnected called - BLE not supported");
         };
 
         // Universal hub disconnected callback (for both BLE and Serial)
         window.onHubDisconnected = () => {
             console.log("Hub disconnected");
             
+            // Clear validation timeout if active
+            if (this._hubValidationTimeout) {
+                clearTimeout(this._hubValidationTimeout);
+                this._hubValidationTimeout = null;
+            }
+            
             setState({
                 hubConnected: false,
                 hubDeviceName: null,
                 hubConnectionMode: null,
                 hubConnecting: false,
+                hubValidated: false,
+                hubValidationEnabled: true,  // Re-enable validation for next connection
+                hubVersion: null,
+                hubMac: null,
             });
         };
         
@@ -258,6 +440,15 @@ class App {
         window.showSerialConnectionLostError = () => {
             console.log("Serial connection lost - showing error modal");
             showSerialConnectionLostError();
+        };
+        
+        // Expose method to clear hub validation timeout (used by setup modal)
+        window.clearHubValidationTimeout = () => {
+            if (this._hubValidationTimeout) {
+                console.log("🔕 Clearing hub validation timeout");
+                clearTimeout(this._hubValidationTimeout);
+                this._hubValidationTimeout = null;
+            }
         };
 
         // Direct function calls only - no event listeners needed
@@ -420,6 +611,7 @@ class App {
             state.pythonReady, // Pass Python initialization state
             state.deviceScanningEnabled, // Pass device scanning toggle
             state.isBrowserCompatible, // Pass browser compatibility status
+            state.hubConnecting, // Pass hub connecting state
         );
 
         const messageHistory = createMessageHistory(
@@ -682,19 +874,21 @@ class App {
 
     async handleHubConnect() {
         // Connect directly via Serial (no modal - BLE removed for now)
-        setState({ hubConnecting: true });
+        setState({ 
+            hubConnecting: true,
+            hubValidated: false,
+            hubVersion: null,
+            hubMac: null
+        });
         
         try {
             const result = await PyBridgeToUse.connectHubSerial();
             
             if (result.status === "success") {
                 console.log("✅ Serial connected:", result.device);
-                setState({
-                    hubConnected: true,
-                    hubDeviceName: result.device,
-                    hubConnectionMode: "serial",
-                    hubConnecting: false
-                });
+                // Don't show success yet - onHubConnected callback will update state
+                // and keep hubConnecting: true until validation completes
+                // (Python's connect_hub_serial calls onHubConnected which sets the state)
                 
                 // No manual refresh needed - passive tracking via battery messages
                 // Devices will appear automatically within 0-60s

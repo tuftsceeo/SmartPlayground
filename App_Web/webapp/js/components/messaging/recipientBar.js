@@ -8,10 +8,10 @@
 import { getDeviceIcon } from '../common/icons.js';
 import { getRangeLabel } from '../../state/store.js';
 import { getRelativeTime } from '../../utils/helpers.js';
-import { createBluetoothStatusButton } from '../connection/bluetoothStatusButton.js';
+import { createHubStatusButton } from '../connection/hubStatusButton.js';
 import { createSettingsButton } from '../common/settingsButton.js';
 
-export function createRecipientBar(devices, range, lastUpdateTime, onRangeChange, onClick, hubConnected, hubDeviceName, onHubConnect, onHubDisconnect, onSettingsClick, pythonReady = true, deviceScanningEnabled = false, isBrowserCompatible = true) {
+export function createRecipientBar(devices, range, lastUpdateTime, onRangeChange, onClick, hubConnected, hubDeviceName, onHubConnect, onHubDisconnect, onSettingsClick, pythonReady = true, deviceScanningEnabled = false, isBrowserCompatible = true, hubConnecting = false) {
   const container = document.createElement('div');
   container.className = `bg-white border-b border-gray-200 px-4 py-2 ${deviceScanningEnabled ? 'cursor-pointer' : ''}`;
   if (deviceScanningEnabled) {
@@ -29,7 +29,7 @@ export function createRecipientBar(devices, range, lastUpdateTime, onRangeChange
       
       <!-- Hub Status Controls (right-aligned) -->
       <div class="flex items-center gap-1 ml-auto">
-        <div id="bluetoothStatusButton"></div>
+        <div id="hubStatusButton"></div>
         <div id="settingsButton"></div>
       </div>
     </div>
@@ -117,14 +117,14 @@ export function createRecipientBar(devices, range, lastUpdateTime, onRangeChange
     }
   }
   
-  // Add BLE status and settings buttons
-  const bluetoothButtonContainer = container.querySelector('#bluetoothStatusButton');
+  // Add hub status and settings buttons
+  const hubStatusButtonContainer = container.querySelector('#hubStatusButton');
   const settingsButtonContainer = container.querySelector('#settingsButton');
   
-  const bluetoothButton = createBluetoothStatusButton(hubConnected, hubDeviceName, onHubConnect, onHubDisconnect, pythonReady, isBrowserCompatible);
+  const hubStatusButton = createHubStatusButton(hubConnected, hubDeviceName, onHubConnect, onHubDisconnect, pythonReady, isBrowserCompatible, hubConnecting);
   const settingsButton = createSettingsButton(onSettingsClick);
   
-  bluetoothButtonContainer.appendChild(bluetoothButton);
+  hubStatusButtonContainer.appendChild(hubStatusButton);
   settingsButtonContainer.appendChild(settingsButton);
   
   return container;

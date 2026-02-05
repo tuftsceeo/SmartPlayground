@@ -1,14 +1,14 @@
 /**
  * Hub Status Button Component
- * Displays Serial/USB hub connection status with proper styling and layout stability
+ * Displays USB Serial hub connection status with proper styling and layout stability
  */
 
-export function createBluetoothStatusButton(isConnected, deviceName, onConnect, onDisconnect, pythonReady = true, isBrowserCompatible = true) {
+export function createHubStatusButton(isConnected, deviceName, onConnect, onDisconnect, pythonReady = true, isBrowserCompatible = true, isConnecting = false) {
     const button = document.createElement('button');
     
     // Show error state for incompatible browsers
     if (!isBrowserCompatible) {
-        button.className = 'ble-status-button px-2 py-1 rounded-lg flex items-center gap-1.5 bg-red-100 cursor-not-allowed';
+        button.className = 'hub-status-button px-2 py-1 rounded-lg flex items-center gap-1.5 bg-red-100 cursor-not-allowed';
         button.style.width = '130px';
         button.title = "Browser not supported - Use Chrome or Edge";
         button.disabled = true;
@@ -23,23 +23,23 @@ export function createBluetoothStatusButton(isConnected, deviceName, onConnect, 
         return button;
     }
     
-    // Show loading state while Python initializes
-    if (!pythonReady) {
-        button.className = 'ble-status-button px-2 py-1 rounded-lg flex items-center gap-1.5 bg-gray-100 cursor-wait';
+    // Show loading state while Python initializes OR while connecting/validating hub
+    if (!pythonReady || isConnecting) {
+        button.className = 'hub-status-button px-2 py-1 rounded-lg flex items-center gap-1.5 bg-gray-100 cursor-wait';
         button.style.width = '130px';
-        button.title = "Loading...";
+        button.title = isConnecting ? "Connecting..." : "Loading...";
         button.disabled = true;
         
         button.innerHTML = `
             <i data-lucide="loader" class="w-3.5 h-3.5 text-gray-500 animate-spin"></i>
-            <span class="text-xs text-gray-600">Loading...</span>
+            <span class="text-xs text-gray-600">${isConnecting ? 'Connecting...' : 'Loading...'}</span>
         `;
         
         return button;
     }
     
     // Normal connected/disconnected states
-    button.className = `ble-status-button px-2 py-1 rounded-lg flex items-center gap-1.5 transition-colors ${
+    button.className = `hub-status-button px-2 py-1 rounded-lg flex items-center gap-1.5 transition-colors ${
         isConnected
             ? ''
             : 'bg-amber-100'

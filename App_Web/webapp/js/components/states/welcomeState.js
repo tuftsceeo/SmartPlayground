@@ -5,12 +5,13 @@
  */
 
 import HubSetupModal from '../modals/hubSetupModal.js';
+import { state } from '../../state/store.js';
 
 export function createWelcomeState(onConnect, onSetupHub, pythonReady = false) {
     const container = document.createElement('div');
     container.className = 'flex-1 flex items-center justify-center p-4 bg-gray-50 overflow-y-auto';
     
-    const isDisabled = !pythonReady;
+    const isDisabled = !pythonReady || state.hubConnecting;
     const disabledClasses = isDisabled ? 'opacity-50 cursor-not-allowed' : '';
     
     container.innerHTML = `
@@ -56,12 +57,12 @@ export function createWelcomeState(onConnect, onSetupHub, pythonReady = false) {
             <div class="space-y-3">
                 <button id="welcomeConnectBtn" ${isDisabled ? 'disabled' : ''} class="w-full px-6 py-3 bg-blue-600 text-white text-base font-semibold rounded-lg transition-colors shadow-md flex items-center justify-center gap-2 ${isDisabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-700 hover:shadow-lg'}">
                     <i data-lucide="plug" class="w-5 h-5"></i>
-                    ${isDisabled ? 'Initializing...' : 'Connect to Existing Hub'}
+                    ${!pythonReady ? 'Initializing...' : state.hubConnecting ? 'Connecting...' : 'Connect to Existing Hub'}
                 </button>
                 
                 <button id="welcomeSetupBtn" ${isDisabled ? 'disabled' : ''} class="w-full px-3 py-2 bg-white text-gray-600 text-xs font-normal rounded-lg transition-colors border border-gray-300 flex items-center justify-center gap-1.5 ${isDisabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50 hover:border-gray-400'}">
                     <i data-lucide="upload-cloud" class="w-3.5 h-3.5"></i>
-                    Setup as New Hub (ESP32)
+                    ${state.hubConnecting ? 'Connecting...' : 'Setup as New Hub (ESP32)'}
                 </button>
             </div>
         </div>

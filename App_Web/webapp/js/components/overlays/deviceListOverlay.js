@@ -35,14 +35,14 @@ export function createDeviceListOverlay(devices, range, editingDeviceId, nicknam
   const deviceList = overlay.querySelector('#deviceList');
   
   if (!hubConnected) {
-    // Bluetooth disconnected state
+    // Hub disconnected state
     deviceList.innerHTML = `
       <div class="flex flex-col items-center justify-center py-16 px-4">
-        <i data-lucide="bluetooth-off" class="w-12 h-12 text-gray-400 mb-4"></i>
-        <div class="text-sm font-medium text-gray-900 mb-6">Bluetooth Disconnected</div>
-        <button class="px-6 py-2.5 bg-amber-600 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2" id="connectBtn">
-          <i data-lucide="bluetooth" class="w-4 h-4"></i>
-          Connect
+        <i data-lucide="unplug" class="w-12 h-12 text-gray-400 mb-4"></i>
+        <div class="text-sm font-medium text-gray-900 mb-6">Hub Disconnected</div>
+        <button class="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2" id="connectBtn">
+          <i data-lucide="plug" class="w-4 h-4"></i>
+          Connect to Hub
         </button>
       </div>
     `;

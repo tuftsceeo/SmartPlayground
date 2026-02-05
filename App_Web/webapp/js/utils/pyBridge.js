@@ -67,12 +67,15 @@ const PyBridge = {
     return await callPython('get_connection_status');
   },
 
+  // ⚠️ DEPRECATED: BLE functions - NOT USED (Bluetooth never implemented)
   async connectHub() {
-    return await callPython('connect_hub');
+    console.error('❌ connectHub() is deprecated - use connectHubSerial()');
+    throw new Error('BLE not supported - use connectHubSerial()');
   },
 
   async disconnectHub() {
-    return await callPython('disconnect_hub');
+    console.error('❌ disconnectHub() is deprecated - use disconnectHubSerial()');
+    throw new Error('BLE not supported - use disconnectHubSerial()');
   },
 
   async connectHubSerial() {

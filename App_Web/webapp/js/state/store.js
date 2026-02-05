@@ -13,6 +13,10 @@ export const state = {
     hubDeviceName: null,
     hubConnecting: false,
     hubConnectionMode: null, // "ble" or "serial"
+    hubValidated: false, // Whether hub sent "ready" handshake
+    hubVersion: null, // Hub firmware version from ready message
+    hubMac: null, // Hub MAC address from ready message
+    hubValidationEnabled: true, // Whether to validate hub on connection (disabled during setup/flashing)
     pythonReady: false, // PyScript initialization state
 
     // Browser compatibility

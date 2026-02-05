@@ -15,6 +15,7 @@
 
 import { loadHubFiles } from '../../../hubCode/manifest.js';
 import { PyBridge } from '../../utils/pyBridge.js';
+import { setState, state } from '../../state/store.js';
 
 export class HubSetupModal {
     constructor() {
@@ -37,6 +38,15 @@ export class HubSetupModal {
     async show(serialPort) {
         this.serialPort = serialPort;
         
+        // DISABLE hub validation during setup/flashing
+        console.log('🛑 Disabling hub validation for setup mode');
+        setState({ hubValidationEnabled: false });
+        
+        // Clear any active validation timeout
+        if (window.clearHubValidationTimeout) {
+            window.clearHubValidationTimeout();
+        }
+        
         this.createModal();
         this.render();
         document.body.appendChild(this.modal);
@@ -55,11 +65,27 @@ export class HubSetupModal {
      * @param {boolean} keepConnection - If true, keeps serial connection open (for successful uploads)
      */
     async hide(keepConnection = false) {
+        // RE-ENABLE hub validation when exiting setup mode
+        console.log('✅ Re-enabling hub validation');
+        
+        if (keepConnection) {
+            // If keeping connection (successful upload), mark as validated
+            // since we just uploaded hub firmware and know it's a hub now
+            console.log('✅ Marking device as validated hub (just uploaded firmware)');
+            setState({ 
+                hubValidationEnabled: true,
+                hubValidated: true  // We know it's a hub - we just flashed it!
+            });
+        } else {
+            // Not keeping connection - just re-enable validation for next connection
+            setState({ hubValidationEnabled: true });
+        }
+        
         // Cleanup: disconnect if upload failed/cancelled or explicitly requested
         if (!keepConnection && (this.state === 'error' || this.state === 'loading' || this.state === 'initial')) {
             console.log('🔌 Disconnecting serial connection (upload did not complete successfully)...');
             try {
-                await PyBridge.disconnectHub();
+                await PyBridge.disconnectHubSerial();
                 console.log('✅ Disconnected serial connection');
             } catch (error) {
                 console.warn('⚠️ Error during disconnect:', error);
