@@ -197,7 +197,10 @@ class App {
         
         // Store reference to app methods for use in error modals and other components
         window.appHandleHubConnect = () => this.handleHubConnect();
-        window.appShowHubSetup = () => HubSetupModal.show();
+        window.appShowHubSetup = async () => {
+            const modal = new HubSetupModal();
+            await modal.show();
+        };
 
         // ⚠️ DEPRECATED: BLE connection callbacks - NOT USED
         // Bluetooth was never implemented. These are kept to prevent errors from old code.
@@ -317,76 +320,128 @@ class App {
                     // Check if hub was validated
                     if (!state.hubValidated) {
                         console.error("❌ Connected device is not a hub (no ready message)");
+                        console.log("   Keeping serial connection open for potential reset...");
                         
-                        // Attempt to disconnect from non-hub device
-                        let disconnectSuccess = false;
-                        try {
-                            await PyBridgeToUse.disconnectHubSerial();
-                            console.log("✅ Disconnected from non-hub device");
-                            disconnectSuccess = true;
-                        } catch (e) {
-                            console.error("Failed to disconnect:", e);
-                            console.warn("Will force state cleanup");
-                        }
+                        // DON'T disconnect - keep serial connection open so we can reset without re-prompting
+                        // Just update UI state to show "not validated"
+                        setState({
+                            hubConnected: false,  // UI shows disconnected
+                            hubConnecting: false,
+                            hubValidated: false,
+                            // But we keep the serial connection open in the background
+                        });
                         
-                        // Force UI state cleanup (disconnectHubSerial should trigger onHubDisconnected, 
-                        // but if it fails we need to manually reset the UI)
-                        if (!disconnectSuccess) {
-                            setState({
-                                hubConnected: false,
-                                hubDeviceName: null,
-                                hubConnectionMode: null,
-                                hubConnecting: false,
-                                hubValidated: false,
-                                hubVersion: null,
-                                hubMac: null,
-                            });
-                        }
-                        
-                        // Show error modal with action buttons (matching welcome screen style, flipped order)
-                        // Note: Buttons are not disabled since we just disconnected (hubConnecting is now false)
+                        // Show error modal with simple action buttons
                         setState({
                             showErrorDetailModal: true,
                             errorDetail: {
                                 title: "Not a Hub Device",
-                                message: "Choose connection option below:",
+                                message: "Choose an option below:",
                                 actions: [
                                     {
                                         type: 'button',
+                                        id: 'tryReset',
+                                        label: 'Retry',
+                                        icon: 'refresh-cw',
+                                        style: 'primary',
+                                        disabled: false,
+                                        onClick: async () => {
+                                            try {
+                                                console.log('🔄 Performing software reset on device...');
+                                                
+                                                // Close modal
+                                                setState({ 
+                                                    showErrorDetailModal: false,
+                                                    errorDetail: null,
+                                                    hubConnecting: true,  // Show connecting state
+                                                });
+                                                
+                                                // Show toast
+                                                showToast("Resetting device...", "info");
+                                                
+                                                // Disable validation during reset
+                                                setState({ hubValidationEnabled: false });
+                                                
+                                                // Perform hard reset (will reboot and run main.py)
+                                                await PyBridgeToUse.hardResetDevice();
+                                                
+                                                console.log('✅ Device reset complete, re-enabling validation...');
+                                                
+                                                // Re-enable validation and mark as validated to prevent immediate timeout
+                                                setState({ 
+                                                    hubValidationEnabled: true,
+                                                    hubValidated: false,  // Will be set to true when ready/heartbeat received
+                                                    hubConnected: false,   // Will be set to true when validated
+                                                    hubConnecting: true,   // Keep showing connecting
+                                                });
+                                                
+                                                // Start a new validation timeout
+                                                if (this._hubValidationTimeout) {
+                                                    clearTimeout(this._hubValidationTimeout);
+                                                }
+                                                this._hubValidationTimeout = setTimeout(async () => {
+                                                    if (!state.hubValidated) {
+                                                        console.warn("⚠️ Device still not responding after reset");
+                                                        // Disconnect this time since reset didn't help
+                                                        await PyBridgeToUse.disconnectHubSerial();
+                                                        showToast("Device reset failed - not a hub", "error");
+                                                    }
+                                                }, 10000);
+                                                
+                                            } catch (error) {
+                                                console.error('❌ Reset error:', error);
+                                                showToast("Reset failed: " + error.message, "error");
+                                                setState({ hubConnecting: false });
+                                            }
+                                        }
+                                    },
+                                    {
+                                        type: 'button',
                                         id: 'setupHub',
-                                        label: 'Setup as New Hub (ESP32)',
+                                        label: 'Setup as Hub',
                                         icon: 'upload-cloud',
                                         style: 'secondary',
-                                        disabled: false, // Always enabled after disconnect
+                                        disabled: false,
                                         onClick: () => {
                                             // Close error modal
                                             setState({ 
                                                 showErrorDetailModal: false,
                                                 errorDetail: null 
                                             });
-                                            // Open hub setup modal
+                                            // Open hub setup modal (will use existing serial connection)
                                             window.appShowHubSetup();
                                         }
                                     },
                                     {
-                                        type: 'section',
-                                        label: 'or',
-                                        steps: [
-                                            'Disconnect the current device',
-                                            'Connect a different ESP32 via USB'
-                                        ],
-                                        button: {
-                                            id: 'connectExisting',
-                                            label: 'Connect to Existing Hub',
-                                            icon: 'plug',
-                                            disabled: false, // Always enabled after disconnect
-                                            onClick: () => {
+                                        type: 'button',
+                                        id: 'connectDifferent',
+                                        label: 'Connect Different Device',
+                                        icon: 'plug',
+                                        style: 'secondary',
+                                        disabled: false,
+                                        onClick: async () => {
+                                            try {
+                                                console.log('🔌 Disconnecting current device to connect to a different one...');
+                                                
                                                 // Close error modal
                                                 setState({ 
                                                     showErrorDetailModal: false,
                                                     errorDetail: null 
                                                 });
+                                                
+                                                // Disconnect from current device
+                                                await PyBridgeToUse.disconnectHubSerial();
+                                                console.log('✅ Disconnected successfully');
+                                                
+                                                // Small delay to ensure clean disconnect
+                                                await new Promise(resolve => setTimeout(resolve, 300));
+                                                
                                                 // Trigger connection flow (will prompt for device selection)
+                                                window.appHandleHubConnect();
+                                                
+                                            } catch (error) {
+                                                console.error('❌ Disconnect error:', error);
+                                                // Continue to connection anyway
                                                 window.appHandleHubConnect();
                                             }
                                         }
@@ -567,6 +622,7 @@ class App {
                     },
                     state.hubConnected,
                     () => this.handleHubConnect(),
+                    state.hubConnecting, // Pass connecting state
                 );
                 this.components.deviceListOverlay.replaceWith(newOverlay);
                 this.components.deviceListOverlay = newOverlay;
@@ -660,6 +716,7 @@ class App {
             },
             state.hubConnected,
             () => this.handleHubConnect(),
+            state.hubConnecting, // Pass connecting state
         );
 
         this.components.messageDetailsOverlay = createMessageDetailsOverlay(

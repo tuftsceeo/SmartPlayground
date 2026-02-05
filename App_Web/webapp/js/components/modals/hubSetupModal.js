@@ -443,9 +443,8 @@ export class HubSetupModal {
                         <ul class="list-disc list-inside space-y-1 text-sm text-gray-700">
                             <li>Check USB cable connection</li>
                             <li>Make sure ESP32 is powered on</li>
-                            <li>Try pressing the reset button on your ESP32</li>
                             <li>Close other applications using the serial port (Thonny, Arduino IDE)</li>
-                            <li>Try disconnecting and reconnecting</li>
+                            <li>Try disconnecting and reconnecting USB</li>
                         </ul>
                     </div>
                 </div>
@@ -454,9 +453,9 @@ export class HubSetupModal {
                     <button id="cancel-btn" class="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium transition-colors">
                         Cancel
                     </button>
-                    <button id="retry-btn" class="flex-1 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2">
+                    <button id="reset-retry-btn" class="flex-1 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2">
                         <i data-lucide="refresh-cw" class="w-4 h-4"></i>
-                        <span>Retry Upload</span>
+                        <span>Retry</span>
                     </button>
                 </div>
             </div>
@@ -469,7 +468,7 @@ export class HubSetupModal {
     attachEventListeners() {
         const cancelBtn = this.modal.querySelector('#cancel-btn');
         const startBtn = this.modal.querySelector('#start-upload-btn');
-        const retryBtn = this.modal.querySelector('#retry-btn');
+        const resetRetryBtn = this.modal.querySelector('#reset-retry-btn');
         const doneBtn = this.modal.querySelector('#done-btn');
         const antennaCheckbox = this.modal.querySelector('#externalAntennaCheckbox');
 
@@ -493,13 +492,40 @@ export class HubSetupModal {
             };
         }
 
-        if (retryBtn) {
-            retryBtn.onclick = async () => {
-                this.state = 'loading';
-                this.deviceInfo = null;
-                this.deviceType = null;
-                this.render();
-                await this.queryDeviceInfo();
+        if (resetRetryBtn) {
+            resetRetryBtn.onclick = async () => {
+                try {
+                    console.log('🔄 Performing hard reset before retry...');
+                    
+                    // Show loading state
+                    this.state = 'loading';
+                    this.deviceInfo = null;
+                    this.deviceType = null;
+                    this.render();
+                    
+                    // Perform hard reset (like the one that works well in error modal)
+                    const resetResult = await PyBridge.hardResetDevice();
+                    
+                    if (resetResult.status === 'success') {
+                        console.log('✅ Device reset successful');
+                    } else {
+                        console.warn('⚠️ Reset completed with warning:', resetResult.error);
+                    }
+                    
+                    // Wait for device to reboot
+                    console.log('⏸️ Waiting for device to boot...');
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+                    
+                    // Now retry query
+                    console.log('🔍 Retrying device query after reset...');
+                    await this.queryDeviceInfo();
+                    
+                } catch (error) {
+                    console.error('❌ Reset & retry error:', error);
+                    this.errorMessage = 'Reset failed: ' + (error.message || 'Unknown error');
+                    this.state = 'error';
+                    this.render();
+                }
             };
         }
 
