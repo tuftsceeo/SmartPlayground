@@ -1,13 +1,9 @@
 /**
  * Serial Adapter - Web Serial API wrapper
  *
- * Native JavaScript layer for Web Serial API (avoids Pyodide async issues).
- * Handles connect/disconnect, read/write, timeouts, and reader/writer locks.
- * 
- * Used by: mpy/hub_serial.py
+ * JavaScript layer for Web Serial API.
  */
 
-// Debug mode flag
 const _DEBUG_MODE = true;
 
 console.log('✅ serialAdapter.js LOADED');
@@ -22,28 +18,18 @@ export const SerialAdapter = {
   readLoopActive: false,
   currentStopFunction: null,
 
-  /**
-   * Check if serial port is connected
-   * @returns {boolean}
-   */
   isConnected() {
     return this.port !== null && this.port.readable !== null;
   },
 
-  /**
-   * Request and connect to a serial port
-   * @returns {Promise<boolean>} True if connected successfully
-   */
   async connect() {
     try {
-      // Check API availability
       if (!navigator.serial) {
         console.error('ERROR: Web Serial API not available!');
         console.error('Please use Chrome or Edge browser');
         return false;
       }
 
-      // Request port from user
       console.log('Requesting serial port...');
       this.port = await navigator.serial.requestPort();
 

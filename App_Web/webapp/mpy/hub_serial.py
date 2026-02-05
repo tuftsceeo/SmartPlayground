@@ -2,20 +2,8 @@
 Hub Serial Connection Manager
 
 Manages USB Serial connection to ESP32 hub using JSON protocol.
-Delegates browser API calls to JavaScript adapter (js/adapters/serialAdapter.js).
-
-Responsibilities:
-- Connect/disconnect serial port
-- Send/receive JSON messages
-- Manage JSON read loop
-- Handle connection loss
-
-Architecture:
-- JavaScript adapter: Handles Web Serial API calls (I/O only)
-- This Python class: Handles connection orchestration and JSON protocol
 """
 
-# Debug mode flag
 _DEBUG_MODE = True
 
 from pyscript import window
@@ -27,43 +15,30 @@ print("✅ hub_serial.py LOADED")
 
 
 class SerialConnection:
-    """Manages Serial connection and JSON message protocol"""
+    """Manages Serial connection and JSON message protocol."""
     
     def __init__(self):
-        """Initialize Serial connection manager"""
         self.on_data_callback = None
         self.on_connection_lost_callback = None
         self.read_loop_stop = None
         
-        # Store proxies as instance variables to prevent garbage collection
         self._on_data_proxy = None
         self._on_error_proxy = None
-        
-        # Explicit proxy keepalive list (extra safety against garbage collection)
         self._proxy_keepalive = []
-        
-        # Line buffer for incomplete messages
         self._line_buffer = ""
         
         print("🔌 SerialConnection initialized")
         
-        # Check if JS adapter is available
         if not hasattr(window, 'serialAdapter'):
             raise Exception("serialAdapter not found! Make sure js/adapters/serialAdapter.js is loaded.")
         
         self.adapter = window.serialAdapter
     
     def is_connected(self):
-        """Check if serial port is connected"""
         return self.adapter.isConnected()
     
     async def connect(self):
-        """
-        Connect to serial port and start JSON read loop.
-        
-        Returns:
-            bool: True if connected successfully, False otherwise
-        """
+        """Connect to serial port and start JSON read loop."""
         try:
             # Use JS adapter for connection
             success = await self.adapter.connect()

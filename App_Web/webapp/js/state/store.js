@@ -1,10 +1,7 @@
 /**
  * Centralized State Management
  *
- * Reactive state with automatic component re-rendering.
- * Uses batched rendering (requestAnimationFrame) for performance.
- * 
- * Usage: setState() to update, onStateChange() to listen, computed getters for derived values.
+ * Reactive state with batched rendering for performance.
  */
 
 export const state = {
@@ -63,48 +60,20 @@ let updatesPending = null;
 let renderScheduled = false;
 
 /**
- * Register a component callback to receive state change notifications.
- * 
- * This function allows components to subscribe to state changes and automatically
- * re-render when relevant state updates occur. It implements the observer pattern
- * for reactive UI updates.
- * 
- * @param {Function} callback - Function to call when state changes occur
- * @returns {Function} Cleanup function to unregister the callback
- * 
- * Usage:
- * const unsubscribe = onStateChange(() => this.render());
- * // Later: unsubscribe() to clean up
+ * Register callback for state changes.
+ * @returns {Function} Cleanup function
  */
 export function onStateChange(callback) {
     renderCallbacks.add(callback);
-    return () => renderCallbacks.delete(callback); // Cleanup function
+    return () => renderCallbacks.delete(callback);
 }
 
 /**
- * Update application state and trigger component re-renders.
- * 
- * This function implements batched state updates with optimized rendering.
- * It merges new state values with existing state and schedules component
- * re-renders using requestAnimationFrame for optimal performance.
- * 
- * @param {Object} updates - Object containing state properties to update
- * 
- * Performance Features:
- * - Batched rendering prevents multiple renders in the same frame
- * - requestAnimationFrame ensures renders happen at optimal timing
- * - Prevents duplicate renders in the same frame
- * - Batched callback execution for efficiency
- * 
- * State Update Flow:
- * 1. Merge updates into current state
- * 2. Schedule render callback execution
- * 3. Execute all registered component callbacks
+ * Update state and trigger re-renders (batched).
  */
 export function setState(updates) {
     Object.assign(state, updates);
 
-    // Trigger render for state changes
     if (!renderScheduled) {
         renderScheduled = true;
         requestAnimationFrame(() => {

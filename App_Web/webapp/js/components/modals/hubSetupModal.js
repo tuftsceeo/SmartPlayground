@@ -1,16 +1,7 @@
 /**
- * Hub Setup Modal Component
- * 
- * Modal overlay for uploading hub firmware to ESP32 via serial.
- * Queries device info, shows confirmation, then uploads with progress tracking.
- * 
- * States:
- * - loading: Connecting and querying device information
- * - initial: Confirmation screen with device info
- * - uploading: Progress bar and file list
- * - success: Success message with reset button
- * - resetting: Device is performing hard reset to boot into new firmware
- * - error: Error message with retry option
+ * Hub Setup Modal
+ *
+ * Upload hub firmware to ESP32 via serial. Queries device info, confirmation, then upload with progress.
  */
 
 import { loadHubFiles } from '../../../hubCode/manifest.js';
@@ -20,10 +11,10 @@ import { setState, state } from '../../state/store.js';
 export class HubSetupModal {
     constructor() {
         this.modal = null;
-        this.state = 'loading'; // loading, initial, uploading, success, error
-        this.hasExternalAntenna = false; // Track antenna configuration
-        this.deviceInfo = null; // Device information from query
-        this.deviceType = null; // Parsed device type (e.g., 'C6', 'C3', 'S3')
+        this.state = 'loading';
+        this.hasExternalAntenna = false;
+        this.deviceInfo = null;
+        this.deviceType = null;
         this.uploadProgress = {
             current: 0,
             total: 0,
@@ -32,17 +23,10 @@ export class HubSetupModal {
         };
     }
 
-    /**
-     * Show the modal and query device info
-     */
     async show(serialPort) {
         this.serialPort = serialPort;
         
-        // DISABLE hub validation during setup/flashing
-        console.log('🛑 Disabling hub validation for setup mode');
         setState({ hubValidationEnabled: false });
-        
-        // Clear any active validation timeout
         if (window.clearHubValidationTimeout) {
             window.clearHubValidationTimeout();
         }
@@ -51,37 +35,26 @@ export class HubSetupModal {
         this.render();
         document.body.appendChild(this.modal);
         
-        // Initialize Lucide icons
         if (window.lucide) {
             window.lucide.createIcons();
         }
         
-        // Query device info
         await this.queryDeviceInfo();
     }
 
-    /**
-     * Hide and destroy the modal
-     * @param {boolean} keepConnection - If true, keeps serial connection open (for successful uploads)
-     */
     async hide(keepConnection = false) {
-        // RE-ENABLE hub validation when exiting setup mode
         console.log('✅ Re-enabling hub validation');
         
         if (keepConnection) {
-            // If keeping connection (successful upload), mark as validated
-            // since we just uploaded hub firmware and know it's a hub now
             console.log('✅ Marking device as validated hub (just uploaded firmware)');
             setState({ 
                 hubValidationEnabled: true,
-                hubValidated: true  // We know it's a hub - we just flashed it!
+                hubValidated: true
             });
         } else {
-            // Not keeping connection - just re-enable validation for next connection
             setState({ hubValidationEnabled: true });
         }
         
-        // Cleanup: disconnect if upload failed/cancelled or explicitly requested
         if (!keepConnection && (this.state === 'error' || this.state === 'loading' || this.state === 'initial')) {
             console.log('🔌 Disconnecting serial connection (upload did not complete successfully)...');
             try {
@@ -98,9 +71,6 @@ export class HubSetupModal {
         this.modal = null;
     }
 
-    /**
-     * Create the modal DOM structure
-     */
     createModal() {
         this.modal = document.createElement('div');
         this.modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
@@ -111,19 +81,13 @@ export class HubSetupModal {
         };
     }
 
-    /**
-     * Query device information via serial
-     * Uses thin JavaScript async layer with Python business logic
-     */
     async queryDeviceInfo() {
         try {
             console.log('🔍 Querying device info...');
             
-            // Check if already connected
             const connectionStatus = await PyBridge.getConnectionStatus();
             
             if (!connectionStatus.connected || connectionStatus.mode !== 'serial') {
-                // Need to connect first
                 console.log('🔌 Connecting to serial port...');
                 const connectResult = await PyBridge.connectHubSerial();
                 
@@ -131,12 +95,10 @@ export class HubSetupModal {
                     throw new Error('Failed to connect: ' + (connectResult.error || 'Unknown error'));
                 }
                 
-                // Wait for connection to stabilize (JavaScript handles timing)
                 console.log('⏸️ Waiting for connection to stabilize...');
                 await new Promise(resolve => setTimeout(resolve, 500));
             }
             
-            // Step 1: Stop JSON read loop (Python logic)
             console.log('🛑 Stopping JSON read loop...');
             const stopResult = await PyBridge.queryDeviceInfoForSetup();
             
@@ -144,11 +106,9 @@ export class HubSetupModal {
                 throw new Error(stopResult.error || 'Failed to stop read loop');
             }
             
-            // Step 2: Wait for loop to fully stop (JavaScript handles timing)
             console.log('⏸️ Waiting for read loop to stop...');
             await new Promise(resolve => setTimeout(resolve, 300));
             
-            // Step 3: Get board info (Python logic)
             console.log('📡 Getting device information...');
             const infoResult = await PyBridge.getDeviceBoardInfo();
             
@@ -157,7 +117,6 @@ export class HubSetupModal {
                 this.deviceType = this.parseDeviceType(infoResult.info);
                 console.log(`✅ Device detected: ${this.deviceType}`);
                 
-                // Move to initial confirmation state
                 this.state = 'initial';
                 this.render();
             } else {
@@ -172,10 +131,6 @@ export class HubSetupModal {
         }
     }
     
-    /**
-     * Parse device type from info string
-     * Example: "MicroPython v1.22.0 on 2024-01-01; ESP32-C6 with ESP32C6"
-     */
     parseDeviceType(info) {
         if (!info) return null;
         
@@ -194,9 +149,6 @@ export class HubSetupModal {
         return 'Unknown';
     }
 
-    /**
-     * Render the modal content based on current state
-     */
     render() {
         if (!this.modal) return;
 
@@ -228,18 +180,13 @@ export class HubSetupModal {
             </div>
         `;
 
-        // Re-attach event listeners
         this.attachEventListeners();
         
-        // Initialize Lucide icons
         if (window.lucide) {
             window.lucide.createIcons();
         }
     }
 
-    /**
-     * Render loading state while querying device
-     */
     renderLoading() {
         return `
             <div class="p-6">
@@ -257,13 +204,10 @@ export class HubSetupModal {
         `;
     }
 
-    /**
-     * Render initial confirmation state
-     */
     renderInitial() {
         const showAntennaOption = this.deviceType === 'C6';
         
-        // For C3 devices, note that external antenna is always on (can't be configured)
+        // C3: external antenna always on
         const isC3 = this.deviceType === 'C3';
         
         return `
@@ -499,9 +443,8 @@ export class HubSetupModal {
                         <ul class="list-disc list-inside space-y-1 text-sm text-gray-700">
                             <li>Check USB cable connection</li>
                             <li>Make sure ESP32 is powered on</li>
-                            <li>Try pressing the reset button on your ESP32</li>
                             <li>Close other applications using the serial port (Thonny, Arduino IDE)</li>
-                            <li>Try disconnecting and reconnecting</li>
+                            <li>Try disconnecting and reconnecting USB</li>
                         </ul>
                     </div>
                 </div>
@@ -510,9 +453,9 @@ export class HubSetupModal {
                     <button id="cancel-btn" class="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium transition-colors">
                         Cancel
                     </button>
-                    <button id="retry-btn" class="flex-1 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2">
+                    <button id="reset-retry-btn" class="flex-1 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2">
                         <i data-lucide="refresh-cw" class="w-4 h-4"></i>
-                        <span>Retry Upload</span>
+                        <span>Retry</span>
                     </button>
                 </div>
             </div>
@@ -525,7 +468,7 @@ export class HubSetupModal {
     attachEventListeners() {
         const cancelBtn = this.modal.querySelector('#cancel-btn');
         const startBtn = this.modal.querySelector('#start-upload-btn');
-        const retryBtn = this.modal.querySelector('#retry-btn');
+        const resetRetryBtn = this.modal.querySelector('#reset-retry-btn');
         const doneBtn = this.modal.querySelector('#done-btn');
         const antennaCheckbox = this.modal.querySelector('#externalAntennaCheckbox');
 
@@ -535,10 +478,7 @@ export class HubSetupModal {
 
         if (startBtn) {
             startBtn.onclick = () => {
-                // Capture antenna checkbox state before starting upload
-                // C3 devices: antenna flag causes crashes, so always set to false
-                // C6 devices: use checkbox value
-                // Other devices: default to false
+                // C3: antenna=false to avoid crashes; C6: use checkbox
                 if (this.deviceType === 'C3') {
                     this.hasExternalAntenna = false;
                     console.log('C3 device: external antenna disabled (causes crashes)');
@@ -552,14 +492,40 @@ export class HubSetupModal {
             };
         }
 
-        if (retryBtn) {
-            retryBtn.onclick = async () => {
-                // Reset state and query device again
-                this.state = 'loading';
-                this.deviceInfo = null;
-                this.deviceType = null;
-                this.render();
-                await this.queryDeviceInfo();
+        if (resetRetryBtn) {
+            resetRetryBtn.onclick = async () => {
+                try {
+                    console.log('🔄 Performing hard reset before retry...');
+                    
+                    // Show loading state
+                    this.state = 'loading';
+                    this.deviceInfo = null;
+                    this.deviceType = null;
+                    this.render();
+                    
+                    // Perform hard reset (like the one that works well in error modal)
+                    const resetResult = await PyBridge.hardResetDevice();
+                    
+                    if (resetResult.status === 'success') {
+                        console.log('✅ Device reset successful');
+                    } else {
+                        console.warn('⚠️ Reset completed with warning:', resetResult.error);
+                    }
+                    
+                    // Wait for device to reboot
+                    console.log('⏸️ Waiting for device to boot...');
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+                    
+                    // Now retry query
+                    console.log('🔍 Retrying device query after reset...');
+                    await this.queryDeviceInfo();
+                    
+                } catch (error) {
+                    console.error('❌ Reset & retry error:', error);
+                    this.errorMessage = 'Reset failed: ' + (error.message || 'Unknown error');
+                    this.state = 'error';
+                    this.render();
+                }
             };
         }
 
@@ -568,11 +534,9 @@ export class HubSetupModal {
                 try {
                     console.log('🔄 Performing hard reset to boot into new firmware...');
                     
-                    // Show resetting state
                     this.state = 'resetting';
                     this.render();
                     
-                    // Perform hard reset (executes machine.reset() on device)
                     const result = await PyBridge.hardResetDevice();
                     
                     if (result.status === 'success') {
@@ -581,14 +545,10 @@ export class HubSetupModal {
                         console.warn('⚠️ Reset completed but with warning:', result.error);
                     }
                     
-                    // Close modal after brief delay, keeping connection open
-                    // Device is now running the new firmware
                     setTimeout(() => this.hide(true), 500);
                     
                 } catch (error) {
                     console.error('❌ Reset error:', error);
-                    // Close anyway - device may have reset despite error
-                    // Keep connection open since firmware was uploaded
                     setTimeout(() => this.hide(true), 500);
                 }
             };
@@ -600,20 +560,15 @@ export class HubSetupModal {
      */
     async startUpload() {
         try {
-            // Change to uploading state
             this.state = 'uploading';
             this.render();
 
-            // Check if Python serial is connected
-            // Python's WebSerial needs an active connection for upload
             console.log('Checking Python serial connection status...');
             const connectionStatus = await PyBridge.getConnectionStatus();
             
             if (!connectionStatus.connected || connectionStatus.mode !== 'serial') {
-                // Not connected via serial - need to connect first
                 console.log('Python serial not connected - connecting now...');
                 
-                // Connect via Python (this will prompt user for port selection)
                 const connectResult = await PyBridge.connectHubSerial();
                 
                 if (connectResult.status !== 'success') {
@@ -622,23 +577,18 @@ export class HubSetupModal {
                 
                 console.log('Connected to serial port via Python');
                 
-                // Give it a moment to stabilize
                 await new Promise(resolve => setTimeout(resolve, 500));
             } else {
                 console.log('Python serial already connected, using existing connection');
             }
 
-            // Load all hub files
             console.log('Loading hub files...');
             const files = await loadHubFiles();
             
-            // Modify main.py based on antenna and display configuration
             const mainPyFile = files.find(f => f.path === 'main.py');
             if (mainPyFile) {
-                // Antenna configuration
                 console.log(`Configuring antenna: external=${this.hasExternalAntenna}`);
                 if (!this.hasExternalAntenna) {
-                    // Set antenna_enabled to False for internal antenna
                     mainPyFile.content = mainPyFile.content.replace(
                         /(# __ANTENNA_CONFIG_START__\s*\n\s*antenna_enabled = )True(\s*# C6 external antenna \(set to False for internal\)\s*\n\s*# __ANTENNA_CONFIG_END__)/,
                         '$1False$2'
@@ -648,13 +598,11 @@ export class HubSetupModal {
                     console.log('Configured for external antenna (antenna_enabled = True)');
                 }
                 
-                // Display I2C pin configuration
                 console.log(`Configuring display for device type: ${this.deviceType}`);
                 const beforeReplace = mainPyFile.content.includes('__DISPLAY_CONFIG_C6__');
                 console.log(`Before replace: contains display config markers: ${beforeReplace}`);
                 
                 if (this.deviceType === 'C3') {
-                    // Use C3 pins: SoftI2C on pins 7 (SCL), 6 (SDA)
                     const newContent = mainPyFile.content.replace(
                         /i2c = I2C\(scl=Pin\(23\), sda=Pin\(22\)\)  # __DISPLAY_CONFIG_C6__\s*\n\s*# i2c = SoftI2C\(scl=Pin\(7\), sda=Pin\(6\)\)  # __DISPLAY_CONFIG_C3__/,
                         '# i2c = I2C(scl=Pin(23), sda=Pin(22))  # __DISPLAY_CONFIG_C6__\n            i2c = SoftI2C(scl=Pin(7), sda=Pin(6))  # __DISPLAY_CONFIG_C3__'
@@ -664,12 +612,10 @@ export class HubSetupModal {
                     mainPyFile.content = newContent;
                     console.log('Configured display for C3: SoftI2C on pins 7 (SCL), 6 (SDA)');
                 } else {
-                    // Use C6/default pins: I2C on pins 23 (SCL), 22 (SDA)
                     console.log('Configured display for C6: I2C on pins 23 (SCL), 22 (SDA)');
                 }
             }
             
-            // Initialize progress tracking
             this.uploadProgress = {
                 current: 0,
                 total: files.length,
@@ -678,12 +624,10 @@ export class HubSetupModal {
             };
             this.render();
 
-            // Set up progress callback for Python to call
             window.onUploadProgress = (progress) => {
                     this.uploadProgress.current = progress.current;
                 this.uploadProgress.currentFile = progress.file;
                 
-                // Update file status
                     const fileIndex = this.uploadProgress.files.findIndex(f => f.path === progress.file);
                     if (fileIndex >= 0) {
                         this.uploadProgress.files[fileIndex].status = progress.status;
@@ -692,14 +636,11 @@ export class HubSetupModal {
                 this.render();
             };
 
-            // Call Python upload function (handles REPL mode internally)
             console.log('Starting Python upload...');
             const result = await PyBridge.uploadFirmware(files);
 
-            // Clean up progress callback
             delete window.onUploadProgress;
 
-            // Check result
             if (result.status === 'success') {
                 console.log(`✅ Upload successful: ${result.files_uploaded} files`);
             this.state = 'success';
@@ -714,7 +655,6 @@ export class HubSetupModal {
             this.state = 'error';
             this.render();
 
-            // Clean up progress callback
             if (window.onUploadProgress) {
                 delete window.onUploadProgress;
             }

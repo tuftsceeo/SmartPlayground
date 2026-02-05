@@ -1,26 +1,11 @@
 """
 Simple Hub - USB Serial to ESP-NOW Bridge
-==========================================
 
-This hub connects the webapp (via USB Serial/WebUSB) to playground modules (via ESP-NOW).
-Based on the headless_controller.py pattern with added Serial communication.
-
-Hardware: ESP32-C6 with external antenna
-
-ESP32 SERIAL OUTPUT Note 
-========================================================
-On ESP32 MicroPython, ALL print() statements (both stdout AND stderr) 
-go to the SAME serial port that we use for JSON communication!
-
-THIS MEANS: All print() risk interrupting the JSON stream and breaking the webapp
-ALWAYS wrap any debug print() in "if DEBUG_MODE:" checks
-========================================================
+Connects webapp (USB Serial) to playground modules (ESP-NOW).
+Hardware: ESP32-C6 with optional external antenna (or ESP32-C3)
 """
 
-# Debug mode flag (set to False for production - debug messages interfere with serial JSON)
 DEBUG_MODE = False
-
-# Hub firmware version
 HUB_VERSION = "v2.1.0"
 
 import sys
@@ -31,11 +16,7 @@ import asyncio
 import utilities.now as now
 from controller import Control
 
-# NO print() here! Even with DEBUG_MODE check, this runs on import before DEBUG_MODE is checked
-# If you need to debug loading, use display or temporary DEBUG_MODE check
-
-# Try to import display support
-ROW_HEIGHT = 10  # Pixels per line on 128x64 display (can fit 6 lines)
+ROW_HEIGHT = 10
 MAX_DISPLAY_LINES = 6
 
 try:
@@ -45,11 +26,9 @@ try:
 except ImportError:
     DISPLAY_AVAILABLE = False
 
-# Game command mapping - synchronized with Plushie_Module/config.py
-# Last synced: 2026-01-26
-# IMPORTANT: Keep in sync with plushie games list (0-10) plus stop command (-1)
+# Game IDs 0-10, -1 = stop (see Plushie_Module/config.py)
 GAME_MAP = {
-    # Core games (indices 0-10 from config.py)
+     # Core games (indices 0-10 from config.py)
     "Notes": 0,           # Music/sound notes
     "Shake": 1,           # Motion detection / shake counter
     "Hot_cold": 2,        # Proximity finding game
@@ -69,22 +48,15 @@ GAME_MAP = {
 }
 
 class SerialBridge:
-    """Handle USB Serial communication with webapp"""
+    """Handle USB Serial communication with webapp."""
     
     def __init__(self, command_callback, debug_callback):
-        """
-        Initialize serial bridge
-        
-        Args:
-            command_callback: Function to call with (cmd_type, cmd_data)
-            debug_callback: Function to call for debug messages
-        """
         self.command_callback = command_callback
         self.debug = debug_callback
         self.buffer = ""
     
     def send(self, data):
-        """Send JSON message to webapp via Serial"""
+        """Send JSON message to webapp via Serial."""
         try:
             if DEBUG_MODE:
                 print(f"🔴 [Hub] About to send data: {data}", file=sys.stderr)
@@ -94,10 +66,7 @@ class SerialBridge:
             if DEBUG_MODE:
                 print(f"🔴 [Hub] JSON serialized, length: {len(msg)} bytes", file=sys.stderr)
             
-            # Print to stdout with explicit newline (MicroPython should auto-flush)
             print(msg)
-            
-            # Small delay to ensure serial buffer is flushed (prevents message concatenation)
             time.sleep_ms(10)
             
             if DEBUG_MODE:
@@ -108,22 +77,18 @@ class SerialBridge:
                 print(f"🔴 ERROR: Serial send failed: {e}", file=sys.stderr)
     
     def check_input(self):
-        """Check for incoming Serial data (non-blocking with select() fallback)"""
+        """Check for incoming Serial data (non-blocking)."""
         try:
-            # Try using select to check if stdin has data
             rlist, _, _ = select.select([sys.stdin], [], [], 0)
             has_data = bool(rlist)
         except (OSError, ValueError, NotImplementedError) as e:
-            # Fallback for platforms where select() doesn't work
-            # Some ESP32 MicroPython builds don't support select on stdin
+            # Fallback when select() unavailable
             if DEBUG_MODE:
                 print(f"🔴 [Hub] select() not supported, using fallback: {e}", file=sys.stderr)
-            # Use a simple try-read approach as fallback
-            has_data = True  # Assume data might be available, try reading
+            has_data = True
         
         if has_data:
             try:
-                # Read available data (non-blocking, 1 byte at a time)
                 chunk = sys.stdin.read(1)
                 if chunk:
                     if DEBUG_MODE:
@@ -133,7 +98,6 @@ class SerialBridge:
                     if DEBUG_MODE:
                         print(f"🔴 [Hub] Buffer now: {repr(self.buffer)}", file=sys.stderr)
                     
-                    # Check for complete lines
                     while '\n' in self.buffer:
                         line, self.buffer = self.buffer.split('\n', 1)
                         line = line.strip()
@@ -148,9 +112,8 @@ class SerialBridge:
                     print(f"🔴 [Hub] ERROR in check_input: {e}", file=sys.stderr)
     
     def _process_command(self, line):
-        """Parse JSON command and call callback"""
+        """Parse JSON command and call callback."""
         try:
-            # Echo received command for debugging
             if DEBUG_MODE:
                 print(f"🔴 [Hub] Processing command: {line}", file=sys.stderr)
             
@@ -183,9 +146,6 @@ class HubDisplay:
             return
         
         try:
-            # Initialize I2C and display
-            # C6: I2C on pins 23 (SCL), 22 (SDA)
-            # C3: SoftI2C on pins 7 (SCL), 6 (SDA)
             i2c = I2C(scl=Pin(23), sda=Pin(22))  # __DISPLAY_CONFIG_C6__
             # i2c = SoftI2C(scl=Pin(7), sda=Pin(6))  # __DISPLAY_CONFIG_C3__
             self.display = ssd1306.SSD1306_I2C(128, 64, i2c)
@@ -205,16 +165,13 @@ class HubDisplay:
             return
         
         try:
-            # Truncate message to fit display width (~20 chars at 6x8 font)
             if len(msg) > 20:
                 msg = msg[:17] + "..."
             
-            # Add to rolling buffer
             self.lines.append(msg)
             if len(self.lines) > MAX_DISPLAY_LINES:
                 self.lines = self.lines[-MAX_DISPLAY_LINES:]
             
-            # Clear and redraw all lines
             self.display.fill(0)
             y = 2
             for line in self.lines:
@@ -223,7 +180,6 @@ class HubDisplay:
             
             self.display.show()
         except Exception as e:
-            # If display update fails, disable it
             if DEBUG_MODE:
                 print(f"Display update error: {e}", file=sys.stderr)
             self.display = None
