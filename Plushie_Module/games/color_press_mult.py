@@ -1,6 +1,5 @@
-#  Press stuffie button - press button x times and scoup - ice cream shop - but 3 times (three scoups)
-
 import time, json
+import asyncio
 
 from games.game import Game
 from utilities.colors import *
@@ -15,6 +14,11 @@ NUM_SCOOPS = 3
 # NEW: show up to 7 button presses in the white counting bar (LEDs 0–6)
 COUNT_BAR_LEN = 7
 
+TARGET_COMBOS = [
+    [YELLOW, YELLOW, YELLOW],
+    [YELLOW, RED, PURPLE ],
+]
+# Edit color combos for each animal
 
 class Color_Press_Mult(Game):
     def __init__(self, main):
@@ -27,7 +31,14 @@ class Color_Press_Mult(Game):
         self.scoop_colors = [None] * NUM_SCOOPS
         self.counting_mode = False
 
+    def _log(self, message):
+        try:
+            self.main.log_message(f"[COLOR_PRESS_MULT] {message}")
+        except:
+            print(message)
+
     def start(self):
+        self._log("Game started")
         self._reset_cycle()
 
     # ---------- helpers ----------
@@ -95,6 +106,7 @@ class Color_Press_Mult(Game):
 
                 # After scoop 3 is showing, first press begins a new cycle for scoop 1
                 if self.scoop_index >= NUM_SCOOPS:
+                    self._log("New cycle started (all scoops filled)")
                     self._restart_for_new_cycle()
 
                 # debounce
@@ -103,6 +115,7 @@ class Color_Press_Mult(Game):
 
                 self.button_count += 1
                 self.counting_mode = True
+                self._log(f"Button pressed | scoop={self.scoop_index+1}/{NUM_SCOOPS} | count={self.button_count}")
 
                 # focus counting view
                 self._render_count_bar()
@@ -111,19 +124,40 @@ class Color_Press_Mult(Game):
             if self.state == 'Upright':
                 if x < UPSIDEDOWN_THRESHOLD:
                     self.state = 'Upside_down'
+                    self._log(f"Flip → Upside_down | x={x:+.3f}")
 
             elif self.state == 'Upside_down':
                 if x > UPRIGHT_THRESHOLD:
                     self.state = 'Upright'
+                    self._log(f"Flip → Upright | x={x:+.3f}")
 
                     # Commit ONLY if we are mid-cycle and the user actually counted presses
                     if self.scoop_index < NUM_SCOOPS and self.counting_mode:
                         chosen = self._color_from_count(self.button_count)
                         self.scoop_colors[self.scoop_index] = chosen
 
+                        self._log(f"Scoop committed | scoop={self.scoop_index+1}/{NUM_SCOOPS} | count={self.button_count} → color_index={8-self.button_count if self.button_count < 8 else 'WHITE'}")
+
                         self.scoop_index += 1
                         self.button_count = 0
                         self.counting_mode = False
+
+                        if self.scoop_index >= NUM_SCOOPS:
+                            self._log(f"All {NUM_SCOOPS} scoops complete | colors={self.scoop_colors}")
+                            if self.scoop_colors in TARGET_COMBOS:
+                                self._log("TARGET_COMBO matched → blink + rainbow")
+                                self._render_committed()
+                                await asyncio.sleep(0.5)
+                                last_scoop_color = self.scoop_colors[-1]
+                                for _ in range(5):
+                                    self.main.lights.all_off()
+                                    await asyncio.sleep(0.2)
+                                    self._render_committed()
+                                    await asyncio.sleep(0.2)
+                                for i in range(12):
+                                    self.main.lights.on(i, COLORS[i % 7], INTENSITY)
+                                self._log("Rainbow displayed")
+                                return
 
                         # after commit, all scoops reappear
                         self._render_committed()
@@ -134,4 +168,5 @@ class Color_Press_Mult(Game):
             print(e)
 
     def close(self):
+        self._log(f"Game closed | scoop_index={self.scoop_index} | scoop_colors={self.scoop_colors}")
         self.main.lights.all_off()
