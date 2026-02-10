@@ -31,18 +31,19 @@ GAME_MAP = {
      # Core games (indices 0-10 from config.py)
     "Notes": 0,           # Music/sound notes
     "Shake": 1,           # Motion detection / shake counter
-    "Hot_cold": 2,        # Proximity finding game
-    "Jump": 3,            # Jump counter
-    "Clap": 4,            # Range/connectivity test
-    "Rainbow": 5,         # Battery check + celebration
-    "Hibernate": 6,       # Sleep mode with button warning
-    "Pattern_btn": 7,     # Button pattern matching
-    "Pattern_plush": 8,   # Plushie pattern matching
-    "Color_Press": 9,     # Single color selection
-    "Color_Press_Mult": 10,  # Multi-color stacking
+    "Shake_rainbow": 2,   # Motion detection / shake counter with rainbow
+    "Hot_cold": 3,        # Proximity finding game
+    "Jump": 4,            # Jump counter
+    "Clap": 5,            # Range/connectivity test
+    "Rainbow": 6,         # Battery check + celebration
+    "Hibernate": 7,       # Sleep mode with button warning
+    "Pattern_btn": 8,     # Button pattern matching
+    "Pattern_plush": 9,   # Plushie pattern matching
+    "Color_Press": 10,     # Single color selection
+    "Color_Press_Mult": 1,  # Multi-color stacking
     
     # Command aliases (backwards compatibility & user convenience)
-    "Off": 6,             # Alias for Hibernate
+    "Off": 7,             # Alias for Hibernate
     "Stop": -1,           # Stop current game, return to idle
     "Pause": -1,          # Alias for Stop
 }
