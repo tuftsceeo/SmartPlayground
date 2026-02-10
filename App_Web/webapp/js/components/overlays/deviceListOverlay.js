@@ -6,7 +6,7 @@ import { getDeviceIcon, getSignalIcon, getBatteryIcon } from '../common/icons.js
 import { getRangeLabel } from '../../state/store.js';
 import { getRelativeTime } from '../../utils/helpers.js';
 
-export function createDeviceListOverlay(devices, range, editingDeviceId, nicknames, onClose, onRangeChange, onStartEdit, onSaveNickname, hubConnected, onHubConnect) {
+export function createDeviceListOverlay(devices, range, editingDeviceId, nicknames, onClose, onRangeChange, onStartEdit, onSaveNickname, hubConnected, onHubConnect, hubConnecting = false) {
   const overlay = document.createElement('div');
   overlay.className = 'absolute inset-0 bg-white z-50 flex flex-col';
   overlay.style.display = 'none';
@@ -29,29 +29,32 @@ export function createDeviceListOverlay(devices, range, editingDeviceId, nicknam
   
   // Event handlers
   overlay.querySelector('#backBtn').onclick = onClose;
- 
+
   
   // Add devices
   const deviceList = overlay.querySelector('#deviceList');
   
   if (!hubConnected) {
-    // Bluetooth disconnected state
+    // Hub disconnected state
+    const isDisabled = hubConnecting;
     deviceList.innerHTML = `
       <div class="flex flex-col items-center justify-center py-16 px-4">
-        <i data-lucide="bluetooth-off" class="w-12 h-12 text-gray-400 mb-4"></i>
-        <div class="text-sm font-medium text-gray-900 mb-6">Bluetooth Disconnected</div>
-        <button class="px-6 py-2.5 bg-amber-600 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2" id="connectBtn">
-          <i data-lucide="bluetooth" class="w-4 h-4"></i>
-          Connect
+        <i data-lucide="unplug" class="w-12 h-12 text-gray-400 mb-4"></i>
+        <div class="text-sm font-medium text-gray-900 mb-6">Hub Disconnected</div>
+        <button ${isDisabled ? 'disabled' : ''} class="px-6 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2 ${isDisabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-700'}" id="connectBtn">
+          <i data-lucide="plug" class="w-4 h-4"></i>
+          ${hubConnecting ? 'Connecting...' : 'Connect to Hub'}
         </button>
       </div>
     `;
     
     // Add connect button handler
-    deviceList.querySelector('#connectBtn').onclick = (e) => {
-      e.stopPropagation();
-      onHubConnect();
-    };
+    if (!isDisabled) {
+      deviceList.querySelector('#connectBtn').onclick = (e) => {
+        e.stopPropagation();
+        onHubConnect();
+      };
+    }
   } else if (devices.length === 0) {
     deviceList.innerHTML = '<div class="text-center text-gray-400 py-12 text-sm">No devices in range</div>';
   } else {

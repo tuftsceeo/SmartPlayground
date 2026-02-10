@@ -1,27 +1,8 @@
 """
 Smart Playground Control - Python Backend
 
-PyScript backend for Smart Playground Control. Handles BLE/Serial communication
-with ESP32 hub devices and manages ESP-NOW protocol for playground modules.
-
-Key Responsibilities:
-- Connection management (Serial USB primary, BLE legacy)
-- Device discovery and RSSI-based filtering
-- Command transmission and response handling
-- JSON/JavaScript data conversion
-- Event dispatching to frontend
-
-Communication Flow:
-1. Connect to ESP32 hub via Serial (USB) or BLE (Nordic UART)
-2. Hub broadcasts commands to modules via ESP-NOW
-3. Modules respond through hub
-4. Backend parses and updates frontend
-
-Dependencies:
-- PyScript 2024.1.1 (browser Python execution)
-- mpy/hub_serial.py, hub_bluetooth.py, repl_controller.py, firmware_manager.py
-- js/adapters/serialAdapter.js, bluetoothAdapter.js (browser APIs)
-- js/utils/pyBridge.js (JavaScript-Python bridge)
+PyScript backend handling USB Serial communication with ESP32 hub devices
+and ESP-NOW protocol for playground modules.
 """
 
 from pyscript import document, window
@@ -32,90 +13,55 @@ import random
 import time
 import asyncio
 
-# Debug mode flag
 _DEBUG_SERIAL = True
 
 print("✅ main.py LOADED")
 console.log("✅ main.py visible in browser console")
 
-# Check if JavaScript adapters are loaded (hybrid architecture)
 if not hasattr(window, 'serialAdapter'):
     console.error("❌ FATAL: serialAdapter not found!")
     console.error("Make sure js/adapters/serialAdapter.js is loaded before PyScript")
-    raise Exception("JavaScript adapters not loaded properly")
+    raise Exception("JavaScript serial adapter not loaded properly")
 
-if not hasattr(window, 'bluetoothAdapter'):
-    console.error("❌ FATAL: bluetoothAdapter not found!")
-    console.error("Make sure js/adapters/bluetoothAdapter.js is loaded before PyScript")
-    raise Exception("JavaScript adapters not loaded properly")
+console.log("✅ JavaScript serial adapter detected")
 
-console.log("✅ JavaScript adapters detected")
-
-# Import new refactored modules
-from mpy.hub_bluetooth import BluetoothConnection
 from mpy.hub_serial import SerialConnection
 from mpy.repl_controller import ReplController
 from mpy.firmware_manager import FirmwareManager
 
 # Create component instances
-ble = BluetoothConnection()
 serial = SerialConnection()
 repl = ReplController(serial)
 firmware = FirmwareManager(repl)
 
-# Set up serial callbacks (will be properly assigned after functions are defined)
-# These are forward-declared here and assigned at the bottom of the file
+# Set up serial callbacks
 
 # Connection state
-ble_connected = False
 serial_connected = False
 hub_device_name = None
-hub_connection_mode = None  # "ble" or "serial"
-
-# Device data (will be updated via BLE from hub)
+hub_connection_mode = None
 devices = []
 
-# Connection health monitoring
 last_hub_ready_time = 0
 last_device_list_time = 0
 last_heartbeat_time = 0
 pending_commands = {}  # {command_id: {command, timestamp, timeout_ms}}
 
-# Message framing state for BLE transmission reassembly
+# Message framing state for unused BLE transmission reassembly
 # Protocol: MSG:<length>|<payload>
 _frame_state = "waiting_header"  # States: "waiting_header", "receiving_payload"
 _expected_payload_length = 0
 _payload_buffer = ""
-_frame_buffer = ""  # Buffer for header parsing
+_frame_buffer = ""
 _last_fragment_time = 0
-_buffer_timeout = 2.0  # 2 second timeout for message completion
+_buffer_timeout = 2.0
 
 def parse_hub_response(data):
-    """
-    Parse and validate JSON response from ESP32 hub.
-    
-    This function handles JSON parsing with a single repair attempt for truncated data.
-    It validates required fields and logs parsing failures for debugging.
-    
-    Parameters:
-    -----------
-    data : str
-        Raw JSON string from hub (should already be filtered to only JSON messages)
-        
-    Returns:
-    --------
-    dict or None: Parsed JSON data if successful, None if parsing failed
-        
-    Error Handling:
-    - Single repair attempt for truncated JSON
-    - Minimal logging (detailed errors handled by caller)
-    """
+    """Parse JSON from hub with single repair attempt for truncated data."""
     try:
-        # Try to parse JSON normally first
         parsed = json.loads(data)
         return parsed
     except Exception as e:
-        # Single repair attempt for truncated JSON
         if "Unterminated string" in str(e) or "Expecting" in str(e):
             try:
                 fixed_data = data + '"]}'
@@ -128,34 +74,21 @@ def parse_hub_response(data):
             return None
 
 def process_complete_message(message_data):
-    """
-    Process a complete message received from the hub.
-    
-    This is called once we've reassembled a complete framed message.
-    It parses the JSON and updates the UI accordingly.
-    
-    The hub sends two types of messages:
-    1. JSON data (starts with '{') - commands, acks, device lists
-    2. Plain text debug messages - hub's internal logging
-    """
+    """Process message from hub (JSON or debug text)."""
     global devices
     
-    # Quick check: Is this JSON or a debug message?
     message_data = message_data.strip()
     
     console.log(f"🔵 process_complete_message: stripped data = '{message_data[:100]}'")
     console.log(f"🔵 process_complete_message: starts with '{{' ? {message_data.startswith('{')}")
     
     if not message_data.startswith('{'):
-        # Not JSON - this is a debug/print statement from the hub
         console.info(f"📡 Hub debug: {message_data}")
         return
     
-    # It's JSON - try to parse it
     console.log("=== PROCESSING HUB JSON ===")
     console.log(f"Full JSON message: {message_data}")
     
-    # Parse JSON using centralized function
     parsed = parse_hub_response(message_data)
     if not parsed:
         console.error(f"❌ Failed to parse hub JSON: {message_data}")
@@ -163,12 +96,10 @@ def process_complete_message(message_data):
     
     console.log(f"✅ JSON parsed successfully: type = '{parsed.get('type', 'MISSING')}'")
     
-    # Validate required fields
     if 'type' not in parsed:
         console.log("❌ Missing 'type' field in hub response")
         return
     
-    # Handle different message types
     if parsed.get("type") == "ready":
         # Hub startup handshake
         global last_hub_ready_time
@@ -199,7 +130,6 @@ def process_complete_message(message_data):
         console.log("🎯 Found 'devices' type - processing device list")
         console.log(f"Device list length: {len(parsed.get('list', []))}")
         
-        # Validate device list
         if 'list' not in parsed:
             console.log("Missing 'list' field in devices response")
             return
@@ -209,7 +139,6 @@ def process_complete_message(message_data):
             console.log("Device list is not an array")
             return
         
-        # Deduplicate devices by MAC address (keep first occurrence)
         seen_macs = set()
         unique_devices = []
         for dev in device_list:
@@ -222,13 +151,10 @@ def process_complete_message(message_data):
         
         console.log(f"Filtered {len(device_list)} devices to {len(unique_devices)} unique devices")
         
-        # Extract hub timestamp for client-side age calculation
         hub_timestamp = parsed.get("timestamp", 0)
         
-        # Convert to expected format
         devices = []
         for dev in unique_devices:
-            # Calculate signal bars from RSSI
             rssi = dev.get("rssi", -100)
             if rssi >= -50:
                 signal = 3
@@ -239,7 +165,6 @@ def process_complete_message(message_data):
             else:
                 signal = 0
             
-            # Get battery percentage and convert to level string
             battery_pct = dev.get("battery", 50)
             if battery_pct >= 75:
                 battery = "full"
@@ -250,29 +175,25 @@ def process_complete_message(message_data):
             else:
                 battery = "low"
             
-            # Get original device name
             device_name = dev.get("id", "Unknown")
             
-            # Create sanitized ID for DOM selectors (remove spaces and special chars)
-            # Replace spaces with hyphens and remove any characters that aren't alphanumeric or hyphens
+            # Sanitize ID for DOM selectors
             sanitized_id = device_name.replace(" ", "-").replace("_", "-")
-            # Remove any remaining special characters
             sanitized_id = ''.join(c for c in sanitized_id if c.isalnum() or c == '-')
             
             console.log(f"DEBUG SANITIZATION: '{device_name}' -> '{sanitized_id}'")
             
             devices.append({
-                "id": sanitized_id,  # Sanitized ID for DOM selectors
-                "name": device_name,  # Original name for display
+                "id": sanitized_id,
+                "name": device_name,
                 "type": "module",
                 "rssi": rssi,
                 "signal": signal,
                 "battery": battery,
-                "battery_pct": battery_pct,  # Percentage for display
-                "last_seen": dev.get("last_seen", 0)  # Hub timestamp (ticks_ms)
+                "battery_pct": battery_pct,
+                "last_seen": dev.get("last_seen", 0)
             })
         
-        # Call JavaScript directly with hub timestamp
         if hasattr(window, 'onDevicesUpdated'):
             console.log("🟢 Python: Calling window.onDevicesUpdated()")
             console.log(f"📋 Devices to send: {len(devices)} devices")
@@ -280,8 +201,6 @@ def process_complete_message(message_data):
                 console.log(f"  Device {i+1}: {dev.get('name')} (RSSI: {dev.get('rssi')}, Battery: {dev.get('battery_pct')}%)")
             console.log(f"⏰ Hub timestamp: {hub_timestamp}")
             
-            # Convert Python list to JavaScript array using to_js()
-            # This creates proper JavaScript objects that won't be garbage collected
             js_devices = to_js(devices, dict_converter=Object.fromEntries)
             
             console.log(f"✅ Converted to JS: {len(devices)} devices")
@@ -292,7 +211,6 @@ def process_complete_message(message_data):
         
         console.log(f"Updated {len(devices)} devices from hub")
     elif parsed.get("type") == "heartbeat":
-        # Heartbeat from hub
         global last_heartbeat_time
         last_heartbeat_time = time.time()
         
@@ -301,7 +219,6 @@ def process_complete_message(message_data):
             uptime = parsed.get("uptime", 0)
             console.log(f"💓 Heartbeat received (uptime: {uptime}ms)")
         
-        # Update last heartbeat time for connection health monitoring
         if hasattr(window, 'onHubHeartbeat'):
             js_data = Object.new()
             js_data.timestamp = parsed.get("timestamp", 0)
@@ -309,7 +226,6 @@ def process_complete_message(message_data):
             window.onHubHeartbeat(js_data)
     
     elif parsed.get("type") == "ack":
-        # Acknowledgment from hub that command was sent
         global pending_commands
         
         console.log("Received acknowledgment from hub")
@@ -317,7 +233,6 @@ def process_complete_message(message_data):
         status = parsed.get("status", "unknown")
         rssi = parsed.get("rssi", "all")
         
-        # Clear pending command(s) for this command type
         cleared_commands = []
         for cmd_id, cmd_info in list(pending_commands.items()):
             if cmd_info['command'] == command:
@@ -329,250 +244,44 @@ def process_complete_message(message_data):
         
         if status == "sent":
             console.log(f"✓ Command '{command}' sent successfully (RSSI: {rssi})")
-            # Optionally show toast for user feedback
-            # showToast(f"Command '{command}' sent to modules", "success")
         else:
             console.log(f"✗ Command '{command}' failed to send (status: {status})")
-            # Optionally show error toast
-            # showToast(f"Command '{command}' failed", "error")
     elif parsed.get("type") == "error":
-        # Error message from hub
         console.log("Received error from hub")
         error_msg = parsed.get("message", "Unknown error")
         console.log(f"Hub error: {error_msg}")
         
-        # Show error to user
         if hasattr(window, 'showToast'):
             window.showToast(error_msg, "error")
     else:
         console.log(f"Unknown message type: {parsed.get('type')}")
 
-def on_ble_data(data):
-    """
-    Handle incoming BLE data with message framing protocol.
-    
-    Message Framing Protocol:
-    -------------------------
-    Format: MSG:<length>|<payload>
-    
-    Example:
-    - Fragment 1: "MSG:330|"  (header indicating 330 bytes follow)
-    - Fragment 2-N: Payload chunks (100 bytes each typically)
-    
-    State Machine:
-    1. waiting_header: Looking for "MSG:<length>|" header
-    2. receiving_payload: Accumulating payload bytes until we have <length> bytes
-    
-    This approach is much more robust than trying to detect JSON completeness,
-    as it explicitly tells us how many bytes to expect.
-    
-    Parameters:
-    -----------
-    data : str
-        Raw string fragment from BLE notification
-    """
-    global _frame_state, _expected_payload_length, _payload_buffer, _frame_buffer, _last_fragment_time
-    
-    console.log(f"=== BLE FRAGMENT v2.0 (FRAMED) ===")
-    console.log(f"State: {_frame_state}")
-    console.log(f"Fragment: {data[:50]}{'...' if len(data) > 50 else ''}")
-    console.log(f"Fragment length: {len(data)}")
-    
-    # Timeout handling
-    current_time = time.time()
-    if _frame_buffer or _payload_buffer:
-        if (current_time - _last_fragment_time) > _buffer_timeout:
-            console.log(f"TIMEOUT: Resetting frame state (no data for {_buffer_timeout}s)")
-            _frame_state = "waiting_header"
-            _frame_buffer = ""
-            _payload_buffer = ""
-            _expected_payload_length = 0
-    
-    _last_fragment_time = current_time
-    
-    # State machine for framed message reception
-    # Track if we just transitioned states in this call
-    state_changed = False
-    
-    if _frame_state == "waiting_header":
-        # Accumulate data until we find the header
-        _frame_buffer += data
-        
-        # Look for frame header: MSG:<length>|
-        if "MSG:" in _frame_buffer and "|" in _frame_buffer:
-            # Extract header
-            header_start = _frame_buffer.index("MSG:")
-            header_end = _frame_buffer.index("|", header_start)
-            
-            # Parse length from header
-            try:
-                length_str = _frame_buffer[header_start + 4:header_end]
-                _expected_payload_length = int(length_str)
-                console.log(f"HEADER RECEIVED: Expecting {_expected_payload_length} bytes of payload")
-                
-                # Any data after the "|" is the start of the payload
-                payload_start = header_end + 1
-                _payload_buffer = _frame_buffer[payload_start:]
-                _frame_buffer = ""
-                
-                # Transition to receiving payload state
-                _frame_state = "receiving_payload"
-                state_changed = True  # Mark that we just transitioned
-                console.log(f"State -> receiving_payload (already have {len(_payload_buffer)} bytes)")
-                
-                # Check if header fragment contained complete payload
-                if len(_payload_buffer) >= _expected_payload_length:
-                    # Complete message was in header fragment!
-                    complete_payload = _payload_buffer[:_expected_payload_length]
-                    console.log(f"PAYLOAD COMPLETE: {len(complete_payload)} bytes received (in header fragment)")
-                    console.log(f"Processing complete framed message...")
-                    
-                    # Process the complete message
-                    process_complete_message(complete_payload)
-                    
-                    # Reset state for next message
-                    _frame_state = "waiting_header"
-                    _payload_buffer = ""
-                    _frame_buffer = ""
-                    _expected_payload_length = 0
-                    console.log("State -> waiting_header (ready for next message)")
-                    return
-                
-            except (ValueError, IndexError) as e:
-                console.log(f"ERROR: Failed to parse header: {e}")
-                console.log(f"Header buffer: {_frame_buffer}")
-                _frame_buffer = ""
-                return
-        else:
-            console.log(f"Still waiting for header (buffer: {len(_frame_buffer)} bytes)")
-            return
-    
-    # Only process payload if we're already in receiving_payload state 
-    # (not if we just transitioned to it in this same call)
-    if _frame_state == "receiving_payload" and not state_changed:
-        # Add new fragment to payload buffer
-        _payload_buffer += data
-        
-        console.log(f"Payload progress: {len(_payload_buffer)}/{_expected_payload_length} bytes")
-        
-        # Check if we have the complete payload
-        if len(_payload_buffer) >= _expected_payload_length:
-            # Extract exact payload (trim any extra data)
-            complete_payload = _payload_buffer[:_expected_payload_length]
-            
-            console.log(f"PAYLOAD COMPLETE: {len(complete_payload)} bytes received")
-            console.log(f"Processing complete framed message...")
-            
-            # Process the complete message
-            process_complete_message(complete_payload)
-            
-            # Reset state for next message
-            _frame_state = "waiting_header"
-            _payload_buffer = ""
-            _frame_buffer = ""
-            _expected_payload_length = 0
-            
-            console.log("State -> waiting_header (ready for next message)")
-        else:
-            console.log(f"Waiting for more payload ({_expected_payload_length - len(_payload_buffer)} bytes remaining)")
-
-
-# Set the callback for BLE data (proxied for JS)
-ble.on_data_callback = create_proxy(on_ble_data)
-
-
-# BLE Connection Functions
+# Unused BLE stubs
 async def connect_hub():
-    """Connect to hub via BLE using Nordic UART Service (deprecated, use connect_hub_serial).
-    
-    Returns:
-        JavaScript object with status: "success"|"cancelled"|"error"
-    """
-    global ble_connected, hub_device_name
-    
-    try:
-        # Connect by service UUID to find any Nordic UART device
-        success = await ble.connect_by_service()
-        
-        if success:
-            ble_connected = True
-            hub_device_name = ble.device.name
-            console.log(f"Connected to hub: {hub_device_name}")
-            
-            # Call JavaScript directly
-            if hasattr(window, 'onBLEConnected'):
-                console.log("Python: Calling onBLEConnected directly")
-                # Create proper JavaScript object
-                js_data = Object.new()
-                js_data.deviceName = hub_device_name
-                window.onBLEConnected(js_data)
-                console.log("Python: BLE connected callback called")
-            else:
-                console.log("Python: onBLEConnected not available")
-            
-            # Return proper JavaScript object
-            js_result = Object.new()
-            js_result.status = "success"
-            js_result.device = hub_device_name
-            return js_result
-        else:
-            # User cancelled or no device found - this is normal, not an error
-            console.log("BLE connection cancelled or no device found")
-            # Return proper JavaScript object
-            js_result = Object.new()
-            js_result.status = "cancelled"
-            js_result.error = "User cancelled or device not found"
-            return js_result
-            
-    except Exception as e:
-        error_msg = str(e)
-        console.log(f"Connection error: {error_msg}")
-        
-        # Check if it's a user cancellation error
-        if ("User cancelled" in error_msg or 
-            "NotAllowedError" in error_msg or 
-            "AbortError" in error_msg or
-            "cancelled" in error_msg.lower()):
-            console.log("User cancelled BLE connection - this is normal")
-            js_result = Object.new()
-            js_result.status = "cancelled"
-            js_result.error = "User cancelled connection"
-            return js_result
-        else:
-            console.log(f"Real BLE error: {error_msg}")
-            js_result = Object.new()
-            js_result.status = "error"
-            js_result.error = error_msg
-            return js_result
+    """Unused BLE stub."""
+    console.error("❌ connect_hub() is deprecated - BLE not supported")
+    console.error("Use connect_hub_serial() for USB Serial connection")
+    js_result = Object.new()
+    js_result.status = "error"
+    js_result.error = "BLE not supported - use USB Serial connection"
+    return js_result
 
 async def disconnect_hub():
-    """Disconnect from BLE hub (legacy, use disconnect_hub_serial)."""
-    global ble_connected, hub_device_name, hub_connection_mode
-    
-    await ble.disconnect()
-    ble_connected = False
-    hub_device_name = None
-    hub_connection_mode = None
-    
-    # Call JavaScript directly
-    if hasattr(window, 'onBLEDisconnected'):
-        console.log("Python: Calling onBLEDisconnected directly")
-        window.onBLEDisconnected()
-    else:
-        console.log("Python: onBLEDisconnected not available")
-    
+    """Unused BLE stub."""
+    console.error("❌ disconnect_hub() is deprecated - BLE not supported")
+    console.error("Use disconnect_hub_serial() for USB Serial disconnection")
     js_result = Object.new()
-    js_result.status = "disconnected"
+    js_result.status = "error"
+    js_result.error = "BLE not supported - use USB Serial connection"
     return js_result
 
 async def connect_hub_serial():
-    """Connect to hub via USB Serial (primary connection method)."""
+    """Connect to hub via USB Serial."""
     global serial_connected, hub_device_name, hub_connection_mode
     
     console.log("Attempting Serial connection...")
     
     try:
-        # Set up data callback BEFORE connecting (to avoid missing initial messages)
         serial.on_data_callback = create_proxy(on_serial_data)
         
         if _DEBUG_SERIAL:
@@ -588,21 +297,18 @@ async def connect_hub_serial():
             
             console.log("Serial connected successfully")
             
-            # Notify JavaScript
             if hasattr(window, 'onHubConnected'):
                 js_data = Object.new()
                 js_data.deviceName = hub_device_name
                 js_data.mode = "serial"
                 window.onHubConnected(js_data)
             
-            # Return success
             js_result = Object.new()
             js_result.status = "success"
             js_result.device = hub_device_name
             js_result.mode = "serial"
             return js_result
         else:
-            # Connection failed - check console output for specific error
             console.log("Serial connection cancelled or failed - check console for details")
             js_result = Object.new()
             js_result.status = "error"
@@ -613,7 +319,6 @@ async def connect_hub_serial():
         error_msg = str(e)
         console.log(f"Serial connection exception: {error_msg}")
         
-        # Check for specific error types
         if "cancelled" in error_msg.lower() or "aborted" in error_msg.lower():
             js_result = Object.new()
             js_result.status = "cancelled"
@@ -639,7 +344,6 @@ async def disconnect_hub_serial():
     hub_device_name = None
     hub_connection_mode = None
     
-    # Notify JavaScript
     if hasattr(window, 'onHubDisconnected'):
         window.onHubDisconnected()
     
@@ -648,7 +352,7 @@ async def disconnect_hub_serial():
     return js_result
 
 def on_serial_data(data):
-    """Handle incoming Serial data (line-delimited JSON or debug output)."""
+    """Handle incoming Serial data."""
     if _DEBUG_SERIAL:
         console.log("=" * 80)
         console.log("🟡 [main.py] on_serial_data() CALLED")
@@ -659,15 +363,10 @@ def on_serial_data(data):
         console.log("🟡 on_serial_data() CALLED")
         console.log(f"📥 Serial data received ({len(data)} chars): {data[:200]}")
     
-    # Process the message (it will handle JSON vs debug message filtering)
     process_complete_message(data)
 
 def check_pending_commands():
-    """
-    Check for timed out commands and return list of timed out commands.
-    
-    Returns JavaScript array of timed out command objects.
-    """
+    """Check for timed out commands."""
     global pending_commands
     
     current_time = time.time()
@@ -681,7 +380,6 @@ def check_pending_commands():
                 'command': cmd_info['command'],
                 'age_ms': int(age_ms)
             })
-            # Remove from pending
             del pending_commands[cmd_id]
     
     if timed_out:
@@ -692,31 +390,20 @@ def check_pending_commands():
     return to_js(timed_out, dict_converter=Object.fromEntries)
 
 def check_connection_health():
-    """
-    Check connection health and return status info.
-    
-    Returns JavaScript object with:
-    - healthy: bool
-    - issues: array of issue descriptions
-    - last_heartbeat: seconds since last heartbeat
-    - last_device_list: seconds since last device list
-    """
+    """Check connection health and return status info."""
     global last_hub_ready_time, last_device_list_time, last_heartbeat_time
     
     current_time = time.time()
     issues = []
     
-    # Check if we have a hub connection
     if hub_connection_mode != "serial" or not serial.is_connected():
         issues.append("Not connected to hub")
     
-    # Check heartbeat (should be every 5s, warn if > 10s)
     if last_heartbeat_time > 0:
         heartbeat_age = current_time - last_heartbeat_time
         if heartbeat_age > 10:
             issues.append(f"No heartbeat for {int(heartbeat_age)}s")
     
-    # Check device list (should be every 30s after ready, warn if > 40s)
     if last_hub_ready_time > 0 and last_device_list_time == 0:
         ready_age = current_time - last_hub_ready_time
         if ready_age > 35:
@@ -726,7 +413,6 @@ def check_connection_health():
         if list_age > 40:
             issues.append(f"Device list stale ({int(list_age)}s)")
     
-    # Build result
     js_result = Object.new()
     js_result.healthy = len(issues) == 0
     js_result.issues = to_js(issues)
@@ -736,18 +422,12 @@ def check_connection_health():
     return js_result
 
 def on_serial_connection_lost():
-    """
-    Handle unexpected serial connection loss.
-    
-    This is called by hub_serial.py when the serial connection is lost
-    unexpectedly (not from user-initiated disconnect).
-    """
+    """Handle unexpected serial connection loss."""
     global serial_connected, hub_device_name, hub_connection_mode
     
     console.log("⚠️ Serial connection lost - updating backend state")
     console.log(f"BEFORE: serial_connected={serial_connected}, mode={hub_connection_mode}")
     
-    # Update Python backend state immediately
     serial_connected = False
     hub_device_name = None
     hub_connection_mode = None
@@ -755,7 +435,6 @@ def on_serial_connection_lost():
     console.log(f"AFTER: serial_connected={serial_connected}, mode={hub_connection_mode}")
     console.log(f"serial.is_connected() = {serial.is_connected()}")
     
-    # Notify JavaScript UI immediately for real-time feedback
     if hasattr(window, 'onHubDisconnected'):
         console.log("🔔 Notifying UI of disconnection via onHubDisconnected()")
         window.onHubDisconnected()
@@ -763,61 +442,35 @@ def on_serial_connection_lost():
         console.warn("⚠️ onHubDisconnected callback not found in window")
 
 async def send_command_to_hub(command, rssi_threshold="all"):
-    """Send command to hub for ESP-NOW broadcast to modules.
-    
-    Args:
-        command: Command name (e.g., "play", "pause", "win")
-        rssi_threshold: "all" or "-XX" for RSSI >= -XX dBm
-    
-    Returns:
-        JavaScript object with status: "sent"|"error"
-    """
+    """Send command to hub for ESP-NOW broadcast."""
     global pending_commands
     
-    # Check connection based on mode
-    if hub_connection_mode == "serial":
-        if not serial.is_connected():
-            console.log("❌ Serial not connected - cannot send command")
-            js_result = Object.new()
-            js_result.status = "error"
-            js_result.error = "Not connected to hub"
-            return js_result
-        
-        # Generate command ID for tracking
-        cmd_id = f"{command}_{int(time.time() * 1000)}"
-        
-        # Track pending command
-        pending_commands[cmd_id] = {
-            'command': command,
-            'timestamp': time.time(),
-            'timeout_ms': 2000
-        }
-        
-        # Format for Serial (JSON)
-        cmd_obj = {"cmd": command, "rssi": rssi_threshold}
-        message = json.dumps(cmd_obj)
-        success = await serial.send_json(message)
-        
-    elif hub_connection_mode == "ble":
-        if not ble.is_connected():
-            js_result = Object.new()
-            js_result.status = "error"
-            js_result.error = "Not connected to hub"
-            return js_result
-        
-        # Format for BLE (legacy format)
-        message = f'"{command}":"{rssi_threshold}"'
-        success = await ble.send(message)
-    
-    else:
+    # Check connection (USB Serial only)
+    if hub_connection_mode != "serial" or not serial.is_connected():
+        console.log("❌ Serial not connected - cannot send command")
         js_result = Object.new()
         js_result.status = "error"
         js_result.error = "Not connected to hub"
         return js_result
     
+    # Generate command ID for tracking
+    cmd_id = f"{command}_{int(time.time() * 1000)}"
+    
+    # Track pending command
+    pending_commands[cmd_id] = {
+        'command': command,
+        'timestamp': time.time(),
+        'timeout_ms': 2000
+    }
+    
+    # Format for Serial (JSON)
+    cmd_obj = {"cmd": command, "rssi": rssi_threshold}
+    message = json.dumps(cmd_obj)
+    success = await serial.send_json(message)
+    
     js_result = Object.new()
     if success:
-        console.log(f"Sent to hub ({hub_connection_mode}): {command}")
+        console.log(f"Sent to hub (serial): {command}")
         js_result.status = "sent"
         js_result.command = command
         js_result.threshold = rssi_threshold
@@ -828,11 +481,9 @@ async def send_command_to_hub(command, rssi_threshold="all"):
 
 def get_connection_status():
     """Return hub connection status (connected bool, mode, device name)."""
-    # Check actual connection status based on mode
+    # Check actual connection status (USB Serial only)
     if hub_connection_mode == "serial":
         actual_connected = serial.is_connected()
-    elif hub_connection_mode == "ble":
-        actual_connected = ble.is_connected()
     else:
         actual_connected = False
     
@@ -863,7 +514,7 @@ async def refresh_devices_from_hub(rssi_threshold="all"):
     # Convert rssi_threshold to string for protocol
     threshold_str = str(rssi_threshold)
     
-    # Send PING command based on connection mode
+    # Send PING command via Serial (USB Serial only)
     if hub_connection_mode == "serial":
         if not serial.is_connected():
             console.log("Cannot refresh: Hub not connected")
@@ -873,25 +524,15 @@ async def refresh_devices_from_hub(rssi_threshold="all"):
         ping_obj = {"cmd": "PING", "rssi": threshold_str}
         ping_command = json.dumps(ping_obj)
         await serial.send_json(ping_command)
-        
-    elif hub_connection_mode == "ble":
-        if not ble.is_connected():
-            console.log("Cannot refresh: Hub not connected")
-            return to_js([])
-        
-        # Format for BLE (legacy format)
-        ping_command = f'"PING":"{threshold_str}"'
-        await ble.send(ping_command)
-    
     else:
         console.log("Cannot refresh: Hub not connected")
         return to_js([])
     
     # Wait for response (hub should send back device list)
-    # The response will be handled by on_ble_data or on_serial_data callback
+    # The response will be handled by on_serial_data callback
     # which will update the global devices list
     
-    console.log(f"Device scan requested from hub ({hub_connection_mode}) with RSSI threshold: {threshold_str}")
+    console.log(f"Device scan requested from hub (serial) with RSSI threshold: {threshold_str}")
     
     # Convert Python list to JavaScript array using to_js()
     return to_js(devices, dict_converter=Object.fromEntries)
@@ -906,8 +547,8 @@ def refresh_devices():
     """Refresh device list (deprecated, use refresh_devices_from_hub)."""
     console.log("Python: refresh_devices called (deprecated)")
     
-    if ble.is_connected():
-        # Use BLE to get real device list
+    if serial.is_connected():
+        # Use Serial to get real device list
         return refresh_devices_from_hub()
     else:
         # Return empty list if not connected
@@ -918,8 +559,8 @@ def send_command(command, device_ids):
     """Send command to specific devices (legacy, use send_command_to_hub)."""
     console.log(f"Python: Sending '{command}' to {len(device_ids)} devices")
     
-    if ble.is_connected():
-        # Use BLE to send command to hub
+    if serial.is_connected():
+        # Use Serial to send command to hub
         # Convert range slider to RSSI threshold (this will be done in JS)
         rssi_threshold = "all"  # Default to all
         return send_command_to_hub(command, rssi_threshold)

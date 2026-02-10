@@ -97,7 +97,12 @@ export function createConnectionModal() {
         console.log("🔵 BLE connection selected");
         closeModal();
         
-        setState({ hubConnecting: true });
+        setState({ 
+            hubConnecting: true,
+            hubValidated: false,
+            hubVersion: null,
+            hubMac: null
+        });
         
         try {
             const result = await PyBridge.connectHub();
@@ -129,19 +134,21 @@ export function createConnectionModal() {
         console.log("🟢 Serial connection selected");
         closeModal();
         
-        setState({ hubConnecting: true });
+        setState({ 
+            hubConnecting: true,
+            hubValidated: false,
+            hubVersion: null,
+            hubMac: null
+        });
         
         try {
             const result = await PyBridge.connectHubSerial();
             
             if (result.status === "success") {
                 console.log("✅ Serial connected:", result.device);
-                setState({
-                    hubConnected: true,
-                    hubDeviceName: result.device,
-                    hubConnectionMode: "serial",
-                    hubConnecting: false
-                });
+                // Don't set state here - onHubConnected callback will update state
+                // and keep hubConnecting: true until validation completes
+                // (Python's connect_hub_serial calls onHubConnected which sets the state)
             } else if (result.status === "cancelled") {
                 console.log("❌ Serial connection cancelled by user");
                 setState({ hubConnecting: false });

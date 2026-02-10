@@ -1,15 +1,7 @@
 /**
- * Utility Helper Functions
- * 
- * Time formatting, device type detection, and data formatting utilities.
- * Device IDs: M-*, E-*, B-* (Module, Extension, Button + last 6 MAC digits).
+ * Utility helpers: time formatting, device type detection.
  */
 
-/**
- * Convert timestamp to relative time string.
- * @param {Date} timestamp
- * @returns {string} "just now", "X minute(s) ago", or "X hour(s) ago"
- */
 export function getRelativeTime(timestamp) {
   const now = new Date();
   const diffMs = now - timestamp;
@@ -22,20 +14,10 @@ export function getRelativeTime(timestamp) {
   return `${diffHours} hour${diffHours === 1 ? '' : 's'} ago`;
 }
 
-/**
- * Format date to locale time string.
- * @param {Date} date
- * @returns {string} Formatted time (e.g., "2:30 PM")
- */
 export function formatDisplayTime(date) {
   return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
 }
 
-/**
- * Get device type from ID.
- * @param {string} deviceId - e.g., "M-A3F821", "E-B4C932"
- * @returns {string} "module", "extension", or "button"
- */
 export function getDeviceType(deviceId) {
   if (deviceId.startsWith('M-') || deviceId.startsWith('Module')) return 'module';
   if (deviceId.startsWith('E-') || deviceId.startsWith('Extension')) return 'extension';

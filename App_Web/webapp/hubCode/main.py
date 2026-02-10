@@ -1,17 +1,11 @@
 """
 Simple Hub - USB Serial to ESP-NOW Bridge
-==========================================
 
-This hub connects the webapp (via USB Serial/WebUSB) to playground modules (via ESP-NOW).
-Based on the headless_controller.py pattern with added Serial communication.
-
-Hardware: ESP32-C6 with external antenna
+Connects webapp (USB Serial) to playground modules (ESP-NOW).
+Hardware: ESP32-C6 with optional external antenna (or ESP32-C3)
 """
 
-# Debug mode flag
-DEBUG_MODE = True
-
-# Hub firmware version
+DEBUG_MODE = False
 HUB_VERSION = "v2.1.0"
 
 import sys
@@ -22,10 +16,7 @@ import asyncio
 import utilities.now as now
 from controller import Control
 
-print("✅ Hub main.py LOADED", file=sys.stderr)
-
-# Try to import display support
-ROW_HEIGHT = 10  # Pixels per line on 128x64 display (can fit 6 lines)
+ROW_HEIGHT = 10
 MAX_DISPLAY_LINES = 6
 
 try:
@@ -35,11 +26,9 @@ try:
 except ImportError:
     DISPLAY_AVAILABLE = False
 
-# Game command mapping - synchronized with Plushie_Module/config.py
-# Last synced: 2026-01-26
-# IMPORTANT: Keep in sync with plushie games list (0-10) plus stop command (-1)
+# Game IDs 0-10, -1 = stop (see Plushie_Module/config.py)
 GAME_MAP = {
-    # Core games (indices 0-10 from config.py)
+     # Core games (indices 0-10 from config.py)
     "Notes": 0,           # Music/sound notes
     "Shake": 1,           # Motion detection / shake counter
     "Hot_cold": 2,        # Proximity finding game
@@ -59,22 +48,15 @@ GAME_MAP = {
 }
 
 class SerialBridge:
-    """Handle USB Serial communication with webapp"""
+    """Handle USB Serial communication with webapp."""
     
     def __init__(self, command_callback, debug_callback):
-        """
-        Initialize serial bridge
-        
-        Args:
-            command_callback: Function to call with (cmd_type, cmd_data)
-            debug_callback: Function to call for debug messages
-        """
         self.command_callback = command_callback
         self.debug = debug_callback
         self.buffer = ""
     
     def send(self, data):
-        """Send JSON message to webapp via Serial"""
+        """Send JSON message to webapp via Serial."""
         try:
             if DEBUG_MODE:
                 print(f"🔴 [Hub] About to send data: {data}", file=sys.stderr)
@@ -84,35 +66,29 @@ class SerialBridge:
             if DEBUG_MODE:
                 print(f"🔴 [Hub] JSON serialized, length: {len(msg)} bytes", file=sys.stderr)
             
-            # Print to stdout (MicroPython automatically flushes on newline)
             print(msg)
-            # Note: sys.stdout.flush() not supported on all ESP32 MicroPython builds
+            time.sleep_ms(10)
             
             if DEBUG_MODE:
                 print(f"🔴 [Hub] Successfully sent {len(msg)} bytes", file=sys.stderr)
-            else:
-                print(f"DEBUG: Successfully sent {len(msg)} bytes", file=sys.stderr)
         except Exception as e:
             self.debug("Ser TX Err")
-            print(f"🔴 ERROR: Serial send failed: {e}", file=sys.stderr)
+            if DEBUG_MODE:
+                print(f"🔴 ERROR: Serial send failed: {e}", file=sys.stderr)
     
     def check_input(self):
-        """Check for incoming Serial data (non-blocking with select() fallback)"""
+        """Check for incoming Serial data (non-blocking)."""
         try:
-            # Try using select to check if stdin has data
             rlist, _, _ = select.select([sys.stdin], [], [], 0)
             has_data = bool(rlist)
         except (OSError, ValueError, NotImplementedError) as e:
-            # Fallback for platforms where select() doesn't work
-            # Some ESP32 MicroPython builds don't support select on stdin
+            # Fallback when select() unavailable
             if DEBUG_MODE:
                 print(f"🔴 [Hub] select() not supported, using fallback: {e}", file=sys.stderr)
-            # Use a simple try-read approach as fallback
-            has_data = True  # Assume data might be available, try reading
+            has_data = True
         
         if has_data:
             try:
-                # Read available data (non-blocking, 1 byte at a time)
                 chunk = sys.stdin.read(1)
                 if chunk:
                     if DEBUG_MODE:
@@ -122,7 +98,6 @@ class SerialBridge:
                     if DEBUG_MODE:
                         print(f"🔴 [Hub] Buffer now: {repr(self.buffer)}", file=sys.stderr)
                     
-                    # Check for complete lines
                     while '\n' in self.buffer:
                         line, self.buffer = self.buffer.split('\n', 1)
                         line = line.strip()
@@ -133,12 +108,12 @@ class SerialBridge:
                             self._process_command(line)
             except Exception as e:
                 self.debug("Ser RX Err")
-                print(f"🔴 [Hub] ERROR in check_input: {e}", file=sys.stderr)
+                if DEBUG_MODE:
+                    print(f"🔴 [Hub] ERROR in check_input: {e}", file=sys.stderr)
     
     def _process_command(self, line):
-        """Parse JSON command and call callback"""
+        """Parse JSON command and call callback."""
         try:
-            # Echo received command for debugging
             if DEBUG_MODE:
                 print(f"🔴 [Hub] Processing command: {line}", file=sys.stderr)
             
@@ -151,11 +126,13 @@ class SerialBridge:
             self.command_callback(cmd_type, cmd)
         except json.JSONDecodeError as e:
             self.debug("JSON Err")
-            print(f"🔴 [Hub] JSON parse error: {e}", file=sys.stderr)
-            print(f"🔴 [Hub] Failed to parse: {repr(line)}", file=sys.stderr)
+            if DEBUG_MODE:
+                print(f"🔴 [Hub] JSON parse error: {e}", file=sys.stderr)
+                print(f"🔴 [Hub] Failed to parse: {repr(line)}", file=sys.stderr)
         except Exception as e:
             self.debug("CMD Err")
-            print(f"🔴 [Hub] Command processing error: {e}", file=sys.stderr)
+            if DEBUG_MODE:
+                print(f"🔴 [Hub] Command processing error: {e}", file=sys.stderr)
 
 class HubDisplay:
     """Simple rolling display for hub debug messages"""
@@ -169,19 +146,18 @@ class HubDisplay:
             return
         
         try:
-            # Initialize I2C and display
-            # C6: I2C on pins 23 (SCL), 22 (SDA)
-            # C3: SoftI2C on pins 7 (SCL), 6 (SDA)
             i2c = I2C(scl=Pin(23), sda=Pin(22))  # __DISPLAY_CONFIG_C6__
             # i2c = SoftI2C(scl=Pin(7), sda=Pin(6))  # __DISPLAY_CONFIG_C3__
             self.display = ssd1306.SSD1306_I2C(128, 64, i2c)
             self.display.fill(0)
             self.display.text("Hub Starting...", 2, 2, 1)
             self.display.show()
-            print("Display initialized successfully", file=sys.stderr)
+            if DEBUG_MODE:
+                print("Display initialized successfully", file=sys.stderr)
         except Exception as e:
             self.display = None
-            print(f"Display not available: {e}", file=sys.stderr)
+            if DEBUG_MODE:
+                print(f"Display not available: {e}", file=sys.stderr)
     
     def update(self, msg):
         """Update display with new message (rolling buffer)"""
@@ -189,16 +165,13 @@ class HubDisplay:
             return
         
         try:
-            # Truncate message to fit display width (~20 chars at 6x8 font)
             if len(msg) > 20:
                 msg = msg[:17] + "..."
             
-            # Add to rolling buffer
             self.lines.append(msg)
             if len(self.lines) > MAX_DISPLAY_LINES:
                 self.lines = self.lines[-MAX_DISPLAY_LINES:]
             
-            # Clear and redraw all lines
             self.display.fill(0)
             y = 2
             for line in self.lines:
@@ -207,8 +180,8 @@ class HubDisplay:
             
             self.display.show()
         except Exception as e:
-            # If display update fails, disable it
-            print(f"Display update error: {e}", file=sys.stderr)
+            if DEBUG_MODE:
+                print(f"Display update error: {e}", file=sys.stderr)
             self.display = None
     
     def close(self):
@@ -243,8 +216,9 @@ class SimpleHub(Control):
         self._debug("Hub Init")
     
     def _debug(self, msg):
-        """Print debug message to stderr and update display"""
-        print(msg, file=sys.stderr)
+        """Print debug message to stderr and update display (only if DEBUG_MODE is enabled)"""
+        if DEBUG_MODE:
+            print(msg, file=sys.stderr)
         self.display.update(msg)
     
     def connect(self):
@@ -282,12 +256,14 @@ class SimpleHub(Control):
                         'last_seen': time.ticks_ms()
                     }
                     
-                    # Show on display and stderr
+                    # Show on display and stderr (only if DEBUG_MODE)
                     battery_val = payload.get('value', 0)
                     self._debug(f"Dev:{len(self.recent_devices)} {mac_hex[-6:]}")
-                    print(f"Battery: {mac_hex[-6:]} RSSI={rssi_value}dBm Batt={battery_val}%", file=sys.stderr)
+                    if DEBUG_MODE:
+                        print(f"Battery: {mac_hex[-6:]} RSSI={rssi_value}dBm Batt={battery_val}%", file=sys.stderr)
             except Exception as e:
-                print(f"Callback error: {e}", file=sys.stderr)
+                if DEBUG_MODE:
+                    print(f"Callback error: {e}", file=sys.stderr)
         
         # Initialize ESP-NOW with our custom callback
         # __ANTENNA_CONFIG_START__
@@ -308,6 +284,9 @@ class SimpleHub(Control):
             "version": HUB_VERSION,
             "timestamp": time.ticks_ms()
         })
+        
+        # Give extra time for ready message to fully transmit before starting main loop
+        time.sleep_ms(50)
     
     def _handle_command(self, cmd_type, cmd):
         """Handle command from webapp (callback from SerialBridge)"""
@@ -349,7 +328,8 @@ class SimpleHub(Control):
         
         for mac in stale_macs:
             del self.recent_devices[mac]
-            print(f"Expired device: {mac[-6:]}", file=sys.stderr)
+            if DEBUG_MODE:
+                print(f"Expired device: {mac[-6:]}", file=sys.stderr)
         
         # Build device list
         device_list = []
@@ -369,8 +349,9 @@ class SimpleHub(Control):
             'timestamp': current_time
         })
         
-        # Debug: Confirm send (to stderr so it doesn't interfere with JSON)
-        print(f"DEBUG: Sent device list JSON to stdout", file=sys.stderr)
+        # Debug: Confirm send (only if DEBUG_MODE - otherwise this corrupts the JSON stream!)
+        if DEBUG_MODE:
+            print(f"DEBUG: Sent device list JSON to stdout", file=sys.stderr)
         
         # Show on display (update count)
         if device_list:
