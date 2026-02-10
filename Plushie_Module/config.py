@@ -10,6 +10,7 @@ from games.pattern_rainbow_btn import Pattern_btn
 from games.pattern_rainbow_plushie import Pattern_plush
 from games.color_press import Color_Press
 from games.color_press_mult import Color_Press_Mult
+from games.splat_notes import Splat_Notes
 from utilities.colors import *
 
 class Config:
@@ -44,6 +45,7 @@ class Box_settings(Config):
 class Splats_settings(Config):
     module_type = "splats"
     num_of_leds = 3
+    games = [(Splat_Notes, 0.1)]
     
 class Button_settings(Config):
     module_type = "button"
