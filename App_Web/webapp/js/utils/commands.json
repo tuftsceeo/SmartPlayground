@@ -16,6 +16,14 @@
     "description": "Shake a plushie and watch its lights fill up. Gentle shakes light up just a few LEDs, while harder shakes fill up the whole ring. Each plushie glows in its own random color. Press the button to start over."
   },
   {
+    "id": "Shake_rainbow",
+    "label": "Shake Rainbow",
+    "bgColor": "#8fd3c9",
+    "icon": "rainbow",
+    "textColor": "white",
+    "description": "Shake a plushie and watch its lights fill up with a colors based on the intensity of the shake. Gentle shakes light up red, while harder shakes fill up to purple through the rainbow spectrum. Press the button to start over."
+  },
+  {
     "id": "Hot_cold",
     "label": "Hot/Cold",
     "bgColor": "#bf75c9",

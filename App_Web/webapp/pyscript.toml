@@ -35,7 +35,6 @@ name = "Playground App Front End V0"
 
 # Components - Connection
 "js/components/connection/hubConnectionBar.js" = "./js/components/connection/hubConnectionBar.js"
-"js/components/connection/bluetoothStatusButton.js" = "./js/components/connection/bluetoothStatusButton.js"
 
 # Components - States
 "js/components/states/connectedEmptyState.js" = "./js/components/states/connectedEmptyState.js"
@@ -52,7 +51,6 @@ name = "Playground App Front End V0"
 "hubCode/utilities/wifi.py" = "./hubCode/utilities/wifi.py"
 "hubCode/utilities/now.py" = "./hubCode/utilities/now.py"
 "hubCode/utilities/colors.py" = "./hubCode/utilities/colors.py"
-"hubCode/utilities/base64.py" = "./hubCode/utilities/base64.py"
 "hubCode/utilities/lc709203f.py" = "./hubCode/utilities/lc709203f.py"
 "hubCode/utilities/secrets.py" = "./hubCode/utilities/secrets.py"
 
