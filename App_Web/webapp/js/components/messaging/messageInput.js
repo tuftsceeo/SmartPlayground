@@ -8,19 +8,21 @@ import { getCommandIcon, createIcon } from "../common/icons.js";
 import { COMMANDS, getCommandLabel, getCommandById, getFilteredCommands } from "../../utils/constants.js";
 import { createCommandInfoOverlay } from "../overlays/commandInfoOverlay.js";
 
-export function createMessageInput(currentMessage, showPalette, canSend, onInputClick, onCommandSelect, onClearMessage, onSendMessage, flashMessageBox) {
+export function createMessageInput(currentMessage, showPalette, canSend, hubConnected, onInputClick, onCommandSelect, onClearMessage, onSendMessage, flashMessageBox) {
     const container = document.createElement("div");
     container.className = "bg-white border-t border-gray-200";
 
     container.innerHTML = `
     <div class="flex items-center gap-2 p-3">
-      <div class="flex-1 bg-gray-100 rounded-full px-4 py-2.5 flex items-center gap-2 cursor-text transition-all ${
+      <div class="flex-1 rounded-full px-4 py-2.5 flex items-center gap-2 transition-all ${
+        hubConnected ? 'bg-gray-100 cursor-text' : 'bg-gray-200 cursor-not-allowed opacity-60'
+      } ${
         flashMessageBox ? 'ring-2 ring-amber-400 bg-amber-50' : ''
       }" id="messageInput">
         ${
             currentMessage
-                ? `<div id="commandIcon"></div><span class="text-gray-800 text-sm flex-1">${getCommandLabel(currentMessage)}</span><button class="w-5 h-5 rounded-full bg-gray-300 flex items-center justify-center transition-colors flex-shrink-0" id="clearBtn"><i data-lucide="x" class="w-3 h-3 text-gray-600"></i></button>`
-                : '<span class="text-gray-400 text-sm">Select a command...</span>'
+                ? `<div id="commandIcon"></div><span class="${hubConnected ? 'text-gray-800' : 'text-gray-500'} text-sm flex-1">${getCommandLabel(currentMessage)}</span><button class="w-5 h-5 rounded-full bg-gray-300 flex items-center justify-center transition-colors flex-shrink-0 ${hubConnected ? '' : 'opacity-50 cursor-not-allowed'}" id="clearBtn" ${hubConnected ? '' : 'disabled'}><i data-lucide="x" class="w-3 h-3 text-gray-600"></i></button>`
+                : `<span class="${hubConnected ? 'text-gray-400' : 'text-gray-500'} text-sm">Select a command...</span>`
         }
       </div>
       <!-- Send button is always clickable to trigger warnings when needed -->
@@ -30,7 +32,7 @@ export function createMessageInput(currentMessage, showPalette, canSend, onInput
         <i data-lucide="send" class="w-4 h-4"></i>
       </button>
     </div>
-    <div class="command-palette transition-all duration-300 ease-out ${showPalette ? "max-h-80 opacity-100" : "max-h-0 opacity-0 overflow-hidden"}">
+    <div class="command-palette transition-all duration-300 ease-out ${showPalette && hubConnected ? "max-h-80 opacity-100" : "max-h-0 opacity-0 overflow-hidden"}">
       <div class="flex flex-wrap justify-evenly gap-3 px-2 pb-3 max-h-80 overflow-y-auto" id="commands"></div>
     </div>
   `;
@@ -47,12 +49,20 @@ export function createMessageInput(currentMessage, showPalette, canSend, onInput
     }
 
     // Event handlers
-    container.querySelector("#messageInput").onclick = onInputClick;
+    container.querySelector("#messageInput").onclick = () => {
+        // Only allow interaction if hub is connected
+        if (hubConnected) {
+            onInputClick();
+        }
+    };
 
     if (currentMessage) {
         container.querySelector("#clearBtn").onclick = (e) => {
             e.stopPropagation();
-            onClearMessage();
+            // Only allow clearing if hub is connected
+            if (hubConnected) {
+                onClearMessage();
+            }
         };
     }
 
@@ -75,8 +85,18 @@ export function createMessageInput(currentMessage, showPalette, canSend, onInput
         wrapper.className = "relative flex flex-col items-center gap-2";
         
         const btn = document.createElement("button");
-        btn.className = "bg-gray-100 rounded-2xl p-3 flex-shrink-0 transition-all active:scale-95 flex flex-col items-center gap-2 w-[88px]";
-        btn.onclick = () => onCommandSelect(command);
+        btn.className = `bg-gray-100 rounded-2xl p-3 flex-shrink-0 transition-all flex flex-col items-center gap-2 w-[88px] ${
+            hubConnected ? 'active:scale-95' : 'opacity-60 cursor-not-allowed'
+        }`;
+        btn.onclick = () => {
+            // Only allow command selection if hub is connected
+            if (hubConnected) {
+                onCommandSelect(command);
+            }
+        };
+        if (!hubConnected) {
+            btn.disabled = true;
+        }
 
         // console.log(`Getting icon for command: ${command.label}`);
         const icon = getCommandIcon(command.label, "large");

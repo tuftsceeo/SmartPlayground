@@ -698,6 +698,7 @@ class App {
             state.currentMessage,
             state.showCommandPalette,
             canSend,
+            state.hubConnected,
             () => setState({ showCommandPalette: true }),
             (command) => setState({ currentMessage: command.id }),
             () => setState({ currentMessage: "" }),
