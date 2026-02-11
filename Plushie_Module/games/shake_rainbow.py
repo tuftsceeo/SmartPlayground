@@ -15,12 +15,13 @@ class Shake_Rainbow(Game):
 
     def start(self):
         print("Shake the plushy to change colors!")
-
+        
         self.current_level = 0
         self.current_color = SHAKE_COLOR_RANGE[self.current_level]
 
         self.shake_threshold = 0.15 
         self.acc_max = 10.0
+        self.main.lights.all_off()
 
     def accel_mag(self):
         x, y, z = self.main.accel.read_accel()
