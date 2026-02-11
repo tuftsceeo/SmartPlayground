@@ -161,7 +161,7 @@ class Tool:
                     #self.game = self.value
                     if value >= 0:
                         self.log_message('starting game ',value)
-                        await self.lights.animate(COLORS[value],timeout = 0, speed = 0.01)
+                        await self.lights.animate(COLORS[value%8],timeout = 0, speed = 0.01)
                         self.start_time = time.ticks_ms()
                         self.start_game(value)
                     self.button.flag = False
