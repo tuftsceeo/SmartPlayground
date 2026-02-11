@@ -180,6 +180,7 @@ class Tool:
             
             else:
                 self.log_message(f'unrecognized topic:{topic}')
+                value = None
 
             self.topic =  topic
             self.value = value
