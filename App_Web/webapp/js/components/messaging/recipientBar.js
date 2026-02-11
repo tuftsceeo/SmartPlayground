@@ -44,14 +44,6 @@ export function createRecipientBar(devices, range, lastUpdateTime, onRangeChange
           <span id="updateTime"></span>
         </button>
       </div>
-      
-      <div class="flex items-center gap-3">
-        <span class="text-xs text-gray-500 whitespace-nowrap">Near</span>
-        <input type="range" class="flex-1 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-600" 
-               min="1" max="100" step="1" value="${range}">
-        <span class="text-xs text-gray-500 whitespace-nowrap">Far</span>
-        <span class="text-xs font-medium text-gray-700 text-right whitespace-nowrap" style="width: 50px">${getRangeLabel(range)}</span>
-      </div>
     ` : ''}
   `;
   
@@ -102,17 +94,6 @@ export function createRecipientBar(devices, range, lastUpdateTime, onRangeChange
       updateTimeBtn.onclick = (e) => {
         e.stopPropagation();
         onRefresh();
-      };
-    }
-    
-    // Range slider handler - updates command RSSI threshold (for passive tracking, doesn't affect device discovery)
-    const slider = container.querySelector('input[type="range"]');
-    if (slider) {
-      slider.onclick = (e) => e.stopPropagation();
-      slider.onchange = (e) => {
-        onRangeChange(parseInt(e.target.value));
-        // Note: With passive tracking, this only affects which modules respond to commands,
-        // not which devices appear in the list (all discovered devices are shown)
       };
     }
   }

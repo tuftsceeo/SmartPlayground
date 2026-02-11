@@ -40,7 +40,7 @@ GAME_MAP = {
     "Pattern_btn": 8,     # Button pattern matching
     "Pattern_plush": 9,   # Plushie pattern matching
     "Color_Press": 10,     # Single color selection
-    "Color_Press_Mult": 1,  # Multi-color stacking
+    "Color_Press_Mult": 11,  # Multi-color stacking
     
     # Command aliases (backwards compatibility & user convenience)
     "Off": 7,             # Alias for Hibernate
@@ -239,7 +239,7 @@ class SimpleHub(Control):
                     
                     # Extract RSSI value from neighbor dict
                     # rssi is a dict: {mac_bytes: [rssi_value, timestamp], ...}
-                    rssi_value = -100  # Default fallback
+                    rssi_value = None  # Start with None to detect if we got valid data
                     if isinstance(rssi, dict):
                         # Look up this sender's MAC in the neighbor table
                         if mac in rssi:
@@ -249,19 +249,51 @@ class SimpleHub(Control):
                     elif isinstance(rssi, int):
                         rssi_value = rssi
                     
-                    # Update device tracking
-                    self.recent_devices[mac_hex] = {
-                        'mac': mac_hex,
-                        'rssi': rssi_value,
-                        'battery': payload.get('value', 0),
-                        'last_seen': time.ticks_ms()
-                    }
+                    # Get battery value (may be None/null)
+                    battery_value = payload.get('value')
                     
-                    # Show on display and stderr (only if DEBUG_MODE)
-                    battery_val = payload.get('value', 0)
+                    # Check if device already exists (to preserve previous good values)
+                    if mac_hex in self.recent_devices:
+                        # Device exists - update with new values, preserving good previous values
+                        existing = self.recent_devices[mac_hex]
+                        
+                        # Update RSSI only if we got a valid value, otherwise keep previous
+                        if rssi_value is not None and isinstance(rssi_value, (int, float)):
+                            existing['rssi'] = rssi_value
+                        # else: keep existing['rssi'] as-is (could be None or previous good value)
+                        
+                        # Update battery only if we got a valid value, otherwise keep previous
+                        if battery_value is not None and isinstance(battery_value, (int, float)):
+                            existing['battery'] = battery_value
+                        # else: keep existing['battery'] as-is (could be None or previous good value)
+                        
+                        # Always update last_seen timestamp (we heard from the device)
+                        existing['last_seen'] = time.ticks_ms()
+                        
+                        if DEBUG_MODE:
+                            print(f"Updated: {mac_hex[-6:]} RSSI={existing['rssi']} Batt={existing['battery']}%", file=sys.stderr)
+                    else:
+                        # New device - store values as-is (may contain None for unknown values)
+                        # Default to None instead of fake values to indicate "unknown"
+                        if rssi_value is None or not isinstance(rssi_value, (int, float)):
+                            rssi_value = None  # Mark as unknown
+                        if battery_value is None or not isinstance(battery_value, (int, float)):
+                            battery_value = None  # Mark as unknown
+                        
+                        self.recent_devices[mac_hex] = {
+                            'mac': mac_hex,
+                            'rssi': rssi_value,
+                            'battery': battery_value,
+                            'last_seen': time.ticks_ms()
+                        }
+                        
+                        if DEBUG_MODE:
+                            rssi_str = f"{rssi_value}dBm" if rssi_value is not None else "?"
+                            batt_str = f"{battery_value}%" if battery_value is not None else "?"
+                            print(f"New device: {mac_hex[-6:]} RSSI={rssi_str} Batt={batt_str}", file=sys.stderr)
+                    
+                    # Show on display
                     self._debug(f"Dev:{len(self.recent_devices)} {mac_hex[-6:]}")
-                    if DEBUG_MODE:
-                        print(f"Battery: {mac_hex[-6:]} RSSI={rssi_value}dBm Batt={battery_val}%", file=sys.stderr)
             except Exception as e:
                 if DEBUG_MODE:
                     print(f"Callback error: {e}", file=sys.stderr)
@@ -318,41 +350,48 @@ class SimpleHub(Control):
             self._debug(f"Unk:{unk_display}")
     
     def _send_device_list(self):
-        """Send device list to webapp with stale device expiry (5 min)"""
+        """Send device list to webapp with stale/expiry logic"""
         current_time = time.ticks_ms()
         
-        # Remove devices not seen for 5 minutes
-        stale_macs = []
+        # Remove devices not seen for 2 minutes
+        expired_macs = []
         for mac, data in self.recent_devices.items():
-            if time.ticks_diff(current_time, data['last_seen']) > 300000:  # 5 min
-                stale_macs.append(mac)
+            if time.ticks_diff(current_time, data['last_seen']) > 120000:  # 2 min
+                expired_macs.append(mac)
         
-        for mac in stale_macs:
+        for mac in expired_macs:
             del self.recent_devices[mac]
             if DEBUG_MODE:
                 print(f"Expired device: {mac[-6:]}", file=sys.stderr)
         
-        # Build device list
+        # Build device list with staleness indicator
         device_list = []
         for mac, data in self.recent_devices.items():
+            time_since_seen = time.ticks_diff(current_time, data['last_seen'])
+            is_stale = time_since_seen > 60000  # Stale after 1 minute
+            
             device_list.append({
                 'id': f"M-{mac[-6:]}",  # Module with last 6 chars of MAC
                 'mac': mac,
                 'rssi': data['rssi'],
                 'battery': data['battery'],
-                'last_seen': data['last_seen']
+                'last_seen': data['last_seen'],
+                'is_stale': is_stale
             })
         
-        # Send to webapp
+        # Send to webapp (always send, even if empty list)
         self.serial.send({
             'type': 'devices',
             'list': device_list,
             'timestamp': current_time
         })
         
-        # Debug: Confirm send (only if DEBUG_MODE - otherwise this corrupts the JSON stream!)
+        # Debug: Confirm send
         if DEBUG_MODE:
-            print(f"DEBUG: Sent device list JSON to stdout", file=sys.stderr)
+            if device_list:
+                print(f"DEBUG: Sent device list with {len(device_list)} devices", file=sys.stderr)
+            else:
+                print(f"DEBUG: Sent EMPTY device list (all devices removed)", file=sys.stderr)
         
         # Show on display (update count)
         if device_list:
