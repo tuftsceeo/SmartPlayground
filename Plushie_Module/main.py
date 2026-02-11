@@ -82,6 +82,7 @@ class Tool:
             self.topic = '/notify'
             return
         self.log_message('starting game ', number)
+        self.lights.all_off()
         self.running = True
         self.game = number
         
