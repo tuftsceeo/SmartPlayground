@@ -68,6 +68,11 @@ export function getDeviceIcon(type, size = "medium") {
 }
 
 export function getSignalIcon(signal) {
+    // Handle unknown/null signal
+    if (signal === null || signal === undefined) {
+        return createIcon("help-circle", "w-4 h-4 text-gray-400");
+    }
+    
     if (signal === 0) return createIcon("wifi-off", "w-4 h-4 text-gray-400");
 
     const container = document.createElement("div");
@@ -83,6 +88,11 @@ export function getSignalIcon(signal) {
 }
 
 export function getBatteryIcon(battery) {
+    // Handle unknown/null battery
+    if (battery === null || battery === undefined) {
+        return createIcon("help-circle", "w-4 h-4 text-gray-400");
+    }
+    
     const icons = {
         full: "battery-full",
         high: "battery-medium",

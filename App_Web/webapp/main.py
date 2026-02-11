@@ -151,37 +151,64 @@ def process_complete_message(message_data):
         
         console.log(f"Filtered {len(device_list)} devices to {len(unique_devices)} unique devices")
         
+        # Log when receiving empty device list
+        if len(unique_devices) == 0:
+            console.log("📭 EMPTY device list received from hub (all devices removed/expired)")
+        
         hub_timestamp = parsed.get("timestamp", 0)
         
         devices = []
         for dev in unique_devices:
-            rssi = dev.get("rssi", -100)
-            if rssi >= -50:
-                signal = 3
-            elif rssi >= -70:
-                signal = 2
-            elif rssi >= -85:
-                signal = 1
+            # Handle None/null values - do NOT invent fake data
+            # If value is None, leave it as None to indicate "unknown"
+            rssi = dev.get("rssi")
+            if rssi is not None and isinstance(rssi, (int, float)):
+                # Valid RSSI - calculate signal strength
+                if rssi >= -50:
+                    signal = 3
+                elif rssi >= -70:
+                    signal = 2
+                elif rssi >= -85:
+                    signal = 1
+                else:
+                    signal = 0
             else:
-                signal = 0
+                # Unknown RSSI - mark signal as None for UI to display as unknown
+                rssi = None
+                signal = None
             
-            battery_pct = dev.get("battery", 50)
-            if battery_pct >= 75:
-                battery = "full"
-            elif battery_pct >= 50:
-                battery = "high"
-            elif battery_pct >= 25:
-                battery = "medium"
+            battery_pct = dev.get("battery")
+            if battery_pct is not None and isinstance(battery_pct, (int, float)):
+                # Valid battery - calculate battery level
+                if battery_pct >= 75:
+                    battery = "full"
+                elif battery_pct >= 50:
+                    battery = "high"
+                elif battery_pct >= 25:
+                    battery = "medium"
+                else:
+                    battery = "low"
             else:
-                battery = "low"
+                # Unknown battery - mark as None for UI to display as unknown
+                battery_pct = None
+                battery = None
             
             device_name = dev.get("id", "Unknown")
+            
+            # Log malformed data warnings
+            if rssi is None:
+                console.warn(f"⚠️ Device {device_name}: Missing/invalid RSSI data")
+            if battery_pct is None:
+                console.warn(f"⚠️ Device {device_name}: Missing/invalid battery data")
             
             # Sanitize ID for DOM selectors
             sanitized_id = device_name.replace(" ", "-").replace("_", "-")
             sanitized_id = ''.join(c for c in sanitized_id if c.isalnum() or c == '-')
             
             console.log(f"DEBUG SANITIZATION: '{device_name}' -> '{sanitized_id}'")
+            
+            # Get staleness indicator from hub
+            is_stale = dev.get("is_stale", False)
             
             devices.append({
                 "id": sanitized_id,
@@ -191,7 +218,8 @@ def process_complete_message(message_data):
                 "signal": signal,
                 "battery": battery,
                 "battery_pct": battery_pct,
-                "last_seen": dev.get("last_seen", 0)
+                "last_seen": dev.get("last_seen", 0),
+                "is_stale": is_stale
             })
         
         if hasattr(window, 'onDevicesUpdated'):

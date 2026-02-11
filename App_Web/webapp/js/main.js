@@ -157,11 +157,17 @@ class App {
             console.log("=" + "=".repeat(80));
             console.log("🟢 JavaScript window.onDevicesUpdated() CALLED");
             console.log(`📋 Received ${devices?.length || 0} devices from Python`);
+            
+            // Special logging for empty device list
+            if (!devices || devices.length === 0) {
+                console.log("📭 EMPTY device list - clearing all devices from UI");
+            }
+            
             console.log(`⏰ Hub timestamp: ${hubTimestamp}`);
             console.log(`📊 State before update: ${state.allDevices?.length || 0} devices`);
             console.log("=" + "=".repeat(80));
             
-            // Process each device to calculate age and stale status
+            // Process each device to calculate age and convert timestamps
             const processedDevices = devices.map((device, index) => {
                 // Calculate device age in milliseconds
                 const ageMs = hubTimestamp - device.last_seen;
@@ -171,15 +177,15 @@ class App {
                 // Current time - age = when device was last seen
                 const lastSeenTime = new Date(Date.now() - ageMs);
                 
-                // Mark as stale if not seen for more than 3 minutes
-                const isStale = ageMs > 180000;  // 3 minutes in milliseconds
+                // Use hub's authoritative staleness flag (hub marks stale after 1 minute)
+                const isStale = device.is_stale || false;
                 
                 console.log(`  Device ${index + 1}: ${device.name} | RSSI: ${device.rssi} | Battery: ${device.battery_pct}% | Age: ${ageMs}ms | Stale: ${isStale}`);
                 
                 return {
                     ...device,
                     lastSeenTime,   // Date object for getRelativeTime()
-                    isStale         // Boolean for UI warning
+                    isStale         // Boolean for UI warning (from hub)
                 };
             });
             
@@ -191,6 +197,11 @@ class App {
             });
             
             console.log(`✅ State updated! New device count: ${state.allDevices?.length || 0}`);
+            
+            // Confirm empty list was set
+            if (processedDevices.length === 0) {
+                console.log("📭 UI state now shows ZERO devices (empty list applied)");
+            }
         };
 
         // Direct function calls only - no event listeners needed

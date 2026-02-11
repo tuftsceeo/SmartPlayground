@@ -60,9 +60,13 @@ export function createDeviceListOverlay(devices, range, editingDeviceId, nicknam
   } else {
     devices.forEach(device => {
       const card = document.createElement('div');
-      card.className = 'px-4 py-3 border-b border-gray-100 device-card flex items-center gap-3';
+      card.className = 'px-4 py-4 border-b border-gray-100 device-card flex items-start gap-3';
       
-      card.appendChild(getDeviceIcon(device.type, 'medium'));
+      // Device icon
+      const iconWrapper = document.createElement('div');
+      iconWrapper.className = 'flex-shrink-0 mt-1';
+      iconWrapper.appendChild(getDeviceIcon(device.type, 'medium'));
+      card.appendChild(iconWrapper);
       
       const displayName = nicknames[device.id] || device.id;
       const isEditing = editingDeviceId === device.id;
@@ -70,45 +74,67 @@ export function createDeviceListOverlay(devices, range, editingDeviceId, nicknam
       // Format last seen time and stale status
       const lastSeenText = device.lastSeenTime ? getRelativeTime(device.lastSeenTime) : 'unknown';
       const isStale = device.isStale || false;
-      const batteryPct = device.battery_pct !== undefined ? device.battery_pct : '?';
       
-      card.innerHTML += `
-        <div class="flex-1 min-w-0">
-          ${isEditing 
-            ? `<input type="text" value="${displayName === device.id ? '' : displayName}" placeholder="${device.id}" 
-                      class="w-full px-2 py-1 border border-gray-300 rounded text-sm font-medium text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500" id="edit-${device.id}" autofocus>`
-            : `<div class="font-medium text-gray-900">${displayName}</div>`
-          }
-          <div class="text-xs text-gray-500">
-            ${device.type === 'module' ? 'Module' : device.type === 'extension' ? 'Extension' : 'Button'} • 
-            ${device.id} • 
-            Battery: ${batteryPct}% • 
-            <span class="${isStale ? 'text-amber-600 font-medium' : ''}">
-              ${lastSeenText}${isStale ? ' ⚠' : ''}
-            </span>
-          </div>
+      // Handle unknown battery percentage
+      const batteryPct = device.battery_pct !== undefined && device.battery_pct !== null 
+        ? Math.round(device.battery_pct) 
+        : '?';
+      
+      // Content section
+      const contentDiv = document.createElement('div');
+      contentDiv.className = 'flex-1 min-w-0';
+      contentDiv.innerHTML = `
+        ${isEditing 
+          ? `<input type="text" value="${displayName === device.id ? '' : displayName}" placeholder="${device.id}" 
+                    class="w-full px-2 py-1 border border-gray-300 rounded text-base font-semibold text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 mb-1" id="edit-${device.id}" autofocus>`
+          : `<div class="font-semibold text-gray-900 text-base mb-1">${displayName}</div>`
+        }
+        <div class="text-xs text-gray-500 mb-1.5">
+          ${device.type === 'module' ? 'Module' : device.type === 'extension' ? 'Extension' : 'Button'} • ${device.id}
         </div>
-        <div class="flex items-center gap-3" id="status-${device.id}">
-          <button class="w-8 h-8 flex items-center justify-center rounded-full transition-colors" id="edit-btn-${device.id}">
-            <i data-lucide="pencil" class="w-4 h-4 text-gray-500"></i>
-          </button>
+        <div class="flex items-center gap-3 text-xs">
+          <span class="${batteryPct === '?' ? 'text-gray-400' : batteryPct < 20 ? 'text-red-600 font-medium' : 'text-gray-600'}">
+            Battery: ${batteryPct}%
+          </span>
+          <span class="${isStale ? 'text-amber-600 font-medium' : 'text-gray-600'}">
+            ${lastSeenText}${isStale ? ' ⚠' : ''}
+          </span>
         </div>
       `;
+      card.appendChild(contentDiv);
       
-      // Add status icons
-      const statusContainer = card.querySelector(`#status-${device.id}`);
-      statusContainer.insertBefore(getBatteryIcon(device.battery), statusContainer.firstChild);
-      statusContainer.insertBefore(getSignalIcon(device.signal), statusContainer.firstChild);
+      // Status icons section
+      const statusDiv = document.createElement('div');
+      statusDiv.className = 'flex items-center gap-2 flex-shrink-0';
+      statusDiv.id = `status-${device.id}`;
+      
+      // Add signal and battery icons (larger size)
+      const signalIcon = getSignalIcon(device.signal);
+      signalIcon.className = signalIcon.className.replace('w-4 h-4', 'w-5 h-5');
+      statusDiv.appendChild(signalIcon);
+      
+      const batteryIcon = getBatteryIcon(device.battery);
+      batteryIcon.className = batteryIcon.className.replace('w-4 h-4', 'w-5 h-5');
+      statusDiv.appendChild(batteryIcon);
+      
+      // Edit button
+      statusDiv.innerHTML += `
+        <button class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors" id="edit-btn-${device.id}">
+          <i data-lucide="pencil" class="w-4 h-4 text-gray-500"></i>
+        </button>
+      `;
+      
+      card.appendChild(statusDiv);
       
       // Edit handlers
       if (isEditing) {
-        const input = card.querySelector(`#edit-${device.id}`);
+        const input = contentDiv.querySelector(`#edit-${device.id}`);
         input.onblur = () => onSaveNickname(device.id, input.value);
         input.onkeydown = (e) => {
           if (e.key === 'Enter') onSaveNickname(device.id, input.value);
         };
       } else {
-        card.querySelector(`#edit-btn-${device.id}`).onclick = (e) => {
+        statusDiv.querySelector(`#edit-btn-${device.id}`).onclick = (e) => {
           e.stopPropagation();
           onStartEdit(device.id);
         };

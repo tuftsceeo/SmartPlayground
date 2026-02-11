@@ -6,7 +6,7 @@
 
 export function createConnectedEmptyState(onFocusCommandField) {
     const container = document.createElement('div');
-    container.className = 'flex-1 overflow-y-auto bg-gray-50 flex items-center justify-center text-center text-sm';
+    container.className = 'flex-1 overflow-y-auto bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 flex items-center justify-center text-center text-sm';
     
     container.innerHTML = `
         <div class="max-w-md mx-auto">
@@ -37,4 +37,3 @@ export function createConnectedEmptyState(onFocusCommandField) {
     
     return container;
 }
-
