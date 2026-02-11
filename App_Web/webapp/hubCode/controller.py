@@ -20,13 +20,19 @@ class Control:
     def shutdown(self):
         stop = json.dumps({'topic':'/game', 'value':-1})
         self.n.publish(stop)
+        time.sleep(0.1)
+        self.n.publish(stop)
         
     def ping(self):
         ping = json.dumps({'topic':'/ping', 'value':1})
         self.n.publish(ping)
+        time.sleep(0.1)
+        self.n.publish(ping)
         
     def notify(self):
         note = json.dumps({'topic':'/notify', 'value':1})
+        self.n.publish(note)
+        time.sleep(0.1)
         self.n.publish(note)
         print('notified')
         
@@ -35,6 +41,8 @@ class Control:
         encoded_string = encoded_bytes.decode('ascii')
 
         setup = json.dumps({'topic':'/game', 'value':(game,encoded_string)})
+        self.n.publish(setup)
+        time.sleep(0.1)
         self.n.publish(setup)
 
 
