@@ -15,19 +15,22 @@ export function createMessageInput(currentMessage, showPalette, canSend, hubConn
     container.innerHTML = `
     <div class="flex items-center gap-2 p-3">
       <div class="flex-1 rounded-full px-4 py-2.5 flex items-center gap-2 transition-all ${
-        hubConnected ? 'bg-gray-100 cursor-text' : 'bg-gray-200 cursor-not-allowed opacity-60'
+        hubConnected 
+          ? 'bg-gray-200 cursor-text' 
+          : 'bg-gray-100 cursor-not-allowed'
       } ${
         flashMessageBox ? 'ring-2 ring-amber-400 bg-amber-50' : ''
       }" id="messageInput">
         ${
             currentMessage
-                ? `<div id="commandIcon"></div><span class="${hubConnected ? 'text-gray-800' : 'text-gray-500'} text-sm flex-1">${getCommandLabel(currentMessage)}</span><button class="w-5 h-5 rounded-full bg-gray-300 flex items-center justify-center transition-colors flex-shrink-0 ${hubConnected ? '' : 'opacity-50 cursor-not-allowed'}" id="clearBtn" ${hubConnected ? '' : 'disabled'}><i data-lucide="x" class="w-3 h-3 text-gray-600"></i></button>`
-                : `<span class="${hubConnected ? 'text-gray-400' : 'text-gray-500'} text-sm">Select a command...</span>`
+                ? `<div id="commandIcon"></div><span class="${hubConnected ? 'text-gray-900' : 'text-gray-500'} text-sm flex-1 font-medium">${getCommandLabel(currentMessage)}</span><button class="w-5 h-5 rounded-full bg-gray-300 hover:bg-gray-400 flex items-center justify-center transition-colors flex-shrink-0 ${hubConnected ? '' : 'cursor-not-allowed'}" id="clearBtn" ${hubConnected ? '' : 'disabled'}><i data-lucide="x" class="w-3 h-3 text-gray-700"></i></button>`
+                : `<span class="${hubConnected ? 'text-gray-600' : 'text-gray-400'} text-sm">${hubConnected ? 'Select a command...' : 'Connect controller to send commands'}</span>`
         }
       </div>
-      <!-- Send button is always clickable to trigger warnings when needed -->
       <button class="w-10 h-10 rounded-full flex items-center justify-center transition-all ${
-          canSend ? "bg-blue-500 text-white" : "bg-gray-300 text-gray-500 cursor-not-allowed"
+          canSend 
+            ? "bg-blue-400 hover:bg-blue-500 text-white" 
+            : "bg-gray-300 text-gray-500 cursor-not-allowed"
       }" id="sendBtn">
         <i data-lucide="send" class="w-4 h-4"></i>
       </button>
@@ -40,7 +43,6 @@ export function createMessageInput(currentMessage, showPalette, canSend, hubConn
     // Add command icon if message selected
     if (currentMessage) {
         const iconContainer = container.querySelector("#commandIcon");
-        // Use label for icon lookup (icons.js uses labels)
         const commandLabel = getCommandLabel(currentMessage);
         const icon = getCommandIcon(commandLabel, "small");
         if (icon) {
@@ -50,7 +52,6 @@ export function createMessageInput(currentMessage, showPalette, canSend, hubConn
 
     // Event handlers
     container.querySelector("#messageInput").onclick = () => {
-        // Only allow interaction if hub is connected
         if (hubConnected) {
             onInputClick();
         }
@@ -59,7 +60,6 @@ export function createMessageInput(currentMessage, showPalette, canSend, hubConn
     if (currentMessage) {
         container.querySelector("#clearBtn").onclick = (e) => {
             e.stopPropagation();
-            // Only allow clearing if hub is connected
             if (hubConnected) {
                 onClearMessage();
             }
@@ -69,27 +69,19 @@ export function createMessageInput(currentMessage, showPalette, canSend, hubConn
     container.querySelector("#sendBtn").onclick = onSendMessage;
 
     // Add command buttons
-    // console.log("Creating command buttons...");
     const commandsContainer = container.querySelector("#commands");
-    // console.log("Commands container:", commandsContainer);
-    // console.log("COMMANDS array:", COMMANDS);
-
-    // Use filtered commands based on beta games setting
     const commandsToShow = getFilteredCommands();
 
     commandsToShow.forEach((command, index) => {
-        // console.log(`Processing command ${index}:`, command);
-        
         // Create wrapper for button and info icon
         const wrapper = document.createElement("div");
         wrapper.className = "relative flex flex-col items-center gap-2";
         
         const btn = document.createElement("button");
         btn.className = `bg-gray-100 rounded-2xl p-3 flex-shrink-0 transition-all flex flex-col items-center gap-2 w-[88px] ${
-            hubConnected ? 'active:scale-95' : 'opacity-60 cursor-not-allowed'
+            hubConnected ? 'hover:bg-gray-200 active:scale-95' : 'cursor-not-allowed'
         }`;
         btn.onclick = () => {
-            // Only allow command selection if hub is connected
             if (hubConnected) {
                 onCommandSelect(command);
             }
@@ -98,12 +90,9 @@ export function createMessageInput(currentMessage, showPalette, canSend, hubConn
             btn.disabled = true;
         }
 
-        // console.log(`Getting icon for command: ${command.label}`);
         const icon = getCommandIcon(command.label, "large");
-        // console.log("Icon result:", icon, "Type:", typeof icon, "Is Node:", icon instanceof Node);
 
         if (icon) {
-            // console.log("Appending icon to button");
             btn.appendChild(icon);
         } else {
             console.log("No icon found for command:", command.label);
@@ -123,7 +112,6 @@ export function createMessageInput(currentMessage, showPalette, canSend, hubConn
             
             let overlay = null;
             
-            // Close overlay function
             const closeOverlay = () => {
                 if (overlay && document.body.contains(overlay)) {
                     document.body.removeChild(overlay);
@@ -131,18 +119,14 @@ export function createMessageInput(currentMessage, showPalette, canSend, hubConn
                 }
             };
             
-            // Show overlay on click
             infoBtn.onclick = (e) => {
                 e.preventDefault();
                 e.stopPropagation();
                 
-                // Don't create multiple overlays
                 if (overlay) return;
                 
-                // Get the command icon for the overlay
                 const commandIcon = getCommandIcon(command.label, "large");
                 
-                // Create and show overlay
                 overlay = createCommandInfoOverlay(
                     command.label,
                     command.description,
@@ -152,7 +136,6 @@ export function createMessageInput(currentMessage, showPalette, canSend, hubConn
                 
                 document.body.appendChild(overlay);
                 
-                // Re-initialize Lucide icons in the overlay
                 if (window.lucide) {
                     window.lucide.createIcons();
                 }
@@ -163,7 +146,6 @@ export function createMessageInput(currentMessage, showPalette, canSend, hubConn
             wrapper.appendChild(infoBtn);
         }
 
-        // console.log("Appending button to container");
         commandsContainer.appendChild(wrapper);
     });
 
