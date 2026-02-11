@@ -124,6 +124,8 @@ class Tool:
             if self.topic == '/ping':
                 self.rssi = rssi
                 return
+            elif self.topic == '/slide':
+                return
             else:
                 #print(mac, msg, rssi)
                 current = list(self.lights.last_pattern)
