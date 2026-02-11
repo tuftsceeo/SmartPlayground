@@ -54,13 +54,12 @@ export function createMessageHistory(messages, onMessageClick, hubConnected = fa
       }
     });
   }
-  
   // Show message history
-  container.className = 'flex-1 overflow-y-auto p-3 space-y-2 bg-gray-50 message-history';
+  container.className = 'flex-1 overflow-y-auto p-3 space-y-2 bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 message-history';
   
   validMessages.forEach(message => {
     const bubble = document.createElement('div');
-    bubble.className = 'bg-gray-200 text-gray-900 rounded-2xl rounded-br-sm p-3 ml-auto max-w-[85%] cursor-pointer message-bubble flex items-start gap-2';
+    bubble.className = 'bg-white text-gray-900 rounded-2xl rounded-br-sm shadow-md p-3 ml-auto max-w-[85%] cursor-pointer message-bubble flex items-start gap-2';
     bubble.onclick = () => onMessageClick(message);
     
     // Convert command ID to label for display and icon lookup
