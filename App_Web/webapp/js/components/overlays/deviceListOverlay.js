@@ -14,21 +14,26 @@ export function createDeviceListOverlay(devices, range, editingDeviceId, nicknam
   overlay.innerHTML = `
     <div class="bg-white border-b border-gray-200 px-4 py-3">
       <div class="flex items-center gap-3">
-        <button class="w-9 h-9 flex items-center justify-center rounded-full transition-colors" id="backBtn">
-          <i data-lucide="arrow-left" class="w-5 h-5 text-gray-700"></i>
+        <button class="w-9 h-9 flex items-center justify-center rounded-full shadow-md hover:shadow-lg transition-all hover:scale-110 hover:-translate-x-1 active:scale-95" style="background-color: #6397b5;" id="backBtn">
+          <i data-lucide="arrow-left" class="w-5 h-5 text-white"></i>
         </button>
         <h2 class="text-lg font-semibold text-gray-900">Devices</h2>
       </div>
-      <div class="text-xs text-gray-500 mt-1 ml-12">
-        Auto-updates every 30s
-      </div>
+     
     </div>
     
     <div class="flex-1 overflow-y-auto" id="deviceList"></div>
   `;
   
   // Event handlers
-  overlay.querySelector('#backBtn').onclick = onClose;
+  const backBtn = overlay.querySelector('#backBtn');
+  backBtn.onclick = onClose;
+  backBtn.onmouseover = function() {
+    this.style.backgroundColor = '#5387a5';
+  };
+  backBtn.onmouseout = function() {
+    this.style.backgroundColor = '#6397b5';
+  };
 
   
   // Add devices
@@ -56,7 +61,12 @@ export function createDeviceListOverlay(devices, range, editingDeviceId, nicknam
       };
     }
   } else if (devices.length === 0) {
-    deviceList.innerHTML = '<div class="text-center text-gray-400 py-12 text-sm">No devices in range</div>';
+    deviceList.innerHTML = `
+      <div class="flex flex-col items-center justify-center py-16 px-4">
+        <i data-lucide="radio-tower" class="w-12 h-12 text-gray-400 mb-4"></i>
+        <div class="text-sm font-medium text-gray-500">No devices in range</div>
+      </div>
+    `;
   } else {
     devices.forEach(device => {
       const card = document.createElement('div');
