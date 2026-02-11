@@ -11,17 +11,17 @@ export function createSettingsOverlay(onBack) {
     
     overlay.innerHTML = `
         <div class="bg-white border-b border-gray-200 px-4 py-3 flex items-center gap-3">
-            <button class="w-9 h-9 flex items-center justify-center rounded-full shadow-md hover:shadow-lg transition-all hover:scale-110 hover:-translate-x-1 active:scale-95" style="background-color: #6397b5;" id="backBtn">
+            <button class="w-9 h-9 flex items-center justify-center rounded-full shadow-md hover:shadow-lg transition-all hover:scale-110 hover:-translate-x-1 active:scale-95 bg-teal-400 hover:bg-teal-500" id="backBtn">
                 <i data-lucide="arrow-left" class="w-5 h-5 text-white"></i>
             </button>
             <h2 class="text-lg font-semibold text-gray-900">Settings</h2>
         </div>
         <div class="flex-1 overflow-y-auto p-4 space-y-4">
-            <!-- Device List Section -->
+            <!-- Connection Section -->
             <div class="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
                 <div class="px-4 py-3 border-b border-gray-100 bg-gray-50">
                     <div class="flex items-center gap-2">
-                        <i data-lucide="radio-tower" class="w-5 h-5 text-gray-700"></i>
+                        <i data-lucide="radio-tower" class="w-5 h-5" style="color: #6397b5;"></i>
                         <h3 class="font-semibold text-gray-900 text-base">Connection</h3>
                     </div>
                 </div>
@@ -37,18 +37,18 @@ export function createSettingsOverlay(onBack) {
                             <input type="checkbox" id="deviceScanningToggle" 
                                    class="sr-only peer" 
                                    ${!state.deviceScanningEnabled ? 'checked' : ''}>
-                            <div class="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                            <div class="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-400"></div>
                         </div>
                     </label>
                     
                 </div>
             </div>
             
-            <!-- Beta Games Section -->
+            <!-- Activities Section -->
             <div class="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
                 <div class="px-4 py-3 border-b border-gray-100 bg-gray-50">
                     <div class="flex items-center gap-2">
-                        <i data-lucide="telescope" class="w-5 h-5 text-gray-700"></i>
+                        <i data-lucide="telescope" class="w-5 h-5" style="color: #bf75c9;"></i>
                         <h3 class="font-semibold text-gray-900 text-base">Activities</h3>
                     </div>
                 </div>
@@ -64,17 +64,17 @@ export function createSettingsOverlay(onBack) {
                             <input type="checkbox" id="betaGamesToggle" 
                                    class="sr-only peer" 
                                    ${state.showBetaGames ? 'checked' : ''}>
-                            <div class="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-amber-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
+                            <div class="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-400"></div>
                         </div>
                     </label>
                 </div>
             </div>
             
-            <!-- Version Section -->
+            <!-- App Info Section -->
             <div class="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
                 <div class="px-4 py-3 border-b border-gray-100 bg-gray-50">
                     <div class="flex items-center gap-2">
-                        <i data-lucide="info" class="w-5 h-5 text-gray-700"></i>
+                        <i data-lucide="info" class="w-5 h-5" style="color: #93d5a8;"></i>
                         <h3 class="font-semibold text-gray-900 text-base">App Info</h3>
                     </div>
                 </div>
@@ -91,14 +91,8 @@ export function createSettingsOverlay(onBack) {
     // Event handlers
     const backBtn = overlay.querySelector('#backBtn');
     backBtn.onclick = onBack;
-    backBtn.onmouseover = function() {
-        this.style.backgroundColor = '#5387a5';
-    };
-    backBtn.onmouseout = function() {
-        this.style.backgroundColor = '#6397b5';
-    };
     
-    // Device scanning toggle handler (inverted: checked = broadcast mode = scanning disabled)
+    // Device scanning toggle handler
     const deviceToggle = overlay.querySelector('#deviceScanningToggle');
     deviceToggle.onchange = (e) => {
         setState({ deviceScanningEnabled: !e.target.checked });
