@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>If Splats</title>
+
+    <!-- Recommended meta tags -->
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1.0">
+
+    <!-- PyScript CSS -->
+    <link rel="stylesheet" href="https://pyscript.net/releases/2026.2.1/core.css">
+
+    <!-- This script tag bootstraps PyScript -->
+    <script type="module" src="https://pyscript.net/releases/2026.2.1/core.js"></script>
+</head>
+<body>
+    <h1>Splats</h1>
+    This is a simple test 
+    <script type="mpy-editor" src="./main.py" config="./pyscript.toml" env='splats' setup></script>
+    
+    <button id = "ble">Connect</button>
+    <div id = 'live' style="background-color: red; width: 10px; height: 10px; border-radius: 5px; display: inline-block;"></div>
+    <button id = "test">Test</button>
+
+    <div id='all_things_channels'>
+        <h3 id = 'title'>Channel Setup</h3>
+        <table>    
+          <tr>
+            <td><button id = 'channel_connect'>connect</button></td>
+            <td><div id = 'liveChan' style="background-color: red; width: 10px; height: 10px; border-radius: 5px; display: inline-block;"></div> </td>
+            <td>channel </td>
+            <td><input id = 'topic' maxlength = 50 type='text' value = '/splats' style = 'color:#0000FF'></td>
+            <td> = </td>
+            <td style="width: 100px; text-align: center"><label id = "channelValue">0</label></td>
+            <td><input id = 'payload' maxlength = 50 type='text' value = 'send this'></td>
+            <td><button id = "send">Send</button></td>
+          </tr>
+        </table>
+     <div style = 'color:#0000FF; width: 800px' id = "activity"></div>
+    </div>
+
+    <div>
+        <h3>Intelligence</h3>
+        If  
+        <select id="waitfor">
+        <option value="press">when pressed</option>
+        <option value="release">when released</option>
+        <option value="chan">when channel</option>
+    </select>
+    Then 
+    <div id="action">
+        <select id="do_light">
+            <option value="nix">no lights</option>
+            <option value="red" selected>Light up red</option>
+            <option value="green">Light up green</option>
+        </select>
+        And
+         <select id="do_sound">
+            <option value="nada">no sound</option>
+            <option value="beep"selected>Beep</option>
+            <option value="bang">Bang</option>
+        </select>
+   </div>
+
+    </div>
+    <script type="mpy-editor" env='splats'>
+        print(await myHub.readBattery())
+        
+    </script>
+    </body>
+</html>
