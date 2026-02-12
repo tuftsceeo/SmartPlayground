@@ -5,7 +5,7 @@
  */
 
 import { getCommandIcon, createIcon } from "../common/icons.js";
-import { COMMANDS, getCommandLabel, getCommandById } from "../../utils/constants.js";
+import { COMMANDS, getCommandLabel, getCommandById, getFilteredCommands } from "../../utils/constants.js";
 import { createCommandInfoOverlay } from "../overlays/commandInfoOverlay.js";
 
 export function createMessageInput(currentMessage, showPalette, canSend, onInputClick, onCommandSelect, onClearMessage, onSendMessage, flashMessageBox) {
@@ -64,7 +64,10 @@ export function createMessageInput(currentMessage, showPalette, canSend, onInput
     // console.log("Commands container:", commandsContainer);
     // console.log("COMMANDS array:", COMMANDS);
 
-    COMMANDS.forEach((command, index) => {
+    // Use filtered commands based on beta games setting
+    const commandsToShow = getFilteredCommands();
+
+    commandsToShow.forEach((command, index) => {
         // console.log(`Processing command ${index}:`, command);
         
         // Create wrapper for button and info icon

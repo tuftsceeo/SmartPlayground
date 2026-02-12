@@ -30,6 +30,9 @@ export const state = {
 
     // Device scanning toggle (webapp setting)
     deviceScanningEnabled: true, // Enabled by default - passive tracking via battery messages
+    
+    // Beta games toggle (webapp setting)
+    showBetaGames: false, // Hidden by default - users can enable for testing
 
     // Device state
     range: 40, // 0-100 slider value (40 = "Close")

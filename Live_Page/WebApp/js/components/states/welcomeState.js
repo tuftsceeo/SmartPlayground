@@ -28,7 +28,7 @@ export function createWelcomeState(onConnect, onSetupHub, pythonReady = false) {
                 </h1>
                 
                 <p class="text-sm text-gray-600 px-2">
-                    Control your interactive plushies and create magical play experiences.
+                    Control your plushies and create fun play experiences.
                 </p>
             </div>
             
@@ -43,7 +43,7 @@ export function createWelcomeState(onConnect, onSetupHub, pythonReady = false) {
                 onmouseout="this.style.backgroundColor='#bf75c9'"
             >
                 <div class="flex items-center justify-center gap-2">
-                    <i data-lucide="external-link" class="w-4 h-4"></i>
+                    <i data-lucide="external-link" class="w-5 h-5"></i>
                     <span>Learn More About This Project</span>
                 </div>
             </a>
@@ -57,7 +57,7 @@ export function createWelcomeState(onConnect, onSetupHub, pythonReady = false) {
                 <!-- Connection Steps -->
                 <div class="space-y-2">
                     <div class="flex items-center gap-2.5">
-                        <div class="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm" style="background-color: #8fd3c9;">
+                        <div class="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm bg-teal-400">
                             <span class="text-xs font-bold text-white">1</span>
                         </div>
                         <p class="text-sm text-gray-700">
@@ -66,7 +66,7 @@ export function createWelcomeState(onConnect, onSetupHub, pythonReady = false) {
                     </div>
                     
                     <div class="flex items-center gap-2.5">
-                        <div class="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm" style="background-color: #6397b5;">
+                        <div class="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm bg-blue-400">
                             <span class="text-xs font-bold text-white">2</span>
                         </div>
                         <p class="text-sm text-gray-700">
@@ -80,20 +80,18 @@ export function createWelcomeState(onConnect, onSetupHub, pythonReady = false) {
                     <button 
                         id="welcomeConnectBtn" 
                         ${isDisabled ? 'disabled' : ''} 
-                        class="w-full px-4 py-3 text-white text-sm font-semibold rounded-lg transition-all shadow-md flex items-center justify-center gap-2 ${isDisabled ? 'opacity-50 cursor-not-allowed' : 'hover:shadow-lg hover:scale-[1.01] active:scale-[0.99]'}"
-                        style="background-color: #6397b5;"
-                        ${!isDisabled ? `onmouseover="this.style.backgroundColor='#5387a5'" onmouseout="this.style.backgroundColor='#6397b5'"` : ''}
+                        class="w-full px-4 py-3 bg-blue-400 hover:bg-blue-500 text-white text-sm font-semibold rounded-lg transition-all shadow-md flex items-center justify-center gap-2 ${isDisabled ? 'opacity-50 cursor-not-allowed' : 'hover:shadow-lg hover:scale-[1.01] active:scale-[0.99]'}"
                     >
-                        <i data-lucide="plug" class="w-4 h-4"></i>
+                        <i data-lucide="plug" class="w-5 h-5"></i>
                         ${!pythonReady ? 'Initializing...' : state.hubConnecting ? 'Connecting...' : 'Connect to Existing Controller'}
                     </button>
                     
                     <button 
                         id="welcomeSetupBtn" 
                         ${isDisabled ? 'disabled' : ''} 
-                        class="w-full px-4 py-2.5 bg-white text-gray-700 text-xs font-medium rounded-lg transition-all border-2 border-gray-200 flex items-center justify-center gap-1.5 ${isDisabled ? 'opacity-50 cursor-not-allowed' : 'hover:border-gray-300 hover:bg-gray-50 hover:scale-[1.01] active:scale-[0.99]'}"
+                        class="w-full px-4 py-2.5 bg-white text-gray-700 text-sm font-medium rounded-lg transition-all border-2 border-gray-200 flex items-center justify-center gap-2 ${isDisabled ? 'opacity-50 cursor-not-allowed' : 'hover:border-gray-300 hover:bg-gray-50 hover:scale-[1.01] active:scale-[0.99]'}"
                     >
-                        <i data-lucide="upload-cloud" class="w-3.5 h-3.5"></i>
+                        <i data-lucide="upload-cloud" class="w-4 h-4"></i>
                         ${state.hubConnecting ? 'Connecting...' : 'Setup or Update Controller Software'}
                     </button>
                 </div>
