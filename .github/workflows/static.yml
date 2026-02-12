@@ -39,7 +39,7 @@ jobs:
         uses: actions/upload-pages-artifact@v3
         with:
           # Upload webapp directory only
-          path: 'App_Web/webapp'
+          path: 'Live_Page'
       
       - name: Deploy to GitHub Pages
         id: deployment
