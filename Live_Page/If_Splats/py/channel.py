@@ -50,7 +50,7 @@ class Channel():
         self.c_btn = document.getElementById('channel_connect')
         self.c_btn.onclick = self.connect_disconnect
 
-    def connect_disconnect(self):   
+    def connect_disconnect(self, event):   
         if self.c_btn.innerText == 'Connect':
             self.setupSocket()
             self.c_btn.innerText = 'Disconnect'
