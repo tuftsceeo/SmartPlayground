@@ -43,44 +43,75 @@
 
         .buttons-container {
             display: flex;
-            flex-direction: column;
-            gap: 1.5rem;
+            flex-direction: row;
+            gap: 2rem;
             align-items: center;
+            justify-content: center;
+            flex-wrap: wrap;
         }
 
         .button-card {
             background: white;
-            border-radius: 12px;
+            border-radius: 16px;
             padding: 2rem;
-            width: 100%;
-            max-width: 500px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            width: 200px;
+            height: 200px;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
             transition: transform 0.3s ease, box-shadow 0.3s ease;
             text-decoration: none;
             color: inherit;
-            display: block;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
         }
 
         .button-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.3);
+            transform: translateY(-8px);
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.3);
         }
 
         .button-card h2 {
             color: #667eea;
-            font-size: 1.8rem;
+            font-size: 1.3rem;
             margin-bottom: 0.5rem;
         }
 
         .button-card p {
             color: #666;
-            font-size: 1rem;
-            line-height: 1.5;
+            font-size: 0.85rem;
+            line-height: 1.4;
+            text-align: center;
         }
 
         .icon {
-            font-size: 3rem;
-            margin-bottom: 1rem;
+            font-size: 4rem;
+            margin-bottom: 0.8rem;
+        }
+
+        .tufts-button {
+            background: rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(10px);
+            border: 3px solid rgba(255, 255, 255, 0.4);
+            color: white;
+            padding: 1.5rem 3rem;
+            border-radius: 12px;
+            text-decoration: none;
+            font-size: 2rem;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 3rem;
+            transition: all 0.3s ease;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.25);
+        }
+
+        .tufts-button:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: scale(1.08);
+            box-shadow: 0 12px 35px rgba(0, 0, 0, 0.35);
+            border-color: rgba(255, 255, 255, 0.6);
         }
 
         @media (max-width: 600px) {
@@ -92,20 +123,44 @@
                 font-size: 1rem;
             }
 
+            .tufts-button {
+                font-size: 1.2rem;
+                padding: 1.2rem 2rem;
+            }
+
             .button-card {
+                width: 160px;
+                height: 160px;
                 padding: 1.5rem;
             }
 
             .button-card h2 {
-                font-size: 1.5rem;
+                font-size: 1.1rem;
+            }
+
+            .button-card p {
+                font-size: 0.75rem;
+            }
+
+            .icon {
+                font-size: 3rem;
+            }
+
+            .buttons-container {
+                gap: 1.5rem;
             }
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>Smart Playground</h1>
-        <p class="subtitle">Choose application</p>
+       
+        <a href="https://sites.tufts.edu/smartplayground/" target="_blank" class="tufts-button">
+            <h1></h1>SmartPlayground @ Tufts Homepage</h1>
+        </a>
+        <p class="subtitle">Choose an application</p>
+        
+        
         
         <div class="buttons-container">
             <a href="WebApp/index.html" class="button-card">
