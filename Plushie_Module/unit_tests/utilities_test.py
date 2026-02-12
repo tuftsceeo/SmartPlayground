@@ -18,7 +18,9 @@ def button_test():
 def motor_test():
     print('Testing the motor - haptic feedback')
     motor = utilities.Motor(module_type)
-    motor.run()
+    motor.start()
+    time.sleep(2)
+    motor.stop()
     
 def buzzer_test():
     print('Testing the buzzer playing A4 for 2 sec')
