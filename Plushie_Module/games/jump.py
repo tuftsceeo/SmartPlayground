@@ -20,9 +20,10 @@ class Jump(Game):
         print(f'your color is {self.color}')
         self.level = 0
         
-        print("jumping")
         self.in_jump = False
         self.last_jump_time = 0
+        self.main.lights.all_off()
+
 
     async def loop(self):
         """

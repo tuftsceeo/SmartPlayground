@@ -1,0 +1,12 @@
+{
+    "export": true,
+    "files": {
+        "./py/splats.py": "",
+        "./py/channel.py": ""
+    },
+    "js_modules": {
+        "main": {
+            "./js/ble.js": "ble"
+        }
+    }
+}

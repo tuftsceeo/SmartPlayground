@@ -82,6 +82,7 @@ class Tool:
             self.topic = '/notify'
             return
         self.log_message('starting game ', number)
+        self.lights.all_off()
         self.running = True
         self.game = number
         
@@ -123,6 +124,8 @@ class Tool:
             if self.topic == '/ping':
                 self.rssi = rssi
                 return
+            elif self.topic == '/slide':
+                return
             else:
                 #print(mac, msg, rssi)
                 current = list(self.lights.last_pattern)
@@ -158,7 +161,7 @@ class Tool:
                     #self.game = self.value
                     if value >= 0:
                         self.log_message('starting game ',value)
-                        await self.lights.animate(COLORS[value],timeout = 0, speed = 0.01)
+                        await self.lights.animate(COLORS[value%8],timeout = 0, speed = 0.01)
                         self.start_time = time.ticks_ms()
                         self.start_game(value)
                     self.button.flag = False
@@ -179,6 +182,7 @@ class Tool:
             
             else:
                 self.log_message(f'unrecognized topic:{topic}')
+                value = None
 
             self.topic =  topic
             self.value = value

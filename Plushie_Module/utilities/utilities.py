@@ -80,7 +80,10 @@ class Hibernate:
     def __init__(self):
         pass
     
-    def hibernate(self):
-        deepsleep()
+    def hibernate(self, sec = None):
+        if sec:
+            deepsleep(sec)
+        else:
+            deepsleep()
 
 

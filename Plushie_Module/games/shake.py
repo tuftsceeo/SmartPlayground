@@ -17,6 +17,7 @@ class Shake(Game):
         self.color = random.choice(COLORS)
         print(f'your color is {self.color}')
         self.level = 0
+        self.main.lights.all_off()
         
     def accel_mag(self):
         x,y,z = self.main.accel.read_accel()
