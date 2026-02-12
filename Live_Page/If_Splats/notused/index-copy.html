@@ -283,19 +283,7 @@
             width: 100%;
         }
         
-        input[type="number"] {
-            font-family: 'DM Sans', monospace;
-            padding: 0.625rem 1rem;
-            border-radius: 10px;
-            border: 2px solid var(--border);
-            background: var(--bg-card);
-            color: var(--text-primary);
-            font-size: 0.9rem;
-            transition: all 0.2s ease;
-        }
-        
-        input[type="text"]:focus,
-        input[type="number"]:focus {
+        input[type="text"]:focus {
             outline: none;
             border-color: var(--primary);
             box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
@@ -402,25 +390,6 @@
             gap: 1rem;
         }
         
-        #midi-note-container {
-            transition: opacity 0.3s ease;
-        }
-        
-        #midi-note {
-            animation: fadeIn 0.3s ease-out;
-        }
-        
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateX(-10px);
-            }
-            to {
-                opacity: 1;
-                transform: translateX(0);
-            }
-        }
-        
         .connector {
             color: var(--text-secondary);
             font-weight: 600;
@@ -495,7 +464,7 @@
     </style>
 </head>
 <body>
-    <script type="mpy-editor" src="./main.py" config="./pyscript.json" env='splats' setup></script>
+    <script type="mpy-editor" src="./main.py" config="./pyscript.toml" env='splats' setup></script>
     
     <div class="container">
         <h1>Splats</h1>
@@ -548,13 +517,14 @@
                         <select id="do_light">
                             <option value="nix">no lights</option>
                             <option value="0" selected>Light up red</option>
-                            <option value="1">Light up orange</option>
-                            <option value="2">Light up yellow</option>
-                            <option value="3">Light up green</option>
-                            <option value="4">Light up blue</option>
-                            <option value="5">Light up indigo</option>
-                            <option value="6">Light up violet</option>
-                            <option value="7">Light up white</option>
+                            <option value="1" >Light up orange</option>
+                            <option value="2" >Light up yellow</option>
+                            <option value="3" >Light up green</option>
+                            <option value="4" >Light up blue</option>
+                            <option value="5" >Light up indigo</option>
+                            <option value="6" >Light up violet</option>
+                            <option value="7" >Light up white</option>
+
                         </select>
                     </div>
                     <div class="action-row">
@@ -569,11 +539,7 @@
                             <option value="5">sound like a duck</option>
                             <option value="6">sound like a elephant</option>
                             <option value="7">sound like a horse</option>
-                            <option value="note">play MIDI note</option>
                         </select>
-                        <div id="midi-note-container" style="display: none;">
-                            <input type="number" id="midi-note" placeholder="MIDI note (0-127)" min="0" max="127" style="width: 140px;">
-                        </div>
                     </div>
                 </div>
             </div>
@@ -581,28 +547,6 @@
         
         <div class="designer-credit">Designed by Claude</div>
     </div>
-    
-    <script>
-        // Show/hide MIDI note input based on sound selection
-        const soundSelect = document.getElementById('do_sound');
-        const midiNoteContainer = document.getElementById('midi-note-container');
-        const midiNoteInput = document.getElementById('midi-note');
-        
-        soundSelect.addEventListener('change', function() {
-            if (this.value === 'note') {
-                midiNoteContainer.style.display = 'block';
-                // Trigger animation by removing and re-adding
-                midiNoteInput.style.animation = 'none';
-                setTimeout(() => {
-                    midiNoteInput.style.animation = 'fadeIn 0.3s ease-out';
-                }, 10);
-                // Focus on input for better UX
-                setTimeout(() => midiNoteInput.focus(), 100);
-            } else {
-                midiNoteContainer.style.display = 'none';
-            }
-        });
-    </script>
     
     <script type="mpy-editor" env='splats'>
         print(await myHub.readBattery())
