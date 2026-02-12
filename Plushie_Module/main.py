@@ -10,11 +10,12 @@ import utilities.lights as lights
 import utilities.now as now
 import utilities.i2c_bus as i2c_bus
 from utilities.colors import *
-import config 
+import config
+from hardware import tool
 
 class Tool:
     def __init__(self):
-        self.tool = config.Plushie_settings
+        self.tool = tool
         self.mac = None
         self.espnow = None
         self.start_time = time.ticks_ms()
