@@ -26,7 +26,7 @@ SOUNDS = [
 
 myHub = splats.Hub()
 myChannel = channel.Channel("hackathon", "@chrisrogers", "talking-on-a-channel")
-myChannel.connect_disconnect()
+#myChannel.connect_disconnect()
 chan_topic = document.getElementById('topic')
 
 c_btn = document.getElementById('ble')
