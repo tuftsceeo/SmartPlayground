@@ -66,12 +66,12 @@ async def theEvent(data):
     if data[0] == 3: # btn
         if data[2] ==0: # released
             window.console.log(f'released: {waitfor.value}')
-            myChannel.post(chan_topic.value + '/release',waitfor.value)
+            #await myChannel.post(chan_topic.value + '/release',waitfor.value)
             if waitfor.value == 'release':
                 await theAction()
         else:
-            window.console.log(f'pressed: {waitfor.value}')
-            myChannel.post(chan_topic.value + '/press',waitfor.value)
+            window.console.log(f'posted on {chan_topic.value + "/press"}: {waitfor.value}')
+            await myChannel.post(chan_topic.value + '/press',waitfor.value)
             if waitfor.value == 'press':
                 await theAction()
 
