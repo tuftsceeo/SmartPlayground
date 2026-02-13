@@ -56,7 +56,7 @@ export function createRecipientBar(devices, range, lastUpdateTime, onRangeChange
         // Show placeholder when no devices
         const placeholder = document.createElement('div');
         placeholder.className = 'w-12 h-12 rounded-full flex items-center justify-center border-2 border-gray-200 bg-white';
-        placeholder.innerHTML = '<i data-lucide="plug" class="w-6 h-6 text-gray-300"></i>';
+        placeholder.innerHTML = '<i data-lucide="radio-tower" class="w-6 h-6 text-gray-300"></i>';
         avatarsContainer.appendChild(placeholder);
       } else {
         // Show actual device icons
