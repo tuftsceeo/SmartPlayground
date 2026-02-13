@@ -2,6 +2,8 @@
  * Application Constants - commands loaded from commands.json.
  */
 
+import { state } from '../state/store.js';
+
 let commandsData = [];
 
 try {
@@ -22,5 +24,18 @@ export function getCommandLabel(commandId) {
 
 export function getCommandById(commandId) {
     return COMMANDS.find(cmd => cmd.id === commandId) || null;
+}
+
+/**
+ * Get filtered commands based on user settings (beta games toggle)
+ * @returns {Array} Filtered array of commands
+ */
+export function getFilteredCommands() {
+    if (state.showBetaGames) {
+        // Show all commands if beta games are enabled
+        return COMMANDS;
+    }
+    // Filter out beta commands
+    return COMMANDS.filter(cmd => !cmd.beta);
 }
 

@@ -14,49 +14,56 @@ export function createDeviceListOverlay(devices, range, editingDeviceId, nicknam
   overlay.innerHTML = `
     <div class="bg-white border-b border-gray-200 px-4 py-3">
       <div class="flex items-center gap-3">
-        <button class="w-9 h-9 flex items-center justify-center rounded-full transition-colors" id="backBtn">
-          <i data-lucide="arrow-left" class="w-5 h-5 text-gray-700"></i>
+        <button class="w-9 h-9 flex items-center justify-center rounded-full shadow-md hover:shadow-lg transition-all hover:scale-110 hover:-translate-x-1 active:scale-95 bg-teal-400 hover:bg-teal-500" id="backBtn">
+          <i data-lucide="arrow-left" class="w-5 h-5 text-white"></i>
         </button>
         <h2 class="text-lg font-semibold text-gray-900">Devices</h2>
       </div>
-      <div class="text-xs text-gray-500 mt-1 ml-12">
-        Auto-updates every 30s
-      </div>
+     
     </div>
     
     <div class="flex-1 overflow-y-auto" id="deviceList"></div>
   `;
   
   // Event handlers
-  overlay.querySelector('#backBtn').onclick = onClose;
+  const backBtn = overlay.querySelector('#backBtn');
+  backBtn.onclick = onClose;
 
   
   // Add devices
   const deviceList = overlay.querySelector('#deviceList');
   
   if (!hubConnected) {
-    // Hub disconnected state
+    // Hub disconnected state - more encouraging
     const isDisabled = hubConnecting;
     deviceList.innerHTML = `
       <div class="flex flex-col items-center justify-center py-16 px-4">
-        <i data-lucide="unplug" class="w-12 h-12 text-gray-400 mb-4"></i>
-        <div class="text-sm font-medium text-gray-900 mb-6">Hub Disconnected</div>
-        <button ${isDisabled ? 'disabled' : ''} class="px-6 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2 ${isDisabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-700'}" id="connectBtn">
+        <i data-lucide="plug" class="w-16 h-16 mb-4" style="color: #8fd3c9;"></i>
+        <div class="text-base font-semibold text-gray-900 mb-2">Let's Get Connected!</div>
+        <div class="text-sm text-gray-500 mb-6">Plug in your control module to start playing</div>
+        <button ${isDisabled ? 'disabled' : ''} class="px-6 py-3 bg-blue-400 hover:bg-blue-500 text-white text-sm font-semibold rounded-lg transition-all shadow-md flex items-center gap-2 ${isDisabled ? 'opacity-50 cursor-not-allowed' : 'hover:shadow-lg hover:scale-[1.02] active:scale-[0.98]'}" id="connectBtn">
           <i data-lucide="plug" class="w-4 h-4"></i>
-          ${hubConnecting ? 'Connecting...' : 'Connect to Hub'}
+          ${hubConnecting ? 'Connecting...' : 'Connect to Controller'}
         </button>
       </div>
     `;
     
     // Add connect button handler
-    if (!isDisabled) {
-      deviceList.querySelector('#connectBtn').onclick = (e) => {
+    const connectBtn = deviceList.querySelector('#connectBtn');
+    if (!isDisabled && connectBtn) {
+      connectBtn.onclick = (e) => {
         e.stopPropagation();
         onHubConnect();
       };
     }
   } else if (devices.length === 0) {
-    deviceList.innerHTML = '<div class="text-center text-gray-400 py-12 text-sm">No devices in range</div>';
+    deviceList.innerHTML = `
+      <div class="flex flex-col items-center justify-center py-16 px-4">
+        <i data-lucide="radio-tower" class="w-16 h-16 mb-4" style="color: #bf75c9;"></i>
+        <div class="text-base font-semibold text-gray-900 mb-2">Looking for Devices...</div>
+        <div class="text-sm text-gray-500">Make sure your plushies are turned on and nearby</div>
+      </div>
+    `;
   } else {
     devices.forEach(device => {
       const card = document.createElement('div');
@@ -86,7 +93,7 @@ export function createDeviceListOverlay(devices, range, editingDeviceId, nicknam
       contentDiv.innerHTML = `
         ${isEditing 
           ? `<input type="text" value="${displayName === device.id ? '' : displayName}" placeholder="${device.id}" 
-                    class="w-full px-2 py-1 border border-gray-300 rounded text-base font-semibold text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 mb-1" id="edit-${device.id}" autofocus>`
+                    class="w-full px-2 py-1 border border-gray-300 rounded text-base font-semibold text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-400 mb-1" id="edit-${device.id}" autofocus>`
           : `<div class="font-semibold text-gray-900 text-base mb-1">${displayName}</div>`
         }
         <div class="text-xs text-gray-500 mb-1.5">
@@ -120,7 +127,7 @@ export function createDeviceListOverlay(devices, range, editingDeviceId, nicknam
       // Edit button
       statusDiv.innerHTML += `
         <button class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors" id="edit-btn-${device.id}">
-          <i data-lucide="pencil" class="w-4 h-4 text-gray-500"></i>
+          <i data-lucide="pencil" class="w-4 h-4" style="color: #a082cf;"></i>
         </button>
       `;
       
