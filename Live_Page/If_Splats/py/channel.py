@@ -103,6 +103,7 @@ class Channel():
             self.activity.innerText = 'Not connected - please connect to the channel first'
             return
         payload = {'topic':filter,'value':value}
+        print('posting ',payload)
         try:
             self.socket.send(json.dumps(payload))
         except Exception as e:
