@@ -10,7 +10,8 @@ import utilities.lights as lights
 import utilities.now as now
 import utilities.i2c_bus as i2c_bus
 from utilities.colors import *
-import config
+from utilities.nfc import NFC
+
 from hardware import tool
 
 class Tool:
@@ -56,6 +57,15 @@ class Tool:
                 print(log_entry[:-1])
         except OSError as e:
             print("Error writing to log file:", e)
+    
+    def nfc_detect(self, uid):
+        print(f'detected {uid}')
+        msg = json.dumps({'topic': '/nfc', 'value':1})
+        mac, rssi = None, None
+        self.queue.append((msg, mac, rssi))
+
+    def nfc_remove(self, uid):
+        print(f'removed {uid}')
 
     def startup(self):
         self.log_message('Starting up...')
@@ -68,6 +78,11 @@ class Tool:
         self.lights.on(3)
         self.topic = ''
         self.msg = ''
+        try:
+            self.nfc = NFC(self.nfc_detect, self.nfc_remove)
+            self.log_message(self.nfc.version())
+        except:
+            self.nfc = None
         self.log_message('Started up') 
         
     def publish(self, msg):
@@ -181,6 +196,10 @@ class Tool:
                 value = reply
                 self.log_message(f"{topic}  {value}")
             
+            elif '/nfc' in topic:
+                value = reply
+                self.log_message(f"{topic}  {value}")
+            
             else:
                 self.log_message(f'unrecognized topic:{topic}')
                 value = None
@@ -206,7 +225,6 @@ class Tool:
         finally:
             self.log_message('main shutting down')
             self.close()
-    
     
 me = Tool()
         

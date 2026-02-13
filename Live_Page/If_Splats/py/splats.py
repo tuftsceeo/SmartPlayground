@@ -1,6 +1,5 @@
 from pyscript import window
 from pyscript.js_modules import ble
-import struct
 import asyncio
 
 SERVICE_UUID = '0000fff0-0000-1000-8000-00805f9b34fb'
@@ -24,10 +23,6 @@ PLAY_LED_SEQUENCE = 0x01, 0x60
 FLASH_LEDS = 0x01, 0x70
 NOTE_ON = 0x00, 0x40
 NOTE_OFF = 0x01, 0x40
-
-def fred(data):
-    data = [d for d in data]
-    window.console.log(data)
 
 class Hub():
     def __init__(self):
