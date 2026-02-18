@@ -646,7 +646,7 @@ class App {
                     },
                     (range) => setState({ range }),
                     (deviceId) => setState({ editingDeviceId: deviceId }),
-                    (deviceId, nickname) => {
+                    async (deviceId, nickname) => {  // MAKE IT ASYNC AND ADD RENAME LOGIC
                         setState({
                             moduleNicknames: {
                                 ...state.moduleNicknames,
@@ -654,10 +654,16 @@ class App {
                             },
                             editingDeviceId: null,
                         });
+                        
+                        // Send rename to plushie
+                        const trimmedName = nickname.trim();
+                        if (trimmedName) {
+                            await this.sendRenameCommand(deviceId, trimmedName);
+                        }
                     },
                     state.hubConnected,
                     () => this.handleHubConnect(),
-                    state.hubConnecting, // Pass connecting state
+                    state.hubConnecting,
                 );
                 this.components.deviceListOverlay.replaceWith(newOverlay);
                 this.components.deviceListOverlay = newOverlay;
@@ -748,11 +754,15 @@ class App {
                     },
                     editingDeviceId: null,
                 });
+                console.log("Renamed on UI");
                 
                 // Send rename to plushie
+                console.log("Attempting to trim nickname");
                 const trimmedName = nickname.trim();
+                console.log("TrimmedName: " + trimmedName);
                 if (trimmedName) {
                     await this.sendRenameCommand(deviceId, trimmedName);
+                    console.log("Rename: " + trimmedName);
                 }
             },
             state.hubConnected,
