@@ -10,13 +10,19 @@ import utilities.lights as lights
 import utilities.now as now
 import utilities.i2c_bus as i2c_bus
 from utilities.colors import *
-from utilities.nfc import NFC
-
 from hardware import tool
 
 class Tool:
     def __init__(self):
         self.tool = tool
+        # Load custom name if it exists (falls back to config name)
+        try:
+            with open('device_name.txt', 'r') as f:
+                self.device_name = f.read().strip()
+                print(f'Loaded custom name: {self.device_name}')
+        except:
+            self.device_name = self.tool.name  # Use default from config
+            print(f'Using default name: {self.device_name}')
         self.mac = None
         self.espnow = None
         self.start_time = time.ticks_ms()
@@ -57,15 +63,6 @@ class Tool:
                 print(log_entry[:-1])
         except OSError as e:
             print("Error writing to log file:", e)
-    
-    def nfc_detect(self, uid):
-        print(f'detected {uid}')
-        msg = json.dumps({'topic': '/nfc', 'value':1})
-        mac, rssi = None, None
-        self.queue.append((msg, mac, rssi))
-
-    def nfc_remove(self, uid):
-        print(f'removed {uid}')
 
     def startup(self):
         self.log_message('Starting up...')
@@ -78,11 +75,6 @@ class Tool:
         self.lights.on(3)
         self.topic = ''
         self.msg = ''
-        try:
-            self.nfc = NFC(self.nfc_detect, self.nfc_remove)
-            self.log_message(self.nfc.version())
-        except:
-            self.nfc = None
         self.log_message('Started up') 
         
     def publish(self, msg):
@@ -152,13 +144,65 @@ class Tool:
             
         except Exception as e:
             self.log_message(f'pop error {e}')
-                
+            
     async def execute_queue(self, topic, reply, game):
         await asyncio.sleep(0)  #yield to WiFi
-        #print(topic, value, game)
+        
         try:
             self.log_message(f'received {topic} {reply}')
-            if topic == '/game':
+            
+            if topic == '/rename':
+                # Handle rename command
+                if topic == '/rename':
+                    # TODO REMOVE THIS:
+                    print(f"🟢 Processing rename command!")
+                    print(f"🟢 Reply type: {type(reply)}")
+                    print(f"🟢 Reply content: {reply}")
+                
+                # Handle rename command
+                target = reply.get('target') if isinstance(reply, dict) else None
+                new_name = reply.get('name') if isinstance(reply, dict) else None
+                # reply format: {'target': 'device-id', 'name': 'New Name'}
+                target = reply.get('target') if isinstance(reply, dict) else None
+                new_name = reply.get('name') if isinstance(reply, dict) else None
+                
+                if target and new_name:
+                    # Convert our MAC to match format used by web app
+                    my_mac_str = ':'.join(f'{b:02x}' for b in self.mac)
+                    
+                    # Also check sanitized ID format (spaces/underscores replaced with hyphens)
+                    my_sanitized_id = self.device_name.replace(" ", "-").replace("_", "-")
+                    my_sanitized_id = ''.join(c for c in my_sanitized_id if c.isalnum() or c == '-')
+                    
+                    self.log_message(f'Rename target: {target}')
+                    self.log_message(f'My MAC: {my_mac_str}')
+                    self.log_message(f'My sanitized ID: {my_sanitized_id}')
+                    
+                    # Check if this rename is for us
+                    if target == my_mac_str or target == my_sanitized_id or target == "all":
+                        self.log_message(f'Renaming to: {new_name}')
+                        
+                        # Save new name to file
+                        try:
+                            with open('device_name.txt', 'w') as f:
+                                f.write(new_name)
+                            self.device_name = new_name
+                            self.log_message('Name saved successfully')
+                            
+                            # Flash green to confirm rename
+                            await self.lights.animate(GREEN, timeout=0, speed=0.01)
+                            await asyncio.sleep(0.5)
+                            
+                        except Exception as e:
+                            self.log_message(f'Save error: {e}')
+                            # Flash red to indicate error
+                            await self.lights.animate(RED, timeout=0, speed=0.01)
+                    else:
+                        self.log_message(f'Rename not for me (target: {target})')
+                else:
+                    self.log_message('Invalid rename format')
+            
+            elif topic == '/game':
                 try:
                     value, gem_mac = reply
                 except:
@@ -196,10 +240,6 @@ class Tool:
                 value = reply
                 self.log_message(f"{topic}  {value}")
             
-            elif '/nfc' in topic:
-                value = reply
-                self.log_message(f"{topic}  {value}")
-            
             else:
                 self.log_message(f'unrecognized topic:{topic}')
                 value = None
@@ -226,7 +266,9 @@ class Tool:
             self.log_message('main shutting down')
             self.close()
     
+    
 me = Tool()
         
 asyncio.run(me.main())
+
 

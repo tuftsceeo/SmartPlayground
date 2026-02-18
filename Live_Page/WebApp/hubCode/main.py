@@ -1,11 +1,17 @@
 """
 Simple Hub - USB Serial to ESP-NOW Bridge
+==========================================
 
-Connects webapp (USB Serial) to playground modules (ESP-NOW).
-Hardware: ESP32-C6 with optional external antenna (or ESP32-C3)
+This hub connects the webapp (via USB Serial/WebUSB) to playground modules (via ESP-NOW).
+Based on the headless_controller.py pattern with added Serial communication.
+
+Hardware: ESP32-C6 with external antenna
 """
 
-DEBUG_MODE = False
+# Debug mode flag
+DEBUG_MODE = True
+
+# Hub firmware version
 HUB_VERSION = "v2.1.0"
 
 import sys
@@ -16,7 +22,10 @@ import asyncio
 import utilities.now as now
 from controller import Control
 
-ROW_HEIGHT = 10
+print("✅ Hub main.py LOADED", file=sys.stderr)
+
+# Try to import display support
+ROW_HEIGHT = 10  # Pixels per line on 128x64 display (can fit 6 lines)
 MAX_DISPLAY_LINES = 6
 
 try:
@@ -26,38 +35,46 @@ try:
 except ImportError:
     DISPLAY_AVAILABLE = False
 
-# Game IDs 0-10, -1 = stop (see Plushie_Module/config.py)
+# Game command mapping - synchronized with Plushie_Module/config.py
+# Last synced: 2026-01-26
+# IMPORTANT: Keep in sync with plushie games list (0-10) plus stop command (-1)
 GAME_MAP = {
-     # Core games (indices 0-10 from config.py)
+    # Core games (indices 0-10 from config.py)
     "Notes": 0,           # Music/sound notes
     "Shake": 1,           # Motion detection / shake counter
-    "Shake_rainbow": 2,   # Motion detection / shake counter with rainbow
-    "Hot_cold": 3,        # Proximity finding game
-    "Jump": 4,            # Jump counter
-    "Clap": 5,            # Range/connectivity test
-    "Rainbow": 6,         # Battery check + celebration
-    "Hibernate": 7,       # Sleep mode with button warning
-    "Pattern_btn": 8,     # Button pattern matching
-    "Pattern_plush": 9,   # Plushie pattern matching
-    "Color_Press": 10,     # Single color selection
-    "Color_Press_Mult": 11,  # Multi-color stacking
+    "Hot_cold": 2,        # Proximity finding game
+    "Jump": 3,            # Jump counter
+    "Clap": 4,            # Range/connectivity test
+    "Rainbow": 5,         # Battery check + celebration
+    "Hibernate": 6,       # Sleep mode with button warning
+    "Pattern_btn": 7,     # Button pattern matching
+    "Pattern_plush": 8,   # Plushie pattern matching
+    "Color_Press": 9,     # Single color selection
+    "Color_Press_Mult": 10,  # Multi-color stacking
     
     # Command aliases (backwards compatibility & user convenience)
-    "Off": 7,             # Alias for Hibernate
+    "Off": 6,             # Alias for Hibernate
     "Stop": -1,           # Stop current game, return to idle
     "Pause": -1,          # Alias for Stop
 }
 
 class SerialBridge:
-    """Handle USB Serial communication with webapp."""
+    """Handle USB Serial communication with webapp"""
     
     def __init__(self, command_callback, debug_callback):
+        """
+        Initialize serial bridge
+        
+        Args:
+            command_callback: Function to call with (cmd_type, cmd_data)
+            debug_callback: Function to call for debug messages
+        """
         self.command_callback = command_callback
         self.debug = debug_callback
         self.buffer = ""
     
     def send(self, data):
-        """Send JSON message to webapp via Serial."""
+        """Send JSON message to webapp via Serial"""
         try:
             if DEBUG_MODE:
                 print(f"🔴 [Hub] About to send data: {data}", file=sys.stderr)
@@ -67,29 +84,35 @@ class SerialBridge:
             if DEBUG_MODE:
                 print(f"🔴 [Hub] JSON serialized, length: {len(msg)} bytes", file=sys.stderr)
             
+            # Print to stdout (MicroPython automatically flushes on newline)
             print(msg)
-            time.sleep_ms(10)
+            # Note: sys.stdout.flush() not supported on all ESP32 MicroPython builds
             
             if DEBUG_MODE:
                 print(f"🔴 [Hub] Successfully sent {len(msg)} bytes", file=sys.stderr)
+            else:
+                print(f"DEBUG: Successfully sent {len(msg)} bytes", file=sys.stderr)
         except Exception as e:
             self.debug("Ser TX Err")
-            if DEBUG_MODE:
-                print(f"🔴 ERROR: Serial send failed: {e}", file=sys.stderr)
+            print(f"🔴 ERROR: Serial send failed: {e}", file=sys.stderr)
     
     def check_input(self):
-        """Check for incoming Serial data (non-blocking)."""
+        """Check for incoming Serial data (non-blocking with select() fallback)"""
         try:
+            # Try using select to check if stdin has data
             rlist, _, _ = select.select([sys.stdin], [], [], 0)
             has_data = bool(rlist)
         except (OSError, ValueError, NotImplementedError) as e:
-            # Fallback when select() unavailable
+            # Fallback for platforms where select() doesn't work
+            # Some ESP32 MicroPython builds don't support select on stdin
             if DEBUG_MODE:
                 print(f"🔴 [Hub] select() not supported, using fallback: {e}", file=sys.stderr)
-            has_data = True
+            # Use a simple try-read approach as fallback
+            has_data = True  # Assume data might be available, try reading
         
         if has_data:
             try:
+                # Read available data (non-blocking, 1 byte at a time)
                 chunk = sys.stdin.read(1)
                 if chunk:
                     if DEBUG_MODE:
@@ -99,6 +122,7 @@ class SerialBridge:
                     if DEBUG_MODE:
                         print(f"🔴 [Hub] Buffer now: {repr(self.buffer)}", file=sys.stderr)
                     
+                    # Check for complete lines
                     while '\n' in self.buffer:
                         line, self.buffer = self.buffer.split('\n', 1)
                         line = line.strip()
@@ -109,12 +133,12 @@ class SerialBridge:
                             self._process_command(line)
             except Exception as e:
                 self.debug("Ser RX Err")
-                if DEBUG_MODE:
-                    print(f"🔴 [Hub] ERROR in check_input: {e}", file=sys.stderr)
+                print(f"🔴 [Hub] ERROR in check_input: {e}", file=sys.stderr)
     
     def _process_command(self, line):
-        """Parse JSON command and call callback."""
+        """Parse JSON command and call callback"""
         try:
+            # Echo received command for debugging
             if DEBUG_MODE:
                 print(f"🔴 [Hub] Processing command: {line}", file=sys.stderr)
             
@@ -127,13 +151,11 @@ class SerialBridge:
             self.command_callback(cmd_type, cmd)
         except json.JSONDecodeError as e:
             self.debug("JSON Err")
-            if DEBUG_MODE:
-                print(f"🔴 [Hub] JSON parse error: {e}", file=sys.stderr)
-                print(f"🔴 [Hub] Failed to parse: {repr(line)}", file=sys.stderr)
+            print(f"🔴 [Hub] JSON parse error: {e}", file=sys.stderr)
+            print(f"🔴 [Hub] Failed to parse: {repr(line)}", file=sys.stderr)
         except Exception as e:
             self.debug("CMD Err")
-            if DEBUG_MODE:
-                print(f"🔴 [Hub] Command processing error: {e}", file=sys.stderr)
+            print(f"🔴 [Hub] Command processing error: {e}", file=sys.stderr)
 
 class HubDisplay:
     """Simple rolling display for hub debug messages"""
@@ -147,18 +169,19 @@ class HubDisplay:
             return
         
         try:
-            i2c = I2C(scl=Pin(23), sda=Pin(22))  # __DISPLAY_CONFIG_C6__
-            # i2c = SoftI2C(scl=Pin(7), sda=Pin(6))  # __DISPLAY_CONFIG_C3__
+            # Initialize I2C and display
+            # C6: I2C on pins 23 (SCL), 22 (SDA)
+            # C3: SoftI2C on pins 7 (SCL), 6 (SDA)
+            # i2c = I2C(scl=Pin(23), sda=Pin(22))  # __DISPLAY_CONFIG_C6__
+            i2c = SoftI2C(scl=Pin(7), sda=Pin(6))  # __DISPLAY_CONFIG_C3__
             self.display = ssd1306.SSD1306_I2C(128, 64, i2c)
             self.display.fill(0)
             self.display.text("Hub Starting...", 2, 2, 1)
             self.display.show()
-            if DEBUG_MODE:
-                print("Display initialized successfully", file=sys.stderr)
+            print("Display initialized successfully", file=sys.stderr)
         except Exception as e:
             self.display = None
-            if DEBUG_MODE:
-                print(f"Display not available: {e}", file=sys.stderr)
+            print(f"Display not available: {e}", file=sys.stderr)
     
     def update(self, msg):
         """Update display with new message (rolling buffer)"""
@@ -166,13 +189,16 @@ class HubDisplay:
             return
         
         try:
+            # Truncate message to fit display width (~20 chars at 6x8 font)
             if len(msg) > 20:
                 msg = msg[:17] + "..."
             
+            # Add to rolling buffer
             self.lines.append(msg)
             if len(self.lines) > MAX_DISPLAY_LINES:
                 self.lines = self.lines[-MAX_DISPLAY_LINES:]
             
+            # Clear and redraw all lines
             self.display.fill(0)
             y = 2
             for line in self.lines:
@@ -181,8 +207,8 @@ class HubDisplay:
             
             self.display.show()
         except Exception as e:
-            if DEBUG_MODE:
-                print(f"Display update error: {e}", file=sys.stderr)
+            # If display update fails, disable it
+            print(f"Display update error: {e}", file=sys.stderr)
             self.display = None
     
     def close(self):
@@ -217,9 +243,8 @@ class SimpleHub(Control):
         self._debug("Hub Init")
     
     def _debug(self, msg):
-        """Print debug message to stderr and update display (only if DEBUG_MODE is enabled)"""
-        if DEBUG_MODE:
-            print(msg, file=sys.stderr)
+        """Print debug message to stderr and update display"""
+        print(msg, file=sys.stderr)
         self.display.update(msg)
     
     def connect(self):
@@ -239,7 +264,7 @@ class SimpleHub(Control):
                     
                     # Extract RSSI value from neighbor dict
                     # rssi is a dict: {mac_bytes: [rssi_value, timestamp], ...}
-                    rssi_value = None  # Start with None to detect if we got valid data
+                    rssi_value = -100  # Default fallback
                     if isinstance(rssi, dict):
                         # Look up this sender's MAC in the neighbor table
                         if mac in rssi:
@@ -249,58 +274,24 @@ class SimpleHub(Control):
                     elif isinstance(rssi, int):
                         rssi_value = rssi
                     
-                    # Get battery value (may be None/null)
-                    battery_value = payload.get('value')
+                    # Update device tracking
+                    self.recent_devices[mac_hex] = {
+                        'mac': mac_hex,
+                        'rssi': rssi_value,
+                        'battery': payload.get('value', 0),
+                        'last_seen': time.ticks_ms()
+                    }
                     
-                    # Check if device already exists (to preserve previous good values)
-                    if mac_hex in self.recent_devices:
-                        # Device exists - update with new values, preserving good previous values
-                        existing = self.recent_devices[mac_hex]
-                        
-                        # Update RSSI only if we got a valid value, otherwise keep previous
-                        if rssi_value is not None and isinstance(rssi_value, (int, float)):
-                            existing['rssi'] = rssi_value
-                        # else: keep existing['rssi'] as-is (could be None or previous good value)
-                        
-                        # Update battery only if we got a valid value, otherwise keep previous
-                        if battery_value is not None and isinstance(battery_value, (int, float)):
-                            existing['battery'] = battery_value
-                        # else: keep existing['battery'] as-is (could be None or previous good value)
-                        
-                        # Always update last_seen timestamp (we heard from the device)
-                        existing['last_seen'] = time.ticks_ms()
-                        
-                        if DEBUG_MODE:
-                            print(f"Updated: {mac_hex[-6:]} RSSI={existing['rssi']} Batt={existing['battery']}%", file=sys.stderr)
-                    else:
-                        # New device - store values as-is (may contain None for unknown values)
-                        # Default to None instead of fake values to indicate "unknown"
-                        if rssi_value is None or not isinstance(rssi_value, (int, float)):
-                            rssi_value = None  # Mark as unknown
-                        if battery_value is None or not isinstance(battery_value, (int, float)):
-                            battery_value = None  # Mark as unknown
-                        
-                        self.recent_devices[mac_hex] = {
-                            'mac': mac_hex,
-                            'rssi': rssi_value,
-                            'battery': battery_value,
-                            'last_seen': time.ticks_ms()
-                        }
-                        
-                        if DEBUG_MODE:
-                            rssi_str = f"{rssi_value}dBm" if rssi_value is not None else "?"
-                            batt_str = f"{battery_value}%" if battery_value is not None else "?"
-                            print(f"New device: {mac_hex[-6:]} RSSI={rssi_str} Batt={batt_str}", file=sys.stderr)
-                    
-                    # Show on display
+                    # Show on display and stderr
+                    battery_val = payload.get('value', 0)
                     self._debug(f"Dev:{len(self.recent_devices)} {mac_hex[-6:]}")
+                    print(f"Battery: {mac_hex[-6:]} RSSI={rssi_value}dBm Batt={battery_val}%", file=sys.stderr)
             except Exception as e:
-                if DEBUG_MODE:
-                    print(f"Callback error: {e}", file=sys.stderr)
+                print(f"Callback error: {e}", file=sys.stderr)
         
         # Initialize ESP-NOW with our custom callback
         # __ANTENNA_CONFIG_START__
-        antenna_enabled = True  # C6 external antenna (set to False for internal)
+        antenna_enabled = False  # C6 external antenna (set to False for internal)
         # __ANTENNA_CONFIG_END__
         self.n = now.Now(antenna_enabled, battery_callback)
         self.n.connect()
@@ -317,13 +308,53 @@ class SimpleHub(Control):
             "version": HUB_VERSION,
             "timestamp": time.ticks_ms()
         })
-        
-        # Give extra time for ready message to fully transmit before starting main loop
-        time.sleep_ms(50)
     
     def _handle_command(self, cmd_type, cmd):
         """Handle command from webapp (callback from SerialBridge)"""
-        if cmd_type in GAME_MAP:
+        
+        # Check if this is a rename command (format: "rename:deviceId:newName")
+        if cmd_type and cmd_type.startswith("rename:"):
+            # Parse the rename command
+            parts = cmd_type.split(":", 2)  # Split into max 3 parts
+            if len(parts) == 3:
+                _, device_id, new_name = parts
+                
+                # Truncate for display
+                display_id = device_id[:8] if len(device_id) > 8 else device_id
+                self._debug(f"Rnm:{display_id}")
+                
+                # Broadcast rename via ESP-NOW
+                rename_msg = json.dumps({
+                    'topic': '/rename',
+                    'value': {
+                        'target': device_id,
+                        'name': new_name
+                    }
+                })
+                print(f"🔵 Broadcasting ESP-NOW: {rename_msg}", file=sys.stderr)
+                self.n.publish(rename_msg)
+                
+                print(f"Rename broadcast: {device_id} -> '{new_name}'", file=sys.stderr)
+                
+                # Send acknowledgment to webapp
+                self.serial.send({
+                    "type": "ack",
+                    "command": "rename",
+                    "status": "sent",
+                    "target": device_id,
+                    "name": new_name
+                })
+            else:
+                self._debug("Rnm:BadFmt")
+                print(f"Invalid rename format: {cmd_type}", file=sys.stderr)
+                self.serial.send({
+                    "type": "ack",
+                    "command": "rename",
+                    "status": "error",
+                    "error": "Invalid format - expected rename:deviceId:newName"
+                })
+        
+        elif cmd_type in GAME_MAP:
             # Send game command using inherited choose() method
             # choose() handles all game numbers including -1 (stop)
             game_num = GAME_MAP[cmd_type]
@@ -350,48 +381,39 @@ class SimpleHub(Control):
             self._debug(f"Unk:{unk_display}")
     
     def _send_device_list(self):
-        """Send device list to webapp with stale/expiry logic"""
+        """Send device list to webapp with stale device expiry (5 min)"""
         current_time = time.ticks_ms()
         
-        # Remove devices not seen for 2 minutes
-        expired_macs = []
+        # Remove devices not seen for 5 minutes
+        stale_macs = []
         for mac, data in self.recent_devices.items():
-            if time.ticks_diff(current_time, data['last_seen']) > 120000:  # 2 min
-                expired_macs.append(mac)
+            if time.ticks_diff(current_time, data['last_seen']) > 300000:  # 5 min
+                stale_macs.append(mac)
         
-        for mac in expired_macs:
+        for mac in stale_macs:
             del self.recent_devices[mac]
-            if DEBUG_MODE:
-                print(f"Expired device: {mac[-6:]}", file=sys.stderr)
+            print(f"Expired device: {mac[-6:]}", file=sys.stderr)
         
-        # Build device list with staleness indicator
+        # Build device list
         device_list = []
         for mac, data in self.recent_devices.items():
-            time_since_seen = time.ticks_diff(current_time, data['last_seen'])
-            is_stale = time_since_seen > 60000  # Stale after 1 minute
-            
             device_list.append({
                 'id': f"M-{mac[-6:]}",  # Module with last 6 chars of MAC
                 'mac': mac,
                 'rssi': data['rssi'],
                 'battery': data['battery'],
-                'last_seen': data['last_seen'],
-                'is_stale': is_stale
+                'last_seen': data['last_seen']
             })
         
-        # Send to webapp (always send, even if empty list)
+        # Send to webapp
         self.serial.send({
             'type': 'devices',
             'list': device_list,
             'timestamp': current_time
         })
         
-        # Debug: Confirm send
-        if DEBUG_MODE:
-            if device_list:
-                print(f"DEBUG: Sent device list with {len(device_list)} devices", file=sys.stderr)
-            else:
-                print(f"DEBUG: Sent EMPTY device list (all devices removed)", file=sys.stderr)
+        # Debug: Confirm send (to stderr so it doesn't interfere with JSON)
+        print(f"DEBUG: Sent device list JSON to stdout", file=sys.stderr)
         
         # Show on display (update count)
         if device_list:

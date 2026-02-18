@@ -601,6 +601,30 @@ class App {
         }
     }
 
+    async sendRenameCommand(deviceId, newName) {
+        if (!state.hubConnected) {
+            showToast("Not connected to hub", "error");
+            return;
+        }
+        
+        try {
+            // Format: "rename:deviceId:newName"
+            const renameCommand = `rename:${deviceId}:${newName}`;
+            
+            const result = await PyBridgeToUse.sendCommandToHub(renameCommand, "all");
+            
+            if (result.status === "sent") {
+                console.log("Rename command sent:", deviceId, "->", newName);
+                showToast(`Renamed to "${newName}"`, "success");
+            } else {
+                showToast("Rename failed", "error");
+            }
+        } catch (e) {
+            console.error("Rename error:", e);
+            showToast("Error renaming device", "error");
+        }
+    }
+
     render() {
         const devices = getAvailableDevices();
         // Allow sending if hub is connected, even if no devices detected
@@ -716,7 +740,7 @@ class App {
             },
             (range) => setState({ range }),
             (deviceId) => setState({ editingDeviceId: deviceId }),
-            (deviceId, nickname) => {
+            async (deviceId, nickname) => {
                 setState({
                     moduleNicknames: {
                         ...state.moduleNicknames,
@@ -724,6 +748,12 @@ class App {
                     },
                     editingDeviceId: null,
                 });
+                
+                // Send rename to plushie
+                const trimmedName = nickname.trim();
+                if (trimmedName) {
+                    await this.sendRenameCommand(deviceId, trimmedName);
+                }
             },
             state.hubConnected,
             () => this.handleHubConnect(),
