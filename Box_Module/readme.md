@@ -7,11 +7,54 @@
 
 A programmable NFC-driven state machine on a custom PCB. Users tap NFC tags in sequence to program a **trigger → action** pair, then tap START to run the loop continuously until STOP is tapped.
 
-**Flow:** Tap TRIGGER tag → Tap ACTION tag → Tap START → (loops until STOP tapped)
+**Flow:** Tap TRIGGER → Tap ACTION → [optional: AND/THEN → ACTION]... → Tap START → (loops until STOP)
 
 **Available triggers:** `waitbutton` (physical button press), `waitshake` (accelerometer shake)
-**Available actions:** `playnote` (buzzer melody), `turnpurple` (NeoPixel purple pulse)
+**Available actions:**
+
+| Tag | Resource | Description |
+|-----|----------|-------------|
+| `playnote` | buzzer | Short ascending melody (C5-E5-G5-C6) |
+| `notec` | buzzer | C4 — 262 Hz, 400ms |
+| `noted` | buzzer | D4 — 294 Hz, 400ms |
+| `notee` | buzzer | E4 — 330 Hz, 400ms |
+| `notef` | buzzer | F4 — 349 Hz, 400ms |
+| `noteg` | buzzer | G4 — 392 Hz, 400ms |
+| `notea` | buzzer | A4 — 440 Hz, 400ms |
+| `noteb` | buzzer | B4 — 494 Hz, 400ms |
+| `turnred` | led | Pulse all 25 LEDs red |
+| `turngreen` | led | Pulse all 25 LEDs green |
+| `turnblue` | led | Pulse all 25 LEDs blue |
+| `turnpurple` | led | Pulse all 25 LEDs purple |
+| `turnyellow` | led | Pulse all 25 LEDs yellow |
+| `turnwhite` | led | Pulse all 25 LEDs white |
+| `turnoff` | led | Turn off all LEDs instantly |
+
+**Combinator tags:** `and` (simultaneous), `then` (sequential)
 **Control tags:** `start`, `stop`
+**Utility tags:** `battery` (shows battery level on LEDs, works in any state)
+
+### AND / THEN Chaining
+
+Actions are stored as a **chain of groups**: `[["playnote", "turnpurple"], ["playnote"]]`
+This means: (playnote AND turnpurple) THEN playnote.
+
+**AND** runs actions simultaneously using `_thread`. Only works across different hardware resources:
+
+| Resource | Actions | Can AND together? |
+|----------|---------|-------------------|
+| Buzzer | playnote, notea–noteg | ✗ Only one at a time (last wins) |
+| LEDs | turnred/green/blue/purple/yellow/white/off | ✗ Only one at a time (last wins) |
+| Buzzer + LEDs | e.g. notea + turnred | ✓ Different hardware |
+
+If two actions in an AND group share the same resource, last one wins (silently replaces).
+**THEN** always works — actions run one after the other.
+
+**Tap sequence during programming:**
+- Action without combinator → replaces entire chain with that single action
+- AND → next action added to current group (simultaneous)
+- THEN → next action starts a new group (sequential)
+- Tapping a trigger at any point restarts programming
 
 ---
 
@@ -65,7 +108,7 @@ A programmable NFC-driven state machine on a custom PCB. Users tap NFC tags in s
   lis2dw12.py      # Accelerometer driver (LIS2DW12)
   max17048.py      # Battery fuel gauge driver (MAX17048)
   opt3002.py       # Ambient light sensor driver (OPT3002)
-main.py            # NFC trigger→action state machine
+main.py            # NFC trigger→action state machine (with AND/THEN chaining)
 ```
 
 ---
@@ -139,6 +182,8 @@ Constants: `MODE_CONTINUOUS_100MS`, `MODE_CONTINUOUS_800MS`, `MODE_SINGLE_800MS`
 - **Auth key:** Default `FF FF FF FF FF FF` with Key A
 - **Sector 0 must be skipped** — contains manufacturer data that corrupts TLV parsing
 
+**All NFC tag texts:** `waitbutton`, `waitshake`, `playnote`, `notea`, `noteb`, `notec`, `noted`, `notee`, `notef`, `noteg`, `turnred`, `turngreen`, `turnblue`, `turnpurple`, `turnyellow`, `turnwhite`, `turnoff`, `and`, `then`, `start`, `stop`, `battery`
+
 **Tag UIDs observed:**
 
 | UID | Command |
@@ -160,16 +205,24 @@ Constants: `MODE_CONTINUOUS_100MS`, `MODE_CONTINUOUS_800MS`, `MODE_SINGLE_800MS`
 
 ```
 STATE_IDLE (blue LEDs)
+  ├─ tap battery → show battery level on LEDs → return to current state
   ├─ tap trigger → STATE_TRIGGER_SET (orange LEDs)
-  │     ├─ tap action → STATE_ACTION_SET (green LEDs)
+  │     ├─ tap battery → show battery level → stay
+  │     ├─ tap action → STATE_BUILDING (green LEDs)
+  │     │     │   chain = [[action]]
+  │     │     ├─ tap battery → show battery level → stay
+  │     │     ├─ tap AND → set pending=and
+  │     │     │     └─ tap action → add to current group → stay
+  │     │     ├─ tap THEN → set pending=then
+  │     │     │     └─ tap action → new group appended → stay
+  │     │     ├─ tap action (no combinator) → replace chain → stay
   │     │     ├─ tap start → STATE_RUNNING (LEDs off)
-  │     │     │     ├─ trigger fires → execute action → loop
+  │     │     │     ├─ trigger fires → run_chain(groups) → loop
   │     │     │     └─ tap stop → STATE_IDLE
-  │     │     ├─ tap trigger → change trigger (stay)
-  │     │     ├─ tap action → change action (stay)
+  │     │     ├─ tap trigger → restart programming
   │     │     └─ tap stop → reset to STATE_IDLE
   │     ├─ tap trigger → change trigger (stay)
-  │     └─ tap action → move to STATE_ACTION_SET
+  │     └─ other → rejected
   └─ tap action/start → rejected (wrong order)
 ```
 
@@ -185,7 +238,8 @@ Tag debounce: same UID ignored until tag is removed (uid == None resets).
 3. **MIFARE Classic re-select required** before each auth attempt — tag loses state
 4. **Some tags intermittently fail** to read (B9:44:53:91, 09:36:55:91) — likely weak coupling or positioning
 5. **f-strings crash** on this MicroPython build — use `%` formatting only
-6. **NeoPixel color order** is GRB. If colors wrong, try `bpp=4` for RGBW variant
+6. **`_thread` for AND groups** — ESP32-C6 MicroPython supports `_thread.start_new_thread()` for running buzzer + LEDs simultaneously
+7. **NeoPixel color order** is GRB. If colors wrong, try `bpp=4` for RGBW variant
 7. **GPIO0 is boot pin** — holding button during reset may enter bootloader
 8. **Accelerometer sensitivity** — raw 16-bit values need `range/32768` factor, not datasheet mg/LSB values directly
 9. **NDEF on MIFARE Classic** — always skip sector 0 (manufacturer block), NDEF starts at sector 1
