@@ -1,19 +1,16 @@
 import machine
 from machine import Pin, SoftI2C
 from pn532_i2c import PN532_I2C
-from icons import SSD1306_SMART
+
 import utime
 
-SDA = 6
-SCL = 7
+SCL = 23
+SDA = 22
 
-#nav switches
-switch_down = Pin(8, Pin.IN)
-switch_select = Pin(9, Pin.IN)
-switch_up= Pin(10, Pin.IN)
 
-i2c = SoftI2C(scl = Pin(7), sda = Pin(6))
-display = SSD1306_SMART(128, 64, i2c,switch_up)
+
+i2c = SoftI2C(scl = Pin(SCL), sda = Pin(SDA))
+
 
 
 class NFC:
@@ -68,21 +65,14 @@ class NFC:
     
 def on_detect(uid):
     print(f'detected {uid}')
-    display.text(f"detected",10,20,1)
-    display.text(f"{uid}",10,30,1)
-    display.show()
+
 
 def on_remove(uid):
     print(f'removed {uid}')
-    display.text(f"removed",10,40,1)
-    display.text(f"{uid}",10,50,1)
-    display.show()
+
 
 nfc = NFC(on_detect, on_remove)
-display.clear()
-display.text('welcome',10,0,1)
-display.text(nfc.version(), 10,10,1)
-display.show()
+
 
 while nfc.rf is not None:
     try:
