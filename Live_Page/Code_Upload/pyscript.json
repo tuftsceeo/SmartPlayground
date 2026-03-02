@@ -1,0 +1,16 @@
+{
+  "name": "ESP32 Code Uploader",
+  "description": "Fetch code from GitHub and upload to ESP32C6 via Web Serial",
+  "version": "1.0.0",
+  "interpreters": [
+    {
+      "src": "https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.js",
+      "name": "pyodide",
+      "lang": "python"
+    }
+  ],
+  "packages": [],
+  "js_modules": {
+    "main": []
+  }
+}

@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ESP32 Code Uploader</title>
+  <link rel="stylesheet" href="https://pyscript.net/releases/2024.1.1/core.css" />
+  <script type="module" src="https://pyscript.net/releases/2024.1.1/core.js"></script>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <h1>🔌 ESP32 Code Uploader</h1>
+    <p class="subtitle">Fetch from GitHub → Upload to ESP32C6 via Serial</p>
+  </header>
+
+  <!-- STEP 1: Fetch from GitHub -->
+  <section class="card">
+    <h2><span class="badge">1</span> Fetch Code from GitHub</h2>
+
+    <div class="toggle-row">
+      <label class="toggle-label">Mode:</label>
+      <div class="toggle-group">
+        <button id="mode-file"   class="mode-btn active" onclick="setMode('file')">Single File</button>
+        <button id="mode-folder" class="mode-btn"        onclick="setMode('folder')">Whole Folder</button>
+      </div>
+    </div>
+
+    <label for="github-url">GitHub URL <span class="hint">(file or folder URL)</span></label>
+    <input type="text" id="github-url"
+      placeholder="https://github.com/user/repo/tree/main/src" />
+
+    <div id="file-name-row">
+      <label for="save-filename">Save as</label>
+      <input type="text" id="save-filename" placeholder="main.py" />
+    </div>
+
+    <button id="btn-fetch">⬇ Fetch</button>
+    <div id="fetch-status" class="status hidden"></div>
+
+    <div id="preview-wrap" class="hidden">
+      <div class="preview-header">
+        <label>Preview — <span id="preview-name"></span></label>
+        <select id="preview-selector" onchange="switchPreview()"></select>
+      </div>
+      <textarea id="code-preview" rows="14" spellcheck="false" readonly></textarea>
+    </div>
+  </section>
+
+  <!-- STEP 2: Upload via Serial -->
+  <section class="card">
+    <h2><span class="badge">2</span> Upload to ESP32C6</h2>
+    <div class="row">
+      <div>
+        <label for="baud-rate">Baud Rate</label>
+        <select id="baud-rate">
+          <option value="115200" selected>115200</option>
+          <option value="9600">9600</option>
+          <option value="57600">57600</option>
+          <option value="230400">230400</option>
+        </select>
+      </div>
+      <div id="target-row">
+        <label for="target-filename">Target filename on device</label>
+        <input type="text" id="target-filename" placeholder="main.py" />
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button id="btn-connect">🔗 Connect</button>
+      <button id="btn-upload">⬆ Upload</button>
+      <button id="btn-disconnect">⏏ Disconnect</button>
+    </div>
+
+    <div id="serial-status" class="status hidden"></div>
+
+    <div id="log-wrap" class="hidden">
+      <label>Serial Log</label>
+      <div id="serial-log"></div>
+    </div>
+  </section>
+
+  <!-- STEP 3: Fetched files -->
+  <section class="card">
+    <h2><span class="badge">3</span> Files in codeToUpload/</h2>
+    <div id="file-list"><em>No files fetched yet.</em></div>
+  </section>
+
+</div>
+
+<script>
+  // ── Mode toggle ──────────────────────────────────────────────────────────────
+  window._uploadMode = "file";
+
+  window.setMode = function(mode) {
+    window._uploadMode = mode;
+    document.getElementById("mode-file").classList.toggle("active",   mode === "file");
+    document.getElementById("mode-folder").classList.toggle("active", mode === "folder");
+    document.getElementById("file-name-row").style.display  = mode === "file"   ? "" : "none";
+    document.getElementById("target-row").style.display     = mode === "file"   ? "" : "none";
+    document.getElementById("github-url").placeholder =
+      mode === "file"
+        ? "https://github.com/user/repo/blob/main/main.py"
+        : "https://github.com/user/repo/tree/main/src";
+  };
+
+  // ── Preview switcher ─────────────────────────────────────────────────────────
+  window._previewFiles = {};
+
+  window.switchPreview = function() {
+    const sel = document.getElementById("preview-selector");
+    const fname = sel.value;
+    document.getElementById("preview-name").textContent = fname;
+    document.getElementById("code-preview").value = window._previewFiles[fname] || "";
+  };
+
+  window.updatePreview = function(files) {
+    window._previewFiles = files;
+    const names = Object.keys(files);
+    const sel = document.getElementById("preview-selector");
+    sel.innerHTML = names.map(n => `<option value="${n}">${n}</option>`).join("");
+    sel.style.display = names.length > 1 ? "" : "none";
+    if (names.length) {
+      document.getElementById("preview-name").textContent = names[0];
+      document.getElementById("code-preview").value = files[names[0]];
+    }
+    document.getElementById("preview-wrap").classList.remove("hidden");
+  };
+
+  // ── Web Serial helpers ────────────────────────────────────────────────────────
+  window.serialPort   = null;
+  window.serialWriter = null;
+
+  window.isSerialSupported = () => "serial" in navigator;
+
+  window.connectSerial = async (baudRate) => {
+    try {
+      window.serialPort = await navigator.serial.requestPort();
+      await window.serialPort.open({ baudRate: parseInt(baudRate) });
+      const enc = new TextEncoderStream();
+      enc.readable.pipeTo(window.serialPort.writable);
+      window.serialWriter = enc.writable.getWriter();
+      return { ok: true };
+    } catch (e) { return { ok: false, error: e.message }; }
+  };
+
+  window.disconnectSerial = async () => {
+    try {
+      if (window.serialWriter) { window.serialWriter.releaseLock(); window.serialWriter = null; }
+      if (window.serialPort)   { await window.serialPort.close();   window.serialPort = null; }
+      return { ok: true };
+    } catch (e) { return { ok: false, error: e.message }; }
+  };
+
+  window.writeSerial = async (text) => {
+    if (!window.serialWriter) return { ok: false, error: "Not connected" };
+    try { await window.serialWriter.write(text); return { ok: true }; }
+    catch (e) { return { ok: false, error: e.message }; }
+  };
+
+  window.readSerialFor = (ms) => new Promise(async (resolve) => {
+    if (!window.serialPort?.readable) return resolve("");
+    const dec = new TextDecoderStream();
+    window.serialPort.readable.pipeTo(dec.writable).catch(() => {});
+    const reader = dec.readable.getReader();
+    let buf = "";
+    const tid = setTimeout(() => { reader.cancel().catch(() => {}); resolve(buf); }, ms);
+    try {
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buf += value;
+        if (buf.includes("UPLOAD_OK") || buf.includes(">>>")) break;
+      }
+    } catch (_) {}
+    clearTimeout(tid);
+    resolve(buf);
+  });
+</script>
+
+<script type="py" src="main.py" config="pyscript.json"></script>
+</body>
+</html>
