@@ -9,6 +9,18 @@ Fixed: Proper I2C ACK/response frame handling for reliable
 MIFARE Classic auth + read and NTAG page reads.
 """
 
+
+
+import machine
+import time
+
+# ---- CD4066: Enable Reader 1 before anything else ----
+ctrl1 = machine.Pin(0, machine.Pin.OUT, value=1)  # Reader 1 ON
+ctrl2 = machine.Pin(1, machine.Pin.OUT, value=0)  # Reader 2 OFF
+time.sleep_ms(200)
+
+
+
 import machine
 import time
 import struct
