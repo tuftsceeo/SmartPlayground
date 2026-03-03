@@ -22,7 +22,6 @@ Usage:
     x, y, z = accel.read()
 """
 
-
 import struct
 import time
 
