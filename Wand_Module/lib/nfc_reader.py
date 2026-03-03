@@ -1,26 +1,28 @@
 """
 NFC Reader — Tag scanning and command extraction
 ==================================================
-Wraps PN532 driver with NDEF text decoding and
-raw-bytes fallback for command recognition.
+Wraps PN532 driver with NDEF text decoding,
+raw-bytes fallback, and gesture tag detection.
 
 Supports two-phase reading: detect tag presence first,
 then read data (allows animation during the slow read).
+
+Gesture tags: If block 4 of a MIFARE Classic tag starts
+with b'G:', it's a gesture tag. The reader loads the centroid
+into the GestureEngine and returns "gesture:<name>" as the command.
 
 Usage:
     from nfc_reader import NfcReader
 
     reader = NfcReader(nfc, commands)
+    reader.gesture_engine = ge  # optional: enable gesture tag support
 
-    # Simple (no animation):
-    cmd, uid = reader.read_command()
-
-    # With animation callbacks:
     cmd, uid = reader.read_command(
         on_detect=my_start_fn,
         on_progress=my_frame_fn,
         on_complete=my_done_fn,
     )
+    # cmd might be "gesture:triangle" for gesture tags
 """
 
 import sys
@@ -35,6 +37,8 @@ COMMON_KEYS = [
     b'\x00\x00\x00\x00\x00\x00',
 ]
 
+GESTURE_MARKER = b'G:'
+
 
 class NfcReader:
     def __init__(self, nfc, commands):
@@ -45,6 +49,7 @@ class NfcReader:
         """
         self.nfc = nfc
         self.commands = commands
+        self.gesture_engine = None  # set externally to enable gesture tags
 
     def detect_tag(self, timeout=250):
         """
@@ -60,18 +65,14 @@ class NfcReader:
         """
         Scan for a tag and try to extract a command string.
 
-        Args:
-            timeout: ms to wait for tag detection
-            on_detect: called when tag first detected, before data read.
-                       signature: on_detect(uid_hex, sak)
-            on_progress: called repeatedly during data read for animation.
-                         signature: on_progress(frame)  frame=0,1,2,...
-            on_complete: called after data read finishes (success or fail).
-                         signature: on_complete(command_or_none)
+        For gesture tags (block 4 starts with "G:"), returns
+        "gesture:<name>" as the command and loads the centroid
+        into self.gesture_engine.
 
         Returns:
             (command, uid_hex) if tag found.
-            command is a string from self.commands, or None if unrecognized.
+            command is a string from self.commands, "gesture:<name>",
+            or None if unrecognized.
             uid_hex is None if no tag detected.
         """
         # Phase 1: Detect tag presence (fast)
@@ -96,7 +97,28 @@ class NfcReader:
         except Exception as e:
             sys.print_exception(e)
 
-        # Parse command from data
+        # ── Check for gesture tag ──
+        # For MIFARE Classic, ndef_data starts at block 4 (sector 1)
+        # First 16 bytes = block 4 = potential gesture header
+        if (self.gesture_engine and sak in (0x08, 0x18)
+                and len(ndef_data) >= 16
+                and ndef_data[0:2] == GESTURE_MARKER):
+            # It's a gesture tag — do a full gesture read
+            gesture = self.gesture_engine.read_gesture_tag(self.nfc, tag)
+            if gesture:
+                self.gesture_engine.load_gesture(gesture['name'], gesture['centroid'])
+                command = "gesture:%s" % gesture['name']
+                print("  [Gesture tag: '%s' loaded]" % gesture['name'])
+                if on_complete:
+                    on_complete(command)
+                return command, uid_hex
+            else:
+                print("  [Gesture tag detected but read failed]")
+                if on_complete:
+                    on_complete(None)
+                return None, uid_hex
+
+        # ── Standard NDEF text ──
         command = None
         text = _decode_ndef_text(ndef_data)
         if text and text in self.commands:
