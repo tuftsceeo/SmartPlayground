@@ -4,6 +4,9 @@ LED Helpers — NeoPixel control and status display
 Handles all NeoPixel operations: solid colors, flashing,
 pulsing, and programming/running status indicators.
 
+Gesture triggers use LED 3 (shared for all gesture rules)
+with a cyan color to indicate "gesture active".
+
 Usage:
     from leds import Leds
 
@@ -20,7 +23,9 @@ import machine
 
 # ─────────────────────────────────────────────
 # TRIGGER LED INDICATORS
-# Each trigger gets a dedicated LED + color identity
+# Fixed triggers get dedicated LEDs.
+# All gesture triggers share LED 3.
+# LED 4 = green "ready" indicator.
 # ─────────────────────────────────────────────
 TRIGGER_ORDER = ["buttondown", "buttonup", "shake"]
 
@@ -42,8 +47,16 @@ TRIGGER_COLOR_DIM = {
     "shake":      (0, 4, 4),
 }
 
-READY_LED   = 3
+GESTURE_LED          = 3
+GESTURE_COLOR_BRIGHT = (15, 0, 15)   # cyan (GRB)
+GESTURE_COLOR_DIM    = (3, 0, 3)
+
+READY_LED   = 4
 READY_COLOR = (10, 0, 0)  # green (GRB)
+
+
+def _is_gesture_trigger(name):
+    return name is not None and name.startswith("gesture:")
 
 
 class Leds:
@@ -79,27 +92,20 @@ class Leds:
     # ── Scanning animation ──
 
     def scan_animate(self, frame):
-        """
-        Call repeatedly during tag scanning.
-        Radiates outward from center LED in white/cyan.
-        frame should increment each call.
-        """
         center = self.num // 2
         radius = frame % 8
         for i in range(self.num):
             dist = abs(i - center)
             if dist == radius:
-                self.np[i] = (15, 10, 20)   # cyan-white (GRB)
+                self.np[i] = (15, 10, 20)
             elif dist == max(0, radius - 1):
-                self.np[i] = (5, 3, 7)      # dim trail
+                self.np[i] = (5, 3, 7)
             else:
                 self.np[i] = (0, 0, 0)
         self.np.write()
 
     def scan_complete(self):
-        """Brief bright flash to signal scan finished."""
-        self.solid(20, 15, 25)  # bright cyan-white
-        import time
+        self.solid(20, 15, 25)
         time.sleep_ms(80)
         self.off()
 
@@ -108,16 +114,17 @@ class Leds:
     def show_programming(self, rules, editing):
         """
         Show rule status on indicator LEDs during programming.
-          LED 0-2: one per trigger type
-            - bright = rule has actions
-            - dim = currently editing (no actions yet)
-            - off = no rule
-          LED 3: green if at least one complete rule exists
+          LED 0-2: fixed triggers (buttondown, buttonup, shake)
+          LED 3:   gesture (bright if any gesture rule has actions,
+                   dim if currently editing a gesture trigger)
+          LED 4:   green if at least one complete rule exists
         """
         for i in range(self.num):
             self.np[i] = (0, 0, 0)
 
         has_any_rule = False
+
+        # Fixed triggers
         for trig in TRIGGER_ORDER:
             led_idx = TRIGGER_LED[trig]
             if trig in rules and len(rules[trig]) > 0:
@@ -125,6 +132,23 @@ class Leds:
                 has_any_rule = True
             elif trig == editing:
                 self.np[led_idx] = TRIGGER_COLOR_DIM[trig]
+
+        # Gesture triggers — any gesture:xxx with actions lights LED 3 bright
+        any_gesture_complete = False
+        editing_gesture = False
+        for key in rules:
+            if _is_gesture_trigger(key) and len(rules[key]) > 0:
+                any_gesture_complete = True
+                break
+
+        if _is_gesture_trigger(editing):
+            editing_gesture = True
+
+        if any_gesture_complete:
+            self.np[GESTURE_LED] = GESTURE_COLOR_BRIGHT
+            has_any_rule = True
+        elif editing_gesture:
+            self.np[GESTURE_LED] = GESTURE_COLOR_DIM
 
         if has_any_rule:
             self.np[READY_LED] = READY_COLOR
@@ -143,15 +167,17 @@ class Leds:
                 led_idx = TRIGGER_LED[trig]
                 self.np[led_idx] = TRIGGER_COLOR_DIM[trig]
 
+        # Any gesture trigger active?
+        for key in rules:
+            if _is_gesture_trigger(key) and len(rules[key]) > 0:
+                self.np[GESTURE_LED] = GESTURE_COLOR_DIM
+                break
+
         self.np.write()
 
     # ── Battery display ──
 
     def show_battery_level(self, soc):
-        """
-        Fill LEDs proportional to state of charge.
-        Returns (r, g, b, lit) for fade-out use.
-        """
         soc_clamped = max(0, min(100, soc))
         lit = int(soc_clamped / 100 * self.num)
 
@@ -169,7 +195,6 @@ class Leds:
         return r, g, b, lit
 
     def fade_out_battery(self, r, g, b, lit):
-        """Fade out battery display."""
         for step in range(10, -1, -1):
             scale = step / 10
             for i in range(self.num):
