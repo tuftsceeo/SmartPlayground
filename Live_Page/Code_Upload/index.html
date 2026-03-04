@@ -4,40 +4,338 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>ESP32 Code Uploader</title>
-  <link rel="stylesheet" href="https://pyscript.net/releases/2024.1.1/core.css" />
-  <script type="module" src="https://pyscript.net/releases/2024.1.1/core.js"></script>
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:           #f5f4f0;
+      --surface:      #ffffff;
+      --border:       #e0ddd6;
+      --border-mid:   #ccc9c0;
+      --text:         #1a1916;
+      --text-mid:     #5a5750;
+      --text-soft:    #9a9890;
+      --accent:       #2d5be3;
+      --accent-hover: #1e47cc;
+      --accent-soft:  #e8edfb;
+      --green:        #1a7a4a;
+      --green-soft:   #e6f5ed;
+      --green-border: #b3dfc8;
+      --red:          #c0392b;
+      --red-soft:     #fdf0ee;
+      --red-border:   #f0c4be;
+      --amber:        #92600a;
+      --amber-soft:   #fdf6e8;
+      --amber-border: #f0dda8;
+      --mono: "IBM Plex Mono", monospace;
+      --sans: "IBM Plex Sans", sans-serif;
+    }
+
+    body {
+      font-family: var(--sans);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 2.5rem 1rem 4rem;
+    }
+
+    .container {
+      max-width: 780px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    /* Header */
+    header {
+      display: flex;
+      align-items: baseline;
+      gap: 1rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 2px solid var(--text);
+      margin-bottom: 0.25rem;
+    }
+    header h1 {
+      font-family: var(--mono);
+      font-size: 1.1rem;
+      font-weight: 500;
+      letter-spacing: -0.02em;
+    }
+    header .subtitle {
+      font-family: var(--mono);
+      font-size: 0.8rem;
+      color: var(--text-soft);
+    }
+
+    /* Cards */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 1.4rem 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+    .card-header {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+    .step-num {
+      font-family: var(--mono);
+      font-size: 0.68rem;
+      font-weight: 500;
+      color: var(--text-soft);
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      padding: 0.12rem 0.42rem;
+      letter-spacing: 0.05em;
+    }
+    .card-header h2 {
+      font-size: 0.9rem;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+    }
+
+    /* Form */
+    .field { display: flex; flex-direction: column; gap: 0.32rem; }
+    label {
+      font-family: var(--mono);
+      font-size: 0.7rem;
+      font-weight: 500;
+      color: var(--text-mid);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    label .hint {
+      text-transform: none;
+      font-weight: 400;
+      color: var(--text-soft);
+      letter-spacing: 0;
+    }
+    input[type="text"], select, textarea {
+      font-family: var(--mono);
+      font-size: 0.84rem;
+      background: var(--bg);
+      border: 1px solid var(--border-mid);
+      border-radius: 4px;
+      color: var(--text);
+      padding: 0.52rem 0.72rem;
+      width: 100%;
+      outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    input[type="text"]:focus,
+    select:focus,
+    textarea:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(45,91,227,0.1);
+      background: var(--surface);
+    }
+    textarea {
+      resize: vertical;
+      line-height: 1.6;
+      font-size: 0.78rem;
+    }
+    .row-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+
+    /* Mode toggle */
+    .toggle-row { display: flex; align-items: center; gap: 0.75rem; }
+    .toggle-label {
+      font-family: var(--mono);
+      font-size: 0.7rem;
+      font-weight: 500;
+      color: var(--text-mid);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .toggle-group {
+      display: flex;
+      border: 1px solid var(--border-mid);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .mode-btn {
+      background: var(--surface);
+      color: var(--text-mid);
+      border: none;
+      padding: 0.32rem 0.85rem;
+      font-family: var(--mono);
+      font-size: 0.76rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.12s, color 0.12s;
+    }
+    .mode-btn:hover  { background: var(--bg); }
+    .mode-btn.active { background: var(--accent); color: #fff; }
+    .mode-btn + .mode-btn { border-left: 1px solid var(--border-mid); }
+
+    /* Buttons */
+    .btn-row { display: flex; gap: 0.6rem; flex-wrap: wrap; }
+
+    button.primary {
+      font-family: var(--mono);
+      font-size: 0.8rem;
+      font-weight: 500;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      padding: 0.5rem 1.05rem;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.1s, box-shadow 0.15s;
+    }
+    button.primary:hover:not(:disabled) {
+      background: var(--accent-hover);
+      box-shadow: 0 2px 8px rgba(45,91,227,0.25);
+      transform: translateY(-1px);
+    }
+    button.primary:active:not(:disabled) { transform: translateY(0); box-shadow: none; }
+    button.primary:disabled { opacity: 0.35; cursor: not-allowed; }
+
+    button.secondary {
+      font-family: var(--mono);
+      font-size: 0.8rem;
+      font-weight: 500;
+      background: var(--surface);
+      color: var(--text-mid);
+      border: 1px solid var(--border-mid);
+      border-radius: 4px;
+      padding: 0.5rem 1.05rem;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    button.secondary:hover:not(:disabled) { background: var(--bg); border-color: var(--text-soft); }
+    button.secondary:disabled { opacity: 0.35; cursor: not-allowed; }
+
+    /* Status */
+    .status {
+      font-family: var(--mono);
+      font-size: 0.78rem;
+      padding: 0.52rem 0.8rem;
+      border-radius: 4px;
+      border: 1px solid transparent;
+      line-height: 1.45;
+    }
+    .status.info    { background: var(--accent-soft); color: var(--accent);  border-color: #c5d3f5; }
+    .status.success { background: var(--green-soft);  color: var(--green);   border-color: var(--green-border); }
+    .status.error   { background: var(--red-soft);    color: var(--red);     border-color: var(--red-border); }
+    .status.warn    { background: var(--amber-soft);  color: var(--amber);   border-color: var(--amber-border); }
+    .hidden         { display: none !important; }
+
+    /* Preview */
+    .preview-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+    }
+    .preview-header label { margin: 0; }
+    .preview-header select { width: auto; padding: 0.28rem 0.55rem; font-size: 0.76rem; }
+
+    /* Serial log */
+    #serial-log {
+      background: #0f1117;
+      border: 1px solid #2a2d3a;
+      border-radius: 4px;
+      padding: 0.7rem 1rem;
+      font-family: var(--mono);
+      font-size: 0.75rem;
+      color: #4ade80;
+      max-height: 180px;
+      overflow-y: auto;
+      line-height: 1.65;
+    }
+    .log-line     { word-break: break-all; }
+    .log-line.err { color: #f87171; }
+    .log-line.dim { color: #6b7280; }
+
+    /* Progress */
+    .progress-wrap {
+      height: 3px;
+      background: var(--border);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .progress-bar {
+      height: 100%;
+      background: var(--accent);
+      border-radius: 2px;
+      transition: width 0.3s ease;
+      width: 0%;
+    }
+
+    /* File list */
+    #file-list em { font-style: normal; color: var(--text-soft); font-size: 0.82rem; font-family: var(--mono); }
+    .file-row {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.42rem 0.4rem;
+      border-bottom: 1px solid var(--bg);
+      border-radius: 3px;
+      transition: background 0.1s;
+    }
+    .file-row:hover      { background: var(--bg); }
+    .file-row:last-child { border-bottom: none; }
+    .file-name { flex: 1; font-family: var(--mono); font-size: 0.8rem; color: var(--text); }
+    .file-icon { font-size: 0.88rem; }
+    .file-size { font-family: var(--mono); font-size: 0.72rem; color: var(--text-soft); }
+  </style>
 </head>
 <body>
 <div class="container">
 
   <header>
-    <h1>🔌 ESP32 Code Uploader</h1>
-    <p class="subtitle">Fetch from GitHub → Upload to ESP32C6 via Serial</p>
+    <h1>// esp32 uploader</h1>
+    <span class="subtitle">github → serial</span>
   </header>
 
-  <!-- STEP 1: Fetch from GitHub -->
-  <section class="card">
-    <h2><span class="badge">1</span> Fetch Code from GitHub</h2>
+  <!-- Step 1 -->
+  <div class="card">
+    <div class="card-header">
+      <span class="step-num">01</span>
+      <h2>Fetch from GitHub</h2>
+    </div>
 
     <div class="toggle-row">
-      <label class="toggle-label">Mode:</label>
+      <span class="toggle-label">Mode</span>
       <div class="toggle-group">
-        <button id="mode-file"   class="mode-btn active" onclick="setMode('file')">Single File</button>
-        <button id="mode-folder" class="mode-btn"        onclick="setMode('folder')">Whole Folder</button>
+        <button class="mode-btn active" id="mode-file"   onclick="setMode('file')">Single file</button>
+        <button class="mode-btn"        id="mode-folder" onclick="setMode('folder')">Folder</button>
       </div>
     </div>
 
-    <label for="github-url">GitHub URL <span class="hint">(file or folder URL)</span></label>
-    <input type="text" id="github-url"
-      placeholder="https://github.com/user/repo/tree/main/src" />
+    <div class="field">
+      <label>GitHub URL <span class="hint">(file or folder)</span></label>
+      <input type="text" id="github-url"
+        placeholder="https://github.com/user/repo/blob/main/main.py" />
+    </div>
 
-    <div id="file-name-row">
-      <label for="save-filename">Save as</label>
+    <div id="file-name-row" class="field">
+      <label>Save as</label>
       <input type="text" id="save-filename" placeholder="main.py" />
     </div>
 
-    <button id="btn-fetch">⬇ Fetch</button>
+    <div class="field">
+      <label>GitHub token <span class="hint">(optional — raises rate limit to 5000 req/hr)</span></label>
+      <input type="text" id="github-token" placeholder="ghp_xxxxxxxxxxxx" />
+    </div>
+
+    <div>
+      <button class="primary" id="btn-fetch" onclick="fetchGithub()">⬇ Fetch</button>
+    </div>
+
     <div id="fetch-status" class="status hidden"></div>
 
     <div id="preview-wrap" class="hidden">
@@ -45,16 +343,20 @@
         <label>Preview — <span id="preview-name"></span></label>
         <select id="preview-selector" onchange="switchPreview()"></select>
       </div>
-      <textarea id="code-preview" rows="14" spellcheck="false" readonly></textarea>
+      <textarea id="code-preview" rows="12" readonly></textarea>
     </div>
-  </section>
+  </div>
 
-  <!-- STEP 2: Upload via Serial -->
-  <section class="card">
-    <h2><span class="badge">2</span> Upload to ESP32C6</h2>
-    <div class="row">
-      <div>
-        <label for="baud-rate">Baud Rate</label>
+  <!-- Step 2 -->
+  <div class="card">
+    <div class="card-header">
+      <span class="step-num">02</span>
+      <h2>Upload to ESP32C6</h2>
+    </div>
+
+    <div class="row-2">
+      <div class="field">
+        <label>Baud rate</label>
         <select id="baud-rate">
           <option value="115200" selected>115200</option>
           <option value="9600">9600</option>
@@ -62,187 +364,445 @@
           <option value="230400">230400</option>
         </select>
       </div>
-      <div id="target-row">
-        <label for="target-filename">Target filename on device</label>
+      <div class="field" id="target-row">
+        <label>Target filename on device</label>
         <input type="text" id="target-filename" placeholder="main.py" />
       </div>
     </div>
 
     <div class="btn-row">
-      <button id="btn-connect">🔗 Connect</button>
-      <button id="btn-upload">⬆ Upload</button>
-      <button id="btn-disconnect">⏏ Disconnect</button>
+      <button class="primary"   id="btn-connect"    onclick="connectSerial()">🔗 Connect</button>
+      <button class="primary"   id="btn-upload"     onclick="uploadToEsp32()" disabled>⬆ Upload</button>
+      <button class="secondary" id="btn-disconnect" onclick="disconnectSerial()" disabled>⏏ Disconnect</button>
     </div>
 
     <div id="serial-status" class="status hidden"></div>
 
+    <div id="progress-wrap" class="progress-wrap hidden">
+      <div id="progress-bar" class="progress-bar"></div>
+    </div>
+
     <div id="log-wrap" class="hidden">
-      <label>Serial Log</label>
+      <label>Serial log</label>
       <div id="serial-log"></div>
     </div>
-  </section>
+  </div>
 
-  <!-- STEP 3: Fetched files -->
-  <section class="card">
-    <h2><span class="badge">3</span> Files in codeToUpload/</h2>
+  <!-- Step 3 -->
+  <div class="card">
+    <div class="card-header">
+      <span class="step-num">03</span>
+      <h2>Fetched files</h2>
+    </div>
     <div id="file-list"><em>No files fetched yet.</em></div>
-  </section>
+  </div>
 
 </div>
-
-  <!-- Add header for shared buffer -->
-<script src="coi-serviceworker.min.js"></script>
-
 <script>
-  // ── Mode toggle ──────────────────────────────────────────────────────────────
-  window._uploadMode = "file";
+// ─── State ────────────────────────────────────────────────────────────────────
+let uploadMode   = "file";
+let fetchedFiles = {};
+let serialPort   = null;
+let serialWriter = null;
+let serialReader = null;
+let readBuf      = "";
+let readWaiters  = [];
 
-  window.setMode = function(mode) {
-    window._uploadMode = mode;
-    document.getElementById("mode-file").classList.toggle("active",   mode === "file");
-    document.getElementById("mode-folder").classList.toggle("active", mode === "folder");
-    document.getElementById("file-name-row").style.display = mode === "file" ? "" : "none";
-    document.getElementById("target-row").style.display    = mode === "file" ? "" : "none";
-    document.getElementById("github-url").placeholder =
-      mode === "file"
-        ? "https://github.com/user/repo/blob/main/main.py"
-        : "https://github.com/user/repo/tree/main/src";
-  };
+// ─── UI helpers ───────────────────────────────────────────────────────────────
+function setStatus(id, msg, kind = "info") {
+  const el = document.getElementById(id);
+  el.textContent = msg;
+  el.className   = `status ${kind}`;
+}
 
-  // ── Preview switcher ─────────────────────────────────────────────────────────
-  window._previewFiles = {};
+function log(msg, cls = "") {
+  document.getElementById("log-wrap").classList.remove("hidden");
+  const box  = document.getElementById("serial-log");
+  const line = document.createElement("div");
+  line.className   = "log-line" + (cls ? " " + cls : "");
+  line.textContent = msg;
+  box.appendChild(line);
+  box.scrollTop = box.scrollHeight;
+}
 
-  window.switchPreview = function() {
-    const sel   = document.getElementById("preview-selector");
-    const fname = sel.value;
-    document.getElementById("preview-name").textContent = fname;
-    document.getElementById("code-preview").value = window._previewFiles[fname] || "";
-  };
+function setProgress(pct) {
+  const wrap = document.getElementById("progress-wrap");
+  const bar  = document.getElementById("progress-bar");
+  if (pct === null) { wrap.classList.add("hidden"); bar.style.width = "0%"; return; }
+  wrap.classList.remove("hidden");
+  bar.style.width = pct + "%";
+}
 
-  window.updatePreview = function(files) {
-    window._previewFiles = files;
-    const names = Object.keys(files);
-    const sel   = document.getElementById("preview-selector");
-    sel.innerHTML     = names.map(n => `<option value="${n}">${n}</option>`).join("");
-    sel.style.display = names.length > 1 ? "" : "none";
-    if (names.length) {
-      document.getElementById("preview-name").textContent = names[0];
-      document.getElementById("code-preview").value = files[names[0]];
+function updateUploadBtn() {
+  const hasFiles  = Object.keys(fetchedFiles).length > 0;
+  const connected = document.getElementById("btn-connect").disabled;
+  document.getElementById("btn-upload").disabled = !(hasFiles && connected);
+}
+
+function refreshFileList() {
+  const container = document.getElementById("file-list");
+  const keys = Object.keys(fetchedFiles);
+  if (!keys.length) { container.innerHTML = "<em>No files fetched yet.</em>"; return; }
+  container.innerHTML = "";
+  keys.forEach(fpath => {
+    const row = document.createElement("div");
+    row.className = "file-row";
+    row.innerHTML =
+      `<span class="file-icon">📄</span>` +
+      `<span class="file-name">${fpath}</span>` +
+      `<span class="file-size">${fetchedFiles[fpath].length.toLocaleString()} B</span>`;
+    container.appendChild(row);
+  });
+}
+
+function setMode(mode) {
+  uploadMode = mode;
+  document.getElementById("mode-file")  .classList.toggle("active", mode === "file");
+  document.getElementById("mode-folder").classList.toggle("active", mode === "folder");
+  document.getElementById("file-name-row").style.display = mode === "file" ? "" : "none";
+  document.getElementById("target-row")   .style.display = mode === "file" ? "" : "none";
+  document.getElementById("github-url").placeholder =
+    mode === "file"
+      ? "https://github.com/user/repo/blob/main/main.py"
+      : "https://github.com/user/repo/tree/main/src";
+}
+
+function updatePreview() {
+  const names = Object.keys(fetchedFiles);
+  const sel   = document.getElementById("preview-selector");
+  sel.innerHTML     = names.map(n => `<option value="${n}">${n}</option>`).join("");
+  sel.style.display = names.length > 1 ? "" : "none";
+  document.getElementById("preview-wrap").classList.remove("hidden");
+  switchPreview();
+}
+
+function switchPreview() {
+  const sel   = document.getElementById("preview-selector");
+  const fname = sel.value || Object.keys(fetchedFiles)[0];
+  if (!fname) return;
+  document.getElementById("preview-name").textContent = fname;
+  document.getElementById("code-preview").value = fetchedFiles[fname] || "";
+}
+
+// ─── GitHub fetch ─────────────────────────────────────────────────────────────
+function toRawUrl(url) {
+  url = url.trim();
+  if (url.includes("raw.githubusercontent.com")) return url;
+  url = url.replace("https://github.com/", "https://raw.githubusercontent.com/");
+  url = url.replace("/blob/", "/");
+  return url;
+}
+
+function parseGithubFolderUrl(url) {
+  url = url.trim().replace(/\/$/, "");
+  for (const marker of ["/tree/", "/blob/"]) {
+    if (!url.includes(marker)) continue;
+    const after = url.replace("https://github.com/", "");
+    const [repoPart, rest] = after.split(marker, 2);
+    const [branch, ...pathParts] = rest.split("/");
+    const path = pathParts.join("/");
+    return `https://api.github.com/repos/${repoPart}/contents/${path}?ref=${branch}`;
+  }
+  return null;
+}
+
+function githubHeaders() {
+  const token = document.getElementById("github-token").value.trim();
+  const h = { "Accept": "application/vnd.github+json" };
+  if (token) h["Authorization"] = `Bearer ${token}`;
+  return h;
+}
+
+async function fetchSingleFile(url, saveName) {
+  const rawUrl = toRawUrl(url);
+  setStatus("fetch-status", `⏳ Fetching ${rawUrl} …`, "info");
+  const resp = await fetch(rawUrl);
+  if (!resp.ok) { setStatus("fetch-status", `❌ HTTP ${resp.status}`, "error"); return; }
+  fetchedFiles[saveName] = await resp.text();
+  document.getElementById("target-filename").value = saveName;
+  updatePreview();
+  refreshFileList();
+  setStatus("fetch-status", `✅ Fetched '${saveName}' (${fetchedFiles[saveName].length.toLocaleString()} bytes)`, "success");
+  updateUploadBtn();
+}
+
+async function fetchFolderRecursive(apiUrl, prefix = "", counter = { n: 0 }) {
+  const resp = await fetch(apiUrl, { headers: githubHeaders() });
+  if (!resp.ok) { log(`  ⚠ API ${resp.status} for ${apiUrl}`, "err"); return; }
+  const items = await resp.json();
+  if (!Array.isArray(items)) { log(`  ⚠ Unexpected response at ${apiUrl}`, "err"); return; }
+
+  for (const item of items) {
+    const relPath = prefix ? `${prefix}/${item.name}` : item.name;
+    if (item.type === "file") {
+      setStatus("fetch-status", `⏳ Fetching ${relPath} …`, "info");
+      try {
+        const r = await fetch(item.download_url || toRawUrl(item.html_url));
+        if (r.ok) { fetchedFiles[relPath] = await r.text(); counter.n++; }
+        else log(`  ⚠ HTTP ${r.status} for ${relPath}`, "err");
+      } catch (e) { log(`  ⚠ ${e.message}`, "err"); }
+    } else if (item.type === "dir" && item.url) {
+      log(`  📁 Entering: ${relPath}/`, "dim");
+      await fetchFolderRecursive(item.url, relPath, counter);
     }
-    document.getElementById("preview-wrap").classList.remove("hidden");
-  };
+  }
+}
 
-  // ── Web Serial — raw reader/writer (no pipeTo, clean port release) ────────────
-  window.serialPort    = null;
-  window.serialWriter  = null;
-  window._activeReader = null;
-  window._decoder      = new TextDecoder();
-  window._readBuf      = "";
-  window._readWaiters  = [];
+async function fetchGithub() {
+  const url = document.getElementById("github-url").value.trim();
+  let saveName  = document.getElementById("save-filename").value.trim();
+  if (!url) { setStatus("fetch-status", "⚠ Please enter a GitHub URL.", "warn"); return; }
 
-  window.isSerialSupported = () => "serial" in navigator;
-
-  window._notifyWaiters = function() {
-    window._readWaiters = window._readWaiters.filter(waiter => {
-      const idx = window._readBuf.indexOf(waiter.pattern);
-      if (idx !== -1) {
-        const result = window._readBuf.slice(0, idx + waiter.pattern.length);
-        window._readBuf = window._readBuf.slice(idx + waiter.pattern.length);
-        clearTimeout(waiter.timer);
-        waiter.resolve(result);
-        return false;
+  document.getElementById("btn-fetch").disabled = true;
+  try {
+    if (uploadMode === "folder") {
+      const apiUrl = parseGithubFolderUrl(url);
+      if (!apiUrl) { setStatus("fetch-status", "❌ Could not parse folder URL. Use a /tree/ URL.", "error"); return; }
+      setStatus("fetch-status", "⏳ Listing folder …", "info");
+      fetchedFiles = {};
+      const counter = { n: 0 };
+      await fetchFolderRecursive(apiUrl, "", counter);
+      if (!counter.n) { setStatus("fetch-status", "⚠ No files found.", "warn"); return; }
+      updatePreview();
+      refreshFileList();
+      setStatus("fetch-status", `✅ Fetched ${counter.n} file(s).`, "success");
+      updateUploadBtn();
+    } else {
+      if (!saveName) {
+        saveName = url.replace(/\/$/, "").split("/").pop() || "code.py";
+        document.getElementById("save-filename").value = saveName;
       }
-      return true;
-    });
-  };
+      await fetchSingleFile(url, saveName);
+    }
+  } catch (e) {
+    setStatus("fetch-status", `❌ ${e.message}`, "error");
+  } finally {
+    document.getElementById("btn-fetch").disabled = false;
+  }
+}
 
-  window.readUntil = function(pattern, timeoutMs) {
-    return new Promise((resolve) => {
-      const waiter = {
-        pattern,
-        resolve,
-        timer: setTimeout(() => {
-          window._readWaiters = window._readWaiters.filter(w => w !== waiter);
-          const result = window._readBuf;
-          window._readBuf = "";
-          resolve(result);
-        }, timeoutMs)
-      };
-      window._readWaiters.push(waiter);
-      window._notifyWaiters();
-    });
-  };
+// ─── Serial — persistent buffered reader ─────────────────────────────────────
+function notifyWaiters() {
+  readWaiters = readWaiters.filter(w => {
+    const idx = readBuf.indexOf(w.pattern);
+    if (idx === -1) return true;
+    const result = readBuf.slice(0, idx + w.pattern.length);
+    readBuf      = readBuf.slice(idx + w.pattern.length);
+    clearTimeout(w.timer);
+    w.resolve(result);
+    return false;
+  });
+}
 
-  window.flushReadBuf = function() {
-    const result = window._readBuf;
-    window._readBuf = "";
-    return result;
-  };
+function readUntil(pattern, timeoutMs = 2000) {
+  return new Promise(resolve => {
+    const w = {
+      pattern, resolve,
+      timer: setTimeout(() => {
+        readWaiters = readWaiters.filter(x => x !== w);
+        const result = readBuf; readBuf = "";
+        resolve(result);
+      }, timeoutMs)
+    };
+    readWaiters.push(w);
+    notifyWaiters();
+  });
+}
 
-  window.connectSerial = async (baudRate) => {
-    try {
-      window.serialPort = await navigator.serial.requestPort();
-      await window.serialPort.open({ baudRate: parseInt(baudRate) });
+function flushBuf() { readBuf = ""; }
+function sleep(ms)  { return new Promise(r => setTimeout(r, ms)); }
 
-      // Raw writer — getWriter() on the writable directly
-      window.serialWriter = window.serialPort.writable.getWriter();
+async function connectSerial() {
+  if (!("serial" in navigator)) {
+    setStatus("serial-status", "❌ Web Serial not supported. Use Chrome or Edge.", "error");
+    return;
+  }
+  try {
+    const baud = parseInt(document.getElementById("baud-rate").value);
+    serialPort = await navigator.serial.requestPort();
+    await serialPort.open({ baudRate: baud });
 
-      // Raw reader — getReader() on the readable directly
-      window._readBuf  = "";
-      window._decoder  = new TextDecoder();
-      const reader = window.serialPort.readable.getReader();
-      window._activeReader = reader;
+    serialWriter = serialPort.writable.getWriter();
 
-      // Background loop: feed incoming bytes into shared buffer
-      (async () => {
-        try {
-          while (true) {
-            const { value, done } = await reader.read();
-            if (done) break;
-            window._readBuf += window._decoder.decode(value, { stream: true });
-            window._notifyWaiters();
-          }
-        } catch (_) {}
-      })();
+    readBuf = "";
+    const dec = new TextDecoder();
+    serialReader = serialPort.readable.getReader();
 
-      return { ok: true };
-    } catch (e) { return { ok: false, error: e.message }; }
-  };
+    // Background reader loop — feeds all incoming bytes into shared buffer
+    (async () => {
+      try {
+        while (true) {
+          const { value, done } = await serialReader.read();
+          if (done) break;
+          readBuf += dec.decode(value, { stream: true });
+          notifyWaiters();
+        }
+      } catch (_) {}
+    })();
 
-  window.disconnectSerial = async () => {
-    try {
-      // Resolve any waiting readers with empty string before closing
-      window._readWaiters.forEach(w => { clearTimeout(w.timer); w.resolve(""); });
-      window._readWaiters = [];
+    setStatus("serial-status", `✅ Connected at ${baud} baud.`, "success");
+    document.getElementById("btn-connect").disabled    = true;
+    document.getElementById("btn-disconnect").disabled = false;
+    updateUploadBtn();
+    log(`Connected at ${baud} baud.`);
+  } catch (e) {
+    setStatus("serial-status", `❌ ${e.message}`, "error");
+  }
+}
 
-      if (window._activeReader) {
-        await window._activeReader.cancel();
-        window._activeReader.releaseLock();
-        window._activeReader = null;
+async function disconnectSerial() {
+  readWaiters.forEach(w => { clearTimeout(w.timer); w.resolve(""); });
+  readWaiters = [];
+  try {
+    if (serialReader) { await serialReader.cancel(); serialReader.releaseLock(); serialReader = null; }
+    if (serialWriter) { serialWriter.releaseLock(); serialWriter = null; }
+    if (serialPort)   { await serialPort.close();   serialPort   = null; }
+  } catch (_) {}
+  readBuf = "";
+  setStatus("serial-status", "⏏ Disconnected.", "info");
+  document.getElementById("btn-connect").disabled    = false;
+  document.getElementById("btn-upload").disabled     = true;
+  document.getElementById("btn-disconnect").disabled = true;
+  log("Disconnected.");
+}
+
+// ─── Raw REPL ─────────────────────────────────────────────────────────────────
+const EXEC_END = "\x04\x04";
+
+async function serialWrite(text) {
+  await serialWriter.write(new TextEncoder().encode(text));
+}
+
+async function ctrl(char, pauseMs = 100) {
+  await serialWrite(char);
+  await sleep(pauseMs);
+}
+
+// Execute a MicroPython script in raw REPL, return [stdout, stderr]
+async function execScript(script, timeoutMs = 4000) {
+  await serialWrite(script);
+  await ctrl("\x04");                               // execute
+  const resp   = await readUntil(EXEC_END, timeoutMs);
+  const body   = resp.startsWith("OK") ? resp.slice(2) : resp;
+  const parts  = body.split("\x04");
+  const stdout = (parts[0] || "").trim();
+  const stderr = (parts[1] || "").trim();
+  return [stdout, stderr];
+}
+
+async function mkdir(dirPath) {
+  const [, stderr] = await execScript(
+    `import os\ntry:\n  os.mkdir("${dirPath}")\nexcept OSError:\n  pass\n`,
+    2000
+  );
+  log(`  mkdir '${dirPath}' → ${stderr ? "err: " + stderr : "ok"}`, stderr ? "err" : "dim");
+  return !stderr;
+}
+
+async function uploadOne(relPath, code) {
+  log(`  → '${relPath}' (${code.length.toLocaleString()} bytes) …`);
+  const hex = Array.from(new TextEncoder().encode(code))
+    .map(b => b.toString(16).padStart(2, "0")).join("");
+  const [, stderr] = await execScript(
+    `import ubinascii\nf=open("${relPath}","wb")\nf.write(ubinascii.unhexlify("${hex}"))\nf.close()\n`,
+    6000
+  );
+  if (stderr) { log(`    ✗ ${stderr}`, "err"); return false; }
+  log(`    ✓ ok`, "dim");
+  return true;
+}
+
+async function softReset() {
+  log("🔄 Rebooting …");
+  await ctrl("\x02", 300);    // Ctrl-B: exit raw REPL
+  flushBuf();
+  await ctrl("\x04", 300);    // Ctrl-D: soft reset → runs main.py
+  await sleep(1500);
+  const resp = await readUntil(">>>", 4000);
+  log(`Boot: ${resp.slice(0, 80).replace(/\r\n/g, " ")}`, "dim");
+  log("✅ Running main.py");
+}
+
+function getDirsToCreate(paths) {
+  const dirs = new Set();
+  for (const p of paths) {
+    const parts = p.split("/");
+    for (let i = 1; i < parts.length; i++) dirs.add(parts.slice(0, i).join("/"));
+  }
+  return [...dirs].sort((a, b) => a.split("/").length - b.split("/").length);
+}
+
+// ─── Upload ───────────────────────────────────────────────────────────────────
+async function uploadToEsp32() {
+  const files = fetchedFiles;
+  if (!Object.keys(files).length) return;
+
+  document.getElementById("btn-upload").disabled = true;
+  log("── Starting upload ──");
+  setStatus("serial-status", "⏳ Preparing device …", "info");
+  setProgress(0);
+
+  try {
+    // Interrupt + enter raw REPL
+    await ctrl("\x03", 300);
+    await ctrl("\x03", 300);
+    flushBuf();
+    await ctrl("\x01", 400);   // Ctrl-A → raw REPL
+    await readUntil(">", 1500);
+    flushBuf();
+
+    if (uploadMode === "file") {
+      const fname  = Object.keys(files)[0];
+      const target = document.getElementById("target-filename").value.trim() || fname;
+      setProgress(30);
+      const ok = await uploadOne(target, files[fname]);
+      setProgress(90);
+      if (ok) {
+        await softReset();
+        setStatus("serial-status", `✅ '${target}' uploaded and running!`, "success");
+      } else {
+        setStatus("serial-status", "⚠ Upload may have failed. Check log.", "warn");
+        await ctrl("\x02", 200);
       }
-      if (window.serialWriter) {
-        window.serialWriter.releaseLock();
-        window.serialWriter = null;
-      }
-      if (window.serialPort) {
-        await window.serialPort.close();
-        window.serialPort = null;
-      }
-      window._readBuf = "";
-      return { ok: true };
-    } catch (e) { return { ok: false, error: e.message }; }
-  };
 
-  window.writeSerial = async (text) => {
-    if (!window.serialWriter) return { ok: false, error: "Not connected" };
-    try {
-      const encoder = new TextEncoder();
-      await window.serialWriter.write(encoder.encode(text));
-      return { ok: true };
-    } catch (e) { return { ok: false, error: e.message }; }
-  };
+    } else {
+      // Create directories first (shallowest → deepest)
+      const dirs = getDirsToCreate(Object.keys(files));
+      if (dirs.length) {
+        log(`📁 Creating dirs: ${dirs.join(", ")}`, "dim");
+        for (const d of dirs) await mkdir(d);
+      }
+
+      const entries = Object.entries(files);
+      let success   = 0;
+      for (let i = 0; i < entries.length; i++) {
+        const [relPath, code] = entries[i];
+        setStatus("serial-status", `⏳ Uploading ${i + 1}/${entries.length}: ${relPath} …`, "info");
+        setProgress(Math.round((i / entries.length) * 85));
+        if (await uploadOne(relPath, code)) success++;
+      }
+
+      setProgress(90);
+      if (success === entries.length) {
+        await softReset();
+        setStatus("serial-status", `✅ All ${entries.length} file(s) uploaded and running!`, "success");
+        log(`✅ ${success}/${entries.length} files.`);
+      } else {
+        setStatus("serial-status", `⚠ ${success}/${entries.length} uploaded. Check log.`, "warn");
+        await ctrl("\x02", 200);
+      }
+    }
+
+    setProgress(100);
+    setTimeout(() => setProgress(null), 1000);
+
+  } catch (e) {
+    setStatus("serial-status", `❌ ${e.message}`, "error");
+    log(`❌ ${e.message}`, "err");
+  } finally {
+    updateUploadBtn();
+  }
+}
 </script>
-
-<script type="py" src="main.py" config="pyscript.json"></script>
 </body>
 </html>
