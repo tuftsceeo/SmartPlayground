@@ -90,6 +90,9 @@
 
 </div>
 
+  <!-- Add header for shared buffer -->
+<script src="coi-serviceworker.min.js"></script>
+
 <script>
   // ── Mode toggle ──────────────────────────────────────────────────────────────
   window._uploadMode = "file";
@@ -98,8 +101,8 @@
     window._uploadMode = mode;
     document.getElementById("mode-file").classList.toggle("active",   mode === "file");
     document.getElementById("mode-folder").classList.toggle("active", mode === "folder");
-    document.getElementById("file-name-row").style.display  = mode === "file"   ? "" : "none";
-    document.getElementById("target-row").style.display     = mode === "file"   ? "" : "none";
+    document.getElementById("file-name-row").style.display = mode === "file" ? "" : "none";
+    document.getElementById("target-row").style.display    = mode === "file" ? "" : "none";
     document.getElementById("github-url").placeholder =
       mode === "file"
         ? "https://github.com/user/repo/blob/main/main.py"
@@ -110,7 +113,7 @@
   window._previewFiles = {};
 
   window.switchPreview = function() {
-    const sel = document.getElementById("preview-selector");
+    const sel   = document.getElementById("preview-selector");
     const fname = sel.value;
     document.getElementById("preview-name").textContent = fname;
     document.getElementById("code-preview").value = window._previewFiles[fname] || "";
@@ -119,8 +122,8 @@
   window.updatePreview = function(files) {
     window._previewFiles = files;
     const names = Object.keys(files);
-    const sel = document.getElementById("preview-selector");
-    sel.innerHTML = names.map(n => `<option value="${n}">${n}</option>`).join("");
+    const sel   = document.getElementById("preview-selector");
+    sel.innerHTML     = names.map(n => `<option value="${n}">${n}</option>`).join("");
     sel.style.display = names.length > 1 ? "" : "none";
     if (names.length) {
       document.getElementById("preview-name").textContent = names[0];
@@ -129,55 +132,115 @@
     document.getElementById("preview-wrap").classList.remove("hidden");
   };
 
-  // ── Web Serial helpers ────────────────────────────────────────────────────────
-  window.serialPort   = null;
-  window.serialWriter = null;
+  // ── Web Serial — raw reader/writer (no pipeTo, clean port release) ────────────
+  window.serialPort    = null;
+  window.serialWriter  = null;
+  window._activeReader = null;
+  window._decoder      = new TextDecoder();
+  window._readBuf      = "";
+  window._readWaiters  = [];
 
   window.isSerialSupported = () => "serial" in navigator;
+
+  window._notifyWaiters = function() {
+    window._readWaiters = window._readWaiters.filter(waiter => {
+      const idx = window._readBuf.indexOf(waiter.pattern);
+      if (idx !== -1) {
+        const result = window._readBuf.slice(0, idx + waiter.pattern.length);
+        window._readBuf = window._readBuf.slice(idx + waiter.pattern.length);
+        clearTimeout(waiter.timer);
+        waiter.resolve(result);
+        return false;
+      }
+      return true;
+    });
+  };
+
+  window.readUntil = function(pattern, timeoutMs) {
+    return new Promise((resolve) => {
+      const waiter = {
+        pattern,
+        resolve,
+        timer: setTimeout(() => {
+          window._readWaiters = window._readWaiters.filter(w => w !== waiter);
+          const result = window._readBuf;
+          window._readBuf = "";
+          resolve(result);
+        }, timeoutMs)
+      };
+      window._readWaiters.push(waiter);
+      window._notifyWaiters();
+    });
+  };
+
+  window.flushReadBuf = function() {
+    const result = window._readBuf;
+    window._readBuf = "";
+    return result;
+  };
 
   window.connectSerial = async (baudRate) => {
     try {
       window.serialPort = await navigator.serial.requestPort();
       await window.serialPort.open({ baudRate: parseInt(baudRate) });
-      const enc = new TextEncoderStream();
-      enc.readable.pipeTo(window.serialPort.writable);
-      window.serialWriter = enc.writable.getWriter();
+
+      // Raw writer — getWriter() on the writable directly
+      window.serialWriter = window.serialPort.writable.getWriter();
+
+      // Raw reader — getReader() on the readable directly
+      window._readBuf  = "";
+      window._decoder  = new TextDecoder();
+      const reader = window.serialPort.readable.getReader();
+      window._activeReader = reader;
+
+      // Background loop: feed incoming bytes into shared buffer
+      (async () => {
+        try {
+          while (true) {
+            const { value, done } = await reader.read();
+            if (done) break;
+            window._readBuf += window._decoder.decode(value, { stream: true });
+            window._notifyWaiters();
+          }
+        } catch (_) {}
+      })();
+
       return { ok: true };
     } catch (e) { return { ok: false, error: e.message }; }
   };
 
   window.disconnectSerial = async () => {
     try {
-      if (window.serialWriter) { window.serialWriter.releaseLock(); window.serialWriter = null; }
-      if (window.serialPort)   { await window.serialPort.close();   window.serialPort = null; }
+      // Resolve any waiting readers with empty string before closing
+      window._readWaiters.forEach(w => { clearTimeout(w.timer); w.resolve(""); });
+      window._readWaiters = [];
+
+      if (window._activeReader) {
+        await window._activeReader.cancel();
+        window._activeReader.releaseLock();
+        window._activeReader = null;
+      }
+      if (window.serialWriter) {
+        window.serialWriter.releaseLock();
+        window.serialWriter = null;
+      }
+      if (window.serialPort) {
+        await window.serialPort.close();
+        window.serialPort = null;
+      }
+      window._readBuf = "";
       return { ok: true };
     } catch (e) { return { ok: false, error: e.message }; }
   };
 
   window.writeSerial = async (text) => {
     if (!window.serialWriter) return { ok: false, error: "Not connected" };
-    try { await window.serialWriter.write(text); return { ok: true }; }
-    catch (e) { return { ok: false, error: e.message }; }
-  };
-
-  window.readSerialFor = (ms) => new Promise(async (resolve) => {
-    if (!window.serialPort?.readable) return resolve("");
-    const dec = new TextDecoderStream();
-    window.serialPort.readable.pipeTo(dec.writable).catch(() => {});
-    const reader = dec.readable.getReader();
-    let buf = "";
-    const tid = setTimeout(() => { reader.cancel().catch(() => {}); resolve(buf); }, ms);
     try {
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        buf += value;
-        if (buf.includes("UPLOAD_OK") || buf.includes(">>>")) break;
-      }
-    } catch (_) {}
-    clearTimeout(tid);
-    resolve(buf);
-  });
+      const encoder = new TextEncoder();
+      await window.serialWriter.write(encoder.encode(text));
+      return { ok: true };
+    } catch (e) { return { ok: false, error: e.message }; }
+  };
 </script>
 
 <script type="py" src="main.py" config="pyscript.json"></script>
