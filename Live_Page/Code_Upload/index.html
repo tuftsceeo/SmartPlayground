@@ -43,7 +43,7 @@
     }
 
     .container {
-      max-width: 780px;
+      max-width: 640px;
       margin: 0 auto;
       display: flex;
       flex-direction: column;
@@ -103,83 +103,6 @@
       letter-spacing: -0.01em;
     }
 
-    /* Form */
-    .field { display: flex; flex-direction: column; gap: 0.32rem; }
-    label {
-      font-family: var(--mono);
-      font-size: 0.7rem;
-      font-weight: 500;
-      color: var(--text-mid);
-      letter-spacing: 0.04em;
-      text-transform: uppercase;
-    }
-    label .hint {
-      text-transform: none;
-      font-weight: 400;
-      color: var(--text-soft);
-      letter-spacing: 0;
-    }
-    input[type="text"], select, textarea {
-      font-family: var(--mono);
-      font-size: 0.84rem;
-      background: var(--bg);
-      border: 1px solid var(--border-mid);
-      border-radius: 4px;
-      color: var(--text);
-      padding: 0.52rem 0.72rem;
-      width: 100%;
-      outline: none;
-      transition: border-color 0.15s, box-shadow 0.15s;
-    }
-    input[type="text"]:focus,
-    select:focus,
-    textarea:focus {
-      border-color: var(--accent);
-      box-shadow: 0 0 0 3px rgba(45,91,227,0.1);
-      background: var(--surface);
-    }
-    textarea {
-      resize: vertical;
-      line-height: 1.6;
-      font-size: 0.78rem;
-    }
-    .row-2 {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 1rem;
-    }
-
-    /* Mode toggle */
-    .toggle-row { display: flex; align-items: center; gap: 0.75rem; }
-    .toggle-label {
-      font-family: var(--mono);
-      font-size: 0.7rem;
-      font-weight: 500;
-      color: var(--text-mid);
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
-    }
-    .toggle-group {
-      display: flex;
-      border: 1px solid var(--border-mid);
-      border-radius: 4px;
-      overflow: hidden;
-    }
-    .mode-btn {
-      background: var(--surface);
-      color: var(--text-mid);
-      border: none;
-      padding: 0.32rem 0.85rem;
-      font-family: var(--mono);
-      font-size: 0.76rem;
-      font-weight: 500;
-      cursor: pointer;
-      transition: background 0.12s, color 0.12s;
-    }
-    .mode-btn:hover  { background: var(--bg); }
-    .mode-btn.active { background: var(--accent); color: #fff; }
-    .mode-btn + .mode-btn { border-left: 1px solid var(--border-mid); }
-
     /* Buttons */
     .btn-row { display: flex; gap: 0.6rem; flex-wrap: wrap; }
 
@@ -191,7 +114,7 @@
       color: #fff;
       border: none;
       border-radius: 4px;
-      padding: 0.5rem 1.05rem;
+      padding: 0.55rem 1.2rem;
       cursor: pointer;
       transition: background 0.15s, transform 0.1s, box-shadow 0.15s;
     }
@@ -211,7 +134,7 @@
       color: var(--text-mid);
       border: 1px solid var(--border-mid);
       border-radius: 4px;
-      padding: 0.5rem 1.05rem;
+      padding: 0.55rem 1.2rem;
       cursor: pointer;
       transition: background 0.15s, border-color 0.15s;
     }
@@ -233,17 +156,30 @@
     .status.warn    { background: var(--amber-soft);  color: var(--amber);   border-color: var(--amber-border); }
     .hidden         { display: none !important; }
 
-    /* Preview */
-    .preview-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 0.5rem;
+    /* Progress */
+    .progress-wrap {
+      height: 3px;
+      background: var(--border);
+      border-radius: 2px;
+      overflow: hidden;
     }
-    .preview-header label { margin: 0; }
-    .preview-header select { width: auto; padding: 0.28rem 0.55rem; font-size: 0.76rem; }
+    .progress-bar {
+      height: 100%;
+      background: var(--accent);
+      border-radius: 2px;
+      transition: width 0.3s ease;
+      width: 0%;
+    }
 
     /* Serial log */
+    label.log-label {
+      font-family: var(--mono);
+      font-size: 0.7rem;
+      font-weight: 500;
+      color: var(--text-mid);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
     #serial-log {
       background: #0f1117;
       border: 1px solid #2a2d3a;
@@ -260,23 +196,13 @@
     .log-line.err { color: #f87171; }
     .log-line.dim { color: #6b7280; }
 
-    /* Progress */
-    .progress-wrap {
-      height: 3px;
-      background: var(--border);
-      border-radius: 2px;
-      overflow: hidden;
-    }
-    .progress-bar {
-      height: 100%;
-      background: var(--accent);
-      border-radius: 2px;
-      transition: width 0.3s ease;
-      width: 0%;
-    }
-
     /* File list */
-    #file-list em { font-style: normal; color: var(--text-soft); font-size: 0.82rem; font-family: var(--mono); }
+    #file-list em {
+      font-style: normal;
+      color: var(--text-soft);
+      font-size: 0.82rem;
+      font-family: var(--mono);
+    }
     .file-row {
       display: flex;
       align-items: center;
@@ -301,94 +227,37 @@
     <span class="subtitle">github → serial</span>
   </header>
 
-  <!-- Step 1 -->
+  <!-- Step 1: Connect -->
   <div class="card">
     <div class="card-header">
       <span class="step-num">01</span>
-      <h2>Fetch from GitHub</h2>
+      <h2>Connect device</h2>
     </div>
-
-    <div class="toggle-row">
-      <span class="toggle-label">Mode</span>
-      <div class="toggle-group">
-        <button class="mode-btn active" id="mode-file"   onclick="setMode('file')">Single file</button>
-        <button class="mode-btn"        id="mode-folder" onclick="setMode('folder')">Folder</button>
-      </div>
+    <div class="btn-row">
+      <button class="primary"   id="btn-connect"    onclick="connectSerial()">🔗 Connect</button>
+      <button class="secondary" id="btn-disconnect" onclick="disconnectSerial()" disabled>⏏ Disconnect</button>
     </div>
-
-    <div class="field">
-      <label>GitHub URL <span class="hint">(file or folder)</span></label>
-      <input type="text" id="github-url"
-        placeholder="https://github.com/user/repo/blob/main/main.py" />
-    </div>
-
-    <div id="file-name-row" class="field">
-      <label>Save as</label>
-      <input type="text" id="save-filename" placeholder="main.py" />
-    </div>
-
-    <div class="field">
-      <label>GitHub token <span class="hint">(optional — raises rate limit to 5000 req/hr)</span></label>
-      <input type="text" id="github-token" placeholder="ghp_xxxxxxxxxxxx" />
-    </div>
-
-    <div>
-      <button class="primary" id="btn-fetch" onclick="fetchGithub()">⬇ Fetch</button>
-    </div>
-
-    <div id="fetch-status" class="status hidden"></div>
-
-    <div id="preview-wrap" class="hidden">
-      <div class="preview-header">
-        <label>Preview — <span id="preview-name"></span></label>
-        <select id="preview-selector" onchange="switchPreview()"></select>
-      </div>
-      <textarea id="code-preview" rows="12" readonly></textarea>
-    </div>
+    <div id="serial-status" class="status hidden"></div>
   </div>
 
-  <!-- Step 2 -->
+  <!-- Step 2: Upload -->
   <div class="card">
     <div class="card-header">
       <span class="step-num">02</span>
-      <h2>Upload to ESP32C6</h2>
+      <h2>Upload code</h2>
     </div>
-
-    <div class="row-2">
-      <div class="field">
-        <label>Baud rate</label>
-        <select id="baud-rate">
-          <option value="115200" selected>115200</option>
-          <option value="9600">9600</option>
-          <option value="57600">57600</option>
-          <option value="230400">230400</option>
-        </select>
-      </div>
-      <div class="field" id="target-row">
-        <label>Target filename on device</label>
-        <input type="text" id="target-filename" placeholder="main.py" />
-      </div>
-    </div>
-
-    <div class="btn-row">
-      <button class="primary"   id="btn-connect"    onclick="connectSerial()">🔗 Connect</button>
-      <button class="primary"   id="btn-upload"     onclick="uploadToEsp32()" disabled>⬆ Upload</button>
-      <button class="secondary" id="btn-disconnect" onclick="disconnectSerial()" disabled>⏏ Disconnect</button>
-    </div>
-
-    <div id="serial-status" class="status hidden"></div>
-
+    <button class="primary" id="btn-upload" onclick="uploadToEsp32()" disabled style="align-self:flex-start">⬆ Upload</button>
+    <div id="upload-status" class="status hidden"></div>
     <div id="progress-wrap" class="progress-wrap hidden">
       <div id="progress-bar" class="progress-bar"></div>
     </div>
-
     <div id="log-wrap" class="hidden">
-      <label>Serial log</label>
+      <label class="log-label">Serial log</label>
       <div id="serial-log"></div>
     </div>
   </div>
 
-  <!-- Step 3 -->
+  <!-- Step 3: Fetched files -->
   <div class="card">
     <div class="card-header">
       <span class="step-num">03</span>
@@ -399,8 +268,11 @@
 
 </div>
 <script>
+// ─── Config — swap this URL for your real GitHub folder ──────────────────────
+const GITHUB_FOLDER_URL = "https://github.com/tuftsceeo/SmartPlayground/tree/beta_January_2026/Wand_Module";
+const BAUD_RATE         = 115200;
+
 // ─── State ────────────────────────────────────────────────────────────────────
-let uploadMode   = "file";
 let fetchedFiles = {};
 let serialPort   = null;
 let serialWriter = null;
@@ -434,9 +306,8 @@ function setProgress(pct) {
 }
 
 function updateUploadBtn() {
-  const hasFiles  = Object.keys(fetchedFiles).length > 0;
   const connected = document.getElementById("btn-connect").disabled;
-  document.getElementById("btn-upload").disabled = !(hasFiles && connected);
+  document.getElementById("btn-upload").disabled = !connected;
 }
 
 function refreshFileList() {
@@ -453,35 +324,6 @@ function refreshFileList() {
       `<span class="file-size">${fetchedFiles[fpath].length.toLocaleString()} B</span>`;
     container.appendChild(row);
   });
-}
-
-function setMode(mode) {
-  uploadMode = mode;
-  document.getElementById("mode-file")  .classList.toggle("active", mode === "file");
-  document.getElementById("mode-folder").classList.toggle("active", mode === "folder");
-  document.getElementById("file-name-row").style.display = mode === "file" ? "" : "none";
-  document.getElementById("target-row")   .style.display = mode === "file" ? "" : "none";
-  document.getElementById("github-url").placeholder =
-    mode === "file"
-      ? "https://github.com/user/repo/blob/main/main.py"
-      : "https://github.com/user/repo/tree/main/src";
-}
-
-function updatePreview() {
-  const names = Object.keys(fetchedFiles);
-  const sel   = document.getElementById("preview-selector");
-  sel.innerHTML     = names.map(n => `<option value="${n}">${n}</option>`).join("");
-  sel.style.display = names.length > 1 ? "" : "none";
-  document.getElementById("preview-wrap").classList.remove("hidden");
-  switchPreview();
-}
-
-function switchPreview() {
-  const sel   = document.getElementById("preview-selector");
-  const fname = sel.value || Object.keys(fetchedFiles)[0];
-  if (!fname) return;
-  document.getElementById("preview-name").textContent = fname;
-  document.getElementById("code-preview").value = fetchedFiles[fname] || "";
 }
 
 // ─── GitHub fetch ─────────────────────────────────────────────────────────────
@@ -506,28 +348,8 @@ function parseGithubFolderUrl(url) {
   return null;
 }
 
-function githubHeaders() {
-  const token = document.getElementById("github-token").value.trim();
-  const h = { "Accept": "application/vnd.github+json" };
-  if (token) h["Authorization"] = `Bearer ${token}`;
-  return h;
-}
-
-async function fetchSingleFile(url, saveName) {
-  const rawUrl = toRawUrl(url);
-  setStatus("fetch-status", `⏳ Fetching ${rawUrl} …`, "info");
-  const resp = await fetch(rawUrl);
-  if (!resp.ok) { setStatus("fetch-status", `❌ HTTP ${resp.status}`, "error"); return; }
-  fetchedFiles[saveName] = await resp.text();
-  document.getElementById("target-filename").value = saveName;
-  updatePreview();
-  refreshFileList();
-  setStatus("fetch-status", `✅ Fetched '${saveName}' (${fetchedFiles[saveName].length.toLocaleString()} bytes)`, "success");
-  updateUploadBtn();
-}
-
 async function fetchFolderRecursive(apiUrl, prefix = "", counter = { n: 0 }) {
-  const resp = await fetch(apiUrl, { headers: githubHeaders() });
+  const resp = await fetch(apiUrl, { headers: { "Accept": "application/vnd.github+json" } });
   if (!resp.ok) { log(`  ⚠ API ${resp.status} for ${apiUrl}`, "err"); return; }
   const items = await resp.json();
   if (!Array.isArray(items)) { log(`  ⚠ Unexpected response at ${apiUrl}`, "err"); return; }
@@ -535,7 +357,7 @@ async function fetchFolderRecursive(apiUrl, prefix = "", counter = { n: 0 }) {
   for (const item of items) {
     const relPath = prefix ? `${prefix}/${item.name}` : item.name;
     if (item.type === "file") {
-      setStatus("fetch-status", `⏳ Fetching ${relPath} …`, "info");
+      setStatus("upload-status", `⏳ Fetching ${relPath} …`, "info");
       try {
         const r = await fetch(item.download_url || toRawUrl(item.html_url));
         if (r.ok) { fetchedFiles[relPath] = await r.text(); counter.n++; }
@@ -548,40 +370,7 @@ async function fetchFolderRecursive(apiUrl, prefix = "", counter = { n: 0 }) {
   }
 }
 
-async function fetchGithub() {
-  const url = document.getElementById("github-url").value.trim();
-  let saveName  = document.getElementById("save-filename").value.trim();
-  if (!url) { setStatus("fetch-status", "⚠ Please enter a GitHub URL.", "warn"); return; }
-
-  document.getElementById("btn-fetch").disabled = true;
-  try {
-    if (uploadMode === "folder") {
-      const apiUrl = parseGithubFolderUrl(url);
-      if (!apiUrl) { setStatus("fetch-status", "❌ Could not parse folder URL. Use a /tree/ URL.", "error"); return; }
-      setStatus("fetch-status", "⏳ Listing folder …", "info");
-      fetchedFiles = {};
-      const counter = { n: 0 };
-      await fetchFolderRecursive(apiUrl, "", counter);
-      if (!counter.n) { setStatus("fetch-status", "⚠ No files found.", "warn"); return; }
-      updatePreview();
-      refreshFileList();
-      setStatus("fetch-status", `✅ Fetched ${counter.n} file(s).`, "success");
-      updateUploadBtn();
-    } else {
-      if (!saveName) {
-        saveName = url.replace(/\/$/, "").split("/").pop() || "code.py";
-        document.getElementById("save-filename").value = saveName;
-      }
-      await fetchSingleFile(url, saveName);
-    }
-  } catch (e) {
-    setStatus("fetch-status", `❌ ${e.message}`, "error");
-  } finally {
-    document.getElementById("btn-fetch").disabled = false;
-  }
-}
-
-// ─── Serial — persistent buffered reader ─────────────────────────────────────
+// ─── Serial ───────────────────────────────────────────────────────────────────
 function notifyWaiters() {
   readWaiters = readWaiters.filter(w => {
     const idx = readBuf.indexOf(w.pattern);
@@ -618,9 +407,8 @@ async function connectSerial() {
     return;
   }
   try {
-    const baud = parseInt(document.getElementById("baud-rate").value);
     serialPort = await navigator.serial.requestPort();
-    await serialPort.open({ baudRate: baud });
+    await serialPort.open({ baudRate: BAUD_RATE });
 
     serialWriter = serialPort.writable.getWriter();
 
@@ -628,7 +416,6 @@ async function connectSerial() {
     const dec = new TextDecoder();
     serialReader = serialPort.readable.getReader();
 
-    // Background reader loop — feeds all incoming bytes into shared buffer
     (async () => {
       try {
         while (true) {
@@ -640,11 +427,11 @@ async function connectSerial() {
       } catch (_) {}
     })();
 
-    setStatus("serial-status", `✅ Connected at ${baud} baud.`, "success");
+    setStatus("serial-status", `✅ Connected at ${BAUD_RATE} baud.`, "success");
     document.getElementById("btn-connect").disabled    = true;
     document.getElementById("btn-disconnect").disabled = false;
     updateUploadBtn();
-    log(`Connected at ${baud} baud.`);
+    log(`Connected at ${BAUD_RATE} baud.`);
   } catch (e) {
     setStatus("serial-status", `❌ ${e.message}`, "error");
   }
@@ -678,10 +465,9 @@ async function ctrl(char, pauseMs = 100) {
   await sleep(pauseMs);
 }
 
-// Execute a MicroPython script in raw REPL, return [stdout, stderr]
 async function execScript(script, timeoutMs = 4000) {
   await serialWrite(script);
-  await ctrl("\x04");                               // execute
+  await ctrl("\x04");
   const resp   = await readUntil(EXEC_END, timeoutMs);
   const body   = resp.startsWith("OK") ? resp.slice(2) : resp;
   const parts  = body.split("\x04");
@@ -714,9 +500,9 @@ async function uploadOne(relPath, code) {
 
 async function softReset() {
   log("🔄 Rebooting …");
-  await ctrl("\x02", 300);    // Ctrl-B: exit raw REPL
+  await ctrl("\x02", 300);
   flushBuf();
-  await ctrl("\x04", 300);    // Ctrl-D: soft reset → runs main.py
+  await ctrl("\x04", 300);
   await sleep(1500);
   const resp = await readUntil(">>>", 4000);
   log(`Boot: ${resp.slice(0, 80).replace(/\r\n/g, " ")}`, "dim");
@@ -734,70 +520,95 @@ function getDirsToCreate(paths) {
 
 // ─── Upload ───────────────────────────────────────────────────────────────────
 async function uploadToEsp32() {
-  const files = fetchedFiles;
-  if (!Object.keys(files).length) return;
-
   document.getElementById("btn-upload").disabled = true;
-  log("── Starting upload ──");
-  setStatus("serial-status", "⏳ Preparing device …", "info");
+  fetchedFiles = {};
+
+  log("── Fetching from GitHub ──");
+  setStatus("upload-status", "⏳ Fetching files from GitHub …", "info");
   setProgress(0);
 
   try {
-    // Interrupt + enter raw REPL
+    // 1. Fetch files from GitHub
+    const apiUrl = parseGithubFolderUrl(GITHUB_FOLDER_URL);
+    if (!apiUrl) {
+      setStatus("upload-status", "❌ Invalid GITHUB_FOLDER_URL. Check the config at the top of the script.", "error");
+      return;
+    }
+
+    const counter = { n: 0 };
+    await fetchFolderRecursive(apiUrl, "", counter);
+
+    if (!counter.n) {
+      setStatus("upload-status", "❌ No files fetched. Check the GitHub URL.", "error");
+      return;
+    }
+
+    refreshFileList();
+    log(`Fetched ${counter.n} file(s).`, "dim");
+    setProgress(10);
+
+    // 2. Enter raw REPL
+    log("── Starting upload ──");
+    setStatus("upload-status", "⏳ Preparing device …", "info");
     await ctrl("\x03", 300);
     await ctrl("\x03", 300);
     flushBuf();
-    await ctrl("\x01", 400);   // Ctrl-A → raw REPL
+    await ctrl("\x01", 400);
     await readUntil(">", 1500);
     flushBuf();
 
-    if (uploadMode === "file") {
-      const fname  = Object.keys(files)[0];
-      const target = document.getElementById("target-filename").value.trim() || fname;
-      setProgress(30);
-      const ok = await uploadOne(target, files[fname]);
-      setProgress(90);
-      if (ok) {
-        await softReset();
-        setStatus("serial-status", `✅ '${target}' uploaded and running!`, "success");
-      } else {
-        setStatus("serial-status", "⚠ Upload may have failed. Check log.", "warn");
-        await ctrl("\x02", 200);
-      }
+    // 3. Wipe existing files
+    log("🗑 Wiping device filesystem …", "dim");
+    setStatus("upload-status", "⏳ Wiping device …", "info");
+    await execScript(
+      `import os\n` +
+      `def rm(path):\n` +
+      `  for f in os.listdir(path):\n` +
+      `    full = path + "/" + f if path != "/" else "/" + f\n` +
+      `    try:\n` +
+      `      rm(full)\n` +
+      `      os.rmdir(full)\n` +
+      `    except OSError:\n` +
+      `      os.remove(full)\n` +
+      `rm("/")\n`,
+      5000
+    );
+    log("  ✓ wiped", "dim");
 
+    // 4. Create directories
+    const dirs = getDirsToCreate(Object.keys(fetchedFiles));
+    if (dirs.length) {
+      log(`📁 Creating dirs: ${dirs.join(", ")}`, "dim");
+      for (const d of dirs) await mkdir(d);
+    }
+
+    // 5. Upload all files
+    const entries = Object.entries(fetchedFiles);
+    let success   = 0;
+    for (let i = 0; i < entries.length; i++) {
+      const [relPath, code] = entries[i];
+      setStatus("upload-status", `⏳ Uploading ${i + 1}/${entries.length}: ${relPath} …`, "info");
+      setProgress(10 + Math.round((i / entries.length) * 80));
+      if (await uploadOne(relPath, code)) success++;
+    }
+
+    setProgress(90);
+
+    // 6. Soft reset
+    if (success === entries.length) {
+      await softReset();
+      setStatus("upload-status", `✅ All ${entries.length} file(s) uploaded and running!`, "success");
+      log(`✅ ${success}/${entries.length} files.`);
     } else {
-      // Create directories first (shallowest → deepest)
-      const dirs = getDirsToCreate(Object.keys(files));
-      if (dirs.length) {
-        log(`📁 Creating dirs: ${dirs.join(", ")}`, "dim");
-        for (const d of dirs) await mkdir(d);
-      }
-
-      const entries = Object.entries(files);
-      let success   = 0;
-      for (let i = 0; i < entries.length; i++) {
-        const [relPath, code] = entries[i];
-        setStatus("serial-status", `⏳ Uploading ${i + 1}/${entries.length}: ${relPath} …`, "info");
-        setProgress(Math.round((i / entries.length) * 85));
-        if (await uploadOne(relPath, code)) success++;
-      }
-
-      setProgress(90);
-      if (success === entries.length) {
-        await softReset();
-        setStatus("serial-status", `✅ All ${entries.length} file(s) uploaded and running!`, "success");
-        log(`✅ ${success}/${entries.length} files.`);
-      } else {
-        setStatus("serial-status", `⚠ ${success}/${entries.length} uploaded. Check log.`, "warn");
-        await ctrl("\x02", 200);
-      }
+      setStatus("upload-status", `⚠ ${success}/${entries.length} uploaded. Check log.`, "warn");
+      await ctrl("\x02", 200);
     }
 
     setProgress(100);
     setTimeout(() => setProgress(null), 1000);
 
   } catch (e) {
-    setStatus("serial-status", `❌ ${e.message}`, "error");
+    setStatus("upload-status", `❌ ${e.message}`, "error");
     log(`❌ ${e.message}`, "err");
   } finally {
     updateUploadBtn();
