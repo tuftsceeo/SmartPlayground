@@ -24,6 +24,8 @@ from neopixel import NeoPixel
 from pn532 import PN532, MIFARE_AUTH_A, MIFARE_AUTH_B
 from nfc_reader import _decode_ndef_text, COMMON_KEYS
 from buzzer import Buzzer
+from target import SCORE_MAC
+from target import SCORE_MAC
 
 # ─────────────────────────────────────────────
 # HARDWARE
@@ -296,8 +298,36 @@ def espnow_init():
     sta.disconnect()
     e = espnow.ESPNow()
     e.active(True)
+    # Add score target peer
+    try:
+        e.add_peer(SCORE_MAC)
+    except Exception:
+        pass
+    # Also add broadcast if score target isn't already broadcast
+    if SCORE_MAC != b'\xFF\xFF\xFF\xFF\xFF\xFF':
+        try:
+            e.add_peer(b'\xFF\xFF\xFF\xFF\xFF\xFF')
+        except Exception:
+            pass
     print("ESP-NOW listening...")
     return e
+
+def send_score(enow, targets, elapsed_ms):
+    """Send timing result to the scoreboard."""
+    result = {
+        "type": "score",
+        "colors": targets,
+        "time_ms": elapsed_ms,
+        "time_s": round(elapsed_ms / 1000, 2),
+    }
+    msg = json.dumps(result)
+    try:
+        enow.send(SCORE_MAC, msg)
+        print("  Score sent: %.2fs -> %s" % (
+            elapsed_ms / 1000,
+            ':'.join('%02X' % b for b in SCORE_MAC)))
+    except Exception as ex:
+        print("  Score send error: %s" % str(ex))
 
 def wait_for_commands(enow, display, nfc, last_espnow=None):
     """
@@ -363,9 +393,10 @@ def wait_for_commands(enow, display, nfc, last_espnow=None):
 # ─────────────────────────────────────────────
 # GAME LOOP
 # ─────────────────────────────────────────────
-def run_game(nfc, buz, display, targets, enow):
+def run_game(nfc, buz, display, targets, enow, start_ticks=None):
     """
     Main game: find and tap NFC tags in the correct color order.
+    start_ticks: time.ticks_ms() when sequence was received (for timing).
     Returns:
       "win"   — completed successfully
       "reset" — button pressed, restart same sequence
@@ -378,11 +409,15 @@ def run_game(nfc, buz, display, targets, enow):
     last_uid = None
     frame = 0
 
+    # Start timer if not already running
+    if start_ticks is None:
+        start_ticks = time.ticks_ms()
+
     print("\n  === COLOR QUEST ===")
     print("  Find these colors in order:")
     for i, t in enumerate(targets):
         print("    %d. %s" % (i + 1, t))
-    print("  (Press button to reset)\n")
+    print("  Timer running! (Press button to reset)\n")
 
     # Opening fanfare
     buz.beep(523, 80)
@@ -515,7 +550,15 @@ def run_game(nfc, buz, display, targets, enow):
             time.sleep_ms(300)
 
     # ── WIN! ──
+    elapsed_ms = time.ticks_diff(time.ticks_ms(), start_ticks)
+    elapsed_s = elapsed_ms / 1000
+
     print("\n  ALL COLORS FOUND!")
+    print("  Time: %.2f seconds" % elapsed_s)
+
+    # Send score
+    send_score(enow, targets, elapsed_ms)
+
     buz.beep(523, 100)
     time.sleep_ms(50)
     buz.beep(659, 100)
@@ -570,11 +613,14 @@ def play(nfc, np, buz, enow=None):
 
             display.clear()
             time.sleep_ms(200)
+            start_ticks = time.ticks_ms()
 
             while True:
-                result = run_game(nfc, buz, display, targets, enow)
+                result = run_game(nfc, buz, display, targets, enow, start_ticks)
 
                 if result == "reset":
+                    # Reset timer on restart
+                    start_ticks = time.ticks_ms()
                     display.clear()
                     time.sleep_ms(300)
                     continue
@@ -592,6 +638,7 @@ def play(nfc, np, buz, enow=None):
                 elif isinstance(result, list):
                     espnow_targets = list(result)
                     targets = result
+                    start_ticks = time.ticks_ms()
                     display.clear()
                     time.sleep_ms(200)
                     continue
@@ -658,11 +705,13 @@ def main():
 
             display.clear()
             time.sleep_ms(200)
+            start_ticks = time.ticks_ms()
 
             while True:
-                result = run_game(nfc, buz, display, targets, enow)
+                result = run_game(nfc, buz, display, targets, enow, start_ticks)
 
                 if result == "reset":
+                    start_ticks = time.ticks_ms()
                     display.clear()
                     time.sleep_ms(300)
                     continue
@@ -685,6 +734,7 @@ def main():
                     display.clear()
                     time.sleep_ms(200)
                     continue
+                
 
         except KeyboardInterrupt:
             display.clear()
