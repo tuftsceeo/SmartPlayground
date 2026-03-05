@@ -1,30 +1,24 @@
 """
-PlaygroundV5 – NFC Multi-Trigger Event Engine
-==============================================
+PlaygroundV5 – NFC Multi-Trigger Event Engine + Color Quest
+=============================================================
 Board: Seeed XIAO ESP32-C6
 
 Program multiple trigger->action rules by tapping NFC tags,
 then START to run them all simultaneously as an event loop.
+Tap COLORQUEST to enter the Color Quest scavenger hunt game.
 
 Triggers: buttondown, buttonup, shake, gesture:<name>
 Actions:  playnote, notea-g, turnred/green/blue/purple/yellow/white/off
 Combinators: and (simultaneous), then (sequential)
-Controls: start, stop
+Controls: start, stop, colorquest
 Utility: battery
-
-Gesture tags carry a "G:" header + centroid feature vector.
-Each gesture tag becomes its own independent trigger with its
-own action chain:
-  tap swipe_tag  -> editing "gesture:swipe"
-  tap turnred    -> gesture:swipe -> [turnred]
-  tap hit_tag    -> editing "gesture:hit"
-  tap turnblue   -> gesture:hit -> [turnblue]
-  tap start      -> both run independently
 
 Requires in /lib/:
     pn532.py, lis2dw12.py, max17048.py, opt3002.py,
     leds.py, buzzer.py, nfc_reader.py, actions.py,
     battery.py, gesture_engine.py
+Requires in /:
+    color_quest.py
 """
 
 import machine
@@ -41,6 +35,7 @@ from buzzer import Buzzer
 from nfc_reader import NfcReader
 from actions import ActionRunner, ACTIONS, ACTION_RESOURCE, resolve_and_group, chain_to_str
 from battery import show_battery
+from color_quest import play as play_color_quest
 
 # ─────────────────────────────────────────────
 # PIN CONSTANTS
@@ -60,11 +55,9 @@ PN532_ADDR   = 0x24
 # ─────────────────────────────────────────────
 FIXED_TRIGGERS = {"buttondown", "buttonup", "shake"}
 COMBINATORS    = {"and", "then"}
-CONTROLS       = {"start", "stop"}
+CONTROLS       = {"start", "stop", "colorquest"}
 UTILITY        = {"battery"}
 ALL_COMMANDS   = FIXED_TRIGGERS | ACTIONS | COMBINATORS | CONTROLS | UTILITY
-# Note: gesture triggers are NOT in ALL_COMMANDS — they're detected
-# by the G: header and returned as "gesture:<name>" dynamically.
 
 # ─────────────────────────────────────────────
 # HARDWARE INIT
@@ -115,11 +108,9 @@ def read_quiet(reader):
 # ─────────────────────────────────────────────
 
 def is_gesture_trigger(name):
-    """Check if a trigger name is a gesture trigger (gesture:xxx)."""
     return name is not None and name.startswith("gesture:")
 
 def gesture_triggers_in(rules):
-    """Return list of gesture trigger keys that have action chains."""
     return [k for k in rules if is_gesture_trigger(k) and len(rules[k]) > 0]
 
 
@@ -131,10 +122,9 @@ def print_rules(rules, editing):
     print("  +- Rules --------------------------------")
     has_any = False
 
-    # Fixed triggers first
     for trig in TRIGGER_ORDER:
         if trig == "gesture":
-            continue  # gesture triggers printed separately below
+            continue
         marker = " *" if trig == editing else ""
         if trig in rules and len(rules[trig]) > 0:
             print("  | %s -> [%s]%s" % (trig, chain_to_str(rules[trig]), marker))
@@ -142,7 +132,6 @@ def print_rules(rules, editing):
         elif trig == editing:
             print("  | %s -> (awaiting actions)%s" % (trig, marker))
 
-    # Gesture triggers
     for trig in sorted(rules.keys()):
         if not is_gesture_trigger(trig):
             continue
@@ -154,7 +143,6 @@ def print_rules(rules, editing):
         elif trig == editing:
             print("  | gesture:%s -> (awaiting actions)%s" % (gname, marker))
 
-    # Editing a gesture trigger that has no rule entry yet
     if is_gesture_trigger(editing) and editing not in rules:
         gname = editing.split(":", 1)[1]
         print("  | gesture:%s -> (awaiting actions) *" % gname)
@@ -169,20 +157,13 @@ def print_rules(rules, editing):
 # ─────────────────────────────────────────────
 
 def run_event_loop(reader, rules, runner, accel_ref, ge_ref):
-    """
-    Poll all trigger sources in a single loop.
-    Fire action chains when triggers activate.
-    Returns when a STOP tag is scanned.
-    """
     btn_was_down = (btn.value() == 0)
 
     if accel_ref and "shake" in rules:
         accel_ref.clear_wake()
 
-    # Gesture cooldown tracking
     gesture_last_fire = 0
 
-    # Build a map of gesture_name -> trigger_key for fast lookup
     gesture_name_to_trigger = {}
     for trig_key in rules:
         if is_gesture_trigger(trig_key) and len(rules[trig_key]) > 0:
@@ -201,7 +182,6 @@ def run_event_loop(reader, rules, runner, accel_ref, ge_ref):
     while True:
         fired_trigger = None
 
-        # ── Button edge detection ──
         btn_is_down = (btn.value() == 0)
 
         if btn_is_down and not btn_was_down:
@@ -218,7 +198,6 @@ def run_event_loop(reader, rules, runner, accel_ref, ge_ref):
 
         btn_was_down = btn_is_down
 
-        # ── Shake detection (INT1 hardware interrupt) ──
         if (fired_trigger is None and accel_ref
                 and "shake" in rules and len(rules["shake"]) > 0):
             if int1_pin.value() == 1:
@@ -227,16 +206,13 @@ def run_event_loop(reader, rules, runner, accel_ref, ge_ref):
                 accel_ref.clear_wake()
                 fired_trigger = "shake"
 
-        # ── Gesture detection (accel polling + capture) ──
         if (fired_trigger is None and ge_ref
                 and has_gesture_rules and ge_ref.loaded_gestures):
             now = time.ticks_ms()
             if time.ticks_diff(now, gesture_last_fire) > 800:
                 if ge_ref.poll_motion():
-                    # Motion detected — block for ~1.5s to capture + classify
                     name, conf, dist, all_dists = ge_ref.capture_and_classify()
 
-                    # Show distances to ALL loaded gestures
                     dist_parts = []
                     for gn in sorted(all_dists, key=lambda n: all_dists[n]):
                         marker = ">" if gn == name else " "
@@ -253,13 +229,11 @@ def run_event_loop(reader, rules, runner, accel_ref, ge_ref):
                         print("  . miss(%s) [%s]" % (reason, dist_str))
                     gesture_last_fire = time.ticks_ms()
 
-        # ── Fire action chain ──
         if fired_trigger:
             chain = rules[fired_trigger]
             print("  * %s -> [%s]" % (fired_trigger, chain_to_str(chain)))
             runner.run_chain(chain)
 
-        # ── Poll NFC for STOP tag ──
         nfc_poll_counter += 1
         if nfc_poll_counter >= 15:
             nfc_poll_counter = 0
@@ -281,6 +255,7 @@ def main():
     print("\n" + "=" * 50)
     print("  PlaygroundV5 -- Multi-Trigger Event Engine")
     print("  Triggers: buttondown, buttonup, shake, gestures")
+    print("  Tap COLORQUEST for scavenger hunt game")
     print("  Tap START to run all rules simultaneously")
     print("=" * 50)
 
@@ -320,7 +295,6 @@ def main():
     except Exception as e:
         print("  [WARN] Gesture engine:"); sys.print_exception(e)
 
-    # Wire gesture engine into NFC reader
     if ge_ok:
         reader.gesture_engine = ge
 
@@ -334,8 +308,8 @@ def main():
         print("  [WARN] Battery:"); sys.print_exception(e)
 
     # ── State ──
-    rules = {}      # trigger_key -> action chain
-    editing = None   # current trigger being programmed
+    rules = {}
+    editing = None
     pending_combinator = None
     last_uid = None
 
@@ -344,7 +318,6 @@ def main():
 
     while True:
         try:
-            # Quick detect — no animation yet
             uid_peek, sak_peek = reader.detect_tag()
 
             if uid_peek is None:
@@ -353,12 +326,10 @@ def main():
                 time.sleep_ms(200)
                 continue
 
-            # Same tag still on reader — skip
             if uid_peek == last_uid:
                 time.sleep_ms(200)
                 continue
 
-            # New tag! Do the full animated read
             cmd, uid = read_with_feedback(reader)
             last_uid = uid
 
@@ -372,8 +343,21 @@ def main():
                 leds.show_programming(rules, editing)
                 continue
 
+            # ── COLOR QUEST ──
+            if cmd == "colorquest":
+                leds.off()
+                print("\n  >>> ENTERING COLOR QUEST <<<\n")
+
+                play_color_quest(nfc, leds.np, buz)
+
+                # Returned — restore programming state
+                leds.show_programming(rules, editing)
+                last_uid = None
+                print("  <<< BACK TO PROGRAMMING MODE >>>")
+                print("  Tap a TRIGGER tag to continue\n")
+                continue
+
             # ── GESTURE TAG ──
-            # NfcReader returns "gesture:<name>" for gesture tags
             if cmd.startswith("gesture:"):
                 if not ge_ok:
                     print("  [SKIP] Gesture engine not available!")
@@ -382,7 +366,6 @@ def main():
                 gesture_name = cmd.split(":", 1)[1]
                 trigger_key = "gesture:%s" % gesture_name
 
-                # Switch editing to this gesture's trigger
                 editing = trigger_key
                 pending_combinator = None
 
@@ -471,7 +454,6 @@ def main():
 
                 active_rules = {t: c for t, c in rules.items() if c and len(c) > 0}
 
-                # Validate gesture triggers have loaded templates
                 for trig_key in list(active_rules.keys()):
                     if is_gesture_trigger(trig_key):
                         gname = trig_key.split(":", 1)[1]
@@ -498,7 +480,6 @@ def main():
 
                 run_event_loop(reader, active_rules, runner, accel, ge)
 
-                # Returned = STOP was tapped
                 rules = {}
                 editing = None
                 pending_combinator = None
