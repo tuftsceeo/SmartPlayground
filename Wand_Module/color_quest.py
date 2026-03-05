@@ -25,7 +25,6 @@ from pn532 import PN532, MIFARE_AUTH_A, MIFARE_AUTH_B
 from nfc_reader import _decode_ndef_text, COMMON_KEYS
 from buzzer import Buzzer
 from target import SCORE_MAC
-from target import SCORE_MAC
 
 # ─────────────────────────────────────────────
 # HARDWARE
@@ -385,9 +384,7 @@ def wait_for_commands(enow, display, nfc, last_espnow=None):
                     print("Replaying: %s" % str(last_espnow))
                     return list(last_espnow), False
                 else:
-                    quest = random_quest()
-                    print("Random quest: %s" % str(quest))
-                    return quest, False
+                    print("  Button pressed — no sequence received yet, waiting...")
 
 
 # ─────────────────────────────────────────────
@@ -731,10 +728,10 @@ def main():
                 elif isinstance(result, list):
                     espnow_targets = list(result)
                     targets = result
+                    start_ticks = time.ticks_ms()
                     display.clear()
                     time.sleep_ms(200)
                     continue
-                
 
         except KeyboardInterrupt:
             display.clear()
