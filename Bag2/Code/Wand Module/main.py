@@ -1,16 +1,17 @@
 """
-PlaygroundV5 – NFC Multi-Trigger Event Engine + Color Quest
-=============================================================
+PlaygroundV5 – NFC Multi-Trigger Event Engine + Color Quest + Freeze Dance
+============================================================================
 Board: Seeed XIAO ESP32-C6
 
 Program multiple trigger->action rules by tapping NFC tags,
 then START to run them all simultaneously as an event loop.
 Tap COLORQUEST to enter the Color Quest scavenger hunt game.
+Tap FREEZEDANCE to enter the Freeze Dance multiplayer motion game.
 
 Triggers: buttondown, buttonup, shake, gesture:<name>
 Actions:  playnote, notea-g, turnred/green/blue/purple/yellow/white/off
 Combinators: and (simultaneous), then (sequential)
-Controls: start, stop, colorquest
+Controls: start, stop, colorquest, freezedance
 Utility: battery
 
 Requires in /lib/:
@@ -18,7 +19,7 @@ Requires in /lib/:
     leds.py, buzzer.py, nfc_reader.py, actions.py,
     battery.py, gesture_engine.py
 Requires in /:
-    color_quest.py
+    color_quest.py, freeze_dance.py
 """
 
 import machine
@@ -36,6 +37,7 @@ from nfc_reader import NfcReader
 from actions import ActionRunner, ACTIONS, ACTION_RESOURCE, resolve_and_group, chain_to_str
 from battery import show_battery
 from color_quest import play as play_color_quest
+from freeze_dance import play as play_freeze_dance
 
 # ─────────────────────────────────────────────
 # PIN CONSTANTS
@@ -55,7 +57,7 @@ PN532_ADDR   = 0x24
 # ─────────────────────────────────────────────
 FIXED_TRIGGERS = {"buttondown", "buttonup", "shake"}
 COMBINATORS    = {"and", "then"}
-CONTROLS       = {"start", "stop", "colorquest"}
+CONTROLS       = {"start", "stop", "colorquest", "freezedance"}
 UTILITY        = {"battery"}
 ALL_COMMANDS   = FIXED_TRIGGERS | ACTIONS | COMBINATORS | CONTROLS | UTILITY
 
@@ -256,6 +258,7 @@ def main():
     print("  PlaygroundV5 -- Multi-Trigger Event Engine")
     print("  Triggers: buttondown, buttonup, shake, gestures")
     print("  Tap COLORQUEST for scavenger hunt game")
+    print("  Tap FREEZEDANCE for multiplayer motion game")
     print("  Tap START to run all rules simultaneously")
     print("=" * 50)
 
@@ -349,6 +352,20 @@ def main():
                 print("\n  >>> ENTERING COLOR QUEST <<<\n")
 
                 play_color_quest(nfc, leds.np, buz)
+
+                # Returned — restore programming state
+                leds.show_programming(rules, editing)
+                last_uid = None
+                print("  <<< BACK TO PROGRAMMING MODE >>>")
+                print("  Tap a TRIGGER tag to continue\n")
+                continue
+
+            # ── FREEZE DANCE ──
+            if cmd == "freezedance":
+                leds.off()
+                print("\n  >>> ENTERING FREEZE DANCE <<<\n")
+
+                play_freeze_dance(nfc, leds, buz, accel, i2c)
 
                 # Returned — restore programming state
                 leds.show_programming(rules, editing)
