@@ -15,6 +15,7 @@ Wiring:
   GPIO0                  -> Button -> GND (internal pull-up)
 """
 
+
 import machine
 import network
 import espnow
@@ -89,41 +90,58 @@ def reinit_reader(nfc):
     except OSError:
         pass
     time.sleep_ms(100)
-    nfc._send_command(0x14, b'\x01\x00\x00', timeout=300)
-    nfc._send_command(0x32, b'\x05\x01\x01\x02', timeout=300)
+    try:
+        nfc._send_command(0x14, b'\x01\x00\x00', timeout=300)
+        nfc._send_command(0x32, b'\x05\x01\x01\x02', timeout=300)
+    except Exception:
+        pass
 
 # ─────────────────────────────────────────────
 # READ NDEF TEXT FROM CURRENT MUX CHANNEL
 # ─────────────────────────────────────────────
 def read_tag_text(nfc):
-    tag = nfc.read_passive_target(timeout=500)
+    try:
+        tag = nfc.read_passive_target(timeout=500)
+    except Exception:
+        return None
     if tag is None:
         return None
     if tag['sak'] not in (0x08, 0x18):
         return None
 
     ndef_data = bytearray()
-    for sector in (1, 2):
-        first_block = sector * 4
-        authed = False
-        for key in COMMON_KEYS:
-            for key_type in [MIFARE_AUTH_A, MIFARE_AUTH_B]:
-                resel = nfc.read_passive_target(timeout=200)
-                if resel is None:
-                    continue
-                if nfc.mifare_auth_block(resel['uid'], first_block, key, key_type):
-                    for blk in range(first_block, first_block + 3):
-                        try:
-                            ndef_data.extend(nfc.mifare_read_block(blk))
-                        except Exception:
-                            ndef_data.extend(b'\x00' * 16)
-                    authed = True
+    try:
+        for sector in (1, 2):
+            first_block = sector * 4
+            authed = False
+            for key in COMMON_KEYS:
+                for key_type in [MIFARE_AUTH_A, MIFARE_AUTH_B]:
+                    try:
+                        resel = nfc.read_passive_target(timeout=200)
+                    except Exception:
+                        continue
+                    if resel is None:
+                        continue
+                    try:
+                        if nfc.mifare_auth_block(resel['uid'], first_block, key, key_type):
+                            for blk in range(first_block, first_block + 3):
+                                try:
+                                    ndef_data.extend(nfc.mifare_read_block(blk))
+                                except Exception:
+                                    ndef_data.extend(b'\x00' * 16)
+                            authed = True
+                            break
+                    except Exception:
+                        continue
+                if authed:
                     break
-            if authed:
-                break
-        if not authed:
-            ndef_data.extend(b'\x00' * 48)
+            if not authed:
+                ndef_data.extend(b'\x00' * 48)
+    except Exception:
+        pass
 
+    if not ndef_data:
+        return None
     return _decode_ndef_text(ndef_data)
 
 # ─────────────────────────────────────────────
@@ -213,43 +231,62 @@ def main():
         if last_btn == 1 and cur == 0:
             time.sleep_ms(30)
             if btn.value() == 0:
-                print("— Button pressed, scanning all readers —")
+                try:
+                    print("— Button pressed, scanning all readers —")
 
-                mux_reset(mux_rst)
-                pn532_hard_reset(pn532_rst)
+                    mux_reset(mux_rst)
+                    pn532_hard_reset(pn532_rst)
 
-                for ch in ok_readers:
-                    mux_select(i2c, ch)
-                    time.sleep_ms(30)
-                    reinit_reader(nfc)
-
-                commands = []
-                for ch in ok_readers:
-                    text = None
-                    for attempt in range(MAX_RETRIES):
+                    for ch in ok_readers:
                         mux_select(i2c, ch)
                         time.sleep_ms(30)
                         reinit_reader(nfc)
-                        time.sleep_ms(20)
-                        text = read_tag_text(nfc)
-                        if text:
-                            break
-                        time.sleep_ms(50)
-                    if text:
-                        commands.append(text)
-                        print("  Reader #%d: \"%s\"" % (ch, text))
-                    else:
-                        print("  Reader #%d: no tag / unreadable" % ch)
-                mux_disable(i2c)
 
-                print("  Commands: %s" % str(commands))
-                msg = json.dumps(commands)
-                try:
-                    enow.send(BROADCAST, msg)
-                    print("  ESP-NOW sent: %s" % msg)
-                    strip_blink_colors(np, commands)
+                    commands = []
+                    for ch in ok_readers:
+                        text = None
+                        for attempt in range(MAX_RETRIES):
+                            try:
+                                mux_select(i2c, ch)
+                                time.sleep_ms(30)
+                                reinit_reader(nfc)
+                                time.sleep_ms(20)
+                                text = read_tag_text(nfc)
+                            except Exception:
+                                text = None
+                            if text:
+                                break
+                            time.sleep_ms(50)
+                        if text:
+                            commands.append(text)
+                            print("  Reader #%d: \"%s\"" % (ch, text))
+                        else:
+                            print("  Reader #%d: no tag" % ch)
+
+                    try:
+                        mux_disable(i2c)
+                    except Exception:
+                        pass
+
+                    if commands:
+                        print("  Commands: %s" % str(commands))
+                        msg = json.dumps(commands)
+                        try:
+                            enow.send(BROADCAST, msg)
+                            print("  ESP-NOW sent: %s" % msg)
+                            strip_blink_colors(np, commands)
+                        except Exception as ex:
+                            print("  ESP-NOW error: %s" % str(ex))
+                    else:
+                        print("  No tags found on any reader")
+
                 except Exception as ex:
-                    print("  ESP-NOW error: %s" % str(ex))
+                    print("  [ERR] Scan failed: %s" % str(ex))
+                    try:
+                        mux_disable(i2c)
+                    except Exception:
+                        pass
+
                 print()
         last_btn = cur
         time.sleep_ms(10)
