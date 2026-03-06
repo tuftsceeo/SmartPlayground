@@ -7,22 +7,22 @@ A multi-device ESP-NOW game where students use a wand to find NFC-tagged color t
 ## System Overview
 
 ```
-┌──────────────────┐      ESP-NOW broadcast       ┌─────────────────────┐
-│  station_test/   │  ──────────────────────────►  │   color_quest.py    │
-│  main.py         │   ["turnred","turnblue",...]   │   (Wand Module)     │
-│  (4-reader hub)  │                                │   finds NFC tags    │
-└──────────────────┘                                └──────────┬──────────┘
-                                                               │
-                                                   ESP-NOW unicast (SCORE_MAC)
-                                                   {"type":"score","colors":[...]
-                                                    "time_ms":...,"time_s":...}
-                                                               │
-                                                               ▼
-                                                   ┌─────────────────────┐
-                                                   │ slide_score_display │
-                                                   │ .py  (Score Board)  │
-                                                   │ 40-LED bar graph    │
-                                                   └─────────────────────┘
+┌──────────────────┐   ESP-NOW broadcast (new game)    ┌─────────────────────┐
+│  station_test/   │  ──────────────────────────────►  │   color_quest.py    │
+│  main.py         │   ["turnred","turnblue",...]        │   (Wand Module)     │
+│  (4-reader hub)  │                                     │   finds NFC tags    │
+└──────────────────┘                                     └──────────┬──────────┘
+         │                                                          │
+         │  ESP-NOW broadcast (also received                        │ ESP-NOW unicast
+         │  by scoreboard for game-reset detection)                 │ (SCORE_MAC)
+         │                                                          │
+         └──────────────────────────────────────┐                  │
+                                                ▼                  ▼
+                                       ┌──────────────────────────────┐
+                                       │     slide_score_display.py   │
+                                       │     (Score Board)            │
+                                       │     40-LED bar graph         │
+                                       └──────────────────────────────┘
 ```
 
 ---
@@ -31,8 +31,9 @@ A multi-device ESP-NOW game where students use a wand to find NFC-tagged color t
 
 ### `station_test/main.py` — The Hub Station
 - **Hardware:** ESP32-C6 with 4× PN532 NFC readers on a PCA9546 I2C mux, 18-LED NeoPixel strip
-- **Role:** Operator presses a button → all 4 NFC readers are polled simultaneously → the color sequence is broadcast via ESP-NOW to all wand modules
+- **Role:** Operator presses a button → all 4 NFC readers are polled simultaneously → the color sequence is broadcast via ESP-NOW to all wand modules **and** the scoreboard
 - **Output message:** `["turnred", "turnblue", "turngreen", "turnpurple"]` (JSON array, broadcast to `FF:FF:FF:FF:FF:FF`)
+- **Effect on scoreboard:** Any station broadcast is treated as the start of a new game — the scoreboard resets automatically
 
 ### `color_quest.py` — The Wand Module
 - **Hardware:** ESP32-C6 with one PN532 NFC reader, 5×5 NeoPixel matrix (25 LEDs), piezo buzzer, push button
@@ -41,14 +42,21 @@ A multi-device ESP-NOW game where students use a wand to find NFC-tagged color t
   - Row 0 (top): target color sequence — dim = upcoming, pulsing = current, bright = done
   - Rows 1–3: scan animation and breathing glow of current target color
   - Row 4 (bottom): collected colors
-- **On win:** calculates elapsed time and sends a score message to the scoreboard
-- **Button:** replays the last received sequence; does nothing if no sequence has arrived yet
+- **On win:** calculates elapsed time and sends a score message to the scoreboard via `SCORE_MAC`
+- **Button:** replays the last received sequence; prints a waiting message if no sequence has arrived yet
+- **Timer:** starts when the game begins; resets on button-press restart or if a new sequence arrives mid-game
 
 ### `slide_score_display.py` — The Score Board
 - **Hardware:** ESP32-C6 with a 40-pixel NeoPixel strip wired as a serpentine 4×10 grid
-- **Role:** Listens for score messages via ESP-NOW and displays the last 4 scores as a proportional bar graph
-- **Bar graph:** each column = one score; bar height proportional to `time_ms` relative to the longest time in the current set; bar color matches the player's device color
-- **Startup:** sweeps all pixels white one-by-one, then flashes each of the 4 device colors across the full strip
+- **Role:** Listens for score messages and station broadcasts, displays the last 4 scores as a bar graph
+- **Bar graph:**
+  - Each column = one score, left-to-right in arrival order (oldest drops when a 5th arrives — FIFO)
+  - **Fastest time = tallest bar** (full 10 rows); all others scale down proportionally
+  - Each bar has a guaranteed minimum height (`MIN_ROWS = 2`) so even slow players have a visible bar
+  - **Bar colors are assigned per score in arrival order** from a vivid palette (orange → cyan → magenta → yellow → spring green → …), cycling every 8 scores. The same wand submitting again (retry or shared between kids) just gets the next color naturally
+- **Score arrival animation:** four-phase magical sequence — gold sparkles scatter across the strip, a comet shoots up the new column, the column bursts white, then a rainbow blooms row-by-row before settling into the final bar graph
+- **New game detection:** resets automatically when a station broadcast arrives, or when a score's game sequence doesn't match the current one. Reset plays a white pixel-wipe animation
+- **Startup:** sweeps all pixels white one-by-one, then flashes each of the 4 game colors across the full strip
 
 ### `target.py` — Scoreboard MAC Address
 - **Role:** Stores the MAC address of the score display device so wand modules know where to send scores
@@ -58,13 +66,13 @@ A multi-device ESP-NOW game where students use a wand to find NFC-tagged color t
 
 ## ESP-NOW Message Formats
 
-### Station → Wand (broadcast)
+### Station → Everyone (broadcast to `FF:FF:FF:FF:FF:FF`)
 ```json
 ["turnred", "turnblue", "turngreen", "turnpurple"]
 ```
-A JSON array of color command strings. The wand module receives this as the sequence to hunt.
+A JSON array of color command strings. Wand modules receive this as the sequence to hunt. The scoreboard receives it as a new-game signal and resets.
 
-Special value `"stop"` (as a bare string or in the array) tells the wand to return to idle.
+Special value `"stop"` (as a bare string or in the array) tells wand modules to return to idle.
 
 ### Wand → Scoreboard (unicast to `SCORE_MAC`)
 ```json
@@ -75,13 +83,34 @@ Special value `"stop"` (as a bare string or in the array) tells the wand to retu
   "time_s": 14.23
 }
 ```
-- `colors` — the sequence the player completed (same as what was sent by the station)
-- `time_ms` — elapsed time in milliseconds from sequence received to last tag found
+- `colors` — the game sequence the player completed (used to detect game changes)
+- `time_ms` — elapsed time in milliseconds from game start to last tag found
 - `time_s` — same value rounded to 2 decimal places
 
 ---
 
-## Color Names
+## Score Bar Color Palette
+
+Bar colors are assigned in arrival order, cycling through this palette regardless of which wand sent the score:
+
+| # | Color | RGB |
+|---|---|---|
+| 1 | Orange | (255, 80, 0) |
+| 2 | Cyan | (0, 220, 220) |
+| 3 | Magenta | (220, 0, 220) |
+| 4 | Yellow | (220, 220, 0) |
+| 5 | Spring green | (0, 200, 80) |
+| 6 | Crimson | (200, 0, 80) |
+| 7 | Periwinkle | (80, 100, 255) |
+| 8 | Pink | (255, 100, 180) |
+
+Colors reset to orange at the start of each new game.
+
+---
+
+## Game Color Names
+
+These are the NFC tag values used in the game sequence:
 
 | Name | Color |
 |---|---|
@@ -128,9 +157,20 @@ SCORE_MAC = b'\xB4\x3A\x45\x86\x1A\x5C'  # replace with your device's MAC
 ## Timing Notes
 
 - The timer starts when `run_game()` begins (after the color sequence is received and the display clears)
+- The opening fanfare (~600ms) is included in the elapsed time — players hear the start tone and go
 - A button-press reset **restarts the timer** for the same sequence
 - If a new ESP-NOW sequence arrives mid-game, the timer resets for the new sequence
-- The opening fanfare (~600ms) is included in the elapsed time — players hear the start tone and go
+
+---
+
+## Score Display Scaling
+
+The score board is designed for obstacle course times roughly in the **30 second – 3 minute** range.
+
+- Fastest player in the current set always gets the **full 10-row bar**
+- All others: `proportion = fastest_ms / this_ms` — a player who took twice as long gets half the bar
+- `MIN_ROWS = 2` ensures even a slow player has a visible bar
+- When a faster time arrives and beats the current leader, **all bars rescale** — kids can watch the leaderboard shift in real time
 
 ---
 

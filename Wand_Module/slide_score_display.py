@@ -15,15 +15,30 @@ Serpentine wiring: even columns run bottom-to-top (pixel 0 = row 0),
 odd columns run top-to-bottom (pixel 0 = row 9). Each column is 10
 pixels, so column c starts at pixel index c * 10.
 
-Bar fill: proportional to time_ms relative to the maximum among the
-last 4 received scores. Longer time = taller bar. Bars are assigned
-left-to-right in arrival order; the oldest score is replaced when a
-5th score arrives.
+Bar fill: INVERTED — fastest time = tallest bar (full height).
+All other bars are scaled relative to the fastest:
+    proportion = fastest_time_ms / this_time_ms
+so a player who took twice as long gets half the bar height.
+MIN_ROWS ensures every player has a visible bar even if they were slow.
 
-Expected message JSON:
-    { "type": "score", "colors": ["turnred", ...], "time_ms": 12345, "time_s": 12.35 }
+Bars are assigned left-to-right in arrival order (FIFO — oldest drops
+when a 5th score arrives).
 
-colors[0] is used as the bar color. time_ms is used for bar height.
+Player colors: each score arrival gets the next color from PLAYER_COLORS
+in rotation (score_count % 8).  The same wand submitting again — whether
+a retry or shared between kids — just gets the next color naturally.
+
+Game tracking: the scoreboard listens for station broadcasts
+(plain JSON list: ["turnred", ...]) to detect new games.  A new game
+resets the board.  Score messages whose 'colors' list differs from the
+current game also trigger a reset.
+
+Expected messages:
+  Station → scoreboard (broadcast):
+      ["turnred", "turnblue", ...]          <- new game sequence
+
+  Wand → scoreboard (unicast):
+      { "type": "score", "colors": [...], "time_ms": 12345, "time_s": 12.35 }
 """
 
 import json
@@ -32,6 +47,7 @@ import network
 import neopixel
 import espnow
 import time
+import random
 from collections import deque
 
 # ---------------------------------------------------------------------------
@@ -42,18 +58,42 @@ DATA_PIN    = 0   # A0 on XIAO ESP32-C6 (GPIO0)
 NUM_PIXELS  = 40
 NUM_BARS    = 4
 BAR_HEIGHT  = 10  # pixels per bar (rows)
+MIN_ROWS    = 2   # slowest player still gets at least this many rows
 
 # RGB values for each device color name.
-# Kept intentionally dim to avoid current draw issues on the LED driver board.
 COLOR_RGB = {
-    "turnblue":   (0,   0,   160),
-    "turngreen":  (0,   160, 0),
-    "turnpurple": (100, 0,   120),
-    "turnred":    (160, 0,   0),
+    "turnblue":   (0,   0,   255),
+    "turngreen":  (0,   255, 0),
+    "turnpurple": (160, 0,   200),
+    "turnred":    (255, 0,   0),
 }
 
-BRIGHTNESS_SCALE = 0.5   # Global dimmer (0.0–1.0); tune for the driver board
-DEFAULT_RGB      = (80, 80, 80)  # Fallback if color name is unrecognized
+BRIGHTNESS_SCALE = 0.8   # Global dimmer (0.0–1.0); tune for the driver board
+DEFAULT_RGB      = (120, 120, 120)  # Fallback if color name is unrecognized
+
+# Rainbow colors used for the arrival animation sweep
+RAINBOW_ROWS = [
+    (255, 0,   0),    # red
+    (255, 100, 0),    # orange
+    (200, 200, 0),    # yellow
+    (0,   255, 0),    # green
+    (0,   0,   255),  # blue
+    (130, 0,   255),  # purple
+]
+
+# Vivid player identity colors — assigned to wand MACs in order of first contact.
+# These are intentionally different from the game color names so bars are always
+# visually distinct regardless of which game sequence was played.
+PLAYER_COLORS = [
+    (255,  80,   0),   # orange
+    (  0, 220, 220),   # cyan
+    (220,   0, 220),   # magenta
+    (220, 220,   0),   # yellow
+    (  0, 200,  80),   # spring green
+    (200,   0,  80),   # crimson
+    ( 80, 100, 255),   # periwinkle
+    (255, 100, 180),   # pink
+]
 
 # ---------------------------------------------------------------------------
 # Hardware init
@@ -74,11 +114,35 @@ en.active(True)
 print("[boot] ESP-NOW ready, waiting for messages")
 
 # ---------------------------------------------------------------------------
-# State: ring buffer of the last NUM_BARS scores
-# Each entry: { "color": str, "time_ms": int }
+# State
 # ---------------------------------------------------------------------------
 
-score_queue = deque((), NUM_BARS)   # oldest on left, newest on right
+score_queue   = deque((), NUM_BARS)  # each entry: {"player_rgb": tuple, "time_ms": int}
+current_game  = None                 # list of color strings for the active game
+score_count   = 0                    # total scores received this game; drives color rotation
+
+def reset_for_new_game(new_game):
+    """
+    Clear the score queue and show a brief wipe animation to signal a fresh game.
+    Updates current_game to new_game.
+    """
+    global score_queue, current_game, score_count
+    print("[game] New game sequence: {} (was {})".format(new_game, current_game))
+    current_game = new_game
+    score_queue  = deque((), NUM_BARS)
+    score_count  = 0
+
+    # Quick white pixel-wipe left-to-right then clear — like a chalkboard erase
+    for i in range(NUM_PIXELS):
+        strip[i] = _scale((200, 200, 200))
+        strip.write()
+        time.sleep_ms(8)
+    time.sleep_ms(120)
+    for i in range(NUM_PIXELS):
+        strip[i] = (0, 0, 0)
+    strip.write()
+    print("[game] Score board cleared")
+
 
 # ---------------------------------------------------------------------------
 # Pixel addressing
@@ -113,9 +177,85 @@ def _scale(rgb):
     return tuple(int(c * BRIGHTNESS_SCALE) for c in rgb)
 
 
+def _set_col(col, rgb):
+    """Fill an entire column with one color."""
+    for row in range(BAR_HEIGHT):
+        strip[pixel_index(col, row)] = rgb
+    strip.write()
+
+
+def score_arrival_animation(new_col):
+    """
+    Four-phase magical arrival animation for a new score.
+
+    Phase 1 — Anticipation sparkles (~450 ms):
+        Random gold/white stars pop and fade across the whole strip,
+        building excitement while the player's score is about to land.
+
+    Phase 2 — Comet launch (~275 ms):
+        A bright white head with a purple-blue trail shoots from the
+        bottom of the new column to the top, like a spell being cast.
+
+    Phase 3 — Burst flash (~150 ms):
+        The whole column flares white — the moment of impact.
+
+    Phase 4 — Rainbow bloom + hold (~350 ms):
+        Each row blooms into a rainbow color from bottom to top,
+        then holds briefly before update_display() draws the real bars.
+    """
+    WHITE  = (255, 255, 255)
+    TRAIL1 = ( 80,  30, 220)   # purple-blue mid-trail
+    TRAIL2 = ( 25,  10,  70)   # dim tail
+
+    # ── Phase 1: anticipation sparkles ──────────────────────────────────
+    for _ in range(9):
+        lit = []
+        for _ in range(random.randint(3, 6)):
+            px = random.randint(0, NUM_PIXELS - 1)
+            brightness = random.randint(120, 255)
+            strip[px] = _scale((brightness, int(brightness * 0.65), int(brightness * 0.1)))
+            lit.append(px)
+        strip.write()
+        time.sleep_ms(28)
+        for px in lit:
+            strip[px] = (0, 0, 0)
+        time.sleep_ms(22)
+
+    # ── Phase 2: comet shoots up the new column ──────────────────────────
+    _set_col(new_col, (0, 0, 0))
+    for row in range(BAR_HEIGHT):
+        _set_col(new_col, (0, 0, 0))
+        strip[pixel_index(new_col, row)] = _scale(WHITE)
+        if row >= 1:
+            strip[pixel_index(new_col, row - 1)] = _scale(TRAIL1)
+        if row >= 2:
+            strip[pixel_index(new_col, row - 2)] = _scale(TRAIL2)
+        strip.write()
+        time.sleep_ms(27)
+
+    # ── Phase 3: full-column burst ───────────────────────────────────────
+    _set_col(new_col, _scale(WHITE))
+    time.sleep_ms(150)
+
+    # ── Phase 4: rainbow blooms up, row by row, then holds ───────────────
+    for row in range(BAR_HEIGHT):
+        strip[pixel_index(new_col, row)] = _scale(RAINBOW_ROWS[row % len(RAINBOW_ROWS)])
+        strip.write()
+        time.sleep_ms(30)
+    time.sleep_ms(280)
+
+    # Clear column — update_display() will draw the final proportional bars
+    _set_col(new_col, (0, 0, 0))
+
+
 def update_display():
-    """Redraw all 4 bar columns from the current score_queue."""
-    # Clear the full strip first.
+    """
+    Redraw all 4 bar columns from the current score_queue.
+
+    Scaling: fastest score = full bar (BAR_HEIGHT rows).
+    All others: proportion = fastest_ms / this_ms  (slower → shorter bar).
+    MIN_ROWS guarantees every player has a visible bar.
+    """
     for i in range(NUM_PIXELS):
         strip[i] = (0, 0, 0)
 
@@ -126,18 +266,17 @@ def update_display():
         print("[display] No scores yet, strip cleared")
         return
 
-    max_time = max(s["time_ms"] for s in scores)
-    print("[display] Redrawing — {} bars, max_time={}ms".format(len(scores), max_time))
+    min_time = min(s["time_ms"] for s in scores)   # fastest = reference
+    print("[display] Redrawing — {} bars, fastest={}ms".format(len(scores), min_time))
 
     for col, entry in enumerate(scores):
-        color_name = entry["color"]
         time_ms    = entry["time_ms"]
-        proportion = time_ms / max_time if max_time > 0 else 0
-        lit_rows   = max(1, round(proportion * BAR_HEIGHT))
-        rgb        = _scale(COLOR_RGB.get(color_name, DEFAULT_RGB))
+        proportion = min_time / time_ms if time_ms > 0 else 1.0  # faster = bigger
+        lit_rows   = max(MIN_ROWS, round(proportion * BAR_HEIGHT))
+        rgb        = _scale(entry["player_rgb"])
 
-        print("[display] Col {}: color={}, time={}ms, {}/{} rows, proportion={:.2f}, rgb={}".format(
-            col, color_name, time_ms, lit_rows, BAR_HEIGHT, proportion, rgb))
+        print("[display] Col {}: time={}ms, {}/{} rows, proportion={:.2f}, rgb={}".format(
+            col, time_ms, lit_rows, BAR_HEIGHT, proportion, rgb))
 
         for row in range(lit_rows):
             strip[pixel_index(col, row)] = rgb
@@ -149,10 +288,65 @@ def update_display():
 # Message handling
 # ---------------------------------------------------------------------------
 
-def handle_message(mac, msg_bytes):
-    """Parse a raw ESP-NOW payload and update the score queue if it is a score message."""
+def _handle_station_broadcast(mac, color_list):
+    """
+    Called when the station broadcasts a new game sequence.
+    Any station broadcast means a new game is starting — always reset.
+    """
+    valid = [c for c in color_list if c in COLOR_RGB]
+    if not valid:
+        print("[station] Broadcast contains no recognised color names, ignoring")
+        return
     mac_str = ":".join("{:02x}".format(b) for b in mac)
-    print("[recv] Message from {}: {}".format(mac_str, msg_bytes))
+    print("[station] New game from {}: {}".format(mac_str, valid))
+    reset_for_new_game(valid)
+
+
+def _handle_score(mac, data):
+    """
+    Called when a wand sends a completed-game score message.
+    Each score gets the next color in PLAYER_COLORS regardless of sender —
+    same wand submitting again (retry or shared between kids) just gets the
+    next color in the rotation naturally.
+    """
+    global current_game, score_count
+
+    colors  = data.get("colors")
+    time_ms = data.get("time_ms")
+    time_s  = data.get("time_s")
+
+    if not colors or time_ms is None:
+        print("[score] ERROR: Missing 'colors' or 'time_ms', ignoring")
+        return
+
+    # Detect a game change (station broadcast may have been missed)
+    if current_game is not None and colors != current_game:
+        print("[score] Game sequence changed, resetting board")
+        reset_for_new_game(colors)
+    elif current_game is None:
+        current_game = colors
+        print("[score] First score — game sequence set: {}".format(current_game))
+
+    player_rgb  = PLAYER_COLORS[score_count % len(PLAYER_COLORS)]
+    score_count += 1
+    entry = {"player_rgb": player_rgb, "time_ms": time_ms}
+
+    # deque drops oldest automatically when full (FIFO)
+    score_queue.append(entry)
+    new_col = len(score_queue) - 1
+
+    mac_str = ":".join("{:02x}".format(b) for b in mac)
+    print("[score] #{} from {}: time={}ms ({:.2f}s), color={}, depth={}".format(
+        score_count, mac_str, time_ms, time_s or time_ms / 1000, player_rgb, len(score_queue)))
+
+    score_arrival_animation(new_col)
+    update_display()
+
+
+def handle_message(mac, msg_bytes):
+    """Route an incoming ESP-NOW message to the appropriate handler."""
+    mac_str = ":".join("{:02x}".format(b) for b in mac)
+    print("[recv] From {}: {}".format(mac_str, msg_bytes))
 
     try:
         data = json.loads(msg_bytes)
@@ -160,34 +354,20 @@ def handle_message(mac, msg_bytes):
         print("[recv] ERROR: Could not parse JSON, ignoring")
         return
 
+    if isinstance(data, list):
+        # Plain list → station broadcast of a new game sequence
+        _handle_station_broadcast(mac, data)
+        return
+
     if not isinstance(data, dict):
-        print("[recv] Ignoring non-object JSON (got {}): {}".format(type(data).__name__, data))
+        print("[recv] Unexpected JSON type ({}), ignoring".format(type(data).__name__))
         return
 
     msg_type = data.get("type")
-    if msg_type != "score":
-        print("[recv] Ignoring message type: '{}'".format(msg_type))
-        return
-
-    colors  = data.get("colors")
-    time_ms = data.get("time_ms")
-    time_s  = data.get("time_s")
-
-    if not colors or time_ms is None:
-        print("[recv] ERROR: Missing 'colors' or 'time_ms' fields, ignoring")
-        return
-
-    device_color = colors[0]  # First entry is this device's color identifier
-    entry = {"color": device_color, "time_ms": time_ms}
-
-    # deque with maxlen drops the oldest entry automatically when full.
-    score_queue.append(entry)
-
-    print("[recv] Score queued: color='{}', time={}ms ({:.2f}s), queue depth={}".format(
-        device_color, time_ms, time_s or time_ms / 1000, len(score_queue)))
-    print("[recv] Current queue: {}".format(list(score_queue)))
-
-    update_display()
+    if msg_type == "score":
+        _handle_score(mac, data)
+    else:
+        print("[recv] Unknown message type '{}', ignoring".format(msg_type))
 
 # ---------------------------------------------------------------------------
 # Startup animation
