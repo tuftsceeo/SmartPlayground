@@ -2,7 +2,8 @@
 NFC Reader — Tag scanning and command extraction
 ==================================================
 Wraps PN532 driver with NDEF text decoding,
-raw-bytes fallback, and gesture tag detection.
+raw-bytes fallback, gesture tag detection,
+and Splat Companion (SC:) tag passthrough.
 
 Supports two-phase reading: detect tag presence first,
 then read data (allows animation during the slow read).
@@ -10,6 +11,10 @@ then read data (allows animation during the slow read).
 Gesture tags: If block 4 of a MIFARE Classic tag starts
 with b'G:', it's a gesture tag. The reader loads the centroid
 into the GestureEngine and returns "gesture:<name>" as the command.
+
+SC tags: If NDEF text starts with "sc:", it's a Splat Companion
+tag. The full text (e.g. "sc:b4:3a:45:86:1c:8c") is returned
+as the command — the caller handles MAC parsing.
 
 Usage:
     from nfc_reader import NfcReader
@@ -23,6 +28,7 @@ Usage:
         on_complete=my_done_fn,
     )
     # cmd might be "gesture:triangle" for gesture tags
+    # cmd might be "sc:b4:3a:45:86:1c:8c" for SC tags
 """
 
 import sys
@@ -38,6 +44,7 @@ COMMON_KEYS = [
 ]
 
 GESTURE_MARKER = b'G:'
+SC_PREFIX = "sc:"
 
 
 class NfcReader:
@@ -65,14 +72,16 @@ class NfcReader:
         """
         Scan for a tag and try to extract a command string.
 
-        For gesture tags (block 4 starts with "G:"), returns
-        "gesture:<name>" as the command and loads the centroid
-        into self.gesture_engine.
+        Recognition order:
+          1. Gesture tags (block 4 starts with "G:")
+          2. SC tags (NDEF text starts with "sc:")
+          3. Known commands from self.commands
+          4. Raw bytes fallback search
 
         Returns:
             (command, uid_hex) if tag found.
             command is a string from self.commands, "gesture:<name>",
-            or None if unrecognized.
+            "sc:<mac>", or None if unrecognized.
             uid_hex is None if no tag detected.
         """
         # Phase 1: Detect tag presence (fast)
@@ -98,12 +107,9 @@ class NfcReader:
             sys.print_exception(e)
 
         # ── Check for gesture tag ──
-        # For MIFARE Classic, ndef_data starts at block 4 (sector 1)
-        # First 16 bytes = block 4 = potential gesture header
         if (self.gesture_engine and sak in (0x08, 0x18)
                 and len(ndef_data) >= 16
                 and ndef_data[0:2] == GESTURE_MARKER):
-            # It's a gesture tag — do a full gesture read
             gesture = self.gesture_engine.read_gesture_tag(self.nfc, tag)
             if gesture:
                 self.gesture_engine.load_gesture(gesture['name'], gesture['centroid'])
@@ -118,12 +124,23 @@ class NfcReader:
                     on_complete(None)
                 return None, uid_hex
 
-        # ── Standard NDEF text ──
-        command = None
+        # ── Decode NDEF text ──
         text = _decode_ndef_text(ndef_data)
+
+        # ── Check for SC tag ──
+        if text and text.startswith(SC_PREFIX) and len(text) > len(SC_PREFIX):
+            command = text  # pass through full "sc:b4:3a:45:86:1c:8c"
+            print("  [SC tag: %s]" % text)
+            if on_complete:
+                on_complete(command)
+            return command, uid_hex
+
+        # ── Standard command lookup ──
+        command = None
         if text and text in self.commands:
             command = text
         else:
+            # Also check raw bytes for known commands
             command = self._find_in_raw(ndef_data)
 
         # Notify: read complete
@@ -187,6 +204,20 @@ class NfcReader:
             raw_str = bytes(data).decode('ascii', 'replace').lower()
         except Exception:
             return None
+
+        # Check for SC prefix in raw data too
+        sc_idx = raw_str.find(SC_PREFIX)
+        if sc_idx >= 0:
+            # Try to extract the full SC:MAC string
+            # MAC is 17 chars: AA:BB:CC:DD:EE:FF
+            sc_end = sc_idx + len(SC_PREFIX) + 17
+            if sc_end <= len(raw_str):
+                candidate = raw_str[sc_idx:sc_end]
+                # Validate it looks like a MAC
+                parts = candidate[len(SC_PREFIX):].split(':')
+                if len(parts) == 6 and all(len(p) == 2 for p in parts):
+                    return candidate
+
         for cmd in self.commands:
             if cmd in raw_str:
                 return cmd
@@ -244,4 +275,5 @@ def _decode_ndef_text(data):
                 i += 2 + data[i + 1]
             else:
                 break
+            
     return None

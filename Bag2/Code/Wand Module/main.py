@@ -1,23 +1,25 @@
 """
-PlaygroundV5 – NFC Multi-Trigger Event Engine + Color Quest + Freeze Dance
-============================================================================
+PlaygroundV5 – NFC Multi-Trigger Event Engine + Splat Companion Support
+========================================================================
 Board: Seeed XIAO ESP32-C6
 
 Program multiple trigger->action rules by tapping NFC tags,
 then START to run them all simultaneously as an event loop.
-Tap COLORQUEST to enter the Color Quest scavenger hunt game.
-Tap FREEZEDANCE to enter the Freeze Dance multiplayer motion game.
 
-Triggers: buttondown, buttonup, shake, gesture:<name>
+Triggers: buttondown, buttonup, shake, gesture:<name>, SC:<MAC>
 Actions:  playnote, notea-g, turnred/green/blue/purple/yellow/white/off
 Combinators: and (simultaneous), then (sequential)
 Controls: start, stop, colorquest, freezedance
 Utility: battery
 
+SC:<MAC> triggers are remote — actions assigned to them are sent
+to the Splat Companion device at that MAC address. The Splat's own
+buttons control when those actions fire.
+
 Requires in /lib/:
     pn532.py, lis2dw12.py, max17048.py, opt3002.py,
     leds.py, buzzer.py, nfc_reader.py, actions.py,
-    battery.py, gesture_engine.py
+    battery.py, gesture_engine.py, splat_bridge.py
 Requires in /:
     color_quest.py, freeze_dance.py
 """
@@ -38,6 +40,7 @@ from actions import ActionRunner, ACTIONS, ACTION_RESOURCE, resolve_and_group, c
 from battery import show_battery
 from color_quest import play as play_color_quest
 from freeze_dance import play as play_freeze_dance
+from splat_bridge import SplatBridge
 
 # ─────────────────────────────────────────────
 # PIN CONSTANTS
@@ -59,7 +62,10 @@ FIXED_TRIGGERS = {"buttondown", "buttonup", "shake"}
 COMBINATORS    = {"and", "then"}
 CONTROLS       = {"start", "stop", "colorquest", "freezedance"}
 UTILITY        = {"battery"}
-ALL_COMMANDS   = FIXED_TRIGGERS | ACTIONS | COMBINATORS | CONTROLS | UTILITY
+# Animal sounds — only execute on Splat, but recognized during programming
+ANIMAL_SOUNDS  = {"cat", "chicken", "cow", "dog", "pig", "duck", "elephant", "horse", "goat"}
+ALL_COMMANDS   = FIXED_TRIGGERS | ACTIONS | ANIMAL_SOUNDS | COMBINATORS | CONTROLS | UTILITY
+# Note: SC:<MAC> tags are detected by prefix, not in ALL_COMMANDS
 
 # ─────────────────────────────────────────────
 # HARDWARE INIT
@@ -70,6 +76,27 @@ buz  = Buzzer(BUZZER_PIN)
 btn  = machine.Pin(SWITCH_PIN, machine.Pin.IN, machine.Pin.PULL_UP)
 int1_pin = machine.Pin(ACCEL_INT1, machine.Pin.IN)
 motor = machine.Pin(MOTOR_PIN, machine.Pin.OUT, value=0)
+
+
+# ─────────────────────────────────────────────
+# SC TAG HELPERS
+# ─────────────────────────────────────────────
+
+def is_sc_trigger(name):
+    """Check if a trigger name is a Splat Companion trigger."""
+    return name is not None and name.startswith("SC:")
+
+
+def parse_sc_mac(name):
+    """Extract MAC address from 'SC:AA:BB:CC:DD:EE:FF'."""
+    if not is_sc_trigger(name):
+        return None
+    return name[3:]  # everything after "SC:"
+
+
+def is_any_remote_trigger(name):
+    """Check if trigger is remote (SC or future remote types)."""
+    return is_sc_trigger(name)
 
 
 # ─────────────────────────────────────────────
@@ -134,6 +161,7 @@ def print_rules(rules, editing):
         elif trig == editing:
             print("  | %s -> (awaiting actions)%s" % (trig, marker))
 
+    # Gesture triggers
     for trig in sorted(rules.keys()):
         if not is_gesture_trigger(trig):
             continue
@@ -149,6 +177,22 @@ def print_rules(rules, editing):
         gname = editing.split(":", 1)[1]
         print("  | gesture:%s -> (awaiting actions) *" % gname)
 
+    # SC triggers
+    for trig in sorted(rules.keys()):
+        if not is_sc_trigger(trig):
+            continue
+        sc_mac = parse_sc_mac(trig)
+        marker = " *" if trig == editing else ""
+        if len(rules[trig]) > 0:
+            print("  | SC:%s -> [%s]%s" % (sc_mac, chain_to_str(rules[trig]), marker))
+            has_any = True
+        elif trig == editing:
+            print("  | SC:%s -> (awaiting actions)%s" % (sc_mac, marker))
+
+    if is_sc_trigger(editing) and editing not in rules:
+        sc_mac = parse_sc_mac(editing)
+        print("  | SC:%s -> (awaiting actions) *" % sc_mac)
+
     if not has_any and not editing:
         print("  | (empty -- tap a trigger tag to begin)")
     print("  +----------------------------------------")
@@ -159,6 +203,10 @@ def print_rules(rules, editing):
 # ─────────────────────────────────────────────
 
 def run_event_loop(reader, rules, runner, accel_ref, ge_ref):
+    """
+    Run the event loop for local triggers only.
+    SC triggers are handled remotely by the Splat Companion.
+    """
     btn_was_down = (btn.value() == 0)
 
     if accel_ref and "shake" in rules:
@@ -176,9 +224,10 @@ def run_event_loop(reader, rules, runner, accel_ref, ge_ref):
 
     nfc_poll_counter = 0
 
-    print("  Event loop active -- listening for:")
+    # Only log local triggers
+    print("  Event loop active -- local triggers:")
     for trig in sorted(rules.keys()):
-        if len(rules[trig]) > 0:
+        if not is_sc_trigger(trig) and len(rules[trig]) > 0:
             print("    %s -> [%s]" % (trig, chain_to_str(rules[trig])))
 
     while True:
@@ -257,6 +306,7 @@ def main():
     print("\n" + "=" * 50)
     print("  PlaygroundV5 -- Multi-Trigger Event Engine")
     print("  Triggers: buttondown, buttonup, shake, gestures")
+    print("  Remote:   SC:<MAC> (Splat Companion)")
     print("  Tap COLORQUEST for scavenger hunt game")
     print("  Tap FREEZEDANCE for multiplayer motion game")
     print("  Tap START to run all rules simultaneously")
@@ -272,6 +322,9 @@ def main():
 
     reader = NfcReader(nfc, ALL_COMMANDS)
     runner = ActionRunner(leds, buz)
+
+    # Splat Bridge (initialized lazily when SC tag is scanned)
+    bridge = SplatBridge()
 
     # Accelerometer
     accel = None
@@ -317,7 +370,7 @@ def main():
     last_uid = None
 
     leds.show_programming(rules, editing)
-    print("\n  Tap a TRIGGER tag (or gesture tag) to start programming\n")
+    print("\n  Tap a TRIGGER tag (or SC tag) to start programming\n")
 
     while True:
         try:
@@ -340,6 +393,15 @@ def main():
                 time.sleep_ms(200)
                 continue
 
+            # ── CHECK FOR SC TAG (detected by raw text prefix) ──
+            # NfcReader returns the raw text — check if it starts with "sc:"
+            # (NDEF text is lowercased by the reader)
+            is_sc_cmd = False
+            if cmd.startswith("sc:") and len(cmd) > 3:
+                # Normalize to uppercase for MAC
+                cmd = "SC:" + cmd[3:].upper()
+                is_sc_cmd = True
+
             # ── UTILITY ──
             if cmd == "battery":
                 show_battery(batt, leds, buz)
@@ -350,10 +412,7 @@ def main():
             if cmd == "colorquest":
                 leds.off()
                 print("\n  >>> ENTERING COLOR QUEST <<<\n")
-
                 play_color_quest(nfc, leds.np, buz)
-
-                # Returned — restore programming state
                 leds.show_programming(rules, editing)
                 last_uid = None
                 print("  <<< BACK TO PROGRAMMING MODE >>>")
@@ -364,10 +423,7 @@ def main():
             if cmd == "freezedance":
                 leds.off()
                 print("\n  >>> ENTERING FREEZE DANCE <<<\n")
-
                 play_freeze_dance(nfc, leds, buz, accel, i2c)
-
-                # Returned — restore programming state
                 leds.show_programming(rules, editing)
                 last_uid = None
                 print("  <<< BACK TO PROGRAMMING MODE >>>")
@@ -390,7 +446,26 @@ def main():
                 print("  > Gesture trigger: '%s'" % gesture_name)
                 loaded = [g['name'] for g in ge.loaded_gestures]
                 print("  > All loaded: %s" % ", ".join(loaded))
-                print("  > Tap ACTION tags for this gesture, or another gesture tag")
+                print("  > Tap ACTION tags for this gesture")
+                print_rules(rules, editing)
+                leds.show_programming(rules, editing)
+                continue
+
+            # ── SC (SPLAT COMPANION) TAG ──
+            if is_sc_cmd:
+                sc_mac = parse_sc_mac(cmd)
+                trigger_key = cmd  # "SC:AA:BB:CC:DD:EE:FF"
+
+                editing = trigger_key
+                pending_combinator = None
+
+                # Register companion with the bridge
+                bridge.add_companion(sc_mac)
+
+                buz.confirm()
+                leds.flash(0, 15, 15, times=2, on_ms=80, off_ms=60)
+                print("  > Splat Companion trigger: %s" % sc_mac)
+                print("  > Tap ACTION tags (colors, notes) for the Splat")
                 print_rules(rules, editing)
                 leds.show_programming(rules, editing)
                 continue
@@ -420,8 +495,8 @@ def main():
                 print_rules(rules, editing)
                 leds.show_programming(rules, editing)
 
-            # ── ACTION TAG ──
-            elif cmd in ACTIONS:
+            # ── ACTION TAG (includes notes and animal sounds) ──
+            elif cmd in ACTIONS or cmd in ANIMAL_SOUNDS:
                 if editing is None:
                     print("  Tap a trigger tag first!")
                     buz.reject(); continue
@@ -431,15 +506,16 @@ def main():
                 if pending_combinator == "and" and len(chain) > 0:
                     chain[-1].append(cmd)
                     chain[-1] = resolve_and_group(chain[-1])
+                    rules[editing] = chain
+                    pending_combinator = None
                 elif pending_combinator == "then" and len(chain) > 0:
                     chain.append([cmd])
-                elif len(chain) == 0:
-                    chain = [[cmd]]
+                    rules[editing] = chain
+                    pending_combinator = None
                 else:
-                    chain = [[cmd]]
+                    # No combinator — start fresh chain for this trigger
+                    rules[editing] = [[cmd]]
 
-                rules[editing] = chain
-                pending_combinator = None
                 buz.confirm()
                 print_rules(rules, editing)
                 leds.show_programming(rules, editing)
@@ -471,6 +547,7 @@ def main():
 
                 active_rules = {t: c for t, c in rules.items() if c and len(c) > 0}
 
+                # Validate gesture triggers
                 for trig_key in list(active_rules.keys()):
                     if is_gesture_trigger(trig_key):
                         gname = trig_key.split(":", 1)[1]
@@ -488,19 +565,56 @@ def main():
                     print("  [SKIP] No complete rules!")
                     buz.reject(); continue
 
+                # ── Send configs to Splat Companions ──
+                sc_rules = {}
+                local_rules = {}
+                for trig_key, chain in active_rules.items():
+                    if is_sc_trigger(trig_key):
+                        sc_rules[trig_key] = chain
+                    else:
+                        local_rules[trig_key] = chain
+
+                # Send each SC trigger's action chain to its companion
+                for trig_key, chain in sc_rules.items():
+                    sc_mac = parse_sc_mac(trig_key)
+                    print("  Sending config to Splat Companion %s:" % sc_mac)
+                    print("    Actions: [%s]" % chain_to_str(chain))
+                    bridge.send_config(sc_mac, chain)
+                    time.sleep_ms(50)  # small gap between sends
+
                 leds.off()
                 buz.start()
                 leds.flash(0, 40, 0, times=3, on_ms=80, off_ms=60)
-                leds.show_running(active_rules)
 
-                print("\n  >>> RUNNING %d rule(s) -- tap STOP to end\n" % len(active_rules))
+                if local_rules:
+                    leds.show_running(local_rules)
 
-                run_event_loop(reader, active_rules, runner, accel, ge)
+                total = len(local_rules) + len(sc_rules)
+                print("\n  >>> RUNNING %d rule(s) (%d local, %d remote) -- tap STOP\n" % (
+                    total, len(local_rules), len(sc_rules)))
+
+                if local_rules:
+                    run_event_loop(reader, local_rules, runner, accel, ge)
+                else:
+                    # No local rules — just wait for STOP tag
+                    print("  (No local triggers — only remote. Tap STOP to end)")
+                    while True:
+                        try:
+                            cmd_check, _ = read_quiet(reader)
+                            if cmd_check == "stop":
+                                break
+                        except Exception:
+                            pass
+                        time.sleep_ms(200)
+
+                # ── Send stop to all companions ──
+                bridge.send_stop_all()
 
                 rules = {}
                 editing = None
                 pending_combinator = None
                 last_uid = None
+                bridge.clear_companions()
                 if ge:
                     ge.clear_loaded()
                 leds.off(); buz.stop()
@@ -510,6 +624,8 @@ def main():
 
             # ── STOP (during programming = reset) ──
             elif cmd == "stop":
+                bridge.send_stop_all()
+                bridge.clear_companions()
                 rules = {}
                 editing = None
                 pending_combinator = None
@@ -524,6 +640,8 @@ def main():
                 buz.beep(200, 150)
 
         except KeyboardInterrupt:
+            bridge.send_stop_all()
+            bridge.shutdown()
             leds.off(); print("\n  Exiting."); break
         except Exception as e:
             print("  [ERR]:"); sys.print_exception(e)
