@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -32,54 +33,76 @@
       --amber-border: #f0dda8;
       --mono: "IBM Plex Mono", monospace;
       --sans: "IBM Plex Sans", sans-serif;
+
+      /* Fluid spacing & type scale */
+      --space-sm:   clamp(0.6rem,  1.5vw, 1rem);
+      --space-md:   clamp(1rem,    2.5vw, 1.5rem);
+      --space-lg:   clamp(1.25rem, 3vw,   2rem);
+      --card-pad:   clamp(1rem,    3vw,   1.75rem);
+      --fs-base:    clamp(0.9rem,  1.8vw, 1rem);
+      --fs-mono:    clamp(0.78rem, 1.5vw, 0.88rem);
+      --fs-label:   clamp(0.65rem, 1.2vw, 0.72rem);
+      --fs-h1:      clamp(1rem,    2.5vw, 1.2rem);
+      --fs-h2:      clamp(0.88rem, 2vw,   1rem);
+      --btn-pad-y:  clamp(0.65rem, 1.5vw, 0.75rem);
+      --btn-pad-x:  clamp(1rem,    2.5vw, 1.4rem);
+      --radius:     clamp(4px, 1vw, 8px);
     }
+
+    html { font-size: 16px; }
 
     body {
       font-family: var(--sans);
+      font-size: var(--fs-base);
       background: var(--bg);
       color: var(--text);
       min-height: 100vh;
-      padding: 2.5rem 1rem 4rem;
+      /* Fluid padding: tight on mobile, generous on desktop */
+      padding: clamp(1rem, 4vw, 3rem) clamp(0.75rem, 4vw, 1.5rem) clamp(2rem, 6vw, 4rem);
     }
 
     .container {
-      max-width: 640px;
+      width: 100%;
+      max-width: min(680px, 100%);
       margin: 0 auto;
       display: flex;
       flex-direction: column;
-      gap: 1.25rem;
+      gap: var(--space-md);
     }
 
-    /* Header */
+    /* ── Header ── */
     header {
       display: flex;
       align-items: baseline;
-      gap: 1rem;
-      padding-bottom: 0.5rem;
+      flex-wrap: wrap;
+      gap: 0.5rem 1rem;
+      padding-bottom: clamp(0.4rem, 1vw, 0.6rem);
       border-bottom: 2px solid var(--text);
-      margin-bottom: 0.25rem;
+      margin-bottom: 0.1rem;
     }
     header h1 {
       font-family: var(--mono);
-      font-size: 1.1rem;
+      font-size: var(--fs-h1);
       font-weight: 500;
       letter-spacing: -0.02em;
     }
     header .subtitle {
       font-family: var(--mono);
-      font-size: 0.8rem;
+      font-size: clamp(0.72rem, 1.4vw, 0.82rem);
       color: var(--text-soft);
     }
 
-    /* Cards */
+    /* ── Cards ── */
     .card {
       background: var(--surface);
       border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 1.4rem 1.5rem;
+      border-radius: var(--radius);
+      padding: var(--card-pad);
       display: flex;
       flex-direction: column;
-      gap: 1rem;
+      gap: var(--space-sm);
+      /* Subtle shadow that scales with viewport */
+      box-shadow: 0 1px clamp(2px, 0.5vw, 6px) rgba(0,0,0,0.04);
     }
     .card-header {
       display: flex;
@@ -88,35 +111,66 @@
     }
     .step-num {
       font-family: var(--mono);
-      font-size: 0.68rem;
+      font-size: var(--fs-label);
       font-weight: 500;
       color: var(--text-soft);
       background: var(--bg);
       border: 1px solid var(--border);
       border-radius: 3px;
-      padding: 0.12rem 0.42rem;
+      padding: 0.12rem 0.45rem;
       letter-spacing: 0.05em;
+      white-space: nowrap;
     }
     .card-header h2 {
-      font-size: 0.9rem;
+      font-size: var(--fs-h2);
       font-weight: 600;
       letter-spacing: -0.01em;
     }
 
-    /* Buttons */
-    .btn-row { display: flex; gap: 0.6rem; flex-wrap: wrap; }
+    /* ── Device info ── */
+    .device-info {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.35rem 0.6rem;
+      font-family: var(--mono);
+      font-size: var(--fs-mono);
+      color: var(--text-mid);
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: clamp(0.35rem, 1vw, 0.5rem) clamp(0.6rem, 1.5vw, 0.9rem);
+    }
+    .device-info .label { color: var(--text-soft); }
+    .device-info .value { color: var(--text); font-weight: 500; }
+    .device-info .sep   { color: var(--border-mid); }
+
+    /* ── Buttons ── */
+    .btn-row {
+      display: flex;
+      gap: clamp(0.4rem, 1.5vw, 0.75rem);
+      flex-wrap: wrap;
+    }
+
+    button.primary,
+    button.secondary {
+      font-family: var(--mono);
+      font-size: var(--fs-mono);
+      font-weight: 500;
+      border-radius: var(--radius);
+      padding: var(--btn-pad-y) var(--btn-pad-x);
+      cursor: pointer;
+      /* Minimum touch target 44px tall on mobile */
+      min-height: 44px;
+      transition: background 0.15s, transform 0.1s, box-shadow 0.15s, border-color 0.15s;
+      /* Prevent text wrapping in buttons */
+      white-space: nowrap;
+    }
 
     button.primary {
-      font-family: var(--mono);
-      font-size: 0.8rem;
-      font-weight: 500;
       background: var(--accent);
       color: #fff;
       border: none;
-      border-radius: 4px;
-      padding: 0.55rem 1.2rem;
-      cursor: pointer;
-      transition: background 0.15s, transform 0.1s, box-shadow 0.15s;
     }
     button.primary:hover:not(:disabled) {
       background: var(--accent-hover);
@@ -127,28 +181,29 @@
     button.primary:disabled { opacity: 0.35; cursor: not-allowed; }
 
     button.secondary {
-      font-family: var(--mono);
-      font-size: 0.8rem;
-      font-weight: 500;
       background: var(--surface);
       color: var(--text-mid);
       border: 1px solid var(--border-mid);
-      border-radius: 4px;
-      padding: 0.55rem 1.2rem;
-      cursor: pointer;
-      transition: background 0.15s, border-color 0.15s;
     }
     button.secondary:hover:not(:disabled) { background: var(--bg); border-color: var(--text-soft); }
     button.secondary:disabled { opacity: 0.35; cursor: not-allowed; }
 
-    /* Status */
+    /* Full-width buttons on small screens */
+    @media (max-width: 400px) {
+      .btn-row { flex-direction: column; }
+      .btn-row button { width: 100%; }
+      button#btn-upload { width: 100%; align-self: stretch !important; }
+    }
+
+    /* ── Status ── */
     .status {
       font-family: var(--mono);
-      font-size: 0.78rem;
-      padding: 0.52rem 0.8rem;
-      border-radius: 4px;
+      font-size: var(--fs-mono);
+      padding: clamp(0.45rem, 1.2vw, 0.6rem) clamp(0.65rem, 1.5vw, 0.9rem);
+      border-radius: var(--radius);
       border: 1px solid transparent;
-      line-height: 1.45;
+      line-height: 1.5;
+      word-break: break-word;
     }
     .status.info    { background: var(--accent-soft); color: var(--accent);  border-color: #c5d3f5; }
     .status.success { background: var(--green-soft);  color: var(--green);   border-color: var(--green-border); }
@@ -156,25 +211,25 @@
     .status.warn    { background: var(--amber-soft);  color: var(--amber);   border-color: var(--amber-border); }
     .hidden         { display: none !important; }
 
-    /* Progress */
+    /* ── Progress ── */
     .progress-wrap {
-      height: 3px;
+      height: clamp(3px, 0.4vw, 5px);
       background: var(--border);
-      border-radius: 2px;
+      border-radius: 99px;
       overflow: hidden;
     }
     .progress-bar {
       height: 100%;
       background: var(--accent);
-      border-radius: 2px;
+      border-radius: 99px;
       transition: width 0.3s ease;
       width: 0%;
     }
 
-    /* Serial log */
+    /* ── Serial log ── */
     label.log-label {
       font-family: var(--mono);
-      font-size: 0.7rem;
+      font-size: var(--fs-label);
       font-weight: 500;
       color: var(--text-mid);
       letter-spacing: 0.04em;
@@ -183,12 +238,12 @@
     #serial-log {
       background: #0f1117;
       border: 1px solid #2a2d3a;
-      border-radius: 4px;
-      padding: 0.7rem 1rem;
+      border-radius: var(--radius);
+      padding: clamp(0.55rem, 1.5vw, 0.8rem) clamp(0.75rem, 2vw, 1.1rem);
       font-family: var(--mono);
-      font-size: 0.75rem;
+      font-size: clamp(0.7rem, 1.3vw, 0.78rem);
       color: #4ade80;
-      max-height: 180px;
+      max-height: clamp(140px, 25vh, 220px);
       overflow-y: auto;
       line-height: 1.65;
     }
@@ -196,27 +251,47 @@
     .log-line.err { color: #f87171; }
     .log-line.dim { color: #6b7280; }
 
-    /* File list */
+    /* ── File list ── */
     #file-list em {
       font-style: normal;
       color: var(--text-soft);
-      font-size: 0.82rem;
+      font-size: var(--fs-mono);
       font-family: var(--mono);
     }
     .file-row {
       display: flex;
       align-items: center;
       gap: 0.5rem;
-      padding: 0.42rem 0.4rem;
+      padding: clamp(0.35rem, 1vw, 0.5rem) 0.4rem;
       border-bottom: 1px solid var(--bg);
       border-radius: 3px;
       transition: background 0.1s;
     }
     .file-row:hover      { background: var(--bg); }
     .file-row:last-child { border-bottom: none; }
-    .file-name { flex: 1; font-family: var(--mono); font-size: 0.8rem; color: var(--text); }
-    .file-icon { font-size: 0.88rem; }
-    .file-size { font-family: var(--mono); font-size: 0.72rem; color: var(--text-soft); }
+    .file-name {
+      flex: 1;
+      font-family: var(--mono);
+      font-size: var(--fs-mono);
+      color: var(--text);
+      /* Prevent very long paths from overflowing */
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      min-width: 0;
+    }
+    .file-icon { font-size: 0.9rem; flex-shrink: 0; }
+    .file-size {
+      font-family: var(--mono);
+      font-size: var(--fs-label);
+      color: var(--text-soft);
+      flex-shrink: 0;
+    }
+
+    /* ── Large screens: slightly more breathing room ── */
+    @media (min-width: 900px) {
+      .container { max-width: 720px; }
+    }
   </style>
 </head>
 <body>
@@ -238,6 +313,14 @@
       <button class="secondary" id="btn-disconnect" onclick="disconnectSerial()" disabled>⏏ Disconnect</button>
     </div>
     <div id="serial-status" class="status hidden"></div>
+    <!-- Shown after connect + type read -->
+    <div id="device-info" class="device-info hidden">
+      <span class="label">name</span>
+      <span class="value" id="info-name">—</span>
+      <span class="sep">·</span>
+      <span class="label">type</span>
+      <span class="value" id="info-type">—</span>
+    </div>
   </div>
 
   <!-- Step 2: Upload -->
@@ -268,9 +351,25 @@
 
 </div>
 <script>
-// ─── Config — swap this URL for your real GitHub folder ──────────────────────
-const GITHUB_FOLDER_URL = "https://github.com/tuftsceeo/SmartPlayground/tree/beta_January_2026/Wand_Module";
-const BAUD_RATE         = 115200;
+// ─── Config ───────────────────────────────────────────────────────────────────
+
+// Base GitHub folder URL (the "Code" folder)
+const GITHUB_BASE_URL = "https://github.com/tuftsceeo/SmartPlayground/tree/beta_January_2026/Bag2/Code";
+
+// Map hubType.txt values → subfolder names inside the base folder
+// Edit these to match your actual folder names and hubType values
+// If you need to add a new folder, map the hubType.txt name with Github folder name
+const HUB_TYPE_MAP = {
+  "wand":                "Wand Module",
+  "programming station": "Stations/Programming Station",
+  "slide score station": "Stations/Slide Score Station",
+};
+
+// These files are always preserved on the device and never overwritten
+// If you need to preserve more original files from the device, add their names to this list
+const PRESERVE_FILES = ["hubType.txt", "hubName.txt"];
+
+const BAUD_RATE = 115200;
 
 // ─── State ────────────────────────────────────────────────────────────────────
 let fetchedFiles = {};
@@ -335,8 +434,8 @@ function toRawUrl(url) {
   return url;
 }
 
-function parseGithubFolderUrl(url) {
-  url = url.trim().replace(/\/$/, "");
+function folderToApiUrl(githubFolderUrl) {
+  const url = githubFolderUrl.trim().replace(/\/$/, "");
   for (const marker of ["/tree/", "/blob/"]) {
     if (!url.includes(marker)) continue;
     const after = url.replace("https://github.com/", "");
@@ -348,11 +447,12 @@ function parseGithubFolderUrl(url) {
   return null;
 }
 
+// Fetch an entire folder recursively, storing files under an optional prefix
 async function fetchFolderRecursive(apiUrl, prefix = "", counter = { n: 0 }) {
   const resp = await fetch(apiUrl, { headers: { "Accept": "application/vnd.github+json" } });
   if (!resp.ok) { log(`  ⚠ API ${resp.status} for ${apiUrl}`, "err"); return; }
   const items = await resp.json();
-  if (!Array.isArray(items)) { log(`  ⚠ Unexpected response at ${apiUrl}`, "err"); return; }
+  if (!Array.isArray(items)) { log(`  ⚠ Unexpected response`, "err"); return; }
 
   for (const item of items) {
     const relPath = prefix ? `${prefix}/${item.name}` : item.name;
@@ -364,10 +464,28 @@ async function fetchFolderRecursive(apiUrl, prefix = "", counter = { n: 0 }) {
         else log(`  ⚠ HTTP ${r.status} for ${relPath}`, "err");
       } catch (e) { log(`  ⚠ ${e.message}`, "err"); }
     } else if (item.type === "dir" && item.url) {
-      log(`  📁 Entering: ${relPath}/`, "dim");
+      log(`  📁 ${relPath}/`, "dim");
       await fetchFolderRecursive(item.url, relPath, counter);
     }
   }
+}
+
+// Resolves a slash-separated subfolder path from a base API URL
+// e.g. resolveFolder(baseApiUrl, "Stations/Programming Station")
+async function resolveFolder(apiUrl, subPath) {
+  const parts = subPath.split("/");
+  let currentUrl = apiUrl;
+
+  for (const part of parts) {
+    const resp = await fetch(currentUrl, { headers: { "Accept": "application/vnd.github+json" } });
+    if (!resp.ok) return null;
+    const items = await resp.json();
+    const match = items.find(i => i.name === part && i.type === "dir");
+    if (!match) return null;
+    currentUrl = match.url;
+  }
+
+  return currentUrl;
 }
 
 // ─── Serial ───────────────────────────────────────────────────────────────────
@@ -411,7 +529,6 @@ async function connectSerial() {
     await serialPort.open({ baudRate: BAUD_RATE });
 
     serialWriter = serialPort.writable.getWriter();
-
     readBuf = "";
     const dec = new TextDecoder();
     serialReader = serialPort.readable.getReader();
@@ -427,11 +544,37 @@ async function connectSerial() {
       } catch (_) {}
     })();
 
-    setStatus("serial-status", `✅ Connected at ${BAUD_RATE} baud.`, "success");
+    // Auto-disconnect when device is physically unplugged
+    serialPort.addEventListener("disconnect", () => {
+      disconnectSerial();
+      setStatus("serial-status", "⚠ Device was unplugged.", "warn");
+    });
+
+    log(`Connected at ${BAUD_RATE} baud.`);
+    setStatus("serial-status", "⏳ Reading device info …", "info");
+
+    // Read hubType and hubName from the device
+    const { hubType, hubName } = await readDeviceInfo();
+
     document.getElementById("btn-connect").disabled    = true;
     document.getElementById("btn-disconnect").disabled = false;
     updateUploadBtn();
-    log(`Connected at ${BAUD_RATE} baud.`);
+
+    if (hubType) {
+      document.getElementById("info-name").textContent = hubName || "unknown";
+      document.getElementById("info-type").textContent = hubType;
+      document.getElementById("device-info").classList.remove("hidden");
+
+      if (HUB_TYPE_MAP[hubType]) {
+        setStatus("serial-status", `✅ Connected — ${hubName || "unnamed"} (${hubType})`, "success");
+      } else {
+        setStatus("serial-status", `⚠ Unknown hub type "${hubType}". Add it to HUB_TYPE_MAP.`, "warn");
+      }
+    } else {
+      setStatus("serial-status", "⚠ Connected but could not read hubType.txt.", "warn");
+      log("  ⚠ hubType.txt not found or unreadable", "err");
+    }
+
   } catch (e) {
     setStatus("serial-status", `❌ ${e.message}`, "error");
   }
@@ -446,6 +589,9 @@ async function disconnectSerial() {
     if (serialPort)   { await serialPort.close();   serialPort   = null; }
   } catch (_) {}
   readBuf = "";
+  document.getElementById("device-info").classList.add("hidden");
+  document.getElementById("info-name").textContent = "—";
+  document.getElementById("info-type").textContent = "—";
   setStatus("serial-status", "⏏ Disconnected.", "info");
   document.getElementById("btn-connect").disabled    = false;
   document.getElementById("btn-upload").disabled     = true;
@@ -474,6 +620,45 @@ async function execScript(script, timeoutMs = 4000) {
   const stdout = (parts[0] || "").trim();
   const stderr = (parts[1] || "").trim();
   return [stdout, stderr];
+}
+
+async function enterRawRepl() {
+  await ctrl("\x03", 300);
+  await ctrl("\x03", 300);
+  flushBuf();
+  await ctrl("\x01", 400);
+  await readUntil(">", 1500);
+  flushBuf();
+}
+
+async function exitRawRepl() {
+  await ctrl("\x02", 200);
+}
+
+// Read hubType.txt and hubName.txt from the device via raw REPL
+async function readDeviceInfo() {
+  await enterRawRepl();
+
+  const [stdout, stderr] = await execScript(
+    `try:\n` +
+    `  f=open("hubType.txt");t=f.read().strip();f.close()\n` +
+    `except:t=""\n` +
+    `try:\n` +
+    `  f=open("hubName.txt");n=f.read().strip();f.close()\n` +
+    `except:n=""\n` +
+    `print(t+"\\n"+n)\n`,
+    3000
+  );
+
+  await exitRawRepl();
+
+  if (stderr) { log(`  ⚠ Error reading device info: ${stderr}`, "err"); return { hubType: null, hubName: null }; }
+
+  const lines   = stdout.split("\n");
+  const hubType = lines[0]?.trim() || null;
+  const hubName = lines[1]?.trim() || null;
+  log(`  hubType: "${hubType}", hubName: "${hubName}"`, "dim");
+  return { hubType, hubName };
 }
 
 async function mkdir(dirPath) {
@@ -523,85 +708,128 @@ async function uploadToEsp32() {
   document.getElementById("btn-upload").disabled = true;
   fetchedFiles = {};
 
-  log("── Fetching from GitHub ──");
-  setStatus("upload-status", "⏳ Fetching files from GitHub …", "info");
-  setProgress(0);
-
   try {
-    // 1. Fetch files from GitHub
-    const apiUrl = parseGithubFolderUrl(GITHUB_FOLDER_URL);
-    if (!apiUrl) {
-      setStatus("upload-status", "❌ Invalid GITHUB_FOLDER_URL. Check the config at the top of the script.", "error");
+    // 1. Re-read device type (in case something changed)
+    setStatus("upload-status", "⏳ Checking device type …", "info");
+    setProgress(0);
+    const { hubType, hubName } = await readDeviceInfo();
+
+    if (!hubType) {
+      setStatus("upload-status", "❌ Could not read hubType.txt from device.", "error");
+      return;
+    }
+
+    const typeFolder = HUB_TYPE_MAP[hubType];
+    if (!typeFolder) {
+      setStatus("upload-status", `❌ Unknown hub type "${hubType}". Add it to HUB_TYPE_MAP in the config.`, "error");
+      return;
+    }
+
+    log(`── Device: ${hubName || "unnamed"} (${hubType}) → uploading lib/ + ${typeFolder}/`);
+
+    // 2. Fetch lib/ from GitHub
+    setStatus("upload-status", "⏳ Fetching lib/ from GitHub …", "info");
+    const baseApiUrl = folderToApiUrl(GITHUB_BASE_URL);
+    if (!baseApiUrl) {
+      setStatus("upload-status", "❌ Invalid GITHUB_BASE_URL.", "error");
+      return;
+    }
+
+    // Fetch the base folder listing to get the URLs for lib/ and the type folder
+    const baseResp = await fetch(baseApiUrl, { headers: { "Accept": "application/vnd.github+json" } });
+    if (!baseResp.ok) {
+      setStatus("upload-status", `❌ GitHub API error ${baseResp.status}`, "error");
+      return;
+    }
+    const baseItems = await baseResp.json();
+
+    const libItem  = baseItems.find(i => i.name === "lib"      && i.type === "dir");
+
+    if (!libItem) {
+      setStatus("upload-status", `❌ Could not find lib/ folder in GitHub repo.`, "error");
       return;
     }
 
     const counter = { n: 0 };
-    await fetchFolderRecursive(apiUrl, "", counter);
+    log("📦 Fetching lib/ …", "dim");
+    await fetchFolderRecursive(libItem.url, "lib", counter);
+
+    const typeFolderUrl = await resolveFolder(baseApiUrl, typeFolder);
+    if (!typeFolderUrl) {
+      setStatus("upload-status", `❌ Could not find "${typeFolder}" in GitHub repo.`, "error");
+      return;
+    }
+    const uploadFolderName = typeFolder.split("/").pop(); // "Programming Station"
+    log(`📦 Fetching ${typeFolder}/ …`, "dim");
+    await fetchFolderRecursive(typeFolderUrl, "", counter);
 
     if (!counter.n) {
-      setStatus("upload-status", "❌ No files fetched. Check the GitHub URL.", "error");
+      setStatus("upload-status", "❌ No files fetched.", "error");
       return;
     }
 
     refreshFileList();
     log(`Fetched ${counter.n} file(s).`, "dim");
-    setProgress(10);
+    setProgress(15);
 
-    // 2. Enter raw REPL
+    // 3. Enter raw REPL for upload
     log("── Starting upload ──");
     setStatus("upload-status", "⏳ Preparing device …", "info");
-    await ctrl("\x03", 300);
-    await ctrl("\x03", 300);
-    flushBuf();
-    await ctrl("\x01", 400);
-    await readUntil(">", 1500);
-    flushBuf();
+    await enterRawRepl();
 
-    // 3. Wipe existing files
+    // 4. Wipe device, preserving hubType.txt and hubName.txt
     log("🗑 Wiping device filesystem …", "dim");
     setStatus("upload-status", "⏳ Wiping device …", "info");
+
+    // Build a Python list literal of files to preserve
+    const preserveList = JSON.stringify(PRESERVE_FILES);
     await execScript(
       `import os\n` +
+      `KEEP=${preserveList}\n` +
       `def rm(path):\n` +
       `  for f in os.listdir(path):\n` +
-      `    full = path + "/" + f if path != "/" else "/" + f\n` +
+      `    full=(path+"/"+f) if path!="/" else "/"+f\n` +
+      `    if full[1:] in KEEP or full in KEEP:\n` +
+      `      continue\n` +
       `    try:\n` +
       `      rm(full)\n` +
       `      os.rmdir(full)\n` +
       `    except OSError:\n` +
       `      os.remove(full)\n` +
       `rm("/")\n`,
-      5000
+      6000
     );
-    log("  ✓ wiped", "dim");
+    log("  ✓ wiped (preserved hubType.txt, hubName.txt)", "dim");
+    setProgress(25);
 
-    // 4. Create directories
+    // 5. Create directories
     const dirs = getDirsToCreate(Object.keys(fetchedFiles));
     if (dirs.length) {
       log(`📁 Creating dirs: ${dirs.join(", ")}`, "dim");
       for (const d of dirs) await mkdir(d);
     }
+    setProgress(30);
 
-    // 5. Upload all files
+    // 6. Upload all files
     const entries = Object.entries(fetchedFiles);
     let success   = 0;
     for (let i = 0; i < entries.length; i++) {
       const [relPath, code] = entries[i];
       setStatus("upload-status", `⏳ Uploading ${i + 1}/${entries.length}: ${relPath} …`, "info");
-      setProgress(10 + Math.round((i / entries.length) * 80));
+      setProgress(30 + Math.round((i / entries.length) * 60));
       if (await uploadOne(relPath, code)) success++;
     }
 
     setProgress(90);
 
-    // 6. Soft reset
+    // 7. Soft reset
     if (success === entries.length) {
       await softReset();
-      setStatus("upload-status", `✅ All ${entries.length} file(s) uploaded and running!`, "success");
+      setStatus("upload-status", `✅ ${entries.length} file(s) uploaded to ${hubName || hubType} and running!`, "success");
       log(`✅ ${success}/${entries.length} files.`);
     } else {
       setStatus("upload-status", `⚠ ${success}/${entries.length} uploaded. Check log.`, "warn");
-      await ctrl("\x02", 200);
+      await exitRawRepl();
     }
 
     setProgress(100);
