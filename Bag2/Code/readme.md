@@ -1,95 +1,128 @@
 # Code
 
-All MicroPython application code for the Smart Playground system. Three devices communicate over ESP-NOW: a wand module, a hub station, and a scoreboard.
+All MicroPython application code for the Smart Playground system. Four device types communicate over ESP-NOW and BLE.
 
 ## Folder Structure
 
 ```
 Code/
-├── lib/                          Shared drivers & helpers (MUST be copied to every device)
-│   ├── pn532.py                  PN532 NFC reader driver (I2C)
-│   ├── lis2dw12.py               LIS2DW12 accelerometer driver
-│   ├── max17048.py               MAX17048 battery fuel gauge driver
-│   ├── opt3002.py                OPT3002 ambient light sensor driver
-│   ├── nfc_reader.py             NFC tag scanning, NDEF decoding, gesture tag detection
-│   ├── leds.py                   NeoPixel control, status indicators, animations
-│   ├── buzzer.py                 Piezo buzzer — beeps, melodies, feedback sounds
-│   ├── actions.py                Action definitions, resource mapping, AND/THEN chain execution
-│   ├── battery.py                Battery level display on LEDs
-│   ├── gesture.py                Gesture recording, feature extraction, matching (legacy)
-│   └── gesture_engine.py         Gesture recognition with NFC-stored templates
+├── lib/                              Shared library (copy to ALL devices)
+│   ├── hubtype.py                    Device type detection from hubtype.txt
+│   ├── espnow_manager.py            Unified ESP-NOW communication
+│   ├── pn532.py                      PN532 NFC reader driver (I2C)
+│   ├── lis2dw12.py                   LIS2DW12 accelerometer driver
+│   ├── max17048.py                   MAX17048 battery fuel gauge driver
+│   ├── opt3002.py                    OPT3002 ambient light sensor driver
+│   ├── nfc_reader.py                 NFC scanning, NDEF decode, SC tag passthrough
+│   ├── leds.py                       NeoPixel control (auto-adapts to LED count)
+│   ├── buzzer.py                     Piezo buzzer sounds
+│   ├── actions.py                    Action defs, resource mapping, chain execution
+│   ├── battery.py                    Battery display (works with any LED count)
+│   ├── gesture.py                    Legacy gesture module
+│   └── gesture_engine.py            Gesture recognition with NFC templates
 │
 ├── Wand Module/
-│   ├── main.py                   Main entry point — NFC trigger→action programming engine
-│   ├── color_quest.py            Color Quest scavenger hunt game
-│   ├── target.py                 Scoreboard MAC address configuration
-│   └── readme.md                 Detailed hardware reference and API docs
+│   ├── main.py                       NFC trigger→action engine
+│   ├── color_quest.py                Color Quest scavenger hunt
+│   ├── freeze_dance.py               Freeze Dance multiplayer game
+│   ├── target.py                     Scoreboard MAC config
+│   ├── hubtype.txt                   Contains: wand
+│   └── readme.md
+│
+├── Splat Companion/
+│   ├── main.py                       ESP-NOW ↔ BLE bridge
+│   ├── ble_splat.py                  BLE driver for Open Splat
+│   ├── hubtype.txt                   Contains: splat_companion
+│   └── readme.md
 │
 └── Stations/
     ├── Programming Station/
-    │   └── main.py               4×PN532 NFC hub — reads tags and broadcasts sequences via ESP-NOW
+    │   ├── main.py                   4×PN532 hub, broadcasts via ESP-NOW
+    │   ├── hubtype.txt               Contains: programming_station
+    │   └── readme.md
     └── Slide Score Station/
-        └── main.py               40-LED scoreboard — receives scores and displays bar graph
+        ├── main.py                   40-LED serpentine bar graph
+        ├── hubtype.txt               Contains: score_board
+        └── readme.md
 ```
 
-## Deploying the `lib/` Folder
+## How hubtype.txt Works
 
-**The `lib/` folder must be copied to every microcontroller before running any code.** MicroPython looks for imports in `/lib/` on the device's filesystem. Without it, you'll get `ImportError` on boot.
+Each device has a `hubtype.txt` file in its root containing a single word. The shared `hubtype.py` library reads this at boot and configures hardware constants:
 
-### Step-by-step (using Thonny)
+| hubtype.txt | LEDs | LED Pin | Battery | NFC | Accel | Buzzer | BLE | Uses BLE |
+|---|---|---|---|---|---|---|---|---|
+| `wand` | 25 | GPIO20 | Yes | Yes | Yes | Yes | Yes | No |
+| `splat_companion` | 3 | GPIO20 | Yes | No | No | No | Yes | Yes (Splat) |
+| `programming_station` | 18 | GPIO21 | No | Yes | No | No | Yes | No |
+| `score_board` | 40 | GPIO0 | No | No | No | No | Yes | No |
 
-1. Connect the ESP32-C6 to your computer via USB.
-2. Open **Thonny** and select the MicroPython interpreter for your board (bottom-right corner).
-3. In the **Files** panel (View → Files), you should see your local filesystem on the left and the device filesystem on the right.
-4. On the device side, create a folder called `lib` if it doesn't already exist (right-click → New directory).
-5. From your local filesystem, navigate to `Bag2/Code/lib/`.
-6. Select **all `.py` files** in `lib/` and right-click → **Upload to /lib**.
-7. Verify: you should see all the driver files listed under `/lib/` on the device.
+All ESP32-C6 boards have BLE hardware. The `uses_ble` flag indicates whether the device actively maintains a BLE connection (currently only the Splat Companion).
 
-### Step-by-step (using mpremote)
+## Deployment
 
-If you prefer the command line, `mpremote` (included with MicroPython tools) can copy the folder in one command:
+### Every device needs:
+
+1. **`/lib/` folder** — copy the entire lib folder
+2. **`hubtype.txt`** — one word identifying the device type
+3. **Device-specific files** — `main.py` and any extras
+
+### Per-device files:
+
+| Device | Root files needed |
+|---|---|
+| **Wand** | `main.py`, `color_quest.py`, `freeze_dance.py`, `target.py`, `hubtype.txt` |
+| **Splat Companion** | `main.py`, `ble_splat.py`, `hubtype.txt` |
+| **Programming Station** | `main.py`, `hubtype.txt` |
+| **Scoreboard** | `main.py`, `hubtype.txt` |
+
+### Quick deploy with mpremote:
 
 ```bash
-# From the Bag2/Code/ directory:
+# Copy lib to any device:
 mpremote connect <PORT> fs cp -r lib/ :/lib/
+
+# Create hubtype.txt (example for wand):
+echo "wand" > /tmp/hubtype.txt
+mpremote connect <PORT> fs cp /tmp/hubtype.txt :/hubtype.txt
+
+# Copy device main:
+mpremote connect <PORT> fs cp "Wand Module/main.py" :/main.py
 ```
 
-Replace `<PORT>` with your device's serial port (e.g., `/dev/ttyACM0` on Linux, `COM3` on Windows).
+## Station Broadcast Commands
 
-To verify the files are on the device:
+The Programming Station broadcasts whatever tags are on its 4 readers. Special broadcasts recognized by all devices:
 
-```bash
-mpremote connect <PORT> fs ls /lib/
-```
-
-### Which files go where
-
-| Device | `lib/` | Root files |
+| Station Tags | Broadcast | Effect |
 |---|---|---|
-| **Wand Module** | All of `lib/` | `main.py`, `color_quest.py`, `target.py` |
-| **Programming Station** | `pn532.py`, `nfc_reader.py` | `main.py` |
-| **Slide Score Station** | *(none required)* | `main.py` |
+| `battery` | `["battery"]` | All devices show their battery level on LEDs |
+| `stop` | `["stop"]` | All devices return to default state |
+| Colors | `["turnred", "turnblue", ...]` | Wands enter Color Quest, scoreboard resets |
 
-The wand needs the full library set because it uses every sensor. The programming station only needs the NFC drivers. The scoreboard is self-contained and has no `lib/` dependencies — but copying the full `lib/` to every device does no harm and keeps things simple.
+## ESP-NOW Message Types
 
-### Configuring `target.py`
+All devices use `ESPNowManager` which classifies messages:
 
-Before deploying the wand, update `target.py` with your scoreboard's MAC address. Run this on the scoreboard device to find it:
+| msg_type | Source | Format | Description |
+|---|---|---|---|
+| `"colors"` | Station | `["turnred", ...]` | Color/command list |
+| `"score"` | Wand | `{"type":"score", ...}` | Game score |
+| `"splat_config"` | Wand | `{"type":"splat_config", "actions":[...]}` | Config for companion |
+| `"stop"` | Any | `["stop"]` or `{"type":"stop"}` | Stop everything |
+| `"battery"` | Station | `["battery"]` | Show battery levels |
+| `"raw"` | Any | bytes | Freeze Dance messages etc. |
 
-```python
-import network
-sta = network.WLAN(network.STA_IF)
-sta.active(True)
-print(':'.join('%02X' % b for b in sta.config('mac')))
-```
+## NFC Tag Summary
 
-Then edit `target.py`:
-
-```python
-SCORE_MAC = b'\xAA\xBB\xCC\xDD\xEE\xFF'  # replace with your MAC
-```
-
-## I2C Bus Note
-
-The shared I2C bus runs at **100 kHz** because the PN532 is unreliable at higher speeds. All other sensors tolerate this frequency. Use `machine.SoftI2C` with `freq=100_000`.
+| Category | Tags |
+|---|---|
+| **Triggers** | `buttondown`, `buttonup`, `shake` |
+| **Colors** | `turnred`, `turngreen`, `turnblue`, `turnpurple`, `turnyellow`, `turnwhite`, `turnoff` |
+| **Notes** | `notea`–`noteg`, `playnote` |
+| **Animal Sounds** | `cat`, `chicken`, `cow`, `dog`, `pig`, `duck`, `elephant`, `horse`, `goat` |
+| **Combinators** | `and`, `then` |
+| **Controls** | `start`, `stop`, `colorquest`, `freezedance` |
+| **Utility** | `battery` |
+| **Splat Companion** | `SC:<MAC>` (e.g., `SC:B4:3A:45:86:1C:8C`) |
+| **Gestures** | Binary `G:` prefix (written by gesture engine) |
