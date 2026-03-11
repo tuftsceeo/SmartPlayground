@@ -1,0 +1,1089 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ESP32 Code Uploader</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:           #f5f4f0;
+      --surface:      #ffffff;
+      --border:       #e0ddd6;
+      --border-mid:   #ccc9c0;
+      --text:         #1a1916;
+      --text-mid:     #5a5750;
+      --text-soft:    #9a9890;
+      --accent:       #2d5be3;
+      --accent-hover: #1e47cc;
+      --accent-soft:  #e8edfb;
+      --green:        #1a7a4a;
+      --green-soft:   #e6f5ed;
+      --green-border: #b3dfc8;
+      --red:          #c0392b;
+      --red-soft:     #fdf0ee;
+      --red-border:   #f0c4be;
+      --amber:        #92600a;
+      --amber-soft:   #fdf6e8;
+      --amber-border: #f0dda8;
+      --mono: "IBM Plex Mono", monospace;
+      --sans: "IBM Plex Sans", sans-serif;
+
+      --space-sm:   clamp(0.6rem,  1.5vw, 1rem);
+      --space-md:   clamp(1rem,    2.5vw, 1.5rem);
+      --card-pad:   clamp(1rem,    3vw,   1.75rem);
+      --fs-base:    clamp(0.9rem,  1.8vw, 1rem);
+      --fs-mono:    clamp(0.78rem, 1.5vw, 0.88rem);
+      --fs-label:   clamp(0.65rem, 1.2vw, 0.72rem);
+      --fs-h1:      clamp(1rem,    2.5vw, 1.2rem);
+      --fs-h2:      clamp(0.88rem, 2vw,   1rem);
+      --btn-pad-y:  clamp(0.65rem, 1.5vw, 0.75rem);
+      --btn-pad-x:  clamp(1rem,    2.5vw, 1.4rem);
+      --radius:     clamp(4px, 1vw, 8px);
+    }
+
+    html { font-size: 16px; }
+
+    body {
+      font-family: var(--sans);
+      font-size: var(--fs-base);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: clamp(1rem, 4vw, 3rem) clamp(0.75rem, 4vw, 1.5rem) clamp(2rem, 6vw, 4rem);
+    }
+
+    .container {
+      width: 100%;
+      max-width: min(680px, 100%);
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-md);
+    }
+
+    @media (min-width: 900px) { .container { max-width: 720px; } }
+
+    /* Header */
+    header {
+      display: flex;
+      align-items: baseline;
+      flex-wrap: wrap;
+      gap: 0.5rem 1rem;
+      padding-bottom: clamp(0.4rem, 1vw, 0.6rem);
+      border-bottom: 2px solid var(--text);
+      margin-bottom: 0.1rem;
+    }
+    header h1 {
+      font-family: var(--mono);
+      font-size: var(--fs-h1);
+      font-weight: 500;
+      letter-spacing: -0.02em;
+    }
+    header .subtitle {
+      font-family: var(--mono);
+      font-size: clamp(0.72rem, 1.4vw, 0.82rem);
+      color: var(--text-soft);
+    }
+
+    /* Cards */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: var(--card-pad);
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-sm);
+      box-shadow: 0 1px clamp(2px, 0.5vw, 6px) rgba(0,0,0,0.04);
+    }
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.6rem;
+    }
+    .card-header-left {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+    .step-num {
+      font-family: var(--mono);
+      font-size: var(--fs-label);
+      font-weight: 500;
+      color: var(--text-soft);
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      padding: 0.12rem 0.45rem;
+      letter-spacing: 0.05em;
+      white-space: nowrap;
+    }
+    .card-header h2 {
+      font-size: var(--fs-h2);
+      font-weight: 600;
+      letter-spacing: -0.01em;
+    }
+
+    /* Collapsible config toggle */
+    .toggle-config {
+      font-family: var(--mono);
+      font-size: var(--fs-label);
+      color: var(--text-soft);
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      padding: 0.15rem 0.5rem;
+      cursor: pointer;
+      transition: color 0.15s, border-color 0.15s;
+      white-space: nowrap;
+      min-height: unset;
+    }
+    .toggle-config:hover { color: var(--text-mid); border-color: var(--border-mid); }
+
+    /* Config panel */
+    .config-panel {
+      border-top: 1px solid var(--border);
+      padding-top: var(--space-sm);
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-sm);
+    }
+
+    .field { display: flex; flex-direction: column; gap: 0.32rem; }
+    .field-label {
+      font-family: var(--mono);
+      font-size: var(--fs-label);
+      font-weight: 500;
+      color: var(--text-mid);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .field-label .hint {
+      text-transform: none;
+      font-weight: 400;
+      color: var(--text-soft);
+      letter-spacing: 0;
+    }
+
+    input[type="text"] {
+      font-family: var(--mono);
+      font-size: var(--fs-mono);
+      background: var(--bg);
+      border: 1px solid var(--border-mid);
+      border-radius: var(--radius);
+      color: var(--text);
+      padding: 0.48rem 0.7rem;
+      width: 100%;
+      outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    input[type="text"]:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(45,91,227,0.1);
+      background: var(--surface);
+    }
+
+    /* Mapping rows */
+    .mapping-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+    .mapping-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr auto;
+      gap: 0.4rem;
+      align-items: center;
+    }
+    .mapping-row input { margin: 0; }
+    .mapping-sep {
+      display: none; /* separator handled by grid */
+    }
+    .btn-remove {
+      font-family: var(--mono);
+      font-size: 0.75rem;
+      background: none;
+      border: 1px solid var(--border-mid);
+      border-radius: var(--radius);
+      color: var(--red);
+      padding: 0.4rem 0.55rem;
+      cursor: pointer;
+      transition: background 0.12s, border-color 0.12s;
+      min-height: 36px;
+      white-space: nowrap;
+    }
+    .btn-remove:hover { background: var(--red-soft); border-color: var(--red-border); }
+
+    .mapping-headers {
+      display: grid;
+      grid-template-columns: 1fr 1fr auto;
+      gap: 0.4rem;
+    }
+    .mapping-headers span {
+      font-family: var(--mono);
+      font-size: var(--fs-label);
+      color: var(--text-soft);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .add-mapping-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr auto;
+      gap: 0.4rem;
+      align-items: center;
+      margin-top: 0.2rem;
+    }
+
+    /* Device info */
+    .device-info {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.35rem 0.6rem;
+      font-family: var(--mono);
+      font-size: var(--fs-mono);
+      color: var(--text-mid);
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: clamp(0.35rem, 1vw, 0.5rem) clamp(0.6rem, 1.5vw, 0.9rem);
+    }
+    .device-info .label { color: var(--text-soft); }
+    .device-info .value { color: var(--text); font-weight: 500; }
+    .device-info .sep   { color: var(--border-mid); }
+
+    /* Buttons */
+    .btn-row {
+      display: flex;
+      gap: clamp(0.4rem, 1.5vw, 0.75rem);
+      flex-wrap: wrap;
+    }
+
+    button.primary,
+    button.secondary {
+      font-family: var(--mono);
+      font-size: var(--fs-mono);
+      font-weight: 500;
+      border-radius: var(--radius);
+      padding: var(--btn-pad-y) var(--btn-pad-x);
+      cursor: pointer;
+      min-height: 44px;
+      transition: background 0.15s, transform 0.1s, box-shadow 0.15s, border-color 0.15s;
+      white-space: nowrap;
+    }
+    button.primary {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+    }
+    button.primary:hover:not(:disabled) {
+      background: var(--accent-hover);
+      box-shadow: 0 2px 8px rgba(45,91,227,0.25);
+      transform: translateY(-1px);
+    }
+    button.primary:active:not(:disabled) { transform: translateY(0); box-shadow: none; }
+    button.primary:disabled { opacity: 0.35; cursor: not-allowed; }
+
+    button.secondary {
+      background: var(--surface);
+      color: var(--text-mid);
+      border: 1px solid var(--border-mid);
+    }
+    button.secondary:hover:not(:disabled) { background: var(--bg); border-color: var(--text-soft); }
+    button.secondary:disabled { opacity: 0.35; cursor: not-allowed; }
+
+    @media (max-width: 400px) {
+      .btn-row { flex-direction: column; }
+      .btn-row button, button#btn-upload { width: 100%; align-self: stretch !important; }
+      .mapping-row, .add-mapping-row, .mapping-headers {
+        grid-template-columns: 1fr 1fr auto;
+      }
+    }
+
+    /* Status */
+    .status {
+      font-family: var(--mono);
+      font-size: var(--fs-mono);
+      padding: clamp(0.45rem, 1.2vw, 0.6rem) clamp(0.65rem, 1.5vw, 0.9rem);
+      border-radius: var(--radius);
+      border: 1px solid transparent;
+      line-height: 1.5;
+      word-break: break-word;
+    }
+    .status.info    { background: var(--accent-soft); color: var(--accent);  border-color: #c5d3f5; }
+    .status.success { background: var(--green-soft);  color: var(--green);   border-color: var(--green-border); }
+    .status.error   { background: var(--red-soft);    color: var(--red);     border-color: var(--red-border); }
+    .status.warn    { background: var(--amber-soft);  color: var(--amber);   border-color: var(--amber-border); }
+    .hidden         { display: none !important; }
+
+    /* Progress */
+    .progress-wrap {
+      height: clamp(3px, 0.4vw, 5px);
+      background: var(--border);
+      border-radius: 99px;
+      overflow: hidden;
+    }
+    .progress-bar {
+      height: 100%;
+      background: var(--accent);
+      border-radius: 99px;
+      transition: width 0.3s ease;
+      width: 0%;
+    }
+
+    /* Serial log */
+    label.log-label {
+      font-family: var(--mono);
+      font-size: var(--fs-label);
+      font-weight: 500;
+      color: var(--text-mid);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    #serial-log {
+      background: #0f1117;
+      border: 1px solid #2a2d3a;
+      border-radius: var(--radius);
+      padding: clamp(0.55rem, 1.5vw, 0.8rem) clamp(0.75rem, 2vw, 1.1rem);
+      font-family: var(--mono);
+      font-size: clamp(0.7rem, 1.3vw, 0.78rem);
+      color: #4ade80;
+      max-height: clamp(140px, 25vh, 220px);
+      overflow-y: auto;
+      line-height: 1.65;
+    }
+    .log-line     { word-break: break-all; }
+    .log-line.err { color: #f87171; }
+    .log-line.dim { color: #6b7280; }
+
+    /* File list */
+    #file-list em {
+      font-style: normal;
+      color: var(--text-soft);
+      font-size: var(--fs-mono);
+      font-family: var(--mono);
+    }
+    .file-row {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: clamp(0.35rem, 1vw, 0.5rem) 0.4rem;
+      border-bottom: 1px solid var(--bg);
+      border-radius: 3px;
+      transition: background 0.1s;
+    }
+    .file-row:hover      { background: var(--bg); }
+    .file-row:last-child { border-bottom: none; }
+    .file-name {
+      flex: 1;
+      font-family: var(--mono);
+      font-size: var(--fs-mono);
+      color: var(--text);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      min-width: 0;
+    }
+    .file-icon { font-size: 0.9rem; flex-shrink: 0; }
+    .file-size {
+      font-family: var(--mono);
+      font-size: var(--fs-label);
+      color: var(--text-soft);
+      flex-shrink: 0;
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <h1>// esp32 uploader</h1>
+    <span class="subtitle">github → serial</span>
+  </header>
+
+  <!-- ── Config card ── -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-header-left">
+        <span class="step-num">⚙</span>
+        <h2>Configuration</h2>
+      </div>
+      <button class="toggle-config" onclick="toggleConfig()">▾ show</button>
+    </div>
+
+    <div id="config-panel" class="config-panel hidden">
+
+      <!-- GitHub base URL -->
+      <div class="field">
+        <label class="field-label">GitHub base URL <span class="hint">(the Code folder)</span></label>
+        <input type="text" id="cfg-base-url" />
+      </div>
+
+      <!-- Hub type mappings -->
+      <div class="field">
+        <label class="field-label">Hub type mappings <span class="hint">(hubtype.txt value → GitHub subfolder)</span></label>
+        <div class="mapping-headers">
+          <span>hubType.txt value</span>
+          <span>GitHub subfolder path</span>
+          <span></span>
+        </div>
+        <div class="mapping-list" id="mapping-list"></div>
+
+        <!-- Add new mapping row -->
+        <div class="add-mapping-row">
+          <input type="text" id="new-hub-type"   placeholder="e.g. wand" />
+          <input type="text" id="new-hub-folder" placeholder="e.g. Wand Module" />
+          <button class="secondary" onclick="addMapping()" style="min-height:36px; padding:0.4rem 0.75rem;">+ Add</button>
+        </div>
+      </div>
+
+      <button class="primary" onclick="saveConfig()" style="align-self:flex-start">💾 Save</button>
+      <div id="config-status" class="status hidden"></div>
+    </div>
+  </div>
+
+  <!-- ── Step 1: Connect ── -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-header-left">
+        <span class="step-num">01</span>
+        <h2>Connect device</h2>
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="primary"   id="btn-connect"    onclick="connectSerial()">🔗 Connect</button>
+      <button class="secondary" id="btn-disconnect" onclick="disconnectSerial()" disabled>⏏ Disconnect</button>
+    </div>
+    <div id="serial-status" class="status hidden"></div>
+    <div id="device-info" class="device-info hidden">
+      <span class="label">name</span>
+      <span class="value" id="info-name">—</span>
+      <span class="sep">·</span>
+      <span class="label">type</span>
+      <span class="value" id="info-type">—</span>
+    </div>
+  </div>
+
+  <!-- ── Step 2: Upload ── -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-header-left">
+        <span class="step-num">02</span>
+        <h2>Upload code</h2>
+      </div>
+    </div>
+    <button class="primary" id="btn-upload" onclick="uploadToEsp32()" disabled style="align-self:flex-start">⬆ Upload</button>
+    <div id="upload-status" class="status hidden"></div>
+    <div id="progress-wrap" class="progress-wrap hidden">
+      <div id="progress-bar" class="progress-bar"></div>
+    </div>
+    <div id="log-wrap" class="hidden">
+      <label class="log-label">Serial log</label>
+      <div id="serial-log"></div>
+    </div>
+  </div>
+
+  <!-- ── Step 3: Fetched files ── -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-header-left">
+        <span class="step-num">03</span>
+        <h2>Fetched files</h2>
+      </div>
+    </div>
+    <div id="file-list"><em>No files fetched yet.</em></div>
+  </div>
+
+</div>
+<script>
+// ─── Defaults ─────────────────────────────────────────────────────────────────
+
+const DEFAULT_BASE_URL = "https://github.com/tuftsceeo/SmartPlayground/tree/beta_January_2026/Bag2/Code";
+
+const DEFAULT_HUB_TYPE_MAP = {
+  "wand":                "Wand Module",
+  "programming_station": "Stations/Programming Station",
+  "score_board":         "Stations/Slide Score Station",
+  "splat_companion":     "Splat Companion"
+};
+
+const PRESERVE_FILES = ["hubType.txt", "hubName.txt"];
+const IGNORE_FILES = ["readme.md", "hubType.txt", "hubName.txt"];
+const BAUD_RATE      = 115200;
+const MAX_UPLOAD_RETRIES = 3;
+
+// ─── Config (live, editable at runtime) ───────────────────────────────────────
+// Loaded from localStorage if present, otherwise falls back to defaults above.
+
+let config = loadConfig();
+
+function loadConfig() {
+  try {
+    const saved = localStorage.getItem("esp32_uploader_config");
+    if (saved) return JSON.parse(saved);
+  } catch (_) {}
+  return {
+    baseUrl:    DEFAULT_BASE_URL,
+    hubTypeMap: { ...DEFAULT_HUB_TYPE_MAP }
+  };
+}
+
+function saveConfigToStorage() {
+  localStorage.setItem("esp32_uploader_config", JSON.stringify(config));
+}
+
+// ─── Config UI ────────────────────────────────────────────────────────────────
+
+function toggleConfig() {
+  const panel  = document.getElementById("config-panel");
+  const btn    = document.querySelector(".toggle-config");
+  const hidden = panel.classList.toggle("hidden");
+  btn.textContent = hidden ? "▾ show" : "▴ hide";
+  if (!hidden) renderMappings();
+}
+
+function renderMappings() {
+  // Sync URL field
+  document.getElementById("cfg-base-url").value = config.baseUrl;
+
+  const list = document.getElementById("mapping-list");
+  list.innerHTML = "";
+  for (const [hubType, folder] of Object.entries(config.hubTypeMap)) {
+    const row = document.createElement("div");
+    row.className = "mapping-row";
+    row.innerHTML =
+      `<input type="text" class="map-type"   value="${escHtml(hubType)}" />` +
+      `<input type="text" class="map-folder" value="${escHtml(folder)}"  />` +
+      `<button class="btn-remove" onclick="removeMapping(this)">✕</button>`;
+    list.appendChild(row);
+  }
+}
+
+function escHtml(str) {
+  return str.replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;");
+}
+
+function addMapping() {
+  const typeInput   = document.getElementById("new-hub-type");
+  const folderInput = document.getElementById("new-hub-folder");
+  const hubType  = typeInput.value.trim();
+  const folder   = folderInput.value.trim();
+  if (!hubType || !folder) {
+    setStatus("config-status", "⚠ Both fields are required.", "warn");
+    return;
+  }
+  // Add to live config and re-render
+  config.hubTypeMap[hubType] = folder;
+  typeInput.value   = "";
+  folderInput.value = "";
+  renderMappings();
+  setStatus("config-status", `Added mapping: "${hubType}" → "${folder}". Hit Save to keep it.`, "info");
+}
+
+function removeMapping(btn) {
+  const row     = btn.closest(".mapping-row");
+  const hubType = row.querySelector(".map-type").value;
+  delete config.hubTypeMap[hubType];
+  renderMappings();
+  setStatus("config-status", `Removed "${hubType}". Hit Save to keep it.`, "info");
+}
+
+function saveConfig() {
+  // Read URL
+  const newUrl = document.getElementById("cfg-base-url").value.trim();
+  if (!newUrl) { setStatus("config-status", "⚠ Base URL cannot be empty.", "warn"); return; }
+  config.baseUrl = newUrl;
+
+  // Read all mapping rows
+  const rows = document.querySelectorAll("#mapping-list .mapping-row");
+  const newMap = {};
+  for (const row of rows) {
+    const t = row.querySelector(".map-type").value.trim();
+    const f = row.querySelector(".map-folder").value.trim();
+    if (t && f) newMap[t] = f;
+  }
+  config.hubTypeMap = newMap;
+
+  saveConfigToStorage();
+  setStatus("config-status", "✅ Saved.", "success");
+}
+
+// ─── State ────────────────────────────────────────────────────────────────────
+let fetchedFiles = {};
+let serialPort   = null;
+let serialWriter = null;
+let serialReader = null;
+let readBuf      = "";
+let readWaiters  = [];
+
+// ─── UI helpers ───────────────────────────────────────────────────────────────
+function setStatus(id, msg, kind = "info") {
+  const el = document.getElementById(id);
+  el.textContent = msg;
+  el.className   = `status ${kind}`;
+}
+
+function log(msg, cls = "") {
+  document.getElementById("log-wrap").classList.remove("hidden");
+  const box  = document.getElementById("serial-log");
+  const line = document.createElement("div");
+  line.className   = "log-line" + (cls ? " " + cls : "");
+  line.textContent = msg;
+  box.appendChild(line);
+  box.scrollTop = box.scrollHeight;
+}
+
+function setProgress(pct) {
+  const wrap = document.getElementById("progress-wrap");
+  const bar  = document.getElementById("progress-bar");
+  if (pct === null) { wrap.classList.add("hidden"); bar.style.width = "0%"; return; }
+  wrap.classList.remove("hidden");
+  bar.style.width = pct + "%";
+}
+
+function updateUploadBtn() {
+  const connected = document.getElementById("btn-connect").disabled;
+  document.getElementById("btn-upload").disabled = !connected;
+}
+
+function refreshFileList() {
+  const container = document.getElementById("file-list");
+  const keys = Object.keys(fetchedFiles);
+  if (!keys.length) { container.innerHTML = "<em>No files fetched yet.</em>"; return; }
+  container.innerHTML = "";
+  keys.forEach(fpath => {
+    const row = document.createElement("div");
+    row.className = "file-row";
+    row.innerHTML =
+      `<span class="file-icon">📄</span>` +
+      `<span class="file-name">${fpath}</span>` +
+      `<span class="file-size">${fetchedFiles[fpath].length.toLocaleString()} B</span>`;
+    container.appendChild(row);
+  });
+}
+
+// ─── GitHub fetch ─────────────────────────────────────────────────────────────
+function toRawUrl(url) {
+  url = url.trim();
+  if (url.includes("raw.githubusercontent.com")) return url;
+  url = url.replace("https://github.com/", "https://raw.githubusercontent.com/");
+  url = url.replace("/blob/", "/");
+  return url;
+}
+
+function folderToApiUrl(githubFolderUrl) {
+  const url = githubFolderUrl.trim().replace(/\/$/, "");
+  for (const marker of ["/tree/", "/blob/"]) {
+    if (!url.includes(marker)) continue;
+    const after = url.replace("https://github.com/", "");
+    const [repoPart, rest] = after.split(marker, 2);
+    const [branch, ...pathParts] = rest.split("/");
+    const path = pathParts.join("/");
+    return `https://api.github.com/repos/${repoPart}/contents/${path}?ref=${branch}`;
+  }
+  return null;
+}
+
+async function fetchFolderRecursive(apiUrl, prefix = "", counter = { n: 0 }) {
+  const resp = await fetch(apiUrl, { headers: { "Accept": "application/vnd.github+json" } });
+  if (!resp.ok) { log(`  ⚠ API ${resp.status} for ${apiUrl}`, "err"); return; }
+  const items = await resp.json();
+  if (!Array.isArray(items)) { log(`  ⚠ Unexpected response`, "err"); return; }
+  for (const item of items) {
+    const relPath = prefix ? `${prefix}/${item.name}` : item.name;
+    if (item.type === "file") {
+      // Skip any files in the ignore list (case-insensitive)
+      if (IGNORE_FILES.some(f => f.toLowerCase() === item.name.toLowerCase())) {
+        log(`  ⊘ skipping ${relPath}`, "dim");
+        continue;
+      }
+      setStatus("upload-status", `⏳ Fetching ${relPath} …`, "info");
+      try {
+        const r = await fetch(item.download_url || toRawUrl(item.html_url));
+        if (r.ok) { fetchedFiles[relPath] = await r.text(); counter.n++; }
+        else log(`  ⚠ HTTP ${r.status} for ${relPath}`, "err");
+      } catch (e) { log(`  ⚠ ${e.message}`, "err"); }
+    }
+    else if (item.type === "dir" && item.url) {
+      log(`  📁 ${relPath}/`, "dim");
+      await fetchFolderRecursive(item.url, relPath, counter);
+    }
+  }
+}
+
+async function resolveFolder(apiUrl, subPath) {
+  const parts = subPath.split("/");
+  let currentUrl = apiUrl;
+  for (const part of parts) {
+    const resp = await fetch(currentUrl, { headers: { "Accept": "application/vnd.github+json" } });
+    if (!resp.ok) return null;
+    const items = await resp.json();
+    const match = items.find(i => i.name === part && i.type === "dir");
+    if (!match) return null;
+    currentUrl = match.url;
+  }
+  return currentUrl;
+}
+
+// ─── Serial ───────────────────────────────────────────────────────────────────
+function notifyWaiters() {
+  readWaiters = readWaiters.filter(w => {
+    const idx = readBuf.indexOf(w.pattern);
+    if (idx === -1) return true;
+    const result = readBuf.slice(0, idx + w.pattern.length);
+    readBuf      = readBuf.slice(idx + w.pattern.length);
+    clearTimeout(w.timer);
+    w.resolve(result);
+    return false;
+  });
+}
+
+function readUntil(pattern, timeoutMs = 2000) {
+  return new Promise(resolve => {
+    const w = {
+      pattern, resolve,
+      timer: setTimeout(() => {
+        readWaiters = readWaiters.filter(x => x !== w);
+        const result = readBuf; readBuf = "";
+        resolve(result);
+      }, timeoutMs)
+    };
+    readWaiters.push(w);
+    notifyWaiters();
+  });
+}
+
+function flushBuf() { readBuf = ""; }
+function sleep(ms)  { return new Promise(r => setTimeout(r, ms)); }
+
+async function connectSerial() {
+  if (!("serial" in navigator)) {
+    setStatus("serial-status", "❌ Web Serial not supported. Use Chrome or Edge.", "error");
+    return;
+  }
+  try {
+    serialPort = await navigator.serial.requestPort();
+    await serialPort.open({ baudRate: BAUD_RATE });
+    serialWriter = serialPort.writable.getWriter();
+    readBuf = "";
+    const dec = new TextDecoder();
+    serialReader = serialPort.readable.getReader();
+    (async () => {
+      try {
+        while (true) {
+          const { value, done } = await serialReader.read();
+          if (done) break;
+          readBuf += dec.decode(value, { stream: true });
+          notifyWaiters();
+        }
+      } catch (_) {}
+    })();
+
+    serialPort.addEventListener("disconnect", () => {
+      disconnectSerial();
+      setStatus("serial-status", "⚠ Device was unplugged.", "warn");
+    });
+
+    log(`Connected at ${BAUD_RATE} baud.`);
+    setStatus("serial-status", "⏳ Reading device info …", "info");
+
+    const { hubType, hubName } = await readDeviceInfo();
+
+    document.getElementById("btn-connect").disabled    = true;
+    document.getElementById("btn-disconnect").disabled = false;
+    updateUploadBtn();
+
+    if (hubType) {
+      document.getElementById("info-name").textContent = hubName || "unknown";
+      document.getElementById("info-type").textContent = hubType;
+      document.getElementById("device-info").classList.remove("hidden");
+      if (config.hubTypeMap[hubType]) {
+        setStatus("serial-status", `✅ Connected — ${hubName || "unnamed"} (${hubType})`, "success");
+      } else {
+        setStatus("serial-status", `⚠ Unknown hub type "${hubType}". Add it in Configuration.`, "warn");
+      }
+    } else {
+      setStatus("serial-status", "⚠ Connected but could not read hubType.txt.", "warn");
+      log("  ⚠ hubType.txt not found or unreadable", "err");
+    }
+  } catch (e) {
+    setStatus("serial-status", `❌ ${e.message}`, "error");
+  }
+}
+
+async function disconnectSerial() {
+  readWaiters.forEach(w => { clearTimeout(w.timer); w.resolve(""); });
+  readWaiters = [];
+  try {
+    if (serialReader) { await serialReader.cancel(); serialReader.releaseLock(); serialReader = null; }
+    if (serialWriter) { serialWriter.releaseLock(); serialWriter = null; }
+    if (serialPort)   { await serialPort.close();   serialPort   = null; }
+  } catch (_) {}
+  readBuf = "";
+  document.getElementById("device-info").classList.add("hidden");
+  document.getElementById("info-name").textContent = "—";
+  document.getElementById("info-type").textContent = "—";
+  setStatus("serial-status", "⏏ Disconnected.", "info");
+  document.getElementById("btn-connect").disabled    = false;
+  document.getElementById("btn-upload").disabled     = true;
+  document.getElementById("btn-disconnect").disabled = true;
+  log("Disconnected.");
+}
+
+// ─── Raw REPL ─────────────────────────────────────────────────────────────────
+const EXEC_END = "\x04\x04";
+
+async function serialWrite(text) {
+  await serialWriter.write(new TextEncoder().encode(text));
+}
+async function ctrl(char, pauseMs = 100) {
+  await serialWrite(char);
+  await sleep(pauseMs);
+}
+async function execScript(script, timeoutMs = 4000) {
+  await serialWrite(script);
+  await ctrl("\x04");
+  const resp   = await readUntil(EXEC_END, timeoutMs);
+  const body   = resp.startsWith("OK") ? resp.slice(2) : resp;
+  const parts  = body.split("\x04");
+  return [(parts[0] || "").trim(), (parts[1] || "").trim()];
+}
+async function enterRawRepl() {
+  await ctrl("\x03", 300);
+  await ctrl("\x03", 300);
+  flushBuf();
+  await ctrl("\x01", 400);
+  await readUntil(">", 1500);
+  flushBuf();
+}
+async function exitRawRepl() { await ctrl("\x02", 200); }
+
+async function readDeviceInfo() {
+  await enterRawRepl();
+  const [stdout, stderr] = await execScript(
+    `import os\n` +
+    `files={f.lower():f for f in os.listdir("/")}\n` +
+    `try:\n  f=open(files["hubtype.txt"]);t=f.read().strip();f.close()\nexcept:t=""\n` +
+    `try:\n  f=open(files["hubname.txt"]);n=f.read().strip();f.close()\nexcept:n=""\n` +
+    `print(t+"\\n"+n)\n`,
+    3000
+  );
+  await exitRawRepl();
+  if (stderr) { log(`  ⚠ ${stderr}`, "err"); return { hubType: null, hubName: null }; }
+  const lines = stdout.split("\n");
+  const hubType = lines[0]?.trim() || null;
+  const hubName = lines[1]?.trim() || null;
+  log(`  hubType: "${hubType}", hubName: "${hubName}"`, "dim");
+  return { hubType, hubName };
+}
+
+async function mkdir(dirPath) {
+  const [, stderr] = await execScript(
+    `import os\ntry:\n  os.mkdir("${dirPath}")\nexcept OSError:\n  pass\n`, 2000
+  );
+  log(`  mkdir '${dirPath}' → ${stderr ? "err: " + stderr : "ok"}`, stderr ? "err" : "dim");
+  return !stderr;
+}
+
+async function uploadOne(relPath, code) {
+  log(`  → '${relPath}' (${code.length.toLocaleString()} bytes) …`);
+  const hex = Array.from(new TextEncoder().encode(code))
+    .map(b => b.toString(16).padStart(2, "0")).join("");
+  const [, stderr] = await execScript(
+    `import ubinascii\nf=open("${relPath}","wb")\nf.write(ubinascii.unhexlify("${hex}"))\nf.close()\n`,
+    6000
+  );
+  if (stderr) { log(`    ✗ ${stderr}`, "err"); return false; }
+  log(`    ✓ ok`, "dim");
+  return true;
+}
+
+async function softReset() {
+  log("🔄 Rebooting …");
+  await ctrl("\x02", 300);
+  flushBuf();
+  await ctrl("\x04", 300);
+  await sleep(1500);
+  const resp = await readUntil(">>>", 4000);
+  log(`Boot: ${resp.slice(0, 80).replace(/\r\n/g, " ")}`, "dim");
+  log("✅ Running main.py");
+}
+
+function getDirsToCreate(paths) {
+  const dirs = new Set();
+  for (const p of paths) {
+    const parts = p.split("/");
+    for (let i = 1; i < parts.length; i++) dirs.add(parts.slice(0, i).join("/"));
+  }
+  return [...dirs].sort((a, b) => a.split("/").length - b.split("/").length);
+}
+
+// ─── Upload ───────────────────────────────────────────────────────────────────
+async function uploadToEsp32() {
+  document.getElementById("btn-upload").disabled = true;
+  fetchedFiles = {};
+
+  try {
+    setStatus("upload-status", "⏳ Checking device type …", "info");
+    setProgress(0);
+    const { hubType, hubName } = await readDeviceInfo();
+
+    if (!hubType) {
+      setStatus("upload-status", "❌ Could not read hubType.txt from device.", "error");
+      return;
+    }
+
+    const typeFolder = config.hubTypeMap[hubType];
+    if (!typeFolder) {
+      setStatus("upload-status", `❌ Unknown hub type "${hubType}". Add it in Configuration.`, "error");
+      return;
+    }
+
+    log(`── Device: ${hubName || "unnamed"} (${hubType}) → lib/ + ${typeFolder}/`);
+
+    // Fetch files from GitHub once (no need to re-fetch on retry)
+    setStatus("upload-status", "⏳ Fetching files from GitHub …", "info");
+    const baseApiUrl = folderToApiUrl(config.baseUrl);
+    if (!baseApiUrl) {
+      setStatus("upload-status", "❌ Invalid GitHub base URL. Check Configuration.", "error");
+      return;
+    }
+
+    const baseResp = await fetch(baseApiUrl, { headers: { "Accept": "application/vnd.github+json" } });
+    if (!baseResp.ok) {
+      setStatus("upload-status", `❌ GitHub API error ${baseResp.status}`, "error");
+      return;
+    }
+    const baseItems = await baseResp.json();
+    const libItem   = baseItems.find(i => i.name === "lib" && i.type === "dir");
+    if (!libItem) {
+      setStatus("upload-status", `❌ Could not find lib/ folder in GitHub repo.`, "error");
+      return;
+    }
+
+    const counter = { n: 0 };
+    log("📦 Fetching lib/ …", "dim");
+    await fetchFolderRecursive(libItem.url, "lib", counter);
+
+    const typeFolderUrl = await resolveFolder(baseApiUrl, typeFolder);
+    if (!typeFolderUrl) {
+      setStatus("upload-status", `❌ Could not find "${typeFolder}" in GitHub repo.`, "error");
+      return;
+    }
+    log(`📦 Fetching ${typeFolder}/ …`, "dim");
+    await fetchFolderRecursive(typeFolderUrl, "", counter);
+
+    if (!counter.n) { setStatus("upload-status", "❌ No files fetched.", "error"); return; }
+
+    refreshFileList();
+    log(`Fetched ${counter.n} file(s).`, "dim");
+
+    // Attempt upload, retrying once on failure
+    let attempt = 0;
+    while (attempt <= MAX_UPLOAD_RETRIES) {
+      if (attempt > 0) {
+        log(`⚠ Some files failed. Resetting device and retrying (attempt ${attempt}/${MAX_UPLOAD_RETRIES}) …`, "err");
+        setStatus("upload-status", "⏳ Resetting device before retry …", "info");
+
+        // Exit raw REPL and soft reset
+        await exitRawRepl();
+        flushBuf();
+        await ctrl("\x04", 300);      // Ctrl+D — soft reset
+        await sleep(2000);
+        await readUntil(">>>", 4000); // wait for reboot
+        flushBuf();
+        log("  Device rebooted, retrying …", "dim");
+      }
+
+      const success = await attemptUpload(hubType, hubName);
+      if (success) break;
+      attempt++;
+    }
+
+  } catch (e) {
+    setStatus("upload-status", `❌ ${e.message}`, "error");
+    log(`❌ ${e.message}`, "err");
+  } finally {
+    updateUploadBtn();
+  }
+}
+
+// Performs one full wipe + upload attempt. Returns true if all files succeeded.
+async function attemptUpload(hubType, hubName) {
+  setProgress(15);
+  log("── Starting upload ──");
+  setStatus("upload-status", "⏳ Preparing device …", "info");
+  await enterRawRepl();
+
+  // Find exact preserved filenames on device
+  log("🔍 Checking preserved files …", "dim");
+  const [fileListOut] = await execScript(`import os\nprint("\\n".join(os.listdir("/")))\n`, 2000);
+  const deviceFiles   = fileListOut.split("\n").map(f => f.trim()).filter(Boolean);
+  const preserveLower = PRESERVE_FILES.map(f => f.toLowerCase());
+  const exactPreserve = deviceFiles.filter(f => preserveLower.includes(f.toLowerCase()));
+  log(`  preserving: ${exactPreserve.length ? exactPreserve.join(", ") : "nothing"}`, "dim");
+
+  // Wipe
+  log("🗑 Wiping device filesystem …", "dim");
+  setStatus("upload-status", "⏳ Wiping device …", "info");
+  const preserveList = JSON.stringify(exactPreserve);
+  await execScript(
+    `import os\nKEEP=${preserveList}\n` +
+    `def rm(path):\n` +
+    `  for f in os.listdir(path):\n` +
+    `    full=(path+"/"+f) if path!="/" else "/"+f\n` +
+    `    if f in KEEP:continue\n` +
+    `    try:\n      rm(full)\n      os.rmdir(full)\n` +
+    `    except OSError:\n      os.remove(full)\n` +
+    `rm("/")\n`,
+    6000
+  );
+  log("  ✓ wiped", "dim");
+  setProgress(25);
+
+  // Create directories
+  const dirs = getDirsToCreate(Object.keys(fetchedFiles));
+  if (dirs.length) {
+    log(`📁 Creating dirs: ${dirs.join(", ")}`, "dim");
+    for (const d of dirs) await mkdir(d);
+  }
+  setProgress(30);
+
+  // Upload all files
+  const entries = Object.entries(fetchedFiles);
+  let success   = 0;
+  for (let i = 0; i < entries.length; i++) {
+    const [relPath, code] = entries[i];
+    setStatus("upload-status", `⏳ Uploading ${i + 1}/${entries.length}: ${relPath} …`, "info");
+    setProgress(30 + Math.round((i / entries.length) * 60));
+    if (await uploadOne(relPath, code)) {
+      success++;
+    } else {
+      // Fail fast — trigger a retry
+      log(`  ✗ Failed on '${relPath}', will retry.`, "err");
+      await exitRawRepl();
+      setProgress(null);
+      return false;
+    }
+  }
+
+  setProgress(90);
+
+  // All files uploaded — soft reset and run
+  await softReset();
+  setStatus("upload-status", `✅ ${entries.length} file(s) uploaded to ${hubName || hubType} and running!`, "success");
+  log(`✅ ${success}/${entries.length} files.`);
+  setProgress(100);
+  setTimeout(() => setProgress(null), 1000);
+  return true;
+}
+</script>
+</body>
+</html>
