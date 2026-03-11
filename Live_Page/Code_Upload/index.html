@@ -517,6 +517,7 @@ const DEFAULT_HUB_TYPE_MAP = {
 const PRESERVE_FILES = ["hubType.txt", "hubName.txt"];
 const IGNORE_FILES = ["readme.md", "hubType.txt", "hubName.txt"];
 const BAUD_RATE      = 115200;
+const MAX_UPLOAD_RETRIES = 3;
 
 // ─── Config (live, editable at runtime) ───────────────────────────────────────
 // Loaded from localStorage if present, otherwise falls back to defaults above.
@@ -947,6 +948,7 @@ async function uploadToEsp32() {
 
     log(`── Device: ${hubName || "unnamed"} (${hubType}) → lib/ + ${typeFolder}/`);
 
+    // Fetch files from GitHub once (no need to re-fetch on retry)
     setStatus("upload-status", "⏳ Fetching files from GitHub …", "info");
     const baseApiUrl = folderToApiUrl(config.baseUrl);
     if (!baseApiUrl) {
@@ -961,7 +963,6 @@ async function uploadToEsp32() {
     }
     const baseItems = await baseResp.json();
     const libItem   = baseItems.find(i => i.name === "lib" && i.type === "dir");
-
     if (!libItem) {
       setStatus("upload-status", `❌ Could not find lib/ folder in GitHub repo.`, "error");
       return;
@@ -973,7 +974,7 @@ async function uploadToEsp32() {
 
     const typeFolderUrl = await resolveFolder(baseApiUrl, typeFolder);
     if (!typeFolderUrl) {
-      setStatus("upload-status", `❌ Could not find "${typeFolder}" in GitHub repo. Make sure you spelled the folder name correctly.`, "error");
+      setStatus("upload-status", `❌ Could not find "${typeFolder}" in GitHub repo.`, "error");
       return;
     }
     log(`📦 Fetching ${typeFolder}/ …`, "dim");
@@ -983,67 +984,28 @@ async function uploadToEsp32() {
 
     refreshFileList();
     log(`Fetched ${counter.n} file(s).`, "dim");
-    setProgress(15);
 
-    log("── Starting upload ──");
-    setStatus("upload-status", "⏳ Preparing device …", "info");
-    await enterRawRepl();
+    // Attempt upload, retrying once on failure
+    let attempt = 0;
+    while (attempt <= MAX_UPLOAD_RETRIES) {
+      if (attempt > 0) {
+        log(`⚠ Some files failed. Resetting device and retrying (attempt ${attempt}/${MAX_UPLOAD_RETRIES}) …`, "err");
+        setStatus("upload-status", "⏳ Resetting device before retry …", "info");
 
-    // Find the actual on-device filenames for preserved files (case-insensitive)
-    log("🔍 Checking preserved files …", "dim");
-    const [fileListOut] = await execScript(`import os\nprint("\\n".join(os.listdir("/")))\n`, 2000);
-    const deviceFiles   = fileListOut.split("\n").map(f => f.trim()).filter(Boolean);
-    const preserveLower = PRESERVE_FILES.map(f => f.toLowerCase());
-    // Match by lowercase, keep the exact on-device name
-    const exactPreserve = deviceFiles.filter(f => preserveLower.includes(f.toLowerCase()));
-    log(`  preserving: ${exactPreserve.length ? exactPreserve.join(", ") : "nothing"}`, "dim");
+        // Exit raw REPL and soft reset
+        await exitRawRepl();
+        flushBuf();
+        await ctrl("\x04", 300);      // Ctrl+D — soft reset
+        await sleep(2000);
+        await readUntil(">>>", 4000); // wait for reboot
+        flushBuf();
+        log("  Device rebooted, retrying …", "dim");
+      }
 
-    log("🗑 Wiping device filesystem …", "dim");
-    setStatus("upload-status", "⏳ Wiping device …", "info");
-    const preserveList = JSON.stringify(exactPreserve);
-    await execScript(
-      `import os\nKEEP=${preserveList}\n` +
-      `def rm(path):\n` +
-      `  for f in os.listdir(path):\n` +
-      `    full=(path+"/"+f) if path!="/" else "/"+f\n` +
-      `    if f in KEEP:continue\n` +
-      `    try:\n      rm(full)\n      os.rmdir(full)\n` +
-      `    except OSError:\n      os.remove(full)\n` +
-      `rm("/")\n`,
-      6000
-    );
-    log("  ✓ wiped", "dim");
-    setProgress(25);
-
-    const dirs = getDirsToCreate(Object.keys(fetchedFiles));
-    if (dirs.length) {
-      log(`📁 Creating dirs: ${dirs.join(", ")}`, "dim");
-      for (const d of dirs) await mkdir(d);
+      const success = await attemptUpload(hubType, hubName);
+      if (success) break;
+      attempt++;
     }
-    setProgress(30);
-
-    const entries = Object.entries(fetchedFiles);
-    let success   = 0;
-    for (let i = 0; i < entries.length; i++) {
-      const [relPath, code] = entries[i];
-      setStatus("upload-status", `⏳ Uploading ${i + 1}/${entries.length}: ${relPath} …`, "info");
-      setProgress(30 + Math.round((i / entries.length) * 60));
-      if (await uploadOne(relPath, code)) success++;
-    }
-
-    setProgress(90);
-
-    if (success === entries.length) {
-      await softReset();
-      setStatus("upload-status", `✅ ${entries.length} file(s) uploaded to ${hubName || hubType} and running!`, "success");
-      log(`✅ ${success}/${entries.length} files.`);
-    } else {
-      setStatus("upload-status", `⚠ ${success}/${entries.length} uploaded. Check log.`, "warn");
-      await exitRawRepl();
-    }
-
-    setProgress(100);
-    setTimeout(() => setProgress(null), 1000);
 
   } catch (e) {
     setStatus("upload-status", `❌ ${e.message}`, "error");
@@ -1051,6 +1013,76 @@ async function uploadToEsp32() {
   } finally {
     updateUploadBtn();
   }
+}
+
+// Performs one full wipe + upload attempt. Returns true if all files succeeded.
+async function attemptUpload(hubType, hubName) {
+  setProgress(15);
+  log("── Starting upload ──");
+  setStatus("upload-status", "⏳ Preparing device …", "info");
+  await enterRawRepl();
+
+  // Find exact preserved filenames on device
+  log("🔍 Checking preserved files …", "dim");
+  const [fileListOut] = await execScript(`import os\nprint("\\n".join(os.listdir("/")))\n`, 2000);
+  const deviceFiles   = fileListOut.split("\n").map(f => f.trim()).filter(Boolean);
+  const preserveLower = PRESERVE_FILES.map(f => f.toLowerCase());
+  const exactPreserve = deviceFiles.filter(f => preserveLower.includes(f.toLowerCase()));
+  log(`  preserving: ${exactPreserve.length ? exactPreserve.join(", ") : "nothing"}`, "dim");
+
+  // Wipe
+  log("🗑 Wiping device filesystem …", "dim");
+  setStatus("upload-status", "⏳ Wiping device …", "info");
+  const preserveList = JSON.stringify(exactPreserve);
+  await execScript(
+    `import os\nKEEP=${preserveList}\n` +
+    `def rm(path):\n` +
+    `  for f in os.listdir(path):\n` +
+    `    full=(path+"/"+f) if path!="/" else "/"+f\n` +
+    `    if f in KEEP:continue\n` +
+    `    try:\n      rm(full)\n      os.rmdir(full)\n` +
+    `    except OSError:\n      os.remove(full)\n` +
+    `rm("/")\n`,
+    6000
+  );
+  log("  ✓ wiped", "dim");
+  setProgress(25);
+
+  // Create directories
+  const dirs = getDirsToCreate(Object.keys(fetchedFiles));
+  if (dirs.length) {
+    log(`📁 Creating dirs: ${dirs.join(", ")}`, "dim");
+    for (const d of dirs) await mkdir(d);
+  }
+  setProgress(30);
+
+  // Upload all files
+  const entries = Object.entries(fetchedFiles);
+  let success   = 0;
+  for (let i = 0; i < entries.length; i++) {
+    const [relPath, code] = entries[i];
+    setStatus("upload-status", `⏳ Uploading ${i + 1}/${entries.length}: ${relPath} …`, "info");
+    setProgress(30 + Math.round((i / entries.length) * 60));
+    if (await uploadOne(relPath, code)) {
+      success++;
+    } else {
+      // Fail fast — trigger a retry
+      log(`  ✗ Failed on '${relPath}', will retry.`, "err");
+      await exitRawRepl();
+      setProgress(null);
+      return false;
+    }
+  }
+
+  setProgress(90);
+
+  // All files uploaded — soft reset and run
+  await softReset();
+  setStatus("upload-status", `✅ ${entries.length} file(s) uploaded to ${hubName || hubType} and running!`, "success");
+  log(`✅ ${success}/${entries.length} files.`);
+  setProgress(100);
+  setTimeout(() => setProgress(null), 1000);
+  return true;
 }
 </script>
 </body>
