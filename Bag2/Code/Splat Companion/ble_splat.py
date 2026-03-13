@@ -1,442 +1,444 @@
 """
-ble_splat.py — BLE driver for Open Splat devices
-==================================================
-Fixed: button debouncing, false trigger prevention,
-removed auto-playSound on button press.
+ble_splat_ctrl.py — Direct Splat BLE Controller for Wand
+==========================================================
+Manages BLE connections from the wand directly to Splat devices,
+bypassing the Splat Companion. Handles connection lifecycle,
+action execution, radio management (ESP-NOW/BLE coexistence),
+and idle signaling.
+
+Requires ble_splat.py in root or /lib/.
+
+Usage:
+    from ble_splat_ctrl import (
+        sp_connect, sp_disconnect_all, sp_keepalive_all,
+        sp_poll_switches_all, sp_process_pending_all,
+        sp_reconnect_lost, sp_has_connections, sp_signal_idle,
+        espnow_pause, espnow_resume, espnow_quick_check,
+        is_sp_trigger, parse_sp_mac,
+    )
 """
 
-import ubluetooth
 import time
-import struct
-import binascii
-import micropython
+import network
 
 
-UUID_SERVICE = ubluetooth.UUID(0xfff0)
-UUID_CHARACTERISTIC_RECV = ubluetooth.UUID(0xfff4)
-UUID_CHARACTERISTIC_WRITE = ubluetooth.UUID(0xfff3)
+# ─────────────────────────────────────────────
+# SP TAG HELPERS
+# ─────────────────────────────────────────────
+def is_sp_trigger(name):
+    return name is not None and name.startswith("SP:")
+
+def parse_sp_mac(name):
+    if not is_sp_trigger(name):
+        return None
+    return name[3:]
 
 
-# Command constants
-KEEP_ALIVE = 0x01, 0x00
-SOUND_OFF = 0x02, 0x00
-ALL_LEDS_OFF = 0x03, 0x00
-ALL_TASKS_OFF = 0x04, 0x00
-READ_SWITCHES = 0x05, 0x00
-READ_BATTERY = 0x06, 0x00
-IDENTIFY_SPLAT = 0x00, 0x10
-SET_VOLUME = 0x01, 0x10
-PLAY_SOUND = 0x00, 0x20
-PLAY_RECORDED_SOUND = 0x01, 0x20
-LEDS_OFF = 0x04, 0x20
-SET_LEDS = 0x01, 0x50
-PLAY_LED_SEQUENCE = 0x01, 0x60
-FLASH_LEDS = 0x01, 0x70
-NOTE_ON = 0x00, 0x40
-NOTE_OFF = 0x01, 0x40
+# ─────────────────────────────────────────────
+# ESP-NOW / BLE RADIO MANAGEMENT
+# ─────────────────────────────────────────────
+# The ESP32-C6 shares a single 2.4GHz antenna between
+# WiFi (ESP-NOW) and BLE. Time-slicing causes unreliable
+# BLE writes when ESP-NOW is active. We pause ESP-NOW
+# during BLE-heavy operations.
 
-# Button debounce
-_DEBOUNCE_MS = 80
+def espnow_pause(mgr):
+    """Pause ESP-NOW to free the radio for BLE."""
+    if mgr and mgr.is_active:
+        try:
+            mgr.enow.active(False)
+        except Exception:
+            pass
+        print("  Radio: ESP-NOW paused for BLE")
 
+def espnow_resume(mgr):
+    """Resume ESP-NOW after BLE operations."""
+    if mgr and mgr.enow is not None:
+        try:
+            mgr.enow.active(True)
+        except Exception:
+            pass
+        print("  Radio: ESP-NOW resumed")
 
-class OpenSplat():
-    def __init__(self, mac_address=None, verbose=False):
-        self._ble = ubluetooth.BLE()
-        self._ble.active(True)
-
-        self.mac_address = mac_address
-
-        self._connection = None
-        self._conn_handle = None
-        self._tx_char_handle = None
-        self._rx_char_handle = None
-
-        self._device_info = {}
-        self._date_time = None
-        self._time_schedule = []
-
-        self.on_splat_pressed = None
-        self.on_splat_released = None
-
-        self.sound = 1
-        self.volume = 255
-
-        # Set up IRQ handler
-        self._ble.irq(self._irq_handler)
-
-        # Connection state
-        self.connected = False
-        self._addr_type = None
-        self.addr = None
-        self.target_addr = None
-        self.device_name = None
-        self._value_handle = None
-        self._start_handle = None
-        self._end_handle = None
-        self._verbose = verbose
-        self._connecting = None
-        self._scanning = False
-
-        # Button state with debounce
-        self.splat_pressed = False
-        self._last_button_change_ms = 0
-        self._last_raw_state = False
-
-    def _irq_handler(self, event, data):
-        """Handle BLE IRQ events"""
-        if event == 1:  # _IRQ_CENTRAL_CONNECT
-            conn_handle, addr_type, addr = data
-            self._conn_handle = conn_handle
-            self.connected = True
-            if self._verbose:
-                print("Connected as central")
-
-        elif event == 2:  # _IRQ_CENTRAL_DISCONNECT
-            self._reset_connection_state()
-            if self._verbose:
-                print("Disconnected")
-
-        elif event == 5:  # _IRQ_SCAN_RESULT
-            self._addr_type, self.addr, adv_type, rssi, adv_data = data
-            self.device_name = self._parse_adv_name(adv_data)
-            self.target_addr = ':'.join(['%02X' % i for i in self.addr])
-
-            if self.target_addr == self.mac_address and not self._connecting:
-                self._ble.gap_scan(None)
-                self._scanning = False
-                self._connecting = True
-                try:
-                    self._ble.gap_connect(self._addr_type, self.addr)
-                    if self._verbose:
-                        print("Connecting...")
-                except Exception as e:
-                    print("Connection failed: %s" % str(e))
-                    self._connecting = False
-
-            elif self.device_name == 'Splat' and not self._connecting:
-                self.mac_address = self.target_addr
-                self._ble.gap_scan(None)
-                self._scanning = False
-
-        elif event == 6:  # _IRQ_SCAN_DONE
-            self._scanning = False
-            if self._verbose:
-                print("Scan complete")
-
-        elif event == 7:  # _IRQ_PERIPHERAL_CONNECT
-            conn_handle, addr_type, addr = data
-            addr_str = ':'.join(['%02X' % i for i in addr])
-
-            if addr_str == self.mac_address:
-                self._conn_handle = conn_handle
-                self.connected = True
-                self._connecting = False
-                if self._verbose:
-                    print("Connected! Discovering services...")
-                self._ble.gattc_discover_services(self._conn_handle)
-
-        elif event == 8:  # _IRQ_PERIPHERAL_DISCONNECT
-            self._reset_connection_state()
-            if self._verbose:
-                print("Peripheral disconnected")
-
-        elif event == 9:  # _IRQ_GATTC_SERVICE_RESULT
-            conn_handle, start_handle, end_handle, uuid = data
-            if uuid == UUID_SERVICE:
-                self._start_handle = start_handle
-                self._end_handle = end_handle
-                if self._verbose:
-                    print("Service found: %d-%d" % (start_handle, end_handle))
-
-        elif event == 10:  # _IRQ_GATTC_SERVICE_DONE
-            if self._start_handle and self._end_handle:
-                self._ble.gattc_discover_characteristics(
-                    self._conn_handle, self._start_handle, self._end_handle
-                )
-            else:
-                print("Required service not found")
-
-        elif event == 11:  # _IRQ_GATTC_CHARACTERISTIC_RESULT
-            conn_handle, def_handle, value_handle, properties, uuid = data
-            if uuid == UUID_CHARACTERISTIC_WRITE:
-                self._tx_char_handle = value_handle
-            elif uuid == UUID_CHARACTERISTIC_RECV:
-                self._rx_char_handle = value_handle
-
-        elif event == 12:  # _IRQ_GATTC_CHARACTERISTIC_DONE
-            if self._rx_char_handle:
-                self._subscribe_to_notifications()
-            if self._verbose:
-                print("Setup complete!")
-
-        elif event == 17:  # _IRQ_GATTC_WRITE_DONE
-            conn_handle, value_handle, status = data
-            if self._verbose and status != 0:
-                print("Write error: %d" % status)
-
-        elif event == 18:  # _IRQ_GATTC_NOTIFY
-            conn_handle, value_handle, notify_data = data
-            if value_handle == self._rx_char_handle:
-                self._process_notification(notify_data)
-
-    def _parse_adv_name(self, adv_data):
-        """Parse device name from advertising data"""
-        i = 0
-        while i < len(adv_data):
-            length = adv_data[i]
-            if length == 0:
-                break
-            ad_type = adv_data[i + 1]
-            if ad_type == 0x09 or ad_type == 0x08:
-                name_bytes = adv_data[i + 2:i + 1 + length]
-                try:
-                    return bytes(name_bytes).decode('utf-8')
-                except:
-                    return None
-            i += 1 + length
+def espnow_quick_check(mgr, check_broadcast_fn, batt_ref, leds_ref, buz_ref):
+    """
+    Briefly enable ESP-NOW, poll for stop/battery, then disable.
+    check_broadcast_fn: the check_broadcast function from main.
+    Returns "stop", "battery", or None.
+    """
+    if mgr is None or mgr.enow is None:
+        return None
+    try:
+        mgr.enow.active(True)
+        time.sleep_ms(5)
+        result = check_broadcast_fn(mgr, batt_ref, leds_ref, buz_ref)
+        mgr.enow.active(False)
+        return result
+    except Exception:
         return None
 
-    def _reset_connection_state(self):
-        """Reset all connection-related state"""
-        self.connected = False
-        self._conn_handle = None
-        self._connecting = False
-        self._tx_char_handle = None
-        self._rx_char_handle = None
-        self._start_handle = None
-        self._end_handle = None
 
-    def _process_notification(self, buffer):
-        """Process notifications from the Splat device"""
-        if len(buffer) >= 11 and buffer[0] == 0x66 and buffer[11] == 0x99:
-            # Device info packet
-            if self._verbose:
-                value = ':'.join(['%02X' % i for i in buffer])
-                print("Device info: %s" % value)
+# ─────────────────────────────────────────────
+# ACTION MAPS (Splat command parameters)
+# ─────────────────────────────────────────────
+SP_COLOR_RGB = {
+    "turnred": (255, 0, 0), "turngreen": (0, 255, 0),
+    "turnblue": (0, 0, 255), "turnpurple": (160, 0, 200),
+    "turnyellow": (255, 180, 0), "turnwhite": (200, 200, 200),
+    "turnoff": (0, 0, 0),
+}
 
-        elif len(buffer) >= 10 and buffer[0] == 0x13 and buffer[10] == 0x31:
-            # Date/time packet
-            if self._verbose:
-                print("Received date/time")
+SP_NOTE_MAP = {
+    "notec": 1, "noted": 3, "notee": 6, "notef": 7,
+    "noteg": 10, "notea": 13, "noteb": 15, "playnote": 1,
+}
 
+SP_ANIMAL_SOUNDS = {
+    "cat": 19, "chicken": 20, "cow": 21, "dog": 22,
+    "pig": 23, "duck": 24, "elephant": 25, "horse": 26, "goat": 28,
+}
+
+SP_DEFAULT_OCTAVE = 4
+SP_DEFAULT_VELOCITY = 255
+SP_DEFAULT_INSTRUMENT = 16
+SP_DEFAULT_SOUND_VOL = 255
+
+
+# ─────────────────────────────────────────────
+# ACTION PARSER
+# ─────────────────────────────────────────────
+def _parse_sp_actions(chain):
+    """Parse action chain into color/note/sound lists for Splat."""
+    colors, notes, sounds = [], [], []
+    for group in chain:
+        gc, gn, gs = None, None, None
+        for a in group:
+            if a in SP_COLOR_RGB:
+                gc = a
+            elif a in SP_NOTE_MAP:
+                gn = a
+            elif a in SP_ANIMAL_SOUNDS:
+                gs = a
+        colors.append(gc)
+        notes.append(gn)
+        sounds.append(gs)
+    return colors, notes, sounds
+
+
+# ─────────────────────────────────────────────
+# DIRECT SPLAT CONTROLLER
+# ─────────────────────────────────────────────
+class DirectSplatController:
+    """
+    Manages a direct BLE connection from the wand to a Splat.
+
+    IMPORTANT: on_press/on_release are called from the BLE IRQ
+    context (notification handler). You CANNOT do gattc_write from
+    inside an IRQ — it silently fails. Instead we set a pending
+    flag and the main loop calls process_pending() to execute
+    the actual BLE commands.
+    """
+    def __init__(self, splat):
+        self.splat = splat
+        self.colors = []
+        self.notes = []
+        self.sounds = []
+        self.configured = False
+        self.active_notes = []
+        self._pending_press = False
+        self._pending_release = False
+        self._has_notes = False
+        self._was_pressed = False
+
+    def set_config(self, chain):
+        self.colors, self.notes, self.sounds = _parse_sp_actions(chain)
+        self.configured = True
+        self.active_notes = []
+        self._pending_press = False
+        self._pending_release = False
+        self._has_notes = any(n is not None for n in self.notes)
+        if self._has_notes:
+            # Splat button notifications corrupt the note engine.
+            # Disable callbacks — wand button will be used instead.
+            print("  SP: Notes detected — use wand button to trigger")
+            self.splat.on_splat_pressed = None
+            self.splat.on_splat_released = None
         else:
-            data = [d for d in buffer]
-            # Button state notification: [3, X, button_byte]
-            if data[0] == 3 and len(data) == 3:
-                self._handle_button(data[2])
-            elif self._verbose:
-                print("Unknown notification: %s" % str(data))
+            self.splat.on_splat_pressed = self.on_press
+            self.splat.on_splat_released = self.on_release
+        print("  SP Config: %d groups (has_notes=%s)" % (len(chain), self._has_notes))
 
-    def _handle_button(self, value):
-        """
-        Process button state with debouncing.
-        Prevents false triggers from noisy BLE notifications.
-
-        value: bitmask of pressed buttons (any bit set = pressed)
-        """
-        now = time.ticks_ms()
-
-        # Determine current raw state
-        raw_pressed = bool(value & 0x0F)  # any of the 4 button bits
-
-        # Ignore if same as last raw state (no change)
-        if raw_pressed == self._last_raw_state:
-            return
-        self._last_raw_state = raw_pressed
-
-        # Debounce: ignore if too soon after last change
-        if time.ticks_diff(now, self._last_button_change_ms) < _DEBOUNCE_MS:
-            return
-        self._last_button_change_ms = now
-
-        was_pressed = self.splat_pressed
-
-        if raw_pressed and not was_pressed:
-            # Button just pressed
-            self.splat_pressed = True
-            if self.on_splat_pressed:
+    def clear_config(self):
+        self.colors = []; self.notes = []; self.sounds = []
+        self.configured = False
+        self._pending_press = False
+        self._pending_release = False
+        if self.splat.connected:
+            for mn in self.active_notes:
                 try:
-                    self.on_splat_pressed()
-                except Exception as e:
-                    print("  Press callback error: %s" % str(e))
-
-        elif not raw_pressed and was_pressed:
-            # Button just released
-            self.splat_pressed = False
-            if self.on_splat_released:
-                try:
-                    self.on_splat_released()
-                except Exception as e:
-                    print("  Release callback error: %s" % str(e))
-
-    def _subscribe_to_notifications(self):
-        """Subscribe to device notifications"""
-        if self._rx_char_handle:
+                    self.splat.noteOff(mn, SP_DEFAULT_VELOCITY, SP_DEFAULT_OCTAVE, SP_DEFAULT_INSTRUMENT)
+                except Exception:
+                    pass
             try:
-                self._ble.gattc_write(
-                    self._conn_handle, self._rx_char_handle + 1, b'\x01\x00'
-                )
-                if self._verbose:
-                    print("Subscribed to notifications")
-            except Exception as e:
-                print("Subscription failed: %s" % str(e))
+                self.splat.allLEDsOff()
+            except Exception:
+                pass
+        self.active_notes = []
 
-    def _write_command(self, data):
-        """Write command to Splat device"""
-        if not self.connected or self._tx_char_handle is None:
-            if self._verbose:
-                print("Not connected or TX characteristic not found")
+    def on_press(self):
+        """Called from BLE IRQ — just set flag, don't do BLE writes."""
+        if not self.configured:
+            return
+        self._pending_press = True
+        self._pending_release = False
+
+    def on_release(self):
+        """Called from BLE IRQ — just set flag, don't do BLE writes."""
+        if not self.configured:
+            return
+        self._pending_release = True
+
+    def process_pending(self):
+        """
+        Called from main loop. Processes pending press/release from callbacks.
+        For note configs, use wand_button_event() instead.
+        """
+        if self._has_notes:
+            # Handled by wand_button_event() from sp_loop
             return False
+        if self._pending_press:
+            self._pending_press = False
+            self._do_press()
+            return True
+        if self._pending_release:
+            self._pending_release = False
+            self._do_release()
+            return True
+        return False
 
+    def wand_button_event(self, pressed):
+        """
+        Called from sp_loop when wand physical button changes state.
+        Used when notes are in the config since Splat button notifications
+        corrupt the note engine.
+        """
+        if not self.configured or not self.splat.connected:
+            return
+        if pressed:
+            self._do_press()
+        else:
+            self._do_release()
+
+    def _do_press(self):
+        if not self.splat.connected:
+            return
+        print("  SP PRESSED")
+        self.active_notes = []
+        for i in range(len(self.colors)):
+            c, n, s = self.colors[i], self.notes[i], self.sounds[i]
+            # LED first — most visible, least likely to block
+            if c and c in SP_COLOR_RGB:
+                try:
+                    self.splat.setLEDsON(SP_COLOR_RGB[c])
+                except Exception as e:
+                    print("    SP LED err: %s" % str(e))
+                time.sleep_ms(30)
+            # Sound second — fire-and-forget
+            if s and s in SP_ANIMAL_SOUNDS:
+                try:
+                    self.splat.playSound(SP_ANIMAL_SOUNDS[s], SP_DEFAULT_SOUND_VOL)
+                except Exception as e:
+                    print("    SP Sound err: %s" % str(e))
+                time.sleep_ms(30)
+            # Note last — can put Splat in sustained state
+            if n and n in SP_NOTE_MAP:
+                mn = SP_NOTE_MAP[n]
+                print("    SP Note: %s -> val=%d, oct=%d, vel=%d, inst=%d" % (n, mn, SP_DEFAULT_OCTAVE, SP_DEFAULT_VELOCITY, SP_DEFAULT_INSTRUMENT))
+                try:
+                    self.splat.noteOn(mn, SP_DEFAULT_VELOCITY, SP_DEFAULT_OCTAVE, SP_DEFAULT_INSTRUMENT)
+                    self.active_notes.append(mn)
+                except Exception as e:
+                    print("    SP Note err: %s" % str(e))
+                time.sleep_ms(30)
+            if i < len(self.colors) - 1:
+                time.sleep_ms(400)
+
+    def _do_release(self):
+        if not self.splat.connected:
+            return
+        print("  SP RELEASED")
+        self._stop_all()
+
+    def _stop_all(self):
+        if not self.splat.connected:
+            return
+        # allTasksOff is a nuclear reset — stops notes, sounds,
+        # LED sequences, everything in one command. Much more
+        # reliable than 3 separate writes that can collide.
         try:
-            self._ble.gattc_write(self._conn_handle, self._tx_char_handle, data)
-            if self._verbose:
-                print("Sent: %s" % str([hex(b) for b in data]))
+            self.splat.allTasksOff()
+        except Exception:
+            pass
+        self.active_notes = []
+
+
+# ─────────────────────────────────────────────
+# CONNECTION MANAGER
+# ─────────────────────────────────────────────
+_sp_connections = {}   # { "SP:<MAC>": { "splat": OpenSplat, "ctrl": DirectSplatController } }
+
+
+def sp_connect(sp_mac, leds, mgr=None):
+    """
+    Connect to a Splat device via BLE.
+    sp_mac: BLE MAC string like "AB:42:00:00:7E:B6"
+    leds: Leds instance for status feedback.
+    mgr: ESPNowManager — will be paused during BLE connect.
+    Returns (OpenSplat, DirectSplatController) or (None, None).
+    """
+    from ble_splat import OpenSplat
+
+    key = "SP:" + sp_mac
+    if key in _sp_connections:
+        entry = _sp_connections[key]
+        if entry["splat"].connected:
+            return entry["splat"], entry["ctrl"]
+        else:
+            print("  SP: stale connection for %s, reconnecting..." % sp_mac)
+            try:
+                entry["splat"].disconnect()
+            except Exception:
+                pass
+
+    print("  SP: Connecting to Splat %s via BLE..." % sp_mac)
+    leds.solid(0, 0, 15)
+
+    espnow_pause(mgr)
+
+    splat = OpenSplat(mac_address=sp_mac, verbose=False)
+    ctrl = DirectSplatController(splat)
+    splat.on_splat_pressed = ctrl.on_press
+    splat.on_splat_released = ctrl.on_release
+
+    ok = splat.connect(timeout=15)
+    if not ok:
+        print("  SP: First attempt failed, retrying...")
+        leds.flash(15, 8, 0, times=3, on_ms=80, off_ms=60)
+        ok = splat.connect(timeout=15)
+
+    if not ok:
+        print("  SP: [FAIL] Could not connect to Splat %s" % sp_mac)
+        leds.flash(15, 0, 0, times=5, on_ms=80, off_ms=60)
+        espnow_resume(mgr)
+        return None, None
+
+    print("  SP: BLE connected to %s!" % sp_mac)
+    leds.flash(0, 15, 0, times=3, on_ms=80, off_ms=60)
+
+    # NOTE: Do NOT call identifySplat() here — it starts an LED
+    # sequence on the Splat that blocks subsequent setLEDsON commands.
+
+    _sp_connections[key] = {"splat": splat, "ctrl": ctrl}
+    return splat, ctrl
+
+
+def sp_signal_idle(entry):
+    """Flash an LED pattern on the Splat to indicate idle/disconnected."""
+    splat = entry["splat"]
+    if not splat.connected:
+        return
+    try:
+        splat.soundOff()
+        time.sleep_ms(30)
+        splat.allLEDsOff()
+        time.sleep_ms(50)
+        # Flash orange 3 times
+        for _ in range(3):
+            splat.setLEDsON((255, 80, 0))
+            time.sleep_ms(200)
+            splat.allLEDsOff()
+            time.sleep_ms(150)
+    except Exception as e:
+        print("  SP idle signal err: %s" % str(e))
+
+
+def sp_disconnect_all(mgr=None):
+    """Signal idle on all Splats, then disconnect."""
+    for key in list(_sp_connections.keys()):
+        entry = _sp_connections[key]
+        try:
+            entry["ctrl"].clear_config()
+        except Exception:
+            pass
+        sp_signal_idle(entry)
+        try:
+            entry["splat"].disconnect()
+        except Exception:
+            pass
+        print("  SP: Disconnected %s" % key)
+    _sp_connections.clear()
+    espnow_resume(mgr)
+
+
+def sp_keepalive_all():
+    """Send keepalive to all connected Splats."""
+    for key, entry in _sp_connections.items():
+        if entry["splat"].connected:
+            try:
+                entry["splat"].keepAlive()
+            except Exception:
+                pass
+
+
+def sp_poll_switches_all():
+    """No longer needed — Splat sends button notifications via interrupt.
+    Kept as no-op for compatibility in case sp_loop.py calls it."""
+    pass
+
+
+def sp_process_pending_all():
+    """Process any pending press/release actions from BLE IRQ callbacks."""
+    for key, entry in _sp_connections.items():
+        entry["ctrl"].process_pending()
+
+
+def sp_reconnect_lost(leds, mgr=None):
+    """Check for lost connections and attempt reconnect."""
+    for key in list(_sp_connections.keys()):
+        entry = _sp_connections[key]
+        if not entry["splat"].connected:
+            sp_mac = key[3:]
+            print("  SP: [WARN] BLE lost for %s — reconnecting..." % sp_mac)
+            leds.solid(0, 0, 15)
+            espnow_pause(mgr)
+            ok = entry["splat"].connect(timeout=10)
+            if ok:
+                print("  SP: Reconnected %s!" % sp_mac)
+                leds.flash(0, 15, 0, times=2, on_ms=80, off_ms=60)
+            else:
+                print("  SP: Reconnect failed for %s" % sp_mac)
+
+
+def sp_has_connections():
+    """Check if any SP connections exist."""
+    return len(_sp_connections) > 0
+
+
+def sp_has_notes():
+    """Check if any SP connection has notes configured."""
+    for key, entry in _sp_connections.items():
+        if entry["ctrl"]._has_notes:
             return True
-        except Exception as e:
-            print("Send error: %s" % str(e))
-            return False
+    return False
 
-    def decode_button(self, value):
-        """Legacy method — now handled by _handle_button"""
-        self._handle_button(value)
 
-    def scanSplat(self, timeout=5):
-        """Scan for nearby Splat device"""
-        print("Scanning for Splat...")
-        self._reset_connection_state()
+def sp_wand_button_event(pressed):
+    """Forward wand button event to all SP controllers with notes."""
+    for key, entry in _sp_connections.items():
+        if entry["ctrl"]._has_notes:
+            entry["ctrl"].wand_button_event(pressed)
 
-        self._scanning = True
-        self._ble.gap_scan(0, 1000, 1000)
 
-        start = time.time()
-        while self._scanning and (time.time() - start < timeout):
-            time.sleep(0.1)
-
-        if self._scanning:
-            self._ble.gap_scan(None)
-            self._scanning = False
-
-        return self.mac_address
-
-    def connect(self, timeout=30):
-        """Connect to the Splat device"""
-        self._ble.active(True)
-
-        if self.connected:
-            return True
-
-        self._reset_connection_state()
-
-        self._scanning = True
-        self._ble.gap_scan(0, 30000, 30000)
-
-        start_time = time.time()
-        while not self.connected and (time.time() - start_time < timeout):
-            if not self._scanning and not self._connecting:
-                self._scanning = True
-                self._ble.gap_scan(0, 30000, 30000)
-            print(".", end="")
-            time.sleep(0.5)
-
-        if self._scanning:
-            self._ble.gap_scan(None)
-            self._scanning = False
-
-        if not self.connected:
-            print("\nConnection timeout after %ds" % timeout)
-            return False
-
-        start_time = time.time()
-        while (not self._tx_char_handle or not self._rx_char_handle) and (time.time() - start_time < 10):
-            time.sleep(0.5)
-
-        if not self._tx_char_handle or not self._rx_char_handle:
-            print("\nService setup failed")
-            self.disconnect()
-            return False
-
-        print("\nConnected successfully!")
-        return True
-
-    def disconnect(self):
-        """Disconnect from device"""
-        if self._conn_handle is not None:
-            self._ble.gap_disconnect(self._conn_handle)
-            self._conn_handle = None
-            self.connected = False
-            if self._verbose:
-                print("Disconnected from Splat")
-            self._ble.active(False)
-
-    def is_connected(self):
-        """Check if connected to device"""
-        return self.connected
-
-    # ── Command implementations ──
-
-    def keepAlive(self):
-        return self._write_command(bytearray(KEEP_ALIVE))
-
-    def soundOff(self):
-        return self._write_command(bytearray(SOUND_OFF))
-
-    def allLEDsOff(self):
-        return self._write_command(bytearray(ALL_LEDS_OFF))
-
-    def allTasksOff(self):
-        return self._write_command(bytearray(ALL_TASKS_OFF))
-
-    def readSwitches(self):
-        return self._write_command(bytearray(READ_SWITCHES))
-
-    def readBattery(self):
-        return self._write_command(bytearray(READ_BATTERY))
-
-    def identifySplat(self):
-        return self._write_command(bytearray(IDENTIFY_SPLAT))
-
-    def setVolume(self, vol):
-        return self._write_command(bytearray(SET_VOLUME + (vol,)))
-
-    def playSound(self, soundIndex, vol):
-        return self._write_command(bytearray(PLAY_SOUND + (soundIndex, vol)))
-
-    def playRecordedSound(self, soundIndex, vol):
-        return self._write_command(bytearray(PLAY_RECORDED_SOUND + (soundIndex, vol)))
-
-    def LEDsOff(self, lowByte, highByte):
-        return self._write_command(bytearray(LEDS_OFF + (lowByte, highByte)))
-
-    def setLEDsON(self, color):
-        return self._write_command(bytearray(
-            SET_LEDS + (0xFF, 0x3F, color[0], color[1], color[2])
-        ))
-
-    def setLEDs(self, leds, red, green, blue):
-        value = 0
-        for led in leds:
-            value = value | 1 << led
-        return self._write_command(bytearray(
-            SET_LEDS + (value & 0xFF, value >> 8 & 0xFF, red, green, blue)
-        ))
-
-    def playLEDSequence(self, seqIndex, red, green, blue, duration, loops):
-        return self._write_command(bytearray(
-            PLAY_LED_SEQUENCE + (seqIndex, red, green, blue, duration, loops)
-        ))
-
-    def flashLEDs(self, lowByte, highByte, red, green, blue, duration, flashes):
-        return self._write_command(bytearray(
-            FLASH_LEDS + (lowByte, highByte, red, green, blue, duration, flashes)
-        ))
-
-    def noteOn(self, note, velocity, octave, instrument):
-        return self._write_command(bytearray(
-            NOTE_ON + (note, octave, velocity, instrument)
-        ))
-
-    def noteOff(self, note, velocity, octave, instrument):
-        return self._write_command(bytearray(
-            NOTE_OFF + (note, octave, velocity, instrument)
-        ))
+def sp_get_connections():
+    """Return the connections dict (for cleanup in main)."""
+    return _sp_connections
