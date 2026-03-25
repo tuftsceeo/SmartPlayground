@@ -16,9 +16,20 @@ Usage:
 import network
 import espnow
 import json
+import time
+from machine import Pin
 
 
 BROADCAST_MAC = b'\xFF\xFF\xFF\xFF\xFF\xFF'
+
+
+def _configure_external_antenna():
+    """Switch to external antenna before WiFi activation."""
+    wifi_en = Pin(3, Pin.OUT)
+    ant_cfg = Pin(14, Pin.OUT)
+    wifi_en.value(0)
+    time.sleep_ms(100)
+    ant_cfg.value(1)  # External antenna
 
 
 def mac_str_to_bytes(mac_str):
@@ -34,6 +45,7 @@ def get_own_mac():
     sta = network.WLAN(network.STA_IF)
     was = sta.active()
     if not was:
+        _configure_external_antenna()
         sta.active(True)
     mac = ':'.join('%02X' % b for b in sta.config('mac'))
     if not was:
@@ -52,6 +64,7 @@ class ESPNowManager:
     def init(self):
         if self._active:
             return
+        _configure_external_antenna()
         sta = network.WLAN(network.STA_IF)
         sta.active(True)
         sta.disconnect()

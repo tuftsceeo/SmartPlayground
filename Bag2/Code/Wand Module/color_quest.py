@@ -19,6 +19,7 @@ import time
 import math
 import json
 import random
+from machine import Pin
 from neopixel import NeoPixel
 
 from pn532 import PN532, MIFARE_AUTH_A, MIFARE_AUTH_B
@@ -289,9 +290,22 @@ class GameDisplay:
 
 
 # ─────────────────────────────────────────────
+# EXTERNAL ANTENNA CONFIG
+# ─────────────────────────────────────────────
+def _configure_external_antenna():
+    """Switch to external antenna before WiFi activation."""
+    wifi_en = Pin(3, Pin.OUT)
+    ant_cfg = Pin(14, Pin.OUT)
+    wifi_en.value(0)
+    time.sleep_ms(100)
+    ant_cfg.value(1)  # External antenna
+
+
+# ─────────────────────────────────────────────
 # ESP-NOW RECEIVER
 # ─────────────────────────────────────────────
 def espnow_init():
+    _configure_external_antenna()
     sta = network.WLAN(network.STA_IF)
     sta.active(True)
     sta.disconnect()
