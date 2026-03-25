@@ -27,6 +27,7 @@ import network
 import espnow
 import time
 import math
+from machine import Pin
 from neopixel import NeoPixel
 
 from pn532 import PN532
@@ -59,7 +60,7 @@ STATE_OUT         = 4
 # Motion detection tuning
 MOVE_THRESHOLD   = 0.70   # sum of axis deltas in g
 MOVE_HITS_NEEDED = 2      # consecutive frames above threshold
-FREEZE_GRACE_MS  = 2000   # grace period after FREEZE before checking
+FREEZE_GRACE_MS  = 1000   # grace period after FREEZE before checking
 OUT_DURATION_MS  = 30_000 # time-out penalty
 
 # Timing
@@ -71,9 +72,22 @@ X_INDICES = [0, 4, 6, 8, 12, 16, 18, 20, 24]
 
 
 # ─────────────────────────────────────────────
+# EXTERNAL ANTENNA CONFIG
+# ─────────────────────────────────────────────
+def _configure_external_antenna():
+    """Switch to external antenna before WiFi activation."""
+    wifi_en = Pin(3, Pin.OUT)
+    ant_cfg = Pin(14, Pin.OUT)
+    wifi_en.value(0)
+    time.sleep_ms(100)
+    ant_cfg.value(1)  # External antenna
+
+
+# ─────────────────────────────────────────────
 # ESP-NOW SETUP
 # ─────────────────────────────────────────────
 def _espnow_init():
+    _configure_external_antenna()
     sta = network.WLAN(network.STA_IF)
     sta.active(True)
     sta.disconnect()
@@ -369,11 +383,20 @@ class FreezeDanceGame:
         print("  Tap STOP tag to exit.\n")
 
         while True:
-            # ── Check NFC ──
-            cmd = self._poll_nfc()
+            # ── Check NFC (caller and role-select only) ──
+            # Players skip NFC after choosing role to keep
+            # the ESP-NOW receive window open
+            cmd = None
+            if self.is_caller or self.state == STATE_ROLE_SELECT:
+                cmd = self._poll_nfc()
 
             if cmd == "stop":
                 print("  STOP tag — exiting Freeze Dance")
+                if self.is_caller:
+                    for _ in range(3):
+                        self.enow.send(BROADCAST, MSG_STOP)
+                        time.sleep_ms(15)
+                    print("  >> Broadcast: STOP (x3)")
                 _off(self.np)
                 return
 
@@ -394,14 +417,18 @@ class FreezeDanceGame:
                 print("  Role: PLAYER — dance on GO, freeze on FREEZE")
 
             elif cmd == "go" and self.is_caller:
-                self.enow.send(BROADCAST, MSG_GO)
+                for _ in range(3):
+                    self.enow.send(BROADCAST, MSG_GO)
+                    time.sleep_ms(15)
                 self._set_state(STATE_GO)
-                print("  >> Broadcast: GO")
+                print("  >> Broadcast: GO (x3)")
 
             elif cmd == "freeze" and self.is_caller:
-                self.enow.send(BROADCAST, MSG_FREEZE)
+                for _ in range(3):
+                    self.enow.send(BROADCAST, MSG_FREEZE)
+                    time.sleep_ms(15)
                 self._set_state(STATE_FREEZE)
-                print("  >> Broadcast: FREEZE")
+                print("  >> Broadcast: FREEZE (x3)")
 
             # ── Check ESP-NOW ──
             msg = self._poll_espnow()

@@ -87,6 +87,37 @@ class Leds:
         brightness = (math.sin(frame * 0.08) + 1) / 2
         self.solid(int(r * brightness), int(g * brightness), int(b * brightness))
 
+    # ── Idle breathing (wand power-on indicator) ──
+
+    def breathe_idle(self, frame):
+        """
+        Soft breathing glow across all LEDs to show the wand is on.
+        Very dim purple-white tint — visible but not blinding.
+        """
+        phase = (math.sin(frame * 0.06) + 1) / 2  # 0..1
+        level = 2 + int(6 * phase)  # range 2..8
+        r = level
+        g = int(level * 0.6)
+        b = level
+        for i in range(self.num):
+            self.np[i] = (r, g, b)
+        self.np.write()
+
+    def breathe_sleep(self, frame):
+        """
+        Even dimmer single-pixel breathing — NFC is sleeping.
+        Only center LED breathes, minimal power draw.
+        """
+        phase = (math.sin(frame * 0.04) + 1) / 2
+        level = 1 + int(4 * phase)  # range 1..5
+        center = self.num // 2
+        for i in range(self.num):
+            if i == center:
+                self.np[i] = (0, 0, level)
+            else:
+                self.np[i] = (0, 0, 0)
+        self.np.write()
+
     # ── Scanning (wand) ──
 
     def scan_animate(self, frame):

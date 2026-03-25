@@ -4,11 +4,11 @@ PlaygroundV5 – NFC Multi-Trigger Event Engine + Splat Companion
 Board: Seeed XIAO ESP32-C6
 Requires hubtype.txt containing: wand
 
-Triggers: buttondown, buttonup, shake, SC:<MAC>
+Triggers: buttondown, buttonup, shake, gesture:<n>, SC:<MAC>
 Actions:  playnote, notea-g, turnred/green/blue/purple/yellow/white/off,
           cat, chicken, cow, dog, pig, duck, elephant, horse, goat
 Combinators: and, then
-Controls: start, stop, colorquest, freezedance, jumpin
+Controls: start, stop, colorquest, freezedance
 Utility: battery
 """
 
@@ -21,6 +21,7 @@ from hubtype import HUB_TYPE, HUB_CONFIG
 from pn532 import PN532
 from lis2dw12 import LIS2DW12, RANGE_4G
 from max17048 import MAX17048
+from gesture_engine import GestureEngine, CONFIDENCE_THRESHOLD
 
 from leds import Leds, TRIGGER_ORDER
 from buzzer import Buzzer
@@ -53,6 +54,11 @@ UTILITY        = {"battery"}
 ALL_COMMANDS   = FIXED_TRIGGERS | ACTIONS | ANIMAL_SOUNDS | COMBINATORS | CONTROLS | UTILITY
 
 # ─────────────────────────────────────────────
+# NFC SLEEP TIMEOUT
+# ─────────────────────────────────────────────
+NFC_SLEEP_MS = 30_000  # 30 seconds of inactivity before NFC sleeps
+
+# ─────────────────────────────────────────────
 # HARDWARE
 # ─────────────────────────────────────────────
 i2c      = machine.SoftI2C(sda=machine.Pin(I2C_SDA), scl=machine.Pin(I2C_SCL), freq=HUB_CONFIG["i2c_freq"])
@@ -72,6 +78,9 @@ def parse_sc_mac(name):
     if not is_sc_trigger(name):
         return None
     return name[3:]
+
+def is_gesture_trigger(name):
+    return name is not None and name.startswith("gesture:")
 
 # ─────────────────────────────────────────────
 # SCAN FEEDBACK
@@ -111,6 +120,19 @@ def print_rules(rules, editing):
             print("  | %s -> (awaiting actions)%s" % (trig, marker))
 
     for trig in sorted(rules.keys()):
+        if is_gesture_trigger(trig):
+            gn = trig.split(":", 1)[1]
+            marker = " *" if trig == editing else ""
+            if len(rules[trig]) > 0:
+                print("  | gesture:%s -> [%s]%s" % (gn, chain_to_str(rules[trig]), marker))
+                has_any = True
+            elif trig == editing:
+                print("  | gesture:%s -> (awaiting actions)%s" % (gn, marker))
+
+    if is_gesture_trigger(editing) and editing not in rules:
+        print("  | %s -> (awaiting actions) *" % editing)
+
+    for trig in sorted(rules.keys()):
         if is_sc_trigger(trig):
             marker = " *" if trig == editing else ""
             if len(rules[trig]) > 0:
@@ -147,10 +169,17 @@ def check_broadcast(mgr, batt_ref, leds_ref, buz_ref):
 # ─────────────────────────────────────────────
 # EVENT LOOP (RUNNING)
 # ─────────────────────────────────────────────
-def run_event_loop(reader, rules, runner, accel_ref, mgr=None, batt_ref=None):
+def run_event_loop(reader, rules, runner, accel_ref, ge_ref, mgr=None, batt_ref=None):
     btn_was_down = (btn.value() == 0)
     if accel_ref and "shake" in rules:
         accel_ref.clear_wake()
+
+    gesture_last_fire = 0
+    g_map = {}
+    for tk in rules:
+        if is_gesture_trigger(tk) and len(rules[tk]) > 0:
+            g_map[tk.split(":", 1)[1]] = tk
+    has_g = len(g_map) > 0
 
     nfc_cnt = 0
     espnow_cnt = 0
@@ -180,6 +209,17 @@ def run_event_loop(reader, rules, runner, accel_ref, mgr=None, batt_ref=None):
             if int1_pin.value() == 1:
                 accel_ref.clear_wake(); time.sleep_ms(100); accel_ref.clear_wake()
                 fired = "shake"
+
+        if fired is None and ge_ref and has_g and ge_ref.loaded_gestures:
+            now = time.ticks_ms()
+            if time.ticks_diff(now, gesture_last_fire) > 800:
+                if ge_ref.poll_motion():
+                    name, conf, dist, ad = ge_ref.capture_and_classify()
+                    if name is not None and conf >= CONFIDENCE_THRESHOLD:
+                        tk = g_map.get(name)
+                        if tk:
+                            fired = tk
+                    gesture_last_fire = time.ticks_ms()
 
         if fired:
             chain = rules[fired]
@@ -242,9 +282,25 @@ def main():
         accel.init(fs_range=RANGE_4G)
         accel.enable_wake_int1(threshold=8)
         accel_ok = True
-        print("  Accelerometer OK — shake interrupt on INT1")
+        print("  Accelerometer OK")
     except Exception as e:
         print("  [WARN] Accel:"); sys.print_exception(e)
+
+    # Gesture engine
+    ge = None
+    ge_ok = False
+    try:
+        from neopixel import NeoPixel as NP
+        ge_np = NP(machine.Pin(HUB_CONFIG["led_pin"]), HUB_CONFIG["num_leds"])
+        ge = GestureEngine(i2c, ge_np, buzzer_pin=BUZZER_PIN)
+        ge.init()
+        ge_ok = True
+        print("  Gesture engine OK")
+    except Exception as e:
+        print("  [WARN] Gesture engine:"); sys.print_exception(e)
+
+    if ge_ok:
+        reader.gesture_engine = ge
 
     # Battery
     batt = None
@@ -261,27 +317,106 @@ def main():
     pending_combinator = None
     last_uid = None
 
-    leds.show_programming(rules, editing)
+    # ── Idle / NFC sleep state ──
+    last_activity_ms = time.ticks_ms()
+    nfc_sleeping = False
+    idle_frame = 0
+
+    leds.breathe_idle(0)
     print("\n  Tap a TRIGGER tag to start programming\n")
 
     while True:
         try:
+            # ─────────────────────────────────────
+            # NFC SLEEPING — minimal power mode
+            # ─────────────────────────────────────
+            if nfc_sleeping:
+                idle_frame += 1
+                leds.breathe_sleep(idle_frame)
+
+                # Check ESP-NOW broadcasts while sleeping
+                result = check_broadcast(mgr, batt, leds, buz)
+                if result == "stop":
+                    mgr.send_stop_all_peers(); mgr.clear_peers()
+                    rules = {}; editing = None; pending_combinator = None
+                    if ge: ge.clear_loaded()
+                    buz.stop()
+                    nfc_sleeping = False
+                    last_activity_ms = time.ticks_ms()
+                    idle_frame = 0
+                    leds.breathe_idle(0)
+                    print("  Reset via broadcast")
+                elif result == "battery":
+                    leds.breathe_sleep(idle_frame)
+
+                # Check accelerometer or button for wake
+                wake = False
+                if btn.value() == 0:
+                    wake = True
+                elif accel_ok:
+                    try:
+                        x, y, z = accel.read()
+                        mag = abs(x) + abs(y) + abs(z)
+                        # At rest mag ≈ 1.0g; movement pushes it above 1.4
+                        if mag > 1.4:
+                            wake = True
+                    except Exception:
+                        pass
+
+                if wake:
+                    print("  Movement detected — waking NFC")
+                    try:
+                        nfc.begin()
+                    except Exception as ex:
+                        print("  NFC wake error: %s" % str(ex))
+                    nfc_sleeping = False
+                    last_activity_ms = time.ticks_ms()
+                    idle_frame = 0
+                    leds.breathe_idle(0)
+
+                time.sleep_ms(100)
+                continue
+
+            # ─────────────────────────────────────
+            # NORMAL NFC POLLING
+            # ─────────────────────────────────────
             uid_peek, sak_peek = reader.detect_tag()
 
             if uid_peek is None:
                 if last_uid is not None:
                     last_uid = None
+
                 # Check broadcast while idle
                 result = check_broadcast(mgr, batt, leds, buz)
                 if result == "stop":
                     mgr.send_stop_all_peers(); mgr.clear_peers()
                     rules = {}; editing = None; pending_combinator = None
-                    buz.stop(); leds.show_programming(rules, editing)
+                    if ge: ge.clear_loaded()
+                    buz.stop()
+                    last_activity_ms = time.ticks_ms()
+                    idle_frame = 0
+                    leds.breathe_idle(0)
                     print("  Reset via broadcast")
                 elif result == "battery":
-                    leds.show_programming(rules, editing)
+                    last_activity_ms = time.ticks_ms()
+
+                # Idle breathing glow
+                idle_frame += 1
+                leds.breathe_idle(idle_frame)
+
+                # Check if we should sleep the NFC
+                if accel_ok and time.ticks_diff(time.ticks_ms(), last_activity_ms) > NFC_SLEEP_MS:
+                    nfc_sleeping = True
+                    print("  NFC sleeping (30s idle) — move or press button to wake")
+
                 time.sleep_ms(200)
                 continue
+
+            # ─────────────────────────────────────
+            # TAG DETECTED — reset activity timer
+            # ─────────────────────────────────────
+            last_activity_ms = time.ticks_ms()
+            idle_frame = 0
 
             if uid_peek == last_uid:
                 time.sleep_ms(200); continue
@@ -300,25 +435,43 @@ def main():
             # ── UTILITY ──
             if cmd == "battery":
                 show_battery(batt, leds, buz)
-                leds.show_programming(rules, editing); continue
+                last_activity_ms = time.ticks_ms()
+                idle_frame = 0
+                leds.breathe_idle(0); continue
 
             # ── COLOR QUEST ──
             if cmd == "colorquest":
                 leds.off()
                 play_color_quest(nfc, leds.np, buz)
-                leds.show_programming(rules, editing); last_uid = None; continue
+                last_activity_ms = time.ticks_ms()
+                idle_frame = 0
+                leds.breathe_idle(0); last_uid = None; continue
 
             # ── FREEZE DANCE ──
             if cmd == "freezedance":
                 leds.off()
                 play_freeze_dance(nfc, leds, buz, accel, i2c)
-                leds.show_programming(rules, editing); last_uid = None; continue
+                last_activity_ms = time.ticks_ms()
+                idle_frame = 0
+                leds.breathe_idle(0); last_uid = None; continue
 
             # ── JUMP IN ──
             if cmd == "jumpin":
                 leds.off()
                 play_jumpin(nfc, leds, buz, accel, i2c)
-                leds.show_programming(rules, editing); last_uid = None; continue
+                last_activity_ms = time.ticks_ms()
+                idle_frame = 0
+                leds.breathe_idle(0); last_uid = None; continue
+
+            # ── GESTURE TAG ──
+            if cmd.startswith("gesture:"):
+                if not ge_ok:
+                    buz.warn(); continue
+                editing = cmd; pending_combinator = None
+                buz.confirm()
+                last_activity_ms = time.ticks_ms()
+                idle_frame = 0
+                print_rules(rules, editing); leds.breathe_idle(0); continue
 
             # ── SC TAG ──
             if is_sc_cmd:
@@ -327,7 +480,9 @@ def main():
                 mgr.add_peer(sc_mac)
                 buz.confirm(); leds.flash(0, 15, 15, times=2, on_ms=80, off_ms=60)
                 print("  > Splat Companion: %s" % sc_mac)
-                print_rules(rules, editing); leds.show_programming(rules, editing); continue
+                last_activity_ms = time.ticks_ms()
+                idle_frame = 0
+                print_rules(rules, editing); leds.breathe_idle(0); continue
 
             print("  >> %s" % cmd)
 
@@ -337,7 +492,9 @@ def main():
                     buz.warn(); continue
                 editing = cmd; pending_combinator = None
                 buz.confirm()
-                print_rules(rules, editing); leds.show_programming(rules, editing)
+                last_activity_ms = time.ticks_ms()
+                idle_frame = 0
+                print_rules(rules, editing); leds.breathe_idle(0)
 
             # ── ACTION ──
             elif cmd in ACTIONS or cmd in ANIMAL_SOUNDS:
@@ -354,8 +511,9 @@ def main():
                 else:
                     rules[editing] = [[cmd]]
                 buz.confirm()
-
-                print_rules(rules, editing); leds.show_programming(rules, editing)
+                last_activity_ms = time.ticks_ms()
+                idle_frame = 0
+                print_rules(rules, editing); leds.breathe_idle(0)
 
             # ── COMBINATORS ──
             elif cmd == "and":
@@ -404,7 +562,7 @@ def main():
                 print("\n  >>> RUNNING %d rule(s) (%d local, %d remote)\n" % (total, len(local_rules), len(sc_rules)))
 
                 if local_rules:
-                    run_event_loop(reader, local_rules, runner, accel, mgr=mgr, batt_ref=batt)
+                    run_event_loop(reader, local_rules, runner, accel, ge, mgr=mgr, batt_ref=batt)
                 else:
                     print("  (Only remote. Tap STOP to end)")
                     while True:
@@ -420,14 +578,22 @@ def main():
                 mgr.send_stop_all_peers()
                 rules = {}; editing = None; pending_combinator = None; last_uid = None
                 mgr.clear_peers()
-                leds.off(); buz.stop(); leds.show_programming(rules, editing)
+                if ge: ge.clear_loaded()
+                leds.off(); buz.stop()
+                last_activity_ms = time.ticks_ms()
+                idle_frame = 0
+                leds.breathe_idle(0)
                 print("  <<< STOPPED\n  Tap a TRIGGER tag to reprogram\n")
 
             # ── STOP ──
             elif cmd == "stop":
                 mgr.send_stop_all_peers(); mgr.clear_peers()
                 rules = {}; editing = None; pending_combinator = None
-                buz.stop(); leds.show_programming(rules, editing)
+                if ge: ge.clear_loaded()
+                buz.stop()
+                last_activity_ms = time.ticks_ms()
+                idle_frame = 0
+                leds.breathe_idle(0)
 
             else:
                 buz.beep(200, 150)
