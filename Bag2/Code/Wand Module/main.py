@@ -17,6 +17,7 @@ import time
 import sys
 import json
 
+from hardware import setup_antenna
 from hubtype import HUB_TYPE, HUB_CONFIG
 from pn532 import PN532
 from lis2dw12 import LIS2DW12, RANGE_4G
@@ -61,6 +62,7 @@ buz      = Buzzer(BUZZER_PIN)
 btn      = machine.Pin(SWITCH_PIN, machine.Pin.IN, machine.Pin.PULL_UP)
 int1_pin = machine.Pin(ACCEL_INT1, machine.Pin.IN)
 motor    = machine.Pin(MOTOR_PIN, machine.Pin.OUT, value=0)
+
 
 # ─────────────────────────────────────────────
 # SC HELPERS
@@ -218,6 +220,8 @@ def main():
     print("  PlaygroundV5 -- Multi-Trigger Event Engine")
     print("  Hub type: %s" % HUB_TYPE)
     print("=" * 50)
+
+    setup_antenna()
 
     # NFC
     nfc = PN532(i2c, PN532_ADDR)

@@ -370,9 +370,16 @@ class FreezeDanceGame:
 
         while True:
             # ── Check NFC ──
-            cmd = self._poll_nfc()
+            # Players only need NFC for role select and stop; skip during gameplay
+            if self.is_caller or self.state in (STATE_ROLE_SELECT, STATE_READY):
+                cmd = self._poll_nfc()
+            else:
+                cmd = None
 
             if cmd == "stop":
+                for _ in range(10):
+                    self.enow.send(BROADCAST, MSG_STOP)
+                    time.sleep_ms(20)
                 print("  STOP tag — exiting Freeze Dance")
                 _off(self.np)
                 return
@@ -394,12 +401,16 @@ class FreezeDanceGame:
                 print("  Role: PLAYER — dance on GO, freeze on FREEZE")
 
             elif cmd == "go" and self.is_caller:
-                self.enow.send(BROADCAST, MSG_GO)
+                for _ in range(10):
+                    self.enow.send(BROADCAST, MSG_GO)
+                    time.sleep_ms(10)
                 self._set_state(STATE_GO)
                 print("  >> Broadcast: GO")
 
             elif cmd == "freeze" and self.is_caller:
-                self.enow.send(BROADCAST, MSG_FREEZE)
+                for _ in range(10):
+                    self.enow.send(BROADCAST, MSG_FREEZE)
+                    time.sleep_ms(10)
                 self._set_state(STATE_FREEZE)
                 print("  >> Broadcast: FREEZE")
 
@@ -512,3 +523,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+
+
