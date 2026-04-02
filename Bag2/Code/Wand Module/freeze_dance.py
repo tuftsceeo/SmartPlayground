@@ -4,8 +4,9 @@ Freeze Dance — ESP-NOW Multiplayer Motion Game for Wand Module
 All wands run the same code. On entry, each player taps either
 a CALLER or PLAYER tag to choose their role.
 
-  Caller:  Scans GO / FREEZE tags to control all player wands.
-           LED shows amber pulse. Not motion-checked.
+  Caller:  BUTTON press = GO, BUTTON release = FREEZE.
+           Also scans GO/FREEZE/STOP NFC tags (stop only when
+           button is not pressed). LED shows amber pulse.
   Player:  Dances during GO, must freeze during FREEZE.
            If caught moving → OUT for 30 seconds, then auto-rejoins.
 
@@ -66,6 +67,19 @@ OUT_DURATION_MS  = 30_000 # time-out penalty
 # Timing
 LOOP_DELAY_MS         = 40
 REPEAT_SCAN_GUARD_MS  = 1200
+
+# NFC poll throttle: check every Nth loop iteration (~N*40ms)
+NFC_POLL_INTERVAL = 5
+
+# Button debounce
+BTN_DEBOUNCE_MS = 30
+
+# How many times to send GO/FREEZE on button events
+BTN_SEND_REPEATS = 5
+BTN_SEND_DELAY_MS = 1
+
+# Button pin
+SWITCH_PIN = 0
 
 # 5x5 grid X pattern indices
 X_INDICES = [0, 4, 6, 8, 12, 16, 18, 20, 24]
@@ -281,6 +295,7 @@ class FreezeDanceGame:
         self.buz = buz
         self.enow = enow
         self.motion = MotionChecker(accel)
+        self.btn = machine.Pin(SWITCH_PIN, machine.Pin.IN, machine.Pin.PULL_UP)
 
         self.state = STATE_ROLE_SELECT
         self.state_ms = time.ticks_ms()
@@ -290,6 +305,12 @@ class FreezeDanceGame:
         # NFC debounce
         self.last_uid = None
         self.last_scan_ms = 0
+
+        # NFC poll throttle counter
+        self._nfc_poll_count = 0
+
+        # Caller button state
+        self._btn_was_down = False
 
     # ── State transitions ────────────────────
 
@@ -315,6 +336,46 @@ class FreezeDanceGame:
             self.out_until_ms = time.ticks_add(
                 time.ticks_ms(), OUT_DURATION_MS)
             _out_sound(self.buz)
+
+    # ── Caller: broadcast GO/FREEZE via button ──
+
+    def _send_go(self):
+        for _ in range(BTN_SEND_REPEATS):
+            self.enow.send(BROADCAST, MSG_GO)
+            time.sleep_ms(BTN_SEND_DELAY_MS)
+        self._set_state(STATE_GO)
+        print("  >> Button GO (x%d)" % BTN_SEND_REPEATS)
+
+    def _send_freeze(self):
+        for _ in range(BTN_SEND_REPEATS):
+            self.enow.send(BROADCAST, MSG_FREEZE)
+            time.sleep_ms(BTN_SEND_DELAY_MS)
+        self._set_state(STATE_FREEZE)
+        print("  >> Button FREEZE (x%d)" % BTN_SEND_REPEATS)
+
+    def _poll_caller_button(self):
+        """
+        Check button for caller GO/FREEZE control.
+        Press = GO, Release = FREEZE.
+        Returns True if a button event was handled.
+        """
+        btn_down = (self.btn.value() == 0)
+
+        if btn_down and not self._btn_was_down:
+            time.sleep_ms(BTN_DEBOUNCE_MS)
+            if self.btn.value() == 0:
+                self._btn_was_down = True
+                self._send_go()
+                return True
+
+        elif not btn_down and self._btn_was_down:
+            time.sleep_ms(BTN_DEBOUNCE_MS)
+            if self.btn.value() == 1:
+                self._btn_was_down = False
+                self._send_freeze()
+                return True
+
+        return False
 
     # ── NFC polling ──────────────────────────
 
@@ -380,33 +441,57 @@ class FreezeDanceGame:
         """
         print("\n  === FREEZE DANCE ===")
         print("  Tap CALLER or PLAYER tag to choose your role.")
+        print("  Caller: BUTTON = GO / release = FREEZE")
         print("  Tap STOP tag to exit.\n")
 
         while True:
-            # ── Check NFC (caller and role-select only) ──
-            # Players skip NFC after choosing role to keep
-            # the ESP-NOW receive window open
+            # ── Caller button: press=GO, release=FREEZE ──
+            # Only active once caller role is selected and in
+            # READY, GO, or FREEZE states
+            if self.is_caller and self.state in (
+                    STATE_READY, STATE_GO, STATE_FREEZE):
+                self._poll_caller_button()
+
+            # ── Check NFC ──
+            # Role select: always poll NFC for role tags
+            # Caller: poll for stop tag only when button is NOT pressed
+            # Player: skip NFC entirely (keep ESP-NOW window open)
             cmd = None
-            if self.is_caller or self.state == STATE_ROLE_SELECT:
-                cmd = self._poll_nfc()
+            should_poll_nfc = False
+
+            if self.state == STATE_ROLE_SELECT:
+                should_poll_nfc = True
+            elif self.is_caller and not self._btn_was_down:
+                should_poll_nfc = True
+
+            if should_poll_nfc:
+                self._nfc_poll_count += 1
+                if self._nfc_poll_count >= NFC_POLL_INTERVAL:
+                    self._nfc_poll_count = 0
+                    try:
+                        cmd = self._poll_nfc()
+                    except OSError as e:
+                        print("  [NFC timeout: %s — continuing]" % str(e))
+                        cmd = None
 
             if cmd == "stop":
                 print("  STOP tag — exiting Freeze Dance")
                 if self.is_caller:
-                    for _ in range(3):
+                    for _ in range(BTN_SEND_REPEATS):
                         self.enow.send(BROADCAST, MSG_STOP)
-                        time.sleep_ms(15)
-                    print("  >> Broadcast: STOP (x3)")
+                        time.sleep_ms(BTN_SEND_DELAY_MS)
+                    print("  >> Broadcast: STOP (x%d)" % BTN_SEND_REPEATS)
                 _off(self.np)
                 return
 
             if cmd == "caller" and self.state in (
                     STATE_ROLE_SELECT, STATE_READY):
                 self.is_caller = True
+                self._btn_was_down = False
                 _role_confirm_sound(self.buz)
                 _flash(self.np, 25, 12, 0, times=3, on_ms=80, off_ms=60)
                 self._set_state(STATE_READY)
-                print("  Role: CALLER — scan GO / FREEZE to control")
+                print("  Role: CALLER — button press=GO, release=FREEZE")
 
             elif cmd == "player" and self.state in (
                     STATE_ROLE_SELECT, STATE_READY):
@@ -416,19 +501,12 @@ class FreezeDanceGame:
                 self._set_state(STATE_READY)
                 print("  Role: PLAYER — dance on GO, freeze on FREEZE")
 
+            # NFC go/freeze tags still work for caller as backup
             elif cmd == "go" and self.is_caller:
-                for _ in range(3):
-                    self.enow.send(BROADCAST, MSG_GO)
-                    time.sleep_ms(15)
-                self._set_state(STATE_GO)
-                print("  >> Broadcast: GO (x3)")
+                self._send_go()
 
             elif cmd == "freeze" and self.is_caller:
-                for _ in range(3):
-                    self.enow.send(BROADCAST, MSG_FREEZE)
-                    time.sleep_ms(15)
-                self._set_state(STATE_FREEZE)
-                print("  >> Broadcast: FREEZE (x3)")
+                self._send_freeze()
 
             # ── Check ESP-NOW ──
             msg = self._poll_espnow()

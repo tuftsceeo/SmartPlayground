@@ -8,6 +8,15 @@ import network
 import espnow
 
 # -----------------------
+# --- EXTERNAL ANTENNA --
+# -----------------------
+wifi_en = Pin(3, Pin.OUT)
+ant_cfg = Pin(14, Pin.OUT)
+wifi_en.value(0)
+time.sleep_ms(100)
+ant_cfg.value(1)  # External antenna
+
+# -----------------------
 # --- SD CARD SETUP -----
 # -----------------------
 spi = machine.SPI(
@@ -60,41 +69,15 @@ def parse_wav_header(file):
     return sample_rate, bit_depth
 
 # -----------------------
-# --- SONG LIST --------
+# --- FIND SONG --------
 # -----------------------
-LAST_SONG_FILE = "/sd/lastsong.txt"
-
-def find_songs():
-    """Find all songN.wav files on SD and return sorted list."""
-    songs = []
-    for f in os.listdir("/sd"):
+def find_song():
+    """Find first songN.wav file on SD card."""
+    for f in sorted(os.listdir("/sd")):
         if f.startswith("song") and f.endswith(".wav"):
-            songs.append(f)
-    songs.sort()
-    print(f"Found {len(songs)} songs: {songs}")
-    return songs
-
-def load_last_song(songs):
-    """Read last played song index from file. Returns 0 if not found."""
-    try:
-        with open(LAST_SONG_FILE, "r") as f:
-            name = f.read().strip()
-            if name in songs:
-                idx = songs.index(name)
-                print(f"Resuming: {name} (index {idx})")
-                return idx
-    except:
-        pass
-    print("No saved song found, starting at song 0")
-    return 0
-
-def save_last_song(name):
-    """Save current song name to file."""
-    try:
-        with open(LAST_SONG_FILE, "w") as f:
-            f.write(name)
-    except Exception as ex:
-        print("Could not save last song:", ex)
+            print(f"Found: {f}")
+            return f
+    return None
 
 # -----------------------
 # --- ESP-NOW SETUP -----
@@ -108,98 +91,77 @@ peer = b'\xff\xff\xff\xff\xff\xff'
 e.add_peer(peer)
 
 # -----------------------
-# --- VOLUME CONTROL ----
+# --- STARTUP TONE ------
 # -----------------------
-VOL_LEVELS = [0, 10, 25, 40, 55, 70, 85, 100]
-vol_index = 7  # start at 100%
+def play_startup_tone(sample_rate):
+    """Play a soft 'ding ding' through I2S to indicate speaker is on."""
+    import math
 
-def apply_volume(buf, n):
-    """Scale 16-bit samples in-place using integer math."""
-    vol = VOL_LEVELS[vol_index]
-    if vol == 100:
-        return
-    for i in range(0, n, 2):
-        sample = ustruct.unpack_from('<h', buf, i)[0]
-        sample = (sample * vol) // 100
-        ustruct.pack_into('<h', buf, i, sample)
+    def _sine_buf(freq, duration_ms, vol=2000):
+        n_samples = (sample_rate * duration_ms) // 1000
+        buf = bytearray(n_samples * 2)
+        for i in range(n_samples):
+            # Sine wave with fade-in/fade-out envelope
+            t = i / n_samples
+            envelope = math.sin(t * math.pi)  # smooth rise and fall
+            val = int(vol * envelope * math.sin(2 * math.pi * freq * i / sample_rate))
+            ustruct.pack_into('<h', buf, i * 2, val)
+        return buf
 
-# -----------------------
-# --- GLOBAL STATE ------
-# -----------------------
-playing = True
-song_changed = False
-current_index = 0
+    silence = bytearray(256)
+    tone1 = _sine_buf(784, 140)    # G5 — ding
+    gap = bytearray(100)
+    tone2 = _sine_buf(1047, 160)   # C6 — ding (higher, ascending)
+
+    i2s.write(tone1)
+    i2s.write(gap)
+    i2s.write(tone2)
+    i2s.write(silence)
+
+
+playing = False  # start paused — wait for FD_GO
 
 # -----------------------
 # --- PLAY LOOP ---------
 # -----------------------
 def play_loop():
-    global playing, song_changed, current_index
+    global playing
 
-    songs = find_songs()
-    if len(songs) == 0:
-        print("ERROR: No songN.wav files found on SD card!")
+    filename = find_song()
+    if filename is None:
+        print("ERROR: No songN.wav file found on SD card!")
         return
 
-    current_index = load_last_song(songs)
-    song_changed = True  # trigger first song load
+    print(f"\n--- Loading: {filename} ---")
+    wav_file = open("/sd/" + filename, "rb")
+    sample_rate, bit_depth = parse_wav_header(wav_file)
+    setup_i2s(sample_rate, bit_depth)
+    wav_file.seek(44)
+    print(f"Loaded: {filename} | {sample_rate}Hz {bit_depth}-bit Mono")
+    print("Paused — waiting for FD_GO to start playing")
+    play_startup_tone(sample_rate)
 
-    buffer = bytearray(4096)
+    buffer = bytearray(1024)
     silence = bytearray(512)
-    wav_file = None
-    loop_count = 0
 
     try:
         while True:
-            # --- Load new song if changed ---
-            if song_changed:
-                song_changed = False
-                if wav_file:
-                    wav_file.close()
-
-                filename = songs[current_index]
-                print(f"\n--- Loading: {filename} ({current_index + 1}/{len(songs)}) ---")
-                save_last_song(filename)
-
-                wav_file = open("/sd/" + filename, "rb")
-                sample_rate, bit_depth = parse_wav_header(wav_file)
-                setup_i2s(sample_rate, bit_depth)
-                wav_file.seek(44)
-                playing = True
-                print(f"Playing: {filename} | {sample_rate}Hz {bit_depth}-bit Mono")
-
-            # --- Check ESP-NOW every ~20 iterations ---
-            loop_count += 1
-            if loop_count % 20 == 0:
-                try:
+            # --- Drain all pending ESP-NOW messages ---
+            try:
+                while True:
                     host, msg = e.recv(0)
-                    if msg:
-                        cmd = msg.decode().strip()
-                        if cmd == "FD_FREEZE":
-                            playing = False
-                            i2s.write(silence)
-                            print("Paused")
-                        elif cmd == "FD_GO":
-                            playing = True
-                            print("Playing")
-                        elif cmd == "FD_NEXT":
-                            current_index = (current_index + 1) % len(songs)
-                            song_changed = True
-                            print(">> Next")
-                            continue
-                        elif cmd == "FD_PREV":
-                            current_index = (current_index - 1) % len(songs)
-                            song_changed = True
-                            print("<< Previous")
-                            continue
-                        elif cmd == "FD_VOL_UP":
-                            vol_index = min(vol_index + 1, len(VOL_LEVELS) - 1)
-                            print(f"Volume: {VOL_LEVELS[vol_index]}%")
-                        elif cmd == "FD_VOL_DOWN":
-                            vol_index = max(vol_index - 1, 0)
-                            print(f"Volume: {VOL_LEVELS[vol_index]}%")
-                except Exception as ex:
-                    print("ESP-NOW error:", ex)
+                    if msg is None:
+                        break
+                    cmd = msg.decode().strip()
+                    if cmd == "FD_FREEZE" or cmd == "stop":
+                        playing = False
+                        i2s.write(silence)
+                        print("Paused")
+                    elif cmd == "FD_GO":
+                        playing = True
+                        print("Playing")
+            except Exception as ex:
+                print("ESP-NOW error:", ex)
 
             # --- Pause ---
             if not playing:
@@ -213,13 +175,10 @@ def play_loop():
                 print("Looping...")
                 continue
 
-            # --- Apply volume and write ---
-            apply_volume(buffer, n)
             i2s.write(buffer[:n])
 
     finally:
-        if wav_file:
-            wav_file.close()
+        wav_file.close()
 
 # -----------------------
 # --- MAIN -------------
