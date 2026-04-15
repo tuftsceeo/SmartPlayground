@@ -786,6 +786,10 @@ async function connectSerial() {
       } catch (_) {}
     })();
 
+    // Micropython boot delay
+    await sleep(1500);
+    flushBuf();
+
     serialPort.addEventListener("disconnect", () => {
       disconnectSerial();
       setStatus("serial-status", "⚠ Device was unplugged.", "warn");
@@ -856,11 +860,13 @@ async function execScript(script, timeoutMs = 4000) {
   return [(parts[0] || "").trim(), (parts[1] || "").trim()];
 }
 async function enterRawRepl() {
-  await ctrl("\x03", 300);
-  await ctrl("\x03", 300);
+  await ctrl("\x03", 200);
+  await ctrl("\x03", 200);
+  await ctrl("\x03", 200);
+  await readUntil(">>>", 2000);  // wait for device to confirm it's at REPL before proceeding
   flushBuf();
-  await ctrl("\x01", 400);
-  await readUntil(">", 1500);
+  await ctrl("\x01", 500);
+  await readUntil(">", 2000);
   flushBuf();
 }
 async function exitRawRepl() { await ctrl("\x02", 200); }
