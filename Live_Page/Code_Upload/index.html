@@ -479,6 +479,21 @@
 
       <button class="primary" onclick="saveConfig()" style="align-self:flex-start">💾 Save</button>
       <div id="config-status" class="status hidden"></div>
+
+      <!-- Write hub type to device -->
+      <div style="border-top:1px solid var(--border);padding-top:var(--space-sm);display:flex;flex-direction:column;gap:0.5rem;">
+        <div class="field">
+          <label class="field-label">Write hub type to connected device</label>
+          <div class="assign-row">
+            <select id="assign-hubtype" class="mono-select" disabled>
+              <option value="">— select type —</option>
+            </select>
+            <input type="text" id="assign-hubname" placeholder="hub name (optional)" />
+            <button class="secondary" id="btn-assign" onclick="writeHubType()" disabled style="min-height:36px;padding:0.4rem 0.75rem;white-space:nowrap;">Write to device</button>
+          </div>
+        </div>
+        <div id="assign-status" class="status hidden"></div>
+      </div>
     </div>
   </div>
 
@@ -597,6 +612,7 @@ function renderMappings() {
       `<button class="btn-remove" onclick="removeMapping(this)">✕</button>`;
     list.appendChild(row);
   }
+  renderAssignDropdown();
 }
 
 function escHtml(str) {
@@ -645,6 +661,7 @@ function saveConfig() {
   config.hubTypeMap = newMap;
 
   saveConfigToStorage();
+  renderAssignDropdown();
   setStatus("config-status", "✅ Saved.", "success");
 }
 
@@ -684,6 +701,70 @@ function setProgress(pct) {
 function updateUploadBtn() {
   const connected = document.getElementById("btn-connect").disabled;
   document.getElementById("btn-upload").disabled = !connected;
+  updateAssignBtn();
+}
+
+function updateAssignBtn() {
+  const connected = !!serialPort;
+  const sel = document.getElementById("assign-hubtype");
+  const btn = document.getElementById("btn-assign");
+  if (sel) sel.disabled = !connected;
+  if (btn) btn.disabled = !connected;
+}
+
+function renderAssignDropdown() {
+  const sel = document.getElementById("assign-hubtype");
+  if (!sel) return;
+  const prev = sel.value;
+  sel.innerHTML = '<option value="">— select type —</option>';
+  for (const hubType of Object.keys(config.hubTypeMap)) {
+    const opt = document.createElement("option");
+    opt.value = hubType;
+    opt.textContent = hubType;
+    sel.appendChild(opt);
+  }
+  if (prev && config.hubTypeMap[prev]) sel.value = prev;
+}
+
+async function writeHubType() {
+  const hubType = document.getElementById("assign-hubtype").value;
+  const hubName = document.getElementById("assign-hubname").value.trim();
+  if (!hubType) { setStatus("assign-status", "⚠ Select a hub type first.", "warn"); return; }
+
+  document.getElementById("btn-assign").disabled = true;
+  setStatus("assign-status", "⏳ Writing to device…", "info");
+
+  try {
+    await enterRawRepl();
+
+    const [, e1] = await execScript(
+      `f=open("hubType.txt","w")\nf.write(${JSON.stringify(hubType)})\nf.close()\n`, 3000
+    );
+    if (e1) throw new Error(e1);
+
+    if (hubName) {
+      const [, e2] = await execScript(
+        `f=open("hubName.txt","w")\nf.write(${JSON.stringify(hubName)})\nf.close()\n`, 3000
+      );
+      if (e2) throw new Error(e2);
+    }
+
+    await exitRawRepl();
+
+    document.getElementById("info-type").textContent = hubType;
+    document.getElementById("info-name").textContent = hubName || "unknown";
+    document.getElementById("device-info").classList.remove("hidden");
+    updateUploadBtn();
+
+    const label = hubName ? `${hubName} (${hubType})` : hubType;
+    setStatus("assign-status", `✅ Written — ${label}`, "success");
+    setStatus("serial-status", `✅ Connected — ${label}`, "success");
+  } catch (e) {
+    setStatus("assign-status", `❌ ${e.message}`, "error");
+    try { await exitRawRepl(); } catch (_) {}
+  } finally {
+    updateAssignBtn();
+  }
 }
 
 function refreshFileList() {
@@ -893,6 +974,7 @@ async function disconnectSerial() {
   document.getElementById("info-name").textContent = "—";
   document.getElementById("info-type").textContent = "—";
   setStatus("serial-status", "⏏ Disconnected.", "info");
+  document.getElementById("upload-status").className = "status hidden";
   document.getElementById("btn-connect").disabled    = false;
   document.getElementById("btn-upload").disabled     = true;
   document.getElementById("btn-disconnect").disabled = true;
