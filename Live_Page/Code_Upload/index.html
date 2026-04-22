@@ -398,6 +398,39 @@
       color: var(--text-soft);
       flex-shrink: 0;
     }
+
+    /* Assign hub type section */
+    .assign-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr auto;
+      gap: 0.4rem;
+      align-items: center;
+    }
+    select.mono-select {
+      font-family: var(--mono);
+      font-size: var(--fs-mono);
+      background: var(--bg);
+      border: 1px solid var(--border-mid);
+      border-radius: var(--radius);
+      color: var(--text);
+      padding: 0.48rem 0.7rem;
+      width: 100%;
+      outline: none;
+      cursor: pointer;
+      appearance: none;
+      -webkit-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%239a9890'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 0.65rem center;
+      padding-right: 2rem;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    select.mono-select:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(45,91,227,0.1);
+      background-color: var(--surface);
+    }
+    select.mono-select:disabled { opacity: 0.4; cursor: not-allowed; }
   </style>
 </head>
 <body>
@@ -771,23 +804,48 @@ async function connectSerial() {
   try {
     serialPort = await navigator.serial.requestPort();
     await serialPort.open({ baudRate: BAUD_RATE });
-    serialWriter = serialPort.writable.getWriter();
-    readBuf = "";
     const dec = new TextDecoder();
-    serialReader = serialPort.readable.getReader();
-    (async () => {
-      try {
-        while (true) {
-          const { value, done } = await serialReader.read();
-          if (done) break;
-          readBuf += dec.decode(value, { stream: true });
-          notifyWaiters();
-        }
-      } catch (_) {}
-    })();
 
-    // Micropython boot delay
+    const startReadLoop = () => {
+      serialWriter = serialPort.writable.getWriter();
+      readBuf = "";
+      serialReader = serialPort.readable.getReader();
+      let reenumDetected = false;
+      (async () => {
+        try {
+          while (true) {
+            const { value, done } = await serialReader.read();
+            if (done) { reenumDetected = true; break; }
+            readBuf += dec.decode(value, { stream: true });
+            notifyWaiters();
+          }
+        } catch (_) { reenumDetected = true; }
+      })();
+      return () => reenumDetected;
+    };
+
+    let wasReenumed = startReadLoop();
+
+    // Wait for boot, then check if the read loop died from USB re-enumeration.
+    // This happens on fresh plug-in: ESP32 first presents a boot ROM CDC, then
+    // MicroPython replaces it with its own CDC — killing our initial connection.
     await sleep(1500);
+    // Re-enumeration can manifest two ways: the stream closes (done=true, caught by wasReenumed)
+    // or it silently freezes — the read() call just hangs and no data ever arrives.
+    // Both cases look the same from here: readBuf is empty after 1500ms.
+    if (wasReenumed() || !readBuf) {
+      log("⏳ USB re-enumeration detected — waiting for MicroPython CDC…", "info");
+      try { await serialReader.cancel(); } catch (_) {}  // unblock any frozen read()
+      try { serialReader.releaseLock(); } catch (_) {}
+      serialReader = null;
+      try { serialWriter.releaseLock(); } catch (_) {}
+      serialWriter = null;
+      try { await serialPort.close(); } catch (_) {}
+      await sleep(2500);
+      await serialPort.open({ baudRate: BAUD_RATE });
+      startReadLoop();
+      await sleep(500);
+    }
     flushBuf();
 
     serialPort.addEventListener("disconnect", () => {
@@ -795,7 +853,7 @@ async function connectSerial() {
       setStatus("serial-status", "⚠ Device was unplugged.", "warn");
     });
 
-    log(`Connected at ${BAUD_RATE} baud.`);
+    log(`Connected at ${BAUD_RATE} baud.`, "dim");
     setStatus("serial-status", "⏳ Reading device info …", "info");
 
     const { hubType, hubName } = await readDeviceInfo();
@@ -860,10 +918,12 @@ async function execScript(script, timeoutMs = 4000) {
   return [(parts[0] || "").trim(), (parts[1] || "").trim()];
 }
 async function enterRawRepl() {
-  await ctrl("\x03", 200);
-  await ctrl("\x03", 200);
-  await ctrl("\x03", 200);
-  await readUntil(">>>", 2000);  // wait for device to confirm it's at REPL before proceeding
+  flushBuf();
+  for (let i = 0; i < 15; i++) {
+    await ctrl("\x03", 100);
+    await sleep(800);
+    if (readBuf.includes(">>>")) break;
+  }
   flushBuf();
   await ctrl("\x01", 500);
   await readUntil(">", 2000);
