@@ -9,6 +9,17 @@ then the player must find & tap matching NFC tags in order.
   Rows 1-3:       Scan animation / effects area
   Row 4 (bottom): Colors collected so far (bright)
 
+Rescan support: tapping the "color_quest_scan" tag sends an ESP-NOW
+scan_request to the Programming Station. While the card is held the
+wand shows a rotating spinner on the matrix perimeter. The
+scan_request is only sent once per physical placement — the wand must
+be lifted and replaced to resend. When the station's reply arrives,
+the usual "new sequence" beeps fire and the new round starts.
+
+Button behavior:
+  During active play      — ignored
+  After a successful win  — triggers a 5-second rainbow dance (repeatable)
+
 Requires /lib/: pn532.py, nfc_reader.py, buzzer.py
 """
 
@@ -67,6 +78,9 @@ CROSS_LEDS = [0, 4, 6, 8, 12, 16, 18, 20, 24]
 # Middle area LEDs (rows 1-3) for scan animation
 MIDDLE_LEDS = list(range(5, 20))
 
+# Perimeter LEDs, clockwise from top-left — used by the scan-wait spinner
+PERIMETER = [0, 1, 2, 3, 4, 9, 14, 19, 24, 23, 22, 21, 20, 15, 10, 5]
+
 # ─────────────────────────────────────────────
 # COLOR MAP — GRB tuples for SK6812
 # ─────────────────────────────────────────────
@@ -90,6 +104,66 @@ for k, v in COLOR_BRIGHT.items():
 OFF = (0, 0, 0)
 RED_X = (50, 0, 0)
 GREEN_WIN = (0, 50, 0)
+
+# ─────────────────────────────────────────────
+# RESCAN TAG — triggers a fresh scan request to the station
+# ─────────────────────────────────────────────
+RESCAN_TAG = "color_quest_scan"
+BROADCAST_MAC = b'\xFF\xFF\xFF\xFF\xFF\xFF'
+
+# Module-level state:
+#
+# _last_rescan_uid — debounce. Set to the rescan tag's UID when a request
+#   is sent; cleared on card removal or non-rescan tag read. Prevents
+#   duplicate sends while the card is held across round transitions.
+#
+# _awaiting_scan_reply — True while the wand has sent a scan_request and
+#   is waiting for the station's colors reply. Controls the waiting
+#   animation on the matrix. Cleared when the reply arrives OR when the
+#   card is removed (user canceled).
+
+_last_rescan_uid = None
+_awaiting_scan_reply = False
+
+
+def _rescan_seen(enow, uid):
+    """
+    Called when the rescan tag is read. Sends a scan_request exactly once
+    per physical placement. Returns True if a request was sent this call,
+    False if suppressed because the same placement was already processed
+    or because the send itself failed.
+    """
+    global _last_rescan_uid, _awaiting_scan_reply
+    if uid == _last_rescan_uid:
+        return False  # already sent for this placement; waiting for lift
+    _last_rescan_uid = uid
+    try:
+        enow.send(BROADCAST_MAC, json.dumps({"type": "scan_request"}))
+        _awaiting_scan_reply = True
+        print("  RESCAN tag — scan_request sent (awaiting reply)")
+        return True
+    except Exception as ex:
+        print("  scan_request send err: %s" % str(ex))
+        return False
+
+
+def _rescan_cleared():
+    """Arm the debounce for a new placement. Called when the reader
+    reports no tag, when a non-rescan tag is read, or at session start.
+    Also cancels any in-flight waiting animation — the player lifted
+    the card without a reply arriving."""
+    global _last_rescan_uid, _awaiting_scan_reply
+    _last_rescan_uid = None
+    _awaiting_scan_reply = False
+
+
+def _rescan_reply_received():
+    """The station's reply landed. Clear the waiting animation flag but
+    leave the debounce set — if the player is still holding the rescan
+    card into the new round, we don't want to immediately resend."""
+    global _awaiting_scan_reply
+    _awaiting_scan_reply = False
+
 
 # ─────────────────────────────────────────────
 # NFC TAG READING (proven patterns from nfc_reader.py)
@@ -207,7 +281,6 @@ class GameDisplay:
     def scan_animate(self, frame, targets, found_count):
         """Animate middle rows during NFC scan, preserve game rows."""
         self.show_game_state(targets, found_count)
-        center = 2  # middle of middle area (row 2, col 2 = LED 12)
         for row in range(1, 4):
             for col in range(5):
                 idx = rc(row, col)
@@ -253,8 +326,14 @@ class GameDisplay:
             time.sleep_ms(40)
         time.sleep_ms(500)
 
+    def solid_green(self):
+        """Static green hold — used between rainbow bursts in victory state."""
+        for i in range(NUM_LEDS):
+            self.np[i] = GREEN_WIN
+        self.np.write()
+
     def rainbow_dance(self, duration_ms=3000):
-        """Rainbow cycle across all 25 LEDs."""
+        """Rainbow cycle across all 25 LEDs for a fixed duration."""
         start = time.ticks_ms()
         while time.ticks_diff(time.ticks_ms(), start) < duration_ms:
             t = time.ticks_diff(time.ticks_ms(), start)
@@ -266,10 +345,29 @@ class GameDisplay:
             time.sleep_ms(20)
 
     def show_waiting(self, frame):
-        """Breathing blue while waiting for ESP-NOW."""
+        """Breathing blue while waiting for ESP-NOW (operator broadcast)."""
         brightness = int((math.sin(frame * 0.08) + 1) * 12)
         for i in range(NUM_LEDS):
             self.np[i] = (0, 0, brightness)
+        self.np.write()
+
+    def show_scan_waiting(self):
+        """Rotating spinner on the matrix perimeter with a fading tail —
+        shown while a scan_request is in flight to the Programming Station.
+
+        Time-based (uses time.ticks_ms()) so the animation speed is
+        independent of the calling loop's frame rate. The NFC polling
+        path can drop frame rate to ~7fps and this still looks like
+        an active animation.
+        """
+        # 80ms per LED step × 16 LEDs = 1.28 sec per full rotation
+        pos = (time.ticks_ms() // 80) % len(PERIMETER)
+        for i in range(NUM_LEDS):
+            self.np[i] = OFF
+        # Head + 3-LED fading tail — purple (red + blue)
+        for offset, level in enumerate((40, 24, 12, 5)):
+            led_idx = PERIMETER[(pos - offset) % len(PERIMETER)]
+            self.np[led_idx] = (level // 2, 0, level)
         self.np.write()
 
     @staticmethod
@@ -316,14 +414,16 @@ def espnow_init():
         e.add_peer(SCORE_MAC)
     except Exception:
         pass
-    # Also add broadcast if score target isn't already broadcast
-    if SCORE_MAC != b'\xFF\xFF\xFF\xFF\xFF\xFF':
+    # Also add broadcast — needed both to receive station broadcasts and
+    # to send the scan_request.
+    if SCORE_MAC != BROADCAST_MAC:
         try:
-            e.add_peer(b'\xFF\xFF\xFF\xFF\xFF\xFF')
+            e.add_peer(BROADCAST_MAC)
         except Exception:
             pass
     print("ESP-NOW listening...")
     return e
+
 
 def send_score(enow, targets, elapsed_ms):
     """Send timing result to the scoreboard."""
@@ -342,6 +442,33 @@ def send_score(enow, targets, elapsed_ms):
     except Exception as ex:
         print("  Score send error: %s" % str(ex))
 
+
+# ─────────────────────────────────────────────
+# SHARED ESP-NOW PARSING
+# ─────────────────────────────────────────────
+def _parse_incoming(msg):
+    """Decode an ESP-NOW message payload. Returns one of:
+      ("stop", None), ("colors", [list]), (None, None)
+    """
+    try:
+        raw = msg.decode('utf-8').strip()
+    except Exception:
+        return None, None
+    if raw.lower() in ('"stop"', 'stop'):
+        return "stop", None
+    try:
+        commands = json.loads(raw)
+    except Exception:
+        return None, None
+    if isinstance(commands, list) and len(commands) > 0:
+        if "stop" in commands:
+            return "stop", None
+        colors = [c for c in commands if c in COLOR_BRIGHT]
+        if colors:
+            return "colors", colors
+    return None, None
+
+
 def wait_for_commands(enow, display, nfc, last_espnow=None):
     """
     Block until we receive a command source.
@@ -351,42 +478,49 @@ def wait_for_commands(enow, display, nfc, last_espnow=None):
         print("Waiting for new sequence (button = replay last)...")
     else:
         print("Waiting for color sequence (button = random quest)...")
-    print("  Tap STOP tag or send \"stop\" via ESP-NOW to exit\n")
+    print("  Tap STOP tag or send \"stop\" via ESP-NOW to exit")
+    print("  Tap %s tag to request a new sequence from the station\n" % RESCAN_TAG)
     btn = machine.Pin(SWITCH_PIN, machine.Pin.IN, machine.Pin.PULL_UP)
     frame = 0
 
     while True:
-        display.show_waiting(frame)
+        # Spinner while the wand has a scan_request pending; breathing
+        # blue otherwise (the general "waiting for any sequence" state).
+        if _awaiting_scan_reply:
+            display.show_scan_waiting()
+        else:
+            display.show_waiting(frame)
         frame += 1
 
         # Check ESP-NOW
         host, msg = enow.irecv(50)
         if msg:
-            try:
-                raw = msg.decode('utf-8').strip()
-                # Check for bare "stop" string
-                if raw.lower() == '"stop"' or raw.lower() == 'stop':
-                    print("  ESP-NOW: stop received")
-                    return "stop", False
-                commands = json.loads(raw)
-                if isinstance(commands, list) and len(commands) > 0:
-                    # Check if sequence contains "stop"
-                    if "stop" in commands:
-                        print("  ESP-NOW: stop received")
-                        return "stop", False
-                    colors = [c for c in commands if c in COLOR_BRIGHT]
-                    if colors:
-                        print("Received: %s" % str(colors))
-                        return colors, True
-            except Exception as ex:
-                print("  Parse error: %s" % str(ex))
+            kind, payload = _parse_incoming(msg)
+            if kind == "stop":
+                print("  ESP-NOW: stop received")
+                _rescan_reply_received()
+                return "stop", False
+            if kind == "colors":
+                print("Received: %s" % str(payload))
+                _rescan_reply_received()
+                return payload, True
 
-        # Check NFC for stop tag
-        if frame % 10 == 0:  # every ~0.5s to avoid slowing the animation
+        # Check NFC every ~0.5s for stop or rescan
+        if frame % 10 == 0:
             text, uid = read_tag_text(nfc)
-            if text == "stop":
+            if uid is None:
+                # Tag lifted — re-arm the rescan debounce
+                _rescan_cleared()
+            elif text == RESCAN_TAG:
+                _rescan_seen(enow, uid)
+                # Reply will arrive as a colors list on a subsequent ESP-NOW
+                # poll above and return from this function.
+            elif text == "stop":
                 print("  STOP tag detected")
                 return "stop", False
+            else:
+                # Some other tag — re-arm so a later rescan tap fires fresh
+                _rescan_cleared()
 
         # Button: replay last ESP-NOW sequence, or random if none
         if btn.value() == 0:
@@ -402,19 +536,116 @@ def wait_for_commands(enow, display, nfc, last_espnow=None):
 
 
 # ─────────────────────────────────────────────
+# POST-WIN WAIT — button triggers rainbow, rescan/stop/new colors exit
+# ─────────────────────────────────────────────
+def _post_win_wait(enow, display, nfc, buz):
+    """Holds the victory green state after a win. Returns to caller on:
+      - Stop tag / ESP-NOW stop         -> "stop"
+      - ESP-NOW new colors list         -> that list
+    Button press plays a 5-second rainbow dance and returns to holding
+    green. The rescan tag sends a scan_request (debounced) and switches
+    to the scan-waiting spinner until the reply arrives or the card is lifted.
+    """
+    print("\n  Victory! Press button for rainbow, tap %s for next round, stop to exit\n" % RESCAN_TAG)
+
+    btn = machine.Pin(SWITCH_PIN, machine.Pin.IN, machine.Pin.PULL_UP)
+    # Initialize to current state so a button still held from the last
+    # color tap (unlikely but possible) doesn't trigger a rainbow.
+    last_btn = btn.value()
+    last_uid = None
+    frame = 0
+    prev_awaiting = False
+
+    # Clear stale rescan state so the first post-win tap fires.
+    _rescan_cleared()
+
+    while True:
+        # ── Render: spinner when scan reply pending, else solid green.
+        # Green is static — only redraw on the transition out of waiting.
+        # Spinner needs to be redrawn every frame.
+        awaiting_now = _awaiting_scan_reply
+        if awaiting_now:
+            display.show_scan_waiting()
+        elif prev_awaiting:
+            display.solid_green()
+        prev_awaiting = awaiting_now
+
+        # ── Button: trigger 5s rainbow on rising edge of press ──
+        cur = btn.value()
+        if last_btn == 1 and cur == 0:
+            time.sleep_ms(30)  # debounce
+            if btn.value() == 0:
+                while btn.value() == 0:
+                    time.sleep_ms(10)
+                print("  Button pressed — rainbow!")
+                display.rainbow_dance(5000)
+                # After the rainbow, restore whichever state we're in.
+                if not _awaiting_scan_reply:
+                    display.solid_green()
+                # If awaiting, the next loop iter's render will redraw the
+                # spinner on top of the rainbow's final frame.
+        last_btn = cur
+
+        # ── ESP-NOW: new colors or stop ──
+        host, msg = enow.irecv(0)
+        if msg:
+            kind, payload = _parse_incoming(msg)
+            if kind == "stop":
+                print("  ESP-NOW: stop received")
+                buz.beep(800, 80); time.sleep_ms(30); buz.beep(400, 200)
+                _rescan_reply_received()
+                display.clear()
+                return "stop"
+            if kind == "colors":
+                print("  NEW SEQUENCE received: %s" % str(payload))
+                buz.beep(600, 50); time.sleep_ms(30); buz.beep(900, 50)
+                _rescan_reply_received()
+                display.clear()
+                return payload
+
+        # ── NFC: rescan or stop (checked periodically) ──
+        # Full NDEF read takes ~500ms+ — don't do it every frame or the
+        # loop stalls and the button feels sluggish.
+        if frame % 15 == 0:
+            tag = nfc.read_passive_target(timeout=100)
+            if tag is None:
+                if last_uid is not None:
+                    last_uid = None
+                _rescan_cleared()
+            elif tag['uid_hex'] != last_uid:
+                last_uid = tag['uid_hex']
+                text, _uid = read_tag_text(nfc)
+                if text == RESCAN_TAG:
+                    # Send quietly — the spinner taking over is the ack.
+                    _rescan_seen(enow, tag['uid_hex'])
+                elif text == "stop":
+                    print("  STOP tag — exiting")
+                    buz.beep(800, 80); time.sleep_ms(30); buz.beep(400, 200)
+                    display.clear()
+                    return "stop"
+                # Any other tag is ignored during victory
+
+        frame += 1
+        time.sleep_ms(20)
+
+
+# ─────────────────────────────────────────────
 # GAME LOOP
 # ─────────────────────────────────────────────
 def run_game(nfc, buz, display, targets, enow, start_ticks=None):
     """
     Main game: find and tap NFC tags in the correct color order.
+
     start_ticks: time.ticks_ms() when sequence was received (for timing).
     Returns:
-      "win"   — completed successfully
-      "reset" — button pressed, restart same sequence
-      "stop"  — stop tag tapped, exit game
-      list    — new ESP-NOW sequence received
+      "stop"  — stop tag tapped (during game or during post-win wait)
+      list    — new ESP-NOW sequence received (during game or after win)
+
+    Button presses during active play are ignored. After a win, the button
+    triggers a 5-second rainbow dance in the post-win wait state. While a
+    rescan card is held on the wand, the matrix shows a rotating spinner
+    instead of the game state.
     """
-    btn = machine.Pin(SWITCH_PIN, machine.Pin.IN, machine.Pin.PULL_UP)
     n = len(targets)
     found = 0
     last_uid = None
@@ -428,7 +659,7 @@ def run_game(nfc, buz, display, targets, enow, start_ticks=None):
     print("  Find these colors in order:")
     for i, t in enumerate(targets):
         print("    %d. %s" % (i + 1, t))
-    print("  Timer running! (Press button to reset)\n")
+    print()
 
     # Opening fanfare
     buz.beep(523, 80)
@@ -441,51 +672,28 @@ def run_game(nfc, buz, display, targets, enow, start_ticks=None):
     display.clear()
 
     while found < n:
-        # ── Check button for reset ──
-        if btn.value() == 0:
-            time.sleep_ms(30)
-            if btn.value() == 0:
-                print("  RESET — starting over!")
-                buz.beep(400, 80)
-                time.sleep_ms(30)
-                buz.beep(300, 120)
-                while btn.value() == 0:
-                    time.sleep_ms(10)
-                return "reset"
-
         # ── Check for new ESP-NOW sequence or stop ──
         host, msg = enow.irecv(0)
         if msg:
-            try:
-                raw = msg.decode('utf-8').strip()
-                if raw.lower() == '"stop"' or raw.lower() == 'stop':
-                    print("  ESP-NOW: stop received")
-                    buz.beep(800, 80)
-                    time.sleep_ms(30)
-                    buz.beep(400, 200)
-                    display.clear()
-                    return "stop"
-                commands = json.loads(raw)
-                if isinstance(commands, list) and len(commands) > 0:
-                    if "stop" in commands:
-                        print("  ESP-NOW: stop received")
-                        buz.beep(800, 80)
-                        time.sleep_ms(30)
-                        buz.beep(400, 200)
-                        display.clear()
-                        return "stop"
-                    colors = [c for c in commands if c in COLOR_BRIGHT]
-                    if colors:
-                        print("  NEW SEQUENCE received: %s" % str(colors))
-                        buz.beep(600, 50)
-                        time.sleep_ms(30)
-                        buz.beep(900, 50)
-                        return colors
-            except Exception:
-                pass
+            kind, payload = _parse_incoming(msg)
+            if kind == "stop":
+                print("  ESP-NOW: stop received")
+                buz.beep(800, 80); time.sleep_ms(30); buz.beep(400, 200)
+                _rescan_reply_received()
+                display.clear()
+                return "stop"
+            if kind == "colors":
+                print("  NEW SEQUENCE received: %s" % str(payload))
+                buz.beep(600, 50); time.sleep_ms(30); buz.beep(900, 50)
+                _rescan_reply_received()
+                return payload
 
-        # Draw game state with pulsing current target
-        display.show_game_state(targets, found, frame)
+        # ── Render: scan-waiting spinner when a scan_request is pending,
+        # otherwise the normal game state. ──
+        if _awaiting_scan_reply:
+            display.show_scan_waiting()
+        else:
+            display.show_game_state(targets, found, frame)
         frame += 1
 
         # Quick tag detection
@@ -494,12 +702,16 @@ def run_game(nfc, buz, display, targets, enow, start_ticks=None):
         if tag is None:
             if last_uid is not None:
                 last_uid = None
+            # Lifted — re-arm debounce and cancel any waiting animation
+            _rescan_cleared()
             time.sleep_ms(30)
             continue
 
         # Same tag still on reader — skip
         if tag['uid_hex'] == last_uid:
-            time.sleep_ms(100)
+            # Shorter sleep while the spinner is animating so the motion
+            # stays smooth; longer sleep otherwise to keep CPU low.
+            time.sleep_ms(30 if _awaiting_scan_reply else 100)
             continue
 
         last_uid = tag['uid_hex']
@@ -528,6 +740,17 @@ def run_game(nfc, buz, display, targets, enow, start_ticks=None):
             continue
 
         print("  Read: \"%s\"" % text)
+
+        # ── Rescan tag — request a new sequence from the station ──
+        # Debounced: only fires on fresh placement. The next loop iteration
+        # will render the spinner because _awaiting_scan_reply is now set.
+        # No confirmation beep — the spinner is the ack.
+        if text == RESCAN_TAG:
+            _rescan_seen(enow, tag['uid_hex'])
+            continue
+
+        # Any other successful read — re-arm so a later rescan tap fires fresh
+        _rescan_cleared()
 
         # Stop tag exits the game
         if text == "stop":
@@ -570,6 +793,7 @@ def run_game(nfc, buz, display, targets, enow, start_ticks=None):
     # Send score
     send_score(enow, targets, elapsed_ms)
 
+    # Victory fanfare
     buz.beep(523, 100)
     time.sleep_ms(50)
     buz.beep(659, 100)
@@ -578,10 +802,9 @@ def run_game(nfc, buz, display, targets, enow, start_ticks=None):
     time.sleep_ms(50)
     buz.beep(1047, 300)
 
+    # Fade-in to solid green victory display, then enter the post-win wait.
     display.show_win_green()
-    display.rainbow_dance(5000)
-    display.clear()
-    return "win"
+    return _post_win_wait(enow, display, nfc, buz)
 
 
 # ─────────────────────────────────────────────
@@ -601,6 +824,9 @@ def play(nfc, np, buz, enow=None):
     display = GameDisplay(np)
     display.clear()
     espnow_targets = None
+
+    # Clear any stale rescan debounce from a previous session
+    _rescan_cleared()
 
     print("\n  === ENTERING COLOR QUEST MODE ===")
     print("  Tap STOP tag to return to programming\n")
@@ -629,22 +855,10 @@ def play(nfc, np, buz, enow=None):
             while True:
                 result = run_game(nfc, buz, display, targets, enow, start_ticks)
 
-                if result == "reset":
-                    # Reset timer on restart
-                    start_ticks = time.ticks_ms()
-                    display.clear()
-                    time.sleep_ms(300)
-                    continue
-
-                elif result == "stop":
+                if result == "stop":
                     display.clear()
                     print("\n  === RETURNING TO PROGRAMMING MODE ===\n")
                     return
-
-                elif result == "win":
-                    print("\n  Waiting for next round...\n")
-                    time.sleep_ms(1000)
-                    break
 
                 elif isinstance(result, list):
                     espnow_targets = list(result)
@@ -705,7 +919,6 @@ def main():
             targets, from_espnow = wait_for_commands(enow, display, nfc, espnow_targets)
 
             if targets == "stop":
-                # In standalone mode, stop just goes back to waiting
                 display.clear()
                 print("\n  Stopped. Waiting for next round...\n")
                 time.sleep_ms(500)
@@ -721,22 +934,10 @@ def main():
             while True:
                 result = run_game(nfc, buz, display, targets, enow, start_ticks)
 
-                if result == "reset":
-                    start_ticks = time.ticks_ms()
-                    display.clear()
-                    time.sleep_ms(300)
-                    continue
-
-                elif result == "stop":
-                    # In standalone mode, stop just goes back to waiting
+                if result == "stop":
                     display.clear()
                     print("\n  Stopped. Waiting for next round...\n")
                     time.sleep_ms(500)
-                    break
-
-                elif result == "win":
-                    print("\n  Waiting for next round...\n")
-                    time.sleep_ms(1000)
                     break
 
                 elif isinstance(result, list):
@@ -754,6 +955,7 @@ def main():
         except Exception as e:
             print("  [ERR]: %s" % str(e))
             time.sleep_ms(1000)
+
 
 if __name__ == "__main__":
     main()

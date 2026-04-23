@@ -59,10 +59,14 @@ ALL_COMMANDS   = FIXED_TRIGGERS | ACTIONS | ANIMAL_SOUNDS | COMBINATORS | CONTRO
 NFC_SLEEP_MS = 30_000  # 30 seconds of inactivity before NFC sleeps
 
 # ─────────────────────────────────────────────
-# HARDWARE
+# HARDWARE (LEDs init FIRST for boot indicator)
 # ─────────────────────────────────────────────
-i2c      = machine.SoftI2C(sda=machine.Pin(I2C_SDA), scl=machine.Pin(I2C_SCL), freq=HUB_CONFIG["i2c_freq"])
 leds     = Leds()
+
+# ── BOOT STEP 1: Power LED on immediately ──
+leds.boot_power()
+
+i2c      = machine.SoftI2C(sda=machine.Pin(I2C_SDA), scl=machine.Pin(I2C_SCL), freq=HUB_CONFIG["i2c_freq"])
 buz      = Buzzer(BUZZER_PIN)
 btn      = machine.Pin(SWITCH_PIN, machine.Pin.IN, machine.Pin.PULL_UP)
 int1_pin = machine.Pin(ACCEL_INT1, machine.Pin.IN)
@@ -109,7 +113,7 @@ def read_quiet(reader):
 # PRINT HELPERS
 # ─────────────────────────────────────────────
 def print_rules(rules, editing):
-    print("  +- Rules --------------------------------")
+    print("  +---- Rules --------------------------------")
     has_any = False
     for trig in TRIGGER_ORDER:
         marker = " *" if trig == editing else ""
@@ -164,6 +168,17 @@ def check_broadcast(mgr, batt_ref, leds_ref, buz_ref):
         show_battery(batt_ref, leds_ref, buz_ref)
         return "battery"
     return None
+
+
+# ─────────────────────────────────────────────
+# IDLE DISPLAY HELPER
+# ─────────────────────────────────────────────
+def show_idle(last_soc, idle_frame):
+    """Show the correct idle display based on battery level."""
+    if last_soc <= 10:
+        leds.idle_low_blink(idle_frame)
+    else:
+        leds.idle_default(last_soc)
 
 
 # ─────────────────────────────────────────────
@@ -259,6 +274,24 @@ def main():
     print("  Hub type: %s" % HUB_TYPE)
     print("=" * 50)
 
+    # NOTE: leds.boot_power() already called at module level
+    # LED 0 is already white — user sees instant power confirmation
+
+    # ── BOOT STEP 2: Battery check ──
+    batt = None
+    last_soc = 100  # default if no battery gauge
+    try:
+        batt = MAX17048(i2c)
+        v, s = batt.read_all()
+        last_soc = max(0, min(100, int(s)))
+        print("  Battery: %.2fV, %.1f%%" % (v, s))
+    except Exception as e:
+        print("  [WARN] Battery:"); sys.print_exception(e)
+
+    # Show battery level on LEDs 0 + 1
+    leds.boot_battery(last_soc)
+    time.sleep_ms(300)  # brief pause so user sees the color
+
     # NFC
     nfc = PN532(i2c, PN532_ADDR)
     try:
@@ -302,14 +335,14 @@ def main():
     if ge_ok:
         reader.gesture_engine = ge
 
-    # Battery
-    batt = None
-    try:
-        batt = MAX17048(i2c)
-        v, s = batt.read_all()
-        print("  Battery: %.2fV, %.1f%%" % (v, s))
-    except Exception as e:
-        print("  [WARN] Battery:"); sys.print_exception(e)
+    # ── BOOT STEP 3: All init complete — LED 2 on ──
+    leds.boot_ready(last_soc)
+    print("  Boot complete — all systems OK")
+    time.sleep_ms(800)  # hold boot display so user can read it
+
+    # Transition to idle display
+    leds.off()
+    time.sleep_ms(100)
 
     # ── State ──
     rules = {}
@@ -322,7 +355,7 @@ def main():
     nfc_sleeping = False
     idle_frame = 0
 
-    leds.breathe_idle(0)
+    show_idle(last_soc, 0)
     print("\n  Tap a TRIGGER tag to start programming\n")
 
     while True:
@@ -332,7 +365,7 @@ def main():
             # ─────────────────────────────────────
             if nfc_sleeping:
                 idle_frame += 1
-                leds.breathe_sleep(idle_frame)
+                leds.idle_sleep()  # static blue dot
 
                 # Check ESP-NOW broadcasts while sleeping
                 result = check_broadcast(mgr, batt, leds, buz)
@@ -344,10 +377,10 @@ def main():
                     nfc_sleeping = False
                     last_activity_ms = time.ticks_ms()
                     idle_frame = 0
-                    leds.breathe_idle(0)
+                    show_idle(last_soc, 0)
                     print("  Reset via broadcast")
                 elif result == "battery":
-                    leds.breathe_sleep(idle_frame)
+                    leds.idle_sleep()
 
                 # Check accelerometer or button for wake
                 wake = False
@@ -372,7 +405,14 @@ def main():
                     nfc_sleeping = False
                     last_activity_ms = time.ticks_ms()
                     idle_frame = 0
-                    leds.breathe_idle(0)
+                    # Refresh battery SOC on wake
+                    if batt:
+                        try:
+                            _, s = batt.read_all()
+                            last_soc = max(0, min(100, int(s)))
+                        except Exception:
+                            pass
+                    show_idle(last_soc, 0)
 
                 time.sleep_ms(100)
                 continue
@@ -395,14 +435,14 @@ def main():
                     buz.stop()
                     last_activity_ms = time.ticks_ms()
                     idle_frame = 0
-                    leds.breathe_idle(0)
+                    show_idle(last_soc, 0)
                     print("  Reset via broadcast")
                 elif result == "battery":
                     last_activity_ms = time.ticks_ms()
 
-                # Idle breathing glow
+                # Idle display — battery-colored inner ring (static)
                 idle_frame += 1
-                leds.breathe_idle(idle_frame)
+                show_idle(last_soc, idle_frame)
 
                 # Check if we should sleep the NFC
                 if accel_ok and time.ticks_diff(time.ticks_ms(), last_activity_ms) > NFC_SLEEP_MS:
@@ -435,9 +475,16 @@ def main():
             # ── UTILITY ──
             if cmd == "battery":
                 show_battery(batt, leds, buz)
+                # Refresh SOC after battery display
+                if batt:
+                    try:
+                        _, s = batt.read_all()
+                        last_soc = max(0, min(100, int(s)))
+                    except Exception:
+                        pass
                 last_activity_ms = time.ticks_ms()
                 idle_frame = 0
-                leds.breathe_idle(0); continue
+                show_idle(last_soc, 0); continue
 
             # ── COLOR QUEST ──
             if cmd == "colorquest":
@@ -445,7 +492,7 @@ def main():
                 play_color_quest(nfc, leds.np, buz)
                 last_activity_ms = time.ticks_ms()
                 idle_frame = 0
-                leds.breathe_idle(0); last_uid = None; continue
+                show_idle(last_soc, 0); last_uid = None; continue
 
             # ── FREEZE DANCE ──
             if cmd == "freezedance":
@@ -453,7 +500,7 @@ def main():
                 play_freeze_dance(nfc, leds, buz, accel, i2c)
                 last_activity_ms = time.ticks_ms()
                 idle_frame = 0
-                leds.breathe_idle(0); last_uid = None; continue
+                show_idle(last_soc, 0); last_uid = None; continue
 
             # ── JUMP IN ──
             if cmd == "jumpin":
@@ -461,149 +508,107 @@ def main():
                 play_jumpin(nfc, leds, buz, accel, i2c)
                 last_activity_ms = time.ticks_ms()
                 idle_frame = 0
-                leds.breathe_idle(0); last_uid = None; continue
-
-            # ── GESTURE TAG ──
-            if cmd.startswith("gesture:"):
-                if not ge_ok:
-                    buz.warn(); continue
-                editing = cmd; pending_combinator = None
-                buz.confirm()
-                last_activity_ms = time.ticks_ms()
-                idle_frame = 0
-                print_rules(rules, editing); leds.breathe_idle(0); continue
-
-            # ── SC TAG ──
-            if is_sc_cmd:
-                sc_mac = parse_sc_mac(cmd)
-                editing = cmd; pending_combinator = None
-                mgr.add_peer(sc_mac)
-                buz.confirm(); leds.flash(0, 15, 15, times=2, on_ms=80, off_ms=60)
-                print("  > Splat Companion: %s" % sc_mac)
-                last_activity_ms = time.ticks_ms()
-                idle_frame = 0
-                print_rules(rules, editing); leds.breathe_idle(0); continue
-
-            print("  >> %s" % cmd)
-
-            # ── FIXED TRIGGER ──
-            if cmd in FIXED_TRIGGERS:
-                if cmd == "shake" and not accel_ok:
-                    buz.warn(); continue
-                editing = cmd; pending_combinator = None
-                buz.confirm()
-                last_activity_ms = time.ticks_ms()
-                idle_frame = 0
-                print_rules(rules, editing); leds.breathe_idle(0)
-
-            # ── ACTION ──
-            elif cmd in ACTIONS or cmd in ANIMAL_SOUNDS:
-                if editing is None:
-                    buz.reject(); continue
-                chain = rules.get(editing, [])
-                if pending_combinator == "and" and len(chain) > 0:
-                    chain[-1].append(cmd)
-                    chain[-1] = resolve_and_group(chain[-1])
-                    rules[editing] = chain; pending_combinator = None
-                elif pending_combinator == "then" and len(chain) > 0:
-                    chain.append([cmd])
-                    rules[editing] = chain; pending_combinator = None
-                else:
-                    rules[editing] = [[cmd]]
-                buz.confirm()
-                last_activity_ms = time.ticks_ms()
-                idle_frame = 0
-                print_rules(rules, editing); leds.breathe_idle(0)
-
-            # ── COMBINATORS ──
-            elif cmd == "and":
-                if editing is None or editing not in rules or len(rules[editing]) == 0:
-                    buz.beep(200, 150)
-                else:
-                    pending_combinator = "and"
-                    buz.beep(500, 40); time.sleep_ms(30); buz.beep(500, 40)
-
-            elif cmd == "then":
-                if editing is None or editing not in rules or len(rules[editing]) == 0:
-                    buz.beep(200, 150)
-                else:
-                    pending_combinator = "then"
-                    buz.beep(400, 60); time.sleep_ms(50); buz.beep(600, 60)
-
-            # ── START ──
-            elif cmd == "start":
-                if pending_combinator:
-                    buz.beep(200, 150); continue
-
-                active = {t: c for t, c in rules.items() if c and len(c) > 0}
-                if not active:
-                    buz.reject(); continue
-
-                # Send configs to Splat Companions
-                sc_rules = {}; local_rules = {}
-                for tk, ch in active.items():
-                    if is_sc_trigger(tk):
-                        sc_rules[tk] = ch
-                    else:
-                        local_rules[tk] = ch
-
-                for tk, ch in sc_rules.items():
-                    sc_mac = parse_sc_mac(tk)
-                    print("  Sending config to %s: [%s]" % (sc_mac, chain_to_str(ch)))
-                    mgr.send_splat_config(sc_mac, ch)
-                    time.sleep_ms(50)
-
-                leds.off(); buz.start()
-                leds.flash(0, 40, 0, times=3, on_ms=80, off_ms=60)
-                if local_rules:
-                    leds.show_running(local_rules)
-
-                total = len(local_rules) + len(sc_rules)
-                print("\n  >>> RUNNING %d rule(s) (%d local, %d remote)\n" % (total, len(local_rules), len(sc_rules)))
-
-                if local_rules:
-                    run_event_loop(reader, local_rules, runner, accel, ge, mgr=mgr, batt_ref=batt)
-                else:
-                    print("  (Only remote. Tap STOP to end)")
-                    while True:
-                        try:
-                            c2, _ = read_quiet(reader)
-                            if c2 == "stop": break
-                        except Exception:
-                            pass
-                        r2 = check_broadcast(mgr, batt, leds, buz)
-                        if r2 == "stop": break
-                        time.sleep_ms(200)
-
-                mgr.send_stop_all_peers()
-                rules = {}; editing = None; pending_combinator = None; last_uid = None
-                mgr.clear_peers()
-                if ge: ge.clear_loaded()
-                leds.off(); buz.stop()
-                last_activity_ms = time.ticks_ms()
-                idle_frame = 0
-                leds.breathe_idle(0)
-                print("  <<< STOPPED\n  Tap a TRIGGER tag to reprogram\n")
+                show_idle(last_soc, 0); last_uid = None; continue
 
             # ── STOP ──
-            elif cmd == "stop":
-                mgr.send_stop_all_peers(); mgr.clear_peers()
+            if cmd == "stop":
+                if mgr and mgr.is_active:
+                    mgr.send_stop_all_peers(); mgr.clear_peers()
                 rules = {}; editing = None; pending_combinator = None
                 if ge: ge.clear_loaded()
                 buz.stop()
                 last_activity_ms = time.ticks_ms()
                 idle_frame = 0
-                leds.breathe_idle(0)
+                show_idle(last_soc, 0)
+                print("  STOP — rules cleared")
+                print_rules(rules, editing); continue
 
-            else:
-                buz.beep(200, 150)
+            # ── START (run mode) ──
+            if cmd == "start":
+                if not rules or all(len(v) == 0 for v in rules.values()):
+                    buz.beep(300, 200)
+                    print("  Nothing to run")
+                    show_idle(last_soc, 0); continue
+                print("  ── RUNNING ──")
+                leds.show_running(rules)
+                buz.beep(800, 60); time.sleep_ms(30); buz.beep(1200, 80)
+                run_event_loop(reader, rules, runner, accel, ge, mgr, batt)
+                print("  ── STOPPED ──")
+                rules = {}; editing = None; pending_combinator = None
+                if ge: ge.clear_loaded()
+                last_activity_ms = time.ticks_ms()
+                idle_frame = 0
+                show_idle(last_soc, 0)
+                print_rules(rules, editing); continue
+
+            # ── COMBINATOR ──
+            if cmd in COMBINATORS:
+                if editing is None:
+                    buz.beep(300, 100)
+                    print("  Combinator '%s' ignored — no active trigger" % cmd)
+                else:
+                    pending_combinator = cmd
+                    print("  Combinator: %s (next action will %s)" % (cmd, "add to group" if cmd == "and" else "start new step"))
+                    buz.beep(600, 40)
+                show_idle(last_soc, 0); continue
+
+            # ── TRIGGER ──
+            if cmd in FIXED_TRIGGERS or is_gesture_trigger(cmd) or is_sc_cmd:
+                trig_key = cmd
+                if is_gesture_trigger(cmd):
+                    gname = cmd.split(":", 1)[1]
+                    if ge and ge_ok:
+                        if gname not in [g[0] for g in (ge.loaded_gestures or [])]:
+                            ge.load_gesture(gname)
+                    trig_key = cmd
+
+                if trig_key not in rules:
+                    rules[trig_key] = []
+                editing = trig_key
+                pending_combinator = None
+                print("  Editing trigger: %s" % trig_key)
+                leds.show_programming(rules, editing)
+                print_rules(rules, editing); continue
+
+            # ── ACTION ──
+            if cmd in ACTIONS or cmd in ANIMAL_SOUNDS:
+                if editing is None:
+                    editing = "buttondown"
+                    if editing not in rules:
+                        rules[editing] = []
+                    print("  Auto-selected trigger: buttondown")
+
+                chain = rules[editing]
+
+                if pending_combinator == "and" and len(chain) > 0:
+                    last_group = chain[-1]
+                    if isinstance(last_group, list):
+                        last_group.append(cmd)
+                    else:
+                        chain[-1] = [last_group, cmd]
+                elif pending_combinator == "then" and len(chain) > 0:
+                    chain.append(cmd)
+                else:
+                    rules[editing] = [cmd]
+
+                pending_combinator = None
+
+                # Preview the action
+                runner.run_chain([cmd])
+
+                leds.show_programming(rules, editing)
+                print_rules(rules, editing); continue
+
+            print("  Unknown command: %s" % cmd)
+            time.sleep_ms(200)
 
         except KeyboardInterrupt:
-            mgr.shutdown(); leds.off(); break
+            leds.off()
+            print("\n  Exiting.")
+            return
         except Exception as e:
-            print("  [ERR]:"); sys.print_exception(e)
+            print("  [ERR] Main loop:"); sys.print_exception(e)
             time.sleep_ms(500)
 
 
-if __name__ == "__main__":
-    main()
+main()

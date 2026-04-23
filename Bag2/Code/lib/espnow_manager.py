@@ -169,6 +169,12 @@ class ESPNowManager:
             "actions": action_chain,
         })
 
+    def send_scan_request(self):
+        """Broadcast a request for the Programming Station to scan its tags
+        and unicast the result back to this device. Used by Color Quest when
+        a player taps the `color_quest_scan` NFC tag on a wand."""
+        return self.broadcast({"type": "scan_request"})
+
     def send_stop_to(self, mac_str):
         return self.send_to(mac_str, {"type": "stop"})
 
@@ -203,7 +209,7 @@ class ESPNowManager:
         Returns (msg_type, data, mac_str) or (None, None, None).
 
         msg_type: "colors", "score", "splat_config", "stop",
-                  "battery", "raw", or None
+                  "battery", "scan_request", "raw", or None
         """
         if not self._active:
             return None, None, None
@@ -236,6 +242,8 @@ class ESPNowManager:
                 return "splat_config", data, mac_str
             if mt == "score":
                 return "score", data, mac_str
+            if mt == "scan_request":
+                return "scan_request", data, mac_str
             return "raw", data, mac_str
 
         return "raw", data, mac_str
