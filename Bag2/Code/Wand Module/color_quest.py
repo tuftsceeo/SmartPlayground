@@ -16,6 +16,10 @@ scan_request is only sent once per physical placement — the wand must
 be lifted and replaced to resend. When the station's reply arrives,
 the usual "new sequence" beeps fire and the new round starts.
 
+Feedback:
+  On each correct tap     — 1-second smiley face in the matched color
+  On sequence completion  — 5-second rainbow dance → fade to solid green
+
 Button behavior:
   During active play      — ignored
   After a successful win  — triggers a 5-second rainbow dance (repeatable)
@@ -33,8 +37,9 @@ import random
 from machine import Pin
 from neopixel import NeoPixel
 
-from pn532 import PN532, MIFARE_AUTH_A, MIFARE_AUTH_B
-from nfc_reader import _decode_ndef_text, COMMON_KEYS
+from pn532 import PN532
+# Shared NFC helper — handles both MIFARE Classic and NTAG / Ultralight.
+from nfc_reader import read_ndef_text as read_tag_text
 from buzzer import Buzzer
 from target import SCORE_MAC
 
@@ -72,14 +77,22 @@ def found_slots(n):
     offset = (5 - n) // 2
     return [rc(4, offset + i) for i in range(n)]
 
-# Cross pattern (X shape)
-CROSS_LEDS = [0, 4, 6, 8, 12, 16, 18, 20, 24]
+# Cross pattern (X shape) — used for the WRONG indicator
+CROSS_LEDS = [ 6, 8, 16, 17, 18, 20, 24]
 
 # Middle area LEDs (rows 1-3) for scan animation
 MIDDLE_LEDS = list(range(5, 20))
 
 # Perimeter LEDs, clockwise from top-left — used by the scan-wait spinner
 PERIMETER = [0, 1, 2, 3, 4, 9, 14, 19, 24, 23, 22, 21, 20, 15, 10, 5]
+
+# Smiley face — shown after each correct color tap.
+#   . . . . .
+#   . X . X .     eyes (6, 8)
+#   . . . . .
+#   X . . . X     mouth corners (15, 19)
+#   . X X X .     smile base (21, 22, 23)
+SMILEY_LEDS = [6, 8, 15, 19, 21, 22, 23]
 
 # ─────────────────────────────────────────────
 # COLOR MAP — GRB tuples for SK6812
@@ -91,7 +104,8 @@ COLOR_BRIGHT = {
     "turnred":    (50, 0, 0),
     "turngreen":  (0, 50, 0),
     "turnblue":   (0, 0, 50),
-    "turnpurple": (50, 0, 50),
+    "turnpurple": (35, 0, 100),
+    "turnpink": (50, 0, 25),
     "turnyellow": (50, 35, 0),
     "turnwhite":  (30, 30, 30),
     "turnoff":    (0, 0, 0),
@@ -104,6 +118,7 @@ for k, v in COLOR_BRIGHT.items():
 OFF = (0, 0, 0)
 RED_X = (50, 0, 0)
 GREEN_WIN = (0, 50, 0)
+SMILEY_DEFAULT = (50, 35, 0)  # classic yellow fallback
 
 # ─────────────────────────────────────────────
 # RESCAN TAG — triggers a fresh scan request to the station
@@ -163,43 +178,6 @@ def _rescan_reply_received():
     card into the new round, we don't want to immediately resend."""
     global _awaiting_scan_reply
     _awaiting_scan_reply = False
-
-
-# ─────────────────────────────────────────────
-# NFC TAG READING (proven patterns from nfc_reader.py)
-# ─────────────────────────────────────────────
-def read_tag_text(nfc):
-    """Detect tag, auth, read NDEF sectors 1-2, decode text."""
-    tag = nfc.read_passive_target(timeout=500)
-    if tag is None:
-        return None, None
-    if tag['sak'] not in (0x08, 0x18):
-        return None, tag['uid_hex']
-
-    ndef_data = bytearray()
-    for sector in (1, 2):
-        first_block = sector * 4
-        authed = False
-        for key in COMMON_KEYS:
-            for key_type in [MIFARE_AUTH_A, MIFARE_AUTH_B]:
-                resel = nfc.read_passive_target(timeout=200)
-                if resel is None:
-                    continue
-                if nfc.mifare_auth_block(resel['uid'], first_block, key, key_type):
-                    for blk in range(first_block, first_block + 3):
-                        try:
-                            ndef_data.extend(nfc.mifare_read_block(blk))
-                        except Exception:
-                            ndef_data.extend(b'\x00' * 16)
-                    authed = True
-                    break
-            if authed:
-                break
-        if not authed:
-            ndef_data.extend(b'\x00' * 48)
-
-    text = _decode_ndef_text(ndef_data)
-    return text, tag['uid_hex']
 
 
 # ─────────────────────────────────────────────
@@ -294,16 +272,20 @@ class GameDisplay:
                     self.np[idx] = OFF
         self.np.write()
 
-    def show_correct(self, cmd):
-        """Flash the correct color across middle area."""
-        color = COLOR_BRIGHT.get(cmd, GREEN_WIN)
-        for _ in range(3):
-            for i in MIDDLE_LEDS:
-                self.np[i] = color
-            self.np.write()
-            time.sleep_ms(80)
-            self.clear_middle()
-            time.sleep_ms(60)
+    def show_smiley(self, cmd=None, hold_ms=1000):
+        """Draw a smiley face in the given color and hold for hold_ms.
+
+        Used as the 'correct tap' celebration. Blocking — returns after
+        hold_ms. Callers should follow with show_game_state() to restore
+        the normal display.
+        """
+        color = COLOR_BRIGHT.get(cmd, SMILEY_DEFAULT)
+        for i in range(NUM_LEDS):
+            self.np[i] = OFF
+        for idx in SMILEY_LEDS:
+            self.np[idx] = color
+        self.np.write()
+        time.sleep_ms(hold_ms)
 
     def show_wrong(self):
         """Red X cross pattern on entire grid."""
@@ -356,9 +338,7 @@ class GameDisplay:
         shown while a scan_request is in flight to the Programming Station.
 
         Time-based (uses time.ticks_ms()) so the animation speed is
-        independent of the calling loop's frame rate. The NFC polling
-        path can drop frame rate to ~7fps and this still looks like
-        an active animation.
+        independent of the calling loop's frame rate.
         """
         # 80ms per LED step × 16 LEDs = 1.28 sec per full rotation
         pos = (time.ticks_ms() // 80) % len(PERIMETER)
@@ -724,7 +704,7 @@ def run_game(nfc, buz, display, targets, enow, start_ticks=None):
             display.scan_animate(f, targets, found)
             time.sleep_ms(60)
 
-        # Now do the full NDEF read
+        # Now do the full NDEF read — handles both Classic and NTAG.
         text, uid = read_tag_text(nfc)
 
         # Scan complete flash
@@ -764,15 +744,14 @@ def run_game(nfc, buz, display, targets, enow, start_ticks=None):
         expected = targets[found]
 
         if text == expected:
-            # CORRECT!
+            # CORRECT! — beeps + 1-second smiley in the matched color.
             found += 1
             print("  CORRECT! (%d/%d)" % (found, n))
             buz.beep(880, 60)
             time.sleep_ms(30)
             buz.beep(1100, 80)
-            display.show_correct(text)
+            display.show_smiley(text)  # blocks 1 second
             display.show_game_state(targets, found)
-            time.sleep_ms(300)
         else:
             # WRONG — uh oh!
             print("  WRONG! Expected '%s', got '%s'" % (expected, text))
@@ -802,7 +781,10 @@ def run_game(nfc, buz, display, targets, enow, start_ticks=None):
     time.sleep_ms(50)
     buz.beep(1047, 300)
 
-    # Fade-in to solid green victory display, then enter the post-win wait.
+    # Celebration sequence: rainbow dance first, THEN fade to solid green
+    # and drop into post-win wait. The post-win wait's button handler
+    # plays the rainbow again on demand.
+    display.rainbow_dance(5000)
     display.show_win_green()
     return _post_win_wait(enow, display, nfc, buz)
 
