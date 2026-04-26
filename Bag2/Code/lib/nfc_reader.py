@@ -16,19 +16,24 @@ SC tags: If NDEF text starts with "sc:", it's a Splat Companion
 tag. The full text (e.g. "sc:b4:3a:45:86:1c:8c") is returned
 as the command — the caller handles MAC parsing.
 
-Usage:
-    from nfc_reader import NfcReader
+Supported tag types:
+  • MIFARE Classic 1K (SAK 0x08 / 0x18)  — auth + block read (sectors 1-2)
+  • NTAG / MIFARE Ultralight             — unauthenticated page read (4-19)
 
+Usage:
+    # For game-code that only needs the text and UID of any tag type:
+    from nfc_reader import read_ndef_text
+    text, uid = read_ndef_text(nfc)
+
+    # For the main command-dispatch loop:
+    from nfc_reader import NfcReader
     reader = NfcReader(nfc, commands)
     reader.gesture_engine = ge  # optional: enable gesture tag support
-
     cmd, uid = reader.read_command(
         on_detect=my_start_fn,
         on_progress=my_frame_fn,
         on_complete=my_done_fn,
     )
-    # cmd might be "gesture:triangle" for gesture tags
-    # cmd might be "sc:b4:3a:45:86:1c:8c" for SC tags
 """
 
 import sys
@@ -46,6 +51,105 @@ COMMON_KEYS = [
 GESTURE_MARKER = b'G:'
 SC_PREFIX = "sc:"
 
+
+# ─────────────────────────────────────────────
+# TOP-LEVEL HELPER: read any supported tag type
+# ─────────────────────────────────────────────
+
+def read_ndef_text(nfc, timeout=500, resel_timeout=150):
+    """
+    Tag-type-agnostic NDEF text read. Returns (text, uid_hex) or (None, None).
+
+    Branches on SAK to pick the right low-level protocol:
+      • MIFARE Classic (SAK 0x08 / 0x18): auth + block read of sectors 1 & 2
+      • NTAG / Ultralight (anything else): unauthenticated read of pages 4-19
+
+    Intended for callers that only need the NDEF text and don't need the
+    full NfcReader command-lookup / gesture / SC pipeline (i.e. game code
+    looking for control tags like "stop" or "color_quest_scan").
+
+    Args:
+        nfc:            PN532 instance
+        timeout:        initial detect timeout in ms
+        resel_timeout:  per-auth-attempt re-select timeout in ms (Classic only)
+
+    Returns:
+        (text, uid_hex) if a tag was detected. text may be None if the tag
+        was detected but no readable NDEF text was found.
+        (None, None) if no tag was detected within `timeout`.
+    """
+    tag = nfc.read_passive_target(timeout=timeout)
+    if tag is None:
+        return None, None
+
+    uid_hex = tag['uid_hex']
+    sak = tag['sak']
+    ndef_data = bytearray()
+
+    try:
+        if sak in (0x08, 0x18):
+            ndef_data = _read_classic_ndef(nfc, resel_timeout)
+        else:
+            ndef_data = _read_ntag_ndef(nfc)
+    except Exception as e:
+        sys.print_exception(e)
+
+    if not ndef_data:
+        return None, uid_hex
+
+    text = _decode_ndef_text(ndef_data)
+    return text, uid_hex
+
+
+def _read_classic_ndef(nfc, resel_timeout=150):
+    """Read NDEF bytes from a MIFARE Classic 1K — sectors 1 & 2, blocks 4-6
+    and 8-10. Rotates through COMMON_KEYS and both A/B key types. Re-selects
+    the card before each auth attempt because Classic drops state on failure."""
+    nd = bytearray()
+    for sector in (1, 2):
+        fb = sector * 4
+        authed = False
+        for key in COMMON_KEYS:
+            for kt in (MIFARE_AUTH_A, MIFARE_AUTH_B):
+                try:
+                    resel = nfc.read_passive_target(timeout=resel_timeout)
+                except Exception:
+                    resel = None
+                if resel is None:
+                    continue
+                try:
+                    if nfc.mifare_auth_block(resel['uid'], fb, key, kt):
+                        for blk in range(fb, fb + 3):
+                            try:
+                                nd.extend(nfc.mifare_read_block(blk))
+                            except Exception:
+                                nd.extend(b'\x00' * 16)
+                        authed = True
+                        break
+                except Exception:
+                    continue
+            if authed:
+                break
+        if not authed:
+            nd.extend(b'\x00' * 48)
+    return nd
+
+
+def _read_ntag_ndef(nfc):
+    """Read NDEF bytes from an NTAG / Ultralight. No auth; pages 4-19 (64 B).
+    Enough for NTAG213's user memory and the short NDEF records we use."""
+    nd = bytearray()
+    for page in range(4, 20):
+        try:
+            nd.extend(nfc.ntag_read_page(page))
+        except Exception:
+            break
+    return nd
+
+
+# ─────────────────────────────────────────────
+# NFC READER CLASS (command dispatch + gestures + SC)
+# ─────────────────────────────────────────────
 
 class NfcReader:
     def __init__(self, nfc, commands):
@@ -275,5 +379,5 @@ def _decode_ndef_text(data):
                 i += 2 + data[i + 1]
             else:
                 break
-            
+
     return None
