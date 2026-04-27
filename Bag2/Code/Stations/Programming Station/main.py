@@ -15,7 +15,6 @@ import time
 import json
 
 from hubtype import HUB_TYPE, HUB_CONFIG
-from leds import Leds
 from pn532 import PN532, MIFARE_AUTH_A, MIFARE_AUTH_B
 from nfc_reader import _decode_ndef_text, COMMON_KEYS
 from espnow_manager import ESPNowManager
@@ -36,11 +35,30 @@ NUM_READERS   = 4
 MAX_RETRIES   = 3
 
 TAG_COLOR = {
-    "turnred": (50, 0, 0), "turngreen": (0, 50, 0),
-    "turnblue": (0, 0, 50), "turnpurple": (50, 0, 50),
-    "turnyellow": (50, 35, 0), "turnwhite": (30, 30, 30),
+    "turnred": (255,0,0), "turngreen": (0,255,0),
+    "turnblue": (0, 0,255), "turnpurple": (40,0,200),
+    "turnyellow": (255,255,0), "turnwhite": (30, 30, 30),"turnpink": (200,0,200)
 }
 
+
+from neopixel import NeoPixel
+from machine import Pin
+a = NeoPixel(Pin(21), 18)
+
+LED_LUT = {3:(7,8), 2:(10,11), 1:(13,14), 0:(16,17)}
+
+
+def turn(led, color):
+    a[led] = color
+       
+def turnLED(number, color):
+    turn(LED_LUT[number][0], color)
+    turn(LED_LUT[number][1], color)
+    a.write()
+    
+    
+
+    
 # ─────────────────────────────────────────────
 # MUX + RESET HELPERS
 # ─────────────────────────────────────────────
@@ -138,6 +156,9 @@ def do_scan(i2c, nfc, mux_rst, pn532_rst, ok_readers):
             time.sleep_ms(50)
         if text:
             commands.append(text)
+            print(ch, text)
+            print(ch,TAG_COLOR[text])
+            turnLED(ch,TAG_COLOR[text])
             print("  #%d: \"%s\"" % (ch, text))
         else:
             print("  #%d: no tag" % ch)
@@ -146,24 +167,6 @@ def do_scan(i2c, nfc, mux_rst, pn532_rst, ok_readers):
     except Exception: pass
     return commands
 
-# ─────────────────────────────────────────────
-# LED STRIP FEEDBACK
-# ─────────────────────────────────────────────
-def strip_blink_colors(leds, commands):
-    colors = [TAG_COLOR.get(cmd, (30, 30, 30)) for cmd in commands if cmd in TAG_COLOR]
-    if not colors: colors = [(0, 40, 0)]
-
-    for color in colors:
-        leds.solid(*color); time.sleep_ms(300)
-        leds.off(); time.sleep_ms(100)
-
-    for _ in range(3):
-        for offset in range(leds.num):
-            for i in range(leds.num):
-                c = colors[(i + offset) % len(colors)]
-                leds.np[i] = c
-            leds.np.write(); time.sleep_ms(40)
-    leds.off()
 
 # ─────────────────────────────────────────────
 # MAIN
@@ -178,8 +181,7 @@ def main():
     btn_pin = machine.Pin(BTN_PIN, machine.Pin.IN, machine.Pin.PULL_UP)
     mux_rst = machine.Pin(MUX_RST_PIN, machine.Pin.OUT, value=1)
     pn532_rst = machine.Pin(PN532_RST_PIN, machine.Pin.OUT, value=1)
-    leds = Leds()
-    leds.off()
+
 
     mux_reset(mux_rst); pn532_hard_reset(pn532_rst)
     print("  I2C: %s" % str([hex(a) for a in i2c.scan()]))
@@ -220,7 +222,7 @@ def main():
                     ok = mgr.send_to(mac_str, commands)
                     print("  %s to %s: %s" % ("Sent" if ok else "SEND FAILED",
                                               mac_str, str(commands)))
-                    strip_blink_colors(leds, commands)
+                    #blink_leds(commands)
                 else:
                     print("  No tags found — nothing sent")
             except Exception as ex:
@@ -239,7 +241,7 @@ def main():
                     if commands:
                         print("  Broadcasting: %s" % str(commands))
                         mgr.broadcast(commands)
-                        strip_blink_colors(leds, commands)
+                        #blink_leds(commands)
                     else:
                         print("  No tags found")
                 except Exception as ex:
@@ -252,3 +254,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+
