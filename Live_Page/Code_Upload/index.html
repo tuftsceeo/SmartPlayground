@@ -398,6 +398,39 @@
       color: var(--text-soft);
       flex-shrink: 0;
     }
+
+    /* Assign hub type section */
+    .assign-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr auto;
+      gap: 0.4rem;
+      align-items: center;
+    }
+    select.mono-select {
+      font-family: var(--mono);
+      font-size: var(--fs-mono);
+      background: var(--bg);
+      border: 1px solid var(--border-mid);
+      border-radius: var(--radius);
+      color: var(--text);
+      padding: 0.48rem 0.7rem;
+      width: 100%;
+      outline: none;
+      cursor: pointer;
+      appearance: none;
+      -webkit-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%239a9890'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 0.65rem center;
+      padding-right: 2rem;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    select.mono-select:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(45,91,227,0.1);
+      background-color: var(--surface);
+    }
+    select.mono-select:disabled { opacity: 0.4; cursor: not-allowed; }
   </style>
 </head>
 <body>
@@ -446,6 +479,21 @@
 
       <button class="primary" onclick="saveConfig()" style="align-self:flex-start">💾 Save</button>
       <div id="config-status" class="status hidden"></div>
+
+      <!-- Write hub type to device -->
+      <div style="border-top:1px solid var(--border);padding-top:var(--space-sm);display:flex;flex-direction:column;gap:0.5rem;">
+        <div class="field">
+          <label class="field-label">Write hub type to connected device</label>
+          <div class="assign-row">
+            <select id="assign-hubtype" class="mono-select" disabled>
+              <option value="">— select type —</option>
+            </select>
+            <input type="text" id="assign-hubname" placeholder="hub name (optional)" />
+            <button class="secondary" id="btn-assign" onclick="writeHubType()" disabled style="min-height:36px;padding:0.4rem 0.75rem;white-space:nowrap;">Write to device</button>
+          </div>
+        </div>
+        <div id="assign-status" class="status hidden"></div>
+      </div>
     </div>
   </div>
 
@@ -564,6 +612,7 @@ function renderMappings() {
       `<button class="btn-remove" onclick="removeMapping(this)">✕</button>`;
     list.appendChild(row);
   }
+  renderAssignDropdown();
 }
 
 function escHtml(str) {
@@ -612,6 +661,7 @@ function saveConfig() {
   config.hubTypeMap = newMap;
 
   saveConfigToStorage();
+  renderAssignDropdown();
   setStatus("config-status", "✅ Saved.", "success");
 }
 
@@ -651,6 +701,70 @@ function setProgress(pct) {
 function updateUploadBtn() {
   const connected = document.getElementById("btn-connect").disabled;
   document.getElementById("btn-upload").disabled = !connected;
+  updateAssignBtn();
+}
+
+function updateAssignBtn() {
+  const connected = !!serialPort;
+  const sel = document.getElementById("assign-hubtype");
+  const btn = document.getElementById("btn-assign");
+  if (sel) sel.disabled = !connected;
+  if (btn) btn.disabled = !connected;
+}
+
+function renderAssignDropdown() {
+  const sel = document.getElementById("assign-hubtype");
+  if (!sel) return;
+  const prev = sel.value;
+  sel.innerHTML = '<option value="">— select type —</option>';
+  for (const hubType of Object.keys(config.hubTypeMap)) {
+    const opt = document.createElement("option");
+    opt.value = hubType;
+    opt.textContent = hubType;
+    sel.appendChild(opt);
+  }
+  if (prev && config.hubTypeMap[prev]) sel.value = prev;
+}
+
+async function writeHubType() {
+  const hubType = document.getElementById("assign-hubtype").value;
+  const hubName = document.getElementById("assign-hubname").value.trim();
+  if (!hubType) { setStatus("assign-status", "⚠ Select a hub type first.", "warn"); return; }
+
+  document.getElementById("btn-assign").disabled = true;
+  setStatus("assign-status", "⏳ Writing to device…", "info");
+
+  try {
+    await enterRawRepl();
+
+    const [, e1] = await execScript(
+      `f=open("hubType.txt","w")\nf.write(${JSON.stringify(hubType)})\nf.close()\n`, 3000
+    );
+    if (e1) throw new Error(e1);
+
+    if (hubName) {
+      const [, e2] = await execScript(
+        `f=open("hubName.txt","w")\nf.write(${JSON.stringify(hubName)})\nf.close()\n`, 3000
+      );
+      if (e2) throw new Error(e2);
+    }
+
+    await exitRawRepl();
+
+    document.getElementById("info-type").textContent = hubType;
+    document.getElementById("info-name").textContent = hubName || "unknown";
+    document.getElementById("device-info").classList.remove("hidden");
+    updateUploadBtn();
+
+    const label = hubName ? `${hubName} (${hubType})` : hubType;
+    setStatus("assign-status", `✅ Written — ${label}`, "success");
+    setStatus("serial-status", `✅ Connected — ${label}`, "success");
+  } catch (e) {
+    setStatus("assign-status", `❌ ${e.message}`, "error");
+    try { await exitRawRepl(); } catch (_) {}
+  } finally {
+    updateAssignBtn();
+  }
 }
 
 function refreshFileList() {
@@ -771,27 +885,56 @@ async function connectSerial() {
   try {
     serialPort = await navigator.serial.requestPort();
     await serialPort.open({ baudRate: BAUD_RATE });
-    serialWriter = serialPort.writable.getWriter();
-    readBuf = "";
     const dec = new TextDecoder();
-    serialReader = serialPort.readable.getReader();
-    (async () => {
-      try {
-        while (true) {
-          const { value, done } = await serialReader.read();
-          if (done) break;
-          readBuf += dec.decode(value, { stream: true });
-          notifyWaiters();
-        }
-      } catch (_) {}
-    })();
+
+    const startReadLoop = () => {
+      serialWriter = serialPort.writable.getWriter();
+      readBuf = "";
+      serialReader = serialPort.readable.getReader();
+      let reenumDetected = false;
+      (async () => {
+        try {
+          while (true) {
+            const { value, done } = await serialReader.read();
+            if (done) { reenumDetected = true; break; }
+            readBuf += dec.decode(value, { stream: true });
+            notifyWaiters();
+          }
+        } catch (_) { reenumDetected = true; }
+      })();
+      return () => reenumDetected;
+    };
+
+    let wasReenumed = startReadLoop();
+
+    // Wait for boot, then check if the read loop died from USB re-enumeration.
+    // This happens on fresh plug-in: ESP32 first presents a boot ROM CDC, then
+    // MicroPython replaces it with its own CDC — killing our initial connection.
+    await sleep(1500);
+    // Re-enumeration can manifest two ways: the stream closes (done=true, caught by wasReenumed)
+    // or it silently freezes — the read() call just hangs and no data ever arrives.
+    // Both cases look the same from here: readBuf is empty after 1500ms.
+    if (wasReenumed() || !readBuf) {
+      log("⏳ USB re-enumeration detected — waiting for MicroPython CDC…", "info");
+      try { await serialReader.cancel(); } catch (_) {}  // unblock any frozen read()
+      try { serialReader.releaseLock(); } catch (_) {}
+      serialReader = null;
+      try { serialWriter.releaseLock(); } catch (_) {}
+      serialWriter = null;
+      try { await serialPort.close(); } catch (_) {}
+      await sleep(2500);
+      await serialPort.open({ baudRate: BAUD_RATE });
+      startReadLoop();
+      await sleep(500);
+    }
+    flushBuf();
 
     serialPort.addEventListener("disconnect", () => {
       disconnectSerial();
       setStatus("serial-status", "⚠ Device was unplugged.", "warn");
     });
 
-    log(`Connected at ${BAUD_RATE} baud.`);
+    log(`Connected at ${BAUD_RATE} baud.`, "dim");
     setStatus("serial-status", "⏳ Reading device info …", "info");
 
     const { hubType, hubName } = await readDeviceInfo();
@@ -831,6 +974,7 @@ async function disconnectSerial() {
   document.getElementById("info-name").textContent = "—";
   document.getElementById("info-type").textContent = "—";
   setStatus("serial-status", "⏏ Disconnected.", "info");
+  document.getElementById("upload-status").className = "status hidden";
   document.getElementById("btn-connect").disabled    = false;
   document.getElementById("btn-upload").disabled     = true;
   document.getElementById("btn-disconnect").disabled = true;
@@ -856,11 +1000,15 @@ async function execScript(script, timeoutMs = 4000) {
   return [(parts[0] || "").trim(), (parts[1] || "").trim()];
 }
 async function enterRawRepl() {
-  await ctrl("\x03", 300);
-  await ctrl("\x03", 300);
   flushBuf();
-  await ctrl("\x01", 400);
-  await readUntil(">", 1500);
+  for (let i = 0; i < 15; i++) {
+    await ctrl("\x03", 100);
+    await sleep(800);
+    if (readBuf.includes(">>>")) break;
+  }
+  flushBuf();
+  await ctrl("\x01", 500);
+  await readUntil(">", 2000);
   flushBuf();
 }
 async function exitRawRepl() { await ctrl("\x02", 200); }
