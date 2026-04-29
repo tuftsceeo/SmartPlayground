@@ -37,7 +37,7 @@ MAX_RETRIES   = 3
 TAG_COLOR = {
     "turnred": (255,0,0), "turngreen": (0,255,0),
     "turnblue": (0, 0,255), "turnpurple": (40,0,200),
-    "turnyellow": (255,255,0), "turnwhite": (30, 30, 30),"turnpink": (200,0,200)
+    "turnyellow": (255,255,0), "turnwhite": (30, 30, 30),"turnpink": (200,0,200), "turnoff":(0,0,0)
 }
 
 
@@ -46,7 +46,7 @@ from machine import Pin
 a = NeoPixel(Pin(21), 18)
 
 LED_LUT = {3:(7,8), 2:(10,11), 1:(13,14), 0:(16,17)}
-
+led_color_buffer = []
 
 def turn(led, color):
     a[led] = color
@@ -55,9 +55,24 @@ def turnLED(number, color):
     turn(LED_LUT[number][0], color)
     turn(LED_LUT[number][1], color)
     a.write()
-    
-    
 
+def reset_leds():
+    for i in range(7,18,1):
+        a[i] = (100,100,100)
+        a.write()
+
+        
+        
+def blink_leds():
+    for leds in led_color_buffer:
+        for i in range(3):
+            turnLED(leds[0],(0,0,0))
+            time.sleep(0.1)
+            turnLED(leds[0],leds[1])
+            time.sleep(0.1)
+        
+        
+reset_leds()
     
 # ─────────────────────────────────────────────
 # MUX + RESET HELPERS
@@ -134,8 +149,10 @@ def read_tag_text(nfc):
 # SCAN CYCLE — shared by button and ESP-NOW paths
 # ─────────────────────────────────────────────
 def do_scan(i2c, nfc, mux_rst, pn532_rst, ok_readers):
+    global led_color_buffer
     """Run a full 4-reader scan cycle. Returns list of command strings."""
     print("— Scanning all readers —")
+    reset_leds()
     mux_reset(mux_rst); pn532_hard_reset(pn532_rst)
     for ch in ok_readers:
         mux_select(i2c, ch); time.sleep_ms(30); reinit_reader(nfc)
@@ -156,8 +173,7 @@ def do_scan(i2c, nfc, mux_rst, pn532_rst, ok_readers):
             time.sleep_ms(50)
         if text:
             commands.append(text)
-            print(ch, text)
-            print(ch,TAG_COLOR[text])
+            led_color_buffer.append([ch,TAG_COLOR[text]]) #adding colors and slot number to led buffer
             turnLED(ch,TAG_COLOR[text])
             print("  #%d: \"%s\"" % (ch, text))
         else:
@@ -172,6 +188,8 @@ def do_scan(i2c, nfc, mux_rst, pn532_rst, ok_readers):
 # MAIN
 # ─────────────────────────────────────────────
 def main():
+    
+    global led_color_buffer
     print("\n" + "=" * 50)
     print("  Programming Station — 4x NFC Reader Hub")
     print("  Hub type: %s" % HUB_TYPE)
@@ -218,11 +236,16 @@ def main():
                     # color list back — same format as the button-press
                     # broadcast, so the requester's existing "colors" handler
                     # picks it up unchanged.
+                    
+                    blink_leds()
                     mgr.add_peer(mac_str)
                     ok = mgr.send_to(mac_str, commands)
                     print("  %s to %s: %s" % ("Sent" if ok else "SEND FAILED",
                                               mac_str, str(commands)))
-                    #blink_leds(commands)
+                    commands = []
+                    led_color_buffer = [] # empty the buffer
+                    time.sleep(0.5)
+                    reset_leds()
                 else:
                     print("  No tags found — nothing sent")
             except Exception as ex:
@@ -241,7 +264,11 @@ def main():
                     if commands:
                         print("  Broadcasting: %s" % str(commands))
                         mgr.broadcast(commands)
-                        #blink_leds(commands)
+                        blink_leds()
+                        print("printing")
+                        commands = []
+                        led_color_buffer = [] # empty the buffer
+                        reset_leds()
                     else:
                         print("  No tags found")
                 except Exception as ex:

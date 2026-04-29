@@ -608,15 +608,13 @@ def main():
                         # Defensive: fix up legacy bare-string entries
                         chain[-1] = [last_group, cmd]
                 elif pending_combinator == "then" and len(chain) > 0:
-                    # Start a new group — must be a LIST, not a bare string
                     chain.append([cmd])
                 else:
-                    # Replace chain with a single-action single-group
                     rules[editing] = [[cmd]]
 
                 pending_combinator = None
 
-                # Preview the action — wrap as list-of-groups for run_chain
+                # Preview the action
                 runner.run_chain([[cmd]])
 
                 leds.show_programming(rules, editing)
