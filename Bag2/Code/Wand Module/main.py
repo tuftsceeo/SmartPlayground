@@ -307,19 +307,23 @@ def main():
     mgr = ESPNowManager()
     mgr.init()
 
-    # Accelerometer
+    # ── Accelerometer (basic init only) ──
+    # NOTE: enable_wake_int1() is called LATER, after the gesture engine,
+    # because GestureEngine.init() does a soft-reset on the LIS2DW12 (writing
+    # 0x40 to CTRL2), which clears CTRL4_INT1, CTRL7, and WAKE_UP_THS.
+    # If we configure wake-up here, the gesture engine's reset wipes it out
+    # and the shake trigger never fires (INT1 stays low forever).
     accel = None
     accel_ok = False
     try:
         accel = LIS2DW12(i2c)
         accel.init(fs_range=RANGE_4G)
-        accel.enable_wake_int1(threshold=8)
         accel_ok = True
         print("  Accelerometer OK")
     except Exception as e:
         print("  [WARN] Accel:"); sys.print_exception(e)
 
-    # Gesture engine
+    # Gesture engine (touches the same LIS2DW12 chip — soft-resets it!)
     ge = None
     ge_ok = False
     try:
@@ -331,6 +335,14 @@ def main():
         print("  Gesture engine OK")
     except Exception as e:
         print("  [WARN] Gesture engine:"); sys.print_exception(e)
+
+    # ── Re-enable accel wake-up AFTER gesture engine has finished its soft-reset ──
+    if accel_ok:
+        try:
+            accel.enable_wake_int1(threshold=8)
+            print("  Accel wake-up (INT1) armed")
+        except Exception as e:
+            print("  [WARN] Accel wake:"); sys.print_exception(e)
 
     if ge_ok:
         reader.gesture_engine = ge
@@ -380,6 +392,10 @@ def main():
                     show_idle(last_soc, 0)
                     print("  Reset via broadcast")
                 elif result == "battery":
+                    last_activity_ms = time.ticks_ms()
+                    nfc_sleeping = False
+
+                if nfc_sleeping:
                     leds.idle_sleep()
 
                 # Check accelerometer or button for wake
@@ -571,6 +587,9 @@ def main():
                 print_rules(rules, editing); continue
 
             # ── ACTION ──
+            # Chain shape contract: list[list[str]] — outer list is THEN-groups,
+            # inner list is AND-group of simultaneous actions.
+            # ActionRunner.run_chain expects: [["turnred", "notea"], ["playnote"]]
             if cmd in ACTIONS or cmd in ANIMAL_SOUNDS:
                 if editing is None:
                     editing = "buttondown"
@@ -581,10 +600,12 @@ def main():
                 chain = rules[editing]
 
                 if pending_combinator == "and" and len(chain) > 0:
+                    # Add to current AND group
                     last_group = chain[-1]
                     if isinstance(last_group, list):
                         last_group.append(cmd)
                     else:
+                        # Defensive: fix up legacy bare-string entries
                         chain[-1] = [last_group, cmd]
                 elif pending_combinator == "then" and len(chain) > 0:
                     chain.append([cmd])
