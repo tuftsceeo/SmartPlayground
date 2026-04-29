@@ -587,14 +587,14 @@ def main():
                     else:
                         chain[-1] = [last_group, cmd]
                 elif pending_combinator == "then" and len(chain) > 0:
-                    chain.append(cmd)
+                    chain.append([cmd])
                 else:
-                    rules[editing] = [cmd]
+                    rules[editing] = [[cmd]]
 
                 pending_combinator = None
 
                 # Preview the action
-                runner.run_chain([cmd])
+                runner.run_chain([[cmd]])
 
                 leds.show_programming(rules, editing)
                 print_rules(rules, editing); continue
