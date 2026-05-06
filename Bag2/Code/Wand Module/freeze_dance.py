@@ -1,122 +1,118 @@
 """
-Freeze Dance — ESP-NOW Multiplayer Motion Game for Wand Module
-================================================================
-All wands run the same code. On entry, each player taps either
-a CALLER or PLAYER tag to choose their role.
+Freeze Dance — ESP-NOW multiplayer motion game for the wand.
 
-  Caller:  BUTTON press = GO, BUTTON release = FREEZE.
-           Also scans GO/FREEZE/STOP NFC tags (stop only when
-           button is not pressed). LED shows amber pulse.
-  Player:  Dances during GO, must freeze during FREEZE.
-           If caught moving → OUT for 30 seconds, then auto-rejoins.
+Caller:  button press = GO (green), release = FREEZE (red),
+         shake (button up) = DANCE (purple).
+Player:  GO → dance, FREEZE → hold still, DANCE → keep moving.
+         Get caught → blue sad face. Tap REJOIN, press button to come back.
 
-ESP-NOW messages are plain byte strings (no JSON) for speed:
-  FD_GO, FD_FREEZE, FD_RESET, stop
+Tags: caller, player, go, freeze, stop, rejoin, freezedance.
+ESP-NOW msgs: FD_GO, FD_FREEZE, FD_DANCE, FD_RESET, stop.
 
-Tap STOP tag or receive "stop" via ESP-NOW to exit back to
-programming mode.
-
-Requires /lib/: pn532.py, nfc_reader.py, buzzer.py, lis2dw12.py
-
-Entry point — called from main.py:
+Entry point:
     from freeze_dance import play
     play(nfc, leds, buz, accel, i2c)
 """
 
-import machine
-import network
-import espnow
-import time
-import math
+import machine, network, espnow, time
 from machine import Pin
 from neopixel import NeoPixel
 
-from pn532 import PN532
-from nfc_reader import NfcReader, _decode_ndef_text, COMMON_KEYS
-from pn532 import MIFARE_AUTH_A, MIFARE_AUTH_B
+from pn532 import PN532, MIFARE_AUTH_A, MIFARE_AUTH_B
+from nfc_reader import _decode_ndef_text, COMMON_KEYS
 from buzzer import Buzzer
 
-# ─────────────────────────────────────────────
-# CONSTANTS
-# ─────────────────────────────────────────────
+# ── Constants ──────────────────────────────────────────────
 NUM_LEDS = 25
+SWITCH_PIN = 0
 BROADCAST = b'\xFF\xFF\xFF\xFF\xFF\xFF'
 
-# ESP-NOW message bytes
 MSG_GO     = b"FD_GO"
 MSG_FREEZE = b"FD_FREEZE"
+MSG_DANCE  = b"FD_DANCE"
 MSG_RESET  = b"FD_RESET"
 MSG_STOP   = b"stop"
 
-# NFC commands recognized inside the game
-GAME_COMMANDS = {"caller", "player", "go", "freeze", "stop"}
+GAME_COMMANDS = {"caller", "player", "go", "freeze", "stop", "rejoin"}
 
-# Game states
-STATE_ROLE_SELECT = 0
-STATE_READY       = 1
-STATE_GO          = 2
-STATE_FREEZE      = 3
-STATE_OUT         = 4
+(STATE_ROLE_SELECT, STATE_READY, STATE_GO, STATE_FREEZE,
+ STATE_OUT, STATE_DANCE, STATE_REJOIN_ARMED) = range(7)
 
-# Motion detection tuning
-MOVE_THRESHOLD   = 0.70   # sum of axis deltas in g
-MOVE_HITS_NEEDED = 2      # consecutive frames above threshold
-FREEZE_GRACE_MS  = 1000   # grace period after FREEZE before checking
-OUT_DURATION_MS  = 30_000 # time-out penalty
+# Motion tuning
+MOVE_THRESHOLD,  MOVE_HITS_NEEDED,  FREEZE_GRACE_MS = 0.70, 2,  1000
+STILL_THRESHOLD, STILL_HITS_NEEDED, DANCE_GRACE_MS  = 0.18, 30, 1500
+SHAKE_THRESHOLD, SHAKE_HITS_NEEDED                  = 1.5,  2
 
-# Timing
-LOOP_DELAY_MS         = 40
-REPEAT_SCAN_GUARD_MS  = 1200
+# Loop / IO
+LOOP_DELAY_MS        = 40
+REPEAT_SCAN_GUARD_MS = 1200
+NFC_POLL_INTERVAL    = 5
+BTN_DEBOUNCE_MS      = 30
+BTN_SEND_REPEATS     = 5
+BTN_SEND_DELAY_MS    = 1
 
-# NFC poll throttle: check every Nth loop iteration (~N*40ms)
-NFC_POLL_INTERVAL = 5
+# 5x5 sad face: eyes (6,8), frown top (16,17,18), corners (20,24)
+SAD_FACE_INDICES = (6, 8, 16, 17, 18, 20, 24)
 
-# Button debounce
-BTN_DEBOUNCE_MS = 30
+# state -> (r, g, b). READY and OUT are special-cased in _render.
+STATE_COLORS = {
+    STATE_ROLE_SELECT:  (200, 200, 0),
+    STATE_GO:           (0,   200, 0),
+    STATE_FREEZE:       (200, 0,   0),
+    STATE_DANCE:        (180, 0,   180),
+    STATE_REJOIN_ARMED: (140, 140, 140),
+}
+READY_CALLER = (200, 100, 0)
+READY_PLAYER = (200, 200, 0)
+SAD_BLUE     = (0,   0,   200)
 
-# How many times to send GO/FREEZE on button events
-BTN_SEND_REPEATS = 5
-BTN_SEND_DELAY_MS = 1
+# Sound sequences: list of (freq, dur_ms, gap_after_ms)
+SOUNDS = {
+    'join':   [(700, 80, 40),   (980, 120, 0)],
+    'go':     [(900, 70, 30),   (1200, 90, 0)],
+    'freeze': [(650, 120, 0)],
+    'dance':  [(700, 60, 30),   (900, 60, 30), (1100, 80, 0)],
+    'out':    [(880, 120, 100), (880, 120, 100), (880, 120, 0)],
+    'rejoin': [(1100, 60, 30),  (1300, 80, 0)],
+    'role':   [(600, 60, 30),   (900, 60, 30), (1200, 80, 0)],
+}
 
-# Button pin
-SWITCH_PIN = 0
+# state -> sound name to play on entry (None = silent)
+STATE_ENTRY_SOUND = {
+    STATE_READY:        'join',
+    STATE_GO:           'go',
+    STATE_FREEZE:       'freeze',
+    STATE_DANCE:        'dance',
+    STATE_OUT:          'out',
+    STATE_REJOIN_ARMED: 'rejoin',
+}
 
-# 5x5 grid X pattern indices
-X_INDICES = [0, 4, 6, 8, 12, 16, 18, 20, 24]
+# name -> (msg, state) for caller broadcasts
+BROADCASTS = {
+    'go':     (MSG_GO,     STATE_GO),
+    'freeze': (MSG_FREEZE, STATE_FREEZE),
+    'dance':  (MSG_DANCE,  STATE_DANCE),
+}
 
 
-# ─────────────────────────────────────────────
-# EXTERNAL ANTENNA CONFIG
-# ─────────────────────────────────────────────
+# ── Hardware setup ─────────────────────────────────────────
 def _configure_external_antenna():
-    """Switch to external antenna before WiFi activation."""
-    wifi_en = Pin(3, Pin.OUT)
-    ant_cfg = Pin(14, Pin.OUT)
-    wifi_en.value(0)
+    Pin(3,  Pin.OUT).value(0)
     time.sleep_ms(100)
-    ant_cfg.value(1)  # External antenna
+    Pin(14, Pin.OUT).value(1)
 
 
-# ─────────────────────────────────────────────
-# ESP-NOW SETUP
-# ─────────────────────────────────────────────
 def _espnow_init():
     _configure_external_antenna()
     sta = network.WLAN(network.STA_IF)
-    sta.active(True)
-    sta.disconnect()
-    e = espnow.ESPNow()
-    e.active(True)
-    try:
-        e.add_peer(BROADCAST)
-    except Exception:
-        pass
+    sta.active(True); sta.disconnect()
+    e = espnow.ESPNow(); e.active(True)
+    try: e.add_peer(BROADCAST)
+    except Exception: pass
     return e
 
 
-# ─────────────────────────────────────────────
-# LED HELPERS (work on the raw NeoPixel object)
-# ─────────────────────────────────────────────
+# ── LED + sound helpers ────────────────────────────────────
 def _fill(np, r, g, b):
     for i in range(NUM_LEDS):
         np[i] = (r, g, b)
@@ -129,490 +125,314 @@ def _off(np):
 
 def _flash(np, r, g, b, times=2, on_ms=120, off_ms=80):
     for _ in range(times):
-        _fill(np, r, g, b)
-        time.sleep_ms(on_ms)
-        _off(np)
-        time.sleep_ms(off_ms)
+        _fill(np, r, g, b); time.sleep_ms(on_ms)
+        _off(np);            time.sleep_ms(off_ms)
 
 
-def _pulse(np, base_r, base_g, base_b, origin_ms,
-           period_ms=1000, min_s=0.2, max_s=1.0):
-    phase = (time.ticks_diff(time.ticks_ms(), origin_ms)
-             % period_ms) / float(period_ms)
-    wave = (math.sin(phase * 2 * math.pi) + 1.0) / 2.0
-    s = min_s + (max_s - min_s) * wave
-    _fill(np, int(base_r * s), int(base_g * s), int(base_b * s))
-
-
-def _green_chase(np, origin_ms):
-    t = time.ticks_ms()
-    pos = (time.ticks_diff(t, origin_ms) // 90) % NUM_LEDS
+def _sad_face(np):
     for i in range(NUM_LEDS):
-        np[i] = (0, 2, 0)
-    for trail in range(5):
-        idx = (pos - trail) % NUM_LEDS
-        brightness = max(0, 32 - trail * 6)
-        np[idx] = (0, brightness, 0)
+        np[i] = (0, 0, 0)
+    for idx in SAD_FACE_INDICES:
+        np[idx] = SAD_BLUE
     np.write()
 
 
-def _red_x(np):
-    t = time.ticks_ms()
-    on = ((t // 250) % 2) == 0
-    bg = (1, 0, 0) if on else (0, 0, 0)
-    fg = (28, 0, 0) if on else (8, 0, 0)
-    for i in range(NUM_LEDS):
-        np[i] = bg
-    for idx in X_INDICES:
-        np[idx] = fg
-    np.write()
+def _play(buz, name):
+    seq = SOUNDS.get(name)
+    if not seq: return
+    for f, d, gap in seq:
+        buz.beep(f, d)
+        if gap: time.sleep_ms(gap)
 
 
-# ─────────────────────────────────────────────
-# SOUND HELPERS
-# ─────────────────────────────────────────────
-def _join_sound(buz):
-    buz.beep(700, 80)
-    time.sleep_ms(40)
-    buz.beep(980, 120)
-
-
-def _go_sound(buz):
-    buz.beep(900, 70)
-    time.sleep_ms(30)
-    buz.beep(1200, 90)
-
-
-def _freeze_sound(buz):
-    buz.beep(650, 120)
-
-
-def _out_sound(buz):
-    for _ in range(3):
-        buz.beep(880, 120)
-        time.sleep_ms(100)
-
-
-def _role_confirm_sound(buz):
-    buz.beep(600, 60)
-    time.sleep_ms(30)
-    buz.beep(900, 60)
-    time.sleep_ms(30)
-    buz.beep(1200, 80)
-
-
-# ─────────────────────────────────────────────
-# NFC READING (lightweight, no NfcReader object)
-# ─────────────────────────────────────────────
+# ── NFC tag read ───────────────────────────────────────────
 def _read_tag_text(nfc):
-    """Quick NDEF text read. Returns (text, uid_hex) or (None, None)."""
+    """Returns (text, uid_hex) or (None, None). Text is None if the
+    tag's NDEF payload isn't one of GAME_COMMANDS."""
     tag = nfc.read_passive_target(timeout=80)
     if tag is None:
         return None, None
-
     uid_hex = tag['uid_hex']
-    sak = tag['sak']
-
-    if sak not in (0x08, 0x18):
+    if tag['sak'] not in (0x08, 0x18):
         return None, uid_hex
 
-    ndef_data = bytearray()
+    ndef = bytearray()
     for sector in (1, 2):
-        first_block = sector * 4
+        first = sector * 4
         authed = False
         for key in COMMON_KEYS:
-            for key_type in [MIFARE_AUTH_A, MIFARE_AUTH_B]:
+            for kt in (MIFARE_AUTH_A, MIFARE_AUTH_B):
                 resel = nfc.read_passive_target(timeout=150)
-                if resel is None:
-                    continue
-                if nfc.mifare_auth_block(resel['uid'], first_block, key, key_type):
-                    for blk in range(first_block, first_block + 3):
-                        try:
-                            ndef_data.extend(nfc.mifare_read_block(blk))
-                        except Exception:
-                            ndef_data.extend(b'\x00' * 16)
+                if resel is None: continue
+                if nfc.mifare_auth_block(resel['uid'], first, key, kt):
+                    for blk in range(first, first + 3):
+                        try: ndef.extend(nfc.mifare_read_block(blk))
+                        except Exception: ndef.extend(b'\x00' * 16)
                     authed = True
                     break
-            if authed:
-                break
+            if authed: break
         if not authed:
-            ndef_data.extend(b'\x00' * 48)
+            ndef.extend(b'\x00' * 48)
 
-    text = _decode_ndef_text(ndef_data)
+    text = _decode_ndef_text(ndef)
     if text and text in GAME_COMMANDS:
         return text, uid_hex
     return None, uid_hex
 
 
-# ─────────────────────────────────────────────
-# MOTION DETECTION
-# ─────────────────────────────────────────────
+# ── Motion: triggered (FREEZE), too_still (DANCE), shake (caller) ──
 class MotionChecker:
     def __init__(self, accel):
         self.accel = accel
         self.last_xyz = None
-        self.hit_count = 0
+        self.move_hits = self.still_hits = self.shake_hits = 0
 
     def reset(self):
-        self.hit_count = 0
-        try:
-            self.last_xyz = self.accel.read()
-        except Exception:
-            self.last_xyz = None
+        self.move_hits = self.still_hits = self.shake_hits = 0
+        try: self.last_xyz = self.accel.read()
+        except Exception: self.last_xyz = None
 
-    def triggered(self):
-        try:
-            xyz = self.accel.read()
-        except Exception:
-            return False
-
+    def _delta(self):
+        try: xyz = self.accel.read()
+        except Exception: return None
         if self.last_xyz is None:
             self.last_xyz = xyz
-            return False
-
+            return None
         dx = abs(xyz[0] - self.last_xyz[0])
         dy = abs(xyz[1] - self.last_xyz[1])
         dz = abs(xyz[2] - self.last_xyz[2])
-        movement = dx + dy + dz
         self.last_xyz = xyz
+        return dx + dy + dz
 
-        if movement >= MOVE_THRESHOLD:
-            self.hit_count += 1
-        else:
-            if self.hit_count > 0:
-                self.hit_count -= 1
+    def triggered(self):
+        m = self._delta()
+        if m is None: return False
+        if m >= MOVE_THRESHOLD: self.move_hits += 1
+        elif self.move_hits > 0: self.move_hits -= 1
+        return self.move_hits >= MOVE_HITS_NEEDED
 
-        return self.hit_count >= MOVE_HITS_NEEDED
+    def too_still(self):
+        m = self._delta()
+        if m is None: return False
+        if m < STILL_THRESHOLD: self.still_hits += 1
+        else:                   self.still_hits = 0
+        return self.still_hits >= STILL_HITS_NEEDED
+
+    def shake_detected(self):
+        m = self._delta()
+        if m is None: return False
+        if m >= SHAKE_THRESHOLD: self.shake_hits += 1
+        elif self.shake_hits > 0: self.shake_hits -= 1
+        if self.shake_hits >= SHAKE_HITS_NEEDED:
+            self.shake_hits = 0   # consume so we don't refire on decel
+            return True
+        return False
 
 
-# ─────────────────────────────────────────────
-# GAME CLASS
-# ─────────────────────────────────────────────
+# ── Game ───────────────────────────────────────────────────
 class FreezeDanceGame:
     def __init__(self, nfc, np, buz, accel, enow):
-        self.nfc = nfc
-        self.np = np
-        self.buz = buz
-        self.enow = enow
+        self.nfc, self.np, self.buz, self.enow = nfc, np, buz, enow
         self.motion = MotionChecker(accel)
         self.btn = machine.Pin(SWITCH_PIN, machine.Pin.IN, machine.Pin.PULL_UP)
 
         self.state = STATE_ROLE_SELECT
         self.state_ms = time.ticks_ms()
         self.is_caller = False
-        self.out_until_ms = 0
 
-        # NFC debounce
         self.last_uid = None
         self.last_scan_ms = 0
-
-        # NFC poll throttle counter
         self._nfc_poll_count = 0
-
-        # Caller button state
         self._btn_was_down = False
-
-    # ── State transitions ────────────────────
 
     def _set_state(self, new_state):
         self.state = new_state
         self.state_ms = time.ticks_ms()
         self.motion.reset()
-
         if new_state == STATE_ROLE_SELECT:
             _off(self.np)
-
         elif new_state == STATE_READY:
-            _flash(self.np, 0, 18, 18, times=2)
-            _join_sound(self.buz)
+            _flash(self.np, 0, 150, 150, times=2)
+        snd = STATE_ENTRY_SOUND.get(new_state)
+        if snd: _play(self.buz, snd)
 
-        elif new_state == STATE_GO:
-            _go_sound(self.buz)
-
-        elif new_state == STATE_FREEZE:
-            _freeze_sound(self.buz)
-
-        elif new_state == STATE_OUT:
-            self.out_until_ms = time.ticks_add(
-                time.ticks_ms(), OUT_DURATION_MS)
-            _out_sound(self.buz)
-
-    # ── Caller: broadcast GO/FREEZE via button ──
-
-    def _send_go(self):
+    def _broadcast(self, name):
+        msg, state = BROADCASTS[name]
         for _ in range(BTN_SEND_REPEATS):
-            self.enow.send(BROADCAST, MSG_GO)
+            self.enow.send(BROADCAST, msg)
             time.sleep_ms(BTN_SEND_DELAY_MS)
-        self._set_state(STATE_GO)
-        print("  >> Button GO (x%d)" % BTN_SEND_REPEATS)
-
-    def _send_freeze(self):
-        for _ in range(BTN_SEND_REPEATS):
-            self.enow.send(BROADCAST, MSG_FREEZE)
-            time.sleep_ms(BTN_SEND_DELAY_MS)
-        self._set_state(STATE_FREEZE)
-        print("  >> Button FREEZE (x%d)" % BTN_SEND_REPEATS)
+        self._set_state(state)
+        print("  >> %s" % name.upper())
 
     def _poll_caller_button(self):
-        """
-        Check button for caller GO/FREEZE control.
-        Press = GO, Release = FREEZE.
-        Returns True if a button event was handled.
-        """
-        btn_down = (self.btn.value() == 0)
-
-        if btn_down and not self._btn_was_down:
+        """Press = GO, release = FREEZE."""
+        down = (self.btn.value() == 0)
+        if down and not self._btn_was_down:
             time.sleep_ms(BTN_DEBOUNCE_MS)
             if self.btn.value() == 0:
                 self._btn_was_down = True
-                self._send_go()
-                return True
-
-        elif not btn_down and self._btn_was_down:
+                self._broadcast('go')
+        elif not down and self._btn_was_down:
             time.sleep_ms(BTN_DEBOUNCE_MS)
             if self.btn.value() == 1:
                 self._btn_was_down = False
-                self._send_freeze()
-                return True
+                self._broadcast('freeze')
 
-        return False
-
-    # ── NFC polling ──────────────────────────
+    def _poll_player_rejoin_button(self):
+        down = (self.btn.value() == 0)
+        if down and not self._btn_was_down:
+            time.sleep_ms(BTN_DEBOUNCE_MS)
+            if self.btn.value() == 0:
+                self._btn_was_down = True
+                self._set_state(STATE_READY)
+                print("  Rejoined!")
+        elif not down and self._btn_was_down:
+            self._btn_was_down = False
 
     def _poll_nfc(self):
         text, uid = _read_tag_text(self.nfc)
-
-        if uid is None:
+        if uid is None: return None
+        now = time.ticks_ms()
+        if uid == self.last_uid and time.ticks_diff(now, self.last_scan_ms) < REPEAT_SCAN_GUARD_MS:
             return None
-
-        now_ms = time.ticks_ms()
-        if (uid == self.last_uid
-                and time.ticks_diff(now_ms, self.last_scan_ms)
-                < REPEAT_SCAN_GUARD_MS):
-            return None
-
         self.last_uid = uid
-        self.last_scan_ms = now_ms
+        self.last_scan_ms = now
         return text
 
-    # ── ESP-NOW polling ──────────────────────
-
     def _poll_espnow(self):
-        mac, msg = self.enow.irecv(0)
-        if msg is None:
-            return None
-        return bytes(msg)
-
-    # ── Rendering ────────────────────────────
+        _, msg = self.enow.irecv(0)
+        return bytes(msg) if msg is not None else None
 
     def _render(self):
-        if self.state == STATE_ROLE_SELECT:
-            # Gentle white breathing — waiting for role tag
-            _pulse(self.np, 12, 8, 15, self.state_ms,
-                   period_ms=1500, min_s=0.1, max_s=0.5)
-
-        elif self.state == STATE_READY:
-            if self.is_caller:
-                # Amber pulse — caller waiting to send commands
-                _pulse(self.np, 25, 12, 0, self.state_ms,
-                       period_ms=900, min_s=0.2, max_s=0.9)
-            else:
-                # Yellow-green pulse — player waiting for GO
-                _pulse(self.np, 10, 20, 0, self.state_ms,
-                       period_ms=1200, min_s=0.15, max_s=0.75)
-
-        elif self.state == STATE_GO:
-            _green_chase(self.np, self.state_ms)
-
-        elif self.state == STATE_FREEZE:
-            # Blue freeze glow
-            _pulse(self.np, 0, 0, 40, self.state_ms,
-                   period_ms=1300, min_s=0.2, max_s=0.85)
-
-        elif self.state == STATE_OUT:
-            _red_x(self.np)
-
-    # ── Main loop ────────────────────────────
+        s = self.state
+        if s == STATE_OUT:
+            _sad_face(self.np)
+        elif s == STATE_READY:
+            _fill(self.np, *(READY_CALLER if self.is_caller else READY_PLAYER))
+        else:
+            c = STATE_COLORS.get(s)
+            if c: _fill(self.np, *c)
 
     def run(self):
-        """
-        Run the game until stop is triggered.
-        Returns when the player should exit back to programming mode.
-        """
         print("\n  === FREEZE DANCE ===")
-        print("  Tap CALLER or PLAYER tag to choose your role.")
-        print("  Caller: BUTTON = GO / release = FREEZE")
-        print("  Tap STOP tag to exit.\n")
+        print("  Tap CALLER or PLAYER. STOP to exit.\n")
 
         while True:
-            # ── Caller button: press=GO, release=FREEZE ──
-            # Only active once caller role is selected and in
-            # READY, GO, or FREEZE states
-            if self.is_caller and self.state in (
-                    STATE_READY, STATE_GO, STATE_FREEZE):
+            # Caller button: press=GO, release=FREEZE (works from any active state).
+            if self.is_caller and self.state in (STATE_READY, STATE_GO, STATE_FREEZE, STATE_DANCE):
                 self._poll_caller_button()
 
-            # ── Check NFC ──
-            # Role select: always poll NFC for role tags
-            # Caller: poll for stop tag only when button is NOT pressed
-            # Player: skip NFC entirely (keep ESP-NOW window open)
+            # Caller shake → DANCE (only with button up, from READY or FREEZE).
+            if (self.is_caller and not self._btn_was_down
+                    and self.state in (STATE_READY, STATE_FREEZE)
+                    and self.motion.shake_detected()):
+                self._broadcast('dance')
+
+            # Player rejoin button.
+            if not self.is_caller and self.state == STATE_REJOIN_ARMED:
+                self._poll_player_rejoin_button()
+
+            # NFC: role select, caller idle, or OUT players (for rejoin tag).
             cmd = None
-            should_poll_nfc = False
-
-            if self.state == STATE_ROLE_SELECT:
-                should_poll_nfc = True
-            elif self.is_caller and not self._btn_was_down:
-                should_poll_nfc = True
-
-            if should_poll_nfc:
+            poll_nfc = (self.state == STATE_ROLE_SELECT
+                        or (self.is_caller and not self._btn_was_down)
+                        or (not self.is_caller and self.state == STATE_OUT))
+            if poll_nfc:
                 self._nfc_poll_count += 1
                 if self._nfc_poll_count >= NFC_POLL_INTERVAL:
                     self._nfc_poll_count = 0
-                    try:
-                        cmd = self._poll_nfc()
-                    except OSError as e:
-                        print("  [NFC timeout: %s — continuing]" % str(e))
-                        cmd = None
+                    try: cmd = self._poll_nfc()
+                    except OSError as e: print("  [NFC: %s]" % str(e))
 
             if cmd == "stop":
-                print("  STOP tag — exiting Freeze Dance")
+                print("  STOP — exiting")
                 if self.is_caller:
                     for _ in range(BTN_SEND_REPEATS):
                         self.enow.send(BROADCAST, MSG_STOP)
                         time.sleep_ms(BTN_SEND_DELAY_MS)
-                    print("  >> Broadcast: STOP (x%d)" % BTN_SEND_REPEATS)
                 _off(self.np)
                 return
 
-            if cmd == "caller" and self.state in (
-                    STATE_ROLE_SELECT, STATE_READY):
+            if cmd == "caller" and self.state in (STATE_ROLE_SELECT, STATE_READY):
                 self.is_caller = True
                 self._btn_was_down = False
-                _role_confirm_sound(self.buz)
-                _flash(self.np, 25, 12, 0, times=3, on_ms=80, off_ms=60)
+                _play(self.buz, 'role')
+                _flash(self.np, 200, 100, 0, times=3, on_ms=80, off_ms=60)
                 self._set_state(STATE_READY)
-                print("  Role: CALLER — button press=GO, release=FREEZE")
+                print("  Role: CALLER")
 
-            elif cmd == "player" and self.state in (
-                    STATE_ROLE_SELECT, STATE_READY):
+            elif cmd == "player" and self.state in (STATE_ROLE_SELECT, STATE_READY):
                 self.is_caller = False
-                _role_confirm_sound(self.buz)
-                _flash(self.np, 0, 20, 10, times=3, on_ms=80, off_ms=60)
+                _play(self.buz, 'role')
+                _flash(self.np, 200, 200, 0, times=3, on_ms=80, off_ms=60)
                 self._set_state(STATE_READY)
-                print("  Role: PLAYER — dance on GO, freeze on FREEZE")
+                print("  Role: PLAYER")
 
-            # NFC go/freeze tags still work for caller as backup
-            elif cmd == "go" and self.is_caller:
-                self._send_go()
+            elif cmd == "go"     and self.is_caller: self._broadcast('go')
+            elif cmd == "freeze" and self.is_caller: self._broadcast('freeze')
 
-            elif cmd == "freeze" and self.is_caller:
-                self._send_freeze()
+            elif cmd == "rejoin" and not self.is_caller and self.state == STATE_OUT:
+                self._set_state(STATE_REJOIN_ARMED)
+                self._btn_was_down = (self.btn.value() == 0)  # avoid stale-press
+                print("  REJOIN — press button")
 
-            # ── Check ESP-NOW ──
+            # ESP-NOW. State guards dedupe the burst of 5 repeats and only beep
+            # on the first message that actually changes state.
             msg = self._poll_espnow()
-
             if msg == MSG_STOP or msg == b'"stop"':
-                print("  ESP-NOW stop — exiting Freeze Dance")
-                _off(self.np)
-                return
+                print("  ESP-NOW stop"); _off(self.np); return
 
-            if self.state != STATE_OUT:
-                if msg == MSG_GO and not self.is_caller:
-                    self._set_state(STATE_GO)
-                    print("  Received: GO")
+            if self.state not in (STATE_OUT, STATE_REJOIN_ARMED) and not self.is_caller:
+                if   msg == MSG_GO     and self.state != STATE_GO:     self._set_state(STATE_GO);     print("  GO")
+                elif msg == MSG_FREEZE and self.state != STATE_FREEZE: self._set_state(STATE_FREEZE); print("  FREEZE")
+                elif msg == MSG_DANCE  and self.state != STATE_DANCE:  self._set_state(STATE_DANCE);  print("  DANCE")
+                elif msg == MSG_RESET  and self.state != STATE_READY:  self._set_state(STATE_READY);  print("  RESET")
 
-                elif msg == MSG_FREEZE and not self.is_caller:
-                    self._set_state(STATE_FREEZE)
-                    print("  Received: FREEZE")
+            # Player motion checks: FREEZE catches movement, DANCE catches stillness.
+            if not self.is_caller:
+                if self.state == STATE_FREEZE:
+                    if (time.ticks_diff(time.ticks_ms(), self.state_ms) >= FREEZE_GRACE_MS
+                            and self.motion.triggered()):
+                        self._set_state(STATE_OUT); print("  CAUGHT — out!")
+                elif self.state == STATE_DANCE:
+                    if (time.ticks_diff(time.ticks_ms(), self.state_ms) >= DANCE_GRACE_MS
+                            and self.motion.too_still()):
+                        self._set_state(STATE_OUT); print("  STOPPED — out!")
 
-                elif msg == MSG_RESET:
-                    self._set_state(STATE_READY)
-                    print("  Received: RESET")
-
-            # ── Motion check during FREEZE (players only) ──
-            if (self.state == STATE_FREEZE
-                    and not self.is_caller):
-                elapsed = time.ticks_diff(
-                    time.ticks_ms(), self.state_ms)
-                if elapsed >= FREEZE_GRACE_MS:
-                    if self.motion.triggered():
-                        self._set_state(STATE_OUT)
-                        print("  CAUGHT MOVING — out for %d seconds"
-                              % (OUT_DURATION_MS // 1000))
-
-            # ── Out timer ──
-            if self.state == STATE_OUT:
-                if time.ticks_diff(
-                        time.ticks_ms(), self.out_until_ms) >= 0:
-                    self._set_state(STATE_READY)
-                    print("  Back in! Waiting for next GO/FREEZE...")
-
-            # ── Render + loop delay ──
             self._render()
             time.sleep_ms(LOOP_DELAY_MS)
 
 
-# ─────────────────────────────────────────────
-# ENTRY POINT (called from main.py)
-# ─────────────────────────────────────────────
+# ── Entry points ───────────────────────────────────────────
 def play(nfc, leds, buz, accel, i2c):
-    """
-    Called from main.py when the "freezedance" tag is tapped.
-    Runs the game until STOP is scanned or received via ESP-NOW.
-
-    Args:
-        nfc:   PN532 driver instance
-        leds:  Leds instance (we use leds.np for raw NeoPixel access)
-        buz:   Buzzer instance
-        accel: LIS2DW12 instance
-        i2c:   SoftI2C instance (unused, reserved for future)
-    """
+    """Called from main.py when the freezedance tag is tapped."""
     enow = _espnow_init()
-
     try:
-        game = FreezeDanceGame(nfc, leds.np, buz, accel, enow)
-        game.run()
+        FreezeDanceGame(nfc, leds.np, buz, accel, enow).run()
     finally:
-        try:
-            enow.active(False)
-        except Exception:
-            pass
+        try: enow.active(False)
+        except Exception: pass
         _off(leds.np)
 
 
-# ─────────────────────────────────────────────
-# STANDALONE MODE (run directly for testing)
-# ─────────────────────────────────────────────
 def main():
-    print("\n" + "=" * 45)
-    print("  Freeze Dance — Standalone Mode")
-    print("=" * 45)
-
-    i2c = machine.SoftI2C(
-        sda=machine.Pin(22), scl=machine.Pin(23), freq=100_000)
-    np = NeoPixel(machine.Pin(20), NUM_LEDS)
+    """Standalone test mode."""
+    print("\n  Freeze Dance — Standalone\n")
+    i2c = machine.SoftI2C(sda=machine.Pin(22), scl=machine.Pin(23), freq=100_000)
+    np  = NeoPixel(machine.Pin(20), NUM_LEDS)
     buz = Buzzer(19)
-
     from lis2dw12 import LIS2DW12, RANGE_4G
-    accel = LIS2DW12(i2c)
-    accel.init(fs_range=RANGE_4G)
-
-    nfc = PN532(i2c)
-    nfc.begin()
-
+    accel = LIS2DW12(i2c); accel.init(fs_range=RANGE_4G)
+    nfc = PN532(i2c); nfc.begin()
     enow = _espnow_init()
-
     try:
-        game = FreezeDanceGame(nfc, np, buz, accel, enow)
-        game.run()
+        FreezeDanceGame(nfc, np, buz, accel, enow).run()
     except KeyboardInterrupt:
         print("\n  Exiting.")
     finally:
         _off(np)
-        try:
-            enow.active(False)
-        except Exception:
-            pass
+        try: enow.active(False)
+        except Exception: pass
 
 
 if __name__ == "__main__":
