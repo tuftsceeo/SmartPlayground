@@ -59,12 +59,6 @@ BTN_DEBOUNCE_MS      = 30
 BTN_SEND_REPEATS     = 5
 BTN_SEND_DELAY_MS    = 1
 
-# When the caller shakes (DANCE), the wand broadcasts FD_DANCE for players AND
-# FD_GO for the speaker (which only understands GO/FREEZE for play/pause).
-# A player that receives FD_GO this soon after entering DANCE ignores it —
-# it's the speaker cue, not a real GO command.
-DANCE_SPEAKER_CUE_MS = 300
-
 # state -> color (from leds module palette).
 # READY, GO, DANCE, OUT, ROLE_SELECT are special-cased in _render
 # (they use shapes or multi-color patterns instead of a flat fill).
@@ -258,13 +252,6 @@ class FreezeDanceGame:
         for _ in range(BTN_SEND_REPEATS):
             self.enow.send(BROADCAST, msg)
             time.sleep_ms(BTN_SEND_DELAY_MS)
-        # Speaker (separate device) listens for FD_GO/FD_FREEZE to play/pause
-        # music. It doesn't know FD_DANCE, so we follow up with FD_GO when
-        # entering DANCE. Players ignore this FD_GO via DANCE_SPEAKER_CUE_MS.
-        if name == 'dance':
-            for _ in range(BTN_SEND_REPEATS):
-                self.enow.send(BROADCAST, MSG_GO)
-                time.sleep_ms(BTN_SEND_DELAY_MS)
         self._set_state(state)
         print("  >> %s" % name.upper())
 
@@ -401,16 +388,13 @@ class FreezeDanceGame:
             if msg == MSG_STOP or msg == b'"stop"':
                 print("  ESP-NOW stop"); self.leds.off(); return
 
-            if self.state not in (STATE_OUT, STATE_REJOIN_ARMED) and not self.is_caller:
-                if msg == MSG_GO and self.state != STATE_GO:
-                    # Suppress the FD_GO sent alongside FD_DANCE for the speaker's benefit —
-                    # it arrives within DANCE_SPEAKER_CUE_MS of the FD_DANCE that put us
-                    # into DANCE state. After that window, an FD_GO is a real GO command.
-                    if (self.state == STATE_DANCE
-                            and time.ticks_diff(time.ticks_ms(), self.state_ms) < DANCE_SPEAKER_CUE_MS):
-                        pass
-                    else:
-                        self._set_state(STATE_GO); print("  GO")
+            # Players in OUT, REJOIN_ARMED, or ROLE_SELECT ignore game-state
+            # messages. ROLE_SELECT means they haven't joined yet — they must
+            # press the button (or tap a role tag) before the wand reacts to
+            # the caller's commands. The state guards below also dedupe the
+            # burst of 5 repeats and only fire on a real state change.
+            if self.state not in (STATE_OUT, STATE_REJOIN_ARMED, STATE_ROLE_SELECT) and not self.is_caller:
+                if   msg == MSG_GO     and self.state != STATE_GO:     self._set_state(STATE_GO);     print("  GO")
                 elif msg == MSG_FREEZE and self.state != STATE_FREEZE: self._set_state(STATE_FREEZE); print("  FREEZE")
                 elif msg == MSG_DANCE  and self.state != STATE_DANCE:  self._set_state(STATE_DANCE);  print("  DANCE")
                 elif msg == MSG_RESET  and self.state != STATE_READY:  self._set_state(STATE_READY);  print("  RESET")
@@ -428,6 +412,7 @@ class FreezeDanceGame:
 
             self._render()
             time.sleep_ms(LOOP_DELAY_MS)
+
 
 
 # -- Entry point --------------------------------------------
