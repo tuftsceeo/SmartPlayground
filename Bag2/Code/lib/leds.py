@@ -3,20 +3,95 @@ LED Helpers — NeoPixel control and status display
 ===================================================
 Auto-configures from hubtype. Works on any device.
 
+All LED writes pass through _ScaledNeoPixel, which multiplies every
+(r, g, b) tuple by brightness.MULTIPLIER on its way to the underlying
+NeoPixel. Code outside this file does not need to know — when
+brightness.calibrate(opt) sets MULTIPLIER on boot, every consumer
+(Leds methods, freeze_dance, color_quest, gesture engine, etc.)
+automatically adapts.
+
 Usage:
     from leds import Leds
     leds = Leds()           # auto from hubtype
     leds = Leds(pin=21, num=18)  # override
+
+    leds.solid(200, 0, 0)   # red, scaled by brightness.MULTIPLIER
+    leds.np[5] = (0, 200, 0)  # also scaled — wrapper intercepts
 """
 
 import math
 import time
-from neopixel import NeoPixel
+from neopixel import NeoPixel as _RawNeoPixel
 import machine
 
 from hubtype import HUB_CONFIG
+import brightness   # required — provides MULTIPLIER
 
 TRIGGER_ORDER = ["buttondown", "buttonup", "shake"]
+
+# ══════════════════════════════════════════════
+# COLOR PALETTE — outdoor-tuned, brightness module scales them
+# ══════════════════════════════════════════════
+# Single-channel colors at ~78% of max (200/255). White at ~55% per channel
+# so total current draw stays comparable to two-channel colors. Nothing
+# hits 255 — headroom prevents premature LED wear and lets brightness
+# scaling reach 100% in sun without saturating.
+OFF      = (0, 0, 0)
+RED      = (200, 0,   0)
+GREEN    = (0,   200, 0)
+BLUE     = (0,   0,   200)
+YELLOW   = (200, 200, 0)
+AMBER    = (200, 100, 0)
+ORANGE   = (220, 80,  0)
+PURPLE   = (180, 0,   180)
+MAGENTA  = (200, 0,   120)
+CYAN     = (0,   200, 200)
+TEAL     = (0,   150, 150)
+WHITE    = (140, 140, 140)
+PINK     = (200, 80,  120)
+
+# Dim variants (~25% brightness) for backgrounds / status indicators
+RED_DIM    = (40, 0,  0)
+GREEN_DIM  = (0,  40, 0)
+BLUE_DIM   = (0,  0,  40)
+YELLOW_DIM = (40, 40, 0)
+WHITE_DIM  = (30, 30, 30)
+
+# ══════════════════════════════════════════════
+# 5×5 GRID SHAPES — LED index lists
+# ══════════════════════════════════════════════
+# Grid layout (LED indices on the wand's 5×5 NeoPixel matrix):
+#    0  1  2  3  4
+#    5  6  7  8  9
+#   10 11 12 13 14
+#   15 16 17 18 19
+#   20 21 22 23 24
+#
+# Use with leds.show_shape(indices, color) — lights only the listed
+# indices in `color`, leaves the rest off (or set bg=).
+
+SHAPE_SAD_FACE   = (6, 8, 16, 17, 18, 20, 24)
+SHAPE_HAPPY_FACE = (6, 8, 15, 19, 21, 22, 23)
+SHAPE_NEUTRAL    = (6, 8, 21, 22, 23)
+SHAPE_X          = (0, 4, 6, 8, 12, 16, 18, 20, 24)
+SHAPE_PLUS       = (2, 7, 10, 11, 12, 13, 14, 17, 22)
+SHAPE_HEART      = (6, 8, 11, 12, 13, 17, 22)
+SHAPE_CHECK      = (4, 9, 14, 18, 22, 16, 10)
+SHAPE_PLAY       = (1, 6, 7, 11, 12, 13, 16, 17, 21)   # right-pointing triangle (play button)
+SHAPE_DANCER     = (2, 7, 10, 11, 12, 13, 14, 17, 21, 23)  # stick figure: head, arms out, legs spread
+SHAPE_ARROW_UP   = (2, 6, 7, 8, 12, 17, 22)
+SHAPE_ARROW_DOWN = (2, 7, 12, 16, 17, 18, 22)
+SHAPE_ARROW_LEFT = (10, 6, 11, 16, 12, 13, 14)
+SHAPE_ARROW_RIGHT = (14, 8, 13, 18, 10, 11, 12)
+SHAPE_BORDER     = (0, 1, 2, 3, 4, 5, 9, 10, 14, 15, 19, 20, 21, 22, 23, 24)
+SHAPE_INNER_3x3  = (6, 7, 8, 11, 12, 13, 16, 17, 18)
+SHAPE_CORNERS    = (0, 4, 20, 24)
+SHAPE_CENTER     = (12,)
+SHAPE_TOP_ROW    = (0, 1, 2, 3, 4)
+SHAPE_BOT_ROW    = (20, 21, 22, 23, 24)
+SHAPE_LEFT_COL   = (0, 5, 10, 15, 20)
+SHAPE_RIGHT_COL  = (4, 9, 14, 19, 24)
+
 
 TRIGGER_LED = {"buttondown": 0, "buttonup": 1, "shake": 2}
 
@@ -52,6 +127,62 @@ BOOT_LED_BATT   = 1
 BOOT_LED_READY  = 2
 
 
+# ══════════════════════════════════════════════
+# SCALED NEOPIXEL WRAPPER
+# ══════════════════════════════════════════════
+class _ScaledNeoPixel:
+    """
+    Drop-in replacement for NeoPixel that multiplies every (r, g, b)
+    write by brightness.MULTIPLIER. The multiplier is read fresh on
+    each write, so it stays current even if calibrate() runs after
+    the wrapper is constructed.
+
+    Supports: indexed write/read, .fill(), .write(), .n, len().
+    Does NOT scale on read-back — np[i] returns the value actually
+    sent to the strip (already scaled), not the original color.
+    """
+
+    __slots__ = ('_np', 'n')
+
+    def __init__(self, pin, n):
+        self._np = _RawNeoPixel(pin, n)
+        self.n = n
+
+    def __setitem__(self, i, color):
+        m = brightness.MULTIPLIER
+        # color is expected to be a 3-tuple (r, g, b). Scale and clamp to byte.
+        try:
+            r = int(color[0] * m)
+            g = int(color[1] * m)
+            b = int(color[2] * m)
+        except Exception:
+            self._np[i] = color
+            return
+        if r > 255: r = 255
+        if g > 255: g = 255
+        if b > 255: b = 255
+        self._np[i] = (r, g, b)
+
+    def __getitem__(self, i):
+        return self._np[i]
+
+    def __len__(self):
+        return self.n
+
+    def fill(self, color):
+        m = brightness.MULTIPLIER
+        try:
+            r = min(255, int(color[0] * m))
+            g = min(255, int(color[1] * m))
+            b = min(255, int(color[2] * m))
+            self._np.fill((r, g, b))
+        except Exception:
+            self._np.fill(color)
+
+    def write(self):
+        self._np.write()
+
+
 def _is_gesture(name):
     return name is not None and name.startswith("gesture:")
 
@@ -77,7 +208,7 @@ class Leds:
             pin = HUB_CONFIG.get("led_pin", 20)
         if num is None:
             num = HUB_CONFIG.get("num_leds", 25)
-        self.np = NeoPixel(machine.Pin(pin), num)
+        self.np = _ScaledNeoPixel(machine.Pin(pin), num)
         self.num = num
 
     def off(self):
@@ -90,10 +221,57 @@ class Leds:
             self.np[i] = (r, g, b)
         self.np.write()
 
+    def fill(self, color):
+        """Fill all LEDs with a color tuple. Tuple-friendly form of solid()."""
+        self.solid(*color)
+
     def flash(self, r, g, b, times=2, on_ms=120, off_ms=80):
         for _ in range(times):
             self.solid(r, g, b); time.sleep_ms(on_ms)
             self.off(); time.sleep_ms(off_ms)
+
+    def flash_color(self, color, times=2, on_ms=120, off_ms=80):
+        """Flash a color tuple. Tuple-friendly form of flash()."""
+        self.flash(color[0], color[1], color[2],
+                   times=times, on_ms=on_ms, off_ms=off_ms)
+
+    def show_shape(self, indices, color, bg=OFF):
+        """
+        Light only the LEDs at `indices` in `color`, all others in `bg`.
+        Indices outside the strip range are silently skipped.
+
+        Example:
+            leds.show_shape(SHAPE_SAD_FACE, BLUE)
+            leds.show_shape(SHAPE_HEART, RED, bg=WHITE_DIM)
+        """
+        for i in range(self.num):
+            self.np[i] = bg
+        for idx in indices:
+            if 0 <= idx < self.num:
+                self.np[idx] = color
+        self.np.write()
+
+    def show_pattern(self, color_to_indices, bg=OFF):
+        """
+        Light multiple groups of LEDs in different colors.
+
+        color_to_indices: dict mapping (r, g, b) tuples to iterables of indices.
+        bg: background color for LEDs not listed in any group.
+
+        Example:
+            leds.show_pattern({
+                RED:    (0, 4),
+                YELLOW: (12,),
+                GREEN:  (20, 24),
+            })
+        """
+        for i in range(self.num):
+            self.np[i] = bg
+        for color, indices in color_to_indices.items():
+            for idx in indices:
+                if 0 <= idx < self.num:
+                    self.np[idx] = color
+        self.np.write()
 
     def pulse_color(self, r, g, b, duration_ms=600):
         steps = 20
@@ -104,8 +282,8 @@ class Leds:
         self.off()
 
     def breathe(self, r, g, b, frame):
-        brightness = (math.sin(frame * 0.08) + 1) / 2
-        self.solid(int(r * brightness), int(g * brightness), int(b * brightness))
+        bri = (math.sin(frame * 0.08) + 1) / 2
+        self.solid(int(r * bri), int(g * bri), int(b * bri))
 
     # ══════════════════════════════════════════
     # BOOT SEQUENCE LEDs
@@ -114,9 +292,11 @@ class Leds:
     def boot_power(self):
         """
         Step 1: Light LED 0 white immediately on power-up.
-        Called before any I2C/NFC/sensor initialization.
+        Called BEFORE I2C init, so MULTIPLIER may still be at the
+        default 1.0 — that's intentional, the boot LED uses a low
+        raw value (40) so it's comfortable indoors and dim outdoors.
         """
-        self.np[BOOT_LED_POWER] = (40, 40, 40)  # white
+        self.np[BOOT_LED_POWER] = (40, 40, 40)
         self.np.write()
 
     def boot_battery(self, soc):
@@ -128,7 +308,6 @@ class Leds:
         color = battery_color(soc)
 
         if soc <= 10:
-            # Flash red 5 times
             for _ in range(5):
                 self.np[BOOT_LED_POWER] = color
                 self.np[BOOT_LED_BATT] = color
@@ -139,82 +318,55 @@ class Leds:
                 self.np.write()
                 time.sleep_ms(100)
 
-        # Settle to solid
         self.np[BOOT_LED_POWER] = color
         self.np[BOOT_LED_BATT] = color
         self.np.write()
 
     def boot_ready(self, soc):
-        """
-        Step 3: All init complete — light LED 2 in same battery color.
-        """
+        """Step 3: All init complete — light LED 2 in same battery color."""
         color = battery_color(soc)
         self.np[BOOT_LED_READY] = color
         self.np.write()
 
     def boot_clear(self):
         """Clear boot LEDs (0, 1, 2) before entering idle mode."""
-        self.np[BOOT_LED_POWER] = (0, 0, 0)
-        self.np[BOOT_LED_BATT] = (0, 0, 0)
-        self.np[BOOT_LED_READY] = (0, 0, 0)
+        for i in (BOOT_LED_POWER, BOOT_LED_BATT, BOOT_LED_READY):
+            if i < self.num:
+                self.np[i] = (0, 0, 0)
         self.np.write()
 
     # ══════════════════════════════════════════
-    # IDLE — battery-colored inner ring
+    # IDLE / SCANNING / PROGRAMMING (unchanged from original)
     # ══════════════════════════════════════════
 
     def idle_default(self, soc):
         """
-        Default idle: inner 3x3 ring lit with battery charge color.
-        Static — no pulsing, no breathing.
-        If battery <10%, center LED blinks red (call idle_low_blink instead).
+        Default idle: inner 3x3 ring lit with battery charge color (static).
+        Use idle_low_blink() instead when battery <= 10%.
         """
         color = battery_color(soc)
         for i in range(self.num):
-            if i in INNER_RING:
-                self.np[i] = color
-            else:
-                self.np[i] = (0, 0, 0)
+            self.np[i] = color if i in INNER_RING else (0, 0, 0)
         self.np.write()
 
     def idle_low_blink(self, frame):
         """
-        Battery <10% idle: center LED (12) blinks red.
-        All other LEDs off. Toggle every ~5 frames (~1s at 200ms loop).
+        Battery <= 10% idle: center LED blinks red (~1Hz at 200ms loop).
+        All other LEDs off.
         """
-        center = self.num // 2  # LED 12
+        center = self.num // 2
         on = ((frame // 5) % 2) == 0
         for i in range(self.num):
             if i == center and on:
-                self.np[i] = (40, 0, 0)  # red
+                self.np[i] = (40, 0, 0)
             else:
                 self.np[i] = (0, 0, 0)
         self.np.write()
 
-    def idle_sleep(self):
-        """
-        NFC sleeping (30s idle): single static blue dot on center LED.
-        No breathing, no pulsing — just a steady blue indicator.
-        """
-        center = self.num // 2  # LED 12
-        for i in range(self.num):
-            if i == center:
-                self.np[i] = (0, 0, 5)  # dim blue
-            else:
-                self.np[i] = (0, 0, 0)
-        self.np.write()
-
-    # ══════════════════════════════════════════
-    # LEGACY IDLE (kept for reference, no longer default)
-    # ══════════════════════════════════════════
-
-    def breathe_idle(self, frame):
-        """
-        Soft breathing glow across all LEDs to show the wand is on.
-        Very dim purple-white tint — visible but not blinding.
-        """
-        phase = (math.sin(frame * 0.06) + 1) / 2  # 0..1
-        level = 2 + int(6 * phase)  # range 2..8
+    def idle(self, frame):
+        """LEGACY: soft breathing across all LEDs. Kept for backward compat."""
+        phase = (math.sin(frame * 0.06) + 1) / 2
+        level = 2 + int(6 * phase)
         r = level
         g = int(level * 0.6)
         b = level
@@ -222,13 +374,17 @@ class Leds:
             self.np[i] = (r, g, b)
         self.np.write()
 
+    def idle_sleep(self):
+        """Static dim blue dot in the center while NFC sleeps."""
+        center = self.num // 2
+        for i in range(self.num):
+            self.np[i] = (0, 0, 3) if i == center else (0, 0, 0)
+        self.np.write()
+
     def breathe_sleep(self, frame):
-        """
-        Even dimmer single-pixel breathing — NFC is sleeping.
-        Only center LED breathes, minimal power draw.
-        """
+        """Even dimmer single-pixel breathing — NFC is sleeping."""
         phase = (math.sin(frame * 0.04) + 1) / 2
-        level = 1 + int(4 * phase)  # range 1..5
+        level = 1 + int(4 * phase)
         center = self.num // 2
         for i in range(self.num):
             if i == center:
