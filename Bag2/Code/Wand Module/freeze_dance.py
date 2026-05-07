@@ -3,8 +3,13 @@ Freeze Dance — ESP-NOW multiplayer motion game for the wand.
 
 Caller:  button press = GO (green), release = FREEZE (red),
          shake (button up) = DANCE (purple).
-Player:  GO → dance, FREEZE → hold still, DANCE → keep moving.
-         Get caught → blue sad face. Tap REJOIN, press button to come back.
+Player:  GO -> dance, FREEZE -> hold still, DANCE -> keep moving.
+         Get caught -> blue sad face. Tap REJOIN, press button to come back.
+
+All colors and shapes come from leds.py (RED, GREEN, SHAPE_SAD_FACE etc.).
+LED writes go through the wrapped NeoPixel inside Leds, so colors auto-adapt
+to ambient light via the brightness module — tune base RGB values once in
+leds.py and every game uses them.
 
 Tags: caller, player, go, freeze, stop, rejoin, freezedance.
 ESP-NOW msgs: FD_GO, FD_FREEZE, FD_DANCE, FD_RESET, stop.
@@ -16,13 +21,16 @@ Entry point:
 
 import machine, network, espnow, time
 from machine import Pin
-from neopixel import NeoPixel
 
 from pn532 import PN532, MIFARE_AUTH_A, MIFARE_AUTH_B
 from nfc_reader import _decode_ndef_text, COMMON_KEYS
-from buzzer import Buzzer
+import brightness
+from leds import (
+    RED, GREEN, BLUE, YELLOW, AMBER, PURPLE, WHITE, TEAL, OFF,
+    SHAPE_SAD_FACE, SHAPE_PLAY, SHAPE_DANCER,
+)
 
-# ── Constants ──────────────────────────────────────────────
+# -- Constants ----------------------------------------------
 NUM_LEDS = 25
 SWITCH_PIN = 0
 BROADCAST = b'\xFF\xFF\xFF\xFF\xFF\xFF'
@@ -51,20 +59,31 @@ BTN_DEBOUNCE_MS      = 30
 BTN_SEND_REPEATS     = 5
 BTN_SEND_DELAY_MS    = 1
 
-# 5x5 sad face: eyes (6,8), frown top (16,17,18), corners (20,24)
-SAD_FACE_INDICES = (6, 8, 16, 17, 18, 20, 24)
+# When the caller shakes (DANCE), the wand broadcasts FD_DANCE for players AND
+# FD_GO for the speaker (which only understands GO/FREEZE for play/pause).
+# A player that receives FD_GO this soon after entering DANCE ignores it —
+# it's the speaker cue, not a real GO command.
+DANCE_SPEAKER_CUE_MS = 300
 
-# state -> (r, g, b). READY and OUT are special-cased in _render.
+# state -> color (from leds module palette).
+# READY, GO, DANCE, OUT, ROLE_SELECT are special-cased in _render
+# (they use shapes or multi-color patterns instead of a flat fill).
 STATE_COLORS = {
-    STATE_ROLE_SELECT:  (200, 200, 0),
-    STATE_GO:           (0,   200, 0),
-    STATE_FREEZE:       (200, 0,   0),
-    STATE_DANCE:        (180, 0,   180),
-    STATE_REJOIN_ARMED: (140, 140, 140),
+    STATE_FREEZE:       RED,
+    STATE_REJOIN_ARMED: WHITE,
 }
-READY_CALLER = (200, 100, 0)
-READY_PLAYER = (200, 200, 0)
-SAD_BLUE     = (0,   0,   200)
+READY_CALLER = AMBER
+READY_PLAYER = YELLOW
+OUT_COLOR    = BLUE
+
+# Multi-color icon shown after the freezedance tag is tapped — corners
+# (red/green) plus center (yellow) using all three game-state colors,
+# signaling "you're in freeze dance, choose your role".
+ROLE_SELECT_PATTERN = {
+    RED:    (0, 4),
+    YELLOW: (12,),
+    GREEN:  (20, 24),
+}
 
 # Sound sequences: list of (freq, dur_ms, gap_after_ms)
 SOUNDS = {
@@ -95,7 +114,7 @@ BROADCASTS = {
 }
 
 
-# ── Hardware setup ─────────────────────────────────────────
+# -- Hardware setup -----------------------------------------
 def _configure_external_antenna():
     Pin(3,  Pin.OUT).value(0)
     time.sleep_ms(100)
@@ -112,31 +131,7 @@ def _espnow_init():
     return e
 
 
-# ── LED + sound helpers ────────────────────────────────────
-def _fill(np, r, g, b):
-    for i in range(NUM_LEDS):
-        np[i] = (r, g, b)
-    np.write()
-
-
-def _off(np):
-    _fill(np, 0, 0, 0)
-
-
-def _flash(np, r, g, b, times=2, on_ms=120, off_ms=80):
-    for _ in range(times):
-        _fill(np, r, g, b); time.sleep_ms(on_ms)
-        _off(np);            time.sleep_ms(off_ms)
-
-
-def _sad_face(np):
-    for i in range(NUM_LEDS):
-        np[i] = (0, 0, 0)
-    for idx in SAD_FACE_INDICES:
-        np[idx] = SAD_BLUE
-    np.write()
-
-
+# -- Sound helper -------------------------------------------
 def _play(buz, name):
     seq = SOUNDS.get(name)
     if not seq: return
@@ -145,7 +140,7 @@ def _play(buz, name):
         if gap: time.sleep_ms(gap)
 
 
-# ── NFC tag read ───────────────────────────────────────────
+# -- NFC tag read -------------------------------------------
 def _read_tag_text(nfc):
     """Returns (text, uid_hex) or (None, None). Text is None if the
     tag's NDEF payload isn't one of GAME_COMMANDS."""
@@ -180,7 +175,7 @@ def _read_tag_text(nfc):
     return None, uid_hex
 
 
-# ── Motion: triggered (FREEZE), too_still (DANCE), shake (caller) ──
+# -- Motion: triggered (FREEZE), too_still (DANCE), shake (caller) --
 class MotionChecker:
     def __init__(self, accel):
         self.accel = accel
@@ -229,10 +224,10 @@ class MotionChecker:
         return False
 
 
-# ── Game ───────────────────────────────────────────────────
+# -- Game ---------------------------------------------------
 class FreezeDanceGame:
-    def __init__(self, nfc, np, buz, accel, enow):
-        self.nfc, self.np, self.buz, self.enow = nfc, np, buz, enow
+    def __init__(self, nfc, leds, buz, accel, enow):
+        self.nfc, self.leds, self.buz, self.enow = nfc, leds, buz, enow
         self.motion = MotionChecker(accel)
         self.btn = machine.Pin(SWITCH_PIN, machine.Pin.IN, machine.Pin.PULL_UP)
 
@@ -243,16 +238,18 @@ class FreezeDanceGame:
         self.last_uid = None
         self.last_scan_ms = 0
         self._nfc_poll_count = 0
-        self._btn_was_down = False
+        # Read button state at startup so a button held during freezedance tap
+        # doesn't get interpreted as an immediate join.
+        self._btn_was_down = (self.btn.value() == 0)
 
     def _set_state(self, new_state):
         self.state = new_state
         self.state_ms = time.ticks_ms()
         self.motion.reset()
         if new_state == STATE_ROLE_SELECT:
-            _off(self.np)
+            self.leds.off()
         elif new_state == STATE_READY:
-            _flash(self.np, 0, 150, 150, times=2)
+            self.leds.flash_color(TEAL, times=2)
         snd = STATE_ENTRY_SOUND.get(new_state)
         if snd: _play(self.buz, snd)
 
@@ -261,6 +258,13 @@ class FreezeDanceGame:
         for _ in range(BTN_SEND_REPEATS):
             self.enow.send(BROADCAST, msg)
             time.sleep_ms(BTN_SEND_DELAY_MS)
+        # Speaker (separate device) listens for FD_GO/FD_FREEZE to play/pause
+        # music. It doesn't know FD_DANCE, so we follow up with FD_GO when
+        # entering DANCE. Players ignore this FD_GO via DANCE_SPEAKER_CUE_MS.
+        if name == 'dance':
+            for _ in range(BTN_SEND_REPEATS):
+                self.enow.send(BROADCAST, MSG_GO)
+                time.sleep_ms(BTN_SEND_DELAY_MS)
         self._set_state(state)
         print("  >> %s" % name.upper())
 
@@ -278,14 +282,16 @@ class FreezeDanceGame:
                 self._btn_was_down = False
                 self._broadcast('freeze')
 
-    def _poll_player_rejoin_button(self):
+    def _poll_player_join_button(self):
+        """Button press: join as player from ROLE_SELECT, or rejoin from REJOIN_ARMED."""
         down = (self.btn.value() == 0)
         if down and not self._btn_was_down:
             time.sleep_ms(BTN_DEBOUNCE_MS)
             if self.btn.value() == 0:
                 self._btn_was_down = True
+                joining = (self.state == STATE_ROLE_SELECT)
                 self._set_state(STATE_READY)
-                print("  Rejoined!")
+                print("  Joined as PLAYER!" if joining else "  Rejoined!")
         elif not down and self._btn_was_down:
             self._btn_was_down = False
 
@@ -306,31 +312,44 @@ class FreezeDanceGame:
     def _render(self):
         s = self.state
         if s == STATE_OUT:
-            _sad_face(self.np)
+            self.leds.show_shape(SHAPE_SAD_FACE, OUT_COLOR)
         elif s == STATE_READY:
-            _fill(self.np, *(READY_CALLER if self.is_caller else READY_PLAYER))
+            self.leds.fill(READY_CALLER if self.is_caller else READY_PLAYER)
+        elif s == STATE_GO:
+            self.leds.show_shape(SHAPE_PLAY, GREEN)
+        elif s == STATE_DANCE:
+            self.leds.show_shape(SHAPE_DANCER, PURPLE)
+        elif s == STATE_ROLE_SELECT:
+            self.leds.show_pattern(ROLE_SELECT_PATTERN)
         else:
             c = STATE_COLORS.get(s)
-            if c: _fill(self.np, *c)
+            if c: self.leds.fill(c)
 
     def run(self):
         print("\n  === FREEZE DANCE ===")
-        print("  Tap CALLER or PLAYER. STOP to exit.\n")
+        print("  Press button to join as PLAYER.")
+        print("  Tap CALLER tag to call. STOP tag to exit.")
+        lux = brightness.get_lux()
+        print("  Brightness x%.2f (lux=%s)" % (
+            brightness.get_multiplier(),
+            ("%.0f" % lux) if lux is not None else "n/a"))
+        print()
 
         while True:
             # Caller button: press=GO, release=FREEZE (works from any active state).
             if self.is_caller and self.state in (STATE_READY, STATE_GO, STATE_FREEZE, STATE_DANCE):
                 self._poll_caller_button()
 
-            # Caller shake → DANCE (only with button up, from READY or FREEZE).
+            # Caller shake -> DANCE (only with button up, from READY or FREEZE).
             if (self.is_caller and not self._btn_was_down
                     and self.state in (STATE_READY, STATE_FREEZE)
                     and self.motion.shake_detected()):
                 self._broadcast('dance')
 
-            # Player rejoin button.
-            if not self.is_caller and self.state == STATE_REJOIN_ARMED:
-                self._poll_player_rejoin_button()
+            # Player join (ROLE_SELECT) or rejoin (REJOIN_ARMED) — button press.
+            if (not self.is_caller
+                    and self.state in (STATE_ROLE_SELECT, STATE_REJOIN_ARMED)):
+                self._poll_player_join_button()
 
             # NFC: role select, caller idle, or OUT players (for rejoin tag).
             cmd = None
@@ -350,21 +369,21 @@ class FreezeDanceGame:
                     for _ in range(BTN_SEND_REPEATS):
                         self.enow.send(BROADCAST, MSG_STOP)
                         time.sleep_ms(BTN_SEND_DELAY_MS)
-                _off(self.np)
+                self.leds.off()
                 return
 
             if cmd == "caller" and self.state in (STATE_ROLE_SELECT, STATE_READY):
                 self.is_caller = True
                 self._btn_was_down = False
                 _play(self.buz, 'role')
-                _flash(self.np, 200, 100, 0, times=3, on_ms=80, off_ms=60)
+                self.leds.flash_color(AMBER, times=3, on_ms=80, off_ms=60)
                 self._set_state(STATE_READY)
                 print("  Role: CALLER")
 
             elif cmd == "player" and self.state in (STATE_ROLE_SELECT, STATE_READY):
                 self.is_caller = False
                 _play(self.buz, 'role')
-                _flash(self.np, 200, 200, 0, times=3, on_ms=80, off_ms=60)
+                self.leds.flash_color(YELLOW, times=3, on_ms=80, off_ms=60)
                 self._set_state(STATE_READY)
                 print("  Role: PLAYER")
 
@@ -380,10 +399,18 @@ class FreezeDanceGame:
             # on the first message that actually changes state.
             msg = self._poll_espnow()
             if msg == MSG_STOP or msg == b'"stop"':
-                print("  ESP-NOW stop"); _off(self.np); return
+                print("  ESP-NOW stop"); self.leds.off(); return
 
             if self.state not in (STATE_OUT, STATE_REJOIN_ARMED) and not self.is_caller:
-                if   msg == MSG_GO     and self.state != STATE_GO:     self._set_state(STATE_GO);     print("  GO")
+                if msg == MSG_GO and self.state != STATE_GO:
+                    # Suppress the FD_GO sent alongside FD_DANCE for the speaker's benefit —
+                    # it arrives within DANCE_SPEAKER_CUE_MS of the FD_DANCE that put us
+                    # into DANCE state. After that window, an FD_GO is a real GO command.
+                    if (self.state == STATE_DANCE
+                            and time.ticks_diff(time.ticks_ms(), self.state_ms) < DANCE_SPEAKER_CUE_MS):
+                        pass
+                    else:
+                        self._set_state(STATE_GO); print("  GO")
                 elif msg == MSG_FREEZE and self.state != STATE_FREEZE: self._set_state(STATE_FREEZE); print("  FREEZE")
                 elif msg == MSG_DANCE  and self.state != STATE_DANCE:  self._set_state(STATE_DANCE);  print("  DANCE")
                 elif msg == MSG_RESET  and self.state != STATE_READY:  self._set_state(STATE_READY);  print("  RESET")
@@ -403,37 +430,13 @@ class FreezeDanceGame:
             time.sleep_ms(LOOP_DELAY_MS)
 
 
-# ── Entry points ───────────────────────────────────────────
+# -- Entry point --------------------------------------------
 def play(nfc, leds, buz, accel, i2c):
     """Called from main.py when the freezedance tag is tapped."""
     enow = _espnow_init()
     try:
-        FreezeDanceGame(nfc, leds.np, buz, accel, enow).run()
+        FreezeDanceGame(nfc, leds, buz, accel, enow).run()
     finally:
         try: enow.active(False)
         except Exception: pass
-        _off(leds.np)
-
-
-def main():
-    """Standalone test mode."""
-    print("\n  Freeze Dance — Standalone\n")
-    i2c = machine.SoftI2C(sda=machine.Pin(22), scl=machine.Pin(23), freq=100_000)
-    np  = NeoPixel(machine.Pin(20), NUM_LEDS)
-    buz = Buzzer(19)
-    from lis2dw12 import LIS2DW12, RANGE_4G
-    accel = LIS2DW12(i2c); accel.init(fs_range=RANGE_4G)
-    nfc = PN532(i2c); nfc.begin()
-    enow = _espnow_init()
-    try:
-        FreezeDanceGame(nfc, np, buz, accel, enow).run()
-    except KeyboardInterrupt:
-        print("\n  Exiting.")
-    finally:
-        _off(np)
-        try: enow.active(False)
-        except Exception: pass
-
-
-if __name__ == "__main__":
-    main()
+        leds.off()

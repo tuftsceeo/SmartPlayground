@@ -32,6 +32,7 @@ from espnow_manager import ESPNowManager
 from color_quest import play as play_color_quest
 from freeze_dance import play as play_freeze_dance
 from jumpin import play as play_jumpin
+import brightness
 
 # ─────────────────────────────────────────────
 # PINS FROM HUBTYPE
@@ -278,6 +279,19 @@ def main():
     # LED 0 is already white — user sees instant power confirmation
 
     # ── BOOT STEP 2: Battery check ──
+    # ── Brightness calibration from ambient light ──
+    try:
+        from opt3002 import OPT3002
+        light = OPT3002(i2c)
+        light.init()
+        m, lux = brightness.calibrate(light)
+        if lux is not None:
+            print("  Light: %.0f lux -> brightness x%.2f" % (lux, m))
+        else:
+            print("  Light: sensor reads failed, brightness x%.2f" % m)
+    except Exception as e:
+        print("  [WARN] OPT3002: %s — brightness x1.00" % e)
+        
     batt = None
     last_soc = 100  # default if no battery gauge
     try:
