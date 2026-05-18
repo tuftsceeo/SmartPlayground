@@ -24,9 +24,16 @@ _COMMAND = 0xFE
 
 
 class MAX17048:
-    def __init__(self, i2c, addr=0x36):
+    
+    def __init__(self, i2c, addr=0x36, quick_start=True):
         self.i2c = i2c
         self.addr = addr
+        if quick_start:
+            try:
+                self.quick_start()
+            except Exception:
+                pass  # chip not present; let later reads fail
+
 
     def _read_reg16(self, reg):
         """Read a 16-bit big-endian register."""
