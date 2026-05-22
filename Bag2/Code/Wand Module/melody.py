@@ -19,12 +19,13 @@ Template Pattern:
 
 import machine
 import time
+import math
 from machine import Pin
 
 from pn532 import PN532
 from nfc_reader import NfcReader
 from buzzer import NOTE_FREQ
-from leds import RED, GREEN, BLUE, YELLOW
+from leds import RED, GREEN, BLUE, YELLOW, BLUE_DIM, SHAPE_PLAY, SHAPE_CHECK
 
 
 # ─────────────────────────────────────────────
@@ -54,6 +55,71 @@ SCAN_NOTE_MS = 250
 PLAY_NOTE_MS = 300
 GAP_MS = 80
 LOOP_SLEEP_MS = 40
+REPEAT_SCAN_GUARD_MS = 1200
+
+
+# ─────────────────────────────────────────────
+# Sound Sequences
+# ─────────────────────────────────────────────
+SOUNDS = {
+    'enter': [(659, 80, 40), (784, 80, 40), (880, 80, 40), (1047, 120, 0)],  # E5-G5-A5-C6
+    'exit':  [(784, 80, 40), (659, 80, 40), (523, 120, 0)],                  # G5-E5-C5
+}
+
+
+def _play(buz, name):
+    """Play a named sound sequence."""
+    seq = SOUNDS.get(name)
+    if not seq:
+        return
+    for freq, dur, gap in seq:
+        buz.beep(freq, dur)
+        if gap:
+            time.sleep_ms(gap)
+
+
+# ─────────────────────────────────────────────
+# Display Class
+# ─────────────────────────────────────────────
+class MelodyDisplay:
+    """Handles all LED display for the melody game."""
+    
+    def __init__(self, leds):
+        self.leds = leds
+    
+    def clear(self):
+        """Turn off all LEDs."""
+        self.leds.off()
+    
+    def show_idle(self, frame=0):
+        """Display idle state with breathing blue effect."""
+        breath = (math.sin(frame * 0.08) + 1) / 2
+        level = 0.2 + 0.8 * breath
+        r = int(BLUE_DIM[0] * level)
+        g = int(BLUE_DIM[1] * level)
+        b = int(BLUE_DIM[2] * level)
+        self.leds.solid(r, g, b)
+    
+    def show_note_color(self, cmd):
+        """Display solid color for a note."""
+        if cmd in NOTE_COLOR:
+            r, g, b = NOTE_COLOR[cmd]
+            self.leds.solid(r, g, b)
+    
+    def show_save_confirm(self):
+        """Display checkmark shape in green for save confirmation."""
+        self.leds.show_shape(SHAPE_CHECK, GREEN)
+    
+    def show_play_indicator(self, frame=0):
+        """Display play shape in blue with pulse effect."""
+        pulse = (math.sin(frame * 0.15) + 1) / 2
+        scale = 0.5 + 0.5 * pulse
+        color = (
+            int(BLUE[0] * scale),
+            int(BLUE[1] * scale),
+            int(BLUE[2] * scale),
+        )
+        self.leds.show_shape(SHAPE_PLAY, color)
 
 
 # ─────────────────────────────────────────────
@@ -91,6 +157,7 @@ class MelodyGame:
         self.nfc = nfc
         self.leds = leds
         self.buz = buz
+        self.display = MelodyDisplay(leds)
         self.btn = Pin(BUTTON_PIN, Pin.IN, Pin.PULL_UP)
         self.reader = NfcReader(nfc, COMMANDS)
         
@@ -98,13 +165,20 @@ class MelodyGame:
         self.current_melody = []
         self.saved_melody = []
         self.awaiting_new_song = False
-        self._last_button = 1
+        self.last_uid = None
+        self.last_scan_ms = 0
+        self._frame = 0
+        
+        # Button state: read at init to avoid false trigger from held button
+        self._btn_was_down = (self.btn.value() == 0)
     
     def _save_song(self):
         """Save current melody and prepare for new recording."""
         self.saved_melody = list(self.current_melody)
         self.awaiting_new_song = True
-        self.leds.flash(80, 80, 80, times=2)
+        self.display.show_save_confirm()
+        time.sleep_ms(300)
+        self.display.clear()
         self.buz.confirm()
     
     def _play_saved(self):
@@ -113,7 +187,8 @@ class MelodyGame:
             self.buz.reject()
             return
         
-        self.leds.flash(0, 0, 30, times=1, on_ms=80, off_ms=40)
+        self.display.show_play_indicator(self._frame)
+        time.sleep_ms(200)
         
         for cmd in self.saved_melody:
             _play_note_with_color(cmd, PLAY_NOTE_MS, self.leds, self.buz)
@@ -122,11 +197,16 @@ class MelodyGame:
         self.buz.confirm()
     
     def _check_button(self):
-        """Check for button press edge (active LOW). Returns True if pressed."""
-        btn = self.btn.value()
-        pressed = (self._last_button == 1 and btn == 0)
-        self._last_button = btn
-        return pressed
+        """Check for debounced button press edge. Returns True on press."""
+        down = (self.btn.value() == 0)
+        if down and not self._btn_was_down:
+            time.sleep_ms(30)  # Debounce
+            if self.btn.value() == 0:
+                self._btn_was_down = True
+                return True
+        elif not down and self._btn_was_down:
+            self._btn_was_down = False
+        return False
     
     def run(self):
         """Main game loop. Returns when stop tag is tapped."""
@@ -134,6 +214,9 @@ class MelodyGame:
         print("  Press button to play back, tap STOP to exit\n")
         
         while True:
+            # ── DISPLAY UPDATE ──
+            self.display.show_idle(self._frame)
+            
             # ── STOP CHECK via NfcReader (at top of loop) ──
             # NfcReader.read_command() returns "stop" if stop tag detected
             cmd, uid = self.reader.read_command(timeout=200)
@@ -143,29 +226,40 @@ class MelodyGame:
                 return
             
             # ── GAME LOGIC ──
-            if cmd:
-                if cmd.startswith("note_"):
-                    if self.awaiting_new_song:
-                        self.current_melody = []
-                        self.awaiting_new_song = False
+            if uid is None:
+                self.last_uid = None
+            elif cmd:
+                now = time.ticks_ms()
+                # Skip if same tag and within repeat guard window
+                if uid == self.last_uid and time.ticks_diff(now, self.last_scan_ms) < REPEAT_SCAN_GUARD_MS:
+                    pass
+                else:
+                    self.last_uid = uid
+                    self.last_scan_ms = now
                     
-                    if len(self.current_melody) >= MAX_NOTES:
-                        self.buz.warn()
-                        print("  Melody full (%d notes max)" % MAX_NOTES)
-                    else:
-                        self.current_melody.append(cmd)
-                        _play_note_with_color(cmd, SCAN_NOTE_MS, self.leds, self.buz)
-                        print("  Note: %s (%d in sequence)" % (cmd, len(self.current_melody)))
-                
-                elif cmd == "save":
-                    self._save_song()
-                    print("  Melody saved (%d notes)" % len(self.saved_melody))
+                    if cmd.startswith("note_"):
+                        if self.awaiting_new_song:
+                            self.current_melody = []
+                            self.awaiting_new_song = False
+                        
+                        if len(self.current_melody) >= MAX_NOTES:
+                            self.buz.warn()
+                            print("  Melody full (%d notes max)" % MAX_NOTES)
+                        else:
+                            self.current_melody.append(cmd)
+                            _play_note_with_color(cmd, SCAN_NOTE_MS, self.leds, self.buz)
+                            print("  Note: %s (%d in sequence)" % (cmd, len(self.current_melody)))
+                    
+                    elif cmd == "save":
+                        self._save_song()
+                        print("  Melody saved (%d notes)" % len(self.saved_melody))
             
             # ── BUTTON: Play saved melody ──
             if self._check_button():
                 print("  Playing saved melody...")
                 self._play_saved()
             
+            self._frame += 1
             time.sleep_ms(LOOP_SLEEP_MS)
 
 
@@ -177,7 +271,7 @@ def play(nfc, leds, buz, accel, i2c):
     Called from main.py when the "melody" tag is tapped.
     Hardware is already initialized by the caller.
     """
-    buz.beep(523, 100)
+    _play(buz, 'enter')
     leds.solid(0, 20, 20)
     time.sleep_ms(200)
     leds.off()
@@ -187,6 +281,7 @@ def play(nfc, leds, buz, accel, i2c):
     try:
         MelodyGame(nfc, leds, buz).run()
     finally:
+        _play(buz, 'exit')
         leds.off()
         print("\n  === RETURNING TO PROGRAMMING MODE ===\n")
 
