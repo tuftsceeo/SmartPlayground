@@ -8,7 +8,9 @@ Triggers: buttondown, buttonup, shake
 Actions:  playnote, notea-g, turnred/green/blue/purple/yellow/white/off,
           cat, chicken, cow, dog, pig, duck, elephant, horse, goat
 Combinators: and, then
-Controls: start, stop, colorquest, freezedance, jumpin, cooking, melody
+Controls: start, stop, colorquest, freezedance, jumpin, cooking, melody,
+          shake, shakerainbow, rainbow, jump, sound, nfcsound,
+          simpleicecream, multiicecream
 Utility: battery
 """
 
@@ -33,6 +35,14 @@ from freeze_dance import play as play_freeze_dance
 from jumpin import play as play_jumpin
 from cooking import play as play_cooking
 from melody import play as play_melody
+from shake import play as play_shake
+from shake_rainbow import play as play_shake_rainbow
+from rainbow import play as play_rainbow
+from jump import play as play_jump
+from sound import play as play_sound
+from nfc_sound import play as play_nfc_sound
+from simpleicecream import play as play_simpleicecream
+from multiicecream import play as play_multiicecream
 import brightness
 
 # ─────────────────────────────────────────────
@@ -51,7 +61,9 @@ PN532_ADDR   = 0x24
 # ─────────────────────────────────────────────
 FIXED_TRIGGERS = {"buttondown", "buttonup", "shake"}
 COMBINATORS    = {"and", "then"}
-CONTROLS       = {"start", "stop", "colorquest", "freezedance", "jumpin", "cooking", "melody"}
+CONTROLS       = {"start", "stop", "colorquest", "freezedance", "jumpin", "cooking", "melody",
+                  "shake", "shakerainbow", "rainbow", "jump", "sound", "nfcsound",
+                  "simpleicecream", "multiicecream"}
 UTILITY        = {"battery"}
 ALL_COMMANDS   = FIXED_TRIGGERS | ACTIONS | ANIMAL_SOUNDS | COMBINATORS | CONTROLS | UTILITY
 
@@ -499,6 +511,70 @@ def main():
             if cmd == "melody":
                 leds.off()
                 play_melody(nfc, leds, buz, accel, i2c, enow)
+                last_activity_ms = time.ticks_ms()
+                idle_frame = 0
+                show_idle(last_soc, 0); last_uid = None; continue
+
+            # ── SHAKE ──
+            if cmd == "shake":
+                leds.off()
+                play_shake(nfc, leds, buz, accel, i2c, enow)
+                last_activity_ms = time.ticks_ms()
+                idle_frame = 0
+                show_idle(last_soc, 0); last_uid = None; continue
+
+            # ── SHAKE RAINBOW ──
+            if cmd == "shakerainbow":
+                leds.off()
+                play_shake_rainbow(nfc, leds, buz, accel, i2c, enow)
+                last_activity_ms = time.ticks_ms()
+                idle_frame = 0
+                show_idle(last_soc, 0); last_uid = None; continue
+
+            # ── RAINBOW ──
+            if cmd == "rainbow":
+                leds.off()
+                play_rainbow(nfc, leds, buz, accel, i2c, enow, batt)
+                last_activity_ms = time.ticks_ms()
+                idle_frame = 0
+                show_idle(last_soc, 0); last_uid = None; continue
+
+            # ── JUMP (freefall counter) ──
+            if cmd == "jump":
+                leds.off()
+                play_jump(nfc, leds, buz, accel, i2c, enow)
+                last_activity_ms = time.ticks_ms()
+                idle_frame = 0
+                show_idle(last_soc, 0); last_uid = None; continue
+
+            # ── SOUND (bell choir) ──
+            if cmd == "sound":
+                leds.off()
+                play_sound(nfc, leds, buz, accel, i2c, enow)
+                last_activity_ms = time.ticks_ms()
+                idle_frame = 0
+                show_idle(last_soc, 0); last_uid = None; continue
+
+            # ── NFC SOUND ──
+            if cmd == "nfcsound":
+                leds.off()
+                play_nfc_sound(nfc, leds, buz, accel, i2c, enow)
+                last_activity_ms = time.ticks_ms()
+                idle_frame = 0
+                show_idle(last_soc, 0); last_uid = None; continue
+
+            # ── SIMPLE ICE CREAM ──
+            if cmd == "simpleicecream":
+                leds.off()
+                play_simpleicecream(nfc, leds, buz, accel, i2c, enow)
+                last_activity_ms = time.ticks_ms()
+                idle_frame = 0
+                show_idle(last_soc, 0); last_uid = None; continue
+
+            # ── MULTI ICE CREAM ──
+            if cmd == "multiicecream":
+                leds.off()
+                play_multiicecream(nfc, leds, buz, accel, i2c, enow)
                 last_activity_ms = time.ticks_ms()
                 idle_frame = 0
                 show_idle(last_soc, 0); last_uid = None; continue

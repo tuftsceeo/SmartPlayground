@@ -10,12 +10,17 @@ Colors from leds.py — auto-scale with ambient brightness.
 Entry points:
     play(nfc, leds, buz, accel, i2c, enow)  — called from main.py
     main()                             — standalone testing
+"""
 
-Template Pattern:
+
+"""
+NOTE: This is a simple template game for creating new games as described in GAME_AUTHORING_GUIDE.md
+This is a simple Button Blink Test and not a real game.
+The template pattern:
     1. Game class with __init__() and run()
     2. play() for wand integration (hardware passed in)
     3. main() for standalone testing (initializes hardware)
-    4. CRITICAL: _check_stop_tag() polled at START of every loop
+    4. CRITICAL: check for stop tags and ESP-NOW stop messages at start of run loop
 """
 
 import machine
@@ -204,7 +209,19 @@ def main():
     except Exception as e:
         print("  NFC init failed: %s" % e)
         return
+
+    # Initialize Accelerometer
+    accel = None
+    accel_ok = False
+    try:
+        accel = LIS2DW12(i2c)
+        accel.init(fs_range=RANGE_4G)
+        accel_ok = True
+        print("  Accelerometer OK")
+    except Exception as e:
+        print("  [WARN] Accel:"); sys.print_exception(e)
     
+    # Initialize ESP-NOW
     from espnow_manager import ESPNowManager
     enow = ESPNowManager()
     enow.init()
@@ -212,7 +229,7 @@ def main():
     print()
     
     # Run the game
-    play(nfc, leds, buz, None, i2c, enow)
+    play(nfc, leds, buz, accel, i2c, enow)
 
 
 if __name__ == "__main__":

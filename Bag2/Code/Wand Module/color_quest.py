@@ -13,12 +13,6 @@ Requires /lib/: pn532.py, nfc_reader.py, buzzer.py
 Entry points:
     play(nfc, leds, buz, accel, i2c, enow)  — called from main.py
     main()                             — standalone testing
-
-Template Pattern:
-    1. GameDisplay utility class for LED rendering
-    2. play() for wand integration (hardware passed in)
-    3. main() for standalone testing (initializes hardware)
-    4. CRITICAL: Stop tag checked in wait_for_commands(), run_game(), _post_win_wait()
 """
 
 import machine, time, math, json

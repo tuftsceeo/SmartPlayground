@@ -17,12 +17,6 @@ ESP-NOW msgs: FD_GO, FD_FREEZE, FD_DANCE, FD_RESET, stop.
 Entry points:
     play(nfc, leds, buz, accel, i2c, enow)  — called from main.py
     main()                             — standalone testing
-
-Template Pattern:
-    1. FreezeDanceGame class with __init__() and run()
-    2. play() for wand integration (hardware passed in)
-    3. main() for standalone testing (initializes hardware)
-    4. CRITICAL: Stop tag polled via _poll_nfc() in game loop
 """
 
 import machine, time
