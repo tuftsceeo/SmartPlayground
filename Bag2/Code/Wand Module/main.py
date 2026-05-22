@@ -466,7 +466,7 @@ def main():
             # ── COLOR QUEST ──
             if cmd == "colorquest":
                 leds.off()
-                play_color_quest(nfc, leds.np, buz)
+                play_color_quest(nfc, leds, buz, accel, i2c)
                 last_activity_ms = time.ticks_ms()
                 idle_frame = 0
                 show_idle(last_soc, 0); last_uid = None; continue

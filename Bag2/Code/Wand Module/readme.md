@@ -423,35 +423,104 @@ Each game is a separate Python module in the `Wand Module/` folder that exposes 
 
 ### Game Module Pattern
 
+Template Pattern: 1. YourGame class with `__init__()` and `run()` 2. `play()` for wand integration (hardware passed in) 3. `main()` for standalone testing (initializes hardware) 4. CRITICAL: Stop tag checked at start of run loop
+
 ```python
-from nfc_reader import read_ndef_text
+"""
+Your Game — Description
+=======================
+Entry points:
+    play(nfc, leds, buz, accel, i2c)  — called from main.py
+    main()                             — standalone testing
+"""
+
+import machine
+import time
+from machine import Pin
+from pn532 import PN532
+from nfc_reader import NfcReader
 from leds import GREEN, RED, BLUE  # Import colors you need
 
+# Hardware Config
+I2C_SDA, I2C_SCL = 22, 23
+BUZZER_PIN, BUTTON_PIN, PN532_ADDR = 19, 0, 0x24
+
+# Game Config
+COMMANDS = {"action1", "action2", "stop"}
+NFC_POLL_INTERVAL = 10
+LOOP_DELAY_MS = 50
+
+
+class YourGame:
+    """Your game description."""
+
+    def __init__(self, nfc, leds, buz):
+        self.nfc = nfc
+        self.leds = leds
+        self.buz = buz
+        self.reader = NfcReader(nfc, COMMANDS)
+        self._frame = 0
+
+    def _check_stop_tag(self):
+        """Poll NFC for stop tag. MUST be called every loop iteration."""
+        if self._frame % NFC_POLL_INTERVAL != 0:
+            return False
+        try:
+            cmd, uid = self.reader.read_command(timeout=100)
+            return cmd == "stop"
+        except Exception:
+            return False
+
+    def run(self):
+        """Main game loop. Returns when stop tag is tapped."""
+        while True:
+            # ── STOP CHECK FIRST (always at top of loop) ──
+            if self._check_stop_tag():
+                print("  STOP tag detected")
+                return
+
+            # ── GAME LOGIC ──
+            self.leds.fill(GREEN)  # Colors auto-scale with brightness
+
+            time.sleep_ms(LOOP_DELAY_MS)
+            self._frame += 1
+
+
 def play(nfc, leds, buz, accel, i2c):
-    """
-    Entry point for the game.
+    """Called from main.py. Hardware already initialized."""
+    buz.beep(523, 100)
+    print("\n  === YOUR GAME ===")
+    try:
+        YourGame(nfc, leds, buz).run()
+    finally:
+        leds.off()
+        print("\n  === RETURNING TO PROGRAMMING MODE ===\n")
 
-    Args:
-        nfc:   PN532 NFC reader instance
-        leds:  Leds instance (has .solid(), .fill(), .flash(), .show_shape(), .np)
-        buz:   Buzzer instance
-        accel: LIS2DW12 accelerometer instance (may be None)
-        i2c:   I2C bus instance (for additional peripherals)
 
-    Returns when the "stop" tag is scanned.
-    """
-    # Game initialization
-    # ...
+def main():
+    """Standalone testing. Run: import yourgame; yourgame.main()"""
+    i2c = machine.SoftI2C(sda=Pin(I2C_SDA), scl=Pin(I2C_SCL), freq=100_000)
 
-    while True:
-        # Check for stop tag
-        text, uid = read_ndef_text(nfc)
-        if text == "stop":
-            return
+    import brightness
+    try:
+        from opt3002 import OPT3002
+        light = OPT3002(i2c); light.init()
+        brightness.calibrate(light)
+    except Exception:
+        pass
 
-        # Use library colors — they auto-scale with ambient brightness
-        leds.fill(GREEN)            # Module-level color constant
-        # or: leds.np[0] = RED      # Direct pixel access (still scaled)
+    from leds import Leds
+    from buzzer import Buzzer
+    leds, buz = Leds(), Buzzer(BUZZER_PIN)
+
+    nfc = PN532(i2c, PN532_ADDR)
+    nfc.begin()
+
+    play(nfc, leds, buz, None, i2c)
+
+
+if __name__ == "__main__":
+    main()
 ```
 
 ### Step-by-Step Instructions

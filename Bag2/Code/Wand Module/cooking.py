@@ -6,104 +6,116 @@ If the collected ingredients match a recipe, the result is displayed.
 Tap "stop" tag to exit back to programming mode.
 
 Colors and shapes from leds.py — auto-scale with ambient brightness.
+
+Entry points:
+    play(nfc, leds, buz, accel, i2c)  — called from main.py
+    main()                             — standalone testing
+
+Template Pattern:
+    1. CookingGame class with __init__() and run()
+    2. play() for wand integration (hardware passed in)
+    3. main() for standalone testing (initializes hardware)
+    4. CRITICAL: Stop tag checked via NfcReader at START of every loop
 """
 
 import time
 import machine
+from machine import Pin
 
-from nfc_reader import read_ndef_text
+from pn532 import PN532
+from nfc_reader import NfcReader
 from buzzer import NOTE_FREQ
 from leds import (
-    OFF, RED, GREEN, BLUE, YELLOW, ORANGE, PINK, WHITE,
-    RED_DIM, GREEN_DIM, BLUE_DIM, YELLOW_DIM, WHITE_DIM, ORANGE_DIM, PINK_DIM, AMBER_DIM,
+    OFF, RED, GREEN, BLUE, YELLOW, ORANGE, PINK, WHITE, AMBER,
+    WHITE_DIM,
 )
 
 
 # ─────────────────────────────────────────────
-# Game-specific NFC commands
+# Hardware Config
+# ─────────────────────────────────────────────
+I2C_SDA, I2C_SCL = 22, 23
+BUZZER_PIN = 19
+BUTTON_PIN = 0
+PN532_ADDR = 0x24
+NUM_LEDS = 25
+
+
+# ─────────────────────────────────────────────
+# Game Config
 # ─────────────────────────────────────────────
 COMMANDS = {
-    "tomato",
-    "milk",
-    "cheese",
-    "flour",
-    "egg",
-    "butter",
-    "sugar",
-    "cook",
-    "stop",
+    "tomato", "milk", "cheese", "flour",
+    "egg", "butter", "sugar", "cook", "stop",
 }
 
 INGREDIENT_ORDER = [
-    "tomato",
-    "milk",
-    "cheese",
-    "flour",
-    "egg",
-    "butter",
-    "sugar",
+    "tomato", "milk", "cheese", "flour",
+    "egg", "butter", "sugar",
 ]
 
-
-# ─────────────────────────────────────────────
-# Recipe display colors (from library palette)
-# ─────────────────────────────────────────────
-BLACK   = OFF
-BROWN   = AMBER_DIM
-
-IDLE_DOT   = WHITE_DIM
-PROGRESS_C = GREEN_DIM
+DEBOUNCE_MS = 50
+LOOP_DELAY_MS = 20
 
 
 # ─────────────────────────────────────────────
-# Images (5x5 LED patterns using dimmed library colors)
+# Recipe Display Colors
+# ─────────────────────────────────────────────
+BLACK = OFF
+BROWN = AMBER
+IDLE_DOT = WHITE_DIM
+PROGRESS_C = GREEN
+
+
+# ─────────────────────────────────────────────
+# Images (5x5 LED patterns)
 # ─────────────────────────────────────────────
 CUPCAKE = [
-    BLACK,      BLACK,      RED_DIM,    BLACK,      BLACK,
-    BLACK,      PINK_DIM,   PINK_DIM,   PINK_DIM,   BLACK,
-    PINK_DIM,   PINK_DIM,   PINK_DIM,   PINK_DIM,   PINK_DIM,
-    ORANGE_DIM, ORANGE_DIM, ORANGE_DIM, ORANGE_DIM, ORANGE_DIM,
-    BLACK,      BLUE_DIM,   BLUE_DIM,   BLUE_DIM,   BLACK,
+    BLACK,  BLACK,  RED,    BLACK,  BLACK,
+    BLACK,  PINK,   PINK,   PINK,   BLACK,
+    PINK,   PINK,   PINK,   PINK,   PINK,
+    ORANGE, ORANGE, ORANGE, ORANGE, ORANGE,
+    BLACK,  BLUE,   BLUE,   BLUE,   BLACK,
 ]
 
 EGG = [
-    BLACK,     BLACK,      BLACK,      BLACK,      BLACK,
-    BLACK,     WHITE_DIM,  WHITE_DIM,  WHITE_DIM,  BLACK,
-    WHITE_DIM, WHITE_DIM,  YELLOW_DIM, YELLOW_DIM, WHITE_DIM,
-    WHITE_DIM, WHITE_DIM,  YELLOW_DIM, YELLOW_DIM, WHITE_DIM,
-    BLACK,     BLACK,      WHITE_DIM,  WHITE_DIM,  BLACK,
+    BLACK, BLACK, BLACK,  BLACK,  BLACK,
+    BLACK, WHITE, WHITE,  WHITE,  BLACK,
+    WHITE, WHITE, YELLOW, YELLOW, WHITE,
+    WHITE, WHITE, YELLOW, YELLOW, WHITE,
+    BLACK, BLACK, WHITE,  WHITE,  BLACK,
 ]
 
 PANCAKES = [
-    BLACK,      ORANGE_DIM, ORANGE_DIM, ORANGE_DIM, BLACK,
-    ORANGE_DIM, ORANGE_DIM, YELLOW_DIM, ORANGE_DIM, ORANGE_DIM,
-    BROWN,      ORANGE_DIM, ORANGE_DIM, ORANGE_DIM, BROWN,
-    BLUE_DIM,   BROWN,      BROWN,      BROWN,      BLUE_DIM,
-    BLACK,      BLUE_DIM,   BLUE_DIM,   BLUE_DIM,   BLACK,
+    BLACK,  ORANGE, ORANGE, ORANGE, BLACK,
+    ORANGE, ORANGE, YELLOW, ORANGE, ORANGE,
+    BROWN,  ORANGE, ORANGE, ORANGE, BROWN,
+    BLUE,   BROWN,  BROWN,  BROWN,  BLUE,
+    BLACK,  BLUE,   BLUE,   BLUE,   BLACK,
 ]
 
 PASTA = [
-    BLACK,      WHITE_DIM,  RED_DIM,    BLACK,      BLACK,
-    RED_DIM,    RED_DIM,    RED_DIM,    WHITE_DIM,  RED_DIM,
-    YELLOW_DIM, YELLOW_DIM, YELLOW_DIM, RED_DIM,    YELLOW_DIM,
-    BLUE_DIM,   YELLOW_DIM, YELLOW_DIM, YELLOW_DIM, BLUE_DIM,
-    BLACK,      BLUE_DIM,   BLUE_DIM,   BLUE_DIM,   BLACK,
+    BLACK,  WHITE,  RED,    BLACK,  BLACK,
+    RED,    RED,    RED,    WHITE,  RED,
+    YELLOW, YELLOW, YELLOW, RED,    YELLOW,
+    BLUE,   YELLOW, YELLOW, YELLOW, BLUE,
+    BLACK,  BLUE,   BLUE,   BLUE,   BLACK,
 ]
 
 PIZZA = [
-    BROWN,      BROWN,      BROWN,      BROWN,      BROWN,
-    YELLOW_DIM, YELLOW_DIM, RED_DIM,    YELLOW_DIM, YELLOW_DIM,
-    BLACK,      RED_DIM,    YELLOW_DIM, YELLOW_DIM, BLACK,
-    BLACK,      YELLOW_DIM, YELLOW_DIM, RED_DIM,    BLACK,
-    BLACK,      BLACK,      YELLOW_DIM, BLACK,      BLACK,
+    BROWN,  BROWN,  BROWN,  BROWN,  BROWN,
+    YELLOW, YELLOW, RED,    YELLOW, YELLOW,
+    BLACK,  RED,    YELLOW, YELLOW, BLACK,
+    BLACK,  YELLOW, YELLOW, RED,    BLACK,
+    BLACK,  BLACK,  YELLOW, BLACK,  BLACK,
 ]
 
 QUESTION = [
-    BLACK, YELLOW_DIM, YELLOW_DIM, YELLOW_DIM, BLACK,
-    BLACK, BLACK,      BLACK,      YELLOW_DIM, BLACK,
-    BLACK, BLACK,      YELLOW_DIM, BLACK,      BLACK,
-    BLACK, BLACK,      BLACK,      BLACK,      BLACK,
-    BLACK, BLACK,      YELLOW_DIM, BLACK,      BLACK,
+    BLACK, YELLOW, YELLOW, YELLOW, BLACK,
+    BLACK, BLACK,  BLACK,  YELLOW, BLACK,
+    BLACK, BLACK,  YELLOW, BLACK,  BLACK,
+    BLACK, BLACK,  BLACK,  BLACK,  BLACK,
+    BLACK, BLACK,  YELLOW, BLACK,  BLACK,
 ]
 
 
@@ -120,23 +132,23 @@ RECIPES = {
 
 
 # ─────────────────────────────────────────────
-# Display helpers
+# Display Helpers
 # ─────────────────────────────────────────────
 def _show_pixels(np, pixel_list):
-    for i in range(25):
+    for i in range(NUM_LEDS):
         np[i] = pixel_list[i]
     np.write()
 
 
 def _show_idle(np):
-    for i in range(25):
+    for i in range(NUM_LEDS):
         np[i] = IDLE_DOT
     np.write()
 
 
 def _show_progress(np, scanned):
     count = len(scanned)
-    for i in range(25):
+    for i in range(NUM_LEDS):
         np[i] = IDLE_DOT
     for i in range(count):
         np[i] = PROGRESS_C
@@ -151,115 +163,176 @@ def _evaluate_recipe(scanned):
 
 
 # ─────────────────────────────────────────────
-# Entry point
+# Game Class
 # ─────────────────────────────────────────────
-def play(nfc, leds, buz, accel, i2c):
-    """
-    Cooking Recipes game entry point.
-    Tap ingredient tags to collect them, press button to cook.
-    Tap "stop" tag to exit.
-    """
-    from nfc_reader import NfcReader
+class CookingGame:
+    """Ingredient matching and recipe cooking game."""
     
-    np = leds.np
-    button = machine.Pin(0, machine.Pin.IN, machine.Pin.PULL_UP)
+    def __init__(self, nfc, leds, buz):
+        self.nfc = nfc
+        self.leds = leds
+        self.buz = buz
+        self.np = leds.np
+        self.btn = Pin(BUTTON_PIN, Pin.IN, Pin.PULL_UP)
+        self.reader = NfcReader(nfc, COMMANDS)
+        
+        # Game state
+        self.scanned_ingredients = set()
+        self.last_uid = None
+        
+        # Button debounce state
+        self._stable_state = self.btn.value()
+        self._last_reading = self._stable_state
+        self._last_change_ms = time.ticks_ms()
     
-    # Create game-specific NFC reader
-    reader = NfcReader(nfc, COMMANDS)
-    
-    # Button debounce state
-    DEBOUNCE_MS = 50
-    stable_state = button.value()
-    last_reading = stable_state
-    last_change_ms = time.ticks_ms()
-    
-    def button_was_pressed():
-        nonlocal stable_state, last_reading, last_change_ms
-        reading = button.value()
+    def _button_was_pressed(self):
+        """Check for debounced button press. Returns True on press edge."""
+        reading = self.btn.value()
         now = time.ticks_ms()
-        if reading != last_reading:
-            last_change_ms = now
-            last_reading = reading
-        if time.ticks_diff(now, last_change_ms) > DEBOUNCE_MS:
-            if stable_state != reading:
-                stable_state = reading
-                if stable_state == 0:
+        
+        if reading != self._last_reading:
+            self._last_change_ms = now
+            self._last_reading = reading
+        
+        if time.ticks_diff(now, self._last_change_ms) > DEBOUNCE_MS:
+            if self._stable_state != reading:
+                self._stable_state = reading
+                if self._stable_state == 0:
                     return True
         return False
     
-    # Game state
-    scanned_ingredients = set()
-    last_uid = None
-    poll_count = 0
+    def _cook(self):
+        """Evaluate recipe and display result."""
+        image, matched = _evaluate_recipe(self.scanned_ingredients)
+        _show_pixels(self.np, image)
+        
+        if matched:
+            self.buz.play_note(NOTE_FREQ["noteb"], 300)
+            print("  Recipe matched!")
+        else:
+            self.buz.play_note(NOTE_FREQ["notef"], 300)
+            print("  No matching recipe")
+        
+        # Wait for button release
+        while self.btn.value() == 0:
+            time.sleep_ms(10)
     
-    # Entry feedback
-    buz.beep(523, 100)
-    _show_idle(np)
-    print("\n  === COOKING GAME ===")
-    print("  Tap ingredient tags, press button to cook!")
-    print("  Tap STOP tag to exit\n")
+    def _reset(self):
+        """Reset ingredients for new recipe."""
+        self.scanned_ingredients = set()
+        _show_idle(self.np)
+        self.buz.play_note(NOTE_FREQ["notec"], 200)
+        print("  Reset - ready to collect ingredients")
     
-    try:
+    def run(self):
+        """Main game loop. Returns when stop tag is tapped."""
+        print("  Tap ingredient tags, press button to cook!")
+        print("  Tap STOP tag to exit\n")
+        
+        _show_idle(self.np)
+        
         while True:
-            # ── Check for stop tag periodically ──
-            poll_count += 1
-            if poll_count >= 15:
-                poll_count = 0
-                text, uid = read_ndef_text(nfc, timeout=100)
-                if text == "stop":
-                    print("  STOP tag detected")
-                    return
-            
-            # ── NFC command read ──
+            # ── STOP CHECK via NfcReader (at top of loop) ──
             try:
-                command, uid_hex = reader.read_command(timeout=120)
+                command, uid_hex = self.reader.read_command(timeout=120)
             except Exception as e:
                 print("  NFC read error: %s" % str(e))
                 command = None
                 uid_hex = None
             
+            if command == "stop":
+                print("  STOP tag detected")
+                return
+            
+            # ── GAME LOGIC ──
             if uid_hex is None:
-                last_uid = None
-            elif uid_hex != last_uid:
-                last_uid = uid_hex
-                
-                if command == "stop":
-                    print("  STOP tag detected")
-                    return
+                self.last_uid = None
+            elif uid_hex != self.last_uid:
+                self.last_uid = uid_hex
                 
                 if command == "cook":
-                    scanned_ingredients = set()
-                    _show_idle(np)
-                    buz.play_note(NOTE_FREQ["notec"], 200)
-                    print("  Reset - ready to collect ingredients")
+                    self._reset()
                 
                 elif command in INGREDIENT_ORDER:
-                    scanned_ingredients.add(command)
-                    _show_progress(np, scanned_ingredients)
-                    buz.play_note(NOTE_FREQ["notee"], 150)
-                    print("  Added: %s (%d ingredients)" % (command, len(scanned_ingredients)))
+                    self.scanned_ingredients.add(command)
+                    _show_progress(self.np, self.scanned_ingredients)
+                    self.buz.play_note(NOTE_FREQ["notee"], 150)
+                    print("  Added: %s (%d ingredients)" % (command, len(self.scanned_ingredients)))
             
-            # ── Button press to cook ──
-            if button_was_pressed():
-                image, matched = _evaluate_recipe(scanned_ingredients)
-                _show_pixels(np, image)
-                
-                if matched:
-                    buz.play_note(NOTE_FREQ["noteb"], 300)
-                    print("  Recipe matched!")
-                else:
-                    buz.play_note(NOTE_FREQ["notef"], 300)
-                    print("  No matching recipe")
-                
-                # Wait for button release
-                while button.value() == 0:
-                    time.sleep_ms(10)
+            # ── BUTTON: Cook recipe ──
+            if self._button_was_pressed():
+                self._cook()
             
-            time.sleep_ms(20)
+            time.sleep_ms(LOOP_DELAY_MS)
+
+
+# ─────────────────────────────────────────────
+# Entry Point: Wand Integration
+# ─────────────────────────────────────────────
+def play(nfc, leds, buz, accel, i2c):
+    """
+    Called from main.py when the "cooking" tag is tapped.
+    Hardware is already initialized by the caller.
+    """
+    buz.beep(523, 100)
     
+    print("\n  === COOKING GAME ===")
+    
+    try:
+        CookingGame(nfc, leds, buz).run()
     finally:
-        # Clean up LEDs on exit
-        for i in range(25):
-            np[i] = (0, 0, 0)
-        np.write()
+        leds.off()
         print("\n  === RETURNING TO PROGRAMMING MODE ===\n")
+
+
+# ─────────────────────────────────────────────
+# Entry Point: Standalone Testing
+# ─────────────────────────────────────────────
+def main():
+    """
+    Standalone entry point for testing without main.py.
+    Run directly: import cooking; cooking.main()
+    """
+    print("\n" + "=" * 45)
+    print("  Cooking Recipes — Ingredient Matching Game")
+    print("=" * 45)
+    
+    i2c = machine.SoftI2C(sda=Pin(I2C_SDA), scl=Pin(I2C_SCL), freq=100_000)
+    
+    # Calibrate brightness from ambient light
+    import brightness
+    try:
+        from opt3002 import OPT3002
+        light = OPT3002(i2c)
+        light.init()
+        mult, lux = brightness.calibrate(light)
+        if lux is not None:
+            print("  Light: %.0f lux -> brightness x%.2f" % (lux, mult))
+    except Exception as e:
+        print("  [WARN] OPT3002: %s — brightness x1.00" % e)
+    
+    # Initialize LEDs
+    from leds import Leds
+    leds = Leds()
+    
+    # Initialize buzzer
+    from buzzer import Buzzer
+    buz = Buzzer(BUZZER_PIN)
+    
+    # Initialize NFC
+    nfc = PN532(i2c, PN532_ADDR)
+    try:
+        ic, ver, rev = nfc.begin()
+        print("  PN5%02X fw %d.%d — NFC ready" % (ic, ver, rev))
+    except Exception as e:
+        print("  NFC init failed: %s" % e)
+        return
+    
+    print()
+    
+    # Run the game
+    play(nfc, leds, buz, None, i2c)
+
+
+if __name__ == "__main__":
+    main()

@@ -9,6 +9,16 @@ Rescan tag re-requests sequence from station (debounced per placement).
 Button: ignored during play; triggers rainbow after a win.
 
 Requires /lib/: pn532.py, nfc_reader.py, buzzer.py
+
+Entry points:
+    play(nfc, leds, buz, accel, i2c)  — called from main.py
+    main()                             — standalone testing
+
+Template Pattern:
+    1. GameDisplay utility class for LED rendering
+    2. play() for wand integration (hardware passed in)
+    3. main() for standalone testing (initializes hardware)
+    4. CRITICAL: Stop tag checked in wait_for_commands(), run_game(), _post_win_wait()
 """
 
 import machine, network, espnow, time, math, json
@@ -578,13 +588,14 @@ def run_game(nfc, buz, display, targets, enow, start_ticks=None):
     return _post_win_wait(enow, display, nfc, buz)
 
 
-def play(nfc, np, buz, enow=None):
+def play(nfc, leds, buz, accel, i2c, enow=None):
     """Called from main.py when 'colorquest' tag is tapped."""
     own_enow = False
     if enow is None:
         enow = espnow_init()
         own_enow = True
 
+    np = leds.np
     display = GameDisplay(np)
     display.clear()
     espnow_targets = None
@@ -640,7 +651,22 @@ def main():
     print("=" * 45)
 
     i2c = machine.SoftI2C(sda=Pin(I2C_SDA), scl=Pin(I2C_SCL), freq=100_000)
-    np = NeoPixel(Pin(NEOPIXEL_PIN), NUM_LEDS)
+    
+    # Calibrate brightness from ambient light sensor
+    import brightness
+    try:
+        from opt3002 import OPT3002
+        light = OPT3002(i2c)
+        light.init()
+        m, lux = brightness.calibrate(light)
+        if lux is not None:
+            print("  Light: %.0f lux -> brightness x%.2f" % (lux, m))
+    except Exception as e:
+        print("  [WARN] OPT3002: %s — brightness x1.00" % e)
+    
+    from leds import Leds
+    leds = Leds()
+    np = leds.np
     buz = Buzzer(BUZZER_PIN)
     display = GameDisplay(np)
     display.clear()

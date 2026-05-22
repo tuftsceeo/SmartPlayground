@@ -14,9 +14,15 @@ leds.py and every game uses them.
 Tags: caller, player, go, freeze, stop, rejoin, freezedance.
 ESP-NOW msgs: FD_GO, FD_FREEZE, FD_DANCE, FD_RESET, stop.
 
-Entry point:
-    from freeze_dance import play
-    play(nfc, leds, buz, accel, i2c)
+Entry points:
+    play(nfc, leds, buz, accel, i2c)  — called from main.py
+    main()                             — standalone testing
+
+Template Pattern:
+    1. FreezeDanceGame class with __init__() and run()
+    2. play() for wand integration (hardware passed in)
+    3. main() for standalone testing (initializes hardware)
+    4. CRITICAL: Stop tag polled via _poll_nfc() in game loop
 """
 
 import machine, network, espnow, time
@@ -29,6 +35,11 @@ from leds import (
     RED, GREEN, BLUE, YELLOW, AMBER, PURPLE, WHITE, TEAL, OFF,
     SHAPE_SAD_FACE, SHAPE_PLAY, SHAPE_DANCER,
 )
+
+# -- Hardware Config ----------------------------------------
+I2C_SDA, I2C_SCL = 22, 23
+BUZZER_PIN = 19
+PN532_ADDR = 0x24
 
 # -- Constants ----------------------------------------------
 NUM_LEDS = 25
@@ -415,9 +426,12 @@ class FreezeDanceGame:
 
 
 
-# -- Entry point --------------------------------------------
+# -- Entry Point: Wand Integration --------------------------
 def play(nfc, leds, buz, accel, i2c):
-    """Called from main.py when the freezedance tag is tapped."""
+    """
+    Called from main.py when the freezedance tag is tapped.
+    Hardware is already initialized by the caller.
+    """
     enow = _espnow_init()
     try:
         FreezeDanceGame(nfc, leds, buz, accel, enow).run()
@@ -425,3 +439,62 @@ def play(nfc, leds, buz, accel, i2c):
         try: enow.active(False)
         except Exception: pass
         leds.off()
+
+
+# -- Entry Point: Standalone Testing ------------------------
+def main():
+    """
+    Standalone entry point for testing without main.py.
+    Run directly: import freeze_dance; freeze_dance.main()
+    """
+    print("\n" + "=" * 45)
+    print("  Freeze Dance — ESP-NOW Multiplayer Game")
+    print("=" * 45)
+    
+    i2c = machine.SoftI2C(sda=Pin(I2C_SDA), scl=Pin(I2C_SCL), freq=100_000)
+    
+    # Calibrate brightness from ambient light
+    try:
+        from opt3002 import OPT3002
+        light = OPT3002(i2c)
+        light.init()
+        mult, lux = brightness.calibrate(light)
+        if lux is not None:
+            print("  Light: %.0f lux -> brightness x%.2f" % (lux, mult))
+    except Exception as e:
+        print("  [WARN] OPT3002: %s — brightness x1.00" % e)
+    
+    # Initialize LEDs
+    from leds import Leds
+    leds = Leds()
+    
+    # Initialize buzzer
+    from buzzer import Buzzer
+    buz = Buzzer(BUZZER_PIN)
+    
+    # Initialize NFC
+    nfc = PN532(i2c, PN532_ADDR)
+    try:
+        ic, ver, rev = nfc.begin()
+        print("  PN5%02X fw %d.%d — NFC ready" % (ic, ver, rev))
+    except Exception as e:
+        print("  NFC init failed: %s" % e)
+        return
+    
+    # Initialize accelerometer
+    try:
+        from mpu6050 import MPU6050
+        accel = MPU6050(i2c)
+        print("  MPU6050 — accelerometer ready")
+    except Exception as e:
+        print("  [WARN] MPU6050: %s — motion disabled" % e)
+        accel = None
+    
+    print()
+    
+    # Run the game
+    play(nfc, leds, buz, accel, i2c)
+
+
+if __name__ == "__main__":
+    main()
