@@ -1,4 +1,7 @@
 """
+ARCHIVED: January 2026 wand-module code, originally at lib/gesture_engine.py.
+Not currently used in production.
+
 gesture_engine.py — Gesture Recognition with NFC-stored Templates
 ==================================================================
 Goes in /lib/

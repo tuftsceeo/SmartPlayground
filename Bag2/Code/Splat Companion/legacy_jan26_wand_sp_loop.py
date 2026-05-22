@@ -1,4 +1,7 @@
 """
+ARCHIVED: January 2026 wand-side code, originally at Wand Module/sp_loop.py.
+Not currently used in production.
+
 sp_loop.py — BLE-Primary Running Loop (v4)
 =============================================
 Split from the working unified main.py.

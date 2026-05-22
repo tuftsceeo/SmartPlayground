@@ -1,34 +1,24 @@
 """
 NFC Reader — Tag scanning and command extraction
 ==================================================
-Wraps PN532 driver with NDEF text decoding,
-raw-bytes fallback, gesture tag detection,
-and Splat Companion (SC:) tag passthrough.
+Wraps the PN532 driver with NDEF text decoding and a raw-bytes
+fallback for matching tag content against a set of known commands.
 
-Supports two-phase reading: detect tag presence first,
-then read data (allows animation during the slow read).
-
-Gesture tags: If block 4 of a MIFARE Classic tag starts
-with b'G:', it's a gesture tag. The reader loads the centroid
-into the GestureEngine and returns "gesture:<name>" as the command.
-
-SC tags: If NDEF text starts with "sc:", it's a Splat Companion
-tag. The full text (e.g. "sc:b4:3a:45:86:1c:8c") is returned
-as the command — the caller handles MAC parsing.
+Supports two-phase reading: detect tag presence first, then read
+data. This lets the caller animate during the slow read phase.
 
 Supported tag types:
   • MIFARE Classic 1K (SAK 0x08 / 0x18)  — auth + block read (sectors 1-2)
   • NTAG / MIFARE Ultralight             — unauthenticated page read (4-19)
 
 Usage:
-    # For game-code that only needs the text and UID of any tag type:
+    # For game code that only needs the text and UID of any tag:
     from nfc_reader import read_ndef_text
     text, uid = read_ndef_text(nfc)
 
     # For the main command-dispatch loop:
     from nfc_reader import NfcReader
     reader = NfcReader(nfc, commands)
-    reader.gesture_engine = ge  # optional: enable gesture tag support
     cmd, uid = reader.read_command(
         on_detect=my_start_fn,
         on_progress=my_frame_fn,
@@ -48,9 +38,6 @@ COMMON_KEYS = [
     b'\x00\x00\x00\x00\x00\x00',
 ]
 
-GESTURE_MARKER = b'G:'
-SC_PREFIX = "sc:"
-
 
 # ─────────────────────────────────────────────
 # TOP-LEVEL HELPER: read any supported tag type
@@ -65,8 +52,8 @@ def read_ndef_text(nfc, timeout=500, resel_timeout=150):
       • NTAG / Ultralight (anything else): unauthenticated read of pages 4-19
 
     Intended for callers that only need the NDEF text and don't need the
-    full NfcReader command-lookup / gesture / SC pipeline (i.e. game code
-    looking for control tags like "stop" or "color_quest_scan").
+    full NfcReader command-lookup pipeline (i.e. game code looking for
+    control tags like "stop" or "color_quest_scan").
 
     Args:
         nfc:            PN532 instance
@@ -148,7 +135,7 @@ def _read_ntag_ndef(nfc):
 
 
 # ─────────────────────────────────────────────
-# NFC READER CLASS (command dispatch + gestures + SC)
+# NFC READER CLASS (command dispatch)
 # ─────────────────────────────────────────────
 
 class NfcReader:
@@ -160,7 +147,6 @@ class NfcReader:
         """
         self.nfc = nfc
         self.commands = commands
-        self.gesture_engine = None  # set externally to enable gesture tags
 
     def detect_tag(self, timeout=250):
         """
@@ -177,15 +163,12 @@ class NfcReader:
         Scan for a tag and try to extract a command string.
 
         Recognition order:
-          1. Gesture tags (block 4 starts with "G:")
-          2. SC tags (NDEF text starts with "sc:")
-          3. Known commands from self.commands
-          4. Raw bytes fallback search
+          1. Known commands from self.commands
+          2. Raw bytes fallback search
 
         Returns:
             (command, uid_hex) if tag found.
-            command is a string from self.commands, "gesture:<name>",
-            "sc:<mac>", or None if unrecognized.
+            command is a string from self.commands, or None if unrecognized.
             uid_hex is None if no tag detected.
         """
         # Phase 1: Detect tag presence (fast)
@@ -210,34 +193,8 @@ class NfcReader:
         except Exception as e:
             sys.print_exception(e)
 
-        # ── Check for gesture tag ──
-        if (self.gesture_engine and sak in (0x08, 0x18)
-                and len(ndef_data) >= 16
-                and ndef_data[0:2] == GESTURE_MARKER):
-            gesture = self.gesture_engine.read_gesture_tag(self.nfc, tag)
-            if gesture:
-                self.gesture_engine.load_gesture(gesture['name'], gesture['centroid'])
-                command = "gesture:%s" % gesture['name']
-                print("  [Gesture tag: '%s' loaded]" % gesture['name'])
-                if on_complete:
-                    on_complete(command)
-                return command, uid_hex
-            else:
-                print("  [Gesture tag detected but read failed]")
-                if on_complete:
-                    on_complete(None)
-                return None, uid_hex
-
         # ── Decode NDEF text ──
         text = _decode_ndef_text(ndef_data)
-
-        # ── Check for SC tag ──
-        if text and text.startswith(SC_PREFIX) and len(text) > len(SC_PREFIX):
-            command = text  # pass through full "sc:b4:3a:45:86:1c:8c"
-            print("  [SC tag: %s]" % text)
-            if on_complete:
-                on_complete(command)
-            return command, uid_hex
 
         # ── Standard command lookup ──
         command = None
@@ -308,19 +265,6 @@ class NfcReader:
             raw_str = bytes(data).decode('ascii', 'replace').lower()
         except Exception:
             return None
-
-        # Check for SC prefix in raw data too
-        sc_idx = raw_str.find(SC_PREFIX)
-        if sc_idx >= 0:
-            # Try to extract the full SC:MAC string
-            # MAC is 17 chars: AA:BB:CC:DD:EE:FF
-            sc_end = sc_idx + len(SC_PREFIX) + 17
-            if sc_end <= len(raw_str):
-                candidate = raw_str[sc_idx:sc_end]
-                # Validate it looks like a MAC
-                parts = candidate[len(SC_PREFIX):].split(':')
-                if len(parts) == 6 and all(len(p) == 2 for p in parts):
-                    return candidate
 
         for cmd in self.commands:
             if cmd in raw_str:

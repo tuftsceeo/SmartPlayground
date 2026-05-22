@@ -44,23 +44,37 @@ MIDDLE_LEDS = list(range(5, 20))
 PERIMETER   = [0, 1, 2, 3, 4, 9, 14, 19, 24, 23, 22, 21, 20, 15, 10, 5]
 SMILEY_LEDS = [6, 8, 15, 19, 21, 22, 23]
 
-# (R, G, B) — matches leds.solid() / actions.py convention
-COLOR_BRIGHT = {
-    "turnred":    (50, 0, 0),
-    "turngreen":  (0, 50, 0),
-    "turnblue":   (0, 0, 50),
-    "turnpurple": (35, 0, 100),
-    "turnpink":   (50, 0, 25),
-    "turnyellow": (50, 35, 0),
-    "turnwhite":  (30, 30, 30),
-    "turnoff":    (0, 0, 0),
-}
-COLOR_DIM = {k: (v[0] // 6, v[1] // 6, v[2] // 6) for k, v in COLOR_BRIGHT.items()}
+# Import library colors — auto-scale with ambient brightness via leds.np
+from leds import (
+    OFF, RED, GREEN, BLUE, PURPLE, PINK, YELLOW, WHITE,
+    RED_DIM, GREEN_DIM, BLUE_DIM, YELLOW_DIM, WHITE_DIM, PINK_DIM, PURPLE_DIM, AMBER_DIM,
+)
 
-OFF            = (0, 0, 0)
-RED_X          = (50, 0, 0)
-GREEN_WIN      = (0, 50, 0)
-SMILEY_DEFAULT = (50, 35, 0)
+# Map action names to library colors
+COLOR_BRIGHT = {
+    "turnred":    RED,
+    "turngreen":  GREEN,
+    "turnblue":   BLUE,
+    "turnpurple": PURPLE,
+    "turnpink":   PINK,
+    "turnyellow": YELLOW,
+    "turnwhite":  WHITE,
+    "turnoff":    OFF,
+}
+COLOR_DIM = {
+    "turnred":    RED_DIM,
+    "turngreen":  GREEN_DIM,
+    "turnblue":   BLUE_DIM,
+    "turnpurple": PURPLE_DIM,
+    "turnpink":   PINK_DIM,
+    "turnyellow": YELLOW_DIM,
+    "turnwhite":  WHITE_DIM,
+    "turnoff":    OFF,
+}
+
+RED_X          = RED_DIM
+GREEN_WIN      = GREEN_DIM
+SMILEY_DEFAULT = AMBER_DIM
 
 RESCAN_TAG    = "color_quest_scan"
 BROADCAST_MAC = b'\xFF\xFF\xFF\xFF\xFF\xFF'

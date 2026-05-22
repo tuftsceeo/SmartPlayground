@@ -1,54 +1,10 @@
 # Wand Module Code Reference v6
 
----
-
 ### Code Generation Context
 
 ## Project Overview
 
-The Wand Module is a handheld, child-carried device for the Smart Playground, an educational technology system designed for kindergarten classrooms. The wand is one of several ESP32-based modules that communicate over ESP-NOW. It is operated entirely through NFC tags, requires no keyboard or screen, and is intended to be picked up and used by young children without adult intervention beyond the initial tag layout.
-
-The wand has two interaction modes, both driven from a single `main.py` state machine:
-
-**Programming mode.** Children tap NFC tags to build a simple `trigger → action` rule of the form "when this happens, do that." Triggers are physical events (`buttondown`, `buttonup`, `shake`); actions are LED, buzzer, or motor outputs (notes, colors, animal sounds). AND and THEN combinator tags let multiple actions run simultaneously or in sequence. Scanning the `start` tag enters running mode, where the rule loops until the `stop` tag is scanned.
-
-**Game dispatch.** Several standalone games (`jumpin`, `cooking`, `melody`, `colorquest`, `freezedance`) are bundled as separate Python modules in the `Wand Module/` folder. Tapping a game's control tag transfers wand hardware ownership to that game's `play()` entry point. The game runs until the `stop` tag returns control to `main.py`. Games may use ESP-NOW to communicate with other Smart Playground devices, including the Programming Station, the Scoreboard, and other wands.
-
----
-
-## Table of Contents
-
-- [Hardware](#hardware)
-    - [On-Board Peripherals](#on-board-peripherals)
-    - [Wireless](#wireless)
-    - [NeoPixel Layout](#neopixel-layout)
-- [Pin Map](#pin-map)
-- [I2C Bus](#i2c-bus-all-on-gpio22gpio23)
-- [File Structure](#file-structure)
-- [Driver APIs](#driver-apis)
-    - [pn532.py](#pn532py--pn532i2c-addr0x24)
-    - [lis2dw12.py](#lis2dw12py--lis2dw12i2c-addr0x19)
-    - [max17048.py](#max17048py--max17048i2c-addr0x36)
-    - [opt3002.py](#opt3002py--opt3002i2c-addr0x44)
-    - [buzzer.py](#buzzerpy--buzzerpin)
-    - [leds.py](#ledspy--ledspinnone-numnone)
-    - [nfc_reader.py](#nfc_readerpy--tag-scanning-helpers)
-    - [brightness.py](#brightnesspy--ambient-adaptive-led-brightness)
-    - [battery.py](#batterypy--battery-display-helper)
-- [main.py — Core Trigger→Action Engine](#mainpy--core-triggeraction-engine)
-    - [Programming Mode](#programming-mode-nfc-state-machine)
-    - [AND / THEN Chaining](#and--then-chaining)
-    - [NFC Tags — Known Working Setup](#nfc-tags--known-working-setup)
-    - [State Machine](#state-machine-mainpy)
-- [Existing Games Reference](#existing-games-reference)
-- [Adding a New Game](#adding-a-new-game)
-    - [Game Module Pattern](#game-module-pattern)
-    - [Step-by-Step Instructions](#step-by-step-instructions)
-- [Known Issues & Gotchas](#known-issues--gotchas)
-
 ## Hardware
-
-Custom PCB
 
 | Field           | Value                                                 |
 | --------------- | ----------------------------------------------------- |
@@ -56,30 +12,6 @@ Custom PCB
 | **Framework**   | MicroPython v1.27.0                                   |
 | **Logic**       | 3.3V                                                  |
 | **Flash / RAM** | 4MB / 512KB SRAM                                      |
-
-## On-Board Peripherals
-
-The wand PCB integrates the following sensors and actuators around the XIAO ESP32-C6. Pin assignments are in the Pin Map; I2C addresses and drivers are in the I2C Bus table.
-
-| Role       | Component                    | Bus / Interface    | Purpose                                  |
-| ---------- | ---------------------------- | ------------------ | ---------------------------------------- |
-| **Input**  | Tactile push button          | GPIO (active LOW)  | Primary user input                       |
-| **Input**  | LIS2DW12 accelerometer       | I2C, INT1 → GPIO   | Shake detection, motion-driven games     |
-| **Input**  | PN532 NFC reader             | I2C                | Tag scanning (programming and game flow) |
-| **Input**  | OPT3002 ambient light        | I2C, polled        | Adaptive LED brightness                  |
-| **Output** | 25× SK6812 NeoPixels         | GPIO (1-wire)      | 5×5 matrix display, GRB byte order       |
-| **Output** | Piezo buzzer                 | GPIO (PWM)         | Tones, notes, feedback chirps            |
-| **Output** | Vibration motor              | GPIO (digital/PWM) | Haptic feedback on tag scan              |
-| **Power**  | MAX17048 fuel gauge          | I2C, ALRT → GPIO   | Battery state-of-charge reporting        |
-| **Power**  | LiPo battery + USB-C charger | —                  | Portable operation; charges over USB-C   |
-
-### Wireless
-
-The ESP32-C6 supports WiFi 6, Bluetooth LE 5.x, Zigbee, and Thread. In this codebase only **ESP-NOW** (over the WiFi 6 radio) is used, for low-latency peer-to-peer messaging with other Smart Playground devices. BLE hardware is present and initialized on boot but is not actively used by the wand in the current release.
-
-### NeoPixel Layout
-
-The 25 NeoPixels are arranged as a **5×5 matrix** addressed by linear index 0–24 (row-major, top-left origin). All shape constants in `leds.py` (`SHAPE_HEART`, `SHAPE_ARROW_UP`, etc.) assume this layout. This is the only LED layout the `leds` library has been validated against.
 
 ---
 
@@ -284,19 +216,11 @@ Reads battery SoC, displays level on LEDs (green/yellow/red), beeps, waits 2.5s,
 
 ---
 
-## main.py — Core Trigger→Action Engine
+## PlaygroundV5 NFC Trigger→Action Engine
 
-This section documents `main.py`, the primary firmware that runs on boot. It provides:
+### NFC State Machine Coding Mode
 
-1. **Programming mode** — Tap NFC tags to build trigger→action rules
-2. **Running mode** — Execute programmed rules when triggers fire
-3. **Game dispatch** — Launch standalone games (`colorquest`, `freezedance`, `jumpin`, `cooking`, `melody`) when their control tags are scanned
-
-Games are separate modules (e.g., `color_quest.py`) that temporarily take control when launched. When a game's "stop" tag is scanned, control returns to `main.py`.
-
-### Programming Mode (NFC State Machine)
-
-Users tap NFC tags in sequence to program a **trigger → action** pair, then tap START to run the loop continuously until STOP is tapped.
+A programmable NFC-driven state machine on a custom PCB. Users tap NFC tags in sequence to program a **trigger → action** pair, then tap START to run the loop continuously until STOP is tapped.
 
 **Flow:** Tap TRIGGER → Tap ACTION → [optional: AND/THEN → ACTION]... → Tap START → (loops until STOP)
 
@@ -322,7 +246,7 @@ Users tap NFC tags in sequence to program a **trigger → action** pair, then ta
 | `turnoff`    | led      | Turn off all LEDs instantly          |
 
 **Combinator tags:** `and` (simultaneous), `then` (sequential)
-**Control tags:** `start`, `stop`, `colorquest`, `freezedance`, `jumpin`, `cooking`, `melody`
+**Control tags:** `start`, `stop`, `colorquest`, `freezedance`, `jumpin`
 **Utility tags:** `battery` (shows battery level on LEDs, works in any state)
 
 ### AND / THEN Chaining
@@ -374,13 +298,12 @@ If two actions in an AND group share the same resource, last one wins (silently 
 6F 77 6E FE                                        own.
 ```
 
-### State Machine (main.py)
+### State Machine
 
 ```
-STATE_IDLE (battery-colored inner ring)
-  ├─ tap game tag → launch game module → (returns here on stop)
+STATE_IDLE (blue LEDs)
   ├─ tap battery → show battery level on LEDs → return to current state
-  ├─ tap trigger → STATE_TRIGGER_SET (programming LEDs)
+  ├─ tap trigger → STATE_TRIGGER_SET (orange LEDs)
   │     ├─ tap battery → show battery level → stay
   │     ├─ tap action → STATE_BUILDING (green LEDs)
   │     │     │   chain = [[action]]
@@ -410,8 +333,6 @@ Tag debounce: same UID ignored until tag is removed (uid == None resets).
 | File              | Complexity | Hardware Used                | Notes                                                                            |
 | ----------------- | ---------- | ---------------------------- | -------------------------------------------------------------------------------- |
 | `jumpin.py`       | Simple     | LEDs, buzzer                 | Simplest template; also serves as the hook for user-authored chatbot code        |
-| `cooking.py`      | Simple     | LEDs, buzzer, NFC            | Cooking simulation game with ingredient scanning                                 |
-| `melody.py`       | Simple     | LEDs, buzzer, NFC            | Music/melody creation game                                                       |
 | `color_quest.py`  | Medium     | LEDs, buzzer, NFC            | Color matching game with NFC tag scanning                                        |
 | `freeze_dance.py` | Complex    | LEDs, buzzer, accel, ESP-NOW | Multi-role game with accelerometer-driven freeze detection and ESP-NOW messaging |
 

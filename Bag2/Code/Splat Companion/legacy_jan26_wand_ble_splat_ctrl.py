@@ -1,4 +1,7 @@
 """
+ARCHIVED: January 2026 wand-side code, originally at Wand Module/ble_splat_ctrl.py.
+Not currently used in production.
+
 ble_splat_ctrl.py — Direct Splat BLE Controller for Wand (v4)
 ================================================================
 Split from the working unified main.py.

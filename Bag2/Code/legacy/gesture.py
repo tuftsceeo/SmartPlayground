@@ -1,4 +1,7 @@
 """
+ARCHIVED: January 2026 wand-module code, originally at lib/gesture.py.
+Not currently used in production.
+
 Gesture Module — Record, extract features, and match gestures
 ===============================================================
 Records accelerometer data, extracts a compact feature vector,

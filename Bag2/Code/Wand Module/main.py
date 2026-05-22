@@ -1,14 +1,14 @@
 """
-PlaygroundV5 – NFC Multi-Trigger Event Engine + Splat Companion
-================================================================
+Wand Module — NFC Multi-Trigger Event Engine
+==============================================
 Board: Seeed XIAO ESP32-C6
 Requires hubtype.txt containing: wand
 
-Triggers: buttondown, buttonup, shake, gesture:<n>, SC:<MAC>
+Triggers: buttondown, buttonup, shake
 Actions:  playnote, notea-g, turnred/green/blue/purple/yellow/white/off,
           cat, chicken, cow, dog, pig, duck, elephant, horse, goat
 Combinators: and, then
-Controls: start, stop, colorquest, freezedance
+Controls: start, stop, colorquest, freezedance, jumpin, cooking, melody
 Utility: battery
 """
 
@@ -21,7 +21,6 @@ from hubtype import HUB_TYPE, HUB_CONFIG
 from pn532 import PN532
 from lis2dw12 import LIS2DW12, RANGE_4G
 from max17048 import MAX17048
-from gesture_engine import GestureEngine, CONFIDENCE_THRESHOLD
 
 from leds import Leds, TRIGGER_ORDER
 from buzzer import Buzzer
@@ -32,6 +31,8 @@ from espnow_manager import ESPNowManager
 from color_quest import play as play_color_quest
 from freeze_dance import play as play_freeze_dance
 from jumpin import play as play_jumpin
+from cooking import play as play_cooking
+from melody import play as play_melody
 import brightness
 
 # ─────────────────────────────────────────────
@@ -50,9 +51,32 @@ PN532_ADDR   = 0x24
 # ─────────────────────────────────────────────
 FIXED_TRIGGERS = {"buttondown", "buttonup", "shake"}
 COMBINATORS    = {"and", "then"}
-CONTROLS       = {"start", "stop", "colorquest", "freezedance", "jumpin"}
+CONTROLS       = {"start", "stop", "colorquest", "freezedance", "jumpin", "cooking", "melody"}
 UTILITY        = {"battery"}
 ALL_COMMANDS   = FIXED_TRIGGERS | ACTIONS | ANIMAL_SOUNDS | COMBINATORS | CONTROLS | UTILITY
+
+# ─────────────────────────────────────────────
+# ADDING A NEW GAME
+# ─────────────────────────────────────────────
+# Each game is a separate module in this folder that exposes a single
+# `play(...)` entry point. To add a new game named "yourgame":
+#
+#   1. Create `Wand Module/yourgame.py` exposing
+#      `def play(nfc, leds, buz, accel, ...): ...` returning when the
+#      "stop" NFC tag is scanned.
+#   2. Add the line `from yourgame import play as play_yourgame` near
+#      the existing `play_jumpin` import at the top of this file.
+#   3. Add the tag name `"yourgame"` to the CONTROLS set below.
+#   4. In the main control-dispatch block (search for the existing
+#      `cmd == "jumpin"` branch), add a parallel branch that calls
+#      `play_yourgame(...)` with the hardware refs the game needs.
+#   5. The teacher prints an NFC tag whose NDEF text payload is
+#      `yourgame`. Tapping it from idle enters the game; tapping the
+#      `stop` tag from within the game returns to programming mode.
+#
+# See `jumpin.py` for the simplest possible example and
+# `freeze_dance.py` for a more complete game (ESP-NOW messaging,
+# accelerometer-driven state, multi-role logic).
 
 # ─────────────────────────────────────────────
 # NFC SLEEP TIMEOUT
@@ -72,20 +96,6 @@ buz      = Buzzer(BUZZER_PIN)
 btn      = machine.Pin(SWITCH_PIN, machine.Pin.IN, machine.Pin.PULL_UP)
 int1_pin = machine.Pin(ACCEL_INT1, machine.Pin.IN)
 motor    = machine.Pin(MOTOR_PIN, machine.Pin.OUT, value=0)
-
-# ─────────────────────────────────────────────
-# SC HELPERS
-# ─────────────────────────────────────────────
-def is_sc_trigger(name):
-    return name is not None and name.startswith("SC:")
-
-def parse_sc_mac(name):
-    if not is_sc_trigger(name):
-        return None
-    return name[3:]
-
-def is_gesture_trigger(name):
-    return name is not None and name.startswith("gesture:")
 
 # ─────────────────────────────────────────────
 # SCAN FEEDBACK
@@ -124,31 +134,6 @@ def print_rules(rules, editing):
         elif trig == editing:
             print("  | %s -> (awaiting actions)%s" % (trig, marker))
 
-    for trig in sorted(rules.keys()):
-        if is_gesture_trigger(trig):
-            gn = trig.split(":", 1)[1]
-            marker = " *" if trig == editing else ""
-            if len(rules[trig]) > 0:
-                print("  | gesture:%s -> [%s]%s" % (gn, chain_to_str(rules[trig]), marker))
-                has_any = True
-            elif trig == editing:
-                print("  | gesture:%s -> (awaiting actions)%s" % (gn, marker))
-
-    if is_gesture_trigger(editing) and editing not in rules:
-        print("  | %s -> (awaiting actions) *" % editing)
-
-    for trig in sorted(rules.keys()):
-        if is_sc_trigger(trig):
-            marker = " *" if trig == editing else ""
-            if len(rules[trig]) > 0:
-                print("  | %s -> [%s]%s" % (trig, chain_to_str(rules[trig]), marker))
-                has_any = True
-            elif trig == editing:
-                print("  | %s -> (awaiting actions)%s" % (trig, marker))
-
-    if is_sc_trigger(editing) and editing not in rules:
-        print("  | %s -> (awaiting actions) *" % editing)
-
     if not has_any and not editing:
         print("  | (empty -- tap a trigger tag)")
     print("  +----------------------------------------")
@@ -185,24 +170,17 @@ def show_idle(last_soc, idle_frame):
 # ─────────────────────────────────────────────
 # EVENT LOOP (RUNNING)
 # ─────────────────────────────────────────────
-def run_event_loop(reader, rules, runner, accel_ref, ge_ref, mgr=None, batt_ref=None):
+def run_event_loop(reader, rules, runner, accel_ref, mgr=None, batt_ref=None):
     btn_was_down = (btn.value() == 0)
     if accel_ref and "shake" in rules:
         accel_ref.clear_wake()
-
-    gesture_last_fire = 0
-    g_map = {}
-    for tk in rules:
-        if is_gesture_trigger(tk) and len(rules[tk]) > 0:
-            g_map[tk.split(":", 1)[1]] = tk
-    has_g = len(g_map) > 0
 
     nfc_cnt = 0
     espnow_cnt = 0
 
     print("  Event loop active:")
     for trig in sorted(rules.keys()):
-        if not is_sc_trigger(trig) and len(rules[trig]) > 0:
+        if len(rules[trig]) > 0:
             print("    %s -> [%s]" % (trig, chain_to_str(rules[trig])))
 
     while True:
@@ -225,17 +203,6 @@ def run_event_loop(reader, rules, runner, accel_ref, ge_ref, mgr=None, batt_ref=
             if int1_pin.value() == 1:
                 accel_ref.clear_wake(); time.sleep_ms(100); accel_ref.clear_wake()
                 fired = "shake"
-
-        if fired is None and ge_ref and has_g and ge_ref.loaded_gestures:
-            now = time.ticks_ms()
-            if time.ticks_diff(now, gesture_last_fire) > 800:
-                if ge_ref.poll_motion():
-                    name, conf, dist, ad = ge_ref.capture_and_classify()
-                    if name is not None and conf >= CONFIDENCE_THRESHOLD:
-                        tk = g_map.get(name)
-                        if tk:
-                            fired = tk
-                    gesture_last_fire = time.ticks_ms()
 
         if fired:
             chain = rules[fired]
@@ -321,12 +288,7 @@ def main():
     mgr = ESPNowManager()
     mgr.init()
 
-    # ── Accelerometer (basic init only) ──
-    # NOTE: enable_wake_int1() is called LATER, after the gesture engine,
-    # because GestureEngine.init() does a soft-reset on the LIS2DW12 (writing
-    # 0x40 to CTRL2), which clears CTRL4_INT1, CTRL7, and WAKE_UP_THS.
-    # If we configure wake-up here, the gesture engine's reset wipes it out
-    # and the shake trigger never fires (INT1 stays low forever).
+    # ── Accelerometer ──
     accel = None
     accel_ok = False
     try:
@@ -337,29 +299,22 @@ def main():
     except Exception as e:
         print("  [WARN] Accel:"); sys.print_exception(e)
 
-    # Gesture engine (touches the same LIS2DW12 chip — soft-resets it!)
-    ge = None
-    ge_ok = False
-    try:
-        from neopixel import NeoPixel as NP
-        ge_np = NP(machine.Pin(HUB_CONFIG["led_pin"]), HUB_CONFIG["num_leds"])
-        ge = GestureEngine(i2c, ge_np, buzzer_pin=BUZZER_PIN)
-        ge.init()
-        ge_ok = True
-        print("  Gesture engine OK")
-    except Exception as e:
-        print("  [WARN] Gesture engine:"); sys.print_exception(e)
-
-    # ── Re-enable accel wake-up AFTER gesture engine has finished its soft-reset ──
+    # Accelerometer wake-up interrupt is enabled here, separately from the basic
+    # accel init above, because any code that performs a soft-reset on the
+    # LIS2DW12 (writing 0x40 to CTRL2) will clear CTRL4_INT1, CTRL7, and
+    # WAKE_UP_THS. If those are configured before such a reset, the shake
+    # trigger will silently stop working (INT1 stays low forever).
+    #
+    # No code currently in the wand performs that reset, but teacher-authored
+    # code (loaded via the jumpin hook) might in the future. Keeping wake-up
+    # enable as a final, separate step makes future-added soft-resets safe by
+    # default.
     if accel_ok:
         try:
             accel.enable_wake_int1(threshold=8)
             print("  Accel wake-up (INT1) armed")
         except Exception as e:
             print("  [WARN] Accel wake:"); sys.print_exception(e)
-
-    if ge_ok:
-        reader.gesture_engine = ge
 
     # ── BOOT STEP 3: All init complete — LED 2 on ──
     leds.boot_ready(last_soc)
@@ -398,7 +353,6 @@ def main():
                 if result == "stop":
                     mgr.send_stop_all_peers(); mgr.clear_peers()
                     rules = {}; editing = None; pending_combinator = None
-                    if ge: ge.clear_loaded()
                     buz.stop()
                     nfc_sleeping = False
                     last_activity_ms = time.ticks_ms()
@@ -461,7 +415,6 @@ def main():
                 if result == "stop":
                     mgr.send_stop_all_peers(); mgr.clear_peers()
                     rules = {}; editing = None; pending_combinator = None
-                    if ge: ge.clear_loaded()
                     buz.stop()
                     last_activity_ms = time.ticks_ms()
                     idle_frame = 0
@@ -495,12 +448,6 @@ def main():
             last_uid = uid
             if cmd is None:
                 time.sleep_ms(200); continue
-
-            # ── SC TAG ──
-            is_sc_cmd = False
-            if cmd.startswith("sc:") and len(cmd) > 3:
-                cmd = "SC:" + cmd[3:].upper()
-                is_sc_cmd = True
 
             # ── UTILITY ──
             if cmd == "battery":
@@ -540,12 +487,27 @@ def main():
                 idle_frame = 0
                 show_idle(last_soc, 0); last_uid = None; continue
 
+            # ── COOKING ──
+            if cmd == "cooking":
+                leds.off()
+                play_cooking(nfc, leds, buz, accel, i2c)
+                last_activity_ms = time.ticks_ms()
+                idle_frame = 0
+                show_idle(last_soc, 0); last_uid = None; continue
+
+            # ── MELODY ──
+            if cmd == "melody":
+                leds.off()
+                play_melody(nfc, leds, buz, accel, i2c)
+                last_activity_ms = time.ticks_ms()
+                idle_frame = 0
+                show_idle(last_soc, 0); last_uid = None; continue
+
             # ── STOP ──
             if cmd == "stop":
                 if mgr and mgr.is_active:
                     mgr.send_stop_all_peers(); mgr.clear_peers()
                 rules = {}; editing = None; pending_combinator = None
-                if ge: ge.clear_loaded()
                 buz.stop()
                 last_activity_ms = time.ticks_ms()
                 idle_frame = 0
@@ -562,10 +524,9 @@ def main():
                 print("  ── RUNNING ──")
                 leds.show_running(rules)
                 buz.beep(800, 60); time.sleep_ms(30); buz.beep(1200, 80)
-                run_event_loop(reader, rules, runner, accel, ge, mgr, batt)
+                run_event_loop(reader, rules, runner, accel, mgr, batt)
                 print("  ── STOPPED ──")
                 rules = {}; editing = None; pending_combinator = None
-                if ge: ge.clear_loaded()
                 last_activity_ms = time.ticks_ms()
                 idle_frame = 0
                 show_idle(last_soc, 0)
@@ -583,20 +544,12 @@ def main():
                 show_idle(last_soc, 0); continue
 
             # ── TRIGGER ──
-            if cmd in FIXED_TRIGGERS or is_gesture_trigger(cmd) or is_sc_cmd:
-                trig_key = cmd
-                if is_gesture_trigger(cmd):
-                    gname = cmd.split(":", 1)[1]
-                    if ge and ge_ok:
-                        if gname not in [g[0] for g in (ge.loaded_gestures or [])]:
-                            ge.load_gesture(gname)
-                    trig_key = cmd
-
-                if trig_key not in rules:
-                    rules[trig_key] = []
-                editing = trig_key
+            if cmd in FIXED_TRIGGERS:
+                if cmd not in rules:
+                    rules[cmd] = []
+                editing = cmd
                 pending_combinator = None
-                print("  Editing trigger: %s" % trig_key)
+                print("  Editing trigger: %s" % cmd)
                 leds.show_programming(rules, editing)
                 print_rules(rules, editing); continue
 

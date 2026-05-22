@@ -4,6 +4,8 @@ Jump In — Button Press LED Blink
 Tap the "jumpin" NFC tag to enter this mode.
 Press the button to blink all LEDs green.
 Tap "stop" tag to exit back to programming mode.
+
+Colors from leds.py — auto-scale with ambient brightness.
 """
 
 import machine
@@ -11,6 +13,7 @@ import time
 
 from pn532 import MIFARE_AUTH_A, MIFARE_AUTH_B
 from nfc_reader import _decode_ndef_text, COMMON_KEYS
+from leds import GREEN, OFF
 
 # ─────────────────────────────────────────────
 # CONSTANTS
@@ -77,16 +80,16 @@ def run_game(nfc, np, buz, accel):
         if button.value() == 0:  # Button pressed (active LOW)
             print("  Button pressed - blinking green!")
             
-            # Turn all LEDs green
+            # Turn all LEDs green (library color, auto-scaled)
             for i in range(NUM_LEDS):
-                np[i] = (0, 127, 0)  # Green (R, G, B)
+                np[i] = GREEN
             np.write()
             
             time.sleep_ms(200)  # Keep green for 200ms
             
             # Turn off all LEDs
             for i in range(NUM_LEDS):
-                np[i] = (0, 0, 0)
+                np[i] = OFF
             np.write()
             
             time.sleep_ms(200)  # Wait before next press can be detected
@@ -114,7 +117,7 @@ def play(nfc, leds, buz, accel, i2c):
     finally:
         # Clean up LEDs on exit
         for i in range(NUM_LEDS):
-            np[i] = (0, 0, 0)
+            np[i] = OFF
         np.write()
     
     print("\n  === RETURNING TO PROGRAMMING MODE ===\n")

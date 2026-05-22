@@ -56,6 +56,10 @@ GREEN_DIM  = (0,  40, 0)
 BLUE_DIM   = (0,  0,  40)
 YELLOW_DIM = (40, 40, 0)
 WHITE_DIM  = (30, 30, 30)
+ORANGE_DIM = (44, 16, 0)
+PINK_DIM   = (40, 16, 24)
+AMBER_DIM  = (40, 20, 0)
+PURPLE_DIM = (36, 0,  36)
 
 # ══════════════════════════════════════════════
 # 5×5 GRID SHAPES — LED index lists
