@@ -4,14 +4,31 @@ This guide provides the patterns and practices for creating games for the SmartP
 
 ## Hardware Available
 
-| Component | API | Notes |
-|-----------|-----|-------|
-| **5x5 LED Matrix** | `leds` (Leds class) | RGB NeoPixels, auto-scales with ambient brightness |
-| **NFC Reader** | `nfc` (PN532) | MIFARE Classic tags, NDEF text payloads |
-| **Buzzer** | `buz` (Buzzer class) | PWM tones, NOTE_FREQ dict available |
-| **Button** | GPIO 0, active LOW | Pull-up enabled, debounce required |
-| **Accelerometer** | `accel` (may be None) | Motion detection, shake gestures |
-| **I2C Bus** | `i2c` | Shared bus at 100kHz |
+| Component          | API                   | Notes                                              |
+| ------------------ | --------------------- | -------------------------------------------------- |
+| **5x5 LED Matrix** | `leds` (Leds class)   | RGB NeoPixels, auto-scales with ambient brightness |
+| **NFC Reader**     | `nfc` (PN532)         | MIFARE Classic tags, NDEF text payloads            |
+| **Buzzer**         | `buz` (Buzzer class)  | PWM tones, NOTE_FREQ dict available                |
+| **Button**         | GPIO 0, active LOW    | Pull-up enabled, debounce required                 |
+| **Accelerometer**  | `accel` (may be None) | Motion detection, shake gestures                   |
+| **I2C Bus**        | `i2c`                 | Shared bus at 100kHz                               |
+| **ESP-NOW**        | `enow` (ESPNowManager) | Passed from `main.py`; do not create a second radio stack in `play()` |
+
+## ESP-NOW Stop (Required)
+
+`main.py` initializes one `ESPNowManager` as `enow` and passes it into every game's `play()`. **Do not call `espnow.ESPNow()` or a local `espnow_init()` inside `play()`** — only one ESP-NOW stack may be active. Standalone `main()` in a game file may create its own `ESPNowManager()` for bench testing.
+
+At the **top of every game loop**, poll for stop:
+
+```python
+msg_type, data, _ = self.enow.poll()
+if msg_type == "stop":
+    return  # station broadcast ["stop"] or {"type":"stop"}
+```
+
+Also check the NFC `stop` tag (throttled if needed). Games that use binary ESP-NOW (e.g. freeze dance) receive those as `msg_type == "raw"` with `data` as `bytes`. JSON color lists from the station arrive as `msg_type == "colors"`.
+
+**Send:** `enow.broadcast({...})` for JSON; `enow.send_raw(BROADCAST_MAC, b"...")` for binary (import `BROADCAST_MAC` from `espnow_manager`).
 
 ## Module Template
 
@@ -22,14 +39,14 @@ Game Name — Short Description
 Explain gameplay in 2-3 sentences.
 
 Entry points:
-    play(nfc, leds, buz, accel, i2c)  — called from main.py
-    main()                             — standalone testing
+    play(nfc, leds, buz, accel, i2c, enow)  — called from main.py
+    main()                                   — standalone testing
 
 Template Pattern:
     1. GameClass with __init__() and run()
-    2. play() for wand integration (hardware passed in)
-    3. main() for standalone testing (initializes hardware)
-    4. CRITICAL: Stop tag checked at START of every loop
+    2. play() for wand integration (hardware + enow passed in)
+    3. main() for standalone testing (creates ESPNowManager locally)
+    4. CRITICAL: ESP-NOW stop + NFC stop checked at START of every loop
 """
 
 import machine, time
@@ -62,16 +79,20 @@ def _play_sound(buz, name):
 
 
 class YourGame:
-    def __init__(self, nfc, leds, buz):
+    def __init__(self, nfc, leds, buz, enow):
         self.nfc = nfc
         self.leds = leds
         self.buz = buz
+        self.enow = enow
         self.reader = NfcReader(nfc, COMMANDS)
         self.btn = Pin(BUTTON_PIN, Pin.IN, Pin.PULL_UP)
         self._btn_was_down = (self.btn.value() == 0)  # Avoid false trigger
         self._frame = 0
 
-    def _check_stop_tag(self):
+    def _check_stop(self):
+        msg_type, _, _ = self.enow.poll()
+        if msg_type == "stop":
+            return True
         if self._frame % NFC_POLL_INTERVAL != 0:
             return False
         try:
@@ -86,12 +107,12 @@ class YourGame:
 
     def run(self):
         print("  Game instructions here")
-        print("  Tap STOP tag to exit\n")
+        print("  Tap STOP tag or station stop to exit\n")
 
         while True:
             # ── STOP CHECK FIRST ──
-            if self._check_stop_tag():
-                print("  STOP tag detected")
+            if self._check_stop():
+                print("  Stop detected")
                 return
 
             # ── GAME LOGIC ──
@@ -102,11 +123,11 @@ class YourGame:
             self._frame += 1
 
 
-def play(nfc, leds, buz, accel, i2c):
+def play(nfc, leds, buz, accel, i2c, enow):
     _play_sound(buz, 'start')
     print("\n  === GAME NAME ===")
     try:
-        YourGame(nfc, leds, buz).run()
+        YourGame(nfc, leds, buz, enow).run()
     finally:
         leds.off()
         print("\n  === RETURNING TO PROGRAMMING MODE ===\n")
@@ -141,7 +162,10 @@ def main():
         print("  NFC init failed: %s" % e)
         return
 
-    play(nfc, leds, buz, None, i2c)
+    from espnow_manager import ESPNowManager
+    enow = ESPNowManager()
+    enow.init()
+    play(nfc, leds, buz, None, i2c, enow)
 
 
 if __name__ == "__main__":
@@ -151,6 +175,7 @@ if __name__ == "__main__":
 ## LED API (leds.py)
 
 ### Colors (auto-scale with brightness)
+
 ```python
 from leds import (
     OFF, RED, GREEN, BLUE, YELLOW, PURPLE, PINK, WHITE, AMBER, TEAL,
@@ -159,11 +184,13 @@ from leds import (
 ```
 
 ### Shapes (5x5 patterns)
+
 ```python
 from leds import SHAPE_CHECK, SHAPE_X, SHAPE_HEART, SHAPE_SAD_FACE, SHAPE_PLAY, SHAPE_DANCER
 ```
 
 ### Methods
+
 ```python
 leds.fill(color)                    # All LEDs same color
 leds.solid(r, g, b)                 # All LEDs RGB value
@@ -192,6 +219,7 @@ from buzzer import NOTE_FREQ
 ## NFC Patterns
 
 ### Using NfcReader (recommended)
+
 ```python
 from nfc_reader import NfcReader
 
@@ -206,6 +234,7 @@ elif cmd in COMMANDS:
 ```
 
 ### Repeat Scan Guard
+
 ```python
 REPEAT_SCAN_GUARD_MS = 1200
 
@@ -237,6 +266,7 @@ def _check_button_press(self):
 ## Animation Patterns
 
 ### Breathing/Pulse Effect
+
 ```python
 import math
 
@@ -246,6 +276,7 @@ color = (int(base_r * scale), int(base_g * scale), int(base_b * scale))
 ```
 
 ### Spinner on Perimeter
+
 ```python
 PERIMETER = [0, 1, 2, 3, 4, 9, 14, 19, 24, 23, 22, 21, 20, 15, 10, 5]
 pos = (time.ticks_ms() // 80) % len(PERIMETER)
@@ -256,6 +287,7 @@ for offset, level in enumerate((40, 24, 12, 5)):
 ## Sound Design
 
 ### Entry Fanfare
+
 ```python
 buz.beep(523, 80); time.sleep_ms(40)
 buz.beep(659, 80); time.sleep_ms(40)
@@ -263,6 +295,7 @@ buz.beep(784, 120)
 ```
 
 ### Victory Fanfare
+
 ```python
 buz.beep(523, 100); time.sleep_ms(50)
 buz.beep(659, 100); time.sleep_ms(50)
@@ -271,6 +304,7 @@ buz.beep(1047, 300)
 ```
 
 ### Error Sound
+
 ```python
 buz.beep(400, 150); time.sleep_ms(60)
 buz.beep(250, 250)

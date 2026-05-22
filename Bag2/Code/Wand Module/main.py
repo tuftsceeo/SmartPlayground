@@ -62,14 +62,14 @@ ALL_COMMANDS   = FIXED_TRIGGERS | ACTIONS | ANIMAL_SOUNDS | COMBINATORS | CONTRO
 # `play(...)` entry point. To add a new game named "yourgame":
 #
 #   1. Create `Wand Module/yourgame.py` exposing
-#      `def play(nfc, leds, buz, accel, ...): ...` returning when the
-#      "stop" NFC tag is scanned.
+#      `def play(nfc, leds, buz, accel, i2c, enow): ...` returning when
+#      "stop" NFC tag or ESP-NOW stop is received (poll enow every loop).
 #   2. Add the line `from yourgame import play as play_yourgame` near
 #      the existing `play_jumpin` import at the top of this file.
 #   3. Add the tag name `"yourgame"` to the CONTROLS set below.
 #   4. In the main control-dispatch block (search for the existing
 #      `cmd == "jumpin"` branch), add a parallel branch that calls
-#      `play_yourgame(...)` with the hardware refs the game needs.
+#      `play_yourgame(nfc, leds, buz, accel, i2c, enow)`.
 #   5. The teacher prints an NFC tag whose NDEF text payload is
 #      `yourgame`. Tapping it from idle enters the game; tapping the
 #      `stop` tag from within the game returns to programming mode.
@@ -142,12 +142,12 @@ def print_rules(rules, editing):
 # ─────────────────────────────────────────────
 # CHECK BROADCAST (used in multiple places)
 # ─────────────────────────────────────────────
-def check_broadcast(mgr, batt_ref, leds_ref, buz_ref):
+def check_broadcast(enow, batt_ref, leds_ref, buz_ref):
     """
     Poll ESP-NOW for broadcast stop/battery.
     Returns "stop" if stop received, "battery" if battery shown, None otherwise.
     """
-    msg_type, data, mac_str = mgr.poll()
+    msg_type, data, mac_str = enow.poll()
     if msg_type == "stop":
         return "stop"
     if msg_type == "battery":
@@ -170,7 +170,7 @@ def show_idle(last_soc, idle_frame):
 # ─────────────────────────────────────────────
 # EVENT LOOP (RUNNING)
 # ─────────────────────────────────────────────
-def run_event_loop(reader, rules, runner, accel_ref, mgr=None, batt_ref=None):
+def run_event_loop(reader, rules, runner, accel_ref, enow=None, batt_ref=None):
     btn_was_down = (btn.value() == 0)
     if accel_ref and "shake" in rules:
         accel_ref.clear_wake()
@@ -210,11 +210,11 @@ def run_event_loop(reader, rules, runner, accel_ref, mgr=None, batt_ref=None):
             runner.run_chain(chain)
 
         # ESP-NOW broadcast check
-        if mgr and mgr.is_active:
+        if enow and enow.is_active:
             espnow_cnt += 1
             if espnow_cnt >= 5:
                 espnow_cnt = 0
-                result = check_broadcast(mgr, batt_ref, leds, buz)
+                result = check_broadcast(enow, batt_ref, leds, buz)
                 if result == "stop":
                     return
                 if result == "battery":
@@ -285,8 +285,8 @@ def main():
     runner = ActionRunner(leds, buz)
 
     # ESP-NOW
-    mgr = ESPNowManager()
-    mgr.init()
+    enow = ESPNowManager()
+    enow.init()
 
     # ── Accelerometer ──
     accel = None
@@ -349,9 +349,9 @@ def main():
                 leds.idle_sleep()  # static blue dot
 
                 # Check ESP-NOW broadcasts while sleeping
-                result = check_broadcast(mgr, batt, leds, buz)
+                result = check_broadcast(enow, batt, leds, buz)
                 if result == "stop":
-                    mgr.send_stop_all_peers(); mgr.clear_peers()
+                    enow.send_stop_all_peers(); enow.clear_peers()
                     rules = {}; editing = None; pending_combinator = None
                     buz.stop()
                     nfc_sleeping = False
@@ -411,9 +411,9 @@ def main():
                     last_uid = None
 
                 # Check broadcast while idle
-                result = check_broadcast(mgr, batt, leds, buz)
+                result = check_broadcast(enow, batt, leds, buz)
                 if result == "stop":
-                    mgr.send_stop_all_peers(); mgr.clear_peers()
+                    enow.send_stop_all_peers(); enow.clear_peers()
                     rules = {}; editing = None; pending_combinator = None
                     buz.stop()
                     last_activity_ms = time.ticks_ms()
@@ -466,7 +466,7 @@ def main():
             # ── COLOR QUEST ──
             if cmd == "colorquest":
                 leds.off()
-                play_color_quest(nfc, leds, buz, accel, i2c)
+                play_color_quest(nfc, leds, buz, accel, i2c, enow)
                 last_activity_ms = time.ticks_ms()
                 idle_frame = 0
                 show_idle(last_soc, 0); last_uid = None; continue
@@ -474,7 +474,7 @@ def main():
             # ── FREEZE DANCE ──
             if cmd == "freezedance":
                 leds.off()
-                play_freeze_dance(nfc, leds, buz, accel, i2c)
+                play_freeze_dance(nfc, leds, buz, accel, i2c, enow)
                 last_activity_ms = time.ticks_ms()
                 idle_frame = 0
                 show_idle(last_soc, 0); last_uid = None; continue
@@ -482,7 +482,7 @@ def main():
             # ── JUMP IN ──
             if cmd == "jumpin":
                 leds.off()
-                play_jumpin(nfc, leds, buz, accel, i2c)
+                play_jumpin(nfc, leds, buz, accel, i2c, enow)
                 last_activity_ms = time.ticks_ms()
                 idle_frame = 0
                 show_idle(last_soc, 0); last_uid = None; continue
@@ -490,7 +490,7 @@ def main():
             # ── COOKING ──
             if cmd == "cooking":
                 leds.off()
-                play_cooking(nfc, leds, buz, accel, i2c)
+                play_cooking(nfc, leds, buz, accel, i2c, enow)
                 last_activity_ms = time.ticks_ms()
                 idle_frame = 0
                 show_idle(last_soc, 0); last_uid = None; continue
@@ -498,15 +498,15 @@ def main():
             # ── MELODY ──
             if cmd == "melody":
                 leds.off()
-                play_melody(nfc, leds, buz, accel, i2c)
+                play_melody(nfc, leds, buz, accel, i2c, enow)
                 last_activity_ms = time.ticks_ms()
                 idle_frame = 0
                 show_idle(last_soc, 0); last_uid = None; continue
 
             # ── STOP ──
             if cmd == "stop":
-                if mgr and mgr.is_active:
-                    mgr.send_stop_all_peers(); mgr.clear_peers()
+                if enow and enow.is_active:
+                    enow.send_stop_all_peers(); enow.clear_peers()
                 rules = {}; editing = None; pending_combinator = None
                 buz.stop()
                 last_activity_ms = time.ticks_ms()
@@ -524,7 +524,7 @@ def main():
                 print("  ── RUNNING ──")
                 leds.show_running(rules)
                 buz.beep(800, 60); time.sleep_ms(30); buz.beep(1200, 80)
-                run_event_loop(reader, rules, runner, accel, mgr, batt)
+                run_event_loop(reader, rules, runner, accel, enow, batt)
                 print("  ── STOPPED ──")
                 rules = {}; editing = None; pending_combinator = None
                 last_activity_ms = time.ticks_ms()

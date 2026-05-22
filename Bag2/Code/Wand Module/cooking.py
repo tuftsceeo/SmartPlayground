@@ -8,7 +8,7 @@ Tap "stop" tag to exit back to programming mode.
 Colors and shapes from leds.py — auto-scale with ambient brightness.
 
 Entry points:
-    play(nfc, leds, buz, accel, i2c)  — called from main.py
+    play(nfc, leds, buz, accel, i2c, enow)  — called from main.py
     main()                             — standalone testing
 
 Template Pattern:
@@ -215,10 +215,11 @@ def _evaluate_recipe(scanned):
 class CookingGame:
     """Ingredient matching and recipe cooking game."""
     
-    def __init__(self, nfc, leds, buz):
+    def __init__(self, nfc, leds, buz, enow):
         self.nfc = nfc
         self.leds = leds
         self.buz = buz
+        self.enow = enow
         self.display = CookingDisplay(leds)
         self.btn = Pin(BUTTON_PIN, Pin.IN, Pin.PULL_UP)
         self.reader = NfcReader(nfc, COMMANDS)
@@ -271,9 +272,16 @@ class CookingGame:
     def run(self):
         """Main game loop. Returns when stop tag is tapped."""
         print("  Tap ingredient tags, press button to cook!")
-        print("  Tap STOP tag to exit\n")
+        print("  Tap STOP tag or station stop to exit\n")
         
         while True:
+            # ── ESP-NOW ──
+            if self.enow:
+                msg_type, _, _ = self.enow.poll()
+                if msg_type == "stop":
+                    print("  ESP-NOW stop")
+                    return
+
             # ── DISPLAY UPDATE ──
             if len(self.scanned_ingredients) > 0:
                 self.display.show_progress(self.scanned_ingredients, self._frame)
@@ -323,7 +331,7 @@ class CookingGame:
 # ─────────────────────────────────────────────
 # Entry Point: Wand Integration
 # ─────────────────────────────────────────────
-def play(nfc, leds, buz, accel, i2c):
+def play(nfc, leds, buz, accel, i2c, enow):
     """
     Called from main.py when the "cooking" tag is tapped.
     Hardware is already initialized by the caller.
@@ -333,7 +341,7 @@ def play(nfc, leds, buz, accel, i2c):
     print("\n  === COOKING GAME ===")
     
     try:
-        CookingGame(nfc, leds, buz).run()
+        CookingGame(nfc, leds, buz, enow).run()
     finally:
         _play(buz, 'exit')
         leds.off()
@@ -383,10 +391,14 @@ def main():
         print("  NFC init failed: %s" % e)
         return
     
+    from espnow_manager import ESPNowManager
+    enow = ESPNowManager()
+    enow.init()
+
     print()
     
     # Run the game
-    play(nfc, leds, buz, None, i2c)
+    play(nfc, leds, buz, None, i2c, enow)
 
 
 if __name__ == "__main__":

@@ -7,7 +7,7 @@ press button to play back. Tap "stop" tag to exit.
 Colors from leds.py — auto-scale with ambient brightness.
 
 Entry points:
-    play(nfc, leds, buz, accel, i2c)  — called from main.py
+    play(nfc, leds, buz, accel, i2c, enow)  — called from main.py
     main()                             — standalone testing
 
 Template Pattern:
@@ -153,10 +153,11 @@ def _play_note_with_color(cmd, ms, leds, buz):
 class MelodyGame:
     """Note recording and playback game."""
     
-    def __init__(self, nfc, leds, buz):
+    def __init__(self, nfc, leds, buz, enow):
         self.nfc = nfc
         self.leds = leds
         self.buz = buz
+        self.enow = enow
         self.display = MelodyDisplay(leds)
         self.btn = Pin(BUTTON_PIN, Pin.IN, Pin.PULL_UP)
         self.reader = NfcReader(nfc, COMMANDS)
@@ -211,9 +212,16 @@ class MelodyGame:
     def run(self):
         """Main game loop. Returns when stop tag is tapped."""
         print("  Scan note tags (C, D, E, G), tap SAVE to commit")
-        print("  Press button to play back, tap STOP to exit\n")
+        print("  Press button to play back, tap STOP or station stop to exit\n")
         
         while True:
+            # ── ESP-NOW ──
+            if self.enow:
+                msg_type, _, _ = self.enow.poll()
+                if msg_type == "stop":
+                    print("  ESP-NOW stop")
+                    return
+
             # ── DISPLAY UPDATE ──
             self.display.show_idle(self._frame)
             
@@ -266,7 +274,7 @@ class MelodyGame:
 # ─────────────────────────────────────────────
 # Entry Point: Wand Integration
 # ─────────────────────────────────────────────
-def play(nfc, leds, buz, accel, i2c):
+def play(nfc, leds, buz, accel, i2c, enow):
     """
     Called from main.py when the "melody" tag is tapped.
     Hardware is already initialized by the caller.
@@ -279,7 +287,7 @@ def play(nfc, leds, buz, accel, i2c):
     print("\n  === MELODY BUILDER ===")
     
     try:
-        MelodyGame(nfc, leds, buz).run()
+        MelodyGame(nfc, leds, buz, enow).run()
     finally:
         _play(buz, 'exit')
         leds.off()
@@ -329,10 +337,14 @@ def main():
         print("  NFC init failed: %s" % e)
         return
     
+    from espnow_manager import ESPNowManager
+    enow = ESPNowManager()
+    enow.init()
+
     print()
     
     # Run the game
-    play(nfc, leds, buz, None, i2c)
+    play(nfc, leds, buz, None, i2c, enow)
 
 
 if __name__ == "__main__":

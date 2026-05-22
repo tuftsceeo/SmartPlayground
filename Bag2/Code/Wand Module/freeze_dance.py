@@ -15,7 +15,7 @@ Tags: caller, player, go, freeze, stop, rejoin, freezedance.
 ESP-NOW msgs: FD_GO, FD_FREEZE, FD_DANCE, FD_RESET, stop.
 
 Entry points:
-    play(nfc, leds, buz, accel, i2c)  — called from main.py
+    play(nfc, leds, buz, accel, i2c, enow)  — called from main.py
     main()                             — standalone testing
 
 Template Pattern:
@@ -25,9 +25,10 @@ Template Pattern:
     4. CRITICAL: Stop tag polled via _poll_nfc() in game loop
 """
 
-import machine, network, espnow, time
+import machine, time
 from machine import Pin
 
+from espnow_manager import BROADCAST_MAC, ESPNowManager
 from pn532 import PN532, MIFARE_AUTH_A, MIFARE_AUTH_B
 from nfc_reader import _decode_ndef_text, COMMON_KEYS
 import brightness
@@ -44,8 +45,6 @@ PN532_ADDR = 0x24
 # -- Constants ----------------------------------------------
 NUM_LEDS = 25
 SWITCH_PIN = 0
-BROADCAST = b'\xFF\xFF\xFF\xFF\xFF\xFF'
-
 MSG_GO     = b"FD_GO"
 MSG_FREEZE = b"FD_FREEZE"
 MSG_DANCE  = b"FD_DANCE"
@@ -117,23 +116,6 @@ BROADCASTS = {
     'freeze': (MSG_FREEZE, STATE_FREEZE),
     'dance':  (MSG_DANCE,  STATE_DANCE),
 }
-
-
-# -- Hardware setup -----------------------------------------
-def _configure_external_antenna():
-    Pin(3,  Pin.OUT).value(0)
-    time.sleep_ms(100)
-    Pin(14, Pin.OUT).value(1)
-
-
-def _espnow_init():
-    _configure_external_antenna()
-    sta = network.WLAN(network.STA_IF)
-    sta.active(True); sta.disconnect()
-    e = espnow.ESPNow(); e.active(True)
-    try: e.add_peer(BROADCAST)
-    except Exception: pass
-    return e
 
 
 # -- Sound helper -------------------------------------------
@@ -261,7 +243,7 @@ class FreezeDanceGame:
     def _broadcast(self, name):
         msg, state = BROADCASTS[name]
         for _ in range(BTN_SEND_REPEATS):
-            self.enow.send(BROADCAST, msg)
+            self.enow.send_raw(BROADCAST_MAC, msg)
             time.sleep_ms(BTN_SEND_DELAY_MS)
         self._set_state(state)
         print("  >> %s" % name.upper())
@@ -302,10 +284,6 @@ class FreezeDanceGame:
         self.last_uid = uid
         self.last_scan_ms = now
         return text
-
-    def _poll_espnow(self):
-        _, msg = self.enow.irecv(0)
-        return bytes(msg) if msg is not None else None
 
     def _render(self):
         s = self.state
@@ -365,7 +343,7 @@ class FreezeDanceGame:
                 print("  STOP — exiting")
                 if self.is_caller:
                     for _ in range(BTN_SEND_REPEATS):
-                        self.enow.send(BROADCAST, MSG_STOP)
+                        self.enow.send_raw(BROADCAST_MAC, MSG_STOP)
                         time.sleep_ms(BTN_SEND_DELAY_MS)
                 self.leds.off()
                 return
@@ -395,8 +373,8 @@ class FreezeDanceGame:
 
             # ESP-NOW. State guards dedupe the burst of 5 repeats and only beep
             # on the first message that actually changes state.
-            msg = self._poll_espnow()
-            if msg == MSG_STOP or msg == b'"stop"':
+            msg_type, data, _ = self.enow.poll()
+            if msg_type == "stop":
                 print("  ESP-NOW stop"); self.leds.off(); return
 
             # Players in OUT, REJOIN_ARMED, or ROLE_SELECT ignore game-state
@@ -404,11 +382,11 @@ class FreezeDanceGame:
             # press the button (or tap a role tag) before the wand reacts to
             # the caller's commands. The state guards below also dedupe the
             # burst of 5 repeats and only fire on a real state change.
-            if self.state not in (STATE_OUT, STATE_REJOIN_ARMED, STATE_ROLE_SELECT) and not self.is_caller:
-                if   msg == MSG_GO     and self.state != STATE_GO:     self._set_state(STATE_GO);     print("  GO")
-                elif msg == MSG_FREEZE and self.state != STATE_FREEZE: self._set_state(STATE_FREEZE); print("  FREEZE")
-                elif msg == MSG_DANCE  and self.state != STATE_DANCE:  self._set_state(STATE_DANCE);  print("  DANCE")
-                elif msg == MSG_RESET  and self.state != STATE_READY:  self._set_state(STATE_READY);  print("  RESET")
+            if msg_type == "raw" and self.state not in (STATE_OUT, STATE_REJOIN_ARMED, STATE_ROLE_SELECT) and not self.is_caller:
+                if   data == MSG_GO     and self.state != STATE_GO:     self._set_state(STATE_GO);     print("  GO")
+                elif data == MSG_FREEZE and self.state != STATE_FREEZE: self._set_state(STATE_FREEZE); print("  FREEZE")
+                elif data == MSG_DANCE  and self.state != STATE_DANCE:  self._set_state(STATE_DANCE);  print("  DANCE")
+                elif data == MSG_RESET  and self.state != STATE_READY:  self._set_state(STATE_READY);  print("  RESET")
 
             # Player motion checks: FREEZE catches movement, DANCE catches stillness.
             if not self.is_caller:
@@ -427,17 +405,14 @@ class FreezeDanceGame:
 
 
 # -- Entry Point: Wand Integration --------------------------
-def play(nfc, leds, buz, accel, i2c):
+def play(nfc, leds, buz, accel, i2c, enow):
     """
     Called from main.py when the freezedance tag is tapped.
     Hardware is already initialized by the caller.
     """
-    enow = _espnow_init()
     try:
         FreezeDanceGame(nfc, leds, buz, accel, enow).run()
     finally:
-        try: enow.active(False)
-        except Exception: pass
         leds.off()
 
 
@@ -490,10 +465,13 @@ def main():
         print("  [WARN] MPU6050: %s — motion disabled" % e)
         accel = None
     
+    enow = ESPNowManager()
+    enow.init()
+
     print()
     
     # Run the game
-    play(nfc, leds, buz, accel, i2c)
+    play(nfc, leds, buz, accel, i2c, enow)
 
 
 if __name__ == "__main__":
