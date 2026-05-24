@@ -12,7 +12,7 @@ The wand has two interaction modes, both driven from a single `main.py` state ma
 
 **Programming mode.** Children tap NFC tags to build a simple `trigger → action` rule of the form "when this happens, do that." Triggers are physical events (`buttondown`, `buttonup`, `shake`); actions are LED, buzzer, or motor outputs (notes, colors, animal sounds). AND and THEN combinator tags let multiple actions run simultaneously or in sequence. Scanning the `start` tag enters running mode, where the rule loops until the `stop` tag is scanned.
 
-**Game dispatch.** Several standalone games (`jumpin`, `cooking`, `melody`, `colorquest`, `freezedance`) are bundled as separate Python modules in the `Wand Module/` folder. Tapping a game's control tag transfers hardware to that game's `play()` entry point. The game exits on NFC `stop` or ESP-NOW `stop`. Games may use ESP-NOW to communicate with other Smart Playground devices, including the Programming
+**Game dispatch.** Several standalone games (`jumpin`, `cooking`, `melody`, `colorquest`, `freezedance`, `gestures`) are bundled as separate Python modules in the `Wand Module/` folder. Tapping a game's control tag transfers hardware to that game's `play()` entry point. The game exits on NFC `stop` or ESP-NOW `stop`. Games may use ESP-NOW to communicate with other Smart Playground devices, including the Programming
 Station, the Scoreboard, and other wands.
 
 ---
@@ -291,7 +291,7 @@ This section documents `main.py`, the primary firmware that runs on boot. It pro
 
 1. **Programming mode** — Tap NFC tags to build trigger→action rules
 2. **Running mode** — Execute programmed rules when triggers fire
-3. **Game dispatch** — Launch standalone games (`colorquest`, `freezedance`, `jumpin`, `cooking`, `melody`) when their control tags are scanned
+3. **Game dispatch** — Launch standalone games (`colorquest`, `freezedance`, `jumpin`, `cooking`, `melody`, `gestures`) when their control tags are scanned
 
 Games are separate modules (e.g., `color_quest.py`) that temporarily take control when launched. Exit conditions: NFC `stop` tag **or** station ESP-NOW broadcast `["stop"]` / `{"type":"stop"}`. Control then returns to `main.py`.
 
@@ -323,7 +323,7 @@ Users tap NFC tags in sequence to program a **trigger → action** pair, then ta
 | `turnoff`    | led      | Turn off all LEDs instantly          |
 
 **Combinator tags:** `and` (simultaneous), `then` (sequential)
-**Control tags:** `start`, `stop`, `colorquest`, `freezedance`, `jumpin`, `cooking`, `melody`
+**Control tags:** `start`, `stop`, `colorquest`, `freezedance`, `jumpin`, `cooking`, `melody`, `gestures`
 **Utility tags:** `battery` (shows battery level on LEDs, works in any state)
 
 ### AND / THEN Chaining
@@ -415,6 +415,7 @@ Tag debounce: same UID ignored until tag is removed (uid == None resets).
 | `melody.py`       | Simple     | LEDs, buzzer, NFC            | Music/melody creation game                                                       |
 | `color_quest.py`  | Medium     | LEDs, buzzer, NFC            | Color matching game with NFC tag scanning                                        |
 | `freeze_dance.py` | Complex    | LEDs, buzzer, accel, ESP-NOW | Multi-role game with accelerometer-driven freeze detection and ESP-NOW messaging |
+| `gestures.py`     | Medium     | LEDs, buzzer, NFC, accel     | Train red/green/blue gestures via NFC + button; `play` tag to classify           |
 
 ---
 

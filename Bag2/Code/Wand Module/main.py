@@ -10,7 +10,7 @@ Actions:  playnote, notea-g, turnred/green/blue/purple/yellow/white/off,
 Combinators: and, then
 Controls: start, stop, colorquest, freezedance, jumpin, cooking, melody,
           shake, shakerainbow, rainbow, jump, sound, nfcsound,
-          simpleicecream, multiicecream
+          simpleicecream, multiicecream, gestures
 Utility: battery
 """
 
@@ -43,6 +43,7 @@ from sound import play as play_sound
 from nfc_sound import play as play_nfc_sound
 from simpleicecream import play as play_simpleicecream
 from multiicecream import play as play_multiicecream
+from gestures import play as play_gestures
 import brightness
 
 # ─────────────────────────────────────────────
@@ -63,7 +64,7 @@ FIXED_TRIGGERS = {"buttondown", "buttonup", "shake"}
 COMBINATORS    = {"and", "then"}
 CONTROLS       = {"start", "stop", "colorquest", "freezedance", "jumpin", "cooking", "melody",
                   "shake", "shakerainbow", "rainbow", "jump", "sound", "nfcsound",
-                  "simpleicecream", "multiicecream"}
+                  "simpleicecream", "multiicecream", "gestures"}
 UTILITY        = {"battery"}
 ALL_COMMANDS   = FIXED_TRIGGERS | ACTIONS | ANIMAL_SOUNDS | COMBINATORS | CONTROLS | UTILITY
 
@@ -495,6 +496,14 @@ def main():
             if cmd == "jumpin":
                 leds.off()
                 play_jumpin(nfc, leds, buz, accel, i2c, enow)
+                last_activity_ms = time.ticks_ms()
+                idle_frame = 0
+                show_idle(last_soc, 0); last_uid = None; continue
+
+            # ── GESTURES ──
+            if cmd == "gestures":
+                leds.off()
+                play_gestures(nfc, leds, buz, accel, i2c, enow)
                 last_activity_ms = time.ticks_ms()
                 idle_frame = 0
                 show_idle(last_soc, 0); last_uid = None; continue
