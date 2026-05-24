@@ -28,7 +28,7 @@ from nfc_reader import _decode_ndef_text, COMMON_KEYS
 import brightness
 from leds import (
     RED, GREEN, BLUE, YELLOW, AMBER, PURPLE, WHITE, TEAL, OFF,
-    SHAPE_SAD_FACE, SHAPE_PLAY, SHAPE_DANCER,
+    SHAPE_SAD_FACE, SHAPE_PLAY, SHAPE_DANCER1,
 )
 
 # -- Hardware Config ----------------------------------------
@@ -288,7 +288,7 @@ class FreezeDanceGame:
         elif s == STATE_GO:
             self.leds.show_shape(SHAPE_PLAY, GREEN)
         elif s == STATE_DANCE:
-            self.leds.show_shape(SHAPE_DANCER, PURPLE)
+            self.leds.show_shape(SHAPE_DANCER1, PURPLE)
         elif s == STATE_ROLE_SELECT:
             self.leds.show_pattern(ROLE_SELECT_PATTERN)
         else:

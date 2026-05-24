@@ -38,7 +38,7 @@ import machine, time
 from machine import Pin
 from pn532 import PN532
 from nfc_reader import NfcReader
-from leds import RED, GREEN, BLUE, YELLOW, OFF, SHAPE_CHECK, SHAPE_X
+from leds import RED, GREEN, BLUE, YELLOW, OFF, SHAPE_CHECK, SHAPE_X, SHAPE_HAPPY_FACE, SHAPE_SAD_FACE
 from buzzer import NOTE_FREQ
 
 
@@ -183,7 +183,18 @@ from leds import (
 ### Shapes (5x5 patterns)
 
 ```python
-from leds import SHAPE_CHECK, SHAPE_X, SHAPE_HEART, SHAPE_SAD_FACE, SHAPE_PLAY, SHAPE_DANCER
+from leds import (
+    # Symbols
+    SHAPE_CHECK, SHAPE_X, SHAPE_HEART, SHAPE_QUESTION,
+    # Characters/Faces
+    SHAPE_SAD_FACE, SHAPE_HAPPY_FACE, SHAPE_NEUTRAL_FACE,
+    # Media
+    SHAPE_PLAY, SHAPE_PAUSE,
+    # Dancers (for animation)
+    SHAPE_DANCER1, SHAPE_DANCER2, SHAPE_DANCER3,
+    # Arrows
+    SHAPE_ARROW_UP, SHAPE_ARROW_DN, SHAPE_ARROW_L, SHAPE_ARROW_R,
+)
 ```
 
 ### Methods
