@@ -4,49 +4,34 @@ This guide provides the patterns and practices for creating games for the SmartP
 
 ## Hardware Available
 
-| Component          | API                   | Notes                                              |
-| ------------------ | --------------------- | -------------------------------------------------- |
-| **5x5 LED Matrix** | `leds` (Leds class)   | RGB NeoPixels, auto-scales with ambient brightness |
-| **NFC Reader**     | `nfc` (PN532)         | MIFARE Classic tags, NDEF text payloads            |
-| **Buzzer**         | `buz` (Buzzer class)  | PWM tones, NOTE_FREQ dict available                |
-| **Button**         | GPIO 0, active LOW    | Pull-up enabled, debounce required                 |
-| **Accelerometer**  | `accel` (may be None) | Motion detection, shake gestures                   |
-| **I2C Bus**        | `i2c`                 | Shared bus at 100kHz                               |
+| Component          | API                    | Notes                                                                 |
+| ------------------ | ---------------------- | --------------------------------------------------------------------- |
+| **5x5 LED Matrix** | `leds` (Leds class)    | RGB NeoPixels, auto-scales with ambient brightness                    |
+| **NFC Reader**     | `nfc` (PN532)          | MIFARE Classic tags, NDEF text payloads                               |
+| **Buzzer**         | `buz` (Buzzer class)   | PWM tones, NOTE_FREQ dict available                                   |
+| **Button**         | GPIO 0, active LOW     | Pull-up enabled, debounce required                                    |
+| **Accelerometer**  | `accel` (may be None)  | Motion detection, shake gestures                                      |
+| **I2C Bus**        | `i2c`                  | Shared bus at 100kHz                                                  |
 | **ESP-NOW**        | `enow` (ESPNowManager) | Passed from `main.py`; do not create a second radio stack in `play()` |
 
-## ESP-NOW Stop (Required)
+### ESP-NOW
 
-`main.py` initializes one `ESPNowManager` as `enow` and passes it into every game's `play()`. **Do not call `espnow.ESPNow()` or a local `espnow_init()` inside `play()`** — only one ESP-NOW stack may be active. Standalone `main()` in a game file may create its own `ESPNowManager()` for bench testing.
-
-At the **top of every game loop**, poll for stop:
-
-```python
-msg_type, data, _ = self.enow.poll()
-if msg_type == "stop":
-    return  # station broadcast ["stop"] or {"type":"stop"}
-```
-
-Also check the NFC `stop` tag (throttled if needed). Games that use binary ESP-NOW (e.g. freeze dance) receive those as `msg_type == "raw"` with `data` as `bytes`. JSON color lists from the station arrive as `msg_type == "colors"`.
-
-**Send:** `enow.broadcast({...})` for JSON; `enow.send_raw(BROADCAST_MAC, b"...")` for binary (import `BROADCAST_MAC` from `espnow_manager`).
+`main.py` initializes one `ESPNowManager` as `enow` and passes it into every game's `play()`. Do not call `espnow.ESPNow()` or a local `espnow_init()` inside `play()` — only one ESP-NOW stack should be active. Standalone `main()` in a game file may create its own `ESPNowManager()` for bench testing.
 
 ## Module Template
+
+Template Overview
+Entry points:
+play(nfc, leds, buz, accel, i2c, enow) — called from main.py
+main() — standalone testing
+
+Template Pattern: 1. GameClass with **init**() and run() 2. play() for wand integration (hardware + enow passed in) 3. main() for standalone testing (initializes hardware) 4. CRITICAL: ESP-NOW stop + NFC stop checked at START of every loop
 
 ```python
 """
 Game Name — Short Description
 =============================
 Explain gameplay in 2-3 sentences.
-
-Entry points:
-    play(nfc, leds, buz, accel, i2c, enow)  — called from main.py
-    main()                                   — standalone testing
-
-Template Pattern:
-    1. GameClass with __init__() and run()
-    2. play() for wand integration (hardware + enow passed in)
-    3. main() for standalone testing (creates ESPNowManager locally)
-    4. CRITICAL: ESP-NOW stop + NFC stop checked at START of every loop
 """
 
 import machine, time
@@ -56,12 +41,14 @@ from nfc_reader import NfcReader
 from leds import RED, GREEN, BLUE, YELLOW, OFF, SHAPE_CHECK, SHAPE_X
 from buzzer import NOTE_FREQ
 
-# ─── Hardware Config ───
+
+
+# ─── Hardware Config (only used in main()) ───
 I2C_SDA, I2C_SCL = 22, 23
 BUZZER_PIN, BUTTON_PIN, PN532_ADDR = 19, 0, 0x24
 
 # ─── Game Config ───
-COMMANDS = {"action1", "action2", "stop"}  # NFC tag commands
+COMMANDS = {"action1", "action2", "stop"}  # NFC tag command examples
 NFC_POLL_INTERVAL = 10
 LOOP_DELAY_MS = 40
 
@@ -70,7 +57,7 @@ SOUNDS = {
     'start':   [(523, 80, 40), (659, 80, 40), (784, 120, 0)],
     'success': [(880, 60, 30), (1100, 80, 0)],
     'fail':    [(400, 150, 60), (250, 200, 0)],
-}
+} # example unique per game entry fanfare for user
 
 def _play_sound(buz, name):
     for freq, dur, gap in SOUNDS.get(name, []):
@@ -79,10 +66,11 @@ def _play_sound(buz, name):
 
 
 class YourGame:
-    def __init__(self, nfc, leds, buz, enow):
+    def __init__(self, nfc, leds, buz, accel, enow):
         self.nfc = nfc
         self.leds = leds
         self.buz = buz
+        self.accel = accel
         self.enow = enow
         self.reader = NfcReader(nfc, COMMANDS)
         self.btn = Pin(BUTTON_PIN, Pin.IN, Pin.PULL_UP)
@@ -127,7 +115,7 @@ def play(nfc, leds, buz, accel, i2c, enow):
     _play_sound(buz, 'start')
     print("\n  === GAME NAME ===")
     try:
-        YourGame(nfc, leds, buz, enow).run()
+        YourGame(nfc, leds, buz, accel, enow).run()
     finally:
         leds.off()
         print("\n  === RETURNING TO PROGRAMMING MODE ===\n")
@@ -162,10 +150,19 @@ def main():
         print("  NFC init failed: %s" % e)
         return
 
+    accel = None
+    try:
+        from lis2dw12 import LIS2DW12, RANGE_4G
+        accel = LIS2DW12(i2c)
+        accel.init(fs_range=RANGE_4G)
+    except Exception as e:
+        print("  [WARN] Accel: %s" % e)
+
     from espnow_manager import ESPNowManager
     enow = ESPNowManager()
     enow.init()
-    play(nfc, leds, buz, None, i2c, enow)
+
+    play(nfc, leds, buz, accel, i2c, enow)
 
 
 if __name__ == "__main__":
@@ -286,7 +283,11 @@ for offset, level in enumerate((40, 24, 12, 5)):
 
 ## Sound Design
 
+**Each game should have a unique "Entry" sound fanfare for user recognition.** Other sounds (error, exit, success, victory, etc.) when needed should be similar across games for consistency.
+
 ### Entry Fanfare
+
+For example:
 
 ```python
 buz.beep(523, 80); time.sleep_ms(40)
@@ -312,11 +313,11 @@ buz.beep(250, 250)
 
 ## Critical Rules
 
-1. **Stop tag check FIRST in every loop iteration** — Users must always be able to exit
-2. **Use try/finally in play()** — Ensure `leds.off()` on any exit path
+1. **Stop tag and ESPnow check in each run iteration** — Users must be able to exit
+2. **Use try/finally in play()** — Ensure `leds.off()` and other outputs (buzzer, haptic motor, etc.) are stopped on any exit path
 3. **No f-strings** — Use `%` formatting only (MicroPython limitation)
-4. **Import colors from leds.py** — Don't define RGB tuples; library colors auto-scale
-5. **Debounce all button reads** — GPIO 0 is noisy
+4. **Import colors from leds.py** — Don't define RGB tuples; library colors auto-scale with brightness.
+5. **Debounce button reads** — GPIO 0 is noisy
 6. **Handle NFC errors gracefully** — Wrap reads in try/except, log and continue
 7. **Read button state at init** — Prevents false trigger from button held during entry
 

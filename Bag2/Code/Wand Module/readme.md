@@ -12,7 +12,8 @@ The wand has two interaction modes, both driven from a single `main.py` state ma
 
 **Programming mode.** Children tap NFC tags to build a simple `trigger → action` rule of the form "when this happens, do that." Triggers are physical events (`buttondown`, `buttonup`, `shake`); actions are LED, buzzer, or motor outputs (notes, colors, animal sounds). AND and THEN combinator tags let multiple actions run simultaneously or in sequence. Scanning the `start` tag enters running mode, where the rule loops until the `stop` tag is scanned.
 
-**Game dispatch.** Several standalone games (`jumpin`, `cooking`, `melody`, `colorquest`, `freezedance`) are bundled as separate Python modules in the `Wand Module/` folder. Tapping a game's control tag transfers hardware to that game's `play(nfc, leds, buz, accel, i2c, enow)` entry point. The game exits on NFC `stop` or ESP-NOW stop from the station (`enow.poll()`). Games share the wand's single `ESPNowManager` — they must not create a second ESP-NOW stack in `play()`.
+**Game dispatch.** Several standalone games (`jumpin`, `cooking`, `melody`, `colorquest`, `freezedance`) are bundled as separate Python modules in the `Wand Module/` folder. Tapping a game's control tag transfers hardware to that game's `play()` entry point. The game exits on NFC `stop` or ESP-NOW `stop`. Games may use ESP-NOW to communicate with other Smart Playground devices, including the Programming
+Station, the Scoreboard, and other wands.
 
 ---
 
@@ -292,7 +293,7 @@ This section documents `main.py`, the primary firmware that runs on boot. It pro
 2. **Running mode** — Execute programmed rules when triggers fire
 3. **Game dispatch** — Launch standalone games (`colorquest`, `freezedance`, `jumpin`, `cooking`, `melody`) when their control tags are scanned
 
-Games are separate modules (e.g., `color_quest.py`) that temporarily take control when launched. `main.py` passes its single `ESPNowManager` instance (`enow`) into each game's `play()` — games must not open a second ESP-NOW stack. Exit conditions: NFC `stop` tag **or** station ESP-NOW broadcast `["stop"]` / `{"type":"stop"}` (polled via `enow.poll()` at the top of each game loop). Control then returns to `main.py`.
+Games are separate modules (e.g., `color_quest.py`) that temporarily take control when launched. Exit conditions: NFC `stop` tag **or** station ESP-NOW broadcast `["stop"]` / `{"type":"stop"}`. Control then returns to `main.py`.
 
 ### Programming Mode (NFC State Machine)
 
@@ -419,115 +420,14 @@ Tag debounce: same UID ignored until tag is removed (uid == None resets).
 
 ## Adding a New Game
 
-Each game exposes `play(nfc, leds, buz, accel, i2c, enow)`. The wand's main loop passes its single `ESPNowManager` as `enow`. The game returns when NFC `stop` is scanned **or** `enow.poll()` reports `msg_type == "stop"` (station broadcast). Do not create a second ESP-NOW stack inside `play()`.
+Each game is a separate Python module in the `Wand Module/` folder that exposes a single `play(...)` entry
+point. The wand's main loop calls this function when the corresponding NFC tag is scanned, and the function
+returns control when the `stop` tag is scanned **or** `msg_type == "stop"` from within the game. Instructions in GAME_AUTHORING_GUIDE.md.
 
 ### Game Module Pattern
 
-Template Pattern: 1. YourGame class with `__init__()` and `run()` 2. `play(..., enow)` for wand integration 3. `main()` creates `ESPNowManager()` for standalone testing 4. CRITICAL: `enow.poll()` + NFC stop at start of every loop
-
-```python
-"""
-Your Game — Description
-=======================
-Entry points:
-    play(nfc, leds, buz, accel, i2c, enow)  — called from main.py
-    main()                                   — standalone testing
-"""
-
-import machine
-import time
-from machine import Pin
-from pn532 import PN532
-from nfc_reader import NfcReader
-from leds import GREEN, RED, BLUE  # Import colors you need
-
-# Hardware Config
-I2C_SDA, I2C_SCL = 22, 23
-BUZZER_PIN, BUTTON_PIN, PN532_ADDR = 19, 0, 0x24
-
-# Game Config
-COMMANDS = {"action1", "action2", "stop"}
-NFC_POLL_INTERVAL = 10
-LOOP_DELAY_MS = 50
-
-
-class YourGame:
-    """Your game description."""
-
-    def __init__(self, nfc, leds, buz, enow):
-        self.nfc = nfc
-        self.leds = leds
-        self.buz = buz
-        self.enow = enow
-        self.reader = NfcReader(nfc, COMMANDS)
-        self._frame = 0
-
-    def _check_stop(self):
-        msg_type, _, _ = self.enow.poll()
-        if msg_type == "stop":
-            return True
-        if self._frame % NFC_POLL_INTERVAL != 0:
-            return False
-        try:
-            cmd, uid = self.reader.read_command(timeout=100)
-            return cmd == "stop"
-        except Exception:
-            return False
-
-    def run(self):
-        """Main game loop. Returns when stop (NFC or ESP-NOW)."""
-        while True:
-            # ── STOP CHECK FIRST (always at top of loop) ──
-            if self._check_stop():
-                print("  Stop detected")
-                return
-
-            # ── GAME LOGIC ──
-            self.leds.fill(GREEN)  # Colors auto-scale with brightness
-
-            time.sleep_ms(LOOP_DELAY_MS)
-            self._frame += 1
-
-
-def play(nfc, leds, buz, accel, i2c, enow):
-    """Called from main.py. Hardware already initialized."""
-    buz.beep(523, 100)
-    print("\n  === YOUR GAME ===")
-    try:
-        YourGame(nfc, leds, buz, enow).run()
-    finally:
-        leds.off()
-        print("\n  === RETURNING TO PROGRAMMING MODE ===\n")
-
-
-def main():
-    """Standalone testing. Run: import yourgame; yourgame.main()"""
-    i2c = machine.SoftI2C(sda=Pin(I2C_SDA), scl=Pin(I2C_SCL), freq=100_000)
-
-    import brightness
-    try:
-        from opt3002 import OPT3002
-        light = OPT3002(i2c); light.init()
-        brightness.calibrate(light)
-    except Exception:
-        pass
-
-    from leds import Leds
-    from buzzer import Buzzer
-    leds, buz = Leds(), Buzzer(BUZZER_PIN)
-
-    nfc = PN532(i2c, PN532_ADDR)
-    nfc.begin()
-
-    from espnow_manager import ESPNowManager
-    enow = ESPNowManager()
-    enow.init()
-    play(nfc, leds, buz, None, i2c, enow)
-
-
-if __name__ == "__main__":
-    main()
-```
+Template Pattern: 1. YourGame class with `__init__()` and `run()` 2. `play()` for wand integration (hardware
+passed in) 3. `main()` for standalone testing (initializes hardware) 4. CRITICAL: NFC and ESPNow stop check at start of run loop. Full template in GAME_AUTHORING_GUIDE.md.
 
 ### Step-by-Step Instructions
 
