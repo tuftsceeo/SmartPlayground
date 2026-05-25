@@ -26,7 +26,10 @@ from machine import Pin
 
 from pn532 import PN532
 from nfc_reader import NfcReader
-from leds import RED, GREEN, BLUE, WHITE, WHITE_DIM, ORANGE_DIM, OFF
+from leds import (
+    RED, GREEN, BLUE, WHITE, WHITE_DIM, ORANGE_DIM, OFF,
+    SHAPE_DIAMOND, SHAPE_POWER, SHAPE_STAR,
+)
 
 # ─── Hardware Config (standalone main only) ───
 I2C_SDA, I2C_SCL = 22, 23
@@ -49,6 +52,12 @@ COLOR_BY_NAME = {
     "red": RED,
     "green": GREEN,
     "blue": BLUE,
+}
+
+SHAPE_BY_NAME = {
+    "red": SHAPE_DIAMOND,
+    "green": SHAPE_POWER,
+    "blue": SHAPE_STAR,
 }
 
 # ─── Sound Sequences ───
@@ -560,10 +569,9 @@ class GesturesGame:
             frame += 1
         return False
 
-    def _show_confidence(self, color, score, ms=3000):
-        """Show confidence fill animation. Returns True if stopped."""
+    def _show_confidence(self, color, score, shape=None, ms=3000):
+        """Show confidence with shape animation. Returns True if stopped."""
         score = max(0.0, min(1.0, score))
-        lit = max(1, min(NUM_LEDS, int(score * NUM_LEDS + 0.5))) if score > 0 else 0
 
         end_at = time.ticks_add(time.ticks_ms(), ms)
         frame = 0
@@ -577,12 +585,21 @@ class GesturesGame:
                 wave = 20 - wave
             scale = 0.35 + (wave / 10.0) * 0.65
 
-            for i in range(NUM_LEDS):
-                self.np[i] = OFF
-            for i in range(lit):
-                idx = LED_FILL_ORDER[i]
-                self.np[idx] = (int(color[0] * scale), int(color[1] * scale), int(color[2] * scale))
-            self.np.write()
+            scaled_color = (int(color[0] * scale), int(color[1] * scale), int(color[2] * scale))
+
+            if shape:
+                # Show the class shape pulsing in its color (colorblind-friendly)
+                self.leds.show_shape(shape, scaled_color)
+            else:
+                # Fallback to fill pattern based on confidence
+                lit = max(1, min(NUM_LEDS, int(score * NUM_LEDS + 0.5))) if score > 0 else 0
+                for i in range(NUM_LEDS):
+                    self.np[i] = OFF
+                for i in range(lit):
+                    idx = LED_FILL_ORDER[i]
+                    self.np[idx] = scaled_color
+                self.np.write()
+
             time.sleep_ms(100)
             frame += 1
         return False
@@ -696,8 +713,9 @@ class GesturesGame:
                                 return False
                         else:
                             result_color = COLOR_BY_NAME.get(name, BLUE)
+                            result_shape = SHAPE_BY_NAME.get(name)
                             _play_sound(self.buz, 'classify_high')
-                            if self._show_confidence(result_color, score, 3000):
+                            if self._show_confidence(result_color, score, result_shape, 3000):
                                 return False
 
                         self._result_until = time.ticks_add(time.ticks_ms(), 10)

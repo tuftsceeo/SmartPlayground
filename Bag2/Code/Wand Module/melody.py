@@ -19,7 +19,10 @@ from machine import Pin
 from pn532 import PN532
 from nfc_reader import NfcReader
 from buzzer import NOTE_FREQ
-from leds import RED, GREEN, BLUE, YELLOW, BLUE_DIM, SHAPE_PLAY, SHAPE_CHECK
+from leds import (
+    RED, GREEN, BLUE, YELLOW, BLUE_DIM, SHAPE_PLAY, SHAPE_CHECK,
+    SHAPE_C, SHAPE_D, SHAPE_E, SHAPE_G,
+)
 
 
 # ─────────────────────────────────────────────
@@ -43,6 +46,13 @@ NOTE_COLOR = {
     "note_d": GREEN,
     "note_e": BLUE,
     "note_g": YELLOW,
+}
+
+NOTE_SHAPE = {
+    "note_c": SHAPE_C,
+    "note_d": SHAPE_D,
+    "note_e": SHAPE_E,
+    "note_g": SHAPE_G,
 }
 
 SCAN_NOTE_MS = 250
@@ -125,7 +135,7 @@ def _to_buzzer_key(cmd):
 
 
 def _play_note_with_color(cmd, ms, leds, buz):
-    """Play a note while showing its color on LEDs."""
+    """Play a note while showing its letter shape in color on LEDs."""
     buz_key = _to_buzzer_key(cmd)
     
     if buz_key not in NOTE_FREQ or cmd not in NOTE_COLOR:
@@ -133,10 +143,14 @@ def _play_note_with_color(cmd, ms, leds, buz):
         leds.flash(127, 0, 0, times=2)
         return
     
-    r, g, b = NOTE_COLOR[cmd]
+    color = NOTE_COLOR[cmd]
+    shape = NOTE_SHAPE.get(cmd)
     freq = NOTE_FREQ[buz_key]
     
-    leds.solid(r, g, b)
+    if shape:
+        leds.show_shape(shape, color)
+    else:
+        leds.fill(color)
     buz.play_note(freq, ms)
     leds.off()
 

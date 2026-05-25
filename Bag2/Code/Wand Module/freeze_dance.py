@@ -28,7 +28,7 @@ from nfc_reader import _decode_ndef_text, COMMON_KEYS
 import brightness
 from leds import (
     RED, GREEN, BLUE, YELLOW, AMBER, PURPLE, WHITE, TEAL, OFF,
-    SHAPE_SAD_FACE, SHAPE_PLAY, SHAPE_DANCER1,
+    SHAPE_SAD_FACE, SHAPE_PLAY, SHAPE_INNER_3x3, SHAPE_HOURGLASS,
 )
 
 # -- Hardware Config ----------------------------------------
@@ -219,6 +219,7 @@ class FreezeDanceGame:
         self.last_uid = None
         self.last_scan_ms = 0
         self._nfc_poll_count = 0
+        self._frame = 0
         # Read button state at startup so a button held during freezedance tap
         # doesn't get interpreted as an immediate join.
         self._btn_was_down = (self.btn.value() == 0)
@@ -284,16 +285,21 @@ class FreezeDanceGame:
         if s == STATE_OUT:
             self.leds.show_shape(SHAPE_SAD_FACE, OUT_COLOR)
         elif s == STATE_READY:
-            self.leds.fill(READY_CALLER if self.is_caller else READY_PLAYER)
+            # Hourglass = waiting (color distinguishes caller vs player)
+            self.leds.show_shape(SHAPE_HOURGLASS, READY_CALLER if self.is_caller else READY_PLAYER)
         elif s == STATE_GO:
             self.leds.show_shape(SHAPE_PLAY, GREEN)
+        elif s == STATE_FREEZE:
+            # Inner 3x3 = STOP symbol (colorblind-friendly)
+            self.leds.show_shape(SHAPE_INNER_3x3, RED)
         elif s == STATE_DANCE:
-            self.leds.show_shape(SHAPE_DANCER1, PURPLE)
+            # Animated dancer cycles through poses
+            self.leds.animate_dancer(self._frame, PURPLE)
+        elif s == STATE_REJOIN_ARMED:
+            # Hourglass in white = waiting to rejoin
+            self.leds.show_shape(SHAPE_HOURGLASS, WHITE)
         elif s == STATE_ROLE_SELECT:
             self.leds.show_pattern(ROLE_SELECT_PATTERN)
-        else:
-            c = STATE_COLORS.get(s)
-            if c: self.leds.fill(c)
 
     def run(self):
         print("\n  === FREEZE DANCE ===")
@@ -394,6 +400,7 @@ class FreezeDanceGame:
                         self._set_state(STATE_OUT); print("  STOPPED — out!")
 
             self._render()
+            self._frame += 1
             time.sleep_ms(LOOP_DELAY_MS)
 
 

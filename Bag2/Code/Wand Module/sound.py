@@ -16,7 +16,11 @@ from machine import Pin
 
 from pn532 import PN532
 from nfc_reader import NfcReader
-from leds import RED, ORANGE, YELLOW, GREEN, BLUE, PURPLE, PINK, WHITE, OFF
+from leds import (
+    RED, ORANGE, YELLOW, GREEN, BLUE, PURPLE, PINK, WHITE, OFF,
+    SHAPE_TOP_ROW, SHAPE_BOT_ROW, SHAPE_LEFT_COL, SHAPE_RIGHT_COL,
+    SHAPE_BORDER, SHAPE_INNER_3x3, SHAPE_DIAMOND, SHAPE_STAR,
+)
 
 # ─── Hardware Config ───
 I2C_SDA, I2C_SCL = 22, 23
@@ -36,6 +40,17 @@ NOTES = {
 NOTE_COLORS = {
     'C4': RED, 'D4': ORANGE, 'E4': YELLOW, 'F4': GREEN,
     'G4': BLUE, 'A4': PURPLE, 'B4': PINK, 'C5': WHITE,
+}
+
+NOTE_SHAPES = {
+    'C4': SHAPE_TOP_ROW,
+    'D4': SHAPE_BOT_ROW,
+    'E4': SHAPE_LEFT_COL,
+    'F4': SHAPE_RIGHT_COL,
+    'G4': SHAPE_BORDER,
+    'A4': SHAPE_INNER_3x3,
+    'B4': SHAPE_DIAMOND,
+    'C5': SHAPE_STAR,
 }
 
 SOUNDS = {
@@ -65,6 +80,8 @@ class SoundGame:
     def _assign_random_note(self):
         self.note = random.choice(list(NOTES.keys()))
         self.frequency = NOTES[self.note]
+        self.color = NOTE_COLORS[self.note]
+        self.shape = NOTE_SHAPES[self.note]
         print("  You were assigned %s (%d Hz)" % (self.note, self.frequency))
 
     def _check_stop(self):
@@ -92,7 +109,7 @@ class SoundGame:
             btn_down = (self.btn.value() == 0)
             if btn_down:
                 self.buz.beep(self.frequency, BEEP_MS)
-                self.leds.fill(NOTE_COLORS[self.note])
+                self.leds.show_shape(self.shape, self.color)
             else:
                 self.leds.off()
 
