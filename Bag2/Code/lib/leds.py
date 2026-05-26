@@ -387,6 +387,31 @@ class Leds:
         bri = (math.sin(frame * 0.08) + 1) / 2
         self.solid(int(r * bri), int(g * bri), int(b * bri))
 
+    def breathe_shape(self, indices, color, frame, bg=OFF):
+        """Breathing animation for a shape. Sin-wave brightness scaling driven by frame counter."""
+        bri = (math.sin(frame * 0.08) + 1) / 2
+        self.show_shape(
+            indices,
+            (int(color[0] * bri), int(color[1] * bri), int(color[2] * bri)),
+            bg=bg
+        )
+
+    def fade_shape(self, indices, color, duration_ms, bg=OFF):
+        """Blocking linear fade from full color to bg over duration_ms. Uses ~20 steps."""
+        steps = 20
+        if duration_ms <= 0:
+            self.show_shape(indices, bg, bg=bg)
+            return
+        step_ms = max(1, duration_ms // steps)
+        for s in range(steps, -1, -1):
+            scale = s / steps
+            self.show_shape(
+                indices,
+                (int(color[0] * scale), int(color[1] * scale), int(color[2] * scale)),
+                bg=bg
+            )
+            time.sleep_ms(step_ms)
+
     # ══════════════════════════════════════════
     # BOOT SEQUENCE LEDs
     # ══════════════════════════════════════════
