@@ -32,34 +32,50 @@ TRIGGER_ORDER = ["buttondown", "buttonup", "shake"]
 # ══════════════════════════════════════════════
 # COLOR PALETTE — outdoor-tuned, brightness module scales them
 # ══════════════════════════════════════════════
-# Single-channel colors at ~78% of max (200/255). White at ~55% per channel
-# so total current draw stays comparable to two-channel colors. Nothing
-# hits 255 — headroom prevents premature LED wear and lets brightness
-# scaling reach 100% in sun without saturating.
-OFF      = (0, 0, 0)
-RED      = (200, 0,   0)
-GREEN    = (0,   200, 0)
-BLUE     = (0,   0,   200)
-YELLOW   = (200, 200, 0)
-AMBER    = (200, 100, 0)
-ORANGE   = (220, 80,  0)
-PURPLE   = (180, 0,   180)
-MAGENTA  = (200, 0,   120)
-CYAN     = (0,   200, 200)
-TEAL     = (0,   150, 150)
-WHITE    = (140, 140, 140)
-PINK     = (200, 80,  120)
+# White at ~55% per channel so total current draw stays comparable to 
+# two-channel colors.
+#
+# BLUE is pushed harder because the blue NeoPixel die is the weakest of
+# the three; a "balanced" 200 looks visibly darker than 200-red or 200-green.)
+#
+# Values were tuned by-eye against the actual hardware, not by sRGB math:
 
-# Dim variants (~25% brightness) for backgrounds / status indicators
-RED_DIM    = (40, 0,  0)
-GREEN_DIM  = (0,  40, 0)
-BLUE_DIM   = (0,  0,  40)
-YELLOW_DIM = (40, 40, 0)
-WHITE_DIM  = (30, 30, 30)
-ORANGE_DIM = (44, 16, 0)
-PINK_DIM   = (40, 16, 24)
-AMBER_DIM  = (40, 20, 0)
-PURPLE_DIM = (36, 0,  36)
+RED      = (130, 0, 0)
+ROSE     = (120, 10, 20)
+
+ORANGE   = (120, 40, 0)
+AMBER    = (120, 80, 0)
+YELLOW   = (110, 120, 0)
+
+LIME     = (50, 210, 0)
+GREEN    = (0, 230, 0)
+
+TEAL     = (0, 180, 100)
+CYAN     = (0, 180, 240)
+BLUE     = (0, 20, 255)
+
+INDIGO   = (30, 0, 255)
+PURPLE   = (50, 0, 250)
+MAGENTA  = (120, 0, 160)
+
+WHITE    = (140, 150, 150)
+PINK     = (200, 80,  120)   # pale
+PEACH    = (180, 120, 30)    # pale orange
+MINT     = (30,  190, 50)    # pale green
+SKY      = (60,   150, 250)  # pale blue
+
+# Dim variants (~50% of base) for backgrounds / status indicators.
+# Nonzero channels use max(20, half of base) so at indoor MULTIPLIER (0.05)
+# each intended channel still rounds to at least 1 after scaling.
+RED_DIM     = (65, 0,   0)
+GREEN_DIM   = (0,  115, 0)
+BLUE_DIM    = (0,  20,  127)
+YELLOW_DIM  = (55, 60,  0)
+WHITE_DIM   = (70, 75,  75)
+ORANGE_DIM  = (60, 20,  0)
+AMBER_DIM   = (60, 40,  0)
+PINK_DIM    = (100, 40,  60)
+PURPLE_DIM  = (25, 0,   125)
 
 # ══════════════════════════════════════════════
 # 5×5 GRID SHAPES — LED index lists
@@ -283,13 +299,14 @@ def _is_sc(name):
 def battery_color(soc):
     """Return (r, g, b) for a given state-of-charge percentage."""
     if soc > 75:
-        return (0, 5, 0)       # green
+        # Keep nonzero channels >= 20 so indoor multiplier (0.05) still shows.
+        return (0, 120, 0)      # green
     elif soc > 30:
-        return (5, 2, 0)      # yellow
+        return (120, 80, 0)     # yellow
     elif soc > 10:
-        return (5, 0, 0)       # red
+        return (120, 0, 0)      # red
     else:
-        return (5, 0, 0)       # red (caller handles flashing for <10%)
+        return (120, 0, 0)      # red (caller handles flashing for <10%)
 
 
 class Leds:
