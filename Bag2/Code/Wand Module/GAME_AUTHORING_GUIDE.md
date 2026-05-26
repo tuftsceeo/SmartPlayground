@@ -38,7 +38,9 @@ import machine, time
 from machine import Pin
 from pn532 import PN532
 from nfc_reader import NfcReader
-from game_tags import EXIT_TAGS
+from game_tags import exit_tags_excluding
+
+_EXIT_TAGS = exit_tags_excluding("yourgame")  # omit entry tag — still under wand at launch
 from leds import RED, GREEN, BLUE, YELLOW, OFF, SHAPE_CHECK, SHAPE_X, SHAPE_HAPPY_FACE, SHAPE_SAD_FACE
 from buzzer import NOTE_FREQ
 
@@ -49,7 +51,7 @@ I2C_SDA, I2C_SCL = 22, 23
 BUZZER_PIN, BUTTON_PIN, PN532_ADDR = 19, 0, 0x24
 
 # ─── Game Config ───
-COMMANDS = {"action1", "action2"} | EXIT_TAGS  # game tags + fluid switch exit set
+COMMANDS = {"action1", "action2"} | _EXIT_TAGS
 NFC_POLL_INTERVAL = 10
 LOOP_DELAY_MS = 40
 
@@ -86,7 +88,7 @@ class YourGame:
             return False
         try:
             cmd, uid = self.reader.read_command(timeout=100)
-            return cmd in EXIT_TAGS
+            return cmd in _EXIT_TAGS
         except Exception:
             return False
 
@@ -232,13 +234,15 @@ from buzzer import NOTE_FREQ
 ```python
 from nfc_reader import NfcReader
 
-from game_tags import EXIT_TAGS
+from game_tags import exit_tags_excluding
 
-COMMANDS = {"red", "green", "blue"} | EXIT_TAGS
+_EXIT_TAGS = exit_tags_excluding("yourgame")  # omit entry tag — still under wand at launch
+
+COMMANDS = {"red", "green", "blue"} | _EXIT_TAGS
 reader = NfcReader(nfc, COMMANDS)
 
 cmd, uid = reader.read_command(timeout=100)
-if cmd in EXIT_TAGS:
+if cmd in _EXIT_TAGS:
     return
 elif cmd in COMMANDS:
     # Handle command
@@ -335,8 +339,9 @@ Kids can switch games without the dedicated `stop` tag:
 
 **Authoring requirements:**
 
-- Import `EXIT_TAGS` from `lib/game_tags.py` and union it into your `COMMANDS` set (or compare raw NDEF text with `text in EXIT_TAGS` if you do not use `NfcReader`).
-- Exit when `cmd in EXIT_TAGS` (not only `cmd == "stop"`).
+- Import `exit_tags_excluding("yourgame")` from `lib/game_tags.py` into a module-level `_EXIT_TAGS` set. **Exclude your own entry tag** so the tag still under the wand at launch does not instantly exit the game.
+- Union `_EXIT_TAGS` into your `COMMANDS` set (or compare raw NDEF text with `text in _EXIT_TAGS` if you do not use `NfcReader`). If your entry tag is also used in-game (e.g. `melody` for erase), keep it in `COMMANDS` but only check `_EXIT_TAGS` for exit.
+- Exit when `cmd in _EXIT_TAGS` (not only `cmd == "stop"`). Never call `EXIT_TAGS.remove()` — that mutates the global set for every module.
 - Add new game tag names to `GAME_TAGS` in `game_tags.py` (not duplicated in `main.py`).
 
 `GAME_TAGS` lists game names only. `"stop"` is in `CONTROL_TAGS` and is included in `EXIT_TAGS` for exit checks.
@@ -356,7 +361,7 @@ Kids can switch games without the dedicated `stop` tag:
 - [ ] Docstring with entry points and template pattern
 - [ ] Hardware config constants at top
 - [ ] Game class with `__init__()` and `run()`
-- [ ] `EXIT_TAGS` unioned into `COMMANDS`; exit on `cmd in EXIT_TAGS` at start of every loop
+- [ ] `_EXIT_TAGS = exit_tags_excluding("yourgame")` unioned into `COMMANDS`; exit on `cmd in _EXIT_TAGS`
 - [ ] New game name added to `GAME_TAGS` in `lib/game_tags.py`
 - [ ] `play()` with try/finally for cleanup
 - [ ] `main()` for standalone testing

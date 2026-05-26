@@ -29,7 +29,9 @@ from machine import Pin
 
 from pn532 import PN532, MIFARE_AUTH_A, MIFARE_AUTH_B
 from nfc_reader import _decode_ndef_text, COMMON_KEYS
-from game_tags import EXIT_TAGS
+from game_tags import exit_tags_excluding
+
+_EXIT_TAGS = exit_tags_excluding("jumpin")
 from leds import GREEN, OFF
 
 # ─────────────────────────────────────────────
@@ -112,7 +114,7 @@ class JumpInGame:
             return False
         try:
             text, uid = _read_tag_text(self.nfc)
-            return text in EXIT_TAGS
+            return text in _EXIT_TAGS
         except Exception:
             return False
     

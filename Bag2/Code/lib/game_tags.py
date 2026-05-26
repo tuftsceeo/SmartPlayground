@@ -23,3 +23,14 @@ GAME_TAGS = {
 CONTROL_TAGS = {"start", "stop"}
 
 EXIT_TAGS = GAME_TAGS | {"stop"}
+
+
+def exit_tags_excluding(game_tag):
+    """EXIT_TAGS copy without this game's entry tag.
+
+    The entry tag is often still under the wand when play() starts; excluding
+    it avoids an immediate exit on the first NFC poll. Never mutates EXIT_TAGS.
+    """
+    tags = set(EXIT_TAGS)
+    tags.discard(game_tag)
+    return tags

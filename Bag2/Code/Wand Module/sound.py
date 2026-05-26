@@ -16,7 +16,9 @@ from machine import Pin
 
 from pn532 import PN532
 from nfc_reader import NfcReader
-from game_tags import EXIT_TAGS
+from game_tags import exit_tags_excluding
+
+_EXIT_TAGS = exit_tags_excluding("sound")
 from leds import (
     RED, ORANGE, YELLOW, GREEN, BLUE, PURPLE, PINK, WHITE, OFF,
     SHAPE_TOP_ROW, SHAPE_BOT_ROW, SHAPE_LEFT_COL, SHAPE_RIGHT_COL,
@@ -28,7 +30,7 @@ I2C_SDA, I2C_SCL = 22, 23
 BUZZER_PIN, BUTTON_PIN, PN532_ADDR = 19, 0, 0x24
 
 # ─── Game Config ───
-COMMANDS = EXIT_TAGS
+COMMANDS = _EXIT_TAGS
 NFC_POLL_INTERVAL = 10
 LOOP_DELAY_MS = 40
 BEEP_MS = 80
@@ -94,7 +96,7 @@ class SoundGame:
             return False
         try:
             cmd, uid = self.reader.read_command(timeout=100)
-            return cmd in EXIT_TAGS
+            return cmd in _EXIT_TAGS
         except Exception:
             return False
 

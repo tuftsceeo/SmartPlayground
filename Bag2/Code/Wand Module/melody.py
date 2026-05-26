@@ -17,7 +17,9 @@ from machine import Pin
 
 from pn532 import PN532
 from nfc_reader import NfcReader
-from game_tags import EXIT_TAGS
+from game_tags import exit_tags_excluding
+
+_EXIT_TAGS = exit_tags_excluding("melody")
 from buzzer import NOTE_FREQ
 from leds import (
     OFF, RED, ORANGE, YELLOW, GREEN, BLUE, PURPLE, PINK, WHITE, TEAL,
@@ -44,7 +46,7 @@ COMMANDS = {
     "note_c", "note_d", "note_e", "note_f",
     "note_g", "note_a", "note_b", "note_c_high",
     "erase", "melody",
-} | EXIT_TAGS
+} | _EXIT_TAGS
 
 NOTE_COLOR = {
     "note_c": RED,
@@ -278,7 +280,7 @@ class MelodyGame:
                     self.last_uid = uid
                     self.last_scan_ms = now
                     
-                    if cmd in EXIT_TAGS:
+                    if cmd in _EXIT_TAGS:
                         print("  Exit tag detected: %s" % cmd)
                         return
                     elif cmd.startswith("note_"):

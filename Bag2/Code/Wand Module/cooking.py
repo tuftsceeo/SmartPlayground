@@ -19,7 +19,9 @@ from machine import Pin
 
 from pn532 import PN532
 from nfc_reader import NfcReader
-from game_tags import EXIT_TAGS
+from game_tags import exit_tags_excluding
+
+_EXIT_TAGS = exit_tags_excluding("cooking")
 from buzzer import NOTE_FREQ
 from leds import (
     OFF, RED, GREEN, BLUE, YELLOW, ORANGE, PINK, WHITE, AMBER, PURPLE,
@@ -44,7 +46,7 @@ NUM_LEDS = 25
 COMMANDS = {
     "tomato", "milk", "cheese", "flour",
     "egg", "butter", "sugar", "cooking",
-} | EXIT_TAGS
+} | _EXIT_TAGS
 
 INGREDIENT_ORDER = [
     "tomato", "milk", "cheese", "flour",
@@ -315,7 +317,7 @@ class CookingGame:
                 command = None
                 uid_hex = None
             
-            if command in EXIT_TAGS:
+            if command in _EXIT_TAGS:
                 print("  Exit tag detected: %s" % command)
                 return
             

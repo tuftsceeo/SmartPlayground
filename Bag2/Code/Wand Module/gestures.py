@@ -26,7 +26,9 @@ from machine import Pin
 
 from pn532 import PN532
 from nfc_reader import NfcReader
-from game_tags import EXIT_TAGS
+from game_tags import exit_tags_excluding
+
+_EXIT_TAGS = exit_tags_excluding("gestures")
 from leds import (
     RED, GREEN, BLUE, WHITE, WHITE_DIM, ORANGE_DIM, OFF,
     SHAPE_DIAMOND, SHAPE_POWER, SHAPE_STAR,
@@ -47,7 +49,7 @@ SAMPLE_INTERVAL_MS = 10
 MAX_CAPTURE_SAMPLES = 320
 MAX_TRAINING_SAMPLES = 8
 
-COMMANDS = {"red", "green", "blue", "play"} | EXIT_TAGS
+COMMANDS = {"red", "green", "blue", "play"} | _EXIT_TAGS
 
 COLOR_BY_NAME = {
     "red": RED,
@@ -490,7 +492,7 @@ class GesturesGame:
             return False
         try:
             cmd, _ = self.reader.read_command(timeout=100)
-            return cmd in EXIT_TAGS
+            return cmd in _EXIT_TAGS
         except Exception:
             return False
 
@@ -500,7 +502,7 @@ class GesturesGame:
             return None
         try:
             cmd, _ = self.reader.read_command(timeout=100)
-            return None if cmd in EXIT_TAGS else cmd
+            return None if cmd in _EXIT_TAGS else cmd
         except Exception:
             return None
 
