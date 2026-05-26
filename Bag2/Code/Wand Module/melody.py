@@ -130,14 +130,12 @@ class MelodyDisplay:
         self.leds.np.write()
 
     def show_error_max_notes(self):
-        """Melody is full."""
+        """Melody is full. Caller plays a blocking sound to provide visible duration."""
         self.leds.show_shape(SHAPE_SAD_FACE, RED, bg=OFF)
-        time.sleep_ms(300)
 
     def show_error_unknown(self):
-        """Unknown note mapping."""
+        """Unknown note mapping. Caller plays a blocking sound to provide visible duration."""
         self.leds.show_shape(SHAPE_QUESTION, RED, bg=OFF)
-        time.sleep_ms(400)
 
     def show_error_empty_erase(self):
         """Erase tapped with nothing to clear."""
@@ -161,9 +159,8 @@ def _play_note_with_color(cmd, ms, leds, buz):
     buz_key = _to_buzzer_key(cmd)
     
     if buz_key not in NOTE_FREQ or cmd not in NOTE_COLOR:
-        buz.reject()
         leds.show_shape(SHAPE_QUESTION, RED, bg=OFF)
-        time.sleep_ms(400)
+        buz.reject()
         return
     
     color = NOTE_COLOR[cmd]
@@ -204,27 +201,20 @@ class MelodyGame:
         self._btn_was_down = (self.btn.value() == 0)
     
     def _play_current(self):
-        """Play back the current melody."""
-        if len(self.current_melody) == 0:
-            self.buz.reject()
-            return
+        """
+        Play back the current melody. Returns False if an ESP-NOW stop is
+        received mid-playback, True otherwise.
 
+        Note: NFC stop is not polled during playback — the PN532 requires
+        ~50-100 ms per scan, which would add audible gaps between notes.
+        Worst-case wait is ~9.5 s (25 notes at 380 ms each). ESP-NOW stop
+        from the station still exits immediately.
+        """
         for i, cmd in enumerate(self.current_melody):
             if self.enow:
                 msg_type, _, _ = self.enow.poll()
                 if msg_type == "stop":
                     print("  ESP-NOW stop")
-                    return False
-            cmd_now, uid_now = self.reader.read_command(timeout=1)
-            if cmd_now == "stop":
-                if uid_now is None:
-                    self.last_uid = None
-                elif uid_now == self.last_uid and time.ticks_diff(time.ticks_ms(), self.last_scan_ms) < REPEAT_SCAN_GUARD_MS:
-                    pass
-                else:
-                    self.last_uid = uid_now
-                    self.last_scan_ms = time.ticks_ms()
-                    print("  STOP tag detected")
                     return False
 
             self.display.show_melody_pixels(self.current_melody, highlight_idx=i)
@@ -292,20 +282,20 @@ class MelodyGame:
                         return
                     elif cmd.startswith("note_"):
                         if len(self.current_melody) >= MAX_NOTES:
-                            self.buz.warn()
                             self.display.show_error_max_notes()
+                            self.buz.warn()
                             print("  Melody full (%d notes max)" % MAX_NOTES)
                         elif cmd not in NOTE_COLOR or _to_buzzer_key(cmd) not in NOTE_FREQ:
-                            self.buz.reject()
                             self.display.show_error_unknown()
+                            self.buz.reject()
                         else:
                             self.current_melody.append(cmd)
                             _play_note_with_color(cmd, SCAN_NOTE_MS, self.leds, self.buz)
                             print("  Note: %s (%d in sequence)" % (cmd, len(self.current_melody)))
                     elif cmd == "erase":
                         if len(self.current_melody) == 0:
-                            self.buz.warn()
                             self.display.show_error_empty_erase()
+                            self.buz.warn()
                         else:
                             erased = len(self.current_melody)
                             self.current_melody = []
