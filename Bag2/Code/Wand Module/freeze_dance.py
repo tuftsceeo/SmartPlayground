@@ -25,6 +25,7 @@ from machine import Pin
 from espnow_manager import BROADCAST_MAC, ESPNowManager
 from pn532 import PN532, MIFARE_AUTH_A, MIFARE_AUTH_B
 from nfc_reader import _decode_ndef_text, COMMON_KEYS
+from game_tags import EXIT_TAGS
 import brightness
 from leds import (
     RED, GREEN, BLUE, YELLOW, AMBER, PURPLE, WHITE, TEAL, OFF,
@@ -45,7 +46,7 @@ MSG_DANCE  = b"FD_DANCE"
 MSG_RESET  = b"FD_RESET"
 MSG_STOP   = b"stop"
 
-GAME_COMMANDS = {"caller", "player", "go", "freeze", "stop", "rejoin"}
+GAME_COMMANDS = {"caller", "player", "go", "freeze", "rejoin"} | EXIT_TAGS
 
 (STATE_ROLE_SELECT, STATE_READY, STATE_GO, STATE_FREEZE,
  STATE_OUT, STATE_DANCE, STATE_REJOIN_ARMED) = range(7)
@@ -339,8 +340,8 @@ class FreezeDanceGame:
                     try: cmd = self._poll_nfc()
                     except OSError as e: print("  [NFC: %s]" % str(e))
 
-            if cmd == "stop":
-                print("  STOP — exiting")
+            if cmd in EXIT_TAGS:
+                print("  Exit tag — exiting: %s" % cmd)
                 if self.is_caller:
                     for _ in range(BTN_SEND_REPEATS):
                         self.enow.send_raw(BROADCAST_MAC, MSG_STOP)

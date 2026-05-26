@@ -17,6 +17,7 @@ from machine import Pin
 
 from pn532 import PN532
 from nfc_reader import NfcReader
+from game_tags import EXIT_TAGS
 from buzzer import NOTE_FREQ
 from leds import (
     OFF, RED, ORANGE, YELLOW, GREEN, BLUE, PURPLE, PINK, WHITE, TEAL,
@@ -42,8 +43,8 @@ MAX_NOTES = 25
 COMMANDS = {
     "note_c", "note_d", "note_e", "note_f",
     "note_g", "note_a", "note_b", "note_c_high",
-    "erase", "stop"
-}
+    "erase", "melody",
+} | EXIT_TAGS
 
 NOTE_COLOR = {
     "note_c": RED,
@@ -277,8 +278,8 @@ class MelodyGame:
                     self.last_uid = uid
                     self.last_scan_ms = now
                     
-                    if cmd == "stop":
-                        print("  STOP tag detected")
+                    if cmd in EXIT_TAGS:
+                        print("  Exit tag detected: %s" % cmd)
                         return
                     elif cmd.startswith("note_"):
                         if len(self.current_melody) >= MAX_NOTES:
@@ -292,7 +293,7 @@ class MelodyGame:
                             self.current_melody.append(cmd)
                             _play_note_with_color(cmd, SCAN_NOTE_MS, self.leds, self.buz)
                             print("  Note: %s (%d in sequence)" % (cmd, len(self.current_melody)))
-                    elif cmd == "erase":
+                    elif cmd == "erase" or cmd == "melody":
                         if len(self.current_melody) == 0:
                             self.display.show_error_empty_erase()
                             self.buz.warn()

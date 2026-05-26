@@ -22,6 +22,7 @@ from neopixel import NeoPixel
 from espnow_manager import ESPNowManager
 from pn532 import PN532
 from nfc_reader import read_ndef_text as read_tag_text
+from game_tags import EXIT_TAGS
 from buzzer import Buzzer
 from target import SCORE_MAC
 
@@ -327,8 +328,8 @@ def wait_for_commands(enow, display, nfc, last_espnow=None):
                 _rescan_cleared()
             elif text == RESCAN_TAG:
                 _rescan_seen(enow, uid)
-            elif text == "stop":
-                print("  STOP tag detected")
+            elif text in EXIT_TAGS:
+                print("  Exit tag detected: %s" % text)
                 return "stop", False
             else:
                 _rescan_cleared()
@@ -405,8 +406,8 @@ def _post_win_wait(enow, display, nfc, buz):
                 text, _uid = read_tag_text(nfc)
                 if text == RESCAN_TAG:
                     _rescan_seen(enow, tag['uid_hex'])
-                elif text == "stop":
-                    print("  STOP tag — exiting")
+                elif text in EXIT_TAGS:
+                    print("  Exit tag — exiting: %s" % text)
                     _beep_stop(buz)
                     display.clear()
                     return "stop"
@@ -504,8 +505,8 @@ def run_game(nfc, buz, display, targets, enow, start_ticks=None):
 
         _rescan_cleared()
 
-        if text == "stop":
-            print("  STOP tag — exiting game")
+        if text in EXIT_TAGS:
+            print("  Exit tag — exiting game: %s" % text)
             _beep_stop(buz)
             display.clear()
             return "stop"

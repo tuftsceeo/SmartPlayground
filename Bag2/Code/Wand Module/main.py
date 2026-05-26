@@ -8,9 +8,7 @@ Triggers: buttondown, buttonup, shake
 Actions:  playnote, notea-g, turnred/green/blue/purple/yellow/white/off,
           cat, chicken, cow, dog, pig, duck, elephant, horse, goat
 Combinators: and, then
-Controls: start, stop, colorquest, freezedance, jumpin, cooking, melody,
-          shake, shakerainbow, rainbow, jump, sound, nfcsound,
-          simpleicecream, multiicecream, gestures
+Controls: start, stop, plus game tags (see lib/game_tags.py)
 Utility: battery
 """
 
@@ -44,6 +42,7 @@ from nfc_sound import play as play_nfc_sound
 from simpleicecream import play as play_simpleicecream
 from multiicecream import play as play_multiicecream
 from gestures import play as play_gestures
+from game_tags import GAME_TAGS, CONTROL_TAGS
 import brightness
 
 # ─────────────────────────────────────────────
@@ -62,9 +61,7 @@ PN532_ADDR   = 0x24
 # ─────────────────────────────────────────────
 FIXED_TRIGGERS = {"buttondown", "buttonup", "shake"}
 COMBINATORS    = {"and", "then"}
-CONTROLS       = {"start", "stop", "colorquest", "freezedance", "jumpin", "cooking", "melody",
-                  "shake", "shakerainbow", "rainbow", "jump", "sound", "nfcsound",
-                  "simpleicecream", "multiicecream", "gestures"}
+CONTROLS       = GAME_TAGS | CONTROL_TAGS
 UTILITY        = {"battery"}
 ALL_COMMANDS   = FIXED_TRIGGERS | ACTIONS | ANIMAL_SOUNDS | COMBINATORS | CONTROLS | UTILITY
 
@@ -79,13 +76,15 @@ ALL_COMMANDS   = FIXED_TRIGGERS | ACTIONS | ANIMAL_SOUNDS | COMBINATORS | CONTRO
 #      "stop" NFC tag or ESP-NOW stop is received (poll enow every loop).
 #   2. Add the line `from yourgame import play as play_yourgame` near
 #      the existing `play_jumpin` import at the top of this file.
-#   3. Add the tag name `"yourgame"` to the CONTROLS set below.
+#   3. Add the tag name `"yourgame"` to GAME_TAGS in lib/game_tags.py.
 #   4. In the main control-dispatch block (search for the existing
 #      `cmd == "jumpin"` branch), add a parallel branch that calls
 #      `play_yourgame(nfc, leds, buz, accel, i2c, enow)`.
-#   5. The teacher prints an NFC tag whose NDEF text payload is
+#   5. In yourgame.py, union EXIT_TAGS into COMMANDS and exit when
+#      `cmd in EXIT_TAGS` so kids can switch games via any game tag.
+#   6. The teacher prints an NFC tag whose NDEF text payload is
 #      `yourgame`. Tapping it from idle enters the game; tapping the
-#      `stop` tag from within the game returns to programming mode.
+#      `stop` tag or another game tag exits back to programming mode.
 #
 # See `jumpin.py` for the simplest possible example and
 # `freeze_dance.py` for a more complete game (ESP-NOW messaging,

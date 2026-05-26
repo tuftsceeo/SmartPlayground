@@ -46,12 +46,12 @@ MULTIPLIER = 1.0    # default = no scaling. Devices without a light sensor stay 
 LAST_LUX   = None   # last lux reading from calibrate(); None if never calibrated.
 
 # ── Tuning ────────────────────────────────────────────────
-MIN_MULT = 0.15     # floor — even pitch dark stays at least this dim
-MAX_MULT = 1.00     # ceiling — full brightness in sunlight
+MIN_MULT = 0.05     # floor — any indoor light lands here (~10/255 for a source-200 color)
+MAX_MULT = 0.50     # ceiling — direct sunlight (~100/255 for a source-200 color)
 
 # Log-scale lux endpoints. Below LOG_LUX_MIN clamps to MIN_MULT,
 # above LOG_LUX_MAX clamps to MAX_MULT, linear-in-log between.
-LOG_LUX_MIN = 1.5   # log10(32) — very dim room
+LOG_LUX_MIN = 2.7   # log10(500) — typical bright indoor; any indoor stays at floor
 LOG_LUX_MAX = 4.0   # log10(10000) — sunlight
 
 # Calibration sample count + spacing

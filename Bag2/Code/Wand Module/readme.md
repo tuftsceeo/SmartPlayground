@@ -12,8 +12,7 @@ The wand has two interaction modes, both driven from a single `main.py` state ma
 
 **Programming mode.** Children tap NFC tags to build a simple `trigger → action` rule of the form "when this happens, do that." Triggers are physical events (`buttondown`, `buttonup`, `shake`); actions are LED, buzzer, or motor outputs (notes, colors, animal sounds). AND and THEN combinator tags let multiple actions run simultaneously or in sequence. Scanning the `start` tag enters running mode, where the rule loops until the `stop` tag is scanned.
 
-**Game dispatch.** Several standalone games (`jumpin`, `cooking`, `melody`, `colorquest`, `freezedance`, `gestures`) are bundled as separate Python modules in the `Wand Module/` folder. Tapping a game's control tag transfers hardware to that game's `play()` entry point. The game exits on NFC `stop` or ESP-NOW `stop`. Games may use ESP-NOW to communicate with other Smart Playground devices, including the Programming
-Station, the Scoreboard, and other wands.
+**Game dispatch.** Several standalone games (`jumpin`, `cooking`, `melody`, `colorquest`, `freezedance`, `gestures`, and others) are bundled as separate Python modules in the `Wand Module/` folder. Tapping a game's control tag transfers hardware to that game's `play()` entry point. A game exits on NFC `stop`, **any other game tag** (fluid switching via `lib/game_tags.py`), or ESP-NOW `stop`. After exit, `main.py` returns to idle; a second tap of the desired game tag starts the new game. Games may use ESP-NOW to communicate with other Smart Playground devices, including the Programming Station, the Scoreboard, and other wands.
 
 ---
 
@@ -437,7 +436,7 @@ Tag debounce: same UID ignored until tag is removed (uid == None resets).
 
 Each game is a separate Python module in the `Wand Module/` folder that exposes a single `play(...)` entry
 point. The wand's main loop calls this function when the corresponding NFC tag is scanned, and the function
-returns control when the `stop` tag is scanned **or** `msg_type == "stop"` from within the game. Instructions in GAME_AUTHORING_GUIDE.md.
+returns control when an exit tag is scanned (`EXIT_TAGS` in `lib/game_tags.py`: all game tags plus `stop`) **or** `msg_type == "stop"` from ESP-NOW. Instructions in GAME_AUTHORING_GUIDE.md.
 
 ### Game Module Pattern
 
@@ -454,7 +453,7 @@ passed in) 3. `main()` for standalone testing (initializes hardware) 4. CRITICAL
     from yourgame import play as play_yourgame
     ```
 
-3. **Register the control tag:** Add `"yourgame"` to the `CONTROLS` set in `main.py`.
+3. **Register the game tag:** Add `"yourgame"` to `GAME_TAGS` in `lib/game_tags.py` (also union `EXIT_TAGS` into your game's `COMMANDS` set).
 
 4. **Add the dispatch branch:** In `main.py`'s main loop, after the existing game branches (search for `cmd == "jumpin"`), add:
 
