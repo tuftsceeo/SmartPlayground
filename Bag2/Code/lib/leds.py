@@ -39,6 +39,8 @@ TRIGGER_ORDER = ["buttondown", "buttonup", "shake"]
 # the three; a "balanced" 200 looks visibly darker than 200-red or 200-green.)
 #
 # Values were tuned by-eye against the actual hardware, not by sRGB math:
+OFF      = (0, 0, 0)
+BLACK      = (0, 0, 0)
 
 RED      = (130, 0, 0)
 ROSE     = (120, 10, 20)
