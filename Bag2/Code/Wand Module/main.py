@@ -269,9 +269,9 @@ def main():
         if lux is not None:
             print("  Light: %.0f lux -> brightness x%.2f" % (lux, m))
             # Build a 1-4 LED bar in WHITE_DIM representing ambient light level.
-            if lux < 100:    lit = 1   # very dim indoor
-            elif lux < 500:  lit = 2   # typical indoor
-            elif lux < 2000: lit = 3   # bright indoor / overcast outdoor
+            if lux < 200:    lit = 1   # very dim indoor
+            elif lux < 600:  lit = 2   # typical indoor
+            elif lux < 8000: lit = 3   # bright indoor / overcast outdoor
             else:            lit = 4   # outdoor / direct light
             row = [WHITE if i < lit else OFF for i in range(4)]
             leds.boot_stage_ok(1, row_colors=row)
@@ -345,7 +345,7 @@ def main():
             leds.boot_stage_warn(4)
 
     print("  Boot complete — all systems OK")
-    time.sleep_ms(900)  # hold boot bar so it can be read before idle takes over
+    time.sleep_ms(1500)  # hold boot bar so it can be read before idle takes over
 
     # Transition to idle
     leds.off()
@@ -698,3 +698,4 @@ def main():
 
 
 main()
+

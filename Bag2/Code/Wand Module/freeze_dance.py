@@ -29,7 +29,7 @@ from game_tags import exit_tags_excluding
 import brightness
 from leds import (
     RED, GREEN, BLUE, YELLOW, AMBER, PURPLE, WHITE, TEAL, OFF,
-    SHAPE_SAD_FACE, SHAPE_PLAY, SHAPE_INNER_3x3, SHAPE_HOURGLASS,
+    SHAPE_SAD_FACE, SHAPE_PLAY, SHAPE_INNER_3x3, SHAPE_ARROW_DN,
 )
 
 # -- Hardware Config ----------------------------------------
@@ -288,8 +288,11 @@ class FreezeDanceGame:
         if s == STATE_OUT:
             self.leds.show_shape(SHAPE_SAD_FACE, OUT_COLOR)
         elif s == STATE_READY:
-            # Hourglass = waiting (color distinguishes caller vs player)
-            self.leds.show_shape(SHAPE_HOURGLASS, READY_CALLER if self.is_caller else READY_PLAYER)
+            # Animated waiting indicator (animation distinguishes caller vs player)
+            if self.is_caller:
+                self.leds.animate_firework(self._frame, READY_CALLER)
+            else:
+                self.leds.animate_columns(self._frame, READY_PLAYER)
         elif s == STATE_GO:
             self.leds.show_shape(SHAPE_PLAY, GREEN)
         elif s == STATE_FREEZE:
@@ -299,10 +302,11 @@ class FreezeDanceGame:
             # Animated dancer cycles through poses
             self.leds.animate_dancer(self._frame, PURPLE)
         elif s == STATE_REJOIN_ARMED:
-            # Hourglass in white = waiting to rejoin
-            self.leds.show_shape(SHAPE_HOURGLASS, WHITE)
+            # Down-arrow breathes white = waiting to rejoin
+            self.leds.breathe_shape(SHAPE_ARROW_DN, WHITE, self._frame, speed=0.16)
         elif s == STATE_ROLE_SELECT:
-            self.leds.show_pattern(ROLE_SELECT_PATTERN)
+            # Down-arrow breathes white = pick a role
+            self.leds.breathe_shape(SHAPE_ARROW_DN, WHITE, self._frame, speed=0.16)
 
     def run(self):
         print("\n  === FREEZE DANCE ===")
@@ -347,6 +351,9 @@ class FreezeDanceGame:
                 if self.is_caller:
                     for _ in range(BTN_SEND_REPEATS):
                         self.enow.send_raw(BROADCAST_MAC, MSG_STOP)
+                        time.sleep_ms(BTN_SEND_DELAY_MS)
+                    for _ in range(BTN_SEND_REPEATS):
+                        self.enow.broadcast_stop()
                         time.sleep_ms(BTN_SEND_DELAY_MS)
                 self.leds.off()
                 return

@@ -396,17 +396,99 @@ class Leds:
                     self.np[idx] = color
         self.np.write()
 
-    def animate_dancer(self, frame, color, bg=OFF):
+    def animate_dancer(self, frame, color, bg=OFF, frames_per_step=6):
         """
         Cycle through DANCER1, DANCER2, DANCER3 shapes based on frame count.
         Call this each loop iteration to animate a dancing figure.
-        
+
         Example:
             leds.animate_dancer(self._frame, PURPLE)
         """
-        dancers = (SHAPE_DANCER1, SHAPE_DANCER2, SHAPE_DANCER3)
-        idx = (frame // 6) % 3  # Change pose every 6 frames (~240ms at 40ms loop)
+        dancers = (SHAPE_DANCER1, SHAPE_DANCER2, SHAPE_DANCER3, SHAPE_DANCER2)
+        idx = (frame // frames_per_step) % len(dancers)
         self.show_shape(dancers[idx], color, bg)
+
+
+    def animate_rows(self, frame, color, bg=OFF, frames_per_step=6):
+        """
+        Cycle through rows top-to-bottom: TOP_ROW, ROW2, ROW3, ROW4, BOT_ROW, repeat.
+
+        Example:
+            leds.animate_rows(self._frame, BLUE)
+        """
+        rows = (SHAPE_TOP_ROW, SHAPE_ROW2, SHAPE_ROW3, SHAPE_ROW4, SHAPE_BOT_ROW)
+        idx = (frame // frames_per_step) % len(rows)
+        self.show_shape(rows[idx], color, bg)
+
+    def animate_columns(self, frame, color, bg=OFF, frames_per_step=6):
+        """
+        Cycle through columns left-to-right: LEFT_COL, COL2, COL3, COL4, RIGHT_COL, repeat.
+
+        Example:
+            leds.animate_columns(self._frame, GREEN)
+        """
+        cols = (SHAPE_LEFT_COL, SHAPE_COL2, SHAPE_COL3, SHAPE_COL4, SHAPE_RIGHT_COL)
+        idx = (frame // frames_per_step) % len(cols)
+        self.show_shape(cols[idx], color, bg)
+
+    def animate_spin(self, frame, color, bg=OFF, frames_per_step=6):
+        """
+        Cycle through rotating bars: ROW3, SLASH_L, COL3, SLASH_R, repeat.
+        Creates a spinning-line effect through the center of the grid.
+
+        Example:
+            leds.animate_spin(self._frame, PURPLE)
+        """
+        spin = (SHAPE_ROW3, SHAPE_SLASH_L, SHAPE_COL3, SHAPE_SLASH_R)
+        idx = (frame // frames_per_step) % len(spin)
+        self.show_shape(spin[idx], color, bg)
+
+    def animate_grow(self, frame, color, bg=OFF, frames_per_step=6):
+        """
+        Expand outward: CENTER, INNER_3x3, BORDER, blank, repeat.
+        The "blank" step shows bg only (no foreground shape).
+
+        Example:
+            leds.animate_grow(self._frame, CYAN)
+        """
+        grow = (SHAPE_CENTER, SHAPE_INNER_3x3, SHAPE_BORDER, ())
+        idx = (frame // frames_per_step) % len(grow)
+        self.show_shape(grow[idx], color, bg)
+
+    def animate_shrink(self, frame, color, bg=OFF, frames_per_step=6):
+        """
+        Contract inward: BORDER, INNER_3x3, CENTER, blank, repeat.
+        The "blank" step shows bg only (no foreground shape).
+
+        Example:
+            leds.animate_shrink(self._frame, ORANGE)
+        """
+        shrink = (SHAPE_BORDER, SHAPE_INNER_3x3, SHAPE_CENTER, ())
+        idx = (frame // frames_per_step) % len(shrink)
+        self.show_shape(shrink[idx], color, bg)
+
+    def animate_arrow_spin(self, frame, color, bg=OFF, frames_per_step=6):
+        """
+        Rotate arrow direction: ARROW_UP, ARROW_L, ARROW_DN, ARROW_R, repeat.
+
+        Example:
+            leds.animate_arrow_spin(self._frame, YELLOW)
+        """
+        arrows = (SHAPE_ARROW_UP, SHAPE_ARROW_L, SHAPE_ARROW_DN, SHAPE_ARROW_R)
+        idx = (frame // frames_per_step) % len(arrows)
+        self.show_shape(arrows[idx], color, bg)
+
+    def animate_firework(self, frame, color, bg=OFF, frames_per_step=6):
+        """
+        Burst outward: CENTER, STAR, CORNERS, blank, repeat.
+        The "blank" step shows bg only (no foreground shape).
+
+        Example:
+            leds.animate_firework(self._frame, MAGENTA)
+        """
+        burst = (SHAPE_CENTER, SHAPE_STAR, SHAPE_CORNERS, ())
+        idx = (frame // frames_per_step) % len(burst)
+        self.show_shape(burst[idx], color, bg)
 
     def pulse_color(self, r, g, b, duration_ms=600):
         steps = 20
@@ -420,14 +502,26 @@ class Leds:
         bri = (math.sin(frame * 0.08) + 1) / 2
         self.solid(int(r * bri), int(g * bri), int(b * bri))
 
-    def breathe_shape(self, indices, color, frame, bg=OFF):
-        """Breathing animation for a shape. Sin-wave brightness scaling driven by frame counter."""
-        bri = (math.sin(frame * 0.08) + 1) / 2
-        self.show_shape(
-            indices,
-            (int(color[0] * bri), int(color[1] * bri), int(color[2] * bri)),
-            bg=bg
-        )
+    def breathe_shape(self, indices, color, frame, bg=OFF, speed=0.08, min_level=2):
+        """
+        Breathing animation for a shape. Sin-wave brightness scaling driven by frame counter.
+
+        speed: sin coefficient. Larger = faster breathing. Default 0.08 gives
+        a ~3.1s cycle at a 40ms loop. Try 0.16 for roughly twice as fast.
+
+        min_level: floor applied to each non-zero RGB channel of the foreground
+        color so the shape never fully disappears at the bottom of the breath.
+        The floor is applied per-channel and only to channels that are non-zero
+        in the source color, so a pure (R, 0, 0) still breathes as pure red.
+        """
+        bri = (math.sin(frame * speed) + 1) / 2
+        r = int(color[0] * bri)
+        g = int(color[1] * bri)
+        b = int(color[2] * bri)
+        if color[0] and r < min_level: r = min_level
+        if color[1] and g < min_level: g = min_level
+        if color[2] and b < min_level: b = min_level
+        self.show_shape(indices, (r, g, b), bg=bg)
 
     def fade_shape(self, indices, color, duration_ms, bg=OFF):
         """Blocking linear fade from full color to bg over duration_ms. Uses ~20 steps."""
