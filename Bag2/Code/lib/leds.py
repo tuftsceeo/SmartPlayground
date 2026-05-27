@@ -238,6 +238,16 @@ BOOT_LED_POWER  = 0
 BOOT_LED_BATT   = 1
 BOOT_LED_READY  = 2
 
+# Row data LED indices for each boot stage (cols 1-4 of that stage's row).
+# Indexed by stage number, parallel to SHAPE_LEFT_COL (0, 5, 10, 15, 20).
+_BOOT_STAGE_DATA = (
+    ( 1,  2,  3,  4),   # stage 0: power / main() started
+    ( 6,  7,  8,  9),   # stage 1: brightness (OPT3002)
+    (11, 12, 13, 14),   # stage 2: battery (MAX17048)
+    (16, 17, 18, 19),   # stage 3: NFC
+    (21, 22, 23, 24),   # stage 4: accel
+)
+
 
 # ══════════════════════════════════════════════
 # SCALED NEOPIXEL WRAPPER
@@ -441,48 +451,110 @@ class Leds:
 
     def boot_power(self):
         """
-        Step 1: Light LED 0 white immediately on power-up.
-        Called BEFORE I2C init, so MULTIPLIER may still be at the
-        default 1.0 — that's intentional, the boot LED uses a low
-        raw value (40) so it's comfortable indoors and dim outdoors.
+        Called at module level before I2C or main() runs.
+        Lights stage 0 (LED 0) dim white as the earliest possible power signal.
+        If main() never starts due to an import failure, this LED stays dim white.
+        boot_stage_ok(0) upgrades it to green once main() is actually reached.
         """
-        self.np[BOOT_LED_POWER] = (40, 40, 40)
+        self.np[SHAPE_LEFT_COL[0]] = WHITE
         self.np.write()
 
-    def boot_battery(self, soc):
-        """
-        Step 2: Show battery level on LEDs 0 and 1.
-        Green >75%, yellow 30-75%, red 10-30%, flashing red <10%.
-        For <10%: blinks 5 times (0.1s on, 0.1s off) then stays solid.
-        """
-        color = battery_color(soc)
+    def boot_stage_start(self, stage):
+        """Light the stage indicator dim white — init for this stage is beginning."""
+        if stage < len(SHAPE_LEFT_COL):
+            self.np[SHAPE_LEFT_COL[stage]] = WHITE
+            self.np.write()
 
+    def boot_stage_ok(self, stage, row_colors=None, row_flash=0):
+        """
+        Mark a boot stage green (success). Previously completed stages are unaffected.
+
+        row_colors: optional list of up to 4 color tuples for LEDs cols 1-4 of
+        the same row. Used to display analog data (battery level, brightness tier).
+        row_flash: if > 0 and row_colors provided, flash the row that many times
+        (100ms on / 100ms off) before settling. Used for low-battery warning.
+        """
+        if stage >= len(SHAPE_LEFT_COL):
+            return
+        self.np[SHAPE_LEFT_COL[stage]] = GREEN
+        if row_colors is not None:
+            row = _BOOT_STAGE_DATA[stage]
+            if row_flash > 0:
+                for _ in range(row_flash):
+                    for i, color in enumerate(row_colors):
+                        if i < len(row):
+                            self.np[row[i]] = color
+                    self.np.write()
+                    time.sleep_ms(100)
+                    for i in range(len(row_colors)):
+                        if i < len(row):
+                            self.np[row[i]] = OFF
+                    self.np.write()
+                    time.sleep_ms(100)
+            for i, color in enumerate(row_colors):
+                if i < len(row):
+                    self.np[row[i]] = color
+        self.np.write()
+
+    def boot_stage_warn(self, stage):
+        """
+        Mark a boot stage amber — non-fatal failure, system continues.
+        Row data for this stage is left empty. Previously completed stages are unaffected.
+        """
+        if stage < len(SHAPE_LEFT_COL):
+            self.np[SHAPE_LEFT_COL[stage]] = AMBER
+            self.np.write()
+
+    def boot_stage_fail(self, stage):
+        """
+        Mark a boot stage as a fatal failure. Flashes only that stage indicator
+        red twice, then holds red. Previously completed stage LEDs remain visible
+        so the failure point is clear.
+        """
+        if stage >= len(SHAPE_LEFT_COL):
+            return
+        led = SHAPE_LEFT_COL[stage]
+        for _ in range(2):
+            self.np[led] = RED
+            self.np.write()
+            time.sleep_ms(150)
+            self.np[led] = OFF
+            self.np.write()
+            time.sleep_ms(100)
+        self.np[led] = RED
+        self.np.write()
+
+    # ── Legacy 3-LED boot methods ─────────────────────────────────────────
+    # These are retained for standalone game entry points (jumpin.py, etc.)
+    # that call them directly. main.py uses boot_stage_* instead.
+
+    def boot_battery(self, soc):
+        """Legacy: show battery on LEDs 0-1. Use boot_stage_ok(2, row) instead."""
+        color = battery_color(soc)
         if soc <= 10:
             for _ in range(5):
                 self.np[BOOT_LED_POWER] = color
                 self.np[BOOT_LED_BATT] = color
                 self.np.write()
                 time.sleep_ms(100)
-                self.np[BOOT_LED_POWER] = (0, 0, 0)
-                self.np[BOOT_LED_BATT] = (0, 0, 0)
+                self.np[BOOT_LED_POWER] = OFF
+                self.np[BOOT_LED_BATT] = OFF
                 self.np.write()
                 time.sleep_ms(100)
-
         self.np[BOOT_LED_POWER] = color
         self.np[BOOT_LED_BATT] = color
         self.np.write()
 
     def boot_ready(self, soc):
-        """Step 3: All init complete — light LED 2 in same battery color."""
-        color = battery_color(soc)
-        self.np[BOOT_LED_READY] = color
+        """Legacy: light LED 2 in battery color. Use boot_stage_ok(4) instead."""
+        self.np[BOOT_LED_READY] = battery_color(soc)
         self.np.write()
 
     def boot_clear(self):
-        """Clear boot LEDs (0, 1, 2) before entering idle mode."""
+        """Legacy: clear LEDs 0-2. leds.off() is preferred for the new boot bar."""
         for i in (BOOT_LED_POWER, BOOT_LED_BATT, BOOT_LED_READY):
             if i < self.num:
-                self.np[i] = (0, 0, 0)
+                self.np[i] = OFF
         self.np.write()
 
     # ══════════════════════════════════════════

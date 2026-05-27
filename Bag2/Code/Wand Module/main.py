@@ -22,7 +22,7 @@ from pn532 import PN532
 from lis2dw12 import LIS2DW12, RANGE_4G
 from max17048 import MAX17048
 
-from leds import Leds, TRIGGER_ORDER
+from leds import Leds, TRIGGER_ORDER, battery_color, WHITE, OFF
 from buzzer import Buzzer
 from nfc_reader import NfcReader
 from actions import ActionRunner, ACTIONS, ANIMAL_SOUNDS, ACTION_RESOURCE, resolve_and_group, chain_to_str
@@ -254,11 +254,13 @@ def main():
     print("  Hub type: %s" % HUB_TYPE)
     print("=" * 50)
 
-    # NOTE: leds.boot_power() already called at module level
-    # LED 0 is already white — user sees instant power confirmation
+    # NOTE: leds.boot_power() was already called at module level — LED 0 is dim white.
+    # Turning it green here confirms that main() was reached and imports succeeded.
+    # If an import fails before main() runs, LED 0 stays dim white permanently.
+    leds.boot_stage_ok(0)
 
-    # ── BOOT STEP 2: Battery check ──
-    # ── Brightness calibration from ambient light ──
+    # ── Stage 1: Brightness calibration (OPT3002) ──
+    leds.boot_stage_start(1)
     try:
         from opt3002 import OPT3002
         light = OPT3002(i2c)
@@ -266,41 +268,59 @@ def main():
         m, lux = brightness.calibrate(light)
         if lux is not None:
             print("  Light: %.0f lux -> brightness x%.2f" % (lux, m))
+            # Build a 1-4 LED bar in WHITE_DIM representing ambient light level.
+            if lux < 100:    lit = 1   # very dim indoor
+            elif lux < 500:  lit = 2   # typical indoor
+            elif lux < 2000: lit = 3   # bright indoor / overcast outdoor
+            else:            lit = 4   # outdoor / direct light
+            row = [WHITE if i < lit else OFF for i in range(4)]
+            leds.boot_stage_ok(1, row_colors=row)
         else:
             print("  Light: sensor reads failed, brightness x%.2f" % m)
+            leds.boot_stage_warn(1)
     except Exception as e:
         print("  [WARN] OPT3002: %s — brightness x1.00" % e)
-        
+        leds.boot_stage_warn(1)
+
+    # ── Stage 2: Battery gauge (MAX17048) ──
+    leds.boot_stage_start(2)
     batt = None
-    last_soc = 100  # default if no battery gauge
+    last_soc = 100
     try:
         batt = MAX17048(i2c)
         v, s = batt.read_all()
         last_soc = max(0, min(100, int(s)))
         print("  Battery: %.2fV, %.1f%%" % (v, s))
+        # Build a 1-4 LED bar in battery_color proportional to SOC.
+        lit = max(1, round(last_soc / 100 * 4))
+        batt_col = battery_color(last_soc)
+        row = [batt_col if i < lit else OFF for i in range(4)]
+        leds.boot_stage_ok(2, row_colors=row, row_flash=5 if last_soc <= 10 else 0)
     except Exception as e:
         print("  [WARN] Battery:"); sys.print_exception(e)
+        leds.boot_stage_warn(2)
 
-    # Show battery level on LEDs 0 + 1
-    leds.boot_battery(last_soc)
-    time.sleep_ms(300)  # brief pause so user sees the color
-
-    # NFC
+    # ── Stage 3: NFC init (fatal on failure) ──
+    leds.boot_stage_start(3)
     nfc = PN532(i2c, PN532_ADDR)
     try:
         ic, ver, rev = nfc.begin()
         print("  PN5%02X fw %d.%d -- NFC ready" % (ic, ver, rev))
+        leds.boot_stage_ok(3)
     except Exception as e:
-        print("  [FAIL] NFC:"); sys.print_exception(e); return
+        print("  [FAIL] NFC:"); sys.print_exception(e)
+        leds.boot_stage_fail(3)
+        return
 
     reader = NfcReader(nfc, ALL_COMMANDS)
     runner = ActionRunner(leds, buz)
 
-    # ESP-NOW
+    # ESP-NOW init — no LED stage, not hardware on the wand itself
     enow = ESPNowManager()
     enow.init()
 
-    # ── Accelerometer ──
+    # ── Stage 4: Accelerometer ──
+    leds.boot_stage_start(4)
     accel = None
     accel_ok = False
     try:
@@ -308,32 +328,26 @@ def main():
         accel.init(fs_range=RANGE_4G)
         accel_ok = True
         print("  Accelerometer OK")
+        leds.boot_stage_ok(4)
     except Exception as e:
         print("  [WARN] Accel:"); sys.print_exception(e)
+        leds.boot_stage_warn(4)
 
-    # Accelerometer wake-up interrupt is enabled here, separately from the basic
-    # accel init above, because any code that performs a soft-reset on the
-    # LIS2DW12 (writing 0x40 to CTRL2) will clear CTRL4_INT1, CTRL7, and
-    # WAKE_UP_THS. If those are configured before such a reset, the shake
-    # trigger will silently stop working (INT1 stays low forever).
-    #
-    # No code currently in the wand performs that reset, but teacher-authored
-    # code (loaded via the jumpin hook) might in the future. Keeping wake-up
-    # enable as a final, separate step makes future-added soft-resets safe by
-    # default.
+    # Wake-up interrupt is a separate step — if it fails, sleep-on-movement
+    # is disabled. Downgrade stage 4 to amber to reflect the degraded state.
     if accel_ok:
         try:
             accel.enable_wake_int1(threshold=8)
             print("  Accel wake-up (INT1) armed")
         except Exception as e:
             print("  [WARN] Accel wake:"); sys.print_exception(e)
+            accel_ok = False
+            leds.boot_stage_warn(4)
 
-    # ── BOOT STEP 3: All init complete — LED 2 on ──
-    leds.boot_ready(last_soc)
     print("  Boot complete — all systems OK")
-    time.sleep_ms(800)  # hold boot display so user can read it
+    time.sleep_ms(900)  # hold boot bar so it can be read before idle takes over
 
-    # Transition to idle display
+    # Transition to idle
     leds.off()
     time.sleep_ms(100)
 
