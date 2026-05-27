@@ -154,9 +154,36 @@ def print_rules(rules, editing):
 # ─────────────────────────────────────────────
 # CHECK BROADCAST (used in multiple places)
 # ─────────────────────────────────────────────
+def apply_hub_stop(enow, buz_ref):
+    """Reset ESP-NOW peers and stop buzzer after hub/broadcast stop."""
+    if enow and enow.is_active:
+        enow.send_stop_all_peers()
+        enow.clear_peers()
+    buz_ref.stop()
+
+
+def poll_hub_idle(enow, batt_ref, leds_ref, buz_ref):
+    """
+    Poll ESP-NOW once for hub remote control (game/stop/battery).
+    Returns ("game", name), ("stop", None), ("battery", None), or None.
+    """
+    if not enow or not enow.is_active:
+        return None
+    msg_type, data, _ = enow.poll()
+    if msg_type == "game":
+        name = data.get("name") if data else None
+        return ("game", name) if name else None
+    if msg_type == "stop":
+        return ("stop", None)
+    if msg_type == "battery":
+        show_battery(batt_ref, leds_ref, buz_ref)
+        return ("battery", None)
+    return None
+
+
 def check_broadcast(enow, batt_ref, leds_ref, buz_ref):
     """
-    Poll ESP-NOW for broadcast stop/battery.
+    Poll ESP-NOW for broadcast stop/battery (run-mode / throttled paths).
     Returns "stop" if stop received, "battery" if battery shown, None otherwise.
     """
     msg_type, data, mac_str = enow.poll()
@@ -367,127 +394,133 @@ def main():
 
     while True:
         try:
+            remote_cmd = None
+
+            # Hub remote control — poll once per loop (before NFC/tag debounce)
+            hub_msg = poll_hub_idle(enow, batt, leds, buz)
+            if hub_msg and hub_msg[0] == "stop":
+                apply_hub_stop(enow, buz)
+                rules = {}; editing = None; pending_combinator = None
+                last_uid = None
+                nfc_sleeping = False
+                last_activity_ms = time.ticks_ms()
+                idle_frame = 0
+                show_idle(last_soc, 0)
+                print("  Reset via broadcast")
+                time.sleep_ms(200)
+                continue
+            if hub_msg and hub_msg[0] == "game":
+                remote_cmd = hub_msg[1]
+                last_uid = None
+                last_activity_ms = time.ticks_ms()
+                idle_frame = 0
+            elif hub_msg and hub_msg[0] == "battery":
+                last_activity_ms = time.ticks_ms()
+                if nfc_sleeping:
+                    nfc_sleeping = False
+
             # ─────────────────────────────────────
             # NFC SLEEPING — minimal power mode
             # ─────────────────────────────────────
             if nfc_sleeping:
-                idle_frame += 1
-                leds.idle_sleep()  # static blue dot
-
-                # Check ESP-NOW broadcasts while sleeping
-                result = check_broadcast(enow, batt, leds, buz)
-                if result == "stop":
-                    enow.send_stop_all_peers(); enow.clear_peers()
-                    rules = {}; editing = None; pending_combinator = None
-                    buz.stop()
+                if remote_cmd:
                     nfc_sleeping = False
-                    last_activity_ms = time.ticks_ms()
-                    idle_frame = 0
-                    show_idle(last_soc, 0)
-                    print("  Reset via broadcast")
-                elif result == "battery":
-                    last_activity_ms = time.ticks_ms()
-                    nfc_sleeping = False
-
-                if nfc_sleeping:
-                    leds.idle_sleep()
-
-                # Check accelerometer or button for wake
-                wake = False
-                if btn.value() == 0:
-                    wake = True
-                elif accel_ok:
-                    try:
-                        x, y, z = accel.read()
-                        mag = abs(x) + abs(y) + abs(z)
-                        # At rest mag ≈ 1.0g; movement pushes it above 1.4
-                        if mag > 1.4:
-                            wake = True
-                    except Exception:
-                        pass
-
-                if wake:
-                    print("  Movement detected — waking NFC")
                     try:
                         nfc.begin()
                     except Exception as ex:
                         print("  NFC wake error: %s" % str(ex))
-                    nfc_sleeping = False
-                    last_activity_ms = time.ticks_ms()
-                    idle_frame = 0
-                    # Refresh battery SOC on wake
+                else:
+                    idle_frame += 1
+                    leds.idle_sleep()  # static blue dot
+
+                    # Check accelerometer or button for wake
+                    wake = False
+                    if btn.value() == 0:
+                        wake = True
+                    elif accel_ok:
+                        try:
+                            x, y, z = accel.read()
+                            mag = abs(x) + abs(y) + abs(z)
+                            # At rest mag ≈ 1.0g; movement pushes it above 1.4
+                            if mag > 1.4:
+                                wake = True
+                        except Exception:
+                            pass
+
+                    if wake:
+                        print("  Movement detected — waking NFC")
+                        try:
+                            nfc.begin()
+                        except Exception as ex:
+                            print("  NFC wake error: %s" % str(ex))
+                        nfc_sleeping = False
+                        last_activity_ms = time.ticks_ms()
+                        idle_frame = 0
+                        # Refresh battery SOC on wake
+                        if batt:
+                            try:
+                                _, s = batt.read_all()
+                                last_soc = max(0, min(100, int(s)))
+                            except Exception:
+                                pass
+                        show_idle(last_soc, 0)
+
+                    if nfc_sleeping:
+                        time.sleep_ms(100)
+                        continue
+
+            # ─────────────────────────────────────
+            # NORMAL NFC POLLING / REMOTE DISPATCH
+            # ─────────────────────────────────────
+            cmd = None
+            if remote_cmd:
+                cmd = remote_cmd
+            else:
+                uid_peek, _ = reader.detect_tag()
+
+                if uid_peek is None:
+                    if last_uid is not None:
+                        last_uid = None
+
+                    # Idle display — battery-colored inner ring (static)
+                    idle_frame += 1
+                    show_idle(last_soc, idle_frame)
+
+                    # Check if we should sleep the NFC
+                    if accel_ok and time.ticks_diff(time.ticks_ms(), last_activity_ms) > NFC_SLEEP_MS:
+                        nfc_sleeping = True
+                        print("  NFC sleeping (30s idle) — move or press button to wake")
+
+                    time.sleep_ms(200)
+                    continue
+
+                # ─────────────────────────────────────
+                # TAG DETECTED — reset activity timer
+                # ─────────────────────────────────────
+                last_activity_ms = time.ticks_ms()
+                idle_frame = 0
+
+                if uid_peek == last_uid:
+                    time.sleep_ms(200); continue
+
+                cmd, uid = read_with_feedback(reader)
+                last_uid = uid
+                if cmd is None:
+                    time.sleep_ms(200); continue
+
+                # ── UTILITY ──
+                if cmd == "battery":
+                    show_battery(batt, leds, buz)
+                    # Refresh SOC after battery display
                     if batt:
                         try:
                             _, s = batt.read_all()
                             last_soc = max(0, min(100, int(s)))
                         except Exception:
                             pass
-                    show_idle(last_soc, 0)
-
-                time.sleep_ms(100)
-                continue
-
-            # ─────────────────────────────────────
-            # NORMAL NFC POLLING
-            # ─────────────────────────────────────
-            uid_peek, sak_peek = reader.detect_tag()
-
-            if uid_peek is None:
-                if last_uid is not None:
-                    last_uid = None
-
-                # Check broadcast while idle
-                result = check_broadcast(enow, batt, leds, buz)
-                if result == "stop":
-                    enow.send_stop_all_peers(); enow.clear_peers()
-                    rules = {}; editing = None; pending_combinator = None
-                    buz.stop()
                     last_activity_ms = time.ticks_ms()
                     idle_frame = 0
-                    show_idle(last_soc, 0)
-                    print("  Reset via broadcast")
-                elif result == "battery":
-                    last_activity_ms = time.ticks_ms()
-
-                # Idle display — battery-colored inner ring (static)
-                idle_frame += 1
-                show_idle(last_soc, idle_frame)
-
-                # Check if we should sleep the NFC
-                if accel_ok and time.ticks_diff(time.ticks_ms(), last_activity_ms) > NFC_SLEEP_MS:
-                    nfc_sleeping = True
-                    print("  NFC sleeping (30s idle) — move or press button to wake")
-
-                time.sleep_ms(200)
-                continue
-
-            # ─────────────────────────────────────
-            # TAG DETECTED — reset activity timer
-            # ─────────────────────────────────────
-            last_activity_ms = time.ticks_ms()
-            idle_frame = 0
-
-            if uid_peek == last_uid:
-                time.sleep_ms(200); continue
-
-            cmd, uid = read_with_feedback(reader)
-            last_uid = uid
-            if cmd is None:
-                time.sleep_ms(200); continue
-
-            # ── UTILITY ──
-            if cmd == "battery":
-                show_battery(batt, leds, buz)
-                # Refresh SOC after battery display
-                if batt:
-                    try:
-                        _, s = batt.read_all()
-                        last_soc = max(0, min(100, int(s)))
-                    except Exception:
-                        pass
-                last_activity_ms = time.ticks_ms()
-                idle_frame = 0
-                show_idle(last_soc, 0); continue
+                    show_idle(last_soc, 0); continue
 
             # ── COLOR QUEST ──
             if cmd == "colorquest":
@@ -603,10 +636,8 @@ def main():
 
             # ── STOP ──
             if cmd == "stop":
-                if enow and enow.is_active:
-                    enow.send_stop_all_peers(); enow.clear_peers()
+                apply_hub_stop(enow, buz)
                 rules = {}; editing = None; pending_combinator = None
-                buz.stop()
                 last_activity_ms = time.ticks_ms()
                 idle_frame = 0
                 show_idle(last_soc, 0)
@@ -685,7 +716,8 @@ def main():
                 leds.show_programming(rules, editing)
                 print_rules(rules, editing); continue
 
-            print("  Unknown command: %s" % cmd)
+            if cmd is not None:
+                print("  Unknown command: %s" % cmd)
             time.sleep_ms(200)
 
         except KeyboardInterrupt:

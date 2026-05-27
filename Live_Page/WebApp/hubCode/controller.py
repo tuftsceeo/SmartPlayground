@@ -1,6 +1,5 @@
 from machine import SoftI2C, Pin, ADC
 import time, json
-import ubinascii
 
 import  utilities.now as now
 
@@ -18,7 +17,8 @@ class Control:
         print(self.mac)
         
     def shutdown(self):
-        stop = json.dumps({'topic':'/game', 'value':-1})
+        # ["stop"] is the format wand espnow_manager classifies as msg_type=="stop"
+        stop = json.dumps(['stop'])
         self.n.publish(stop)
         time.sleep(0.1)
         self.n.publish(stop)
@@ -37,13 +37,12 @@ class Control:
         print('notified')
         
     def choose(self, game):
-        encoded_bytes = ubinascii.b2a_base64(self.mac)
-        encoded_string = encoded_bytes.decode('ascii')
-
-        setup = json.dumps({'topic':'/game', 'value':(game,encoded_string)})
-        self.n.publish(setup)
+        """Broadcast game launch by name string (matches GAME_TAGS in wand firmware)."""
+        # Broadcast game launch by name; wand espnow_manager recognizes {"type":"game"}
+        msg = json.dumps({'type': 'game', 'name': game})
+        self.n.publish(msg)
         time.sleep(0.1)
-        self.n.publish(setup)
+        self.n.publish(msg)
 
 
 class Display:

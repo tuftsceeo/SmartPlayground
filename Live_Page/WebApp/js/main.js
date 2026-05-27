@@ -601,6 +601,23 @@ class App {
         }
     }
 
+    async handleDeviceRefresh() {
+        if (!state.deviceScanningEnabled || !state.hubConnected) {
+            return;
+        }
+        try {
+            if (typeof PyBridgeToUse.getDevices === 'function') {
+                const devices = await PyBridgeToUse.getDevices();
+                setState({
+                    allDevices: devices || [],
+                    lastUpdateTime: new Date(),
+                });
+            }
+        } catch (e) {
+            console.log("Device refresh failed:", e);
+        }
+    }
+
     render() {
         const devices = getAvailableDevices();
         // Allow sending if hub is connected, even if no devices detected
@@ -679,6 +696,7 @@ class App {
             state.deviceScanningEnabled, // Pass device scanning toggle
             state.isBrowserCompatible, // Pass browser compatibility status
             state.hubConnecting, // Pass hub connecting state
+            () => this.handleDeviceRefresh(),
         );
 
         const messageHistory = createMessageHistory(

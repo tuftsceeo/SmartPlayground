@@ -30,7 +30,7 @@ export function createSettingsOverlay(onBack) {
                         <div class="flex-1 min-w-0">
                             <div class="font-semibold text-gray-900 text-base mb-1.5">Broadcast Mode</div>
                             <div class="text-sm text-gray-600 leading-relaxed">
-                                Send commands to all devices at once. Use this if many plushies are missing from the device list.
+                                Send commands to all wands at once. Enable device scanning if you want to target wands by signal strength.
                             </div>
                         </div>
                         <div class="flex-shrink-0 pt-1">

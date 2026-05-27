@@ -548,19 +548,17 @@ async def refresh_devices_from_hub(rssi_threshold="all"):
             console.log("Cannot refresh: Hub not connected")
             return to_js([])
         
-        # Format for Serial (JSON)
-        ping_obj = {"cmd": "PING", "rssi": threshold_str}
-        ping_command = json.dumps(ping_obj)
-        await serial.send_json(ping_command)
+        # PING not implemented in wand-era hub — device tracking is a stretch goal
+        # ping_obj = {"cmd": "PING", "rssi": threshold_str}
+        # ping_command = json.dumps(ping_obj)
+        # await serial.send_json(ping_command)
     else:
         console.log("Cannot refresh: Hub not connected")
         return to_js([])
     
-    # Wait for response (hub should send back device list)
-    # The response will be handled by on_serial_data callback
-    # which will update the global devices list
-    
-    console.log(f"Device scan requested from hub (serial) with RSSI threshold: {threshold_str}")
+    # Passive device list only — hub pushes devices periodically when wand
+    # battery tracking is implemented; PING scan is not supported yet.
+    console.log("Device refresh: returning cached hub device list (passive tracking)")
     
     # Convert Python list to JavaScript array using to_js()
     return to_js(devices, dict_converter=Object.fromEntries)

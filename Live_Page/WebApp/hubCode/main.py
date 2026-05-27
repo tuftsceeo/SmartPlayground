@@ -26,26 +26,25 @@ try:
 except ImportError:
     DISPLAY_AVAILABLE = False
 
-# Game IDs 0-10, -1 = stop (see Plushie_Module/config.py)
+# Maps webapp command ids (from commands.json) to wand game name strings.
+# Ids match GAME_TAGS in Bag2/Code/lib/game_tags.py.
+# "Stop" is a special sentinel — triggers shutdown() instead of choose().
 GAME_MAP = {
-     # Core games (indices 0-10 from config.py)
-    "Notes": 0,           # Music/sound notes
-    "Shake": 1,           # Motion detection / shake counter
-    "Shake_rainbow": 2,   # Motion detection / shake counter with rainbow
-    "Hot_cold": 3,        # Proximity finding game
-    "Jump": 4,            # Jump counter
-    "Clap": 5,            # Range/connectivity test
-    "Rainbow": 6,         # Battery check + celebration
-    "Hibernate": 7,       # Sleep mode with button warning
-    "Pattern_btn": 8,     # Button pattern matching
-    "Pattern_plush": 9,   # Plushie pattern matching
-    "Color_Press": 10,     # Single color selection
-    "Color_Press_Mult": 11,  # Multi-color stacking
-    
-    # Command aliases (backwards compatibility & user convenience)
-    "Off": 7,             # Alias for Hibernate
-    "Stop": -1,           # Stop current game, return to idle
-    "Pause": -1,          # Alias for Stop
+    "sound":          "sound",
+    "shake":          "shake",
+    "shakerainbow":   "shakerainbow",
+    "jump":           "jump",
+    "rainbow":        "rainbow",
+    "colorquest":     "colorquest",
+    "simpleicecream": "simpleicecream",
+    "multiicecream":  "multiicecream",
+    "freezedance":    "freezedance",
+    "jumpin":         "jumpin",
+    "cooking":        "cooking",
+    "melody":         "melody",
+    "gestures":       "gestures",
+    "nfcsound":       "nfcsound",
+    "Stop":           None,   # triggers shutdown() — broadcasts ["stop"]
 }
 
 class SerialBridge:
@@ -322,32 +321,29 @@ class SimpleHub(Control):
         time.sleep_ms(50)
     
     def _handle_command(self, cmd_type, cmd):
-        """Handle command from webapp (callback from SerialBridge)"""
-        if cmd_type in GAME_MAP:
-            # Send game command using inherited choose() method
-            # choose() handles all game numbers including -1 (stop)
-            game_num = GAME_MAP[cmd_type]
-            
-            # Show game name on display (truncate to fit 12 char limit: "Gm:" + 9 chars)
-            game_display = cmd_type[:9] if len(cmd_type) <= 9 else cmd_type[:8] + "."
-            self._debug(f"Gm:{game_display}")
-            
-            # Send game command via ESP-NOW
-            # For games 0-10: starts that game
-            # For game -1 (Stop/Pause): stops current game, returns to idle
-            self.choose(game_num)
-            
-            # Send acknowledgment to webapp
-            self.serial.send({
-                "type": "ack",
-                "command": cmd_type,
-                "status": "sent"
-            })
-        
-        else:
-            # Show unknown command (truncate to fit)
+        """Handle command from webapp (callback from SerialBridge)."""
+        if cmd_type not in GAME_MAP:
             unk_display = str(cmd_type)[:8] if cmd_type else "None"
-            self._debug(f"Unk:{unk_display}")
+            self._debug("Unk:%s" % unk_display)
+            return
+
+        game_name = GAME_MAP[cmd_type]
+
+        if game_name is None:
+            # Stop — broadcast stop signal to all wands
+            self._debug("Gm:Stop")
+            self.shutdown()
+        else:
+            # Game launch — broadcast game name string
+            game_display = game_name[:9] if len(game_name) <= 9 else game_name[:8] + "."
+            self._debug("Gm:%s" % game_display)
+            self.choose(game_name)
+
+        self.serial.send({
+            "type": "ack",
+            "command": cmd_type,
+            "status": "sent"
+        })
     
     def _send_device_list(self):
         """Send device list to webapp with stale/expiry logic"""

@@ -29,7 +29,7 @@ export const state = {
     errorDetail: null, // Error data: {title, message, causes[], solutions[]}
 
     // Device scanning toggle (webapp setting)
-    deviceScanningEnabled: true, // Enabled by default - passive tracking via battery messages
+    deviceScanningEnabled: false,  // Default to broadcast mode — wand battery tracking not yet implemented
     
     // Beta games toggle (webapp setting)
     showBetaGames: false, // Hidden by default - users can enable for testing

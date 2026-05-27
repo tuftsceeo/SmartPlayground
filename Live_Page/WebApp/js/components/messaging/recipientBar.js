@@ -11,7 +11,7 @@ import { getRelativeTime } from '../../utils/helpers.js';
 import { createHubStatusButton } from '../connection/hubStatusButton.js';
 import { createSettingsButton } from '../common/settingsButton.js';
 
-export function createRecipientBar(devices, range, lastUpdateTime, onRangeChange, onClick, hubConnected, hubDeviceName, onHubConnect, onHubDisconnect, onSettingsClick, pythonReady = true, deviceScanningEnabled = false, isBrowserCompatible = true, hubConnecting = false) {
+export function createRecipientBar(devices, range, lastUpdateTime, onRangeChange, onClick, hubConnected, hubDeviceName, onHubConnect, onHubDisconnect, onSettingsClick, pythonReady = true, deviceScanningEnabled = false, isBrowserCompatible = true, hubConnecting = false, onRefresh = null) {
   const container = document.createElement('div');
   container.className = `bg-white border-b border-gray-200 px-4 py-2 ${deviceScanningEnabled ? 'cursor-pointer' : ''}`;
   if (deviceScanningEnabled) {
@@ -90,11 +90,13 @@ export function createRecipientBar(devices, range, lastUpdateTime, onRangeChange
         updateTimeSpan.className = 'text-gray-400';
       }
       
-      // Click timestamp to refresh
-      updateTimeBtn.onclick = (e) => {
-        e.stopPropagation();
-        onRefresh();
-      };
+      // Click timestamp to refresh device list from hub cache
+      if (typeof onRefresh === 'function') {
+        updateTimeBtn.onclick = (e) => {
+          e.stopPropagation();
+          onRefresh();
+        };
+      }
     }
   }
   

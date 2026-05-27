@@ -208,7 +208,7 @@ class ESPNowManager:
         Non-blocking receive.
         Returns (msg_type, data, mac_str) or (None, None, None).
 
-        msg_type: "colors", "score", "splat_config", "stop",
+        msg_type: "colors", "score", "splat_config", "stop", "game",
                   "battery", "scan_request", "raw", or None
         """
         if not self._active:
@@ -244,6 +244,8 @@ class ESPNowManager:
                 return "score", data, mac_str
             if mt == "scan_request":
                 return "scan_request", data, mac_str
+            if mt == "game":
+                return "game", data, mac_str
             return "raw", data, mac_str
 
         return "raw", data, mac_str

@@ -1,6 +1,6 @@
 [
   {
-    "id": "Notes",
+    "id": "sound",
     "label": "Notes",
     "bgColor": "#e88a82",
     "icon": "music",
@@ -9,7 +9,7 @@
     "beta": false
   },
   {
-    "id": "Shake",
+    "id": "shake",
     "label": "Shake",
     "bgColor": "#d57aae",
     "icon": "zap",
@@ -18,7 +18,7 @@
     "beta": false
   },
   {
-    "id": "Shake_rainbow",
+    "id": "shakerainbow",
     "label": "Shake Rainbow",
     "bgColor": "#bf75c9",
     "icon": "palette",
@@ -27,16 +27,7 @@
     "beta": false
   },
   {
-    "id": "Hot_cold",
-    "label": "Hot/Cold",
-    "bgColor": "#bf75c9",
-    "icon": "thermometer",
-    "textColor": "white",
-    "description": "Hide one component (plushie, button, or splat) somewhere in the space. The other plushies show how close they are to the hidden one using red lights - more lights mean farther away, fewer lights mean getting closer. It works like a game of \"hot and cold\" but the plushies tell you instead of a person.",
-    "beta": true
-  },
-  {
-    "id": "Jump",
+    "id": "jump",
     "label": "Jump",
     "bgColor": "#a082cf",
     "icon": "arrow-up",
@@ -45,16 +36,7 @@
     "beta": false
   },
   {
-    "id": "Clap",
-    "label": "Clap",
-    "bgColor": "#6397b5",
-    "icon": "hand",
-    "textColor": "white",
-    "description": "Send this signal from the web app and plushies that are close enough to the hub will buzz. This shows how far the wireless signal reaches - perfect for understanding which plushies can \"hear\" the hub from different spots in the room or playground.",
-    "beta": true
-  },
-  {
-    "id": "Rainbow",
+    "id": "rainbow",
     "label": "Rainbow",
     "bgColor": "#8fd3c9",
     "icon": "rainbow",
@@ -63,25 +45,16 @@
     "beta": false
   },
   {
-    "id": "Pattern_btn",
-    "label": "Pattern Button",
-    "bgColor": "#93d5a8",
-    "icon": "grid-3x3",
-    "textColor": "white",
-    "description": "The buttons show a pattern of lights and you try to copy it by pressing in the same order. Great for memory practice and pattern recognition.",
-    "beta": true
-  },
-  {
-    "id": "Pattern_plush",
+    "id": "colorquest",
     "label": "Pattern Plushie",
     "bgColor": "#b8d896",
     "icon": "sparkles",
     "textColor": "white",
     "description": "The plushies show a pattern of movements or lights and you try to copy it with your own plushie. A fun way to practice following sequences and taking turns.",
-    "beta": true
+    "beta": false
   },
   {
-    "id": "Color_Press",
+    "id": "simpleicecream",
     "label": "Color Pick",
     "bgColor": "#d4d884",
     "icon": "ice-cream-cone",
@@ -90,7 +63,7 @@
     "beta": false
   },
   {
-    "id": "Color_Press_Mult",
+    "id": "multiicecream",
     "label": "Color Stack",
     "bgColor": "#e8c878",
     "icon": "ice-cream-bowl",
@@ -99,21 +72,66 @@
     "beta": false
   },
   {
+    "id": "freezedance",
+    "label": "Freeze Dance",
+    "bgColor": "#a082cf",
+    "icon": "music-2",
+    "textColor": "white",
+    "description": "One child holds the caller wand and controls the game — when they shake it, everyone dances, and when they hold still, everyone has to freeze. Other children each hold a player wand that tracks whether they're moving or frozen. A full-group game that works across the whole playground.",
+    "beta": false
+  },
+  {
+    "id": "jumpin",
+    "label": "Jump In",
+    "bgColor": "#6397b5",
+    "icon": "arrow-up",
+    "textColor": "white",
+    "description": "Kids jump while holding the wand and it lights up in response to their movement. This activity is customizable — teachers can adapt what the wand tracks and how it responds.",
+    "beta": false
+  },
+  {
+    "id": "cooking",
+    "label": "Cooking",
+    "bgColor": "#e88a82",
+    "icon": "chef-hat",
+    "textColor": "white",
+    "description": "Scan ingredient tags with the wand to collect them one at a time, then hold down the button to see what recipe you made. Kids can keep scanning to swap ingredients and try new combinations.",
+    "beta": false
+  },
+  {
+    "id": "melody",
+    "label": "Melody Maker",
+    "bgColor": "#8fd3c9",
+    "icon": "music",
+    "textColor": "white",
+    "description": "Scan note tags to add musical notes to your sequence, then press the button to hear your melody play back. Kids can keep adding notes, erase and start over, or save a song to replay.",
+    "beta": false
+  },
+  {
+    "id": "gestures",
+    "label": "Wand Moves",
+    "bgColor": "#93d5a8",
+    "icon": "hand",
+    "textColor": "white",
+    "description": "Kids train the wand to recognize three different movements by practicing each one several times. Once trained, the wand tries to identify which move is being performed and lights up the matching color.",
+    "beta": false
+  },
+  {
+    "id": "nfcsound",
+    "label": "Sound Tags",
+    "bgColor": "#d4d884",
+    "icon": "volume-2",
+    "textColor": "white",
+    "description": "Scan NFC tags to play sounds on the wand — each tag triggers its own sound. Teachers set up which tags play which sounds in advance.",
+    "beta": false
+  },
+  {
     "id": "Stop",
     "label": "Stop",
     "bgColor": "#eba76f",
     "icon": "square",
     "textColor": "white",
-    "description": "Stops whatever activity the plushies are doing and returns them to rest mode. The lights go back to their gentle glow, ready for the next activity.",
-    "beta": false
-  },
-  {
-    "id": "Off",
-    "label": "Hibernate",
-    "bgColor": "#8a8a8a",
-    "icon": "power-off",
-    "textColor": "white",
-    "description": "Puts plushies to sleep to save battery when not in use. The red lights flash as a warning - hold the button to keep it awake, or let it go to sleep. Press the button again later to wake it back up.",
+    "description": "Stops whatever game the wands are running and returns them to idle mode.",
     "beta": false
   }
 ]
