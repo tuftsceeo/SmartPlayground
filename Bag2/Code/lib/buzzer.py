@@ -25,6 +25,7 @@ NOTE_FREQ = {
     "noteg": 392,
     "notea": 440,
     "noteb": 494,
+    "notechigh": 523,
 }
 
 

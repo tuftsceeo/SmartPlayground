@@ -8,7 +8,7 @@ Triggers: buttondown, buttonup, shake
 Actions:  playnote, notea-g, turnred/green/blue/purple/yellow/white/off,
           cat, chicken, cow, dog, pig, duck, elephant, horse, goat
 Combinators: and, then
-Controls: start, stop, colorquest, freezedance, jumpin, cooking, melody
+Controls: start, stop, plus game tags (see lib/game_tags.py)
 Utility: battery
 """
 
@@ -22,7 +22,7 @@ from pn532 import PN532
 from lis2dw12 import LIS2DW12, RANGE_4G
 from max17048 import MAX17048
 
-from leds import Leds, TRIGGER_ORDER
+from leds import Leds, TRIGGER_ORDER, battery_color, WHITE, OFF
 from buzzer import Buzzer
 from nfc_reader import NfcReader
 from actions import ActionRunner, ACTIONS, ANIMAL_SOUNDS, ACTION_RESOURCE, resolve_and_group, chain_to_str
@@ -33,6 +33,16 @@ from freeze_dance import play as play_freeze_dance
 from jumpin import play as play_jumpin
 from cooking import play as play_cooking
 from melody import play as play_melody
+from shake import play as play_shake
+from shake_rainbow import play as play_shake_rainbow
+from rainbow import play as play_rainbow
+from jump import play as play_jump
+from sound import play as play_sound
+from nfc_sound import play as play_nfc_sound
+from simpleicecream import play as play_simpleicecream
+from multiicecream import play as play_multiicecream
+from gestures import play as play_gestures
+from game_tags import GAME_TAGS, CONTROL_TAGS
 import brightness
 
 # ─────────────────────────────────────────────
@@ -51,7 +61,7 @@ PN532_ADDR   = 0x24
 # ─────────────────────────────────────────────
 FIXED_TRIGGERS = {"buttondown", "buttonup", "shake"}
 COMBINATORS    = {"and", "then"}
-CONTROLS       = {"start", "stop", "colorquest", "freezedance", "jumpin", "cooking", "melody"}
+CONTROLS       = GAME_TAGS | CONTROL_TAGS
 UTILITY        = {"battery"}
 ALL_COMMANDS   = FIXED_TRIGGERS | ACTIONS | ANIMAL_SOUNDS | COMBINATORS | CONTROLS | UTILITY
 
@@ -62,17 +72,19 @@ ALL_COMMANDS   = FIXED_TRIGGERS | ACTIONS | ANIMAL_SOUNDS | COMBINATORS | CONTRO
 # `play(...)` entry point. To add a new game named "yourgame":
 #
 #   1. Create `Wand Module/yourgame.py` exposing
-#      `def play(nfc, leds, buz, accel, ...): ...` returning when the
-#      "stop" NFC tag is scanned.
+#      `def play(nfc, leds, buz, accel, i2c, enow): ...` returning when
+#      "stop" NFC tag or ESP-NOW stop is received (poll enow every loop).
 #   2. Add the line `from yourgame import play as play_yourgame` near
 #      the existing `play_jumpin` import at the top of this file.
-#   3. Add the tag name `"yourgame"` to the CONTROLS set below.
+#   3. Add the tag name `"yourgame"` to GAME_TAGS in lib/game_tags.py.
 #   4. In the main control-dispatch block (search for the existing
 #      `cmd == "jumpin"` branch), add a parallel branch that calls
-#      `play_yourgame(...)` with the hardware refs the game needs.
-#   5. The teacher prints an NFC tag whose NDEF text payload is
+#      `play_yourgame(nfc, leds, buz, accel, i2c, enow)`.
+#   5. In yourgame.py, union EXIT_TAGS into COMMANDS and exit when
+#      `cmd in EXIT_TAGS` so kids can switch games via any game tag.
+#   6. The teacher prints an NFC tag whose NDEF text payload is
 #      `yourgame`. Tapping it from idle enters the game; tapping the
-#      `stop` tag from within the game returns to programming mode.
+#      `stop` tag or another game tag exits back to programming mode.
 #
 # See `jumpin.py` for the simplest possible example and
 # `freeze_dance.py` for a more complete game (ESP-NOW messaging,
@@ -142,12 +154,12 @@ def print_rules(rules, editing):
 # ─────────────────────────────────────────────
 # CHECK BROADCAST (used in multiple places)
 # ─────────────────────────────────────────────
-def check_broadcast(mgr, batt_ref, leds_ref, buz_ref):
+def check_broadcast(enow, batt_ref, leds_ref, buz_ref):
     """
     Poll ESP-NOW for broadcast stop/battery.
     Returns "stop" if stop received, "battery" if battery shown, None otherwise.
     """
-    msg_type, data, mac_str = mgr.poll()
+    msg_type, data, mac_str = enow.poll()
     if msg_type == "stop":
         return "stop"
     if msg_type == "battery":
@@ -170,7 +182,7 @@ def show_idle(last_soc, idle_frame):
 # ─────────────────────────────────────────────
 # EVENT LOOP (RUNNING)
 # ─────────────────────────────────────────────
-def run_event_loop(reader, rules, runner, accel_ref, mgr=None, batt_ref=None):
+def run_event_loop(reader, rules, runner, accel_ref, enow=None, batt_ref=None):
     btn_was_down = (btn.value() == 0)
     if accel_ref and "shake" in rules:
         accel_ref.clear_wake()
@@ -210,11 +222,11 @@ def run_event_loop(reader, rules, runner, accel_ref, mgr=None, batt_ref=None):
             runner.run_chain(chain)
 
         # ESP-NOW broadcast check
-        if mgr and mgr.is_active:
+        if enow and enow.is_active:
             espnow_cnt += 1
             if espnow_cnt >= 5:
                 espnow_cnt = 0
-                result = check_broadcast(mgr, batt_ref, leds, buz)
+                result = check_broadcast(enow, batt_ref, leds, buz)
                 if result == "stop":
                     return
                 if result == "battery":
@@ -242,11 +254,13 @@ def main():
     print("  Hub type: %s" % HUB_TYPE)
     print("=" * 50)
 
-    # NOTE: leds.boot_power() already called at module level
-    # LED 0 is already white — user sees instant power confirmation
+    # NOTE: leds.boot_power() was already called at module level — LED 0 is dim white.
+    # Turning it green here confirms that main() was reached and imports succeeded.
+    # If an import fails before main() runs, LED 0 stays dim white permanently.
+    leds.boot_stage_ok(0)
 
-    # ── BOOT STEP 2: Battery check ──
-    # ── Brightness calibration from ambient light ──
+    # ── Stage 1: Brightness calibration (OPT3002) ──
+    leds.boot_stage_start(1)
     try:
         from opt3002 import OPT3002
         light = OPT3002(i2c)
@@ -254,41 +268,59 @@ def main():
         m, lux = brightness.calibrate(light)
         if lux is not None:
             print("  Light: %.0f lux -> brightness x%.2f" % (lux, m))
+            # Build a 1-4 LED bar in WHITE_DIM representing ambient light level.
+            if lux < 200:    lit = 1   # very dim indoor
+            elif lux < 600:  lit = 2   # typical indoor
+            elif lux < 8000: lit = 3   # bright indoor / overcast outdoor
+            else:            lit = 4   # outdoor / direct light
+            row = [WHITE if i < lit else OFF for i in range(4)]
+            leds.boot_stage_ok(1, row_colors=row)
         else:
             print("  Light: sensor reads failed, brightness x%.2f" % m)
+            leds.boot_stage_warn(1)
     except Exception as e:
         print("  [WARN] OPT3002: %s — brightness x1.00" % e)
-        
+        leds.boot_stage_warn(1)
+
+    # ── Stage 2: Battery gauge (MAX17048) ──
+    leds.boot_stage_start(2)
     batt = None
-    last_soc = 100  # default if no battery gauge
+    last_soc = 100
     try:
         batt = MAX17048(i2c)
         v, s = batt.read_all()
         last_soc = max(0, min(100, int(s)))
         print("  Battery: %.2fV, %.1f%%" % (v, s))
+        # Build a 1-4 LED bar in battery_color proportional to SOC.
+        lit = max(1, round(last_soc / 100 * 4))
+        batt_col = battery_color(last_soc)
+        row = [batt_col if i < lit else OFF for i in range(4)]
+        leds.boot_stage_ok(2, row_colors=row, row_flash=5 if last_soc <= 10 else 0)
     except Exception as e:
         print("  [WARN] Battery:"); sys.print_exception(e)
+        leds.boot_stage_warn(2)
 
-    # Show battery level on LEDs 0 + 1
-    leds.boot_battery(last_soc)
-    time.sleep_ms(300)  # brief pause so user sees the color
-
-    # NFC
+    # ── Stage 3: NFC init (fatal on failure) ──
+    leds.boot_stage_start(3)
     nfc = PN532(i2c, PN532_ADDR)
     try:
         ic, ver, rev = nfc.begin()
         print("  PN5%02X fw %d.%d -- NFC ready" % (ic, ver, rev))
+        leds.boot_stage_ok(3)
     except Exception as e:
-        print("  [FAIL] NFC:"); sys.print_exception(e); return
+        print("  [FAIL] NFC:"); sys.print_exception(e)
+        leds.boot_stage_fail(3)
+        return
 
     reader = NfcReader(nfc, ALL_COMMANDS)
     runner = ActionRunner(leds, buz)
 
-    # ESP-NOW
-    mgr = ESPNowManager()
-    mgr.init()
+    # ESP-NOW init — no LED stage, not hardware on the wand itself
+    enow = ESPNowManager()
+    enow.init()
 
-    # ── Accelerometer ──
+    # ── Stage 4: Accelerometer ──
+    leds.boot_stage_start(4)
     accel = None
     accel_ok = False
     try:
@@ -296,32 +328,26 @@ def main():
         accel.init(fs_range=RANGE_4G)
         accel_ok = True
         print("  Accelerometer OK")
+        leds.boot_stage_ok(4)
     except Exception as e:
         print("  [WARN] Accel:"); sys.print_exception(e)
+        leds.boot_stage_warn(4)
 
-    # Accelerometer wake-up interrupt is enabled here, separately from the basic
-    # accel init above, because any code that performs a soft-reset on the
-    # LIS2DW12 (writing 0x40 to CTRL2) will clear CTRL4_INT1, CTRL7, and
-    # WAKE_UP_THS. If those are configured before such a reset, the shake
-    # trigger will silently stop working (INT1 stays low forever).
-    #
-    # No code currently in the wand performs that reset, but teacher-authored
-    # code (loaded via the jumpin hook) might in the future. Keeping wake-up
-    # enable as a final, separate step makes future-added soft-resets safe by
-    # default.
+    # Wake-up interrupt is a separate step — if it fails, sleep-on-movement
+    # is disabled. Downgrade stage 4 to amber to reflect the degraded state.
     if accel_ok:
         try:
             accel.enable_wake_int1(threshold=8)
             print("  Accel wake-up (INT1) armed")
         except Exception as e:
             print("  [WARN] Accel wake:"); sys.print_exception(e)
+            accel_ok = False
+            leds.boot_stage_warn(4)
 
-    # ── BOOT STEP 3: All init complete — LED 2 on ──
-    leds.boot_ready(last_soc)
     print("  Boot complete — all systems OK")
-    time.sleep_ms(800)  # hold boot display so user can read it
+    time.sleep_ms(1500)  # hold boot bar so it can be read before idle takes over
 
-    # Transition to idle display
+    # Transition to idle
     leds.off()
     time.sleep_ms(100)
 
@@ -349,9 +375,9 @@ def main():
                 leds.idle_sleep()  # static blue dot
 
                 # Check ESP-NOW broadcasts while sleeping
-                result = check_broadcast(mgr, batt, leds, buz)
+                result = check_broadcast(enow, batt, leds, buz)
                 if result == "stop":
-                    mgr.send_stop_all_peers(); mgr.clear_peers()
+                    enow.send_stop_all_peers(); enow.clear_peers()
                     rules = {}; editing = None; pending_combinator = None
                     buz.stop()
                     nfc_sleeping = False
@@ -411,9 +437,9 @@ def main():
                     last_uid = None
 
                 # Check broadcast while idle
-                result = check_broadcast(mgr, batt, leds, buz)
+                result = check_broadcast(enow, batt, leds, buz)
                 if result == "stop":
-                    mgr.send_stop_all_peers(); mgr.clear_peers()
+                    enow.send_stop_all_peers(); enow.clear_peers()
                     rules = {}; editing = None; pending_combinator = None
                     buz.stop()
                     last_activity_ms = time.ticks_ms()
@@ -466,7 +492,7 @@ def main():
             # ── COLOR QUEST ──
             if cmd == "colorquest":
                 leds.off()
-                play_color_quest(nfc, leds, buz, accel, i2c)
+                play_color_quest(nfc, leds, buz, accel, i2c, enow)
                 last_activity_ms = time.ticks_ms()
                 idle_frame = 0
                 show_idle(last_soc, 0); last_uid = None; continue
@@ -474,7 +500,7 @@ def main():
             # ── FREEZE DANCE ──
             if cmd == "freezedance":
                 leds.off()
-                play_freeze_dance(nfc, leds, buz, accel, i2c)
+                play_freeze_dance(nfc, leds, buz, accel, i2c, enow)
                 last_activity_ms = time.ticks_ms()
                 idle_frame = 0
                 show_idle(last_soc, 0); last_uid = None; continue
@@ -482,7 +508,15 @@ def main():
             # ── JUMP IN ──
             if cmd == "jumpin":
                 leds.off()
-                play_jumpin(nfc, leds, buz, accel, i2c)
+                play_jumpin(nfc, leds, buz, accel, i2c, enow)
+                last_activity_ms = time.ticks_ms()
+                idle_frame = 0
+                show_idle(last_soc, 0); last_uid = None; continue
+
+            # ── GESTURES ──
+            if cmd == "gestures":
+                leds.off()
+                play_gestures(nfc, leds, buz, accel, i2c, enow)
                 last_activity_ms = time.ticks_ms()
                 idle_frame = 0
                 show_idle(last_soc, 0); last_uid = None; continue
@@ -490,7 +524,7 @@ def main():
             # ── COOKING ──
             if cmd == "cooking":
                 leds.off()
-                play_cooking(nfc, leds, buz, accel, i2c)
+                play_cooking(nfc, leds, buz, accel, i2c, enow)
                 last_activity_ms = time.ticks_ms()
                 idle_frame = 0
                 show_idle(last_soc, 0); last_uid = None; continue
@@ -498,15 +532,79 @@ def main():
             # ── MELODY ──
             if cmd == "melody":
                 leds.off()
-                play_melody(nfc, leds, buz, accel, i2c)
+                play_melody(nfc, leds, buz, accel, i2c, enow)
+                last_activity_ms = time.ticks_ms()
+                idle_frame = 0
+                show_idle(last_soc, 0); last_uid = None; continue
+
+            # ── SHAKE ──
+            if cmd == "shake":
+                leds.off()
+                play_shake(nfc, leds, buz, accel, i2c, enow)
+                last_activity_ms = time.ticks_ms()
+                idle_frame = 0
+                show_idle(last_soc, 0); last_uid = None; continue
+
+            # ── SHAKE RAINBOW ──
+            if cmd == "shakerainbow":
+                leds.off()
+                play_shake_rainbow(nfc, leds, buz, accel, i2c, enow)
+                last_activity_ms = time.ticks_ms()
+                idle_frame = 0
+                show_idle(last_soc, 0); last_uid = None; continue
+
+            # ── RAINBOW ──
+            if cmd == "rainbow":
+                leds.off()
+                play_rainbow(nfc, leds, buz, accel, i2c, enow, batt)
+                last_activity_ms = time.ticks_ms()
+                idle_frame = 0
+                show_idle(last_soc, 0); last_uid = None; continue
+
+            # ── JUMP (freefall counter) ──
+            if cmd == "jump":
+                leds.off()
+                play_jump(nfc, leds, buz, accel, i2c, enow)
+                last_activity_ms = time.ticks_ms()
+                idle_frame = 0
+                show_idle(last_soc, 0); last_uid = None; continue
+
+            # ── SOUND (bell choir) ──
+            if cmd == "sound":
+                leds.off()
+                play_sound(nfc, leds, buz, accel, i2c, enow)
+                last_activity_ms = time.ticks_ms()
+                idle_frame = 0
+                show_idle(last_soc, 0); last_uid = None; continue
+
+            # ── NFC SOUND ──
+            if cmd == "nfcsound":
+                leds.off()
+                play_nfc_sound(nfc, leds, buz, accel, i2c, enow)
+                last_activity_ms = time.ticks_ms()
+                idle_frame = 0
+                show_idle(last_soc, 0); last_uid = None; continue
+
+            # ── SIMPLE ICE CREAM ──
+            if cmd == "simpleicecream":
+                leds.off()
+                play_simpleicecream(nfc, leds, buz, accel, i2c, enow)
+                last_activity_ms = time.ticks_ms()
+                idle_frame = 0
+                show_idle(last_soc, 0); last_uid = None; continue
+
+            # ── MULTI ICE CREAM ──
+            if cmd == "multiicecream":
+                leds.off()
+                play_multiicecream(nfc, leds, buz, accel, i2c, enow)
                 last_activity_ms = time.ticks_ms()
                 idle_frame = 0
                 show_idle(last_soc, 0); last_uid = None; continue
 
             # ── STOP ──
             if cmd == "stop":
-                if mgr and mgr.is_active:
-                    mgr.send_stop_all_peers(); mgr.clear_peers()
+                if enow and enow.is_active:
+                    enow.send_stop_all_peers(); enow.clear_peers()
                 rules = {}; editing = None; pending_combinator = None
                 buz.stop()
                 last_activity_ms = time.ticks_ms()
@@ -524,7 +622,7 @@ def main():
                 print("  ── RUNNING ──")
                 leds.show_running(rules)
                 buz.beep(800, 60); time.sleep_ms(30); buz.beep(1200, 80)
-                run_event_loop(reader, rules, runner, accel, mgr, batt)
+                run_event_loop(reader, rules, runner, accel, enow, batt)
                 print("  ── STOPPED ──")
                 rules = {}; editing = None; pending_combinator = None
                 last_activity_ms = time.ticks_ms()
@@ -600,3 +698,4 @@ def main():
 
 
 main()
+

@@ -32,70 +32,178 @@ TRIGGER_ORDER = ["buttondown", "buttonup", "shake"]
 # ══════════════════════════════════════════════
 # COLOR PALETTE — outdoor-tuned, brightness module scales them
 # ══════════════════════════════════════════════
-# Single-channel colors at ~78% of max (200/255). White at ~55% per channel
-# so total current draw stays comparable to two-channel colors. Nothing
-# hits 255 — headroom prevents premature LED wear and lets brightness
-# scaling reach 100% in sun without saturating.
+# White at ~55% per channel so total current draw stays comparable to 
+# two-channel colors.
+#
+# BLUE is pushed harder because the blue NeoPixel die is the weakest of
+# the three; a "balanced" 200 looks visibly darker than 200-red or 200-green.)
+#
+# Values were tuned by-eye against the actual hardware, not by sRGB math:
 OFF      = (0, 0, 0)
-RED      = (200, 0,   0)
-GREEN    = (0,   200, 0)
-BLUE     = (0,   0,   200)
-YELLOW   = (200, 200, 0)
-AMBER    = (200, 100, 0)
-ORANGE   = (220, 80,  0)
-PURPLE   = (180, 0,   180)
-MAGENTA  = (200, 0,   120)
-CYAN     = (0,   200, 200)
-TEAL     = (0,   150, 150)
-WHITE    = (140, 140, 140)
-PINK     = (200, 80,  120)
+BLACK      = (0, 0, 0)
 
-# Dim variants (~25% brightness) for backgrounds / status indicators
-RED_DIM    = (40, 0,  0)
-GREEN_DIM  = (0,  40, 0)
-BLUE_DIM   = (0,  0,  40)
-YELLOW_DIM = (40, 40, 0)
-WHITE_DIM  = (30, 30, 30)
-ORANGE_DIM = (44, 16, 0)
-PINK_DIM   = (40, 16, 24)
-AMBER_DIM  = (40, 20, 0)
-PURPLE_DIM = (36, 0,  36)
+RED      = (130, 0, 0)
+ROSE     = (120, 10, 20)
+
+ORANGE   = (120, 40, 0)
+AMBER    = (120, 80, 0)
+YELLOW   = (110, 120, 0)
+
+LIME     = (50, 210, 0)
+GREEN    = (0, 230, 0)
+
+TEAL     = (0, 180, 100)
+CYAN     = (0, 180, 240)
+BLUE     = (0, 20, 255)
+
+INDIGO   = (30, 0, 255)
+PURPLE   = (50, 0, 250)
+MAGENTA  = (120, 0, 160)
+
+WHITE    = (140, 150, 150)
+PINK     = (200, 80,  120)   # pale
+PEACH    = (180, 120, 30)    # pale orange
+MINT     = (30,  190, 50)    # pale green
+SKY      = (60,   150, 250)  # pale blue
+
+# Dim variants (~50% of base) for backgrounds / status indicators.
+# Nonzero channels use max(20, half of base) so at indoor MULTIPLIER (0.05)
+# each intended channel still rounds to at least 1 after scaling.
+RED_DIM     = (65, 0,   0)
+GREEN_DIM   = (0,  115, 0)
+BLUE_DIM    = (0,  20,  127)
+YELLOW_DIM  = (55, 60,  0)
+WHITE_DIM   = (70, 75,  75)
+ORANGE_DIM  = (60, 20,  0)
+AMBER_DIM   = (60, 40,  0)
+PINK_DIM    = (100, 40,  60)
+PURPLE_DIM  = (25, 0,   125)
 
 # ══════════════════════════════════════════════
 # 5×5 GRID SHAPES — LED index lists
 # ══════════════════════════════════════════════
-# Grid layout (LED indices on the wand's 5×5 NeoPixel matrix):
+# Grid layout:
 #    0  1  2  3  4
 #    5  6  7  8  9
 #   10 11 12 13 14
 #   15 16 17 18 19
 #   20 21 22 23 24
-#
-# Use with leds.show_shape(indices, color) — lights only the listed
-# indices in `color`, leaves the rest off (or set bg=).
 
-SHAPE_SAD_FACE   = (6, 8, 16, 17, 18, 20, 24)
-SHAPE_HAPPY_FACE = (6, 8, 15, 19, 21, 22, 23)
-SHAPE_NEUTRAL    = (6, 8, 21, 22, 23)
-SHAPE_X          = (0, 4, 6, 8, 12, 16, 18, 20, 24)
-SHAPE_PLUS       = (2, 7, 10, 11, 12, 13, 14, 17, 22)
-SHAPE_HEART      = (6, 8, 11, 12, 13, 17, 22)
-SHAPE_CHECK      = (4, 9, 14, 18, 22, 16, 10)
-SHAPE_PLAY       = (1, 6, 7, 11, 12, 13, 16, 17, 21)   # right-pointing triangle (play button)
-SHAPE_DANCER     = (2, 7, 10, 11, 12, 13, 14, 17, 21, 23)  # stick figure: head, arms out, legs spread
-SHAPE_ARROW_UP   = (2, 6, 7, 8, 12, 17, 22)
-SHAPE_ARROW_DOWN = (2, 7, 12, 16, 17, 18, 22)
-SHAPE_ARROW_LEFT = (10, 6, 11, 16, 12, 13, 14)
-SHAPE_ARROW_RIGHT = (14, 8, 13, 18, 10, 11, 12)
-SHAPE_BORDER     = (0, 1, 2, 3, 4, 5, 9, 10, 14, 15, 19, 20, 21, 22, 23, 24)
-SHAPE_INNER_3x3  = (6, 7, 8, 11, 12, 13, 16, 17, 18)
-SHAPE_CORNERS    = (0, 4, 20, 24)
-SHAPE_CENTER     = (12,)
-SHAPE_TOP_ROW    = (0, 1, 2, 3, 4)
-SHAPE_BOT_ROW    = (20, 21, 22, 23, 24)
-SHAPE_LEFT_COL   = (0, 5, 10, 15, 20)
-SHAPE_RIGHT_COL  = (4, 9, 14, 19, 24)
+# Numbers
+SHAPE_0                  = (2, 3, 6, 9, 11, 14, 16, 19, 22, 23)
+SHAPE_1                  = (2, 3, 8, 13, 18, 23)
+SHAPE_2                  = (2, 3, 6, 9, 13, 17, 21, 22, 23, 24)
+SHAPE_3                  = (1, 2, 3, 4, 9, 12, 13, 14, 19, 21, 22, 23, 24)
+SHAPE_4                  = (1, 4, 6, 9, 11, 12, 13, 14, 19, 24)
+SHAPE_5                  = (2, 3, 4, 6, 11, 12, 13, 14, 19, 21, 22, 23, 24)
+SHAPE_6                  = (1, 2, 3, 4, 6, 11, 12, 13, 14, 16, 19, 21, 22, 23, 24)
+SHAPE_7                  = (1, 2, 3, 4, 9, 13, 17, 21)
+SHAPE_8                  = (1, 2, 3, 4, 6, 9, 12, 13, 16, 19, 21, 22, 23, 24)
+SHAPE_9                  = (1, 2, 3, 4, 6, 9, 11, 12, 13, 14, 19, 21, 22, 23, 24)
 
+# Letters
+SHAPE_A                  = (0, 1, 2, 3, 4, 5, 9, 10, 11, 12, 13, 14, 15, 19, 20, 24)
+SHAPE_B                  = (0, 1, 2, 3, 5, 9, 10, 11, 12, 13, 14, 15, 19, 20, 21, 22, 23)
+SHAPE_C                  = (1, 2, 3, 5, 10, 15, 21, 22, 23)
+SHAPE_D                  = (0, 1, 2, 3, 5, 9, 10, 14, 15, 19, 20, 21, 22, 23)
+SHAPE_E                  = (0, 1, 2, 3, 4, 5, 10, 11, 12, 13, 15, 20, 21, 22, 23, 24)
+SHAPE_F                  = (0, 1, 2, 3, 4, 5, 10, 11, 12, 13, 15, 20)
+SHAPE_G                  = (1, 2, 3, 5, 10, 13, 14, 15, 19, 21, 22, 23, 24)
+SHAPE_H                  = (1, 4, 6, 9, 11, 12, 13, 14, 16, 19, 21, 24)
+SHAPE_I                  = (1, 2, 3, 7, 12, 17, 21, 22, 23)
+SHAPE_J                  = (1, 2, 3, 4, 8, 13, 16, 18, 21, 22, 23)
+SHAPE_K                  = (0, 3, 5, 7, 10, 11, 15, 17, 20, 23)
+SHAPE_L                  = (0, 5, 10, 15, 20, 21, 22, 23)
+SHAPE_M                  = (0, 4, 5, 6, 8, 9, 10, 12, 14, 15, 19, 20, 24)
+SHAPE_N                  = (0, 4, 5, 6, 9, 10, 12, 14, 15, 18, 19, 20, 24)
+SHAPE_O                  = (0, 1, 2, 3, 4, 5, 9, 10, 14, 15, 19, 20, 21, 22, 23, 24)
+SHAPE_P                  = (0, 1, 2, 3, 4, 5, 9, 10, 11, 12, 13, 14, 15, 20)
+SHAPE_Q                  = (1, 2, 3, 5, 9, 10, 14, 15, 18, 21, 22, 24)
+SHAPE_R                  = (0, 1, 2, 3, 5, 9, 10, 14, 15, 16, 17, 18, 20, 24)
+SHAPE_S                  = (0, 1, 2, 3, 4, 5, 10, 11, 12, 13, 14, 19, 20, 21, 22, 23, 24)
+SHAPE_T                  = (0, 1, 2, 3, 4, 7, 12, 17, 22)
+SHAPE_U                  = (0, 4, 5, 9, 10, 14, 15, 19, 21, 22, 23)
+SHAPE_V                  = (0, 4, 5, 9, 11, 13, 16, 18, 22)
+SHAPE_W                  = (0, 4, 5, 9, 10, 12, 14, 15, 17, 19, 20, 21, 23, 24)
+SHAPE_X                  = (0, 4, 6, 8, 12, 16, 18, 20, 24)
+SHAPE_Y                  = (0, 4, 6, 8, 12, 17, 22)
+SHAPE_Z                  = (0, 1, 2, 3, 4, 8, 12, 16, 20, 21, 22, 23, 24)
+
+# Symbols
+SHAPE_QUESTION           = (1, 2, 5, 8, 12, 22)
+SHAPE_EXCLAIM            = (2, 7, 12, 22)
+SHAPE_PLUS               = (2, 7, 10, 11, 12, 13, 14, 17, 22)
+SHAPE_DIAMOND            = (2, 6, 7, 8, 10, 11, 12, 13, 14, 16, 17, 18, 22)
+SHAPE_POWER              = (2, 6, 8, 10, 14, 16, 18, 22)
+SHAPE_HEART              = (1, 3, 5, 6, 8, 9, 10, 11, 12, 13, 14, 16, 17, 18, 22)
+SHAPE_CHECK              = (9, 13, 15, 17, 21)
+SHAPE_LIGHTNING          = (1, 6, 7, 12, 17, 18, 23)
+SHAPE_MUSIC              = (2, 3, 7, 12, 15, 16, 17, 20, 21, 22)
+SHAPE_HOUSE              = (2, 6, 7, 8, 10, 11, 12, 13, 14, 15, 17, 19, 20, 21, 22, 23, 24)
+SHAPE_TREE               = (2, 6, 7, 8, 11, 12, 13, 17, 22)
+SHAPE_HOURGLASS          = (0, 1, 2, 3, 4, 6, 8, 12, 16, 18, 20, 21, 22, 23, 24)
+SHAPE_MOON               = (2, 3, 4, 6, 7, 11, 12, 16, 17, 22, 23, 24)
+SHAPE_STAR               = (2, 5, 7, 9, 11, 12, 13, 15, 17, 19, 22)
+SHAPE_RAINDROP           = (2, 6, 8, 10, 14, 15, 19, 21, 22, 23)
+SHAPE_FLAME              = (2, 6, 7, 8, 10, 12, 14, 15, 17, 19, 21, 22, 23)
+SHAPE_CHECKERS           = (0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24)
+SHAPE_SPIRAL             = (0, 1, 2, 3, 5, 8, 12, 16, 19, 21, 22, 23, 24)
+SHAPE_FISH               = (2, 6, 7, 9, 10, 12, 13, 14, 16, 17, 19, 22)
+SHAPE_BIRD               = (5, 6, 8, 9, 11, 12, 13, 17)
+SHAPE_PACMAN             = (1, 2, 3, 4, 5, 7, 8, 10, 11, 12, 15, 16, 17, 18, 21, 22, 23, 24)
+SHAPE_INVADER            = (1, 3, 5, 6, 7, 8, 9, 11, 12, 13, 16, 18, 20, 24)
+SHAPE_GHOST              = (1, 2, 3, 5, 7, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24)
+
+# Media / UI
+SHAPE_PLAY               = (1, 6, 7, 11, 12, 13, 16, 17, 21)
+SHAPE_PAUSE              = (1, 3, 6, 8, 11, 13, 16, 18, 21, 23)
+SHAPE_RECTANGLE          = (5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19)
+SHAPE_FASTFORWARD        = (5, 8, 10, 11, 13, 14, 15, 18)
+SHAPE_REWIND             = (6, 9, 10, 11, 13, 14, 16, 19)
+SHAPE_WIFI               = (1, 2, 3, 5, 6, 8, 9, 16, 17, 18, 20, 21, 23, 24)
+SHAPE_POINTER            = (0, 5, 6, 10, 11, 12, 15, 16, 20)
+SHAPE_BULLSEYE           = (1, 2, 3, 5, 9, 10, 12, 14, 15, 19, 21, 22, 23)
+
+SHAPE_BATTERY_FULL  = (2, 6, 7, 8, 11, 12, 13, 16, 17, 18, 21, 22, 23)
+SHAPE_BATTERY_HALF  = (2, 6, 8, 11, 13, 16, 17, 18, 21, 22, 23)
+SHAPE_BATTERY_EMPTY = (2, 6, 8, 11, 13, 16, 18, 21, 22, 23)
+
+# Characters
+SHAPE_DANCER1            = (1, 5, 6, 7, 11, 16, 17, 20, 22)
+SHAPE_DANCER2            = (2, 6, 7, 8, 12, 17, 21, 23)
+SHAPE_DANCER3            = (3, 7, 8, 9, 13, 17, 18, 22, 24)
+SHAPE_SAD_FACE           = (6, 8, 16, 17, 18, 20, 24)
+SHAPE_HAPPY_FACE         = (6, 8, 15, 19, 21, 22, 23)
+SHAPE_NEUTRAL_FACE       = (6, 8, 21, 22, 23)
+SHAPE_SL_FACE            = (5, 8, 15, 21, 22, 23)
+SHAPE_ANGRY_FACE         = (0, 4, 6, 8, 21, 22, 23)
+SHAPE_SLEEPY_FACE        = (5, 6, 8, 9, 15, 19, 21, 22, 23)
+
+# Arrows
+SHAPE_ARROW_UP           = (2, 6, 7, 8, 10, 11, 12, 13, 14, 17, 22)
+SHAPE_ARROW_DN           = (2, 7, 10, 11, 12, 13, 14, 16, 17, 18, 22)
+SHAPE_ARROW_L            = (2, 6, 7, 10, 11, 12, 13, 14, 16, 17, 22)
+SHAPE_ARROW_R            = (2, 7, 8, 10, 11, 12, 13, 14, 17, 18, 22)
+SHAPE_DIAG_L             = (0, 5, 6, 10, 11, 12, 15, 16, 17, 18, 20, 21, 22, 23, 24)
+SHAPE_DIAG_R             = (4, 8, 9, 12, 13, 14, 16, 17, 18, 19, 20, 21, 22, 23, 24)
+
+# Utility
+SHAPE_BORDER             = (0, 1, 2, 3, 4, 5, 9, 10, 14, 15, 19, 20, 21, 22, 23, 24)
+SHAPE_INNER_3x3          = (6, 7, 8, 11, 12, 13, 16, 17, 18)
+SHAPE_CORNERS            = (0, 4, 20, 24)
+SHAPE_CENTER             = (12,)
+SHAPE_TOP_ROW            = (0, 1, 2, 3, 4)
+SHAPE_ROW2               = (5, 6, 7, 8, 9)
+SHAPE_ROW3               = (10, 11, 12, 13, 14)
+SHAPE_ROW4               = (15, 16, 17, 18, 19)
+SHAPE_BOT_ROW            = (20, 21, 22, 23, 24)
+SHAPE_LEFT_COL           = (0, 5, 10, 15, 20)
+SHAPE_COL2               = (1, 6, 11, 16, 21)
+SHAPE_COL3               = (2, 7, 12, 17, 22)
+SHAPE_COL4               = (3, 8, 13, 18, 23)
+SHAPE_RIGHT_COL          = (4, 9, 14, 19, 24)
+SHAPE_SLASH_L            = (0, 6, 12, 18, 24)
+SHAPE_SLASH_R            = (4, 8, 12, 16, 20)
 
 TRIGGER_LED = {"buttondown": 0, "buttonup": 1, "shake": 2}
 
@@ -129,6 +237,16 @@ INNER_RING = [6, 7, 8, 11, 12, 13, 16, 17, 18]
 BOOT_LED_POWER  = 0
 BOOT_LED_BATT   = 1
 BOOT_LED_READY  = 2
+
+# Row data LED indices for each boot stage (cols 1-4 of that stage's row).
+# Indexed by stage number, parallel to SHAPE_LEFT_COL (0, 5, 10, 15, 20).
+_BOOT_STAGE_DATA = (
+    ( 1,  2,  3,  4),   # stage 0: power / main() started
+    ( 6,  7,  8,  9),   # stage 1: brightness (OPT3002)
+    (11, 12, 13, 14),   # stage 2: battery (MAX17048)
+    (16, 17, 18, 19),   # stage 3: NFC
+    (21, 22, 23, 24),   # stage 4: accel
+)
 
 
 # ══════════════════════════════════════════════
@@ -197,13 +315,14 @@ def _is_sc(name):
 def battery_color(soc):
     """Return (r, g, b) for a given state-of-charge percentage."""
     if soc > 75:
-        return (0, 5, 0)       # green
+        # Keep nonzero channels >= 20 so indoor multiplier (0.05) still shows.
+        return (0, 120, 0)      # green
     elif soc > 30:
-        return (5, 2, 0)      # yellow
+        return (120, 80, 0)     # yellow
     elif soc > 10:
-        return (5, 0, 0)       # red
+        return (120, 0, 0)      # red
     else:
-        return (5, 0, 0)       # red (caller handles flashing for <10%)
+        return (120, 0, 0)      # red (caller handles flashing for <10%)
 
 
 class Leds:
@@ -277,6 +396,100 @@ class Leds:
                     self.np[idx] = color
         self.np.write()
 
+    def animate_dancer(self, frame, color, bg=OFF, frames_per_step=6):
+        """
+        Cycle through DANCER1, DANCER2, DANCER3 shapes based on frame count.
+        Call this each loop iteration to animate a dancing figure.
+
+        Example:
+            leds.animate_dancer(self._frame, PURPLE)
+        """
+        dancers = (SHAPE_DANCER1, SHAPE_DANCER2, SHAPE_DANCER3, SHAPE_DANCER2)
+        idx = (frame // frames_per_step) % len(dancers)
+        self.show_shape(dancers[idx], color, bg)
+
+
+    def animate_rows(self, frame, color, bg=OFF, frames_per_step=6):
+        """
+        Cycle through rows top-to-bottom: TOP_ROW, ROW2, ROW3, ROW4, BOT_ROW, repeat.
+
+        Example:
+            leds.animate_rows(self._frame, BLUE)
+        """
+        rows = (SHAPE_TOP_ROW, SHAPE_ROW2, SHAPE_ROW3, SHAPE_ROW4, SHAPE_BOT_ROW)
+        idx = (frame // frames_per_step) % len(rows)
+        self.show_shape(rows[idx], color, bg)
+
+    def animate_columns(self, frame, color, bg=OFF, frames_per_step=6):
+        """
+        Cycle through columns left-to-right: LEFT_COL, COL2, COL3, COL4, RIGHT_COL, repeat.
+
+        Example:
+            leds.animate_columns(self._frame, GREEN)
+        """
+        cols = (SHAPE_LEFT_COL, SHAPE_COL2, SHAPE_COL3, SHAPE_COL4, SHAPE_RIGHT_COL)
+        idx = (frame // frames_per_step) % len(cols)
+        self.show_shape(cols[idx], color, bg)
+
+    def animate_spin(self, frame, color, bg=OFF, frames_per_step=6):
+        """
+        Cycle through rotating bars: ROW3, SLASH_L, COL3, SLASH_R, repeat.
+        Creates a spinning-line effect through the center of the grid.
+
+        Example:
+            leds.animate_spin(self._frame, PURPLE)
+        """
+        spin = (SHAPE_ROW3, SHAPE_SLASH_L, SHAPE_COL3, SHAPE_SLASH_R)
+        idx = (frame // frames_per_step) % len(spin)
+        self.show_shape(spin[idx], color, bg)
+
+    def animate_grow(self, frame, color, bg=OFF, frames_per_step=6):
+        """
+        Expand outward: CENTER, INNER_3x3, BORDER, blank, repeat.
+        The "blank" step shows bg only (no foreground shape).
+
+        Example:
+            leds.animate_grow(self._frame, CYAN)
+        """
+        grow = (SHAPE_CENTER, SHAPE_INNER_3x3, SHAPE_BORDER, ())
+        idx = (frame // frames_per_step) % len(grow)
+        self.show_shape(grow[idx], color, bg)
+
+    def animate_shrink(self, frame, color, bg=OFF, frames_per_step=6):
+        """
+        Contract inward: BORDER, INNER_3x3, CENTER, blank, repeat.
+        The "blank" step shows bg only (no foreground shape).
+
+        Example:
+            leds.animate_shrink(self._frame, ORANGE)
+        """
+        shrink = (SHAPE_BORDER, SHAPE_INNER_3x3, SHAPE_CENTER, ())
+        idx = (frame // frames_per_step) % len(shrink)
+        self.show_shape(shrink[idx], color, bg)
+
+    def animate_arrow_spin(self, frame, color, bg=OFF, frames_per_step=6):
+        """
+        Rotate arrow direction: ARROW_UP, ARROW_L, ARROW_DN, ARROW_R, repeat.
+
+        Example:
+            leds.animate_arrow_spin(self._frame, YELLOW)
+        """
+        arrows = (SHAPE_ARROW_UP, SHAPE_ARROW_L, SHAPE_ARROW_DN, SHAPE_ARROW_R)
+        idx = (frame // frames_per_step) % len(arrows)
+        self.show_shape(arrows[idx], color, bg)
+
+    def animate_firework(self, frame, color, bg=OFF, frames_per_step=6):
+        """
+        Burst outward: CENTER, STAR, CORNERS, blank, repeat.
+        The "blank" step shows bg only (no foreground shape).
+
+        Example:
+            leds.animate_firework(self._frame, MAGENTA)
+        """
+        burst = (SHAPE_CENTER, SHAPE_STAR, SHAPE_CORNERS, ())
+        idx = (frame // frames_per_step) % len(burst)
+        self.show_shape(burst[idx], color, bg)
+
     def pulse_color(self, r, g, b, duration_ms=600):
         steps = 20
         for s in range(steps):
@@ -289,54 +502,153 @@ class Leds:
         bri = (math.sin(frame * 0.08) + 1) / 2
         self.solid(int(r * bri), int(g * bri), int(b * bri))
 
+    def breathe_shape(self, indices, color, frame, bg=OFF, speed=0.08, min_level=2):
+        """
+        Breathing animation for a shape. Sin-wave brightness scaling driven by frame counter.
+
+        speed: sin coefficient. Larger = faster breathing. Default 0.08 gives
+        a ~3.1s cycle at a 40ms loop. Try 0.16 for roughly twice as fast.
+
+        min_level: floor applied to each non-zero RGB channel of the foreground
+        color so the shape never fully disappears at the bottom of the breath.
+        The floor is applied per-channel and only to channels that are non-zero
+        in the source color, so a pure (R, 0, 0) still breathes as pure red.
+        """
+        bri = (math.sin(frame * speed) + 1) / 2
+        r = int(color[0] * bri)
+        g = int(color[1] * bri)
+        b = int(color[2] * bri)
+        if color[0] and r < min_level: r = min_level
+        if color[1] and g < min_level: g = min_level
+        if color[2] and b < min_level: b = min_level
+        self.show_shape(indices, (r, g, b), bg=bg)
+
+    def fade_shape(self, indices, color, duration_ms, bg=OFF):
+        """Blocking linear fade from full color to bg over duration_ms. Uses ~20 steps."""
+        steps = 20
+        if duration_ms <= 0:
+            self.show_shape(indices, bg, bg=bg)
+            return
+        step_ms = max(1, duration_ms // steps)
+        for s in range(steps, -1, -1):
+            scale = s / steps
+            self.show_shape(
+                indices,
+                (int(color[0] * scale), int(color[1] * scale), int(color[2] * scale)),
+                bg=bg
+            )
+            time.sleep_ms(step_ms)
+
     # ══════════════════════════════════════════
     # BOOT SEQUENCE LEDs
     # ══════════════════════════════════════════
 
     def boot_power(self):
         """
-        Step 1: Light LED 0 white immediately on power-up.
-        Called BEFORE I2C init, so MULTIPLIER may still be at the
-        default 1.0 — that's intentional, the boot LED uses a low
-        raw value (40) so it's comfortable indoors and dim outdoors.
+        Called at module level before I2C or main() runs.
+        Lights stage 0 (LED 0) dim white as the earliest possible power signal.
+        If main() never starts due to an import failure, this LED stays dim white.
+        boot_stage_ok(0) upgrades it to green once main() is actually reached.
         """
-        self.np[BOOT_LED_POWER] = (40, 40, 40)
+        self.np[SHAPE_LEFT_COL[0]] = WHITE
         self.np.write()
 
-    def boot_battery(self, soc):
-        """
-        Step 2: Show battery level on LEDs 0 and 1.
-        Green >75%, yellow 30-75%, red 10-30%, flashing red <10%.
-        For <10%: blinks 5 times (0.1s on, 0.1s off) then stays solid.
-        """
-        color = battery_color(soc)
+    def boot_stage_start(self, stage):
+        """Light the stage indicator dim white — init for this stage is beginning."""
+        if stage < len(SHAPE_LEFT_COL):
+            self.np[SHAPE_LEFT_COL[stage]] = WHITE
+            self.np.write()
 
+    def boot_stage_ok(self, stage, row_colors=None, row_flash=0):
+        """
+        Mark a boot stage green (success). Previously completed stages are unaffected.
+
+        row_colors: optional list of up to 4 color tuples for LEDs cols 1-4 of
+        the same row. Used to display analog data (battery level, brightness tier).
+        row_flash: if > 0 and row_colors provided, flash the row that many times
+        (100ms on / 100ms off) before settling. Used for low-battery warning.
+        """
+        if stage >= len(SHAPE_LEFT_COL):
+            return
+        self.np[SHAPE_LEFT_COL[stage]] = GREEN
+        if row_colors is not None:
+            row = _BOOT_STAGE_DATA[stage]
+            if row_flash > 0:
+                for _ in range(row_flash):
+                    for i, color in enumerate(row_colors):
+                        if i < len(row):
+                            self.np[row[i]] = color
+                    self.np.write()
+                    time.sleep_ms(100)
+                    for i in range(len(row_colors)):
+                        if i < len(row):
+                            self.np[row[i]] = OFF
+                    self.np.write()
+                    time.sleep_ms(100)
+            for i, color in enumerate(row_colors):
+                if i < len(row):
+                    self.np[row[i]] = color
+        self.np.write()
+
+    def boot_stage_warn(self, stage):
+        """
+        Mark a boot stage amber — non-fatal failure, system continues.
+        Row data for this stage is left empty. Previously completed stages are unaffected.
+        """
+        if stage < len(SHAPE_LEFT_COL):
+            self.np[SHAPE_LEFT_COL[stage]] = AMBER
+            self.np.write()
+
+    def boot_stage_fail(self, stage):
+        """
+        Mark a boot stage as a fatal failure. Flashes only that stage indicator
+        red twice, then holds red. Previously completed stage LEDs remain visible
+        so the failure point is clear.
+        """
+        if stage >= len(SHAPE_LEFT_COL):
+            return
+        led = SHAPE_LEFT_COL[stage]
+        for _ in range(2):
+            self.np[led] = RED
+            self.np.write()
+            time.sleep_ms(150)
+            self.np[led] = OFF
+            self.np.write()
+            time.sleep_ms(100)
+        self.np[led] = RED
+        self.np.write()
+
+    # ── Legacy 3-LED boot methods ─────────────────────────────────────────
+    # These are retained for standalone game entry points (jumpin.py, etc.)
+    # that call them directly. main.py uses boot_stage_* instead.
+
+    def boot_battery(self, soc):
+        """Legacy: show battery on LEDs 0-1. Use boot_stage_ok(2, row) instead."""
+        color = battery_color(soc)
         if soc <= 10:
             for _ in range(5):
                 self.np[BOOT_LED_POWER] = color
                 self.np[BOOT_LED_BATT] = color
                 self.np.write()
                 time.sleep_ms(100)
-                self.np[BOOT_LED_POWER] = (0, 0, 0)
-                self.np[BOOT_LED_BATT] = (0, 0, 0)
+                self.np[BOOT_LED_POWER] = OFF
+                self.np[BOOT_LED_BATT] = OFF
                 self.np.write()
                 time.sleep_ms(100)
-
         self.np[BOOT_LED_POWER] = color
         self.np[BOOT_LED_BATT] = color
         self.np.write()
 
     def boot_ready(self, soc):
-        """Step 3: All init complete — light LED 2 in same battery color."""
-        color = battery_color(soc)
-        self.np[BOOT_LED_READY] = color
+        """Legacy: light LED 2 in battery color. Use boot_stage_ok(4) instead."""
+        self.np[BOOT_LED_READY] = battery_color(soc)
         self.np.write()
 
     def boot_clear(self):
-        """Clear boot LEDs (0, 1, 2) before entering idle mode."""
+        """Legacy: clear LEDs 0-2. leds.off() is preferred for the new boot bar."""
         for i in (BOOT_LED_POWER, BOOT_LED_BATT, BOOT_LED_READY):
             if i < self.num:
-                self.np[i] = (0, 0, 0)
+                self.np[i] = OFF
         self.np.write()
 
     # ══════════════════════════════════════════

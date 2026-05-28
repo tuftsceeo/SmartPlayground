@@ -11,22 +11,20 @@ Button: ignored during play; triggers rainbow after a win.
 Requires /lib/: pn532.py, nfc_reader.py, buzzer.py
 
 Entry points:
-    play(nfc, leds, buz, accel, i2c)  — called from main.py
+    play(nfc, leds, buz, accel, i2c, enow)  — called from main.py
     main()                             — standalone testing
-
-Template Pattern:
-    1. GameDisplay utility class for LED rendering
-    2. play() for wand integration (hardware passed in)
-    3. main() for standalone testing (initializes hardware)
-    4. CRITICAL: Stop tag checked in wait_for_commands(), run_game(), _post_win_wait()
 """
 
-import machine, network, espnow, time, math, json
+import machine, time, math, json
 from machine import Pin
 from neopixel import NeoPixel
 
+from espnow_manager import ESPNowManager
 from pn532 import PN532
 from nfc_reader import read_ndef_text as read_tag_text
+from game_tags import exit_tags_excluding
+
+_EXIT_TAGS = exit_tags_excluding("colorquest")
 from buzzer import Buzzer
 from target import SCORE_MAC
 
@@ -87,7 +85,6 @@ GREEN_WIN      = GREEN_DIM
 SMILEY_DEFAULT = AMBER_DIM
 
 RESCAN_TAG    = "color_quest_scan"
-BROADCAST_MAC = b'\xFF\xFF\xFF\xFF\xFF\xFF'
 
 # Rescan state: debounce per placement + waiting-animation flag
 _last_rescan_uid = None
@@ -101,7 +98,7 @@ def _rescan_seen(enow, uid):
         return False
     _last_rescan_uid = uid
     try:
-        enow.send(BROADCAST_MAC, json.dumps({"type": "scan_request"}))
+        enow.broadcast({"type": "scan_request"})
         _awaiting_scan_reply = True
         print("  RESCAN tag — scan_request sent (awaiting reply)")
         return True
@@ -276,64 +273,25 @@ class GameDisplay:
         return v, p, q
 
 
-def _configure_external_antenna():
-    """Switch to external antenna before WiFi activation."""
-    Pin(3, Pin.OUT).value(0)
-    time.sleep_ms(100)
-    Pin(14, Pin.OUT).value(1)
-
-
-def espnow_init():
-    _configure_external_antenna()
-    sta = network.WLAN(network.STA_IF)
-    sta.active(True)
-    sta.disconnect()
-    e = espnow.ESPNow()
-    e.active(True)
-    try: e.add_peer(SCORE_MAC)
-    except Exception: pass
-    if SCORE_MAC != BROADCAST_MAC:
-        try: e.add_peer(BROADCAST_MAC)
-        except Exception: pass
-    print("ESP-NOW listening...")
-    return e
-
-
 def send_score(enow, targets, elapsed_ms):
-    msg = json.dumps({
+    mac_str = ':'.join('%02X' % b for b in SCORE_MAC)
+    ok = enow.send_to(mac_str, {
         "type": "score",
         "colors": targets,
         "time_ms": elapsed_ms,
         "time_s": round(elapsed_ms / 1000, 2),
     })
-    try:
-        enow.send(SCORE_MAC, msg)
-        print("  Score sent: %.2fs -> %s" % (
-            elapsed_ms / 1000,
-            ':'.join('%02X' % b for b in SCORE_MAC)))
-    except Exception as ex:
-        print("  Score send error: %s" % str(ex))
+    if ok:
+        print("  Score sent: %.2fs -> %s" % (elapsed_ms / 1000, mac_str))
+    else:
+        print("  Score send error")
 
 
-def _parse_incoming(msg):
-    """Returns ('stop', None), ('colors', list), or (None, None)."""
-    try:
-        raw = msg.decode('utf-8').strip()
-    except Exception:
-        return None, None
-    if raw.lower() in ('"stop"', 'stop'):
-        return "stop", None
-    try:
-        commands = json.loads(raw)
-    except Exception:
-        return None, None
-    if isinstance(commands, list) and len(commands) > 0:
-        if "stop" in commands:
-            return "stop", None
-        colors = [c for c in commands if c in COLOR_BRIGHT]
-        if colors:
-            return "colors", colors
-    return None, None
+def _colors_from_data(data):
+    if not isinstance(data, list):
+        return None
+    colors = [c for c in data if c in COLOR_BRIGHT]
+    return colors if colors else None
 
 
 def wait_for_commands(enow, display, nfc, last_espnow=None):
@@ -354,17 +312,17 @@ def wait_for_commands(enow, display, nfc, last_espnow=None):
             display.show_waiting(frame)
         frame += 1
 
-        host, msg = enow.irecv(50)
-        if msg:
-            kind, payload = _parse_incoming(msg)
-            if kind == "stop":
-                print("  ESP-NOW: stop received")
+        msg_type, data, _ = enow.poll(50)
+        if msg_type == "stop":
+            print("  ESP-NOW: stop received")
+            _rescan_reply_received()
+            return "stop", False
+        if msg_type == "colors":
+            colors = _colors_from_data(data)
+            if colors:
+                print("Received: %s" % str(colors))
                 _rescan_reply_received()
-                return "stop", False
-            if kind == "colors":
-                print("Received: %s" % str(payload))
-                _rescan_reply_received()
-                return payload, True
+                return colors, True
 
         if frame % 10 == 0:
             text, uid = read_tag_text(nfc)
@@ -372,8 +330,8 @@ def wait_for_commands(enow, display, nfc, last_espnow=None):
                 _rescan_cleared()
             elif text == RESCAN_TAG:
                 _rescan_seen(enow, uid)
-            elif text == "stop":
-                print("  STOP tag detected")
+            elif text in _EXIT_TAGS:
+                print("  Exit tag detected: %s" % text)
                 return "stop", False
             else:
                 _rescan_cleared()
@@ -422,21 +380,21 @@ def _post_win_wait(enow, display, nfc, buz):
                     display.solid_green()
         last_btn = cur
 
-        host, msg = enow.irecv(0)
-        if msg:
-            kind, payload = _parse_incoming(msg)
-            if kind == "stop":
-                print("  ESP-NOW: stop received")
-                _beep_stop(buz)
-                _rescan_reply_received()
-                display.clear()
-                return "stop"
-            if kind == "colors":
-                print("  NEW SEQUENCE received: %s" % str(payload))
+        msg_type, data, _ = enow.poll(0)
+        if msg_type == "stop":
+            print("  ESP-NOW: stop received")
+            _beep_stop(buz)
+            _rescan_reply_received()
+            display.clear()
+            return "stop"
+        if msg_type == "colors":
+            colors = _colors_from_data(data)
+            if colors:
+                print("  NEW SEQUENCE received: %s" % str(colors))
                 _beep_new(buz)
                 _rescan_reply_received()
                 display.clear()
-                return payload
+                return colors
 
         # NDEF read is slow — don't do it every frame
         if frame % 15 == 0:
@@ -450,8 +408,8 @@ def _post_win_wait(enow, display, nfc, buz):
                 text, _uid = read_tag_text(nfc)
                 if text == RESCAN_TAG:
                     _rescan_seen(enow, tag['uid_hex'])
-                elif text == "stop":
-                    print("  STOP tag — exiting")
+                elif text in _EXIT_TAGS:
+                    print("  Exit tag — exiting: %s" % text)
                     _beep_stop(buz)
                     display.clear()
                     return "stop"
@@ -484,20 +442,20 @@ def run_game(nfc, buz, display, targets, enow, start_ticks=None):
     display.clear()
 
     while found < n:
-        host, msg = enow.irecv(0)
-        if msg:
-            kind, payload = _parse_incoming(msg)
-            if kind == "stop":
-                print("  ESP-NOW: stop received")
-                _beep_stop(buz)
-                _rescan_reply_received()
-                display.clear()
-                return "stop"
-            if kind == "colors":
-                print("  NEW SEQUENCE received: %s" % str(payload))
+        msg_type, data, _ = enow.poll(0)
+        if msg_type == "stop":
+            print("  ESP-NOW: stop received")
+            _beep_stop(buz)
+            _rescan_reply_received()
+            display.clear()
+            return "stop"
+        if msg_type == "colors":
+            colors = _colors_from_data(data)
+            if colors:
+                print("  NEW SEQUENCE received: %s" % str(colors))
                 _beep_new(buz)
                 _rescan_reply_received()
-                return payload
+                return colors
 
         if _awaiting_scan_reply:
             display.show_scan_waiting()
@@ -549,8 +507,8 @@ def run_game(nfc, buz, display, targets, enow, start_ticks=None):
 
         _rescan_cleared()
 
-        if text == "stop":
-            print("  STOP tag — exiting game")
+        if text in _EXIT_TAGS:
+            print("  Exit tag — exiting game: %s" % text)
             _beep_stop(buz)
             display.clear()
             return "stop"
@@ -588,13 +546,8 @@ def run_game(nfc, buz, display, targets, enow, start_ticks=None):
     return _post_win_wait(enow, display, nfc, buz)
 
 
-def play(nfc, leds, buz, accel, i2c, enow=None):
+def play(nfc, leds, buz, accel, i2c, enow):
     """Called from main.py when 'colorquest' tag is tapped."""
-    own_enow = False
-    if enow is None:
-        enow = espnow_init()
-        own_enow = True
-
     np = leds.np
     display = GameDisplay(np)
     display.clear()
@@ -639,9 +592,6 @@ def play(nfc, leds, buz, accel, i2c, enow=None):
                     continue
     finally:
         display.clear()
-        if own_enow:
-            try: enow.active(False)
-            except Exception: pass
 
 
 def main():
@@ -679,7 +629,8 @@ def main():
         print("  NFC init failed: %s" % str(e))
         return
 
-    enow = espnow_init()
+    enow = ESPNowManager()
+    enow.init()
     _beep_new(buz)
 
     espnow_targets = None

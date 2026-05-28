@@ -8,14 +8,19 @@ Tap "stop" tag to exit back to programming mode.
 Colors from leds.py — auto-scale with ambient brightness.
 
 Entry points:
-    play(nfc, leds, buz, accel, i2c)  — called from main.py
+    play(nfc, leds, buz, accel, i2c, enow)  — called from main.py
     main()                             — standalone testing
+"""
 
-Template Pattern:
+
+"""
+NOTE: This is a simple template game for creating new games as described in GAME_AUTHORING_GUIDE.md
+This is a simple Button Blink Test and not a real game.
+The template pattern:
     1. Game class with __init__() and run()
     2. play() for wand integration (hardware passed in)
     3. main() for standalone testing (initializes hardware)
-    4. CRITICAL: _check_stop_tag() polled at START of every loop
+    4. CRITICAL: check for stop tags and ESP-NOW stop messages at start of run loop
 """
 
 import machine
@@ -24,6 +29,9 @@ from machine import Pin
 
 from pn532 import PN532, MIFARE_AUTH_A, MIFARE_AUTH_B
 from nfc_reader import _decode_ndef_text, COMMON_KEYS
+from game_tags import exit_tags_excluding
+
+_EXIT_TAGS = exit_tags_excluding("jumpin")
 from leds import GREEN, OFF
 
 # ─────────────────────────────────────────────
@@ -87,28 +95,26 @@ def _read_tag_text(nfc):
 class JumpInGame:
     """Button-press LED blink game."""
     
-    def __init__(self, nfc, leds, buz):
+    def __init__(self, nfc, leds, buz, enow):
         self.nfc = nfc
         self.leds = leds
         self.buz = buz
+        self.enow = enow
         self.np = leds.np
         self.btn = Pin(BUTTON_PIN, Pin.IN, Pin.PULL_UP)
         self._frame = 0
     
-    # ── STOP TAG DETECTION (CRITICAL) ──────────────────────
-    # Every game MUST check for stop tag to allow exit.
-    # Poll periodically (not every frame) to balance responsiveness
-    # with NFC read overhead. Check at START of game loop.
-    def _check_stop_tag(self):
-        """
-        Poll NFC for stop tag. Returns True if stop detected.
-        MUST be called every loop iteration — internally throttled.
-        """
+    def _check_stop(self):
+        """Check ESP-NOW and NFC for stop. Returns True if stop detected."""
+        if self.enow:
+            msg_type, _, _ = self.enow.poll()
+            if msg_type == "stop":
+                return True
         if self._frame % NFC_POLL_INTERVAL != 0:
             return False
         try:
             text, uid = _read_tag_text(self.nfc)
-            return text == "stop"
+            return text in _EXIT_TAGS
         except Exception:
             return False
     
@@ -127,12 +133,12 @@ class JumpInGame:
     def run(self):
         """Main game loop. Returns when stop tag is tapped."""
         print("  Press button to blink green LEDs!")
-        print("  Tap STOP tag to exit\n")
+        print("  Tap STOP tag or station stop to exit\n")
         
         while True:
             # ── STOP CHECK FIRST (always at top of loop) ──
-            if self._check_stop_tag():
-                print("  STOP tag detected")
+            if self._check_stop():
+                print("  Stop detected")
                 return
             
             # ── GAME LOGIC ──
@@ -147,7 +153,7 @@ class JumpInGame:
 # ─────────────────────────────────────────────
 # Entry Point: Wand Integration
 # ─────────────────────────────────────────────
-def play(nfc, leds, buz, accel, i2c):
+def play(nfc, leds, buz, accel, i2c, enow):
     """
     Called from main.py when the "jumpin" tag is tapped.
     Hardware is already initialized by the caller.
@@ -157,7 +163,7 @@ def play(nfc, leds, buz, accel, i2c):
     print("\n  === BUTTON BLINK MODE ===")
     
     try:
-        JumpInGame(nfc, leds, buz).run()
+        JumpInGame(nfc, leds, buz, enow).run()
     finally:
         leds.off()
         print("\n  === RETURNING TO PROGRAMMING MODE ===\n")
@@ -206,11 +212,27 @@ def main():
     except Exception as e:
         print("  NFC init failed: %s" % e)
         return
+
+    # Initialize Accelerometer
+    accel = None
+    accel_ok = False
+    try:
+        accel = LIS2DW12(i2c)
+        accel.init(fs_range=RANGE_4G)
+        accel_ok = True
+        print("  Accelerometer OK")
+    except Exception as e:
+        print("  [WARN] Accel:"); sys.print_exception(e)
     
+    # Initialize ESP-NOW
+    from espnow_manager import ESPNowManager
+    enow = ESPNowManager()
+    enow.init()
+
     print()
     
     # Run the game
-    play(nfc, leds, buz, None, i2c)
+    play(nfc, leds, buz, accel, i2c, enow)
 
 
 if __name__ == "__main__":

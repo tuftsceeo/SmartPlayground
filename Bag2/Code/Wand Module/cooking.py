@@ -1,34 +1,32 @@
 """
 Cooking Recipes — Ingredient Matching Game
 ==========================================
-Tap ingredient NFC tags to collect them, press the button to "cook".
-If the collected ingredients match a recipe, the result is displayed.
+Tap ingredient NFC tags to collect them. HOLD the button to preview the
+recipe result (shown while held; ingredients are preserved on release).
+Tap the "cooking" tag again to clear the recipe without exiting.
 Tap "stop" tag to exit back to programming mode.
 
 Colors and shapes from leds.py — auto-scale with ambient brightness.
 
 Entry points:
-    play(nfc, leds, buz, accel, i2c)  — called from main.py
+    play(nfc, leds, buz, accel, i2c, enow)  — called from main.py
     main()                             — standalone testing
-
-Template Pattern:
-    1. CookingGame class with __init__() and run()
-    2. play() for wand integration (hardware passed in)
-    3. main() for standalone testing (initializes hardware)
-    4. CRITICAL: Stop tag checked via NfcReader at START of every loop
 """
 
 import time
-import math
 import machine
 from machine import Pin
 
 from pn532 import PN532
 from nfc_reader import NfcReader
+from game_tags import exit_tags_excluding
+
+_EXIT_TAGS = exit_tags_excluding("cooking")
 from buzzer import NOTE_FREQ
 from leds import (
-    OFF, RED, GREEN, BLUE, YELLOW, ORANGE, PINK, WHITE, AMBER,
-    WHITE_DIM,
+    OFF, RED, GREEN, BLUE, YELLOW, ORANGE, PINK, WHITE, AMBER, PURPLE,
+    SHAPE_INNER_3x3, SHAPE_RAINDROP, SHAPE_DIAG_L, SHAPE_CHECKERS,
+    SHAPE_0, SHAPE_RECTANGLE, SHAPE_POWER, SHAPE_FLAME, SHAPE_QUESTION,
 )
 
 
@@ -47,17 +45,38 @@ NUM_LEDS = 25
 # ─────────────────────────────────────────────
 COMMANDS = {
     "tomato", "milk", "cheese", "flour",
-    "egg", "butter", "sugar", "cook", "stop",
-}
+    "egg", "butter", "sugar", "cooking",
+} | _EXIT_TAGS
 
 INGREDIENT_ORDER = [
     "tomato", "milk", "cheese", "flour",
     "egg", "butter", "sugar",
 ]
 
+INGREDIENT_COLOR = {
+    "tomato": RED,
+    "milk":   BLUE,
+    "cheese": ORANGE,
+    "flour":  WHITE,
+    "egg":    GREEN,
+    "butter": YELLOW,
+    "sugar":  PINK,
+}
+
+INGREDIENT_SHAPE = {
+    "tomato": SHAPE_INNER_3x3,
+    "milk":   SHAPE_RAINDROP,
+    "cheese": SHAPE_DIAG_L,
+    "flour":  SHAPE_CHECKERS,
+    "egg":    SHAPE_0,
+    "butter": SHAPE_RECTANGLE,
+    "sugar":  SHAPE_POWER,
+}
+
 DEBOUNCE_MS = 50
 LOOP_DELAY_MS = 20
 REPEAT_SCAN_GUARD_MS = 1200
+SCAN_FEEDBACK_MS = 500
 
 
 # ─────────────────────────────────────────────
@@ -85,8 +104,6 @@ def _play(buz, name):
 # ─────────────────────────────────────────────
 BLACK = OFF
 BROWN = AMBER
-IDLE_DOT = WHITE_DIM
-PROGRESS_C = GREEN
 
 
 # ─────────────────────────────────────────────
@@ -132,9 +149,6 @@ PIZZA = [
     BLACK,  BLACK,  YELLOW, BLACK,  BLACK,
 ]
 
-QUESTION_IDX = (1, 2, 3, 8, 12, 22)
-
-
 # ─────────────────────────────────────────────
 # Recipes
 # ─────────────────────────────────────────────
@@ -162,35 +176,27 @@ class CookingDisplay:
         self.leds.off()
     
     def show_idle(self, frame=0):
-        """Display idle state with breathing white-dim effect."""
-        breath = (math.sin(frame * 0.08) + 1) / 2
-        level = 0.3 + 0.7 * breath
-        r = int(IDLE_DOT[0] * level)
-        g = int(IDLE_DOT[1] * level)
-        b = int(IDLE_DOT[2] * level)
+        """Display idle state with breathing flame icon (AMBER avoids cheese ORANGE)."""
+        self.leds.breathe_shape(SHAPE_FLAME, AMBER, frame, bg=OFF)
+
+    def show_ingredients_pixels(self, ingredients):
+        """Render collected ingredients as one pixel each in their own color."""
         for i in range(NUM_LEDS):
-            self.np[i] = (r, g, b)
-        self.np.write()
-    
-    def show_progress(self, scanned_set, frame=0):
-        """Show collected ingredients with pulsing next-slot."""
-        count = len(scanned_set)
-        pulse = (math.sin(frame * 0.15) + 1) / 2
-        
-        for i in range(NUM_LEDS):
-            if i < count:
-                self.np[i] = PROGRESS_C
-            elif i == count:
-                scale = 0.3 + 0.7 * pulse
-                self.np[i] = (
-                    int(PROGRESS_C[0] * scale),
-                    int(PROGRESS_C[1] * scale),
-                    int(PROGRESS_C[2] * scale),
-                )
+            if i < len(ingredients):
+                self.np[i] = INGREDIENT_COLOR.get(ingredients[i], OFF)
             else:
-                self.np[i] = IDLE_DOT
+                self.np[i] = OFF
         self.np.write()
-    
+
+    def show_ingredient_feedback(self, name):
+        """Flash the ingredient's shape in its color (scan confirmation)."""
+        color = INGREDIENT_COLOR.get(name)
+        shape = INGREDIENT_SHAPE.get(name)
+        if color is None or shape is None:
+            self.leds.show_shape(SHAPE_QUESTION, RED, bg=OFF)
+            return
+        self.leds.show_shape(shape, color, bg=OFF)
+
     def show_recipe(self, image):
         """Display a full RGB recipe image."""
         for i in range(NUM_LEDS):
@@ -198,8 +204,8 @@ class CookingDisplay:
         self.np.write()
     
     def show_question(self):
-        """Display yellow question-mark for unknown recipe."""
-        self.leds.show_shape(QUESTION_IDX, YELLOW)
+        """Display purple question-mark for unknown recipe (PURPLE avoids butter YELLOW)."""
+        self.leds.show_shape(SHAPE_QUESTION, PURPLE, bg=OFF)
 
 
 def _evaluate_recipe(scanned):
@@ -215,16 +221,17 @@ def _evaluate_recipe(scanned):
 class CookingGame:
     """Ingredient matching and recipe cooking game."""
     
-    def __init__(self, nfc, leds, buz):
+    def __init__(self, nfc, leds, buz, enow):
         self.nfc = nfc
         self.leds = leds
         self.buz = buz
+        self.enow = enow
         self.display = CookingDisplay(leds)
         self.btn = Pin(BUTTON_PIN, Pin.IN, Pin.PULL_UP)
         self.reader = NfcReader(nfc, COMMANDS)
         
-        # Game state
-        self.scanned_ingredients = set()
+        # Game state — list preserves scan order for display; recipe matching uses frozenset
+        self.scanned_ingredients = []
         self.last_uid = None
         self.last_scan_ms = 0
         self._frame = 0
@@ -244,8 +251,12 @@ class CookingGame:
             self._btn_was_down = False
         return False
     
-    def _cook(self):
-        """Evaluate recipe and display result."""
+    def _show_result_while_held(self):
+        """
+        Evaluate current ingredients and show the result for as long as the
+        button is held. Ingredients are NOT cleared — the user can release
+        and keep adding more.
+        """
         image, matched = _evaluate_recipe(self.scanned_ingredients)
         
         if matched:
@@ -255,28 +266,46 @@ class CookingGame:
         else:
             self.display.show_question()
             self.buz.play_note(NOTE_FREQ["notef"], 300)
-            print("  No matching recipe")
+            print("  No matching recipe (%d ingredients)" % len(self.scanned_ingredients))
         
-        # Wait for button release
+        # Hold the result on the display until the button is released.
+        # ESP-NOW stop still exits the game even while held.
         while self.btn.value() == 0:
-            time.sleep_ms(10)
+            if self.enow:
+                msg_type, _, _ = self.enow.poll()
+                if msg_type == "stop":
+                    print("  ESP-NOW stop")
+                    self._btn_was_down = False
+                    return False
+            time.sleep_ms(20)
+        
+        self._btn_was_down = False
+        return True
     
-    def _reset(self):
-        """Reset ingredients for new recipe."""
-        self.scanned_ingredients = set()
-        self.display.show_idle(self._frame)
+    def _reset_ingredients(self):
+        """Clear collected ingredients without exiting the game."""
+        self.scanned_ingredients = []
         self.buz.play_note(NOTE_FREQ["notec"], 200)
-        print("  Reset - ready to collect ingredients")
+        print("  Recipe reset - ready for new ingredients")
     
     def run(self):
         """Main game loop. Returns when stop tag is tapped."""
-        print("  Tap ingredient tags, press button to cook!")
-        print("  Tap STOP tag to exit\n")
+        print("  Tap ingredient tags to collect them")
+        print("  HOLD the button to see what your ingredients make")
+        print("  Tap COOKING tag again to clear the recipe")
+        print("  Tap STOP tag or station stop to exit\n")
         
         while True:
+            # ── ESP-NOW ──
+            if self.enow:
+                msg_type, _, _ = self.enow.poll()
+                if msg_type == "stop":
+                    print("  ESP-NOW stop")
+                    return
+
             # ── DISPLAY UPDATE ──
             if len(self.scanned_ingredients) > 0:
-                self.display.show_progress(self.scanned_ingredients, self._frame)
+                self.display.show_ingredients_pixels(self.scanned_ingredients)
             else:
                 self.display.show_idle(self._frame)
             
@@ -288,8 +317,8 @@ class CookingGame:
                 command = None
                 uid_hex = None
             
-            if command == "stop":
-                print("  STOP tag detected")
+            if command in _EXIT_TAGS:
+                print("  Exit tag detected: %s" % command)
                 return
             
             # ── GAME LOGIC ──
@@ -304,17 +333,26 @@ class CookingGame:
                     self.last_uid = uid_hex
                     self.last_scan_ms = now
                     
-                    if command == "cook":
-                        self._reset()
+                    if command == "cooking":
+                        # Re-tapping the cooking tag while in-game resets the recipe
+                        self._reset_ingredients()
                     
                     elif command in INGREDIENT_ORDER:
-                        self.scanned_ingredients.add(command)
-                        self.buz.play_note(NOTE_FREQ["notee"], 150)
-                        print("  Added: %s (%d ingredients)" % (command, len(self.scanned_ingredients)))
+                        if command in self.scanned_ingredients:
+                            # Already collected — gentle reject, no duplicate added
+                            self.buz.reject()
+                            print("  Already added: %s" % command)
+                        else:
+                            self.scanned_ingredients.append(command)
+                            self.display.show_ingredient_feedback(command)
+                            self.buz.play_note(NOTE_FREQ["notee"], 150)
+                            time.sleep_ms(SCAN_FEEDBACK_MS)
+                            print("  Added: %s (%d ingredients)" % (command, len(self.scanned_ingredients)))
             
-            # ── BUTTON: Cook recipe ──
+            # ── BUTTON: Hold to show recipe result (does not clear ingredients) ──
             if self._button_was_pressed():
-                self._cook()
+                if not self._show_result_while_held():
+                    return
             
             self._frame += 1
             time.sleep_ms(LOOP_DELAY_MS)
@@ -323,7 +361,7 @@ class CookingGame:
 # ─────────────────────────────────────────────
 # Entry Point: Wand Integration
 # ─────────────────────────────────────────────
-def play(nfc, leds, buz, accel, i2c):
+def play(nfc, leds, buz, accel, i2c, enow):
     """
     Called from main.py when the "cooking" tag is tapped.
     Hardware is already initialized by the caller.
@@ -333,7 +371,7 @@ def play(nfc, leds, buz, accel, i2c):
     print("\n  === COOKING GAME ===")
     
     try:
-        CookingGame(nfc, leds, buz).run()
+        CookingGame(nfc, leds, buz, enow).run()
     finally:
         _play(buz, 'exit')
         leds.off()
@@ -383,10 +421,14 @@ def main():
         print("  NFC init failed: %s" % e)
         return
     
+    from espnow_manager import ESPNowManager
+    enow = ESPNowManager()
+    enow.init()
+
     print()
     
     # Run the game
-    play(nfc, leds, buz, None, i2c)
+    play(nfc, leds, buz, None, i2c, enow)
 
 
 if __name__ == "__main__":

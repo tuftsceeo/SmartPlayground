@@ -1,3 +1,9 @@
+.micropico
+.vscode/
+.cursor/
+/Bag2/Code/legacy/wand_bak
+/Bag2/Code/debug
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
