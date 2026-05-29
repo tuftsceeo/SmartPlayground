@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Smart Playground Wand — Game Icon Guide</title>
+<style>
+  :root {
+    --bg: #f6f2ea;
+    --paper: #fffdf8;
+    --paper-soft: #fff7df;
+    --ink: #19212a;
+    --muted: #667085;
+    --line: #ded7ca;
+    --shadow: 0 16px 38px rgba(35, 27, 13, .10);
+    --freeze: #7c3aed;
+    --cooking: #f97316;
+    --melody: #0ea5e9;
+    --colorquest: #16a34a;
+    --led-off: #d9dee3;
+    --led-case: #edf2f5;
+    --font-ui: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --font-display: "Trebuchet MS", Inter, ui-sans-serif, system-ui, sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    color: var(--ink);
+    font-family: var(--font-ui);
+    line-height: 1.48;
+    background:
+      radial-gradient(circle at 12% 2%, rgba(14,165,233,.16), transparent 28rem),
+      radial-gradient(circle at 87% 6%, rgba(249,115,22,.18), transparent 32rem),
+      linear-gradient(180deg, #fbfaf7 0%, var(--bg) 38%, #f2ede3 100%);
+  }
+
+  .page { width: min(1180px, calc(100% - 32px)); margin: 0 auto; padding: 28px 0 56px; }
+
+  .hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1.35fr) minmax(280px, .65fr);
+    gap: 22px;
+    align-items: stretch;
+    margin-bottom: 22px;
+  }
+
+  .hero-card, .mini-guide, .game-section {
+    background: rgba(255,253,248,.92);
+    border: 1px solid rgba(222,215,202,.95);
+    border-radius: 28px;
+    box-shadow: var(--shadow);
+  }
+
+  .hero-card { padding: 34px; position: relative; overflow: hidden; }
+  .hero-card:after {
+    content: "";
+    position: absolute;
+    right: -70px;
+    top: -70px;
+    width: 220px;
+    height: 220px;
+    border-radius: 50%;
+    background: conic-gradient(from 180deg, #ef4444, #f59e0b, #facc15, #22c55e, #06b6d4, #8b5cf6, #ec4899, #ef4444);
+    opacity: .20;
+  }
+  .eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+    color: #0f766e;
+    font-weight: 800;
+    letter-spacing: .09em;
+    text-transform: uppercase;
+    font-size: .78rem;
+  }
+  h1, h2, h3, p { margin-top: 0; }
+  h1 {
+    font-family: var(--font-display);
+    font-size: clamp(2.2rem, 5vw, 4.8rem);
+    line-height: .96;
+    letter-spacing: -.045em;
+    margin: 0 0 16px;
+    max-width: 10ch;
+  }
+  .hero-copy { max-width: 70ch; color: #394452; font-size: 1.08rem; margin: 0; }
+
+  .mini-guide { padding: 24px; display: flex; flex-direction: column; justify-content: space-between; gap: 18px; }
+  .wand-mini { width: 118px; height: 208px; border-radius: 30px; background: #f8fafc; border: 3px solid #d7dee7; box-shadow: inset 0 2px 14px rgba(0,0,0,.08), 0 18px 28px rgba(15,23,42,.13); margin: 0 auto; padding: 23px 18px; display: flex; flex-direction: column; align-items: center; gap: 24px; transform: rotate(-6deg); }
+  .screen { width: 78px; height: 78px; display: grid; place-items: center; border-radius: 13px; background: #cfe8ff; box-shadow: inset 0 0 10px rgba(14,165,233,.35); }
+  .button { width: 48px; height: 48px; border-radius: 50%; background: #ffd84d; border: 7px solid #1e3a8a; box-shadow: inset 0 2px 8px rgba(255,255,255,.65); }
+  .mini-guide h2 { font-size: 1.05rem; margin-bottom: 8px; }
+  .mini-guide ol { margin: 0; padding-left: 1.2rem; color: #475467; }
+
+  .game-jump {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+    margin: 22px 0 28px;
+  }
+  .jump-card {
+    display: block;
+    text-decoration: none;
+    color: var(--ink);
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 22px;
+    padding: 18px;
+    box-shadow: 0 8px 22px rgba(35, 27, 13, .07);
+  }
+  .jump-card strong { display: block; font-size: 1.05rem; margin-bottom: 4px; }
+  .jump-card span { color: var(--muted); font-size: .92rem; }
+  .jump-card.freeze { border-top: 7px solid var(--freeze); }
+  .jump-card.cooking { border-top: 7px solid var(--cooking); }
+  .jump-card.melody { border-top: 7px solid var(--melody); }
+  .jump-card.colorquest { border-top: 7px solid var(--colorquest); }
+
+  .game-section { padding: 0; margin: 0 0 30px; overflow: hidden; }
+  .game-header {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 18px;
+    padding: 28px 30px;
+    color: white;
+  }
+  .freeze .game-header { background: linear-gradient(135deg, #6d28d9, #a855f7); }
+  .cooking .game-header { background: linear-gradient(135deg, #c2410c, #f97316); }
+  .melody .game-header { background: linear-gradient(135deg, #0369a1, #0ea5e9); }
+  .colorquest .game-header { background: linear-gradient(135deg, #15803d, #22c55e); }
+  .game-header h2 { font-family: var(--font-display); font-size: clamp(1.8rem, 3vw, 3.1rem); line-height: 1; letter-spacing: -.035em; margin-bottom: 8px; }
+  .game-header p { margin: 0; max-width: 76ch; color: rgba(255,255,255,.92); font-size: 1.02rem; }
+  .game-label { align-self: start; border: 1px solid rgba(255,255,255,.55); border-radius: 999px; padding: 8px 12px; font-size: .78rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; white-space: nowrap; background: rgba(255,255,255,.14); }
+  .beta-label { background: rgba(255,255,255,.24); }
+
+  .how-to-play { padding: 24px 30px 10px; }
+  .how-box { background: #f8fafc; border: 1px solid #e5e7eb; border-radius: 22px; padding: 18px 20px; }
+  .how-box h3 { font-size: 1rem; text-transform: uppercase; letter-spacing: .08em; color: #475467; margin-bottom: 10px; }
+  .how-box p { margin-bottom: 10px; color: #344054; }
+  .how-box p:last-child { margin-bottom: 0; }
+
+  .group { padding: 16px 30px 10px; }
+  .group:last-child { padding-bottom: 30px; }
+  .group-title { display: flex; align-items: center; gap: 10px; margin: 0 0 14px; font-size: 1.05rem; letter-spacing: .02em; }
+  .group-title:before { content: ""; width: 12px; height: 12px; border-radius: 50%; background: currentColor; opacity: .55; }
+  .freeze .group-title { color: var(--freeze); }
+  .cooking .group-title { color: var(--cooking); }
+  .melody .group-title { color: var(--melody); }
+  .colorquest .group-title { color: var(--colorquest); }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(205px, 1fr)); gap: 14px; }
+  .card { background: white; border: 1px solid #e6e0d5; border-radius: 22px; padding: 16px; box-shadow: 0 8px 18px rgba(35,27,13,.06); display: flex; flex-direction: column; gap: 12px; min-height: 238px; }
+  .card.feature { grid-column: span 2; }
+  .icon-stage { min-height: 100px; border-radius: 18px; background: linear-gradient(180deg, #f8fafc, #edf2f7); border: 1px solid #dfe7ef; display: flex; align-items: center; justify-content: center; padding: 14px; }
+  .frames { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; }
+  .frame { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .frame-label { font-size: .72rem; color: var(--muted); font-weight: 700; }
+  .led-grid { display: grid; grid-template-columns: repeat(5, 12px); grid-template-rows: repeat(5, 12px); gap: 3px; padding: 8px; border-radius: 10px; background: var(--led-case); box-shadow: inset 0 1px 3px rgba(0,0,0,.10); }
+  .led { width: 12px; height: 12px; border-radius: 3px; background: var(--led-off); box-shadow: inset 0 1px 2px rgba(0,0,0,.14); }
+  .card-title { font-size: 1.08rem; margin: 0; letter-spacing: -.01em; }
+  .meaning { margin: 0; color: #475467; font-size: .96rem; }
+  .teacher-note { margin: auto 0 0; padding: 10px 12px; border-radius: 14px; background: #fff7ed; border: 1px solid #fed7aa; color: #7c2d12; font-size: .88rem; }
+
+  .sequence { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 9px; }
+  .sequence-dot { width: 24px; height: 24px; border-radius: 7px; background: var(--dot); box-shadow: 0 0 14px var(--dot), inset 0 1px 2px rgba(255,255,255,.6); border: 2px solid rgba(255,255,255,.85); }
+  .sequence-plus { color: var(--muted); font-weight: 800; }
+
+  .footer { margin-top: 34px; color: #667085; font-size: .9rem; text-align: center; }
+  .print-note { margin-top: 10px; }
+
+  @media (max-width: 880px) {
+    .hero { grid-template-columns: 1fr; }
+    .game-jump { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .game-header { grid-template-columns: 1fr; }
+    .card.feature { grid-column: span 1; }
+  }
+  @media (max-width: 560px) {
+    .page { width: min(100% - 20px, 1180px); padding-top: 14px; }
+    .hero-card, .mini-guide { border-radius: 22px; padding: 22px; }
+    .game-jump { grid-template-columns: 1fr; }
+    .game-header, .how-to-play, .group { padding-left: 18px; padding-right: 18px; }
+    .grid { grid-template-columns: 1fr; }
+  }
+  @media print {
+    body { background: white; }
+    .page { width: 100%; padding: 0; }
+    .hero, .game-jump { page-break-after: avoid; }
+    .game-section, .hero-card, .mini-guide, .card { box-shadow: none; }
+    .game-section { page-break-inside: avoid; }
+    .jump-card { box-shadow: none; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <section class="hero">
+    <div class="hero-card">
+      <span class="eyebrow">Smart Playground Wand</span>
+      <h1>Game Icon Guide</h1>
+      <p class="hero-copy">A quick reference for kids and teachers using the wand. Each section is a separate game. Match the icon on the wand to the cards below to know what is happening and what to do next.</p>
+    </div>
+    <aside class="mini-guide" aria-label="How to read this guide">
+      <div class="wand-mini" aria-hidden="true"><div class="screen"><div id="heroIcon"></div></div><div class="button"></div></div>
+      <div>
+        <h2>How to use it</h2>
+        <ol>
+          <li>Pick the game you are playing.</li>
+          <li>Find the icon that matches the wand.</li>
+          <li>Follow the player action or teacher note.</li>
+        </ol>
+      </div>
+    </aside>
+  </section>
+
+  <nav class="game-jump" aria-label="Jump to game">
+    <a class="jump-card freeze" href="#freeze-dance"><strong>Freeze Dance</strong><span>Caller sends dance and freeze commands.</span></a>
+    <a class="jump-card cooking" href="#cooking"><strong>Cooking Recipes</strong><span>Scan ingredients, then press the button to cook.</span></a>
+    <a class="jump-card melody" href="#melody"><strong>Music Maker</strong><span>Scan notes, then press the button to play back.</span></a>
+    <a class="jump-card colorquest" href="#color-course"><strong>Color Course</strong><span>Beta: follow the landmark color sequence.</span></a>
+  </nav>
+
+  <main id="root"></main>
+
+  <footer class="footer">
+    This guide uses player-friendly names and gameplay meanings. Code names, variable names, and animation frame counts are intentionally hidden.
+    <div class="print-note">Tip: Print or laminate this page as a teacher-side quick reference.</div>
+  </footer>
+</div>
+
+<script>
+const C = {
+  OFF:     [0,   0,   0],
+  RED:     [200, 0,   0],
+  GREEN:   [0,   200, 0],
+  BLUE:    [0,   0,   200],
+  YELLOW:  [200, 200, 0],
+  AMBER:   [200, 100, 0],
+  ORANGE:  [220, 80,  0],
+  PURPLE:  [180, 0,   180],
+  MAGENTA: [200, 0,   120],
+  CYAN:    [0,   200, 200],
+  TEAL:    [0,   150, 150],
+  WHITE:   [140, 140, 140],
+  PINK:    [200, 80,  120],
+  RED_DIM:    [65,  0,   0],
+  GREEN_DIM:  [0,   115, 0],
+  BLUE_DIM:   [0,   20,  127],
+  YELLOW_DIM: [55,  60,  0],
+  WHITE_DIM:  [70,  75,  75],
+  PURPLE_DIM: [25,  0,   125],
+  PINK_DIM:   [100, 40,  60],
+  AMBER_DIM:  [60,  40,  0],
+};
+
+const S = {
+  A: [0,1,2,3,4,5,9,10,11,12,13,14,15,19,20,24],
+  B: [0,1,2,3,5,9,10,11,12,13,14,15,19,20,21,22,23],
+  C: [1,2,3,5,10,15,21,22,23],
+  D: [0,1,2,3,5,9,10,14,15,19,20,21,22,23],
+  E: [0,1,2,3,4,5,10,11,12,13,15,20,21,22,23,24],
+  F: [0,1,2,3,4,5,10,11,12,13,15,20],
+  G: [1,2,3,5,10,13,14,15,19,21,22,23,24],
+  N0: [2,3,6,9,11,14,16,19,22,23],
+  QUESTION: [1,2,5,8,12,22],
+  POWER:    [2,6,8,10,14,16,18,22],
+  MUSIC:    [2,3,7,12,15,16,17,20,21,22],
+  STAR:     [2,5,7,9,11,12,13,15,17,19,22],
+  RAINDROP: [2,6,8,10,14,15,19,21,22,23],
+  FLAME:    [2,6,7,8,10,12,14,15,17,19,21,22,23],
+  CHECKERS: [0,2,4,6,8,10,12,14,16,18,20,22,24],
+  PLAY:      [1,6,7,11,12,13,16,17,21],
+  RECTANGLE: [5,6,7,8,9,10,11,12,13,14,15,16,17,18,19],
+  DANCER1:   [1,5,6,7,11,16,17,20,22],
+  DANCER2:   [2,6,7,8,12,17,21,23],
+  DANCER3:   [3,7,8,9,13,17,18,22,24],
+  SAD_FACE:  [6,8,16,17,18,20,24],
+  HAPPY_FACE:[6,8,15,19,21,22,23],
+  ARROW_DN:  [2,7,10,11,12,13,14,16,17,18,22],
+  DIAG_L:    [0,5,6,10,11,12,15,16,17,18,20,21,22,23,24],
+  INNER_3x3: [6,7,8,11,12,13,16,17,18],
+  CORNERS:   [0,4,20,24],
+  CENTER:    [12],
+  LEFT_COL:  [0,5,10,15,20],
+  COL2:      [1,6,11,16,21],
+  COL3:      [2,7,12,17,22],
+  COL4:      [3,8,13,18,23],
+  RIGHT_COL: [4,9,14,19,24],
+  X:         [0,4,6,8,12,16,18,20,24],
+};
+
+function rgb(c) { return `rgb(${c[0]},${c[1]},${c[2]})`; }
+const LED_GAIN = 255 / 140;
+function scaleForDisplay(c) {
+  return [
+    Math.min(255, Math.round(c[0] * LED_GAIN)),
+    Math.min(255, Math.round(c[1] * LED_GAIN)),
+    Math.min(255, Math.round(c[2] * LED_GAIN)),
+  ];
+}
+function shapeFrame(indices, color, bg) {
+  bg = bg || C.OFF;
+  const pixels = new Array(25).fill(null).map(() => bg);
+  indices.forEach(i => { if (i >= 0 && i < 25) pixels[i] = color; });
+  return pixels;
+}
+function imageFrame(arr) { return arr; }
+function allOn(color) { return shapeFrame([...Array(25).keys()], color); }
+function blankFrame() { return shapeFrame([], C.OFF); }
+
+function buildSequenceFrame(colors) {
+  const pixels = new Array(25).fill(null).map(() => C.OFF);
+  const slots = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14];
+  colors.slice(0, slots.length).forEach((color, index) => pixels[slots[index]] = color);
+  return pixels;
+}
+
+function buildColorCourseState() {
+  const pixels = new Array(25).fill(null).map(() => C.OFF);
+  const targets = [C.RED, C.GREEN, C.BLUE, C.YELLOW];
+  const targetSlots = [0,1,2,3];
+  const foundSlots = [20,21,22,23];
+  targets.forEach((color, i) => {
+    pixels[targetSlots[i]] = i < 3 ? color : C.YELLOW_DIM;
+    if (i < 2) pixels[foundSlots[i]] = color;
+  });
+  for (let i of [5,6,7,8,9,10,11,12,13,14,15,16,17,18,19]) pixels[i] = [0, 0, 16];
+  return pixels;
+}
+
+const BLACK = C.OFF;
+const BROWN = C.AMBER;
+const COOKING_RECIPES = [
+  ["Fried Eggs", "You made fried eggs.", [
+    BLACK, BLACK, BLACK, BLACK, BLACK,
+    BLACK, C.WHITE, C.WHITE, C.WHITE, BLACK,
+    C.WHITE, C.WHITE, C.YELLOW, C.YELLOW, C.WHITE,
+    C.WHITE, C.WHITE, C.YELLOW, C.YELLOW, C.WHITE,
+    BLACK, BLACK, C.WHITE, C.WHITE, BLACK,
+  ]],
+  ["Pancakes", "You made pancakes.", [
+    BLACK, C.ORANGE, C.ORANGE, C.ORANGE, BLACK,
+    C.ORANGE, C.ORANGE, C.YELLOW, C.ORANGE, C.ORANGE,
+    BROWN, C.ORANGE, C.ORANGE, C.ORANGE, BROWN,
+    C.BLUE, BROWN, BROWN, BROWN, C.BLUE,
+    BLACK, C.BLUE, C.BLUE, C.BLUE, BLACK,
+  ]],
+  ["Pizza", "You made pizza.", [
+    BROWN, BROWN, BROWN, BROWN, BROWN,
+    C.YELLOW, C.YELLOW, C.RED, C.YELLOW, C.YELLOW,
+    BLACK, C.RED, C.YELLOW, C.YELLOW, BLACK,
+    BLACK, C.YELLOW, C.YELLOW, C.RED, BLACK,
+    BLACK, BLACK, C.YELLOW, BLACK, BLACK,
+  ]],
+  ["Pasta", "You made pasta.", [
+    BLACK, C.WHITE, C.RED, BLACK, BLACK,
+    C.RED, C.RED, C.RED, C.WHITE, C.RED,
+    C.YELLOW, C.YELLOW, C.YELLOW, C.RED, C.YELLOW,
+    C.BLUE, C.YELLOW, C.YELLOW, C.YELLOW, C.BLUE,
+    BLACK, C.BLUE, C.BLUE, C.BLUE, BLACK,
+  ]],
+  ["Cupcake", "You made a cupcake.", [
+    BLACK, BLACK, C.RED, BLACK, BLACK,
+    BLACK, C.PINK, C.PINK, C.PINK, BLACK,
+    C.PINK, C.PINK, C.PINK, C.PINK, C.PINK,
+    C.ORANGE, C.ORANGE, C.ORANGE, C.ORANGE, C.ORANGE,
+    BLACK, C.BLUE, C.BLUE, C.BLUE, BLACK,
+  ]],
+];
+
+const GAMES = [
+  {
+    id: "freeze-dance",
+    className: "freeze",
+    title: "Freeze Dance",
+    label: "movement game",
+    summary: "One student is the Caller; the rest are Players. The Caller sends Go, Dance, or Freeze commands to the players.",
+    how: [
+      "Choose roles first. Players can press the wand button to join as a player, or tap the Caller Card to become the caller.",
+      "The Caller uses the board to send commands. Players follow the wand: dance or move when it says go, and freeze when it says stop."
+    ],
+    groups: [
+      { heading: "Getting ready", items: [
+        { title: "White Down Arrow", meaning: "Choose your role. Press the button to become a player, or tap the Caller Card to become the caller.", frames: [shapeFrame(S.ARROW_DN, C.WHITE)] },
+        { title: "Yellow Moving Bars", meaning: "You are a player. Wait for a command from the caller.", frames: [shapeFrame(S.LEFT_COL, C.YELLOW), shapeFrame(S.COL2, C.YELLOW), shapeFrame(S.COL3, C.YELLOW), shapeFrame(S.COL4, C.YELLOW), shapeFrame(S.RIGHT_COL, C.YELLOW)] },
+        { title: "Amber Sparkle", meaning: "You are the caller. No command has been sent yet.", frames: [shapeFrame(S.CENTER, C.AMBER), shapeFrame(S.STAR, C.AMBER), shapeFrame(S.CORNERS, C.AMBER), blankFrame()] },
+      ]},
+      { heading: "Main play icons", items: [
+        { title: "Green Play", meaning: "Go. Move around and keep playing.", frames: [shapeFrame(S.PLAY, C.GREEN)] },
+        { title: "Purple Dancer", meaning: "Dance or move your body.", frames: [shapeFrame(S.DANCER1, C.PURPLE), shapeFrame(S.DANCER2, C.PURPLE), shapeFrame(S.DANCER3, C.PURPLE), shapeFrame(S.DANCER2, C.PURPLE)] },
+        { title: "Red Freeze Square", meaning: "Freeze. Stop moving right away.", frames: [shapeFrame(S.INNER_3x3, C.RED)] },
+        { title: "Blue Frown", meaning: "You are out for this round.", frames: [shapeFrame(S.SAD_FACE, C.BLUE)] },
+      ]},
+    ],
+  },
+  {
+    id: "cooking",
+    className: "cooking",
+    title: "Cooking Recipes",
+    label: "recipe game",
+    summary: "Scan ingredient cards at the Cooking board. The wand remembers the ingredients you collected. Press the button to try cooking them into a recipe.",
+    how: [
+      "Scan ingredients one at a time. The wand briefly shows the ingredient icon, then returns to the collected ingredient colors.",
+      "Press the wand button while cooking to check what you have collected against the recipe list. Tap the Cooking tag again to reset the collected ingredients."
+    ],
+    groups: [
+      { heading: "Ready and collected ingredients", items: [
+        { title: "Amber Flame", meaning: "Cooking game is ready. Start scanning ingredients.", frames: [shapeFrame(S.FLAME, C.AMBER)] },
+        { title: "Collected Ingredients", meaning: "The wand shows the ingredients you have collected as colored pixels from left to right.", frames: [buildSequenceFrame([C.RED, C.BLUE, C.ORANGE, C.WHITE, C.GREEN, C.YELLOW, C.PINK])], className: "feature", note: "Example: tomato, milk, cheese, flour, egg, butter, sugar." },
+      ]},
+      { heading: "Ingredient scan icons", items: [
+        { title: "Red Tomato", meaning: "Tomato scanned. This appears briefly, then the wand returns to your collected ingredients.", frames: [shapeFrame(S.INNER_3x3, C.RED)] },
+        { title: "Blue Milk Drop", meaning: "Milk scanned. This appears briefly, then the wand returns to your collected ingredients.", frames: [shapeFrame(S.RAINDROP, C.BLUE)] },
+        { title: "Orange Cheese Line", meaning: "Cheese scanned. This appears briefly, then the wand returns to your collected ingredients.", frames: [shapeFrame(S.DIAG_L, C.ORANGE)] },
+        { title: "White Flour Checker", meaning: "Flour scanned. This appears briefly, then the wand returns to your collected ingredients.", frames: [shapeFrame(S.CHECKERS, C.WHITE)] },
+        { title: "Green Egg", meaning: "Egg scanned. This appears briefly, then the wand returns to your collected ingredients.", frames: [shapeFrame(S.N0, C.GREEN)] },
+        { title: "Yellow Butter Bar", meaning: "Butter scanned. This appears briefly, then the wand returns to your collected ingredients.", frames: [shapeFrame(S.RECTANGLE, C.YELLOW)] },
+        { title: "Pink Sugar Power", meaning: "Sugar scanned. This appears briefly, then the wand returns to your collected ingredients.", frames: [shapeFrame(S.POWER, C.PINK)] },
+      ]},
+      { heading: "When you press the button", items: [
+        { title: "Purple Question Recipe", meaning: "The ingredients do not match a known recipe yet. Try collecting different ingredients, or reset and try again.", frames: [shapeFrame(S.QUESTION, C.PURPLE)] },
+        ...COOKING_RECIPES.map(([title, meaning, image]) => ({ title, meaning, frames: [imageFrame(image)] }))
+      ]},
+    ],
+  },
+  {
+    id: "melody",
+    className: "melody",
+    title: "Music Maker",
+    label: "music game",
+    summary: "Scan note cards at the Music Maker board. Each scan plays the note live and adds it to the melody. Press the wand button to play the melody back.",
+    how: [
+      "Start with the music note icon. Scan note cards to collect notes in order.",
+      "Each note icon appears briefly after a scan. Then the wand returns to the collected melody: colored pixels from left to right matching the note colors."
+    ],
+    groups: [
+      { heading: "Ready and collected melody", items: [
+        { title: "Teal Music Note", meaning: "Music Maker is ready. No notes have been collected yet.", frames: [shapeFrame(S.MUSIC, C.TEAL)] },
+        { title: "Collected Melody", meaning: "The wand shows your melody as colored pixels from left to right. Press the button to play it back.", frames: [buildSequenceFrame([C.RED, C.RED, C.BLUE, C.BLUE, C.PURPLE, C.PURPLE, C.BLUE, C.GREEN, C.GREEN, C.YELLOW, C.YELLOW, C.ORANGE, C.ORANGE, C.RED])], className: "feature", note: "Example melody colors: C C G G A A G F F E E D D C." },
+      ]},
+      { heading: "Note scan icons", items: [
+        { title: "Red C", meaning: "C note scanned. It appears briefly, then the wand returns to your collected melody.", frames: [shapeFrame(S.C, C.RED)] },
+        { title: "Orange D", meaning: "D note scanned. It appears briefly, then the wand returns to your collected melody.", frames: [shapeFrame(S.D, C.ORANGE)] },
+        { title: "Yellow E", meaning: "E note scanned. It appears briefly, then the wand returns to your collected melody.", frames: [shapeFrame(S.E, C.YELLOW)] },
+        { title: "Green F", meaning: "F note scanned. It appears briefly, then the wand returns to your collected melody.", frames: [shapeFrame(S.F, C.GREEN)] },
+        { title: "Blue G", meaning: "G note scanned. It appears briefly, then the wand returns to your collected melody.", frames: [shapeFrame(S.G, C.BLUE)] },
+        { title: "Purple A", meaning: "A note scanned. It appears briefly, then the wand returns to your collected melody.", frames: [shapeFrame(S.A, C.PURPLE)] },
+        { title: "Pink B", meaning: "B note scanned. It appears briefly, then the wand returns to your collected melody.", frames: [shapeFrame(S.B, C.PINK)] },
+        { title: "White High C", meaning: "High C note scanned. It appears briefly, then the wand returns to your collected melody.", frames: [shapeFrame(S.C, C.WHITE)] },
+      ]},
+      { heading: "Troubleshooting icons", items: [
+        { title: "Red Frown", meaning: "The melody is full. Play it back or reset before adding more notes.", frames: [shapeFrame(S.SAD_FACE, C.RED)] },
+        { title: "Red Question Mark", meaning: "Unknown note card. Try a different note card.", frames: [shapeFrame(S.QUESTION, C.RED)] },
+        { title: "Red X", meaning: "The melody is being erased.", frames: [shapeFrame(S.X, C.RED)] },
+      ]},
+    ],
+  },
+  {
+    id: "color-course",
+    className: "colorquest",
+    title: "Color Course Programming Station",
+    label: "beta",
+    summary: "Students arrange numbered color landmarks to design a custom obstacle course. The station sends the sequence to the wands. Students scan each landmark in order.",
+    how: [
+      "Follow the sequence shown by the wand. Scan the matching landmark color in order.",
+      "This game is in beta, so names and feedback may change. Put this section after the other games when sharing the guide with players."
+    ],
+    groups: [
+      { heading: "Course progress", items: [
+        { title: "Color Course Board", meaning: "Top row shows the landmark colors to visit. Bottom row shows landmarks already completed. The middle glow points to the current landmark.", frames: [imageFrame(buildColorCourseState())], className: "feature" },
+        { title: "Dark Green Screen", meaning: "Waiting between course rounds or waiting for the next course setup.", frames: [allOn(C.GREEN_DIM)] },
+      ]},
+      { heading: "Landmark colors", items: [
+        { title: "Red Landmark", meaning: "Find and scan the red landmark.", frames: [shapeFrame([12], C.RED)] },
+        { title: "Green Landmark", meaning: "Find and scan the green landmark.", frames: [shapeFrame([12], C.GREEN)] },
+        { title: "Blue Landmark", meaning: "Find and scan the blue landmark.", frames: [shapeFrame([12], C.BLUE)] },
+        { title: "Purple Landmark", meaning: "Find and scan the purple landmark.", frames: [shapeFrame([12], C.PURPLE)] },
+        { title: "Pink Landmark", meaning: "Find and scan the pink landmark.", frames: [shapeFrame([12], C.PINK)] },
+        { title: "Yellow Landmark", meaning: "Find and scan the yellow landmark.", frames: [shapeFrame([12], C.YELLOW)] },
+        { title: "White Landmark", meaning: "Find and scan the white landmark.", frames: [shapeFrame([12], C.WHITE)] },
+      ]},
+      { heading: "Feedback", items: [
+        { title: "Amber Smile", meaning: "Ready, correct, or waiting for the next landmark.", frames: [shapeFrame(S.HAPPY_FACE, C.AMBER_DIM)] },
+        { title: "Red Smile", meaning: "Red landmark completed.", frames: [shapeFrame(S.HAPPY_FACE, C.RED)] },
+        { title: "Green Smile", meaning: "Green landmark completed.", frames: [shapeFrame(S.HAPPY_FACE, C.GREEN)] },
+        { title: "Blue Smile", meaning: "Blue landmark completed.", frames: [shapeFrame(S.HAPPY_FACE, C.BLUE)] },
+        { title: "Dark Red Frown", meaning: "Wrong landmark or wrong order. Try the current landmark again.", frames: [shapeFrame(S.SAD_FACE, C.RED_DIM)] },
+      ]},
+    ],
+  },
+];
+
+function buildLedGrid(pixels) {
+  const grid = document.createElement('div');
+  grid.className = 'led-grid';
+  for (let i = 0; i < 25; i++) {
+    const led = document.createElement('div');
+    led.className = 'led';
+    const c = pixels[i] || C.OFF;
+    if (!(c[0] === 0 && c[1] === 0 && c[2] === 0)) {
+      const scaled = scaleForDisplay(c);
+      led.style.background = rgb(scaled);
+      led.style.boxShadow = `0 0 10px ${rgb(scaled)}, inset 0 1px 1px rgba(255,255,255,.65)`;
+    }
+    grid.appendChild(led);
+  }
+  return grid;
+}
+
+function buildCard(item) {
+  const card = document.createElement('article');
+  card.className = `card ${item.className || ''}`.trim();
+
+  const stage = document.createElement('div');
+  stage.className = 'icon-stage';
+  const frames = document.createElement('div');
+  frames.className = 'frames';
+  item.frames.forEach((pixels) => {
+    const frame = document.createElement('div');
+    frame.className = 'frame';
+    frame.appendChild(buildLedGrid(pixels));
+    frames.appendChild(frame);
+  });
+  stage.appendChild(frames);
+  card.appendChild(stage);
+
+  const title = document.createElement('h3');
+  title.className = 'card-title';
+  title.textContent = item.title;
+  card.appendChild(title);
+
+  const meaning = document.createElement('p');
+  meaning.className = 'meaning';
+  meaning.textContent = item.meaning;
+  card.appendChild(meaning);
+
+  if (item.note) {
+    const note = document.createElement('p');
+    note.className = 'teacher-note';
+    note.textContent = item.note;
+    card.appendChild(note);
+  }
+  return card;
+}
+
+function render() {
+  const root = document.getElementById('root');
+  GAMES.forEach(game => {
+    const section = document.createElement('section');
+    section.className = `game-section ${game.className}`;
+    section.id = game.id;
+
+    const header = document.createElement('div');
+    header.className = 'game-header';
+    header.innerHTML = `<div><h2>${game.title}</h2><p>${game.summary}</p></div><span class="game-label ${game.label === 'beta' ? 'beta-label' : ''}">${game.label}</span>`;
+    section.appendChild(header);
+
+    const how = document.createElement('div');
+    how.className = 'how-to-play';
+    const howBox = document.createElement('div');
+    howBox.className = 'how-box';
+    const howTitle = document.createElement('h3');
+    howTitle.textContent = 'How to play';
+    howBox.appendChild(howTitle);
+    game.how.forEach(text => {
+      const p = document.createElement('p');
+      p.textContent = text;
+      howBox.appendChild(p);
+    });
+    how.appendChild(howBox);
+    section.appendChild(how);
+
+    game.groups.forEach(group => {
+      const wrap = document.createElement('div');
+      wrap.className = 'group';
+      const groupTitle = document.createElement('h3');
+      groupTitle.className = 'group-title';
+      groupTitle.textContent = group.heading;
+      wrap.appendChild(groupTitle);
+      const grid = document.createElement('div');
+      grid.className = 'grid';
+      group.items.forEach(item => grid.appendChild(buildCard(item)));
+      wrap.appendChild(grid);
+      section.appendChild(wrap);
+    });
+    root.appendChild(section);
+  });
+  document.getElementById('heroIcon').appendChild(buildLedGrid(shapeFrame(S.HAPPY_FACE, C.CYAN)));
+}
+
+render();
+</script>
+</body>
+</html>
