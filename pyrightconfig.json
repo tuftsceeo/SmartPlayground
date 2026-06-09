@@ -1,0 +1,7 @@
+{
+  "include": ["."],
+  "ignore": ["Bag1/**", "Bag2/**"],
+  "typeCheckingMode": "off",
+  "reportMissingImports": "none",
+  "reportMissingModuleSource": false
+}

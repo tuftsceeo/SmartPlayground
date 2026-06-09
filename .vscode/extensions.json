@@ -1,0 +1,12 @@
+{
+    "recommendations": [
+        "ms-python.python",
+        "paulober.pico-w-go",
+        "ms-python.vscode-pylance",
+        "visualstudioexptteam.vscodeintellicode"
+    ],
+    "unwantedRecommendations": [
+        "detachhead.basedpyright",
+        "ms-python.pyright"
+    ]
+}

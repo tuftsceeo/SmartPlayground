@@ -1,0 +1,16 @@
+{
+  "python.terminal.activateEnvironment": false,
+
+  // Bag1/Bag2 are MicroPython firmware — skip spell-check noise (ubinascii, etc.).
+  "cSpell.ignorePaths": [
+    "Bag1/**",
+    "Bag2/**"
+  ],
+
+  // MicroPico — connect manually; don't grab serial on startup.
+  "micropico.autoConnect": false,
+  "micropico.manualComDevice": "",
+  "micropico.openOnStart": false,
+  "micropico.executeOnConnect": "",
+  "micropico.importOnConnect": ""
+}
