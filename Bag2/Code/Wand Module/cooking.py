@@ -273,7 +273,7 @@ class CookingGame:
         while self.btn.value() == 0:
             if self.enow:
                 msg_type, _, _ = self.enow.poll()
-                if msg_type == "stop":
+                if msg_type in ("stop", "start_game"):
                     print("  ESP-NOW stop")
                     self._btn_was_down = False
                     return False
@@ -299,7 +299,7 @@ class CookingGame:
             # ── ESP-NOW ──
             if self.enow:
                 msg_type, _, _ = self.enow.poll()
-                if msg_type == "stop":
+                if msg_type in ("stop", "start_game"):
                     print("  ESP-NOW stop")
                     return
 

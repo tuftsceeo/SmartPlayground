@@ -313,7 +313,7 @@ def wait_for_commands(enow, display, nfc, last_espnow=None):
         frame += 1
 
         msg_type, data, _ = enow.poll(50)
-        if msg_type == "stop":
+        if msg_type in ("stop", "start_game"):
             print("  ESP-NOW: stop received")
             _rescan_reply_received()
             return "stop", False
@@ -381,7 +381,7 @@ def _post_win_wait(enow, display, nfc, buz):
         last_btn = cur
 
         msg_type, data, _ = enow.poll(0)
-        if msg_type == "stop":
+        if msg_type in ("stop", "start_game"):
             print("  ESP-NOW: stop received")
             _beep_stop(buz)
             _rescan_reply_received()
@@ -443,7 +443,7 @@ def run_game(nfc, buz, display, targets, enow, start_ticks=None):
 
     while found < n:
         msg_type, data, _ = enow.poll(0)
-        if msg_type == "stop":
+        if msg_type in ("stop", "start_game"):
             print("  ESP-NOW: stop received")
             _beep_stop(buz)
             _rescan_reply_received()

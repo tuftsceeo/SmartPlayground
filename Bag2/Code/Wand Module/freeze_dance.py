@@ -384,7 +384,7 @@ class FreezeDanceGame:
             # ESP-NOW. State guards dedupe the burst of 5 repeats and only beep
             # on the first message that actually changes state.
             msg_type, data, _ = self.enow.poll()
-            if msg_type == "stop":
+            if msg_type in ("stop", "start_game"):
                 print("  ESP-NOW stop"); self.leds.off(); return
 
             # Players in OUT, REJOIN_ARMED, or ROLE_SELECT ignore game-state

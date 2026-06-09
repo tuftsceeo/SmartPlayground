@@ -73,7 +73,7 @@ class SimpleIceCreamGame:
     def _check_stop(self):
         if self.enow:
             msg_type, _, _ = self.enow.poll()
-            if msg_type == "stop":
+            if msg_type in ("stop", "start_game"):
                 return True
         if self._frame % NFC_POLL_INTERVAL != 0:
             return False

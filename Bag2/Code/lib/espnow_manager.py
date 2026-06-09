@@ -185,6 +185,12 @@ class ESPNowManager:
     def broadcast_stop(self):
         return self.broadcast(["stop"])
 
+    def send_start_game(self, mac_str, name):
+        return self.send_to(mac_str, {"type": "start_game", "name": name})
+
+    def broadcast_start_game(self, name):
+        return self.broadcast({"type": "start_game", "name": name})
+
     def send_score(self, mac_bytes, colors, elapsed_ms):
         msg = json.dumps({
             "type": "score",
@@ -209,7 +215,7 @@ class ESPNowManager:
         Returns (msg_type, data, mac_str) or (None, None, None).
 
         msg_type: "colors", "score", "splat_config", "stop",
-                  "battery", "scan_request", "raw", or None
+                  "battery", "scan_request", "start_game", "raw", or None
         """
         if not self._active:
             return None, None, None
@@ -244,6 +250,11 @@ class ESPNowManager:
                 return "score", data, mac_str
             if mt == "scan_request":
                 return "scan_request", data, mac_str
+            if mt == "start_game":
+                name = data.get("name")
+                if isinstance(name, str) and name:
+                    return "start_game", data, mac_str
+                return "raw", data, mac_str
             return "raw", data, mac_str
 
         return "raw", data, mac_str
