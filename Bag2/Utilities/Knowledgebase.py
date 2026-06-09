@@ -1,9 +1,16 @@
 # SmartPlayground Wand — API Reference for LLM Game Code Generation
 # ==================================================================
-# This file is the SOLE context for generating jumpin.py game code.
-# Games run on a Seeed XIAO ESP32-C6 under MicroPython v1.27.0.
-# They are called when a kid taps a game NFC tag on their wand,
-# and must exit cleanly when any exit tag is tapped or ESP-NOW stop is received.
+# This file is the SOLE context for generating or modifying jumpin.py.
+#
+# SCOPE: The LLM agent may ONLY generate or modify ONE file: jumpin.py
+# All other game files (jump.py, shake.py, color_quest.py, etc.) are
+# read-only reference. Do NOT create new game files. Do NOT modify
+# main.py or any library file.
+#
+# jumpin.py is the "Jump In" game — the placeholder game students and
+# teachers customize. It runs on a Seeed XIAO ESP32-C6 under MicroPython
+# v1.27.0 and is launched when a kid taps the "jumpin" NFC tag on their wand.
+# It must exit cleanly when any exit tag is tapped or ESP-NOW stop is received.
 #
 # IMPORTANT: Do NOT use f-strings — they crash on this MicroPython build.
 # Use % formatting only: "value = %d" % val
@@ -163,39 +170,47 @@
 #                                        enow.broadcast(["turnred","turnblue",...])
 
 # ═══════════════════════════════════════════════════════════════════
-# 3. ENTRY POINT CONTRACT
+# 3. ENTRY POINT CONTRACT — jumpin.py ONLY
 # ═══════════════════════════════════════════════════════════════════
-# main.py calls:
-#   from mygame import play
-#   play(nfc, leds, buz, accel, i2c, enow)
+# main.py dispatches the "jumpin" NFC tag to jumpin.py like this:
+#   from jumpin import play as play_jumpin
+#   play_jumpin(nfc, leds, buz, accel, i2c, enow)
+#
+# jumpin.py MUST define this exact function at module level:
+#
+#   def play(nfc, leds, buz, accel, i2c, enow):
 #
 # The 6-argument signature is REQUIRED. enow is always passed — never None.
 # Do NOT create a second ESPNowManager or call network.WLAN — it is already
-# initialized. Use the enow object that was passed in.
+# initialized by main.py. Use the enow object passed in.
 #
-# def play(nfc, leds, buz, accel, i2c, enow):
-#     nfc   — PN532 driver (already initialized)
-#     leds  — Leds instance; leds.np is the scaled NeoPixel object
-#     buz   — Buzzer instance
-#     accel — LIS2DW12 (already initialized at ±4g, 100Hz); may be None
-#     i2c   — machine.SoftI2C (100kHz; available for additional sensors)
-#     enow  — ESPNowManager (already initialized; poll every loop iteration)
+# Arguments:
+#   nfc   — PN532 driver (already initialized)
+#   leds  — Leds instance; leds.np is the scaled NeoPixel object
+#   buz   — Buzzer instance
+#   accel — LIS2DW12 (already initialized at ±4g, 100Hz); may be None
+#   i2c   — machine.SoftI2C (100kHz; available for additional sensors)
+#   enow  — ESPNowManager (already initialized; poll every loop iteration)
 #
-# MUST:
+# play() MUST:
+#   - Use "jumpin" as the game tag name: exit_tags_excluding("jumpin")
 #   - Poll enow.poll() every loop iteration for stop/start_game
 #   - Poll NFC every ~10-15 frames for exit tags (not every frame — too slow)
-#   - Exit when any _EXIT_TAGS tag is scanned or enow stop is received
+#   - Exit (return) when any _EXIT_TAGS tag is scanned or enow stop is received
 #   - Call leds.off() in a try/finally block
 #   - NOT use f-strings
+#   - Also define main() for standalone testing
 
 # ═══════════════════════════════════════════════════════════════════
-# 4. COMPLETE CANONICAL GAME TEMPLATE
+# 4. COMPLETE CANONICAL TEMPLATE FOR jumpin.py
 # ═══════════════════════════════════════════════════════════════════
+# This is the exact structure jumpin.py must follow.
+# The game tag name is always "jumpin" — do not change it.
 
 """
-MyGame — One-line description
-==============================
-What this game does (1-3 sentences for students).
+Jump In — <short description of what this version does>
+=========================================================
+<1-3 sentences describing the game for students.>
 
 Entry points:
     play(nfc, leds, buz, accel, i2c, enow)  — called from main.py
@@ -211,7 +226,7 @@ from pn532 import PN532
 from nfc_reader import NfcReader
 from game_tags import exit_tags_excluding
 
-_EXIT_TAGS = exit_tags_excluding("mygame")  # replace "mygame" with this game's tag name
+_EXIT_TAGS = exit_tags_excluding("jumpin")  # always "jumpin" — do not change
 
 from leds import (
     OFF, RED, GREEN, BLUE, YELLOW, PURPLE, PINK, WHITE, ORANGE, TEAL,
@@ -232,7 +247,7 @@ NFC_POLL_INTERVAL = 10          # poll NFC every N frames (~500ms at 50ms loop)
 LOOP_DELAY_MS     = 50
 
 
-class MyGame:
+class JumpInGame:
     def __init__(self, nfc, leds, buz, accel, enow):
         self.nfc   = nfc
         self.leds  = leds
@@ -308,22 +323,22 @@ class MyGame:
 
 
 def play(nfc, leds, buz, accel, i2c, enow):
-    """Called from main.py when the game tag is tapped."""
-    # Unique entry fanfare — make this sound different from every other game
+    """Called from main.py when the 'jumpin' tag is tapped."""
+    # Entry fanfare for Jump In — keep this distinct from other games
     buz.beep(523, 80); time.sleep_ms(40)
     buz.beep(659, 80); time.sleep_ms(40)
     buz.beep(784, 120)
 
-    print("\n  === MY GAME ===")
+    print("\n  === JUMP IN ===")
     try:
-        MyGame(nfc, leds, buz, accel, enow).run()
+        JumpInGame(nfc, leds, buz, accel, enow).run()
     finally:
         leds.off()
         print("\n  === RETURNING TO PROGRAMMING MODE ===\n")
 
 
 def main():
-    """Standalone entry — run directly: import mygame; mygame.main()"""
+    """Standalone entry — run directly: import jumpin; jumpin.main()"""
     i2c = machine.SoftI2C(sda=Pin(I2C_SDA), scl=Pin(I2C_SCL), freq=100_000)
 
     import brightness
@@ -687,26 +702,24 @@ if __name__ == "__main__":
 # ═══════════════════════════════════════════════════════════════════
 # 11. FLUID GAME SWITCHING
 # ═══════════════════════════════════════════════════════════════════
-# Students can exit any game by tapping ANY game tag or "stop".
-# Teacher can force-exit via ESP-NOW. Both must be handled.
+# Students can exit jumpin.py by tapping ANY game tag or "stop".
+# A teacher can force-exit via ESP-NOW. Both must be handled.
+# jumpin.py is already registered in main.py — do NOT edit main.py.
 #
-# Required imports:
+# Required imports in jumpin.py:
 #   from game_tags import exit_tags_excluding
-#   _EXIT_TAGS = exit_tags_excluding("mygame")  # your game's tag name
+#   _EXIT_TAGS = exit_tags_excluding("jumpin")  # always "jumpin"
 #
-# Required in game's COMMANDS set:
-#   COMMANDS = _EXIT_TAGS  (or _EXIT_TAGS | {"scan", "color1", ...})
+# Required COMMANDS set:
+#   COMMANDS = _EXIT_TAGS  (or _EXIT_TAGS | {"scan", "color1", ...}
+#              if the game also reads other NFC tags during play)
 #
-# Required in every loop:
+# Required in every loop iteration:
 #   msg_type, _, _ = self.enow.poll()
 #   if msg_type in ("stop", "start_game"): return
-#   # ... then NFC check every NFC_POLL_INTERVAL frames ...
+#   # ... NFC check every NFC_POLL_INTERVAL frames ...
 #   cmd, uid = self.reader.read_command(timeout=100)
 #   if cmd in _EXIT_TAGS: return
-#
-# To add your game to the system (in main.py — not in the game file):
-#   GAME_TAGS.add("mygame")
-#   GAME_DISPATCH["mygame"] = "mygame"  (module name)
 
 # ═══════════════════════════════════════════════════════════════════
 # 12. OTHER AVAILABLE LIBRARIES
@@ -815,20 +828,23 @@ if __name__ == "__main__":
 # 15. ESP-NOW messages are limited to ~240 bytes. Use short strings.
 
 # ═══════════════════════════════════════════════════════════════════
-# 15. CHECKLIST FOR NEW GAMES
+# 15. CHECKLIST FOR jumpin.py
 # ═══════════════════════════════════════════════════════════════════
-# Before considering a generated game complete, verify:
+# The LLM agent generates or modifies ONLY jumpin.py.
+# Before emitting the final file, verify every item:
 #
-# [ ] play() has 6 parameters: (nfc, leds, buz, accel, i2c, enow)
-# [ ] _EXIT_TAGS = exit_tags_excluding("yourgame") at module level
+# [ ] File is named jumpin.py — no other files are created or modified
+# [ ] play() has exactly 6 parameters: (nfc, leds, buz, accel, i2c, enow)
+# [ ] _EXIT_TAGS = exit_tags_excluding("jumpin")  — always "jumpin"
+# [ ] Game class is named JumpInGame (or similar) — not a generic name
 # [ ] enow.poll() called every loop iteration; exits on "stop"/"start_game"
 # [ ] NFC polled every NFC_POLL_INTERVAL frames; exits on cmd in _EXIT_TAGS
 # [ ] leds.off() called in try/finally
-# [ ] main() standalone harness present
-# [ ] No f-strings anywhere
-# [ ] Colors imported from leds.py, not raw tuples
+# [ ] main() standalone harness present (import jumpin; jumpin.main())
+# [ ] No f-strings anywhere in the file
+# [ ] Colors imported from leds.py (RED, GREEN, etc.), not raw tuples
 # [ ] Button: initial state read at __init__; debounce with sleep_ms(30)
 # [ ] Accelerometer guarded with: if self.accel: try: ... except: pass
-# [ ] Unique entry fanfare (different from other games)
-# [ ] No ESPNowManager() instantiation inside the game
-# [ ] % formatting used for all string interpolation
+# [ ] Entry fanfare present in play() (buz.beep sequence)
+# [ ] No ESPNowManager() instantiation inside jumpin.py
+# [ ] % formatting used for all string interpolation (not f-strings)
