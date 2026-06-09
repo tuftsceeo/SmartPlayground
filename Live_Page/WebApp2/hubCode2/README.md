@@ -11,7 +11,7 @@ Hub2 is an ESP32-C6 hub that bridges LivePage2 (USB Serial/WebSerial) to Bag2 wa
 - MicroPython firmware
 - Optional SSD1306 OLED (128x64, I2C pins SCL=23, SDA=22)
 
-External antenna is configured automatically in `espnow_manager.py` (`_configure_external_antenna()`).
+External antenna GPIO is configured automatically on **ESP32-C6 only** (`espnow_manager._is_esp32c6()`). Other boards (S3, C3, generic) skip antenna pin setup.
 
 ## Files
 

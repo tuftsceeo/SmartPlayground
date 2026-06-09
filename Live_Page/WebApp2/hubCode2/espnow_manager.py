@@ -23,8 +23,29 @@ from machine import Pin
 BROADCAST_MAC = b'\xFF\xFF\xFF\xFF\xFF\xFF'
 
 
+def _is_esp32c6():
+    """True only on ESP32-C6 boards with the external-antenna GPIO switch."""
+    try:
+        import sys
+        plat = (sys.platform or '').lower()
+        if plat == 'esp32c6' or 'esp32c6' in plat:
+            return True
+    except Exception:
+        pass
+    try:
+        import os
+        machine = (os.uname().machine or '').upper()
+        if 'ESP32C6' in machine:
+            return True
+    except Exception:
+        pass
+    return False
+
+
 def _configure_external_antenna():
-    """Switch to external antenna before WiFi activation."""
+    """Switch to external antenna before WiFi activation (ESP32-C6 only)."""
+    if not _is_esp32c6():
+        return
     wifi_en = Pin(3, Pin.OUT)
     ant_cfg = Pin(14, Pin.OUT)
     wifi_en.value(0)
