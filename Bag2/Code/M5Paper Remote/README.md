@@ -8,10 +8,28 @@ UIFlow2 MicroPython broadcasts ESP-NOW commands directly to wands — no laptop 
 | File | Role |
 |------|------|
 | `main.py` | Boot entry: M5 init, ESP-NOW, touch poll loop |
-| `ui.py` | E-ink button grid, touch hit-testing, partial refresh feedback |
+| `ui.py` | E-ink button grid, DejaVu fonts, persistent footer, touch handling |
 | `config.py` | Curated game list, layout constants, optional WiFi channel |
 | `espnow_manager.py` | Bundled copy of `../lib/espnow_manager.py` (keep in sync) |
 | `game_tags.py` | Bundled copy of `../lib/game_tags.py` (keep in sync) |
+
+## Curated games (10)
+
+| Tag | Label |
+|-----|-------|
+| `jumpin` | Jump In |
+| `gestures` | Gestures |
+| `freezedance` | Freeze Dance |
+| `cooking` | Cooking |
+| `melody` | Melody |
+| `simpleicecream` | Ice Cream |
+| `rainbow` | Rainbow |
+| `sound` | Bell Choir |
+| `colorquest` | Color Quest |
+| `shake` | Shake Fill |
+
+Plus **STOP** and **Battery** controls. To swap assortment slots, edit one line in `COMMANDS`
+in `config.py` (valid ids: `shakerainbow`, `jump`, `nfcsound`, `multiicecream`).
 
 ## Flash firmware (first time)
 
@@ -39,7 +57,8 @@ UIFlow2 MicroPython broadcasts ESP-NOW commands directly to wands — no laptop 
 ## Usage
 
 - Tap a **game** button to broadcast `{"type":"start_game","name":"<tag>"}` twice (100 ms apart).
-- Tap **STOP** to broadcast `["stop"]` twice.
+- The **footer** shows the last command until the next tap; the active game button stays inverted.
+- Tap **STOP** to broadcast `["stop"]` twice; footer shows "Stopped".
 - Tap **Battery** to broadcast `["battery"]` twice.
 - Status line shows `NOW Ready` and the device MAC.
 
@@ -62,12 +81,12 @@ Packets match the wand protocol in `../lib/espnow_manager.py` (same as the Live_
 
 ## Bench verification checklist
 
-1. **Boot** — UI paints; status shows `NOW Ready` + MAC.
-2. **Start game** — tap each curated game; wand enters that game.
-3. **Stop** — wand returns to idle.
+1. **Boot** — crisp white background; 10 games fill panel; footer shows "Ready"; no dead zone.
+2. **Start game** — tap each game; wand enters that game; footer persists; active button inverts.
+3. **Stop** — wand returns to idle; footer shows "Stopped"; highlight clears.
 4. **Battery** — wand reports battery (per wand firmware behavior).
 5. **Range** — commands work at a few meters (double-send reliability).
-6. **Refresh** — rapid taps stay legible; every 12 taps triggers a full e-ink refresh.
+6. **Refresh** — rapid taps stay legible; every 8 taps triggers a full EPD_QUALITY repaint.
 
 ## Protocol (unchanged from hub)
 

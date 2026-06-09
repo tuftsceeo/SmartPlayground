@@ -12,20 +12,35 @@ MARGIN = 12
 GAP = 8
 TITLE_H = 48
 STATUS_H = 32
-GAME_BTN_H = 108
-CONTROL_BTN_H = 72
-STOP_BTN_H = 100
+FOOTER_H = 96
+BATTERY_BTN_H = 48
+STOP_BTN_H = 110
+
+# DejaVu point sizes (see ui._set_font); must be keys in _DEJAVU_NAMES.
+FONT_TITLE = 12
+FONT_STATUS = 12
+FONT_GAME = 18
+FONT_STOP = 24
+FONT_FOOTER = 40
+FONT_BATTERY = 12
+
+BORDER_W = 3
 
 DEBOUNCE_MS = 300
-GHOST_REFRESH_EVERY = 12
+GHOST_REFRESH_EVERY = 8
+PRESS_FLASH_MS = 150
 
 COMMANDS = [
-    {"id": "colorquest", "label": "Color Quest"},
+    {"id": "jumpin", "label": "Jump In"},
+    {"id": "gestures", "label": "Gestures"},
     {"id": "freezedance", "label": "Freeze Dance"},
+    {"id": "cooking", "label": "Cooking"},
+    {"id": "melody", "label": "Melody"},
+    {"id": "simpleicecream", "label": "Ice Cream"},
     {"id": "rainbow", "label": "Rainbow"},
-    {"id": "shake", "label": "Shake Fill"},
     {"id": "sound", "label": "Bell Choir"},
-    {"id": "jump", "label": "Jump Counter"},
+    {"id": "colorquest", "label": "Color Quest"},
+    {"id": "shake", "label": "Shake Fill"},
 ]
 
 CONTROLS = [
