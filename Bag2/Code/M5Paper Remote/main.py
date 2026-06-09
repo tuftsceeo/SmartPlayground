@@ -11,7 +11,12 @@ import M5
 from M5 import *
 import network
 
-from config import ESPNOW_CHANNEL, validate_config
+from config import (
+    ESPNOW_CHANNEL,
+    build_commands,
+    load_enabled_ids,
+    validate_config,
+)
 from espnow_manager import ESPNowManager, get_own_mac
 from ui import RemoteUI
 
@@ -52,28 +57,34 @@ def setup():
     enow.init()
 
     mac_str = get_own_mac()
-    ui = RemoteUI(mac_str, espnow_ready=enow.is_active)
+    enabled = load_enabled_ids()
+    commands = build_commands(enabled)
+    ui = RemoteUI(mac_str, commands, espnow_ready=enow.is_active)
     ui.paint_full()
     return enow, ui
 
 
 def loop(enow, ui):
-    ui.maybe_ghost_refresh()
     touch = ui.poll_touch()
     if touch is None:
         time.sleep_ms(50)
         return
 
     x, y = touch
-    btn = ui.hit_test(x, y)
-    if btn is None:
+    result = ui.on_touch(x, y)
+    if result == "open_settings":
+        if not ui.try_debounce():
+            return
+        ui.open_settings()
+        return
+    if result is None:
         return
     if not ui.try_debounce():
         return
 
-    print("  Tap: %s (%s,%s)" % (btn.label, x, y))
-    _dispatch(enow, btn)
-    ui.show_feedback(btn, btn.label)
+    print("  Tap: %s (%s,%s)" % (result.label, x, y))
+    _dispatch(enow, result)
+    ui.show_feedback(result, result.label)
 
 
 def main():

@@ -6,29 +6,33 @@ import M5
 from M5 import *
 
 from config import (
+    ALL_GAMES,
     BATTERY_BTN_H,
     BLACK,
     BORDER_W,
-    COMMANDS,
     CONTROLS,
     DEBOUNCE_MS,
     FONT_BATTERY,
     FONT_FOOTER,
     FONT_GAME,
-    FONT_STATUS,
+    FONT_SETTINGS,
+    FONT_SETTINGS_SMALL,
     FONT_STOP,
-    FONT_TITLE,
     FOOTER_H,
     GAP,
-    GHOST_REFRESH_EVERY,
+    GEAR_HIT,
+    LCD_SHOW_AFTER_END_WRITE,
     MARGIN,
     PRESS_FLASH_MS,
     SCREEN_H,
     SCREEN_W,
-    STATUS_H,
+    SETTINGS_MAC_H,
+    SETTINGS_SAVE_H,
     STOP_BTN_H,
-    TITLE_H,
+    TOP_BAR_H,
     WHITE,
+    build_commands,
+    save_enabled_ids,
 )
 
 # DejaVu font sizes present on this firmware. Map a point size to its
@@ -77,30 +81,39 @@ class _Button(object):
 
 
 class RemoteUI(object):
-    def __init__(self, mac_str, espnow_ready=True):
+    def __init__(self, mac_str, commands, espnow_ready=True):
         self.mac_str = mac_str
+        self.commands = list(commands)
         self.espnow_ready = espnow_ready
+        self.mode = "main"
         self.buttons = []
-        self._status_y = TITLE_H
         self._footer_y = 0
         self._battery_y = 0
         self._stop_y = 0
         self._game_btn_h = 0
-        self._tap_count = 0
+        self._gear_x = SCREEN_W - MARGIN - GEAR_HIT
+        self._gear_y = 0
+        self._gear_w = GEAR_HIT
+        self._gear_h = TOP_BAR_H
+        self._settings_rows = []
+        self._settings_row_h = 0
+        self._save_y = 0
+        self._settings_enabled = set()
         self._last_tap_ms = 0
-        self._ghost_due = False
         self._last_sent = "Ready"
         self._active_game_id = None
         self._build_layout()
 
     def _build_layout(self):
         self.buttons = []
-        rows = (len(COMMANDS) + 1) // 2
+        rows = (len(self.commands) + 1) // 2
+        if rows < 1:
+            rows = 1
 
         self._stop_y = SCREEN_H - STOP_BTN_H
         self._footer_y = self._stop_y - GAP - FOOTER_H
         self._battery_y = self._footer_y - GAP - BATTERY_BTN_H
-        game_top = TITLE_H + STATUS_H + GAP
+        game_top = TOP_BAR_H
         game_bottom = self._battery_y - GAP
         game_area = game_bottom - game_top
         self._game_btn_h = (game_area - (rows - 1) * GAP) // rows
@@ -108,7 +121,7 @@ class RemoteUI(object):
             self._game_btn_h = 44
 
         col_w = (SCREEN_W - (2 * MARGIN) - GAP) // 2
-        for i, cmd in enumerate(COMMANDS):
+        for i, cmd in enumerate(self.commands):
             row = i // 2
             col = i % 2
             x = MARGIN + col * (col_w + GAP)
@@ -146,6 +159,34 @@ class RemoteUI(object):
                     )
                 )
 
+    def _build_settings_layout(self):
+        self._settings_rows = []
+        rows = (len(ALL_GAMES) + 1) // 2
+        self._save_y = SCREEN_H - SETTINGS_MAC_H - GAP - SETTINGS_SAVE_H
+        rows_top = TOP_BAR_H + GAP
+        rows_bottom = self._save_y - GAP
+        rows_area = rows_bottom - rows_top
+        self._settings_row_h = (rows_area - (rows - 1) * GAP) // rows
+        if self._settings_row_h < 48:
+            self._settings_row_h = 48
+
+        col_w = (SCREEN_W - (2 * MARGIN) - GAP) // 2
+        for i, game in enumerate(ALL_GAMES):
+            row = i // 2
+            col = i % 2
+            x = MARGIN + col * (col_w + GAP)
+            y = rows_top + row * (self._settings_row_h + GAP)
+            self._settings_rows.append(
+                {
+                    "id": game["id"],
+                    "label": game["label"],
+                    "x": x,
+                    "y": y,
+                    "w": col_w,
+                    "h": self._settings_row_h,
+                }
+            )
+
     def _epd_mode(self, quality=False):
         try:
             if quality:
@@ -157,6 +198,20 @@ class RemoteUI(object):
                 M5.Lcd.setEpdMode(0 if quality else 2)
             except Exception:
                 pass
+
+    def _begin_write(self):
+        try:
+            M5.Lcd.startWrite()
+        except Exception:
+            pass
+
+    def _end_write(self):
+        try:
+            M5.Lcd.endWrite()
+            if LCD_SHOW_AFTER_END_WRITE:
+                M5.Lcd.show()
+        except Exception:
+            pass
 
     def _set_text_datum_center(self):
         try:
@@ -236,29 +291,45 @@ class RemoteUI(object):
             self._font_for_button(btn),
         )
 
-    def _draw_title(self):
-        mac_tail = self.mac_str.replace(":", "")[-4:]
-        title = "Wand Remote  %s" % mac_tail
-        M5.Lcd.fillRect(0, 0, SCREEN_W, TITLE_H, WHITE)
-        self._draw_text_centered(
-            title, SCREEN_W // 2, TITLE_H // 2, BLACK, WHITE, FONT_TITLE
+    def _draw_gear(self):
+        M5.Lcd.fillRect(0, 0, SCREEN_W, TOP_BAR_H, WHITE)
+        cx = self._gear_x + self._gear_w // 2
+        cy = self._gear_y + self._gear_h // 2
+        r = 14
+        M5.Lcd.fillCircle(cx, cy, r, WHITE)
+        M5.Lcd.drawCircle(cx, cy, r, BLACK)
+        M5.Lcd.fillCircle(cx, cy, 5, BLACK)
+        for dx, dy in (
+            (0, -18),
+            (13, -13),
+            (18, 0),
+            (13, 13),
+            (0, 18),
+            (-13, 13),
+            (-18, 0),
+            (-13, -13),
+        ):
+            M5.Lcd.fillRect(cx + dx - 2, cy + dy - 2, 4, 4, BLACK)
+
+    def _gear_hit(self, x, y):
+        return (
+            self._gear_x <= x < self._gear_x + self._gear_w
+            and self._gear_y <= y < self._gear_y + self._gear_h
         )
 
-    def _draw_status(self):
-        M5.Lcd.fillRect(0, self._status_y, SCREEN_W, STATUS_H, WHITE)
-        if self.espnow_ready:
-            status = "NOW Ready  %s" % self.mac_str
-        else:
-            status = "NOW Init..."
-        self._draw_text_left(
-            status, MARGIN, self._status_y + 10, BLACK, WHITE, FONT_STATUS
-        )
+    def _footer_banner_text(self):
+        if self._active_game_id:
+            return "Now Playing: %s" % self._last_sent
+        if self._last_sent == "Stopped":
+            return "Stopped"
+        if self._last_sent == "Checking batteries":
+            return "Checking batteries"
+        return "Ready"
 
     def _draw_footer(self):
         M5.Lcd.fillRect(0, self._footer_y, SCREEN_W, FOOTER_H, WHITE)
-        self._draw_border(0, self._footer_y, SCREEN_W, FOOTER_H, BLACK)
         self._draw_text_centered(
-            self._last_sent,
+            self._footer_banner_text(),
             SCREEN_W // 2,
             self._footer_y + FOOTER_H // 2,
             BLACK,
@@ -272,21 +343,151 @@ class RemoteUI(object):
                 return btn
         return None
 
+    def _draw_settings_row(self, row, enabled):
+        if enabled:
+            fill, border, text = BLACK, BLACK, WHITE
+            mark = "[x]"
+        else:
+            fill, border, text = WHITE, BLACK, BLACK
+            mark = "[ ]"
+        M5.Lcd.fillRect(row["x"], row["y"], row["w"], row["h"], fill)
+        self._draw_border(row["x"], row["y"], row["w"], row["h"], border)
+        line = "%s %s" % (mark, row["label"])
+        self._draw_text_left(
+            line,
+            row["x"] + 8,
+            row["y"] + row["h"] // 2 - 8,
+            text,
+            fill,
+            FONT_SETTINGS,
+        )
+
+    def _paint_settings_content(self):
+        M5.Lcd.fillRect(0, 0, SCREEN_W, TOP_BAR_H, WHITE)
+        self._draw_text_left(
+            "Choose Games",
+            MARGIN,
+            TOP_BAR_H // 2 - 6,
+            BLACK,
+            WHITE,
+            FONT_SETTINGS,
+        )
+        for row in self._settings_rows:
+            self._draw_settings_row(row, row["id"] in self._settings_enabled)
+        save_x = MARGIN
+        save_w = SCREEN_W - (2 * MARGIN)
+        M5.Lcd.fillRect(save_x, self._save_y, save_w, SETTINGS_SAVE_H, BLACK)
+        self._draw_border(save_x, self._save_y, save_w, SETTINGS_SAVE_H, BLACK)
+        self._draw_text_centered(
+            "Save & Back",
+            save_x + save_w // 2,
+            self._save_y + SETTINGS_SAVE_H // 2,
+            WHITE,
+            BLACK,
+            FONT_SETTINGS,
+        )
+        mac_y = SCREEN_H - SETTINGS_MAC_H
+        M5.Lcd.fillRect(0, mac_y, SCREEN_W, SETTINGS_MAC_H, WHITE)
+        self._draw_text_centered(
+            "Device: %s" % self.mac_str,
+            SCREEN_W // 2,
+            mac_y + SETTINGS_MAC_H // 2,
+            BLACK,
+            WHITE,
+            FONT_SETTINGS_SMALL,
+        )
+
     def paint_full(self):
         self._epd_mode(quality=True)
-        M5.Lcd.clear(WHITE)
-        self._draw_title()
-        self._draw_status()
-        for btn in self.buttons:
-            self._draw_button(btn)
-        self._draw_footer()
+        if self.mode == "settings":
+            self.paint_settings()
+            return
+        self._begin_write()
+        try:
+            M5.Lcd.clear(WHITE)
+            self._draw_gear()
+            for btn in self.buttons:
+                self._draw_button(btn)
+            self._draw_footer()
+        finally:
+            self._end_write()
 
-    def maybe_ghost_refresh(self):
-        if self._ghost_due:
-            self._ghost_due = False
-            self.paint_full()
+    def paint_settings(self):
+        self._epd_mode(quality=True)
+        self._build_settings_layout()
+        self._begin_write()
+        try:
+            M5.Lcd.clear(WHITE)
+            self._paint_settings_content()
+        finally:
+            self._end_write()
 
-    def hit_test(self, x, y):
+    def _redraw_settings_row(self, game_id):
+        for row in self._settings_rows:
+            if row["id"] == game_id:
+                self._epd_mode(quality=False)
+                self._begin_write()
+                try:
+                    self._draw_settings_row(row, game_id in self._settings_enabled)
+                finally:
+                    self._end_write()
+                return
+
+    def open_settings(self):
+        self.mode = "settings"
+        self._settings_enabled = set(cmd["id"] for cmd in self.commands)
+        self.paint_settings()
+
+    def _settings_hit(self, x, y):
+        for row in self._settings_rows:
+            if (
+                row["x"] <= x < row["x"] + row["w"]
+                and row["y"] <= y < row["y"] + row["h"]
+            ):
+                return row["id"]
+        save_x = MARGIN
+        save_w = SCREEN_W - (2 * MARGIN)
+        if (
+            save_x <= x < save_x + save_w
+            and self._save_y <= y < self._save_y + SETTINGS_SAVE_H
+        ):
+            return "__save__"
+        return None
+
+    def _toggle_settings_row(self, game_id):
+        if game_id in self._settings_enabled:
+            if len(self._settings_enabled) <= 1:
+                return
+            self._settings_enabled.discard(game_id)
+        else:
+            self._settings_enabled.add(game_id)
+
+    def _save_settings(self):
+        if len(self._settings_enabled) < 1:
+            return False
+        save_enabled_ids(list(self._settings_enabled))
+        self.commands = build_commands(self._settings_enabled)
+        self._build_layout()
+        self.mode = "main"
+        self.paint_full()
+        return True
+
+    def on_touch(self, x, y):
+        if self.mode == "settings":
+            if not self.try_debounce():
+                return None
+            hit = self._settings_hit(x, y)
+            if hit == "__save__":
+                self._save_settings()
+                return None
+            if hit is not None:
+                self._toggle_settings_row(hit)
+                self._redraw_settings_row(hit)
+            return None
+
+        if self._gear_hit(x, y):
+            return "open_settings"
+
         for btn in self.buttons:
             if btn.contains(x, y):
                 return btn
@@ -306,27 +507,31 @@ class RemoteUI(object):
             self._last_sent = "Stopped"
             self._active_game_id = None
         elif btn.button_id == "battery":
-            self._last_sent = "Battery poll"
+            self._last_sent = "Checking batteries"
         else:
             self._last_sent = label
             if btn.kind == "game":
                 self._active_game_id = btn.button_id
 
         self._epd_mode(quality=False)
-        self._draw_button(btn, highlight=True)
+        self._begin_write()
+        try:
+            self._draw_button(btn, highlight=True)
+        finally:
+            self._end_write()
         time.sleep_ms(PRESS_FLASH_MS)
 
         self._epd_mode(quality=True)
-        if prev_active and prev_active != self._active_game_id:
-            old_btn = self._find_button(prev_active)
-            if old_btn:
-                self._draw_button(old_btn)
-        self._draw_button(btn)
-        self._draw_footer()
-
-        self._tap_count += 1
-        if self._tap_count % GHOST_REFRESH_EVERY == 0:
-            self._ghost_due = True
+        self._begin_write()
+        try:
+            if prev_active and prev_active != self._active_game_id:
+                old_btn = self._find_button(prev_active)
+                if old_btn:
+                    self._draw_button(old_btn)
+            self._draw_button(btn)
+            self._draw_footer()
+        finally:
+            self._end_write()
 
     def poll_touch(self):
         M5.update()

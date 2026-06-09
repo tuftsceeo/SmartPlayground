@@ -8,12 +8,40 @@ UIFlow2 MicroPython broadcasts ESP-NOW commands directly to wands — no laptop 
 | File | Role |
 |------|------|
 | `main.py` | Boot entry: M5 init, ESP-NOW, touch poll loop |
-| `ui.py` | E-ink button grid, DejaVu fonts, persistent footer, touch handling |
-| `config.py` | Curated game list, layout constants, optional WiFi channel |
+| `ui.py` | E-ink UI, DejaVu fonts, Now Playing banner, Settings screen |
+| `config.py` | Game catalog, layout constants, settings persistence |
 | `espnow_manager.py` | Bundled copy of `../lib/espnow_manager.py` (keep in sync) |
 | `game_tags.py` | Bundled copy of `../lib/game_tags.py` (keep in sync) |
 
-## Curated games (10)
+## E-ink refresh (batched draws)
+
+All multi-primitive frames use `M5.Lcd.startWrite()` / `endWrite()` so the panel
+physically refreshes **once** per screen update (not once per `fillRect`). Settings
+checkbox toggles redraw **only that row** (fast partial update). There is no periodic
+mid-play full-screen wipe — full quality repaints happen only on boot, entering Settings,
+and Save & Back.
+
+If batched content does not appear after upload, set `LCD_SHOW_AFTER_END_WRITE = True` in
+`config.py` (on-device REPL confirmed `endWrite()` alone is sufficient for this firmware).
+
+## Main screen
+
+- **No title or MAC line** on the home grid — maximum space for game buttons.
+- **Gear icon** (top-right) opens Settings.
+- **Now Playing banner** (borderless, bottom): shows `Ready`, then `Now Playing: <game>`,
+  `Stopped`, or `Checking batteries`. Active game button stays inverted on the grid.
+- **STOP** is the largest control (DejaVu40). **Battery** is a compact secondary button.
+
+## Settings screen
+
+Tap the **gear** to open a checklist of all 14 wand games. Tap rows to enable/disable;
+at least one game must stay enabled. Tap **Save & Back** to return — choices are saved to
+`/flash/settings.json` and survive reboot.
+
+Device MAC appears only at the bottom of the Settings screen (`Device: XX:XX:…`) for
+field troubleshooting.
+
+### Default enabled games (10)
 
 | Tag | Label |
 |-----|-------|
@@ -28,8 +56,8 @@ UIFlow2 MicroPython broadcasts ESP-NOW commands directly to wands — no laptop 
 | `colorquest` | Color Quest |
 | `shake` | Shake Fill |
 
-Plus **STOP** and **Battery** controls. To swap assortment slots, edit one line in `COMMANDS`
-in `config.py` (valid ids: `shakerainbow`, `jump`, `nfcsound`, `multiicecream`).
+Additional catalog entries (enable via Settings): `shakerainbow`, `jump`, `nfcsound`,
+`multiicecream`.
 
 ## Flash firmware (first time)
 
@@ -57,14 +85,8 @@ in `config.py` (valid ids: `shakerainbow`, `jump`, `nfcsound`, `multiicecream`).
 ## Usage
 
 - Tap a **game** button to broadcast `{"type":"start_game","name":"<tag>"}` twice (100 ms apart).
-- The **footer** shows the last command until the next tap; the active game button stays inverted.
-- Tap **STOP** to broadcast `["stop"]` twice; footer shows "Stopped".
+- Tap **STOP** to broadcast `["stop"]` twice.
 - Tap **Battery** to broadcast `["battery"]` twice.
-- Status line shows `NOW Ready` and the device MAC.
-
-## Customizing games
-
-Edit `COMMANDS` in `config.py`. Each `id` must exist in `game_tags.GAME_TAGS`. One line per game.
 
 ## WiFi channel troubleshooting
 
@@ -81,12 +103,15 @@ Packets match the wand protocol in `../lib/espnow_manager.py` (same as the Live_
 
 ## Bench verification checklist
 
-1. **Boot** — crisp white background; 10 games fill panel; footer shows "Ready"; no dead zone.
-2. **Start game** — tap each game; wand enters that game; footer persists; active button inverts.
-3. **Stop** — wand returns to idle; footer shows "Stopped"; highlight clears.
-4. **Battery** — wand reports battery (per wand firmware behavior).
+1. **Boot** — no title/MAC on main; gear top-right; larger game labels (DejaVu24).
+2. **Now Playing** — borderless banner: Ready → Now Playing → Stopped.
+3. **Settings** — gear opens 14-game checklist; Save & Back reflows grid; reboot persists.
+4. **Stop / Battery** — wand behavior unchanged; STOP is boldest element.
 5. **Range** — commands work at a few meters (double-send reliability).
-6. **Refresh** — rapid taps stay legible; every 8 taps triggers a full EPD_QUALITY repaint.
+6. **Refresh** — boot and Settings open in ~1–2s (one flash), not ~1 minute; game taps
+   blink + settle in ~1s; Settings toggles update one row near-instantly.
+7. **No mid-play wipe** — rapid game taps never trigger a full-screen white-out.
+8. **REPL** — no Guru Meditation from `setFont` (only real DejaVu font objects used).
 
 ## Protocol (unchanged from hub)
 
