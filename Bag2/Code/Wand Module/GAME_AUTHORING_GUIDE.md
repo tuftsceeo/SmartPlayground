@@ -25,7 +25,7 @@ Entry points:
 play(nfc, leds, buz, accel, i2c, enow) — called from main.py
 main() — standalone testing
 
-Template Pattern: 1. GameClass with **init**() and run() 2. play() for wand integration (hardware + enow passed in) 3. main() for standalone testing (initializes hardware) 4. CRITICAL: ESP-NOW stop + NFC stop checked at START of every loop
+Template Pattern: 1. GameClass with **init**() and run() 2. play() for wand integration (hardware + enow passed in) 3. main() for standalone testing (initializes hardware) 4. CRITICAL: ESP-NOW stop, ESP-NOW start_game, and NFC exit tags checked at START of every loop
 
 ```python
 """
@@ -82,7 +82,7 @@ class YourGame:
 
     def _check_stop(self):
         msg_type, _, _ = self.enow.poll()
-        if msg_type == "stop":
+        if msg_type in ("stop", "start_game"):
             return True
         if self._frame % NFC_POLL_INTERVAL != 0:
             return False
@@ -342,13 +342,13 @@ Kids can switch games without the dedicated `stop` tag:
 - Import `exit_tags_excluding("yourgame")` from `lib/game_tags.py` into a module-level `_EXIT_TAGS` set. **Exclude your own entry tag** so the tag still under the wand at launch does not instantly exit the game.
 - Union `_EXIT_TAGS` into your `COMMANDS` set (or compare raw NDEF text with `text in _EXIT_TAGS` if you do not use `NfcReader`). If your entry tag is also used in-game (e.g. `melody` for erase), keep it in `COMMANDS` but only check `_EXIT_TAGS` for exit.
 - Exit when `cmd in _EXIT_TAGS` (not only `cmd == "stop"`). Never call `EXIT_TAGS.remove()` — that mutates the global set for every module.
-- Add new game tag names to `GAME_TAGS` in `game_tags.py` (not duplicated in `main.py`).
+- Add new game tag names to `GAME_TAGS` in `game_tags.py` and an entry in `GAME_DISPATCH` in `main.py`.
 
 `GAME_TAGS` lists game names only. `"stop"` is in `CONTROL_TAGS` and is included in `EXIT_TAGS` for exit checks.
 
 ## Critical Rules
 
-1. **Exit tags and ESP-NOW stop in each run iteration** — Users must be able to exit (use `EXIT_TAGS`, not only `"stop"`)
+1. **Exit tags, ESP-NOW stop, and ESP-NOW start_game in each run iteration** — Users must be able to exit (use `EXIT_TAGS`, not only `"stop"`); teacher force-switch uses `msg_type == "start_game"`
 2. **Use try/finally in play()** — Ensure `leds.off()` and other outputs (buzzer, haptic motor, etc.) are stopped on any exit path
 3. **No f-strings** — Use `%` formatting only (MicroPython limitation)
 4. **Import colors from leds.py** — Don't define RGB tuples; library colors auto-scale with brightness.
@@ -362,7 +362,8 @@ Kids can switch games without the dedicated `stop` tag:
 - [ ] Hardware config constants at top
 - [ ] Game class with `__init__()` and `run()`
 - [ ] `_EXIT_TAGS = exit_tags_excluding("yourgame")` unioned into `COMMANDS`; exit on `cmd in _EXIT_TAGS`
-- [ ] New game name added to `GAME_TAGS` in `lib/game_tags.py`
+- [ ] New game name added to `GAME_TAGS` in `lib/game_tags.py` and `GAME_DISPATCH` in `main.py`
+- [ ] Exits on `msg_type in ('stop', 'start_game')` in every `enow.poll()` site
 - [ ] `play()` with try/finally for cleanup
 - [ ] `main()` for standalone testing
 - [ ] `if __name__ == "__main__":` guard

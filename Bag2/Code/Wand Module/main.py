@@ -8,7 +8,8 @@ Triggers: buttondown, buttonup, shake
 Actions:  playnote, notea-g, turnred/green/blue/purple/yellow/white/off,
           cat, chicken, cow, dog, pig, duck, elephant, horse, goat
 Combinators: and, then
-Controls: start, stop, plus game tags (see lib/game_tags.py)
+Controls: start, stop, plus game tags (see lib/game_tags.py);
+          start_game may also be received over ESP-NOW
 Utility: battery
 """
 
@@ -46,6 +47,31 @@ from game_tags import GAME_TAGS, CONTROL_TAGS
 import brightness
 
 # ─────────────────────────────────────────────
+# GAME DISPATCH
+# ─────────────────────────────────────────────
+GAME_DISPATCH = {
+    "colorquest":     play_color_quest,
+    "freezedance":    play_freeze_dance,
+    "jumpin":         play_jumpin,
+    "cooking":        play_cooking,
+    "melody":         play_melody,
+    "shake":          play_shake,
+    "shakerainbow":   play_shake_rainbow,
+    "rainbow":        play_rainbow,
+    "jump":           play_jump,
+    "sound":          play_sound,
+    "nfcsound":       play_nfc_sound,
+    "simpleicecream": play_simpleicecream,
+    "multiicecream":  play_multiicecream,
+    "gestures":       play_gestures,
+}
+
+if set(GAME_DISPATCH.keys()) != GAME_TAGS:
+    print("  [ERR] GAME_DISPATCH keys do not match GAME_TAGS in game_tags.py")
+    print("        dispatch: %s" % sorted(GAME_DISPATCH.keys()))
+    print("        GAME_TAGS: %s" % sorted(GAME_TAGS))
+
+# ─────────────────────────────────────────────
 # PINS FROM HUBTYPE
 # ─────────────────────────────────────────────
 I2C_SDA      = HUB_CONFIG["i2c_sda"]
@@ -73,13 +99,12 @@ ALL_COMMANDS   = FIXED_TRIGGERS | ACTIONS | ANIMAL_SOUNDS | COMBINATORS | CONTRO
 #
 #   1. Create `Wand Module/yourgame.py` exposing
 #      `def play(nfc, leds, buz, accel, i2c, enow): ...` returning when
-#      "stop" NFC tag or ESP-NOW stop is received (poll enow every loop).
+#      "stop" NFC tag, ESP-NOW stop, or ESP-NOW start_game is received
+#      (poll enow every loop).
 #   2. Add the line `from yourgame import play as play_yourgame` near
 #      the existing `play_jumpin` import at the top of this file.
 #   3. Add the tag name `"yourgame"` to GAME_TAGS in lib/game_tags.py.
-#   4. In the main control-dispatch block (search for the existing
-#      `cmd == "jumpin"` branch), add a parallel branch that calls
-#      `play_yourgame(nfc, leds, buz, accel, i2c, enow)`.
+#   4. Add `"yourgame": play_yourgame` to GAME_DISPATCH in this file.
 #   5. In yourgame.py, union EXIT_TAGS into COMMANDS and exit when
 #      `cmd in EXIT_TAGS` so kids can switch games via any game tag.
 #   6. The teacher prints an NFC tag whose NDEF text payload is
@@ -152,12 +177,54 @@ def print_rules(rules, editing):
 
 
 # ─────────────────────────────────────────────
+# GAME LAUNCH (NFC + ESP-NOW force-switch)
+# ─────────────────────────────────────────────
+class _StartGameCapture:
+    """Wrap enow so in-game start_game polls capture the target game name."""
+
+    def __init__(self, enow):
+        self._enow = enow
+        self.pending_name = None
+
+    def poll(self, timeout_ms=0):
+        mt, data, mac = self._enow.poll(timeout_ms)
+        if mt == "start_game":
+            self.pending_name = data.get("name") if isinstance(data, dict) else None
+        return mt, data, mac
+
+    def __getattr__(self, attr):
+        return getattr(self._enow, attr)
+
+
+def _launch_game(name, nfc, leds, buz, accel, i2c, enow, batt_ref):
+    """Run a game and chain force-switches without returning to idle."""
+    while name in GAME_DISPATCH:
+        wrapper = _StartGameCapture(enow)
+        play_func = GAME_DISPATCH[name]
+        if name == "rainbow":
+            play_func(nfc, leds, buz, accel, i2c, wrapper, batt=batt_ref)
+        else:
+            play_func(nfc, leds, buz, accel, i2c, wrapper)
+        next_name = wrapper.pending_name
+        if not next_name or next_name not in GAME_DISPATCH:
+            break
+        name = next_name
+
+
+def _clear_rules_state(enow):
+    """Teardown shared with broadcast stop and start_game dispatch."""
+    if enow and enow.is_active:
+        enow.send_stop_all_peers()
+        enow.clear_peers()
+
+
+# ─────────────────────────────────────────────
 # CHECK BROADCAST (used in multiple places)
 # ─────────────────────────────────────────────
 def check_broadcast(enow, batt_ref, leds_ref, buz_ref):
     """
-    Poll ESP-NOW for broadcast stop/battery.
-    Returns "stop" if stop received, "battery" if battery shown, None otherwise.
+    Poll ESP-NOW for broadcast stop/battery/start_game.
+    Returns "stop", "battery", ("start_game", name), or None.
     """
     msg_type, data, mac_str = enow.poll()
     if msg_type == "stop":
@@ -165,6 +232,11 @@ def check_broadcast(enow, batt_ref, leds_ref, buz_ref):
     if msg_type == "battery":
         show_battery(batt_ref, leds_ref, buz_ref)
         return "battery"
+    if msg_type == "start_game":
+        name = data.get("name") if isinstance(data, dict) else None
+        if name in GAME_DISPATCH:
+            return ("start_game", name)
+        print("  ESP-NOW: ignoring unknown start_game name: %r" % name)
     return None
 
 
@@ -228,7 +300,9 @@ def run_event_loop(reader, rules, runner, accel_ref, enow=None, batt_ref=None):
                 espnow_cnt = 0
                 result = check_broadcast(enow, batt_ref, leds, buz)
                 if result == "stop":
-                    return
+                    return None
+                if isinstance(result, tuple) and result[0] == "start_game":
+                    return result[1]
                 if result == "battery":
                     leds.show_running(rules)
 
@@ -377,7 +451,7 @@ def main():
                 # Check ESP-NOW broadcasts while sleeping
                 result = check_broadcast(enow, batt, leds, buz)
                 if result == "stop":
-                    enow.send_stop_all_peers(); enow.clear_peers()
+                    _clear_rules_state(enow)
                     rules = {}; editing = None; pending_combinator = None
                     buz.stop()
                     nfc_sleeping = False
@@ -385,6 +459,18 @@ def main():
                     idle_frame = 0
                     show_idle(last_soc, 0)
                     print("  Reset via broadcast")
+                elif isinstance(result, tuple) and result[0] == "start_game":
+                    _, name = result
+                    _clear_rules_state(enow)
+                    rules = {}; editing = None; pending_combinator = None
+                    buz.stop()
+                    nfc_sleeping = False
+                    leds.off()
+                    _launch_game(name, nfc, leds, buz, accel, i2c, enow, batt)
+                    last_activity_ms = time.ticks_ms()
+                    idle_frame = 0
+                    show_idle(last_soc, 0)
+                    last_uid = None
                 elif result == "battery":
                     last_activity_ms = time.ticks_ms()
                     nfc_sleeping = False
@@ -439,13 +525,24 @@ def main():
                 # Check broadcast while idle
                 result = check_broadcast(enow, batt, leds, buz)
                 if result == "stop":
-                    enow.send_stop_all_peers(); enow.clear_peers()
+                    _clear_rules_state(enow)
                     rules = {}; editing = None; pending_combinator = None
                     buz.stop()
                     last_activity_ms = time.ticks_ms()
                     idle_frame = 0
                     show_idle(last_soc, 0)
                     print("  Reset via broadcast")
+                elif isinstance(result, tuple) and result[0] == "start_game":
+                    _, name = result
+                    _clear_rules_state(enow)
+                    rules = {}; editing = None; pending_combinator = None
+                    buz.stop()
+                    leds.off()
+                    _launch_game(name, nfc, leds, buz, accel, i2c, enow, batt)
+                    last_activity_ms = time.ticks_ms()
+                    idle_frame = 0
+                    show_idle(last_soc, 0)
+                    last_uid = None
                 elif result == "battery":
                     last_activity_ms = time.ticks_ms()
 
@@ -489,122 +586,17 @@ def main():
                 idle_frame = 0
                 show_idle(last_soc, 0); continue
 
-            # ── COLOR QUEST ──
-            if cmd == "colorquest":
+            # ── GAME DISPATCH ──
+            if cmd in GAME_DISPATCH:
                 leds.off()
-                play_color_quest(nfc, leds, buz, accel, i2c, enow)
-                last_activity_ms = time.ticks_ms()
-                idle_frame = 0
-                show_idle(last_soc, 0); last_uid = None; continue
-
-            # ── FREEZE DANCE ──
-            if cmd == "freezedance":
-                leds.off()
-                play_freeze_dance(nfc, leds, buz, accel, i2c, enow)
-                last_activity_ms = time.ticks_ms()
-                idle_frame = 0
-                show_idle(last_soc, 0); last_uid = None; continue
-
-            # ── JUMP IN ──
-            if cmd == "jumpin":
-                leds.off()
-                play_jumpin(nfc, leds, buz, accel, i2c, enow)
-                last_activity_ms = time.ticks_ms()
-                idle_frame = 0
-                show_idle(last_soc, 0); last_uid = None; continue
-
-            # ── GESTURES ──
-            if cmd == "gestures":
-                leds.off()
-                play_gestures(nfc, leds, buz, accel, i2c, enow)
-                last_activity_ms = time.ticks_ms()
-                idle_frame = 0
-                show_idle(last_soc, 0); last_uid = None; continue
-
-            # ── COOKING ──
-            if cmd == "cooking":
-                leds.off()
-                play_cooking(nfc, leds, buz, accel, i2c, enow)
-                last_activity_ms = time.ticks_ms()
-                idle_frame = 0
-                show_idle(last_soc, 0); last_uid = None; continue
-
-            # ── MELODY ──
-            if cmd == "melody":
-                leds.off()
-                play_melody(nfc, leds, buz, accel, i2c, enow)
-                last_activity_ms = time.ticks_ms()
-                idle_frame = 0
-                show_idle(last_soc, 0); last_uid = None; continue
-
-            # ── SHAKE ──
-            if cmd == "shake":
-                leds.off()
-                play_shake(nfc, leds, buz, accel, i2c, enow)
-                last_activity_ms = time.ticks_ms()
-                idle_frame = 0
-                show_idle(last_soc, 0); last_uid = None; continue
-
-            # ── SHAKE RAINBOW ──
-            if cmd == "shakerainbow":
-                leds.off()
-                play_shake_rainbow(nfc, leds, buz, accel, i2c, enow)
-                last_activity_ms = time.ticks_ms()
-                idle_frame = 0
-                show_idle(last_soc, 0); last_uid = None; continue
-
-            # ── RAINBOW ──
-            if cmd == "rainbow":
-                leds.off()
-                play_rainbow(nfc, leds, buz, accel, i2c, enow, batt)
-                last_activity_ms = time.ticks_ms()
-                idle_frame = 0
-                show_idle(last_soc, 0); last_uid = None; continue
-
-            # ── JUMP (freefall counter) ──
-            if cmd == "jump":
-                leds.off()
-                play_jump(nfc, leds, buz, accel, i2c, enow)
-                last_activity_ms = time.ticks_ms()
-                idle_frame = 0
-                show_idle(last_soc, 0); last_uid = None; continue
-
-            # ── SOUND (bell choir) ──
-            if cmd == "sound":
-                leds.off()
-                play_sound(nfc, leds, buz, accel, i2c, enow)
-                last_activity_ms = time.ticks_ms()
-                idle_frame = 0
-                show_idle(last_soc, 0); last_uid = None; continue
-
-            # ── NFC SOUND ──
-            if cmd == "nfcsound":
-                leds.off()
-                play_nfc_sound(nfc, leds, buz, accel, i2c, enow)
-                last_activity_ms = time.ticks_ms()
-                idle_frame = 0
-                show_idle(last_soc, 0); last_uid = None; continue
-
-            # ── SIMPLE ICE CREAM ──
-            if cmd == "simpleicecream":
-                leds.off()
-                play_simpleicecream(nfc, leds, buz, accel, i2c, enow)
-                last_activity_ms = time.ticks_ms()
-                idle_frame = 0
-                show_idle(last_soc, 0); last_uid = None; continue
-
-            # ── MULTI ICE CREAM ──
-            if cmd == "multiicecream":
-                leds.off()
-                play_multiicecream(nfc, leds, buz, accel, i2c, enow)
+                _launch_game(cmd, nfc, leds, buz, accel, i2c, enow, batt)
                 last_activity_ms = time.ticks_ms()
                 idle_frame = 0
                 show_idle(last_soc, 0); last_uid = None; continue
 
             # ── STOP ──
             if cmd == "stop":
-                if enow and enow.is_active:
-                    enow.send_stop_all_peers(); enow.clear_peers()
+                _clear_rules_state(enow)
                 rules = {}; editing = None; pending_combinator = None
                 buz.stop()
                 last_activity_ms = time.ticks_ms()
@@ -622,11 +614,17 @@ def main():
                 print("  ── RUNNING ──")
                 leds.show_running(rules)
                 buz.beep(800, 60); time.sleep_ms(30); buz.beep(1200, 80)
-                run_event_loop(reader, rules, runner, accel, enow, batt)
+                start_game_name = run_event_loop(reader, rules, runner, accel, enow, batt)
                 print("  ── STOPPED ──")
                 rules = {}; editing = None; pending_combinator = None
                 last_activity_ms = time.ticks_ms()
                 idle_frame = 0
+                if start_game_name:
+                    _clear_rules_state(enow)
+                    buz.stop()
+                    leds.off()
+                    _launch_game(start_game_name, nfc, leds, buz, accel, i2c, enow, batt)
+                    last_uid = None
                 show_idle(last_soc, 0)
                 print_rules(rules, editing); continue
 

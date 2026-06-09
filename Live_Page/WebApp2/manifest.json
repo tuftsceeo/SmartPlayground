@@ -1,0 +1,21 @@
+{
+    "name": "LivePage2 / Wand Remote",
+    "short_name": "Wand Remote",
+    "description": "Teacher remote for Bag2 wands via Hub2 ESP-NOW",
+    "start_url": "/SmartPlayground/WebApp2/",
+    "display": "standalone",
+    "background_color": "#ffffff",
+    "theme_color": "#3b82f6",
+    "icons": [
+        {
+            "src": "../icon/cropped-Icon-1-192x192.png",
+            "sizes": "192x192",
+            "type": "image/png"
+        },
+        {
+            "src": "../icon/cropped-Icon-1-270x270.png",
+            "sizes": "270x270",
+            "type": "image/png"
+        }
+    ]
+}

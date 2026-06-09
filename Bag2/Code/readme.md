@@ -35,6 +35,14 @@ Code/
 │   ├── hubtype.txt                   Contains: splat_companion
 │   └── readme.md
 │
+├── M5Paper Remote/
+│   ├── main.py                       Teacher remote: e-ink UI + ESP-NOW to wands
+│   ├── ui.py                         M5Paper touch button grid
+│   ├── config.py                     Curated game list
+│   ├── espnow_manager.py             Bundled lib copy (UIFlow upload)
+│   ├── game_tags.py                  Bundled lib copy (UIFlow upload)
+│   └── README.md
+│
 └── Stations/
     ├── Programming Station/
     │   ├── main.py                   4×PN532 hub, broadcasts via ESP-NOW
@@ -75,6 +83,7 @@ All ESP32-C6 boards have BLE hardware. The `uses_ble` flag indicates whether the
 | **Splat Companion**     | `main.py`, `ble_splat.py`, `hubtype.txt`                                   |
 | **Programming Station** | `main.py`, `hubtype.txt`                                                   |
 | **Scoreboard**          | `main.py`, `hubtype.txt`                                                   |
+| **M5Paper Remote**      | All files in `M5Paper Remote/` (no `hubtype.txt`; standalone UIFlow app) |
 
 ### Quick deploy with mpremote:
 

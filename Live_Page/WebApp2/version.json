@@ -1,0 +1,14 @@
+{
+    "main": {
+      "major": 3,
+      "minor": 2,
+      "auto": 0,
+      "full_version": "3.2.0"
+    },
+    "beta": {
+      "major": 3,
+      "minor": 2,
+      "auto": 0,
+      "full_version": "3.2.0-beta"
+    }
+  }

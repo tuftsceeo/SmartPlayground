@@ -216,7 +216,7 @@ class MelodyGame:
         for i, cmd in enumerate(self.current_melody):
             if self.enow:
                 msg_type, _, _ = self.enow.poll()
-                if msg_type == "stop":
+                if msg_type in ("stop", "start_game"):
                     print("  ESP-NOW stop")
                     return False
 
@@ -254,7 +254,7 @@ class MelodyGame:
             # ── ESP-NOW ──
             if self.enow:
                 msg_type, _, _ = self.enow.poll()
-                if msg_type == "stop":
+                if msg_type in ("stop", "start_game"):
                     print("  ESP-NOW stop")
                     return
 
