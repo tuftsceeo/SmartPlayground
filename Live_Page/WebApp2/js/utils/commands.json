@@ -1,0 +1,146 @@
+[
+  {
+    "id": "colorquest",
+    "label": "Color Quest",
+    "bgColor": "#6397b5",
+    "icon": "palette",
+    "textColor": "white",
+    "description": "Receives a color sequence via ESP-NOW; player must find and tap matching NFC tags in order.",
+    "beta": false
+  },
+  {
+    "id": "freezedance",
+    "label": "Freeze Dance",
+    "bgColor": "#bf75c9",
+    "icon": "music",
+    "textColor": "white",
+    "description": "Multiplayer motion game: dance when the music plays, freeze when it stops. Get caught moving and you're out until you rejoin.",
+    "beta": false
+  },
+  {
+    "id": "jumpin",
+    "label": "Jump In",
+    "bgColor": "#93d5a8",
+    "icon": "zap",
+    "textColor": "white",
+    "description": "Press the button to blink all LEDs green. A simple entry game for testing wand response.",
+    "beta": false
+  },
+  {
+    "id": "cooking",
+    "label": "Cooking",
+    "bgColor": "#eba76f",
+    "icon": "flame",
+    "textColor": "white",
+    "description": "Tap ingredient NFC tags to collect them. Hold the button to preview the recipe result.",
+    "beta": false
+  },
+  {
+    "id": "melody",
+    "label": "Melody Builder",
+    "bgColor": "#e88a82",
+    "icon": "music",
+    "textColor": "white",
+    "description": "Scan note tags to build a melody, tap erase to clear, press button to play back.",
+    "beta": false
+  },
+  {
+    "id": "shake",
+    "label": "Shake Fill",
+    "bgColor": "#d57aae",
+    "icon": "zap",
+    "textColor": "white",
+    "description": "Shake the wand harder to light more LEDs on the matrix. Level only goes up. Press button to reset.",
+    "beta": false
+  },
+  {
+    "id": "shakerainbow",
+    "label": "Shake Rainbow",
+    "bgColor": "#bf75c9",
+    "icon": "palette",
+    "textColor": "white",
+    "description": "Shake to climb through rainbow colors on the LED matrix. Color only advances. Press button to reset.",
+    "beta": false
+  },
+  {
+    "id": "rainbow",
+    "label": "Rainbow Show",
+    "bgColor": "#6397b5",
+    "icon": "sparkles",
+    "textColor": "white",
+    "description": "Shows battery level on the LED matrix, then a static rainbow pattern.",
+    "beta": false
+  },
+  {
+    "id": "jump",
+    "label": "Jump Counter",
+    "bgColor": "#93d5a8",
+    "icon": "arrow-up",
+    "textColor": "white",
+    "description": "Each jump lights one more LED on the matrix. Press button to reset.",
+    "beta": false
+  },
+  {
+    "id": "sound",
+    "label": "Bell Choir",
+    "bgColor": "#e88a82",
+    "icon": "bell",
+    "textColor": "white",
+    "description": "Each wand gets a random note. Hold the button to ring your bell and show your note color.",
+    "beta": false
+  },
+  {
+    "id": "nfcsound",
+    "label": "NFC Bell Choir",
+    "bgColor": "#d57aae",
+    "icon": "bell",
+    "textColor": "white",
+    "description": "Scan note NFC tags to pick your bell. Hold button to play your note.",
+    "beta": false
+  },
+  {
+    "id": "simpleicecream",
+    "label": "Simple Ice Cream",
+    "bgColor": "#eba76f",
+    "icon": "ice-cream",
+    "textColor": "white",
+    "description": "Press the button to count scoops while upright, then flip upside-down to reveal your ice cream color.",
+    "beta": false
+  },
+  {
+    "id": "multiicecream",
+    "label": "Multi Ice Cream",
+    "bgColor": "#6397b5",
+    "icon": "ice-cream",
+    "textColor": "white",
+    "description": "Build up to three scoops: count button presses upright, flip to commit each scoop.",
+    "beta": false
+  },
+  {
+    "id": "gestures",
+    "label": "Gestures",
+    "bgColor": "#bf75c9",
+    "icon": "hand",
+    "textColor": "white",
+    "description": "Train wand motions by color, then hold the button to classify gestures against what you taught.",
+    "beta": false
+  },
+  {
+    "id": "stop",
+    "label": "Stop",
+    "bgColor": "#eba76f",
+    "icon": "square",
+    "textColor": "white",
+    "description": "Stops the current wand game and returns to idle mode.",
+    "beta": false
+  },
+  {
+    "id": "battery",
+    "label": "Battery",
+    "bgColor": "#8a8a8a",
+    "icon": "battery",
+    "textColor": "white",
+    "description": "All wands in range flash their battery level on the LED matrix.",
+    "beta": false
+  }
+]
