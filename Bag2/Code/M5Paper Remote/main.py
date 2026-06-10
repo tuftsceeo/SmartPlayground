@@ -65,6 +65,7 @@ def setup():
 
 
 def loop(enow, ui):
+    ui.update_battery()
     touch = ui.poll_touch()
     if touch is None:
         time.sleep_ms(50)

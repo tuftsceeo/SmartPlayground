@@ -28,6 +28,20 @@ SETTINGS_SAVE_H = 72
 SETTINGS_MAC_H = 28
 GEAR_HIT = 44
 
+GEAR_PNG = "/flash/assets/gear.png"
+BATTERY_PNG = "/flash/assets/battery.png"
+BOLT_PNG = "/flash/assets/bolt.png"
+
+GEAR_W = 36
+GEAR_H = 36
+BATT_W = 46
+BATT_H = 22
+BOLT_W = 12
+BOLT_H = 16
+BATT_NUB_W = 4
+BATT_FILL_INSET = 2
+BATT_POLL_MS = 30000
+
 # DejaVu point sizes (see ui._set_font); must be keys in _DEJAVU_NAMES.
 FONT_GAME = 24
 FONT_STOP = 40

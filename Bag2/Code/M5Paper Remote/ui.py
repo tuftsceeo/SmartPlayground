@@ -7,8 +7,17 @@ from M5 import *
 
 from config import (
     ALL_GAMES,
+    BATT_FILL_INSET,
+    BATT_H,
+    BATT_NUB_W,
+    BATT_POLL_MS,
+    BATT_W,
     BATTERY_BTN_H,
+    BATTERY_PNG,
     BLACK,
+    BOLT_H,
+    BOLT_PNG,
+    BOLT_W,
     BORDER_W,
     CONTROLS,
     DEBOUNCE_MS,
@@ -20,7 +29,10 @@ from config import (
     FONT_STOP,
     FOOTER_H,
     GAP,
+    GEAR_H,
     GEAR_HIT,
+    GEAR_PNG,
+    GEAR_W,
     LCD_SHOW_AFTER_END_WRITE,
     MARGIN,
     PRESS_FLASH_MS,
@@ -95,6 +107,13 @@ class RemoteUI(object):
         self._gear_y = 0
         self._gear_w = GEAR_HIT
         self._gear_h = TOP_BAR_H
+        self._gear_draw_x = 0
+        self._gear_draw_y = 0
+        self._batt_x = 0
+        self._batt_y = 0
+        self._batt_shown_bucket = None
+        self._batt_shown_charging = None
+        self._batt_last_ms = 0
         self._settings_rows = []
         self._settings_row_h = 0
         self._save_y = 0
@@ -113,6 +132,10 @@ class RemoteUI(object):
         self._stop_y = SCREEN_H - STOP_BTN_H
         self._footer_y = self._stop_y - GAP - FOOTER_H
         self._battery_y = self._footer_y - GAP - BATTERY_BTN_H
+        self._batt_x = MARGIN
+        self._batt_y = (TOP_BAR_H - BATT_H) // 2
+        self._gear_draw_x = self._gear_x + (GEAR_HIT - GEAR_W) // 2
+        self._gear_draw_y = (TOP_BAR_H - GEAR_H) // 2
         game_top = TOP_BAR_H
         game_bottom = self._battery_y - GAP
         game_area = game_bottom - game_top
@@ -291,8 +314,29 @@ class RemoteUI(object):
             self._font_for_button(btn),
         )
 
-    def _draw_gear(self):
-        M5.Lcd.fillRect(0, 0, SCREEN_W, TOP_BAR_H, WHITE)
+    def _draw_png(self, path, x, y, fallback=None):
+        try:
+            M5.Lcd.drawPng(path, x, y)
+            return True
+        except Exception:
+            pass
+        try:
+            from Widgets import Image
+
+            Image(path, x, y)
+            return True
+        except Exception:
+            pass
+        try:
+            M5.Lcd.drawBmp(path, x, y)
+            return True
+        except Exception:
+            pass
+        if fallback is not None:
+            fallback()
+        return False
+
+    def _draw_gear_primitive(self):
         cx = self._gear_x + self._gear_w // 2
         cy = self._gear_y + self._gear_h // 2
         r = 14
@@ -310,6 +354,134 @@ class RemoteUI(object):
             (-13, -13),
         ):
             M5.Lcd.fillRect(cx + dx - 2, cy + dy - 2, 4, 4, BLACK)
+
+    def _draw_gear(self):
+        self._draw_png(
+            GEAR_PNG,
+            self._gear_draw_x,
+            self._gear_draw_y,
+            fallback=self._draw_gear_primitive,
+        )
+
+    def _read_battery(self):
+        level = None
+        charging = False
+        try:
+            raw = M5.Power.getBatteryLevel()
+            if raw is not None:
+                level = max(0, min(100, int(raw)))
+        except Exception:
+            pass
+        try:
+            charging = bool(M5.Power.isCharging())
+        except Exception:
+            pass
+        return level, charging
+
+    def _battery_bucket(self, level):
+        if level is None:
+            return None
+        return (int(level) // 10) * 10
+
+    def _draw_battery_primitive(self):
+        x = self._batt_x
+        y = self._batt_y
+        body_w = BATT_W - BATT_NUB_W
+        for i in range(BATT_FILL_INSET):
+            M5.Lcd.drawRect(
+                x + i, y + i, body_w - (2 * i), BATT_H - (2 * i), BLACK
+            )
+        nub_h = BATT_H // 2
+        nub_y0 = y + (BATT_H - nub_h) // 2
+        M5.Lcd.fillRect(x + body_w, nub_y0, BATT_NUB_W, nub_h, BLACK)
+
+    def _bolt_draw_xy(self):
+        body_w = BATT_W - BATT_NUB_W
+        bolt_x = self._batt_x + (body_w - BOLT_W) // 2
+        bolt_y = self._batt_y + (BATT_H - BOLT_H) // 2
+        return bolt_x, bolt_y
+
+    def _draw_bolt_primitive(self):
+        bx, by = self._bolt_draw_xy()
+        M5.Lcd.fillTriangle(
+            bx + int(BOLT_W * 0.58),
+            by,
+            bx + int(BOLT_W * 0.05),
+            by + int(BOLT_H * 0.58),
+            bx + int(BOLT_W * 0.42),
+            by + int(BOLT_H * 0.58),
+            BLACK,
+        )
+        M5.Lcd.fillTriangle(
+            bx + int(BOLT_W * 0.42),
+            by + int(BOLT_H * 0.58),
+            bx + int(BOLT_W * 0.30),
+            by + BOLT_H - 1,
+            bx + int(BOLT_W * 0.95),
+            by + int(BOLT_H * 0.38),
+            BLACK,
+        )
+        M5.Lcd.fillTriangle(
+            bx + int(BOLT_W * 0.55),
+            by + int(BOLT_H * 0.38),
+            bx + int(BOLT_W * 0.95),
+            by + int(BOLT_H * 0.38),
+            bx + int(BOLT_W * 0.42),
+            by + int(BOLT_H * 0.58),
+            BLACK,
+        )
+
+    def _draw_battery(self, level, charging, clear_region=True):
+        if clear_region:
+            M5.Lcd.fillRect(self._batt_x, self._batt_y, BATT_W, BATT_H, WHITE)
+        self._draw_png(
+            BATTERY_PNG,
+            self._batt_x,
+            self._batt_y,
+            fallback=self._draw_battery_primitive,
+        )
+        inner_x = self._batt_x + BATT_FILL_INSET
+        inner_y = self._batt_y + BATT_FILL_INSET
+        inner_w = BATT_W - BATT_NUB_W - (2 * BATT_FILL_INSET)
+        inner_h = BATT_H - (2 * BATT_FILL_INSET)
+        if level is not None and inner_w > 0 and inner_h > 0:
+            fill_w = (inner_w * max(0, min(100, int(level)))) // 100
+            if fill_w > 0:
+                M5.Lcd.fillRect(inner_x, inner_y, fill_w, inner_h, BLACK)
+        if charging:
+            bolt_x, bolt_y = self._bolt_draw_xy()
+            self._draw_png(
+                BOLT_PNG,
+                bolt_x,
+                bolt_y,
+                fallback=self._draw_bolt_primitive,
+            )
+
+    def update_battery(self):
+        if self.mode != "main":
+            return
+        now = time.ticks_ms()
+        if (
+            self._batt_last_ms
+            and time.ticks_diff(now, self._batt_last_ms) < BATT_POLL_MS
+        ):
+            return
+        self._batt_last_ms = now
+        level, charging = self._read_battery()
+        bucket = self._battery_bucket(level)
+        if (
+            bucket == self._batt_shown_bucket
+            and charging == self._batt_shown_charging
+        ):
+            return
+        self._batt_shown_bucket = bucket
+        self._batt_shown_charging = charging
+        self._epd_mode(quality=False)
+        self._begin_write()
+        try:
+            self._draw_battery(level, charging, clear_region=True)
+        finally:
+            self._end_write()
 
     def _gear_hit(self, x, y):
         return (
@@ -406,6 +578,11 @@ class RemoteUI(object):
         try:
             M5.Lcd.clear(WHITE)
             self._draw_gear()
+            level, charging = self._read_battery()
+            self._draw_battery(level, charging)
+            self._batt_shown_bucket = self._battery_bucket(level)
+            self._batt_shown_charging = charging
+            self._batt_last_ms = time.ticks_ms()
             for btn in self.buttons:
                 self._draw_button(btn)
             self._draw_footer()
