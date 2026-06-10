@@ -12,6 +12,8 @@ UIFlow2 MicroPython broadcasts ESP-NOW commands directly to wands — no laptop 
 | `config.py` | Game catalog, layout constants, settings persistence |
 | `espnow_manager.py` | Bundled copy of `../lib/espnow_manager.py` (keep in sync) |
 | `game_tags.py` | Bundled copy of `../lib/game_tags.py` (keep in sync) |
+| `assets/*.png` | 1-bit top-bar icons (gear, battery shell, charging bolt) |
+| `assets/_generate_icons.py` | Dev-only Pillow script to regenerate the PNGs |
 
 ## E-ink refresh (batched draws)
 
@@ -27,10 +29,45 @@ If batched content does not appear after upload, set `LCD_SHOW_AFTER_END_WRITE =
 ## Main screen
 
 - **No title or MAC line** on the home grid — maximum space for game buttons.
-- **Gear icon** (top-right) opens Settings.
+- **Battery icon** (top-left): shell PNG + code-drawn fill bar from `M5.Power.getBatteryLevel()`;
+  charging bolt overlay when USB is connected. Updates every ~30s without a full-screen refresh.
+- **Gear icon** (top-right, PNG) opens Settings. Primitive fallbacks draw if PNGs are missing.
 - **Now Playing banner** (borderless, bottom): shows `Ready`, then `Now Playing: <game>`,
   `Stopped`, or `Checking batteries`. Active game button stays inverted on the grid.
 - **STOP** is the largest control (DejaVu40). **Battery** is a compact secondary button.
+
+## Image assets
+
+Icons live in `assets/` as 1-bit black-on-white PNGs (no alpha — gray edges dither badly on
+e-ink):
+
+| File | Size | Purpose |
+|------|------|---------|
+| `gear.png` | 36×36 | Settings gear |
+| `battery.png` | 46×22 | Battery shell (fill bar drawn in code) |
+| `bolt.png` | 12×16 | Charging overlay |
+
+Regenerate after editing artwork: `cd assets && python3 _generate_icons.py` (requires Pillow).
+
+On device, paths are `/flash/assets/gear.png`, etc. (`config.py` constants). Upload via the
+[Live_Page Flasher](../../Live_Page/Flasher/) (M5Paper manifest includes `.png` files) or copy
+manually to `/flash/assets/` on the device filesystem.
+
+### REPL: verify `drawPng` (impl step 0)
+
+After Flasher upload, on the M5Paper REPL:
+
+```python
+import M5
+from M5 import *
+M5.begin()
+M5.Lcd.startWrite()
+M5.Lcd.drawPng("/flash/assets/gear.png", 12, 8)
+M5.Lcd.endWrite()
+```
+
+If that raises, try `Widgets.Image("/flash/assets/gear.png", 12, 8)` or `drawBmp`. The UI
+`_draw_png` helper tries all three and falls back to primitive drawing on failure.
 
 ## Settings screen
 
@@ -68,18 +105,25 @@ Additional catalog entries (enable via Settings): `shakerainbow`, `jump`, `nfcso
 
 ## Upload project files
 
-### Option A — UIFlow2 web IDE (USB)
+### Option A — Live_Page Flasher (recommended)
+
+1. Serve [Live_Page/Flasher](../../Live_Page/Flasher/) locally or open from GitHub Pages.
+2. Select version → **M5Paper Remote** → connect USB → upload.
+3. Upload includes `.py` files and `assets/*.png` → `/flash/assets/` on device.
+4. `settings.json` on `/flash/` is preserved across re-uploads.
+
+### Option B — UIFlow2 web IDE (USB)
 
 1. Open [UIFlow2](https://uiflow2.m5stack.com/) and connect the M5Paper over USB.
 2. Switch to **MicroPython** / code view.
-3. Upload all files in this folder to the device filesystem (root or project folder).
+3. Upload all `.py` files plus `assets/*.png` to `/flash/` (PNGs under `/flash/assets/`).
 4. Set `main.py` as the run entry (or rename/boot from `main.py` per your UIFlow workflow).
 5. Run / reboot the device.
 
-### Option B — UIFlow2 Desktop
+### Option C — UIFlow2 Desktop
 
 1. Open UIFlow2 Desktop, connect the M5Paper.
-2. Use the file manager to copy each `.py` file to the device.
+2. Use the file manager to copy each `.py` file and the three PNGs to the device.
 3. Execute `main.py`.
 
 ## Usage
@@ -103,15 +147,22 @@ Packets match the wand protocol in `../lib/espnow_manager.py` (same as the Live_
 
 ## Bench verification checklist
 
-1. **Boot** — no title/MAC on main; gear top-right; larger game labels (DejaVu24).
-2. **Now Playing** — borderless banner: Ready → Now Playing → Stopped.
-3. **Settings** — gear opens 14-game checklist; Save & Back reflows grid; reboot persists.
-4. **Stop / Battery** — wand behavior unchanged; STOP is boldest element.
-5. **Range** — commands work at a few meters (double-send reliability).
-6. **Refresh** — boot and Settings open in ~1–2s (one flash), not ~1 minute; game taps
-   blink + settle in ~1s; Settings toggles update one row near-instantly.
-7. **No mid-play wipe** — rapid game taps never trigger a full-screen white-out.
-8. **REPL** — no Guru Meditation from `setFont` (only real DejaVu font objects used).
+1. **Boot** — no title/MAC on main; battery icon top-left; gear PNG top-right; larger game
+   labels (DejaVu24).
+2. **drawPng** — REPL snippet above renders `gear.png`; files exist under `/flash/assets/`.
+3. **Battery icon** — fill bar tracks `M5.Power.getBatteryLevel()`; bolt appears on USB charge.
+4. **Asset fallback** — delete one PNG on device → primitive draws in that corner (no crash).
+5. **Battery poll** — level/charge change redraws only the battery region (~30s poll); gear
+   not wiped; no full-screen white-out during idle.
+6. **Now Playing** — borderless banner: Ready → Now Playing → Stopped.
+7. **Settings** — gear opens 14-game checklist; Save & Back reflows grid; both icons return on
+   main; reboot persists.
+8. **Stop / Battery button** — wand behavior unchanged; STOP is boldest element.
+9. **Range** — commands work at a few meters (double-send reliability).
+10. **Refresh** — boot and Settings open in ~1–2s (one flash), not ~1 minute; game taps
+    blink + settle in ~1s; Settings toggles update one row near-instantly.
+11. **No mid-play wipe** — rapid game taps never trigger a full-screen white-out.
+12. **REPL** — no Guru Meditation from `setFont` (only real DejaVu font objects used).
 
 ## Protocol (unchanged from hub)
 

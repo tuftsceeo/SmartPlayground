@@ -1,0 +1,16 @@
+# Wand — files to flash (branch-relative repo paths)
+# Edit this file when the wand bundle changes. No build step required.
+
+# Never upload these extensions (any source below)
+exclude_ext:
+  - .md
+  - .js
+
+sources:
+  # Shared Bag2 library → device /lib/
+  - repo: Bag2/Code/lib
+    prefix: lib
+
+  # Wand app → device root (hubtype.txt, boot.py, main.py, games, …)
+  - repo: Bag2/Code/Wand Module
+    prefix: ""

@@ -180,3 +180,4 @@ cython_debug/
 App_Prototype/pyscript/esp_based_controller_firmware.py
 App_Prototype/pyscript/module_firmware.py
 /App_Web/webapp/docs
+/Bag2/Code/temp
