@@ -15,9 +15,6 @@ from config import (
     BATTERY_BTN_H,
     BATTERY_PNG,
     BLACK,
-    BOLT_H,
-    BOLT_PNG,
-    BOLT_W,
     BORDER_W,
     CONTROLS,
     DEBOUNCE_MS,
@@ -112,7 +109,6 @@ class RemoteUI(object):
         self._batt_x = 0
         self._batt_y = 0
         self._batt_shown_bucket = None
-        self._batt_shown_charging = None
         self._batt_last_ms = 0
         self._settings_rows = []
         self._settings_row_h = 0
@@ -364,19 +360,17 @@ class RemoteUI(object):
         )
 
     def _read_battery(self):
+        # M5Paper (original) has no charge-detection hardware: isCharging() is
+        # hardwired True, getBatteryCurrent()/getVBUSVoltage() are unsupported.
+        # Only the voltage-derived level is meaningful, so that's all we read.
         level = None
-        charging = False
         try:
             raw = M5.Power.getBatteryLevel()
             if raw is not None:
                 level = max(0, min(100, int(raw)))
         except Exception:
             pass
-        try:
-            charging = bool(M5.Power.isCharging())
-        except Exception:
-            pass
-        return level, charging
+        return level
 
     def _battery_bucket(self, level):
         if level is None:
@@ -395,43 +389,7 @@ class RemoteUI(object):
         nub_y0 = y + (BATT_H - nub_h) // 2
         M5.Lcd.fillRect(x + body_w, nub_y0, BATT_NUB_W, nub_h, BLACK)
 
-    def _bolt_draw_xy(self):
-        body_w = BATT_W - BATT_NUB_W
-        bolt_x = self._batt_x + (body_w - BOLT_W) // 2
-        bolt_y = self._batt_y + (BATT_H - BOLT_H) // 2
-        return bolt_x, bolt_y
-
-    def _draw_bolt_primitive(self):
-        bx, by = self._bolt_draw_xy()
-        M5.Lcd.fillTriangle(
-            bx + int(BOLT_W * 0.58),
-            by,
-            bx + int(BOLT_W * 0.05),
-            by + int(BOLT_H * 0.58),
-            bx + int(BOLT_W * 0.42),
-            by + int(BOLT_H * 0.58),
-            BLACK,
-        )
-        M5.Lcd.fillTriangle(
-            bx + int(BOLT_W * 0.42),
-            by + int(BOLT_H * 0.58),
-            bx + int(BOLT_W * 0.30),
-            by + BOLT_H - 1,
-            bx + int(BOLT_W * 0.95),
-            by + int(BOLT_H * 0.38),
-            BLACK,
-        )
-        M5.Lcd.fillTriangle(
-            bx + int(BOLT_W * 0.55),
-            by + int(BOLT_H * 0.38),
-            bx + int(BOLT_W * 0.95),
-            by + int(BOLT_H * 0.38),
-            bx + int(BOLT_W * 0.42),
-            by + int(BOLT_H * 0.58),
-            BLACK,
-        )
-
-    def _draw_battery(self, level, charging, clear_region=True):
+    def _draw_battery(self, level, clear_region=True):
         if clear_region:
             M5.Lcd.fillRect(self._batt_x, self._batt_y, BATT_W, BATT_H, WHITE)
         self._draw_png(
@@ -448,14 +406,6 @@ class RemoteUI(object):
             fill_w = (inner_w * max(0, min(100, int(level)))) // 100
             if fill_w > 0:
                 M5.Lcd.fillRect(inner_x, inner_y, fill_w, inner_h, BLACK)
-        if charging:
-            bolt_x, bolt_y = self._bolt_draw_xy()
-            self._draw_png(
-                BOLT_PNG,
-                bolt_x,
-                bolt_y,
-                fallback=self._draw_bolt_primitive,
-            )
 
     def update_battery(self):
         if self.mode != "main":
@@ -467,19 +417,15 @@ class RemoteUI(object):
         ):
             return
         self._batt_last_ms = now
-        level, charging = self._read_battery()
+        level = self._read_battery()
         bucket = self._battery_bucket(level)
-        if (
-            bucket == self._batt_shown_bucket
-            and charging == self._batt_shown_charging
-        ):
+        if bucket == self._batt_shown_bucket:
             return
         self._batt_shown_bucket = bucket
-        self._batt_shown_charging = charging
         self._epd_mode(quality=False)
         self._begin_write()
         try:
-            self._draw_battery(level, charging, clear_region=True)
+            self._draw_battery(level, clear_region=True)
         finally:
             self._end_write()
 
@@ -578,10 +524,9 @@ class RemoteUI(object):
         try:
             M5.Lcd.clear(WHITE)
             self._draw_gear()
-            level, charging = self._read_battery()
-            self._draw_battery(level, charging)
+            level = self._read_battery()
+            self._draw_battery(level)
             self._batt_shown_bucket = self._battery_bucket(level)
-            self._batt_shown_charging = charging
             self._batt_last_ms = time.ticks_ms()
             for btn in self.buttons:
                 self._draw_button(btn)
