@@ -1,0 +1,10 @@
+# M5Paper Remote — UIFlow2 app on /flash/
+exclude_ext:
+  - .md
+  - .js
+
+sources:
+  - repo: Bag2/Code/M5Paper Remote
+    prefix: ""
+    include_ext:
+      - .py

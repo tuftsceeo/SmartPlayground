@@ -1,0 +1,10 @@
+# Hub (hubCode2) — MicroPython only
+exclude_ext:
+  - .md
+  - .js
+
+sources:
+  - repo: Live_Page/WebApp2/hubCode2
+    prefix: ""
+    include_ext:
+      - .py

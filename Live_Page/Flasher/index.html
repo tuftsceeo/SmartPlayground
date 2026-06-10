@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" href="../icon/cropped-Icon-1-32x32.png" sizes="32x32" />
+  <link rel="icon" href="../icon/cropped-Icon-1-192x192.png" sizes="192x192" />
+  <link rel="apple-touch-icon" href="../icon/cropped-Icon-1-180x180.png" />
+  <title>Smart Playground Flasher</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body class="bg-gray-50 min-h-screen text-gray-900">
+  <div class="max-w-2xl mx-auto px-4 py-8 flex flex-col gap-5">
+    <header class="border-b-2 border-gray-900 pb-3">
+      <div class="flex items-center gap-2">
+        <i data-lucide="cpu" class="w-6 h-6 text-blue-600"></i>
+        <h1 class="text-xl font-bold text-gray-800">Smart Playground Flasher</h1>
+      </div>
+      <p class="text-sm text-gray-500 mt-1">Upload MicroPython code to your device over USB</p>
+    </header>
+
+    <div id="browser-warn" class="hidden rounded-lg border border-amber-300 bg-amber-50 text-amber-800 px-4 py-3 text-sm">
+      Web Serial requires Chrome or Edge. This browser cannot connect to devices.
+    </div>
+
+    <!-- Step 1: Version -->
+    <section class="bg-white rounded-lg shadow-sm border border-gray-200 p-5 flex flex-col gap-3">
+      <div class="flex items-center gap-2">
+        <span class="text-xs font-mono text-gray-500 border border-gray-200 rounded px-1.5 py-0.5">01</span>
+        <h2 class="font-semibold text-gray-800">Select version</h2>
+      </div>
+      <div id="version-buttons" class="flex flex-wrap gap-2"></div>
+      <button type="button" id="toggle-advanced-version" class="text-xs text-gray-500 hover:text-gray-700 text-left">
+        ▸ Advanced: type a branch or tag
+      </button>
+      <div id="advanced-version-panel" class="hidden flex flex-col gap-2">
+        <input type="text" id="advanced-version-input" placeholder="branch or tag name"
+          class="font-mono text-sm border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        <button type="button" id="btn-load-branches"
+          class="text-sm text-blue-600 hover:text-blue-800 self-start">Load branch list from GitHub</button>
+        <select id="branch-select" class="hidden font-mono text-sm border border-gray-300 rounded px-3 py-2"></select>
+      </div>
+      <p id="version-status" class="text-sm text-gray-600"></p>
+    </section>
+
+    <!-- Step 2: Device -->
+    <section class="bg-white rounded-lg shadow-sm border border-gray-200 p-5 flex flex-col gap-3">
+      <div class="flex items-center gap-2">
+        <span class="text-xs font-mono text-gray-500 border border-gray-200 rounded px-1.5 py-0.5">02</span>
+        <h2 class="font-semibold text-gray-800">Select device</h2>
+      </div>
+      <div id="device-grid" class="grid grid-cols-1 sm:grid-cols-3 gap-3"></div>
+      <p id="device-status" class="text-sm text-gray-600"></p>
+    </section>
+
+    <!-- Step 3: Connect -->
+    <section class="bg-white rounded-lg shadow-sm border border-gray-200 p-5 flex flex-col gap-3">
+      <div class="flex items-center gap-2">
+        <span class="text-xs font-mono text-gray-500 border border-gray-200 rounded px-1.5 py-0.5">03</span>
+        <h2 class="font-semibold text-gray-800">Connect</h2>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        <button type="button" id="btn-connect"
+          class="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed">
+          <i data-lucide="usb" class="w-4 h-4"></i> Connect
+        </button>
+        <button type="button" id="btn-disconnect" disabled
+          class="inline-flex items-center gap-2 border border-gray-300 hover:bg-gray-50 text-gray-700 font-medium px-4 py-2 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed">
+          Disconnect
+        </button>
+      </div>
+      <div id="device-info" class="hidden flex flex-wrap gap-2 text-sm">
+        <span class="inline-flex items-center gap-1 bg-gray-100 rounded-full px-3 py-1">
+          <span class="text-gray-500">Type:</span>
+          <span id="info-type" class="font-medium">—</span>
+        </span>
+        <span class="inline-flex items-center gap-1 bg-gray-100 rounded-full px-3 py-1">
+          <span class="text-gray-500">Name:</span>
+          <span id="info-name" class="font-medium">—</span>
+        </span>
+        <span id="board-chip" class="hidden inline-flex items-center gap-1 bg-blue-50 text-blue-700 rounded-full px-3 py-1">
+          <span class="text-blue-500">Board:</span>
+          <span id="info-board" class="font-medium">—</span>
+        </span>
+      </div>
+      <p id="connect-status" class="text-sm"></p>
+      <p id="detect-warn" class="hidden text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded px-3 py-2"></p>
+      <p id="provision-note" class="hidden text-sm text-blue-700 bg-blue-50 border border-blue-200 rounded px-3 py-2"></p>
+    </section>
+
+    <!-- Step 4: Upload -->
+    <section class="bg-white rounded-lg shadow-sm border border-gray-200 p-5 flex flex-col gap-3">
+      <div class="flex items-center gap-2">
+        <span class="text-xs font-mono text-gray-500 border border-gray-200 rounded px-1.5 py-0.5">04</span>
+        <h2 class="font-semibold text-gray-800">Upload</h2>
+      </div>
+      <div id="hub-antenna-panel" class="hidden flex items-start gap-2 text-sm">
+        <input type="checkbox" id="external-antenna" class="mt-1" checked />
+        <label for="external-antenna" class="text-gray-700">
+          Use external antenna
+          <span class="block text-gray-500 text-xs">C6 only — uncheck if your board uses the internal antenna.</span>
+        </label>
+      </div>
+      <button type="button" id="btn-upload" disabled
+        class="inline-flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white font-medium px-4 py-2 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed self-start">
+        <i data-lucide="upload-cloud" class="w-4 h-4"></i> Upload &amp; Run
+      </button>
+      <div id="progress-wrap" class="hidden w-full bg-gray-200 rounded-full h-1.5">
+        <div id="progress-bar" class="bg-blue-600 h-1.5 rounded-full transition-all duration-200" style="width:0%"></div>
+      </div>
+      <p id="upload-status" class="text-sm"></p>
+      <div id="file-list-wrap" class="hidden">
+        <p class="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Files to upload</p>
+        <div id="file-list" class="text-xs font-mono text-gray-600 max-h-32 overflow-y-auto border border-gray-100 rounded p-2"></div>
+      </div>
+      <div id="log-wrap" class="hidden">
+        <p class="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Serial log</p>
+        <div id="serial-log" class="bg-gray-900 text-gray-300 font-mono text-xs rounded p-3 max-h-48 overflow-y-auto"></div>
+      </div>
+    </section>
+
+    <footer class="text-center text-xs text-gray-400 pt-2">
+      Chrome or Edge required &middot; served over HTTPS or localhost
+    </footer>
+  </div>
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
