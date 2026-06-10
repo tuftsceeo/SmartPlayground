@@ -4,8 +4,8 @@ const EXEC_END = "\x04\x04";
 /** Match WebApp2 repl_controller — pace serial writes on large scripts. */
 const SERIAL_CHUNK = 256;
 const SERIAL_CHUNK_DELAY_MS = 10;
-/** Split large file bodies across multiple on-device writes. */
-const FILE_WRITE_CHUNK = 4096;
+/** Raw bytes per on-device write (base64-encoded per chunk; avoids quote/escape bugs). */
+const BYTE_UPLOAD_CHUNK = 768;
 
 function normalizeRoot(root) {
   if (!root || root === "/") return "/";
@@ -20,9 +20,10 @@ export function deviceFilePath(devicePathRoot, relPath) {
   return `${root}/${rel}`;
 }
 
-/** Escape for triple-quoted Python string (WebApp2 firmware_manager). */
-function escapeForTripleQuoted(content) {
-  return content.replace(/\\/g, "\\\\").replace(/'''/g, "\\'\\'\\'");
+function bytesToBase64(bytes) {
+  let bin = "";
+  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+  return btoa(bin);
 }
 
 function uploadSortKey(relPath) {
@@ -312,26 +313,38 @@ export class SerialEngine {
   }
 
   /**
-   * Upload one file using WebApp2 firmware_manager text-write strategy.
-   * open(path,'w') truncates existing files — no filesystem wipe needed.
+   * Upload via chunked base64 + ubinascii (binary-safe; no triple-quote edge cases).
+   * First chunk opens 'wb' (truncates); rest append with 'ab'.
+   * Serial pacing for large scripts still uses WebApp2-style 256-byte chunks in execScript.
    */
   async uploadOne(devicePath, content) {
-    this.log(`  → '${devicePath}' (${content.length.toLocaleString()} bytes) …`);
+    const bytes = new TextEncoder().encode(content);
+    this.log(`  → '${devicePath}' (${bytes.length.toLocaleString()} bytes) …`);
     const pathLit = JSON.stringify(devicePath);
-    const chunks = [];
-    for (let i = 0; i < content.length; i += FILE_WRITE_CHUNK) {
-      chunks.push(content.slice(i, i + FILE_WRITE_CHUNK));
-    }
-    if (chunks.length === 0) chunks.push("");
 
-    for (let i = 0; i < chunks.length; i++) {
-      const mode = i === 0 ? "w" : "a";
-      const escaped = escapeForTripleQuoted(chunks[i]);
+    if (bytes.length === 0) {
+      const [, stderr] = await this.execScript(
+        `f=open(${pathLit},'wb')\nf.close()\nprint('OK')\n`,
+        4000
+      );
+      if (stderr) {
+        this.log(`    ✗ ${stderr}`, "err");
+        return false;
+      }
+      this.log("    ✓ ok", "dim");
+      return true;
+    }
+
+    for (let i = 0; i < bytes.length; i += BYTE_UPLOAD_CHUNK) {
+      const slice = bytes.slice(i, i + BYTE_UPLOAD_CHUNK);
+      const b64 = bytesToBase64(slice);
+      const mode = i === 0 ? "wb" : "ab";
       const script =
-        `with open(${pathLit},'${mode}') as f:\n` +
-        ` f.write('''${escaped}''')\n` +
-        `print('OK')\n`;
-      const timeoutMs = Math.max(8000, chunks[i].length * 2);
+        `import ubinascii\n` +
+        `f=open(${pathLit},'${mode}')\n` +
+        `f.write(ubinascii.a2b_base64('${b64}'))\n` +
+        `f.close()\nprint('OK')\n`;
+      const timeoutMs = Math.max(8000, b64.length * 4);
       const [, stderr] = await this.execScript(script, timeoutMs);
       if (stderr) {
         this.log(`    ✗ ${stderr}`, "err");
