@@ -175,6 +175,14 @@ class ESPNowManager:
         parts = self._own_mac_str.split(':')
         return int(parts[-1], 16)
 
+    def _is_for_me(self, mac_str):
+        """True if mac_str (any case, with/without colons) is this device's MAC."""
+        if not mac_str:
+            return False
+        if self._own_mac_str is None:
+            self._own_mac_str = get_own_mac()
+        return mac_str.replace(":", "").upper() == self._own_mac_str.replace(":", "").upper()
+
     def _read_battery_for_report(self):
         if not self._status_provider:
             return None
@@ -296,6 +304,13 @@ class ESPNowManager:
     def broadcast_start_game(self, name):
         return self.broadcast({"type": "start_game", "name": name})
 
+    def broadcast_find_device(self, mac_str):
+        """Targeted identify ping. Broadcast (no peer added) carrying the target
+        MAC; only the wand whose MAC matches reacts. Avoids peer-table overflow."""
+        return self.broadcast({
+            "type": "start_game", "name": "finddevice", "mac": mac_str,
+        })
+
     def broadcast_status_poll(self):
         return self.broadcast({"type": "status_poll"})
 
@@ -369,9 +384,12 @@ class ESPNowManager:
                 return "scan_request", data, mac_str
             if mt == "start_game":
                 name = data.get("name")
-                if isinstance(name, str) and name:
-                    return "start_game", data, mac_str
-                return "raw", data, mac_str
+                if not (isinstance(name, str) and name):
+                    return "raw", data, mac_str
+                target = data.get("mac")
+                if target is not None and not self._is_for_me(target):
+                    return None, None, None   # targeted at another device; ignore
+                return "start_game", data, mac_str
             if mt == "status_poll":
                 if self._status_provider:
                     self._schedule_status_reply(mac_str)

@@ -651,6 +651,7 @@ class App {
             id: d.id,
             name: d.name || d.id,
             type: d.type || 'module',
+            mac: d.mac,
             rssi: d.rssi,
             signal: d.signal,
             battery: d.battery,
@@ -668,6 +669,24 @@ class App {
 
         if (wasPollActive) {
             this.endPollCycle({ showZeroReply });
+        }
+    }
+
+    async handleFindDevice(mac, name) {
+        if (!mac) {
+            return;
+        }
+        const label = name || mac;
+        try {
+            const result = await PyBridgeToUse.findDevice(mac);
+            if (result && result.status === "sent") {
+                showToast(`Pinging ${label}…`, "success");
+            } else {
+                showToast(`Couldn't ping ${label}`, "error");
+            }
+        } catch (e) {
+            console.error("Find device error:", e);
+            showToast(`Error pinging ${label}: ${e.message}`, "error");
         }
     }
 
@@ -762,6 +781,7 @@ class App {
                 state.hubConnected,
                 () => this.handleHubConnect(),
                 state.hubConnecting,
+                (mac, name) => this.handleFindDevice(mac, name),
             );
             this.components.deviceListOverlay.style.display = 'flex';
             this.container.appendChild(this.components.deviceListOverlay);

@@ -805,6 +805,28 @@ class RemoteUI(object):
         finally:
             self._end_write()
 
+    def flash_status_row(self, mac):
+        """Briefly invert a device row as tap feedback, then restore it."""
+        layout = None
+        for item in self._status_row_layout:
+            if item["mac"] == mac:
+                layout = item
+                break
+        if layout is None:
+            return
+        x = MARGIN
+        y = layout["y"]
+        w = SCREEN_W - (2 * MARGIN)
+        h = layout["h"]
+        self._epd_mode(quality=False)
+        self._begin_write()
+        try:
+            M5.Lcd.fillRect(x, y, w, h, BLACK)
+        finally:
+            self._end_write()
+        time.sleep_ms(150)
+        self._redraw_status_row(mac)
+
     def _status_hit(self, x, y):
         if self._status_pages > 1:
             for rect, name in (
@@ -823,6 +845,12 @@ class RemoteUI(object):
             and self._status_back_y <= y < self._status_back_y + SETTINGS_SAVE_H
         ):
             return "__back__"
+        # Tapping a device row identifies that wand.
+        if MARGIN <= x < SCREEN_W - MARGIN:
+            for layout in self._status_row_layout:
+                ry = layout["y"]
+                if ry <= y < ry + layout["h"]:
+                    return ("row", layout["mac"])
         return None
 
     # ── Sleep screen ──────────────────────────────────────────────────────
@@ -962,6 +990,8 @@ class RemoteUI(object):
                 return "status_up"
             if hit == "__down__":
                 return "status_down"
+            if isinstance(hit, tuple) and hit[0] == "row":
+                return ("find_device", hit[1])
             return None
 
         if self.mode == "settings":

@@ -249,6 +249,12 @@ def loop(ctx):
     if result == "status_down":
         ui.scroll_status("down")
         return
+    if isinstance(result, tuple) and result[0] == "find_device":
+        mac = result[1]
+        print("  Tap: Find %s" % mac)
+        _broadcast_thrice(lambda: enow.broadcast_find_device(mac))
+        ui.flash_status_row(mac)
+        return
     if result is None:
         return
     if not ui.try_debounce():

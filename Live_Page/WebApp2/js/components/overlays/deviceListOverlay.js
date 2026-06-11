@@ -5,7 +5,7 @@
 import { getDeviceIcon, getSignalIcon, getBatteryIcon } from '../common/icons.js';
 import { getRelativeTime } from '../../utils/helpers.js';
 
-export function createDeviceListOverlay(devices, lastPolledTime, onClose, hubConnected, onHubConnect, hubConnecting = false) {
+export function createDeviceListOverlay(devices, lastPolledTime, onClose, hubConnected, onHubConnect, hubConnecting = false, onFindDevice = null) {
   const overlay = document.createElement('div');
   overlay.className = 'absolute inset-0 bg-white z-50 flex flex-col';
   overlay.style.display = 'none';
@@ -69,6 +69,13 @@ export function createDeviceListOverlay(devices, lastPolledTime, onClose, hubCon
       const card = document.createElement('div');
       card.className = 'px-4 py-4 border-b border-gray-100 device-card flex items-start gap-3';
 
+      const canFind = !!(onFindDevice && device.mac);
+      if (canFind) {
+        card.className += ' cursor-pointer hover:bg-gray-50 active:bg-gray-100 transition-colors';
+        card.title = 'Tap to make this wand beep & flash';
+        card.onclick = () => onFindDevice(device.mac, device.name || device.id);
+      }
+
       const iconWrapper = document.createElement('div');
       iconWrapper.className = 'flex-shrink-0 mt-1';
       iconWrapper.appendChild(getDeviceIcon(device.type || 'module', 'medium'));
@@ -98,6 +105,13 @@ export function createDeviceListOverlay(devices, lastPolledTime, onClose, hubCon
       const batteryIcon = getBatteryIcon(device.battery);
       batteryIcon.className = batteryIcon.className.replace('w-4 h-4', 'w-5 h-5');
       statusDiv.appendChild(batteryIcon);
+
+      if (canFind) {
+        const findIcon = document.createElement('i');
+        findIcon.setAttribute('data-lucide', 'locate-fixed');
+        findIcon.className = 'w-5 h-5 text-blue-500';
+        statusDiv.appendChild(findIcon);
+      }
 
       card.appendChild(statusDiv);
       deviceList.appendChild(card);

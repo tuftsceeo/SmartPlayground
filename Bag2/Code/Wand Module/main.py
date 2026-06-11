@@ -43,7 +43,8 @@ from nfc_sound import play as play_nfc_sound
 from simpleicecream import play as play_simpleicecream
 from multiicecream import play as play_multiicecream
 from gestures import play as play_gestures
-from game_tags import GAME_TAGS, CONTROL_TAGS
+from finddevice import play as play_finddevice
+from game_tags import GAME_TAGS, CONTROL_TAGS, HIDDEN_TAGS
 import brightness
 
 # ─────────────────────────────────────────────
@@ -64,12 +65,14 @@ GAME_DISPATCH = {
     "simpleicecream": play_simpleicecream,
     "multiicecream":  play_multiicecream,
     "gestures":       play_gestures,
+    # Hidden (ESP-NOW only, never NFC): targeted identify animation.
+    "finddevice":     play_finddevice,
 }
 
-if set(GAME_DISPATCH.keys()) != GAME_TAGS:
-    print("  [ERR] GAME_DISPATCH keys do not match GAME_TAGS in game_tags.py")
+if set(GAME_DISPATCH.keys()) != (GAME_TAGS | HIDDEN_TAGS):
+    print("  [ERR] GAME_DISPATCH keys do not match GAME_TAGS|HIDDEN_TAGS in game_tags.py")
     print("        dispatch: %s" % sorted(GAME_DISPATCH.keys()))
-    print("        GAME_TAGS: %s" % sorted(GAME_TAGS))
+    print("        expected: %s" % sorted(GAME_TAGS | HIDDEN_TAGS))
 
 # ─────────────────────────────────────────────
 # PINS FROM HUBTYPE

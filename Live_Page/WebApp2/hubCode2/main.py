@@ -316,6 +316,19 @@ class SimpleHub:
                 "status": "sent",
             })
             return
+        if cmd_type == "find":
+            mac = cmd.get("mac")
+            if not mac:
+                self._debug("Find:no mac")
+                return
+            self._debug("Find:" + str(mac)[-5:])
+            self._broadcast_twice(lambda: self.enow.broadcast_find_device(mac))
+            self.serial.send({
+                "type": "ack",
+                "command": cmd_type,
+                "status": "sent",
+            })
+            return
         if cmd_type == "stop":
             game_display = "stop"
             self._debug(f"Gm:{game_display}")

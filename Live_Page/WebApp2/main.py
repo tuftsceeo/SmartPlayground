@@ -234,6 +234,7 @@ def process_complete_message(message_data):
                 "id": sanitized_id,
                 "name": device_name,
                 "type": "module",
+                "mac": dev.get("mac", ""),
                 "rssi": rssi,
                 "signal": signal,
                 "battery": battery,
@@ -503,6 +504,28 @@ async def send_command_to_hub(command):
         console.log(f"Sent to hub (serial): {command}")
         js_result.status = "sent"
         js_result.command = command
+    else:
+        js_result.status = "error"
+        js_result.error = "Send failed"
+    return js_result
+
+async def find_device(mac):
+    """Ask the hub to ping one specific wand (targeted broadcast by MAC)."""
+    if hub_connection_mode != "serial" or not serial.is_connected():
+        console.log("❌ Serial not connected - cannot send find")
+        js_result = Object.new()
+        js_result.status = "error"
+        js_result.error = "Not connected to hub"
+        return js_result
+
+    message = json.dumps({"cmd": "find", "mac": mac})
+    success = await serial.send_json(message)
+
+    js_result = Object.new()
+    if success:
+        console.log(f"Sent find to hub (serial): {mac}")
+        js_result.status = "sent"
+        js_result.mac = mac
     else:
         js_result.status = "error"
         js_result.error = "Send failed"
@@ -899,6 +922,7 @@ window.disconnect_hub = create_proxy(disconnect_hub)
 window.connect_hub_serial = create_proxy(connect_hub_serial)
 window.disconnect_hub_serial = create_proxy(disconnect_hub_serial)
 window.send_command_to_hub = create_proxy(send_command_to_hub)
+window.find_device = create_proxy(find_device)
 # Firmware upload and device management functions
 window.upload_firmware = create_proxy(upload_firmware)
 window.get_board_info = create_proxy(get_board_info)
