@@ -5,6 +5,9 @@ const CACHE_NAME = "flasher-gh-v1";
 
 // In-memory fallback when the Cache API is unavailable (e.g. insecure context).
 const memCache = new Map();
+const memCacheBytes = new Map();
+
+const BINARY_EXTENSIONS = new Set([".png", ".bmp", ".jpg", ".jpeg", ".gif", ".ico", ".bin"]);
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -94,6 +97,44 @@ async function cachedText(url, opts = {}) {
   return resp.text();
 }
 
+/**
+ * Cache-first fetch that returns a Uint8Array. Used for binary assets (PNG etc.)
+ * where resp.text() would corrupt non-UTF-8 bytes.
+ */
+async function cachedBytes(url, opts = {}) {
+  let cache = null;
+  if (typeof caches !== "undefined") {
+    try {
+      cache = await caches.open(CACHE_NAME);
+    } catch {
+      cache = null;
+    }
+  }
+
+  if (cache) {
+    const hit = await cache.match(url);
+    if (hit) return new Uint8Array(await hit.arrayBuffer());
+  } else if (memCacheBytes.has(url)) {
+    return memCacheBytes.get(url);
+  }
+
+  const resp = await fetchWithRetry(url, opts);
+  if (!resp.ok) throw new Error(`HTTP ${resp.status} for ${url}`);
+
+  const bytes = new Uint8Array(await resp.clone().arrayBuffer());
+  if (cache) {
+    await cache.put(url, resp.clone());
+  } else {
+    memCacheBytes.set(url, bytes);
+  }
+  return bytes;
+}
+
+function isBinaryPath(filePath) {
+  const dot = filePath.lastIndexOf(".");
+  return dot !== -1 && BINARY_EXTENSIONS.has(filePath.slice(dot).toLowerCase());
+}
+
 export function toRawUrl(url) {
   url = url.trim();
   if (url.includes("raw.githubusercontent.com")) return url;
@@ -165,9 +206,10 @@ async function fetchFolderRecursive(
       }
       onProgress?.(deviceRel);
       try {
-        fetchedFiles[deviceRel] = await cachedText(
-          item.download_url || toRawUrl(item.html_url)
-        );
+        const fileUrl = item.download_url || toRawUrl(item.html_url);
+        fetchedFiles[deviceRel] = isBinaryPath(item.name)
+          ? await cachedBytes(fileUrl)
+          : await cachedText(fileUrl);
         count++;
       } catch (e) {
         log?.(`  ⚠ ${e.message}`, "err");
@@ -222,9 +264,10 @@ export async function fetchManifestFiles(repo, ref, manifest, { log, onProgress 
         onProgress?.(deviceRel);
         log?.(`  📄 ${item.path} → ${deviceRel}`, "dim");
         // SHA-pinned + cached: missing file is a hard error, never silently skipped.
-        fetchedFiles[deviceRel] = await cachedText(
-          rawFileUrl(owner, name, commitSha, item.path)
-        );
+        const fileUrl = rawFileUrl(owner, name, commitSha, item.path);
+        fetchedFiles[deviceRel] = isBinaryPath(item.path)
+          ? await cachedBytes(fileUrl)
+          : await cachedText(fileUrl);
         break;
       }
     }
@@ -259,9 +302,10 @@ async function fetchManifestFilesFallback(repo, ref, manifest, { log, onProgress
         if (!shouldIncludeFile(item.name, src, manifest)) continue;
         const deviceRel = joinDevicePath(prefix, item.name);
         onProgress?.(deviceRel);
-        fetchedFiles[deviceRel] = await cachedText(
-          item.download_url || toRawUrl(item.html_url)
-        );
+        const fileUrl = item.download_url || toRawUrl(item.html_url);
+        fetchedFiles[deviceRel] = isBinaryPath(item.name)
+          ? await cachedBytes(fileUrl)
+          : await cachedText(fileUrl);
       } else if (item.type === "dir" && item.url) {
         const subPrefix = joinDevicePath(prefix, item.name);
         await fetchFolderRecursive(
