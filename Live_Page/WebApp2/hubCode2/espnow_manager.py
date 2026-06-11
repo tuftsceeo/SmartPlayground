@@ -305,11 +305,11 @@ class ESPNowManager:
         return self.broadcast({"type": "start_game", "name": name})
 
     def broadcast_find_device(self, mac_str):
-        """Targeted identify ping. Broadcast (no peer added) carrying the target
-        MAC; only the wand whose MAC matches reacts. Avoids peer-table overflow."""
-        return self.broadcast({
-            "type": "start_game", "name": "finddevice", "mac": mac_str,
-        })
+        """Targeted identify ping. Uses a DISTINCT message type ("find_device")
+        so un-updated wands ignore it (they only act on stop/start_game); only
+        the wand whose MAC matches reacts. Broadcast (no peer added) -> no
+        peer-table overflow with many devices."""
+        return self.broadcast({"type": "find_device", "mac": mac_str})
 
     def broadcast_status_poll(self):
         return self.broadcast({"type": "status_poll"})
@@ -384,12 +384,19 @@ class ESPNowManager:
                 return "scan_request", data, mac_str
             if mt == "start_game":
                 name = data.get("name")
-                if not (isinstance(name, str) and name):
-                    return "raw", data, mac_str
+                if isinstance(name, str) and name:
+                    return "start_game", data, mac_str
+                return "raw", data, mac_str
+            if mt == "find_device":
+                # Distinct type (NOT start_game) so un-updated wands -- whose
+                # game loops only exit on "stop"/"start_game" -- classify this
+                # as "raw" and ignore it. Only the targeted wand reacts; we
+                # rewrite it into the start_game force-switch path so the hidden
+                # "finddevice" game dispatches with no other firmware changes.
                 target = data.get("mac")
                 if target is not None and not self._is_for_me(target):
-                    return None, None, None   # targeted at another device; ignore
-                return "start_game", data, mac_str
+                    return None, None, None   # for another device; ignore
+                return "start_game", {"name": "finddevice", "mac": target}, mac_str
             if mt == "status_poll":
                 if self._status_provider:
                     self._schedule_status_reply(mac_str)
