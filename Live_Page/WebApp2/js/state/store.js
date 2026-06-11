@@ -35,6 +35,12 @@ export const state = {
     messageHistory: [],
     currentMessage: "",
 
+    // Device status (updated by Ask Device Status poll)
+    devices: [],
+    lastPolledTime: null,
+    showDeviceList: false,
+    pollActive: false,
+
     // UI state
     showCommandPalette: false,
     showMessageDetails: false,

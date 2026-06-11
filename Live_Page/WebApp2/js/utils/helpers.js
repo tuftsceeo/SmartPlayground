@@ -30,6 +30,25 @@ export function getDeviceType(deviceId) {
  * @param {string[]} deviceIds
  * @returns {Object} {moduleCount, extensionCount, buttonCount}
  */
+export function wandNameFromMac(mac) {
+  const clean = String(mac || '').replace(/[:-]/g, '').toUpperCase();
+  if (clean.length >= 4) {
+    return 'W-' + clean.slice(-4);
+  }
+  return 'W-' + clean;
+}
+
+export function rssiToSignalLevel(rssi) {
+  if (rssi === null || rssi === undefined || Number.isNaN(Number(rssi))) {
+    return null;
+  }
+  const val = Number(rssi);
+  if (val >= -50) return 3;
+  if (val >= -70) return 2;
+  if (val >= -85) return 1;
+  return 0;
+}
+
 export function countDevicesByType(deviceIds) {
   return {
     moduleCount: deviceIds.filter(id => id.startsWith('Module') || id.startsWith('M-')).length,

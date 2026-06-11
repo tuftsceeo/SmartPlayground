@@ -58,6 +58,10 @@ const PyBridge = {
     return await callPython('send_command_to_hub', command);
   },
 
+  async findDevice(mac) {
+    return await callPython('find_device', mac);
+  },
+
   async uploadFirmware(files) {
     return await callPython('upload_firmware', files);
   },

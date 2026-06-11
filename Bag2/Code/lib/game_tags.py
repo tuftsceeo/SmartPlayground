@@ -22,6 +22,11 @@ GAME_TAGS = {
 
 CONTROL_TAGS = {"start", "stop"}
 
+# Games dispatched only over ESP-NOW (never via NFC). Not in GAME_TAGS, so they
+# never appear as tappable games / webapp commands / remote buttons, but they
+# are valid GAME_DISPATCH keys. "finddevice" is the targeted identify animation.
+HIDDEN_TAGS = {"finddevice"}
+
 EXIT_TAGS = GAME_TAGS | {"stop"}
 
 

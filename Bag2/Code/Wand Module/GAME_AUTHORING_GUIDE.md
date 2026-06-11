@@ -364,6 +364,7 @@ Kids can switch games without the dedicated `stop` tag:
 - [ ] `_EXIT_TAGS = exit_tags_excluding("yourgame")` unioned into `COMMANDS`; exit on `cmd in _EXIT_TAGS`
 - [ ] New game name added to `GAME_TAGS` in `lib/game_tags.py` and `GAME_DISPATCH` in `main.py`
 - [ ] Exits on `msg_type in ('stop', 'start_game')` in every `enow.poll()` site
+- Note: `status_poll` is auto-answered silently inside `espnow_manager.poll()` — games need no handler for it
 - [ ] `play()` with try/finally for cleanup
 - [ ] `main()` for standalone testing
 - [ ] `if __name__ == "__main__":` guard

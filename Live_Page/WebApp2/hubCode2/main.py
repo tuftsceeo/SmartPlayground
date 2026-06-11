@@ -26,7 +26,14 @@ try:
 except ImportError:
     DISPLAY_AVAILABLE = False
 
-CONTROL_CMDS = {"stop", "battery"}
+COLLECT_MS = 6000
+
+
+def wand_id_from_mac(mac_str):
+    clean = mac_str.replace(":", "").replace("-", "").upper()
+    if len(clean) >= 4:
+        return "W-" + clean[-4:]
+    return "W-" + clean
 
 
 class SerialBridge:
@@ -187,6 +194,9 @@ class SimpleHub:
             command_callback=self._handle_command,
             debug_callback=self._debug
         )
+        self.collecting = False
+        self.collect_deadline = 0
+        self.collected = {}
         self._debug("Hub2 Init")
 
     def _debug(self, msg):
@@ -221,15 +231,108 @@ class SimpleHub:
         time.sleep_ms(100)
         send_fn()
 
+    def _broadcast_thrice(self, send_fn):
+        """Send an ESP-NOW command three times with short gaps."""
+        send_fn()
+        time.sleep_ms(60)
+        send_fn()
+        time.sleep_ms(60)
+        send_fn()
+
+    def _start_poll_cycle(self):
+        now = time.ticks_ms()
+        self.collected = {}
+        self.collecting = True
+        self.collect_deadline = time.ticks_add(now, COLLECT_MS)
+        self._debug("Poll:start")
+        self._broadcast_thrice(self.enow.broadcast_status_poll)
+        self.serial.send({
+            "type": "poll_started",
+            "timestamp": now,
+        })
+
+    def _finish_poll_collection(self):
+        self.collecting = False
+        now = time.ticks_ms()
+        device_list = []
+        for mac, info in self.collected.items():
+            device_list.append({
+                "id": wand_id_from_mac(mac),
+                "mac": mac,
+                "battery": info.get("battery"),
+                "rssi": info.get("rssi"),
+                "last_seen": info.get("last_seen", now),
+                "is_stale": False,
+            })
+        self.serial.send({
+            "type": "devices",
+            "list": device_list,
+            "timestamp": now,
+        })
+        self._debug("Poll:done")
+
+    def _drain_reports(self):
+        drained = 0
+        while drained < 24:
+            msg_type, data, mac = self.enow.poll()
+            if msg_type is None:
+                break
+            drained += 1
+            if msg_type != "status_report" or not mac:
+                continue
+            battery = None
+            rssi = None
+            if isinstance(data, dict):
+                battery = data.get("battery")
+                rssi = data.get("rssi")
+            now = time.ticks_ms()
+            self.collected[mac] = {
+                "battery": battery,
+                "rssi": rssi,
+                "last_seen": now,
+            }
+            self.serial.send({
+                "type": "device_report",
+                "id": wand_id_from_mac(mac),
+                "mac": mac,
+                "battery": battery,
+                "rssi": rssi,
+                "timestamp": now,
+            })
+
+        now = time.ticks_ms()
+        if self.collecting and time.ticks_diff(now, self.collect_deadline) >= 0:
+            self._finish_poll_collection()
+
     def _handle_command(self, cmd_type, cmd):
         """Handle command from webapp (callback from SerialBridge)."""
+        if cmd_type == "poll":
+            if self.collecting:
+                return
+            self._start_poll_cycle()
+            self.serial.send({
+                "type": "ack",
+                "command": cmd_type,
+                "status": "sent",
+            })
+            return
+        if cmd_type == "find":
+            mac = cmd.get("mac")
+            if not mac:
+                self._debug("Find:no mac")
+                return
+            self._debug("Find:" + str(mac)[-5:])
+            self._broadcast_twice(lambda: self.enow.broadcast_find_device(mac))
+            self.serial.send({
+                "type": "ack",
+                "command": cmd_type,
+                "status": "sent",
+            })
+            return
         if cmd_type == "stop":
             game_display = "stop"
             self._debug(f"Gm:{game_display}")
             self._broadcast_twice(self.enow.broadcast_stop)
-        elif cmd_type == "battery":
-            self._debug("Gm:battery")
-            self._broadcast_twice(lambda: self.enow.broadcast(["battery"]))
         elif cmd_type in GAME_TAGS:
             game_display = cmd_type[:9] if len(cmd_type) <= 9 else cmd_type[:8] + "."
             self._debug(f"Gm:{game_display}")
@@ -264,6 +367,7 @@ class SimpleHub:
                     print(f"🔴 [Hub] Loop iteration {loop_counter}", file=sys.stderr)
 
                 self.serial.check_input()
+                self._drain_reports()
 
                 current_time = time.ticks_ms()
 

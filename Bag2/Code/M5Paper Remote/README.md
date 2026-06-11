@@ -12,7 +12,7 @@ UIFlow2 MicroPython broadcasts ESP-NOW commands directly to wands — no laptop 
 | `config.py` | Game catalog, layout constants, settings persistence |
 | `espnow_manager.py` | Bundled copy of `../lib/espnow_manager.py` (keep in sync) |
 | `game_tags.py` | Bundled copy of `../lib/game_tags.py` (keep in sync) |
-| `assets/*.png` | 1-bit top-bar icons (gear, battery shell, charging bolt) |
+| `assets/*.png` | 1-bit icons (gear, battery shell, charging bolt, signal bars) |
 | `assets/_generate_icons.py` | Dev-only Pillow script to regenerate the PNGs |
 
 ## E-ink refresh (batched draws)
@@ -46,6 +46,7 @@ e-ink):
 | `gear.png` | 36×36 | Settings gear |
 | `battery.png` | 46×22 | Battery shell (fill bar drawn in code) |
 | `bolt.png` | 12×16 | Charging overlay |
+| `signal-0.png`..`signal-3.png` | 40×34 | Device-status signal bars (Poor→Strong) |
 
 Regenerate after editing artwork: `cd assets && python3 _generate_icons.py` (requires Pillow).
 
@@ -96,6 +97,31 @@ field troubleshooting.
 Additional catalog entries (enable via Settings): `shakerainbow`, `jump`, `nfcsound`,
 `multiicecream`.
 
+## Device Status screen
+
+Tap **Status** to broadcast a status poll; responding wands appear as rows showing the
+wand name, a **battery icon + percent**, and a **signal-bars icon + word** (Poor / Fair /
+Good / Strong). If more wands respond than fit on one screen, **Up / Dn** pagination
+buttons and a `page/total` indicator appear in the top bar; the physical **side rocker
+up/down** pages the list too. Tap **Back** (or the rocker) to return.
+
+## Sleep / wake
+
+After **2 minutes** with no touch or side-button activity (`INACTIVITY_SLEEP_MS`), the
+remote shows a full-screen **"Device Sleeping"** notice and powers down the ESP-NOW radio
+(the dominant battery draw). E-ink holds the sleep image at zero power.
+
+Wake by **pressing the side rocker (up or down) or tapping the screen** — the radio
+re-initialises and the main screen repaints. (The original M5Paper has no accelerometer,
+so there is no shake-to-wake.)
+
+Battery is polled every **5 minutes** (`BATT_POLL_MS`) in both states. While asleep, if
+the charge falls to/below `BATT_CRIT_SOC` (10%), the sleep screen switches once to a large
+empty-battery **"Battery Low"** warning so it can be charged before dying.
+
+`USE_LIGHTSLEEP` (config, default `False`) opts into `machine.lightsleep` between sleep
+ticks for further savings; leave off until verified against the touch panel on your build.
+
 ## Flash firmware (first time)
 
 1. Install [M5Burner](https://docs.m5stack.com/en/quick_start/m5burner).
@@ -130,7 +156,7 @@ Additional catalog entries (enable via Settings): `shakerainbow`, `jump`, `nfcso
 
 - Tap a **game** button to broadcast `{"type":"start_game","name":"<tag>"}` twice (100 ms apart).
 - Tap **STOP** to broadcast `["stop"]` twice.
-- Tap **Battery** to broadcast `["battery"]` twice.
+- Tap **Status** to broadcast `status_poll` three times and open a transient device-status overlay.
 
 ## WiFi channel troubleshooting
 
@@ -170,6 +196,6 @@ Packets match the wand protocol in `../lib/espnow_manager.py` (same as the Live_
 |--------|--------|
 | Start game | `{"type":"start_game","name":"<tag>"}` |
 | Stop | `["stop"]` |
-| Battery | `["battery"]` |
+| Status | `{"type":"status_poll"}` (×3) |
 
 Each command is sent **twice** with ~100 ms spacing.

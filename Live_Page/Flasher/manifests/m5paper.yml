@@ -9,3 +9,4 @@ sources:
     include_ext:
       - .py
       - .png
+      - .txt

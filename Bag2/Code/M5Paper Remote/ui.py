@@ -23,6 +23,7 @@ from config import (
     FONT_GAME,
     FONT_SETTINGS,
     FONT_SETTINGS_SMALL,
+    FONT_STATUS,
     FONT_STOP,
     FOOTER_H,
     GAP,
@@ -37,6 +38,18 @@ from config import (
     SCREEN_W,
     SETTINGS_MAC_H,
     SETTINGS_SAVE_H,
+    SIGNAL_BAR_GAP,
+    SIGNAL_BAR_MIN_H,
+    SIGNAL_BAR_STEP,
+    SIGNAL_BAR_W,
+    SIGNAL_BARS,
+    SIGNAL_H,
+    SIGNAL_PNGS,
+    SIGNAL_W,
+    SIGNAL_WORDS,
+    STATUS_NAV_W,
+    STATUS_ROW_GAP,
+    STATUS_ROW_H,
     STOP_BTN_H,
     TOP_BAR_H,
     WHITE,
@@ -114,6 +127,15 @@ class RemoteUI(object):
         self._settings_row_h = 0
         self._save_y = 0
         self._settings_enabled = set()
+        self._status_rows = []
+        self._status_row_layout = []
+        self._status_back_y = 0
+        self._status_collect_deadline = 0
+        self._status_page = 0
+        self._status_pages = 1
+        self._status_rows_per_page = 1
+        self._status_up_rect = None
+        self._status_down_rect = None
         self._last_tap_ms = 0
         self._last_sent = "Ready"
         self._active_game_id = None
@@ -152,7 +174,7 @@ class RemoteUI(object):
             )
 
         for ctrl in CONTROLS:
-            if ctrl["id"] == "battery":
+            if ctrl["id"] == "status":
                 self.buttons.append(
                     _Button(
                         ctrl["id"],
@@ -293,7 +315,7 @@ class RemoteUI(object):
     def _font_for_button(self, btn):
         if btn.button_id == "stop":
             return FONT_STOP
-        if btn.button_id == "battery":
+        if btn.button_id == "status":
             return FONT_BATTERY
         return FONT_GAME
 
@@ -377,9 +399,7 @@ class RemoteUI(object):
             return None
         return (int(level) // 10) * 10
 
-    def _draw_battery_primitive(self):
-        x = self._batt_x
-        y = self._batt_y
+    def _draw_battery_primitive_at(self, x, y):
         body_w = BATT_W - BATT_NUB_W
         for i in range(BATT_FILL_INSET):
             M5.Lcd.drawRect(
@@ -389,23 +409,30 @@ class RemoteUI(object):
         nub_y0 = y + (BATT_H - nub_h) // 2
         M5.Lcd.fillRect(x + body_w, nub_y0, BATT_NUB_W, nub_h, BLACK)
 
-    def _draw_battery(self, level, clear_region=True):
+    def _draw_battery_icon(self, x, y, level, clear_region=True):
+        """Draw the battery shell (PNG or primitive) plus a proportional fill
+        bar at an arbitrary (x, y). Used by both the top bar and status rows."""
         if clear_region:
-            M5.Lcd.fillRect(self._batt_x, self._batt_y, BATT_W, BATT_H, WHITE)
+            M5.Lcd.fillRect(x, y, BATT_W, BATT_H, WHITE)
         self._draw_png(
             BATTERY_PNG,
-            self._batt_x,
-            self._batt_y,
-            fallback=self._draw_battery_primitive,
+            x,
+            y,
+            fallback=lambda: self._draw_battery_primitive_at(x, y),
         )
-        inner_x = self._batt_x + BATT_FILL_INSET
-        inner_y = self._batt_y + BATT_FILL_INSET
+        inner_x = x + BATT_FILL_INSET
+        inner_y = y + BATT_FILL_INSET
         inner_w = BATT_W - BATT_NUB_W - (2 * BATT_FILL_INSET)
         inner_h = BATT_H - (2 * BATT_FILL_INSET)
         if level is not None and inner_w > 0 and inner_h > 0:
             fill_w = (inner_w * max(0, min(100, int(level)))) // 100
             if fill_w > 0:
                 M5.Lcd.fillRect(inner_x, inner_y, fill_w, inner_h, BLACK)
+
+    def _draw_battery(self, level, clear_region=True):
+        self._draw_battery_icon(
+            self._batt_x, self._batt_y, level, clear_region=clear_region
+        )
 
     def update_battery(self):
         if self.mode != "main":
@@ -440,8 +467,8 @@ class RemoteUI(object):
             return "Now Playing: %s" % self._last_sent
         if self._last_sent == "Stopped":
             return "Stopped"
-        if self._last_sent == "Checking batteries":
-            return "Checking batteries"
+        if self._last_sent == "Checking status":
+            return "Checking status"
         return "Ready"
 
     def _draw_footer(self):
@@ -515,10 +542,368 @@ class RemoteUI(object):
             FONT_SETTINGS_SMALL,
         )
 
+    def _wand_name(self, mac):
+        clean = mac.replace(":", "").upper()
+        if len(clean) >= 4:
+            return "W-" + clean[-4:]
+        return "W-" + clean
+
+    def _signal_level(self, rssi):
+        """Map RSSI (dBm) to a 0..3 strength level, or -1 if unknown."""
+        if rssi is None:
+            return -1
+        if rssi >= -55:
+            return 3   # Strong
+        if rssi >= -68:
+            return 2   # Good
+        if rssi >= -80:
+            return 1   # Fair
+        return 0       # Poor
+
+    def _draw_signal_primitive_at(self, x, y, level):
+        base_y = y + SIGNAL_H
+        for i in range(SIGNAL_BARS):
+            bh = SIGNAL_BAR_MIN_H + i * SIGNAL_BAR_STEP
+            bx = x + i * (SIGNAL_BAR_W + SIGNAL_BAR_GAP)
+            by = base_y - bh
+            if i <= level:
+                M5.Lcd.fillRect(bx, by, SIGNAL_BAR_W, bh, BLACK)
+            else:
+                M5.Lcd.drawRect(bx, by, SIGNAL_BAR_W, bh, BLACK)
+
+    def _draw_signal_icon(self, x, y, level):
+        if 0 <= level < len(SIGNAL_PNGS):
+            self._draw_png(
+                SIGNAL_PNGS[level],
+                x,
+                y,
+                fallback=lambda: self._draw_signal_primitive_at(x, y, level),
+            )
+        else:
+            # Unknown signal: all-empty bars.
+            self._draw_signal_primitive_at(x, y, -1)
+
+    def _build_status_layout(self):
+        """Lay out only the rows on the current page; compute page count."""
+        self._status_back_y = SCREEN_H - SETTINGS_SAVE_H - GAP
+        y0 = TOP_BAR_H + GAP
+        avail = (self._status_back_y - GAP) - y0
+        rpp = avail // (STATUS_ROW_H + STATUS_ROW_GAP)
+        if rpp < 1:
+            rpp = 1
+        self._status_rows_per_page = rpp
+        total = len(self._status_rows)
+        pages = (total + rpp - 1) // rpp
+        if pages < 1:
+            pages = 1
+        self._status_pages = pages
+        if self._status_page >= pages:
+            self._status_page = pages - 1
+        if self._status_page < 0:
+            self._status_page = 0
+        start = self._status_page * rpp
+        end = min(total, start + rpp)
+        self._status_row_layout = []
+        y = y0
+        for idx in range(start, end):
+            self._status_row_layout.append({
+                "mac": self._status_rows[idx]["mac"],
+                "y": y,
+                "h": STATUS_ROW_H,
+            })
+            y += STATUS_ROW_H + STATUS_ROW_GAP
+
+    def _row_data_for(self, mac):
+        for row in self._status_rows:
+            if row["mac"] == mac:
+                return row
+        return None
+
+    def _draw_status_row(self, layout, row_data):
+        x = MARGIN
+        y = layout["y"]
+        w = SCREEN_W - (2 * MARGIN)
+        h = layout["h"]
+        M5.Lcd.fillRect(x, y, w, h, WHITE)
+        self._draw_border(x, y, w, h, BLACK)
+
+        text_y = y + (h - FONT_STATUS) // 2
+
+        # Wand name (left).
+        name = row_data.get("name", "")
+        self._draw_text_left(name, x + 14, text_y, BLACK, WHITE, FONT_STATUS)
+
+        # Battery icon + percent.
+        batt = row_data.get("battery")
+        batt_x = x + 150
+        self._draw_battery_icon(
+            batt_x, y + (h - BATT_H) // 2, batt, clear_region=False
+        )
+        batt_txt = "?" if batt is None else ("%d%%" % int(batt))
+        self._draw_text_left(
+            batt_txt, batt_x + BATT_W + 12, text_y, BLACK, WHITE, FONT_STATUS
+        )
+
+        # Big gap, then signal icon + word.
+        rssi = row_data.get("rssi")
+        level = self._signal_level(rssi)
+        sig_x = x + 330
+        self._draw_signal_icon(sig_x, y + (h - SIGNAL_H) // 2, level)
+        sig_word = "--" if level < 0 else SIGNAL_WORDS[level]
+        self._draw_text_left(
+            sig_word, sig_x + SIGNAL_W + 12, text_y, BLACK, WHITE, FONT_STATUS
+        )
+
+    def _draw_status_header(self):
+        """Title + page indicator + Up/Down nav buttons in the top bar."""
+        M5.Lcd.fillRect(0, 0, SCREEN_W, TOP_BAR_H, WHITE)
+        self._draw_text_left(
+            "Device Status", MARGIN, TOP_BAR_H // 2 - 6, BLACK, WHITE, FONT_SETTINGS
+        )
+        nav_y = (TOP_BAR_H - STATUS_NAV_W) // 2
+        if nav_y < 2:
+            nav_y = 2
+        nav_h = TOP_BAR_H - 2 * nav_y
+        up_x = SCREEN_W - MARGIN - 2 * STATUS_NAV_W - GAP
+        down_x = SCREEN_W - MARGIN - STATUS_NAV_W
+        self._status_up_rect = (up_x, nav_y, STATUS_NAV_W, nav_h)
+        self._status_down_rect = (down_x, nav_y, STATUS_NAV_W, nav_h)
+        # Pagination controls only appear when the list spans multiple pages.
+        if self._status_pages > 1:
+            self._draw_text_centered(
+                "%d/%d" % (self._status_page + 1, self._status_pages),
+                up_x - GAP - 28,
+                TOP_BAR_H // 2,
+                BLACK,
+                WHITE,
+                FONT_SETTINGS,
+            )
+            self._draw_nav_button(self._status_up_rect, "Up")
+            self._draw_nav_button(self._status_down_rect, "Dn")
+
+    def _draw_nav_button(self, rect, label):
+        x, y, w, h = rect
+        M5.Lcd.fillRect(x, y, w, h, WHITE)
+        self._draw_border(x, y, w, h, BLACK)
+        self._draw_text_centered(label, x + w // 2, y + h // 2, BLACK, WHITE, FONT_SETTINGS)
+
+    def _draw_status_back(self):
+        back_x = MARGIN
+        back_w = SCREEN_W - (2 * MARGIN)
+        M5.Lcd.fillRect(back_x, self._status_back_y, back_w, SETTINGS_SAVE_H, BLACK)
+        self._draw_border(back_x, self._status_back_y, back_w, SETTINGS_SAVE_H, BLACK)
+        self._draw_text_centered(
+            "Back",
+            back_x + back_w // 2,
+            self._status_back_y + SETTINGS_SAVE_H // 2,
+            WHITE,
+            BLACK,
+            FONT_SETTINGS,
+        )
+
+    def paint_status(self):
+        self._epd_mode(quality=True)
+        self._build_status_layout()
+        self._begin_write()
+        try:
+            M5.Lcd.clear(WHITE)
+            self._draw_status_header()
+            if not self._status_rows:
+                self._draw_text_centered(
+                    "Waiting for wands...",
+                    SCREEN_W // 2,
+                    SCREEN_H // 2,
+                    BLACK,
+                    WHITE,
+                    FONT_SETTINGS,
+                )
+            else:
+                for layout in self._status_row_layout:
+                    row_data = self._row_data_for(layout["mac"])
+                    if row_data:
+                        self._draw_status_row(layout, row_data)
+            self._draw_status_back()
+        finally:
+            self._end_write()
+
+    def scroll_status(self, direction):
+        """Page the device list. direction is 'up' or 'down'."""
+        if self.mode != "status":
+            return
+        page = self._status_page + (1 if direction == "down" else -1)
+        if page < 0 or page >= self._status_pages or page == self._status_page:
+            return
+        self._status_page = page
+        self.paint_status()
+
+    def open_status(self):
+        self.mode = "status"
+        self._status_rows = []
+        self._status_page = 0
+        self._status_collect_deadline = time.ticks_add(time.ticks_ms(), 6000)
+        self._last_sent = "Checking status"
+        self.paint_status()
+
+    def close_status(self):
+        self.mode = "main"
+        self._status_rows = []
+        self._status_row_layout = []
+        self._status_page = 0
+        self.paint_full()
+
+    def upsert_status_report(self, mac, battery, rssi):
+        if self.mode != "status":
+            return
+        now = time.ticks_ms()
+        if time.ticks_diff(now, self._status_collect_deadline) > 0:
+            return
+        for row in self._status_rows:
+            if row["mac"] == mac:
+                row["battery"] = battery
+                row["rssi"] = rssi
+                self._redraw_status_row(mac)
+                return
+        was_empty = len(self._status_rows) == 0
+        self._status_rows.append({
+            "mac": mac,
+            "name": self._wand_name(mac),
+            "battery": battery,
+            "rssi": rssi,
+        })
+        if was_empty:
+            # Clears the "Waiting for wands..." text and draws the first row.
+            self.paint_status()
+            return
+        self._build_status_layout()
+        # Partially redraw the new row if it landed on the current page, and
+        # refresh the header so the page count stays correct -- no full flash.
+        self._redraw_status_row(mac)
+        self._epd_mode(quality=False)
+        self._begin_write()
+        try:
+            self._draw_status_header()
+        finally:
+            self._end_write()
+
+    def _redraw_status_row(self, mac):
+        """Partial redraw of one row IF it is on the current page; else no-op."""
+        self._build_status_layout()
+        layout = None
+        for item in self._status_row_layout:
+            if item["mac"] == mac:
+                layout = item
+                break
+        if layout is None:
+            return
+        row_data = self._row_data_for(mac)
+        if row_data is None:
+            return
+        self._epd_mode(quality=False)
+        self._begin_write()
+        try:
+            self._draw_status_row(layout, row_data)
+        finally:
+            self._end_write()
+
+    def flash_status_row(self, mac):
+        """Briefly invert a device row as tap feedback, then restore it."""
+        layout = None
+        for item in self._status_row_layout:
+            if item["mac"] == mac:
+                layout = item
+                break
+        if layout is None:
+            return
+        x = MARGIN
+        y = layout["y"]
+        w = SCREEN_W - (2 * MARGIN)
+        h = layout["h"]
+        self._epd_mode(quality=False)
+        self._begin_write()
+        try:
+            M5.Lcd.fillRect(x, y, w, h, BLACK)
+        finally:
+            self._end_write()
+        time.sleep_ms(150)
+        self._redraw_status_row(mac)
+
+    def _status_hit(self, x, y):
+        if self._status_pages > 1:
+            for rect, name in (
+                (self._status_up_rect, "__up__"),
+                (self._status_down_rect, "__down__"),
+            ):
+                if rect is None:
+                    continue
+                rx, ry, rw, rh = rect
+                if rx <= x < rx + rw and ry <= y < ry + rh:
+                    return name
+        back_x = MARGIN
+        back_w = SCREEN_W - (2 * MARGIN)
+        if (
+            back_x <= x < back_x + back_w
+            and self._status_back_y <= y < self._status_back_y + SETTINGS_SAVE_H
+        ):
+            return "__back__"
+        # Tapping a device row identifies that wand.
+        if MARGIN <= x < SCREEN_W - MARGIN:
+            for layout in self._status_row_layout:
+                ry = layout["y"]
+                if ry <= y < ry + layout["h"]:
+                    return ("row", layout["mac"])
+        return None
+
+    # ── Sleep screen ──────────────────────────────────────────────────────
+    def _draw_big_empty_battery(self, x, y, w, h):
+        nub_w = 12
+        body_w = w - nub_w
+        for i in range(4):
+            M5.Lcd.drawRect(x + i, y + i, body_w - 2 * i, h - 2 * i, BLACK)
+        nub_h = h // 2
+        M5.Lcd.fillRect(x + body_w, y + (h - nub_h) // 2, nub_w, nub_h, BLACK)
+
+    def paint_sleep(self, low_batt=False):
+        """Full-screen sleep notice. E-ink holds this with zero power."""
+        self.mode = "sleep"
+        self._epd_mode(quality=True)
+        self._begin_write()
+        try:
+            M5.Lcd.clear(WHITE)
+            cx = SCREEN_W // 2
+            cy = SCREEN_H // 2
+            if low_batt:
+                self._draw_big_empty_battery(cx - 80, cy - 170, 160, 80)
+                self._draw_text_centered(
+                    "Battery Low", cx, cy - 40, BLACK, WHITE, FONT_STOP
+                )
+                self._draw_text_centered(
+                    "Please charge soon", cx, cy + 10, BLACK, WHITE, FONT_SETTINGS
+                )
+            else:
+                self._draw_text_centered(
+                    "Device Sleeping", cx, cy - 50, BLACK, WHITE, FONT_STOP
+                )
+            self._draw_text_centered(
+                "Press the side button (up or down)",
+                cx, cy + 110, BLACK, WHITE, FONT_SETTINGS,
+            )
+            self._draw_text_centered(
+                "or tap the screen to wake.",
+                cx, cy + 150, BLACK, WHITE, FONT_SETTINGS,
+            )
+        finally:
+            self._end_write()
+
+    def read_soc(self):
+        return self._read_battery()
+
     def paint_full(self):
         self._epd_mode(quality=True)
         if self.mode == "settings":
             self.paint_settings()
+            return
+        if self.mode == "status":
+            self.paint_status()
             return
         self._begin_write()
         try:
@@ -595,6 +980,20 @@ class RemoteUI(object):
         return True
 
     def on_touch(self, x, y):
+        if self.mode == "status":
+            if not self.try_debounce():
+                return None
+            hit = self._status_hit(x, y)
+            if hit == "__back__":
+                return "close_status"
+            if hit == "__up__":
+                return "status_up"
+            if hit == "__down__":
+                return "status_down"
+            if isinstance(hit, tuple) and hit[0] == "row":
+                return ("find_device", hit[1])
+            return None
+
         if self.mode == "settings":
             if not self.try_debounce():
                 return None
@@ -628,8 +1027,8 @@ class RemoteUI(object):
         if btn.button_id == "stop":
             self._last_sent = "Stopped"
             self._active_game_id = None
-        elif btn.button_id == "battery":
-            self._last_sent = "Checking batteries"
+        elif btn.button_id == "status":
+            self._last_sent = "Checking status"
         else:
             self._last_sent = label
             if btn.kind == "game":

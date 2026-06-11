@@ -32,9 +32,10 @@ const PyBridgeToUse = PyBridge || window.PyBridge;
 if (!PyBridgeToUse) {
     console.error("PyBridge not available! Check module loading.");
 }
-import { formatDisplayTime } from "./utils/helpers.js";
+import { formatDisplayTime, wandNameFromMac, rssiToSignalLevel } from "./utils/helpers.js";
 import { createRecipientBar } from "./components/messaging/recipientBar.js";
 import { createMessageHistory } from "./components/messaging/messageHistory.js";
+import { createDeviceListOverlay } from "./components/overlays/deviceListOverlay.js";
 import { createMessageInput } from "./components/messaging/messageInput.js";
 import { createMessageDetailsOverlay } from "./components/overlays/messageDetailsOverlay.js";
 import { createConnectionWarningModal } from "./components/modals/connectionWarningModal.js";
@@ -44,6 +45,8 @@ import { createBrowserCompatibilityModal, isBrowserCompatible } from "./componen
 import { createPermissionBlockedModal, isPermissionBlockedError } from "./components/modals/permissionBlockedModal.js";
 import { createErrorDetailModal, showSerialConnectionLostError, showPortInUseError } from "./components/modals/errorDetailModal.js";
 import HubSetupModal from "./components/modals/hubSetupModal.js";
+
+const BUNDLE_THRESHOLD = 6;
 
 /**
  * Unified error handler for Python backend responses.
@@ -126,6 +129,9 @@ class App {
         this.container = document.getElementById("root");
         this.components = {};
         this._hubValidationTimeout = null;
+        this._pollSafetyTimeout = null;
+        this._pollResponderMacs = new Map();
+        this._pollHadReplies = false;
         this.init();
     }
 
@@ -187,6 +193,18 @@ class App {
                 hubConnecting: false 
             });
             showToast("Connected to Hub2", "success");
+        };
+
+        window.onPollStarted = () => {
+            this.handlePollStarted();
+        };
+
+        window.onDeviceReport = (report) => {
+            this.handleDeviceReport(report);
+        };
+
+        window.onDevicesUpdated = (devices, hubTimestamp) => {
+            this.handleDevicesUpdated(devices, hubTimestamp);
         };
 
         // Hub heartbeat validation (hubs send heartbeat every 5s, accept this as validation too)
@@ -525,6 +543,163 @@ class App {
         }
     }
 
+    handlePollStarted() {
+        if (this._pollSafetyTimeout) {
+            clearTimeout(this._pollSafetyTimeout);
+        }
+        this._pollResponderMacs = new Map();
+        this._pollHadReplies = false;
+
+        const withoutPoll = state.messageHistory.filter((m) => !m.pollCycle);
+        setState({
+            pollActive: true,
+            messageHistory: withoutPoll,
+        });
+
+        this._pollSafetyTimeout = setTimeout(() => {
+            this.endPollCycle({ showZeroReply: true });
+        }, 12000);
+    }
+
+    handleDeviceReport(report) {
+        if (!state.pollActive || !report?.mac) {
+            return;
+        }
+
+        const mac = report.mac;
+        const battery = report.battery;
+        const signalLevel = rssiToSignalLevel(report.rssi);
+        const wandName = report.id || wandNameFromMac(mac);
+        // The hub has no RTC: report.timestamp is time.ticks_ms() (ms since the
+        // microcontroller booted), NOT a Unix epoch. Stamp the moment of receipt
+        // with the browser clock instead so "received X ago" is meaningful.
+        const timestamp = new Date();
+
+        this._pollHadReplies = true;
+        this._pollResponderMacs.set(mac, {
+            wandName,
+            battery,
+            signalLevel,
+            timestamp,
+            mac,
+        });
+
+        this._updatePollMessages();
+    }
+
+    _updatePollMessages() {
+        const responders = Array.from(this._pollResponderMacs.values());
+        const count = responders.length;
+        const withoutPoll = state.messageHistory.filter((m) => !m.pollCycle);
+
+        let pollMessages;
+        if (count > BUNDLE_THRESHOLD) {
+            pollMessages = [{
+                id: 'bundle-' + Date.now(),
+                messageType: 'bundle',
+                count,
+                pollCycle: true,
+                timestamp: new Date(),
+            }];
+        } else {
+            pollMessages = responders.map((r) => ({
+                id: 'recv-' + r.mac,
+                direction: 'received',
+                pollCycle: true,
+                wandName: r.wandName,
+                battery: r.battery,
+                signalLevel: r.signalLevel,
+                mac: r.mac,
+                timestamp: r.timestamp,
+            }));
+        }
+
+        setState({ messageHistory: [...withoutPoll, ...pollMessages] });
+    }
+
+    endPollCycle({ showZeroReply = false } = {}) {
+        if (this._pollSafetyTimeout) {
+            clearTimeout(this._pollSafetyTimeout);
+            this._pollSafetyTimeout = null;
+        }
+
+        const hadReplies = this._pollHadReplies || this._pollResponderMacs.size > 0;
+        const withoutPoll = state.messageHistory.filter((m) => !m.pollCycle);
+        let messageHistory = state.messageHistory;
+
+        if (showZeroReply && !hadReplies) {
+            messageHistory = [...withoutPoll, {
+                id: 'system-' + Date.now(),
+                direction: 'system',
+                text: 'No wands responded',
+                pollCycle: true,
+                timestamp: new Date(),
+            }];
+        }
+
+        this._pollResponderMacs = new Map();
+        this._pollHadReplies = false;
+
+        setState({
+            pollActive: false,
+            messageHistory,
+        });
+    }
+
+    handleDevicesUpdated(devices, hubTimestamp) {
+        const mapped = (devices || []).map((d) => ({
+            id: d.id,
+            name: d.name || d.id,
+            type: d.type || 'module',
+            mac: d.mac,
+            rssi: d.rssi,
+            signal: d.signal,
+            battery: d.battery,
+            battery_pct: d.battery_pct,
+            isStale: d.is_stale || false,
+        }));
+
+        const wasPollActive = state.pollActive;
+        const showZeroReply = wasPollActive && mapped.length === 0;
+
+        setState({
+            devices: mapped,
+            lastPolledTime: new Date(),
+        });
+
+        if (wasPollActive) {
+            this.endPollCycle({ showZeroReply });
+        }
+    }
+
+    async handleFindDevice(mac, name) {
+        if (!mac) {
+            return;
+        }
+        const label = name || mac;
+        try {
+            const result = await PyBridgeToUse.findDevice(mac);
+            if (result && result.status === "sent") {
+                showToast(`Pinging ${label}…`, "success");
+            } else {
+                showToast(`Couldn't ping ${label}`, "error");
+            }
+        } catch (e) {
+            console.error("Find device error:", e);
+            showToast(`Error pinging ${label}: ${e.message}`, "error");
+        }
+    }
+
+    handleMessageClick(message) {
+        if (message.messageType === 'bundle') {
+            setState({ showDeviceList: true });
+            return;
+        }
+        setState({ viewingMessage: message, showMessageDetails: true });
+        this.components.messageDetailsOverlay.style.display = 'flex';
+        this.renderMessageDetails();
+    }
+
     render() {
         const canSend = state.currentMessage && state.hubConnected;
 
@@ -556,6 +731,7 @@ class App {
             () => this.handleHubConnect(),
             () => this.handleHubDisconnect(),
             () => this.handleSettingsClick(),
+            () => setState({ showDeviceList: true }),
             state.pythonReady,
             state.isBrowserCompatible,
             state.hubConnecting,
@@ -563,11 +739,7 @@ class App {
 
         const messageHistory = createMessageHistory(
             state.messageHistory, 
-            (message) => {
-                setState({ viewingMessage: message, showMessageDetails: true });
-                this.components.messageDetailsOverlay.style.display = "flex";
-                this.renderMessageDetails();
-            },
+            (message) => this.handleMessageClick(message),
             state.hubConnected,
             () => this.handleHubConnect(),
             state.hubConnectionMode || 'ble',
@@ -600,6 +772,20 @@ class App {
         this.container.appendChild(messageHistory);
         this.container.appendChild(messageInput);
         this.container.appendChild(this.components.messageDetailsOverlay);
+
+        if (state.showDeviceList) {
+            this.components.deviceListOverlay = createDeviceListOverlay(
+                state.devices,
+                state.lastPolledTime,
+                () => setState({ showDeviceList: false }),
+                state.hubConnected,
+                () => this.handleHubConnect(),
+                state.hubConnecting,
+                (mac, name) => this.handleFindDevice(mac, name),
+            );
+            this.components.deviceListOverlay.style.display = 'flex';
+            this.container.appendChild(this.components.deviceListOverlay);
+        }
         
         // Add new overlay components
         if (state.showConnectionWarning) {
@@ -707,6 +893,10 @@ class App {
             return;
         }
 
+        if (state.currentMessage === 'poll' && state.pollActive) {
+            return;
+        }
+
         if (!state.currentMessage || state.currentMessage.trim() === "") {
             if (!state.showCommandPalette) {
                 // Drawer closed - open it
@@ -721,6 +911,7 @@ class App {
         const now = new Date();
         const newMessage = {
             id: Date.now(),
+            direction: 'sent',
             command: state.currentMessage,
             modules: ["All Wands"],
             timestamp: now,
@@ -798,8 +989,7 @@ class App {
                 // (Python's connect_hub_serial calls onHubConnected which sets the state)
 
                 
-                // No manual refresh needed - passive tracking via battery messages
-                // Devices will appear automatically within 0-60s
+                // Device list updates via Ask Device Status poll
             } else if (result.status === "cancelled") {
                 console.log("❌ Serial connection cancelled by user");
                 setState({ hubConnecting: false });
