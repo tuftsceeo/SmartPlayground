@@ -10,7 +10,7 @@ Actions:  playnote, notea-g, turnred/green/blue/purple/yellow/white/off,
 Combinators: and, then
 Controls: start, stop, plus game tags (see lib/game_tags.py);
           start_game may also be received over ESP-NOW
-Utility: battery
+Utility: battery (LED flash; status_poll is auto-answered by espnow_manager)
 """
 
 import machine
@@ -392,6 +392,8 @@ def main():
     # ESP-NOW init — no LED stage, not hardware on the wand itself
     enow = ESPNowManager()
     enow.init()
+    if batt is not None:
+        enow.set_status_provider(lambda b=batt: int(b.soc))
 
     # ── Stage 4: Accelerometer ──
     leds.boot_stage_start(4)

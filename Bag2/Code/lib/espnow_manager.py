@@ -22,6 +22,14 @@ from machine import Pin
 
 BROADCAST_MAC = b'\xFF\xFF\xFF\xFF\xFF\xFF'
 
+N_SLOTS = 16
+BASE_DELAY_MS = 400
+SLOT_MS = 180
+REPORT_GAP_MS = 120
+# Pause + single retry when a broadcast hits a momentarily-full ESP-NOW TX
+# queue (ESP_ERR_ESPNOW_NO_MEM) on rapid back-to-back sends.
+SEND_RETRY_MS = 30
+
 
 def _is_esp32c6():
     """True only on ESP32-C6 boards with the external-antenna GPIO switch."""
@@ -79,6 +87,11 @@ class ESPNowManager:
         self.enow = None
         self._active = False
         self._peers = {}  # mac_str -> mac_bytes
+        self._status_provider = None
+        self._pending_report_due = None
+        self._pending_report_mac = None
+        self._pending_report_second_due = None
+        self._own_mac_str = None
 
     # ─── INIT / SHUTDOWN ──────────────────────
 
@@ -145,15 +158,86 @@ class ESPNowManager:
     def get_peer_macs(self):
         return list(self._peers.keys())
 
+    def set_status_provider(self, fn):
+        """Register fn() -> battery SOC int or None. Wands only."""
+        self._status_provider = fn
+
+    def get_rssi(self, mac_str):
+        try:
+            mb = self._peers.get(mac_str) or mac_str_to_bytes(mac_str)
+            return self.enow.peers_table[mb][0]
+        except (KeyError, IndexError, TypeError, AttributeError):
+            return None
+
+    def _get_own_mac_last_byte(self):
+        if self._own_mac_str is None:
+            self._own_mac_str = get_own_mac()
+        parts = self._own_mac_str.split(':')
+        return int(parts[-1], 16)
+
+    def _read_battery_for_report(self):
+        if not self._status_provider:
+            return None
+        try:
+            batt = self._status_provider()
+            if batt is None:
+                return None
+            return int(batt)
+        except (TypeError, ValueError):
+            return None
+
+    def _maybe_send_pending_report(self):
+        if not self._active or not self._status_provider:
+            return
+        now = time.ticks_ms()
+        if self._pending_report_second_due is not None:
+            if time.ticks_diff(now, self._pending_report_second_due) >= 0:
+                batt = self._read_battery_for_report()
+                rssi = self.get_rssi(self._pending_report_mac)
+                self.broadcast_status_report(batt, rssi)
+                self._pending_report_second_due = None
+                self._pending_report_due = None
+                self._pending_report_mac = None
+            return
+        if self._pending_report_due is None:
+            return
+        if time.ticks_diff(now, self._pending_report_due) < 0:
+            return
+        batt = self._read_battery_for_report()
+        rssi = self.get_rssi(self._pending_report_mac)
+        self.broadcast_status_report(batt, rssi)
+        self._pending_report_second_due = time.ticks_add(now, REPORT_GAP_MS)
+
+    def _schedule_status_reply(self, hub_mac_str):
+        now = time.ticks_ms()
+        slot = self._get_own_mac_last_byte() % N_SLOTS
+        due = time.ticks_add(now, BASE_DELAY_MS + slot * SLOT_MS)
+        self._pending_report_due = due
+        self._pending_report_mac = hub_mac_str
+        self._pending_report_second_due = None
+
     # ─── SENDING ──────────────────────────────
 
     def broadcast(self, data):
         if not self._active:
             return False
         msg = json.dumps(data) if not isinstance(data, (str, bytes)) else data
+        # Broadcasts are never acknowledged, so a SYNCHRONOUS send waits for an
+        # ACK that never arrives -> [Errno 116] ETIMEDOUT (even though the frame
+        # went out). Send async (sync=False): queue it and return immediately.
         try:
-            self.enow.send(BROADCAST_MAC, msg)
+            self.enow.send(BROADCAST_MAC, msg, False)
             return True
+        except OSError:
+            # TX queue momentarily full (ESP_ERR_ESPNOW_NO_MEM) on rapid
+            # back-to-back sends. Brief pause and one retry.
+            try:
+                time.sleep_ms(SEND_RETRY_MS)
+                self.enow.send(BROADCAST_MAC, msg, False)
+                return True
+            except Exception as e:
+                print("  ESPNow: broadcast err: %s" % str(e))
+                return False
         except Exception as e:
             print("  ESPNow: broadcast err: %s" % str(e))
             return False
@@ -212,6 +296,16 @@ class ESPNowManager:
     def broadcast_start_game(self, name):
         return self.broadcast({"type": "start_game", "name": name})
 
+    def broadcast_status_poll(self):
+        return self.broadcast({"type": "status_poll"})
+
+    def broadcast_status_report(self, battery, rssi):
+        return self.broadcast({
+            "type": "status_report",
+            "battery": battery,
+            "rssi": rssi,
+        })
+
     def send_score(self, mac_bytes, colors, elapsed_ms):
         msg = json.dumps({
             "type": "score",
@@ -236,10 +330,12 @@ class ESPNowManager:
         Returns (msg_type, data, mac_str) or (None, None, None).
 
         msg_type: "colors", "score", "splat_config", "stop",
-                  "battery", "scan_request", "start_game", "raw", or None
+                  "battery", "scan_request", "start_game", "status_poll",
+                  "status_report", "raw", or None
         """
         if not self._active:
             return None, None, None
+        self._maybe_send_pending_report()
         try:
             mac, msg = self.enow.irecv(timeout_ms)
         except Exception:
@@ -276,6 +372,13 @@ class ESPNowManager:
                 if isinstance(name, str) and name:
                     return "start_game", data, mac_str
                 return "raw", data, mac_str
+            if mt == "status_poll":
+                if self._status_provider:
+                    self._schedule_status_reply(mac_str)
+                    return None, None, None
+                return "status_poll", data, mac_str
+            if mt == "status_report":
+                return "status_report", data, mac_str
             return "raw", data, mac_str
 
         return "raw", data, mac_str

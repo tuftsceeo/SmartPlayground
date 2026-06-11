@@ -54,10 +54,10 @@ Or use LivePage2 **Setup as Hub** (uploads via WebSerial REPL).
 {"cmd": "colorquest"}
 {"cmd": "freezedance"}
 {"cmd": "stop"}
-{"cmd": "battery"}
+{"cmd": "poll"}
 ```
 
-Valid `cmd` values: any tag in `game_tags.py::GAME_TAGS`, plus `"stop"` and `"battery"`.
+Valid `cmd` values: any tag in `game_tags.py::GAME_TAGS`, plus `"stop"` and `"poll"`.
 
 ### Responses (hub → webapp)
 
@@ -65,6 +65,9 @@ Valid `cmd` values: any tag in `game_tags.py::GAME_TAGS`, plus `"stop"` and `"ba
 {"type": "ready", "mac": "AA:BB:CC:DD:EE:FF", "version": "v1.0.0", "timestamp": 12345}
 {"type": "ack", "command": "colorquest", "status": "sent"}
 {"type": "heartbeat", "timestamp": 12345, "uptime": 5000}
+{"type": "poll_started", "timestamp": 12345}
+{"type": "device_report", "id": "W-A1B2", "mac": "...", "battery": 85, "rssi": -55, "timestamp": 12345}
+{"type": "devices", "list": [...], "timestamp": 12345}
 ```
 
 ## ESP-NOW Protocol (Hub2 → Wands)
@@ -73,7 +76,7 @@ Valid `cmd` values: any tag in `game_tags.py::GAME_TAGS`, plus `"stop"` and `"ba
 |----------------|----------------------------------------------|
 | `<game_tag>`   | `{"type": "start_game", "name": "<tag>"}`    |
 | `stop`         | `["stop"]`                                   |
-| `battery`      | `["battery"]`                                |
+| `poll`         | `{"type": "status_poll"}` (×3)               |
 
 Game commands are sent **twice** with a 100ms gap for reliability (broadcast is unacknowledged).
 
@@ -83,7 +86,7 @@ Game commands are sent **twice** with a 100ms gap for reliability (broadcast is 
 2. Send `{"cmd":"colorquest"}\n` — wand in range should enter Color Quest.
 3. Send `{"cmd":"freezedance"}\n` — wand force-switches games.
 4. Send `{"cmd":"stop"}\n` — wand returns to idle.
-5. Send `{"cmd":"battery"}\n` — wand flashes battery LEDs.
+5. Send `{"cmd":"poll"}\n` — wands reply with battery/signal; hub streams `device_report` then `devices`.
 6. Send `{"cmd":"nonsense"}\n` — hub logs `Unk:`, no ack, wand unchanged.
 
 ## References

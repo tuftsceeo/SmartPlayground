@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "flasher",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["serve", "Live_Page/Flasher", "-p", "8766", "--no-clipboard"],
+      "port": 8766
+    }
+  ]
+}

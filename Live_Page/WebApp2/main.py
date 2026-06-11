@@ -123,6 +123,26 @@ def process_complete_message(message_data):
             window.onHubReady(js_data)
             console.log("✅ onHubReady() called")
         
+    elif parsed.get("type") == "poll_started":
+        console.log("Poll cycle started")
+        if hasattr(window, 'onPollStarted'):
+            js_data = Object.new()
+            js_data.timestamp = parsed.get("timestamp", 0)
+            window.onPollStarted(js_data)
+            console.log("onPollStarted() called")
+
+    elif parsed.get("type") == "device_report":
+        console.log("Device report received")
+        if hasattr(window, 'onDeviceReport'):
+            report = Object.new()
+            report.id = parsed.get("id", "")
+            report.mac = parsed.get("mac", "")
+            report.battery = parsed.get("battery")
+            report.rssi = parsed.get("rssi")
+            report.timestamp = parsed.get("timestamp", 0)
+            window.onDeviceReport(report)
+            console.log("onDeviceReport() called")
+
     elif parsed.get("type") == "devices":
         global last_device_list_time
         last_device_list_time = time.time()
@@ -509,60 +529,10 @@ def get_connection_status():
     js_result.device = hub_device_name if (actual_connected_bool and hub_device_name) else ""
     return js_result
 
-async def refresh_devices_from_hub(rssi_threshold="all"):
-    """Request device list from hub with RSSI filtering.
-    
-    Args:
-        rssi_threshold: "all" for no filter, or "-XX" for RSSI >= -XX dBm
-    
-    Returns:
-        JavaScript array of device objects
-    """
-    global devices
-    
-    # Convert rssi_threshold to string for protocol
-    threshold_str = str(rssi_threshold)
-    
-    # Send PING command via Serial (USB Serial only)
-    if hub_connection_mode == "serial":
-        if not serial.is_connected():
-            console.log("Cannot refresh: Hub not connected")
-            return to_js([])
-        
-        # Format for Serial (JSON)
-        ping_obj = {"cmd": "PING", "rssi": threshold_str}
-        ping_command = json.dumps(ping_obj)
-        await serial.send_json(ping_command)
-    else:
-        console.log("Cannot refresh: Hub not connected")
-        return to_js([])
-    
-    # Wait for response (hub should send back device list)
-    # The response will be handled by on_serial_data callback
-    # which will update the global devices list
-    
-    console.log(f"Device scan requested from hub (serial) with RSSI threshold: {threshold_str}")
-    
-    # Convert Python list to JavaScript array using to_js()
-    return to_js(devices, dict_converter=Object.fromEntries)
-
 def get_devices():
-    """Return list of available devices (legacy, use refresh_devices_from_hub)."""
+    """Return cached device list from the last Ask Device Status poll."""
     console.log("Python: get_devices called")
-    # Convert Python list to JavaScript array using to_js()
     return to_js(devices, dict_converter=Object.fromEntries)
-
-def refresh_devices():
-    """Refresh device list (deprecated, use refresh_devices_from_hub)."""
-    console.log("Python: refresh_devices called (deprecated)")
-    
-    if serial.is_connected():
-        # Use Serial to get real device list
-        return refresh_devices_from_hub()
-    else:
-        # Return empty list if not connected
-        console.log("Hub not connected, returning empty device list")
-        return []
 
 def send_command(command, device_ids):
     """Send command to specific devices (legacy, use send_command_to_hub)."""
@@ -929,9 +899,6 @@ window.disconnect_hub = create_proxy(disconnect_hub)
 window.connect_hub_serial = create_proxy(connect_hub_serial)
 window.disconnect_hub_serial = create_proxy(disconnect_hub_serial)
 window.send_command_to_hub = create_proxy(send_command_to_hub)
-window.refresh_devices = create_proxy(refresh_devices)
-window.refresh_devices_from_hub = create_proxy(refresh_devices_from_hub)
-
 # Firmware upload and device management functions
 window.upload_firmware = create_proxy(upload_firmware)
 window.get_board_info = create_proxy(get_board_info)
