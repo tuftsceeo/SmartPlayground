@@ -135,12 +135,12 @@
     "beta": false
   },
   {
-    "id": "battery",
-    "label": "Battery",
-    "bgColor": "#8a8a8a",
-    "icon": "battery",
+    "id": "poll",
+    "label": "Ask Device Status",
+    "bgColor": "#6b9bd1",
+    "icon": "radio",
     "textColor": "white",
-    "description": "All wands in range flash their battery level on the LED matrix.",
+    "description": "Briefly wakes every wand to report battery & signal (~7 s).",
     "beta": false
   }
 ]

@@ -31,6 +31,14 @@ GEAR_HIT = 44
 GEAR_PNG = "/flash/assets/gear.png"
 BATTERY_PNG = "/flash/assets/battery.png"
 BOLT_PNG = "/flash/assets/bolt.png"
+# Signal-strength icons, ascending bars. Index = level 0..3 (Poor..Strong).
+SIGNAL_PNGS = (
+    "/flash/assets/signal-0.png",
+    "/flash/assets/signal-1.png",
+    "/flash/assets/signal-2.png",
+    "/flash/assets/signal-3.png",
+)
+SIGNAL_WORDS = ("Poor", "Fair", "Good", "Strong")
 
 GEAR_W = 36
 GEAR_H = 36
@@ -40,7 +48,42 @@ BOLT_W = 12
 BOLT_H = 16
 BATT_NUB_W = 4
 BATT_FILL_INSET = 2
-BATT_POLL_MS = 30000
+# Battery is slow-moving; poll every 5 min (awake and asleep) to save power and
+# avoid needless e-ink refreshes. update_battery() only redraws on bucket change.
+BATT_POLL_MS = 300000
+# At/below this SOC the sleep screen switches to a low-battery warning.
+BATT_CRIT_SOC = 10
+
+# ── Sleep / wake ──────────────────────────────────────────────────────────
+# After this long with no touch or side-button activity, show the sleep screen
+# and power down the ESP-NOW radio (the dominant battery draw). E-ink holds the
+# sleep image for free.
+INACTIVITY_SLEEP_MS = 120000
+# Poll cadence of the low-power sleep loop (watches side button + touch).
+SLEEP_TICK_MS = 150
+# Opt-in true light sleep between ticks. Leave False until verified that it does
+# not disturb the touch panel / e-ink on this UIFlow2 build.
+USE_LIGHTSLEEP = False
+
+# M5Paper side rocker GPIOs (input-only; board has external pull-ups -> 0 = pressed).
+SIDE_BTN_UP = 37
+SIDE_BTN_PRESS = 38
+SIDE_BTN_DOWN = 39
+
+# Signal icon geometry (must match assets/_generate_icons.py::signal()).
+SIGNAL_W = 40
+SIGNAL_H = 34
+SIGNAL_BARS = 4
+SIGNAL_BAR_W = 7
+SIGNAL_BAR_GAP = 4
+SIGNAL_BAR_MIN_H = 10
+SIGNAL_BAR_STEP = 8
+
+# Device-status overlay row geometry.
+STATUS_ROW_H = 60
+STATUS_ROW_GAP = 6
+# Up/Down pagination buttons in the status header (square, in the top bar).
+STATUS_NAV_W = 64
 
 # DejaVu point sizes (see ui._set_font); must be keys in _DEJAVU_NAMES.
 FONT_GAME = 24
@@ -49,6 +92,7 @@ FONT_FOOTER = 24
 FONT_BATTERY = 24
 FONT_SETTINGS = 18
 FONT_SETTINGS_SMALL = 12
+FONT_STATUS = 24
 
 BORDER_W = 3
 
@@ -90,7 +134,7 @@ DEFAULT_ENABLED_IDS = [
 
 CONTROLS = [
     {"id": "stop", "label": "STOP"},
-    {"id": "battery", "label": "Battery"},
+    {"id": "status", "label": "Status"},
 ]
 
 WHITE = 0xFFFFFF

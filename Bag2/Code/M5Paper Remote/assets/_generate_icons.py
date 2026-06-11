@@ -92,11 +92,35 @@ def bolt(path, w=12, h=16):
     return img
 
 
+def signal(path, level, bars=4, bar_w=7, gap=4, min_h=10, step=8):
+    """Ascending-bars signal icon. `level` (0..bars-1) bars are filled solid
+    black; the rest are drawn as hollow outlines. Geometry MUST match
+    config.py SIGNAL_* constants and ui._draw_signal_primitive_at().
+    """
+    w = bars * bar_w + (bars - 1) * gap
+    h = min_h + (bars - 1) * step
+    img, d = _new(w, h)
+    for i in range(bars):
+        bh = min_h + i * step
+        x0 = i * (bar_w + gap)
+        y0 = h - bh
+        if i <= level:
+            d.rectangle([x0, y0, x0 + bar_w - 1, h - 1], fill=BLACK)
+        else:
+            d.rectangle([x0, y0, x0 + bar_w - 1, h - 1], outline=BLACK)
+    img.save(path)
+    return img
+
+
 def main():
     gear(os.path.join(HERE, "gear.png"))
     battery(os.path.join(HERE, "battery.png"))
     bolt(os.path.join(HERE, "bolt.png"))
-    for name in ("gear.png", "battery.png", "bolt.png"):
+    for level in range(4):
+        signal(os.path.join(HERE, "signal-%d.png" % level), level)
+    names = ("gear.png", "battery.png", "bolt.png",
+             "signal-0.png", "signal-1.png", "signal-2.png", "signal-3.png")
+    for name in names:
         p = os.path.join(HERE, name)
         im = Image.open(p)
         print(name, im.size, im.mode)

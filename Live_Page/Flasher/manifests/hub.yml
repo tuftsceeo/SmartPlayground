@@ -8,3 +8,4 @@ sources:
     prefix: ""
     include_ext:
       - .py
+      - .txt

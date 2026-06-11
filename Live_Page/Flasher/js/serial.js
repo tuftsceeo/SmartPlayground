@@ -318,7 +318,9 @@ export class SerialEngine {
    * Serial pacing for large scripts still uses WebApp2-style 256-byte chunks in execScript.
    */
   async uploadOne(devicePath, content) {
-    const bytes = new TextEncoder().encode(content);
+    const bytes = content instanceof Uint8Array
+      ? content
+      : new TextEncoder().encode(content);
     this.log(`  → '${devicePath}' (${bytes.length.toLocaleString()} bytes) …`);
     const pathLit = JSON.stringify(devicePath);
 
