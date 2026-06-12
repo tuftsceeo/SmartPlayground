@@ -87,20 +87,28 @@ SMILEY_DEFAULT = AMBER_DIM
 RESCAN_TAG    = "color_quest_scan"
 
 # Rescan state: debounce per placement + waiting-animation flag
-_last_rescan_uid = None
+_last_rescan_uid    = None
 _awaiting_scan_reply = False
+
+# Station-reply collection: {position(int): color(str)}, set when scan_request sent
+_station_replies    = {}
+_scan_request_ticks = None
+STATION_REPLY_TIMEOUT_MS = 1000  # wait up to 1 s for all 4 stations to reply
+STATION_COUNT = 4
 
 
 def _rescan_seen(enow, uid):
-    """Send scan_request once per physical placement."""
-    global _last_rescan_uid, _awaiting_scan_reply
+    """Send scan_request once per physical placement; arm reply collector."""
+    global _last_rescan_uid, _awaiting_scan_reply, _station_replies, _scan_request_ticks
     if uid == _last_rescan_uid:
         return False
     _last_rescan_uid = uid
     try:
         enow.broadcast({"type": "scan_request"})
         _awaiting_scan_reply = True
-        print("  RESCAN tag — scan_request sent (awaiting reply)")
+        _station_replies = {}
+        _scan_request_ticks = time.ticks_ms()
+        print("  RESCAN tag — scan_request sent (awaiting station replies)")
         return True
     except Exception as ex:
         print("  scan_request send err: %s" % str(ex))
@@ -109,15 +117,49 @@ def _rescan_seen(enow, uid):
 
 def _rescan_cleared():
     """Re-arm debounce; cancel waiting animation."""
-    global _last_rescan_uid, _awaiting_scan_reply
+    global _last_rescan_uid, _awaiting_scan_reply, _station_replies, _scan_request_ticks
     _last_rescan_uid = None
     _awaiting_scan_reply = False
+    _station_replies = {}
+    _scan_request_ticks = None
 
 
 def _rescan_reply_received():
     """Reply landed: stop waiting animation, keep debounce set."""
-    global _awaiting_scan_reply
+    global _awaiting_scan_reply, _station_replies, _scan_request_ticks
     _awaiting_scan_reply = False
+    _station_replies = {}
+    _scan_request_ticks = None
+
+
+def _handle_station_reply(data):
+    """
+    Buffer one color_station_reply. Returns assembled color list if we now
+    have all STATION_COUNT replies or the timeout has elapsed (and at least
+    one reply arrived), otherwise returns None.
+    """
+    global _station_replies, _scan_request_ticks
+    if not _awaiting_scan_reply:
+        return None
+
+    pos   = data.get("position")
+    color = data.get("color")
+    if pos is not None and color:
+        _station_replies[int(pos)] = color
+        print("  station reply: pos=%s color=%s (%d/%d)"
+              % (pos, color, len(_station_replies), STATION_COUNT))
+
+    all_in   = len(_station_replies) >= STATION_COUNT
+    timed_out = (_scan_request_ticks is not None and
+                 time.ticks_diff(time.ticks_ms(), _scan_request_ticks) >= STATION_REPLY_TIMEOUT_MS)
+
+    if (all_in or timed_out) and _station_replies:
+        colors = [_station_replies[k] for k in sorted(_station_replies.keys())]
+        colors = [c for c in colors if c in COLOR_BRIGHT]
+        print("  assembled sequence: %s" % str(colors))
+        return colors if colors else None
+
+    return None
 
 
 def _beep_stop(buz):
@@ -323,6 +365,16 @@ def wait_for_commands(enow, display, nfc, last_espnow=None):
                 print("Received: %s" % str(colors))
                 _rescan_reply_received()
                 return colors, True
+        if msg_type == "color_station_reply":
+            colors = _handle_station_reply(data)
+            if colors:
+                _rescan_reply_received()
+                return colors, True
+        elif _awaiting_scan_reply and _scan_request_ticks is not None:
+            colors = _handle_station_reply({})  # trigger timeout check
+            if colors:
+                _rescan_reply_received()
+                return colors, True
 
         if frame % 10 == 0:
             text, uid = read_tag_text(nfc)
@@ -395,6 +447,22 @@ def _post_win_wait(enow, display, nfc, buz):
                 _rescan_reply_received()
                 display.clear()
                 return colors
+        if msg_type == "color_station_reply":
+            colors = _handle_station_reply(data)
+            if colors:
+                print("  NEW SEQUENCE from stations: %s" % str(colors))
+                _beep_new(buz)
+                _rescan_reply_received()
+                display.clear()
+                return colors
+        elif _awaiting_scan_reply and _scan_request_ticks is not None:
+            colors = _handle_station_reply({})  # trigger timeout check
+            if colors:
+                print("  SEQUENCE assembled (timeout): %s" % str(colors))
+                _beep_new(buz)
+                _rescan_reply_received()
+                display.clear()
+                return colors
 
         # NDEF read is slow — don't do it every frame
         if frame % 15 == 0:
@@ -453,6 +521,20 @@ def run_game(nfc, buz, display, targets, enow, start_ticks=None):
             colors = _colors_from_data(data)
             if colors:
                 print("  NEW SEQUENCE received: %s" % str(colors))
+                _beep_new(buz)
+                _rescan_reply_received()
+                return colors
+        if msg_type == "color_station_reply":
+            colors = _handle_station_reply(data)
+            if colors:
+                print("  NEW SEQUENCE from stations: %s" % str(colors))
+                _beep_new(buz)
+                _rescan_reply_received()
+                return colors
+        elif _awaiting_scan_reply and _scan_request_ticks is not None:
+            colors = _handle_station_reply({})  # trigger timeout check
+            if colors:
+                print("  SEQUENCE assembled (timeout): %s" % str(colors))
                 _beep_new(buz)
                 _rescan_reply_received()
                 return colors

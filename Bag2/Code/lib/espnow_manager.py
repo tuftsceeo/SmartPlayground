@@ -344,9 +344,14 @@ class ESPNowManager:
         Non-blocking receive.
         Returns (msg_type, data, mac_str) or (None, None, None).
 
+<<<<<<< Updated upstream
         msg_type: "colors", "score", "splat_config", "stop",
                   "battery", "scan_request", "start_game", "status_poll",
                   "status_report", "raw", or None
+=======
+        msg_type: "colors", "color_station_reply", "score", "splat_config",
+                  "stop", "battery", "scan_request", "start_game", "raw", or None
+>>>>>>> Stashed changes
         """
         if not self._active:
             return None, None, None
@@ -382,6 +387,8 @@ class ESPNowManager:
                 return "score", data, mac_str
             if mt == "scan_request":
                 return "scan_request", data, mac_str
+            if mt == "color_station_reply":
+                return "color_station_reply", data, mac_str
             if mt == "start_game":
                 name = data.get("name")
                 if isinstance(name, str) and name:

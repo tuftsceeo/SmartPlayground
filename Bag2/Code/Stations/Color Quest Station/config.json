@@ -1,0 +1,6 @@
+{
+    "position": 3,
+    "i2c_sda": 22,
+    "i2c_scl": 23,
+    "i2c_freq": 100000
+}
