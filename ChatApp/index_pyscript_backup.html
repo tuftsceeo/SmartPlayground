@@ -3,12 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Wand Chatbot</title>
-    <link rel="stylesheet" href="css/layout.css">
-    <link rel="stylesheet" href="css/buttons.css">
-    <link rel="stylesheet" href="css/chat.css">
-    <link rel="stylesheet" href="css/editor.css">
-    <link rel="stylesheet" href="css/modals.css">
+    <title>AI Hardware Chatbot</title>
+
+    <!-- PyScript -->
+    <link rel="stylesheet" href="https://pyscript.net/releases/2024.11.1/core.css">
+    <script type="module" src="https://pyscript.net/releases/2024.11.1/core.js"></script>
+
+    <!-- App CSS -->
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 
@@ -26,11 +28,13 @@
     <!-- Main Layout -->
     <div class="main-layout" id="main-layout">
 
-        <!-- Left: Chat -->
+        <!-- Left: Connect + Chat -->
         <div class="left-panel" id="left-panel">
+
             <div class="chat-area" id="chat-box">
                 <div class="msg system">Connect your board using the Connect button, then start chatting!</div>
             </div>
+
             <div class="chat-input-area">
                 <textarea id="user-input" rows="3" placeholder="Describe what you want the board to do..."></textarea>
                 <button class="btn send-btn" id="btn-send">Send</button>
@@ -55,8 +59,10 @@
                 </div>
             </div>
 
-            <div class="code-container" id="code-editor-container">
-                <div id="code-editor"></div>
+            <div class="code-container">
+                <script id="mpCode" type="mpy-editor">
+# AI-generated code will appear here
+                </script>
             </div>
 
             <div class="repl-bar">
@@ -64,11 +70,10 @@
                 <label><input type="checkbox" id="freshStart" checked /> reset</label>
                 <button class="btn" id="btn-ctrlc">Ctrl+C</button>
                 <button class="btn" id="btn-reset">Reset</button>
-                <button class="btn run-btn" id="btn-run">&#9654; Run</button>
                 <button class="btn tools-btn" id="btn-tools" title="Show tools">&#9881;</button>
                 <button class="btn nfc-btn hidden" id="btn-write-nfc">Write NFC Tag</button>
                 <span class="repl-bar-spacer"></span>
-                <button class="btn upload-btn" id="btn-upload" disabled>Upload</button>
+                <button class="btn upload-btn" id="btn-upload">Upload</button>
             </div>
 
             <div class="repl-container">
@@ -93,35 +98,35 @@
                     <span class="step-num">2</span>
                     <div>
                         <strong>Connect Your Wand</strong>
-                        <p>Plug in your wand via USB. Click <em>Connect</em> and select the serial port in the browser popup.</p>
+                        <p>Plug in your wand via USB. Click <em>Connect</em> and select the serial port in the browser popup. You'll see the REPL output when connected.</p>
                     </div>
                 </div>
                 <div class="help-step">
                     <span class="step-num">3</span>
                     <div>
                         <strong>Ask the AI to Write Code</strong>
-                        <p>Describe what you want the wand to do. The AI generates code and places it in the editor.</p>
+                        <p>Describe what you want the wand to do in the chat box. Example: <em>"Make a rainbow animation that responds to shaking"</em>. The AI generates code and places it in the editor on the right. You can edit it and use the editor's green play button to test it on the wand.</p>
                     </div>
                 </div>
                 <div class="help-step">
                     <span class="step-num">4</span>
                     <div>
                         <strong>Upload Your Code</strong>
-                        <p>After code is generated, choose a slot (1–5) and click <em>Upload</em>. Each slot maps to an NFC tag that triggers it.</p>
+                        <p>Click <em>Upload</em> to save the code as <code>jumpin.py</code> on your wand. The wand resets and your code runs when you tap the "jumpin" NFC tag. Upload checks that your code has the correct format.</p>
                     </div>
                 </div>
                 <div class="help-step">
                     <span class="step-num">5</span>
                     <div>
                         <strong>Browse Versions</strong>
-                        <p>Use the ◄ ► arrows above the editor to flip through previous code versions.</p>
+                        <p>Use the ◄ ► arrows above the editor to flip through previous code versions. Click <em>Download</em> to save any version to your computer.</p>
                     </div>
                 </div>
                 <div class="help-step">
                     <span class="step-num">6</span>
                     <div>
                         <strong>Write NFC Tags</strong>
-                        <p>Click the gear icon &#9881; to reveal the <em>Write NFC Tag</em> tool for writing custom text to NFC tags.</p>
+                        <p>Click the gear icon &#9881; next to the Reset button to reveal the <em>Write NFC Tag</em> tool. This lets you write custom text to NFC tags for use with your games.</p>
                     </div>
                 </div>
             </div>
@@ -140,47 +145,11 @@
         </div>
     </div>
 
-    <!-- Upload Modal -->
-    <div class="modal-overlay hidden" id="upload-overlay">
-        <div class="modal">
-            <h2>Code Ready!</h2>
-            <p>Choose a slot to upload your code to.</p>
-            <select id="upload-slot">
-                <option value="1">Slot 1 — jumpin1.py</option>
-                <option value="2">Slot 2 — jumpin2.py</option>
-                <option value="3">Slot 3 — jumpin3.py</option>
-                <option value="4">Slot 4 — jumpin4.py</option>
-                <option value="5">Slot 5 — jumpin5.py</option>
-            </select>
-            <div class="modal-row">
-                <button class="btn" id="btn-upload-cancel">Not yet</button>
-                <button class="btn upload-btn" id="btn-upload-confirm">Upload</button>
-            </div>
-        </div>
-    </div>
+    <!-- PyScript App (imports RS232.py) -->
+    <script type="py" config='{"packages":[], "files":{"./RS232.py":"./RS232.py"}, "js_modules":{"main":{"https://cdn.jsdelivr.net/npm/micro-repl@0.5.2/serial.js":"micro_repl"}}}' async>
+from RS232 import App
+app = App()
+    </script>
 
-    <!-- NFC Trigger Modal -->
-    <div class="modal-overlay hidden" id="nfc-trigger-overlay">
-        <div class="modal">
-            <h2>Write Trigger Card?</h2>
-            <p id="nfc-trigger-msg"></p>
-            <div class="modal-row">
-                <button class="btn" id="btn-nfc-trigger-no">No thanks</button>
-                <button class="btn nfc-btn" id="btn-nfc-trigger-yes">Yes, write card</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- NFC Game Cards Modal -->
-    <div class="modal-overlay hidden" id="nfc-cards-overlay">
-        <div class="modal" style="width:420px;">
-            <h2>Game Cards Needed</h2>
-            <p>This game uses these NFC cards. Write them before uploading.</p>
-            <div id="nfc-cards-list"></div>
-            <button class="btn send-btn" id="btn-nfc-cards-done" style="margin-top:16px;">Done</button>
-        </div>
-    </div>
-
-    <script type="module" src="js/app.js"></script>
 </body>
 </html>
