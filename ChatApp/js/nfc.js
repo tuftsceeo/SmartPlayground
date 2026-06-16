@@ -232,57 +232,50 @@ export function showUploadModal() {
     });
 }
 
-export function showNfcTriggerModal(slot) {
+// Shows all cards to write (trigger + game cards) before uploading.
+// Returns a promise that resolves when the user clicks Skip or Done.
+export function showBundledCardsModal(triggerText, gameCards, uboard, addMsg) {
     return new Promise(resolve => {
-        const overlay = document.getElementById("nfc-trigger-overlay");
-        document.getElementById("nfc-trigger-msg").textContent =
-            `Would you like to write an NFC card to trigger jumpin${slot}?`;
-        overlay.classList.remove("hidden");
-
-        function onYes() { cleanup(); overlay.classList.add("hidden"); resolve(true); }
-        function onNo()  { cleanup(); overlay.classList.add("hidden"); resolve(false); }
-        function cleanup() {
-            document.getElementById("btn-nfc-trigger-yes").removeEventListener("click", onYes);
-            document.getElementById("btn-nfc-trigger-no").removeEventListener("click", onNo);
-        }
-
-        document.getElementById("btn-nfc-trigger-yes").addEventListener("click", onYes);
-        document.getElementById("btn-nfc-trigger-no").addEventListener("click", onNo);
-    });
-}
-
-export function showNfcCardsModal(cards) {
-    return new Promise(resolve => {
-        const overlay = document.getElementById("nfc-cards-overlay");
-        const list = document.getElementById("nfc-cards-list");
+        const overlay = document.getElementById("nfc-bundle-overlay");
+        const list = document.getElementById("nfc-bundle-list");
         list.innerHTML = '';
 
-        cards.forEach(card => {
-            const item = document.createElement("div");
-            item.className = "nfc-card-item";
-            item.innerHTML =
-                `<span class="nfc-card-label">"${card}"</span>` +
-                `<button class="btn nfc-btn" data-card="${card}">Write Tag</button>` +
+        // Build rows: trigger card first, then game cards
+        const allCards = [
+            { text: triggerText, label: `Trigger — "${triggerText}"` },
+            ...gameCards.map(c => ({ text: c, label: `Game card — "${c}"` })),
+        ];
+
+        allCards.forEach(({ text, label }) => {
+            const row = document.createElement("div");
+            row.className = "nfc-card-item";
+            row.innerHTML =
+                `<span class="nfc-card-label">${label}</span>` +
+                `<button class="btn nfc-btn" data-card="${text}">Write Tag</button>` +
                 `<span class="nfc-card-status"></span>`;
-            list.appendChild(item);
+            list.appendChild(row);
         });
 
         overlay.classList.remove("hidden");
 
         list.querySelectorAll("[data-card]").forEach(btn => {
-            btn.addEventListener("click", () => {
-                document.dispatchEvent(new CustomEvent("app:write-nfc-card", { detail: { text: btn.dataset.card } }));
-                btn.nextElementSibling.textContent = "✓ Queued";
+            btn.addEventListener("click", async () => {
                 btn.disabled = true;
+                btn.nextElementSibling.textContent = "Writing...";
+                await writeNfcTag(uboard, addMsg, btn.dataset.card);
+                btn.nextElementSibling.textContent = "✓ Done";
             });
         });
 
-        function onDone() {
-            document.getElementById("btn-nfc-cards-done").removeEventListener("click", onDone);
-            overlay.classList.add("hidden");
-            resolve();
+        function onDone()  { cleanup(); overlay.classList.add("hidden"); resolve(); }
+        function onSkip()  { cleanup(); overlay.classList.add("hidden"); resolve(); }
+        function cleanup() {
+            document.getElementById("btn-nfc-bundle-done").removeEventListener("click", onDone);
+            document.getElementById("btn-nfc-bundle-skip").removeEventListener("click", onSkip);
         }
-        document.getElementById("btn-nfc-cards-done").addEventListener("click", onDone);
+
+        document.getElementById("btn-nfc-bundle-done").addEventListener("click", onDone);
+        document.getElementById("btn-nfc-bundle-skip").addEventListener("click", onSkip);
     });
 }
 

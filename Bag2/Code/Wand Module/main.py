@@ -32,6 +32,11 @@ from espnow_manager import ESPNowManager
 from color_quest import play as play_color_quest
 from freeze_dance import play as play_freeze_dance
 from jumpin import play as play_jumpin
+from jumpin1 import play as play_jumpin1
+from jumpin2 import play as play_jumpin2
+from jumpin3 import play as play_jumpin3
+from jumpin4 import play as play_jumpin4
+from jumpin5 import play as play_jumpin5
 from cooking import play as play_cooking
 from melody import play as play_melody
 from shake import play as play_shake
@@ -54,6 +59,11 @@ GAME_DISPATCH = {
     "colorquest":     play_color_quest,
     "freezedance":    play_freeze_dance,
     "jumpin":         play_jumpin,
+    "jumpin1":        play_jumpin1,
+    "jumpin2":        play_jumpin2,
+    "jumpin3":        play_jumpin3,
+    "jumpin4":        play_jumpin4,
+    "jumpin5":        play_jumpin5,
     "cooking":        play_cooking,
     "melody":         play_melody,
     "shake":          play_shake,

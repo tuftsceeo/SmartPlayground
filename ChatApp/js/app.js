@@ -3,7 +3,7 @@ import { uRepl } from './serial.js';
 import { addMsg, removeTyping, extractCode, parseNfcCards, stripNfcMarker, trimForHistory, loadKnowledgeBase, getKnowledgeText, getKnowledgeFileCount } from './chat.js';
 import { initEditor, getCode, setCode, saveVersion, updateVersionUI, onPrevVersion, onNextVersion, onDownload, onClearCode, getVersionCount } from './editor.js';
 import { validateJumpin, uploadToSlot } from './upload.js';
-import { writeNfcTag, showUploadModal, showNfcTriggerModal, showNfcCardsModal } from './nfc.js';
+import { writeNfcTag, showUploadModal, showBundledCardsModal } from './nfc.js';
 import { setStatus, showStop, initResizer } from './ui.js';
 
 const SYSTEM_PROMPT_BASE = `You are an AI assistant helping users write MicroPython games for the PlaygroundV5 wand.
@@ -86,9 +86,6 @@ class App {
             if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); this.onSend(); }
         });
 
-        document.addEventListener("app:write-nfc-card", async (e) => {
-            await writeNfcTag(this.uboard, addMsg, e.detail.text);
-        });
     }
 
     // ---- Serial ----
@@ -149,7 +146,7 @@ class App {
 
     // ---- Upload ----
 
-    async onUpload() {
+    async onUpload(gameCards = []) {
         if (!this.uboard.connected) { addMsg("Connect your board first.", "system"); return; }
         const code = getCode();
         if (!code.trim()) return;
@@ -168,10 +165,10 @@ class App {
         const { confirmed, slot } = await showUploadModal();
         if (!confirmed) return;
 
-        await uploadToSlot(this.uboard, code, slot, addMsg);
+        // Write all cards (trigger + game cards) before uploading
+        await showBundledCardsModal(`jumpin${slot}`, gameCards, this.uboard, addMsg);
 
-        const wantNfc = await showNfcTriggerModal(slot);
-        if (wantNfc) await writeNfcTag(this.uboard, addMsg, `jumpin${slot}`);
+        await uploadToSlot(this.uboard, code, slot, addMsg);
     }
 
     // ---- Help ----
@@ -255,13 +252,7 @@ class App {
                 saveVersion(code, label);
                 addMsg(`Code extracted to editor (v${getVersionCount()}) →`, "system");
 
-                if (nfcCards && nfcCards.length > 0) {
-                    addMsg(`This game uses NFC cards: ${nfcCards.join(", ")}. Write them before uploading.`, "system");
-                    await showNfcCardsModal(nfcCards);
-                }
-
-                // Auto-prompt upload
-                await this.onUpload();
+                await this.onUpload(nfcCards || []);
             }
         } catch (e) {
             removeTyping();

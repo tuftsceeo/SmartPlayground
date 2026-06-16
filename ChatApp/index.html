@@ -159,25 +159,16 @@
         </div>
     </div>
 
-    <!-- NFC Trigger Modal -->
-    <div class="modal-overlay hidden" id="nfc-trigger-overlay">
-        <div class="modal">
-            <h2>Write Trigger Card?</h2>
-            <p id="nfc-trigger-msg"></p>
-            <div class="modal-row">
-                <button class="btn" id="btn-nfc-trigger-no">No thanks</button>
-                <button class="btn nfc-btn" id="btn-nfc-trigger-yes">Yes, write card</button>
+    <!-- Bundled NFC Cards Modal -->
+    <div class="modal-overlay hidden" id="nfc-bundle-overlay">
+        <div class="modal" style="width:440px; text-align:left;">
+            <h2 style="text-align:center;">Write Cards Before Uploading?</h2>
+            <p style="text-align:center; margin-bottom:16px;">Place each tag on the wand and press the button to write it. Skip any you don't need.</p>
+            <div id="nfc-bundle-list"></div>
+            <div class="modal-row" style="margin-top:20px;">
+                <button class="btn" id="btn-nfc-bundle-skip">Skip, Upload Now</button>
+                <button class="btn upload-btn" id="btn-nfc-bundle-done">Done, Upload</button>
             </div>
-        </div>
-    </div>
-
-    <!-- NFC Game Cards Modal -->
-    <div class="modal-overlay hidden" id="nfc-cards-overlay">
-        <div class="modal" style="width:420px;">
-            <h2>Game Cards Needed</h2>
-            <p>This game uses these NFC cards. Write them before uploading.</p>
-            <div id="nfc-cards-list"></div>
-            <button class="btn send-btn" id="btn-nfc-cards-done" style="margin-top:16px;">Done</button>
         </div>
     </div>
 

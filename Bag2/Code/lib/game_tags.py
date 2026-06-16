@@ -15,7 +15,9 @@ Set design:
 """
 
 GAME_TAGS = {
-    "colorquest", "freezedance", "jumpin", "cooking", "melody",
+    "colorquest", "freezedance", "jumpin",
+    "jumpin1", "jumpin2", "jumpin3", "jumpin4", "jumpin5",
+    "cooking", "melody",
     "shake", "shakerainbow", "rainbow", "jump", "sound", "nfcsound",
     "simpleicecream", "multiicecream", "gestures",
 }
