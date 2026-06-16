@@ -45,7 +45,7 @@ from neopixel import NeoPixel
 from machine import Pin
 a = NeoPixel(Pin(21), 18)
 
-LED_LUT = {3:(7,8), 2:(10,11), 1:(13,14), 0:(16,17)}
+LED_LUT = {3:(3,4), 2:(7,8), 1:(11,12), 0:(15,16)}
 led_color_buffer = []
 
 def turn(led, color):
@@ -281,6 +281,5 @@ def main():
 
 if __name__ == "__main__":
     main()
-
 
 
