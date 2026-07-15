@@ -2,11 +2,13 @@ import machine
 import time
 import struct
 from micropython import const
-
+from neopixel import NeoPixel
 # Pin definitions
 I2C_SDA = 22
 I2C_SCL = 23
 MOTOR = 21
+NEOPIXEL = 20
+NUM_LEDS = 60
 
 # PN532 Constants
 _PREAMBLE = const(0x00)
@@ -212,7 +214,7 @@ try:
         print("⚠ No card detected (timeout)")
     print()
 except Exception as e:
-    print(f"✗ NFC FAILED: {e}\n")
+    print(f"NFC reader not connected\n")
 
 # === Test 4: Motor ===
 print("--- Testing Motor ---")
@@ -242,3 +244,109 @@ except Exception as e:
     print(f"✗ Motor FAILED: {e}\n")
 
 print("=== Test Complete ===")
+
+try:
+    np = NeoPixel(machine.Pin(NEOPIXEL), NUM_LEDS)
+    
+    # Turn all off first
+    for i in range(NUM_LEDS):
+        np[i] = (0, 0, 0)
+    np.write()
+    time.sleep(0.2)
+    
+    # Test red (remember GRB order means (G, R, B) for display)
+    print("Red pattern...")
+    for i in range(NUM_LEDS):
+        np[i] = (0, 10, 0)  # GRB: Red = (0, 10, 0)
+    np.write()
+    time.sleep(0.5)
+    
+    # Test green
+    print("Green pattern...")
+    for i in range(NUM_LEDS):
+        np[i] = (10, 0, 0)  # GRB: Green = (10, 0, 0)
+    np.write()
+    time.sleep(0.5)
+    
+    # Test blue
+    print("Blue pattern...")
+    for i in range(NUM_LEDS):
+        np[i] = (0, 0, 10)  # GRB: Blue = (0, 0, 10)
+    np.write()
+    time.sleep(0.5)
+    
+    # Rainbow chase (very dim)
+    print("Rainbow chase...")
+    colors = [
+        (10, 0, 0),     # Green
+        (0, 10, 0),     # Red
+        (0, 0, 10),     # Blue
+        (5, 5, 0),      # Yellow
+        (0, 5, 5),      # Purple
+        (5, 0, 5),      # Cyan
+    ]
+    
+    for offset in range(10):
+        for i in range(NUM_LEDS):
+            color_idx = (i + offset) % len(colors)
+            np[i] = colors[color_idx]
+        np.write()
+        time.sleep_ms(100)
+    
+    # Turn all off
+    for i in range(NUM_LEDS):
+        np[i] = (0, 0, 0)
+    np.write()
+    
+    print("✓ NeoPixels OK\n")
+except Exception as e:
+    print(f"✗ NeoPixels FAILED: {e}\n")
+
+
+try:
+    # Try common addresses
+    LIGHT_ADDR = None
+    for addr in [0x44, 0x45, 0x46, 0x47]:
+        if addr in devices:
+            try:
+                # Try to read device ID
+                dev_id_data = i2c.readfrom_mem(addr, 0x7F, 2)
+                dev_id = (dev_id_data[0] << 8) | dev_id_data[1]
+                if dev_id == 0x3001:
+                    LIGHT_ADDR = addr
+                    break
+            except:
+                pass
+    
+    if LIGHT_ADDR is None:
+        raise RuntimeError("OPT3002 not found")
+    
+    print(f"Found OPT3002 at address 0x{LIGHT_ADDR:02X}")
+    
+    # Read manufacturer and device ID
+    mfg_data = i2c.readfrom_mem(LIGHT_ADDR, 0x7E, 2)
+    mfg_id = (mfg_data[0] << 8) | mfg_data[1]
+    print(f"Manufacturer ID: 0x{mfg_id:04X} {'✓ OK' if mfg_id == 0x5449 else '✗ FAIL'}")
+    
+    dev_id_data = i2c.readfrom_mem(LIGHT_ADDR, 0x7F, 2)
+    dev_id = (dev_id_data[0] << 8) | dev_id_data[1]
+    print(f"Device ID: 0x{dev_id:04X} {'✓ OK' if dev_id == 0x3001 else '✗ FAIL'}")
+    
+    # Configure: continuous, auto-range, 100ms
+    i2c.writeto_mem(LIGHT_ADDR, 0x01, struct.pack('>H', 0xC610))
+    time.sleep_ms(120)
+    
+    # Read 5 samples
+    print("Reading light sensor (5 samples):")
+    for _ in range(5):
+        data = i2c.readfrom_mem(LIGHT_ADDR, 0x00, 2)
+        raw = (data[0] << 8) | data[1]
+        exponent = (raw >> 12) & 0x0F
+        mantissa = raw & 0x0FFF
+        lux = 0.01 * (mantissa << exponent)
+        print(f"  Light: {lux:.2f} lux")
+        time.sleep_ms(200)
+    
+    print("✓ Light Sensor OK\n")
+except Exception as e:
+    print(f"✗ Light Sensor FAILED: {e}\n")

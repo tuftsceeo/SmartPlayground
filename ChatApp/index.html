@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Wand Chatbot</title>
+    <link rel="stylesheet" href="css/layout.css">
+    <link rel="stylesheet" href="css/buttons.css">
+    <link rel="stylesheet" href="css/chat.css">
+    <link rel="stylesheet" href="css/editor.css">
+    <link rel="stylesheet" href="css/modals.css">
+</head>
+<body>
+
+    <!-- Top Bar -->
+    <div class="topbar">
+        <h1>AI Wand Chatbot</h1>
+        <input type="password" class="api-input" id="passphrase" placeholder="Enter passphrase to unlock..." style="display:none;" />
+        <div class="status-bar">
+            <span class="status-dot" id="serial-status"></span>
+            <span id="status-text">Disconnected</span>
+        </div>
+        <button class="btn help-btn" id="btn-help">?</button>
+    </div>
+
+    <!-- Main Layout -->
+    <div class="main-layout" id="main-layout">
+
+        <!-- Left: Chat -->
+        <div class="left-panel" id="left-panel">
+            <div class="chat-area" id="chat-box">
+                <div class="msg system">Connect your board using the Connect button, then start chatting!</div>
+            </div>
+            <div class="chat-input-area">
+                <textarea id="user-input" rows="3" placeholder="Describe what you want the board to do..."></textarea>
+                <button class="btn send-btn" id="btn-send">Send</button>
+                <button class="btn stop-btn" id="btn-stop">Stop</button>
+            </div>
+        </div>
+
+        <!-- Draggable Resizer -->
+        <div class="resizer" id="resizer"></div>
+
+        <!-- Right: Code + REPL -->
+        <div class="right-panel" id="right-panel">
+
+            <div class="code-header">
+                <span>Generated Code</span>
+                <div class="version-controls">
+                    <button class="btn version-btn" id="btn-prev" title="Previous version">&#9664;</button>
+                    <span class="version-label" id="version-label">v0/0</span>
+                    <button class="btn version-btn" id="btn-next" title="Next version">&#9654;</button>
+                    <button class="btn" id="btn-download" title="Download code">Download</button>
+                    <button class="btn" id="btn-clear-code" style="padding:3px 8px;">Clear</button>
+                </div>
+            </div>
+
+            <div class="code-container" id="code-editor-container">
+                <div id="code-editor"></div>
+            </div>
+
+            <div class="repl-bar">
+                <button class="btn connect-btn" id="btn-connect">Connect</button>
+                <label><input type="checkbox" id="freshStart" checked /> reset</label>
+                <button class="btn" id="btn-ctrlc">Ctrl+C</button>
+                <button class="btn" id="btn-reset">Reset</button>
+                <button class="btn run-btn" id="btn-run">&#9654; Run</button>
+                <button class="btn tools-btn" id="btn-tools" title="Show tools">&#9881;</button>
+                <button class="btn nfc-btn hidden" id="btn-write-nfc">Write NFC Tag</button>
+                <span class="repl-bar-spacer"></span>
+                <button class="btn upload-btn" id="btn-upload" disabled>Upload</button>
+            </div>
+
+            <div class="repl-container">
+                <div id="repl" class="repl-box"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Help Modal -->
+    <div class="modal-overlay hidden" id="help-overlay">
+        <div class="modal help-modal">
+            <h2>How to Use the AI Wand Chatbot</h2>
+            <div class="help-steps">
+                <div class="help-step">
+                    <span class="step-num">1</span>
+                    <div>
+                        <strong>Enter the Magic Code</strong>
+                        <p>When the app loads, type the passphrase your instructor gave you to unlock the AI.</p>
+                    </div>
+                </div>
+                <div class="help-step">
+                    <span class="step-num">2</span>
+                    <div>
+                        <strong>Connect Your Wand</strong>
+                        <p>Plug in your wand via USB. Click <em>Connect</em> and select the serial port in the browser popup.</p>
+                    </div>
+                </div>
+                <div class="help-step">
+                    <span class="step-num">3</span>
+                    <div>
+                        <strong>Ask the AI to Write Code</strong>
+                        <p>Describe what you want the wand to do. The AI generates code and places it in the editor.</p>
+                    </div>
+                </div>
+                <div class="help-step">
+                    <span class="step-num">4</span>
+                    <div>
+                        <strong>Upload Your Code</strong>
+                        <p>After code is generated, choose a slot (1–5) and click <em>Upload</em>. Each slot maps to an NFC tag that triggers it.</p>
+                    </div>
+                </div>
+                <div class="help-step">
+                    <span class="step-num">5</span>
+                    <div>
+                        <strong>Browse Versions</strong>
+                        <p>Use the ◄ ► arrows above the editor to flip through previous code versions.</p>
+                    </div>
+                </div>
+                <div class="help-step">
+                    <span class="step-num">6</span>
+                    <div>
+                        <strong>Write NFC Tags</strong>
+                        <p>Click the gear icon &#9881; to reveal the <em>Write NFC Tag</em> tool for writing custom text to NFC tags.</p>
+                    </div>
+                </div>
+            </div>
+            <button class="btn send-btn" id="btn-help-close" style="margin-top:16px;">Got it!</button>
+        </div>
+    </div>
+
+    <!-- Passphrase Modal -->
+    <div class="modal-overlay" id="modal-overlay">
+        <div class="modal">
+            <h2>Welcome!</h2>
+            <p>Enter the magic code to get started.</p>
+            <input type="password" id="modal-passphrase" placeholder="Magic code..." />
+            <div id="modal-error" class="modal-error"></div>
+            <button class="btn send-btn" id="btn-modal-unlock">Unlock</button>
+        </div>
+    </div>
+
+    <!-- Upload Modal -->
+    <div class="modal-overlay hidden" id="upload-overlay">
+        <div class="modal">
+            <h2>Code Ready!</h2>
+            <p>Choose a slot to upload your code to.</p>
+            <select id="upload-slot">
+                <option value="1">Slot 1 — jumpin1.py</option>
+                <option value="2">Slot 2 — jumpin2.py</option>
+                <option value="3">Slot 3 — jumpin3.py</option>
+                <option value="4">Slot 4 — jumpin4.py</option>
+                <option value="5">Slot 5 — jumpin5.py</option>
+            </select>
+            <div class="modal-row">
+                <button class="btn" id="btn-upload-cancel">Not yet</button>
+                <button class="btn upload-btn" id="btn-upload-confirm">Upload</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Card Found Popup (appears over the bundled modal) -->
+    <div class="modal-overlay hidden" id="card-found-overlay" style="z-index:1100;">
+        <div class="modal" style="width:320px;">
+            <h2>Card Detected!</h2>
+            <p id="card-found-info" style="font-family:monospace; font-size:12px; margin-bottom:8px;"></p>
+            <p>Write <strong id="card-found-label"></strong> to this card?</p>
+            <div class="modal-row" style="margin-top:20px;">
+                <button class="btn" id="btn-card-found-cancel">Cancel</button>
+                <button class="btn nfc-btn" id="btn-card-found-write">Write</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bundled NFC Cards Modal -->
+    <div class="modal-overlay hidden" id="nfc-bundle-overlay">
+        <div class="modal" style="width:440px; text-align:left;">
+            <h2 style="text-align:center;">Write Cards Before Uploading?</h2>
+            <p style="text-align:center; margin-bottom:16px;">Place each tag on the wand and press the button to write it. Skip any you don't need.</p>
+            <div id="nfc-bundle-list"></div>
+            <div class="modal-row" style="margin-top:20px;">
+                <button class="btn" id="btn-nfc-bundle-skip">Skip, Upload Now</button>
+                <button class="btn upload-btn" id="btn-nfc-bundle-done">Done, Upload</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="js/app.js"></script>
+</body>
+</html>
