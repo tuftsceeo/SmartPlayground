@@ -6,7 +6,11 @@ Animal sounds are remote-only (Splat). Silently skipped on wand.
 Usage:
     from actions import ActionRunner, ACTIONS, ANIMAL_SOUNDS
     runner = ActionRunner(leds, buzzer)
-    runner.run_chain([["turnred", "notea"], ["playnote"]])
+    runner.run_chain([["turnred", "note_a"], ["playnote"]])
+
+Note cards use the same underscore names as the melody game
+("note_a"…"note_g", "note_c_high") so a single set of physical cards
+works in both. The trailing "_" is stripped to index NOTE_FREQ.
 """
 
 import sys
@@ -15,11 +19,16 @@ import _thread
 
 from buzzer import NOTE_FREQ
 
+# Underscore names shared with melody.py; matches the physical note cards.
+NOTES = (
+    "note_c", "note_d", "note_e", "note_f",
+    "note_g", "note_a", "note_b", "note_c_high",
+)
+
 ACTIONS = {
     "playnote", "turnpurple",
     "turnred", "turnblue", "turngreen", "turnwhite", "turnyellow", "turnoff",
-    "notea", "noteb", "notec", "noted", "notee", "notef", "noteg",
-}
+} | set(NOTES)
 
 ANIMAL_SOUNDS = {
     "cat", "chicken", "cow", "dog", "pig",
@@ -30,9 +39,6 @@ ALL_ACTIONS = ACTIONS | ANIMAL_SOUNDS
 
 ACTION_RESOURCE = {
     "playnote":   "buzzer",
-    "notea":      "buzzer", "noteb": "buzzer", "notec": "buzzer",
-    "noted":      "buzzer", "notee": "buzzer", "notef": "buzzer",
-    "noteg":      "buzzer",
     "turnpurple": "led", "turnred": "led", "turnblue": "led",
     "turngreen":  "led", "turnwhite": "led", "turnyellow": "led",
     "turnoff":    "led",
@@ -40,6 +46,8 @@ ACTION_RESOURCE = {
     "dog": "splat_sound", "pig": "splat_sound", "duck": "splat_sound",
     "elephant": "splat_sound", "horse": "splat_sound", "goat": "splat_sound",
 }
+for _note in NOTES:
+    ACTION_RESOURCE[_note] = "buzzer"
 
 
 def resolve_and_group(group):
@@ -66,13 +74,6 @@ class ActionRunner:
         self.buzzer = buzzer
         self._fns = {
             "playnote":   buzzer.melody,
-            "notea":      lambda: buzzer.play_note(NOTE_FREQ["notea"]),
-            "noteb":      lambda: buzzer.play_note(NOTE_FREQ["noteb"]),
-            "notec":      lambda: buzzer.play_note(NOTE_FREQ["notec"]),
-            "noted":      lambda: buzzer.play_note(NOTE_FREQ["noted"]),
-            "notee":      lambda: buzzer.play_note(NOTE_FREQ["notee"]),
-            "notef":      lambda: buzzer.play_note(NOTE_FREQ["notef"]),
-            "noteg":      lambda: buzzer.play_note(NOTE_FREQ["noteg"]),
             "turnpurple": lambda: leds.solid(127, 0, 127),
             "turnred":    lambda: leds.solid(127, 0, 0),
             "turnblue":   lambda: leds.solid(0, 0, 127),
@@ -81,6 +82,10 @@ class ActionRunner:
             "turnyellow": lambda: leds.solid(127, 80, 0),
             "turnoff":    leds.off,
         }
+        # Note cards: "note_a" -> NOTE_FREQ["notea"] (strip underscore).
+        for note in NOTES:
+            freq = NOTE_FREQ[note.replace("_", "")]
+            self._fns[note] = lambda f=freq: buzzer.play_note(f)
 
     def run_action(self, name):
         fn = self._fns.get(name)

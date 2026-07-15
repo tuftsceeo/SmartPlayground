@@ -27,7 +27,7 @@ import machine
 from hubtype import HUB_CONFIG
 import brightness   # required — provides MULTIPLIER
 
-TRIGGER_ORDER = ["buttondown", "buttonup", "shake"]
+TRIGGER_ORDER = ["buttondown", "buttonup", "whenshake"]
 
 # ══════════════════════════════════════════════
 # COLOR PALETTE — outdoor-tuned, brightness module scales them
@@ -205,18 +205,18 @@ SHAPE_RIGHT_COL          = (4, 9, 14, 19, 24)
 SHAPE_SLASH_L            = (0, 6, 12, 18, 24)
 SHAPE_SLASH_R            = (4, 8, 12, 16, 20)
 
-TRIGGER_LED = {"buttondown": 0, "buttonup": 1, "shake": 2}
+TRIGGER_LED = {"buttondown": 0, "buttonup": 1, "whenshake": 2}
 
 TRIGGER_COLOR_BRIGHT = {
     "buttondown": (0, 30, 0),
     "buttonup":   (0, 0, 30),
-    "shake":      (0, 20, 20),
+    "whenshake":  (0, 20, 20),
 }
 
 TRIGGER_COLOR_DIM = {
     "buttondown": (0, 6, 0),
     "buttonup":   (0, 0, 6),
-    "shake":      (0, 4, 4),
+    "whenshake":  (0, 4, 4),
 }
 
 GESTURE_LED          = 3

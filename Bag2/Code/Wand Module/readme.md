@@ -10,7 +10,7 @@ The Wand Module is a handheld, child-carried device for the Smart Playground, an
 
 The wand has two interaction modes, both driven from a single `main.py` state machine:
 
-**Programming mode.** Children tap NFC tags to build a simple `trigger → action` rule of the form "when this happens, do that." Triggers are physical events (`buttondown`, `buttonup`, `shake`); actions are LED, buzzer, or motor outputs (notes, colors, animal sounds). AND and THEN combinator tags let multiple actions run simultaneously or in sequence. Scanning the `start` tag enters running mode, where the rule loops until the `stop` tag is scanned.
+**Programming mode.** Children tap NFC tags to build a simple `trigger → action` rule of the form "when this happens, do that." Triggers are physical events (`buttondown`, `buttonup`, `whenshake`); actions are LED, buzzer, or motor outputs (notes, colors, animal sounds). AND and THEN combinator tags let multiple actions run simultaneously or in sequence. Scanning the `start` tag enters running mode, where the rule loops until the `stop` tag is scanned.
 
 **Game dispatch.** Several standalone games (`jumpin`, `cooking`, `melody`, `colorquest`, `freezedance`, `gestures`, and others) are bundled as separate Python modules in the `Wand Module/` folder. Tapping a game's control tag transfers hardware to that game's `play()` entry point. A game exits on NFC `stop`, **any other game tag** (fluid switching via `lib/game_tags.py`), or ESP-NOW `stop`. After exit, `main.py` returns to idle; a second tap of the desired game tag starts the new game. Games may use ESP-NOW to communicate with other Smart Playground devices, including the Programming Station, the Scoreboard, and other wands.
 
@@ -314,19 +314,20 @@ Users tap NFC tags in sequence to program a **trigger → action** pair, then ta
 
 **Flow:** Tap TRIGGER → Tap ACTION → [optional: AND/THEN → ACTION]... → Tap START → (loops until STOP)
 
-**Available triggers:** `buttondown` (button pressed), `buttonup` (button released), `shake` (accelerometer shake)
+**Available triggers:** `buttondown` (button pressed), `buttonup` (button released), `whenshake` (accelerometer shake)
 **Available actions:**
 
 | Tag          | Resource | Description                          |
 | ------------ | -------- | ------------------------------------ |
 | `playnote`   | buzzer   | Short ascending melody (C5-E5-G5-C6) |
-| `notec`      | buzzer   | C4 — 262 Hz, 400ms                   |
-| `noted`      | buzzer   | D4 — 294 Hz, 400ms                   |
-| `notee`      | buzzer   | E4 — 330 Hz, 400ms                   |
-| `notef`      | buzzer   | F4 — 349 Hz, 400ms                   |
-| `noteg`      | buzzer   | G4 — 392 Hz, 400ms                   |
-| `notea`      | buzzer   | A4 — 440 Hz, 400ms                   |
-| `noteb`      | buzzer   | B4 — 494 Hz, 400ms                   |
+| `note_c`      | buzzer   | C4 — 262 Hz, 400ms                   |
+| `note_d`      | buzzer   | D4 — 294 Hz, 400ms                   |
+| `note_e`      | buzzer   | E4 — 330 Hz, 400ms                   |
+| `note_f`      | buzzer   | F4 — 349 Hz, 400ms                   |
+| `note_g`      | buzzer   | G4 — 392 Hz, 400ms                   |
+| `note_a`      | buzzer   | A4 — 440 Hz, 400ms                   |
+| `note_b`      | buzzer   | B4 — 494 Hz, 400ms                   |
+| `note_c_high` | buzzer   | C5 — 523 Hz, 400ms                   |
 | `turnred`    | led      | Pulse all 25 LEDs red                |
 | `turngreen`  | led      | Pulse all 25 LEDs green              |
 | `turnblue`   | led      | Pulse all 25 LEDs blue               |
@@ -334,6 +335,8 @@ Users tap NFC tags in sequence to program a **trigger → action** pair, then ta
 | `turnyellow` | led      | Pulse all 25 LEDs yellow             |
 | `turnwhite`  | led      | Pulse all 25 LEDs white              |
 | `turnoff`    | led      | Turn off all LEDs instantly          |
+
+The `note_*` cards are the same physical note cards used by the melody game.
 
 **Combinator tags:** `and` (simultaneous), `then` (sequential)
 **Control tags:** `start`, `stop`, `colorquest`, `freezedance`, `jumpin`, `cooking`, `melody`, `gestures`
@@ -348,9 +351,9 @@ This means: (playnote AND turnpurple) THEN playnote.
 
 | Resource      | Actions                                    | Can AND together?                |
 | ------------- | ------------------------------------------ | -------------------------------- |
-| Buzzer        | playnote, notea–noteg                      | ✗ Only one at a time (last wins) |
+| Buzzer        | playnote, note_a–note_g                    | ✗ Only one at a time (last wins) |
 | LEDs          | turnred/green/blue/purple/yellow/white/off | ✗ Only one at a time (last wins) |
-| Buzzer + LEDs | e.g. notea + turnred                       | ✓ Different hardware             |
+| Buzzer + LEDs | e.g. note_a + turnred                      | ✓ Different hardware             |
 
 If two actions in an AND group share the same resource, last one wins (silently replaces).
 **THEN** always works — actions run one after the other.
@@ -370,7 +373,7 @@ If two actions in an AND group share the same resource, last one wins (silently 
 - **Auth key:** Default `FF FF FF FF FF FF` with Key A
 - **Sector 0 must be skipped** — contains manufacturer data that corrupts TLV parsing
 
-**All NFC tag texts:** `waitbutton`, `waitshake`, `playnote`, `notea`, `noteb`, `notec`, `noted`, `notee`, `notef`, `noteg`, `turnred`, `turngreen`, `turnblue`, `turnpurple`, `turnyellow`, `turnwhite`, `turnoff`, `and`, `then`, `start`, `stop`, `battery
+**All NFC tag texts:** `buttondown`, `buttonup`, `whenshake`, `playnote`, `note_a`, `note_b`, `note_c`, `note_d`, `note_e`, `note_f`, `note_g`, `note_c_high`, `turnred`, `turngreen`, `turnblue`, `turnpurple`, `turnyellow`, `turnwhite`, `turnoff`, `and`, `then`, `start`, `stop`, `battery
 
 **Tag UIDs observed:**
 
