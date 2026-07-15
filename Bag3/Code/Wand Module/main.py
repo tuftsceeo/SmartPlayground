@@ -4,8 +4,8 @@ Wand Module — NFC Multi-Trigger Event Engine
 Board: Seeed XIAO ESP32-C6
 Requires hubtype.txt containing: wand
 
-Triggers: buttondown, buttonup, shake
-Actions:  playnote, notea-g, turnred/green/blue/purple/yellow/white/off,
+Triggers: buttondown, buttonup, whenshake
+Actions:  playnote, note_a-g/note_c_high, turnred/green/blue/purple/yellow/white/off,
           cat, chicken, cow, dog, pig, duck, elephant, horse, goat
 Combinators: and, then
 Controls: start, stop, plus game tags (see lib/game_tags.py);
@@ -90,7 +90,7 @@ NFC_ADDR     = HUB_CONFIG.get("nfc_addr", 0x28)
 # ─────────────────────────────────────────────
 # TAG COMMANDS
 # ─────────────────────────────────────────────
-FIXED_TRIGGERS = {"buttondown", "buttonup", "shake"}
+FIXED_TRIGGERS = {"buttondown", "buttonup", "whenshake"}
 COMBINATORS    = {"and", "then"}
 CONTROLS       = GAME_TAGS | CONTROL_TAGS
 UTILITY        = {"battery"}
@@ -265,7 +265,7 @@ def show_idle(last_soc, idle_frame):
 # ─────────────────────────────────────────────
 def run_event_loop(reader, rules, runner, accel_ref, enow=None, batt_ref=None):
     btn_was_down = (btn.value() == 0)
-    if accel_ref and "shake" in rules:
+    if accel_ref and "whenshake" in rules:
         accel_ref.clear_wake()
 
     nfc_cnt = 0
@@ -292,10 +292,10 @@ def run_event_loop(reader, rules, runner, accel_ref, enow=None, batt_ref=None):
                     fired = "buttonup"
         btn_was_down = btn_down
 
-        if fired is None and accel_ref and "shake" in rules and len(rules["shake"]) > 0:
+        if fired is None and accel_ref and "whenshake" in rules and len(rules["whenshake"]) > 0:
             if int1_pin.value() == 1:
                 accel_ref.clear_wake(); time.sleep_ms(100); accel_ref.clear_wake()
-                fired = "shake"
+                fired = "whenshake"
 
         if fired:
             chain = rules[fired]
@@ -664,7 +664,7 @@ def main():
             # ── ACTION ──
             # Chain shape contract: list[list[str]] — outer list is THEN-groups,
             # inner list is AND-group of simultaneous actions.
-            # ActionRunner.run_chain expects: [["turnred", "notea"], ["playnote"]]
+            # ActionRunner.run_chain expects: [["turnred", "note_a"], ["playnote"]]
             if cmd in ACTIONS or cmd in ANIMAL_SOUNDS:
                 if editing is None:
                     editing = "buttondown"

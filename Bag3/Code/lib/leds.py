@@ -41,7 +41,7 @@ import machine
 from hubtype import HUB_CONFIG
 import brightness   # required — provides MULTIPLIER
 
-TRIGGER_ORDER = ["buttondown", "buttonup", "shake"]
+TRIGGER_ORDER = ["buttondown", "buttonup", "whenshake"]
 
 # ══════════════════════════════════════════════
 # MATRIX GEOMETRY
@@ -315,18 +315,18 @@ SHAPE_SLASH_R = tuple(_xy(c, max(0, (ROWS - 1) - c * (ROWS - 1) // (COLS - 1)))
 SHAPE_MID_ROW = tuple(_xy(c, r) for c in range(COLS) for r in (_cr, _cr + 1))
 SHAPE_MID_COL = tuple(_xy(c, r) for c in (_cc, _cc + 1) for r in range(ROWS))
 
-TRIGGER_LED = {"buttondown": 0, "buttonup": 1, "shake": 2}
+TRIGGER_LED = {"buttondown": 0, "buttonup": 1, "whenshake": 2}
 
 TRIGGER_COLOR_BRIGHT = {
     "buttondown": (0, 30, 0),
     "buttonup":   (0, 0, 30),
-    "shake":      (0, 20, 20),
+    "whenshake":  (0, 20, 20),
 }
 
 TRIGGER_COLOR_DIM = {
     "buttondown": (0, 6, 0),
     "buttonup":   (0, 0, 6),
-    "shake":      (0, 4, 4),
+    "whenshake":  (0, 4, 4),
 }
 
 GESTURE_LED          = 3
