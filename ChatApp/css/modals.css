@@ -1,0 +1,139 @@
+.modal-overlay {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    backdrop-filter: blur(4px);
+}
+
+.modal-overlay.hidden { display: none; }
+
+.modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 32px;
+    width: 360px;
+    text-align: center;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+}
+
+.modal h2 { font-size: 20px; margin-bottom: 8px; color: var(--text); }
+.modal p { font-size: 14px; color: var(--text-dim); margin-bottom: 20px; }
+
+.modal input {
+    width: 100%;
+    padding: 10px 14px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+    font-size: 16px;
+    text-align: center;
+    letter-spacing: 2px;
+    margin-bottom: 12px;
+}
+.modal input:focus { outline: none; border-color: var(--accent); }
+.modal input::placeholder { color: var(--text-dim); letter-spacing: normal; }
+
+.modal select {
+    width: 100%;
+    padding: 10px 14px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+    font-size: 14px;
+    margin-bottom: 16px;
+    cursor: pointer;
+}
+.modal select:focus { outline: none; border-color: var(--accent); }
+
+.modal .btn { width: 100%; padding: 10px; font-size: 14px; }
+
+.modal-error { color: #e74c3c; font-size: 12px; margin-bottom: 8px; min-height: 18px; }
+
+.modal-row { display: flex; gap: 8px; margin-top: 4px; }
+.modal-row .btn { flex: 1; }
+
+/* Help modal */
+.help-modal { width: 480px; max-height: 80vh; overflow-y: auto; text-align: left; }
+
+.help-steps { display: flex; flex-direction: column; gap: 14px; margin-top: 16px; }
+
+.help-step { display: flex; gap: 12px; align-items: flex-start; }
+
+.step-num {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.help-step p { font-size: 13px; color: var(--text-dim); margin-top: 2px; line-height: 1.5; }
+.help-step strong { font-size: 14px; color: var(--text); }
+.help-step code { background: var(--bg); padding: 1px 5px; border-radius: 3px; font-size: 12px; }
+.help-step em { color: var(--accent); font-style: normal; font-weight: 600; }
+
+/* NFC cards modal */
+.nfc-card-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+}
+.nfc-card-item:last-child { border-bottom: none; }
+.nfc-card-label { flex: 1; font-family: monospace; font-size: 13px; text-align: left; }
+.nfc-card-status {
+    font-size: 12px;
+    color: var(--green);
+    min-width: 110px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+/* Spinner */
+@keyframes spin { to { transform: rotate(360deg); } }
+.spinner {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    flex-shrink: 0;
+}
+
+/* Write progress bar */
+.write-progress-bar {
+    width: 60px;
+    height: 6px;
+    background: var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+.write-progress-fill {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 3px;
+    transition: width 0.15s ease;
+}
+.write-pct {
+    font-size: 11px;
+    color: var(--text-dim);
+    min-width: 28px;
+}

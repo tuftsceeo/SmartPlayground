@@ -15,14 +15,17 @@ Set design:
 """
 
 GAME_TAGS = {
-    "colorquest", "freezedance", "jumpin",
-    "jumpin1", "jumpin2", "jumpin3", "jumpin4", "jumpin5",
-    "cooking", "melody",
+    "colorquest", "freezedance", "jumpin", "cooking", "melody",
     "shake", "shakerainbow", "rainbow", "jump", "sound", "nfcsound",
     "simpleicecream", "multiicecream", "gestures",
 }
 
 CONTROL_TAGS = {"start", "stop"}
+
+# Games dispatched only over ESP-NOW (never via NFC). Not in GAME_TAGS, so they
+# never appear as tappable games / webapp commands / remote buttons, but they
+# are valid GAME_DISPATCH keys. "finddevice" is the targeted identify animation.
+HIDDEN_TAGS = {"finddevice"}
 
 EXIT_TAGS = GAME_TAGS | {"stop"}
 

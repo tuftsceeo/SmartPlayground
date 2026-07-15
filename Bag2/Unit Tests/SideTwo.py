@@ -9,7 +9,7 @@ I2C_SDA = 22
 I2C_SCL = 23
 MOTOR = 21
 NEOPIXEL = 20
-NUM_LEDS = 25
+NUM_LEDS = 60
 
 # PN532 Constants
 _PREAMBLE = const(0x00)
