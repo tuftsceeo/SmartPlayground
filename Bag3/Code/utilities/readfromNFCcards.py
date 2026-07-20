@@ -20,6 +20,7 @@ been removed.
 import machine
 import time
 from ws1850s import WS1850S
+from opcodes import decode as decode_opcode, CARD_PAGE
 
 # ─────────────────────────────────────────────
 # PIN CONFIG
@@ -164,10 +165,14 @@ def read_mifare_classic(nfc, tag):
                             label = ""
                             if block == 0:
                                 label = " <- Manufacturer"
+                            elif block == CARD_PAGE:
+                                label = " <- OPCODE"
                             elif block % 4 == 3:
                                 label = f" <- Trailer (Key{kt}:{key_hex})"
 
                             print(f"  {block:>5} | {hex_str} | {asc}{label}")
+                            if block == CARD_PAGE:
+                                report_opcode(data)
                             total_read += 1
                         except RuntimeError as e:
                             print(f"  {block:>5} | (read error: {e})")
@@ -196,6 +201,7 @@ def read_ntag(nfc, tag):
     max_pages = 45  # NTAG213=45, try up to this
     ndef_data = bytearray()
     pages_read = 0
+    page5 = None
 
     for page in range(max_pages):
         try:
@@ -203,11 +209,14 @@ def read_ntag(nfc, tag):
             hex_str = ' '.join(f'{b:02X}' for b in data)
             asc = ''.join(chr(b) if 32 <= b < 127 else '.' for b in data)
 
-            labels = {0: " <- UID", 1: " <- UID", 2: " <- Lock", 3: " <- CC", 4: " <- NDEF start"}
+            labels = {0: " <- UID", 1: " <- UID", 2: " <- Lock", 3: " <- CC",
+                      4: " <- NDEF start", CARD_PAGE: " <- OPCODE"}
             label = labels.get(page, "")
             print(f"  {page:>5} | {hex_str} | {asc}{label}")
             pages_read += 1
 
+            if page == CARD_PAGE:
+                page5 = data
             if page >= 4:
                 ndef_data.extend(data)
 
@@ -217,8 +226,20 @@ def read_ntag(nfc, tag):
 
     print(f"\n  Pages read: {pages_read}")
 
+    if page5 is not None:
+        report_opcode(page5)
     if ndef_data:
         decode_ndef(ndef_data)
+
+
+def report_opcode(data4):
+    """Decode and print the page-5 opcode (the wand's real card format)."""
+    name = decode_opcode(bytes(data4[:4]))
+    if name is not None:
+        print("\n  >> OPCODE CARD: \"%s\"" % name)
+    else:
+        print("\n  >> Page %d is not a valid opcode "
+              "(blank / non-opcode / bad checksum)" % CARD_PAGE)
 
 
 def decode_ndef(data):

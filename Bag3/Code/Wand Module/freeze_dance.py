@@ -23,8 +23,8 @@ import machine, time
 from machine import Pin
 
 from espnow_manager import BROADCAST_MAC, ESPNowManager
-from pn532 import PN532, MIFARE_AUTH_A, MIFARE_AUTH_B
-from nfc_reader import _decode_ndef_text, COMMON_KEYS
+from pn532 import PN532
+from nfc_reader import read_tag_command
 from game_tags import exit_tags_excluding
 import brightness
 from leds import (
@@ -126,34 +126,9 @@ def _play(buz, name):
 
 # -- NFC tag read -------------------------------------------
 def _read_tag_text(nfc):
-    """Returns (text, uid_hex) or (None, None). Text is None if the
-    tag's NDEF payload isn't one of GAME_COMMANDS."""
-    tag = nfc.read_passive_target(timeout=80)
-    if tag is None:
-        return None, None
-    uid_hex = tag['uid_hex']
-    if tag['sak'] not in (0x08, 0x18):
-        return None, uid_hex
-
-    ndef = bytearray()
-    for sector in (1, 2):
-        first = sector * 4
-        authed = False
-        for key in COMMON_KEYS:
-            for kt in (MIFARE_AUTH_A, MIFARE_AUTH_B):
-                resel = nfc.read_passive_target(timeout=150)
-                if resel is None: continue
-                if nfc.mifare_auth_block(resel['uid'], first, key, kt):
-                    for blk in range(first, first + 3):
-                        try: ndef.extend(nfc.mifare_read_block(blk))
-                        except Exception: ndef.extend(b'\x00' * 16)
-                    authed = True
-                    break
-            if authed: break
-        if not authed:
-            ndef.extend(b'\x00' * 48)
-
-    text = _decode_ndef_text(ndef)
+    """Returns (command, uid_hex) or (None, None). command is None if the
+    tag's opcode isn't one of GAME_COMMANDS."""
+    text, uid_hex = read_tag_command(nfc, timeout=80)
     if text and text in GAME_COMMANDS:
         return text, uid_hex
     return None, uid_hex
