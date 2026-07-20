@@ -38,7 +38,7 @@ BUZZER_PIN = 19
 PN532_ADDR = 0x24
 
 # -- Constants ----------------------------------------------
-NUM_LEDS = 60
+NUM_LEDS = 25
 SWITCH_PIN = 0
 MSG_GO     = b"FD_GO"
 MSG_FREEZE = b"FD_FREEZE"

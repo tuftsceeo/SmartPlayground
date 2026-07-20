@@ -2,12 +2,12 @@
 PlaygroundV5 (Bag3) - NFC Opcode Card Writer with LED Animation
 ================================================================
 Board: Seeed XIAO ESP32-C6 (Bag3 wand)
-NFC:   M5Stack RFID2 / WS1850S on I2C (SDA=GPIO22, SCL=GPIO23), addr 0x28
-LEDs:  60x SK6812 on GPIO20 (6×10 matrix, row-major)
+NFC:   PN532 on I2C (SDA=GPIO22, SCL=GPIO23), addr 0x24
+LEDs:  25x SK6812 on GPIO20 (5×5 matrix, row-major)
 Button: GPIO0 (active LOW)
 Buzzer: GPIO19
 
-Requires ws1850s.py and opcodes.py on the device.
+Requires pn532.py and opcodes.py on the device.
 
 Writes the compact 4-byte opcode format (see lib/opcodes.py) to page/block
 5 instead of a multi-page NDEF text record, so the wand can read a card
@@ -25,7 +25,7 @@ Flow:
 import machine
 import time
 from neopixel import NeoPixel
-from ws1850s import WS1850S
+from pn532 import PN532, MIFARE_AUTH_A, MIFARE_AUTH_B
 from opcodes import encode, decode, CARD_PAGE, names_by_category, ALL_NAMES
 
 # ─────────────────────────────────────────────
@@ -36,12 +36,8 @@ I2C_SCL   = 23
 NEOPIXEL  = 20
 SWITCH    = 0
 BUZZER    = 19
-NFC_ADDR  = 0x28      # WS1850S default (PN532 was 0x24)
-NUM_LEDS  = 60        # 6×10 matrix on Bag3
-
-# MIFARE key-type codes (match WS1850S PICC_AUTHENT1A/1B)
-MIFARE_AUTH_A = WS1850S.PICC_AUTHENT1A
-MIFARE_AUTH_B = WS1850S.PICC_AUTHENT1B
+NFC_ADDR  = 0x24      # PN532 I2C address
+NUM_LEDS  = 25        # 5×5 matrix on Bag3
 
 COMMON_KEYS = [
     b'\xFF\xFF\xFF\xFF\xFF\xFF',
@@ -52,7 +48,7 @@ COMMON_KEYS = [
 
 
 def sak_type(sak):
-    """Best-effort tag-type name from the SAK byte (WS1850S has no ATQA)."""
+    """Best-effort tag-type name from the SAK byte."""
     if sak in (0x08, 0x18, 0x09):
         return "MIFARE Classic"
     if sak == 0x00:
@@ -194,82 +190,46 @@ class Beeper:
         self.tone(1000, 30)
 
 # ─────────────────────────────────────────────
-# NFC WRITER — WS1850S adapter
+# NFC WRITER — PN532 adapter
 # ─────────────────────────────────────────────
-# Exposes the same handful of methods the write logic below expects, but
-# every call is serviced by the WS1850S driver instead of a PN532.
+# Exposes the handful of methods the write logic below expects, backed by
+# the real PN532 driver (lib/pn532.py).
 class NfcWriter:
     def __init__(self, i2c, addr=NFC_ADDR):
-        self.dev = WS1850S(i2c, addr)
+        self.dev = PN532(i2c, addr)
 
     def init(self):
-        self.dev.init()
-        print("  WS1850S VersionReg: 0x%02X" % self.dev.version())
+        fw = self.dev.begin()
+        print("  PN532 firmware: %d.%d (IC 0x%02X)" % (fw[1], fw[2], fw[0]))
 
     def detect_tag(self, timeout=500):
         """Poll for a tag up to `timeout` ms. Leaves the card ACTIVE."""
-        # Clear leftover Crypto1 from a prior auth; otherwise the next
-        # anticollision/SELECT is encrypted and silently fails (breaks
-        # multi-sector writes and re-detecting the next card).
-        try:
-            self.dev.stop_crypto1()
-        except Exception:
-            pass
-        deadline = time.ticks_add(time.ticks_ms(), timeout)
-        while True:
-            try:
-                result = self.dev.read_uid_full()
-            except Exception:
-                result = None
-            if result is not None:
-                uid, sak = result
-                return {
-                    'uid': bytes(uid),
-                    'uid_hex': ':'.join('%02X' % b for b in uid),
-                    'uid_len': len(uid),
-                    'sak': sak,
-                    'tag_type': sak_type(sak),
-                    'is_classic': sak in (0x08, 0x18, 0x09),
-                    'is_ntag': sak == 0x00,
-                }
-            if time.ticks_diff(deadline, time.ticks_ms()) <= 0:
-                return None
-            time.sleep_ms(10)
+        tag = self.dev.read_passive_target(timeout=timeout)
+        if tag is None:
+            return None
+        sak = tag['sak']
+        tag['tag_type']   = sak_type(sak)
+        tag['is_classic'] = sak in (0x08, 0x18, 0x09)
+        tag['is_ntag']    = sak == 0x00
+        return tag
 
     def mifare_auth(self, uid, block, key=b'\xFF\xFF\xFF\xFF\xFF\xFF', kt=MIFARE_AUTH_A):
-        try:
-            return self.dev.auth(kt, block, key, uid) == WS1850S.MI_OK
-        except Exception:
-            return False
+        return self.dev.mifare_auth_block(uid, block, key, kt)
 
     def mifare_read(self, block):
-        status, data = self.dev.read_block(block)
-        if status != WS1850S.MI_OK or data is None:
-            raise RuntimeError("Classic read err on block %d" % block)
-        return bytes(data[:16])
+        return self.dev.mifare_read_block(block)
 
     def mifare_write(self, block, data):
         """Write 16 bytes to a MIFARE Classic block (must auth first)."""
-        if len(data) != 16:
-            raise ValueError("Must write exactly 16 bytes")
-        if self.dev.write_block(block, bytes(data)) != WS1850S.MI_OK:
-            raise RuntimeError("Write err on block %d" % block)
-        return True
+        return self.dev.mifare_write_block(block, data)
 
     def ntag_write_page(self, page, data):
         """Write 4 bytes to an NTAG/Ultralight page."""
-        if len(data) != 4:
-            raise ValueError("Must write exactly 4 bytes")
-        if self.dev.ul_write(page, bytes(data)) != WS1850S.MI_OK:
-            raise RuntimeError("Write err on page %d" % page)
-        return True
+        return self.dev.ntag_write_page(page, data)
 
     def ntag_read_page(self, page):
         """Read 4 bytes from a single NTAG/Ultralight page."""
-        status, data = self.dev.ul_read(page)
-        if status != WS1850S.MI_OK or data is None:
-            raise RuntimeError("NTAG read err on page %d" % page)
-        return bytes(data[:4])
+        return self.dev.ntag_read_page(page)
 
 
 # ─────────────────────────────────────────────
@@ -293,8 +253,8 @@ def write_mifare_classic(nfc, tag, payload, led):
     """Write the 4-byte opcode to MIFARE Classic block 5 (padded to 16)."""
     led.writing_progress(0.5)
 
-    # Auth the sector holding block 5 — re-detect the tag first (WS1850S
-    # needs the card selected before auth; read_uid_full re-selects it).
+    # Auth the sector holding block 5 — re-detect the tag first so the
+    # PN532 has the card selected before the auth.
     resel = nfc.detect_tag(timeout=300)
     if resel is None:
         print("  Tag lost before auth!")
@@ -339,7 +299,7 @@ def print_command_list():
 # ─────────────────────────────────────────────
 def main():
     print("\n" + "*" * 55)
-    print("  PlaygroundV5 (Bag3) — NFC Tag Writer (WS1850S)")
+    print("  PlaygroundV5 (Bag3) — NFC Opcode Card Writer (PN532)")
     print("  Type your text, place tag, press button to write")
     print("*" * 55)
 
@@ -355,7 +315,7 @@ def main():
 
     nfc = NfcWriter(i2c, NFC_ADDR)
     nfc.init()
-    print("  WS1850S ready\n")
+    print("  PN532 ready\n")
 
     while True:
         # ── Step 1: Get text from user ──

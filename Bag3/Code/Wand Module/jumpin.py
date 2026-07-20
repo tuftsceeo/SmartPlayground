@@ -39,7 +39,7 @@ from leds import GREEN, OFF
 # ─────────────────────────────────────────────
 I2C_SDA, I2C_SCL = 22, 23
 NEOPIXEL_PIN = 20
-NUM_LEDS = 60
+NUM_LEDS = 25
 BUZZER_PIN = 19
 BUTTON_PIN = 0
 PN532_ADDR = 0x24

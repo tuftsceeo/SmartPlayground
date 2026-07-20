@@ -1,25 +1,19 @@
 """
-PlaygroundV5 (Bag3) - WS1850S NFC Tag Reader
-=============================================
+PlaygroundV5 (Bag3) - PN532 NFC Tag Reader
+==========================================
 Board: Seeed XIAO ESP32-C6 (Bag3 wand)
-NFC:   M5Stack RFID2 / WS1850S on I2C (SDA=GPIO22, SCL=GPIO23), addr 0x28
+NFC:   PN532 on I2C (SDA=GPIO22, SCL=GPIO23), addr 0x24
 
-Requires ws1850s.py on the device (copied alongside this file).
+Requires pn532.py and opcodes.py on the device.
 
-Bag3 port of the original PN532 reader. The WS1850S replaces the PN532,
-so the embedded PN532 wire protocol is gone; every operation now goes
-through the WS1850S driver. MIFARE Classic auth+read, NTAG/Ultralight
-page reads, and NDEF decoding are unchanged.
-
-Note: the original reader began with a CD4066 reader-select preamble that
-drove GPIO0/GPIO1 to switch between two PN532s. Bag3 has a single WS1850S
-on the Grove I2C bus (and GPIO0 is the button), so that mux preamble has
-been removed.
+Dumps every page/block of a tag and decodes the page-5 opcode (the wand's
+real card format). MIFARE Classic auth+read and NTAG/Ultralight page reads
+go through the PN532 driver (lib/pn532.py).
 """
 
 import machine
 import time
-from ws1850s import WS1850S
+from pn532 import PN532, MIFARE_AUTH_A, MIFARE_AUTH_B
 from opcodes import decode as decode_opcode, CARD_PAGE
 
 # ─────────────────────────────────────────────
@@ -27,15 +21,15 @@ from opcodes import decode as decode_opcode, CARD_PAGE
 # ─────────────────────────────────────────────
 I2C_SDA  = 22
 I2C_SCL  = 23
-NFC_ADDR = 0x28      # WS1850S default (PN532 was 0x24)
+NFC_ADDR = 0x24      # PN532 I2C address
 
-# MIFARE key-type codes (match WS1850S PICC_AUTHENT1A/1B)
-MIFARE_CMD_AUTH_A = WS1850S.PICC_AUTHENT1A
-MIFARE_CMD_AUTH_B = WS1850S.PICC_AUTHENT1B
+# MIFARE key-type codes
+MIFARE_CMD_AUTH_A = MIFARE_AUTH_A
+MIFARE_CMD_AUTH_B = MIFARE_AUTH_B
 
 
 def sak_type(sak):
-    """Best-effort tag-type name from the SAK byte (WS1850S has no ATQA)."""
+    """Best-effort tag-type name from the SAK byte."""
     if sak in (0x08, 0x09):
         return "MIFARE Classic 1K"
     if sak == 0x18:
@@ -48,67 +42,37 @@ def sak_type(sak):
 
 
 # ─────────────────────────────────────────────
-# NFC READER — WS1850S adapter
+# NFC READER — PN532 adapter
 # ─────────────────────────────────────────────
-# Same method names the read logic below expects, serviced by the WS1850S
-# driver instead of a PN532.
+# Thin wrapper over the real PN532 driver that adds a tag_type field to the
+# detection result (the diagnostic loop below prints it).
 class NfcReaderDev:
     def __init__(self, i2c, addr=NFC_ADDR):
-        self.dev = WS1850S(i2c, addr)
+        self.dev = PN532(i2c, addr)
 
     def init(self):
-        self.dev.init()
-        return self.dev.version()
+        return self.dev.begin()   # (ic, ver, rev)
 
     def read_passive_target(self, baud=0x00, timeout=1000):
-        """Detect an ISO14443A tag. Returns dict or None. Leaves card ACTIVE."""
-        # Clear leftover Crypto1 from a prior auth; otherwise the next
-        # anticollision/SELECT is encrypted and silently fails (breaks
-        # multi-sector reads and re-detecting the next card).
-        try:
-            self.dev.stop_crypto1()
-        except Exception:
-            pass
-        deadline = time.ticks_add(time.ticks_ms(), timeout)
-        while True:
-            try:
-                result = self.dev.read_uid_full()
-            except Exception:
-                result = None
-            if result is not None:
-                uid, sak = result
-                return {
-                    'uid': bytes(uid),
-                    'uid_hex': ':'.join('%02X' % b for b in uid),
-                    'uid_len': len(uid),
-                    'sak': sak,
-                    'tag_type': sak_type(sak),
-                }
-            if time.ticks_diff(deadline, time.ticks_ms()) <= 0:
-                return None
-            time.sleep_ms(10)
+        """Detect an ISO14443A tag. Returns dict (with tag_type) or None."""
+        tag = self.dev.read_passive_target(baud=baud, timeout=timeout)
+        if tag is None:
+            return None
+        tag['tag_type'] = sak_type(tag['sak'])
+        return tag
 
     def mifare_auth_block(self, uid, block, key=b'\xFF\xFF\xFF\xFF\xFF\xFF',
                           key_type=MIFARE_CMD_AUTH_A):
         """Authenticate a MIFARE Classic block. Returns True on success."""
-        try:
-            return self.dev.auth(key_type, block, key, uid) == WS1850S.MI_OK
-        except Exception:
-            return False
+        return self.dev.mifare_auth_block(uid, block, key, key_type)
 
     def mifare_read_block(self, block):
         """Read 16 bytes from an authenticated MIFARE Classic block."""
-        status, data = self.dev.read_block(block)
-        if status != WS1850S.MI_OK or data is None:
-            raise RuntimeError("read status err")
-        return bytes(data[:16])
+        return self.dev.mifare_read_block(block)
 
     def ntag_read_page(self, page):
         """Read 4 bytes from an NTAG/Ultralight page."""
-        status, data = self.dev.ul_read(page)
-        if status != WS1850S.MI_OK or data is None:
-            raise RuntimeError("read status err")
-        return bytes(data[:4])
+        return self.dev.ntag_read_page(page)
 
 
 # ─────────────────────────────────────────────
@@ -340,7 +304,7 @@ def read_uid_only(nfc):
 # ─────────────────────────────────────────────
 def main():
     print("\n" + "*" * 55)
-    print("  PlaygroundV5 (Bag3) — WS1850S NFC Tag Reader")
+    print("  PlaygroundV5 (Bag3) — PN532 NFC Tag Reader")
     print("  Board: XIAO ESP32-C6")
     print("*" * 55)
 
@@ -354,17 +318,15 @@ def main():
     print(f"\n  I2C devices: {['0x{:02X}'.format(d) for d in devices]}")
 
     if NFC_ADDR not in devices:
-        print(f"  [FAIL] WS1850S not found at 0x{NFC_ADDR:02X}")
+        print(f"  [FAIL] PN532 not found at 0x{NFC_ADDR:02X}")
         return
 
     nfc = NfcReaderDev(i2c, NFC_ADDR)
 
-    section("WS1850S Init")
+    section("PN532 Init")
     try:
-        ver = nfc.init()
-        print(f"  VersionReg: 0x{ver:02X}")
-        if ver in (0x00, 0xFF):
-            print("  [WARN] VersionReg 0x00/0xFF — check wiring (may still work)")
+        fw = nfc.init()
+        print(f"  PN532 firmware: {fw[1]}.{fw[2]} (IC 0x{fw[0]:02X})")
     except Exception as e:
         print(f"  [FAIL] Init error: {e}")
         return

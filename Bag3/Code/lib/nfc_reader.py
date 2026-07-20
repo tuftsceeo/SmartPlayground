@@ -58,7 +58,7 @@ def _read_opcode_bytes(nfc, sak, resel_timeout=150):
     """
     if sak in (0x08, 0x18):
         # MIFARE Classic — must auth before reading. Re-select before each
-        # auth attempt: the WS1850S needs the card selected, and a failed
+        # auth attempt: the PN532 needs the card selected, and a failed
         # auth drops it.
         for key in COMMON_KEYS:
             for kt in (MIFARE_AUTH_A, MIFARE_AUTH_B):

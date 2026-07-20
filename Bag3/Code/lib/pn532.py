@@ -1,135 +1,213 @@
 """
-PN532 compatibility shim — backed by the WS1850S (M5Stack RFID2)
-================================================================
-Bag3 replaces the PN532 NFC reader with an M5Stack RFID2 unit built
-around the WS1850S (an MFRC522-register-compatible IC at I2C 0x28).
+PN532 NFC Reader/Writer Driver — MicroPython (I2C)
+==================================================
+Bag3 runs the original PN532 NFC module (I2C addr 0x24), same as Bag2.
+This is the real PN532 wire-protocol driver (ported from Bag2), extended
+with page/block WRITE support for the card-writer and migration tools.
 
-The wand games and lib/nfc_reader.py were all written against the PN532
-driver API:
+Supports:
+  • MIFARE Classic auth / read / write
+  • NTAG / Ultralight page read / write
+  • ISO14443A tag detection (UID + SAK)
 
-    from pn532 import PN532, MIFARE_AUTH_A, MIFARE_AUTH_B
-    nfc = PN532(i2c, PN532_ADDR)
+Usage:
+    from pn532 import PN532
+    import machine
+
+    i2c = machine.SoftI2C(sda=machine.Pin(22), scl=machine.Pin(23), freq=100_000)
+    nfc = PN532(i2c)          # default addr 0x24
     nfc.begin()
-    tag = nfc.read_passive_target(timeout=250)   # -> dict | None
-    nfc.mifare_auth_block(uid, block, key, key_type)
-    nfc.mifare_read_block(block)                 # -> 16 bytes
-    nfc.ntag_read_page(page)                     # -> 4 bytes
 
-This module keeps that exact surface so none of the game code has to
-change. The actual PN532 wire protocol is gone; every call is translated
-to the WS1850S driver (lib/ws1850s.py) underneath.
-
-The legacy PN532 I2C address (0x24) is transparently remapped to the
-WS1850S default (0x28), so callers passing the old PN532_ADDR still work.
+    tag = nfc.read_passive_target()
+    if tag:
+        print(tag['uid_hex'], tag['sak'])
+        page = nfc.ntag_read_page(5)          # NTAG
+        nfc.ntag_write_page(5, b'\\x5a\\x01\\x01\\x5a')
 """
 
 import time
-from ws1850s import WS1850S
 
-# MIFARE key-type constants — same values the PN532 driver exported, and
-# they happen to match the WS1850S PICC_AUTHENT1A/1B codes exactly.
+# Frame markers
+_TFI_HOST2PN532 = 0xD4
+_TFI_PN5322HOST = 0xD5
+
+# Commands
+CMD_GETFIRMWAREVERSION  = 0x02
+CMD_SAMCONFIGURATION    = 0x14
+CMD_INLISTPASSIVETARGET = 0x4A
+CMD_INDATAEXCHANGE      = 0x40
+
+# MIFARE / NTAG PICC commands (issued through InDataExchange)
 MIFARE_AUTH_A = 0x60
 MIFARE_AUTH_B = 0x61
 MIFARE_READ   = 0x30
-
-# Old PN532 I2C address — remapped to the WS1850S default.
-_LEGACY_PN532_ADDR = 0x24
+MIFARE_WRITE  = 0xA0   # MIFARE Classic 16-byte write
+NTAG_WRITE    = 0xA2   # NTAG / Ultralight 4-byte page write
 
 
 class PN532:
-    """PN532-shaped facade over a WS1850S reader."""
-
-    def __init__(self, i2c, addr=WS1850S.DEFAULT_ADDR):
-        # Accept the legacy PN532 address (or None) and point at the WS1850S.
-        if addr in (None, _LEGACY_PN532_ADDR):
-            addr = WS1850S.DEFAULT_ADDR
+    def __init__(self, i2c, addr=0x24):
         self.i2c = i2c
         self.addr = addr
-        self._dev = WS1850S(i2c, addr)
         self.fw_version = None
 
-    # ─── High-level lifecycle ───
+    # ─── Low-level I2C protocol ───
+
+    def _wait_ready(self, timeout=1000):
+        start = time.ticks_ms()
+        while True:
+            try:
+                status = self.i2c.readfrom(self.addr, 1)
+                if status[0] == 0x01:
+                    return True
+            except OSError:
+                pass
+            if time.ticks_diff(time.ticks_ms(), start) > timeout:
+                return False
+            time.sleep_ms(10)
+
+    def _write_command(self, cmd, params=b''):
+        payload = bytes([_TFI_HOST2PN532, cmd]) + bytes(params)
+        length = len(payload)
+        lcs = (~length + 1) & 0xFF
+        frame = bytearray([0x00, 0x00, 0xFF, length, lcs])
+        frame.extend(payload)
+        frame.append((~sum(payload) + 1) & 0xFF)
+        frame.append(0x00)
+        self.i2c.writeto(self.addr, frame)
+
+    def _read_ack(self, timeout=500):
+        if not self._wait_ready(timeout):
+            raise RuntimeError("ACK timeout")
+        ack = self.i2c.readfrom(self.addr, 7)
+        ack_pattern = bytes([0x00, 0x00, 0xFF, 0x00, 0xFF, 0x00])
+        if ack_pattern in bytes(ack):
+            return True
+        raw = bytes(ack)
+        for i in range(len(raw) - 3):
+            if raw[i] == 0x00 and raw[i+1] == 0xFF and raw[i+2] == 0x00 and raw[i+3] == 0xFF:
+                return True
+        raise RuntimeError("Bad ACK")
+
+    def _read_response(self, timeout=1000):
+        if not self._wait_ready(timeout):
+            raise RuntimeError("Response timeout")
+        buf = self.i2c.readfrom(self.addr, 64)
+        raw = bytes(buf)
+        offset = -1
+        for i in range(len(raw) - 4):
+            if raw[i] == 0x00 and raw[i+1] == 0xFF:
+                if i+2 < len(raw) and raw[i+2] != 0x00:
+                    offset = i; break
+                elif (i+2 < len(raw) and raw[i+2] == 0x00
+                      and i+3 < len(raw) and raw[i+3] != 0xFF):
+                    offset = i; break
+        if offset < 0:
+            raise RuntimeError("No frame start")
+        frame_len = raw[offset + 2]
+        data_start = offset + 4
+        data = raw[data_start:data_start + frame_len]
+        if len(data) < frame_len:
+            raise RuntimeError("Short response")
+        return data
+
+    def _send_command(self, cmd, params=b'', timeout=1000):
+        self._write_command(cmd, params)
+        time.sleep_ms(5)
+        self._read_ack(timeout=timeout)
+        resp = self._read_response(timeout=timeout)
+        if len(resp) < 2 or resp[0] != _TFI_PN5322HOST or resp[1] != (cmd + 1):
+            raise RuntimeError("Bad response")
+        return resp[2:]
+
+    # ─── High-level commands ───
 
     def begin(self):
-        """
-        (Re)initialize the reader. Returns a 3-tuple shaped like the PN532's
-        firmware-version tuple so callers that unpack `ic, ver, rev` keep
-        working. Here it carries the WS1850S VersionReg in the first slot.
-        """
-        self._dev.init()
-        ver = self._dev.version()
-        self.fw_version = (ver, 0, 0)
-        return self.fw_version
+        """Initialize PN532: get firmware version and configure SAM.
 
-    # ─── Tag detection ───
+        Returns the firmware-version 3-tuple (ic, ver, rev) so callers that
+        unpack `ic, ver, rev = nfc.begin()` keep working.
+        """
+        fw = self._send_command(CMD_GETFIRMWAREVERSION)
+        self.fw_version = (fw[0], fw[1], fw[2])
+        self._send_command(CMD_SAMCONFIGURATION, b'\x01\x00\x00')
+        return self.fw_version
 
     def read_passive_target(self, baud=0x00, timeout=500):
         """
-        Poll for an ISO14443A tag for up to `timeout` ms.
+        Detect an ISO14443A tag.
 
-        Returns a dict {uid, uid_hex, uid_len, atqa, sak} on success, or
-        None if no tag appeared within the window. On success the card is
-        left in the ACTIVE state, ready for auth (Classic) or page reads
-        (Ultralight/NTAG) — same contract as the old PN532 driver.
+        Returns dict with uid, uid_hex, uid_len, atqa, sak, or None if no
+        tag found. On success the card is selected and ready for auth
+        (Classic) or page read/write (NTAG).
         """
-        # Clear any leftover MIFARE Classic Crypto1 state from a previous
-        # auth/read. The WS1850S leaves Crypto1 enabled after auth, which
-        # encrypts the next anticollision/SELECT and makes it silently fail —
-        # that would break multi-sector reads and re-detecting the next card.
         try:
-            self._dev.stop_crypto1()
-        except Exception:
-            pass
-        deadline = time.ticks_add(time.ticks_ms(), timeout)
-        while True:
-            try:
-                result = self._dev.read_uid_full()
-            except Exception:
-                result = None
-            if result is not None:
-                uid, sak = result
-                return {
-                    'uid': bytes(uid),
-                    'uid_hex': ':'.join('%02X' % b for b in uid),
-                    'uid_len': len(uid),
-                    'atqa': 0,          # WS1850S doesn't surface ATQA; unused downstream
-                    'sak': sak,
-                }
-            if time.ticks_diff(deadline, time.ticks_ms()) <= 0:
-                return None
-            time.sleep_ms(10)
+            resp = self._send_command(
+                CMD_INLISTPASSIVETARGET, bytes([0x01, baud]), timeout=timeout
+            )
+        except RuntimeError:
+            return None
+        if len(resp) < 6 or resp[0] == 0:
+            return None
+        uid_len = resp[5]
+        uid = resp[6:6 + uid_len]
+        return {
+            'uid': bytes(uid),
+            'uid_hex': ':'.join('%02X' % b for b in uid),
+            'uid_len': uid_len,
+            'atqa': (resp[2] << 8) | resp[3],
+            'sak': resp[4],
+        }
 
     # ─── MIFARE Classic ───
 
-    def mifare_auth_block(self, uid, block, key=b'\xFF\xFF\xFF\xFF\xFF\xFF',
-                          key_type=MIFARE_AUTH_A):
-        """Authenticate a MIFARE Classic block. Returns True on success.
-
-        The card must already be selected (call read_passive_target first),
-        exactly as with the PN532 flow in nfc_reader.py.
-        """
+    def mifare_auth_block(self, uid, block, key=b'\xFF\xFF\xFF\xFF\xFF\xFF', key_type=MIFARE_AUTH_A):
+        """Authenticate a MIFARE Classic block. Returns True on success."""
+        params = bytes([0x01, key_type, block]) + key + bytes(uid[:4])
         try:
-            return self._dev.auth(key_type, block, key, uid) == WS1850S.MI_OK
+            resp = self._send_command(CMD_INDATAEXCHANGE, params, timeout=1000)
+            return (resp[0] & 0x3F) == 0x00
         except Exception:
             return False
 
     def mifare_read_block(self, block):
         """Read 16 bytes from an authenticated MIFARE Classic block."""
-        status, data = self._dev.read_block(block)
-        if status != WS1850S.MI_OK or data is None:
-            raise RuntimeError("Classic read err on block %d" % block)
-        return bytes(data[:16])
+        params = bytes([0x01, MIFARE_READ, block])
+        resp = self._send_command(CMD_INDATAEXCHANGE, params, timeout=1000)
+        if (resp[0] & 0x3F) != 0x00:
+            raise RuntimeError("Read err 0x%02X" % (resp[0] & 0x3F))
+        return bytes(resp[1:17])
+
+    def mifare_write_block(self, block, data):
+        """Write 16 bytes to an authenticated MIFARE Classic block."""
+        if len(data) != 16:
+            raise ValueError("MIFARE write needs exactly 16 bytes")
+        params = bytes([0x01, MIFARE_WRITE, block]) + bytes(data)
+        resp = self._send_command(CMD_INDATAEXCHANGE, params, timeout=1000)
+        if (resp[0] & 0x3F) != 0x00:
+            raise RuntimeError("Classic write err 0x%02X" % (resp[0] & 0x3F))
+        return True
 
     # ─── NTAG / Ultralight ───
 
     def ntag_read_page(self, page):
-        """Read 4 bytes from a single NTAG/Ultralight page.
+        """Read 4 bytes from an NTAG/Ultralight page.
 
-        WS1850S READ returns 16 bytes (4 pages) at once; we slice out the
-        requested page so the byte stream lines up with the PN532's
-        page-at-a-time contract that nfc_reader.py relies on.
+        (The PICC READ returns 16 bytes / 4 pages; we return the first 4
+        so callers get the single requested page.)
         """
-        status, data = self._dev.ul_read(page)
-        if status != WS1850S.MI_OK or data is None:
-            raise RuntimeError("NTAG read err on page %d" % page)
-        return bytes(data[:4])
+        params = bytes([0x01, MIFARE_READ, page])
+        resp = self._send_command(CMD_INDATAEXCHANGE, params, timeout=1000)
+        if (resp[0] & 0x3F) != 0x00:
+            raise RuntimeError("Read err 0x%02X" % (resp[0] & 0x3F))
+        return bytes(resp[1:5])
+
+    def ntag_write_page(self, page, data):
+        """Write 4 bytes to a single NTAG/Ultralight page."""
+        if len(data) != 4:
+            raise ValueError("NTAG write needs exactly 4 bytes")
+        params = bytes([0x01, NTAG_WRITE, page]) + bytes(data)
+        resp = self._send_command(CMD_INDATAEXCHANGE, params, timeout=1000)
+        if (resp[0] & 0x3F) != 0x00:
+            raise RuntimeError("NTAG write err 0x%02X" % (resp[0] & 0x3F))
+        return True

@@ -14,8 +14,8 @@ compact opcode (see lib/opcodes.py). Tap each card once:
 Idempotent: re-tapping a migrated card just skips it, so you can sweep a
 whole pile without tracking which you've done.
 
-Requires on the device: ws1850s.py, opcodes.py, and writetoNFCcards.py
-(this reuses that file's WS1850S adapter + LED/buzzer feedback).
+Requires on the device: pn532.py, opcodes.py, and writetoNFCcards.py
+(this reuses that file's PN532 adapter + LED/buzzer feedback).
 
 Run from the REPL:   import migrate_cards; migrate_cards.main()
 """
@@ -223,7 +223,7 @@ def main():
 
     nfc = NfcWriter(i2c, NFC_ADDR)
     nfc.init()
-    print("  WS1850S ready — waiting for cards\n")
+    print("  PN532 ready — waiting for cards\n")
 
     counts = {"ok": 0, "skip": 0, "unknown": 0, "fail": 0}
     last_uid = None
