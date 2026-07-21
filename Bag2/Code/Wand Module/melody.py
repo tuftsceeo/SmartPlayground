@@ -45,7 +45,7 @@ MAX_NOTES = 25
 COMMANDS = {
     "note_c", "note_d", "note_e", "note_f",
     "note_g", "note_a", "note_b", "note_c_high",
-    "erase", "melody",
+    "erase", "melody", "backspace"
 } | _EXIT_TAGS
 
 NOTE_COLOR = {
@@ -305,6 +305,16 @@ class MelodyGame:
                             self.display.show_erase_animation()
                             self.buz.confirm()
                             print("  Melody erased (%d notes)" % erased)
+                    
+                    elif cmd == "backspace":
+                        if len(self.current_melody) == 0:
+                            self.display.show_error_empty_erase()
+                            self.buz.warn()
+                        else:
+                            self.current_melody = self.current_melody[0:-1]
+                            #self.display.show_erase_animation()
+                            self.buz.confirm()
+                            print("  Backspaced")
             
             # ── BUTTON: Play current melody ──
             if self._check_button():
