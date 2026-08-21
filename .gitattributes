@@ -1,0 +1,319 @@
+# .gitattributes
+#
+# Config for a mixed Python / web-app / hardware-firmware
+# project
+#
+#   text    Normalize line endings (CRLF -> LF in the repo; restored to the
+#           platform default on checkout unless eol= forces a specific one).
+#   binary  Left byte-for-byte untouched; shorthand for `-text -diff`.
+#   eol=lf/crlf   Force a specific line ending regardless of platform.
+#   diff=<driver> Use a specialized diff driver instead of raw text diff.
+#
+# Default: let Git auto-detect text vs. binary for anything not listed below.
+* text=auto
+
+# ---------------------------------------------------------------------------
+# Python
+# ---------------------------------------------------------------------------
+*.py      text diff=python
+*.py3     text diff=python
+*.pyw     text diff=python
+*.pyx     text diff=python
+*.pyz     text diff=python
+*.pyi     text diff=python
+*.pxd     text diff=python
+*.pkl     binary
+*.pickle  binary
+*.db      binary
+*.p       binary
+*.pyc     binary export-ignore
+*.pyo     binary export-ignore
+*.pyd     binary
+
+# ---------------------------------------------------------------------------
+# Firmware / Hardware (Arduino, ESP32, MicroPython)
+# Force LF so sketches/firmware built on Windows don't introduce CRLF that
+# breaks compilers or diffs when a Mac/Linux contributor edits the same file.
+# ---------------------------------------------------------------------------
+*.ino           text eol=lf
+*.c             text eol=lf diff=cpp
+*.h             text eol=lf diff=cpp
+*.cpp           text eol=lf diff=cpp
+*.hpp           text eol=lf diff=cpp
+*.cc            text eol=lf diff=cpp
+*.cxx           text eol=lf diff=cpp
+*.s             text eol=lf
+platformio.ini  text eol=lf
+*.mpy           binary
+
+# ---------------------------------------------------------------------------
+# Shell & scripting
+# ---------------------------------------------------------------------------
+*.sh    text eol=lf
+*.bash  text eol=lf
+*.zsh   text eol=lf
+*.fish  text eol=lf
+*.ksh   text eol=lf
+.husky/* text eol=lf
+# Windows-only scripts should keep CRLF.
+*.bat   text eol=crlf
+*.cmd   text eol=crlf
+*.ps1   text eol=crlf
+
+# ---------------------------------------------------------------------------
+# Jupyter notebooks
+# ---------------------------------------------------------------------------
+*.ipynb  text eol=lf
+
+# ---------------------------------------------------------------------------
+# Web source
+# ---------------------------------------------------------------------------
+*.html   text diff=html
+*.htm    text diff=html
+*.xhtml  text diff=html
+*.css    text diff=css
+*.scss   text diff=css
+*.sass   text
+*.less   text
+*.styl   text
+*.js     text
+*.mjs    text
+*.cjs    text
+*.jsx    text
+*.ts     text
+*.tsx    text
+*.coffee text
+*.ls     text
+*.php    text diff=php
+*.rb     text diff=ruby
+*.pl     text
+*.scm    text
+*.map    text -diff
+*.svelte text
+*.vue    text
+
+# Templating languages
+*.dot        text
+*.ejs        text
+*.erb        text
+*.haml       text
+*.handlebars text
+*.hbs        text
+*.hbt        text
+*.jade       text
+*.latte      text
+*.mustache   text
+*.njk        text
+*.phtml      text
+*.tmpl       text
+*.tpl        text
+*.twig       text
+
+# ---------------------------------------------------------------------------
+# Data & config formats
+# ---------------------------------------------------------------------------
+*.json    text
+*.jsonc   text
+*.toml    text
+*.xml     text
+*.yaml    text
+*.yml     text
+*.ini     text
+*.inc     text
+*.cnf     text
+*.conf    text
+*.config  text
+*.sql     text
+*.onlydata text
+.editorconfig  text
+.gitattributes text
+.gitconfig     text
+.htaccess      text
+.prettierrc    text
+*.env          text
+browserslist   text
+Makefile       text
+makefile       text
+Procfile       text
+Dockerfile     text
+# RC files (.babelrc, .eslintrc, ...) and ignore files (.npmignore, ...)
+*.*rc     text
+*.*ignore text
+# Fixes GitHub syntax highlighting for JSON-with-comments
+tsconfig.json text linguist-language=JSON-with-Comments
+
+# Lockfiles: normalize line endings but never diff (auto-generated, noisy)
+*.lock            text -diff
+package.json      text eol=lf
+package-lock.json text eol=lf -diff
+pnpm-lock.yaml    text eol=lf -diff
+yarn.lock         text -diff
+
+# ---------------------------------------------------------------------------
+# Documentation & plain text
+# ---------------------------------------------------------------------------
+*.md       text diff=markdown
+*.mdx      text diff=markdown
+*.markdown text diff=markdown
+*.mdwn     text diff=markdown
+*.mdown    text diff=markdown
+*.mkd      text diff=markdown
+*.mkdn     text diff=markdown
+*.mdtxt    text
+*.mdtext   text
+*.txt      text
+*.tex      text diff=tex
+*.bibtex   text diff=bibtex
+*.adoc     text
+*.textile  text
+*.tab      text
+*.tsv      text
+*.csv      text eol=lf
+# iCalendar files are commonly consumed by tools expecting CRLF
+*.ics      text eol=crlf
+AUTHORS      text
+CHANGELOG    text
+CHANGES      text
+CONTRIBUTING text
+COPYING      text
+copyright    text
+*COPYRIGHT*  text
+INSTALL      text
+license      text
+LICENSE      text
+NEWS         text
+readme       text
+*README*     text
+TODO         text
+
+# ---------------------------------------------------------------------------
+# Documents (Office/rich text) — diff extracted plaintext where possible
+# ---------------------------------------------------------------------------
+*.doc  diff=astextplain
+*.DOC  diff=astextplain
+*.docx diff=astextplain
+*.DOCX diff=astextplain
+*.dot  diff=astextplain
+*.DOT  diff=astextplain
+*.rtf  diff=astextplain
+*.RTF  diff=astextplain
+*.epub diff=astextplain
+*.pdf  binary
+
+# ---------------------------------------------------------------------------
+# Images — treated as binary (most tracked SVGs here are exported/generated
+# graphics where line-diffs are noise, not hand-authored markup to diff).
+# ---------------------------------------------------------------------------
+*.svg   binary
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.JPG   binary
+*.gif   binary
+*.gifv  binary
+*.ico   binary
+*.bmp   binary
+*.eps   binary
+*.tif   binary
+*.tiff  binary
+*.wbmp  binary
+*.webp  binary
+*.jng   binary
+*.jp2   binary
+*.jpx   binary
+*.jxr   binary
+*.svgz  binary
+*.ai    binary
+*.psb   binary
+*.psd   binary
+
+# ---------------------------------------------------------------------------
+# Audio
+# ---------------------------------------------------------------------------
+*.wav   binary
+*.mp3   binary
+*.ogg   binary
+*.m4a   binary
+*.mid   binary
+*.midi  binary
+*.kar   binary
+*.ra    binary
+
+# ---------------------------------------------------------------------------
+# Video
+# ---------------------------------------------------------------------------
+*.mp4   binary
+*.mov   binary
+*.avi   binary
+*.webm  binary
+*.mpeg  binary
+*.mpg   binary
+*.m4v   binary
+*.mng   binary
+*.flv   binary
+*.ogv   binary
+*.3gp   binary
+*.3gpp  binary
+*.asf   binary
+*.asx   binary
+*.as    binary
+*.fla   binary
+*.swc   binary
+*.swf   binary
+
+# ---------------------------------------------------------------------------
+# Archives
+# ---------------------------------------------------------------------------
+*.zip   binary
+*.7z    binary
+*.gz    binary
+*.bz    binary
+*.bz2   binary
+*.bzip2 binary
+*.tar   binary
+*.taz   binary
+*.tbz   binary
+*.tbz2  binary
+*.tgz   binary
+*.tlz   binary
+*.txz   binary
+*.lz    binary
+*.lzma  binary
+*.xz    binary
+*.zst   binary
+*.Z     binary
+*.rar   binary
+*.jar   binary
+
+# ---------------------------------------------------------------------------
+# Fonts
+# ---------------------------------------------------------------------------
+*.ttf   binary
+*.otf   binary
+*.eot   binary
+*.woff  binary
+*.woff2 binary
+
+# ---------------------------------------------------------------------------
+# Executables / compiled artifacts
+# ---------------------------------------------------------------------------
+*.exe binary
+
+# ---------------------------------------------------------------------------
+# Patches — never touch line endings, they're meaningful content
+# ---------------------------------------------------------------------------
+*.patch -text
+
+# ---------------------------------------------------------------------------
+# Build output / vendored dependencies — keep out of diffs and language stats
+# ---------------------------------------------------------------------------
+dist/**              binary linguist-generated
+**/.yarn/releases/** binary
+**/.yarn/plugins/**  binary
+
+# ---------------------------------------------------------------------------
+# Exclude repo-management files from `git archive` exports
+# ---------------------------------------------------------------------------
+.gitattributes export-ignore
+.gitignore     export-ignore
+.gitkeep       export-ignore
