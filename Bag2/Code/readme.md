@@ -43,15 +43,25 @@ Code/
 │   ├── game_tags.py                  Bundled lib copy (UIFlow upload)
 │   └── README.md
 │
-└── Stations/
-    ├── Programming Station/
-    │   ├── main.py                   4×PN532 hub, broadcasts via ESP-NOW
-    │   ├── hubtype.txt               Contains: programming_station
-    │   └── readme.md
-    └── Slide Score Station/
-        ├── main.py                   40-LED serpentine bar graph
-        ├── hubtype.txt               Contains: score_board
-        └── readme.md
+├── Stations/
+│   ├── Programming Station/
+│   │   ├── main.py                   4×PN532 hub, broadcasts via ESP-NOW
+│   │   ├── hubtype.txt               Contains: programming_station
+│   │   └── readme.md
+│   └── Slide Score Station/
+│       ├── main.py                   40-LED serpentine bar graph
+│       ├── hubtype.txt               Contains: score_board
+│       └── readme.md
+│
+└── StickS3 Narrator/                 Prototype, not yet bench-verified
+    ├── main.py                       Accessibility companion: ESP-NOW listen-only, speaks game start/stop
+    ├── demo.py                       Standalone bench demo -- no hub/wand/ESP-NOW needed
+    ├── narrator_ui.py                Color-LCD status text
+    ├── phrases.py                    Game tag → spoken label + WAV path
+    ├── espnow_manager.py             Bundled lib copy
+    ├── game_tags.py                  Bundled lib copy
+    ├── assets/_generate_phrases.py   Dev-only offline-TTS WAV generator
+    └── README.md
 ```
 
 ## How hubtype.txt Works
