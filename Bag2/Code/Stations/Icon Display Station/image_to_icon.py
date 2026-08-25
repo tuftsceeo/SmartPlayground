@@ -1,72 +1,216 @@
+#!/usr/bin/env python3
+"""
+image_to_icon.py -- PC-side (needs `pip install pillow`) converter from a
+PNG/JPEG source icon to a 16x16 device ICON file, driven by a committed
+maps/<name>.json (see icon_editor.py to create/edit one).
+
+    python3 image_to_icon.py assets/apple.png
+        -> maps/apple.json (created with auto-proposed colors if absent,
+           otherwise loaded and reconciled against the current source art)
+        -> icons/apple.py  (device-ready ICON tuple)
+        -> previews/apple.png (simulated-LED render -- inspect this before
+           flashing; see design doc §The editor, "Honest preview fidelity")
+
+    python3 image_to_icon.py --report assets/*.png
+        Print each image's measured fill histogram (rgb, count, %) and,
+        for anything already mapped, cells won -- the fastest way to see
+        which fills a decision hasn't been made for yet, or which colored
+        segment is about to win zero cells.
+
+    python3 image_to_icon.py --check assets/*.png
+        Run iconlib.emit.lint() against each image's current map and exit
+        non-zero if any image has problems. Prints them either way.
+
+    python3 image_to_icon.py --swatch out.py
+        Write a 16-color swatch test icon (4x4 blocks of leds.py PALETTE
+        colors) -- one flash settles a batch of hue questions instead of
+        round-tripping single icons. See design doc §Honest preview
+        fidelity.
+
+    python3 image_to_icon.py --push icons/apple.py [--port /dev/cu.usbmodem1101]
+        Copy an icon file onto the device's icons/ folder via mpremote.
+        Requires a locally-attached device -- not usable from a session
+        without a serial port.
+"""
+
+import argparse
+import glob
+import os
 import sys
-import colorsys
-from PIL import Image
+import subprocess
 
-W = 16
-H = 16
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "iconlib"))
 
-# pulled straight from lib/leds.py -- base colors only, no _DIM variants
-# (brightness is handled by rescaling to the source pixel's own value below)
-PALETTE = {
-    "RED": (130, 0, 0), "ROSE": (120, 10, 20),
-    "ORANGE": (120, 40, 0), "AMBER": (120, 80, 0), "YELLOW": (110, 120, 0),
-    "LIME": (50, 210, 0), "GREEN": (0, 230, 0),
-    "TEAL": (0, 180, 100), "CYAN": (0, 180, 240), "BLUE": (0, 20, 255),
-    "INDIGO": (30, 0, 255), "PURPLE": (50, 0, 250), "MAGENTA": (120, 0, 160),
-    "WHITE": (140, 150, 150), "PINK": (200, 80, 120), "PEACH": (180, 120, 30),
-    "MINT": (30, 190, 50), "SKY": (60, 150, 250),
-}
-PALETTE_HSV = {name: colorsys.rgb_to_hsv(*(c/255 for c in rgb)) for name, rgb in PALETTE.items()}
+from segment import W, H, MAX_SEGMENTS  # noqa: E402
+from raster import rasterize, apply_overlay, cells_won, CELL_ON  # noqa: E402
+from emit import enforce_floor, write_icon, lint, CH_FLOOR  # noqa: E402
+from preview import render_preview  # noqa: E402
+from palette import PALETTE  # noqa: E402
+import mapio  # noqa: E402
 
-V_FLOOR = 0.04  # basically-black source pixels just go off, don't hue-match noise
-S_FLOOR = 0.12  # near-gray source pixels -- hue is meaningless, treat as white
+HERE = os.path.dirname(os.path.abspath(__file__))
+ICONS_DIR = os.path.join(HERE, "icons")
+MAPS_DIR = os.path.join(HERE, "maps")
+PREVIEWS_DIR = os.path.join(HERE, "previews")
 
-def hue_dist(h1, h2):
-    d = abs(h1 - h2)
-    return min(d, 1 - d)
 
-def snap(rgb):
-    r, g, b = (c / 255 for c in rgb)
-    h, s, v = colorsys.rgb_to_hsv(r, g, b)
-    if v < V_FLOOR:
-        return (0, 0, 0)
-    name = "WHITE" if s < S_FLOOR else min(PALETTE_HSV, key=lambda n: hue_dist(h, PALETTE_HSV[n][0]))
-    ph, ps, pv = PALETTE_HSV[name]
-    if pv <= 0:
-        return (0, 0, 0)
-    scale = v / pv
-    pr, pg, pb = PALETTE[name]
-    return (min(255, int(pr * scale)), min(255, int(pg * scale)), min(255, int(pb * scale)))
+def _name_for(png_path):
+    return os.path.splitext(os.path.basename(png_path))[0]
 
-def convert(path):
-    img = Image.open(path).convert("RGBA")
-    bg = Image.new("RGBA", img.size, (0, 0, 0, 255))
-    img = Image.alpha_composite(bg, img).convert("RGB").resize((W, H), Image.NEAREST)
-    px = []
-    for row in range(H):
-        for col in range(W):
-            px.append(snap(img.getpixel((col, row))))
-    return px
 
-def preview(px):
-    for row in range(H):
-        line = ""
-        for col in range(W):
-            r, g, b = px[row * W + col]
-            line += "\x1b[48;2;%d;%d;%dm  \x1b[0m" % (r, g, b)
-        print(line)
+def convert_one(png_path, max_segments=MAX_SEGMENTS, intensity=None, write=True):
+    """Runs the full pipeline for one source image. Returns a dict of
+    everything the CLI/editor/--report/--check need."""
+    name = _name_for(png_path)
+    map_path = os.path.join(MAPS_DIR, name + ".json")
+    existing = mapio.load_map(map_path)
 
-def write(px, out):
-    with open(out, "w") as f:
-        f.write("ICON = (\n")
-        for row in range(H):
-            f.write("    " + ", ".join(str(p) for p in px[row*W:(row+1)*W]) + ",\n")
-        f.write(")\n")
+    img, fills, labels, decisions, overlay, mode, eff_intensity = mapio.build(
+        png_path, existing_map=existing, max_segments=max_segments, intensity=intensity)
+
+    pixels = rasterize(fills, labels, decisions)
+    pixels = apply_overlay(pixels, overlay)
+    pixels = enforce_floor(pixels)
+    won = cells_won(fills, labels, decisions)
+    problems = lint(pixels, fills, decisions, won, eff_intensity)
+
+    if write:
+        os.makedirs(ICONS_DIR, exist_ok=True)
+        os.makedirs(PREVIEWS_DIR, exist_ok=True)
+        icon_path = os.path.join(ICONS_DIR, name + ".py")
+        preview_path = os.path.join(PREVIEWS_DIR, name + ".png")
+        write_icon(pixels, icon_path,
+                   name_comment="Generated by image_to_icon.py from %s -- do not hand-edit; edit maps/%s.json instead."
+                                 % (os.path.relpath(png_path, HERE), name))
+        render_preview(pixels, eff_intensity, preview_path)
+        map_obj = mapio.to_map_obj(png_path, fills, decisions, overlay, eff_intensity, max_segments)
+        mapio.save_map(map_path, map_obj)
+
+    return {
+        "name": name, "png_path": png_path, "mode": mode, "fills": fills,
+        "decisions": decisions, "cells_won": won, "pixels": pixels,
+        "problems": problems, "intensity": eff_intensity,
+    }
+
+
+def cmd_convert(paths, max_segments, intensity):
+    exit_code = 0
+    for p in paths:
+        result = convert_one(p, max_segments=max_segments, intensity=intensity)
+        print("%-14s %-9s %2d fills -> icons/%s.py, previews/%s.png"
+              % (result["name"], result["mode"], len(result["fills"]), result["name"], result["name"]))
+        for prob in result["problems"]:
+            print("  ! %s" % prob)
+            exit_code = 1
+    return exit_code
+
+
+def cmd_report(paths, max_segments):
+    for p in paths:
+        name = _name_for(p)
+        map_path = os.path.join(MAPS_DIR, name + ".json")
+        existing = mapio.load_map(map_path)
+        img, fills, labels, decisions, overlay, mode, intensity = mapio.build(
+            p, existing_map=existing, max_segments=max_segments)
+        won = cells_won(fills, labels, decisions)
+        print("== %s (%s, %d fills) ==" % (name, mode, len(fills)))
+        for i, (rgb, cnt, frac) in enumerate(fills):
+            d = decisions[i]
+            role = d["role"]
+            extra = ""
+            if role == "color":
+                extra = "-> %s cells_won=%d priority=%.1f" % (d["color"], won[i], d.get("priority", 1.0))
+            elif role == "merge":
+                extra = "-> merge into fill %d" % d["merge_into"]
+            print("   %3d  rgb=%-15s %6d px  %5.1f%%  %-6s %s" % (i, list(rgb), cnt, frac * 100, role, extra))
+    return 0
+
+
+def cmd_check(paths, max_segments):
+    exit_code = 0
+    for p in paths:
+        result = convert_one(p, max_segments=max_segments, write=False)
+        name = result["name"]
+        if result["problems"]:
+            print("%s: %d problem(s)" % (name, len(result["problems"])))
+            for prob in result["problems"]:
+                print("  ! %s" % prob)
+            exit_code = 1
+        else:
+            print("%s: clean" % name)
+    return exit_code
+
+
+def cmd_swatch(out_path):
+    names = list(PALETTE.keys())[:16]
+    pixels = [(0, 0, 0)] * (W * H)
+    block = 4  # 4x4 grid of 4x4-cell blocks = 16x16
+    for i, name in enumerate(names):
+        br, bg_ = divmod(i, 4)
+        color = PALETTE[name]
+        for dr in range(block):
+            for dc in range(block):
+                row = br * block + dr
+                col = bg_ * block + dc
+                pixels[row * W + col] = color
+    pixels = enforce_floor(pixels)
+    write_icon(pixels, out_path, name_comment="Swatch: " + ", ".join(names))
+    preview_path = os.path.splitext(out_path)[0] + "_preview.png"
+    render_preview(pixels, mapio.DEFAULT_INTENSITY, preview_path)
+    print("wrote", out_path, "and", preview_path)
+    print("blocks (row-major, 4x4):", ", ".join(names))
+    return 0
+
+
+def cmd_push(icon_path, port):
+    name = _name_for(icon_path)
+    dest = "icons/%s.py" % name
+    try:
+        subprocess.run(["python3", "-m", "mpremote", "connect", port, "cp", icon_path, ":" + dest], check=True)
+    except FileNotFoundError:
+        print("mpremote not found -- install it (`pip install mpremote`) and run this on a machine "
+              "with the device attached over USB. Not usable from a session without a serial port.")
+        return 1
+    except subprocess.CalledProcessError as e:
+        print("push failed:", e)
+        return 1
+    print("pushed", icon_path, "->", dest, "on", port)
+    return 0
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("paths", nargs="*", help="source PNG/JPEG path(s), or an icon .py for --push")
+    ap.add_argument("--report", action="store_true")
+    ap.add_argument("--check", action="store_true")
+    ap.add_argument("--swatch", metavar="OUT_PY")
+    ap.add_argument("--push", action="store_true")
+    ap.add_argument("--port", default="/dev/cu.usbmodem1101")
+    ap.add_argument("--segments", type=int, default=MAX_SEGMENTS)
+    ap.add_argument("--intensity", type=float, default=None)
+    args = ap.parse_args()
+
+    if args.swatch:
+        return cmd_swatch(args.swatch)
+
+    paths = []
+    for p in args.paths:
+        matches = glob.glob(p)
+        paths.extend(matches if matches else [p])
+    if not paths and not args.swatch:
+        ap.error("no source paths given")
+
+    if args.push:
+        rc = 0
+        for p in paths:
+            rc |= cmd_push(p, args.port)
+        return rc
+    if args.report:
+        return cmd_report(paths, args.segments)
+    if args.check:
+        return cmd_check(paths, args.segments)
+    return cmd_convert(paths, args.segments, args.intensity)
+
 
 if __name__ == "__main__":
-    path = sys.argv[1]
-    out = sys.argv[2] if len(sys.argv) > 2 else "icon_out.py"
-    px = convert(path)
-    preview(px)
-    write(px, out)
-    print("wrote", out)
+    sys.exit(main())

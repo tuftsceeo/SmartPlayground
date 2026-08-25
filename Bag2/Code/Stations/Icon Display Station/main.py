@@ -10,7 +10,10 @@ DATA_PIN = 0
 GRID_W = 16
 GRID_H = 16
 NUM_PIXELS = GRID_W * GRID_H
-INTENSITY = 0.25
+INTENSITY = 0.30   # from 0.25 -- see below; still well under the readme's
+                    # measured ceiling (rainbow rows cleared all 256px at
+                    # 0.50 on 12V), and honors "static content should run
+                    # measurably dimmer than the tested ceiling."
 
 strip = neopixel.NeoPixel(machine.Pin(DATA_PIN), NUM_PIXELS)
 
@@ -21,7 +24,14 @@ def pixel_index(col, row):
 
 
 def scale(rgb):
-    return tuple(int(c * INTENSITY) for c in rgb)
+    # Round-half-up with a floor, not truncate. int(c * INTENSITY) silently
+    # kills any authored channel below 4 at INTENSITY=0.25 (e.g. int(19*0.25)
+    # == 4, int(3*0.25) == 0) -- the direct cause of thin authored detail
+    # (like a stem's low-authored-channel pixels) vanishing on-device even
+    # though image_to_icon.py's CH_FLOOR keeps every nonzero channel >= 20.
+    # A zero channel is an intentional "off" and stays exactly 0; every
+    # other channel gets at least 1 so it's never silently dropped.
+    return tuple(0 if c == 0 else max(1, int(c * INTENSITY + 0.5)) for c in rgb)
 
 
 def draw(pixels):

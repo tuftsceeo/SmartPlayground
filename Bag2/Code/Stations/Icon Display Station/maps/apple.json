@@ -1,0 +1,95 @@
+{
+  "source": "assets/apple.png",
+  "max_segments": 12,
+  "intensity": 0.3,
+  "fills": [
+    {
+      "rgb": [
+        209,
+        56,
+        52
+      ],
+      "count": 126573,
+      "frac": 0.89044
+    },
+    {
+      "rgb": [
+        101,
+        156,
+        53
+      ],
+      "count": 8601,
+      "frac": 0.06051
+    },
+    {
+      "rgb": [
+        76,
+        49,
+        44
+      ],
+      "count": 2558,
+      "frac": 0.018
+    },
+    {
+      "rgb": [
+        247,
+        91,
+        87
+      ],
+      "count": 2265,
+      "frac": 0.01593
+    },
+    {
+      "rgb": [
+        153,
+        69,
+        48
+      ],
+      "count": 1502,
+      "frac": 0.01057
+    }
+  ],
+  "decisions": {
+    "209,56,52": {
+      "role": "color",
+      "priority": 1.0,
+      "color": [
+        126,
+        0,
+        0
+      ]
+    },
+    "101,156,53": {
+      "role": "color",
+      "priority": 0.6,
+      "color": [
+        33,
+        139,
+        0
+      ]
+    },
+    "76,49,44": {
+      "role": "color",
+      "priority": 2.5,
+      "color": [
+        76,
+        0,
+        0
+      ]
+    },
+    "247,91,87": {
+      "role": "color",
+      "priority": 2.5,
+      "color": [
+        149,
+        0,
+        0
+      ]
+    },
+    "153,69,48": {
+      "role": "off",
+      "priority": 0.0
+    }
+  },
+  "overlay": {}
+}
