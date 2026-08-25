@@ -1,25 +1,16 @@
 """
-StickS3 Wand Narrator -- Tier 0 accessibility companion
-========================================================
-Passively listens on ESP-NOW for the "start_game"/"stop" broadcasts already
-sent by the hub, the M5Paper Remote, or any other wand-triggering device,
-and narrates them out loud (speaker) plus in large text (color LCD) for a
-low-vision or blind student wearing it.
+StickS3 Wand Narrator -- main.py
 
-This device sends nothing -- it is read-only on the wire. That means it is
-compatible with any Bag2 or Bag3 wand/hub as-is, with no firmware change on
-their side and no exposure to the Bag2 verification gate (../../../AGENTS.md).
+Listens on ESP-NOW for start_game/stop broadcasts and Freeze Dance's raw
+Go/Freeze/Dance/Ready calls (see phrases.py), plays the matching WAV clip,
+and shows the label on the LCD. Does not handle LED-matrix content or the
+Programming Station's scanned-color broadcast -- see README.md.
 
-Tier 0 scope: game name + stop announcements, PLUS Freeze Dance's own
-Go/Freeze/Dance calls (raw, non-JSON ESP-NOW broadcasts -- see
-phrases.py's FREEZE_DANCE_CALLS). It does NOT narrate what the wand's 5x5
-LED matrix is showing (colors, shapes, correct/wrong), and it does NOT
-narrate the Programming Station's scanned-color broadcast -- see
-phrases.py's docstring and README.md's "Broadcast coverage" section.
+Read-only on ESP-NOW: never sends.
 
-Hardware: M5Stack StickS3 (ESP32-S3), UIFlow2 MicroPython.
-NOT YET BENCH-VERIFIED -- no StickS3 hardware in hand at time of writing.
-See README.md's bench checklist before trusting this on a real device.
+Hardware: M5Stack StickS3 (ESP32-S3), UIFlow2 MicroPython. Bench tested
+against an M5Paper Remote -- see README.md's bench checklist for what's
+confirmed vs. still open.
 """
 
 import time
@@ -36,10 +27,30 @@ from phrases import phrase_for_tag, tag_for_raw_bytes, validate_phrases
 # to avoid a brown-out reboot when USB is unplugged -- see README.md.
 SPEAKER_VOLUME = 190
 
-# freeze_dance.py sends each raw Go/Freeze/Dance call 5x, ~1ms apart, as a
-# reliability measure (not a repeated command) -- without this guard the
-# Narrator would announce the same word 5 times in a row.
-RAW_REPEAT_GUARD_MS = 400
+# Senders re-send commands for reliability (e.g. M5Paper Remote sends
+# start_game/stop twice, freeze_dance.py sends raw calls 5x) -- collapse
+# repeats of the same tag within this window into one announcement.
+ANNOUNCE_REPEAT_GUARD_MS = 400
+
+LOOP_SLEEP_MS = 100  # loop() pacing; enow.poll() itself is non-blocking
+
+# Gap between receiving a message and starting playback. ESP-NOW activity
+# too close to a playback boundary causes an audible pop; this gap also
+# gives the resend (see ANNOUNCE_REPEAT_GUARD_MS) time to arrive so
+# enow.drain() can discard it before playback starts.
+PRE_PLAY_DELAY_MS = 400
+
+RECONNECT_GRACE_S = 5  # countdown in _reconnect_grace() before WiFi/ESP-NOW init
+
+
+def _reconnect_grace(ui):
+    """Interruptible countdown, run before WiFi/ESP-NOW init on every
+    boot/reboot, so a serial IDE has a clean window to interrupt."""
+    ui.paint_booting()
+    print("Narrator booting -- Ctrl-C within %ds to stay at the REPL" % RECONNECT_GRACE_S)
+    for remaining in range(RECONNECT_GRACE_S, 0, -1):
+        print("  %d..." % remaining)
+        time.sleep_ms(1000)
 
 
 def _play_phrase(tag):
@@ -52,10 +63,8 @@ def _play_phrase(tag):
         print("  speaker err (%s): %s" % (path, str(e)))
 
 
-class _RawDebounce(object):
-    """Collapses freeze_dance.py's 5x-repeated raw broadcast into one
-    announcement -- same spirit as the NFC repeat-scan guards used
-    elsewhere in this repo (e.g. freeze_dance.py's own REPEAT_SCAN_GUARD_MS)."""
+class _AnnounceDebounce(object):
+    """Suppresses re-announcing the same tag within ANNOUNCE_REPEAT_GUARD_MS."""
 
     def __init__(self):
         self._last_tag = None
@@ -63,15 +72,14 @@ class _RawDebounce(object):
 
     def should_announce(self, tag):
         now = time.ticks_ms()
-        if tag == self._last_tag and time.ticks_diff(now, self._last_ms) < RAW_REPEAT_GUARD_MS:
+        if tag == self._last_tag and time.ticks_diff(now, self._last_ms) < ANNOUNCE_REPEAT_GUARD_MS:
             return False
         self._last_tag = tag
         self._last_ms = now
         return True
 
 
-def setup():
-    M5.begin()
+def setup(ui):
     validate_phrases()
     try:
         M5.Speaker.setVolume(SPEAKER_VOLUME)
@@ -85,38 +93,46 @@ def setup():
     enow = ESPNowManager()
     enow.init()
 
-    ui = NarratorUI()
     ui.paint_idle()
     _play_phrase("ready")
-    return enow, ui, _RawDebounce()
+    return enow, _AnnounceDebounce()
 
 
-def loop(enow, ui, raw_debounce):
-    # Blocking-ish poll (see espnow_manager.poll): waits up to 100ms for a
-    # packet, so this loop needs no separate sleep_ms.
-    msg_type, data, mac = enow.poll(timeout_ms=100)
+def loop(enow, ui, debounce):
+    msg_type, data, mac = enow.poll()
     if msg_type == "start_game":
         name = data.get("name") if isinstance(data, dict) else None
-        if name:
+        if name and debounce.should_announce(name):
             ui.paint_game(name)
+            time.sleep_ms(PRE_PLAY_DELAY_MS)
+            enow.drain()
             _play_phrase(name)
     elif msg_type == "stop":
-        ui.paint_idle()
-        _play_phrase("stop")
+        if debounce.should_announce("stop"):
+            ui.paint_idle()
+            time.sleep_ms(PRE_PLAY_DELAY_MS)
+            enow.drain()
+            _play_phrase("stop")
     elif msg_type == "raw":
         tag = tag_for_raw_bytes(data)
-        if tag and raw_debounce.should_announce(tag):
+        if tag and debounce.should_announce(tag):
             ui.paint_game(tag)
+            time.sleep_ms(PRE_PLAY_DELAY_MS)
+            enow.drain()
             _play_phrase(tag)
     # status_poll / status_report / scan_request / anything else: ignored.
     # This device never replies -- it only listens.
+    time.sleep_ms(LOOP_SLEEP_MS)
 
 
 def main():
     try:
-        enow, ui, raw_debounce = setup()
+        M5.begin()
+        ui = NarratorUI()
+        _reconnect_grace(ui)
+        enow, debounce = setup(ui)
         while True:
-            loop(enow, ui, raw_debounce)
+            loop(enow, ui, debounce)
     except (Exception, KeyboardInterrupt) as e:
         try:
             from utility import print_error_msg

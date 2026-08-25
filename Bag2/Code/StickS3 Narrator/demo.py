@@ -1,25 +1,14 @@
 """
-demo.py -- standalone bench demo, NO ESP-NOW / hub / wand required.
-=====================================================================
-Cycles through every phrase the Narrator can say -- using the exact same
-narrator_ui.NarratorUI + phrases.py calls main.py makes on a real
-start_game/stop packet -- so you can hear and see what the device does with
-nothing else nearby. No WiFi, no ESP-NOW init at all.
+demo.py -- cycles through every phrase using narrator_ui/phrases directly.
+No WiFi, no ESP-NOW.
 
-Run from the REPL without disturbing main.py:
-    import demo
-    demo.main()
+Run from the REPL: import demo; demo.main()
+Or copy over main.py to run at boot.
 
-...or temporarily copy this file over main.py to have it run at boot.
-
-Controls (best-effort guess at the API -- see the README's "Demo mode"
-section for why; UNVERIFIED on real hardware):
-    KEY1 (M5.BtnA) -- advance to the next phrase
-    KEY2 (M5.BtnB) -- replay the current phrase
-
-If neither button object exists on this firmware build, falls back to
-auto-advancing every AUTO_ADVANCE_MS so the demo still runs untouched --
-you'll see which mode it picked printed at startup.
+Controls (M5.BtnA/M5.BtnB API not confirmed on this firmware):
+    KEY1 -- next phrase
+    KEY2 -- replay current phrase
+If those button objects don't exist, auto-advances every AUTO_ADVANCE_MS.
 """
 
 import time
