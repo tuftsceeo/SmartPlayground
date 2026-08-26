@@ -1,7 +1,16 @@
+# IDE settings
 .micropico
 .cursor/
+
+# Project Related
 /Bag2/Code/legacy/wand_bak
 /Bag2/Code/debug
+App_Prototype/pyscript/esp_based_controller_firmware.py
+App_Prototype/pyscript/module_firmware.py
+/App_Web/webapp/docs
+/Bag2/Code/temp
+/Bag2/Code/StickS3 Narrator/assets/speech
+/old_stuff/example assistant from pyscript
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -177,8 +186,4 @@ cython_debug/
 # PyPI configuration file
 .pypirc
 .DS_Store
-App_Prototype/pyscript/esp_based_controller_firmware.py
-App_Prototype/pyscript/module_firmware.py
-/App_Web/webapp/docs
-/Bag2/Code/temp
-/old_stuff/example assistant from pyscript
+
