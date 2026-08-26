@@ -13,7 +13,7 @@ import math
 from PIL import Image
 
 from ledcolor import oklab_from_srgb, hue_deg, is_brown, purify
-from palette import PALETTE_DIRECTIONS
+from palette import PALETTE, PALETTE_DIRECTIONS
 
 W = 16
 H = 16
@@ -213,28 +213,69 @@ BROWN_AMBER = (60, 40, 0)    # honest LED approximation of "brown" -- dim, desat
 BROWN_A_MAX = 0.45
 MAX_CH_BODY = 220            # amplitude ceiling for a normal (non-brown) segment
 CH_FLOOR_HINT = 20           # matches emit.CH_FLOOR; enforced for real in emit.py
+MIN_RATIO = 0.06             # channel ratio below this, post-interpolation, snaps to 0
+                              # (below emit.CH_FLOOR's own raise-to-20 threshold logic)
+
+
+# Hue anchors for interpolation, sorted by hue angle. WHITE is achromatic
+# (no hue) and handled separately as the near-gray fallback below -- it's
+# never a member of the circular ramp.
+_HUE_ANCHORS = sorted(
+    ((hue_deg(rgb), name, PALETTE_DIRECTIONS[name]) for name, rgb in PALETTE.items() if name != "WHITE"),
+    key=lambda e: e[0],
+)
 
 
 def _nearest_palette_direction(rgb):
-    """Hue-only match: compare the purified (fully-saturated) source color's
-    unit direction against each palette color's unit direction by cosine
-    similarity, never by magnitude. Near-gray sources (tiny purified norm)
-    fall back to WHITE's direction -- there's no hue to match."""
+    """
+    Hue-only match, but CONTINUOUS: interpolate the source's hue between
+    the two flanking palette anchors on the hue wheel, blending their
+    ratio-directions (not their magnitudes) by how far between them the
+    source hue sits. A single "nearest name" snap collapses any source hue
+    that happens to sit closer to one shared bucket than to either of its
+    own neighbors -- e.g. leds.py's ORANGE(20 deg)/AMBER(40 deg)/YELLOW(65
+    deg) leaves AMBER almost exactly between a real orange fill (~32 deg)
+    and a real lemon-yellow fill (~48 deg); nearest-name picked AMBER for
+    BOTH, so two visually distinct fruits rendered as the same color. This
+    still starts from leds.py's by-eye-tuned reference points (every
+    output is a linear blend of two real anchors, never invented), it just
+    doesn't throw away where between them the source hue actually sits.
+
+    Near-gray sources (tiny purified norm) fall back to WHITE's direction
+    -- there's no hue to interpolate.
+    """
     pure = purify(rgb)
     norm = math.sqrt(sum(c * c for c in pure))
     if norm < 12:  # ~S_FLOOR-equivalent in raw units
         return "WHITE", PALETTE_DIRECTIONS["WHITE"]
-    unit = tuple(c / norm for c in pure)
-    best_name, best_sim = None, -2.0
-    for name, direction in PALETTE_DIRECTIONS.items():
-        dnorm = math.sqrt(sum(c * c for c in direction))
-        if dnorm == 0:
+
+    h = hue_deg(rgb)
+    n = len(_HUE_ANCHORS)
+    for i in range(n):
+        h1, name1, d1 = _HUE_ANCHORS[i]
+        h2, name2, d2 = _HUE_ANCHORS[(i + 1) % n]
+        span = (h2 - h1) % 360 or 360
+        pos = (h - h1) % 360
+        if pos > span:
             continue
-        dunit = tuple(c / dnorm for c in direction)
-        sim = sum(a * b for a, b in zip(unit, dunit))
-        if sim > best_sim:
-            best_sim, best_name = sim, name
-    return best_name, PALETTE_DIRECTIONS[best_name]
+        t = pos / span
+        interp = tuple(a + (b - a) * t for a, b in zip(d1, d2))
+        # A channel under MIN_RATIO of the peak is interpolation noise, not
+        # an intended color component -- e.g. blending 97.5% RED + 2.5%
+        # ORANGE near t=0 leaves a tiny nonzero green ratio that is
+        # perceptually irrelevant, but emit.py's CH_FLOOR would force-raise
+        # it to a full 20 (turning "practically red" into a visibly tinted
+        # color). Snap it to exact zero here instead, before CH_FLOOR ever
+        # sees it, so only a genuinely mid-blend hue keeps a second channel.
+        interp = tuple(c if c >= MIN_RATIO else 0.0 for c in interp)
+        m = max(interp) or 1
+        unit = tuple(c / m for c in interp)
+        label = name1 if t < 0.5 else name2
+        if 0.15 < t < 0.85:
+            label = "%s~%s" % (name1, name2)
+        return label, unit
+    # unreachable given a full 360-degree wheel, but fall back safely
+    return _HUE_ANCHORS[0][1], _HUE_ANCHORS[0][2]
 
 
 def auto_propose(fills, labels, img):
