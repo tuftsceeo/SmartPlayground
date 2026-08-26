@@ -73,3 +73,46 @@ mark them resolved.
   PRs and delete merged/dead branches.
 - `Live_Page/index.html:163` has a malformed heading (`<h1></h1>SmartPlayground @ Tufts Homepage</h1>`).
 - `Live_Page/Wand Pages/student-guide.html` is not linked from `Live_Page/index.html`.
+
+## 2026-08 (Bag1/Bag2 documentation pass)
+
+- **Wand module `readme.md` + `GAME_AUTHORING_GUIDE.md` are byte-identical across Bag2 and Bag3**
+  (md5 `fe70b536…` / `3397c092…`) — correct for Bag2, unverified for Bag3 (Bag3's committed hardware
+  doesn't match what these files describe; see `Bag3/AGENTS.md`). Bag3 needs its own copy or an
+  explicit hardware-section correction once its target hardware is confirmed.
+- `__pycache__/` directories are committed in `Bag2/Code/lib/`, `Bag2/Code/Wand Module/`,
+  `Bag2/Code/StickS3 Narrator/`, `Bag2/Code/Speaker/`, `Bag2/Code/DialSpeaker/`, and
+  `Bag3/Code/lib/` (including two Bag3-only `.pyc` files).
+- `Bag2/Documentation/README.md` links `FREEZE_DANCE_README.md`; the file on disk is
+  `freeze-dance-readme.md`.
+- **Readme casing was inconsistent across the repo** (`README.md` vs `readme.md`, sometimes both
+  within the same tree). Fixed within `Bag2/` only during this pass — all 9 lowercase `readme.md`
+  files there were renamed to `README.md` (`Bag2/README.md`, `Code/README.md`, `Code/Speaker/`,
+  `Code/Stations/Programming Station/`, `Code/Stations/Slide Score Station/`,
+  `Code/Wand Module/`, `Documentation/`, `Unit Tests/`, `Utilities/`), using a two-step rename so
+  git records them as renames rather than delete+add. `Bag2/Code/lib/README.md`,
+  `Bag2/Code/M5Paper Remote/README.md`, and `Bag2/Code/StickS3 Narrator/README.md` were already
+  uppercase and untouched. **`Bag2/Code/Wand Module/README.md` and `Bag3/Code/Wand Module/readme.md`
+  are now differently cased** despite being byte-identical content — Bag3's was left as-is since
+  Bag1/Bag3 casing normalization was out of scope for this pass.
+- `Bag1/Plushie_Module/games/nfc_sound.py` and `games/Now_sniffer.py` exist but are unregistered in
+  every `Config` variant in `config.py`.
+- `Bag2/Code/StickS3 Narrator/README.md` references `assets/_generate_phrases.py` as "not present in
+  this checkout" — confirm whether the WAV-generation script should be tracked.
+- **Speaker station and dial station implement overlapping but different `FD_*` ESP-NOW command
+  sets.** Speaker station (`Bag2/Code/Speaker/`) handles `FD_GO`, `FD_FREEZE`, `FD_NEXT`, `FD_PREV`,
+  `FD_VOL_UP`, `FD_VOL_DOWN`. Dial station (`Bag2/Code/DialSpeaker/Dial_Music.py`) handles only
+  `FD_GO`, `FD_FREEZE`, `stop`. Worth a decision on whether these should converge into one command
+  set, given they serve the same Freeze Dance role on different hardware.
+- **Bag2↔Bag3 Wand module divergence, recorded as fact, not a defect to fix:** `lib/` differs only in
+  `hubtype.py`, `leds.py`, `pn532.py` (plus Bag3-only `power_led.py`, `ws1850s.py`; Bag2-only
+  `lib/README.md`); 13 `Wand Module/` files differ by 2–17 lines each, predominantly LED-geometry
+  index math (`NUM_LEDS 25→60`, `i // 5`/`* 5` → `i // 6`/`* 6`). Given the current August 2026
+  hardware direction (5×5 for the next round), most of this divergence is expected to reduce once
+  Bag3 adopts matching geometry — but that is not yet decided, see `Bag3/AGENTS.md`.
+- `Bag2/Code/legacy/` (`gesture.py`, `gesture_engine.py`) and `Bag2/Battery Tests/` /
+  `Bag2/Design Files/` contents were not read in detail during this pass — flagged in
+  `Bag2/AGENTS.md` as unverified rather than described.
+- `Bag2/Code/encrypted_key.txt` and `Bag2/Utilities/encrypted_key.txt` exist in a public repo with
+  undocumented purpose. Reviewed with the project owner during this pass and explicitly not flagged
+  as a security concern — noted here only so the files' existence isn't rediscovered as a surprise.

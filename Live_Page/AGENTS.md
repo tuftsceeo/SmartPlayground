@@ -4,6 +4,11 @@ Read [../AGENTS.md](../AGENTS.md) first for the Bag model and the Bag2 verificat
 here too — a WebApp2 change that alters what gets sent to Bag2 wands still needs hardware testing).
 This file covers the static web apps deployed from this directory.
 
+**"hub" in this file always means the USB hub** — the teacher-facing ESP32 that bridges USB serial
+to ESP-NOW (`WebApp2/hubCode2/`, whose own `hubtype.txt` says `usb_hub`). This is the *narrow* sense
+of "hub." The Bag trees (`Bag2/`, `Bag3/`) use "hub" in a *general* sense — any playground component
+— via `hubtype.txt` / `hubtype.py` / `HUB_CONFIG`. See root `AGENTS.md`'s vocabulary section.
+
 ## Deploy reality
 
 Everything under `Live_Page/` is served as-is by GitHub Pages — no build step, no bundler, no
@@ -17,10 +22,10 @@ package manager.
 | App | Role | Notes |
 |---|---|---|
 | `WebApp2/` | **Canonical** — teacher-facing hub controller for Bag2/Bag3 wand games | |
-| `Flasher/` | **Canonical** — code uploader | Best REPL implementation in the repo: chunked base64, binary-safe, retry/backoff GitHub fetch |
-| `WebApp/` | Legacy | Bag1 plushie controller; 16 of ~30 JS files are byte-identical to WebApp2's |
+| `Flasher/` | **Canonical** — code uploader | Uploads over the REPL as chunked base64, so it can send binary files; fetches from GitHub with retry/backoff on rate-limiting |
+| `WebApp/` | Legacy | Bag1 Plushie module controller (Bag1's name for the Wand module); 16 of ~30 JS files are byte-identical to WebApp2's |
 | `Code_Upload/` | Dead predecessor of Flasher | Single 1240-line file, hardcoded to the stale branch `beta_January_2026`, ~90% functional overlap with Flasher |
-| `If_Splats/` | Standalone demo | Web Bluetooth → third-party "Open Splat" toys, unrelated to the ESP-NOW hub stack. Uses a newer PyScript version (`2026.2.1`, `type="mpy"`) and a cleaner `js_modules` JS↔Python interop than WebApp2's `window.*` globals — prefer that pattern for new PyScript work |
+| `If_Splats/` | Standalone demo | Web Bluetooth → third-party "Open Splat" toys, unrelated to the ESP-NOW hub stack. Uses a newer PyScript version (`2026.2.1`, `type="mpy"`) and declares its JS↔Python interop via `pyscript.json`'s `js_modules` table, rather than WebApp2's `window.*` globals |
 | `wand_icons.html` | Static reference, not an app | LED-icon meaning guide with its own inline matrix renderer |
 
 `Flasher/manifests/wand.yml` sources `Bag2/Code/lib` + `Bag2/Code/Wand Module` — intentional, since
