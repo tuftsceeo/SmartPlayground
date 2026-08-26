@@ -8,6 +8,15 @@ wands over ESP-NOW.
 **Funding:** NSF Award #2301249  
 **Contributors:** J. Cross (front-end/backend), C. Rogers & M. Dahal (hub utilities)
 
+## Features
+
+- **USB Serial Connection**: connects to an ESP32 hub using the Web Serial API (Chrome/Edge only)
+- **14 Games**: game commands defined in `js/utils/commands.json`, plus `stop` and `poll`
+- **Command Broadcasting**: sends a command over serial to the hub, which relays it to wands over ESP-NOW; the UI is a chat-style message list (`js/components/messaging/`)
+- **Installable (PWA)**: `manifest.json` declares standalone display; the viewport is locked (`user-scalable=no`) and `apple-mobile-web-app-capable` is set
+- **Firmware Upload**: uploads hub firmware to the device from the browser, over the REPL
+- **Command Acknowledgment**: the hub replies `{"type":"ack","command":"<tag>","status":"sent"}` after each command
+
 ## How it's built
 
 Hybrid PyScript + JavaScript (PyScript `2024.1.1`, Pyodide interpreter):
@@ -19,12 +28,6 @@ Hybrid PyScript + JavaScript (PyScript `2024.1.1`, Pyodide interpreter):
 - `js/utils/pyBridge.js` is the only JS→Python call surface; Python calls back into JS via
   `window.on*` global callbacks.
 
-- **USB Serial Connection**: Connect to ESP32 hub using Web Serial API (Chrome/Edge only)
-- **11 Interactive Games**: Full suite of games including music, motion, patterns, and colors
-- **Command Broadcasting**: Send game commands to playground modules via chat-style interface
-- **Mobile-First Design**: Touch-optimized, responsive layout with PWA support
-- **Firmware Upload**: Upload hub firmware directly from browser via REPL mode
-- **Real-time Feedback**: Acknowledgment messages confirm command transmission
 Vanilla JS UI components (no framework): factory functions building detached DOM with Tailwind
 utility classes. State lives in a single mutable object (`js/state/store.js`), re-rendered on
 `requestAnimationFrame`.

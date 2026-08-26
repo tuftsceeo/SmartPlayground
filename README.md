@@ -1,8 +1,8 @@
 # SmartPlayground
 
-An interactive playground system developed by the Tufts University Center for Engineering
-Education and Outreach (CEEO) FET Lab: NFC-programmable wands, an ESP32 hub, and browser-based
-control apps, combined with physical playground equipment for engaging, wirelessly connected play.
+A playground system developed by the Tufts University Center for Engineering Education and
+Outreach (CEEO) FET Lab: NFC-programmable wands, an ESP32 hub, and browser-based control apps that
+communicate wirelessly, used with physical playground equipment.
 
 This is a **research prototype**, not a finished product — a hardware-and-software design project
 that is actively changing. Working on the code or pointing an AI agent at it? Start with
@@ -11,29 +11,45 @@ that is actively changing. Working on the code or pointing an AI agent at it? St
 ## The Bag model
 
 Each generation of hardware+software that's been brought to a classroom-ready state is called a
-**Bag** — a Bag bundles a wand with its compatible extensions (companion devices that interface
-with that wand). **Bag1** and **Bag2** have gone out to classrooms; **Bag3** is the release
-currently being developed. Being "in classrooms" doesn't mean frozen — Bag2 in particular still
-receives changes, they just require real hardware testing before they reach devices already in
-children's hands.
+**Bag**. **Bag1** and **Bag2** have gone out to classrooms; **Bag3** is the release currently being
+developed. Being "in classrooms" doesn't mean frozen — Bag2 in particular still receives changes,
+they just require real hardware testing before they reach devices already in children's hands. Bag3
+similarly has active software work: new hardware needs software to test its capabilities before any
+game work begins on it.
 
-**Most wand hardware in circulation today is Bag2.** Bag3 hardware exists in smaller numbers while
-a larger batch is produced.
+"Current" bag isn't a single fixed answer — there's **more Bag2 hardware in circulation** than Bag3,
+since Bag3 boards are still being produced in smaller numbers.
 
-**Hardware status (dated 2026-08-10):** the wand's next major hardware round settles on a **5×5 LED
-matrix** and a **PN532 NFC reader** (matching Bag2); how programming cards are stored on the NFC
-tag — today's plain-text format vs. a more compact opcode format — is still being explored and not
-yet decided.
+Each Bag owns its own hardware details (dated, and Bag3's especially so, since it's actively
+changing): see [Bag1/AGENTS.md](Bag1/AGENTS.md), [Bag2/AGENTS.md](Bag2/AGENTS.md), and
+[Bag3/AGENTS.md](Bag3/AGENTS.md).
 
 ## What's in the system
 
-- **Wand** — a handheld NFC-programmable device. Kids tap NFC cards against it to build simple
-  programs ("tap coding": trigger card → one or more action cards) or launch built-in games
-  (Color Quest, Freeze Dance, Melody Builder, and others).
-- **Hub** — an ESP32 bridging a browser (over USB Serial) to wands (over ESP-NOW wireless).
-- **Bag2 extensions** — companion hardware that pairs with Bag2 wands: a 4-reader Programming
-  Station, an LED Slide Score Station, a Splat Companion (bridges to third-party BLE "Splat" toys),
-  an e-ink Teacher Remote (M5Paper), and speaker modules.
+The playground is built from several **components** that talk to each other wirelessly, not one
+device. The project uses two words for them: a **module** is small and portable — carried or handled
+by students; a **station** (also called an **extension**) is larger and more static, usually mounted
+on playground equipment.
+
+- **Wand module** — a handheld NFC-programmable device: RGB LED matrix, NFC reader, buzzer,
+  vibration motor, accelerometer, button, and battery gauge. Kids tap NFC cards against it to build
+  simple programs ("tap coding": trigger card → one or more action cards) or launch one of several
+  built-in games (Color Quest, Freeze Dance, Melody Builder, and others). It's the **most numerous
+  hardware in the system** — designed at roughly one per student — which is why its code dominates
+  this repository. It was called the **Plushie module** in Bag1, for its soft plush housing; same
+  component, direct descendant, different name.
+- **USB hub** — an ESP32 bridging a browser (over USB Serial) to Wand modules (over ESP-NOW
+  wireless); relays game commands to wands and reports each wand's battery level and signal strength
+  back to the browser. It's a **teacher tool**, not something students use on the playground — that's
+  why it's called a "hub" rather than a module or station.
+- **Splat modules, button modules** — built on third-party hardware, similar but distinct from the
+  Wand module.
+- **Stations and other modules** (Bag2 and later) — a coding station (reads NFC color tags, starts a
+  round), a slide station (an LED panel on a playground slide), a Splat Companion module (bridges to
+  a third-party BLE splat toy), a narrator module (speaks the current game aloud), a paper remote
+  module (e-ink teacher remote), and speaker/dial stations (music playback).
+
+See each Bag's `AGENTS.md` for exactly which of these exist in that Bag.
 
 ## Try it — no hardware required
 
@@ -45,9 +61,9 @@ connected device.
 
 1. **Flash a device.** Open the [Flasher](https://tuftsceeo.github.io/SmartPlayground/Flasher/)
    page, pick a device type (Wand, Hub, or M5Paper Remote) and a source branch, connect over USB,
-   and upload. The Wand option currently flashes Bag2 firmware — that's deliberate, since most
-   wands in circulation are Bag2.
-2. **Connect the hub and play.** Open [WebApp2](https://tuftsceeo.github.io/SmartPlayground/WebApp2/),
+   and upload. The Wand option currently flashes Bag2 firmware — that's deliberate, since there's
+   more Bag2 Wand-module hardware in circulation.
+2. **Connect the USB hub and play.** Open [WebApp2](https://tuftsceeo.github.io/SmartPlayground/WebApp2/),
    connect to the hub over USB, and tap a game in the message box to broadcast it to nearby wands.
 3. **Program NFC cards.** Card writing is a REPL tool, not a web app: run
    `Bag2/Utilities/writetoNFCcards.py` (or `Bag3/Code/utilities/writetoNFCcards.py` for Bag3
@@ -58,14 +74,14 @@ if you've seen those mentioned elsewhere in this repo's history, they describe a
 
 ## Repository map
 
-| Path | What it is |
-|---|---|
-| `Bag2/` | Bag2 wand firmware, shared libraries, and its extensions (Stations, Splat Companion, M5Paper Remote, Speaker) — the most widely used hardware target today |
-| `Bag3/` | Bag3 wand firmware — the upcoming release |
-| `Bag1/` | The original plushie-based generation, given to classrooms |
-| `Live_Page/` | The deployed web apps: WebApp2 (hub controller), Flasher (uploader), and a few smaller/legacy tools |
-| `ChatApp/` | An in-progress AI-assisted wand programming tool (work in progress on another branch) |
-| `old_stuff/` | Earlier prototypes and explorations that predate or sit alongside Bag1, never brought to classroom readiness |
+| Path         | What it is                                                                                                                                                                                                             |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Bag2/`      | Wand module firmware, shared libraries, and its stations/modules (coding station, slide station, Splat Companion, narrator, paper remote, speaker/dial stations) — more of this hardware is in circulation than Bag3's |
+| `Bag3/`      | Wand module firmware — the release being developed now; new hardware in progress                                                                                                                                       |
+| `Bag1/`      | The original Plushie-module generation, given to classrooms — the Wand module's direct ancestor                                                                                                                        |
+| `Live_Page/` | The deployed web apps: WebApp2 (USB hub controller), Flasher (uploader), and a few smaller/legacy tools                                                                                                                |
+| `ChatApp/`   | An in-progress AI-assisted wand programming tool (work in progress on another branch)                                                                                                                                  |
+| `old_stuff/` | Earlier prototypes and explorations that predate or sit alongside Bag1, never brought to classroom readiness                                                                                                           |
 
 See [AGENTS.md](AGENTS.md) for a status/trust verdict on every entry above, plus the parts of this
 map that are still evolving.
@@ -78,6 +94,7 @@ VS Code extension (manual connect — it won't grab your serial port on startup)
 ES modules with Tailwind CSS loaded from a CDN.
 
 - **Deep technical reference for contributors and AI agents:** [AGENTS.md](AGENTS.md),
+  [Bag1/AGENTS.md](Bag1/AGENTS.md), [Bag2/AGENTS.md](Bag2/AGENTS.md),
   [Bag3/AGENTS.md](Bag3/AGENTS.md), [Live_Page/AGENTS.md](Live_Page/AGENTS.md).
 - **Game-writing guide:** [Bag3/Code/Wand Module/GAME_AUTHORING_GUIDE.md](Bag3/Code/Wand%20Module/GAME_AUTHORING_GUIDE.md).
 - **Known issues and cleanup backlog:** [docs/KNOWN_ISSUES.md](docs/KNOWN_ISSUES.md).
