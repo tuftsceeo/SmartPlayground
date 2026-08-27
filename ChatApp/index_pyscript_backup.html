@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Hardware Chatbot</title>
+
+    <!-- PyScript -->
+    <link rel="stylesheet" href="https://pyscript.net/releases/2024.11.1/core.css">
+    <script type="module" src="https://pyscript.net/releases/2024.11.1/core.js"></script>
+
+    <!-- App CSS -->
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+    <!-- Top Bar -->
+    <div class="topbar">
+        <h1>AI Wand Chatbot</h1>
+        <input type="password" class="api-input" id="passphrase" placeholder="Enter passphrase to unlock..." style="display:none;" />
+        <div class="status-bar">
+            <span class="status-dot" id="serial-status"></span>
+            <span id="status-text">Disconnected</span>
+        </div>
+        <button class="btn help-btn" id="btn-help">?</button>
+    </div>
+
+    <!-- Main Layout -->
+    <div class="main-layout" id="main-layout">
+
+        <!-- Left: Connect + Chat -->
+        <div class="left-panel" id="left-panel">
+
+            <div class="chat-area" id="chat-box">
+                <div class="msg system">Connect your board using the Connect button, then start chatting!</div>
+            </div>
+
+            <div class="chat-input-area">
+                <textarea id="user-input" rows="3" placeholder="Describe what you want the board to do..."></textarea>
+                <button class="btn send-btn" id="btn-send">Send</button>
+                <button class="btn stop-btn" id="btn-stop">Stop</button>
+            </div>
+        </div>
+
+        <!-- Draggable Resizer -->
+        <div class="resizer" id="resizer"></div>
+
+        <!-- Right: Code + REPL -->
+        <div class="right-panel" id="right-panel">
+
+            <div class="code-header">
+                <span>Generated Code</span>
+                <div class="version-controls">
+                    <button class="btn version-btn" id="btn-prev" title="Previous version">&#9664;</button>
+                    <span class="version-label" id="version-label">v0/0</span>
+                    <button class="btn version-btn" id="btn-next" title="Next version">&#9654;</button>
+                    <button class="btn" id="btn-download" title="Download code">Download</button>
+                    <button class="btn" id="btn-clear-code" style="padding:3px 8px;">Clear</button>
+                </div>
+            </div>
+
+            <div class="code-container">
+                <script id="mpCode" type="mpy-editor">
+# AI-generated code will appear here
+                </script>
+            </div>
+
+            <div class="repl-bar">
+                <button class="btn connect-btn" id="btn-connect">Connect</button>
+                <label><input type="checkbox" id="freshStart" checked /> reset</label>
+                <button class="btn" id="btn-ctrlc">Ctrl+C</button>
+                <button class="btn" id="btn-reset">Reset</button>
+                <button class="btn tools-btn" id="btn-tools" title="Show tools">&#9881;</button>
+                <button class="btn nfc-btn hidden" id="btn-write-nfc">Write NFC Tag</button>
+                <span class="repl-bar-spacer"></span>
+                <button class="btn upload-btn" id="btn-upload">Upload</button>
+            </div>
+
+            <div class="repl-container">
+                <div id="repl" class="repl-box"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Help Modal -->
+    <div class="modal-overlay hidden" id="help-overlay">
+        <div class="modal help-modal">
+            <h2>How to Use the AI Wand Chatbot</h2>
+            <div class="help-steps">
+                <div class="help-step">
+                    <span class="step-num">1</span>
+                    <div>
+                        <strong>Enter the Magic Code</strong>
+                        <p>When the app loads, type the passphrase your instructor gave you to unlock the AI.</p>
+                    </div>
+                </div>
+                <div class="help-step">
+                    <span class="step-num">2</span>
+                    <div>
+                        <strong>Connect Your Wand</strong>
+                        <p>Plug in your wand via USB. Click <em>Connect</em> and select the serial port in the browser popup. You'll see the REPL output when connected.</p>
+                    </div>
+                </div>
+                <div class="help-step">
+                    <span class="step-num">3</span>
+                    <div>
+                        <strong>Ask the AI to Write Code</strong>
+                        <p>Describe what you want the wand to do in the chat box. Example: <em>"Make a rainbow animation that responds to shaking"</em>. The AI generates code and places it in the editor on the right. You can edit it and use the editor's green play button to test it on the wand.</p>
+                    </div>
+                </div>
+                <div class="help-step">
+                    <span class="step-num">4</span>
+                    <div>
+                        <strong>Upload Your Code</strong>
+                        <p>Click <em>Upload</em> to save the code as <code>jumpin.py</code> on your wand. The wand resets and your code runs when you tap the "jumpin" NFC tag. Upload checks that your code has the correct format.</p>
+                    </div>
+                </div>
+                <div class="help-step">
+                    <span class="step-num">5</span>
+                    <div>
+                        <strong>Browse Versions</strong>
+                        <p>Use the ◄ ► arrows above the editor to flip through previous code versions. Click <em>Download</em> to save any version to your computer.</p>
+                    </div>
+                </div>
+                <div class="help-step">
+                    <span class="step-num">6</span>
+                    <div>
+                        <strong>Write NFC Tags</strong>
+                        <p>Click the gear icon &#9881; next to the Reset button to reveal the <em>Write NFC Tag</em> tool. This lets you write custom text to NFC tags for use with your games.</p>
+                    </div>
+                </div>
+            </div>
+            <button class="btn send-btn" id="btn-help-close" style="margin-top:16px;">Got it!</button>
+        </div>
+    </div>
+
+    <!-- Passphrase Modal -->
+    <div class="modal-overlay" id="modal-overlay">
+        <div class="modal">
+            <h2>Welcome!</h2>
+            <p>Enter the magic code to get started.</p>
+            <input type="password" id="modal-passphrase" placeholder="Magic code..." />
+            <div id="modal-error" class="modal-error"></div>
+            <button class="btn send-btn" id="btn-modal-unlock">Unlock</button>
+        </div>
+    </div>
+
+    <!-- PyScript App (imports RS232.py) -->
+    <script type="py" config='{"packages":[], "files":{"./RS232.py":"./RS232.py"}, "js_modules":{"main":{"https://cdn.jsdelivr.net/npm/micro-repl@0.5.2/serial.js":"micro_repl"}}}' async>
+from RS232 import App
+app = App()
+    </script>
+
+</body>
+</html>

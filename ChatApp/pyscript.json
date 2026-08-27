@@ -1,0 +1,12 @@
+{
+    "export": true,
+    "name": "WandProgrammer",
+    "files": {
+        "RS232.py": ""
+    },
+    "js_modules": {
+        "main": {
+            "https://cdn.jsdelivr.net/npm/micro-repl@0.8.2/serial.js": "micro_repl"
+        }
+    }
+}
