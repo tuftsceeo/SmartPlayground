@@ -116,3 +116,16 @@ mark them resolved.
 - `Bag2/Code/encrypted_key.txt` and `Bag2/Utilities/encrypted_key.txt` exist in a public repo with
   undocumented purpose. Reviewed with the project owner during this pass and explicitly not flagged
   as a security concern — noted here only so the files' existence isn't rediscovered as a surprise.
+
+## 2026-08-28 (AGENTS.md condensation pass)
+
+- **No Flasher manifest exists for Bag3 wand hardware.** `Live_Page/Flasher/manifests/` covers
+  `wand` (sourced from Bag2), `hub`, and `m5paper` only; Bag3 firmware has to be uploaded via
+  MicroPico manual connect. Moved here from `Bag3/AGENTS.md`.
+- **`Live_Page/WebApp2/pyscript.toml`'s `[files]` list carries ~20 unnecessary `js/*` entries.**
+  JS is loaded by the browser as native ES modules and never enters PyScript's virtual filesystem;
+  `js/adapters/serialAdapter.js` and `js/adapters/bluetoothAdapter.js` are unlisted and work.
+  Only Python modules imported by `main.py` (`mpy/*`, `hubCode2/*`) actually need listing. The
+  earlier claim that every JS and Python file must be listed was wrong.
+- **`Bag2/Documentation/README.md` links `FREEZE_DANCE_README.md`; the file on disk is
+  `freeze-dance-readme.md`.** One-character fix; previously recorded in `Bag2/AGENTS.md`.
