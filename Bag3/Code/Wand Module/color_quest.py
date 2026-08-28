@@ -30,39 +30,41 @@ from target import SCORE_MAC
 
 # Hardware
 I2C_SDA, I2C_SCL = 22, 23
-NEOPIXEL_PIN, NUM_LEDS = 20, 60
+NEOPIXEL_PIN, NUM_LEDS = 20, 25
 BUZZER_PIN, SWITCH_PIN = 19, 0
 PN532_ADDR = 0x24
 
-# 6x10 grid, row-major (index = row*6 + col):
+# 5x5 grid, row-major (index = row*5 + col):
 #   row 0      -> targets
-#   rows 1-8   -> animation / glow
-#   row 9      -> collected
-def rc(row, col): return row * 6 + col
+#   rows 1-3   -> animation / glow
+#   row 4      -> collected
+def rc(row, col): return row * 5 + col
 
-TOP_ROW_LEDS = [rc(0, c) for c in range(6)]
-BOT_ROW_LEDS = [rc(9, c) for c in range(6)]
+TOP_ROW_LEDS = [rc(0, c) for c in range(5)]
+BOT_ROW_LEDS = [rc(4, c) for c in range(5)]
 
 def target_slots(n):
     if n <= 0: return []
-    off = max(0, (6 - n) // 2)
+    n = min(n, 5)
+    off = max(0, (5 - n) // 2)
     return [rc(0, off + i) for i in range(n)]
 
 def found_slots(n):
     if n <= 0: return []
-    off = max(0, (6 - n) // 2)
-    return [rc(9, off + i) for i in range(n)]
+    n = min(n, 5)
+    off = max(0, (5 - n) // 2)
+    return [rc(4, off + i) for i in range(n)]
 
-# X = the two grid diagonals; middle = everything between the target and
+# X = the two grid diagonals; middle = the rows between the target and
 # collected rows; perimeter = an ordered ring (for the spinner); smiley.
-CROSS_LEDS  = ([rc(c * 9 // 5, c) for c in range(6)] +
-               [rc(9 - c * 9 // 5, c) for c in range(6)])
-MIDDLE_LEDS = [rc(r, c) for r in range(1, 9) for c in range(6)]
-PERIMETER   = ([rc(0, c) for c in range(6)] +
-               [rc(r, 5) for r in range(1, 10)] +
-               [rc(9, c) for c in range(4, -1, -1)] +
-               [rc(r, 0) for r in range(8, 0, -1)])
-SMILEY_LEDS = [rc(3, 1), rc(3, 4), rc(6, 1), rc(6, 4), rc(7, 2), rc(7, 3)]
+CROSS_LEDS  = ([rc(c, c) for c in range(5)] +
+               [rc(4 - c, c) for c in range(5)])
+MIDDLE_LEDS = [rc(r, c) for r in range(1, 4) for c in range(5)]
+PERIMETER   = ([rc(0, c) for c in range(5)] +
+               [rc(r, 4) for r in range(1, 5)] +
+               [rc(4, c) for c in range(3, -1, -1)] +
+               [rc(r, 0) for r in range(3, 0, -1)])
+SMILEY_LEDS = [rc(1, 1), rc(1, 3), rc(3, 0), rc(3, 4), rc(4, 1), rc(4, 2), rc(4, 3)]
 
 # Import library colors — auto-scale with ambient brightness via leds.np
 from leds import (
@@ -165,6 +167,8 @@ class GameDisplay:
             self.np[idx] = OFF
 
         for i, cmd in enumerate(targets):
+            if i >= len(t_slots):
+                break  # more targets than columns fit on the 5×5 top row
             bright = COLOR_BRIGHT.get(cmd, OFF)
             dim    = COLOR_DIM.get(cmd, OFF)
             if i < found_count:
@@ -185,8 +189,8 @@ class GameDisplay:
             current = COLOR_BRIGHT.get(targets[found_count], OFF)
             breath = (math.sin(pulse_frame * 0.08) + 1) / 2
             for i in MIDDLE_LEDS:
-                row = i % 10
-                center_fade = max(0.1, 1.0 - abs(row - 4) * 0.18)
+                row = i // 5
+                center_fade = max(0.1, 1.0 - abs(row - 2) * 0.3)
                 level = 0.05 + 0.15 * breath * center_fade
                 self.np[i] = (
                     int(current[0] * level),
@@ -202,11 +206,11 @@ class GameDisplay:
     def scan_animate(self, frame, targets, found_count):
         """Animate middle rows during NFC scan; preserve game rows."""
         self.show_game_state(targets, found_count)
-        ring = frame % 10
-        for row in range(1, 9):
-            for col in range(6):
+        ring = frame % 6
+        for row in range(1, 4):
+            for col in range(5):
                 idx = rc(row, col)
-                dist = abs(col - 2) + abs(row - 4)
+                dist = abs(col - 2) + abs(row - 2)
                 if dist == ring:
                     self.np[idx] = (15, 10, 20)
                 elif dist == max(0, ring - 1):

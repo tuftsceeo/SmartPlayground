@@ -121,9 +121,9 @@ class SimpleIceCreamGame:
 
     def _render_count_bar(self):
         self.leds.off()
-        n = min(self.button_count, 6)
+        n = min(self.button_count, 5)
         for col in range(n):
-            self.leds.np[9 * 6 + col] = WHITE
+            self.leds.np[4 * 5 + col] = WHITE   # bottom row of the 5×5 grid
         self.leds.np.write()
 
     def run(self):

@@ -1,27 +1,24 @@
 """
-LED Helpers — NeoPixel control and status display  (Bag3 / 6×10 matrix)
-========================================================================
+LED Helpers — NeoPixel control and status display  (Bag3 / 5×5 matrix)
+=======================================================================
 Auto-configures from hubtype. Works on any device.
 
-Bag3 difference vs Bag2
------------------------
-The wand's matrix is now 6 columns × 10 rows (60 LEDs) instead of the
-old 5×5 (25 LEDs). LEDs are wired row-major:
+The wand matrix is 5×5 (25 LEDs), wired row-major (index = row*5 + col):
 
-        index = row * COLS + col          (COLS = 6)
+        0  1  2  3  4
+        5  6  7  8  9
+       10 11 12 13 14
+       15 16 17 18 19
+       20 21 22 23 24
 
-so row 0 is indices 0..5 (left→right), row 1 is 6..11, etc. — the
-strip runs one horizontal row at a time (same convention as the old
-5×5, just 6 wide and 10 tall).
-
-All the SHAPE_* glyphs below were redrawn natively for this taller grid
-using a small ASCII-art helper (_art / _glyph). The public names are
-unchanged so every game that imports them keeps working.
+SHAPE_* glyphs are 5×5 index tuples. This matches the original ("old")
+wand hardware; the 6×10 build has been reverted.
 
 All LED writes pass through _ScaledNeoPixel, which multiplies every
 (r, g, b) tuple by brightness.MULTIPLIER on its way to the underlying
 NeoPixel. Code outside this file does not need to know — when
 brightness.calibrate(opt) sets MULTIPLIER on boot, every consumer
+(Leds methods, freeze_dance, color_quest, gesture engine, etc.)
 automatically adapts.
 
 Usage:
@@ -44,51 +41,9 @@ import brightness   # required — provides MULTIPLIER
 TRIGGER_ORDER = ["buttondown", "buttonup", "whenshake"]
 
 # ══════════════════════════════════════════════
-# MATRIX GEOMETRY
-# ══════════════════════════════════════════════
-# Row-major: index = row * COLS + col. For the wand COLS=6, ROWS=10.
-COLS = HUB_CONFIG.get("matrix_cols", 6)
-ROWS = HUB_CONFIG.get("matrix_rows", 10)
-
-# Characters that count as "lit" in ASCII-art shape definitions.
-_LIT = "1#XO*@"
-
-
-def _xy(col, row):
-    """(col, row) -> strip index, row-major (row 0 = top, col 0 = left)."""
-    return row * COLS + col
-
-
-def _art(*rows):
-    """
-    Build a sorted index tuple from rows of ASCII art (row 0 = top).
-
-    Each row is a string up to COLS wide; any char in _LIT lights that
-    cell, anything else ('0', '.', ' ') leaves it dark. Rows/cols past
-    the matrix bounds are ignored, so art can be written for the 6×10
-    wand and simply clips on smaller devices.
-    """
-    idx = []
-    for row, line in enumerate(rows):
-        if row >= ROWS:
-            break
-        for col, ch in enumerate(line):
-            if col >= COLS:
-                break
-            if ch in _LIT:
-                idx.append(_xy(col, row))
-    return tuple(sorted(idx))
-
-
-def _glyph(*rows7):
-    """Place a 7-row font glyph with a one-row top margin (rows 1..7)."""
-    return _art("", *rows7)
-
-
-# ══════════════════════════════════════════════
 # COLOR PALETTE — outdoor-tuned, brightness module scales them
 # ══════════════════════════════════════════════
-# White at ~55% per channel so total current draw stays comparable to
+# White at ~55% per channel so total current draw stays comparable to 
 # two-channel colors.
 #
 # BLUE is pushed harder because the blue NeoPixel die is the weakest of
@@ -136,184 +91,130 @@ PINK_DIM    = (100, 40,  60)
 PURPLE_DIM  = (25, 0,   125)
 
 # ══════════════════════════════════════════════
-# 6×10 GRID SHAPES — drawn natively for the tall matrix
+# 5×5 GRID SHAPES — LED index lists
 # ══════════════════════════════════════════════
-# Canvas reference (col across, row down; row-major index = row*6 + col):
-#        c0 c1 c2 c3 c4 c5
-#   r0 [  0  1  2  3  4  5 ]
-#   r1 [  6  7  8  9 10 11 ]
-#   ...
-#   r9 [ 54 55 56 57 58 59 ]
+# Grid layout:
+#    0  1  2  3  4
+#    5  6  7  8  9
+#   10 11 12 13 14
+#   15 16 17 18 19
+#   20 21 22 23 24
 
-# ── Numbers (5×7 font, left-aligned cols 0-4, rows 1-7) ──
-SHAPE_0 = _glyph("01110", "10001", "10011", "10101", "11001", "10001", "01110")
-SHAPE_1 = _glyph("00100", "01100", "00100", "00100", "00100", "00100", "01110")
-SHAPE_2 = _glyph("01110", "10001", "00001", "00010", "00100", "01000", "11111")
-SHAPE_3 = _glyph("11111", "00010", "00100", "00010", "00001", "10001", "01110")
-SHAPE_4 = _glyph("00010", "00110", "01010", "10010", "11111", "00010", "00010")
-SHAPE_5 = _glyph("11111", "10000", "11110", "00001", "00001", "10001", "01110")
-SHAPE_6 = _glyph("00110", "01000", "10000", "11110", "10001", "10001", "01110")
-SHAPE_7 = _glyph("11111", "00001", "00010", "00100", "01000", "01000", "01000")
-SHAPE_8 = _glyph("01110", "10001", "10001", "01110", "10001", "10001", "01110")
-SHAPE_9 = _glyph("01110", "10001", "10001", "01111", "00001", "00010", "01100")
+# Numbers
+SHAPE_0                  = (2, 3, 6, 9, 11, 14, 16, 19, 22, 23)
+SHAPE_1                  = (2, 3, 8, 13, 18, 23)
+SHAPE_2                  = (2, 3, 6, 9, 13, 17, 21, 22, 23, 24)
+SHAPE_3                  = (1, 2, 3, 4, 9, 12, 13, 14, 19, 21, 22, 23, 24)
+SHAPE_4                  = (1, 4, 6, 9, 11, 12, 13, 14, 19, 24)
+SHAPE_5                  = (2, 3, 4, 6, 11, 12, 13, 14, 19, 21, 22, 23, 24)
+SHAPE_6                  = (1, 2, 3, 4, 6, 11, 12, 13, 14, 16, 19, 21, 22, 23, 24)
+SHAPE_7                  = (1, 2, 3, 4, 9, 13, 17, 21)
+SHAPE_8                  = (1, 2, 3, 4, 6, 9, 12, 13, 16, 19, 21, 22, 23, 24)
+SHAPE_9                  = (1, 2, 3, 4, 6, 9, 11, 12, 13, 14, 19, 21, 22, 23, 24)
 
-# ── Letters (5×7 font, left-aligned cols 0-4, rows 1-7) ──
-SHAPE_A = _glyph("01110", "10001", "10001", "11111", "10001", "10001", "10001")
-SHAPE_B = _glyph("11110", "10001", "10001", "11110", "10001", "10001", "11110")
-SHAPE_C = _glyph("01110", "10001", "10000", "10000", "10000", "10001", "01110")
-SHAPE_D = _glyph("11100", "10010", "10001", "10001", "10001", "10010", "11100")
-SHAPE_E = _glyph("11111", "10000", "10000", "11110", "10000", "10000", "11111")
-SHAPE_F = _glyph("11111", "10000", "10000", "11110", "10000", "10000", "10000")
-SHAPE_G = _glyph("01110", "10001", "10000", "10111", "10001", "10001", "01111")
-SHAPE_H = _glyph("10001", "10001", "10001", "11111", "10001", "10001", "10001")
-SHAPE_I = _glyph("01110", "00100", "00100", "00100", "00100", "00100", "01110")
-SHAPE_J = _glyph("00111", "00010", "00010", "00010", "00010", "10010", "01100")
-SHAPE_K = _glyph("10001", "10010", "10100", "11000", "10100", "10010", "10001")
-SHAPE_L = _glyph("10000", "10000", "10000", "10000", "10000", "10000", "11111")
-SHAPE_M = _glyph("10001", "11011", "10101", "10101", "10001", "10001", "10001")
-SHAPE_N = _glyph("10001", "10001", "11001", "10101", "10011", "10001", "10001")
-SHAPE_O = _glyph("01110", "10001", "10001", "10001", "10001", "10001", "01110")
-SHAPE_P = _glyph("11110", "10001", "10001", "11110", "10000", "10000", "10000")
-SHAPE_Q = _glyph("01110", "10001", "10001", "10001", "10101", "10010", "01101")
-SHAPE_R = _glyph("11110", "10001", "10001", "11110", "10100", "10010", "10001")
-SHAPE_S = _glyph("01111", "10000", "10000", "01110", "00001", "00001", "11110")
-SHAPE_T = _glyph("11111", "00100", "00100", "00100", "00100", "00100", "00100")
-SHAPE_U = _glyph("10001", "10001", "10001", "10001", "10001", "10001", "01110")
-SHAPE_V = _glyph("10001", "10001", "10001", "10001", "10001", "01010", "00100")
-SHAPE_W = _glyph("10001", "10001", "10001", "10101", "10101", "11011", "10001")
-SHAPE_X = _glyph("10001", "10001", "01010", "00100", "01010", "10001", "10001")
-SHAPE_Y = _glyph("10001", "10001", "01010", "00100", "00100", "00100", "00100")
-SHAPE_Z = _glyph("11111", "00001", "00010", "00100", "01000", "10000", "11111")
+# Letters
+SHAPE_A                  = (0, 1, 2, 3, 4, 5, 9, 10, 11, 12, 13, 14, 15, 19, 20, 24)
+SHAPE_B                  = (0, 1, 2, 3, 5, 9, 10, 11, 12, 13, 14, 15, 19, 20, 21, 22, 23)
+SHAPE_C                  = (1, 2, 3, 5, 10, 15, 21, 22, 23)
+SHAPE_D                  = (0, 1, 2, 3, 5, 9, 10, 14, 15, 19, 20, 21, 22, 23)
+SHAPE_E                  = (0, 1, 2, 3, 4, 5, 10, 11, 12, 13, 15, 20, 21, 22, 23, 24)
+SHAPE_F                  = (0, 1, 2, 3, 4, 5, 10, 11, 12, 13, 15, 20)
+SHAPE_G                  = (1, 2, 3, 5, 10, 13, 14, 15, 19, 21, 22, 23, 24)
+SHAPE_H                  = (1, 4, 6, 9, 11, 12, 13, 14, 16, 19, 21, 24)
+SHAPE_I                  = (1, 2, 3, 7, 12, 17, 21, 22, 23)
+SHAPE_J                  = (1, 2, 3, 4, 8, 13, 16, 18, 21, 22, 23)
+SHAPE_K                  = (0, 3, 5, 7, 10, 11, 15, 17, 20, 23)
+SHAPE_L                  = (0, 5, 10, 15, 20, 21, 22, 23)
+SHAPE_M                  = (0, 4, 5, 6, 8, 9, 10, 12, 14, 15, 19, 20, 24)
+SHAPE_N                  = (0, 4, 5, 6, 9, 10, 12, 14, 15, 18, 19, 20, 24)
+SHAPE_O                  = (0, 1, 2, 3, 4, 5, 9, 10, 14, 15, 19, 20, 21, 22, 23, 24)
+SHAPE_P                  = (0, 1, 2, 3, 4, 5, 9, 10, 11, 12, 13, 14, 15, 20)
+SHAPE_Q                  = (1, 2, 3, 5, 9, 10, 14, 15, 18, 21, 22, 24)
+SHAPE_R                  = (0, 1, 2, 3, 5, 9, 10, 14, 15, 16, 17, 18, 20, 24)
+SHAPE_S                  = (0, 1, 2, 3, 4, 5, 10, 11, 12, 13, 14, 19, 20, 21, 22, 23, 24)
+SHAPE_T                  = (0, 1, 2, 3, 4, 7, 12, 17, 22)
+SHAPE_U                  = (0, 4, 5, 9, 10, 14, 15, 19, 21, 22, 23)
+SHAPE_V                  = (0, 4, 5, 9, 11, 13, 16, 18, 22)
+SHAPE_W                  = (0, 4, 5, 9, 10, 12, 14, 15, 17, 19, 20, 21, 23, 24)
+SHAPE_X                  = (0, 4, 6, 8, 12, 16, 18, 20, 24)
+SHAPE_Y                  = (0, 4, 6, 8, 12, 17, 22)
+SHAPE_Z                  = (0, 1, 2, 3, 4, 8, 12, 16, 20, 21, 22, 23, 24)
 
-# ── Symbols ──
-SHAPE_QUESTION = _art("", "011100", "100010", "000010", "000100",
-                      "001000", "001000", "000000", "001000")
-SHAPE_EXCLAIM  = _art("", "001100", "001100", "001100", "001100",
-                      "001100", "001100", "000000", "001100")
-SHAPE_PLUS     = _art("", "", "001100", "001100", "111111",
-                      "111111", "001100", "001100")
-SHAPE_DIAMOND  = _art("", "001100", "011110", "111111", "111111",
-                      "111111", "111111", "011110", "001100")
-SHAPE_POWER    = _art("", "001100", "101101", "100001", "100001",
-                      "100001", "010010", "001100")
-SHAPE_HEART    = _art("", "011011", "111111", "111111", "011110", "001100")
-SHAPE_CHECK    = _art("", "", "000011", "000110", "001100",
-                      "101000", "111000", "010000")
-SHAPE_LIGHTNING = _art("000110", "001100", "011000", "111110",
-                       "001100", "011000", "110000")
-SHAPE_MUSIC    = _art("", "000110", "000110", "000100", "000100",
-                      "000100", "000100", "110100", "111100", "111000")
-SHAPE_HOUSE    = _art("", "001100", "011110", "111111", "100001",
-                      "101101", "101101", "111111")
-SHAPE_TREE     = _art("", "001100", "011110", "011110", "111111",
-                      "111111", "001100", "001100")
-SHAPE_HOURGLASS = _art("", "111111", "011110", "001100", "001100",
-                       "001100", "011110", "111111")
-SHAPE_MOON     = _art("", "001110", "011100", "111000", "111000",
-                      "111000", "011100", "001110")
-SHAPE_STAR     = _art("", "001100", "001100", "111111", "011110",
-                      "001100", "011110", "110011")
-SHAPE_RAINDROP = _art("", "001100", "001100", "011110", "011110",
-                      "111111", "111111", "011110")
-SHAPE_FLAME    = _art("", "", "000100", "001100", "001110",
-                      "011110", "111111", "111011", "011110")
-SHAPE_SPIRAL   = _art("111111", "000001", "111101", "100101",
-                      "101101", "100001", "111111")
-SHAPE_FISH     = _art("", "", "", "010000", "111010",
-                      "011111", "111010", "010000")
-SHAPE_BIRD     = _art("", "", "", "100001", "110011", "011110", "001100")
-SHAPE_PACMAN   = _art("", "011110", "111100", "111000", "110000",
-                      "111000", "111100", "011110")
-SHAPE_INVADER  = _art("", "", "100001", "011110", "111111",
-                      "101101", "111111", "010010", "101101")
-SHAPE_GHOST    = _art("", "011110", "111111", "110011", "111111",
-                      "111111", "111111", "101101")
-# Alternating checkerboard across the whole matrix.
-SHAPE_CHECKERS = tuple(_xy(c, r) for c in range(COLS) for r in range(ROWS)
-                       if (c + r) % 2 == 0)
+# Symbols
+SHAPE_QUESTION           = (1, 2, 5, 8, 12, 22)
+SHAPE_EXCLAIM            = (2, 7, 12, 22)
+SHAPE_PLUS               = (2, 7, 10, 11, 12, 13, 14, 17, 22)
+SHAPE_DIAMOND            = (2, 6, 7, 8, 10, 11, 12, 13, 14, 16, 17, 18, 22)
+SHAPE_POWER              = (2, 6, 8, 10, 14, 16, 18, 22)
+SHAPE_HEART              = (1, 3, 5, 6, 8, 9, 10, 11, 12, 13, 14, 16, 17, 18, 22)
+SHAPE_CHECK              = (9, 13, 15, 17, 21)
+SHAPE_LIGHTNING          = (1, 6, 7, 12, 17, 18, 23)
+SHAPE_MUSIC              = (2, 3, 7, 12, 15, 16, 17, 20, 21, 22)
+SHAPE_HOUSE              = (2, 6, 7, 8, 10, 11, 12, 13, 14, 15, 17, 19, 20, 21, 22, 23, 24)
+SHAPE_TREE               = (2, 6, 7, 8, 11, 12, 13, 17, 22)
+SHAPE_HOURGLASS          = (0, 1, 2, 3, 4, 6, 8, 12, 16, 18, 20, 21, 22, 23, 24)
+SHAPE_MOON               = (2, 3, 4, 6, 7, 11, 12, 16, 17, 22, 23, 24)
+SHAPE_STAR               = (2, 5, 7, 9, 11, 12, 13, 15, 17, 19, 22)
+SHAPE_RAINDROP           = (2, 6, 8, 10, 14, 15, 19, 21, 22, 23)
+SHAPE_FLAME              = (2, 6, 7, 8, 10, 12, 14, 15, 17, 19, 21, 22, 23)
+SHAPE_CHECKERS           = (0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24)
+SHAPE_SPIRAL             = (0, 1, 2, 3, 5, 8, 12, 16, 19, 21, 22, 23, 24)
+SHAPE_FISH               = (2, 6, 7, 9, 10, 12, 13, 14, 16, 17, 19, 22)
+SHAPE_BIRD               = (5, 6, 8, 9, 11, 12, 13, 17)
+SHAPE_PACMAN             = (1, 2, 3, 4, 5, 7, 8, 10, 11, 12, 15, 16, 17, 18, 21, 22, 23, 24)
+SHAPE_INVADER            = (1, 3, 5, 6, 7, 8, 9, 11, 12, 13, 16, 18, 20, 24)
+SHAPE_GHOST              = (1, 2, 3, 5, 7, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24)
 
-# ── Media / UI ──
-SHAPE_PLAY        = _art("", "010000", "011000", "011100", "011110",
-                         "011110", "011100", "011000", "010000")
-SHAPE_PAUSE       = _art("", "", "011011", "011011", "011011",
-                         "011011", "011011", "011011")
-SHAPE_RECTANGLE   = _art("", "", "111111", "111111", "111111",
-                         "111111", "111111", "111111")
-SHAPE_FASTFORWARD = _art("", "", "", "100100", "110110",
-                         "111111", "110110", "100100")
-SHAPE_REWIND      = _art("", "", "", "001001", "011011",
-                         "111111", "011011", "001001")
-SHAPE_WIFI        = _art("", "", "011110", "100001", "001100",
-                         "010010", "001100")
-SHAPE_POINTER     = _art("", "100000", "110000", "111000", "111100",
-                         "111110", "111000", "010100", "010010")
-SHAPE_BULLSEYE    = _art("", "011110", "100001", "101101", "101101",
-                         "100001", "011110")
+# Media / UI
+SHAPE_PLAY               = (1, 6, 7, 11, 12, 13, 16, 17, 21)
+SHAPE_PAUSE              = (1, 3, 6, 8, 11, 13, 16, 18, 21, 23)
+SHAPE_RECTANGLE          = (5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19)
+SHAPE_FASTFORWARD        = (5, 8, 10, 11, 13, 14, 15, 18)
+SHAPE_REWIND             = (6, 9, 10, 11, 13, 14, 16, 19)
+SHAPE_WIFI               = (1, 2, 3, 5, 6, 8, 9, 16, 17, 18, 20, 21, 23, 24)
+SHAPE_POINTER            = (0, 5, 6, 10, 11, 12, 15, 16, 20)
+SHAPE_BULLSEYE           = (1, 2, 3, 5, 9, 10, 12, 14, 15, 19, 21, 22, 23)
 
-SHAPE_BATTERY_FULL  = _art("001100", "011110", "011110", "011110", "011110",
-                           "011110", "011110", "011110", "011110")
-SHAPE_BATTERY_HALF  = _art("001100", "011110", "010010", "010010", "010010",
-                           "011110", "011110", "011110", "011110")
-SHAPE_BATTERY_EMPTY = _art("001100", "011110", "010010", "010010", "010010",
-                           "010010", "010010", "010010", "011110")
+SHAPE_BATTERY_FULL  = (2, 6, 7, 8, 11, 12, 13, 16, 17, 18, 21, 22, 23)
+SHAPE_BATTERY_HALF  = (2, 6, 8, 11, 13, 16, 17, 18, 21, 22, 23)
+SHAPE_BATTERY_EMPTY = (2, 6, 8, 11, 13, 16, 18, 21, 22, 23)
 
-# ── Characters ──
-SHAPE_DANCER1 = _art("", "001100", "001100", "101101", "011110",
-                     "001100", "010010", "100001")
-SHAPE_DANCER2 = _art("", "001100", "001100", "111111", "001100",
-                     "001100", "010010", "010010")
-SHAPE_DANCER3 = _art("", "001100", "001100", "001101", "011100",
-                     "001100", "010010", "100010")
-SHAPE_SAD_FACE     = _art("", "", "", "010010", "", "011110", "100001")
-SHAPE_HAPPY_FACE   = _art("", "", "", "010010", "", "100001", "011110")
-SHAPE_NEUTRAL_FACE = _art("", "", "", "010010", "", "", "011110")
-SHAPE_SL_FACE      = _art("", "", "", "010010", "", "", "111111")
-SHAPE_ANGRY_FACE   = _art("", "", "100001", "010010", "", "011110", "100001")
-SHAPE_SLEEPY_FACE  = _art("", "", "", "110011", "010010", "", "011110")
+# Characters
+SHAPE_DANCER1            = (1, 5, 6, 7, 11, 16, 17, 20, 22)
+SHAPE_DANCER2            = (2, 6, 7, 8, 12, 17, 21, 23)
+SHAPE_DANCER3            = (3, 7, 8, 9, 13, 17, 18, 22, 24)
+SHAPE_SAD_FACE           = (6, 8, 16, 17, 18, 20, 24)
+SHAPE_HAPPY_FACE         = (6, 8, 15, 19, 21, 22, 23)
+SHAPE_NEUTRAL_FACE       = (6, 8, 21, 22, 23)
+SHAPE_SL_FACE            = (5, 8, 15, 21, 22, 23)
+SHAPE_ANGRY_FACE         = (0, 4, 6, 8, 21, 22, 23)
+SHAPE_SLEEPY_FACE        = (5, 6, 8, 9, 15, 19, 21, 22, 23)
 
-# ── Arrows ──
-SHAPE_ARROW_UP = _art("", "001100", "011110", "111111", "001100",
-                      "001100", "001100", "001100", "001100")
-SHAPE_ARROW_DN = _art("", "001100", "001100", "001100", "001100",
-                      "001100", "111111", "011110", "001100")
-SHAPE_ARROW_L  = _art("", "", "", "001000", "011000",
-                      "111111", "011000", "001000")
-SHAPE_ARROW_R  = _art("", "", "", "000100", "000110",
-                      "111111", "000110", "000100")
-# Lower-left / lower-right filled triangles.
-SHAPE_DIAG_L = tuple(_xy(c, r) for r in range(ROWS) for c in range(COLS)
-                     if c <= r * (COLS - 1) // (ROWS - 1))
-SHAPE_DIAG_R = tuple(_xy(c, r) for r in range(ROWS) for c in range(COLS)
-                     if (COLS - 1 - c) <= r * (COLS - 1) // (ROWS - 1))
+# Arrows
+SHAPE_ARROW_UP           = (2, 6, 7, 8, 10, 11, 12, 13, 14, 17, 22)
+SHAPE_ARROW_DN           = (2, 7, 10, 11, 12, 13, 14, 16, 17, 18, 22)
+SHAPE_ARROW_L            = (2, 6, 7, 10, 11, 12, 13, 14, 16, 17, 22)
+SHAPE_ARROW_R            = (2, 7, 8, 10, 11, 12, 13, 14, 17, 18, 22)
+SHAPE_DIAG_L             = (0, 5, 6, 10, 11, 12, 15, 16, 17, 18, 20, 21, 22, 23, 24)
+SHAPE_DIAG_R             = (4, 8, 9, 12, 13, 14, 16, 17, 18, 19, 20, 21, 22, 23, 24)
 
-# ── Utility / geometric ──
-SHAPE_LEFT_COL  = tuple(_xy(0, r) for r in range(ROWS))
-SHAPE_RIGHT_COL = tuple(_xy(COLS - 1, r) for r in range(ROWS))
-SHAPE_TOP_ROW   = tuple(_xy(c, 0) for c in range(COLS))
-SHAPE_BOT_ROW   = tuple(_xy(c, ROWS - 1) for c in range(COLS))
-# Center 2×2 block.
-_cc = (COLS - 1) // 2
-_cr = (ROWS - 1) // 2
-SHAPE_CENTER  = tuple(_xy(c, r) for c in (_cc, _cc + 1) for r in (_cr, _cr + 1))
-SHAPE_CORNERS = (_xy(0, 0), _xy(0, ROWS - 1), _xy(COLS - 1, 0), _xy(COLS - 1, ROWS - 1))
-# Perimeter of the whole matrix.
-SHAPE_BORDER = tuple(sorted(set(
-    [_xy(c, 0) for c in range(COLS)] + [_xy(c, ROWS - 1) for c in range(COLS)] +
-    [_xy(0, r) for r in range(ROWS)] + [_xy(COLS - 1, r) for r in range(ROWS)]
-)))
-# Filled centered block (cols 1..COLS-2, rows 3..ROWS-4) — the "inner" ring
-# used by grow/shrink animations and the idle display.
-SHAPE_INNER_3x3 = tuple(_xy(c, r)
-                        for c in range(1, COLS - 1)
-                        for r in range(3, ROWS - 3))
-# Diagonals for the spin animation (one pixel per column).
-SHAPE_SLASH_L = tuple(_xy(c, min(ROWS - 1, c * (ROWS - 1) // (COLS - 1)))
-                      for c in range(COLS))
-SHAPE_SLASH_R = tuple(_xy(c, max(0, (ROWS - 1) - c * (ROWS - 1) // (COLS - 1)))
-                      for c in range(COLS))
-# Mid horizontal / vertical bars (used by the spinner).
-SHAPE_MID_ROW = tuple(_xy(c, r) for c in range(COLS) for r in (_cr, _cr + 1))
-SHAPE_MID_COL = tuple(_xy(c, r) for c in (_cc, _cc + 1) for r in range(ROWS))
+# Utility
+SHAPE_BORDER             = (0, 1, 2, 3, 4, 5, 9, 10, 14, 15, 19, 20, 21, 22, 23, 24)
+SHAPE_INNER_3x3          = (6, 7, 8, 11, 12, 13, 16, 17, 18)
+SHAPE_CORNERS            = (0, 4, 20, 24)
+SHAPE_CENTER             = (12,)
+SHAPE_TOP_ROW            = (0, 1, 2, 3, 4)
+SHAPE_ROW2               = (5, 6, 7, 8, 9)
+SHAPE_ROW3               = (10, 11, 12, 13, 14)
+SHAPE_ROW4               = (15, 16, 17, 18, 19)
+SHAPE_BOT_ROW            = (20, 21, 22, 23, 24)
+SHAPE_LEFT_COL           = (0, 5, 10, 15, 20)
+SHAPE_COL2               = (1, 6, 11, 16, 21)
+SHAPE_COL3               = (2, 7, 12, 17, 22)
+SHAPE_COL4               = (3, 8, 13, 18, 23)
+SHAPE_RIGHT_COL          = (4, 9, 14, 19, 24)
+SHAPE_SLASH_L            = (0, 6, 12, 18, 24)
+SHAPE_SLASH_R            = (4, 8, 12, 16, 20)
 
 TRIGGER_LED = {"buttondown": 0, "buttonup": 1, "whenshake": 2}
 
@@ -340,21 +241,22 @@ SC_COLOR_DIM         = (3, 3, 0)
 READY_LED   = 5
 READY_COLOR = (5, 0, 0)
 
-# Centered cluster lit during idle (battery-colored). Same set as the
-# inner block used by the grow/shrink animations.
-INNER_RING = list(SHAPE_INNER_3x3)
+# Inner 3x3 ring on 5x5 grid (rows 1-3, cols 1-3)
+INNER_RING = [6, 7, 8, 11, 12, 13, 16, 17, 18]
 
-# Boot status LED positions (top of the left column: indices 0, 1, 2)
+# Boot status LED positions (top-left corner: LEDs 0, 1, 2)
 BOOT_LED_POWER  = 0
 BOOT_LED_BATT   = 1
 BOOT_LED_READY  = 2
 
 # Row data LED indices for each boot stage (cols 1-4 of that stage's row).
-# Stage indicators themselves live in the left column (SHAPE_LEFT_COL[stage]),
-# i.e. indices 0..4. Five stages fit comfortably in the 10-row left column.
-_BOOT_STAGE_DATA = tuple(
-    tuple(_xy(c, stage) for c in range(1, 5))   # cols 1-4 at row=stage
-    for stage in range(5)
+# Indexed by stage number, parallel to SHAPE_LEFT_COL (0, 5, 10, 15, 20).
+_BOOT_STAGE_DATA = (
+    ( 1,  2,  3,  4),   # stage 0: power / main() started
+    ( 6,  7,  8,  9),   # stage 1: brightness (OPT3002)
+    (11, 12, 13, 14),   # stage 2: battery (MAX17048)
+    (16, 17, 18, 19),   # stage 3: NFC
+    (21, 22, 23, 24),   # stage 4: accel
 )
 
 
@@ -439,7 +341,7 @@ class Leds:
         if pin is None:
             pin = HUB_CONFIG.get("led_pin", 20)
         if num is None:
-            num = HUB_CONFIG.get("num_leds", 60)
+            num = HUB_CONFIG.get("num_leds", 25)
         self.np = _ScaledNeoPixel(machine.Pin(pin), num)
         self.num = num
 
@@ -520,43 +422,41 @@ class Leds:
 
     def animate_rows(self, frame, color, bg=OFF, frames_per_step=6):
         """
-        Sweep a lit row top-to-bottom, repeating. Uses the full height of
-        the matrix (all ROWS rows), so on the 6×10 wand the bar travels
-        through 10 rows rather than the old 5.
+        Cycle through rows top-to-bottom: TOP_ROW, ROW2, ROW3, ROW4, BOT_ROW, repeat.
 
         Example:
             leds.animate_rows(self._frame, BLUE)
         """
-        r = (frame // frames_per_step) % ROWS
-        row = tuple(_xy(c, r) for c in range(COLS))
-        self.show_shape(row, color, bg)
+        rows = (SHAPE_TOP_ROW, SHAPE_ROW2, SHAPE_ROW3, SHAPE_ROW4, SHAPE_BOT_ROW)
+        idx = (frame // frames_per_step) % len(rows)
+        self.show_shape(rows[idx], color, bg)
 
     def animate_columns(self, frame, color, bg=OFF, frames_per_step=6):
         """
-        Sweep a lit column left-to-right, repeating. Uses all COLS columns.
+        Cycle through columns left-to-right: LEFT_COL, COL2, COL3, COL4, RIGHT_COL, repeat.
 
         Example:
             leds.animate_columns(self._frame, GREEN)
         """
-        c = (frame // frames_per_step) % COLS
-        col = tuple(_xy(c, r) for r in range(ROWS))
-        self.show_shape(col, color, bg)
+        cols = (SHAPE_LEFT_COL, SHAPE_COL2, SHAPE_COL3, SHAPE_COL4, SHAPE_RIGHT_COL)
+        idx = (frame // frames_per_step) % len(cols)
+        self.show_shape(cols[idx], color, bg)
 
     def animate_spin(self, frame, color, bg=OFF, frames_per_step=6):
         """
-        Rotate a bar through the center: mid-row, slash, mid-col, anti-slash.
-        Creates a spinning-line effect through the middle of the grid.
+        Cycle through rotating bars: ROW3, SLASH_L, COL3, SLASH_R, repeat.
+        Creates a spinning-line effect through the center of the grid.
 
         Example:
             leds.animate_spin(self._frame, PURPLE)
         """
-        spin = (SHAPE_MID_ROW, SHAPE_SLASH_L, SHAPE_MID_COL, SHAPE_SLASH_R)
+        spin = (SHAPE_ROW3, SHAPE_SLASH_L, SHAPE_COL3, SHAPE_SLASH_R)
         idx = (frame // frames_per_step) % len(spin)
         self.show_shape(spin[idx], color, bg)
 
     def animate_grow(self, frame, color, bg=OFF, frames_per_step=6):
         """
-        Expand outward: CENTER, INNER block, BORDER, blank, repeat.
+        Expand outward: CENTER, INNER_3x3, BORDER, blank, repeat.
         The "blank" step shows bg only (no foreground shape).
 
         Example:
@@ -568,7 +468,7 @@ class Leds:
 
     def animate_shrink(self, frame, color, bg=OFF, frames_per_step=6):
         """
-        Contract inward: BORDER, INNER block, CENTER, blank, repeat.
+        Contract inward: BORDER, INNER_3x3, CENTER, blank, repeat.
         The "blank" step shows bg only (no foreground shape).
 
         Example:
@@ -653,8 +553,6 @@ class Leds:
     # ══════════════════════════════════════════
     # BOOT SEQUENCE LEDs
     # ══════════════════════════════════════════
-    # The boot bar uses the left column for stage indicators (one LED per
-    # stage, indices 0..4) and cols 1-4 of the same row for analog data.
 
     def boot_power(self):
         """
@@ -681,7 +579,7 @@ class Leds:
         row_flash: if > 0 and row_colors provided, flash the row that many times
         (100ms on / 100ms off) before settling. Used for low-battery warning.
         """
-        if stage >= len(_BOOT_STAGE_DATA):
+        if stage >= len(SHAPE_LEFT_COL):
             return
         self.np[SHAPE_LEFT_COL[stage]] = GREEN
         if row_colors is not None:
@@ -770,7 +668,7 @@ class Leds:
 
     def idle_default(self, soc):
         """
-        Default idle: centered cluster lit with battery charge color (static).
+        Default idle: inner 3x3 ring lit with battery charge color (static).
         Use idle_low_blink() instead when battery <= 10%.
         """
         color = battery_color(soc)
