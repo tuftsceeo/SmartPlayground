@@ -89,20 +89,31 @@ real load on a small cell.
 
 ---
 
-## The decision that shapes the rest: transport
+## Transport: USB for now
 
-**Direct USB** — the wand appears as a serial port and the existing browser
-device layer works unchanged. Nearly free.
+**Decided: direct USB.** The wand enumerates as a serial port, so the existing
+browser device layer works unchanged — `json_link.py` reads stdin exactly as the
+station's does, and the app's profile auto-detect picks `wand5` up from the
+`hello` it already sends. This is the cheap path and it needs no new plumbing on
+either side.
 
-**Through the hub over ESP-NOW** — a different transport, but a favourable one: a
-75-byte frame fits in a single ESP-NOW packet (250-byte limit), so live preview to
-a wand is genuinely practical in a way it never was for the 16×16 panel. Needs a
-hub-side relay that forwards `frame`/`show`/`save` to a selected wand and returns
-replies, plus a target-wand selector in the app. `Live_Page/WebApp2`'s hub already
-does broadcast ESP-NOW messaging and is the obvious model.
+That keeps the wand work to the four items above: port the server modules with
+5×5 config, add an icon mode, bypass the brightness wrapper, measure the power
+ceiling.
 
-This is worth deciding before writing the wand server, since it determines whether
-`json_link.py` is talking to stdin or to an ESP-NOW callback.
+### ESP-NOW, later
+
+Sending over ESP-NOW from MicroPython is still a work in progress, so it is out
+of scope here — but worth recording why it is attractive once it lands: a 5×5
+frame is **75 bytes**, which fits in a single ESP-NOW packet (250-byte limit),
+where the 16×16 panel's 768 bytes never could. Live preview to a wand over the
+air is therefore practical in a way it never was for the station.
+
+If it is picked up, the shape is a hub-side relay forwarding `frame`/`show`/`save`
+to a selected wand and returning replies, plus a target-wand selector in the app.
+`Live_Page/WebApp2`'s hub already does broadcast ESP-NOW messaging and is the
+obvious model. Nothing in the current design blocks it: the protocol is transport
+agnostic, so only `json_link.py`'s source of bytes would change.
 
 ---
 
