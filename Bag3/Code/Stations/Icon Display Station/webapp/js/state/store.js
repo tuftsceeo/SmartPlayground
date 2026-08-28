@@ -5,6 +5,14 @@
  * in state/doc.js instead -- see plan §App architecture.
  */
 
+function loadUiMode() {
+  try {
+    const stored = localStorage.getItem("iconmaker.uiMode");
+    if (stored === "advanced" || stored === "simple") return stored;
+  } catch (_) {}
+  return "simple";
+}
+
 export const state = {
   // source / icon identity
   iconName: null,
@@ -24,6 +32,8 @@ export const state = {
   transformLabel: "", // human-readable summary of the applied crop/fit
 
   // UI
+  uiMode: loadUiMode(), // 'simple' | 'advanced'
+  activeTool: "pencil", // 'pencil' | 'eraser' | 'revert'
   loading: false,
   loadError: null,
   brushColor: [255, 0, 149], // AUTHORED linear duty, not a hex string

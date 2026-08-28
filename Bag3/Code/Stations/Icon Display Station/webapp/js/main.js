@@ -27,16 +27,22 @@ import { authoredToDisplay } from "./pipeline/ledDisplay.js";
 import { ledSwatchHex } from "./pipeline/ledGamut.js";
 
 import { createTopBar } from "./components/topBar.js";
+import { createSimpleTopBar } from "./components/simple/simpleTopBar.js";
 import { createSegmentList } from "./components/segmentList.js";
+import { createSimpleSegmentList } from "./components/simple/simpleSegmentList.js";
 import { createProblemsPanel } from "./components/problemsPanel.js";
 import { createDeviceBar } from "./components/deviceBar.js";
+import { createSimpleDeviceBar } from "./components/simple/simpleDeviceBar.js";
 import { createBrightnessControls } from "./components/previewPane.js";
-import { createGridControls } from "./components/gridPane.js";
 import { createImportControls } from "./components/sourcePane.js";
+import { createToolRow } from "./components/toolRow.js";
+import { createDocumentSwatches } from "./components/documentSwatches.js";
 import { CropModal } from "./components/cropModal.js";
 import { PalettePicker } from "./components/palettePicker.js";
 import { showToast } from "./components/toast.js";
-import { hexToRgb, DEBUG_SWATCHES } from "./utils/colorUtils.js";
+import { OFF_DUTY } from "./pipeline/ledGamut.js";
+import { advancedLayoutHtml } from "./layouts/advancedLayout.js";
+import { simpleLayoutHtml } from "./layouts/simpleLayout.js";
 
 import { DeviceLink } from "./device/deviceLink.js";
 import { FrameThrottle, suggestSafeIntensity } from "./device/frameThrottle.js";
@@ -44,7 +50,7 @@ import { SerialMonitor } from "./components/serialMonitor.js";
 import { logInfo, logError } from "./device/serialLog.js";
 
 const FIXTURES = ["apple", "cherries", "grapes", "lemon", "orange", "watermelon"];
-const GRID_CANVAS_SIZE = 320; // 20px per cell
+const GRID_BACKING = 640;
 
 function downloadText(filename, text, mime) {
   downloadBlob(filename, new Blob([text], { type: mime }));
@@ -98,7 +104,9 @@ class App {
       onDisconnect: () => this.disconnectDevice(),
     });
     this.wireDevice();
+    this.createCanvases();
     this.buildShell();
+    this.applyMonitorVisibility();
     onStateChange(() => this.renderReactive());
     this.renderReactive();
     this.loadFixture("apple").catch((e) => showToast(String(e.message || e), { kind: "error" }));
@@ -198,6 +206,7 @@ class App {
       c.width = WORK;
       c.height = WORK;
     }
+    this.resizeGridCanvas();
 
     setState({ profileId: p.id, maxSegments: p.maxSegments });
 
@@ -357,43 +366,42 @@ class App {
       });
   }
 
-  // ── shell: built once, persistent canvases live here ──────────────────
+  // ── shell: layout rebuilds on mode switch; canvases persist ─────────────
+  createCanvases() {
+    this.sourceCanvas = document.createElement("canvas");
+    this.sourceCanvas.id = "sourceCanvas";
+    this.sourceCanvas.className = "pixelated bg-neutral-900 rounded canvas-source";
+    this.sourceCanvas.width = WORK;
+    this.sourceCanvas.height = WORK;
+
+    this.segmentedCanvas = document.createElement("canvas");
+    this.segmentedCanvas.id = "segmentedCanvas";
+    this.segmentedCanvas.className = "pixelated bg-neutral-900 rounded canvas-source";
+    this.segmentedCanvas.width = WORK;
+    this.segmentedCanvas.height = WORK;
+
+    this.previewCanvas = document.createElement("canvas");
+    this.previewCanvas.id = "previewCanvas";
+    this.previewCanvas.className = "pixelated rounded canvas-preview";
+    this.previewCanvas.width = 384;
+    this.previewCanvas.height = 384;
+
+    this.gridCanvas = document.createElement("canvas");
+    this.gridCanvas.id = "gridCanvas";
+    this.gridCanvas.className = "pixelated bg-neutral-900 rounded";
+    this.resizeGridCanvas();
+
+    this.wireGridCanvas();
+  }
+
+  resizeGridCanvas() {
+    this.gridCanvas.width = GRID_BACKING;
+    this.gridCanvas.height = GRID_BACKING;
+  }
+
   buildShell() {
-    this.root.innerHTML = `
-      <div id="topBarMount"></div>
-      <div class="flex-1 grid grid-cols-[320px_360px_1fr] overflow-hidden">
-        <div class="flex flex-col overflow-y-auto border-r border-neutral-800">
-          <div id="importMount"></div>
-          <div class="p-3 flex flex-col gap-2 items-center">
-            <div>
-              <div class="text-[11px] text-neutral-500 mb-1">source</div>
-              <canvas id="sourceCanvas" class="pixelated bg-neutral-900 rounded" width="${WORK}" height="${WORK}" style="width:280px;height:280px"></canvas>
-            </div>
-            <div>
-              <div class="text-[11px] text-neutral-500 mb-1">segmented</div>
-              <canvas id="segmentedCanvas" class="pixelated bg-neutral-900 rounded" width="${WORK}" height="${WORK}" style="width:280px;height:280px"></canvas>
-            </div>
-          </div>
-        </div>
-
-        <div id="segmentListMount" class="overflow-y-auto border-r border-neutral-800"></div>
-
-        <div class="flex flex-col overflow-y-auto">
-          <div class="p-3 flex flex-col items-center">
-            <canvas id="previewCanvas" class="pixelated rounded" width="384" height="384" style="width:320px;height:320px"></canvas>
-          </div>
-          <div id="brightnessMount"></div>
-
-          <div class="p-3 flex flex-col items-center border-t border-neutral-800">
-            <canvas id="gridCanvas" class="pixelated bg-neutral-900 rounded" width="${GRID_CANVAS_SIZE}" height="${GRID_CANVAS_SIZE}" style="width:${GRID_CANVAS_SIZE}px;height:${GRID_CANVAS_SIZE}px"></canvas>
-          </div>
-          <div id="gridControlsMount"></div>
-
-          <div id="problemsMount"></div>
-          <div id="deviceMount" class="mt-auto"></div>
-        </div>
-      </div>
-    `;
+    const html = state.uiMode === "simple" ? simpleLayoutHtml() : advancedLayoutHtml();
+    this.root.innerHTML = html;
 
     this.topBarMount = this.root.querySelector("#topBarMount");
     this.importMount = this.root.querySelector("#importMount");
@@ -403,26 +411,72 @@ class App {
     this.problemsMount = this.root.querySelector("#problemsMount");
     this.deviceMount = this.root.querySelector("#deviceMount");
 
-    this.sourceCanvas = this.root.querySelector("#sourceCanvas");
-    this.segmentedCanvas = this.root.querySelector("#segmentedCanvas");
-    this.previewCanvas = this.root.querySelector("#previewCanvas");
-    this.gridCanvas = this.root.querySelector("#gridCanvas");
+    this.adoptCanvases();
+  }
 
-    this.wireGridCanvas();
+  adoptCanvases() {
+    this.root.querySelector('[data-canvas-slot="source"]').appendChild(this.sourceCanvas);
+    this.root.querySelector('[data-canvas-slot="segmented"]').appendChild(this.segmentedCanvas);
+    this.root.querySelector('[data-canvas-slot="preview"]').appendChild(this.previewCanvas);
+    this.root.querySelector('[data-canvas-slot="grid"]').appendChild(this.gridCanvas);
+  }
+
+  setUiMode(next) {
+    if (next === state.uiMode) return;
+    if (this.crop.el) return;
+    localStorage.setItem("iconmaker.uiMode", next);
+    state.uiMode = next;
+    this.palette.close();
+    this.buildShell();
+    this.renderReactive();
+    this.applyMonitorVisibility();
+    this.paintAll();
+  }
+
+  applyMonitorVisibility() {
+    const hide = state.uiMode === "simple";
+    this.monitor.root.classList.toggle("hidden", hide);
+    if (hide) {
+      document.body.style.paddingBottom = "";
+    } else if (this.monitor.open) {
+      requestAnimationFrame(() => {
+        document.body.style.paddingBottom = `${this.monitor.root.offsetHeight}px`;
+      });
+    }
   }
 
   // ── reactive panels: rebuilt on every setState ─────────────────────────
   renderReactive() {
+    const simple = state.uiMode === "simple";
+    const cropOpen = !!this.crop.el;
+    const brushPalette = (anchor) =>
+      this.palette.open(anchor, state.brushColor, state.intensity, (duty) => setState({ brushColor: duty }));
+    const segmentPalette = (i, anchor) =>
+      this.palette.open(anchor, state.decisions[i]?.color, state.intensity, (duty) =>
+        this.commitDecisionPatch(i, { color: duty })
+      );
+
     this.topBarMount.innerHTML = "";
     this.topBarMount.appendChild(
-      createTopBar(state, {
-        onMaxSegmentsChange: (n) => this.changeMaxSegments(n),
-        onSaveMap: () => this.exportMap(),
-        onExportIcon: () => this.exportIcon(),
-        onDownloadPreview: () => this.exportPreview(),
-        onProfileChange: (id) => this.changeProfile(id),
-        onLoadFixture: (name) => this.loadFixture(name).catch((e) => showToast(String(e.message || e), { kind: "error" })),
-      })
+      simple
+        ? createSimpleTopBar(state, {
+            onMaxSegmentsChange: (n) => this.changeMaxSegments(n),
+            onExportIcon: () => this.exportIcon(),
+            onProfileChange: (id) => this.changeProfile(id),
+            onIconNameChange: (name) => setState({ iconName: name }),
+            onUiModeChange: (mode) => this.setUiMode(mode),
+            cropOpen,
+          })
+        : createTopBar(state, {
+            onMaxSegmentsChange: (n) => this.changeMaxSegments(n),
+            onSaveMap: () => this.exportMap(),
+            onExportIcon: () => this.exportIcon(),
+            onDownloadPreview: () => this.exportPreview(),
+            onProfileChange: (id) => this.changeProfile(id),
+            onLoadFixture: (name) => this.loadFixture(name).catch((e) => showToast(String(e.message || e), { kind: "error" })),
+            onUiModeChange: (mode) => this.setUiMode(mode),
+            cropOpen,
+          })
     );
 
     this.importMount.innerHTML = "";
@@ -430,21 +484,24 @@ class App {
       createImportControls(state, {
         onFilePicked: (file) => this.loadFile(file).catch((e) => showToast(String(e.message || e), { kind: "error" })),
         onOpenCrop: () => this.openCropTool(),
+        onLoadFixture: (name) => this.loadFixture(name).catch((e) => showToast(String(e.message || e), { kind: "error" })),
       })
     );
 
     this.segmentListMount.innerHTML = "";
     this.segmentListMount.appendChild(
-      createSegmentList(state, {
-        onRoleChange: (i, role) => this.onRoleChange(i, role),
-        onMergeChange: (i, target) => this.commitDecisionPatch(i, { merge_into: target }),
-        onOpenPalette: (i, anchor) =>
-          this.palette.open(anchor, state.decisions[i]?.color, state.intensity, (duty) =>
-            this.commitDecisionPatch(i, { color: duty })
-          ),
-        onPriorityInput: (i, val) => this.livePriorityInput(i, val),
-        onPriorityCommit: (i, val) => this.commitDecisionPatch(i, { priority: val }),
-      })
+      simple
+        ? createSimpleSegmentList(state, {
+            onRoleChange: (i, role) => this.onRoleChange(i, role),
+            onOpenPalette: segmentPalette,
+          })
+        : createSegmentList(state, {
+            onRoleChange: (i, role) => this.onRoleChange(i, role),
+            onMergeChange: (i, target) => this.commitDecisionPatch(i, { merge_into: target }),
+            onOpenPalette: segmentPalette,
+            onPriorityInput: (i, val) => this.livePriorityInput(i, val),
+            onPriorityCommit: (i, val) => this.commitDecisionPatch(i, { priority: val }),
+          })
     );
 
     this.brightnessMount.innerHTML = "";
@@ -456,35 +513,47 @@ class App {
     );
 
     this.gridControlsMount.innerHTML = "";
-    this.gridControlsMount.appendChild(
-      createGridControls(state, {
-        onOpenBrushPalette: (anchor) =>
-          this.palette.open(anchor, state.brushColor, state.intensity, (duty) =>
-            setState({ brushColor: duty })
-          ),
-        onUndo: () => this.undo(),
-      })
-    );
+    const swatches = createDocumentSwatches(state, {
+      onPick: (duty) => setState({ brushColor: duty, activeTool: "pencil" }),
+    });
+    const tools = createToolRow(state, {
+      onToolChange: (tool) => setState({ activeTool: tool }),
+      onUndo: () => this.undo(),
+      onOpenBrushPalette: brushPalette,
+    });
+    this.gridControlsMount.appendChild(swatches);
+    this.gridControlsMount.appendChild(tools);
 
     this.problemsMount.innerHTML = "";
     this.problemsMount.appendChild(createProblemsPanel(state));
 
     this.deviceMount.innerHTML = "";
     this.deviceMount.appendChild(
-      createDeviceBar(state, {
-        onConnect: () => this.connectDevice(),
-        onInstall: () => this.installDeviceFirmware(),
-        onRestart: () => this.restartDeviceFirmware(),
-        onDisconnect: () => this.disconnectDevice(),
-        onToggleLivePush: (on) => this.toggleLivePush(on),
-        onToggleTwelveV: (on) => this.toggleTwelveV(on),
-        onRefreshIcons: () => this.refreshDeviceIcons(),
-        onLoadFromDevice: (name) => this.loadFromDevice(name),
-        onDeleteFromDevice: (name) => this.deleteFromDevice(name),
-        onSaveToDevice: () => this.saveCurrentToDevice(),
-        onApplySuggestedIntensity: (v) => this.applySuggestedIntensity(v),
-        onFlashAnyway: () => this.flashAnyway(),
-      })
+      simple
+        ? createSimpleDeviceBar(state, {
+            onConnect: () => this.connectDevice(),
+            onDisconnect: () => this.disconnectDevice(),
+            onToggleLivePush: (on) => this.toggleLivePush(on),
+            onRefreshIcons: () => this.refreshDeviceIcons(),
+            onLoadFromDevice: (name) => this.loadFromDevice(name),
+            onDeleteFromDevice: (name) => this.deleteFromDevice(name),
+            onSaveToDevice: () => this.saveCurrentToDevice(),
+            onApplySuggestedIntensity: (v) => this.applySuggestedIntensity(v),
+          })
+        : createDeviceBar(state, {
+            onConnect: () => this.connectDevice(),
+            onInstall: () => this.installDeviceFirmware(),
+            onRestart: () => this.restartDeviceFirmware(),
+            onDisconnect: () => this.disconnectDevice(),
+            onToggleLivePush: (on) => this.toggleLivePush(on),
+            onToggleTwelveV: (on) => this.toggleTwelveV(on),
+            onRefreshIcons: () => this.refreshDeviceIcons(),
+            onLoadFromDevice: (name) => this.loadFromDevice(name),
+            onDeleteFromDevice: (name) => this.deleteFromDevice(name),
+            onSaveToDevice: () => this.saveCurrentToDevice(),
+            onApplySuggestedIntensity: (v) => this.applySuggestedIntensity(v),
+            onFlashAnyway: () => this.flashAnyway(),
+          })
     );
 
     this.monitor?.setDeviceState({
@@ -688,6 +757,14 @@ class App {
   }
 
   // ── grid painting ───────────────────────────────────────────────────
+  applyTool(idx) {
+    const t = state.activeTool;
+    if (t === "revert") doc.overlay.delete(idx);
+    else if (t === "eraser") doc.overlay.set(idx, OFF_DUTY.slice());
+    else doc.overlay.set(idx, state.brushColor.slice());
+    this.recomputePixelsFromOverlay();
+  }
+
   wireGridCanvas() {
     const canvas = this.gridCanvas;
     const cellAt = (e) => {
@@ -703,11 +780,11 @@ class App {
       if (!doc.pixels) return;
       this.painting = true;
       pushUndoSnapshot();
-      this.paintCell(cellAt(e), state.brushColor.slice());
+      this.applyTool(cellAt(e));
     });
     canvas.addEventListener("mousemove", (e) => {
       if (!this.painting || !doc.pixels) return;
-      this.paintCell(cellAt(e), state.brushColor.slice());
+      this.applyTool(cellAt(e));
     });
     window.addEventListener("mouseup", () => {
       if (this.painting) {
@@ -725,11 +802,6 @@ class App {
       const { problems } = this.runTier5();
       setState({ problems });
     });
-  }
-
-  paintCell(idx, rgb) {
-    doc.overlay.set(idx, rgb);
-    this.recomputePixelsFromOverlay();
   }
 
   recomputePixelsFromOverlay() {
@@ -802,16 +874,14 @@ class App {
 
   paintGrid() {
     const ctx = this.gridCanvas.getContext("2d");
-    const cell = GRID_CANVAS_SIZE / W;
+    const size = this.gridCanvas.width;
+    const cell = size / W;
     if (!doc.pixels) {
-      ctx.clearRect(0, 0, GRID_CANVAS_SIZE, GRID_CANVAS_SIZE);
+      ctx.clearRect(0, 0, size, size);
       return;
     }
     for (let row = 0; row < H; row++) {
       for (let col = 0; col < W; col++) {
-        // doc.pixels holds AUTHORED linear duty; paint how the PANEL renders
-        // it (device model), not the raw bytes -- raw is what made this grid
-        // look far darker than the bloom preview directly above it.
         ctx.fillStyle = ledSwatchHex(doc.pixels[row * W + col]);
         ctx.fillRect(col * cell, row * cell, cell, cell);
       }
@@ -821,11 +891,11 @@ class App {
     for (let i = 0; i <= W; i++) {
       ctx.beginPath();
       ctx.moveTo(i * cell, 0);
-      ctx.lineTo(i * cell, GRID_CANVAS_SIZE);
+      ctx.lineTo(i * cell, size);
       ctx.stroke();
       ctx.beginPath();
       ctx.moveTo(0, i * cell);
-      ctx.lineTo(GRID_CANVAS_SIZE, i * cell);
+      ctx.lineTo(size, i * cell);
       ctx.stroke();
     }
   }

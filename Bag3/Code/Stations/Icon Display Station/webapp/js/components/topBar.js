@@ -11,7 +11,7 @@ const MODE_COLORS = {
 
 import { listProfiles } from "../pipeline/profiles.js";
 
-export function createTopBar(state, { onMaxSegmentsChange, onSaveMap, onExportIcon, onDownloadPreview, onLoadFixture, onProfileChange }) {
+export function createTopBar(state, { onMaxSegmentsChange, onSaveMap, onExportIcon, onDownloadPreview, onLoadFixture, onProfileChange, onUiModeChange, cropOpen }) {
   const el = document.createElement("div");
   el.className = "flex flex-wrap items-center gap-3 px-4 py-3 bg-neutral-900 border-b border-neutral-800";
 
@@ -49,7 +49,11 @@ export function createTopBar(state, { onMaxSegmentsChange, onSaveMap, onExportIc
       <button id="btnSaveMap" class="text-xs px-2 py-1 rounded bg-neutral-800 hover:bg-neutral-700 text-neutral-200 disabled:opacity-40" ${state.mode ? "" : "disabled"}>Download map</button>
       <button id="btnExportIcon" class="text-xs px-2 py-1 rounded bg-neutral-800 hover:bg-neutral-700 text-neutral-200 disabled:opacity-40" ${state.mode ? "" : "disabled"}>Download icon</button>
       <button id="btnDownloadPreview" class="text-xs px-2 py-1 rounded bg-neutral-800 hover:bg-neutral-700 text-neutral-200 disabled:opacity-40" ${state.mode ? "" : "disabled"}>Download preview</button>
-      <span class="text-xs text-neutral-500">${state.statusText}</span>
+      <button id="modeGear" title="${cropOpen ? "Finish cropping first" : "Switch to simple mode"}"
+              class="p-2 rounded border border-neutral-700 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 disabled:opacity-40"
+              ${cropOpen ? "disabled" : ""}>
+        <i data-lucide="settings" class="w-4 h-4"></i>
+      </button>
     </div>
   `;
 
@@ -64,6 +68,7 @@ export function createTopBar(state, { onMaxSegmentsChange, onSaveMap, onExportIc
   el.querySelector("#btnSaveMap")?.addEventListener("click", onSaveMap);
   el.querySelector("#btnExportIcon")?.addEventListener("click", onExportIcon);
   el.querySelector("#btnDownloadPreview")?.addEventListener("click", onDownloadPreview);
+  el.querySelector("#modeGear")?.addEventListener("click", () => onUiModeChange?.("simple"));
 
   return el;
 }

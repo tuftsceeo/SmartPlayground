@@ -272,6 +272,17 @@ in simple.
 7. Hide-list cleanups in `topBar.js`, `sourcePane.js`, `problemsPanel.js`,
    `deviceBar.js`; Lucide icons throughout.
 
+## Todos
+
+- [ ] **store-state** — `webapp/js/state/store.js`: add `uiMode` (hydrate from `localStorage` before first shell) and `activeTool`.
+- [ ] **canvas-split** — Split `buildShell()` in `webapp/js/main.js` into `createCanvases()` / `buildShell()` / `adoptCanvases()`; move `wireGridCanvas()` into `createCanvases()` (do not copy — trap 2). Land and verify advanced mode unchanged (load fixture, priority drag, paint, undo, 16×16 ↔ 5×5) before any simple UI.
+- [ ] **grid-sizing** — `paintGrid()` reads `this.gridCanvas.width`; `GRID_BACKING = 640`; include grid canvas in `changeProfile()` resize; CSS size via slot (`#gridCanvas` 100% + aspect-ratio). Move `previewCanvas` inline size to a class (trap 5).
+- [ ] **tools** — `applyTool()` + `components/toolRow.js`; keep stroke-coalescing; `OFF_DUTY` from `ledGamut.js`; `contextmenu` stays revert in both modes.
+- [ ] **simple-shell** — `js/layouts/advancedLayout.js` + `simpleLayout.js` (all seven mount ids); `components/simple/*`; `setUiMode()` (not via `setState`); gear disabled while crop modal is open; `applyMonitorVisibility()` hides monitor **and** clears `body` padding.
+- [ ] **document-swatches** — `components/documentSwatches.js`; JND dedupe; mount in both modes. Do not `setState` from `liveColorInput()` (trap 4).
+- [ ] **simple-hide-list** — Hide/cut/simplify in `topBar.js`, `sourcePane.js`, `problemsPanel.js`, `deviceBar.js`; simple segment list iterates all fills and `continue`s (trap 1); Lucide icons; auto-hide uses `cellsWon` only after `runTier5()` (trap 3). Do not use `state.selectedFillIndex` (trap 6).
+- [ ] **verify** — `python3 serve.py`; per-mode tool strokes + undo coalesce; mode-switch canvas re-parenting; serial padding gone; zero-cell vs explicitly-hidden segments; swatch click sets brush; `node --check` + import-graph sweep.
+
 ## Verification
 
 ```bash

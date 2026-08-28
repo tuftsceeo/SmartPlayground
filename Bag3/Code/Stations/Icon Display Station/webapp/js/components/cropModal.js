@@ -18,6 +18,7 @@
 
 import { W, H, WORK } from "../pipeline/constants.js";
 import { computeRects } from "../pipeline/decode.js";
+import { state } from "../state/store.js";
 
 const PREVIEW_PX = 160; // on-screen size of the 16x16 panel
 
@@ -43,6 +44,7 @@ export class CropModal {
     this.source = source;
     this.onApply = onApply;
     this.transform = { ...transform };
+    const simple = state.uiMode === "simple";
 
     const el = document.createElement("div");
     el.className = "fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4";
@@ -64,7 +66,10 @@ export class CropModal {
               <button data-preset="contain" class="px-2 py-1 rounded bg-neutral-800 hover:bg-neutral-700 text-neutral-200">Whole image</button>
               <button data-preset="cover" class="px-2 py-1 rounded bg-neutral-800 hover:bg-neutral-700 text-neutral-200">Fill square</button>
               <button data-preset="reset" class="px-2 py-1 rounded bg-neutral-800 hover:bg-neutral-700 text-neutral-200">Reset crop</button>
-              <label class="flex items-center gap-1 text-neutral-400 ml-2">
+              ${
+                simple
+                  ? ""
+                  : `<label class="flex items-center gap-1 text-neutral-400 ml-2">
                 <input type="checkbox" id="cmSquare" checked /> lock to square
               </label>
               <label class="flex items-center gap-1 text-neutral-400">
@@ -74,9 +79,10 @@ export class CropModal {
                   <option value="on">on (blend)</option>
                   <option value="off">off (nearest)</option>
                 </select>
-              </label>
+              </label>`
+              }
             </div>
-            <div class="text-[11px] text-neutral-600 mt-2" id="cmHint"></div>
+            ${simple ? "" : `<div class="text-[11px] text-neutral-600 mt-2" id="cmHint"></div>`}
           </div>
 
           <div class="flex flex-col gap-3">
@@ -96,7 +102,7 @@ export class CropModal {
                       width="${W}" height="${H}"
                       style="width:${W * 2}px;height:${H * 2}px"></canvas>
             </div>
-            <div id="cmStats" class="text-[11px] text-neutral-500 leading-snug"></div>
+            ${simple ? "" : `<div id="cmStats" class="text-[11px] text-neutral-500 leading-snug"></div>`}
           </div>
         </div>
 
@@ -117,7 +123,7 @@ export class CropModal {
     const img = el.querySelector("#cmImage");
     const squareBox = el.querySelector("#cmSquare");
     const smoothSel = el.querySelector("#cmSmooth");
-    smoothSel.value = this.transform.smoothing || "auto";
+    if (smoothSel) smoothSel.value = this.transform.smoothing || "auto";
 
     this.cropper = new window.Cropper(img, {
       viewMode: 1, // crop box stays within the image
@@ -138,11 +144,11 @@ export class CropModal {
       zoom: () => this._schedulePreview(),
     });
 
-    squareBox.addEventListener("change", (e) => {
+    squareBox?.addEventListener("change", (e) => {
       this.cropper.setAspectRatio(e.target.checked ? 1 : NaN);
       this._schedulePreview();
     });
-    smoothSel.addEventListener("change", (e) => {
+    smoothSel?.addEventListener("change", (e) => {
       this.transform.smoothing = e.target.value;
       this._schedulePreview();
     });
@@ -237,13 +243,15 @@ export class CropModal {
     const scale = WORK / src.w;
     const pct = (scale * 100).toFixed(0);
     const d = xform.crop;
-    this.statsEl.textContent = `crop ${Math.round(d.width)}×${Math.round(d.height)}px → ${WORK}×${WORK} (${pct}%)`;
-    if (src.w < W * 4) {
-      this.hintEl.textContent = `Heads up: this crop is only ${Math.round(src.w)}px wide, under ${W * 4}px, so it will be upscaled a lot -- expect soft edges and a noisy segmentation.`;
-      this.hintEl.className = "text-[11px] text-amber-500 mt-2";
-    } else {
-      this.hintEl.textContent = "Drag to pan, scroll or pinch to zoom, drag the handles to resize the crop box.";
-      this.hintEl.className = "text-[11px] text-neutral-600 mt-2";
+    if (this.statsEl) this.statsEl.textContent = `crop ${Math.round(d.width)}×${Math.round(d.height)}px → ${WORK}×${WORK} (${pct}%)`;
+    if (this.hintEl) {
+      if (src.w < W * 4) {
+        this.hintEl.textContent = `Heads up: this crop is only ${Math.round(src.w)}px wide, under ${W * 4}px, so it will be upscaled a lot -- expect soft edges and a noisy segmentation.`;
+        this.hintEl.className = "text-[11px] text-amber-500 mt-2";
+      } else {
+        this.hintEl.textContent = "Drag to pan, scroll or pinch to zoom, drag the handles to resize the crop box.";
+        this.hintEl.className = "text-[11px] text-neutral-600 mt-2";
+      }
     }
   }
 

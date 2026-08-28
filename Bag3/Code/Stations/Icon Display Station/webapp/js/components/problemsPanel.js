@@ -2,6 +2,10 @@
 export function createProblemsPanel(state) {
   const el = document.createElement("div");
   el.className = "p-3 text-xs";
+  if (state.uiMode === "simple") {
+    el.innerHTML = "";
+    return el;
+  }
   if (!state.mode) {
     el.innerHTML = "";
     return el;

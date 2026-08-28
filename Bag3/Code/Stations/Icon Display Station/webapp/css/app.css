@@ -2,60 +2,93 @@
    slider thumb styling, misc layout. See Live_Page/WebApp2's index.html for
    the precedent (styling lives in one small sheet, not per-component CSS). */
 
-html, body {
-  height: 100%;
-  margin: 0;
-  background: #0a0a0a;
+html,
+body {
+    height: 100%;
+    margin: 0;
+    background: #785d7a;
 }
 
 canvas.pixelated {
-  image-rendering: pixelated;
-  image-rendering: -moz-crisp-edges;
+    image-rendering: pixelated;
+    image-rendering: -moz-crisp-edges;
 }
 
 input[type="range"] {
-  -webkit-appearance: none;
-  appearance: none;
-  height: 4px;
-  background: #3f3f46;
-  border-radius: 2px;
-  outline: none;
+    -webkit-appearance: none;
+    appearance: none;
+    height: 4px;
+    background: #3f3f46;
+    border-radius: 2px;
+    outline: none;
 }
 input[type="range"]::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: #e5e5e5;
-  cursor: pointer;
+    -webkit-appearance: none;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #e5e5e5;
+    cursor: pointer;
 }
 input[type="range"]::-moz-range-thumb {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: #e5e5e5;
-  border: none;
-  cursor: pointer;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #e5e5e5;
+    border: none;
+    cursor: pointer;
 }
 
 input[type="color"] {
-  padding: 0;
-  border: none;
-  cursor: pointer;
+    padding: 0;
+    border: none;
+    cursor: pointer;
 }
 
 #gridCanvas {
-  cursor: crosshair;
+    cursor: crosshair;
+    width: 100%;
+    aspect-ratio: 1 / 1;
+}
+
+.canvas-source {
+    width: 280px;
+    height: 280px;
+}
+
+.canvas-slot-source-simple .canvas-source {
+    width: 180px;
+    height: 180px;
+}
+
+.canvas-preview {
+    width: 320px;
+    height: 320px;
+}
+
+.canvas-slot-preview-simple .canvas-preview {
+    width: 200px;
+    height: 200px;
+}
+
+.canvas-slot-grid-advanced {
+    width: 320px;
+    max-width: 100%;
+}
+
+.canvas-slot-grid-simple {
+    width: 100%;
+    max-width: min(70vh, 640px);
 }
 
 ::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+    width: 10px;
+    height: 10px;
 }
 ::-webkit-scrollbar-thumb {
-  background: #3f3f46;
-  border-radius: 5px;
+    background: #3f3f46;
+    border-radius: 5px;
 }
 ::-webkit-scrollbar-track {
-  background: transparent;
+    background: transparent;
 }

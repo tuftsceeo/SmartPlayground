@@ -19,6 +19,7 @@
 
 import { buildPalette, snapToPalette, ledDeltaE, swatchStyle, isOff, JND } from "../pipeline/ledGamut.js";
 import { authoredToDisplayHex, displayHexToAuthored } from "../pipeline/ledDisplay.js";
+import { state } from "../state/store.js";
 
 export class PalettePicker {
   constructor() {
@@ -48,6 +49,7 @@ export class PalettePicker {
     this.close();
     this.onPick = onPick;
     const palette = this.paletteFor(intensity);
+    const simple = state.uiMode === "simple";
 
     const el = document.createElement("div");
     el.className = "fixed inset-0 z-50";
@@ -57,17 +59,21 @@ export class PalettePicker {
            style="max-width:min(92vw,720px)">
         <div class="flex items-center gap-2 text-xs">
           <span class="text-neutral-300 font-semibold">Panel colours</span>
-          <span class="text-neutral-500">${palette.count} distinguishable at ${Math.round(intensity * 100)}% brightness</span>
+          ${simple ? "" : `<span class="text-neutral-500">${palette.count} distinguishable at ${Math.round(intensity * 100)}% brightness</span>`}
           <button data-close class="ml-auto text-neutral-500 hover:text-neutral-200 text-base leading-none">&times;</button>
         </div>
 
         <div data-grid class="flex gap-1 overflow-x-auto pb-1"></div>
 
-        <div class="text-[11px] text-neutral-600 leading-snug">
+        ${
+          simple
+            ? ""
+            : `<div class="text-[11px] text-neutral-600 leading-snug">
           Leftmost column is off and the neutrals. Every swatch is a colour this
           panel shows differently from the others.
           Fewer appear at low brightness because fewer actually exist there.
-        </div>
+        </div>`
+        }
 
         <div class="flex items-center gap-2 border-t border-neutral-800 pt-2 text-xs">
           <span class="text-neutral-500">custom</span>
