@@ -21,8 +21,7 @@ game work begins on it.
 since Bag3 boards are still being produced in smaller numbers.
 
 Each Bag owns its own hardware details (dated, and Bag3's especially so, since it's actively
-changing): see [Bag1/AGENTS.md](Bag1/AGENTS.md), [Bag2/AGENTS.md](Bag2/AGENTS.md), and
-[Bag3/AGENTS.md](Bag3/AGENTS.md).
+changing): see [Bag2/AGENTS.md](Bag2/AGENTS.md) and [Bag3/AGENTS.md](Bag3/AGENTS.md).
 
 ## What's in the system
 
@@ -93,9 +92,10 @@ uploaded with the [MicroPico](https://marketplace.visualstudio.com/items?itemNam
 VS Code extension (manual connect — it won't grab your serial port on startup). Web code is plain
 ES modules with Tailwind CSS loaded from a CDN.
 
-- **Deep technical reference for contributors and AI agents:** [AGENTS.md](AGENTS.md),
-  [Bag1/AGENTS.md](Bag1/AGENTS.md), [Bag2/AGENTS.md](Bag2/AGENTS.md),
-  [Bag3/AGENTS.md](Bag3/AGENTS.md), [Live_Page/AGENTS.md](Live_Page/AGENTS.md).
+- **Working notes for contributors and AI agents:** [AGENTS.md](AGENTS.md),
+  [Bag2/AGENTS.md](Bag2/AGENTS.md), [Bag3/AGENTS.md](Bag3/AGENTS.md),
+  [Live_Page/AGENTS.md](Live_Page/AGENTS.md),
+  [Live_Page/WebApp2/AGENTS.md](Live_Page/WebApp2/AGENTS.md).
 - **Game-writing guide:** [Bag3/Code/Wand Module/GAME_AUTHORING_GUIDE.md](Bag3/Code/Wand%20Module/GAME_AUTHORING_GUIDE.md).
 - **Known issues and cleanup backlog:** [docs/KNOWN_ISSUES.md](docs/KNOWN_ISSUES.md).
 - **Branches:** `May_2026` is the current integration and deploy branch (not `main`). Changes
