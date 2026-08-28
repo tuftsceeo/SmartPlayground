@@ -4,6 +4,10 @@ Notes for bringing RGB icon authoring to the Bag3 wand (5×5, 25 LEDs), written
 while the hardware is still on order. The web tool and the station firmware are
 already prepared; this is the remaining wand-side work.
 
+Geometry is settled in-tree: `lib/hubtype.py` gives `num_leds: 25`,
+`matrix_cols: 5`, `matrix_rows: 5`, row-major (`index = row*5 + col`), LED pin
+20 — which is what the `wand5` profile is built against.
+
 Bag3 is moving away from monochrome `SHAPE_*` glyphs for icons. Those stay as
 shapes for the games that use them; icons become per-pixel RGB, the same format
 the station panel uses.
@@ -51,40 +55,33 @@ segmenter makes far better choices at the target size than a resample can.
 
 ## What the wand firmware needs
 
-**1. Correct `hubtype.py`.** It currently declares `num_leds: 60, matrix_cols: 6,
-matrix_rows: 10`, and `leds.py`'s glyphs are drawn natively for 6×10. That was a
-short-lived prototype; the real board is 5×5 / 25 LEDs. Bag3's own AGENTS.md says
-to trust `hubtype.py` over documentation, so until this is fixed it will mislead
-anyone reading the tree — and it will break the profile auto-detect, since the
-wand would announce the wrong geometry in `hello`.
-
-**2. Port the four server modules.** `icon_matrix.py`, `json_link.py`,
+**1. Port the four server modules.** `icon_matrix.py`, `json_link.py`,
 `icon_store.py`, `icon_server.py` are already written against `W`/`H`/`N` rather
 than literals, so the port is mostly configuration:
 
 | setting | wand value |
 |---|---|
-| `W`, `H`, `N` | 5, 5, 25 — ideally read from `hubtype.HUB_CONFIG` |
-| `DATA_PIN` | `hubtype`'s `led_pin` (20 on current config) |
+| `W`, `H`, `N` | 5, 5, 25 — read from `hubtype.HUB_CONFIG`'s `matrix_cols`/`matrix_rows`/`num_leds` |
+| `DATA_PIN` | `hubtype`'s `led_pin` (20) |
 | `SERPENTINE` | `False` |
-| `MIRROR_X`, `FLIP_Y` | unknown until a board is in hand — use `orient` to find out |
+| `MIRROR_X`, `FLIP_Y` | unknown until a board is in hand — use `orient` to find out (the row-rainbow test cannot see a mirror; use an asymmetric shape) |
 | `MAX_INTENSITY` | needs a real number; see power below |
 
-**3. An icon mode, not a replacement `main.py`.** The wand boots into its game
+**2. An icon mode, not a replacement `main.py`.** The wand boots into its game
 loop and games are modules exposing
 `play(nfc, leds, buz, accel, i2c, enow)`. The station's approach — `main.py` *is*
 the icon server — would displace that. Add an `icon_edit.py` game module that
 hands control to `IconServer` and returns when it exits, so icon mode is entered
 like any other game.
 
-**4. Bypass `_ScaledNeoPixel` while in icon mode.** `leds.py` wraps NeoPixel and
+**3. Bypass `_ScaledNeoPixel` while in icon mode.** `leds.py` wraps NeoPixel and
 multiplies every write by `brightness.MULTIPLIER`, which `brightness.calibrate()`
 sets from the ambient light sensor at boot. That would silently stack with the
 icon server's own intensity LUT, so authored colours would not match the preview
 and brightness would drift with room lighting. Either write to the raw NeoPixel
 in icon mode, or fold the multiplier into the LUT deliberately.
 
-**5. Power ceiling.** The `wand5` profile currently carries `ceilingMa: 400` as a
+**4. Power ceiling.** The `wand5` profile currently carries `ceilingMa: 400` as a
 **conservative guess** — there is no wand equivalent of the readme's bench
 measurements, and unlike the station this runs on battery with a `max17048` fuel
 gauge available. Measure before trusting live push; 25 LEDs at full white is a
