@@ -60,12 +60,22 @@ Converting a PNG/JPEG to a recognizable 16×16 icon turned out to need more than
 ### The tool
 
 ```
-Bag2/Code/Stations/Icon Display Station/
-  image_to_icon.py     # CLI: batch convert, --report, --check, --push, --swatch
-  icon_editor.py        # local web editor -- the primary way to make a map
+Bag3/Code/Stations/Icon Display Station/
+  webapp/                # the browser editor -- primary tool; see webapp/README.md
+  serve.py               # dev server for webapp/ (no-store headers)
+
+  main.py                # device: boots the JSON-over-serial icon server
+  icon_matrix.py         # device: NeoPixel, serpentine + orientation, intensity LUT
+  json_link.py           # device: non-blocking stdin line framing
+  icon_store.py          # device: read/write icons/<name>.py
+  icon_server.py         # device: command dispatch + main loop
+
+  image_to_icon.py       # CLI: batch convert, --report, --check, --push, --swatch
+  icon_editor.py         # the original local web editor, superseded by webapp/
   iconlib/               # ledcolor, segment, raster, emit, preview, palette, mapio
+
   maps/<name>.json       # COMMITTED -- the human's per-segment color decisions
-  icons/<name>.py        # generated -- pushed to the device, matches the existing ICON=(...) format
+  icons/<name>.py        # generated -- also what the device stores and reads back
   previews/<name>.png    # generated -- simulated-LED render for structural review
 ```
 
