@@ -19,6 +19,7 @@ export const state = {
   cellsWon: [],
   problems: [],
 
+  profileId: "matrix16", // target hardware; see pipeline/profiles.js
   sourceInfo: null, // {width, height, name} of the decoded original
   transformLabel: "", // human-readable summary of the applied crop/fit
 

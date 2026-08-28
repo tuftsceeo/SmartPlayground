@@ -44,19 +44,23 @@ A clean whole-image mirror (rather than per-row zigzag tearing) is itself the
 diagnostic: the serpentine phase is right and only the starting corner is
 flipped.
 """
-MIRROR_X = True   # True = data-in column order is reversed (this panel)
-FLIP_Y = False    # True = row 0 is at the bottom
+MIRROR_X = True    # True = data-in column order is reversed (this panel)
+FLIP_Y = False     # True = row 0 is at the bottom
+SERPENTINE = True  # True = alternate rows run right-to-left (this panel).
+                   # The Bag3 wand strip is plain row-major -- index = row*W +
+                   # col, every row left-to-right -- so it wants False.
 
 
-def pixel_index(col, row, mirror_x=None, flip_y=None):
-    """Logical (col,row) from top-left -> serpentine strip index."""
+def pixel_index(col, row, mirror_x=None, flip_y=None, serpentine=None):
+    """Logical (col,row) from top-left -> strip index."""
     mx = MIRROR_X if mirror_x is None else mirror_x
     fy = FLIP_Y if flip_y is None else flip_y
+    sp = SERPENTINE if serpentine is None else serpentine
     if mx:
         col = W - 1 - col
     if fy:
         row = H - 1 - row
-    c = col if (row % 2 == 0) else (W - 1 - col)
+    c = (W - 1 - col) if (sp and row % 2) else col
     return row * W + c
 
 
@@ -81,6 +85,7 @@ class Matrix:
         # needs a command, not a code edit.
         self.mirror_x = MIRROR_X
         self.flip_y = FLIP_Y
+        self.serpentine = SERPENTINE
         self.off = None
         self._build_offsets()
         self.lut = bytearray(256)
@@ -100,18 +105,23 @@ class Matrix:
     def _build_offsets(self):
         self.off = array(
             "H",
-            (3 * pixel_index(p % W, p // W, self.mirror_x, self.flip_y) for p in range(N)),
+            (
+                3 * pixel_index(p % W, p // W, self.mirror_x, self.flip_y, self.serpentine)
+                for p in range(N)
+            ),
         )
 
-    def set_orientation(self, mirror_x=None, flip_y=None):
+    def set_orientation(self, mirror_x=None, flip_y=None, serpentine=None):
         """Change panel orientation at runtime and redraw the cached frame.
         See the MIRROR_X note at the top of this module."""
         if mirror_x is not None:
             self.mirror_x = bool(mirror_x)
         if flip_y is not None:
             self.flip_y = bool(flip_y)
+        if serpentine is not None:
+            self.serpentine = bool(serpentine)
         self._build_offsets()
-        return self.mirror_x, self.flip_y
+        return self.mirror_x, self.flip_y, self.serpentine
 
     def draw_bytes(self, src):
         """src: 768 bytes, authored (unscaled) RGB triples, row-major top-left."""

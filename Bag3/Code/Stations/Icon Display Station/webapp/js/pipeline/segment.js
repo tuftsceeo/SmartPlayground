@@ -19,8 +19,11 @@ import {
   MIN_RATIO,
 } from "./constants.js";
 
-const CELLS = W * H; // 256
-const BLOCK_AREA = BLOCK * BLOCK; // 1024
+// Derived INSIDE the functions, not captured here: W/H/BLOCK are live
+// bindings that change with the device profile, and a module-level `const`
+// would freeze the 16x16 values (see constants.js).
+const cells = () => W * H;
+const blockArea = () => BLOCK * BLOCK;
 
 function nearestFillIdx(rgb, fillRgbs) {
   let bestI = 0;
@@ -81,6 +84,7 @@ export function labelMap(imageData, fills, alphaThresh = ALPHA_THRESH) {
  * mask, or segmentation knobs change.
  */
 export function computeSegmentStats(labels, nSegs) {
+  const CELLS = cells(); // bind once -- live binding, see constants.js
   const covCounts = new Int32Array(nSegs * CELLS);
   const opaqueCounts = new Int32Array(CELLS);
   const ringMatch = new Int32Array(nSegs * nSegs);
@@ -133,11 +137,12 @@ export function computeSegmentStats(labels, nSegs) {
  * byte-parity with the old CLI. The exact mean is simply correct.
  */
 function coverageFraction(k) {
-  return k / BLOCK_AREA;
+  return k / blockArea();
 }
 
-/** Per-segment 256-cell coverage grids, flat Float64Array per segment. */
+/** Per-segment per-cell coverage grids, flat Float64Array per segment. */
 export function buildCoverageBySeg(covCounts, nSegs) {
+  const CELLS = cells();
   const out = [];
   for (let s = 0; s < nSegs; s++) {
     const grid = new Float64Array(CELLS);
@@ -149,6 +154,7 @@ export function buildCoverageBySeg(covCounts, nSegs) {
 }
 
 export function buildOpaqueCoverage(opaqueCounts) {
+  const CELLS = cells();
   const grid = new Float64Array(CELLS);
   for (let c = 0; c < CELLS; c++) grid[c] = coverageFraction(opaqueCounts[c]);
   return grid;

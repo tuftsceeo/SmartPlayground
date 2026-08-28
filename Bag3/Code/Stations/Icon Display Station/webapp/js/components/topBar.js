@@ -9,7 +9,9 @@ const MODE_COLORS = {
   quantize: "bg-amber-900 text-amber-300",
 };
 
-export function createTopBar(state, { onMaxSegmentsChange, onSaveMap, onExportIcon, onDownloadPreview, onLoadFixture }) {
+import { listProfiles } from "../pipeline/profiles.js";
+
+export function createTopBar(state, { onMaxSegmentsChange, onSaveMap, onExportIcon, onDownloadPreview, onLoadFixture, onProfileChange }) {
   const el = document.createElement("div");
   el.className = "flex flex-wrap items-center gap-3 px-4 py-3 bg-neutral-900 border-b border-neutral-800";
 
@@ -22,9 +24,19 @@ export function createTopBar(state, { onMaxSegmentsChange, onSaveMap, onExportIc
 
     <label class="flex items-center gap-2 text-xs text-neutral-400">
       segments
-      <input type="range" min="1" max="12" step="1" value="${state.maxSegments}" id="segSlider" class="w-24" ${state.mode ? "" : "disabled"} />
+      <input type="range" min="1" max="${state.maxSegments > 12 ? state.maxSegments : 12}" step="1" value="${state.maxSegments}" id="segSlider" class="w-24" ${state.mode ? "" : "disabled"} />
       <span id="segVal" class="w-4 text-neutral-200">${state.maxSegments}</span>
     </label>
+
+    <select id="profileSelect" title="Target hardware -- changes grid size, thresholds and power limits"
+            class="text-xs bg-neutral-800 text-neutral-200 rounded px-2 py-1 border border-neutral-700">
+      ${listProfiles()
+        .map(
+          (p) =>
+            `<option value="${p.id}" ${p.id === state.profileId ? "selected" : ""}>${p.label}</option>`
+        )
+        .join("")}
+    </select>
 
     <select id="fixtureSelect" class="text-xs bg-neutral-800 text-neutral-200 rounded px-2 py-1 border border-neutral-700">
       <option value="">Load fixture…</option>
@@ -45,6 +57,7 @@ export function createTopBar(state, { onMaxSegmentsChange, onSaveMap, onExportIc
     el.querySelector("#segVal").textContent = e.target.value;
   });
   el.querySelector("#segSlider")?.addEventListener("change", (e) => onMaxSegmentsChange(Number(e.target.value)));
+  el.querySelector("#profileSelect")?.addEventListener("change", (e) => onProfileChange(e.target.value));
   el.querySelector("#fixtureSelect")?.addEventListener("change", (e) => {
     if (e.target.value) onLoadFixture(e.target.value);
   });

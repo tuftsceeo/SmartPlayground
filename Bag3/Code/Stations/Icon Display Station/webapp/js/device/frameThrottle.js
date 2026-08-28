@@ -15,6 +15,8 @@
  */
 
 const MA_PER_CHANNEL_AT_FULL = 20; // commonly-cited WS2812B datasheet figure
+// Defaults for the 16x16 station panel; a device profile overrides both
+// (a 25-LED battery-powered wand has a completely different budget).
 const CEILING_5V_MA = 3000; // readme.md: driver board rated 5V/3A
 const CEILING_12V_MA = 4000; // readme.md: 12V/2A board + injection headroom -- UNVERIFIED, see docstring
 const FLASH_ANYWAY_MS = 2000;
@@ -45,6 +47,8 @@ export class FrameThrottle {
     this.inFlight = false;
     this.latest = null; // most recent {authored, scaled} requested while inFlight
     this.lastSent = null; // last frame actually written to the wire
+    this.ceiling5v = CEILING_5V_MA;
+    this.ceiling12v = CEILING_12V_MA;
     this.ceilingMa = CEILING_5V_MA;
     this.twelveVMode = false;
     this._flashTimer = null;
@@ -52,7 +56,14 @@ export class FrameThrottle {
 
   setTwelveVMode(on) {
     this.twelveVMode = on;
-    this.ceilingMa = on ? CEILING_12V_MA : CEILING_5V_MA;
+    this.ceilingMa = on ? this.ceiling12v : this.ceiling5v;
+  }
+
+  /** Adopt a device profile's current limits (see pipeline/profiles.js). */
+  setProfile(profile) {
+    this.ceiling5v = profile.ceilingMa ?? CEILING_5V_MA;
+    this.ceiling12v = profile.ceiling12vMa ?? CEILING_12V_MA;
+    this.ceilingMa = this.twelveVMode ? this.ceiling12v : this.ceiling5v;
   }
 
   _sameFrame(a, b) {

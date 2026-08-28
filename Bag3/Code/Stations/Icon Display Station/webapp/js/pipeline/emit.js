@@ -23,6 +23,10 @@ export function enforceFloor(pixels, floor = CH_FLOOR) {
 export function iconText(pixels, nameComment) {
   const lines = [];
   if (nameComment) lines.push(`# ${nameComment}`);
+  // Self-describing size, so a 5x5 wand glyph loaded onto the 16x16 station
+  // can be recognised and scaled up rather than rejected as the wrong length
+  // (icon_store.py reads this; files without it are assumed panel-native).
+  lines.push(`SIZE = (${W}, ${H})`);
   lines.push("ICON = (");
   for (let row = 0; row < H; row++) {
     const rowPixels = pixels.slice(row * W, (row + 1) * W);

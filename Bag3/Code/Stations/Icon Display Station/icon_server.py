@@ -12,7 +12,7 @@ import gc
 import binascii
 
 import icon_store as store
-from icon_matrix import Matrix, DEFAULT_INTENSITY, MAX_INTENSITY
+from icon_matrix import Matrix, DEFAULT_INTENSITY, MAX_INTENSITY, W, H, N
 from json_link import JsonLink
 
 VERSION = "1.0.0"
@@ -80,10 +80,21 @@ class IconServer:
         except Exception:
             self.link.send({"type": "error", "id": rid, "code": "bad_frame", "msg": "base64 decode failed"})
             return
-        if len(src) != 768:
+        # A frame may declare its own size, so a smaller panel's icon (a 5x5
+        # wand glyph on this 16x16) can be sent as-is and scaled here rather
+        # than making every client know this panel's geometry.
+        fw = int(cmd.get("w", W))
+        fh = int(cmd.get("h", H))
+        if len(src) != fw * fh * 3:
             self.link.send({"type": "error", "id": rid, "code": "bad_frame",
-                             "msg": "%d bytes, expected 768" % len(src)})
+                             "msg": "%d bytes, expected %d for %dx%d" % (len(src), fw * fh * 3, fw, fh)})
             return
+        if fw != W or fh != H:
+            try:
+                src = store.scale_into(src, fw, fh, bytearray(N * 3), W, H)
+            except ValueError as e:
+                self.link.send({"type": "error", "id": rid, "code": "bad_frame", "msg": str(e)})
+                return
         self.cycle_on = False
         self.m.draw_bytes(src)
         self.last_frame_ms = time.ticks_ms()
@@ -114,9 +125,11 @@ class IconServer:
     def do_orient(self, cmd, rid):
         """Panel orientation -- see icon_matrix.py's MIRROR_X note. Omitting a
         field leaves it unchanged, so {"cmd":"orient"} is a read."""
-        mx, fy = self.m.set_orientation(cmd.get("mirror_x"), cmd.get("flip_y"))
+        mx, fy, sp = self.m.set_orientation(
+            cmd.get("mirror_x"), cmd.get("flip_y"), cmd.get("serpentine")
+        )
         self.m.redraw()
-        self.link.send({"type": "orient", "id": rid, "mirror_x": mx, "flip_y": fy})
+        self.link.send({"type": "orient", "id": rid, "mirror_x": mx, "flip_y": fy, "serpentine": sp})
 
     def do_clear(self, cmd, rid):
         self.cycle_on = False
@@ -155,9 +168,14 @@ class IconServer:
             except Exception:
                 self.link.send({"type": "error", "id": rid, "code": "bad_frame"})
                 return
-            if len(src) != 768:
-                self.link.send({"type": "error", "id": rid, "code": "bad_frame"})
+            fw = int(cmd.get("w", W))
+            fh = int(cmd.get("h", H))
+            if len(src) != fw * fh * 3:
+                self.link.send({"type": "error", "id": rid, "code": "bad_frame",
+                                 "msg": "%d bytes, expected %d for %dx%d" % (len(src), fw * fh * 3, fw, fh)})
                 return
+            if fw != W or fh != H:
+                src = store.scale_into(src, fw, fh, bytearray(N * 3), W, H)
             self.m.draw_bytes(src)
         else:
             src = self.m.src
@@ -223,6 +241,7 @@ class IconServer:
             "intensity": self.m.intensity, "max_intensity": MAX_INTENSITY,
             "model": "trunc", "fast": self.m.fast,
             "mirror_x": self.m.mirror_x, "flip_y": self.m.flip_y,
+            "serpentine": self.m.serpentine,
         })
 
     def run(self):

@@ -8,7 +8,9 @@
 
 import { W, H, CELL_ON, DEFAULT_PRIORITY } from "./constants.js";
 
-const CELLS = W * H;
+// Derived per call, not captured: W/H are live bindings that change with
+// the device profile (see constants.js).
+const cells = () => W * H;
 
 /**
  * @param {Array<Float64Array>} coverageBySeg  from segment.buildCoverageBySeg
@@ -16,6 +18,7 @@ const CELLS = W * H;
  * @returns {Array<Float64Array|null>} scoreBySeg, null for role === 'off'
  */
 export function scoreGrid(coverageBySeg, decisions) {
+  const CELLS = cells();
   const n = decisions.length;
   const scoreBySeg = new Array(n);
   for (let i = 0; i < n; i++) {
@@ -42,6 +45,7 @@ export function effectiveColor(decisions, segId) {
 
 /** Shared winner-take-all pass (no connect pass) -- used by both rasterize() and cellsWon(). */
 function winnerTakeAll(coverageBySeg, scoreBySeg) {
+  const CELLS = cells();
   const n = scoreBySeg.length;
   const winner = new Int16Array(CELLS).fill(-1);
   for (let c = 0; c < CELLS; c++) {
@@ -105,6 +109,7 @@ function connectPass(winner, coverageBySeg) {
  * @returns {{winner: Int16Array, pixels: Array<[number,number,number]>}}
  */
 export function rasterize(coverageBySeg, decisions) {
+  const CELLS = cells();
   const scoreBySeg = scoreGrid(coverageBySeg, decisions);
   const winner = connectPass(winnerTakeAll(coverageBySeg, scoreBySeg), coverageBySeg);
 
@@ -138,6 +143,7 @@ export function applyOverlay(pixels, overlay) {
  * dropped there is no reason to keep the bug.
  */
 export function cellsWon(coverageBySeg, decisions) {
+  const CELLS = cells();
   const scoreBySeg = scoreGrid(coverageBySeg, decisions);
   const winner = connectPass(winnerTakeAll(coverageBySeg, scoreBySeg), coverageBySeg);
   const counts = new Array(decisions.length).fill(0);

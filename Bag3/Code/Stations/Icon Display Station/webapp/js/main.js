@@ -21,7 +21,8 @@ import { buildDecisions, toMapObj, serializeMap } from "./pipeline/mapio.js";
 import { rasterize, applyOverlay, cellsWon, effectiveColor } from "./pipeline/raster.js";
 import { enforceFloor, iconText, lint } from "./pipeline/emit.js";
 import { renderPreview, previewToBlob } from "./pipeline/preview.js";
-import { W, H, WORK, DEFAULT_MAX_SEGMENTS } from "./pipeline/constants.js";
+import { W, H, WORK, DEFAULT_MAX_SEGMENTS, applyProfile } from "./pipeline/constants.js";
+import { getProfile, setProfile, profileForHello, listProfiles } from "./pipeline/profiles.js";
 import { authoredToDisplay } from "./pipeline/ledDisplay.js";
 import { ledSwatchHex } from "./pipeline/ledGamut.js";
 
@@ -84,6 +85,7 @@ class App {
     this.painting = false;
     this.device = new DeviceLink();
     this.throttle = new FrameThrottle(this.device);
+    this.throttle.setProfile(getProfile());
     this._intensityInFlight = false;
     this._intensityLatest = null;
     this.crop = new CropModal();
@@ -110,8 +112,15 @@ class App {
   // handshake pattern -- never block the UI on a synchronous probe that
   // can race a device reset).
   wireDevice() {
-    this.device.on("hello", () => {
+    this.device.on("hello", (info) => {
       setState({ deviceRunning: true, deviceCapabilities: this.device.capabilities });
+      // The board reports its own geometry, so connecting one generally
+      // selects the right profile without the user choosing.
+      const match = profileForHello(info);
+      if (match && match.id !== getProfile().id) {
+        logInfo(`device reports ${info.w}x${info.h} -- switching profile to ${match.label}`);
+        this.changeProfile(match.id);
+      }
       this.refreshDeviceIcons();
     });
     this.device.on("heartbeat", (obj) => setState({ deviceMemFree: obj.mem }));
@@ -170,6 +179,34 @@ class App {
     } catch (e) {
       setState({ deviceRestarting: false });
       showToast(String(e.message || e), { kind: "error" });
+    }
+  }
+
+  /**
+   * Switch target hardware. Geometry constants are live bindings, but
+   * nothing recomputes on its own: the persistent canvases are sized in
+   * WORK/grid units and the pipeline has to re-run from the decoded source.
+   */
+  changeProfile(id) {
+    const p = setProfile(id);
+    applyProfile(p);
+    this.throttle.setProfile(p);
+    this.palette.invalidate();
+
+    // Persistent canvases were sized for the old profile.
+    for (const c of [this.sourceCanvas, this.segmentedCanvas]) {
+      c.width = WORK;
+      c.height = WORK;
+    }
+
+    setState({ profileId: p.id, maxSegments: p.maxSegments });
+
+    if (doc.source) {
+      doc.transform = doc.transform || defaultTransform(doc.source);
+      const { imageData } = renderWorking(doc.source, doc.transform);
+      this.applyLoad(imageData, null, p.maxSegments, state.iconName, state.sourcePath);
+    } else {
+      this.loadFixture("apple").catch((e) => showToast(String(e.message || e), { kind: "error" }));
     }
   }
 
@@ -383,6 +420,7 @@ class App {
         onSaveMap: () => this.exportMap(),
         onExportIcon: () => this.exportIcon(),
         onDownloadPreview: () => this.exportPreview(),
+        onProfileChange: (id) => this.changeProfile(id),
         onLoadFixture: (name) => this.loadFixture(name).catch((e) => showToast(String(e.message || e), { kind: "error" })),
       })
     );
