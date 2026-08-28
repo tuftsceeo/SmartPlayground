@@ -27,5 +27,6 @@ Communication is ESP-NOW, using a `{'topic': ..., 'value': ...}` pub-sub scheme
 
 ## More detail
 
-[`Bag1/AGENTS.md`](AGENTS.md) has the full component list, game catalog, controller variants, and
-utility/driver inventory.
+Bag1 is fielded and not under active development — ask before editing. Read the code directly:
+`Plushie_Module/config.py` for the device variants, `Plushie_Module/games/` for the game catalog,
+`Plushie_Module/controllers/` and `Plushie_Module/utilities/` for the rest.
