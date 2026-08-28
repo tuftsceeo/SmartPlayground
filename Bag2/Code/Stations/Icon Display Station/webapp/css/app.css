@@ -1,0 +1,61 @@
+/* app.css -- what Tailwind's CDN build can't do: pixelated canvases, range
+   slider thumb styling, misc layout. See Live_Page/WebApp2's index.html for
+   the precedent (styling lives in one small sheet, not per-component CSS). */
+
+html, body {
+  height: 100%;
+  margin: 0;
+  background: #0a0a0a;
+}
+
+canvas.pixelated {
+  image-rendering: pixelated;
+  image-rendering: -moz-crisp-edges;
+}
+
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  background: #3f3f46;
+  border-radius: 2px;
+  outline: none;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #e5e5e5;
+  cursor: pointer;
+}
+input[type="range"]::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #e5e5e5;
+  border: none;
+  cursor: pointer;
+}
+
+input[type="color"] {
+  padding: 0;
+  border: none;
+  cursor: pointer;
+}
+
+#gridCanvas {
+  cursor: crosshair;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: #3f3f46;
+  border-radius: 5px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}

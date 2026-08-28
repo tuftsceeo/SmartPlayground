@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Icon Maker</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/lucide@latest"></script>
+<link rel="stylesheet" href="vendor/cropper.min.css" />
+<link rel="stylesheet" href="css/app.css" />
+<!-- Vendored, not CDN, so the tool works offline / on classroom wifi.
+     See vendor/README.md for provenance and why we use getData() rather
+     than getCroppedCanvas(). -->
+<script src="vendor/cropper.min.js"></script>
+</head>
+<body class="bg-neutral-950 text-neutral-100 font-sans h-screen flex flex-col overflow-hidden">
+  <div id="root" class="flex flex-col h-full"></div>
+  <script type="module" src="js/main.js?v=8"></script>
+</body>
+</html>

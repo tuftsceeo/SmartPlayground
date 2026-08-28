@@ -43,16 +43,29 @@ ICON_INTENSITY = 0.2
 HOLD_MS = 3000
 
 
+MIRROR_X = True   # keep in sync with icon_matrix.py -- see the note there
+FLIP_Y = False
+
+
 def pixel_index(col, row):
     """
-    Row-major serpentine, starting top-left, alternating direction
-    each row -- the common wiring for flexible WS2812 matrix panels
-    (unlike Slide Score Station's column-major bar graph). If the
-    rainbow test shows diagonal streaks instead of clean rows, this
-    matrix is wired by column instead -- swap in Slide Score
-    Station's version (base = col * GRID_H; + row, or
-    + (GRID_H - 1 - row) on odd columns).
+    Row-major serpentine, alternating direction each row -- the common
+    wiring for flexible WS2812 matrix panels (unlike Slide Score
+    Station's column-major bar graph). If the rainbow test shows
+    diagonal streaks instead of clean rows, this matrix is wired by
+    column instead -- swap in Slide Score Station's version
+    (base = col * GRID_H; + row, or + (GRID_H - 1 - row) on odd columns).
+
+    MIRROR_X/FLIP_Y mirror icon_matrix.py, which is the authority. NOTE
+    that rainbow_rows() below CANNOT validate MIRROR_X: it lights each
+    row a solid colour, and a mirrored solid row is still a solid row.
+    Use an asymmetric shape (SHAPE_ARROW_R) to check left-right, which
+    is exactly why that shape is in this file.
     """
+    if MIRROR_X:
+        col = GRID_W - 1 - col
+    if FLIP_Y:
+        row = GRID_H - 1 - row
     c = col if (row % 2 == 0) else (GRID_W - 1 - col)
     return row * GRID_W + c
 
