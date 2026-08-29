@@ -9,10 +9,8 @@ M5Stack) plus static web tools. Small team, weekly iteration.
   `python -m py_compile <file>` is the only static check available.
 - Shipped style, across all targets: f-strings are used throughout — don't "fix" them. No type
   annotations, and no `typing` / `dataclasses` / `pathlib` / `logging`.
-- **Interruptible loops**: any loop doing serial I/O (UART or the USB-CDC REPL) needs an
-  unconditional small sleep every iteration, even when there's always more work queued. A
-  busy/print-heavy loop with no real gap can starve Ctrl-C / `mpremote`'s raw-REPL entry badly
-  enough to lock the device out of `mpremote`/Thonny, forcing a reflash to recover.
+- **Interruptible loops**: any loop doing serial I/O needs a small unconditional sleep every
+  iteration — a busy loop can starve Ctrl-C and force a reflash to recover.
 
 ## Branches
 
