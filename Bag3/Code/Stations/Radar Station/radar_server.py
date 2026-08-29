@@ -148,6 +148,14 @@ class RadarServer:
                 if time.ticks_diff(now, last_hb) > HEARTBEAT_MS:
                     self.link.send({"type": "heartbeat", "up": now, "mem": gc.mem_free()})
                     last_hb = now
+                # Unconditional yield, every iteration, regardless of how
+                # busy pump()/poll() were: under sustained traffic (fast
+                # streaming, or a noise flood) this loop can otherwise spin
+                # calling pump() back-to-back with zero gap, which was
+                # observed to make Ctrl-C / mpremote's raw-REPL entry
+                # unresponsive enough to require a reflash. See AGENTS.md
+                # ("Interruptible loops").
+                time.sleep_ms(1)
         except KeyboardInterrupt:
             # Deliberately silent: a bare Ctrl-C is almost always a tool
             # (mpremote entering raw REPL, e.g. for `fs cp`) rather than a
