@@ -418,8 +418,8 @@ const TUNING_FIELDS = [
   { key: "alpha", label: "Smoothing (alpha)", min: 0, max: 0.9, step: 0.05, default: 0.1 },
   { key: "gate_mm", label: "Gate radius (mm)", min: 100, max: 1000, step: 50, default: 400 },
   { key: "max_misses", label: "Max misses (frames)", min: 0, max: 10, step: 1, default: 3 },
-  { key: "speed_walk", label: "Walk threshold (mm/s)", min: 100, max: 1000, step: 50, default: 400 },
-  { key: "speed_run", label: "Run threshold (mm/s)", min: 500, max: 3000, step: 50, default: 1200 },
+  { key: "speed_walk", label: "Walk threshold (mm/s)", min: 100, max: 1000, step: 50, default: 250 },
+  { key: "speed_run", label: "Run threshold (mm/s)", min: 500, max: 3000, step: 50, default: 1800 },
   { key: "presence_drop", label: "Presence drop (frames)", min: 1, max: 20, step: 1, default: 5 },
   { key: "radial_stationary", label: "Radial dead zone (cm/s)", min: 0, max: 30, step: 1, default: 5 },
 ];

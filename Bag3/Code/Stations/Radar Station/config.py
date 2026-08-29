@@ -35,8 +35,15 @@ TRACK_SMOOTH_ALPHA = 0.1
 # Speed-bucket thresholds, mm/s, on tracker ground speed. Below
 # SPEED_WALK_MM_S already is the still/moving dead zone -- widen it live
 # from the Tuning panel if standing-still noise flickers into "walk".
-SPEED_WALK_MM_S = 400   # < this: still
-SPEED_RUN_MM_S = 1200   # >= this: run; between: walk
+# Sized against real human paces, not guessed: 5-year-olds walk
+# ~800-900, run ~2000-2500; teens' walk ranges leisurely-to-power-walk
+# ~1100-2012, jog/run ~3000. 1800 sits above every walking pace in that
+# range (even a brisk power-walk) and below both age groups' running
+# speeds. 250 is a starting hedge against sensor noise at rest, not a
+# measured floor -- lower it live once a real still-person test shows
+# the actual noise floor is smaller.
+SPEED_WALK_MM_S = 250    # < this: still
+SPEED_RUN_MM_S = 1800    # >= this: run; between: walk
 
 # Radial speed dead zone, cm/s, for approach/recede/stationary
 # classification. Below this magnitude a target counts as stationary
