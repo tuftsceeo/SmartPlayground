@@ -14,7 +14,9 @@ const PAD_PX = 24;
 const state = {
   adapter: null,
   link: null,
-  connected: false,
+  connected: false,   // firmware confirmed running (a hello arrived)
+  deviceState: null,  // "running" | "repl" | "absent" | null (not connected)
+  autoRecoverArmed: false,
   streaming: false,
   rawOn: false,
   lastTargets: [],
@@ -286,10 +288,13 @@ fileReplay.addEventListener("change", async (e) => {
 
 // ---- connect / commands ---------------------------------------------
 btnConnect.addEventListener("click", async () => {
-  if (state.connected) {
+  if (state.deviceState !== null) {
     await state.link.stop();
     await state.adapter.disconnect();
     state.connected = false;
+    state.deviceState = null;
+    state._streamStarted = false;
+    state.streaming = false;
     btnConnect.textContent = "Connect";
     btnStream.disabled = true;
     btnRaw.disabled = true;
@@ -302,34 +307,72 @@ btnConnect.addEventListener("click", async () => {
     await state.adapter.connect({ baudRate: 115200 });
     state.link = new RadarLink(state.adapter);
     state.link.start();
+    state.deviceState = "unknown";
+    state.autoRecoverArmed = true;
+    statusEl.textContent = "connected -- waiting for device...";
+
+    // Opening the port is one event; learning what firmware is on the
+    // other end is another. Connection state is driven entirely by
+    // listeners below, never by awaiting a single reply.
     state.link.on("targets", handleMessage);
     state.link.on("tracks", handleMessage);
     state.link.on("events", handleMessage);
     state.link.on("info", handleMessage);
     state.link.on("fatal", handleMessage);
-    state.link.on("repl", () => {
-      statusEl.textContent = "device is at the REPL, not running firmware -- reboot it";
-    });
+    state.link.on("hello", onHello);
+    state.link.on("repl", onRepl);
 
-    const hello = await state.link.hello();
-    statusEl.textContent = `connected -- radar_server v${hello.version}`;
-    state.connected = true;
-    btnConnect.textContent = "Disconnect";
-    btnStream.disabled = false;
-    btnRaw.disabled = false;
-    btnRecord.disabled = false;
+    // Fire-and-forget nudge, not a gate: onHello fires whether this
+    // reply arrives, times out, or the device already sent an
+    // unsolicited hello first.
+    state.link.hello({ timeoutMs: 4000 }).catch(() => {});
 
-    await state.link.setStream(true);
-    state.streaming = true;
-    btnStream.textContent = "Stream: on";
-
-    setInterval(() => {
-      if (state.connected) state.link.info().then(renderInfo).catch(() => {});
-    }, 3000);
+    setTimeout(() => {
+      if (state.deviceState === "unknown") {
+        state.deviceState = "absent";
+        statusEl.textContent = "no response from device -- check port/wiring";
+      }
+    }, 4000);
   } catch (e) {
     statusEl.textContent = `connect failed: ${e.message}`;
   }
 });
+
+function onHello(hello) {
+  state.deviceState = "running";
+  state.connected = true;
+  statusEl.textContent = `connected -- radar_server v${hello.version}`;
+  btnConnect.textContent = "Disconnect";
+  btnStream.disabled = false;
+  btnRaw.disabled = false;
+  btnRecord.disabled = false;
+
+  if (!state._streamStarted) {
+    state._streamStarted = true;
+    state.link.setStream(true).then(() => {
+      state.streaming = true;
+      btnStream.textContent = "Stream: on";
+    }).catch(() => {});
+    setInterval(() => {
+      if (state.connected) state.link.info().then(renderInfo).catch(() => {});
+    }, 3000);
+  }
+}
+
+function onRepl() {
+  state.deviceState = "repl";
+  state.connected = false;
+  state._streamStarted = false; // re-arm: a reset firmware boots with streaming off
+  if (!state.autoRecoverArmed) {
+    statusEl.textContent = "device at REPL -- click Connect again to retry recovery";
+    return;
+  }
+  state.autoRecoverArmed = false; // one-shot; never hammer Ctrl-D
+  statusEl.textContent = "device at REPL -- attempting recovery...";
+  state.link.restartFirmware().catch(() => {
+    statusEl.textContent = "device stuck at REPL -- recovery failed, check the serial monitor";
+  });
+}
 
 btnStream.addEventListener("click", async () => {
   state.streaming = !state.streaming;

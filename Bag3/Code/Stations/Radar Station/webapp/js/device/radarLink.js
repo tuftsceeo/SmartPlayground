@@ -9,6 +9,36 @@ import { logIn, logOut, logDrop, logInfo, logWarn, logError } from "./serialLog.
 
 let nextId = 1;
 
+/** Split a line into top-level {...} substrings. Recovers from the device
+ * dropping the newline between two back-to-back send() calls, which
+ * otherwise merges two JSON objects into one unparseable line. */
+function splitJsonObjects(line) {
+  const objs = [];
+  let depth = 0, start = -1, inStr = false, esc = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (inStr) {
+      if (esc) esc = false;
+      else if (c === "\\") esc = true;
+      else if (c === '"') inStr = false;
+      continue;
+    }
+    if (c === '"') {
+      inStr = true;
+    } else if (c === "{") {
+      if (depth === 0) start = i;
+      depth++;
+    } else if (c === "}") {
+      depth--;
+      if (depth === 0 && start >= 0) {
+        objs.push(line.slice(start, i + 1));
+        start = -1;
+      }
+    }
+  }
+  return objs;
+}
+
 export class RadarLink {
   constructor(adapter) {
     this.adapter = adapter;
@@ -56,31 +86,44 @@ export class RadarLink {
         }
         continue;
       }
-      let obj;
-      try {
-        obj = JSON.parse(line);
-      } catch (e) {
-        logWarn(`JSON parse failed: ${e.message}`, { line: line.slice(0, 200) });
-        continue;
-      }
-      // Our own command echoed back (device is at the REPL, not running
-      // the firmware): replies always carry `type`, never `cmd`.
-      if (obj.cmd !== undefined && obj.type === undefined) {
-        logWarn(`echo of our own command '${obj.cmd}' -- device is at the REPL, not running the firmware`);
-        this._emit("repl", { reason: "command echoed", line });
-        continue;
-      }
-
-      logIn(line, { type: obj.type ?? null, id: obj.id ?? null });
-      const id = obj.id;
-      if (id !== undefined && this._pending.has(id)) {
-        this._pending.get(id).resolve(obj);
-        this._pending.delete(id);
-      } else if (id !== undefined) {
-        logInfo(`reply id ${id} had no waiting request (unsolicited or already timed out)`);
-      }
-      if (obj.type) this._emit(obj.type, obj);
+      this._handleLine(line);
     }
+  }
+
+  _handleLine(line) {
+    let obj;
+    try {
+      obj = JSON.parse(line);
+    } catch (e) {
+      // The device can drop the newline between two back-to-back send()
+      // calls, merging two JSON objects into one line with no separator.
+      // Recover by splitting on balanced braces instead of losing both.
+      const parts = splitJsonObjects(line);
+      if (parts.length > 1) {
+        logWarn(`JSON parse failed, recovered ${parts.length} concatenated objects`, { line: line.slice(0, 200) });
+        for (const part of parts) this._handleLine(part);
+        return;
+      }
+      logWarn(`JSON parse failed: ${e.message}`, { line: line.slice(0, 200) });
+      return;
+    }
+    // Our own command echoed back (device is at the REPL, not running
+    // the firmware): replies always carry `type`, never `cmd`.
+    if (obj.cmd !== undefined && obj.type === undefined) {
+      logWarn(`echo of our own command '${obj.cmd}' -- device is at the REPL, not running the firmware`);
+      this._emit("repl", { reason: "command echoed", line });
+      return;
+    }
+
+    logIn(line, { type: obj.type ?? null, id: obj.id ?? null });
+    const id = obj.id;
+    if (id !== undefined && this._pending.has(id)) {
+      this._pending.get(id).resolve(obj);
+      this._pending.delete(id);
+    } else if (id !== undefined) {
+      logInfo(`reply id ${id} had no waiting request (unsolicited or already timed out)`);
+    }
+    if (obj.type) this._emit(obj.type, obj);
   }
 
   /** Send one command, correlated by `id`, resolving with the matching reply. */
@@ -111,6 +154,32 @@ export class RadarLink {
 
   hello({ timeoutMs = 1500 } = {}) {
     return this.send({ cmd: "hello" }, { timeoutMs });
+  }
+
+  /** Resolves on the next unsolicited or replied `hello`. */
+  waitForHello(timeoutMs = 12000) {
+    return new Promise((resolve, reject) => {
+      const off = this.on("hello", (obj) => {
+        clearTimeout(timer);
+        off();
+        resolve(obj);
+      });
+      const timer = setTimeout(() => {
+        off();
+        reject(new Error("timed out waiting for hello"));
+      }, timeoutMs);
+    });
+  }
+
+  /** Recovery from a device stuck at the REPL prompt: Ctrl-C (clear any
+   * partial line) then Ctrl-D (soft reset, re-runs main.py). Read-only
+   * otherwise -- never sent from a probe against a running device. */
+  async restartFirmware({ timeoutMs = 12000 } = {}) {
+    const waiting = this.waitForHello(timeoutMs);
+    await this.adapter.write("\x03");
+    await new Promise((r) => setTimeout(r, 200));
+    await this.adapter.write("\x04");
+    return waiting;
   }
 
   info() {
