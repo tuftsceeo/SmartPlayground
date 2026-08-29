@@ -47,7 +47,7 @@ const state = {
 // burst updates state (cheap) many times but paints (expensive) once.
 // Data-push functions (pushHistory, updateClockSync, renderLogEntry) set
 // these flags and call requestFrame(); they never render synchronously.
-const dirty = { plan: false, events: false, history: false, timing: false };
+const dirty = { plan: false, events: false, history: false, timing: false, raw: false };
 let frameScheduled = false;
 
 function requestFrame() {
@@ -59,6 +59,7 @@ function requestFrame() {
     if (dirty.events) { renderEvents(state.lastEvents); dirty.events = false; }
     if (dirty.history) { renderHistory(); dirty.history = false; }
     if (dirty.timing) { renderTiming(); dirty.timing = false; }
+    if (dirty.raw) { renderRaw(); dirty.raw = false; }
     flushLogEntries();
     state.renderCount++;
   });
@@ -87,12 +88,20 @@ root.innerHTML = `
         <div id="events-panel" class="text-sm space-y-1 font-mono"></div>
       </div>
       <div class="p-3 border-b border-neutral-800">
+        <h2 class="text-xs uppercase tracking-wide text-neutral-500 mb-2">Raw targets <span class="normal-case text-neutral-600">(Raw: on)</span></h2>
+        <div id="raw-panel" class="text-xs space-y-1 font-mono"></div>
+      </div>
+      <div class="p-3 border-b border-neutral-800">
         <h2 class="text-xs uppercase tracking-wide text-neutral-500 mb-2">History</h2>
         <div id="history-panel" class="grid grid-cols-2 gap-3"></div>
       </div>
       <div class="p-3 border-b border-neutral-800">
         <h2 class="text-xs uppercase tracking-wide text-neutral-500 mb-2">Timing</h2>
         <div id="timing-panel" class="text-sm space-y-1 font-mono"></div>
+      </div>
+      <div class="p-3 border-b border-neutral-800">
+        <h2 class="text-xs uppercase tracking-wide text-neutral-500 mb-2">Tuning (live)</h2>
+        <div id="tuning-panel" class="space-y-2"></div>
       </div>
       <div class="p-3">
         <h2 class="text-xs uppercase tracking-wide text-neutral-500 mb-2">Info</h2>
@@ -118,8 +127,10 @@ const btnRecord = document.getElementById("btn-record");
 const fileReplay = document.getElementById("file-replay");
 const statusEl = document.getElementById("status");
 const eventsPanel = document.getElementById("events-panel");
+const rawPanel = document.getElementById("raw-panel");
 const historyPanel = document.getElementById("history-panel");
 const timingPanel = document.getElementById("timing-panel");
+const tuningPanel = document.getElementById("tuning-panel");
 const infoPanel = document.getElementById("info-panel");
 const monitorSection = document.getElementById("monitor-section");
 const monitorEl = document.getElementById("serial-monitor");
@@ -212,8 +223,30 @@ function redraw() {
     ctx.stroke();
     ctx.fillStyle = "#e4e4e7";
     ctx.font = "11px monospace";
-    ctx.fillText(`#${t.id} ${t.sp}mm/s`, px + 8, py - 8);
+    ctx.fillText(`#${t.label} ${t.sp}mm/s`, px + 8, py - 8);
   }
+}
+
+// Device track ids climb monotonically all session (a fresh id per new
+// track, never reused) -- "target #29" reads as broken even though it
+// isn't. Relabel to the smallest currently-unused small number instead,
+// purely a display label; the real id is still what the tracker uses.
+const trackLabels = new Map(); // device id -> small display number
+function relabelTracks(tracks) {
+  const seen = new Set(tracks.map((t) => t.id));
+  for (const id of trackLabels.keys()) {
+    if (!seen.has(id)) trackLabels.delete(id); // free the label once the track is gone
+  }
+  for (const t of tracks) {
+    if (!trackLabels.has(t.id)) {
+      let n = 1;
+      const used = new Set(trackLabels.values());
+      while (used.has(n)) n++;
+      trackLabels.set(t.id, n);
+    }
+    t.label = trackLabels.get(t.id);
+  }
+  return tracks;
 }
 
 // ---- events / info panels ----------------------------------------------
@@ -243,6 +276,20 @@ function renderInfo(info) {
     <div>resyncs: ${info.resyncs}</div>
     <div>up: ${info.up} ms</div>
   `;
+}
+
+function renderRaw() {
+  if (!state.rawOn) {
+    rawPanel.innerHTML = '<span class="text-neutral-600">off -- click "Raw" to enable</span>';
+    return;
+  }
+  if (!state.lastTargets.length) {
+    rawPanel.innerHTML = '<span class="text-neutral-600">no raw targets this frame</span>';
+    return;
+  }
+  rawPanel.innerHTML = state.lastTargets
+    .map((t) => `<div>slot ${t.i}: x=${t.x} y=${t.y} v=${t.v} r=${t.r}</div>`)
+    .join("");
 }
 
 // ---- history / timeseries charts ---------------------------------------
@@ -313,6 +360,64 @@ function renderHistory() {
       c.stroke();
     }
   }
+}
+
+// ---- live tuning ---------------------------------------------------------
+// Sends radar_server.py's 'tune' command (added alongside this panel --
+// requires radar_server.py, tracker.py flashed). Defaults here match
+// config.py's; syncTuningUI() overwrites them from the device's actual
+// values once connected, in case a prior session left them tuned.
+const TUNING_FIELDS = [
+  { key: "alpha", label: "Smoothing (alpha)", min: 0, max: 0.9, step: 0.05, default: 0.1 },
+  { key: "gate_mm", label: "Gate radius (mm)", min: 100, max: 1000, step: 50, default: 400 },
+  { key: "max_misses", label: "Max misses (frames)", min: 0, max: 10, step: 1, default: 3 },
+  { key: "speed_walk", label: "Walk threshold (mm/s)", min: 100, max: 1000, step: 50, default: 400 },
+  { key: "speed_run", label: "Run threshold (mm/s)", min: 500, max: 3000, step: 50, default: 1200 },
+  { key: "presence_drop", label: "Presence drop (frames)", min: 1, max: 20, step: 1, default: 5 },
+];
+
+const tuningControls = {}; // key -> { input, valueEl }
+for (const f of TUNING_FIELDS) {
+  const row = document.createElement("div");
+  row.innerHTML = `
+    <div class="flex justify-between text-xs text-neutral-400">
+      <span>${f.label}</span>
+      <span class="font-mono text-neutral-300">${f.default}</span>
+    </div>
+    <input type="range" min="${f.min}" max="${f.max}" step="${f.step}" value="${f.default}" class="w-full" disabled />
+  `;
+  tuningPanel.appendChild(row);
+  const input = row.querySelector("input");
+  const valueEl = row.querySelector("span.font-mono");
+  tuningControls[f.key] = { input, valueEl };
+  input.addEventListener("input", () => {
+    valueEl.textContent = input.value;
+    sendTune();
+  });
+}
+
+let tuneDebounce = null;
+function sendTune() {
+  clearTimeout(tuneDebounce);
+  tuneDebounce = setTimeout(() => {
+    if (!state.link) return;
+    const params = {};
+    for (const f of TUNING_FIELDS) params[f.key] = Number(tuningControls[f.key].input.value);
+    state.link.tune(params).then(syncTuningUI).catch(() => {});
+  }, 150);
+}
+
+function syncTuningUI(t) {
+  if (!t) return;
+  for (const f of TUNING_FIELDS) {
+    if (t[f.key] === undefined) continue;
+    tuningControls[f.key].input.value = t[f.key];
+    tuningControls[f.key].valueEl.textContent = t[f.key];
+  }
+}
+
+function setTuningEnabled(enabled) {
+  for (const f of TUNING_FIELDS) tuningControls[f.key].input.disabled = !enabled;
 }
 
 // ---- timing diagnostics ------------------------------------------------
@@ -443,10 +548,11 @@ function handleMessage(msg) {
     case "targets":
       state.lastTargets = msg.tg || [];
       dirty.plan = true;
+      dirty.raw = true;
       requestFrame();
       break;
     case "tracks":
-      state.lastTracks = msg.tr || [];
+      state.lastTracks = relabelTracks(msg.tr || []);
       updateClockSync(msg.t); // pure data update; sets dirty.history/timing itself
       dirty.plan = true;
       requestFrame();
@@ -512,6 +618,7 @@ btnConnect.addEventListener("click", async () => {
     btnStream.disabled = true;
     btnRaw.disabled = true;
     btnRecord.disabled = true;
+    setTuningEnabled(false);
     statusEl.textContent = "disconnected";
     return;
   }
@@ -579,6 +686,7 @@ function markRunning() {
   btnStream.disabled = false;
   btnRaw.disabled = false;
   btnRecord.disabled = false;
+  setTuningEnabled(true);
 
   if (!state._streamStarted) {
     state._streamStarted = true;
@@ -586,6 +694,7 @@ function markRunning() {
       state.streaming = true;
       btnStream.textContent = "Stream: on";
     }).catch(() => {});
+    state.link.tune({}).then(syncTuningUI).catch(() => {});
     setInterval(() => {
       if (state.connected) state.link.info().then(renderInfo).catch(() => {});
     }, 3000);
@@ -616,10 +725,15 @@ btnStream.addEventListener("click", async () => {
 
 btnRaw.addEventListener("click", async () => {
   state.rawOn = !state.rawOn;
+  if (!state.rawOn) state.lastTargets = []; // device stops sending 'targets' while off
   await state.link.setRaw(state.rawOn);
   btnRaw.textContent = `Raw: ${state.rawOn ? "on" : "off"}`;
+  dirty.plan = true;
+  dirty.raw = true;
+  requestFrame();
 });
 
 redraw();
 renderEvents(null);
 renderTiming();
+renderRaw();

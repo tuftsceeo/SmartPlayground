@@ -103,6 +103,16 @@ class Tracker:
         self.tracks = [t for t in self.tracks if t.misses <= self.max_misses]
         return self.tracks
 
+    def set_params(self, gate_mm=None, max_misses=None, alpha=None):
+        """Live tuning from radar_server.py's 'tune' command. Any argument
+        left None keeps its current value."""
+        if gate_mm is not None:
+            self.gate2 = gate_mm ** 2
+        if max_misses is not None:
+            self.max_misses = max_misses
+        if alpha is not None:
+            self.alpha = alpha
+
     def _apply_measurement(self, track, target):
         prev_x, prev_y = track.x, track.y
         a = self.alpha

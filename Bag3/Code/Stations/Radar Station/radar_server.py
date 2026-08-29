@@ -46,6 +46,7 @@ class RadarServer:
             "stream": self.do_stream,
             "raw": self.do_raw,
             "mode": self.do_mode,
+            "tune": self.do_tune,
             "repl": self.do_repl,
             "reboot": self.do_reboot,
         }
@@ -89,6 +90,34 @@ class RadarServer:
             self.radar.set_multi_target()
         self.radar.end_config()
         self.link.send({"type": "mode", "id": rid, "value": which})
+
+    def do_tune(self, cmd, rid):
+        """Live-adjust tracker/event thresholds. Any field omitted keeps
+        its current value; {"cmd":"tune"} alone is a pure read. Tracker
+        params (alpha/gate_mm/max_misses) go through Tracker.set_params();
+        event thresholds (speed_walk/speed_run/presence_drop) mutate the
+        config module directly -- events.py reads them fresh every call,
+        no caching to invalidate."""
+        self.tracker.set_params(
+            gate_mm=cmd.get("gate_mm"),
+            max_misses=cmd.get("max_misses"),
+            alpha=cmd.get("alpha"),
+        )
+        if "speed_walk" in cmd:
+            config.SPEED_WALK_MM_S = cmd["speed_walk"]
+        if "speed_run" in cmd:
+            config.SPEED_RUN_MM_S = cmd["speed_run"]
+        if "presence_drop" in cmd:
+            config.PRESENCE_DROP_FRAMES = cmd["presence_drop"]
+        self.link.send({
+            "type": "tune", "id": rid,
+            "alpha": self.tracker.alpha,
+            "gate_mm": int(self.tracker.gate2 ** 0.5),
+            "max_misses": self.tracker.max_misses,
+            "speed_walk": config.SPEED_WALK_MM_S,
+            "speed_run": config.SPEED_RUN_MM_S,
+            "presence_drop": config.PRESENCE_DROP_FRAMES,
+        })
 
     def do_repl(self, cmd, rid):
         self.link.send({"type": "bye", "id": rid})

@@ -211,6 +211,13 @@ export class RadarLink {
     return this.send({ cmd: "mode", value }, { timeoutMs: 2000 });
   }
 
+  /** params: any of {alpha, gate_mm, max_misses, speed_walk, speed_run,
+   * presence_drop}. Omitted fields keep their current device value; {}
+   * is a pure read. Resolves with the full effective set (post-clamp). */
+  tune(params = {}) {
+    return this.send({ cmd: "tune", ...params }, { timeoutMs: 2000 });
+  }
+
   async enterRepl() {
     const p = this.send({ cmd: "repl" }, { timeoutMs: 2000 }).catch(() => {});
     await p;

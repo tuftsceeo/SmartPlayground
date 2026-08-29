@@ -26,7 +26,11 @@ TRACK_GATE_MM = 400
 TRACK_MAX_MISSES = 3
 
 # EMA smoothing factor for track position. 0 = no smoothing, 1 = frozen.
-TRACK_SMOOTH_ALPHA = 0.35
+# Low by default: x/y come off the sensor already tracked/filtered
+# on-board, and derived ground speed differentiates this value again --
+# smoothing on top of both compounds lag. Live-tunable; raise it back up
+# from the Tuning panel if raw position proves too jittery in practice.
+TRACK_SMOOTH_ALPHA = 0.1
 
 # Speed-bucket thresholds, mm/s, on tracker ground speed.
 SPEED_WALK_MM_S = 400   # < this: still
