@@ -32,9 +32,17 @@ TRACK_MAX_MISSES = 3
 # from the Tuning panel if raw position proves too jittery in practice.
 TRACK_SMOOTH_ALPHA = 0.1
 
-# Speed-bucket thresholds, mm/s, on tracker ground speed.
+# Speed-bucket thresholds, mm/s, on tracker ground speed. Below
+# SPEED_WALK_MM_S already is the still/moving dead zone -- widen it live
+# from the Tuning panel if standing-still noise flickers into "walk".
 SPEED_WALK_MM_S = 400   # < this: still
 SPEED_RUN_MM_S = 1200   # >= this: run; between: walk
+
+# Radial speed dead zone, cm/s, for approach/recede/stationary
+# classification. Below this magnitude a target counts as stationary
+# rather than approaching or receding -- absorbs sensor noise around
+# zero for someone standing still.
+RADIAL_STATIONARY_CM_S = 5
 
 # Named rectangles in the station frame (mm), for events.py zone counts.
 ZONES = {

@@ -115,6 +115,8 @@ class RadarServer:
             config.SPEED_RUN_MM_S = cmd["speed_run"]
         if "presence_drop" in cmd:
             config.PRESENCE_DROP_FRAMES = cmd["presence_drop"]
+        if "radial_stationary" in cmd:
+            config.RADIAL_STATIONARY_CM_S = cmd["radial_stationary"]
         self.link.send({
             "type": "tune", "id": rid,
             "alpha": self.tracker.alpha,
@@ -123,6 +125,7 @@ class RadarServer:
             "speed_walk": config.SPEED_WALK_MM_S,
             "speed_run": config.SPEED_RUN_MM_S,
             "presence_drop": config.PRESENCE_DROP_FRAMES,
+            "radial_stationary": config.RADIAL_STATIONARY_CM_S,
         })
 
     def do_repl(self, cmd, rid):

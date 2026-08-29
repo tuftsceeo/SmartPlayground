@@ -210,25 +210,67 @@ function redraw() {
     }
   }
 
+  drawTrails();
+
   for (const t of state.lastTracks) {
     const [px, py] = toCanvas(t.x, t.y);
     ctx.fillStyle = "#38bdf8";
     ctx.beginPath();
     ctx.arc(px, py, 6, 0, 2 * Math.PI);
     ctx.fill();
-    // velocity arrow, scaled for visibility
-    const vscale = 0.15;
-    const [ex, ey] = toCanvas(t.x + t.vx * vscale, t.y + t.vy * vscale);
-    ctx.strokeStyle = "#38bdf8";
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(px, py);
-    ctx.lineTo(ex, ey);
-    ctx.stroke();
     ctx.fillStyle = "#e4e4e7";
     ctx.font = "11px monospace";
     ctx.fillText(`#${t.label} ${t.sp}mm/s`, px + 8, py - 8);
   }
+}
+
+// Trails: last ~1s of positions per track, drawn as a polyline -- solid
+// while the track is currently live, dashed for up to TRAIL_GRACE_MS
+// after it disappears, then removed. Keyed by the device track id (not
+// the display label), so a lost-then-reused id doesn't inherit a trail.
+// Timestamps are device ticks_ms() (msg.t), not browser time -- one
+// consistent clock for the whole trail's lifetime.
+const TRAIL_DURATION_MS = 1000;
+const TRAIL_GRACE_MS = 1000;
+const trails = new Map(); // device id -> { points: [{x,y,t}], lastSeen }
+
+function updateTrails(tracks, now) {
+  for (const t of tracks) {
+    let trail = trails.get(t.id);
+    if (!trail) {
+      trail = { points: [] };
+      trails.set(t.id, trail);
+    }
+    trail.lastSeen = now;
+    trail.points.push({ x: t.x, y: t.y, t: now });
+    while (trail.points.length > 1 && now - trail.points[0].t > TRAIL_DURATION_MS) {
+      trail.points.shift();
+    }
+  }
+  const presentIds = new Set(tracks.map((t) => t.id));
+  for (const [id, trail] of trails) {
+    if (!presentIds.has(id) && now - trail.lastSeen > TRAIL_GRACE_MS) {
+      trails.delete(id);
+    }
+  }
+}
+
+function drawTrails() {
+  const presentIds = new Set(state.lastTracks.map((t) => t.id));
+  for (const [id, trail] of trails) {
+    if (trail.points.length < 2) continue;
+    ctx.strokeStyle = "#38bdf8";
+    ctx.lineWidth = 2;
+    ctx.setLineDash(presentIds.has(id) ? [] : [4, 4]);
+    ctx.beginPath();
+    trail.points.forEach((p, i) => {
+      const [px, py] = toCanvas(p.x, p.y);
+      if (i === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    });
+    ctx.stroke();
+  }
+  ctx.setLineDash([]);
 }
 
 // Device track ids climb monotonically all session (a fresh id per new
@@ -266,7 +308,7 @@ function renderEvents(ev) {
     <div>present: <span class="${ev.present ? "text-emerald-400" : "text-neutral-500"}">${ev.present}</span></div>
     <div>count: ${ev.count}</div>
     ${zoneRows}
-    <div>approach: ${ev.approach}  recede: ${ev.recede}</div>
+    <div>approach: ${ev.approach}  recede: ${ev.recede}  stationary: ${ev.stationary}</div>
     <div>still: ${ev.still}  walk: ${ev.walk}  fast: ${ev.fast}</div>
   `;
 }
@@ -305,7 +347,7 @@ const CHARTS = [
   { title: "Target count", data: () => state.history, yMax: 3, series: [{ key: "count", label: "count", color: "#38bdf8" }] },
   { title: "Zones", data: () => state.history, yMax: 3, series: [{ key: "near", label: "near", color: "#a78bfa" }, { key: "far", label: "far", color: "#6366f1" }] },
   { title: "Speed", data: () => state.history, yMax: 3, series: [{ key: "still", label: "still", color: "#a1a1aa" }, { key: "walk", label: "walk", color: "#fbbf24" }, { key: "fast", label: "fast", color: "#f87171" }] },
-  { title: "Motion", data: () => state.history, yMax: 3, series: [{ key: "approach", label: "approach", color: "#4ade80" }, { key: "recede", label: "recede", color: "#fb923c" }] },
+  { title: "Motion", data: () => state.history, yMax: 3, series: [{ key: "approach", label: "approach", color: "#4ade80" }, { key: "recede", label: "recede", color: "#fb923c" }, { key: "stationary", label: "stationary", color: "#a1a1aa" }] },
   {
     title: "Latency (ms)", data: () => state.lagHistory,
     yMax: () => Math.max(50, ...state.lagHistory.map((s) => s.lag)),
@@ -334,6 +376,7 @@ function pushHistory(ev) {
     fast: ev.fast || 0,
     approach: ev.approach || 0,
     recede: ev.recede || 0,
+    stationary: ev.stationary || 0,
   });
   if (state.history.length > HISTORY_MAX) state.history.shift();
   dirty.history = true;
@@ -378,6 +421,7 @@ const TUNING_FIELDS = [
   { key: "speed_walk", label: "Walk threshold (mm/s)", min: 100, max: 1000, step: 50, default: 400 },
   { key: "speed_run", label: "Run threshold (mm/s)", min: 500, max: 3000, step: 50, default: 1200 },
   { key: "presence_drop", label: "Presence drop (frames)", min: 1, max: 20, step: 1, default: 5 },
+  { key: "radial_stationary", label: "Radial dead zone (cm/s)", min: 0, max: 30, step: 1, default: 5 },
 ];
 
 const tuningControls = {}; // key -> { input, valueEl }
@@ -557,6 +601,7 @@ function handleMessage(msg) {
       break;
     case "tracks":
       state.lastTracks = relabelTracks(msg.tr || []);
+      updateTrails(state.lastTracks, msg.t);
       updateClockSync(msg.t); // pure data update; sets dirty.history/timing itself
       dirty.plan = true;
       requestFrame();
@@ -618,6 +663,7 @@ btnConnect.addEventListener("click", async () => {
     state.clockOffsetMs = null; // device ticks_ms() resets on its next boot
     state.lagHistory = [];
     state.batchSizes = [];
+    trails.clear();
     btnConnect.textContent = "Connect";
     btnStream.disabled = true;
     btnRaw.disabled = true;

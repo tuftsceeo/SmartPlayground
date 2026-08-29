@@ -1,8 +1,9 @@
 """
-events.py -- derives presence, per-zone counts, approach/recede, and a
-still/walk/run speed bucket from tracker.Track objects. Speed bucket
-uses tracker ground speed (sp); approach/recede uses sensor radial speed
-sign.
+events.py -- derives presence, per-zone counts, approach/recede/
+stationary, and a still/walk/run speed bucket from tracker.Track
+objects. Speed bucket uses tracker ground speed (sp); approach/recede/
+stationary uses sensor radial speed, with a dead zone
+(config.RADIAL_STATIONARY_CM_S) around zero for stationary.
 """
 
 import config
@@ -40,15 +41,18 @@ class EventEngine:
         zone_counts = {name: 0 for name in config.ZONES}
         approach = 0
         recede = 0
+        stationary = 0
         buckets = {"still": 0, "walk": 0, "run": 0}
 
         for t in tracks:
             for name, zone in config.ZONES.items():
                 if _point_in_zone(t.x, t.y, zone):
                     zone_counts[name] += 1
-            if t.radial_v < 0:
+            if abs(t.radial_v) < config.RADIAL_STATIONARY_CM_S:
+                stationary += 1
+            elif t.radial_v < 0:
                 approach += 1
-            elif t.radial_v > 0:
+            else:
                 recede += 1
             buckets[_speed_bucket(t.sp)] += 1
 
@@ -58,6 +62,7 @@ class EventEngine:
             "zones": zone_counts,
             "approach": approach,
             "recede": recede,
+            "stationary": stationary,
             "still": buckets["still"],
             "walk": buckets["walk"],
             "fast": buckets["run"],
