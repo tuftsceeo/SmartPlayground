@@ -11,20 +11,24 @@ Gate A step 5 -- flip SIGN_X / SIGN_Y below if the sensor disagrees).
 """
 
 # ---- UART wiring -----------------------------------------------------
-# Board: Seeed XIAO ESP32-C6 on a Seeed expansion board. Sensor wired to
-# the pins silkscreened D6/D7 (GPIO16/GPIO17), the SoC's default UART0
-# pins ("U0TXD"/"U0RXD" per Espressif's IO_MUX naming) -- but MicroPython
-# on this chip runs its REPL over the native USB-Serial-JTAG peripheral,
-# not a UART, so GPIO16/17 should be free to claim as a plain machine.UART
-# instance. UART_ID=1 rather than 0 deliberately: the ESP32 GPIO matrix
-# lets any UART peripheral route to any GPIO pair, and staying off UART0
-# avoids any chance of colliding with a system use of it -- confirm at
-# Gate A that this actually claims the pins and the REPL keeps working.
-# tx=16 is the SoC's own TX (drives LD2450 RX); rx=17 is the SoC's own RX
+# Board: Seeed XIAO ESP32-C3 (NOT C6 -- corrected after Gate A's boot
+# banner reported "ESP32C3 module with ESP32C3"; GPIO16/17, the C6
+# mapping, don't exist on this chip and threw ValueError: invalid pin).
+# Sensor wired to the pins silkscreened D6/D7, which on the C3 are
+# GPIO21/GPIO20 -- the SoC's default UART0 pins ("U0TXD"/"U0RXD" per
+# Espressif's IO_MUX naming). MicroPython on this chip runs its REPL over
+# the native USB-Serial-JTAG peripheral, not a UART, so these pins should
+# be free to claim as a plain machine.UART instance; Gate A confirms the
+# REPL keeps working once this UART is opened. UART_ID=1 rather than 0
+# deliberately: the ESP32 GPIO matrix lets any UART peripheral route to
+# any GPIO pair, and staying off UART0 avoids any chance of colliding
+# with a system use of it. tx=21 is the SoC's own TX (drives LD2450 RX,
+# and is also the boot-log pin -- Seeed's docs recommend it output-only,
+# which matches exactly how it's used here); rx=20 is the SoC's own RX
 # (reads LD2450 TX) -- i.e. wires cross between the two boards as usual.
 UART_ID = 1
-UART_TX = 16
-UART_RX = 17
+UART_TX = 21
+UART_RX = 20
 UART_BAUD = 256000
 
 # ---- sign convention --------------------------------------------------
