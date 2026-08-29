@@ -511,17 +511,14 @@ btnConnect.addEventListener("click", async () => {
     return;
   }
   try {
+    // Attach the parser and listeners BEFORE opening the port -- if the
+    // device is already running and streaming, bytes can start arriving
+    // the instant the port opens, and anything before adapter.onData is
+    // assigned is silently dropped (SerialAdapter's read loop is a no-op
+    // without it).
     state.adapter = new SerialAdapter();
-    await state.adapter.connect({ baudRate: USB_CDC_BAUD });
     state.link = new RadarLink(state.adapter);
     state.link.start();
-    state.deviceState = "unknown";
-    state.autoRecoverArmed = true;
-    statusEl.textContent = "connected -- waiting for device...";
-
-    // Opening the port is one event; learning what firmware is on the
-    // other end is another. Connection state is driven entirely by
-    // listeners below, never by awaiting a single reply.
     state.link.on("targets", handleMessage);
     state.link.on("tracks", handleMessage);
     state.link.on("events", handleMessage);
@@ -534,17 +531,40 @@ btnConnect.addEventListener("click", async () => {
       if (state.batchSizes.length > 50) state.batchSizes.shift();
     });
 
-    // Fire-and-forget nudge, not a gate: onHello fires whether this
-    // reply arrives, times out, or the device already sent an
-    // unsolicited hello first.
-    state.link.hello({ timeoutMs: 4000 }).catch(() => {});
+    state.deviceState = "unknown";
+    state.autoRecoverArmed = true;
+    statusEl.textContent = "connected -- waiting for device...";
+    await state.adapter.connect({ baudRate: USB_CDC_BAUD });
+
+    // Opening the port is one event; learning what firmware is on the
+    // other end is another. Connection state is driven entirely by
+    // listeners above, never by awaiting a single reply.
+
+    // Fire-and-forget nudge, not a gate: onHello fires whether a reply
+    // arrives, times out, or the device already sent an unsolicited
+    // hello first. Retried rather than sent once -- hello gets exactly
+    // one reply opportunity (unlike tracks/events, which arrive
+    // continuously so one lost line is invisible), so if that single
+    // reply lands in a line our merged-JSON recovery can't untangle,
+    // a one-shot probe would never get a second chance all session.
+    let helloAttempts = 0;
+    const helloRetry = setInterval(() => {
+      if (state.deviceState !== "unknown") {
+        clearInterval(helloRetry);
+        return;
+      }
+      helloAttempts++;
+      state.link.hello({ timeoutMs: 1500 }).catch(() => {});
+      if (helloAttempts >= 6) clearInterval(helloRetry);
+    }, 1200);
+    state.link.hello({ timeoutMs: 1500 }).catch(() => {});
 
     setTimeout(() => {
       if (state.deviceState === "unknown") {
         state.deviceState = "absent";
         statusEl.textContent = "no response from device -- check port/wiring";
       }
-    }, 4000);
+    }, 8000);
   } catch (e) {
     statusEl.textContent = `connect failed: ${e.message}`;
   }
