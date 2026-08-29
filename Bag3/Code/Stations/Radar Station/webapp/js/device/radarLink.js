@@ -75,6 +75,7 @@ export class RadarLink {
   _onData(chunk) {
     this._buf += chunk;
     let i;
+    let n = 0;
     while ((i = this._buf.indexOf("\n")) >= 0) {
       const line = this._buf.slice(0, i).trim();
       this._buf = this._buf.slice(i + 1);
@@ -87,7 +88,11 @@ export class RadarLink {
         continue;
       }
       this._handleLine(line);
+      n++;
     }
+    // n>1 means multiple complete messages arrived in one read event --
+    // a proxy for the browser falling behind the incoming rate.
+    if (n > 0) this._emit("_batch", { n, t: performance.now() });
   }
 
   _handleLine(line) {

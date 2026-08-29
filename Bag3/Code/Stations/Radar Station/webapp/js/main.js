@@ -5,7 +5,7 @@
 
 import { SerialAdapter } from "./device/serialAdapter.js";
 import { RadarLink } from "./device/radarLink.js";
-import { subscribe as subscribeLog, getEntries, clear as clearLog } from "./device/serialLog.js";
+import { subscribe as subscribeLog, getEntries, clear as clearLog, logWarn } from "./device/serialLog.js";
 
 const RANGE_MM = 6000; // LD2450 max range
 const HALF_FOV_DEG = 60;
@@ -32,6 +32,15 @@ const state = {
   recording: false,
   recordBuf: [], // [{t_wall_ms, msg}]
   replaying: false,
+
+  // -- timing diagnostics --
+  clockOffsetMs: null, // running min of (performance.now() - device t), one-way latency floor
+  lagMs: 0,            // current sample's excess over that floor -- rising = falling behind
+  lagHistory: [],
+  batchSizes: [],      // messages drained per single onData() call; >1 means backlog
+  renderScheduled: false,
+  renderCount: 0,
+  renderFps: 0,
 };
 
 const root = document.getElementById("root");
@@ -60,6 +69,10 @@ root.innerHTML = `
         <h2 class="text-xs uppercase tracking-wide text-neutral-500 mb-2">History</h2>
         <div id="history-panel" class="space-y-3"></div>
       </div>
+      <div class="p-3 border-b border-neutral-800">
+        <h2 class="text-xs uppercase tracking-wide text-neutral-500 mb-2">Timing</h2>
+        <div id="timing-panel" class="text-sm space-y-1 font-mono"></div>
+      </div>
       <div class="p-3">
         <h2 class="text-xs uppercase tracking-wide text-neutral-500 mb-2">Info</h2>
         <div id="info-panel" class="text-sm space-y-1 font-mono"></div>
@@ -85,6 +98,7 @@ const fileReplay = document.getElementById("file-replay");
 const statusEl = document.getElementById("status");
 const eventsPanel = document.getElementById("events-panel");
 const historyPanel = document.getElementById("history-panel");
+const timingPanel = document.getElementById("timing-panel");
 const infoPanel = document.getElementById("info-panel");
 const monitorSection = document.getElementById("monitor-section");
 const monitorEl = document.getElementById("serial-monitor");
@@ -201,13 +215,20 @@ function renderInfo(info) {
 }
 
 // ---- history / timeseries charts ---------------------------------------
-// All keys here are LD2450 target counts, capped at 3 -- fixed y-scale
-// rather than auto-scaling, so the charts stay readable at a glance.
+// Count-based charts read state.history and are capped at 3 (the
+// LD2450's target cap) -- fixed y-scale so they stay readable at a
+// glance. The latency chart reads state.lagHistory and auto-scales,
+// since lag has no natural fixed ceiling.
 const CHARTS = [
-  { title: "Target count", yMax: 3, series: [{ key: "count", label: "count", color: "#38bdf8" }] },
-  { title: "Zones", yMax: 3, series: [{ key: "near", label: "near", color: "#a78bfa" }, { key: "far", label: "far", color: "#6366f1" }] },
-  { title: "Speed", yMax: 3, series: [{ key: "still", label: "still", color: "#a1a1aa" }, { key: "walk", label: "walk", color: "#fbbf24" }, { key: "fast", label: "fast", color: "#f87171" }] },
-  { title: "Motion", yMax: 3, series: [{ key: "approach", label: "approach", color: "#4ade80" }, { key: "recede", label: "recede", color: "#fb923c" }] },
+  { title: "Target count", data: () => state.history, yMax: 3, series: [{ key: "count", label: "count", color: "#38bdf8" }] },
+  { title: "Zones", data: () => state.history, yMax: 3, series: [{ key: "near", label: "near", color: "#a78bfa" }, { key: "far", label: "far", color: "#6366f1" }] },
+  { title: "Speed", data: () => state.history, yMax: 3, series: [{ key: "still", label: "still", color: "#a1a1aa" }, { key: "walk", label: "walk", color: "#fbbf24" }, { key: "fast", label: "fast", color: "#f87171" }] },
+  { title: "Motion", data: () => state.history, yMax: 3, series: [{ key: "approach", label: "approach", color: "#4ade80" }, { key: "recede", label: "recede", color: "#fb923c" }] },
+  {
+    title: "Latency (ms)", data: () => state.lagHistory,
+    yMax: () => Math.max(50, ...state.lagHistory.map((s) => s.lag)),
+    series: [{ key: "lag", label: "lag", color: "#f472b6" }],
+  },
 ];
 
 for (const chart of CHARTS) {
@@ -237,8 +258,9 @@ function pushHistory(ev) {
 }
 
 function renderHistory() {
-  const hist = state.history;
   for (const chart of CHARTS) {
+    const hist = chart.data();
+    const yMax = typeof chart.yMax === "function" ? chart.yMax() : chart.yMax;
     const c = chart._canvas.getContext("2d");
     const w = chart._canvas.width, h = chart._canvas.height;
     c.fillStyle = "#0a0a0a";
@@ -251,14 +273,68 @@ function renderHistory() {
       c.beginPath();
       hist.forEach((sample, i) => {
         const x = (i / (n - 1)) * w;
-        const v = Math.max(0, Math.min(chart.yMax, sample[s.key]));
-        const y = h - 2 - (v / chart.yMax) * (h - 4);
+        const v = Math.max(0, Math.min(yMax, sample[s.key]));
+        const y = h - 2 - (v / yMax) * (h - 4);
         if (i === 0) c.moveTo(x, y);
         else c.lineTo(x, y);
       });
       c.stroke();
     }
   }
+}
+
+// ---- timing diagnostics ------------------------------------------------
+// Lag estimate: device 't' is time.ticks_ms() since its own boot, not
+// wall-clock, so absolute latency needs an assumed epoch. clockOffsetMs
+// is a running minimum of (browser time - device t) -- the lowest
+// latency observed so far, which one-way latency can only ever exceed.
+// lagMs is each sample's excess over that floor: near 0 means keeping
+// pace, a rising trend means falling behind.
+const LAG_WARN_MS = 250;
+
+function updateClockSync(deviceT) {
+  if (deviceT === undefined) return;
+  const now = performance.now();
+  const sampleOffset = now - deviceT;
+  state.clockOffsetMs = state.clockOffsetMs === null ? sampleOffset : Math.min(state.clockOffsetMs, sampleOffset);
+  const lag = now - state.clockOffsetMs - deviceT;
+  state.lagMs = lag;
+  state.lagHistory.push({ lag });
+  if (state.lagHistory.length > HISTORY_MAX) state.lagHistory.shift();
+  if (lag > LAG_WARN_MS) logWarn(`display lag ${lag.toFixed(0)}ms, exceeds ${LAG_WARN_MS}ms`);
+  renderHistory();
+  renderTiming();
+}
+
+function renderTiming() {
+  const backlog = state.batchSizes;
+  const avgBacklog = backlog.length ? (backlog.reduce((a, b) => a + b, 0) / backlog.length).toFixed(2) : "-";
+  const maxBacklog = backlog.length ? Math.max(...backlog) : "-";
+  timingPanel.innerHTML = `
+    <div>lag: <span class="${state.lagMs > LAG_WARN_MS ? "text-amber-400" : "text-neutral-300"}">${state.lagMs.toFixed(0)}ms</span></div>
+    <div>backlog/read: avg ${avgBacklog}, max ${maxBacklog}</div>
+    <div>render: ${state.renderFps} fps</div>
+  `;
+}
+
+setInterval(() => {
+  state.renderFps = state.renderCount;
+  state.renderCount = 0;
+  renderTiming();
+}, 1000);
+
+/** Coalesce bursts of tracks/targets messages into one draw per animation
+ * frame, rather than one draw per message -- the actual "drop frames to
+ * keep display caught up" mechanism. State is always updated immediately;
+ * only the expensive canvas draw is throttled. */
+function scheduleRedraw() {
+  if (state.renderScheduled) return;
+  state.renderScheduled = true;
+  requestAnimationFrame(() => {
+    state.renderScheduled = false;
+    redraw();
+    state.renderCount++;
+  });
 }
 
 // ---- serial monitor ------------------------------------------------
@@ -318,11 +394,12 @@ function handleMessage(msg) {
   switch (msg.type) {
     case "targets":
       state.lastTargets = msg.tg || [];
-      redraw();
+      scheduleRedraw();
       break;
     case "tracks":
       state.lastTracks = msg.tr || [];
-      redraw();
+      updateClockSync(msg.t);
+      scheduleRedraw();
       break;
     case "events":
       state.lastEvents = msg;
@@ -377,6 +454,9 @@ btnConnect.addEventListener("click", async () => {
     state.deviceState = null;
     state._streamStarted = false;
     state.streaming = false;
+    state.clockOffsetMs = null; // device ticks_ms() resets on its next boot
+    state.lagHistory = [];
+    state.batchSizes = [];
     btnConnect.textContent = "Connect";
     btnStream.disabled = true;
     btnRaw.disabled = true;
@@ -403,6 +483,10 @@ btnConnect.addEventListener("click", async () => {
     state.link.on("fatal", handleMessage);
     state.link.on("hello", onHello);
     state.link.on("repl", onRepl);
+    state.link.on("_batch", (b) => {
+      state.batchSizes.push(b.n);
+      if (state.batchSizes.length > 50) state.batchSizes.shift();
+    });
 
     // Fire-and-forget nudge, not a gate: onHello fires whether this
     // reply arrives, times out, or the device already sent an
@@ -445,6 +529,7 @@ function onRepl() {
   state.deviceState = "repl";
   state.connected = false;
   state._streamStarted = false; // re-arm: a reset firmware boots with streaming off
+  state.clockOffsetMs = null; // re-arm: restartFirmware() resets the device's ticks_ms()
   if (!state.autoRecoverArmed) {
     statusEl.textContent = "device at REPL -- click Connect again to retry recovery";
     return;
@@ -470,3 +555,4 @@ btnRaw.addEventListener("click", async () => {
 
 redraw();
 renderEvents(null);
+renderTiming();
