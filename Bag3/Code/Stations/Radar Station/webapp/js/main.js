@@ -38,10 +38,31 @@ const state = {
   lagMs: 0,            // current sample's excess over that floor -- rising = falling behind
   lagHistory: [],
   batchSizes: [],      // messages drained per single onData() call; >1 means backlog
-  renderScheduled: false,
   renderCount: 0,
   renderFps: 0,
 };
+
+// All render/DOM work is coalesced to at most once per animation frame,
+// regardless of how many messages arrive in between -- a message-flood
+// burst updates state (cheap) many times but paints (expensive) once.
+// Data-push functions (pushHistory, updateClockSync, renderLogEntry) set
+// these flags and call requestFrame(); they never render synchronously.
+const dirty = { plan: false, events: false, history: false, timing: false };
+let frameScheduled = false;
+
+function requestFrame() {
+  if (frameScheduled) return;
+  frameScheduled = true;
+  requestAnimationFrame(() => {
+    frameScheduled = false;
+    if (dirty.plan) { redraw(); dirty.plan = false; }
+    if (dirty.events) { renderEvents(state.lastEvents); dirty.events = false; }
+    if (dirty.history) { renderHistory(); dirty.history = false; }
+    if (dirty.timing) { renderTiming(); dirty.timing = false; }
+    flushLogEntries();
+    state.renderCount++;
+  });
+}
 
 const root = document.getElementById("root");
 root.innerHTML = `
@@ -57,17 +78,17 @@ root.innerHTML = `
     <span id="status" class="text-xs text-neutral-400 ml-auto">not connected</span>
   </div>
   <div class="flex flex-1 min-h-0">
-    <div class="flex-1 flex items-center justify-center p-3 min-h-0">
-      <canvas id="plan-canvas" width="720" height="640"></canvas>
+    <div class="w-1/2 flex items-center justify-center p-3 min-h-0">
+      <canvas id="plan-canvas" width="480" height="480"></canvas>
     </div>
-    <div class="w-80 border-l border-neutral-800 flex flex-col min-h-0">
+    <div class="w-1/2 border-l border-neutral-800 flex flex-col min-h-0 overflow-y-auto">
       <div class="p-3 border-b border-neutral-800">
         <h2 class="text-xs uppercase tracking-wide text-neutral-500 mb-2">Derived events</h2>
         <div id="events-panel" class="text-sm space-y-1 font-mono"></div>
       </div>
-      <div class="p-3 border-b border-neutral-800 flex-1 overflow-y-auto min-h-0">
+      <div class="p-3 border-b border-neutral-800">
         <h2 class="text-xs uppercase tracking-wide text-neutral-500 mb-2">History</h2>
-        <div id="history-panel" class="space-y-3"></div>
+        <div id="history-panel" class="grid grid-cols-2 gap-3"></div>
       </div>
       <div class="p-3 border-b border-neutral-800">
         <h2 class="text-xs uppercase tracking-wide text-neutral-500 mb-2">Timing</h2>
@@ -129,7 +150,13 @@ function drawWedge() {
   ctx.moveTo(ox, oy);
   ctx.lineTo(rx, ry);
   ctx.stroke();
-  // range rings every meter
+
+  ctx.fillStyle = "#71717a";
+  ctx.font = "10px monospace";
+  ctx.fillText(`-${HALF_FOV_DEG}°`, lx - 26, ly + 4);
+  ctx.fillText(`+${HALF_FOV_DEG}°`, rx + 4, ry + 4);
+
+  // range rings every meter, labeled straight ahead of the sensor
   for (let r = 1000; r <= RANGE_MM; r += 1000) {
     ctx.beginPath();
     for (let a = -HALF_FOV_DEG; a <= HALF_FOV_DEG; a += 2) {
@@ -139,6 +166,10 @@ function drawWedge() {
       else ctx.lineTo(px, py);
     }
     ctx.stroke();
+    const [lpx, lpy] = toCanvas(0, r);
+    ctx.fillStyle = "#71717a";
+    ctx.font = "10px monospace";
+    ctx.fillText(`${r / 1000}m`, lpx + 4, lpy - 2);
   }
   // sensor marker
   ctx.fillStyle = "#71717a";
@@ -254,7 +285,8 @@ function pushHistory(ev) {
     recede: ev.recede || 0,
   });
   if (state.history.length > HISTORY_MAX) state.history.shift();
-  renderHistory();
+  dirty.history = true;
+  requestFrame();
 }
 
 function renderHistory() {
@@ -302,8 +334,9 @@ function updateClockSync(deviceT) {
   state.lagHistory.push({ lag });
   if (state.lagHistory.length > HISTORY_MAX) state.lagHistory.shift();
   if (lag > LAG_WARN_MS) logWarn(`display lag ${lag.toFixed(0)}ms, exceeds ${LAG_WARN_MS}ms`);
-  renderHistory();
-  renderTiming();
+  dirty.history = true;
+  dirty.timing = true;
+  requestFrame();
 }
 
 function renderTiming() {
@@ -320,42 +353,52 @@ function renderTiming() {
 setInterval(() => {
   state.renderFps = state.renderCount;
   state.renderCount = 0;
-  renderTiming();
+  dirty.timing = true;
+  requestFrame();
 }, 1000);
 
-/** Coalesce bursts of tracks/targets messages into one draw per animation
- * frame, rather than one draw per message -- the actual "drop frames to
- * keep display caught up" mechanism. State is always updated immediately;
- * only the expensive canvas draw is throttled. */
-function scheduleRedraw() {
-  if (state.renderScheduled) return;
-  state.renderScheduled = true;
-  requestAnimationFrame(() => {
-    state.renderScheduled = false;
-    redraw();
-    state.renderCount++;
-  });
-}
-
 // ---- serial monitor ------------------------------------------------
+// Entries queue here (cheap) and are flushed into the DOM in one batch
+// per animation frame by requestFrame() above -- under a message burst,
+// this is one appendChild + one scrollTop reflow instead of one each,
+// which was heavy enough to make the whole page feel unresponsive.
+let pendingLogEntries = [];
+
 function renderLogEntry(e) {
   if (e === null) {
     monitorEl.innerHTML = "";
+    pendingLogEntries = [];
     return;
   }
-  const div = document.createElement("div");
-  div.className = `log-${e.dir}`;
-  div.textContent = `${e.t.toFixed(0)}ms [${e.dir}] ${e.text}`;
-  monitorEl.appendChild(div);
-  if (monitorEl.children.length > 500) monitorEl.removeChild(monitorEl.firstChild);
+  pendingLogEntries.push(e);
+  requestFrame();
+}
+
+function flushLogEntries() {
+  if (!pendingLogEntries.length) return;
+  const frag = document.createDocumentFragment();
+  for (const e of pendingLogEntries) {
+    const div = document.createElement("div");
+    div.className = `log-${e.dir}`;
+    div.textContent = `${e.t.toFixed(0)}ms [${e.dir}] ${e.text}`;
+    frag.appendChild(div);
+  }
+  pendingLogEntries = [];
+  monitorEl.appendChild(frag);
+  while (monitorEl.children.length > 500) monitorEl.removeChild(monitorEl.firstChild);
   monitorEl.scrollTop = monitorEl.scrollHeight;
 }
+
 subscribeLog(renderLogEntry);
 btnClearLog.addEventListener("click", clearLog);
 
 btnToggleMonitor.addEventListener("click", () => {
-  monitorSection.hidden = !monitorSection.hidden;
-  btnToggleMonitor.textContent = monitorSection.hidden ? "Show monitor" : "Hide monitor";
+  // Native `hidden` loses to Tailwind's .flex class in the cascade
+  // (author display rules beat the UA [hidden] rule regardless of
+  // specificity) -- toggle the inline style directly instead.
+  const willHide = monitorSection.style.display !== "none";
+  monitorSection.style.display = willHide ? "none" : "";
+  btnToggleMonitor.textContent = willHide ? "Show monitor" : "Hide monitor";
 });
 
 // ---- recording -----------------------------------------------------
@@ -394,17 +437,20 @@ function handleMessage(msg) {
   switch (msg.type) {
     case "targets":
       state.lastTargets = msg.tg || [];
-      scheduleRedraw();
+      dirty.plan = true;
+      requestFrame();
       break;
     case "tracks":
       state.lastTracks = msg.tr || [];
-      updateClockSync(msg.t);
-      scheduleRedraw();
+      updateClockSync(msg.t); // pure data update; sets dirty.history/timing itself
+      dirty.plan = true;
+      requestFrame();
       break;
     case "events":
       state.lastEvents = msg;
-      renderEvents(msg);
-      pushHistory(msg);
+      pushHistory(msg); // pure data update; sets dirty.history itself
+      dirty.events = true;
+      requestFrame();
       break;
     case "info":
       renderInfo(msg);
