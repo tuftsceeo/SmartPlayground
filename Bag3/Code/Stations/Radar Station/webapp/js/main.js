@@ -433,6 +433,11 @@ btnRecord.addEventListener("click", () => {
 
 // ---- message handling ----
 function handleMessage(msg) {
+  // Any message but 'fatal' is proof the firmware is running -- not just
+  // 'hello'. tracks/events/info/heartbeat arrive continuously, so this
+  // is a far more reliable liveness signal than waiting on one specific
+  // message that only gets a single reply opportunity.
+  if (msg.type !== "fatal") markRunning();
   if (state.recording) state.recordBuf.push({ t_wall_ms: Date.now(), msg });
   switch (msg.type) {
     case "targets":
@@ -524,6 +529,7 @@ btnConnect.addEventListener("click", async () => {
     state.link.on("events", handleMessage);
     state.link.on("info", handleMessage);
     state.link.on("fatal", handleMessage);
+    state.link.on("heartbeat", markRunning);
     state.link.on("hello", onHello);
     state.link.on("repl", onRepl);
     state.link.on("_batch", (b) => {
@@ -538,27 +544,11 @@ btnConnect.addEventListener("click", async () => {
 
     // Opening the port is one event; learning what firmware is on the
     // other end is another. Connection state is driven entirely by
-    // listeners above, never by awaiting a single reply.
-
-    // Fire-and-forget nudge, not a gate: onHello fires whether a reply
-    // arrives, times out, or the device already sent an unsolicited
-    // hello first. Retried rather than sent once -- hello gets exactly
-    // one reply opportunity (unlike tracks/events, which arrive
-    // continuously so one lost line is invisible), so if that single
-    // reply lands in a line our merged-JSON recovery can't untangle,
-    // a one-shot probe would never get a second chance all session.
-    let helloAttempts = 0;
-    const helloRetry = setInterval(() => {
-      if (state.deviceState !== "unknown") {
-        clearInterval(helloRetry);
-        return;
-      }
-      helloAttempts++;
-      state.link.hello({ timeoutMs: 1500 }).catch(() => {});
-      if (helloAttempts >= 6) clearInterval(helloRetry);
-    }, 1200);
-    state.link.hello({ timeoutMs: 1500 }).catch(() => {});
-
+    // listeners above (markRunning(), fired by any message type), never
+    // by sending or awaiting a specific probe command. No command is
+    // sent here at all: the device already emits a heartbeat every 5s
+    // and, if streaming was left on from an earlier session, tracks/
+    // events far more often than that -- something arrives on its own.
     setTimeout(() => {
       if (state.deviceState === "unknown") {
         state.deviceState = "absent";
@@ -570,10 +560,21 @@ btnConnect.addEventListener("click", async () => {
   }
 });
 
+// hello is informational only (the version string) -- never required to
+// reach "running". markRunning() is the actual gate, driven by any
+// message type (see handleMessage).
 function onHello(hello) {
+  statusEl.textContent = `connected -- radar_server v${hello.version}`;
+  markRunning();
+}
+
+function markRunning() {
+  if (state.deviceState === "running") return;
   state.deviceState = "running";
   state.connected = true;
-  statusEl.textContent = `connected -- radar_server v${hello.version}`;
+  if (statusEl.textContent === "connected -- waiting for device...") {
+    statusEl.textContent = "connected -- device running";
+  }
   btnConnect.textContent = "Disconnect";
   btnStream.disabled = false;
   btnRaw.disabled = false;

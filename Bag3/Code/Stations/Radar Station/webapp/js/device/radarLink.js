@@ -157,21 +157,29 @@ export class RadarLink {
     });
   }
 
+  /** Informational only (e.g. the version string) -- never required for
+   * anything. Liveness is proven by any message type; see markRunning()
+   * in main.js. */
   hello({ timeoutMs = 1500 } = {}) {
     return this.send({ cmd: "hello" }, { timeoutMs });
   }
 
-  /** Resolves on the next unsolicited or replied `hello`. */
-  waitForHello(timeoutMs = 12000) {
+  /** Resolves on the next actual application message (anything with a
+   * `type`), used after a reboot to know the device is back without
+   * depending on one specific message. Ignores `"*"`-fired `repl`
+   * notifications: a reboot's own MicroPython boot banner triggers one
+   * before main.py even starts, which would resolve this far too early. */
+  waitForAlive(timeoutMs = 12000) {
     return new Promise((resolve, reject) => {
-      const off = this.on("hello", (obj) => {
+      const off = this.on("*", (obj) => {
+        if (!obj || !obj.type) return; // repl-notification payload, not an app message
         clearTimeout(timer);
         off();
         resolve(obj);
       });
       const timer = setTimeout(() => {
         off();
-        reject(new Error("timed out waiting for hello"));
+        reject(new Error("timed out waiting for the device to respond"));
       }, timeoutMs);
     });
   }
@@ -180,7 +188,7 @@ export class RadarLink {
    * partial line) then Ctrl-D (soft reset, re-runs main.py). Read-only
    * otherwise -- never sent from a probe against a running device. */
   async restartFirmware({ timeoutMs = 12000 } = {}) {
-    const waiting = this.waitForHello(timeoutMs);
+    const waiting = this.waitForAlive(timeoutMs);
     await this.adapter.write("\x03");
     await new Promise((r) => setTimeout(r, 200));
     await this.adapter.write("\x04");
