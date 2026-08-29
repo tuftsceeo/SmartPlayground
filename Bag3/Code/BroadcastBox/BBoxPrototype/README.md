@@ -1,4 +1,4 @@
-# FileBroadcast — wireless .py push, S3 → C6
+# BroadcastBox Prototype (Proof of concept) — wireless .py push, S3 → C6
 
 Prototype for pushing a `.py` file from the Mac to a Xiao ESP32-C6 wirelessly, using a second
 ESP32-S3 as the local wireless link. No router, no internet — the S3 runs a SoftAP and the C6

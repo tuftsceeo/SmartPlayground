@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<meta name="design_doc_mode" content="canvas">
+<link href="https://fonts.googleapis.com/css2?family=Patrick+Hand&family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+body{margin:0;font-family:'Nunito',sans-serif;background:
+  radial-gradient(circle at 6% 10%, #ffd23f22, transparent 40%),
+  radial-gradient(circle at 94% 6%, #ef4d9218, transparent 38%),
+  radial-gradient(circle at 90% 94%, #22c3a61c, transparent 42%),
+  radial-gradient(circle at 8% 92%, #6c4cd11a, transparent 40%),
+  #f7f7fb}
+a{color:#6c4cd1}
+a:hover{color:#ef4d92}
+</style>
+</helmet>
+
+<div style="padding:48px 56px 90px">
+  <div style="font:900 26px 'Nunito';color:#231f2e;margin-bottom:4px">Wand &amp; Station Coder — web app mockups</div>
+  <div style="font:16px/1.5 'Patrick Hand';color:#5b5468;margin-bottom:6px;max-width:700px">High-fidelity screens &amp; overlays 1–9, following the flow in Prototype Flow Logic.md. Broadcast Box device screens stay as wireframes.</div>
+  <div style="display:inline-block;font:700 12px 'Nunito';color:#fff;background:linear-gradient(100deg,#ef4d92,#6c4cd1);margin:18px 0 26px;padding:6px 16px;border-radius:20px;box-shadow:2px 2px 0 rgba(0,0,0,.12)">App · screens 1–9 · laptop browser</div>
+
+  <div style="display:flex;flex-wrap:wrap;gap:36px;align-items:flex-start">
+
+    <!-- SCREEN 1: SPLASH -->
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div style="font:700 13px 'Patrick Hand';color:#3a3345"><span style="font:700 11px ui-monospace,monospace;background:#231f2e;color:#fff;border-radius:5px;padding:2px 7px;margin-right:6px">1</span>Splash: scratch or examples</div>
+      <div style="width:1000px;height:640px;background:#fff;border-radius:22px;box-shadow:0 18px 40px rgba(108,76,209,.16);overflow:hidden;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center">
+        <div style="position:absolute;top:-60px;left:-60px;width:220px;height:220px;border-radius:50%;background:#ffd23f2e"></div>
+        <div style="position:absolute;bottom:-80px;right:-40px;width:260px;height:260px;border-radius:50%;background:#22c3a628"></div>
+        <div style="position:absolute;top:40px;right:80px;width:70px;height:70px;border-radius:50%;background:#ef4d9222"></div>
+        <div style="width:96px;height:96px;border-radius:28px;background:linear-gradient(135deg,#ef4d92,#6c4cd1);display:flex;align-items:center;justify-content:center;font-size:44px;box-shadow:0 10px 24px rgba(239,77,146,.35);z-index:1">✦</div>
+        <div style="font:900 34px 'Nunito';color:#231f2e;margin-top:22px;z-index:1">Wand &amp; Station Coder</div>
+        <div style="font:20px 'Patrick Hand';color:#5b5468;margin-top:6px;z-index:1">make magic for your playground</div>
+        <div style="display:flex;gap:16px;margin-top:40px;z-index:1">
+          <div style="width:220px;padding:20px 16px;border-radius:16px;border:2px solid #e8e6f0;background:#fff;text-align:center;cursor:pointer">
+            <div style="font-size:26px">💬</div>
+            <div style="font:800 15px 'Nunito';color:#231f2e;margin-top:8px">Start from scratch</div>
+            <div style="font:12px 'Nunito';color:#8b859a;margin-top:2px">chat your idea into code</div>
+          </div>
+          <div style="width:220px;padding:20px 16px;border-radius:16px;background:linear-gradient(135deg,#ef4d92,#d13a7c);text-align:center;box-shadow:0 10px 22px rgba(239,77,146,.35);cursor:pointer">
+            <div style="font-size:26px">📚</div>
+            <div style="font:800 15px 'Nunito';color:#fff;margin-top:8px">Browse examples</div>
+            <div style="font:12px 'Nunito';color:#ffe3f0;margin-top:2px">remix a ready-made game</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SCREEN 2: GALLERY -->
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div style="font:700 13px 'Patrick Hand';color:#3a3345"><span style="font:700 11px ui-monospace,monospace;background:#231f2e;color:#fff;border-radius:5px;padding:2px 7px;margin-right:6px">2</span>Example gallery</div>
+      <div style="width:1000px;height:640px;background:#fff;border-radius:22px;box-shadow:0 18px 40px rgba(108,76,209,.16);overflow:hidden;display:flex;flex-direction:column">
+        <div style="display:flex;align-items:center;gap:12px;padding:20px 28px;border-bottom:1px solid #e8e6f0">
+          <div style="font:800 20px 'Nunito';color:#231f2e">📚 Example games</div>
+          <input placeholder="search games…" style="margin-left:auto;border:1.5px solid #e8e6f0;border-radius:10px;padding:9px 14px;font:14px 'Nunito';width:220px;color:#231f2e;outline:none">
+        </div>
+        <div style="display:flex;gap:8px;padding:16px 28px 4px">
+          <div style="font:700 13px 'Nunito';padding:7px 16px;border-radius:20px;background:#231f2e;color:#fff">All</div>
+          <div style="font:700 13px 'Nunito';padding:7px 16px;border-radius:20px;background:#fff0f6;color:#d13a7c">🎵 Sound</div>
+          <div style="font:700 13px 'Nunito';padding:7px 16px;border-radius:20px;background:#f2eefc;color:#6c4cd1">🎨 Color</div>
+          <div style="font:700 13px 'Nunito';padding:7px 16px;border-radius:20px;background:#e9fbf6;color:#1c9a82">🏷️ Multi-tag</div>
+        </div>
+        <div style="flex:1;overflow:auto;padding:16px 28px;display:grid;grid-template-columns:1fr 1fr;gap:16px">
+          <div style="border:1.5px solid #e8e6f0;border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:8px">
+            <div style="height:90px;border-radius:10px;background:repeating-linear-gradient(45deg,#fff0f6,#fff0f6 10px,#ffe3f0 10px,#ffe3f0 20px);display:flex;align-items:center;justify-content:center;font:11px ui-monospace,monospace;color:#c9a3bd">melody clip</div>
+            <div style="font:800 15px 'Nunito';color:#231f2e">🎵 Melody</div>
+            <div style="font:13px 'Nunito';color:#8b859a">one tag per note</div>
+            <div style="font:700 11px 'Nunito';color:#a8781e;background:#fff8e0;border-radius:8px;padding:3px 8px;width:fit-content">8 NFC tags</div>
+          </div>
+          <div style="border:1.5px solid #e8e6f0;border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:8px">
+            <div style="height:90px;border-radius:10px;background:repeating-linear-gradient(45deg,#f2eefc,#f2eefc 10px,#e6ddfa 10px,#e6ddfa 20px);display:flex;align-items:center;justify-content:center;font:11px ui-monospace,monospace;color:#a99bd6">freeze clip</div>
+            <div style="font:800 15px 'Nunito';color:#231f2e">❄️ Freeze Dance</div>
+            <div style="font:13px 'Nunito';color:#8b859a">move, then freeze</div>
+          </div>
+          <div style="border:1.5px solid #e8e6f0;border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:8px">
+            <div style="height:90px;border-radius:10px;background:repeating-linear-gradient(45deg,#e9fbf6,#e9fbf6 10px,#d3f5ea 10px,#d3f5ea 20px);display:flex;align-items:center;justify-content:center;font:11px ui-monospace,monospace;color:#8fd3c1">rainbow clip</div>
+            <div style="font:800 15px 'Nunito';color:#231f2e">🌈 Rainbow</div>
+            <div style="font:13px 'Nunito';color:#8b859a">shake for color</div>
+          </div>
+          <div style="border:1.5px solid #e8e6f0;border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:8px">
+            <div style="height:90px;border-radius:10px;background:repeating-linear-gradient(45deg,#fff8e0,#fff8e0 10px,#ffefc0 10px,#ffefc0 20px);display:flex;align-items:center;justify-content:center;font:11px ui-monospace,monospace;color:#d9c07f">cooking clip</div>
+            <div style="font:800 15px 'Nunito';color:#231f2e">🍳 Cooking</div>
+            <div style="font:13px 'Nunito';color:#8b859a">recipe steps</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SCREEN 3: DETAIL -->
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div style="font:700 13px 'Patrick Hand';color:#3a3345"><span style="font:700 11px ui-monospace,monospace;background:#231f2e;color:#fff;border-radius:5px;padding:2px 7px;margin-right:6px">3</span>Example detail: remix</div>
+      <div style="width:1000px;height:640px;background:#fff;border-radius:22px;box-shadow:0 18px 40px rgba(108,76,209,.16);overflow:hidden;display:flex;flex-direction:column">
+        <div style="display:flex;align-items:center;gap:10px;padding:20px 28px;border-bottom:1px solid #e8e6f0">
+          <div style="font:16px 'Nunito';color:#8b859a;cursor:pointer">←</div>
+          <div style="font:800 18px 'Nunito';color:#231f2e">🎵 Melody</div>
+        </div>
+        <div style="flex:1;display:flex;gap:28px;padding:28px">
+          <div style="flex:1;border-radius:16px;background:repeating-linear-gradient(45deg,#fff0f6,#fff0f6 12px,#ffe3f0 12px,#ffe3f0 24px);display:flex;align-items:center;justify-content:center;font:13px ui-monospace,monospace;color:#c9a3bd">preview animation</div>
+          <div style="width:340px;display:flex;flex-direction:column;gap:14px">
+            <div style="font:15px/1.5 'Nunito';color:#5b5468">Tap each note-tag to play a tune.</div>
+            <div style="font:700 13px 'Nunito';color:#a8781e;background:#fff8e0;border-radius:10px;padding:10px 14px">needs <b>8 NFC tags</b> — one per note</div>
+            <div style="flex:1"></div>
+            <div style="padding:14px;border-radius:12px;background:linear-gradient(135deg,#ef4d92,#d13a7c);color:#fff;text-align:center;font:800 15px 'Nunito';box-shadow:0 10px 22px rgba(239,77,146,.3);cursor:pointer">🔀 Remix this in chat</div>
+            <div style="padding:12px;border-radius:12px;border:1.5px solid #e8e6f0;text-align:center;font:700 14px 'Nunito';color:#231f2e;cursor:pointer">Use as-is → send</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SCREEN 4: WORKSPACE (base) -->
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div style="font:700 13px 'Patrick Hand';color:#3a3345"><span style="font:700 11px ui-monospace,monospace;background:#231f2e;color:#fff;border-radius:5px;padding:2px 7px;margin-right:6px">4</span>Workspace: chat + preview, code hidden</div>
+      <div id="wsBase" style="width:1000px;height:640px;background:#fff;border-radius:22px;box-shadow:0 18px 40px rgba(108,76,209,.16);overflow:hidden;display:flex;flex-direction:column">
+        <div style="display:flex;align-items:center;gap:10px;padding:14px 22px;border-bottom:1px solid #e8e6f0">
+          <div style="font:800 16px 'Nunito';color:#231f2e">Wand &amp; Station Coder</div>
+          <div style="margin-left:auto;font:700 12px 'Nunito';color:#a8531e;background:#fff0e5;border-radius:14px;padding:5px 12px">● not connected</div>
+        </div>
+        <div style="display:flex;flex:1;min-height:0">
+          <div style="width:100px;border-right:1px solid #e8e6f0;padding:14px 10px;display:flex;flex-direction:column;gap:8px;flex:none">
+            <div style="border-radius:10px;padding:10px 6px;text-align:center;background:#fff0f6;border-left:3px solid #ef4d92">
+              <div style="font-size:18px">🪄</div><div style="font:700 11px 'Nunito';color:#d13a7c;margin-top:2px">Wands</div>
+            </div>
+            <div style="border-radius:10px;padding:10px 6px;text-align:center;color:#a8a4b5">
+              <div style="font-size:18px">🎯</div><div style="font:700 11px 'Nunito';margin-top:2px">Stations</div>
+            </div>
+          </div>
+          <div style="width:290px;border-right:1px solid #e8e6f0;display:flex;flex-direction:column;min-width:0;flex:none">
+            <div style="flex:1;overflow:auto;padding:14px;display:flex;flex-direction:column;gap:8px">
+              <div style="border-radius:12px;padding:9px 12px;font:13px 'Nunito';align-self:flex-start;max-width:85%;background:#f4f2fa;color:#3a3345">start from Melody</div>
+              <div style="border-radius:12px;padding:9px 12px;font:13px 'Nunito';align-self:flex-end;max-width:85%;background:#fff0f6;color:#a8265c">Loaded! 8 notes →</div>
+              <div style="border-radius:12px;padding:9px 12px;font:13px 'Nunito';align-self:flex-start;max-width:85%;background:#f4f2fa;color:#3a3345">top note higher?</div>
+              <div style="border-radius:12px;padding:9px 12px;font:13px 'Nunito';align-self:flex-end;max-width:85%;background:#fff0f6;color:#a8265c">Bumped it up ✓</div>
+            </div>
+            <div style="display:flex;gap:8px;padding:12px 14px;border-top:1px solid #e8e6f0">
+              <div style="flex:1;border:1.5px solid #e8e6f0;border-radius:20px;height:38px;display:flex;align-items:center;padding:0 14px;font:13px 'Nunito';color:#c2bece">type a request…</div>
+              <div style="width:38px;height:38px;border-radius:50%;background:#ef4d92;display:flex;align-items:center;justify-content:center;color:#fff;font-size:15px;flex:none">➤</div>
+            </div>
+          </div>
+          <div style="flex:1;display:flex;flex-direction:column;padding:16px;gap:10px;min-width:0">
+            <div style="flex:1;border-radius:16px;background:linear-gradient(135deg,#f2eefc,#e9fbf6);display:flex;align-items:center;justify-content:center;font:13px ui-monospace,monospace;color:#9a93b0;text-align:center">🪄 animated note preview</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;padding:14px 22px;border-top:1px solid #e8e6f0;align-items:center">
+          <div style="font:700 12px 'Nunito';color:#5b5468;background:#f4f2fa;border-radius:14px;padding:6px 12px">◄ v4/5 ►</div>
+          <div style="font:700 12px 'Nunito';color:#231f2e;border:1.5px solid #e8e6f0;border-radius:14px;padding:6px 12px;cursor:pointer">&lt;/&gt; Show code</div>
+          <div style="margin-left:auto;font:800 13px 'Nunito';color:#fff;background:linear-gradient(135deg,#ef4d92,#d13a7c);border-radius:16px;padding:9px 18px;box-shadow:0 8px 18px rgba(239,77,146,.3);cursor:pointer">Send to Broadcast Box →</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SCREEN 5: CODE DRAWER OVERLAY -->
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div style="font:700 13px 'Patrick Hand';color:#3a3345"><span style="font:700 11px ui-monospace,monospace;background:#231f2e;color:#fff;border-radius:5px;padding:2px 7px;margin-right:6px">5</span>Code drawer overlay (expert-only)</div>
+      <div style="width:1000px;height:640px;background:#fff;border-radius:22px;box-shadow:0 18px 40px rgba(108,76,209,.16);overflow:hidden;position:relative;display:flex;flex-direction:column">
+        <div style="display:flex;align-items:center;gap:10px;padding:14px 22px;border-bottom:1px solid #e8e6f0">
+          <div style="font:800 16px 'Nunito';color:#231f2e">Wand &amp; Station Coder</div>
+          <div style="margin-left:auto;font:700 12px 'Nunito';color:#a8531e;background:#fff0e5;border-radius:14px;padding:5px 12px">● not connected</div>
+        </div>
+        <div style="display:flex;flex:1;min-height:0">
+          <div style="width:100px;border-right:1px solid #e8e6f0;padding:14px 10px;flex:none">
+            <div style="border-radius:10px;padding:10px 6px;text-align:center;background:#fff0f6;border-left:3px solid #ef4d92">
+              <div style="font-size:18px">🪄</div><div style="font:700 11px 'Nunito';color:#d13a7c;margin-top:2px">Wands</div>
+            </div>
+          </div>
+          <div style="width:290px;border-right:1px solid #e8e6f0;padding:14px;display:flex;flex-direction:column;gap:8px">
+            <div style="border-radius:12px;padding:9px 12px;font:13px 'Nunito';align-self:flex-start;max-width:85%;background:#f4f2fa;color:#3a3345">start from Melody</div>
+            <div style="border-radius:12px;padding:9px 12px;font:13px 'Nunito';align-self:flex-end;max-width:85%;background:#fff0f6;color:#a8265c">Loaded! 8 notes →</div>
+          </div>
+          <div style="flex:1;position:relative">
+            <div style="position:absolute;inset:0;background:#1a1a26;border-radius:16px 0 0 0;margin:16px 0 0 0;display:flex;flex-direction:column">
+              <div style="display:flex;align-items:center;padding:14px 18px;border-bottom:1px solid #33334a">
+                <span style="font:13px ui-monospace,monospace;color:#c9c3e0">&lt;/&gt; melody.py</span>
+                <span style="margin-left:auto;font-size:16px;color:#9a93b0;cursor:pointer">✕</span>
+              </div>
+              <div style="flex:1;padding:18px;font:13px/1.7 ui-monospace,monospace;color:#e2ddf5">
+                <span style="color:#7fe0c9">NOTES</span> = [<span style="color:#ffd23f">"C"</span>, <span style="color:#ffd23f">"D"</span>, <span style="color:#ffd23f">"E"</span>, ...]<br>
+                <span style="color:#c792ea">def</span> <span style="color:#82aaff">on_tag</span>(note):<br>
+                &nbsp;&nbsp;buzzer.<span style="color:#82aaff">play</span>(note)<br>
+                &nbsp;&nbsp;<span style="color:#676e95">#  plays the mapped note</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;padding:14px 22px;border-top:1px solid #e8e6f0;align-items:center">
+          <div style="font:700 12px 'Nunito';color:#5b5468;background:#f4f2fa;border-radius:14px;padding:6px 12px">◄ v4/5 ►</div>
+          <div style="margin-left:auto;font:800 13px 'Nunito';color:#fff;background:linear-gradient(135deg,#ef4d92,#d13a7c);border-radius:16px;padding:9px 18px;opacity:.5">Send to Broadcast Box →</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SCREEN 6: NFC TAGS NEEDED -->
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div style="font:700 13px 'Patrick Hand';color:#3a3345"><span style="font:700 11px ui-monospace,monospace;background:#231f2e;color:#fff;border-radius:5px;padding:2px 7px;margin-right:6px">6</span>NFC tags needed</div>
+      <div style="width:520px;height:640px;background:#fff;border-radius:22px;box-shadow:0 18px 40px rgba(108,76,209,.16);overflow:hidden;padding:32px;box-sizing:border-box;display:flex;flex-direction:column">
+        <div style="font:800 20px 'Nunito';color:#231f2e">This game needs 8 tags</div>
+        <div style="font:14px 'Nunito';color:#8b859a;margin:4px 0 18px">one per note</div>
+        <div style="display:flex;gap:6px;margin-bottom:20px">
+          <div style="flex:1;height:8px;border-radius:5px;background:#ef4d92"></div>
+          <div style="flex:1;height:8px;border-radius:5px;background:#ef4d92"></div>
+          <div style="flex:1;height:8px;border-radius:5px;background:#ffd23f"></div>
+          <div style="flex:1;height:8px;border-radius:5px;background:#eee"></div>
+          <div style="flex:1;height:8px;border-radius:5px;background:#eee"></div>
+          <div style="flex:1;height:8px;border-radius:5px;background:#eee"></div>
+          <div style="flex:1;height:8px;border-radius:5px;background:#eee"></div>
+          <div style="flex:1;height:8px;border-radius:5px;background:#eee"></div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-radius:10px;background:#fafafd"><span style="font:14px 'Nunito';color:#3a3345">Note C</span><span style="color:#ef4d92;font-size:16px">✓</span></div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-radius:10px;background:#fafafd"><span style="font:14px 'Nunito';color:#3a3345">Note D</span><span style="color:#ef4d92;font-size:16px">✓</span></div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-radius:10px;background:#fff8e0"><span style="font:800 14px 'Nunito';color:#231f2e">Note E</span><span style="font:800 12px 'Nunito';color:#a8781e">→ next</span></div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-radius:10px;opacity:.45"><span style="font:14px 'Nunito';color:#3a3345">Note F…</span><span style="font:12px 'Nunito';color:#8b859a">not yet</span></div>
+        </div>
+        <div style="flex:1"></div>
+        <div style="text-align:center;padding:14px;border-radius:14px;background:linear-gradient(135deg,#ef4d92,#d13a7c);color:#fff;font:800 15px 'Nunito';box-shadow:0 10px 22px rgba(239,77,146,.3);cursor:pointer">Continue on Broadcast Box →</div>
+      </div>
+    </div>
+
+    <!-- SCREEN 7: CONNECT OVERLAY -->
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div style="font:700 13px 'Patrick Hand';color:#3a3345"><span style="font:700 11px ui-monospace,monospace;background:#231f2e;color:#fff;border-radius:5px;padding:2px 7px;margin-right:6px">7</span>Connect overlay</div>
+      <div style="width:1000px;height:640px;border-radius:22px;box-shadow:0 18px 40px rgba(108,76,209,.16);overflow:hidden;position:relative">
+        <div style="filter:blur(2px);opacity:.5;height:100%">
+          <div style="display:flex;align-items:center;gap:10px;padding:14px 22px;border-bottom:1px solid #e8e6f0;background:#fff">
+            <div style="font:800 16px 'Nunito';color:#231f2e">Wand &amp; Station Coder</div>
+          </div>
+          <div style="height:576px;background:#fafafd"></div>
+        </div>
+        <div style="position:absolute;inset:0;background:rgba(35,31,46,.4);display:flex;align-items:center;justify-content:center">
+          <div style="width:400px;background:#fff;border-radius:20px;padding:32px;box-sizing:border-box;box-shadow:0 24px 60px rgba(0,0,0,.25);text-align:center">
+            <div style="width:64px;height:64px;border-radius:16px;background:#e9fbf6;display:flex;align-items:center;justify-content:center;font-size:28px;margin:0 auto 16px">🔌</div>
+            <div style="font:800 18px 'Nunito';color:#231f2e">Connect to Broadcast Box</div>
+            <div style="margin-top:14px;padding:14px;border:1.5px dashed #b8f0e0;border-radius:12px;background:#f2fcf9;font:13px/1.5 'Nunito';color:#5b5468">Plug it in, then pick it from the browser's list</div>
+            <div style="margin-top:18px;padding:13px;border-radius:12px;background:linear-gradient(135deg,#22c3a6,#1c9a82);color:#fff;font:800 14px 'Nunito';box-shadow:0 10px 22px rgba(34,195,166,.3);cursor:pointer">Connect via USB</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SCREEN 8: SEND CONFIRM OVERLAY -->
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div style="font:700 13px 'Patrick Hand';color:#3a3345"><span style="font:700 11px ui-monospace,monospace;background:#231f2e;color:#fff;border-radius:5px;padding:2px 7px;margin-right:6px">8</span>Send confirm overlay</div>
+      <div style="width:1000px;height:640px;border-radius:22px;box-shadow:0 18px 40px rgba(108,76,209,.16);overflow:hidden;position:relative">
+        <div style="filter:blur(2px);opacity:.5;height:100%">
+          <div style="display:flex;align-items:center;gap:10px;padding:14px 22px;border-bottom:1px solid #e8e6f0;background:#fff">
+            <div style="font:800 16px 'Nunito';color:#231f2e">Wand &amp; Station Coder</div>
+          </div>
+          <div style="height:576px;background:#fafafd"></div>
+        </div>
+        <div style="position:absolute;inset:0;background:rgba(35,31,46,.4);display:flex;align-items:center;justify-content:center">
+          <div style="width:380px;background:#fff;border-radius:20px;padding:30px;box-sizing:border-box;box-shadow:0 24px 60px rgba(0,0,0,.25);text-align:center">
+            <div style="font:800 18px 'Nunito';color:#231f2e">Send this code?</div>
+            <div style="font:14px 'Nunito';color:#8b859a;margin-top:8px">🪄 Wand code · Melody</div>
+            <div style="margin-top:14px;font:800 13px 'Nunito';color:#a8781e;background:#fff8e0;border-radius:10px;padding:10px">needs 8 NFC tags</div>
+            <div style="display:flex;flex-direction:column;gap:10px;margin-top:20px">
+              <div style="padding:13px;border-radius:12px;background:linear-gradient(135deg,#ef4d92,#d13a7c);color:#fff;font:800 14px 'Nunito';box-shadow:0 10px 22px rgba(239,77,146,.3);cursor:pointer">Send</div>
+              <div style="padding:11px;border-radius:12px;font:700 14px 'Nunito';color:#8b859a;cursor:pointer">Not yet</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SCREEN 9: SENT BANNER -->
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div style="font:700 13px 'Patrick Hand';color:#3a3345"><span style="font:700 11px ui-monospace,monospace;background:#231f2e;color:#fff;border-radius:5px;padding:2px 7px;margin-right:6px">9</span>Sent banner</div>
+      <div style="width:1000px;height:640px;border-radius:22px;box-shadow:0 18px 40px rgba(108,76,209,.16);overflow:hidden;position:relative">
+        <div style="filter:blur(2px);opacity:.5;height:100%">
+          <div style="display:flex;align-items:center;gap:10px;padding:14px 22px;border-bottom:1px solid #e8e6f0;background:#fff">
+            <div style="font:800 16px 'Nunito';color:#231f2e">Wand &amp; Station Coder</div>
+          </div>
+          <div style="height:576px;background:#fafafd"></div>
+        </div>
+        <div style="position:absolute;inset:0;background:rgba(35,31,46,.25);display:flex;align-items:center;justify-content:center">
+          <div style="width:320px;background:#fff;border-radius:20px;padding:30px;box-sizing:border-box;box-shadow:0 24px 60px rgba(0,0,0,.25);text-align:center">
+            <div style="width:60px;height:60px;border-radius:50%;background:#e9fbf6;color:#1c9a82;font-size:28px;display:flex;align-items:center;justify-content:center;margin:0 auto 12px">✓</div>
+            <div style="font:800 18px 'Nunito';color:#231f2e">Sent!</div>
+            <div style="font:14px/1.4 'Nunito';color:#8b859a;margin-top:8px">Go write the 8 note tags on the Box</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+</x-dc>
+</body>
+</html>

@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<meta name="design_doc_mode" content="canvas">
+<link href="https://fonts.googleapis.com/css2?family=Patrick+Hand&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+body{margin:0;font-family:'Nunito',sans-serif;background:
+  radial-gradient(circle at 8% 12%, #ffd23f66, transparent 38%),
+  radial-gradient(circle at 92% 8%, #ef4d9255, transparent 36%),
+  radial-gradient(circle at 88% 92%, #22c3a655, transparent 40%),
+  radial-gradient(circle at 10% 90%, #6c4cd150, transparent 38%),
+  radial-gradient(circle at 50% 50%, #3aa0ff33, transparent 55%),
+  #fbfaff}
+.wrap{padding:40px 44px 60px}
+.doc-title{font:800 24px 'Nunito';color:#231f2e;margin-bottom:2px}
+.doc-sub{font:15px/1.4 'Patrick Hand';color:#5b5468;margin-bottom:28px;max-width:640px}
+.group{font:700 13px 'Nunito';color:#fff;margin:34px 0 12px;padding:6px 16px;border-radius:20px;display:inline-block;box-shadow:2px 2px 0 rgba(0,0,0,.15)}
+.group-app{background:linear-gradient(100deg,#ef4d92,#6c4cd1)}
+.group-box{background:linear-gradient(100deg,#22c3a6,#2f9dd8)}
+.group-extra{background:linear-gradient(100deg,#ff9d3f,#ffd23f);color:#3a2a00}
+.group-note{font:14px 'Patrick Hand';color:#6b6478;margin-bottom:16px;display:block}
+.flow{display:flex;flex-wrap:wrap;gap:18px;align-items:center}
+.step{flex:none;display:flex;flex-direction:column;gap:6px}
+.num{font:700 11px ui-monospace,monospace;background:#231f2e;color:#fff;border-radius:5px;padding:2px 7px;width:fit-content}
+.label{font:700 12px 'Patrick Hand';color:#3a3345}
+.card{max-width:100%;background:#fffef8;border:2.5px solid #231f2e;border-radius:10px;box-shadow:4px 4px 0 rgba(35,31,46,.85);overflow:hidden}
+.arrow{font-size:22px;color:#c9a0ff;flex:none}
+.tag{display:inline-block;font:11px 'Nunito';border:1.5px solid #231f2e;border-radius:10px;padding:1px 8px;background:#fff}
+.app-font{font-family:'Nunito',sans-serif}
+.box-font{font-family:'DejaVu Sans Mono','Courier New',monospace}
+</style>
+</helmet>
+
+<div class="wrap">
+  <div class="doc-title">Wand Coder + Broadcast Box &mdash; full prototype</div>
+  <div class="doc-sub">One end-to-end flow: teacher writes/remixes game code in the Chat App, sends it to the Broadcast Box, then walks around writing NFC tags for wands and updating stations directly.</div>
+
+  <div class="group group-app">App &middot; 1&ndash;9 &mdash; laptop, browser, Nunito</div>
+  <div class="group-note">Starting from an example, not blank code, is the primary path &mdash; code stays behind a drawer for non-coders.</div>
+  <div class="flow app-font">
+
+    <div class="step"><span class="num">1</span><span class="label">Splash: scratch or examples</span>
+    <div class="card" style="width:300px;height:210px;padding:16px;box-sizing:border-box">
+      <div style="text-align:center;font-size:18px;margin-top:4px">✦ Wand &amp; Station Coder ✦</div>
+      <div style="text-align:center;font-size:12px;color:#777;margin-top:4px">make magic for your playground</div>
+      <div style="display:flex;gap:8px;margin-top:22px">
+        <div class="tag" style="flex:1;text-align:center;padding:12px 4px;font-size:13px">💬<br>Start from scratch</div>
+        <div class="tag" style="flex:1;text-align:center;padding:12px 4px;font-size:13px;background:#ffe066">📚<br>Browse examples</div>
+      </div>
+    </div></div>
+
+    <div class="arrow">→</div>
+
+    <div class="step"><span class="num">2</span><span class="label">Example gallery</span>
+    <div class="card" style="width:400px;height:280px;padding:0;box-sizing:border-box;display:flex;flex-direction:column">
+      <div style="padding:8px 12px;border-bottom:2px solid #2a2a2a;display:flex;align-items:center;gap:8px">
+        <span style="font-size:13px">📚 Example games</span>
+        <input placeholder="search…" style="margin-left:auto;border:1px solid #2a2a2a;border-radius:6px;padding:3px 8px;font-size:10px;width:80px">
+      </div>
+      <div style="display:flex;gap:5px;padding:6px 12px;flex-wrap:wrap">
+        <span class="tag" style="background:#ffe066;font-size:10px">All</span><span class="tag" style="font-size:10px">🎵 Sound</span><span class="tag" style="font-size:10px">🎨 Color</span><span class="tag" style="font-size:10px">🏷️ Multi-tag</span>
+      </div>
+      <div style="flex:1;overflow:auto;padding:6px 12px;display:grid;grid-template-columns:1fr 1fr;gap:6px">
+        <div style="border:1.5px solid #2a2a2a;border-radius:6px;padding:6px;font-size:10px"><b>🎵 Melody</b><br><span style="color:#777">one tag per note</span><br><span class="tag" style="font-size:8px;background:#ffe066">8 NFC tags</span></div>
+        <div style="border:1.5px solid #2a2a2a;border-radius:6px;padding:6px;font-size:10px"><b>❄️ Freeze Dance</b><br><span style="color:#777">move, then freeze</span></div>
+        <div style="border:1.5px solid #2a2a2a;border-radius:6px;padding:6px;font-size:10px"><b>🌈 Rainbow</b><br><span style="color:#777">shake for color</span></div>
+        <div style="border:1.5px solid #2a2a2a;border-radius:6px;padding:6px;font-size:10px"><b>🍳 Cooking</b><br><span style="color:#777">recipe steps</span></div>
+      </div>
+    </div></div>
+
+    <div class="arrow">→</div>
+
+    <div class="step"><span class="num">3</span><span class="label">Example detail: remix</span>
+    <div class="card" style="width:280px;height:250px;padding:14px;box-sizing:border-box">
+      <div style="font-size:14px">🎵 Melody</div>
+      <div style="font-size:11px;color:#777;margin-top:4px">Tap each note-tag to play a tune.</div>
+      <div style="margin-top:8px;font-size:10px">needs <b>8 NFC tags</b> &mdash; one per note</div>
+      <div style="width:100%;height:56px;border:1.5px dashed #999;border-radius:6px;margin-top:8px;display:flex;align-items:center;justify-content:center;font-size:10px;color:#999">preview animation</div>
+      <div style="display:flex;flex-direction:column;gap:6px;margin-top:10px">
+        <div class="tag" style="text-align:center;padding:7px;background:#ef4d92;color:#fff">🔀 Remix this in chat</div>
+        <div class="tag" style="text-align:center;padding:5px">Use as-is → send</div>
+      </div>
+    </div></div>
+
+    <div class="arrow">→</div>
+
+    <div class="step"><span class="num">4</span><span class="label">Workspace: chat + preview, code hidden</span>
+    <div class="card" style="width:560px;height:290px;padding:0;box-sizing:border-box;display:flex;flex-direction:column">
+      <div style="display:flex;align-items:center;gap:6px;padding:6px 10px;border-bottom:2px solid #2a2a2a">
+        <span style="font-size:12px">Wand &amp; Station Coder</span>
+        <span class="tag" style="margin-left:auto;font-size:10px">● not connected</span>
+      </div>
+      <div style="display:flex;flex:1;min-height:0">
+        <div style="width:85px;border-right:2px solid #2a2a2a;padding:6px;display:flex;flex-direction:column;gap:5px;flex:none">
+          <div style="border:1.5px solid #ef4d92;border-radius:6px;padding:5px;font-size:9px;background:#ffe6f2">🪄 Wands</div>
+          <div style="border:1px solid #ccc;border-radius:6px;padding:5px;font-size:9px;color:#888">🎯 Stations</div>
+        </div>
+        <div style="width:220px;border-right:2px solid #2a2a2a;display:flex;flex-direction:column;min-width:0;flex:none">
+          <div style="flex:1;overflow:auto;padding:6px 8px;display:flex;flex-direction:column;gap:5px">
+            <div style="border:1.5px dashed #999;border-radius:6px;padding:5px;font-size:9px;align-self:flex-start;max-width:85%">start from Melody</div>
+            <div style="border:1.5px dashed #999;border-radius:6px;padding:5px;font-size:9px;align-self:flex-end;max-width:85%;background:#ffe066">Loaded! 8 notes →</div>
+            <div style="border:1.5px dashed #999;border-radius:6px;padding:5px;font-size:9px;align-self:flex-start;max-width:85%">top note higher?</div>
+            <div style="border:1.5px dashed #999;border-radius:6px;padding:5px;font-size:9px;align-self:flex-end;max-width:85%;background:#ffe066">Bumped it up ✓</div>
+          </div>
+          <div style="display:flex;gap:5px;padding:6px 8px;border-top:1px solid #ddd">
+            <div style="flex:1;border:1.5px solid #2a2a2a;border-radius:6px;height:20px"></div><div class="tag" style="font-size:9px">Send</div>
+          </div>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column;padding:6px;gap:5px;min-width:0">
+          <div style="flex:1;border:1.5px solid #2a2a2a;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:10px;color:#777;background:#fafafa;text-align:center">🪄 animated note preview</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:5px;padding:6px 10px;border-top:2px solid #2a2a2a;align-items:center">
+        <div class="tag" style="font-size:9px">◄ v4/5 ►</div>
+        <div class="tag" style="font-size:9px">&lt;/&gt; Show code</div>
+        <div class="tag" style="margin-left:auto;background:#ef4d92;color:#fff;font-size:9px">Send to Broadcast Box</div>
+      </div>
+    </div></div>
+
+    <div class="arrow">→</div>
+
+    <div class="step"><span class="num">5</span><span class="label">Code drawer (expert-only)</span>
+    <div class="card" style="width:250px;height:210px;padding:0;box-sizing:border-box;display:flex;flex-direction:column;background:#1c1c1c;color:#eee">
+      <div style="display:flex;align-items:center;padding:6px 10px;border-bottom:1px solid #444">
+        <span style="font-size:10px">&lt;/&gt; melody.py</span><span style="margin-left:auto;font-size:12px">✕</span>
+      </div>
+      <div style="flex:1;padding:8px;font-size:9px;font-family:monospace;color:#9fd">NOTES = ["C","D","E",...]<br>def on_tag(note):<br>&nbsp;&nbsp;buz.play(note)</div>
+    </div></div>
+
+    <div class="arrow">→</div>
+
+    <div class="step"><span class="num">6</span><span class="label">NFC tags needed</span>
+    <div class="card" style="width:260px;height:270px;padding:12px;box-sizing:border-box">
+      <div style="font-size:12px">This game needs 8 tags</div>
+      <div style="font-size:9px;color:#777;margin:4px 0 8px">one per note</div>
+      <div style="display:flex;flex-direction:column;gap:4px;font-size:9px">
+        <div style="display:flex;justify-content:space-between;border-bottom:1px dashed #ccc;padding:2px 0"><span>Note C</span><span style="color:#ef4d92">✓</span></div>
+        <div style="display:flex;justify-content:space-between;border-bottom:1px dashed #ccc;padding:2px 0"><span>Note D</span><span style="color:#ef4d92">✓</span></div>
+        <div style="display:flex;justify-content:space-between;border-bottom:1px dashed #ccc;padding:2px 0;font-weight:700"><span>Note E</span><span style="color:#e0a622">→ next</span></div>
+        <div style="display:flex;justify-content:space-between;opacity:.5;padding:2px 0"><span>Note F…</span><span>not yet</span></div>
+      </div>
+      <div class="tag" style="text-align:center;padding:7px;margin-top:8px;background:#ef4d92;color:#fff">Continue on Broadcast Box →</div>
+    </div></div>
+
+    <div class="arrow">→</div>
+
+    <div class="step"><span class="num">7</span><span class="label">Connect</span>
+    <div class="card" style="width:220px;height:180px;padding:12px;box-sizing:border-box">
+      <div style="font-size:11px;text-align:center;margin-bottom:8px">Connect to Broadcast Box</div>
+      <div style="border:1.5px dashed #999;border-radius:8px;padding:8px;font-size:9px;text-align:center;margin-bottom:8px">Plug it in, then pick it below</div>
+      <div class="tag" style="text-align:center;padding:6px;background:#ef4d92;color:#fff;font-size:10px">Connect via USB</div>
+    </div></div>
+
+    <div class="arrow">→</div>
+
+    <div class="step"><span class="num">8</span><span class="label">Send confirm</span>
+    <div class="card" style="width:230px;height:190px;padding:12px;box-sizing:border-box">
+      <div style="font-size:11px;text-align:center">Send this code?</div>
+      <div style="font-size:9px;text-align:center;color:#777;margin:5px 0">🪄 Wand code · Melody</div>
+      <div style="font-size:9px;text-align:center;background:#ffe066;border-radius:6px;padding:5px;margin-bottom:8px">needs <b>8 NFC tags</b></div>
+      <div style="display:flex;flex-direction:column;gap:5px">
+        <div class="tag" style="text-align:center;padding:6px;background:#ef4d92;color:#fff;font-size:10px">Send</div>
+        <div class="tag" style="text-align:center;padding:4px;font-size:10px">Not yet</div>
+      </div>
+    </div></div>
+
+    <div class="arrow">→</div>
+
+    <div class="step"><span class="num">9</span><span class="label">Sent banner</span>
+    <div class="card" style="width:220px;height:140px;padding:12px;box-sizing:border-box;text-align:center">
+      <div style="font-size:22px">✓</div>
+      <div style="font-size:11px;margin-top:5px">Sent!</div>
+      <div style="font-size:9px;color:#777;margin-top:5px">Go write the 8 note tags on the Box</div>
+    </div></div>
+
+  </div>
+
+  <div class="group group-box">Broadcast Box &middot; 10&ndash;20 &mdash; thumb-drive-sized USB stick, one button below a tiny 1.14" screen (short/long press), DejaVu bitmap font only</div>
+  <div class="group-note">No touchscreen. Landscape 240&times;135. Teacher unplugs it from the laptop and carries it around the playground.</div>
+  <div class="flow box-font">
+
+    <div class="step"><span class="num">10</span><span class="label">Idle, then receives</span>
+    <div class="card" style="width:200px;height:112px;padding:8px 10px;box-sizing:border-box;background:#111;color:#eee;display:flex;flex-direction:column">
+      <div style="font-size:12px">Broadcast Box</div>
+      <div style="font-size:9px;color:#3fe0c2;margin-top:3px">● linked to laptop</div>
+      <div style="flex:1;display:flex;align-items:center;justify-content:center;font-size:9px;border:1px dashed #555;border-radius:5px;margin-top:3px">no game loaded yet</div>
+    </div></div>
+
+    <div class="arrow">→</div>
+
+    <div class="step"><span class="num">11</span><span class="label">Receiving</span>
+    <div class="card" style="width:200px;height:112px;padding:8px 10px;box-sizing:border-box;background:#111;color:#eee;display:flex;align-items:center;gap:8px">
+      <div style="width:30px;height:30px;border:4px solid #444;border-top-color:#ff7a4a;border-radius:50%;flex:none"></div>
+      <div style="flex:1;font-size:10px">Getting game&hellip;<br><span style="color:#999;font-size:8px">🪄 Melody · 8 tags</span></div>
+    </div></div>
+
+    <div class="arrow">→</div>
+
+    <div class="step"><span class="num">12</span><span class="label">Pick role</span>
+    <div class="card" style="width:200px;height:112px;padding:8px 10px;box-sizing:border-box;background:#111;color:#eee;display:flex;flex-direction:column">
+      <div style="font-size:11px">Ready! Which role?</div>
+      <div style="display:flex;gap:5px;margin-top:5px">
+        <div style="flex:1;border:2px solid #3fe0c2;border-radius:5px;padding:4px;text-align:center;font-size:10px;background:#123">▸🪄</div>
+        <div style="flex:1;border:1px solid #555;border-radius:5px;padding:4px;text-align:center;font-size:10px;color:#888">🎯</div>
+      </div>
+      <div style="font-size:8px;color:#888;border-top:1px solid #333;margin-top:auto;padding-top:3px">⏺ switch &nbsp;⏺⏺ confirm</div>
+    </div></div>
+
+    <div class="arrow">→</div>
+
+    <div class="step"><span class="num">13</span><span class="label">Armed for tag N</span>
+    <div class="card" style="width:200px;height:112px;padding:8px 10px;box-sizing:border-box;background:#111;color:#eee;display:flex;flex-direction:column">
+      <div style="font-size:11px">🪄 Melody · tag 3/8</div>
+      <div style="font-size:18px;margin-top:2px">Note E</div>
+      <div style="font-size:8px;color:#888;border-top:1px solid #333;margin-top:auto;padding-top:3px">⏺ skip &nbsp;⏺⏺ hold card &amp; write</div>
+    </div></div>
+
+    <div class="arrow">→</div>
+
+    <div class="step"><span class="num">14</span><span class="label">Overwrite check</span>
+    <div class="card" style="width:200px;height:112px;padding:8px 10px;box-sizing:border-box;background:#111;color:#eee;display:flex;flex-direction:column">
+      <div style="font-size:10px">Card already has:</div>
+      <div style="font-size:12px">&ldquo;Note C&rdquo; (old)</div>
+      <div style="font-size:9px;color:#ff7a4a;margin-top:auto">Overwrite with &ldquo;Note E&rdquo;?</div>
+      <div style="font-size:8px;color:#888;border-top:1px solid #333;padding-top:3px">⏺ cancel &nbsp;⏺⏺ overwrite</div>
+    </div></div>
+
+    <div class="arrow">→</div>
+
+    <div class="step"><span class="num">15</span><span class="label">Writing</span>
+    <div class="card" style="width:200px;height:112px;padding:8px 10px;box-sizing:border-box;background:#111;color:#eee;display:flex;flex-direction:column">
+      <div style="font-size:11px">Writing &ldquo;Note E&rdquo;&hellip;</div>
+      <div style="flex:1;display:flex;align-items:center"><div style="width:100%;background:#333;border-radius:4px;height:7px"><div style="width:70%;height:100%;background:#3fe0c2;border-radius:4px"></div></div></div>
+      <div style="font-size:8px;color:#888">hold card steady on reader</div>
+    </div></div>
+
+    <div class="arrow">→</div>
+
+    <div class="step"><span class="num">16</span><span class="label">Done, auto-advance <span style="font-size:9px;color:#999">(loops to 13)</span></span>
+    <div class="card" style="width:200px;height:112px;padding:8px 10px;box-sizing:border-box;background:#111;color:#eee;display:flex;align-items:center;gap:8px">
+      <div style="font-size:22px;color:#3fe0c2;flex:none">✓</div>
+      <div style="flex:1;font-size:10px">Note E done!<br><span style="color:#999;font-size:8px">4 of 8 written</span></div>
+    </div></div>
+
+    <div class="arrow">⤵</div>
+
+    <div class="step"><span class="num">17</span><span class="label">Role set complete</span>
+    <div class="card" style="width:200px;height:112px;padding:8px 10px;box-sizing:border-box;background:#111;color:#eee;display:flex;flex-direction:column;text-align:center;justify-content:center">
+      <div style="font-size:11px">🎉 All 8 Wand tags ready!</div>
+      <div style="font-size:8px;color:#888;margin-top:5px">⏺ do Stations next &nbsp;⏺⏺ menu</div>
+    </div></div>
+
+    <div class="arrow">→</div>
+
+    <div class="step"><span class="num">18</span><span class="label">Field: tap a station directly</span>
+    <div class="card" style="width:200px;height:112px;padding:8px 10px;box-sizing:border-box;background:#111;color:#eee;display:flex;flex-direction:column">
+      <div style="font-size:11px">Station found</div>
+      <div style="font-size:9px;color:#999">Station A</div>
+      <div style="flex:1;display:flex;align-items:center"><div style="width:100%;background:#333;border-radius:4px;height:7px"><div style="width:85%;height:100%;background:#ff7a4a;border-radius:4px"></div></div></div>
+      <div style="font-size:8px;color:#888">sending station code, no card needed</div>
+    </div></div>
+
+    <div class="arrow">→</div>
+
+    <div class="step"><span class="num">19</span><span class="label">Station done</span>
+    <div class="card" style="width:200px;height:112px;padding:8px 10px;box-sizing:border-box;background:#111;color:#eee;display:flex;align-items:center;gap:8px">
+      <div style="font-size:22px;color:#3fe0c2;flex:none">✓</div>
+      <div style="flex:1;font-size:10px">Station A updated<br><span style="color:#999;font-size:8px">tap next, or ⏺⏺ menu</span></div>
+    </div></div>
+
+    <div class="arrow">⤴</div>
+
+    <div class="step"><span class="num">20</span><span class="label">Pickup log (menu, nice-to-have)</span>
+    <div class="card" style="width:200px;height:112px;padding:8px 10px;box-sizing:border-box;background:#111;color:#eee;display:flex;flex-direction:column">
+      <div style="font-size:11px;margin-bottom:3px">Pickups</div>
+      <div style="flex:1;font-size:9px;display:flex;flex-direction:column;gap:2px">
+        <div style="display:flex;justify-content:space-between;background:#1a1a1a;padding:2px 3px">▸Station A<span style="color:#3fe0c2">✓</span></div>
+        <div style="display:flex;justify-content:space-between;padding:2px 3px;opacity:.6">Station B<span style="color:#e0a622">…</span></div>
+      </div>
+      <div style="font-size:8px;color:#888;border-top:1px solid #333;padding-top:3px">⏺ scroll &nbsp;⏺⏺ back</div>
+    </div></div>
+
+  </div>
+
+  <div class="group group-extra">App (nice-to-have) &middot; 21</div>
+  <div class="flow app-font">
+    <div class="step"><span class="num">21</span><span class="label">Pickup tracker &mdash; back on the laptop</span>
+    <div class="card" style="width:230px;height:190px;padding:12px;box-sizing:border-box">
+      <div style="font-size:11px;margin-bottom:8px">Who has the new game?</div>
+      <div style="display:flex;flex-direction:column;gap:5px;font-size:10px">
+        <div style="display:flex;justify-content:space-between;border-bottom:1px dashed #ccc;padding-bottom:3px"><span>Station A</span><span>✓</span></div>
+        <div style="display:flex;justify-content:space-between;border-bottom:1px dashed #ccc;padding-bottom:3px"><span>Station B</span><span style="color:#e0a622">…</span></div>
+        <div style="display:flex;justify-content:space-between"><span>Wand #4</span><span>✓</span></div>
+      </div>
+    </div></div>
+  </div>
+
+</div>
+
+</x-dc>
+</body>
+</html>
