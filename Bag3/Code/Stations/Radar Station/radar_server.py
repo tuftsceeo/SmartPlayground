@@ -149,7 +149,15 @@ class RadarServer:
                     self.link.send({"type": "heartbeat", "up": now, "mem": gc.mem_free()})
                     last_hb = now
         except KeyboardInterrupt:
-            self.link.send({"type": "bye"})  # do_repl/do_reboot already sent their own
+            # Deliberately silent: a bare Ctrl-C is almost always a tool
+            # (mpremote entering raw REPL, e.g. for `fs cp`) rather than a
+            # human at a terminal, and mpremote's raw-REPL handshake sends
+            # Ctrl-C expecting silence back -- any stray print here races
+            # its parser and was observed to corrupt it (garbled bytes fed
+            # back as Python source, `fs cp` failing to enter raw repl).
+            # do_repl/do_reboot already sent their own "bye" before this
+            # exception path is ever reached, so nothing is lost here.
+            pass
         finally:
             if self._reboot_hard:
                 import machine
