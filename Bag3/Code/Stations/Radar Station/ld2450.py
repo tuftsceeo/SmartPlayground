@@ -90,7 +90,14 @@ class LD2450:
     def poll(self):
         """Parse as many complete report frames as are currently buffered.
         Returns a list of lists-of-Target (one list per frame, oldest
-        first; usually 0 or 1 frames per call at normal poll rates)."""
+        first; usually 0 or 1 frames per call at normal poll rates).
+
+        Note: buffer trims below use `buf[:] = buf[n:]` slice assignment,
+        not `del buf[:n]` -- confirmed on-device (Gate A) that this
+        MicroPython build's bytearray does not support slice deletion
+        (`del ba[:n]` raises TypeError: 'bytearray' object doesn't
+        support item deletion), even though slice assignment works fine.
+        """
         self.feed()
         frames = []
         buf = self._buf

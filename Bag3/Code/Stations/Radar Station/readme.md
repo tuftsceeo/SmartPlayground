@@ -1,14 +1,18 @@
 # Radar Station -- LD2450 mmWave exploratory prototype
 
-Stationary sensing component: an ESP32-S3 (M5Stack: StampS3 / StickS3 / M5Dial 1.1) reading one
-Hi-Link HLK-LD2450 24GHz mmWave radar over UART, exposing student presence / position / speed /
-direction / count as JSON over USB serial for a browser-based viewer. Built for Bag3 as an
-internal exploratory demo -- see the top-level plan
-(`i-m-looking-to-make-shimmering-wand.md`) for full context, research, and rationale.
+Stationary sensing component: a Seeed XIAO ESP32-C6 reading one Hi-Link HLK-LD2450 24GHz mmWave
+radar over UART, exposing student presence / position / speed / direction / count as JSON over
+USB serial for a browser-based viewer. Built for Bag3 as an internal exploratory demo -- see the
+top-level plan (`i-m-looking-to-make-shimmering-wand.md`) for full context, research, and
+rationale.
 
-**Status: awaiting Gate A/B hardware bring-up.** Everything here compiles (`python -m py_compile`)
-and is designed against the datasheet-derived protocol, but nothing has run against real hardware
-yet. Numbers marked "placeholder" in `config.py` need real traces before they mean anything.
+**Status: Gate A (protocol bring-up) passed on the bench, with caveats.** The board boots cleanly,
+opens the UART, and parses live LD2450 frames with zero drops/resyncs over a full minute. Two bugs
+found during bring-up are fixed (see "Bring-up findings" below). **Not yet validated:** the test
+subject was a person rocking in a desk chair a couple feet away, not an actual walker, and the
+board isn't mounted yet -- so frame-rate/range/dropout numbers are bug-check evidence only, and
+`SIGN_X`/`SIGN_Y` in `config.py` are still unconfirmed placeholders. Gate B (real walking tests,
+sign-convention check, web app) is next.
 
 ## Priority order (see the plan for full detail)
 
@@ -21,12 +25,15 @@ yet. Numbers marked "placeholder" in `config.py` need real traces before they me
 
 ## Wiring
 
-- LD2450 UART -> ESP32-S3 UART1 (pins TBD by Gate A -- see `config.py`'s `UART_TX`/`UART_RX`,
-  currently placeholders).
-- **Before wiring the LD2450's TX into an S3 GPIO, measure its idle voltage with a meter.** It's
-  5V-powered; its UART is reported 3.3V logic but this is unverified for our unit. See Gate A step 2
-  in the plan.
-- ESP32-S3 native USB runs the REPL/JSON link over USB-CDC, independent of the LD2450's UART.
+- LD2450 5V/GND -> board 5V/GND. LD2450 RX <- board GPIO16 (D6), LD2450 TX -> board GPIO17 (D7),
+  via `UART(1, tx=16, rx=17, baudrate=256000)` -- see `config.py`.
+- **Confirmed on this unit:** LD2450 TX idle voltage was measured safe for the C6's 3.3V GPIOs
+  before wiring it in.
+- Watch out: the XIAO ESP32-C3 and ESP32-C6 boards are visually identical and easy to mix up on a
+  bench -- if `config.py`'s pins throw `ValueError: invalid pin`, check the boot banner
+  (`sys.implementation`) before assuming the wiring is wrong.
+- The C6's native USB runs the REPL/JSON link over USB-CDC, independent of the LD2450's UART, so
+  claiming GPIO16/17 (the SoC's default UART0 pins) as a separate `machine.UART` doesn't disturb it.
 
 ## Protocol (LD2450 <-> station)
 
@@ -43,7 +50,9 @@ complement) for x/y/speed -- MSB is a sign flag over a 15-bit magnitude. x/y in 
 Command frame (config only): `FD FC FB FA | len[2] | cmd_word[2] | value[...] | 04 03 02 01`.
 
 **Sign convention is unverified** -- run `radar_test.sign_check()` per the plan's Gate A step 5 and
-adjust `SIGN_X`/`SIGN_Y` in `config.py` if left/right or toward/away come out backwards.
+adjust `SIGN_X`/`SIGN_Y` in `config.py` if left/right or toward/away come out backwards. (Gate A's
+first pass only rocked a chair in place, which confirmed the parse/print path but not the actual
+signs -- redo with a real walk.)
 
 ## Protocol (station <-> browser)
 
@@ -64,6 +73,28 @@ Web app: `cd webapp && python3 -m http.server`, open `http://localhost:8000` in 
 Serial needs a secure context; localhost qualifies). Connect, and the plan view, events panel, and
 serial monitor come up live. Record a session to JSONL with the Record button; replay one with no
 hardware attached via "Replay JSONL".
+
+## Bring-up findings (Gate A)
+
+Bugs found on-device and fixed:
+
+- `ld2450.py`'s `poll()` used `del buf[:n]` (bytearray slice deletion) to trim the parse buffer.
+  This MicroPython build's `bytearray` does not support slice deletion at all
+  (`TypeError: 'bytearray' object doesn't support item deletion`), which crashed frame parsing
+  outright. Fixed to `buf[:] = buf[n:]` slice assignment, which this build does support -- see the
+  comment on `poll()`.
+- `config.py`'s `UART_TX`/`UART_RX` had drifted out of sync with the actual wiring at one point
+  during bring-up (see the git history on this file for the C3/C6 board mix-up that caused this).
+
+With both fixes applied: `hexdump()` shows clean `AA FF 03 00 … 55 CC` framing at the correct
+30-byte spacing, and `frame_stats()` ran 60s with `frames_ok=674, frames_dropped=0, resyncs=0`
+(~11.2 fps against a nominal 10Hz) -- 256000 baud is clean on this board and the non-blocking
+parser holds up over sustained real target data. `sign_check()` printed sane, jitter-only x/y/speed
+values with no crashes. **All of the above used a person rocking in a desk chair, not a real
+walker, and the board wasn't mounted** -- so this is bug-check evidence that the code path works,
+not calibration or performance data. Still needed: a real walking test once someone's available,
+with the board mounted in its final orientation, to actually determine `SIGN_X`/`SIGN_Y` and the
+practical range/azimuth dropout points (plan Gate A steps 5-7).
 
 ## Known limits (see the plan for the reasoning)
 
