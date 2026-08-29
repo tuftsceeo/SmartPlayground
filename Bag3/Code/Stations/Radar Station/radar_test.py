@@ -1,13 +1,7 @@
 """
-radar_test.py -- bench-only scripts for Gate A (protocol bring-up). Not
-part of the station's normal boot path -- run these interactively from
-the REPL (mpremote connect ... then `import radar_test` or `mpremote run`)
-while wiring up the sensor for the first time. See the top-level plan's
-Gate A prompt for exactly what to run and what to report.
-
-Each function is self-contained and constructs its own UART from
-config.py, so these can be run one at a time from a fresh REPL without
-needing radar_server.py or main.py to exist yet.
+radar_test.py -- bench-only scripts, run from the REPL. Not part of the
+station's normal boot path. Each function builds its own UART from
+config.py.
 """
 
 import time
@@ -30,8 +24,7 @@ def _make_uart():
 
 
 def hexdump(seconds=5):
-    """Gate A step 3: dump raw bytes as hex for `seconds`, unparsed. Look
-    for AA FF 03 00 ... 55 CC every 30 bytes."""
+    """Dump raw UART bytes as hex for `seconds`, unparsed."""
     uart = _make_uart()
     deadline = time.ticks_add(time.ticks_ms(), int(seconds * 1000))
     total = 0
@@ -46,9 +39,7 @@ def hexdump(seconds=5):
 
 
 def frame_stats(seconds=60):
-    """Gate A step 4: run the real (non-blocking) parser for `seconds` and
-    report frame rate / drops / resyncs -- the evidence for whether
-    256000 baud is clean on this board."""
+    """Run the parser for `seconds`, report frame rate / drops / resyncs."""
     uart = _make_uart()
     radar = ld2450.LD2450(uart, sign_x=config.SIGN_X, sign_y=config.SIGN_Y)
     deadline = time.ticks_add(time.ticks_ms(), int(seconds * 1000))
@@ -66,10 +57,8 @@ def frame_stats(seconds=60):
 
 
 def sign_check(seconds=30):
-    """Gate A step 5: run continuously while walking left/right/toward/
-    away in front of the sensor, printing every target every frame so the
-    sign convention (SIGN_X / SIGN_Y in config.py) can be read off by eye
-    against the reported direction of travel."""
+    """Print every target every frame, to read x/y/speed sign off by eye
+    against actual target movement (config.SIGN_X / SIGN_Y)."""
     uart = _make_uart()
     radar = ld2450.LD2450(uart, sign_x=config.SIGN_X, sign_y=config.SIGN_Y)
     deadline = time.ticks_add(time.ticks_ms(), int(seconds * 1000))

@@ -59,12 +59,7 @@ class JsonLink:
             try:
                 c = sys.stdin.read(1)
             except UnicodeError:
-                # a non-UTF8 byte on the wire (observed from mpremote's own
-                # connection/raw-REPL probing, not from our own JSON traffic)
-                # -- drop it like any other noise rather than taking the
-                # whole server down. The drain_ms deadline below still
-                # bounds this loop even if decoding never advances.
-                c = None
+                c = None  # non-UTF8 byte on the wire -- drop it
             if c:
                 chars.append(c)
                 if c == "\n":

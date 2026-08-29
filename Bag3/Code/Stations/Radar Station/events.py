@@ -1,20 +1,8 @@
 """
-events.py -- turns the tracker's stable tracks into the high-level
-signals a wand game would actually consume: presence, per-zone counts,
-approach/recede, and a still/walk/run speed bucket. Deliberately thin --
-games aren't designed yet, so this exists to show these signals are
-*derivable* from the sensor, with thresholds the team can retune against
-real Gate B traces rather than guesses baked into a game.
-
-Speed classification uses the tracker's derived ground speed (sp), not
-the sensor's raw radial speed -- see tracker.py's docstring for why the
-raw field can't distinguish "running across the field" from "standing
-still" on its own.
-
-Approach/recede uses the sign of the raw radial speed direction (moving
-toward vs. away from the sensor along its line of sight), which is
-exactly what the sensor's own speed field is good for -- see the plan's
-Gate A step 5 for the sign convention this depends on.
+events.py -- derives presence, per-zone counts, approach/recede, and a
+still/walk/run speed bucket from tracker.Track objects. Speed bucket
+uses tracker ground speed (sp); approach/recede uses sensor radial speed
+sign.
 """
 
 import config
@@ -38,9 +26,8 @@ class EventEngine:
         self.present = False
 
     def update(self, tracks):
-        """tracks: list of tracker.Track for this frame. Returns a plain
-        dict, ready to hand to json_link.send() as the 'events' message
-        body (see radar_server.py)."""
+        """tracks: list of tracker.Track for this frame. Returns a dict
+        for the 'events' message body."""
         if tracks:
             self._empty_frames = 0
         else:
@@ -49,7 +36,6 @@ class EventEngine:
             self.present = True
         elif self._empty_frames >= config.PRESENCE_DROP_FRAMES:
             self.present = False
-        # else: hold the previous `present` value -- hysteresis band
 
         zone_counts = {name: 0 for name in config.ZONES}
         approach = 0

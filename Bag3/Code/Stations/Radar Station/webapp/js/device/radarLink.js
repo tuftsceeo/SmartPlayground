@@ -1,13 +1,8 @@
 /**
- * radarLink.js -- talks the newline-delimited-JSON protocol to a device
- * running radar_server.py (see radar_server.py / json_link.py and the
- * top-level plan's "Wire protocol" section). Built on serialAdapter.js's
- * raw byte layer. Structurally adapted from the Icon Display Station's
- * ndjsonLink.js (same line-framing / request-correlation idiom), but the
- * message set is this station's own: `hello`/`info`/`stream`/`raw`/
- * `mode`/`repl`/`reboot` as request/reply commands, and `targets`/
- * `tracks`/`events`/`heartbeat`/`fatal` as unsolicited streamed lines
- * subscribed via `.on(type, cb)`.
+ * radarLink.js -- NDJSON protocol client for radar_server.py, on top of
+ * serialAdapter.js. Request/reply: hello/info/stream/raw/mode/repl/reboot.
+ * Unsolicited, subscribed via .on(type, cb): targets/tracks/events/
+ * heartbeat/fatal.
  */
 
 import { logIn, logOut, logDrop, logInfo, logWarn, logError } from "./serialLog.js";
@@ -55,9 +50,6 @@ export class RadarLink {
       this._buf = this._buf.slice(i + 1);
       if (!line) continue;
       if (line[0] !== "{") {
-        // debug/boot banner/REPL echo -- ignored by design (see
-        // json_link.py's line filter), but LOG it: if the device is
-        // talking and we're discarding all of it, this is where that shows.
         logDrop(line, { reason: "does not start with '{'" });
         if (line.includes(">>>") || line.includes("MicroPython v") || line.includes('Type "help()"')) {
           this._emit("repl", { reason: "prompt/banner seen", line });

@@ -1,29 +1,18 @@
 """
 ld2450.py -- MicroPython driver for the Hi-Link HLK-LD2450 24GHz mmWave
-radar. No official MicroPython library exists for this sensor (see the
-top-level plan's prior-art table); this is a from-scratch, non-blocking
-implementation informed by reading marconicivitavecchia/esp32-radar and
-csRon/HLK-LD2450 (both MIT), not a port of either.
+radar.
 
-Protocol (see the plan for the full derivation):
+Report frame (streamed continuously at 10Hz):
+  AA FF 03 00 | T1[8] | T2[8] | T3[8] | 55 CC   (30 bytes)
+Each target: x[2] y[2] speed[2] resolution[2], little-endian,
+sign-magnitude (MSB = sign flag over 15-bit magnitude) for x/y/speed.
+All-zero 8-byte block = empty slot.
 
-  Report frame (streamed continuously at 10Hz, no request needed):
-    AA FF 03 00 | T1[8] | T2[8] | T3[8] | 55 CC        (30 bytes)
-  Each target is 8 bytes: x[2] y[2] speed[2] resolution[2], little-endian,
-  sign-magnitude (MSB = sign flag over a 15-bit magnitude) for x/y/speed.
-  An all-zero 8-byte block means that target slot is empty.
+Command frame (config only):
+  FD FC FB FA | len[2] | cmd_word[2] | value[...] | 04 03 02 01
 
-  Command frame (only needed for configuration, not for reading data):
-    FD FC FB FA | len[2] | cmd_word[2] | value[...] | 04 03 02 01
-
-Design note: both reference implementations block on read_until() /
-read(n). This station's main loop must ALSO service a JSON link to the
-browser (see json_link.py), so this driver is a byte-fed, non-blocking
-state machine instead: feed() never blocks, and resyncs on garbage so a
-single dropped byte at 256000 baud doesn't desynchronize the stream
-permanently. Deliberately no module-level state -- one LD2450 instance
-per UART, so a second sensor (out of scope for this plan; see priority 4)
-is just a second instance.
+Non-blocking, byte-fed state machine: feed() never blocks; poll()
+resyncs on garbage. One instance per UART, no module-level state.
 """
 
 REPORT_HEADER = b"\xaa\xff\x03\x00"
@@ -38,17 +27,13 @@ CMD_END_CONFIG = b"\xfe\x00"
 CMD_SINGLE_TARGET = b"\x80\x00"
 CMD_MULTI_TARGET = b"\x90\x00"
 
-# generous upper bound on how much garbage to accumulate before we give up
-# looking for a header and drop the buffer -- guards against a wired-but-
-# silent sensor filling memory with buffered noise.
+# Max unparsed bytes to buffer before dropping and resyncing.
 MAX_BUFFER = 512
 
 
 def _decode_signed(lo, hi):
-    """Decode one LD2450 sign-magnitude int16 from its two bytes
-    (little-endian). MSB of the high byte is a sign flag (1 = positive,
-    per the datasheet's convention) over a 15-bit magnitude in the
-    remaining bits -- NOT two's complement."""
+    """Sign-magnitude int16 from 2 little-endian bytes. MSB of hi byte:
+    1=positive, 0=negative, over a 15-bit magnitude. Not two's complement."""
     raw = lo | (hi << 8)
     magnitude = raw & 0x7FFF
     if raw & 0x8000:
@@ -60,11 +45,11 @@ class Target:
     __slots__ = ("i", "x", "y", "speed", "resolution")
 
     def __init__(self, i, x, y, speed, resolution):
-        self.i = i          # target slot index 0..2 (positional, not an identity)
-        self.x = x          # mm, +right (see config.SIGN_X to flip)
-        self.y = y          # mm, +forward/away from sensor (see config.SIGN_Y)
-        self.speed = speed  # cm/s, radial (line-of-sight) only -- see plan
-        self.resolution = resolution  # mm, distance resolution/gate size
+        self.i = i          # target slot 0..2, positional not identity
+        self.x = x          # mm, +right (config.SIGN_X)
+        self.y = y          # mm, +forward (config.SIGN_Y)
+        self.speed = speed  # cm/s, radial (line-of-sight) only
+        self.resolution = resolution  # mm, distance gate size
 
 
 class LD2450:
@@ -77,10 +62,8 @@ class LD2450:
         self.frames_dropped = 0
         self.resyncs = 0
 
-    # ---- data path (non-blocking) -------------------------------------
     def feed(self):
-        """Pull whatever bytes are currently waiting on the UART into the
-        internal buffer. Never blocks. Call this every loop iteration."""
+        """Read all waiting UART bytes into the internal buffer. Non-blocking."""
         n = self.uart.any()
         if n:
             data = self.uart.read(n)
@@ -88,15 +71,11 @@ class LD2450:
                 self._buf.extend(data)
 
     def poll(self):
-        """Parse as many complete report frames as are currently buffered.
-        Returns a list of lists-of-Target (one list per frame, oldest
-        first; usually 0 or 1 frames per call at normal poll rates).
+        """Parse buffered bytes into complete report frames. Returns a list
+        of lists-of-Target, oldest first.
 
-        Note: buffer trims below use `buf[:] = buf[n:]` slice assignment,
-        not `del buf[:n]` -- confirmed on-device (Gate A) that this
-        MicroPython build's bytearray does not support slice deletion
-        (`del ba[:n]` raises TypeError: 'bytearray' object doesn't
-        support item deletion), even though slice assignment works fine.
+        Buffer trims use `buf[:] = buf[n:]`, not `del buf[:n]`: this
+        MicroPython build's bytearray does not support slice deletion.
         """
         self.feed()
         frames = []
@@ -104,23 +83,17 @@ class LD2450:
         while True:
             start = buf.find(REPORT_HEADER)
             if start < 0:
-                # no header in the buffer at all -- keep only enough tail
-                # bytes to catch a header that's split across two reads
                 if len(buf) > 4:
-                    buf[:] = buf[len(buf) - 3:]
+                    buf[:] = buf[len(buf) - 3:]  # keep tail for a split header
                 break
             if start > 0:
-                # garbage before the header -- drop it and count a resync
                 buf[:] = buf[start:]
                 self.resyncs += 1
             if len(buf) < REPORT_LEN:
-                break  # header seen, but the rest of the frame hasn't arrived yet
+                break  # frame incomplete, wait for more bytes
             frame = buf[:REPORT_LEN]
             if frame[-2:] != REPORT_TAIL:
-                # header matched but tail didn't -- treat header byte as
-                # garbage and resync one byte forward rather than
-                # discarding the whole window, so we recover fast
-                buf[:] = buf[1:]
+                buf[:] = buf[1:]  # resync 1 byte forward
                 self.resyncs += 1
                 self.frames_dropped += 1
                 continue
@@ -132,8 +105,6 @@ class LD2450:
             else:
                 self.frames_dropped += 1
         if len(buf) > MAX_BUFFER:
-            # sensor is producing bytes we can't make sense of -- bail out
-            # rather than growing unbounded
             buf[:] = b""
             self.resyncs += 1
         return frames
@@ -152,7 +123,6 @@ class LD2450:
             targets.append(Target(i, x, y, speed, resolution))
         return targets
 
-    # ---- config path (blocking with timeout -- startup only) ---------
     def _send_config_cmd(self, cmd_word, value=b""):
         length = len(cmd_word) + len(value)
         frame = CONFIG_HEADER + bytes([length & 0xFF, (length >> 8) & 0xFF])
@@ -160,10 +130,7 @@ class LD2450:
         self.uart.write(frame)
 
     def _read_config_reply(self, timeout_ms=500):
-        """Blocking-with-timeout read for a config-frame reply. Only used
-        during setup (enable_config/end_config/set_mode), never in the
-        streaming loop -- so blocking briefly here doesn't starve the
-        browser link."""
+        """Blocking-with-timeout read for a config-frame reply. Setup only."""
         import time
         deadline = time.ticks_add(time.ticks_ms(), timeout_ms)
         buf = bytearray()

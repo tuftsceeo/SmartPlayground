@@ -1,25 +1,16 @@
 /**
- * main.js -- Radar Station Viewer. A single-file, no-build-step web app
- * (matching this repo's convention -- see the Icon Display Station
- * webapp) for the internal demo described in the top-level plan's
- * Priority 2: connect over Web Serial, show raw targets + tracked
- * objects + derived events live on a 2D plan view, record a session to
- * JSONL, and replay a recorded JSONL with no hardware attached.
- *
- * Deliberately plain DOM + canvas, no framework -- this is a throwaway
- * exploratory-demo tool, not a product.
+ * main.js -- Radar Station Viewer. Web Serial + 2D plan view of raw
+ * targets, tracked objects, derived events. Records/replays JSONL.
  */
 
 import { SerialAdapter } from "./device/serialAdapter.js";
 import { RadarLink } from "./device/radarLink.js";
 import { subscribe as subscribeLog, getEntries, clear as clearLog } from "./device/serialLog.js";
 
-// ---- plan-view geometry (mm) -----------------------------------------
-const RANGE_MM = 6000; // LD2450 nominal max range
-const HALF_FOV_DEG = 60; // +-60 deg azimuth
+const RANGE_MM = 6000; // LD2450 max range
+const HALF_FOV_DEG = 60;
 const PAD_PX = 24;
 
-// ---- state -------------------------------------------------------------
 const state = {
   adapter: null,
   link: null,
@@ -238,7 +229,7 @@ btnRecord.addEventListener("click", () => {
   else stopRecording();
 });
 
-// ---- message handling (shared between live link and replay) -------
+// ---- message handling ----
 function handleMessage(msg) {
   if (state.recording) state.recordBuf.push({ t_wall_ms: Date.now(), msg });
   switch (msg.type) {

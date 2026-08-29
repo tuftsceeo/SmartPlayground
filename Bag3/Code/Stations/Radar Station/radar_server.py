@@ -1,17 +1,9 @@
 """
-radar_server.py -- command dispatcher and main loop for the Radar
-Station, mirroring the shape of the Icon Display Station's
-icon_server.py (see json_link.py's docstring and the top-level plan).
-
-Wire contract: every reply is exactly one JSON object per line. `id`, if
-present on a command, is echoed back so the browser can correlate a
-response to the request that caused it. While streaming, three message
-types go out unsolicited at ~10Hz: `targets` (raw per-sensor detections),
-`tracks` (stable tracked objects), and `events` (derived presence/zone/
-speed signals) -- kept as separate lines so the web app can show the raw
-and derived layers side by side, which is what makes tracker bugs visible
-instead of invisible. See the plan's "Wire protocol" section for the
-full message shapes.
+radar_server.py -- command dispatcher and main loop, NDJSON over USB
+serial. Every reply is one JSON object per line; `id` on a command is
+echoed in its reply. While streaming, at ~10Hz: `targets` (raw
+detections, raw_mode only), `tracks` (tracked objects), `events`
+(derived signals) -- three separate lines.
 """
 
 import time
@@ -58,7 +50,6 @@ class RadarServer:
             "reboot": self.do_reboot,
         }
 
-    # -- dispatch ------------------------------------------------------
     def dispatch(self, cmd):
         name = cmd.get("cmd")
         rid = cmd.get("id")
@@ -68,7 +59,6 @@ class RadarServer:
             return
         handler(cmd, rid)
 
-    # -- handlers --------------------------------------------------------
     def do_hello(self, cmd, rid):
         self._send_hello(rid)
 
@@ -87,9 +77,6 @@ class RadarServer:
         self.link.send({"type": "stream", "id": rid, "on": self.streaming})
 
     def do_raw(self, cmd, rid):
-        """Hex-dump mode for protocol debugging -- see the plan's Gate A.
-        Off by default; not needed once frame_stats/hexdump in
-        radar_test.py have confirmed the link is clean."""
         self.raw_mode = bool(cmd.get("on", True))
         self.link.send({"type": "raw", "id": rid, "on": self.raw_mode})
 
@@ -112,7 +99,6 @@ class RadarServer:
         self.running = False
         self._reboot_hard = bool(cmd.get("hard"))
 
-    # -- boot / loop -----------------------------------------------------
     def _send_hello(self, rid=None):
         self.link.send({
             "type": "hello", "id": rid, "version": VERSION,
@@ -148,24 +134,9 @@ class RadarServer:
                 if time.ticks_diff(now, last_hb) > HEARTBEAT_MS:
                     self.link.send({"type": "heartbeat", "up": now, "mem": gc.mem_free()})
                     last_hb = now
-                # Unconditional yield, every iteration, regardless of how
-                # busy pump()/poll() were: under sustained traffic (fast
-                # streaming, or a noise flood) this loop can otherwise spin
-                # calling pump() back-to-back with zero gap, which was
-                # observed to make Ctrl-C / mpremote's raw-REPL entry
-                # unresponsive enough to require a reflash. See AGENTS.md
-                # ("Interruptible loops").
-                time.sleep_ms(1)
+                time.sleep_ms(1)  # AGENTS.md: interruptible loops
         except KeyboardInterrupt:
-            # Deliberately silent: a bare Ctrl-C is almost always a tool
-            # (mpremote entering raw REPL, e.g. for `fs cp`) rather than a
-            # human at a terminal, and mpremote's raw-REPL handshake sends
-            # Ctrl-C expecting silence back -- any stray print here races
-            # its parser and was observed to corrupt it (garbled bytes fed
-            # back as Python source, `fs cp` failing to enter raw repl).
-            # do_repl/do_reboot already sent their own "bye" before this
-            # exception path is ever reached, so nothing is lost here.
-            pass
+            pass  # no print: races mpremote's raw-REPL handshake
         finally:
             if self._reboot_hard:
                 import machine

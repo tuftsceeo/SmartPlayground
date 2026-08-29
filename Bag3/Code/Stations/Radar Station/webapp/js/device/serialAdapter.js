@@ -1,19 +1,7 @@
 /**
- * serialAdapter.js -- thin Web Serial wrapper: port lifecycle and a
- * continuous read loop. Vendored and trimmed from the Icon Display
- * Station webapp (`Bag3/Code/Stations/Icon Display Station/webapp/js/
- * device/serialAdapter.js` on origin/icon_screen_simplify) -- see the
- * top-level plan's note on hand-duplicated shared libraries. Dropped
- * here: readUntil()/waiters and writeChunked() pacing, which existed for
- * the Icon station's raw-REPL install path and large base64 frame
- * writes -- out of scope for this station (see the plan's Priority 2:
- * no firmware install through the browser, and our JSON commands are
- * tiny, so a single unpaced write is fine).
- *
- * This module owns ONLY the browser API surface; radarLink.js owns the
- * NDJSON protocol on top of it. Everything that crosses the wire is
- * recorded via serialLog.js so a connection failure can be diagnosed
- * from the page's Serial Monitor rather than by guessing.
+ * serialAdapter.js -- Web Serial wrapper: port lifecycle, continuous
+ * read loop, raw write. No readUntil/waiters, no chunked-write pacing.
+ * radarLink.js owns the NDJSON protocol on top of this.
  */
 
 import { logTx, logRx, logInfo, logWarn, logError } from "./serialLog.js";
@@ -55,7 +43,7 @@ export class SerialAdapter {
     const port = await navigator.serial.requestPort(); // no filters -- user picks any port
     logInfo("port selected", describePort(port));
 
-    const baudRate = opts.baudRate ?? 115200; // the S3's native USB-CDC REPL ignores this in practice
+    const baudRate = opts.baudRate ?? 115200; // ignored by native USB-CDC in practice
     await port.open({ baudRate });
     logInfo(`port.open({ baudRate: ${baudRate} }) OK`, {
       readable: !!port.readable,
@@ -135,8 +123,6 @@ export class SerialAdapter {
         }
         logInfo("read loop exited cleanly");
       } catch (e) {
-        // The single most diagnostic line in the whole app: a device that
-        // resets or is unplugged lands here as "The device has been lost".
         if (this.readLoopActive) {
           logError(`read loop error: ${e.name}: ${e.message}`);
           console.error("serialAdapter: read loop error", e);

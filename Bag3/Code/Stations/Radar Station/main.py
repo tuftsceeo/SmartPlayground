@@ -1,9 +1,7 @@
 """
-main.py -- boots the JSON-over-serial radar server. Mirrors the Icon
-Display Station's main.py: never let a bare traceback hit stdout, since
-the browser's line filter drops any line not starting with '{', which
-would make an unguarded traceback look like a silent hang rather than a
-visible error. Ship it IN BAND as JSON instead.
+main.py -- boots the JSON-over-serial radar server. Catches all
+exceptions and reports them as a JSON `fatal` line instead of a raw
+traceback, so the browser's '{' line filter doesn't drop the error.
 """
 
 DEBUG = False
@@ -23,6 +21,3 @@ except Exception as e:
         print(json.dumps({"type": "fatal", "msg": "%s: %s" % (type(e).__name__, e), "tb": b.getvalue()[-400:]}))
     except Exception:
         print('{"type":"fatal","msg":"unprintable error"}')
-
-# falling off the end (KeyboardInterrupt, `repl`/`reboot` commands, or a
-# caught fatal error) lands at the >>> prompt.
