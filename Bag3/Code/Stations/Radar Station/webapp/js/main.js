@@ -11,6 +11,10 @@ const RANGE_MM = 6000; // LD2450 max range
 const HALF_FOV_DEG = 60;
 const PAD_PX = 24;
 
+// Browser<->ESP32 USB-CDC link; port.open() requires a value, ignored
+// in practice. Distinct from config.py's UART_BAUD (ESP32<->LD2450).
+const USB_CDC_BAUD = 115200;
+
 const state = {
   adapter: null,
   link: null,
@@ -304,7 +308,7 @@ btnConnect.addEventListener("click", async () => {
   }
   try {
     state.adapter = new SerialAdapter();
-    await state.adapter.connect({ baudRate: 115200 });
+    await state.adapter.connect({ baudRate: USB_CDC_BAUD });
     state.link = new RadarLink(state.adapter);
     state.link.start();
     state.deviceState = "unknown";
