@@ -1,9 +1,10 @@
 """
-tracker.py -- assigns persistent ids to LD2450 targets (slots 0..2 are
-positional, not identities) via nearest-neighbour association. Derives
-ground velocity/heading from position deltas; the sensor's own speed
-field is radial-only. Greedy nearest-neighbour, EMA smoothing, no
-Kalman filter.
+tracker.py -- assigns persistent ids to LD2450 targets. Slot index is
+trusted as identity frame-to-frame (observed stable in practice); the
+nearest-neighbour matcher only runs on a slot-count change, to decide
+whether a slot that just started reporting is a new person or one who
+briefly moved to a different slot. Derives ground velocity/heading from
+position deltas; the sensor's own speed field is radial-only.
 """
 
 import config
@@ -60,48 +61,68 @@ class Tracker:
         self.alpha = alpha if alpha is not None else config.TRACK_SMOOTH_ALPHA
         self.dt_s = dt_s
         self._next_id = 1
-        self.tracks = []
+        self.slot_tracks = {}  # slot index (0..2) -> Track
 
     def update(self, targets):
         """targets: list of ld2450.Target for this frame. Returns the
         current list of live Track objects."""
-        unmatched_tracks = list(self.tracks)
-        unmatched_targets = list(targets)
-        matches = []  # (track, target)
+        present = {t.i: t for t in targets}
 
-        while unmatched_tracks and unmatched_targets:
-            best = None
-            best_d2 = self.gate2
-            for t in unmatched_tracks:
-                for g in unmatched_targets:
-                    d2 = _dist2(t.x, t.y, g.x, g.y)
-                    if d2 <= best_d2:
-                        best_d2 = d2
-                        best = (t, g)
-            if best is None:
-                break
-            matches.append(best)
-            unmatched_tracks.remove(best[0])
-            unmatched_targets.remove(best[1])
+        # Age (and evict) slots that reported last frame but not this one.
+        for slot in list(self.slot_tracks):
+            if slot not in present:
+                track = self.slot_tracks[slot]
+                track.misses += 1
+                track.age += 1
+                if track.misses > self.max_misses:
+                    del self.slot_tracks[slot]
 
-        for track, target in matches:
+        # Continuing slots: same slot reporting again, trust it directly --
+        # no re-matching. Do this before new-slot handling below so its
+        # misses=0 reset can't make a just-reused track a false candidate
+        # for a same-frame slot-count change elsewhere.
+        new_slots = [slot for slot in present if slot not in self.slot_tracks]
+        for slot, target in present.items():
+            if slot in new_slots:
+                continue
+            track = self.slot_tracks[slot]
             self._apply_measurement(track, target)
             track.misses = 0
             track.age += 1
 
-        for track in unmatched_tracks:
-            track.misses += 1
-            track.age += 1
+        # Slot-count change: this slot just started reporting. Check
+        # recently-vacated slots (still in their miss grace period) for a
+        # close match -- likely the same person, landed in a new slot --
+        # before assuming it's a genuinely new target.
+        for slot in new_slots:
+            target = present[slot]
+            match_slot = self._find_reuse_candidate(target)
+            if match_slot is not None:
+                track = self.slot_tracks.pop(match_slot)
+                self.slot_tracks[slot] = track
+                self._apply_measurement(track, target)
+                track.misses = 0
+                track.age += 1
+            else:
+                track = Track(self._next_id, target.x, target.y)
+                self._next_id += 1
+                track.radial_v = target.speed
+                track.age = 1
+                self.slot_tracks[slot] = track
 
-        for target in unmatched_targets:
-            track = Track(self._next_id, target.x, target.y)
-            self._next_id += 1
-            track.radial_v = target.speed
-            track.age = 1
-            self.tracks.append(track)
+        return list(self.slot_tracks.values())
 
-        self.tracks = [t for t in self.tracks if t.misses <= self.max_misses]
-        return self.tracks
+    def _find_reuse_candidate(self, target):
+        best_slot = None
+        best_d2 = self.gate2
+        for slot, track in self.slot_tracks.items():
+            if track.misses == 0:
+                continue  # occupied by a continuing slot this frame already
+            d2 = _dist2(track.x, track.y, target.x, target.y)
+            if d2 <= best_d2:
+                best_d2 = d2
+                best_slot = slot
+        return best_slot
 
     def set_params(self, gate_mm=None, max_misses=None, alpha=None):
         """Live tuning from radar_server.py's 'tune' command. Any argument
