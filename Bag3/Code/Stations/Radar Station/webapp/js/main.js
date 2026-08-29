@@ -15,6 +15,8 @@ const PAD_PX = 24;
 // in practice. Distinct from config.py's UART_BAUD (ESP32<->LD2450).
 const USB_CDC_BAUD = 115200;
 
+const HISTORY_MAX = 200; // ~20s at 10Hz
+
 const state = {
   adapter: null,
   link: null,
@@ -26,6 +28,7 @@ const state = {
   lastTargets: [],
   lastTracks: [],
   lastEvents: null,
+  history: [], // ring buffer of past 'events' messages, for the timeseries charts
   recording: false,
   recordBuf: [], // [{t_wall_ms, msg}]
   replaying: false,
@@ -41,24 +44,29 @@ root.innerHTML = `
     <label class="px-3 py-1.5 rounded bg-neutral-800 hover:bg-neutral-700 text-sm cursor-pointer">
       Replay JSONL <input id="file-replay" type="file" accept=".jsonl,.json,.txt" class="hidden" />
     </label>
+    <button id="btn-toggle-monitor" class="px-3 py-1.5 rounded bg-neutral-800 hover:bg-neutral-700 text-sm">Hide monitor</button>
     <span id="status" class="text-xs text-neutral-400 ml-auto">not connected</span>
   </div>
   <div class="flex flex-1 min-h-0">
     <div class="flex-1 flex items-center justify-center p-3 min-h-0">
       <canvas id="plan-canvas" width="720" height="640"></canvas>
     </div>
-    <div class="w-72 border-l border-neutral-800 flex flex-col min-h-0">
+    <div class="w-80 border-l border-neutral-800 flex flex-col min-h-0">
       <div class="p-3 border-b border-neutral-800">
         <h2 class="text-xs uppercase tracking-wide text-neutral-500 mb-2">Derived events</h2>
         <div id="events-panel" class="text-sm space-y-1 font-mono"></div>
       </div>
-      <div class="p-3 flex-1 overflow-hidden flex flex-col min-h-0">
+      <div class="p-3 border-b border-neutral-800 flex-1 overflow-y-auto min-h-0">
+        <h2 class="text-xs uppercase tracking-wide text-neutral-500 mb-2">History</h2>
+        <div id="history-panel" class="space-y-3"></div>
+      </div>
+      <div class="p-3">
         <h2 class="text-xs uppercase tracking-wide text-neutral-500 mb-2">Info</h2>
         <div id="info-panel" class="text-sm space-y-1 font-mono"></div>
       </div>
     </div>
   </div>
-  <div class="h-40 border-t border-neutral-800 flex flex-col min-h-0">
+  <div id="monitor-section" class="h-40 border-t border-neutral-800 flex flex-col min-h-0">
     <div class="flex items-center gap-2 px-3 py-1 border-b border-neutral-800">
       <h2 class="text-xs uppercase tracking-wide text-neutral-500">Serial monitor</h2>
       <button id="btn-clear-log" class="text-xs text-neutral-500 hover:text-neutral-300 ml-auto">clear</button>
@@ -76,9 +84,12 @@ const btnRecord = document.getElementById("btn-record");
 const fileReplay = document.getElementById("file-replay");
 const statusEl = document.getElementById("status");
 const eventsPanel = document.getElementById("events-panel");
+const historyPanel = document.getElementById("history-panel");
 const infoPanel = document.getElementById("info-panel");
+const monitorSection = document.getElementById("monitor-section");
 const monitorEl = document.getElementById("serial-monitor");
 const btnClearLog = document.getElementById("btn-clear-log");
+const btnToggleMonitor = document.getElementById("btn-toggle-monitor");
 
 // ---- plan view rendering -----------------------------------------------
 function toCanvas(x, y) {
@@ -189,6 +200,67 @@ function renderInfo(info) {
   `;
 }
 
+// ---- history / timeseries charts ---------------------------------------
+// All keys here are LD2450 target counts, capped at 3 -- fixed y-scale
+// rather than auto-scaling, so the charts stay readable at a glance.
+const CHARTS = [
+  { title: "Target count", yMax: 3, series: [{ key: "count", label: "count", color: "#38bdf8" }] },
+  { title: "Zones", yMax: 3, series: [{ key: "near", label: "near", color: "#a78bfa" }, { key: "far", label: "far", color: "#6366f1" }] },
+  { title: "Speed", yMax: 3, series: [{ key: "still", label: "still", color: "#a1a1aa" }, { key: "walk", label: "walk", color: "#fbbf24" }, { key: "fast", label: "fast", color: "#f87171" }] },
+  { title: "Motion", yMax: 3, series: [{ key: "approach", label: "approach", color: "#4ade80" }, { key: "recede", label: "recede", color: "#fb923c" }] },
+];
+
+for (const chart of CHARTS) {
+  const wrap = document.createElement("div");
+  const legend = chart.series.map((s) => `<span style="color:${s.color}">●</span> ${s.label}`).join("  ");
+  wrap.innerHTML = `
+    <div class="text-xs text-neutral-500 mb-1">${chart.title} <span class="text-[10px]">${legend}</span></div>
+    <canvas width="280" height="56" class="w-full"></canvas>
+  `;
+  historyPanel.appendChild(wrap);
+  chart._canvas = wrap.querySelector("canvas");
+}
+
+function pushHistory(ev) {
+  state.history.push({
+    count: ev.count || 0,
+    near: (ev.zones && ev.zones.near) || 0,
+    far: (ev.zones && ev.zones.far) || 0,
+    still: ev.still || 0,
+    walk: ev.walk || 0,
+    fast: ev.fast || 0,
+    approach: ev.approach || 0,
+    recede: ev.recede || 0,
+  });
+  if (state.history.length > HISTORY_MAX) state.history.shift();
+  renderHistory();
+}
+
+function renderHistory() {
+  const hist = state.history;
+  for (const chart of CHARTS) {
+    const c = chart._canvas.getContext("2d");
+    const w = chart._canvas.width, h = chart._canvas.height;
+    c.fillStyle = "#0a0a0a";
+    c.fillRect(0, 0, w, h);
+    if (hist.length < 2) continue;
+    const n = hist.length;
+    for (const s of chart.series) {
+      c.strokeStyle = s.color;
+      c.lineWidth = 1.5;
+      c.beginPath();
+      hist.forEach((sample, i) => {
+        const x = (i / (n - 1)) * w;
+        const v = Math.max(0, Math.min(chart.yMax, sample[s.key]));
+        const y = h - 2 - (v / chart.yMax) * (h - 4);
+        if (i === 0) c.moveTo(x, y);
+        else c.lineTo(x, y);
+      });
+      c.stroke();
+    }
+  }
+}
+
 // ---- serial monitor ------------------------------------------------
 function renderLogEntry(e) {
   if (e === null) {
@@ -204,6 +276,11 @@ function renderLogEntry(e) {
 }
 subscribeLog(renderLogEntry);
 btnClearLog.addEventListener("click", clearLog);
+
+btnToggleMonitor.addEventListener("click", () => {
+  monitorSection.hidden = !monitorSection.hidden;
+  btnToggleMonitor.textContent = monitorSection.hidden ? "Show monitor" : "Hide monitor";
+});
 
 // ---- recording -----------------------------------------------------
 function startRecording() {
@@ -250,6 +327,7 @@ function handleMessage(msg) {
     case "events":
       state.lastEvents = msg;
       renderEvents(msg);
+      pushHistory(msg);
       break;
     case "info":
       renderInfo(msg);
