@@ -84,8 +84,8 @@ BUZZER_PIN   = HUB_CONFIG["buzzer_pin"]
 MOTOR_PIN    = HUB_CONFIG["motor_pin"]
 SWITCH_PIN   = HUB_CONFIG["button_pin"]
 ACCEL_INT1   = HUB_CONFIG["accel_int1_pin"]
-# WS1850S NFC reader lives at I2C 0x28 (the lib/pn532.py shim wraps it).
-NFC_ADDR     = HUB_CONFIG.get("nfc_addr", 0x28)
+# PN532 NFC reader lives at I2C 0x24 (lib/pn532.py).
+NFC_ADDR     = HUB_CONFIG.get("nfc_addr", 0x24)
 
 # ─────────────────────────────────────────────
 # TAG COMMANDS
@@ -387,8 +387,8 @@ def main():
     leds.boot_stage_start(3)
     nfc = PN532(i2c, NFC_ADDR)
     try:
-        ver, _, _ = nfc.begin()
-        print("  WS1850S VersionReg 0x%02X -- NFC ready" % ver)
+        ic, ver, rev = nfc.begin()
+        print("  PN532 firmware %d.%d (IC 0x%02X) -- NFC ready" % (ver, rev, ic))
         leds.boot_stage_ok(3)
     except Exception as e:
         print("  [FAIL] NFC:"); sys.print_exception(e)

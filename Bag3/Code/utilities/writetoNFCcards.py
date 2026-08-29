@@ -1,21 +1,22 @@
 """
-PlaygroundV5 (Bag3) - NFC Tag Writer with LED Animation
-========================================================
+PlaygroundV5 (Bag3) - NFC Opcode Card Writer with LED Animation
+================================================================
 Board: Seeed XIAO ESP32-C6 (Bag3 wand)
-NFC:   M5Stack RFID2 / WS1850S on I2C (SDA=GPIO22, SCL=GPIO23), addr 0x28
-LEDs:  60x SK6812 on GPIO20 (6×10 matrix, row-major)
+NFC:   PN532 on I2C (SDA=GPIO22, SCL=GPIO23), addr 0x24
+LEDs:  25x SK6812 on GPIO20 (5×5 matrix, row-major)
 Button: GPIO0 (active LOW)
 Buzzer: GPIO19
 
-Requires ws1850s.py on the device (copied alongside this file).
+Requires pn532.py and opcodes.py on the device.
 
-This is the Bag3 port of the original PN532 writer. The WS1850S replaces
-the PN532, so the embedded PN532 wire protocol is gone — every tag
-operation now goes through the WS1850S driver. The NDEF building, LED
-animations, buzzer feedback, and REPL flow are unchanged.
+Writes the compact 4-byte opcode format (see lib/opcodes.py) to page/block
+5 instead of a multi-page NDEF text record, so the wand can read a card
+with a single page read. You type a command NAME ("melody", "note_c",
+"turnred", "stop", ...) and this writes its opcode.
 
 Flow:
-  1. Type the text you want to write at the REPL prompt
+  1. Type the command name you want to write at the REPL prompt
+     (type "list" to see every valid name)
   2. Press the button when a tag is on the reader
   3. LEDs animate during write
   4. Buzzer confirms success/failure
@@ -24,7 +25,8 @@ Flow:
 import machine
 import time
 from neopixel import NeoPixel
-from ws1850s import WS1850S
+from pn532 import PN532, MIFARE_AUTH_A, MIFARE_AUTH_B
+from opcodes import encode, decode, CARD_PAGE, names_by_category, ALL_NAMES
 
 # ─────────────────────────────────────────────
 # PIN CONFIG
@@ -34,12 +36,8 @@ I2C_SCL   = 23
 NEOPIXEL  = 20
 SWITCH    = 0
 BUZZER    = 19
-NFC_ADDR  = 0x28      # WS1850S default (PN532 was 0x24)
-NUM_LEDS  = 60        # 6×10 matrix on Bag3
-
-# MIFARE key-type codes (match WS1850S PICC_AUTHENT1A/1B)
-MIFARE_AUTH_A = WS1850S.PICC_AUTHENT1A
-MIFARE_AUTH_B = WS1850S.PICC_AUTHENT1B
+NFC_ADDR  = 0x24      # PN532 I2C address
+NUM_LEDS  = 25        # 5×5 matrix on Bag3
 
 COMMON_KEYS = [
     b'\xFF\xFF\xFF\xFF\xFF\xFF',
@@ -50,7 +48,7 @@ COMMON_KEYS = [
 
 
 def sak_type(sak):
-    """Best-effort tag-type name from the SAK byte (WS1850S has no ATQA)."""
+    """Best-effort tag-type name from the SAK byte."""
     if sak in (0x08, 0x18, 0x09):
         return "MIFARE Classic"
     if sak == 0x00:
@@ -192,212 +190,108 @@ class Beeper:
         self.tone(1000, 30)
 
 # ─────────────────────────────────────────────
-# NFC WRITER — WS1850S adapter
+# NFC WRITER — PN532 adapter
 # ─────────────────────────────────────────────
-# Exposes the same handful of methods the write logic below expects, but
-# every call is serviced by the WS1850S driver instead of a PN532.
+# Exposes the handful of methods the write logic below expects, backed by
+# the real PN532 driver (lib/pn532.py).
 class NfcWriter:
     def __init__(self, i2c, addr=NFC_ADDR):
-        self.dev = WS1850S(i2c, addr)
+        self.dev = PN532(i2c, addr)
 
     def init(self):
-        self.dev.init()
-        print("  WS1850S VersionReg: 0x%02X" % self.dev.version())
+        fw = self.dev.begin()
+        print("  PN532 firmware: %d.%d (IC 0x%02X)" % (fw[1], fw[2], fw[0]))
 
     def detect_tag(self, timeout=500):
         """Poll for a tag up to `timeout` ms. Leaves the card ACTIVE."""
-        # Clear leftover Crypto1 from a prior auth; otherwise the next
-        # anticollision/SELECT is encrypted and silently fails (breaks
-        # multi-sector writes and re-detecting the next card).
-        try:
-            self.dev.stop_crypto1()
-        except Exception:
-            pass
-        deadline = time.ticks_add(time.ticks_ms(), timeout)
-        while True:
-            try:
-                result = self.dev.read_uid_full()
-            except Exception:
-                result = None
-            if result is not None:
-                uid, sak = result
-                return {
-                    'uid': bytes(uid),
-                    'uid_hex': ':'.join('%02X' % b for b in uid),
-                    'uid_len': len(uid),
-                    'sak': sak,
-                    'tag_type': sak_type(sak),
-                    'is_classic': sak in (0x08, 0x18, 0x09),
-                    'is_ntag': sak == 0x00,
-                }
-            if time.ticks_diff(deadline, time.ticks_ms()) <= 0:
-                return None
-            time.sleep_ms(10)
+        tag = self.dev.read_passive_target(timeout=timeout)
+        if tag is None:
+            return None
+        sak = tag['sak']
+        tag['tag_type']   = sak_type(sak)
+        tag['is_classic'] = sak in (0x08, 0x18, 0x09)
+        tag['is_ntag']    = sak == 0x00
+        return tag
 
     def mifare_auth(self, uid, block, key=b'\xFF\xFF\xFF\xFF\xFF\xFF', kt=MIFARE_AUTH_A):
-        try:
-            return self.dev.auth(kt, block, key, uid) == WS1850S.MI_OK
-        except Exception:
-            return False
+        return self.dev.mifare_auth_block(uid, block, key, kt)
 
     def mifare_read(self, block):
-        status, data = self.dev.read_block(block)
-        if status != WS1850S.MI_OK or data is None:
-            raise RuntimeError("Classic read err on block %d" % block)
-        return bytes(data[:16])
+        return self.dev.mifare_read_block(block)
 
     def mifare_write(self, block, data):
         """Write 16 bytes to a MIFARE Classic block (must auth first)."""
-        if len(data) != 16:
-            raise ValueError("Must write exactly 16 bytes")
-        if self.dev.write_block(block, bytes(data)) != WS1850S.MI_OK:
-            raise RuntimeError("Write err on block %d" % block)
-        return True
+        return self.dev.mifare_write_block(block, data)
 
     def ntag_write_page(self, page, data):
         """Write 4 bytes to an NTAG/Ultralight page."""
-        if len(data) != 4:
-            raise ValueError("Must write exactly 4 bytes")
-        if self.dev.ul_write(page, bytes(data)) != WS1850S.MI_OK:
-            raise RuntimeError("Write err on page %d" % page)
-        return True
+        return self.dev.ntag_write_page(page, data)
 
     def ntag_read_page(self, page):
         """Read 4 bytes from a single NTAG/Ultralight page."""
-        status, data = self.dev.ul_read(page)
-        if status != WS1850S.MI_OK or data is None:
-            raise RuntimeError("NTAG read err on page %d" % page)
-        return bytes(data[:4])
+        return self.dev.ntag_read_page(page)
 
 
 # ─────────────────────────────────────────────
-# BUILD NDEF TEXT RECORD
+# WRITE FUNCTIONS — 4-byte opcode at page/block 5
 # ─────────────────────────────────────────────
-def build_ndef_text(text):
-    """Build a complete NDEF message with a text record for NTAG."""
-    lang = b'en'
-    payload = bytes([len(lang)]) + lang + text.encode('utf-8')
-    # NDEF record: MB=1, ME=1, CF=0, SR=1, IL=0, TNF=01 (well-known)
-    flags = 0xD1  # MB|ME|SR, TNF=0x01
-    rec_type = b'T'
-    record = bytes([flags, len(rec_type), len(payload)]) + rec_type + payload
-    # TLV wrapper: type=0x03 (NDEF), length, data, terminator=0xFE
-    tlv = bytes([0x03, len(record)]) + record + bytes([0xFE])
-    return tlv
-
-
-def build_ndef_text_classic(text):
-    """Build NDEF text padded into 16-byte MIFARE Classic blocks."""
-    lang = b'en'
-    payload = bytes([len(lang)]) + lang + text.encode('utf-8')
-    flags = 0xD1
-    rec_type = b'T'
-    record = bytes([flags, len(rec_type), len(payload)]) + rec_type + payload
-    tlv = bytes([0x03, len(record)]) + record + bytes([0xFE])
-    # Pad to multiple of 16 bytes
-    while len(tlv) % 16 != 0:
-        tlv += b'\x00'
-    return tlv
-
-
-# ─────────────────────────────────────────────
-# WRITE FUNCTIONS
-# ─────────────────────────────────────────────
-def write_ntag(nfc, tag, text, led):
-    """Write NDEF text record to NTAG/Ultralight starting at page 4."""
-    ndef = build_ndef_text(text)
-    pages_needed = (len(ndef) + 3) // 4  # 4 bytes per page
-    max_pages = 36  # NTAG213 user area: pages 4-39
-
-    if pages_needed > max_pages:
-        print(f"  Text too long! Need {pages_needed} pages, max {max_pages}")
+def write_ntag(nfc, tag, payload, led):
+    """Write the 4-byte opcode to NTAG/Ultralight page 5."""
+    led.writing_progress(0.5)
+    try:
+        nfc.ntag_write_page(CARD_PAGE, payload)
+    except RuntimeError as e:
+        print(f"  Page {CARD_PAGE}: WRITE FAILED — {e}")
         return False
-
-    print(f"  Writing {len(ndef)} bytes across {pages_needed} pages (4-{4+pages_needed-1})")
-
-    # Pad to full pages
-    while len(ndef) % 4 != 0:
-        ndef += b'\x00'
-
-    for i in range(pages_needed):
-        page = 4 + i
-        chunk = ndef[i*4: i*4 + 4]
-        progress = (i + 1) / pages_needed
-        led.writing_progress(progress)
-
-        try:
-            nfc.ntag_write_page(page, chunk)
-            hex_str = ' '.join(f'{b:02X}' for b in chunk)
-            print(f"  Page {page:>3}: {hex_str}  [{int(progress*100):>3}%]")
-        except RuntimeError as e:
-            print(f"  Page {page}: WRITE FAILED — {e}")
-            return False
-
-        time.sleep_ms(30)
-
+    led.writing_progress(1.0)
+    hex_str = ' '.join(f'{b:02X}' for b in payload)
+    print(f"  Page {CARD_PAGE}: {hex_str}")
     return True
 
 
-def write_mifare_classic(nfc, tag, text, led):
-    """Write NDEF text to MIFARE Classic blocks (sector 1+, skip trailers)."""
-    ndef = build_ndef_text_classic(text)
-    blocks_needed = len(ndef) // 16
+def write_mifare_classic(nfc, tag, payload, led):
+    """Write the 4-byte opcode to MIFARE Classic block 5 (padded to 16)."""
+    led.writing_progress(0.5)
 
-    # Usable data blocks per sector: blocks 0,1,2 (block 3 = trailer)
-    # Skip sector 0 entirely (manufacturer data)
-    # Start writing at sector 1, block 4
-    writable_blocks = []
-    for sector in range(1, 16):  # sectors 1-15
-        for blk_in_sec in range(3):  # skip trailer (block 3)
-            writable_blocks.append(sector * 4 + blk_in_sec)
-
-    if blocks_needed > len(writable_blocks):
-        print(f"  Text too long! Need {blocks_needed} blocks, max {len(writable_blocks)}")
+    # Auth the sector holding block 5 — re-detect the tag first so the
+    # PN532 has the card selected before the auth.
+    resel = nfc.detect_tag(timeout=300)
+    if resel is None:
+        print("  Tag lost before auth!")
         return False
 
-    print(f"  Writing {len(ndef)} bytes across {blocks_needed} blocks")
-
-    written = 0
-    for i in range(blocks_needed):
-        block = writable_blocks[i]
-        sector = block // 4
-        first_block = sector * 4
-        chunk = ndef[i*16: i*16 + 16]
-        progress = (i + 1) / blocks_needed
-        led.writing_progress(progress)
-
-        # Auth this sector — re-detect tag first (WS1850S needs the card
-        # selected before each auth; read_uid_full re-selects it).
-        resel = nfc.detect_tag(timeout=300)
-        if resel is None:
-            print(f"  Block {block}: Tag lost!")
-            return False
-
-        authed = False
-        for key in COMMON_KEYS:
-            for kt in [MIFARE_AUTH_A, MIFARE_AUTH_B]:
-                if nfc.mifare_auth(tag['uid'], first_block, key, kt):
-                    authed = True
-                    break
-            if authed:
+    authed = False
+    for key in COMMON_KEYS:
+        for kt in (MIFARE_AUTH_A, MIFARE_AUTH_B):
+            if nfc.mifare_auth(tag['uid'], CARD_PAGE, key, kt):
+                authed = True
                 break
+        if authed:
+            break
 
-        if not authed:
-            print(f"  Block {block}: Auth failed — cannot write this sector")
-            return False
+    if not authed:
+        print(f"  Block {CARD_PAGE}: Auth failed — cannot write")
+        return False
 
-        try:
-            nfc.mifare_write(block, chunk)
-            hex_str = ' '.join(f'{b:02X}' for b in chunk[:8]) + '...'
-            print(f"  Block {block:>3}: {hex_str}  [{int(progress*100):>3}%]")
-            written += 1
-        except RuntimeError as e:
-            print(f"  Block {block}: WRITE FAILED — {e}")
-            return False
+    block16 = bytearray(16)
+    block16[0:4] = payload  # bytes 4-15 stay zero
+    try:
+        nfc.mifare_write(CARD_PAGE, block16)
+    except RuntimeError as e:
+        print(f"  Block {CARD_PAGE}: WRITE FAILED — {e}")
+        return False
 
-        time.sleep_ms(30)
+    led.writing_progress(1.0)
+    hex_str = ' '.join(f'{b:02X}' for b in payload)
+    print(f"  Block {CARD_PAGE}: {hex_str} (+ 12 zero bytes)")
+    return True
 
-    return written == blocks_needed
+
+def print_command_list():
+    """Print every valid command name, grouped by opcode category."""
+    print("  ── Valid command names ──")
+    for op, names in names_by_category().items():
+        print("  0x%02X: %s" % (op, ', '.join(names)))
 
 
 # ─────────────────────────────────────────────
@@ -405,7 +299,7 @@ def write_mifare_classic(nfc, tag, text, led):
 # ─────────────────────────────────────────────
 def main():
     print("\n" + "*" * 55)
-    print("  PlaygroundV5 (Bag3) — NFC Tag Writer (WS1850S)")
+    print("  PlaygroundV5 (Bag3) — NFC Opcode Card Writer (PN532)")
     print("  Type your text, place tag, press button to write")
     print("*" * 55)
 
@@ -421,7 +315,7 @@ def main():
 
     nfc = NfcWriter(i2c, NFC_ADDR)
     nfc.init()
-    print("  WS1850S ready\n")
+    print("  PN532 ready\n")
 
     while True:
         # ── Step 1: Get text from user ──
@@ -429,21 +323,29 @@ def main():
         print("  ─────────────────────────────────────")
 
         try:
-            text = input("  Enter text to write (or 'quit'): ").strip()
+            name = input("  Enter command name ('list' / 'quit'): ").strip()
         except (KeyboardInterrupt, EOFError):
             break
 
-        if text.lower() in ('quit', 'exit', 'q'):
+        if name.lower() in ('quit', 'exit', 'q'):
             break
 
-        if not text:
-            print("  Empty text, try again.\n")
+        if not name:
+            print("  Empty name, try again.\n")
             continue
 
-        byte_len = len(text.encode('utf-8'))
-        print(f"  Text: \"{text}\" ({byte_len} bytes)")
-        if byte_len > 130:
-            print("  [WARN] Text may be too long for small tags (NTAG213=137 bytes max)")
+        if name.lower() == 'list':
+            print_command_list()
+            print()
+            continue
+
+        payload = encode(name)
+        if payload is None:
+            print(f"  Unknown command name: \"{name}\" — type 'list' to see valid names.\n")
+            continue
+
+        print(f"  Command: \"{name}\"  ->  page {CARD_PAGE} = "
+              + ' '.join(f'{b:02X}' for b in payload))
 
         # ── Step 2: Wait for tag + button press ──
         print("\n  Place tag on reader and press the BUTTON to write...")
@@ -489,9 +391,9 @@ def main():
         success = False
         try:
             if tag['is_ntag']:
-                success = write_ntag(nfc, tag, text, led)
+                success = write_ntag(nfc, tag, payload, led)
             elif tag['is_classic']:
-                success = write_mifare_classic(nfc, tag, text, led)
+                success = write_mifare_classic(nfc, tag, payload, led)
             else:
                 print(f"  Unsupported tag type: {tag['tag_type']}")
         except Exception as e:
@@ -499,23 +401,35 @@ def main():
 
         # ── Step 4: Result feedback ──
         if success:
-            print(f"\n  ✓ Successfully wrote \"{text}\" to tag {tag['uid_hex']}")
+            print(f"\n  ✓ Successfully wrote \"{name}\" to tag {tag['uid_hex']}")
             led.success()
             beep.success()
             led.rainbow_celebrate()
 
-            # Verify by reading back
+            # Verify by reading page 5 back and decoding it.
             print("  Verifying...")
             time.sleep_ms(300)
             verify = nfc.detect_tag(timeout=500)
             if verify:
                 try:
                     if tag['is_ntag']:
-                        page4 = nfc.ntag_read_page(4)
-                        if page4[0] == 0x03:
-                            print("  ✓ NDEF header verified on tag")
-                        else:
-                            print("  ? Could not verify NDEF header")
+                        readback = nfc.ntag_read_page(CARD_PAGE)
+                    else:
+                        nfc.detect_tag(timeout=300)
+                        authed = False
+                        for key in COMMON_KEYS:
+                            for kt in (MIFARE_AUTH_A, MIFARE_AUTH_B):
+                                if nfc.mifare_auth(tag['uid'], CARD_PAGE, key, kt):
+                                    authed = True
+                                    break
+                            if authed:
+                                break
+                        readback = nfc.mifare_read(CARD_PAGE)[:4] if authed else None
+                    decoded = decode(readback) if readback else None
+                    if decoded == name:
+                        print(f"  ✓ Verified: card reads back as \"{decoded}\"")
+                    else:
+                        print(f"  ? Verify mismatch: read back {decoded!r}")
                 except Exception:
                     print("  ? Verify read failed (tag may have moved)")
         else:

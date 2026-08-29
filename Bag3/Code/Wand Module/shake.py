@@ -30,7 +30,7 @@ BUZZER_PIN, BUTTON_PIN, PN532_ADDR = 19, 0, 0x24
 COMMANDS = _EXIT_TAGS
 NFC_POLL_INTERVAL = 10
 LOOP_DELAY_MS = 40
-NUM_LEDS = 60
+NUM_LEDS = 25
 
 PICK_COLORS = [RED, GREEN, BLUE, YELLOW, PURPLE, PINK]
 
@@ -100,9 +100,9 @@ class ShakeGame:
         self.leds.off()
         n = min(level, NUM_LEDS)
         for i in range(n):
-            row = 9 - (i // 6)
-            col = i % 6
-            self.leds.np[row * 6 + col] = self.color
+            row = 4 - (i // 5)
+            col = i % 5
+            self.leds.np[row * 5 + col] = self.color
         self.leds.np.write()
 
     def run(self):
