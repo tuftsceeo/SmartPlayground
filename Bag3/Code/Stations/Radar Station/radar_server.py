@@ -46,6 +46,7 @@ class RadarServer:
             "raw": self.do_raw,
             "mode": self.do_mode,
             "tune": self.do_tune,
+            "version": self.do_version,
             "repl": self.do_repl,
             "reboot": self.do_reboot,
         }
@@ -89,6 +90,12 @@ class RadarServer:
             self.radar.set_multi_target()
         self.radar.end_config()
         self.link.send({"type": "mode", "id": rid, "value": which})
+
+    def do_version(self, cmd, rid):
+        v = self.radar.read_version()
+        v["type"] = "version"
+        v["id"] = rid
+        self.link.send(v)
 
     def do_tune(self, cmd, rid):
         """Live-adjust tracker/event thresholds. Any field omitted keeps

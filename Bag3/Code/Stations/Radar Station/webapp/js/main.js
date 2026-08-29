@@ -106,6 +106,8 @@ root.innerHTML = `
       <div class="p-3">
         <h2 class="text-xs uppercase tracking-wide text-neutral-500 mb-2">Info</h2>
         <div id="info-panel" class="text-sm space-y-1 font-mono"></div>
+        <button id="btn-ld2450-version" class="mt-2 px-2 py-1 rounded bg-neutral-800 hover:bg-neutral-700 text-xs" disabled>Query LD2450 firmware</button>
+        <div id="ld2450-version-panel" class="text-xs font-mono text-neutral-400 mt-1"></div>
       </div>
     </div>
   </div>
@@ -132,6 +134,8 @@ const historyPanel = document.getElementById("history-panel");
 const timingPanel = document.getElementById("timing-panel");
 const tuningPanel = document.getElementById("tuning-panel");
 const infoPanel = document.getElementById("info-panel");
+const btnLd2450Version = document.getElementById("btn-ld2450-version");
+const ld2450VersionPanel = document.getElementById("ld2450-version-panel");
 const monitorSection = document.getElementById("monitor-section");
 const monitorEl = document.getElementById("serial-monitor");
 const btnClearLog = document.getElementById("btn-clear-log");
@@ -618,6 +622,7 @@ btnConnect.addEventListener("click", async () => {
     btnStream.disabled = true;
     btnRaw.disabled = true;
     btnRecord.disabled = true;
+    btnLd2450Version.disabled = true;
     setTuningEnabled(false);
     statusEl.textContent = "disconnected";
     return;
@@ -686,6 +691,7 @@ function markRunning() {
   btnStream.disabled = false;
   btnRaw.disabled = false;
   btnRecord.disabled = false;
+  btnLd2450Version.disabled = false;
   setTuningEnabled(true);
 
   if (!state._streamStarted) {
@@ -731,6 +737,18 @@ btnRaw.addEventListener("click", async () => {
   dirty.plan = true;
   dirty.raw = true;
   requestFrame();
+});
+
+btnLd2450Version.addEventListener("click", async () => {
+  ld2450VersionPanel.textContent = "querying...";
+  try {
+    const v = await state.link.version();
+    ld2450VersionPanel.textContent = v.ok
+      ? `${v.version} (fw_type=${v.fw_type})`
+      : `no ack -- raw: ${v.raw_hex || "(no reply)"}`;
+  } catch (e) {
+    ld2450VersionPanel.textContent = `query failed: ${e.message}`;
+  }
 });
 
 redraw();

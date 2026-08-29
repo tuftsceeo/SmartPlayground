@@ -26,6 +26,7 @@ CMD_ENABLE_CONFIG = b"\xff\x00"
 CMD_END_CONFIG = b"\xfe\x00"
 CMD_SINGLE_TARGET = b"\x80\x00"
 CMD_MULTI_TARGET = b"\x90\x00"
+CMD_READ_VERSION = b"\xa0\x00"
 
 # Max unparsed bytes to buffer before dropping and resyncing.
 MAX_BUFFER = 512
@@ -39,6 +40,31 @@ def _decode_signed(lo, hi):
     if raw & 0x8000:
         return magnitude
     return -magnitude
+
+
+def _hex(data):
+    return "".join("%02x" % b for b in data) if data else ""
+
+
+def _parse_version_reply(reply):
+    """reply: raw bytes from CONFIG_HEADER through CONFIG_TAIL, as
+    returned by _read_config_reply(), for the 0x00A0 read-version
+    command. Layout: header(4) len(2) ack_word(2) status(2)
+    firmware_type(2) major(2) minor(4) tail(4) -- confirmed against the
+    datasheet's own worked example (bytes 02 01 16 24 06 22 -> "V1.02.
+    22062416"): each version byte is BCD -- its hex digits ARE the
+    intended decimal digits -- and the 4 minor bytes print in reverse
+    transmission order."""
+    if not reply or len(reply) < 18:
+        return {"ok": False, "raw_hex": _hex(reply)}
+    status = reply[8] | (reply[9] << 8)
+    if status != 0:
+        return {"ok": False, "raw_hex": _hex(reply)}
+    fw_type = reply[10] | (reply[11] << 8)
+    major_lo, major_hi = reply[12], reply[13]
+    build = "".join("%02x" % b for b in reversed(reply[14:18]))
+    version = "V%x.%02x.%s" % (major_hi, major_lo, build)
+    return {"ok": True, "fw_type": fw_type, "version": version, "raw_hex": _hex(reply)}
 
 
 class Target:
@@ -159,3 +185,14 @@ class LD2450:
     def set_single_target(self):
         self._send_config_cmd(CMD_SINGLE_TARGET)
         return self._read_config_reply()
+
+    def read_version(self):
+        """Query the LD2450's own onboard firmware version (distinct from
+        the ESP32's MicroPython version). Returns a dict; see
+        _parse_version_reply() for the layout, confirmed against the
+        datasheet's own worked example."""
+        self.enable_config()
+        self._send_config_cmd(CMD_READ_VERSION)
+        reply = self._read_config_reply()
+        self.end_config()
+        return _parse_version_reply(reply)

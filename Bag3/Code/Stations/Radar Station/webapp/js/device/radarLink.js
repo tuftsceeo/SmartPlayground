@@ -218,6 +218,13 @@ export class RadarLink {
     return this.send({ cmd: "tune", ...params }, { timeoutMs: 2000 });
   }
 
+  /** Queries the LD2450 sensor's own onboard firmware version (distinct
+   * from radar_server.py's VERSION). Drops into and back out of the
+   * sensor's config mode, so it's slower (~1s) than other commands. */
+  version() {
+    return this.send({ cmd: "version" }, { timeoutMs: 3000 });
+  }
+
   async enterRepl() {
     const p = this.send({ cmd: "repl" }, { timeoutMs: 2000 }).catch(() => {});
     await p;
