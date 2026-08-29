@@ -1,0 +1,833 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<script src="./image-slot.js"></script>
+<style>
+  body{margin:0;background:#f7ecf6;font-family:'Nunito',sans-serif}
+  a{color:#3e8b7f}
+  a:hover{color:#2f6b5c}
+  @keyframes devicePulse{0%,100%{opacity:1}50%{opacity:.35}}
+</style>
+</helmet>
+<div style="width:1200px;margin:28px auto;background:#fff4fb;border-radius:20px;box-shadow:0 18px 44px rgba(150,20,110,.16);color:#3a1f3a;overflow:hidden">
+
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 26px;border-bottom:2px solid #f4d9ee">
+    <div style="display:flex;align-items:center;gap:16px">
+      <div style="display:flex;align-items:center;gap:8px;font:700 17px 'Nunito'"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.17 6.83a1 1 0 0 0-3.99-3.99L4.84 16.17a2 2 0 0 0-.5.83l-1.32 4.35a.5.5 0 0 0 .62.62l4.35-1.32a2 2 0 0 0 .83-.5Z"></path><path d="m15 5 4 4"></path></svg>apple</div>
+      <sc-if value="{{ advanced }}">
+      <span style="font:700 11px 'Nunito';color:#9c5f9c;background:#f7dff3;border-radius:7px;padding:4px 9px">exact &middot; {{ detail }} segments</span>
+      </sc-if>
+      <div style="display:flex;align-items:center;gap:4px;padding-left:12px;border-left:2px solid #f4d9ee">
+        <div style="width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#9c5f9c;cursor:pointer" title="New"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"></path><path d="M14 2v6h6"></path><path d="M12 18v-6"></path><path d="M9 15h6"></path></svg></div>
+        <div style="width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#9c5f9c;cursor:pointer" title="Open"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 14 1.45-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.55 6a2 2 0 0 1-1.94 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2"></path></svg></div>
+        <div style="width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#9c5f9c;cursor:pointer" title="Save"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z"></path><path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"></path><path d="M7 3v4a1 1 0 0 0 1 1h7a1 1 0 0 0 1-1V3"></path></svg></div>
+        <div style="width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#9c5f9c;cursor:pointer" title="Rename"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.17 6.83a1 1 0 0 0-3.99-3.99L4.84 16.17a2 2 0 0 0-.5.83l-1.32 4.35a.5.5 0 0 0 .62.62l4.35-1.32a2 2 0 0 0 .83-.5Z"></path><path d="m15 5 4 4"></path></svg></div>
+        <div onClick="{{ undo }}" style="width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:{{ undoColor }};opacity:{{ undoOpacity }};cursor:pointer" title="Undo"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"></path><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"></path></svg></div>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <sc-if value="{{ advanced }}">
+      <select onChange="{{ setProfile }}" value="{{ profile }}" style="font:700 12px 'Nunito';border:2px solid #f4d9ee;border-radius:9px;padding:7px 10px;background:#fff;color:#823f82">
+        <option value="matrix16">Icon Matrix 16&times;16</option>
+        <option value="wand5">Wand 5&times;5</option>
+      </select>
+      </sc-if>
+      <div onClick="{{ toggleAdjust }}" title="Pixelation &amp; segment colors" style="width:38px;height:38px;border-radius:11px;background:{{ adjustBtnBg }};border:2px solid #a9871f;color:#8a6d15;display:flex;align-items:center;justify-content:center;cursor:pointer">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="4" height="18" x="2" y="3" rx="1"></rect><rect width="4" height="18" x="10" y="3" rx="1"></rect><circle cx="18.5" cy="18.5" r="3.2"></circle><path d="M18.5 15.3v1.1M18.5 20.6v1.1M21.7 18.5h-1.1M16.4 18.5h-1.1M20.6 16.4l-.8.8M17.2 19.8l-.8.8M20.6 20.6l-.8-.8M17.2 17.2l-.8-.8"></path></svg>
+      </div>
+      <div onClick="{{ toggleAdvanced }}" title="Advanced mode" style="width:38px;height:38px;border-radius:11px;background:{{ gearBg }};display:flex;align-items:center;justify-content:center;color:{{ gearColor }};cursor:pointer">&#9881;</div>
+      <div title="Download" style="width:38px;height:38px;background:#fbdad6;border:2px solid #b95d52;color:#8a3a30;border-radius:11px;display:flex;align-items:center;justify-content:center">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"></path><path d="m7 10 5 5 5-5"></path><path d="M5 21h14"></path></svg>
+      </div>
+      <div style="position:relative">
+        <div onClick="{{ toggleDevicePanel }}" title="Device" style="width:38px;height:38px;background:{{ deviceBtnBg }};border:2px solid {{ deviceBtnBorder }};color:{{ deviceBtnColor }};border-radius:11px;display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22v-5"></path><path d="M9 8V2"></path><path d="M15 8V2"></path><path d="M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8Z"></path></svg>
+          <span style="position:absolute;top:-3px;right:-3px;width:11px;height:11px;border-radius:50%;background:{{ deviceDotColor }};border:2px solid #fff4fb;animation:{{ deviceDotAnim }}"></span>
+        </div>
+
+        <sc-if value="{{ devicePanelOpen }}">
+        <div style="position:absolute;right:0;top:100%;margin-top:8px;width:300px;background:#fdf0fb;border:2.5px solid #3a1f3a;border-radius:14px;box-shadow:4px 6px 0 rgba(0,0,0,.14);padding:14px;display:flex;flex-direction:column;gap:11px;z-index:20;font-family:'Nunito';color:#3a1f3a">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <span style="font:700 13px 'Nunito'">Device</span>
+            <span onClick="{{ toggleDevicePanel }}" style="color:#c48bc4;cursor:pointer;font-size:18px;line-height:1">&times;</span>
+          </div>
+
+          <sc-if value="{{ deviceOff }}">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="width:9px;height:9px;border-radius:50%;background:#c9c0aa"></span>
+            <span style="font:600 12.5px 'Nunito';color:#9c5f9c">Not connected</span>
+          </div>
+          <div onClick="{{ connectDevice }}" style="font:700 13px 'Nunito';padding:9px 12px;border-radius:11px;background:#3e8b7f;color:#fff;text-align:center;cursor:pointer">Connect device</div>
+          </sc-if>
+
+          <sc-if value="{{ deviceWaiting }}">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="width:9px;height:9px;border-radius:50%;background:#e2a93d;animation:devicePulse 1.4s ease-in-out infinite"></span>
+            <span style="font:600 12.5px 'Nunito';color:#8a6d15">Connected &middot; waiting for device&hellip;</span>
+          </div>
+          <div style="font:600 11px 'Nunito';color:#c48bc4;line-height:1.4">Powering up the icon firmware &mdash; this can take a few seconds.</div>
+          <div onClick="{{ simulateStuck }}" style="font:600 10.5px 'Nunito';color:#c48bc4;text-decoration:underline;cursor:pointer;width:fit-content">not settling? check for stuck firmware</div>
+          <div onClick="{{ disconnectDevice }}" style="font:700 12px 'Nunito';padding:7px 12px;border-radius:10px;background:#f7dff3;color:#823f82;text-align:center;cursor:pointer">Disconnect</div>
+          </sc-if>
+
+          <sc-if value="{{ deviceAtRepl }}">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="width:9px;height:9px;border-radius:50%;background:#b95d52"></span>
+            <span style="font:600 12.5px 'Nunito';color:#8a3a30">At MicroPython prompt &mdash; firmware not running</span>
+          </div>
+          <div style="font:600 11px 'Nunito';color:#c48bc4;line-height:1.4">The board is sitting at &gt;&gt;&gt; and only echoes commands. Restart the firmware to get it running again.</div>
+          <div onClick="{{ restartFirmware }}" style="font:700 13px 'Nunito';padding:9px 12px;border-radius:11px;background:#3e8b7f;color:#fff;text-align:center;cursor:pointer">Restart firmware</div>
+          <div onClick="{{ disconnectDevice }}" style="font:700 12px 'Nunito';padding:7px 12px;border-radius:10px;background:#f7dff3;color:#823f82;text-align:center;cursor:pointer">Disconnect</div>
+          </sc-if>
+
+          <sc-if value="{{ deviceRunning }}">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="width:9px;height:9px;border-radius:50%;background:#4c9463"></span>
+            <span style="font:600 12.5px 'Nunito';color:#356b47">Connected &middot; {{ deviceMemLabel }}</span>
+            <span onClick="{{ disconnectDevice }}" style="margin-left:auto;font:600 11px 'Nunito';color:#c48bc4;text-decoration:underline;cursor:pointer">disconnect</span>
+          </div>
+
+          <div onClick="{{ toggleShowOnDevice }}" style="display:flex;align-items:center;justify-content:space-between;border:2px solid #f4d9ee;border-radius:11px;padding:8px 10px;cursor:pointer">
+            <span style="font:700 12.5px 'Nunito';color:#823f82">Show on device</span>
+            <div style="width:32px;height:18px;border-radius:99px;background:{{ pushSwitchBg }};position:relative"><div style="position:absolute;top:2px;left:{{ pushKnobLeft }};width:14px;height:14px;border-radius:50%;background:#fff;transition:left .15s"></div></div>
+          </div>
+
+          <sc-if value="{{ deviceRefusal }}">
+          <div style="background:#fbdad6;border:2px solid #b95d52;border-radius:11px;padding:10px;font:600 11.5px 'Nunito';color:#8a3a30;line-height:1.5">
+            Too bright for the connected power &mdash; est. {{ refusalEstMa }}mA exceeds the {{ refusalCeilingMa }}mA limit.
+            <div style="display:flex;gap:10px;margin-top:6px">
+              <span onClick="{{ applySuggestedIntensity }}" style="text-decoration:underline;cursor:pointer">lower brightness to {{ refusalSuggestedPct }}%</span>
+              <span onClick="{{ flashAnyway }}" style="text-decoration:underline;cursor:pointer">flash anyway (2s)</span>
+            </div>
+          </div>
+          </sc-if>
+
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <span style="font:700 11.5px 'Nunito';color:#9c5f9c;text-transform:uppercase;letter-spacing:.03em">on-device icons</span>
+            <span onClick="{{ refreshDeviceIcons }}" style="font:600 11px 'Nunito';color:#c48bc4;text-decoration:underline;cursor:pointer">refresh</span>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:6px;max-height:120px;overflow-y:auto">
+            <sc-for list="{{ deviceIconRows }}" as="ic" hint-placeholder-count="2">
+              <div style="display:flex;align-items:center;gap:8px;border:2px solid #f4d9ee;border-radius:9px;padding:6px 9px">
+                <span style="flex:1;font:700 12px 'Nunito';color:#3a1f3a">{{ ic.name }} <span style="font:600 10.5px 'Nunito';color:#c48bc4">({{ ic.bytes }}B)</span></span>
+                <span onClick="{{ ic.onDelete }}" style="font:700 11px 'Nunito';color:#b95d52;cursor:pointer">del</span>
+              </div>
+            </sc-for>
+            <sc-if value="{{ deviceIconsEmpty }}"><span style="font:600 11.5px 'Nunito';color:#c9c0aa">none yet</span></sc-if>
+          </div>
+          <div onClick="{{ saveToDevice }}" style="font:700 13px 'Nunito';padding:9px 12px;border-radius:11px;background:#3e8b7f;color:#fff;text-align:center;cursor:pointer">Save current icon to device</div>
+          </sc-if>
+        </div>
+        </sc-if>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:20px;padding:22px 26px">
+
+    <div style="width:96px;display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;flex-direction:column;gap:5px">
+        <span style="font:700 10.5px 'Nunito';color:#c48bc4;text-align:center">source photo</span>
+        <div style="width:88px;height:88px">
+          <image-slot id="source-photo" shape="rounded" radius="12" placeholder="drop photo"></image-slot>
+        </div>
+        <div onClick="{{ openCrop }}" style="font:700 10px 'Nunito';color:#3e8b7f;text-align:center;cursor:pointer">crop &amp; scale&hellip;</div>
+      </div>
+      <div onClick="{{ setDraw }}" title="Draw" style="background:{{ drawBtnBg }};border:2.5px solid {{ drawBtnBorder }};border-radius:13px;height:48px;display:flex;align-items:center;justify-content:center;color:{{ drawBtnColor }};cursor:pointer">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.17 6.83a1 1 0 0 0-3.99-3.99L4.84 16.17a2 2 0 0 0-.5.83l-1.32 4.35a.5.5 0 0 0 .62.62l4.35-1.32a2 2 0 0 0 .83-.5Z"></path><path d="m15 5 4 4"></path></svg></div>
+      <div onClick="{{ setErase }}" title="Erase (set to off)" style="background:{{ eraseBtnBg }};border:2.5px solid {{ eraseBtnBorder }};border-radius:13px;height:48px;display:flex;align-items:center;justify-content:center;color:{{ eraseBtnColor }};cursor:pointer">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21Z"></path><path d="M22 21H7"></path><path d="m5 11 9 9"></path></svg></div>
+      <div onClick="{{ setResetPixel }}" title="Reset pixel to auto colour" style="background:{{ resetBtnBg }};border:2.5px solid {{ resetBtnBorder }};border-radius:13px;height:48px;display:flex;align-items:center;justify-content:center;color:{{ resetBtnColor }};cursor:pointer">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 7 8.7 2.7a2.4 2.4 0 0 0-3.4 0L2.7 5.3a2.4 2.4 0 0 0 0 3.4L7 13"></path><path d="M8 21h12"></path><path d="m15.5 5.5 3 3"></path><line x1="2" y1="2" x2="22" y2="22"></line></svg></div>
+    </div>
+
+    <div style="flex:1;display:flex;align-items:center;justify-content:center">
+      <div style="width:380px;height:380px;border-radius:14px;overflow:hidden;box-shadow:0 6px 0 rgba(0,0,0,.08);background:#0d0d0d;display:grid;grid-template-columns:repeat(16,1fr);cursor:{{ heroCursor }}">
+        <sc-for list="{{ heroCells }}" as="cell" hint-placeholder-count="256"><div onClick="{{ cell.onClick }}" style="width:23.75px;height:23.75px;background:{{ cell.bg }};box-shadow:inset 0 0 0 1px rgba(255,255,255,.09)"></div></sc-for>
+      </div>
+    </div>
+
+    <div style="width:200px;display:flex;flex-direction:column;gap:14px">
+      <div style="background:#fff;border:2px solid #f4d9ee;border-radius:14px;padding:14px 12px;display:flex;flex-direction:column;gap:10px;position:relative">
+        <span style="font:700 12px 'Nunito';color:#9c5f9c;text-transform:uppercase;letter-spacing:.03em">Palette</span>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center">
+          <sc-for list="{{ paletteSwatches }}" as="sw" hint-placeholder-count="4">
+            <div onClick="{{ sw.onClick }}" style="width:24px;height:54px;border:{{ sw.borderWidth }} solid #3a1f3a;border-radius:3px 3px 8px 8px;background:{{ sw.hex }};cursor:pointer;box-shadow:{{ sw.ring }}" title="{{ sw.name }}"></div>
+          </sc-for>
+          <div onClick="{{ toggleCrayonPopup }}" style="width:24px;height:54px;border:2.5px dashed #c48bc4;border-radius:3px 3px 8px 8px;display:flex;align-items:center;justify-content:center;font:700 14px 'Nunito';color:#c48bc4;cursor:pointer">+</div>
+        </div>
+        <sc-if value="{{ crayonPopupOpen }}">
+        <div style="position:absolute;left:10px;right:10px;top:100%;margin-top:8px;background:#fdf0fb;border:2.5px solid #3a1f3a;border-radius:14px;box-shadow:4px 6px 0 rgba(0,0,0,.14);padding:12px;display:flex;flex-direction:column;gap:9px;z-index:5">
+          <div style="display:flex;justify-content:space-between;align-items:center"><span style="font:700 12px 'Nunito';color:#823f82">pick a colour &middot; {{ familyLabel }}</span><span onClick="{{ toggleCrayonPopup }}" style="color:#c48bc4;cursor:pointer">&times;</span></div>
+          <div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:center">
+            <sc-for list="{{ familyTabs }}" as="fam" hint-placeholder-count="10">
+              <div onClick="{{ fam.onClick }}" style="width:18px;height:18px;border-radius:50%;background:{{ fam.dot }};border:{{ fam.ringW }} solid #3a1f3a;cursor:pointer" title="{{ fam.name }}"></div>
+            </sc-for>
+          </div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center;border-top:1.5px dashed #edc9e7;padding-top:8px">
+            <sc-for list="{{ currentSwatches }}" as="ex" hint-placeholder-count="6">
+              <div onClick="{{ ex.onClick }}" style="width:20px;height:46px;border:2px solid #3a1f3a;border-radius:3px 3px 8px 8px;background:{{ ex.hex }};cursor:pointer" title="{{ ex.name }}"></div>
+            </sc-for>
+          </div>
+          <sc-if value="{{ advanced }}">
+          <div style="border-top:1.5px dashed #edc9e7;padding-top:8px;display:flex;flex-direction:column;gap:7px">
+            <span style="font:700 11px 'Nunito';color:#823f82">fine-tune RGB</span>
+            <div style="display:flex;align-items:center;gap:8px">
+              <div style="width:28px;height:28px;border-radius:7px;border:2px solid #3a1f3a;background:{{ rgbPreviewHex }};flex:none"></div>
+              <input type="text" value="{{ rgbHexInput }}" onChange="{{ setRgbHex }}" style="width:78px;font:700 11.5px monospace;border:1.5px solid #edc9e7;border-radius:6px;padding:4px 7px">
+            </div>
+            <div style="display:flex;align-items:center;gap:6px"><span style="font:700 10px 'Nunito';color:#b95d52;width:12px">R</span><input type="range" min="0" max="255" value="{{ rgbR }}" onInput="{{ setRgbR }}" style="flex:1;accent-color:#b95d52"><span style="font:700 10px monospace;width:26px;text-align:right">{{ rgbR }}</span></div>
+            <div style="display:flex;align-items:center;gap:6px"><span style="font:700 10px 'Nunito';color:#4c9463;width:12px">G</span><input type="range" min="0" max="255" value="{{ rgbG }}" onInput="{{ setRgbG }}" style="flex:1;accent-color:#4c9463"><span style="font:700 10px monospace;width:26px;text-align:right">{{ rgbG }}</span></div>
+            <div style="display:flex;align-items:center;gap:6px"><span style="font:700 10px 'Nunito';color:#3f6ea8;width:12px">B</span><input type="range" min="0" max="255" value="{{ rgbB }}" onInput="{{ setRgbB }}" style="flex:1;accent-color:#3f6ea8"><span style="font:700 10px monospace;width:26px;text-align:right">{{ rgbB }}</span></div>
+            <div onClick="{{ addFineTuneColor }}" style="font:700 12px 'Nunito';padding:7px;border-radius:9px;background:#3e8b7f;color:#fff;text-align:center;cursor:pointer">use this colour</div>
+          </div>
+          </sc-if>
+        </div>
+        </sc-if>
+      </div>
+      <div style="background:#fff;border:2px solid #f4d9ee;border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:8px;align-items:center">
+        <span style="font:700 12px 'Nunito';color:#9c5f9c;text-transform:uppercase;letter-spacing:.03em">LED preview</span>
+        <div style="width:96px;height:96px;border-radius:8px;overflow:hidden;background:#0c0c0c;display:grid;grid-template-columns:repeat(16,1fr)">
+          <sc-for list="{{ ledCells }}" as="c" hint-placeholder-count="256"><div style="width:6px;height:6px;background:{{ c }}"></div></sc-for>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;width:100%">
+          <span style="font-size:12px;color:#c48bc4">&#9728;</span>
+          <input type="range" min="10" max="100" value="{{ brightness }}" onInput="{{ setBrightness }}" style="flex:1;accent-color:#3e8b7f">
+          <span style="font:700 11px 'Nunito';color:#9c5f9c;width:26px;text-align:right">{{ brightnessLabel }}</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <sc-if value="{{ showAdjust }}">
+  <div style="border-top:2px solid #f4d9ee;background:#fef6fc;padding:22px 26px;display:flex;gap:26px">
+    <div style="width:230px;display:flex;flex-direction:column;gap:6px">
+      <span style="font:700 12px 'Nunito';color:#9c5f9c;text-transform:uppercase;letter-spacing:.03em">Segmentation result</span>
+      <div style="width:220px;height:220px;border-radius:12px;overflow:hidden;background:#0d0d0d;display:grid;grid-template-columns:repeat(16,1fr)">
+        <sc-for list="{{ segCells }}" as="c" hint-placeholder-count="256"><div style="width:13.75px;height:13.75px;background:{{ c }};box-shadow:inset 0 0 0 1px rgba(255,255,255,.08)"></div></sc-for>
+      </div>
+      <span style="font:600 11px 'Nunito';color:#c48bc4">the auto colour-fill, before your edits</span>
+    </div>
+    <div style="flex:1;display:flex;flex-direction:column;gap:14px">
+      <div style="background:#f7dff3;border-radius:11px;padding:10px 14px;font:700 13px 'Nunito';color:#823f82;width:fit-content">&#9986; Crop &amp; scale&hellip;</div>
+      <div style="display:flex;flex-direction:column;gap:6px;max-width:360px">
+        <span style="font:700 12.5px 'Nunito';color:#823f82">Detail &middot; {{ detail }} segments</span>
+        <div style="display:flex;align-items:center;gap:8px;font:600 11.5px 'Nunito';color:#c48bc4">
+          <span>fewer</span>
+          <input type="range" min="2" max="9" value="{{ detail }}" onInput="{{ setDetail }}" style="flex:1;accent-color:#3e8b7f">
+          <span>more</span>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px;max-width:360px;position:relative">
+        <sc-for list="{{ segRows }}" as="row" hint-placeholder-count="4">
+          <div style="display:flex;flex-direction:column;gap:7px;border:2px solid #f4d9ee;border-radius:11px;padding:8px 10px">
+            <div style="display:flex;align-items:center;gap:10px">
+              <div style="width:18px;height:38px;border:1.5px solid #3a1f3a;border-radius:2px 2px 7px 7px;background:{{ row.hex }};opacity:{{ row.dim }}"></div>
+              <span style="font:700 13px 'Nunito';flex:1">{{ row.name }}</span>
+              <sc-if value="{{ advanced }}">
+              <select onChange="{{ row.setRole }}" value="{{ row.role }}" style="font:700 10.5px 'Nunito';border:1.5px solid #edc9e7;border-radius:7px;padding:3px 5px;background:#fff;color:#823f82">
+                <option value="color">color</option>
+                <option value="off">off</option>
+                <option value="merge">merge</option>
+              </select>
+              </sc-if>
+              <div onClick="{{ row.toggle }}" style="width:32px;height:18px;border-radius:99px;background:{{ row.switchBg }};position:relative;cursor:pointer;flex:none"><div style="position:absolute;top:2px;left:{{ row.knobLeft }};width:14px;height:14px;border-radius:50%;background:#fff;transition:left .15s"></div></div>
+            </div>
+            <sc-if value="{{ advanced }}">
+            <div style="display:flex;align-items:center;gap:10px;padding-left:28px;flex-wrap:wrap">
+              <span style="font:600 10px 'Nunito';color:#c48bc4;font-family:monospace">rgb({{ row.r }},{{ row.g }},{{ row.b }})</span>
+              <span style="font:600 10px 'Nunito';color:#c48bc4">{{ row.coverage }} &middot; won {{ row.cellsWon }}</span>
+              <sc-if value="{{ row.isMerge }}">
+              <select onChange="{{ row.setMergeTarget }}" value="{{ row.mergeTarget }}" style="font:600 10px 'Nunito';border:1.5px solid #edc9e7;border-radius:6px;padding:2px 5px;background:#fff;color:#823f82">
+                <sc-for list="{{ row.mergeOptions }}" as="opt" hint-placeholder-count="3"><option value="{{ opt.value }}">{{ opt.label }}</option></sc-for>
+              </select>
+              </sc-if>
+              <div style="display:flex;align-items:center;gap:6px;flex:1;min-width:130px">
+                <span style="font:600 10px 'Nunito';color:#9c5f9c">priority</span>
+                <input type="range" min="0.1" max="3" step="0.1" value="{{ row.priority }}" onInput="{{ row.setPriority }}" style="flex:1;accent-color:#3e8b7f">
+                <span style="font:700 10px 'Nunito';color:#823f82;width:26px;text-align:right">{{ row.priority }}</span>
+              </div>
+            </div>
+            </sc-if>
+          </div>
+        </sc-for>
+        <div onClick="{{ toggleCrayonPopup2 }}" style="display:flex;align-items:center;gap:10px;border:2.5px dashed #dba8d6;border-radius:11px;padding:8px 10px;justify-content:center;cursor:pointer">
+          <span style="font:700 13px 'Nunito';color:#9c5f9c">+ add custom colour</span>
+        </div>
+        <sc-if value="{{ crayonPopupOpen2 }}">
+        <div style="position:absolute;left:0;right:0;top:100%;margin-top:8px;background:#fdf0fb;border:2.5px solid #3a1f3a;border-radius:14px;box-shadow:4px 6px 0 rgba(0,0,0,.14);padding:12px;display:flex;flex-direction:column;gap:9px;z-index:5">
+          <div style="display:flex;justify-content:space-between;align-items:center"><span style="font:700 12px 'Nunito';color:#823f82">pick a colour &middot; {{ familyLabel }}</span><span onClick="{{ toggleCrayonPopup2 }}" style="color:#c48bc4;cursor:pointer">&times;</span></div>
+          <div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:center">
+            <sc-for list="{{ familyTabs }}" as="fam" hint-placeholder-count="10">
+              <div onClick="{{ fam.onClick }}" style="width:18px;height:18px;border-radius:50%;background:{{ fam.dot }};border:{{ fam.ringW }} solid #3a1f3a;cursor:pointer" title="{{ fam.name }}"></div>
+            </sc-for>
+          </div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center;border-top:1.5px dashed #edc9e7;padding-top:8px">
+            <sc-for list="{{ currentSwatches }}" as="ex" hint-placeholder-count="6">
+              <div onClick="{{ ex.onClick }}" style="width:20px;height:46px;border:2px solid #3a1f3a;border-radius:3px 3px 8px 8px;background:{{ ex.hex }};cursor:pointer" title="{{ ex.name }}"></div>
+            </sc-for>
+          </div>
+          <sc-if value="{{ advanced }}">
+          <div style="border-top:1.5px dashed #edc9e7;padding-top:8px;display:flex;flex-direction:column;gap:7px">
+            <span style="font:700 11px 'Nunito';color:#823f82">fine-tune RGB</span>
+            <div style="display:flex;align-items:center;gap:8px">
+              <div style="width:28px;height:28px;border-radius:7px;border:2px solid #3a1f3a;background:{{ rgbPreviewHex }};flex:none"></div>
+              <input type="text" value="{{ rgbHexInput }}" onChange="{{ setRgbHex }}" style="width:78px;font:700 11.5px monospace;border:1.5px solid #edc9e7;border-radius:6px;padding:4px 7px">
+            </div>
+            <div style="display:flex;align-items:center;gap:6px"><span style="font:700 10px 'Nunito';color:#b95d52;width:12px">R</span><input type="range" min="0" max="255" value="{{ rgbR }}" onInput="{{ setRgbR }}" style="flex:1;accent-color:#b95d52"><span style="font:700 10px monospace;width:26px;text-align:right">{{ rgbR }}</span></div>
+            <div style="display:flex;align-items:center;gap:6px"><span style="font:700 10px 'Nunito';color:#4c9463;width:12px">G</span><input type="range" min="0" max="255" value="{{ rgbG }}" onInput="{{ setRgbG }}" style="flex:1;accent-color:#4c9463"><span style="font:700 10px monospace;width:26px;text-align:right">{{ rgbG }}</span></div>
+            <div style="display:flex;align-items:center;gap:6px"><span style="font:700 10px 'Nunito';color:#3f6ea8;width:12px">B</span><input type="range" min="0" max="255" value="{{ rgbB }}" onInput="{{ setRgbB }}" style="flex:1;accent-color:#3f6ea8"><span style="font:700 10px monospace;width:26px;text-align:right">{{ rgbB }}</span></div>
+            <div onClick="{{ addFineTuneColor }}" style="font:700 12px 'Nunito';padding:7px;border-radius:9px;background:#3e8b7f;color:#fff;text-align:center;cursor:pointer">use this colour</div>
+          </div>
+          </sc-if>
+        </div>
+        </sc-if>
+        <sc-if value="{{ advanced }}">
+        <div style="display:flex;flex-direction:column;gap:6px;border:2px solid #f4d9ee;border-radius:11px;padding:10px 12px;background:#fffef9">
+          <span style="font:700 11px 'Nunito';color:#9c5f9c;text-transform:uppercase;letter-spacing:.03em">Problems</span>
+          <sc-for list="{{ problems }}" as="p" hint-placeholder-count="2">
+            <div style="display:flex;gap:8px;align-items:flex-start;font:600 11.5px 'Nunito';color:{{ p.color }}">
+              <span>{{ p.icon }}</span><span>{{ p.text }}</span>
+            </div>
+          </sc-for>
+          <sc-if value="{{ noProblems }}"><span style="font:600 11.5px 'Nunito';color:#c9c0aa">no problems detected</span></sc-if>
+        </div>
+        </sc-if>
+      </div>
+    </div>
+  </div>
+  </sc-if>
+
+  <sc-if value="{{ advanced }}">
+  <div onClick="{{ toggleHw }}" style="display:flex;align-items:center;justify-content:space-between;background:#fdf0c8;border-top:2px solid #a9871f;padding:10px 26px;font:700 12.5px 'Nunito';color:#8a6d15;cursor:pointer">
+    <span>{{ hwChevron }} Hardware &amp; serial debug</span>
+    <span style="font:600 11.5px 'Nunito';color:#a9871f">firmware &middot; power injection &middot; probe</span>
+  </div>
+  <sc-if value="{{ hwOpen }}">
+  <div style="background:#fffbf0;border-top:2px solid #f0dba0;padding:20px 26px;display:flex;gap:20px;font-family:'Nunito'">
+    <div style="flex:1;display:flex;flex-direction:column;gap:8px;min-width:0">
+      <span style="font:700 11px 'Nunito';color:#8a6d15;text-transform:uppercase;letter-spacing:.03em">Serial monitor</span>
+      <div style="background:#1c1408;color:#e8d9a0;font-family:monospace;font-size:11px;border-radius:9px;padding:10px;height:150px;overflow-y:auto;display:flex;flex-direction:column;gap:2px">
+        <sc-for list="{{ serialLines }}" as="ln" hint-placeholder-count="6"><div>{{ ln }}</div></sc-for>
+      </div>
+      <div style="display:flex;gap:8px">
+        <input type="text" placeholder="send command..." value="{{ serialInput }}" onChange="{{ setSerialInput }}" style="flex:1;font:600 11px monospace;border:1.5px solid #f0dba0;border-radius:7px;padding:6px 8px">
+        <div onClick="{{ sendSerial }}" style="font:700 11px 'Nunito';padding:6px 12px;border-radius:7px;background:#a9871f;color:#fff;cursor:pointer">send</div>
+      </div>
+    </div>
+    <div style="width:190px;display:flex;flex-direction:column;gap:8px">
+      <span style="font:700 11px 'Nunito';color:#8a6d15;text-transform:uppercase;letter-spacing:.03em">Firmware</span>
+      <div onClick="{{ installFirmwareAction }}" style="font:700 12px 'Nunito';padding:8px;border-radius:9px;background:#fff;border:2px solid #e2c98f;color:#8a6d15;text-align:center;cursor:pointer">Install firmware&hellip;</div>
+      <div onClick="{{ restartFirmwareAction }}" style="font:700 12px 'Nunito';padding:8px;border-radius:9px;background:#fff;border:2px solid #e2c98f;color:#8a6d15;text-align:center;cursor:pointer">Restart firmware</div>
+      <div onClick="{{ probeDevice }}" style="font:700 12px 'Nunito';padding:8px;border-radius:9px;background:#fff;border:2px solid #e2c98f;color:#8a6d15;text-align:center;cursor:pointer">Probe device</div>
+      <span style="font:600 10.5px 'Nunito';color:#b9985a">{{ firmwareStatus }}</span>
+    </div>
+    <div style="width:190px;display:flex;flex-direction:column;gap:8px">
+      <span style="font:700 11px 'Nunito';color:#8a6d15;text-transform:uppercase;letter-spacing:.03em">Power</span>
+      <div onClick="{{ togglePowerInjection }}" style="display:flex;align-items:center;justify-content:space-between;border:2px solid #e2c98f;border-radius:9px;padding:7px 10px;cursor:pointer;background:#fff">
+        <span style="font:700 11.5px 'Nunito';color:#8a6d15">12V power injection</span>
+        <div style="width:30px;height:17px;border-radius:99px;background:{{ powerSwitchBg }};position:relative"><div style="position:absolute;top:2px;left:{{ powerKnobLeft }};width:13px;height:13px;border-radius:50%;background:#fff"></div></div>
+      </div>
+      <div style="font:600 11px 'Nunito';color:#8a6d15;background:#fff;border:2px solid #e2c98f;border-radius:9px;padding:8px 10px">
+        <div>est. draw</div>
+        <div style="font:700 16px monospace;color:{{ drawColor }}">{{ estimatedDrawMa }}mA</div>
+        <div style="font:600 9.5px 'Nunito';color:#b9985a">ceiling {{ drawCeilingMa }}mA</div>
+      </div>
+    </div>
+  </div>
+  </sc-if>
+  </sc-if>
+
+  <sc-if value="{{ cropOpen }}">
+  <div style="position:fixed;inset:0;background:rgba(43,35,32,.55);display:flex;align-items:center;justify-content:center;z-index:50;padding:20px">
+    <div style="background:#fff4fb;border:2.5px solid #3a1f3a;border-radius:20px;box-shadow:6px 10px 0 rgba(0,0,0,.2);width:720px;max-width:100%;display:flex;flex-direction:column;color:#3a1f3a;font-family:'Nunito',sans-serif">
+      <div style="display:flex;align-items:center;gap:10px;padding:14px 22px;border-bottom:2px solid #f4d9ee">
+        <span style="font:700 15px 'Nunito'">&#9986; Crop &amp; scale</span>
+        <span style="font:600 11.5px 'Nunito';color:#c48bc4">frame the photo before it enters the icon</span>
+        <span onClick="{{ closeCrop }}" style="margin-left:auto;color:#c48bc4;cursor:pointer;font-size:20px;line-height:1">&times;</span>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 190px;gap:18px;padding:20px 22px">
+        <div>
+          <div ref="{{ stageRef }}" style="position:relative;width:100%;height:280px;border-radius:12px;overflow:hidden;background:#0d0d0d">
+            <image-slot id="source-photo" shape="rect" placeholder="drop photo" style="width:100%;height:100%"></image-slot>
+            <div onMouseDown="{{ onCropDown }}" style="position:absolute;left:{{ cropLeft }};top:{{ cropTop }};width:{{ cropSize }};height:{{ cropSize }};border:2.5px dashed #fff;box-shadow:0 0 0 2000px rgba(0,0,0,.45);cursor:move">
+              <div style="position:absolute;top:33.3%;bottom:33.3%;left:0;right:0;border-top:1px solid rgba(255,255,255,.5);border-bottom:1px solid rgba(255,255,255,.5)"></div>
+              <div style="position:absolute;left:33.3%;right:33.3%;top:0;bottom:0;border-left:1px solid rgba(255,255,255,.5);border-right:1px solid rgba(255,255,255,.5)"></div>
+              <div style="position:absolute;width:9px;height:9px;background:#fff;border-radius:50%;left:-4.5px;top:-4.5px"></div>
+              <div style="position:absolute;width:9px;height:9px;background:#fff;border-radius:50%;right:-4.5px;top:-4.5px"></div>
+              <div style="position:absolute;width:9px;height:9px;background:#fff;border-radius:50%;left:-4.5px;bottom:-4.5px"></div>
+              <div style="position:absolute;width:9px;height:9px;background:#fff;border-radius:50%;right:-4.5px;bottom:-4.5px"></div>
+            </div>
+          </div>
+
+          <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px">
+            <sc-for list="{{ cropPresets }}" as="p" hint-placeholder-count="3">
+              <div onClick="{{ p.onClick }}" style="font:700 12px 'Nunito';padding:7px 12px;border-radius:9px;background:#fff;border:2px solid #f4d9ee;color:#823f82;cursor:pointer">{{ p.label }}</div>
+            </sc-for>
+          </div>
+
+          <sc-if value="{{ advanced }}">
+          <div style="display:flex;align-items:center;gap:16px;margin-top:10px;font:600 11.5px 'Nunito';color:#9c5f9c">
+            <div onClick="{{ toggleLockSquare }}" style="display:flex;align-items:center;gap:6px;cursor:pointer">
+              <div style="width:16px;height:16px;border-radius:4px;border:2px solid #9c5f9c;background:{{ lockSquareBg }};display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px">{{ lockSquareCheck }}</div>
+              lock to square
+            </div>
+            <div style="display:flex;align-items:center;gap:6px">
+              smoothing
+              <select onChange="{{ setSmoothing }}" value="{{ smoothing }}" style="font:600 11.5px 'Nunito';border:2px solid #f4d9ee;border-radius:7px;padding:3px 6px;background:#fff;color:#823f82">
+                <option value="auto">auto</option>
+                <option value="on">on (blend)</option>
+                <option value="off">off (nearest)</option>
+              </select>
+            </div>
+          </div>
+          </sc-if>
+
+          <div style="font:600 11px 'Nunito';color:{{ hintColor }};margin-top:10px;line-height:1.4">{{ hintText }}</div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div>
+            <span style="font:700 11px 'Nunito';color:#9c5f9c;text-transform:uppercase;letter-spacing:.03em">framing preview</span>
+            <div style="width:130px;height:130px;border-radius:10px;overflow:hidden;background:#0d0d0d;border:2px solid #3a1f3a;margin-top:6px">
+              <image-slot id="source-photo" shape="rect" placeholder="drop photo" style="width:100%;height:100%"></image-slot>
+            </div>
+          </div>
+          <div style="font:600 10.5px 'Nunito';color:#c48bc4;line-height:1.4">shows silhouette &amp; framing only &mdash; final colours come from segmentation after you apply</div>
+          <sc-if value="{{ advanced }}">
+          <div style="font:600 11px 'Nunito';color:#9c5f9c;border-top:1.5px dashed #edc9e7;padding-top:8px">{{ statsText }}</div>
+          </sc-if>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:10px;padding:14px 22px;border-top:2px solid #f4d9ee">
+        <div onClick="{{ closeCrop }}" style="margin-left:auto;font:700 13px 'Nunito';padding:9px 16px;border-radius:11px;background:#f7dff3;color:#823f82;cursor:pointer">Cancel</div>
+        <div onClick="{{ applyCrop }}" style="font:700 13px 'Nunito';padding:9px 16px;border-radius:11px;background:#3e8b7f;color:#fff;cursor:pointer">Apply</div>
+      </div>
+    </div>
+  </div>
+  </sc-if>
+
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+const TOKEN_HEX = { r: '#7e0000', g: '#418b00', b: '#782800', p: '#ff0095' };
+const TOKEN_NAME = { r: 'Cherry red', g: 'Leaf green', b: 'Bark brown', p: 'Berry pink' };
+const BASE_ROWS = [
+  [0,0,0,0,0,0,0,0,0,'g','g',0,0,0,0,0],
+  [0,0,0,0,0,0,0,0,'g','g','g',0,0,0,0,0],
+  [0,0,0,0,0,0,'b','b','g','g','g',0,0,0,0,0],
+  [0,0,0,0,0,0,0,'b','g',0,0,0,0,0,0,0],
+  [0,0,0,'r','r','r','r','b',0,'r','r','r','r',0,0,0],
+  [0,0,'r','r','p','p','r','r','r','r','r','r','r','r',0,0],
+  [0,0,'r','p','r','r','r','r','r','r','r','r','r','r',0,0],
+  [0,0,'r','r','r','r','r','r','r','r','r','r','r','r',0,0],
+  [0,'r','r','r','r','r','r','r','r','r','r','r','r','r','r',0],
+  [0,'r','r','r','r','r','r','r','r','r','r','r','r','r','r',0],
+  [0,'r','r','r','r','r','r','r','r','r','r','r','r','r','r',0],
+  [0,0,'r','r','r','r','r','r','r','r','r','r','r','r',0,0],
+  [0,0,'r','r','r','r','r','r','r','r','r','r','r','r',0,0],
+  [0,0,0,'r','r','r','r','r','r','r','r','r','r',0,0,0],
+  [0,0,0,'r','r','r','r','r','r','r','r','r','r',0,0,0],
+  [0,0,0,0,0,'r','r','r','r','r','r',0,0,0,0,0],
+];
+const BASE_FLAT = BASE_ROWS.flat();
+function baseHex() { return BASE_FLAT.map(t => t === 0 ? null : TOKEN_HEX[t]); }
+function hexToRgb(hex) {
+  const n = parseInt(hex.slice(1), 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+function makeCursor(pathInner, color) {
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='22' height='22' viewBox='0 0 24 24' fill='none' stroke='${color}' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'>${pathInner}</svg>`;
+  return `url("data:image/svg+xml;utf8,${svg.replace(/#/g, '%23')}") 2 20, crosshair`;
+}
+const PENCIL_CURSOR = "<path d='M21.17 6.83a1 1 0 0 0-3.99-3.99L4.84 16.17a2 2 0 0 0-.5.83l-1.32 4.35a.5.5 0 0 0 .62.62l4.35-1.32a2 2 0 0 0 .83-.5Z'/><path d='m15 5 4 4'/>";
+const ERASER_CURSOR = "<path d='m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21Z'/><path d='M22 21H7'/>";
+const PENCILOFF_CURSOR = "<path d='M13 7 8.7 2.7a2.4 2.4 0 0 0-3.4 0L2.7 5.3a2.4 2.4 0 0 0 0 3.4L7 13'/><path d='M8 21h12'/><path d='m15.5 5.5 3 3'/>";
+
+const FAMILIES = [
+  { name: 'Reds', swatches: [{ hex: '#7e0000', name: 'Cherry Red' }, { hex: '#c0392b', name: 'Brick Red' }, { hex: '#e74c3c', name: 'Tomato' }, { hex: '#ff6f61', name: 'Coral' }, { hex: '#a53860', name: 'Cranberry' }, { hex: '#5c1a1a', name: 'Maroon' }] },
+  { name: 'Oranges', swatches: [{ hex: '#d35400', name: 'Pumpkin' }, { hex: '#e67e22', name: 'Tangerine' }, { hex: '#f39c12', name: 'Marigold' }, { hex: '#ff9f43', name: 'Apricot' }, { hex: '#b9770e', name: 'Amber' }, { hex: '#7f4a1e', name: 'Rust' }] },
+  { name: 'Yellows', swatches: [{ hex: '#a9871f', name: 'Honey' }, { hex: '#f1c40f', name: 'Lemon' }, { hex: '#f7dc6f', name: 'Butter' }, { hex: '#e2c290', name: 'Sand' }, { hex: '#d4ac0d', name: 'Mustard' }, { hex: '#8e7a1b', name: 'Olive Gold' }] },
+  { name: 'Greens', swatches: [{ hex: '#418b00', name: 'Leaf Green' }, { hex: '#27ae60', name: 'Shamrock' }, { hex: '#2ecc71', name: 'Grass' }, { hex: '#82c46c', name: 'Pistachio' }, { hex: '#145a32', name: 'Forest' }, { hex: '#4c9463', name: 'Fern' }] },
+  { name: 'Teals', swatches: [{ hex: '#16a085', name: 'Teal' }, { hex: '#3e8b7f', name: 'Spruce' }, { hex: '#48c9b0', name: 'Mint' }, { hex: '#0e6251', name: 'Deep Sea' }, { hex: '#76d7c4', name: 'Seafoam' }, { hex: '#1abc9c', name: 'Jade' }] },
+  { name: 'Blues', swatches: [{ hex: '#3f6ea8', name: 'Sky Blue' }, { hex: '#2980b9', name: 'Ocean' }, { hex: '#5dade2', name: 'Cornflower' }, { hex: '#1b4f72', name: 'Navy' }, { hex: '#85c1e9', name: 'Robin Egg' }, { hex: '#154360', name: 'Midnight' }] },
+  { name: 'Purples', swatches: [{ hex: '#8a4a92', name: 'Grape' }, { hex: '#9b59b6', name: 'Amethyst' }, { hex: '#c39bd3', name: 'Lavender' }, { hex: '#6c3483', name: 'Plum' }, { hex: '#af7ac5', name: 'Orchid' }, { hex: '#4a235a', name: 'Eggplant' }] },
+  { name: 'Pinks', swatches: [{ hex: '#ff0095', name: 'Berry Pink' }, { hex: '#c14971', name: 'Rose' }, { hex: '#f1948a', name: 'Blush' }, { hex: '#e91e8c', name: 'Magenta' }, { hex: '#f8c8dc', name: 'Cotton Candy' }, { hex: '#8e2452', name: 'Wine' }] },
+  { name: 'Browns', swatches: [{ hex: '#782800', name: 'Bark Brown' }, { hex: '#6e4423', name: 'Chestnut' }, { hex: '#a9744f', name: 'Caramel' }, { hex: '#4a2c0f', name: 'Espresso' }, { hex: '#c69c6d', name: 'Tan' }, { hex: '#3e2723', name: 'Coffee' }] },
+  { name: 'Grays', swatches: [{ hex: '#4a4a4a', name: 'Charcoal' }, { hex: '#7f7f7f', name: 'Slate' }, { hex: '#b0b0b0', name: 'Fog' }, { hex: '#e8c2e2', name: 'Stone' }, { hex: '#3a1f3a', name: 'Ink' }, { hex: '#ffffff', name: 'Snow White' }] },
+];
+
+class Component extends DCLogic {
+  state = {
+    tool: 'draw', activeColor: '#7e0000', pixels: baseHex(),
+    segOn: { r: true, g: true, b: true, p: true },
+    showAdjust: false, detail: 5, brightness: 70,
+    customColors: [], crayonPopupOpen: false, crayonPopupOpen2: false,
+    history: [], advanced: false, activeFamily: 0,
+    profile: 'matrix16',
+    segRoles: { r: 'color', g: 'color', b: 'color', p: 'color' },
+    segMergeTarget: { r: null, g: null, b: null, p: null },
+    segPriority: { r: 0.5, g: 0.6, b: 1.1, p: 2.5 },
+    rgb: { r: 126, g: 0, b: 0 },
+    hwOpen: false, powerInjected: false, serialInput: '',
+    serialLines: ['>>> import icon_matrix', '>>> m = icon_matrix.Matrix()', 'ready.'],
+    cropOpen: false, crop: { x: 15, y: 15, size: 70 }, lockSquare: true, smoothing: 'auto',
+    devicePanelOpen: false,
+    device: { phase: 'off', pushEnabled: false, memFreeKb: 47, refusal: null, icons: [{ name: 'apple', bytes: 212 }] },
+  };
+  stageRef = React.createRef();
+
+  onCropDown(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    const stageEl = this.stageRef.current;
+    if (!stageEl) return;
+    const rect = stageEl.getBoundingClientRect();
+    const startX = e.clientX, startY = e.clientY;
+    const startCrop = { ...this.state.crop };
+    const onMove = (ev) => {
+      const dx = (ev.clientX - startX) / rect.width * 100;
+      const dy = (ev.clientY - startY) / rect.height * 100;
+      const maxPos = 100 - startCrop.size;
+      const x = Math.max(0, Math.min(maxPos, startCrop.x + dx));
+      const y = Math.max(0, Math.min(maxPos, startCrop.y + dy));
+      this.setState({ crop: { ...startCrop, x, y } });
+    };
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  }
+  setCropPreset(name) {
+    const presets = { whole: { x: 0, y: 0, size: 100 }, fill: { x: 7.5, y: 7.5, size: 85 }, reset: { x: 15, y: 15, size: 70 } };
+    this.setState({ crop: presets[name] });
+  }
+
+  paint(i) {
+    const s = this.state;
+    let val;
+    if (s.tool === 'erase') val = null;
+    else if (s.tool === 'resetPixel') { const t = BASE_FLAT[i]; val = t === 0 ? null : TOKEN_HEX[t]; }
+    else val = s.activeColor;
+    if (s.pixels[i] === val) return;
+    const prev = s.pixels.slice();
+    const next = prev.slice();
+    next[i] = val;
+    this.setState({ pixels: next, history: [...s.history, prev].slice(-25) });
+  }
+  undo() {
+    this.setState(s => {
+      if (!s.history.length) return null;
+      const h = s.history.slice();
+      const prev = h.pop();
+      return { pixels: prev, history: h };
+    });
+  }
+  toggleSeg(k) { this.setState(s => ({ segOn: { ...s.segOn, [k]: !s.segOn[k] } })); }
+  setSegRole(k, role) { this.setState(s => ({ segRoles: { ...s.segRoles, [k]: role } })); }
+  setSegMergeTarget(k, target) { this.setState(s => ({ segMergeTarget: { ...s.segMergeTarget, [k]: target } })); }
+  setSegPriority(k, val) { this.setState(s => ({ segPriority: { ...s.segPriority, [k]: val } })); }
+  setRgbChannel(ch, val) {
+    this.setState(s => ({ rgb: { ...s.rgb, [ch]: Math.max(0, Math.min(255, val)) } }));
+  }
+  setRgbHexInput(hex) {
+    if (!/^#?[0-9a-fA-F]{6}$/.test(hex)) return;
+    const h = hex.startsWith('#') ? hex : '#' + hex;
+    const [r, g, b] = hexToRgb(h);
+    this.setState({ rgb: { r, g, b } });
+  }
+  addFineTuneColor() {
+    const { r, g, b } = this.state.rgb;
+    const hex = '#' + [r, g, b].map(v => v.toString(16).padStart(2, '0')).join('');
+    this.addCustom(hex, 'Custom ' + hex);
+  }
+  toggleHw() { this.setState(s => ({ hwOpen: !s.hwOpen })); }
+  probeDevice() {
+    this.setState(s => ({ serialLines: [...s.serialLines, '>>> probe()', 'esp32-c6 · icons/apple.py · 212B · uptime 41s'].slice(-40) }));
+  }
+  installFirmwareAction() {
+    this.setState(s => ({ serialLines: [...s.serialLines, '>>> installing firmware.bin over serial...', 'done. rebooting.'].slice(-40) }));
+  }
+  restartFirmwareAction() {
+    this.restartFirmware();
+    this.setState(s => ({ serialLines: [...s.serialLines, '>>> soft reset', 'ready.'].slice(-40) }));
+  }
+  sendSerial() {
+    const cmd = this.state.serialInput.trim();
+    if (!cmd) return;
+    this.setState(s => ({ serialLines: [...s.serialLines, '>>> ' + cmd].slice(-40), serialInput: '' }));
+  }
+  togglePowerInjection() { this.setState(s => ({ powerInjected: !s.powerInjected })); }
+
+  toggleDevicePanel() { this.setState(s => ({ devicePanelOpen: !s.devicePanelOpen })); }
+  clearHelloTimer() { if (this._helloTimer) { clearTimeout(this._helloTimer); this._helloTimer = null; } }
+  connectDevice() {
+    this.clearHelloTimer();
+    this.setState(s => ({ device: { ...s.device, phase: 'waiting', pushEnabled: false, refusal: null } }));
+    this._helloTimer = setTimeout(() => this.setState(s => ({ device: { ...s.device, phase: 'running' } })), 2200);
+  }
+  simulateStuck() {
+    this.clearHelloTimer();
+    this.setState(s => ({ device: { ...s.device, phase: 'atRepl' } }));
+  }
+  restartFirmware() {
+    this.clearHelloTimer();
+    this.setState(s => ({ device: { ...s.device, phase: 'waiting' } }));
+    this._helloTimer = setTimeout(() => this.setState(s => ({ device: { ...s.device, phase: 'running' } })), 1800);
+  }
+  disconnectDevice() {
+    this.clearHelloTimer();
+    this.setState(s => ({ devicePanelOpen: false, device: { ...s.device, phase: 'off', pushEnabled: false, refusal: null } }));
+  }
+  toggleShowOnDevice() {
+    const s = this.state;
+    if (!s.device.pushEnabled) {
+      if (s.brightness > 85) {
+        this.setState({ device: { ...s.device, refusal: { estimatedMa: Math.round(s.brightness * 7.2), ceilingMa: 560, suggestedIntensity: 0.65 } } });
+        return;
+      }
+    }
+    this.setState(s2 => ({ device: { ...s2.device, pushEnabled: !s2.device.pushEnabled, refusal: null } }));
+  }
+  applySuggestedIntensity() {
+    const r = this.state.device.refusal;
+    if (!r) return;
+    this.setState(s => ({ brightness: Math.round(r.suggestedIntensity * 100), device: { ...s.device, pushEnabled: true, refusal: null } }));
+  }
+  flashAnyway() {
+    this.setState(s => ({ device: { ...s.device, pushEnabled: true, refusal: null } }));
+  }
+  refreshDeviceIcons() { /* re-request from device -- fixture list already current */ }
+  saveToDevice() {
+    this.setState(s => {
+      const name = 'apple';
+      const bytes = s.pixels.filter(Boolean).length * 3 + 16;
+      const existing = s.device.icons.find(ic => ic.name === name);
+      const icons = existing
+        ? s.device.icons.map(ic => ic.name === name ? { ...ic, bytes } : ic)
+        : [...s.device.icons, { name, bytes }];
+      return { device: { ...s.device, icons } };
+    });
+  }
+  deleteDeviceIcon(name) {
+    this.setState(s => ({ device: { ...s.device, icons: s.device.icons.filter(ic => ic.name !== name) } }));
+  }
+  addCustom(hex, name) {
+    this.setState(s => ({
+      customColors: s.customColors.some(c => c.hex === hex) ? s.customColors : [...s.customColors, { hex, name }],
+      crayonPopupOpen: false, crayonPopupOpen2: false, activeColor: hex, tool: 'draw',
+    }));
+  }
+
+  renderVals() {
+    const s = this.state;
+    const heroCells = s.pixels.map((c, i) => ({ bg: c || '#0d0d0d', onClick: () => this.paint(i) }));
+
+    const segCells = BASE_FLAT.map(t => {
+      if (t === 0) return '#0d0d0d';
+      return s.segOn[t] ? TOKEN_HEX[t] : '#ddd6c4';
+    });
+
+    const f = s.brightness / 100;
+    const ledCells = s.pixels.map(c => {
+      if (!c) return '#161616';
+      const [r, g, b] = hexToRgb(c);
+      return `rgb(${Math.round(r * f)},${Math.round(g * f)},${Math.round(b * f)})`;
+    });
+
+    const basePalette = [
+      { key: 'r', hex: '#7e0000', name: 'Cherry red' },
+      { key: 'g', hex: '#418b00', name: 'Leaf green' },
+      { key: 'b', hex: '#782800', name: 'Bark brown' },
+      { key: 'p', hex: '#ff0095', name: 'Berry pink' },
+    ];
+    const paletteSwatches = [...basePalette, ...s.customColors].map(sw => ({
+      hex: sw.hex, name: sw.name,
+      borderWidth: sw.hex === s.activeColor ? '3.5px' : '2px',
+      ring: sw.hex === s.activeColor ? '0 0 0 3px #fff4fb, 0 0 0 6px #3e8b7f' : 'none',
+      onClick: () => this.setState({ activeColor: sw.hex, tool: 'draw' }),
+    }));
+
+    const COVERAGE = { r: '89%', g: '6%', b: '1.8%', p: '1.6%' };
+    const CELLS_WON = { r: 135, g: 9, b: 3, p: 2 };
+    const segRows = basePalette.map(sw => {
+      const [rr, gg, bb] = hexToRgb(sw.hex);
+      return {
+        hex: sw.hex, name: TOKEN_NAME[sw.key],
+        dim: s.segOn[sw.key] ? '1' : '.35',
+        switchBg: s.segOn[sw.key] ? '#3e8b7f' : '#e8c2e2',
+        knobLeft: s.segOn[sw.key] ? '16px' : '2px',
+        toggle: () => this.toggleSeg(sw.key),
+        coverage: COVERAGE[sw.key], cellsWon: CELLS_WON[sw.key],
+        r: rr, g: gg, b: bb,
+        role: s.segRoles[sw.key],
+        setRole: (e) => this.setSegRole(sw.key, e.target.value),
+        isMerge: s.segRoles[sw.key] === 'merge',
+        mergeTarget: s.segMergeTarget[sw.key] || basePalette.find(o => o.key !== sw.key).key,
+        setMergeTarget: (e) => this.setSegMergeTarget(sw.key, e.target.value),
+        mergeOptions: basePalette.filter(o => o.key !== sw.key).map(o => ({ value: o.key, label: TOKEN_NAME[o.key] })),
+        priority: s.segPriority[sw.key].toFixed(1),
+        setPriority: (e) => this.setSegPriority(sw.key, Number(e.target.value)),
+      };
+    });
+    const problems = [
+      { icon: '\u26a0', text: 'Bark brown: only 3 cells lit \u2014 below MIN_FEATURE_CELLS (4)', color: '#b45309' },
+      { icon: '\u24d8', text: 'Berry pink priority 2.5 may out-rank Cherry red on tie-break', color: '#9c5f9c' },
+    ];
+    const totalChannel = s.pixels.reduce((acc, c) => {
+      if (!c) return acc;
+      const [r, g, b] = hexToRgb(c);
+      return acc + r + g + b;
+    }, 0);
+    const estimatedDrawMa = Math.round(totalChannel * (s.brightness / 100) * 0.012);
+    const drawCeilingMa = s.powerInjected ? 1800 : 560;
+
+    const familyTabs = FAMILIES.map((fam, i) => ({
+      name: fam.name, dot: fam.swatches[1].hex,
+      ringW: i === s.activeFamily ? '3px' : '1.5px',
+      onClick: () => this.setState({ activeFamily: i }),
+    }));
+    const currentSwatches = FAMILIES[s.activeFamily].swatches.map(sw => ({ ...sw, onClick: () => this.addCustom(sw.hex, sw.name) }));
+
+    const heroCursor = s.tool === 'draw' ? makeCursor(PENCIL_CURSOR, '%232b2320')
+      : s.tool === 'erase' ? makeCursor(ERASER_CURSOR, '%23b95d52')
+      : makeCursor(PENCILOFF_CURSOR, '%23a9871f');
+
+    return {
+      heroCells, segCells, ledCells, paletteSwatches, segRows, heroCursor,
+      familyTabs, currentSwatches, familyLabel: FAMILIES[s.activeFamily].name,
+      drawBtnBg: s.tool === 'draw' ? '#c9ede8' : '#fff',
+      drawBtnBorder: s.tool === 'draw' ? '#3e8b7f' : '#edc9e7',
+      drawBtnColor: s.tool === 'draw' ? '#2f6b5c' : '#9c5f9c',
+      eraseBtnBg: s.tool === 'erase' ? '#fbdad6' : '#fff',
+      eraseBtnBorder: s.tool === 'erase' ? '#b95d52' : '#edc9e7',
+      eraseBtnColor: s.tool === 'erase' ? '#8a3a30' : '#9c5f9c',
+      resetBtnBg: s.tool === 'resetPixel' ? '#fdf0c8' : '#fff',
+      resetBtnBorder: s.tool === 'resetPixel' ? '#a9871f' : '#edc9e7',
+      resetBtnColor: s.tool === 'resetPixel' ? '#8a6d15' : '#9c5f9c',
+      setDraw: () => this.setState({ tool: 'draw' }),
+      setErase: () => this.setState({ tool: 'erase' }),
+      setResetPixel: () => this.setState({ tool: 'resetPixel' }),
+      undo: () => this.undo(),
+      undoOpacity: s.history.length ? '1' : '.4',
+      undoColor: s.history.length ? '#9c5f9c' : '#c9c0aa',
+      showAdjust: s.showAdjust,
+      adjustBtnBg: s.showAdjust ? '#fdeaa8' : '#fff9e8',
+      toggleAdjust: () => this.setState(v => ({ showAdjust: !v.showAdjust })),
+      detail: s.detail,
+      setDetail: (e) => this.setState({ detail: Number(e.target.value) }),
+      brightness: s.brightness,
+      brightnessLabel: s.brightness + '%',
+      setBrightness: (e) => this.setState({ brightness: Number(e.target.value) }),
+      crayonPopupOpen: s.crayonPopupOpen,
+      toggleCrayonPopup: () => this.setState(v => ({ crayonPopupOpen: !v.crayonPopupOpen })),
+      crayonPopupOpen2: s.crayonPopupOpen2,
+      toggleCrayonPopup2: () => this.setState(v => ({ crayonPopupOpen2: !v.crayonPopupOpen2 })),
+      advanced: s.advanced,
+      gearBg: s.advanced ? '#3e8b7f' : '#f7dff3',
+      gearColor: s.advanced ? '#fff' : '#9c5f9c',
+      toggleAdvanced: () => this.setState(v => ({ advanced: !v.advanced })),
+      cropOpen: s.cropOpen,
+      openCrop: () => this.setState({ cropOpen: true }),
+      closeCrop: () => this.setState({ cropOpen: false }),
+      applyCrop: () => this.setState({ cropOpen: false }),
+      stageRef: this.stageRef,
+      onCropDown: (e) => this.onCropDown(e),
+      cropLeft: s.crop.x + '%',
+      cropTop: s.crop.y + '%',
+      cropSize: s.crop.size + '%',
+      cropPresets: [
+        { label: 'Whole image', onClick: () => this.setCropPreset('whole') },
+        { label: 'Fill square', onClick: () => this.setCropPreset('fill') },
+        { label: 'Reset crop', onClick: () => this.setCropPreset('reset') },
+      ],
+      lockSquare: s.lockSquare,
+      lockSquareBg: s.lockSquare ? '#3e8b7f' : '#fff',
+      lockSquareCheck: s.lockSquare ? '\u2713' : '',
+      toggleLockSquare: () => this.setState(v => ({ lockSquare: !v.lockSquare })),
+      smoothing: s.smoothing,
+      setSmoothing: (e) => this.setState({ smoothing: e.target.value }),
+      hintText: s.crop.size < 40
+        ? 'Heads up: a tight crop like this gets blown up a lot when scaled to 16\u00d716 \u2014 expect soft edges.'
+        : 'Drag the box to reposition, use the presets to reframe quickly.',
+      hintColor: s.crop.size < 40 ? '#b45309' : '#c48bc4',
+      statsText: `crop covers ${Math.round(s.crop.size)}% of the photo, framed into a 16\u00d716 icon`,
+
+      devicePanelOpen: s.devicePanelOpen,
+      toggleDevicePanel: () => this.toggleDevicePanel(),
+      deviceOff: s.device.phase === 'off',
+      deviceWaiting: s.device.phase === 'waiting',
+      deviceAtRepl: s.device.phase === 'atRepl',
+      deviceRunning: s.device.phase === 'running',
+      deviceBtnBg: s.device.phase === 'running' ? '#dff3e3' : s.device.phase === 'off' ? '#f0d9f4' : '#fdf0c8',
+      deviceBtnBorder: s.device.phase === 'running' ? '#4c9463' : s.device.phase === 'off' ? '#8a4a92' : '#a9871f',
+      deviceBtnColor: s.device.phase === 'running' ? '#356b47' : s.device.phase === 'off' ? '#6b3572' : '#8a6d15',
+      deviceDotColor: s.device.phase === 'running' ? '#4c9463' : s.device.phase === 'atRepl' ? '#b95d52' : s.device.phase === 'waiting' ? '#e2a93d' : '#c9c0aa',
+      deviceDotAnim: s.device.phase === 'waiting' ? 'devicePulse 1.4s ease-in-out infinite' : 'none',
+      connectDevice: () => this.connectDevice(),
+      simulateStuck: () => this.simulateStuck(),
+      restartFirmware: () => this.restartFirmware(),
+      disconnectDevice: () => this.disconnectDevice(),
+      deviceMemLabel: `${s.device.memFreeKb}KB free`,
+      toggleShowOnDevice: () => this.toggleShowOnDevice(),
+      pushSwitchBg: s.device.pushEnabled ? '#3e8b7f' : '#e8c2e2',
+      pushKnobLeft: s.device.pushEnabled ? '16px' : '2px',
+      deviceRefusal: !!s.device.refusal,
+      refusalEstMa: s.device.refusal?.estimatedMa,
+      refusalCeilingMa: s.device.refusal?.ceilingMa,
+      refusalSuggestedPct: s.device.refusal ? Math.round(s.device.refusal.suggestedIntensity * 100) : null,
+      applySuggestedIntensity: () => this.applySuggestedIntensity(),
+      flashAnyway: () => this.flashAnyway(),
+      refreshDeviceIcons: () => this.refreshDeviceIcons(),
+      saveToDevice: () => this.saveToDevice(),
+      deviceIconsEmpty: s.device.icons.length === 0,
+      deviceIconRows: s.device.icons.map(ic => ({ name: ic.name, bytes: ic.bytes, onDelete: () => this.deleteDeviceIcon(ic.name) })),
+
+      profile: s.profile,
+      setProfile: (e) => this.setState({ profile: e.target.value }),
+      problems, noProblems: problems.length === 0,
+      rgbR: s.rgb.r, rgbG: s.rgb.g, rgbB: s.rgb.b,
+      rgbHexInput: '#' + [s.rgb.r, s.rgb.g, s.rgb.b].map(v => v.toString(16).padStart(2, '0')).join(''),
+      rgbPreviewHex: '#' + [s.rgb.r, s.rgb.g, s.rgb.b].map(v => v.toString(16).padStart(2, '0')).join(''),
+      setRgbR: (e) => this.setRgbChannel('r', Number(e.target.value)),
+      setRgbG: (e) => this.setRgbChannel('g', Number(e.target.value)),
+      setRgbB: (e) => this.setRgbChannel('b', Number(e.target.value)),
+      setRgbHex: (e) => this.setRgbHexInput(e.target.value),
+      addFineTuneColor: () => this.addFineTuneColor(),
+      hwOpen: s.hwOpen, toggleHw: () => this.toggleHw(),
+      hwChevron: s.hwOpen ? '\u25bc' : '\u25b6',
+      serialLines: s.serialLines,
+      serialInput: s.serialInput,
+      setSerialInput: (e) => this.setState({ serialInput: e.target.value }),
+      sendSerial: () => this.sendSerial(),
+      installFirmwareAction: () => this.installFirmwareAction(),
+      restartFirmwareAction: () => this.restartFirmwareAction(),
+      probeDevice: () => this.probeDevice(),
+      firmwareStatus: 'v0.9.3 \u00b7 esp32-c6',
+      powerInjected: s.powerInjected,
+      togglePowerInjection: () => this.togglePowerInjection(),
+      powerSwitchBg: s.powerInjected ? '#3e8b7f' : '#e2c98f',
+      powerKnobLeft: s.powerInjected ? '15px' : '2px',
+      estimatedDrawMa, drawCeilingMa,
+      drawColor: estimatedDrawMa > drawCeilingMa ? '#b95d52' : '#356b47',
+    };
+  }
+}
+</script>
+</body>
+</html>
