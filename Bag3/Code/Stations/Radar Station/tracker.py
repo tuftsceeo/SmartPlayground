@@ -32,19 +32,23 @@ def _atan2_deg(y, x):
 
 
 class Track:
-    __slots__ = ("id", "x", "y", "vx", "vy", "sp", "hd", "age", "misses", "radial_v")
+    __slots__ = ("id", "x", "y", "vx", "vy", "sp", "hd", "age", "misses", "radial_v",
+                 "raw_x", "raw_y", "raw_t")
 
-    def __init__(self, id, x, y):
+    def __init__(self, id, x, y, now):
         self.id = id
-        self.x = x
+        self.x = x           # display position, EMA-smoothed (config.TRACK_SMOOTH_ALPHA)
         self.y = y
         self.vx = 0.0
         self.vy = 0.0
-        self.sp = 0.0        # ground speed, mm/s
+        self.sp = 0.0        # ground speed, mm/s -- from raw deltas, never smoothed
         self.hd = 0.0        # heading, degrees
         self.radial_v = 0    # last raw sensor speed, cm/s, radial
         self.age = 0         # frames this track has existed
         self.misses = 0      # consecutive frames unmatched
+        self.raw_x = x       # last raw (unsmoothed) sensor position
+        self.raw_y = y
+        self.raw_t = now     # its timestamp, ms (device time.ticks_ms())
 
     def to_dict(self):
         return {
@@ -55,17 +59,18 @@ class Track:
 
 
 class Tracker:
-    def __init__(self, gate_mm=None, max_misses=None, alpha=None, dt_s=0.1):
+    def __init__(self, gate_mm=None, max_misses=None, alpha=None):
         self.gate2 = (gate_mm if gate_mm is not None else config.TRACK_GATE_MM) ** 2
         self.max_misses = max_misses if max_misses is not None else config.TRACK_MAX_MISSES
         self.alpha = alpha if alpha is not None else config.TRACK_SMOOTH_ALPHA
-        self.dt_s = dt_s
         self._next_id = 1
         self.slot_tracks = {}  # slot index (0..2) -> Track
 
-    def update(self, targets):
-        """targets: list of ld2450.Target for this frame. Returns the
-        current list of live Track objects."""
+    def update(self, targets, now):
+        """targets: list of ld2450.Target for this frame. now: current
+        time.ticks_ms(), used to measure the actual elapsed time between
+        two raw samples for velocity -- never an assumed fixed dt.
+        Returns the current list of live Track objects."""
         present = {t.i: t for t in targets}
 
         # Age (and evict) slots that reported last frame but not this one.
@@ -86,7 +91,7 @@ class Tracker:
             if slot in new_slots:
                 continue
             track = self.slot_tracks[slot]
-            self._apply_measurement(track, target)
+            self._apply_measurement(track, target, now)
             track.misses = 0
             track.age += 1
 
@@ -100,11 +105,11 @@ class Tracker:
             if match_slot is not None:
                 track = self.slot_tracks.pop(match_slot)
                 self.slot_tracks[slot] = track
-                self._apply_measurement(track, target)
+                self._apply_measurement(track, target, now)
                 track.misses = 0
                 track.age += 1
             else:
-                track = Track(self._next_id, target.x, target.y)
+                track = Track(self._next_id, target.x, target.y, now)
                 self._next_id += 1
                 track.radial_v = target.speed
                 track.age = 1
@@ -134,14 +139,25 @@ class Tracker:
         if alpha is not None:
             self.alpha = alpha
 
-    def _apply_measurement(self, track, target):
-        prev_x, prev_y = track.x, track.y
+    def _apply_measurement(self, track, target, now):
+        """Velocity: raw position delta over the actual measured elapsed
+        time between two raw samples (never the smoothed position, never
+        an assumed fixed dt -- see the plan/datasheet note on this).
+        Display position (track.x/y) is a separate, optional EMA of the
+        raw values, purely cosmetic and never fed back into the velocity
+        calculation."""
+        track.radial_v = target.speed
+        dt_ms = now - track.raw_t  # ticks_ms() wraparound (~12 days) not handled
+        if dt_ms > 0:
+            dt_s = dt_ms / 1000.0
+            track.vx = (target.x - track.raw_x) / dt_s
+            track.vy = (target.y - track.raw_y) / dt_s
+            track.sp = (track.vx * track.vx + track.vy * track.vy) ** 0.5
+            if track.sp > 1e-6:
+                track.hd = _atan2_deg(track.vy, track.vx)
+        track.raw_x = target.x
+        track.raw_y = target.y
+        track.raw_t = now
         a = self.alpha
         track.x = a * track.x + (1 - a) * target.x
         track.y = a * track.y + (1 - a) * target.y
-        track.radial_v = target.speed
-        track.vx = (track.x - prev_x) / self.dt_s
-        track.vy = (track.y - prev_y) / self.dt_s
-        track.sp = (track.vx * track.vx + track.vy * track.vy) ** 0.5
-        if track.sp > 1e-6:
-            track.hd = _atan2_deg(track.vy, track.vx)

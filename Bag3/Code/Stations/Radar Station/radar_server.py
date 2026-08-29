@@ -19,7 +19,6 @@ from json_link import JsonLink
 
 VERSION = "1.0.0"
 HEARTBEAT_MS = 5000
-STREAM_HZ_DEFAULT = 10
 GC_EVERY_N_FRAMES = 64
 
 
@@ -31,7 +30,7 @@ class RadarServer:
             tx=config.UART_TX, rx=config.UART_RX,
         )
         self.radar = ld2450.LD2450(self.uart, sign_x=config.SIGN_X, sign_y=config.SIGN_Y)
-        self.tracker = Tracker(dt_s=1.0 / STREAM_HZ_DEFAULT)
+        self.tracker = Tracker()
         self.events = EventEngine()
         self.link = JsonLink(self.dispatch, debug=debug)
         self.running = True
@@ -140,7 +139,7 @@ class RadarServer:
                 "type": "targets", "t": now, "s": 0, "n": len(targets),
                 "tg": [{"i": t.i, "x": t.x, "y": t.y, "v": t.speed, "r": t.resolution} for t in targets],
             })
-        tracks = self.tracker.update(targets)
+        tracks = self.tracker.update(targets, now)
         self.link.send({"type": "tracks", "t": now, "tr": [t.to_dict() for t in tracks]})
         ev = self.events.update(tracks)
         ev["type"] = "events"
