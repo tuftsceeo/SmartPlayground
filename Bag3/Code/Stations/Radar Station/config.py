@@ -11,12 +11,20 @@ Gate A step 5 -- flip SIGN_X / SIGN_Y below if the sensor disagrees).
 """
 
 # ---- UART wiring -----------------------------------------------------
-# Fill in with the actual GPIOs used once Gate A reports them. UART1 is
-# free on an ESP32-S3 with native USB (REPL runs on USB-CDC), UART2 is
-# reserved for a possible second sensor later -- not used in this plan.
+# Board: Seeed XIAO ESP32-C6 on a Seeed expansion board. Sensor wired to
+# the pins silkscreened D6/D7 (GPIO16/GPIO17), the SoC's default UART0
+# pins ("U0TXD"/"U0RXD" per Espressif's IO_MUX naming) -- but MicroPython
+# on this chip runs its REPL over the native USB-Serial-JTAG peripheral,
+# not a UART, so GPIO16/17 should be free to claim as a plain machine.UART
+# instance. UART_ID=1 rather than 0 deliberately: the ESP32 GPIO matrix
+# lets any UART peripheral route to any GPIO pair, and staying off UART0
+# avoids any chance of colliding with a system use of it -- confirm at
+# Gate A that this actually claims the pins and the REPL keeps working.
+# tx=16 is the SoC's own TX (drives LD2450 RX); rx=17 is the SoC's own RX
+# (reads LD2450 TX) -- i.e. wires cross between the two boards as usual.
 UART_ID = 1
-UART_TX = 17
-UART_RX = 18
+UART_TX = 16
+UART_RX = 17
 UART_BAUD = 256000
 
 # ---- sign convention --------------------------------------------------
