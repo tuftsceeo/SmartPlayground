@@ -100,11 +100,11 @@ class LD2450:
                 # no header in the buffer at all -- keep only enough tail
                 # bytes to catch a header that's split across two reads
                 if len(buf) > 4:
-                    del buf[:len(buf) - 3]
+                    buf[:] = buf[len(buf) - 3:]
                 break
             if start > 0:
                 # garbage before the header -- drop it and count a resync
-                del buf[:start]
+                buf[:] = buf[start:]
                 self.resyncs += 1
             if len(buf) < REPORT_LEN:
                 break  # header seen, but the rest of the frame hasn't arrived yet
@@ -113,11 +113,11 @@ class LD2450:
                 # header matched but tail didn't -- treat header byte as
                 # garbage and resync one byte forward rather than
                 # discarding the whole window, so we recover fast
-                del buf[:1]
+                buf[:] = buf[1:]
                 self.resyncs += 1
                 self.frames_dropped += 1
                 continue
-            del buf[:REPORT_LEN]
+            buf[:] = buf[REPORT_LEN:]
             targets = self._decode_frame(frame)
             if targets is not None:
                 frames.append(targets)
@@ -127,7 +127,7 @@ class LD2450:
         if len(buf) > MAX_BUFFER:
             # sensor is producing bytes we can't make sense of -- bail out
             # rather than growing unbounded
-            del buf[:]
+            buf[:] = b""
             self.resyncs += 1
         return frames
 
