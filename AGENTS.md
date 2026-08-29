@@ -9,7 +9,7 @@ M5Stack) plus static web tools. Small team, weekly iteration.
   `python -m py_compile <file>` is the only static check available.
 - Shipped style, across all targets: f-strings are used throughout — don't "fix" them. No type
   annotations, and no `typing` / `dataclasses` / `pathlib` / `logging`.
-- Any loop doing serial I/O needs a small unconditional sleep every iteration.
+- Any loop doing serial I/O needs a `time.sleep_ms(1)` unconditional sleep every iteration.
 
 ## Branches
 
