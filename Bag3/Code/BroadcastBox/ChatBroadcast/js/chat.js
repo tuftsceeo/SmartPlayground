@@ -1,3 +1,5 @@
+import { renderMarkdown } from './markdown.js';
+
 const KNOWLEDGE_FILES = ["knowledge/knowledge.py"];
 let knowledgeText = "";
 
@@ -25,7 +27,21 @@ export function addMsg(text, cls = "bot") {
     const box = document.getElementById("chat-box");
     const div = document.createElement("div");
     div.classList.add("msg", cls);
-    div.textContent = text;
+    if (cls === "bot") {
+        renderMarkdown(div, text);
+    } else {
+        div.textContent = text;
+    }
+    box.appendChild(div);
+    box.scrollTop = box.scrollHeight;
+    return div;
+}
+
+export function addThinkingMsg() {
+    const box = document.getElementById("chat-box");
+    const div = document.createElement("div");
+    div.classList.add("msg", "system");
+    div.innerHTML = '<span class="thinking-dots"><span></span><span></span><span></span></span>Thinking…';
     box.appendChild(div);
     box.scrollTop = box.scrollHeight;
     return div;
@@ -34,7 +50,7 @@ export function addMsg(text, cls = "bot") {
 export function removeTyping() {
     const box = document.getElementById("chat-box");
     box.querySelectorAll(".msg.system").forEach(m => {
-        if (m.textContent === "Thinking...") box.removeChild(m);
+        if (m.textContent.startsWith("Thinking")) box.removeChild(m);
     });
 }
 
