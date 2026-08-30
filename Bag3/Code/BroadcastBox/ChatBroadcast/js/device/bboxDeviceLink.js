@@ -79,7 +79,14 @@ export class BboxDeviceLink {
         this._emit(type, obj);
       });
     }
-    json.on("*", (obj) => this._markRunning(obj));
+    // waitForRunning() listens for this on `this`, not on `json` -- without
+    // forwarding it here, restartFirmware() always times out to "unknown"
+    // even when hello/heartbeat arrive fine right after, because nothing
+    // ever emits "*" on the BboxDeviceLink instance itself.
+    json.on("*", (obj) => {
+      this._markRunning(obj);
+      this._emit("*", obj);
+    });
     json.on("bye", () => {
       this.running = false;
     });
@@ -124,7 +131,9 @@ export class BboxDeviceLink {
     await this.adapter.logSignals("probe start");
     await this.adapter.write("\r\n");
     await sleep(500);
-    await this.adapter.write('{"cmd":"hello","id":9001}\n');
+    // '\r\n', not bare '\n' -- see bboxLink.js send() for why a lone '\n'
+    // never submits at the raw REPL and used to hang this probe forever.
+    await this.adapter.write('{"cmd":"hello","id":9001}\r\n');
     await sleep(1200);
     logInfo("=== probe: end ===");
   }
@@ -161,7 +170,7 @@ export class BboxDeviceLink {
   }
 
   async sendRaw(text) {
-    const s = text.endsWith("\n") ? text : text + "\n";
+    const s = text.endsWith("\n") ? text : text + "\r\n";
     await this.adapter.write(s);
   }
 

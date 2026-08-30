@@ -87,7 +87,13 @@ export class BboxLink {
   send(cmd, { timeoutMs = 5000 } = {}) {
     const id = nextId++;
     const payload = { ...cmd, id };
-    const text = JSON.stringify(payload) + "\n";
+    // MicroPython's REPL readline submits on '\r', not bare '\n' -- a lone
+    // '\n' is swallowed as "still typing" and never echoed back, which is
+    // why a hello sent at '>>>' used to hang until timeout instead of
+    // tripping the command-echo REPL-detection below. '\r\n' submits at
+    // the REPL AND is accepted by json_link.py's running-firmware parser
+    // (it strips the '\r' when it finds the '\n').
+    const text = JSON.stringify(payload) + "\r\n";
     logOut(text.trim(), { cmd: cmd.cmd, id, timeoutMs });
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
