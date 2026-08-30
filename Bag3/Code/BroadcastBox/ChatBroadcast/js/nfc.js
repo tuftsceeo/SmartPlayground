@@ -60,6 +60,16 @@ export function deriveRequiredTags(nfcCards, code, gameName) {
     if (nfcCards && nfcCards.length > 0) {
         return nfcCards;
     }
+    const src = code || "";
+    const notes = src.match(/note_[a-g](?:_high)?/gi);
+    if (notes && notes.length > 1) {
+        return [...new Set(notes.map((t) => t.toLowerCase()))];
+    }
+    const recipe = ["flour", "egg", "milk", "butter", "sugar"].filter((t) =>
+        new RegExp('"' + t + '"').test(src) || new RegExp("'" + t + "'").test(src)
+    );
+    if (recipe.length > 1) return recipe;
+
     if (gameName === "jumpin" || !gameName) {
         return ["jumpin"];
     }

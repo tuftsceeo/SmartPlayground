@@ -43,7 +43,7 @@ body {
 .hidden { display: none !important; }
 
 #app-shell {
-    max-width: 1000px;
+    max-width: 1400px;
     margin: 0 auto;
     min-height: 100vh;
     padding: 24px 16px 40px;
@@ -222,7 +222,6 @@ body {
 }
 .ws-header h1 { font: 800 16px 'Nunito'; margin: 0; }
 #connection-badge {
-    margin-left: auto;
     font: 700 12px 'Nunito';
     color: #a8531e;
     background: #fff0e5;
@@ -255,13 +254,15 @@ body {
     color: var(--pink-dark);
 }
 .role-item.disabled { color: #a8a4b5; opacity: 0.7; }
+.role-rail:not(.advanced) .role-item.stations { display: none; }
 
 .chat-col {
-    width: 290px;
+    flex: 1 1 420px;
+    min-width: 340px;
+    max-width: 560px;
     border-right: 1px solid var(--border);
     display: flex;
     flex-direction: column;
-    flex: none;
 }
 #chat-box {
     flex: 1;
@@ -272,14 +273,57 @@ body {
     gap: 8px;
 }
 .msg {
-    border-radius: 12px;
-    padding: 9px 12px;
-    font: 13px 'Nunito';
-    max-width: 85%;
+    border-radius: 16px;
+    padding: 10px 14px;
+    font: 13px/1.45 'Nunito';
+    max-width: 88%;
+    box-shadow: 0 2px 8px rgba(108, 76, 209, 0.06);
 }
-.msg.user { align-self: flex-end; background: #fff0f6; color: #a8265c; white-space: pre-wrap; }
-.msg.system { align-self: flex-start; background: #f4f2fa; color: #3a3345; white-space: pre-wrap; }
-.msg.bot { align-self: flex-start; background: #f4f2fa; color: #3a3345; max-width: 95%; }
+.msg.user {
+    align-self: flex-end;
+    background: linear-gradient(135deg, #fff0f6, #ffe3f0);
+    color: #a8265c;
+    white-space: pre-wrap;
+    border-radius: 16px 16px 4px 16px;
+}
+.msg.system {
+    align-self: flex-start;
+    background: #f4f2fa;
+    color: #5b5468;
+    white-space: pre-wrap;
+    border-radius: 16px 16px 16px 4px;
+    font-size: 12px;
+}
+.msg.bot {
+    align-self: flex-start;
+    background: #fff;
+    color: #3a3345;
+    max-width: 95%;
+    border: 1px solid var(--border);
+    border-radius: 16px 16px 16px 4px;
+}
+.starter-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 4px 0 8px;
+}
+.starter-chip {
+    font: 700 12px 'Nunito';
+    padding: 8px 12px;
+    border-radius: 14px;
+    border: 1.5px solid var(--border);
+    background: #fff;
+    color: var(--ink);
+    cursor: pointer;
+    text-align: left;
+    max-width: 100%;
+}
+.starter-chip:hover {
+    border-color: var(--pink);
+    color: var(--pink-dark);
+    background: #fff0f6;
+}
 
 /* Markdown content inside bot messages — ported from the EDL GoPiGo chat tool */
 .msg.bot p { margin: 0.5em 0; }
@@ -339,6 +383,8 @@ body {
 .code-block-wrap pre {
     padding: 10px 12px;
     overflow-x: auto;
+    overflow-y: auto;
+    max-height: 320px;
     margin: 0;
     font-family: "SF Mono", Consolas, monospace;
     font-size: 12.5px;
@@ -408,21 +454,185 @@ body {
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
-    padding: 24px;
+    justify-content: flex-start;
+    padding: 20px 16px;
     text-align: center;
-    gap: 8px;
+    gap: 10px;
+    min-height: 0;
+    overflow: auto;
 }
-#preview-panel h2 { font: 800 22px 'Nunito'; margin: 0; }
-#preview-panel p { font: 14px 'Nunito'; color: var(--muted); margin: 0; }
-#preview-tags { list-style: none; padding: 0; margin: 12px 0 0; }
+#preview-panel h2 { font: 800 20px 'Nunito'; margin: 0; }
+#preview-panel p { font: 13px 'Nunito'; color: var(--muted); margin: 0; }
+#preview-tags {
+    list-style: none;
+    padding: 0;
+    margin: 4px 0 0;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 6px;
+}
 #preview-tags li {
-    font: 13px 'Nunito';
+    font: 700 12px 'Nunito';
     background: #fff;
     border-radius: 8px;
-    padding: 6px 12px;
-    margin: 4px;
+    padding: 6px 10px;
     display: inline-block;
+    color: var(--ink);
+}
+/* Small symbolic checklist — quick glance only. Full plain-language
+   version appears at the connect / send-confirm stage instead (see
+   .component-list). */
+#preview-checklist {
+    list-style: none;
+    padding: 0;
+    margin: 2px 0 0;
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+}
+#preview-checklist li {
+    font-size: 18px;
+    line-height: 1;
+    cursor: default;
+}
+
+/* Full plain-language "what you'll need" list — shown at the
+   connect / send-confirm stage, i.e. right before hardware is involved. */
+.component-list {
+    list-style: none;
+    padding: 0;
+    margin: 4px 0 16px;
+    text-align: left;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.component-list li {
+    font: 700 13px 'Nunito';
+    background: #fafafd;
+    border-radius: 10px;
+    padding: 8px 12px;
+    color: var(--ink);
+}
+
+/* Wand simulation compositing */
+#wand-sim {
+    /* Must match the wand sprite's actual canvas (839x825) exactly —
+       any mismatch here causes object-fit:contain to letterbox the
+       image, which throws off every percentage-based overlay zone
+       below (they were measured against the raw 839x825 pixels). */
+    position: relative;
+    width: min(100%, 320px);
+    aspect-ratio: 839 / 825;
+    margin: 8px auto 0;
+}
+#wand-sim .wand-sprite {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    z-index: 2;
+    pointer-events: none;
+    user-select: none;
+}
+#wand-sim .sim-layer {
+    position: absolute;
+    z-index: 1;
+    pointer-events: none;
+    transition: background 0.25s, box-shadow 0.25s, opacity 0.25s;
+}
+/* Zone coordinates measured directly against assets/wand/WAND_background_labelled_zones.png
+   (canvas 839x825) so overlays land exactly behind the transparent cutouts in the
+   wand sprite — the opaque artwork on top masks each zone to its real shape. */
+#wand-sim .sim-tilt {
+    left: 2.145%;
+    top: 15.273%;
+    width: 32.658%;
+    height: 34.667%;
+    border-radius: 50%;
+}
+#wand-sim .sim-shake {
+    left: 2.145%;
+    top: 56.121%;
+    width: 34.803%;
+    height: 36.485%;
+    border-radius: 50%;
+}
+#wand-sim .sim-speaker {
+    left: 74.374%;
+    top: 10.424%;
+    width: 14.66%;
+    height: 15.879%;
+    border-radius: 50%;
+    background: transparent;
+}
+#wand-sim .sim-speaker.glow {
+    background: rgba(255, 210, 63, 0.6);
+    box-shadow: 0 0 16px 6px rgba(255, 210, 63, 0.6);
+}
+/* Tilt/shake highlight colors are theme-matched (teal / purple), not the
+   illustrative red/blue from the reference zone image. */
+#wand-sim .sim-tilt.pulse {
+    background: rgba(34, 195, 166, 0.4);
+    box-shadow: 0 0 12px rgba(34, 195, 166, 0.5);
+    animation: sim-pulse 0.8s ease-in-out infinite;
+}
+#wand-sim .sim-shake.pulse {
+    background: rgba(108, 76, 209, 0.4);
+    box-shadow: 0 0 12px rgba(108, 76, 209, 0.5);
+    animation: sim-pulse 0.8s ease-in-out infinite;
+}
+#wand-sim .sim-led-cell {
+    position: absolute;
+    width: 4.529%;
+    height: 4.364%;
+    border-radius: 30%;
+    background: #c9bddf;
+    transition: background 0.2s;
+}
+#wand-sim .sim-nfc {
+    /* Placeholder NFC-tap affordance — no dedicated art zone yet */
+    left: 52%;
+    bottom: 4%;
+    width: 18%;
+    height: 8%;
+    border-radius: 4px;
+    background: rgba(34, 195, 166, 0.35);
+    opacity: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+}
+#wand-sim .sim-nfc.active {
+    opacity: 1;
+    animation: sim-pulse 1.2s ease-in-out infinite;
+}
+@keyframes sim-pulse {
+    0%, 100% { opacity: 0.45; transform: scale(1); }
+    50% { opacity: 1; transform: scale(1.04); }
+}
+.sim-controls {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-top: 4px;
+}
+.sim-controls button {
+    font: 700 12px 'Nunito';
+    padding: 7px 12px;
+    border-radius: 12px;
+    border: 1.5px solid var(--border);
+    background: #fff;
+    cursor: pointer;
+    color: var(--ink);
+}
+.sim-controls button:hover {
+    border-color: var(--purple);
+    color: var(--purple);
 }
 
 .ws-footer {
@@ -450,7 +660,6 @@ body {
     cursor: pointer;
 }
 .btn-send-box {
-    margin-left: auto;
     font: 800 13px 'Nunito';
     color: #fff;
     background: linear-gradient(135deg, var(--pink), var(--pink-dark));
@@ -462,28 +671,37 @@ body {
 }
 .btn-send-box:disabled { opacity: 0.5; cursor: not-allowed; }
 
-/* Code drawer */
+/* Code drawer — light theme, matches app palette */
 #code-drawer {
     position: fixed;
     top: 0;
     right: 0;
     bottom: 0;
     width: min(520px, 90vw);
-    background: #1a1a26;
+    background: #fff;
     z-index: 100;
     display: flex;
     flex-direction: column;
-    box-shadow: -8px 0 32px rgba(0,0,0,0.3);
+    box-shadow: -8px 0 32px rgba(108, 76, 209, 0.18);
+    border-left: 1px solid var(--border);
 }
 .drawer-header {
     display: flex;
     align-items: center;
     padding: 14px 18px;
-    border-bottom: 1px solid #33334a;
-    color: #c9c3e0;
-    font: 13px ui-monospace, monospace;
+    border-bottom: 1px solid var(--border);
+    color: var(--ink);
+    font: 700 13px 'Nunito';
+    background: #f7f7fb;
 }
-.drawer-close { margin-left: auto; background: none; border: none; color: #9a93b0; font-size: 18px; cursor: pointer; }
+.drawer-close {
+    margin-left: auto;
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-size: 18px;
+    cursor: pointer;
+}
 #code-editor-container { flex: 1; overflow: hidden; }
 #code-editor { height: 100%; }
 
@@ -563,23 +781,81 @@ body {
     bottom: 0;
     left: 0;
     right: 0;
-    max-height: 180px;
-    background: #1a1a26;
+    z-index: 50;
+    background: #2a2640;
     color: #c9c3e0;
     font: 11px ui-monospace, monospace;
-    overflow: auto;
-    padding: 8px 12px;
-    z-index: 50;
-    border-top: 1px solid #333;
+    border-top: 1px solid #4a4466;
+    display: flex;
+    flex-direction: column;
 }
-#serial-log-panel button {
-    position: sticky;
-    top: 0;
-    float: right;
-    font: 11px 'Nunito';
+#serial-log-panel.hidden { display: none !important; }
+.serial-log-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    background: #231f2e;
+    flex-shrink: 0;
+}
+.serial-log-bar button {
+    font: 700 11px 'Nunito';
+    padding: 4px 10px;
+    cursor: pointer;
+    border-radius: 8px;
+    border: 1px solid #4a4466;
+    background: #3a3450;
+    color: #e8e4f4;
+}
+#serial-log-text {
+    margin: 0;
+    padding: 8px 12px;
+    max-height: 160px;
+    overflow: auto;
+    display: none;
+}
+#serial-log-panel.open #serial-log-text { display: block; }
+
+.ws-header .header-actions {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.icon-btn {
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    border: 1.5px solid var(--border);
+    background: #fff;
+    cursor: pointer;
+    font-size: 15px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--ink);
+}
+.icon-btn:hover { border-color: var(--purple); color: var(--purple); }
+.home-link {
+    font: 700 13px 'Nunito';
+    color: var(--muted);
+    background: none;
+    border: none;
+    cursor: pointer;
     padding: 4px 8px;
+}
+.home-link:hover { color: var(--pink-dark); }
+.footer-actions { display: flex; gap: 8px; margin-left: auto; align-items: center; }
+.btn-save, .btn-download {
+    font: 700 12px 'Nunito';
+    border: 1.5px solid var(--border);
+    border-radius: 14px;
+    padding: 6px 12px;
+    background: #fff;
     cursor: pointer;
 }
+.btn-save:hover, .btn-download:hover { border-color: var(--teal); color: #1c9a82; }
+.btn-send-box { margin-left: 0; }
 
 #modal-overlay .modal input {
     width: 100%;
@@ -593,7 +869,15 @@ body {
 
 @media (max-width: 768px) {
     .ws-body { flex-direction: column; }
-    .chat-col { width: 100%; border-right: none; border-bottom: 1px solid var(--border); }
+    .chat-col {
+        width: 100%;
+        max-width: none;
+        min-width: 0;
+        flex: 1 1 auto;
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+    }
     .role-rail { flex-direction: row; width: 100%; border-right: none; border-bottom: 1px solid var(--border); }
     .gallery-grid { grid-template-columns: 1fr; }
+    .footer-actions { flex-wrap: wrap; }
 }
