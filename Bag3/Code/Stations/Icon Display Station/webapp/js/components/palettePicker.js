@@ -1,25 +1,18 @@
 /**
- * palettePicker.js -- pick a colour from what the PANEL can actually show.
- *
- * Replaces hunting in an sRGB picker where ~76% of the space reads as the
- * same white and the useful saturated colours are crammed into a ~3% sliver
- * of near-black values (see ledGamut.js's header for the measurements).
- * Here every swatch is a colour the panel renders distinguishably from every
- * other swatch, laid out hue across / brightness down.
- *
- * A single shared popover rather than a grid inlined in each segment row:
- * the palette is ~77 swatches, and repeating that per segment would be
- * hundreds of DOM nodes rebuilt on every state change.
- *
- * The raw sRGB picker is still available at the bottom, but anything chosen
- * through it is SNAPPED to the nearest panel-distinguishable colour, and the
- * dialog says what it became -- otherwise you can pick two colours that look
- * different on screen and identical on the hardware.
+ * palettePicker.js -- panel-gamut popover with crayon chrome + RGB fine-tune.
  */
-
 import { buildPalette, snapToPalette, ledDeltaE, swatchStyle, isOff, JND } from "../pipeline/ledGamut.js";
 import { authoredToDisplayHex, displayHexToAuthored } from "../pipeline/ledDisplay.js";
 import { state } from "../state/store.js";
+
+function hexToRgb(hex) {
+  const n = parseInt(hex.slice(1), 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+
+function rgbToHex(r, g, b) {
+  return "#" + [r, g, b].map((v) => Math.max(0, Math.min(255, v | 0)).toString(16).padStart(2, "0")).join("");
+}
 
 export class PalettePicker {
   constructor() {
@@ -30,7 +23,6 @@ export class PalettePicker {
     this._keyHandler = null;
   }
 
-  /** Palette depends on brightness, so cache per intensity. */
   paletteFor(intensity) {
     if (!this._palette || this._paletteIntensity !== intensity) {
       this._palette = buildPalette(intensity);
@@ -39,52 +31,51 @@ export class PalettePicker {
     return this._palette;
   }
 
-  /**
-   * @param {HTMLElement} anchor   element to position near
-   * @param {number[]} currentDuty authored linear duty currently selected
-   * @param {number} intensity     current brightness (palette depends on it)
-   * @param {(duty:number[])=>void} onPick
-   */
   open(anchor, currentDuty, intensity, onPick) {
     this.close();
     this.onPick = onPick;
     const palette = this.paletteFor(intensity);
     const simple = state.uiMode === "simple";
+    const startHex = currentDuty ? authoredToDisplayHex(currentDuty) : "#000000";
+    let [rr, gg, bb] = hexToRgb(startHex);
 
     const el = document.createElement("div");
     el.className = "fixed inset-0 z-50";
     el.innerHTML = `
       <div data-scrim class="absolute inset-0"></div>
-      <div data-panel class="absolute bg-neutral-900 border border-neutral-700 rounded-lg shadow-2xl p-3 flex flex-col gap-2"
-           style="max-width:min(92vw,720px)">
-        <div class="flex items-center gap-2 text-xs">
-          <span class="text-neutral-300 font-semibold">Panel colours</span>
-          ${simple ? "" : `<span class="text-neutral-500">${palette.count} distinguishable at ${Math.round(intensity * 100)}% brightness</span>`}
-          <button data-close class="ml-auto text-neutral-500 hover:text-neutral-200 text-base leading-none">&times;</button>
+      <div data-panel class="absolute popover flex flex-col gap-2.5" style="max-width:min(92vw,420px);width:360px">
+        <div class="flex items-center justify-between">
+          <span class="font-bold text-[12px] text-[#823f82]">pick a colour</span>
+          <button type="button" data-close class="icon-btn text-[var(--muted2)]"><i data-lucide="x" class="w-4 h-4"></i></button>
         </div>
-
+        ${simple ? "" : `<div class="text-[11px] font-semibold text-[var(--muted2)]">${palette.count} distinguishable at ${Math.round(intensity * 100)}%</div>`}
         <div data-grid class="flex gap-1 overflow-x-auto pb-1"></div>
-
+        <div class="flex items-center gap-2 border-t border-dashed border-[var(--border-soft)] pt-2 text-xs">
+          <span class="font-semibold text-[var(--muted)]">custom</span>
+          <input type="color" data-raw class="w-8 h-6 rounded border border-[var(--border)]" />
+          <span data-snapnote class="text-[var(--muted2)] flex-1 text-[11px]"></span>
+          <button type="button" data-usesnap class="btn-secondary py-1 px-2 text-[11px]">Use</button>
+        </div>
         ${
           simple
             ? ""
-            : `<div class="text-[11px] text-neutral-600 leading-snug">
-          Leftmost column is off and the neutrals. Every swatch is a colour this
-          panel shows differently from the others.
-          Fewer appear at low brightness because fewer actually exist there.
+            : `<div class="border-t border-dashed border-[var(--border-soft)] pt-2 flex flex-col gap-1.5">
+          <span class="font-bold text-[11px] text-[#823f82]">fine-tune RGB</span>
+          <div class="flex items-center gap-2">
+            <div data-rgbprev class="w-7 h-7 rounded-md border-2 border-[var(--ink)] flex-none" style="background:${startHex}"></div>
+            <input type="text" data-rgbhex value="${startHex}" class="input-themed w-[78px] font-mono text-[11.5px] py-1" />
+          </div>
+          <div class="flex items-center gap-1.5"><span class="font-bold text-[10px] text-[var(--red)] w-3">R</span><input type="range" data-r min="0" max="255" value="${rr}" class="flex-1" style="accent-color:var(--red)" /><span data-rval class="font-bold text-[10px] font-mono w-[26px] text-right">${rr}</span></div>
+          <div class="flex items-center gap-1.5"><span class="font-bold text-[10px] text-[#4c9463] w-3">G</span><input type="range" data-g min="0" max="255" value="${gg}" class="flex-1" style="accent-color:#4c9463" /><span data-gval class="font-bold text-[10px] font-mono w-[26px] text-right">${gg}</span></div>
+          <div class="flex items-center gap-1.5"><span class="font-bold text-[10px] text-[#3f6ea8] w-3">B</span><input type="range" data-b min="0" max="255" value="${bb}" class="flex-1" style="accent-color:#3f6ea8" /><span data-bval class="font-bold text-[10px] font-mono w-[26px] text-right">${bb}</span></div>
+          <button type="button" data-usergb class="btn-primary text-[12px] py-1.5">use this colour</button>
         </div>`
         }
-
-        <div class="flex items-center gap-2 border-t border-neutral-800 pt-2 text-xs">
-          <span class="text-neutral-500">custom</span>
-          <input type="color" data-raw class="w-8 h-6 rounded border border-neutral-700 bg-neutral-800" />
-          <span data-snapnote class="text-neutral-500 flex-1"></span>
-          <button data-usesnap class="px-2 py-1 rounded bg-neutral-800 hover:bg-neutral-700 text-neutral-200">Use</button>
-        </div>
       </div>
     `;
     document.body.appendChild(el);
     this.el = el;
+    window.lucide?.createIcons?.();
 
     const grid = el.querySelector("[data-grid]");
     for (const col of palette.columns) {
@@ -96,13 +87,10 @@ export class PalettePicker {
         const isCurrent = entry.off
           ? isOff(currentDuty)
           : currentDuty && !isOff(currentDuty) && ledDeltaE(entry.duty, currentDuty, intensity) < JND / 2;
-        b.className =
-          "w-6 h-6 rounded border transition-transform hover:scale-110 " +
-          (isCurrent ? "border-white ring-1 ring-white" : "border-neutral-700");
+        b.type = "button";
+        b.className = `swatch-crayon w-5 h-11 ${isCurrent ? "is-selected" : ""}`;
         b.style.background = swatchStyle(entry.duty);
-        b.title = entry.off
-          ? "off -- cell stays dark"
-          : `${col.name}${col.variant === "pastel" ? " pastel" : ""} · duty ${entry.duty.join(",")}`;
+        b.title = entry.off ? "off" : `${col.name} · ${entry.duty.join(",")}`;
         b.addEventListener("click", () => {
           this.onPick?.(entry.duty.slice());
           this.close();
@@ -112,13 +100,11 @@ export class PalettePicker {
       grid.appendChild(colEl);
     }
 
-    // ── custom colour: snap and say so ────────────────────────────────
     const raw = el.querySelector("[data-raw]");
     const note = el.querySelector("[data-snapnote]");
     const useBtn = el.querySelector("[data-usesnap]");
     let snapped = null;
-
-    raw.value = currentDuty ? authoredToDisplayHex(currentDuty) : "#000000";
+    raw.value = startHex;
     const updateSnap = () => {
       const wanted = displayHexToAuthored(raw.value);
       snapped = snapToPalette(wanted, palette);
@@ -127,13 +113,11 @@ export class PalettePicker {
         return;
       }
       if (snapped.deltaE < JND / 2) {
-        note.innerHTML = `<span class="text-emerald-400">already a panel colour</span>`;
+        note.innerHTML = `<span style="color:var(--teal)">already a panel colour</span>`;
       } else {
         note.innerHTML = snapped.off
-          ? `snaps to <span class="text-neutral-300">off</span> <span class="text-neutral-600">(too dark to light a cell)</span>`
-          : `snaps to <span style="color:${snapped.hex}">${snapped.name}` +
-            `${snapped.variant === "pastel" ? " pastel" : ""}</span> ` +
-          `<span class="text-neutral-600">(the panel can't show the difference)</span>`;
+          ? `snaps to off`
+          : `snaps to <span style="color:${snapped.hex}">${snapped.name}</span>`;
       }
     };
     raw.addEventListener("input", updateSnap);
@@ -145,7 +129,48 @@ export class PalettePicker {
       }
     });
 
-    // ── placement + dismissal ─────────────────────────────────────────
+    if (!simple) {
+      const prev = el.querySelector("[data-rgbprev]");
+      const hexIn = el.querySelector("[data-rgbhex]");
+      const syncRgbUi = () => {
+        const hex = rgbToHex(rr, gg, bb);
+        if (prev) prev.style.background = hex;
+        if (hexIn) hexIn.value = hex;
+        el.querySelector("[data-rval]").textContent = String(rr);
+        el.querySelector("[data-gval]").textContent = String(gg);
+        el.querySelector("[data-bval]").textContent = String(bb);
+        el.querySelector("[data-r]").value = String(rr);
+        el.querySelector("[data-g]").value = String(gg);
+        el.querySelector("[data-b]").value = String(bb);
+      };
+      el.querySelector("[data-r]")?.addEventListener("input", (e) => {
+        rr = Number(e.target.value);
+        syncRgbUi();
+      });
+      el.querySelector("[data-g]")?.addEventListener("input", (e) => {
+        gg = Number(e.target.value);
+        syncRgbUi();
+      });
+      el.querySelector("[data-b]")?.addEventListener("input", (e) => {
+        bb = Number(e.target.value);
+        syncRgbUi();
+      });
+      hexIn?.addEventListener("change", (e) => {
+        const v = e.target.value.trim();
+        if (!/^#?[0-9a-fA-F]{6}$/.test(v)) return;
+        const h = v.startsWith("#") ? v : "#" + v;
+        [rr, gg, bb] = hexToRgb(h);
+        syncRgbUi();
+      });
+      el.querySelector("[data-usergb]")?.addEventListener("click", () => {
+        const hex = rgbToHex(rr, gg, bb);
+        const duty = displayHexToAuthored(hex);
+        const sn = snapToPalette(duty, palette);
+        this.onPick?.((sn?.duty || duty).slice());
+        this.close();
+      });
+    }
+
     const panel = el.querySelector("[data-panel]");
     const r = anchor.getBoundingClientRect();
     panel.style.visibility = "hidden";
@@ -175,7 +200,6 @@ export class PalettePicker {
     this.onPick = null;
   }
 
-  /** Brightness changed -- the set of distinguishable colours changed with it. */
   invalidate() {
     this._palette = null;
     this._paletteIntensity = null;

@@ -34,6 +34,9 @@ export const state = {
   // UI
   uiMode: loadUiMode(), // 'simple' | 'advanced'
   activeTool: "pencil", // 'pencil' | 'eraser' | 'revert'
+  showAdjust: false, // collapsible segmentation drawer
+  hwDrawerOpen: false, // collapsible hardware/serial drawer (advanced)
+  devicePanelOpen: false, // device popover anchored to top-bar plug button
   loading: false,
   loadError: null,
   brushColor: [255, 0, 149], // AUTHORED linear duty, not a hex string

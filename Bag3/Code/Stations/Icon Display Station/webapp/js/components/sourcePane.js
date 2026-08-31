@@ -1,38 +1,31 @@
 /**
- * sourcePane.js -- import controls above the (persistent, imperatively-
- * painted) source/segmented canvases main.js owns directly.
+ * sourcePane.js -- crop link + hidden file/drop under the source canvas slot.
  */
 
 export function createImportControls(state, { onFilePicked, onOpenCrop, onLoadFixture }) {
   const el = document.createElement("div");
-  el.className = "px-3 py-2 border-b border-neutral-800 flex flex-col gap-2";
+  el.className = "flex flex-col gap-1.5 items-center w-full";
   const simple = state.uiMode === "simple";
-
   const s = state.sourceInfo;
 
   el.innerHTML = `
-    <label class="text-xs text-neutral-300 font-medium">${simple ? "Import image" : "Import"}</label>
-    <input type="file" id="fileInput" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml"
-           class="text-xs text-neutral-400" />
-    <div id="dropZone" class="text-[11px] text-neutral-600 border border-dashed border-neutral-800 rounded px-2 py-1.5 text-center">
-      …or drop an image here
+    ${
+      s
+        ? `<button type="button" id="cropBtn" class="font-bold text-[10px] text-[var(--teal)] cursor-pointer bg-transparent border-none p-0">crop &amp; scale…</button>`
+        : `<span class="font-bold text-[10px] text-[var(--muted2)]">drop a photo</span>`
+    }
+    <input type="file" id="fileInput" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml" class="hidden" />
+    <div id="dropZone" class="w-full text-[10px] font-semibold text-[var(--muted2)] border border-dashed border-[var(--border-soft)] rounded-lg px-1 py-1 text-center cursor-pointer">
+      import
     </div>
     ${
       simple
-        ? `<select id="fixtureSelect" class="text-xs bg-neutral-800 text-neutral-200 rounded px-2 py-1 border border-neutral-700">
-             <option value="">Open sample…</option>
+        ? `<select id="fixtureSelect" class="select-themed text-[10px] w-full py-1 px-1">
+             <option value="">sample…</option>
              ${["apple", "cherries", "grapes", "lemon", "orange", "watermelon"]
                .map((n) => `<option value="${n}" ${n === state.iconName ? "selected" : ""}>${n}</option>`)
                .join("")}
            </select>`
-        : ""
-    }
-    ${
-      s
-        ? `<div class="flex items-center gap-2">
-             ${simple ? "" : `<span class="text-[11px] text-neutral-500 truncate flex-1">${s.width}×${s.height}px${state.transformLabel ? ` · ${state.transformLabel}` : ""}</span>`}
-             <button id="cropBtn" class="text-xs px-2 py-1 rounded bg-neutral-800 hover:bg-neutral-700 text-neutral-200 ${simple ? "w-full" : ""}">Crop &amp; scale…</button>
-           </div>`
         : ""
     }
   `;
@@ -45,19 +38,19 @@ export function createImportControls(state, { onFilePicked, onOpenCrop, onLoadFi
   el.querySelector("#fixtureSelect")?.addEventListener("change", (e) => {
     if (e.target.value) onLoadFixture?.(e.target.value);
   });
+  el.querySelector("#dropZone")?.addEventListener("click", () => el.querySelector("#fileInput")?.click());
 
-  // Drag-and-drop straight onto the panel.
   const zone = el.querySelector("#dropZone");
-  const hi = () => zone.classList.add("border-emerald-600", "text-emerald-400");
-  const lo = () => zone.classList.remove("border-emerald-600", "text-emerald-400");
+  const hi = () => zone?.classList.add("border-[var(--teal)]", "text-[var(--teal)]");
+  const lo = () => zone?.classList.remove("border-[var(--teal)]", "text-[var(--teal)]");
   ["dragenter", "dragover"].forEach((ev) =>
-    zone.addEventListener(ev, (e) => {
+    zone?.addEventListener(ev, (e) => {
       e.preventDefault();
       hi();
     })
   );
-  ["dragleave", "dragend"].forEach((ev) => zone.addEventListener(ev, lo));
-  zone.addEventListener("drop", (e) => {
+  ["dragleave", "dragend"].forEach((ev) => zone?.addEventListener(ev, lo));
+  zone?.addEventListener("drop", (e) => {
     e.preventDefault();
     lo();
     const file = e.dataTransfer?.files?.[0];

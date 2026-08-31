@@ -1,6 +1,5 @@
 /**
- * simpleSegmentList.js -- colour swatch + eye toggle per segment. Zero-cell
- * rows auto-hide unless explicitly turned off. Indices must match decisions.
+ * simpleSegmentList.js -- eye + crayon swatch; zero-cell rows auto-hide.
  */
 import { swatchStyle } from "../../pipeline/ledGamut.js";
 
@@ -13,10 +12,10 @@ function isRowHidden(state, i) {
 
 export function createSimpleSegmentList(state, callbacks) {
   const el = document.createElement("div");
-  el.className = "flex flex-col divide-y divide-neutral-800";
+  el.className = "flex flex-col gap-2 max-w-[360px]";
 
   if (!state.fills.length) {
-    el.innerHTML = `<div class="p-4 text-sm text-neutral-500">No icon loaded.</div>`;
+    el.innerHTML = `<div class="text-sm font-semibold text-[var(--muted2)]">No icon loaded.</div>`;
     return el;
   }
 
@@ -28,20 +27,25 @@ export function createSimpleSegmentList(state, callbacks) {
     const colorStyle = swatchStyle(d.color);
 
     const row = document.createElement("div");
-    row.className = "p-2 flex items-center gap-2";
+    row.className = "flex items-center gap-2.5 border-2 border-[var(--border)] rounded-[11px] px-2.5 py-2";
     row.dataset.segIdx = i;
 
     row.innerHTML = `
+      <button type="button" data-color title="Pick colour"
+              class="swatch-crayon w-[18px] h-[38px] ${visible ? "" : "opacity-35"}"
+              style="background:${colorStyle}"></button>
+      <span class="font-bold text-[13px] flex-1">seg ${i}</span>
       <button type="button" data-eye title="${visible ? "Hide this colour" : "Show this colour"}"
-              class="p-1.5 rounded border border-neutral-700 bg-neutral-800 hover:bg-neutral-700 text-neutral-300">
+              class="icon-btn">
         <i data-lucide="${visible ? "eye" : "eye-off"}" class="w-4 h-4"></i>
       </button>
-      <button type="button" data-color title="Pick colour"
-              class="w-8 h-6 rounded border border-neutral-600 hover:border-neutral-300"
-              style="background:${colorStyle}"></button>
+      <div data-toggle class="toggle-switch ${visible ? "is-on" : ""}"></div>
     `;
 
     row.querySelector("[data-eye]")?.addEventListener("click", () => {
+      callbacks.onRoleChange(i, visible ? "off" : "color");
+    });
+    row.querySelector("[data-toggle]")?.addEventListener("click", () => {
       callbacks.onRoleChange(i, visible ? "off" : "color");
     });
     const colorBtn = row.querySelector("[data-color]");

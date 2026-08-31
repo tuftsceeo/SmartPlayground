@@ -1,136 +1,130 @@
 /**
- * deviceBar.js -- connect/install/live-push panel, wired to a DeviceLink
- * (see js/device/deviceLink.js). See the plan §Device layer / §Brightness
- * control / §Power guard for what each control does.
+ * deviceBar.js -- plug trigger + anchored Device popover (advanced).
+ * Install/restart/12V/probe/mA live in the hardware drawer, not here.
  */
+
+function deviceBtnStyle(state) {
+  if (state.deviceRunning) return { bg: "#dff3e3", border: "#4c9463", color: "#356b47", dot: "#4c9463" };
+  if (!state.deviceConnected) return { bg: "#f0d9f4", border: "#8a4a92", color: "#6b3572", dot: "#c9c0aa" };
+  if (state.deviceAtRepl) return { bg: "#fdf0c8", border: "#a9871f", color: "#8a6d15", dot: "#b95d52" };
+  return { bg: "#fdf0c8", border: "#a9871f", color: "#8a6d15", dot: "#e2a93d" };
+}
 
 export function createDeviceBar(state, cb) {
   const el = document.createElement("div");
-  el.className = "p-3 border-t border-neutral-800 text-xs flex flex-col gap-2";
+  el.className = "relative flex items-center";
+  const st = deviceBtnStyle(state);
+  const open = !!state.devicePanelOpen;
+  const waitingAnim = state.deviceConnected && !state.deviceRunning && !state.deviceAtRepl ? "is-waiting" : "";
 
-  if (!state.deviceSupported) {
-    el.innerHTML = `<div class="text-neutral-500">Web Serial isn't available in this browser (Chrome/Edge only).</div>`;
-    return el;
+  let panelBody = "";
+  if (open) {
+    if (!state.deviceSupported) {
+      panelBody = `<div class="font-semibold text-[12.5px] text-[var(--muted)]">Web Serial isn't available (Chrome/Edge only).</div>`;
+    } else if (!state.deviceConnected) {
+      panelBody = `
+        <div class="flex items-center gap-2">
+          <span class="status-dot" style="background:#c9c0aa"></span>
+          <span class="font-semibold text-[12.5px] text-[var(--muted)]">Not connected</span>
+        </div>
+        <button type="button" id="connectBtn" class="btn-primary">Connect device</button>`;
+    } else if (!state.deviceRunning) {
+      const atRepl = state.deviceAtRepl;
+      panelBody = `
+        <div class="flex items-center gap-2">
+          <span class="status-dot ${atRepl ? "" : "is-waiting"}" style="background:${atRepl ? "#b95d52" : "#e2a93d"}"></span>
+          <span class="font-semibold text-[12.5px]" style="color:${atRepl ? "#8a3a30" : "var(--hw-ink)"}">
+            ${atRepl ? "At MicroPython prompt — firmware not running" : "Connected · waiting for device…"}
+          </span>
+        </div>
+        <div class="font-semibold text-[11px] text-[var(--muted2)] leading-snug">
+          ${
+            atRepl
+              ? "The board is sitting at >>> — open Hardware & serial debug to restart firmware."
+              : "Powering up the icon firmware — this can take a few seconds. Open Hardware & serial debug if it doesn't settle."
+          }
+        </div>
+        <button type="button" id="disconnectBtn" class="btn-secondary">Disconnect</button>`;
+    } else {
+      const refusal = state.deviceLastRefusal;
+      const mem = state.deviceMemFree ? `${Math.round(state.deviceMemFree / 1024)}KB free` : "";
+      panelBody = `
+        <div class="flex items-center gap-2">
+          <span class="status-dot" style="background:#4c9463"></span>
+          <span class="font-semibold text-[12.5px] text-[#356b47]">Connected${mem ? ` · ${mem}` : ""}</span>
+          <button type="button" id="disconnectBtn" class="ml-auto font-semibold text-[11px] text-[var(--muted2)] underline bg-transparent border-none cursor-pointer">disconnect</button>
+        </div>
+        <button type="button" id="livePushBtn" class="flex items-center justify-between border-2 border-[var(--border)] rounded-[11px] px-2.5 py-2 cursor-pointer bg-transparent w-full"
+                ${state.deviceCapabilities.liveFrames ? "" : "disabled"}>
+          <span class="font-bold text-[12.5px] text-[#823f82]">Show on device</span>
+          <div class="toggle-switch ${state.devicePushEnabled ? "is-on" : ""}"></div>
+        </button>
+        ${
+          refusal
+            ? `<div class="bg-[var(--red-soft)] border-2 border-[var(--red)] rounded-[11px] p-2.5 font-semibold text-[11.5px] text-[#8a3a30] leading-snug">
+                Too bright for the connected power.
+                <div class="flex gap-2.5 mt-1.5">
+                  <button type="button" id="applySuggestedBtn" class="underline bg-transparent border-none cursor-pointer text-inherit">lower brightness to ${Math.round(refusal.suggestedIntensity * 100)}%</button>
+                  <button type="button" id="flashAnywayBtn" class="underline bg-transparent border-none cursor-pointer text-inherit">flash anyway (2s)</button>
+                </div>
+              </div>`
+            : ""
+        }
+        <div class="flex items-center justify-between">
+          <span class="panel-label">on-device icons</span>
+          <button type="button" id="refreshIconsBtn" class="font-semibold text-[11px] text-[var(--muted2)] underline bg-transparent border-none cursor-pointer">refresh</button>
+        </div>
+        <div class="flex flex-col gap-1.5 max-h-[120px] overflow-y-auto">
+          ${
+            state.deviceIcons.length
+              ? state.deviceIcons
+                  .map(
+                    (ic) => `
+            <div class="flex items-center gap-2 border-2 border-[var(--border)] rounded-[9px] px-2 py-1.5" data-device-icon="${ic.name}">
+              <span class="flex-1 font-bold text-[12px]">${ic.name} <span class="font-semibold text-[10.5px] text-[var(--muted2)]">(${ic.bytes}B)</span></span>
+              <button type="button" data-load class="font-bold text-[11px] text-[var(--teal)] bg-transparent border-none cursor-pointer">load</button>
+              <button type="button" data-delete class="font-bold text-[11px] text-[var(--red)] bg-transparent border-none cursor-pointer">del</button>
+            </div>`
+                  )
+                  .join("")
+              : `<span class="font-semibold text-[11.5px] text-[#c9c0aa]">none yet</span>`
+          }
+        </div>
+        <button type="button" id="saveToDeviceBtn" class="btn-primary" ${state.mode ? "" : "disabled"}>Save current icon to device</button>`;
+    }
   }
-
-  if (!state.deviceConnected) {
-    el.innerHTML = `
-      <div class="flex items-center gap-2">
-        <span class="w-2 h-2 rounded-full bg-neutral-600"></span>
-        <span class="text-neutral-400">Device: not connected</span>
-      </div>
-      <button id="connectBtn" class="w-full px-2 py-1.5 rounded bg-neutral-800 hover:bg-neutral-700 text-neutral-200">Connect device</button>
-    `;
-    el.querySelector("#connectBtn").addEventListener("click", cb.onConnect);
-    return el;
-  }
-
-  if (!state.deviceRunning) {
-    // Connection is asynchronous (see deviceLink.js) -- the port is open,
-    // but whether icon_server.py is running is reported later via an
-    // unsolicited 'hello' that can take a few seconds. This is a waiting
-    // state, not a failure; "Install" is always available as an explicit
-    // manual escape hatch, not something auto-triggered by a timeout.
-    const atRepl = state.deviceAtRepl;
-    el.innerHTML = `
-      <div class="flex items-center gap-2">
-        <span class="w-2 h-2 rounded-full ${atRepl ? "bg-red-500" : "bg-amber-500 animate-pulse"}"></span>
-        <span class="text-neutral-400">${
-          atRepl ? "At MicroPython prompt -- firmware not running" : "Connected -- waiting for device…"
-        }</span>
-      </div>
-      <div class="text-neutral-600">${
-        atRepl
-          ? "The board is sitting at &gt;&gt;&gt; so it only echoes commands. Restart the firmware to get it running again."
-          : "If this doesn't settle in a few seconds, try Restart firmware, or install it if this board has never had it."
-      }</div>
-      ${
-        state.deviceRestarting
-          ? `<div class="text-neutral-400">Restarting…</div>`
-          : `<button id="restartBtn" class="w-full px-2 py-1.5 rounded ${
-              atRepl ? "bg-emerald-900 hover:bg-emerald-800 text-emerald-200" : "bg-neutral-800 hover:bg-neutral-700 text-neutral-200"
-            }">Restart firmware</button>`
-      }
-      ${
-        state.deviceInstalling
-          ? `<div class="text-neutral-400">Installing… ${state.deviceInstallProgress ? `${state.deviceInstallProgress.file} (${state.deviceInstallProgress.current}/${state.deviceInstallProgress.total})` : ""}</div>`
-          : `<button id="installBtn" class="w-full px-2 py-1 rounded bg-neutral-800 hover:bg-neutral-700 text-neutral-400">Install icon firmware (first time only)</button>`
-      }
-      <button id="disconnectBtn" class="w-full px-2 py-1 rounded bg-neutral-800 hover:bg-neutral-700 text-neutral-400">Disconnect</button>
-    `;
-    if (!state.deviceInstalling) el.querySelector("#installBtn").addEventListener("click", cb.onInstall);
-    if (!state.deviceRestarting) el.querySelector("#restartBtn").addEventListener("click", cb.onRestart);
-    el.querySelector("#disconnectBtn").addEventListener("click", cb.onDisconnect);
-    return el;
-  }
-
-  const refusal = state.deviceLastRefusal;
 
   el.innerHTML = `
-    <div class="flex items-center gap-2">
-      <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
-      <span class="text-neutral-400">Device connected${state.deviceMemFree ? ` · ${Math.round(state.deviceMemFree / 1024)}KB free` : ""}</span>
-      <button id="disconnectBtn" class="ml-auto text-neutral-600 hover:text-neutral-300">disconnect</button>
-    </div>
-
-    <label class="flex items-center gap-2">
-      <input type="checkbox" id="livePushToggle" ${state.devicePushEnabled ? "checked" : ""} ${state.deviceCapabilities.liveFrames ? "" : "disabled"} />
-      Live push
-      ${!state.deviceCapabilities.liveFrames ? '<span class="text-neutral-600" title="This firmware build does not support live frames">(unsupported)</span>' : ""}
-    </label>
-
-    <label class="flex items-center gap-2 text-neutral-500">
-      <input type="checkbox" id="twelveVToggle" ${state.deviceTwelveV ? "checked" : ""} />
-      12V / power injection (raises the current ceiling -- unverified, see readme)
-    </label>
-
+    <button type="button" id="deviceTrigger" title="Device" class="icon-btn-square"
+            style="background:${st.bg};border-color:${st.border};color:${st.color};position:relative">
+      <i data-lucide="plug-zap" class="w-[17px] h-[17px]"></i>
+      <span class="status-dot ${waitingAnim}" style="position:absolute;top:-3px;right:-3px;width:11px;height:11px;background:${st.dot};border:2px solid var(--card)"></span>
+    </button>
     ${
-      state.deviceLastCurrentMa != null
-        ? `<div class="text-neutral-500">est. draw: ${Math.round(state.deviceLastCurrentMa)}mA</div>`
-        : ""
-    }
-
-    ${
-      refusal
-        ? `<div class="p-2 rounded bg-red-950 text-red-300">
-            est. ${Math.round(refusal.estimatedMa)}mA exceeds the ${Math.round(refusal.ceilingMa)}mA limit.
-            <button id="applySuggestedBtn" class="underline">Drop brightness to ${Math.round(refusal.suggestedIntensity * 100)}%</button>
-            or <button id="flashAnywayBtn" class="underline">flash anyway (2s)</button>.
+      open
+        ? `<div class="popover absolute right-0 top-full mt-2 w-[300px] flex flex-col gap-2.5 z-20">
+            <div class="flex justify-between items-center">
+              <span class="font-bold text-[13px]">Device</span>
+              <button type="button" id="deviceClose" class="icon-btn text-[var(--muted2)]"><i data-lucide="x" class="w-4 h-4"></i></button>
+            </div>
+            ${panelBody}
           </div>`
         : ""
     }
-
-    <div class="flex items-center justify-between mt-1">
-      <span class="text-neutral-500">on-device icons</span>
-      <button id="refreshIconsBtn" class="text-neutral-500 hover:text-neutral-300">refresh</button>
-    </div>
-    <div class="flex flex-col gap-1 max-h-32 overflow-y-auto">
-      ${
-        state.deviceIcons.length
-          ? state.deviceIcons
-              .map(
-                (ic) => `
-        <div class="flex items-center gap-1" data-device-icon="${ic.name}">
-          <span class="flex-1 truncate">${ic.name} <span class="text-neutral-600">(${ic.bytes}B)</span></span>
-          <button data-load class="px-1.5 py-0.5 rounded bg-neutral-800 hover:bg-neutral-700">load</button>
-          <button data-delete class="px-1.5 py-0.5 rounded bg-neutral-800 hover:bg-red-900">del</button>
-        </div>`
-              )
-              .join("")
-          : `<div class="text-neutral-600">none</div>`
-      }
-    </div>
-    <button id="saveToDeviceBtn" class="w-full px-2 py-1.5 rounded bg-neutral-800 hover:bg-neutral-700 text-neutral-200" ${state.mode ? "" : "disabled"}>Save current icon to device</button>
   `;
 
-  el.querySelector("#disconnectBtn").addEventListener("click", cb.onDisconnect);
-  el.querySelector("#livePushToggle")?.addEventListener("change", (e) => cb.onToggleLivePush(e.target.checked));
-  el.querySelector("#twelveVToggle")?.addEventListener("change", (e) => cb.onToggleTwelveV(e.target.checked));
+  el.querySelector("#deviceTrigger")?.addEventListener("click", () => cb.onTogglePanel?.());
+  el.querySelector("#deviceClose")?.addEventListener("click", () => cb.onTogglePanel?.());
+  el.querySelector("#connectBtn")?.addEventListener("click", cb.onConnect);
+  el.querySelector("#disconnectBtn")?.addEventListener("click", cb.onDisconnect);
+  el.querySelector("#livePushBtn")?.addEventListener("click", () => cb.onToggleLivePush(!state.devicePushEnabled));
   el.querySelector("#refreshIconsBtn")?.addEventListener("click", cb.onRefreshIcons);
   el.querySelector("#saveToDeviceBtn")?.addEventListener("click", cb.onSaveToDevice);
-  el.querySelector("#applySuggestedBtn")?.addEventListener("click", () => cb.onApplySuggestedIntensity(refusal.suggestedIntensity));
+  const refusal = state.deviceLastRefusal;
+  el.querySelector("#applySuggestedBtn")?.addEventListener("click", () =>
+    cb.onApplySuggestedIntensity(refusal.suggestedIntensity)
+  );
   el.querySelector("#flashAnywayBtn")?.addEventListener("click", cb.onFlashAnyway);
-
   el.querySelectorAll("[data-device-icon]").forEach((row) => {
     const name = row.dataset.deviceIcon;
     row.querySelector("[data-load]")?.addEventListener("click", () => cb.onLoadFromDevice(name));

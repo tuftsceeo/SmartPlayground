@@ -4,6 +4,8 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Icon Maker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://unpkg.com/lucide@latest"></script>
 <link rel="stylesheet" href="vendor/cropper.min.css" />
@@ -13,8 +15,8 @@
      than getCroppedCanvas(). -->
 <script src="vendor/cropper.min.js"></script>
 </head>
-<body class="bg-neutral-950 text-neutral-100 font-sans h-screen flex flex-col overflow-hidden">
-  <div id="root" class="flex flex-col h-full"></div>
-    <script type="module" src="js/main.js?v=9"></script>
+<body class="h-screen flex flex-col overflow-hidden">
+  <div id="root" class="flex flex-col h-full overflow-auto"></div>
+  <script type="module" src="js/main.js?v=10"></script>
 </body>
 </html>

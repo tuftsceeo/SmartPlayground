@@ -1,15 +1,15 @@
 /**
- * previewPane.js -- just the brightness slider under the (persistent,
- * imperatively-painted) preview canvas that main.js owns directly.
+ * previewPane.js -- brightness slider under the LED preview canvas.
  */
 export function createBrightnessControls(state, { onIntensityInput, onIntensityCommit }) {
   const el = document.createElement("div");
-  el.className = "px-3 py-2 flex items-center gap-2 text-xs text-neutral-400";
-  const simple = state.uiMode === "simple";
+  el.className = "flex items-center gap-1.5 w-full";
+  const pct = Math.round(state.intensity * 100);
   el.innerHTML = `
-    brightness
-    <input type="range" min="0.02" max="0.50" step="0.01" value="${state.intensity}" id="intensitySlider" class="flex-1" ${state.mode ? "" : "disabled"} />
-    ${simple ? "" : `<span id="intensityVal" class="w-10 text-neutral-200">${Math.round(state.intensity * 100)}%</span>`}
+    <i data-lucide="sun" class="w-3 h-3 text-[var(--muted2)] flex-none"></i>
+    <input type="range" min="0.02" max="0.50" step="0.01" value="${state.intensity}" id="intensitySlider"
+           class="flex-1" ${state.mode ? "" : "disabled"} />
+    <span id="intensityVal" class="font-bold text-[11px] text-[var(--muted)] w-[28px] text-right">${pct}%</span>
   `;
   const slider = el.querySelector("#intensitySlider");
   const val = el.querySelector("#intensityVal");

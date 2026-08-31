@@ -102,11 +102,13 @@ class App {
       onRestart: () => this.restartDeviceFirmware(),
       onConnect: () => this.connectDevice(),
       onDisconnect: () => this.disconnectDevice(),
+      onInstall: () => this.installDeviceFirmware(),
+      onToggleTwelveV: (on) => this.toggleTwelveV(on),
     });
     this.wireDevice();
     this.createCanvases();
     this.buildShell();
-    this.applyMonitorVisibility();
+    this.applyDrawerVisibility();
     onStateChange(() => this.renderReactive());
     this.renderReactive();
     this.loadFixture("apple").catch((e) => showToast(String(e.message || e), { kind: "error" }));
@@ -370,25 +372,25 @@ class App {
   createCanvases() {
     this.sourceCanvas = document.createElement("canvas");
     this.sourceCanvas.id = "sourceCanvas";
-    this.sourceCanvas.className = "pixelated bg-neutral-900 rounded canvas-source";
+    this.sourceCanvas.className = "pixelated canvas-source";
     this.sourceCanvas.width = WORK;
     this.sourceCanvas.height = WORK;
 
     this.segmentedCanvas = document.createElement("canvas");
     this.segmentedCanvas.id = "segmentedCanvas";
-    this.segmentedCanvas.className = "pixelated bg-neutral-900 rounded canvas-source";
+    this.segmentedCanvas.className = "pixelated";
     this.segmentedCanvas.width = WORK;
     this.segmentedCanvas.height = WORK;
 
     this.previewCanvas = document.createElement("canvas");
     this.previewCanvas.id = "previewCanvas";
-    this.previewCanvas.className = "pixelated rounded canvas-preview";
+    this.previewCanvas.className = "pixelated canvas-preview";
     this.previewCanvas.width = 384;
     this.previewCanvas.height = 384;
 
     this.gridCanvas = document.createElement("canvas");
     this.gridCanvas.id = "gridCanvas";
-    this.gridCanvas.className = "pixelated bg-neutral-900 rounded";
+    this.gridCanvas.className = "pixelated";
     this.resizeGridCanvas();
 
     this.wireGridCanvas();
@@ -405,20 +407,36 @@ class App {
 
     this.topBarMount = this.root.querySelector("#topBarMount");
     this.importMount = this.root.querySelector("#importMount");
+    this.toolRowMount = this.root.querySelector("#toolRowMount");
+    this.paletteMount = this.root.querySelector("#paletteMount");
     this.segmentListMount = this.root.querySelector("#segmentListMount");
     this.brightnessMount = this.root.querySelector("#brightnessMount");
     this.gridControlsMount = this.root.querySelector("#gridControlsMount");
     this.problemsMount = this.root.querySelector("#problemsMount");
     this.deviceMount = this.root.querySelector("#deviceMount");
+    this.hwDrawerMount = this.root.querySelector("#hwDrawerMount");
 
     this.adoptCanvases();
+    this.wireDrawerToggles();
+    if (state.uiMode === "advanced") {
+      this.monitor?.mount(this.hwDrawerMount);
+    }
+  }
+
+  wireDrawerToggles() {
+    this.root.querySelector("#adjustDrawerToggle")?.addEventListener("click", () => {
+      setState({ showAdjust: !state.showAdjust });
+    });
+    this.root.querySelector("#hwDrawerToggle")?.addEventListener("click", () => {
+      setState({ hwDrawerOpen: !state.hwDrawerOpen });
+    });
   }
 
   adoptCanvases() {
-    this.root.querySelector('[data-canvas-slot="source"]').appendChild(this.sourceCanvas);
-    this.root.querySelector('[data-canvas-slot="segmented"]').appendChild(this.segmentedCanvas);
-    this.root.querySelector('[data-canvas-slot="preview"]').appendChild(this.previewCanvas);
-    this.root.querySelector('[data-canvas-slot="grid"]').appendChild(this.gridCanvas);
+    this.root.querySelector('[data-canvas-slot="source"]')?.appendChild(this.sourceCanvas);
+    this.root.querySelector('[data-canvas-slot="segmented"]')?.appendChild(this.segmentedCanvas);
+    this.root.querySelector('[data-canvas-slot="preview"]')?.appendChild(this.previewCanvas);
+    this.root.querySelector('[data-canvas-slot="grid"]')?.appendChild(this.gridCanvas);
   }
 
   setUiMode(next) {
@@ -426,23 +444,40 @@ class App {
     if (this.crop.el) return;
     localStorage.setItem("iconmaker.uiMode", next);
     state.uiMode = next;
+    state.devicePanelOpen = false;
     this.palette.close();
     this.buildShell();
     this.renderReactive();
-    this.applyMonitorVisibility();
+    this.applyDrawerVisibility();
     this.paintAll();
   }
 
-  applyMonitorVisibility() {
-    const hide = state.uiMode === "simple";
-    this.monitor.root.classList.toggle("hidden", hide);
-    if (hide) {
-      document.body.style.paddingBottom = "";
-    } else if (this.monitor.open) {
-      requestAnimationFrame(() => {
-        document.body.style.paddingBottom = `${this.monitor.root.offsetHeight}px`;
-      });
+  applyDrawerVisibility() {
+    const adjustBody = this.root?.querySelector("#adjustDrawerBody");
+    const adjustWrap = this.root?.querySelector(".adjust-chevron-wrap");
+    if (adjustBody) {
+      adjustBody.classList.toggle("hidden", !state.showAdjust);
     }
+    if (adjustWrap) {
+      adjustWrap.innerHTML = `<i data-lucide="${state.showAdjust ? "chevron-up" : "chevron-down"}" class="w-4 h-4"></i>`;
+    }
+
+    const hwMount = this.hwDrawerMount;
+    const hwWrap = this.root?.querySelector(".hw-chevron-wrap");
+    const showHw = state.uiMode === "advanced" && state.hwDrawerOpen;
+    if (hwMount) {
+      hwMount.classList.toggle("hidden", !showHw);
+    }
+    if (hwWrap) {
+      hwWrap.innerHTML = `<i data-lucide="${showHw ? "chevron-down" : "chevron-right"}" class="w-3.5 h-3.5"></i>`;
+    }
+    this.monitor?.setOpen(showHw);
+    document.body.style.paddingBottom = "";
+  }
+
+  confirmNewIcon() {
+    if (!confirm("Clear the current icon and start fresh with the apple sample?")) return;
+    this.loadFixture("apple").catch((e) => showToast(String(e.message || e), { kind: "error" }));
   }
 
   // ── reactive panels: rebuilt on every setState ─────────────────────────
@@ -456,6 +491,12 @@ class App {
         this.commitDecisionPatch(i, { color: duty })
       );
 
+    const fileOpen = (file) => {
+      if (file instanceof File) {
+        this.loadFile(file).catch((e) => showToast(String(e.message || e), { kind: "error" }));
+      }
+    };
+
     this.topBarMount.innerHTML = "";
     this.topBarMount.appendChild(
       simple
@@ -465,6 +506,10 @@ class App {
             onProfileChange: (id) => this.changeProfile(id),
             onIconNameChange: (name) => setState({ iconName: name }),
             onUiModeChange: (mode) => this.setUiMode(mode),
+            onNew: () => this.confirmNewIcon(),
+            onOpen: fileOpen,
+            onSaveMap: () => this.exportMap(),
+            onToggleAdjust: () => setState({ showAdjust: !state.showAdjust }),
             cropOpen,
           })
         : createTopBar(state, {
@@ -475,9 +520,21 @@ class App {
             onProfileChange: (id) => this.changeProfile(id),
             onLoadFixture: (name) => this.loadFixture(name).catch((e) => showToast(String(e.message || e), { kind: "error" })),
             onUiModeChange: (mode) => this.setUiMode(mode),
+            onNew: () => this.confirmNewIcon(),
+            onOpen: fileOpen,
+            onToggleAdjust: () => setState({ showAdjust: !state.showAdjust }),
             cropOpen,
           })
     );
+
+    // Advanced top bar name input → iconName
+    this.topBarMount.querySelector("#iconNameInput")?.addEventListener("change", (e) => {
+      const name = e.target.value.trim().replace(/[^a-z0-9_]+/gi, "_").toLowerCase();
+      if (name) {
+        e.target.value = name;
+        setState({ iconName: name });
+      }
+    });
 
     this.importMount.innerHTML = "";
     this.importMount.appendChild(
@@ -487,6 +544,27 @@ class App {
         onLoadFixture: (name) => this.loadFixture(name).catch((e) => showToast(String(e.message || e), { kind: "error" })),
       })
     );
+
+    if (this.toolRowMount) {
+      this.toolRowMount.innerHTML = "";
+      this.toolRowMount.appendChild(
+        createToolRow(state, {
+          onToolChange: (tool) => setState({ activeTool: tool }),
+          onUndo: () => this.undo(),
+          onOpenBrushPalette: brushPalette,
+        })
+      );
+    }
+
+    if (this.paletteMount) {
+      this.paletteMount.innerHTML = "";
+      this.paletteMount.appendChild(
+        createDocumentSwatches(state, {
+          onPick: (duty) => setState({ brushColor: duty, activeTool: "pencil" }),
+          onAddColor: brushPalette,
+        })
+      );
+    }
 
     this.segmentListMount.innerHTML = "";
     this.segmentListMount.appendChild(
@@ -503,6 +581,9 @@ class App {
             onPriorityCommit: (i, val) => this.commitDecisionPatch(i, { priority: val }),
           })
     );
+    this.segmentListMount.querySelector("#drawerSegSlider")?.addEventListener("change", (e) => {
+      this.changeMaxSegments(Number(e.target.value));
+    });
 
     this.brightnessMount.innerHTML = "";
     this.brightnessMount.appendChild(
@@ -512,25 +593,19 @@ class App {
       })
     );
 
-    this.gridControlsMount.innerHTML = "";
-    const swatches = createDocumentSwatches(state, {
-      onPick: (duty) => setState({ brushColor: duty, activeTool: "pencil" }),
-    });
-    const tools = createToolRow(state, {
-      onToolChange: (tool) => setState({ activeTool: tool }),
-      onUndo: () => this.undo(),
-      onOpenBrushPalette: brushPalette,
-    });
-    this.gridControlsMount.appendChild(swatches);
-    this.gridControlsMount.appendChild(tools);
+    // Legacy hidden mount kept for layout id compatibility
+    if (this.gridControlsMount) this.gridControlsMount.innerHTML = "";
 
-    this.problemsMount.innerHTML = "";
-    this.problemsMount.appendChild(createProblemsPanel(state));
+    if (this.problemsMount) {
+      this.problemsMount.innerHTML = "";
+      this.problemsMount.appendChild(createProblemsPanel(state));
+    }
 
     this.deviceMount.innerHTML = "";
     this.deviceMount.appendChild(
       simple
         ? createSimpleDeviceBar(state, {
+            onTogglePanel: () => setState({ devicePanelOpen: !state.devicePanelOpen }),
             onConnect: () => this.connectDevice(),
             onDisconnect: () => this.disconnectDevice(),
             onToggleLivePush: (on) => this.toggleLivePush(on),
@@ -541,6 +616,7 @@ class App {
             onApplySuggestedIntensity: (v) => this.applySuggestedIntensity(v),
           })
         : createDeviceBar(state, {
+            onTogglePanel: () => setState({ devicePanelOpen: !state.devicePanelOpen }),
             onConnect: () => this.connectDevice(),
             onInstall: () => this.installDeviceFirmware(),
             onRestart: () => this.restartDeviceFirmware(),
@@ -561,7 +637,14 @@ class App {
       running: state.deviceRunning,
       atRepl: state.deviceAtRepl,
     });
+    const profile = getProfile();
+    this.monitor?.setPowerState({
+      twelveV: state.deviceTwelveV,
+      currentMa: state.deviceLastCurrentMa,
+      ceilingMa: state.deviceTwelveV ? profile.ceiling12vMa : profile.ceilingMa,
+    });
 
+    this.applyDrawerVisibility();
     window.lucide?.createIcons?.();
   }
 

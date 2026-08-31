@@ -1,6 +1,5 @@
 /**
- * documentSwatches.js -- colours actually used in the current icon, clickable
- * to set the brush. Mounted in both simple and advanced modes.
+ * documentSwatches.js -- crayon-shaped colours used in the current icon.
  */
 import { ledDeltaE, JND, OFF_DUTY, isOff, swatchStyle } from "../pipeline/ledGamut.js";
 import { doc } from "../state/doc.js";
@@ -34,32 +33,41 @@ function collectDocumentColors(decisions, overlay, intensity) {
   return out;
 }
 
-export function createDocumentSwatches(state, { onPick }) {
+export function createDocumentSwatches(state, { onPick, onAddColor }) {
   const el = document.createElement("div");
-  el.className = "px-3 py-1.5 flex items-center gap-2 flex-wrap";
+  el.className = "panel flex flex-col gap-2.5";
 
   if (!state.mode) {
-    el.innerHTML = `<span class="text-[11px] text-neutral-600">Load an icon to see its colours</span>`;
+    el.innerHTML = `
+      <span class="panel-label">Palette</span>
+      <span class="text-[11px] font-semibold text-[var(--muted2)]">Load an icon to see its colours</span>
+    `;
     return el;
   }
 
   const colors = collectDocumentColors(state.decisions, doc.overlay, state.intensity);
-  if (!colors.length) {
-    el.innerHTML = `<span class="text-[11px] text-neutral-600">No colours yet</span>`;
-    return el;
-  }
+  const brush = state.brushColor;
 
   el.innerHTML = `
-    <span class="text-[11px] text-neutral-500 shrink-0">colours in this icon</span>
-    <div class="flex flex-wrap gap-1">
+    <span class="panel-label">Palette</span>
+    <div class="flex flex-wrap gap-2 justify-center">
       ${colors
-        .map(
-          (c, i) => `
-        <button type="button" data-swatch="${i}" title="${c.off ? "off" : "Use this colour"}"
-                class="w-6 h-6 rounded border border-neutral-600 hover:border-neutral-300"
-                style="background:${swatchStyle(c.duty)}"></button>`
-        )
+        .map((c, i) => {
+          const selected =
+            !c.off &&
+            brush &&
+            brush[0] === c.duty[0] &&
+            brush[1] === c.duty[1] &&
+            brush[2] === c.duty[2];
+          return `
+          <button type="button" data-swatch="${i}" title="${c.off ? "off" : "Use this colour"}"
+                  class="swatch-crayon ${selected ? "is-selected" : ""}"
+                  style="background:${swatchStyle(c.duty)}"></button>`;
+        })
         .join("")}
+      <button type="button" id="addColorBtn" class="swatch-crayon-add" title="Add a colour">
+        <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+      </button>
     </div>
   `;
 
@@ -69,6 +77,8 @@ export function createDocumentSwatches(state, { onPick }) {
       onPick(entry.duty.slice());
     });
   });
+  const addBtn = el.querySelector("#addColorBtn");
+  addBtn?.addEventListener("click", () => onAddColor?.(addBtn));
 
   return el;
 }

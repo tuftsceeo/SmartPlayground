@@ -47,34 +47,34 @@ export class CropModal {
     const simple = state.uiMode === "simple";
 
     const el = document.createElement("div");
-    el.className = "fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4";
+    el.className = "modal-overlay";
     el.innerHTML = `
-      <div class="bg-neutral-900 border border-neutral-700 rounded-lg shadow-2xl w-full max-w-4xl flex flex-col max-h-full">
-        <div class="px-4 py-2 border-b border-neutral-800 flex items-center gap-3">
-          <span class="font-semibold text-neutral-100">Crop &amp; scale</span>
-          <span class="text-xs text-neutral-500">source ${source.width}×${source.height}px → ${W}×${H} icon</span>
-          <button id="cmClose" class="ml-auto text-neutral-500 hover:text-neutral-200 text-lg leading-none">&times;</button>
+      <div class="modal-card max-h-full overflow-hidden">
+        <div class="px-[22px] py-3.5 border-b-2 border-[var(--border)] flex items-center gap-2.5">
+          <i data-lucide="scissors" class="w-4 h-4 text-[var(--muted)]"></i>
+          <span class="font-bold text-[15px]">Crop &amp; scale</span>
+          <span class="font-semibold text-[11.5px] text-[var(--muted2)]">frame the photo before it enters the icon</span>
+          <button type="button" id="cmClose" class="ml-auto icon-btn text-[var(--muted2)]"><i data-lucide="x" class="w-5 h-5"></i></button>
         </div>
 
-        <div class="flex-1 overflow-auto p-4 grid grid-cols-[1fr_200px] gap-4">
+        <div class="flex-1 overflow-auto p-5 grid grid-cols-[1fr_190px] gap-4">
           <div>
-            <div class="bg-neutral-950 rounded" style="max-height:52vh">
+            <div class="bg-[var(--canvas-bg)] rounded-xl overflow-hidden" style="max-height:52vh">
               <img id="cmImage" src="${source.objectUrl}" alt="" style="max-width:100%; display:block" />
             </div>
-            <div class="flex flex-wrap items-center gap-2 mt-3 text-xs">
-              <span class="text-neutral-500">framing:</span>
-              <button data-preset="contain" class="px-2 py-1 rounded bg-neutral-800 hover:bg-neutral-700 text-neutral-200">Whole image</button>
-              <button data-preset="cover" class="px-2 py-1 rounded bg-neutral-800 hover:bg-neutral-700 text-neutral-200">Fill square</button>
-              <button data-preset="reset" class="px-2 py-1 rounded bg-neutral-800 hover:bg-neutral-700 text-neutral-200">Reset crop</button>
+            <div class="flex flex-wrap items-center gap-2 mt-3">
+              <button type="button" data-preset="contain" class="btn-pill">Whole image</button>
+              <button type="button" data-preset="cover" class="btn-pill">Fill square</button>
+              <button type="button" data-preset="reset" class="btn-pill">Reset crop</button>
               ${
                 simple
                   ? ""
-                  : `<label class="flex items-center gap-1 text-neutral-400 ml-2">
-                <input type="checkbox" id="cmSquare" checked /> lock to square
+                  : `<label class="flex items-center gap-1.5 font-semibold text-[11.5px] text-[var(--muted)] ml-2 cursor-pointer">
+                <input type="checkbox" id="cmSquare" checked class="accent-[var(--teal)]" /> lock to square
               </label>
-              <label class="flex items-center gap-1 text-neutral-400">
+              <label class="flex items-center gap-1.5 font-semibold text-[11.5px] text-[var(--muted)]">
                 smoothing
-                <select id="cmSmooth" class="bg-neutral-800 border border-neutral-700 rounded px-1 py-0.5 text-neutral-200">
+                <select id="cmSmooth" class="select-themed text-[11.5px] py-1 px-1.5">
                   <option value="auto">auto</option>
                   <option value="on">on (blend)</option>
                   <option value="off">off (nearest)</option>
@@ -82,38 +82,38 @@ export class CropModal {
               </label>`
               }
             </div>
-            ${simple ? "" : `<div class="text-[11px] text-neutral-600 mt-2" id="cmHint"></div>`}
+            ${simple ? "" : `<div class="font-semibold text-[11px] text-[var(--muted2)] mt-2.5 leading-snug" id="cmHint"></div>`}
           </div>
 
-          <div class="flex flex-col gap-3">
+          <div class="flex flex-col gap-2.5">
             <div>
-              <div class="text-[11px] text-neutral-500 mb-1">${W}×${H} framing preview</div>
-              <canvas id="cmPreview" class="pixelated bg-neutral-950 rounded border border-neutral-800"
+              <span class="panel-label">framing preview</span>
+              <canvas id="cmPreview" class="pixelated rounded-[10px] border-2 border-[var(--ink)] mt-1.5"
                       width="${W}" height="${H}"
-                      style="width:${PREVIEW_PX}px;height:${PREVIEW_PX}px"></canvas>
-              <div class="text-[10px] text-neutral-600 mt-1 leading-snug">
-                Shows silhouette &amp; framing only -- final colours come from
-                segmentation after you apply.
+                      style="width:130px;height:130px;background:var(--canvas-bg);display:block"></canvas>
+              <div class="font-semibold text-[10.5px] text-[var(--muted2)] mt-1.5 leading-snug">
+                shows silhouette &amp; framing only — final colours come from segmentation after you apply
               </div>
             </div>
             <div>
-              <div class="text-[11px] text-neutral-500 mb-1">at actual size</div>
-              <canvas id="cmTiny" class="pixelated bg-neutral-950 rounded border border-neutral-800"
+              <span class="panel-label">at actual size</span>
+              <canvas id="cmTiny" class="pixelated rounded-lg border-2 border-[var(--border)] mt-1.5"
                       width="${W}" height="${H}"
-                      style="width:${W * 2}px;height:${H * 2}px"></canvas>
+                      style="width:${W * 2}px;height:${H * 2}px;background:var(--canvas-bg);display:block"></canvas>
             </div>
-            ${simple ? "" : `<div id="cmStats" class="text-[11px] text-neutral-500 leading-snug"></div>`}
+            ${simple ? "" : `<div id="cmStats" class="font-semibold text-[11px] text-[var(--muted)] leading-snug border-t border-dashed border-[var(--border-soft)] pt-2"></div>`}
           </div>
         </div>
 
-        <div class="px-4 py-2 border-t border-neutral-800 flex items-center gap-2">
-          <button id="cmCancel" class="px-3 py-1.5 rounded bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-sm ml-auto">Cancel</button>
-          <button id="cmApply" class="px-3 py-1.5 rounded bg-emerald-800 hover:bg-emerald-700 text-emerald-100 text-sm">Apply</button>
+        <div class="px-[22px] py-3.5 border-t-2 border-[var(--border)] flex items-center gap-2.5">
+          <button type="button" id="cmCancel" class="btn-secondary ml-auto">Cancel</button>
+          <button type="button" id="cmApply" class="btn-primary">Apply</button>
         </div>
       </div>
     `;
     document.body.appendChild(el);
     this.el = el;
+    window.lucide?.createIcons?.();
 
     this.previewCtx = el.querySelector("#cmPreview").getContext("2d", { willReadFrequently: true });
     this.tinyCtx = el.querySelector("#cmTiny").getContext("2d");
@@ -247,10 +247,10 @@ export class CropModal {
     if (this.hintEl) {
       if (src.w < W * 4) {
         this.hintEl.textContent = `Heads up: this crop is only ${Math.round(src.w)}px wide, under ${W * 4}px, so it will be upscaled a lot -- expect soft edges and a noisy segmentation.`;
-        this.hintEl.className = "text-[11px] text-amber-500 mt-2";
+        this.hintEl.className = "font-semibold text-[11px] text-[#b45309] mt-2.5 leading-snug";
       } else {
         this.hintEl.textContent = "Drag to pan, scroll or pinch to zoom, drag the handles to resize the crop box.";
-        this.hintEl.className = "text-[11px] text-neutral-600 mt-2";
+        this.hintEl.className = "font-semibold text-[11px] text-[var(--muted2)] mt-2.5 leading-snug";
       }
     }
   }

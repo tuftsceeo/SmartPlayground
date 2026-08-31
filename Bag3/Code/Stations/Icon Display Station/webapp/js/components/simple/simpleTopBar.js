@@ -1,39 +1,72 @@
 /**
- * simpleTopBar.js -- icon name, detail slider, profile, download, mode gear.
+ * simpleTopBar.js -- teacher header matching the lavender prototype.
  */
 import { listProfiles } from "../../pipeline/profiles.js";
 
-export function createSimpleTopBar(state, { onMaxSegmentsChange, onExportIcon, onProfileChange, onIconNameChange, onUiModeChange, cropOpen }) {
+export function createSimpleTopBar(
+  state,
+  {
+    onMaxSegmentsChange,
+    onExportIcon,
+    onProfileChange,
+    onIconNameChange,
+    onUiModeChange,
+    onNew,
+    onOpen,
+    onSaveMap,
+    onRename,
+    onToggleAdjust,
+    cropOpen,
+  }
+) {
   const el = document.createElement("div");
-  el.className = "flex flex-wrap items-center gap-3 px-4 py-3 bg-neutral-900 border-b border-neutral-800";
+  el.className = "flex items-center justify-between gap-3 px-6 py-4";
+  const adjustOn = !!state.showAdjust;
 
   el.innerHTML = `
-    <input type="text" id="iconNameInput" value="${state.iconName || ""}" placeholder="Icon name"
-           class="font-semibold text-neutral-100 bg-transparent border-b border-neutral-700 focus:border-emerald-600 outline-none min-w-[8rem] max-w-[14rem]" />
+    <div class="flex items-center gap-4 min-w-0">
+      <div class="flex items-center gap-2 font-bold text-[17px] min-w-0">
+        <i data-lucide="pencil-line" class="w-4 h-4 text-[var(--muted)] flex-none"></i>
+        <input type="text" id="iconNameInput" value="${state.iconName || ""}" placeholder="icon name"
+               class="input-themed min-w-0 max-w-[10rem] py-1 px-2 text-[15px]" />
+      </div>
+      <div class="flex items-center gap-1 pl-3 border-l-2 border-[var(--border)]">
+        <button type="button" id="btnNew" class="icon-btn" title="New"><i data-lucide="file-plus" class="w-[15px] h-[15px]"></i></button>
+        <button type="button" id="btnOpen" class="icon-btn" title="Open"><i data-lucide="folder-open" class="w-[15px] h-[15px]"></i></button>
+        <button type="button" id="btnSave" class="icon-btn" title="Save" ${state.mode ? "" : "disabled"}><i data-lucide="save" class="w-[15px] h-[15px]"></i></button>
+        <button type="button" id="btnRename" class="icon-btn" title="Rename"><i data-lucide="pencil-line" class="w-[14px] h-[14px]"></i></button>
+        <input type="file" id="fileOpenHidden" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml" class="hidden" />
+      </div>
+      <label class="flex items-center gap-2 text-[11.5px] font-semibold text-[var(--muted2)]">
+        fewer
+        <input type="range" min="1" max="${state.maxSegments > 12 ? state.maxSegments : 12}" step="1"
+               value="${state.maxSegments}" id="segSlider" class="w-24" ${state.mode ? "" : "disabled"} />
+        more
+      </label>
+    </div>
 
-    <label class="flex items-center gap-2 text-xs text-neutral-400">
-      Detail: fewer
-      <input type="range" min="1" max="${state.maxSegments > 12 ? state.maxSegments : 12}" step="1"
-             value="${state.maxSegments}" id="segSlider" class="w-24" ${state.mode ? "" : "disabled"} />
-      more
-    </label>
-
-    <select id="profileSelect" title="Target hardware"
-            class="text-xs bg-neutral-800 text-neutral-200 rounded px-2 py-1 border border-neutral-700">
-      ${listProfiles()
-        .map((p) => `<option value="${p.id}" ${p.id === state.profileId ? "selected" : ""}>${p.label}</option>`)
-        .join("")}
-    </select>
-
-    <div class="ml-auto flex items-center gap-2">
-      <button id="btnDownload" class="text-xs px-3 py-1.5 rounded bg-emerald-900 hover:bg-emerald-800 text-emerald-100 disabled:opacity-40 flex items-center gap-1"
-              ${state.mode ? "" : "disabled"}>
-        <i data-lucide="download" class="w-3.5 h-3.5"></i> Download
+    <div class="flex items-center gap-2.5 flex-none">
+      <select id="profileSelect" title="Target hardware" class="select-themed">
+        ${listProfiles()
+          .map((p) => `<option value="${p.id}" ${p.id === state.profileId ? "selected" : ""}>${p.label}</option>`)
+          .join("")}
+      </select>
+      <button type="button" id="btnAdjust" title="Pixelation &amp; segment colours"
+              class="icon-btn-square"
+              style="background:${adjustOn ? "#fdeaa8" : "#fff9e8"};border-color:var(--gold);color:var(--hw-ink)">
+        <i data-lucide="sliders-horizontal" class="w-[18px] h-[18px]"></i>
       </button>
-      <button id="modeGear" title="${cropOpen ? "Finish cropping first" : "Switch to advanced mode"}"
-              class="p-2 rounded border border-neutral-700 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 disabled:opacity-40"
+      <button type="button" id="modeGear" title="${cropOpen ? "Finish cropping first" : "Switch to advanced mode"}"
+              class="icon-btn-square disabled:opacity-40"
+              style="background:var(--pink-soft);color:var(--muted)"
               ${cropOpen ? "disabled" : ""}>
-        <i data-lucide="settings" class="w-4 h-4"></i>
+        <i data-lucide="settings" class="w-[18px] h-[18px]"></i>
+      </button>
+      <button type="button" id="btnDownload" title="Download"
+              class="icon-btn-square disabled:opacity-40"
+              style="background:var(--red-soft);border-color:var(--red);color:#8a3a30"
+              ${state.mode ? "" : "disabled"}>
+        <i data-lucide="download" class="w-[17px] h-[17px]"></i>
       </button>
     </div>
   `;
@@ -41,7 +74,21 @@ export function createSimpleTopBar(state, { onMaxSegmentsChange, onExportIcon, o
   el.querySelector("#segSlider")?.addEventListener("change", (e) => onMaxSegmentsChange(Number(e.target.value)));
   el.querySelector("#profileSelect")?.addEventListener("change", (e) => onProfileChange(e.target.value));
   el.querySelector("#btnDownload")?.addEventListener("click", onExportIcon);
+  el.querySelector("#btnAdjust")?.addEventListener("click", () => onToggleAdjust?.());
   el.querySelector("#modeGear")?.addEventListener("click", () => onUiModeChange("advanced"));
+  el.querySelector("#btnNew")?.addEventListener("click", () => onNew?.());
+  el.querySelector("#btnSave")?.addEventListener("click", () => onSaveMap?.());
+  el.querySelector("#btnOpen")?.addEventListener("click", () => el.querySelector("#fileOpenHidden")?.click());
+  el.querySelector("#fileOpenHidden")?.addEventListener("change", (e) => {
+    const file = e.target.files?.[0];
+    if (file) onOpen?.(file);
+  });
+  el.querySelector("#btnRename")?.addEventListener("click", () => {
+    const input = el.querySelector("#iconNameInput");
+    input?.focus();
+    input?.select();
+    onRename?.();
+  });
   el.querySelector("#iconNameInput")?.addEventListener("change", (e) => {
     const name = e.target.value.trim().replace(/[^a-z0-9_]+/gi, "_").toLowerCase();
     if (name) {

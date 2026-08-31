@@ -1,38 +1,70 @@
-/** advancedLayout.js -- today's three-column dev surface; canvases are slots. */
+/** advancedLayout.js -- prototype card: hero grid, adjust + hardware drawers. */
 
 export function advancedLayoutHtml() {
   return `
-    <div id="topBarMount"></div>
-    <div class="flex-1 grid grid-cols-[320px_360px_1fr] overflow-hidden">
-      <div class="flex flex-col overflow-y-auto border-r border-neutral-800">
-        <div id="importMount"></div>
-        <div class="p-3 flex flex-col gap-2 items-center">
-          <div>
-            <div class="text-[11px] text-neutral-500 mb-1">source</div>
+    <div class="app-card">
+      <div class="flex items-stretch border-b-2 border-[var(--border)]">
+        <div id="topBarMount" class="flex-1 min-w-0"></div>
+        <div id="deviceMount" class="relative flex items-center pr-6 flex-none"></div>
+      </div>
+
+      <div class="flex gap-5 px-6 py-5 flex-1 min-h-0 overflow-hidden">
+        <div class="w-24 flex flex-col gap-2.5 flex-none overflow-y-auto">
+          <div class="flex flex-col gap-1.5 items-center">
+            <span class="text-[10.5px] font-bold text-[var(--muted2)] text-center">source photo</span>
             <div data-canvas-slot="source" class="canvas-slot-source"></div>
+            <div id="importMount" class="w-full"></div>
           </div>
-          <div>
-            <div class="text-[11px] text-neutral-500 mb-1">segmented</div>
-            <div data-canvas-slot="segmented" class="canvas-slot-source"></div>
+          <div id="toolRowMount"></div>
+        </div>
+
+        <div class="flex-1 flex items-center justify-center min-w-0 min-h-0">
+          <div data-canvas-slot="grid" class="canvas-slot-grid-advanced hero-grid-wrap"></div>
+        </div>
+
+        <div class="w-[200px] flex flex-col gap-3.5 flex-none overflow-y-auto">
+          <div id="paletteMount"></div>
+          <div class="panel flex flex-col gap-2 items-center">
+            <span class="panel-label self-start">LED preview</span>
+            <div data-canvas-slot="preview" class="canvas-slot-preview"></div>
+            <div id="brightnessMount" class="w-full"></div>
+          </div>
+          <div id="gridControlsMount" class="hidden" aria-hidden="true"></div>
+        </div>
+      </div>
+
+      <div id="adjustDrawer">
+        <button type="button" id="adjustDrawerToggle" class="drawer-header drawer-header-adjust">
+          <span class="flex items-center gap-2">
+            <i data-lucide="sliders-horizontal" class="w-4 h-4"></i>
+            Pixelation &amp; segment colours
+          </span>
+          <span class="adjust-chevron-wrap"><i data-lucide="chevron-down" class="w-4 h-4"></i></span>
+        </button>
+        <div id="adjustDrawerBody" class="hidden border-t-2 border-[var(--border)] bg-[var(--adjust-bg)] px-6 py-5">
+          <div class="flex gap-6">
+            <div class="w-[230px] flex flex-col gap-1.5 flex-none">
+              <span class="panel-label">Segmentation result</span>
+              <div data-canvas-slot="segmented" class="canvas-segmented-drawer"></div>
+              <span class="text-[11px] font-semibold text-[var(--muted2)]">the auto colour-fill, before your edits</span>
+            </div>
+            <div class="flex-1 flex flex-col gap-3.5 min-w-0">
+              <div id="segmentListMount"></div>
+              <div id="problemsMount"></div>
+            </div>
           </div>
         </div>
       </div>
 
-      <div id="segmentListMount" class="overflow-y-auto border-r border-neutral-800"></div>
-
-      <div class="flex flex-col overflow-y-auto">
-        <div class="p-3 flex flex-col items-center">
-          <div data-canvas-slot="preview" class="canvas-slot-preview"></div>
-        </div>
-        <div id="brightnessMount"></div>
-
-        <div class="p-3 flex flex-col items-center border-t border-neutral-800">
-          <div data-canvas-slot="grid" class="canvas-slot-grid-advanced"></div>
-        </div>
-        <div id="gridControlsMount"></div>
-
-        <div id="problemsMount"></div>
-        <div id="deviceMount" class="mt-auto"></div>
+      <div id="hwDrawer">
+        <button type="button" id="hwDrawerToggle" class="drawer-header drawer-header-hw">
+          <span class="flex items-center gap-2">
+            <span class="hw-chevron-wrap"><i data-lucide="chevron-right" class="w-3.5 h-3.5"></i></span>
+            Hardware &amp; serial debug
+          </span>
+          <span class="font-semibold text-[11.5px] text-[var(--gold)]">firmware · power injection · probe</span>
+        </button>
+        <div id="hwDrawerMount" class="hidden"></div>
       </div>
     </div>
   `;
