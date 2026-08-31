@@ -24,7 +24,7 @@ export function buildComponentChecklist(capabilities, requiredTags) {
         if (capabilities.usesAccel) items.push({ icon: '📳', label: 'shake / jump sensor' });
         if (capabilities.usesButton) items.push({ icon: '🔘', label: 'wand button' });
         if (capabilities.usesBuzzer) items.push({ icon: '🔊', label: 'buzzer' });
-        if ((capabilities.ledColors || []).length > 0 || capabilities.hasCode) {
+        if (capabilities.usesLeds || capabilities.hasCode) {
             items.push({ icon: '💡', label: 'LED matrix' });
         }
     }

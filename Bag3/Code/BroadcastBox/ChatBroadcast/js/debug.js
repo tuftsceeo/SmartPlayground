@@ -35,9 +35,15 @@ export function dbgError(scope, msg, data) {
     }
 }
 
-/** Group related logs visually in the console (collapsed by default). */
-export function dbgGroup(scope, label, fn) {
-    console.groupCollapsed(`${PREFIX} ${ts()} [${scope}] ${label}`);
+/**
+ * Group related logs visually in the console. Collapsed by default so
+ * routine groups don't clutter the console — pass `{ expanded: true }`
+ * for groups you want visible without an extra click (e.g. diagnostics
+ * you expect the user to need to read immediately).
+ */
+export function dbgGroup(scope, label, fn, opts = {}) {
+    const open = opts.expanded ? console.group : console.groupCollapsed;
+    open(`${PREFIX} ${ts()} [${scope}] ${label}`);
     try {
         fn();
     } finally {
