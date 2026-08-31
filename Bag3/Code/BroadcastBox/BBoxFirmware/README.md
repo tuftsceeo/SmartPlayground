@@ -73,8 +73,19 @@ on purpose) but the app no longer calls `arm` after pushing code.
 2. On that reboot, the Box sees `payload.py` on flash and arms itself —
    brings up the `SP-FILEPUSH` AP and enables NFC card writing — with no
    further command from the app.
-3. Box writes `getcode` opcode to NFC card when tapped.
+3. Box writes plain NDEF text `"getcode"` to the NFC card when tapped
+   (`card_writer.py` — see note below, **not** the Bag3 opcode scheme).
 4. Wand taps card, joins AP, pulls `jumpin.py` via `code_server` / `c6_receiver`.
+
+## Card format: plain NDEF text, not opcodes.py
+
+`card_writer.py` writes/reads plain NDEF text records (`write_text` /
+`existing_text`), ported from `Bag2/Utilities/writetoNFCcards.py` (write)
+and `Bag2/Code/lib/nfc_reader.py`'s `_decode_ndef_text` (read) — both
+proven on real hardware. It deliberately does **not** use this repo's
+`opcodes.py` 4-byte scheme, which is Bag3-only and untested. `MockWand/lib/nfc_reader.py`
+was switched to match (Bag2-style NDEF reading) so Box and wand agree.
+Revisit this once opcodes.py has been bench-tested end to end.
 
 ## Verify checklist (mpremote)
 

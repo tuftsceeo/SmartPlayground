@@ -10,7 +10,7 @@ import machine
 
 from json_link import JsonLink
 from code_server import CodeServer, FS_ROOT, DEFAULT_SRC, SSID
-from card_writer import NfcWriter, existing_opcode_name, write_opcode
+from card_writer import NfcWriter, existing_text, write_text
 from bbox_ui import BboxUI
 
 VERSION = "0.1.0"
@@ -57,6 +57,8 @@ class BboxServer:
         self._btn_ok = False
         self._btn = None
         self._hold_start = 0
+        self._last_seen_uid = None  # debounce: one write per physical tap
+        self._nfc_fail_count = 0  # consecutive detect_tag errors -- see _poll_nfc
 
         self.handlers = {
             "hello": self.do_hello,
@@ -198,19 +200,58 @@ class BboxServer:
         except OSError:
             return False
 
+    # Consecutive detect_tag() OSErrors before we assume the PN532's
+    # internal state machine is wedged (not just one bad I2C beat) and
+    # try a fresh init() to recover it.
+    NFC_REINIT_AFTER = 15
+
     def _poll_nfc(self):
         if not self._armed_write or self.nfc is None:
             return
-        tag = self.nfc.detect_tag(timeout=80)
-        if tag is None:
+        try:
+            tag = self.nfc.detect_tag(timeout=80)
+        except OSError as e:
+            # PN532 over I2C occasionally times out (ETIMEDOUT) on a bad
+            # read -- transient, not fatal. Without this catch it took down
+            # the whole run() loop (uncaught OSError -> fatal event, server
+            # dead until reset).
+            self._nfc_fail_count += 1
+            # Only print every 5th repeat once we know it's a streak --
+            # otherwise a wedged/disconnected reader floods the log with
+            # an identical line on every ~80ms poll forever.
+            if self._nfc_fail_count <= 3 or self._nfc_fail_count % 5 == 0:
+                print("# NFC detect_tag err (%d in a row): %s" % (self._nfc_fail_count, str(e)))
+            self._last_seen_uid = None
+            if self._nfc_fail_count >= self.NFC_REINIT_AFTER:
+                print("# NFC: %d consecutive errors -- attempting re-init" % self._nfc_fail_count)
+                self._nfc_fail_count = 0
+                try:
+                    self._init_nfc()
+                    print("# NFC re-init OK")
+                except Exception as e2:
+                    print("# NFC re-init failed: %s" % str(e2))
+                time.sleep_ms(200)  # let the bus settle either way
             return
+        self._nfc_fail_count = 0
+        if tag is None:
+            # Card lifted -- next tap (same or different card) is a new event.
+            self._last_seen_uid = None
+            return
+        if tag['uid_hex'] == self._last_seen_uid:
+            # Same card still sitting on the reader from the tap we already
+            # handled -- without this, every ~80ms poll would rewrite it and
+            # increment self._written again for as long as it stays down.
+            return
+        self._last_seen_uid = tag['uid_hex']
         self.ui.beep_scan()
-        existing = existing_opcode_name(self.nfc, tag)
+        existing = existing_text(self.nfc, tag)
         self.link.send({
             "type": "card_present", "uid": tag['uid_hex'],
             "existing": existing,
         })
-        if existing and existing != CARD_LABEL:
+        if existing == CARD_LABEL:
+            return  # already has this card written -- nothing to do
+        if existing:
             self._pending_tag = tag
             self._pending_existing = existing
             self.ui.paint_overwrite(existing, CARD_LABEL)
@@ -219,7 +260,7 @@ class BboxServer:
 
     def _write_card(self, tag):
         self.ui.paint_writing(CARD_LABEL)
-        ok = write_opcode(self.nfc, tag, CARD_LABEL)
+        ok = write_text(self.nfc, tag, CARD_LABEL)
         if ok:
             self._written += 1
             self.ui.paint_done(CARD_LABEL, self._written, self._card_total)
@@ -256,6 +297,7 @@ class BboxServer:
     def run(self):
         import M5
         M5.begin()
+        self.ui.begin()
         _boot_grace(self.ui)
         try:
             self._init_nfc()
