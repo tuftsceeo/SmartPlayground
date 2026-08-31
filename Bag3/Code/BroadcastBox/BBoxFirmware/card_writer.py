@@ -11,7 +11,14 @@ was switched to match (see that file's docstring) so the two sides agree.
 No LEDAnimator/Beeper/main() — bbox_ui.py handles all Box-side feedback.
 """
 
+import time
+
 from pn532 import PN532, MIFARE_AUTH_A, MIFARE_AUTH_B
+
+# NTAG/Classic need programming time after each page/block write. Bag2's
+# writetoNFCcards.py sleeps 30ms after every write; dropping it let later
+# pages silently fail to commit, leaving a half-written NDEF on the card.
+WRITE_SETTLE_MS = 30
 
 COMMON_KEYS = [
     b'\xFF\xFF\xFF\xFF\xFF\xFF',
@@ -154,8 +161,10 @@ def _write_ntag_text(nfc, text):
         chunk = ndef[i * 4: i * 4 + 4]
         try:
             nfc.ntag_write_page(page, chunk)
-        except RuntimeError:
+        except RuntimeError as e:
+            print("# ntag page %d write failed: %s" % (page, str(e)))
             return False
+        time.sleep_ms(WRITE_SETTLE_MS)
     return True
 
 
@@ -194,13 +203,21 @@ def _write_classic_text(nfc, tag, text):
         try:
             nfc.mifare_write(block, chunk)
             written += 1
-        except RuntimeError:
+        except RuntimeError as e:
+            print("# classic block %d write failed: %s" % (block, str(e)))
             return False
+        time.sleep_ms(WRITE_SETTLE_MS)
     return written == blocks_needed
 
 
-def write_text(nfc, tag, text):
+def write_text(nfc, tag, text, verify=True):
     """Write plain NDEF text `text` to the card. Returns True on success.
+
+    With verify=True the card is read back and the decoded text compared
+    against what we wrote. A partially-committed NDEF otherwise looks like
+    a success here, and the wand then falls back to scanning raw card
+    bytes -- where leftover text from a previous write can still match, so
+    a bad "getcode" card silently launches whatever game was on it before.
 
     Wrapped in a broad except (not just the RuntimeError the low-level
     write calls raise) because a flaky I2C read/re-select during the
@@ -209,13 +226,30 @@ def write_text(nfc, tag, text):
     """
     try:
         if tag['is_ntag']:
-            return _write_ntag_text(nfc, text)
-        if tag['is_classic']:
-            return _write_classic_text(nfc, tag, text)
-        return False
+            ok = _write_ntag_text(nfc, text)
+        elif tag['is_classic']:
+            ok = _write_classic_text(nfc, tag, text)
+        else:
+            return False
+        if not ok or not verify:
+            return ok
+        return _verify_text(nfc, tag, text)
     except Exception as e:
         print("# write_text err: %s" % str(e))
         return False
+
+
+def _verify_text(nfc, tag, text):
+    """Re-read the card and confirm it decodes back to `text`."""
+    fresh = nfc.detect_tag(timeout=500)
+    if fresh is None:
+        print("# verify failed: card lifted before read-back")
+        return False
+    back = existing_text(nfc, fresh)
+    if back == text.strip().lower():
+        return True
+    print("# verify failed: card reads back as %s, expected '%s'" % (repr(back), text))
+    return False
 
 
 def existing_text(nfc, tag):

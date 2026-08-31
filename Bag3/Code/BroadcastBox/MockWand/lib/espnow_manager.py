@@ -13,6 +13,7 @@ Usage:
     msg_type, data, mac = mgr.poll()
 """
 
+import gc
 import network
 import espnow
 import json
@@ -29,6 +30,11 @@ REPORT_GAP_MS = 120
 # Pause + single retry when a broadcast hits a momentarily-full ESP-NOW TX
 # queue (ESP_ERR_ESPNOW_NO_MEM) on rapid back-to-back sends.
 SEND_RETRY_MS = 30
+
+# This MockWand has no antenna on the u.FL connector; see _configure_antenna().
+EXTERNAL_ANTENNA = False
+# Settle time after releasing the radio, before anything else claims it.
+RADIO_SETTLE_MS = 300
 
 
 def _is_esp32c6():
@@ -50,15 +56,26 @@ def _is_esp32c6():
     return False
 
 
-def _configure_external_antenna():
-    """Switch to external antenna before WiFi activation (ESP32-C6 only)."""
+def _configure_antenna(external=EXTERNAL_ANTENNA):
+    """Select the antenna before WiFi activation (ESP32-C6 only).
+
+    Selects explicitly in both directions. _is_esp32c6() only tells us the
+    chip has the GPIO3/14 switch, not that anything is wired to the u.FL
+    connector, so unconditionally choosing external leaves a bare board
+    transmitting into an unconnected switch path. Keep EXTERNAL_ANTENNA in
+    sync with code_puller.EXTERNAL_ANTENNA -- there is one radio, and the
+    two modules take turns driving these same pins.
+
+    GPIO3 = RF switch enable (active low), GPIO14 = select (0 = onboard,
+    1 = external).
+    """
     if not _is_esp32c6():
         return
     wifi_en = Pin(3, Pin.OUT)
     ant_cfg = Pin(14, Pin.OUT)
     wifi_en.value(0)
     time.sleep_ms(100)
-    ant_cfg.value(1)  # External antenna
+    ant_cfg.value(1 if external else 0)
 
 
 def mac_str_to_bytes(mac_str):
@@ -74,7 +91,7 @@ def get_own_mac():
     sta = network.WLAN(network.STA_IF)
     was = sta.active()
     if not was:
-        _configure_external_antenna()
+        _configure_antenna()
         sta.active(True)
     mac = ':'.join('%02X' % b for b in sta.config('mac'))
     if not was:
@@ -98,7 +115,7 @@ class ESPNowManager:
     def init(self):
         if self._active:
             return
-        _configure_external_antenna()
+        _configure_antenna()
         sta = network.WLAN(network.STA_IF)
         sta.active(True)
         sta.disconnect()
@@ -112,15 +129,33 @@ class ESPNowManager:
         print("  ESPNow: active (MAC: %s)" % get_own_mac())
 
     def shutdown(self):
+        """Release the radio, not just this object's idea of being active.
+
+        Dropping self.enow matters: while an espnow.ESPNow object is alive it
+        holds the WiFi interface, and a later sta.connect() is then refused
+        silently -- status sits at STAT_IDLE for the full timeout instead of
+        advancing to STAT_CONNECTING or reporting a failure. Clearing it is
+        safe because init() recreates the object unconditionally.
+
+        send_stop_all_peers() is best-effort: telling peers to stop is a
+        courtesy, and letting it fail here used to skip the release below
+        entirely, which is the failure this docstring exists to prevent.
+        """
         if not self._active:
             return
-        self.send_stop_all_peers()
+        try:
+            self.send_stop_all_peers()
+        except Exception as e:
+            print("  ESPNow: stop-all on shutdown failed: %s" % str(e))
         try:
             self.enow.active(False)
-        except Exception:
-            pass
+        except Exception as e:
+            print("  ESPNow: active(False) failed: %s" % str(e))
+        self.enow = None
         self._active = False
         self._peers.clear()
+        gc.collect()
+        time.sleep_ms(RADIO_SETTLE_MS)
 
     @property
     def is_active(self):

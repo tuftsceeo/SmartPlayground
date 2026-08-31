@@ -23,7 +23,10 @@ from pn532 import PN532
 from lis2dw12 import LIS2DW12, RANGE_4G
 from max17048 import MAX17048
 
-from leds import Leds, TRIGGER_ORDER, battery_color, WHITE, OFF
+from leds import (
+    Leds, TRIGGER_ORDER, battery_color, WHITE, OFF,
+    SHAPE_CHECK, SHAPE_X, RED, GREEN, CYAN, BLUE_DIM,
+)
 from power_led import PowerLed
 from buzzer import Buzzer
 from nfc_reader import NfcReader
@@ -601,18 +604,43 @@ def main():
                 import gc
                 import code_puller
                 print("# mem_free before pull: %d" % gc.mem_free())
-                leds.fill((0, 20, 40))
+
+                # Progress bar across all LEDs, lit left-to-right as bytes
+                # come in -- code_puller.pull() doesn't know about LEDs, it
+                # just calls this after each chunk (see on_progress there).
+                # Palette colors only: every write is scaled by
+                # brightness.MULTIPLIER (0.05 indoors), so a raw dim tuple
+                # like (0, 20, 40) would arrive as (0, 1, 2) -- invisible.
+                def _pull_progress(received, total):
+                    pct = (received / total) if total else 0
+                    lit = max(1, int(pct * leds.num))
+                    for i in range(leds.num):
+                        leds.np[i] = CYAN if i < lit else BLUE_DIM
+                    leds.np.write()
+
+                leds.fill(BLUE_DIM)
                 buz.beep(880, 80)
                 time.sleep_ms(50)
                 buz.beep(1100, 80)
-                ok = code_puller.pull(enow=enow, external_antenna=True, verbose=True)
+                # external_antenna is deliberately not passed -- it's a
+                # hardware fact, so code_puller.EXTERNAL_ANTENNA owns it.
+                ok = code_puller.pull(enow=enow, verbose=True,
+                                      on_progress=_pull_progress)
                 print("# mem_free after pull: %d" % gc.mem_free())
                 if ok:
+                    leds.show_shape(SHAPE_CHECK, GREEN)
+                    buz.beep(300, 200)
+                    time.sleep_ms(100)
+                    buz.beep(200, 300)
+                    time.sleep_ms(600)
                     print("# pull OK — resetting")
                     machine.reset()
+                leds.show_shape(SHAPE_X, RED)
                 buz.beep(300, 200)
                 time.sleep_ms(100)
                 buz.beep(200, 300)
+                time.sleep_ms(800)
+                leds.off()
                 last_activity_ms = time.ticks_ms()
                 idle_frame = 0
                 show_idle(last_soc, 0)
