@@ -4,6 +4,7 @@
 import { buildPalette, snapToPalette, ledDeltaE, swatchStyle, isOff, JND } from "../pipeline/ledGamut.js";
 import { authoredToDisplayHex, displayHexToAuthored } from "../pipeline/ledDisplay.js";
 import { state } from "../state/store.js";
+import { crayonSwatchHtml } from "../utils/toolArt.js";
 
 function hexToRgb(hex) {
   const n = parseInt(hex.slice(1), 16);
@@ -88,8 +89,12 @@ export class PalettePicker {
           ? isOff(currentDuty)
           : currentDuty && !isOff(currentDuty) && ledDeltaE(entry.duty, currentDuty, intensity) < JND / 2;
         b.type = "button";
-        b.className = `swatch-crayon w-5 h-11 ${isCurrent ? "is-selected" : ""}`;
-        b.style.background = swatchStyle(entry.duty);
+        b.className = `swatch-crayon w-5 h-11 ${simple && !entry.off ? "swatch-crayon-art" : ""} ${isCurrent ? "is-selected" : ""}`;
+        if (simple && !entry.off) {
+          b.innerHTML = crayonSwatchHtml(swatchStyle(entry.duty));
+        } else {
+          b.style.background = swatchStyle(entry.duty);
+        }
         b.title = entry.off ? "off" : `${col.name} · ${entry.duty.join(",")}`;
         b.addEventListener("click", () => {
           this.onPick?.(entry.duty.slice());

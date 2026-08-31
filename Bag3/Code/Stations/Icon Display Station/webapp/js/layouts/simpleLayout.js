@@ -9,7 +9,7 @@ export function simpleLayoutHtml() {
       </div>
 
       <div class="flex gap-5 px-6 py-5 flex-1 min-h-0 overflow-hidden">
-        <div class="w-24 flex flex-col gap-2.5 flex-none overflow-y-auto">
+        <div class="w-24 flex flex-col gap-2.5 flex-none">
           <div class="flex flex-col gap-1.5 items-center">
             <span class="text-[10.5px] font-bold text-[var(--muted2)] text-center">source photo</span>
             <div data-canvas-slot="source" class="canvas-slot-source-simple"></div>

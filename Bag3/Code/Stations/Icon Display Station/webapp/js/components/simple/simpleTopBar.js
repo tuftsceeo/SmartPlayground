@@ -16,6 +16,8 @@ export function createSimpleTopBar(
     onSaveMap,
     onRename,
     onToggleAdjust,
+    onUndo,
+    canUndo,
     cropOpen,
   }
 ) {
@@ -35,6 +37,7 @@ export function createSimpleTopBar(
         <button type="button" id="btnOpen" class="icon-btn" title="Open"><i data-lucide="folder-open" class="w-[15px] h-[15px]"></i></button>
         <button type="button" id="btnSave" class="icon-btn" title="Save" ${state.mode ? "" : "disabled"}><i data-lucide="save" class="w-[15px] h-[15px]"></i></button>
         <button type="button" id="btnRename" class="icon-btn" title="Rename"><i data-lucide="pencil-line" class="w-[14px] h-[14px]"></i></button>
+        <button type="button" id="btnUndo" class="icon-btn" title="Undo" ${canUndo ? "" : "disabled"}><i data-lucide="undo-2" class="w-[15px] h-[15px]"></i></button>
         <input type="file" id="fileOpenHidden" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml" class="hidden" />
       </div>
       <label class="flex items-center gap-2 text-[11.5px] font-semibold text-[var(--muted2)]">
@@ -89,6 +92,7 @@ export function createSimpleTopBar(
     input?.select();
     onRename?.();
   });
+  el.querySelector("#btnUndo")?.addEventListener("click", () => onUndo?.());
   el.querySelector("#iconNameInput")?.addEventListener("change", (e) => {
     const name = e.target.value.trim().replace(/[^a-z0-9_]+/gi, "_").toLowerCase();
     if (name) {

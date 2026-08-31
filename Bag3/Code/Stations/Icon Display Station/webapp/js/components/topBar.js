@@ -18,6 +18,8 @@ export function createTopBar(
     onOpen,
     onRename,
     onToggleAdjust,
+    onUndo,
+    canUndo,
     cropOpen,
   }
 ) {
@@ -40,6 +42,7 @@ export function createTopBar(
         <button type="button" id="btnOpen" class="icon-btn" title="Open"><i data-lucide="folder-open" class="w-[15px] h-[15px]"></i></button>
         <button type="button" id="btnSave" class="icon-btn" title="Save map" ${state.mode ? "" : "disabled"}><i data-lucide="save" class="w-[15px] h-[15px]"></i></button>
         <button type="button" id="btnRename" class="icon-btn" title="Rename"><i data-lucide="pencil-line" class="w-[14px] h-[14px]"></i></button>
+        <button type="button" id="btnUndo" class="icon-btn" title="Undo" ${canUndo ? "" : "disabled"}><i data-lucide="undo-2" class="w-[15px] h-[15px]"></i></button>
         <input type="file" id="fileOpenHidden" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml" class="hidden" />
       </div>
     </div>
@@ -104,6 +107,7 @@ export function createTopBar(
     input?.select();
     onRename?.();
   });
+  el.querySelector("#btnUndo")?.addEventListener("click", () => onUndo?.());
   el.querySelector("#iconNameInput")?.addEventListener("change", (e) => {
     const name = e.target.value.trim().replace(/[^a-z0-9_]+/gi, "_").toLowerCase();
     if (name) {

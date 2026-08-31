@@ -24,7 +24,7 @@ import { renderPreview, previewToBlob } from "./pipeline/preview.js";
 import { W, H, WORK, DEFAULT_MAX_SEGMENTS, applyProfile } from "./pipeline/constants.js";
 import { getProfile, setProfile, profileForHello, listProfiles } from "./pipeline/profiles.js";
 import { authoredToDisplay } from "./pipeline/ledDisplay.js";
-import { ledSwatchHex } from "./pipeline/ledGamut.js";
+import { ledSwatchHex, ledDeltaE, JND, isOff } from "./pipeline/ledGamut.js";
 
 import { createTopBar } from "./components/topBar.js";
 import { createSimpleTopBar } from "./components/simple/simpleTopBar.js";
@@ -485,7 +485,10 @@ class App {
     const simple = state.uiMode === "simple";
     const cropOpen = !!this.crop.el;
     const brushPalette = (anchor) =>
-      this.palette.open(anchor, state.brushColor, state.intensity, (duty) => setState({ brushColor: duty }));
+      this.palette.open(anchor, state.brushColor, state.intensity, (duty) => {
+        setState({ brushColor: duty, activeTool: "pencil" });
+        this.addCustomPaletteColor(duty);
+      });
     const segmentPalette = (i, anchor) =>
       this.palette.open(anchor, state.decisions[i]?.color, state.intensity, (duty) =>
         this.commitDecisionPatch(i, { color: duty })
@@ -496,6 +499,8 @@ class App {
         this.loadFile(file).catch((e) => showToast(String(e.message || e), { kind: "error" }));
       }
     };
+
+    const canUndo = doc.undoStack.length > 0;
 
     this.topBarMount.innerHTML = "";
     this.topBarMount.appendChild(
@@ -510,6 +515,8 @@ class App {
             onOpen: fileOpen,
             onSaveMap: () => this.exportMap(),
             onToggleAdjust: () => setState({ showAdjust: !state.showAdjust }),
+            onUndo: () => this.undo(),
+            canUndo,
             cropOpen,
           })
         : createTopBar(state, {
@@ -523,6 +530,8 @@ class App {
             onNew: () => this.confirmNewIcon(),
             onOpen: fileOpen,
             onToggleAdjust: () => setState({ showAdjust: !state.showAdjust }),
+            onUndo: () => this.undo(),
+            canUndo,
             cropOpen,
           })
     );
@@ -550,7 +559,6 @@ class App {
       this.toolRowMount.appendChild(
         createToolRow(state, {
           onToolChange: (tool) => setState({ activeTool: tool }),
-          onUndo: () => this.undo(),
           onOpenBrushPalette: brushPalette,
         })
       );
@@ -691,7 +699,7 @@ class App {
 
   // ── load / resegment ────────────────────────────────────────────────
   async loadFixture(name) {
-    setState({ loading: true, statusText: `loading ${name}…` });
+    setState({ loading: true, statusText: `loading ${name}…`, customPaletteColors: [] });
     releaseSource();
     const { imageData, source, transform } = await decodeUrlToWorking(`../assets/${name}.png`);
     doc.source = source;
@@ -707,7 +715,7 @@ class App {
   }
 
   async loadFile(file) {
-    setState({ loading: true, statusText: `loading ${file.name}…` });
+    setState({ loading: true, statusText: `loading ${file.name}…`, customPaletteColors: [] });
     releaseSource();
     const source = await loadSource(file);
     doc.source = source;
@@ -898,6 +906,15 @@ class App {
     this.recomputePixelsFromOverlay();
     const { problems } = this.runTier5();
     setState({ problems });
+  }
+
+  /** Persist a brush-picked colour into the Palette panel (dedup by perceptual distance). */
+  addCustomPaletteColor(duty) {
+    if (!duty || isOff(duty)) return;
+    const list = state.customPaletteColors || [];
+    const dup = list.some((c) => ledDeltaE(c, duty, state.intensity) < JND);
+    if (dup) return;
+    setState({ customPaletteColors: [...list, duty.slice()] });
   }
 
   // ── canvas painting ─────────────────────────────────────────────────
