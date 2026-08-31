@@ -192,15 +192,11 @@ export class BboxDeviceLink {
     } finally {
       this._attachJson();
     }
-    if (!pushResult.ok) return pushResult;
-    try {
-      onProgress?.({ current: 2, total: 2, file: "arm", status: "uploading" });
-      await this.json.arm();
-      onProgress?.({ current: 2, total: 2, file: "arm", status: "uploaded" });
-      return { ok: true };
-    } catch (e) {
-      return { ok: false, error: "Code sent, but the Box could not arm for card writing. Try Send again." };
-    }
+    // No separate "arm" round-trip here -- the box arms itself on the reboot
+    // that already happened inside pushPayload(), as soon as it sees
+    // payload.py on flash. That's what keeps card-writing working after
+    // the box is unplugged and carried off to the playground.
+    return pushResult;
   }
 
   async disconnect() {

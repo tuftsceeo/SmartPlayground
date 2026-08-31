@@ -1,9 +1,13 @@
 """
-bbox_ui.py — M5.Lcd screens for Broadcast Box (landscape 240x135).
+bbox_ui.py — M5.Lcd screens + M5.Speaker feedback for Broadcast Box
+(landscape 240x135).
 
 Modeled on Bag2/Code/StickS3 Narrator/narrator_ui.py: try/except on every
-M5 call, DejaVu fonts, _LAYOUT_TABLE for centering.
+M5 call, DejaVu fonts, _LAYOUT_TABLE for centering. Speaker volume follows
+the same StickS3 board caution as narrator/main.py's SPEAKER_VOLUME.
 """
+
+import time
 
 import M5
 
@@ -18,6 +22,11 @@ AMBER = 0xFFA000
 ROTATION = 1
 SCREEN_W = 240
 SCREEN_H = 135
+
+# 0-255. StickS3's own docs warn to stay under ~75% (~191) on battery power
+# to avoid a brown-out reboot when USB is unplugged -- same caution as
+# Bag2/Code/StickS3 Narrator/main.py's SPEAKER_VOLUME.
+SPEAKER_VOLUME = 190
 
 _DEJAVU_NAMES = {
     9: "DejaVu9", 12: "DejaVu12", 18: "DejaVu18", 24: "DejaVu24",
@@ -100,6 +109,34 @@ class BboxUI(object):
             M5.Lcd.setRotation(ROTATION)
         except Exception as e:
             print("# setRotation err: %s" % str(e))
+        try:
+            M5.Speaker.setVolume(SPEAKER_VOLUME)
+        except Exception as e:
+            print("# speaker volume err: %s" % str(e))
+
+    def _tone(self, freq, ms):
+        try:
+            M5.Speaker.tone(freq, ms)
+        except Exception as e:
+            print("# speaker tone err: %s" % str(e))
+
+    # Mirrors Bag2/Utilities/writetoNFCcards.py's Beeper -- same feel as
+    # the wand's own NFC feedback, just via M5.Speaker instead of a piezo.
+    def beep_scan(self):
+        """Short click the instant a tag is detected on the reader."""
+        self._tone(1000, 30)
+
+    def beep_success(self):
+        self._tone(523, 100)
+        time.sleep_ms(50)
+        self._tone(659, 100)
+        time.sleep_ms(50)
+        self._tone(784, 200)
+
+    def beep_fail(self):
+        self._tone(300, 200)
+        time.sleep_ms(50)
+        self._tone(200, 400)
 
     def paint_booting(self):
         _draw_centered("Starting", AMBER, BLACK, 24)

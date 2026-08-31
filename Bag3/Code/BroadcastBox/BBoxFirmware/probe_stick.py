@@ -102,7 +102,7 @@ def _check_button(wait_s=3):
 def _check_nfc():
     import machine
     from pn532 import PN532
-    pins = [(4, 5), (5, 4), (22, 23)]
+    pins = [(9, 10), (10, 9), (4, 5), (5, 4), (22, 23)]
     for sda, scl in pins:
         try:
             i2c = machine.SoftI2C(
