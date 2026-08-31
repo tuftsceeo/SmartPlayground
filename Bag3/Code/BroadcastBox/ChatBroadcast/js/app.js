@@ -18,8 +18,10 @@ import { dbg, dbgWarn, dbgError } from './debug.js';
 import { loadUiMode, toggleUiMode } from './uiMode.js';
 import { loadSavedGames, saveGame, findSavedGame } from './library.js';
 import { scanCapabilities } from './sim/codeCapabilities.js';
-import { renderSim, bindSimControls } from './sim/wandSim.js';
+import { renderSim, bindSimControls, setTickHandler } from './sim/wandSim.js';
 import { buildComponentChecklist, checklistIcons, checklistLines } from './checklist.js';
+import { startSimLoop, stopSimLoop, triggerTick, preloadPyodide } from './sim/pyodide/pyodideRuntime.js';
+import { renderNfcButtons, renderEspnowButtons, setInputChangeHandler } from './sim/pyodide/inputBridge.js';
 
 const SYSTEM_PROMPT_BASE = `You are an AI assistant helping teachers write MicroPython games for the PlaygroundV5 wand.
 
@@ -48,6 +50,7 @@ class App {
         this.serialDropHandled = false;
         this.serialOpen = false;
         this.dirty = false;
+        this.pendingSendAfterConnect = false;
     }
 
     async init() {
@@ -62,6 +65,9 @@ class App {
         this.setupSerialLog();
         this.applyUiMode(loadUiMode());
         bindSimControls();
+        setTickHandler(() => triggerTick(getCode()));
+        setInputChangeHandler(() => triggerTick(getCode()));
+        renderEspnowButtons();
         showView('splash');
         dbg('app', 'initial view: splash (modal-overlay is persistent — showView must not touch it)');
 
@@ -102,6 +108,7 @@ class App {
         });
 
         this.updatePreview();
+        preloadPyodide();
         dbg('app', 'init() complete');
     }
 
@@ -197,6 +204,11 @@ class App {
             };
             dbg('device', 'badge refresh', state);
             setConnectionBadge(state.connected, state.running, state.atRepl, state.wrongDevice);
+            const btn = document.getElementById('btn-connect-header');
+            if (btn) {
+                btn.textContent = state.connected ? 'Disconnect' : 'Connect';
+                btn.classList.toggle('is-connected', state.connected);
+            }
         };
         this.device.on('hello', (obj) => { dbg('device', 'event: hello', obj); refresh(); });
         this.device.on('heartbeat', (obj) => { dbg('device', 'event: heartbeat', obj); refresh(); });
@@ -270,6 +282,11 @@ class App {
             this.updatePreview();
         });
         document.getElementById('btn-connect-usb').addEventListener('click', () => this.onConnect());
+        document.getElementById('btn-connect-cancel').addEventListener('click', () => {
+            this.pendingSendAfterConnect = false;
+            hideOverlay('connect-overlay');
+        });
+        document.getElementById('btn-connect-header').addEventListener('click', () => this.toggleConnect());
         document.getElementById('btn-send-confirm').addEventListener('click', () => this.confirmSend());
         document.getElementById('btn-send-cancel').addEventListener('click', () => hideOverlay('send-confirm-overlay'));
 
@@ -302,6 +319,7 @@ class App {
             if (!saveFirst) return;
             this.onSaveGame();
         }
+        stopSimLoop();
         showView('splash');
     }
 
@@ -532,6 +550,20 @@ class App {
         const caps = scanCapabilities(code);
         renderSim(caps, { pressed: false, idle: !caps.hasCode });
 
+        // Heuristic preview shows instantly; Python sim takes over when ready.
+        this.requiredTags = deriveRequiredTags(null, code, this.gameName.toLowerCase());
+        if (this.currentExample?.tags?.length > this.requiredTags.length) {
+            this.requiredTags = [...this.currentExample.tags];
+        }
+        renderNfcButtons(this.requiredTags);
+
+        const codeTrim = (code || '').trim();
+        if (codeTrim && !codeTrim.startsWith('# AI-generated') && /def\s+play\s*\(/.test(code)) {
+            startSimLoop(code, { intervalMs: 150 });
+        } else {
+            stopSimLoop();
+        }
+
         // Small symbolic row only here — the full "You'll need:" list is
         // shown at the connect / send-confirm stage instead (see
         // renderComponentList()).
@@ -578,11 +610,36 @@ class App {
             dbg('app', 'device.connect() resolved (port open; awaiting hello/heartbeat)');
             hideOverlay('connect-overlay');
             setConnectionBadge(true, false, false, false);
-            toast('Connected — waiting for the Box…');
+            if (this.pendingSendAfterConnect) {
+                // startSendFlow() bailed out to show this overlay before it got to
+                // send-confirm -- without this, connecting silently does nothing
+                // and the user has to notice the badge and click Send again.
+                this.pendingSendAfterConnect = false;
+                dbg('app', 'onConnect() — resuming send flow that was waiting on connection');
+                toast('Connected — continuing to send…');
+                this.showSendConfirm();
+            } else {
+                toast('Connected — waiting for the Box…');
+            }
         } catch (e) {
             dbgError('app', `device.connect() rejected: ${e.message}`, e);
             errEl.textContent = "Couldn't find a Broadcast Box — check the cable.";
         }
+    }
+
+    /** Standalone header "Connect"/"Disconnect" toggle, independent of the send flow. */
+    async toggleConnect() {
+        if (this.device.isConnected()) {
+            dbg('app', 'toggleConnect() — disconnecting');
+            await this.device.disconnect();
+            setConnectionBadge(false, false, false, false);
+            toast('Disconnected.');
+            return;
+        }
+        this.pendingSendAfterConnect = false;
+        this.renderComponentList('connect-components');
+        showOverlay('connect-overlay');
+        await this.onConnect();
     }
 
     async startSendFlow() {
@@ -614,11 +671,16 @@ class App {
 
         if (!this.device.isConnected()) {
             dbg('app', 'device not connected — showing connect overlay');
+            this.pendingSendAfterConnect = true;
             this.renderComponentList('connect-components');
             showOverlay('connect-overlay');
             return;
         }
 
+        this.showSendConfirm();
+    }
+
+    showSendConfirm() {
         document.getElementById('send-confirm-sub').textContent =
             `🪄 Wand code · ${this.gameName}`;
         this.renderComponentList('send-confirm-components');
