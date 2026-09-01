@@ -119,6 +119,60 @@ been identified. Noted only because it is the sole idle-path delta.
 Caution: last night's `ch=1` scan result is **not** evidence this file was
 flashed, since channel 1 would be reported either way.
 
+### H4 — The PN532 module or Grove cable has degraded
+
+Added 2026-09-01. This is the only hypothesis that explains the *onset*
+without any code change: the code did not change between the stable hours and
+the failure, but the hardware may have. A failing module fits both mechanisms
+above at once — it can hold the I2C bus (H2) and it can draw abnormal current
+(H1). The reader was already `ETIMEDOUT`-storming during the previous
+session, so it was misbehaving before the reboots began.
+
+Predicts: swapping in a different PN532 and Grove cable restores stability
+with NFC working, and the reader is measurable as drawing more than the ~100
+mA nominal figure below.
+
+## Observation 2026-09-01: stability with the reader unplugged
+
+**Stability increased significantly with the PN532 unplugged from the Grove
+port.** The box ran past 73 s of continuous uptime across ~9 heartbeats with
+no reset, versus the previous 30 s–2 min reset cycle.
+
+The reader draws roughly **100 mA when active**. Against a current-limited USB
+port already supplying charge current plus a never-dozing AP (`pm=0`) and the
+LCD, that is a substantial fraction of the budget, and `detect_tag(timeout=80)`
+keeps it energized on the order of ten times a second.
+
+This supports H2 and H4 over H3, but it does **not** cleanly separate H2 from
+H1, because unplugging removes the ~100 mA draw at the same time as the I2C
+path. Both candidate mechanisms disappear together.
+
+One detail does favour H2's mechanism specifically: with the module absent,
+`SoftI2C` fails fast with `ETIMEDOUT` rather than stalling, because nothing is
+holding SCL low — the pull-ups keep the bus high. H2 requires a device that is
+*attached and wedged*, which is precisely the configuration that resets. An
+absent device cannot reproduce the stall, so this run is consistent with H2
+rather than evidence against it.
+
+Two things the log rules out:
+
+- **No memory leak from the re-init loop.** `mem` oscillates around 8.28–8.29
+  MB across the whole run with no downward trend, despite `_init_nfc()`
+  constructing a fresh `SoftI2C` and `NfcWriter` roughly every 1–2 seconds.
+  The repeated re-initialisation is not exhausting the Python heap.
+- **The reset is not a Python exception.** Confirmed again here: the box
+  survives an unbroken storm of `ETIMEDOUT` for over a minute with every error
+  caught and reported. The error path itself is not what kills it.
+
+Two defects visible in this log, neither implicated in the resets:
+
+- `hello` reports `"nfc": true` even though `NFC init failed: [Errno 116]
+  ETIMEDOUT` — the capability flag does not reflect the actual init result,
+  so the webapp is told the reader is present when it is not.
+- The re-init loop never backs off. It retries every 15 failed polls forever,
+  flooding serial and re-allocating continuously, with no escalation to a
+  "reader missing" state. With auto-arm this begins at boot and never stops.
+
 ## Discriminating tests
 
 1. **Read the reset cause.** One boot separates H1 from H2 outright:
@@ -136,8 +190,10 @@ flashed, since channel 1 would be reported either way.
 5. **Boot with the payload absent** so `_try_arm()` declines. That leaves the
    AP down and NFC polling disabled. If the resets stop, the always-on load is
    implicated; if they continue, both H1 and H2 weaken sharply.
-6. **Disconnect the Grove PN532** and run armed. Isolates H2 from H1 by
-   removing the I2C path while keeping the AP up.
+6. **Disconnect the Grove PN532** and run armed. Done — see the observation
+   below. Note this is weaker than first written: unplugging the reader
+   removes the RF-field current draw *as well as* the I2C path, so it does
+   not cleanly separate H2 from H1.
 
 ## Reader swap (2026-09-01, untested)
 
@@ -167,5 +223,12 @@ Nothing in the code changed between the stable hours and the failure except
 `cfed7a4`, whose contents cannot plausibly affect the idle path. If this is
 software, the mechanism was already present and something crossed a threshold
 — battery state of charge, temperature, or a degraded PN532 or USB supply.
-Test 5 is the cheapest way to find out whether the always-on load is involved
-at all.
+
+As of the 2026-09-01 observation, the sharpest remaining question is whether
+the reader kills the box by **stalling the bus** (H2, a watchdog reset) or by
+**drawing current** (H1, a brownout), since removing it eliminates both. The
+cheapest way to separate them is to run with the reader attached and read
+`machine.reset_cause()` after a reset: `WDT_RESET` means the bus, `BROWNOUT_RESET`
+or `PWRON_RESET` means the current. Failing that, a swap to a known-good
+PN532 and Grove cable tests H4 directly and would restore a working reader
+either way.
