@@ -1,7 +1,10 @@
 # Reboot-bracketed code pull — validation + implementation plan
 
-**Status: Phase 1 implemented.** See `MockWand/pull_flag.py` and the pull-mode
-block in `MockWand/main.py`. Awaiting a field test.
+**Status: shipped and verified.** See `MockWand/pull_flag.py` and the pull-mode
+block in `MockWand/main.py`. Field test on 2026-09-01: 4/4 real `getcode` taps
+succeeded end-to-end (queue → reboot → cold-radio pull → promote → reboot into
+new game), matching the expected trace every time. No code changes were needed
+— the fix worked as designed on first deploy.
 
 How the gate resolved: the synthetic Phase 0 conditions all passed (9/9),
 including condition B, which was supposed to fail. That turned out to be a
