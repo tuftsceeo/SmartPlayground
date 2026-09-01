@@ -27,6 +27,13 @@ I2C_SCL = 10
 NFC_ADDR = 0x28
 I2C_FREQ = 100_000
 
+# StickS3's small side button ("Key1"). Momentary, active-low against an
+# internal pull-up. Holding it down is what gates NFC polling (see
+# _poll_nfc) -- released, the RF field is off and no I2C traffic happens
+# at all, on top of the WS1850S swap above. If a given unit's Key1 turns
+# out to be wired to G12 instead ("Key2"), change this one constant.
+NFC_TRIGGER_PIN = 11
+
 PAYLOAD_PATH = DEFAULT_SRC
 CARD_LABEL = "getcode"
 HOLD_MS = 800
@@ -60,6 +67,8 @@ class BboxServer:
         self._hold_start = 0
         self._last_seen_uid = None  # debounce: one write per physical tap
         self._nfc_fail_count = 0  # consecutive detect_tag errors -- see _poll_nfc
+        self._nfc_trigger = None  # NFC_TRIGGER_PIN Pin object, or None if unavailable
+        self._nfc_field_on = False  # tracks antenna state -- see _poll_nfc
 
         self.handlers = {
             "hello": self.do_hello,
@@ -75,6 +84,24 @@ class BboxServer:
             sda=machine.Pin(I2C_SDA), scl=machine.Pin(I2C_SCL), freq=I2C_FREQ)
         self.nfc = NfcWriter(i2c, NFC_ADDR)
         self.nfc.init()
+        # WS1850S.__init__ leaves the antenna on; idle until the trigger
+        # button says otherwise (see _poll_nfc).
+        self.nfc.antenna_off()
+        self._nfc_field_on = False
+
+    def _init_nfc_trigger(self):
+        try:
+            self._nfc_trigger = machine.Pin(
+                NFC_TRIGGER_PIN, machine.Pin.IN, machine.Pin.PULL_UP)
+        except Exception as e:
+            print("# NFC trigger init failed (pin %d): %s" % (NFC_TRIGGER_PIN, str(e)))
+            self._nfc_trigger = None
+
+    def _nfc_trigger_pressed(self):
+        if self._nfc_trigger is None:
+            # No trigger wired -- fail open rather than disable NFC outright.
+            return True
+        return self._nfc_trigger.value() == 0  # active-low against pull-up
 
     def _init_button(self):
         try:
@@ -209,6 +236,22 @@ class BboxServer:
     def _poll_nfc(self):
         if not self._armed_write or self.nfc is None:
             return
+        # Gate the RF field itself on NFC_TRIGGER_PIN, not just the polling
+        # call below -- the WS1850S otherwise holds the field on continuously
+        # once armed, which is most of its idle draw even with no card read
+        # in flight. Toggle only on state change to avoid redundant I2C
+        # writes every ~1 ms loop iteration while the button sits held.
+        pressed = self._nfc_trigger_pressed()
+        if pressed != self._nfc_field_on:
+            self._nfc_field_on = pressed
+            try:
+                self.nfc.antenna_on() if pressed else self.nfc.antenna_off()
+            except Exception as e:
+                print("# NFC antenna %s failed: %s" % ("on" if pressed else "off", str(e)))
+            if not pressed:
+                self._last_seen_uid = None  # released -- next press is a fresh tap
+        if not pressed:
+            return
         try:
             tag = self.nfc.detect_tag(timeout=80)
         except OSError as e:
@@ -304,6 +347,7 @@ class BboxServer:
             self._init_nfc()
         except Exception as e:
             print("# NFC init failed: %s" % str(e))
+        self._init_nfc_trigger()
         self._init_button()
         self._send_hello()
         if not self._try_arm():

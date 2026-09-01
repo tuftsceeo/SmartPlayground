@@ -153,6 +153,14 @@ confirm whether resets stop, and H2 (SoftI2C stall) is a separate
 hypothesis this swap does not address at all — WS1850S is still driven over
 `machine.SoftI2C` with no clock-stretch timeout.
 
+Also added: a `NFC_TRIGGER_PIN` (G11, "Key1") gate so the RF field is off
+and no I2C traffic happens at all unless that button is held — previously
+the field was on continuously the whole time the box was armed. This
+should lower average draw further but, like the chip swap, is untested on
+hardware: it changes the workflow (a card now has to be tapped while
+holding the button, not just tapped) and needs confirming that G11 is
+actually wired to a side button and not something else on this board.
+
 ## Open question
 
 Nothing in the code changed between the stable hours and the failure except

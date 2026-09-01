@@ -15,6 +15,7 @@ Write all device files to **`/flash`**, not `/`.
 | Display | `M5.Lcd` landscape 240×135 | `ROTATION = 1` in `bbox_ui.py` |
 | NFC | WS1850S @ I2C `0x28` | Grove HY2.0-4P — SDA=G9, SCL=G10. Replaces the PN532 (addr `0x24`, same pins) — the PN532's ~150 mA read/write burst coincided with the SoftAP's own power spikes; the WS1850S bursts at ~30 mA. See `card_writer.py`. |
 | Button | `M5.BtnA` | short / ~800 ms long press |
+| NFC trigger | GPIO `G11` ("Key1") | Momentary, active-low w/ internal pull-up. Gates the RF field + polling in `_poll_nfc()` — reader is idle (field off, no I2C traffic) until held. Untested on hardware; if `G11` turns out to be Key2 on a given unit, it's `G12` instead — see `NFC_TRIGGER_PIN` in `bbox_server.py`. |
 | USB | `/dev/cu.usbmodem3101` (example) | `mpremote` |
 
 ## Phase 0 probe results (2026-08-29)

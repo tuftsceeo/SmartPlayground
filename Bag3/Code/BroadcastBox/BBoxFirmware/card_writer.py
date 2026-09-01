@@ -56,6 +56,17 @@ class NfcWriter:
         # confirms the register bus is alive (mirrors the old begin() call).
         return self.dev.version()
 
+    def antenna_on(self):
+        """Energize the RF field. Call only while the poll trigger is held
+        down -- see bbox_server.py's NFC_TRIGGER_PIN gating."""
+        self.dev.antenna_on()
+
+    def antenna_off(self):
+        """De-energize the RF field between button presses -- the WS1850S
+        keeps it on continuously otherwise, which is the bulk of its idle
+        draw."""
+        self.dev.antenna_off()
+
     def detect_tag(self, timeout=500):
         """Poll for a tag for up to `timeout` ms.
 
