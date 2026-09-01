@@ -1,6 +1,28 @@
 # Reboot-bracketed code pull — validation + implementation plan
 
-**Status:** Phase 0 not yet run. Everything in Phase 1 is gated on it.
+**Status: Phase 1 implemented.** See `MockWand/pull_flag.py` and the pull-mode
+block in `MockWand/main.py`. Awaiting a field test.
+
+How the gate resolved: the synthetic Phase 0 conditions all passed (9/9),
+including condition B, which was supposed to fail. That turned out to be a
+weak imitation of the real warm path — ~5 s of broadcast-only ESP-NOW from a
+bare REPL with `main.py` disabled, no `irecv()` polling, no game modules
+loaded. Re-running the **real** reproducer (normal boot, idle loop running for
+minutes, physical `getcode` tap) failed **3/3**, with clean scans every time:
+
+| Tap | Attempt 1 | Attempt 2 | Result |
+|---|---|---|---|
+| 1 | `STAT_CONNECTING`, `STAT_WRONG_PASSWORD (202)` | `STAT_CONNECTING` | FAIL |
+| 2 | `STAT_IDLE (1000)` | `STAT_IDLE (1000)` | FAIL |
+| 3 | `STAT_IDLE (1000)` | `STAT_IDLE (1000)` | FAIL |
+
+Note taps 2–3 never left `STAT_IDLE` — `connect()` was refused outright rather
+than failing at the handshake. Two distinct warm-failure modes, not one. Both
+are avoided by never joining warm, so this does not change the fix.
+
+Cold joins remain reliable across every trial ever run. The implementation
+below is therefore the test: if a tap now pulls and boots into the new game,
+it works.
 
 ---
 
