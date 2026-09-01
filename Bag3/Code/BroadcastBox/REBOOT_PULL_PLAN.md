@@ -12,14 +12,30 @@ that they have closed anything holding it.** The user connects to these devices
 to verify results and will not always have released the port. No exceptions,
 including "just a quick read".
 
-Known ports (confirm, don't assume):
-- Wand (Xiao ESP32-C6, vanilla MicroPython v1.27): `/dev/cu.usbmodem101`
-- Box (M5Stack StickS3, UIFlow2): `/dev/cu.usbmodem3101`
+**There is serial access to the wand only.**
+- Wand (Xiao ESP32-C6, vanilla MicroPython v1.27): `/dev/cu.usbmodem101` —
+  confirm, don't assume.
+- Box (M5Stack StickS3, UIFlow2): **no serial access.** It runs standalone,
+  self-armed from `payload.py` on flash, powered independently. Its state is
+  observable only via its LCD and only by the user.
 
-**StickS3 / UIFlow2 constraints:** boots in **>20 s**, and **every `mpremote`
-command resets the board**. Use `mpremote` on the S3 for file transfer only;
-read output with `screen`. The C6 is vanilla MicroPython and iterates fast —
-`mpremote` is fine there.
+Consequences for testing:
+- No `ap.status('stations')`, no AP config readback, no Box-side logging. Every
+  observation comes from the wand.
+- **The wand's own scan line is the proxy for "the Box AP is up."** `_find_ap()`
+  prints `found SP-FILEPUSH on ch=… rssi=… sec=…`. See the void-trial rule in
+  Phase 0.
+- The Box stays armed across transfers — `CodeServer` keeps `_armed` true after
+  serving a client, so repeated trials need no re-arming.
+- Do **not** ask the user to confirm a transfer from the Box LCD.
+  `paint_receiving()` is unreachable (see Deferred), so the Box never displays
+  "Receiving" even on a successful pull. The armed screen is readable; the
+  transfer screen is not.
+
+**StickS3 / UIFlow2 constraints** (for reference, not applicable while there is
+no Box serial): boots in **>20 s**, and every `mpremote` command resets the
+board. The C6 is vanilla MicroPython and iterates fast — `mpremote` is fine
+there.
 
 ---
 
@@ -79,6 +95,22 @@ use. Phase 1 is worthless if this assumption is wrong, so test it first.
    failure.
 3. Disable auto-boot so `main.py` does not initialise ESP-NOW behind the test:
    rename `main.py` → `main_real.py` on the wand. **Restore it when done.**
+4. **Box precondition.** Ask the user to confirm the Box is powered and showing
+   its armed screen before each block of trials. With no Box serial, this is the
+   only direct check available, and an unpowered or unarmed Box would otherwise
+   masquerade as a wand-side join failure.
+
+### Void-trial rule
+
+A trial only counts if the wand's scan actually saw the AP. If `_find_ap()`
+reports `SP-FILEPUSH not in pre-join scan`, or `_log_visible_aps()` shows other
+SSIDs but not this one, that trial is **void** — it is evidence about the Box,
+not about the radio handoff. Discard it, ask the user to check the Box, and
+re-run that trial. Do not record a void trial as a failure; doing so would
+corrupt exactly the comparison this test exists to make.
+
+Log the scan line for every trial, passing or failing, so voids are auditable
+after the fact.
 
 ### Three conditions, 3 trials each
 
