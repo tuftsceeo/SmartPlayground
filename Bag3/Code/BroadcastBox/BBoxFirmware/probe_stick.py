@@ -100,20 +100,24 @@ def _check_button(wait_s=3):
 
 
 def _check_nfc():
+    # WS1850S (register-compatible with MFRC522), addr 0x28 -- replaces
+    # the PN532 (addr 0x24) that used to sit on these same sda=9/scl=10
+    # pins. See card_writer.py docstring for why.
     import machine
-    from pn532 import PN532
+    from ws1850s import WS1850S
     pins = [(9, 10), (10, 9), (4, 5), (5, 4), (22, 23)]
     for sda, scl in pins:
         try:
             i2c = machine.SoftI2C(
                 sda=machine.Pin(sda), scl=machine.Pin(scl), freq=100_000)
-            nfc = PN532(i2c, 0x24)
-            fw = nfc.begin()
+            nfc = WS1850S(i2c, WS1850S.DEFAULT_ADDR)
+            ver = nfc.version()
             _result("nfc_pins", "sda=%d scl=%d" % (sda, scl), True)
-            _result("nfc_fw", "%d.%d" % (fw[1], fw[2]), True)
-            tag = nfc.read_passive_target(timeout=500)
-            if tag:
-                _result("nfc_uid", tag['uid_hex'], True)
+            _result("nfc_fw", "0x%02X" % ver, True)
+            found = nfc.read_uid_full()
+            if found:
+                uid, _sak = found
+                _result("nfc_uid", ':'.join('%02X' % b for b in uid), True)
             else:
                 _result("nfc_uid", "none_tap_card", True)
             return True

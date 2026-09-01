@@ -1,5 +1,5 @@
 """
-card_writer.py — plain NDEF text writer for Broadcast Box (PN532 via I2C).
+card_writer.py — plain NDEF text writer for Broadcast Box (WS1850S via I2C).
 
 Writes plain NDEF text records, NOT the Bag3 4-byte opcode scheme from
 opcodes.py -- that scheme is untested on real hardware. This ports the
@@ -8,12 +8,22 @@ NDEF build/parse logic straight from Bag2/Utilities/writetoNFCcards.py
 side), which are proven working with real wands. MockWand/lib/nfc_reader.py
 was switched to match (see that file's docstring) so the two sides agree.
 
+Reader chip: WS1850S (register-compatible with MFRC522), swapped in for
+the original PN532 -- the PN532's ~150 mA read/write burst coincided with
+the SoftAP's own power spikes; the WS1850S bursts at ~30 mA. See
+ws1850s.py for the wire-level driver. NfcWriter below keeps the exact
+method names/signatures the PN532-backed version had, so nothing else in
+this file (or bbox_server.py) needed to change.
+
 No LEDAnimator/Beeper/main() — bbox_ui.py handles all Box-side feedback.
 """
 
 import time
 
-from pn532 import PN532, MIFARE_AUTH_A, MIFARE_AUTH_B
+from ws1850s import WS1850S
+
+MIFARE_AUTH_A = WS1850S.PICC_AUTHENT1A
+MIFARE_AUTH_B = WS1850S.PICC_AUTHENT1B
 
 # NTAG/Classic need programming time after each page/block write. Bag2's
 # writetoNFCcards.py sleeps 30ms after every write; dropping it let later
@@ -38,36 +48,68 @@ def sak_type(sak):
 
 
 class NfcWriter:
-    def __init__(self, i2c, addr=0x24):
-        self.dev = PN532(i2c, addr)
+    def __init__(self, i2c, addr=WS1850S.DEFAULT_ADDR):
+        self.dev = WS1850S(i2c, addr)
 
     def init(self):
-        return self.dev.begin()
+        # WS1850S.__init__ already resets/configures the chip; this just
+        # confirms the register bus is alive (mirrors the old begin() call).
+        return self.dev.version()
 
     def detect_tag(self, timeout=500):
-        tag = self.dev.read_passive_target(timeout=timeout)
-        if tag is None:
-            return None
-        sak = tag['sak']
-        tag['tag_type'] = sak_type(sak)
-        tag['is_classic'] = sak in (0x08, 0x18, 0x09)
-        tag['is_ntag'] = sak == 0x00
-        return tag
+        """Poll for a tag for up to `timeout` ms.
+
+        The PN532's read_passive_target() blocked internally for `timeout`
+        via its own firmware; the WS1850S has no such built-in timeout, so
+        this repeats its (fast, hardware-timer-bounded) request/anticoll
+        cycle until `timeout` elapses. Returns the same dict shape the
+        PN532 path returned, or None.
+        """
+        deadline = time.ticks_add(time.ticks_ms(), timeout)
+        while time.ticks_diff(deadline, time.ticks_ms()) > 0:
+            found = self.dev.read_uid_full()
+            if found is not None:
+                uid, sak = found
+                tag = {
+                    'uid': uid,
+                    'uid_hex': ':'.join('%02X' % b for b in uid),
+                    'uid_len': len(uid),
+                    'atqa': None,
+                    'sak': sak,
+                }
+                tag['tag_type'] = sak_type(sak)
+                tag['is_classic'] = sak in (0x08, 0x18, 0x09)
+                tag['is_ntag'] = sak == 0x00
+                return tag
+            time.sleep_ms(2)
+        return None
 
     def mifare_auth(self, uid, block, key=b'\xFF\xFF\xFF\xFF\xFF\xFF', kt=MIFARE_AUTH_A):
-        return self.dev.mifare_auth_block(uid, block, key, kt)
+        return self.dev.auth(kt, block, key, uid) == WS1850S.MI_OK
 
     def mifare_read(self, block):
-        return self.dev.mifare_read_block(block)
+        status, data = self.dev.read_block(block)
+        if status != WS1850S.MI_OK or data is None:
+            raise RuntimeError("Read err (block %d)" % block)
+        return bytes(data)
 
     def mifare_write(self, block, data):
-        return self.dev.mifare_write_block(block, data)
+        status = self.dev.write_block(block, data)
+        if status != WS1850S.MI_OK:
+            raise RuntimeError("Classic write err (block %d)" % block)
+        return True
 
     def ntag_write_page(self, page, data):
-        return self.dev.ntag_write_page(page, data)
+        status = self.dev.ul_write(page, data)
+        if status != WS1850S.MI_OK:
+            raise RuntimeError("NTAG write err (page %d)" % page)
+        return True
 
     def ntag_read_page(self, page):
-        return self.dev.ntag_read_page(page)
+        status, data = self.dev.ul_read(page)
+        if status != WS1850S.MI_OK or data is None:
+            raise RuntimeError("Read err (page %d)" % page)
+        return bytes(data[:4])
 
 
 # ─────────────────────────────────────────────
