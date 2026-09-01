@@ -1,9 +1,13 @@
 """
-bbox_ui.py — M5.Lcd screens for Broadcast Box (landscape 240x135).
+bbox_ui.py — M5.Lcd screens + M5.Speaker feedback for Broadcast Box
+(landscape 240x135).
 
 Modeled on Bag2/Code/StickS3 Narrator/narrator_ui.py: try/except on every
-M5 call, DejaVu fonts, _LAYOUT_TABLE for centering.
+M5 call, DejaVu fonts, _LAYOUT_TABLE for centering. Speaker volume follows
+the same StickS3 board caution as narrator/main.py's SPEAKER_VOLUME.
 """
+
+import time
 
 import M5
 
@@ -19,88 +23,185 @@ ROTATION = 1
 SCREEN_W = 240
 SCREEN_H = 135
 
+# 0-255. StickS3's own docs warn to stay under ~75% (~191) on battery power
+# to avoid a brown-out reboot when USB is unplugged -- same caution as
+# Bag2/Code/StickS3 Narrator/main.py's SPEAKER_VOLUME.
+SPEAKER_VOLUME = 190
+
 _DEJAVU_NAMES = {
     9: "DejaVu9", 12: "DejaVu12", 18: "DejaVu18", 24: "DejaVu24",
     40: "DejaVu40",
 }
 
 
-def _set_font(size):
-    name = _DEJAVU_NAMES.get(size)
-    font = getattr(M5.Lcd.FONTS, name, None) if name else None
-    if font is not None:
-        try:
-            M5.Lcd.setFont(font)
-            return
-        except Exception:
-            pass
+# Last resort if M5.Lcd.fontHeight() itself throws -- normal DejaVu9 line
+# height is ~15px (9px glyph + leading); this is only for total failure.
+_FALLBACK_LINE_HEIGHT = 30
+
+
+def _measured_height(context):
+    """Real pixel height of the CURRENT font, per M5.Lcd.fontHeight() --
+    used instead of trusting the "9"/"12"/etc in a font's name. Called
+    both after a successful setFont() and on every error path in
+    _set_font() below, so line spacing always reflects whatever font is
+    actually active."""
     try:
-        M5.Lcd.setTextSize(2)
-    except Exception:
-        pass
+        h = M5.Lcd.fontHeight()
+        print("# %s, fontHeight()=%s" % (context, str(h)))
+        return int(h) if h else _FALLBACK_LINE_HEIGHT
+    except Exception as e:
+        print("# %s, fontHeight() unavailable: %s" % (context, str(e)))
+        return _FALLBACK_LINE_HEIGHT
+
+
+def _set_font(size):
+    """Select a DejaVu font and return its measured pixel height for
+    caller-side line spacing.
+
+    setTextSize() is set to 1 once, in BboxUI.begin(), and never touched
+    again anywhere in this file -- it's a scale multiplier on top of
+    whatever font is active, independent of setFont(). If a font
+    name/lookup fails, log it and leave whatever font was already active
+    in place rather than falling back to setTextSize().
+    """
+    name = _DEJAVU_NAMES.get(size)
+    if name is None:
+        print("# font err: no DejaVu mapping for size %s -- leaving current font as-is" % str(size))
+        return _measured_height("no mapping for %s" % str(size))
+
+    font = getattr(M5.Lcd.FONTS, name, None)
+    if font is None:
+        print("# font err: M5.Lcd.FONTS has no '%s' -- leaving current font as-is" % name)
+        return _measured_height("FONTS has no %s" % name)
+
+    try:
+        M5.Lcd.setFont(font)
+    except Exception as e:
+        print("# setFont(%s) err: %s -- leaving current font as-is" % (name, str(e)))
+        return _measured_height("setFont(%s) failed" % name)
+
+    return _measured_height("font %s set OK" % name)
 
 
 def _draw_centered(text, bg, fg, font_size=18):
     try:
         M5.Lcd.startWrite()
-    except Exception:
-        pass
+    except Exception as e:
+        print("# startWrite err: %s" % str(e))
     try:
-        M5.Lcd.fillScreen(bg)
-        _set_font(font_size)
+        try:
+            M5.Lcd.fillScreen(bg)
+        except Exception as e:
+            print("# fillScreen err: %s" % str(e))
+        text_h = _set_font(font_size)
         try:
             M5.Lcd.setTextColor(fg, bg)
-        except Exception:
-            pass
-        y = SCREEN_H // 2 - font_size // 2
+        except Exception as e:
+            print("# setTextColor err: %s" % str(e))
+        y = SCREEN_H // 2 - text_h // 2
         try:
             M5.Lcd.setCursor(8, y)
             M5.Lcd.print(text)
-        except Exception:
-            pass
+        except Exception as e:
+            print("# draw_centered print('%s') err: %s" % (text, str(e)))
     finally:
         try:
             M5.Lcd.endWrite()
-        except Exception:
-            pass
+        except Exception as e:
+            print("# endWrite err: %s" % str(e))
+
+
+LINE_PADDING = 4  # extra gap below each line, on top of its measured height
 
 
 def _draw_lines(lines, bg=BG, fg=WHITE):
     """lines: list of (text, font_size, color_or_none)"""
     try:
         M5.Lcd.startWrite()
-    except Exception:
-        pass
+    except Exception as e:
+        print("# startWrite err: %s" % str(e))
     try:
-        M5.Lcd.fillScreen(bg)
+        try:
+            M5.Lcd.fillScreen(bg)
+        except Exception as e:
+            print("# fillScreen err: %s" % str(e))
         y = 8
         for text, size, color in lines:
-            _set_font(size)
+            text_h = _set_font(size)
             c = color if color is not None else fg
             try:
                 M5.Lcd.setTextColor(c, bg)
-            except Exception:
-                pass
+            except Exception as e:
+                print("# setTextColor err: %s" % str(e))
             try:
                 M5.Lcd.setCursor(8, y)
                 M5.Lcd.print(text)
-            except Exception:
-                pass
-            y += size + 6
+            except Exception as e:
+                print("# draw_lines print('%s') err: %s" % (text, str(e)))
+            y += text_h + LINE_PADDING
     finally:
         try:
             M5.Lcd.endWrite()
-        except Exception:
-            pass
+        except Exception as e:
+            print("# endWrite err: %s" % str(e))
 
 
 class BboxUI(object):
     def __init__(self):
+        # No M5 hardware calls here -- BboxServer.__init__ constructs this
+        # object (self.ui = BboxUI()) before BboxServer.run() ever calls
+        # M5.begin(). Lcd/Speaker calls made before begin() silently fail
+        # (or worse, leave the driver in a state that corrupts font loading
+        # once begin() does run) -- see begin() below, which is called
+        # from run() right after M5.begin().
+        pass
+
+    def begin(self):
+        """Call once, right after M5.begin() -- not before."""
         try:
             M5.Lcd.setRotation(ROTATION)
         except Exception as e:
             print("# setRotation err: %s" % str(e))
+        # Set once, here, and never touched again anywhere in this file --
+        # setTextSize() scales on top of setFont(), so leaving it at
+        # anything but 1 would silently scale every DejaVu font drawn.
+        try:
+            M5.Lcd.setTextSize(1)
+        except Exception as e:
+            print("# setTextSize(1) err: %s" % str(e))
+        try:
+            M5.Speaker.setVolume(SPEAKER_VOLUME)
+        except Exception as e:
+            print("# speaker volume err: %s" % str(e))
 
+    def _tone(self, freq, ms):
+        try:
+            M5.Speaker.tone(freq, ms)
+        except Exception as e:
+            print("# speaker tone err: %s" % str(e))
+
+    # Mirrors Bag2/Utilities/writetoNFCcards.py's Beeper -- same feel as
+    # the wand's own NFC feedback, just via M5.Speaker instead of a piezo.
+    def beep_scan(self):
+        """Short click the instant a tag is detected on the reader."""
+        self._tone(1000, 30)
+
+    def beep_success(self):
+        self._tone(523, 100)
+        time.sleep_ms(50)
+        self._tone(659, 100)
+        time.sleep_ms(50)
+        self._tone(784, 200)
+
+    def beep_fail(self):
+        self._tone(300, 200)
+        time.sleep_ms(50)
+        self._tone(200, 400)
+
+    # Back to the original stylized per-screen sizing -- titles bigger than
+    # captions -- now that _set_font()/_draw_lines() derive real spacing
+    # from M5.Lcd.fontHeight() instead of guessing from these numbers.
+    # Only valid DejaVu sizes here: 9, 12, 18, 24, 40 (see _DEJAVU_NAMES).
     def paint_booting(self):
         _draw_centered("Starting", AMBER, BLACK, 24)
 
@@ -157,7 +258,9 @@ class BboxUI(object):
         _draw_centered(msg, BG, ACCENT, 18)
 
     def paint_error(self, msg):
-        _draw_centered(msg, BG, WARN, 14)
+        # 14 isn't a real DejaVu size (see _DEJAVU_NAMES) -- 12 is the
+        # closest available.
+        _draw_centered(msg, BG, WARN, 12)
 
 
 def demo():
@@ -166,6 +269,7 @@ def demo():
     import M5
     M5.begin()
     ui = BboxUI()
+    ui.begin()
     screens = [
         lambda: ui.paint_idle(True),
         lambda: ui.paint_receiving("Melody"),

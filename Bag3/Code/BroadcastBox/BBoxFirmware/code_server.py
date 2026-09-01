@@ -19,6 +19,7 @@ except ImportError:
 SSID = 'SP-FILEPUSH'
 PWD = 'playground1'
 PORT = 8266
+AP_CHANNEL = 1
 CHUNK = 512
 YIELD_MS = 20
 SOCK_REPLY_TIMEOUT_S = 30
@@ -48,6 +49,18 @@ def _start_ap(ssid=SSID, pwd=PWD):
         ap.config(essid=ssid, password=pwd, authmode=network.AUTH_WPA_WPA2_PSK)
     except (ValueError, OSError):
         ap.config(essid=ssid, password=pwd, security=3)
+    # Pin the channel rather than taking the port default. A radio has one
+    # channel, so the wand can only associate here after tearing ESP-NOW
+    # down, and an idle ESP-NOW radio sits on channel 1 -- landing on the
+    # same channel means the wand never has to change channel to join.
+    # Staying in 1-11 also keeps this reachable regardless of the wand's
+    # regulatory domain: 12-14 are restricted in some regions, and a station
+    # that is restricted can still see the AP in a scan while being unable
+    # to associate with it.
+    try:
+        ap.config(channel=AP_CHANNEL)
+    except (ValueError, OSError):
+        pass
     try:
         ap.config(pm=0)
     except (ValueError, OSError, AttributeError):

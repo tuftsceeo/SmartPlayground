@@ -10,16 +10,19 @@ import machine
 
 from json_link import JsonLink
 from code_server import CodeServer, FS_ROOT, DEFAULT_SRC, SSID
-from card_writer import NfcWriter, existing_opcode_name, write_opcode
+from card_writer import NfcWriter, existing_text, write_text
 from bbox_ui import BboxUI
 
 VERSION = "0.1.0"
 HEARTBEAT_MS = 5000
 GRACE_S = 5
 
-# Grove HY2.0-4P on StickS3 — confirm with probe_stick.py
-I2C_SDA = 4
-I2C_SCL = 5
+# Grove HY2.0-4P on StickS3 — confirmed via mpremote i2c.scan(): PN532
+# answers at 0x24 on sda=9/scl=10 (fw 1.6), not the 4/5 previously assumed
+# here. sda=4/scl=5 scan empty and _init_nfc() below raises ETIMEDOUT,
+# leaving self.nfc None so _poll_nfc() silently no-ops forever.
+I2C_SDA = 9
+I2C_SCL = 10
 NFC_ADDR = 0x24
 I2C_FREQ = 100_000
 
@@ -54,6 +57,8 @@ class BboxServer:
         self._btn_ok = False
         self._btn = None
         self._hold_start = 0
+        self._last_seen_uid = None  # debounce: one write per physical tap
+        self._nfc_fail_count = 0  # consecutive detect_tag errors -- see _poll_nfc
 
         self.handlers = {
             "hello": self.do_hello,
@@ -129,15 +134,35 @@ class BboxServer:
             "written": self._written, "up": time.ticks_ms(),
         })
 
+    def _try_arm(self):
+        """Arm (AP + card-write-ready) if payload.py exists. Idempotent.
+
+        This is the box's own boot-time decision, not something the laptop
+        has to request -- a payload on flash is a standing fact, not a
+        session state, so the box should act on it with or without a live
+        serial link (unplugged-in-the-field is the normal case, not an
+        edge case). Returns True if armed (or already armed).
+        """
+        if self._armed_write:
+            return True
+        if not self._payload_ready():
+            return False
+        if not self.code.arm():
+            return False
+        self._armed_write = True
+        self._written = 0
+        self.ui.paint_armed(CARD_LABEL, self._card_index, self._card_total)
+        self.link.send({"type": "armed", "id": None, "ssid": SSID})
+        return True
+
     def do_arm(self, cmd, rid):
+        # Manual/legacy entry point -- normal flow arms itself in run(),
+        # but this stays around for REPL testing and forcing a re-arm.
         if not self._payload_ready():
             self.link.send({"type": "error", "id": rid, "code": "no_payload",
                              "msg": "payload.py not on device"})
             return
-        if self.code.arm():
-            self._armed_write = True
-            self._written = 0
-            self.ui.paint_armed(CARD_LABEL, self._card_index, self._card_total)
+        if self._try_arm():
             self.link.send({"type": "armed", "id": rid, "ssid": SSID})
         else:
             self.link.send({"type": "error", "id": rid, "code": "arm_failed"})
@@ -148,6 +173,14 @@ class BboxServer:
         self._pending_tag = None
         self.ui.paint_idle(self.linked)
         self.link.send({"type": "ok", "id": rid, "cmd": "disarm"})
+
+    def _repaint_ready(self):
+        """Screen after a wand-pull transfer ok/fail -- stay on the card
+        screen if still armed for writing, otherwise idle."""
+        if self._armed_write:
+            self.ui.paint_armed(CARD_LABEL, self._card_index, self._card_total)
+        else:
+            self.ui.paint_idle(self.linked)
 
     def do_repl(self, cmd, rid):
         self.link.send({"type": "bye", "id": rid, "reboot": "soft"})
@@ -167,18 +200,58 @@ class BboxServer:
         except OSError:
             return False
 
+    # Consecutive detect_tag() OSErrors before we assume the PN532's
+    # internal state machine is wedged (not just one bad I2C beat) and
+    # try a fresh init() to recover it.
+    NFC_REINIT_AFTER = 15
+
     def _poll_nfc(self):
         if not self._armed_write or self.nfc is None:
             return
-        tag = self.nfc.detect_tag(timeout=80)
-        if tag is None:
+        try:
+            tag = self.nfc.detect_tag(timeout=80)
+        except OSError as e:
+            # PN532 over I2C occasionally times out (ETIMEDOUT) on a bad
+            # read -- transient, not fatal. Without this catch it took down
+            # the whole run() loop (uncaught OSError -> fatal event, server
+            # dead until reset).
+            self._nfc_fail_count += 1
+            # Only print every 5th repeat once we know it's a streak --
+            # otherwise a wedged/disconnected reader floods the log with
+            # an identical line on every ~80ms poll forever.
+            if self._nfc_fail_count <= 3 or self._nfc_fail_count % 5 == 0:
+                print("# NFC detect_tag err (%d in a row): %s" % (self._nfc_fail_count, str(e)))
+            self._last_seen_uid = None
+            if self._nfc_fail_count >= self.NFC_REINIT_AFTER:
+                print("# NFC: %d consecutive errors -- attempting re-init" % self._nfc_fail_count)
+                self._nfc_fail_count = 0
+                try:
+                    self._init_nfc()
+                    print("# NFC re-init OK")
+                except Exception as e2:
+                    print("# NFC re-init failed: %s" % str(e2))
+                time.sleep_ms(200)  # let the bus settle either way
             return
-        existing = existing_opcode_name(self.nfc, tag)
+        self._nfc_fail_count = 0
+        if tag is None:
+            # Card lifted -- next tap (same or different card) is a new event.
+            self._last_seen_uid = None
+            return
+        if tag['uid_hex'] == self._last_seen_uid:
+            # Same card still sitting on the reader from the tap we already
+            # handled -- without this, every ~80ms poll would rewrite it and
+            # increment self._written again for as long as it stays down.
+            return
+        self._last_seen_uid = tag['uid_hex']
+        self.ui.beep_scan()
+        existing = existing_text(self.nfc, tag)
         self.link.send({
             "type": "card_present", "uid": tag['uid_hex'],
             "existing": existing,
         })
-        if existing and existing != CARD_LABEL:
+        if existing == CARD_LABEL:
+            return  # already has this card written -- nothing to do
+        if existing:
             self._pending_tag = tag
             self._pending_existing = existing
             self.ui.paint_overwrite(existing, CARD_LABEL)
@@ -187,10 +260,11 @@ class BboxServer:
 
     def _write_card(self, tag):
         self.ui.paint_writing(CARD_LABEL)
-        ok = write_opcode(self.nfc, tag, CARD_LABEL)
+        ok = write_text(self.nfc, tag, CARD_LABEL)
         if ok:
             self._written += 1
             self.ui.paint_done(CARD_LABEL, self._written, self._card_total)
+            self.ui.beep_success()
             self.link.send({
                 "type": "card_written", "label": CARD_LABEL, "uid": tag['uid_hex'],
             })
@@ -202,6 +276,7 @@ class BboxServer:
                 self.ui.paint_armed(CARD_LABEL, self._card_index, self._card_total)
         else:
             self.ui.paint_error("try again")
+            self.ui.beep_fail()
             time.sleep_ms(1500)
             self.ui.paint_armed(CARD_LABEL, self._card_index, self._card_total)
 
@@ -222,6 +297,7 @@ class BboxServer:
     def run(self):
         import M5
         M5.begin()
+        self.ui.begin()
         _boot_grace(self.ui)
         try:
             self._init_nfc()
@@ -229,7 +305,8 @@ class BboxServer:
             print("# NFC init failed: %s" % str(e))
         self._init_button()
         self._send_hello()
-        self.ui.paint_idle(self.linked)
+        if not self._try_arm():
+            self.ui.paint_idle(self.linked)
         last_hb = time.ticks_ms()
         while self.running:
             self.link.pump(idle_ms=20, drain_ms=40)
@@ -237,11 +314,11 @@ class BboxServer:
             if xfer == 'serving':
                 self.ui.paint_receiving()
             elif xfer == 'ok':
-                self.ui.paint_idle(self.linked)
+                self._repaint_ready()
             elif xfer == 'fail':
                 self.ui.paint_error("transfer failed")
                 time.sleep_ms(1000)
-                self.ui.paint_idle(self.linked)
+                self._repaint_ready()
             self._poll_nfc()
             self._handle_button(self._poll_button())
             now = time.ticks_ms()

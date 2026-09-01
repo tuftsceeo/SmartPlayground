@@ -231,6 +231,15 @@ body {
 #connection-badge.connected { color: #1c9a82; background: #e9fbf6; }
 #connection-badge.repl { color: #6c4cd1; background: #f2eefc; }
 #connection-badge.wrong { color: #c0392b; background: #fdecea; }
+.btn-connect-header {
+    padding: 6px 14px;
+    border-radius: 10px;
+    font: 800 12px 'Nunito';
+    box-shadow: none;
+}
+.btn-connect-header.is-connected {
+    background: linear-gradient(135deg, #8b859a, #6b6478);
+}
 
 .ws-body { display: flex; flex: 1; min-height: 480px; }
 .role-rail {
@@ -633,6 +642,62 @@ body {
 .sim-controls button:hover {
     border-color: var(--purple);
     color: var(--purple);
+}
+
+.sim-status {
+    font: 700 11px 'Nunito';
+    text-align: center;
+    margin: 6px 0 0;
+    color: var(--muted);
+}
+.sim-status-running { color: #0f766e; }
+.sim-status-loading { color: #7c3aed; }
+.sim-status-error { color: #b42318; }
+
+.sim-error-banner {
+    font: 600 12px 'Nunito';
+    text-align: center;
+    margin: 4px 8px 0;
+    padding: 8px 10px;
+    border-radius: 10px;
+    background: #fef3f2;
+    border: 1px solid #fecdca;
+    color: #b42318;
+}
+.sim-error-banner.hidden { display: none; }
+
+.sim-input-group {
+    margin-top: 8px;
+    text-align: center;
+}
+.sim-input-label {
+    display: block;
+    font: 700 10px 'Nunito';
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 4px;
+}
+.sim-input-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    justify-content: center;
+}
+.sim-input-btn,
+.sim-input-row button {
+    font: 700 11px 'Nunito';
+    padding: 5px 10px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: #fafafd;
+    cursor: pointer;
+    color: var(--ink);
+}
+.sim-input-btn:hover,
+.sim-input-row button:hover {
+    border-color: var(--teal);
+    color: #0f766e;
 }
 
 .ws-footer {

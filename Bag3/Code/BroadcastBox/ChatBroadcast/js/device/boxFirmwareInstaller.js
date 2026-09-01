@@ -28,19 +28,27 @@ export async function installBoxFirmware(repl, adapter, onProgress) {
   }
 }
 
+/**
+ * Push payload.py and reset. The box arms itself (AP + card-write-ready)
+ * on this reboot as soon as it sees payload.py on flash -- no separate
+ * "arm" round-trip from the laptop. That matters because the box has to
+ * keep working after it's unplugged and carried to the playground; a
+ * standing fact on flash shouldn't depend on a live serial handshake.
+ * See bbox_server.py's _try_arm(), called from run() right after boot.
+ */
 export async function pushPayload(repl, adapter, code, onProgress) {
-  onProgress?.({ current: 1, total: 2, file: "payload.py", status: "uploading" });
+  onProgress?.({ current: 1, total: 1, file: "payload.py", status: "uploading" });
   await repl.enterRepl();
   await repl.enterRawRepl();
   await repl.uploadFile("/flash/payload.py", code);
-  onProgress?.({ current: 1, total: 2, file: "payload.py", status: "uploaded" });
+  onProgress?.({ current: 1, total: 1, file: "payload.py", status: "uploaded" });
   await repl.exitRawRepl();
   await repl.softReset();
   const restarted = await waitForTypedMessage(adapter, 10000);
   if (!restarted) {
     return { ok: false, error: "Code uploaded, but the Box did not confirm restart." };
   }
-  onProgress?.({ current: 2, total: 2, file: "payload.py", status: "done" });
+  onProgress?.({ current: 1, total: 1, file: "payload.py", status: "done" });
   return { ok: true };
 }
 
