@@ -139,6 +139,20 @@ flashed, since channel 1 would be reported either way.
 6. **Disconnect the Grove PN532** and run armed. Isolates H2 from H1 by
    removing the I2C path while keeping the AP up.
 
+## Reader swap (2026-09-01, untested)
+
+Reader chip changed from PN532 to WS1850S (same I2C pins, sda=9/scl=10;
+addr moved 0x24 → 0x28 — see `card_writer.py` / `bbox_server.py`). Datasheet
+draw drops from a ~150 mA read/write burst (PN532) to a ~30 mA burst
+(WS1850S), and the SoftAP's own power spikes are the other named factor in
+H1. This is a hardware change aimed at H1, not a fix that's been verified
+against the failure: reset frequency on USB has not yet been re-measured
+with the WS1850S installed. Tests 1–4 above (reset_cause, battery sampling,
+full-charge-then-run, alternate cable/charger) still need to be run to
+confirm whether resets stop, and H2 (SoftI2C stall) is a separate
+hypothesis this swap does not address at all — WS1850S is still driven over
+`machine.SoftI2C` with no clock-stretch timeout.
+
 ## Open question
 
 Nothing in the code changed between the stable hours and the failure except

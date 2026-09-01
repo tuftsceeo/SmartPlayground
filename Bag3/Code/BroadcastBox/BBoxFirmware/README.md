@@ -13,7 +13,7 @@ Write all device files to **`/flash`**, not `/`.
 |------|-----------------|-------|
 | Board | M5Stack StickS3 | ESP32-S3, UIFlow2 |
 | Display | `M5.Lcd` landscape 240×135 | `ROTATION = 1` in `bbox_ui.py` |
-| NFC | PN532 @ I2C `0x24` | Grove HY2.0-4P — SDA=G9, SCL=G10 (confirmed via `mpremote` `i2c.scan()`, fw 1.6) |
+| NFC | WS1850S @ I2C `0x28` | Grove HY2.0-4P — SDA=G9, SCL=G10. Replaces the PN532 (addr `0x24`, same pins) — the PN532's ~150 mA read/write burst coincided with the SoftAP's own power spikes; the WS1850S bursts at ~30 mA. See `card_writer.py`. |
 | Button | `M5.BtnA` | short / ~800 ms long press |
 | USB | `/dev/cu.usbmodem3101` (example) | `mpremote` |
 
@@ -27,8 +27,10 @@ Write all device files to **`/flash`**, not `/`.
 | `button_api` | **PASS** — `M5.BtnA` |
 | Short/long press | Manual — press during probe window |
 
-I2C in `bbox_server.py`: SDA=9, SCL=10 @ 0x24. (SDA=4/SCL=5 was the original
-assumption and does not work — `i2c.scan()` on those pins comes back empty.)
+I2C in `bbox_server.py`: SDA=9, SCL=10 @ 0x28 (WS1850S). (SDA=4/SCL=5 was the
+original assumption and does not work — `i2c.scan()` on those pins comes back
+empty. Address moved from 0x24 to 0x28 with the PN532→WS1850S swap; pins are
+unchanged.)
 
 
 ## Deploy firmware

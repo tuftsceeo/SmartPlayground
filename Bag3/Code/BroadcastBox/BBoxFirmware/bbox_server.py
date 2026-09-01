@@ -17,13 +17,14 @@ VERSION = "0.1.0"
 HEARTBEAT_MS = 5000
 GRACE_S = 5
 
-# Grove HY2.0-4P on StickS3 — confirmed via mpremote i2c.scan(): PN532
-# answers at 0x24 on sda=9/scl=10 (fw 1.6), not the 4/5 previously assumed
-# here. sda=4/scl=5 scan empty and _init_nfc() below raises ETIMEDOUT,
-# leaving self.nfc None so _poll_nfc() silently no-ops forever.
+# Grove HY2.0-4P on StickS3, sda=9/scl=10 (same pins as the PN532 it
+# replaces). Reader chip is now the WS1850S (addr 0x28, MFRC522-register-
+# compatible) instead of the PN532 (addr 0x24) -- the PN532's ~150 mA
+# read/write burst coincided with the SoftAP's own power spikes; the
+# WS1850S bursts at ~30 mA. See card_writer.py / ws1850s.py.
 I2C_SDA = 9
 I2C_SCL = 10
-NFC_ADDR = 0x24
+NFC_ADDR = 0x28
 I2C_FREQ = 100_000
 
 PAYLOAD_PATH = DEFAULT_SRC
@@ -200,7 +201,7 @@ class BboxServer:
         except OSError:
             return False
 
-    # Consecutive detect_tag() OSErrors before we assume the PN532's
+    # Consecutive detect_tag() OSErrors before we assume the reader's
     # internal state machine is wedged (not just one bad I2C beat) and
     # try a fresh init() to recover it.
     NFC_REINIT_AFTER = 15
@@ -211,8 +212,8 @@ class BboxServer:
         try:
             tag = self.nfc.detect_tag(timeout=80)
         except OSError as e:
-            # PN532 over I2C occasionally times out (ETIMEDOUT) on a bad
-            # read -- transient, not fatal. Without this catch it took down
+            # The reader over I2C occasionally times out (ETIMEDOUT) on a
+            # bad read -- transient, not fatal. Without this catch it took down
             # the whole run() loop (uncaught OSError -> fatal event, server
             # dead until reset).
             self._nfc_fail_count += 1
