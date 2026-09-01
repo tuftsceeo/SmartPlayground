@@ -49,6 +49,30 @@ except ImportError:
     EXTERNAL_ANTENNA = False
 
 
+# #region agent log
+def _dbg(hid, loc, msg, data):
+    """Serial NDJSON for the host debug ingest (device has no Mac filesystem)."""
+    try:
+        import json as _j
+        rec = {
+            "sessionId": "1cc48c",
+            "hypothesisId": hid,
+            "location": loc,
+            "message": msg,
+            "data": data,
+            "timestamp": 0,
+        }
+        try:
+            from time import ticks_ms as _tm
+            rec["timestamp"] = _tm()
+        except Exception:
+            pass
+        print("[DBG1CC48C] " + _j.dumps(rec))
+    except Exception as e:
+        print("[DBG1CC48C] %s %s %s err=%s" % (hid, msg, data, e))
+# #endregion
+
+
 def _configure_antenna(external, verbose=False):
     """Select internal (onboard) or external (u.FL) antenna on the C6.
 
@@ -171,15 +195,32 @@ def _reset_sta(verbose):
     into that same known-good starting state.
     """
     sta = network.WLAN(network.STA_IF)
+    was_active = False
+    cycle_err = None
     try:
-        if sta.active():
+        was_active = sta.active()
+        if was_active:
             sta.disconnect()
             sta.active(False)
             sleep_ms(RADIO_SETTLE_MS)
-    except OSError:
-        pass
+    except OSError as e:
+        cycle_err = str(e)
     sta.active(True)
     sleep_ms(RADIO_SETTLE_MS)
+    # #region agent log
+    try:
+        raw = sta.status()
+    except Exception:
+        raw = None
+    _dbg("B", "code_puller.py:_reset_sta", "sta after reset", {
+        "was_active": was_active,
+        "cycle_err": cycle_err,
+        "now_active": sta.active(),
+        "status_raw": raw,
+        "status_name": _status_name(sta),
+        "cycled_down": (cycle_err is None) and was_active,
+    })
+    # #endregion
     if verbose:
         print("  radio reset, status=%s" % _status_name(sta))
     return sta
@@ -201,24 +242,36 @@ def _shutdown_espnow(enow, verbose):
         if verbose:
             print("  espnow manager shutdown raised: %s" % (e,))
     raw = getattr(enow, 'enow', None)
-    if raw is None:
-        return
-    try:
-        raw.active(False)
-    except Exception as e:
-        if verbose:
-            print("  espnow active(False) raised: %s" % (e,))
-    if verbose:
+    if raw is not None:
         try:
-            print("  espnow active now: %s" % (raw.active(),))
+            raw.active(False)
+        except Exception as e:
+            if verbose:
+                print("  espnow active(False) raised: %s" % (e,))
+        if verbose:
+            try:
+                print("  espnow active now: %s" % (raw.active(),))
+            except Exception:
+                pass
+        try:
+            enow.enow = None
         except Exception:
             pass
+        gc.collect()
+        sleep_ms(RADIO_SETTLE_MS)
+    # #region agent log
+    driver_active = None
     try:
-        enow.enow = None
-    except Exception:
-        pass
-    gc.collect()
-    sleep_ms(RADIO_SETTLE_MS)
+        import espnow as _enmod
+        driver_active = _enmod.ESPNow().active()
+    except Exception as e:
+        driver_active = "err:%s" % e
+    _dbg("D", "code_puller.py:_shutdown_espnow", "espnow after shutdown", {
+        "manager_enow_is_none": getattr(enow, "enow", "missing") is None,
+        "manager_is_active": getattr(enow, "is_active", None),
+        "driver_active": driver_active,
+    })
+    # #endregion
 
 
 def _connect_wifi(ssid, pwd, external_antenna, verbose, enow=None):
@@ -243,28 +296,109 @@ def _connect_wifi(ssid, pwd, external_antenna, verbose, enow=None):
         # is the same reason an ESP-NOW-only peer has to be handed the
         # channel of the AP the other side is associated with.
         bssid, found_ch = _find_ap(sta, ssid, verbose)
+        # #region agent log
+        try:
+            ch = sta.config("channel")
+        except Exception as e:
+            ch = "err:%s" % e
+        try:
+            proto = sta.config("protocol")
+        except Exception as e:
+            proto = "err:%s" % e
+        bssid_hex = None
+        if bssid is not None:
+            try:
+                bssid_hex = "".join("%02x" % b for b in bssid)
+            except Exception:
+                bssid_hex = str(bssid)
+        _dbg("C", "code_puller.py:_connect_wifi", "before connect", {
+            "attempt": attempt + 1,
+            "ssid": ssid,
+            "pwd_len": len(pwd) if pwd else 0,
+            "bssid_hex": bssid_hex,
+            "found_ch": found_ch,
+            "sta_channel": ch,
+            "sta_protocol": proto,
+            "STAT_IDLE": getattr(network, "STAT_IDLE", None),
+            "STAT_CONNECTING": getattr(network, "STAT_CONNECTING", None),
+            "STAT_GOT_IP": getattr(network, "STAT_GOT_IP", None),
+            "status_before": sta.status() if hasattr(sta, "status") else None,
+        })
+        # #endregion
+        connect_err = None
+        used_bssid = False
         try:
             if bssid is not None:
                 sta.connect(ssid, pwd, bssid=bssid)
+                used_bssid = True
             else:
                 sta.connect(ssid, pwd)
         except TypeError:
             # Older builds have no bssid kwarg.
-            sta.connect(ssid, pwd)
+            try:
+                sta.connect(ssid, pwd)
+            except Exception as e:
+                connect_err = str(e)
+        except Exception as e:
+            connect_err = str(e)
+        # #region agent log
+        try:
+            raw_after = sta.status()
+        except Exception:
+            raw_after = None
+        _dbg("A", "code_puller.py:_connect_wifi", "immediately after connect", {
+            "attempt": attempt + 1,
+            "connect_err": connect_err,
+            "used_bssid": used_bssid,
+            "status_raw": raw_after,
+            "status_name": _status_name(sta),
+            "isconnected": sta.isconnected(),
+        })
+        # #endregion
         # Sample status through the wait, not just at the end. A run that
         # never leaves STAT_IDLE means connect() was refused and no attempt
         # was ever made (driver still held elsewhere); one that reaches
         # STAT_CONNECTING and falls back means the association itself failed.
         waited = 0
         seen = []
+        seen_raw = []
+        logged_mid = False
         while not sta.isconnected() and waited < CONNECT_TIMEOUT_S * 1000:
+            try:
+                raw = sta.status()
+            except Exception:
+                raw = None
             st = _status_name(sta)
             if st not in seen:
                 seen.append(st)
+            if raw not in seen_raw:
+                seen_raw.append(raw)
             sleep_ms(200)
             waited += 200
+            # #region agent log
+            if not logged_mid and waited >= 1000:
+                logged_mid = True
+                _dbg("A", "code_puller.py:_connect_wifi", "1s into join wait", {
+                    "attempt": attempt + 1,
+                    "status_raw": raw,
+                    "status_name": st,
+                    "isconnected": sta.isconnected(),
+                    "seen_raw": seen_raw,
+                })
+            # #endregion
         if verbose:
             print("  status seen while joining: %s" % (', '.join(seen) or 'none',))
+        # #region agent log
+        _dbg("A", "code_puller.py:_connect_wifi", "join wait done", {
+            "attempt": attempt + 1,
+            "isconnected": sta.isconnected(),
+            "status_raw": sta.status() if hasattr(sta, "status") else None,
+            "status_name": _status_name(sta),
+            "seen": seen,
+            "seen_raw": seen_raw,
+            "waited_ms": waited,
+        })
+        # #endregion
 
         if sta.isconnected():
             try:
