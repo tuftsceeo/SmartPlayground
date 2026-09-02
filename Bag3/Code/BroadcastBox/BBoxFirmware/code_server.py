@@ -30,6 +30,35 @@ DEFAULT_SRC = FS_ROOT + '/payload.py'
 DEFAULT_DEST = 'jumpin.py'
 
 
+def _emit(cb, event):
+    """Fire a caller callback without letting it break the server.
+
+    Mirrors how the wand guards its own on_progress hook: a UI paint that
+    throws must not abort a transfer or take down the main loop.
+    """
+    if cb is None:
+        return
+    try:
+        cb(event)
+    except Exception as e:
+        print("# code_server on_event(%s) err: %s" % (event, str(e)))
+
+
+def _asked_to_abort(cb):
+    """True only if the caller's should_abort() clearly said so.
+
+    A callback that raises is treated as "keep going": dropping a transfer
+    because a button read glitched would be worse than finishing it.
+    """
+    if cb is None:
+        return False
+    try:
+        return bool(cb())
+    except Exception as e:
+        print("# code_server should_abort err: %s" % str(e))
+        return False
+
+
 def _hash_file(path):
     h = hashlib.sha256()
     buf = bytearray(CHUNK)
@@ -142,7 +171,9 @@ class CodeServer:
         """Non-blocking: accept one client and serve one file. Returns state str or None.
 
         on_event('serving') fires before the blocking serve, so a caller can
-        paint a "serving" screen before the transfer starts. should_abort() is
+        paint a "serving" screen before the transfer starts. It replaces the
+        old 'serving' return value, which was unreachable: _client is always
+        cleared before poll() returns, so the branch testing it never ran. should_abort() is
         sampled between chunks during the transfer; a True return closes the
         client and returns 'abort' without promoting or acking. An aborted
         transfer is safe on the wand side -- it sees a short read or hash
@@ -151,20 +182,19 @@ class CodeServer:
         """
         if not self._armed or self._srv is None:
             return None
-        if self._client is not None:
-            return 'serving'
         try:
             cs, _ = self._srv.accept()
         except OSError:
             return None
         self._client = cs
         self._serving = True
-        if on_event is not None:
-            on_event('serving')
+        _emit(on_event, 'serving')
         result = self._serve_client(cs, should_abort=should_abort)
         self._close_client()
         self._serving = False
         if result == 'abort':
+            # Not a completed transfer -- leave no stale success behind.
+            self._last_ok = None
             return 'abort'
         ok = result
         self._last_ok = ok
@@ -208,7 +238,7 @@ class CodeServer:
                         break
                     cs.write(mv[:n])
                     sleep_ms(YIELD_MS)
-                    if should_abort is not None and should_abort():
+                    if _asked_to_abort(should_abort):
                         return 'abort'
             reply = cs.read(2)
             ok = (reply == b'OK')

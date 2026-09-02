@@ -6,7 +6,8 @@ the write/confirm/scan button (StickS3 "Key1", G11), B2 is scroll ("Key2",
 G12). Both are momentary, active-low against an internal pull-up.
 
 Usage: call update() once per main loop iteration; b1_down()/b1_held_ms()/
-b2_pressed() then read the debounced state as of that call.
+b2_pressed() then read the debounced state as of that call. Call clear() on
+a mode change so a latched edge or an in-progress hold does not carry over.
 """
 
 import time
@@ -45,9 +46,27 @@ class Buttons:
         self._b2_edge = False  # one-shot rising-edge flag, cleared on read
 
     def available(self):
-        """False if Pin construction failed; every accessor then degrades
-        safely (b1_down() False, b2_pressed() False)."""
+        """False if Pin construction failed.
+
+        Accessors then report False rather than guessing. Deciding what to do
+        about absent buttons is the caller's: bbox_server treats
+        available() == False as "B1 held" so a box with dead side keys can
+        still write cards.
+        """
         return self._available
+
+    def clear(self):
+        """Drop any latched B2 edge and restart B1's hold clock.
+
+        Call on every mode change. b2_pressed() latches in update() and is
+        only cleared by a read, so a press made while B2 is unused (SERVE
+        mode) would otherwise fire as a stale scroll on the next entry to
+        WRITE. Same for a B1 hold that began in the previous mode: the hold
+        that triggered the mode change must not immediately count as a hold
+        in the new one.
+        """
+        self._b2_edge = False
+        self._b1_pressed_at = time.ticks_ms()
 
     def update(self):
         """Sample both pins and advance debounced edge/hold state. Call once

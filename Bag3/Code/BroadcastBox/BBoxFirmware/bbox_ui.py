@@ -268,8 +268,14 @@ class BboxUI(object):
         cursor: index into entries of the currently selected row.
         written: dict name -> count already written this session.
 
-        240x135 at size 12 fits ~4 rows -- truncate rather than overflow
-        by showing a window of rows centered on cursor.
+        Carries its own "pickup off" header rather than leaving that to a
+        separate screen: in WRITE mode the AP is always down (the whole
+        point of the mode split), and a teacher looking at this list needs
+        to see that wands cannot fetch code right now. A separate full-screen
+        hint would have to blank the list to say so.
+
+        240x135 fits a size-9 header plus ~4 size-12 rows -- longer lists
+        show a window around cursor rather than overflowing.
         """
         max_rows = 4
         n = len(entries)
@@ -281,7 +287,7 @@ class BboxUI(object):
                 start = 0
             if start > n - max_rows:
                 start = n - max_rows
-        lines = []
+        lines = [("WRITE - pickup off (DONE+B1)", 9, WARN)]
         for i in range(start, min(start + max_rows, n)):
             name = entries[i]
             marker = ">" if i == cursor else " "
@@ -306,7 +312,8 @@ class BboxUI(object):
     def paint_mode_change(self, to_mode):
         _draw_centered("-> %s" % to_mode, AMBER, BLACK, 18)
 
-    # Screen 23 — WRITE mode hint: pickup is off
+    # Screen 23 — standalone "no pickup" notice, for IDLE with no game loaded
+    # (paint_tag_list carries its own header in WRITE mode).
     def paint_no_pickup_hint(self):
         _draw_lines([
             ("pickup off", 12, WARN),

@@ -11,6 +11,7 @@ Usage: call record() once, early in BboxServer.run(), before the boot grace
 so a fresh reset_cause() reading is captured before anything else can raise.
 """
 
+import os
 import time
 import machine
 
@@ -41,27 +42,48 @@ def record(note=""):
     """Append one line for this boot's reset cause; never raises.
 
     Format: '<ticks_ms> <cause> <note>', newest entry last in the file.
-    Trims to MAX_LINES on every call so the log cannot grow unbounded on a
-    device with no filesystem housekeeping. A full or read-only filesystem
-    degrades to a printed warning rather than crashing the caller -- this
-    must not be the reason the box fails to boot.
+
+    Appends rather than rewriting. This module exists to survive brownouts,
+    and a brownout landing inside a truncate-then-rewrite loses the whole
+    history at exactly the moment it is worth having -- an interrupted
+    open(PATH, 'w') leaves an empty file. Trimming is therefore split out
+    into _trim(), which only runs when the log is actually over length and
+    writes through a temp file so the live log is never the truncated one.
+
+    A full or read-only filesystem degrades to a printed warning rather than
+    crashing the caller -- this must not be the reason the box fails to boot.
     """
     try:
         cause = cause_name(machine.reset_cause())
-        line = "%d %s %s" % (time.ticks_ms(), cause, note)
-        lines = []
-        try:
-            with open(PATH, 'r') as f:
-                lines = f.read().splitlines()
-        except OSError:
-            pass  # no log yet, or filesystem unreadable -- start fresh
-        lines.append(line)
-        if len(lines) > MAX_LINES:
-            lines = lines[-MAX_LINES:]
-        with open(PATH, 'w') as f:
-            f.write('\n'.join(lines) + '\n')
+        with open(PATH, 'a') as f:
+            f.write("%d %s %s\n" % (time.ticks_ms(), cause, note))
     except Exception as e:
         print("# reset_log.record() failed: %s" % str(e))
+        return
+    try:
+        _trim()
+    except Exception as e:
+        print("# reset_log trim failed: %s" % str(e))
+
+
+def _trim():
+    """Cap the log at MAX_LINES, newest kept, via temp file + rename.
+
+    A crash mid-trim leaves either the old full log or the new trimmed one,
+    never an empty file.
+    """
+    with open(PATH, 'r') as f:
+        lines = f.read().splitlines()
+    if len(lines) <= MAX_LINES:
+        return
+    tmp = PATH + '.tmp'
+    with open(tmp, 'w') as f:
+        f.write('\n'.join(lines[-MAX_LINES:]) + '\n')
+    try:
+        os.remove(PATH)
+    except OSError:
+        pass
+    os.rename(tmp, PATH)
 
 
 def last(n=5):
