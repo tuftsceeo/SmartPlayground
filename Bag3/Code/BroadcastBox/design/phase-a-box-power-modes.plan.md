@@ -13,6 +13,7 @@ risk: medium
 hardware_required: true
 guardrails:
   - "MockWand/ must be byte-identical at the end of this round"
+  - "Before touching hardware: ASK which board is on which port — the ports change between sessions and are never to be assumed"
   - "Box-side wire contract (SSID/PWD/port/channel/header/ack) is frozen"
   - "Card text stays exactly 'getcode' and 'jumpin' — the wand matches by exact set membership"
 todos:
@@ -24,6 +25,8 @@ todos:
     owner: subagent
     files: ["BBoxFirmware/probe_ap_cycle.py"]
     gates: ["T6"]
+    hardware: ["StickS3 box on USB", "wand (for the join step)", "G11/G12 side keys"]
+    needs_port_confirmation: true
   - id: T2
     title: "reset_log.py — persist reset_cause across the USB CDC drop"
     status: pending
@@ -241,6 +244,25 @@ Constants land in `bbox_server.py`: `B1_PROMPT_MS=500`, `B1_CONFIRM_MS=1500`,
 `_try_arm()` loses its AP responsibility: a game on flash means *ready to write
 tags*, not *broadcasting*. Off-USB operation still works — it starts in `WRITE`.
 
+## Hardware etiquette (applies to every task that touches a board)
+
+1. **Ask which board is on which port.** Port names change between sessions —
+   `/dev/cu.usbmodem3101` and `/dev/cu.usbmodem101` are examples from previous
+   sessions, not fixtures. Never infer a port from a doc, this plan included,
+   and never guess from an `ls /dev/cu.*` listing alone: two boards enumerate as
+   sibling names and connecting to the wrong one at best wastes a trial and at
+   worst resets a board mid-measurement. Ask, and wait for the answer.
+2. **Ask before opening any port, and wait for explicit confirmation** that
+   nothing else is holding it. The user connects to these boards to watch
+   results, and ChatBroadcast holds the Box's port over WebSerial when it is
+   connected. One process at a time.
+3. **The Box resets on every `mpremote` command** and boots in >20 s. Batch
+   what you need into a single `exec` rather than a sequence of calls.
+4. Both of these are in addition to the existing rules in
+   `REBOOT_PULL_PLAN.md` — note that its "Box: no serial access" line described
+   that session's standalone setup, not a hardware limit. The Box is reachable
+   over USB for bench work; the README's deploy path relies on it.
+
 ## Tasks
 
 ### T1 — AP-cycle probe (subagent, no dependencies)
@@ -258,14 +280,45 @@ ms. Final line: `RESULT ap_cycle=<n_ok>/10`.
 Reuse `code_server._start_ap()` rather than re-implementing AP setup — the
 channel/pm settings are part of the frozen contract.
 
-**Acceptance:** runs standalone on a StickS3 with no other firmware active;
-never leaves the AP up on exit; a failure at cycle k reports k rather than
-throwing.
+**A box-side pass is necessary but NOT sufficient — the probe must end with a
+real wand join.** The failure mode this test exists to catch is the one the wand
+measured: *"AP visible at good rssi but join times out"*
+(`MockWand/code_puller.py:165-174`). In exactly that state `ap.active()` reads
+True and a socket binds fine, so steps above would report 10/10 while the AP is
+useless. Only a station completing the 4-way handshake distinguishes them.
 
-**This task gates T6's mode-switch mechanism.** 10/10 → in-place cycling as
-specced. Any failure → T6 instead writes a mode flag to flash and
-`machine.reset()`s into the new mode (the wand's proven bracket), and the plan's
-UX cost is a >20 s boot per switch.
+So T1 is a two-board test:
+
+- **Step A (box).** Run the cycle probe to N=10, then **leave the AP up** on the
+  final cycle instead of tearing it down.
+- **Step B (wand).** With the box's AP still up from step A, on the wand:
+  `mpremote connect <WAND_PORT> exec "import code_puller; print('T1_JOIN', code_puller.pull(verbose=True))"`
+  The wand is the only board that reports join status, and this is a cold radio
+  (no `main.py` ESP-NOW this boot), so it is the same configuration that passes
+  4/4 in the field. Capture the `status seen while joining:` line either way.
+  Ask the user for both port assignments first — see the etiquette section.
+  Do not pass `enow=`; do not modify any MockWand file to run this.
+- The void-trial rule from `REBOOT_PULL_PLAN.md` applies: if the wand's scan
+  never sees `SP-FILEPUSH`, that trial says nothing about the handshake. Re-run.
+
+**Also in this session, because the box is already on USB: confirm G11/G12 are
+really the side keys.** Nothing has verified that assumption, and T6's entire
+input model rests on it. One batched exec, pressing each key when prompted:
+`machine.Pin(11, machine.Pin.IN, machine.Pin.PULL_UP).value()` should read 0
+pressed / 1 released, same for pin 12. Report which physical key maps to which
+pin. If they are not those pins, say so before T6 is verified — `buttons.py`
+only needs its two constants changed, but the plan's B1/B2 gestures need
+remapping to whatever inputs actually exist.
+
+**Acceptance:** runs standalone on a StickS3 with no other firmware active;
+never leaves the AP up on exit *except* the deliberate hand-off to step B;
+a failure at cycle k reports k rather than throwing; the wand join result and
+the G11/G12 mapping are both reported.
+
+**This task gates T6's mode-switch mechanism.** 10/10 box-side **and** a wand
+join that succeeds → in-place cycling as specced. Either half failing → T6
+instead writes a mode flag to flash and `machine.reset()`s into the new mode
+(the wand's proven bracket), and the plan's UX cost is a >20 s boot per switch.
 
 ### T2 — reset_log.py (subagent, no dependencies)
 
@@ -379,11 +432,13 @@ measured.
 
 ## Verification (hardware, in order)
 
-Serial etiquette from `REBOOT_PULL_PLAN.md` applies: ask before opening any
-port, and the wand is the only board with serial access.
+See **Hardware etiquette** above before opening any port — including asking
+which board is on which port, every session.
 
-1. **T1 probe alone.** 10/10 → proceed with in-place cycling. Otherwise switch
-   T6 to reboot-on-mode-change before going further.
+1. **T1, both halves.** 10/10 box-side cycles *and* a successful wand join on
+   the AP left up by the last cycle → proceed with in-place cycling. Either half
+   failing → switch T6 to reboot-on-mode-change before going further. Record the
+   G11/G12 key mapping from the same session.
 2. **Screens.** `bbox_ui.demo()` — all new screens legible at 240×135.
 3. **WRITE mode, 10 min on USB.** Box armed, B1 tapped occasionally to write.
    Then read `reset_log.last()`. Any reset with `BROWNOUT`/`PWRON` here is H1
