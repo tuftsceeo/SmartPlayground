@@ -1,9 +1,8 @@
 # Broadcast Box — how it works, and what a teacher actually does
 
 Orientation for someone new to this system. No prior context assumed. Describes
-the Phase A design as implemented (`44560ce`); the hardware verification run has
-not happened yet, so read this as "what the code does", not "what has been
-proven on a bench".
+the firmware at `85c1f16`. Card writing has been exercised on real hardware; the
+power measurements it was built for have not been taken yet — see Status.
 
 ## The three things
 
@@ -28,16 +27,19 @@ Everything below is a consequence of that rule.
 
 ## The Box's controls and screens
 
-Two small buttons on the side:
+The unit has exactly two physical buttons, confirmed on hardware 2026-09-02:
 
-- **B1** (pin G11) — the "do it" button: hold to scan/write a card, press to
-  confirm a choice.
-- **B2** (pin G12) — the "next" button: scrolls through the list of cards to
-  write.
+- **Button A** — the large button on the front. The "do it" button: choose,
+  scan, confirm.
+- **Button B** — the small button on the side. The "next" button: scrolls the
+  list, and backs out of whatever screen you are on.
 
-The 240×135 screen always shows which mode the Box is in, so there is no hidden
-state. `M5.BtnA`, the big button on the front, is a fallback confirm if the side
-buttons turn out not to work.
+**Every action is a plain press.** The one exception is leaving pickup mode,
+which needs a one-second hold on A — deliberately, so a bump in a bag cannot
+take the WiFi down mid-lesson.
+
+The 240×135 screen always names the current mode and sub-screen, so there is no
+hidden state.
 
 ## The teacher's walkthrough
 
@@ -54,7 +56,7 @@ the Box's own program isn't running during the transfer.*
 **4 — Write the NFC cards.** The Box comes back showing a list:
 
 ```
-WRITE - pickup off (DONE+B1)
+WRITE - pickup off (DONE+A)
 > getcode  (0)
   jumpin   (0)
   DONE
@@ -64,28 +66,31 @@ You need at least two cards per game:
 - a **`getcode`** card — the one a kid taps to fetch the game
 - a **`jumpin`** card — the one a kid taps to start playing it
 
-Hold **B1** and touch a blank card to the reader: it writes, beeps, and the
-count goes up. Make duplicates by tapping more cards — a class needs several.
-Press **B2** to move to the next card in the list.
+Press **B** to move the cursor down the list. Press **A** on the card you want
+to write and the Box switches to a scanning screen with the reader powered:
+touch a card to it and it writes, beeps, and shows the result. Press either
+button to return to the list. Make duplicates by scanning again — a class needs
+several of each.
 
-Three things can happen when a card touches the reader:
-- **Blank card** → written immediately.
-- **Already says the right thing** → the Box tells you and leaves it alone.
-- **Says something else** (an old game's card) → the Box asks before
-  overwriting. Keep holding B1 for one more second to confirm; let go to cancel.
+Three things can happen when a card meets the reader:
+- **Blank card** → written straight away, then a result screen.
+- **Already says the right thing** → the Box says so and leaves the card alone.
+- **Says something else** (an old game's card) → the Box asks first. **A**
+  overwrites it, **B** backs out without writing.
 
-WiFi is off this entire time. Wands cannot fetch code yet, and the screen says
-so on the top line.
+The reader is powered only on the scanning screen — not while you are reading
+the list or a result. WiFi is off for this entire step; wands cannot fetch code
+yet, and the top line says so.
 
-**5 — Switch to pickup mode.** Press **B2** until the cursor reaches `DONE`,
-then press **B1**. The reader switches off, the Box's WiFi comes up, and the
+**5 — Switch to pickup mode.** Press **B** until the cursor reaches `DONE`,
+then press **A**. The reader switches off, the Box's WiFi comes up, and the
 screen changes to:
 
 ```
 Serving
 SP-FILEPUSH
 pickups: 0
-hold B1 to write tags
+hold A to write tags
 ```
 
 The Box is now a tiny WiFi hotspot with the game on it. You can unplug it and
@@ -100,7 +105,7 @@ goes up.
 **7 — Kids play.** Tap a wand on the `jumpin` card to start the game. Cards for
 other games switch between them.
 
-**8 — Change the game.** Hold **B1** for a second: WiFi drops and you're back
+**8 — Change the game.** Hold **A** for a second: WiFi drops and you're back
 at the card list. Or plug back into the laptop and send a new game, which puts
 you back at step 3.
 
@@ -125,47 +130,61 @@ that ordering alone.
                   │  game on flash?     →  WRITE     │
                   └──────────────────────────────────┘
 
-    ┌──────────────────── WRITE ─────────────────────┐
-    │  WiFi: OFF        Reader: on only while B1 held│
-    │                                                │
-    │  B2            → next card in the list         │
-    │  B1 + card     → write it (or ask, or report)  │
-    │  B1 on "DONE"  → SERVE ─────────────────┐      │
-    └─────────────────────────────────────────┼──────┘
-                        ▲                     ▼
-                        │        ┌────────── SERVE ───────────┐
-      hold B1 for 1s ───┘        │  WiFi: ON   Reader: OFF    │
-                                 │  wands download the game   │
-                                 └────────────────────────────┘
+  ┌────────────────────── WRITE ───────────────────────┐
+  │  WiFi: OFF     Reader: on only on the scan screen  │
+  │                                                    │
+  │   MENU ──A──► SCAN ──card──► RESULT ──A or B──┐    │
+  │    ▲  │        │  ▲             ▲             │    │
+  │    │  B        B  └── A ── OVERWRITE?         │    │
+  │    │  (next)   (back)          (B backs out)  │    │
+  │    └───────────────────────────────────────────┘   │
+  │                                                    │
+  │   MENU + cursor on "DONE" + A  →  SERVE ─────┐     │
+  └──────────────────────────────────────────────┼─────┘
+                     ▲                           ▼
+                     │            ┌───────── SERVE ──────────┐
+     hold A for 1s ──┘            │  WiFi: ON  Reader: OFF   │
+                                  │  wands download the game │
+                                  └──────────────────────────┘
 
     laptop sends a new game → Box restarts → back to WRITE
 ```
 
-| Mode | WiFi | NFC reader | Screen says |
+| Mode | WiFi | NFC reader | Screen |
 |---|---|---|---|
 | `IDLE` | off | off | "no game loaded yet" |
-| `WRITE` | **off** | on only while B1 is held | the card list |
+| `WRITE` | **off** | on only on the scan screen | list / scanning / overwrite? / result |
 | `SERVE` | **on** | off — not even powered | "Serving" + pickup count |
 
-The two energized states are mutually exclusive by construction: every
-transition runs through one function that switches the old mode's hardware off
+The two energized states are mutually exclusive by construction: every mode
+change runs through one function that switches the old mode's hardware off
 before switching the new mode's on.
 
 ## Design decisions a newcomer will wonder about
 
 **Why doesn't the Box just always serve?** It used to. Having WiFi and the
 reader both live is what browns the board out. Requiring a deliberate `DONE` +
-B1 is the cost of the fix — and it means a Box in a bag isn't broadcasting.
+A is the cost of the fix — and it means a Box in a bag isn't broadcasting.
 
-**Why hold B1 to scan instead of scanning continuously?** The reader's radio
-field is most of its power draw. Held-to-scan means it is off except in the
-second or two a card is actually being written.
+**Why a separate scanning screen instead of scanning all the time?** The
+reader's radio field is most of its power draw. Giving scanning its own screen
+means the field is up only while a teacher is deliberately holding a card to
+the Box, and down again the moment the result appears.
 
-**Why is confirming an overwrite a *longer hold* rather than a second button?**
-Two buttons were already spoken for. The confirm window is measured from when
-the prompt appears, not from when the button went down, so a teacher who is
-already mid-hold still sees the prompt for a full second before anything is
-overwritten.
+**Why presses rather than press-and-hold?** An earlier draft gated scanning on
+holding a button down. On hardware that turned out to be worse: it occupies the
+hand that also has to hold the card steady, and it made the overwrite confirm
+ambiguous. The rule now is that every action in the card flow is a plain press,
+and the only hold left in the firmware is leaving pickup mode — rare, and worth
+protecting from a stray bump.
+
+**Why does a MIFARE card sometimes stop being detected?** It used to, and the
+cause is worth knowing: authenticating to a MIFARE Classic card latches the
+reader into encrypted mode, and while that latch is set the reader will not
+answer the plain query that detects a card at all. Toggling the antenna does not
+clear it — only an explicit reset does. That is why, before the fix, the first
+scan after boot was the only one that worked. Every scan now clears the latch
+before starting.
 
 **Why only two card names?** Phase A keeps the exact card text today's wands
 already recognize (`getcode`, `jumpin`). Named games — `getcode:melody` and a
@@ -178,7 +197,7 @@ phase.
 |---|---|
 | `BBoxFirmware/bbox_server.py` | The mode machine — everything above |
 | `BBoxFirmware/bbox_ui.py` | The screens |
-| `BBoxFirmware/buttons.py` | B1/B2 debouncing and hold timing |
+| `BBoxFirmware/buttons.py` | Button A/B reads and the one hold timer |
 | `BBoxFirmware/card_writer.py` | Reading and writing NFC cards |
 | `BBoxFirmware/code_server.py` | The WiFi hotspot and the file handover |
 | `BBoxFirmware/reset_log.py` | Records why the Box last restarted |
@@ -187,7 +206,13 @@ phase.
 
 ## Status
 
-Written and logic-tested; **not yet verified on hardware.** Open questions are
-listed in `design/phase-a-handoff.md` — chiefly whether the Box's WiFi comes
-back reliably after being switched off and on within one power cycle, and
-whether the two side buttons are really on the pins this assumes.
+**Card writing works on hardware.** The button layout is confirmed, the card
+flow has been exercised, and the encrypted-mode bug above was found and fixed
+by running it.
+
+**The power result this was all built for is still unmeasured.** Two things
+remain open, both listed in `design/phase-a-handoff.md`: whether the Box's WiFi
+comes back reliably after being switched off and on within one power cycle
+(the `probe_ap_cycle.py` bench test, not yet run), and whether splitting the
+modes actually stops the resets — which needs the Box run in each mode with the
+reset cause read back on the following boot.

@@ -16,8 +16,8 @@ The Box browns out on a current-limited USB port. Until Phase A, a game on
 flash meant the SoftAP **and** the NFC reader were both energized, at boot,
 indefinitely: `run()` called `_try_arm()` unconditionally, which raised the AP
 and enabled card writing together. The PN532→WS1850S swap (~150 mA → ~30 mA
-read burst) and the G11 field gate lowered the peaks without removing the
-overlap.
+read burst) and gating the reader's field lowered the peaks without removing
+the overlap.
 
 Two hypotheses remain live and unseparated (`known_issue.md`): **H1** a
 brownout from charge current stacked on the always-on load, **H2** a watchdog
@@ -39,20 +39,24 @@ Nothing in Phase A is proven on hardware yet. That is what remains.
 
 ## The teacher-facing outcome
 
-Box modes and the gestures that move between them (B1 = G11, B2 = G12):
+Buttons are the unit's own two, confirmed on hardware 2026-09-02 and read
+through M5Unified: **A** = the large front button (`M5.BtnA`), **B** = the small
+side button (`M5.BtnB`). The G11/G12 raw-GPIO scheme in the original plan does
+not exist on this hardware and has been removed.
 
 | Mode | AP | Reader | How you leave it |
 |---|---|---|---|
-| `WRITE` | down | on only while B1 held | cursor to `DONE`, press B1 → `SERVE` |
-| `SERVE` | up | antenna off, no I2C at all | hold B1 ≥1 s → `WRITE` |
+| `WRITE` | down | on only on the scan sub-screen | cursor to `DONE`, press A → `SERVE` |
+| `SERVE` | up | antenna off, no I2C at all | hold A ≥1 s → `WRITE` |
 | `IDLE` | down | off | no game on flash; nothing to do |
 
-In `WRITE`, B2 scrolls the list `getcode → jumpin → DONE`. Holding B1 with a
-card on the reader writes the selected entry; a card already carrying that
-text is reported rather than rewritten; a card with different text raises an
-overwrite prompt that commits only if B1 stays held 1 s **after the prompt
-appears**. The box no longer serves code until a teacher chooses `DONE` + B1 —
-that is a deliberate behavior change, and the `WRITE` screen says so.
+`WRITE` is itself four sub-states — `menu` → `scan` → (`overwrite`) → `splash`
+→ `menu`. **A acts, B scrolls or backs out, and nothing in the card flow is a
+hold.** The 1 s hold on A leaving `SERVE` is the only hold left in the
+firmware. A card already carrying the target text is reported rather than
+rewritten; a card with other text raises a prompt where A overwrites and B
+backs out. The box no longer serves code until a teacher chooses `DONE` + A —
+a deliberate behavior change, and the `WRITE` screen says so.
 
 ## State: done vs remaining
 
@@ -64,6 +68,7 @@ that is a deliberate behavior change, and the `WRITE` screen says so.
 | T4 `bbox_ui.py` | done, reviewed, fixed | `40ffba7` + `1adeed1` |
 | T5 `buttons.py` | done, reviewed, fixed | `4c8525a` + `1adeed1` |
 | T6 `bbox_server.py` mode machine | done, stub-tested | `44560ce` |
+| Card-flow rework + crypto1 fix | done **on hardware** | `a406712` |
 | **T7 manifest + README** | **not started** | — |
 | **T8 guardrail audit** | partially done in `44560ce` | — |
 | **Hardware verification** | **not started** | — |
@@ -71,6 +76,14 @@ that is a deliberate behavior change, and the `WRITE` screen says so.
 T6 was verified against a CPython stub harness — 48 checks, 17 scenarios, with
 the AP/reader invariant asserted on every loop iteration. That proves the state
 machine's logic, not the hardware.
+
+`a406712` then reworked the card flow against a real box: buttons moved to
+`M5.BtnA`/`M5.BtnB`, holds were dropped in favour of presses plus explicit
+sub-states, and a real reader bug was fixed — a MIFARE auth latches
+`MFCrypto1On`, and while it is set the reader will not answer a plain REQA, so
+detection silently returns nothing. Only `stop_crypto1()` (or a reset) clears
+it, which is why the first scan after boot used to be the only one that worked.
+Every scan now clears it first. **The power measurements remain untaken.**
 
 ## T7 — what to do
 
@@ -85,10 +98,12 @@ ImportError, and `main.py`'s handler prints a `fatal` JSON — a bricked-looking
 box. Nothing can be hardware-tested until this lands or the two files are
 copied by hand.
 
-**`BBoxFirmware/README.md`.** Replace the button row of the hardware table
-with B1 = G11 / B2 = G12 and their gestures; document the three modes and the
+**`BBoxFirmware/README.md`.** The hardware table is now actively wrong: it
+still lists an `NFC trigger | GPIO G11` row for a mechanism that no longer
+exists. Replace it with A = `M5.BtnA` (front) and B = `M5.BtnB` (side) and
+their gestures; document the three modes, the `WRITE` sub-states and the
 mutual-exclusion invariant; state plainly that the box does not serve code
-until a teacher selects `DONE` + B1. Describe current behavior only — no
+until a teacher selects `DONE` + A. Describe current behavior only — no
 development narrative, and no power claims that have not been measured.
 
 ## T8 — guardrail audit
@@ -147,21 +162,19 @@ Steps 3 onward need T7 landed (or the two modules copied by hand).
      `machine.reset()` into the new mode (the wand's proven bracket). It is
      deliberately the only method that would change; cost is a >20 s boot per
      switch.
-2. **Side keys.** `probe_ap_cycle.check_side_keys()` — confirm G11/G12 really
-   are the small side buttons and report which is which. Still unverified, and
-   T6's whole input model rests on it. If they are elsewhere, `buttons.py`
-   needs two constants changed; if they do not exist, B1 fails open (cards
-   still writable) and `M5.BtnA` long-press is the overwrite confirm.
+2. **Buttons — already done.** The unit has exactly two buttons and
+   `buttons.py` now reads `M5.BtnA`/`M5.BtnB` directly. `check_side_keys()` in
+   the probe is obsolete for this unit; skip it.
 3. **Screens.** `bbox_ui.demo()` — all screens legible at 240×135, especially
    `paint_tag_list`'s header plus four rows.
-4. **WRITE mode, 10 min on USB**, B1 tapped occasionally to write. Then
+4. **WRITE mode, 10 min on USB**, scanning and writing a card now and then. Then
    `reset_log.last()`.
 5. **SERVE mode, 10 min on USB.** Same reading. **A reset in one mode but not
    the other is the H1/H2 discriminator this phase exists to produce.**
-6. **Round trip.** Write `getcode` + `jumpin` cards in WRITE → `DONE` + B1 →
+6. **Round trip.** Write `getcode` + `jumpin` cards in WRITE → `DONE` + A →
    SERVE → wand taps `getcode` → wand reboots, pulls on a cold radio, reboots
    into the game. This is the proof the wand path is untouched.
-7. **Exit under load.** Hold B1 during a transfer. Note that a real ~4.6 KB
+7. **Exit under load.** Hold A during a transfer. Note that a real ~4.6 KB
    pull is only ~180 ms of chunk yields, so a 1 s hold cannot complete inside
    one `poll()`: the transfer finishes and the mode switch happens after it.
    That is intended — no wand loses a pull to a gesture it could not have
@@ -176,13 +189,13 @@ Steps 3 onward need T7 landed (or the two modules copied by hand).
 - **In-place AP cycling is unvalidated** (step 1). The first `tags → wifi`
   transition after a boot is clean regardless; the risk is a repeat cycle
   within one boot.
-- **G11/G12 assumed, not verified** (step 2).
+- ~~G11/G12 assumed~~ — resolved: the unit has two buttons, read via M5Unified.
 - **H2 is untouched by Phase A.** The reader is still driven over
   `machine.SoftI2C` with no clock-stretch timeout. If step 5 reports `WDT`,
   the mode split is not the fix and the next round is the I2C path.
 - **Phase A regresses field behavior on purpose.** A box carried to the
   playground boots into `WRITE`, so a wand tapping `getcode` before the
-  teacher selects `DONE` + B1 burns its two-attempt budget (~31 s each) and
+  teacher selects `DONE` + A burns its two-attempt budget (~31 s each) and
   error-blinks. Worth watching in step 6 for whether the UI makes this
   obvious enough in practice.
 

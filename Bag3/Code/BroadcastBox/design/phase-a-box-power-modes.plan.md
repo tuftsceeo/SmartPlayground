@@ -80,6 +80,16 @@ todos:
 
 # Phase A — Box power modes
 
+> **Amended 2026-09-02 by `a406712`, after hardware time.** Two things in this
+> plan are superseded and kept only as a record of what was planned:
+> the **G11/G12 raw-GPIO side keys do not exist on this unit** — it has two
+> buttons, `M5.BtnA` (front, = A) and `M5.BtnB` (side, = B), read through
+> M5Unified; and the **hold gestures in the card flow were dropped** in favour
+> of plain presses plus explicit `WRITE` sub-states (`menu` → `scan` →
+> `overwrite` → `splash`), leaving the 1 s hold that exits `SERVE` as the only
+> hold in the firmware. `design/box-ux-and-state-machine.md` and
+> `design/phase-a-handoff.md` describe what is actually built; read those first.
+
 ## Context
 
 The Box browns out on USB because the SoftAP and the NFC reader are both live
@@ -416,10 +426,12 @@ Specific points beyond the state diagram:
 ### T7 — manifest.js + README (subagent, no dependencies)
 
 `manifest.js`: add `buttons.py` and `reset_log.py` to `BOX_FILES` (leave
-`probe_ap_cycle.py` out — it is a bench tool, not firmware). README: replace the
-hardware-table button row with B1=G11 / B2=G12 and their gestures, document the
-three modes and the mutual-exclusion invariant, and state plainly that the box
-no longer serves code until a teacher selects DONE + B1. Describe current
+`probe_ap_cycle.py` out — it is a bench tool, not firmware). README: **the
+hardware table is now wrong** — it still carries an `NFC trigger | GPIO G11`
+row for a mechanism that no longer exists. Replace it with A = `M5.BtnA`
+(front) and B = `M5.BtnB` (side), document the three modes, the `WRITE`
+sub-states and the mutual-exclusion invariant, and state plainly that the box
+does not serve code until a teacher selects DONE + A. Describe current
 behavior only — no history, no claims about power results that have not been
 measured.
 
