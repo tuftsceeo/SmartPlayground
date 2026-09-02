@@ -16,6 +16,7 @@ import time
 import machine
 
 PATH = '/flash/resetlog.txt'
+MODE_PATH = '/flash/lastmode.txt'
 MAX_LINES = 40
 
 # Not every reset_cause() value machine exposes is meaningful here, and not
@@ -38,10 +39,41 @@ def cause_name(c):
     return _CAUSE_NAMES.get(c, '?%s' % c)
 
 
+def note_mode(mode):
+    """Persist the mode the box is entering; never raises.
+
+    Called on every mode change so the NEXT boot can say which mode the box
+    was in when it stopped. It has to be persisted rather than read at the
+    time, because reset_cause() is only meaningful after the reset -- and
+    the board's USB CDC port drops with the reset, so nothing can be
+    reported as it happens. Mode changes are teacher-paced, seconds apart at
+    most, so one small flash write per change costs nothing.
+    """
+    try:
+        with open(MODE_PATH, 'w') as f:
+            f.write(str(mode))
+    except Exception as e:
+        print("# reset_log.note_mode() failed: %s" % str(e))
+
+
+def last_mode():
+    """Mode persisted before the last reset, or '?' if none is recorded."""
+    try:
+        with open(MODE_PATH, 'r') as f:
+            m = f.read().strip()
+        return m if m else '?'
+    except Exception:
+        return '?'
+
+
 def record(note=""):
     """Append one line for this boot's reset cause; never raises.
 
-    Format: '<ticks_ms> <cause> <note>', newest entry last in the file.
+    Format: '<ticks_ms> <cause> was:<mode> [note]', newest entry last.
+
+    The mode comes from note_mode()'s file, i.e. the mode the box was in
+    before this reset -- NOT the current one, which at call time is still
+    the constructor default and told you nothing.
 
     Appends rather than rewriting. This module exists to survive brownouts,
     and a brownout landing inside a truncate-then-rewrite loses the whole
@@ -55,8 +87,11 @@ def record(note=""):
     """
     try:
         cause = cause_name(machine.reset_cause())
+        line = "%d %s was:%s" % (time.ticks_ms(), cause, last_mode())
+        if note:
+            line += " " + str(note)
         with open(PATH, 'a') as f:
-            f.write("%d %s %s\n" % (time.ticks_ms(), cause, note))
+            f.write(line + "\n")
     except Exception as e:
         print("# reset_log.record() failed: %s" % str(e))
         return

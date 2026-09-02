@@ -79,8 +79,19 @@ W_OVERWRITE = "overwrite"
 W_SPLASH = "splash"
 
 
+# Chatty tracing (button presses, state transitions, antenna toggles).
+# Off by default. Failures, card events and write outcomes are NOT gated by
+# this -- they always print.
+VERBOSE = False
+
+
 def _log(msg):
     print("# [box] %s" % msg)
+
+
+def _dbg(msg):
+    if VERBOSE:
+        print("# [box] %s" % msg)
 
 
 def _boot_grace(ui):
@@ -196,6 +207,7 @@ class BboxServer:
             self.link.send({"type": "armed", "id": None, "ssid": SSID})
 
         self._mode = new_mode
+        reset_log.note_mode(new_mode)
         # A gesture that caused the switch must not carry into the new mode:
         # the B1 hold that left SERVE would otherwise immediately read as a
         # hold in WRITE, and a B2 press made while B2 was unused would fire
@@ -307,7 +319,7 @@ class BboxServer:
         self._nfc_field_on = on
         try:
             self.nfc.antenna_on() if on else self.nfc.antenna_off()
-            _log("field -> %s (chip reports ant=%s crypto=%s)"
+            _dbg("field -> %s (chip reports ant=%s crypto=%s)"
                  % ("ON" if on else "off", self.nfc.antenna_is_on(),
                     self.nfc.crypto_on()))
         except Exception as e:
@@ -322,14 +334,14 @@ class BboxServer:
     # ─────────────────────────────────────────────
 
     def _to_menu(self):
-        _log("state %s -> menu" % self._write_state)
+        _dbg("state %s -> menu" % self._write_state)
         self._write_state = W_MENU
         self._nfc_field(False)
         self._clear_pending()
         self._repaint()
 
     def _to_scan(self):
-        _log("state %s -> scan (target=%s)"
+        _dbg("state %s -> scan (target=%s)"
              % (self._write_state, self._current_entry()))
         self._write_state = W_SCAN
         self._clear_pending()
@@ -351,7 +363,7 @@ class BboxServer:
         nothing is being scanned while a result is being read, so there is
         no reason to keep the antenna energized for it.
         """
-        _log("state %s -> splash" % self._write_state)
+        _dbg("state %s -> splash" % self._write_state)
         self._write_state = W_SPLASH
         self._nfc_field(False)
         self._clear_pending()
@@ -361,7 +373,7 @@ class BboxServer:
         b1 = self._b1_press_edge()
         b2 = self._buttons.b2_pressed()
         if b1 or b2:
-            _log("BTN %s in state=%s cursor=%d(%s)"
+            _dbg("BTN %s in state=%s cursor=%d(%s)"
                  % ("A" if b1 else "B", self._write_state,
                     self._cursor, self._current_entry()))
 
@@ -542,7 +554,7 @@ class BboxServer:
         # boot's reset_cause(). The board's USB is native CDC, so a reset
         # drops the port and the cause has to be read on the *next* boot
         # (known_issue.md discriminating test 1).
-        reset_log.record(self._mode)
+        reset_log.record()
 
         import M5
         M5.begin()
@@ -567,17 +579,42 @@ class BboxServer:
         self._repaint()
 
         last_hb = time.ticks_ms()
-        while self.running:
-            self.link.pump(idle_ms=20, drain_ms=40)
-            self._buttons.update()
-            if self._mode == MODE_SERVE:
-                self._poll_serve()
-            elif self._mode == MODE_WRITE:
-                # IDLE deliberately polls nothing: no game on flash means
-                # there is neither a tag to write nor code to serve.
-                self._poll_write()
-            now = time.ticks_ms()
-            if time.ticks_diff(now, last_hb) > HEARTBEAT_MS:
-                self.link.send({"type": "heartbeat", "up": now, "mem": gc.mem_free()})
-                last_hb = now
-            time.sleep_ms(1)
+        try:
+            while self.running:
+                self.link.pump(idle_ms=20, drain_ms=40)
+                self._buttons.update()
+                if self._mode == MODE_SERVE:
+                    self._poll_serve()
+                elif self._mode == MODE_WRITE:
+                    # IDLE deliberately polls nothing: no game on flash means
+                    # there is neither a tag to write nor code to serve.
+                    self._poll_write()
+                now = time.ticks_ms()
+                if time.ticks_diff(now, last_hb) > HEARTBEAT_MS:
+                    self.link.send({"type": "heartbeat", "up": now, "mem": gc.mem_free()})
+                    last_hb = now
+                time.sleep_ms(1)
+        finally:
+            self._shutdown_radios()
+
+    def _shutdown_radios(self):
+        """De-energize both radios on the way out of run(), whatever the reason.
+
+        Without this the AP stays up after the program stops: `repl` and a
+        soft `reboot` both just clear self.running and return, and an
+        uncaught exception unwinds straight past to main.py. In every one of
+        those cases the SoftAP was left broadcasting with nothing serving it,
+        which breaks the one invariant this file exists to hold. Each half is
+        guarded separately so a failure to put the reader down cannot stop
+        the AP coming down.
+        """
+        try:
+            if self.code.armed:
+                self.code.disarm()
+                _log("shutdown: AP down")
+        except Exception as e:
+            print("# shutdown: AP disarm FAILED: %s" % str(e))
+        try:
+            self._nfc_field(False)
+        except Exception as e:
+            print("# shutdown: NFC field off FAILED: %s" % str(e))

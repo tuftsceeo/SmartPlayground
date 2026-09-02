@@ -22,8 +22,19 @@ import time
 
 from ws1850s import WS1850S
 
+# Chatty per-attempt tracing. Off by default: the failure lines below are
+# NOT gated by this -- a real failure always prints. This only controls the
+# step-by-step success narration used when diagnosing the reader.
+VERBOSE = False
+
+
 def _log(msg):
     print("# [nfc] %s" % msg)
+
+
+def _dbg(msg):
+    if VERBOSE:
+        print("# [nfc] %s" % msg)
 
 
 MIFARE_AUTH_A = WS1850S.PICC_AUTHENT1A
@@ -283,7 +294,7 @@ def _write_classic_text(nfc, tag, text):
             return False
         time.sleep_ms(WRITE_SETTLE_MS)
     nfc.stop_crypto1()
-    _log("write: classic wrote %d/%d blocks" % (written, blocks_needed))
+    _dbg("write: classic wrote %d/%d blocks" % (written, blocks_needed))
     return written == blocks_needed
 
 
@@ -301,7 +312,7 @@ def write_text(nfc, tag, text, verify=True):
     write (detect_tag/mifare_auth) can also throw OSError -- letting that
     escape here took down the whole server loop on a transient timeout.
     """
-    _log("write: start text=%s uid=%s type=%s crypto=%s"
+    _dbg("write: start text=%s uid=%s type=%s crypto=%s"
          % (repr(text), tag['uid_hex'], tag['tag_type'], nfc.crypto_on()))
     try:
         if tag['is_ntag']:
@@ -315,7 +326,7 @@ def write_text(nfc, tag, text, verify=True):
             _log("write: FAILED before verify")
             return False
         if not verify:
-            _log("write: OK (unverified)")
+            _dbg("write: OK (unverified)")
             return True
         vok = _verify_text(nfc, tag, text)
         _log("write: verify %s" % ("OK" if vok else "FAILED"))
@@ -341,7 +352,7 @@ def _verify_text(nfc, tag, text):
 
 def existing_text(nfc, tag):
     """Read back NDEF text already on the card, or None."""
-    _log("read: start uid=%s type=%s crypto=%s"
+    _dbg("read: start uid=%s type=%s crypto=%s"
          % (tag['uid_hex'], tag['tag_type'], nfc.crypto_on()))
     try:
         if tag['is_ntag']:
@@ -353,13 +364,14 @@ def existing_text(nfc, tag):
                     _log("read: ntag page %d stopped: %s" % (page, str(e)))
                     break
             out = _decode_ndef_text(data)
-            _log("read: ntag decoded %s" % repr(out))
+            _dbg("read: ntag decoded %s" % repr(out))
             return out
         if tag['is_classic']:
             data = bytearray()
             for sector in (1, 2):
                 fb = sector * 4
                 authed = False
+                misses = 0
                 for ki in range(len(COMMON_KEYS)):
                     key = COMMON_KEYS[ki]
                     for kt in (MIFARE_AUTH_A, MIFARE_AUTH_B):
@@ -371,11 +383,12 @@ def existing_text(nfc, tag):
                         nfc.stop_crypto1()
                         resel = nfc.detect_tag(timeout=150)
                         if resel is None:
-                            _log("read: sec%d reselect FAILED (crypto=%s ant=%s)"
+                            misses += 1
+                            _dbg("read: sec%d reselect miss (crypto=%s ant=%s)"
                                  % (sector, nfc.crypto_on(), nfc.antenna_is_on()))
                             continue
                         if nfc.mifare_auth(resel['uid'], fb, key, kt):
-                            _log("read: sec%d auth OK key#%d kt=%s"
+                            _dbg("read: sec%d auth OK key#%d kt=%s"
                                  % (sector, ki, kt))
                             for blk in range(fb, fb + 3):
                                 try:
@@ -388,10 +401,11 @@ def existing_text(nfc, tag):
                         break
                 nfc.stop_crypto1()  # leave the reader in plain mode
                 if not authed:
-                    _log("read: sec%d NO auth (crypto=%s)" % (sector, nfc.crypto_on()))
+                    _log("read: sec%d NO auth after %d reselect misses (crypto=%s)"
+                         % (sector, misses, nfc.crypto_on()))
                     data.extend(b'\x00' * 48)
             out = _decode_ndef_text(data)
-            _log("read: classic decoded %s" % repr(out))
+            _dbg("read: classic decoded %s" % repr(out))
             return out
         _log("read: unknown tag type, no read path")
         return None

@@ -28,6 +28,11 @@ SCREEN_H = 135
 # Bag2/Code/StickS3 Narrator/main.py's SPEAKER_VOLUME.
 SPEAKER_VOLUME = 190
 
+# Per-font-selection tracing. Off by default: this fires ~4 times per
+# screen repaint, which drowns everything else on the serial log. Font
+# *failures* below are not gated -- those always print.
+VERBOSE = False
+
 _DEJAVU_NAMES = {
     9: "DejaVu9", 12: "DejaVu12", 18: "DejaVu18", 24: "DejaVu24",
     40: "DejaVu40",
@@ -47,7 +52,8 @@ def _measured_height(context):
     actually active."""
     try:
         h = M5.Lcd.fontHeight()
-        print("# %s, fontHeight()=%s" % (context, str(h)))
+        if VERBOSE:
+            print("# %s, fontHeight()=%s" % (context, str(h)))
         return int(h) if h else _FALLBACK_LINE_HEIGHT
     except Exception as e:
         print("# %s, fontHeight() unavailable: %s" % (context, str(e)))
