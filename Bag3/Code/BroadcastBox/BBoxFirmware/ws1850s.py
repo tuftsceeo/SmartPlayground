@@ -260,6 +260,21 @@ class WS1850S:
     def stop_crypto1(self):
         self._clr_bits(self.Status2Reg, 0x08)
 
+    def crypto_on(self):
+        """True while MFCrypto1On is set, i.e. the reader is still in
+        encrypted-communication mode from a previous mifare auth.
+
+        Diagnostic: while this is set the reader will not answer a plain
+        REQA, so tag detection silently returns nothing. It is cleared by
+        stop_crypto1(), halt(), or a chip reset() -- NOT by toggling the
+        antenna.
+        """
+        return bool(self._r(self.Status2Reg) & 0x08)
+
+    def antenna_is_on(self):
+        """True while either TX driver is enabled (TxControlReg bits 0/1)."""
+        return bool(self._r(self.TxControlReg) & 0x03)
+
     def halt(self):
         buf = [self.PICC_HALT, 0x00]
         buf += self._calc_crc(buf)

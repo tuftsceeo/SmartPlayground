@@ -186,6 +186,12 @@ class BboxUI(object):
         """Short click the instant a tag is detected on the reader."""
         self._tone(1000, 30)
 
+    def beep_click(self):
+        """Immediate feedback that a button press was registered -- fires
+        before anything else happens, so a press is never silent even if
+        the gesture it started (e.g. a scan) finds nothing."""
+        self._tone(1800, 20)
+
     def beep_success(self):
         self._tone(523, 100)
         time.sleep_ms(50)
@@ -236,7 +242,39 @@ class BboxUI(object):
             ("Card already has:", 12, MUTED),
             ('"%s"' % existing, 18, WHITE),
             ('Overwrite with "%s"?' % new_label, 12, WARN),
-            ("short=cancel long=ok", 9, MUTED),
+            ("BtnA = overwrite   BtnB = cancel", 9, MUTED),
+        ])
+
+    # Screen 15b — actively scanning (field on, waiting for a card)
+    def paint_scanning(self, label):
+        _draw_lines([
+            ('Scanning: %s' % label, 18, WHITE),
+            ("hold card on top", 12, ACCENT),
+            ("BtnB = back", 9, MUTED),
+        ])
+
+    # Screen 15c — card already carries the text we would write
+    def paint_already(self, label):
+        _draw_lines([
+            ('Already "%s"' % label, 18, ACCENT),
+            ("no change needed", 12, MUTED),
+            ("press any button", 9, MUTED),
+        ])
+
+    # Screen 15d — write succeeded; stays up until a button dismisses it
+    def paint_written(self, label, count):
+        _draw_lines([
+            ('"%s" written!' % label, 18, ACCENT),
+            ("%d this session" % count, 12, MUTED),
+            ("press any button", 9, MUTED),
+        ])
+
+    # Screen 15e — write failed
+    def paint_write_failed(self, label):
+        _draw_lines([
+            ("Write failed", 18, WARN),
+            (label, 12, MUTED),
+            ("press any button", 9, MUTED),
         ])
 
     # Screen 15 — writing
@@ -287,7 +325,7 @@ class BboxUI(object):
                 start = 0
             if start > n - max_rows:
                 start = n - max_rows
-        lines = [("WRITE - pickup off (DONE+B1)", 9, WARN)]
+        lines = [("BtnA=scan BtnB=next  pickup off", 9, WARN)]
         for i in range(start, min(start + max_rows, n)):
             name = entries[i]
             marker = ">" if i == cursor else " "
@@ -305,7 +343,7 @@ class BboxUI(object):
             ("Serving", 18, ACCENT),
             (ssid, 12, WHITE),
             ("pickups: %d" % pickups, 12, MUTED),
-            ("hold B1 to write tags", 9, MUTED),
+            ("hold BtnA to write tags", 9, MUTED),
         ])
 
     # Screen 22 — transient mode-change screen

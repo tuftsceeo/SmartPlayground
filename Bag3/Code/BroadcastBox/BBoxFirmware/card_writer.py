@@ -22,6 +22,10 @@ import time
 
 from ws1850s import WS1850S
 
+def _log(msg):
+    print("# [nfc] %s" % msg)
+
+
 MIFARE_AUTH_A = WS1850S.PICC_AUTHENT1A
 MIFARE_AUTH_B = WS1850S.PICC_AUTHENT1B
 
@@ -66,6 +70,18 @@ class NfcWriter:
         keeps it on continuously otherwise, which is the bulk of its idle
         draw."""
         self.dev.antenna_off()
+
+    def crypto_on(self):
+        return self.dev.crypto_on()
+
+    def antenna_is_on(self):
+        return self.dev.antenna_is_on()
+
+    def stop_crypto1(self):
+        self.dev.stop_crypto1()
+
+    def halt(self):
+        self.dev.halt()
 
     def detect_tag(self, timeout=500):
         """Poll for a tag for up to `timeout` ms.
@@ -231,6 +247,7 @@ def _write_classic_text(nfc, tag, text):
         for blk_in_sec in range(3):  # skip trailer (block 3)
             writable_blocks.append(sector * 4 + blk_in_sec)
     if blocks_needed > len(writable_blocks):
+        _log("write: NDEF too big (%d blocks)" % blocks_needed)
         return False
 
     written = 0
@@ -240,8 +257,11 @@ def _write_classic_text(nfc, tag, text):
         first_block = sector * 4
         chunk = ndef[i * 16: i * 16 + 16]
 
+        nfc.stop_crypto1()  # see existing_text: required before any REQA
         resel = nfc.detect_tag(timeout=300)
         if resel is None:
+            _log("write: blk%d reselect FAILED (crypto=%s ant=%s) -- ABORT"
+                 % (block, nfc.crypto_on(), nfc.antenna_is_on()))
             return False
         authed = False
         for key in COMMON_KEYS:
@@ -252,6 +272,8 @@ def _write_classic_text(nfc, tag, text):
             if authed:
                 break
         if not authed:
+            _log("write: blk%d NO auth (crypto=%s) -- ABORT"
+                 % (block, nfc.crypto_on()))
             return False
         try:
             nfc.mifare_write(block, chunk)
@@ -260,6 +282,8 @@ def _write_classic_text(nfc, tag, text):
             print("# classic block %d write failed: %s" % (block, str(e)))
             return False
         time.sleep_ms(WRITE_SETTLE_MS)
+    nfc.stop_crypto1()
+    _log("write: classic wrote %d/%d blocks" % (written, blocks_needed))
     return written == blocks_needed
 
 
@@ -277,23 +301,33 @@ def write_text(nfc, tag, text, verify=True):
     write (detect_tag/mifare_auth) can also throw OSError -- letting that
     escape here took down the whole server loop on a transient timeout.
     """
+    _log("write: start text=%s uid=%s type=%s crypto=%s"
+         % (repr(text), tag['uid_hex'], tag['tag_type'], nfc.crypto_on()))
     try:
         if tag['is_ntag']:
             ok = _write_ntag_text(nfc, text)
         elif tag['is_classic']:
             ok = _write_classic_text(nfc, tag, text)
         else:
+            _log("write: unknown tag type -- ABORT")
             return False
-        if not ok or not verify:
-            return ok
-        return _verify_text(nfc, tag, text)
+        if not ok:
+            _log("write: FAILED before verify")
+            return False
+        if not verify:
+            _log("write: OK (unverified)")
+            return True
+        vok = _verify_text(nfc, tag, text)
+        _log("write: verify %s" % ("OK" if vok else "FAILED"))
+        return vok
     except Exception as e:
-        print("# write_text err: %s" % str(e))
+        _log("write: EXCEPTION %s" % str(e))
         return False
 
 
 def _verify_text(nfc, tag, text):
     """Re-read the card and confirm it decodes back to `text`."""
+    nfc.stop_crypto1()
     fresh = nfc.detect_tag(timeout=500)
     if fresh is None:
         print("# verify failed: card lifted before read-back")
@@ -307,26 +341,42 @@ def _verify_text(nfc, tag, text):
 
 def existing_text(nfc, tag):
     """Read back NDEF text already on the card, or None."""
+    _log("read: start uid=%s type=%s crypto=%s"
+         % (tag['uid_hex'], tag['tag_type'], nfc.crypto_on()))
     try:
         if tag['is_ntag']:
             data = bytearray()
             for page in range(4, 20):
                 try:
                     data.extend(nfc.ntag_read_page(page))
-                except Exception:
+                except Exception as e:
+                    _log("read: ntag page %d stopped: %s" % (page, str(e)))
                     break
-            return _decode_ndef_text(data)
+            out = _decode_ndef_text(data)
+            _log("read: ntag decoded %s" % repr(out))
+            return out
         if tag['is_classic']:
             data = bytearray()
             for sector in (1, 2):
                 fb = sector * 4
                 authed = False
-                for key in COMMON_KEYS:
+                for ki in range(len(COMMON_KEYS)):
+                    key = COMMON_KEYS[ki]
                     for kt in (MIFARE_AUTH_A, MIFARE_AUTH_B):
+                        # Any auth -- successful or not -- latches the reader
+                        # into encrypted mode (MFCrypto1On). While that bit is
+                        # set the reader cannot answer a plain REQA, so the
+                        # re-select below finds nothing. Clear it first, every
+                        # time. Toggling the antenna does NOT clear it.
+                        nfc.stop_crypto1()
                         resel = nfc.detect_tag(timeout=150)
                         if resel is None:
+                            _log("read: sec%d reselect FAILED (crypto=%s ant=%s)"
+                                 % (sector, nfc.crypto_on(), nfc.antenna_is_on()))
                             continue
                         if nfc.mifare_auth(resel['uid'], fb, key, kt):
+                            _log("read: sec%d auth OK key#%d kt=%s"
+                                 % (sector, ki, kt))
                             for blk in range(fb, fb + 3):
                                 try:
                                     data.extend(nfc.mifare_read(blk))
@@ -336,9 +386,15 @@ def existing_text(nfc, tag):
                             break
                     if authed:
                         break
+                nfc.stop_crypto1()  # leave the reader in plain mode
                 if not authed:
+                    _log("read: sec%d NO auth (crypto=%s)" % (sector, nfc.crypto_on()))
                     data.extend(b'\x00' * 48)
-            return _decode_ndef_text(data)
+            out = _decode_ndef_text(data)
+            _log("read: classic decoded %s" % repr(out))
+            return out
+        _log("read: unknown tag type, no read path")
         return None
-    except Exception:
+    except Exception as e:
+        _log("read: EXCEPTION %s" % str(e))
         return None
