@@ -23,6 +23,7 @@ AP_CHANNEL = 1
 CHUNK = 512
 YIELD_MS = 20
 SOCK_REPLY_TIMEOUT_S = 30
+AP_SETTLE_MS = 300  # same value the wand uses post-cycle
 
 FS_ROOT = '/flash'
 DEFAULT_SRC = FS_ROOT + '/payload.py'
@@ -84,6 +85,7 @@ class CodeServer:
         self._armed = False
         self._serving = False
         self._last_ok = None
+        self._pickups = 0
 
     @property
     def armed(self):
@@ -96,6 +98,11 @@ class CodeServer:
     @property
     def last_ok(self):
         return self._last_ok
+
+    @property
+    def pickups(self):
+        """Completed successful serves this session."""
+        return self._pickups
 
     def arm(self):
         if self._armed:
@@ -126,12 +133,22 @@ class CodeServer:
             except OSError:
                 pass
             self._ap = None
+            sleep_ms(AP_SETTLE_MS)
         self._armed = False
         self._serving = False
         gc.collect()
 
-    def poll(self):
-        """Non-blocking: accept one client and serve one file. Returns state str or None."""
+    def poll(self, on_event=None, should_abort=None):
+        """Non-blocking: accept one client and serve one file. Returns state str or None.
+
+        on_event('serving') fires before the blocking serve, so a caller can
+        paint a "serving" screen before the transfer starts. should_abort() is
+        sampled between chunks during the transfer; a True return closes the
+        client and returns 'abort' without promoting or acking. An aborted
+        transfer is safe on the wand side -- it sees a short read or hash
+        mismatch, removes its .part file, does not promote, and retries within
+        its own budget.
+        """
         if not self._armed or self._srv is None:
             return None
         if self._client is not None:
@@ -142,10 +159,17 @@ class CodeServer:
             return None
         self._client = cs
         self._serving = True
-        ok = self._serve_client(cs)
-        self._last_ok = ok
+        if on_event is not None:
+            on_event('serving')
+        result = self._serve_client(cs, should_abort=should_abort)
         self._close_client()
         self._serving = False
+        if result == 'abort':
+            return 'abort'
+        ok = result
+        self._last_ok = ok
+        if ok:
+            self._pickups += 1
         return 'ok' if ok else 'fail'
 
     def _file_ready(self):
@@ -162,7 +186,7 @@ class CodeServer:
                 pass
             self._client = None
 
-    def _serve_client(self, cs):
+    def _serve_client(self, cs, should_abort=None):
         name_bytes = self.dest_name.encode('utf-8')
         if len(name_bytes) > 255:
             return False
@@ -184,6 +208,8 @@ class CodeServer:
                         break
                     cs.write(mv[:n])
                     sleep_ms(YIELD_MS)
+                    if should_abort is not None and should_abort():
+                        return 'abort'
             reply = cs.read(2)
             ok = (reply == b'OK')
             sleep_ms(100)
