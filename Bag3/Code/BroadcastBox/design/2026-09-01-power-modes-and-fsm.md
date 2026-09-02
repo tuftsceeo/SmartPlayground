@@ -1,6 +1,13 @@
 # Power modes + task-flow state machines — Box, Wand, ChatApp
 
-Design outline. Nothing here is implemented yet.
+**Original design outline, superseded in parts.** Phase A is built; Phases B
+and C are not. Kept as the record of the reasoning, with the phase notes at the
+end amended 2026-09-02 against the code. Everything above those notes describes
+the plan as first drawn, not what shipped — in particular the B1/B2 GPIO side
+keys do not exist (the unit has `M5.BtnA` and `M5.BtnB`), the card flow ended up
+press-driven rather than hold-driven, and there is no `RECEIVING` state. For
+what is actually built, read `design/box-ux-and-state-machine.md` and
+`design/box-screen-inventory.md`.
 
 ## Context
 
@@ -232,7 +239,12 @@ Hardware test: box on USB, armed, left in `WRITE` for 10 min, then `SERVE` for
 in the other, is the measurement that has been missing.
 
 **Phase B — named games.** Storage layout, `GET <name>` protocol, card text
-format, wand registry + dynamic dispatch, B2 tag-list scrolling on the Box.
+format, wand registry + dynamic dispatch.
+
+*(Amended 2026-09-02: B2 tag-list scrolling was listed here and in fact shipped
+in Phase A — `_poll_write` scrolls the list and `paint_tag_list` draws the
+cursor. Phase A also went further than planned on the Box UI, adding the four
+WRITE sub-states and their screens.)*
 
 Hardware test: two games on the Box; a wand pulls each by its own card; both
 play; a third wand pulling a name the Box does not have gets a clean error, not
@@ -240,6 +252,14 @@ a hang.
 
 **Phase C — app UX.** Game naming at send time, tag checklist driven by
 `card_written`, game library view with delete.
+
+*(Amended 2026-09-02: smaller than written. The app already tracks
+`this.gameName`, `this.gameDesc` and `this.requiredTags` — the tag list a game
+needs — and already passes them to `sendGame(code, meta)`. `pushPayload()` then
+drops `meta` and hardcodes `/flash/payload.py`. So "naming at send time" is
+plumbing an existing value through, not adding naming, and the checklist has
+its expected-tags source already; what it lacks is a consumer for the
+`card_written` events, which the app currently only logs.)*
 
 Hardware test: full teacher loop, steps 1–8, no USB attached after step 5.
 
