@@ -262,6 +262,57 @@ class BboxUI(object):
         # closest available.
         _draw_centered(msg, BG, WARN, 12)
 
+    # Screen 20 — WRITE mode tag list (Phase A)
+    def paint_tag_list(self, entries, cursor, written):
+        """entries: list of tag names plus a trailing "DONE" sentinel.
+        cursor: index into entries of the currently selected row.
+        written: dict name -> count already written this session.
+
+        240x135 at size 12 fits ~4 rows -- truncate rather than overflow
+        by showing a window of rows centered on cursor.
+        """
+        max_rows = 4
+        n = len(entries)
+        if n <= max_rows:
+            start = 0
+        else:
+            start = cursor - max_rows // 2
+            if start < 0:
+                start = 0
+            if start > n - max_rows:
+                start = n - max_rows
+        lines = []
+        for i in range(start, min(start + max_rows, n)):
+            name = entries[i]
+            marker = ">" if i == cursor else " "
+            if name == "DONE":
+                lines.append(("%s DONE" % marker, 12, ACCENT))
+            else:
+                count = written.get(name, 0) if written else 0
+                lines.append(("%s %s (%d)" % (marker, name, count), 12,
+                               WHITE if i == cursor else MUTED))
+        _draw_lines(lines)
+
+    # Screen 21 — SERVE mode (AP up)
+    def paint_serve(self, ssid, pickups=0):
+        _draw_lines([
+            ("Serving", 18, ACCENT),
+            (ssid, 12, WHITE),
+            ("pickups: %d" % pickups, 12, MUTED),
+            ("hold B1 to write tags", 9, MUTED),
+        ])
+
+    # Screen 22 — transient mode-change screen
+    def paint_mode_change(self, to_mode):
+        _draw_centered("-> %s" % to_mode, AMBER, BLACK, 18)
+
+    # Screen 23 — WRITE mode hint: pickup is off
+    def paint_no_pickup_hint(self):
+        _draw_lines([
+            ("pickup off", 12, WARN),
+            ("DONE + B1 to serve", 9, MUTED),
+        ])
+
 
 def demo():
     """Cycle screens — run from REPL: import bbox_ui; bbox_ui.demo()"""
@@ -273,11 +324,15 @@ def demo():
     screens = [
         lambda: ui.paint_idle(True),
         lambda: ui.paint_receiving("Melody"),
+        lambda: ui.paint_tag_list(["getcode", "jumpin", "DONE"], 0, {"getcode": 1}),
+        lambda: ui.paint_no_pickup_hint(),
         lambda: ui.paint_armed("getcode", 1, 1),
         lambda: ui.paint_overwrite("melody", "getcode"),
         lambda: ui.paint_writing("getcode"),
         lambda: ui.paint_done("getcode", 1, 1),
         lambda: ui.paint_complete(),
+        lambda: ui.paint_mode_change("SERVE"),
+        lambda: ui.paint_serve("SP-FILEPUSH", 2),
     ]
     for fn in screens:
         fn()
