@@ -23,6 +23,12 @@ const STYLE = `
   padding: 12px;
   box-sizing: border-box;
 }
+/* :host's box-sizing doesn't inherit into the shadow tree (box-sizing
+   isn't an inherited property), so every bordered element below sized it
+   as content-box by default — a border added to, rather than ate into,
+   its declared width/height. That's what threw off the plunger handle's
+   vertical centering against its track. */
+*, *::before, *::after { box-sizing: border-box; }
 .wrap { display: flex; flex-direction: column; gap: 12px; }
 .main { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; }
 .wand-led-grid {
@@ -83,7 +89,10 @@ details.advanced summary { cursor: pointer; font-size: 12px; opacity: 0.7; }
   background: linear-gradient(90deg, #355078, #7eb6ff);
 }
 .plunger-handle {
-  position: absolute; top: 3px; width: 28px; height: 28px;
+  /* top:50% + margin-top:-half-height centers it regardless of the
+     track's own box model (a hardcoded top offset had to assume a
+     border width, which is exactly what was throwing it off). */
+  position: absolute; top: 50%; margin-top: -14px; width: 28px; height: 28px;
   border-radius: 50%; background: #7eb6ff; border: 2px solid #3f7fc4;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
 }
