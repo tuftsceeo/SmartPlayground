@@ -6,7 +6,10 @@
  */
 
 import { createRenderer } from "./js/renderer.js";
-import { getAccel, setTilt, startShake, stopShake, setShakeIntensity, triggerJump, tick } from "./js/motion.js";
+import {
+  getAccel, setTilt, setPose, fireMove, cancelMove,
+  startShake, stopShake, setShakeIntensity,
+} from "./js/motion.js";
 import { createAudio } from "./js/audio.js";
 import { createControls } from "./js/controls.js";
 
@@ -53,6 +56,25 @@ const STYLE = `
   border: 1px solid #333; background: #1c2030; color: inherit; cursor: pointer;
 }
 .ctrl-btn.down, .ctrl-btn:active { background: #3a5080; }
+.ctrl-btn.big { font-size: 14px; padding: 12px 20px; }
+.ctrl-btn.pose.active, .ctrl-btn.move.down { background: #2a5a4a; border-color: #3f8f70; }
+.ctrl-toolbar { display: flex; gap: 8px; margin-bottom: 4px; }
+.hint { font-size: 13px; opacity: 0.85; margin: 2px 0; }
+.hint[hidden], .uses-row[hidden], .zero-state[hidden] { display: none; }
+.uses-row { font-size: 11px; opacity: 0.55; margin-bottom: 6px; }
+.ctrl-group { margin-bottom: 10px; }
+.ctrl-group[hidden] { display: none; }
+.group-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; opacity: 0.6; margin-bottom: 4px; }
+.group-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.zero-state { font-size: 13px; opacity: 0.7; font-style: italic; padding: 8px 0; }
+details.advanced { margin-top: 8px; border-top: 1px solid #2a2e3a; padding-top: 8px; }
+details.advanced summary { cursor: pointer; font-size: 12px; opacity: 0.7; }
+.adv-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 8px; }
+.adv-tags { display: flex; gap: 6px; align-items: center; }
+.adv-tags input[type=text] {
+  font: inherit; font-size: 12px; padding: 5px 8px; border-radius: 6px;
+  border: 1px solid #333; background: #1c2030; color: inherit; width: 100px;
+}
 .tilt-pad {
   position: relative; width: 100px; height: 100px;
   border-radius: 50%; background: #1c2030; border: 1px solid #333;
@@ -147,7 +169,9 @@ class WandSim extends HTMLElement {
   get autostart() { return this.hasAttribute("autostart"); }
   set autostart(v) { v ? this.setAttribute("autostart", "") : this.removeAttribute("autostart"); }
 
-  get showConsole() { return this.getAttribute("show-console") !== "false"; }
+  // Hidden by default — a teacher-facing panel shouldn't open on a wall of
+  // Python traceback text. The controls' "Show console" toggle flips this.
+  get showConsole() { return this.getAttribute("show-console") === "true"; }
   set showConsole(v) { this.setAttribute("show-console", v ? "true" : "false"); }
 
   get muted() { return this._audio ? this._audio.isMuted() : false; }
@@ -174,13 +198,12 @@ class WandSim extends HTMLElement {
   }
 
   attributeChangedCallback(name) {
-    if (!this._ready) return;
-    if (name === "game" || name === "show-console") {
-      if (name === "show-console") {
-        this._consoleEl.style.display = this.showConsole ? "block" : "none";
-      }
-      if (name === "game") this._loadAndMaybeStart();
+    if (name === "show-console") {
+      if (this._consoleEl) this._consoleEl.style.display = this.showConsole ? "block" : "none";
+      this._controls?.setConsoleShown(this.showConsole);
     }
+    if (!this._ready) return;
+    if (name === "game") this._loadAndMaybeStart();
   }
 
   _renderShell() {
@@ -219,19 +242,22 @@ class WandSim extends HTMLElement {
 
     this._controls = createControls(wrap.querySelector('[data-el="controls"]'), {
       onButton: (down) => this._setButton(down),
-      onJump: () => { triggerJump(); this._pushAccel(); },
-      onTilt: (x, y) => { setTilt(x, y); this._pushAccel(); },
-      onShake: (on, intensity) => {
-        if (on) { setShakeIntensity(intensity); startShake(intensity); }
+      onPose: (name) => { setPose(name); this._pushAccel(); },
+      onMove: (kind) => { fireMove(kind); this._pushAccel(); },
+      onShakeHold: (on) => {
+        if (on) { setShakeIntensity(0.7); startShake(0.7); }
         else stopShake();
         this._pushAccel();
       },
+      onTilt: (x, y) => { setTilt(x, y); this._pushAccel(); },
       onMute: (m) => this._audio.setMuted(m),
+      onToggleConsole: (shown) => { this.showConsole = shown; },
       onBattery: (soc) => this._runPython(`sim_state.set_battery(soc=${soc})`),
       onLux: (lux) => this._runPython(`sim_state.set_ambient_lux(${lux})`),
       onNfc: (cmd) => this._runPython(`sim_state.tap_nfc(${JSON.stringify(cmd)})`),
       onEnow: (t) => this._runPython(`sim_state.enqueue_enow(${JSON.stringify(t)})`),
     });
+    this._controls.setConsoleShown(this.showConsole);
   }
 
   async _boot() {
@@ -256,7 +282,7 @@ import sys
 sys.path.insert(0, "/sim/py")
 sys.path.insert(0, "/sim/py/shims")
 sys.path.insert(0, "/sim/py/devices")
-from runtime import get_runtime, load_game, start, stop, get_commands
+from runtime import get_runtime, load_game, start, stop, get_commands, get_capabilities
 import os
 contents = {}
 for root, dirs, files in os.walk("/sim"):
@@ -356,6 +382,14 @@ sim_state.set_log_callback(_js_log)
     if (!this._ready) return;
     this._statusEl.textContent = "Loading game…";
     await this._runPython("await stop()");
+
+    // A freshly-picked-up wand starts at rest; don't carry a pose or an
+    // in-flight gesture over from whatever the previous game left it in.
+    cancelMove();
+    setPose("tip_up");
+    this._controls.resetPose();
+    this._pushAccel();
+
     const src = this._source;
     if (src) {
       // Pass source via a Python global to avoid escaping nightmares.
@@ -365,9 +399,8 @@ sim_state.set_log_callback(_js_log)
       const name = this.game.replace(/\.py$/, "");
       await this._runPython(`load_game(${JSON.stringify(name)})`);
     }
-    const cmds = await this._pyodide.runPythonAsync("get_commands()");
-    const list = cmds.toJs ? Array.from(cmds.toJs()) : Array.from(cmds || []);
-    this._controls.setNfcTags(list);
+    const caps = await this._pyodide.runPythonAsync("get_capabilities()");
+    this._controls.setCapabilities(caps.toJs ? caps.toJs({ dict_converter: Object.fromEntries }) : caps);
     this._statusEl.textContent = `Loaded ${this._source ? "custom" : this.game}`;
     if (this.autostart) {
       await this.start();
@@ -385,6 +418,18 @@ sim_state.set_log_callback(_js_log)
     await this._runPython("await stop()");
     this._statusEl.textContent = "Stopped";
     this.dispatchEvent(new CustomEvent("sim-stopped"));
+  }
+
+  /** Stop and restart the currently loaded game fresh (same game, new
+   * instance state) — the "start over" affordance for the host page. */
+  async restart() {
+    if (!this._ready) return;
+    await this.stop();
+    cancelMove();
+    setPose("tip_up");
+    this._controls.resetPose();
+    this._pushAccel();
+    await this.start();
   }
 }
 

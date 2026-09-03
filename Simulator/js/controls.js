@@ -1,71 +1,107 @@
 /**
- * Simulator control panel: button, tilt pad, shake, jump, battery,
- * ambient lux, NFC tags, teacher stop / start_game.
+ * Simulator control panel — filtered by the loaded game's capabilities
+ * (py/runtime.py:get_capabilities()) so only inputs the game actually
+ * reads are shown. Fixed group order regardless of what's present:
+ * poses -> moves -> button -> tags. Everything else (battery, ambient
+ * lux, raw tilt pad, freeform tag entry, ESPNow) lives in a collapsed
+ * "Advanced" drawer.
  */
+
+const POSE_LABELS = {
+  tip_up: "Tip up",
+  tip_down: "Tip down",
+  left_up: "Left side up",
+  right_up: "Right side up",
+  face_up: "LEDs up",
+  face_down: "LEDs down",
+};
+const POSE_ORDER = ["tip_up", "tip_down", "left_up", "right_up", "face_up", "face_down"];
+
+const MOVE_LABELS = { jump: "Jump", shake: "Shake", flip: "Flip" };
+const MOVE_ORDER = ["jump", "shake", "flip"];
+
+const BUTTON_LABEL = { tap: "Tap the button", hold: "Hold the button" };
+
+// How long a shake press can be held before it's treated as "hold" rather
+// than a one-shot click-burst.
+const SHAKE_HOLD_MS = 220;
 
 export function createControls(container, handlers = {}) {
   const root = container;
   root.classList.add("wand-controls");
   root.innerHTML = `
-    <div class="ctrl-row">
-      <button type="button" data-act="button" class="ctrl-btn">Button</button>
-      <button type="button" data-act="jump" class="ctrl-btn">Jump</button>
-      <button type="button" data-act="stop" class="ctrl-btn">Teacher stop</button>
-      <button type="button" data-act="start_game" class="ctrl-btn">start_game</button>
+    <div class="ctrl-toolbar">
       <button type="button" data-act="mute" class="ctrl-btn" aria-pressed="false">🔊 Mute</button>
+      <button type="button" data-act="toggle-console" class="ctrl-btn" aria-pressed="false">Show console</button>
     </div>
-    <div class="ctrl-row">
-      <label>Shake <input type="range" data-act="shake" min="0" max="100" value="0"></label>
-      <label>Battery <input type="range" data-act="battery" min="0" max="100" value="85"></label>
-      <label>Ambient lux <input type="range" data-act="lux" min="10" max="20000" value="500"></label>
+    <div class="hint" data-el="hint"></div>
+    <div class="uses-row" data-el="uses"></div>
+
+    <div class="ctrl-group" data-group="poses" hidden>
+      <div class="group-label">Orientation</div>
+      <div class="group-row" data-el="poses"></div>
     </div>
-    <div class="ctrl-row">
-      <div class="tilt-pad" data-act="tilt" title="Tilt pad">
-        <div class="tilt-knob"></div>
+    <div class="ctrl-group" data-group="moves" hidden>
+      <div class="group-label">Moves</div>
+      <div class="group-row" data-el="moves"></div>
+    </div>
+    <div class="ctrl-group" data-group="button" hidden>
+      <div class="group-label">Button</div>
+      <div class="group-row">
+        <button type="button" data-act="button" class="ctrl-btn big">Press</button>
       </div>
-      <div class="nfc-tags" data-act="nfc-tags"></div>
     </div>
+    <div class="ctrl-group" data-group="tags" hidden>
+      <div class="group-label">Tags</div>
+      <div class="group-row nfc-tags" data-el="nfc-tags"></div>
+    </div>
+
+    <div class="zero-state" data-el="zero-state" hidden>This game has no player controls — just watch it play.</div>
+
+    <details class="advanced">
+      <summary>Advanced</summary>
+      <div class="adv-row">
+        <label>Battery <input type="range" data-act="battery" min="0" max="100" value="85"></label>
+        <label>Ambient lux <input type="range" data-act="lux" min="10" max="20000" value="500"></label>
+      </div>
+      <div class="adv-row">
+        <div class="tilt-pad" data-act="tilt" title="Free-form tilt (bypasses named poses)">
+          <div class="tilt-knob"></div>
+        </div>
+        <div class="adv-tags">
+          <label>Tap any tag
+            <input type="text" data-act="free-tag-input" placeholder="e.g. stop">
+          </label>
+          <button type="button" data-act="free-tag-send" class="ctrl-btn">Tap</button>
+        </div>
+      </div>
+      <div class="adv-row">
+        <button type="button" data-act="stop" class="ctrl-btn">ESPNow: stop</button>
+        <button type="button" data-act="start_game" class="ctrl-btn">ESPNow: start_game</button>
+      </div>
+    </details>
   `;
 
+  const hintEl = root.querySelector('[data-el="hint"]');
+  const usesEl = root.querySelector('[data-el="uses"]');
+  const posesGroup = root.querySelector('[data-group="poses"]');
+  const posesRow = root.querySelector('[data-el="poses"]');
+  const movesGroup = root.querySelector('[data-group="moves"]');
+  const movesRow = root.querySelector('[data-el="moves"]');
+  const buttonGroup = root.querySelector('[data-group="button"]');
   const btn = root.querySelector('[data-act="button"]');
-  const shake = root.querySelector('[data-act="shake"]');
+  const tagsGroup = root.querySelector('[data-group="tags"]');
+  const nfcBox = root.querySelector('[data-el="nfc-tags"]');
+  const zeroState = root.querySelector('[data-el="zero-state"]');
+
   const battery = root.querySelector('[data-act="battery"]');
   const lux = root.querySelector('[data-act="lux"]');
   const tilt = root.querySelector('[data-act="tilt"]');
   const knob = tilt.querySelector(".tilt-knob");
-  const nfcBox = root.querySelector('[data-act="nfc-tags"]');
+  const freeTagInput = root.querySelector('[data-act="free-tag-input"]');
+  const freeTagSend = root.querySelector('[data-act="free-tag-send"]');
 
-  let tilting = false;
-
-  function setKnob(nx, ny) {
-    knob.style.left = `${50 + nx * 40}%`;
-    knob.style.top = `${50 + ny * 40}%`;
-  }
-  setKnob(0, 0);
-
-  btn.addEventListener("pointerdown", (e) => {
-    e.preventDefault();
-    btn.classList.add("down");
-    handlers.onButton?.(true);
-  });
-  const releaseBtn = () => {
-    btn.classList.remove("down");
-    handlers.onButton?.(false);
-  };
-  btn.addEventListener("pointerup", releaseBtn);
-  btn.addEventListener("pointerleave", releaseBtn);
-  btn.addEventListener("pointercancel", releaseBtn);
-
-  root.querySelector('[data-act="jump"]').addEventListener("click", () => {
-    handlers.onJump?.();
-  });
-  root.querySelector('[data-act="stop"]').addEventListener("click", () => {
-    handlers.onEnow?.("stop");
-  });
-  root.querySelector('[data-act="start_game"]').addEventListener("click", () => {
-    handlers.onEnow?.("start_game");
-  });
-
+  // ── Persistent toolbar: mute + console toggle ──────────────────────
   const muteBtn = root.querySelector('[data-act="mute"]');
   let muted = false;
   function applyMuteVisual() {
@@ -83,52 +119,106 @@ export function createControls(container, handlers = {}) {
     applyMuteVisual();
   }
 
-  shake.addEventListener("input", () => {
-    const v = Number(shake.value) / 100;
-    if (v <= 0) handlers.onShake?.(false, 0);
-    else handlers.onShake?.(true, v);
-  });
-
-  battery.addEventListener("input", () => {
-    handlers.onBattery?.(Number(battery.value));
-  });
-  lux.addEventListener("input", () => {
-    handlers.onLux?.(Number(lux.value));
-  });
-
-  function tiltFromEvent(e) {
-    const rect = tilt.getBoundingClientRect();
-    const x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-    const y = ((e.clientY - rect.top) / rect.height) * 2 - 1;
-    const nx = Math.max(-1, Math.min(1, x));
-    const ny = Math.max(-1, Math.min(1, y));
-    setKnob(nx, ny);
-    handlers.onTilt?.(nx, ny);
+  const consoleBtn = root.querySelector('[data-act="toggle-console"]');
+  let consoleShown = false;
+  function applyConsoleVisual() {
+    consoleBtn.setAttribute("aria-pressed", String(consoleShown));
+    consoleBtn.textContent = consoleShown ? "Hide console" : "Show console";
   }
-
-  tilt.addEventListener("pointerdown", (e) => {
-    tilting = true;
-    tilt.setPointerCapture(e.pointerId);
-    tiltFromEvent(e);
+  consoleBtn.addEventListener("click", () => {
+    consoleShown = !consoleShown;
+    applyConsoleVisual();
+    handlers.onToggleConsole?.(consoleShown);
   });
-  tilt.addEventListener("pointermove", (e) => {
-    if (tilting) tiltFromEvent(e);
-  });
-  tilt.addEventListener("pointerup", () => { tilting = false; });
-  tilt.addEventListener("pointercancel", () => { tilting = false; });
+  function setConsoleShown(v) {
+    consoleShown = !!v;
+    applyConsoleVisual();
+  }
+  applyConsoleVisual();
 
-  function setNfcTags(commands) {
-    nfcBox.innerHTML = "";
-    const tags = Array.from(commands || []);
-    if (!tags.length) {
+  // ── Button (tap or hold — same widget either way) ──────────────────
+  btn.addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    btn.setPointerCapture(e.pointerId);
+    btn.classList.add("down");
+    handlers.onButton?.(true);
+  });
+  const releaseBtn = (e) => {
+    if (e.pointerId != null && btn.hasPointerCapture?.(e.pointerId)) {
+      btn.releasePointerCapture(e.pointerId);
+    }
+    btn.classList.remove("down");
+    handlers.onButton?.(false);
+  };
+  btn.addEventListener("pointerup", releaseBtn);
+  btn.addEventListener("pointercancel", releaseBtn);
+
+  // ── Poses: sticky, one active at a time ─────────────────────────────
+  let activePose = "tip_up";
+  function renderPoses(names) {
+    posesRow.innerHTML = "";
+    for (const name of names) {
       const b = document.createElement("button");
       b.type = "button";
-      b.className = "ctrl-btn";
-      b.textContent = "Exit tag";
-      b.addEventListener("click", () => handlers.onNfc?.("stop"));
-      nfcBox.appendChild(b);
-      return;
+      b.className = "ctrl-btn pose";
+      b.textContent = POSE_LABELS[name] || name;
+      b.classList.toggle("active", name === activePose);
+      b.addEventListener("click", () => {
+        activePose = name;
+        for (const sib of posesRow.querySelectorAll(".pose")) sib.classList.remove("active");
+        b.classList.add("active");
+        handlers.onPose?.(name);
+      });
+      posesRow.appendChild(b);
     }
+  }
+
+  // ── Moves: one-shot gestures; shake is click=burst / hold=continuous ─
+  function renderMoves(names) {
+    movesRow.innerHTML = "";
+    for (const name of names) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "ctrl-btn move";
+      b.textContent = MOVE_LABELS[name] || name;
+      if (name === "shake") {
+        let holdTimer = null;
+        let holding = false;
+        b.addEventListener("pointerdown", (e) => {
+          e.preventDefault();
+          b.setPointerCapture(e.pointerId);
+          b.classList.add("down");
+          holding = false;
+          holdTimer = setTimeout(() => {
+            holding = true;
+            handlers.onShakeHold?.(true);
+          }, SHAKE_HOLD_MS);
+        });
+        const release = (e) => {
+          if (e.pointerId != null && b.hasPointerCapture?.(e.pointerId)) {
+            b.releasePointerCapture(e.pointerId);
+          }
+          b.classList.remove("down");
+          clearTimeout(holdTimer);
+          if (holding) {
+            handlers.onShakeHold?.(false);
+          } else {
+            handlers.onMove?.("shake");
+          }
+          holding = false;
+        };
+        b.addEventListener("pointerup", release);
+        b.addEventListener("pointercancel", release);
+      } else {
+        b.addEventListener("click", () => handlers.onMove?.(name));
+      }
+      movesRow.appendChild(b);
+    }
+  }
+
+  // ── Tags ──────────────────────────────────────────────────────────
+  function renderTags(tags) {
+    nfcBox.innerHTML = "";
     for (const cmd of tags) {
       const b = document.createElement("button");
       b.type = "button";
@@ -139,5 +229,87 @@ export function createControls(container, handlers = {}) {
     }
   }
 
-  return { setNfcTags, setMuted, root };
+  // ── Capability-driven layout ─────────────────────────────────────────
+  function setCapabilities(caps) {
+    const motion = new Set(caps?.motion || []);
+    const poseNames = POSE_ORDER.filter((n) => motion.has(n));
+    const moveNames = MOVE_ORDER.filter((n) => motion.has(n));
+    const buttonKind = caps?.button || "none";
+    const tags = caps?.nfcTags || [];
+
+    hintEl.textContent = caps?.hint || "";
+    hintEl.hidden = !caps?.hint;
+
+    const uses = [];
+    if (poseNames.length) uses.push("orientation");
+    if (moveNames.length) uses.push("motion");
+    if (buttonKind !== "none") uses.push(buttonKind === "hold" ? "hold button" : "button");
+    if (tags.length) uses.push("tags");
+    usesEl.textContent = uses.length ? "Uses: " + uses.join(", ") : "";
+    usesEl.hidden = uses.length === 0;
+
+    renderPoses(poseNames);
+    posesGroup.hidden = poseNames.length === 0;
+
+    renderMoves(moveNames);
+    movesGroup.hidden = moveNames.length === 0;
+
+    buttonGroup.hidden = buttonKind === "none";
+    btn.textContent = BUTTON_LABEL[buttonKind] || "Press";
+
+    renderTags(tags);
+    tagsGroup.hidden = tags.length === 0;
+
+    zeroState.hidden = !(poseNames.length === 0 && moveNames.length === 0 &&
+      buttonKind === "none" && tags.length === 0);
+  }
+
+  // ── Advanced drawer ───────────────────────────────────────────────
+  battery.addEventListener("input", () => handlers.onBattery?.(Number(battery.value)));
+  lux.addEventListener("input", () => handlers.onLux?.(Number(lux.value)));
+
+  let tilting = false;
+  function setKnob(nx, ny) {
+    knob.style.left = `${50 + nx * 40}%`;
+    knob.style.top = `${50 + ny * 40}%`;
+  }
+  setKnob(0, 0);
+  function tiltFromEvent(e) {
+    const rect = tilt.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+    const y = ((e.clientY - rect.top) / rect.height) * 2 - 1;
+    const nx = Math.max(-1, Math.min(1, x));
+    const ny = Math.max(-1, Math.min(1, y));
+    setKnob(nx, ny);
+    handlers.onTilt?.(nx, ny);
+  }
+  tilt.addEventListener("pointerdown", (e) => {
+    tilting = true;
+    tilt.setPointerCapture(e.pointerId);
+    tiltFromEvent(e);
+  });
+  tilt.addEventListener("pointermove", (e) => { if (tilting) tiltFromEvent(e); });
+  tilt.addEventListener("pointerup", () => { tilting = false; });
+  tilt.addEventListener("pointercancel", () => { tilting = false; });
+
+  function sendFreeTag() {
+    const cmd = freeTagInput.value.trim().toLowerCase();
+    if (cmd) handlers.onNfc?.(cmd);
+  }
+  freeTagSend.addEventListener("click", sendFreeTag);
+  freeTagInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") sendFreeTag();
+  });
+
+  root.querySelector('[data-act="stop"]').addEventListener("click", () => handlers.onEnow?.("stop"));
+  root.querySelector('[data-act="start_game"]').addEventListener("click", () => handlers.onEnow?.("start_game"));
+
+  function resetPose() {
+    activePose = "tip_up";
+    for (const b of posesRow.querySelectorAll(".pose")) {
+      b.classList.toggle("active", b.textContent === POSE_LABELS.tip_up);
+    }
+  }
+
+  return { setCapabilities, setMuted, setConsoleShown, resetPose, root };
 }

@@ -63,11 +63,10 @@
         <option value="multiicecream">multiicecream</option>
       </select>
     </label>
-    <button type="button" id="btn-start">Start</button>
-    <button type="button" id="btn-stop">Stop</button>
+    <button type="button" id="btn-restart">Start over</button>
   </div>
 
-  <wand-sim id="sim" game="jump" autostart show-console="true"></wand-sim>
+  <wand-sim id="sim" game="jump" autostart></wand-sim>
 
   <script type="module">
     import "./wand-sim.js";
@@ -80,8 +79,7 @@
       sim.autostart = true;
     });
 
-    document.getElementById("btn-start").addEventListener("click", () => sim.start());
-    document.getElementById("btn-stop").addEventListener("click", () => sim.stop());
+    document.getElementById("btn-restart").addEventListener("click", () => sim.restart());
 
     sim.addEventListener("sim-ready", () => console.log("sim-ready"));
     sim.addEventListener("sim-error", (e) => console.error("sim-error", e.detail));

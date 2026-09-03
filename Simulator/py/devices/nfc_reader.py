@@ -10,6 +10,15 @@ def read_ndef_text(nfc, timeout=500, resel_timeout=150):
     return sim_state.consume_nfc()
 
 
+def _decode_ndef_text(data):
+    """Stub for the deprecated raw-MIFARE jumpin.py revisions that still
+    import this. Unreachable in the sim: PN532.read_passive_target() always
+    returns None, so callers of this (e.g. jumpin.py's _read_tag_text) never
+    get past their own None check to reach it. Present only so `from
+    nfc_reader import _decode_ndef_text` doesn't raise ImportError."""
+    return None
+
+
 class NfcReader:
     def __init__(self, nfc, commands):
         self.nfc = nfc
