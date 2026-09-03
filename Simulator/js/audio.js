@@ -3,6 +3,10 @@
  * for buzzer and vibration motor.
  */
 
+function gestureIconUrl(file) {
+  return new URL(`../assets/wand/WandGestures/${file}`, import.meta.url).href;
+}
+
 export function createAudio(opts = {}) {
   let ctx = null;
   let osc = null;
@@ -14,6 +18,10 @@ export function createAudio(opts = {}) {
 
   const buzzEl = opts.buzzerEl || null;
   const motorEl = opts.motorEl || null;
+  const buzzIcon = buzzEl?.querySelector(".ind-icon") || null;
+  const buzzLabel = buzzEl?.querySelector("[data-el='buzzer-label']") || null;
+  const motorIcon = motorEl?.querySelector(".ind-icon") || null;
+  const motorLabel = motorEl?.querySelector("[data-el='motor-label']") || null;
 
   function ensureCtx() {
     if (!ctx) {
@@ -29,10 +37,12 @@ export function createAudio(opts = {}) {
     if (buzzEl) {
       const on = currentFreq > 0 && currentDuty > 0;
       buzzEl.classList.toggle("active", on);
-      buzzEl.textContent = on ? `${currentFreq} Hz` : "buzzer";
+      if (buzzIcon) buzzIcon.src = gestureIconUrl(on ? "sound.svg" : "no_sound.svg");
+      if (buzzLabel) buzzLabel.textContent = on ? `${currentFreq} Hz` : "buzzer";
     }
     if (motorEl) {
       motorEl.classList.toggle("active", motorOn);
+      if (motorIcon) motorIcon.src = gestureIconUrl(motorOn ? "vibrate.svg" : "no_vibrate.svg");
     }
   }
 
@@ -111,6 +121,8 @@ export function createAudio(opts = {}) {
       ctx = null;
     }
   }
+
+  updateIndicators(); // set the initial no_sound/no_vibrate icons, not just a blank <img>
 
   return { setPwm, setMotor, setMuted, isMuted, unlock, dispose };
 }

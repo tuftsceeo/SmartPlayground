@@ -17,8 +17,31 @@ const POSE_LABELS = {
 };
 const POSE_ORDER = ["tip_up", "tip_down", "left_up", "right_up", "face_up", "face_down"];
 
+// assets/wand/WandGestures/*.svg — hand-authored gesture illustrations.
+// face_up/face_down have no icon yet (2D art can't show wand-facing
+// depth convincingly per the author) and stay text-only. These are
+// transition/rotation illustrations, not static single-pose portraits —
+// used here as "move it like this" cues rather than literal snapshots.
+const POSE_ICONS = {
+  tip_up: "leftup_to_upright.svg",
+  tip_down: "clockwise_to_upsidedown.svg",
+  left_up: "upright_to_leftup.svg",
+  right_up: "upright_to_rightup.svg",
+};
+
 const MOVE_LABELS = { jump: "Jump", shake: "Shake", flip: "Flip" };
 const MOVE_ORDER = ["jump", "shake", "flip"];
+// jump/shake mappings are the author's own call; flip has no clear match
+// (it goes between whichever pose pair is opposite, not one fixed
+// motion) so it stays icon-less rather than force a confusing pick.
+const MOVE_ICONS = {
+  jump: "shake_up_down.svg",
+  shake: "wiggle_roll.svg",
+};
+
+function gestureIconUrl(file) {
+  return new URL(`../assets/wand/WandGestures/${file}`, import.meta.url).href;
+}
 
 const BUTTON_LABEL = { tap: "Tap the button", hold: "Hold the button" };
 
@@ -237,13 +260,26 @@ export function createControls(container, handlers = {}) {
 
   // ── Poses: sticky, one active at a time ─────────────────────────────
   let activePose = "tip_up";
+  /** Fills a button with an icon (if one exists for `name`) above its
+   * text label; icon-less buttons just get the text, unchanged. */
+  function fillIconButton(b, iconFile, label) {
+    if (iconFile) {
+      const img = document.createElement("img");
+      img.className = "ctrl-icon";
+      img.src = gestureIconUrl(iconFile);
+      img.alt = "";
+      b.appendChild(img);
+    }
+    b.appendChild(document.createTextNode(label));
+  }
+
   function renderPoses(names) {
     posesRow.innerHTML = "";
     for (const name of names) {
       const b = document.createElement("button");
       b.type = "button";
       b.className = "ctrl-btn pose";
-      b.textContent = POSE_LABELS[name] || name;
+      fillIconButton(b, POSE_ICONS[name], POSE_LABELS[name] || name);
       b.classList.toggle("active", name === activePose);
       b.addEventListener("click", () => {
         activePose = name;
@@ -269,7 +305,7 @@ export function createControls(container, handlers = {}) {
       const b = document.createElement("button");
       b.type = "button";
       b.className = "ctrl-btn move";
-      b.textContent = MOVE_LABELS[name] || name;
+      fillIconButton(b, MOVE_ICONS[name], MOVE_LABELS[name] || name);
       b.addEventListener("click", () => handlers.onMove?.(name));
       movesRow.appendChild(b);
     }

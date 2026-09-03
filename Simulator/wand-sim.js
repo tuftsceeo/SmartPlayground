@@ -46,6 +46,7 @@ const STYLE = `
 .wand-art svg #_SPEAKER { transition: fill 0.4s ease-out; }
 .indicators { display: flex; gap: 8px; font-size: 12px; }
 .ind {
+  display: inline-flex; align-items: center; gap: 5px;
   padding: 4px 10px; border-radius: 10px;
   background: #f4f2fa; color: #8b859a; font-weight: 700;
   /* A short beep (melody.py's notes are ~150ms) would otherwise snap on
@@ -53,6 +54,7 @@ const STYLE = `
      rather than a flash even without holding the "active" state longer. */
   transition: background 0.5s ease-out, color 0.5s ease-out;
 }
+.ind-icon { width: 16px; height: 16px; object-fit: contain; }
 .ind.active { background: #fff8e0; color: #a8531e; transition-duration: 0.05s; }
 .wand-controls { flex: 1; min-width: 220px; }
 .ctrl-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; align-items: center; }
@@ -71,6 +73,11 @@ const STYLE = `
 /* Sticky-pose active state: soft tint + saturated same-hue border + dark
    same-hue text — same recipe ChatBroadcast's chat.css uses for .msg.hw. */
 .ctrl-btn.pose.active { background: #d1fae5; border-color: #6ee7b7; color: #065f46; }
+/* Icon above label when a pose/move has a gesture illustration (see
+   assets/wand/WandGestures/); icon-less ones (face_up/face_down, flip)
+   just show centered text, same as before. */
+.ctrl-btn.pose, .ctrl-btn.move { display: inline-flex; flex-direction: column; align-items: center; gap: 4px; }
+.ctrl-icon { width: 32px; height: 32px; object-fit: contain; }
 .ctrl-toolbar { display: flex; gap: 8px; margin-bottom: 4px; }
 .hint { font-size: 13px; opacity: 0.85; margin: 2px 0; }
 .hint[hidden], .uses-row[hidden], .zero-state[hidden] { display: none; }
@@ -287,8 +294,8 @@ class WandSim extends HTMLElement {
         <div>
           <div data-el="grid"></div>
           <div class="indicators">
-            <span class="ind" data-el="buzzer">buzzer</span>
-            <span class="ind" data-el="motor">motor</span>
+            <span class="ind" data-el="buzzer"><img class="ind-icon" alt=""><span data-el="buzzer-label">buzzer</span></span>
+            <span class="ind" data-el="motor"><img class="ind-icon" alt=""><span data-el="motor-label">motor</span></span>
           </div>
         </div>
         <div data-el="controls"></div>
