@@ -58,8 +58,9 @@ export function createRenderer(container, opts = {}) {
   let tapPressed = false;
 
   /** opts.onButtonTap(down) fires from a real click/tap on the drawn
-   * button artwork itself (see wireButtonTap below) -- de-duped so a
-   * stray extra pointerdown/pointerup pair doesn't double-fire. */
+   * button artwork itself (wired in load(), once the SVG is parsed) --
+   * de-duped so a stray extra pointerdown/pointerup pair doesn't
+   * double-fire. */
   function setTapPressed(down) {
     if (tapPressed === down) return;
     tapPressed = down;

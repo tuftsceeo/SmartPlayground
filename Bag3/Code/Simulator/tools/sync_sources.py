@@ -20,7 +20,7 @@ import shutil
 import sys
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-REPO = os.path.abspath(os.path.join(ROOT, ".."))
+REPO = os.path.abspath(os.path.join(ROOT, "..", "..", ".."))  # Bag3/Code/Simulator -> repo root
 
 LIB_SRC = os.path.join(REPO, "Bag2", "Code", "lib")
 GAMES_SRC = os.path.join(REPO, "Bag2", "Code", "Wand Module")

@@ -2,15 +2,20 @@
  * Motion model — sticky orientation poses + one-shot/held gestures that
  * settle back to the currently-held pose.
  *
- * Orientation convention: ChatApp/knowledge/knowledge.py §9 ("confirmed
- * from calibration") documents wand held upright (tip up) -> y=+1, left
- * side up -> x=+1, LED face up -> z=-1 -- but the actual on-hand hardware
- * has its x/y axes swapped from that (up-down and left-right are
- * flipped), so x and y are swapped here from that documented mapping.
- * z (LED face up/down) is unaffected.
+ * Orientation convention: verified against the on-hand wand hardware
+ * with a live per-orientation test (each of the 6 poses reads
+ * accel.read() and lights a distinct LED color; a real tap in each
+ * orientation was matched against which color/axis/sign lit up) --
+ * NOT ChatApp/knowledge/knowledge.py §9's "confirmed from calibration"
+ * note (tip up -> y=+1, left side up -> x=+1, face up -> z=-1). Face
+ * up/down is unchanged from that note. Left/right up swap x and y from
+ * it, same sign (the "axes are swapped" fix this file first tried).
+ * Tip up/down also swap x and y, but with the sign flipped too -- x=+1
+ * (this file's first, uncorrected guess) was still wrong; the real
+ * hardware reads x=-1 for tip up, not x=+1:
  *
- *   tip up (rest)     (+1, 0, 0)
- *   tip down          (-1, 0, 0)
+ *   tip up (rest)     (-1, 0, 0)
+ *   tip down          (+1, 0, 0)
  *   left side up      (0, +1, 0)
  *   right side up     (0, -1, 0)
  *   LED face up       (0, 0, -1)
@@ -26,8 +31,8 @@
  */
 
 export const POSES = {
-  tip_up:    { x: 1, y: 0, z: 0 },
-  tip_down:  { x: -1, y: 0, z: 0 },
+  tip_up:    { x: -1, y: 0, z: 0 },
+  tip_down:  { x: 1, y: 0, z: 0 },
   left_up:   { x: 0, y: 1, z: 0 },
   right_up:  { x: 0, y: -1, z: 0 },
   face_up:   { x: 0, y: 0, z: -1 },
@@ -72,14 +77,15 @@ export function getPose() {
 }
 
 /** Free-form tilt pad: sets the latched base directly from a 2D pad
- * position rather than a named pose. nx (left-right drag) and the
- * upright-residual magnitude are swapped onto y/x respectively, same
- * x/y swap as POSES above -- the pad's own left-right/up-down feel is
- * unchanged, only which accelerometer axis reports it. */
+ * position rather than a named pose. nx (left-right drag) lands on y
+ * (left_up is y=+1, see POSES above); the upright-residual magnitude
+ * lands on x, negative at rest to match tip_up's x=-1. The pad's own
+ * left-right/up-down feel is unchanged, only which accelerometer axis
+ * (and sign, for x) reports it. */
 export function setTilt(nx, ny) {
   const tx = clamp(Number(nx) || 0, -1, 1);
   const ty = clamp(Number(ny) || 0, -1, 1);
-  const x = 1 - Math.abs(ty) * 0.85;
+  const x = -(1 - Math.abs(ty) * 0.85);
   const y = tx;
   const z = -ty;
   base = normalize({ x, y, z });

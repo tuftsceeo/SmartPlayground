@@ -12,8 +12,8 @@ import time  # patched in-place by time_patch.patch_time_module() during bootstr
 # ── Inputs (host -> Python) ─────────────────────────────────────────
 button_pressed = False       # GPIO0 active-low when True
 motor_on = False
-accel_x = 0.0
-accel_y = 1.0                # tip-up default
+accel_x = -1.0                # tip-up default (js/motion.js's POSES.tip_up)
+accel_y = 0.0
 accel_z = 0.0
 battery_volts = 3.9
 battery_soc = 85             # percent
@@ -64,30 +64,34 @@ def set_ambient_lux(lux):
 
 NFC_DEFAULT_DWELL_MS = 600  # how long a tapped tag stays "under the reader"
 
-# Confirmation feedback none of the 12 games trigger themselves -- it's
-# main.py's own hub-level on_scan_complete() (a beep, then the vibration
-# motor), which only runs in the real firmware's scanning loop, never in
-# a per-game file the simulator loads. Fired here instead so every tag
-# tap gets it regardless of which game (if any) is listening.
+# _nfc_confirm_pulse() timing -- see its docstring.
 NFC_CONFIRM_BEEP_FREQ = 1200
 NFC_CONFIRM_BEEP_MS = 50
 NFC_CONFIRM_MOTOR_MS = 60
-
-# Some games (melody.py, cooking.py, nfc_sound.py) react to a tag with
-# their own buzzer sound -- on top of our beep, on the single shared PWM/
-# audio channel, that's not two audible confirmations, it's each cutting
-# the other off. We can tell: give the game a short window to react first
-# and check pwm_duty; if the game already made noise, skip ours and let
-# that serve as the "tag read" cue. melody.py/cooking.py read the tag
-# every loop tick (20-40ms), but nfc_sound.py only checks it every
-# NFC_POLL_INTERVAL=5 frames at LOOP_DELAY_MS=40 each -- up to 200ms
-# worst case before its own beep(freq, 120) fires -- so the window has
-# to clear that, not just the faster games' single tick.
 NFC_CONFIRM_POLL_MS = 25
-NFC_CONFIRM_POLL_TRIES = 12  # ~300ms total -- comfortably past nfc_sound.py's 200ms worst case
+NFC_CONFIRM_POLL_TRIES = 12  # ~300ms total
 
 
 async def _nfc_confirm_pulse():
+    """Beep, then buzz the motor, to confirm a tag was read.
+
+    None of the 12 games drive this themselves -- it's main.py's own
+    hub-level on_scan_complete() (a beep, then the vibration motor),
+    which only runs in the real firmware's scanning loop, never in a
+    per-game file the simulator loads. Fired here instead so every tag
+    tap gets it, regardless of which game (if any) is listening.
+
+    Some games (melody.py, cooking.py, nfc_sound.py) react to the same
+    tag with their own buzzer sound. On top of our beep, on the single
+    shared PWM/audio channel, that isn't two audible confirmations --
+    it's each one cutting the other off. So: poll pwm_duty for up to
+    NFC_CONFIRM_POLL_TRIES * NFC_CONFIRM_POLL_MS ms first, and skip our
+    beep if the game already made noise (that already told the player
+    "tag read"). melody.py/cooking.py react within one loop tick
+    (20-40ms); nfc_sound.py only checks every NFC_POLL_INTERVAL=5 frames
+    at LOOP_DELAY_MS=40 each (up to 200ms) before its own beep(freq, 120)
+    fires, which is why the window is ~300ms rather than one tick.
+    """
     game_played_sound = False
     for _ in range(NFC_CONFIRM_POLL_TRIES):
         if pwm_duty > 0:
@@ -207,7 +211,7 @@ def reset_io():
     button_pressed = False
     motor_on = False
     pending_nfc_until = 0
-    accel_x, accel_y, accel_z = 0.0, 1.0, 0.0
+    accel_x, accel_y, accel_z = -1.0, 0.0, 0.0  # tip-up default (js/motion.js's POSES.tip_up)
     pending_nfc_cmd = None
     pending_nfc_uid = None
     enow_queue.clear()

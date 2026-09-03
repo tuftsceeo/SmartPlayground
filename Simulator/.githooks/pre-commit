@@ -1,4 +1,0 @@
-#!/bin/sh
-# Check Simulator/vendor/ hasn't drifted from Bag2 sources.
-ROOT="$(git rev-parse --show-toplevel)"
-python3 "$ROOT/Simulator/tools/sync_sources.py" --check

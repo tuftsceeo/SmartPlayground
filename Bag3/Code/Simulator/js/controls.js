@@ -187,7 +187,8 @@ export function createControls(container, handlers = {}) {
   const freeTagInput = root.querySelector('[data-act="free-tag-input"]');
   const freeTagSend = root.querySelector('[data-act="free-tag-send"]');
 
-  // ── Persistent toolbar: mute + console toggle ──────────────────────
+  // ── Persistent toolbar: mute (icon-only, the console toggle below
+  // lives in the Advanced drawer instead) ─────────────────────────────
   const muteBtn = root.querySelector('[data-act="mute"]');
   let muted = false;
   function applyMuteVisual() {
