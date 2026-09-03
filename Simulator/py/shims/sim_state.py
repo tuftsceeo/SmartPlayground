@@ -6,6 +6,7 @@ A single module so Pin, lis2dw12, NfcReader, ESPNowManager, and neopixel
 all see the same live state.
 """
 
+import asyncio
 import time  # patched in-place by time_patch.patch_time_module() during bootstrap
 
 # ── Inputs (host -> Python) ─────────────────────────────────────────
@@ -63,6 +64,24 @@ def set_ambient_lux(lux):
 
 NFC_DEFAULT_DWELL_MS = 600  # how long a tapped tag stays "under the reader"
 
+# Confirmation feedback none of the 12 games trigger themselves -- it's
+# main.py's own hub-level on_scan_complete() (a beep, then the vibration
+# motor), which only runs in the real firmware's scanning loop, never in
+# a per-game file the simulator loads. Fired here instead so every tag
+# tap gets it regardless of which game (if any) is listening.
+NFC_CONFIRM_BEEP_FREQ = 1200
+NFC_CONFIRM_BEEP_MS = 50
+NFC_CONFIRM_MOTOR_MS = 60
+
+
+async def _nfc_confirm_pulse():
+    emit_pwm(NFC_CONFIRM_BEEP_FREQ, 32768)
+    await time.sleep_ms(NFC_CONFIRM_BEEP_MS)
+    emit_pwm(0, 0)
+    emit_motor(True)
+    await time.sleep_ms(NFC_CONFIRM_MOTOR_MS)
+    emit_motor(False)
+
 
 def tap_nfc(cmd, uid=None, dwell_ms=NFC_DEFAULT_DWELL_MS):
     """Simulate placing a tag under the reader for `dwell_ms`. cmd=None lifts
@@ -78,6 +97,7 @@ def tap_nfc(cmd, uid=None, dwell_ms=NFC_DEFAULT_DWELL_MS):
     pending_nfc_cmd = str(cmd).lower()
     pending_nfc_uid = str(uid) if uid is not None else ("sim-" + pending_nfc_cmd)
     pending_nfc_until = time.ticks_add(time.ticks_ms(), int(dwell_ms))
+    asyncio.create_task(_nfc_confirm_pulse())
 
 
 def consume_nfc():
