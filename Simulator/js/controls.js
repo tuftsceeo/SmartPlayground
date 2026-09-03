@@ -127,7 +127,10 @@ export function createControls(container, handlers = {}) {
     </div>
     <div class="ctrl-group" data-group="tags" hidden>
       <div class="group-label">Tags</div>
-      <div class="group-row nfc-tags" data-el="nfc-tags"></div>
+      <div class="group-row">
+        <img class="ctrl-icon-inline" alt="NFC tag" src="${gestureIconUrl("readNFC.svg")}">
+        <div class="nfc-tags" data-el="nfc-tags"></div>
+      </div>
     </div>
 
     <div class="zero-state" data-el="zero-state" hidden>This game has no player controls — just watch it play.</div>
