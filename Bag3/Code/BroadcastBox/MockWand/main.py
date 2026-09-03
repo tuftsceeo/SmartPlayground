@@ -17,6 +17,7 @@ import machine
 import time
 import sys
 import json
+import gc
 
 from hubtype import HUB_TYPE, HUB_CONFIG
 from pn532 import PN532
@@ -25,7 +26,12 @@ from max17048 import MAX17048
 
 from leds import (
     Leds, TRIGGER_ORDER, battery_color, WHITE, OFF,
-    SHAPE_CHECK, SHAPE_X, RED, GREEN, CYAN, BLUE_DIM,
+    SHAPE_CHECK, SHAPE_X, RED, GREEN, AMBER, CYAN, BLUE_DIM,
+    # GAME_ICON palette/shapes (loading indicator, see below).
+    PURPLE, ORANGE, LIME, SKY, TEAL, MAGENTA, PINK, ROSE, INDIGO,
+    SHAPE_BULLSEYE, SHAPE_INNER_3x3, SHAPE_FLAME, SHAPE_MUSIC,
+    SHAPE_ARROW_UP, SHAPE_ROW3, SHAPE_SPIRAL, SHAPE_SLASH_L, SHAPE_WIFI,
+    SHAPE_RAINDROP, SHAPE_DIAMOND, SHAPE_POINTER, SHAPE_EXCLAIM,
 )
 from power_led import PowerLed
 from buzzer import Buzzer
@@ -33,51 +39,116 @@ from nfc_reader import NfcReader
 from actions import ActionRunner, ACTIONS, ANIMAL_SOUNDS, ACTION_RESOURCE, resolve_and_group, chain_to_str
 from battery import show_battery
 from espnow_manager import ESPNowManager
-from color_quest import play as play_color_quest
-from freeze_dance import play as play_freeze_dance
-from jumpin import play as play_jumpin
-from cooking import play as play_cooking
-from melody import play as play_melody
-from shake import play as play_shake
-from shake_rainbow import play as play_shake_rainbow
-from rainbow import play as play_rainbow
-from jump import play as play_jump
-from sound import play as play_sound
-from nfc_sound import play as play_nfc_sound
-from simpleicecream import play as play_simpleicecream
-from multiicecream import play as play_multiicecream
-from gestures import play as play_gestures
-from finddevice import play as play_finddevice
 from game_tags import GAME_TAGS, CONTROL_TAGS, HIDDEN_TAGS
 import brightness
 import pull_flag
+import memprobe  # BENCH: see lib/memprobe.py docstring
 
 # ─────────────────────────────────────────────
-# GAME DISPATCH
+# GAME MODULES (lazy import on tap -- see below)
 # ─────────────────────────────────────────────
-GAME_DISPATCH = {
-    "colorquest":     play_color_quest,
-    "freezedance":    play_freeze_dance,
-    "jumpin":         play_jumpin,
-    "cooking":        play_cooking,
-    "melody":         play_melody,
-    "shake":          play_shake,
-    "shakerainbow":   play_shake_rainbow,
-    "rainbow":        play_rainbow,
-    "jump":           play_jump,
-    "sound":          play_sound,
-    "nfcsound":       play_nfc_sound,
-    "simpleicecream": play_simpleicecream,
-    "multiicecream":  play_multiicecream,
-    "gestures":       play_gestures,
+# Each game used to be a top-level `from <game> import play` here: 15
+# imports, 4719 lines of game source compiled to RAM-resident bytecode on
+# EVERY boot, of which exactly one game ever runs in a given session. That
+# was the root cause of "OSError: WiFi Out of Memory" at enow.init() below
+# -- MicroPython's GC heap is carved out of the IDF heap in splits that
+# are never returned, and the eager-import baseline left too little
+# contiguous IDF heap for esp_wifi_init()/esp_wifi_start() to succeed.
+# See Bag3/Code/BroadcastBox/design/2026-09-01-wifi-handoff-diagnosis.md.
+#
+# GAME_MODULES maps tag name -> module basename (not a callable -- the
+# module is compiled only when its tag is actually tapped or ESP-NOW
+# start_game names it). _load_play() below does the import.
+GAME_MODULES = {
+    "colorquest":     "color_quest",
+    "freezedance":    "freeze_dance",
+    "jumpin":         "jumpin",
+    "cooking":        "cooking",
+    "melody":         "melody",
+    "shake":          "shake",
+    "shakerainbow":   "shake_rainbow",
+    "rainbow":        "rainbow",
+    "jump":           "jump",
+    "sound":          "sound",
+    "nfcsound":       "nfc_sound",
+    "simpleicecream": "simpleicecream",
+    "multiicecream":  "multiicecream",
+    "gestures":       "gestures",
     # Hidden (ESP-NOW only, never NFC): targeted identify animation.
-    "finddevice":     play_finddevice,
+    "finddevice":     "finddevice",
 }
 
-if set(GAME_DISPATCH.keys()) != (GAME_TAGS | HIDDEN_TAGS):
-    print("  [ERR] GAME_DISPATCH keys do not match GAME_TAGS|HIDDEN_TAGS in game_tags.py")
-    print("        dispatch: %s" % sorted(GAME_DISPATCH.keys()))
+if set(GAME_MODULES.keys()) != (GAME_TAGS | HIDDEN_TAGS):
+    print("  [ERR] GAME_MODULES keys do not match GAME_TAGS|HIDDEN_TAGS in game_tags.py")
+    print("        modules:  %s" % sorted(GAME_MODULES.keys()))
     print("        expected: %s" % sorted(GAME_TAGS | HIDDEN_TAGS))
+
+
+def _check_game_modules():
+    """Every tag maps to a module file actually on flash.
+
+    The old eager imports proved this (and that the module compiled) as a
+    side effect of running at boot. This is the cheap half of that
+    guarantee: os.stat catches a typo'd or missing/renamed module file at
+    boot without compiling anything. Accepts .mpy too, so a future
+    mpy-cross precompile pass needs no change here. It cannot catch a
+    module that exists but fails to compile, or has no play() -- that is
+    what _game_load_failed()'s loud, on-tap failure path is for.
+    """
+    import os
+    missing = []
+    for tag in GAME_MODULES:
+        mod = GAME_MODULES[tag]
+        found = False
+        for ext in (".py", ".mpy"):
+            try:
+                os.stat(mod + ext)
+                found = True
+                break
+            except OSError:
+                continue
+        if not found:
+            missing.append((tag, mod))
+    if missing:
+        print("  [ERR] game modules missing from flash: %s" % missing)
+
+
+_check_game_modules()
+memprobe.probe("after-imports")  # BENCH: the number that proves the fix
+
+# ─────────────────────────────────────────────
+# GAME ICON (shown briefly while a game's module is being imported)
+# ─────────────────────────────────────────────
+# No such name -> icon table existed anywhere on the wand before this.
+# Colors are grounded where a brand color is already published to
+# teachers in Live_Page/wand_icons.html (colorquest, freezedance, cooking,
+# melody); the rest are chosen for maximum pairwise distinction. A
+# per-pixel RGB icon system is planned separately (Stations/Icon Display
+# Station/wand_icon.md) and may supersede this SHAPE_*-based table --
+# noted at decision time, kept anyway per request.
+GAME_ICON = {
+    "colorquest":     (SHAPE_BULLSEYE,   GREEN),
+    "freezedance":    (SHAPE_INNER_3x3,  PURPLE),
+    "cooking":        (SHAPE_FLAME,      ORANGE),
+    "melody":         (SHAPE_MUSIC,      CYAN),
+    "jumpin":         (SHAPE_ARROW_UP,   LIME),
+    "jump":           (SHAPE_ARROW_UP,   SKY),
+    "rainbow":        (SHAPE_ROW3,       TEAL),
+    "shakerainbow":   (SHAPE_SPIRAL,     MAGENTA),
+    "shake":          (SHAPE_SLASH_L,    AMBER),
+    "sound":          (SHAPE_MUSIC,      AMBER),
+    "nfcsound":       (SHAPE_WIFI,       AMBER),
+    "simpleicecream": (SHAPE_RAINDROP,   PINK),
+    "multiicecream":  (SHAPE_DIAMOND,    ROSE),
+    "gestures":       (SHAPE_POINTER,    INDIGO),
+    "finddevice":     (SHAPE_EXCLAIM,    WHITE),
+}
+
+if set(GAME_ICON.keys()) != set(GAME_MODULES.keys()):
+    print("  [ERR] GAME_ICON keys do not match GAME_MODULES")
+if len(set(GAME_ICON.values())) != len(GAME_ICON):
+    print("  [ERR] GAME_ICON has duplicate (shape, color) pairs -- "
+          "two games would look identical while loading")
 
 # ─────────────────────────────────────────────
 # PINS FROM HUBTYPE
@@ -105,21 +176,32 @@ ALL_COMMANDS   = FIXED_TRIGGERS | ACTIONS | ANIMAL_SOUNDS | COMBINATORS | CONTRO
 # ADDING A NEW GAME
 # ─────────────────────────────────────────────
 # Each game is a separate module in this folder that exposes a single
-# `play(...)` entry point. To add a new game named "yourgame":
+# `play(...)` entry point, imported lazily (on tap) rather than at boot --
+# see the GAME_MODULES comment above for why. To add a new game named
+# "yourgame":
 #
 #   1. Create `Wand Module/yourgame.py` exposing
 #      `def play(nfc, leds, buz, accel, i2c, enow): ...` returning when
 #      "stop" NFC tag, ESP-NOW stop, or ESP-NOW start_game is received
 #      (poll enow every loop).
-#   2. Add the line `from yourgame import play as play_yourgame` near
-#      the existing `play_jumpin` import at the top of this file.
-#   3. Add the tag name `"yourgame"` to GAME_TAGS in lib/game_tags.py.
-#   4. Add `"yourgame": play_yourgame` to GAME_DISPATCH in this file.
-#   5. In yourgame.py, union EXIT_TAGS into COMMANDS and exit when
+#   2. Add the tag name `"yourgame"` to GAME_TAGS in lib/game_tags.py.
+#   3. Add `"yourgame": "yourgame"` to GAME_MODULES in this file --
+#      key is the tag name, value is the module's filename (no `.py`).
+#      They differ for a few games (e.g. "colorquest" -> "color_quest");
+#      match your actual filename.
+#   4. In yourgame.py, union EXIT_TAGS into COMMANDS and exit when
 #      `cmd in EXIT_TAGS` so kids can switch games via any game tag.
-#   6. The teacher prints an NFC tag whose NDEF text payload is
+#   5. The teacher prints an NFC tag whose NDEF text payload is
 #      `yourgame`. Tapping it from idle enters the game; tapping the
 #      `stop` tag or another game tag exits back to programming mode.
+#   6. Do NOT have yourgame.py register a persistent callback on enow,
+#      leds, nfc, or any Pin (e.g. enow.set_status_provider, Pin.irq), and
+#      do not stash a reference to any object play() was passed in a
+#      module-level or other long-lived name. A game is imported and
+#      unloaded on every play; a callback or stored reference into it
+#      keeps the whole module pinned in RAM even after unload, defeating
+#      the point of lazy loading and silently doubling the module's
+#      memory cost on the next tap.
 #
 # See `jumpin.py` for the simplest possible example and
 # `freeze_dance.py` for a more complete game (ESP-NOW messaging,
@@ -208,17 +290,103 @@ class _StartGameCapture:
         return getattr(self._enow, attr)
 
 
+def _load_play(name):
+    """Compile a game's module on demand and return its play(). Raises on
+    failure -- caller (_launch_game) turns that into the loud failure path.
+
+    Shows the game's GAME_ICON while the (blocking) import/compile runs,
+    so a tap gets an immediate response even before the module's own
+    entry fanfare. No animation here by design -- Phase 3 measures
+    per-game import time before deciding whether one is warranted.
+    """
+    mod_name = GAME_MODULES[name]
+    shape, color = GAME_ICON.get(name, (SHAPE_MUSIC, WHITE))
+    leds.show_shape(shape, color)
+    memprobe.probe("pre-import:%s" % name)   # BENCH
+    tok = memprobe.mark()                    # BENCH
+    mod = __import__(mod_name)
+    memprobe.span("import:%s" % name, tok)   # BENCH
+    return getattr(mod, "play")
+
+
+def _unload_game(name):
+    """Drop a finished game's module so the next one starts from a
+    cleaner heap rather than stacking on top of it.
+
+    Reclaims the module's globals dict, its function objects/bytecode,
+    and its non-interned constants. Does NOT reclaim interned strings --
+    MicroPython interns every identifier and string literal into a qstr
+    pool that is never freed short of a reset, so each *distinct* game
+    loaded in one boot leaves a small permanent residual behind. See
+    import_bench.py's bench_unload_cycle() for the measured size of that
+    residual. Safe only because no game may hold a callback or retained
+    reference into itself -- see rule 6 in "ADDING A NEW GAME" above.
+    """
+    mod_name = GAME_MODULES.get(name)
+    if mod_name and mod_name in sys.modules:
+        del sys.modules[mod_name]
+    gc.collect()
+
+
+UNLOAD_AFTER_GAME = True  # bench toggle -- see the post-unload probe
+
+
+def _game_load_failed(name, exc):
+    """Loud, unmissable, non-fatal. Wand returns to idle and stays usable.
+
+    Deliberately not boot_stage_fail(): that writes one pixel on the numbered
+    boot ladder and belongs to the boot sequence. A mid-session load failure
+    has no stage number and must read from across a room, so it clears the
+    whole matrix (show_shape does this) and repeats -- three flashes with a
+    two-tone beep, distinct from the single-X-plus-descending-beeps used for
+    a *pull* failure in _run_pull_mode(), so field triage without a serial
+    cable can tell "pull failed" from "game wouldn't load".
+    """
+    print("  [FAIL] game load: %s (module %s)"
+          % (name, GAME_MODULES.get(name)))
+    sys.print_exception(exc)
+    memprobe.probe("load-fail:%s" % name)   # BENCH
+    memprobe.frag("load-fail:%s" % name)    # BENCH
+    for _ in range(3):
+        leds.show_shape(SHAPE_X, RED)
+        buz.beep(300, 180)
+        time.sleep_ms(80)
+        leds.off()
+        buz.beep(200, 180)
+        time.sleep_ms(80)
+    leds.show_shape(SHAPE_X, RED)
+    time.sleep_ms(700)
+    leds.off()
+    # A partial success (module compiled, no play()) can leave a stub
+    # entry in sys.modules; clear it so the next tap recompiles cleanly
+    # instead of reusing a module that will fail the same way silently.
+    _unload_game(name)
+
+
 def _launch_game(name, nfc, leds, buz, accel, i2c, enow, batt_ref):
     """Run a game and chain force-switches without returning to idle."""
-    while name in GAME_DISPATCH:
+    while name in GAME_MODULES:
+        try:
+            play_func = _load_play(name)
+        except Exception as e:
+            _game_load_failed(name, e)
+            return
         wrapper = _StartGameCapture(enow)
-        play_func = GAME_DISPATCH[name]
         if name == "rainbow":
             play_func(nfc, leds, buz, accel, i2c, wrapper, batt=batt_ref)
         else:
             play_func(nfc, leds, buz, accel, i2c, wrapper)
         next_name = wrapper.pending_name
-        if not next_name or next_name not in GAME_DISPATCH:
+        # Drop the reference before unloading -- play_func is what pins
+        # the module in this frame; a chained force-switch must not
+        # compile the next game on top of a still-referenced one.
+        play_func = None
+        wrapper = None
+        memprobe.probe("post-game:%s" % name)      # BENCH
+        if UNLOAD_AFTER_GAME:
+            _unload_game(name)
+        memprobe.probe("post-unload:%s" % name)    # BENCH
+        if not next_name or next_name not in GAME_MODULES:
             break
         name = next_name
 
@@ -246,7 +414,7 @@ def check_broadcast(enow, batt_ref, leds_ref, buz_ref):
         return "battery"
     if msg_type == "start_game":
         name = data.get("name") if isinstance(data, dict) else None
-        if name in GAME_DISPATCH:
+        if name in GAME_MODULES:
             return ("start_game", name)
         print("  ESP-NOW: ignoring unknown start_game name: %r" % name)
     return None
@@ -396,7 +564,6 @@ def _run_pull_mode():
     time.sleep_ms(50)
     buz.beep(1100, 80)
 
-    import gc
     import code_puller
     print("# mem_free before pull: %d" % gc.mem_free())
     # enow is deliberately not passed: there is no ESP-NOW on this boot to
@@ -433,6 +600,7 @@ def main():
         _run_pull_mode()
 
     _boot_grace()
+    memprobe.probe("main-entry")  # BENCH
     print("\n" + "=" * 50)
     print("  PlaygroundV5 -- Multi-Trigger Event Engine")
     print("  Hub type: %s" % HUB_TYPE)
@@ -442,6 +610,33 @@ def main():
     # Turning it green here confirms that main() was reached and imports succeeded.
     # If an import fails before main() runs, LED 0 stays dim white permanently.
     leds.boot_stage_ok(0)
+
+    # ── ESP-NOW init — deliberately radio-first, ahead of every other ──
+    # boot stage. esp_wifi_init()/esp_wifi_start() need tens of KB of
+    # *contiguous* internal IDF heap, and MicroPython's GC heap is carved
+    # out of that same IDF heap in splits that are NEVER returned. Every
+    # splits-triggering allocation made before this point (a sensor driver
+    # import, a compile) is a permanent, one-way loss against the
+    # contiguity WiFi needs -- so WiFi has to ask first, while the heap is
+    # least fragmented. This was measured directly: with enow.init() left
+    # at its old position (after Stage 3, before Stage 4) the wand hit
+    # "OSError: WiFi Out of Memory" with idf_free=12116; moved here it
+    # succeeds. See design/2026-09-01-wifi-handoff-diagnosis.md.
+    #
+    # No stage number of its own: SHAPE_LEFT_COL has exactly five pixels
+    # (stages 0-4) and none to spare. It reports into stage 0's otherwise-
+    # unused data row instead (_BOOT_STAGE_DATA[0]) -- rightmost cell.
+    # ESP-NOW failing is non-fatal (NFC programming mode does not need the
+    # radio), unlike Stage 3's fatal NFC failure below.
+    enow = ESPNowManager()
+    memprobe.probe("pre-enow"); memprobe.frag("pre-enow")  # BENCH
+    try:
+        enow.init()
+        leds.boot_stage_ok(0, row_colors=[OFF, OFF, OFF, GREEN])
+    except Exception as e:
+        print("  [WARN] ESP-NOW:"); sys.print_exception(e)
+        leds.boot_stage_ok(0, row_colors=[OFF, OFF, OFF, AMBER])
+    memprobe.probe("post-enow")  # BENCH
 
     # ── Stage 1: Brightness calibration (OPT3002) ──
     leds.boot_stage_start(1)
@@ -484,6 +679,11 @@ def main():
         print("  [WARN] Battery:"); sys.print_exception(e)
         leds.boot_stage_warn(2)
 
+    # enow was init'd radio-first, above Stage 1 -- see that block. batt
+    # exists only from here on, so the status-provider hookup waits for it.
+    if batt is not None:
+        enow.set_status_provider(lambda b=batt: int(b.soc))
+
     # ── Stage 3: NFC init (fatal on failure) ──
     leds.boot_stage_start(3)
     nfc = PN532(i2c, NFC_ADDR)
@@ -498,12 +698,6 @@ def main():
 
     reader = NfcReader(nfc, ALL_COMMANDS)
     runner = ActionRunner(leds, buz)
-
-    # ESP-NOW init — no LED stage, not hardware on the wand itself
-    enow = ESPNowManager()
-    enow.init()
-    if batt is not None:
-        enow.set_status_provider(lambda b=batt: int(b.soc))
 
     # ── Stage 4: Accelerometer ──
     leds.boot_stage_start(4)
@@ -531,6 +725,7 @@ def main():
             leds.boot_stage_warn(4)
 
     print("  Boot complete — all systems OK")
+    memprobe.probe("boot-complete")  # BENCH
     time.sleep_ms(1500)  # hold boot bar so it can be read before idle takes over
 
     # Transition to idle
@@ -733,7 +928,7 @@ def main():
                 show_idle(last_soc, 0); continue
 
             # ── GAME DISPATCH ──
-            if cmd in GAME_DISPATCH:
+            if cmd in GAME_MODULES:
                 leds.off()
                 _launch_game(cmd, nfc, leds, buz, accel, i2c, enow, batt)
                 last_activity_ms = time.ticks_ms()
