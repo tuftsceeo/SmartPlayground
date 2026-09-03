@@ -2,15 +2,17 @@
  * Motion model — sticky orientation poses + one-shot/held gestures that
  * settle back to the currently-held pose.
  *
- * Orientation convention ("confirmed from calibration" in
- * ChatApp/knowledge/knowledge.py §9, matching this file's original design
- * note): wand held upright (tip up) -> y=+1; LED face up -> z=-1;
- * left side up -> x=+1.
+ * Orientation convention: ChatApp/knowledge/knowledge.py §9 ("confirmed
+ * from calibration") documents wand held upright (tip up) -> y=+1, left
+ * side up -> x=+1, LED face up -> z=-1 -- but the actual on-hand hardware
+ * has its x/y axes swapped from that (up-down and left-right are
+ * flipped), so x and y are swapped here from that documented mapping.
+ * z (LED face up/down) is unaffected.
  *
- *   tip up (rest)     (0, +1, 0)
- *   tip down          (0, -1, 0)
- *   left side up      (+1, 0, 0)
- *   right side up     (-1, 0, 0)
+ *   tip up (rest)     (+1, 0, 0)
+ *   tip down          (-1, 0, 0)
+ *   left side up      (0, +1, 0)
+ *   right side up     (0, -1, 0)
  *   LED face up       (0, 0, -1)
  *   LED face down     (0, 0, +1)
  *
@@ -24,10 +26,10 @@
  */
 
 export const POSES = {
-  tip_up:    { x: 0, y: 1, z: 0 },
-  tip_down:  { x: 0, y: -1, z: 0 },
-  left_up:   { x: 1, y: 0, z: 0 },
-  right_up:  { x: -1, y: 0, z: 0 },
+  tip_up:    { x: 1, y: 0, z: 0 },
+  tip_down:  { x: -1, y: 0, z: 0 },
+  left_up:   { x: 0, y: 1, z: 0 },
+  right_up:  { x: 0, y: -1, z: 0 },
   face_up:   { x: 0, y: 0, z: -1 },
   face_down: { x: 0, y: 0, z: 1 },
 };
@@ -69,13 +71,16 @@ export function getPose() {
   return null; // free-form (tilt pad)
 }
 
-/** Free-form tilt pad, unchanged behavior from before: sets the latched
- * base directly from a 2D pad position rather than a named pose. */
+/** Free-form tilt pad: sets the latched base directly from a 2D pad
+ * position rather than a named pose. nx (left-right drag) and the
+ * upright-residual magnitude are swapped onto y/x respectively, same
+ * x/y swap as POSES above -- the pad's own left-right/up-down feel is
+ * unchanged, only which accelerometer axis reports it. */
 export function setTilt(nx, ny) {
   const tx = clamp(Number(nx) || 0, -1, 1);
   const ty = clamp(Number(ny) || 0, -1, 1);
-  const x = tx;
-  const y = 1 - Math.abs(ty) * 0.85;
+  const x = 1 - Math.abs(ty) * 0.85;
+  const y = tx;
   const z = -ty;
   base = normalize({ x, y, z });
 }
