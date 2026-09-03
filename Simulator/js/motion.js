@@ -111,12 +111,17 @@ function jumpProgram() {
   };
 }
 
-// intensity 0..1 -> peak gravity-subtracted excess. shake.py needs
-// (mag-1)**3 * 1.5 >= 25 to fill all 25 LEDs, i.e. excess >= ~2.44g;
-// shake_rainbow.py's gate is only 0.15g excess. 0..1 spans comfortably
-// past both.
+// intensity 0..1 -> peak gravity-subtracted excess, calibrated so
+// intensity reads as "how many LEDs light up" rather than raw g-force.
+// shake.py fills level = floor(excess**3 * 1.5) (cubic in excess), so a
+// linear intensity->excess mapping is all-or-nothing: most of the 0..1
+// range does nothing and the last stretch instantly floods the grid.
+// Using a cube-root response here cancels that cube, making level rise
+// ~linearly with intensity instead. 2.6g excess is shake.py's full-grid
+// point (excess**3 * 1.5 >= 25) and lands shake_rainbow.py at its top
+// color too (needs ~2.58g); intensity 0 means "not shaking" (0g excess).
 function shakeExcess(intensity) {
-  return 0.15 + clamp(intensity, 0, 1) * 2.45;
+  return 2.6 * Math.cbrt(clamp(intensity, 0, 1));
 }
 
 function shakeProgram(intensity, durationMs) {
@@ -217,43 +222,4 @@ export function tick(t = now()) {
 
 export function getAccel(t) {
   return tick(t);
-}
-
-// ── Back-compat surface for the pre-redesign held-shake control ────
-let holding = false;
-let holdIntensity = 0.5;
-
-export function startShake(intensity = 0.5) {
-  holding = true;
-  holdIntensity = clamp(intensity, 0, 1);
-  program = { ...shakeProgramInfinite(holdIntensity), start: now() };
-}
-
-export function stopShake() {
-  holding = false;
-  program = null;
-}
-
-export function setShakeIntensity(intensity) {
-  holdIntensity = clamp(intensity, 0, 1);
-  if (holding) program = { ...shakeProgramInfinite(holdIntensity), start: now() };
-}
-
-function shakeProgramInfinite(intensity) {
-  const peak = shakeExcess(intensity);
-  const freq = 7;
-  return {
-    duration: Infinity,
-    sample(t, b) {
-      const tSec = t / 1000;
-      const osc = Math.abs(Math.sin(2 * Math.PI * freq * tSec));
-      const dir = normalize(b);
-      const mag = 1 + peak * osc;
-      return { x: dir.x * mag, y: dir.y * mag, z: dir.z * mag };
-    },
-  };
-}
-
-export function triggerJump(t = now()) {
-  fireMove("jump");
 }

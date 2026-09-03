@@ -6,10 +6,7 @@
  */
 
 import { createRenderer } from "./js/renderer.js";
-import {
-  getAccel, setTilt, setPose, fireMove, cancelMove,
-  startShake, stopShake, setShakeIntensity,
-} from "./js/motion.js";
+import { getAccel, setTilt, setPose, fireMove, cancelMove } from "./js/motion.js";
 import { createAudio } from "./js/audio.js";
 import { createControls } from "./js/controls.js";
 
@@ -75,6 +72,22 @@ details.advanced summary { cursor: pointer; font-size: 12px; opacity: 0.7; }
   font: inherit; font-size: 12px; padding: 5px 8px; border-radius: 6px;
   border: 1px solid #333; background: #1c2030; color: inherit; width: 100px;
 }
+.plunger { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.plunger-track {
+  position: relative; width: 40px; border-radius: 10px;
+  background: #1c2030; border: 1px solid #333; touch-action: none;
+  overflow: hidden; cursor: grab;
+}
+.plunger-fill {
+  position: absolute; left: 0; top: 0; width: 100%;
+  background: linear-gradient(180deg, #ffb37a, #ff7a4a);
+}
+.plunger-handle {
+  position: absolute; left: 3px; width: 34px; height: 26px;
+  border-radius: 8px; background: #7eb6ff; border: 2px solid #3f7fc4;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+}
+.plunger-label { font-size: 11px; opacity: 0.75; min-height: 14px; }
 .tilt-pad {
   position: relative; width: 100px; height: 100px;
   border-radius: 50%; background: #1c2030; border: 1px solid #333;
@@ -243,12 +256,7 @@ class WandSim extends HTMLElement {
     this._controls = createControls(wrap.querySelector('[data-el="controls"]'), {
       onButton: (down) => this._setButton(down),
       onPose: (name) => { setPose(name); this._pushAccel(); },
-      onMove: (kind) => { fireMove(kind); this._pushAccel(); },
-      onShakeHold: (on) => {
-        if (on) { setShakeIntensity(0.7); startShake(0.7); }
-        else stopShake();
-        this._pushAccel();
-      },
+      onMove: (kind, opts) => { fireMove(kind, opts); this._pushAccel(); },
       onTilt: (x, y) => { setTilt(x, y); this._pushAccel(); },
       onMute: (m) => this._audio.setMuted(m),
       onToggleConsole: (shown) => { this.showConsole = shown; },

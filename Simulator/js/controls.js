@@ -22,9 +22,88 @@ const MOVE_ORDER = ["jump", "shake", "flip"];
 
 const BUTTON_LABEL = { tap: "Tap the button", hold: "Hold the button" };
 
-// How long a shake press can be held before it's treated as "hold" rather
-// than a one-shot click-burst.
-const SHAKE_HOLD_MS = 220;
+// Plunger geometry (pinball-launcher style shake control — see
+// createPlunger below).
+const PLUNGER_TRACK_H = 110;
+const PLUNGER_HANDLE = 26;
+const PLUNGER_RANGE = PLUNGER_TRACK_H - PLUNGER_HANDLE;
+
+function plungerLabel(intensity) {
+  if (intensity < 0.05) return "Pull & let go";
+  if (intensity < 0.35) return "Gentle";
+  if (intensity < 0.7) return "Medium";
+  return "BIG shake!";
+}
+
+/**
+ * Non-latching, magnitude-by-release control: drag the handle down (like
+ * pulling a pinball plunger), release, and the pulled-back distance at the
+ * moment of release becomes the gesture's intensity (0..1) — passed to
+ * `onRelease`. The handle then springs back to rest on its own; it never
+ * reflects a "current" value the way a slider does, since the underlying
+ * gesture is a one-shot burst, not a held state.
+ */
+function createPlunger(onRelease) {
+  const wrap = document.createElement("div");
+  wrap.className = "plunger";
+  wrap.innerHTML = `
+    <div class="plunger-track" style="height:${PLUNGER_TRACK_H}px" data-act="plunger-track">
+      <div class="plunger-fill"></div>
+      <div class="plunger-handle"></div>
+    </div>
+    <div class="plunger-label">Pull &amp; let go</div>
+  `;
+  const track = wrap.querySelector(".plunger-track");
+  const fill = wrap.querySelector(".plunger-fill");
+  const handle = wrap.querySelector(".plunger-handle");
+  const label = wrap.querySelector(".plunger-label");
+
+  function setPull(px, animate) {
+    handle.style.transition = animate ? "top 180ms cubic-bezier(.2,1.4,.4,1)" : "none";
+    handle.style.top = px + "px";
+    fill.style.transition = animate ? "height 180ms cubic-bezier(.2,1.4,.4,1)" : "none";
+    fill.style.height = px + PLUNGER_HANDLE / 2 + "px";
+  }
+  setPull(0, false);
+
+  let dragging = false;
+  let lastIntensity = 0;
+
+  function pullFromEvent(e) {
+    const rect = track.getBoundingClientRect();
+    const y = Math.max(0, Math.min(PLUNGER_RANGE, e.clientY - rect.top - PLUNGER_HANDLE / 2));
+    setPull(y, false);
+    const intensity = PLUNGER_RANGE > 0 ? y / PLUNGER_RANGE : 0;
+    label.textContent = plungerLabel(intensity);
+    return intensity;
+  }
+
+  track.addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    track.setPointerCapture(e.pointerId);
+    dragging = true;
+    lastIntensity = pullFromEvent(e);
+  });
+  track.addEventListener("pointermove", (e) => {
+    if (dragging) lastIntensity = pullFromEvent(e);
+  });
+  const release = (e) => {
+    if (!dragging) return;
+    dragging = false;
+    if (e.pointerId != null && track.hasPointerCapture?.(e.pointerId)) {
+      track.releasePointerCapture(e.pointerId);
+    }
+    // A stray tap with no real pull shouldn't register as a shake.
+    if (lastIntensity > 0.02) onRelease?.(lastIntensity);
+    setPull(0, true);
+    label.textContent = "Pull & let go";
+    lastIntensity = 0;
+  };
+  track.addEventListener("pointerup", release);
+  track.addEventListener("pointercancel", release);
+
+  return wrap;
+}
 
 export function createControls(container, handlers = {}) {
   const root = container;
@@ -173,45 +252,22 @@ export function createControls(container, handlers = {}) {
     }
   }
 
-  // ── Moves: one-shot gestures; shake is click=burst / hold=continuous ─
+  // ── Moves: one-shot gestures. Shake is a plunger (release-point
+  // intensity), since shake.py's fill amount depends on how hard you
+  // shake — jump/flip are plain buttons since neither game reads a
+  // continuous magnitude for them (jump.py just counts freefall events).
   function renderMoves(names) {
     movesRow.innerHTML = "";
     for (const name of names) {
+      if (name === "shake") {
+        movesRow.appendChild(createPlunger((intensity) => handlers.onMove?.("shake", { intensity })));
+        continue;
+      }
       const b = document.createElement("button");
       b.type = "button";
       b.className = "ctrl-btn move";
       b.textContent = MOVE_LABELS[name] || name;
-      if (name === "shake") {
-        let holdTimer = null;
-        let holding = false;
-        b.addEventListener("pointerdown", (e) => {
-          e.preventDefault();
-          b.setPointerCapture(e.pointerId);
-          b.classList.add("down");
-          holding = false;
-          holdTimer = setTimeout(() => {
-            holding = true;
-            handlers.onShakeHold?.(true);
-          }, SHAKE_HOLD_MS);
-        });
-        const release = (e) => {
-          if (e.pointerId != null && b.hasPointerCapture?.(e.pointerId)) {
-            b.releasePointerCapture(e.pointerId);
-          }
-          b.classList.remove("down");
-          clearTimeout(holdTimer);
-          if (holding) {
-            handlers.onShakeHold?.(false);
-          } else {
-            handlers.onMove?.("shake");
-          }
-          holding = false;
-        };
-        b.addEventListener("pointerup", release);
-        b.addEventListener("pointercancel", release);
-      } else {
-        b.addEventListener("click", () => handlers.onMove?.(name));
-      }
+      b.addEventListener("click", () => handlers.onMove?.(name));
       movesRow.appendChild(b);
     }
   }
