@@ -187,3 +187,4 @@ cython_debug/
 .pypirc
 .DS_Store
 
+SmartPlayground_dupe.code-workspace
