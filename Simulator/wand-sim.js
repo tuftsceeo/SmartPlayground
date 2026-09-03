@@ -65,19 +65,16 @@ const STYLE = `
 .indicators { display: flex; gap: 12px; }
 /* Not buttons — just a live readout under the wand art, so no chip
    border/background, and sized like the pose/move gesture icons (64px)
-   since these are the same kind of illustration, just smaller-scope. */
-.ind {
-  display: inline-flex; align-items: center;
-  /* A short beep (melody.py's notes are ~150ms) would otherwise snap on
-     then instantly off — scaling up the icon on "active" lets it read as
-     a pulse rather than an instant flash even without holding the state. */
-  transition: transform 0.2s ease-out;
-}
+   since these are the same kind of illustration, just smaller-scope.
+   Fixed box, no active-state scale/transform: the icon swap alone
+   (no_sound<->sound, no_vibrate<->vibrate) conveys state — anything that
+   resizes or reflows the box reads as the same "wiggle" the label-width
+   fix elsewhere in this file was written to avoid. */
+.ind { display: inline-flex; align-items: center; }
 /* Icon-only — no Hz/on-off text here; that's a technical detail a
    kindergarten-teacher audience doesn't need on the main panel (it's in
    the Advanced drawer instead, via setBuzzerStatus/setMotorStatus). */
 .ind-icon { width: 64px; height: 64px; object-fit: contain; flex: none; }
-.ind.active .ind-icon { transform: scale(1.1); }
 /* Status line: icon + hover/title tooltip, no printed text — except for
    an error, which stays visible (never hover-only) so a real failure
    can't go unnoticed. */
