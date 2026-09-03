@@ -50,6 +50,7 @@ from gestures import play as play_gestures
 from finddevice import play as play_finddevice
 from game_tags import GAME_TAGS, CONTROL_TAGS, HIDDEN_TAGS
 import brightness
+import pull_flag
 
 # ─────────────────────────────────────────────
 # GAME DISPATCH
@@ -333,6 +334,7 @@ def run_event_loop(reader, rules, runner, accel_ref, enow=None, batt_ref=None):
 
 
 GRACE_S = 5
+PULL_GRACE_S = 2
 
 
 def _boot_grace():
@@ -343,9 +345,93 @@ def _boot_grace():
 
 
 # ─────────────────────────────────────────────
+# PULL MODE — runs before ESP-NOW exists this boot
+# ─────────────────────────────────────────────
+def _pull_progress(received, total):
+    """Light the matrix left-to-right as bytes land.
+
+    Palette colors only: every write is scaled by brightness.MULTIPLIER
+    (0.05 indoors), so a raw dim tuple like (0, 20, 40) would arrive as
+    (0, 1, 2) -- invisible.
+    """
+    pct = (received / total) if total else 0
+    lit = max(1, int(pct * leds.num))
+    for i in range(leds.num):
+        leds.np[i] = CYAN if i < lit else BLUE_DIM
+    leds.np.write()
+
+
+def _run_pull_mode():
+    """Pull new game code on a cold radio, then reboot into it.
+
+    Only reached when the previous boot tapped `getcode`, queued a pull and
+    reset. NOTHING HERE MAY TOUCH ESP-NOW -- the entire reason for the
+    reboot is that this join happens on a radio ESP-NOW has never
+    initialised, which is the only state that joins reliably (see
+    pull_flag.py for the measurements).
+
+    Returns only when the attempt budget is spent, so the caller falls
+    through to a normal boot. Success and retry both reset the chip.
+    """
+    if not pull_flag.budget_left():
+        print("# pull: attempt budget spent -- giving up, booting normally")
+        pull_flag.clear()
+        leds.show_shape(SHAPE_X, RED)
+        buz.beep(300, 200)
+        time.sleep_ms(100)
+        buz.beep(200, 300)
+        time.sleep_ms(1200)
+        leds.off()
+        return
+
+    n = pull_flag.bump()
+    print("# pull mode: attempt %d/%d -- Ctrl-C within %ds to stay at the REPL"
+          % (n, pull_flag.MAX_ATTEMPTS, PULL_GRACE_S))
+    for remaining in range(PULL_GRACE_S, 0, -1):
+        print("# %d..." % remaining)
+        time.sleep_ms(1000)
+
+    leds.fill(BLUE_DIM)
+    buz.beep(880, 80)
+    time.sleep_ms(50)
+    buz.beep(1100, 80)
+
+    import gc
+    import code_puller
+    print("# mem_free before pull: %d" % gc.mem_free())
+    # enow is deliberately not passed: there is no ESP-NOW on this boot to
+    # shut down, and omitting it keeps _shutdown_espnow() out of the path.
+    ok = code_puller.pull(verbose=True, on_progress=_pull_progress)
+    print("# mem_free after pull: %d" % gc.mem_free())
+
+    if ok:
+        pull_flag.clear()
+        leds.show_shape(SHAPE_CHECK, GREEN)
+        buz.beep(300, 200)
+        time.sleep_ms(100)
+        buz.beep(200, 300)
+        time.sleep_ms(600)
+        print("# pull OK -- resetting into the new game")
+        machine.reset()
+
+    # Failed. The flag stays set, so reset rather than falling through --
+    # the retry needs a cold radio too, and this boot's is no longer clean.
+    print("# pull failed -- resetting to retry (%d/%d spent)"
+          % (n, pull_flag.MAX_ATTEMPTS))
+    leds.show_shape(SHAPE_X, RED)
+    buz.beep(300, 200)
+    time.sleep_ms(800)
+    machine.reset()
+
+
+# ─────────────────────────────────────────────
 # MAIN
 # ─────────────────────────────────────────────
 def main():
+    # Before anything else, and before ESP-NOW claims the radio.
+    if pull_flag.is_pending():
+        _run_pull_mode()
+
     _boot_grace()
     print("\n" + "=" * 50)
     print("  PlaygroundV5 -- Multi-Trigger Event Engine")
@@ -600,53 +686,37 @@ def main():
                 time.sleep_ms(200); continue
 
             # ── BROADCAST BOX PULL ──
+            # Deliberately does NOT pull here. ESP-NOW has owned the radio
+            # for this entire boot, and a WiFi join from that state fails --
+            # measured 3/3 on real taps, either STAT_WRONG_PASSWORD then
+            # stuck STAT_CONNECTING, or STAT_IDLE for the whole 15s window.
+            # A cold radio joins first try, every time. So queue the pull and
+            # reboot: the next boot runs it in _run_pull_mode() before
+            # ESPNowManager is ever constructed. See pull_flag.py.
             if cmd == "getcode":
-                import gc
-                import code_puller
-                print("# mem_free before pull: %d" % gc.mem_free())
-
-                # Progress bar across all LEDs, lit left-to-right as bytes
-                # come in -- code_puller.pull() doesn't know about LEDs, it
-                # just calls this after each chunk (see on_progress there).
-                # Palette colors only: every write is scaled by
-                # brightness.MULTIPLIER (0.05 indoors), so a raw dim tuple
-                # like (0, 20, 40) would arrive as (0, 1, 2) -- invisible.
-                def _pull_progress(received, total):
-                    pct = (received / total) if total else 0
-                    lit = max(1, int(pct * leds.num))
-                    for i in range(leds.num):
-                        leds.np[i] = CYAN if i < lit else BLUE_DIM
-                    leds.np.write()
-
+                print("# getcode tapped -- queueing pull, rebooting")
                 leds.fill(BLUE_DIM)
                 buz.beep(880, 80)
                 time.sleep_ms(50)
                 buz.beep(1100, 80)
-                # external_antenna is deliberately not passed -- it's a
-                # hardware fact, so code_puller.EXTERNAL_ANTENNA owns it.
-                ok = code_puller.pull(enow=enow, verbose=True,
-                                      on_progress=_pull_progress)
-                print("# mem_free after pull: %d" % gc.mem_free())
-                if ok:
-                    leds.show_shape(SHAPE_CHECK, GREEN)
+                try:
+                    pull_flag.set_pending()
+                except OSError as e:
+                    # Flag unwritable (full/corrupt fs). Rebooting now would
+                    # just come back to the idle loop having lost the tap, so
+                    # report it instead.
+                    print("# could not write pull flag: %s" % e)
+                    leds.show_shape(SHAPE_X, RED)
                     buz.beep(300, 200)
-                    time.sleep_ms(100)
-                    buz.beep(200, 300)
-                    time.sleep_ms(600)
-                    print("# pull OK — resetting")
-                    machine.reset()
-                leds.show_shape(SHAPE_X, RED)
-                buz.beep(300, 200)
-                time.sleep_ms(100)
-                buz.beep(200, 300)
-                time.sleep_ms(800)
-                leds.off()
-                last_activity_ms = time.ticks_ms()
-                idle_frame = 0
-                show_idle(last_soc, 0)
-                last_uid = None
-                time.sleep_ms(1)
-                continue
+                    time.sleep_ms(800)
+                    leds.off()
+                    last_activity_ms = time.ticks_ms()
+                    idle_frame = 0
+                    show_idle(last_soc, 0)
+                    last_uid = None
+                    continue
+                time.sleep_ms(300)   # let the beeps finish before the reset
+                machine.reset()
 
             # ── UTILITY ──
             if cmd == "battery":

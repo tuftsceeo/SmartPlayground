@@ -28,6 +28,11 @@ SCREEN_H = 135
 # Bag2/Code/StickS3 Narrator/main.py's SPEAKER_VOLUME.
 SPEAKER_VOLUME = 190
 
+# Per-font-selection tracing. Off by default: this fires ~4 times per
+# screen repaint, which drowns everything else on the serial log. Font
+# *failures* below are not gated -- those always print.
+VERBOSE = False
+
 _DEJAVU_NAMES = {
     9: "DejaVu9", 12: "DejaVu12", 18: "DejaVu18", 24: "DejaVu24",
     40: "DejaVu40",
@@ -47,7 +52,8 @@ def _measured_height(context):
     actually active."""
     try:
         h = M5.Lcd.fontHeight()
-        print("# %s, fontHeight()=%s" % (context, str(h)))
+        if VERBOSE:
+            print("# %s, fontHeight()=%s" % (context, str(h)))
         return int(h) if h else _FALLBACK_LINE_HEIGHT
     except Exception as e:
         print("# %s, fontHeight() unavailable: %s" % (context, str(e)))
@@ -186,6 +192,12 @@ class BboxUI(object):
         """Short click the instant a tag is detected on the reader."""
         self._tone(1000, 30)
 
+    def beep_click(self):
+        """Immediate feedback that a button press was registered -- fires
+        before anything else happens, so a press is never silent even if
+        the gesture it started (e.g. a scan) finds nothing."""
+        self._tone(1800, 20)
+
     def beep_success(self):
         self._tone(523, 100)
         time.sleep_ms(50)
@@ -236,7 +248,39 @@ class BboxUI(object):
             ("Card already has:", 12, MUTED),
             ('"%s"' % existing, 18, WHITE),
             ('Overwrite with "%s"?' % new_label, 12, WARN),
-            ("short=cancel long=ok", 9, MUTED),
+            ("BtnA = overwrite   BtnB = cancel", 9, MUTED),
+        ])
+
+    # Screen 15b — actively scanning (field on, waiting for a card)
+    def paint_scanning(self, label):
+        _draw_lines([
+            ('Scanning: %s' % label, 18, WHITE),
+            ("hold card on top", 12, ACCENT),
+            ("BtnB = back", 9, MUTED),
+        ])
+
+    # Screen 15c — card already carries the text we would write
+    def paint_already(self, label):
+        _draw_lines([
+            ('Already "%s"' % label, 18, ACCENT),
+            ("no change needed", 12, MUTED),
+            ("press any button", 9, MUTED),
+        ])
+
+    # Screen 15d — write succeeded; stays up until a button dismisses it
+    def paint_written(self, label, count):
+        _draw_lines([
+            ('"%s" written!' % label, 18, ACCENT),
+            ("%d this session" % count, 12, MUTED),
+            ("press any button", 9, MUTED),
+        ])
+
+    # Screen 15e — write failed
+    def paint_write_failed(self, label):
+        _draw_lines([
+            ("Write failed", 18, WARN),
+            (label, 12, MUTED),
+            ("press any button", 9, MUTED),
         ])
 
     # Screen 15 — writing
@@ -262,6 +306,64 @@ class BboxUI(object):
         # closest available.
         _draw_centered(msg, BG, WARN, 12)
 
+    # Screen 20 — WRITE mode tag list (Phase A)
+    def paint_tag_list(self, entries, cursor, written):
+        """entries: list of tag names plus a trailing "DONE" sentinel.
+        cursor: index into entries of the currently selected row.
+        written: dict name -> count already written this session.
+
+        Carries its own "pickup off" header rather than leaving that to a
+        separate screen: in WRITE mode the AP is always down (the whole
+        point of the mode split), and a teacher looking at this list needs
+        to see that wands cannot fetch code right now. A separate full-screen
+        hint would have to blank the list to say so.
+
+        240x135 fits a size-9 header plus ~4 size-12 rows -- longer lists
+        show a window around cursor rather than overflowing.
+        """
+        max_rows = 4
+        n = len(entries)
+        if n <= max_rows:
+            start = 0
+        else:
+            start = cursor - max_rows // 2
+            if start < 0:
+                start = 0
+            if start > n - max_rows:
+                start = n - max_rows
+        lines = [("BtnA=scan BtnB=next  pickup off", 9, WARN)]
+        for i in range(start, min(start + max_rows, n)):
+            name = entries[i]
+            marker = ">" if i == cursor else " "
+            if name == "DONE":
+                lines.append(("%s DONE" % marker, 12, ACCENT))
+            else:
+                count = written.get(name, 0) if written else 0
+                lines.append(("%s %s (%d)" % (marker, name, count), 12,
+                               WHITE if i == cursor else MUTED))
+        _draw_lines(lines)
+
+    # Screen 21 — SERVE mode (AP up)
+    def paint_serve(self, ssid, pickups=0):
+        _draw_lines([
+            ("Serving", 18, ACCENT),
+            (ssid, 12, WHITE),
+            ("pickups: %d" % pickups, 12, MUTED),
+            ("hold BtnA to write tags", 9, MUTED),
+        ])
+
+    # Screen 22 — transient mode-change screen
+    def paint_mode_change(self, to_mode):
+        _draw_centered("-> %s" % to_mode, AMBER, BLACK, 18)
+
+    # Screen 23 — standalone "no pickup" notice, for IDLE with no game loaded
+    # (paint_tag_list carries its own header in WRITE mode).
+    def paint_no_pickup_hint(self):
+        _draw_lines([
+            ("pickup off", 12, WARN),
+            ("DONE + B1 to serve", 9, MUTED),
+        ])
+
 
 def demo():
     """Cycle screens — run from REPL: import bbox_ui; bbox_ui.demo()"""
@@ -273,11 +375,15 @@ def demo():
     screens = [
         lambda: ui.paint_idle(True),
         lambda: ui.paint_receiving("Melody"),
+        lambda: ui.paint_tag_list(["getcode", "jumpin", "DONE"], 0, {"getcode": 1}),
+        lambda: ui.paint_no_pickup_hint(),
         lambda: ui.paint_armed("getcode", 1, 1),
         lambda: ui.paint_overwrite("melody", "getcode"),
         lambda: ui.paint_writing("getcode"),
         lambda: ui.paint_done("getcode", 1, 1),
         lambda: ui.paint_complete(),
+        lambda: ui.paint_mode_change("SERVE"),
+        lambda: ui.paint_serve("SP-FILEPUSH", 2),
     ]
     for fn in screens:
         fn()

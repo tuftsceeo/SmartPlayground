@@ -1,5 +1,5 @@
 """
-card_writer.py — plain NDEF text writer for Broadcast Box (PN532 via I2C).
+card_writer.py — plain NDEF text writer for Broadcast Box (WS1850S via I2C).
 
 Writes plain NDEF text records, NOT the Bag3 4-byte opcode scheme from
 opcodes.py -- that scheme is untested on real hardware. This ports the
@@ -8,12 +8,37 @@ NDEF build/parse logic straight from Bag2/Utilities/writetoNFCcards.py
 side), which are proven working with real wands. MockWand/lib/nfc_reader.py
 was switched to match (see that file's docstring) so the two sides agree.
 
+Reader chip: WS1850S (register-compatible with MFRC522), swapped in for
+the original PN532 -- the PN532's ~150 mA read/write burst coincided with
+the SoftAP's own power spikes; the WS1850S bursts at ~30 mA. See
+ws1850s.py for the wire-level driver. NfcWriter below keeps the exact
+method names/signatures the PN532-backed version had, so nothing else in
+this file (or bbox_server.py) needed to change.
+
 No LEDAnimator/Beeper/main() — bbox_ui.py handles all Box-side feedback.
 """
 
 import time
 
-from pn532 import PN532, MIFARE_AUTH_A, MIFARE_AUTH_B
+from ws1850s import WS1850S
+
+# Chatty per-attempt tracing. Off by default: the failure lines below are
+# NOT gated by this -- a real failure always prints. This only controls the
+# step-by-step success narration used when diagnosing the reader.
+VERBOSE = False
+
+
+def _log(msg):
+    print("# [nfc] %s" % msg)
+
+
+def _dbg(msg):
+    if VERBOSE:
+        print("# [nfc] %s" % msg)
+
+
+MIFARE_AUTH_A = WS1850S.PICC_AUTHENT1A
+MIFARE_AUTH_B = WS1850S.PICC_AUTHENT1B
 
 # NTAG/Classic need programming time after each page/block write. Bag2's
 # writetoNFCcards.py sleeps 30ms after every write; dropping it let later
@@ -38,36 +63,91 @@ def sak_type(sak):
 
 
 class NfcWriter:
-    def __init__(self, i2c, addr=0x24):
-        self.dev = PN532(i2c, addr)
+    def __init__(self, i2c, addr=WS1850S.DEFAULT_ADDR):
+        self.dev = WS1850S(i2c, addr)
 
     def init(self):
-        return self.dev.begin()
+        # WS1850S.__init__ already resets/configures the chip; this just
+        # confirms the register bus is alive (mirrors the old begin() call).
+        return self.dev.version()
+
+    def antenna_on(self):
+        """Energize the RF field. Call only while the poll trigger is held
+        down -- see bbox_server.py's NFC_TRIGGER_PIN gating."""
+        self.dev.antenna_on()
+
+    def antenna_off(self):
+        """De-energize the RF field between button presses -- the WS1850S
+        keeps it on continuously otherwise, which is the bulk of its idle
+        draw."""
+        self.dev.antenna_off()
+
+    def crypto_on(self):
+        return self.dev.crypto_on()
+
+    def antenna_is_on(self):
+        return self.dev.antenna_is_on()
+
+    def stop_crypto1(self):
+        self.dev.stop_crypto1()
+
+    def halt(self):
+        self.dev.halt()
 
     def detect_tag(self, timeout=500):
-        tag = self.dev.read_passive_target(timeout=timeout)
-        if tag is None:
-            return None
-        sak = tag['sak']
-        tag['tag_type'] = sak_type(sak)
-        tag['is_classic'] = sak in (0x08, 0x18, 0x09)
-        tag['is_ntag'] = sak == 0x00
-        return tag
+        """Poll for a tag for up to `timeout` ms.
+
+        The PN532's read_passive_target() blocked internally for `timeout`
+        via its own firmware; the WS1850S has no such built-in timeout, so
+        this repeats its (fast, hardware-timer-bounded) request/anticoll
+        cycle until `timeout` elapses. Returns the same dict shape the
+        PN532 path returned, or None.
+        """
+        deadline = time.ticks_add(time.ticks_ms(), timeout)
+        while time.ticks_diff(deadline, time.ticks_ms()) > 0:
+            found = self.dev.read_uid_full()
+            if found is not None:
+                uid, sak = found
+                tag = {
+                    'uid': uid,
+                    'uid_hex': ':'.join('%02X' % b for b in uid),
+                    'uid_len': len(uid),
+                    'atqa': None,
+                    'sak': sak,
+                }
+                tag['tag_type'] = sak_type(sak)
+                tag['is_classic'] = sak in (0x08, 0x18, 0x09)
+                tag['is_ntag'] = sak == 0x00
+                return tag
+            time.sleep_ms(2)
+        return None
 
     def mifare_auth(self, uid, block, key=b'\xFF\xFF\xFF\xFF\xFF\xFF', kt=MIFARE_AUTH_A):
-        return self.dev.mifare_auth_block(uid, block, key, kt)
+        return self.dev.auth(kt, block, key, uid) == WS1850S.MI_OK
 
     def mifare_read(self, block):
-        return self.dev.mifare_read_block(block)
+        status, data = self.dev.read_block(block)
+        if status != WS1850S.MI_OK or data is None:
+            raise RuntimeError("Read err (block %d)" % block)
+        return bytes(data)
 
     def mifare_write(self, block, data):
-        return self.dev.mifare_write_block(block, data)
+        status = self.dev.write_block(block, data)
+        if status != WS1850S.MI_OK:
+            raise RuntimeError("Classic write err (block %d)" % block)
+        return True
 
     def ntag_write_page(self, page, data):
-        return self.dev.ntag_write_page(page, data)
+        status = self.dev.ul_write(page, data)
+        if status != WS1850S.MI_OK:
+            raise RuntimeError("NTAG write err (page %d)" % page)
+        return True
 
     def ntag_read_page(self, page):
-        return self.dev.ntag_read_page(page)
+        status, data = self.dev.ul_read(page)
+        if status != WS1850S.MI_OK or data is None:
+            raise RuntimeError("Read err (page %d)" % page)
+        return bytes(data[:4])
 
 
 # ─────────────────────────────────────────────
@@ -178,6 +258,7 @@ def _write_classic_text(nfc, tag, text):
         for blk_in_sec in range(3):  # skip trailer (block 3)
             writable_blocks.append(sector * 4 + blk_in_sec)
     if blocks_needed > len(writable_blocks):
+        _log("write: NDEF too big (%d blocks)" % blocks_needed)
         return False
 
     written = 0
@@ -187,8 +268,11 @@ def _write_classic_text(nfc, tag, text):
         first_block = sector * 4
         chunk = ndef[i * 16: i * 16 + 16]
 
+        nfc.stop_crypto1()  # see existing_text: required before any REQA
         resel = nfc.detect_tag(timeout=300)
         if resel is None:
+            _log("write: blk%d reselect FAILED (crypto=%s ant=%s) -- ABORT"
+                 % (block, nfc.crypto_on(), nfc.antenna_is_on()))
             return False
         authed = False
         for key in COMMON_KEYS:
@@ -199,6 +283,8 @@ def _write_classic_text(nfc, tag, text):
             if authed:
                 break
         if not authed:
+            _log("write: blk%d NO auth (crypto=%s) -- ABORT"
+                 % (block, nfc.crypto_on()))
             return False
         try:
             nfc.mifare_write(block, chunk)
@@ -207,6 +293,8 @@ def _write_classic_text(nfc, tag, text):
             print("# classic block %d write failed: %s" % (block, str(e)))
             return False
         time.sleep_ms(WRITE_SETTLE_MS)
+    nfc.stop_crypto1()
+    _dbg("write: classic wrote %d/%d blocks" % (written, blocks_needed))
     return written == blocks_needed
 
 
@@ -224,23 +312,33 @@ def write_text(nfc, tag, text, verify=True):
     write (detect_tag/mifare_auth) can also throw OSError -- letting that
     escape here took down the whole server loop on a transient timeout.
     """
+    _dbg("write: start text=%s uid=%s type=%s crypto=%s"
+         % (repr(text), tag['uid_hex'], tag['tag_type'], nfc.crypto_on()))
     try:
         if tag['is_ntag']:
             ok = _write_ntag_text(nfc, text)
         elif tag['is_classic']:
             ok = _write_classic_text(nfc, tag, text)
         else:
+            _log("write: unknown tag type -- ABORT")
             return False
-        if not ok or not verify:
-            return ok
-        return _verify_text(nfc, tag, text)
+        if not ok:
+            _log("write: FAILED before verify")
+            return False
+        if not verify:
+            _dbg("write: OK (unverified)")
+            return True
+        vok = _verify_text(nfc, tag, text)
+        _log("write: verify %s" % ("OK" if vok else "FAILED"))
+        return vok
     except Exception as e:
-        print("# write_text err: %s" % str(e))
+        _log("write: EXCEPTION %s" % str(e))
         return False
 
 
 def _verify_text(nfc, tag, text):
     """Re-read the card and confirm it decodes back to `text`."""
+    nfc.stop_crypto1()
     fresh = nfc.detect_tag(timeout=500)
     if fresh is None:
         print("# verify failed: card lifted before read-back")
@@ -254,26 +352,44 @@ def _verify_text(nfc, tag, text):
 
 def existing_text(nfc, tag):
     """Read back NDEF text already on the card, or None."""
+    _dbg("read: start uid=%s type=%s crypto=%s"
+         % (tag['uid_hex'], tag['tag_type'], nfc.crypto_on()))
     try:
         if tag['is_ntag']:
             data = bytearray()
             for page in range(4, 20):
                 try:
                     data.extend(nfc.ntag_read_page(page))
-                except Exception:
+                except Exception as e:
+                    _log("read: ntag page %d stopped: %s" % (page, str(e)))
                     break
-            return _decode_ndef_text(data)
+            out = _decode_ndef_text(data)
+            _dbg("read: ntag decoded %s" % repr(out))
+            return out
         if tag['is_classic']:
             data = bytearray()
             for sector in (1, 2):
                 fb = sector * 4
                 authed = False
-                for key in COMMON_KEYS:
+                misses = 0
+                for ki in range(len(COMMON_KEYS)):
+                    key = COMMON_KEYS[ki]
                     for kt in (MIFARE_AUTH_A, MIFARE_AUTH_B):
+                        # Any auth -- successful or not -- latches the reader
+                        # into encrypted mode (MFCrypto1On). While that bit is
+                        # set the reader cannot answer a plain REQA, so the
+                        # re-select below finds nothing. Clear it first, every
+                        # time. Toggling the antenna does NOT clear it.
+                        nfc.stop_crypto1()
                         resel = nfc.detect_tag(timeout=150)
                         if resel is None:
+                            misses += 1
+                            _dbg("read: sec%d reselect miss (crypto=%s ant=%s)"
+                                 % (sector, nfc.crypto_on(), nfc.antenna_is_on()))
                             continue
                         if nfc.mifare_auth(resel['uid'], fb, key, kt):
+                            _dbg("read: sec%d auth OK key#%d kt=%s"
+                                 % (sector, ki, kt))
                             for blk in range(fb, fb + 3):
                                 try:
                                     data.extend(nfc.mifare_read(blk))
@@ -283,9 +399,16 @@ def existing_text(nfc, tag):
                             break
                     if authed:
                         break
+                nfc.stop_crypto1()  # leave the reader in plain mode
                 if not authed:
+                    _log("read: sec%d NO auth after %d reselect misses (crypto=%s)"
+                         % (sector, misses, nfc.crypto_on()))
                     data.extend(b'\x00' * 48)
-            return _decode_ndef_text(data)
+            out = _decode_ndef_text(data)
+            _dbg("read: classic decoded %s" % repr(out))
+            return out
+        _log("read: unknown tag type, no read path")
         return None
-    except Exception:
+    except Exception as e:
+        _log("read: EXCEPTION %s" % str(e))
         return None

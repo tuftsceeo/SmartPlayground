@@ -22,6 +22,9 @@ try:
 except ImportError:
     Pin = None
 
+REV = "phase0-2026-09-01"
+print("# code_puller rev", REV)
+
 HOST = '192.168.4.1'
 PORT = 8266
 SSID = 'SP-FILEPUSH'

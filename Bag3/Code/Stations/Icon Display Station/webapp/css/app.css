@@ -144,6 +144,56 @@ body {
   border-color: var(--gold);
   color: var(--hw-ink);
 }
+/* Simple-mode tool art behaves like a bookmark tab poking out of the app
+   card's left edge, not a bordered button: no clipping box of its own --
+   it's free to bleed left past the sidebar and gets cropped only by the
+   app-card's own overflow:hidden, far to the left. It's absolutely
+   positioned (anchored right, flush with the button) so its natural width
+   never affects the sidebar's layout width, and so its right/tip edge is
+   never clipped -- selecting a tool just slides it further right, closer
+   to the canvas, without ever cropping the tip. */
+.tool-btn-art {
+  position: relative;
+  overflow: visible;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+}
+.tool-btn-art.is-active-pencil,
+.tool-btn-art.is-active-eraser,
+.tool-btn-art.is-active-revert {
+  background: transparent;
+  border: none;
+  color: inherit;
+}
+.tool-btn-art.is-active-pencil .tool-art-clip,
+.tool-btn-art.is-active-eraser .tool-art-clip,
+.tool-btn-art.is-active-revert .tool-art-clip {
+  /* ~25% of the ~120px unselected visible span (24px row padding + 96px
+     sidebar column) between the app-card's clip edge and the button. */
+  transform: translateX(30px);
+}
+
+.tool-art-clip {
+  position: absolute;
+  top: 0;
+  right: 0;
+  height: 100%;
+  display: flex;
+  align-items: center;
+}
+
+/* Advanced-mode icon: same art, small and fully contained (no bleed) inside
+   the plain bordered .tool-btn card. */
+.tool-art-compact {
+  width: 30px;
+  height: 18px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex: none;
+}
 
 .swatch-crayon {
   width: 24px;
@@ -157,6 +207,23 @@ body {
   border-width: 3.5px;
   box-shadow: 0 0 0 3px var(--card), 0 0 0 6px var(--teal);
 }
+
+/* Colour-picker popover: no outline/ring for the selected swatch -- it
+   grows and comes to the front instead. */
+[data-grid] .swatch-crayon {
+  position: relative;
+  transition: transform 0.12s ease;
+}
+[data-grid] .swatch-crayon.is-selected {
+  border-width: 2px;
+  box-shadow: none;
+  transform: scale(1.5);
+  z-index: 2;
+}
+[data-grid] .swatch-crayon-art.is-selected {
+  border: none;
+  transform: scale(1.5);
+}
 .swatch-crayon-add {
   width: 24px;
   height: 54px;
@@ -169,6 +236,44 @@ body {
   cursor: pointer;
   background: transparent;
   padding: 0;
+}
+
+/* Simple-mode crayon art: upright Crayon.svg vectors, side by side; wrapped
+   rows overlap upward slightly like crayons in a box. */
+.swatch-crayon-box {
+  gap: 4px;
+  padding-top: 10px;
+  justify-content: flex-start;
+}
+.swatch-crayon-box .swatch-crayon-art {
+  margin-left: 0;
+  margin-top: -10px;
+  width: auto;
+  height: 54px;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  position: relative;
+}
+.swatch-crayon-box .swatch-crayon-art:hover,
+.swatch-crayon-box .swatch-crayon-art.is-selected {
+  z-index: 1;
+  transform: translateY(-4px);
+}
+.swatch-crayon-box .swatch-crayon-art.is-selected {
+  box-shadow: none;
+}
+.swatch-crayon-box .swatch-crayon-add {
+  margin-left: auto;
+  margin-top: -10px;
+}
+.swatch-crayon-art {
+  padding: 0;
+  overflow: hidden;
+  border: none;
+  background: transparent;
+  width: auto;
+  height: 54px;
 }
 
 .toggle-switch {

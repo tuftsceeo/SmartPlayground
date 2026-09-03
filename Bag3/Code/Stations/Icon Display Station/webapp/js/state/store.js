@@ -40,6 +40,7 @@ export const state = {
   loading: false,
   loadError: null,
   brushColor: [255, 0, 149], // AUTHORED linear duty, not a hex string
+  customPaletteColors: [], // duties added via the brush dropper / "+" -- persists across resegment of the same doc
   selectedFillIndex: null,
   statusText: "",
 

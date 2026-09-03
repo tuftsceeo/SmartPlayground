@@ -5,7 +5,10 @@
 
 export const BOX_FILES = [
     { path: 'json_link.py', remotePath: '/flash/json_link.py' },
+    { path: 'reset_log.py', remotePath: '/flash/reset_log.py' },
+    { path: 'buttons.py', remotePath: '/flash/buttons.py' },
     { path: 'pn532.py', remotePath: '/flash/pn532.py' },
+    { path: 'ws1850s.py', remotePath: '/flash/ws1850s.py' },
     { path: 'opcodes.py', remotePath: '/flash/opcodes.py' },
     { path: 'nfc_reader.py', remotePath: '/flash/nfc_reader.py' },
     { path: 'card_writer.py', remotePath: '/flash/card_writer.py' },
