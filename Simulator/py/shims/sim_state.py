@@ -74,14 +74,17 @@ NFC_CONFIRM_BEEP_MS = 50
 NFC_CONFIRM_MOTOR_MS = 60
 
 # Some games (melody.py, cooking.py, nfc_sound.py) react to a tag with
-# their own buzzer sound within one loop tick (their LOOP_SLEEP_MS/
-# LOOP_DELAY_MS is 20-40ms) -- on top of our beep, on the single shared
-# PWM/audio channel, that's not two audible confirmations, it's each cutting
+# their own buzzer sound -- on top of our beep, on the single shared PWM/
+# audio channel, that's not two audible confirmations, it's each cutting
 # the other off. We can tell: give the game a short window to react first
-# (longer than any of those loop ticks) and check pwm_duty; if the game
-# already made noise, skip ours and let that serve as the "tag read" cue.
+# and check pwm_duty; if the game already made noise, skip ours and let
+# that serve as the "tag read" cue. melody.py/cooking.py read the tag
+# every loop tick (20-40ms), but nfc_sound.py only checks it every
+# NFC_POLL_INTERVAL=5 frames at LOOP_DELAY_MS=40 each -- up to 200ms
+# worst case before its own beep(freq, 120) fires -- so the window has
+# to clear that, not just the faster games' single tick.
 NFC_CONFIRM_POLL_MS = 25
-NFC_CONFIRM_POLL_TRIES = 6  # ~150ms total
+NFC_CONFIRM_POLL_TRIES = 12  # ~300ms total -- comfortably past nfc_sound.py's 200ms worst case
 
 
 async def _nfc_confirm_pulse():
