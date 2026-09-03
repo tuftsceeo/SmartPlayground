@@ -34,11 +34,23 @@ time. This applies to "just a quick read" too.
 
 Every physical observation comes from the user. This shapes how you work:
 
-- **Say when it is time to act, then wait.** The user is not watching your
-  terminal. Starting a capture and describing the test in the same message
-  means the window expires while they read it. Signal clearly, give numbered
-  steps, and stop until they reply.
-- **Use long capture windows** (~15 min) so timing does not matter.
+- **The user is not watching your terminal, and does not always have this
+  window open.** They read messages later, in a batch, on their own time.
+  Never assume a reply is imminent, and never treat a background-task
+  notification (a capture window closing, a timer elapsing) as the user
+  having done anything — it is a system event, not their input.
+- **Instructions, then STOP, then wait for an explicit "start"/"ready"/"go"
+  from the user before touching hardware.** Do not start a capture, open a
+  port, run `mpremote`, or take any other hardware-facing action in the same
+  turn as the instructions, and do not start one proactively when a prior
+  capture's timer notification arrives with nothing in it. Give the
+  numbered physical steps, state plainly that you are waiting, and take no
+  tool action until the user's next message says to go. When they do, *then*
+  start the capture/connection and tell them to act.
+- Put the action item **first**, at the top of the turn, in one line. Do not
+  bury it in a longer message — the user may not read past the first line.
+- **Use long capture windows** (~15 min) so timing does not matter once
+  started.
 - **Never report that something works.** You did not see it. Report what the
   log shows and let the user confirm the device behaved. Words like "fixed"
   and "working" belong to them, not you.
@@ -224,7 +236,9 @@ Check it mechanically rather than by eye: walk the import graph from
    turned out not to matter on real hardware, and the real bug was not among
    them.
 3. Make one change at a time. Flash in one batched `mpremote` call.
-4. Start a long passive capture, **then** tell the user to go, then wait.
+4. Tell the user the capture is about to start and what physical action to
+   take, **stop, and wait for them to say start/ready/go.** Only then start
+   the passive capture and tell them to act. Do not start the capture first.
 5. Read the log. Report what it shows, not what you hope it shows.
 6. Gate the instrumentation before calling anything done.
 7. Offer to commit while the build is known good.
