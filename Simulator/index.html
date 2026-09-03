@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Wand Game Simulator</title>
+  <style>
+    :root {
+      --page-bg: #0d1118;
+      --page-fg: #e8e8e8;
+      --accent: #7eb6ff;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Segoe UI", ui-sans-serif, system-ui, sans-serif;
+      background: radial-gradient(1200px 600px at 20% -10%, #1a2740, var(--page-bg));
+      color: var(--page-fg);
+      padding: 24px;
+    }
+    h1 { font-size: 1.4rem; font-weight: 700; margin: 0 0 8px; }
+    p.lead { margin: 0 0 16px; opacity: 0.75; font-size: 0.95rem; }
+    .toolbar {
+      display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+      margin-bottom: 16px;
+    }
+    label { font-size: 0.9rem; }
+    select, button {
+      font: inherit; padding: 8px 12px; border-radius: 8px;
+      border: 1px solid #333; background: #1c2030; color: inherit;
+    }
+    button { cursor: pointer; background: #2a4060; }
+    button:hover { background: #355078; }
+    wand-sim {
+      --wand-bg: rgba(18, 20, 26, 0.9);
+      --wand-led-size: 22px;
+      --wand-grid-gap: 8px;
+      --wand-led-radius: 5px;
+      max-width: 920px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Wand Game Simulator</h1>
+  <p class="lead">Runs unmodified wand games under Pyodide with fake MicroPython hardware.</p>
+
+  <div class="toolbar">
+    <label>
+      Game
+      <select id="game-select">
+        <option value="jump">jump</option>
+        <option value="shake">shake</option>
+        <option value="shake_rainbow">shake_rainbow</option>
+        <option value="sound">sound</option>
+        <option value="rainbow">rainbow</option>
+      </select>
+    </label>
+    <button type="button" id="btn-start">Start</button>
+    <button type="button" id="btn-stop">Stop</button>
+  </div>
+
+  <wand-sim id="sim" game="jump" autostart show-console="true"></wand-sim>
+
+  <script type="module">
+    import "./wand-sim.js";
+
+    const sim = document.getElementById("sim");
+    const select = document.getElementById("game-select");
+
+    select.addEventListener("change", () => {
+      sim.game = select.value;
+      sim.autostart = true;
+    });
+
+    document.getElementById("btn-start").addEventListener("click", () => sim.start());
+    document.getElementById("btn-stop").addEventListener("click", () => sim.stop());
+
+    sim.addEventListener("sim-ready", () => console.log("sim-ready"));
+    sim.addEventListener("sim-error", (e) => console.error("sim-error", e.detail));
+    sim.addEventListener("sim-stopped", () => console.log("sim-stopped"));
+  </script>
+</body>
+</html>

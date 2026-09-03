@@ -1,0 +1,75 @@
+{
+  "files": {
+    "games/jump.py": {
+      "sha256": "a8ce4344b32c53ac8aa7a734822bf5d45daa78b592e762632067667a950a8d00",
+      "source": "Bag2/Code/Wand Module/jump.py",
+      "vendor_sha256": "a8ce4344b32c53ac8aa7a734822bf5d45daa78b592e762632067667a950a8d00"
+    },
+    "games/jumpin.py": {
+      "sha256": "fbbb110578a5e4b9ff310ab77e859904ea9b9f3e5771cb745bc1bf6d31519d0f",
+      "source": "Bag2/Code/Wand Module/jumpin.py",
+      "vendor_sha256": "fbbb110578a5e4b9ff310ab77e859904ea9b9f3e5771cb745bc1bf6d31519d0f"
+    },
+    "games/rainbow.py": {
+      "sha256": "e5e2d177579e824bc667159add8f5592b81291975f7416b5d8a3556057e13126",
+      "source": "Bag2/Code/Wand Module/rainbow.py",
+      "vendor_sha256": "e5e2d177579e824bc667159add8f5592b81291975f7416b5d8a3556057e13126"
+    },
+    "games/shake.py": {
+      "sha256": "b4838cecadedf65b1003bd4bc0eb4d9fd127b6ac18a8aeb8f5494bd2c6007935",
+      "source": "Bag2/Code/Wand Module/shake.py",
+      "vendor_sha256": "b4838cecadedf65b1003bd4bc0eb4d9fd127b6ac18a8aeb8f5494bd2c6007935"
+    },
+    "games/shake_rainbow.py": {
+      "sha256": "0ca48ec9865e13fe9f582abfcac4dd30558ee0424df4b2ea47b9a25ecce411bd",
+      "source": "Bag2/Code/Wand Module/shake_rainbow.py",
+      "vendor_sha256": "0ca48ec9865e13fe9f582abfcac4dd30558ee0424df4b2ea47b9a25ecce411bd"
+    },
+    "games/sound.py": {
+      "sha256": "ea77207e8fa076f1003697cc697e1296fdb7407fe5af78552fd881a07f85c721",
+      "source": "Bag2/Code/Wand Module/sound.py",
+      "vendor_sha256": "ea77207e8fa076f1003697cc697e1296fdb7407fe5af78552fd881a07f85c721"
+    },
+    "hubtype.txt": {
+      "sha256": "04224b1d2fb402314a8dfc9d03e00937aae352fd20d3070181209a66c5127fb2",
+      "source": "Bag2/Code/Wand Module/hubtype.txt",
+      "vendor_sha256": "04224b1d2fb402314a8dfc9d03e00937aae352fd20d3070181209a66c5127fb2"
+    },
+    "lib/actions.py": {
+      "sha256": "e73bbc3e07416eb420896663cf88045698790eccd7c4b8e02d05d3ac29a4a048",
+      "source": "Bag2/Code/lib/actions.py",
+      "vendor_sha256": "e73bbc3e07416eb420896663cf88045698790eccd7c4b8e02d05d3ac29a4a048"
+    },
+    "lib/battery.py": {
+      "sha256": "adde1eef9e23414d1842d91df91c272411b5989de4c8edd818dd391f968fe415",
+      "source": "Bag2/Code/lib/battery.py",
+      "vendor_sha256": "adde1eef9e23414d1842d91df91c272411b5989de4c8edd818dd391f968fe415"
+    },
+    "lib/brightness.py": {
+      "sha256": "38a8b83336690c2c7b900af2f45eba150feaf5e58b09c1aa542add3d6613bf7d",
+      "source": "Bag2/Code/lib/brightness.py",
+      "vendor_sha256": "38a8b83336690c2c7b900af2f45eba150feaf5e58b09c1aa542add3d6613bf7d"
+    },
+    "lib/buzzer.py": {
+      "sha256": "3e0323536f40974b7cb01abaef7ce4b4efc9bd6d84c0c0c5a4e65a6a62f6581e",
+      "source": "Bag2/Code/lib/buzzer.py",
+      "vendor_sha256": "3e0323536f40974b7cb01abaef7ce4b4efc9bd6d84c0c0c5a4e65a6a62f6581e"
+    },
+    "lib/game_tags.py": {
+      "sha256": "8bae4cc16bb10678a2b8026683334502524ded9f8df2223cf55a929960480abd",
+      "source": "Bag2/Code/lib/game_tags.py",
+      "vendor_sha256": "8bae4cc16bb10678a2b8026683334502524ded9f8df2223cf55a929960480abd"
+    },
+    "lib/hubtype.py": {
+      "sha256": "7571da59b5262082e609e77e330de3d47bc374a2cff7b266a50c444d5bbe2fa6",
+      "source": "Bag2/Code/lib/hubtype.py",
+      "vendor_sha256": "7571da59b5262082e609e77e330de3d47bc374a2cff7b266a50c444d5bbe2fa6"
+    },
+    "lib/leds.py": {
+      "sha256": "990c0306b816a2f668bbee86042e1b9bc6e15746bb5ee9e481584e1eb9eb901f",
+      "source": "Bag2/Code/lib/leds.py",
+      "vendor_sha256": "990c0306b816a2f668bbee86042e1b9bc6e15746bb5ee9e481584e1eb9eb901f"
+    }
+  },
+  "version": 1
+}
