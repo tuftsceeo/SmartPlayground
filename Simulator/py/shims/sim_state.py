@@ -6,6 +6,8 @@ A single module so Pin, lis2dw12, NfcReader, ESPNowManager, and neopixel
 all see the same live state.
 """
 
+import time  # patched in-place by time_patch.patch_time_module() during bootstrap
+
 # ── Inputs (host -> Python) ─────────────────────────────────────────
 button_pressed = False       # GPIO0 active-low when True
 motor_on = False
@@ -59,21 +61,36 @@ def set_ambient_lux(lux):
     ambient_lux = float(lux)
 
 
-def tap_nfc(cmd, uid="sim0001"):
-    global pending_nfc_cmd, pending_nfc_uid
-    pending_nfc_cmd = str(cmd).lower() if cmd is not None else None
-    pending_nfc_uid = str(uid) if uid is not None else None
+NFC_DEFAULT_DWELL_MS = 600  # how long a tapped tag stays "under the reader"
+
+
+def tap_nfc(cmd, uid=None, dwell_ms=NFC_DEFAULT_DWELL_MS):
+    """Simulate placing a tag under the reader for `dwell_ms`. cmd=None lifts
+    it immediately. `uid` defaults to a name stable per tag so per-uid repeat
+    guards (e.g. melody.py's REPEAT_SCAN_GUARD_MS) behave as they would with
+    a real physical tag."""
+    global pending_nfc_cmd, pending_nfc_uid, pending_nfc_until
+    if cmd is None:
+        pending_nfc_cmd = None
+        pending_nfc_uid = None
+        pending_nfc_until = 0
+        return
+    pending_nfc_cmd = str(cmd).lower()
+    pending_nfc_uid = str(uid) if uid is not None else ("sim-" + pending_nfc_cmd)
+    pending_nfc_until = time.ticks_add(time.ticks_ms(), int(dwell_ms))
 
 
 def consume_nfc():
-    """Return and clear pending NFC (cmd, uid), or (None, None)."""
-    global pending_nfc_cmd, pending_nfc_uid
-    cmd, uid = pending_nfc_cmd, pending_nfc_uid
-    pending_nfc_cmd = None
-    pending_nfc_uid = None
-    if cmd is None:
+    """Return (cmd, uid) while the tapped tag is still within its dwell
+    window, else (None, None). Non-destructive: a game may read this more
+    than once per polling frame (gestures.py checks it in both _check_stop
+    and _poll_tag) and must see the same tag both times, exactly as it
+    would if a physical tag were still sitting under the reader."""
+    if pending_nfc_cmd is None:
         return None, None
-    return cmd, uid
+    if time.ticks_diff(pending_nfc_until, time.ticks_ms()) <= 0:
+        return None, None
+    return pending_nfc_cmd, pending_nfc_uid
 
 
 def enqueue_enow(msg_type, data=None, mac_str="aa:bb:cc:dd:ee:ff"):
@@ -146,9 +163,10 @@ def emit_log(msg):
 def reset_io():
     """Clear queues / pending one-shots; restore default gravity."""
     global button_pressed, motor_on, accel_x, accel_y, accel_z
-    global pending_nfc_cmd, pending_nfc_uid, led_frame, pwm_freq, pwm_duty
+    global pending_nfc_cmd, pending_nfc_uid, pending_nfc_until, led_frame, pwm_freq, pwm_duty
     button_pressed = False
     motor_on = False
+    pending_nfc_until = 0
     accel_x, accel_y, accel_z = 0.0, 1.0, 0.0
     pending_nfc_cmd = None
     pending_nfc_uid = None

@@ -1,5 +1,15 @@
 {
   "files": {
+    "games/cooking.py": {
+      "sha256": "2282f23ddebe7587402ee8b0e1b6cdd9cb858f9034ae947fe03a0d1e40deee2b",
+      "source": "Bag2/Code/Wand Module/cooking.py",
+      "vendor_sha256": "2282f23ddebe7587402ee8b0e1b6cdd9cb858f9034ae947fe03a0d1e40deee2b"
+    },
+    "games/gestures.py": {
+      "sha256": "97e2711affd64313bc95ebf32aa6edb1c674bddd676cbaa6b27e0e9b1b4583ca",
+      "source": "Bag2/Code/Wand Module/gestures.py",
+      "vendor_sha256": "97e2711affd64313bc95ebf32aa6edb1c674bddd676cbaa6b27e0e9b1b4583ca"
+    },
     "games/jump.py": {
       "sha256": "a8ce4344b32c53ac8aa7a734822bf5d45daa78b592e762632067667a950a8d00",
       "source": "Bag2/Code/Wand Module/jump.py",
@@ -9,6 +19,21 @@
       "sha256": "fbbb110578a5e4b9ff310ab77e859904ea9b9f3e5771cb745bc1bf6d31519d0f",
       "source": "Bag2/Code/Wand Module/jumpin.py",
       "vendor_sha256": "fbbb110578a5e4b9ff310ab77e859904ea9b9f3e5771cb745bc1bf6d31519d0f"
+    },
+    "games/melody.py": {
+      "sha256": "0300c0cd6aba6e368cd38d9f1267d731a630798690ad2a12377d24e0b37712de",
+      "source": "Bag2/Code/Wand Module/melody.py",
+      "vendor_sha256": "0300c0cd6aba6e368cd38d9f1267d731a630798690ad2a12377d24e0b37712de"
+    },
+    "games/multiicecream.py": {
+      "sha256": "5dc2ead7a828f4c88e5c4ca5fad4609beefdf7ebce69be64054e728cba91aba6",
+      "source": "Bag2/Code/Wand Module/multiicecream.py",
+      "vendor_sha256": "5dc2ead7a828f4c88e5c4ca5fad4609beefdf7ebce69be64054e728cba91aba6"
+    },
+    "games/nfc_sound.py": {
+      "sha256": "859577d4f943e028d2cead0c6983da0a8b84217decb6289daa71cfd4f480756e",
+      "source": "Bag2/Code/Wand Module/nfc_sound.py",
+      "vendor_sha256": "859577d4f943e028d2cead0c6983da0a8b84217decb6289daa71cfd4f480756e"
     },
     "games/rainbow.py": {
       "sha256": "e5e2d177579e824bc667159add8f5592b81291975f7416b5d8a3556057e13126",
@@ -24,6 +49,11 @@
       "sha256": "0ca48ec9865e13fe9f582abfcac4dd30558ee0424df4b2ea47b9a25ecce411bd",
       "source": "Bag2/Code/Wand Module/shake_rainbow.py",
       "vendor_sha256": "0ca48ec9865e13fe9f582abfcac4dd30558ee0424df4b2ea47b9a25ecce411bd"
+    },
+    "games/simpleicecream.py": {
+      "sha256": "829dda50a2c990ecc884aa3c194f6fee66f303907e12886d6811332f861bae5b",
+      "source": "Bag2/Code/Wand Module/simpleicecream.py",
+      "vendor_sha256": "829dda50a2c990ecc884aa3c194f6fee66f303907e12886d6811332f861bae5b"
     },
     "games/sound.py": {
       "sha256": "ea77207e8fa076f1003697cc697e1296fdb7407fe5af78552fd881a07f85c721",

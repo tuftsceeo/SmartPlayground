@@ -116,6 +116,12 @@ const FILE_LIST = [
   "vendor/games/sound.py",
   "vendor/games/rainbow.py",
   "vendor/games/jumpin.py",
+  "vendor/games/nfc_sound.py",
+  "vendor/games/gestures.py",
+  "vendor/games/simpleicecream.py",
+  "vendor/games/melody.py",
+  "vendor/games/cooking.py",
+  "vendor/games/multiicecream.py",
 ];
 
 class WandSim extends HTMLElement {
@@ -294,6 +300,9 @@ sim_state.set_motor_callback(_js_motor)
 sim_state.set_print_callback(_js_print)
 sim_state.set_log_callback(_js_log)
 `);
+      // Held once so per-frame accel/button pushes call methods directly
+      // instead of recompiling a Python source string every tick.
+      this._sim = this._pyodide.pyimport("sim_state");
 
       this._ready = true;
       this._statusEl.textContent = "Ready";
@@ -326,12 +335,13 @@ sim_state.set_log_callback(_js_log)
   }
 
   _setButton(down) {
-    this._runPython(`sim_state.set_button(${down ? "True" : "False"})`);
+    if (this._sim) this._sim.set_button(!!down);
   }
 
   _pushAccel() {
+    if (!this._sim) return;
     const a = getAccel();
-    this._runPython(`sim_state.set_accel(${a.x}, ${a.y}, ${a.z})`);
+    this._sim.set_accel(a.x, a.y, a.z);
   }
 
   _startMotionLoop() {

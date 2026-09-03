@@ -16,7 +16,7 @@ class NfcReader:
         self.commands = set(commands) if commands else set()
 
     def detect_tag(self, timeout=250):
-        cmd, uid = sim_state.pending_nfc_cmd, sim_state.pending_nfc_uid
+        cmd, uid = sim_state.consume_nfc()
         if cmd is not None:
             return uid or "sim0001", 0x08
         return None, None

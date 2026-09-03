@@ -17,8 +17,15 @@ def sim_root():
 
 
 @pytest.fixture
-def runtime():
-    """Fresh Runtime bootstrapped against on-disk vendor/ + shims."""
+def runtime(tmp_path):
+    """Fresh Runtime bootstrapped against on-disk vendor/ + shims.
+
+    workdir is a per-test tmp_path, NOT vendor/ itself: Runtime.bootstrap()
+    writes a normalized (trailing-newline) copy of hubtype.txt into workdir
+    so it's openable as a relative path, and pointing that at the real
+    vendor/ directory was mutating the committed source tree on every test
+    run, which made `sync_sources.py --check` flap between pass/fail.
+    """
     # Isolate from other tests' sys.modules pollution.
     for name in list(sys.modules):
         if name in (
@@ -28,6 +35,8 @@ def runtime():
             "espnow_manager", "brightness", "hubtype", "leds", "buzzer",
             "game_tags", "actions", "battery", "runtime", "transform",
             "jump", "shake", "shake_rainbow", "sound", "rainbow", "jumpin",
+            "nfc_sound", "gestures", "simpleicecream", "melody", "cooking",
+            "multiicecream",
         ) or name.startswith("vendor"):
             del sys.modules[name]
 
@@ -37,7 +46,7 @@ def runtime():
     from runtime import Runtime
 
     rt = Runtime()
-    rt.bootstrap(workdir=os.path.join(SIM_ROOT, "vendor"))
+    rt.bootstrap(workdir=str(tmp_path))
 
     # Speed up tests without decoupling ticks_*() from sleep_*(): scaling both
     # by the same factor means a game that sleeps "3000ms" really only waits

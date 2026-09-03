@@ -1,80 +1,259 @@
 /**
- * Motion model — tilt pad, hold-to-shake, jump/freefall pulse.
- * Single source of (x, y, z) in g for the fake LIS2DW12.
+ * Motion model — sticky orientation poses + one-shot/held gestures that
+ * settle back to the currently-held pose.
  *
- * Orientation convention (wand tip up, LED face toward user):
- *   tip up        → y = +1
- *   LED face up   → z = -1
- *   tip left      → x = +1
+ * Orientation convention ("confirmed from calibration" in
+ * ChatApp/knowledge/knowledge.py §9, matching this file's original design
+ * note): wand held upright (tip up) -> y=+1; LED face up -> z=-1;
+ * left side up -> x=+1.
+ *
+ *   tip up (rest)     (0, +1, 0)
+ *   tip down          (0, -1, 0)
+ *   left side up      (+1, 0, 0)
+ *   right side up     (-1, 0, 0)
+ *   LED face up       (0, 0, -1)
+ *   LED face down     (0, 0, +1)
+ *
+ * A pose LATCHES: it's the gravity vector reported at rest until changed.
+ * A gesture (jump/shake/flip/wiggle) plays a short synthetic motion on top
+ * of the latched pose and, except flip, settles back to it when done.
+ *
+ * We intentionally don't model hardware fidelity (noise, debounce, sensor
+ * bandwidth) — we own both ends of this pipe, so a gesture only needs to
+ * cross the same numeric thresholds the game code tests.
  */
 
-const JUMP_MAG = 0.05;
-const JUMP_MS = 150;
+export const POSES = {
+  tip_up:    { x: 0, y: 1, z: 0 },
+  tip_down:  { x: 0, y: -1, z: 0 },
+  left_up:   { x: 1, y: 0, z: 0 },
+  right_up:  { x: -1, y: 0, z: 0 },
+  face_up:   { x: 0, y: 0, z: -1 },
+  face_down: { x: 0, y: 0, z: 1 },
+};
 
-let tiltX = 0; // -1..1 left/right
-let tiltY = 0; // -1..1 tip down/up (0 = tip up)
-let shaking = false;
-let shakeIntensity = 0.5; // 0..1
-let jumpUntil = 0;
-let shakePhase = 0;
+const OPPOSITE = {
+  tip_up: "tip_down", tip_down: "tip_up",
+  left_up: "right_up", right_up: "left_up",
+  face_up: "face_down", face_down: "face_up",
+};
 
 function clamp(v, lo, hi) {
   return Math.max(lo, Math.min(hi, v));
 }
 
-/** Gravity vector from tilt pad position. */
-function gravityFromTilt() {
-  // tiltX: negative = tip right → x negative; positive = tip left → x = +1
-  // tiltY: 0 = tip up (y=+1); +1 = tip toward user / LED face up-ish (z toward -1)
-  const tx = clamp(tiltX, -1, 1);
-  const ty = clamp(tiltY, -1, 1);
-  let x = tx;
-  let y = 1 - Math.abs(ty) * 0.85;
-  let z = -ty;
-  // Normalize to ~1g
-  const mag = Math.hypot(x, y, z) || 1;
-  return { x: x / mag, y: y / mag, z: z / mag };
+function normalize(v) {
+  const mag = Math.hypot(v.x, v.y, v.z) || 1;
+  return { x: v.x / mag, y: v.y / mag, z: v.z / mag };
 }
 
-export function setTilt(x, y) {
-  tiltX = clamp(Number(x) || 0, -1, 1);
-  tiltY = clamp(Number(y) || 0, -1, 1);
+function lerp(a, b, t) {
+  return { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t, z: a.z + (b.z - a.z) * t };
 }
 
-export function startShake(intensity = 0.5) {
-  shaking = true;
-  shakeIntensity = clamp(intensity, 0, 1);
+// ── Latched state ──────────────────────────────────────────────────
+let base = { ...POSES.tip_up };
+let program = null; // { start, duration, sample(tMs, base) -> vec, endPose? } or null
+
+export function setPose(name) {
+  const v = POSES[name];
+  if (v) base = { ...v };
 }
 
-export function stopShake() {
-  shaking = false;
-}
-
-export function setShakeIntensity(intensity) {
-  shakeIntensity = clamp(intensity, 0, 1);
-}
-
-export function triggerJump(now = performance.now()) {
-  jumpUntil = now + JUMP_MS;
-}
-
-export function tick(now = performance.now()) {
-  if (now < jumpUntil) {
-    return { x: 0, y: 0, z: JUMP_MAG };
+export function getPose() {
+  for (const [name, v] of Object.entries(POSES)) {
+    if (Math.abs(v.x - base.x) < 1e-6 && Math.abs(v.y - base.y) < 1e-6 && Math.abs(v.z - base.z) < 1e-6) {
+      return name;
+    }
   }
-  const g = gravityFromTilt();
-  if (!shaking || shakeIntensity <= 0) {
-    return g;
-  }
-  shakePhase += 0.35 + shakeIntensity * 0.8;
-  const amp = 0.4 + shakeIntensity * 2.5;
+  return null; // free-form (tilt pad)
+}
+
+/** Free-form tilt pad, unchanged behavior from before: sets the latched
+ * base directly from a 2D pad position rather than a named pose. */
+export function setTilt(nx, ny) {
+  const tx = clamp(Number(nx) || 0, -1, 1);
+  const ty = clamp(Number(ny) || 0, -1, 1);
+  const x = tx;
+  const y = 1 - Math.abs(ty) * 0.85;
+  const z = -ty;
+  base = normalize({ x, y, z });
+}
+
+function now() {
+  return typeof performance !== "undefined" ? performance.now() : Date.now();
+}
+
+// ── Gesture programs ────────────────────────────────────────────────
+// Raised-cosine envelope: 0 at t=0 and t=1, peaks at 1 in the middle.
+function raisedCosine(t) {
+  return (1 - Math.cos(2 * Math.PI * clamp(t, 0, 1))) / 2;
+}
+
+function jumpProgram() {
+  const RAMP = 60, FLAT = 150, LAND = 120;
+  const duration = RAMP + FLAT + LAND;
   return {
-    x: g.x + Math.sin(shakePhase) * amp,
-    y: g.y + Math.cos(shakePhase * 1.3) * amp * 0.7,
-    z: g.z + Math.sin(shakePhase * 0.9) * amp * 0.5,
+    duration,
+    sample(t, b) {
+      let mag;
+      if (t < RAMP) {
+        mag = 1 - raisedCosine(t / RAMP) * 0.95; // 1.0 -> 0.05
+      } else if (t < RAMP + FLAT) {
+        mag = 0.05;
+      } else {
+        const u = (t - RAMP - FLAT) / LAND;
+        mag = 0.05 + raisedCosine(clamp(u, 0, 1)) * 1.65; // overshoot to ~1.7g, settle to 1
+      }
+      const dir = normalize(b);
+      return { x: dir.x * mag, y: dir.y * mag, z: dir.z * mag };
+    },
   };
 }
 
-export function getAccel(now = performance.now()) {
-  return tick(now);
+// intensity 0..1 -> peak gravity-subtracted excess. shake.py needs
+// (mag-1)**3 * 1.5 >= 25 to fill all 25 LEDs, i.e. excess >= ~2.44g;
+// shake_rainbow.py's gate is only 0.15g excess. 0..1 spans comfortably
+// past both.
+function shakeExcess(intensity) {
+  return 0.15 + clamp(intensity, 0, 1) * 2.45;
+}
+
+function shakeProgram(intensity, durationMs) {
+  const peak = shakeExcess(intensity);
+  const freq = 7; // Hz
+  return {
+    duration: durationMs,
+    sample(t, b) {
+      const tSec = t / 1000;
+      const env = raisedCosine(clamp(t / (durationMs * 0.4), 0, 1)); // ramp up, then held by loop below
+      const osc = Math.abs(Math.sin(2 * Math.PI * freq * tSec));
+      const mag = 1 + peak * (t < durationMs * 0.4 ? env : 1) * osc;
+      const wobble = Math.sin(tSec * 3) * 0.35; // slow precession so direction isn't static
+      const dir0 = normalize(b);
+      const dir = normalize({
+        x: dir0.x + wobble * (dir0.y - dir0.z),
+        y: dir0.y + wobble * (dir0.z - dir0.x),
+        z: dir0.z + wobble * (dir0.x - dir0.y),
+      });
+      return { x: dir.x * mag, y: dir.y * mag, z: dir.z * mag };
+    },
+  };
+}
+
+function flipProgram(durationMs) {
+  const startPose = getPose() || "tip_up";
+  const endName = OPPOSITE[startPose] || "tip_down";
+  const from = normalize(base);
+  const to = normalize(POSES[endName]);
+  return {
+    duration: durationMs,
+    endPose: endName,
+    sample(t) {
+      const u = raisedCosine(clamp(t / durationMs, 0, 1));
+      return lerp(from, to, u);
+    },
+  };
+}
+
+function wiggleProgram(durationMs) {
+  const peak = 0.35;
+  const freq = 5;
+  return {
+    duration: durationMs,
+    sample(t, b) {
+      const tSec = t / 1000;
+      const env = raisedCosine(clamp(t / durationMs, 0, 1));
+      const osc = Math.sin(2 * Math.PI * freq * tSec);
+      const dir = normalize(b);
+      const mag = 1 + peak * env * Math.abs(osc);
+      return { x: dir.x * mag, y: dir.y * mag, z: dir.z * mag };
+    },
+  };
+}
+
+/**
+ * Fire a one-shot (or, for shake, optionally held) gesture on top of the
+ * currently latched pose. Returns the duration in ms (0 if unknown kind).
+ */
+export function fireMove(kind, opts = {}) {
+  let prog;
+  if (kind === "jump") {
+    prog = jumpProgram();
+  } else if (kind === "shake") {
+    prog = shakeProgram(opts.intensity != null ? opts.intensity : 1, opts.durationMs || 900);
+  } else if (kind === "flip") {
+    prog = flipProgram(opts.durationMs || 500);
+  } else if (kind === "wiggle") {
+    prog = wiggleProgram(opts.durationMs || 800);
+  } else {
+    return 0;
+  }
+  program = { ...prog, start: now() };
+  return prog.duration;
+}
+
+export function cancelMove() {
+  program = null;
+}
+
+export function isMoving() {
+  return program !== null;
+}
+
+/** Sample the current acceleration vector (in g) at time `t` (ms, default now). */
+export function tick(t = now()) {
+  if (program) {
+    const elapsed = t - program.start;
+    if (elapsed >= program.duration) {
+      if (program.endPose) base = { ...POSES[program.endPose] };
+      program = null;
+      return { ...base };
+    }
+    return program.sample(elapsed, base);
+  }
+  return { ...base };
+}
+
+export function getAccel(t) {
+  return tick(t);
+}
+
+// ── Back-compat surface for the pre-redesign held-shake control ────
+let holding = false;
+let holdIntensity = 0.5;
+
+export function startShake(intensity = 0.5) {
+  holding = true;
+  holdIntensity = clamp(intensity, 0, 1);
+  program = { ...shakeProgramInfinite(holdIntensity), start: now() };
+}
+
+export function stopShake() {
+  holding = false;
+  program = null;
+}
+
+export function setShakeIntensity(intensity) {
+  holdIntensity = clamp(intensity, 0, 1);
+  if (holding) program = { ...shakeProgramInfinite(holdIntensity), start: now() };
+}
+
+function shakeProgramInfinite(intensity) {
+  const peak = shakeExcess(intensity);
+  const freq = 7;
+  return {
+    duration: Infinity,
+    sample(t, b) {
+      const tSec = t / 1000;
+      const osc = Math.abs(Math.sin(2 * Math.PI * freq * tSec));
+      const dir = normalize(b);
+      const mag = 1 + peak * osc;
+      return { x: dir.x * mag, y: dir.y * mag, z: dir.z * mag };
+    },
+  };
+}
+
+export function triggerJump(t = now()) {
+  fireMove("jump");
 }

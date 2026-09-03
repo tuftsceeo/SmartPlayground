@@ -50,6 +50,12 @@ GAMES = [
     "sound.py",
     "rainbow.py",
     "jumpin.py",
+    "nfc_sound.py",
+    "gestures.py",
+    "simpleicecream.py",
+    "melody.py",
+    "cooking.py",
+    "multiicecream.py",
 ]
 
 
