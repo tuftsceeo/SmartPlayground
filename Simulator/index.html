@@ -34,8 +34,7 @@
       color: var(--ink);
       padding: 24px;
     }
-    h1 { font: 800 1.4rem 'Nunito'; margin: 0 0 8px; }
-    p.lead { margin: 0 0 16px; color: var(--muted); font-size: 0.95rem; }
+    h1 { font: 800 1.4rem 'Nunito'; margin: 0 0 16px; }
     .toolbar {
       display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
       margin-bottom: 16px;
@@ -47,6 +46,7 @@
     }
     button { cursor: pointer; background: var(--purple); border-color: var(--purple); color: #fff; }
     button:hover { background: #5a3fb0; }
+    .loaded-file-name { font-size: 0.85rem; color: var(--muted); }
     wand-sim {
       --wand-led-size: 22px;
       --wand-grid-gap: 8px;
@@ -57,7 +57,6 @@
 </head>
 <body>
   <h1>Wand Game Simulator</h1>
-  <p class="lead">Runs unmodified wand games under Pyodide with fake MicroPython hardware.</p>
 
   <div class="toolbar">
     <label>
@@ -78,6 +77,9 @@
       </select>
     </label>
     <button type="button" id="btn-restart">Start over</button>
+    <button type="button" id="btn-load-file">Load file…</button>
+    <input type="file" id="file-input" accept=".py" hidden>
+    <span id="loaded-file-name" class="loaded-file-name"></span>
   </div>
 
   <wand-sim id="sim" game="jump" autostart></wand-sim>
@@ -87,13 +89,31 @@
 
     const sim = document.getElementById("sim");
     const select = document.getElementById("game-select");
+    const fileInput = document.getElementById("file-input");
+    const loadedFileName = document.getElementById("loaded-file-name");
 
     select.addEventListener("change", () => {
+      // Drop any previously-loaded custom file without forcing a second
+      // reload here — the game attribute change below reloads once.
+      sim._source = null;
+      loadedFileName.textContent = "";
       sim.game = select.value;
       sim.autostart = true;
     });
 
     document.getElementById("btn-restart").addEventListener("click", () => sim.restart());
+
+    document.getElementById("btn-load-file").addEventListener("click", () => fileInput.click());
+
+    fileInput.addEventListener("change", async () => {
+      const file = fileInput.files[0];
+      if (!file) return;
+      const text = await file.text();
+      sim.autostart = true;
+      sim.source = text; // triggers a reload via the source setter
+      loadedFileName.textContent = file.name;
+      fileInput.value = ""; // allow re-selecting the same file later
+    });
 
     sim.addEventListener("sim-ready", () => console.log("sim-ready"));
     sim.addEventListener("sim-error", (e) => console.error("sim-error", e.detail));

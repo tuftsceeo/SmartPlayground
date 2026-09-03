@@ -7,6 +7,12 @@
  * "Advanced" drawer.
  */
 
+// Lucide icons (ISC license, https://lucide.dev), inlined so their
+// stroke="currentColor" picks up the button's own text color — including
+// its :hover/.down states — instead of a separate icon asset per state.
+const LUCIDE_VOLUME_2 = `<svg class="icon-lucide" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"/><path d="M16 9a5 5 0 0 1 0 6"/><path d="M19.364 18.364a9 9 0 0 0 0-12.728"/></svg>`;
+const LUCIDE_VOLUME_OFF = `<svg class="icon-lucide" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 9a5 5 0 0 1 .95 2.293"/><path d="M19.364 5.636a9 9 0 0 1 1.889 9.96"/><path d="m2 2 20 20"/><path d="m7 7-.587.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298V11"/><path d="M9.828 4.172A.686.686 0 0 1 11 4.657v.686"/></svg>`;
+
 const POSE_LABELS = {
   tip_up: "Tip up",
   tip_down: "Tip down",
@@ -102,11 +108,8 @@ export function createControls(container, handlers = {}) {
   root.classList.add("wand-controls");
   root.innerHTML = `
     <div class="ctrl-toolbar">
-      <button type="button" data-act="mute" class="ctrl-btn" aria-pressed="false">🔊 Mute</button>
-      <button type="button" data-act="toggle-console" class="ctrl-btn" aria-pressed="false">Show console</button>
+      <button type="button" data-act="mute" class="ctrl-btn icon-only" aria-pressed="false" aria-label="Mute" title="Mute">${LUCIDE_VOLUME_2}</button>
     </div>
-    <div class="hint" data-el="hint"></div>
-    <div class="uses-row" data-el="uses"></div>
 
     <div class="ctrl-group" data-group="poses" hidden>
       <div class="group-label">Orientation</div>
@@ -131,6 +134,11 @@ export function createControls(container, handlers = {}) {
 
     <details class="advanced">
       <summary>Advanced</summary>
+      <div class="hint" data-el="hint"></div>
+      <div class="uses-row" data-el="uses"></div>
+      <div class="adv-row">
+        <button type="button" data-act="toggle-console" class="ctrl-btn" aria-pressed="false">Show console</button>
+      </div>
       <div class="adv-row">
         <label>Battery <input type="range" data-act="battery" min="0" max="100" value="85"></label>
         <label>Ambient lux <input type="range" data-act="lux" min="10" max="20000" value="500"></label>
@@ -182,7 +190,10 @@ export function createControls(container, handlers = {}) {
   function applyMuteVisual() {
     muteBtn.classList.toggle("down", muted);
     muteBtn.setAttribute("aria-pressed", String(muted));
-    muteBtn.textContent = muted ? "🔇 Muted" : "🔊 Mute";
+    const label = muted ? "Unmute" : "Mute";
+    muteBtn.setAttribute("aria-label", label);
+    muteBtn.title = label;
+    muteBtn.innerHTML = muted ? LUCIDE_VOLUME_OFF : LUCIDE_VOLUME_2;
   }
   muteBtn.addEventListener("click", () => {
     muted = !muted;

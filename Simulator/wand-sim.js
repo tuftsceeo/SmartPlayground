@@ -13,6 +13,24 @@ import { createControls } from "./js/controls.js";
 const PYODIDE_VERSION = "0.27.0";
 const PYODIDE_CDN = `https://cdn.jsdelivr.net/pyodide/v${PYODIDE_VERSION}/full/`;
 
+// Lucide icons (ISC license, https://lucide.dev), inlined so their
+// stroke="currentColor" picks up .status's own text color per state
+// (see the .status-* CSS rules below) instead of a separate asset per icon.
+const LUCIDE_LOADER_CIRCLE = `<svg class="icon-lucide" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>`;
+const LUCIDE_CIRCLE_CHECK = `<svg class="icon-lucide" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m16 9-5.5 5.5L8 12"/></svg>`;
+const LUCIDE_CIRCLE_PLAY = `<svg class="icon-lucide" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 9.003a1 1 0 0 1 1.517-.859l4.997 2.997a1 1 0 0 1 0 1.718l-4.997 2.997A1 1 0 0 1 9 14.996z"/><circle cx="12" cy="12" r="10"/></svg>`;
+const LUCIDE_CIRCLE_STOP = `<svg class="icon-lucide" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>`;
+const LUCIDE_TRIANGLE_ALERT = `<svg class="icon-lucide" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>`;
+
+const STATUS_ICONS = {
+  loading: LUCIDE_LOADER_CIRCLE,
+  ready: LUCIDE_CIRCLE_CHECK,
+  loaded: LUCIDE_CIRCLE_CHECK,
+  running: LUCIDE_CIRCLE_PLAY,
+  stopped: LUCIDE_CIRCLE_STOP,
+  error: LUCIDE_TRIANGLE_ALERT,
+};
+
 // Palette matches Bag3/Code/BroadcastBox/ChatBroadcast/css/app.css's :root
 // tokens and its existing #wand-sim / .sim-* rules (teal=tilt, purple=shake,
 // gold=speaker glow, the chat.css .msg.hw teal tint+border+text recipe) —
@@ -44,21 +62,30 @@ const STYLE = `
    transition: game state (shake level, gesture training, ...) should
    update as crisply as the real LEDs would. */
 .wand-art svg #_SPEAKER { transition: fill 0.4s ease-out; }
-.indicators { display: flex; gap: 8px; font-size: 12px; }
+.indicators { display: flex; gap: 12px; }
+/* Not buttons — just a live readout under the wand art, so no chip
+   border/background, and sized like the pose/move gesture icons (64px)
+   since these are the same kind of illustration, just smaller-scope. */
 .ind {
-  display: inline-flex; align-items: center; gap: 5px;
-  padding: 4px 10px; border-radius: 10px;
-  background: #f4f2fa; color: #8b859a; font-weight: 700;
+  display: inline-flex; align-items: center;
   /* A short beep (melody.py's notes are ~150ms) would otherwise snap on
-     then instantly off — transitioning the color lets it read as a fade
-     rather than a flash even without holding the "active" state longer. */
-  transition: background 0.5s ease-out, color 0.5s ease-out;
+     then instantly off — scaling up the icon on "active" lets it read as
+     a pulse rather than an instant flash even without holding the state. */
+  transition: transform 0.2s ease-out;
 }
 /* Icon-only — no Hz/on-off text here; that's a technical detail a
    kindergarten-teacher audience doesn't need on the main panel (it's in
    the Advanced drawer instead, via setBuzzerStatus/setMotorStatus). */
-.ind-icon { width: 22px; height: 22px; object-fit: contain; flex: none; }
-.ind.active { background: #fff8e0; color: #a8531e; transition-duration: 0.05s; }
+.ind-icon { width: 64px; height: 64px; object-fit: contain; flex: none; }
+.ind.active .ind-icon { transform: scale(1.1); }
+/* Status line: icon + hover/title tooltip, no printed text — except for
+   an error, which stays visible (never hover-only) so a real failure
+   can't go unnoticed. */
+.status { display: flex; align-items: center; gap: 6px; color: #8b859a; }
+.status-loading .icon-lucide { animation: status-spin 1s linear infinite; }
+.status-error { color: #b3261e; }
+.status-text { font-size: 12px; font-weight: 700; }
+@keyframes status-spin { to { transform: rotate(360deg); } }
 .wand-controls { flex: 1; min-width: 220px; }
 .ctrl-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; align-items: center; }
 .ctrl-btn {
@@ -82,6 +109,11 @@ const STYLE = `
 .ctrl-btn.pose, .ctrl-btn.move { display: inline-flex; flex-direction: column; align-items: center; gap: 4px; font-size: 10px; }
 .ctrl-icon { width: 64px; height: 64px; object-fit: contain; }
 .ctrl-toolbar { display: flex; gap: 8px; margin-bottom: 4px; }
+/* Icon-only toolbar buttons (mute): no visible label, hover/focus shows
+   the native title tooltip instead — matches the icon-first, low-text
+   design used throughout for a pre-reader audience. */
+.ctrl-btn.icon-only { display: inline-flex; align-items: center; justify-content: center; padding: 7px; }
+.icon-lucide { width: 18px; height: 18px; display: block; }
 .hint { font-size: 13px; opacity: 0.85; margin: 2px 0; }
 .hint[hidden], .uses-row[hidden], .zero-state[hidden] { display: none; }
 .uses-row { font-size: 11px; color: #8b859a; margin-bottom: 6px; }
@@ -277,7 +309,7 @@ class WandSim extends HTMLElement {
     const wrap = document.createElement("div");
     wrap.className = "wrap";
     wrap.innerHTML = `
-      <div class="status" data-el="status">Loading Pyodide…</div>
+      <div class="status" data-el="status"></div>
       <div class="main">
         <div>
           <div data-el="grid"></div>
@@ -295,6 +327,7 @@ class WandSim extends HTMLElement {
     this._statusEl = wrap.querySelector('[data-el="status"]');
     this._consoleEl = wrap.querySelector('[data-el="console"]');
     this._consoleEl.style.display = this.showConsole ? "block" : "none";
+    this._setStatus("loading", "Loading…");
 
     this._renderer = createRenderer(wrap.querySelector('[data-el="grid"]'), {
       svgUrl: assetUrl("assets/wand/WAND_FRONT.svg"),
@@ -325,6 +358,24 @@ class WandSim extends HTMLElement {
       onEnow: (t) => this._runPython(`sim_state.enqueue_enow(${JSON.stringify(t)})`),
     });
     this._controls.setConsoleShown(this.showConsole);
+  }
+
+  /**
+   * Icon-only status readout with the full text on hover/aria-label —
+   * except "error", which stays visibly printed since a real failure
+   * must surface loudly rather than wait on someone hovering over it.
+   */
+  _setStatus(kind, text) {
+    this._statusEl.className = `status status-${kind}`;
+    this._statusEl.title = text;
+    this._statusEl.setAttribute("aria-label", text);
+    this._statusEl.innerHTML = STATUS_ICONS[kind] || "";
+    if (kind === "error") {
+      const label = document.createElement("span");
+      label.className = "status-text";
+      label.textContent = text;
+      this._statusEl.appendChild(label);
+    }
   }
 
   async _boot() {
@@ -403,13 +454,13 @@ sim_state.set_log_callback(_js_log)
       this._sim = this._pyodide.pyimport("sim_state");
 
       this._ready = true;
-      this._statusEl.textContent = "Ready";
+      this._setStatus("ready", "Ready");
       this.dispatchEvent(new CustomEvent("sim-ready"));
       this._startMotionLoop();
       await this._loadAndMaybeStart();
     } catch (err) {
       console.error(err);
-      this._statusEl.textContent = "Error: " + err.message;
+      this._setStatus("error", "Error: " + err.message);
       this.dispatchEvent(new CustomEvent("sim-error", { detail: { message: String(err) } }));
     }
   }
@@ -453,7 +504,7 @@ sim_state.set_log_callback(_js_log)
 
   async _loadAndMaybeStart() {
     if (!this._ready) return;
-    this._statusEl.textContent = "Loading game…";
+    this._setStatus("loading", "Loading game…");
     await this._runPython("await stop()");
 
     // A freshly-picked-up wand starts at rest; don't carry a pose or an
@@ -474,7 +525,7 @@ sim_state.set_log_callback(_js_log)
     }
     const caps = await this._pyodide.runPythonAsync("get_capabilities()");
     this._controls.setCapabilities(caps.toJs ? caps.toJs({ dict_converter: Object.fromEntries }) : caps);
-    this._statusEl.textContent = `Loaded ${this._source ? "custom" : this.game}`;
+    this._setStatus("loaded", `Loaded ${this._source ? "custom" : this.game}`);
     if (this.autostart) {
       await this.start();
     }
@@ -482,14 +533,14 @@ sim_state.set_log_callback(_js_log)
 
   async start() {
     if (!this._ready) return;
-    this._statusEl.textContent = "Running…";
+    this._setStatus("running", "Running");
     this._consoleEl.textContent = "";
     await this._runPython("await start()");
   }
 
   async stop() {
     await this._runPython("await stop()");
-    this._statusEl.textContent = "Stopped";
+    this._setStatus("stopped", "Stopped");
     this.dispatchEvent(new CustomEvent("sim-stopped"));
   }
 
