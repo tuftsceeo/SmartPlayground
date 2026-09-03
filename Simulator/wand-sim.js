@@ -54,7 +54,10 @@ const STYLE = `
      rather than a flash even without holding the "active" state longer. */
   transition: background 0.5s ease-out, color 0.5s ease-out;
 }
-.ind-icon { width: 16px; height: 16px; object-fit: contain; }
+/* Icon-only — no Hz/on-off text here; that's a technical detail a
+   kindergarten-teacher audience doesn't need on the main panel (it's in
+   the Advanced drawer instead, via setBuzzerStatus/setMotorStatus). */
+.ind-icon { width: 22px; height: 22px; object-fit: contain; flex: none; }
 .ind.active { background: #fff8e0; color: #a8531e; transition-duration: 0.05s; }
 .wand-controls { flex: 1; min-width: 220px; }
 .ctrl-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; align-items: center; }
@@ -76,8 +79,8 @@ const STYLE = `
 /* Icon above label when a pose/move has a gesture illustration (see
    assets/wand/WandGestures/); icon-less ones (face_up/face_down, flip)
    just show centered text, same as before. */
-.ctrl-btn.pose, .ctrl-btn.move { display: inline-flex; flex-direction: column; align-items: center; gap: 4px; }
-.ctrl-icon { width: 32px; height: 32px; object-fit: contain; }
+.ctrl-btn.pose, .ctrl-btn.move { display: inline-flex; flex-direction: column; align-items: center; gap: 4px; font-size: 10px; }
+.ctrl-icon { width: 64px; height: 64px; object-fit: contain; }
 .ctrl-toolbar { display: flex; gap: 8px; margin-bottom: 4px; }
 .hint { font-size: 13px; opacity: 0.85; margin: 2px 0; }
 .hint[hidden], .uses-row[hidden], .zero-state[hidden] { display: none; }
@@ -91,31 +94,16 @@ details.advanced { margin-top: 8px; border-top: 2px solid #ffd23f; padding-top: 
 details.advanced summary { cursor: pointer; font-size: 12px; font-weight: 700; color: #8b859a; }
 details.advanced summary:hover { color: #a8531e; }
 .adv-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 8px; }
+.adv-status { font-size: 12px; color: #8b859a; }
 .adv-tags { display: flex; gap: 6px; align-items: center; }
 .adv-tags input[type=text] {
   font: inherit; font-size: 12px; padding: 6px 10px; border-radius: 10px;
   border: 1.5px solid #e8e6f0; background: #ffffff; color: #231f2e; width: 100px;
 }
-.plunger { display: flex; align-items: center; gap: 10px; }
-.plunger-track {
-  position: relative; height: 34px; border-radius: 17px;
-  background: #f4f2fa; border: 1.5px solid #e8e6f0; touch-action: none;
-  overflow: hidden; cursor: grab; flex: none;
-}
-.plunger-fill {
-  position: absolute; left: 0; top: 0; height: 100%;
-  background: linear-gradient(90deg, #ddd0f7, #6c4cd1);
-}
-.plunger-handle {
-  /* top:50% + margin-top:-half-height centers it regardless of the
-     track's own box model (a hardcoded top offset had to assume a
-     border width, which is exactly what was throwing it off). */
-  position: absolute; top: 50%; margin-top: -14px; width: 28px; height: 28px;
-  border-radius: 50%; background: #6c4cd1; border: 2px solid #5638a8;
-  box-shadow: 0 2px 4px rgba(108, 76, 209, 0.35);
-}
+.plunger { display: flex; align-items: center; gap: 8px; }
+.ctrl-icon-inline { width: 28px; height: 28px; object-fit: contain; flex: none; }
 /* Fixed width so the label text changing ("Gentle" -> "BIG shake!")
-   never resizes the row and shifts the track sideways. */
+   never resizes the row and shifts the slider sideways. */
 .plunger-label { font-size: 12px; color: #8b859a; flex: none; }
 .tilt-pad {
   position: relative; width: 100px; height: 100px;
@@ -294,8 +282,8 @@ class WandSim extends HTMLElement {
         <div>
           <div data-el="grid"></div>
           <div class="indicators">
-            <span class="ind" data-el="buzzer"><img class="ind-icon" alt=""><span data-el="buzzer-label">buzzer</span></span>
-            <span class="ind" data-el="motor"><img class="ind-icon" alt=""><span data-el="motor-label">motor</span></span>
+            <span class="ind" data-el="buzzer" title="Buzzer"><img class="ind-icon" alt="Buzzer"></span>
+            <span class="ind" data-el="motor" title="Motor"><img class="ind-icon" alt="Motor"></span>
           </div>
         </div>
         <div data-el="controls"></div>
@@ -314,6 +302,11 @@ class WandSim extends HTMLElement {
     this._audio = createAudio({
       buzzerEl: wrap.querySelector('[data-el="buzzer"]'),
       motorEl: wrap.querySelector('[data-el="motor"]'),
+      // Fires well after boot (only once a real PWM/motor write happens),
+      // so referencing this._controls here is safe even though controls
+      // isn't created until a few lines below this.
+      onBuzzerChange: (on, freq) => this._controls?.setBuzzerStatus(on ? `${freq} Hz` : "off"),
+      onMotorChange: (on) => this._controls?.setMotorStatus(on ? "on" : "off"),
     });
     // Unlock audio directly from a real pointer event — see unlock()'s
     // docstring in audio.js for why this can't just happen from setPwm().

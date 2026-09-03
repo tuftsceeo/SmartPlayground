@@ -45,13 +45,9 @@ function gestureIconUrl(file) {
 
 const BUTTON_LABEL = { tap: "Tap the button", hold: "Hold the button" };
 
-// Plunger geometry — a horizontal pull-and-release slider (see
-// createPlunger below). PLUNGER_LABEL_W is fixed so the widest label
-// ("BIG shake!") doesn't change the control's width and shift it
-// sideways in the row as the label text changes underneath it.
-const PLUNGER_TRACK_W = 130;
-const PLUNGER_HANDLE = 28;
-const PLUNGER_RANGE = PLUNGER_TRACK_W - PLUNGER_HANDLE;
+// PLUNGER_LABEL_W is fixed so the widest label ("BIG shake!") doesn't
+// change the control's width and shift it sideways in the row as the
+// label text changes underneath it.
 const PLUNGER_LABEL_W = 90;
 
 function plungerLabel(intensity) {
@@ -62,71 +58,41 @@ function plungerLabel(intensity) {
 }
 
 /**
- * Non-latching, magnitude-by-release control: drag the handle right (like
- * pulling a slingshot), release, and the pulled distance at the moment of
- * release becomes the gesture's intensity (0..1) — passed to `onRelease`.
- * The handle then springs back to rest on its own; it never reflects a
- * "current" value the way a held slider does, since the underlying
- * gesture is a one-shot burst, not a held state.
+ * Non-latching, magnitude-by-release control: a plain range slider (same
+ * native element as the Advanced drawer's Battery/Ambient lux, styled
+ * identically by the same bare `input[type=range]` rule) fronted by the
+ * wiggle_roll icon as its label. Drag it, release, and the value at the
+ * moment of release becomes the gesture's intensity (0..1), passed to
+ * `onRelease` — then it resets to 0 on its own. It never holds a "current"
+ * value the way Battery/Lux do, since the underlying gesture is a
+ * one-shot burst, not a held state.
  */
 function createPlunger(onRelease) {
   const wrap = document.createElement("div");
   wrap.className = "plunger";
   wrap.innerHTML = `
-    <div class="plunger-track" style="width:${PLUNGER_TRACK_W}px" data-act="plunger-track">
-      <div class="plunger-fill"></div>
-      <div class="plunger-handle"></div>
-    </div>
+    <img class="ctrl-icon-inline" alt="Shake" src="${gestureIconUrl("wiggle_roll.svg")}">
+    <input type="range" min="0" max="100" value="0" data-act="plunger-range">
     <div class="plunger-label" style="width:${PLUNGER_LABEL_W}px">Pull &amp; let go</div>
   `;
-  const track = wrap.querySelector(".plunger-track");
-  const fill = wrap.querySelector(".plunger-fill");
-  const handle = wrap.querySelector(".plunger-handle");
+  const range = wrap.querySelector('[data-act="plunger-range"]');
   const label = wrap.querySelector(".plunger-label");
 
-  function setPull(px, animate) {
-    handle.style.transition = animate ? "left 180ms cubic-bezier(.2,1.4,.4,1)" : "none";
-    handle.style.left = px + "px";
-    fill.style.transition = animate ? "width 180ms cubic-bezier(.2,1.4,.4,1)" : "none";
-    fill.style.width = px + PLUNGER_HANDLE / 2 + "px";
-  }
-  setPull(0, false);
-
-  let dragging = false;
   let lastIntensity = 0;
 
-  function pullFromEvent(e) {
-    const rect = track.getBoundingClientRect();
-    const x = Math.max(0, Math.min(PLUNGER_RANGE, e.clientX - rect.left - PLUNGER_HANDLE / 2));
-    setPull(x, false);
-    const intensity = PLUNGER_RANGE > 0 ? x / PLUNGER_RANGE : 0;
-    label.textContent = plungerLabel(intensity);
-    return intensity;
-  }
-
-  track.addEventListener("pointerdown", (e) => {
-    e.preventDefault();
-    track.setPointerCapture(e.pointerId);
-    dragging = true;
-    lastIntensity = pullFromEvent(e);
+  range.addEventListener("input", () => {
+    lastIntensity = Number(range.value) / 100;
+    label.textContent = plungerLabel(lastIntensity);
   });
-  track.addEventListener("pointermove", (e) => {
-    if (dragging) lastIntensity = pullFromEvent(e);
-  });
-  const release = (e) => {
-    if (!dragging) return;
-    dragging = false;
-    if (e.pointerId != null && track.hasPointerCapture?.(e.pointerId)) {
-      track.releasePointerCapture(e.pointerId);
-    }
+  // "change" covers both a released drag and a keyboard-committed step —
+  // either way, that's the release point.
+  range.addEventListener("change", () => {
     // A stray tap with no real pull shouldn't register as a shake.
     if (lastIntensity > 0.02) onRelease?.(lastIntensity);
-    setPull(0, true);
+    range.value = 0;
     label.textContent = "Pull & let go";
     lastIntensity = 0;
-  };
-  track.addEventListener("pointerup", release);
-  track.addEventListener("pointercancel", release);
+  });
 
   return wrap;
 }
@@ -183,6 +149,10 @@ export function createControls(container, handlers = {}) {
       <div class="adv-row">
         <button type="button" data-act="stop" class="ctrl-btn">ESPNow: stop</button>
         <button type="button" data-act="start_game" class="ctrl-btn">ESPNow: start_game</button>
+      </div>
+      <div class="adv-row">
+        <span class="adv-status">Buzzer: <span data-el="adv-buzzer-status">off</span></span>
+        <span class="adv-status">Motor: <span data-el="adv-motor-status">off</span></span>
       </div>
     </details>
   `;
@@ -406,5 +376,21 @@ export function createControls(container, handlers = {}) {
     }
   }
 
-  return { setCapabilities, setMuted, setConsoleShown, resetPose, root };
+  // The raw Hz/on-off detail lives here instead of on the main icon-only
+  // indicator chips — not something a kindergarten-teacher audience needs
+  // to see by default, but still available for anyone curious enough to
+  // open Advanced.
+  const advBuzzerStatus = root.querySelector('[data-el="adv-buzzer-status"]');
+  const advMotorStatus = root.querySelector('[data-el="adv-motor-status"]');
+  function setBuzzerStatus(text) {
+    if (advBuzzerStatus) advBuzzerStatus.textContent = text;
+  }
+  function setMotorStatus(text) {
+    if (advMotorStatus) advMotorStatus.textContent = text;
+  }
+
+  return {
+    setCapabilities, setMuted, setConsoleShown, resetPose,
+    setBuzzerStatus, setMotorStatus, root,
+  };
 }

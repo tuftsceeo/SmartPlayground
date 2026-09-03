@@ -19,9 +19,12 @@ export function createAudio(opts = {}) {
   const buzzEl = opts.buzzerEl || null;
   const motorEl = opts.motorEl || null;
   const buzzIcon = buzzEl?.querySelector(".ind-icon") || null;
-  const buzzLabel = buzzEl?.querySelector("[data-el='buzzer-label']") || null;
   const motorIcon = motorEl?.querySelector(".ind-icon") || null;
-  const motorLabel = motorEl?.querySelector("[data-el='motor-label']") || null;
+  // The main indicator chips are icon-only (a kindergarten-teacher
+  // audience doesn't need a raw Hz readout) — these report the detail
+  // for whoever wires it into the Advanced drawer instead.
+  const onBuzzerChange = opts.onBuzzerChange || null;
+  const onMotorChange = opts.onMotorChange || null;
 
   function ensureCtx() {
     if (!ctx) {
@@ -38,11 +41,12 @@ export function createAudio(opts = {}) {
       const on = currentFreq > 0 && currentDuty > 0;
       buzzEl.classList.toggle("active", on);
       if (buzzIcon) buzzIcon.src = gestureIconUrl(on ? "sound.svg" : "no_sound.svg");
-      if (buzzLabel) buzzLabel.textContent = on ? `${currentFreq} Hz` : "buzzer";
+      onBuzzerChange?.(on, currentFreq);
     }
     if (motorEl) {
       motorEl.classList.toggle("active", motorOn);
       if (motorIcon) motorIcon.src = gestureIconUrl(motorOn ? "vibrate.svg" : "no_vibrate.svg");
+      onMotorChange?.(motorOn);
     }
   }
 
