@@ -45,12 +45,18 @@ export function createAudio(opts = {}) {
     if (buzzEl) {
       const on = currentFreq > 0 && currentDuty > 0;
       buzzEl.classList.toggle("active", on);
-      if (buzzIcon) buzzIcon.src = gestureIconUrl(on ? "sound.svg" : "no_sound.svg");
+      // sound2.svg (not sound.svg) -- sound.svg's artwork is padded into a
+      // larger viewBox than no_sound.svg's, so at a fixed icon size it
+      // rendered visibly smaller than the "off" icon; sound2.svg is the
+      // size-matched re-export (same viewBox/content bbox as no_sound.svg).
+      if (buzzIcon) buzzIcon.src = gestureIconUrl(on ? "sound2.svg" : "no_sound.svg");
       onBuzzerChange?.(on, currentFreq);
     }
     if (motorEl) {
       motorEl.classList.toggle("active", motorOn);
-      if (motorIcon) motorIcon.src = gestureIconUrl(motorOn ? "vibrate.svg" : "no_vibrate.svg");
+      // vibration.svg (not vibrate.svg) -- same size-mismatch fix as sound2.svg
+      // above, re-exported to match no_vibrate.svg's viewBox/content bbox.
+      if (motorIcon) motorIcon.src = gestureIconUrl(motorOn ? "vibration.svg" : "no_vibrate.svg");
       onMotorChange?.(motorOn);
     }
   }
