@@ -57,8 +57,12 @@ const STYLE = `
 .ind {
   padding: 4px 10px; border-radius: 10px;
   background: #f4f2fa; color: #8b859a; font-weight: 700;
+  /* A short beep (melody.py's notes are ~150ms) would otherwise snap on
+     then instantly off — transitioning the color lets it read as a fade
+     rather than a flash even without holding the "active" state longer. */
+  transition: background 0.5s ease-out, color 0.5s ease-out;
 }
-.ind.active { background: #fff8e0; color: #a8531e; }
+.ind.active { background: #fff8e0; color: #a8531e; transition-duration: 0.05s; }
 .wand-controls { flex: 1; min-width: 220px; }
 .ctrl-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; align-items: center; }
 .ctrl-btn {
@@ -280,6 +284,9 @@ class WandSim extends HTMLElement {
       buzzerEl: wrap.querySelector('[data-el="buzzer"]'),
       motorEl: wrap.querySelector('[data-el="motor"]'),
     });
+    // Unlock audio directly from a real pointer event — see unlock()'s
+    // docstring in audio.js for why this can't just happen from setPwm().
+    wrap.addEventListener("pointerdown", () => this._audio.unlock());
 
     this._controls = createControls(wrap.querySelector('[data-el="controls"]'), {
       onButton: (down) => this._setButton(down),

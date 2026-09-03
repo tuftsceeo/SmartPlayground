@@ -90,6 +90,20 @@ export function createAudio(opts = {}) {
     return muted;
   }
 
+  /**
+   * Chrome's autoplay policy only honors AudioContext.resume() when it's
+   * called synchronously from within a real user-gesture handler (click /
+   * pointerdown / keydown). setPwm()/setMotor() are driven by the Python
+   * game loop through Pyodide's async bridge — several ticks removed from
+   * whatever click triggered them — so resume() called from there silently
+   * fails and keeps failing on every later PWM write. Call this directly
+   * from a pointerdown/click listener (wand-sim.js does, on the whole
+   * panel) so the very first real tap unlocks it for everything after.
+   */
+  function unlock() {
+    ensureCtx();
+  }
+
   function dispose() {
     setPwm(0, 0);
     if (ctx) {
@@ -98,5 +112,5 @@ export function createAudio(opts = {}) {
     }
   }
 
-  return { setPwm, setMotor, setMuted, isMuted, dispose };
+  return { setPwm, setMotor, setMuted, isMuted, unlock, dispose };
 }
