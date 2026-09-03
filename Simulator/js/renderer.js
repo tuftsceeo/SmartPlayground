@@ -78,6 +78,19 @@ export function createRenderer(container, opts = {}) {
     svg.style.height = "auto";
     svg.style.display = "block";
 
+    // The SVG's gradient <image> overlays reference their PNGs by a plain
+    // relative path (e.g. "gradients/CaseSide.png") — correct when reading
+    // the file directly, but innerHTML-inlining this text resolves any
+    // relative URL against the *host page's* location, not the SVG's own.
+    // Resolve each one against svgUrl explicitly instead.
+    svg.querySelectorAll("image").forEach((img) => {
+      const href = img.getAttribute("xlink:href") || img.getAttribute("href");
+      if (!href || /^([a-z]+:|\/\/)/i.test(href)) return; // already absolute/data:
+      const resolved = new URL(href, svgUrl).href;
+      img.setAttribute("xlink:href", resolved);
+      img.setAttribute("href", resolved);
+    });
+
     // LED_MATRIX and LED_MATRIX-2 are duplicate copies of the same 25
     // paths (see WAND_FRONT.svg) — only one is driven; the other is hidden
     // outright rather than left stacked underneath.
