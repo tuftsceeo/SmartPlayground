@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Wand Game Simulator</title>
+  <style>
+    /* Palette + type match Bag3/Code/BroadcastBox/ChatBroadcast/css/app.css's
+       :root tokens — a color/type starting point for matching that app's
+       look, ahead of the actual wand-artwork compositing pass. */
+    @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap');
+    :root {
+      --pink: #ef4d92;
+      --pink-dark: #d13a7c;
+      --purple: #6c4cd1;
+      --teal: #22c3a6;
+      --yellow: #ffd23f;
+      --ink: #231f2e;
+      --muted: #8b859a;
+      --border: #e8e6f0;
+      --bg: #f7f7fb;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: 'Nunito', ui-sans-serif, system-ui, sans-serif;
+      background:
+        radial-gradient(circle at 6% 10%, #ffd23f22, transparent 40%),
+        radial-gradient(circle at 94% 6%, #ef4d9218, transparent 38%),
+        radial-gradient(circle at 90% 94%, #22c3a61c, transparent 42%),
+        radial-gradient(circle at 8% 92%, #6c4cd11a, transparent 40%),
+        var(--bg);
+      color: var(--ink);
+      padding: 24px;
+    }
+    h1 { font: 800 1.4rem 'Nunito'; margin: 0 0 16px; }
+    .toolbar {
+      display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+      margin-bottom: 16px;
+    }
+    label { font-size: 0.9rem; font-weight: 700; }
+    select, button {
+      font: 700 0.9rem 'Nunito'; padding: 8px 14px; border-radius: 12px;
+      border: 1.5px solid var(--border); background: #fff; color: var(--ink);
+    }
+    button { cursor: pointer; background: var(--purple); border-color: var(--purple); color: #fff; }
+    button:hover { background: #5a3fb0; }
+    .loaded-file-name { font-size: 0.85rem; color: var(--muted); }
+    wand-sim {
+      --wand-led-size: 22px;
+      --wand-grid-gap: 8px;
+      --wand-led-radius: 5px;
+      max-width: 920px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Wand Game Simulator</h1>
+
+  <div class="toolbar">
+    <label>
+      Game
+      <select id="game-select">
+        <option value="jump">jump</option>
+        <option value="shake">shake</option>
+        <option value="shake_rainbow">shake_rainbow</option>
+        <option value="sound">sound</option>
+        <option value="rainbow">rainbow</option>
+        <option value="jumpin">jumpin</option>
+        <option value="nfc_sound">nfc_sound</option>
+        <option value="gestures">gestures</option>
+        <option value="simpleicecream">simpleicecream</option>
+        <option value="melody">melody</option>
+        <option value="cooking">cooking</option>
+        <option value="multiicecream">multiicecream</option>
+      </select>
+    </label>
+    <button type="button" id="btn-restart">Start over</button>
+    <button type="button" id="btn-load-file">Load file…</button>
+    <input type="file" id="file-input" accept=".py" hidden>
+    <span id="loaded-file-name" class="loaded-file-name"></span>
+  </div>
+
+  <wand-sim id="sim" game="jump" autostart></wand-sim>
+
+  <script type="module">
+    import "./wand-sim.js";
+
+    const sim = document.getElementById("sim");
+    const select = document.getElementById("game-select");
+    const fileInput = document.getElementById("file-input");
+    const loadedFileName = document.getElementById("loaded-file-name");
+
+    select.addEventListener("change", () => {
+      // Drop any previously-loaded custom file without forcing a second
+      // reload here — the game attribute change below reloads once.
+      sim._source = null;
+      loadedFileName.textContent = "";
+      sim.game = select.value;
+      sim.autostart = true;
+    });
+
+    document.getElementById("btn-restart").addEventListener("click", () => sim.restart());
+
+    document.getElementById("btn-load-file").addEventListener("click", () => fileInput.click());
+
+    fileInput.addEventListener("change", async () => {
+      const file = fileInput.files[0];
+      if (!file) return;
+      const text = await file.text();
+      sim.autostart = true;
+      sim.source = text; // triggers a reload via the source setter
+      loadedFileName.textContent = file.name;
+      fileInput.value = ""; // allow re-selecting the same file later
+    });
+
+    sim.addEventListener("sim-ready", () => console.log("sim-ready"));
+    sim.addEventListener("sim-error", (e) => console.error("sim-error", e.detail));
+    sim.addEventListener("sim-stopped", () => console.log("sim-stopped"));
+  </script>
+</body>
+</html>
