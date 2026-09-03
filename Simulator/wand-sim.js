@@ -13,14 +13,21 @@ import { createControls } from "./js/controls.js";
 const PYODIDE_VERSION = "0.27.0";
 const PYODIDE_CDN = `https://cdn.jsdelivr.net/pyodide/v${PYODIDE_VERSION}/full/`;
 
+// Palette matches Bag3/Code/BroadcastBox/ChatBroadcast/css/app.css's :root
+// tokens and its existing #wand-sim / .sim-* rules (teal=tilt, purple=shake,
+// gold=speaker glow, the chat.css .msg.hw teal tint+border+text recipe) —
+// this is a color-and-type starting point only. The LED grid and console
+// stay dark ("screen"/"terminal" look reads fine on either theme); layout
+// and the actual wand-artwork compositing are a separate pass.
 const STYLE = `
 :host {
   display: block;
-  font-family: var(--wand-font, ui-sans-serif, system-ui, sans-serif);
-  color: var(--wand-fg, #e8e8e8);
-  background: var(--wand-bg, #12141a);
-  border-radius: var(--wand-radius, 12px);
-  padding: 12px;
+  font-family: var(--wand-font, 'Nunito', ui-sans-serif, system-ui, sans-serif);
+  color: var(--wand-fg, #231f2e);
+  background: var(--wand-bg, #ffffff);
+  border-radius: var(--wand-radius, 22px);
+  padding: 16px;
+  box-shadow: var(--wand-shadow, 0 18px 40px rgba(108, 76, 209, 0.16));
   box-sizing: border-box;
 }
 /* :host's box-sizing doesn't inherit into the shadow tree (box-sizing
@@ -37,7 +44,7 @@ const STYLE = `
   gap: var(--wand-grid-gap, 6px);
   padding: 12px;
   background: var(--wand-grid-bg, #0a0c10);
-  border-radius: 8px;
+  border-radius: 12px;
   width: max-content;
 }
 .wand-led-cell {
@@ -48,75 +55,85 @@ const STYLE = `
 }
 .indicators { display: flex; gap: 8px; font-size: 12px; }
 .ind {
-  padding: 4px 8px; border-radius: 6px;
-  background: #1c2030; opacity: 0.55;
+  padding: 4px 10px; border-radius: 10px;
+  background: #f4f2fa; color: #8b859a; font-weight: 700;
 }
-.ind.active { opacity: 1; background: #3a2a10; color: #ffd27a; }
+.ind.active { background: #fff8e0; color: #a8531e; }
 .wand-controls { flex: 1; min-width: 220px; }
 .ctrl-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; align-items: center; }
 .ctrl-btn {
-  font: inherit; font-size: 12px; padding: 6px 10px; border-radius: 6px;
-  border: 1px solid #333; background: #1c2030; color: inherit; cursor: pointer;
+  font: 700 12px 'Nunito', inherit; padding: 7px 12px; border-radius: 12px;
+  border: 1.5px solid #e8e6f0; background: #ffffff; color: #231f2e; cursor: pointer;
 }
-.ctrl-btn.down, .ctrl-btn:active { background: #3a5080; }
-.ctrl-btn.big { font-size: 14px; padding: 12px 20px; }
-.ctrl-btn.pose.active, .ctrl-btn.move.down { background: #2a5a4a; border-color: #3f8f70; }
+.ctrl-btn:hover { border-color: #6c4cd1; color: #6c4cd1; }
+.ctrl-btn.down, .ctrl-btn:active { background: #f2eefc; border-color: #6c4cd1; color: #6c4cd1; }
+.ctrl-btn.big {
+  font-size: 14px; padding: 14px 24px; border-radius: 16px;
+  background: #ef4d92; border-color: #d13a7c; color: #fff;
+}
+.ctrl-btn.big:hover { color: #fff; }
+.ctrl-btn.big.down, .ctrl-btn.big:active { background: #d13a7c; border-color: #d13a7c; color: #fff; }
+/* Sticky-pose active state: soft tint + saturated same-hue border + dark
+   same-hue text — same recipe ChatBroadcast's chat.css uses for .msg.hw. */
+.ctrl-btn.pose.active { background: #d1fae5; border-color: #6ee7b7; color: #065f46; }
 .ctrl-toolbar { display: flex; gap: 8px; margin-bottom: 4px; }
 .hint { font-size: 13px; opacity: 0.85; margin: 2px 0; }
 .hint[hidden], .uses-row[hidden], .zero-state[hidden] { display: none; }
-.uses-row { font-size: 11px; opacity: 0.55; margin-bottom: 6px; }
+.uses-row { font-size: 11px; color: #8b859a; margin-bottom: 6px; }
 .ctrl-group { margin-bottom: 10px; }
 .ctrl-group[hidden] { display: none; }
-.group-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; opacity: 0.6; margin-bottom: 4px; }
+.group-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: #8b859a; margin-bottom: 4px; }
 .group-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-.zero-state { font-size: 13px; opacity: 0.7; font-style: italic; padding: 8px 0; }
-details.advanced { margin-top: 8px; border-top: 1px solid #2a2e3a; padding-top: 8px; }
-details.advanced summary { cursor: pointer; font-size: 12px; opacity: 0.7; }
+.zero-state { font-size: 13px; color: #8b859a; font-style: italic; padding: 8px 0; }
+details.advanced { margin-top: 8px; border-top: 2px solid #ffd23f; padding-top: 8px; }
+details.advanced summary { cursor: pointer; font-size: 12px; font-weight: 700; color: #8b859a; }
+details.advanced summary:hover { color: #a8531e; }
 .adv-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 8px; }
 .adv-tags { display: flex; gap: 6px; align-items: center; }
 .adv-tags input[type=text] {
-  font: inherit; font-size: 12px; padding: 5px 8px; border-radius: 6px;
-  border: 1px solid #333; background: #1c2030; color: inherit; width: 100px;
+  font: inherit; font-size: 12px; padding: 6px 10px; border-radius: 10px;
+  border: 1.5px solid #e8e6f0; background: #ffffff; color: #231f2e; width: 100px;
 }
 .plunger { display: flex; align-items: center; gap: 10px; }
 .plunger-track {
   position: relative; height: 34px; border-radius: 17px;
-  background: #1c2030; border: 1px solid #333; touch-action: none;
+  background: #f4f2fa; border: 1.5px solid #e8e6f0; touch-action: none;
   overflow: hidden; cursor: grab; flex: none;
 }
 .plunger-fill {
   position: absolute; left: 0; top: 0; height: 100%;
-  background: linear-gradient(90deg, #355078, #7eb6ff);
+  background: linear-gradient(90deg, #ddd0f7, #6c4cd1);
 }
 .plunger-handle {
   /* top:50% + margin-top:-half-height centers it regardless of the
      track's own box model (a hardcoded top offset had to assume a
      border width, which is exactly what was throwing it off). */
   position: absolute; top: 50%; margin-top: -14px; width: 28px; height: 28px;
-  border-radius: 50%; background: #7eb6ff; border: 2px solid #3f7fc4;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+  border-radius: 50%; background: #6c4cd1; border: 2px solid #5638a8;
+  box-shadow: 0 2px 4px rgba(108, 76, 209, 0.35);
 }
 /* Fixed width so the label text changing ("Gentle" -> "BIG shake!")
    never resizes the row and shifts the track sideways. */
-.plunger-label { font-size: 12px; opacity: 0.85; flex: none; }
+.plunger-label { font-size: 12px; color: #8b859a; flex: none; }
 .tilt-pad {
   position: relative; width: 100px; height: 100px;
-  border-radius: 50%; background: #1c2030; border: 1px solid #333;
+  border-radius: 50%; background: #f4f2fa; border: 1.5px solid #e8e6f0;
   touch-action: none;
 }
 .tilt-knob {
   position: absolute; width: 16px; height: 16px; margin: -8px 0 0 -8px;
-  border-radius: 50%; background: #7eb6ff; left: 50%; top: 50%;
+  border-radius: 50%; background: #6c4cd1; left: 50%; top: 50%;
   pointer-events: none;
 }
 .nfc-tags { display: flex; flex-wrap: wrap; gap: 6px; }
 .console {
   font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
-  background: #0a0c10; border-radius: 8px; padding: 8px;
+  background: #1f2430; color: #d7d7e0; border-radius: 12px; padding: 10px;
   max-height: 160px; overflow: auto; white-space: pre-wrap;
+  border: 1px solid #e8e6f0;
 }
-.status { font-size: 12px; opacity: 0.7; }
-label { font-size: 12px; display: flex; gap: 6px; align-items: center; }
+.status { font-size: 12px; color: #8b859a; font-weight: 700; }
+label { font-size: 12px; display: flex; gap: 6px; align-items: center; color: #8b859a; }
 input[type=range] { width: 100px; }
 `;
 
