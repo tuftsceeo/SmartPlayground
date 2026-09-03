@@ -53,3 +53,5 @@ Borrowing from WebApp2 (the group-text remote): that app treats each device as a
 ### Additional Notes
 
 8/29: ChatBroadcast is currently a copy of ChatApp: Use this portal to program your Wand. To be adapted to incorperate the design features of  Bag3/Code/BroadcastBox/design/Wand Coder App Mockups.dc.html
+
+9/3: ChatBroadcast's game preview panel now embeds the `Bag3/Code/Simulator` `<wand-sim>` element directly (`ChatBroadcast/js/app.js`'s `setupSim()` imports `../../Simulator/wand-sim.js`), so it must be served from a root that covers both trees: `cd Bag3/Code && python3 -m http.server`, then open `/BroadcastBox/ChatBroadcast/` — serving `ChatBroadcast/` alone 404s on that import.

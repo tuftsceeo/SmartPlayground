@@ -1,8 +1,11 @@
 /**
  * <wand-sim> — embeddable wand game simulator (Pyodide + shadow DOM).
  *
- * Attributes/props: game, autostart, show-console, controls, source, muted
- * Events: sim-ready, sim-frame, sim-print, sim-error, sim-stopped
+ * Attributes/props: game, autostart, show-console, controls, source, muted,
+ * advanced (shows the Advanced drawer + its "Show console" toggle; off by
+ * default)
+ * Events: sim-ready, sim-frame, sim-print, sim-error (detail.phase is one
+ * of "boot"/"load"/"run"), sim-stopped
  */
 
 import { createRenderer, dutyRgbToCss } from "./js/renderer.js";
@@ -120,6 +123,8 @@ const STYLE = `
 .group-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .zero-state { font-size: 13px; color: #8b859a; font-style: italic; padding: 8px 0; }
 details.advanced { margin-top: 8px; border-top: 2px solid #ffd23f; padding-top: 8px; }
+/* Hidden unless the host opts in via the "advanced" attribute. */
+:host(:not([advanced])) details.advanced { display: none; }
 details.advanced summary { cursor: pointer; font-size: 12px; font-weight: 700; color: #8b859a; }
 details.advanced summary:hover { color: #a8531e; }
 .adv-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 8px; }
@@ -241,7 +246,7 @@ const FILE_LIST = [
 
 class WandSim extends HTMLElement {
   static get observedAttributes() {
-    return ["game", "autostart", "show-console", "controls"];
+    return ["game", "autostart", "show-console", "controls", "advanced"];
   }
 
   constructor() {
@@ -261,6 +266,12 @@ class WandSim extends HTMLElement {
 
   get autostart() { return this.hasAttribute("autostart"); }
   set autostart(v) { v ? this.setAttribute("autostart", "") : this.removeAttribute("autostart"); }
+
+  // Gates the Advanced drawer (battery/lux/raw ESP-NOW/NFC controls + the
+  // "Show console" toggle) — off by default so a teacher-facing embed
+  // doesn't show technical dials unless the host app opts in.
+  get advanced() { return this.hasAttribute("advanced"); }
+  set advanced(v) { v ? this.setAttribute("advanced", "") : this.removeAttribute("advanced"); }
 
   // Hidden by default — a teacher-facing panel shouldn't open on a wall of
   // Python traceback text. The controls' "Show console" toggle flips this.
@@ -438,7 +449,7 @@ rt.bootstrap(file_contents=contents, workdir="/sim/vendor")
         self.dispatchEvent(new CustomEvent("sim-print", { detail: { text: line } }));
       });
       this._pyodide.globals.set("_js_log", (t) => {
-        self.dispatchEvent(new CustomEvent("sim-error", { detail: { message: String(t) } }));
+        self.dispatchEvent(new CustomEvent("sim-error", { detail: { message: String(t), phase: "run" } }));
       });
 
       await this._pyodide.runPythonAsync(`
@@ -461,7 +472,7 @@ sim_state.set_log_callback(_js_log)
     } catch (err) {
       console.error(err);
       this._setStatus("error", "Error: " + err.message);
-      this.dispatchEvent(new CustomEvent("sim-error", { detail: { message: String(err) } }));
+      this.dispatchEvent(new CustomEvent("sim-error", { detail: { message: String(err), phase: "boot" } }));
     }
   }
 
@@ -505,29 +516,40 @@ sim_state.set_log_callback(_js_log)
   async _loadAndMaybeStart() {
     if (!this._ready) return;
     this._setStatus("loading", "Loading game…");
-    await this._runPython("await stop()");
+    try {
+      await this._runPython("await stop()");
 
-    // A freshly-picked-up wand starts at rest; don't carry a pose or an
-    // in-flight gesture over from whatever the previous game left it in.
-    cancelMove();
-    setPose("tip_up");
-    this._controls.resetPose();
-    this._pushAccel();
+      // A freshly-picked-up wand starts at rest; don't carry a pose or an
+      // in-flight gesture over from whatever the previous game left it in.
+      cancelMove();
+      setPose("tip_up");
+      this._controls.resetPose();
+      this._pushAccel();
 
-    const src = this._source;
-    if (src) {
-      // Pass source via a Python global to avoid escaping nightmares.
-      this._pyodide.globals.set("_game_source", src);
-      await this._runPython("load_game(_game_source)");
-    } else {
-      const name = this.game.replace(/\.py$/, "");
-      await this._runPython(`load_game(${JSON.stringify(name)})`);
-    }
-    const caps = await this._pyodide.runPythonAsync("get_capabilities()");
-    this._controls.setCapabilities(caps.toJs ? caps.toJs({ dict_converter: Object.fromEntries }) : caps);
-    this._setStatus("loaded", `Loaded ${this._source ? "custom" : this.game}`);
-    if (this.autostart) {
-      await this.start();
+      const src = this._source;
+      if (src) {
+        // Pass source via a Python global to avoid escaping nightmares.
+        this._pyodide.globals.set("_game_source", src);
+        await this._runPython("load_game(_game_source)");
+      } else {
+        const name = this.game.replace(/\.py$/, "");
+        await this._runPython(`load_game(${JSON.stringify(name)})`);
+      }
+      const caps = await this._pyodide.runPythonAsync("get_capabilities()");
+      this._controls.setCapabilities(caps.toJs ? caps.toJs({ dict_converter: Object.fromEntries }) : caps);
+      this._setStatus("loaded", `Loaded ${this._source ? "custom" : this.game}`);
+      if (this.autostart) {
+        await this.start();
+      }
+    } catch (err) {
+      // A syntax error or unsupported import in generated/loaded source
+      // throws here (compile or module-exec failure) — surface it as a
+      // load-phase sim-error instead of an unhandled rejection, so the
+      // host can word it for its audience instead of the panel getting
+      // stuck on "Loading game…".
+      console.error(err);
+      this._setStatus("error", "Error: " + err.message);
+      this.dispatchEvent(new CustomEvent("sim-error", { detail: { message: String(err), phase: "load" } }));
     }
   }
 

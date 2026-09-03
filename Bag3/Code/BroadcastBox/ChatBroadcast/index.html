@@ -95,34 +95,10 @@
                         </div>
                     </div>
                     <div class="preview-col">
-                        <div id="preview-panel">
-                            <h2 id="preview-name">Your game</h2>
-                            <p id="preview-desc">Chat to describe a wand game — the preview updates here.</p>
-                            <div id="wand-sim">
-                                <div id="sim-led-layer"></div>
-                                <div class="sim-layer sim-speaker" id="sim-speaker"></div>
-                                <div class="sim-layer sim-tilt" id="sim-tilt"></div>
-                                <div class="sim-layer sim-shake" id="sim-shake"></div>
-                                <div class="sim-layer sim-nfc" id="sim-nfc" title="NFC placeholder">NFC</div>
-                                <img class="wand-sprite" id="wand-sprite" alt="Wand simulation" src="assets/wand/WAND_notPRESSED_off.png" />
-                            </div>
-                            <p id="sim-status" class="sim-status sim-status-idle">Quick preview</p>
-                            <p id="sim-error-banner" class="sim-error-banner hidden"></p>
-                            <div class="sim-controls">
-                                <button type="button" id="btn-sim-press">Press button</button>
-                                <button type="button" id="btn-sim-shake">Shake</button>
-                                <button type="button" id="btn-sim-tilt">Tilt</button>
-                            </div>
-                            <div class="sim-input-group">
-                                <span class="sim-input-label">NFC tap</span>
-                                <div class="sim-input-row" id="sim-nfc-buttons"></div>
-                            </div>
-                            <div class="sim-input-group">
-                                <span class="sim-input-label">ESP-NOW</span>
-                                <div class="sim-input-row" id="sim-espnow-buttons"></div>
-                            </div>
-                            <ul id="preview-checklist"></ul>
-                            <ul id="preview-tags"></ul>
+                        <div id="preview-panel" class="hidden">
+                            <wand-sim id="wand-sim"></wand-sim>
+                            <button type="button" id="btn-sim-restart" class="btn-secondary" disabled>Start Over</button>
+                            <p id="sim-notice" class="sim-notice hidden"></p>
                         </div>
                     </div>
                 </div>

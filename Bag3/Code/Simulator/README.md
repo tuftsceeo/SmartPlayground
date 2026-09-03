@@ -110,5 +110,11 @@ do) — see `_nfc_confirm_pulse()`'s docstring for the exact timing and why.
   NFC tag row, the buzzer/motor indicators) — these are detailed motion
   illustrations, not simple glyphs, and read as illegible smaller.
 - `<wand-sim>` attributes: `game`, `autostart`, `show-console`, `controls`,
-  `source`, `muted`. Events: `sim-ready`, `sim-frame`, `sim-print`,
-  `sim-error`, `sim-stopped`.
+  `source`, `muted`, `advanced` (shows the Advanced drawer + its "Show
+  console" toggle; off by default, so an embedding host opts in explicitly).
+  Events: `sim-ready`, `sim-frame`, `sim-print`, `sim-error` (`detail.phase`
+  is `"boot"`, `"load"`, or `"run"`), `sim-stopped`.
+- ChatBroadcast (`Bag3/Code/BroadcastBox/ChatBroadcast/`) embeds this
+  element directly from `../../Simulator/wand-sim.js`, so both trees must be
+  served from a common root (`Bag3/Code/`) rather than from ChatBroadcast's
+  own directory.

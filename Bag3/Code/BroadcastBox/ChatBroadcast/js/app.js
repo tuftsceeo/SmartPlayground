@@ -18,10 +18,7 @@ import { dbg, dbgWarn, dbgError } from './debug.js';
 import { loadUiMode, toggleUiMode } from './uiMode.js';
 import { loadSavedGames, saveGame, findSavedGame } from './library.js';
 import { scanCapabilities } from './sim/codeCapabilities.js';
-import { renderSim, bindSimControls, setTickHandler } from './sim/wandSim.js';
-import { buildComponentChecklist, checklistIcons, checklistLines } from './checklist.js';
-import { startSimLoop, stopSimLoop, triggerTick, preloadPyodide } from './sim/pyodide/pyodideRuntime.js';
-import { renderNfcButtons, renderEspnowButtons, setInputChangeHandler } from './sim/pyodide/inputBridge.js';
+import { buildComponentChecklist, checklistLines } from './checklist.js';
 
 const SYSTEM_PROMPT_BASE = `You are an AI assistant helping teachers write MicroPython games for the PlaygroundV5 wand.
 
@@ -35,6 +32,13 @@ RULES:
 - Always include try/finally cleanup and periodic NFC stop-tag polling
 - Default to simple, working examples over complex ones
 - If the game reads NFC tags with specific values, include exactly one line formatted as [NFC_CARDS: "value1", "value2"] listing every tag value the game uses.`;
+
+/** Same placeholder-and-play() check the editor's code drawer uses to
+ * decide there's real code worth doing anything with. */
+function isRunnableCode(code) {
+    const trimmed = (code || '').trim();
+    return !!trimmed && !trimmed.startsWith('# AI-generated') && /def\s+play\s*\(/.test(trimmed);
+}
 
 class App {
     constructor() {
@@ -51,6 +55,10 @@ class App {
         this.serialOpen = false;
         this.dirty = false;
         this.pendingSendAfterConnect = false;
+        this._sim = null;
+        this._simLoadPromise = null;
+        this._simLastSource = null;
+        this._simPendingSource = null;
     }
 
     async init() {
@@ -64,10 +72,6 @@ class App {
         this.setupDeviceListeners();
         this.setupSerialLog();
         this.applyUiMode(loadUiMode());
-        bindSimControls();
-        setTickHandler(() => triggerTick(getCode()));
-        setInputChangeHandler(() => triggerTick(getCode()));
-        renderEspnowButtons();
         showView('splash');
         dbg('app', 'initial view: splash (modal-overlay is persistent — showView must not touch it)');
 
@@ -108,7 +112,6 @@ class App {
         });
 
         this.updatePreview();
-        preloadPyodide();
         dbg('app', 'init() complete');
     }
 
@@ -141,6 +144,10 @@ class App {
         if (gear) {
             gear.title = advanced ? 'Switch to simple mode' : 'Switch to advanced mode';
         }
+        // The element itself may not be upgraded yet (setupSim() lazy-loads
+        // its module) — setting the attribute is harmless either way and
+        // takes effect once it is.
+        document.getElementById('wand-sim')?.toggleAttribute('advanced', advanced);
         dbg('app', `UI mode: ${mode}`);
     }
 
@@ -319,7 +326,7 @@ class App {
             if (!saveFirst) return;
             this.onSaveGame();
         }
-        stopSimLoop();
+        this._sim?.stop();
         showView('splash');
     }
 
@@ -543,47 +550,91 @@ class App {
     }
 
     updatePreview() {
-        document.getElementById('preview-name').textContent = this.gameName;
-        document.getElementById('preview-desc').textContent = this.gameDesc || 'Chat to describe your game.';
-
         const code = getCode();
-        const caps = scanCapabilities(code);
-        renderSim(caps, { pressed: false, idle: !caps.hasCode });
 
-        // Heuristic preview shows instantly; Python sim takes over when ready.
         this.requiredTags = deriveRequiredTags(null, code, this.gameName.toLowerCase());
         if (this.currentExample?.tags?.length > this.requiredTags.length) {
             this.requiredTags = [...this.currentExample.tags];
         }
-        renderNfcButtons(this.requiredTags);
 
-        const codeTrim = (code || '').trim();
-        if (codeTrim && !codeTrim.startsWith('# AI-generated') && /def\s+play\s*\(/.test(code)) {
-            startSimLoop(code, { intervalMs: 150 });
-        } else {
-            stopSimLoop();
+        const runnable = isRunnableCode(code);
+        document.getElementById('preview-panel').classList.toggle('hidden', !runnable);
+        document.querySelector('.ws-body')?.classList.toggle('no-sim', !runnable);
+
+        if (runnable) {
+            this.setupSim();
+            this.pushSimSource(code);
         }
+    }
 
-        // Small symbolic row only here — the full "You'll need:" list is
-        // shown at the connect / send-confirm stage instead (see
-        // renderComponentList()).
-        const items = buildComponentChecklist(caps, this.requiredTags);
-        const cl = document.getElementById('preview-checklist');
-        cl.innerHTML = '';
-        checklistIcons(items).forEach((icon, i) => {
-            const li = document.createElement('li');
-            li.textContent = icon;
-            li.title = items[i].label;
-            cl.appendChild(li);
-        });
+    /** Lazily load the <wand-sim> module the first time it's needed —
+     * Pyodide plus its ~37 game/shim files is a real download, and booting
+     * it while the teacher is still typing their first chat message would
+     * only add to that wait. Safe to call repeatedly; the import runs once. */
+    setupSim() {
+        if (this._simLoadPromise) return this._simLoadPromise;
+        dbg('app', 'setupSim() — loading wand-sim module');
+        this._simLoadPromise = import('../../Simulator/wand-sim.js')
+            .then(() => {
+                this._sim = document.getElementById('wand-sim');
+                const restartBtn = document.getElementById('btn-sim-restart');
+                this._sim.addEventListener('sim-ready', () => {
+                    restartBtn.disabled = false;
+                });
+                restartBtn.addEventListener('click', () => {
+                    this.hideSimNotice();
+                    this._sim.restart();
+                });
+                this._sim.addEventListener('sim-error', (e) => {
+                    const { message, phase } = e.detail || {};
+                    dbgError('sim', `sim-error (${phase}): ${message}`);
+                    this.showSimNotice(phase);
+                });
+                if (this._simPendingSource !== null) {
+                    const pending = this._simPendingSource;
+                    this._simPendingSource = null;
+                    this.pushSimSource(pending);
+                }
+            })
+            .catch((err) => {
+                dbgError('sim', 'failed to load wand-sim module', err);
+            });
+        return this._simLoadPromise;
+    }
 
-        const ul = document.getElementById('preview-tags');
-        ul.innerHTML = '';
-        this.requiredTags.forEach((t) => {
-            const li = document.createElement('li');
-            li.textContent = t;
-            ul.appendChild(li);
-        });
+    /** Push code into the sim only when it actually changed — the element's
+     * source setter reloads (and would restart the running game)
+     * unconditionally, and updatePreview() runs on every keystroke-adjacent
+     * chat/version event, not just real code changes. Only marks the code
+     * as "sent" (_simLastSource) once it's actually reached the element —
+     * setupSim() is still loading, this just queues it for that resolve. */
+    pushSimSource(code) {
+        if (!this._sim) {
+            this._simPendingSource = code;
+            return;
+        }
+        if (code === this._simLastSource) return;
+        this._simLastSource = code;
+        this.hideSimNotice();
+        this._sim.source = code;
+    }
+
+    /** A pydiodide failure (a syntax error, an unsupported import, a
+     * traceback out of play()) should never read as a scary raw error to a
+     * kindergarten teacher — just a calm note that this one is better
+     * tested on the real device. The raw message still goes to the debug
+     * console (see setupSim() above) so nothing is actually swallowed. */
+    showSimNotice(phase) {
+        const el = document.getElementById('sim-notice');
+        if (!el) return;
+        el.textContent = phase === 'boot'
+            ? "The practice window isn't available right now — you can still send this game to your wand."
+            : 'This game is a bit too tricky for the practice window — send it to your wand to try it for real.';
+        el.classList.remove('hidden');
+    }
+
+    hideSimNotice() {
+        document.getElementById('sim-notice')?.classList.add('hidden');
     }
 
     renderComponentList(targetId) {
