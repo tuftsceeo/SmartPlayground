@@ -15,6 +15,11 @@ export function createAudio(opts = {}) {
   let currentDuty = 0;
   let motorOn = false;
   let muted = false;
+  // Chrome's autoplay policy blocks AudioContext.resume() until a real
+  // user gesture (see unlock()) -- before that, ensureCtx() would just
+  // fail (and log a console warning) on every PWM write the game loop
+  // makes. Skip the attempt until unlock() has actually run.
+  let unlocked = false;
 
   const buzzEl = opts.buzzerEl || null;
   const motorEl = opts.motorEl || null;
@@ -53,7 +58,7 @@ export function createAudio(opts = {}) {
   function setPwm(freq, duty) {
     currentFreq = Number(freq) || 0;
     currentDuty = Number(duty) || 0;
-    const audio = ensureCtx();
+    const audio = unlocked ? ensureCtx() : null;
     const on = currentFreq > 20 && currentDuty > 0;
 
     if (!on) {
@@ -115,6 +120,7 @@ export function createAudio(opts = {}) {
    * panel) so the very first real tap unlocks it for everything after.
    */
   function unlock() {
+    unlocked = true;
     ensureCtx();
   }
 
