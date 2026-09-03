@@ -22,11 +22,14 @@ const MOVE_ORDER = ["jump", "shake", "flip"];
 
 const BUTTON_LABEL = { tap: "Tap the button", hold: "Hold the button" };
 
-// Plunger geometry (pinball-launcher style shake control — see
-// createPlunger below).
-const PLUNGER_TRACK_H = 110;
-const PLUNGER_HANDLE = 26;
-const PLUNGER_RANGE = PLUNGER_TRACK_H - PLUNGER_HANDLE;
+// Plunger geometry — a horizontal pull-and-release slider (see
+// createPlunger below). PLUNGER_LABEL_W is fixed so the widest label
+// ("BIG shake!") doesn't change the control's width and shift it
+// sideways in the row as the label text changes underneath it.
+const PLUNGER_TRACK_W = 130;
+const PLUNGER_HANDLE = 28;
+const PLUNGER_RANGE = PLUNGER_TRACK_W - PLUNGER_HANDLE;
+const PLUNGER_LABEL_W = 90;
 
 function plungerLabel(intensity) {
   if (intensity < 0.05) return "Pull & let go";
@@ -36,22 +39,22 @@ function plungerLabel(intensity) {
 }
 
 /**
- * Non-latching, magnitude-by-release control: drag the handle down (like
- * pulling a pinball plunger), release, and the pulled-back distance at the
- * moment of release becomes the gesture's intensity (0..1) — passed to
- * `onRelease`. The handle then springs back to rest on its own; it never
- * reflects a "current" value the way a slider does, since the underlying
+ * Non-latching, magnitude-by-release control: drag the handle right (like
+ * pulling a slingshot), release, and the pulled distance at the moment of
+ * release becomes the gesture's intensity (0..1) — passed to `onRelease`.
+ * The handle then springs back to rest on its own; it never reflects a
+ * "current" value the way a held slider does, since the underlying
  * gesture is a one-shot burst, not a held state.
  */
 function createPlunger(onRelease) {
   const wrap = document.createElement("div");
   wrap.className = "plunger";
   wrap.innerHTML = `
-    <div class="plunger-track" style="height:${PLUNGER_TRACK_H}px" data-act="plunger-track">
+    <div class="plunger-track" style="width:${PLUNGER_TRACK_W}px" data-act="plunger-track">
       <div class="plunger-fill"></div>
       <div class="plunger-handle"></div>
     </div>
-    <div class="plunger-label">Pull &amp; let go</div>
+    <div class="plunger-label" style="width:${PLUNGER_LABEL_W}px">Pull &amp; let go</div>
   `;
   const track = wrap.querySelector(".plunger-track");
   const fill = wrap.querySelector(".plunger-fill");
@@ -59,10 +62,10 @@ function createPlunger(onRelease) {
   const label = wrap.querySelector(".plunger-label");
 
   function setPull(px, animate) {
-    handle.style.transition = animate ? "top 180ms cubic-bezier(.2,1.4,.4,1)" : "none";
-    handle.style.top = px + "px";
-    fill.style.transition = animate ? "height 180ms cubic-bezier(.2,1.4,.4,1)" : "none";
-    fill.style.height = px + PLUNGER_HANDLE / 2 + "px";
+    handle.style.transition = animate ? "left 180ms cubic-bezier(.2,1.4,.4,1)" : "none";
+    handle.style.left = px + "px";
+    fill.style.transition = animate ? "width 180ms cubic-bezier(.2,1.4,.4,1)" : "none";
+    fill.style.width = px + PLUNGER_HANDLE / 2 + "px";
   }
   setPull(0, false);
 
@@ -71,9 +74,9 @@ function createPlunger(onRelease) {
 
   function pullFromEvent(e) {
     const rect = track.getBoundingClientRect();
-    const y = Math.max(0, Math.min(PLUNGER_RANGE, e.clientY - rect.top - PLUNGER_HANDLE / 2));
-    setPull(y, false);
-    const intensity = PLUNGER_RANGE > 0 ? y / PLUNGER_RANGE : 0;
+    const x = Math.max(0, Math.min(PLUNGER_RANGE, e.clientX - rect.left - PLUNGER_HANDLE / 2));
+    setPull(x, false);
+    const intensity = PLUNGER_RANGE > 0 ? x / PLUNGER_RANGE : 0;
     label.textContent = plungerLabel(intensity);
     return intensity;
   }

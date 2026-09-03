@@ -72,22 +72,24 @@ details.advanced summary { cursor: pointer; font-size: 12px; opacity: 0.7; }
   font: inherit; font-size: 12px; padding: 5px 8px; border-radius: 6px;
   border: 1px solid #333; background: #1c2030; color: inherit; width: 100px;
 }
-.plunger { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.plunger { display: flex; align-items: center; gap: 10px; }
 .plunger-track {
-  position: relative; width: 40px; border-radius: 10px;
+  position: relative; height: 34px; border-radius: 17px;
   background: #1c2030; border: 1px solid #333; touch-action: none;
-  overflow: hidden; cursor: grab;
+  overflow: hidden; cursor: grab; flex: none;
 }
 .plunger-fill {
-  position: absolute; left: 0; top: 0; width: 100%;
-  background: linear-gradient(180deg, #ffb37a, #ff7a4a);
+  position: absolute; left: 0; top: 0; height: 100%;
+  background: linear-gradient(90deg, #355078, #7eb6ff);
 }
 .plunger-handle {
-  position: absolute; left: 3px; width: 34px; height: 26px;
-  border-radius: 8px; background: #7eb6ff; border: 2px solid #3f7fc4;
+  position: absolute; top: 3px; width: 28px; height: 28px;
+  border-radius: 50%; background: #7eb6ff; border: 2px solid #3f7fc4;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
 }
-.plunger-label { font-size: 11px; opacity: 0.75; min-height: 14px; }
+/* Fixed width so the label text changing ("Gentle" -> "BIG shake!")
+   never resizes the row and shifts the track sideways. */
+.plunger-label { font-size: 12px; opacity: 0.85; flex: none; }
 .tilt-pad {
   position: relative; width: 100px; height: 100px;
   border-radius: 50%; background: #1c2030; border: 1px solid #333;
