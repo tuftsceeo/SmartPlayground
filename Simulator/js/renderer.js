@@ -1,46 +1,46 @@
 /**
- * 5x5 LED grid renderer.
- * applyFrame(pixels) where pixels is an array of [r,g,b] (0-255).
+ * Wand-face renderer — inlines assets/wand/WAND_FRONT.svg (a hand-authored,
+ * layer-named Illustrator export) into the shadow DOM and drives its live
+ * elements directly, rather than drawing a separate div grid over/instead
+ * of the artwork:
  *
- * Incoming bytes are the wand's actual NeoPixel duty cycle — leds.py has
- * already applied brightness.MULTIPLIER (max 0.5, see brightness.py) before
- * emit_led_frame() sends them here. A WS2812's duty cycle is a *linear*
- * light quantity, but a CSS/canvas RGB byte is interpreted as sRGB-encoded
- * (gamma ~2.2), so displaying the duty byte directly reads far dimmer than
- * the real LED looks — that's what the old flat displayGain multiply was
- * (imprecisely) compensating for. Converting it through the same
- * linear -> sRGB curve the Icon Display Station pipeline uses
- * (webapp/js/pipeline/ledcolor.js's linearToSrgb, ledDisplay.js's
- * authoredToDisplay) shows the color the LED actually appears to emit.
+ *   - LED1-2 .. LED25-2 (the "LED_MATRIX-2" duplicate group; LED_MATRIX,
+ *     the other copy, is hidden) — fill color per applyFrame(pixels).
+ *     Index is direct: pixels[i] (0-indexed) -> path id `LED${i+1}-2`.
+ *   - _BUTTON_UP / _BUTTON_DOWN — exactly one visible per setButtonDown().
+ *   - _SPEAKER — fill color per setSpeakerColor().
+ *
+ * Incoming LED bytes are the wand's actual NeoPixel duty cycle — leds.py
+ * has already applied brightness.MULTIPLIER (max 0.5, see brightness.py)
+ * before emit_led_frame() sends them here. A WS2812's duty cycle is a
+ * *linear* light quantity, but an SVG fill color is sRGB-encoded (gamma
+ * ~2.2), so using the duty byte directly reads far dimmer than the real
+ * LED looks. Converting it through the same linear -> sRGB curve the Icon
+ * Display Station pipeline uses (webapp/js/pipeline/ledcolor.js's
+ * linearToSrgb, ledDisplay.js's authoredToDisplay) shows the color the LED
+ * actually appears to emit.
  */
 
-function linearToSrgb(c) {
+export function linearToSrgb(c) {
   // c in [0,1] linear -> [0,1] sRGB-encoded (IEC 61966-2-1).
   const v = c <= 0.0031308 ? c * 12.92 : 1.055 * c ** (1 / 2.4) - 0.055;
   return Math.min(1, Math.max(0, v));
 }
 
-function dutyToDisplayByte(duty, gain) {
+export function dutyToDisplayByte(duty, gain = 1) {
   const linear = Math.min(1, Math.max(0, (duty * gain) / 255));
   return Math.round(linearToSrgb(linear) * 255);
 }
 
+export function dutyRgbToCss([r, g, b], gain = 1) {
+  return `rgb(${dutyToDisplayByte(r, gain)},${dutyToDisplayByte(g, gain)},${dutyToDisplayByte(b, gain)})`;
+}
+
+const LED_OFF_FILL = "#070707"; // matches WAND_FRONT.svg's own unlit LED color
+
 export function createRenderer(container, opts = {}) {
   const root = container;
-  root.classList.add("wand-led-grid");
-  root.style.setProperty("--wand-led-size", opts.size || "var(--wand-led-size, 18px)");
-  root.style.setProperty("--wand-grid-gap", opts.gap || "var(--wand-grid-gap, 6px)");
-  root.style.setProperty("--wand-led-radius", opts.radius || "var(--wand-led-radius, 4px)");
-
-  root.innerHTML = "";
-  const cells = [];
-  for (let i = 0; i < 25; i++) {
-    const cell = document.createElement("div");
-    cell.className = "wand-led-cell";
-    cell.dataset.index = String(i);
-    root.appendChild(cell);
-    cells.push(cell);
-  }
+  root.classList.add("wand-art");
 
   // Gain applied in linear space before sRGB encoding (physically what
   // running the LED harder would do) — defaults to 1 since the gamma
@@ -48,18 +48,74 @@ export function createRenderer(container, opts = {}) {
   // brightness, not artificially dim as before.
   let displayGain = opts.displayGain != null ? opts.displayGain : 1;
 
+  const ledEls = new Array(25).fill(null);
+  let buttonUpEl = null;
+  let buttonDownEl = null;
+  let speakerEl = null;
+  let ready = false;
+  let pendingFrame = null;
+  let pendingButtonDown = false;
+
+  async function load(svgUrl) {
+    let svgText;
+    try {
+      const res = await fetch(svgUrl);
+      if (!res.ok) throw new Error(`fetch ${svgUrl}: ${res.status}`);
+      svgText = await res.text();
+    } catch (err) {
+      console.error("wand-sim: failed to load wand artwork", err);
+      return;
+    }
+    root.innerHTML = svgText;
+    const svg = root.querySelector("svg");
+    if (!svg) {
+      console.error("wand-sim: WAND_FRONT.svg has no <svg> root");
+      return;
+    }
+    svg.removeAttribute("width");
+    svg.removeAttribute("height");
+    svg.style.width = "100%";
+    svg.style.height = "auto";
+    svg.style.display = "block";
+
+    // LED_MATRIX and LED_MATRIX-2 are duplicate copies of the same 25
+    // paths (see WAND_FRONT.svg) — only one is driven; the other is hidden
+    // outright rather than left stacked underneath.
+    const deadMatrix = svg.querySelector("#LED_MATRIX");
+    if (deadMatrix) deadMatrix.style.display = "none";
+    for (let i = 0; i < 25; i++) {
+      ledEls[i] = svg.querySelector(`#LED${i + 1}-2`);
+      // The SVG ships with these baked-in lit (LED_MATRIX-2's own default
+      // fill); force them off until the first real frame arrives instead
+      // of flashing that color for the beat before a game's first write.
+      if (ledEls[i]) ledEls[i].style.fill = LED_OFF_FILL;
+    }
+
+    buttonUpEl = svg.querySelector("#_BUTTON_UP");
+    buttonDownEl = svg.querySelector("#_BUTTON_DOWN");
+    speakerEl = svg.querySelector("#_SPEAKER");
+    setSpeakerColor(null);
+
+    ready = true;
+    setButtonDown(pendingButtonDown);
+    if (pendingFrame) {
+      applyFrame(pendingFrame);
+      pendingFrame = null;
+    }
+  }
+
   function applyFrame(pixels) {
+    if (!ready) {
+      pendingFrame = pixels;
+      return;
+    }
     const list = pixels || [];
     for (let i = 0; i < 25; i++) {
+      const el = ledEls[i];
+      if (!el) continue;
       const p = list[i] || [0, 0, 0];
-      const r = dutyToDisplayByte(p[0] || 0, displayGain);
-      const g = dutyToDisplayByte(p[1] || 0, displayGain);
-      const b = dutyToDisplayByte(p[2] || 0, displayGain);
       const lit = (p[0] || 0) + (p[1] || 0) + (p[2] || 0) > 0;
-      cells[i].style.background = lit ? `rgb(${r},${g},${b})` : "var(--wand-led-off, #1a1a1a)";
-      cells[i].style.boxShadow = lit
-        ? `0 0 var(--wand-led-glow, 8px) rgba(${r},${g},${b},0.55)`
-        : "none";
+      el.style.fill = lit ? dutyRgbToCss(p, displayGain) : LED_OFF_FILL;
     }
   }
 
@@ -67,5 +123,23 @@ export function createRenderer(container, opts = {}) {
     displayGain = Number(g) || 1;
   }
 
-  return { applyFrame, setDisplayGain, cells };
+  /** Exactly one of _BUTTON_UP / _BUTTON_DOWN is visible at a time —
+   * never both, matching the real button's physical state. */
+  function setButtonDown(down) {
+    pendingButtonDown = !!down;
+    if (!ready) return;
+    if (buttonUpEl) buttonUpEl.style.display = down ? "none" : "";
+    if (buttonDownEl) buttonDownEl.style.display = down ? "" : "none";
+  }
+
+  /** cssColor: a CSS color string while the buzzer plays, or null/falsy to
+   * return to the idle (unlit) look. */
+  function setSpeakerColor(cssColor) {
+    if (!speakerEl) return;
+    speakerEl.style.fill = cssColor || "#2d2d2d"; // matches Speaker_Background's own inner ring
+  }
+
+  load(opts.svgUrl);
+
+  return { applyFrame, setDisplayGain, setButtonDown, setSpeakerColor };
 }

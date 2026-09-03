@@ -5,7 +5,7 @@
  * Events: sim-ready, sim-frame, sim-print, sim-error, sim-stopped
  */
 
-import { createRenderer } from "./js/renderer.js";
+import { createRenderer, dutyRgbToCss } from "./js/renderer.js";
 import { getAccel, setTilt, setPose, fireMove, cancelMove } from "./js/motion.js";
 import { createAudio } from "./js/audio.js";
 import { createControls } from "./js/controls.js";
@@ -38,21 +38,12 @@ const STYLE = `
 *, *::before, *::after { box-sizing: border-box; }
 .wrap { display: flex; flex-direction: column; gap: 12px; }
 .main { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; }
-.wand-led-grid {
-  display: grid;
-  grid-template-columns: repeat(5, var(--wand-led-size, 18px));
-  gap: var(--wand-grid-gap, 6px);
-  padding: 12px;
-  background: var(--wand-grid-bg, #0a0c10);
-  border-radius: 12px;
-  width: max-content;
-}
-.wand-led-cell {
-  width: var(--wand-led-size, 18px);
-  height: var(--wand-led-size, 18px);
-  border-radius: var(--wand-led-radius, 4px);
-  background: var(--wand-led-off, #1a1a1a);
-}
+.wand-art { width: var(--wand-art-width, 200px); }
+/* Speaker fill fades rather than snapping (same reasoning as .ind below —
+   a melody.py note is ~150ms). The LED matrix deliberately has no
+   transition: game state (shake level, gesture training, ...) should
+   update as crisply as the real LEDs would. */
+.wand-art svg #_SPEAKER { transition: fill 0.4s ease-out; }
 .indicators { display: flex; gap: 8px; font-size: 12px; }
 .ind {
   padding: 4px 10px; border-radius: 10px;
@@ -149,6 +140,37 @@ async function fetchText(rel) {
   const res = await fetch(assetUrl(rel));
   if (!res.ok) throw new Error(`fetch ${rel}: ${res.status}`);
   return res.text();
+}
+
+// Frequency -> color for the SPEAKER glow. Not melody-specific: melody.py,
+// sound.py, and nfc_sound.py all share this exact table (vendor/lib/
+// buzzer.py's NOTE_FREQ paired with vendor/lib/leds.py's RED/ORANGE/...).
+// Games whose beeps aren't musical notes (jump, rainbow, ...) fall back to
+// gold rather than a mismatched note color.
+const NOTE_COLOR_HZ = [
+  [262, [130, 0, 0]],     // RED
+  [294, [120, 40, 0]],    // ORANGE
+  [330, [110, 120, 0]],   // YELLOW
+  [349, [0, 230, 0]],     // GREEN
+  [392, [0, 20, 255]],    // BLUE
+  [440, [50, 0, 250]],    // PURPLE
+  [494, [200, 80, 120]],  // PINK
+  [523, [140, 150, 150]], // WHITE
+];
+const SPEAKER_FALLBACK_RGB = [255, 210, 63]; // gold
+const NOTE_MATCH_TOLERANCE_HZ = 15;
+
+function speakerColorForFreq(freq) {
+  let best = SPEAKER_FALLBACK_RGB;
+  let bestDist = Infinity;
+  for (const [hz, rgb] of NOTE_COLOR_HZ) {
+    const d = Math.abs(hz - freq);
+    if (d < bestDist) {
+      bestDist = d;
+      best = d <= NOTE_MATCH_TOLERANCE_HZ ? rgb : SPEAKER_FALLBACK_RGB;
+    }
+  }
+  return dutyRgbToCss(best, 1);
 }
 
 const FILE_LIST = [
@@ -279,7 +301,9 @@ class WandSim extends HTMLElement {
     this._consoleEl = wrap.querySelector('[data-el="console"]');
     this._consoleEl.style.display = this.showConsole ? "block" : "none";
 
-    this._renderer = createRenderer(wrap.querySelector('[data-el="grid"]'));
+    this._renderer = createRenderer(wrap.querySelector('[data-el="grid"]'), {
+      svgUrl: assetUrl("assets/wand/WAND_FRONT.svg"),
+    });
     this._audio = createAudio({
       buzzerEl: wrap.querySelector('[data-el="buzzer"]'),
       motorEl: wrap.querySelector('[data-el="motor"]'),
@@ -349,7 +373,12 @@ rt.bootstrap(file_contents=contents, workdir="/sim/vendor")
         self._renderer.applyFrame(flat);
         self.dispatchEvent(new CustomEvent("sim-frame", { detail: { pixels: flat } }));
       });
-      this._pyodide.globals.set("_js_pwm", (f, d) => self._audio.setPwm(f, d));
+      this._pyodide.globals.set("_js_pwm", (f, d) => {
+        self._audio.setPwm(f, d);
+        const freq = Number(f) || 0;
+        const on = freq > 20 && (Number(d) || 0) > 0;
+        self._renderer.setSpeakerColor(on ? speakerColorForFreq(freq) : null);
+      });
       this._pyodide.globals.set("_js_motor", (on) => self._audio.setMotor(!!on));
       this._pyodide.globals.set("_js_print", (t) => {
         const line = String(t);
@@ -405,6 +434,7 @@ sim_state.set_log_callback(_js_log)
 
   _setButton(down) {
     if (this._sim) this._sim.set_button(!!down);
+    this._renderer.setButtonDown(!!down);
   }
 
   _pushAccel() {
