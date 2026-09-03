@@ -552,6 +552,8 @@ def _run_pull_mode():
         leds.off()
         return
 
+    memprobe.probe("pull-mode:entry")  # BENCH
+
     n = pull_flag.bump()
     print("# pull mode: attempt %d/%d -- Ctrl-C within %ds to stay at the REPL"
           % (n, pull_flag.MAX_ATTEMPTS, PULL_GRACE_S))
@@ -565,11 +567,15 @@ def _run_pull_mode():
     buz.beep(1100, 80)
 
     import code_puller
-    print("# mem_free before pull: %d" % gc.mem_free())
+    # BENCH: code_puller.pull() has its own memprobe calls bracketing the
+    # radio join and the transfer body (pull:pre-wifi-join, post-wifi-join,
+    # pre-body, post-body, cleanup, etc.) -- these two just mark the whole
+    # call's outer boundary from main.py's side of the import.
+    memprobe.probe("pull-mode:pre-pull")  # BENCH
     # enow is deliberately not passed: there is no ESP-NOW on this boot to
     # shut down, and omitting it keeps _shutdown_espnow() out of the path.
     ok = code_puller.pull(verbose=True, on_progress=_pull_progress)
-    print("# mem_free after pull: %d" % gc.mem_free())
+    memprobe.probe("pull-mode:post-pull")  # BENCH
 
     if ok:
         pull_flag.clear()

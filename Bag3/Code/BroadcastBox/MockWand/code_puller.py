@@ -22,6 +22,20 @@ try:
 except ImportError:
     Pin = None
 
+# BENCH: heap/IDF-heap instrumentation for the memory-stabilization work.
+# Not part of the pull protocol itself -- see lib/memprobe.py's docstring.
+# Optional import, matching this file's existing style (hashlib/Pin above):
+# code_puller.py predates memprobe.py and should still run without it.
+try:
+    import memprobe
+except ImportError:
+    class _NoProbe:
+        def probe(self, *a, **k): return None
+        def mark(self): return (0, 0)
+        def span(self, *a, **k): return None
+        def frag(self, *a, **k): return None
+    memprobe = _NoProbe()
+
 REV = "phase0-2026-09-01"
 print("# code_puller rev", REV)
 
@@ -309,19 +323,30 @@ def pull(host=HOST, port=PORT, ssid=SSID, pwd=PWD,
     cs = None
     sta = None
     prev_pm = None
+    memprobe.probe("pull:entry")  # BENCH
     try:
         # Inside the try: _connect_wifi() raises OSError if the Box's AP
         # never shows up, and it has already called enow.shutdown() by
         # then. Letting that escape left ESP-NOW dead, the STA still
         # active, and the caller unable to tell a failure from a crash --
         # it skipped the caller's own failure handling entirely.
+        #
+        # BENCH: this sta.active(True) is structurally the same allocation
+        # as enow.init()'s -- esp_wifi_init()/esp_wifi_start() on a radio
+        # that has never run WiFi this boot. It is the pull's own OOM risk
+        # point, distinct from (and in addition to) the *next* boot's
+        # enow.init(). frag() brackets it the same way main.py's pre-enow
+        # probe does.
+        memprobe.frag("pull:pre-wifi-join")  # BENCH
         sta, prev_pm = _connect_wifi(ssid, pwd, external_antenna, verbose, enow=enow)
+        memprobe.probe("pull:post-wifi-join")  # BENCH
 
         cs = socket.socket()
         cs.settimeout(SOCK_TIMEOUT_S)
         cs.connect((host, port))
         if verbose:
             print("[XFER] connected to %s:%d" % (host, port))
+        memprobe.probe("pull:post-sock-connect")  # BENCH
 
         header = _read_exact(cs, 4 + 32 + 1)
         expected_size = int.from_bytes(header[0:4], 'big')
@@ -332,7 +357,11 @@ def pull(host=HOST, port=PORT, ssid=SSID, pwd=PWD,
 
         if verbose:
             print("[XFER] receiving %s, %d bytes expected" % (dest, expected_size))
-            print("  mem_free before body: %d" % gc.mem_free())
+        # BENCH: the transfer body is the peak-memory window of the whole
+        # pull -- socket buffers, the sha256 hasher, and the chunk buffer
+        # are all live at once. This is the state that matters most for
+        # "how fragile is a pull", not just before/after the whole call.
+        memprobe.probe("pull:pre-body")  # BENCH
 
         buf = bytearray(CHUNK)
         mv = memoryview(buf)
@@ -361,8 +390,7 @@ def pull(host=HOST, port=PORT, ssid=SSID, pwd=PWD,
                         pass
                 sleep_ms(YIELD_MS)
 
-        if verbose:
-            print("  mem_free after body:  %d" % gc.mem_free())
+        memprobe.probe("pull:post-body")  # BENCH
 
         good = (received == expected_size) and (h.digest() == expected_digest)
 
@@ -386,10 +414,12 @@ def pull(host=HOST, port=PORT, ssid=SSID, pwd=PWD,
             if verbose:
                 print("[XFER] OK: %s promoted, %d bytes" % (dest, received))
             ok = True
+        memprobe.probe("pull:post-promote")  # BENCH
 
     except OSError as e:
         if verbose:
             print("[XFER] failed: %s" % (e,))
+        memprobe.probe("pull:exception")  # BENCH
     finally:
         if cs is not None:
             cs.close()
@@ -406,5 +436,6 @@ def pull(host=HOST, port=PORT, ssid=SSID, pwd=PWD,
             except OSError:
                 pass
         gc.collect()
+        memprobe.probe("pull:cleanup")  # BENCH -- what the NEXT reset inherits
 
     return ok
