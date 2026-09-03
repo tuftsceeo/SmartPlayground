@@ -130,7 +130,9 @@ details.advanced summary:hover { color: #a8531e; }
   border: 1.5px solid #e8e6f0; background: #ffffff; color: #231f2e; width: 100px;
 }
 .plunger { display: flex; align-items: center; gap: 8px; }
-.ctrl-icon-inline { width: 28px; height: 28px; object-fit: contain; flex: none; }
+/* Every WandGestures icon reads as detailed motion art, illegible below
+   64px -- same rule as .ctrl-icon and .ind-icon, no smaller "label" size. */
+.ctrl-icon-inline { width: 64px; height: 64px; object-fit: contain; flex: none; }
 /* Fixed width so the label text changing ("Gentle" -> "BIG shake!")
    never resizes the row and shifts the slider sideways. */
 .plunger-label { font-size: 12px; color: #8b859a; flex: none; }
@@ -328,6 +330,7 @@ class WandSim extends HTMLElement {
 
     this._renderer = createRenderer(wrap.querySelector('[data-el="grid"]'), {
       svgUrl: assetUrl("assets/wand/WAND_FRONT.svg"),
+      onButtonTap: (down) => this._setButton(down),
     });
     this._audio = createAudio({
       buzzerEl: wrap.querySelector('[data-el="buzzer"]'),

@@ -55,6 +55,16 @@ export function createRenderer(container, opts = {}) {
   let ready = false;
   let pendingFrame = null;
   let pendingButtonDown = false;
+  let tapPressed = false;
+
+  /** opts.onButtonTap(down) fires from a real click/tap on the drawn
+   * button artwork itself (see wireButtonTap below) -- de-duped so a
+   * stray extra pointerdown/pointerup pair doesn't double-fire. */
+  function setTapPressed(down) {
+    if (tapPressed === down) return;
+    tapPressed = down;
+    opts.onButtonTap?.(down);
+  }
 
   async function load(svgUrl) {
     let svgText;
@@ -108,6 +118,24 @@ export function createRenderer(container, opts = {}) {
     buttonDownEl = svg.querySelector("#_BUTTON_DOWN");
     speakerEl = svg.querySelector("#_SPEAKER");
     setSpeakerColor(null);
+
+    // The button is drawn right there on the wand face -- clicking it is
+    // the obvious, tempting thing to do, so it should actually work like
+    // the real physical button rather than only the separate "Press"
+    // control. _BUTTON_UP/_BUTTON_DOWN swap display per setButtonDown()
+    // mid-press, so pointerdown goes on whichever is currently visible,
+    // but release is listened for window-wide rather than via pointer
+    // capture on that same (possibly now-hidden) element.
+    for (const el of [buttonUpEl, buttonDownEl]) {
+      if (!el) continue;
+      el.style.cursor = "pointer";
+      el.addEventListener("pointerdown", (e) => {
+        e.preventDefault();
+        setTapPressed(true);
+      });
+    }
+    window.addEventListener("pointerup", () => setTapPressed(false));
+    window.addEventListener("pointercancel", () => setTapPressed(false));
 
     ready = true;
     setButtonDown(pendingButtonDown);
