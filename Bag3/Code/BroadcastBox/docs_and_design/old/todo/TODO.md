@@ -1,5 +1,9 @@
 # MockWand memory-stabilization TODO
 
+**Out of scope for this list:** porting the fix to the fielded
+`Bag3/Code/Wand Module/main.py`. Not being tracked here.
+
+============
 Follow-ups from the WiFi-OOM fix (lazy game imports + radio-first
 `enow.init()`, `wifi_chat_tap_debugging` branch). The core fix is
 committed and hardware-validated (clean boot x5, pull x6/6 with the
@@ -77,5 +81,3 @@ write-ups, not yet started:
 
 ---
 
-**Out of scope for this list:** porting the fix to the fielded
-`Bag3/Code/Wand Module/main.py`. Not being tracked here.
