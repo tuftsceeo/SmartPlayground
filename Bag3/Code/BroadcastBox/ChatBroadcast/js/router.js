@@ -117,6 +117,15 @@ export function setConnectionBadge(link) {
             btnLabel = "Disconnect";
             showRestart = true;
             break;
+        // Port is open and the cable is fine, but the Box has sent nothing at
+        // all. Distinct from "lost" (cable/port gone) because the remedy is
+        // different: restart the Box, don't go looking for the cable.
+        case "no-answer":
+            text = "● the Box isn't answering";
+            el.classList.add("repl");
+            btnLabel = "Disconnect";
+            showRestart = true;
+            break;
         case "idle":
         default:
             text = "● not connected";
@@ -128,7 +137,7 @@ export function setConnectionBadge(link) {
     if (btn) {
         btn.textContent = btnLabel;
         btn.disabled = btnDisabled;
-        btn.classList.toggle("is-connected", connectedClass || state === "waiting" || state === "stuck" || state === "wrong" || state === "sending" || state === "rebooting");
+        btn.classList.toggle("is-connected", connectedClass || state === "waiting" || state === "stuck" || state === "wrong" || state === "no-answer" || state === "sending" || state === "rebooting");
     }
     if (restartBtn) {
         restartBtn.classList.toggle("hidden", !showRestart);

@@ -27,6 +27,17 @@ const SILENCE_LIMIT_MS = 15000;
 const SILENCE_SERVE_MS = 45000;
 const REBOOT_LIMIT_MS = 20000;
 const WATCHDOG_TICK_MS = 2000;
+/* A running Box sends a heartbeat every HEARTBEAT_MS (5s, bbox_server.py) on
+   top of its boot hello, and GRACE_S is now 1s. So total silence for this long
+   does not mean "still waking up" -- it means the firmware is not running (or
+   the port we opened is not the one it talks on). Say so instead of waiting
+   forever. */
+const WAITING_LIMIT_MS = 12000;
+/* The Box only sends hello unsolicited at boot. If we opened the port after it
+   booted, that one announcement is already gone, so re-ask on a cadence rather
+   than betting everything on a single probe that may have crossed a busy
+   moment. Replies arrive as ordinary `hello` events and promote us to live. */
+const HELLO_NUDGE_MS = 2500;
 
 const SYSTEM_PROMPT_BASE = `You are an AI assistant helping teachers write MicroPython games for the PlaygroundV5 wand.
 
@@ -73,10 +84,12 @@ class App {
             boxMode: null,
             deviceInfo: null,
             lastMsgAt: 0,
+            waitingSince: 0,
             detail: null,
         };
         this._watchdogTimer = null;
         this._rebootTimer = null;
+        this._helloNudgeTimer = null;
         this._silenceLimitMs = SILENCE_LIMIT_MS;
         this._boxGames = []; // last games.list from the Box
         this._pendingReplaceSlug = null;
@@ -233,7 +246,12 @@ class App {
             dbg('device', `event: ${label}`, obj);
             this._noteMessage(obj);
             if (this.link.state === 'wrong') return;
-            if (this.link.state === 'waiting' || this.link.state === 'rebooting' || this.link.state === 'opening') {
+            // 'no-answer' is included deliberately: giving up must not be a
+            // one-way door. If the Box is restarted, finally finishes booting,
+            // or comes back from a blocking serve, its first message promotes
+            // us straight back to live with no user action.
+            if (this.link.state === 'waiting' || this.link.state === 'rebooting'
+                || this.link.state === 'opening' || this.link.state === 'no-answer') {
                 this.setLinkState('live');
             } else if (this.link.state === 'stuck' && obj?.type && obj.type !== 'repl') {
                 this.setLinkState('live');
@@ -259,7 +277,8 @@ class App {
             };
             // Prefer mode==SERVE for silence threshold once mode events exist.
             this._silenceLimitMs = obj.mode === 'SERVE' ? SILENCE_SERVE_MS : SILENCE_LIMIT_MS;
-            if (this.link.state === 'waiting' || this.link.state === 'rebooting') {
+            if (this.link.state === 'waiting' || this.link.state === 'rebooting'
+                || this.link.state === 'no-answer') {
                 this.setLinkState('live');
             } else {
                 this.paintLink();
@@ -292,7 +311,12 @@ class App {
         });
         this.device.on('booting', (obj) => {
             dbg('device', 'event: booting', obj);
-            if (this.link.state === 'live' || this.link.state === 'sending' || this.link.state === 'waiting' || this.link.state === 'rebooting') {
+            // Also from 'no-answer': a `# booting` line is proof the Box is
+            // alive after all, so stop saying it isn't answering and wait out
+            // the boot instead.
+            if (this.link.state === 'live' || this.link.state === 'sending'
+                || this.link.state === 'waiting' || this.link.state === 'rebooting'
+                || this.link.state === 'no-answer') {
                 this.setLinkState('rebooting');
                 this._armRebootTimer();
             }
@@ -336,11 +360,20 @@ class App {
         const prev = this.link.state;
         dbg('device', `link state ${prev} → ${state}`);
         this.link.state = state;
+        // Only `waiting` re-asks the Box to identify itself; every other state
+        // either already has an answer or has given up, so stop nudging.
+        if (state === 'waiting') {
+            if (prev !== 'waiting') this.link.waitingSince = Date.now();
+            this._armHelloNudge();
+        } else {
+            this._clearHelloNudge();
+        }
         if (state === 'idle' || state === 'lost') {
             this.link.boxMode = null;
             this.link.deviceInfo = null;
             this.link.detail = null;
             this.link.lastMsgAt = 0;
+            this.link.waitingSince = 0;
             this._silenceLimitMs = SILENCE_LIMIT_MS;
             this._clearRebootTimer();
         }
@@ -367,10 +400,27 @@ class App {
 
     _watchdogTick() {
         const s = this.link.state;
-        if (s === 'sending' || s === 'rebooting' || s === 'opening' || s === 'idle' || s === 'lost') return;
+        if (s === 'sending' || s === 'rebooting' || s === 'opening' || s === 'idle'
+            || s === 'lost' || s === 'no-answer') return;
+        // `waiting` is checked against when we started waiting, NOT against
+        // lastMsgAt — before first contact lastMsgAt is 0, so keying off it
+        // here is what let this state hang indefinitely.
+        if (s === 'waiting') {
+            const waited = Date.now() - (this.link.waitingSince || Date.now());
+            if (waited > WAITING_LIMIT_MS) {
+                dbgWarn('device', `no reply ${waited}ms after port open → no-answer`);
+                this.setLinkState('no-answer');
+                // Deliberately does not assert the Box is broken: connecting
+                // during a serve can block its main loop for ~30s
+                // (SOCK_REPLY_TIMEOUT_S), which looks identical from here.
+                // The state is not terminal — any inbound message promotes
+                // straight back to live — so the copy suggests, not accuses.
+                toast("The Box isn't answering. If it stays quiet, try Restart the Box.", true);
+            }
+            return;
+        }
         if (!this.link.lastMsgAt) return;
         const age = Date.now() - this.link.lastMsgAt;
-        if (s === 'waiting') return; // validate is soft; typed msg enters live
         if (s === 'live' || s === 'stuck') {
             if (age > this._silenceLimitMs) {
                 dbgWarn('device', `watchdog silence ${age}ms > ${this._silenceLimitMs}`);
@@ -378,6 +428,26 @@ class App {
                 toast('Lost the Box — check the cable.', true);
                 this.device.disconnect().catch(() => {});
             }
+        }
+    }
+
+    /** Re-ask the Box to identify itself while waiting. Harmless to repeat:
+     *  do_hello() just replies, and each send carries a fresh id. */
+    _armHelloNudge() {
+        if (this._helloNudgeTimer) return;
+        this._helloNudgeTimer = setInterval(() => {
+            if (this.link.state !== 'waiting') {
+                this._clearHelloNudge();
+                return;
+            }
+            this.device.nudgeHello().catch(() => {});
+        }, HELLO_NUDGE_MS);
+    }
+
+    _clearHelloNudge() {
+        if (this._helloNudgeTimer) {
+            clearInterval(this._helloNudgeTimer);
+            this._helloNudgeTimer = null;
         }
     }
 
@@ -846,7 +916,7 @@ class App {
             toast('Cancelled.');
             return;
         }
-        if (s === 'live' || s === 'stuck' || s === 'wrong') {
+        if (s === 'live' || s === 'stuck' || s === 'wrong' || s === 'no-answer') {
             dbg('app', 'toggleConnect() — disconnecting');
             await this.device.disconnect();
             this.setLinkState('idle');

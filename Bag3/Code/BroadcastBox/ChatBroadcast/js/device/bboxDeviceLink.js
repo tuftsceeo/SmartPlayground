@@ -15,8 +15,14 @@ const FORWARDED_EVENTS = [
   "games", "stats", "ok", "booting",
 ];
 
-/** Must exceed GRACE_S (~1s) + NFC init; plan §3.1. */
+/** Must exceed GRACE_S (~1s) + NFC init; plan §3.1. Kept for callers that
+ *  want a single long-deadline probe (restartFirmware's waitForRunning). */
 export const VALIDATE_LIMIT_MS = 8000;
+
+/** Per-nudge deadline. Short on purpose: the retry loop re-asks every
+ *  HELLO_NUDGE_MS, so a single unanswered probe should give up quickly
+ *  rather than overlapping the next one. */
+const NUDGE_TIMEOUT_MS = 2000;
 
 const EXPECTED_DEVICE = "broadcast_box";
 
@@ -129,15 +135,32 @@ export class BboxDeviceLink {
     this.atRepl = false;
     this.wrongDevice = false;
     await this.adapter.connect();
-    const json = this._attachJson();
-    logInfo(`sending proactive hello probe (timeout ${VALIDATE_LIMIT_MS}ms)`);
-    // Await only to populate deviceInfo — timing out must never fail connect.
-    try {
-      await json.hello({ timeoutMs: VALIDATE_LIMIT_MS });
-    } catch (e) {
-      logWarn(`hello probe: ${e.message}`);
-    }
+    this._attachJson();
+    // Fire the first hello without awaiting it. The reply arrives as an
+    // ordinary `hello` event either way, so awaiting bought nothing and cost
+    // the caller the full timeout sitting in "connecting…" before the UI
+    // could even show "waking up the Box". Retries are the host's job now
+    // (App._armHelloNudge), because one probe can cross a busy moment on the
+    // Box and nothing would ever ask again.
+    this.nudgeHello().catch(() => {});
     logInfo("=== connect() returned (port open; awaiting device messages) ===");
+  }
+
+  /**
+   * Ask the Box to identify itself. Never throws — a timeout here is normal
+   * (the Box may still be booting, or mid-serve with its main loop blocked),
+   * and the caller decides when silence has gone on too long.
+   * @returns {Promise<boolean>} true if the Box replied
+   */
+  async nudgeHello({ timeoutMs = NUDGE_TIMEOUT_MS } = {}) {
+    if (!this.json) return false;
+    try {
+      await this.json.hello({ timeoutMs });
+      return true;
+    } catch (e) {
+      logWarn(`hello nudge: ${e.message}`);
+      return false;
+    }
   }
 
   async probe() {
