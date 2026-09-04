@@ -69,11 +69,10 @@ python3 -m pytest
 `js/motion.js`'s `POSES` table was verified against the on-hand wand
 hardware with a live per-orientation test (each of 6 poses reads
 `accel.read()` and lights a distinct LED color; a real tap in each
-orientation was matched against which color/axis/sign lit up). This
-contradicts `ChatApp/knowledge/knowledge.py` §9's "confirmed from
-calibration" note (tip up → y=+1, left side up → x=+1) on both axis
-assignment and sign for the tip-up/tip-down pair — see the docstring at the
-top of `motion.js` for the exact table and history of the correction.
+orientation was matched against which color/axis/sign lit up).
+`ChatApp/knowledge/knowledge.py` §9 documented a different (wrong) table
+before this — corrected there too, to match — see the docstring at the top
+of `motion.js` for the exact table and history of the correction.
 
 Any game that reads `accel.read()` directly (rather than through the pose
 buttons) is exercising this same convention; `simpleicecream.py`'s

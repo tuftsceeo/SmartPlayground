@@ -118,10 +118,10 @@
 #     → x,y,z = accel.read(); magnitude = math.sqrt(x*x+y*y+z*z); magnitude > 1.4
 #
 # "tilt left" / "lean left"
-#     → x, y, z = accel.read(); x > 0.5   (positive X = tilt left)
+#     → x, y, z = accel.read(); y > 0.5   (positive Y = tilt left)
 #
 # "tilt right" / "lean right"
-#     → x, y, z = accel.read(); x < -0.5
+#     → x, y, z = accel.read(); y < -0.5
 #
 # "tilt forward" / "point down" / "tip forward"
 #     → x, y, z = accel.read(); z < -0.5
@@ -189,15 +189,17 @@
 # it handles the swap. Raw leds.np[i] = (r, g, b) is also (R, G, B) because
 # the _ScaledNeoPixel wrapper converts before writing.
 #
-# Accelerometer Orientation (confirmed from calibration):
+# Accelerometer Orientation (re-verified against on-hand hardware with a
+# live per-orientation LED-color test; the previous "confirmed from
+# calibration" table had tip up/down on the wrong axis AND sign):
 #   accel.read() → (x, y, z) in g units
-#   Wand held upright (tip up, handle down): y ≈ +1.0g
+#   Wand held upright (tip up, handle down): x ≈ -1.0g
 #   FACE up  (LED side up)  → z ≈ -1.0
 #   BACK up                 → z ≈ +1.0
-#   LEFT side up            → x ≈ +1.0
-#   RIGHT side up           → x ≈ -1.0
-#   TIP up (upright)        → y ≈ +1.0
-#   HANDLE up               → y ≈ -1.0
+#   LEFT side up            → y ≈ +1.0
+#   RIGHT side up           → y ≈ -1.0
+#   TIP up (upright)        → x ≈ -1.0
+#   HANDLE up               → x ≈ +1.0
 #
 # Vibration Motor (GPIO21):
 #   motor = machine.Pin(21, machine.Pin.OUT, value=0)
@@ -683,13 +685,15 @@ if __name__ == "__main__":
 # Shake / hit:      magnitude > 1.4
 # Gentle motion:    magnitude > 0.3 and < 1.4
 #
-# ── Orientation / tilt ───────────────────────────────────────────────
-# Wand upright (tip up):    y ≈ +1.0
+# ── Orientation / tilt (re-verified against on-hand hardware; see the
+#    orientation table in section 2 for how this differs from the older,
+#    incorrect "confirmed from calibration" figures) ───────────────────
+# Wand upright (tip up):    x ≈ -1.0
 # LED face up (flat):       z ≈ -1.0
-# Tilt left:                x > 0.5
-# Tilt right:               x < -0.5
+# Tilt left:                y > 0.5
+# Tilt right:               y < -0.5
 # Tilt toward face:         z decreases (goes negative)
-# Lean forward (tip down):  y decreases
+# Lean forward (tip down):  x increases (toward +1.0)
 #
 # ── Usage pattern ────────────────────────────────────────────────────
 # if self.accel:

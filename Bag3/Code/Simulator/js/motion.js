@@ -5,14 +5,15 @@
  * Orientation convention: verified against the on-hand wand hardware
  * with a live per-orientation test (each of the 6 poses reads
  * accel.read() and lights a distinct LED color; a real tap in each
- * orientation was matched against which color/axis/sign lit up) --
- * NOT ChatApp/knowledge/knowledge.py §9's "confirmed from calibration"
- * note (tip up -> y=+1, left side up -> x=+1, face up -> z=-1). Face
- * up/down is unchanged from that note. Left/right up swap x and y from
- * it, same sign (the "axes are swapped" fix this file first tried).
- * Tip up/down also swap x and y, but with the sign flipped too -- x=+1
- * (this file's first, uncorrected guess) was still wrong; the real
- * hardware reads x=-1 for tip up, not x=+1:
+ * orientation was matched against which color/axis/sign lit up).
+ * ChatApp/knowledge/knowledge.py §9 has been corrected to match this
+ * table -- its older "confirmed from calibration" note (tip up -> y=+1,
+ * left side up -> x=+1) had face up/down right but got both axis
+ * assignment and sign wrong for tip up/down, and axis (though not sign)
+ * wrong for left/right up. An earlier version of this file's own first
+ * fix attempt only swapped axes without flipping tip up/down's sign
+ * (x=+1) and was equally wrong -- the real hardware reads x=-1 for tip
+ * up, not x=+1:
  *
  *   tip up (rest)     (-1, 0, 0)
  *   tip down          (+1, 0, 0)
