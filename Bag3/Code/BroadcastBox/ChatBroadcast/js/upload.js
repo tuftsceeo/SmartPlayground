@@ -26,8 +26,13 @@ export function validateJumpin(code) {
     return [true, null];
 }
 
-export async function uploadPayload(device, code, onProgress) {
-    if (!device?.isConnected()) {
+export async function uploadPayload(device, code, onProgress, opts = {}) {
+    // App passes link.state; only live/sending may push.
+    if (opts.linkState) {
+        if (opts.linkState !== "live" && opts.linkState !== "sending") {
+            return { ok: false, error: "Connect your Broadcast Box first." };
+        }
+    } else if (!device?.isConnected()) {
         return { ok: false, error: "Connect your Broadcast Box first." };
     }
     const [valid, err] = validateJumpin(code);
@@ -35,7 +40,7 @@ export async function uploadPayload(device, code, onProgress) {
         return { ok: false, error: err };
     }
     try {
-        return await device.sendGame(code, {}, onProgress);
+        return await device.sendGame(code, opts.meta || {}, onProgress);
     } catch (e) {
         return { ok: false, error: e.message || String(e) };
     }

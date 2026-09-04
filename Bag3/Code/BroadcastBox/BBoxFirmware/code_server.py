@@ -28,6 +28,8 @@ AP_SETTLE_MS = 300  # same value the wand uses post-cycle
 FS_ROOT = '/flash'
 DEFAULT_SRC = FS_ROOT + '/payload.py'
 DEFAULT_DEST = 'jumpin.py'
+GAMES_DIR = FS_ROOT + '/games'
+ACTIVE_PATH = FS_ROOT + '/active.txt'
 
 
 def _emit(cb, event):
@@ -105,6 +107,7 @@ class CodeServer:
                  port=PORT, ssid=SSID, pwd=PWD):
         self.src_path = src_path
         self.dest_name = dest_name
+        self.active_slug = None
         self.port = port
         self.ssid = ssid
         self.pwd = pwd
@@ -133,11 +136,47 @@ class CodeServer:
         """Completed successful serves this session."""
         return self._pickups
 
+    def set_game(self, slug, src_path=None):
+        """Point the server at /flash/games/<slug>.py serving as <slug>.py."""
+        if not slug:
+            self.active_slug = None
+            self.src_path = DEFAULT_SRC
+            self.dest_name = DEFAULT_DEST
+            return
+        self.active_slug = slug
+        self.src_path = src_path if src_path else (GAMES_DIR + '/' + slug + '.py')
+        self.dest_name = slug + '.py'
+
+    def resolve(self, slug=None):
+        """Resolve slug (or /flash/active.txt) into src_path/dest_name.
+
+        Returns the slug used, or None if nothing is serveable.
+        """
+        if slug:
+            path = GAMES_DIR + '/' + slug + '.py'
+            try:
+                if os.stat(path)[6] > 0:
+                    self.set_game(slug, path)
+                    return slug
+            except OSError:
+                return None
+            return None
+        try:
+            with open(ACTIVE_PATH, 'r') as f:
+                active = f.read().strip()
+        except OSError:
+            active = ''
+        if active:
+            return self.resolve(active)
+        return None
+
     def arm(self):
         if self._armed:
             return True
+        # Prefer active game; fall back to whatever src_path already is.
         if not self._file_ready():
-            return False
+            if self.resolve() is None or not self._file_ready():
+                return False
         self._ap = _start_ap(self.ssid, self.pwd)
         self._srv = socket.socket()
         self._srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -200,6 +239,11 @@ class CodeServer:
         self._last_ok = ok
         if ok:
             self._pickups += 1
+        try:
+            import stats_log
+            stats_log.record_pull(self.active_slug or '?', ok)
+        except Exception as e:
+            print("# stats pull failed: %s" % str(e))
         return 'ok' if ok else 'fail'
 
     def _file_ready(self):

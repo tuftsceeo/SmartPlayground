@@ -72,6 +72,7 @@
                     <h1>Wand &amp; Station Coder</h1>
                     <div class="header-actions">
                         <span id="connection-badge">● not connected</span>
+                        <button class="btn-secondary btn-restart-box hidden" id="btn-restart-box" type="button">Restart the Box</button>
                         <button class="btn-teal btn-connect-header" id="btn-connect-header" type="button">Connect</button>
                         <button class="icon-btn" id="btn-mode-gear" type="button" title="Switch to advanced mode">⚙</button>
                     </div>
@@ -85,6 +86,10 @@
                         <div class="role-item disabled stations" title="Coming later">
                             <div style="font-size: 18px">🎯</div>
                             Stations
+                        </div>
+                        <div class="role-item box-lib hidden" id="btn-box-library" title="Games on the Box" role="button" tabindex="0">
+                            <div style="font-size: 18px">📦</div>
+                            Box
                         </div>
                     </div>
                     <div class="chat-col">
@@ -160,6 +165,9 @@
             <div class="overlay-card">
                 <h2>Send this code?</h2>
                 <p id="send-confirm-sub"></p>
+                <label class="send-name-label" for="send-game-name">Game name</label>
+                <input type="text" id="send-game-name" maxlength="48" placeholder="Short name for this game" />
+                <p id="send-name-error" class="modal-error"></p>
                 <p style="font-weight:700; margin: 12px 0 4px;">You'll need:</p>
                 <ul class="component-list" id="send-confirm-components"></ul>
                 <div id="send-progress-wrap" class="hidden">
@@ -168,6 +176,23 @@
                 </div>
                 <button class="btn-primary" id="btn-send-confirm" style="width: 100%; margin-top: 16px">Send</button>
                 <button class="btn-secondary" id="btn-send-cancel" style="width: 100%; margin-top: 8px">Not yet</button>
+            </div>
+        </div>
+
+        <!-- Advanced: Box library + stats -->
+        <div id="box-library-overlay" class="overlay-view hidden">
+            <div class="overlay-card overlay-card-wide">
+                <h2>Games on the Box</h2>
+                <p id="box-library-status" class="muted">Connect in advanced mode to manage games.</p>
+                <ul id="box-library-list" class="box-library-list"></ul>
+                <div class="box-library-actions">
+                    <button class="btn-secondary" id="btn-box-lib-refresh" type="button">Refresh</button>
+                    <button class="btn-secondary" id="btn-box-lib-clear" type="button">Clear all</button>
+                </div>
+                <h3 style="margin-top:16px">Usage</h3>
+                <pre id="box-stats-text" class="box-stats-text">—</pre>
+                <button class="btn-secondary" id="btn-box-stats-reset" type="button">Reset stats</button>
+                <button class="btn-primary" id="btn-box-lib-close" style="width:100%; margin-top:16px" type="button">Close</button>
             </div>
         </div>
 

@@ -11,8 +11,12 @@ import { logInfo, logWarn, toText } from "./serialLog.js";
 
 const FORWARDED_EVENTS = [
   "hello", "heartbeat", "fatal", "bye", "error", "repl",
-  "armed", "card_present", "card_written", "info",
+  "armed", "card_present", "card_written", "info", "mode",
+  "games", "stats", "ok", "booting",
 ];
+
+/** Must exceed GRACE_S (~1s) + NFC init; plan §3.1. */
+export const VALIDATE_LIMIT_MS = 8000;
 
 const EXPECTED_DEVICE = "broadcast_box";
 
@@ -31,6 +35,11 @@ export class BboxDeviceLink {
     this.deviceInfo = null;
     this._autoRecoverArmed = false;
     this._listeners = new Map();
+    this.adapter.onClose = (reason) => {
+      logWarn(`adapter onClose: ${reason}`);
+      this.running = false;
+      this._emit("close", { reason });
+    };
   }
 
   isConnected() {
@@ -75,7 +84,7 @@ export class BboxDeviceLink {
     this.json = json;
     for (const type of FORWARDED_EVENTS) {
       json.on(type, (obj) => {
-        this._markRunning(obj);
+        if (type !== "booting") this._markRunning(obj);
         this._emit(type, obj);
       });
     }
@@ -121,8 +130,13 @@ export class BboxDeviceLink {
     this.wrongDevice = false;
     await this.adapter.connect();
     const json = this._attachJson();
-    logInfo("sending proactive hello probe (fire-and-forget)");
-    json.hello({ timeoutMs: 4000 }).catch((e) => logWarn(`hello probe: ${e.message}`));
+    logInfo(`sending proactive hello probe (timeout ${VALIDATE_LIMIT_MS}ms)`);
+    // Await only to populate deviceInfo — timing out must never fail connect.
+    try {
+      await json.hello({ timeoutMs: VALIDATE_LIMIT_MS });
+    } catch (e) {
+      logWarn(`hello probe: ${e.message}`);
+    }
     logInfo("=== connect() returned (port open; awaiting device messages) ===");
   }
 
@@ -184,18 +198,18 @@ export class BboxDeviceLink {
     }
   }
 
-  async sendGame(code, meta, onProgress) {
+  /**
+   * @param {string} code
+   * @param {{ destPath?: string, destLabel?: string }} [meta]
+   */
+  async sendGame(code, meta = {}, onProgress) {
     this._detachJson();
     let pushResult;
     try {
-      pushResult = await pushPayload(this.repl, this.adapter, code, onProgress);
+      pushResult = await pushPayload(this.repl, this.adapter, code, onProgress, meta);
     } finally {
       this._attachJson();
     }
-    // No separate "arm" round-trip here -- the box arms itself on the reboot
-    // that already happened inside pushPayload(), as soon as it sees
-    // payload.py on flash. That's what keeps card-writing working after
-    // the box is unplugged and carried off to the playground.
     return pushResult;
   }
 
@@ -215,6 +229,10 @@ export class BboxDeviceLink {
 
   disarm() {
     return this._requireJson().disarm();
+  }
+
+  sendCmd(cmd, opts) {
+    return this._requireJson().send(cmd, opts);
   }
 
   copySerialLog() {

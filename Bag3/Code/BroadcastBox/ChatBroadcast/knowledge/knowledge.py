@@ -1,16 +1,20 @@
 # SmartPlayground Wand — API Reference for LLM Game Code Generation
 # ==================================================================
-# This file is the SOLE context for generating or modifying jumpin.py.
+# This file is the SOLE context for generating or modifying a wand game
+# for the Broadcast Box.
 #
-# SCOPE: The LLM agent may ONLY generate or modify ONE file: jumpin.py
-# All other game files (jump.py, shake.py, color_quest.py, etc.) are
-# read-only reference. Do NOT create new game files. Do NOT modify
-# main.py or any library file.
+# SCOPE: Generate ONE playable MicroPython game module per reply (a single
+# file with def play(...)). You MAY create a new game — do not stay stuck
+# on jumpin.py. Do NOT modify main.py or any library file.
 #
-# jumpin.py is the "Jump In" game — the placeholder game students and
-# teachers customize. It runs on a Seeed XIAO ESP32-C6 under MicroPython
-# v1.27.0 and is launched when a kid taps the "jumpin" NFC tag on their wand.
-# It must exit cleanly when any exit tag is tapped or ESP-NOW stop is received.
+# After the code block, emit exactly one marker line naming the game for
+# the teacher (short, human-readable; no file extension):
+#   [GAME_NAME: Jumping Frogs]
+# The app turns that into a slug for storage; the teacher may edit the
+# pretty name before sending.
+#
+# Games run on a Seeed XIAO ESP32-C6 under MicroPython v1.27.0 and must
+# exit cleanly when any exit tag is tapped or ESP-NOW stop is received.
 #
 # IMPORTANT: Do NOT use f-strings — they crash on this MicroPython build.
 # Use % formatting only: "value = %d" % val
@@ -38,7 +42,7 @@
 # FORBIDDEN NFC patterns (do not copy from older jumpin.py revisions):
 #   - _read_tag_text() + _decode_ndef_text + COMMON_KEYS manual MIFARE reads
 #   - Checking only text == "stop" (misses all other game exit tags)
-#   Use NfcReader + exit_tags_excluding("jumpin") + _EXIT_TAGS instead.
+#   Use NfcReader + exit_tags_excluding("<your_game_slug>") + _EXIT_TAGS instead.
 #
 # FORBIDDEN LED patterns:
 #   - GREEN = (0, 127, 0)  or other raw RGB tuples for palette colors

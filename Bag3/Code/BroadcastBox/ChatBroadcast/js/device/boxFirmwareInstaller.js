@@ -29,26 +29,29 @@ export async function installBoxFirmware(repl, adapter, onProgress) {
 }
 
 /**
- * Push payload.py and reset. The box arms itself (AP + card-write-ready)
- * on this reboot as soon as it sees payload.py on flash -- no separate
- * "arm" round-trip from the laptop. That matters because the box has to
- * keep working after it's unplugged and carried to the playground; a
- * standing fact on flash shouldn't depend on a live serial handshake.
- * See bbox_server.py's _try_arm(), called from run() right after boot.
+ * Push a game file and reset. Destination defaults to /flash/payload.py for
+ * legacy callers; P4 passes /flash/games/<slug>.py. The box boot-scans the
+ * games directory and updates index.json / active.txt on reboot.
  */
-export async function pushPayload(repl, adapter, code, onProgress) {
-  onProgress?.({ current: 1, total: 1, file: "payload.py", status: "uploading" });
+export async function pushPayload(repl, adapter, code, onProgress, meta = {}) {
+  const destPath = meta.destPath || "/flash/payload.py";
+  const label = meta.destLabel || destPath.split("/").pop() || "payload.py";
+  onProgress?.({ current: 1, total: 1, file: label, status: "uploading" });
   await repl.enterRepl();
   await repl.enterRawRepl();
-  await repl.uploadFile("/flash/payload.py", code);
-  onProgress?.({ current: 1, total: 1, file: "payload.py", status: "uploaded" });
+  // Ensure /flash/games exists when pushing into the library.
+  if (destPath.startsWith("/flash/games/")) {
+    await repl.ensureDirectory("/flash/games");
+  }
+  await repl.uploadFile(destPath, code);
+  onProgress?.({ current: 1, total: 1, file: label, status: "uploaded" });
   await repl.exitRawRepl();
   await repl.softReset();
   const restarted = await waitForTypedMessage(adapter, 10000);
   if (!restarted) {
     return { ok: false, error: "Code uploaded, but the Box did not confirm restart." };
   }
-  onProgress?.({ current: 1, total: 1, file: "payload.py", status: "done" });
+  onProgress?.({ current: 1, total: 1, file: label, status: "done" });
   return { ok: true };
 }
 

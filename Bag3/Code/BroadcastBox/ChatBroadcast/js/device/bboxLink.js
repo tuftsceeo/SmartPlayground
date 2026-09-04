@@ -55,6 +55,12 @@ export class BboxLink {
         logDrop(line, { reason: "does not start with '{'" });
         if (line.includes(">>>") || line.includes("MicroPython v") || line.includes('Type "help()"')) {
           this._emit("repl", { reason: "prompt/banner seen", line });
+        } else if (
+          line.startsWith("# booting") ||
+          /^#\s*\d+\.\.\./.test(line)
+        ) {
+          // Boot-grace countdown is proof of life across a soft reset.
+          this._emit("booting", { line });
         }
         continue;
       }

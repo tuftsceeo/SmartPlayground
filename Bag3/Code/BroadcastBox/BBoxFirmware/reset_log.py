@@ -19,6 +19,10 @@ PATH = '/flash/resetlog.txt'
 MODE_PATH = '/flash/lastmode.txt'
 MAX_LINES = 40
 
+# Global switch: leave the logging code in place, gate the writes.
+# Stats (stats_log.py) are a product feature and must NOT honor this flag.
+LOG_ENABLED = False
+
 # Not every reset_cause() value machine exposes is meaningful here, and not
 # every port defines all of them (BROWNOUT_RESET in particular is a
 # recent-ish addition on the ESP32 port) -- look each one up with getattr so
@@ -49,6 +53,8 @@ def note_mode(mode):
     reported as it happens. Mode changes are teacher-paced, seconds apart at
     most, so one small flash write per change costs nothing.
     """
+    if not LOG_ENABLED:
+        return
     try:
         with open(MODE_PATH, 'w') as f:
             f.write(str(mode))
@@ -85,6 +91,8 @@ def record(note=""):
     A full or read-only filesystem degrades to a printed warning rather than
     crashing the caller -- this must not be the reason the box fails to boot.
     """
+    if not LOG_ENABLED:
+        return
     try:
         cause = cause_name(machine.reset_cause())
         line = "%d %s was:%s" % (time.ticks_ms(), cause, last_mode())

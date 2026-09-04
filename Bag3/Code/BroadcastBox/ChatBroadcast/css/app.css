@@ -231,6 +231,13 @@ body {
 #connection-badge.connected { color: #1c9a82; background: #e9fbf6; }
 #connection-badge.repl { color: #6c4cd1; background: #f2eefc; }
 #connection-badge.wrong { color: #c0392b; background: #fdecea; }
+#connection-badge.lost { color: #c0392b; background: #fdecea; }
+#connection-badge.sending { color: #b36b00; background: #fff6e5; }
+.btn-restart-box {
+    padding: 6px 12px;
+    border-radius: 10px;
+    font: 800 12px 'Nunito';
+}
 .btn-connect-header {
     padding: 6px 14px;
     border-radius: 10px;
@@ -264,6 +271,58 @@ body {
 }
 .role-item.disabled { color: #a8a4b5; opacity: 0.7; }
 .role-rail:not(.advanced) .role-item.stations { display: none; }
+.role-rail:not(.advanced) .role-item.box-lib { display: none; }
+.role-item.box-lib { cursor: pointer; }
+.role-item.box-lib:hover { background: #f5f3ff; }
+
+.send-name-label {
+    display: block;
+    font: 700 13px 'Nunito';
+    margin: 12px 0 4px;
+    text-align: left;
+}
+#send-game-name {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    font: 600 14px 'Nunito';
+    box-sizing: border-box;
+}
+.overlay-card-wide { max-width: 480px; }
+.box-library-list {
+    list-style: none;
+    padding: 0;
+    margin: 12px 0;
+    max-height: 220px;
+    overflow: auto;
+    text-align: left;
+}
+.box-library-list li {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+    font: 600 13px 'Nunito';
+}
+.box-library-list li.active-game { color: #1c9a82; }
+.box-library-list .lib-name { flex: 1; }
+.box-library-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+.box-stats-text {
+    text-align: left;
+    background: #f7f6fb;
+    border-radius: 8px;
+    padding: 10px;
+    font: 12px/1.4 ui-monospace, monospace;
+    max-height: 140px;
+    overflow: auto;
+}
+.muted { color: #888; font-size: 13px; }
 
 .chat-col {
     flex: 1 1 420px;

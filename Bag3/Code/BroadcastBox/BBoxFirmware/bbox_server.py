@@ -27,17 +27,18 @@ design/phase-a-box-power-modes.plan.md for the state diagram.
 import gc
 import time
 import machine
+import os
 
 import reset_log
 from buttons import Buttons
 from json_link import JsonLink
-from code_server import CodeServer, FS_ROOT, DEFAULT_SRC, SSID
+from code_server import CodeServer, FS_ROOT, DEFAULT_SRC, SSID, GAMES_DIR, ACTIVE_PATH
 from card_writer import NfcWriter, existing_text, write_text
 from bbox_ui import BboxUI
 
 VERSION = "0.1.0"
 HEARTBEAT_MS = 5000
-GRACE_S = 5
+GRACE_S = 1
 
 # Grove HY2.0-4P on StickS3, sda=9/scl=10 (same pins as the PN532 it
 # replaces). Reader chip is the WS1850S (addr 0x28, MFRC522-register-
@@ -50,12 +51,10 @@ NFC_ADDR = 0x28
 I2C_FREQ = 100_000
 
 PAYLOAD_PATH = DEFAULT_SRC
+INDEX_PATH = GAMES_DIR + '/index.json'
 
-# The tags a teacher writes for one game. Phase A text only: the wand
-# matches tag text by exact set membership, so these must stay strings it
-# already knows -- "getcode" is in its BROADCAST set and "jumpin" in its
-# GAME_TAGS. The getcode:<name> format from the design doc needs the wand to
-# prefix-parse and lands with the wand change in Phase B.
+# Legacy single-game tags — replaced at boot by _rebuild_entries() from the
+# games index. Kept as a fallback if the index is empty.
 TAG_LIST = ("getcode", "jumpin")
 DONE_ENTRY = "DONE"
 
@@ -86,7 +85,8 @@ VERBOSE = False
 
 
 def _log(msg):
-    print("# [box] %s" % msg)
+    if reset_log.LOG_ENABLED:
+        print("# [box] %s" % msg)
 
 
 def _dbg(msg):
@@ -120,6 +120,8 @@ class BboxServer:
         self._entries = list(TAG_LIST) + [DONE_ENTRY]
         self._cursor = 0
         self._written = {}  # entry name -> count written this session
+        self._index = {}  # slug -> {name, added}
+        self._active = None
 
         self._buttons = Buttons()
         self._b1_was_down = False  # for deriving a press edge
@@ -130,10 +132,17 @@ class BboxServer:
         self.handlers = {
             "hello": self.do_hello,
             "info": self.do_info,
+            "mode": self.do_mode,
             "arm": self.do_arm,
             "disarm": self.do_disarm,
             "repl": self.do_repl,
             "reboot": self.do_reboot,
+            "games.list": self.do_games_list,
+            "games.select": self.do_games_select,
+            "games.delete": self.do_games_delete,
+            "games.clear": self.do_games_clear,
+            "stats.get": self.do_stats_get,
+            "stats.reset": self.do_stats_reset,
         }
 
     # ─────────────────────────────────────────────
@@ -195,6 +204,14 @@ class BboxServer:
 
         # --- enter ---
         if new_mode == MODE_SERVE:
+            if self._active:
+                self.code.set_game(self._active)
+            elif self.code.resolve() is None:
+                print("# SERVE refused: no active game")
+                self.ui.paint_error("no game to serve")
+                time.sleep_ms(1500)
+                self._repaint()
+                return
             if not self.code.arm():
                 # No game on flash, or the socket would not bind. Say so and
                 # stay where we were rather than sitting on a dead AP.
@@ -217,7 +234,22 @@ class BboxServer:
         self._write_state = W_MENU
         self._nfc_fail_count = 0
         print("# mode %s -> %s" % (old, new_mode))
+        self._emit_mode()
         self._repaint()
+
+    def _mode_payload(self, rid=None):
+        """JSON for mode event / cmd reply."""
+        return {
+            "type": "mode",
+            "id": rid,
+            "mode": self._mode,
+            "games": len(self._index),
+            "active": self._active,
+            "ssid": SSID if self._mode == MODE_SERVE else None,
+        }
+
+    def _emit_mode(self, rid=None):
+        self.link.send(self._mode_payload(rid))
 
     def _repaint(self):
         if self._mode == MODE_WRITE:
@@ -259,6 +291,9 @@ class BboxServer:
     def do_hello(self, cmd, rid):
         self._send_hello(rid)
 
+    def do_mode(self, cmd, rid):
+        self._emit_mode(rid)
+
     def do_info(self, cmd, rid):
         self.link.send({
             "type": "info", "id": rid,
@@ -277,8 +312,10 @@ class BboxServer:
         """
         if not self._payload_ready():
             self.link.send({"type": "error", "id": rid, "code": "no_payload",
-                             "msg": "payload.py not on device"})
+                             "msg": "no game on device"})
             return
+        if self._active:
+            self.code.set_game(self._active)
         self._set_mode(MODE_SERVE)
         if self._mode == MODE_SERVE:
             self.link.send({"type": "ok", "id": rid, "cmd": "arm", "ssid": SSID})
@@ -300,12 +337,258 @@ class BboxServer:
         if hard:
             machine.reset()
 
-    def _payload_ready(self):
+    def do_games_list(self, cmd, rid):
+        lst = []
+        for slug, meta in self._index.items():
+            path = GAMES_DIR + '/' + slug + '.py'
+            try:
+                nbytes = os.stat(path)[6]
+            except OSError:
+                nbytes = 0
+            lst.append({
+                "slug": slug,
+                "name": meta.get("name", slug),
+                "bytes": nbytes,
+                "pulls": 0,
+            })
+        # Enrich pulls from stats if available.
         try:
-            import os
-            return os.stat(PAYLOAD_PATH)[6] > 0
+            import stats_log
+            agg = stats_log.aggregate()
+            pulls = agg.get("pulls") or {}
+            for item in lst:
+                item["pulls"] = pulls.get(item["slug"], 0)
+        except Exception:
+            pass
+        self.link.send({
+            "type": "games", "id": rid,
+            "list": lst, "active": self._active,
+        })
+
+    def do_games_select(self, cmd, rid):
+        slug = cmd.get("slug")
+        if not slug or slug not in self._index:
+            self.link.send({"type": "error", "id": rid, "code": "unknown_slug",
+                             "msg": "no such game"})
+            return
+        self._set_active(slug)
+        self.code.set_game(slug)
+        self.link.send({"type": "ok", "id": rid, "cmd": "games.select", "active": slug})
+        self._emit_mode()
+
+    def do_games_delete(self, cmd, rid):
+        slug = cmd.get("slug")
+        if not slug or slug not in self._index:
+            self.link.send({"type": "error", "id": rid, "code": "unknown_slug"})
+            return
+        path = GAMES_DIR + '/' + slug + '.py'
+        try:
+            os.remove(path)
         except OSError:
-            return False
+            pass
+        try:
+            del self._index[slug]
+        except KeyError:
+            pass
+        self._save_index()
+        if self._active == slug:
+            self._active = None
+            self._pick_active_fallback()
+        self._rebuild_entries()
+        self.link.send({"type": "ok", "id": rid, "cmd": "games.delete", "slug": slug})
+        # Drop to IDLE if nothing left; otherwise stay / re-emit mode.
+        if not self._index:
+            self._set_mode(MODE_IDLE)
+        else:
+            self._emit_mode()
+            if self._mode == MODE_IDLE:
+                self._set_mode(MODE_WRITE)
+
+    def do_games_clear(self, cmd, rid):
+        try:
+            for name in os.listdir(GAMES_DIR):
+                if name.endswith('.py'):
+                    try:
+                        os.remove(GAMES_DIR + '/' + name)
+                    except OSError:
+                        pass
+        except OSError:
+            pass
+        self._index = {}
+        self._active = None
+        self._save_index()
+        self._write_active('')
+        self._rebuild_entries()
+        self.link.send({"type": "ok", "id": rid, "cmd": "games.clear"})
+        self._set_mode(MODE_IDLE)
+
+    def do_stats_get(self, cmd, rid):
+        try:
+            import stats_log
+            agg = stats_log.aggregate()
+        except Exception as e:
+            agg = {"pulls": {}, "writes": {}, "since": 0}
+            print("# stats.get failed: %s" % str(e))
+        self.link.send({
+            "type": "stats", "id": rid,
+            "pulls": agg.get("pulls") or {},
+            "writes": agg.get("writes") or {},
+            "since": agg.get("since") or 0,
+        })
+
+    def do_stats_reset(self, cmd, rid):
+        try:
+            import stats_log
+            stats_log.reset()
+        except Exception as e:
+            self.link.send({"type": "error", "id": rid, "code": "stats_reset_failed",
+                             "msg": str(e)})
+            return
+        self.link.send({"type": "ok", "id": rid, "cmd": "stats.reset"})
+
+    def _payload_ready(self):
+        return len(self._index) > 0
+
+    # ─────────────────────────────────────────────
+    # GAME LIBRARY (boot-scan + index)
+    # ─────────────────────────────────────────────
+
+    def _ensure_games_dir(self):
+        try:
+            os.mkdir(GAMES_DIR)
+        except OSError:
+            pass
+
+    def _load_index(self):
+        try:
+            import json
+            with open(INDEX_PATH, 'r') as f:
+                data = json.loads(f.read() or '{}')
+            if isinstance(data, dict):
+                self._index = data
+            else:
+                self._index = {}
+        except Exception:
+            self._index = {}
+
+    def _save_index(self):
+        try:
+            import json
+            self._ensure_games_dir()
+            with open(INDEX_PATH, 'w') as f:
+                f.write(json.dumps(self._index))
+        except Exception as e:
+            print("# save index failed: %s" % str(e))
+
+    def _read_active(self):
+        try:
+            with open(ACTIVE_PATH, 'r') as f:
+                return f.read().strip()
+        except OSError:
+            return ''
+
+    def _write_active(self, slug):
+        try:
+            with open(ACTIVE_PATH, 'w') as f:
+                f.write(slug or '')
+        except Exception as e:
+            print("# write active failed: %s" % str(e))
+
+    def _set_active(self, slug):
+        self._active = slug
+        self._write_active(slug or '')
+
+    def _pretty_from_slug(self, slug):
+        parts = slug.replace('_', '-').split('-')
+        return ' '.join(p[:1].upper() + p[1:] for p in parts if p)
+
+    def _boot_scan_games(self):
+        """Merge /flash/games/*.py into index.json; pick active.
+
+        New-this-boot files (not in previous index) become active; if several,
+        latest mtime wins. Otherwise keep active.txt if still present.
+        """
+        self._ensure_games_dir()
+        self._load_index()
+        prev = dict(self._index)
+
+        files = []
+        try:
+            names = os.listdir(GAMES_DIR)
+        except OSError:
+            names = []
+        for name in names:
+            if not name.endswith('.py'):
+                continue
+            slug = name[:-3]
+            path = GAMES_DIR + '/' + name
+            try:
+                st = os.stat(path)
+                size = st[6]
+                mtime = st[8] if len(st) > 8 else 0
+            except OSError:
+                continue
+            if size <= 0:
+                continue
+            files.append((slug, path, mtime))
+
+        new_slugs = []
+        next_index = {}
+        for slug, path, mtime in files:
+            if slug in prev:
+                next_index[slug] = prev[slug]
+            else:
+                next_index[slug] = {
+                    "name": self._pretty_from_slug(slug),
+                    "added": time.ticks_ms(),
+                }
+                new_slugs.append((slug, mtime))
+
+        self._index = next_index
+        self._save_index()
+
+        if new_slugs:
+            new_slugs.sort(key=lambda x: x[1], reverse=True)
+            self._set_active(new_slugs[0][0])
+        else:
+            want = self._read_active()
+            if want and want in self._index:
+                self._active = want
+            else:
+                self._pick_active_fallback()
+
+        if self._active:
+            self.code.set_game(self._active)
+        self._rebuild_entries()
+        print("# games: %d active=%s" % (len(self._index), self._active))
+
+    def _pick_active_fallback(self):
+        if not self._index:
+            self._set_active(None)
+            return
+        # First remaining slug (stable-ish dict order on MicroPython).
+        for slug in self._index:
+            self._set_active(slug)
+            self.code.set_game(slug)
+            return
+
+    def _rebuild_entries(self):
+        """TAG_LIST from whole index: getcode:<slug>, <slug> per game + DONE."""
+        entries = []
+        for slug in self._index:
+            entries.append("getcode:" + slug)
+            entries.append(slug)
+        if not entries:
+            entries = list(TAG_LIST)
+        entries.append(DONE_ENTRY)
+        self._entries = entries
+        self._cursor = 0
+        # Drop written counts for removed labels.
+        keep = {}
+        for k, v in self._written.items():
+            if k in entries:
+                keep[k] = v
+        self._written = keep
 
     # ─────────────────────────────────────────────
     # WRITE MODE
@@ -502,6 +785,11 @@ class BboxServer:
             self.link.send({
                 "type": "card_written", "label": entry, "uid": tag['uid_hex'],
             })
+            try:
+                import stats_log
+                stats_log.record_tag(entry)
+            except Exception as e:
+                print("# stats tag failed: %s" % str(e))
         else:
             self.ui.paint_write_failed(entry)
             self.ui.beep_fail()
@@ -566,16 +854,16 @@ class BboxServer:
         except Exception as e:
             print("# NFC init failed: %s" % str(e))
             self._nfc_ok = False
-        self._send_hello()
 
-        # Boot into WRITE when there is a game on flash. This replaces the
-        # old auto-arm, which raised the AP here: a game on flash means the
-        # box is ready to write tags, not that it is broadcasting. Off-USB
-        # operation is unaffected -- it just starts in WRITE, and a teacher
-        # selects DONE + B1 when the wands should pick code up.
+        self._boot_scan_games()
+        self._send_hello()
+        # Late-connecting apps learn the mode without asking.
+        # Emit after scan so games/active are accurate; _set_mode may emit again.
         self._mode = MODE_IDLE
         self._set_mode(MODE_WRITE if self._payload_ready() else MODE_IDLE,
                        announce=False)
+        if self._mode == MODE_IDLE:
+            self._emit_mode()
         self._repaint()
 
         last_hb = time.ticks_ms()

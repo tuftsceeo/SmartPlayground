@@ -40,23 +40,99 @@ export function hideOverlay(id) {
     el.classList.add("hidden");
 }
 
-export function setConnectionBadge(connected, running, atRepl, wrongDevice) {
+export function setConnectionBadge(link) {
     const el = document.getElementById("connection-badge");
+    const btn = document.getElementById("btn-connect-header");
+    const restartBtn = document.getElementById("btn-restart-box");
     if (!el) return;
-    el.classList.remove("connected", "repl", "wrong");
-    if (wrongDevice) {
-        el.textContent = "● wrong device";
-        el.classList.add("wrong");
-    } else if (atRepl) {
-        el.textContent = "● at REPL";
-        el.classList.add("repl");
-    } else if (connected && running) {
-        el.textContent = "● connected";
-        el.classList.add("connected");
-    } else if (connected) {
-        el.textContent = "● connecting…";
-    } else {
-        el.textContent = "● not connected";
+
+    const state = typeof link === "object" && link !== null ? link.state : null;
+    // Legacy boolean call site: setConnectionBadge(connected, running, …)
+    // kept only until callers are migrated — prefer the link object.
+    if (state == null && arguments.length >= 1 && typeof link !== "object") {
+        const connected = !!arguments[0];
+        const running = !!arguments[1];
+        const atRepl = !!arguments[2];
+        const wrongDevice = !!arguments[3];
+        return setConnectionBadge({
+            state: wrongDevice ? "wrong" : atRepl ? "stuck" : connected && running ? "live" : connected ? "waiting" : "idle",
+            boxMode: null,
+            detail: null,
+        });
+    }
+
+    el.classList.remove("connected", "repl", "wrong", "lost", "sending");
+    let text = "● not connected";
+    let btnLabel = "Connect";
+    let btnDisabled = false;
+    let showRestart = false;
+    let connectedClass = false;
+
+    switch (state) {
+        case "opening":
+            text = "● connecting…";
+            btnLabel = "Connect";
+            btnDisabled = true;
+            break;
+        case "waiting":
+            text = "● waking up the Box…";
+            btnLabel = "Cancel";
+            break;
+        case "live": {
+            const mode = link.boxMode;
+            const name = link.detail?.activeName || link.detail?.active || null;
+            if (mode === "IDLE") text = "● Box ready — no games yet";
+            else if (mode === "WRITE") text = "● ready to make cards";
+            else if (mode === "SERVE") text = name ? `● handing out ${name}` : "● handing out a game";
+            else text = "● connected";
+            el.classList.add("connected");
+            connectedClass = true;
+            btnLabel = "Disconnect";
+            break;
+        }
+        case "sending":
+            text = "● sending your game…";
+            el.classList.add("sending");
+            btnLabel = "Disconnect";
+            btnDisabled = true;
+            break;
+        case "rebooting":
+            text = "● restarting the Box…";
+            btnLabel = "Disconnect";
+            btnDisabled = true;
+            break;
+        case "lost":
+            text = "● lost the Box — check the cable";
+            el.classList.add("lost");
+            btnLabel = "Connect";
+            break;
+        case "wrong":
+            text = "● that's not a Broadcast Box";
+            el.classList.add("wrong");
+            btnLabel = "Disconnect";
+            break;
+        case "stuck":
+            text = "● the Box needs a nudge";
+            el.classList.add("repl");
+            btnLabel = "Disconnect";
+            showRestart = true;
+            break;
+        case "idle":
+        default:
+            text = "● not connected";
+            btnLabel = "Connect";
+            break;
+    }
+
+    el.textContent = text;
+    if (btn) {
+        btn.textContent = btnLabel;
+        btn.disabled = btnDisabled;
+        btn.classList.toggle("is-connected", connectedClass || state === "waiting" || state === "stuck" || state === "wrong" || state === "sending" || state === "rebooting");
+    }
+    if (restartBtn) {
+        restartBtn.classList.toggle("hidden", !showRestart);
+        restartBtn.disabled = !showRestart;
     }
 }
 

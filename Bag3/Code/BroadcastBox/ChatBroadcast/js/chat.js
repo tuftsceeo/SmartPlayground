@@ -78,6 +78,16 @@ export function stripNfcMarker(text) {
     return text.replace(/\[NFC_CARDS:[^\]]+\]/g, "").trim();
 }
 
+export function parseGameName(text) {
+    const match = text.match(/\[GAME_NAME:\s*([^\]]+)\]/);
+    if (!match) return null;
+    return match[1].trim().replace(/^["']|["']$/g, "") || null;
+}
+
+export function stripGameNameMarker(text) {
+    return text.replace(/\[GAME_NAME:[^\]]+\]/g, "").trim();
+}
+
 export function trimForHistory(text) {
     if (!text.includes("```")) return text;
     return text.split("```").map((part, i) => {
