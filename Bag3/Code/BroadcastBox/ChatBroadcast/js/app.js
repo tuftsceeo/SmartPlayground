@@ -574,7 +574,7 @@ class App {
     setupSim() {
         if (this._simLoadPromise) return this._simLoadPromise;
         dbg('app', 'setupSim() — loading wand-sim module');
-        this._simLoadPromise = import('../../Simulator/wand-sim.js')
+        this._simLoadPromise = import('../../../Simulator/wand-sim.js')
             .then(() => {
                 this._sim = document.getElementById('wand-sim');
                 const restartBtn = document.getElementById('btn-sim-restart');

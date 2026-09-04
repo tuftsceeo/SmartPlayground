@@ -31,10 +31,12 @@ export class SerialAdapter {
     this.readBuf = ""; // accumulated decoded text not yet claimed by a waiter
     this.waiters = []; // [{pattern, resolve}] -- readUntil() callers
     this.onData = null; // optional: (chunk:string) => void, called for every decoded chunk
+    this.onClose = null; // optional: (reason:string) => void, fired once when the read loop dies
     this.readLoopActive = false;
     this._readLoopPromise = null;
     this._rxBytes = 0;
     this._txBytes = 0;
+    this._closeFired = false;
     this._wireGlobalDisconnect();
   }
 
@@ -120,6 +122,8 @@ export class SerialAdapter {
 
   async disconnect() {
     logInfo("disconnect() requested");
+    // Mark intentional so the read-loop exit does not fire onClose.
+    this._closeFired = true;
     this.readLoopActive = false;
     try {
       await this.reader?.cancel();
@@ -186,16 +190,35 @@ export class SerialAdapter {
     await this.write(text.endsWith("\n") ? text : text + "\n");
   }
 
+  /** Null the port and fire onClose once. Called from both read-loop exits. */
+  _fireClose(reason) {
+    if (this._closeFired) return;
+    this._closeFired = true;
+    this.readLoopActive = false;
+    this.port = null;
+    this.reader = null;
+    this.writer = null;
+    logWarn(`serial close: ${reason}`);
+    try {
+      this.onClose?.(reason);
+    } catch (e) {
+      logError(`onClose callback threw: ${e.message}`);
+    }
+  }
+
   _startReadLoop() {
     this.readLoopActive = true;
+    this._closeFired = false;
     const decoder = new TextDecoder();
     logInfo("read loop starting");
     this._readLoopPromise = (async () => {
+      let closeReason = null;
       try {
         while (this.readLoopActive) {
           const { value, done } = await this.reader.read();
           if (done) {
             logWarn("read loop: stream reported done (port closed by the other side)");
+            closeReason = "stream done";
             break;
           }
           if (!value) continue;
@@ -206,6 +229,9 @@ export class SerialAdapter {
           this._resolveWaiters();
           this.onData?.(chunk);
         }
+        if (!closeReason && this.readLoopActive) {
+          closeReason = "read loop exited";
+        }
         logInfo("read loop exited cleanly");
       } catch (e) {
         // The single most diagnostic line in the whole app: a device that
@@ -213,10 +239,14 @@ export class SerialAdapter {
         if (this.readLoopActive) {
           logError(`read loop error: ${e.name}: ${e.message}`);
           console.error("serialAdapter: read loop error", e);
+          closeReason = `${e.name}: ${e.message}`;
         } else {
           logInfo(`read loop cancelled: ${e.name}`);
         }
       }
+      // Intentional disconnect() sets readLoopActive=false before cancel —
+      // do not fire onClose for that path (caller already knows).
+      if (closeReason) this._fireClose(closeReason);
     })();
   }
 
