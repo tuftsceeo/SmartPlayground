@@ -269,9 +269,11 @@ class BboxUI(object):
 
     # Screen 15d — write succeeded; stays up until a button dismisses it
     def paint_written(self, label, count):
+        """count is the CUMULATIVE number of this label ever written, read
+        back from stats_log at boot -- not a per-session tally."""
         _draw_lines([
             ('"%s" written!' % label, 18, ACCENT),
-            ("%d this session" % count, 12, MUTED),
+            ("%d written so far" % count, 12, MUTED),
             ("press any button", 9, MUTED),
         ])
 
@@ -310,7 +312,8 @@ class BboxUI(object):
     def paint_tag_list(self, entries, cursor, written):
         """entries: list of tag names plus a trailing "DONE" sentinel.
         cursor: index into entries of the currently selected row.
-        written: dict name -> count already written this session.
+        written: dict name -> cumulative count ever written (from
+            stats_log, survives reboots -- not a session tally).
 
         Carries its own "pickup off" header rather than leaving that to a
         separate screen: in WRITE mode the AP is always down (the whole
@@ -345,10 +348,12 @@ class BboxUI(object):
 
     # Screen 21 — SERVE mode (AP up)
     def paint_serve(self, ssid, pickups=0):
+        """pickups is the CUMULATIVE number of games handed to wands across
+        all boots (stats_log base + this session), not a session count."""
         _draw_lines([
             ("Serving", 18, ACCENT),
             (ssid, 12, WHITE),
-            ("pickups: %d" % pickups, 12, MUTED),
+            ("pickups: %d total" % pickups, 12, MUTED),
             ("hold BtnA to write tags", 9, MUTED),
         ])
 

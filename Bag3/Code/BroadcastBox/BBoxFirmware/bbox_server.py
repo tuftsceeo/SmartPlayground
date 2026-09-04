@@ -119,7 +119,10 @@ class BboxServer:
 
         self._entries = list(TAG_LIST) + [DONE_ENTRY]
         self._cursor = 0
-        self._written = {}  # entry name -> count written this session
+        # entry label -> cumulative successful writes, seeded from
+        # stats_log at boot by _load_stats() and incremented in memory.
+        self._written = {}
+        self._pulls_total = 0  # cumulative games handed to wands, all boots
         self._index = {}  # slug -> {name, added}
         self._active = None
 
@@ -255,7 +258,7 @@ class BboxServer:
         if self._mode == MODE_WRITE:
             self.ui.paint_tag_list(self._entries, self._cursor, self._written)
         elif self._mode == MODE_SERVE:
-            self.ui.paint_serve(SSID, self.code.pickups)
+            self.ui.paint_serve(SSID, self._pulls_total)
         else:
             self.ui.paint_idle(self.linked)
 
@@ -462,6 +465,9 @@ class BboxServer:
             self.link.send({"type": "error", "id": rid, "code": "stats_reset_failed",
                              "msg": str(e)})
             return
+        self._written = {}
+        self._pulls_total = 0
+        self._repaint()
         self.link.send({"type": "ok", "id": rid, "cmd": "stats.reset"})
 
     def _payload_ready(self):
@@ -519,6 +525,30 @@ class BboxServer:
     def _pretty_from_slug(self, slug):
         parts = slug.replace('_', '-').split('-')
         return ' '.join(p[:1].upper() + p[1:] for p in parts if p)
+
+    def _load_stats(self):
+        """Seed the on-screen counters from the persistent stats log.
+
+        The screen used to show per-session counts, which reset to zero on
+        every reboot -- a teacher who power-cycled the Box saw "(0)" next to
+        a tag they had already written a dozen of, and "pickups: 0" on a box
+        that had served all morning. stats_log is the durable record.
+
+        Read once here and incremented in memory afterwards, so a repaint
+        (which happens on every cursor move) never touches flash.
+        """
+        try:
+            import stats_log
+            agg = stats_log.aggregate()
+            self._written = agg.get('writes', {})
+            self._pulls_total = 0
+            for n in agg.get('pulls', {}).values():
+                self._pulls_total += n
+        except Exception as e:
+            # Counters are cosmetic; a corrupt log must not stop the boot.
+            print("# stats load failed: %s" % str(e))
+            self._written = {}
+            self._pulls_total = 0
 
     def _boot_scan_games(self):
         """Merge /flash/games/*.py into index.json; pick active.
@@ -836,6 +866,9 @@ class BboxServer:
         xfer = self.code.poll(on_event=self._on_serve_event,
                               should_abort=self._serve_abort_requested)
         if xfer == 'ok':
+            # Mirrors the line stats_log just recorded, so the screen and the
+            # log agree without re-reading flash on every repaint.
+            self._pulls_total += 1
             self._repaint()
         elif xfer == 'fail':
             self.ui.paint_error("transfer failed")
@@ -873,6 +906,7 @@ class BboxServer:
             print("# NFC init failed: %s" % str(e))
             self._nfc_ok = False
 
+        self._load_stats()
         self._boot_scan_games()
         # Unsolicited identity, once, purely informational: it lets an
         # already-attached app fill in version/reader status without asking.
