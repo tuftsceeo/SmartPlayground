@@ -1,9 +1,6 @@
 /**
- * Plain-language hardware checklist for teachers.
- *
- * Two presentations from one data source:
- *  - a small symbolic row (icons only) for the always-visible preview panel
- *  - the full "You'll need:" list shown at the connect / send-confirm stage
+ * Plain-language hardware checklist for teachers — the full "You'll need:"
+ * list shown at the connect / send-confirm stage.
  */
 
 export function buildComponentChecklist(capabilities, requiredTags) {
@@ -30,10 +27,6 @@ export function buildComponentChecklist(capabilities, requiredTags) {
     }
 
     return items;
-}
-
-export function checklistIcons(items) {
-    return (items || []).map((i) => i.icon);
 }
 
 export function checklistLines(items) {
