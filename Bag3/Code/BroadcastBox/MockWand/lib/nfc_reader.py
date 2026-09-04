@@ -141,18 +141,44 @@ def _read_ntag_ndef(nfc):
 
 
 # ─────────────────────────────────────────────
+# SLUG VALIDATION
+# ─────────────────────────────────────────────
+# Kept in lockstep with ChatBroadcast/js/gameName.js slugify()/isValidSlug():
+# lowercase, starts with a letter, [a-z0-9_] only, max 16 chars. A slug is a
+# MicroPython module name on this device, so anything else is unimportable.
+
+SLUG_MAX = 16
+
+
+def is_valid_slug(slug):
+    if not slug or len(slug) > SLUG_MAX:
+        return False
+    first = slug[0]
+    if not ('a' <= first <= 'z'):
+        return False
+    for ch in slug:
+        if not (('a' <= ch <= 'z') or ('0' <= ch <= '9') or ch == '_'):
+            return False
+    return True
+
+
+# ─────────────────────────────────────────────
 # NFC READER CLASS (command dispatch)
 # ─────────────────────────────────────────────
 
 class NfcReader:
-    def __init__(self, nfc, commands):
+    def __init__(self, nfc, commands, prefixes=()):
         """
         Args:
             nfc: PN532 driver instance
             commands: set of all valid command strings to recognize
+            prefixes: command names that may carry a ":<slug>" argument, e.g.
+                {"getcode"}. A card reading "getcode:jumping_frogs" is returned
+                whole, for the caller to split -- see _match_prefixed().
         """
         self.nfc = nfc
         self.commands = commands
+        self.prefixes = prefixes
 
     def detect_tag(self, timeout=250):
         """
@@ -169,8 +195,13 @@ class NfcReader:
         Scan for a tag and try to extract a command string.
 
         Recognition order:
-          1. Known commands from self.commands
-          2. Raw bytes fallback search
+          1. Exact match against self.commands
+          2. "<prefix>:<slug>" where prefix is in self.prefixes
+          3. Raw bytes fallback -- ONLY when the NDEF text could not be
+             decoded at all. A decoded-but-unknown text returns None rather
+             than being substring-matched against a command (that fallback
+             used to turn "getcode:jump_in_puddles" into either "getcode" or
+             "jump", depending on set iteration order).
 
         Returns:
             (command, uid_hex) if tag found.
@@ -204,10 +235,14 @@ class NfcReader:
 
         # ── Standard command lookup ──
         command = None
-        if text and text in self.commands:
-            command = text
+        if text:
+            if text in self.commands:
+                command = text
+            else:
+                command = self._match_prefixed(text)
         else:
-            # Also check raw bytes for known commands
+            # NDEF decode failed outright -- salvage what we can from the raw
+            # bytes. Deliberately NOT reached for a decoded-but-unknown text.
             command = self._find_in_raw(ndef_data)
 
         # Notify: read complete
@@ -261,6 +296,25 @@ class NfcReader:
             except Exception:
                 break
         return ndef_data
+
+    # ── Prefixed commands ("<prefix>:<slug>") ──
+
+    def _match_prefixed(self, text):
+        """Return the full text for a valid "<prefix>:<slug>" card, else None.
+
+        The slug must be a legal Python identifier because it doubles as the
+        module name of a pulled game (/games/<slug>.py, imported by name in
+        main.py). Rejecting anything else here keeps a malformed card from
+        ever reaching the filesystem or __import__.
+        """
+        if not text or ':' not in text:
+            return None
+        head, _, tail = text.partition(':')
+        if head not in self.prefixes:
+            return None
+        if tail and not is_valid_slug(tail):
+            return None
+        return text
 
     # ── Raw bytes fallback ──
 

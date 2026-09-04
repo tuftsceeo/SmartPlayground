@@ -23,7 +23,13 @@ AP_CHANNEL = 1
 CHUNK = 512
 YIELD_MS = 20
 SOCK_REPLY_TIMEOUT_S = 30
+SOCK_REQUEST_TIMEOUT_S = 5   # how long to wait for the wand's request frame
 AP_SETTLE_MS = 300  # same value the wand uses post-cycle
+
+# PEER: MockWand/code_puller.py holds a hand-kept copy of SSID/PWD/PORT/CHUNK/
+# YIELD_MS and of the wire protocol in _serve_client() below. There is no
+# shared module (the two run on different devices), so any change here must be
+# mirrored there in the same commit.
 
 FS_ROOT = '/flash'
 DEFAULT_SRC = FS_ROOT + '/payload.py'
@@ -260,7 +266,49 @@ class CodeServer:
                 pass
             self._client = None
 
+    def _read_request(self, cs):
+        """Read the wand's opening frame: 1 byte length + that many UTF-8 bytes.
+
+        Returns the requested slug ('' = "serve whatever is active"), or None
+        if the wand said nothing usable. The wand speaks first now, so this
+        must happen before any of the response bytes are written.
+        """
+        try:
+            cs.settimeout(SOCK_REQUEST_TIMEOUT_S)
+            head = cs.read(1)
+            if not head:
+                return None
+            n = head[0]
+            if n == 0:
+                return ''
+            # read() may come back short on a stream socket; loop to n.
+            body = bytearray()
+            while len(body) < n:
+                part = cs.read(n - len(body))
+                if not part:
+                    return None
+                body.extend(part)
+            return bytes(body).decode('utf-8')
+        except (OSError, UnicodeError, ValueError):
+            return None
+
     def _serve_client(self, cs, should_abort=None):
+        requested = self._read_request(cs)
+        if requested is None:
+            # No intelligible request -- nothing to serve, and writing a
+            # response into a socket we cannot read from just wastes the
+            # 30s reply timeout.
+            return False
+        if self.resolve(requested or None) is None:
+            # Unknown slug, or nothing active. Tell the wand plainly with a
+            # zero size rather than dropping the connection, so it can show
+            # a real error instead of timing out.
+            try:
+                cs.settimeout(SOCK_REPLY_TIMEOUT_S)
+                cs.write((0).to_bytes(4, 'big'))
+            except OSError:
+                pass
+            return False
         name_bytes = self.dest_name.encode('utf-8')
         if len(name_bytes) > 255:
             return False

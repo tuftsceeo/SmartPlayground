@@ -34,6 +34,10 @@ import memprobe
 # deliberately does not `import main` (that would eagerly compile every
 # game itself and defeat the measurement). If you add a game to
 # main.py's GAME_MODULES, add it here too.
+#
+# Built-ins only, deliberately: games pulled from the Broadcast Box live in
+# /games/<slug>.py and vary per device, so they are not a fixed baseline to
+# measure against. Use game_store.slugs() if you ever want to bench those.
 GAME_MODULES = {
     "colorquest":     "color_quest",
     "freezedance":    "freeze_dance",
