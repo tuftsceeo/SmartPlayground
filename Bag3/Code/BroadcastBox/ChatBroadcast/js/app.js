@@ -21,6 +21,7 @@ import { loadSavedGames, saveGame, findSavedGame } from './library.js';
 import { scanCapabilities } from './sim/codeCapabilities.js';
 import { buildComponentChecklist, checklistLines } from './checklist.js';
 import { validateGameName, slugify } from './gameName.js';
+import { initPaneSplit } from './paneSplit.js';
 
 const SILENCE_LIMIT_MS = 15000;
 const SILENCE_SERVE_MS = 45000;
@@ -88,6 +89,7 @@ class App {
         updateVersionUI();
         this.bindEvents();
         dbg('app', 'event listeners bound');
+        initPaneSplit();
         this.setupGallery();
         this.setupDeviceListeners();
         this.setupSerialLog();

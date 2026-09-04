@@ -37,7 +37,11 @@ body {
         radial-gradient(circle at 8% 92%, #6c4cd11a, transparent 40%),
         var(--bg);
     color: var(--ink);
-    min-height: 100vh;
+    /* Fixed to the viewport — this is one screen, not a document. Every
+       view panel fills it and scrolls internally (chat messages, the
+       example gallery, etc.) instead of the whole page scrolling. */
+    height: 100vh;
+    overflow: hidden;
 }
 
 .hidden { display: none !important; }
@@ -45,7 +49,7 @@ body {
 #app-shell {
     max-width: 1400px;
     margin: 0 auto;
-    min-height: 100vh;
+    height: 100vh;
     padding: 24px 16px 40px;
 }
 
@@ -54,6 +58,7 @@ body {
     border-radius: 22px;
     box-shadow: 0 18px 40px rgba(108, 76, 209, 0.16);
     overflow: hidden;
+    height: 100%;
     min-height: 640px;
     display: flex;
     flex-direction: column;
@@ -248,7 +253,7 @@ body {
     background: linear-gradient(135deg, #8b859a, #6b6478);
 }
 
-.ws-body { display: flex; flex: 1; min-height: 480px; }
+.ws-body { display: flex; flex: 1; min-height: 0; }
 .role-rail {
     width: 100px;
     border-right: 1px solid var(--border);
@@ -325,15 +330,21 @@ body {
 .muted { color: #888; font-size: 13px; }
 
 .chat-col {
-    flex: 1 1 420px;
-    min-width: 340px;
-    max-width: 560px;
-    border-right: 1px solid var(--border);
+    /* Width is a fixed pixel value (not a flex-basis) so paneSplit.js can
+       drag-resize it directly — see .ws-resizer below. Falls back to this
+       CSS width until JS sets an explicit inline width (first load, or
+       localStorage unavailable). */
+    flex: 0 0 auto;
+    width: 420px;
+    min-width: 280px;
+    max-width: 720px;
     display: flex;
     flex-direction: column;
+    min-height: 0;
 }
 #chat-box {
     flex: 1;
+    min-height: 0;
     overflow: auto;
     padding: 14px;
     display: flex;
@@ -507,13 +518,43 @@ body {
     flex: none;
 }
 
+/* Draggable divider between .chat-col and .preview-col — dragging is
+   wired up in js/paneSplit.js, which sets .chat-col's inline width. The
+   visible line lives in a ::after so the hit target (this element) can be
+   comfortably wider than the line without shifting layout. */
+.ws-resizer {
+    flex: none;
+    width: 10px;
+    margin: 0 -5px;
+    position: relative;
+    z-index: 1;
+    cursor: col-resize;
+    background: transparent;
+}
+.ws-resizer::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 4px;
+    width: 2px;
+    background: var(--border);
+    border-radius: 2px;
+}
+.ws-resizer:hover::after,
+.ws-resizer:focus-visible::after,
+.ws-resizer.dragging::after {
+    background: var(--pink);
+}
+.ws-resizer:focus-visible { outline: none; }
+
 .preview-col {
     flex: 1;
     display: flex;
     flex-direction: column;
     padding: 16px;
     gap: 10px;
-    min-width: 0;
+    min-width: 220px;
 }
 #preview-panel {
     flex: 1;
@@ -538,10 +579,17 @@ body {
 }
 .sim-notice.hidden { display: none; }
 /* Chat column reclaims the width the preview panel leaves empty while
-   there's no runnable code to simulate. */
+   there's no runnable code to simulate — the resizer only makes sense
+   when there's a second panel to size against, so it (and the now-empty
+   preview column) disappear too. */
 .ws-body.no-sim .chat-col {
+    width: auto !important;
     max-width: none;
-    border-right: none;
+    flex: 1 1 auto;
+}
+.ws-body.no-sim .ws-resizer,
+.ws-body.no-sim .preview-col {
+    display: none;
 }
 
 .ws-footer {
@@ -779,13 +827,16 @@ body {
 @media (max-width: 768px) {
     .ws-body { flex-direction: column; }
     .chat-col {
-        width: 100%;
+        /* !important: beats the inline width paneSplit.js sets for the
+           desktop side-by-side layout — stacked columns always go full width. */
+        width: 100% !important;
         max-width: none;
         min-width: 0;
         flex: 1 1 auto;
-        border-right: none;
         border-bottom: 1px solid var(--border);
     }
+    /* The drag divider only makes sense between side-by-side columns. */
+    .ws-resizer { display: none; }
     .role-rail { flex-direction: row; width: 100%; border-right: none; border-bottom: 1px solid var(--border); }
     .gallery-grid { grid-template-columns: 1fr; }
     .footer-actions { flex-wrap: wrap; }
