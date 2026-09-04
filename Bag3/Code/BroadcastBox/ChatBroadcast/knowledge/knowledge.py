@@ -688,12 +688,12 @@ if __name__ == "__main__":
 # RIGHT side up                             → y ≈ -1.0
 # HANDLE up  (upside-down)                  → x ≈ +1.0
 #
-# ── Common gestures and motions ────────────────────────────────────────────────
+# ── Common gestures and motions ─────────────────────────────────────
 # Freefall / jump:  magnitude < 0.3
 # Shake / hit:      magnitude > 1.4
 # Gentle motion:    magnitude > 0.3 and < 1.4
 #
-# -- Axes of Motion --
+# ── Axes of Motion ───────────────────────────────────────────────────
 # x → down-and-up
 # y → left-and-right
 # z → backward-and-forward
