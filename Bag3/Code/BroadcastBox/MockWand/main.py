@@ -31,6 +31,7 @@ from leds import (
     PURPLE, ORANGE, LIME, SKY, TEAL, MAGENTA, PINK, ROSE, INDIGO,
     SHAPE_BULLSEYE, SHAPE_INNER_3x3, SHAPE_FLAME, SHAPE_MUSIC,
     SHAPE_ARROW_UP, SHAPE_ROW3, SHAPE_SPIRAL, SHAPE_SLASH_L, SHAPE_WIFI,
+    SHAPE_WIFI_2, BLUE, ORANGE,
     SHAPE_RAINDROP, SHAPE_DIAMOND, SHAPE_POINTER, SHAPE_EXCLAIM,
 )
 from power_led import PowerLed
@@ -42,7 +43,17 @@ from espnow_manager import ESPNowManager
 from game_tags import GAME_TAGS, CONTROL_TAGS, HIDDEN_TAGS
 import brightness
 import pull_flag
+import game_store
 import memprobe  # BENCH: see lib/memprobe.py docstring
+
+# Games pulled from the Broadcast Box live in /games/<slug>.py. Putting that
+# directory on sys.path is what lets _load_play() import a pulled game with
+# the same bare __import__(name) it uses for a built-in -- no special loader,
+# no path juggling at launch time. Done here, before anything calls
+# game_store.slugs(), so ALL_COMMANDS below sees the library.
+game_store.ensure_dir()
+if game_store.GAMES_DIR not in sys.path:
+    sys.path.append(game_store.GAMES_DIR)
 
 # ─────────────────────────────────────────────
 # GAME MODULES (lazy import on tap -- see below)
@@ -82,6 +93,33 @@ if set(GAME_MODULES.keys()) != (GAME_TAGS | HIDDEN_TAGS):
     print("  [ERR] GAME_MODULES keys do not match GAME_TAGS|HIDDEN_TAGS in game_tags.py")
     print("        modules:  %s" % sorted(GAME_MODULES.keys()))
     print("        expected: %s" % sorted(GAME_TAGS | HIDDEN_TAGS))
+
+# GAME_MODULES above is the BUILT-IN table only, and the drift check is
+# deliberately scoped to it: games pulled from the Broadcast Box live in
+# /games/<slug>.py and are discovered at runtime, so they can never appear
+# in game_tags.py and must not trip that check.
+#
+# Everything downstream asks game_module()/is_game() instead of indexing
+# GAME_MODULES directly, so a pulled game loads, chains and unloads by
+# exactly the same path as a built-in.
+
+
+def game_module(name):
+    """Module basename for a game tag, or None if there is no such game.
+
+    Built-ins win over pulled games: a pulled file can never shadow one
+    (the app also refuses those slugs at name-entry time), but if one ever
+    lands on flash the built-in is still what runs.
+    """
+    if name in GAME_MODULES:
+        return GAME_MODULES[name]
+    if game_store.exists(name):
+        return name          # /games is on sys.path; slug == module name
+    return None
+
+
+def is_game(name):
+    return game_module(name) is not None
 
 
 def _check_game_modules():
@@ -170,7 +208,10 @@ COMBINATORS    = {"and", "then"}
 CONTROLS       = GAME_TAGS | CONTROL_TAGS
 UTILITY        = {"battery"}
 BROADCAST      = {"getcode"}
-ALL_COMMANDS   = FIXED_TRIGGERS | ACTIONS | ANIMAL_SOUNDS | COMBINATORS | CONTROLS | UTILITY | BROADCAST
+BASE_COMMANDS  = FIXED_TRIGGERS | ACTIONS | ANIMAL_SOUNDS | COMBINATORS | CONTROLS | UTILITY | BROADCAST
+# Pulled games answer to their own slug as a tag. Computed once at import:
+# the wand resets after every successful pull, so this can never go stale.
+ALL_COMMANDS   = BASE_COMMANDS | set(game_store.slugs())
 
 # ─────────────────────────────────────────────
 # ADDING A NEW GAME
@@ -299,7 +340,7 @@ def _load_play(name):
     entry fanfare. No animation here by design -- Phase 3 measures
     per-game import time before deciding whether one is warranted.
     """
-    mod_name = GAME_MODULES[name]
+    mod_name = game_module(name)
     shape, color = GAME_ICON.get(name, (SHAPE_MUSIC, WHITE))
     leds.show_shape(shape, color)
     memprobe.probe("pre-import:%s" % name)   # BENCH
@@ -322,7 +363,7 @@ def _unload_game(name):
     residual. Safe only because no game may hold a callback or retained
     reference into itself -- see rule 6 in "ADDING A NEW GAME" above.
     """
-    mod_name = GAME_MODULES.get(name)
+    mod_name = game_module(name)
     if mod_name and mod_name in sys.modules:
         del sys.modules[mod_name]
     gc.collect()
@@ -343,7 +384,7 @@ def _game_load_failed(name, exc):
     cable can tell "pull failed" from "game wouldn't load".
     """
     print("  [FAIL] game load: %s (module %s)"
-          % (name, GAME_MODULES.get(name)))
+          % (name, game_module(name)))
     sys.print_exception(exc)
     memprobe.probe("load-fail:%s" % name)   # BENCH
     memprobe.frag("load-fail:%s" % name)    # BENCH
@@ -365,7 +406,7 @@ def _game_load_failed(name, exc):
 
 def _launch_game(name, nfc, leds, buz, accel, i2c, enow, batt_ref):
     """Run a game and chain force-switches without returning to idle."""
-    while name in GAME_MODULES:
+    while is_game(name):
         try:
             play_func = _load_play(name)
         except Exception as e:
@@ -386,7 +427,7 @@ def _launch_game(name, nfc, leds, buz, accel, i2c, enow, batt_ref):
         if UNLOAD_AFTER_GAME:
             _unload_game(name)
         memprobe.probe("post-unload:%s" % name)    # BENCH
-        if not next_name or next_name not in GAME_MODULES:
+        if not next_name or not is_game(next_name):
             break
         name = next_name
 
@@ -414,7 +455,7 @@ def check_broadcast(enow, batt_ref, leds_ref, buz_ref):
         return "battery"
     if msg_type == "start_game":
         name = data.get("name") if isinstance(data, dict) else None
-        if name in GAME_MODULES:
+        if is_game(name):
             return ("start_game", name)
         print("  ESP-NOW: ignoring unknown start_game name: %r" % name)
     return None
@@ -515,6 +556,41 @@ def _boot_grace():
 # ─────────────────────────────────────────────
 # PULL MODE — runs before ESP-NOW exists this boot
 # ─────────────────────────────────────────────
+def _pull_fail(shape, color):
+    """Show one failure glyph, play the fail sound, and go dark.
+
+    The three give-up cases differ only in what they show, so they share
+    this: red wifi bars = the Box's AP is not up at all, orange wifi bars =
+    the AP is up but the pull was refused (join, or no such game), red X =
+    the transfer itself broke.
+    """
+    leds.show_shape(shape, color)
+    buz.beep(300, 200)
+    time.sleep_ms(100)
+    buz.beep(200, 300)
+    time.sleep_ms(900)
+    leds.off()
+
+
+def _pull_status(phase, tick):
+    """Cycle the wifi bars in blue while the radio scans and joins.
+
+    The two phases tick at wildly different rates and need different step
+    sizes, which is why this cares which phase it is:
+
+      scan  one call per scan, and a scan blocks for ~2.5s -- there is no
+            opportunity to animate *within* one. So each call advances a
+            bar, making the bars a countdown of the scan budget rather than
+            decoration: 0, 1, 2 bars means first, second, last look.
+      join  one call per 200ms poll, so a bar every 3 calls (~600ms) reads
+            as a smooth cycle.
+
+    A single fixed rate cannot serve both: the first version used one step
+    per 3 calls and sat on 0 bars for the whole 7.5s scan phase.
+    """
+    leds.wifi_animate(tick, BLUE, frames_per_step=1 if phase == 'scan' else 3)
+
+
 def _pull_progress(received, total):
     """Light the matrix left-to-right as bytes land.
 
@@ -544,19 +620,15 @@ def _run_pull_mode():
     if not pull_flag.budget_left():
         print("# pull: attempt budget spent -- giving up, booting normally")
         pull_flag.clear()
-        leds.show_shape(SHAPE_X, RED)
-        buz.beep(300, 200)
-        time.sleep_ms(100)
-        buz.beep(200, 300)
-        time.sleep_ms(1200)
-        leds.off()
+        _pull_fail(SHAPE_X, RED)
         return
 
     memprobe.probe("pull-mode:entry")  # BENCH
 
     n = pull_flag.bump()
-    print("# pull mode: attempt %d/%d -- Ctrl-C within %ds to stay at the REPL"
-          % (n, pull_flag.MAX_ATTEMPTS, PULL_GRACE_S))
+    wanted = pull_flag.requested_slug()
+    print("# pull mode: attempt %d/%d for %r -- Ctrl-C within %ds to stay at the REPL"
+          % (n, pull_flag.MAX_ATTEMPTS, wanted or "<active>", PULL_GRACE_S))
     for remaining in range(PULL_GRACE_S, 0, -1):
         print("# %d..." % remaining)
         time.sleep_ms(1000)
@@ -574,8 +646,34 @@ def _run_pull_mode():
     memprobe.probe("pull-mode:pre-pull")  # BENCH
     # enow is deliberately not passed: there is no ESP-NOW on this boot to
     # shut down, and omitting it keeps _shutdown_espnow() out of the path.
-    ok = code_puller.pull(verbose=True, on_progress=_pull_progress)
+    ok = code_puller.pull(verbose=True, on_progress=_pull_progress,
+                          on_status=_pull_status, slug=wanted)
     memprobe.probe("pull-mode:post-pull")  # BENCH
+
+    # Three of the four failures are certain: a second boot would scan the
+    # same air, join the same AP and ask for the same missing game. Spending
+    # the retry budget on them just makes the wand unresponsive for another
+    # ~10s, when the teacher's fix is to retap once the Box is ready. So
+    # clear the flag, show which one it was, and boot normally.
+    if ok == 'noap':
+        print("# pull: %r AP not up -- giving up" % code_puller.SSID)
+        pull_flag.clear()
+        _pull_fail(SHAPE_WIFI_2, RED)
+        return
+
+    if ok == 'nojoin':
+        print("# pull: AP visible but pairing failed -- giving up")
+        pull_flag.clear()
+        _pull_fail(SHAPE_WIFI_2, ORANGE)
+        return
+
+    if ok == 'norequest':
+        # The Box said it has no such game. Retrying cannot change that, so
+        # spend no more budget.
+        print("# pull: Box has no game %r -- giving up" % wanted)
+        pull_flag.clear()
+        _pull_fail(SHAPE_WIFI_2, ORANGE)
+        return
 
     if ok:
         pull_flag.clear()
@@ -589,11 +687,13 @@ def _run_pull_mode():
 
     # Failed. The flag stays set, so reset rather than falling through --
     # the retry needs a cold radio too, and this boot's is no longer clean.
-    print("# pull failed -- resetting to retry (%d/%d spent)"
+    # Only a broken *transfer* gets here, and that is the one failure a
+    # fresh radio has a real chance of getting past -- so this one retries.
+    print("# pull failed mid-transfer -- resetting to retry (%d/%d spent)"
           % (n, pull_flag.MAX_ATTEMPTS))
     leds.show_shape(SHAPE_X, RED)
     buz.beep(300, 200)
-    time.sleep_ms(800)
+    time.sleep_ms(600)
     machine.reset()
 
 
@@ -702,7 +802,7 @@ def main():
         leds.boot_stage_fail(3)
         return
 
-    reader = NfcReader(nfc, ALL_COMMANDS)
+    reader = NfcReader(nfc, ALL_COMMANDS, prefixes=BROADCAST)
     runner = ActionRunner(leds, buz)
 
     # ── Stage 4: Accelerometer ──
@@ -748,6 +848,22 @@ def main():
     last_activity_ms = time.ticks_ms()
     nfc_sleeping = False
     idle_frame = 0
+
+    # ── Auto-launch a just-pulled game ──
+    # The pull runs in its own boot and ends in machine.reset(), so this is
+    # the first boot with the new file on flash. Launching it here is what
+    # makes the tap feel like "tap the card, play the game" instead of "tap
+    # the card, wait for two reboots, then tap a second card". take_last_pulled()
+    # clears the marker as it reads, so this fires exactly once.
+    _just_pulled = game_store.take_last_pulled()
+    if _just_pulled:
+        print("  Launching just-pulled game: %s" % _just_pulled)
+        try:
+            _launch_game(_just_pulled, nfc, leds, buz, accel, i2c, enow, batt)
+        except Exception as e:
+            _game_load_failed(_just_pulled, e)
+        last_activity_ms = time.ticks_ms()
+        last_uid = None
 
     show_idle(last_soc, 0)
     print("\n  Tap a TRIGGER tag to start programming\n")
@@ -894,14 +1010,19 @@ def main():
             # A cold radio joins first try, every time. So queue the pull and
             # reboot: the next boot runs it in _run_pull_mode() before
             # ESPNowManager is ever constructed. See pull_flag.py.
-            if cmd == "getcode":
-                print("# getcode tapped -- queueing pull, rebooting")
+            if cmd == "getcode" or cmd.startswith("getcode:"):
+                # "getcode:<slug>" asks the Box for that specific game;
+                # a bare "getcode" takes whatever the Box has active.
+                # nfc_reader has already validated the slug's shape.
+                wanted = cmd[8:] if cmd.startswith("getcode:") else ""
+                print("# getcode tapped (slug=%r) -- queueing pull, rebooting"
+                      % wanted)
                 leds.fill(BLUE_DIM)
                 buz.beep(880, 80)
                 time.sleep_ms(50)
                 buz.beep(1100, 80)
                 try:
-                    pull_flag.set_pending()
+                    pull_flag.set_pending(wanted)
                 except OSError as e:
                     # Flag unwritable (full/corrupt fs). Rebooting now would
                     # just come back to the idle loop having lost the tap, so
@@ -934,7 +1055,7 @@ def main():
                 show_idle(last_soc, 0); continue
 
             # ── GAME DISPATCH ──
-            if cmd in GAME_MODULES:
+            if is_game(cmd):
                 leds.off()
                 _launch_game(cmd, nfc, leds, buz, accel, i2c, enow, batt)
                 last_activity_ms = time.ticks_ms()
