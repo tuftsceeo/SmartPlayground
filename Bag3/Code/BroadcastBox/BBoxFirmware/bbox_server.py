@@ -20,7 +20,7 @@ REPL, which interrupts this program and soft-resets the board
 state this firmware is ever in. It comes back from that reset, finds a game
 on flash, and starts in WRITE.
 
-See serial_protocol_notes.md for connection/hello/recovery rules, and
+See serial_protocol_notes.md for connection/identify/recovery rules, and
 design/phase-a-box-power-modes.plan.md for the state diagram.
 """
 
@@ -112,7 +112,7 @@ class BboxServer:
         self.linked = True
 
         self._mode = MODE_IDLE
-        self._nfc_ok = False  # real _init_nfc() result -- reported in hello
+        self._nfc_ok = False  # real _init_nfc() result -- reported in identity
         self._nfc_field_on = False
         self._nfc_fail_count = 0  # consecutive detect_tag errors -- see _scan_step
         self._write_state = W_MENU  # WRITE sub-state; see W_* above
@@ -130,7 +130,7 @@ class BboxServer:
         self._pending_existing = None
 
         self.handlers = {
-            "hello": self.do_hello,
+            "identify": self.do_identify,
             "info": self.do_info,
             "mode": self.do_mode,
             "arm": self.do_arm,
@@ -275,9 +275,22 @@ class BboxServer:
             return
         handler(cmd, rid)
 
-    def _hello_payload(self, rid=None):
+    def _identity_payload(self, rid=None):
+        """Who and what this device is -- NOT a status report and NOT a
+        connection handshake.
+
+        Every field here is fixed for the life of a boot: device kind,
+        firmware version, screen size, and whether the reader initialized.
+        Live status (memory, mode, armed, counters) belongs to `info` and
+        `mode`; do not add changing values here.
+
+        The host must never treat this as the signal that a link is up --
+        `heartbeat` is what proves the box is alive, because this is only
+        volunteered once per boot and a host that connects afterwards will
+        never see it. See do_identify() for the request form.
+        """
         return {
-            "type": "hello", "id": rid,
+            "type": "identity", "id": rid,
             "device": "broadcast_box", "version": VERSION,
             # Report what _init_nfc() actually did. This used to be a hard
             # True even when init raised ETIMEDOUT, so the app was told a
@@ -285,11 +298,16 @@ class BboxServer:
             "w": 240, "h": 135, "nfc": self._nfc_ok,
         }
 
-    def _send_hello(self, rid=None):
-        self.link.send(self._hello_payload(rid))
+    def _send_identity(self, rid=None):
+        self.link.send(self._identity_payload(rid))
 
-    def do_hello(self, cmd, rid):
-        self._send_hello(rid)
+    def do_identify(self, cmd, rid):
+        """Answer {"cmd":"identify"} with this boot's identity payload.
+
+        Safe to call at any time and as often as the host likes: it reads
+        no hardware and changes no state.
+        """
+        self._send_identity(rid)
 
     def do_mode(self, cmd, rid):
         self._emit_mode(rid)
@@ -856,7 +874,12 @@ class BboxServer:
             self._nfc_ok = False
 
         self._boot_scan_games()
-        self._send_hello()
+        # Unsolicited identity, once, purely informational: it lets an
+        # already-attached app fill in version/reader status without asking.
+        # It is deliberately NOT an introduction or a readiness signal -- an
+        # app that connects after this point never receives it and must be
+        # perfectly happy, learning liveness from `heartbeat` instead.
+        self._send_identity()
         # Late-connecting apps learn the mode without asking.
         # Emit after scan so games/active are accurate; _set_mode may emit again.
         self._mode = MODE_IDLE

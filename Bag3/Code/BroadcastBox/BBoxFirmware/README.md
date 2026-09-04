@@ -137,19 +137,38 @@ Changing any row breaks the wand silently.
 Host sends `cmd`, device replies with `type`. See
 `Bag3/Code/Stations/serial_protocol_notes.md`.
 
-Commands: `hello`, `info`, `arm`, `disarm`, `repl`, `reboot`
+Commands: `identify`, `info`, `mode`, `arm`, `disarm`, `repl`, `reboot`,
+`games.list`, `games.select`, `games.delete`, `games.clear`, `stats.get`,
+`stats.reset`
 
-Events: `hello`, `info`, `heartbeat`, `armed`, `card_present`, `card_written`,
-`ok`, `error`, `bye`, plus `fatal` from `main.py`
+Events: `identity`, `info`, `mode`, `heartbeat`, `armed`, `card_present`,
+`card_written`, `games`, `stats`, `ok`, `error`, `bye`, plus `fatal` from
+`main.py`
 
-**Hello contract:** the firmware announces at boot and answers
-`{"cmd":"hello"}` with the same payload shape. The host must not wait for
-hello to consider itself connected -- use `heartbeat` for liveness. `hello`
-reports the real `_init_nfc()` result in `nfc`, not a hardcoded `true`.
+**Liveness is `heartbeat`, nothing else.** The Box sends one every
+`HEARTBEAT_MS` (5s) unconditionally while `run()` is looping. A host decides
+the link is up on *any* typed message and must never wait on a specific one.
+
+**`identify` vs `info` vs `mode`** -- three different questions, kept apart on
+purpose:
+
+- `identify` -> `identity`: who and what this device is. `device`, `version`,
+  screen `w`/`h`, and `nfc` (the real `_init_nfc()` result, not a hardcoded
+  `true`). Every field is fixed for the life of a boot. The Box also volunteers
+  this once at boot, which is *informational only* -- it is not an introduction
+  or a readiness signal, and a host that attaches later never sees it.
+- `info` -> `info`: live runtime status. `mem`, `armed`, `linked`,
+  `payload_ready`, `written`, `up`.
+- `mode` -> `mode`: which mode the Box is in (`WRITE`/`SERVE`/`IDLE`) plus
+  `games`, `active` and `ssid`. Emitted from `_set_mode()` on every transition,
+  including exits, and once at boot.
+
+Do not add changing values to `identity`, and do not use it as a handshake --
+that conflation is what this split exists to prevent.
 
 `arm` means "go to `SERVE`" and `disarm` means "return to `WRITE`/`IDLE`".
 They are REPL/legacy entry points; the app does not call them after pushing
-code. Mode is not exposed as a JSON event.
+code.
 
 `repl`, a soft `reboot`, or an uncaught exception all unwind through
 `run()`'s `finally`, which calls `_shutdown_radios()` to bring the AP down

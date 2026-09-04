@@ -95,7 +95,7 @@ export class BboxLink {
     const payload = { ...cmd, id };
     // MicroPython's REPL readline submits on '\r', not bare '\n' -- a lone
     // '\n' is swallowed as "still typing" and never echoed back, which is
-    // why a hello sent at '>>>' used to hang until timeout instead of
+    // why an identify sent at '>>>' used to hang until timeout instead of
     // tripping the command-echo REPL-detection below. '\r\n' submits at
     // the REPL AND is accepted by json_link.py's running-firmware parser
     // (it strips the '\r' when it finds the '\n').
@@ -120,8 +120,10 @@ export class BboxLink {
     });
   }
 
-  hello({ timeoutMs = 4000 } = {}) {
-    return this.send({ cmd: "hello" }, { timeoutMs });
+  /** Ask the Box who and what it is. Not a status query (see info()) and
+   *  not a connection handshake -- liveness comes from `heartbeat`. */
+  identify({ timeoutMs = 4000 } = {}) {
+    return this.send({ cmd: "identify" }, { timeoutMs });
   }
 
   info() {

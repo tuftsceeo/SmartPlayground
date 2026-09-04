@@ -1,6 +1,10 @@
 /**
  * bboxDeviceLink.js — Broadcast Box serial lifecycle (adapted from deviceLink.js).
- * Connect resolves on port open; liveness from any typed message (hello or heartbeat).
+ * Connect resolves on port open. Liveness comes from any typed message --
+ * in practice `heartbeat`, which the Box sends unconditionally every 5s.
+ * `identity` is a question about what the device is, never the gate for
+ * considering the link up: it is volunteered only once per boot, so a host
+ * that attaches later never sees it.
  */
 
 import { SerialAdapter } from "./serialAdapter.js";
@@ -10,7 +14,7 @@ import { installBoxFirmware, pushPayload } from "./boxFirmwareInstaller.js";
 import { logInfo, logWarn, toText } from "./serialLog.js";
 
 const FORWARDED_EVENTS = [
-  "hello", "heartbeat", "fatal", "bye", "error", "repl",
+  "identity", "heartbeat", "fatal", "bye", "error", "repl",
   "armed", "card_present", "card_written", "info", "mode",
   "games", "stats", "ok", "booting",
 ];
@@ -20,7 +24,7 @@ const FORWARDED_EVENTS = [
 export const VALIDATE_LIMIT_MS = 8000;
 
 /** Per-nudge deadline. Short on purpose: the retry loop re-asks every
- *  HELLO_NUDGE_MS, so a single unanswered probe should give up quickly
+ *  IDENTIFY_NUDGE_MS, so a single unanswered probe should give up quickly
  *  rather than overlapping the next one. */
 const NUDGE_TIMEOUT_MS = 2000;
 
@@ -67,11 +71,11 @@ export class BboxDeviceLink {
   }
 
   _markRunning(obj) {
-    if (obj?.type === "hello") {
+    if (obj?.type === "identity") {
       if (obj.device && obj.device !== EXPECTED_DEVICE) {
         this.wrongDevice = true;
         this.running = false;
-        logWarn(`wrong device on hello: ${obj.device} (expected ${EXPECTED_DEVICE})`);
+        logWarn(`wrong device on identity: ${obj.device} (expected ${EXPECTED_DEVICE})`);
         this._emit("wrong_device", obj);
         return;
       }
@@ -96,7 +100,7 @@ export class BboxDeviceLink {
     }
     // waitForRunning() listens for this on `this`, not on `json` -- without
     // forwarding it here, restartFirmware() always times out to "unknown"
-    // even when hello/heartbeat arrive fine right after, because nothing
+    // even when identity/heartbeat arrive fine right after, because nothing
     // ever emits "*" on the BboxDeviceLink instance itself.
     json.on("*", (obj) => {
       this._markRunning(obj);
@@ -136,13 +140,13 @@ export class BboxDeviceLink {
     this.wrongDevice = false;
     await this.adapter.connect();
     this._attachJson();
-    // Fire the first hello without awaiting it. The reply arrives as an
-    // ordinary `hello` event either way, so awaiting bought nothing and cost
+    // Fire the first identify without awaiting it. The reply arrives as an
+    // ordinary `identity` event either way, so awaiting bought nothing and cost
     // the caller the full timeout sitting in "connecting…" before the UI
     // could even show "waking up the Box". Retries are the host's job now
-    // (App._armHelloNudge), because one probe can cross a busy moment on the
+    // (App._armIdentifyNudge), because one probe can cross a busy moment on the
     // Box and nothing would ever ask again.
-    this.nudgeHello().catch(() => {});
+    this.nudgeIdentify().catch(() => {});
     logInfo("=== connect() returned (port open; awaiting device messages) ===");
   }
 
@@ -152,13 +156,13 @@ export class BboxDeviceLink {
    * and the caller decides when silence has gone on too long.
    * @returns {Promise<boolean>} true if the Box replied
    */
-  async nudgeHello({ timeoutMs = NUDGE_TIMEOUT_MS } = {}) {
+  async nudgeIdentify({ timeoutMs = NUDGE_TIMEOUT_MS } = {}) {
     if (!this.json) return false;
     try {
-      await this.json.hello({ timeoutMs });
+      await this.json.identify({ timeoutMs });
       return true;
     } catch (e) {
-      logWarn(`hello nudge: ${e.message}`);
+      logWarn(`identify nudge: ${e.message}`);
       return false;
     }
   }
@@ -170,7 +174,7 @@ export class BboxDeviceLink {
     await sleep(500);
     // '\r\n', not bare '\n' -- see bboxLink.js send() for why a lone '\n'
     // never submits at the raw REPL and used to hang this probe forever.
-    await this.adapter.write('{"cmd":"hello","id":9001}\r\n');
+    await this.adapter.write('{"cmd":"identify","id":9001}\r\n');
     await sleep(1200);
     logInfo("=== probe: end ===");
   }

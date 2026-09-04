@@ -28,16 +28,18 @@ const SILENCE_SERVE_MS = 45000;
 const REBOOT_LIMIT_MS = 20000;
 const WATCHDOG_TICK_MS = 2000;
 /* A running Box sends a heartbeat every HEARTBEAT_MS (5s, bbox_server.py) on
-   top of its boot hello, and GRACE_S is now 1s. So total silence for this long
+   top of its boot identity, and GRACE_S is now 1s. So total silence for this long
    does not mean "still waking up" -- it means the firmware is not running (or
    the port we opened is not the one it talks on). Say so instead of waiting
    forever. */
 const WAITING_LIMIT_MS = 12000;
-/* The Box only sends hello unsolicited at boot. If we opened the port after it
-   booted, that one announcement is already gone, so re-ask on a cadence rather
+/* The Box volunteers its identity only once, at boot. If we opened the port
+   after it booted, that one announcement is already gone, so re-ask on a cadence rather
    than betting everything on a single probe that may have crossed a busy
-   moment. Replies arrive as ordinary `hello` events and promote us to live. */
-const HELLO_NUDGE_MS = 2500;
+   moment. Replies arrive as ordinary `identity` events and promote us to live.
+   This is a convenience, not the liveness test: `heartbeat` alone reaches live
+   within 5s regardless. */
+const IDENTIFY_NUDGE_MS = 2500;
 
 const SYSTEM_PROMPT_BASE = `You are an AI assistant helping teachers write MicroPython games for the PlaygroundV5 wand.
 
@@ -89,7 +91,7 @@ class App {
         };
         this._watchdogTimer = null;
         this._rebootTimer = null;
-        this._helloNudgeTimer = null;
+        this._identifyNudgeTimer = null;
         this._silenceLimitMs = SILENCE_LIMIT_MS;
         this._boxGames = []; // last games.list from the Box
         this._pendingReplaceSlug = null;
@@ -260,7 +262,7 @@ class App {
             }
         };
 
-        this.device.on('hello', (obj) => onTyped(obj, 'hello'));
+        this.device.on('identity', (obj) => onTyped(obj, 'identity'));
         this.device.on('heartbeat', (obj) => onTyped(obj, 'heartbeat'));
         this.device.on('mode', (obj) => {
             dbg('device', 'event: mode', obj);
@@ -349,7 +351,7 @@ class App {
 
     _noteMessage(obj) {
         this.link.lastMsgAt = Date.now();
-        if (obj?.type === 'hello') this.link.deviceInfo = obj;
+        if (obj?.type === 'identity') this.link.deviceInfo = obj;
         this._clearRebootTimer();
         if (obj?.type && this.link.boxMode !== 'SERVE') {
             this._silenceLimitMs = SILENCE_LIMIT_MS;
@@ -364,9 +366,9 @@ class App {
         // either already has an answer or has given up, so stop nudging.
         if (state === 'waiting') {
             if (prev !== 'waiting') this.link.waitingSince = Date.now();
-            this._armHelloNudge();
+            this._armIdentifyNudge();
         } else {
-            this._clearHelloNudge();
+            this._clearIdentifyNudge();
         }
         if (state === 'idle' || state === 'lost') {
             this.link.boxMode = null;
@@ -432,22 +434,22 @@ class App {
     }
 
     /** Re-ask the Box to identify itself while waiting. Harmless to repeat:
-     *  do_hello() just replies, and each send carries a fresh id. */
-    _armHelloNudge() {
-        if (this._helloNudgeTimer) return;
-        this._helloNudgeTimer = setInterval(() => {
+     *  do_identify() just replies, and each send carries a fresh id. */
+    _armIdentifyNudge() {
+        if (this._identifyNudgeTimer) return;
+        this._identifyNudgeTimer = setInterval(() => {
             if (this.link.state !== 'waiting') {
-                this._clearHelloNudge();
+                this._clearIdentifyNudge();
                 return;
             }
-            this.device.nudgeHello().catch(() => {});
-        }, HELLO_NUDGE_MS);
+            this.device.nudgeIdentify().catch(() => {});
+        }, IDENTIFY_NUDGE_MS);
     }
 
-    _clearHelloNudge() {
-        if (this._helloNudgeTimer) {
-            clearInterval(this._helloNudgeTimer);
-            this._helloNudgeTimer = null;
+    _clearIdentifyNudge() {
+        if (this._identifyNudgeTimer) {
+            clearInterval(this._identifyNudgeTimer);
+            this._identifyNudgeTimer = null;
         }
     }
 
@@ -890,7 +892,7 @@ class App {
         this.setLinkState('opening');
         try {
             await this.device.connect();
-            dbg('app', 'device.connect() resolved (port open; awaiting hello/heartbeat)');
+            dbg('app', 'device.connect() resolved (port open; awaiting heartbeat/identity)');
             hideOverlay('connect-overlay');
             this.setLinkState('waiting');
             if (this.pendingSendAfterConnect) {

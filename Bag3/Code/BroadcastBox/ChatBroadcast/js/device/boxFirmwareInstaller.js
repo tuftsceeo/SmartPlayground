@@ -1,6 +1,6 @@
 /**
  * boxFirmwareInstaller.js — push payload.py via raw REPL, soft reset.
- * Waits for any JSON line with "type" after Ctrl-D (not hello specifically).
+ * Waits for any JSON line with "type" after Ctrl-D (not identity specifically).
  */
 
 import { loadBoxFiles } from "../../../BBoxFirmware/manifest.js";

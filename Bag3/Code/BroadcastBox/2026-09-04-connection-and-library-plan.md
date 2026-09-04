@@ -11,6 +11,11 @@ is exposed as a JSON event) — both cases the docs had wrong.
 For the three subjects in the title, prefer this file over the older documents in `design/` until
 it is implemented and superseded in turn.
 
+**Vocabulary note.** After this was written, the `hello` command/event was renamed to
+`identify`/`identity` to stop it being reused as a connection handshake — it reports fixed
+identity, never status or liveness (`info` is status, `heartbeat` is liveness). The text below
+uses the new names throughout, including where it quotes code that predated the rename.
+
 ---
 
 ## Context
@@ -46,7 +51,7 @@ boot (`:577`) and after every mode exit (`:543`, `:546`).
 | 0 | `_boot_grace()` `:97-102` | `# booting -- Ctrl-C within 5s to stay at the REPL` |
 | 0–5 s | `GRACE_S = 5` `:40`, one print/sec | `# 5...` `# 4...` … `# 1...` |
 | ~5 s | `_init_nfc()` `:143-147` | (silent; may fail → `_nfc_ok = False`) |
-| ≥5 s | `_send_hello()` `:569` | first `hello` |
+| ≥5 s | `_send_identity()` `:569` | first `identity` |
 | +5 s | main loop `:593-594` | `heartbeat` every `HEARTBEAT_MS = 5000` `:39` |
 
 **`GRACE_S` is reducible, not a fixed cost** (user-confirmed): the grace only has to leave a window
@@ -54,15 +59,15 @@ for a Ctrl-C into the REPL, and the running main loop already yields every itera
 (`time.sleep_ms(1)` `:596`, plus `link.pump(idle_ms=20, drain_ms=40)` `:583`), so an interrupt lands
 fine once the loop is up. Shrinking it is the cheapest available win on feedback latency — see §3.6.
 
-**Outbound message types** (grep-verified, `bbox_server.py`): `hello`, `heartbeat`, `armed`,
+**Outbound message types** (grep-verified, `bbox_server.py`): `identity`, `heartbeat`, `armed`,
 `card_present`, `card_written`, `info`, `ok`, `error`, `bye`.
 
-- `hello` `:246-254` — `{type, id, device:"broadcast_box", version, w:240, h:135, nfc:<real init result>}`.
-  Sent **unsolicited at boot** (`:569`) *and* in reply to `{"cmd":"hello"}` (`:259-260`).
+- `identity` `:246-254` — `{type, id, device:"broadcast_box", version, w:240, h:135, nfc:<real init result>}`.
+  Sent **unsolicited at boot** (`:569`) *and* in reply to `{"cmd":"identify"}` (`:259-260`).
 - `armed` `:207` — `{type:"armed", id:null, ssid:SSID}`, emitted on **entering** `SERVE`.
 - `bye` — only from the `repl` (`:293`) and `reboot` (`:298`) handlers, i.e. **only when the app asked
   for it**. Never emitted on unexpected loss.
-- Accepted commands (`self.handlers`, `:130-136`): `hello`, `info`, `arm`, `disarm`, `repl`, `reboot`.
+- Accepted commands (`self.handlers`, `:130-136`): `identify`, `info`, `arm`, `disarm`, `repl`, `reboot`.
   **No game-management or stats commands exist.**
 
 **Gap A — mode is only half-announced.** Entering `SERVE` emits `armed`. *Leaving* `SERVE`, and every
@@ -111,7 +116,7 @@ This is exactly the chain WebApp2 has and ChatBroadcast does not
 `js/main.js:436-455`).
 
 **I3 — badge and button desynchronise.** The button label is written *only* inside the `refresh()`
-closure (`app.js:207-219`), reachable only from `hello`/`heartbeat`/`repl`/`wrong_device`/`bye`
+closure (`app.js:207-219`), reachable only from `identity`/`heartbeat`/`repl`/`wrong_device`/`bye`
 events. Three call sites write the badge **directly**, bypassing it: `:250` (drop), `:663` (connect),
 `:686` (disconnect). Observable results: after unplug the badge says "not connected" while the button
 still says **"Disconnect"**; after clicking Disconnect the button *stays* "Disconnect" because no
@@ -126,14 +131,14 @@ The 2 s `serialDropHandled` debounce (`:252`) only re-permits the toast.
 and only trigger a repaint; nothing notices when they stop.
 
 **I6 — the validation probe cannot succeed on a booting Box.** `connect()` fires
-`json.hello({ timeoutMs: 4000 }).catch((e) => logWarn(...))` (`js/device/bboxDeviceLink.js:125`) —
+`json.identify({ timeoutMs: 4000 }).catch((e) => logWarn(...))` (`js/device/bboxDeviceLink.js:125`) —
 fire-and-forget, so a failure is invisible; and **4000 ms is shorter than the Box's ≥5 s boot grace**,
 so connecting to a booting or just-reset Box guarantees a timeout. The badge then sits at
 "● connecting…" with no explanation.
 
 **I7 — any typed message means "connected".** `_markRunning` (`bboxDeviceLink.js:66-69`) sets
 `running = true` on *any* object with a `type`. `error` and `fatal` both qualify. There is no real
-identity gate beyond the `device !== "broadcast_box"` check, which only runs if a `hello` happens to
+identity gate beyond the `device !== "broadcast_box"` check, which only runs if a `identity` happens to
 arrive.
 
 **I8 — `bye` is misinterpreted as a failure.** `json.on("bye", () => { this.running = false; })`
@@ -234,7 +239,7 @@ badge *and* button together.
 | `sending` | payload push in flight | `● sending your game…` | disabled |
 | `rebooting` | `bye`, or post-push reset | `● restarting the Box…` | disabled |
 | `lost` | port died / watchdog fired | `● lost the Box — check the cable` | **Connect** |
-| `wrong` | `hello.device !== "broadcast_box"` | `● that's not a Broadcast Box` | **Disconnect** |
+| `wrong` | `identity.device !== "broadcast_box"` | `● that's not a Broadcast Box` | **Disconnect** |
 | `stuck` | REPL detected | `● the Box needs a nudge` + **Restart the Box** | **Disconnect** |
 
 Two independent liveness mechanisms, deliberately split — this is what fixes objective 2:
@@ -250,7 +255,7 @@ Two independent liveness mechanisms, deliberately split — this is what fixes o
   wedged", which the fast path cannot see.
 
 Other transition rules:
-- **Validation gate = any typed message** (`heartbeat` *or* `hello`), not the `hello` probe.
+- **Validation gate = any typed message** (`heartbeat` *or* `identity`), not the `identity` probe.
   `VALIDATE_LIMIT_MS` must exceed grace + NFC init (§1.1); 4 s today is unwinnable (I6). Set it from
   whatever `GRACE_S` ends up as after §3.6: **15 s while the grace is 5 s, 8 s once it is ~1 s.**
   Keep the probe, raise its timeout to match, and `await` it only to populate `deviceInfo` — timing
@@ -277,7 +282,7 @@ must pass through; adding one `link.send()` there cannot miss a transition:
 {"type":"mode","mode":"WRITE|SERVE|IDLE","games":2,"active":"jumping-frogs","ssid":"SP-FILEPUSH"}
 ```
 
-Also emit it once at boot right after `_send_hello()` (`:569`) so a late-connecting app learns the
+Also emit it once at boot right after `_send_identity()` (`:569`) so a late-connecting app learns the
 mode without asking, and answer a new `{"cmd":"mode"}` for explicit resync. Add `"mode"` to
 `FORWARDED_EVENTS` (`bboxDeviceLink.js:12-15`) — `armed` then becomes redundant for state purposes but
 should stay, since the watchdog uses it.
@@ -354,7 +359,7 @@ by this switch.
 ## 3.6 Shorten the boot grace (feedback latency)
 
 `_boot_grace()` (`bbox_server.py:97-102`) burns `GRACE_S = 5` (`:40`) in `time.sleep_ms(1000)` steps
-*before* `_init_nfc()` and `_send_hello()`. Every connect, every reboot, and every post-send restart
+*before* `_init_nfc()` and `_send_identity()`. Every connect, every reboot, and every post-send restart
 pays it, and it is the single largest component of "the app sits there saying nothing".
 
 **Change:** `GRACE_S = 1`. Do **not** go to 0 — keep a real window. The grace's only job is rescuing
@@ -442,7 +447,7 @@ Serve ChatBroadcast from `Bag3/Code` (`python3 -m http.server`, open
 badge tracks every transition, **including the exits** that emit nothing today.
 
 **Stage 2, boot grace (§3.6) — this one gates the timing constants, so do it before tuning them:**
-1. With `GRACE_S = 1`, measure reset → first `hello` on the wire. Expect ~1 s + NFC init. Then set
+1. With `GRACE_S = 1`, measure reset → first `identity` on the wire. Expect ~1 s + NFC init. Then set
    `VALIDATE_LIMIT_MS` from the measurement rather than the estimate.
 2. **REPL rescue must still work.** Reset the Box and hold Ctrl-C: you must land at `>>>`. Falsifiable
    claim being tested: "one second is enough of a window in practice." If it is not, raise to 2 s —
@@ -485,7 +490,7 @@ unprovoked.
 - `VALIDATE_LIMIT_MS`, `SILENCE_LIMIT_MS = 15000/45000` and `REBOOT_LIMIT_MS = 20000` are derived from
   `GRACE_S`, `HEARTBEAT_MS = 5000` and `SOCK_REPLY_TIMEOUT_S = 30`. They are **starting points to
   measure on the bench**, not settled values — and `VALIDATE_LIMIT_MS`/`REBOOT_LIMIT_MS` should be set
-  from the Stage 2 measurement of reset → first `hello` once `GRACE_S` is reduced (§3.6), not from the
+  from the Stage 2 measurement of reset → first `identity` once `GRACE_S` is reduced (§3.6), not from the
   15 s figure written here for today's 5 s grace.
 - `GRACE_S = 1` assumes one second is a usable Ctrl-C window for a human. That is a claim about
   reflexes, not code, and Stage 2 test 2 is what settles it.
