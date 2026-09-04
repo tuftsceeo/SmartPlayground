@@ -193,15 +193,14 @@
 # it handles the swap. Raw leds.np[i] = (r, g, b) is also (R, G, B) because
 # the _ScaledNeoPixel wrapper converts before writing.
 #
-# Accelerometer Orientation (confirmed from calibration):
+# Accelerometer Orientation:
 #   accel.read() → (x, y, z) in g units
-#   Wand held upright (tip up, handle down): y ≈ +1.0g
-#   FACE up  (LED side up)  → z ≈ -1.0
-#   BACK up                 → z ≈ +1.0
-#   LEFT side up            → x ≈ +1.0
-#   RIGHT side up           → x ≈ -1.0
-#   TIP up (upright)        → y ≈ +1.0
-#   HANDLE up               → y ≈ -1.0
+#      Wand held upright (tip up, handle down)   → x ≈ -1.0g 
+#      FACE up  (front up, LED side down)        → z ≈ -1.0
+#      BACK up                                   → z ≈ +1.0
+#      LEFT side up                              → y ≈ +1.0
+#      RIGHT side up                             → y ≈ -1.0
+#      HANDLE up  (upside-down)                  → x ≈ +1.0
 #
 # Vibration Motor (GPIO21):
 #   motor = machine.Pin(21, machine.Pin.OUT, value=0)
@@ -672,7 +671,6 @@ if __name__ == "__main__":
 #
 # NOTE: GPIO0 is also the boot pin — holding it during reset enters
 # the MicroPython bootloader. This is normal behavior.
-
 # ═══════════════════════════════════════════════════════════════════
 # 9. ACCELEROMETER
 # ═══════════════════════════════════════════════════════════════════
@@ -682,18 +680,29 @@ if __name__ == "__main__":
 # x, y, z = accel.read()          — returns acceleration in g units (float)
 # magnitude = math.sqrt(x*x + y*y + z*z)
 #
-# ── Common thresholds ────────────────────────────────────────────────
+# ── Orientation / tilt  ───────────────────
+# Wand held upright (tip up, handle down)   → x ≈ -1.0g 
+# FACE up  (front up, LED side down)        → z ≈ -1.0
+# BACK up                                   → z ≈ +1.0
+# LEFT side up                              → y ≈ +1.0
+# RIGHT side up                             → y ≈ -1.0
+# HANDLE up  (upside-down)                  → x ≈ +1.0
+#
+# ── Common gestures and motions ─────────────────────────────────────
 # Freefall / jump:  magnitude < 0.3
 # Shake / hit:      magnitude > 1.4
 # Gentle motion:    magnitude > 0.3 and < 1.4
 #
-# ── Orientation / tilt ───────────────────────────────────────────────
-# Wand upright (tip up):    y ≈ +1.0
-# LED face up (flat):       z ≈ -1.0
-# Tilt left:                x > 0.5
-# Tilt right:               x < -0.5
-# Tilt toward face:         z decreases (goes negative)
-# Lean forward (tip down):  y decreases
+# ── Axes of Motion ───────────────────────────────────────────────────
+# x → down-and-up
+# y → left-and-right
+# z → backward-and-forward
+#
+# ── Calibrated orientation detection ────────────────────────────────
+# FACE_UP_THRESHOLD  = 0.8   # e.g., -z > this → LED face pointing up; -x > this → upright (tip up, handle down)
+# SHAKE_THRESHOLD    = 1.4    # magnitude > this → shaking 
+# FREEFALL_THRESHOLD = 0.3    # magnitude < this → jump / freefall
+# TILT_THRESHOLD     = 0.5    # |x| or |y| > this → tilted that axis
 #
 # ── Usage pattern ────────────────────────────────────────────────────
 # if self.accel:
@@ -705,12 +714,6 @@ if __name__ == "__main__":
 #     except Exception:
 #         pass
 #
-# ── Calibrated orientation detection ────────────────────────────────
-# FACE_UP_THRESHOLD  = -0.8   # z < this → LED face pointing up
-# SHAKE_THRESHOLD    = 1.4    # magnitude > this → shaking
-# FREEFALL_THRESHOLD = 0.3    # magnitude < this → jump / freefall
-# TILT_THRESHOLD     = 0.5    # |x| or |y| > this → tilted that axis
-
 # ═══════════════════════════════════════════════════════════════════
 # 10. ESP-NOW
 # ═══════════════════════════════════════════════════════════════════
