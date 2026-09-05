@@ -17,17 +17,17 @@
                     <div class="splash-tagline">make magic for your playground</div>
                     <div class="splash-actions">
                         <div class="splash-card" id="btn-scratch">
-                            <div style="font-size: 26px">💬</div>
+                            <div class="splash-card-icon" data-icon="message-circle"></div>
                             <h3>Start from scratch</h3>
                             <p>chat your idea into code</p>
                         </div>
                         <div class="splash-card primary" id="btn-gallery">
-                            <div style="font-size: 26px">📚</div>
+                            <div class="splash-card-icon" data-icon="library"></div>
                             <h3>Browse examples</h3>
                             <p>remix a ready-made game</p>
                         </div>
                         <div class="splash-card" id="btn-saved">
-                            <div style="font-size: 26px">📂</div>
+                            <div class="splash-card-icon" data-icon="folder-open"></div>
                             <h3>My saved games</h3>
                             <p>pick up where you left off</p>
                         </div>
@@ -37,9 +37,32 @@
 
             <!-- Screen 2: Gallery (examples + saved) -->
             <div id="view-gallery" class="view-panel hidden">
-                <div class="view-header">
-                    <button class="home-link" id="btn-gallery-home" type="button">⌂ Home</button>
-                    <h1 id="gallery-title">📚 Example games</h1>
+                <header class="app-header" data-tab="gallery">
+                    <div class="app-brand">
+                        <div class="brand-gem">✦</div>
+                        <div class="brand-title">Wand &amp; Station Coder</div>
+                    </div>
+                    <nav class="app-tabs" aria-label="Main">
+                        <button type="button" class="app-tab" data-nav="home" title="Home">Home</button>
+                        <button type="button" class="app-tab" data-nav="saved" title="My saved games">Saved</button>
+                        <button type="button" class="app-tab" data-nav="examples" title="Example games">Examples</button>
+                    </nav>
+                    <div class="header-actions">
+                        <div id="ssid-chip" class="ssid-chip hidden" title="Network the wands should join"></div>
+                        <button type="button" class="mode-pill muted" id="btn-mode-pill" title="Games, health &amp; battery on the Box" disabled>
+                            <span class="mode-pill-icon" data-icon="box"></span>
+                            <span class="mode-pill-label">Box</span>
+                        </button>
+                        <span id="connection-badge" class="conn-chip hidden"></span>
+                        <button class="btn-secondary btn-restart-box hidden" id="btn-restart-box" type="button">Restart the Box</button>
+                        <button class="btn-connect-header" id="btn-connect-header" type="button" title="Connect to the Box">
+                            <span class="connect-icon" data-icon="cable"></span>
+                            <span class="connect-label">Connect</span>
+                        </button>
+                    </div>
+                </header>
+                <div class="gallery-toolbar">
+                    <h1 id="gallery-title">Example games</h1>
                     <input type="search" id="gallery-search" placeholder="search games…" />
                 </div>
                 <div class="chips" id="gallery-chips"></div>
@@ -48,9 +71,32 @@
 
             <!-- Screen 3: Detail -->
             <div id="view-detail" class="view-panel hidden">
-                <div class="view-header">
-                    <button class="home-link" id="btn-detail-home" type="button">⌂ Home</button>
-                    <button class="back-link" id="btn-detail-back">←</button>
+                <header class="app-header" data-tab="examples">
+                    <div class="app-brand">
+                        <div class="brand-gem">✦</div>
+                        <div class="brand-title">Wand &amp; Station Coder</div>
+                    </div>
+                    <nav class="app-tabs" aria-label="Main">
+                        <button type="button" class="app-tab" data-nav="home" title="Home">Home</button>
+                        <button type="button" class="app-tab" data-nav="saved" title="My saved games">Saved</button>
+                        <button type="button" class="app-tab active" data-nav="examples" title="Example games">Examples</button>
+                    </nav>
+                    <div class="header-actions">
+                        <div class="ssid-chip hidden" data-ssid-chip title="Network the wands should join"></div>
+                        <button type="button" class="mode-pill muted" data-mode-pill title="Games, health &amp; battery on the Box" disabled>
+                            <span class="mode-pill-icon" data-icon="box"></span>
+                            <span class="mode-pill-label">Box</span>
+                        </button>
+                        <span class="conn-chip hidden" data-conn-chip></span>
+                        <button class="btn-secondary btn-restart-box hidden" data-restart-box type="button">Restart the Box</button>
+                        <button class="btn-connect-header" data-connect-header type="button" title="Connect to the Box">
+                            <span class="connect-icon" data-icon="cable"></span>
+                            <span class="connect-label">Connect</span>
+                        </button>
+                    </div>
+                </header>
+                <div class="detail-toolbar">
+                    <button class="back-link" id="btn-detail-back" type="button" title="Back">←</button>
                     <h1 id="detail-title"></h1>
                 </div>
                 <div class="detail-body">
@@ -61,161 +107,214 @@
                         <p class="detail-desc" id="detail-desc"></p>
                         <div class="tag-badge hidden" id="detail-tag-note"></div>
                         <div style="flex: 1"></div>
-                        <button class="btn-primary" id="btn-remix">🔀 Remix this in chat</button>
-                        <button class="btn-secondary" id="btn-use-as-is">Use as-is → send</button>
+                        <button class="btn-primary btn-with-icon" id="btn-remix" type="button">
+                            <span data-icon="shuffle" data-icon-size="16"></span>
+                            Remix this in chat
+                        </button>
+                        <button class="btn-secondary" id="btn-use-as-is" type="button">Use as-is → send</button>
                     </div>
                 </div>
             </div>
 
             <!-- Screen 4: Workspace -->
             <div id="view-workspace" class="view-panel hidden">
-                <div class="ws-header">
-                    <button class="home-link" id="btn-home" type="button">⌂ Home</button>
-                    <h1>Wand &amp; Station Coder</h1>
-                    <div class="header-actions">
-                        <span id="connection-badge">● not connected</span>
-                        <button class="btn-secondary btn-restart-box hidden" id="btn-restart-box" type="button">Restart the Box</button>
-                        <button class="btn-teal btn-connect-header" id="btn-connect-header" type="button">Connect</button>
-                        <button class="icon-btn" id="btn-mode-gear" type="button" title="Switch to advanced mode">⚙</button>
+                <header class="app-header" data-tab="home">
+                    <div class="app-brand">
+                        <div class="brand-gem">✦</div>
+                        <div class="brand-title">Wand &amp; Station Coder</div>
                     </div>
-                </div>
+                    <nav class="app-tabs" aria-label="Main">
+                        <button type="button" class="app-tab active" data-nav="home" title="Home">Home</button>
+                        <button type="button" class="app-tab" data-nav="saved" title="My saved games">Saved</button>
+                        <button type="button" class="app-tab" data-nav="examples" title="Example games">Examples</button>
+                    </nav>
+                    <div class="header-actions">
+                        <div class="ssid-chip hidden" data-ssid-chip title="Network the wands should join"></div>
+                        <button type="button" class="mode-pill muted" data-mode-pill title="Games, health &amp; battery on the Box" disabled>
+                            <span class="mode-pill-icon" data-icon="box"></span>
+                            <span class="mode-pill-label">Box</span>
+                        </button>
+                        <span class="conn-chip hidden" data-conn-chip></span>
+                        <button class="btn-secondary btn-restart-box hidden" data-restart-box type="button">Restart the Box</button>
+                        <button class="btn-connect-header" data-connect-header type="button" title="Connect to the Box">
+                            <span class="connect-icon" data-icon="cable"></span>
+                            <span class="connect-label">Connect</span>
+                        </button>
+                    </div>
+                </header>
                 <div class="ws-body">
                     <div class="role-rail">
                         <div class="role-item active" title="Wands">
-                            <div style="font-size: 18px">🪄</div>
+                            <span class="role-icon" data-icon="wand" data-icon-size="18"></span>
                             Wands
                         </div>
                         <div class="role-item disabled stations" title="Coming later">
-                            <div style="font-size: 18px">🎯</div>
+                            <span class="role-icon" data-icon="gamepad" data-icon-size="18"></span>
                             Stations
-                        </div>
-                        <div class="role-item box-lib hidden" id="btn-box-library" title="Games on the Box" role="button" tabindex="0">
-                            <div style="font-size: 18px">📦</div>
-                            Box
                         </div>
                     </div>
                     <div class="chat-col">
                         <div id="chat-box"></div>
                         <div class="chat-input-row">
                             <textarea id="user-input" rows="1" placeholder="type a request…"></textarea>
-                            <button class="btn-send-round" id="btn-send" title="Send">➤</button>
+                            <button class="btn-send-round" id="btn-send" title="Send" type="button">
+                                <span data-icon="send" data-icon-size="16"></span>
+                            </button>
                         </div>
                     </div>
                     <div class="ws-resizer" id="ws-resizer" role="separator" aria-orientation="vertical" aria-label="Resize chat and simulator panels" tabindex="0"></div>
                     <div class="preview-col">
+                        <div id="preview-empty" class="preview-empty">
+                            <span data-icon="wand" data-icon-size="46" data-icon-stroke="1.3" class="preview-empty-icon"></span>
+                            <div class="preview-empty-caption">wand preview</div>
+                        </div>
                         <div id="preview-panel" class="hidden">
                             <wand-sim id="wand-sim"></wand-sim>
-                            <button type="button" id="btn-sim-restart" class="btn-secondary" disabled>Start Over</button>
                             <p id="sim-notice" class="sim-notice hidden"></p>
                         </div>
                     </div>
                 </div>
                 <div class="ws-footer">
-                    <button class="version-pill" id="btn-prev">◄</button>
-                    <span id="version-label">v0/0</span>
-                    <button class="version-pill" id="btn-next">►</button>
-                    <button class="code-toggle" id="btn-show-code">&lt;/&gt; Show code</button>
+                    <div class="footer-tools">
+                        <button class="icon-btn" id="btn-save-game" type="button" title="Save (updates this game, no duplicate)">
+                            <span data-icon="save" data-icon-size="15"></span>
+                        </button>
+                        <button class="icon-btn" id="btn-show-code" type="button" title="Show code">
+                            <span class="code-glyph">&lt;/&gt;</span>
+                        </button>
+                        <button class="icon-btn" id="btn-mode-gear" type="button" title="Switch to advanced mode">
+                            <span data-icon="wrench" data-icon-size="15"></span>
+                        </button>
+                    </div>
                     <div class="footer-actions">
-                        <button class="btn-save" id="btn-save-game" type="button">💾 Save</button>
-                        <button class="btn-download" id="btn-download" type="button">⬇ Download</button>
-                        <button class="btn-send-box" id="btn-send-box">Send to Broadcast Box →</button>
+                        <button class="btn-send-box" id="btn-send-box" type="button" disabled>Send to Box →</button>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Screen 5: Code drawer -->
+        <!-- Code drawer -->
         <div id="code-drawer" class="hidden">
+            <div class="code-drawer-resizer" id="code-drawer-resizer" role="separator" aria-orientation="vertical" aria-label="Resize code drawer" tabindex="0"></div>
             <div class="drawer-header">
-                <span>&lt;/&gt; generated code</span>
-                <button class="drawer-close" id="btn-close-code">✕</button>
+                <span class="drawer-title">&lt;/&gt; generated code</span>
+                <div class="drawer-tools">
+                    <button class="version-pill" id="btn-prev" type="button" title="Previous version">◄</button>
+                    <span id="version-label">v0/0</span>
+                    <button class="version-pill" id="btn-next" type="button" title="Next version">►</button>
+                    <button class="icon-btn" id="btn-download" type="button" title="Download">
+                        <span data-icon="download" data-icon-size="15"></span>
+                    </button>
+                    <button class="drawer-close" id="btn-close-code" type="button" title="Close">
+                        <span data-icon="close" data-icon-size="18"></span>
+                    </button>
+                </div>
             </div>
             <div id="code-editor-container">
                 <div id="code-editor"></div>
             </div>
         </div>
 
-        <!-- Screen 6: Tag checklist -->
+        <!-- Tag checklist -->
         <div id="tag-checklist-overlay" class="overlay-view hidden">
-            <div class="overlay-card left">
+            <div class="overlay-card overlay-card-tags left">
                 <h2 id="tag-checklist-title">This game needs tags</h2>
                 <p id="tag-checklist-subtitle"></p>
                 <div class="tag-bars" id="tag-checklist-bars"></div>
                 <div id="tag-checklist-list"></div>
-                <button class="btn-primary" id="tag-checklist-continue" style="width: 100%; margin-top: 16px">
-                    Continue on Broadcast Box →
-                </button>
-                <button class="btn-secondary" id="tag-checklist-back" style="width: 100%; margin-top: 8px">Back</button>
+                <button class="btn-primary" id="tag-checklist-continue" type="button">Continue</button>
+                <button class="btn-secondary" id="tag-checklist-back" type="button">Back</button>
             </div>
         </div>
 
-        <!-- Screen 7: Connect -->
+        <!-- Connect (send-while-disconnected / errors) -->
         <div id="connect-overlay" class="overlay-view hidden">
-            <div class="overlay-card">
-                <div style="font-size: 40px; margin-bottom: 12px">🔌</div>
+            <div class="overlay-card overlay-card-send">
+                <div class="connect-hero" data-icon="cable" data-icon-size="40"></div>
                 <h2>Connect to Broadcast Box</h2>
                 <p>Plug it in, then pick it from the browser's list</p>
-                <p style="font-weight:700; margin: 12px 0 4px;">You'll need:</p>
-                <ul class="component-list" id="connect-components"></ul>
-                <button class="btn-teal" id="btn-connect-usb">Connect via USB</button>
-                <button class="btn-secondary" id="btn-connect-cancel" style="width: 100%; margin-top: 8px">Cancel</button>
+                <div class="send-icons-row" id="connect-components"></div>
+                <button class="btn-teal" id="btn-connect-usb" type="button">Connect via USB</button>
+                <button class="btn-secondary" id="btn-connect-cancel" type="button">Cancel</button>
                 <p id="connect-error" class="modal-error"></p>
             </div>
         </div>
 
-        <!-- Screen 8: Send confirm -->
+        <!-- Send confirm -->
         <div id="send-confirm-overlay" class="overlay-view hidden">
-            <div class="overlay-card">
-                <h2>Send this code?</h2>
-                <p id="send-confirm-sub"></p>
-                <label class="send-name-label" for="send-game-name">Game name</label>
-                <input type="text" id="send-game-name" maxlength="48" placeholder="Short name for this game" />
+            <div class="overlay-card overlay-card-send">
+                <input type="text" id="send-game-name" maxlength="48" placeholder="Game name" />
                 <p id="send-name-error" class="modal-error"></p>
-                <p style="font-weight:700; margin: 12px 0 4px;">You'll need:</p>
-                <ul class="component-list" id="send-confirm-components"></ul>
+                <div class="send-icons-row" id="send-confirm-components"></div>
                 <div id="send-progress-wrap" class="hidden">
                     <div id="send-progress-track"><div id="send-progress-bar"></div></div>
                     <p id="send-progress-label"></p>
                 </div>
-                <button class="btn-primary" id="btn-send-confirm" style="width: 100%; margin-top: 16px">Send</button>
-                <button class="btn-secondary" id="btn-send-cancel" style="width: 100%; margin-top: 8px">Not yet</button>
+                <button class="btn-primary" id="btn-send-confirm" type="button">Send</button>
+                <button class="btn-secondary" id="btn-send-cancel" type="button">Not yet</button>
             </div>
         </div>
 
-        <!-- Advanced: Box library + stats -->
+        <!-- My Box overlay -->
         <div id="box-library-overlay" class="overlay-view hidden">
-            <div class="overlay-card overlay-card-wide">
-                <h2>Games on the Box</h2>
-                <p id="box-library-status" class="muted">Connect in advanced mode to manage games.</p>
-                <ul id="box-library-list" class="box-library-list"></ul>
-                <div class="box-library-actions">
-                    <button class="btn-secondary" id="btn-box-lib-refresh" type="button">Refresh</button>
-                    <button class="btn-secondary" id="btn-box-lib-clear" type="button">Clear all</button>
+            <div class="overlay-card overlay-card-mybox">
+                <div class="mybox-top">
+                    <div id="mybox-mode-chip" class="mybox-mode-chip" title="">
+                        <span data-icon="modeServe" data-icon-size="14"></span>
+                        <span id="mybox-mode-label">Box</span>
+                    </div>
+                    <button type="button" class="drawer-close" id="btn-box-lib-close" title="Close">
+                        <span data-icon="close" data-icon-size="18"></span>
+                    </button>
                 </div>
-                <h3 style="margin-top:16px">Usage</h3>
-                <pre id="box-stats-text" class="box-stats-text">—</pre>
-                <button class="btn-secondary" id="btn-box-stats-reset" type="button">Reset stats</button>
-                <button class="btn-primary" id="btn-box-lib-close" style="width:100%; margin-top:16px" type="button">Close</button>
+                <div class="mybox-health">
+                    <div id="mybox-nfc" class="mybox-nfc" title="NFC reader">
+                        <span data-icon="nfcCard" data-icon-size="15"></span>
+                        <span id="mybox-nfc-status" data-icon="check" data-icon-size="12"></span>
+                    </div>
+                    <div id="mybox-fw" class="mybox-fw" title="Firmware">
+                        <span id="mybox-fw-version">v—</span>
+                    </div>
+                </div>
+                <p id="box-library-status" class="muted">Connect to the Box to manage games.</p>
+                <div id="box-library-list" class="box-library-list"></div>
+                <div class="mybox-footer">
+                    <button class="btn-secondary btn-compact" id="btn-box-lib-clear" type="button" title="Remove every game from the Box">Clear all</button>
+                    <button class="btn-secondary btn-compact advanced-only" id="btn-box-lib-refresh" type="button">Refresh</button>
+                </div>
+                <div class="mybox-stats advanced-only">
+                    <h3>Usage</h3>
+                    <pre id="box-stats-text" class="box-stats-text">—</pre>
+                    <button class="btn-secondary btn-compact" id="btn-box-stats-reset" type="button">Reset stats</button>
+                </div>
             </div>
         </div>
 
-        <!-- Screen 9: Sent banner -->
-        <div id="sent-banner" class="hidden">✓ Sent! Hold a card on the Box to write it.</div>
+        <!-- Sent banner -->
+        <div id="sent-banner" class="hidden">
+            <span data-icon="circle-check" data-icon-size="16"></span>
+            Sent! Hold a card on the Box to write it.
+        </div>
 
         <!-- Passphrase modal -->
         <div class="overlay-view" id="modal-overlay" data-persistent="true">
-            <div class="overlay-card">
+            <div class="overlay-card overlay-card-send">
                 <h2>Welcome!</h2>
                 <p>Enter the magic code to get started.</p>
                 <input type="password" id="modal-passphrase" placeholder="Magic code…" />
                 <div id="modal-error" class="modal-error"></div>
-                <button class="btn-primary" id="btn-modal-unlock" style="width: 100%">Unlock</button>
+                <button class="btn-primary" id="btn-modal-unlock" type="button">Unlock</button>
             </div>
         </div>
 
         <div id="toast" class="hidden"></div>
+        <div id="connect-toast" class="connect-toast hidden">
+            <span class="connect-toast-spin" data-icon="spinner" data-icon-size="14"></span>
+            Choose your Box…
+        </div>
 
         <div id="serial-log-panel" class="hidden">
+            <div class="serial-log-resizer" id="serial-log-resizer" role="separator" aria-orientation="horizontal" aria-label="Resize serial log" tabindex="0"></div>
             <div class="serial-log-bar">
                 <button type="button" id="btn-serial-toggle">Serial log</button>
                 <button type="button" id="btn-copy-log">Copy</button>

@@ -4,10 +4,10 @@
  * chosen width is persisted in localStorage, same pattern as uiMode.js. */
 
 const KEY = "wandcoder.chatWidth";
-const MIN_WIDTH = 280;
-const MAX_WIDTH = 720;
-const MIN_PREVIEW_WIDTH = 220;
-const DEFAULT_WIDTH = 420;
+const MIN_WIDTH = 260;
+const MAX_WIDTH = 480;
+const MIN_PREVIEW_WIDTH = 180;
+const DEFAULT_WIDTH = 340;
 const KEYBOARD_STEP = 24;
 
 function loadWidth() {

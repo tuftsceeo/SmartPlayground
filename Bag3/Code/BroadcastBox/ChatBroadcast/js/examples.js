@@ -728,7 +728,7 @@ export const EXAMPLES = [
     {
         id: "melody",
         name: "Melody",
-        emoji: "🎵",
+        icon: "music",
         category: "sound",
         description: "Tap each note-tag to play a tune.",
         tagNote: "8 NFC tags",
@@ -744,7 +744,7 @@ export const EXAMPLES = [
     {
         id: "freezedance",
         name: "Freeze Dance",
-        emoji: "❄️",
+        icon: "snowflake",
         category: "color",
         description: "Move, then freeze when the music stops.",
         tagNote: null,
@@ -760,7 +760,7 @@ export const EXAMPLES = [
     {
         id: "rainbow",
         name: "Rainbow",
-        emoji: "🌈",
+        icon: "rainbow",
         category: "color",
         description: "Shake for color.",
         tagNote: null,
@@ -776,7 +776,7 @@ export const EXAMPLES = [
     {
         id: "shakerainbow",
         name: "Shake Rainbow",
-        emoji: "🌈",
+        icon: "rainbow",
         category: "color",
         description: "Shake harder to climb through rainbow colors.",
         tagNote: null,
@@ -792,7 +792,7 @@ export const EXAMPLES = [
     {
         id: "jump",
         name: "Jump",
-        emoji: "⬆️",
+        icon: "arrow-up",
         category: "color",
         description: "Jump (freefall) to light more LEDs on the matrix.",
         tagNote: null,
@@ -808,7 +808,7 @@ export const EXAMPLES = [
     {
         id: "cooking",
         name: "Cooking",
-        emoji: "🍳",
+        icon: "chef-hat",
         category: "multi",
         description: "Recipe steps with ingredient tags.",
         tagNote: "Multi-tag",
@@ -824,7 +824,7 @@ export const EXAMPLES = [
     {
         id: "jumpin",
         name: "Jump In",
-        emoji: "🦘",
+        icon: "brain-circuit",
         category: "color",
         description: "Simple jump game — great first project.",
         tagNote: null,
@@ -840,10 +840,10 @@ export const EXAMPLES = [
 ];
 
 export const CATEGORIES = [
-    { id: "all", label: "All" },
-    { id: "sound", label: "🎵 Sound" },
-    { id: "color", label: "🎨 Color" },
-    { id: "multi", label: "🏷️ Multi-tag" },
+    { id: "all", label: "All", icon: null },
+    { id: "sound", label: "Sound", icon: "music" },
+    { id: "color", label: "Color", icon: "palette" },
+    { id: "multi", label: "Multi-tag", icon: "tag" },
 ];
 
 export function findExample(id) {

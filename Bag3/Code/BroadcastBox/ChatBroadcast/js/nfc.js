@@ -1,6 +1,8 @@
 /**
- * Tag checklist modal (screen 6) — Box writes cards; app only lists what's needed.
+ * Tag checklist modal — Box writes cards; app only lists what's needed.
  */
+
+import { iconSvg } from "./icons.js";
 
 export function showTagChecklist({ title, subtitle, tags, writtenCount = 0 }) {
     return new Promise((resolve) => {
@@ -16,16 +18,24 @@ export function showTagChecklist({ title, subtitle, tags, writtenCount = 0 }) {
         bars.innerHTML = "";
 
         tags.forEach((tag, i) => {
+            const done = i < writtenCount;
+            const next = i === writtenCount;
             const bar = document.createElement("div");
-            bar.className = "tag-bar" + (i < writtenCount ? " done" : i === writtenCount ? " next" : "");
+            bar.className = "tag-bar" + (done ? " done" : next ? " next" : "");
             bars.appendChild(bar);
 
             const row = document.createElement("div");
-            row.className = "tag-row" + (i < writtenCount ? " done" : i === writtenCount ? " next" : "");
-            const status = i < writtenCount ? "✓" : i === writtenCount ? "→ next" : "not yet";
+            row.className = "tag-row" + (done ? " done" : next ? " next" : "");
+            const iconColor = done ? "#22c3a6" : next ? "#b36b00" : "#8b859a";
+            const statusHtml = done
+                ? iconSvg("circle-check", { size: 16 })
+                : next
+                  ? `<span class="tag-status">next</span>`
+                  : `<span class="tag-status">not yet</span>`;
             row.innerHTML =
+                `<span style="color:${iconColor};display:inline-flex">${iconSvg("nfcCard", { size: 16 })}</span>` +
                 `<span class="tag-name">${escapeHtml(tag)}</span>` +
-                `<span class="tag-status">${status}</span>`;
+                statusHtml;
             list.appendChild(row);
         });
 
@@ -78,5 +88,5 @@ export function deriveRequiredTags(nfcCards, code, gameName) {
 
 export function tagCountLabel(n) {
     if (n <= 1) return null;
-    return `needs ${n} NFC tags`;
+    return `${n} NFC tags — one per card`;
 }

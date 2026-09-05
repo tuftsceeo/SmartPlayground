@@ -11,17 +11,20 @@ import {
 import { uploadPayload } from './upload.js';
 import { showTagChecklist, deriveRequiredTags, tagCountLabel } from './nfc.js';
 import { EXAMPLES, CATEGORIES, findExample } from './examples.js';
-import { showView, showOverlay, hideOverlay, setConnectionBadge, toast, setSendProgress } from './router.js';
+import { showView, showOverlay, hideOverlay, setConnectionBadge, toast, setSendProgress, showConnectToast, syncNavTabs } from './router.js';
 import { createDeviceLink } from './device/bboxDeviceLink.js';
 import { subscribe, getEntries, toText } from './device/serialLog.js';
 import { setWorkspaceHandler } from './markdown.js';
 import { dbg, dbgWarn, dbgError } from './debug.js';
 import { loadUiMode, toggleUiMode } from './uiMode.js';
-import { loadSavedGames, saveGame, findSavedGame } from './library.js';
+import { loadSavedGames, saveGame, findSavedGame, renameSavedGame, deleteSavedGame } from './library.js';
 import { scanCapabilities } from './sim/codeCapabilities.js';
-import { buildComponentChecklist, checklistLines } from './checklist.js';
+import { buildComponentChecklist } from './checklist.js';
 import { validateGameName, slugify } from './gameName.js';
 import { initPaneSplit } from './paneSplit.js';
+import { initSerialSplit } from './serialSplit.js';
+import { initCodeDrawerSplit } from './codeDrawerSplit.js';
+import { iconSvg, exampleIcon } from './icons.js';
 
 const SILENCE_LIMIT_MS = 15000;
 const SILENCE_SERVE_MS = 45000;
@@ -101,12 +104,14 @@ class App {
 
     async init() {
         dbg('app', 'init() starting');
+        hydrateIcons(document);
         initEditor();
         dbg('app', 'editor initialized');
         updateVersionUI();
         this.bindEvents();
         dbg('app', 'event listeners bound');
         initPaneSplit();
+        initCodeDrawerSplit();
         this.watchDetailView();
         this.setupGallery();
         this.setupDeviceListeners();
@@ -168,6 +173,8 @@ class App {
         const rail = document.querySelector('.role-rail');
         const gear = document.getElementById('btn-mode-gear');
 
+        document.body.classList.toggle('ui-advanced', advanced);
+
         if (panel) {
             if (advanced) {
                 panel.classList.remove('hidden');
@@ -183,14 +190,13 @@ class App {
         if (rail) rail.classList.toggle('advanced', advanced);
         if (gear) {
             gear.title = advanced ? 'Switch to simple mode' : 'Switch to advanced mode';
+            gear.classList.toggle('active', advanced);
         }
         // The element itself may not be upgraded yet (setupSim() lazy-loads
         // its module) — setting the attribute is harmless either way and
         // takes effect once it is.
         document.getElementById('wand-sim')?.toggleAttribute('advanced', advanced);
         this._detailSim?.toggleAttribute('advanced', advanced);
-        const boxLib = document.getElementById('btn-box-library');
-        if (boxLib) boxLib.classList.toggle('hidden', !advanced);
         dbg('app', `UI mode: ${mode}`);
     }
 
@@ -233,6 +239,13 @@ class App {
             this.serialOpen = !this.serialOpen;
             panel.classList.toggle('open', this.serialOpen);
             this.reserveSerialPadding();
+        });
+        initSerialSplit({
+            onResize: () => this.reserveSerialPadding(),
+            onOpenChange: (open) => {
+                this.serialOpen = open;
+                this.reserveSerialPadding();
+            },
         });
         document.getElementById('btn-copy-log').addEventListener('click', async () => {
             try {
@@ -485,22 +498,10 @@ class App {
 
     bindEvents() {
         document.getElementById('btn-scratch').addEventListener('click', () => this.openWorkspace());
-        document.getElementById('btn-gallery').addEventListener('click', () => {
-            this.galleryMode = 'examples';
-            showView('gallery');
-            this.renderGallery();
-        });
-        document.getElementById('btn-saved').addEventListener('click', () => {
-            this.galleryMode = 'saved';
-            showView('gallery');
-            this.renderGallery();
-        });
+        document.getElementById('btn-gallery').addEventListener('click', () => this.goExamples());
+        document.getElementById('btn-saved').addEventListener('click', () => this.goSaved());
         document.getElementById('gallery-search').addEventListener('input', () => this.renderGallery());
-        document.getElementById('btn-detail-back').addEventListener('click', () => {
-            this.galleryMode = 'examples';
-            showView('gallery');
-            this.renderGallery();
-        });
+        document.getElementById('btn-detail-back').addEventListener('click', () => this.goExamples());
         document.getElementById('btn-remix').addEventListener('click', () => this.remixCurrentExample());
         document.getElementById('btn-use-as-is').addEventListener('click', () => this.useExampleAsIs());
         document.getElementById('btn-send').addEventListener('click', () => this.onSend());
@@ -523,21 +524,31 @@ class App {
         document.getElementById('btn-connect-cancel').addEventListener('click', () => {
             this.pendingSendAfterConnect = false;
             hideOverlay('connect-overlay');
+            showConnectToast(false);
         });
-        document.getElementById('btn-connect-header').addEventListener('click', () => this.toggleConnect());
-        document.getElementById('btn-restart-box')?.addEventListener('click', () => this.onRestartBox());
+        document.querySelectorAll('.btn-connect-header').forEach((btn) => {
+            btn.addEventListener('click', () => this.toggleConnect());
+        });
+        document.querySelectorAll('.btn-restart-box').forEach((btn) => {
+            btn.addEventListener('click', () => this.onRestartBox());
+        });
+        document.querySelectorAll('.mode-pill').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                if (btn.disabled) return;
+                this.openBoxLibrary();
+            });
+        });
+        document.querySelectorAll('.app-tab').forEach((btn) => {
+            btn.addEventListener('click', () => this.onNavTab(btn.dataset.nav));
+        });
         document.getElementById('btn-send-confirm').addEventListener('click', () => this.confirmSend());
         document.getElementById('btn-send-cancel').addEventListener('click', () => hideOverlay('send-confirm-overlay'));
-        document.getElementById('btn-box-library')?.addEventListener('click', () => this.openBoxLibrary());
         document.getElementById('btn-box-lib-close')?.addEventListener('click', () => hideOverlay('box-library-overlay'));
         document.getElementById('btn-box-lib-refresh')?.addEventListener('click', () => this.refreshBoxLibrary());
         document.getElementById('btn-box-lib-clear')?.addEventListener('click', () => this.clearBoxLibrary());
         document.getElementById('btn-box-stats-reset')?.addEventListener('click', () => this.resetBoxStats());
 
         document.getElementById('btn-mode-gear').addEventListener('click', () => toggleUiMode());
-        document.getElementById('btn-home').addEventListener('click', () => this.goHome());
-        document.getElementById('btn-gallery-home').addEventListener('click', () => showView('splash'));
-        document.getElementById('btn-detail-home').addEventListener('click', () => showView('splash'));
         document.getElementById('btn-save-game').addEventListener('click', () => this.onSaveGame());
         document.getElementById('btn-download').addEventListener('click', () => onDownload(addMsg));
 
@@ -552,6 +563,38 @@ class App {
             userInput.style.height = 'auto';
             userInput.style.height = Math.min(userInput.scrollHeight, 120) + 'px';
         });
+    }
+
+    onNavTab(nav) {
+        if (nav === 'home') {
+            // From workspace Home tab → splash (with unsaved confirm). From
+            // gallery/detail, Home still means splash.
+            const ws = document.getElementById('view-workspace');
+            if (ws && !ws.classList.contains('hidden')) {
+                this.goHome();
+            } else {
+                showView('splash');
+            }
+            return;
+        }
+        if (nav === 'saved') this.goSaved();
+        else if (nav === 'examples') this.goExamples();
+    }
+
+    goSaved() {
+        this.galleryMode = 'saved';
+        document.body.dataset.galleryMode = 'saved';
+        showView('gallery');
+        this.renderGallery();
+        syncNavTabs('gallery');
+    }
+
+    goExamples() {
+        this.galleryMode = 'examples';
+        document.body.dataset.galleryMode = 'examples';
+        showView('gallery');
+        this.renderGallery();
+        syncNavTabs('gallery');
     }
 
     goHome() {
@@ -588,9 +631,10 @@ class App {
     setupGallery() {
         const chips = document.getElementById('gallery-chips');
         CATEGORIES.forEach((c) => {
-            const el = document.createElement('div');
+            const el = document.createElement('button');
+            el.type = 'button';
             el.className = 'chip' + (c.id === 'all' ? ' active' : '');
-            el.textContent = c.label;
+            el.innerHTML = (c.icon ? iconSvg(c.icon, { size: 14 }) + ' ' : '') + escapeHtml(c.label);
             el.dataset.id = c.id;
             el.addEventListener('click', () => {
                 this.galleryFilter = c.id;
@@ -607,9 +651,11 @@ class App {
         const q = document.getElementById('gallery-search').value.toLowerCase();
         const grid = document.getElementById('gallery-grid');
         grid.innerHTML = '';
+        document.body.dataset.galleryMode = this.galleryMode;
+        syncNavTabs('gallery');
 
         if (this.galleryMode === 'saved') {
-            title.textContent = '📂 My saved games';
+            title.textContent = 'My saved games';
             chips.classList.add('hidden');
             const saved = loadSavedGames().filter((g) => {
                 if (!q) return true;
@@ -618,7 +664,7 @@ class App {
             if (saved.length === 0) {
                 const empty = document.createElement('p');
                 empty.style.cssText = 'grid-column:1/-1;color:#8b859a;padding:24px;';
-                empty.textContent = 'No saved games yet — open a workspace and tap 💾 Save.';
+                empty.textContent = 'No saved games yet — open a workspace and tap Save.';
                 grid.appendChild(empty);
                 return;
             }
@@ -626,19 +672,34 @@ class App {
                 const card = document.createElement('div');
                 card.className = 'example-card saved-card';
                 card.dataset.id = g.id;
-                const when = g.updatedAt ? new Date(g.updatedAt).toLocaleString() : '';
+                const when = relativeTime(g.updatedAt);
                 card.innerHTML =
-                    `<div class="example-thumb">saved</div>` +
+                    `<div class="example-thumb">${iconSvg('wand', { size: 26, strokeWidth: 1.5 })}</div>` +
+                    `<div class="card-body" data-card-body>` +
                     `<h3>${escapeHtml(g.name)}</h3>` +
-                    `<p>${escapeHtml(g.desc || 'Saved session')}</p>` +
-                    (when ? `<div class="tag-badge">${escapeHtml(when)}</div>` : '');
-                card.addEventListener('click', () => this.openSavedGame(g.id));
+                    `<p>${escapeHtml(when)}</p>` +
+                    `<div class="card-actions">` +
+                    `<button type="button" class="card-action-btn" data-rename title="Rename">${iconSvg('pencil', { size: 14 })}</button>` +
+                    `<button type="button" class="card-action-btn" data-delete title="Delete">${iconSvg('trash', { size: 14 })}</button>` +
+                    `</div></div>`;
+                card.addEventListener('click', (e) => {
+                    if (e.target.closest('[data-rename],[data-delete],[data-confirm-del],[data-cancel-del],.card-rename-row')) return;
+                    this.openSavedGame(g.id);
+                });
+                card.querySelector('[data-rename]')?.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.startRenameSaved(card, g);
+                });
+                card.querySelector('[data-delete]')?.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.askDeleteSaved(card, g);
+                });
                 grid.appendChild(card);
             });
             return;
         }
 
-        title.textContent = '📚 Example games';
+        title.textContent = 'Example games';
         chips.classList.remove('hidden');
         EXAMPLES.filter((ex) => {
             if (this.galleryFilter !== 'all' && ex.category !== this.galleryFilter) return false;
@@ -649,12 +710,62 @@ class App {
             card.className = 'example-card';
             card.dataset.id = ex.id;
             card.innerHTML =
-                `<div class="example-thumb">${ex.id} clip</div>` +
-                `<h3>${ex.emoji} ${ex.name}</h3>` +
-                `<p>${ex.description}</p>` +
-                (ex.tagNote ? `<div class="tag-badge">${ex.tagNote}</div>` : '');
+                `<div class="example-thumb">${iconSvg(exampleIcon(ex), { size: 26, strokeWidth: 1.5 })}</div>` +
+                `<h3>${escapeHtml(ex.name)}</h3>` +
+                `<p>${escapeHtml(ex.description)}</p>` +
+                (ex.tagNote ? `<div class="tag-badge">${escapeHtml(ex.tagNote)}</div>` : '');
             card.addEventListener('click', () => this.openDetail(ex.id));
             grid.appendChild(card);
+        });
+    }
+
+    startRenameSaved(card, g) {
+        const body = card.querySelector('[data-card-body]');
+        if (!body) return;
+        body.innerHTML =
+            `<div class="card-rename-row">` +
+            `<input type="text" value="${escapeHtml(g.name)}" maxlength="48" />` +
+            `<button type="button" class="card-rename-ok" title="Save name">${iconSvg('circle-check', { size: 16 })}</button>` +
+            `<button type="button" class="card-rename-cancel" title="Cancel">${iconSvg('close', { size: 16 })}</button>` +
+            `</div>`;
+        const input = body.querySelector('input');
+        input.focus();
+        input.select();
+        body.querySelector('.card-rename-ok').addEventListener('click', (e) => {
+            e.stopPropagation();
+            renameSavedGame(g.id, input.value);
+            this.renderGallery();
+        });
+        body.querySelector('.card-rename-cancel').addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.renderGallery();
+        });
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                renameSavedGame(g.id, input.value);
+                this.renderGallery();
+            } else if (e.key === 'Escape') {
+                this.renderGallery();
+            }
+        });
+    }
+
+    askDeleteSaved(card, g) {
+        const actions = card.querySelector('.card-actions');
+        if (!actions) return;
+        actions.innerHTML =
+            `<button type="button" class="card-action-btn danger" data-confirm-del>Delete?</button>` +
+            `<button type="button" class="card-action-btn" data-cancel-del title="Cancel">${iconSvg('close', { size: 14 })}</button>`;
+        actions.querySelector('[data-confirm-del]').addEventListener('click', (e) => {
+            e.stopPropagation();
+            deleteSavedGame(g.id);
+            toast(`Deleted “${g.name}”`);
+            this.renderGallery();
+        });
+        actions.querySelector('[data-cancel-del]').addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.renderGallery();
         });
     }
 
@@ -688,7 +799,7 @@ class App {
         }
         dbg('app', `openDetail("${id}")`, ex);
         this.currentExample = ex;
-        document.getElementById('detail-title').textContent = `${ex.emoji} ${ex.name}`;
+        document.getElementById('detail-title').textContent = ex.name;
         document.getElementById('detail-desc').textContent = ex.description;
         const note = document.getElementById('detail-tag-note');
         if (ex.tagNote) {
@@ -725,9 +836,8 @@ class App {
                 const sim = document.createElement('wand-sim');
                 sim.id = 'detail-sim';
                 sim.toggleAttribute('advanced', loadUiMode() === 'advanced');
-                // Unlike the workspace panel (which has its own Start Over
-                // button), this is a look-what-it-does preview — it should
-                // already be playing when the teacher gets here.
+                // Look-what-it-does preview — already playing when the
+                // teacher gets here.
                 sim.autostart = true;
                 // Set before .source — the source setter is what triggers
                 // the load whose capabilities this filters.
@@ -778,7 +888,7 @@ class App {
             const chip = document.createElement('button');
             chip.type = 'button';
             chip.className = 'starter-chip';
-            chip.textContent = `${ex.emoji} ${ex.starterPrompt}`;
+            chip.innerHTML = `${iconSvg(exampleIcon(ex), { size: 14 })} <span>${escapeHtml(ex.starterPrompt)}</span>`;
             chip.addEventListener('click', () => {
                 const inp = document.getElementById('user-input');
                 inp.value = ex.starterPrompt;
@@ -879,18 +989,8 @@ class App {
         this._simLoadPromise = import('../../../Simulator/wand-sim.js')
             .then(() => {
                 this._sim = document.getElementById('wand-sim');
-                // Every push of new code reloads the game; start it right
-                // away rather than leave a dead panel until someone finds
-                // Start Over.
+                // Every push of new code reloads the game; start it right away.
                 this._sim.autostart = true;
-                const restartBtn = document.getElementById('btn-sim-restart');
-                this._sim.addEventListener('sim-ready', () => {
-                    restartBtn.disabled = false;
-                });
-                restartBtn.addEventListener('click', () => {
-                    this.hideSimNotice();
-                    this._sim.restart();
-                });
                 this._sim.addEventListener('sim-error', (e) => {
                     const { message, phase } = e.detail || {};
                     dbgError('sim', `sim-error (${phase}): ${message}`);
@@ -950,10 +1050,13 @@ class App {
         const el = document.getElementById(targetId);
         if (!el) return;
         el.innerHTML = '';
-        checklistLines(items).forEach((line) => {
-            const li = document.createElement('li');
-            li.textContent = line;
-            el.appendChild(li);
+        el.classList.add('send-icons-row');
+        items.forEach((item) => {
+            const div = document.createElement('div');
+            div.className = `send-icon-item ${item.kind || 'other'}`;
+            div.title = item.label;
+            div.innerHTML = iconSvg(item.icon, { size: 20, strokeWidth: 1.6 });
+            el.appendChild(div);
         });
     }
 
@@ -961,12 +1064,14 @@ class App {
         dbg('app', 'onConnect() — requesting serial port');
         this.renderComponentList('connect-components');
         const errEl = document.getElementById('connect-error');
-        errEl.textContent = '';
+        if (errEl) errEl.textContent = '';
         this.setLinkState('opening');
+        showConnectToast(true);
         try {
             await this.device.connect();
             dbg('app', 'device.connect() resolved (port open; awaiting heartbeat/identity)');
             hideOverlay('connect-overlay');
+            showConnectToast(false);
             this.setLinkState('waiting');
             if (this.pendingSendAfterConnect) {
                 toast('Connected — waking up the Box, then we will send…');
@@ -975,7 +1080,10 @@ class App {
             }
         } catch (e) {
             dbgError('app', `device.connect() rejected: ${e.message}`, e);
-            errEl.textContent = "Couldn't find a Broadcast Box — check the cable.";
+            showConnectToast(false);
+            // Header connect: show overlay so the error is visible; send-flow already has it open.
+            showOverlay('connect-overlay');
+            if (errEl) errEl.textContent = "Couldn't find a Broadcast Box — check the cable.";
             this.setLinkState('idle');
         }
     }
@@ -986,6 +1094,7 @@ class App {
         if (s === 'opening' || s === 'sending' || s === 'rebooting') return;
         if (s === 'waiting') {
             dbg('app', 'toggleConnect() — cancel waiting');
+            showConnectToast(false);
             await this.device.disconnect();
             this.setLinkState('idle');
             toast('Cancelled.');
@@ -998,10 +1107,8 @@ class App {
             toast('Disconnected.');
             return;
         }
-        // idle or lost → connect
+        // idle or lost → toast + picker (no instructional modal first)
         this.pendingSendAfterConnect = false;
-        this.renderComponentList('connect-components');
-        showOverlay('connect-overlay');
         await this.onConnect();
     }
 
@@ -1064,7 +1171,6 @@ class App {
     }
 
     async showSendConfirm() {
-        document.getElementById('send-confirm-sub').textContent = '🪄 Wand code for the Broadcast Box';
         const nameInput = document.getElementById('send-game-name');
         const errEl = document.getElementById('send-name-error');
         if (errEl) errEl.textContent = '';
@@ -1165,9 +1271,10 @@ class App {
         const status = document.getElementById('box-library-status');
         const list = document.getElementById('box-library-list');
         const statsEl = document.getElementById('box-stats-text');
+        this.paintMyBoxHealth();
         if (!list) return;
         if (this.link.state !== 'live') {
-            if (status) status.textContent = 'Connect to the Box first (must be live).';
+            if (status) status.textContent = 'Connect to the Box first.';
             list.innerHTML = '';
             if (statsEl) statsEl.textContent = '—';
             return;
@@ -1178,29 +1285,38 @@ class App {
             const active = this.link.detail?.active;
             if (status) {
                 status.textContent = games.length
-                    ? `${games.length} game(s) on the Box. Active: ${active || '—'}`
+                    ? ''
                     : 'No games on the Box yet — send one from chat.';
+                status.classList.toggle('hidden', !!games.length);
             }
             list.innerHTML = '';
             games.forEach((g) => {
                 const li = document.createElement('li');
-                if (g.slug === active) li.classList.add('active-game');
+                const isActive = g.slug === active;
+                const radio = document.createElement('button');
+                radio.type = 'button';
+                radio.className = 'box-lib-radio' + (isActive ? ' active' : '');
+                radio.title = isActive ? 'Active on the Box' : `Select "${g.name || g.slug}"`;
+                radio.innerHTML = iconSvg(isActive ? 'radioOn' : 'radio', { size: 17 });
+                radio.addEventListener('click', () => {
+                    if (!isActive) this.selectBoxGame(g.slug);
+                });
                 const name = document.createElement('span');
-                name.className = 'lib-name';
-                name.textContent = `${g.name || g.slug}${g.slug === active ? ' ★' : ''} (${g.pulls || 0} pulls)`;
-                li.appendChild(name);
-                const sel = document.createElement('button');
-                sel.className = 'btn-secondary';
-                sel.type = 'button';
-                sel.textContent = 'Select';
-                sel.disabled = g.slug === active;
-                sel.addEventListener('click', () => this.selectBoxGame(g.slug));
-                li.appendChild(sel);
+                name.className = 'box-lib-name';
+                name.textContent = g.name || g.slug;
+                const pulls = document.createElement('span');
+                pulls.className = 'box-lib-pulls';
+                pulls.title = 'Times handed out';
+                pulls.textContent = `${g.pulls || 0}×`;
                 const del = document.createElement('button');
-                del.className = 'btn-secondary';
                 del.type = 'button';
-                del.textContent = 'Delete';
-                del.addEventListener('click', () => this.deleteBoxGame(g.slug));
+                del.className = 'box-lib-del';
+                del.title = 'Delete from Box';
+                del.innerHTML = iconSvg('trash', { size: 15 });
+                del.addEventListener('click', () => this.askDeleteBoxGame(li, g));
+                li.appendChild(radio);
+                li.appendChild(name);
+                li.appendChild(pulls);
                 li.appendChild(del);
                 list.appendChild(li);
             });
@@ -1210,11 +1326,66 @@ class App {
                 const writes = JSON.stringify(stats.writes || {}, null, 0);
                 statsEl.textContent = `pulls: ${pulls}\nwrites: ${writes}\nsince: ${stats.since || 0}`;
             }
+            this.paintMyBoxHealth();
         } catch (e) {
             dbgError('app', `refreshBoxLibrary: ${e.message}`, e);
-            if (status) status.textContent = `Could not load library: ${e.message}`;
+            if (status) {
+                status.classList.remove('hidden');
+                status.textContent = `Could not load library: ${e.message}`;
+            }
             toast('Could not talk to the Box library.', true);
         }
+    }
+
+    paintMyBoxHealth() {
+        const mode = this.link.boxMode;
+        const info = this.link.deviceInfo || {};
+        const chip = document.getElementById('mybox-mode-chip');
+        const label = document.getElementById('mybox-mode-label');
+        if (chip && label) {
+            chip.classList.toggle('write', mode === 'WRITE');
+            if (mode === 'SERVE') {
+                label.textContent = 'Code Server';
+                chip.title = 'Handing out code to wands.';
+            } else if (mode === 'WRITE') {
+                label.textContent = 'Tag Writing';
+                chip.title = 'Ready to write pickup tags.';
+            } else {
+                label.textContent = this.link.state === 'live' ? 'Box ready' : 'Box';
+                chip.title = 'Connect to see Box status.';
+            }
+        }
+        const nfc = document.getElementById('mybox-nfc');
+        const nfcStatus = document.getElementById('mybox-nfc-status');
+        const hasNfcField = Object.prototype.hasOwnProperty.call(info, 'nfc');
+        const nfcOk = hasNfcField ? !!info.nfc : true;
+        if (nfc) {
+            nfc.classList.toggle('ok', nfcOk);
+            nfc.classList.toggle('bad', hasNfcField && !nfcOk);
+            nfc.title = !hasNfcField
+                ? 'NFC reader'
+                : nfcOk
+                  ? 'NFC reader OK'
+                  : 'NFC reader not responding';
+        }
+        if (nfcStatus) {
+            nfcStatus.innerHTML = iconSvg(hasNfcField && !nfcOk ? 'close' : 'check', { size: 12 });
+        }
+        const fw = document.getElementById('mybox-fw-version');
+        if (fw) {
+            fw.textContent = info.version ? `v${info.version}` : 'v—';
+        }
+    }
+
+    askDeleteBoxGame(li, g) {
+        const existing = li.querySelector('.box-lib-del, .box-lib-del-confirm');
+        if (!existing) return;
+        const confirmBtn = document.createElement('button');
+        confirmBtn.type = 'button';
+        confirmBtn.className = 'box-lib-del-confirm';
+        confirmBtn.textContent = 'Delete?';
+        confirmBtn.addEventListener('click', () => this.deleteBoxGame(g.slug, true));
+        existing.replaceWith(confirmBtn);
     }
 
     async selectBoxGame(slug) {
@@ -1227,8 +1398,8 @@ class App {
         }
     }
 
-    async deleteBoxGame(slug) {
-        if (!confirm(`Delete "${slug}" from the Box?`)) return;
+    async deleteBoxGame(slug, alreadyConfirmed = false) {
+        if (!alreadyConfirmed && !confirm(`Delete "${slug}" from the Box?`)) return;
         try {
             await this.device.sendCmd({ cmd: 'games.delete', slug }, { timeoutMs: 5000 });
             toast(`Deleted ${slug}`);
@@ -1390,6 +1561,33 @@ function escapeHtml(s) {
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;');
+}
+
+/** Fill any [data-icon] host with an inline SVG from icons.js. */
+function hydrateIcons(root = document) {
+    root.querySelectorAll('[data-icon]').forEach((el) => {
+        if (el.dataset.iconHydrated) return;
+        const name = el.dataset.icon;
+        const size = Number(el.dataset.iconSize) || 15;
+        const stroke = el.dataset.iconStroke;
+        el.innerHTML = iconSvg(name, { size, strokeWidth: stroke });
+        el.dataset.iconHydrated = '1';
+    });
+}
+
+function relativeTime(ts) {
+    if (!ts) return 'saved';
+    const diff = Date.now() - Number(ts);
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return 'just now';
+    if (mins < 60) return `${mins} min ago`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return `${hours} hour${hours === 1 ? '' : 's'} ago`;
+    const days = Math.floor(hours / 24);
+    if (days === 1) return 'yesterday';
+    if (days < 14) return `${days} days ago`;
+    if (days < 60) return `${Math.floor(days / 7)} week${days < 21 ? '' : 's'} ago`;
+    return new Date(ts).toLocaleDateString();
 }
 
 const app = new App();

@@ -37,6 +37,16 @@ export function saveGame({ name, desc, code, requiredTags, chatHistory }) {
     return entry;
 }
 
+export function renameSavedGame(id, name) {
+    const list = loadSavedGames();
+    const entry = list.find((g) => g.id === id);
+    if (!entry) return null;
+    entry.name = (name || "").trim() || entry.name;
+    entry.updatedAt = Date.now();
+    writeAll(list);
+    return entry;
+}
+
 export function deleteSavedGame(id) {
     const list = loadSavedGames().filter((g) => g.id !== id);
     writeAll(list);
