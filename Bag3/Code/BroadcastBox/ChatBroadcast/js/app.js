@@ -9,7 +9,7 @@ import {
     onPrevVersion, onNextVersion, getVersionCount, onDownload,
 } from './editor.js';
 import { uploadPayload } from './upload.js';
-import { showTagChecklist, deriveRequiredTags, tagCountLabel } from './nfc.js';
+import { showTagChecklist, updateTagChecklist } from './nfc.js';
 import { EXAMPLES, CATEGORIES, findExample } from './examples.js';
 import { showView, showOverlay, hideOverlay, setConnectionBadge, toast, setSendProgress, showConnectToast, syncNavTabs } from './router.js';
 import { createDeviceLink } from './device/bboxDeviceLink.js';
@@ -21,6 +21,7 @@ import { loadSavedGames, saveGame, findSavedGame, renameSavedGame, deleteSavedGa
 import { scanCapabilities } from './sim/codeCapabilities.js';
 import { buildComponentChecklist } from './checklist.js';
 import { validateGameName, slugify } from './gameName.js';
+import { buildHardwareReqs, formatHardwareReqs, baselineTags } from './hardware.js';
 import { initPaneSplit } from './paneSplit.js';
 import { initSerialSplit } from './serialSplit.js';
 import { initCodeDrawerSplit } from './codeDrawerSplit.js';
@@ -55,7 +56,7 @@ RULES:
 - If the user sends serial output (prefixed with [HW]:), help debug it
 - Always include try/finally cleanup and periodic NFC stop-tag polling
 - Default to simple, working examples over complex ones
-- If the game reads NFC tags with specific values, include exactly one line formatted as [NFC_CARDS: "value1", "value2"] listing every tag value the game uses.
+- If the game reads NFC tags at all, include exactly one line formatted as [NFC_CARDS: "value1", "value2"] listing every tag value the game reads. Omit the line only when the game never touches a tag.
 - After the code block, include exactly one line naming the game: [GAME_NAME: Short Pretty Name]`;
 
 /** Same placeholder-and-play() check the editor's code drawer uses to
@@ -73,7 +74,9 @@ class App {
         this.currentExample = null;
         this.gameName = 'Your game';
         this.gameDesc = '';
-        this.requiredTags = ['jumpin'];
+        this.declaredTags = null;   // tags the game itself declares ([NFC_CARDS:] / example)
+        this.hardware = buildHardwareReqs({});
+        this.tagWrites = {};        // live {tagLabel: count} from card_written events
         this.galleryFilter = 'all';
         this.galleryMode = 'examples'; // 'examples' | 'saved'
         this.serialOpen = false; // serial log drawer — NOT the port
@@ -312,7 +315,13 @@ class App {
             }
         });
         this.device.on('card_present', (obj) => dbg('device', 'event: card_present', obj));
-        this.device.on('card_written', (obj) => dbg('device', 'event: card_written', obj));
+        this.device.on('card_written', (obj) => {
+            dbg('device', 'event: card_written', obj);
+            const label = obj?.label || obj?.tag || obj?.card;
+            if (!label) return;
+            this.tagWrites[label] = (this.tagWrites[label] || 0) + 1;
+            updateTagChecklist(this.tagWrites);
+        });
         this.device.on('fatal', (obj) => {
             dbgError('device', 'event: fatal', obj);
             toast(obj?.msg || 'The Box reported a serious error — check the cable.', true);
@@ -621,6 +630,7 @@ class App {
             desc: this.gameDesc,
             code,
             requiredTags: this.requiredTags,
+            hardware: this.hardware,
             chatHistory: this.chatHistory.slice(),
         });
         this.dirty = false;
@@ -777,7 +787,8 @@ class App {
         }
         this.gameName = g.name;
         this.gameDesc = g.desc || '';
-        this.requiredTags = g.requiredTags || ['jumpin'];
+        this.declaredTags = g.hardware?.declaredTags || null;
+        this.hardware = g.hardware || buildHardwareReqs({ gameName: g.name });
         this.chatHistory = Array.isArray(g.chatHistory) ? g.chatHistory.slice() : [];
         showView('workspace');
         const box = document.getElementById('chat-box');
@@ -922,7 +933,7 @@ class App {
         dbg('app', `remixCurrentExample("${this.currentExample.name}")`);
         this.gameName = this.currentExample.name;
         this.gameDesc = this.currentExample.description;
-        this.requiredTags = [...this.currentExample.tags];
+        this.declaredTags = [...this.currentExample.tags];
         if (this.currentExample.startingCode) {
             setCode(this.currentExample.startingCode);
             saveVersion(this.currentExample.startingCode, `${this.currentExample.name} (remix base)`);
@@ -941,7 +952,7 @@ class App {
         dbg('app', `useExampleAsIs("${this.currentExample.name}")`);
         this.gameName = this.currentExample.name;
         this.gameDesc = this.currentExample.description;
-        this.requiredTags = [...this.currentExample.tags];
+        this.declaredTags = [...this.currentExample.tags];
         showView('workspace');
         addMsg(`Using ${this.currentExample.name} as-is.`, 'system');
 
@@ -964,10 +975,7 @@ class App {
     updatePreview() {
         const code = getCode();
 
-        this.requiredTags = deriveRequiredTags(null, code, this.gameName.toLowerCase());
-        if (this.currentExample?.tags?.length > this.requiredTags.length) {
-            this.requiredTags = [...this.currentExample.tags];
-        }
+        this.refreshHardware(code);
 
         const runnable = isRunnableCode(code);
         document.getElementById('preview-panel').classList.toggle('hidden', !runnable);
@@ -1140,34 +1148,41 @@ class App {
             toast('Generate some code first — describe your game in chat.', true);
             return;
         }
-        this.requiredTags = deriveRequiredTags(null, code, this.gameName.toLowerCase());
-        // Prefer example tags when present and longer
-        if (this.currentExample && this.currentExample.tags && this.currentExample.tags.length > this.requiredTags.length) {
-            this.requiredTags = [...this.currentExample.tags];
-        }
+        this.refreshHardware(code);
         dbg('app', `required tags: [${this.requiredTags.join(', ')}]`);
-
-        if (this.requiredTags.length > 1) {
-            const n = this.requiredTags.length;
-            dbg('app', `showing tag checklist for ${n} tags`);
-            const result = await showTagChecklist({
-                title: `This game needs ${n} tags`,
-                subtitle: tagCountLabel(n) || 'one per card',
-                tags: this.requiredTags,
-            });
-            dbg('app', `tag checklist resolved: ${result.action}`);
-            if (result.action === 'back') return;
-        }
-
-        if (this.link.state !== 'live') {
-            dbg('app', 'device not live — showing connect overlay');
-            this.pendingSendAfterConnect = true;
-            this.renderComponentList('connect-components');
-            showOverlay('connect-overlay');
-            return;
-        }
-
+        // Confirm is the FIRST screen: name the game and see what it needs.
+        // Connecting and the tag to-do list both happen on the far side of Send.
         this.showSendConfirm();
+    }
+
+    /** Recompute the hardware requirements from the current code + declared tags. */
+    refreshHardware(code) {
+        this.hardware = buildHardwareReqs({
+            code: code !== undefined ? code : getCode(),
+            gameName: this.gameName,
+            declared: this.declaredTags,
+        });
+        return this.hardware;
+    }
+
+    /** The tag list every consumer reads — derived, never assigned directly. */
+    get requiredTags() {
+        return this.hardware?.tags || [];
+    }
+
+    renderSendRequirements() {
+        const el = document.getElementById('send-requirements');
+        if (!el) return;
+        el.innerHTML = '';
+        formatHardwareReqs(this.hardware).forEach((row) => {
+            const li = document.createElement('li');
+            li.className = 'send-req-row';
+            li.innerHTML =
+                `<span class="send-req-icon">${iconSvg(row.icon, { size: 17, strokeWidth: 1.7 })}</span>` +
+                `<span class="send-req-label"></span>`;
+            li.querySelector('.send-req-label').textContent = row.label;
+            el.appendChild(li);
+        });
     }
 
     async showSendConfirm() {
@@ -1178,7 +1193,8 @@ class App {
             nameInput.value = this.gameName && this.gameName !== 'Your game' ? this.gameName : '';
         }
         this._pendingReplaceSlug = null;
-        this.renderComponentList('send-confirm-components');
+        this.refreshHardware();
+        this.renderSendRequirements();
         document.getElementById('send-progress-wrap').classList.add('hidden');
         // Refresh Box game list when live so duplicate checks work.
         if (this.link.state === 'live') {
@@ -1221,6 +1237,17 @@ class App {
         if (errEl) errEl.textContent = '';
         this.gameName = check.pretty;
         const slug = check.slug;
+        // The name is settled now, so the baseline getcode:/play tags are too.
+        this.refreshHardware(code);
+
+        if (this.link.state !== 'live') {
+            dbg('app', 'confirmSend() — not live; connecting first');
+            hideOverlay('send-confirm-overlay');
+            this.pendingSendAfterConnect = true;
+            this.renderComponentList('connect-components');
+            showOverlay('connect-overlay');
+            return;
+        }
         const destPath = `/flash/games/${slug}.py`;
 
         document.getElementById('send-progress-wrap').classList.remove('hidden');
@@ -1245,11 +1272,25 @@ class App {
 
         this.setLinkState('rebooting');
         this._armRebootTimer();
-        dbg('app', 'send succeeded — showing sent banner');
+        dbg('app', 'send succeeded — showing tag to-do list');
         const banner = document.getElementById('sent-banner');
         banner.classList.remove('hidden');
         setTimeout(() => banner.classList.add('hidden'), 4000);
-        toast('Sent! Hold a card on the Box to write the pickup tag.');
+
+        // Post-send to-do list. Every game needs the baseline getcode:/play pair,
+        // so only open the overlay when there is more to write than that.
+        const tags = this.requiredTags;
+        if (tags.length > baselineTags(slug).length) {
+            this.tagWrites = {};
+            await showTagChecklist({
+                title: `Now write ${tags.length} tags on the Box`,
+                subtitle: 'Hold each card on the Box in turn — you can unplug it first.',
+                tags,
+                written: this.tagWrites,
+            });
+        } else {
+            toast('Sent! Hold a card on the Box to write the pickup tag.');
+        }
     }
 
     async openBoxLibrary() {
@@ -1282,6 +1323,13 @@ class App {
         if (status) status.textContent = 'Loading…';
         try {
             const games = await this.fetchBoxGames();
+            let stats = {};
+            try {
+                stats = await this.device.sendCmd({ cmd: 'stats.get' }, { timeoutMs: 5000 });
+            } catch (e) {
+                dbgWarn('app', `stats.get failed: ${e.message}`);
+            }
+            const writes = stats.writes || {};
             const active = this.link.detail?.active;
             if (status) {
                 status.textContent = games.length
@@ -1314,13 +1362,31 @@ class App {
                 del.title = 'Delete from Box';
                 del.innerHTML = iconSvg('trash', { size: 15 });
                 del.addEventListener('click', () => this.askDeleteBoxGame(li, g));
+
+                // Written-tag checklist: the durable answer to "which cards have
+                // I made?", available whenever the Box is connected -- not only
+                // during the moments right after a send.
+                const expand = document.createElement('button');
+                expand.type = 'button';
+                expand.className = 'box-lib-expand';
+                expand.title = 'Which tags are written?';
+                expand.innerHTML = iconSvg('chevronDown', { size: 15 });
+                const tagsWrap = document.createElement('div');
+                tagsWrap.className = 'box-lib-tags hidden';
+                this.renderWrittenChecklist(tagsWrap, g, writes);
+                expand.addEventListener('click', () => {
+                    const open = tagsWrap.classList.toggle('hidden');
+                    expand.classList.toggle('open', !open);
+                });
+
                 li.appendChild(radio);
                 li.appendChild(name);
                 li.appendChild(pulls);
+                li.appendChild(expand);
                 li.appendChild(del);
+                li.appendChild(tagsWrap);
                 list.appendChild(li);
             });
-            const stats = await this.device.sendCmd({ cmd: 'stats.get' }, { timeoutMs: 5000 });
             if (statsEl) {
                 const pulls = JSON.stringify(stats.pulls || {}, null, 0);
                 const writes = JSON.stringify(stats.writes || {}, null, 0);
@@ -1334,6 +1400,38 @@ class App {
                 status.textContent = `Could not load library: ${e.message}`;
             }
             toast('Could not talk to the Box library.', true);
+        }
+    }
+
+    /**
+     * Expected tags for a Box game vs. how many of each the Box has written.
+     * Expected comes from the locally saved game when we have it; otherwise we
+     * can still name the baseline pair from the slug alone.
+     */
+    renderWrittenChecklist(wrap, g, writes) {
+        const saved = loadSavedGames().find((x) => slugify(x.name || '') === g.slug);
+        const tags = saved?.hardware?.tags?.length
+            ? saved.hardware.tags
+            : (saved?.requiredTags?.length
+                ? [...new Set([...baselineTags(g.slug), ...saved.requiredTags])]
+                : baselineTags(g.slug));
+        wrap.innerHTML = '';
+        tags.forEach((tag) => {
+            const n = (writes && writes[tag]) || 0;
+            const row = document.createElement('div');
+            row.className = 'box-tag-row' + (n > 0 ? ' done' : '');
+            row.innerHTML =
+                `<span class="box-tag-icon">${iconSvg(n > 0 ? 'circle-check' : 'nfcCard', { size: 14 })}</span>` +
+                `<span class="box-tag-name"></span>` +
+                `<span class="box-tag-count">${n > 0 ? n + '\u00d7' : 'not written'}</span>`;
+            row.querySelector('.box-tag-name').textContent = tag;
+            wrap.appendChild(row);
+        });
+        if (!saved) {
+            const note = document.createElement('p');
+            note.className = 'box-tag-note';
+            note.textContent = 'Sent from another computer — only the pickup and play cards are known.';
+            wrap.appendChild(note);
         }
     }
 
@@ -1533,7 +1631,7 @@ class App {
                 saveVersion(code, label);
                 addMsg(`Code updated (v${getVersionCount()})`, 'system');
                 if (nfcCards?.length) {
-                    this.requiredTags = nfcCards;
+                    this.declaredTags = nfcCards;
                     dbg('chat', `required tags updated from [NFC_CARDS]: [${nfcCards.join(', ')}]`);
                 }
                 this.gameDesc = userMsg;

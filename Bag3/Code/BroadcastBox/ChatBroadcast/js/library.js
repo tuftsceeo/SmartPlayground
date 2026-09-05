@@ -17,7 +17,7 @@ function writeAll(list) {
     localStorage.setItem(KEY, JSON.stringify(list));
 }
 
-export function saveGame({ name, desc, code, requiredTags, chatHistory }) {
+export function saveGame({ name, desc, code, requiredTags, hardware, chatHistory }) {
     const list = loadSavedGames();
     const id =
         typeof crypto !== "undefined" && crypto.randomUUID
@@ -29,6 +29,7 @@ export function saveGame({ name, desc, code, requiredTags, chatHistory }) {
         desc: desc || "",
         code: code || "",
         requiredTags: requiredTags || [],
+        hardware: hardware || null,
         chatHistory: chatHistory || [],
         updatedAt: Date.now(),
     };

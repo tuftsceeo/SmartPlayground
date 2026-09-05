@@ -222,8 +222,7 @@
                 <p id="tag-checklist-subtitle"></p>
                 <div class="tag-bars" id="tag-checklist-bars"></div>
                 <div id="tag-checklist-list"></div>
-                <button class="btn-primary" id="tag-checklist-continue" type="button">Continue</button>
-                <button class="btn-secondary" id="tag-checklist-back" type="button">Back</button>
+                <button class="btn-primary" id="tag-checklist-continue" type="button">Done</button>
             </div>
         </div>
 
@@ -243,9 +242,13 @@
         <!-- Send confirm -->
         <div id="send-confirm-overlay" class="overlay-view hidden">
             <div class="overlay-card overlay-card-send">
-                <input type="text" id="send-game-name" maxlength="48" placeholder="Game name" />
+                <label class="send-name-label" for="send-game-name">Name this game</label>
+                <div class="send-name-field">
+                    <input type="text" id="send-game-name" maxlength="48" placeholder="Game name" />
+                    <span class="send-name-pencil" data-icon="pencil" data-icon-size="15" aria-hidden="true"></span>
+                </div>
                 <p id="send-name-error" class="modal-error"></p>
-                <div class="send-icons-row" id="send-confirm-components"></div>
+                <ul class="send-requirements" id="send-requirements"></ul>
                 <div id="send-progress-wrap" class="hidden">
                     <div id="send-progress-track"><div id="send-progress-bar"></div></div>
                     <p id="send-progress-label"></p>

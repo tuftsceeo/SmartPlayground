@@ -944,16 +944,66 @@ body.ui-advanced #app-shell {
     margin-bottom: 12px;
 }
 
+/* Send-confirm name: it IS editable, so make it look like a field. */
+.send-name-label {
+    display: block;
+    font: 700 11px 'Nunito';
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 6px;
+}
+.send-name-field {
+    position: relative;
+    margin-bottom: 12px;
+}
 #send-game-name {
     width: 100%;
     box-sizing: border-box;
-    padding: 10px 12px;
+    padding: 10px 34px 10px 12px;
     border: 1.5px solid var(--border);
     border-radius: 10px;
+    background: #fafafd;
     font: 700 15px 'Nunito';
     text-align: center;
-    margin-bottom: 14px;
 }
+#send-game-name:focus {
+    outline: none;
+    background: #fff;
+    border-color: var(--pink);
+    box-shadow: 0 0 0 3px rgba(233, 78, 155, .14);
+}
+.send-name-pencil {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--muted);
+    display: inline-flex;
+    pointer-events: none;
+}
+#send-game-name:focus + .send-name-pencil { color: var(--pink); }
+
+/* What this game needs in the room -- wands, stations, tags. */
+.send-requirements {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.send-req-row {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 8px 11px;
+    border-radius: 10px;
+    background: #fafafd;
+    font: 700 12.5px 'Nunito';
+    color: var(--ink);
+}
+.send-req-icon { display: inline-flex; color: var(--pink); flex: none; }
 #modal-passphrase {
     width: 100%;
     padding: 10px 12px;
@@ -1254,3 +1304,35 @@ body.ui-advanced .mybox-stats.advanced-only { display: block !important; }
     .app-tabs { margin-left: 0; }
     .header-actions { width: 100%; justify-content: flex-end; flex-wrap: wrap; }
 }
+
+
+/* Per-game written-tag checklist inside My Box. */
+.box-library-list li { flex-wrap: wrap; }
+.box-lib-expand {
+    border: none;
+    background: none;
+    cursor: pointer;
+    color: #c2b8d6;
+    padding: 2px;
+    display: inline-flex;
+    transition: transform .15s ease;
+}
+.box-lib-expand.open { transform: rotate(180deg); color: var(--pink); }
+.box-lib-tags {
+    flex-basis: 100%;
+    margin: 4px 0 6px 26px;
+}
+.box-tag-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 0;
+    font: 600 12px 'Nunito';
+    color: var(--muted);
+}
+.box-tag-row.done { color: var(--ink); }
+.box-tag-icon { display: inline-flex; flex: none; color: #c2b8d6; }
+.box-tag-row.done .box-tag-icon { color: var(--teal); }
+.box-tag-name { flex: 1; }
+.box-tag-count { font: 700 11px 'Nunito'; }
+.box-tag-note { font: 11px 'Nunito'; color: var(--muted); margin: 4px 0 0; }
