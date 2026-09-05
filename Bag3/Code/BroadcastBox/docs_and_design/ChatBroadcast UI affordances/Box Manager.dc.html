@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Patrick+Hand&family=Nunito:wght@400;600;700;800;900&display=swap');
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes pop { 0%{transform:scale(0.85);opacity:0} 100%{transform:scale(1);opacity:1} }
+body { margin:0; font-family:'Nunito',sans-serif; }
+.wc-tooltip-native { }
+</style>
+</helmet>
+
+<div style="width:100%;min-height:100vh;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at 6% 10%, #ffd23f22, transparent 40%),radial-gradient(circle at 94% 6%, #ef4d9218, transparent 38%),radial-gradient(circle at 90% 94%, #22c3a61c, transparent 42%),radial-gradient(circle at 8% 92%, #6c4cd11a, transparent 40%),#f7f7fb; padding:24px; box-sizing:border-box;">
+<div style="width:100%;max-width:900px;height:640px;background:#fff;border-radius:24px;box-shadow:0 18px 40px rgba(108,76,209,0.18);overflow:hidden;display:flex;flex-direction:column;position:relative;">
+
+  <!-- Header -->
+  <div style="display:flex;align-items:center;gap:10px;padding:14px 20px;border-bottom:1px solid #e8e6f0;flex:none;">
+    <div style="width:30px;height:30px;border-radius:9px;background:linear-gradient(135deg,#ef4d92,#6c4cd1);display:flex;align-items:center;justify-content:center;font-size:15px;color:#fff;">✦</div>
+    <div style="font:800 14px 'Nunito';color:#231f2e;">Wand &amp; Station Coder</div>
+
+    <div style="display:flex;gap:6px;margin-left:10px;">
+      <button title="Workspace" onClick="{{ goWorkspace }}" style="border:none;background:{{ tabWorkspaceBg }};color:{{ tabWorkspaceColor }};font:700 12px 'Nunito';padding:6px 12px;border-radius:20px;cursor:pointer;">Workspace</button>
+      <button title="My saved games" onClick="{{ goSaved }}" style="border:none;background:{{ tabSavedBg }};color:{{ tabSavedColor }};font:700 12px 'Nunito';padding:6px 12px;border-radius:20px;cursor:pointer;">Saved</button>
+    </div>
+
+    <div style="margin-left:auto;display:flex;align-items:center;gap:8px;">
+      <sc-if value="{{ showSsidChip }}">
+        <div title="Network the wands should join" style="display:flex;align-items:center;gap:5px;background:#f2eefc;color:#6c4cd1;font:700 11px ui-monospace,monospace;padding:5px 10px;border-radius:12px;">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M2 8.5a15 15 0 0 1 20 0"></path><path d="M5.5 12a10 10 0 0 1 13 0"></path><path d="M9 15.5a5 5 0 0 1 6 0"></path><circle cx="12" cy="19" r="1" fill="currentColor" stroke="none"></circle></svg>
+          {{ box.ssid }}
+        </div>
+      </sc-if>
+
+      <button title="{{ boxPillTitle }}" onClick="{{ openMyBox }}" style="border:none;background:{{ boxPillBg }};color:{{ boxPillColor }};font:800 12px 'Nunito';padding:7px 12px;border-radius:14px;cursor:pointer;display:flex;align-items:center;gap:6px;">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8l9-4 9 4-9 4-9-4z"></path><path d="M3 8v8l9 4 9-4V8"></path><path d="M12 12v8"></path></svg>
+        {{ box.modeLabel }}
+      </button>
+
+      <button title="{{ connectTitle }}" onClick="{{ toggleConnect }}" style="border:none;background:{{ connectBg }};color:#fff;font:800 12px 'Nunito';padding:7px 14px;border-radius:14px;cursor:pointer;display:flex;align-items:center;gap:6px;">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2v4M15 2v4"></path><path d="M6 6h12v4a6 6 0 0 1-12 0V6z"></path><path d="M12 16v6"></path></svg>
+        {{ connectLabel }}
+      </button>
+    </div>
+  </div>
+
+  <!-- WORKSPACE TAB -->
+  <sc-if value="{{ isWorkspace }}" hint-placeholder-val="{{ true }}">
+    <div style="flex:1;display:flex;min-height:0;">
+      <div style="width:280px;border-right:1px solid #e8e6f0;padding:14px;display:flex;flex-direction:column;gap:8px;">
+        <div style="align-self:flex-end;background:linear-gradient(135deg,#fff0f6,#ffe3f0);color:#a8265c;font:13px 'Nunito';padding:9px 13px;border-radius:14px 14px 3px 14px;max-width:85%;">make the wand sparkle when you jump</div>
+        <div style="align-self:flex-start;background:#fff;border:1px solid #e8e6f0;color:#3a3345;font:13px 'Nunito';padding:9px 13px;border-radius:14px 14px 14px 3px;max-width:90%;">Done! Try it in the preview →</div>
+      </div>
+      <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:repeating-linear-gradient(45deg,#fbfaff,#fbfaff 14px,#f4f2fa 14px,#f4f2fa 28px);">
+        <svg viewBox="0 0 24 24" width="46" height="46" fill="none" stroke="#c9a3bd" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20L16 8"></path><path d="M18 4l1 2 2 1-2 1-1 2-1-2-2-1 2-1z"></path></svg>
+        <div style="font:12px ui-monospace,monospace;color:#c9a3bd;">wand preview</div>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;padding:12px 20px;border-top:1px solid #e8e6f0;flex:none;">
+      <button title="Save (updates this game, no duplicate)" style="border:1.5px solid #e8e6f0;background:#fff;border-radius:14px;padding:8px 10px;cursor:pointer;color:#5b5468;">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h11l3 3v13H5V4z"></path><path d="M8 4v5h7V4"></path><path d="M8 14h8v6H8z"></path></svg>
+      </button>
+      <button title="Show code" style="border:1.5px solid #e8e6f0;background:#fff;border-radius:14px;padding:8px 10px;cursor:pointer;color:#5b5468;font:800 12px monospace;">&lt;/&gt;</button>
+      <button title="{{ sendBoxTitle }}" onClick="{{ openSend }}" disabled="{{ sendBoxDisabled }}" style="margin-left:auto;border:none;background:{{ sendBoxBg }};color:#fff;font:800 13px 'Nunito';padding:9px 20px;border-radius:16px;cursor:{{ sendBoxCursor }};">Send to Box →</button>
+    </div>
+  </sc-if>
+
+  <!-- SAVED TAB -->
+  <sc-if value="{{ isSaved }}" hint-placeholder-val="{{ false }}">
+    <div style="flex:1;overflow:auto;padding:20px;display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:14px;align-content:start;">
+      <sc-for list="{{ savedGames }}" as="g" hint-placeholder-count="3">
+        <div style="border:1.5px solid #e8e6f0;border-radius:16px;padding:14px;position:relative;">
+          <div style="height:64px;border-radius:10px;background:#fff0f6;display:flex;align-items:center;justify-content:center;margin-bottom:10px;">
+            <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="#e9a9c6" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20L16 8"></path><path d="M18 4l1 2 2 1-2 1-1 2-1-2-2-1 2-1z"></path></svg>
+          </div>
+          <sc-if value="{{ g.isRenaming }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;gap:6px;">
+              <input value="{{ renameValue }}" onChange="{{ onRenameChange }}" style="flex:1;min-width:0;border:1.5px solid #6c4cd1;border-radius:8px;padding:5px 8px;font:700 13px 'Nunito';"></input>
+              <button title="Save name" onClick="{{ commitRename }}" style="border:none;background:none;color:#1c9a82;cursor:pointer;padding:2px;">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M8 12l3 3 5-6"></path></svg>
+              </button>
+              <button title="Cancel" onClick="{{ cancelRename }}" style="border:none;background:none;color:#c0392b;cursor:pointer;padding:2px;">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"></path></svg>
+              </button>
+            </div>
+          </sc-if>
+          <sc-if value="{{ g.isNotRenaming }}" hint-placeholder-val="{{ true }}">
+            <div style="font:800 13px 'Nunito';color:#231f2e;margin-bottom:2px;">{{ g.name }}</div>
+            <div style="font:11px 'Nunito';color:#8b859a;margin-bottom:10px;">{{ g.updatedAgo }}</div>
+            <div style="display:flex;gap:6px;">
+              <button title="Rename" onClick="{{ g.startRename }}" style="border:1.5px solid #e8e6f0;background:#fff;border-radius:9px;padding:6px 9px;cursor:pointer;color:#5b5468;">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20l4-1 11-11-3-3L5 16l-1 4z"></path></svg>
+              </button>
+              <sc-if value="{{ g.isConfirmingDelete }}" hint-placeholder-val="{{ false }}">
+                <button title="Confirm delete" onClick="{{ g.confirmDelete }}" style="border:none;background:#fdecea;color:#c0392b;border-radius:9px;padding:6px 9px;cursor:pointer;font:700 11px 'Nunito';">Delete?</button>
+                <button title="Cancel" onClick="{{ g.cancelDelete }}" style="border:1.5px solid #e8e6f0;background:#fff;border-radius:9px;padding:6px 9px;cursor:pointer;color:#5b5468;">
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"></path></svg>
+                </button>
+              </sc-if>
+              <sc-if value="{{ g.isNotConfirmingDelete }}" hint-placeholder-val="{{ true }}">
+                <button title="Delete" onClick="{{ g.askDelete }}" style="border:1.5px solid #e8e6f0;background:#fff;border-radius:9px;padding:6px 9px;cursor:pointer;color:#5b5468;">
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16"></path><path d="M9 7V4h6v3"></path><path d="M6 7l1 13h10l1-13"></path></svg>
+                </button>
+              </sc-if>
+            </div>
+          </sc-if>
+        </div>
+      </sc-for>
+    </div>
+  </sc-if>
+
+  <!-- CONNECT toast (no overlay, drops the modal) -->
+  <sc-if value="{{ showConnectToast }}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute;top:60px;right:20px;background:#231f2e;color:#fff;font:700 12px 'Nunito';padding:9px 16px;border-radius:12px;display:flex;align-items:center;gap:8px;animation:pop .15s ease;">
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" style="animation:spin 1s linear infinite;"><circle cx="12" cy="12" r="8" stroke-dasharray="38" stroke-dashoffset="12"></circle></svg>
+      Choose your Box…
+    </div>
+  </sc-if>
+
+  <!-- MY BOX OVERLAY -->
+  <sc-if value="{{ overlayMyBox }}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute;inset:0;background:rgba(35,31,46,0.35);display:flex;align-items:center;justify-content:center;z-index:20;">
+      <div style="background:#fff;border-radius:20px;padding:24px;width:400px;max-height:520px;overflow:auto;box-shadow:0 24px 60px rgba(0,0,0,0.22);">
+        <div style="display:flex;align-items:center;margin-bottom:16px;">
+          <div title="{{ box.modeTooltip }}" style="display:flex;align-items:center;gap:7px;background:{{ box.modeChipBg }};color:{{ box.modeChipColor }};font:800 12px 'Nunito';padding:7px 13px;border-radius:14px;">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="6" rx="1.5"></rect><rect x="3" y="14" width="18" height="6" rx="1.5"></rect><circle cx="7" cy="7" r="0.6" fill="currentColor" stroke="none"></circle><circle cx="7" cy="17" r="0.6" fill="currentColor" stroke="none"></circle></svg>
+            {{ box.modeLabel }}
+          </div>
+          <button title="Close" onClick="{{ closeOverlay }}" style="margin-left:auto;border:none;background:none;cursor:pointer;color:#8b859a;">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"></path></svg>
+          </button>
+        </div>
+
+        <div style="display:flex;gap:16px;margin-bottom:16px;">
+          <div title="Battery: {{ box.battery }}%" style="display:flex;align-items:center;gap:6px;">
+            <svg viewBox="0 0 24 24" width="20" height="14" fill="none" stroke="{{ box.batteryColor }}" stroke-width="1.6"><rect x="1" y="2" width="19" height="10" rx="2"></rect><rect x="21" y="5" width="2" height="4"></rect></svg>
+            <div style="width:34px;height:8px;background:#f0eef7;border-radius:4px;overflow:hidden;">
+              <div style="height:100%;width:{{ box.battery }}%;background:{{ box.batteryColor }};"></div>
+            </div>
+            <span style="font:700 11px 'Nunito';color:#5b5468;">{{ box.battery }}%</span>
+          </div>
+
+          <div title="{{ box.readerTooltip }}" style="display:flex;align-items:center;gap:5px;color:{{ box.readerColor }};">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="3"></rect><circle cx="12" cy="12" r="2.5"></circle></svg>
+            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="{{ box.readerIconPath }}"></path></svg>
+          </div>
+
+          <div title="{{ box.firmwareTooltip }}" style="display:flex;align-items:center;gap:5px;color:{{ box.firmwareColor }};font:700 11px ui-monospace,monospace;">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="{{ box.firmwareIconPath }}"></path></svg>
+            v{{ box.firmwareVersion }}
+          </div>
+        </div>
+
+        <div style="border-top:1px solid #e8e6f0;padding-top:12px;">
+          <sc-for list="{{ games }}" as="g" hint-placeholder-count="3">
+            <div style="display:flex;align-items:center;gap:9px;padding:9px 0;border-bottom:1px solid #f4f2fa;">
+              <button title="{{ g.selectTitle }}" onClick="{{ g.select }}" style="border:none;background:none;cursor:pointer;color:{{ g.radioColor }};padding:0;">
+                <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="8"></circle><sc-if value="{{ g.active }}" hint-placeholder-val="{{ false }}"><circle cx="12" cy="12" r="3.5" fill="currentColor" stroke="none"></circle></sc-if></svg>
+              </button>
+              <span style="flex:1;font:700 13px 'Nunito';color:#231f2e;">{{ g.name }}</span>
+              <span title="Times handed out" style="font:11px 'Nunito';color:#8b859a;">{{ g.pulls }}×</span>
+              <sc-if value="{{ g.isConfirmingDelete }}" hint-placeholder-val="{{ false }}">
+                <button title="Confirm" onClick="{{ g.confirmDelete }}" style="border:none;background:#fdecea;color:#c0392b;border-radius:8px;padding:5px 8px;cursor:pointer;font:700 11px 'Nunito';">Delete?</button>
+              </sc-if>
+              <sc-if value="{{ g.isNotConfirmingDelete }}" hint-placeholder-val="{{ true }}">
+                <button title="Delete from Box" onClick="{{ g.askDelete }}" style="border:none;background:none;cursor:pointer;color:#c2b8d6;padding:2px;">
+                  <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16"></path><path d="M9 7V4h6v3"></path><path d="M6 7l1 13h10l1-13"></path></svg>
+                </button>
+              </sc-if>
+            </div>
+          </sc-for>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:10px;margin-top:14px;">
+          <button title="Remove every game from the Box" onClick="{{ clearAll }}" style="border:1.5px solid #e8e6f0;background:#fff;border-radius:12px;padding:7px 12px;cursor:pointer;color:#5b5468;font:700 11px 'Nunito';">Clear all</button>
+          <div title="Storage used: {{ box.storageUsedPct }}%" style="flex:1;height:7px;background:#f0eef7;border-radius:4px;overflow:hidden;">
+            <div style="height:100%;width:{{ box.storageUsedPct }}%;background:#ffd23f;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- SEND CONFIRM (component checklist lives here now) -->
+  <sc-if value="{{ overlaySend }}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute;inset:0;background:rgba(35,31,46,0.35);display:flex;align-items:center;justify-content:center;z-index:20;">
+      <div style="background:#fff;border-radius:20px;padding:24px;width:380px;box-shadow:0 24px 60px rgba(0,0,0,0.22);text-align:center;">
+        <input value="{{ sendName }}" onChange="{{ onSendNameChange }}" style="width:100%;box-sizing:border-box;padding:10px 12px;border:1.5px solid #e8e6f0;border-radius:10px;font:700 15px 'Nunito';text-align:center;margin-bottom:14px;"></input>
+        <div style="display:flex;justify-content:center;gap:14px;margin-bottom:18px;">
+          <div title="wand"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#6c4cd1" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20L16 8"></path><path d="M18 4l1 2 2 1-2 1-1 2-1-2-2-1 2-1z"></path></svg></div>
+          <div title="3 NFC cards"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#ef4d92" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="3"></rect><circle cx="12" cy="12" r="2.5"></circle></svg></div>
+          <div title="shake sensor"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#22c3a6" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2" width="10" height="20" rx="3"></rect><path d="M7 7h10M7 17h10"></path></svg></div>
+        </div>
+        <button onClick="{{ confirmSend }}" style="width:100%;border:none;background:linear-gradient(135deg,#ef4d92,#d13a7c);color:#fff;font:800 14px 'Nunito';padding:12px;border-radius:14px;cursor:pointer;margin-bottom:8px;">Send</button>
+        <button onClick="{{ closeOverlay }}" style="width:100%;border:1.5px solid #e8e6f0;background:#fff;color:#5b5468;font:700 13px 'Nunito';padding:11px;border-radius:14px;cursor:pointer;">Not yet</button>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- MAKING CARDS -->
+  <sc-if value="{{ overlayCards }}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute;inset:0;background:rgba(35,31,46,0.35);display:flex;align-items:center;justify-content:center;z-index:20;">
+      <div style="background:#fff;border-radius:20px;padding:24px;width:400px;box-shadow:0 24px 60px rgba(0,0,0,0.22);">
+        <div style="display:flex;gap:6px;margin-bottom:18px;">
+          <sc-for list="{{ cardTags }}" as="t" hint-placeholder-count="3">
+            <div style="flex:1;height:8px;border-radius:5px;background:{{ t.barColor }};"></div>
+          </sc-for>
+        </div>
+        <sc-for list="{{ cardTags }}" as="t" hint-placeholder-count="3">
+          <div style="display:flex;align-items:center;gap:10px;padding:11px 12px;border-radius:12px;background:{{ t.rowBg }};margin-bottom:8px;">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="{{ t.iconColor }}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="{{ t.spinStyle }}"><rect x="3" y="5" width="18" height="14" rx="3"></rect><circle cx="12" cy="12" r="2.5"></circle></svg>
+            <span style="flex:1;font:700 13px 'Nunito';color:#231f2e;">{{ t.label }}</span>
+            <sc-if value="{{ t.showOverwrite }}" hint-placeholder-val="{{ false }}">
+              <span title="Already has: {{ t.existing }}" style="color:#c0392b;">
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l10 18H2L12 3z"></path><path d="M12 9v5"></path><circle cx="12" cy="17" r="0.6" fill="currentColor" stroke="none"></circle></svg>
+              </span>
+            </sc-if>
+            <sc-if value="{{ t.showDone }}" hint-placeholder-val="{{ false }}">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#22c3a6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M8 12l3 3 5-6"></path></svg>
+            </sc-if>
+          </div>
+        </sc-for>
+        <button title="Simulates a card tap on the Box" onClick="{{ advanceCard }}" style="width:100%;border:1.5px solid #e8e6f0;background:#fff;color:#5b5468;font:700 12px 'Nunito';padding:9px;border-radius:12px;cursor:pointer;margin:6px 0 12px;">Simulate card tap</button>
+        <button onClick="{{ closeOverlay }}" disabled="{{ cardsNotDone }}" style="width:100%;border:none;background:{{ continueBg }};color:#fff;font:800 14px 'Nunito';padding:12px;border-radius:14px;cursor:pointer;">Continue</button>
+      </div>
+    </div>
+  </sc-if>
+
+</div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = {
+    tab: 'workspace',
+    overlay: null,
+    connectStatus: 'idle',
+    showConnectToast: false,
+    games: [
+      { slug: 'jumpin', name: 'Jump In', pulls: 12, active: true, confirmingDelete: false },
+      { slug: 'colorquest', name: 'Color Quest', pulls: 5, active: false, confirmingDelete: false },
+      { slug: 'starhunt', name: 'Star Hunt', pulls: 0, active: false, confirmingDelete: false },
+    ],
+    box: { mode: 'serving', battery: 68, ssid: 'BBOX-CORAL-14', readerOk: true, firmwareOk: false, firmwareVersion: '1.3.0', storageUsedPct: 41 },
+    sendName: 'Jump In',
+    cardTags: [
+      { label: 'Start', status: 'done' },
+      { label: 'Boost', status: 'writing' },
+      { label: 'Finish', status: 'pending', overwrite: true, existing: 'Color Quest' },
+    ],
+    savedGames: [
+      { id: 'a', name: 'Jump In', updatedAgo: '2 days ago', renaming: false, confirmingDelete: false },
+      { id: 'b', name: 'Color Quest', updatedAgo: '1 week ago', renaming: false, confirmingDelete: false },
+      { id: 'c', name: 'Star Hunt (draft)', updatedAgo: 'yesterday', renaming: false, confirmingDelete: false },
+    ],
+    renameValue: '',
+  };
+
+  goWorkspace = () => this.setState({ tab: 'workspace' });
+  goSaved = () => this.setState({ tab: 'saved' });
+  openMyBox = () => this.setState({ overlay: 'mybox' });
+  openSend = () => this.setState({ overlay: 'send' });
+  closeOverlay = () => this.setState({ overlay: null });
+  confirmSend = () => this.setState({ overlay: 'cards' });
+  onSendNameChange = (e) => this.setState({ sendName: e.target.value });
+
+  toggleConnect = () => {
+    if (this.state.connectStatus === 'connected') { this.setState({ connectStatus: 'idle' }); return; }
+    this.setState({ showConnectToast: true });
+    setTimeout(() => this.setState({ connectStatus: 'connected', showConnectToast: false }), 900);
+  };
+
+  selectGame = (slug) => this.setState((s) => ({
+    games: s.games.map((g) => ({ ...g, active: g.slug === slug, confirmingDelete: false })),
+  }));
+  askDeleteGame = (slug) => this.setState((s) => ({
+    games: s.games.map((g) => (g.slug === slug ? { ...g, confirmingDelete: true } : g)),
+  }));
+  cancelDeleteGame = (slug) => this.setState((s) => ({
+    games: s.games.map((g) => (g.slug === slug ? { ...g, confirmingDelete: false } : g)),
+  }));
+  confirmDeleteGame = (slug) => this.setState((s) => ({ games: s.games.filter((g) => g.slug !== slug) }));
+  clearAll = () => this.setState({ games: [] });
+
+  advanceCard = () => this.setState((s) => {
+    const tags = s.cardTags.map((t) => ({ ...t }));
+    const idx = tags.findIndex((t) => t.status !== 'done');
+    if (idx < 0) return {};
+    if (tags[idx].status === 'pending') tags[idx].status = 'writing';
+    else if (tags[idx].status === 'writing') tags[idx].status = 'done';
+    return { cardTags: tags };
+  });
+
+  startRenameSaved = (id) => this.setState((s) => ({
+    savedGames: s.savedGames.map((g) => ({ ...g, renaming: g.id === id })),
+    renameValue: (s.savedGames.find((g) => g.id === id) || {}).name || '',
+  }));
+  onRenameChange = (e) => this.setState({ renameValue: e.target.value });
+  commitRename = () => this.setState((s) => ({
+    savedGames: s.savedGames.map((g) => (g.renaming ? { ...g, name: s.renameValue, renaming: false } : g)),
+  }));
+  cancelRename = () => this.setState((s) => ({ savedGames: s.savedGames.map((g) => ({ ...g, renaming: false })) }));
+  askDeleteSaved = (id) => this.setState((s) => ({
+    savedGames: s.savedGames.map((g) => (g.id === id ? { ...g, confirmingDelete: true } : g)),
+  }));
+  cancelDeleteSaved = (id) => this.setState((s) => ({
+    savedGames: s.savedGames.map((g) => (g.id === id ? { ...g, confirmingDelete: false } : g)),
+  }));
+  confirmDeleteSaved = (id) => this.setState((s) => ({ savedGames: s.savedGames.filter((g) => g.id !== id) }));
+
+  renderVals() {
+    const s = this.state;
+    const box = s.box;
+    const isServing = box.mode === 'serving';
+    const batteryColor = box.battery < 20 ? '#c0392b' : box.battery < 45 ? '#f39c12' : '#22c3a6';
+
+    const games = s.games.map((g) => ({
+      ...g,
+      selectTitle: g.active ? 'Active on the Box' : `Select "${g.name}"`,
+      select: () => this.selectGame(g.slug),
+      radioColor: g.active ? '#ef4d92' : '#c2b8d6',
+      isConfirmingDelete: g.confirmingDelete,
+      isNotConfirmingDelete: !g.confirmingDelete,
+      askDelete: () => this.askDeleteGame(g.slug),
+      confirmDelete: () => this.confirmDeleteGame(g.slug),
+      cancelDelete: () => this.cancelDeleteGame(g.slug),
+    }));
+
+    const cardTags = s.cardTags.map((t) => {
+      const done = t.status === 'done';
+      const writing = t.status === 'writing';
+      return {
+        ...t,
+        barColor: done || writing ? '#ef4d92' : '#eee',
+        rowBg: writing ? '#fff8e0' : done ? '#f7fefb' : '#fafafd',
+        iconColor: writing ? '#b36b00' : done ? '#22c3a6' : '#8b859a',
+        spinStyle: writing ? 'animation: spin 1.2s linear infinite' : '',
+        showOverwrite: !!t.overwrite && !done,
+        showDone: done,
+      };
+    });
+    const cardsNotDone = !cardTags.every((t) => t.status === 'done');
+
+    const savedGames = s.savedGames.map((g) => ({
+      ...g,
+      isRenaming: g.renaming,
+      isNotRenaming: !g.renaming,
+      isConfirmingDelete: g.confirmingDelete,
+      isNotConfirmingDelete: !g.confirmingDelete,
+      startRename: () => this.startRenameSaved(g.id),
+      askDelete: () => this.askDeleteSaved(g.id),
+      confirmDelete: () => this.confirmDeleteSaved(g.id),
+      cancelDelete: () => this.cancelDeleteSaved(g.id),
+    }));
+
+    return {
+      isWorkspace: s.tab === 'workspace',
+      isSaved: s.tab === 'saved',
+      tabWorkspaceBg: s.tab === 'workspace' ? '#fff0f6' : 'transparent',
+      tabWorkspaceColor: s.tab === 'workspace' ? '#d13a7c' : '#8b859a',
+      tabSavedBg: s.tab === 'saved' ? '#fff0f6' : 'transparent',
+      tabSavedColor: s.tab === 'saved' ? '#d13a7c' : '#8b859a',
+      goWorkspace: this.goWorkspace,
+      goSaved: this.goSaved,
+
+      showSsidChip: isServing,
+      box: {
+        ...box,
+        modeLabel: isServing ? 'Code Server' : 'Tag Writing',
+        modeTooltip: isServing
+          ? 'Handing out code to wands. Switch modes with the button on the Box.'
+          : 'Ready to write pickup tags. Switch modes with the button on the Box.',
+        modeChipBg: isServing ? '#e9fbf6' : '#f2eefc',
+        modeChipColor: isServing ? '#1c9a82' : '#6c4cd1',
+        batteryColor,
+        readerColor: box.readerOk ? '#22c3a6' : '#c0392b',
+        readerTooltip: box.readerOk ? 'NFC reader OK' : 'NFC reader not responding',
+        readerIconPath: box.readerOk ? 'M5 13l4 4L19 7' : 'M6 6l12 12M18 6L6 18',
+        firmwareColor: box.firmwareOk ? '#8b859a' : '#f39c12',
+        firmwareTooltip: box.firmwareOk ? 'Firmware up to date' : 'Update available',
+        firmwareIconPath: box.firmwareOk ? 'M5 13l4 4L19 7' : 'M12 3l10 18H2L12 3zM12 9v5',
+      },
+      boxPillTitle: 'Games, health & battery on the Box',
+      boxPillBg: isServing ? '#e9fbf6' : '#f2eefc',
+      boxPillColor: isServing ? '#1c9a82' : '#6c4cd1',
+      openMyBox: this.openMyBox,
+
+      connectTitle: s.connectStatus === 'connected' ? 'Connected — click to disconnect' : 'Connect to the Box',
+      connectLabel: s.connectStatus === 'connected' ? 'Connected' : 'Connect',
+      connectBg: s.connectStatus === 'connected'
+        ? 'linear-gradient(135deg,#8b859a,#6b6478)'
+        : 'linear-gradient(135deg,#22c3a6,#1c9a82)',
+      toggleConnect: this.toggleConnect,
+      showConnectToast: s.showConnectToast,
+
+      openSend: s.connectStatus === 'connected' ? this.openSend : undefined,
+      sendBoxDisabled: s.connectStatus !== 'connected',
+      sendBoxBg: s.connectStatus === 'connected' ? 'linear-gradient(135deg,#ef4d92,#d13a7c)' : '#d8d4e6',
+      sendBoxCursor: s.connectStatus === 'connected' ? 'pointer' : 'not-allowed',
+      sendBoxTitle: s.connectStatus === 'connected' ? 'Send to Broadcast Box' : 'Connect to the Box first',
+      closeOverlay: this.closeOverlay,
+      overlayMyBox: s.overlay === 'mybox',
+      overlaySend: s.overlay === 'send',
+      overlayCards: s.overlay === 'cards',
+      confirmSend: this.confirmSend,
+      sendName: s.sendName,
+      onSendNameChange: this.onSendNameChange,
+
+      games,
+      clearAll: this.clearAll,
+
+      cardTags,
+      cardsNotDone,
+      continueBg: cardsNotDone ? '#c2b8d6' : 'linear-gradient(135deg,#22c3a6,#1c9a82)',
+      advanceCard: this.advanceCard,
+
+      savedGames,
+      renameValue: s.renameValue,
+      onRenameChange: this.onRenameChange,
+      commitRename: this.commitRename,
+      cancelRename: this.cancelRename,
+    };
+  }
+}
+
+</script>
+</body>
+</html>

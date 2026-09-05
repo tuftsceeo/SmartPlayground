@@ -93,6 +93,8 @@ const STYLE = `
   border: 1.5px solid #e8e6f0; background: #ffffff; color: #231f2e; cursor: pointer;
 }
 .ctrl-btn:hover { border-color: #6c4cd1; color: #6c4cd1; }
+.ctrl-btn:disabled { opacity: 0.4; cursor: default; }
+.ctrl-btn:disabled:hover { border-color: #e8e6f0; color: #231f2e; }
 .ctrl-btn.down, .ctrl-btn:active { background: #f2eefc; border-color: #6c4cd1; color: #6c4cd1; }
 .ctrl-btn.big {
   font-size: 14px; padding: 14px 24px; border-radius: 16px;
@@ -284,6 +286,20 @@ class WandSim extends HTMLElement {
     this._controls?.setMuted(!!v);
   }
 
+  /** Per-game teacher copy (button kind / motion vocabulary / hint) for
+   * a game loaded from `source`. py/runtime.py's _TEACHER_TABLE is keyed
+   * by vendored module name, so source-loaded code always falls back to
+   * "show every control" — which is why a custom melody.py shows the whole
+   * pose-and-move wall instead of just its note tags. A host that knows
+   * what its own example needs supplies that here; the tag list and
+   * battery flag still come from the loaded module itself.
+   * Shape: { button: "tap"|"hold"|"none", motion: [...], hint: "" } */
+  get profile() { return this._profile; }
+  set profile(v) {
+    this._profile = v || null;
+    if (this._ready) this._applyCapabilities();
+  }
+
   get source() { return this._source; }
   set source(v) {
     this._source = v;
@@ -362,6 +378,7 @@ class WandSim extends HTMLElement {
       onMove: (kind, opts) => { fireMove(kind, opts); this._pushAccel(); },
       onTilt: (x, y) => { setTilt(x, y); this._pushAccel(); },
       onMute: (m) => this._audio.setMuted(m),
+      onRestart: () => this.restart(),
       onToggleConsole: (shown) => { this.showConsole = shown; },
       onBattery: (soc) => this._runPython(`sim_state.set_battery(soc=${soc})`),
       onLux: (lux) => this._runPython(`sim_state.set_ambient_lux(${lux})`),
@@ -513,9 +530,17 @@ sim_state.set_log_callback(_js_log)
     this._raf = requestAnimationFrame(loop);
   }
 
+  /** Host-supplied profile keys win over the runtime's defaults; anything
+   * it doesn't mention (nfcTags, battery) stays derived from the code. */
+  _applyCapabilities() {
+    if (!this._caps) return;
+    this._controls.setCapabilities(this._profile ? { ...this._caps, ...this._profile } : this._caps);
+  }
+
   async _loadAndMaybeStart() {
     if (!this._ready) return;
     this._setStatus("loading", "Loading game…");
+    this._controls.setRestartEnabled(false);
     try {
       await this._runPython("await stop()");
 
@@ -536,8 +561,10 @@ sim_state.set_log_callback(_js_log)
         await this._runPython(`load_game(${JSON.stringify(name)})`);
       }
       const caps = await this._pyodide.runPythonAsync("get_capabilities()");
-      this._controls.setCapabilities(caps.toJs ? caps.toJs({ dict_converter: Object.fromEntries }) : caps);
+      this._caps = caps.toJs ? caps.toJs({ dict_converter: Object.fromEntries }) : caps;
+      this._applyCapabilities();
       this._setStatus("loaded", `Loaded ${this._source ? "custom" : this.game}`);
+      this._controls.setRestartEnabled(true);
       if (this.autostart) {
         await this.start();
       }

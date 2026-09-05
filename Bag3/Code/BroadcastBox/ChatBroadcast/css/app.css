@@ -175,6 +175,7 @@ body {
 .detail-body { flex: 1; display: flex; gap: 28px; padding: 28px; }
 .detail-preview {
     flex: 1;
+    min-width: 0;
     border-radius: 16px;
     background: repeating-linear-gradient(45deg, #fff0f6, #fff0f6 12px, #ffe3f0 12px, #ffe3f0 24px);
     display: flex;
@@ -182,7 +183,18 @@ body {
     justify-content: center;
     font: 13px ui-monospace, monospace;
     color: #c9a3bd;
+    overflow: auto;
+    padding: 12px;
 }
+/* Once the sim mounts it owns the panel: it brings its own white card and
+   shadow, so the candy-stripe placeholder backdrop would only fight it. */
+.detail-preview.has-sim {
+    background: #fff;
+    align-items: stretch;
+    padding: 0;
+}
+.detail-preview wand-sim { flex: 1; min-width: 0; }
+.detail-preview-empty { margin: 0; text-align: center; }
 .detail-side { width: 340px; display: flex; flex-direction: column; gap: 14px; }
 .detail-desc { font: 15px/1.5 'Nunito'; color: #5b5468; }
 .btn-primary {

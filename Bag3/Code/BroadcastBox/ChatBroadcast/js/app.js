@@ -78,6 +78,8 @@ class App {
         this.pendingSendAfterConnect = false;
         this._sim = null;
         this._simLoadPromise = null;
+        this._detailSim = null;
+        this._detailSimToken = 0;
         this._simLastSource = null;
         this._simPendingSource = null;
         // One store for connection UI — badge and button share this.
@@ -105,6 +107,7 @@ class App {
         this.bindEvents();
         dbg('app', 'event listeners bound');
         initPaneSplit();
+        this.watchDetailView();
         this.setupGallery();
         this.setupDeviceListeners();
         this.setupSerialLog();
@@ -185,6 +188,7 @@ class App {
         // its module) — setting the attribute is harmless either way and
         // takes effect once it is.
         document.getElementById('wand-sim')?.toggleAttribute('advanced', advanced);
+        this._detailSim?.toggleAttribute('advanced', advanced);
         const boxLib = document.getElementById('btn-box-library');
         if (boxLib) boxLib.classList.toggle('hidden', !advanced);
         dbg('app', `UI mode: ${mode}`);
@@ -693,7 +697,72 @@ class App {
         } else {
             note.classList.add('hidden');
         }
+        this.mountDetailSim(ex);
         showView('detail');
+    }
+
+    /** Show the selected example actually running, in place of the old
+     * static "preview animation" placeholder. A fresh <wand-sim> is built
+     * per visit and torn down on the way out (see watchDetailView) rather
+     * than kept alive hidden — each instance boots its own Pyodide, and a
+     * gallery browse would otherwise leave one running per example opened. */
+    mountDetailSim(ex) {
+        const host = document.getElementById('detail-preview');
+        if (!host) return;
+        this.teardownDetailSim();
+        const empty = document.getElementById('detail-preview-empty');
+        if (empty) {
+            empty.textContent = 'loading the practice window…';
+            empty.classList.remove('hidden');
+        }
+        const token = ++this._detailSimToken;
+        dbg('app', `mountDetailSim("${ex.id}") — loading wand-sim module`);
+        import('../../../Simulator/wand-sim.js')
+            .then(() => {
+                // The teacher moved on while Pyodide's module was loading —
+                // don't mount a sim into a panel nobody is looking at.
+                if (token !== this._detailSimToken) return;
+                const sim = document.createElement('wand-sim');
+                sim.id = 'detail-sim';
+                sim.toggleAttribute('advanced', loadUiMode() === 'advanced');
+                // Unlike the workspace panel (which has its own Start Over
+                // button), this is a look-what-it-does preview — it should
+                // already be playing when the teacher gets here.
+                sim.autostart = true;
+                // Set before .source — the source setter is what triggers
+                // the load whose capabilities this filters.
+                sim.profile = ex.simProfile || null;
+                sim.source = ex.startingCode;
+                host.appendChild(sim);
+                host.classList.add('has-sim');
+                this._detailSim = sim;
+                if (empty) empty.classList.add('hidden');
+            })
+            .catch((err) => {
+                dbgError('sim', 'failed to load wand-sim module for the detail preview', err);
+                if (token !== this._detailSimToken || !empty) return;
+                empty.textContent = "The practice window isn't available right now — you can still remix or send this game.";
+            });
+    }
+
+    teardownDetailSim() {
+        this._detailSimToken = (this._detailSimToken || 0) + 1;
+        // remove() fires disconnectedCallback, which stops the running game
+        // and disposes its audio; dropping the reference lets Pyodide go.
+        this._detailSim?.remove();
+        this._detailSim = null;
+        document.getElementById('detail-preview')?.classList.remove('has-sim');
+    }
+
+    /** Every exit from the detail screen (back, home, remix, use-as-is,
+     * deep-link) goes through showView() toggling .hidden, so watch that
+     * one class rather than hanging a teardown off each button. */
+    watchDetailView() {
+        const panel = document.getElementById('view-detail');
+        if (!panel) return;
+        new MutationObserver(() => {
+            if (panel.classList.contains('hidden')) this.teardownDetailSim();
+        }).observe(panel, { attributes: true, attributeFilter: ['class'] });
     }
 
     renderStarterChips() {
@@ -810,6 +879,10 @@ class App {
         this._simLoadPromise = import('../../../Simulator/wand-sim.js')
             .then(() => {
                 this._sim = document.getElementById('wand-sim');
+                // Every push of new code reloads the game; start it right
+                // away rather than leave a dead panel until someone finds
+                // Start Over.
+                this._sim.autostart = true;
                 const restartBtn = document.getElementById('btn-sim-restart');
                 this._sim.addEventListener('sim-ready', () => {
                     restartBtn.disabled = false;

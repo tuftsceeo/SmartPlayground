@@ -45,18 +45,20 @@ export function createAudio(opts = {}) {
     if (buzzEl) {
       const on = currentFreq > 0 && currentDuty > 0;
       buzzEl.classList.toggle("active", on);
-      // sound2.svg (not sound.svg) -- sound.svg's artwork is padded into a
-      // larger viewBox than no_sound.svg's, so at a fixed icon size it
-      // rendered visibly smaller than the "off" icon; sound2.svg is the
-      // size-matched re-export (same viewBox/content bbox as no_sound.svg).
-      if (buzzIcon) buzzIcon.src = gestureIconUrl(on ? "sound2.svg" : "no_sound.svg");
+      // sound.svg's artwork is padded into a larger viewBox than
+      // no_sound.svg's, so at a fixed icon size the "on" icon renders
+      // visibly smaller than the "off" one. The size-matched re-export
+      // this used to point at (sound2.svg) was never added to
+      // assets/wand/WandGestures/ and 404'd on every buzzer change, which
+      // left the indicator blank -- a slightly small icon beats none.
+      if (buzzIcon) buzzIcon.src = gestureIconUrl(on ? "sound.svg" : "no_sound.svg");
       onBuzzerChange?.(on, currentFreq);
     }
     if (motorEl) {
       motorEl.classList.toggle("active", motorOn);
-      // vibration.svg (not vibrate.svg) -- same size-mismatch fix as sound2.svg
-      // above, re-exported to match no_vibrate.svg's viewBox/content bbox.
-      if (motorIcon) motorIcon.src = gestureIconUrl(motorOn ? "vibration.svg" : "no_vibrate.svg");
+      // vibrate.svg for the same reason as sound.svg above -- the
+      // re-exported vibration.svg it named isn't in the assets folder.
+      if (motorIcon) motorIcon.src = gestureIconUrl(motorOn ? "vibrate.svg" : "no_vibrate.svg");
       onMotorChange?.(motorOn);
     }
   }

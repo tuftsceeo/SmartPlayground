@@ -715,6 +715,15 @@ def play(nfc, leds, buz, accel, i2c, enow):
         leds.off()
 `;
 
+/** Simulator control profiles — the same per-game teacher copy the
+ * Simulator's own dropdown gets from py/runtime.py's _TEACHER_TABLE, which
+ * is keyed by vendored module name and so never matches code loaded from
+ * `source`. Without these, every preview falls back to "show every
+ * control" and buries a tag game under the whole pose-and-move wall.
+ * `button` is "tap"/"hold"/"none"; `motion` is the subset of poses/moves
+ * the game actually reads. The NFC tag row still comes from the code's own
+ * COMMANDS, so it needs no entry here.
+ */
 export const EXAMPLES = [
     {
         id: "melody",
@@ -726,6 +735,11 @@ export const EXAMPLES = [
         tags: ["note_c", "note_d", "note_e", "note_f", "note_g", "note_a", "note_b", "note_c_high"],
         starterPrompt: "Start from the Melody example — one tag per note.",
         startingCode: MELODY_CODE,
+        simProfile: {
+            button: "tap",
+            motion: [],
+            hint: "Tap the note tags to build a tune, then press the button to play it back.",
+        },
     },
     {
         id: "freezedance",
@@ -737,6 +751,11 @@ export const EXAMPLES = [
         tags: ["freezedance"],
         starterPrompt: "Start from Freeze Dance — move and freeze game.",
         startingCode: FREEZE_CODE,
+        simProfile: {
+            button: "none",
+            motion: ["shake"],
+            hint: "Shake while the lights dance — freeze when they turn white!",
+        },
     },
     {
         id: "rainbow",
@@ -748,6 +767,11 @@ export const EXAMPLES = [
         tags: ["rainbow"],
         starterPrompt: "Start from Rainbow — shake for color.",
         startingCode: RAINBOW_CODE,
+        simProfile: {
+            button: "tap",
+            motion: ["shake"],
+            hint: "Shake for a new color. Press the button to reset to white.",
+        },
     },
     {
         id: "shakerainbow",
@@ -759,6 +783,11 @@ export const EXAMPLES = [
         tags: ["shakerainbow"],
         starterPrompt: "Start from Shake Rainbow — sticky high-score shake colors.",
         startingCode: SHAKE_RAINBOW_CODE,
+        simProfile: {
+            button: "tap",
+            motion: ["shake"],
+            hint: "Shake harder to climb to the next color — your best shake sticks. Press the button to reset.",
+        },
     },
     {
         id: "jump",
@@ -770,6 +799,11 @@ export const EXAMPLES = [
         tags: ["jump"],
         starterPrompt: "Start from Jump — freefall jump counter on the LEDs.",
         startingCode: JUMP_CODE,
+        simProfile: {
+            button: "tap",
+            motion: ["jump"],
+            hint: "Jump to light one more LED. Press the button to reset.",
+        },
     },
     {
         id: "cooking",
@@ -781,6 +815,11 @@ export const EXAMPLES = [
         tags: ["flour", "egg", "milk", "butter", "sugar"],
         starterPrompt: "Start from Cooking — recipe steps game.",
         startingCode: COOKING_CODE,
+        simProfile: {
+            button: "tap",
+            motion: [],
+            hint: "Tap the ingredient tags in recipe order. Press the button to start over.",
+        },
     },
     {
         id: "jumpin",
@@ -792,6 +831,11 @@ export const EXAMPLES = [
         tags: ["jumpin"],
         starterPrompt: "Make a simple jump game where shaking makes the wand light up.",
         startingCode: JUMPIN_CODE,
+        simProfile: {
+            button: "tap",
+            motion: ["shake"],
+            hint: "Shake to fill the lights. Press the button to reset.",
+        },
     },
 ];
 

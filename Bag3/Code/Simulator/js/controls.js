@@ -11,21 +11,23 @@
 // stroke="currentColor" picks up the button's own text color — including
 // its :hover/.down states — instead of a separate icon asset per state.
 const LUCIDE_VOLUME_2 = `<svg class="icon-lucide" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"/><path d="M16 9a5 5 0 0 1 0 6"/><path d="M19.364 18.364a9 9 0 0 0 0-12.728"/></svg>`;
+// Filled green disc + white triangle rather than the stroke-only
+// circle-play used for the status readout — this one is a thing to press,
+// and at toolbar size a solid "go" disc reads as a button on sight.
+const LUCIDE_CIRCLE_PLAY_SOLID = `<svg class="icon-lucide" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" fill="#15a35a"/><path d="M10 8.4v7.2l6-3.6z" fill="#ffffff"/></svg>`;
 const LUCIDE_VOLUME_OFF = `<svg class="icon-lucide" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 9a5 5 0 0 1 .95 2.293"/><path d="M19.364 5.636a9 9 0 0 1 1.889 9.96"/><path d="m2 2 20 20"/><path d="m7 7-.587.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298V11"/><path d="M9.828 4.172A.686.686 0 0 1 11 4.657v.686"/></svg>`;
 
 const POSE_LABELS = {
-  tip_up: "Tip up",
-  tip_down: "Tip down",
-  left_up: "Left side up",
-  right_up: "Right side up",
-  face_up: "LEDs up",
-  face_down: "LEDs down",
+  tip_up: "Upright",
+  tip_down: "Upside Down",
+  left_up: "Left Up",
+  right_up: "Right Up",
+  face_up: "Face Up",
+  face_down: "Face Down",
 };
 const POSE_ORDER = ["tip_up", "tip_down", "left_up", "right_up", "face_up", "face_down"];
 
-// assets/wand/WandGestures/*.svg — hand-authored gesture illustrations.
-// face_up/face_down have no icon yet (2D art can't show wand-facing
-// depth convincingly per the author) and stay text-only. These are
+// assets/wand/WandGestures/*.svg — hand-authored gesture illustrations. These are
 // transition/rotation illustrations, not static single-pose portraits —
 // used here as "move it like this" cues rather than literal snapshots.
 const POSE_ICONS = {
@@ -33,6 +35,8 @@ const POSE_ICONS = {
   tip_down: "clockwise_to_upsidedown.svg",
   left_up: "upright_to_leftup.svg",
   right_up: "upright_to_rightup.svg",
+  face_up: "upright_to_faceup.svg",
+  face_down: "upright_to_facedownbackup.svg",
 };
 
 const MOVE_LABELS = { jump: "Jump", shake: "Shake", flip: "Flip" };
@@ -42,7 +46,7 @@ const MOVE_ORDER = ["jump", "shake", "flip"];
 // motion) so it stays icon-less rather than force a confusing pick.
 const MOVE_ICONS = {
   jump: "shake_up_down.svg",
-  shake: "wiggle_roll.svg",
+  shake: "wiggle_roll_z.svg",
 };
 
 function gestureIconUrl(file) {
@@ -60,7 +64,7 @@ function plungerLabel(intensity) {
   if (intensity < 0.05) return "Pull & let go";
   if (intensity < 0.35) return "Gentle";
   if (intensity < 0.7) return "Medium";
-  return "BIG shake!";
+  return "BIG";
 }
 
 /**
@@ -77,7 +81,7 @@ function createPlunger(onRelease) {
   const wrap = document.createElement("div");
   wrap.className = "plunger";
   wrap.innerHTML = `
-    <img class="ctrl-icon-inline" alt="Shake" src="${gestureIconUrl("wiggle_roll.svg")}">
+    <img class="ctrl-icon-inline" alt="Shake" src="${gestureIconUrl("wiggle_roll_z.svg")}">
     <input type="range" min="0" max="100" value="0" data-act="plunger-range">
     <div class="plunger-label" style="width:${PLUNGER_LABEL_W}px">Pull &amp; let go</div>
   `;
@@ -108,6 +112,7 @@ export function createControls(container, handlers = {}) {
   root.classList.add("wand-controls");
   root.innerHTML = `
     <div class="ctrl-toolbar">
+      <button type="button" data-act="restart" class="ctrl-btn icon-only" aria-label="Play again from the start" title="Play again from the start">${LUCIDE_CIRCLE_PLAY_SOLID}</button>
       <button type="button" data-act="mute" class="ctrl-btn icon-only" aria-pressed="false" aria-label="Mute" title="Mute">${LUCIDE_VOLUME_2}</button>
     </div>
 
@@ -208,6 +213,14 @@ export function createControls(container, handlers = {}) {
     muted = !!v;
     applyMuteVisual();
   }
+
+  // Restart: always available, always means the same thing (this game,
+  // from the top) whether it's mid-run, finished, or errored out — so it
+  // needs no play/pause state of its own to keep in sync.
+  const restartBtn = root.querySelector('[data-act="restart"]');
+  restartBtn.addEventListener("click", () => handlers.onRestart?.());
+  function setRestartEnabled(v) { restartBtn.disabled = !v; }
+  setRestartEnabled(false);
 
   const consoleBtn = root.querySelector('[data-act="toggle-console"]');
   let consoleShown = false;
@@ -405,7 +418,7 @@ export function createControls(container, handlers = {}) {
   }
 
   return {
-    setCapabilities, setMuted, setConsoleShown, resetPose,
+    setCapabilities, setMuted, setConsoleShown, setRestartEnabled, resetPose,
     setBuzzerStatus, setMotorStatus, root,
   };
 }
