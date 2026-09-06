@@ -1336,3 +1336,12 @@ body.ui-advanced .mybox-stats.advanced-only { display: block !important; }
 .box-tag-name { flex: 1; }
 .box-tag-count { font: 700 11px 'Nunito'; }
 .box-tag-note { font: 11px 'Nunito'; color: var(--muted); margin: 4px 0 0; }
+
+/* Sending: no abort is possible mid-write, so the button locks rather than
+   inviting a second click. */
+.overlay-card .btn-primary:disabled {
+    background: var(--disabled-fill);
+    cursor: not-allowed;
+    box-shadow: none;
+}
+#send-game-name:disabled { color: var(--muted); cursor: not-allowed; }

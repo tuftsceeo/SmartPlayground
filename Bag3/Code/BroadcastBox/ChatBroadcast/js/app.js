@@ -506,7 +506,10 @@ class App {
     }
 
     bindEvents() {
-        document.getElementById('btn-scratch').addEventListener('click', () => this.openWorkspace());
+        document.getElementById('btn-scratch').addEventListener('click', () => {
+            this.resetGameContext();
+            this.openWorkspace();
+        });
         document.getElementById('btn-gallery').addEventListener('click', () => this.goExamples());
         document.getElementById('btn-saved').addEventListener('click', () => this.goSaved());
         document.getElementById('gallery-search').addEventListener('input', () => this.renderGallery());
@@ -912,6 +915,22 @@ class App {
         box.appendChild(wrap);
     }
 
+    /**
+     * Forget the last game. Without this, opening an example and then starting
+     * from scratch carried that example's declared tags (and name) into a game
+     * that never reads them.
+     */
+    resetGameContext() {
+        dbg('app', 'resetGameContext() — clearing name/tags/example');
+        this.currentExample = null;
+        this.declaredTags = null;
+        this.gameName = 'Your game';
+        this.gameDesc = '';
+        this.chatHistory = [];
+        this.tagWrites = {};
+        this.refreshHardware();
+    }
+
     openWorkspace(starterMsg = null) {
         dbg('app', `openWorkspace(${starterMsg ? JSON.stringify(starterMsg) : 'no starter message'})`);
         showView('workspace');
@@ -1195,6 +1214,7 @@ class App {
         this._pendingReplaceSlug = null;
         this.refreshHardware();
         this.renderSendRequirements();
+        this.setSendBusy(false);
         document.getElementById('send-progress-wrap').classList.add('hidden');
         // Refresh Box game list when live so duplicate checks work.
         if (this.link.state === 'live') {
@@ -1205,6 +1225,24 @@ class App {
             }
         }
         showOverlay('send-confirm-overlay');
+    }
+
+    /**
+     * Lock the confirm overlay while the file is streaming.
+     * There is no abort: sendGame() writes the .py over the raw REPL, so
+     * stopping halfway leaves a truncated game on the Box. Better to take the
+     * choice away than to offer a Cancel that corrupts the file.
+     */
+    setSendBusy(busy) {
+        const btn = document.getElementById('btn-send-confirm');
+        const cancel = document.getElementById('btn-send-cancel');
+        const nameInput = document.getElementById('send-game-name');
+        if (btn) {
+            btn.disabled = busy;
+            btn.textContent = busy ? 'Sending…' : 'Send';
+        }
+        if (cancel) cancel.classList.toggle('hidden', busy);
+        if (nameInput) nameInput.disabled = busy;
     }
 
     async confirmSend() {
@@ -1252,6 +1290,7 @@ class App {
 
         document.getElementById('send-progress-wrap').classList.remove('hidden');
         setSendProgress(0, 'Starting…');
+        this.setSendBusy(true);
 
         this.setLinkState('sending');
         const result = await uploadPayload(this.device, code, window.onUploadProgress, {
@@ -1260,15 +1299,19 @@ class App {
         });
         dbg('app', 'uploadPayload() result', result);
 
-        hideOverlay('send-confirm-overlay');
-        this._pendingReplaceSlug = null;
+        this.setSendBusy(false);
 
         if (!result.ok) {
+            // Stay on the overlay so the teacher can fix the name and retry.
+            document.getElementById('send-progress-wrap').classList.add('hidden');
             dbgError('app', `send failed: ${result.error}`);
             toast(result.error || 'Send failed — try again.', true);
             this.setLinkState(this.device.isConnected() ? 'live' : 'lost');
             return;
         }
+
+        hideOverlay('send-confirm-overlay');
+        this._pendingReplaceSlug = null;
 
         this.setLinkState('rebooting');
         this._armRebootTimer();
@@ -1630,10 +1673,10 @@ class App {
                 const label = userMsg.length > 40 ? userMsg.slice(0, 40) + '…' : userMsg;
                 saveVersion(code, label);
                 addMsg(`Code updated (v${getVersionCount()})`, 'system');
-                if (nfcCards?.length) {
-                    this.declaredTags = nfcCards;
-                    dbg('chat', `required tags updated from [NFC_CARDS]: [${nfcCards.join(', ')}]`);
-                }
+                // New code replaces the old tag declaration outright: no marker
+                // means this version reads no named tags, not "keep the old ones".
+                this.declaredTags = nfcCards?.length ? nfcCards : null;
+                dbg('chat', `declared tags from [NFC_CARDS]: [${(nfcCards || []).join(', ')}]`);
                 this.gameDesc = userMsg;
                 this.dirty = true;
                 this.updatePreview();
