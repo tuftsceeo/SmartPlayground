@@ -18,8 +18,8 @@ Usage:
     # In the idle/event loop, once per frame:
     pled.update(soc=last_soc, frame=idle_frame)
 
-If the configured hub has no power LED (has_power_led falsy / no pin),
-PowerLed becomes a no-op so the same code runs on every device.
+A hubtype with no power_led_pin gets a no-op PowerLed, so the same code runs
+on every device.
 """
 
 import machine
