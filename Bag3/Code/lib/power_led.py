@@ -35,8 +35,8 @@ class PowerLed:
     def __init__(self, pin=None):
         if pin is None:
             pin = HUB_CONFIG.get("power_led_pin")
-        # Treat a missing pin (or has_power_led False) as "no LED present".
-        self._enabled = pin is not None and HUB_CONFIG.get("has_power_led", False)
+        # No power_led_pin in the hubtype config means no LED on this board.
+        self._enabled = pin is not None
         self._pin = machine.Pin(pin, machine.Pin.OUT, value=0) if self._enabled else None
         self._state = 0
 

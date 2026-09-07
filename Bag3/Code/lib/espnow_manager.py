@@ -1,69 +1,90 @@
 """
-espnow_manager.py — Unified ESP-NOW communication for all devices
-==================================================================
-Goes in /lib/. Handles init, sending, receiving, peer management,
-and broadcast message routing.
+espnow_manager.py -- ESP-NOW messaging for every hubtype.
 
-Usage:
     from espnow_manager import ESPNowManager
 
-    mgr = ESPNowManager()
-    mgr.init()
-    mgr.broadcast(["turnred", "turnblue"])
-    msg_type, data, mac = mgr.poll()
+    net = ESPNowManager()
+    net.init()
+    net.broadcast_cap("score_station", "push", {"v": 8420, "c": "blue"})
+    kind, data, mac = net.poll()
+
+Three message kinds travel on the air, all JSON:
+
+    sys   framework traffic -- stop, start, who/here, ident
+    cap   a command to a station's hardware, addressed by hubtype
+    evt   something a device reports; game vocabulary lives here
+
+poll() returns (kind, data, mac_str), or (None, None, None) when nothing is
+waiting. "sys who" is answered inside poll(); everything else is handed up.
+
+Nothing here is acknowledged, ordered, de-duplicated or fragmented. A sender
+that needs an event to land repeats it and the receiver guards on state.
 """
 
+import gc
 import network
 import espnow
 import json
 import time
 from machine import Pin
 
+from hubtype import HUB_TYPE
 
 BROADCAST_MAC = b'\xFF\xFF\xFF\xFF\xFF\xFF'
 
+# ESP-NOW carries 250 bytes. Oversized messages raise rather than fail quietly.
+MAX_PAYLOAD = 250
+
+# "who" replies are slotted by MAC so a room full of devices does not answer
+# at once. Worst-case spread is BASE_DELAY_MS + (N_SLOTS - 1) * SLOT_MS.
 N_SLOTS = 16
 BASE_DELAY_MS = 400
 SLOT_MS = 180
-REPORT_GAP_MS = 120
-# Pause + single retry when a broadcast hits a momentarily-full ESP-NOW TX
-# queue (ESP_ERR_ESPNOW_NO_MEM) on rapid back-to-back sends.
+
+# Pause + single retry when a broadcast hits a full ESP-NOW TX queue.
 SEND_RETRY_MS = 30
+
+# True only on a board with an antenna on the u.FL connector. code_puller
+# reads this too -- one radio, one pair of select pins.
+EXTERNAL_ANTENNA = False
+
+# Settle time after releasing the radio, before anything else claims it.
+RADIO_SETTLE_MS = 300
 
 
 def _is_esp32c6():
-    """True only on ESP32-C6 boards with the external-antenna GPIO switch."""
+    """True on ESP32-C6 boards, which have the GPIO3/14 antenna switch."""
     try:
         import sys
-        plat = (sys.platform or '').lower()
-        if plat == 'esp32c6' or 'esp32c6' in plat:
+        if 'esp32c6' in (sys.platform or '').lower():
             return True
     except Exception:
         pass
     try:
         import os
-        machine = (os.uname().machine or '').upper()
-        if 'ESP32C6' in machine:
+        if 'ESP32C6' in (os.uname().machine or '').upper():
             return True
     except Exception:
         pass
     return False
 
 
-def _configure_external_antenna():
-    """Switch to external antenna before WiFi activation (ESP32-C6 only)."""
+def _configure_antenna(external=EXTERNAL_ANTENNA):
+    """Select onboard or u.FL antenna. C6 only; both directions driven.
+
+    GPIO3 = switch enable (active low), GPIO14 = select (0 onboard, 1 u.FL).
+    """
     if not _is_esp32c6():
         return
     wifi_en = Pin(3, Pin.OUT)
     ant_cfg = Pin(14, Pin.OUT)
     wifi_en.value(0)
     time.sleep_ms(100)
-    ant_cfg.value(1)  # External antenna
+    ant_cfg.value(1 if external else 0)
 
 
 def mac_str_to_bytes(mac_str):
-    parts = mac_str.split(':')
-    return bytes([int(p, 16) for p in parts])
+    return bytes([int(p, 16) for p in mac_str.split(':')])
 
 
 def mac_bytes_to_str(mac_bytes):
@@ -74,31 +95,41 @@ def get_own_mac():
     sta = network.WLAN(network.STA_IF)
     was = sta.active()
     if not was:
-        _configure_external_antenna()
+        _configure_antenna()
         sta.active(True)
-    mac = ':'.join('%02X' % b for b in sta.config('mac'))
+    mac = mac_bytes_to_str(sta.config('mac'))
     if not was:
         sta.active(False)
     return mac
 
 
+def _encode(obj):
+    """JSON-encode and refuse anything ESP-NOW cannot carry."""
+    msg = obj if isinstance(obj, (str, bytes)) else json.dumps(obj)
+    raw = msg.encode('utf-8') if isinstance(msg, str) else msg
+    if len(raw) > MAX_PAYLOAD:
+        raise ValueError("message is %d bytes, limit is %d: %s"
+                         % (len(raw), MAX_PAYLOAD, msg))
+    return raw
+
+
 class ESPNowManager:
+
     def __init__(self):
         self.enow = None
         self._active = False
-        self._peers = {}  # mac_str -> mac_bytes
+        self._peers = {}          # mac_str -> mac_bytes
+        self._seen = {}           # hubtype -> mac_str, from "here" replies
         self._status_provider = None
-        self._pending_report_due = None
-        self._pending_report_mac = None
-        self._pending_report_second_due = None
-        self._own_mac_str = None
+        self._reply_due = None
+        self._own_mac = None
 
-    # ─── INIT / SHUTDOWN ──────────────────────
+    # -- lifecycle ---------------------------------------------------
 
     def init(self):
         if self._active:
             return
-        _configure_external_antenna()
+        _configure_antenna()
         sta = network.WLAN(network.STA_IF)
         sta.active(True)
         sta.disconnect()
@@ -109,248 +140,198 @@ class ESPNowManager:
         except Exception:
             pass
         self._active = True
-        print("  ESPNow: active (MAC: %s)" % get_own_mac())
+        print("  ESPNow: active as %s (MAC %s)" % (HUB_TYPE, get_own_mac()))
 
     def shutdown(self):
+        """Release the radio and drop the ESPNow object.
+
+        While an espnow.ESPNow object is alive it holds the WiFi interface and
+        a later sta.connect() is refused silently. init() recreates it.
+        """
         if not self._active:
             return
-        self.send_stop_all_peers()
+        try:
+            self.broadcast_sys("stop")
+        except Exception as e:
+            print("  ESPNow: stop on shutdown failed: %s" % str(e))
         try:
             self.enow.active(False)
-        except Exception:
-            pass
+        except Exception as e:
+            print("  ESPNow: active(False) failed: %s" % str(e))
+        self.enow = None
         self._active = False
         self._peers.clear()
+        gc.collect()
+        time.sleep_ms(RADIO_SETTLE_MS)
 
     @property
     def is_active(self):
         return self._active
 
-    # ─── PEER MANAGEMENT ─────────────────────
+    # -- peers and discovery -----------------------------------------
 
     def add_peer(self, mac_str):
         if not self._active:
             self.init()
+        if mac_str in self._peers:
+            return
         mac_bytes = mac_str_to_bytes(mac_str)
-        if mac_str not in self._peers:
-            try:
-                self.enow.add_peer(mac_bytes)
-            except Exception:
-                pass
-            self._peers[mac_str] = mac_bytes
-            print("  ESPNow: added peer %s" % mac_str)
+        try:
+            self.enow.add_peer(mac_bytes)
+        except Exception:
+            pass
+        self._peers[mac_str] = mac_bytes
 
     def remove_peer(self, mac_str):
-        if mac_str in self._peers:
+        mac_bytes = self._peers.pop(mac_str, None)
+        if mac_bytes is not None:
             try:
-                self.enow.del_peer(self._peers[mac_str])
+                self.enow.del_peer(mac_bytes)
             except Exception:
                 pass
-            del self._peers[mac_str]
 
     def clear_peers(self):
-        for ms in list(self._peers.keys()):
-            self.remove_peer(ms)
-
-    def has_peers(self):
-        return len(self._peers) > 0
+        for mac_str in list(self._peers):
+            self.remove_peer(mac_str)
 
     def get_peer_macs(self):
-        return list(self._peers.keys())
-
-    def set_status_provider(self, fn):
-        """Register fn() -> battery SOC int or None. Wands only."""
-        self._status_provider = fn
+        return list(self._peers)
 
     def get_rssi(self, mac_str):
         try:
-            mb = self._peers.get(mac_str) or mac_str_to_bytes(mac_str)
-            return self.enow.peers_table[mb][0]
+            mac_bytes = self._peers.get(mac_str) or mac_str_to_bytes(mac_str)
+            return self.enow.peers_table[mac_bytes][0]
         except (KeyError, IndexError, TypeError, AttributeError):
             return None
 
-    def _get_own_mac_last_byte(self):
-        if self._own_mac_str is None:
-            self._own_mac_str = get_own_mac()
-        parts = self._own_mac_str.split(':')
-        return int(parts[-1], 16)
+    def find(self, hub):
+        """MAC of a hubtype seen replying to "who", or None.
 
-    def _is_for_me(self, mac_str):
-        """True if mac_str (any case, with/without colons) is this device's MAC."""
-        if not mac_str:
-            return False
-        if self._own_mac_str is None:
-            self._own_mac_str = get_own_mac()
-        return mac_str.replace(":", "").upper() == self._own_mac_str.replace(":", "").upper()
+        Only needed when two devices share a hubtype. Capability messages are
+        addressed by hubtype and reach every one of them without this.
+        """
+        return self._seen.get(hub)
 
-    def _read_battery_for_report(self):
-        if not self._status_provider:
-            return None
-        try:
-            batt = self._status_provider()
-            if batt is None:
-                return None
-            return int(batt)
-        except (TypeError, ValueError):
-            return None
+    def set_status_provider(self, fn):
+        """Register fn() -> battery percent or None, reported in "here"."""
+        self._status_provider = fn
 
-    def _maybe_send_pending_report(self):
-        if not self._active or not self._status_provider:
-            return
-        now = time.ticks_ms()
-        if self._pending_report_second_due is not None:
-            if time.ticks_diff(now, self._pending_report_second_due) >= 0:
-                batt = self._read_battery_for_report()
-                rssi = self.get_rssi(self._pending_report_mac)
-                self.broadcast_status_report(batt, rssi)
-                self._pending_report_second_due = None
-                self._pending_report_due = None
-                self._pending_report_mac = None
-            return
-        if self._pending_report_due is None:
-            return
-        if time.ticks_diff(now, self._pending_report_due) < 0:
-            return
-        batt = self._read_battery_for_report()
-        rssi = self.get_rssi(self._pending_report_mac)
-        self.broadcast_status_report(batt, rssi)
-        self._pending_report_second_due = time.ticks_add(now, REPORT_GAP_MS)
+    # -- sending -----------------------------------------------------
 
-    def _schedule_status_reply(self, hub_mac_str):
-        now = time.ticks_ms()
-        slot = self._get_own_mac_last_byte() % N_SLOTS
-        due = time.ticks_add(now, BASE_DELAY_MS + slot * SLOT_MS)
-        self._pending_report_due = due
-        self._pending_report_mac = hub_mac_str
-        self._pending_report_second_due = None
-
-    # ─── SENDING ──────────────────────────────
-
-    def broadcast(self, data):
+    def broadcast(self, obj):
+        """Async broadcast with one retry. Broadcasts are never acked, so a
+        synchronous send would wait for an ACK that never arrives."""
         if not self._active:
             return False
-        msg = json.dumps(data) if not isinstance(data, (str, bytes)) else data
-        # Broadcasts are never acknowledged, so a SYNCHRONOUS send waits for an
-        # ACK that never arrives -> [Errno 116] ETIMEDOUT (even though the frame
-        # went out). Send async (sync=False): queue it and return immediately.
+        raw = _encode(obj)
         try:
-            self.enow.send(BROADCAST_MAC, msg, False)
+            self.enow.send(BROADCAST_MAC, raw, False)
             return True
         except OSError:
-            # TX queue momentarily full (ESP_ERR_ESPNOW_NO_MEM) on rapid
-            # back-to-back sends. Brief pause and one retry.
+            time.sleep_ms(SEND_RETRY_MS)
             try:
-                time.sleep_ms(SEND_RETRY_MS)
-                self.enow.send(BROADCAST_MAC, msg, False)
+                self.enow.send(BROADCAST_MAC, raw, False)
                 return True
-            except Exception as e:
-                print("  ESPNow: broadcast err: %s" % str(e))
+            except OSError as e:
+                print("  ESPNow: broadcast failed: %s" % str(e))
                 return False
-        except Exception as e:
-            print("  ESPNow: broadcast err: %s" % str(e))
-            return False
 
-    def send_to(self, mac_str, data):
+    def send_to(self, mac_str, obj):
         if not self._active:
             return False
-        mac_bytes = self._peers.get(mac_str)
-        if mac_bytes is None:
-            mac_bytes = mac_str_to_bytes(mac_str)
-        msg = json.dumps(data) if not isinstance(data, (str, bytes)) else data
+        if mac_str not in self._peers:
+            self.add_peer(mac_str)
         try:
-            self.enow.send(mac_bytes, msg)
+            self.enow.send(self._peers[mac_str], _encode(obj))
             return True
-        except Exception as e:
-            print("  ESPNow: send err to %s: %s" % (mac_str, str(e)))
+        except OSError as e:
+            print("  ESPNow: send to %s failed: %s" % (mac_str, str(e)))
             return False
 
     def send_raw(self, mac_bytes, raw_bytes):
+        """Send bytes with no encoding. For binary payloads only."""
         if not self._active:
             return False
+        if len(raw_bytes) > MAX_PAYLOAD:
+            raise ValueError("raw payload is %d bytes, limit is %d"
+                             % (len(raw_bytes), MAX_PAYLOAD))
         try:
-            self.enow.send(mac_bytes, raw_bytes)
+            self.enow.send(mac_bytes, raw_bytes, False)
             return True
-        except Exception as e:
-            print("  ESPNow: raw send err: %s" % str(e))
+        except OSError as e:
+            print("  ESPNow: raw send failed: %s" % str(e))
             return False
 
-    # ─── CONVENIENCE SENDERS ──────────────────
+    def broadcast_sys(self, op, **kw):
+        msg = {"type": "sys", "op": op}
+        msg.update(kw)
+        return self.broadcast(msg)
 
-    def send_splat_config(self, mac_str, action_chain):
-        return self.send_to(mac_str, {
-            "type": "splat_config",
-            "actions": action_chain,
-        })
+    def broadcast_cap(self, hub, op, args=None):
+        """Command every station of hubtype `hub` to do `op`."""
+        msg = {"type": "cap", "hub": hub, "op": op}
+        if args:
+            msg["a"] = args
+        return self.broadcast(msg)
 
-    def send_scan_request(self):
-        """Broadcast a request for the Programming Station to scan its tags
-        and unicast the result back to this device. Used by Color Quest when
-        a player taps the `color_quest_scan` NFC tag on a wand."""
-        return self.broadcast({"type": "scan_request"})
+    def broadcast_evt(self, ev, data=None, slug=None):
+        """Report something. Game events carry the slug they belong to."""
+        msg = {"type": "evt", "src": HUB_TYPE, "ev": ev}
+        if data is not None:
+            msg["d"] = data
+        if slug:
+            msg["slug"] = slug
+        return self.broadcast(msg)
 
-    def send_stop_to(self, mac_str):
-        return self.send_to(mac_str, {"type": "stop"})
+    def stop_all(self):
+        return self.broadcast_sys("stop")
 
-    def send_stop_all_peers(self):
-        for ms in list(self._peers.keys()):
-            self.send_stop_to(ms)
+    def start_all(self, slug):
+        return self.broadcast_sys("start", slug=slug)
 
-    def broadcast_stop(self):
-        return self.broadcast(["stop"])
+    # -- receiving ---------------------------------------------------
 
-    def send_start_game(self, mac_str, name):
-        return self.send_to(mac_str, {"type": "start_game", "name": name})
-
-    def broadcast_start_game(self, name):
-        return self.broadcast({"type": "start_game", "name": name})
-
-    def broadcast_find_device(self, mac_str):
-        """Targeted identify ping. Uses a DISTINCT message type ("find_device")
-        so un-updated wands ignore it (they only act on stop/start_game); only
-        the wand whose MAC matches reacts. Broadcast (no peer added) -> no
-        peer-table overflow with many devices."""
-        return self.broadcast({"type": "find_device", "mac": mac_str})
-
-    def broadcast_status_poll(self):
-        return self.broadcast({"type": "status_poll"})
-
-    def broadcast_status_report(self, battery, rssi):
-        return self.broadcast({
-            "type": "status_report",
-            "battery": battery,
-            "rssi": rssi,
-        })
-
-    def send_score(self, mac_bytes, colors, elapsed_ms):
-        msg = json.dumps({
-            "type": "score",
-            "colors": colors,
-            "time_ms": elapsed_ms,
-            "time_s": round(elapsed_ms / 1000, 2),
-        })
-        if not self._active:
+    def _is_me(self, mac_str):
+        if not mac_str:
             return False
-        try:
-            self.enow.send(mac_bytes, msg)
-            return True
-        except Exception as e:
-            print("  ESPNow: score send err: %s" % str(e))
-            return False
+        if self._own_mac is None:
+            self._own_mac = get_own_mac()
+        return mac_str.replace(":", "").upper() == self._own_mac.replace(":", "").upper()
 
-    # ─── RECEIVING ────────────────────────────
+    def _my_slot_delay(self):
+        if self._own_mac is None:
+            self._own_mac = get_own_mac()
+        slot = int(self._own_mac.split(':')[-1], 16) % N_SLOTS
+        return BASE_DELAY_MS + slot * SLOT_MS
+
+    def _send_here(self):
+        soc = None
+        if self._status_provider:
+            try:
+                soc = self._status_provider()
+                soc = None if soc is None else int(soc)
+            except (TypeError, ValueError):
+                soc = None
+        self.broadcast_sys("here", hub=HUB_TYPE, soc=soc)
+
+    def _service_reply(self):
+        """Send a due "here" reply. Called at the top of every poll()."""
+        if self._reply_due is None:
+            return
+        if time.ticks_diff(time.ticks_ms(), self._reply_due) < 0:
+            return
+        self._reply_due = None
+        self._send_here()
 
     def poll(self, timeout_ms=0):
-        """
-        Non-blocking receive.
-        Returns (msg_type, data, mac_str) or (None, None, None).
+        """Non-blocking receive. Returns (kind, data, mac_str).
 
-        msg_type: "colors", "score", "splat_config", "stop",
-                  "battery", "scan_request", "start_game", "status_poll",
-                  "status_report", "raw", or None
+        kind is "sys", "cap", "evt", "raw", or None. "cap" is delivered only
+        when this device's hubtype is the one addressed.
         """
         if not self._active:
             return None, None, None
-        self._maybe_send_pending_report()
+        self._service_reply()
         try:
             mac, msg = self.enow.irecv(timeout_ms)
         except Exception:
@@ -364,60 +345,43 @@ class ESPNowManager:
             data = json.loads(msg)
         except (ValueError, UnicodeError):
             return "raw", bytes(msg), mac_str
-
-        if isinstance(data, list):
-            if "stop" in data:
-                return "stop", data, mac_str
-            if "battery" in data:
-                return "battery", data, mac_str
-            return "colors", data, mac_str
-
-        if isinstance(data, dict):
-            mt = data.get("type")
-            if mt == "stop":
-                return "stop", data, mac_str
-            if mt == "splat_config":
-                return "splat_config", data, mac_str
-            if mt == "score":
-                return "score", data, mac_str
-            if mt == "scan_request":
-                return "scan_request", data, mac_str
-            if mt == "start_game":
-                name = data.get("name")
-                if isinstance(name, str) and name:
-                    return "start_game", data, mac_str
-                return "raw", data, mac_str
-            if mt == "find_device":
-                # Distinct type (NOT start_game) so un-updated wands -- whose
-                # game loops only exit on "stop"/"start_game" -- classify this
-                # as "raw" and ignore it. Only the targeted wand reacts; we
-                # rewrite it into the start_game force-switch path so the hidden
-                # "finddevice" game dispatches with no other firmware changes.
-                target = data.get("mac")
-                if target is not None and not self._is_for_me(target):
-                    return None, None, None   # for another device; ignore
-                return "start_game", {"name": "finddevice", "mac": target}, mac_str
-            if mt == "status_poll":
-                if self._status_provider:
-                    self._schedule_status_reply(mac_str)
-                    return None, None, None
-                return "status_poll", data, mac_str
-            if mt == "status_report":
-                return "status_report", data, mac_str
+        if not isinstance(data, dict):
             return "raw", data, mac_str
 
-        return "raw", data, mac_str
+        kind = data.get("type")
 
-    def recv_blocking(self, timeout_ms=1000):
-        return self.poll(timeout_ms)
+        if kind == "sys":
+            op = data.get("op")
+            if op == "who":
+                self._reply_due = time.ticks_add(time.ticks_ms(),
+                                                 self._my_slot_delay())
+                return None, None, None
+            if op == "here":
+                hub = data.get("hub")
+                if hub and mac_str:
+                    self._seen[hub] = mac_str
+                return "sys", data, mac_str
+            if op == "ident" and not self._is_me(data.get("mac")):
+                return None, None, None
+            return "sys", data, mac_str
+
+        if kind == "cap":
+            if data.get("hub") != HUB_TYPE:
+                return None, None, None
+            return "cap", data, mac_str
+
+        if kind == "evt":
+            return "evt", data, mac_str
+
+        return "raw", data, mac_str
 
     def drain(self):
         if not self._active:
             return
         while True:
             try:
-                mac, msg = self.enow.irecv(0)
-                if msg is None:
-                    break
+                _, msg = self.enow.irecv(0)
             except Exception:
+                break
+            if msg is None:
                 break
