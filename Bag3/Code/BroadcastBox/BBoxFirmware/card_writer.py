@@ -5,7 +5,7 @@ Writes plain NDEF text records, NOT the Bag3 4-byte opcode scheme from
 opcodes.py -- that scheme is untested on real hardware. This ports the
 NDEF build/parse logic straight from Bag2/Utilities/writetoNFCcards.py
 (write side) and Bag2/Code/lib/nfc_reader.py's _decode_ndef_text (read
-side), which are proven working with real wands. MockWand/lib/nfc_reader.py
+side), which are proven working with real wands. Bag3/Code/lib/nfc_reader.py
 was switched to match (see that file's docstring) so the two sides agree.
 
 Reader chip: WS1850S (register-compatible with MFRC522), swapped in for

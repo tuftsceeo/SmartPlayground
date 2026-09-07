@@ -26,7 +26,7 @@ SOCK_REPLY_TIMEOUT_S = 30
 SOCK_REQUEST_TIMEOUT_S = 5   # how long to wait for the wand's request frame
 AP_SETTLE_MS = 300  # same value the wand uses post-cycle
 
-# PEER: MockWand/code_puller.py holds a hand-kept copy of SSID/PWD/PORT/CHUNK/
+# PEER: Bag3/Code/lib/code_puller.py holds a hand-kept copy of SSID/PWD/PORT/CHUNK/
 # YIELD_MS and of the wire protocol in _serve_client() below. There is no
 # shared module (the two run on different devices), so any change here must be
 # mirrored there in the same commit.

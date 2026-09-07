@@ -172,6 +172,15 @@ SHAPE_RECTANGLE          = (5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 1
 SHAPE_FASTFORWARD        = (5, 8, 10, 11, 13, 14, 15, 18)
 SHAPE_REWIND             = (6, 9, 10, 11, 13, 14, 16, 19)
 SHAPE_WIFI               = (1, 2, 3, 5, 6, 8, 9, 16, 17, 18, 20, 21, 23, 24)
+
+# Wifi signal strength, 0-2 arcs over a base dot. Used as a cycling
+# "trying to connect" animation by wifi_animate(); the last frame doubles
+# as the still image for a connect failure (red = no AP at all, orange =
+# AP there but the pull was refused). See WIFI_FRAMES below.
+SHAPE_WIFI_0             = (22,)
+SHAPE_WIFI_1             = (11, 12, 13, 22)
+SHAPE_WIFI_2             = (0, 1, 2, 3, 4, 11, 12, 13, 22)
+WIFI_FRAMES              = (SHAPE_WIFI_0, SHAPE_WIFI_1, SHAPE_WIFI_2)
 SHAPE_POINTER            = (0, 5, 6, 10, 11, 12, 15, 16, 20)
 SHAPE_BULLSEYE           = (1, 2, 3, 5, 9, 10, 12, 14, 15, 19, 21, 22, 23)
 
@@ -384,6 +393,16 @@ class Leds:
             if 0 <= idx < self.num:
                 self.np[idx] = color
         self.np.write()
+
+    def wifi_animate(self, frame, color, bg=OFF, frames_per_step=3):
+        """Cycle the wifi bars 0-1-2-0... one step every `frames_per_step`.
+
+        `frame` is a free-running tick from the caller, so this stays a pure
+        render call with no sleeps -- the connect loop keeps its own timing
+        and just hands us its tick count.
+        """
+        step = (frame // frames_per_step) % len(WIFI_FRAMES)
+        self.show_shape(WIFI_FRAMES[step], color, bg=bg)
 
     def show_pattern(self, color_to_indices, bg=OFF):
         """
