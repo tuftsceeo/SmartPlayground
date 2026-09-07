@@ -19,6 +19,9 @@ it is cannot be trusted to drive its pins.
 _CONFIGS = {
     "wand": {
         "caps": ("matrix5", "buzzer", "accel", "button", "nfc", "motor", "battery"),
+        "idle_ms":        200,      # Bag2 idle pace; NFC sleeps after 30 s
+        "idle_poll_ms":   0,
+        "game_ms":        20,
         "num_leds":       25,
         "led_pin":        20,
         "matrix_cols":    5,
@@ -35,6 +38,9 @@ _CONFIGS = {
     },
     "code_station": {
         "caps": ("slots4", "slotleds", "button", "nfc"),
+        "idle_ms":        10,       # Bag2 programming station: poll() + sleep_ms(10)
+        "idle_poll_ms":   0,
+        "game_ms":        20,
         "num_leds":       18,
         "led_pin":        21,
         "slots":          4,
@@ -50,6 +56,9 @@ _CONFIGS = {
     },
     "score_station": {
         "caps": ("bars4", "nfc"),
+        "idle_ms":        0,        # Bag2 slide score: the blocking poll is the pacing
+        "idle_poll_ms":   100,
+        "game_ms":        20,
         "num_leds":       40,
         "led_pin":        0,
         "bars":           4,
@@ -63,6 +72,9 @@ _CONFIGS = {
     },
     "icon_station": {
         "caps": ("icon16", "nfc"),
+        "idle_ms":        0,
+        "idle_poll_ms":   100,
+        "game_ms":        20,
         "num_leds":       256,
         "led_pin":        0,
         "matrix_cols":    16,
@@ -77,6 +89,9 @@ _CONFIGS = {
     "dial_station": {
         # M5Dial under UIFlow2. Pins belong to the M5 board support, not here.
         "caps": ("audio", "encoder", "screen"),
+        "idle_ms":        10,
+        "idle_poll_ms":   0,
+        "game_ms":        20,
         "audio_uart":     1,
         "audio_port":     (1, 2),
         "max_volume":     30,

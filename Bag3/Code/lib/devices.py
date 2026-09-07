@@ -3,15 +3,16 @@ devices.py -- per-hubtype hardware bring-up and the game runtime.
 
     import devices
 
-    dev = devices.build()
+    dev = devices.build(commands)
     dev.begin("colorquest", "player", exit_names)
     play(dev)
     dev.end()
 
 build() constructs only the peripherals this hubtype declares in hubtype.CAPS.
 A capability this hubtype does not have is absent from the Device, so a role
-file that reaches for it fails with an AttributeError naming what it wanted. A
-capability whose driver fails to start is set to None and printed as [FAIL].
+file that reaches for it fails with an AttributeError naming what it wanted.
+Nothing here catches a driver failure: a peripheral this hubtype claims to have
+and cannot start is a fault, and stops the device with a traceback.
 
 Device also runs the game loop. A role file is:
 
@@ -19,24 +20,26 @@ Device also runs the game loop. A role file is:
         while dev.running():
             ev = dev.event()
             ...
-            dev.tick(20)
+            dev.tick()
 
 running() pumps the radio and the card reader, answers capability commands and
 consumes system messages, and returns False when the game must end.
+
+Loop pacing comes from the hubtype: idle_ms, idle_poll_ms and game_ms in
+HUB_CONFIG. A station with nothing to poll paces on a blocking receive
+(idle_poll_ms) rather than a sleep, which is how the Bag2 stations keep the
+radio quiet.
 """
 
+import machine
 import time
 
 from hubtype import HUB_TYPE, HUB_CONFIG, CAPS
 from espnow_manager import ESPNowManager
 
-# How often running() reads the card reader, in calls. Reading every pass
-# starves everything else; the reader is the slowest thing in the loop.
+# Passes between card reads while a game runs. Reading every pass starves the
+# rest of the loop; the reader is the slowest thing in it.
 NFC_EVERY = 15
-
-# Queued events a game has not read yet. Oldest are dropped -- a game that
-# is not reading its events is not going to want the backlog.
-EVENT_QUEUE_MAX = 8
 
 GETCODE = "getcode:"
 
@@ -53,6 +56,10 @@ class Device:
         self.cap = None            # station capability handler, if any
         self.reader = None         # NfcReader, if this hubtype has nfc
 
+        self.idle_ms = HUB_CONFIG["idle_ms"]
+        self.idle_poll_ms = HUB_CONFIG["idle_poll_ms"]
+        self.game_ms = HUB_CONFIG["game_ms"]
+
         self._events = []
         self._exit = None          # None | "stop" | ("start", slug)
         self._pull = None          # module name a getcode: card asked for
@@ -62,7 +69,7 @@ class Device:
     # -- game lifecycle ----------------------------------------------
 
     def begin(self, slug, role, exit_names=()):
-        """Arm the runtime for one game. Called by the launcher."""
+        """Arm the runtime for one game."""
         self.slug = slug
         self.role = role
         self._events = []
@@ -72,21 +79,17 @@ class Device:
 
     def end(self):
         """Restore outputs after a game returns."""
-        for name in ("leds", "cap"):
-            obj = getattr(self, name, None)
-            if obj is not None:
-                try:
-                    obj.off()
-                except AttributeError:
-                    pass
-                except Exception as e:
-                    print("  [FAIL] %s.off(): %s" % (name, str(e)))
+        leds = getattr(self, "leds", None)
+        if leds is not None:
+            leds.off()
+        if self.cap is not None:
+            self.cap.off()
         self.slug = None
         self.role = None
         self._events = []
 
     def pending(self):
-        """What to do after play() returns: ("start", slug) or None."""
+        """("start", slug) if a game switch is queued, else None."""
         return self._exit if isinstance(self._exit, tuple) else None
 
     def pending_pull(self):
@@ -103,25 +106,35 @@ class Device:
             self._read_card()
         return self._exit is None
 
-    def pump(self):
-        """Service the radio once. Safe to call outside a game."""
-        while True:
-            kind, data, mac = self.net.poll()
-            if kind is None:
-                return
+    def pump(self, timeout_ms=0):
+        """Service the radio: one wait of timeout_ms, then drain."""
+        kind, data, mac = self.net.poll(timeout_ms)
+        while kind is not None:
             if kind == "sys":
                 self._handle_sys(data)
             elif kind == "cap":
-                self._handle_cap(data)
+                self.cap.handle(data.get("op"), data.get("a") or {})
             elif kind == "evt":
                 self._queue_evt(data, mac)
+            kind, data, mac = self.net.poll(0)
+
+    def idle(self):
+        """One pass of the between-games loop, at this hubtype's cadence."""
+        self.pump(self.idle_poll_ms)
+        if self.cap is not None:
+            self.cap.step()
+        if self.reader is not None:
+            self._read_card()
+        if self.idle_ms:
+            time.sleep_ms(self.idle_ms)
 
     def event(self):
         """Next (ev, data, mac) for this game, or None."""
         return self._events.pop(0) if self._events else None
 
-    def tick(self, ms=20):
+    def tick(self, ms=None):
         """Per-frame sleep. Always yields, so serial and the radio breathe."""
+        ms = self.game_ms if ms is None else ms
         time.sleep_ms(ms if ms > 0 else 1)
 
     def stop(self):
@@ -141,92 +154,61 @@ class Device:
         elif op == "ident":
             self._events.append(("ident", data, None))
 
-    def _handle_cap(self, data):
-        """Run a capability command. Already filtered to this hubtype."""
-        if self.cap is None:
-            return
-        op = data.get("op")
-        try:
-            self.cap.handle(op, data.get("a") or {})
-        except Exception as e:
-            print("  [FAIL] cap %s: %s" % (op, str(e)))
-
     def _queue_evt(self, data, mac):
         slug = data.get("slug")
         if slug and self.slug and slug != self.slug:
             return
-        if len(self._events) >= EVENT_QUEUE_MAX:
-            self._events.pop(0)
         self._events.append((data.get("ev"), data.get("d"), mac))
 
     def _read_card(self):
-        try:
-            cmd, _uid = self.reader.read_command(timeout=100)
-        except Exception as e:
-            print("  [FAIL] card read: %s" % str(e))
-            return
+        cmd, _uid = self.reader.read_command(timeout=100)
         if not cmd:
             return
         if cmd.startswith(GETCODE):
             self._pull = cmd[len(GETCODE):]
             self._exit = "stop"
-        elif cmd == "stop" or cmd in self._exit_names:
-            self._exit = "stop" if cmd == "stop" else ("start", cmd)
-
-
-def _fail(name, exc):
-    print("  [FAIL] %s: %s" % (name, str(exc)))
-    return None
-
-
-def _build_i2c():
-    import machine
-    return machine.SoftI2C(sda=machine.Pin(HUB_CONFIG["i2c_sda"]),
-                           scl=machine.Pin(HUB_CONFIG["i2c_scl"]),
-                           freq=HUB_CONFIG["i2c_freq"])
-
-
-def _attach_nfc(dev, commands):
-    from pn532 import PN532
-    from nfc_reader import NfcReader
-    nfc = PN532(dev.i2c, addr=HUB_CONFIG["nfc_addr"])
-    nfc.begin()
-    dev.nfc = nfc
-    dev.reader = NfcReader(nfc, commands, prefixes=(GETCODE,))
+        elif cmd == "stop":
+            self._exit = "stop"
+        elif cmd in self._exit_names:
+            self._exit = ("start", cmd)
 
 
 def build(commands=()):
     """Construct the Device for this hubtype.
 
     commands is the set of card texts the reader should recognise -- every
-    game name plus the control tags. The launcher owns that list.
+    game name plus the control tags. The caller owns that list.
+
+    Order matters: esp_wifi_init() needs contiguous IDF heap that MicroPython's
+    GC carves from and never gives back, so the radio is claimed before any
+    driver import fragments it. Only the LED matrix comes first, so the boot
+    has something to show.
     """
     dev = Device()
 
+    if "matrix5" in CAPS:
+        from leds import Leds
+        dev.leds = Leds()
+
+    dev.net.init()
+
     if "nfc" in CAPS:
-        dev.i2c = _build_i2c()
+        dev.i2c = machine.SoftI2C(sda=machine.Pin(HUB_CONFIG["i2c_sda"]),
+                                  scl=machine.Pin(HUB_CONFIG["i2c_scl"]),
+                                  freq=HUB_CONFIG["i2c_freq"])
 
     if HUB_TYPE == "wand":
-        from leds import Leds
         from buzzer import Buzzer
-        dev.leds = Leds()
+        from lis2dw12 import LIS2DW12, RANGE_4G
+        from max17048 import MAX17048
         dev.buz = Buzzer(HUB_CONFIG["buzzer_pin"])
-        try:
-            from lis2dw12 import LIS2DW12, RANGE_4G
-            accel = LIS2DW12(dev.i2c)
-            accel.init(fs_range=RANGE_4G)
-            dev.accel = accel
-        except Exception as e:
-            dev.accel = _fail("accel", e)
-        try:
-            from max17048 import MAX17048
-            dev.batt = MAX17048(dev.i2c)
-        except Exception as e:
-            dev.batt = _fail("battery", e)
-        import machine
+        dev.accel = LIS2DW12(dev.i2c)
+        dev.accel.init(fs_range=RANGE_4G)
+        dev.batt = MAX17048(dev.i2c)
         dev.button = machine.Pin(HUB_CONFIG["button_pin"], machine.Pin.IN,
                                  machine.Pin.PULL_UP)
         dev.motor = machine.Pin(HUB_CONFIG["motor_pin"], machine.Pin.OUT, value=0)
+        dev.net.set_status_provider(lambda: dev.batt.soc)
 
     elif HUB_TYPE == "code_station":
         from cap_code import CodeSlots
@@ -245,12 +227,10 @@ def build(commands=()):
         dev.cap = dev.dial = DialAudio()
 
     if "nfc" in CAPS:
-        try:
-            _attach_nfc(dev, commands)
-        except Exception as e:
-            dev.nfc = _fail("nfc", e)
+        from pn532 import PN532
+        from nfc_reader import NfcReader
+        dev.nfc = PN532(dev.i2c, addr=HUB_CONFIG["nfc_addr"])
+        dev.nfc.begin()
+        dev.reader = NfcReader(dev.nfc, commands, prefixes=(GETCODE,))
 
-    dev.net.init()
-    if getattr(dev, "batt", None) is not None:
-        dev.net.set_status_provider(lambda: dev.batt.soc)
     return dev

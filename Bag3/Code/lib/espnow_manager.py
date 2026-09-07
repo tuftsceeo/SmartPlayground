@@ -19,6 +19,10 @@ waiting. "sys who" is answered inside poll(); everything else is handed up.
 
 Nothing here is acknowledged, ordered, de-duplicated or fragmented. A sender
 that needs an event to land repeats it and the receiver guards on state.
+
+The only failures caught here are the two that are ordinary radio outcomes: a
+momentarily full TX queue, and a payload that is not JSON. Everything else
+raises.
 """
 
 import gc
@@ -54,19 +58,10 @@ RADIO_SETTLE_MS = 300
 
 def _is_esp32c6():
     """True on ESP32-C6 boards, which have the GPIO3/14 antenna switch."""
-    try:
-        import sys
-        if 'esp32c6' in (sys.platform or '').lower():
-            return True
-    except Exception:
-        pass
-    try:
-        import os
-        if 'ESP32C6' in (os.uname().machine or '').upper():
-            return True
-    except Exception:
-        pass
-    return False
+    import os
+    import sys
+    return ('esp32c6' in sys.platform.lower()
+            or 'ESP32C6' in os.uname().machine.upper())
 
 
 def _configure_antenna(external=EXTERNAL_ANTENNA):
@@ -135,10 +130,7 @@ class ESPNowManager:
         sta.disconnect()
         self.enow = espnow.ESPNow()
         self.enow.active(True)
-        try:
-            self.enow.add_peer(BROADCAST_MAC)
-        except Exception:
-            pass
+        self.enow.add_peer(BROADCAST_MAC)
         self._active = True
         print("  ESPNow: active as %s (MAC %s)" % (HUB_TYPE, get_own_mac()))
 
@@ -150,14 +142,8 @@ class ESPNowManager:
         """
         if not self._active:
             return
-        try:
-            self.broadcast_sys("stop")
-        except Exception as e:
-            print("  ESPNow: stop on shutdown failed: %s" % str(e))
-        try:
-            self.enow.active(False)
-        except Exception as e:
-            print("  ESPNow: active(False) failed: %s" % str(e))
+        self.broadcast_sys("stop")
+        self.enow.active(False)
         self.enow = None
         self._active = False
         self._peers.clear()
@@ -168,27 +154,25 @@ class ESPNowManager:
     def is_active(self):
         return self._active
 
+    def _require_active(self):
+        if not self._active:
+            raise OSError("ESPNow: init() has not run")
+
     # -- peers and discovery -----------------------------------------
 
     def add_peer(self, mac_str):
-        if not self._active:
-            self.init()
-        if mac_str in self._peers:
-            return
+        """Register a unicast peer. The broadcast peer is added by init()."""
+        self._require_active()
         mac_bytes = mac_str_to_bytes(mac_str)
-        try:
-            self.enow.add_peer(mac_bytes)
-        except Exception:
-            pass
+        if mac_str in self._peers or mac_bytes == BROADCAST_MAC:
+            return
+        self.enow.add_peer(mac_bytes)
         self._peers[mac_str] = mac_bytes
 
     def remove_peer(self, mac_str):
         mac_bytes = self._peers.pop(mac_str, None)
         if mac_bytes is not None:
-            try:
-                self.enow.del_peer(mac_bytes)
-            except Exception:
-                pass
+            self.enow.del_peer(mac_bytes)
 
     def clear_peers(self):
         for mac_str in list(self._peers):
@@ -198,11 +182,10 @@ class ESPNowManager:
         return list(self._peers)
 
     def get_rssi(self, mac_str):
-        try:
-            mac_bytes = self._peers.get(mac_str) or mac_str_to_bytes(mac_str)
-            return self.enow.peers_table[mac_bytes][0]
-        except (KeyError, IndexError, TypeError, AttributeError):
-            return None
+        """Last RSSI for a peer, or None if the radio has not heard from it."""
+        mac_bytes = self._peers.get(mac_str) or mac_str_to_bytes(mac_str)
+        table = self.enow.peers_table
+        return table[mac_bytes][0] if mac_bytes in table else None
 
     def find(self, hub):
         """MAC of a hubtype seen replying to "who", or None.
@@ -219,60 +202,47 @@ class ESPNowManager:
     # -- sending -----------------------------------------------------
 
     def broadcast(self, obj):
-        """Async broadcast with one retry. Broadcasts are never acked, so a
-        synchronous send would wait for an ACK that never arrives."""
-        if not self._active:
-            return False
+        """Broadcast, retrying once past a momentarily full TX queue.
+
+        Sent async: a broadcast is never acked, so a synchronous send waits for
+        an ACK that never arrives. A second OSError is a real fault and raises.
+        """
+        self._require_active()
         raw = _encode(obj)
-        try:
-            self.enow.send(BROADCAST_MAC, raw, False)
-            return True
-        except OSError:
-            time.sleep_ms(SEND_RETRY_MS)
+        for attempt in range(2):
             try:
                 self.enow.send(BROADCAST_MAC, raw, False)
-                return True
-            except OSError as e:
-                print("  ESPNow: broadcast failed: %s" % str(e))
-                return False
+                return
+            except OSError:
+                if attempt:
+                    raise
+                time.sleep_ms(SEND_RETRY_MS)
 
     def send_to(self, mac_str, obj):
-        if not self._active:
-            return False
+        self._require_active()
         if mac_str not in self._peers:
             self.add_peer(mac_str)
-        try:
-            self.enow.send(self._peers[mac_str], _encode(obj))
-            return True
-        except OSError as e:
-            print("  ESPNow: send to %s failed: %s" % (mac_str, str(e)))
-            return False
+        self.enow.send(self._peers[mac_str], _encode(obj))
 
     def send_raw(self, mac_bytes, raw_bytes):
         """Send bytes with no encoding. For binary payloads only."""
-        if not self._active:
-            return False
+        self._require_active()
         if len(raw_bytes) > MAX_PAYLOAD:
             raise ValueError("raw payload is %d bytes, limit is %d"
                              % (len(raw_bytes), MAX_PAYLOAD))
-        try:
-            self.enow.send(mac_bytes, raw_bytes, False)
-            return True
-        except OSError as e:
-            print("  ESPNow: raw send failed: %s" % str(e))
-            return False
+        self.enow.send(mac_bytes, raw_bytes, False)
 
     def broadcast_sys(self, op, **kw):
         msg = {"type": "sys", "op": op}
         msg.update(kw)
-        return self.broadcast(msg)
+        self.broadcast(msg)
 
     def broadcast_cap(self, hub, op, args=None):
         """Command every station of hubtype `hub` to do `op`."""
         msg = {"type": "cap", "hub": hub, "op": op}
         if args:
             msg["a"] = args
-        return self.broadcast(msg)
+        self.broadcast(msg)
 
     def broadcast_evt(self, ev, data=None, slug=None):
         """Report something. Game events carry the slug they belong to."""
@@ -281,13 +251,13 @@ class ESPNowManager:
             msg["d"] = data
         if slug:
             msg["slug"] = slug
-        return self.broadcast(msg)
+        self.broadcast(msg)
 
     def stop_all(self):
-        return self.broadcast_sys("stop")
+        self.broadcast_sys("stop")
 
     def start_all(self, slug):
-        return self.broadcast_sys("start", slug=slug)
+        self.broadcast_sys("start", slug=slug)
 
     # -- receiving ---------------------------------------------------
 
@@ -305,13 +275,7 @@ class ESPNowManager:
         return BASE_DELAY_MS + slot * SLOT_MS
 
     def _send_here(self):
-        soc = None
-        if self._status_provider:
-            try:
-                soc = self._status_provider()
-                soc = None if soc is None else int(soc)
-            except (TypeError, ValueError):
-                soc = None
+        soc = self._status_provider() if self._status_provider else None
         self.broadcast_sys("here", hub=HUB_TYPE, soc=soc)
 
     def _service_reply(self):
@@ -324,18 +288,15 @@ class ESPNowManager:
         self._send_here()
 
     def poll(self, timeout_ms=0):
-        """Non-blocking receive. Returns (kind, data, mac_str).
+        """Receive one message, waiting up to timeout_ms. Returns
+        (kind, data, mac_str), or (None, None, None) if nothing arrived.
 
-        kind is "sys", "cap", "evt", "raw", or None. "cap" is delivered only
-        when this device's hubtype is the one addressed.
+        kind is "sys", "cap", "evt" or "raw". "cap" is delivered only when this
+        device's hubtype is the one addressed.
         """
-        if not self._active:
-            return None, None, None
+        self._require_active()
         self._service_reply()
-        try:
-            mac, msg = self.enow.irecv(timeout_ms)
-        except Exception:
-            return None, None, None
+        mac, msg = self.enow.irecv(timeout_ms)
         if msg is None:
             return None, None, None
 
@@ -376,12 +337,8 @@ class ESPNowManager:
         return "raw", data, mac_str
 
     def drain(self):
-        if not self._active:
-            return
+        self._require_active()
         while True:
-            try:
-                _, msg = self.enow.irecv(0)
-            except Exception:
-                break
+            _, msg = self.enow.irecv(0)
             if msg is None:
                 break
