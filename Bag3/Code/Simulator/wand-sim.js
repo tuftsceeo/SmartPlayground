@@ -1,169 +1,155 @@
 /**
  * <wand-sim> — embeddable wand game simulator (Pyodide + shadow DOM).
  *
+ * The panel follows the "Wand Simulator v4" design artboard
+ * (BroadcastBox/docs_and_design/simlution v4/): a white rounded shell
+ * holding the wand on its tilt/press pad at the left and the controls at
+ * the right, with four pop-ups available over the whole shell.
+ *
  * Attributes/props: game, autostart, show-console, controls, source, muted,
- * advanced (shows the Advanced drawer + its "Show console" toggle; off by
- * default)
- * Events: sim-ready, sim-frame, sim-print, sim-error (detail.phase is one
- * of "boot"/"load"/"run"), sim-stopped
+ * advanced (shows the axis readout, the custom tag / radio message drawer,
+ * the hardware dials and the log; off by default), log-lines (how many log
+ * lines the advanced block shows, default 2)
+ *
+ * Events:
+ *   sim-ready, sim-frame, sim-print, sim-stopped
+ *   sim-error — detail.phase is one of "boot" / "load" / "run"
+ *   sim-overlay-action — detail is { kind, action }, fired when a button on
+ *     one of the overlays is pressed (see showOverlay below)
  */
 
-import { createRenderer, dutyRgbToCss } from "./js/renderer.js";
-import { getAccel, setTilt, setPose, fireMove, cancelMove } from "./js/motion.js";
+import { createRenderer, dutyRgbToCss, WAND_STYLE } from "./js/renderer.js";
+import { getAccel, setPadTilt, setPose, fireMove, cancelMove } from "./js/motion.js";
 import { createAudio } from "./js/audio.js";
-import { createControls } from "./js/controls.js";
+import { createControls, CONTROLS_STYLE } from "./js/controls.js";
+import { icon } from "./js/icons.js";
 
 const PYODIDE_VERSION = "0.27.0";
 const PYODIDE_CDN = `https://cdn.jsdelivr.net/pyodide/v${PYODIDE_VERSION}/full/`;
 
-// Lucide icons (ISC license, https://lucide.dev), inlined so their
-// stroke="currentColor" picks up .status's own text color per state
-// (see the .status-* CSS rules below) instead of a separate asset per icon.
-const LUCIDE_LOADER_CIRCLE = `<svg class="icon-lucide" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>`;
-const LUCIDE_CIRCLE_CHECK = `<svg class="icon-lucide" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m16 9-5.5 5.5L8 12"/></svg>`;
-const LUCIDE_CIRCLE_PLAY = `<svg class="icon-lucide" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 9.003a1 1 0 0 1 1.517-.859l4.997 2.997a1 1 0 0 1 0 1.718l-4.997 2.997A1 1 0 0 1 9 14.996z"/><circle cx="12" cy="12" r="10"/></svg>`;
-const LUCIDE_CIRCLE_STOP = `<svg class="icon-lucide" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>`;
-const LUCIDE_TRIANGLE_ALERT = `<svg class="icon-lucide" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>`;
-
-const STATUS_ICONS = {
-  loading: LUCIDE_LOADER_CIRCLE,
-  ready: LUCIDE_CIRCLE_CHECK,
-  loaded: LUCIDE_CIRCLE_CHECK,
-  running: LUCIDE_CIRCLE_PLAY,
-  stopped: LUCIDE_CIRCLE_STOP,
-  error: LUCIDE_TRIANGLE_ALERT,
+/**
+ * The four pop-ups from the "Wand Sim Overlays" artboard. `banner` ones sit
+ * at the bottom of the shell with no scrim; the rest are centred cards over
+ * a scrim. Copy is the artboard's, verbatim.
+ */
+const OVERLAYS = {
+  "game-over": {
+    icon: "tag", tintBg: "#fff0f6", tintFg: "#d13a7c",
+    title: "Game over", message: "the stop card ended the round",
+    buttons: [
+      { action: "close", label: "Close", style: "ghost" },
+      { action: "play-again", label: "Play again →", style: "pink" },
+    ],
+  },
+  "cant-simulate": {
+    icon: "smartphone-nfc", tintBg: "#f2eefc", tintFg: "#6c4cd1",
+    title: "Can't simulate", message: "it needs two wands talking — try it on the wand",
+    buttons: [
+      { action: "close", label: "Got it", style: "ghost" },
+      { action: "send-to-box", label: "Send to Box →", style: "teal" },
+    ],
+  },
+  welcome: {
+    icon: "wand", tintBg: "#fff8e0", tintFg: "#8a6a00",
+    title: "Welcome", message: "chat an idea, or load a saved game",
+    buttons: [
+      { action: "load-saved", label: "Load saved code", style: "ghost" },
+      { action: "start-chat", label: "Start a chat →", style: "pink" },
+    ],
+  },
+  "new-code": {
+    banner: true,
+    icon: "sparkles", tintBg: "#e9fbf6", tintFg: "#12967f",
+    title: "New code is ready", message: "play it to see the change",
+    buttons: [{ action: "play-it", label: "Play it →", style: "pink" }],
+  },
 };
 
-// Palette matches Bag3/Code/BroadcastBox/ChatBroadcast/css/app.css's :root
-// tokens and its existing #wand-sim / .sim-* rules (teal=tilt, purple=shake,
-// gold=speaker glow, the chat.css .msg.hw teal tint+border+text recipe) —
-// this is a color-and-type starting point only. The LED grid and console
-// stay dark ("screen"/"terminal" look reads fine on either theme); layout
-// and the actual wand-artwork compositing are a separate pass.
-const STYLE = `
+const SHELL_STYLE = `
 :host {
-  display: block;
+  /* Flex column so .wrap can stretch and hand the pad a height to fill —
+     the pad is the panel's tallest element and has nothing else to size
+     against. min-height keeps the two-pane layout from collapsing when the
+     host gives the element no height of its own. */
+  display: flex;
+  flex-direction: column;
+  min-height: var(--wand-min-height, 520px);
+  container-type: inline-size;
+  container-name: wand-sim;
   font-family: var(--wand-font, 'Nunito', ui-sans-serif, system-ui, sans-serif);
   color: var(--wand-fg, #231f2e);
   background: var(--wand-bg, #ffffff);
-  border-radius: var(--wand-radius, 22px);
-  padding: 16px;
-  box-shadow: var(--wand-shadow, 0 18px 40px rgba(108, 76, 209, 0.16));
+  border-radius: var(--wand-radius, 24px);
+  box-shadow: var(--wand-shadow, 0 18px 40px rgba(108, 76, 209, 0.18));
   box-sizing: border-box;
+  position: relative;
+  overflow: hidden;
 }
 /* :host's box-sizing doesn't inherit into the shadow tree (box-sizing
-   isn't an inherited property), so every bordered element below sized it
-   as content-box by default — a border added to, rather than ate into,
-   its declared width/height. That's what threw off the plunger handle's
-   vertical centering against its track. */
+   isn't an inherited property), so every bordered element below would size
+   as content-box by default — a border adding to, rather than eating into,
+   its declared width. */
 *, *::before, *::after { box-sizing: border-box; }
-.wrap { display: flex; flex-direction: column; gap: 12px; }
-.main { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; }
-.wand-art { width: var(--wand-art-width, 200px); }
-/* Speaker fill fades rather than snapping (same reasoning as .ind below —
-   a melody.py note is ~150ms). The LED matrix deliberately has no
-   transition: game state (shake level, gesture training, ...) should
-   update as crisply as the real LEDs would. */
-.wand-art svg #_SPEAKER { transition: fill 0.4s ease-out; }
-.indicators { display: flex; gap: 12px; }
-/* Not buttons — just a live readout under the wand art, so no chip
-   border/background, and sized like the pose/move gesture icons (64px)
-   since these are the same kind of illustration, just smaller-scope.
-   Fixed box, no active-state scale/transform: the icon swap alone
-   (no_sound<->sound, no_vibrate<->vibrate) conveys state — anything that
-   resizes or reflows the box reads as the same "wiggle" the label-width
-   fix elsewhere in this file was written to avoid. */
-.ind { display: inline-flex; align-items: center; }
-/* Icon-only — no Hz/on-off text here; that's a technical detail a
-   kindergarten-teacher audience doesn't need on the main panel (it's in
-   the Advanced drawer instead, via setBuzzerStatus/setMotorStatus). */
-.ind-icon { width: 64px; height: 64px; object-fit: contain; flex: none; }
-/* Status line: icon + hover/title tooltip, no printed text — except for
-   an error, which stays visible (never hover-only) so a real failure
-   can't go unnoticed. */
-.status { display: flex; align-items: center; gap: 6px; color: #8b859a; }
-.status-loading .icon-lucide { animation: status-spin 1s linear infinite; }
-.status-error { color: #b3261e; }
-.status-text { font-size: 12px; font-weight: 700; }
-@keyframes status-spin { to { transform: rotate(360deg); } }
-.wand-controls { flex: 1; min-width: 220px; }
-.ctrl-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; align-items: center; }
-.ctrl-btn {
-  font: 700 12px 'Nunito', inherit; padding: 7px 12px; border-radius: 12px;
-  border: 1.5px solid #e8e6f0; background: #ffffff; color: #231f2e; cursor: pointer;
-}
-.ctrl-btn:hover { border-color: #6c4cd1; color: #6c4cd1; }
-.ctrl-btn:disabled { opacity: 0.4; cursor: default; }
-.ctrl-btn:disabled:hover { border-color: #e8e6f0; color: #231f2e; }
-.ctrl-btn.down, .ctrl-btn:active { background: #f2eefc; border-color: #6c4cd1; color: #6c4cd1; }
-.ctrl-btn.big {
-  font-size: 14px; padding: 14px 24px; border-radius: 16px;
-  background: #ef4d92; border-color: #d13a7c; color: #fff;
-}
-.ctrl-btn.big:hover { color: #fff; }
-.ctrl-btn.big.down, .ctrl-btn.big:active { background: #d13a7c; border-color: #d13a7c; color: #fff; }
-/* Sticky-pose active state: soft tint + saturated same-hue border + dark
-   same-hue text — same recipe ChatBroadcast's chat.css uses for .msg.hw. */
-.ctrl-btn.pose.active { background: #d1fae5; border-color: #6ee7b7; color: #065f46; }
-/* Icon above label when a pose/move has a gesture illustration (see
-   assets/wand/WandGestures/); icon-less ones (face_up/face_down, flip)
-   just show centered text, same as before. */
-.ctrl-btn.pose, .ctrl-btn.move { display: inline-flex; flex-direction: column; align-items: center; gap: 4px; font-size: 10px; }
-.ctrl-icon { width: 64px; height: 64px; object-fit: contain; }
-.ctrl-toolbar { display: flex; gap: 8px; margin-bottom: 4px; }
-/* Icon-only toolbar buttons (mute): no visible label, hover/focus shows
-   the native title tooltip instead — matches the icon-first, low-text
-   design used throughout for a pre-reader audience. */
-.ctrl-btn.icon-only { display: inline-flex; align-items: center; justify-content: center; padding: 7px; }
-.icon-lucide { width: 18px; height: 18px; display: block; }
-.hint { font-size: 13px; opacity: 0.85; margin: 2px 0; }
-.hint[hidden], .uses-row[hidden], .zero-state[hidden] { display: none; }
-.uses-row { font-size: 11px; color: #8b859a; margin-bottom: 6px; }
-.ctrl-group { margin-bottom: 10px; }
-.ctrl-group[hidden] { display: none; }
-.group-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: #8b859a; margin-bottom: 4px; }
-.group-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-.zero-state { font-size: 13px; color: #8b859a; font-style: italic; padding: 8px 0; }
-details.advanced { margin-top: 8px; border-top: 2px solid #ffd23f; padding-top: 8px; }
-/* Hidden unless the host opts in via the "advanced" attribute. */
-:host(:not([advanced])) details.advanced { display: none; }
-details.advanced summary { cursor: pointer; font-size: 12px; font-weight: 700; color: #8b859a; }
-details.advanced summary:hover { color: #a8531e; }
-.adv-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 8px; }
-.adv-status { font-size: 12px; color: #8b859a; }
-.adv-tags { display: flex; gap: 6px; align-items: center; }
-.adv-tags input[type=text] {
-  font: inherit; font-size: 12px; padding: 6px 10px; border-radius: 10px;
-  border: 1.5px solid #e8e6f0; background: #ffffff; color: #231f2e; width: 100px;
-}
-.plunger { display: flex; align-items: center; gap: 8px; }
-/* Every WandGestures icon reads as detailed motion art, illegible below
-   64px -- same rule as .ctrl-icon and .ind-icon, no smaller "label" size. */
-.ctrl-icon-inline { width: 64px; height: 64px; object-fit: contain; flex: none; }
-/* Fixed width so the label text changing ("Gentle" -> "BIG shake!")
-   never resizes the row and shifts the slider sideways. */
-.plunger-label { font-size: 12px; color: #8b859a; flex: none; }
-.tilt-pad {
-  position: relative; width: 100px; height: 100px;
-  border-radius: 50%; background: #f4f2fa; border: 1.5px solid #e8e6f0;
-  touch-action: none;
-}
-.tilt-knob {
-  position: absolute; width: 16px; height: 16px; margin: -8px 0 0 -8px;
-  border-radius: 50%; background: #6c4cd1; left: 50%; top: 50%;
-  pointer-events: none;
-}
-.nfc-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.wrap { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
 .console {
   font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
   background: #1f2430; color: #d7d7e0; border-radius: 12px; padding: 10px;
-  max-height: 160px; overflow: auto; white-space: pre-wrap;
-  border: 1px solid #e8e6f0;
+  margin: 0 16px 14px; max-height: 160px; overflow: auto; white-space: pre-wrap;
 }
-.status { font-size: 12px; color: #8b859a; font-weight: 700; }
-label { font-size: 12px; display: flex; gap: 6px; align-items: center; color: #8b859a; }
-input[type=range] { width: 100px; }
+
+/* ── Overlays ────────────────────────────────────────────────────────── */
+.ov-scrim {
+  position: absolute; inset: 0; z-index: 8;
+  background: rgba(35,31,46,.35);
+}
+.ov-card {
+  position: absolute; left: 24px; right: 24px; top: 50%;
+  transform: translateY(-50%); z-index: 9; background: #fff;
+  border-radius: 20px; box-shadow: 0 24px 60px rgba(0,0,0,.22);
+  padding: 22px; display: flex; flex-direction: column; gap: 12px;
+  animation: ov-pop .15s ease;
+}
+.ov-card.is-banner {
+  top: auto; bottom: 22px; transform: none; border: 1.5px solid #e8e6f0;
+  padding: 16px 18px; flex-direction: row; align-items: center; gap: 12px;
+}
+.ov-head { display: flex; align-items: center; gap: 10px; }
+.ov-tint {
+  display: flex; width: 64px; height: 64px; flex: none; border-radius: 18px;
+  align-items: center; justify-content: center;
+}
+.is-banner .ov-tint { width: 52px; height: 52px; border-radius: 16px; }
+.ov-copy { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.ov-title { font: 900 24px 'Nunito', system-ui, sans-serif; color: #231f2e; line-height: 1.1; }
+.ov-sub { font: 400 15px 'Patrick Hand', cursive; color: #8b859a; line-height: 1.2; }
+.is-banner .ov-head { flex: 1; min-width: 0; }
+.is-banner .ov-title { font: 800 14px 'Nunito', system-ui, sans-serif; text-wrap: pretty; }
+.is-banner .ov-sub { font-size: 13px; }
+.ov-actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+.is-banner .ov-actions { flex: none; }
+.ov-btn {
+  padding: 10px 15px; border-radius: 14px; cursor: pointer;
+  font: 800 12px 'Nunito', system-ui, sans-serif; border: none;
+  transition: all .15s;
+}
+.is-banner .ov-btn { padding: 9px 14px; font-size: 11.5px; }
+.ov-btn.ghost { border: 1.5px solid #e8e6f0; background: #fff; color: #5b5468; }
+.ov-btn.ghost:hover { border-color: #ef4d92; color: #d13a7c; background: #fff0f6; }
+.ov-btn.pink {
+  background: linear-gradient(135deg, #ef4d92, #d13a7c); color: #fff;
+  box-shadow: 0 10px 22px rgba(239,77,146,.35);
+}
+.ov-btn.teal { background: linear-gradient(135deg, #22c3a6, #12967f); color: #fff; }
+@keyframes ov-pop { 0% { opacity: 0; transform: scale(.94) } 100% { opacity: 1 } }
+.ov-card.is-banner { animation-name: ov-pop-banner; }
+@keyframes ov-pop-banner { 0% { opacity: 0; transform: scale(.94) } 100% { opacity: 1; transform: none } }
+@media (prefers-reduced-motion: reduce) {
+  .ov-card { animation: none; }
+}
 `;
+
+const STYLE = SHELL_STYLE + WAND_STYLE + CONTROLS_STYLE;
 
 function assetUrl(rel) {
   return new URL(rel, import.meta.url).href;
@@ -175,7 +161,7 @@ async function fetchText(rel) {
   return res.text();
 }
 
-// Frequency -> color for the SPEAKER glow. Not melody-specific: melody.py,
+// Frequency -> color for the speaker. Not melody-specific: melody.py,
 // sound.py, and nfc_sound.py all share this exact table (vendor/lib/
 // buzzer.py's NOTE_FREQ paired with vendor/lib/leds.py's RED/ORANGE/...).
 // Games whose beeps aren't musical notes (jump, rainbow, ...) fall back to
@@ -205,6 +191,11 @@ function speakerColorForFreq(freq) {
   }
   return dutyRgbToCss(best, 1);
 }
+
+// How often the advanced axis readout is refreshed. The motion loop itself
+// runs every frame (the Python side needs that); redrawing three bars at
+// 60Hz is just churn.
+const AXIS_REFRESH_MS = 100;
 
 const FILE_LIST = [
   "py/transform.py",
@@ -248,7 +239,7 @@ const FILE_LIST = [
 
 class WandSim extends HTMLElement {
   static get observedAttributes() {
-    return ["game", "autostart", "show-console", "controls", "advanced"];
+    return ["game", "autostart", "show-console", "controls", "advanced", "log-lines"];
   }
 
   constructor() {
@@ -261,6 +252,9 @@ class WandSim extends HTMLElement {
     this._audio = null;
     this._renderer = null;
     this._controls = null;
+    this._log = [];
+    this._lastAxisPush = 0;
+    this._openOverlay = null;
   }
 
   get game() { return this.getAttribute("game") || "jump"; }
@@ -269,14 +263,21 @@ class WandSim extends HTMLElement {
   get autostart() { return this.hasAttribute("autostart"); }
   set autostart(v) { v ? this.setAttribute("autostart", "") : this.removeAttribute("autostart"); }
 
-  // Gates the Advanced drawer (battery/lux/raw ESP-NOW/NFC controls + the
-  // "Show console" toggle) — off by default so a teacher-facing embed
+  // Gates the axis readout, the custom tag / radio message drawer, the
+  // hardware dials and the log — off by default so a teacher-facing embed
   // doesn't show technical dials unless the host app opts in.
   get advanced() { return this.hasAttribute("advanced"); }
   set advanced(v) { v ? this.setAttribute("advanced", "") : this.removeAttribute("advanced"); }
 
+  get logLines() {
+    const n = parseInt(this.getAttribute("log-lines"), 10);
+    return n > 0 ? n : 2;
+  }
+  set logLines(v) { this.setAttribute("log-lines", String(v)); }
+
   // Hidden by default — a teacher-facing panel shouldn't open on a wall of
-  // Python traceback text. The controls' "Show console" toggle flips this.
+  // Python traceback text. The advanced block's "Show console" toggle
+  // flips this.
   get showConsole() { return this.getAttribute("show-console") === "true"; }
   set showConsole(v) { this.setAttribute("show-console", v ? "true" : "false"); }
 
@@ -314,6 +315,8 @@ class WandSim extends HTMLElement {
   disconnectedCallback() {
     cancelAnimationFrame(this._raf);
     this._audio?.dispose();
+    this._renderer?.dispose();
+    this._controls?.dispose();
     this._runPython("await stop()").catch(() => {});
   }
 
@@ -322,6 +325,8 @@ class WandSim extends HTMLElement {
       if (this._consoleEl) this._consoleEl.style.display = this.showConsole ? "block" : "none";
       this._controls?.setConsoleShown(this.showConsole);
     }
+    if (name === "advanced") this._controls?.setAdvanced(this.advanced);
+    if (name === "log-lines") this._controls?.setLog(this._log, this.logLines);
     if (!this._ready) return;
     if (name === "game") this._loadAndMaybeStart();
   }
@@ -335,38 +340,23 @@ class WandSim extends HTMLElement {
     const wrap = document.createElement("div");
     wrap.className = "wrap";
     wrap.innerHTML = `
-      <div class="status" data-el="status"></div>
-      <div class="main">
-        <div>
-          <div data-el="grid"></div>
-          <div class="indicators">
-            <span class="ind" data-el="buzzer" title="Buzzer"><img class="ind-icon" alt="Buzzer"></span>
-            <span class="ind" data-el="motor" title="Motor"><img class="ind-icon" alt="Motor"></span>
-          </div>
-        </div>
-        <div data-el="controls"></div>
-      </div>
+      <div data-el="controls"></div>
       <div class="console" data-el="console"></div>
     `;
     this._root.appendChild(wrap);
 
-    this._statusEl = wrap.querySelector('[data-el="status"]');
     this._consoleEl = wrap.querySelector('[data-el="console"]');
     this._consoleEl.style.display = this.showConsole ? "block" : "none";
-    this._setStatus("loading", "Loading…");
 
-    this._renderer = createRenderer(wrap.querySelector('[data-el="grid"]'), {
-      svgUrl: assetUrl("assets/wand/WAND_FRONT.svg"),
-      onButtonTap: (down) => this._setButton(down),
-    });
     this._audio = createAudio({
-      buzzerEl: wrap.querySelector('[data-el="buzzer"]'),
-      motorEl: wrap.querySelector('[data-el="motor"]'),
       // Fires well after boot (only once a real PWM/motor write happens),
       // so referencing this._controls here is safe even though controls
       // isn't created until a few lines below this.
       onBuzzerChange: (on, freq) => this._controls?.setBuzzerStatus(on ? `${freq} Hz` : "off"),
-      onMotorChange: (on) => this._controls?.setMotorStatus(on ? "on" : "off"),
+      onMotorChange: (on) => {
+        this._controls?.setMotorStatus(on ? "on" : "off");
+        this._renderer?.setMotor(on);
+      },
     });
     // Unlock audio directly from a real pointer event — see unlock()'s
     // docstring in audio.js for why this can't just happen from setPwm().
@@ -375,35 +365,144 @@ class WandSim extends HTMLElement {
     this._controls = createControls(wrap.querySelector('[data-el="controls"]'), {
       onButton: (down) => this._setButton(down),
       onPose: (name) => { setPose(name); this._pushAccel(); },
-      onMove: (kind, opts) => { fireMove(kind, opts); this._pushAccel(); },
-      onTilt: (x, y) => { setTilt(x, y); this._pushAccel(); },
+      onMove: (kind, opts) => {
+        const ms = fireMove(kind, opts);
+        this._renderer.playGesture(kind, ms);
+        this._pushAccel();
+      },
+      onTilt: (x, y) => {
+        setPadTilt(x, y);
+        this._renderer.setTilt3d(x * 100, y * 100);
+        this._pushAccel();
+      },
+      onFaceFlip: (down, pose) => {
+        setPose(pose);
+        this._renderer.setFaceDown(down);
+        this._renderer.playGesture("faceflip", 620);
+        this._pushAccel();
+      },
       onMute: (m) => this._audio.setMuted(m),
       onRestart: () => this.restart(),
+      onToggleAdvanced: (on) => { this.advanced = on; },
       onToggleConsole: (shown) => { this.showConsole = shown; },
       onBattery: (soc) => this._runPython(`sim_state.set_battery(soc=${soc})`),
       onLux: (lux) => this._runPython(`sim_state.set_ambient_lux(${lux})`),
-      onNfc: (cmd) => this._runPython(`sim_state.tap_nfc(${JSON.stringify(cmd)})`),
-      onEnow: (t) => this._runPython(`sim_state.enqueue_enow(${JSON.stringify(t)})`),
+      onNfc: (cmd) => {
+        this._logLine(`tag "${cmd}"`);
+        this._runPython(`sim_state.tap_nfc(${JSON.stringify(cmd)})`);
+      },
+      onEnow: (t) => {
+        this._logLine(`message "${t}"`);
+        this._runPython(`sim_state.enqueue_enow(${JSON.stringify(t)})`);
+      },
     });
+
+    // The wand lives inside the control panel's pad, so the renderer
+    // mounts into the host the panel hands back.
+    this._renderer = createRenderer(this._controls.wandHost, {
+      onButtonTap: (down) => this._setButton(down),
+    });
+
     this._controls.setConsoleShown(this.showConsole);
+    this._controls.setAdvanced(this.advanced);
+    this._controls.setLog(this._log, this.logLines);
+    this._setStatus("loading", "loading…");
   }
 
   /**
-   * Icon-only status readout with the full text on hover/aria-label —
-   * except "error", which stays visibly printed since a real failure
-   * must surface loudly rather than wait on someone hovering over it.
+   * Status is one line under the wand: which way the wand is facing, then
+   * the run state. An error's real message replaces the state word rather
+   * than collapsing to "error", so a real failure surfaces rather than
+   * waiting on someone to hover.
    */
   _setStatus(kind, text) {
-    this._statusEl.className = `status status-${kind}`;
-    this._statusEl.title = text;
-    this._statusEl.setAttribute("aria-label", text);
-    this._statusEl.innerHTML = STATUS_ICONS[kind] || "";
-    if (kind === "error") {
-      const label = document.createElement("span");
-      label.className = "status-text";
-      label.textContent = text;
-      this._statusEl.appendChild(label);
+    this._controls?.setRunState(kind, text);
+  }
+
+  /** Newest-first, capped — the advanced block shows the top `logLines`. */
+  _logLine(s) {
+    const t = new Date().toTimeString().slice(0, 8);
+    this._log = [{ t, s }].concat(this._log).slice(0, 30);
+    this._controls?.setLog(this._log, this.logLines);
+  }
+
+  // ── Overlays ────────────────────────────────────────────────────────
+
+  /**
+   * Show one of the four pop-ups over the whole panel.
+   *
+   * kind: "game-over" | "cant-simulate" | "welcome" | "new-code"
+   * opts.title / opts.message override the built-in copy (the auto-shown
+   *   "cant-simulate" uses this to say which phase failed).
+   * opts.buttons overrides the button row, as
+   *   [{ action, label, style: "ghost"|"pink"|"teal" }].
+   *
+   * Every button dispatches `sim-overlay-action` with { kind, action } and
+   * then closes the overlay; a host that wants it to stay open can call
+   * showOverlay again from its listener.
+   */
+  showOverlay(kind, opts = {}) {
+    const spec = OVERLAYS[kind];
+    if (!spec) throw new Error(`wand-sim: no overlay named "${kind}"`);
+    this.hideOverlay();
+
+    const title = opts.title != null ? opts.title : spec.title;
+    const message = opts.message != null ? opts.message : spec.message;
+    const buttons = opts.buttons || spec.buttons;
+
+    const frag = document.createDocumentFragment();
+    let scrim = null;
+    if (!spec.banner) {
+      scrim = document.createElement("div");
+      scrim.className = "ov-scrim";
+      scrim.addEventListener("click", () => {
+        this.dispatchEvent(new CustomEvent("sim-overlay-action", { detail: { kind, action: "close" } }));
+        this.hideOverlay();
+      });
+      frag.appendChild(scrim);
     }
+
+    const card = document.createElement("div");
+    card.className = `ov-card${spec.banner ? " is-banner" : ""}`;
+    card.setAttribute("role", spec.banner ? "status" : "dialog");
+    if (!spec.banner) card.setAttribute("aria-modal", "true");
+    card.innerHTML = `
+      <div class="ov-head">
+        <span class="ov-tint" style="background:${spec.tintBg};color:${spec.tintFg}">
+          ${icon(spec.icon, spec.banner ? 32 : 40)}
+        </span>
+        <div class="ov-copy">
+          <div class="ov-title">${title}</div>
+          <div class="ov-sub">${message}</div>
+        </div>
+      </div>
+      <div class="ov-actions">
+        ${buttons.map((b) => `<button type="button" class="ov-btn ${b.style || "ghost"}" data-action="${b.action}">${b.label}</button>`).join("")}
+      </div>
+    `;
+    for (const b of card.querySelectorAll("[data-action]")) {
+      b.addEventListener("click", () => {
+        this.dispatchEvent(new CustomEvent("sim-overlay-action", {
+          detail: { kind, action: b.dataset.action },
+        }));
+        this.hideOverlay();
+      });
+    }
+    frag.appendChild(card);
+
+    this._root.appendChild(frag);
+    this._openOverlay = { kind, nodes: [scrim, card].filter(Boolean) };
+    // Focus the primary action so the pop-up is reachable by keyboard.
+    if (!spec.banner) card.querySelector(".ov-btn:last-child")?.focus();
+  }
+
+  /** Which overlay is showing, or null. */
+  get overlay() { return this._openOverlay?.kind || null; }
+
+  hideOverlay() {
+    if (!this._openOverlay) return;
+    for (const n of this._openOverlay.nodes) n.remove();
+    this._openOverlay = null;
   }
 
   async _boot() {
@@ -456,13 +555,18 @@ rt.bootstrap(file_contents=contents, workdir="/sim/vendor")
         self._audio.setPwm(f, d);
         const freq = Number(f) || 0;
         const on = freq > 20 && (Number(d) || 0) > 0;
-        self._renderer.setSpeakerColor(on ? speakerColorForFreq(freq) : null);
+        const color = on ? speakerColorForFreq(freq) : null;
+        self._renderer.setSpeakerColor(color);
+        // One expanding ring per note, in that note's own color — the
+        // visible counterpart of a beep for anyone with sound off.
+        if (on) self._renderer.ping(color);
       });
       this._pyodide.globals.set("_js_motor", (on) => self._audio.setMotor(!!on));
       this._pyodide.globals.set("_js_print", (t) => {
         const line = String(t);
         self._consoleEl.textContent += line + "\n";
         self._consoleEl.scrollTop = self._consoleEl.scrollHeight;
+        self._logLine(line);
         self.dispatchEvent(new CustomEvent("sim-print", { detail: { text: line } }));
       });
       this._pyodide.globals.set("_js_log", (t) => {
@@ -482,15 +586,32 @@ sim_state.set_log_callback(_js_log)
       this._sim = this._pyodide.pyimport("sim_state");
 
       this._ready = true;
-      this._setStatus("ready", "Ready");
+      this._setStatus("ready", "ready");
       this.dispatchEvent(new CustomEvent("sim-ready"));
       this._startMotionLoop();
       await this._loadAndMaybeStart();
     } catch (err) {
       console.error(err);
-      this._setStatus("error", "Error: " + err.message);
-      this.dispatchEvent(new CustomEvent("sim-error", { detail: { message: String(err), phase: "boot" } }));
+      this._fail("boot", err);
     }
+  }
+
+  /**
+   * A failure surfaces three ways at once, because none of them alone is
+   * enough: the status line (so it can't be missed), a `sim-error` event
+   * (so the host can word it for its own audience) and the "Can't
+   * simulate" overlay (so nobody sits watching a dead panel). The raw
+   * message goes to the console too.
+   */
+  _fail(phase, err) {
+    const message = err && err.message ? err.message : String(err);
+    this._setStatus("error", message);
+    this.showOverlay("cant-simulate", {
+      message: phase === "boot"
+        ? "the practice window isn't available right now — you can still send this game to your wand"
+        : "this game is a bit too tricky for the practice window — send it to your wand to try it for real",
+    });
+    this.dispatchEvent(new CustomEvent("sim-error", { detail: { message: String(err), phase } }));
   }
 
   async _loadPyodide() {
@@ -523,8 +644,14 @@ sim_state.set_log_callback(_js_log)
   }
 
   _startMotionLoop() {
-    const loop = () => {
-      if (this._ready) this._pushAccel();
+    const loop = (t) => {
+      if (this._ready) {
+        this._pushAccel();
+        if (t - this._lastAxisPush > AXIS_REFRESH_MS) {
+          this._lastAxisPush = t;
+          this._controls.setAxes(getAccel());
+        }
+      }
       this._raf = requestAnimationFrame(loop);
     };
     this._raf = requestAnimationFrame(loop);
@@ -539,7 +666,7 @@ sim_state.set_log_callback(_js_log)
 
   async _loadAndMaybeStart() {
     if (!this._ready) return;
-    this._setStatus("loading", "Loading game…");
+    this._setStatus("loading", "loading game…");
     this._controls.setRestartEnabled(false);
     try {
       await this._runPython("await stop()");
@@ -548,6 +675,8 @@ sim_state.set_log_callback(_js_log)
       // in-flight gesture over from whatever the previous game left it in.
       cancelMove();
       setPose("tip_up");
+      this._renderer.setFaceDown(false);
+      this._renderer.setTilt3d(0, 0);
       this._controls.resetPose();
       this._pushAccel();
 
@@ -563,7 +692,7 @@ sim_state.set_log_callback(_js_log)
       const caps = await this._pyodide.runPythonAsync("get_capabilities()");
       this._caps = caps.toJs ? caps.toJs({ dict_converter: Object.fromEntries }) : caps;
       this._applyCapabilities();
-      this._setStatus("loaded", `Loaded ${this._source ? "custom" : this.game}`);
+      this._setStatus("loaded", `loaded ${this._source ? "custom" : this.game}`);
       this._controls.setRestartEnabled(true);
       if (this.autostart) {
         await this.start();
@@ -571,25 +700,25 @@ sim_state.set_log_callback(_js_log)
     } catch (err) {
       // A syntax error or unsupported import in generated/loaded source
       // throws here (compile or module-exec failure) — surface it as a
-      // load-phase sim-error instead of an unhandled rejection, so the
-      // host can word it for its audience instead of the panel getting
-      // stuck on "Loading game…".
+      // load-phase failure instead of an unhandled rejection, so the panel
+      // doesn't get stuck on "loading game…".
       console.error(err);
-      this._setStatus("error", "Error: " + err.message);
-      this.dispatchEvent(new CustomEvent("sim-error", { detail: { message: String(err), phase: "load" } }));
+      this._fail("load", err);
     }
   }
 
   async start() {
     if (!this._ready) return;
-    this._setStatus("running", "Running");
+    this._setStatus("running", "running");
     this._consoleEl.textContent = "";
+    this._log = [];
+    this._controls.setLog(this._log, this.logLines);
     await this._runPython("await start()");
   }
 
   async stop() {
     await this._runPython("await stop()");
-    this._setStatus("stopped", "Stopped");
+    this._setStatus("stopped", "stopped");
     this.dispatchEvent(new CustomEvent("sim-stopped"));
   }
 
@@ -597,9 +726,12 @@ sim_state.set_log_callback(_js_log)
    * instance state) — the "start over" affordance for the host page. */
   async restart() {
     if (!this._ready) return;
+    this.hideOverlay();
     await this.stop();
     cancelMove();
     setPose("tip_up");
+    this._renderer.setFaceDown(false);
+    this._renderer.setTilt3d(0, 0);
     this._controls.resetPose();
     this._pushAccel();
     await this.start();
@@ -607,4 +739,4 @@ sim_state.set_log_callback(_js_log)
 }
 
 customElements.define("wand-sim", WandSim);
-export { WandSim };
+export { WandSim, OVERLAYS };

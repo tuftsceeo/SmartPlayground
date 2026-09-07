@@ -1018,10 +1018,16 @@ class App {
                 this._sim = document.getElementById('wand-sim');
                 // Every push of new code reloads the game; start it right away.
                 this._sim.autostart = true;
+                // <wand-sim> shows its own "Can't simulate" pop-up on a
+                // boot/load failure, worded for this audience; the raw
+                // message still lands in the debug console, so nothing is
+                // swallowed.
                 this._sim.addEventListener('sim-error', (e) => {
                     const { message, phase } = e.detail || {};
                     dbgError('sim', `sim-error (${phase}): ${message}`);
-                    this.showSimNotice(phase);
+                });
+                this._sim.addEventListener('sim-overlay-action', (e) => {
+                    this.onSimOverlayAction(e.detail || {});
                 });
                 if (this._simPendingSource !== null) {
                     const pending = this._simPendingSource;
@@ -1047,27 +1053,26 @@ class App {
             return;
         }
         if (code === this._simLastSource) return;
+        // Only from the second push on: the first one *is* the game
+        // appearing, which needs no announcement.
+        const isUpdate = this._simLastSource != null;
         this._simLastSource = code;
-        this.hideSimNotice();
+        this._sim.hideOverlay();
         this._sim.source = code;
+        if (isUpdate) this._sim.showOverlay('new-code');
     }
 
-    /** A pydiodide failure (a syntax error, an unsupported import, a
-     * traceback out of play()) should never read as a scary raw error to a
-     * kindergarten teacher — just a calm note that this one is better
-     * tested on the real device. The raw message still goes to the debug
-     * console (see setupSim() above) so nothing is actually swallowed. */
-    showSimNotice(phase) {
-        const el = document.getElementById('sim-notice');
-        if (!el) return;
-        el.textContent = phase === 'boot'
-            ? "The practice window isn't available right now — you can still send this game to your wand."
-            : 'This game is a bit too tricky for the practice window — send it to your wand to try it for real.';
-        el.classList.remove('hidden');
-    }
-
-    hideSimNotice() {
-        document.getElementById('sim-notice')?.classList.add('hidden');
+    /**
+     * A button on one of the simulator's pop-ups. The element closes the
+     * pop-up itself, so these only have to do the thing.
+     */
+    onSimOverlayAction({ kind, action }) {
+        dbg('app', `sim overlay ${kind} -> ${action}`);
+        if (action === 'play-it' || action === 'play-again') {
+            this._sim?.restart();
+        } else if (action === 'send-to-box') {
+            this.startSendFlow();
+        }
     }
 
     renderComponentList(targetId) {

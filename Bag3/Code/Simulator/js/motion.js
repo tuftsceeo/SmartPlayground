@@ -77,18 +77,33 @@ export function getPose() {
   return null; // free-form (tilt pad)
 }
 
-/** Free-form tilt pad: sets the latched base directly from a 2D pad
- * position rather than a named pose. nx (left-right drag) lands on y
- * (left_up is y=+1, see POSES above); the upright-residual magnitude
- * lands on x, negative at rest to match tip_up's x=-1. The pad's own
- * left-right/up-down feel is unchanged, only which accelerometer axis
- * (and sign, for x) reports it. */
-export function setTilt(nx, ny) {
+/**
+ * Free-form tilt pad: sets the latched base directly from a 2D pad
+ * position (each axis -1..1) rather than a named pose.
+ *
+ * The mapping is fixed by the four edge labels the pad draws — Tip up at
+ * the top, Tip down at the bottom, Left up at the left, Right up at the
+ * right (see the "Wand Simulator v4" artboard) — read against POSES above:
+ *
+ *   ny = -1 (top)    -> tip_up    (x = -1)      so x =  ny
+ *   ny = +1 (bottom) -> tip_down  (x = +1)
+ *   nx = -1 (left)   -> left_up   (y = +1)      so y = -nx
+ *   nx = +1 (right)  -> right_up  (y = -1)
+ *   nx = ny = 0      -> face_up   (z = -1)
+ *
+ * z carries whatever is left over once the two in-plane axes are spent, so
+ * the pad's centre reads as a wand lying face up on the table and each edge
+ * reads as that edge's named pose, with a continuous blend in between.
+ *
+ * This replaced an earlier mapping whose vertical axis drove face up/down
+ * rather than tip up/down, which no pad label could describe.
+ */
+export function setPadTilt(nx, ny) {
   const tx = clamp(Number(nx) || 0, -1, 1);
   const ty = clamp(Number(ny) || 0, -1, 1);
-  const x = -(1 - Math.abs(ty) * 0.85);
-  const y = tx;
-  const z = -ty;
+  const x = ty;
+  const y = -tx;
+  const z = -(1 - Math.max(Math.abs(tx), Math.abs(ty)));
   base = normalize({ x, y, z });
 }
 

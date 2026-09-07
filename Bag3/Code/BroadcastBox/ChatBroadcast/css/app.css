@@ -723,16 +723,13 @@ body.ui-advanced #app-shell {
     padding: 16px;
     background: #fff;
 }
+/* The panel's own design width; the preview column is user-resizable, so
+   below this it lays itself out in one column (see the container queries in
+   Simulator/js/controls.js). --wand-art-width is left at the element's
+   default so those queries own it. */
 #preview-panel wand-sim {
-    --wand-art-width: 140px;
-    max-width: 100%;
-}
-.sim-notice {
-    font: 13px 'Nunito';
-    color: var(--muted);
-    text-align: center;
-    margin: 0;
-    max-width: 320px;
+    width: 100%;
+    max-width: 500px;
 }
 .ws-body.no-sim .chat-col {
     width: auto !important;
