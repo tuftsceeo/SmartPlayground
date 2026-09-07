@@ -101,6 +101,7 @@ class Device:
     def running(self):
         """Pump the device. False when the running game must end."""
         self.pump()
+        self.step_cap()
         self._passes += 1
         if self.reader is not None and self._passes % NFC_EVERY == 0:
             self._read_card()
@@ -121,12 +122,23 @@ class Device:
     def idle(self):
         """One pass of the between-games loop, at this hubtype's cadence."""
         self.pump(self.idle_poll_ms)
-        if self.cap is not None:
-            self.cap.step()
+        self.step_cap()
         if self.reader is not None:
             self._read_card()
         if self.idle_ms:
             time.sleep_ms(self.idle_ms)
+
+    def step_cap(self):
+        """Advance the station's capability handler and report what it finishes.
+
+        A handler never touches the radio itself: step() returns (ev, data)
+        when something completes and this puts it on the air.
+        """
+        if self.cap is None:
+            return
+        done = self.cap.step()
+        if done:
+            self.net.broadcast_evt(done[0], done[1])
 
     def event(self):
         """Next (ev, data, mac) for this game, or None."""
