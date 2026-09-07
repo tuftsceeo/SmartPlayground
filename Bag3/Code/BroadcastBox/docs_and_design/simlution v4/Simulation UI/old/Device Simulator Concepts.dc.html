@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics><meta name="design_doc_mode" content="canvas"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet"><style>
+body{margin:0;background:#efece5;font-family:'Space Grotesk',system-ui,sans-serif}
+a{color:#2a6fbf}a:hover{color:#1b4c88}
+input,select,button,textarea{font-family:'JetBrains Mono',monospace}
+input[type=range]{accent-color:#e08a2e}
+@keyframes buzz{0%,100%{transform:translate(0,0)}25%{transform:translate(2px,-1.4px)}50%{transform:translate(-2px,1.4px)}75%{transform:translate(1.4px,2px)}}
+</style></helmet>
+
+<section style="padding:44px 44px 40px" id="t1">
+<div style="display:flex;align-items:baseline;gap:10px;margin:0 0 8px"><a href="#t1" style="font:600 10px 'JetBrains Mono';padding:3px 7px;background:#2b2723;color:#fff;border-radius:4px;text-decoration:none">1</a><span style="font:600 13px 'Space Grotesk';color:#2b2723">Five free-play wand simulators</span></div>
+<p style="margin:0 0 24px;font:400 12px/1.55 'Space Grotesk';color:rgba(43,39,35,.6);max-width:860px">Every input renders output immediately — no game layer. Cartoon-styled wand keeps the real geometry: 5×5 LED window centred, speaker top-right, big button bottom-centre, screw top-left. Each concept carries all inputs (6 orientations + latch, jump / shake-with-magnitude / flip, tap-vs-hold, NFC tags, free tag entry, ESP-NOW, mute, restart) but uses a different orientation control and a different layout.</p>
+<div style="display:flex;flex-wrap:wrap;gap:32px;align-items:flex-start">
+
+<div id="1a" style="flex:none;display:flex;flex-direction:column;gap:9px"><div style="display:flex;align-items:baseline;gap:8px;font:400 11px/1.35 'Space Grotesk';color:rgba(43,39,35,.6);max-width:390px"><a href="#1a" style="font:600 10.5px 'JetBrains Mono';padding:3px 7px;background:rgba(43,39,35,.1);color:#2b2723;border-radius:5px;text-decoration:none">1a</a>Bench — wand on top, D-pad with latch in the hub, advanced I/O in a drawer</div>
+<div data-screen-label="1a Bench" style="width:390px;height:844px;border-radius:38px;overflow:hidden;box-shadow:0 14px 34px rgba(43,39,35,.2);background:#fff8e9;display:flex;flex-direction:column">
+  <div style="display:flex;justify-content:space-between;padding:14px 24px 2px;font:500 11px 'JetBrains Mono';color:rgba(43,39,35,.42)"><span>9:41</span><span>BENCH</span></div>
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 22px 8px">
+    <div><div style="font:700 18px 'Space Grotesk';color:#2b2723;letter-spacing:-.01em">Wand bench</div><div style="font:500 10px 'JetBrains Mono';color:rgba(43,39,35,.5);letter-spacing:.06em">{{ statusA }}</div></div>
+    <div style="display:flex;gap:6px"><button onClick="{{ muteA }}" style-hover="background:#f0e7d2" style="padding:8px 11px;border-radius:11px;border:2px solid #2b2723;background:#fff;color:#2b2723;font:700 10.5px 'JetBrains Mono';cursor:pointer;box-shadow:0 3px 0 #2b2723">{{ muteLblA }}</button><button onClick="{{ resetA }}" style-hover="filter:brightness(1.06)" style="padding:8px 11px;border-radius:11px;border:2px solid #2b2723;background:#ffc94d;color:#2b2723;font:700 10.5px 'JetBrains Mono';cursor:pointer;box-shadow:0 3px 0 #2b2723">RESTART</button></div>
+  </div>
+  <div style="padding:2px 22px 0"><dc-import name="Wand" hint-size="100%,330px" w="214px" tilt="{{ tiltA }}" leds="{{ ledsA }}" speaker-color="{{ spkA }}" speaker-glow="{{ spkGlowA }}" motor-opacity="{{ motorOpA }}" motor-anim="{{ motorAnimA }}" btn-shadow="{{ btnShA }}" btn-press="{{ btnPrA }}" on-btn-down="{{ btnDownA }}" on-btn-up="{{ btnUpA }}"></dc-import></div>
+  <div style="display:flex;align-items:center;gap:9px;padding:14px 22px 0">
+    <div style="flex:1;height:12px;border-radius:7px;background:#eadfc7;border:2px solid #2b2723;overflow:hidden"><div style="height:100%;transition:all .12s;width:{{ pitchPctA }};background:{{ pitchColorA }}"></div></div>
+    <span style="font:700 10px 'JetBrains Mono';color:#2b2723;min-width:52px;text-align:right">{{ pitchLblA }}</span>
+  </div>
+  <div style="display:flex;gap:14px;padding:14px 22px 0;align-items:center">
+    <div style="display:grid;grid-template-columns:repeat(3,46px);grid-template-rows:repeat(3,46px);gap:6px"><sc-for list="{{ dpadA }}" as="d" hint-placeholder-count="9"><button onClick="{{ d.onClick }}" title="{{ d.label }}" style-hover="filter:brightness(1.05)" style="border-radius:13px;cursor:pointer;font:700 16px 'Space Grotesk';transition:all .12s;border:2px solid #2b2723;box-shadow:0 3px 0 #2b2723;background:{{ d.bg }};color:{{ d.fg }};visibility:{{ d.vis }}">{{ d.glyph }}</button></sc-for></div>
+    <div style="flex:1;display:flex;flex-direction:column;gap:6px"><sc-for list="{{ facesA }}" as="f" hint-placeholder-count="2"><button onClick="{{ f.onClick }}" style-hover="filter:brightness(1.05)" style="padding:11px 12px;border-radius:13px;text-align:left;cursor:pointer;font:700 11px 'JetBrains Mono';letter-spacing:.03em;transition:all .12s;border:2px solid #2b2723;box-shadow:0 3px 0 #2b2723;background:{{ f.bg }};color:{{ f.fg }}">{{ f.glyph }} {{ f.label }}</button></sc-for></div>
+  </div>
+  <div style="display:flex;gap:6px;padding:12px 22px 0"><sc-for list="{{ gestA }}" as="g" hint-placeholder-count="3"><button onClick="{{ g.onClick }}" style-hover="filter:brightness(1.05)" style-active="transform:translateY(3px);box-shadow:0 0 0 #2b2723" style="flex:1;padding:12px 0;border-radius:13px;border:2px solid #2b2723;background:#a8e6cf;color:#1e3f33;font:700 11px 'JetBrains Mono';letter-spacing:.04em;cursor:pointer;box-shadow:0 3px 0 #2b2723;transition:all .1s">{{ g.glyph }} {{ g.name }}</button></sc-for></div>
+  <div style="display:flex;align-items:center;gap:9px;padding:10px 22px 0"><span style="font:700 9.5px 'JetBrains Mono';color:rgba(43,39,35,.5);letter-spacing:.08em">SHAKE</span><input type="range" min="5" max="100" value="{{ shakeA }}" onChange="{{ onShakeA }}" style="flex:1"><span style="font:700 10px 'JetBrains Mono';color:#2b2723;min-width:22px;text-align:right">{{ shakeA }}</span></div>
+  <div style="margin:12px 22px 0;border-top:2px dashed rgba(43,39,35,.18);padding-top:8px">
+    <button onClick="{{ drawerTA }}" style="width:100%;display:flex;justify-content:space-between;align-items:center;background:none;border:0;padding:4px 0;color:rgba(43,39,35,.6);font:700 10px 'JetBrains Mono';letter-spacing:.1em;cursor:pointer">ADVANCED · TAGS / ESP-NOW<span>{{ drawerCaretA }}</span></button>
+    <sc-if value="{{ drawerA }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;flex-direction:column;gap:7px;padding:8px 0 0">
+        <div style="display:flex;flex-wrap:wrap;gap:5px"><sc-for list="{{ tagsA }}" as="t" hint-placeholder-count="6"><button onClick="{{ t.onClick }}" style-hover="filter:brightness(1.06)" style="padding:7px 10px;border-radius:20px;border:2px solid #2b2723;font:700 10px 'JetBrains Mono';color:#2b2723;cursor:pointer;background:{{ t.bg }}">◎ {{ t.t }}</button></sc-for></div>
+        <div style="display:flex;gap:6px"><input value="{{ freeA }}" onChange="{{ onFreeA }}" placeholder="free tag string" style="flex:1;min-width:0;padding:9px 11px;border-radius:11px;border:2px solid #2b2723;background:#fff;color:#2b2723;font:400 11px 'JetBrains Mono'"><button onClick="{{ sendFreeA }}" style="padding:0 13px;border-radius:11px;border:2px solid #2b2723;background:#ffc94d;color:#2b2723;font:700 10px 'JetBrains Mono';cursor:pointer">SCAN</button></div>
+        <div style="display:flex;gap:6px"><input value="{{ espA }}" onChange="{{ onEspA }}" placeholder="esp-now payload" style="flex:1;min-width:0;padding:9px 11px;border-radius:11px;border:2px solid #2b2723;background:#fff;color:#2b2723;font:400 11px 'JetBrains Mono'"><button onClick="{{ sendEspA }}" style="padding:0 13px;border-radius:11px;border:2px solid #2b2723;background:#9fd8ff;color:#2b2723;font:700 10px 'JetBrains Mono';cursor:pointer">TX</button></div>
+      </div>
+    </sc-if>
+  </div>
+  <div style="margin-top:auto;padding:10px 22px 24px;font:400 10px/1.5 'JetBrains Mono';color:rgba(43,39,35,.5);height:44px;overflow:hidden"><sc-for list="{{ logsA }}" as="l" hint-placeholder-count="3"><div style="display:flex;gap:8px"><span style="color:rgba(43,39,35,.32)">{{ l.t }}</span><span>{{ l.s }}</span></div></sc-for></div>
+</div></div>
+
+<div id="1b" style="flex:none;display:flex;flex-direction:column;gap:9px"><div style="display:flex;align-items:baseline;gap:8px;font:400 11px/1.35 'Space Grotesk';color:rgba(43,39,35,.6);max-width:390px"><a href="#1b" style="font:600 10.5px 'JetBrains Mono';padding:3px 7px;background:rgba(43,39,35,.1);color:#2b2723;border-radius:5px;text-decoration:none">1b</a>Tilt table — drag the wand around a pad; it physically rotates to the orientation you drop it in</div>
+<div data-screen-label="1b Tilt table" style="width:390px;height:844px;border-radius:38px;overflow:hidden;box-shadow:0 14px 34px rgba(43,39,35,.2);background:#eef6f7;display:flex;flex-direction:column">
+  <div style="display:flex;justify-content:space-between;padding:14px 24px 2px;font:500 11px 'JetBrains Mono';color:rgba(24,52,58,.42)"><span>9:41</span><span>TILT TABLE</span></div>
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 22px 10px"><div><div style="font:700 18px 'Space Grotesk';color:#173a41">Tilt table</div><div style="font:500 10px 'JetBrains Mono';color:rgba(23,58,65,.55)">{{ statusB }}</div></div><div style="display:flex;gap:6px"><button onClick="{{ muteB }}" style="padding:8px 11px;border-radius:11px;border:2px solid #173a41;background:#fff;color:#173a41;font:700 10.5px 'JetBrains Mono';cursor:pointer;box-shadow:0 3px 0 #173a41">{{ muteLblB }}</button><button onClick="{{ resetB }}" style="padding:8px 11px;border-radius:11px;border:2px solid #173a41;background:#5ecfd6;color:#0c2b30;font:700 10.5px 'JetBrains Mono';cursor:pointer;box-shadow:0 3px 0 #173a41">RESTART</button></div></div>
+  <div style="position:relative;margin:0 20px;height:392px;border-radius:26px;background:radial-gradient(circle at 50% 50%,#fff,#dceff1);border:3px solid #173a41;box-shadow:0 5px 0 #173a41;touch-action:none;cursor:grab;overflow:hidden" onPointerDown="{{ tiltDownB }}" onPointerMove="{{ tiltMoveB }}" onPointerUp="{{ tiltUpB }}" onPointerLeave="{{ tiltUpB }}">
+    <div style="position:absolute;top:8px;left:0;right:0;text-align:center;font:700 9.5px 'JetBrains Mono';color:rgba(23,58,65,.4);letter-spacing:.12em;pointer-events:none">TIP UP</div>
+    <div style="position:absolute;bottom:8px;left:0;right:0;text-align:center;font:700 9.5px 'JetBrains Mono';color:rgba(23,58,65,.4);letter-spacing:.12em;pointer-events:none">TIP DOWN</div>
+    <div style="position:absolute;top:50%;left:9px;transform:translateY(-50%);font:700 9.5px 'JetBrains Mono';color:rgba(23,58,65,.4);pointer-events:none">LEFT<br>UP</div>
+    <div style="position:absolute;top:50%;right:9px;transform:translateY(-50%);text-align:right;font:700 9.5px 'JetBrains Mono';color:rgba(23,58,65,.4);pointer-events:none">RIGHT<br>UP</div>
+    <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:104px;height:104px;border-radius:50%;border:2px dashed rgba(23,58,65,.28);display:flex;align-items:center;justify-content:center;font:700 9px 'JetBrains Mono';color:rgba(23,58,65,.4);pointer-events:none">FACE UP</div>
+    <div style="position:absolute;pointer-events:none;transform:translate(-50%,-50%);transition:left .18s,top .18s;left:{{ tiltXB }};top:{{ tiltYB }}"><dc-import name="Wand" hint-size="132px,220px" w="132px" tilt="{{ tiltB }}" leds="{{ ledsB }}" speaker-color="{{ spkB }}" speaker-glow="{{ spkGlowB }}" motor-opacity="{{ motorOpB }}" motor-anim="{{ motorAnimB }}"></dc-import></div>
+  </div>
+  <div style="display:flex;gap:6px;padding:14px 20px 0"><button onClick="{{ faceDownB }}" style-hover="filter:brightness(1.05)" style="flex:1;padding:11px 0;border-radius:12px;border:2px solid #173a41;box-shadow:0 3px 0 #173a41;cursor:pointer;font:700 10.5px 'JetBrains Mono';background:{{ fdBgB }};color:{{ fdFgB }}">○ FACE DOWN</button><button onClick="{{ latchB }}" style-hover="filter:brightness(1.05)" style="flex:1;padding:11px 0;border-radius:12px;border:2px solid #173a41;box-shadow:0 3px 0 #173a41;cursor:pointer;font:700 10.5px 'JetBrains Mono';background:{{ latchBgB }};color:{{ latchFgB }}">{{ latchLblB }}</button></div>
+  <div style="display:flex;gap:6px;padding:8px 20px 0"><sc-for list="{{ gestB }}" as="g" hint-placeholder-count="3"><button onClick="{{ g.onClick }}" style-hover="filter:brightness(1.05)" style-active="transform:translateY(3px);box-shadow:0 0 0 #173a41" style="flex:1;padding:13px 0;border-radius:12px;border:2px solid #173a41;background:#ffd98a;color:#4a3208;font:700 11px 'JetBrains Mono';cursor:pointer;box-shadow:0 3px 0 #173a41;transition:all .1s">{{ g.glyph }} {{ g.name }}</button></sc-for></div>
+  <div style="display:flex;align-items:center;gap:9px;padding:10px 20px 0"><span style="font:700 9.5px 'JetBrains Mono';color:rgba(23,58,65,.5)">MAG</span><input type="range" min="5" max="100" value="{{ shakeB }}" onChange="{{ onShakeB }}" style="flex:1"><button onPointerDown="{{ btnDownB }}" onPointerUp="{{ btnUpB }}" onPointerLeave="{{ btnUpB }}" style-active="transform:translateY(3px);box-shadow:0 0 0 #173a41" style="width:74px;height:40px;border-radius:20px;border:2px solid #173a41;background:#173a41;color:#eef6f7;font:700 10px 'JetBrains Mono';cursor:pointer;box-shadow:0 3px 0 #0c2b30;transition:all .08s">BUTTON</button></div>
+  <div style="display:flex;align-items:center;gap:9px;padding:10px 20px 0"><div style="flex:1;height:12px;border-radius:7px;background:#d9eaec;border:2px solid #173a41;overflow:hidden"><div style="height:100%;transition:all .12s;width:{{ pitchPctB }};background:{{ pitchColorB }}"></div></div><span style="font:700 10px 'JetBrains Mono';color:#173a41;min-width:52px;text-align:right">{{ pitchLblB }}</span></div>
+  <div style="margin-top:auto;padding:12px 20px 24px;display:flex;gap:6px;align-items:center;border-top:2px dashed rgba(23,58,65,.18)">
+    <select value="{{ tagSel }}" onChange="{{ onTagSelB }}" style="appearance:none;padding:10px;border-radius:11px;border:2px solid #173a41;background:#fff;color:#173a41;font:700 10px 'JetBrains Mono';cursor:pointer"><option value="">◎ NFC…</option><sc-for list="{{ tagOpts }}" as="t" hint-placeholder-count="6"><option value="{{ t }}">{{ t }}</option></sc-for></select>
+    <input value="{{ espB }}" onChange="{{ onEspB }}" placeholder="esp-now / free tag" style="flex:1;min-width:0;padding:10px;border-radius:11px;border:2px solid #173a41;background:#fff;color:#173a41;font:400 10.5px 'JetBrains Mono'">
+    <button onClick="{{ sendEspB }}" style="padding:0 12px;height:38px;border-radius:11px;border:2px solid #173a41;background:#5ecfd6;color:#0c2b30;font:700 10px 'JetBrains Mono';cursor:pointer">TX</button>
+  </div>
+</div></div>
+
+<div id="1c" style="flex:none;display:flex;flex-direction:column;gap:9px"><div style="display:flex;align-items:baseline;gap:8px;font:400 11px/1.35 'Space Grotesk';color:rgba(43,39,35,.6);max-width:390px"><a href="#1c" style="font:600 10.5px 'JetBrains Mono';padding:3px 7px;background:rgba(43,39,35,.1);color:#2b2723;border-radius:5px;text-decoration:none">1c</a>Console — compact wand, single instrument surface with labelled rows and a running event log</div>
+<div data-screen-label="1c Console" style="width:390px;height:844px;border-radius:38px;overflow:hidden;box-shadow:0 14px 34px rgba(43,39,35,.2);background:#f6f4ef;display:flex;flex-direction:column">
+  <div style="display:flex;justify-content:space-between;padding:14px 24px 2px;font:500 11px 'JetBrains Mono';color:rgba(43,39,35,.4)"><span>9:41</span><span>CONSOLE</span></div>
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 20px 10px"><div><div style="font:700 17px 'Space Grotesk';color:#2b2723">Console</div><div style="font:500 10px 'JetBrains Mono';color:rgba(43,39,35,.5)">{{ statusC }}</div></div><div style="display:flex;gap:6px"><button onClick="{{ muteC }}" style="padding:8px 11px;border-radius:10px;border:2px solid #2b2723;background:#fff;color:#2b2723;font:700 10.5px 'JetBrains Mono';cursor:pointer;box-shadow:0 3px 0 #2b2723">{{ muteLblC }}</button><button onClick="{{ resetC }}" style="padding:8px 11px;border-radius:10px;border:2px solid #2b2723;background:#2b2723;color:#f6f4ef;font:700 10.5px 'JetBrains Mono';cursor:pointer;box-shadow:0 3px 0 #8a8378">RESTART</button></div></div>
+  <div style="display:flex;gap:14px;padding:0 20px;align-items:center">
+    <dc-import name="Wand" hint-size="128px,214px" w="128px" tilt="{{ tiltC }}" leds="{{ ledsC }}" speaker-color="{{ spkC }}" speaker-glow="{{ spkGlowC }}" motor-opacity="{{ motorOpC }}" motor-anim="{{ motorAnimC }}" btn-shadow="{{ btnShC }}" btn-press="{{ btnPrC }}" on-btn-down="{{ btnDownC }}" on-btn-up="{{ btnUpC }}"></dc-import>
+    <div style="flex:1;display:flex;flex-direction:column;gap:10px">
+      <div><div style="font:700 9px 'JetBrains Mono';color:rgba(43,39,35,.45);letter-spacing:.12em;margin-bottom:5px">SPEAKER</div><div style="height:12px;border-radius:7px;background:#e6e0d3;border:2px solid #2b2723;overflow:hidden"><div style="height:100%;transition:all .12s;width:{{ pitchPctC }};background:{{ pitchColorC }}"></div></div><div style="font:700 10px 'JetBrains Mono';color:#2b2723;margin-top:5px">{{ pitchLblC }}</div></div>
+      <div style="display:flex;align-items:center;gap:7px;font:700 9.5px 'JetBrains Mono';color:#2b2723"><span style="width:18px;height:18px;border-radius:6px;border:2px solid #2b2723;transition:background .1s;animation:{{ motorAnimC }};background:{{ motorBgC }}"></span>MOTOR {{ motorLblC }}</div>
+      <div style="font:400 9.5px/1.4 'JetBrains Mono';color:rgba(43,39,35,.5)">Hold the wand button<br>for 0.45s to send HOLD.</div>
+    </div>
+  </div>
+  <div style="padding:14px 20px 0;display:flex;flex-direction:column;gap:8px">
+    <div style="display:flex;align-items:center;gap:8px"><span style="font:700 9px 'JetBrains Mono';color:rgba(43,39,35,.45);letter-spacing:.1em;width:54px">ORIENT</span><div style="display:flex;gap:4px;flex:1"><sc-for list="{{ segC }}" as="o" hint-placeholder-count="6"><button onClick="{{ o.onClick }}" title="{{ o.label }}" style-hover="filter:brightness(1.05)" style="flex:1;padding:10px 0;border-radius:9px;cursor:pointer;font:700 13px 'Space Grotesk';transition:all .12s;border:2px solid #2b2723;box-shadow:0 2px 0 #2b2723;background:{{ o.bg }};color:{{ o.fg }}">{{ o.glyph }}</button></sc-for></div></div>
+    <div style="display:flex;align-items:center;gap:8px"><span style="font:700 9px 'JetBrains Mono';color:rgba(43,39,35,.45);letter-spacing:.1em;width:54px">GESTURE</span><div style="display:flex;gap:4px;flex:1"><sc-for list="{{ gestC }}" as="g" hint-placeholder-count="3"><button onClick="{{ g.onClick }}" style-hover="filter:brightness(1.05)" style="flex:1;padding:10px 0;border-radius:9px;border:2px solid #2b2723;box-shadow:0 2px 0 #2b2723;background:#a8e6cf;color:#1e3f33;font:700 9.5px 'JetBrains Mono';cursor:pointer">{{ g.name }}</button></sc-for><button onClick="{{ latchC }}" style="flex:1;padding:10px 0;border-radius:9px;cursor:pointer;font:700 9.5px 'JetBrains Mono';border:2px solid #2b2723;box-shadow:0 2px 0 #2b2723;background:{{ latchBgC }};color:{{ latchFgC }}">LATCH</button></div></div>
+    <div style="display:flex;align-items:center;gap:8px"><span style="font:700 9px 'JetBrains Mono';color:rgba(43,39,35,.45);letter-spacing:.1em;width:54px">MAG</span><input type="range" min="5" max="100" value="{{ shakeC }}" onChange="{{ onShakeC }}" style="flex:1"><span style="font:700 10px 'JetBrains Mono';color:#2b2723;width:22px;text-align:right">{{ shakeC }}</span></div>
+    <div style="display:flex;align-items:center;gap:8px"><span style="font:700 9px 'JetBrains Mono';color:rgba(43,39,35,.45);letter-spacing:.1em;width:54px">NFC</span><select value="{{ tagSel }}" onChange="{{ onTagSelC }}" style="flex:1;appearance:none;padding:9px 10px;border-radius:9px;border:2px solid #2b2723;background:#fff;color:#2b2723;font:700 10px 'JetBrains Mono';cursor:pointer"><option value="">◎ scan a tag…</option><sc-for list="{{ tagOpts }}" as="t" hint-placeholder-count="6"><option value="{{ t }}">{{ t }}</option></sc-for></select></div>
+    <div style="display:flex;align-items:center;gap:8px"><span style="font:700 9px 'JetBrains Mono';color:rgba(43,39,35,.45);letter-spacing:.1em;width:54px">FREE</span><input value="{{ freeC }}" onChange="{{ onFreeC }}" placeholder="tag string" style="flex:1;min-width:0;padding:9px 10px;border-radius:9px;border:2px solid #2b2723;background:#fff;color:#2b2723;font:400 10.5px 'JetBrains Mono'"><button onClick="{{ sendFreeC }}" style="padding:0 11px;height:35px;border-radius:9px;border:2px solid #2b2723;background:#ffc94d;color:#2b2723;font:700 9.5px 'JetBrains Mono';cursor:pointer">SCAN</button></div>
+    <div style="display:flex;align-items:center;gap:8px"><span style="font:700 9px 'JetBrains Mono';color:rgba(43,39,35,.45);letter-spacing:.1em;width:54px">ESP-NOW</span><input value="{{ espC }}" onChange="{{ onEspC }}" placeholder="payload" style="flex:1;min-width:0;padding:9px 10px;border-radius:9px;border:2px solid #2b2723;background:#fff;color:#2b2723;font:400 10.5px 'JetBrains Mono'"><button onClick="{{ sendEspC }}" style="padding:0 11px;height:35px;border-radius:9px;border:2px solid #2b2723;background:#9fd8ff;color:#2b2723;font:700 9.5px 'JetBrains Mono';cursor:pointer">TX</button></div>
+  </div>
+  <div style="flex:1;min-height:0;margin:14px 20px 24px;border-radius:14px;background:#fff;border:2px solid #2b2723;box-shadow:0 4px 0 #2b2723;overflow:hidden;display:flex;flex-direction:column">
+    <div style="padding:8px 12px;border-bottom:2px solid #2b2723;font:700 9px 'JetBrains Mono';color:rgba(43,39,35,.5);letter-spacing:.12em">EVENT LOG</div>
+    <div style="flex:1;overflow:auto;padding:8px 12px;font:400 10px/1.75 'JetBrains Mono';color:rgba(43,39,35,.78)"><sc-for list="{{ logsC }}" as="l" hint-placeholder-count="6"><div style="display:flex;gap:8px"><span style="color:rgba(43,39,35,.35)">{{ l.t }}</span><span>{{ l.s }}</span></div></sc-for></div>
+  </div>
+</div></div>
+
+<div id="1d" style="flex:none;display:flex;flex-direction:column;gap:9px"><div style="display:flex;align-items:baseline;gap:8px;font:400 11px/1.35 'Space Grotesk';color:rgba(43,39,35,.6);max-width:390px"><a href="#1d" style="font:600 10.5px 'JetBrains Mono';padding:3px 7px;background:rgba(43,39,35,.1);color:#2b2723;border-radius:5px;text-decoration:none">1d</a>Radial — orientation as six thumb-reach sectors on a dial; advanced I/O in a sheet</div>
+<div data-screen-label="1d Radial" style="width:390px;height:844px;border-radius:38px;overflow:hidden;box-shadow:0 14px 34px rgba(43,39,35,.2);background:#221a2c;display:flex;flex-direction:column;position:relative">
+  <div style="display:flex;justify-content:space-between;padding:14px 24px 2px;font:500 11px 'JetBrains Mono';color:rgba(240,234,246,.42)"><span>9:41</span><span>RADIAL</span></div>
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 22px 8px"><div><div style="font:700 17px 'Space Grotesk';color:#f3ecfa">Radial</div><div style="font:500 10px 'JetBrains Mono';color:rgba(243,236,250,.5)">{{ statusD }}</div></div><div style="display:flex;gap:6px"><button onClick="{{ advD }}" style="padding:8px 10px;border-radius:10px;border:2px solid #f3ecfa;background:transparent;color:#f3ecfa;font:700 10px 'JetBrains Mono';cursor:pointer">ADV</button><button onClick="{{ muteD }}" style="padding:8px 10px;border-radius:10px;border:2px solid #f3ecfa;background:transparent;color:#f3ecfa;font:700 10px 'JetBrains Mono';cursor:pointer">{{ muteLblD }}</button><button onClick="{{ resetD }}" style="padding:8px 10px;border-radius:10px;border:2px solid #f3ecfa;background:#d3a9f7;color:#2a1a3a;font:700 10px 'JetBrains Mono';cursor:pointer">RESTART</button></div></div>
+  <div style="display:flex;justify-content:center;padding:0 22px"><dc-import name="Wand" hint-size="150px,250px" w="150px" tilt="{{ tiltD }}" leds="{{ ledsD }}" speaker-color="{{ spkD }}" speaker-glow="{{ spkGlowD }}" motor-opacity="{{ motorOpD }}" motor-anim="{{ motorAnimD }}"></dc-import></div>
+  <div style="display:flex;align-items:center;gap:9px;padding:16px 26px 0"><div style="flex:1;height:11px;border-radius:7px;background:rgba(255,255,255,.1);border:2px solid rgba(243,236,250,.35);overflow:hidden"><div style="height:100%;transition:all .12s;width:{{ pitchPctD }};background:{{ pitchColorD }}"></div></div><span style="font:700 10px 'JetBrains Mono';color:rgba(243,236,250,.75);min-width:52px;text-align:right">{{ pitchLblD }}</span></div>
+  <div style="display:flex;gap:6px;padding:12px 26px 0"><sc-for list="{{ gestD }}" as="g" hint-placeholder-count="3"><button onClick="{{ g.onClick }}" style-hover="filter:brightness(1.15)" style="flex:1;padding:12px 0;border-radius:22px;border:2px solid #d3a9f7;background:rgba(211,169,247,.16);color:#e3cdfb;font:700 10.5px 'JetBrains Mono';cursor:pointer">{{ g.glyph }} {{ g.name }}</button></sc-for></div>
+  <div style="display:flex;align-items:center;gap:9px;padding:10px 26px 0"><span style="font:700 9.5px 'JetBrains Mono';color:rgba(243,236,250,.5)">MAG</span><input type="range" min="5" max="100" value="{{ shakeD }}" onChange="{{ onShakeD }}" style="flex:1"><span style="font:700 10px 'JetBrains Mono';color:#d3a9f7;width:22px;text-align:right">{{ shakeD }}</span></div>
+  <div style="flex:1;min-height:0;display:flex;align-items:flex-end;justify-content:center;padding-bottom:6px">
+   <div style="position:relative;width:326px;height:326px;flex:none">
+    <div style="position:absolute;inset:0;border-radius:50%;background:radial-gradient(circle,#33253f 0%,#1d1626 72%);border:2px solid rgba(243,236,250,.14)"></div>
+    <sc-for list="{{ sectD }}" as="s" hint-placeholder-count="6"><button onClick="{{ s.onClick }}" title="{{ s.label }}" style-hover="filter:brightness(1.2)" style="position:absolute;width:78px;height:78px;margin:-39px 0 0 -39px;border-radius:50%;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;transition:all .14s;border:2px solid rgba(243,236,250,.5);font-family:'JetBrains Mono';left:{{ s.x }};top:{{ s.y }};background:{{ s.bg }};color:{{ s.fg }}"><span style="font:700 17px 'Space Grotesk'">{{ s.glyph }}</span><span style="font-size:8px;letter-spacing:.05em">{{ s.short }}</span></button></sc-for>
+    <button onPointerDown="{{ btnDownD }}" onPointerUp="{{ btnUpD }}" onPointerLeave="{{ btnUpD }}" style-active="transform:translate(-50%,-50%) scale(.94)" style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:106px;height:106px;border-radius:50%;border:3px solid #f3ecfa;background:radial-gradient(circle at 36% 28%,#6a4a8c,#2a1a3a);color:#f3ecfa;font:700 11px 'JetBrains Mono';letter-spacing:.08em;cursor:pointer;transition:transform .08s">PRESS</button>
+   </div>
+  </div>
+  <div style="display:flex;align-items:center;gap:10px;padding:0 24px 22px">
+    <button onClick="{{ latchD }}" style="padding:10px 18px;border-radius:18px;cursor:pointer;font:700 10px 'JetBrains Mono';border:2px solid rgba(243,236,250,.5);background:{{ latchBgD }};color:{{ latchFgD }}">{{ latchLblD }}</button>
+    <div style="flex:1;font:400 9px/1.5 'JetBrains Mono';color:rgba(243,236,250,.4);text-align:right;height:28px;overflow:hidden"><sc-for list="{{ logsD }}" as="l" hint-placeholder-count="2"><div>{{ l.s }}</div></sc-for></div>
+  </div>
+  <sc-if value="{{ advOpenD }}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute;inset:0;background:rgba(20,13,28,.84);display:flex;flex-direction:column;justify-content:flex-end;padding:20px">
+      <div style="background:#2e2340;border:2px solid rgba(243,236,250,.3);border-radius:24px;padding:18px;display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;justify-content:space-between;align-items:center"><span style="font:700 10px 'JetBrains Mono';color:rgba(243,236,250,.6);letter-spacing:.12em">ADVANCED I/O</span><button onClick="{{ advD }}" style="background:none;border:0;color:#f3ecfa;font:700 16px 'JetBrains Mono';cursor:pointer">×</button></div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px"><sc-for list="{{ tagsD }}" as="t" hint-placeholder-count="6"><button onClick="{{ t.onClick }}" style-hover="filter:brightness(1.08)" style="padding:8px 11px;border-radius:20px;border:2px solid #2b2723;font:700 10px 'JetBrains Mono';color:#2b2723;cursor:pointer;background:{{ t.bg }}">◎ {{ t.t }}</button></sc-for></div>
+        <div style="display:flex;gap:6px"><input value="{{ freeD }}" onChange="{{ onFreeD }}" placeholder="free tag string" style="flex:1;min-width:0;padding:10px;border-radius:11px;border:2px solid rgba(243,236,250,.3);background:rgba(0,0,0,.3);color:#f3ecfa;font:400 11px 'JetBrains Mono'"><button onClick="{{ sendFreeD }}" style="padding:0 13px;border-radius:11px;border:0;background:#d3a9f7;color:#2a1a3a;font:700 10px 'JetBrains Mono';cursor:pointer">SCAN</button></div>
+        <div style="display:flex;gap:6px"><input value="{{ espD }}" onChange="{{ onEspD }}" placeholder="esp-now payload" style="flex:1;min-width:0;padding:10px;border-radius:11px;border:2px solid rgba(243,236,250,.3);background:rgba(0,0,0,.3);color:#f3ecfa;font:400 11px 'JetBrains Mono'"><button onClick="{{ sendEspD }}" style="padding:0 13px;border-radius:11px;border:2px solid #d3a9f7;background:transparent;color:#e3cdfb;font:700 10px 'JetBrains Mono';cursor:pointer">TX</button></div>
+      </div>
+    </div>
+  </sc-if>
+</div></div>
+
+<div id="1e" style="flex:none;display:flex;flex-direction:column;gap:9px"><div style="display:flex;align-items:baseline;gap:8px;font:400 11px/1.35 'Space Grotesk';color:rgba(43,39,35,.6);max-width:390px"><a href="#1e" style="font:600 10.5px 'JetBrains Mono';padding:3px 7px;background:rgba(43,39,35,.1);color:#2b2723;border-radius:5px;text-decoration:none">1e</a>Tabbed rig — outputs pinned up top; Motion / Signal / Output tabs, NFC tags are draggable cards</div>
+<div data-screen-label="1e Tabbed rig" style="width:390px;height:844px;border-radius:38px;overflow:hidden;box-shadow:0 14px 34px rgba(43,39,35,.2);background:#1b1f19;display:flex;flex-direction:column">
+  <div style="display:flex;justify-content:space-between;padding:14px 24px 2px;font:500 11px 'JetBrains Mono';color:rgba(236,241,232,.4)"><span>9:41</span><span>RIG</span></div>
+  <div style="padding:6px 20px 12px;display:flex;flex-direction:column;gap:10px;border-bottom:2px solid rgba(236,241,232,.12)">
+    <div style="display:flex;align-items:center;justify-content:space-between"><div><div style="font:700 17px 'Space Grotesk';color:#ecf1e8">Rig</div><div style="font:500 10px 'JetBrains Mono';color:rgba(236,241,232,.45)">{{ statusE }}</div></div><div style="display:flex;gap:6px"><button onClick="{{ muteE }}" style="padding:8px 10px;border-radius:10px;border:2px solid #ecf1e8;background:transparent;color:#ecf1e8;font:700 10px 'JetBrains Mono';cursor:pointer">{{ muteLblE }}</button><button onClick="{{ resetE }}" style="padding:8px 10px;border-radius:10px;border:2px solid #ecf1e8;background:#bfe38a;color:#20290f;font:700 10px 'JetBrains Mono';cursor:pointer">RESTART</button></div></div>
+    <div style="display:flex;gap:14px;align-items:center">
+      <dc-import name="Wand" hint-size="112px,188px" w="112px" tilt="{{ tiltE }}" leds="{{ ledsE }}" speaker-color="{{ spkE }}" speaker-glow="{{ spkGlowE }}" motor-opacity="{{ motorOpE }}" motor-anim="{{ motorAnimE }}"></dc-import>
+      <div style="flex:1;display:flex;flex-direction:column;gap:8px">
+        <div style="font:700 9px 'JetBrains Mono';color:rgba(236,241,232,.45);letter-spacing:.1em">SPEAKER</div>
+        <div style="height:11px;border-radius:7px;background:rgba(255,255,255,.09);border:2px solid rgba(236,241,232,.3);overflow:hidden"><div style="height:100%;transition:all .12s;width:{{ pitchPctE }};background:{{ pitchColorE }}"></div></div>
+        <div style="font:700 10px 'JetBrains Mono';color:rgba(236,241,232,.7)">{{ pitchLblE }}</div>
+        <div style="display:flex;align-items:center;gap:7px;font:700 9.5px 'JetBrains Mono';color:rgba(236,241,232,.8)"><span style="width:17px;height:17px;border-radius:6px;border:2px solid rgba(236,241,232,.5);animation:{{ motorAnimE }};background:{{ motorBgE }}"></span>MOTOR {{ motorLblE }}</div>
+      </div>
+    </div>
+  </div>
+  <div style="display:flex;gap:5px;padding:12px 20px 0"><sc-for list="{{ tabsE }}" as="t" hint-placeholder-count="3"><button onClick="{{ t.onClick }}" style="flex:1;padding:11px 0;border-radius:11px;cursor:pointer;font:700 10.5px 'JetBrains Mono';letter-spacing:.05em;transition:all .12s;border:2px solid #2b2723;box-shadow:0 3px 0 #2b2723;background:{{ t.bg }};color:{{ t.fg }}">{{ t.name }}</button></sc-for></div>
+  <div style="flex:1;min-height:0;overflow:auto;padding:14px 20px 24px">
+    <sc-if value="{{ tabMotionE }}" hint-placeholder-val="{{ true }}">
+      <div style="display:flex;flex-direction:column;gap:9px">
+        <div style="font:700 9px 'JetBrains Mono';color:rgba(236,241,232,.45);letter-spacing:.12em">ORIENTATION</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px"><sc-for list="{{ gridE }}" as="o" hint-placeholder-count="6"><button onClick="{{ o.onClick }}" style-hover="filter:brightness(1.06)" style="display:flex;align-items:center;gap:9px;padding:13px 12px;border-radius:12px;cursor:pointer;transition:all .12s;border:2px solid #2b2723;box-shadow:0 3px 0 #2b2723;font:700 10px 'JetBrains Mono';background:{{ o.bg }};color:{{ o.fg }}"><span style="font:700 15px 'Space Grotesk'">{{ o.glyph }}</span>{{ o.short }}</button></sc-for></div>
+        <button onClick="{{ latchE }}" style="padding:12px 0;border-radius:12px;cursor:pointer;font:700 10.5px 'JetBrains Mono';border:2px solid #2b2723;box-shadow:0 3px 0 #2b2723;background:{{ latchBgE }};color:{{ latchFgE }}">{{ latchLblE }}</button>
+        <div style="font:700 9px 'JetBrains Mono';color:rgba(236,241,232,.45);letter-spacing:.12em;margin-top:4px">GESTURES</div>
+        <div style="display:flex;gap:6px"><sc-for list="{{ gestE }}" as="g" hint-placeholder-count="3"><button onClick="{{ g.onClick }}" style-hover="filter:brightness(1.06)" style="flex:1;padding:14px 0;border-radius:12px;border:2px solid #2b2723;box-shadow:0 3px 0 #2b2723;background:#bfe38a;color:#20290f;font:700 11px 'JetBrains Mono';cursor:pointer">{{ g.glyph }} {{ g.name }}</button></sc-for></div>
+        <div style="display:flex;align-items:center;gap:9px"><span style="font:700 9.5px 'JetBrains Mono';color:rgba(236,241,232,.45)">SHAKE MAG</span><input type="range" min="5" max="100" value="{{ shakeE }}" onChange="{{ onShakeE }}" style="flex:1"><span style="font:700 10px 'JetBrains Mono';color:#bfe38a;width:22px;text-align:right">{{ shakeE }}</span></div>
+        <div style="font:700 9px 'JetBrains Mono';color:rgba(236,241,232,.45);letter-spacing:.12em;margin-top:4px">BUTTON</div>
+        <button onPointerDown="{{ btnDownE }}" onPointerUp="{{ btnUpE }}" onPointerLeave="{{ btnUpE }}" style-active="transform:translateY(3px);box-shadow:0 0 0 #2b2723" style="padding:22px 0;border-radius:16px;border:2px solid #2b2723;box-shadow:0 4px 0 #2b2723;background:#3a4133;color:#ecf1e8;font:700 11px 'JetBrains Mono';letter-spacing:.1em;cursor:pointer;transition:all .08s">TAP · HOLD 0.45s</button>
+      </div>
+    </sc-if>
+    <sc-if value="{{ tabSignalE }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;flex-direction:column;gap:9px">
+        <div style="font:700 9px 'JetBrains Mono';color:rgba(236,241,232,.45);letter-spacing:.12em">DRAG A TAG ONTO THE READER</div>
+        <div onDragOver="{{ dropOverE }}" onDrop="{{ onDropE }}" style="height:100px;border-radius:16px;border:2px dashed rgba(236,241,232,.4);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;transition:all .15s;background:{{ dropBgE }}"><span style="font:700 12px 'JetBrains Mono';color:#ecf1e8">◎ NFC READER</span><span style="font:400 9.5px 'JetBrains Mono';color:rgba(236,241,232,.5)">{{ dropHintE }}</span></div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px"><sc-for list="{{ tagsE }}" as="t" hint-placeholder-count="6"><div draggable="true" onDragStart="{{ t.onDragStart }}" onClick="{{ t.onClick }}" title="Drag onto the reader, or click to scan" style-hover="filter:brightness(1.06)" style="padding:11px 13px;border-radius:11px;border:2px solid #2b2723;box-shadow:0 3px 0 #2b2723;cursor:grab;font:700 10.5px 'JetBrains Mono';color:#2b2723;background:{{ t.bg }}">{{ t.t }}</div></sc-for></div>
+        <div style="font:700 9px 'JetBrains Mono';color:rgba(236,241,232,.45);letter-spacing:.12em;margin-top:6px">FREE TAG ENTRY</div>
+        <div style="display:flex;gap:6px"><input value="{{ freeE }}" onChange="{{ onFreeE }}" placeholder="any string" style="flex:1;min-width:0;padding:11px;border-radius:11px;border:2px solid rgba(236,241,232,.3);background:rgba(0,0,0,.28);color:#ecf1e8;font:400 11px 'JetBrains Mono'"><button onClick="{{ sendFreeE }}" style="padding:0 14px;border-radius:11px;border:0;background:#bfe38a;color:#20290f;font:700 10px 'JetBrains Mono';cursor:pointer">SCAN</button></div>
+        <div style="font:700 9px 'JetBrains Mono';color:rgba(236,241,232,.45);letter-spacing:.12em;margin-top:6px">ESP-NOW</div>
+        <div style="display:flex;gap:6px"><input value="{{ espE }}" onChange="{{ onEspE }}" placeholder="broadcast payload" style="flex:1;min-width:0;padding:11px;border-radius:11px;border:2px solid rgba(236,241,232,.3);background:rgba(0,0,0,.28);color:#ecf1e8;font:400 11px 'JetBrains Mono'"><button onClick="{{ sendEspE }}" style="padding:0 14px;border-radius:11px;border:2px solid #bfe38a;background:transparent;color:#d5eeae;font:700 10px 'JetBrains Mono';cursor:pointer">TX</button></div>
+      </div>
+    </sc-if>
+    <sc-if value="{{ tabOutE }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div style="font:700 9px 'JetBrains Mono';color:rgba(236,241,232,.45);letter-spacing:.12em">TONE PROBE — COLOUR TRACKS PITCH</div>
+        <input type="range" min="120" max="1400" value="{{ probeE }}" onChange="{{ onProbeE }}" style="width:100%">
+        <button onClick="{{ playProbeE }}" style="padding:14px 0;border-radius:12px;border:2px solid #2b2723;box-shadow:0 3px 0 #2b2723;color:#2b2723;font:700 11px 'JetBrains Mono';cursor:pointer;background:{{ probeBgE }}">▶ PLAY {{ probeE }} Hz</button>
+        <button onClick="{{ pulseE }}" style="padding:14px 0;border-radius:12px;border:2px solid rgba(236,241,232,.4);background:transparent;color:#ecf1e8;font:700 11px 'JetBrains Mono';cursor:pointer">≋ PULSE MOTOR 300ms</button>
+        <div style="font:700 9px 'JetBrains Mono';color:rgba(236,241,232,.45);letter-spacing:.12em;margin-top:6px">EVENT LOG</div>
+        <div style="border-radius:12px;background:rgba(0,0,0,.3);border:2px solid rgba(236,241,232,.18);padding:10px 12px;font:400 10px/1.75 'JetBrains Mono';color:rgba(236,241,232,.72)"><sc-for list="{{ logsE }}" as="l" hint-placeholder-count="6"><div style="display:flex;gap:8px"><span style="color:rgba(236,241,232,.35)">{{ l.t }}</span><span>{{ l.s }}</span></div></sc-for></div>
+      </div>
+    </sc-if>
+  </div>
+</div></div>
+
+</div>
+<p style="margin:26px 0 0;font:12px/1.5 'Space Grotesk';color:rgba(43,39,35,.5)">Try next: "build out <a href="#1a">1a</a> for real" · "give <a href="#1b">1b</a> the event log from <a href="#1c">1c</a>" · "make the wand cuter still"</p>
+</section>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;defaultMute&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Simulation&quot;},&quot;logLines&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:6,&quot;min&quot;:1,&quot;max&quot;:12,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Simulation&quot;}}">
+const ORI = {
+  tip_up:{n:'Tip up',short:'TIP↑',glyph:'▲',dir:'up',hue:95,rot:'rotate(0deg)'},
+  tip_down:{n:'Tip down',short:'TIP↓',glyph:'▼',dir:'down',hue:230,rot:'rotate(180deg)'},
+  left_up:{n:'Left up',short:'LEFT',glyph:'◀',dir:'left',hue:330,rot:'rotate(-70deg)'},
+  right_up:{n:'Right up',short:'RIGHT',glyph:'▶',dir:'right',hue:160,rot:'rotate(70deg)'},
+  face_up:{n:'Face up',short:'FACE↑',glyph:'●',hue:60,rot:'scale(1)'},
+  face_down:{n:'Face down',short:'FACE↓',glyph:'○',hue:285,rot:'scaleX(-1)'}
+};
+const OKEYS=['tip_up','tip_down','left_up','right_up','face_up','face_down'];
+const PERIM=[0,1,2,3,4,5,9,10,14,15,19,20,21,22,23,24];
+const UP=[2,6,7,8,10,12,14,17,22];
+const XPAT=[0,4,6,8,12,16,18,20,24];
+const PLUS=[2,7,10,11,12,13,14,17,22];
+const CENTER=[6,7,8,11,12,13,16,17,18];
+const rot=i=>(i%5)*5+(4-Math.floor(i/5));
+function rotN(s,n){let a=s;for(let k=0;k<n;k++)a=a.map(rot);return a;}
+const ARROW={up:UP,right:rotN(UP,1),down:rotN(UP,2),left:rotN(UP,3)};
+const TAGS=['note_a','note_b','note_c','eggs','sugar','flour','stop','go','freeze','run','dance'];
+const OFF='#231f1a';
+function paint(set,on){
+  const a=[];
+  for(let i=0;i<25;i++){
+    const isOn=set.indexOf(i)>=0;
+    a.push({c:isOn?on:OFF,g:isOn?('0 0 10px '+on+', inset 0 0 4px rgba(255,255,255,.45)'):'inset 0 0 0 1px rgba(255,255,255,.05)'});
+  }
+  return a;
+}
+function hash(s){let h=7;for(let i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))|0;return Math.abs(h);}
+function tagSet(h){const s=[];for(let i=0;i<25;i++)if(((h*(i+3))%17)<7)s.push(i);return s.length?s:CENTER;}
+function orientSet(k){return k==='face_up'?PERIM.concat([12]):k==='face_down'?XPAT:ARROW[ORI[k].dir];}
+const N=5;
+function mkSim(mute){return{orient:'tip_up',latch:false,motor:false,mute:!!mute,tone:0,flash:null,log:[],
+  free:'',esp:'',shake:55,tab:'motion',drawer:false,advOpen:false,tiltX:0.5,tiltY:0.5,drag:false,
+  held:false,pressed:false,over:false,probe:520};}
+
+class Component extends DCLogic {
+  constructor(p){super(p);this.t={};const s=[];for(let i=0;i<N;i++)s.push(mkSim(this.props.defaultMute));this.state={sims:s};}
+  componentWillUnmount(){Object.keys(this.t).forEach(k=>clearTimeout(this.t[k]));}
+  up(i,patch){this.setState(s=>{const a=s.sims.slice();a[i]=Object.assign({},a[i],typeof patch==='function'?patch(a[i]):patch);return{sims:a};});}
+  lines(){const n=parseInt(this.props.logLines,10);return n>0?n:3;}
+  log(i,txt){const t=new Date().toTimeString().slice(0,8);this.up(i,p=>({log:[{t:t,s:txt}].concat(p.log).slice(0,30)}));}
+  beep(i,freq,dur){
+    const s=this.state.sims[i];
+    if(!s.mute){try{
+      if(!this.ac)this.ac=new (window.AudioContext||window.webkitAudioContext)();
+      const ac=this.ac;if(ac.state==='suspended')ac.resume();
+      const o=ac.createOscillator(),g=ac.createGain();
+      o.type='triangle';o.frequency.value=freq;o.connect(g);g.connect(ac.destination);
+      const t0=ac.currentTime;g.gain.setValueAtTime(0.0001,t0);
+      g.gain.exponentialRampToValueAtTime(0.08,t0+0.012);
+      g.gain.exponentialRampToValueAtTime(0.0001,t0+dur/1000);
+      o.start(t0);o.stop(t0+dur/1000+0.03);
+    }catch(e){}}
+    this.up(i,{tone:Math.round(freq)});
+    clearTimeout(this.t['tone'+i]);
+    this.t['tone'+i]=setTimeout(()=>this.up(i,{tone:0}),dur+160);
+  }
+  buzz(i,ms){this.up(i,{motor:true});
+    if(navigator.vibrate&&!this.state.sims[i].mute){try{navigator.vibrate(ms);}catch(e){}}
+    clearTimeout(this.t['m'+i]);this.t['m'+i]=setTimeout(()=>this.up(i,{motor:false}),ms);}
+  flash(i,leds,ms){this.up(i,{flash:leds});clearTimeout(this.t['f'+i]);
+    this.t['f'+i]=setTimeout(()=>this.up(i,{flash:null}),ms||620);}
+  fire(i,label,leds,freq,motorMs){this.log(i,label);this.flash(i,leds,620);this.beep(i,freq,180);if(motorMs)this.buzz(i,motorMs);}
+  reset(i){Object.keys(this.t).forEach(k=>{if(k.slice(-1)===String(i))clearTimeout(this.t[k]);});
+    this.up(i,q=>Object.assign(mkSim(q.mute),{shake:q.shake}));
+    this.log(i,'— RESTART —');this.beep(i,720,180);this.flash(i,paint(PERIM,'#8ee06b'),620);}
+  setOrient(i,k){const o=ORI[k];this.up(i,{orient:k});
+    this.fire(i,'ORIENT '+k,paint(orientSet(k),'oklch(0.8 0.17 '+o.hue+')'),220+o.hue*1.7,0);}
+  latch(i){const nv=!this.state.sims[i].latch;this.up(i,{latch:nv});
+    this.log(i,'LATCH '+(nv?'ON':'OFF'));this.beep(i,nv?440:300,110);
+    this.flash(i,paint(nv?PERIM:CENTER,'#ffc94d'),400);}
+  jump(i){this.fire(i,'GESTURE jump',paint(PLUS,'#fff6dd'),780,90);}
+  flip(i){this.fire(i,'GESTURE flip',paint(XPAT,'oklch(0.8 0.17 330)'),520,140);}
+  shake(i){const m=this.state.sims[i].shake,set=[];
+    for(let k=0;k<25;k++)if(Math.random()*100<m)set.push(k);
+    this.fire(i,'GESTURE shake mag='+m,paint(set,'oklch(0.82 0.17 70)'),260+m*4,40+Math.round(m*1.8));}
+  press(i,hold){this.fire(i,'BUTTON '+(hold?'hold':'tap'),
+    paint(hold?PERIM.concat([12]):CENTER,'#fffaf0'),hold?240:560,hold?220:0);}
+  btnDown(i){clearTimeout(this.t['h'+i]);this.up(i,{held:false,pressed:true});
+    this.t['h'+i]=setTimeout(()=>{this.up(i,{held:true});this.press(i,true);},450);}
+  btnUp(i){clearTimeout(this.t['h'+i]);this.up(i,{pressed:false});
+    if(this.state.sims[i].held)this.up(i,{held:false});else this.press(i,false);}
+  tag(i,str,src){const v=(str||'').trim();if(!v)return;
+    const h=hash(v.toLowerCase()),hue=h%360;
+    const label=(src==='espnow'?'ESP-NOW':src==='free'?'FREE TAG':'NFC')+' "'+v+'"';
+    this.fire(i,label,paint(tagSet(h),'oklch(0.8 0.17 '+hue+')'),200+hue*1.6,src==='espnow'?70:0);}
+  tiltZone(x,y){const dx=x-0.5,dy=y-0.5;
+    if(Math.sqrt(dx*dx+dy*dy)<0.17)return 'face_up';
+    if(Math.abs(dy)>=Math.abs(dx))return dy<0?'tip_up':'tip_down';
+    return dx<0?'left_up':'right_up';}
+  tiltAt(i,e){const r=e.currentTarget.getBoundingClientRect();
+    const x=Math.min(.92,Math.max(.08,(e.clientX-r.left)/r.width));
+    const y=Math.min(.9,Math.max(.1,(e.clientY-r.top)/r.height));
+    this.up(i,{tiltX:x,tiltY:y,drag:true});
+    const k=this.tiltZone(x,y);
+    if(k!==this.state.sims[i].orient)this.setOrient(i,k);}
+  pitch(i){const s=this.state.sims[i];
+    if(!s.tone)return{pct:'0%',color:'transparent',lbl:'silent',spk:'#2d2d2d',glow:'none'};
+    const hue=Math.round(((s.tone-120)/1300*320+20)%360);
+    const c='oklch(0.78 0.18 '+hue+')';
+    return{pct:Math.min(100,Math.round((s.tone-100)/1300*100))+'%',color:c,lbl:s.tone+' Hz',
+      spk:c,glow:'0 0 14px '+c};}
+  leds(i){const s=this.state.sims[i];
+    if(s.flash)return s.flash;
+    const o=ORI[s.orient];
+    return paint(orientSet(s.orient),'oklch(0.55 0.11 '+o.hue+')');}
+  ostyle(i,k,dark){const on=this.state.sims[i].orient===k;
+    return on?{bg:'oklch(0.85 0.14 '+ORI[k].hue+')',fg:'#2b2723'}
+      :{bg:dark?'rgba(255,255,255,.06)':'#fff',fg:dark?'rgba(240,238,232,.72)':'#2b2723'};}
+  lstyle(i,dark){const on=this.state.sims[i].latch;
+    return on?{bg:'#ffc94d',fg:'#2b2723'}:{bg:dark?'rgba(255,255,255,.06)':'#fff',fg:dark?'rgba(240,238,232,.7)':'#2b2723'};}
+
+  pack(i,S){
+    const v={},s=this.state.sims[i],p=this.pitch(i);
+    v['leds'+S]=this.leds(i);
+    v['statusLbl'+S]=ORI[s.orient].n.toUpperCase()+(s.latch?' · LATCHED':'');
+    v['status'+S]=ORI[s.orient].n.toUpperCase()+(s.latch?' · LATCHED':'')+' · '+(s.mute?'MUTED':'SOUND ON');
+    v['pitchPct'+S]=p.pct;v['pitchColor'+S]=p.color;v['pitchLbl'+S]=p.lbl;
+    v['spk'+S]=p.spk;v['spkGlow'+S]=p.glow;
+    v['motorOp'+S]=s.motor?1:0;
+    v['motorAnim'+S]=s.motor?'buzz .09s linear infinite':'none';
+    v['motorLbl'+S]=s.motor?'ON':'OFF';
+    v['motorBg'+S]=s.motor?'#ffc94d':'rgba(0,0,0,.1)';
+    v['btnSh'+S]=s.pressed?'0 1px 0 #2b2723':'0 5px 0 #2b2723';
+    v['btnPr'+S]=s.pressed?'translateY(4px)':'none';
+    v['tilt'+S]=ORI[s.orient].rot;
+    v['shake'+S]=s.shake;v['free'+S]=s.free;v['esp'+S]=s.esp;v['probe'+S]=s.probe;
+    v['logs'+S]=s.log.slice(0,this.lines());
+    v['muteLbl'+S]=s.mute?'🔇':'🔈';
+    v['mute'+S]=()=>{this.up(i,q=>({mute:!q.mute}));this.log(i,'MUTE '+(!s.mute?'ON':'OFF'));};
+    v['reset'+S]=()=>this.reset(i);
+    v['latch'+S]=()=>this.latch(i);
+    v['latchLbl'+S]=s.latch?'⊙ LATCHED':'⊚ LATCH';
+    const ls=this.lstyle(i,S==='D'||S==='E');
+    v['latchBg'+S]=ls.bg;v['latchFg'+S]=ls.fg;
+    v['btnDown'+S]=()=>this.btnDown(i);v['btnUp'+S]=()=>this.btnUp(i);
+    v['onShake'+S]=e=>this.up(i,{shake:parseInt(e.target.value,10)});
+    v['onFree'+S]=e=>this.up(i,{free:e.target.value});
+    v['onEsp'+S]=e=>this.up(i,{esp:e.target.value});
+    v['sendFree'+S]=()=>this.tag(i,this.state.sims[i].free,'free');
+    v['sendEsp'+S]=()=>this.tag(i,this.state.sims[i].esp,'espnow');
+    v['onTagSel'+S]=e=>{if(e.target.value)this.tag(i,e.target.value,'nfc');};
+    v['drawer'+S]=s.drawer;v['drawerCaret'+S]=s.drawer?'▲':'▼';
+    v['drawerT'+S]=()=>this.up(i,q=>({drawer:!q.drawer}));
+    v['advOpen'+S]=s.advOpen;v['adv'+S]=()=>this.up(i,q=>({advOpen:!q.advOpen}));
+    v['gest'+S]=[{name:'JUMP',glyph:'⇡',onClick:()=>this.jump(i)},
+      {name:'SHAKE',glyph:'≈',onClick:()=>this.shake(i)},
+      {name:'FLIP',glyph:'⟳',onClick:()=>this.flip(i)}];
+    v['tags'+S]=TAGS.map(t=>({t:t,bg:'oklch(0.9 0.08 '+(hash(t)%360)+')',
+      onClick:()=>this.tag(i,t,'nfc'),
+      onDragStart:e=>{this.up(i,{dragTag:t});try{e.dataTransfer.setData('text/plain',t);}catch(err){}}}));
+    const dp=k=>{const st=this.ostyle(i,k);return{glyph:ORI[k].glyph,label:ORI[k].n,onClick:()=>this.setOrient(i,k),bg:st.bg,fg:st.fg,vis:'visible'};};
+    const blank={glyph:'',label:'',onClick:null,bg:'transparent',fg:'transparent',vis:'hidden'};
+    v['dpad'+S]=[blank,dp('tip_up'),blank,dp('left_up'),
+      {glyph:s.latch?'⊙':'⊚',label:'Latching',onClick:()=>this.latch(i),bg:ls.bg,fg:ls.fg,vis:'visible'},
+      dp('right_up'),blank,dp('tip_down'),blank];
+    v['faces'+S]=['face_up','face_down'].map(k=>{const st=this.ostyle(i,k);
+      return{glyph:ORI[k].glyph,label:ORI[k].n.toUpperCase(),onClick:()=>this.setOrient(i,k),bg:st.bg,fg:st.fg};});
+    v['seg'+S]=OKEYS.map(k=>{const st=this.ostyle(i,k);
+      return{glyph:ORI[k].glyph,label:ORI[k].n,short:ORI[k].short,onClick:()=>this.setOrient(i,k),bg:st.bg,fg:st.fg};});
+    v['grid'+S]=v['seg'+S];
+    const R=118,cx=163,cy=163,ANG={tip_up:-90,face_down:-45,right_up:0,tip_down:90,left_up:180,face_up:-135};
+    v['sect'+S]=OKEYS.map(k=>{const st=this.ostyle(i,k,true);const a=ANG[k]*Math.PI/180;
+      return{glyph:ORI[k].glyph,short:ORI[k].short,label:ORI[k].n,onClick:()=>this.setOrient(i,k),
+        x:Math.round(cx+R*Math.cos(a))+'px',y:Math.round(cy+R*Math.sin(a))+'px',bg:st.bg,fg:st.fg};});
+    v['tiltX'+S]=(s.tiltX*100)+'%';v['tiltY'+S]=(s.tiltY*100)+'%';
+    v['tiltDown'+S]=e=>{if(e.currentTarget.setPointerCapture)e.currentTarget.setPointerCapture(e.pointerId);this.tiltAt(i,e);};
+    v['tiltMove'+S]=e=>{if(this.state.sims[i].drag)this.tiltAt(i,e);};
+    v['tiltUp'+S]=()=>{if(this.state.sims[i].drag)this.up(i,{drag:false});};
+    const fd=this.ostyle(i,'face_down');
+    v['fdBg'+S]=fd.bg;v['fdFg'+S]=fd.fg;
+    v['faceDown'+S]=()=>this.setOrient(i,'face_down');
+    v['tabMotion'+S]=s.tab==='motion';v['tabSignal'+S]=s.tab==='signal';v['tabOut'+S]=s.tab==='out';
+    v['tabs'+S]=[['motion','MOTION'],['signal','SIGNAL'],['out','OUTPUT']].map(t=>{
+      const on=s.tab===t[0];
+      return{name:t[1],onClick:()=>this.up(i,{tab:t[0]}),bg:on?'#c8ec9a':'#fff',fg:'#25301a'};});
+    v['dropOver'+S]=e=>{e.preventDefault();if(!this.state.sims[i].over)this.up(i,{over:true});};
+    v['onDrop'+S]=e=>{e.preventDefault();let t='';try{t=e.dataTransfer.getData('text/plain');}catch(err){}
+      this.up(i,{over:false});this.tag(i,t||this.state.sims[i].dragTag||'','nfc');};
+    v['dropBg'+S]=s.over?'#d9f2b4':'rgba(255,255,255,.06)';
+    v['dropHint'+S]=s.over?'release to scan':'drop a tag here';
+    v['onProbe'+S]=e=>this.up(i,{probe:parseInt(e.target.value,10)});
+    v['probeBg'+S]='oklch(0.82 0.16 '+Math.round(((s.probe-120)/1300*320+20)%360)+')';
+    v['playProbe'+S]=()=>{this.log(i,'SPEAKER '+s.probe+' Hz');this.beep(i,s.probe,340);};
+    v['pulse'+S]=()=>{this.log(i,'MOTOR pulse 300ms');this.buzz(i,300);};
+    return v;
+  }
+  renderVals(){
+    let v={tagOpts:TAGS,tagSel:''};
+    ['A','B','C','D','E'].forEach((S,i)=>{v=Object.assign(v,this.pack(i,S));});
+    return v;
+  }
+}
+
+</script>
+</body>
+</html>

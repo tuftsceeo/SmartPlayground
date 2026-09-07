@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div style="width:100%;display:flex;align-items:center;justify-content:center;transition:transform .35s cubic-bezier(.34,1.4,.5,1);transform:{{ tilt }}">
+  <div style="position:relative;width:{{ w }};aspect-ratio:439/730;border-radius:13% / 7.8%;box-sizing:border-box;padding:3.4% 3.6% 4.4%;background:linear-gradient(105deg,#a98bb7 0%,#bb9fc9 38%,#e9d9f4 100%);box-shadow:0 16px 30px rgba(108,76,209,.24),inset 0 1.5px 0 rgba(255,255,255,.6),inset 0 -2px 0 rgba(83,60,102,.35)">
+
+    <sc-if value="{{ front }}" hint-placeholder-val="{{ true }}">
+      <div style="width:100%;height:100%;box-sizing:border-box;border-radius:11.2% / 6.7%;background:linear-gradient(168deg,#ffffff 0%,#fdfdff 60%,#f4f2fa 100%);box-shadow:inset 0 2px 0 rgba(255,255,255,.9),0 1px 3px rgba(83,60,102,.28);display:flex;flex-direction:column;padding:7% 7.5% 6.5%">
+
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;width:100%">
+          <div style="width:7%;aspect-ratio:1;border-radius:50%;background:radial-gradient(circle at 34% 30%,#4a4550,#1d1a24);box-shadow:inset 0 -1px 1px rgba(0,0,0,.5)"></div>
+          <div style="width:27%;aspect-ratio:1;border-radius:50%;background:radial-gradient(circle at 36% 28%,#3b3644 0%,#1a1720 55%,#0f0d14 100%);display:flex;align-items:center;justify-content:center">
+            <div style="width:80%;height:80%;border-radius:50%;background:repeating-radial-gradient(circle,#302b39 0 1.5px,#14111a 1.5px 4px);display:flex;align-items:center;justify-content:center">
+              <div style="width:46%;height:46%;border-radius:50%;transition:background .12s,box-shadow .12s;background:{{ speakerColor }};box-shadow:{{ speakerGlow }}"></div>
+            </div>
+          </div>
+        </div>
+
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9%;width:100%;padding-top:5%">
+          <div style="width:84%;aspect-ratio:1;box-sizing:border-box;border-radius:12%;background:#141119;box-shadow:inset 0 3px 10px rgba(0,0,0,.75),0 0 0 1.5px rgba(83,60,102,.25);padding:6.5%;display:grid;grid-template-columns:repeat(5,1fr);gap:6%">
+            <sc-for list="{{ leds }}" as="p" hint-placeholder-count="25"><div style="aspect-ratio:1;border-radius:26%;transition:background .1s,box-shadow .1s;background:{{ p.c }};box-shadow:{{ p.g }}"></div></sc-for>
+          </div>
+
+          <div style="width:52%;aspect-ratio:1;border-radius:50%;box-sizing:border-box;background:#f4f2fa;box-shadow:inset 0 2px 5px rgba(83,60,102,.3);display:flex;align-items:center;justify-content:center">
+            <button onPointerDown="{{ onBtnDown }}" onPointerUp="{{ onBtnUp }}" onPointerLeave="{{ onBtnUp }}" title="Tap, or hold for 0.45s" style="width:78%;height:78%;border-radius:50%;border:none;cursor:pointer;box-sizing:border-box;transition:transform .07s,box-shadow .07s;background:radial-gradient(circle at 34% 26%,#6a6472 0%,#332e3d 46%,#17141f 100%);box-shadow:{{ btnShadow }};transform:{{ btnPress }}"></button>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ back }}" hint-placeholder-val="{{ false }}">
+      <div style="width:100%;height:100%;box-sizing:border-box;border-radius:11.2% / 6.7%;background:linear-gradient(105deg,#a68ab5 0%,#b699c6 40%,#d9c8ea 100%);box-shadow:inset 0 1.5px 0 rgba(255,255,255,.35),0 1px 3px rgba(83,60,102,.25)"></div>
+    </sc-if>
+
+    <sc-if value="{{ back }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;right:-6%;bottom:-4%;display:flex;flex-direction:column;align-items:center;gap:4px">
+        <div style="width:66px;aspect-ratio:439/730;box-sizing:border-box;padding:3.4% 3.6% 4.4%;border-radius:13% / 7.8%;background:linear-gradient(105deg,#a98bb7 0%,#bb9fc9 38%,#e9d9f4 100%);box-shadow:0 0 0 4px #fff,0 10px 20px rgba(108,76,209,.24)">
+          <div style="width:100%;height:100%;box-sizing:border-box;border-radius:11.2% / 6.7%;background:linear-gradient(168deg,#ffffff 0%,#f4f2fa 100%);display:flex;flex-direction:column;padding:7% 7.5% 6.5%">
+            <div style="display:flex;align-items:flex-start;justify-content:space-between;width:100%">
+              <div style="width:7%;aspect-ratio:1;border-radius:50%;background:#2a2632"></div>
+              <div style="width:27%;aspect-ratio:1;border-radius:50%;background:#17141f;display:flex;align-items:center;justify-content:center">
+                <div style="width:46%;height:46%;border-radius:50%;transition:background .12s,box-shadow .12s;background:{{ speakerColor }};box-shadow:{{ speakerGlow }}"></div>
+              </div>
+            </div>
+            <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9%;width:100%;padding-top:5%">
+              <div style="width:84%;aspect-ratio:1;box-sizing:border-box;border-radius:12%;background:#141119;padding:6.5%;display:grid;grid-template-columns:repeat(5,1fr);gap:6%">
+                <sc-for list="{{ leds }}" as="p" hint-placeholder-count="25"><div style="aspect-ratio:1;border-radius:26%;transition:background .1s;background:{{ p.c }}"></div></sc-for>
+              </div>
+              <div style="width:52%;aspect-ratio:1;border-radius:50%;background:#f4f2fa;box-shadow:inset 0 1px 2px rgba(83,60,102,.3);display:flex;align-items:center;justify-content:center">
+                <div style="width:78%;height:78%;border-radius:50%;transition:transform .07s,box-shadow .07s;background:radial-gradient(circle at 34% 26%,#6a6472 0%,#332e3d 46%,#17141f 100%);box-shadow:{{ miniShadow }};transform:{{ miniPress }}"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div style="font:400 13px 'Patrick Hand',cursive;color:#8b859a;line-height:1;white-space:nowrap">the hidden face</div>
+      </div>
+    </sc-if>
+
+    <div style="position:absolute;left:0;right:0;bottom:-4%;display:flex;justify-content:center;pointer-events:none"><div style="padding:3px 11px;border-radius:20px;background:#f2eefc;border:1.5px solid #ded8ec;color:#6c4cd1;font:800 9px 'Nunito',system-ui,sans-serif;letter-spacing:.1em;transition:opacity .2s;opacity:{{ motorOpacity }};animation:{{ motorAnim }}">≋ BUZZ</div></div>
+  </div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:280,&quot;height&quot;:460},&quot;w&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;240px&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;tilt&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;none&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;back&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;},&quot;leds&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;{c:string,g:string}[]&quot;},&quot;speakerColor&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#2d2d2d&quot;,&quot;options&quot;:[&quot;#2d2d2d&quot;,&quot;#ef4d92&quot;,&quot;#22c3a6&quot;,&quot;#ffd23f&quot;],&quot;tsType&quot;:&quot;string&quot;},&quot;speakerGlow&quot;:{&quot;editor&quot;:null,&quot;default&quot;:&quot;none&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;motorOpacity&quot;:{&quot;editor&quot;:&quot;float&quot;,&quot;default&quot;:0,&quot;tsType&quot;:&quot;number&quot;},&quot;motorAnim&quot;:{&quot;editor&quot;:null,&quot;default&quot;:&quot;none&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;btnShadow&quot;:{&quot;editor&quot;:null,&quot;default&quot;:&quot;0 5px 0 #17141f, 0 7px 10px rgba(23,20,31,.3)&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;btnPress&quot;:{&quot;editor&quot;:null,&quot;default&quot;:&quot;none&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;onBtnDown&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;() =&gt; void&quot;},&quot;onBtnUp&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;() =&gt; void&quot;}}">
+class Component extends DCLogic {
+  renderVals(){
+    const back = !!this.props.back;
+    const bp = this.props.btnPress;
+    const pressed = !!bp && bp !== 'none';
+    return { back: back, front: !back,
+      miniPress: pressed ? 'translateY(2px)' : 'none',
+      miniShadow: pressed ? '0 0 0 #17141f' : '0 2px 0 #17141f' };
+  }
+}
+
+</script>
+</body>
+</html>

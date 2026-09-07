@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="_ds/smart-playground-design-system-dcb8c1aa-6efc-4692-9f59-5543224b4b04/tokens/fonts.css">
+<link rel="stylesheet" href="_ds/smart-playground-design-system-dcb8c1aa-6efc-4692-9f59-5543224b4b04/tokens/colors.css">
+<link rel="stylesheet" href="_ds/smart-playground-design-system-dcb8c1aa-6efc-4692-9f59-5543224b4b04/tokens/gradients.css">
+<link rel="stylesheet" href="_ds/smart-playground-design-system-dcb8c1aa-6efc-4692-9f59-5543224b4b04/tokens/typography.css">
+<link rel="stylesheet" href="_ds/smart-playground-design-system-dcb8c1aa-6efc-4692-9f59-5543224b4b04/tokens/spacing.css">
+<link rel="stylesheet" href="_ds/smart-playground-design-system-dcb8c1aa-6efc-4692-9f59-5543224b4b04/tokens/radius.css">
+<link rel="stylesheet" href="_ds/smart-playground-design-system-dcb8c1aa-6efc-4692-9f59-5543224b4b04/tokens/elevation.css">
+<link rel="stylesheet" href="_ds/smart-playground-design-system-dcb8c1aa-6efc-4692-9f59-5543224b4b04/tokens/motion.css">
+<link rel="stylesheet" href="_ds/smart-playground-design-system-dcb8c1aa-6efc-4692-9f59-5543224b4b04/tokens/semantic.css">
+<link rel="stylesheet" href="_ds/smart-playground-design-system-dcb8c1aa-6efc-4692-9f59-5543224b4b04/styles.css">
+<script src="_ds/smart-playground-design-system-dcb8c1aa-6efc-4692-9f59-5543224b4b04/_ds_bundle.js"></script>
+<style>
+body{margin:0;font-family:'Nunito',system-ui,sans-serif;background:
+ radial-gradient(520px 420px at 0% 0%,rgba(239,77,146,.14),transparent 70%),
+ radial-gradient(520px 420px at 100% 0%,rgba(108,76,209,.12),transparent 70%),
+ radial-gradient(520px 420px at 0% 100%,rgba(255,210,63,.16),transparent 70%),
+ radial-gradient(520px 420px at 100% 100%,rgba(34,195,166,.14),transparent 70%),
+ #f7f7fb;min-height:100vh}
+a{color:var(--purple)}a:hover{color:var(--pink-dark)}
+input,button,textarea{font-family:'Nunito',system-ui,sans-serif}
+input[type=range]{accent-color:#ef4d92}
+@keyframes wandJump{0%{transform:translateY(0)}22%{transform:translateY(-46px) scaleY(1.04)}45%{transform:translateY(2px) scaleY(.96)}62%{transform:translateY(-14px)}80%{transform:translateY(0) scaleY(1.02)}100%{transform:translateY(0)}}
+@keyframes wandShake{0%,100%{transform:translateX(0) rotate(0deg)}12%{transform:translateX(-13px) rotate(-4deg)}25%{transform:translateX(12px) rotate(4deg)}37%{transform:translateX(-11px) rotate(-3.4deg)}50%{transform:translateX(10px) rotate(3deg)}62%{transform:translateX(-7px) rotate(-2deg)}75%{transform:translateX(6px) rotate(1.6deg)}88%{transform:translateX(-3px) rotate(-.8deg)}}
+@keyframes wandFlip{0%{transform:rotateY(0deg)}100%{transform:rotateY(360deg)}}
+@keyframes agitron{0%{opacity:0;transform:translate(0,0) scale(.5)}25%{opacity:1}100%{opacity:0;transform:translate(var(--dx),var(--dy)) scale(1.15)}}
+@keyframes ping{0%{opacity:.85;transform:scale(.55)}100%{opacity:0;transform:scale(1.5)}}
+</style>
+</helmet>
+
+<div style="width:390px;height:844px;margin:0 auto;background:#fff;border-radius:24px;box-shadow:0 18px 40px rgba(108,76,209,.18);display:flex;flex-direction:column;overflow:hidden;position:relative" data-screen-label="Wand simulator v3">
+
+  <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 20px 0;font:700 11px ui-monospace,monospace;color:#8b859a">
+    <span>9:41</span>
+    <span style="display:flex;align-items:center;gap:6px;font:800 11px 'Nunito'">
+      <span style="display:flex;width:22px;height:22px;border-radius:7px;align-items:center;justify-content:center;background:linear-gradient(135deg,#ef4d92,#6c4cd1);color:#fff;font-size:11px">✦</span>
+      Wand sim
+    </span>
+  </div>
+
+  <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding:10px 18px 12px">
+    <div style="display:flex;flex-direction:column;gap:4px;min-width:0">
+      <div style="font:800 18px 'Nunito';color:#231f2e">Play with the wand</div>
+      <div style="display:flex;align-items:center;gap:6px;font:700 11px 'Nunito';color:#5b5468">
+        <span style="width:7px;height:7px;border-radius:50%;background:#22c3a6;flex:none"></span>{{ status }}
+      </div>
+    </div>
+    <div style="display:flex;gap:6px;flex:none">
+      <x-import component-from-global-scope="SmartPlaygroundDesignSystem_dcb8c1.IconButton" icon="volume-2" active="{{ soundOn }}" title="Turn the simulator's sound on or off" onClick="{{ mute }}" hint-size="40px,36px"></x-import>
+      <x-import component-from-global-scope="SmartPlaygroundDesignSystem_dcb8c1.IconButton" icon="mop-sparkles" title="Start over" onClick="{{ reset }}" hint-size="40px,36px"></x-import>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:4px;margin:0 18px 12px;padding:3px;border-radius:20px;background:#f4f2fa">
+    <button onClick="{{ setSimple }}" style="flex:1;border:0;border-radius:17px;padding:7px 0;cursor:pointer;font:800 12px 'Nunito';transition:all .15s;background:{{ simpleBg }};color:{{ simpleFg }}">Simple</button>
+    <button onClick="{{ setAdvanced }}" style="flex:1;border:0;border-radius:17px;padding:7px 0;cursor:pointer;font:800 12px 'Nunito';transition:all .15s;background:{{ advBg }};color:{{ advFg }}">Advanced</button>
+  </div>
+
+  <div onPointerMove="{{ padMove }}" onPointerLeave="{{ padLeave }}" onPointerDown="{{ padDown }}" onPointerUp="{{ padUp }}" title="Move to tilt · click to press the button" style="position:relative;flex:1;min-height:330px;margin:0 18px;border-radius:20px;background:repeating-linear-gradient(45deg,#fbfaff 0 7px,#f4f2fa 7px 14px);border:1.5px solid #e8e6f0;overflow:hidden;touch-action:none;cursor:{{ padCursor }}">
+
+    <sc-if value="{{ advanced }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;inset:0;pointer-events:none">
+        <div style="position:absolute;top:10px;left:12px;font:800 10px 'Nunito';letter-spacing:.06em;transition:color .15s;color:{{ hintTopColor }}">Tip up</div>
+        <div style="position:absolute;bottom:10px;left:12px;font:800 10px 'Nunito';letter-spacing:.06em;transition:color .15s;color:{{ hintBottomColor }}">Tip down</div>
+        <div style="position:absolute;top:50%;left:12px;transform:translateY(-50%);font:800 10px/1.35 'Nunito';transition:color .15s;color:{{ hintLeftColor }}">Left<br>up</div>
+        <div style="position:absolute;top:50%;right:12px;transform:translateY(-50%);text-align:right;font:800 10px/1.35 'Nunito';transition:color .15s;color:{{ hintRightColor }}">Right<br>up</div>
+        <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:118px;height:118px;border-radius:50%;border:1.5px dashed #e8e6f0"></div>
+      </div>
+    </sc-if>
+
+    <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none">
+      <div style="animation:{{ gestureAnim }}">
+        <div style="transition:transform .22s cubic-bezier(.3,1.2,.5,1);transform-style:preserve-3d;transform:{{ tilt3d }}">
+          <div style="position:relative;pointer-events:auto">
+            <dc-import name="Wand" hint-size="192px,320px" w="192px" leds="{{ leds }}" speaker-color="{{ spk }}" speaker-glow="{{ spkGlow }}" motor-opacity="0" btn-shadow="{{ btnSh }}" btn-press="{{ btnPr }}"></dc-import>
+            <sc-for list="{{ agitrons }}" as="a" hint-placeholder-count="0">
+              <div style="position:absolute;pointer-events:none;font-weight:800;color:#c2b8d6;left:{{ a.left }};top:{{ a.top }};font-size:{{ a.size }};transform:rotate({{ a.rot }});--dx:{{ a.dx }};--dy:{{ a.dy }};animation:agitron .5s ease-out forwards">{{ a.mark }}</div>
+            </sc-for>
+            <sc-for list="{{ pings }}" as="p" hint-placeholder-count="0">
+              <div style="position:absolute;pointer-events:none;border-radius:50%;border:3px solid {{ p.color }};right:2%;top:3%;width:29%;aspect-ratio:1;animation:ping .55s ease-out forwards"></div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div style="display:flex;flex-direction:column;gap:7px;padding:9px 20px 0">
+    <div style="font:400 15px 'Patrick Hand';color:#8b859a;line-height:1.2;white-space:nowrap">{{ padHint }}</div>
+    <sc-if value="{{ advanced }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;gap:14px">
+        <sc-for list="{{ axes }}" as="a" hint-placeholder-count="3">
+          <div style="display:flex;align-items:center;gap:5px">
+            <span style="font:700 10px ui-monospace,monospace;color:#8b859a">{{ a.n }}</span>
+            <div style="position:relative;width:44px;height:6px;border-radius:3px;background:#e8e6f0">
+              <div style="position:absolute;top:0;bottom:0;background:#22c3a6;border-radius:3px;transition:all .12s;left:{{ a.left }};width:{{ a.w }}"></div>
+            </div>
+            <span style="font:700 10px ui-monospace,monospace;color:#5b5468;width:26px">{{ a.v }}</span>
+          </div>
+        </sc-for>
+      </div>
+    </sc-if>
+  </div>
+
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:7px;padding:12px 18px 0">
+    <button onClick="{{ jump }}" title="Toss the wand up" style-hover="border-color:#ef4d92;color:#d13a7c;background:#fff0f6" style="display:flex;flex-direction:column;align-items:center;gap:5px;padding:10px 0;border-radius:14px;border:1.5px solid #e8e6f0;background:#fff;color:#5b5468;font:800 10.5px 'Nunito';cursor:pointer;transition:all .15s">
+      <x-import component-from-global-scope="SmartPlaygroundDesignSystem_dcb8c1.Icon" name="arrow-up" size="18" hint-size="18px,18px"></x-import>Jump
+    </button>
+    <button onClick="{{ shakeIt }}" title="Shake it back and forth" style-hover="border-color:#ef4d92;color:#d13a7c;background:#fff0f6" style="display:flex;flex-direction:column;align-items:center;gap:5px;padding:10px 0;border-radius:14px;border:1.5px solid #e8e6f0;background:#fff;color:#5b5468;font:800 10.5px 'Nunito';cursor:pointer;transition:all .15s">
+      <x-import component-from-global-scope="SmartPlaygroundDesignSystem_dcb8c1.Icon" name="vibrate" size="18" hint-size="18px,18px"></x-import>Shake
+    </button>
+    <button onClick="{{ spin }}" title="Spin it over once" style-hover="border-color:#ef4d92;color:#d13a7c;background:#fff0f6" style="display:flex;flex-direction:column;align-items:center;gap:5px;padding:10px 0;border-radius:14px;border:1.5px solid #e8e6f0;background:#fff;color:#5b5468;font:800 10.5px 'Nunito';cursor:pointer;transition:all .15s">
+      <x-import component-from-global-scope="SmartPlaygroundDesignSystem_dcb8c1.Icon" name="shuffle" size="18" hint-size="18px,18px"></x-import>Spin
+    </button>
+    <button onClick="{{ flipOver }}" title="Turn the wand over" style-hover="border-color:#ef4d92" style="display:flex;flex-direction:column;align-items:center;gap:5px;padding:10px 0;border-radius:14px;border:1.5px solid {{ faceDownBorder }};background:{{ faceDownBg }};color:{{ faceDownFg }};font:800 10.5px 'Nunito';cursor:pointer;transition:all .15s">
+      <x-import component-from-global-scope="SmartPlaygroundDesignSystem_dcb8c1.Icon" name="shakePhone" size="18" hint-size="18px,18px"></x-import>Turn over
+    </button>
+  </div>
+
+  <div style="display:flex;align-items:center;gap:10px;padding:12px 18px 0">
+    <span style="font:700 11px 'Nunito';color:#5b5468;flex:none">How hard</span>
+    <input type="range" min="5" max="100" value="{{ shake }}" onChange="{{ onShake }}" title="Shake strength" style="flex:1;min-width:0">
+    <span style="font:700 11px ui-monospace,monospace;color:#231f2e;width:22px;text-align:right">{{ shake }}</span>
+  </div>
+
+  <div style="display:flex;gap:7px;padding:12px 18px 14px;overflow-x:auto">
+    <sc-for list="{{ tags }}" as="t" hint-placeholder-count="6">
+      <button onClick="{{ t.onClick }}" title="Touch this tag to the wand" style-hover="border-color:#ef4d92;color:#d13a7c" style="flex:none;display:flex;align-items:center;gap:6px;padding:8px 13px;border-radius:20px;border:1.5px solid #e8e6f0;font:700 11.5px 'Nunito';color:#3a3345;cursor:pointer;transition:all .15s;background:{{ t.bg }}">
+        <x-import component-from-global-scope="SmartPlaygroundDesignSystem_dcb8c1.Icon" name="nfcCard" size="13" hint-size="13px,13px"></x-import>{{ t.t }}
+      </button>
+    </sc-for>
+  </div>
+
+  <sc-if value="{{ advanced }}" hint-placeholder-val="{{ false }}">
+  <div style="margin:0 18px;border-top:1px solid #f4f2fa;padding-top:8px">
+    <button onClick="{{ drawerT }}" style="width:100%;display:flex;justify-content:space-between;align-items:center;background:none;border:0;padding:2px 0;color:#8b859a;font:800 11px 'Nunito';cursor:pointer">Custom tag or radio message<span>{{ drawerCaret }}</span></button>
+    <sc-if value="{{ drawer }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;flex-direction:column;gap:7px;padding:8px 0 0">
+        <div style="display:flex;gap:7px">
+          <input value="{{ free }}" onChange="{{ onFree }}" placeholder="type any tag word" style-focus="border-color:#ef4d92;box-shadow:0 0 0 3px rgba(233,78,155,.14);background:#fff;outline:none" style="flex:1;min-width:0;padding:9px 12px;border-radius:12px;border:1.5px solid #e8e6f0;background:#fafafd;color:#231f2e;font:600 12px 'Nunito'">
+          <button onClick="{{ sendFree }}" style="padding:0 14px;border-radius:12px;border:none;background:linear-gradient(135deg,#ef4d92,#d13a7c);color:#fff;font:800 11.5px 'Nunito';cursor:pointer">Scan</button>
+        </div>
+        <div style="display:flex;gap:7px">
+          <input value="{{ esp }}" onChange="{{ onEsp }}" placeholder="message from another wand" style-focus="border-color:#ef4d92;box-shadow:0 0 0 3px rgba(233,78,155,.14);background:#fff;outline:none" style="flex:1;min-width:0;padding:9px 12px;border-radius:12px;border:1.5px solid #e8e6f0;background:#fafafd;color:#231f2e;font:600 12px 'Nunito'">
+          <button onClick="{{ sendEsp }}" style="padding:0 14px;border-radius:12px;border:none;background:linear-gradient(135deg,#6c4cd1,#4f36a3);color:#fff;font:800 11.5px 'Nunito';cursor:pointer">Send</button>
+        </div>
+      </div>
+    </sc-if>
+  </div>
+  </sc-if>
+
+  <sc-if value="{{ advanced }}" hint-placeholder-val="{{ false }}">
+  <div style="padding:8px 20px 20px;font:400 10.5px/1.55 ui-monospace,monospace;color:#8b859a;height:42px;overflow:hidden">
+    <sc-for list="{{ logs }}" as="l" hint-placeholder-count="2"><div style="display:flex;gap:8px"><span style="color:#c2b8d6">{{ l.t }}</span><span>{{ l.s }}</span></div></sc-for>
+  </div>
+  </sc-if>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:430,&quot;height&quot;:880},&quot;defaultMute&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Simulation&quot;},&quot;logLines&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:2,&quot;min&quot;:1,&quot;max&quot;:8,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Simulation&quot;}}">
+const PERIM=[0,1,2,3,4,5,9,10,14,15,19,20,21,22,23,24];
+const UP=[2,6,7,8,10,12,14,17,22];
+const XPAT=[0,4,6,8,12,16,18,20,24];
+const PLUS=[2,7,10,11,12,13,14,17,22];
+const CENTER=[6,7,8,11,12,13,16,17,18];
+const rot=i=>(i%5)*5+(4-Math.floor(i/5));
+function rotN(s,n){let a=s;for(let k=0;k<n;k++)a=a.map(rot);return a;}
+const ARROW={up:UP,right:rotN(UP,1),down:rotN(UP,2),left:rotN(UP,3)};
+const ORI={
+  tip_up:{n:'Tip up',hue:95,set:ARROW.up},
+  tip_down:{n:'Tip down',hue:230,set:ARROW.down},
+  left_up:{n:'Left up',hue:330,set:ARROW.left},
+  right_up:{n:'Right up',hue:160,set:ARROW.right},
+  face_up:{n:'Face up',hue:60,set:PERIM.concat([12])},
+  face_down:{n:'Face down',hue:285,set:XPAT}
+};
+const TAGS=['note_a','note_b','note_c','eggs','sugar','flour','stop','go','freeze','run','dance'];
+const PASTELS=['#fff0f6','#f2eefc','#e9fbf6','#fff8e0'];
+const OFF='#231f2e';
+function paint(set,on){const a=[];
+  for(let i=0;i<25;i++){const v=set.indexOf(i)>=0;
+    a.push({c:v?on:OFF,g:v?('0 0 10px '+on+', inset 0 0 4px rgba(255,255,255,.45)'):'inset 0 0 0 1px rgba(255,255,255,.05)'});}
+  return a;}
+function hash(s){let h=7;for(let i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))|0;return Math.abs(h);}
+function tagSet(h){const s=[];for(let i=0;i<25;i++)if(((h*(i+3))%17)<7)s.push(i);return s.length?s:CENTER;}
+const MARKS=['≡','≈','~','∴','·'];
+
+class Component extends DCLogic {
+  constructor(p){super(p);this.t={};this.seq=0;
+    this.state={ax:0,ay:0,faceDown:false,orient:'face_up',motor:false,mute:!!p.defaultMute,tone:0,
+      flash:null,log:[],free:'',esp:'',shake:60,drawer:false,pressed:false,held:false,
+      gestureAnim:'none',agitrons:[],pings:[],hovering:false,advanced:false};}
+  componentWillUnmount(){Object.keys(this.t).forEach(k=>clearTimeout(this.t[k]));}
+  lines(){const n=parseInt(this.props.logLines,10);return n>0?n:2;}
+  log(s){const t=new Date().toTimeString().slice(0,8);
+    this.setState(p=>({log:[{t:t,s:s}].concat(p.log).slice(0,30)}));}
+
+  beep(freq,dur){
+    if(!this.state.mute){try{
+      if(!this.ac)this.ac=new (window.AudioContext||window.webkitAudioContext)();
+      const ac=this.ac;if(ac.state==='suspended')ac.resume();
+      const o=ac.createOscillator(),g=ac.createGain();
+      o.type='triangle';o.frequency.value=freq;o.connect(g);g.connect(ac.destination);
+      const t0=ac.currentTime;g.gain.setValueAtTime(0.0001,t0);
+      g.gain.exponentialRampToValueAtTime(0.08,t0+0.012);
+      g.gain.exponentialRampToValueAtTime(0.0001,t0+dur/1000);
+      o.start(t0);o.stop(t0+dur/1000+0.03);
+    }catch(e){}}
+    this.setState({tone:Math.round(freq)});
+    const hue=Math.round(((freq-120)/1300*320+20)%360);
+    this.ping('oklch(0.78 0.18 '+hue+')');
+    clearTimeout(this.t.tone);
+    this.t.tone=setTimeout(()=>this.setState({tone:0}),dur+160);
+  }
+  ping(color){const id=++this.seq;
+    this.setState(p=>({pings:p.pings.concat([{id:id,color:color}])}));
+    setTimeout(()=>this.setState(p=>({pings:p.pings.filter(x=>x.id!==id)})),560);}
+  buzz(ms){
+    this.setState({motor:true});
+    if(navigator.vibrate&&!this.state.mute){try{navigator.vibrate(ms);}catch(e){}}
+    this.spawnAgitrons();
+    clearTimeout(this.t.agi);
+    if(ms>260)this.t.agi=setTimeout(()=>this.spawnAgitrons(),240);
+    clearTimeout(this.t.motor);
+    this.t.motor=setTimeout(()=>this.setState({motor:false}),ms);
+  }
+  spawnAgitrons(){
+    const made=[];
+    for(let k=0;k<7;k++){
+      const id=++this.seq;
+      const side=k%2?1:-1, up=k<4?-1:1;
+      made.push({id:id,mark:MARKS[k%MARKS.length],
+        left:(side<0?(-6+Math.random()*8):(96+Math.random()*8))+'%',
+        top:(10+Math.random()*72)+'%',
+        size:(11+Math.random()*8)+'px',
+        rot:Math.round(-30+Math.random()*60)+'deg',
+        dx:Math.round(side*(12+Math.random()*16))+'px',
+        dy:Math.round(up*(6+Math.random()*14))+'px'});
+    }
+    this.setState(p=>({agitrons:p.agitrons.concat(made)}));
+    const ids=made.map(m=>m.id);
+    setTimeout(()=>this.setState(p=>({agitrons:p.agitrons.filter(a=>ids.indexOf(a.id)<0)})),520);
+  }
+  flash(leds,ms){this.setState({flash:leds});clearTimeout(this.t.f);
+    this.t.f=setTimeout(()=>this.setState({flash:null}),ms||620);}
+  fire(label,leds,freq,motorMs){this.log(label);this.flash(leds,620);this.beep(freq,180);if(motorMs)this.buzz(motorMs);}
+
+  detect(ax,ay,faceDown){
+    if(faceDown)return 'face_down';
+    if(Math.abs(ay)>=Math.abs(ax)){if(ay<=-45)return 'tip_up';if(ay>=45)return 'tip_down';}
+    else{if(ax<=-45)return 'left_up';if(ax>=45)return 'right_up';}
+    return 'face_up';
+  }
+  setAxes(ax,ay){
+    const k=this.detect(ax,ay,this.state.faceDown);
+    const changed=k!==this.state.orient;
+    this.setState({ax:ax,ay:ay,orient:k,hovering:true});
+    if(changed){const o=ORI[k];
+      this.log('orientation → '+o.n.toLowerCase());
+      this.flash(paint(o.set,'oklch(0.8 0.17 '+o.hue+')'),620);
+      this.beep(220+o.hue*1.7,170);}
+  }
+  padMove(e){
+    const r=e.currentTarget.getBoundingClientRect();
+    const ax=Math.max(-100,Math.min(100,Math.round(((e.clientX-r.left)/r.width-0.5)*230)));
+    const ay=Math.max(-100,Math.min(100,Math.round(((e.clientY-r.top)/r.height-0.5)*230)));
+    this.setAxes(ax,ay);
+  }
+  padLeave(){this.setState({hovering:false});if(this.state.pressed)this.btnUp();}
+  padDown(e){this.padMove(e);this.btnDown();}
+  flipOver(){
+    const nv=!this.state.faceDown;
+    this.setState({faceDown:nv});
+    this.playAnim('wandFlip .62s cubic-bezier(.4,.1,.3,1)',620);
+    const k=this.detect(this.state.ax,this.state.ay,nv);
+    this.setState({orient:k});
+    this.log('turned '+(nv?'face down':'face up'));
+    this.flash(paint(ORI[k].set,'oklch(0.8 0.17 '+ORI[k].hue+')'),620);
+    this.beep(nv?300:620,190);this.buzz(120);
+  }
+  playAnim(a,ms){this.setState({gestureAnim:'none'});
+    clearTimeout(this.t.anim0);clearTimeout(this.t.anim1);
+    this.t.anim0=setTimeout(()=>this.setState({gestureAnim:a}),20);
+    this.t.anim1=setTimeout(()=>this.setState({gestureAnim:'none'}),ms+40);}
+  jump(){this.playAnim('wandJump .62s cubic-bezier(.3,.7,.4,1)',620);
+    this.fire('jump',paint(PLUS,'#fff6dd'),780,90);}
+  shakeIt(){const m=this.state.shake,set=[];
+    for(let k=0;k<25;k++)if(Math.random()*100<m)set.push(k);
+    this.playAnim('wandShake '+(0.62-m*0.0022).toFixed(2)+'s ease-in-out',640);
+    this.fire('shake — how hard: '+m,paint(set,'oklch(0.82 0.17 70)'),260+m*4,60+Math.round(m*2.4));}
+  spin(){this.playAnim('wandFlip .58s cubic-bezier(.4,.05,.3,1)',600);
+    this.fire('spin',paint(XPAT,'oklch(0.8 0.17 330)'),520,150);}
+  press(hold){this.fire('button '+(hold?'held':'tapped'),
+    paint(hold?PERIM.concat([12]):CENTER,'#fffaf0'),hold?240:560,hold?220:0);}
+  btnDown(){clearTimeout(this.t.h);this.setState({held:false,pressed:true});
+    this.t.h=setTimeout(()=>{this.setState({held:true});this.press(true);},450);}
+  btnUp(){clearTimeout(this.t.h);this.setState({pressed:false});
+    if(this.state.held)this.setState({held:false});else this.press(false);}
+  tag(str,src){const v=(str||'').trim();if(!v)return;
+    const h=hash(v.toLowerCase()),hue=h%360;
+    this.fire((src==='esp'?'message':'tag')+' "'+v+'"',paint(tagSet(h),'oklch(0.8 0.17 '+hue+')'),200+hue*1.6,src==='esp'?80:0);}
+  reset(){Object.keys(this.t).forEach(k=>clearTimeout(this.t[k]));
+    this.setState({ax:0,ay:0,faceDown:false,orient:'face_up',motor:false,tone:0,flash:null,log:[],
+      free:'',esp:'',drawer:false,pressed:false,held:false,gestureAnim:'none',agitrons:[],pings:[]});
+    this.log('started over — everything back at rest');this.beep(720,190);this.flash(paint(PERIM,'#22c3a6'),620);}
+
+  renderVals(){
+    const s=this.state,o=ORI[s.orient];
+    const hue=s.tone?Math.round(((s.tone-120)/1300*320+20)%360):0;
+    const tone=s.tone?'oklch(0.78 0.18 '+hue+')':'#2d2d2d';
+    const axis=(n,val)=>({n:n,v:(val>0?'+':'')+val,
+      left:(val<0?(50+val/2):50)+'%',w:(Math.abs(val)/2)+'%'});
+    const az=s.faceDown?-98:Math.round(98-(Math.abs(s.ax)+Math.abs(s.ay))*0.42);
+    const quiet='#c2b8d6', hot='#d13a7c';
+    return {
+      leds:s.flash||paint(o.set,'oklch(0.55 0.11 '+o.hue+')'),
+      spk:tone,spkGlow:s.tone?'0 0 16px '+tone:'none',
+      tilt3d:'perspective(950px) rotateY('+(s.ax*0.42)+'deg) rotateX('+(-s.ay*0.42)+'deg)'+(s.faceDown?' rotateY(180deg)':''),
+      gestureAnim:s.gestureAnim,
+      agitrons:s.agitrons,pings:s.pings,
+      status:o.n+' — sound '+(s.mute?'off':'on'),
+      soundOn:!s.mute,
+      padHint:s.pressed?'button down':(s.hovering?'click to press':'move to tilt · click to press'),
+      hintTopColor:s.orient==='tip_up'?hot:quiet,
+      hintBottomColor:s.orient==='tip_down'?hot:quiet,
+      hintLeftColor:s.orient==='left_up'?hot:quiet,
+      hintRightColor:s.orient==='right_up'?hot:quiet,
+      axes:[axis('X',s.ax),axis('Y',s.ay),axis('Z',az)],
+      faceDownBg:s.faceDown?'#f2eefc':'#fff',
+      faceDownBorder:s.faceDown?'#6c4cd1':'#e8e6f0',
+      faceDownFg:s.faceDown?'#6c4cd1':'#5b5468',
+      shake:s.shake,onShake:e=>this.setState({shake:parseInt(e.target.value,10)}),
+      btnSh:s.pressed?'0 1px 0 rgba(35,31,46,.35)':'0 5px 0 rgba(35,31,46,.35)',
+      btnPr:s.pressed?'translateY(4px)':'none',
+      btnDown:()=>this.btnDown(),btnUp:()=>this.btnUp(),
+      padMove:e=>this.padMove(e),padLeave:()=>this.padLeave(),
+      padDown:e=>this.padDown(e),padUp:()=>{if(this.state.pressed)this.btnUp();},
+      advanced:s.advanced,
+      simpleBg:s.advanced?'transparent':'#fff0f6',
+      simpleFg:s.advanced?'#8b859a':hot,
+      advBg:s.advanced?'#fff0f6':'transparent',
+      advFg:s.advanced?hot:'#8b859a',
+      setSimple:()=>this.setState({advanced:false}),
+      setAdvanced:()=>this.setState({advanced:true}),
+      padCursor:s.pressed?'grabbing':'pointer',
+      flipOver:()=>this.flipOver(),
+      jump:()=>this.jump(),shakeIt:()=>this.shakeIt(),spin:()=>this.spin(),
+      tags:TAGS.map((t,i)=>({t:t,bg:PASTELS[hash(t)%PASTELS.length],onClick:()=>this.tag(t,'nfc')})),
+      free:s.free,esp:s.esp,
+      onFree:e=>this.setState({free:e.target.value}),
+      onEsp:e=>this.setState({esp:e.target.value}),
+      sendFree:()=>this.tag(this.state.free,'free'),
+      sendEsp:()=>this.tag(this.state.esp,'esp'),
+      drawer:s.drawer,drawerCaret:s.drawer?'▲':'▼',
+      drawerT:()=>this.setState(p=>({drawer:!p.drawer})),
+      mute:()=>{this.setState(p=>({mute:!p.mute}));this.log('sound '+(s.mute?'on':'off'));},
+      reset:()=>this.reset(),
+      logs:s.log.slice(0,this.lines())
+    };
+  }
+}
+
+</script>
+</body>
+</html>
