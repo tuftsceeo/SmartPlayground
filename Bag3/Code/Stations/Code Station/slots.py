@@ -1,5 +1,5 @@
 """
-cap_code.py -- code_station capability: a row of NFC slots read as a sequence.
+slots.py -- this station's hardware: a row of NFC slots read as a sequence.
 
 Verbs, over ESP-NOW "cap" messages addressed to hubtype code_station:
 

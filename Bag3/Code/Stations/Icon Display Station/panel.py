@@ -1,5 +1,5 @@
 """
-cap_icon.py -- icon_station capability: a 16x16 full-colour icon panel.
+panel.py -- this station's hardware: a 16x16 full-colour icon panel.
 
 Verbs, over ESP-NOW "cap" messages addressed to hubtype icon_station:
 

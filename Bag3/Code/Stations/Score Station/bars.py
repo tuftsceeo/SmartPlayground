@@ -1,5 +1,5 @@
 """
-cap_score.py -- score_station capability: a bar-graph board.
+bars.py -- this station's hardware: a bar-graph board.
 
 Verbs, over ESP-NOW "cap" messages addressed to hubtype score_station:
 

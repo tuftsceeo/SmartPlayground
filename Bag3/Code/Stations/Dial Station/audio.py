@@ -1,5 +1,5 @@
 """
-cap_dial.py -- dial_station capability: track playback on the M5Dial's
+audio.py -- this station's hardware: track playback on the M5Dial's
 AudioPlayer unit.
 
 Verbs, over ESP-NOW "cap" messages addressed to hubtype dial_station:

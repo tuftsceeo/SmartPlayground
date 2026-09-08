@@ -12,6 +12,7 @@ and NTAG/Ultralight are handled.
 import sys
 import time
 from pn532 import MIFARE_AUTH_A, MIFARE_AUTH_B
+from game_store import is_valid_module
 
 COMMON_KEYS = [
     b'\xFF\xFF\xFF\xFF\xFF\xFF',
@@ -115,62 +116,6 @@ def _read_ntag_ndef(nfc):
         except Exception:
             break
     return nd
-
-
-# ─────────────────────────────────────────────
-# SLUG AND MODULE VALIDATION
-# ─────────────────────────────────────────────
-# A game is named by a slug; one device's part in it is named by a role. What
-# lands on flash and gets imported is the module name:
-#
-#     <slug>            single-role game
-#     <slug>_<role>     one role of a multi-role game
-#
-# A slug carries no underscore, so the first underscore always separates the
-# two. Both halves are lowercase and start with a letter, and the whole is a
-# legal MicroPython module name -- anything else is unimportable.
-#
-# Kept in lockstep with ChatBroadcast/js/gameName.js and lib/game_store.py.
-
-SLUG_MAX = 14
-ROLE_MAX = 9
-MODULE_MAX = 24
-
-
-def _is_lower_alnum(text, allow_underscore):
-    if not text or not ('a' <= text[0] <= 'z'):
-        return False
-    for ch in text:
-        if 'a' <= ch <= 'z' or '0' <= ch <= '9':
-            continue
-        if ch == '_' and allow_underscore:
-            continue
-        return False
-    return True
-
-
-def is_valid_slug(slug):
-    return len(slug or '') <= SLUG_MAX and _is_lower_alnum(slug, False)
-
-
-def is_valid_role(role):
-    return len(role or '') <= ROLE_MAX and _is_lower_alnum(role, True)
-
-
-def is_valid_module(module):
-    """True for "<slug>" or "<slug>_<role>"."""
-    if not module or len(module) > MODULE_MAX:
-        return False
-    slug, sep, role = module.partition('_')
-    if not is_valid_slug(slug):
-        return False
-    return is_valid_role(role) if sep else True
-
-
-def split_module(module):
-    """("<slug>", "<role>" or None). Assumes is_valid_module(module)."""
-    slug, sep, role = module.partition('_')
-    return (slug, role) if sep else (slug, None)
 
 
 # ─────────────────────────────────────────────
