@@ -160,9 +160,9 @@ export const CONTROLS_STYLE = `
 .pad-wand .wand-body { pointer-events: auto; }
 
 .pad-foot { display: flex; gap: 10px; align-items: flex-start; justify-content: space-between; }
-.status { display: flex; gap: 6px; align-items: center; font: 700 11px 'Nunito', system-ui, sans-serif; color: #5b5468; min-width: 0; }
+.status { flex: 1 1 auto; display: flex; gap: 6px; align-items: center; font: 700 11px 'Nunito', system-ui, sans-serif; color: #5b5468; min-width: 0; }
 .status-dot { width: 7px; height: 7px; border-radius: 50%; background: #22c3a6; flex: none; transition: background .2s; }
-.status-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.status-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .status.is-loading .status-dot { background: #ffd23f; animation: status-pulse 1s ease-in-out infinite; }
 .status.is-error { color: #b3261e; }
 .status.is-error .status-dot { background: #b3261e; }
@@ -198,7 +198,10 @@ export const CONTROLS_STYLE = `
 }
 .btn-stack:hover { border-color: #ef4d92; color: #d13a7c; background: #fff0f6; }
 .btn-stack.is-active { border-color: #6c4cd1; background: #f2eefc; color: #6c4cd1; }
-.pad-foot .btn-stack { flex: 1; min-width: 0; padding: 4px 0; }
+/* Fixed width: the status text beside it changes on every orientation
+   change, and a flexible button turned that into the whole row
+   resizing. 74px fits "Turn over" on one line at 10.5px/800. */
+.pad-foot .btn-stack { flex: 0 0 74px; width: 74px; padding: 4px 0; }
 
 .move-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 7px; margin-top: 12px; }
 .move-grid > .btn-stack:only-child { grid-column: span 2; }
