@@ -174,8 +174,17 @@ function assetUrl(rel) {
   return new URL(rel, import.meta.url).href;
 }
 
+/**
+ * The ~38 Python files below are one unit with this file: the bootstrap
+ * calls sim_state functions by name, so a stale copy of any of them breaks
+ * boot outright (an old sim_state.py against a new wand-sim.js raises
+ * `no attribute 'set_error_callback'`). A plain static server sends no
+ * Cache-Control, which leaves the browser free to heuristically cache the
+ * .py files while revalidating this module — exactly that skew. "no-cache"
+ * forces revalidation; it still takes a 304, so it stays cheap.
+ */
 async function fetchText(rel) {
-  const res = await fetch(assetUrl(rel));
+  const res = await fetch(assetUrl(rel), { cache: "no-cache" });
   if (!res.ok) throw new Error(`fetch ${rel}: ${res.status}`);
   return res.text();
 }
@@ -613,6 +622,17 @@ rt.bootstrap(file_contents=contents, workdir="/sim/vendor")
 
       await this._pyodide.runPythonAsync(`
 import sim_state
+_missing = [n for n in (
+    "set_led_callback", "set_pwm_callback", "set_motor_callback",
+    "set_print_callback", "set_log_callback", "set_error_callback",
+    "set_enow_sent_callback",
+) if not hasattr(sim_state, n)]
+if _missing:
+    raise RuntimeError(
+        "sim_state.py is out of date with wand-sim.js (missing %s) — "
+        "a cached copy is being served; reload without cache"
+        % ", ".join(_missing)
+    )
 sim_state.set_led_callback(_js_led)
 sim_state.set_pwm_callback(_js_pwm)
 sim_state.set_motor_callback(_js_motor)
