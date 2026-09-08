@@ -710,7 +710,7 @@ export function createControls(container, handlers = {}) {
     const buttonKind = caps?.button || "none";
     const tags = caps?.nfcTags || [];
 
-    el.hint.textContent = caps?.hint || "";
+    el.hint.textContent = "";
     el.hint.hidden = !caps?.hint;
 
     const uses = [];
