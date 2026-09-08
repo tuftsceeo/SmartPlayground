@@ -143,6 +143,15 @@ class Device:
         """Game slug to switch to, or None."""
         return self._exit[1] if isinstance(self._exit, tuple) else None
 
+    def take_exit(self):
+        """Read and clear what ended the game: None, "stop", or ("start", slug).
+
+        Cleared on read so a stop seen while idle is acted on once and does not
+        linger into the next game.
+        """
+        pending, self._exit = self._exit, None
+        return pending
+
     def pending_pull(self):
         """Module a getcode: card asked for, or None."""
         return self._pull
@@ -217,8 +226,8 @@ class Device:
             slug = data.get("slug")
             if slug and slug != self.slug and self.is_game(slug):
                 self._exit = ("start", slug)
-        elif op == "ident":
-            self._events.append(("ident", data, None))
+        elif op in ("ident", "battery"):
+            self._events.append((op, data, None))
 
     def _queue_evt(self, data, mac):
         slug = data.get("slug")

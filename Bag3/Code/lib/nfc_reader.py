@@ -5,7 +5,7 @@ Cards carry plain NDEF text: a game module name, a control tag ("stop",
 "start"), or a prefixed form such as "getcode:<module>". Both MIFARE Classic
 and NTAG/Ultralight are handled.
 
-    reader = NfcReader(nfc, commands, prefixes=("getcode:",))
+    reader = NfcReader(nfc, commands, prefixes=("getcode",))
     cmd, uid = reader.read_command(timeout=250)
 """
 
