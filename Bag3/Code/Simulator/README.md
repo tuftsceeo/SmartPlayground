@@ -12,7 +12,7 @@ design artboards in
 
 Games: `jump`, `shake`, `shake_rainbow`, `sound`, `rainbow`, `jumpin`,
 `nfc_sound`, `gestures`, `simpleicecream`, `melody`, `cooking`,
-`multiicecream`.
+`multiicecream`, `freeze_dance`.
 
 ## Run locally
 
@@ -94,6 +94,41 @@ gets it, but skips the beep if the loaded game already made its own sound in
 response within a short window (`melody.py`/`cooking.py`/`nfc_sound.py` all
 do) — see `_nfc_confirm_pulse()`'s docstring for the exact timing and why.
 
+## ESP-NOW is one-sided
+
+There is no second wand, so the radio is two halves that don't meet.
+
+**Outgoing.** `py/devices/espnow_manager.py` reports every send through
+`sim_state.emit_enow_sent()`, which the panel shows under "Sent by this
+wand" and the element re-emits as `sim-enow-sent`. Showing the message *is*
+the output — nothing receives it. `send_raw` is spelled out on the fake
+manager rather than left to its `__getattr__` no-op because
+`freeze_dance.py` drives the whole game through it.
+
+**Incoming.** The advanced block's "Heard from the caller" buttons queue
+messages via `sim_state.enqueue_enow()` as if a peer had sent them. A game
+reading a raw payload needs real bytes (`freeze_dance.py` compares against
+`MSG_GO = b"FD_GO"`), so `wand-sim.js` builds a hex-escaped Python bytes
+literal rather than passing a JS string. The vocabulary per game is
+`RADIO_BY_GAME` in `js/controls.js`; every game also gets `stop` and
+`start_game`, the two the hub broadcasts.
+
+`emit_log` and `emit_error` are deliberately separate channels. A send is
+routine traffic and must not reach the error channel — while they shared
+one callback, a Freeze Dance caller's every broadcast surfaced in the host
+as a crash (and, once the panel grew pop-ups, as "Can't simulate").
+`tests/test_espnow_channels.py` guards that.
+
+## Freeze Dance roles
+
+`freeze_dance.py` picks its role from the `caller` and `player` NFC tags, so
+they appear in the tag popover like any other tag — no special affordance.
+It is the one vendored game that names its tag set `GAME_COMMANDS` rather
+than the `COMMANDS` that `Wand Module/main.py` documents;
+`get_capabilities()` reads either, or the game would offer no tags at all
+and its role-select step would be unreachable. The naming divergence is in
+the Bag trees, not here, and has been left alone.
+
 ## Design notes
 
 - **Verbatim**: `leds.py`, `buzzer.py`, `brightness.py`, `hubtype.py`,
@@ -119,6 +154,9 @@ do) — see `_nfc_confirm_pulse()`'s docstring for the exact timing and why.
   note's color and emits a ring per note; the motor raises a "BUZZ" badge and
   a repeating burst of agitrons), not on separate indicator chips. The raw
   Hz / on-off readout lives in the advanced block.
+- No per-game "how to play" text: the panel's readers are mostly
+  pre-readers, so `_TEACHER_TABLE` carries only the button kind and motion
+  vocabulary that drive which controls are shown.
 - Icons are inline SVG in `js/icons.js`, copied from
   `ChatBroadcast/js/icons.js` rather than imported — ChatBroadcast depends on
   this directory, so the dependency must not run both ways.
@@ -135,7 +173,8 @@ do) — see `_nfc_confirm_pulse()`'s docstring for the exact timing and why.
   embedding host opts in explicitly), `log-lines` (default 2).
   Events: `sim-ready`, `sim-frame`, `sim-print`, `sim-error` (`detail.phase`
   is `"boot"`, `"load"`, or `"run"`), `sim-stopped`, `sim-overlay-action`
-  (`detail` is `{ kind, action }`).
+  (`detail` is `{ kind, action }`), `sim-enow-sent` (`detail` is
+  `{ kind, data, mac }`).
 - Pop-ups: `showOverlay(kind, opts)` / `hideOverlay()`, where `kind` is
   `"game-over"`, `"cant-simulate"`, `"welcome"` or `"new-code"` (a
   bottom-anchored banner; the rest are centred cards over a scrim). `opts`

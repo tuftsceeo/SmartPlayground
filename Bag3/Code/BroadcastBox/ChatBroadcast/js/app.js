@@ -10,7 +10,7 @@ import {
 } from './editor.js';
 import { uploadPayload } from './upload.js';
 import { showTagChecklist, updateTagChecklist } from './nfc.js';
-import { EXAMPLES, CATEGORIES, findExample } from './examples.js';
+import { EXAMPLES, CATEGORIES, findExample, loadExampleCode } from './examples.js';
 import { showView, showOverlay, hideOverlay, setConnectionBadge, toast, setSendProgress, showConnectToast, syncNavTabs } from './router.js';
 import { createDeviceLink } from './device/bboxDeviceLink.js';
 import { subscribe, getEntries, toText } from './device/serialLog.js';
@@ -853,10 +853,14 @@ class App {
                 // Look-what-it-does preview — already playing when the
                 // teacher gets here.
                 sim.autostart = true;
-                // Set before .source — the source setter is what triggers
-                // the load whose capabilities this filters.
-                sim.profile = ex.simProfile || null;
-                sim.source = ex.startingCode;
+                // Load the real game by name rather than pushing source:
+                // Pyodide reads the vendored .py it already has, and
+                // get_capabilities() finds its _TEACHER_TABLE entry instead
+                // of falling back to "show everything" — so no profile is
+                // needed here, unlike a generated game.
+                sim.profile = null;
+                sim.source = null;
+                sim.game = ex.vendorGame;
                 host.appendChild(sim);
                 host.classList.add('has-sim');
                 this._detailSim = sim;
@@ -944,7 +948,7 @@ class App {
         this.updatePreview();
     }
 
-    remixCurrentExample() {
+    async remixCurrentExample() {
         if (!this.currentExample) {
             dbgWarn('app', 'remixCurrentExample() called with no currentExample set');
             return;
@@ -953,14 +957,28 @@ class App {
         this.gameName = this.currentExample.name;
         this.gameDesc = this.currentExample.description;
         this.declaredTags = [...this.currentExample.tags];
-        if (this.currentExample.startingCode) {
-            setCode(this.currentExample.startingCode);
-            saveVersion(this.currentExample.startingCode, `${this.currentExample.name} (remix base)`);
+        const code = await this.fetchExampleCode(this.currentExample);
+        if (code) {
+            setCode(code);
+            saveVersion(code, `${this.currentExample.name} (remix base)`);
             this.dirty = true;
         }
         this.openWorkspace(this.currentExample.starterPrompt);
         addMsg(`Let's remix ${this.currentExample.name}! What would you like to change?`, 'system');
         this.updatePreview();
+    }
+
+    /** The example's real Python, or null if it couldn't be read. A failure
+     * is surfaced, not swallowed: without the code there is nothing to
+     * remix, save or send. */
+    async fetchExampleCode(ex) {
+        try {
+            return await loadExampleCode(ex);
+        } catch (err) {
+            dbgError('app', `could not read ${ex.vendorGame}.py: ${err.message}`);
+            toast("Couldn't read that game's code — check the Simulator folder is being served.", true);
+            return null;
+        }
     }
 
     async useExampleAsIs() {
@@ -975,14 +993,12 @@ class App {
         showView('workspace');
         addMsg(`Using ${this.currentExample.name} as-is.`, 'system');
 
-        // TODO(phase E): startingCode required for send — now wired below
-        if (this.currentExample.startingCode) {
-            setCode(this.currentExample.startingCode);
-            saveVersion(this.currentExample.startingCode, `${this.currentExample.name} as-is`);
+        const code = await this.fetchExampleCode(this.currentExample);
+        if (code) {
+            setCode(code);
+            saveVersion(code, `${this.currentExample.name} as-is`);
             this.dirty = true;
         } else {
-            dbgWarn('app', `useExampleAsIs("${this.currentExample.id}") — no startingCode; send may fail`);
-            toast('This example has no starter code yet.', true);
             this.updatePreview();
             return;
         }
@@ -1058,6 +1074,11 @@ class App {
         const isUpdate = this._simLastSource != null;
         this._simLastSource = code;
         this._sim.hideOverlay();
+        // Workspace code is pushed as source — it may have been edited — so
+        // _TEACHER_TABLE can't match it and capabilities fall back to "show
+        // everything". The example's own profile is what narrows that back
+        // down; a game generated from scratch has none and shows the lot.
+        this._sim.profile = this.currentExample?.simProfile || null;
         this._sim.source = code;
         if (isUpdate) this._sim.showOverlay('new-code');
     }

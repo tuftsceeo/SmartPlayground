@@ -56,6 +56,7 @@ GAMES = [
     "melody.py",
     "cooking.py",
     "multiicecream.py",
+    "freeze_dance.py",
 ]
 
 

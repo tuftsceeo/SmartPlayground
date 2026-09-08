@@ -206,7 +206,7 @@ export const WAND_STYLE = `
 /* Reads against the back face's purple, not the pad's near-white, so it
    takes the darker ink rather than the muted grey used elsewhere. */
 .wand-mini-caption {
-  font: 400 13px 'Patrick Hand', cursive; color: #5b5468;
+  font: 400 13px 'Patrick Hand', 'Nunito', system-ui, sans-serif; color: #5b5468;
   line-height: 1; white-space: nowrap;
 }
 

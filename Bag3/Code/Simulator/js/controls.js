@@ -43,6 +43,23 @@ const MOVE_ORDER = ["jump", "shake", "flip"];
 const MOVE_LABELS = { jump: "Jump", shake: "Shake", flip: "Spin" };
 const MOVE_ICONS = { jump: "arrow-up", shake: "vibrate", flip: "shuffle" };
 
+// ESP-NOW messages a game listens for, keyed by vendored game name. The
+// simulator has no second wand, so these buttons stand in for one. `stop`
+// and `start_game` are what the hub broadcasts and every game watches for;
+// a raw payload is the game's own wire format.
+const RADIO_COMMON = [
+  { label: "stop", type: "stop" },
+  { label: "start_game", type: "start_game" },
+];
+const RADIO_BY_GAME = {
+  freeze_dance: [
+    { label: "GO", type: "raw", data: "FD_GO" },
+    { label: "FREEZE", type: "raw", data: "FD_FREEZE" },
+    { label: "DANCE", type: "raw", data: "FD_DANCE" },
+    { label: "RESET", type: "raw", data: "FD_RESET" },
+  ],
+};
+
 // Pale violet-leaning pastels — the tint scale the design system uses for
 // all state work. Assigned per tag name so a given tag keeps its color.
 const PASTELS = ["#fff0f6", "#f2eefc", "#e9fbf6", "#fff8e0"];
@@ -100,7 +117,7 @@ export const CONTROLS_STYLE = `
   display: flex; flex-direction: column; gap: 6px;
   padding: 14px 0 14px 14px; box-sizing: border-box;
 }
-.pad-hint { font: 400 14px 'Patrick Hand', cursive; color: #8b859a; line-height: 1.2; }
+.pad-hint { font: 400 14px 'Patrick Hand', 'Nunito', system-ui, sans-serif; color: #8b859a; line-height: 1.2; }
 .axis-row { display: flex; flex-wrap: wrap; gap: 6px 12px; }
 .axis { display: flex; align-items: center; gap: 5px; }
 .axis-name { font: 700 10px ui-monospace, monospace; color: #8b859a; }
@@ -170,7 +187,6 @@ export const CONTROLS_STYLE = `
 .icon-btn:disabled { opacity: .7; cursor: not-allowed; }
 .icon-btn:disabled:hover { color: #5b5468; border-color: #e8e6f0; }
 
-.hint { font: 400 14px 'Patrick Hand', cursive; color: #8b859a; line-height: 1.25; }
 
 /* Stacked icon-over-label button — Jump, Spin, Shake, Turn over. */
 .btn-stack {
@@ -213,8 +229,9 @@ export const CONTROLS_STYLE = `
   border-radius: 20px; box-shadow: 0 24px 60px rgba(0,0,0,.22); padding: 12px;
   display: flex; flex-direction: column; gap: 9px;
 }
-.tag-pop-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.tag-pop-head span { font: 400 14px 'Patrick Hand', cursive; color: #8b859a; line-height: 1; }
+/* Just the close button, right-aligned: the popover's tag chips say what
+   it is, so it carries no caption. */
+.tag-pop-head { display: flex; align-items: center; justify-content: flex-end; }
 .btn-bare {
   display: flex; align-items: center; justify-content: center; background: none;
   border: 0; padding: 0; color: #8b859a; cursor: pointer; flex: none;
@@ -243,7 +260,7 @@ export const CONTROLS_STYLE = `
 .btn-pink { background: linear-gradient(135deg, #ef4d92, #d13a7c); }
 .btn-purple { background: linear-gradient(135deg, #6c4cd1, #4f36a3); }
 
-.zero-state { font: 400 14px 'Patrick Hand', cursive; color: #c2b8d6; padding: 8px 0; }
+.zero-state { font: 400 14px 'Patrick Hand', 'Nunito', system-ui, sans-serif; color: #c2b8d6; padding: 8px 0; }
 
 /* ── Advanced ────────────────────────────────────────────────────────── */
 .adv-block { display: flex; flex-direction: column; gap: 6px; margin-top: auto; }
@@ -266,6 +283,21 @@ export const CONTROLS_STYLE = `
 }
 .ctrl-btn:hover { border-color: #6c4cd1; color: #6c4cd1; }
 .adv-status { font: 700 11px ui-monospace, monospace; color: #8b859a; }
+
+/* ESP-NOW. There is no second wand in the simulator, so the radio is
+   two one-sided halves: buttons that fake what a caller would broadcast,
+   and a readout of what this wand transmitted. */
+.radio-block { display: flex; flex-direction: column; gap: 4px; border-top: 1px solid #f4f2fa; padding-top: 7px; }
+.radio-label { font: 800 10px 'Nunito', system-ui, sans-serif; letter-spacing: .06em; color: #c2b8d6; }
+.radio-row { display: flex; flex-wrap: wrap; gap: 5px; }
+.radio-btn {
+  padding: 5px 10px; border-radius: 20px; border: 1.5px solid #e8e6f0;
+  background: #f2eefc; color: #6c4cd1; cursor: pointer;
+  font: 700 10.5px ui-monospace, monospace; transition: all .15s;
+}
+.radio-btn:hover { border-color: #6c4cd1; background: #e9e2fb; }
+.radio-sent { font: 700 10.5px ui-monospace, monospace; color: #5b5468; }
+.radio-sent.is-idle { color: #c2b8d6; font-weight: 400; }
 .log { font: 400 10px/1.5 ui-monospace, monospace; color: #8b859a; overflow: hidden; }
 .log-line { display: flex; gap: 8px; }
 .log-line > span:first-child { color: #c2b8d6; flex: none; }
@@ -320,8 +352,6 @@ export function createControls(container, handlers = {}) {
                 title="Start over">${icon("mop-sparkles", 18)}</button>
       </div>
 
-      <div class="hint" data-el="hint" hidden></div>
-
       <div class="move-grid" data-el="move-grid" hidden>
         <button type="button" class="btn-stack" data-move="jump" title="Toss the wand up">${icon("arrow-up", 18)}Jump</button>
         <button type="button" class="btn-stack" data-move="flip" title="Spin it over once">${icon("shuffle", 18)}Spin</button>
@@ -343,7 +373,6 @@ export function createControls(container, handlers = {}) {
           <div class="tag-scrim" data-act="tag-close" title="Close"></div>
           <div class="tag-pop">
             <div class="tag-pop-head">
-              <span>hold a card on the wand</span>
               <button type="button" class="btn-bare" data-act="tag-close" title="Close">${icon("close", 14)}</button>
             </div>
             <div class="tag-list" data-el="tag-list"></div>
@@ -373,6 +402,13 @@ export function createControls(container, handlers = {}) {
           <div class="field-row">
             <input class="field" data-act="enow-input" placeholder="message from another wand">
             <button type="button" class="btn-purple" data-act="enow-send">Send</button>
+          </div>
+
+          <div class="radio-block">
+            <div class="radio-label">Heard from the caller</div>
+            <div class="radio-row" data-el="enow-recv"></div>
+            <div class="radio-label">Sent by this wand</div>
+            <div class="radio-sent" data-el="enow-sent">nothing yet</div>
           </div>
         </div>
 
@@ -405,7 +441,6 @@ export function createControls(container, handlers = {}) {
     wand: q('[data-el="wand"]'),
     status: q('[data-el="status"]'),
     statusText: q('[data-el="status-text"]'),
-    hint: q('[data-el="hint"]'),
     moveGrid: q('[data-el="move-grid"]'),
     shakeRow: q('[data-el="shake-row"]'),
     shakeVal: q('[data-el="shake-val"]'),
@@ -415,6 +450,8 @@ export function createControls(container, handlers = {}) {
     zeroState: q('[data-el="zero-state"]'),
     uses: q('[data-el="uses"]'),
     log: q('[data-el="log"]'),
+    enowRecv: q('[data-el="enow-recv"]'),
+    enowSent: q('[data-el="enow-sent"]'),
     advBuzzer: q('[data-el="adv-buzzer"]'),
     advMotor: q('[data-el="adv-motor"]'),
   };
@@ -663,6 +700,8 @@ export function createControls(container, handlers = {}) {
   const sendEnow = () => {
     const msg = enowInput.value.trim();
     if (!msg) return;
+    // No payload: this field sends a bare msg_type, which is what the
+    // hub-style messages (stop / start_game) look like on the wire.
     handlers.onEnow?.(msg);
   };
   q('[data-act="enow-send"]').addEventListener("click", sendEnow);
@@ -687,6 +726,31 @@ export function createControls(container, handlers = {}) {
   function setBuzzerStatus(text) { el.advBuzzer.textContent = text; }
   function setMotorStatus(text) { el.advMotor.textContent = text; }
 
+  // ── ESP-NOW ─────────────────────────────────────────────────────────
+  function renderRadio(gameName) {
+    const msgs = (RADIO_BY_GAME[gameName] || []).concat(RADIO_COMMON);
+    el.enowRecv.innerHTML = "";
+    for (const m of msgs) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "radio-btn";
+      b.textContent = m.label;
+      b.title = m.data
+        ? `Receive ${m.data} as if a caller broadcast it`
+        : `Receive a ${m.label} message`;
+      b.addEventListener("click", () => handlers.onEnow?.(m.type, m.data));
+      el.enowRecv.appendChild(b);
+    }
+  }
+
+  /** What this wand just transmitted — with no peer to receive it, showing
+   * it is the whole of a send's output. */
+  function setEnowSent(kind, data) {
+    const text = data ? `${kind} ${data}` : kind;
+    el.enowSent.textContent = text;
+    el.enowSent.classList.remove("is-idle");
+  }
+
   // ── Log ─────────────────────────────────────────────────────────────
   let log = [];
   function renderLog() {
@@ -709,9 +773,6 @@ export function createControls(container, handlers = {}) {
     const moveNames = MOVE_ORDER.filter((n) => motion.has(n));
     const buttonKind = caps?.button || "none";
     const tags = caps?.nfcTags || [];
-
-    el.hint.textContent = caps?.hint || "";
-    el.hint.hidden = !caps?.hint;
 
     const uses = [];
     if (poseNames.length) uses.push("orientation");
@@ -738,6 +799,10 @@ export function createControls(container, handlers = {}) {
     renderTags(tags);
     el.tagWrap.hidden = tags.length === 0;
 
+    renderRadio(caps?.game);
+    el.enowSent.textContent = "nothing yet";
+    el.enowSent.classList.add("is-idle");
+
     el.zeroState.hidden = !(poseNames.length === 0 && moveNames.length === 0 &&
       buttonKind === "none" && tags.length === 0);
   }
@@ -761,6 +826,7 @@ export function createControls(container, handlers = {}) {
   return {
     setCapabilities, setMuted, setConsoleShown, setRestartEnabled, resetPose,
     setBuzzerStatus, setMotorStatus, setAdvanced, setRunState, setAxes, setLog,
+    setEnowSent,
     dispose, wandHost: el.wand, root,
   };
 }

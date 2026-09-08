@@ -5,6 +5,11 @@
       "source": "Bag2/Code/Wand Module/cooking.py",
       "vendor_sha256": "2282f23ddebe7587402ee8b0e1b6cdd9cb858f9034ae947fe03a0d1e40deee2b"
     },
+    "games/freeze_dance.py": {
+      "sha256": "220770aaa10bf25fdceb842aa010bc557fb2fc40cc411d2d6d717df14e0c5611",
+      "source": "Bag2/Code/Wand Module/freeze_dance.py",
+      "vendor_sha256": "220770aaa10bf25fdceb842aa010bc557fb2fc40cc411d2d6d717df14e0c5611"
+    },
     "games/gestures.py": {
       "sha256": "97e2711affd64313bc95ebf32aa6edb1c674bddd676cbaa6b27e0e9b1b4583ca",
       "source": "Bag2/Code/Wand Module/gestures.py",

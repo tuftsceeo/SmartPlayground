@@ -16,6 +16,9 @@
  *   sim-error — detail.phase is one of "boot" / "load" / "run"
  *   sim-overlay-action — detail is { kind, action }, fired when a button on
  *     one of the overlays is pressed (see showOverlay below)
+ *   sim-enow-sent — detail is { kind, data, mac }, fired when the running
+ *     game transmits over ESP-NOW. The simulator has no second wand, so
+ *     this (and the panel's radio readout) is a send's only output.
  */
 
 import { createRenderer, dutyRgbToCss, WAND_STYLE } from "./js/renderer.js";
@@ -122,7 +125,7 @@ const SHELL_STYLE = `
 .is-banner .ov-tint { width: 52px; height: 52px; border-radius: 16px; }
 .ov-copy { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
 .ov-title { font: 900 24px 'Nunito', system-ui, sans-serif; color: #231f2e; line-height: 1.1; }
-.ov-sub { font: 400 15px 'Patrick Hand', cursive; color: #8b859a; line-height: 1.2; }
+.ov-sub { font: 400 15px 'Patrick Hand', 'Nunito', system-ui, sans-serif; color: #8b859a; line-height: 1.2; }
 .is-banner .ov-head { flex: 1; min-width: 0; }
 .is-banner .ov-title { font: 800 14px 'Nunito', system-ui, sans-serif; text-wrap: pretty; }
 .is-banner .ov-sub { font-size: 13px; }
@@ -150,6 +153,22 @@ const SHELL_STYLE = `
 `;
 
 const STYLE = SHELL_STYLE + WAND_STYLE + CONTROLS_STYLE;
+
+/**
+ * A Python bytes literal for `str`, hex-escaped throughout so nothing in
+ * the text can terminate the literal or be re-interpreted as an escape.
+ * ESP-NOW payloads are compared as bytes on the wire (freeze_dance.py's
+ * MSG_GO is `b"FD_GO"`), so a str would never compare equal.
+ */
+function pyBytes(str) {
+  let out = 'b"';
+  for (const ch of String(str)) {
+    for (const byte of new TextEncoder().encode(ch)) {
+      out += "\\x" + byte.toString(16).padStart(2, "0");
+    }
+  }
+  return out + '"';
+}
 
 function assetUrl(rel) {
   return new URL(rel, import.meta.url).href;
@@ -235,6 +254,7 @@ const FILE_LIST = [
   "vendor/games/melody.py",
   "vendor/games/cooking.py",
   "vendor/games/multiicecream.py",
+  "vendor/games/freeze_dance.py",
 ];
 
 class WandSim extends HTMLElement {
@@ -391,9 +411,12 @@ class WandSim extends HTMLElement {
         this._logLine(`tag "${cmd}"`);
         this._runPython(`sim_state.tap_nfc(${JSON.stringify(cmd)})`);
       },
-      onEnow: (t) => {
-        this._logLine(`message "${t}"`);
-        this._runPython(`sim_state.enqueue_enow(${JSON.stringify(t)})`);
+      onEnow: (msgType, data) => {
+        this._logLine(data ? `heard ${msgType} "${data}"` : `heard "${msgType}"`);
+        const args = data == null
+          ? JSON.stringify(msgType)
+          : `${JSON.stringify(msgType)}, ${pyBytes(data)}`;
+        this._runPython(`sim_state.enqueue_enow(${args})`);
       },
     });
 
@@ -569,8 +592,23 @@ rt.bootstrap(file_contents=contents, workdir="/sim/vendor")
         self._logLine(line);
         self.dispatchEvent(new CustomEvent("sim-print", { detail: { text: line } }));
       });
+      // Diagnostic trace, not a failure — a library that wouldn't load, a
+      // radio message going out. This used to be wired to sim-error, which
+      // meant every ESP-NOW broadcast read as a crash to the host.
       this._pyodide.globals.set("_js_log", (t) => {
-        self.dispatchEvent(new CustomEvent("sim-error", { detail: { message: String(t), phase: "run" } }));
+        self._logLine(String(t));
+      });
+      // A traceback out of the running game goes through the same path as a
+      // boot/load failure: the game is dead either way, and leaving only a
+      // red status line behind is too quiet for something this final.
+      this._pyodide.globals.set("_js_error", (t) => {
+        self._fail("run", String(t));
+      });
+      this._pyodide.globals.set("_js_enow_sent", (kind, data, mac) => {
+        self._controls?.setEnowSent(String(kind), String(data || ""));
+        self.dispatchEvent(new CustomEvent("sim-enow-sent", {
+          detail: { kind: String(kind), data: String(data || ""), mac: String(mac || "") },
+        }));
       });
 
       await this._pyodide.runPythonAsync(`
@@ -580,6 +618,8 @@ sim_state.set_pwm_callback(_js_pwm)
 sim_state.set_motor_callback(_js_motor)
 sim_state.set_print_callback(_js_print)
 sim_state.set_log_callback(_js_log)
+sim_state.set_error_callback(_js_error)
+sim_state.set_enow_sent_callback(_js_enow_sent)
 `);
       // Held once so per-frame accel/button pushes call methods directly
       // instead of recompiling a Python source string every tick.
@@ -608,7 +648,9 @@ sim_state.set_log_callback(_js_log)
     this._setStatus("error", message);
     this.showOverlay("cant-simulate", {
       message: phase === "boot"
+        // boot = Pyodide itself never came up, so no game is at fault.
         ? "the practice window isn't available right now — you can still send this game to your wand"
+        // load = it wouldn't compile; run = it crashed mid-play. Same advice.
         : "this game is a bit too tricky for the practice window — send it to your wand to try it for real",
     });
     this.dispatchEvent(new CustomEvent("sim-error", { detail: { message: String(err), phase } }));
@@ -661,7 +703,10 @@ sim_state.set_log_callback(_js_log)
    * it doesn't mention (nfcTags, battery) stays derived from the code. */
   _applyCapabilities() {
     if (!this._caps) return;
-    this._controls.setCapabilities(this._profile ? { ...this._caps, ...this._profile } : this._caps);
+    // `game` lets the panel pick the ESP-NOW vocabulary this game listens
+    // for; source-loaded code has no vendored name to match on.
+    const base = { ...this._caps, game: this._source ? null : this.game };
+    this._controls.setCapabilities(this._profile ? { ...base, ...this._profile } : base);
   }
 
   async _loadAndMaybeStart() {
