@@ -9,7 +9,7 @@ import {
     onPrevVersion, onNextVersion, getVersionCount, onDownload,
 } from './editor.js';
 import { uploadPayload } from './upload.js';
-import { showTagChecklist, deriveRequiredTags, tagCountLabel } from './nfc.js';
+import { showTagChecklist, deriveRequiredTagsDetailed, tagCountLabel } from './nfc.js';
 import { EXAMPLES, CATEGORIES, findExample } from './examples.js';
 import { showView, showOverlay, hideOverlay, setConnectionBadge, toast, setSendProgress } from './router.js';
 import { createDeviceLink } from './device/bboxDeviceLink.js';
@@ -71,6 +71,12 @@ class App {
         this.gameName = 'Your game';
         this.gameDesc = '';
         this.requiredTags = ['jumpin'];
+        // Cards named by a chat [NFC_CARDS:] marker; they outrank what the
+        // code declares. Cleared whenever a different game is loaded.
+        this._nfcCardsFromChat = null;
+        // Names in a COMMANDS expression that could not be reduced to tag
+        // literals. Surfaced on the checklist rather than silently dropped.
+        this._tagUnresolved = [];
         this.galleryFilter = 'all';
         this.galleryMode = 'examples'; // 'examples' | 'saved'
         this.serialOpen = false; // serial log drawer — NOT the port
@@ -667,6 +673,7 @@ class App {
         this.gameName = g.name;
         this.gameDesc = g.desc || '';
         this.requiredTags = g.requiredTags || ['jumpin'];
+        this._nfcCardsFromChat = null;
         this.chatHistory = Array.isArray(g.chatHistory) ? g.chatHistory.slice() : [];
         showView('workspace');
         const box = document.getElementById('chat-box');
@@ -692,7 +699,10 @@ class App {
         document.getElementById('detail-desc').textContent = ex.description;
         const note = document.getElementById('detail-tag-note');
         if (ex.tagNote) {
-            note.textContent = `needs ${ex.tags.length} NFC tags — ${ex.tagNote.toLowerCase()}`;
+            // Derived, not ex.tags: the checklist counts the pickup tags too,
+            // and a gallery card that disagrees with it just confuses.
+            const n = deriveRequiredTagsDetailed(null, ex.startingCode, ex.name).tags.length;
+            note.textContent = `needs ${n} NFC tags — ${ex.tagNote.toLowerCase()}`;
             note.classList.remove('hidden');
         } else {
             note.classList.add('hidden');
@@ -812,7 +822,7 @@ class App {
         dbg('app', `remixCurrentExample("${this.currentExample.name}")`);
         this.gameName = this.currentExample.name;
         this.gameDesc = this.currentExample.description;
-        this.requiredTags = [...this.currentExample.tags];
+        this._nfcCardsFromChat = null;
         if (this.currentExample.startingCode) {
             setCode(this.currentExample.startingCode);
             saveVersion(this.currentExample.startingCode, `${this.currentExample.name} (remix base)`);
@@ -831,7 +841,7 @@ class App {
         dbg('app', `useExampleAsIs("${this.currentExample.name}")`);
         this.gameName = this.currentExample.name;
         this.gameDesc = this.currentExample.description;
-        this.requiredTags = [...this.currentExample.tags];
+        this._nfcCardsFromChat = null;
         showView('workspace');
         addMsg(`Using ${this.currentExample.name} as-is.`, 'system');
 
@@ -851,13 +861,32 @@ class App {
         await this.startSendFlow();
     }
 
+    /**
+     * Recompute the cards this game needs from the code now in the editor.
+     * Single source for both the checklist overlay and the tags pushed to
+     * the Box, so the two cannot disagree.
+     */
+    _refreshRequiredTags(code) {
+        const { tags, unresolved } = deriveRequiredTagsDetailed(
+            this._nfcCardsFromChat, code, this.gameName);
+        this.requiredTags = tags;
+        this._tagUnresolved = unresolved;
+        if (unresolved.length) {
+            dbgWarn('app', `tag set references unresolved names: ${unresolved.join(', ')}`);
+        }
+    }
+
+    /** Checklist warning text when the tag set could not be read in full. */
+    _tagWarning() {
+        if (!this._tagUnresolved?.length) return null;
+        return `Could not read the whole tag set — this app could not resolve `
+            + `${this._tagUnresolved.join(', ')}. The card list below may be incomplete.`;
+    }
+
     updatePreview() {
         const code = getCode();
 
-        this.requiredTags = deriveRequiredTags(null, code, this.gameName.toLowerCase());
-        if (this.currentExample?.tags?.length > this.requiredTags.length) {
-            this.requiredTags = [...this.currentExample.tags];
-        }
+        this._refreshRequiredTags(code);
 
         const runnable = isRunnableCode(code);
         document.getElementById('preview-panel').classList.toggle('hidden', !runnable);
@@ -1033,11 +1062,7 @@ class App {
             toast('Generate some code first — describe your game in chat.', true);
             return;
         }
-        this.requiredTags = deriveRequiredTags(null, code, this.gameName.toLowerCase());
-        // Prefer example tags when present and longer
-        if (this.currentExample && this.currentExample.tags && this.currentExample.tags.length > this.requiredTags.length) {
-            this.requiredTags = [...this.currentExample.tags];
-        }
+        this._refreshRequiredTags(code);
         dbg('app', `required tags: [${this.requiredTags.join(', ')}]`);
 
         if (this.requiredTags.length > 1) {
@@ -1047,6 +1072,7 @@ class App {
                 title: `This game needs ${n} tags`,
                 subtitle: tagCountLabel(n) || 'one per card',
                 tags: this.requiredTags,
+                warning: this._tagWarning(),
             });
             dbg('app', `tag checklist resolved: ${result.action}`);
             if (result.action === 'back') return;
@@ -1121,9 +1147,19 @@ class App {
         setSendProgress(0, 'Starting…');
 
         this.setLinkState('sending');
+        // The checklist ran before this name was settled, so re-derive against
+        // the slug actually being written.
+        const sent = deriveRequiredTagsDetailed(this._nfcCardsFromChat, code, check.pretty);
+        this.requiredTags = sent.tags;
+        dbg('app', `sending tags: [${sent.tags.join(', ')}]`);
         const result = await uploadPayload(this.device, code, window.onUploadProgress, {
             linkState: 'sending',
-            meta: { destPath, destLabel: `${slug}.py`, prettyName: check.pretty },
+            meta: {
+                destPath,
+                destLabel: `${slug}.py`,
+                prettyName: check.pretty,
+                tags: sent.tags,
+            },
         });
         dbg('app', 'uploadPayload() result', result);
 
@@ -1362,8 +1398,10 @@ class App {
                 saveVersion(code, label);
                 addMsg(`Code updated (v${getVersionCount()})`, 'system');
                 if (nfcCards?.length) {
-                    this.requiredTags = nfcCards;
-                    dbg('chat', `required tags updated from [NFC_CARDS]: [${nfcCards.join(', ')}]`);
+                    // Remembered, not just assigned: updatePreview() below
+                    // re-derives and would otherwise discard these.
+                    this._nfcCardsFromChat = nfcCards;
+                    dbg('chat', `required tags from [NFC_CARDS]: [${nfcCards.join(', ')}]`);
                 }
                 this.gameDesc = userMsg;
                 this.dirty = true;

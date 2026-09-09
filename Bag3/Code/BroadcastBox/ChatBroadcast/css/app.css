@@ -711,6 +711,15 @@ body {
 }
 .tag-row.next { background: #fff8e0; }
 .tag-row.done .tag-status { color: var(--pink); }
+.tag-warning {
+    font: 600 13px 'Nunito';
+    color: #8a4b00;
+    background: #fff3d6;
+    border: 1px solid #f0c469;
+    border-radius: 10px;
+    padding: 10px 14px;
+    margin-bottom: 12px;
+}
 
 #send-progress-wrap { margin: 16px 0; }
 #send-progress-track { height: 8px; background: #eee; border-radius: 5px; overflow: hidden; }

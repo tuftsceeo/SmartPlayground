@@ -16,7 +16,9 @@ _EXPECTED = [
     ("sound", [], False),
     ("rainbow", [], True),
     ("jumpin", [], False),
-    ("nfc_sound", ["notea", "noteb", "notec", "noted", "notee", "notef", "noteg"], False),
+    # Underscored names so one physical note card serves both nfc_sound and
+    # melody; nfc_sound maps them to its NOTE_FREQ keys by stripping the "_".
+    ("nfc_sound", ["note_a", "note_b", "note_c", "note_d", "note_e", "note_f", "note_g"], False),
     ("gestures", ["blue", "green", "play", "red"], False),
     ("simpleicecream", [], False),
     (

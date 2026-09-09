@@ -32,6 +32,12 @@ export async function installBoxFirmware(repl, adapter, onProgress) {
  * Push a game file and reset. Destination defaults to /flash/payload.py for
  * legacy callers; P4 passes /flash/games/<slug>.py. The box boot-scans the
  * games directory and updates index.json / active.txt on reboot.
+ *
+ * When meta.tags is a non-empty array it is written beside the game as
+ * <slug>.tags.json, in the same raw-REPL session so it costs no extra reset.
+ * The Box reads that file at boot to build its writable-tag menu, so a
+ * missing one leaves a game whose cards cannot be written — the write is not
+ * swallowed.
  */
 export async function pushPayload(repl, adapter, code, onProgress, meta = {}) {
   const destPath = meta.destPath || "/flash/payload.py";
@@ -44,6 +50,10 @@ export async function pushPayload(repl, adapter, code, onProgress, meta = {}) {
     await repl.ensureDirectory("/flash/games");
   }
   await repl.uploadFile(destPath, code);
+  if (Array.isArray(meta.tags) && meta.tags.length) {
+    const tagsPath = destPath.replace(/\.py$/, "") + ".tags.json";
+    await repl.uploadFile(tagsPath, JSON.stringify(meta.tags));
+  }
   onProgress?.({ current: 1, total: 1, file: label, status: "uploaded" });
   await repl.exitRawRepl();
   await repl.softReset();

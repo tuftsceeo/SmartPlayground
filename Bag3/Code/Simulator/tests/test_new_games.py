@@ -53,12 +53,10 @@ async def test_new_game_loads_and_runs(runtime, name):
 
 @pytest.mark.asyncio
 async def test_jumpin_loads_and_runs(runtime):
-    """jumpin.py is a leftover raw-MIFARE-style revision (imports
-    _decode_ndef_text/COMMON_KEYS directly rather than using NfcReader) that
-    had no test coverage and failed to import until nfc_reader.py grew a
-    _decode_ndef_text stub. PN532.read_passive_target() always returns None
-    in the sim, so its NFC path is inert here — this only exercises button
-    press + the run loop."""
+    """jumpin.py reads tags through nfc_reader.read_tag_command() rather than
+    an NfcReader instance. PN532.read_passive_target() always returns None in
+    the sim, so its NFC path is inert here — this only exercises button press
+    + the run loop."""
     rt = runtime
     rt.load_game("jumpin")
     await rt.start()
@@ -81,7 +79,7 @@ async def test_nfc_sound_tag_changes_note_color(runtime):
     await rt.start()
     await _pump(rt, 0.05)
 
-    rt.sim_state.tap_nfc("noteg")  # -> NOTE_COLORS['G4'] = BLUE
+    rt.sim_state.tap_nfc("note_g")  # -> NOTE_COLORS['G4'] = BLUE
     await _pump(rt, 0.1)  # NFC_POLL_INTERVAL=5 frames, well within the dwell window
 
     rt.sim_state.set_button(True)

@@ -27,8 +27,8 @@ import machine
 import time
 from machine import Pin
 
-from pn532 import PN532, MIFARE_AUTH_A, MIFARE_AUTH_B
-from nfc_reader import _decode_ndef_text, COMMON_KEYS
+from pn532 import PN532
+from nfc_reader import read_tag_command
 from game_tags import exit_tags_excluding
 
 _EXIT_TAGS = exit_tags_excluding("jumpin")
@@ -57,36 +57,8 @@ BLINK_OFF_MS = 200
 # NFC Helper
 # ─────────────────────────────────────────────
 def _read_tag_text(nfc):
-    """Quick NDEF text read. Returns (text, uid_hex) or (None, None)."""
-    tag = nfc.read_passive_target(timeout=200)
-    if tag is None:
-        return None, None
-    if tag['sak'] not in (0x08, 0x18):
-        return None, tag['uid_hex']
-    
-    ndef_data = bytearray()
-    for sector in (1, 2):
-        first_block = sector * 4
-        authed = False
-        for key in COMMON_KEYS:
-            for key_type in (MIFARE_AUTH_A, MIFARE_AUTH_B):
-                resel = nfc.read_passive_target(timeout=150)
-                if resel is None:
-                    continue
-                if nfc.mifare_auth_block(resel['uid'], first_block, key, key_type):
-                    for blk in range(first_block, first_block + 3):
-                        try:
-                            ndef_data.extend(nfc.mifare_read_block(blk))
-                        except Exception:
-                            ndef_data.extend(b'\x00' * 16)
-                    authed = True
-                    break
-            if authed:
-                break
-        if not authed:
-            ndef_data.extend(b'\x00' * 48)
-    
-    return _decode_ndef_text(ndef_data), tag['uid_hex']
+    """Quick opcode read. Returns (command, uid_hex) or (None, None)."""
+    return read_tag_command(nfc, timeout=200)
 
 
 # ─────────────────────────────────────────────

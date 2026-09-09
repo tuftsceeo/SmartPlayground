@@ -56,12 +56,28 @@ A sub-state machine. No press-and-hold anywhere.
 
 | State | Screen | BtnA | BtnB |
 |---|---|---|---|
-| `menu` | tag list, cursor on one row | start scan (or `SERVE` on the `DONE` row) | next row (wraps) |
-| `scan` | `Scanning: <tag>`, field on | — | back to `menu` |
-| `overwrite` | card's current text vs target | write it | cancel to `menu` |
-| `splash` | result of the last action | to `menu` | to `menu` |
+| `menu` | group list, cursor on one row | open the group (or `SERVE` on the `DONE` row) | next row (wraps) |
+| `group` | that group's tags, cursor on one row | start scan (or back on `< back`) | next row (wraps) |
+| `scan` | `Scanning: <tag>`, field on | — | back to `group` |
+| `overwrite` | card's current text vs target | write it | cancel to `group` |
+| `splash` | result of the last action | to `group` | to `group` |
 
-Tag list is `TAG_LIST` + `DONE` = `getcode`, `jumpin`, `DONE`.
+The menu is two levels. Top level is one row per game, then `Utility Tags`,
+then `DONE`; opening a game lists `getcode:<slug>`, `<slug>`, the tags the game
+declares, and `< back`. So the number of presses to reach `DONE` tracks the
+number of games, not the number of tags — melody alone contributes eleven.
+
+A game's own tags come from `/flash/games/<slug>.tags.json`, written beside the
+`.py` by ChatBroadcast in the same REPL session and re-read on every boot scan.
+A game with no sidecar contributes only its two pickup tags.
+
+`UTILITY_TAGS` = `stop`, `battery`. They are always offered, including when no
+game is loaded, so a `stop` card can be written on a bare box. With an empty
+index the first group falls back to `TAG_LIST` = `getcode`, `jumpin`.
+
+Scan, overwrite and splash all return to the open group rather than the top
+level, so writing eight note cards does not mean re-entering the group eight
+times.
 
 On detection the scan always ends, one of three ways:
 
@@ -180,7 +196,8 @@ and the field off. Without it the AP stayed up with nothing serving it.
 2. On that reboot the box sees a game on flash and starts in `WRITE`. **The AP
    stays down.** There is no `RECEIVING` mode -- the push interrupts this
    program, so an upload is never a state the firmware occupies.
-3. Teacher writes `getcode` / `jumpin` cards from the `WRITE` menu.
+3. Teacher opens the game's group in the `WRITE` menu and writes its cards —
+   `getcode:<slug>`, `<slug>`, and whatever the game itself needs.
 4. Teacher selects `DONE` + BtnA. AP comes up; box is serving.
 5. Wand taps `getcode`, reboots, joins `SP-FILEPUSH` on a cold radio, pulls
    `jumpin.py`, reboots into the game (`MockWand/code_puller.py`).

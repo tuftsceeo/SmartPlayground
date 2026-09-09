@@ -152,6 +152,28 @@ def _draw_lines(lines, bg=BG, fg=WHITE):
             print("# endWrite err: %s" % str(e))
 
 
+# The screen fits a size-9 header plus this many size-12 rows.
+MAX_ROWS = 4
+
+
+def _window(n, cursor):
+    """Row indices to draw: at most MAX_ROWS, centered on cursor.
+
+    Both WRITE screens can hold more rows than fit -- a game with a dozen
+    tags, or a Box with several games -- and there is no scrolling widget,
+    so the list slides around the selection instead.
+    """
+    if n <= MAX_ROWS:
+        start = 0
+    else:
+        start = cursor - MAX_ROWS // 2
+        if start < 0:
+            start = 0
+        if start > n - MAX_ROWS:
+            start = n - MAX_ROWS
+    return range(start, min(start + MAX_ROWS, n))
+
+
 class BboxUI(object):
     def __init__(self):
         # No M5 hardware calls here -- BboxServer.__init__ constructs this
@@ -308,12 +330,10 @@ class BboxUI(object):
         # closest available.
         _draw_centered(msg, BG, WARN, 12)
 
-    # Screen 20 — WRITE mode tag list (Phase A)
-    def paint_tag_list(self, entries, cursor, written):
-        """entries: list of tag names plus a trailing "DONE" sentinel.
+    # Screen 20 — WRITE mode, top level: one row per group
+    def paint_tag_list(self, entries, cursor):
+        """entries: group titles plus a trailing "DONE" sentinel.
         cursor: index into entries of the currently selected row.
-        written: dict name -> cumulative count ever written (from
-            stats_log, survives reboots -- not a session tally).
 
         Carries its own "pickup off" header rather than leaving that to a
         separate screen: in WRITE mode the AP is always down (the whole
@@ -324,26 +344,35 @@ class BboxUI(object):
         240x135 fits a size-9 header plus ~4 size-12 rows -- longer lists
         show a window around cursor rather than overflowing.
         """
-        max_rows = 4
-        n = len(entries)
-        if n <= max_rows:
-            start = 0
-        else:
-            start = cursor - max_rows // 2
-            if start < 0:
-                start = 0
-            if start > n - max_rows:
-                start = n - max_rows
-        lines = [("BtnA=scan BtnB=next  pickup off", 9, WARN)]
-        for i in range(start, min(start + max_rows, n)):
+        lines = [("BtnA=open BtnB=next  pickup off", 9, WARN)]
+        for i in _window(len(entries), cursor):
             name = entries[i]
             marker = ">" if i == cursor else " "
             if name == "DONE":
                 lines.append(("%s DONE" % marker, 12, ACCENT))
             else:
+                lines.append(("%s %s" % (marker, name), 12,
+                              WHITE if i == cursor else MUTED))
+        _draw_lines(lines)
+
+    # Screen 20b — WRITE mode, inside one group: that group's tags
+    def paint_tag_group(self, title, rows, cursor, written):
+        """title: the group's name, shown as the header.
+        rows: the group's tag names plus a trailing "< back".
+        cursor: index into rows of the currently selected row.
+        written: dict name -> cumulative count ever written (from
+            stats_log, survives reboots -- not a session tally).
+        """
+        lines = [("%s  BtnA=scan BtnB=next" % title, 9, WARN)]
+        for i in _window(len(rows), cursor):
+            name = rows[i]
+            marker = ">" if i == cursor else " "
+            if name == "< back":
+                lines.append(("%s < back" % marker, 12, ACCENT))
+            else:
                 count = written.get(name, 0) if written else 0
                 lines.append(("%s %s (%d)" % (marker, name, count), 12,
-                               WHITE if i == cursor else MUTED))
+                              WHITE if i == cursor else MUTED))
         _draw_lines(lines)
 
     # Screen 21 — SERVE mode (AP up)
@@ -380,7 +409,10 @@ def demo():
     screens = [
         lambda: ui.paint_idle(True),
         lambda: ui.paint_receiving("Melody"),
-        lambda: ui.paint_tag_list(["getcode", "jumpin", "DONE"], 0, {"getcode": 1}),
+        lambda: ui.paint_tag_list(["Melody", "Utility Tags", "DONE"], 0),
+        lambda: ui.paint_tag_group(
+            "Melody", ["getcode:my_melody", "my_melody", "note_c", "< back"],
+            2, {"note_c": 3}),
         lambda: ui.paint_no_pickup_hint(),
         lambda: ui.paint_armed("getcode", 1, 1),
         lambda: ui.paint_overwrite("melody", "getcode"),

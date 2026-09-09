@@ -57,6 +57,13 @@ INDEX_PATH = GAMES_DIR + '/index.json'
 # games index. Kept as a fallback if the index is empty.
 TAG_LIST = ("getcode", "jumpin")
 DONE_ENTRY = "DONE"
+BACK_ENTRY = "< back"
+
+# Writable no matter which games are loaded. "stop" exits any running game;
+# "battery" asks the wand to report its charge. These are plain NDEF card
+# text, like every other entry -- card_writer.py does not use opcodes.
+UTILITY_TAGS = ("stop", "battery")
+UTILITY_GROUP = "Utility Tags"
 
 # BtnA hold that leaves SERVE and returns to WRITE. This is the only hold
 # gesture left in the firmware, kept deliberately: leaving SERVE is rare and
@@ -68,11 +75,17 @@ MODE_WRITE = "WRITE"
 MODE_SERVE = "SERVE"
 
 # WRITE-mode sub-states. BtnA acts, BtnB scrolls or backs out; no holds.
-#   MENU      list of tags     A = scan (or serve on DONE)  B = next
-#   SCAN      RF field on      A = -                        B = menu
-#   OVERWRITE prompt up        A = write it                 B = menu
-#   SPLASH    result shown     A = menu                     B = menu
+#   MENU      list of groups   A = open (or serve on DONE)  B = next
+#   GROUP     one group's tags A = scan (or back)           B = next
+#   SCAN      RF field on      A = -                        B = group
+#   OVERWRITE prompt up        A = write it                 B = group
+#   SPLASH    result shown     A = group                    B = group
+#
+# The menu is two-level because a single game can contribute a dozen tags
+# (melody alone has eleven) and BtnB only moves forward: on one flat list,
+# DONE -- the only way into SERVE mode -- would be a dozen presses away.
 W_MENU = "menu"
+W_GROUP = "group"
 W_SCAN = "scan"
 W_OVERWRITE = "overwrite"
 W_SPLASH = "splash"
@@ -117,8 +130,13 @@ class BboxServer:
         self._nfc_fail_count = 0  # consecutive detect_tag errors -- see _scan_step
         self._write_state = W_MENU  # WRITE sub-state; see W_* above
 
-        self._entries = list(TAG_LIST) + [DONE_ENTRY]
+        # (title, [tag, ...]) per game, then the utility group. Top-level
+        # rows are these titles plus DONE; _group_cursor indexes into the
+        # open group's tags, which are followed by a "< back" row.
+        self._groups = [(UTILITY_GROUP, list(UTILITY_TAGS))]
+        self._entries = [UTILITY_GROUP, DONE_ENTRY]
         self._cursor = 0
+        self._group_cursor = 0
         # entry label -> cumulative successful writes, seeded from
         # stats_log at boot by _load_stats() and incremented in memory.
         self._written = {}
@@ -256,13 +274,31 @@ class BboxServer:
 
     def _repaint(self):
         if self._mode == MODE_WRITE:
-            self.ui.paint_tag_list(self._entries, self._cursor, self._written)
+            if self._write_state == W_GROUP:
+                group = self._current_group()
+                self.ui.paint_tag_group(
+                    group[0] if group else "", self._group_rows(),
+                    self._group_cursor, self._written)
+            else:
+                self.ui.paint_tag_list(self._entries, self._cursor)
         elif self._mode == MODE_SERVE:
             self.ui.paint_serve(SSID, self._pulls_total)
         else:
             self.ui.paint_idle(self.linked)
 
     def _current_entry(self):
+        """The label the write path acts on.
+
+        Every state except W_MENU is reached from inside a group, and they all
+        act on the selected tag -- _to_scan() paints it, _scan_step() compares
+        the card against it, _write_card() writes it -- so only the top-level
+        menu resolves to a group title.
+        """
+        if self._write_state != W_MENU:
+            rows = self._group_rows()
+            if self._group_cursor < len(rows):
+                return rows[self._group_cursor]
+            return BACK_ENTRY
         return self._entries[self._cursor]
 
     # ─────────────────────────────────────────────
@@ -402,11 +438,12 @@ class BboxServer:
         if not slug or slug not in self._index:
             self.link.send({"type": "error", "id": rid, "code": "unknown_slug"})
             return
-        path = GAMES_DIR + '/' + slug + '.py'
-        try:
-            os.remove(path)
-        except OSError:
-            pass
+        for path in (GAMES_DIR + '/' + slug + '.py',
+                     GAMES_DIR + '/' + slug + '.tags.json'):
+            try:
+                os.remove(path)
+            except OSError:
+                pass
         try:
             del self._index[slug]
         except KeyError:
@@ -428,7 +465,7 @@ class BboxServer:
     def do_games_clear(self, cmd, rid):
         try:
             for name in os.listdir(GAMES_DIR):
-                if name.endswith('.py'):
+                if name.endswith('.py') or name.endswith('.tags.json'):
                     try:
                         os.remove(GAMES_DIR + '/' + name)
                     except OSError:
@@ -522,6 +559,33 @@ class BboxServer:
         self._active = slug
         self._write_active(slug or '')
 
+    def _read_tags(self, slug):
+        """Tags the game needs, from /flash/games/<slug>.tags.json.
+
+        Written by ChatBroadcast in the same REPL session as the .py. A game
+        pushed by other means has no sidecar and simply contributes no extra
+        tags -- but a file that exists and will not parse is a real fault and
+        says so, because the symptom otherwise is a menu quietly missing the
+        cards the game cannot run without.
+        """
+        path = GAMES_DIR + '/' + slug + '.tags.json'
+        try:
+            f = open(path, 'r')
+        except OSError:
+            return []
+        try:
+            import json
+            data = json.loads(f.read() or '[]')
+        except Exception as e:
+            print("# tags for %s unreadable: %s" % (slug, str(e)))
+            return []
+        finally:
+            f.close()
+        if not isinstance(data, list):
+            print("# tags for %s: expected a list, got %s" % (slug, type(data)))
+            return []
+        return [t for t in data if isinstance(t, str) and t]
+
     def _pretty_from_slug(self, slug):
         parts = slug.replace('_', '-').split('-')
         return ' '.join(p[:1].upper() + p[1:] for p in parts if p)
@@ -591,6 +655,9 @@ class BboxServer:
                     "added": time.ticks_ms(),
                 }
                 new_slugs.append((slug, mtime))
+            # Re-read every boot: a re-sent game overwrites its sidecar
+            # without changing the index entry.
+            next_index[slug]["tags"] = self._read_tags(slug)
 
         self._index = next_index
         self._save_index()
@@ -621,22 +688,53 @@ class BboxServer:
             return
 
     def _rebuild_entries(self):
-        """TAG_LIST from whole index: getcode:<slug>, <slug> per game + DONE."""
-        entries = []
+        """Group the writable tags: one group per game, then the utilities.
+
+        A game's group is its two pickup tags -- getcode:<slug> pulls the code,
+        a bare <slug> plays the copy already on the wand -- followed by the
+        tags the game itself needs, as pushed alongside it in <slug>.tags.json.
+        The utility group is always present, so "stop" can be written even
+        with no games loaded. Top-level rows are the group titles plus DONE.
+        """
+        groups = []
         for slug in self._index:
-            entries.append("getcode:" + slug)
-            entries.append(slug)
-        if not entries:
-            entries = list(TAG_LIST)
-        entries.append(DONE_ENTRY)
-        self._entries = entries
+            tags = ["getcode:" + slug, slug]
+            for t in (self._index[slug].get("tags") or ()):
+                if t and t not in tags:
+                    tags.append(t)
+            groups.append((self._index[slug].get("name") or slug, tags))
+        if not groups:
+            groups.append(("Games", list(TAG_LIST)))
+        groups.append((UTILITY_GROUP, list(UTILITY_TAGS)))
+
+        self._groups = groups
+        self._entries = [title for title, _ in groups] + [DONE_ENTRY]
         self._cursor = 0
-        # Drop written counts for removed labels.
+        self._group_cursor = 0
+
+        # Drop written counts for labels no longer on any group.
+        live = set()
+        for _, tags in groups:
+            for t in tags:
+                live.add(t)
         keep = {}
         for k, v in self._written.items():
-            if k in entries:
+            if k in live:
                 keep[k] = v
         self._written = keep
+
+    def _current_group(self):
+        """(title, tags) of the group the cursor is on, or None on DONE."""
+        if self._cursor < len(self._groups):
+            return self._groups[self._cursor]
+        return None
+
+    def _group_rows(self):
+        """The open group's tags plus the trailing "< back" row."""
+        group = self._current_group()
+        tags = list(group[1]) if group else []
+        tags.append(BACK_ENTRY)
+        return tags
 
     # ─────────────────────────────────────────────
     # WRITE MODE
@@ -667,6 +765,18 @@ class BboxServer:
     def _to_menu(self):
         _dbg("state %s -> menu" % self._write_state)
         self._write_state = W_MENU
+        self._nfc_field(False)
+        self._clear_pending()
+        self._repaint()
+
+    def _to_group(self):
+        """Back to the open group's tag list.
+
+        Where a write lands when it finishes: a teacher writing eight note
+        cards should not have to re-enter the group between each one.
+        """
+        _dbg("state %s -> group" % self._write_state)
+        self._write_state = W_GROUP
         self._nfc_field(False)
         self._clear_pending()
         self._repaint()
@@ -715,8 +825,22 @@ class BboxServer:
                 self._repaint()
             elif b1:
                 self.ui.beep_click()
-                if self._current_entry() == DONE_ENTRY:
+                if self._entries[self._cursor] == DONE_ENTRY:
                     self._set_mode(MODE_SERVE)
+                else:
+                    self._group_cursor = 0
+                    self._to_group()
+            return
+
+        if self._write_state == W_GROUP:
+            if b2:
+                self.ui.beep_click()
+                self._group_cursor = (self._group_cursor + 1) % len(self._group_rows())
+                self._repaint()
+            elif b1:
+                self.ui.beep_click()
+                if self._current_entry() == BACK_ENTRY:
+                    self._to_menu()
                 else:
                     self._to_scan()
             return
@@ -724,7 +848,7 @@ class BboxServer:
         if self._write_state == W_SCAN:
             if b2:
                 self.ui.beep_click()
-                self._to_menu()
+                self._to_group()
                 return
             self._scan_step()
             return
@@ -738,13 +862,13 @@ class BboxServer:
                 self._write_card(tag, entry)
             elif b2:
                 self.ui.beep_click()
-                self._to_menu()
+                self._to_group()
             return
 
         if self._write_state == W_SPLASH:
             if b1 or b2:
                 self.ui.beep_click()
-                self._to_menu()
+                self._to_group()
             return
 
     # Consecutive detect_tag() OSErrors before we assume the reader's
