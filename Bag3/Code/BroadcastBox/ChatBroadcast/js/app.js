@@ -12,7 +12,7 @@ import { uploadPayload } from './upload.js';
 import { showTagChecklist, updateTagChecklist } from './nfc.js';
 import { EXAMPLES, CATEGORIES, findExample, loadExampleCode } from './examples.js';
 import { showView, showOverlay, hideOverlay, setConnectionBadge, toast, setSendProgress, showConnectToast, syncNavTabs } from './router.js';
-import { createDeviceLink } from './device/bboxDeviceLink.js';
+import { createDeviceLink, deviceShortName, deviceProductName } from './device/bboxDeviceLink.js';
 import { subscribe, getEntries, toText } from './device/serialLog.js';
 import { setWorkspaceHandler } from './markdown.js';
 import { dbg, dbgWarn, dbgError } from './debug.js';
@@ -103,6 +103,16 @@ class App {
         this._silenceLimitMs = SILENCE_LIMIT_MS;
         this._boxGames = []; // last games.list from the Box
         this._pendingReplaceSlug = null;
+    }
+
+    /** Short UI name for the linked device ("Box" or "Dial"). */
+    deviceShort() {
+        return deviceShortName(this.link.deviceInfo);
+    }
+
+    /** Product UI name ("Broadcast Box" or "Broadcast Dial"). */
+    deviceProduct() {
+        return deviceProductName(this.link.deviceInfo);
     }
 
     async init() {
@@ -324,12 +334,12 @@ class App {
         });
         this.device.on('fatal', (obj) => {
             dbgError('device', 'event: fatal', obj);
-            toast(obj?.msg || 'The Box reported a serious error — check the cable.', true);
+            toast(obj?.msg || `The ${this.deviceShort()} reported a serious error — check the cable.`, true);
         });
         this.device.on('error', (obj) => dbgError('device', 'event: error', obj));
         this.device.on('wrong_device', (obj) => {
             dbgWarn('device', 'event: wrong_device', obj);
-            toast("That device isn't a Broadcast Box — check what's plugged in.", true);
+            toast("That device isn't a Broadcast Box or Dial — check what's plugged in.", true);
             this.setLinkState('wrong');
         });
         this.device.on('bye', (obj) => {
@@ -360,7 +370,7 @@ class App {
                 await this.device.disconnect();
             } catch (_) { /* already gone */ }
             this.setLinkState('lost');
-            toast('Broadcast Box disconnected — check the cable.', true);
+            toast(`${this.deviceProduct()} disconnected — check the cable.`, true);
         });
 
         if (navigator.serial) {
@@ -443,7 +453,7 @@ class App {
                 // (SOCK_REPLY_TIMEOUT_S), which looks identical from here.
                 // The state is not terminal — any inbound message promotes
                 // straight back to live — so the copy suggests, not accuses.
-                toast("The Box isn't answering. If it stays quiet, try Restart the Box.", true);
+                toast(`The ${this.deviceShort()} isn't answering. If it stays quiet, try Restart the ${this.deviceShort()}.`, true);
             }
             return;
         }
@@ -453,7 +463,7 @@ class App {
             if (age > this._silenceLimitMs) {
                 dbgWarn('device', `watchdog silence ${age}ms > ${this._silenceLimitMs}`);
                 this.setLinkState('lost');
-                toast('Lost the Box — check the cable.', true);
+                toast(`Lost the ${this.deviceShort()} — check the cable.`, true);
                 this.device.disconnect().catch(() => {});
             }
         }
@@ -485,7 +495,7 @@ class App {
             if (this.link.state === 'rebooting') {
                 dbgWarn('device', 'reboot timer expired → lost');
                 this.setLinkState('lost');
-                toast('The Box did not come back — check the cable.', true);
+                toast(`The ${this.deviceShort()} did not come back — check the cable.`, true);
             }
         }, REBOOT_LIMIT_MS);
     }
@@ -502,7 +512,7 @@ class App {
         dbgWarn('device', 'onSerialDrop (navigator.serial) — delegating to lost');
         this.device.disconnect().catch(() => {});
         this.setLinkState('lost');
-        toast('Broadcast Box disconnected — check the cable.', true);
+        toast(`${this.deviceProduct()} disconnected — check the cable.`, true);
     }
 
     bindEvents() {
@@ -1127,16 +1137,16 @@ class App {
             showConnectToast(false);
             this.setLinkState('waiting');
             if (this.pendingSendAfterConnect) {
-                toast('Connected — waking up the Box, then we will send…');
+                toast(`Connected — waking up the ${this.deviceShort()}, then we will send…`);
             } else {
-                toast('Connected — waking up the Box…');
+                toast(`Connected — waking up the ${this.deviceShort()}…`);
             }
         } catch (e) {
             dbgError('app', `device.connect() rejected: ${e.message}`, e);
             showConnectToast(false);
             // Header connect: show overlay so the error is visible; send-flow already has it open.
             showOverlay('connect-overlay');
-            if (errEl) errEl.textContent = "Couldn't find a Broadcast Box — check the cable.";
+            if (errEl) errEl.textContent = `Couldn't find a ${this.deviceProduct()} — check the cable.`;
             this.setLinkState('idle');
         }
     }
@@ -1167,20 +1177,20 @@ class App {
 
     async onRestartBox() {
         dbg('app', 'onRestartBox() — restartFirmware');
-        toast('Nudging the Box…');
+        toast(`Nudging the ${this.deviceShort()}…`);
         this.setLinkState('rebooting');
         this._armRebootTimer();
         try {
             const state = await this.device.restartFirmware();
             if (state === 'running') {
                 this.setLinkState('live');
-                toast('Box is back.');
+                toast(`${this.deviceShort()} is back.`);
             } else {
-                toast('Still waiting for the Box…', true);
+                toast(`Still waiting for the ${this.deviceShort()}…`, true);
             }
         } catch (e) {
             dbgError('app', `restartFirmware failed: ${e.message}`, e);
-            toast('Could not restart the Box — try unplugging.', true);
+            toast(`Could not restart the ${this.deviceShort()} — try unplugging.`, true);
             this.setLinkState('stuck');
         }
     }
@@ -1284,7 +1294,7 @@ class App {
         });
         if (!check.ok && check.reason === 'replace') {
             const ok = confirm(
-                `"${pretty}" is already on the Box.\n\nOK = Replace it\nCancel = pick another name`
+                `"${pretty}" is already on the ${this.deviceShort()}.\n\nOK = Replace it\nCancel = pick another name`
             );
             if (!ok) {
                 if (errEl) errEl.textContent = 'Pick a different name, or confirm Replace.';
@@ -1321,12 +1331,15 @@ class App {
         this.setLinkState('sending');
         const result = await uploadPayload(this.device, code, window.onUploadProgress, {
             linkState: 'sending',
+            deviceProduct: this.deviceProduct(),
+            deviceShort: this.deviceShort(),
             // Recompute against the slug actually being written: the name can
-            // change on this overlay, and the Box keys its menu off the slug.
+            // change on this overlay, and the device keys its menu off the slug.
             meta: {
                 destPath,
                 destLabel: `${slug}.py`,
                 prettyName: check.pretty,
+                deviceLabel: this.deviceShort(),
                 tags: buildHardwareReqs({
                     code, gameName: check.pretty, declared: this.declaredTags,
                 }).tags,
@@ -1361,13 +1374,13 @@ class App {
         if (tags.length > baselineTags(slug).length) {
             this.tagWrites = {};
             await showTagChecklist({
-                title: `Now write ${tags.length} tags on the Box`,
-                subtitle: 'Hold each card on the Box in turn — you can unplug it first.',
+                title: `Now write ${tags.length} tags on the ${this.deviceShort()}`,
+                subtitle: `Hold each card on the ${this.deviceShort()} in turn — you can unplug it first.`,
                 tags,
                 written: this.tagWrites,
             });
         } else {
-            toast('Sent! Hold a card on the Box to write the pickup tag.');
+            toast(`Sent! Hold a card on the ${this.deviceShort()} to write the pickup tag.`);
         }
     }
 
@@ -1393,7 +1406,7 @@ class App {
         this.paintMyBoxHealth();
         if (!list) return;
         if (this.link.state !== 'live') {
-            if (status) status.textContent = 'Connect to the Box first.';
+            if (status) status.textContent = `Connect to the ${this.deviceShort()} first.`;
             list.innerHTML = '';
             if (statsEl) statsEl.textContent = '—';
             return;
@@ -1412,7 +1425,7 @@ class App {
             if (status) {
                 status.textContent = games.length
                     ? ''
-                    : 'No games on the Box yet — send one from chat.';
+                    : `No games on the ${this.deviceShort()} yet — send one from chat.`;
                 status.classList.toggle('hidden', !!games.length);
             }
             list.innerHTML = '';
@@ -1422,7 +1435,7 @@ class App {
                 const radio = document.createElement('button');
                 radio.type = 'button';
                 radio.className = 'box-lib-radio' + (isActive ? ' active' : '');
-                radio.title = isActive ? 'Active on the Box' : `Select "${g.name || g.slug}"`;
+                radio.title = isActive ? `Active on the ${this.deviceShort()}` : `Select "${g.name || g.slug}"`;
                 radio.innerHTML = iconSvg(isActive ? 'radioOn' : 'radio', { size: 17 });
                 radio.addEventListener('click', () => {
                     if (!isActive) this.selectBoxGame(g.slug);
@@ -1477,7 +1490,7 @@ class App {
                 status.classList.remove('hidden');
                 status.textContent = `Could not load library: ${e.message}`;
             }
-            toast('Could not talk to the Box library.', true);
+            toast(`Could not talk to the ${this.deviceShort()} library.`, true);
         }
     }
 
@@ -1527,8 +1540,8 @@ class App {
                 label.textContent = 'Tag Writing';
                 chip.title = 'Ready to write pickup tags.';
             } else {
-                label.textContent = this.link.state === 'live' ? 'Box ready' : 'Box';
-                chip.title = 'Connect to see Box status.';
+                label.textContent = this.link.state === 'live' ? `${this.deviceShort()} ready` : this.deviceShort();
+                chip.title = `Connect to see ${this.deviceShort()} status.`;
             }
         }
         const nfc = document.getElementById('mybox-nfc');
@@ -1575,7 +1588,7 @@ class App {
     }
 
     async deleteBoxGame(slug, alreadyConfirmed = false) {
-        if (!alreadyConfirmed && !confirm(`Delete "${slug}" from the Box?`)) return;
+        if (!alreadyConfirmed && !confirm(`Delete "${slug}" from the ${this.deviceShort()}?`)) return;
         try {
             await this.device.sendCmd({ cmd: 'games.delete', slug }, { timeoutMs: 5000 });
             toast(`Deleted ${slug}`);
@@ -1586,7 +1599,7 @@ class App {
     }
 
     async clearBoxLibrary() {
-        if (!confirm('Remove ALL games from the Box?')) return;
+        if (!confirm(`Remove ALL games from the ${this.deviceShort()}?`)) return;
         try {
             await this.device.sendCmd({ cmd: 'games.clear' }, { timeoutMs: 8000 });
             toast('Box library cleared');
@@ -1597,7 +1610,7 @@ class App {
     }
 
     async resetBoxStats() {
-        if (!confirm('Reset usage stats on the Box?')) return;
+        if (!confirm(`Reset usage stats on the ${this.deviceShort()}?`)) return;
         try {
             await this.device.sendCmd({ cmd: 'stats.reset' }, { timeoutMs: 5000 });
             toast('Stats reset');

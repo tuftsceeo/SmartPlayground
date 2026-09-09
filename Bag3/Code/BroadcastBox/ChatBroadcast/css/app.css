@@ -1059,7 +1059,13 @@ body.ui-advanced #app-shell {
 #send-progress-bar { height: 100%; width: 0; background: var(--teal); transition: width 0.2s; }
 
 /* My Box */
-.mybox-top { display: flex; align-items: center; margin-bottom: 16px; }
+.mybox-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+}
+.mybox-top .drawer-close { margin-left: auto; }
 .mybox-mode-chip {
     display: flex;
     align-items: center;

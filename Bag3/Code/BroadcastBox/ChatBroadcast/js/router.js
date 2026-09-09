@@ -1,5 +1,6 @@
 import { dbg, dbgWarn } from "./debug.js";
 import { iconSvg } from "./icons.js";
+import { deviceShortName, deviceProductName } from "./device/bboxDeviceLink.js";
 
 const VIEWS = ["splash", "gallery", "detail", "workspace"];
 
@@ -84,6 +85,8 @@ export function setConnectionBadge(link) {
     const isLive = state === "live";
     const isServing = isLive && mode === "SERVE";
     const isWriting = isLive && mode === "WRITE";
+    const short = deviceShortName(link?.deviceInfo);
+    const product = deviceProductName(link?.deviceInfo);
 
     // SSID chip — only while serving
     all(".ssid-chip").forEach((chip) => {
@@ -103,27 +106,27 @@ export function setConnectionBadge(link) {
         if (!isLive) {
             pill.classList.add("muted");
             pill.disabled = true;
-            if (label) label.textContent = "Box";
-            pill.title = "Connect to the Box first";
+            if (label) label.textContent = short;
+            pill.title = `Connect to the ${short} first`;
         } else {
             pill.disabled = false;
             if (isServing) {
                 if (label) label.textContent = "Code Server";
-                pill.title = "Handing out code to wands. Switch modes with the button on the Box.";
+                pill.title = `Handing out code to wands. Switch modes with the controls on the ${short}.`;
             } else if (isWriting) {
                 pill.classList.add("write");
                 if (label) label.textContent = "Tag Writing";
-                pill.title = "Ready to write pickup tags. Switch modes with the button on the Box.";
+                pill.title = `Ready to write pickup tags. Switch modes with the controls on the ${short}.`;
             } else {
-                if (label) label.textContent = "Box ready";
-                pill.title = "Games, health & battery on the Box";
+                if (label) label.textContent = `${short} ready`;
+                pill.title = `Games, health & battery on the ${short}`;
             }
         }
     });
 
     // Connect button
     let btnLabel = "Connect";
-    let btnTitle = "Connect to the Box";
+    let btnTitle = `Connect to the ${short}`;
     let btnDisabled = false;
     let connectedClass = false;
     let connectIcon = "cable";
@@ -206,10 +209,10 @@ export function setConnectionBadge(link) {
             chipClass = "sending";
             break;
         case "lost":
-            chipText = "lost the Box";
+            chipText = `lost the ${short}`;
             break;
         case "wrong":
-            chipText = "not a Broadcast Box";
+            chipText = "not a Broadcast device";
             break;
         case "stuck":
             chipText = "needs a nudge";
@@ -239,6 +242,7 @@ export function setConnectionBadge(link) {
     all(".btn-restart-box").forEach((btn) => {
         btn.classList.toggle("hidden", !showRestart);
         btn.disabled = !showRestart;
+        btn.textContent = `Restart the ${short}`;
     });
 
     // Send CTA enabled only when live
@@ -246,8 +250,18 @@ export function setConnectionBadge(link) {
     if (sendBtn) {
         const canSend = state === "live";
         sendBtn.disabled = !canSend;
-        sendBtn.title = canSend ? "Send to Broadcast Box" : "Connect to the Box first";
+        sendBtn.textContent = `Send to ${short} →`;
+        sendBtn.title = canSend ? `Send to ${product}` : `Connect to the ${short} first`;
     }
+
+    // Keep static connect-overlay / banner copy in sync with the linked device.
+    const connectH2 = document.querySelector("#connect-overlay h2");
+    if (connectH2) connectH2.textContent = `Connect to ${product}`;
+    all("[data-restart-box], #btn-restart-box").forEach((btn) => {
+        if (!btn.classList.contains("hidden")) {
+            btn.textContent = `Restart the ${short}`;
+        }
+    });
 }
 
 export function toast(msg, isError = false) {

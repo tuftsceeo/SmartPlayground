@@ -4,11 +4,24 @@
  *
  * Firmware manifest is loaded lazily so the chat UI can boot when BBoxFirmware
  * is not on the static server path (e.g. serving ChatBroadcast alone).
+ * Dial vs Box is chosen from the link's stored identity; defaults to Box.
  */
 
-export async function installBoxFirmware(repl, adapter, onProgress) {
+async function loadFirmwareFiles(device) {
+  if (device === "broadcast_dial") {
+    // ChatBroadcast lives under BroadcastBox/; Dial firmware is a sibling tree.
+    const { loadDialFiles } = await import(
+      "../../../../BroadcastDial/BDialFirmware/manifest.js"
+    );
+    return loadDialFiles("../../../../BroadcastDial/BDialFirmware/");
+  }
   const { loadBoxFiles } = await import("../../../BBoxFirmware/manifest.js");
-  const files = await loadBoxFiles("../../../BBoxFirmware/");
+  return loadBoxFiles("../../../BBoxFirmware/");
+}
+
+export async function installBoxFirmware(repl, adapter, onProgress, device = null) {
+  const files = await loadFirmwareFiles(device || "broadcast_box");
+  const label = device === "broadcast_dial" ? "Dial" : "Box";
 
   await repl.enterRepl();
   await repl.enterRawRepl();
@@ -25,7 +38,7 @@ export async function installBoxFirmware(repl, adapter, onProgress) {
   const ok = await waitForTypedMessage(adapter, 10000);
   if (!ok) {
     throw new Error(
-      "Files uploaded, but the firmware did not confirm restart. Try Restart firmware, or power-cycle and reconnect."
+      `Files uploaded, but the ${label} firmware did not confirm restart. Try Restart firmware, or power-cycle and reconnect.`
     );
   }
 }
@@ -61,7 +74,8 @@ export async function pushPayload(repl, adapter, code, onProgress, meta = {}) {
   await repl.softReset();
   const restarted = await waitForTypedMessage(adapter, 10000);
   if (!restarted) {
-    return { ok: false, error: "Code uploaded, but the Box did not confirm restart." };
+    const who = meta.deviceLabel || "Box";
+    return { ok: false, error: `Code uploaded, but the ${who} did not confirm restart.` };
   }
   onProgress?.({ current: 1, total: 1, file: label, status: "done" });
   return { ok: true };
