@@ -32,9 +32,12 @@ VENDOR_GAMES = os.path.join(VENDOR, "games")
 MANIFEST = os.path.join(VENDOR, "MANIFEST.json")
 
 # Modules run verbatim (copied from Bag2/Code/lib).
+#
+# buzzer.py is not listed here -- vendor/lib/buzzer.py is hand-maintained
+# from Bag3/BroadcastBox/MockWand/lib/buzzer.py instead. See the README's
+# "Sync vendored sources" section.
 VERBATIM_LIBS = [
     "leds.py",
-    "buzzer.py",
     "brightness.py",
     "hubtype.py",
     "game_tags.py",

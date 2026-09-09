@@ -55,6 +55,12 @@ git config core.hooksPath Bag3/Code/Simulator/.githooks
 
 (or copy the hook into `.git/hooks`).
 
+`buzzer.py` is the one exception: it's hand-mirrored from
+`Bag3/BroadcastBox/MockWand/lib/buzzer.py`, not synced from Bag2, so it's
+not in `sync_sources.py`'s `VERBATIM_LIBS` and `--check` doesn't touch it.
+If MockWand's `buzzer.py` changes, copy it into `vendor/lib/buzzer.py` by
+hand and re-run `sync_sources.py`.
+
 ## Tests
 
 ```bash
@@ -131,8 +137,10 @@ the Bag trees, not here, and has been left alone.
 
 ## Design notes
 
-- **Verbatim**: `leds.py`, `buzzer.py`, `brightness.py`, `hubtype.py`,
-  `game_tags.py`, `actions.py`, `battery.py` (AST-transformed sync→async).
+- **Verbatim**: `leds.py`, `brightness.py`, `hubtype.py`, `game_tags.py`,
+  `actions.py`, `battery.py` (AST-transformed sync→async), synced from
+  Bag2. `buzzer.py` is verbatim too, hand-mirrored from MockWand: see
+  "Sync vendored sources" above.
 - **Faked wholesale**: `lis2dw12`, `max17048`, `opt3002`, `pn532`,
   `nfc_reader`, `espnow_manager`.
 - **Platform shims**: `machine`, `neopixel`, `time.sleep_ms` / `ticks_*`,

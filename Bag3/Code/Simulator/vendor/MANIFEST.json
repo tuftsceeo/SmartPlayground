@@ -85,11 +85,6 @@
       "source": "Bag2/Code/lib/brightness.py",
       "vendor_sha256": "38a8b83336690c2c7b900af2f45eba150feaf5e58b09c1aa542add3d6613bf7d"
     },
-    "lib/buzzer.py": {
-      "sha256": "3e0323536f40974b7cb01abaef7ce4b4efc9bd6d84c0c0c5a4e65a6a62f6581e",
-      "source": "Bag2/Code/lib/buzzer.py",
-      "vendor_sha256": "3e0323536f40974b7cb01abaef7ce4b4efc9bd6d84c0c0c5a4e65a6a62f6581e"
-    },
     "lib/game_tags.py": {
       "sha256": "8bae4cc16bb10678a2b8026683334502524ded9f8df2223cf55a929960480abd",
       "source": "Bag2/Code/lib/game_tags.py",
