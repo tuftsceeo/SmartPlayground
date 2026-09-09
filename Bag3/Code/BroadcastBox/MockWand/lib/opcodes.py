@@ -1,3 +1,7 @@
+### OPCODES ARE NOT USED IN MOCKWANDS or Bag3 Wands at this time
+# This file was added as a test and left as a reference for future use.
+# References to this file elsewhere should be removed from Bag3\Code\BroadcastBox\MockWand\lib
+
 """
 Opcode table — compact card encoding + single source of truth for tag names
 ============================================================================
