@@ -23,7 +23,13 @@ const lightHighlightStyle = HighlightStyle.define([
 ]);
 
 const lightEditorTheme = EditorView.theme({
-    '&': { backgroundColor: 'var(--code-bg)', color: 'var(--code-text)' },
+    '&': {
+        height: '100%',
+        maxHeight: '100%',
+        backgroundColor: 'var(--code-bg)',
+        color: 'var(--code-text)',
+    },
+    '.cm-scroller': { overflow: 'auto' },
     '.cm-content': { caretColor: 'var(--code-text)' },
     '.cm-gutters': { backgroundColor: 'var(--code-bg)', color: 'var(--muted)', border: 'none' },
     '.cm-activeLine': { backgroundColor: 'rgba(9,105,218,0.06)' },

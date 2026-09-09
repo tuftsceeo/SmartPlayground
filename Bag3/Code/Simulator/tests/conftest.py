@@ -36,7 +36,7 @@ def runtime(tmp_path):
             "game_tags", "actions", "battery", "runtime", "transform",
             "jump", "shake", "shake_rainbow", "sound", "rainbow", "jumpin",
             "nfc_sound", "gestures", "simpleicecream", "melody", "cooking",
-            "multiicecream",
+            "multiicecream", "freeze_dance",
         ) or name.startswith("vendor"):
             del sys.modules[name]
 

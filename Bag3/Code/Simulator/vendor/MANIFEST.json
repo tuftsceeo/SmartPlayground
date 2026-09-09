@@ -5,6 +5,11 @@
       "source": "Bag3/Code/BroadcastBox/MockWand/cooking.py",
       "vendor_sha256": "2282f23ddebe7587402ee8b0e1b6cdd9cb858f9034ae947fe03a0d1e40deee2b"
     },
+    "games/freeze_dance.py": {
+      "sha256": "220770aaa10bf25fdceb842aa010bc557fb2fc40cc411d2d6d717df14e0c5611",
+      "source": "Bag2/Code/Wand Module/freeze_dance.py",
+      "vendor_sha256": "220770aaa10bf25fdceb842aa010bc557fb2fc40cc411d2d6d717df14e0c5611"
+    },
     "games/gestures.py": {
       "sha256": "97e2711affd64313bc95ebf32aa6edb1c674bddd676cbaa6b27e0e9b1b4583ca",
       "source": "Bag3/Code/BroadcastBox/MockWand/gestures.py",
@@ -79,11 +84,6 @@
       "sha256": "38a8b83336690c2c7b900af2f45eba150feaf5e58b09c1aa542add3d6613bf7d",
       "source": "Bag2/Code/lib/brightness.py",
       "vendor_sha256": "38a8b83336690c2c7b900af2f45eba150feaf5e58b09c1aa542add3d6613bf7d"
-    },
-    "lib/buzzer.py": {
-      "sha256": "3e0323536f40974b7cb01abaef7ce4b4efc9bd6d84c0c0c5a4e65a6a62f6581e",
-      "source": "Bag2/Code/lib/buzzer.py",
-      "vendor_sha256": "3e0323536f40974b7cb01abaef7ce4b4efc9bd6d84c0c0c5a4e65a6a62f6581e"
     },
     "lib/game_tags.py": {
       "sha256": "8bae4cc16bb10678a2b8026683334502524ded9f8df2223cf55a929960480abd",

@@ -1,11 +1,13 @@
 /**
  * boxFirmwareInstaller.js — push payload.py via raw REPL, soft reset.
  * Waits for any JSON line with "type" after Ctrl-D (not identity specifically).
+ *
+ * Firmware manifest is loaded lazily so the chat UI can boot when BBoxFirmware
+ * is not on the static server path (e.g. serving ChatBroadcast alone).
  */
 
-import { loadBoxFiles } from "../../../BBoxFirmware/manifest.js";
-
 export async function installBoxFirmware(repl, adapter, onProgress) {
+  const { loadBoxFiles } = await import("../../../BBoxFirmware/manifest.js");
   const files = await loadBoxFiles("../../../BBoxFirmware/");
 
   await repl.enterRepl();

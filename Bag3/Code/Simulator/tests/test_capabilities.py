@@ -32,6 +32,11 @@ _EXPECTED = [
     ),
     ("cooking", ["butter", "cheese", "cooking", "egg", "flour", "milk", "sugar", "tomato"], False),
     ("multiicecream", [], False),
+    # freeze_dance.py is the one game that calls its tag set GAME_COMMANDS
+    # rather than COMMANDS, so this row is also what guards get_capabilities()
+    # reading the alias — without it the game's whole role-select step
+    # (caller / player) would show no tags.
+    ("freeze_dance", ["caller", "freeze", "go", "player", "rejoin"], False),
 ]
 
 
@@ -49,16 +54,15 @@ def test_capabilities_nfc_tags_and_battery(runtime, name, expected_tags, expecte
     assert caps["buzzer"] is True
 
 
-def test_capabilities_known_games_have_button_and_hint(runtime):
-    """Every vendored game has a curated table entry (button kind + a
-    one-line hint) — these aren't derivable from source, so this just
-    guards against a name silently falling out of _TEACHER_TABLE."""
+def test_capabilities_known_games_have_button(runtime):
+    """Every vendored game has a curated table entry naming its button kind
+    — not derivable from source, so this guards against a name silently
+    falling out of _TEACHER_TABLE."""
     rt = runtime
     for name in [n for n, _, _ in _EXPECTED]:
         rt.load_game(name)
         caps = rt.get_capabilities()
         assert caps["button"] in ("tap", "hold", "none")
-        assert caps["hint"], "%s has no how-to-play hint" % name
 
 
 def test_capabilities_no_table_entry_shows_everything(runtime):

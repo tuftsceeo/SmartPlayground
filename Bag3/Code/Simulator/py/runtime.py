@@ -70,70 +70,65 @@ _ALL_MOTION = [
 
 # Hand-written per-game copy: button *kind* and motion vocabulary aren't
 # reliably inferable from source (a busy-wait-until-release reads the same
-# as a tap; "hold" vs "tap" is a UX call, not a fact in the code), and a
-# one-line "how to play" hint has to be written by a person regardless. A
-# game name absent from this table gets the "show everything" default
-# below rather than an empty panel — see get_capabilities().
+# as a tap; "hold" vs "tap" is a UX call, not a fact in the code). A game
+# name absent from this table gets the "show everything" default below
+# rather than an empty panel — see get_capabilities().
 _TEACHER_TABLE = {
     "jump": {
         "button": "tap",
         "motion": ["jump"],
-        "hint": "Jump (freefall) to light one more LED. Press the button to reset.",
     },
     "shake": {
         "button": "tap",
         "motion": ["shake"],
-        "hint": "Shake to fill the LEDs — your best shake sticks. Press the button to reset.",
     },
     "shake_rainbow": {
         "button": "tap",
         "motion": ["shake"],
-        "hint": "Shake to advance the rainbow color — your best color sticks. Press the button to reset.",
     },
     "sound": {
         "button": "hold",
         "motion": [],
-        "hint": "Hold the button to ring your bell note. Release to stop.",
     },
     "rainbow": {
         "button": "none",
         "motion": [],
-        "hint": "Watch the battery bar, then the rainbow pattern play.",
     },
     "jumpin": {
         "button": "tap",
         "motion": [],
-        "hint": "Press the button to blink all LEDs green.",
     },
     "nfc_sound": {
         "button": "hold",
         "motion": [],
-        "hint": "Tap a note tag to pick your bell, then hold the button to play it.",
     },
     "gestures": {
         "button": "hold",
         "motion": ["jump", "shake", "flip", "tip_up", "tip_down", "left_up", "right_up", "face_up", "face_down"],
-        "hint": "Hold the button while moving the wand to train a color (up to 8 times each). Tap PLAY, then hold + move to test.",
     },
     "simpleicecream": {
         "button": "tap",
         "motion": ["left_up", "right_up"],
-        "hint": "While upright, press the button to count scoops. Roll the wand onto its other side to scoop!",
     },
     "melody": {
         "button": "tap",
         "motion": [],
-        "hint": "Tap note tags to build a melody. Tap erase to clear. Press the button to play it back.",
     },
     "cooking": {
         "button": "hold",
         "motion": [],
-        "hint": "Tap ingredient tags to collect them. Hold the button to preview the recipe.",
     },
     "multiicecream": {
         "button": "tap",
         "motion": ["left_up", "right_up"],
-        "hint": "Press the button to count scoops (up to 3), then roll to the other side to commit each scoop.",
+    },
+    # Roles are picked with the `caller` / `player` tags, which come from
+    # the game's own COMMANDS. The caller drives the round with the button;
+    # a player is caught by moving during FREEZE or standing still during
+    # DANCE, both read through MotionDetector, hence shake.
+    "freeze_dance": {
+        "button": "tap",
+        "motion": ["shake"],
     },
 }
 
@@ -362,19 +357,25 @@ class Runtime:
         """Return what the loaded game actually uses, for filtering controls.
 
         nfcTags and battery are derived live from the loaded module; button
-        and motion come from _TEACHER_TABLE (see its docstring for why), and
+        and motion come from _TEACHER_TABLE (see its comment for why), and
         default to "show everything" when the game isn't in that table —
         the important path, since a freshly generated jumpin.py never will
         be.
         """
         if not self._game_mod:
             return {"button": "tap", "motion": list(_ALL_MOTION), "nfcTags": [], "battery": False,
-                    "buzzer": True, "hint": ""}
+                    "buzzer": True}
 
         mod = self._game_mod
         import game_tags
 
-        commands = set(getattr(mod, "COMMANDS", None) or [])
+        # main.py documents COMMANDS as the name a game unions EXIT_TAGS
+        # into, and every vendored game uses it except freeze_dance.py,
+        # which calls the same set GAME_COMMANDS. Read either rather than
+        # show that game no tags at all — its whole role-select step is
+        # tag-driven. (The naming divergence is in the Bag trees, not here.)
+        commands = set(getattr(mod, "COMMANDS", None)
+                       or getattr(mod, "GAME_COMMANDS", None) or [])
         own_exit_tags = getattr(mod, "_EXIT_TAGS", None)
         # exit_tags_excluding(own_tag) drops exactly one tag from EXIT_TAGS;
         # recover it by diffing rather than re-parsing the game's call site.
@@ -398,7 +399,6 @@ class Runtime:
             "nfcTags": nfc_tags,
             "battery": battery,
             "buzzer": True,  # every wand game plays sound; not derived
-            "hint": table.get("hint", ""),
         }
 
     # ── Hardware + run ──────────────────────────────────────────────
@@ -507,7 +507,7 @@ class Runtime:
             except Exception:
                 tb = traceback.format_exc()
                 self.sim_state.emit_print(tb)
-                self.sim_state.emit_log("sim-error: " + tb.splitlines()[-1])
+                self.sim_state.emit_error(tb.splitlines()[-1])
                 raise
             finally:
                 self._restore_stdout()

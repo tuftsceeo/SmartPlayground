@@ -1,7 +1,7 @@
 """
 Buzzer Helpers — PWM piezo sound control
 ==========================================
-Handles beeps, melodies, notes, and feedback sounds.
+Handles beeps, melodies, notes, and named audio icons for feedback.
 
 Usage:
     from buzzer import Buzzer
@@ -11,6 +11,7 @@ Usage:
     buz.confirm()
     buz.play_note(440, 400)
     buz.melody()
+    buz.play('success')
 """
 
 import machine
@@ -26,6 +27,30 @@ NOTE_FREQ = {
     "notea": 440,
     "noteb": 494,
     "notechigh": 523,
+}
+
+# Named audio icons: freq, ms, gap_ms steps. freq=0 is a silent step.
+SOUNDS = {
+    # ── Positive ──
+    "confirm": [(880, 60, 40), (1200, 80, 0)],
+    "success": [(784, 90, 30), (1047, 90, 30), (1319, 140, 0)],
+    "celebrate": [
+        (523, 70, 15), (659, 70, 15), (784, 70, 15), (1047, 90, 20),
+        (1047, 50, 15), (1319, 50, 15), (1047, 50, 0),
+    ],
+    "start": [(660, 80, 30), (880, 80, 30), (1100, 120, 0)],
+
+    # ── Neutral ──
+    "info": [(1000, 50, 60), (1000, 50, 0)],
+    "tick": [(1200, 25, 0)],
+    "question": [(700, 70, 30), (600, 70, 40), (1000, 160, 0)],
+    "waiting": [(600, 90, 120), (900, 90, 0)],
+
+    # ── Negative ──
+    "warn": [(1500, 90, 40), (1200, 90, 40), (1500, 90, 0)],
+    "error": [(400, 120, 60), (300, 120, 60), (200, 160, 0)],
+    "reject": [(220, 150, 100), (220, 150, 0)],
+    "stop": [(800, 80, 30), (400, 200, 0)],
 }
 
 
@@ -57,26 +82,63 @@ class Buzzer:
             buz.duty_u16(0); time.sleep_ms(30)
         buz.deinit()
 
+    def play(self, name):
+        """Play a named audio icon from SOUNDS."""
+        steps = SOUNDS[name]
+        buz = machine.PWM(machine.Pin(self.pin))
+        for freq, ms, gap_ms in steps:
+            if freq:
+                buz.freq(freq); buz.duty_u16(32768)
+            else:
+                buz.duty_u16(0)
+            time.sleep_ms(ms)
+            buz.duty_u16(0)
+            if gap_ms:
+                time.sleep_ms(gap_ms)
+        buz.deinit()
+
     # ── Feedback sounds ──
 
     def confirm(self):
         """Two rising tones — tag accepted."""
-        self.beep(880, 60); time.sleep_ms(40); self.beep(1200, 80)
+        self.play("confirm")
+
+    def success(self):
+        """Three rising tones, action completed."""
+        self.play("success")
+
+    def celebrate(self):
+        """Ascending run plus a trill, milestone."""
+        self.play("celebrate")
 
     def start(self):
         """Three rising tones — entering run mode."""
-        self.beep(660, 80); time.sleep_ms(30)
-        self.beep(880, 80); time.sleep_ms(30)
-        self.beep(1100, 120)
+        self.play("start")
+
+    def info(self):
+        """Two flat blips, neutral notice."""
+        self.play("info")
+
+    def tick(self):
+        """One short blip, progress/counting."""
+        self.play("tick")
+
+    def question(self):
+        """Falling then rising tone, waiting for input."""
+        self.play("question")
 
     def stop(self):
         """Descending tone — stopping."""
-        self.beep(800, 80); time.sleep_ms(30); self.beep(400, 200)
+        self.play("stop")
 
     def reject(self):
         """Double low tone — invalid action."""
-        self.beep(200, 150); time.sleep_ms(100); self.beep(200, 150)
+        self.play("reject")
 
     def warn(self):
-        """Single low tone — warning."""
-        self.beep(200, 300)
+        """Alternating high tones, warning."""
+        self.play("warn")
+
+    def error(self):
+        """Falling tone, failure."""
+        self.play("error")

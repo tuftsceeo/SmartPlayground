@@ -43,20 +43,27 @@ class ESPNowManager:
             if msg[0] is None:
                 break
 
+    # Outgoing traffic goes to emit_enow_sent, not emit_log: with no second
+    # wand in the simulator, showing what was transmitted is the only output
+    # a send has. `send_raw` is spelled out rather than left to __getattr__
+    # because freeze_dance.py drives the whole game through it.
+    def send_raw(self, mac_str, data):
+        sim_state.emit_enow_sent("raw", data, mac_str)
+
     def broadcast(self, data):
-        sim_state.emit_log("espnow.broadcast %r" % (data,))
+        sim_state.emit_enow_sent("broadcast", data, BROADCAST_MAC)
 
     def send_to(self, mac_str, data):
-        sim_state.emit_log("espnow.send_to %s %r" % (mac_str, data))
+        sim_state.emit_enow_sent("send_to", data, mac_str)
 
     def broadcast_stop(self):
-        sim_state.emit_log("espnow.broadcast_stop")
+        sim_state.emit_enow_sent("stop", None, BROADCAST_MAC)
 
     def broadcast_start_game(self, name):
-        sim_state.emit_log("espnow.broadcast_start_game %s" % name)
+        sim_state.emit_enow_sent("start_game", name, BROADCAST_MAC)
 
     def send_score(self, *a, **k):
-        sim_state.emit_log("espnow.send_score")
+        sim_state.emit_enow_sent("score", a[0] if a else None, None)
 
     def add_peer(self, mac_str):
         pass

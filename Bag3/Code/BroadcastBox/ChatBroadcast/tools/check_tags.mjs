@@ -12,7 +12,8 @@ import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-import { extractGameTags, deriveRequiredTags } from "../js/nfc.js";
+import { extractGameTags } from "../js/gameTags.js";
+import { buildHardwareReqs } from "../js/hardware.js";
 import { EXAMPLES } from "../js/examples.js";
 
 // Expected game-specific tags, from the plan's pinned table.
@@ -44,15 +45,17 @@ for (const [name, want] of Object.entries(EXPECTED)) {
         (ok ? "" : `\n     want ${JSON.stringify(want)}`));
 }
 
-console.log("\n== examples.js payloads (what the app actually sends) ==");
+console.log("\n== example gallery (code now loads from Simulator/vendor/games) ==");
+const VENDOR = resolve(HERE, "../../../Simulator/vendor/games");
 for (const ex of EXAMPLES) {
-    const { declared, tags, unresolved } = extractGameTags(ex.startingCode);
-    const full = deriveRequiredTags(null, ex.startingCode, "My " + ex.name);
-    const bad = unresolved.length > 0;
-    if (bad) fail++;
-    console.log(`${bad ? "FAIL" : "ok  "} ${ex.id.padEnd(14)} declared=${declared ? tags.length : "none"} ` +
-        `${JSON.stringify(tags)}` + (unresolved.length ? ` unresolved=${JSON.stringify(unresolved)}` : ""));
-    console.log(`     sent -> ${JSON.stringify(full)}`);
+    const src = readFileSync(`${VENDOR}/${ex.vendorGame}.py`, "utf8");
+    const { declared, tags, unresolved } = extractGameTags(src);
+    const reqs = buildHardwareReqs({ code: src, gameName: "My " + ex.name, declared: ex.tags });
+    if (unresolved.length) fail++;
+    console.log(`${unresolved.length ? "FAIL" : "ok  "} ${ex.id.padEnd(14)} ` +
+        `${declared ? JSON.stringify(tags) : "(no COMMANDS declared)"}` +
+        (unresolved.length ? ` unresolved=${JSON.stringify(unresolved)}` : ""));
+    console.log(`     sent -> ${JSON.stringify(reqs.tags)}`);
 }
 
 console.log(fail ? `\n${fail} FAILURES` : "\nall expectations met");

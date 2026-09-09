@@ -556,18 +556,14 @@ def _boot_grace():
 # ─────────────────────────────────────────────
 # PULL MODE — runs before ESP-NOW exists this boot
 # ─────────────────────────────────────────────
-def _pull_fail(shape, color):
-    """Show one failure glyph, play the fail sound, and go dark.
+def _pull_fail(shape, color, sound="error"):
+    """Show one failure glyph, play `sound`, and go dark.
 
-    The three give-up cases differ only in what they show, so they share
-    this: red wifi bars = the Box's AP is not up at all, orange wifi bars =
-    the AP is up but the pull was refused (join, or no such game), red X =
-    the transfer itself broke.
+    red wifi bars = AP not up, orange wifi bars = AP up but pull refused
+    (join failure or no such game), red X = transfer itself broke.
     """
     leds.show_shape(shape, color)
-    buz.beep(300, 200)
-    time.sleep_ms(100)
-    buz.beep(200, 300)
+    buz.play(sound)
     time.sleep_ms(900)
     leds.off()
 
@@ -634,9 +630,7 @@ def _run_pull_mode():
         time.sleep_ms(1000)
 
     leds.fill(BLUE_DIM)
-    buz.beep(880, 80)
-    time.sleep_ms(50)
-    buz.beep(1100, 80)
+    buz.start()
 
     import code_puller
     # BENCH: code_puller.pull() has its own memprobe calls bracketing the
@@ -672,15 +666,13 @@ def _run_pull_mode():
         # spend no more budget.
         print("# pull: Box has no game %r -- giving up" % wanted)
         pull_flag.clear()
-        _pull_fail(SHAPE_WIFI_2, ORANGE)
+        _pull_fail(SHAPE_WIFI_2, ORANGE, sound="reject")
         return
 
     if ok:
         pull_flag.clear()
         leds.show_shape(SHAPE_CHECK, GREEN)
-        buz.beep(300, 200)
-        time.sleep_ms(100)
-        buz.beep(200, 300)
+        buz.success()
         time.sleep_ms(600)
         print("# pull OK -- resetting into the new game")
         machine.reset()
@@ -692,7 +684,7 @@ def _run_pull_mode():
     print("# pull failed mid-transfer -- resetting to retry (%d/%d spent)"
           % (n, pull_flag.MAX_ATTEMPTS))
     leds.show_shape(SHAPE_X, RED)
-    buz.beep(300, 200)
+    buz.warn()
     time.sleep_ms(600)
     machine.reset()
 
@@ -1018,9 +1010,7 @@ def main():
                 print("# getcode tapped (slug=%r) -- queueing pull, rebooting"
                       % wanted)
                 leds.fill(BLUE_DIM)
-                buz.beep(880, 80)
-                time.sleep_ms(50)
-                buz.beep(1100, 80)
+                buz.start()
                 try:
                     pull_flag.set_pending(wanted)
                 except OSError as e:
@@ -1029,7 +1019,7 @@ def main():
                     # report it instead.
                     print("# could not write pull flag: %s" % e)
                     leds.show_shape(SHAPE_X, RED)
-                    buz.beep(300, 200)
+                    buz.error()
                     time.sleep_ms(800)
                     leds.off()
                     last_activity_ms = time.ticks_ms()
@@ -1076,12 +1066,12 @@ def main():
             # ── START (run mode) ──
             if cmd == "start":
                 if not rules or all(len(v) == 0 for v in rules.values()):
-                    buz.beep(300, 200)
+                    buz.reject()
                     print("  Nothing to run")
                     show_idle(last_soc, 0); continue
                 print("  ── RUNNING ──")
                 leds.show_running(rules)
-                buz.beep(800, 60); time.sleep_ms(30); buz.beep(1200, 80)
+                buz.confirm()
                 start_game_name = run_event_loop(reader, rules, runner, accel, enow, batt)
                 print("  ── STOPPED ──")
                 rules = {}; editing = None; pending_combinator = None
@@ -1099,12 +1089,12 @@ def main():
             # ── COMBINATOR ──
             if cmd in COMBINATORS:
                 if editing is None:
-                    buz.beep(300, 100)
+                    buz.reject()
                     print("  Combinator '%s' ignored — no active trigger" % cmd)
                 else:
                     pending_combinator = cmd
                     print("  Combinator: %s (next action will %s)" % (cmd, "add to group" if cmd == "and" else "start new step"))
-                    buz.beep(600, 40)
+                    buz.tick()
                 show_idle(last_soc, 0); continue
 
             # ── TRIGGER ──

@@ -17,7 +17,7 @@ function writeAll(list) {
     localStorage.setItem(KEY, JSON.stringify(list));
 }
 
-export function saveGame({ name, desc, code, requiredTags, chatHistory }) {
+export function saveGame({ name, desc, code, requiredTags, hardware, chatHistory }) {
     const list = loadSavedGames();
     const id =
         typeof crypto !== "undefined" && crypto.randomUUID
@@ -29,10 +29,21 @@ export function saveGame({ name, desc, code, requiredTags, chatHistory }) {
         desc: desc || "",
         code: code || "",
         requiredTags: requiredTags || [],
+        hardware: hardware || null,
         chatHistory: chatHistory || [],
         updatedAt: Date.now(),
     };
     list.unshift(entry);
+    writeAll(list);
+    return entry;
+}
+
+export function renameSavedGame(id, name) {
+    const list = loadSavedGames();
+    const entry = list.find((g) => g.id === id);
+    if (!entry) return null;
+    entry.name = (name || "").trim() || entry.name;
+    entry.updatedAt = Date.now();
     writeAll(list);
     return entry;
 }
