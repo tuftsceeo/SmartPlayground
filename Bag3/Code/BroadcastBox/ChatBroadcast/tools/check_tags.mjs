@@ -58,5 +58,31 @@ for (const ex of EXAMPLES) {
     console.log(`     sent -> ${JSON.stringify(reqs.tags)}`);
 }
 
+// A game that declares no COMMANDS falls back to the example's `tags`, which
+// name the built-in it was copied from. Writing that card launches the
+// built-in, not the teacher's copy -- so it must not reach the checklist.
+console.log("\n== wand built-ins never reach the card list ==");
+{
+    const jumpin = EXAMPLES.find((e) => e.id === "jumpin");
+    const src = readFileSync(`${VENDOR}/${jumpin.vendorGame}.py`, "utf8");
+    const tags = buildHardwareReqs({
+        code: src, gameName: "My Jump In", declared: jumpin.tags,
+    }).tags;
+    const ok = !tags.includes("jumpin");
+    if (!ok) fail++;
+    console.log(`${ok ? "ok  " : "FAIL"} jumpin example drops the built-in tag  ${JSON.stringify(tags)}`);
+
+    // ...but a game's own COMMANDS may legitimately name one: melody
+    // re-declares "melody" as its in-game erase control.
+    const mel = EXAMPLES.find((e) => e.id === "melody");
+    const melTags = buildHardwareReqs({
+        code: readFileSync(`${VENDOR}/${mel.vendorGame}.py`, "utf8"),
+        gameName: "My Melody", declared: mel.tags,
+    }).tags;
+    const ok2 = melTags.includes("melody") && melTags.includes("erase");
+    if (!ok2) fail++;
+    console.log(`${ok2 ? "ok  " : "FAIL"} melody keeps its own declared tags`);
+}
+
 console.log(fail ? `\n${fail} FAILURES` : "\nall expectations met");
 process.exit(fail ? 1 : 0);

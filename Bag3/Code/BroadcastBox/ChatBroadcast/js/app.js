@@ -1496,16 +1496,21 @@ class App {
 
     /**
      * Expected tags for a Box game vs. how many of each the Box has written.
-     * Expected comes from the locally saved game when we have it; otherwise we
-     * can still name the baseline pair from the slug alone.
+     *
+     * The Box's own list wins: it comes from the <slug>.tags.json pushed with
+     * the game, so it is right even for a game this laptop never sent — which
+     * the saved-game lookup below, keyed on a local name, cannot be. The
+     * fallbacks keep a Box on older firmware (no `tags` in games.list) working.
      */
     renderWrittenChecklist(wrap, g, writes) {
         const saved = loadSavedGames().find((x) => slugify(x.name || '') === g.slug);
-        const tags = saved?.hardware?.tags?.length
-            ? saved.hardware.tags
-            : (saved?.requiredTags?.length
-                ? [...new Set([...baselineTags(g.slug), ...saved.requiredTags])]
-                : baselineTags(g.slug));
+        const tags = g.tags?.length
+            ? [...new Set([...baselineTags(g.slug), ...g.tags])]
+            : (saved?.hardware?.tags?.length
+                ? saved.hardware.tags
+                : (saved?.requiredTags?.length
+                    ? [...new Set([...baselineTags(g.slug), ...saved.requiredTags])]
+                    : baselineTags(g.slug)));
         wrap.innerHTML = '';
         tags.forEach((tag) => {
             const n = (writes && writes[tag]) || 0;

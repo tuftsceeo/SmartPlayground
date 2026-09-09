@@ -406,6 +406,10 @@ class BdialServer:
                 "name": meta.get("name", slug),
                 "bytes": nbytes,
                 "pulls": 0,
+                # From <slug>.tags.json. The app shows this as the game's
+                # expected-card list, so a box holding a game the laptop
+                # never sent still reports the right tags.
+                "tags": meta.get("tags") or [],
             })
         # Enrich pulls from stats if available.
         try:

@@ -21,8 +21,14 @@ const PYTHON_RESERVED = [
   "struct", "json", "math", "random", "hashlib",
 ];
 
-/** Wand built-in game modules and command tags — a pulled game must not shadow one. */
-const WAND_RESERVED = [
+/**
+ * Wand built-in game modules and command tags — a pulled game must not shadow
+ * one. Exported because these are also names a pulled game must never ask a
+ * teacher to write on a card: MockWand/main.py builds its reader from
+ * `GAME_TAGS | CONTROL_TAGS`, so a card saying "jumpin" launches the built-in
+ * jumpin, not the teacher's copy (which answers only to its own slug).
+ */
+export const WAND_RESERVED = [
   "colorquest", "freezedance", "jumpin", "cooking", "melody", "shake",
   "shakerainbow", "rainbow", "jump", "sound", "nfcsound", "simpleicecream",
   "multiicecream", "gestures", "finddevice",

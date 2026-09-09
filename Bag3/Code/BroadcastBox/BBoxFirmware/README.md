@@ -79,6 +79,11 @@ Scan, overwrite and splash all return to the open group rather than the top
 level, so writing eight note cards does not mean re-entering the group eight
 times.
 
+`_draw_lines()` does not clip, so `bbox_ui._fit()` caps each row at
+`MAX_ROW_CHARS` and ellipsizes the middle — the tail distinguishes
+`getcode:my_melody` from `getcode:my_melody_2`. The budget is a character-count
+estimate for proportional DejaVu12; confirm it on the device.
+
 On detection the scan always ends, one of three ways:
 
 | Card holds | Result |
@@ -156,6 +161,11 @@ Host sends `cmd`, device replies with `type`. See
 Commands: `identify`, `info`, `mode`, `arm`, `disarm`, `repl`, `reboot`,
 `games.list`, `games.select`, `games.delete`, `games.clear`, `stats.get`,
 `stats.reset`
+
+`games.list` returns `slug`, `name`, `bytes`, `pulls` and `tags` per game.
+`tags` is the game's own card list, read from `<slug>.tags.json`; it is what
+lets a host show the right expected-card list for a game that host never sent.
+Empty for a game pushed without a sidecar.
 
 Events: `identity`, `info`, `mode`, `heartbeat`, `armed`, `card_present`,
 `card_written`, `games`, `stats`, `ok`, `error`, `bye`, plus `fatal` from

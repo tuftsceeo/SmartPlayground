@@ -155,6 +155,33 @@ def _draw_lines(lines, bg=BG, fg=WHITE):
 # The screen fits a size-9 header plus this many size-12 rows.
 MAX_ROWS = 4
 
+# Characters a size-12 row can hold before it runs past SCREEN_W.
+#
+# _draw_lines() prints from x=8 with no clipping, so an over-long row does not
+# wrap or get cut -- it just runs off the panel, and the part that identifies
+# it goes with it. DejaVu12 is proportional, so this is an estimate from the
+# worst realistic row: "> getcode:" + a 16-char slug + " (99)" is 33 chars and
+# was the case that prompted this. Confirm against the device and adjust.
+MAX_ROW_CHARS = 33
+
+# The size-9 header line fits proportionally more, roughly 12/9 of the above.
+MAX_HEADER_CHARS = 44
+
+
+def _fit(text, budget=MAX_ROW_CHARS):
+    """Cap a line's width, keeping both ends.
+
+    The tail is what tells "getcode:my_melody" from "getcode:my_melody_2", so
+    an end-truncation would hide exactly the distinguishing part. Take the
+    middle out instead.
+    """
+    if len(text) <= budget:
+        return text
+    keep = budget - 1  # one char spent on the ellipsis
+    head = (keep + 1) // 2
+    tail = keep - head
+    return text[:head] + "\u2026" + text[len(text) - tail:]
+
 
 def _window(n, cursor):
     """Row indices to draw: at most MAX_ROWS, centered on cursor.
@@ -351,7 +378,7 @@ class BboxUI(object):
             if name == "DONE":
                 lines.append(("%s DONE" % marker, 12, ACCENT))
             else:
-                lines.append(("%s %s" % (marker, name), 12,
+                lines.append((_fit("%s %s" % (marker, name)), 12,
                               WHITE if i == cursor else MUTED))
         _draw_lines(lines)
 
@@ -363,7 +390,7 @@ class BboxUI(object):
         written: dict name -> cumulative count ever written (from
             stats_log, survives reboots -- not a session tally).
         """
-        lines = [("%s  BtnA=scan BtnB=next" % title, 9, WARN)]
+        lines = [(_fit("%s  BtnA=scan BtnB=next" % title, MAX_HEADER_CHARS), 9, WARN)]
         for i in _window(len(rows), cursor):
             name = rows[i]
             marker = ">" if i == cursor else " "
@@ -371,7 +398,7 @@ class BboxUI(object):
                 lines.append(("%s < back" % marker, 12, ACCENT))
             else:
                 count = written.get(name, 0) if written else 0
-                lines.append(("%s %s (%d)" % (marker, name, count), 12,
+                lines.append((_fit("%s %s (%d)" % (marker, name, count)), 12,
                               WHITE if i == cursor else MUTED))
         _draw_lines(lines)
 

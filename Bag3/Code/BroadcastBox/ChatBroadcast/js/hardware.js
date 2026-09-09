@@ -8,7 +8,7 @@
  * derived TAG_LIST), plus whatever tags the game itself reads.
  */
 
-import { slugify } from "./gameName.js";
+import { slugify, WAND_RESERVED } from "./gameName.js";
 import { extractGameTags } from "./gameTags.js";
 
 /** Tags every game needs, whatever it does. */
@@ -38,7 +38,7 @@ export function buildHardwareReqs({ code, gameName, declared, minWands, stations
     if (fromCode.declared) {
         specific = fromCode.tags;
     } else if (declared && declared.length) {
-        specific = declared;
+        specific = dropWandBuiltins(declared);
     } else {
         specific = sniffTags(code);
     }
@@ -57,6 +57,23 @@ export function buildHardwareReqs({ code, gameName, declared, minWands, stations
         // the teacher must be told rather than left to discover at the Box.
         unresolved: fromCode.unresolved,
     };
+}
+
+/**
+ * Strip names that address a wand built-in rather than this game.
+ *
+ * Only ever applied to the `declared` fallback. An example's `tags` list names
+ * the built-in it was copied from -- jumpin's is `["jumpin"]` -- and a card
+ * saying that launches the built-in, not the teacher's copy. Their copy is
+ * reachable through the baseline `getcode:<slug>` / `<slug>` pair instead.
+ *
+ * Never applied to names a game takes from its own COMMANDS set: melody
+ * deliberately re-declares `melody` there as an in-game erase control, and
+ * that card does belong on the list.
+ */
+function dropWandBuiltins(tags) {
+    const reserved = new Set(WAND_RESERVED);
+    return tags.filter((t) => !reserved.has(t));
 }
 
 /**
