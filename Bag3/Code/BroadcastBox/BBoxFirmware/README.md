@@ -166,6 +166,7 @@ Changing any row breaks the wand silently.
 | `tools/probe_stick.py` | Bench probe: Phase 0 StickS3 checks |
 | `tools/probe_ap_cycle.py` | Bench probe: AP down/up over repeat cycles; side-key check |
 | `tools/box_menu_check.py` | Host-side (no hardware) check of the WRITE-menu logic |
+| `tools/widget_test.py` | Bench diagnostic: `Widgets` glyph coverage + a same-value-redraw theory, both raised by hardware bug reports on `bbox_ui.py` |
 
 ## Serial protocol
 

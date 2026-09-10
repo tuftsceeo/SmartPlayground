@@ -60,6 +60,13 @@ what `Widgets` can actually render:
     (`Widgets.FONTS.Montserrat12/16/18` -- the only sizes confirmed
     against this board's own UIFlow2-generated code) stands in for
     Nunito. Patrick Hand has no equivalent here and is dropped.
+  - Glyph coverage: a font baked into MCU flash typically only carries
+    ASCII plus whatever the vendor bothered to add. Non-ASCII characters
+    used here (the ellipsis "…" U+2026, the middle dot "·" U+00B7) were
+    reported on hardware as blank/tofu boxes in long row names -- both
+    replaced with plain ASCII (`ELLIPSIS = "..."`, `"(%d)"`). Stick to
+    ASCII for anything new; see `tools/widget_test.py` to check a
+    character before using it.
   - Icons: the brand's SVG stroke-icon system cannot render through
     `Widgets`. Its own documented fallback -- plain "->"/"<-" text and
     `</>`-style literal characters -- carries over directly; a `Triangle`
@@ -135,13 +142,16 @@ SELECTED_CHARS = 13
 HEADER_CHARS = 20
 
 
+ELLIPSIS = "..."  # ASCII, not U+2026 -- see module docstring's font note
+
+
 def _fit(text, budget):
     if len(text) <= budget:
         return text
-    keep = budget - 1
+    keep = budget - len(ELLIPSIS)
     head = (keep + 1) // 2
     tail = keep - head
-    return text[:head] + "…" + text[len(text) - tail:]
+    return text[:head] + ELLIPSIS + text[len(text) - tail:]
 
 
 # Fixed 5-slot carousel: 2 rows above the cursor, the cursor's own row
@@ -315,6 +325,7 @@ class BboxUI(object):
         self._srv_hint = self._label("", 6, 200, INK_3, PAGE_BG, FONT12)
 
     def _set_text(self, label, text):
+        label.setText("")
         label.setText(text)
 
     # ── audio (same tones as every prior version of this file) ─────
@@ -452,7 +463,7 @@ class BboxUI(object):
             if r == "< back" or not written or not written.get(r):
                 display_rows.append(r)
             else:
-                display_rows.append("%s ·%d" % (r, written.get(r, 0)))
+                display_rows.append("%s (%d)" % (r, written.get(r, 0)))
         self._paint_slots(display_rows, cursor)
         cur = rows[cursor] if rows else ""
         self._set_text(self._act_label, "BACK" if cur == "< back" else "WRITE")
