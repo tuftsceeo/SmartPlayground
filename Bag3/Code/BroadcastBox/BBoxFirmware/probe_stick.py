@@ -174,6 +174,44 @@ def _check_m5ui():
         return False
 
 
+def _check_widgets():
+    """Hardware gate for bbox_ui.py's current renderer: `Widgets`
+    (`M5.Widgets`, exposed via `from M5 import *`) -- the mid-tier
+    retained-mode shape/label library, distinct from the `m5ui`/lvgl
+    module checked above (that one is confirmed ABSENT on this board;
+    this one is expected present, since it's what UIFlow2's own
+    code generator produces for this exact board -- see bbox_ui.py's
+    module docstring). Confirms the four calls that file depends on:
+    Rectangle + Label + Triangle construction, and Label.setText()/
+    setColor(). Does NOT confirm setVisible() on Rectangle/Triangle
+    (bbox_ui.py's _show() assumes it; watch for an AttributeError there
+    on the first real screen switch) or any rounded-corner primitive.
+    """
+    try:
+        import M5
+        from M5 import Widgets
+    except ImportError as e:
+        _result("widgets_import", str(e), False)
+        return False
+
+    try:
+        M5.begin()
+        Widgets.setRotation(0)
+        Widgets.fillScreen(0xF7F7FB)
+        rect = Widgets.Rectangle(4, 28, 119, 32, 0xE8E6F0, 0xFFFFFF)
+        rect.setColor(0x6C4CD1, 0xF2EEFC)
+        label = Widgets.Label(
+            "probe", 10, 36, 1.0, 0x231F2E, 0xF2EEFC, Widgets.FONTS.Montserrat12)
+        label.setText("probe ok")
+        label.setColor(0x6C4CD1, 0xF2EEFC)
+        Widgets.Triangle(20, 60, 40, 60, 30, 75, 0x5B5468, 0x5B5468)
+        _result("widgets_pass", True, True)
+        return True
+    except Exception as e:
+        _result("widgets_pass", str(e), False)
+        return False
+
+
 def run():
     print("# probe_stick start")
     _check_lcd()
@@ -181,9 +219,13 @@ def run():
     nfc_ok = _check_nfc()
     _check_button(5)
     m5ui_ok = _check_m5ui()
+    widgets_ok = _check_widgets()
     all_ok = ap_ok and nfc_ok
     _result("probe_pass", all_ok, all_ok)
     if not m5ui_ok:
         print("# m5ui/lvgl not available on this board (expected -- confirmed "
-              "2026-09-10). bbox_ui.py already uses the M5.Lcd/M5GFX renderer.")
+              "2026-09-10). bbox_ui.py does not use it.")
+    if not widgets_ok:
+        print("# Widgets check FAILED -- bbox_ui.py's current renderer cannot "
+              "run on this board. See its module docstring for prior fallbacks.")
     print("# probe_stick done — see RESULT lines above")
