@@ -276,6 +276,45 @@ The protocol is **hand-duplicated** in `BBoxFirmware/code_server.py` and
 `MockWand/code_puller.py` — different devices, no shared module. Both carry a
 `PEER:` comment. Change them in the same commit or the wand breaks silently.
 
+## Direct-USB push (no Box in the loop)
+
+ChatBroadcast's connect overlay also takes a wand plugged straight into USB —
+`ChatBroadcast/js/device/wandDeviceLink.js` and `wandGameInstaller.js`. The
+Box is transport only; the payload was already wand source
+(`def play(nfc, leds, buz, accel, i2c, enow)`), so this path writes the
+identical bytes directly to `/games/<slug>.py` over the raw REPL instead of
+routing them through `/flash/games/<slug>.py` and an ESP-NOW pull.
+
+```
+raw REPL: verify hubtype.txt == "wand", os.mkdir('/games') if needed,
+          write /games/<slug>.py, game_store.set_last_pulled('<slug>')
+exit raw REPL, Ctrl-D (soft reset)
+```
+
+`set_last_pulled()` reuses the same auto-launch path a real ESP-NOW pull
+uses (`MockWand/lib/game_store.py`, `MockWand/main.py`'s "Auto-launch a
+just-pulled game") — the wand plays the game on the boot right after, no
+card involved.
+
+**The wand has no command listener.** `MockWand/main.py` prints one JSON
+line per event (`_emit()`), never reads one — polling `sys.stdin` would add
+work to the timing-sensitive NFC/LED loop, and the raw REPL already gives
+ChatBroadcast everything it needs to push a file and reset. Shapes, mirrored
+off the Box's `identity`/`heartbeat` so `bboxLink.js`'s existing NDJSON
+reader parses either device unchanged:
+
+```
+{"type":"identity","device":"wand","version":<str>,"hub":<HUB_TYPE>,"games":[<slug>,...]}   — once, after boot completes
+{"type":"heartbeat","up":<ticks_ms>}                                                        — every 5s, idle loop only
+{"type":"game_start","slug":<slug>}  /  {"type":"game_end","slug":<slug>}                   — around _launch_game()'s body
+{"type":"error","where":"game_load","slug":<slug>,"err":<str>}                              — from _game_load_failed()
+```
+
+`heartbeat` is idle-loop-only: a running game blocks the wand's main loop
+for its whole duration, same as the Box's `SERVE` mode blocks its main loop.
+ChatBroadcast's `game_start`/`game_end` handlers raise and lower its silence
+watchdog the same way its Box `mode`/`armed` handlers do for `SERVE`.
+
 ## Slugs are module names
 
 A slug is the filename on both devices *and* a MicroPython module name, since

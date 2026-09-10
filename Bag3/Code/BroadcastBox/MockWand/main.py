@@ -118,6 +118,29 @@ def game_module(name):
     return None
 
 
+# ─────────────────────────────────────────────
+# JSON TELEMETRY (output-only)
+# ─────────────────────────────────────────────
+# The wand otherwise only prints prose, which ChatBroadcast's direct-USB-push
+# path cannot tell apart from any other MicroPython board, or wait on to know
+# a push landed. This is the wand-side mirror of BBoxFirmware/bbox_server.py's
+# `identity`/`heartbeat` lines -- same shapes, so ChatBroadcast's existing
+# NDJSON line reader (ChatBroadcast/js/device/bboxLink.js) parses it unchanged.
+#
+# Deliberately output-only: there is no command listener here. Polling
+# sys.stdin would add work to a timing-sensitive NFC/LED loop for a feature
+# the raw REPL already provides (ChatBroadcast drives file pushes and resets
+# from there, same as it does for the Box's firmware install).
+WAND_VERSION = "0.1.0"
+
+
+def _emit(obj):
+    """Print one JSON line. No try/except -- a bad payload here is a bug in
+    this file, not a runtime condition to hide (HARDWARE_PROTOCOL.md: "every
+    abort prints its reason ... zero silent failures")."""
+    print(json.dumps(obj))
+
+
 def is_game(name):
     return game_module(name) is not None
 
@@ -386,6 +409,7 @@ def _game_load_failed(name, exc):
     print("  [FAIL] game load: %s (module %s)"
           % (name, game_module(name)))
     sys.print_exception(exc)
+    _emit({"type": "error", "where": "game_load", "slug": name, "err": str(exc)})
     memprobe.probe("load-fail:%s" % name)   # BENCH
     memprobe.frag("load-fail:%s" % name)    # BENCH
     for _ in range(3):
@@ -413,10 +437,12 @@ def _launch_game(name, nfc, leds, buz, accel, i2c, enow, batt_ref):
             _game_load_failed(name, e)
             return
         wrapper = _StartGameCapture(enow)
+        _emit({"type": "game_start", "slug": name})
         if name == "rainbow":
             play_func(nfc, leds, buz, accel, i2c, wrapper, batt=batt_ref)
         else:
             play_func(nfc, leds, buz, accel, i2c, wrapper)
+        _emit({"type": "game_end", "slug": name})
         next_name = wrapper.pending_name
         # Drop the reference before unloading -- play_func is what pins
         # the module in this frame; a chained force-switch must not
@@ -824,6 +850,13 @@ def main():
 
     print("  Boot complete — all systems OK")
     memprobe.probe("boot-complete")  # BENCH
+    # Volunteered once per boot, same rule as the Box's identity (bbox_server.py
+    # _identity_payload docstring): a host that attaches later never sees it,
+    # so `heartbeat` below is what actually proves the link is alive.
+    _emit({
+        "type": "identity", "device": "wand", "version": WAND_VERSION,
+        "hub": HUB_TYPE, "games": sorted(list(GAME_MODULES.keys()) + game_store.slugs()),
+    })
     time.sleep_ms(1500)  # hold boot bar so it can be read before idle takes over
 
     # Transition to idle
@@ -840,6 +873,14 @@ def main():
     last_activity_ms = time.ticks_ms()
     nfc_sleeping = False
     idle_frame = 0
+
+    # ── Heartbeat ──
+    # Idle-loop only, same as the Box's SERVE-blocks-heartbeat behaviour
+    # (bbox_server.py HEARTBEAT_MS) -- a running game blocks this loop for
+    # its whole duration, so silence here does not by itself mean "gone",
+    # and the app already models that with a longer silence limit.
+    HEARTBEAT_MS = 5000
+    last_heartbeat_ms = time.ticks_ms()
 
     # ── Auto-launch a just-pulled game ──
     # The pull runs in its own boot and ends in machine.reset(), so this is
@@ -861,6 +902,13 @@ def main():
     print("\n  Tap a TRIGGER tag to start programming\n")
 
     while True:
+        # Checked every iteration, ahead of the try block below, because
+        # several branches inside it `continue` past the loop's tail
+        # sleep_ms(1) -- a check placed there would miss them and stall
+        # the heartbeat for however long those branches keep recurring.
+        if time.ticks_diff(time.ticks_ms(), last_heartbeat_ms) >= HEARTBEAT_MS:
+            last_heartbeat_ms = time.ticks_ms()
+            _emit({"type": "heartbeat", "up": last_heartbeat_ms})
         try:
             # ─────────────────────────────────────
             # NFC SLEEPING — minimal power mode

@@ -31,19 +31,26 @@ const NUDGE_TIMEOUT_MS = 2000;
 /** Box and Dial share ChatBroadcast; anything else is wrong_device. */
 const EXPECTED_DEVICES = new Set(["broadcast_box", "broadcast_dial"]);
 
-/** Short label for UI copy: "Box" or "Dial". Defaults to Box when unknown. */
+/** Short label for UI copy: "Box", "Dial" or "Wand". Defaults to Box when
+ *  unknown. "wand" is here (not just Box/Dial) because a wand's own
+ *  `identity` payload really does say `"device":"wand"` (MockWand/main.py's
+ *  `_emit()`) -- these two functions are shared UI copy, not exclusive to
+ *  BboxDeviceLink, and app.js/router.js call them on whatever `deviceInfo`
+ *  the currently-linked device reported, box/dial or wand alike. */
 export function deviceShortName(infoOrDevice) {
   const d = typeof infoOrDevice === "string"
     ? infoOrDevice
     : infoOrDevice?.device;
+  if (d === "wand") return "Wand";
   return d === "broadcast_dial" ? "Dial" : "Box";
 }
 
-/** Product name for UI copy: "Broadcast Box" or "Broadcast Dial". */
+/** Product name for UI copy: "Broadcast Box", "Broadcast Dial" or "Wand". */
 export function deviceProductName(infoOrDevice) {
   const d = typeof infoOrDevice === "string"
     ? infoOrDevice
     : infoOrDevice?.device;
+  if (d === "wand") return "Wand";
   return d === "broadcast_dial" ? "Broadcast Dial" : "Broadcast Box";
 }
 
@@ -52,6 +59,8 @@ function sleep(ms) {
 }
 
 export class BboxDeviceLink {
+  kind = "box"; // covers both Box and Dial -- see deviceShortName()/deviceProductName() above
+
   constructor() {
     this.adapter = new SerialAdapter();
     this.repl = new ReplController(this.adapter);
