@@ -60,13 +60,18 @@ what `Widgets` can actually render:
     (`Widgets.FONTS.Montserrat12/16/18` -- the only sizes confirmed
     against this board's own UIFlow2-generated code) stands in for
     Nunito. Patrick Hand has no equivalent here and is dropped.
-  - Glyph coverage: a font baked into MCU flash typically only carries
-    ASCII plus whatever the vendor bothered to add. Non-ASCII characters
-    used here (the ellipsis "…" U+2026, the middle dot "·" U+00B7) were
-    reported on hardware as blank/tofu boxes in long row names -- both
-    replaced with plain ASCII (`ELLIPSIS = "..."`, `"(%d)"`). Stick to
-    ASCII for anything new; see `tools/widget_test.py` to check a
-    character before using it.
+  - Glyph coverage: confirmed on hardware via `tools/widget_test.py`
+    stage 1 -- coverage is spotty, not simply "ASCII only". Render fine:
+    ellipsis "…" U+2026, middle dot "·" U+00B7, both arrows U+2190/2192,
+    down triangle U+25BC, multiplication sign U+00D7, em/en dash
+    U+2014/2013, check mark U+2713. Blank/tofu box: bullet "•" U+2022,
+    degree sign "°" U+00B0 -- neither is used anywhere in this file.
+    `_fit()`'s ellipsis and the written-count suffix were switched to
+    plain ASCII (`"..."`, `"(%d)"`) regardless, since the actual bug
+    those were suspected of turned out to be the same-value-redraw issue
+    below, not a missing glyph -- ASCII is simply the safer default for
+    anything new. Check an unlisted character with `tools/widget_test.py`
+    before using it rather than assuming either way.
   - Icons: the brand's SVG stroke-icon system cannot render through
     `Widgets`. Its own documented fallback -- plain "->"/"<-" text and
     `</>`-style literal characters -- carries over directly; a `Triangle`
