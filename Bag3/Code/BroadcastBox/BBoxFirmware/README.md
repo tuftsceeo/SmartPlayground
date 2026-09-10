@@ -93,10 +93,12 @@ Scan and splash both return to the open group rather than the top level, so
 writing eight note cards does not mean re-entering the group eight times.
 
 `Widgets.Label` does not clip, so `bbox_ui._fit()` caps each row at
-`ROW_CHARS`/`SELECTED_CHARS` and ellipsizes the middle — the tail
-distinguishes `getcode:my_melody` from `getcode:my_melody_2`. The budgets
-are character-count estimates for proportional Montserrat on a 119px-wide
-card, not measured pixel widths; confirm on the device.
+`ROW_CHARS`/`SELECTED_CHARS`, keeping the start of the name and appending
+`...` — reported on hardware that splitting the budget between both ends
+(the earlier design, to keep a numbered variant like `_melody_2`
+distinguishable) cut the meaningful prefix down past legibility. The
+budgets are character-count estimates for proportional Montserrat on a
+119px-wide card, not measured pixel widths; confirm on the device.
 
 On detection the scan always ends, one of two ways:
 

@@ -139,8 +139,7 @@ def _fonts():
 
 # Card interior text budgets are character-count estimates for proportional
 # Montserrat on a 119px-wide card, not measured pixel widths -- confirm on
-# the device. The tail of a tag name is what distinguishes
-# "getcode:my_melody" from "getcode:my_melody_2", so ellipsize the middle.
+# the device.
 ROW_CHARS = 16
 SELECTED_CHARS = 13
 HEADER_CHARS = 20
@@ -150,12 +149,21 @@ ELLIPSIS = "..."  # ASCII, not U+2026 -- see module docstring's font note
 
 
 def _fit(text, budget):
+    """Truncate to budget, keeping the START and appending ELLIPSIS.
+
+    An earlier version split the budget between head and tail (keeping
+    both ends, ellipsizing the middle) specifically so a numbered
+    variant like "getcode:my_melody_2" stayed distinguishable from
+    "getcode:my_melody". Reported on hardware as a net loss: it cut the
+    meaningful prefix ("getcode:...") down to a few characters to make
+    room for a tail fragment nobody was reading. Simple prefix
+    truncation trades that rare disambiguation for a name that's
+    actually legible at a glance, which is what people update this
+    hardware to see -- keep this if that trade comes up again.
+    """
     if len(text) <= budget:
         return text
-    keep = budget - len(ELLIPSIS)
-    head = (keep + 1) // 2
-    tail = keep - head
-    return text[:head] + ELLIPSIS + text[len(text) - tail:]
+    return text[:budget - len(ELLIPSIS)] + ELLIPSIS
 
 
 # Fixed 5-slot carousel: 2 rows above the cursor, the cursor's own row
