@@ -61,17 +61,16 @@ what `Widgets` can actually render:
     against this board's own UIFlow2-generated code) stands in for
     Nunito. Patrick Hand has no equivalent here and is dropped.
   - Glyph coverage: confirmed on hardware via `tools/widget_test.py`
-    stage 1 -- coverage is spotty, not simply "ASCII only". Render fine:
-    ellipsis "…" U+2026, middle dot "·" U+00B7, both arrows U+2190/2192,
-    down triangle U+25BC, multiplication sign U+00D7, em/en dash
-    U+2014/2013, check mark U+2713. Blank/tofu box: bullet "•" U+2022,
-    degree sign "°" U+00B0 -- neither is used anywhere in this file.
-    `_fit()`'s ellipsis and the written-count suffix were switched to
-    plain ASCII (`"..."`, `"(%d)"`) regardless, since the actual bug
-    those were suspected of turned out to be the same-value-redraw issue
-    below, not a missing glyph -- ASCII is simply the safer default for
-    anything new. Check an unlisted character with `tools/widget_test.py`
-    before using it rather than assuming either way.
+    stage 1 -- coverage is narrow. Of the candidates tested, only
+    bullet "•" U+2022 and degree sign "°" U+00B0 render; ellipsis "…"
+    U+2026, middle dot "·" U+00B7, both arrows U+2190/2192, down
+    triangle U+25BC, multiplication sign U+00D7, em/en dash
+    U+2014/2013 and check mark U+2713 all came back blank/tofu boxes.
+    `_fit()`'s ellipsis and the written-count suffix are plain ASCII
+    (`"..."`, `"(%d)"`) because of this. Treat ASCII as the only safe
+    default and check anything else with `tools/widget_test.py` first
+    -- do not assume a character works because it looks like a plain
+    symbol.
   - Icons: the brand's SVG stroke-icon system cannot render through
     `Widgets`. Its own documented fallback -- plain "->"/"<-" text and
     `</>`-style literal characters -- carries over directly; a `Triangle`
