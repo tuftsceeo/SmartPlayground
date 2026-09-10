@@ -143,16 +143,13 @@ def _slots(entries, cursor):
 
 
 # Row layout (portrait 135x240) -- see module docstring for the derivation.
-# ROW_H/ROW_GAP trimmed slightly from the first cut (32/3) to leave room
-# for LIST_HINT_Y's persistent button-role line above the action row.
-ROW_H = 30
-ROW_GAP = 2
+ROW_H = 32
+ROW_GAP = 3
 ROW_Y0 = 28
 ROW_X = 4
 ROW_W = 119
 TRACK_X = 125
 TRACK_W = 6
-LIST_HINT_Y = 190
 BTN_Y = 208
 BTN_H = 26
 
@@ -170,7 +167,6 @@ class BboxUI(object):
         self._act_label = None
         self._next_rect = None
         self._next_tri = None
-        self._list_hint = None
         self._st_title = None
         self._st_body1 = None
         self._st_body2 = None
@@ -254,22 +250,15 @@ class BboxUI(object):
 
         self._next_rect = self._card(96, BTN_Y, 35, BTN_H, BORDER, CARD_BG)
         # Downward chevron -- "next" (BtnB). Static; never recoloured.
+        # (An earlier revision also added a "B: next" text hint here --
+        # reported on hardware as redundant with this icon, and removed.)
         self._next_tri = Widgets.Triangle(
             105, BTN_Y + 8, 122, BTN_Y + 8, 113, BTN_Y + 20, INK_3, INK_3)
-
-        # Persistent button-role reminder -- every prior version of this
-        # file had one ("BtnA=... BtnB=next" in the M5GFX header); this
-        # Widgets rewrite had dropped it, which is a real regression, not
-        # just a missing nicety -- there is no touchscreen on this board,
-        # so the on-screen action label/chevron are read-only indicators
-        # and BtnA/BtnB are the only real input.
-        self._list_hint = self._label("", 4, LIST_HINT_Y, MUTED, PAGE_BG, FONT12)
 
         self._list_widgets = (
             [self._crumb] + self._row_rects + self._row_labels
             + self._track_dots
-            + [self._act_rect, self._act_label, self._next_rect, self._next_tri,
-               self._list_hint])
+            + [self._act_rect, self._act_label, self._next_rect, self._next_tri])
 
     def _build_status(self):
         """One reusable screen behind every one-shot painter -- booting,
@@ -423,7 +412,6 @@ class BboxUI(object):
         self._paint_slots(display_entries, cursor)
         cur = entries[cursor] if entries else ""
         self._set_text(self._act_label, "SHARE" if cur == "DONE" else "OPEN")
-        self._set_text(self._list_hint, "B: next")
         self._show("list")
 
     def paint_tag_group(self, title, rows, cursor, written):
@@ -439,28 +427,40 @@ class BboxUI(object):
         self._paint_slots(display_rows, cursor)
         cur = rows[cursor] if rows else ""
         self._set_text(self._act_label, "BACK" if cur == "< back" else "WRITE")
-        self._set_text(self._list_hint, "B: next")
         self._show("list")
 
     def _paint_slots(self, entries, cursor):
+        """Recolour the rectangle and dot FIRST, the label LAST.
+
+        On hardware, a populated row was showing up with real text
+        peeking out from behind a blank rectangle covering part of it --
+        i.e. the rectangle's own repaint from setColor() was landing on
+        top of the label. This library appears to redraw immediately on
+        each call rather than maintaining a z-ordered stack, so whichever
+        widget is touched most recently wins visually, regardless of the
+        order things were constructed in back in _build_list(). Setting
+        the label last guarantees it draws on top every time.
+        """
         for i, (text, is_selected) in enumerate(_slots(entries, cursor)):
             budget = SELECTED_CHARS if is_selected else ROW_CHARS
-            self._set_text(self._row_labels[i], _fit(text, budget) if text else "")
+            display = _fit(text, budget) if text else ""
             if not text:
                 # Off the end of the list -- blend card, label and dot
                 # into the page background rather than leaving a blank
                 # card sitting in the layout looking like a stray box.
                 self._row_rects[i].setColor(PAGE_BG, PAGE_BG)
-                self._row_labels[i].setColor(PAGE_BG, PAGE_BG)
                 self._track_dots[i].setColor(PAGE_BG, PAGE_BG)
+                label_c, label_bg = PAGE_BG, PAGE_BG
             elif is_selected:
                 self._row_rects[i].setColor(WRITE_FG, WRITE_BG)
-                self._row_labels[i].setColor(WRITE_FG, WRITE_BG)
                 self._track_dots[i].setColor(WRITE_FG, WRITE_FG)
+                label_c, label_bg = WRITE_FG, WRITE_BG
             else:
                 self._row_rects[i].setColor(BORDER, CARD_BG)
-                self._row_labels[i].setColor(INK_3, CARD_BG)
                 self._track_dots[i].setColor(WRITE_FG, WRITE_FG)
+                label_c, label_bg = INK_3, CARD_BG
+            self._row_labels[i].setColor(label_c, label_bg)
+            self._set_text(self._row_labels[i], display)
 
     def paint_serve(self, ssid, pickups=0):
         self._set_text(self._srv_ssid, ssid)
