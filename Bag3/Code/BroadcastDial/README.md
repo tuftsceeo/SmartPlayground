@@ -112,6 +112,7 @@ trailers; NTAG writes start at page 4 and stop after 36 pages;
 | `json_link.py`, `reset_log.py`, `stats_log.py` | **PEER of Box** |
 | `manifest.js` | `DIAL_FILES` / `loadDialFiles()` for ChatBroadcast |
 | `boot.py` | M5Stack vendor UIFlow2 boot-option stub |
+| `tools/probe_dial.py` | Bench probe: Phase 0 hardware discovery, not part of `DIAL_FILES` |
 
 Copied peers differ from the Box originals only by a leading `# PEER: …`
 header. `opcodes.py` / `pn532.py` / `nfc_reader.py` are not carried over.

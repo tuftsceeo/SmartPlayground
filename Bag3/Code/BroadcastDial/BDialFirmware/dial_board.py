@@ -1,6 +1,6 @@
 """dial_board.py — M5 Dial 2 (StampS3A) hardware constants and construction.
 
-Phase 0 (probe_dial.py, 2026-09-09):
+Phase 0 (tools/probe_dial.py, 2026-09-09):
   H1 PASS — UIFlow2, 240x240, Rotary, m5ui, BtnA+BtnB APIs present
   H2 PASS — WS1850S-class at 0x28, VersionReg=0x15
   H3 PASS for pins — sda=11 scl=12; same bus also has touch @ 0x38 and

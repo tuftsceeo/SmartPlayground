@@ -6,7 +6,7 @@ re-textured per paint (down from a prior one-page-per-state design) --
 dial_board.py's Phase 0 log records a real hardware failure, "H5 FAIL --
 SoftAP OOM with 8 LVGL pages resident (~40 kB free)", with 17 pages
 resident at the time. Fewer resident pages is not just tidier code, it is
-the fix for that failure -- re-run the Stage 11 probe in probe_dial.py
+the fix for that failure -- re-run the Stage 11 probe in tools/probe_dial.py
 after any change here and update the H5 line with the new numbers.
 
 Style reference: Bag2/Code/DialSpeaker/Dial_Music.py (M5 Dial v1) --
@@ -27,7 +27,7 @@ Design notes (round-display / small-screen navigation):
     raw lv.obj primitives in the old scan-ring code).
   - All content sits inside a ~20px inset from the round bezel.
 
-Unverified on hardware -- confirm with probe_dial.py's roller probe and
+Unverified on hardware -- confirm with tools/probe_dial.py's roller probe and
 the demo() sweep below before trusting this on a device:
   - M5Roller.set_options() accepting a python list directly (the wrapper's
     source docstring implies list; falls back to a newline-joined string

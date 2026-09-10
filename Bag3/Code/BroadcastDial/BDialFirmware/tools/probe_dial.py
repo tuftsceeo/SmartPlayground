@@ -7,12 +7,16 @@ see Bag3/AGENTS.md, "Phase 0 pins still open". Bag2/Code/DialSpeaker/
 Dial_Music.py is the nearest reference in-tree, but it targets M5 Dial
 *v1* -- treat anything it implies about pins as unverified for this board.
 
-Eleven numbered stages, each its own function, each wrapped in run()'s own
+Twelve numbered stages, each its own function, each wrapped in run()'s own
 try/except so one stage's crash cannot hide the others -- see the
 comment on run() for why broad except is correct here.
 
-Deploy and run (see P0_RUNBOOK.md for the batched command):
-  mpremote connect $PORT fs cp probe_dial.py :/flash/probe_dial.py + \\
+Bench tool, not firmware -- not in manifest.js / DIAL_FILES. Lives in
+tools/ alongside this firmware's other test-only utilities; run the
+commands below from BDialFirmware/, not from inside tools/.
+
+Deploy and run:
+  mpremote connect $PORT fs cp tools/probe_dial.py :/flash/probe_dial.py + \\
     fs cp ws1850s.py :/flash/ws1850s.py + \\
     exec "import probe_dial; probe_dial.run()"
 
@@ -533,6 +537,61 @@ def stage11_roller_and_heap():
           "this number must be comfortably higher for H5 to be considered fixed.")
 
 
+# --- Stage 12: does the flash logging (stats_log/reset_log) cost heap? ------
+
+def stage12_logging_memory():
+    """Answers a question raised alongside the H5 SoftAP-OOM redesign: are
+    stats_log.py's/reset_log.py's flash writes part of that heap problem?
+
+    Short answer going in (from reading both modules): almost certainly
+    not. Neither keeps a growing in-RAM structure -- each call opens a
+    file, writes or appends one short line, and closes it; the log
+    itself lives on flash, not in the LVGL/general heap gc.mem_free()
+    reports. reset_log.LOG_ENABLED is currently False, so it makes zero
+    writes right now regardless. This stage turns that reading into a
+    measurement rather than leaving it as an unverified claim -- it
+    isolates stats_log's cost with LOG_ENABLED forced on for the
+    duration of the stage only (restored after), since that module is
+    NOT gated by the flag in normal operation.
+    """
+    _banner(12, "logging memory cost (stats_log / reset_log)")
+    import reset_log
+    import stats_log
+
+    was_enabled = reset_log.LOG_ENABLED
+    reset_log.LOG_ENABLED = True
+    try:
+        gc.collect()
+        before = gc.mem_free()
+        print("before any log writes:", before)
+
+        for i in range(20):
+            stats_log.record_pull("probe_slug_%d" % i, True)
+            stats_log.record_tag("probe_tag_%d" % i)
+            reset_log.note_mode("WRITE" if i % 2 else "SERVE")
+        gc.collect()
+        after_writes = gc.mem_free()
+        print("after 20 stats_log + reset_log writes:", after_writes,
+              "(delta %d)" % (before - after_writes))
+
+        agg = stats_log.aggregate()
+        gc.collect()
+        after_aggregate = gc.mem_free()
+        print("after stats_log.aggregate() (%d pull slugs, %d tag labels):" % (
+              len(agg["pulls"]), len(agg["writes"])), after_aggregate,
+              "(delta from before-writes: %d)" % (before - after_aggregate))
+
+        _result(12, "logging heap delta=%d bytes over 20 writes + 1 aggregate "
+                     "(see labelled mem_free() lines above for the breakdown)"
+                     % (before - after_aggregate))
+    finally:
+        # Leave the probe's own writes in stats.log -- _trim()'s MAX_LINES
+        # cap means this does not grow unbounded, and the file is bench-only
+        # data. Restore the flag so a probe run cannot silently turn logging
+        # on for a subsequent real boot.
+        reset_log.LOG_ENABLED = was_enabled
+
+
 STAGES = {
     1: stage1_identity,
     2: stage2_introspection,
@@ -545,11 +604,12 @@ STAGES = {
     9: stage9_touch,
     10: stage10_lvgl_block,
     11: stage11_roller_and_heap,
+    12: stage12_logging_memory,
 }
 
 
 def run(stages=None):
-    """Run the given stage numbers (default: all 11, in order).
+    """Run the given stage numbers (default: all 12, in order).
 
     Each stage runs in its own try/except that prints the exception and
     CONTINUES -- this is the one place in this file where catching broadly

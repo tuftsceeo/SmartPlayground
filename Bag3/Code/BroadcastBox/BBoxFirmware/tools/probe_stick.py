@@ -1,8 +1,12 @@
 """
 probe_stick.py — Phase 0 bench checks for M5Stack StickS3 (UIFlow2).
 
+Bench tool, not firmware -- not part of BOX_FILES / manifest.js. Lives in
+tools/ alongside this firmware's other test-only utilities; run the
+commands below from BBoxFirmware/, not from inside tools/.
+
 Deploy to /flash and run:
-  mpremote connect /dev/cu.usbmodem3101 fs cp probe_stick.py :/flash/probe_stick.py
+  mpremote connect /dev/cu.usbmodem3101 fs cp tools/probe_stick.py :/flash/probe_stick.py
   mpremote connect /dev/cu.usbmodem3101 exec "import probe_stick; probe_stick.run()"
 """
 

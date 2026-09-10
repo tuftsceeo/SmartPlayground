@@ -12,10 +12,11 @@ identical to success from the box side: ap.active() reads True and a socket
 binds fine either way. Only a station completing the join distinguishes
 them, so this is a two-board test.
 
-Deploy and run from the REPL (ask which board is on which port first --
-ports change between sessions, see the plan's Hardware etiquette section):
+Deploy and run from the REPL, from BBoxFirmware/ (ask which board is on
+which port first -- ports change between sessions, see the plan's
+Hardware etiquette section):
 
-  mpremote connect <BOX_PORT> fs cp probe_ap_cycle.py :/flash/probe_ap_cycle.py
+  mpremote connect <BOX_PORT> fs cp tools/probe_ap_cycle.py :/flash/probe_ap_cycle.py
 
 Step A (box) -- runs N=10 AP down/up cycles, then leaves the AP up on the
 final cycle instead of tearing it down, as a hand-off to step B:

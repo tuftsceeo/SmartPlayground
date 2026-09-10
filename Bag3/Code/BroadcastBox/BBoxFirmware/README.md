@@ -160,9 +160,10 @@ Changing any row breaks the wand silently.
 | `reset_log.py` | Persists reset cause + last mode across the USB CDC drop |
 | `manifest.js` | File list for ChatBroadcast's installer |
 | `boot.py` | M5Stack vendor UIFlow2 boot-option stub |
-| `probe_stick.py` | Bench probe: Phase 0 StickS3 checks |
-| `probe_ap_cycle.py` | Bench probe: AP down/up over repeat cycles; side-key check |
 | `pn532.py`, `nfc_reader.py`, `opcodes.py` | Not imported at runtime; kept for the opcode scheme and the superseded PN532 path |
+| `tools/probe_stick.py` | Bench probe: Phase 0 StickS3 checks |
+| `tools/probe_ap_cycle.py` | Bench probe: AP down/up over repeat cycles; side-key check |
+| `tools/box_menu_check.py` | Host-side (no hardware) check of the WRITE-menu logic |
 
 ## Serial protocol
 
