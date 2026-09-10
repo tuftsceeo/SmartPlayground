@@ -34,7 +34,7 @@ calls `self._clear()` (`Widgets.fillScreen(PAGE_BG)`) FIRST, wiping the
 entire framebuffer, and then explicitly redraws every single widget its
 screen needs -- including ones whose content never changes between
 calls (the action button's card, the next-chevron and its button, the
-serve screen's static title). Skipping any of those means it
+serve screen's static title/exit line). Skipping any of those means it
 simply will not reappear after the next fillScreen(). There is no
 `_show()`/`setVisible()`/groups mechanism anymore; each paint_* method
 is fully self-contained.
@@ -194,11 +194,13 @@ class BboxUI(object):
         self._st_title = None
         self._st_body1 = None
         self._st_body2 = None
+        self._st_body3 = None
         self._exit_rect = None
         self._exit_label = None
         self._srv_title = None
         self._srv_ssid = None
         self._srv_pickups = None
+        self._srv_hint = None
 
     def begin(self):
         """Call once, right after M5.begin() -- not before.
@@ -286,6 +288,12 @@ class BboxUI(object):
         self._st_title = self._label("", 6, 60, INK, PAGE_BG, FONT18)
         self._st_body1 = self._label("", 6, 100, INK_3, PAGE_BG, FONT12)
         self._st_body2 = self._label("", 6, 124, INK_3, PAGE_BG, FONT12)
+        # Third line: state/action indicators ("Tap Tag Now", "Press Any
+        # Button", "Hold Card Steady") -- these are functional UI state,
+        # not decorative hint text, and were wrongly stripped in an
+        # earlier pass. Kept distinct from the REMOVED decorative titles
+        # ("Broadcast Box", "Getting game...").
+        self._st_body3 = self._label("", 6, 200, INK_3, PAGE_BG, FONT12)
 
         # Exit affordance for the SCANNING screen only (paint_scanning) --
         # not writing/overwrite/etc: bbox_server's BtnB->cancel is polled
@@ -304,6 +312,7 @@ class BboxUI(object):
         self._srv_title = self._label("", 6, 40, SERVE_FG, PAGE_BG, FONT18)
         self._srv_ssid = self._label("", 6, 76, INK, PAGE_BG, FONT16)
         self._srv_pickups = self._label("", 6, 104, INK_3, PAGE_BG, FONT12)
+        self._srv_hint = self._label("", 6, 200, INK_3, PAGE_BG, FONT12)
 
     def _set_text(self, label, text):
         label.setText(text)
@@ -336,12 +345,13 @@ class BboxUI(object):
 
     # ── status-screen helper ────────────────────────────────────
 
-    def _status(self, title, body1="", body2="", title_c=INK):
+    def _status(self, title, body1="", body2="", body3="", title_c=INK):
         self._clear()
         self._set_text(self._st_title, title)
         self._st_title.setColor(title_c, PAGE_BG)
         self._set_text(self._st_body1, body1)
         self._set_text(self._st_body2, body2)
+        self._set_text(self._st_body3, body3)
 
     # ── painters (dial_ui signatures) ───────────────────────────
 
@@ -357,31 +367,32 @@ class BboxUI(object):
         self._status(game_name if game_name else "game")
 
     def paint_armed(self, label, index=1, total=1):
-        self._status(label, "Tag %d/%d" % (index, total))
+        self._status(label, "Tag %d/%d" % (index, total), "Hold Near Reader")
 
     def paint_overwrite(self, existing, new_label):
         self._status(
             'Overwrite "%s"?' % existing, '-> "%s"' % new_label,
-            title_c=WARN_FG)
+            "A=Write  B=Cancel", title_c=WARN_FG)
 
     def paint_scanning(self, label):
-        self._status(label)
+        self._status("Scanning", label, "Tap Tag Now")
         self._exit_rect.setColor(BORDER, CARD_BG)
         self._exit_label.setColor(DANGER_FG, CARD_BG)
         self._set_text(self._exit_label, "X")
 
     def paint_already(self, label):
-        self._status('Already "%s"' % label, title_c=SERVE_FG)
+        self._status('Already "%s"' % label, "no change needed",
+                     "Press Any Button", title_c=SERVE_FG)
 
     def paint_written(self, label, count):
         self._status('"%s" written!' % label, "%d written so far" % count,
-                     title_c=SERVE_FG)
+                     "Press Any Button", title_c=SERVE_FG)
 
     def paint_write_failed(self, label):
-        self._status("Write failed", label, title_c=DANGER_FG)
+        self._status("Write failed", label, "Press Any Button", title_c=DANGER_FG)
 
     def paint_writing(self, label):
-        self._status('Writing "%s"...' % label)
+        self._status('Writing "%s"...' % label, "Hold Card Steady")
 
     def paint_done(self, label, written, total):
         self._status("%s done!" % label, "%d of %d written" % (written, total),
@@ -401,7 +412,7 @@ class BboxUI(object):
         self._status("-> %s" % shown, title_c=tint)
 
     def paint_no_pickup_hint(self):
-        self._status("pickup off", title_c=WARN_FG)
+        self._status("pickup off", "DONE to Share", title_c=WARN_FG)
 
     # ── list-screen helper ───────────────────────────────────────
 
@@ -483,12 +494,13 @@ class BboxUI(object):
 
     def paint_serve(self, ssid, pickups=0):
         self._clear()
-        # srv_title never changes, but still needs to be explicitly
-        # redrawn every call -- see the module docstring.
+        # srv_title/srv_hint never change, but still need to be
+        # explicitly redrawn every call -- see the module docstring.
         self._set_text(self._srv_title, "Sharing")
         self._srv_title.setColor(SERVE_FG, PAGE_BG)
         self._set_text(self._srv_ssid, ssid)
         self._set_text(self._srv_pickups, "pickups: %d total" % pickups)
+        self._set_text(self._srv_hint, "Hold Button to Exit")
 
 
 def demo():
