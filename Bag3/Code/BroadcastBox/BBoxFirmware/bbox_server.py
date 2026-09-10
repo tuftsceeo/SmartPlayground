@@ -78,8 +78,12 @@ MODE_SERVE = "SERVE"
 #   MENU      list of groups   A = open (or serve on DONE)  B = next
 #   GROUP     one group's tags A = scan (or back)           B = next
 #   SCAN      RF field on      A = -                        B = group
-#   OVERWRITE prompt up        A = write it                 B = group
 #   SPLASH    result shown     A = group                    B = group
+#
+# No overwrite confirmation: a card holding different text is overwritten
+# the same as a blank one (_scan_step()). A teacher who wants to check a
+# card before writing uses the read utility for that, rather than this
+# menu prompting on every write.
 #
 # The menu is two-level because a single game can contribute a dozen tags
 # (melody alone has eleven) and BtnB only moves forward: on one flat list,
@@ -87,7 +91,6 @@ MODE_SERVE = "SERVE"
 W_MENU = "menu"
 W_GROUP = "group"
 W_SCAN = "scan"
-W_OVERWRITE = "overwrite"
 W_SPLASH = "splash"
 
 
@@ -146,9 +149,6 @@ class BboxServer:
 
         self._buttons = Buttons()
         self._b1_was_down = False  # for deriving a press edge
-
-        self._pending_tag = None
-        self._pending_existing = None
 
         self.handlers = {
             "identify": self.do_identify,
@@ -221,7 +221,6 @@ class BboxServer:
             self.code.disarm()  # ap.active(False) + AP_SETTLE_MS
         if old == MODE_WRITE:
             self._nfc_field(False)
-            self._clear_pending()
 
         # --- enter ---
         if new_mode == MODE_SERVE:
@@ -758,10 +757,6 @@ class BboxServer:
         except Exception as e:
             print("# NFC antenna %s FAILED: %s" % ("on" if on else "off", str(e)))
 
-    def _clear_pending(self):
-        self._pending_tag = None
-        self._pending_existing = None
-
     # ─────────────────────────────────────────────
     # WRITE MODE — sub-state machine
     # ─────────────────────────────────────────────
@@ -770,7 +765,6 @@ class BboxServer:
         _dbg("state %s -> menu" % self._write_state)
         self._write_state = W_MENU
         self._nfc_field(False)
-        self._clear_pending()
         self._repaint()
 
     def _to_group(self):
@@ -782,14 +776,12 @@ class BboxServer:
         _dbg("state %s -> group" % self._write_state)
         self._write_state = W_GROUP
         self._nfc_field(False)
-        self._clear_pending()
         self._repaint()
 
     def _to_scan(self):
         _dbg("state %s -> scan (target=%s)"
              % (self._write_state, self._current_entry()))
         self._write_state = W_SCAN
-        self._clear_pending()
         # Never begin a scan in encrypted mode: a MIFARE auth from an
         # earlier scan latches MFCrypto1On, and while it is set the reader
         # cannot answer a plain REQA, so nothing is ever detected. Toggling
@@ -811,7 +803,6 @@ class BboxServer:
         _dbg("state %s -> splash" % self._write_state)
         self._write_state = W_SPLASH
         self._nfc_field(False)
-        self._clear_pending()
 
     def _poll_write(self):
         """WRITE mode. BtnA acts, BtnB scrolls/backs out. No holds."""
@@ -857,18 +848,6 @@ class BboxServer:
             self._scan_step()
             return
 
-        if self._write_state == W_OVERWRITE:
-            if b1:
-                self.ui.beep_click()
-                tag = self._pending_tag
-                entry = self._current_entry()
-                self._clear_pending()
-                self._write_card(tag, entry)
-            elif b2:
-                self.ui.beep_click()
-                self._to_group()
-            return
-
         if self._write_state == W_SPLASH:
             if b1 or b2:
                 self.ui.beep_click()
@@ -883,10 +862,11 @@ class BboxServer:
     def _scan_step(self):
         """One polling pass while in W_SCAN. The field is already on.
 
-        Detection ends the scan either way -- into OVERWRITE, or straight
-        through a write into SPLASH -- so there is no same-card debounce to
-        keep here: nothing polls the reader again until the teacher starts
-        a new scan from the menu.
+        Detection always ends the scan straight through a write into
+        SPLASH -- no overwrite confirmation, a card with different text is
+        overwritten the same as a blank one -- so there is no same-card
+        debounce to keep here: nothing polls the reader again until the
+        teacher starts a new scan from the menu.
         """
         if self.nfc is None:
             return
@@ -937,15 +917,7 @@ class BboxServer:
             self._to_splash()
             return
         if existing:
-            # Keep the field UP: the write that BtnA may be about to confirm
-            # needs the card still energized and selectable.
-            self._pending_tag = tag
-            self._pending_existing = existing
-            _log("card has %s, want %s -> OVERWRITE prompt"
-                 % (repr(existing), repr(entry)))
-            self.ui.paint_overwrite(existing, entry)
-            self._write_state = W_OVERWRITE
-            return
+            _log("card has %s, want %s -> overwriting" % (repr(existing), repr(entry)))
         self._write_card(tag, entry)
 
     def _write_card(self, tag, entry):

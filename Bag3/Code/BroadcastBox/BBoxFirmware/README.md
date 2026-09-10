@@ -48,7 +48,7 @@ put rather than sitting on a dead AP.
 
 **The box does not serve code until a teacher selects `DONE` + BtnA.** A wand
 tapping `getcode` before that burns its two-attempt budget (~31 s each) and
-error-blinks. The `WRITE` screen header says `pickup off` for this reason.
+error-blinks.
 
 ## WRITE mode
 
@@ -59,8 +59,12 @@ A sub-state machine. No press-and-hold anywhere.
 | `menu` | group list, cursor row in the fixed SELECTED slot | open the group (or `SERVE` on the `DONE` row) | next row (wraps) |
 | `group` | that group's tags, cursor row in the fixed SELECTED slot | start scan (or back on `< back`) | next row (wraps) |
 | `scan` | title + hint on the shared status screen, field on | — | back to `group` |
-| `overwrite` | card's current text vs target | write it | cancel to `group` |
 | `splash` | result of the last action | to `group` | to `group` |
+
+No overwrite confirmation: a card holding different text is overwritten
+the same as a blank one. A teacher who wants to check a card before
+writing uses the read utility for that, rather than a prompt on every
+write.
 
 The list screen is a fixed 5-row carousel (`Widgets.Rectangle` +
 `Widgets.Label` pairs): 2 rows above the cursor, the cursor's own row
@@ -85,9 +89,8 @@ A game with no sidecar contributes only its two pickup tags.
 game is loaded, so a `stop` card can be written on a bare box. With an empty
 index the first group falls back to `TAG_LIST` = `getcode`, `jumpin`.
 
-Scan, overwrite and splash all return to the open group rather than the top
-level, so writing eight note cards does not mean re-entering the group eight
-times.
+Scan and splash both return to the open group rather than the top level, so
+writing eight note cards does not mean re-entering the group eight times.
 
 `Widgets.Label` does not clip, so `bbox_ui._fit()` caps each row at
 `ROW_CHARS`/`SELECTED_CHARS` and ellipsizes the middle — the tail
@@ -95,13 +98,12 @@ distinguishes `getcode:my_melody` from `getcode:my_melody_2`. The budgets
 are character-count estimates for proportional Montserrat on a 119px-wide
 card, not measured pixel widths; confirm on the device.
 
-On detection the scan always ends, one of three ways:
+On detection the scan always ends, one of two ways:
 
 | Card holds | Result |
 |---|---|
 | the target text | `Already "<tag>"` splash, no write |
-| nothing | written immediately, then splash |
-| different text | `overwrite` prompt, BtnA commits |
+| anything else (nothing, or different text) | written immediately, then splash |
 
 Leaving `SERVE` is the one remaining hold: **BtnA for `SERVE_EXIT_MS` (1000 ms)**.
 It is rare and should not fire from a stray bump. The hold is sampled inside
@@ -232,7 +234,7 @@ module-level `VERBOSE = False`. Set one to `True` to trace it.
 Gated: button presses, mode/sub-state transitions, antenna toggles,
 per-attempt re-select misses, auth-OK narration, per-font-selection lines.
 
-Never gated: card detected, read result, overwrite prompt, write attempt and
+Never gated: card detected, read result, write attempt and
 outcome, verify result, every abort with its reason, any exception, and
 `shutdown: AP down`. A failure always prints.
 
@@ -300,7 +302,7 @@ without interrupting it, read the port passively instead.
 Confirmed on hardware 2026-09-02, over USB:
 
 - Boots to the `WRITE` tag list; screens legible at 240×135.
-- BtnA/BtnB drive the menu, scan, overwrite and splash states.
+- BtnA/BtnB drive the menu, scan and splash states.
 - Repeated card reads and writes within one boot, across two cards, both
   directions (`getcode` <-> `jumpin`), each `verify OK`.
 - `WRITE` -> `SERVE` -> `WRITE` without a reboot.

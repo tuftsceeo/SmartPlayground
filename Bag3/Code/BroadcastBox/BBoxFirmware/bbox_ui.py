@@ -241,7 +241,7 @@ class BboxUI(object):
         self._build_serve()
 
     def _build_list(self):
-        self._crumb = self._label("", 4, 6, WARN_FG, PAGE_BG, FONT12)
+        self._crumb = self._label("", 4, 6, INK_3, PAGE_BG, FONT12)
 
         for i in range(ROWS_ABOVE + 1 + ROWS_BELOW):
             y = ROW_Y0 + i * (ROW_H + ROW_GAP)
@@ -281,9 +281,9 @@ class BboxUI(object):
 
     def _build_status(self):
         """One reusable set of widgets behind every one-shot painter --
-        booting, idle, receiving, armed, overwrite, scanning, writing/
-        written/write_failed/already, done, complete, error, mode_change.
-        All labels are redrawn on every call (see _status()), so there is
+        booting, idle, receiving, armed, scanning, writing/written/
+        write_failed/already, done, complete, error, mode_change. All
+        labels are redrawn on every call (see _status()), so there is
         nothing "static" here to worry about."""
         self._st_title = self._label("", 6, 60, INK, PAGE_BG, FONT18)
         self._st_body1 = self._label("", 6, 100, INK_3, PAGE_BG, FONT12)
@@ -369,11 +369,6 @@ class BboxUI(object):
     def paint_armed(self, label, index=1, total=1):
         self._status(label, "Tag %d/%d" % (index, total), "Hold Near Reader")
 
-    def paint_overwrite(self, existing, new_label):
-        self._status(
-            'Overwrite "%s"?' % existing, '-> "%s"' % new_label,
-            "A=Write  B=Cancel", title_c=WARN_FG)
-
     def paint_scanning(self, label):
         self._status("Scanning", label, "Tap Tag Now")
         self._exit_rect.setColor(BORDER, CARD_BG)
@@ -436,8 +431,11 @@ class BboxUI(object):
         """
         self._clear()
         self._redraw_list_chrome()
-        self._set_text(self._crumb, "! pickup off")
-        self._crumb.setColor(WARN_FG, PAGE_BG)
+        # Positive mode label rather than a negative warning about what's
+        # disabled -- WRITE mode always has the AP down, so "pickup off"
+        # read as an alarm about a normal, permanent state.
+        self._set_text(self._crumb, "Tag Writer")
+        self._crumb.setColor(INK_3, PAGE_BG)
         display_entries = ["Enable Share" if e == "DONE" else e for e in entries]
         self._paint_slots(display_entries, cursor)
         cur = entries[cursor] if entries else ""
@@ -520,7 +518,7 @@ def demo():
             2, {"note_c": 3}),
         lambda: ui.paint_no_pickup_hint(),
         lambda: ui.paint_armed("getcode", 1, 1),
-        lambda: ui.paint_overwrite("melody", "getcode"),
+        lambda: ui.paint_scanning("getcode"),
         lambda: ui.paint_writing("getcode"),
         lambda: ui.paint_already("getcode"),
         lambda: ui.paint_written("getcode", 3),
