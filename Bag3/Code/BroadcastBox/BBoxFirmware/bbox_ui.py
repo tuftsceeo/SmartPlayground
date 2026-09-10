@@ -15,6 +15,30 @@ Portrait is a real change from the landscape 240x135 every prior version
 of this file used -- confirm the physical mounting/holding of the Box
 tolerates that before relying on it in the field.
 
+## Redraw model -- read this before touching a paint_* method
+
+The first cut of this file assumed `Widgets` was retained-mode: build
+every widget once, toggle `.setVisible()` to switch screens, and only
+re-touch a widget's text/color when its content actually changes. That
+assumption was WRONG, confirmed on hardware: hiding a widget does not
+erase its pixels. The "Starting" boot-screen text was still visible,
+at its exact original position, after several unrelated screens had
+since been painted on top of/around it. This library appears to draw
+immediately on each constructor/`.setText()`/`.setColor()` call, with no
+maintained z-stack and no automatic redraw-on-show -- once a pixel is
+drawn, it stays exactly as drawn until something else explicitly
+overdraws that same region.
+
+The fix is structural, not another patch: every paint_* method now
+calls `self._clear()` (`Widgets.fillScreen(PAGE_BG)`) FIRST, wiping the
+entire framebuffer, and then explicitly redraws every single widget its
+screen needs -- including ones whose content never changes between
+calls (the action button's card, the next-chevron and its button, the
+serve screen's static title). Skipping any of those means it
+simply will not reappear after the next fillScreen(). There is no
+`_show()`/`setVisible()`/groups mechanism anymore; each paint_* method
+is fully self-contained.
+
 ## Brand system
 
 Colors, type and copy voice come from
@@ -170,12 +194,11 @@ class BboxUI(object):
         self._st_title = None
         self._st_body1 = None
         self._st_body2 = None
-        self._st_hint = None
+        self._exit_rect = None
+        self._exit_label = None
         self._srv_title = None
         self._srv_ssid = None
         self._srv_pickups = None
-        self._srv_hint = None
-        self._groups = []  # [(name, [widgets...])] for _show()
 
     def begin(self):
         """Call once, right after M5.begin() -- not before.
@@ -196,6 +219,12 @@ class BboxUI(object):
             self._build_all()
             self._built = True
 
+    def _clear(self):
+        """Wipe the whole framebuffer. Call at the top of every paint_*
+        method -- see the module docstring's "Redraw model" section for
+        why this replaced the old setVisible()-based screen switching."""
+        Widgets.fillScreen(PAGE_BG)
+
     # ── construction ─────────────────────────────────────────────
 
     def _card(self, x, y, w, h, border, fill):
@@ -208,13 +237,6 @@ class BboxUI(object):
         self._build_list()
         self._build_status()
         self._build_serve()
-        # Groups toggled by _show(); "list" is the default first paint.
-        self._groups = [
-            ("list", self._list_widgets),
-            ("status", self._status_widgets),
-            ("serve", self._serve_widgets),
-        ]
-        self._show("status")
 
     def _build_list(self):
         self._crumb = self._label("", 4, 6, WARN_FG, PAGE_BG, FONT12)
@@ -249,55 +271,39 @@ class BboxUI(object):
         self._act_label = self._label("", 14, BTN_Y + 6, 0xFFFFFF, PINK, FONT16)
 
         self._next_rect = self._card(96, BTN_Y, 35, BTN_H, BORDER, CARD_BG)
-        # Downward chevron -- "next" (BtnB). Static; never recoloured.
-        # (An earlier revision also added a "B: next" text hint here --
-        # reported on hardware as redundant with this icon, and removed.)
+        # Downward chevron -- "next" (BtnB). Its color never changes, but
+        # it still needs an explicit redraw call every list-screen paint
+        # -- see _redraw_list_chrome().
         self._next_tri = Widgets.Triangle(
             105, BTN_Y + 8, 122, BTN_Y + 8, 113, BTN_Y + 20, INK_3, INK_3)
 
-        self._list_widgets = (
-            [self._crumb] + self._row_rects + self._row_labels
-            + self._track_dots
-            + [self._act_rect, self._act_label, self._next_rect, self._next_tri])
-
     def _build_status(self):
-        """One reusable screen behind every one-shot painter -- booting,
-        idle, receiving, armed, overwrite, scanning, writing/written/
-        write_failed/already, done, complete, error, mode_change,
-        no_pickup_hint."""
+        """One reusable set of widgets behind every one-shot painter --
+        booting, idle, receiving, armed, overwrite, scanning, writing/
+        written/write_failed/already, done, complete, error, mode_change.
+        All labels are redrawn on every call (see _status()), so there is
+        nothing "static" here to worry about."""
         self._st_title = self._label("", 6, 60, INK, PAGE_BG, FONT18)
         self._st_body1 = self._label("", 6, 100, INK_3, PAGE_BG, FONT12)
         self._st_body2 = self._label("", 6, 124, INK_3, PAGE_BG, FONT12)
-        self._st_hint = self._label("", 6, 200, MUTED, PAGE_BG, FONT12)
-        self._status_widgets = [self._st_title, self._st_body1, self._st_body2, self._st_hint]
+
+        # Exit affordance for the SCANNING screen only (paint_scanning) --
+        # not writing/overwrite/etc: bbox_server's BtnB->cancel is polled
+        # every loop only during W_SCAN. Once a card is detected,
+        # _write_card() runs write_text() synchronously with no button
+        # polling until it returns, so there is nothing to honor a cancel
+        # during an actual write -- this icon must not appear there.
+        # Same bottom-right square the list screen uses for its next-
+        # chevron. A single "X" glyph stands in for a drawn icon: no
+        # confirmed diagonal-line primitive on this widget library, and a
+        # lone glyph reads as a symbol, not a hint sentence.
+        self._exit_rect = self._card(96, BTN_Y, 35, BTN_H, BORDER, CARD_BG)
+        self._exit_label = self._label("X", 107, BTN_Y + 4, DANGER_FG, CARD_BG, FONT18)
 
     def _build_serve(self):
-        self._srv_title = self._label("Sharing", 6, 40, SERVE_FG, PAGE_BG, FONT18)
+        self._srv_title = self._label("", 6, 40, SERVE_FG, PAGE_BG, FONT18)
         self._srv_ssid = self._label("", 6, 76, INK, PAGE_BG, FONT16)
         self._srv_pickups = self._label("", 6, 104, INK_3, PAGE_BG, FONT12)
-        self._srv_hint = self._label("hold button to leave", 6, 200, MUTED, PAGE_BG, FONT12)
-        self._serve_widgets = [self._srv_title, self._srv_ssid, self._srv_pickups, self._srv_hint]
-
-    # ── screen switching ─────────────────────────────────────────
-
-    def _show(self, name):
-        """The one guarded seam in this file: a paint failure is logged
-        with the screen it happened on and re-raised, not swallowed.
-
-        `setVisible` is docs-confirmed on Label/Circle/Image; Rectangle
-        and Triangle are assumed to share it via the same base widget
-        class ("Widgets — a basic UI library") but this has not been
-        exercised on this board specifically -- watch the first real
-        screen switch on hardware for a stray AttributeError here.
-        """
-        try:
-            for group_name, widgets in self._groups:
-                visible = (group_name == name)
-                for w in widgets:
-                    w.setVisible(visible)
-        except Exception as e:
-            print("# _show(%s) FAILED: %s" % (name, str(e)))
-            raise
 
     def _set_text(self, label, text):
         label.setText(text)
@@ -330,13 +336,12 @@ class BboxUI(object):
 
     # ── status-screen helper ────────────────────────────────────
 
-    def _status(self, title, body1="", body2="", hint="", title_c=INK):
+    def _status(self, title, body1="", body2="", title_c=INK):
+        self._clear()
         self._set_text(self._st_title, title)
         self._st_title.setColor(title_c, PAGE_BG)
         self._set_text(self._st_body1, body1)
         self._set_text(self._st_body2, body2)
-        self._set_text(self._st_hint, hint)
-        self._show("status")
 
     # ── painters (dial_ui signatures) ───────────────────────────
 
@@ -345,39 +350,38 @@ class BboxUI(object):
 
     def paint_idle(self, linked=True):
         status = "linked to laptop" if linked else "not linked"
-        self._status("Broadcast Box", status, "no game loaded yet",
+        self._status(status, "no game loaded yet",
                      title_c=SERVE_FG if linked else INK_3)
 
     def paint_receiving(self, game_name=""):
-        self._status("Getting game...", game_name if game_name else "game")
+        self._status(game_name if game_name else "game")
 
     def paint_armed(self, label, index=1, total=1):
-        self._status(label, "Tag %d/%d" % (index, total),
-                     "hold card on reader")
+        self._status(label, "Tag %d/%d" % (index, total))
 
     def paint_overwrite(self, existing, new_label):
         self._status(
             'Overwrite "%s"?' % existing, '-> "%s"' % new_label,
-            title_c=WARN_FG,
-            hint="A overwrite   B cancel")
+            title_c=WARN_FG)
 
     def paint_scanning(self, label):
-        self._status(label, "hold card on top", hint="B = back")
+        self._status(label)
+        self._exit_rect.setColor(BORDER, CARD_BG)
+        self._exit_label.setColor(DANGER_FG, CARD_BG)
+        self._set_text(self._exit_label, "X")
 
     def paint_already(self, label):
-        self._status('Already "%s"' % label, "no change needed",
-                     title_c=SERVE_FG, hint="press any button")
+        self._status('Already "%s"' % label, title_c=SERVE_FG)
 
     def paint_written(self, label, count):
         self._status('"%s" written!' % label, "%d written so far" % count,
-                     title_c=SERVE_FG, hint="press any button")
+                     title_c=SERVE_FG)
 
     def paint_write_failed(self, label):
-        self._status("Write failed", label, title_c=DANGER_FG,
-                     hint="press any button")
+        self._status("Write failed", label, title_c=DANGER_FG)
 
     def paint_writing(self, label):
-        self._status('Writing "%s"...' % label, "hold card steady")
+        self._status('Writing "%s"...' % label)
 
     def paint_done(self, label, written, total):
         self._status("%s done!" % label, "%d of %d written" % (written, total),
@@ -397,7 +401,20 @@ class BboxUI(object):
         self._status("-> %s" % shown, title_c=tint)
 
     def paint_no_pickup_hint(self):
-        self._status("pickup off", "DONE + B1 to share", title_c=WARN_FG)
+        self._status("pickup off", title_c=WARN_FG)
+
+    # ── list-screen helper ───────────────────────────────────────
+
+    def _redraw_list_chrome(self):
+        """Force-redraw every list-screen widget that is never otherwise
+        re-touched between paints (its color/text never changes) --
+        required because _clear() wipes the whole framebuffer first, and
+        this library only redraws a widget when a method on it is
+        actually called. Skipping this means the action button's card
+        and the next-chevron simply don't reappear."""
+        self._act_rect.setColor(PINK, PINK)
+        self._next_rect.setColor(BORDER, CARD_BG)
+        self._next_tri.setColor(INK_3, INK_3)
 
     def paint_tag_list(self, entries, cursor):
         """Tier 1: games + Utility Tags + DONE.
@@ -406,16 +423,19 @@ class BboxUI(object):
         `cursor` logic -- only its DISPLAYED text changes here, to
         "Enable Share".
         """
+        self._clear()
+        self._redraw_list_chrome()
         self._set_text(self._crumb, "! pickup off")
         self._crumb.setColor(WARN_FG, PAGE_BG)
         display_entries = ["Enable Share" if e == "DONE" else e for e in entries]
         self._paint_slots(display_entries, cursor)
         cur = entries[cursor] if entries else ""
         self._set_text(self._act_label, "SHARE" if cur == "DONE" else "OPEN")
-        self._show("list")
 
     def paint_tag_group(self, title, rows, cursor, written):
         """Tier 2: one group's tags + "< back"."""
+        self._clear()
+        self._redraw_list_chrome()
         self._set_text(self._crumb, _fit("< " + title, HEADER_CHARS))
         self._crumb.setColor(INK_3, PAGE_BG)
         display_rows = []
@@ -427,7 +447,6 @@ class BboxUI(object):
         self._paint_slots(display_rows, cursor)
         cur = rows[cursor] if rows else ""
         self._set_text(self._act_label, "BACK" if cur == "< back" else "WRITE")
-        self._show("list")
 
     def _paint_slots(self, entries, cursor):
         """Recolour the rectangle and dot FIRST, the label LAST.
@@ -463,9 +482,13 @@ class BboxUI(object):
             self._set_text(self._row_labels[i], display)
 
     def paint_serve(self, ssid, pickups=0):
+        self._clear()
+        # srv_title never changes, but still needs to be explicitly
+        # redrawn every call -- see the module docstring.
+        self._set_text(self._srv_title, "Sharing")
+        self._srv_title.setColor(SERVE_FG, PAGE_BG)
         self._set_text(self._srv_ssid, ssid)
         self._set_text(self._srv_pickups, "pickups: %d total" % pickups)
-        self._show("serve")
 
 
 def demo():
