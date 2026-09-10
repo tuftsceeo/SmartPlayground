@@ -127,12 +127,64 @@ def _check_nfc():
     return False
 
 
+def _check_m5ui():
+    """Hardware gate for bbox_ui.py's LVGL/m5ui port -- nothing in this repo
+    had previously imported m5ui/lvgl on a StickS3. Confirms the import
+    works at all, then reports mem_free() before/after m5ui.init() and one
+    m5ui.M5Page + m5ui.M5Roller, since the Dial's own dial_board.py records
+    a real hardware failure (SoftAP OOM with LVGL pages resident) and the
+    Stick has less headroom than the Dial. Does NOT arm SoftAP itself --
+    that needs the full bbox_server stack; treat a good reading here as
+    necessary, not sufficient. If this fails, bbox_ui.py's module docstring
+    says to fall back to the previous M5.Lcd/M5GFX renderer rather than
+    trusting an unproven port.
+    """
+    import gc
+    try:
+        import M5
+        import m5ui
+        import lvgl as lv
+    except ImportError as e:
+        _result("m5ui_import", str(e), False)
+        return False
+
+    gc.collect()
+    _result("mem_before_begin", gc.mem_free(), True)
+    M5.begin()
+    gc.collect()
+    _result("mem_after_begin", gc.mem_free(), True)
+
+    try:
+        m5ui.init()
+        gc.collect()
+        _result("mem_after_m5ui_init", gc.mem_free(), True)
+
+        pg = m5ui.M5Page(bg_c=0xFFFFFF)
+        roller = m5ui.M5Roller(
+            x=6, y=18, w=200, h=78, options=[""],
+            mode=lv.roller.MODE.NORMAL, selected=0, visible_row_count=2,
+            font=lv.font_montserrat_14, parent=pg)
+        roller.set_options(["A", "B", "C"], lv.roller.MODE.NORMAL)
+        roller.set_selected(1, lv.ANIM.OFF)
+        gc.collect()
+        _result("mem_after_page_and_roller", gc.mem_free(), True)
+        _result("m5ui_pass", True, True)
+        return True
+    except Exception as e:
+        _result("m5ui_pass", str(e), False)
+        return False
+
+
 def run():
     print("# probe_stick start")
     _check_lcd()
     ap_ok = _check_ap_socket()
     nfc_ok = _check_nfc()
     _check_button(5)
+    m5ui_ok = _check_m5ui()
     all_ok = ap_ok and nfc_ok
     _result("probe_pass", all_ok, all_ok)
+    if not m5ui_ok:
+        print("# m5ui/lvgl check FAILED -- do not deploy the LVGL bbox_ui.py "
+              "port; fall back to the M5.Lcd/M5GFX renderer (see git history).")
     print("# probe_stick done — see RESULT lines above")

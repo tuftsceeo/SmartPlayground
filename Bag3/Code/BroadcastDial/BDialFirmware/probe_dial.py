@@ -7,8 +7,8 @@ see Bag3/AGENTS.md, "Phase 0 pins still open". Bag2/Code/DialSpeaker/
 Dial_Music.py is the nearest reference in-tree, but it targets M5 Dial
 *v1* -- treat anything it implies about pins as unverified for this board.
 
-Ten numbered stages, each its own function, each wrapped in run()'s own
-try/except so one stage's crash cannot hide the other nine -- see the
+Eleven numbered stages, each its own function, each wrapped in run()'s own
+try/except so one stage's crash cannot hide the others -- see the
 comment on run() for why broad except is correct here.
 
 Deploy and run (see P0_RUNBOOK.md for the batched command):
@@ -471,6 +471,68 @@ def stage10_lvgl_block():
     _result(10, "blocked 5s with no task_handler() pump -- see physical report needed above")
 
 
+# --- Stage 11: M5Roller construction + heap, for the light-UI redesign ------
+
+def stage11_roller_and_heap():
+    """Gate for dial_ui.py's redesign: can this build construct an
+    M5Roller, push real option rows into it, and move the selection --
+    and does the new 4-screen UI actually leave more heap free than the
+    old 17-screen one did (the H5 SoftAP-OOM failure this redesign exists
+    to fix). Does NOT arm SoftAP itself -- that needs the full server
+    stack (games index, CodeServer) this isolated probe does not build;
+    treat a good mem_free() reading here as necessary, not sufficient --
+    confirm the real H5 retest by running bdial_server end-to-end and
+    checking its own _log_mem() lines around ui.begin() and CodeServer.arm().
+    """
+    _banner(11, "M5Roller + heap (redesign gate)")
+    try:
+        import M5
+        import m5ui
+        import lvgl as lv
+    except ImportError as e:
+        print("NOT FOUND -- m5ui/lvgl import failed: %s" % e)
+        _result(11, "NOT FOUND: %s" % e)
+        return
+
+    gc.collect()
+    print("before M5.begin():", gc.mem_free())
+    M5.begin()
+    gc.collect()
+    print("after M5.begin():", gc.mem_free())
+
+    m5ui.init()
+    gc.collect()
+    print("after m5ui.init():", gc.mem_free())
+
+    pg = m5ui.M5Page(bg_c=0xFFFFFF)
+    rows = ["Game %d" % i for i in range(1, 13)] + ["Utility Tags", "DONE"]
+    roller = m5ui.M5Roller(
+        x=20, y=48, w=190, h=118, options=[""],
+        mode=lv.roller.MODE.NORMAL, selected=0, visible_row_count=3,
+        font=lv.font_montserrat_16, parent=pg)
+    try:
+        roller.set_options(rows, lv.roller.MODE.NORMAL)
+        opts_kind = "list"
+    except Exception:
+        roller.set_options("\n".join(rows), lv.roller.MODE.NORMAL)
+        opts_kind = "newline-joined string"
+    print("# set_options accepted a %s" % opts_kind)
+    roller.set_selected(6, lv.ANIM.OFF)
+    try:
+        sel = roller.get_selected_str()
+        print("# get_selected_str() ->", sel)
+        _result(11, "roller ok, selected='%s' (expect 'Game 7')" % sel)
+    except Exception as e:
+        print("# get_selected_str() FAILED: %s" % e)
+        _result(11, "roller built but get_selected_str() failed: %s" % e)
+
+    gc.collect()
+    print("after building 1 page + roller (4-screen design target):", gc.mem_free())
+    print("# compare against stage 6's 'after building one throwaway LVGL "
+          "screen' and against the OLD 17-screen build's mem_free() -- "
+          "this number must be comfortably higher for H5 to be considered fixed.")
+
+
 STAGES = {
     1: stage1_identity,
     2: stage2_introspection,
@@ -482,11 +544,12 @@ STAGES = {
     8: stage8_encoder,
     9: stage9_touch,
     10: stage10_lvgl_block,
+    11: stage11_roller_and_heap,
 }
 
 
 def run(stages=None):
-    """Run the given stage numbers (default: all 10, in order).
+    """Run the given stage numbers (default: all 11, in order).
 
     Each stage runs in its own try/except that prints the exception and
     CONTINUES -- this is the one place in this file where catching broadly

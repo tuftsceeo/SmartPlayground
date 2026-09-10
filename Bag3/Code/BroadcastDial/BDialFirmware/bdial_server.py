@@ -1054,7 +1054,7 @@ class BdialServer:
 
         self._input.begin()
         self.ui.begin()  # calls m5ui.init(); builds LVGL screens once
-        self._log_mem("after ui.begin (17 LVGL screens)")
+        self._log_mem("after ui.begin (4 LVGL screens)")
         _boot_grace(self.ui)
         try:
             self._init_nfc()
