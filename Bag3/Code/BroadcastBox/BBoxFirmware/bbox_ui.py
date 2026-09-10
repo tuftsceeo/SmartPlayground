@@ -143,13 +143,16 @@ def _slots(entries, cursor):
 
 
 # Row layout (portrait 135x240) -- see module docstring for the derivation.
-ROW_H = 32
-ROW_GAP = 3
+# ROW_H/ROW_GAP trimmed slightly from the first cut (32/3) to leave room
+# for LIST_HINT_Y's persistent button-role line above the action row.
+ROW_H = 30
+ROW_GAP = 2
 ROW_Y0 = 28
 ROW_X = 4
 ROW_W = 119
 TRACK_X = 125
 TRACK_W = 6
+LIST_HINT_Y = 190
 BTN_Y = 208
 BTN_H = 26
 
@@ -167,6 +170,7 @@ class BboxUI(object):
         self._act_label = None
         self._next_rect = None
         self._next_tri = None
+        self._list_hint = None
         self._st_title = None
         self._st_body1 = None
         self._st_body2 = None
@@ -234,9 +238,11 @@ class BboxUI(object):
         # Per-row indicator dots rather than a resized/repositioned fill bar:
         # Rectangle.setColor() is docs-confirmed, but no setSize()/setCursor()
         # equivalent for Rectangle was -- recolouring a fixed dot per row
-        # avoids relying on an unconfirmed resize API. Lit (WRITE_FG) when
-        # that row slot holds a real entry, dim (BORDER) when it's off the
-        # end of the list -- e.g. a 3-item list dims the last dot or two.
+        # avoids relying on an unconfirmed resize API. _paint_slots() lights
+        # a dot WRITE_FG when its row slot holds a real entry and blends it
+        # into PAGE_BG when the slot is off the end of the list, e.g. a
+        # 3-item list blends the last dot or two away instead of leaving a
+        # stray box.
         self._track_dots = []
         for i in range(ROWS_ABOVE + 1 + ROWS_BELOW):
             y = ROW_Y0 + i * (ROW_H + ROW_GAP)
@@ -251,10 +257,19 @@ class BboxUI(object):
         self._next_tri = Widgets.Triangle(
             105, BTN_Y + 8, 122, BTN_Y + 8, 113, BTN_Y + 20, INK_3, INK_3)
 
+        # Persistent button-role reminder -- every prior version of this
+        # file had one ("BtnA=... BtnB=next" in the M5GFX header); this
+        # Widgets rewrite had dropped it, which is a real regression, not
+        # just a missing nicety -- there is no touchscreen on this board,
+        # so the on-screen action label/chevron are read-only indicators
+        # and BtnA/BtnB are the only real input.
+        self._list_hint = self._label("", 4, LIST_HINT_Y, MUTED, PAGE_BG, FONT12)
+
         self._list_widgets = (
             [self._crumb] + self._row_rects + self._row_labels
             + self._track_dots
-            + [self._act_rect, self._act_label, self._next_rect, self._next_tri])
+            + [self._act_rect, self._act_label, self._next_rect, self._next_tri,
+               self._list_hint])
 
     def _build_status(self):
         """One reusable screen behind every one-shot painter -- booting,
@@ -268,7 +283,7 @@ class BboxUI(object):
         self._status_widgets = [self._st_title, self._st_body1, self._st_body2, self._st_hint]
 
     def _build_serve(self):
-        self._srv_title = self._label("Serving", 6, 40, SERVE_FG, PAGE_BG, FONT18)
+        self._srv_title = self._label("Sharing", 6, 40, SERVE_FG, PAGE_BG, FONT18)
         self._srv_ssid = self._label("", 6, 76, INK, PAGE_BG, FONT16)
         self._srv_pickups = self._label("", 6, 104, INK_3, PAGE_BG, FONT12)
         self._srv_hint = self._label("hold button to leave", 6, 200, MUTED, PAGE_BG, FONT12)
@@ -386,19 +401,29 @@ class BboxUI(object):
         self._status(msg, title_c=DANGER_FG)
 
     def paint_mode_change(self, to_mode):
+        # to_mode is bbox_server's raw mode constant ("SERVE"/"WRITE") --
+        # only the DISPLAYED word changes here, to match the SHARE naming.
         tint = SERVE_FG if to_mode == "SERVE" else WRITE_FG
-        self._status("-> %s" % to_mode, title_c=tint)
+        shown = "SHARE" if to_mode == "SERVE" else to_mode
+        self._status("-> %s" % shown, title_c=tint)
 
     def paint_no_pickup_hint(self):
-        self._status("pickup off", "DONE + B1 to serve", title_c=WARN_FG)
+        self._status("pickup off", "DONE + B1 to share", title_c=WARN_FG)
 
     def paint_tag_list(self, entries, cursor):
-        """Tier 1: games + Utility Tags + DONE."""
+        """Tier 1: games + Utility Tags + DONE.
+
+        The DONE sentinel is bbox_server's, used verbatim in `entries`/
+        `cursor` logic -- only its DISPLAYED text changes here, to
+        "Enable Share".
+        """
         self._set_text(self._crumb, "! pickup off")
         self._crumb.setColor(WARN_FG, PAGE_BG)
-        self._paint_slots(entries, cursor)
+        display_entries = ["Enable Share" if e == "DONE" else e for e in entries]
+        self._paint_slots(display_entries, cursor)
         cur = entries[cursor] if entries else ""
-        self._set_text(self._act_label, "SERVE" if cur == "DONE" else "OPEN")
+        self._set_text(self._act_label, "SHARE" if cur == "DONE" else "OPEN")
+        self._set_text(self._list_hint, "B: next")
         self._show("list")
 
     def paint_tag_group(self, title, rows, cursor, written):
@@ -413,15 +438,29 @@ class BboxUI(object):
                 display_rows.append("%s ·%d" % (r, written.get(r, 0)))
         self._paint_slots(display_rows, cursor)
         cur = rows[cursor] if rows else ""
-        self._set_text(self._act_label, "BACK" if cur == "< back" else "SCAN")
+        self._set_text(self._act_label, "BACK" if cur == "< back" else "WRITE")
+        self._set_text(self._list_hint, "B: next")
         self._show("list")
 
     def _paint_slots(self, entries, cursor):
         for i, (text, is_selected) in enumerate(_slots(entries, cursor)):
             budget = SELECTED_CHARS if is_selected else ROW_CHARS
             self._set_text(self._row_labels[i], _fit(text, budget) if text else "")
-            color = WRITE_FG if text else BORDER
-            self._track_dots[i].setColor(color, color)
+            if not text:
+                # Off the end of the list -- blend card, label and dot
+                # into the page background rather than leaving a blank
+                # card sitting in the layout looking like a stray box.
+                self._row_rects[i].setColor(PAGE_BG, PAGE_BG)
+                self._row_labels[i].setColor(PAGE_BG, PAGE_BG)
+                self._track_dots[i].setColor(PAGE_BG, PAGE_BG)
+            elif is_selected:
+                self._row_rects[i].setColor(WRITE_FG, WRITE_BG)
+                self._row_labels[i].setColor(WRITE_FG, WRITE_BG)
+                self._track_dots[i].setColor(WRITE_FG, WRITE_FG)
+            else:
+                self._row_rects[i].setColor(BORDER, CARD_BG)
+                self._row_labels[i].setColor(INK_3, CARD_BG)
+                self._track_dots[i].setColor(WRITE_FG, WRITE_FG)
 
     def paint_serve(self, ssid, pickups=0):
         self._set_text(self._srv_ssid, ssid)
