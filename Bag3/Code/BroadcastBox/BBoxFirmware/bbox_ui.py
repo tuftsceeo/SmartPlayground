@@ -435,15 +435,34 @@ class BboxUI(object):
     # ── list-screen helper ───────────────────────────────────────
 
     def _redraw_list_chrome(self):
-        """Force-redraw every list-screen widget that is never otherwise
-        re-touched between paints (its color/text never changes) --
-        required because _clear() wipes the whole framebuffer first, and
-        this library only redraws a widget when a method on it is
-        actually called. Skipping this means the action button's card
-        and the next-chevron simply don't reappear."""
-        self._act_rect.setColor(PINK, PINK)
+        """Force-redraw list-screen widgets that are never otherwise
+        re-touched between paints -- required because _clear() wipes the
+        whole framebuffer first, and this library only redraws a widget
+        when a method on it is actually called. act_rect is NOT redrawn
+        here even though its color never changes either -- see
+        _set_act_label(), which owns it because a label sits on top."""
         self._next_rect.setColor(BORDER, CARD_BG)
         self._next_tri.setColor(INK_3, INK_3)
+
+    def _set_act_label(self, text):
+        """Set the action button's text, working around a second
+        hardware-reported bug: going from a longer label to a shorter
+        one (SHARE -> OPEN, WRITE -> BACK) left a white rectangle sized
+        to the OLD, wider text sitting past the end of the new one.
+        Theory: Label.setText("") -- added to force a redraw when the
+        new text equals the old one, see _set_text() -- erases the
+        PREVIOUS text's bounding box using a hardcoded white fill rather
+        than the label's own bg_c, and that erase pass is what leaves
+        the white slice behind once the new text is narrower. Recolour
+        the full-width button rectangle both BEFORE and AFTER the blank
+        step: before, so the button has a clean backdrop when the erase
+        happens; after, so anything the erase left behind is painted
+        over before the real (final) text is drawn on top of it.
+        """
+        self._act_rect.setColor(PINK, PINK)
+        self._act_label.setText("")
+        self._act_rect.setColor(PINK, PINK)
+        self._act_label.setText(text)
 
     def paint_tag_list(self, entries, cursor):
         """Tier 1: games + Utility Tags + DONE.
@@ -462,7 +481,7 @@ class BboxUI(object):
         display_entries = ["Enable Share" if e == "DONE" else e for e in entries]
         self._paint_slots(display_entries, cursor)
         cur = entries[cursor] if entries else ""
-        self._set_text(self._act_label, "SHARE" if cur == "DONE" else "OPEN")
+        self._set_act_label("SHARE" if cur == "DONE" else "OPEN")
 
     def paint_tag_group(self, title, rows, cursor, written):
         """Tier 2: one group's tags + "< back"."""
@@ -478,7 +497,7 @@ class BboxUI(object):
                 display_rows.append("%s (%d)" % (r, written.get(r, 0)))
         self._paint_slots(display_rows, cursor)
         cur = rows[cursor] if rows else ""
-        self._set_text(self._act_label, "BACK" if cur == "< back" else "WRITE")
+        self._set_act_label("BACK" if cur == "< back" else "WRITE")
 
     def _paint_slots(self, entries, cursor):
         """Recolour the rectangle and dot FIRST, the label LAST.
@@ -499,19 +518,24 @@ class BboxUI(object):
                 # Off the end of the list -- blend card, label and dot
                 # into the page background rather than leaving a blank
                 # card sitting in the layout looking like a stray box.
-                self._row_rects[i].setColor(PAGE_BG, PAGE_BG)
-                self._track_dots[i].setColor(PAGE_BG, PAGE_BG)
+                rect_c, fill_c, dot_c = PAGE_BG, PAGE_BG, PAGE_BG
                 label_c, label_bg = PAGE_BG, PAGE_BG
             elif is_selected:
-                self._row_rects[i].setColor(WRITE_FG, WRITE_BG)
-                self._track_dots[i].setColor(WRITE_FG, WRITE_FG)
+                rect_c, fill_c, dot_c = WRITE_FG, WRITE_BG, WRITE_FG
                 label_c, label_bg = WRITE_FG, WRITE_BG
             else:
-                self._row_rects[i].setColor(BORDER, CARD_BG)
-                self._track_dots[i].setColor(WRITE_FG, WRITE_FG)
+                rect_c, fill_c, dot_c = BORDER, CARD_BG, WRITE_FG
                 label_c, label_bg = INK_3, CARD_BG
+            self._row_rects[i].setColor(rect_c, fill_c)
+            self._track_dots[i].setColor(dot_c, dot_c)
             self._row_labels[i].setColor(label_c, label_bg)
-            self._set_text(self._row_labels[i], display)
+            # Recolour the card a second time, after blanking the label
+            # and before its real (final) text -- see _set_act_label()'s
+            # docstring for why the blank step alone can leave a white
+            # remnant when this row's new text is shorter than its last.
+            self._row_labels[i].setText("")
+            self._row_rects[i].setColor(rect_c, fill_c)
+            self._row_labels[i].setText(display)
 
     def paint_serve(self, ssid, pickups=0):
         self._clear()
