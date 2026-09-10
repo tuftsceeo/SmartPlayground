@@ -128,16 +128,15 @@ def _check_nfc():
 
 
 def _check_m5ui():
-    """Hardware gate for bbox_ui.py's LVGL/m5ui port -- nothing in this repo
-    had previously imported m5ui/lvgl on a StickS3. Confirms the import
-    works at all, then reports mem_free() before/after m5ui.init() and one
-    m5ui.M5Page + m5ui.M5Roller, since the Dial's own dial_board.py records
-    a real hardware failure (SoftAP OOM with LVGL pages resident) and the
-    Stick has less headroom than the Dial. Does NOT arm SoftAP itself --
-    that needs the full bbox_server stack; treat a good reading here as
-    necessary, not sufficient. If this fails, bbox_ui.py's module docstring
-    says to fall back to the previous M5.Lcd/M5GFX renderer rather than
-    trusting an unproven port.
+    """Hardware gate for an LVGL/m5ui bbox_ui.py -- CONFIRMED FAILING on this
+    board's UIFlow2 build (2026-09-10): `ImportError: no module named
+    'm5ui'`, raised at import time in bbox_ui.py, not a heap/OOM failure.
+    bbox_ui.py has gone back to direct M5.Lcd/M5GFX drawing as a result --
+    see that file's module docstring. This check stays in the probe as a
+    tripwire in case a future UIFlow2 firmware update for this board adds
+    m5ui; if it ever reports True, dial_ui.py is the reference for the
+    roller-based UI to port onto this board instead of the M5GFX one.
+    Does NOT arm SoftAP itself -- that needs the full bbox_server stack.
     """
     import gc
     try:
@@ -185,6 +184,6 @@ def run():
     all_ok = ap_ok and nfc_ok
     _result("probe_pass", all_ok, all_ok)
     if not m5ui_ok:
-        print("# m5ui/lvgl check FAILED -- do not deploy the LVGL bbox_ui.py "
-              "port; fall back to the M5.Lcd/M5GFX renderer (see git history).")
+        print("# m5ui/lvgl not available on this board (expected -- confirmed "
+              "2026-09-10). bbox_ui.py already uses the M5.Lcd/M5GFX renderer.")
     print("# probe_stick done — see RESULT lines above")

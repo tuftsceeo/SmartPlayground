@@ -1,44 +1,38 @@
-"""bbox_ui.py — LVGL / m5ui screens for Broadcast Box (landscape 240x135).
+"""bbox_ui.py — M5.Lcd screens + M5.Speaker feedback for Broadcast Box
+(landscape 240x135).
 
-Ported from the original M5.Lcd / M5GFX text renderer onto the same
-m5ui/LVGL stack the Dial uses, so Box and Dial share one widget vocabulary
-and one light palette instead of two separately-hand-drawn dark screens.
-Same method names and signatures as DialUI so bbox_server.py stays a
-near-copy of bdial_server.py -- see that file's module docstring for the
-shared design notes (roller-as-list, breadcrumb, position track).
+M5GFX fallback, not the LVGL/m5ui port. A first attempt ported this file
+onto m5ui/lvgl (to match the Dial's redesign) but the StickS3's UIFlow2
+build has no `m5ui` module at all -- confirmed on hardware:
 
-Hardware gate -- READ BEFORE TRUSTING THIS FILE ON A DEVICE: nothing in
-this repo has previously imported m5ui/lvgl on a StickS3. The Dial's own
-dial_board.py records a hardware failure (SoftAP OOM with LVGL pages
-resident), and the Stick has less headroom than the Dial. probe_stick.py
-now has an `m5ui` availability + heap check -- run it and read the result
-before deploying this file. If m5ui.init() or the post-arm() heap check
-fails on the Stick, fall back to the previous M5.Lcd/M5GFX renderer
-(git history has it) rather than shipping a UI that cannot coexist with
-SoftAP.
+    ImportError: no module named 'm5ui'
+    (main.py -> bbox_server.py -> bbox_ui.py)
 
-Two differences from the Dial, both because the Stick has no touch
-screen, only BtnA/BtnB (see buttons.py):
-  - The roller is present for its visual list (centre-selected wheel,
-    position track) but is not the input source -- buttons.py's
-    NEXT/PREV/ACT edges drive the same set_selected() calls the Dial's
-    encoder drives, and nothing here registers a click callback.
-  - Where the Dial has a tap-dismiss overlay or touch buttons, the Box
-    shows two small persistent chips naming what BtnA and BtnB currently
-    do, replacing the button-name strings baked into the old screen text
-    ("BtnA=open BtnB=next").
+That is a missing-module failure, not a heap/OOM one -- there is no
+firmware-side fix available at this layer, so this file goes back to
+direct `M5.Lcd`/M5GFX drawing (as it was before that attempt) and gets
+the light-palette restyle a different way: a light page, a filled
+highlight bar behind the focused row, ASCII chevrons as "icons" (DejaVu
+has no symbol glyphs), and a scroll-position track drawn with plain
+`fillRect`. Same painter API as dial_ui.DialUI so bbox_server.py stays a
+near-copy of bdial_server.py.
+
+Modeled on Bag2/Code/StickS3 Narrator/narrator_ui.py: try/except on every
+M5 call, DejaVu fonts, a layout table for centering. Speaker volume follows
+the same StickS3 board caution as narrator/main.py's SPEAKER_VOLUME.
+
+If a future UIFlow2 build for this board does carry `m5ui`, dial_ui.py is
+the reference for the roller-based version to port back onto instead of
+this file.
 """
 
 import time
 
 import M5
-import m5ui
-import lvgl as lv
 
-WHITE = 0xFFFFFF
-BLACK = 0x000000
-
-# Light palette. PEER copy: BroadcastDial/BDialFirmware/dial_ui.py -- keep in sync.
+# Light palette. Same hex values as BroadcastDial/BDialFirmware/dial_ui.py's
+# LVGL palette (kept in sync by hand -- no shared theme module on device)
+# even though this file draws with M5.Lcd/M5GFX rather than m5ui/lvgl.
 PAPER = 0xFFFFFF
 INK = 0x212121
 INK_SOFT = 0x757575
@@ -54,209 +48,230 @@ SCREEN_W = 240
 SCREEN_H = 135
 
 # 0-255. StickS3's own docs warn to stay under ~75% (~191) on battery power
-# to avoid a brown-out reboot when USB is unplugged.
+# to avoid a brown-out reboot when USB is unplugged -- same caution as
+# Bag2/Code/StickS3 Narrator/main.py's SPEAKER_VOLUME.
 SPEAKER_VOLUME = 190
 
-FONT14 = None
-FONT16 = None
-IC = {}
+# Per-font-selection tracing. Off by default: this fires ~4 times per
+# screen repaint, which drowns everything else on the serial log. Font
+# *failures* below are not gated -- those always print.
+VERBOSE = False
+
+_DEJAVU_NAMES = {
+    9: "DejaVu9", 12: "DejaVu12", 18: "DejaVu18", 24: "DejaVu24",
+    40: "DejaVu40",
+}
+
+# Last resort if M5.Lcd.fontHeight() itself throws -- normal DejaVu9 line
+# height is ~15px (9px glyph + leading); this is only for total failure.
+_FALLBACK_LINE_HEIGHT = 30
 
 
-# Roller rows are not clipped by the widget, so a long tag name just runs
-# past its row -- and an end-truncation would hide exactly the part that
-# tells "getcode:my_melody" apart from "getcode:my_melody_2". Ellipsize the
-# middle instead, keeping both ends. Carried over from the old bbox_ui.py's
-# _fit(); ROW_CHARS is a rough character-count budget, not a measured pixel
-# width -- confirm it against the real roller width on hardware.
-ROW_CHARS = 26
+def _measured_height(context):
+    """Real pixel height of the CURRENT font, per M5.Lcd.fontHeight() --
+    used instead of trusting the "9"/"12"/etc in a font's name."""
+    try:
+        h = M5.Lcd.fontHeight()
+        if VERBOSE:
+            print("# %s, fontHeight()=%s" % (context, str(h)))
+        return int(h) if h else _FALLBACK_LINE_HEIGHT
+    except Exception as e:
+        print("# %s, fontHeight() unavailable: %s" % (context, str(e)))
+        return _FALLBACK_LINE_HEIGHT
 
 
-def _fit(text, budget=ROW_CHARS):
+def _set_font(size):
+    """Select a DejaVu font and return its measured pixel height for
+    caller-side line spacing."""
+    name = _DEJAVU_NAMES.get(size)
+    if name is None:
+        print("# font err: no DejaVu mapping for size %s -- leaving current font as-is" % str(size))
+        return _measured_height("no mapping for %s" % str(size))
+
+    font = getattr(M5.Lcd.FONTS, name, None)
+    if font is None:
+        print("# font err: M5.Lcd.FONTS has no '%s' -- leaving current font as-is" % name)
+        return _measured_height("FONTS has no %s" % name)
+
+    try:
+        M5.Lcd.setFont(font)
+    except Exception as e:
+        print("# setFont(%s) err: %s -- leaving current font as-is" % (name, str(e)))
+        return _measured_height("setFont(%s) failed" % name)
+
+    return _measured_height("font %s set OK" % name)
+
+
+def _draw_centered(text, bg=PAPER, fg=INK, font_size=18):
+    try:
+        M5.Lcd.startWrite()
+    except Exception as e:
+        print("# startWrite err: %s" % str(e))
+    try:
+        try:
+            M5.Lcd.fillScreen(bg)
+        except Exception as e:
+            print("# fillScreen err: %s" % str(e))
+        text_h = _set_font(font_size)
+        try:
+            M5.Lcd.setTextColor(fg, bg)
+        except Exception as e:
+            print("# setTextColor err: %s" % str(e))
+        y = SCREEN_H // 2 - text_h // 2
+        try:
+            M5.Lcd.setCursor(8, y)
+            M5.Lcd.print(text)
+        except Exception as e:
+            print("# draw_centered print('%s') err: %s" % (text, str(e)))
+    finally:
+        try:
+            M5.Lcd.endWrite()
+        except Exception as e:
+            print("# endWrite err: %s" % str(e))
+
+
+LINE_PADDING = 4  # extra gap below each line, on top of its measured height
+
+
+def _draw_lines(lines, bg=PAPER, fg=INK, highlight_row=None):
+    """lines: list of (text, font_size, color_or_none).
+
+    highlight_row: 0-based index into `lines` to paint a filled bar
+    behind, PRIMARY_SOFT -- the "focused row" affordance a plain list of
+    coloured text rows didn't have before. None draws no bar.
+    """
+    try:
+        M5.Lcd.startWrite()
+    except Exception as e:
+        print("# startWrite err: %s" % str(e))
+    try:
+        try:
+            M5.Lcd.fillScreen(bg)
+        except Exception as e:
+            print("# fillScreen err: %s" % str(e))
+        y = 8
+        for i, (text, size, color) in enumerate(lines):
+            text_h = _set_font(size)
+            if i == highlight_row:
+                try:
+                    M5.Lcd.fillRect(4, y - 2, SCREEN_W - 8, text_h + 4, PRIMARY_SOFT)
+                except Exception as e:
+                    print("# highlight fillRect err: %s" % str(e))
+            c = color if color is not None else fg
+            try:
+                M5.Lcd.setTextColor(c, bg if i != highlight_row else PRIMARY_SOFT)
+            except Exception as e:
+                print("# setTextColor err: %s" % str(e))
+            try:
+                M5.Lcd.setCursor(8, y)
+                M5.Lcd.print(text)
+            except Exception as e:
+                print("# draw_lines print('%s') err: %s" % (text, str(e)))
+            y += text_h + LINE_PADDING
+    finally:
+        try:
+            M5.Lcd.endWrite()
+        except Exception as e:
+            print("# endWrite err: %s" % str(e))
+
+
+def _draw_track(cursor, total):
+    """Right-edge scroll-position track -- a light grey channel with a
+    blue fill proportional to how far the cursor is through the list.
+    Plain fillRect primitives; no widget library needed for this."""
+    try:
+        track_x = SCREEN_W - 6
+        track_h = SCREEN_H - 16
+        M5.Lcd.fillRect(track_x, 8, 4, track_h, RULE)
+        if total > 1:
+            frac = (cursor + 1) / float(total)
+        else:
+            frac = 1.0
+        fill_h = max(4, int(track_h * frac))
+        M5.Lcd.fillRect(track_x, 8 + track_h - fill_h, 4, fill_h, PRIMARY)
+    except Exception as e:
+        print("# scroll track err: %s" % str(e))
+
+
+# The screen fits a size-9 header plus this many size-12 rows.
+MAX_ROWS = 4
+
+# Characters a size-12 row can hold before it runs past SCREEN_W.
+#
+# _draw_lines() prints from x=8 with no clipping, so an over-long row does not
+# wrap or get cut -- it just runs off the panel, and the part that identifies
+# it goes with it. DejaVu12 is proportional, so this is an estimate from the
+# worst realistic row: "> getcode:" + a 16-char slug + " (99)" is 33 chars and
+# was the case that prompted this. The scroll track above eats a few more
+# pixels on the right than the original design; confirm this budget still
+# fits on the device.
+MAX_ROW_CHARS = 30
+
+# The size-9 header line fits proportionally more, roughly 12/9 of the above.
+MAX_HEADER_CHARS = 40
+
+
+def _fit(text, budget=MAX_ROW_CHARS):
+    """Cap a line's width, keeping both ends.
+
+    The tail is what tells "getcode:my_melody" from "getcode:my_melody_2", so
+    an end-truncation would hide exactly the distinguishing part. Take the
+    middle out instead.
+    """
     if len(text) <= budget:
         return text
     keep = budget - 1  # one char spent on the ellipsis
     head = (keep + 1) // 2
     tail = keep - head
-    return text[:head] + "\u2026" + text[len(text) - tail:]
+    return text[:head] + "…" + text[len(text) - tail:]
 
 
-def _fonts():
-    global FONT14, FONT16
-    if FONT14 is not None:
-        return
-    FONT14 = lv.font_montserrat_14
-    FONT16 = lv.font_montserrat_16
-    IC.update({
-        "open": lv.SYMBOL.RIGHT,
-        "back": lv.SYMBOL.LEFT,
-        "scan": lv.SYMBOL.SD_CARD,
-        "serve": lv.SYMBOL.WIFI,
-        "ok": lv.SYMBOL.OK,
-        "fail": lv.SYMBOL.CLOSE,
-        "warn": lv.SYMBOL.WARNING,
-        "usb": lv.SYMBOL.USB,
-        "busy": lv.SYMBOL.REFRESH,
-        "next": lv.SYMBOL.DOWN,
-    })
+def _window(n, cursor):
+    """Row indices to draw: at most MAX_ROWS, centered on cursor.
+
+    Both WRITE screens can hold more rows than fit -- a game with a dozen
+    tags, or a Box with several games -- and there is no scrolling widget,
+    so the list slides around the selection instead. The right-edge track
+    (_draw_track) is what tells the user there is more list than window.
+    """
+    if n <= MAX_ROWS:
+        start = 0
+    else:
+        start = cursor - MAX_ROWS // 2
+        if start < 0:
+            start = 0
+        if start > n - MAX_ROWS:
+            start = n - MAX_ROWS
+    return range(start, min(start + MAX_ROWS, n))
 
 
 class BboxUI(object):
     def __init__(self):
         # No M5 hardware calls here -- BboxServer.__init__ constructs this
-        # before M5.begin(). begin() is called from run() right after it.
-        self._pages = {}
-        self._cur = None
-        self._built = False
-        self._lbl = {}
-        self._roller = None
-        self._track_fill = None
+        # object (self.ui = BboxUI()) before BboxServer.run() ever calls
+        # M5.begin(). Lcd/Speaker calls made before begin() silently fail
+        # (or worse, leave the driver in a state that corrupts font loading
+        # once begin() does run) -- see begin() below, which is called
+        # from run() right after M5.begin().
+        pass
 
     def begin(self):
-        """Call once, right after M5.begin() -- not before.
-
-        Deliberately unguarded, same reasoning as DialUI.begin(): a UI
-        that cannot initialise must be a crash, not a silently half-drawn
-        screen. This is also where a StickS3 that cannot run m5ui will
-        fail loudly, which is the point of the Stage 0 gate above.
-        """
-        M5.Lcd.setRotation(ROTATION)
-        _fonts()
-        m5ui.init()
-        M5.Speaker.setVolume(SPEAKER_VOLUME)
-        if not self._built:
-            self._build_all()
-            self._built = True
-
-    def _page(self, name):
-        pg = m5ui.M5Page(bg_c=PAPER)
-        self._pages[name] = pg
-        return pg
-
-    def _label(self, key, parent, text, y, font, color=INK, w=220,
-               align=lv.ALIGN.TOP_MID):
-        lbl = m5ui.M5Label(
-            text, x=0, y=y,
-            text_c=color, bg_c=PAPER, bg_opa=0,
-            font=font, parent=parent)
-        lbl.set_style_text_align(lv.TEXT_ALIGN.CENTER, 0)
-        lbl.set_width(w)
-        lbl.align(align, 0, y)
-        self._lbl[key] = lbl
-        return lbl
-
-    def _show(self, name):
-        """The one guarded seam in this file: a paint failure is logged
-        with the screen it happened on and re-raised, not swallowed."""
-        pg = self._pages.get(name)
-        if pg is None:
-            raise KeyError("bbox_ui: no such page %r" % name)
+        """Call once, right after M5.begin() -- not before."""
         try:
-            pg.screen_load()
-            self._cur = name
+            M5.Lcd.setRotation(ROTATION)
         except Exception as e:
-            print("# screen_load(%s) FAILED: %s" % (name, str(e)))
-            raise
-
-    def _set_text(self, key, text):
-        self._lbl[key].set_text(text)
-
-    def _set_color(self, key, color):
-        self._lbl[key].set_style_text_color(lv.color_hex(color), 0)
-
-    def _roller_set(self, rows):
+            print("# setRotation err: %s" % str(e))
+        # Set once, here, and never touched again anywhere in this file --
+        # setTextSize() scales on top of setFont(), so leaving it at
+        # anything but 1 would silently scale every DejaVu font drawn.
         try:
-            self._roller.set_options(rows, lv.roller.MODE.NORMAL)
-        except Exception:
-            self._roller.set_options("\n".join(rows), lv.roller.MODE.NORMAL)
-
-    def _set_track(self, cursor, total):
-        frac = 1.0 if total <= 1 else (cursor + 1) / float(total)
-        track_h = 78
-        fill_h = max(6, int(track_h * frac))
-        self._track_fill.set_size(5, fill_h)
-        self._track_fill.align(lv.ALIGN.BOTTOM_MID, 0, 0)
-
-    # ── build screens once ──────────────────────────────────────
-
-    def _build_all(self):
-        self._build_list()
-        self._build_scan()
-        self._build_status()
-        self._build_serve()
-
-    def _build_list(self):
-        pg = self._page("list")
-        self._label("lst_crumb", pg, "", 2, FONT14, CAUTION)
-
-        track = lv.obj(pg)
-        track.set_size(5, 78)
-        track.align(lv.ALIGN.RIGHT_MID, -6, 6)
-        track.set_style_bg_color(lv.color_hex(RULE), 0)
-        track.set_style_bg_opa(255, 0)
-        track.set_style_border_width(0, 0)
-        track.set_style_radius(2, 0)
-        track.remove_flag(lv.obj.FLAG.CLICKABLE)
-        fill = lv.obj(track)
-        fill.set_size(5, 6)
-        fill.align(lv.ALIGN.BOTTOM_MID, 0, 0)
-        fill.set_style_bg_color(lv.color_hex(PRIMARY), 0)
-        fill.set_style_bg_opa(255, 0)
-        fill.set_style_border_width(0, 0)
-        fill.set_style_radius(2, 0)
-        fill.remove_flag(lv.obj.FLAG.CLICKABLE)
-        self._track_fill = fill
-
-        roller = m5ui.M5Roller(
-            x=6, y=18, w=200, h=78, options=[""],
-            mode=lv.roller.MODE.NORMAL, selected=0, visible_row_count=2,
-            font=FONT14, parent=pg)
-        roller.align(lv.ALIGN.TOP_LEFT, 6, 18)
-        roller.set_style_radius(8, 0)
-        roller.set_style_bg_color(lv.color_hex(PAPER), 0)
-        roller.set_style_border_width(1, 0)
-        roller.set_style_border_color(lv.color_hex(RULE), 0)
-        roller.set_style_text_color(lv.color_hex(INK_SOFT), 0)
-        roller.set_style_bg_color(lv.color_hex(PRIMARY_SOFT), lv.PART.SELECTED)
-        roller.set_style_text_color(lv.color_hex(INK), lv.PART.SELECTED)
-        roller.set_style_text_font(FONT16, lv.PART.SELECTED)
-        # No touch on this board -- BtnA/BtnB drive the cursor via
-        # buttons.py; the roller is display-only.
-        roller.remove_flag(lv.obj.FLAG.CLICKABLE)
-        self._roller = roller
-
-        # Persistent chips naming what each physical button currently does.
-        self._label("lst_a_chip", pg, "", 118, FONT14, PRIMARY, w=140,
-                     align=lv.ALIGN.BOTTOM_LEFT)
-        self._label("lst_b_chip", pg, IC["next"] + " next", 118, FONT14,
-                     INK_SOFT, w=90, align=lv.ALIGN.BOTTOM_RIGHT)
-
-    def _build_scan(self):
-        pg = self._page("scan")
-        self._label("scn_label", pg, "", 8, FONT16, INK)
-        self._label("scn_hint", pg, "hold card on top", 40, FONT14, INK_SOFT)
-        self._label("scn_b_chip", pg, IC["back"] + " back", 108, FONT14,
-                     INK_SOFT, w=90, align=lv.ALIGN.BOTTOM_RIGHT)
-
-    def _build_status(self):
-        """One reusable screen behind every one-shot painter -- booting,
-        idle, receiving, armed, overwrite, writing/written/write_failed/
-        already, done, complete, error, mode_change, no_pickup_hint."""
-        pg = self._page("status")
-        self._label("st_title", pg, "", 6, FONT16, INK)
-        self._label("st_body1", pg, "", 40, FONT14, INK_SOFT)
-        self._label("st_body2", pg, "", 62, FONT14, INK_SOFT)
-        self._label("st_hint", pg, "", 108, FONT14, INK_SOFT,
-                     align=lv.ALIGN.BOTTOM_MID)
-
-    def _build_serve(self):
-        pg = self._page("serve")
-        self._label("srv_icon", pg, IC["serve"], 4, FONT16, PRIMARY)
-        self._label("srv_ssid", pg, "", 34, FONT16, INK)
-        self._label("srv_pickups", pg, "", 62, FONT14, INK_SOFT)
-        self._label("srv_hint", pg, "hold BtnA to write tags", 108, FONT14,
-                     INK_SOFT, align=lv.ALIGN.BOTTOM_MID)
-
-    # ── audio (same tones as the original M5GFX renderer) ───────
+            M5.Lcd.setTextSize(1)
+        except Exception as e:
+            print("# setTextSize(1) err: %s" % str(e))
+        try:
+            M5.Speaker.setVolume(SPEAKER_VOLUME)
+        except Exception as e:
+            print("# speaker volume err: %s" % str(e))
 
     def _tone(self, freq, ms):
         try:
@@ -264,10 +279,16 @@ class BboxUI(object):
         except Exception as e:
             print("# speaker tone err: %s" % str(e))
 
+    # Mirrors Bag2/Utilities/writetoNFCcards.py's Beeper -- same feel as
+    # the wand's own NFC feedback, just via M5.Speaker instead of a piezo.
     def beep_scan(self):
+        """Short click the instant a tag is detected on the reader."""
         self._tone(1000, 30)
 
     def beep_click(self):
+        """Immediate feedback that a button press was registered -- fires
+        before anything else happens, so a press is never silent even if
+        the gesture it started (e.g. a scan) finds nothing."""
         self._tone(1800, 20)
 
     def beep_success(self):
@@ -282,123 +303,186 @@ class BboxUI(object):
         time.sleep_ms(50)
         self._tone(200, 400)
 
-    # ── status-screen helper ────────────────────────────────────
-
-    def _status(self, title, body1="", body2="", hint="", title_c=INK):
-        self._set_text("st_title", title)
-        self._set_color("st_title", title_c)
-        self._set_text("st_body1", body1)
-        self._set_text("st_body2", body2)
-        self._set_text("st_hint", hint)
-        self._show("status")
-
-    # ── painters (dial_ui signatures) ───────────────────────────
-
     def paint_booting(self):
-        self._status("Starting", title_c=INK_SOFT)
+        _draw_centered("Starting", PAPER, INK_SOFT, 24)
 
+    # Screen 10 — idle / linked
     def paint_idle(self, linked=True):
         status = "linked to laptop" if linked else "not linked"
-        self._status("Broadcast Box", status, "no game loaded yet")
+        _draw_lines([
+            ("Broadcast Box", 18, INK),
+            (status, 12, PRIMARY if linked else INK_SOFT),
+            ("no game loaded yet", 12, INK_SOFT),
+        ])
 
+    # Screen 11 — receiving (TCP transfer)
     def paint_receiving(self, game_name=""):
-        self._status("Getting game...", game_name if game_name else "game")
+        sub = game_name if game_name else "game"
+        _draw_lines([
+            ("Getting game...", 18, INK),
+            (sub, 12, INK_SOFT),
+        ])
 
+    # Screen 13 — armed for card
     def paint_armed(self, label, index=1, total=1):
-        self._status(label, "Tag %d/%d" % (index, total),
-                     "hold card on reader")
+        _draw_lines([
+            ("Tag %d/%d" % (index, total), 12, INK_SOFT),
+            (label, 24, INK),
+            ("hold card on reader", 12, PRIMARY),
+        ])
 
+    # Screen 14 — overwrite check
     def paint_overwrite(self, existing, new_label):
-        self._status(
-            'Overwrite "%s"?' % existing, '-> "%s"' % new_label,
-            title_c=CAUTION,
-            hint=IC["ok"] + " A overwrite   " + IC["fail"] + " B cancel")
+        _draw_lines([
+            ("Card already has:", 12, INK_SOFT),
+            ('"%s"' % existing, 18, INK),
+            ('Overwrite with "%s"?' % new_label, 12, CAUTION),
+            ("BtnA = overwrite   BtnB = cancel", 9, INK_SOFT),
+        ])
 
+    # Screen 15b — actively scanning (field on, waiting for a card)
     def paint_scanning(self, label):
-        self._set_text("scn_label", label)
-        self._show("scan")
+        _draw_lines([
+            ('Scanning: %s' % label, 18, INK),
+            ("hold card on top", 12, PRIMARY),
+            ("BtnB = back", 9, INK_SOFT),
+        ])
 
+    # Screen 15c — card already carries the text we would write
     def paint_already(self, label):
-        self._status('Already "%s"' % label, "no change needed",
-                     title_c=OK, hint="press any button")
+        _draw_lines([
+            ('Already "%s"' % label, 18, OK),
+            ("no change needed", 12, INK_SOFT),
+            ("press any button", 9, INK_SOFT),
+        ])
 
+    # Screen 15d — write succeeded; stays up until a button dismisses it
     def paint_written(self, label, count):
-        self._status('"%s" written!' % label, "%d written so far" % count,
-                     title_c=OK, hint="press any button")
+        """count is the CUMULATIVE number of this label ever written, read
+        back from stats_log at boot -- not a per-session tally."""
+        _draw_lines([
+            ('"%s" written!' % label, 18, OK),
+            ("%d written so far" % count, 12, INK_SOFT),
+            ("press any button", 9, INK_SOFT),
+        ])
 
+    # Screen 15e — write failed
     def paint_write_failed(self, label):
-        self._status("Write failed", label, title_c=DANGER,
-                     hint="press any button")
+        _draw_lines([
+            ("Write failed", 18, DANGER),
+            (label, 12, INK_SOFT),
+            ("press any button", 9, INK_SOFT),
+        ])
 
+    # Screen 15 — writing
     def paint_writing(self, label):
-        self._status('Writing "%s"...' % label, "hold card steady")
+        _draw_lines([
+            ('Writing "%s"...' % label, 18, INK),
+            ("hold card steady", 12, INK_SOFT),
+        ])
 
+    # Screen 16 — done
     def paint_done(self, label, written, total):
-        self._status("%s done!" % label, "%d of %d written" % (written, total),
-                     title_c=OK)
+        _draw_lines([
+            ("%s done!" % label, 18, OK),
+            ("%d of %d written" % (written, total), 12, INK_SOFT),
+        ])
 
+    # Screen 17 — role set complete
     def paint_complete(self, msg="All tags ready!"):
-        self._status(msg, title_c=OK)
+        _draw_centered(msg, PAPER, OK, 18)
 
     def paint_error(self, msg):
-        self._status(msg, title_c=DANGER)
+        # 14 isn't a real DejaVu size (see _DEJAVU_NAMES) -- 12 is the
+        # closest available.
+        _draw_centered(msg, PAPER, DANGER, 12)
 
-    def paint_mode_change(self, to_mode):
-        self._status("-> %s" % to_mode, title_c=PRIMARY)
-
-    def paint_no_pickup_hint(self):
-        self._status("pickup off", "DONE + B1 to serve", title_c=CAUTION)
-
+    # Screen 20 — WRITE mode, top level: one row per group
     def paint_tag_list(self, entries, cursor):
-        """Tier 1: games + Utility Tags + DONE."""
-        self._set_text("lst_crumb", IC["warn"] + " pickup off")
-        self._roller_set([_fit(e) for e in entries])
-        self._roller.set_selected(cursor, lv.ANIM.OFF)
-        self._set_track(cursor, len(entries))
-        cur = entries[cursor] if entries else ""
-        if cur == "DONE":
-            self._set_text("lst_a_chip", IC["serve"] + " A serve")
-        else:
-            self._set_text("lst_a_chip", IC["open"] + " A open")
-        self._show("list")
+        """entries: group titles plus a trailing "DONE" sentinel.
+        cursor: index into entries of the currently selected row.
 
-    def paint_tag_group(self, title, rows, cursor, written):
-        """Tier 2: one group's tags + "< back"."""
-        self._set_text("lst_crumb", IC["back"] + " " + title)
-        display_rows = []
-        for r in rows:
-            if r == "< back" or not written or not written.get(r):
-                display_rows.append(_fit(r))
+        Carries its own "pickup off" header rather than leaving that to a
+        separate screen: in WRITE mode the AP is always down (the whole
+        point of the mode split), and a teacher looking at this list needs
+        to see that wands cannot fetch code right now.
+        """
+        lines = [("BtnA=open BtnB=next  pickup off", 9, CAUTION)]
+        window = list(_window(len(entries), cursor))
+        highlight = None
+        for row_i, i in enumerate(window):
+            name = entries[i]
+            marker = ">" if i == cursor else " "
+            if i == cursor:
+                highlight = row_i + 1  # +1 for the header line
+            if name == "DONE":
+                lines.append(("%s DONE" % marker, 12, OK))
             else:
-                display_rows.append(_fit("%s  \xb7%d" % (r, written.get(r, 0))))
-        self._roller_set(display_rows)
-        self._roller.set_selected(cursor, lv.ANIM.OFF)
-        self._set_track(cursor, len(rows))
-        cur = rows[cursor] if rows else ""
-        if cur == "< back":
-            self._set_text("lst_a_chip", IC["back"] + " A back")
-        else:
-            self._set_text("lst_a_chip", IC["scan"] + " A scan")
-        self._show("list")
+                lines.append((_fit("%s %s" % (marker, name)), 12,
+                              INK if i == cursor else INK_SOFT))
+        _draw_lines(lines, highlight_row=highlight)
+        _draw_track(cursor, len(entries))
 
+    # Screen 20b — WRITE mode, inside one group: that group's tags
+    def paint_tag_group(self, title, rows, cursor, written):
+        """title: the group's name, shown as the header.
+        rows: the group's tag names plus a trailing "< back".
+        cursor: index into rows of the currently selected row.
+        written: dict name -> cumulative count ever written (from
+            stats_log, survives reboots -- not a session tally).
+        """
+        lines = [(_fit("%s  BtnA=scan BtnB=next" % title, MAX_HEADER_CHARS), 9, CAUTION)]
+        window = list(_window(len(rows), cursor))
+        highlight = None
+        for row_i, i in enumerate(window):
+            name = rows[i]
+            marker = ">" if i == cursor else " "
+            if i == cursor:
+                highlight = row_i + 1
+            if name == "< back":
+                lines.append(("%s < back" % marker, 12, PRIMARY))
+            else:
+                count = written.get(name, 0) if written else 0
+                lines.append((_fit("%s %s (%d)" % (marker, name, count)), 12,
+                              INK if i == cursor else INK_SOFT))
+        _draw_lines(lines, highlight_row=highlight)
+        _draw_track(cursor, len(rows))
+
+    # Screen 21 — SERVE mode (AP up)
     def paint_serve(self, ssid, pickups=0):
-        self._set_text("srv_ssid", ssid)
-        self._set_text("srv_pickups", "pickups: %d total" % pickups)
-        self._show("serve")
+        """pickups is the CUMULATIVE number of games handed to wands across
+        all boots (stats_log base + this session), not a session count."""
+        _draw_lines([
+            ("Serving", 18, PRIMARY),
+            (ssid, 12, INK),
+            ("pickups: %d total" % pickups, 12, INK_SOFT),
+            ("hold BtnA to write tags", 9, INK_SOFT),
+        ])
+
+    # Screen 22 — transient mode-change screen
+    def paint_mode_change(self, to_mode):
+        _draw_centered("-> %s" % to_mode, PAPER, PRIMARY, 18)
+
+    # Screen 23 — standalone "no pickup" notice, for IDLE with no game loaded
+    # (paint_tag_list carries its own header in WRITE mode).
+    def paint_no_pickup_hint(self):
+        _draw_lines([
+            ("pickup off", 12, CAUTION),
+            ("DONE + B1 to serve", 9, INK_SOFT),
+        ])
 
 
 def demo():
     """Cycle screens — run from REPL: import bbox_ui; bbox_ui.demo()"""
     import time
+    import M5
     M5.begin()
     ui = BboxUI()
     ui.begin()
-    long_games = ["Game %d" % i for i in range(1, 9)] + ["Utility Tags", "DONE"]
     screens = [
         lambda: ui.paint_idle(True),
         lambda: ui.paint_receiving("Melody"),
         lambda: ui.paint_tag_list(["Melody", "Utility Tags", "DONE"], 0),
-        lambda: ui.paint_tag_list(long_games, 4),
         lambda: ui.paint_tag_group(
             "Melody", ["getcode:my_melody", "my_melody", "note_c", "< back"],
             2, {"note_c": 3}),
@@ -406,14 +490,10 @@ def demo():
         lambda: ui.paint_armed("getcode", 1, 1),
         lambda: ui.paint_overwrite("melody", "getcode"),
         lambda: ui.paint_writing("getcode"),
-        lambda: ui.paint_already("getcode"),
-        lambda: ui.paint_written("getcode", 3),
-        lambda: ui.paint_write_failed("getcode"),
         lambda: ui.paint_done("getcode", 1, 1),
         lambda: ui.paint_complete(),
         lambda: ui.paint_mode_change("SERVE"),
         lambda: ui.paint_serve("SP-FILEPUSH", 2),
-        lambda: ui.paint_error("no game to serve"),
     ]
     for fn in screens:
         fn()
