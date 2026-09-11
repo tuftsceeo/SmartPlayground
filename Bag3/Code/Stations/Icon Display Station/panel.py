@@ -16,15 +16,16 @@ Neither is reimplemented here.
 
 import time
 
-from icon_matrix import Matrix, W, H
+from icon_matrix import Matrix
 import icon_store
 
 
 class IconPanel:
 
-    def __init__(self):
-        self.matrix = Matrix()
-        self._buf = bytearray(W * H * 3)   # reused; read_icon fills it in place
+    def __init__(self, matrix=None):
+        # main.py passes the Matrix it also gave the USB icon server, so both
+        # drive one NeoPixel strip and one frame buffer.
+        self.matrix = matrix or Matrix()
         self._cycle = ()
         self._hold_ms = 0
         self._at = 0
@@ -65,8 +66,8 @@ class IconPanel:
 
     def show(self, name):
         """Draw a stored icon. Raises if there is no such icon on flash."""
-        icon_store.read_icon(name, into=self._buf)
-        self.matrix.draw_bytes(self._buf)
+        icon_store.read_icon(name, into=self.matrix.src)
+        self.matrix.draw_bytes(self.matrix.src)
 
     def cycle(self, names, hold_ms):
         self._cycle = tuple(names)

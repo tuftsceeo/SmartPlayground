@@ -106,9 +106,9 @@
       "vendor_sha256": "8bae4cc16bb10678a2b8026683334502524ded9f8df2223cf55a929960480abd"
     },
     "lib/gamelib.py": {
-      "sha256": "d31fd61e226ebd639508675bdd7930f891a6b16899d24c8949e57511bb42e109",
+      "sha256": "9f2ce53b79bef96ccdddcd32172a5fc3c8ef03cf1504ff203ed69cfa1d83a2fc",
       "source": "Bag3/Code/lib/gamelib.py",
-      "vendor_sha256": "d31fd61e226ebd639508675bdd7930f891a6b16899d24c8949e57511bb42e109"
+      "vendor_sha256": "9f2ce53b79bef96ccdddcd32172a5fc3c8ef03cf1504ff203ed69cfa1d83a2fc"
     },
     "lib/hubtype.py": {
       "sha256": "30040c81aa5a3ef346802c3f2144b1a98c011ffec0a777fb5d4f8c672b2a71ad",

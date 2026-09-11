@@ -60,6 +60,7 @@ class Device:
         self.builtins = builtins or {}
         self.cap = None            # station hardware handler, if any
         self.reader = None         # NfcReader, if this device has one
+        self.on_pump = None        # extra per-pass service, set by main.py
         self.slug = None
         self.role = None
 
@@ -177,6 +178,11 @@ class Device:
         """Pump the device. False when the running game must end."""
         self.pump()
         self.step_cap()
+        # Whatever else this device has to keep alive while a game runs -- the
+        # icon station's USB authoring link, for one. Set by main.py; it must
+        # not block, because it runs on every pass of every game loop.
+        if self.on_pump is not None:
+            self.on_pump()
         self._passes += 1
         if self.reader is not None and self._passes % self.nfc_every == 0:
             self.read_card()

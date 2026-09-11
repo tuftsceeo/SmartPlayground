@@ -22,8 +22,10 @@ GC_EVERY_N_FRAMES = 32
 
 
 class IconServer:
-    def __init__(self, debug=False):
-        self.m = Matrix(intensity=DEFAULT_INTENSITY)
+    def __init__(self, debug=False, matrix=None):
+        # main.py passes the Matrix it also gave IconPanel, so USB authoring
+        # and a running game draw to one strip.
+        self.m = matrix or Matrix(intensity=DEFAULT_INTENSITY)
         self.link = JsonLink(self.dispatch, debug=debug)
         self.running = True
         self.cycle_on = False
@@ -244,24 +246,43 @@ class IconServer:
             "serpentine": self.m.serpentine,
         })
 
-    def run(self):
-        self._send_hello()
-        last_hb = time.ticks_ms()
+    def start(self):
+        """Announce the panel. Call once before the first step()."""
         self._reboot_hard = False
+        self._last_hb = time.ticks_ms()
+        self._send_hello()
+
+    def step(self, idle_ms=20, drain_ms=40):
+        """One pass of the USB link: read commands, cycle, heartbeat.
+
+        The poll inside pump() is what paces a station that is otherwise
+        idle, so this blocks for up to idle_ms when nothing is arriving.
+        main.py calls it from its own loop and from a running game, which is
+        how authoring over USB keeps working while a game plays.
+        """
+        self.link.pump(idle_ms=idle_ms, drain_ms=drain_ms)
+        now = time.ticks_ms()
+        if self.cycle_on and time.ticks_diff(now, self.cycle_next) >= 0:
+            self._cycle_step(now)
+        if (time.ticks_diff(now, self._last_hb) > HEARTBEAT_MS
+                and time.ticks_diff(now, self.last_frame_ms) > BUSY_QUIET_MS):
+            self.link.send({"type": "heartbeat", "up": now, "mem": gc.mem_free()})
+            self._last_hb = now
+
+    def finish(self):
+        """Blank the panel, and reset the chip if `reboot` asked for it."""
+        self.m.clear()
+        if self._reboot_hard:
+            import machine
+            machine.reset()
+
+    def run(self):
+        """Standalone loop, for a panel used only for authoring over USB."""
+        self.start()
         try:
             while self.running:
-                self.link.pump(idle_ms=20, drain_ms=40)
-                now = time.ticks_ms()
-                if self.cycle_on and time.ticks_diff(now, self.cycle_next) >= 0:
-                    self._cycle_step(now)
-                if (time.ticks_diff(now, last_hb) > HEARTBEAT_MS
-                        and time.ticks_diff(now, self.last_frame_ms) > BUSY_QUIET_MS):
-                    self.link.send({"type": "heartbeat", "up": now, "mem": gc.mem_free()})
-                    last_hb = now
+                self.step()
         except KeyboardInterrupt:
-            self.link.send({"type": "bye"})  # do_repl/do_reboot already sent their own
+            self.link.send({"type": "bye"})  # do_repl/do_reboot send their own
         finally:
-            self.m.clear()
-            if self._reboot_hard:
-                import machine
-                machine.reset()
+            self.finish()
