@@ -82,22 +82,33 @@ Two things follow from this table that a design must respect:
 
 ### 3.1 Per-device trees, one shared driver lib
 
+**All device trees live under the Broadcast tree root, `Bag3/Code/BroadcastBox/`, alongside
+MockWand.** That is where the actively developed device code already sits; stations move there
+too rather than staying in `Bag3/Code/Stations/`.
+
 ```
 Bag3/Code/
-  lib/                        SHARED: espnow_manager, nfc_reader, pn532, lis2dw12,
-                              max17048, opt3002, buzzer, brightness, battery, actions,
-                              power_led, hubtype, game_tags, leds.py (the 5x5 wand matrix)
-  Wand Module/
-    boot.py  main.py  hubtype.txt  target.py
-    games/                    jumpin.py melody.py cooking.py ...
-  Stations/Icon Display Station/
-    boot.py  main.py  hubtype.txt
-    icon_matrix.py  icon_store.py  icon_server.py  json_link.py  icons/
-    games/
-  Stations/Radar Station/      boot.py main.py hubtype.txt ld2450.py tracker.py games/
-  BroadcastBox/BBoxFirmware/   untouched — the Box does not play games and never will
-  BroadcastDial/BDialFirmware/ untouched — the teacher controller does not play games
+  lib/                          SHARED: espnow_manager, nfc_reader, pn532, lis2dw12,
+                                max17048, opt3002, buzzer, brightness, battery, actions,
+                                power_led, hubtype, game_tags, leds.py (5x5 wand matrix)
+  BroadcastBox/
+    BBoxFirmware/               the Box itself — does not play games, never will
+    ChatBroadcast/              the teacher web app
+    MockWand/                   wand device tree (see 4.1)
+      boot.py  main.py  hubtype.txt  target.py  lib/
+      games/                    jumpin.py melody.py cooking.py ...
+    <Icon Display>/             station device tree
+      boot.py  main.py  hubtype.txt
+      icon_matrix.py  icon_store.py  icon_server.py  json_link.py  icons/
+      games/
+    <Radar>/                    boot.py main.py hubtype.txt ld2450.py tracker.py games/
+    tools/  docs_and_design/
 ```
+
+`Bag3/Code/BroadcastDial/` (the teacher controller — not a station, does not play games) sits
+outside this root today. Whether it moves in is the user's call; do not move it unasked.
+`Bag3/Code/Stations/` and `Bag3/Code/Wand Module/` are the current homes being consolidated
+from — see §4.1 and §4.3 for what is in them.
 
 A single `lib/` is right for what genuinely is shared: ESP-NOW, NFC, the I2C drivers. Hardware
 unique to one device stays in that device's tree — the icon display needs `icon_matrix.py`,
@@ -117,13 +128,13 @@ A wand game only ever runs on wands, and wands always have the same sensors and 
 wand game names them. An icon display game only ever runs on icon displays, so it names those.
 
 ```python
-# Wand Module/games/<game>.py
+# BroadcastBox/MockWand/games/<game>.py
 def play(nfc, leds, buz, accel, i2c, enow, batt=None):
 
-# Stations/Icon Display Station/games/<game>.py
+# BroadcastBox/<Icon Display>/games/<game>.py
 def play(nfc, panel, enow):        # nfc is None until a reader is fitted
 
-# Stations/Radar Station/games/<game>.py
+# BroadcastBox/<Radar>/games/<game>.py
 def play(tracker, enow):
 ```
 
@@ -229,6 +240,8 @@ maps for hardware nobody has wired are a liability.
 
 ### 4.3 Stations present
 
+Paths below are where these sit today; per §3.1 they move under `Bag3/Code/BroadcastBox/`.
+
 - `Bag3/Code/Stations/Icon Display Station/` — `icon_matrix.py` (16×16, `DATA_PIN = 0`,
   `DEFAULT_INTENSITY = 0.30`, `MAX_INTENSITY = 0.50`), `icon_store.py`, `icon_server.py`
   (NDJSON-over-USB command set), `json_link.py`, `icons/` (six fruit test fixtures),
@@ -245,13 +258,9 @@ maps for hardware nobody has wired are a liability.
 
 `Bag3/Code/BroadcastBox/ChatBroadcast/` — the teacher-facing chat app.
 
-- `knowledge/knowledge.py` (913 lines) is the LLM's sole context. **It is stale in places:**
-  it documents a `game_tags`/`opcodes` world, and its natural-language section contradicts its
-  own hardware section on the tilt axis. Correct orientation, confirmed by the user:
-  upright (tip up) `x ≈ -1.0`, handle up `x ≈ +1.0`, face up `z ≈ -1.0`, back up `z ≈ +1.0`,
-  left side up `y ≈ +1.0`, right side up `y ≈ -1.0`. Note the Bag 2-vendored ice cream games
-  use the opposite sign; the Bag 3 prototype reverses it, and it may change again — confirm on
-  hardware.
+- `knowledge/knowledge.py` (913 lines) is the LLM's sole context. It is stale in places — it
+  documents a `game_tags`/`opcodes` world — and its natural-language section contradicts its
+  own hardware section on the tilt axis (see §4.6).
 - `js/chat.js` `extractCode()` **returns inside its loop**, so only the first fenced block ever
   survives. This must be fixed for multi-file output.
 - `js/upload.js` `validateJumpin()` hardcodes the six-argument signature. It will need to
@@ -274,6 +283,34 @@ embedded in ChatBroadcast's wand tab.
 - `py/runtime.py` `get_capabilities()` derives the teacher controls, including the NFC tag
   list, from the game's `COMMANDS` — with a real interpreter, which beats the JS regex.
 - `py/transform.py` rewrites sync MicroPython into async.
+
+### 4.6 Accelerometer orientation — settled, with code to fix
+
+For Bag 3 the convention is:
+
+| Pose | Reading |
+|---|---|
+| upright, tip up, handle down | `x = -1.0` |
+| upside-down, handle up | `x = +1.0` |
+| face up (LED side down) | `z = -1.0` |
+| back up | `z = +1.0` |
+| left side up | `y = +1.0` |
+| right side up | `y = -1.0` |
+
+This is what MockWand and the simulator already use and it is correct — `Simulator/js/motion.js:88`
+(`ny = -1 (top) -> tip_up (x = -1)`), `Simulator/py/shims/sim_state.py:15`
+(`accel_x = -1.0  # tip-up default`), and `knowledge.py:198` and `:684`. Bag 2 is not
+relevant here; do not consult it for orientation.
+
+Three places contradict it and are bugs to fix:
+
+| File | Lines | Problem |
+|---|---|---|
+| `simpleicecream.py` (both wand trees) | 32–33, 92, 95 | `UPRIGHT_THRESHOLD = 0.7` with `x > UPRIGHT_THRESHOLD` — inverted. Scooping would require holding the wand handle-up. |
+| `multiicecream.py` (both wand trees) | 32–33, 150, 153 | same inversion |
+| `knowledge/knowledge.py` | 124–125 | `"tilt left" → x > 0.5 (positive X = tilt left)` — wrong axis. Tilt left/right is **y**; left side up is `y = +1.0`. |
+
+Fix all three as part of the wand-tree step; they are small and independent of everything else.
 
 ---
 
@@ -436,17 +473,19 @@ These were sound and are independent of the rejected abstraction:
 Each step ends on hardware, not on a passing host-side check.
 
 **Step 0 — Resolve the wand tree.** Decide between `MockWand/` and `Wand Module/`, keeping
-every file the winner carries. Reconcile `MockWand/lib/` with `Bag3/Code/lib/` (four modules
-differ). Flash one wand: it boots, idles, plays a built-in from a card, stops on the stop card.
-*Falsified if any built-in fails to load.*
+every file the winner carries; the result lives under `Bag3/Code/BroadcastBox/`. Fix the three
+inverted accelerometer sites from §4.6 while you are in here. Reconcile `MockWand/lib/` with
+`Bag3/Code/lib/` (four modules differ). Flash one wand: it boots, idles, plays a built-in from
+a card, stops on the stop card. *Falsified if any built-in fails to load, or if a scoop in
+simpleicecream needs the wand held handle-up.*
 
 **Step 1 — Extend the naming and the store.** Add `<slug>_<role>` to `game_store.py` and keep
-`gameName.js` in lockstep. Move built-in games into `Wand Module/games/`. Re-run
+`gameName.js` in lockstep. Move built-in games into the wand tree's `games/`. Re-run
 `sync_sources.py` and `check_tags.mjs`. *Falsified if the tag checklist changes for any game.*
 
 **Step 2 — One station plays games.** Icon Display first: it has the most complete firmware and
-the clearest output. Give it `boot.py`, a `games/` directory, and a `main.py` written from the
-wand pattern — radio first, built-in table plus `game_store`, lazy import, unload, chained
+the clearest output. Move it under `Bag3/Code/BroadcastBox/`, then give it `boot.py`, a
+`games/` directory, and a `main.py` written from the wand pattern — radio first, built-in table plus `game_store`, lazy import, unload, chained
 switch, loud load failure. Entry point `play(nfc, panel, enow)`.
 *Gate: the station boots, still answers `hello`/`list`/`show` over USB while idle, and **two
 different games** can be started on it in turn by broadcast, each drawing something different,
