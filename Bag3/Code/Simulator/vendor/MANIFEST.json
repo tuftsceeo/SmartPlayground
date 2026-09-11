@@ -5,6 +5,11 @@
       "source": "Bag3/Code/Wand Module/cooking.py",
       "vendor_sha256": "2282f23ddebe7587402ee8b0e1b6cdd9cb858f9034ae947fe03a0d1e40deee2b"
     },
+    "games/finddevice.py": {
+      "sha256": "f00f5b90ef94168d3063e02bd37879bfb6ad0ebacacd9a9b39191727042f91b0",
+      "source": "Bag3/Code/Wand Module/finddevice.py",
+      "vendor_sha256": "f00f5b90ef94168d3063e02bd37879bfb6ad0ebacacd9a9b39191727042f91b0"
+    },
     "games/freeze_dance.py": {
       "sha256": "571b4d7922982e6852d59de7e997fc095aa5b479030b9e98df4c6ce186314de9",
       "source": "Bag3/Code/Wand Module/freeze_dance.py",
@@ -16,54 +21,54 @@
       "vendor_sha256": "97e2711affd64313bc95ebf32aa6edb1c674bddd676cbaa6b27e0e9b1b4583ca"
     },
     "games/jump.py": {
-      "sha256": "a8ce4344b32c53ac8aa7a734822bf5d45daa78b592e762632067667a950a8d00",
+      "sha256": "d0c8c6bf31a5ea140e030c14c3958998a12137d6a96e1c30de2fbcac1bb5a3b9",
       "source": "Bag3/Code/Wand Module/jump.py",
-      "vendor_sha256": "a8ce4344b32c53ac8aa7a734822bf5d45daa78b592e762632067667a950a8d00"
+      "vendor_sha256": "d0c8c6bf31a5ea140e030c14c3958998a12137d6a96e1c30de2fbcac1bb5a3b9"
     },
     "games/jumpin.py": {
-      "sha256": "21fd2bab3fae6cc641c9eb8d72a6a53d5d30e6f261755b8922a28d43238831c5",
+      "sha256": "78ed277283370e4069083cb3cd81676a05b7e7e790a193b3d5f3ab4b3080975b",
       "source": "Bag3/Code/Wand Module/jumpin.py",
-      "vendor_sha256": "21fd2bab3fae6cc641c9eb8d72a6a53d5d30e6f261755b8922a28d43238831c5"
+      "vendor_sha256": "78ed277283370e4069083cb3cd81676a05b7e7e790a193b3d5f3ab4b3080975b"
     },
     "games/melody.py": {
-      "sha256": "a9382b970507d4af50c027b1c4da8ef37cc140d3dca073847273408f1f210521",
+      "sha256": "02fd3458d52fc2bdff829d5df672770e420d820103c5cbf8514126e4573ba14b",
       "source": "Bag3/Code/Wand Module/melody.py",
-      "vendor_sha256": "a9382b970507d4af50c027b1c4da8ef37cc140d3dca073847273408f1f210521"
+      "vendor_sha256": "02fd3458d52fc2bdff829d5df672770e420d820103c5cbf8514126e4573ba14b"
     },
     "games/multiicecream.py": {
-      "sha256": "5dc2ead7a828f4c88e5c4ca5fad4609beefdf7ebce69be64054e728cba91aba6",
+      "sha256": "bd2d238f092c4e91baa39d89b41b4d04c62bc6e1d190171cb677e78ebad845ca",
       "source": "Bag3/Code/Wand Module/multiicecream.py",
-      "vendor_sha256": "5dc2ead7a828f4c88e5c4ca5fad4609beefdf7ebce69be64054e728cba91aba6"
+      "vendor_sha256": "bd2d238f092c4e91baa39d89b41b4d04c62bc6e1d190171cb677e78ebad845ca"
     },
     "games/nfc_sound.py": {
-      "sha256": "493020d34b1297dca5f64dbc308120fd6b30298d8e25c9c898a2607b474a330c",
+      "sha256": "2c345736e9e54db60c11dfafdd8d3211c83129940e9f88b9c23ce2333e79082a",
       "source": "Bag3/Code/Wand Module/nfc_sound.py",
-      "vendor_sha256": "493020d34b1297dca5f64dbc308120fd6b30298d8e25c9c898a2607b474a330c"
+      "vendor_sha256": "2c345736e9e54db60c11dfafdd8d3211c83129940e9f88b9c23ce2333e79082a"
     },
     "games/rainbow.py": {
-      "sha256": "e5e2d177579e824bc667159add8f5592b81291975f7416b5d8a3556057e13126",
+      "sha256": "73e0a7bc234cb0d7da07b800197b85c9e052f71b523e089c4564e565ef6b6a19",
       "source": "Bag3/Code/Wand Module/rainbow.py",
-      "vendor_sha256": "e5e2d177579e824bc667159add8f5592b81291975f7416b5d8a3556057e13126"
+      "vendor_sha256": "73e0a7bc234cb0d7da07b800197b85c9e052f71b523e089c4564e565ef6b6a19"
     },
     "games/shake.py": {
-      "sha256": "b4838cecadedf65b1003bd4bc0eb4d9fd127b6ac18a8aeb8f5494bd2c6007935",
+      "sha256": "d73e71fae2bf1b9a2401d927f827c9330307fcae7233af29dcb3f411ce957258",
       "source": "Bag3/Code/Wand Module/shake.py",
-      "vendor_sha256": "b4838cecadedf65b1003bd4bc0eb4d9fd127b6ac18a8aeb8f5494bd2c6007935"
+      "vendor_sha256": "d73e71fae2bf1b9a2401d927f827c9330307fcae7233af29dcb3f411ce957258"
     },
     "games/shake_rainbow.py": {
-      "sha256": "0ca48ec9865e13fe9f582abfcac4dd30558ee0424df4b2ea47b9a25ecce411bd",
+      "sha256": "e9b090103aafc12bf40c040a03e566735666a248e22b62e96e5174efca558e5d",
       "source": "Bag3/Code/Wand Module/shake_rainbow.py",
-      "vendor_sha256": "0ca48ec9865e13fe9f582abfcac4dd30558ee0424df4b2ea47b9a25ecce411bd"
+      "vendor_sha256": "e9b090103aafc12bf40c040a03e566735666a248e22b62e96e5174efca558e5d"
     },
     "games/simpleicecream.py": {
-      "sha256": "d96d4786ec7f4ba3cb8d99aeadbf7c2eaf9ef58f3f3e27c7cc9490b454cb9dc0",
+      "sha256": "8216bac6611b882a3818b64a5680ca0503ff98b2629c22cb173fe57cdbee20f5",
       "source": "Bag3/Code/Wand Module/simpleicecream.py",
-      "vendor_sha256": "d96d4786ec7f4ba3cb8d99aeadbf7c2eaf9ef58f3f3e27c7cc9490b454cb9dc0"
+      "vendor_sha256": "8216bac6611b882a3818b64a5680ca0503ff98b2629c22cb173fe57cdbee20f5"
     },
     "games/sound.py": {
-      "sha256": "ea77207e8fa076f1003697cc697e1296fdb7407fe5af78552fd881a07f85c721",
+      "sha256": "3c4e9f4c974e37997e61755de5e8eaa5fcfcacd232aa9d915671b6f6fbabec4e",
       "source": "Bag3/Code/Wand Module/sound.py",
-      "vendor_sha256": "ea77207e8fa076f1003697cc697e1296fdb7407fe5af78552fd881a07f85c721"
+      "vendor_sha256": "3c4e9f4c974e37997e61755de5e8eaa5fcfcacd232aa9d915671b6f6fbabec4e"
     },
     "hubtype.txt": {
       "sha256": "04224b1d2fb402314a8dfc9d03e00937aae352fd20d3070181209a66c5127fb2",
@@ -72,33 +77,48 @@
     },
     "lib/actions.py": {
       "sha256": "e73bbc3e07416eb420896663cf88045698790eccd7c4b8e02d05d3ac29a4a048",
-      "source": "Bag2/Code/lib/actions.py",
+      "source": "Bag3/Code/lib/actions.py",
       "vendor_sha256": "e73bbc3e07416eb420896663cf88045698790eccd7c4b8e02d05d3ac29a4a048"
     },
     "lib/battery.py": {
       "sha256": "adde1eef9e23414d1842d91df91c272411b5989de4c8edd818dd391f968fe415",
-      "source": "Bag2/Code/lib/battery.py",
+      "source": "Bag3/Code/lib/battery.py",
       "vendor_sha256": "adde1eef9e23414d1842d91df91c272411b5989de4c8edd818dd391f968fe415"
     },
     "lib/brightness.py": {
       "sha256": "38a8b83336690c2c7b900af2f45eba150feaf5e58b09c1aa542add3d6613bf7d",
-      "source": "Bag2/Code/lib/brightness.py",
+      "source": "Bag3/Code/lib/brightness.py",
       "vendor_sha256": "38a8b83336690c2c7b900af2f45eba150feaf5e58b09c1aa542add3d6613bf7d"
+    },
+    "lib/buzzer.py": {
+      "sha256": "ef86aab78ffdf1df1b265604988050f72b2fadb764d8ca7d26774943458830bb",
+      "source": "Bag3/Code/lib/buzzer.py",
+      "vendor_sha256": "ef86aab78ffdf1df1b265604988050f72b2fadb764d8ca7d26774943458830bb"
+    },
+    "lib/game_store.py": {
+      "sha256": "ab71da17ff1e1c7b50fa93c7fe5bcccf5d1ee69524a49f736e2892f750899052",
+      "source": "Bag3/Code/lib/game_store.py",
+      "vendor_sha256": "ab71da17ff1e1c7b50fa93c7fe5bcccf5d1ee69524a49f736e2892f750899052"
     },
     "lib/game_tags.py": {
       "sha256": "8bae4cc16bb10678a2b8026683334502524ded9f8df2223cf55a929960480abd",
       "source": "Bag2/Code/lib/game_tags.py",
       "vendor_sha256": "8bae4cc16bb10678a2b8026683334502524ded9f8df2223cf55a929960480abd"
     },
+    "lib/gamelib.py": {
+      "sha256": "d31fd61e226ebd639508675bdd7930f891a6b16899d24c8949e57511bb42e109",
+      "source": "Bag3/Code/lib/gamelib.py",
+      "vendor_sha256": "d31fd61e226ebd639508675bdd7930f891a6b16899d24c8949e57511bb42e109"
+    },
     "lib/hubtype.py": {
-      "sha256": "7571da59b5262082e609e77e330de3d47bc374a2cff7b266a50c444d5bbe2fa6",
-      "source": "Bag2/Code/lib/hubtype.py",
-      "vendor_sha256": "7571da59b5262082e609e77e330de3d47bc374a2cff7b266a50c444d5bbe2fa6"
+      "sha256": "30040c81aa5a3ef346802c3f2144b1a98c011ffec0a777fb5d4f8c672b2a71ad",
+      "source": "Bag3/Code/lib/hubtype.py",
+      "vendor_sha256": "30040c81aa5a3ef346802c3f2144b1a98c011ffec0a777fb5d4f8c672b2a71ad"
     },
     "lib/leds.py": {
-      "sha256": "990c0306b816a2f668bbee86042e1b9bc6e15746bb5ee9e481584e1eb9eb901f",
-      "source": "Bag2/Code/lib/leds.py",
-      "vendor_sha256": "990c0306b816a2f668bbee86042e1b9bc6e15746bb5ee9e481584e1eb9eb901f"
+      "sha256": "408187a3e06812791aa2ee465504b1cb069fdc74c1124e0e41d7bf6725d47fa1",
+      "source": "Bag3/Code/lib/leds.py",
+      "vendor_sha256": "408187a3e06812791aa2ee465504b1cb069fdc74c1124e0e41d7bf6725d47fa1"
     }
   },
   "version": 1

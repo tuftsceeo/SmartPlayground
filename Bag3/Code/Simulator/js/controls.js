@@ -44,12 +44,12 @@ const MOVE_LABELS = { jump: "Jump", shake: "Shake", flip: "Spin" };
 const MOVE_ICONS = { jump: "arrow-up", shake: "vibrate", flip: "shuffle" };
 
 // ESP-NOW messages a game listens for, keyed by vendored game name. The
-// simulator has no second wand, so these buttons stand in for one. `stop`
-// and `start_game` are what the hub broadcasts and every game watches for;
-// a raw payload is the game's own wire format.
+// simulator has no second wand or station, so these buttons stand in for one.
+// `stop` and `start` are the framework messages the hub broadcasts and every
+// device acts on; a raw payload is a game's own wire format.
 const RADIO_COMMON = [
-  { label: "stop", type: "stop" },
-  { label: "start_game", type: "start_game" },
+  { label: "stop", type: "sys", data: "stop" },
+  { label: "start", type: "sys", data: "start" },
 ];
 const RADIO_BY_GAME = {
   freeze_dance: [
@@ -703,8 +703,8 @@ export function createControls(container, handlers = {}) {
   const sendEnow = () => {
     const msg = enowInput.value.trim();
     if (!msg) return;
-    // No payload: this field sends a bare msg_type, which is what the
-    // hub-style messages (stop / start_game) look like on the wire.
+    // No payload: this field sends a bare kind, for hand-testing a message
+    // shape no button covers.
     handlers.onEnow?.(msg);
   };
   q('[data-act="enow-send"]').addEventListener("click", sendEnow);

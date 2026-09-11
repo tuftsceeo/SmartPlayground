@@ -123,7 +123,7 @@ async def test_enow_stop_ends_game(runtime):
     rt.load_game("jump")
     task = await rt.start()
     await _pump(rt, 0.1)
-    rt.sim_state.enqueue_enow("stop")
+    rt.sim_state.enqueue_sys("stop")
     try:
         await asyncio.wait_for(asyncio.shield(task), timeout=2.0)
     except asyncio.TimeoutError:
@@ -133,9 +133,11 @@ async def test_enow_stop_ends_game(runtime):
 
 
 @pytest.mark.asyncio
-async def test_get_commands_nonempty(runtime):
+async def test_card_game_offers_its_tags(runtime):
+    """A game played with cards reports them, so the control panel can offer
+    them; a game with no cards reports none."""
     rt = runtime
+    rt.load_game("nfc_sound")
+    assert "note_c" in rt.get_capabilities()["nfcTags"]
     rt.load_game("jump")
-    cmds = rt.get_commands()
-    assert isinstance(cmds, list)
-    assert len(cmds) >= 1
+    assert rt.get_capabilities()["nfcTags"] == []

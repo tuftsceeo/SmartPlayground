@@ -56,11 +56,23 @@ class ESPNowManager:
     def send_to(self, mac_str, data):
         sim_state.emit_enow_sent("send_to", data, mac_str)
 
-    def broadcast_stop(self):
-        sim_state.emit_enow_sent("stop", None, BROADCAST_MAC)
+    def broadcast_sys(self, op, **kw):
+        sim_state.emit_enow_sent("sys", op, BROADCAST_MAC)
 
-    def broadcast_start_game(self, name):
-        sim_state.emit_enow_sent("start_game", name, BROADCAST_MAC)
+    def broadcast_cap(self, hub, op, args=None):
+        sim_state.emit_enow_sent("cap", "%s %s" % (hub, op), BROADCAST_MAC)
+
+    def broadcast_evt(self, ev, data=None, slug=None):
+        sim_state.emit_enow_sent("evt", ev, BROADCAST_MAC)
+
+    def stop_all(self):
+        self.broadcast_sys("stop")
+
+    def start_all(self, slug):
+        self.broadcast_sys("start", slug=slug)
+
+    def find(self, hub):
+        return []
 
     def send_score(self, *a, **k):
         sim_state.emit_enow_sent("score", a[0] if a else None, None)

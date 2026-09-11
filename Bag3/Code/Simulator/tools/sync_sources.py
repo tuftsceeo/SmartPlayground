@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Bundle Bag2 lib + Bag3 wand game sources into Simulator/vendor/.
+Bundle the Bag3 lib + wand game sources into Simulator/vendor/.
 
 Usage:
     python tools/sync_sources.py          # copy + write MANIFEST.json
@@ -22,10 +22,8 @@ import sys
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 REPO = os.path.abspath(os.path.join(ROOT, "..", "..", ".."))  # Bag3/Code/Simulator -> repo root
 
-# Games come from the Bag3 wand tree; lib still comes from Bag2, whose
-# leds.py/hubtype.py define the LED geometry the golden-frame tests are
-# pinned to. Re-pointing LIB_SRC is a separate change.
-LIB_SRC = os.path.join(REPO, "Bag2", "Code", "lib")
+LIB_SRC = os.path.join(REPO, "Bag3", "Code", "lib")
+BAG2_LIB_SRC = os.path.join(REPO, "Bag2", "Code", "lib")
 GAMES_SRC = os.path.join(REPO, "Bag3", "Code", "Wand Module")
 HUBTYPE_SRC = os.path.join(GAMES_SRC, "hubtype.txt")
 
@@ -34,23 +32,30 @@ VENDOR_LIB = os.path.join(VENDOR, "lib")
 VENDOR_GAMES = os.path.join(VENDOR, "games")
 MANIFEST = os.path.join(VENDOR, "MANIFEST.json")
 
-# Modules run verbatim (copied from Bag2/Code/lib).
-#
-# buzzer.py is not listed here -- vendor/lib/buzzer.py is hand-maintained
-# from Bag3/Code/lib/buzzer.py instead. See the README's
-# "Sync vendored sources" section.
+# Modules copied verbatim from Bag3/Code/lib. gamelib.py and game_store.py
+# are here because the runtime builds the same Device a wand's main.py does.
 VERBATIM_LIBS = [
     "leds.py",
     "brightness.py",
+    "buzzer.py",
     "hubtype.py",
-    "game_tags.py",
     "actions.py",
     "battery.py",
+    "gamelib.py",
+    "game_store.py",
+]
+
+# Only the games still on the pre-Device signature import game_tags, which
+# Bag3 does not have. Drop this once cooking, gestures, color_quest and
+# freeze_dance take play(dev).
+BAG2_LIBS = [
+    "game_tags.py",
 ]
 
 # Game modules to bundle (from Bag3/Code/Wand Module).
 GAMES = [
     "jump.py",
+    "finddevice.py",
     "shake.py",
     "shake_rainbow.py",
     "sound.py",
@@ -79,6 +84,8 @@ def collect_plan():
     plan = []
     for name in VERBATIM_LIBS:
         plan.append((os.path.join(LIB_SRC, name), os.path.join("lib", name)))
+    for name in BAG2_LIBS:
+        plan.append((os.path.join(BAG2_LIB_SRC, name), os.path.join("lib", name)))
     for name in GAMES:
         plan.append((os.path.join(GAMES_SRC, name), os.path.join("games", name)))
     if os.path.isfile(HUBTYPE_SRC):
@@ -179,7 +186,7 @@ def main():
     args = ap.parse_args()
     if args.check:
         sys.exit(check())
-    print("Syncing Bag2 lib + Bag3 wand games into Simulator/vendor/ ...")
+    print("Syncing Bag3 lib + wand games into Simulator/vendor/ ...")
     sync()
     print("Done.")
 

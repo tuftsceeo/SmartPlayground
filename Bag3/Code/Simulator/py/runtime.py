@@ -31,12 +31,15 @@ _TRANSFORM_LIBS = (
     "buzzer",
     "actions",
     "battery",
+    "gamelib",
 )
 
 # Libs with module-level calls / no sleeps — load verbatim (sync).
+# game_tags is only still here for the games that have not taken play(dev).
 _RAW_LIBS = (
     "hubtype",
     "game_tags",
+    "game_store",
 )
 
 _SHIM_MODULES = (
@@ -68,12 +71,20 @@ _ALL_MOTION = [
     "jump", "shake", "flip",
 ]
 
-# Hand-written per-game copy: button *kind* and motion vocabulary aren't
-# reliably inferable from source (a busy-wait-until-release reads the same
-# as a tap; "hold" vs "tap" is a UX call, not a fact in the code). A game
-# name absent from this table gets the "show everything" default below
-# rather than an empty panel — see get_capabilities().
+# Hand-written per-game copy of what each game's controls should offer.
+# Button *kind* and motion vocabulary aren't reliably inferable from source
+# (a busy-wait-until-release reads the same as a tap; "hold" vs "tap" is a
+# UX call, not a fact in the code), and a play(dev) game holds its card
+# names in its own data structures rather than one COMMANDS set. "tags" is
+# also what the simulated reader answers to — see _game_card_tags().
+#
+# A game name absent from this table gets the "show everything" default —
+# see get_capabilities().
 _TEACHER_TABLE = {
+    "finddevice": {
+        "button": "none",
+        "motion": [],
+    },
     "jump": {
         "button": "tap",
         "motion": ["jump"],
@@ -93,6 +104,7 @@ _TEACHER_TABLE = {
     "rainbow": {
         "button": "none",
         "motion": [],
+        "battery": True,
     },
     "jumpin": {
         "button": "tap",
@@ -101,6 +113,8 @@ _TEACHER_TABLE = {
     "nfc_sound": {
         "button": "hold",
         "motion": [],
+        "tags": ["note_c", "note_d", "note_e", "note_f", "note_g",
+                 "note_a", "note_b"],
     },
     "gestures": {
         "button": "hold",
@@ -113,6 +127,9 @@ _TEACHER_TABLE = {
     "melody": {
         "button": "tap",
         "motion": [],
+        "tags": ["note_c", "note_d", "note_e", "note_f", "note_g",
+                 "note_a", "note_b", "note_c_high",
+                 "erase", "melody", "backspace"],
     },
     "cooking": {
         "button": "hold",
@@ -205,9 +222,18 @@ class Runtime:
         except OSError:
             pass
 
-        # Load libs. hubtype/game_tags stay sync (module-level calls).
+        # Load libs. hubtype/game_tags/game_store stay sync (module-level
+        # calls, no sleeps).
         for name in _RAW_LIBS:
             self._load_raw_lib(name)
+
+        # gamelib creates game_store.GAMES_DIR at import. On a device that is
+        # /games on flash; here it has to be somewhere writable.
+        import game_store
+        games_dir = os.path.join(wd, "games")
+        game_store.GAMES_DIR = games_dir
+        game_store.LAST_PULLED = games_dir + "/last_pulled.txt"
+
         for name in _TRANSFORM_LIBS:
             self._load_transformed_lib(name)
 
@@ -345,54 +371,38 @@ class Runtime:
         self._game_name = name
         return mod
 
-    def get_commands(self):
-        if not self._game_mod:
-            return []
-        cmds = getattr(self._game_mod, "COMMANDS", None)
-        if cmds is None:
-            return []
-        return sorted(cmds)
-
     def get_capabilities(self):
-        """Return what the loaded game actually uses, for filtering controls.
+        """What the loaded game's controls should offer.
 
-        nfcTags and battery are derived live from the loaded module; button
-        and motion come from _TEACHER_TABLE (see its comment for why), and
-        default to "show everything" when the game isn't in that table —
-        the important path, since a freshly generated jumpin.py never will
-        be.
+        button, motion, tags and battery come from _TEACHER_TABLE (see its
+        comment for why they are hand-written). A game with no entry gets
+        "show everything" for motion and no tags — the important path, since
+        a freshly generated game never has an entry.
+
+        A game still on the six-argument signature keeps the older
+        derivation: its tags are COMMANDS minus the shared exit tags, and
+        battery is whether play() takes a `batt` keyword.
         """
         if not self._game_mod:
-            return {"button": "tap", "motion": list(_ALL_MOTION), "nfcTags": [], "battery": False,
-                    "buzzer": True}
-
-        mod = self._game_mod
-        import game_tags
-
-        # main.py documents COMMANDS as the name a game unions EXIT_TAGS
-        # into, and every vendored game uses it except freeze_dance.py,
-        # which calls the same set GAME_COMMANDS. Read either rather than
-        # show that game no tags at all — its whole role-select step is
-        # tag-driven. (The naming divergence is in the Bag trees, not here.)
-        commands = set(getattr(mod, "COMMANDS", None)
-                       or getattr(mod, "GAME_COMMANDS", None) or [])
-        own_exit_tags = getattr(mod, "_EXIT_TAGS", None)
-        # exit_tags_excluding(own_tag) drops exactly one tag from EXIT_TAGS;
-        # recover it by diffing rather than re-parsing the game's call site.
-        own_tag = (game_tags.EXIT_TAGS - own_exit_tags) if own_exit_tags is not None else set()
-        game_specific = (commands - game_tags.EXIT_TAGS) | (own_tag & commands)
-        nfc_tags = sorted(game_specific)
-
-        battery = False
-        play = getattr(mod, "play", None)
-        if play is not None:
-            try:
-                import inspect
-                battery = "batt" in inspect.signature(play).parameters
-            except (TypeError, ValueError):
-                battery = False
+            return {"button": "tap", "motion": list(_ALL_MOTION), "nfcTags": [],
+                    "battery": False, "buzzer": True}
 
         table = _TEACHER_TABLE.get(self._game_name, {})
+        play = getattr(self._game_mod, "play", None)
+
+        if play is not None and self._takes_device(play):
+            nfc_tags = sorted(table.get("tags", ()))
+            battery = bool(table.get("battery", False))
+        else:
+            nfc_tags = self._legacy_tags()
+            battery = False
+            if play is not None:
+                import inspect
+                try:
+                    battery = "batt" in inspect.signature(play).parameters
+                except (TypeError, ValueError):
+                    battery = False
+
         return {
             "button": table.get("button", "tap"),
             "motion": list(table.get("motion", _ALL_MOTION)),
@@ -400,6 +410,23 @@ class Runtime:
             "battery": battery,
             "buzzer": True,  # every wand game plays sound; not derived
         }
+
+    def _legacy_tags(self):
+        """Card tags of a game still on the six-argument signature.
+
+        Those games name their tag set COMMANDS, except freeze_dance.py which
+        calls the same set GAME_COMMANDS. The shared exit tags are dropped,
+        but a game's own name is kept when it re-added it as an in-game
+        control (melody's "melody", cooking's "cooking").
+        """
+        import game_tags
+
+        mod = self._game_mod
+        commands = set(getattr(mod, "COMMANDS", None)
+                       or getattr(mod, "GAME_COMMANDS", None) or [])
+        own_exit_tags = getattr(mod, "_EXIT_TAGS", None)
+        own_tag = (game_tags.EXIT_TAGS - own_exit_tags) if own_exit_tags is not None else set()
+        return sorted((commands - game_tags.EXIT_TAGS) | (own_tag & commands))
 
     # ── Hardware + run ──────────────────────────────────────────────
 
@@ -445,6 +472,23 @@ class Runtime:
         enow = ESPNowManager()
         enow.init()
 
+        # The same Device a wand's main.py builds, with the same peripherals
+        # hung on it. A play(dev) game gets this; the older six-argument
+        # games get the loose objects.
+        import gamelib
+        from nfc_reader import NfcReader
+        dev = await self._maybe_await(gamelib.Device(enow))
+        dev.leds = leds
+        dev.buz = buz
+        dev.accel = accel
+        dev.i2c = i2c
+        dev.nfc = nfc
+        dev.batt = batt
+        dev.button = Pin(0, Pin.IN, Pin.PULL_UP)
+        dev.motor = Pin(21, Pin.OUT, value=0)
+        dev.reader = NfcReader(nfc, self._game_card_tags())
+        await self._maybe_await(dev.begin(self._game_name or "sim"))
+
         return {
             "nfc": nfc,
             "leds": leds,
@@ -453,7 +497,18 @@ class Runtime:
             "i2c": i2c,
             "enow": enow,
             "batt": batt,
+            "dev": dev,
         }
+
+    def _game_card_tags(self):
+        """Card texts the reader answers to for the loaded game.
+
+        On a wand main.py builds this set once at boot from every game's
+        cards; here only the loaded game matters, so it comes from the same
+        curated table the control panel is filtered by.
+        """
+        table = _TEACHER_TABLE.get(self._game_name, {})
+        return set(table.get("tags", ())) | {"stop"}
 
     @staticmethod
     async def _maybe_await(value):
@@ -482,13 +537,26 @@ class Runtime:
         play = getattr(self._game_mod, "play", None)
         if play is None:
             raise RuntimeError("game module has no play()")
-        args = (hw["nfc"], hw["leds"], hw["buz"], hw["accel"], hw["i2c"], hw["enow"])
-        try:
-            result = play(*args, batt=hw["batt"])
-        except TypeError:
-            result = play(*args)
+        if self._takes_device(play):
+            result = play(hw["dev"])
+        else:
+            args = (hw["nfc"], hw["leds"], hw["buz"], hw["accel"], hw["i2c"], hw["enow"])
+            try:
+                result = play(*args, batt=hw["batt"])
+            except TypeError:
+                result = play(*args)
         if asyncio.iscoroutine(result) or asyncio.isfuture(result):
             await result
+
+    @staticmethod
+    def _takes_device(play):
+        """True for a play(dev) game, False for the older six-argument form."""
+        import inspect
+        try:
+            params = list(inspect.signature(play).parameters)
+        except (TypeError, ValueError):
+            return False
+        return params[:1] == ["dev"]
 
     async def start(self):
         """Start the loaded game as a cancellable task. Returns the task."""
@@ -574,10 +642,6 @@ async def start():
 
 async def stop():
     return await get_runtime().stop()
-
-
-def get_commands():
-    return get_runtime().get_commands()
 
 
 def get_capabilities():

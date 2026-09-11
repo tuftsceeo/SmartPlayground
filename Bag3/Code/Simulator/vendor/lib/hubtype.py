@@ -1,28 +1,27 @@
 """
-hubtype.py — Device type detection and per-device configuration
-================================================================
-Reads /hubtype.txt to determine what kind of device this is,
-then provides hardware constants and feature flags.
+hubtype.py -- device identity and per-hubtype hardware description.
 
-/hubtype.txt contains a single line: wand, splat_companion,
-programming_station, or score_board.
+Reads hubtype.txt from the filesystem root and exposes:
 
-Usage:
-    from hubtype import HUB_TYPE, HUB_CONFIG
+    HUB_TYPE    what kind of device this is
+    HUB_CONFIG  its pins and geometry
+
+Each device's own main.py reads HUB_CONFIG to build its hardware. HUB_TYPE is
+also what a pull request carries, so the Box can refuse a role file meant for
+a different kind of device.
+
+A missing or unrecognised hubtype.txt raises. A device that does not know what
+it is cannot be trusted to drive its pins.
 """
 
 _CONFIGS = {
     "wand": {
         "num_leds":       25,
         "led_pin":        20,
-        "has_nfc":        True,
-        "has_accel":      True,
-        "has_battery":    True,
-        "has_buzzer":     True,
-        "has_motor":      True,
-        "has_button":     True,
-        "has_ble":        True,
-        "uses_ble":       False,  # not actively connecting to Splats (yet)
+        "matrix_cols":    5,
+        "matrix_rows":    5,
+        "nfc_addr":       0x24,
+        "power_led_pin":  2,
         "buzzer_pin":     19,
         "motor_pin":      21,
         "button_pin":     0,
@@ -31,32 +30,13 @@ _CONFIGS = {
         "i2c_scl":        23,
         "i2c_freq":       100_000,
     },
-    "splat_companion": {
-        "num_leds":       3,
-        "led_pin":        20,
-        "has_nfc":        False,
-        "has_accel":      False,
-        "has_battery":    True,
-        "has_buzzer":     False,
-        "has_motor":      False,
-        "has_button":     False,
-        "has_ble":        True,
-        "uses_ble":       True,  # actively connects to Splat
-        "i2c_sda":        22,
-        "i2c_scl":        23,
-        "i2c_freq":       400_000,
-    },
-    "programming_station": {
+    "code_station": {
         "num_leds":       18,
         "led_pin":        21,
-        "has_nfc":        True,
-        "has_accel":      False,
-        "has_battery":    False,
-        "has_buzzer":     False,
-        "has_motor":      False,
-        "has_button":     True,
-        "has_ble":        True,
-        "uses_ble":       False,
+        "slots":          4,
+        "slot_leds":      ((16, 17), (13, 14), (10, 11), (7, 8)),  # slot 0..3
+        "nfc_addr":       0x24,
+        "mux_addr":       0x70,
         "button_pin":     0,
         "mux_rst_pin":    1,
         "pn532_rst_pin":  2,
@@ -64,36 +44,61 @@ _CONFIGS = {
         "i2c_scl":        23,
         "i2c_freq":       100_000,
     },
-    "score_board": {
+    "score_station": {
         "num_leds":       40,
         "led_pin":        0,
-        "has_nfc":        False,
-        "has_accel":      False,
-        "has_battery":    False,
-        "has_buzzer":     False,
-        "has_motor":      False,
-        "has_button":     False,
-        "has_ble":        True,
-        "uses_ble":       False,
+        "bars":           4,
+        "bar_height":     10,
+        "serpentine":     True,
+        # NFC pins provisional until the reader is fitted.
+        "nfc_addr":       0x24,
+        "i2c_sda":        22,
+        "i2c_scl":        23,
+        "i2c_freq":       100_000,
+    },
+    "icon_station": {
+        "num_leds":       256,
+        "led_pin":        0,
+        "matrix_cols":    16,
+        "matrix_rows":    16,
+        "max_intensity":  0.50,
+        # NFC pins provisional until the reader is fitted.
+        "nfc_addr":       0x24,
+        "i2c_sda":        22,
+        "i2c_scl":        23,
+        "i2c_freq":       100_000,
+    },
+    "dial_station": {
+        # M5Dial under UIFlow2. Pins belong to the M5 board support, not here.
+        "audio_uart":     1,
+        "audio_port":     (1, 2),
+        "max_volume":     30,
     },
 }
 
-_DEFAULT_TYPE = "wand"
+PATH = "hubtype.txt"
 
 
-def _read_hubtype():
+class UnknownHubType(Exception):
+    """hubtype.txt is missing, empty, or names a hubtype with no config."""
+
+
+def _read():
     try:
-        with open("hubtype.txt", "r") as f:
+        with open(PATH, "r") as f:
             raw = f.read().strip().lower()
-        if raw in _CONFIGS:
-            return raw
-        print("[hubtype] Unknown '%s', defaulting to '%s'" % (raw, _DEFAULT_TYPE))
-        return _DEFAULT_TYPE
     except OSError:
-        print("[hubtype] No hubtype.txt, defaulting to '%s'" % _DEFAULT_TYPE)
-        return _DEFAULT_TYPE
+        raise UnknownHubType(
+            "no %s -- write one containing one of: %s"
+            % (PATH, ", ".join(sorted(_CONFIGS))))
+    if raw not in _CONFIGS:
+        raise UnknownHubType(
+            "%s says %r -- expected one of: %s"
+            % (PATH, raw, ", ".join(sorted(_CONFIGS))))
+    return raw
 
 
-HUB_TYPE = _read_hubtype()
+HUB_TYPE = _read()
 HUB_CONFIG = _CONFIGS[HUB_TYPE]
-print("[hubtype] %s (%d LEDs)" % (HUB_TYPE, HUB_CONFIG["num_leds"]))
+
+print("[hubtype] %s" % HUB_TYPE)

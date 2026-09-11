@@ -143,6 +143,26 @@ def enqueue_enow(msg_type, data=None, mac_str="aa:bb:cc:dd:ee:ff"):
     enow_queue.append((msg_type, data, mac_str))
 
 
+# The three message kinds a Device pumps. The simulator has no second wand or
+# station, so these stand in for one.
+
+def enqueue_sys(op, **kw):
+    """A framework message: stop, or start of a named game."""
+    msg = {"type": "sys", "op": op}
+    msg.update(kw)
+    enqueue_enow("sys", msg)
+
+
+def enqueue_evt(ev, d=None, slug=None):
+    """Something another device reported. Game events carry their slug."""
+    msg = {"type": "evt", "ev": ev}
+    if d is not None:
+        msg["d"] = d
+    if slug:
+        msg["slug"] = slug
+    enqueue_enow("evt", msg)
+
+
 def dequeue_enow():
     if enow_queue:
         return enow_queue.pop(0)

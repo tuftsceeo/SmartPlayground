@@ -422,6 +422,12 @@ class WandSim extends HTMLElement {
       },
       onEnow: (msgType, data) => {
         this._logLine(data ? `heard ${msgType} "${data}"` : `heard "${msgType}"`);
+        // A sys message carries an op ("stop", "start"); anything else is a
+        // raw payload queued as-is.
+        if (msgType === "sys") {
+          this._runPython(`sim_state.enqueue_sys(${JSON.stringify(data)})`);
+          return;
+        }
         const args = data == null
           ? JSON.stringify(msgType)
           : `${JSON.stringify(msgType)}, ${pyBytes(data)}`;
@@ -559,7 +565,7 @@ import sys
 sys.path.insert(0, "/sim/py")
 sys.path.insert(0, "/sim/py/shims")
 sys.path.insert(0, "/sim/py/devices")
-from runtime import get_runtime, load_game, start, stop, get_commands, get_capabilities
+from runtime import get_runtime, load_game, start, stop, get_capabilities
 import os
 contents = {}
 for root, dirs, files in os.walk("/sim"):

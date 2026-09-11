@@ -24,9 +24,10 @@ def _decode_ndef_text(data):
 
 
 class NfcReader:
-    def __init__(self, nfc, commands):
+    def __init__(self, nfc, commands, prefixes=()):
         self.nfc = nfc
         self.commands = set(commands) if commands else set()
+        self.prefixes = prefixes
 
     def detect_tag(self, timeout=250):
         cmd, uid = sim_state.consume_nfc()

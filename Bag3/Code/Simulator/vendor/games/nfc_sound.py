@@ -1,184 +1,73 @@
 """
-NFC Bell Choir — Tap Note Tags, Hold Button to Play
-===================================================
-Scan note NFC tags to pick your bell. Hold button to play. Tap STOP to exit.
+NFC Bell Choir -- tap a note tag to pick your bell, hold the button to ring it.
 
-Entry points:
-    play(nfc, leds, buz, accel, i2c, enow)  — called from main.py
-    main()                                   — standalone testing
+Starts on a random note. Tapping one of the note cards (note_c ... note_b)
+changes it; the same physical cards work in the melody game.
+
+Entry point:
+    play(dev)
 """
 
-import machine
-import time
 import random
-from machine import Pin
 
-from pn532 import PN532
-from nfc_reader import NfcReader
-from game_tags import exit_tags_excluding
-
-_EXIT_TAGS = exit_tags_excluding("nfcsound")
 from buzzer import NOTE_FREQ
-from leds import RED, ORANGE, YELLOW, GREEN, BLUE, PURPLE, PINK, WHITE, OFF
+from leds import (
+    RED, ORANGE, YELLOW, GREEN, BLUE, PURPLE, PINK, WHITE,
+    SHAPE_TOP_ROW, SHAPE_BOT_ROW, SHAPE_LEFT_COL, SHAPE_RIGHT_COL,
+    SHAPE_BORDER, SHAPE_INNER_3x3, SHAPE_DIAMOND, SHAPE_STAR,
+)
 
-# ─── Hardware Config ───
-I2C_SDA, I2C_SCL = 22, 23
-BUZZER_PIN, BUTTON_PIN, PN532_ADDR = 19, 0, 0x24
-
-# ─── Game Config ───
-# Note cards use the shared underscore names ("note_c"…) so the SAME physical
-# card works in the melody game too. Buzzer keys strip the underscore.
-COMMANDS = {"note_c", "note_d", "note_e", "note_f", "note_g", "note_a", "note_b"} | _EXIT_TAGS
-NFC_POLL_INTERVAL = 5
-LOOP_DELAY_MS = 40
+LOOP_MS = 40
 BEEP_MS = 80
 
-# Map NFC tag names to display note keys
-TAG_TO_NOTE = {
-    "note_c": "C4", "note_d": "D4", "note_e": "E4", "note_f": "F4",
-    "note_g": "G4", "note_a": "A4", "note_b": "B4",
+# The reader runs every 5th pass here: this game is played by tapping cards,
+# so it needs a faster read than the framework's idle-ish default.
+NFC_EVERY = 5
+
+# card tag -> (buzzer note key, colour, shape)
+BELLS = {
+    "note_c": ("notec", RED, SHAPE_TOP_ROW),
+    "note_d": ("noted", ORANGE, SHAPE_BOT_ROW),
+    "note_e": ("notee", YELLOW, SHAPE_LEFT_COL),
+    "note_f": ("notef", GREEN, SHAPE_RIGHT_COL),
+    "note_g": ("noteg", BLUE, SHAPE_BORDER),
+    "note_a": ("notea", PURPLE, SHAPE_INNER_3x3),
+    "note_b": ("noteb", PINK, SHAPE_DIAMOND),
 }
 
-NOTES = {
-    'C4': 262, 'D4': 294, 'E4': 330, 'F4': 349,
-    'G4': 392, 'A4': 440, 'B4': 494, 'C5': 523,
-}
-
-NOTE_COLORS = {
-    'C4': RED, 'D4': ORANGE, 'E4': YELLOW, 'F4': GREEN,
-    'G4': BLUE, 'A4': PURPLE, 'B4': PINK, 'C5': WHITE,
-}
-
-SOUNDS = {
-    'start': [(523, 80, 40), (659, 80, 40), (784, 120, 0)],
-}
+HIGH_C = ("notechigh", WHITE, SHAPE_STAR)
 
 
-def _play_sound(buz, name):
-    for freq, dur, gap in SOUNDS.get(name, []):
-        buz.beep(freq, dur)
-        if gap:
-            time.sleep_ms(gap)
-
-
-class NfcSoundGame:
-    def __init__(self, nfc, leds, buz, enow):
-        self.nfc = nfc
-        self.leds = leds
-        self.buz = buz
-        self.enow = enow
-        self.reader = NfcReader(nfc, COMMANDS)
-        self.btn = Pin(BUTTON_PIN, Pin.IN, Pin.PULL_UP)
-        self._btn_was_down = (self.btn.value() == 0)
-        self._frame = 0
-        self._assign_random_note()
-
-    def _assign_random_note(self):
-        self.note = random.choice(list(NOTES.keys()))
-        self.frequency = NOTES[self.note]
-        print("  You were assigned %s (%d Hz)" % (self.note, self.frequency))
-        print("  Tap a note tag to change your bell.\n")
-
-    def _set_note_from_tag(self, tag):
-        if tag not in TAG_TO_NOTE:
-            return
-        self.note = TAG_TO_NOTE[tag]
-        buz_key = tag.replace("_", "")   # "note_c" -> "notec" (NOTE_FREQ key)
-        if buz_key in NOTE_FREQ:
-            self.frequency = NOTE_FREQ[buz_key]
-        else:
-            self.frequency = NOTES.get(self.note, 440)
-        print("  Note changed to %s" % self.note)
-        self.buz.beep(self.frequency, 120)
-
-    def _check_stop(self):
-        if self.enow:
-            msg_type, _, _ = self.enow.poll()
-            if msg_type in ("stop", "start_game"):
-                return True
-        if self._frame % NFC_POLL_INTERVAL != 0:
-            return False
-        try:
-            cmd, uid = self.reader.read_command(timeout=100)
-            if cmd in _EXIT_TAGS:
-                return True
-            if cmd in TAG_TO_NOTE:
-                self._set_note_from_tag(cmd)
-        except Exception:
-            pass
-        return False
-
-    def run(self):
-        print("  Hold button to play your note!")
-        print("  Tap STOP tag or station stop to exit.\n")
-
-        while True:
-            if self._check_stop():
-                print("  Stop detected")
-                return
-
-            btn_down = (self.btn.value() == 0)
-            if btn_down:
-                self.buz.beep(self.frequency, BEEP_MS)
-                self.leds.fill(NOTE_COLORS.get(self.note, WHITE))
-            else:
-                self.leds.off()
-
-            time.sleep_ms(LOOP_DELAY_MS)
-            self._frame += 1
-
-
-def play(nfc, leds, buz, accel, i2c, enow):
-    _play_sound(buz, 'start')
+def play(dev):
+    dev.buz.start()
+    dev.nfc_every = NFC_EVERY
     print("\n  === NFC BELL CHOIR ===")
-    try:
-        NfcSoundGame(nfc, leds, buz, enow).run()
-    finally:
-        leds.off()
-        print("\n  === RETURNING TO PROGRAMMING MODE ===\n")
+
+    bell = random.choice(list(BELLS.values()) + [HIGH_C])
+    key, color, shape = bell
+    freq = NOTE_FREQ[key]
+    print("  You were assigned %s (%d Hz)" % (key, freq))
+    print("  Tap a note tag to change your bell; hold the button to play.\n")
+
+    while dev.running():
+        ev = dev.event()
+        if ev and ev[0] == "tag" and ev[1] in BELLS:
+            key, color, shape = BELLS[ev[1]]
+            freq = NOTE_FREQ[key]
+            print("  Note changed to %s" % key)
+            dev.buz.beep(freq, 120)
+
+        if dev.button.value() == 0:
+            dev.buz.beep(freq, BEEP_MS)
+            dev.leds.show_shape(shape, color)
+        else:
+            dev.leds.off()
+        dev.tick(LOOP_MS)
 
 
 def main():
-    """
-    Standalone entry point for testing without main.py.
-    Run directly: import nfc_sound; nfc_sound.main()
-    """
-    print("\n" + "=" * 45)
-    print("  NFC Bell Choir")
-    print("=" * 45)
-
-    i2c = machine.SoftI2C(sda=Pin(I2C_SDA), scl=Pin(I2C_SCL), freq=100_000)
-
-    import brightness
-    try:
-        from opt3002 import OPT3002
-        light = OPT3002(i2c)
-        light.init()
-        mult, lux = brightness.calibrate(light)
-        if lux is not None:
-            print("  Light: %.0f lux -> brightness x%.2f" % (lux, mult))
-    except Exception as e:
-        print("  [WARN] OPT3002: %s — brightness x1.00" % e)
-
-    from leds import Leds
-    from buzzer import Buzzer
-    leds = Leds()
-    buz = Buzzer(BUZZER_PIN)
-
-    nfc = PN532(i2c, PN532_ADDR)
-    try:
-        ic, ver, rev = nfc.begin()
-        print("  PN5%02X fw %d.%d — NFC ready" % (ic, ver, rev))
-    except Exception as e:
-        print("  NFC init failed: %s" % e)
-        return
-
-    from espnow_manager import ESPNowManager
-    enow = ESPNowManager()
-    enow.init()
-
-    print()
-    play(nfc, leds, buz, None, i2c, enow)
+    import bench
+    play(bench.device(BELLS))
 
 
 if __name__ == "__main__":
