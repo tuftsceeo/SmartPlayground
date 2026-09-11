@@ -36,8 +36,13 @@ import time
 import game_store
 
 # Passes between card reads while a game runs. Reading every pass starves the
-# rest of the loop; the reader is the slowest thing in it.
+# rest of the loop; the reader is the slowest thing in it. A game that reads
+# cards as part of play can lower its own dev.nfc_every.
 NFC_EVERY = 15
+
+# A card sitting on the reader reads over and over. The same uid is ignored
+# until it has been away for a pass or this long has gone by.
+REPEAT_MS = 1200
 
 GETCODE = "getcode:"
 CONTROL_TAGS = ("stop", "start")
@@ -63,6 +68,9 @@ class Device:
         self._pull = None          # module a getcode: card asked for
         self._passes = 0
         self._exit_names = ()
+        self._last_uid = None
+        self._last_read = 0
+        self.nfc_every = NFC_EVERY
 
     # -- games -------------------------------------------------------
 
@@ -122,11 +130,13 @@ class Device:
 
     def begin(self, slug):
         self.slug = slug
+        self.nfc_every = NFC_EVERY
         self.role = game_store.role_of(self.resolve(slug))
         self._events = []
         self._exit = None
         self._passes = 0
         self._exit_names = tuple(n for n in self.card_commands() if n != slug)
+        self._last_uid = None
 
     def end(self):
         """Restore outputs after a game returns."""
@@ -163,7 +173,7 @@ class Device:
         self.pump()
         self.step_cap()
         self._passes += 1
-        if self.reader is not None and self._passes % NFC_EVERY == 0:
+        if self.reader is not None and self._passes % self.nfc_every == 0:
             self.read_card()
         return self._exit is None
 
@@ -205,7 +215,15 @@ class Device:
 
     def read_card(self):
         """Read one card and act on stop / a game tag / a getcode: card."""
-        cmd, _uid = self.reader.read_command(timeout=100)
+        cmd, uid = self.reader.read_command(timeout=100)
+        if uid is None:
+            self._last_uid = None
+            return
+        now = time.ticks_ms()
+        if uid == self._last_uid and time.ticks_diff(now, self._last_read) < REPEAT_MS:
+            return
+        self._last_uid = uid
+        self._last_read = now
         if not cmd:
             return
         if cmd.startswith(GETCODE):
@@ -215,6 +233,11 @@ class Device:
             self._exit = "stop"
         elif cmd in self._exit_names and self.is_game(cmd):
             self._exit = ("start", cmd)
+        else:
+            # A card this game reads itself -- note_c, tomato, caller. It
+            # arrives as an event so the game does not touch the reader; the
+            # third field is the card uid.
+            self._events.append(("tag", cmd, uid))
 
     # -- message handling --------------------------------------------
 

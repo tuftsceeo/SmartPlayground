@@ -21,8 +21,12 @@ from nfc_reader import NfcReader
 from lis2dw12 import LIS2DW12, RANGE_4G
 
 
-def device():
-    """A wand Device with the radio up and every peripheral attached."""
+def device(cards=()):
+    """A wand Device with the radio up and every peripheral attached.
+
+    cards adds tag texts the reader should answer to, for a game that reads
+    its own cards (bench.device(("note_c", "note_d"))).
+    """
     leds = Leds()
 
     # Radio first: esp_wifi_init() needs contiguous heap that driver imports
@@ -47,7 +51,7 @@ def device():
 
     dev.nfc = PN532(i2c, addr=HUB_CONFIG["nfc_addr"])
     dev.nfc.begin()
-    dev.reader = NfcReader(dev.nfc, ("stop",), prefixes=("getcode",))
+    dev.reader = NfcReader(dev.nfc, set(cards) | {"stop"}, prefixes=("getcode",))
 
     dev.begin("bench")
     return dev

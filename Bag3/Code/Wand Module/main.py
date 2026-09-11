@@ -166,11 +166,22 @@ NFC_ADDR     = HUB_CONFIG.get("nfc_addr", 0x24)
 # ─────────────────────────────────────────────
 FIXED_TRIGGERS = {"buttondown", "buttonup", "whenshake"}
 COMBINATORS    = {"and", "then"}
-UTILITY        = {"battery"}
+UTILITY        = {"battery", "erase"}
 BROADCAST      = {"getcode"}   # NfcReader matches the head before the ":"
+
+# Cards individual games read during play. The reader is built once at boot, so
+# it has to know every name any game might match; each game filters for its own.
+GAME_CARD_TAGS = {
+    "note_c", "note_d", "note_e", "note_f", "note_g", "note_a",      # melody,
+    "note_b", "note_c_high", "backspace",                            # nfc_sound
+    "tomato", "milk", "cheese", "flour", "egg", "butter", "sugar",   # cooking
+    "caller", "player", "go", "freeze", "rejoin",                    # freeze dance
+    "red", "green", "blue", "play",                                  # gestures
+    "color_quest_scan",                                              # color quest
+}
 # The wand's own tap-coding vocabulary. Game names and pulled slugs are added
 # in main() from dev.card_commands().
-BASE_COMMANDS  = FIXED_TRIGGERS | ACTIONS | ANIMAL_SOUNDS | COMBINATORS | UTILITY
+BASE_COMMANDS  = FIXED_TRIGGERS | ACTIONS | ANIMAL_SOUNDS | COMBINATORS | UTILITY | GAME_CARD_TAGS
 
 # ─────────────────────────────────────────────
 # ADDING A NEW GAME
