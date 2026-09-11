@@ -14,6 +14,7 @@ import {
 import { uploadPayload } from './upload.js';
 import { DeviceLink as StationLink } from './station/deviceLink.js';
 import { sendToStation, moduleName } from './stationSend.js';
+import { renderIconPanel } from './iconPreview/panel.js';
 import { showTagChecklist, updateTagChecklist } from './nfc.js';
 import { EXAMPLES, CATEGORIES, findExample, loadExampleCode } from './examples.js';
 import { showView, showOverlay, hideOverlay, setConnectionBadge, toast, setSendProgress, showConnectToast, syncNavTabs } from './router.js';
@@ -1084,15 +1085,22 @@ class App {
 
         // The simulator is a wand. A station role file is shown but not run:
         // pushing it would load wand hardware the file never touches and
-        // fail for the wrong reason.
-        const isWand = (getHubtype(getRole()) || 'wand') === 'wand';
+        // fail for the wrong reason. The station shows its icons instead.
+        const hub = getHubtype(getRole()) || 'wand';
+        const isWand = hub === 'wand';
         const runnable = isWand && isRunnableCode(code);
+        const showIcons = !isWand && isRunnableCode(code);
+
         document.getElementById('preview-panel').classList.toggle('hidden', !runnable);
-        document.querySelector('.ws-body')?.classList.toggle('no-sim', !runnable);
+        const iconPanel = document.getElementById('icon-preview');
+        iconPanel?.classList.toggle('hidden', !showIcons);
+        document.querySelector('.ws-body')?.classList.toggle('no-sim', !runnable && !showIcons);
 
         if (runnable) {
             this.setupSim();
             this.pushSimSource(code);
+        } else if (showIcons && iconPanel) {
+            renderIconPanel(iconPanel, this.icons);
         }
     }
 

@@ -731,6 +731,51 @@ body.ui-advanced #app-shell {
     width: 100%;
     max-width: 500px;
 }
+/* The icon display's preview: the game's icons as the panel will show them,
+   sharing #preview-panel's place in the preview column. */
+#icon-preview {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    min-height: 0;
+    overflow: auto;
+    padding: 16px;
+    background: #fff;
+}
+.icon-panel-stage canvas {
+    width: 100%;
+    max-width: 320px;
+    height: auto;
+    image-rendering: auto;
+    border-radius: 8px;
+}
+.icon-panel-name {
+    font: 12px ui-monospace, monospace;
+    color: #6b6376;
+}
+.icon-panel-strip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+}
+.icon-panel-thumb {
+    padding: 2px;
+    border: 2px solid transparent;
+    border-radius: 6px;
+    background: none;
+    cursor: pointer;
+    line-height: 0;
+}
+.icon-panel-thumb.active { border-color: #8a6fa8; }
+.icon-panel-empty {
+    font: 12px ui-monospace, monospace;
+    color: #c9a3bd;
+    text-align: center;
+}
 .ws-body.no-sim .chat-col {
     width: auto !important;
     max-width: none;
@@ -743,6 +788,8 @@ body.ui-advanced #app-shell {
 }
 .ws-body:not(.no-sim) #preview-empty { display: none; }
 .ws-body:not(.no-sim) #preview-panel.hidden { display: none !important; }
+.ws-body:not(.no-sim) #icon-preview.hidden { display: none !important; }
+#icon-preview.hidden { display: none; }
 
 .ws-footer {
     display: flex;
