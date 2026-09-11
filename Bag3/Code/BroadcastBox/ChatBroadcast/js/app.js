@@ -1,14 +1,19 @@
 import { loadEncryptedKey, initAuthModal, getApiKey, hasEncryptedKey } from './auth.js';
 import {
-    addMsg, addThinkingMsg, removeTyping, extractCode, parseNfcCards, stripNfcMarker,
+    addMsg, addThinkingMsg, removeTyping, extractCodeBlocks, extractIcons,
+    stripBlockMarkers, parseNfcCards, stripNfcMarker,
     parseGameName, stripGameNameMarker,
     trimForHistory, loadKnowledgeBase, getKnowledgeText, getKnowledgeFileCount,
+    KNOWN_HUBTYPES,
 } from './chat.js';
 import {
     initEditor, getCode, setCode, saveVersion, updateVersionUI,
     onPrevVersion, onNextVersion, getVersionCount, onDownload,
+    setRole, getRole, getRoles, getHubtype, getCodeFor, resetRoles,
 } from './editor.js';
 import { uploadPayload } from './upload.js';
+import { DeviceLink as StationLink } from './station/deviceLink.js';
+import { sendToStation, moduleName } from './stationSend.js';
 import { showTagChecklist, updateTagChecklist } from './nfc.js';
 import { EXAMPLES, CATEGORIES, findExample, loadExampleCode } from './examples.js';
 import { showView, showOverlay, hideOverlay, setConnectionBadge, toast, setSendProgress, showConnectToast, syncNavTabs } from './router.js';
@@ -45,19 +50,21 @@ const WAITING_LIMIT_MS = 12000;
    within 5s regardless. */
 const IDENTIFY_NUDGE_MS = 2500;
 
-const SYSTEM_PROMPT_BASE = `You are an AI assistant helping teachers write MicroPython games for the PlaygroundV5 wand.
+const SYSTEM_PROMPT_BASE = `You are an AI assistant helping teachers write MicroPython games for SmartPlayground devices.
 
 RULES:
-- All board details, APIs, and hardware specs are in the KNOWLEDGE BASE below. Reference it.
-- Generated code MUST follow the jumpin.py format with def play(nfc, leds, buz, accel, i2c, enow)
-- Put all code inside a fenced code block: \`\`\`python ... \`\`\`
+- All device details, APIs and contracts are in the KNOWLEDGE BASE below. Follow it; do not infer an API from memory.
+- A game is one file per device role. Every file is def play(dev) and nothing else.
+- Put each role's file in its own fenced block: \`\`\`python ... \`\`\`, immediately preceded by [ROLE: <role> <hubtype>] on its own line.
+- Only write for a device whose file appears in the knowledge base.
 - Do NOT use f-strings — they crash on this MicroPython build. Use % formatting only.
-- Keep explanations concise — the code block is auto-extracted to the editor
-- If the user sends serial output (prefixed with [HW]:), help debug it
-- Always include try/finally cleanup and periodic NFC stop-tag polling
-- Default to simple, working examples over complex ones
-- If the game reads NFC tags at all, include exactly one line formatted as [NFC_CARDS: "value1", "value2"] listing every tag value the game reads. Omit the line only when the game never touches a tag.
-- After the code block, include exactly one line naming the game: [GAME_NAME: Short Pretty Name]`;
+- No try/finally, no exit-tag tables, no radio polling of your own: while dev.running() is the only exit check a game needs.
+- Keep explanations concise — each code block is auto-extracted to that role's editor tab.
+- If the user sends serial output (prefixed with [HW]:), help debug it.
+- Default to simple, working games over complex ones.
+- If the game reads NFC cards, include exactly one line formatted as [NFC_CARDS: "value1", "value2"] listing every card the game itself reads. Omit it when the game reads no cards.
+- If a role file names an icon, ship it: [ICON: name] on its own line, then a \`\`\`json block of {"w":16,"h":16,"px":[[r,g,b], ...]} with 256 triples.
+- After the code blocks, include exactly one line naming the game: [GAME_NAME: Short Pretty Name]`;
 
 /** Same placeholder-and-play() check the editor's code drawer uses to
  * decide there's real code worth doing anything with. */
@@ -75,6 +82,8 @@ class App {
         this.gameName = 'Your game';
         this.gameDesc = '';
         this.declaredTags = null;   // tags the game itself declares ([NFC_CARDS:] / example)
+        this.icons = [];            // icons shipped with the game ([ICON:] blocks)
+        this.stationLink = null;    // USB link to an icon display, opened on demand
         this.hardware = buildHardwareReqs({});
         this.tagWrites = {};        // live {tagLabel: count} from card_written events
         this.galleryFilter = 'all';
@@ -146,7 +155,7 @@ class App {
             this.applyUiMode(e.detail.mode);
         });
 
-        const knowledge = await loadKnowledgeBase();
+        const knowledge = await loadKnowledgeBase(KNOWN_HUBTYPES);
         if (knowledge) {
             dbg('app', `knowledge base loaded (${getKnowledgeFileCount()} file(s))`);
         } else {
@@ -178,6 +187,40 @@ class App {
         return knowledge
             ? SYSTEM_PROMPT_BASE + '\n\nPROJECT KNOWLEDGE BASE:\n' + knowledge
             : SYSTEM_PROMPT_BASE;
+    }
+
+    /** What kind of device a role runs on, for labels and icons. */
+    static HUB_LABEL = { wand: 'Wands', icon_station: 'Icon Display' };
+    static HUB_ICON = { wand: 'wand', icon_station: 'gamepad' };
+
+    /**
+     * Rebuild the device rail from the roles the current game has.
+     *
+     * Before any code exists the rail keeps its markup from index.html —
+     * a Wands tab and a greyed Stations one — so the empty state still
+     * shows what a game can be written for.
+     */
+    renderRoleRail() {
+        const rail = document.querySelector('.role-rail');
+        if (!rail) return;
+        const roles = getRoles();
+        if (roles.length < 2) return;
+        rail.innerHTML = '';
+        for (const role of roles) {
+            const hub = getHubtype(role) || 'wand';
+            const item = document.createElement('div');
+            item.className = 'role-item' + (role === getRole() ? ' active' : '');
+            item.title = App.HUB_LABEL[hub] || hub;
+            item.innerHTML =
+                `<span class="role-icon">${iconSvg(App.HUB_ICON[hub] || 'gamepad', { size: 18 })}</span>`;
+            item.append(role);
+            item.addEventListener('click', () => {
+                setRole(role);
+                this.renderRoleRail();
+                this.updatePreview();
+            });
+            rail.appendChild(item);
+        }
     }
 
     applyUiMode(mode) {
@@ -638,10 +681,17 @@ class App {
             toast('Nothing to save yet — generate or load some code first.', true);
             return;
         }
+        // A game is one file per role, so save every role and its icons. The
+        // top-level `code` stays the wand's, which is what the gallery card
+        // and the simulator read.
+        const roles = getRoles().map((r) => ({ role: r, hubtype: getHubtype(r), code: getCodeFor(r) }));
+        const wand = roles.find((r) => (r.hubtype || 'wand') === 'wand');
         const entry = saveGame({
             name: this.gameName,
             desc: this.gameDesc,
-            code,
+            code: wand ? wand.code : code,
+            roles,
+            icons: this.icons,
             requiredTags: this.requiredTags,
             hardware: this.hardware,
             chatHistory: this.chatHistory.slice(),
@@ -807,10 +857,16 @@ class App {
         const box = document.getElementById('chat-box');
         box.innerHTML = '';
         addMsg(`Loaded saved game “${g.name}”.`, 'system');
-        if (g.code) {
-            setCode(g.code);
-            saveVersion(g.code, 'Loaded from library');
+        resetRoles();
+        this.icons = Array.isArray(g.icons) ? g.icons : [];
+        const saved = Array.isArray(g.roles) && g.roles.length
+            ? g.roles
+            : (g.code ? [{ role: 'wand', hubtype: 'wand', code: g.code }] : []);
+        for (const r of saved) {
+            saveVersion(r.code, 'Loaded from library', { role: r.role, hubtype: r.hubtype });
         }
+        if (saved.length) setRole(saved[0].role);
+        this.renderRoleRail();
         this.dirty = false;
         this.updatePreview();
     }
@@ -942,6 +998,8 @@ class App {
         this.gameDesc = '';
         this.chatHistory = [];
         this.tagWrites = {};
+        this.icons = [];
+        resetRoles();
         this.refreshHardware();
     }
 
@@ -969,8 +1027,9 @@ class App {
         this.declaredTags = [...this.currentExample.tags];
         const code = await this.fetchExampleCode(this.currentExample);
         if (code) {
-            setCode(code);
-            saveVersion(code, `${this.currentExample.name} (remix base)`);
+            resetRoles();
+            this.icons = [];
+            saveVersion(code, `${this.currentExample.name} (remix base)`, { role: 'wand', hubtype: 'wand' });
             this.dirty = true;
         }
         this.openWorkspace(this.currentExample.starterPrompt);
@@ -1005,8 +1064,9 @@ class App {
 
         const code = await this.fetchExampleCode(this.currentExample);
         if (code) {
-            setCode(code);
-            saveVersion(code, `${this.currentExample.name} as-is`);
+            resetRoles();
+            this.icons = [];
+            saveVersion(code, `${this.currentExample.name} as-is`, { role: 'wand', hubtype: 'wand' });
             this.dirty = true;
         } else {
             this.updatePreview();
@@ -1022,7 +1082,11 @@ class App {
 
         this.refreshHardware(code);
 
-        const runnable = isRunnableCode(code);
+        // The simulator is a wand. A station role file is shown but not run:
+        // pushing it would load wand hardware the file never touches and
+        // fail for the wrong reason.
+        const isWand = (getHubtype(getRole()) || 'wand') === 'wand';
+        const runnable = isWand && isRunnableCode(code);
         document.getElementById('preview-panel').classList.toggle('hidden', !runnable);
         document.querySelector('.ws-body')?.classList.toggle('no-sim', !runnable);
 
@@ -1212,12 +1276,27 @@ class App {
 
     /** Recompute the hardware requirements from the current code + declared tags. */
     refreshHardware(code) {
+        // Cards are read by wands, so the tag list comes from the wand's file
+        // whichever role is on screen.
+        const wandRole = getRoles().find((r) => (getHubtype(r) || 'wand') === 'wand');
+        const wandCode = wandRole ? getCodeFor(wandRole) : (code !== undefined ? code : getCode());
         this.hardware = buildHardwareReqs({
-            code: code !== undefined ? code : getCode(),
+            code: wandCode,
             gameName: this.gameName,
             declared: this.declaredTags,
+            stations: this.stationNames(),
         });
         return this.hardware;
+    }
+
+    /** Plain names for the non-wand devices this game needs. */
+    stationNames() {
+        const names = [];
+        for (const role of getRoles()) {
+            const hub = getHubtype(role);
+            if (hub && hub !== 'wand') names.push(App.HUB_LABEL[hub] || hub);
+        }
+        return names;
     }
 
     /** The tag list every consumer reads — derived, never assigned directly. */
@@ -1283,7 +1362,8 @@ class App {
 
     async confirmSend() {
         dbg('app', 'confirmSend() — "Send" clicked on confirm overlay');
-        const code = getCode();
+        const wandRole = getRoles().find((r) => (getHubtype(r) || 'wand') === 'wand');
+        const code = wandRole ? getCodeFor(wandRole) : getCode();
         const nameInput = document.getElementById('send-game-name');
         const errEl = document.getElementById('send-name-error');
         const pretty = (nameInput?.value || this.gameName || '').trim();
@@ -1370,6 +1450,11 @@ class App {
 
         // Post-send to-do list. Every game needs the baseline getcode:/play pair,
         // so only open the overlay when there is more to write than that.
+        // The station half goes over its own USB connection, after the Box
+        // has the wand file: a station with a role file but no wand to drive
+        // it is the less confusing half-sent state of the two.
+        await this.sendStationHalf(slug);
+
         const tags = this.requiredTags;
         if (tags.length > baselineTags(slug).length) {
             this.tagWrites = {};
@@ -1381,6 +1466,54 @@ class App {
             });
         } else {
             toast(`Sent! Hold a card on the ${this.deviceShort()} to write the pickup tag.`);
+        }
+    }
+
+    /**
+     * Write every non-wand role file, and the game's icons, to its station.
+     *
+     * Asks for the port each time: the teacher plugs the station in for this
+     * step, and Web Serial has no way to reopen a port without a gesture.
+     *
+     * @param {string} slug the game's slug, which names the module on flash
+     */
+    async sendStationHalf(slug) {
+        const roles = getRoles().filter((r) => (getHubtype(r) || 'wand') !== 'wand');
+        if (!roles.length) return;
+
+        for (const role of roles) {
+            const hub = getHubtype(role);
+            if (hub !== 'icon_station') {
+                toast(`No way to send to a ${hub} yet — ${role} was not sent.`, true);
+                dbgWarn('app', `no send path for hubtype ${hub} (role ${role})`);
+                continue;
+            }
+            const label = App.HUB_LABEL[hub] || hub;
+            if (!confirm(`Plug in the ${label} and click OK to send "${role}" to it.`)) {
+                toast(`${label} not sent — send it later from this game.`, true);
+                return;
+            }
+            const link = new StationLink();
+            try {
+                await link.connect();
+                setSendProgress(0, `${label}: starting…`);
+                const sent = await sendToStation(
+                    link,
+                    { slug, role, code: getCodeFor(role), icons: this.icons },
+                    (p) => {
+                        const pct = p.total ? Math.round((p.current / p.total) * 100) : 0;
+                        setSendProgress(pct, `${p.status}: ${p.file}`);
+                        dbg('station', `${p.status} ${p.file} (${p.current}/${p.total})`);
+                    }
+                );
+                dbg('app', `station send complete: ${sent.path}`, sent);
+                toast(`Sent ${sent.module}.py and ${sent.icons.length} icon(s) to the ${label}.`);
+            } catch (e) {
+                dbgError('app', `station send failed: ${e.message}`, e);
+                toast(`Could not send to the ${label}: ${e.message}`, true);
+            } finally {
+                await link.disconnect().catch((e) => dbgWarn('app', `station disconnect: ${e.message}`));
+            }
         }
     }
 
@@ -1707,7 +1840,7 @@ class App {
             const rawReply = data.content.filter((b) => b.type === 'text').map((b) => b.text).join('');
             const nfcCards = parseNfcCards(rawReply);
             const gameName = parseGameName(rawReply);
-            const reply = stripGameNameMarker(stripNfcMarker(rawReply));
+            const reply = stripBlockMarkers(stripGameNameMarker(stripNfcMarker(rawReply)));
             dbg('chat', `reply received (${rawReply.length} chars)`, { nfcCards, gameName });
 
             removeTyping();
@@ -1719,13 +1852,27 @@ class App {
                 dbg('chat', `game name from marker: ${gameName}`);
             }
 
-            const code = extractCode(reply);
-            if (code) {
-                dbg('chat', `code block extracted (${code.length} chars) — saving version`);
-                setCode(code);
+            const blocks = extractCodeBlocks(reply);
+            if (blocks.length) {
+                dbg('chat', `${blocks.length} role block(s) extracted`, blocks.map((b) => b.role));
                 const label = userMsg.length > 40 ? userMsg.slice(0, 40) + '…' : userMsg;
-                saveVersion(code, label);
-                addMsg(`Code updated (v${getVersionCount()})`, 'system');
+                for (const b of blocks) {
+                    saveVersion(b.code, label, { role: b.role, hubtype: b.hubtype });
+                }
+                // Show the role the teacher was already looking at if the reply
+                // rewrote it, otherwise the first one it did write.
+                if (!blocks.some((b) => b.role === getRole())) setRole(blocks[0].role);
+                this.icons = extractIcons(reply);
+                this.renderRoleRail();
+                addMsg(
+                    blocks.length === 1
+                        ? `Code updated (v${getVersionCount()})`
+                        : `Code updated for ${blocks.map((b) => b.role).join(' and ')}`,
+                    'system'
+                );
+                if (this.icons.length) {
+                    addMsg(`${this.icons.length} icon${this.icons.length === 1 ? '' : 's'} to send with it`, 'system');
+                }
                 // New code replaces the old tag declaration outright: no marker
                 // means this version reads no named tags, not "keep the old ones".
                 this.declaredTags = nfcCards?.length ? nfcCards : null;

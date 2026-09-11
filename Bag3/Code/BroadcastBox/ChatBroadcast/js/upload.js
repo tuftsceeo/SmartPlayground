@@ -1,29 +1,26 @@
-export function validateJumpin(code) {
-    const expectedParams = new Set(['nfc', 'leds', 'buz', 'accel', 'i2c', 'enow']);
-    let hasPlay = false;
-
+/**
+ * Check a role file before it is written to a device.
+ *
+ * A game file is `def play(dev)` and nothing else: main.py builds the Device
+ * and passes it in. This catches the one mistake that makes a game fail at
+ * launch rather than at a tap.
+ *
+ * @param {string} code the file's source
+ * @returns {[boolean, string|null]} ok, and why not
+ */
+export function validateRoleFile(code) {
     for (const line of code.split('\n')) {
         const stripped = line.trim();
-        if (stripped.startsWith('def play(') || stripped.startsWith('def play (')) {
-            hasPlay = true;
-            try {
-                const paramsStr = stripped.split('(')[1].split(')')[0];
-                const params = new Set(paramsStr.split(',').map(p => p.trim()).filter(Boolean));
-                const missing = [...expectedParams].filter(p => !params.has(p));
-                if (missing.length > 0) {
-                    return [false, `play() is missing parameters: ${missing.join(', ')}\nExpected: def play(nfc, leds, buz, accel, i2c, enow)`];
-                }
-            } catch {
-                return [false, "Could not parse play() parameters."];
-            }
-            break;
-        }
+        if (!stripped.startsWith('def play(') && !stripped.startsWith('def play (')) continue;
+        const params = stripped
+            .slice(stripped.indexOf('(') + 1, stripped.lastIndexOf(')'))
+            .split(',')
+            .map((p) => p.trim())
+            .filter(Boolean);
+        if (params.length === 1 && params[0] === 'dev') return [true, null];
+        return [false, `play() takes one argument, dev — this file has (${params.join(', ')})`];
     }
-
-    if (!hasPlay) {
-        return [false, "Missing def play(nfc, leds, buz, accel, i2c, enow) function.\nmain.py imports: from jumpin import play"];
-    }
-    return [true, null];
+    return [false, 'Missing def play(dev) — every game file defines it.'];
 }
 
 export async function uploadPayload(device, code, onProgress, opts = {}) {
@@ -36,7 +33,7 @@ export async function uploadPayload(device, code, onProgress, opts = {}) {
     } else if (!device?.isConnected()) {
         return { ok: false, error: `Connect your ${product} first.` };
     }
-    const [valid, err] = validateJumpin(code);
+    const [valid, err] = validateRoleFile(code);
     if (!valid) {
         return { ok: false, error: err };
     }

@@ -8,7 +8,7 @@
  * derived TAG_LIST), plus whatever tags the game itself reads.
  */
 
-import { slugify, WAND_RESERVED } from "./gameName.js";
+import { slugify, FRAMEWORK_CARDS } from "./gameName.js";
 import { extractGameTags } from "./gameTags.js";
 
 /** Tags every game needs, whatever it does. */
@@ -60,19 +60,18 @@ export function buildHardwareReqs({ code, gameName, declared, minWands, stations
 }
 
 /**
- * Strip names that address a wand built-in rather than this game.
+ * Strip names the wand itself acts on rather than handing to the game.
  *
  * Only ever applied to the `declared` fallback. An example's `tags` list names
  * the built-in it was copied from -- jumpin's is `["jumpin"]` -- and a card
  * saying that launches the built-in, not the teacher's copy. Their copy is
  * reachable through the baseline `getcode:<slug>` / `<slug>` pair instead.
  *
- * Never applied to names a game takes from its own COMMANDS set: melody
- * deliberately re-declares `melody` there as an in-game erase control, and
- * that card does belong on the list.
+ * Only launch and control cards go: an ordinary word a game reads as its own
+ * card ("erase", "done") stays on the list even though it is a reserved slug.
  */
 function dropWandBuiltins(tags) {
-    const reserved = new Set(WAND_RESERVED);
+    const reserved = new Set(FRAMEWORK_CARDS);
     return tags.filter((t) => !reserved.has(t));
 }
 

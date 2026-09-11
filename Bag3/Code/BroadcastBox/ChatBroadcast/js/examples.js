@@ -24,8 +24,9 @@ export const EXAMPLES = [
         icon: "music",
         category: "sound",
         description: "Tap each note-tag to play a tune.",
-        tagNote: "8 NFC tags",
-        tags: ["note_c", "note_d", "note_e", "note_f", "note_g", "note_a", "note_b", "note_c_high"],
+        tagNote: "10 NFC tags",
+        tags: ["note_c", "note_d", "note_e", "note_f", "note_g", "note_a", "note_b", "note_c_high",
+               "erase", "backspace"],
         starterPrompt: "Start from the Melody example — one tag per note.",
         vendorGame: "melody",
         simProfile: {

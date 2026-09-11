@@ -16,27 +16,33 @@ import { extractGameTags } from "../js/gameTags.js";
 import { buildHardwareReqs } from "../js/hardware.js";
 import { EXAMPLES } from "../js/examples.js";
 
-// Expected game-specific tags, from the plan's pinned table.
+// Expected game-specific tags per source file.
+//
+// Only a game still on the pre-Device signature declares a COMMANDS set for
+// the extractor to read. A play(dev) game reads cards through dev.event(),
+// so its source names no tag set at all and its card list reaches the
+// checklist from the reply's [NFC_CARDS:] marker or an example's own tags
+// list instead. Those files are expected to yield nothing here.
 const EXPECTED = {
-    melody: ["note_c","note_d","note_e","note_f","note_g","note_a","note_b","note_c_high","erase","melody","backspace"],
-    nfc_sound: ["note_c","note_d","note_e","note_f","note_g","note_a","note_b"],
     cooking: ["tomato","milk","cheese","flour","egg","butter","sugar","cooking"],
     gestures: ["red","green","blue","play"],
     freeze_dance: ["caller","player","go","freeze","rejoin"],
-    jump: [], jumpin: [], rainbow: [], shake: [], shake_rainbow: [],
-    simpleicecream: [], multiicecream: [], sound: [],
+    color_quest: [],
+    melody: [], nfc_sound: [], jump: [], jumpin: [], rainbow: [],
+    shake: [], shake_rainbow: [], simpleicecream: [], multiicecream: [],
+    sound: [], finddevice: [],
 };
 
-const MW = resolve(HERE, "../../MockWand");
+const GAMES = resolve(HERE, "../../../Wand Module");
 let fail = 0;
 const eq = (a, b) => JSON.stringify([...a].sort()) === JSON.stringify([...b].sort());
 
-console.log("== MockWand sources ==");
+console.log("== wand game sources ==");
 for (const [name, want] of Object.entries(EXPECTED)) {
-    const src = readFileSync(`${MW}/${name}.py`, "utf8");
+    const src = readFileSync(`${GAMES}/${name}.py`, "utf8");
     const { declared, tags, unresolved } = extractGameTags(src);
-    // A game with no COMMANDS assignment (jumpin) legitimately has no
-    // game-specific tags; it is only an error if we expected some.
+    // A game with no COMMANDS assignment legitimately has no game-specific
+    // tags to find; it is only an error if we expected some.
     const ok = eq(tags, want) && unresolved.length === 0 && (declared || !want.length);
     if (!ok) fail++;
     console.log(`${ok ? "ok  " : "FAIL"} ${name.padEnd(16)} ${JSON.stringify(tags)}` +
@@ -72,16 +78,17 @@ console.log("\n== wand built-ins never reach the card list ==");
     if (!ok) fail++;
     console.log(`${ok ? "ok  " : "FAIL"} jumpin example drops the built-in tag  ${JSON.stringify(tags)}`);
 
-    // ...but a game's own COMMANDS may legitimately name one: melody
-    // re-declares "melody" as its in-game erase control.
+    // ...but a reserved word a game reads as its own card does belong on the
+    // list: melody clears with an "erase" card, which is a reserved slug and
+    // not a card the wand acts on.
     const mel = EXAMPLES.find((e) => e.id === "melody");
     const melTags = buildHardwareReqs({
         code: readFileSync(`${VENDOR}/${mel.vendorGame}.py`, "utf8"),
         gameName: "My Melody", declared: mel.tags,
     }).tags;
-    const ok2 = melTags.includes("melody") && melTags.includes("erase");
+    const ok2 = melTags.includes("erase") && melTags.includes("backspace");
     if (!ok2) fail++;
-    console.log(`${ok2 ? "ok  " : "FAIL"} melody keeps its own declared tags`);
+    console.log(`${ok2 ? "ok  " : "FAIL"} melody keeps its own card names  ${JSON.stringify(melTags)}`);
 }
 
 console.log(fail ? `\n${fail} FAILURES` : "\nall expectations met");
