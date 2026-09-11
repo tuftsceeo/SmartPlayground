@@ -1,11 +1,12 @@
 /**
- * Web Audio oscillator driven by PWM freq/duty, plus visual indicators
- * for buzzer and vibration motor.
+ * Web Audio oscillator driven by PWM freq/duty, reporting buzzer and
+ * vibration-motor state to whoever wants to show it.
+ *
+ * There is no indicator artwork here any more: the wand draws both states
+ * on itself (the speaker cone colors for the buzzer, a "BUZZ" badge and a
+ * burst of agitrons for the motor -- see js/renderer.js), so this module
+ * only owns the sound and the state callbacks.
  */
-
-function gestureIconUrl(file) {
-  return new URL(`../assets/wand/WandGestures/${file}`, import.meta.url).href;
-}
 
 export function createAudio(opts = {}) {
   let ctx = null;
@@ -21,13 +22,6 @@ export function createAudio(opts = {}) {
   // makes. Skip the attempt until unlock() has actually run.
   let unlocked = false;
 
-  const buzzEl = opts.buzzerEl || null;
-  const motorEl = opts.motorEl || null;
-  const buzzIcon = buzzEl?.querySelector(".ind-icon") || null;
-  const motorIcon = motorEl?.querySelector(".ind-icon") || null;
-  // The main indicator chips are icon-only (a kindergarten-teacher
-  // audience doesn't need a raw Hz readout) — these report the detail
-  // for whoever wires it into the Advanced drawer instead.
   const onBuzzerChange = opts.onBuzzerChange || null;
   const onMotorChange = opts.onMotorChange || null;
 
@@ -41,26 +35,12 @@ export function createAudio(opts = {}) {
     return ctx;
   }
 
+  /** Report the current buzzer/motor state. Called on every PWM and motor
+   * write, so both callbacks fire unconditionally -- there is no element to
+   * guard on, and a listener that de-dupes is the listener's business. */
   function updateIndicators() {
-    if (buzzEl) {
-      const on = currentFreq > 0 && currentDuty > 0;
-      buzzEl.classList.toggle("active", on);
-      // sound.svg's artwork is padded into a larger viewBox than
-      // no_sound.svg's, so at a fixed icon size the "on" icon renders
-      // visibly smaller than the "off" one. The size-matched re-export
-      // this used to point at (sound2.svg) was never added to
-      // assets/wand/WandGestures/ and 404'd on every buzzer change, which
-      // left the indicator blank -- a slightly small icon beats none.
-      if (buzzIcon) buzzIcon.src = gestureIconUrl(on ? "sound.svg" : "no_sound.svg");
-      onBuzzerChange?.(on, currentFreq);
-    }
-    if (motorEl) {
-      motorEl.classList.toggle("active", motorOn);
-      // vibrate.svg for the same reason as sound.svg above -- the
-      // re-exported vibration.svg it named isn't in the assets folder.
-      if (motorIcon) motorIcon.src = gestureIconUrl(motorOn ? "vibrate.svg" : "no_vibrate.svg");
-      onMotorChange?.(motorOn);
-    }
+    onBuzzerChange?.(currentFreq > 0 && currentDuty > 0, currentFreq);
+    onMotorChange?.(motorOn);
   }
 
   function setPwm(freq, duty) {
@@ -140,7 +120,7 @@ export function createAudio(opts = {}) {
     }
   }
 
-  updateIndicators(); // set the initial no_sound/no_vibrate icons, not just a blank <img>
+  updateIndicators(); // publish the initial off/off state rather than leaving it unstated
 
   return { setPwm, setMotor, setMuted, isMuted, unlock, dispose };
 }

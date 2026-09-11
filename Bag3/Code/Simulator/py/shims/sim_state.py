@@ -30,6 +30,8 @@ _pwm_cb = None
 _motor_cb = None
 _print_cb = None
 _log_cb = None
+_error_cb = None
+_enow_sent_cb = None
 
 # Last-known outputs (handy for tests / polling)
 led_frame = [(0, 0, 0)] * 25
@@ -200,8 +202,46 @@ def set_log_callback(cb):
 
 
 def emit_log(msg):
+    """Diagnostic trace — a library that wouldn't load, a radio message
+    going out. Routine, and NOT a failure: keep it off the error channel or
+    every ESP-NOW broadcast reads as a crash to the host."""
     if _log_cb:
         _log_cb(str(msg))
+
+
+def set_error_callback(cb):
+    global _error_cb
+    _error_cb = cb
+
+
+def emit_error(msg):
+    """A real failure the host should surface loudly — currently only an
+    exception out of the running game."""
+    if _error_cb:
+        _error_cb(str(msg))
+
+
+def set_enow_sent_callback(cb):
+    global _enow_sent_cb
+    _enow_sent_cb = cb
+
+
+def emit_enow_sent(kind, data=None, mac_str=None):
+    """The game just transmitted over ESP-NOW. There is no second wand to
+    receive it, so the host shows it instead — that IS the output."""
+    emit_log("espnow %s %r" % (kind, data) if data is not None else "espnow %s" % kind)
+    if _enow_sent_cb:
+        _enow_sent_cb(str(kind), "" if data is None else _as_text(data), mac_str or "")
+
+
+def _as_text(data):
+    """bytes for the wire, str for a readout."""
+    if isinstance(data, (bytes, bytearray)):
+        try:
+            return bytes(data).decode()
+        except (UnicodeDecodeError, AttributeError):
+            return repr(bytes(data))
+    return str(data)
 
 
 def reset_io():

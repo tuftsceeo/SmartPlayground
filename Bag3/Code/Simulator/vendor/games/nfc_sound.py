@@ -26,15 +26,17 @@ I2C_SDA, I2C_SCL = 22, 23
 BUZZER_PIN, BUTTON_PIN, PN532_ADDR = 19, 0, 0x24
 
 # ─── Game Config ───
-COMMANDS = {"notec", "noted", "notee", "notef", "noteg", "notea", "noteb"} | _EXIT_TAGS
+# Note cards use the shared underscore names ("note_c"…) so the SAME physical
+# card works in the melody game too. Buzzer keys strip the underscore.
+COMMANDS = {"note_c", "note_d", "note_e", "note_f", "note_g", "note_a", "note_b"} | _EXIT_TAGS
 NFC_POLL_INTERVAL = 5
 LOOP_DELAY_MS = 40
 BEEP_MS = 80
 
 # Map NFC tag names to display note keys
 TAG_TO_NOTE = {
-    "notec": "C4", "noted": "D4", "notee": "E4", "notef": "F4",
-    "noteg": "G4", "notea": "A4", "noteb": "B4",
+    "note_c": "C4", "note_d": "D4", "note_e": "E4", "note_f": "F4",
+    "note_g": "G4", "note_a": "A4", "note_b": "B4",
 }
 
 NOTES = {
@@ -81,8 +83,9 @@ class NfcSoundGame:
         if tag not in TAG_TO_NOTE:
             return
         self.note = TAG_TO_NOTE[tag]
-        if tag in NOTE_FREQ:
-            self.frequency = NOTE_FREQ[tag]
+        buz_key = tag.replace("_", "")   # "note_c" -> "notec" (NOTE_FREQ key)
+        if buz_key in NOTE_FREQ:
+            self.frequency = NOTE_FREQ[buz_key]
         else:
             self.frequency = NOTES.get(self.note, 440)
         print("  Note changed to %s" % self.note)

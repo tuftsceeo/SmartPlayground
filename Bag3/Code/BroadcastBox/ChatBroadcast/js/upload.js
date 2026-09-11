@@ -28,19 +28,24 @@ export function validateJumpin(code) {
 
 export async function uploadPayload(device, code, onProgress, opts = {}) {
     // App passes link.state; only live/sending may push.
+    const product = opts.deviceProduct || "Broadcast Box";
     if (opts.linkState) {
         if (opts.linkState !== "live" && opts.linkState !== "sending") {
-            return { ok: false, error: "Connect your Broadcast Box first." };
+            return { ok: false, error: `Connect your ${product} first.` };
         }
     } else if (!device?.isConnected()) {
-        return { ok: false, error: "Connect your Broadcast Box first." };
+        return { ok: false, error: `Connect your ${product} first.` };
     }
     const [valid, err] = validateJumpin(code);
     if (!valid) {
         return { ok: false, error: err };
     }
     try {
-        return await device.sendGame(code, opts.meta || {}, onProgress);
+        const meta = { ...(opts.meta || {}) };
+        if (!meta.deviceLabel) {
+            meta.deviceLabel = opts.deviceShort || "Box";
+        }
+        return await device.sendGame(code, meta, onProgress);
     } catch (e) {
         return { ok: false, error: e.message || String(e) };
     }

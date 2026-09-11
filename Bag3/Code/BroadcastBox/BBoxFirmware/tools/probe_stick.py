@@ -1,8 +1,12 @@
 """
 probe_stick.py — Phase 0 bench checks for M5Stack StickS3 (UIFlow2).
 
+Bench tool, not firmware -- not part of BOX_FILES / manifest.js. Lives in
+tools/ alongside this firmware's other test-only utilities; run the
+commands below from BBoxFirmware/, not from inside tools/.
+
 Deploy to /flash and run:
-  mpremote connect /dev/cu.usbmodem3101 fs cp probe_stick.py :/flash/probe_stick.py
+  mpremote connect /dev/cu.usbmodem3101 fs cp tools/probe_stick.py :/flash/probe_stick.py
   mpremote connect /dev/cu.usbmodem3101 exec "import probe_stick; probe_stick.run()"
 """
 
@@ -127,12 +131,105 @@ def _check_nfc():
     return False
 
 
+def _check_m5ui():
+    """Hardware gate for an LVGL/m5ui bbox_ui.py -- CONFIRMED FAILING on this
+    board's UIFlow2 build (2026-09-10): `ImportError: no module named
+    'm5ui'`, raised at import time in bbox_ui.py, not a heap/OOM failure.
+    bbox_ui.py has gone back to direct M5.Lcd/M5GFX drawing as a result --
+    see that file's module docstring. This check stays in the probe as a
+    tripwire in case a future UIFlow2 firmware update for this board adds
+    m5ui; if it ever reports True, dial_ui.py is the reference for the
+    roller-based UI to port onto this board instead of the M5GFX one.
+    Does NOT arm SoftAP itself -- that needs the full bbox_server stack.
+    """
+    import gc
+    try:
+        import M5
+        import m5ui
+        import lvgl as lv
+    except ImportError as e:
+        _result("m5ui_import", str(e), False)
+        return False
+
+    gc.collect()
+    _result("mem_before_begin", gc.mem_free(), True)
+    M5.begin()
+    gc.collect()
+    _result("mem_after_begin", gc.mem_free(), True)
+
+    try:
+        m5ui.init()
+        gc.collect()
+        _result("mem_after_m5ui_init", gc.mem_free(), True)
+
+        pg = m5ui.M5Page(bg_c=0xFFFFFF)
+        roller = m5ui.M5Roller(
+            x=6, y=18, w=200, h=78, options=[""],
+            mode=lv.roller.MODE.NORMAL, selected=0, visible_row_count=2,
+            font=lv.font_montserrat_14, parent=pg)
+        roller.set_options(["A", "B", "C"], lv.roller.MODE.NORMAL)
+        roller.set_selected(1, lv.ANIM.OFF)
+        gc.collect()
+        _result("mem_after_page_and_roller", gc.mem_free(), True)
+        _result("m5ui_pass", True, True)
+        return True
+    except Exception as e:
+        _result("m5ui_pass", str(e), False)
+        return False
+
+
+def _check_widgets():
+    """Hardware gate for bbox_ui.py's current renderer: `Widgets`
+    (`M5.Widgets`, exposed via `from M5 import *`) -- the mid-tier
+    retained-mode shape/label library, distinct from the `m5ui`/lvgl
+    module checked above (that one is confirmed ABSENT on this board;
+    this one is expected present, since it's what UIFlow2's own
+    code generator produces for this exact board -- see bbox_ui.py's
+    module docstring). Confirms the four calls that file depends on:
+    Rectangle + Label + Triangle construction, and Label.setText()/
+    setColor(). Does NOT confirm setVisible() on Rectangle/Triangle
+    (bbox_ui.py's _show() assumes it; watch for an AttributeError there
+    on the first real screen switch) or any rounded-corner primitive.
+    """
+    try:
+        import M5
+        from M5 import Widgets
+    except ImportError as e:
+        _result("widgets_import", str(e), False)
+        return False
+
+    try:
+        M5.begin()
+        Widgets.setRotation(0)
+        Widgets.fillScreen(0xF7F7FB)
+        rect = Widgets.Rectangle(4, 28, 119, 32, 0xE8E6F0, 0xFFFFFF)
+        rect.setColor(0x6C4CD1, 0xF2EEFC)
+        label = Widgets.Label(
+            "probe", 10, 36, 1.0, 0x231F2E, 0xF2EEFC, Widgets.FONTS.Montserrat12)
+        label.setText("probe ok")
+        label.setColor(0x6C4CD1, 0xF2EEFC)
+        Widgets.Triangle(20, 60, 40, 60, 30, 75, 0x5B5468, 0x5B5468)
+        _result("widgets_pass", True, True)
+        return True
+    except Exception as e:
+        _result("widgets_pass", str(e), False)
+        return False
+
+
 def run():
     print("# probe_stick start")
     _check_lcd()
     ap_ok = _check_ap_socket()
     nfc_ok = _check_nfc()
     _check_button(5)
+    m5ui_ok = _check_m5ui()
+    widgets_ok = _check_widgets()
     all_ok = ap_ok and nfc_ok
     _result("probe_pass", all_ok, all_ok)
+    if not m5ui_ok:
+        print("# m5ui/lvgl not available on this board (expected -- confirmed "
+              "2026-09-10). bbox_ui.py does not use it.")
+    if not widgets_ok:
+        print("# Widgets check FAILED -- bbox_ui.py's current renderer cannot "
+              "run on this board. See its module docstring for prior fallbacks.")
     print("# probe_stick done — see RESULT lines above")

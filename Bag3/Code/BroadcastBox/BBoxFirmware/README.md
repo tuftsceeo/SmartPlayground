@@ -21,7 +21,7 @@ Write all device files to **`/flash`**, not `/`.
 | Item | Value | Notes |
 |---|---|---|
 | Board | M5Stack StickS3 | ESP32-S3, UIFlow2, boots in >20 s |
-| Display | `M5.Lcd` landscape 240×135 | `ROTATION = 1` in `bbox_ui.py` |
+| Display | `M5.Widgets` **portrait** 135×240 | `ROTATION = 0` in `bbox_ui.py` — a physical-orientation change from the landscape 240×135 every earlier version of this file used; confirm the Box's mounting/holding tolerates it. Two UI attempts preceded this one: an LVGL/`m5ui` port **failed on this board** (`ImportError: no module named 'm5ui'`, confirmed 2026-09-10 -- the module isn't in this board's UIFlow2 build, not a heap issue), then a direct `M5.Lcd`/M5GFX landscape restyle worked but was superseded by this `Widgets`-based portrait version, modeled on a hand-drawn UIFlow2 mockup. Colors/type come from `Live_Page/.design_system/Sept 2026/`, adapted to what `Widgets` can render (no gradients, no confirmed rounded corners, Montserrat standing in for Nunito) — see `bbox_ui.py`'s module docstring for the full mapping |
 | NFC | WS1850S @ I2C `0x28` | Grove HY2.0-4P, SDA=G9 SCL=G10. Replaces the PN532 (`0x24`, same pins): ~30 mA read burst vs the PN532's ~150 mA. |
 | BtnA | large front button | Act: start scan / confirm / select |
 | BtnB | small side button | Scroll / back out |
@@ -48,7 +48,7 @@ put rather than sitting on a dead AP.
 
 **The box does not serve code until a teacher selects `DONE` + BtnA.** A wand
 tapping `getcode` before that burns its two-attempt budget (~31 s each) and
-error-blinks. The `WRITE` screen header says `pickup off` for this reason.
+error-blinks.
 
 ## WRITE mode
 
@@ -56,20 +56,54 @@ A sub-state machine. No press-and-hold anywhere.
 
 | State | Screen | BtnA | BtnB |
 |---|---|---|---|
-| `menu` | tag list, cursor on one row | start scan (or `SERVE` on the `DONE` row) | next row (wraps) |
-| `scan` | `Scanning: <tag>`, field on | — | back to `menu` |
-| `overwrite` | card's current text vs target | write it | cancel to `menu` |
-| `splash` | result of the last action | to `menu` | to `menu` |
+| `menu` | group list, cursor row in the fixed SELECTED slot | open the group (or `SERVE` on the `DONE` row) | next row (wraps) |
+| `group` | that group's tags, cursor row in the fixed SELECTED slot | start scan (or back on `< back`) | next row (wraps) |
+| `scan` | title + hint on the shared status screen, field on | — | back to `group` |
+| `splash` | result of the last action | to `group` | to `group` |
 
-Tag list is `TAG_LIST` + `DONE` = `getcode`, `jumpin`, `DONE`.
+No overwrite confirmation: a card holding different text is overwritten
+the same as a blank one. A teacher who wants to check a card before
+writing uses the read utility for that, rather than a prompt on every
+write.
 
-On detection the scan always ends, one of three ways:
+The list screen is a fixed 5-row carousel (`Widgets.Rectangle` +
+`Widgets.Label` pairs): 2 rows above the cursor, the cursor's own row
+always rendered in one visually distinct SELECTED slot (purple, the
+brand's `--write-fg`/`--write-bg` tokens), 2 rows below — see
+`bbox_ui.py`'s module docstring. A column of small indicator dots to the
+right shows which of those 5 slots hold real list entries. This board
+has no touch, so `BtnA`/`BtnB` are always physical buttons read through
+`buttons.py`; the on-screen action label and the small chevron button
+are display-only.
+
+The menu is two levels. Top level is one row per game, then `Utility Tags`,
+then `DONE`; opening a game lists `getcode:<slug>`, `<slug>`, the tags the game
+declares, and `< back`. So the number of presses to reach `DONE` tracks the
+number of games, not the number of tags — melody alone contributes eleven.
+
+A game's own tags come from `/flash/games/<slug>.tags.json`, written beside the
+`.py` by ChatBroadcast in the same REPL session and re-read on every boot scan.
+A game with no sidecar contributes only its two pickup tags.
+
+`UTILITY_TAGS` = `stop`, `battery`. They are always offered, including when no
+game is loaded, so a `stop` card can be written on a bare box. With an empty
+index the first group falls back to `TAG_LIST` = `getcode`, `jumpin`.
+
+Scan and splash both return to the open group rather than the top level, so
+writing eight note cards does not mean re-entering the group eight times.
+
+`Widgets.Label` does not clip, so `bbox_ui._fit()` caps each row at
+`ROW_CHARS`/`SELECTED_CHARS` and ellipsizes the middle — the tail
+distinguishes `getcode:my_melody` from `getcode:my_melody_2`. The budgets
+are character-count estimates for proportional Montserrat on a 119px-wide
+card, not measured pixel widths; confirm on the device.
+
+On detection the scan always ends, one of two ways:
 
 | Card holds | Result |
 |---|---|
 | the target text | `Already "<tag>"` splash, no write |
-| nothing | written immediately, then splash |
-| different text | `overwrite` prompt, BtnA commits |
+| anything else (nothing, or different text) | written immediately, then splash |
 
 Leaving `SERVE` is the one remaining hold: **BtnA for `SERVE_EXIT_MS` (1000 ms)**.
 It is rare and should not fire from a stray bump. The hold is sampled inside
@@ -128,9 +162,10 @@ Changing any row breaks the wand silently.
 | `reset_log.py` | Persists reset cause + last mode across the USB CDC drop |
 | `manifest.js` | File list for ChatBroadcast's installer |
 | `boot.py` | M5Stack vendor UIFlow2 boot-option stub |
-| `probe_stick.py` | Bench probe: Phase 0 StickS3 checks |
-| `probe_ap_cycle.py` | Bench probe: AP down/up over repeat cycles; side-key check |
 | `pn532.py`, `nfc_reader.py`, `opcodes.py` | Not imported at runtime; kept for the opcode scheme and the superseded PN532 path |
+| `tools/probe_stick.py` | Bench probe: Phase 0 StickS3 checks |
+| `tools/probe_ap_cycle.py` | Bench probe: AP down/up over repeat cycles; side-key check |
+| `tools/box_menu_check.py` | Host-side (no hardware) check of the WRITE-menu logic |
 
 ## Serial protocol
 
@@ -140,6 +175,11 @@ Host sends `cmd`, device replies with `type`. See
 Commands: `identify`, `info`, `mode`, `arm`, `disarm`, `repl`, `reboot`,
 `games.list`, `games.select`, `games.delete`, `games.clear`, `stats.get`,
 `stats.reset`
+
+`games.list` returns `slug`, `name`, `bytes`, `pulls` and `tags` per game.
+`tags` is the game's own card list, read from `<slug>.tags.json`; it is what
+lets a host show the right expected-card list for a game that host never sent.
+Empty for a game pushed without a sidecar.
 
 Events: `identity`, `info`, `mode`, `heartbeat`, `armed`, `card_present`,
 `card_written`, `games`, `stats`, `ok`, `error`, `bye`, plus `fatal` from
@@ -180,7 +220,8 @@ and the field off. Without it the AP stayed up with nothing serving it.
 2. On that reboot the box sees a game on flash and starts in `WRITE`. **The AP
    stays down.** There is no `RECEIVING` mode -- the push interrupts this
    program, so an upload is never a state the firmware occupies.
-3. Teacher writes `getcode` / `jumpin` cards from the `WRITE` menu.
+3. Teacher opens the game's group in the `WRITE` menu and writes its cards —
+   `getcode:<slug>`, `<slug>`, and whatever the game itself needs.
 4. Teacher selects `DONE` + BtnA. AP comes up; box is serving.
 5. Wand taps `getcode`, reboots, joins `SP-FILEPUSH` on a cold radio, pulls
    `jumpin.py`, reboots into the game (`MockWand/code_puller.py`).
@@ -193,7 +234,7 @@ module-level `VERBOSE = False`. Set one to `True` to trace it.
 Gated: button presses, mode/sub-state transitions, antenna toggles,
 per-attempt re-select misses, auth-OK narration, per-font-selection lines.
 
-Never gated: card detected, read result, overwrite prompt, write attempt and
+Never gated: card detected, read result, write attempt and
 outcome, verify result, every abort with its reason, any exception, and
 `shutdown: AP down`. A failure always prints.
 
@@ -261,7 +302,7 @@ without interrupting it, read the port passively instead.
 Confirmed on hardware 2026-09-02, over USB:
 
 - Boots to the `WRITE` tag list; screens legible at 240×135.
-- BtnA/BtnB drive the menu, scan, overwrite and splash states.
+- BtnA/BtnB drive the menu, scan and splash states.
 - Repeated card reads and writes within one boot, across two cards, both
   directions (`getcode` <-> `jumpin`), each `verify OK`.
 - `WRITE` -> `SERVE` -> `WRITE` without a reboot.

@@ -1,12 +1,27 @@
 /**
  * boxFirmwareInstaller.js — push payload.py via raw REPL, soft reset.
  * Waits for any JSON line with "type" after Ctrl-D (not identity specifically).
+ *
+ * Firmware manifest is loaded lazily so the chat UI can boot when BBoxFirmware
+ * is not on the static server path (e.g. serving ChatBroadcast alone).
+ * Dial vs Box is chosen from the link's stored identity; defaults to Box.
  */
 
-import { loadBoxFiles } from "../../../BBoxFirmware/manifest.js";
+async function loadFirmwareFiles(device) {
+  if (device === "broadcast_dial") {
+    // ChatBroadcast lives under BroadcastBox/; Dial firmware is a sibling tree.
+    const { loadDialFiles } = await import(
+      "../../../../BroadcastDial/BDialFirmware/manifest.js"
+    );
+    return loadDialFiles("../../../../BroadcastDial/BDialFirmware/");
+  }
+  const { loadBoxFiles } = await import("../../../BBoxFirmware/manifest.js");
+  return loadBoxFiles("../../../BBoxFirmware/");
+}
 
-export async function installBoxFirmware(repl, adapter, onProgress) {
-  const files = await loadBoxFiles("../../../BBoxFirmware/");
+export async function installBoxFirmware(repl, adapter, onProgress, device = null) {
+  const files = await loadFirmwareFiles(device || "broadcast_box");
+  const label = device === "broadcast_dial" ? "Dial" : "Box";
 
   await repl.enterRepl();
   await repl.enterRawRepl();
@@ -23,7 +38,7 @@ export async function installBoxFirmware(repl, adapter, onProgress) {
   const ok = await waitForTypedMessage(adapter, 10000);
   if (!ok) {
     throw new Error(
-      "Files uploaded, but the firmware did not confirm restart. Try Restart firmware, or power-cycle and reconnect."
+      `Files uploaded, but the ${label} firmware did not confirm restart. Try Restart firmware, or power-cycle and reconnect.`
     );
   }
 }
@@ -32,6 +47,12 @@ export async function installBoxFirmware(repl, adapter, onProgress) {
  * Push a game file and reset. Destination defaults to /flash/payload.py for
  * legacy callers; P4 passes /flash/games/<slug>.py. The box boot-scans the
  * games directory and updates index.json / active.txt on reboot.
+ *
+ * When meta.tags is a non-empty array it is written beside the game as
+ * <slug>.tags.json, in the same raw-REPL session so it costs no extra reset.
+ * The Box reads that file at boot to build its writable-tag menu, so a
+ * missing one leaves a game whose cards cannot be written — the write is not
+ * swallowed.
  */
 export async function pushPayload(repl, adapter, code, onProgress, meta = {}) {
   const destPath = meta.destPath || "/flash/payload.py";
@@ -44,12 +65,17 @@ export async function pushPayload(repl, adapter, code, onProgress, meta = {}) {
     await repl.ensureDirectory("/flash/games");
   }
   await repl.uploadFile(destPath, code);
+  if (Array.isArray(meta.tags) && meta.tags.length) {
+    const tagsPath = destPath.replace(/\.py$/, "") + ".tags.json";
+    await repl.uploadFile(tagsPath, JSON.stringify(meta.tags));
+  }
   onProgress?.({ current: 1, total: 1, file: label, status: "uploaded" });
   await repl.exitRawRepl();
   await repl.softReset();
   const restarted = await waitForTypedMessage(adapter, 10000);
   if (!restarted) {
-    return { ok: false, error: "Code uploaded, but the Box did not confirm restart." };
+    const who = meta.deviceLabel || "Box";
+    return { ok: false, error: `Code uploaded, but the ${who} did not confirm restart.` };
   }
   onProgress?.({ current: 1, total: 1, file: label, status: "done" });
   return { ok: true };

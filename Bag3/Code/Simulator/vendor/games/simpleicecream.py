@@ -123,7 +123,7 @@ class SimpleIceCreamGame:
         self.leds.off()
         n = min(self.button_count, 5)
         for col in range(n):
-            self.leds.np[4 * 5 + col] = WHITE
+            self.leds.np[4 * 5 + col] = WHITE   # bottom row of the 5×5 grid
         self.leds.np.write()
 
     def run(self):

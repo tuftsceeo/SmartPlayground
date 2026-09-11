@@ -1,0 +1,11 @@
+/* Shadows. Colored, never neutral-grey: the shell glows purple, pink actions
+   glow pink. Cards inside the shell have no shadow at all — they use 1.5px borders. */
+:root {
+  --shadow-shell: 0 18px 40px rgba(108, 76, 209, 0.18);
+  --shadow-overlay: 0 24px 60px rgba(0, 0, 0, 0.22);
+  --shadow-pink: 0 10px 22px rgba(239, 77, 146, 0.35);
+  --shadow-pink-lg: 0 10px 24px rgba(239, 77, 146, 0.35);
+  --shadow-drawer: -8px 0 32px rgba(108, 76, 209, 0.18);
+  --ring-pink: 0 0 0 3px rgba(233, 78, 155, 0.14);
+  --shadow-none: none;
+}

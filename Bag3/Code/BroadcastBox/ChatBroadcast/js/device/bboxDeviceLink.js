@@ -28,7 +28,24 @@ export const VALIDATE_LIMIT_MS = 8000;
  *  rather than overlapping the next one. */
 const NUDGE_TIMEOUT_MS = 2000;
 
-const EXPECTED_DEVICE = "broadcast_box";
+/** Box and Dial share ChatBroadcast; anything else is wrong_device. */
+const EXPECTED_DEVICES = new Set(["broadcast_box", "broadcast_dial"]);
+
+/** Short label for UI copy: "Box" or "Dial". Defaults to Box when unknown. */
+export function deviceShortName(infoOrDevice) {
+  const d = typeof infoOrDevice === "string"
+    ? infoOrDevice
+    : infoOrDevice?.device;
+  return d === "broadcast_dial" ? "Dial" : "Box";
+}
+
+/** Product name for UI copy: "Broadcast Box" or "Broadcast Dial". */
+export function deviceProductName(infoOrDevice) {
+  const d = typeof infoOrDevice === "string"
+    ? infoOrDevice
+    : infoOrDevice?.device;
+  return d === "broadcast_dial" ? "Broadcast Dial" : "Broadcast Box";
+}
 
 function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
@@ -72,13 +89,14 @@ export class BboxDeviceLink {
 
   _markRunning(obj) {
     if (obj?.type === "identity") {
-      if (obj.device && obj.device !== EXPECTED_DEVICE) {
+      if (obj.device && !EXPECTED_DEVICES.has(obj.device)) {
         this.wrongDevice = true;
         this.running = false;
-        logWarn(`wrong device on identity: ${obj.device} (expected ${EXPECTED_DEVICE})`);
+        logWarn(`wrong device on identity: ${obj.device} (expected broadcast_box|broadcast_dial)`);
         this._emit("wrong_device", obj);
         return;
       }
+      // Store reported device so the app/installer can name Box vs Dial.
       this.deviceInfo = obj;
       this.wrongDevice = false;
     }
@@ -218,7 +236,10 @@ export class BboxDeviceLink {
   async installFirmware(onProgress) {
     this._detachJson();
     try {
-      await installBoxFirmware(this.repl, this.adapter, onProgress);
+      // Prefer the identity we already saw; default Box when none yet
+      // (serial_protocol_notes: never gate on an awaited handshake).
+      await installBoxFirmware(
+        this.repl, this.adapter, onProgress, this.deviceInfo?.device);
       return true;
     } finally {
       this._attachJson();

@@ -9,6 +9,16 @@ rather than relying on documentation, and ask if the code and the board in front
 
 A 5×5 + PN532 @ 0x24 variant was explored on `origin/claude/pn532-5x5` and not merged.
 
+## Broadcast devices (ChatBroadcast)
+
+| Tree | Device identity | Hardware |
+|---|---|---|
+| `Code/BroadcastBox/BBoxFirmware/` | `broadcast_box` | M5 StickS3 + Grove RFID 2 (WS1850S) — fielded prototype |
+| `Code/BroadcastDial/BDialFirmware/` | `broadcast_dial` | M5 Dial 2 (StampS3A) — sibling port; Phase 0 pins still open |
+
+Same serial protocol and wire contract. ChatBroadcast accepts both. Do not silently
+reconcile PEER-copied modules between the two trees — fix one copy and say which.
+
 ## `Wand Module/readme.md` and `GAME_AUTHORING_GUIDE.md` are unmodified Bag2 copies
 
 Their hardware sections (LED shape, NFC part, I2C addresses, pin map) describe Bag2, not this tree.

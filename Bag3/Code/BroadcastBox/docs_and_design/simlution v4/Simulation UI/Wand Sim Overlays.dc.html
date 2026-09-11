@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="_ds/smart-playground-design-system-dcb8c1aa-6efc-4692-9f59-5543224b4b04/tokens/fonts.css">
+<link rel="stylesheet" href="_ds/smart-playground-design-system-dcb8c1aa-6efc-4692-9f59-5543224b4b04/tokens/colors.css">
+<link rel="stylesheet" href="_ds/smart-playground-design-system-dcb8c1aa-6efc-4692-9f59-5543224b4b04/tokens/gradients.css">
+<link rel="stylesheet" href="_ds/smart-playground-design-system-dcb8c1aa-6efc-4692-9f59-5543224b4b04/tokens/typography.css">
+<link rel="stylesheet" href="_ds/smart-playground-design-system-dcb8c1aa-6efc-4692-9f59-5543224b4b04/tokens/spacing.css">
+<link rel="stylesheet" href="_ds/smart-playground-design-system-dcb8c1aa-6efc-4692-9f59-5543224b4b04/tokens/radius.css">
+<link rel="stylesheet" href="_ds/smart-playground-design-system-dcb8c1aa-6efc-4692-9f59-5543224b4b04/tokens/elevation.css">
+<link rel="stylesheet" href="_ds/smart-playground-design-system-dcb8c1aa-6efc-4692-9f59-5543224b4b04/tokens/motion.css">
+<link rel="stylesheet" href="_ds/smart-playground-design-system-dcb8c1aa-6efc-4692-9f59-5543224b4b04/tokens/semantic.css">
+<link rel="stylesheet" href="_ds/smart-playground-design-system-dcb8c1aa-6efc-4692-9f59-5543224b4b04/styles.css">
+<script src="_ds/smart-playground-design-system-dcb8c1aa-6efc-4692-9f59-5543224b4b04/_ds_bundle.js"></script>
+<style>
+body{margin:0;font-family:'Nunito',system-ui,sans-serif;background:
+ radial-gradient(520px 420px at 0% 0%,rgba(239,77,146,.14),transparent 70%),
+ radial-gradient(520px 420px at 100% 0%,rgba(108,76,209,.12),transparent 70%),
+ radial-gradient(520px 420px at 0% 100%,rgba(255,210,63,.16),transparent 70%),
+ radial-gradient(520px 420px at 100% 100%,rgba(34,195,166,.14),transparent 70%),
+ #f7f7fb;min-height:100vh}
+a{color:#6c4cd1}a:hover{color:#d13a7c}
+input,button{font-family:'Nunito',system-ui,sans-serif}
+@keyframes pop{0%{opacity:0;transform:scale(.94)}100%{opacity:1;transform:scale(1)}}
+</style>
+</helmet>
+
+<div style="display:flex;flex-direction:column;align-items:center;gap:14px;padding:22px 18px 30px">
+
+  <div style="display:flex;flex-wrap:wrap;gap:7px;justify-content:center;max-width:560px">
+    <sc-for list="{{ picker }}" as="p" hint-placeholder-count="4">
+      <button onClick="{{ p.onClick }}" style-hover="border-color:#ef4d92;color:#d13a7c" style="display:flex;align-items:center;gap:6px;padding:8px 13px;border-radius:20px;cursor:pointer;transition:all .15s;font:800 11px 'Nunito';border:1.5px solid {{ p.border }};background:{{ p.bg }};color:{{ p.fg }}">{{ p.label }}</button>
+    </sc-for>
+  </div>
+
+  <div style="position:relative;width:500px;height:560px;background:#fff;border-radius:24px;box-shadow:0 18px 40px rgba(108,76,209,.18);display:flex;overflow:hidden;box-sizing:border-box" data-screen-label="Overlays">
+
+    <div style="width:262px;flex:none;display:flex;flex-direction:column;padding:14px 0 14px 14px;box-sizing:border-box">
+      <div style="position:relative;flex:1;min-height:0;border-radius:20px;background:repeating-linear-gradient(45deg,#fbfaff 0 7px,#f4f2fa 7px 14px);border:1.5px solid #e8e6f0;overflow:hidden;display:flex;align-items:center;justify-content:center">
+        <dc-import name="Wand v4" hint-size="176px,293px" w="176px" leds="{{ leds }}"></dc-import>
+      </div>
+      <div style="font:400 14px 'Patrick Hand';color:#8b859a;padding:8px 2px 0">move to tilt · click to press</div>
+    </div>
+
+    <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:9px;padding:14px 16px 14px 10px;box-sizing:border-box">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+        <span style="display:flex;align-items:center;gap:6px;font:800 12px 'Nunito';color:#231f2e">
+          <span style="display:flex;width:22px;height:22px;border-radius:7px;align-items:center;justify-content:center;background:linear-gradient(135deg,#ef4d92,#6c4cd1);color:#fff;font-size:11px;flex:none">✦</span>
+          Wand sim
+        </span>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;font:700 11px 'Nunito';color:#5b5468">
+        <span style="width:7px;height:7px;border-radius:50%;background:#22c3a6;flex:none"></span>Face up — sound on
+      </div>
+      <div style="flex:1;border-radius:16px;border:1.5px dashed #e8e6f0;display:flex;align-items:center;justify-content:center;font:400 14px 'Patrick Hand';color:#c2b8d6;text-align:center;padding:12px">the v4 controls<br>live here</div>
+    </div>
+
+    <sc-if value="{{ anyOpen }}" hint-placeholder-val="{{ false }}">
+      <div onClick="{{ close }}" style="position:absolute;inset:0;z-index:8;background:rgba(35,31,46,.35);display:flex;align-items:center;justify-content:center;padding:24px;box-sizing:border-box"></div>
+    </sc-if>
+
+    <sc-if value="{{ gameOver }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;left:24px;right:24px;top:50%;transform:translateY(-50%);z-index:9;background:#fff;border-radius:20px;box-shadow:0 24px 60px rgba(0,0,0,.22);padding:22px;display:flex;flex-direction:column;gap:12px;animation:pop .15s ease">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="display:flex;width:64px;height:64px;flex:none;border-radius:18px;align-items:center;justify-content:center;background:#fff0f6;color:#d13a7c">
+            <x-import component-from-global-scope="SmartPlaygroundDesignSystem_dcb8c1.Icon" name="tag" size="40" hint-size="40px,40px"></x-import>
+          </span>
+          <div style="display:flex;flex-direction:column;gap:3px;min-width:0">
+            <div style="font:900 24px 'Nunito';color:#231f2e;line-height:1.1">Game over</div>
+            <div style="font:400 15px 'Patrick Hand';color:#8b859a;line-height:1.2">the stop card ended the round</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap">
+          <button onClick="{{ close }}" style-hover="border-color:#ef4d92;color:#d13a7c;background:#fff0f6" style="padding:10px 15px;border-radius:14px;border:1.5px solid #e8e6f0;background:#fff;color:#5b5468;font:800 12px 'Nunito';cursor:pointer;transition:all .15s">Close</button>
+          <button onClick="{{ close }}" style="padding:10px 16px;border-radius:14px;border:none;background:linear-gradient(135deg,#ef4d92,#d13a7c);color:#fff;font:800 12px 'Nunito';cursor:pointer;box-shadow:0 10px 22px rgba(239,77,146,.35)">Play again →</button>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ cantSim }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;left:24px;right:24px;top:50%;transform:translateY(-50%);z-index:9;background:#fff;border-radius:20px;box-shadow:0 24px 60px rgba(0,0,0,.22);padding:22px;display:flex;flex-direction:column;gap:12px;animation:pop .15s ease">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="display:flex;width:64px;height:64px;flex:none;border-radius:18px;align-items:center;justify-content:center;background:#f2eefc;color:#6c4cd1">
+            <x-import component-from-global-scope="SmartPlaygroundDesignSystem_dcb8c1.Icon" name="smartphone-nfc" size="40" hint-size="40px,40px"></x-import>
+          </span>
+          <div style="display:flex;flex-direction:column;gap:3px;min-width:0">
+            <div style="font:900 24px 'Nunito';color:#231f2e;line-height:1.1">Can't simulate</div>
+            <div style="font:400 15px 'Patrick Hand';color:#8b859a;line-height:1.2">it needs two wands talking — try it on the wand</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap">
+          <button onClick="{{ close }}" style-hover="border-color:#ef4d92;color:#d13a7c;background:#fff0f6" style="padding:10px 15px;border-radius:14px;border:1.5px solid #e8e6f0;background:#fff;color:#5b5468;font:800 12px 'Nunito';cursor:pointer;transition:all .15s">Got it</button>
+          <button onClick="{{ close }}" style="padding:10px 16px;border-radius:14px;border:none;background:linear-gradient(135deg,#22c3a6,#12967f);color:#fff;font:800 12px 'Nunito';cursor:pointer">Send to Box →</button>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ startUp }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;left:24px;right:24px;top:50%;transform:translateY(-50%);z-index:9;background:#fff;border-radius:20px;box-shadow:0 24px 60px rgba(0,0,0,.22);padding:22px;display:flex;flex-direction:column;gap:12px;animation:pop .15s ease">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="display:flex;width:64px;height:64px;flex:none;border-radius:18px;align-items:center;justify-content:center;background:#fff8e0;color:#8a6a00">
+            <x-import component-from-global-scope="SmartPlaygroundDesignSystem_dcb8c1.Icon" name="wand" size="40" hint-size="40px,40px"></x-import>
+          </span>
+          <div style="display:flex;flex-direction:column;gap:3px;min-width:0">
+            <div style="font:900 24px 'Nunito';color:#231f2e;line-height:1.1">Welcome</div>
+            <div style="font:400 15px 'Patrick Hand';color:#8b859a;line-height:1.2">chat an idea, or load a saved game</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap">
+          <button onClick="{{ close }}" style-hover="border-color:#6c4cd1;color:#6c4cd1;background:#f2eefc" style="padding:10px 15px;border-radius:14px;border:1.5px solid #e8e6f0;background:#fff;color:#5b5468;font:800 12px 'Nunito';cursor:pointer;transition:all .15s">Load saved code</button>
+          <button onClick="{{ close }}" style="padding:10px 16px;border-radius:14px;border:none;background:linear-gradient(135deg,#ef4d92,#d13a7c);color:#fff;font:800 12px 'Nunito';cursor:pointer;box-shadow:0 10px 22px rgba(239,77,146,.35)">Start a chat →</button>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ newCode }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;left:24px;right:24px;bottom:22px;z-index:9;background:#fff;border:1.5px solid #e8e6f0;border-radius:20px;box-shadow:0 24px 60px rgba(0,0,0,.22);padding:16px 18px;display:flex;align-items:center;gap:12px;animation:pop .15s ease">
+        <span style="display:flex;width:52px;height:52px;flex:none;border-radius:16px;align-items:center;justify-content:center;background:#e9fbf6;color:#12967f">
+          <x-import component-from-global-scope="SmartPlaygroundDesignSystem_dcb8c1.Icon" name="sparkles" size="32" hint-size="32px,32px"></x-import>
+        </span>
+        <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px">
+          <div style="font:800 14px 'Nunito';color:#231f2e;text-wrap:pretty">New code is ready</div>
+          <div style="font:400 13px 'Patrick Hand';color:#8b859a;line-height:1.2">play it to see the change</div>
+        </div>
+        <button onClick="{{ close }}" style="flex:none;padding:9px 14px;border-radius:14px;border:none;background:linear-gradient(135deg,#ef4d92,#d13a7c);color:#fff;font:800 11.5px 'Nunito';cursor:pointer;box-shadow:0 10px 22px rgba(239,77,146,.35)">Play it →</button>
+      </div>
+    </sc-if>
+  </div>
+
+  <div style="font:400 15px 'Patrick Hand';color:#8b859a">four pop-ups, ready to drop into v4</div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:560,&quot;height&quot;:700}}">
+const PERIM=[0,1,2,3,4,5,9,10,14,15,19,20,21,22,23,24];
+const OFF='#231f2e';
+const LEDS=(()=>{const a=[];for(let i=0;i<25;i++){const on=PERIM.indexOf(i)>=0||i===12;
+  a.push({c:on?'oklch(0.55 0.11 60)':OFF,g:on?'0 0 10px oklch(0.55 0.11 60)':'inset 0 0 0 1px rgba(255,255,255,.05)'});}return a;})();
+const SHEETS=[
+  {k:'gameOver',label:'Game over'},
+  {k:'cantSim',label:"Can't simulate"},
+  {k:'startUp',label:'Welcome'},
+  {k:'newCode',label:'New code loaded'}
+];
+
+class Component extends DCLogic {
+  state={open:'startUp'};
+  renderVals(){
+    const o=this.state.open;
+    const vals={
+      leds:LEDS,
+      anyOpen:!!o,
+      close:()=>this.setState({open:null}),
+      picker:SHEETS.map(s=>({label:s.label,
+        bg:o===s.k?'#fff0f6':'#fff',
+        border:o===s.k?'#ef4d92':'#e8e6f0',
+        fg:o===s.k?'#d13a7c':'#5b5468',
+        onClick:()=>this.setState({open:o===s.k?null:s.k})}))
+    };
+    SHEETS.forEach(s=>{vals[s.k]=o===s.k;});
+    return vals;
+  }
+}
+
+</script>
+</body>
+</html>

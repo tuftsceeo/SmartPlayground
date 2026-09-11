@@ -256,7 +256,21 @@ treats it as terminal, clears its flag and does not spend a retry.
 
 Destination name is `<slug>.py`, saved to `/games/<slug>.py` on the wand.
 Card text is `getcode:<slug>` (pull that game) and a bare `<slug>` (play the
-local copy), plus `DONE` as a Box-UI sentinel that never reaches a card.
+local copy), plus the tags the game itself needs (melody's `note_c` … `erase`,
+cooking's ingredients). `DONE` and `< back` are Box-UI sentinels that never
+reach a card.
+
+Alongside `/flash/games/<slug>.py`, ChatBroadcast pushes
+`/flash/games/<slug>.tags.json` — a JSON array of the game's tag names — in the
+same raw-REPL session, so it costs no extra reset. The Box reads it in
+`_boot_scan_games()` and it is what fills that game's group in the WRITE menu;
+without it a game offers only its two pickup tags. The list is derived from the
+game's own `COMMANDS` set by `ChatBroadcast/js/nfc.js`, which also drives the
+send checklist, so the two cannot disagree. `tools/check_tags.mjs` in
+`ChatBroadcast/` asserts that derivation against every game source.
+
+`stop` and `battery` are always writable from the Box's `Utility Tags` group,
+whatever is loaded.
 
 The protocol is **hand-duplicated** in `BBoxFirmware/code_server.py` and
 `MockWand/code_puller.py` — different devices, no shared module. Both carry a

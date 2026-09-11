@@ -1,34 +1,40 @@
 /**
- * Plain-language hardware checklist for teachers — the full "You'll need:"
- * list shown at the connect / send-confirm stage.
+ * Plain-language hardware checklist for teachers — icon row on connect / send.
  */
 
 export function buildComponentChecklist(capabilities, requiredTags) {
     const items = [];
-    items.push({ icon: '🪄', label: 'at least 1 wand' });
+    items.push({ icon: "wand", kind: "wand", label: "at least 1 wand" });
 
     const tags = requiredTags || [];
     const n = tags.length;
     if (n > 1) {
-        items.push({ icon: '🃏', label: `${n} NFC cards` });
+        items.push({ icon: "smartphone-nfc", kind: "nfc", label: `${n} NFC cards` });
     } else if (n === 1) {
-        items.push({ icon: '🃏', label: `1 NFC card (${tags[0]})` });
+        items.push({ icon: "smartphone-nfc", kind: "nfc", label: `1 NFC card (${tags[0]})` });
     } else if (capabilities && capabilities.usesNfc) {
-        items.push({ icon: '🃏', label: 'NFC cards (stop / launch tags)' });
+        items.push({ icon: "smartphone-nfc", kind: "nfc", label: "NFC cards (stop / launch tags)" });
     }
 
     if (capabilities) {
-        if (capabilities.usesAccel) items.push({ icon: '📳', label: 'shake / jump sensor' });
-        if (capabilities.usesButton) items.push({ icon: '🔘', label: 'wand button' });
-        if (capabilities.usesBuzzer) items.push({ icon: '🔊', label: 'buzzer' });
+        if (capabilities.usesAccel) {
+            items.push({ icon: "vibrate", kind: "shake", label: "shake / jump sensor" });
+        }
+        if (capabilities.usesButton) {
+            items.push({ icon: "circle", kind: "other", label: "wand button" });
+        }
+        if (capabilities.usesBuzzer) {
+            items.push({ icon: "volume-2", kind: "other", label: "buzzer" });
+        }
         if (capabilities.usesLeds || capabilities.hasCode) {
-            items.push({ icon: '💡', label: 'LED matrix' });
+            items.push({ icon: "grid-3x3", kind: "other", label: "LED matrix" });
         }
     }
 
     return items;
 }
 
+/** @deprecated prefer renderChecklistIcons */
 export function checklistLines(items) {
-    return (items || []).map((i) => `${i.icon} ${i.label}`);
+    return (items || []).map((i) => i.label);
 }

@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div style="width:100%;display:flex;align-items:center;justify-content:center;transition:transform .35s cubic-bezier(.34,1.4,.5,1);transform:{{ tilt }}">
+  <div style="position:relative;width:{{ w }};aspect-ratio:439/730;border-radius:12% / 7.2%;background:linear-gradient(168deg,#fdfaf1 0%,#f4efe1 52%,#e9e2cf 100%);border:5px solid #2b2723;box-shadow:0 10px 0 -1px #2b2723,0 18px 26px rgba(43,39,35,.28),inset 0 -14px 0 rgba(43,39,35,.06),inset 0 10px 0 rgba(255,255,255,.75);display:flex;flex-direction:column;padding:5.2% 5.6%;box-sizing:border-box">
+    <div style="position:absolute;left:9%;top:8.4%;width:9.5%;aspect-ratio:1;border-radius:50%;background:radial-gradient(circle at 34% 30%,#5c5751,#232019);border:3px solid #2b2723;display:flex;align-items:center;justify-content:center;color:#cfc9bd;font:700 60% 'JetBrains Mono',monospace">+</div>
+    <div style="position:absolute;right:6.4%;top:5.6%;width:29%;aspect-ratio:1;border-radius:50%;background:#2b2723;border:5px solid #2b2723;display:flex;align-items:center;justify-content:center;box-shadow:inset 0 -6px 0 rgba(0,0,0,.45)">
+      <div style="width:78%;height:78%;border-radius:50%;background:repeating-radial-gradient(circle,#3a352f 0 3px,#26221d 3px 6px);display:flex;align-items:center;justify-content:center">
+        <div style="width:56%;height:56%;border-radius:50%;border:3px solid #16130f;display:flex;align-items:center;justify-content:center;transition:background .12s,box-shadow .12s;background:{{ speakerColor }};box-shadow:{{ speakerGlow }}">
+          <span style="font-size:60%;line-height:1;filter:drop-shadow(0 1px 0 rgba(255,255,255,.3))">♪</span>
+        </div>
+      </div>
+    </div>
+    
+    <div style="margin-top: 26%; border-radius: 9%; background: #1a1713; border: 5px solid #2b2723; box-shadow: inset 0 4px 12px rgba(0,0,0,.7); padding: 4.6%; display: grid; grid-template-columns: repeat(5,1fr); gap: 5%; width: 112px; height: 106px">
+      <sc-for list="{{ leds }}" as="p" hint-placeholder-count="25"><div style="aspect-ratio:1;border-radius:26%;transition:background .1s,box-shadow .1s;background:{{ p.c }};box-shadow:{{ p.g }}"></div></sc-for>
+    </div><div style="flex: 1; display: flex; align-items: flex-end; justify-content: center; padding: 4% 0 1%">
+      
+    <div style="position: relative; width: 41%; aspect-ratio: 1; border-radius: 50%; background: #efe8d8; border: 5px solid #2b2723; display: flex; align-items: center; justify-content: center">
+        <button onPointerDown="{{ onBtnDown }}" onPointerUp="{{ onBtnUp }}" onPointerLeave="{{ onBtnUp }}" title="Tap, or hold for 0.45s" style-active="transform:translateY(4px)" style="width:72%;height:72%;border-radius:50%;border:5px solid #2b2723;cursor:pointer;transition:transform .07s,box-shadow .07s;background:radial-gradient(circle at 36% 28%,#5f5850,#2f2a24);box-shadow:{{ btnShadow }};transform:{{ btnPress }}"></button>
+      </div></div>
+    <div style="position:absolute;left:0;right:0;bottom:-3.2%;display:flex;justify-content:center;pointer-events:none"><div style="padding:2px 10px;border-radius:20px;background:#2b2723;color:#f7f2e6;font:700 9px 'JetBrains Mono',monospace;letter-spacing:.12em;transition:opacity .2s;opacity:{{ motorOpacity }};animation:{{ motorAnim }}">≋ BUZZ</div></div>
+  </div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:260,&quot;height&quot;:440},&quot;w&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;240px&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;tilt&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;none&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;leds&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;{c:string,g:string}[]&quot;},&quot;speakerColor&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#2d2d2d&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;speakerGlow&quot;:{&quot;editor&quot;:null,&quot;default&quot;:&quot;none&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;motorOpacity&quot;:{&quot;editor&quot;:&quot;float&quot;,&quot;default&quot;:0,&quot;tsType&quot;:&quot;number&quot;},&quot;motorAnim&quot;:{&quot;editor&quot;:null,&quot;default&quot;:&quot;none&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;btnShadow&quot;:{&quot;editor&quot;:null,&quot;default&quot;:&quot;0 5px 0 #2b2723&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;btnPress&quot;:{&quot;editor&quot;:null,&quot;default&quot;:&quot;none&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;onBtnDown&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;() =&gt; void&quot;},&quot;onBtnUp&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;() =&gt; void&quot;}}"></script>
+</body>
+</html>

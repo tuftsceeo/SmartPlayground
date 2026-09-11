@@ -8,7 +8,7 @@
     /* Palette + type match Bag3/Code/BroadcastBox/ChatBroadcast/css/app.css's
        :root tokens — a color/type starting point for matching that app's
        look, ahead of the actual wand-artwork compositing pass. */
-    @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Patrick+Hand&family=Nunito:wght@400;600;700;800;900&display=swap');
     :root {
       --pink: #ef4d92;
       --pink-dark: #d13a7c;
@@ -47,12 +47,13 @@
     button { cursor: pointer; background: var(--purple); border-color: var(--purple); color: #fff; }
     button:hover { background: #5a3fb0; }
     .loaded-file-name { font-size: 0.85rem; color: var(--muted); }
-    wand-sim {
-      --wand-led-size: 22px;
-      --wand-grid-gap: 8px;
-      --wand-led-radius: 5px;
-      max-width: 920px;
-    }
+    /* The panel's own design width — it lays out as two panes above this
+       and one below it, so a wider box just pads the control column. */
+    wand-sim { width: 500px; max-width: 100%; }
+    .overlay-row { margin-top: 16px; }
+    .overlay-row button { background: #fff; border-color: var(--border); color: var(--ink); }
+    .overlay-row button:hover { background: #fff0f6; border-color: var(--pink); color: var(--pink-dark); }
+    .row-label { font: 700 0.8rem 'Nunito'; color: var(--muted); margin-right: 4px; }
   </style>
 </head>
 <body>
@@ -84,6 +85,14 @@
 
   <wand-sim id="sim" game="jump" autostart advanced></wand-sim>
 
+  <div class="toolbar overlay-row">
+    <span class="row-label">Pop-ups</span>
+    <button type="button" data-overlay="welcome">Welcome</button>
+    <button type="button" data-overlay="new-code">New code loaded</button>
+    <button type="button" data-overlay="game-over">Game over</button>
+    <button type="button" data-overlay="cant-simulate">Can't simulate</button>
+  </div>
+
   <script type="module">
     import "./wand-sim.js";
 
@@ -114,6 +123,14 @@
       loadedFileName.textContent = file.name;
       fileInput.value = ""; // allow re-selecting the same file later
     });
+
+    // The four pop-ups are the element's to draw and the host's to trigger,
+    // so the rig exercises both halves: a button per kind, and a log of the
+    // action each one reports back.
+    for (const b of document.querySelectorAll("[data-overlay]")) {
+      b.addEventListener("click", () => sim.showOverlay(b.dataset.overlay));
+    }
+    sim.addEventListener("sim-overlay-action", (e) => console.log("sim-overlay-action", e.detail));
 
     sim.addEventListener("sim-ready", () => console.log("sim-ready"));
     sim.addEventListener("sim-error", (e) => console.error("sim-error", e.detail));

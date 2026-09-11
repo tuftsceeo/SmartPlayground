@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Bundle Bag2 lib + wand game sources into Simulator/vendor/.
+Bundle Bag2 lib + Bag3 wand game sources into Simulator/vendor/.
 
 Usage:
     python tools/sync_sources.py          # copy + write MANIFEST.json
@@ -22,8 +22,11 @@ import sys
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 REPO = os.path.abspath(os.path.join(ROOT, "..", "..", ".."))  # Bag3/Code/Simulator -> repo root
 
+# Games come from the Bag3 wand tree; lib still comes from Bag2, whose
+# leds.py/hubtype.py define the LED geometry the golden-frame tests are
+# pinned to. Re-pointing LIB_SRC is a separate change.
 LIB_SRC = os.path.join(REPO, "Bag2", "Code", "lib")
-GAMES_SRC = os.path.join(REPO, "Bag2", "Code", "Wand Module")
+GAMES_SRC = os.path.join(REPO, "Bag3", "Code", "Wand Module")
 HUBTYPE_SRC = os.path.join(GAMES_SRC, "hubtype.txt")
 
 VENDOR = os.path.join(ROOT, "vendor")
@@ -32,9 +35,12 @@ VENDOR_GAMES = os.path.join(VENDOR, "games")
 MANIFEST = os.path.join(VENDOR, "MANIFEST.json")
 
 # Modules run verbatim (copied from Bag2/Code/lib).
+#
+# buzzer.py is not listed here -- vendor/lib/buzzer.py is hand-maintained
+# from Bag3/Code/lib/buzzer.py instead. See the README's
+# "Sync vendored sources" section.
 VERBATIM_LIBS = [
     "leds.py",
-    "buzzer.py",
     "brightness.py",
     "hubtype.py",
     "game_tags.py",
@@ -42,7 +48,7 @@ VERBATIM_LIBS = [
     "battery.py",
 ]
 
-# Game modules to bundle.
+# Game modules to bundle (from Bag3/Code/Wand Module).
 GAMES = [
     "jump.py",
     "shake.py",
@@ -56,6 +62,7 @@ GAMES = [
     "melody.py",
     "cooking.py",
     "multiicecream.py",
+    "freeze_dance.py",
 ]
 
 
@@ -167,12 +174,12 @@ def main():
     ap.add_argument(
         "--check",
         action="store_true",
-        help="verify vendor/ matches Bag2 sources; exit 1 on drift",
+        help="verify vendor/ matches the source trees; exit 1 on drift",
     )
     args = ap.parse_args()
     if args.check:
         sys.exit(check())
-    print("Syncing Bag2 sources into Simulator/vendor/ ...")
+    print("Syncing Bag2 lib + Bag3 wand games into Simulator/vendor/ ...")
     sync()
     print("Done.")
 
