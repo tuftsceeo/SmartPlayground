@@ -63,11 +63,11 @@ what its game-file signature should name.
 
 | Station | Character | Hardware | State on the base branch |
 |---|---|---|---|
-| **Music Dial** (distinct from Broadcast Dial, the teacher controller) | Output: music playback | M5Stack Dial + AudioPlayer Unit, under **UIFlow2/LVGL** — not the ESP32-C6 stack | `Bag2/Code/DialSpeaker/Dial_Music.py`, hardcoded; answers `FD_GO` / `FD_FREEZE` / `stop` for freeze dance. **Cannot use the shared lib — see §4.4** |
+| **Music Dial** (distinct from Broadcast Dial, the teacher controller) | Output: music playback | M5Stack Dial + AudioPlayer Unit, m5ui | `Bag2/Code/DialSpeaker/Dial_Music.py`, hardcoded; answers `FD_GO` / `FD_FREEZE` / `stop` for freeze dance |
 | **Icon Display** | Output: large shared images | 16×16 WS2812B (256 px), ESP32-C6 | Firmware exists for USB icon authoring only; **never used in a game** |
 | **Slide Score** | Output: histogram of recent values | 40-LED serpentine bar (4×10), low resolution over a physical space | `Bag2/Code/Stations/Slide Score Station/`, hardcoded single behaviour |
 | **Radar / human tracking** | **Input**: position and speed of up to three people | LD2450 radar, ESP32-C6 | Firmware exists (`Radar Station/`); **never used in a game** |
-| **Splat companions / Big Buttons** | **Input-led but balanced**, like a wand: one large button, ~1×1 visual LED output, speaker/buzzer | Bag 1 hardware, **BLE** rather than ESP-NOW | `Bag2/Code/Splat Companion/` exists (`main.py`, `ble_splat.py`). No Bag 3 implementation |
+| **Splat companions / Big Buttons** | **Input-led but balanced**, like a wand: one large button, ~1×1 visual LED output, speaker/buzzer | Bag 1 hardware | `Bag2/Code/Splat Companion/` exists (`main.py`, `ble_splat.py`). No Bag 3 implementation |
 | **Coding Station** | **Input**: abstract sequence — three or four "wheels", one colour selected per wheel, sends a 3–4 value sequence (a combination lock) | ESP32-C6, PCA9546 I2C mux, 4× PN532, 18-LED strip | `Bag2/Code/Stations/Programming Station/` (the same device under an older name), hardcoded; starts a Color Quest round. No Bag 3 implementation |
 
 Two things follow from this table that a design must respect:
@@ -76,8 +76,6 @@ Two things follow from this table that a design must respect:
   framework shaped only around "wand acts, station displays" will not fit half of them.
 - **Their hardware has nothing in common.** A 16×16 matrix, a 4×10 serpentine bar, a radar
   UART, and four selector wheels share no API worth inventing. Do not try.
-- **They do not even share a runtime.** The Music Dial runs UIFlow2/LVGL on an M5Stack Dial and
-  Splat speaks BLE; only the ESP32-C6 stations can use `Bag3/Code/lib/` at all.
 
 ---
 
@@ -265,10 +263,13 @@ Paths below are where these sit today; per §3.1 they move under `Bag3/Code/Broa
 - `Bag3/Code/Stations/Radar Station/` — `ld2450.py`, `tracker.py`, `events.py`,
   `radar_server.py`, `json_link.py`. Input-only, never used in a game.
 - **Music Dial station** — `Bag2/Code/DialSpeaker/Dial_Music.py`, 713 lines. M5Stack Dial +
-  AudioPlayer Unit. Two screens (song select / player), dial browses songs and adjusts volume,
-  and it answers exactly three ESP-NOW strings: `FD_GO` → play/resume, `FD_FREEZE` → pause,
-  `stop` → back to select. This is the freeze-dance music target.
-  **It is the framework's hardest case — see §4.4.**
+  AudioPlayer Unit, m5ui. Two screens (song select / player), dial browses songs and adjusts
+  volume, and it answers three ESP-NOW strings: `FD_GO` → play/resume, `FD_FREEZE` → pause,
+  `stop` → back to select. This is the freeze-dance music target. It currently drives the
+  radio with raw `espnow.ESPNow()` simply because nobody has ported it to `espnow_manager`.
+  One real hardware limit to respect: the AudioPlayer Unit firmware does not support FAT32
+  long filenames, so SD card audio files must stay 8.3 — eight characters or fewer, no spaces
+  or punctuation. Do not "fix" one into something friendlier.
   `Bag2/Code/Speaker/` is the older standalone I2S player for the same role
   (`main.py`, `sdcard.py`, `target.py`), answering the same three strings.
 - **Coding station** — `Bag2/Code/Stations/Programming Station/` (`main.py`, `hubtype.txt`
@@ -282,35 +283,16 @@ Paths below are where these sit today; per §3.1 they move under `Bag3/Code/Broa
   "combination lock" input, different mechanism; confirm before building to the Bag 2 shape.
 - `Bag2/Code/Stations/Slide Score Station/` — Bag 2 reference implementation, a hardcoded
   `main.py`, 40-LED serpentine bar.
-- `Bag2/Code/Splat Companion/` — `main.py`, `ble_splat.py`, `hubtype.txt`. Bag 1/2 era, BLE
-  rather than ESP-NOW. No Bag 3 implementation.
+- `Bag2/Code/Splat Companion/` — `main.py`, `ble_splat.py`, `hubtype.txt`. No Bag 3
+  implementation.
 
-### 4.4 The music Dial is the exception to every shared assumption
-
-`Dial_Music.py` imports `M5`, `m5ui`, `lvgl`, `unit.AudioPlayerUnit` and `hardware.Rotary`,
-and drives the radio with **raw `espnow.ESPNow()`** — not `espnow_manager.py`, not
-`hubtype.py`, none of `Bag3/Code/lib/`. It runs UIFlow2 on an M5Stack Dial, a different
-runtime from the ESP32-C6 stations.
-
-So it cannot share the lib, and a design that assumes every station imports
-`espnow_manager` will not fit it. Two workable options, both fine:
-
-- give it its own small ESP-NOW helper inside its own tree, speaking the same wire format; or
-- leave it answering its three strings and treat "music" as a capability the Box addresses
-  directly, not as a station that loads game files.
-
-Decide this explicitly rather than discovering it late. Also inherited from its hardware: the
-AudioPlayer Unit firmware does **not** support FAT32 long filenames, so every audio file on the
-SD card must be 8.3 — eight characters or fewer, no spaces, no apostrophes or punctuation.
-Do not "fix" a filename into something friendlier.
-
-### 4.5 ChatBroadcast
+### 4.4 ChatBroadcast
 
 `Bag3/Code/BroadcastBox/ChatBroadcast/` — the teacher-facing chat app.
 
 - `knowledge/knowledge.py` (913 lines) is the LLM's sole context. It is stale in places — it
   documents a `game_tags`/`opcodes` world — and its natural-language section contradicts its
-  own hardware section on the tilt axis (see §4.7).
+  own hardware section on the tilt axis (see §4.6).
 - `js/chat.js` `extractCode()` **returns inside its loop**, so only the first fenced block ever
   survives. This must be fixed for multi-file output.
 - `js/upload.js` `validateJumpin()` hardcodes the six-argument signature. It will need to
@@ -323,7 +305,7 @@ Do not "fix" a filename into something friendlier.
 - `.role-rail` in `index.html` has a `disabled` Stations tab titled "Coming later".
 - `js/hardware.js` has a `stations` field marked "empty until stations are implemented".
 
-### 4.6 The simulator
+### 4.5 The simulator
 
 `Bag3/Code/Simulator/` — runs wand games in the browser under Pyodide, and is the emulator
 embedded in ChatBroadcast's wand tab.
@@ -334,7 +316,7 @@ embedded in ChatBroadcast's wand tab.
   list, from the game's `COMMANDS` — with a real interpreter, which beats the JS regex.
 - `py/transform.py` rewrites sync MicroPython into async.
 
-### 4.7 Accelerometer orientation — settled, with code to fix
+### 4.6 Accelerometer orientation — settled, with code to fix
 
 For Bag 3 the convention is:
 
@@ -524,7 +506,7 @@ Each step ends on hardware, not on a passing host-side check.
 
 **Step 0 — Resolve the wand tree.** Decide between `MockWand/` and `Wand Module/`, keeping
 every file the winner carries; the result lives under `Bag3/Code/BroadcastBox/`. Fix the three
-inverted accelerometer sites from §4.7 while you are in here. Reconcile `MockWand/lib/` with
+inverted accelerometer sites from §4.6 while you are in here. Reconcile `MockWand/lib/` with
 `Bag3/Code/lib/` (four modules differ). Flash one wand: it boots, idles, plays a built-in from
 a card, stops on the stop card. *Falsified if any built-in fails to load, or if a scoop in
 simpleicecream needs the wand held handle-up.*
