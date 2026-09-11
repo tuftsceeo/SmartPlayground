@@ -80,8 +80,10 @@ check("current entry inside group", srv._current_entry(), "getcode:my_melody")
 srv._group_cursor = 2
 check("current entry after 2 next", srv._current_entry(), "note_c")
 
-# The scan/write states act on the tag, not the group title.
-for st in (BS.W_SCAN, BS.W_OVERWRITE, BS.W_SPLASH):
+# The scan/write states act on the tag, not the group title. (No
+# W_OVERWRITE anymore -- a card holding different text is overwritten
+# the same as a blank one, with no confirmation state in between.)
+for st in (BS.W_SCAN, BS.W_SPLASH):
     srv._write_state = st
     check("current entry in %s" % st, srv._current_entry(), "note_c")
 
@@ -117,21 +119,25 @@ rows = {r["slug"]: r for r in sent.get("list", [])}
 check("games.list carries tags", rows["my_melody"]["tags"], ["note_c", "erase"])
 check("games.list tags default to []", rows["plain"]["tags"], [])
 
-# Row truncation: the screen does not clip, so an over-long row would run off
-# the panel taking its identifying tail with it.
+# Row truncation: the screen does not clip, so an over-long row would run
+# off the panel. _fit() keeps the START of the text (the meaningful
+# "getcode:" prefix) and appends ELLIPSIS -- see bbox_ui._fit()'s
+# docstring for why this replaced an earlier keep-both-ends scheme
+# (reported on hardware as cutting the prefix past legibility).
 import importlib.util, types as _types
 sys.modules.setdefault("M5", _types.ModuleType("M5"))
 _spec = importlib.util.spec_from_file_location("bbox_ui", BB + "/bbox_ui.py")
 ui = importlib.util.module_from_spec(_spec); _spec.loader.exec_module(ui)
 
-check("short row untouched", ui._fit("> note_c (3)"), "> note_c (3)")
-check("worst realistic slug row fits",
-      ui._fit("> getcode:sixteen_char_x (99)"), "> getcode:sixteen_char_x (99)")
-long_row = "> a_very_long_ingredient_tag_name_here (7)"
-got = ui._fit(long_row)
-check("over-long row capped", len(got) <= ui.MAX_ROW_CHARS, True)
-check("over-long row keeps its head", got.startswith("> a_very_long"), True)
-check("over-long row keeps its tail", got.endswith("(7)"), True)
+check("short row untouched",
+      ui._fit("note_c (3)", ui.ROW_CHARS), "note_c (3)")
+
+budget = ui.ROW_CHARS
+long_row = "getcode:a_very_long_melody_name_here"
+got = ui._fit(long_row, budget)
+expected = long_row[:budget - len(ui.ELLIPSIS)] + ui.ELLIPSIS
+check("over-long row capped to budget", len(got), budget)
+check("over-long row keeps the start, ellipsis at the end", got, expected)
 
 print("\n%s" % ("all box checks passed" if not fail else "%d FAILURES" % fail))
 sys.exit(1 if fail else 0)

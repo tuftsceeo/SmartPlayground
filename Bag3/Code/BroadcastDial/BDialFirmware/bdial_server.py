@@ -228,7 +228,7 @@ class BdialServer:
                 self.code.set_game(self._active)
             elif self.code.resolve() is None:
                 print("# SERVE refused: no active game")
-                self.ui.paint_error("no game to serve")
+                self.ui.paint_error("No Game to Serve")
                 time.sleep_ms(1500)
                 self._repaint()
                 return
@@ -239,7 +239,7 @@ class BdialServer:
                 # No game on flash, or the socket would not bind. Say so and
                 # stay where we were rather than sitting on a dead AP.
                 print("# SERVE refused: CodeServer.arm() failed")
-                self.ui.paint_error("no game to serve")
+                self.ui.paint_error("No Game to Serve")
                 time.sleep_ms(1500)
                 self._mode = old
                 self._repaint()
@@ -1009,7 +1009,7 @@ class BdialServer:
             self._pulls_total += 1
             self._repaint()
         elif xfer == 'fail':
-            self.ui.paint_error("transfer failed")
+            self.ui.paint_error("Transfer Failed")
             time.sleep_ms(1000)
             self._repaint()
         elif xfer == 'abort':
