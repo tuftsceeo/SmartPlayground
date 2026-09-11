@@ -22,7 +22,7 @@ none of it should be ported. Start from the base branch.
 > appropriate, such as freeze dance or color quest.
 >
 > The task is then: implement the hubtype-based, more generic game playback framework system
-> (illustrated on Bag 2 wands, including lib, wand `main.py` and game authoring) modified as
+> (illustrated on [MockWand], including lib, wand `main.py` and game authoring) modified as
 > needed to engage all of the above mentioned stations as specialized hubtypes. Each station
 > will have its own code (`main.py`, game directory, etc.) but should be able to load and run
 > single-file game code (games that have multiple device types will have different game `.py`
@@ -33,9 +33,10 @@ Read plainly:
 1. **Stations stop being single-purpose.** Today a station's `main.py` *is* its behaviour.
    After this work a station boots, idles, and loads/runs/switches/unloads game files the way
    a wand already does.
-2. **The mechanism is the one Bag 2 wands already use** — `hubtype.txt` identity, a shared
+2. **The mechanism is the one MockWand already uses** — `hubtype.txt` identity, a shared
    `lib/`, a `main.py` that dispatches to a game module, and a game-authoring convention —
-   extended to each station as its own specialised hubtype.
+   extended to each station as its own specialised hubtype. MockWand is the reference wand
+   throughout this document; it is the working Bag 3 wand.
 3. **Each station owns its code.** Its own `boot.py`, `main.py`, games directory, and any
    hardware module unique to it. Not a shared runtime.
 4. **A multi-device game is several files, one per device type.** `colorquest_wand.py` and
@@ -208,7 +209,9 @@ is the intended behaviour.
 
 ### 4.1 The wand — two trees, one source of truth
 
-There are two wand trees at `e5a182e`:
+**MockWand is the wand.** Despite the name it is the working Bag 3 wand and the reference for
+everything in this document — the game-loading pattern, the `main.py` shape, the lib, and the
+game-authoring convention all come from it. There are two wand trees at `e5a182e`:
 
 | Path | `main.py` | Status |
 |---|---|---|
@@ -223,14 +226,22 @@ it carries**. The previous attempt promoted the tree and deleted `game_tags.py` 
 `hubtype.py`, `nfc_reader.py`, `power_led.py`); every driver is byte-identical, so merging them
 is small and mechanical. MockWand's versions are the tested ones.
 
-### 4.2 The hubtype framework (Bag 2, the illustration named in the task)
+### 4.2 The hubtype framework — MockWand is the illustration
 
-`Bag2/Code/lib/hubtype.py` — reads `/hubtype.txt`, exposes `HUB_TYPE` and `HUB_CONFIG`. The
-Bag 2 table is feature-flag shaped:
+`Bag3/Code/BroadcastBox/MockWand/lib/hubtype.py` — reads `/hubtype.txt`, exposes `HUB_TYPE`
+and `HUB_CONFIG`. This is the Bag 3 wand's own version and the one to extend. Its table is
+feature-flag shaped:
 
 ```python
-"wand": {"num_leds": 25, "led_pin": 20, "has_nfc": True, "has_accel": True,
-         "has_battery": True, "has_buzzer": True, "has_motor": True, ...}
+"wand": {"num_leds": 25,          # 5x5 matrix
+         "led_pin": 20, "matrix_cols": 5, "matrix_rows": 5,
+         "has_nfc": True, "nfc_addr": 0x24,      # PN532
+         "has_accel": True, "has_battery": True, "has_buzzer": True,
+         "has_motor": True, "has_button": True,
+         "has_power_led": True, "power_led_pin": 2,   # Bag 3 only
+         "buzzer_pin": 19, "motor_pin": 21, "button_pin": 0,
+         "accel_int1_pin": 1,
+         "i2c_sda": 22, "i2c_scl": 23, "i2c_freq": 100_000}
 ```
 
 `hubtype.txt` is also what a code pull carries, so the Box can refuse a role file meant for a
