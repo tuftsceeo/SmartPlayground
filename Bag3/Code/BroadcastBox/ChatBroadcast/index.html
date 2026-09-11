@@ -184,6 +184,9 @@
                         <button class="icon-btn" id="btn-show-code" type="button" title="Show code">
                             <span class="code-glyph">&lt;/&gt;</span>
                         </button>
+                        <button class="icon-btn hidden" id="btn-show-icons" type="button" title="Edit icons">
+                            <span data-icon="gamepad" data-icon-size="15"></span>
+                        </button>
                         <button class="icon-btn" id="btn-mode-gear" type="button" title="Switch to advanced mode">
                             <span data-icon="wrench" data-icon-size="15"></span>
                         </button>
@@ -214,6 +217,19 @@
             </div>
             <div id="code-editor-container">
                 <div id="code-editor"></div>
+            </div>
+        </div>
+
+        <!-- Icon editor -->
+        <div id="icon-editor-overlay" class="overlay-view hidden">
+            <div class="overlay-card overlay-card-icons">
+                <div class="icon-editor-header">
+                    <h2>Icons</h2>
+                    <button class="drawer-close" id="btn-close-icon-editor" type="button" title="Close">
+                        <span data-icon="close" data-icon-size="18"></span>
+                    </button>
+                </div>
+                <div id="icon-editor-body"></div>
             </div>
         </div>
 

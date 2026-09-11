@@ -1395,3 +1395,92 @@ body.ui-advanced .mybox-stats.advanced-only { display: block !important; }
     box-shadow: none;
 }
 #send-game-name:disabled { color: var(--muted); cursor: not-allowed; }
+
+/* ── Icon editor overlay ─────────────────────────────────────────────
+   Paint one 16x16 icon beside the simulated-panel preview, so an edit is
+   judged the way the station will show it. */
+.overlay-card-icons {
+    max-width: 720px;
+    max-height: 90vh;
+    overflow: auto;
+}
+.icon-editor-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+}
+.icon-editor-header h2 { margin: 0; }
+.icon-editor-picker {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 12px;
+}
+.icon-editor-tab {
+    font: 12px ui-monospace, monospace;
+    padding: 4px 10px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: #fff;
+    cursor: pointer;
+}
+.icon-editor-tab.active { background: #f0e9f7; border-color: #8a6fa8; }
+.icon-editor-work {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    align-items: flex-start;
+}
+.icon-editor-grid {
+    display: grid;
+    gap: 1px;
+    background: #d8d3e0;
+    border: 1px solid #d8d3e0;
+    border-radius: 4px;
+    width: 288px;
+    aspect-ratio: 1;
+    touch-action: none;   /* a drag paints; it must not scroll the overlay */
+    cursor: crosshair;
+}
+.icon-editor-cell { width: 100%; height: 100%; }
+.icon-editor-preview canvas {
+    width: 240px;
+    height: 240px;
+    border-radius: 8px;
+}
+.icon-editor-palette {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin-top: 14px;
+}
+.icon-editor-swatch {
+    width: 26px;
+    height: 26px;
+    border: 2px solid var(--border);
+    border-radius: 6px;
+    cursor: pointer;
+    padding: 0;
+}
+.icon-editor-swatch.active { border-color: #2f2a38; }
+.icon-editor-custom {
+    width: 34px;
+    height: 30px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: none;
+    cursor: pointer;
+}
+.icon-editor-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 16px;
+}
+.icon-editor-btn { width: auto; padding: 8px 14px; }
+.icon-editor-empty {
+    font: 12px ui-monospace, monospace;
+    color: #c9a3bd;
+}

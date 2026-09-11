@@ -15,6 +15,7 @@ import { uploadPayload } from './upload.js';
 import { DeviceLink as StationLink } from './station/deviceLink.js';
 import { sendToStation, moduleName } from './stationSend.js';
 import { renderIconPanel } from './iconPreview/panel.js';
+import { openIconEditor } from './iconPreview/editor.js';
 import { showTagChecklist, updateTagChecklist } from './nfc.js';
 import { EXAMPLES, CATEGORIES, findExample, loadExampleCode } from './examples.js';
 import { showView, showOverlay, hideOverlay, setConnectionBadge, toast, setSendProgress, showConnectToast, syncNavTabs } from './router.js';
@@ -574,6 +575,18 @@ class App {
         document.getElementById('btn-show-code').addEventListener('click', () => {
             document.getElementById('code-drawer').classList.remove('hidden');
         });
+        document.getElementById('btn-show-icons').addEventListener('click', () => {
+            openIconEditor({
+                icons: this.icons,
+                onChange: () => {
+                    this.dirty = true;
+                    this.updatePreview();
+                },
+            });
+        });
+        document.getElementById('btn-close-icon-editor').addEventListener('click', () => {
+            hideOverlay('icon-editor-overlay');
+        });
         document.getElementById('btn-close-code').addEventListener('click', () => {
             document.getElementById('code-drawer').classList.add('hidden');
         });
@@ -1095,6 +1108,8 @@ class App {
         const iconPanel = document.getElementById('icon-preview');
         iconPanel?.classList.toggle('hidden', !showIcons);
         document.querySelector('.ws-body')?.classList.toggle('no-sim', !runnable && !showIcons);
+
+        document.getElementById('btn-show-icons')?.classList.toggle('hidden', !this.icons.length);
 
         if (runnable) {
             this.setupSim();
