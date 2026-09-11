@@ -269,14 +269,19 @@
 #   magnitude > 1.4   shake or hit
 #   magnitude < 0.3   freefall / jump
 #
-# Orientation, as the shipped ice cream games use it (sign to confirm on
-# hardware):
-#   x > +0.7    upright, tip up
-#   x < -0.7    inverted, handle up
-#   |y| > 0.5   tilted to one side
-#   |z| > 0.8   lying face up or back up
+# Orientation, in g:
+#   upright, tip up, handle down          x ~ -1.0
+#   upside-down, handle up                x ~ +1.0
+#   face up (LED side down)               z ~ -1.0
+#   back up                               z ~ +1.0
+#   left side up                          y ~ +1.0
+#   right side up                         y ~ -1.0
 #
 # Axes: x is along the wand, y is side to side, z is front to back.
+#
+# Useful thresholds:
+#   -x > 0.8    upright          |y| > 0.5   tilted to one side
+#   -z > 0.8    lying face up    |x| > 0.5   tipped along its length
 #
 # ═══════════════════════════════════════════════════════════════════
 # W8. BUTTON
