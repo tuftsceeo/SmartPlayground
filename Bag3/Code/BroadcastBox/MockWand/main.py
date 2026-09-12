@@ -33,6 +33,7 @@ from leds import (
     SHAPE_ARROW_UP, SHAPE_ROW3, SHAPE_SPIRAL, SHAPE_SLASH_L, SHAPE_WIFI,
     SHAPE_WIFI_2, BLUE, ORANGE,
     SHAPE_RAINDROP, SHAPE_DIAMOND, SHAPE_POINTER, SHAPE_EXCLAIM,
+    SHAPE_FASTFORWARD,
 )
 from power_led import PowerLed
 from buzzer import Buzzer
@@ -85,6 +86,9 @@ GAME_MODULES = {
     "simpleicecream": "simpleicecream",
     "multiicecream":  "multiicecream",
     "gestures":       "gestures",
+    # Two-device game: this is the wand half. The icon display runs its own
+    # goalrace.py, a different program that happens to play the same game.
+    "goalrace":       "goalrace",
     # Hidden (ESP-NOW only, never NFC): targeted identify animation.
     "finddevice":     "finddevice",
 }
@@ -179,6 +183,7 @@ GAME_ICON = {
     "simpleicecream": (SHAPE_RAINDROP,   PINK),
     "multiicecream":  (SHAPE_DIAMOND,    ROSE),
     "gestures":       (SHAPE_POINTER,    INDIGO),
+    "goalrace":       (SHAPE_FASTFORWARD, LIME),
     "finddevice":     (SHAPE_EXCLAIM,    WHITE),
 }
 

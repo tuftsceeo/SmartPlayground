@@ -67,9 +67,14 @@ _GAME_NAMES = (
 # GAME_DISPATCH and decode() agree. It gets its own arg after the real games.
 _HIDDEN_NAMES = ("finddevice",)
 
+# Card games added after finddevice already claimed its arg. The OP_GAME
+# tuple is append-only, so a new card game goes here rather than into
+# _GAME_NAMES, where it would shift finddevice's arg by one.
+_LATER_GAME_NAMES = ("goalrace",)
+
 # arg = index + 1 within each tuple. APPEND ONLY — never reorder/remove.
 _CATEGORIES = {
-    OP_GAME:       _GAME_NAMES + _HIDDEN_NAMES,
+    OP_GAME:       _GAME_NAMES + _HIDDEN_NAMES + _LATER_GAME_NAMES,
     OP_CONTROL:    ("start", "stop", "erase", "color_quest_scan"),
     OP_NOTE:       ("note_c", "note_d", "note_e", "note_f",
                     "note_g", "note_a", "note_b", "note_c_high"),
@@ -140,7 +145,7 @@ def names_by_category():
 # ─────────────────────────────────────────────
 # TAG SETS (backward-compatible with the old game_tags.py)
 # ─────────────────────────────────────────────
-GAME_TAGS = set(_GAME_NAMES)          # games only (no "stop", no "start")
+GAME_TAGS = set(_GAME_NAMES) | set(_LATER_GAME_NAMES)   # no "stop"/"start"
 CONTROL_TAGS = {"start", "stop"}
 HIDDEN_TAGS = set(_HIDDEN_NAMES)      # ESP-NOW only, never on an NFC card
 EXIT_TAGS = GAME_TAGS | {"stop"}      # any tag that exits a running game

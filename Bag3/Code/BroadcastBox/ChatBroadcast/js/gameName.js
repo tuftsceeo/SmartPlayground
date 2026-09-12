@@ -31,7 +31,7 @@ const PYTHON_RESERVED = [
 export const WAND_RESERVED = [
   "colorquest", "freezedance", "jumpin", "cooking", "melody", "shake",
   "shakerainbow", "rainbow", "jump", "sound", "nfcsound", "simpleicecream",
-  "multiicecream", "gestures", "finddevice",
+  "multiicecream", "gestures", "finddevice", "goalrace",
   "start", "stop", "erase", "battery", "getcode", "done",
   "buttondown", "buttonup", "whenshake", "playnote",
 ];

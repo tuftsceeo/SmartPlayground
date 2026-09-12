@@ -23,6 +23,7 @@ const EXPECTED = {
     cooking: ["tomato","milk","cheese","flour","egg","butter","sugar","cooking"],
     gestures: ["red","green","blue","play"],
     freeze_dance: ["caller","player","go","freeze","rejoin"],
+    goalrace: ["teamgreen","teamblue","goal"],
     jump: [], jumpin: [], rainbow: [], shake: [], shake_rainbow: [],
     simpleicecream: [], multiicecream: [], sound: [],
 };
