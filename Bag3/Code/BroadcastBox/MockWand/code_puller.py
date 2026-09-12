@@ -53,6 +53,25 @@ PWD = 'playground1'
 CHUNK = 512
 YIELD_MS = 20
 
+# Request-frame version sentinel. A v1 request opens with the slug's length,
+# which is capped at 16 by game_store's slug rule, so a first byte of 0xFF
+# cannot be mistaken for one. That is what lets a Box serve both an
+# un-updated wand (v1) and a device that names its hubtype (v2).
+#
+#   v1:  len(1) | slug
+#   v2:  0xFF | len(1) | slug | len(1) | hubtype
+#
+# The response is unchanged for both: size(4B BE) | sha256(32B) |
+# name_len(1B) | name, then the body in CHUNK-byte pieces, then a 2-byte
+# b'OK'/b'NO' ack from this side.
+#
+# A device that asked for icons (pull(icon_dir=...)) reads one more leg after
+# that ack: a 1-byte icon count, then that many files in the same
+# header+body+ack shape. A count of 0 ends the session, which is what a wand
+# would get if it ever asked.
+REQ_V2 = 0xFF
+MAX_ICONS = 64
+
 # Timeouts are deliberately short. A failed pull is cheap to recover from --
 # the teacher just taps the card again -- so waiting a long time to be told
 # "no" is worse than failing fast and letting them retap. Everything here is
@@ -152,6 +171,125 @@ def _read_exact(sock, n):
         mv[got:got + len(chunk)] = chunk
         got += len(chunk)
     return bytes(out)
+
+
+def _write_request(cs, slug, hubtype, verbose=False):
+    """Send the opening frame. The requester speaks first; the Box writes
+    nothing until it has read this. See BBoxFirmware/code_server.py
+    _read_request()."""
+    req = (slug or "").encode('utf-8')
+    if hubtype:
+        hub = hubtype.encode('utf-8')
+        cs.write(bytes([REQ_V2, len(req)]))
+        if req:
+            cs.write(req)
+        cs.write(bytes([len(hub)]))
+        cs.write(hub)
+    else:
+        cs.write(bytes([len(req)]))
+        if req:
+            cs.write(req)
+    if verbose:
+        print("[XFER] requested %r as %r" % (slug or "<active>", hubtype or "<v1>"))
+
+
+def _read_file_header(cs):
+    """Read one file header. Returns (size, digest, name).
+
+    A size of 0 is the Box's explicit refusal and carries no digest or name,
+    so the caller must check it before reading further.
+    """
+    size = int.from_bytes(_read_exact(cs, 4), 'big')
+    if size == 0:
+        return 0, b'', ''
+    head = _read_exact(cs, 32 + 1)
+    name = _read_exact(cs, head[32]).decode('utf-8')
+    return size, head[0:32], name
+
+
+def _recv_body(cs, tmp_path, expected_size, expected_digest, on_progress=None):
+    """Stream one file body to tmp_path and verify length and hash.
+
+    Returns True only when every byte arrived and the sha256 matches. The
+    caller decides what to do with tmp_path either way -- this does not
+    promote, delete, or ack.
+    """
+    buf = bytearray(CHUNK)
+    mv = memoryview(buf)
+    received = 0
+    h = hashlib.sha256()
+    if on_progress:
+        try:
+            on_progress(0, expected_size)
+        except Exception:
+            pass
+    with open(tmp_path, 'wb') as f:
+        while received < expected_size:
+            want = min(CHUNK, expected_size - received)
+            n = cs.readinto(buf, want)
+            if not n:
+                break
+            f.write(mv[:n])
+            h.update(mv[:n])
+            received += n
+            if on_progress:
+                try:
+                    on_progress(received, expected_size)
+                except Exception:
+                    pass
+            sleep_ms(YIELD_MS)
+    return (received == expected_size) and (h.digest() == expected_digest)
+
+
+def _pull_icons(cs, icon_dir, verbose=False):
+    """Receive the icon leg into icon_dir. Returns the number promoted.
+
+    Only reached by a device that passed icon_dir to pull(); the Box sends a
+    count of 0 to anything else. Icons are data, not modules -- icon_store
+    parses them as text -- so there is no compile check here, only the hash.
+    A bad icon is dropped and the rest of the leg still runs: a missing
+    picture is a better outcome than abandoning a game file that arrived
+    intact.
+    """
+    try:
+        os.mkdir(icon_dir)
+    except OSError:
+        pass
+    head = cs.read(1)
+    if not head:
+        if verbose:
+            print("[XFER] no icon leg (connection closed)")
+        return 0
+    count = head[0]
+    if count > MAX_ICONS:
+        raise OSError("icon count %d over limit %d" % (count, MAX_ICONS))
+    if verbose:
+        print("[XFER] icon leg: %d file(s)" % count)
+    promoted = 0
+    for i in range(count):
+        size, digest, name = _read_file_header(cs)
+        if size == 0:
+            if verbose:
+                print("[XFER] icon %d/%d: Box sent no file" % (i + 1, count))
+            continue
+        dest = icon_dir + '/' + name
+        tmp_path = dest + '.part'
+        good = _recv_body(cs, tmp_path, size, digest)
+        if good:
+            os.rename(tmp_path, dest)
+            cs.write(b'OK')
+            promoted += 1
+            if verbose:
+                print("[XFER] icon %s, %d bytes" % (dest, size))
+        else:
+            try:
+                os.remove(tmp_path)
+            except OSError:
+                pass
+            cs.write(b'NO')
+            print("[XFER] icon FAILED: %s" % dest)
+        sleep_ms(100)
+    return promoted
 
 
 def _log_visible_aps(nets, wanted):
@@ -418,12 +556,21 @@ def _connect_wifi(ssid, pwd, external_antenna, verbose, enow=None,
 
 def pull(host=HOST, port=PORT, ssid=SSID, pwd=PWD,
          external_antenna=EXTERNAL_ANTENNA, verbose=False, enow=None,
-         on_progress=None, on_status=None, slug=""):
-    """Pull one file from the Box. Returns True on verified promote.
+         on_progress=None, on_status=None, slug="", hubtype="",
+         icon_dir=None):
+    """Pull one game file from the Box. Returns True on verified promote.
 
     slug names the game to ask for; "" means "whatever the Box has active".
     It comes from the tapped card ("getcode:<slug>") by way of pull_flag,
     since the tap and the pull happen in different boots.
+
+    hubtype says what kind of device is asking, so the Box can hand a wand
+    and an icon display different files for the same slug. Pass HUB_TYPE
+    from lib/hubtype.py. Leaving it "" sends the older request frame, which
+    a Box always answers with the wand file.
+
+    icon_dir, when set, asks for the icon leg after the game file and writes
+    what arrives into that directory. A device with no panel leaves it None.
 
     on_progress(received, expected_size), if given, is called after each
     chunk is written to flash -- lets the caller drive an LED progress
@@ -482,30 +629,19 @@ def pull(host=HOST, port=PORT, ssid=SSID, pwd=PWD,
             print("[XFER] connected to %s:%d" % (host, port))
         memprobe.probe("pull:post-sock-connect")  # BENCH
 
-        # ── Request frame: the wand speaks first ──
-        # 1 byte length + that many UTF-8 bytes. A length of 0 means "serve
-        # whatever is active". The Box will not send a byte until it has
-        # read this. See BBoxFirmware/code_server.py _read_request().
-        req = (slug or "").encode('utf-8')
-        cs.write(bytes([len(req)]))
-        if req:
-            cs.write(req)
-        if verbose:
-            print("[XFER] requested %r" % (slug or "<active>"))
+        # ── Request frame: the requester speaks first ── see REQ_V2.
+        _write_request(cs, slug, hubtype, verbose)
 
-        header = _read_exact(cs, 4)
-        expected_size = int.from_bytes(header[0:4], 'big')
+        expected_size, expected_digest, name = _read_file_header(cs)
         if expected_size == 0:
-            # Explicit refusal: the Box has no such game. Distinct from a
-            # transfer failure -- retrying cannot help, so say so.
+            # Explicit refusal: the Box has no such game for this kind of
+            # device. Distinct from a transfer failure -- retrying cannot
+            # change the answer, so say so.
             if verbose:
-                print("[XFER] Box has no game %r" % (slug or "<active>"))
+                print("[XFER] Box has no game %r for %r"
+                      % (slug or "<active>", hubtype or "<v1>"))
             return 'norequest'
 
-        header = _read_exact(cs, 32 + 1)
-        expected_digest = header[0:32]
-        name_len = header[32]
-        name = _read_exact(cs, name_len).decode('utf-8')
         # Pulled games live in /games, never the flash root -- they must not
         # be able to shadow a built-in game or main.py. See lib/game_store.py.
         game_store.ensure_dir()
@@ -521,40 +657,13 @@ def pull(host=HOST, port=PORT, ssid=SSID, pwd=PWD,
         memprobe.probe("pull:pre-body")  # BENCH
 
         body_started = True
-        buf = bytearray(CHUNK)
-        mv = memoryview(buf)
-        received = 0
-        h = hashlib.sha256()
-
-        if on_progress:
-            try:
-                on_progress(0, expected_size)
-            except Exception:
-                pass
-
-        with open(tmp_path, 'wb') as f:
-            while received < expected_size:
-                want = min(CHUNK, expected_size - received)
-                n = cs.readinto(buf, want)
-                if not n:
-                    break
-                f.write(mv[:n])
-                h.update(mv[:n])
-                received += n
-                if on_progress:
-                    try:
-                        on_progress(received, expected_size)
-                    except Exception:
-                        pass
-                sleep_ms(YIELD_MS)
+        good = _recv_body(cs, tmp_path, expected_size, expected_digest, on_progress)
 
         memprobe.probe("pull:post-body")  # BENCH
 
-        good = (received == expected_size) and (h.digest() == expected_digest)
-
         if not good:
             if verbose:
-                print("[XFER] FAILED: got %d/%d bytes" % (received, expected_size))
+                print("[XFER] FAILED: %s did not arrive intact" % dest)
             try:
                 os.remove(tmp_path)
             except OSError:
@@ -582,13 +691,25 @@ def pull(host=HOST, port=PORT, ssid=SSID, pwd=PWD,
             cs.write(b'OK')
             sleep_ms(100)
             if verbose:
-                print("[XFER] OK: %s promoted, %d bytes" % (dest, received))
+                print("[XFER] OK: %s promoted, %d bytes" % (dest, expected_size))
             # Remember what we just pulled so the boot after the imminent
             # reset can launch it instead of dropping into the idle loop.
             if name.endswith('.py'):
                 game_store.set_last_pulled(name[:-3])
             ok = True
         memprobe.probe("pull:post-promote")  # BENCH
+
+        # ── Icon leg ── only a device that asked for one reads this. The
+        # game file is already promoted and acked by here, so an icon that
+        # fails costs a picture, not the game.
+        if ok and icon_dir:
+            try:
+                n_icons = _pull_icons(cs, icon_dir, verbose)
+                if verbose:
+                    print("[XFER] %d icon(s) promoted" % n_icons)
+            except OSError as e:
+                print("[XFER] icon leg failed: %s" % (e,))
+            memprobe.probe("pull:post-icons")  # BENCH
 
     except NoAP as e:
         if verbose:

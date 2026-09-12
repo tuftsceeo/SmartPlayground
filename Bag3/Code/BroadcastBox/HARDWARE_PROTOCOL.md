@@ -242,19 +242,46 @@ precedes `/games` on the path and would shadow the new copy with a stale one.
 SSID `SP-FILEPUSH`, password `playground1`, port 8266, channel 1, 512-byte
 chunks with a 20 ms yield.
 
-**The wand speaks first** (changed 2026-09-04; it used to be server-push):
+**The device speaks first** (changed 2026-09-04; it used to be server-push).
+There are two request frames. A v1 request opens with the slug's length, which
+the slug rule caps at 16, so a first byte of `0xFF` cannot be one — that is
+what lets the Box serve an un-updated wand and a hubtype-aware device from the
+same socket.
 
 ```
-wand -> box :  1 byte len | <len> bytes UTF-8 slug     (len 0 = "serve active")
-box  -> wand:  size(4B BE) | sha256(32B) | name_len(1B) | name
-box  -> wand:  file body, 512B chunks
-wand -> box :  2-byte ack, b'OK' or b'NO'
+v1:  device -> box :  1 byte len | <len> bytes UTF-8 slug   (len 0 = "serve active")
+v2:  device -> box :  0xFF | len(1) | slug | len(1) | hubtype
+
+     box -> device :  size(4B BE) | sha256(32B) | name_len(1B) | name
+     box -> device :  file body, 512B chunks
+     device -> box :  2-byte ack, b'OK' or b'NO'
 ```
 
-A `size` of **0** is an explicit refusal — the Box has no such game. The wand
-treats it as terminal, clears its flag and does not spend a retry.
+A `size` of **0** is an explicit refusal — the Box has nothing for that slug
+and that kind of device. The device treats it as terminal, clears its flag and
+does not spend a retry.
 
-Destination name is `<slug>.py`, saved to `/games/<slug>.py` on the wand.
+`ROLE_FILES` in `code_server.py` maps the hubtype to the file: a `wand` gets
+`/flash/games/<slug>.py`, an `icon_display` gets `/flash/games/<slug>_icon.py`.
+A v1 request names no hubtype and always gets the wand file. A hubtype absent
+from that table is refused rather than guessed at. The role lives on the Box
+and in ChatBroadcast only — the destination name is always plain `<slug>.py`,
+so every device holds at most one module per slug.
+
+A role whose `ROLE_FILES` entry sets `icons` reads one more leg after its ack:
+
+```
+     box -> device :  1 byte icon count            (0 ends the session)
+     box -> device :  header + body + ack, per icon, same shape as above
+```
+
+Icons come from `/flash/games/<slug>_icons/`, land in `icons/<name>.py` on the
+device, and are data rather than modules — `icon_store` parses them as text —
+so the device hashes them but does not compile them. The game file is already
+promoted by the time this leg runs, so an icon that fails costs a picture, not
+the game. A wand never reaches it: it is sent a count of 0.
+
+Destination name is `<slug>.py`, saved to `/games/<slug>.py` on the device.
 Card text is `getcode:<slug>` (pull that game) and a bare `<slug>` (play the
 local copy), plus the tags the game itself needs (melody's `note_c` … `erase`,
 cooking's ingredients). `DONE` and `< back` are Box-UI sentinels that never
@@ -272,9 +299,10 @@ send checklist, so the two cannot disagree. `tools/check_tags.mjs` in
 `stop` and `battery` are always writable from the Box's `Utility Tags` group,
 whatever is loaded.
 
-The protocol is **hand-duplicated** in `BBoxFirmware/code_server.py` and
-`MockWand/code_puller.py` — different devices, no shared module. Both carry a
-`PEER:` comment. Change them in the same commit or the wand breaks silently.
+The protocol is **hand-duplicated** in `BBoxFirmware/code_server.py`,
+`MockWand/code_puller.py` and `IconDisplay/code_puller.py` — different
+devices, no shared module. Each carries a `PEER:` comment. Change them in the
+same commit or a device breaks silently.
 
 ## Slugs are module names
 

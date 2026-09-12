@@ -23,19 +23,52 @@ AP_CHANNEL = 1
 CHUNK = 512
 YIELD_MS = 20
 SOCK_REPLY_TIMEOUT_S = 30
-SOCK_REQUEST_TIMEOUT_S = 5   # how long to wait for the wand's request frame
+SOCK_REQUEST_TIMEOUT_S = 5   # how long to wait for the requester's frame
 AP_SETTLE_MS = 300  # same value the wand uses post-cycle
 
-# PEER: MockWand/code_puller.py holds a hand-kept copy of SSID/PWD/PORT/CHUNK/
-# YIELD_MS and of the wire protocol in _serve_client() below. There is no
-# shared module (the two run on different devices), so any change here must be
-# mirrored there in the same commit.
+# PEER: MockWand/code_puller.py and BroadcastBox/IconDisplay/code_puller.py
+# each hold a hand-kept copy of SSID/PWD/PORT/CHUNK/YIELD_MS and of the wire
+# protocol in _serve_client() below. There is no shared module (they run on
+# different devices), so any change here must be mirrored in both in the same
+# commit.
+
+# Request-frame version sentinel. A v1 request opens with the slug's length,
+# capped at 16 by the slug rule, so a first byte of 0xFF cannot be one. That
+# is what lets this serve an un-updated wand and a hubtype-aware device from
+# the same socket.
+#
+#   v1:  len(1) | slug                          -> always the wand file
+#   v2:  0xFF | len(1) | slug | len(1) | hubtype
+REQ_V2 = 0xFF
+
+# Which file each kind of device gets for a slug, and whether it also takes
+# the icon leg. A hubtype absent from here is refused rather than guessed at:
+# handing a device a file written for different hardware is worse than
+# telling it plainly that there is nothing for it.
+#   suffix  -- appended to the slug for this role's source file
+#   icons   -- send the named-icon leg after the game file
+ROLE_FILES = {
+    'wand':         {'suffix': '',      'icons': False},
+    'icon_display': {'suffix': '_icon', 'icons': True},
+}
+DEFAULT_ROLE = 'wand'   # what a v1 request, which names no hubtype, gets
+
+MAX_ICONS = 64
 
 FS_ROOT = '/flash'
 DEFAULT_SRC = FS_ROOT + '/payload.py'
 DEFAULT_DEST = 'jumpin.py'
 GAMES_DIR = FS_ROOT + '/games'
 ACTIVE_PATH = FS_ROOT + '/active.txt'
+
+
+def icons_dir_for(slug):
+    """Where a game's named icons live on the Box.
+
+    ChatBroadcast writes them here in the same raw-REPL session as the game
+    files, so a pull can serve a game and its pictures without a second trip.
+    """
+    return GAMES_DIR + '/' + slug + '_icons'
 
 
 def _emit(cb, event):
@@ -114,6 +147,7 @@ class CodeServer:
         self.src_path = src_path
         self.dest_name = dest_name
         self.active_slug = None
+        self.role = DEFAULT_ROLE
         self.port = port
         self.ssid = ssid
         self.pwd = pwd
@@ -142,27 +176,41 @@ class CodeServer:
         """Completed successful serves this session."""
         return self._pickups
 
-    def set_game(self, slug, src_path=None):
-        """Point the server at /flash/games/<slug>.py serving as <slug>.py."""
+    def set_game(self, slug, src_path=None, role=DEFAULT_ROLE):
+        """Point the server at a slug's source file for one device role.
+
+        The file on the Box carries the role's suffix (<slug>_icon.py for an
+        icon display); the name it lands under on the device does not. Every
+        device holds at most one module per slug, so the role lives here and
+        in ChatBroadcast, never on the device's flash.
+        """
         if not slug:
             self.active_slug = None
+            self.role = DEFAULT_ROLE
             self.src_path = DEFAULT_SRC
             self.dest_name = DEFAULT_DEST
             return
+        suffix = ROLE_FILES.get(role, ROLE_FILES[DEFAULT_ROLE])['suffix']
         self.active_slug = slug
-        self.src_path = src_path if src_path else (GAMES_DIR + '/' + slug + '.py')
+        self.role = role
+        self.src_path = src_path if src_path else (GAMES_DIR + '/' + slug + suffix + '.py')
         self.dest_name = slug + '.py'
 
-    def resolve(self, slug=None):
+    def resolve(self, slug=None, role=DEFAULT_ROLE):
         """Resolve slug (or /flash/active.txt) into src_path/dest_name.
 
-        Returns the slug used, or None if nothing is serveable.
+        Returns the slug used, or None if nothing is serveable for this role.
+        An unknown role resolves to nothing at all, so the requester gets the
+        explicit zero-size refusal rather than a wand file it cannot run.
         """
+        if role not in ROLE_FILES:
+            return None
         if slug:
-            path = GAMES_DIR + '/' + slug + '.py'
+            suffix = ROLE_FILES[role]['suffix']
+            path = GAMES_DIR + '/' + slug + suffix + '.py'
             try:
                 if os.stat(path)[6] > 0:
-                    self.set_game(slug, path)
+                    self.set_game(slug, path, role)
                     return slug
             except OSError:
                 return None
@@ -173,7 +221,7 @@ class CodeServer:
         except OSError:
             active = ''
         if active:
-            return self.resolve(active)
+            return self.resolve(active, role)
         return None
 
     def arm(self):
@@ -266,75 +314,165 @@ class CodeServer:
                 pass
             self._client = None
 
-    def _read_request(self, cs):
-        """Read the wand's opening frame: 1 byte length + that many UTF-8 bytes.
+    def _read_str(self, cs):
+        """Read one length-prefixed UTF-8 field: 1 byte length + that many bytes.
 
-        Returns the requested slug ('' = "serve whatever is active"), or None
-        if the wand said nothing usable. The wand speaks first now, so this
-        must happen before any of the response bytes are written.
+        Returns the string ('' for a zero length), or None if the socket ran
+        out. read() may come back short on a stream socket, so this loops.
+        """
+        head = cs.read(1)
+        if not head:
+            return None
+        n = head[0]
+        if n == 0:
+            return ''
+        body = bytearray()
+        while len(body) < n:
+            part = cs.read(n - len(body))
+            if not part:
+                return None
+            body.extend(part)
+        return bytes(body).decode('utf-8')
+
+    def _read_request(self, cs):
+        """Read the requester's opening frame. See REQ_V2 for both shapes.
+
+        Returns (slug, role) -- slug '' means "serve whatever is active" --
+        or None if nothing usable arrived. A v1 frame names no hubtype and
+        gets DEFAULT_ROLE, which is what keeps an un-updated wand working.
+        The requester speaks first, so this must happen before any of the
+        response bytes are written.
         """
         try:
             cs.settimeout(SOCK_REQUEST_TIMEOUT_S)
             head = cs.read(1)
             if not head:
                 return None
-            n = head[0]
-            if n == 0:
-                return ''
-            # read() may come back short on a stream socket; loop to n.
-            body = bytearray()
-            while len(body) < n:
-                part = cs.read(n - len(body))
-                if not part:
-                    return None
-                body.extend(part)
-            return bytes(body).decode('utf-8')
+            if head[0] != REQ_V2:
+                # v1: the byte just read is the slug length.
+                n = head[0]
+                if n == 0:
+                    return '', DEFAULT_ROLE
+                body = bytearray()
+                while len(body) < n:
+                    part = cs.read(n - len(body))
+                    if not part:
+                        return None
+                    body.extend(part)
+                return bytes(body).decode('utf-8'), DEFAULT_ROLE
+            slug = self._read_str(cs)
+            if slug is None:
+                return None
+            role = self._read_str(cs)
+            if role is None:
+                return None
+            return slug, (role or DEFAULT_ROLE)
         except (OSError, UnicodeError, ValueError):
             return None
 
+    def _refuse(self, cs):
+        """Answer a zero size: "nothing here for you".
+
+        Said plainly rather than by dropping the connection, so the requester
+        can show a real error instead of waiting out its socket timeout.
+        """
+        try:
+            cs.settimeout(SOCK_REPLY_TIMEOUT_S)
+            cs.write((0).to_bytes(4, 'big'))
+        except OSError:
+            pass
+
+    def _send_file(self, cs, src_path, dest_name, should_abort=None):
+        """Send one file: header, body, then read the 2-byte ack.
+
+        Returns True on b'OK', 'abort' if should_abort() fired mid-body, and
+        False otherwise. Shared by the game file and every icon so the two
+        legs cannot drift apart.
+        """
+        name_bytes = dest_name.encode('utf-8')
+        if len(name_bytes) > 255:
+            return False
+        size = os.stat(src_path)[6]
+        digest = _hash_file(src_path)
+        cs.settimeout(SOCK_REPLY_TIMEOUT_S)
+        cs.write(size.to_bytes(4, 'big'))
+        cs.write(digest)
+        cs.write(bytes([len(name_bytes)]))
+        cs.write(name_bytes)
+        buf = bytearray(CHUNK)
+        mv = memoryview(buf)
+        with open(src_path, 'rb') as f:
+            while True:
+                n = f.readinto(buf)
+                if not n:
+                    break
+                cs.write(mv[:n])
+                sleep_ms(YIELD_MS)
+                if _asked_to_abort(should_abort):
+                    return 'abort'
+        reply = cs.read(2)
+        sleep_ms(100)
+        return reply == b'OK'
+
+    def _icon_files(self, slug):
+        """The .py files in this game's icon directory, sorted, capped.
+
+        Empty when the game has no icons or the directory was never written,
+        which is the normal case -- the leg then costs one zero byte.
+        """
+        try:
+            names = sorted(n for n in os.listdir(icons_dir_for(slug))
+                           if n.endswith('.py'))
+        except OSError:
+            return []
+        return names[:MAX_ICONS]
+
+    def _serve_icons(self, cs, slug, should_abort=None):
+        """Send the icon leg: a 1-byte count, then that many files.
+
+        Reached only by a role whose ROLE_FILES entry takes icons; everything
+        else is sent a count of 0. The game file is already acked by here, so
+        an icon that fails costs a picture, not the game.
+        """
+        names = self._icon_files(slug)
+        cs.write(bytes([len(names)]))
+        if not names:
+            return 0
+        base = icons_dir_for(slug)
+        sent = 0
+        for name in names:
+            result = self._send_file(cs, base + '/' + name, name, should_abort)
+            if result == 'abort':
+                return sent
+            if result:
+                sent += 1
+            else:
+                print("# icon %s/%s not acked" % (slug, name))
+        return sent
+
     def _serve_client(self, cs, should_abort=None):
-        requested = self._read_request(cs)
-        if requested is None:
+        request = self._read_request(cs)
+        if request is None:
             # No intelligible request -- nothing to serve, and writing a
             # response into a socket we cannot read from just wastes the
             # 30s reply timeout.
             return False
-        if self.resolve(requested or None) is None:
-            # Unknown slug, or nothing active. Tell the wand plainly with a
-            # zero size rather than dropping the connection, so it can show
-            # a real error instead of timing out.
-            try:
-                cs.settimeout(SOCK_REPLY_TIMEOUT_S)
-                cs.write((0).to_bytes(4, 'big'))
-            except OSError:
-                pass
+        requested, role = request
+        if self.resolve(requested or None, role) is None:
+            # Unknown slug, nothing active, or a role this Box has no file
+            # for.
+            self._refuse(cs)
             return False
-        name_bytes = self.dest_name.encode('utf-8')
-        if len(name_bytes) > 255:
-            return False
-        size = os.stat(self.src_path)[6]
-        digest = _hash_file(self.src_path)
         ok = False
         try:
-            cs.settimeout(SOCK_REPLY_TIMEOUT_S)
-            cs.write(size.to_bytes(4, 'big'))
-            cs.write(digest)
-            cs.write(bytes([len(name_bytes)]))
-            cs.write(name_bytes)
-            buf = bytearray(CHUNK)
-            mv = memoryview(buf)
-            with open(self.src_path, 'rb') as f:
-                while True:
-                    n = f.readinto(buf)
-                    if not n:
-                        break
-                    cs.write(mv[:n])
-                    sleep_ms(YIELD_MS)
-                    if _asked_to_abort(should_abort):
-                        return 'abort'
-            reply = cs.read(2)
-            ok = (reply == b'OK')
-            sleep_ms(100)
+            result = self._send_file(cs, self.src_path, self.dest_name, should_abort)
+            if result == 'abort':
+                return 'abort'
+            ok = bool(result)
+            if ok and ROLE_FILES[role]['icons']:
+                n = self._serve_icons(cs, self.active_slug, should_abort)
+                if n:
+                    print("# served %d icon(s) for %s" % (n, self.active_slug))
         except OSError:
             ok = False
         return ok
