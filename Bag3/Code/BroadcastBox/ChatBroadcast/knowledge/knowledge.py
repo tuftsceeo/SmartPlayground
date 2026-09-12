@@ -22,16 +22,18 @@
 # ═══════════════════════════════════════════════════════════════════
 # 0. CRITICAL CONTRACT — READ FIRST (common generation mistakes)
 # ═══════════════════════════════════════════════════════════════════
-# main.py ALWAYS calls play() with exactly 6 positional arguments:
-#   play_func(nfc, leds, buz, accel, i2c, enow)
-# The 6th argument is an ESP-NOW manager (sometimes wrapped for game switching).
-# Omitting enow causes: TypeError: function takes 5 positional arguments
-# but 6 were given
+# main.py ALWAYS calls play() with exactly 7 positional arguments:
+#   play_func(nfc, leds, buz, accel, i2c, enow, batt)
+# The 6th argument is an ESP-NOW manager (sometimes wrapped for game
+# switching); the 7th is the battery fuel gauge, which is None on a board
+# that has none. Omitting a parameter causes: TypeError: function takes 6
+# positional arguments but 7 were given
 #
-# REQUIRED signature (copy exactly — all 6 parameters, in this order):
-#   def play(nfc, leds, buz, accel, i2c, enow):
+# REQUIRED signature (copy exactly — all 7 parameters, in this order):
+#   def play(nfc, leds, buz, accel, i2c, enow, batt=None):
 #
 # FORBIDDEN signatures (will crash at launch):
+#   def play(nfc, leds, buz, accel, i2c, enow):    # WRONG — missing batt
 #   def play(nfc, leds, buz, accel, i2c):          # WRONG — missing enow
 #   def play(nfc, leds, buz, accel, enow):           # WRONG — missing i2c
 #   def play(nfc, leds, buz, i2c, enow):             # WRONG — missing accel
@@ -122,10 +124,13 @@
 #     → x,y,z = accel.read(); magnitude = math.sqrt(x*x+y*y+z*z); magnitude > 1.4
 #
 # "tilt left" / "lean left"
-#     → x, y, z = accel.read(); x > 0.5   (positive X = tilt left)
+#     → x, y, z = accel.read(); y > 0.5   (left side up = positive Y)
 #
 # "tilt right" / "lean right"
-#     → x, y, z = accel.read(); x < -0.5
+#     → x, y, z = accel.read(); y < -0.5
+#
+# "turn it upside-down" / "handle up"
+#     → x, y, z = accel.read(); x > 0.5   (upright is x = -1.0)
 #
 # "tilt forward" / "point down" / "tip forward"
 #     → x, y, z = accel.read(); z < -0.5
@@ -217,15 +222,15 @@
 # 3. ENTRY POINT CONTRACT — jumpin.py ONLY
 # ═══════════════════════════════════════════════════════════════════
 # main.py dispatches the "jumpin" NFC tag via _launch_game(), which calls:
-#   play_func(nfc, leds, buz, accel, i2c, enow)   # 6 positional args always
-# (rainbow is the only game that also receives batt= as a keyword argument.)
+#   play_func(nfc, leds, buz, accel, i2c, enow, batt)   # 7 positional args
 #
 # jumpin.py MUST define this exact function at module level:
 #
-#   def play(nfc, leds, buz, accel, i2c, enow):
+#   def play(nfc, leds, buz, accel, i2c, enow, batt=None):
 #
-# The 6-argument signature is REQUIRED — all six parameters must appear even
-# if a game does not use i2c or accel. enow is always passed — never None.
+# The 7-parameter signature is REQUIRED — every parameter must appear even
+# if a game does not use i2c, accel or batt. enow is always passed — never
+# None. batt IS None on a board with no fuel gauge, so guard before use.
 # Do NOT create a second ESPNowManager or call network.WLAN — it is already
 # initialized by main.py. Use the enow object passed in.
 #
@@ -236,6 +241,8 @@
 #   accel — LIS2DW12 (already initialized at ±4g, 100Hz); may be None
 #   i2c   — machine.SoftI2C (100kHz; available for additional sensors)
 #   enow  — ESPNowManager (already initialized; poll every loop iteration)
+#   batt  — MAX17048 fuel gauge, or None when the board has none. Guard with
+#           `if batt:` before reading it.
 #
 # play() MUST:
 #   - Use "jumpin" as the game tag name: exit_tags_excluding("jumpin")
@@ -258,10 +265,10 @@ Jump In — <short description of what this version does>
 <1-3 sentences describing the game for students.>
 
 Entry points:
-    play(nfc, leds, buz, accel, i2c, enow)  — called from main.py (6 args required)
-    main()                                   — standalone testing
+    play(nfc, leds, buz, accel, i2c, enow, batt=None)  — called from main.py
+    main()                                             — standalone testing
 
-DO NOT shorten play() to 5 arguments. main.py always passes 6 positional args.
+DO NOT shorten play(). main.py always passes 7 positional arguments.
 """
 
 import machine
@@ -369,7 +376,7 @@ class JumpInGame:
             self._frame += 1
 
 
-def play(nfc, leds, buz, accel, i2c, enow):
+def play(nfc, leds, buz, accel, i2c, enow, batt=None):
     """Called from main.py when the 'jumpin' tag is tapped."""
     # Entry fanfare for Jump In — keep this distinct from other games
     buz.beep(523, 80); time.sleep_ms(40)
@@ -421,7 +428,7 @@ def main():
     from espnow_manager import ESPNowManager
     enow = ESPNowManager(); enow.init()
 
-    play(nfc, leds, buz, accel, i2c, enow)
+    play(nfc, leds, buz, accel, i2c, enow, None)
 
 
 if __name__ == "__main__":
@@ -792,8 +799,11 @@ if __name__ == "__main__":
 #                  "elephant","horse","goat"}  — remote Splat only
 
 # ── max17048.py — from max17048 import MAX17048 ───────────────────────
-# batt = MAX17048(i2c)
-# v, soc = batt.read_all()   — voltage (V), state-of-charge (0-100)
+# main.py already constructs this and passes it as play()'s batt parameter.
+# Use that; do NOT build a second one. It is None when the board has no
+# fuel gauge, so guard first:
+#   if batt:
+#       v, soc = batt.read_all()   — voltage (V), state-of-charge (0-100)
 
 # ── opt3002.py — from opt3002 import OPT3002 ─────────────────────────
 # light = OPT3002(i2c); light.init(); lux = light.lux
@@ -843,11 +853,12 @@ if __name__ == "__main__":
 #              print("name = %s" % name)
 #              print("x=%.2f y=%.2f" % (x, y))
 #
-# 2. play() takes 6 arguments: (nfc, leds, buz, accel, i2c, enow)
-#    Old 5-arg signatures are WRONG and crash at call time, e.g.:
+# 2. play() takes 7 parameters: (nfc, leds, buz, accel, i2c, enow, batt=None)
+#    Shorter signatures are WRONG and crash at call time, e.g.:
+#      play(nfc, leds, buz, accel, i2c, enow) → TypeError (missing batt)
 #      play(nfc, leds, buz, accel, i2c)       → TypeError (missing enow)
 #      play(nfc, leds, buz, accel, enow)      → TypeError (missing i2c)
-#    All six parameter names must appear in the def even if unused.
+#    All seven parameter names must appear in the def even if unused.
 #
 # 3. Do NOT create ESPNowManager() or activate network.WLAN() inside a game.
 #    enow is passed in; use it. Two radio stacks crash the device.
@@ -893,8 +904,9 @@ if __name__ == "__main__":
 # Before emitting the final file, verify every item:
 #
 # [ ] File is named jumpin.py — no other files are created or modified
-# [ ] play() has exactly 6 parameters: (nfc, leds, buz, accel, i2c, enow)
-# [ ] Module docstring shows play(nfc, leds, buz, accel, i2c, enow) — not 5 args
+# [ ] play() has exactly 7 parameters: (nfc, leds, buz, accel, i2c, enow, batt=None)
+# [ ] Module docstring shows the same 7-parameter signature
+# [ ] Any use of batt is guarded with `if batt:` — it can be None
 # [ ] No _read_tag_text / _decode_ndef_text — uses NfcReader instead
 # [ ] _EXIT_TAGS = exit_tags_excluding("jumpin")  — always "jumpin"
 # [ ] Game-specific tags unioned: COMMANDS = _EXIT_TAGS | {"your_tag"} if needed

@@ -157,6 +157,7 @@ class Runtime:
     def __init__(self):
         self._bootstrapped = False
         self._sources = {}  # optional in-memory file map: relpath -> text
+        self._game_src = None  # last loaded game's source, for _game_reads_battery
         self._game_mod = None
         self._game_name = None
         self._task = None
@@ -343,6 +344,7 @@ class Runtime:
         exec(code, mod.__dict__)
         self._game_mod = mod
         self._game_name = name
+        self._game_src = src
         return mod
 
     def get_commands(self):
@@ -352,6 +354,30 @@ class Runtime:
         if cmds is None:
             return []
         return sorted(cmds)
+
+    def _game_reads_battery(self):
+        """True when the game's play() actually reads its batt parameter.
+
+        Every wand game declares batt now, so the signature no longer
+        distinguishes them -- what matters is whether the body uses it.
+        Walked with ast rather than matched with a regex so a mention in a
+        comment or a string does not count.
+        """
+        if not self._game_src:
+            return False
+        import ast
+        try:
+            tree = ast.parse(self._game_src)
+        except SyntaxError:
+            return False
+        for node in tree.body:
+            if not isinstance(node, ast.FunctionDef) or node.name != "play":
+                continue
+            for sub in ast.walk(node):
+                if isinstance(sub, ast.Name) and sub.id == "batt" and isinstance(sub.ctx, ast.Load):
+                    return True
+            return False
+        return False
 
     def get_capabilities(self):
         """Return what the loaded game actually uses, for filtering controls.
@@ -383,14 +409,7 @@ class Runtime:
         game_specific = (commands - game_tags.EXIT_TAGS) | (own_tag & commands)
         nfc_tags = sorted(game_specific)
 
-        battery = False
-        play = getattr(mod, "play", None)
-        if play is not None:
-            try:
-                import inspect
-                battery = "batt" in inspect.signature(play).parameters
-            except (TypeError, ValueError):
-                battery = False
+        battery = self._game_reads_battery()
 
         table = _TEACHER_TABLE.get(self._game_name, {})
         return {

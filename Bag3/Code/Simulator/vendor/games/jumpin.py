@@ -125,7 +125,7 @@ class JumpInGame:
 # ─────────────────────────────────────────────
 # Entry Point: Wand Integration
 # ─────────────────────────────────────────────
-def play(nfc, leds, buz, accel, i2c, enow):
+def play(nfc, leds, buz, accel, i2c, enow, batt=None):
     """
     Called from main.py when the "jumpin" tag is tapped.
     Hardware is already initialized by the caller.

@@ -221,10 +221,12 @@ ALL_COMMANDS   = BASE_COMMANDS | set(game_store.slugs())
 # see the GAME_MODULES comment above for why. To add a new game named
 # "yourgame":
 #
-#   1. Create `Wand Module/yourgame.py` exposing
-#      `def play(nfc, leds, buz, accel, i2c, enow): ...` returning when
-#      "stop" NFC tag, ESP-NOW stop, or ESP-NOW start_game is received
-#      (poll enow every loop).
+#   1. Create `yourgame.py` in this folder exposing
+#      `def play(nfc, leds, buz, accel, i2c, enow, batt=None): ...`
+#      returning when the "stop" NFC tag, ESP-NOW stop, or ESP-NOW
+#      start_game is received (poll enow every loop). All seven
+#      parameters are always passed positionally; `batt` is the
+#      MAX17048 fuel gauge and is None when the board has none.
 #   2. Add the tag name `"yourgame"` to GAME_TAGS in lib/game_tags.py.
 #   3. Add `"yourgame": "yourgame"` to GAME_MODULES in this file --
 #      key is the tag name, value is the module's filename (no `.py`).
@@ -413,10 +415,7 @@ def _launch_game(name, nfc, leds, buz, accel, i2c, enow, batt_ref):
             _game_load_failed(name, e)
             return
         wrapper = _StartGameCapture(enow)
-        if name == "rainbow":
-            play_func(nfc, leds, buz, accel, i2c, wrapper, batt=batt_ref)
-        else:
-            play_func(nfc, leds, buz, accel, i2c, wrapper)
+        play_func(nfc, leds, buz, accel, i2c, wrapper, batt_ref)
         next_name = wrapper.pending_name
         # Drop the reference before unloading -- play_func is what pins
         # the module in this frame; a chained force-switch must not

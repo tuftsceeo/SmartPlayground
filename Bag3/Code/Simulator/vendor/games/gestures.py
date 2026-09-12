@@ -769,7 +769,7 @@ class GesturesGame:
 # ═══════════════════════════════════════════════
 # ENTRY POINTS
 # ═══════════════════════════════════════════════
-def play(nfc, leds, buz, accel, i2c, enow):
+def play(nfc, leds, buz, accel, i2c, enow, batt=None):
     """Called from main.py when the 'gestures' tag is tapped."""
     if accel is None:
         print("  Gestures requires accelerometer — not available")

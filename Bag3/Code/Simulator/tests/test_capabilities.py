@@ -45,7 +45,8 @@ def test_capabilities_nfc_tags_and_battery(runtime, name, expected_tags, expecte
     """nfcTags = game-specific commands (COMMANDS minus exit tags, plus the
     game's own tag if it re-added it for an in-game control like melody's
     "melody"/erase or cooking's "cooking"/clear). battery = whether play()
-    takes a `batt` kwarg — true only for rainbow."""
+    actually reads its `batt` parameter — every game declares it, so only
+    rainbow, which uses it, is true."""
     rt = runtime
     rt.load_game(name)
     caps = rt.get_capabilities()
