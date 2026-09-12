@@ -29,7 +29,8 @@ import { initSerialSplit } from './serialSplit.js';
 import { initCodeDrawerSplit } from './codeDrawerSplit.js';
 import { iconSvg, exampleIcon } from './icons.js';
 // LED icons for the display panel -- unrelated to icons.js, which is UI chrome.
-import { iconNamesIn, missingIconsIn, iconFileText } from './ledicons/iconLibrary.js';
+import { iconNamesIn, missingIconsIn, iconFileText, listIcons } from './ledicons/iconLibrary.js';
+import { mountIconPanel } from './ledicons/iconPanel.js';
 
 const SILENCE_LIMIT_MS = 15000;
 const SILENCE_SERVE_MS = 45000;
@@ -182,9 +183,18 @@ class App {
 
     getSystemPrompt() {
         const knowledge = getKnowledgeText();
+        // The icon library is per-teacher and changes as they edit it, so the
+        // names live here rather than in the knowledge file. A display game
+        // that asks for a name outside this list is refused at send time,
+        // which is a worse way to find out.
+        const icons = `\n\nICONS CURRENTLY AVAILABLE ON THE ICON DISPLAY:\n` +
+            listIcons().join(', ') +
+            `\nRefer to icons by these names only. If a game needs a picture that is ` +
+            `not in this list, say so and suggest the closest one rather than ` +
+            `inventing a name.`;
         return knowledge
-            ? SYSTEM_PROMPT_BASE + '\n\nPROJECT KNOWLEDGE BASE:\n' + knowledge
-            : SYSTEM_PROMPT_BASE;
+            ? SYSTEM_PROMPT_BASE + icons + '\n\nPROJECT KNOWLEDGE BASE:\n' + knowledge
+            : SYSTEM_PROMPT_BASE + icons;
     }
 
     /**
@@ -214,6 +224,7 @@ class App {
         if (role !== 'wand' && !rolesWithCode().includes(role)) return;
         setActiveRole(role);
         this.syncRoleRail();
+        this.updatePreview();
         dbg('app', `editor showing role: ${role}`);
     }
 
@@ -1073,18 +1084,37 @@ class App {
     }
 
     updatePreview() {
-        const code = getCode();
+        const wandCode = getCode('wand');
+        const iconCode = getCode('icon');
 
-        this.refreshHardware(code);
+        this.refreshHardware(wandCode);
 
-        const runnable = isRunnableCode(code);
-        document.getElementById('preview-panel').classList.toggle('hidden', !runnable);
+        // Which simulator is on screen follows the device tab: the wand's
+        // Pyodide sim for wand code, the panel preview for display code.
+        const showingIcon = getActiveRole() === 'icon' && isRunnableCode(iconCode);
+        const runnable = showingIcon ? true : isRunnableCode(wandCode);
+
+        document.getElementById('preview-panel').classList.toggle('hidden', !runnable || showingIcon);
+        document.getElementById('icon-sim-panel')?.classList.toggle('hidden', !showingIcon);
         document.querySelector('.ws-body')?.classList.toggle('no-sim', !runnable);
 
-        if (runnable) {
+        if (showingIcon) {
+            this.updateIconSim(iconCode);
+        } else if (runnable) {
             this.setupSim();
-            this.pushSimSource(code);
+            this.pushSimSource(wandCode);
         }
+    }
+
+    /** Show what the 16x16 panel would draw for the current display file. */
+    updateIconSim(code) {
+        const mount = document.getElementById('icon-sim-panel');
+        if (!mount) return;
+        if (!this._iconSim) {
+            this._iconSim = mountIconPanel(mount);
+            dbg('app', 'icon display simulator mounted');
+        }
+        this._iconSim.update(code);
     }
 
     /** Lazily load the <wand-sim> module the first time it's needed —

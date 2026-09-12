@@ -175,6 +175,10 @@
                         <div id="preview-panel" class="hidden">
                             <wand-sim id="wand-sim"></wand-sim>
                         </div>
+                        <!-- The icon display simulator, shown when the game
+                             has a display file. Renders through the Icon
+                             Maker's own preview so it matches the panel. -->
+                        <div id="icon-sim-panel" class="icon-sim hidden"></div>
                     </div>
                 </div>
                 <div class="ws-footer">
@@ -185,6 +189,13 @@
                         <button class="icon-btn" id="btn-show-code" type="button" title="Show code">
                             <span class="code-glyph">&lt;/&gt;</span>
                         </button>
+                        <!-- The Icon Maker, opened in its own tab. It saves
+                             into the same named-icon library a display game
+                             refers to by name. -->
+                        <a class="icon-btn" id="btn-icon-maker" href="iconmaker/index.html"
+                           target="_blank" rel="noopener" title="Edit display icons">
+                            <span data-icon="palette" data-icon-size="15"></span>
+                        </a>
                         <button class="icon-btn" id="btn-mode-gear" type="button" title="Switch to advanced mode">
                             <span data-icon="wrench" data-icon-size="15"></span>
                         </button>

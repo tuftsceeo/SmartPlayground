@@ -1356,3 +1356,54 @@ body.ui-advanced .mybox-stats.advanced-only { display: block !important; }
     box-shadow: none;
 }
 #send-game-name:disabled { color: var(--muted); cursor: not-allowed; }
+
+/* ── Icon display simulator (js/ledicons/iconPanel.js) ────────────────
+   Sits where <wand-sim> does, shown instead of it when the editor is on
+   the display's file. The canvas renders through the Icon Maker's own
+   preview, so it shows the device's truncating LUT and LED bloom rather
+   than flat CSS colours. */
+.icon-sim {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    padding: 16px;
+    min-height: 0;
+}
+.icon-sim.hidden { display: none; }
+.icon-sim-canvas {
+    width: min(100%, 384px);
+    height: auto;
+    aspect-ratio: 1;
+    border-radius: 12px;
+    background: #0a0a0c;
+}
+.icon-sim-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+.icon-sim-pick {
+    font: 700 12px 'Nunito';
+    padding: 4px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: #fff;
+}
+.icon-sim-pick:disabled { opacity: 0.6; }
+.icon-sim-bright { display: flex; align-items: center; gap: 6px; }
+.icon-sim-bright span {
+    font: 700 11px 'Nunito';
+    color: var(--muted);
+    width: 32px;
+    text-align: right;
+}
+.icon-sim-note {
+    margin: 0;
+    font: 600 12px 'Nunito';
+    color: var(--muted);
+    text-align: center;
+    max-width: 340px;
+}
