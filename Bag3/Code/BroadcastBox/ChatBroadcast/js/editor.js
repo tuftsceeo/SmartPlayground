@@ -3,9 +3,32 @@ import { python } from 'https://esm.sh/@codemirror/lang-python@6.1.6';
 import { HighlightStyle, syntaxHighlighting } from 'https://esm.sh/@codemirror/language@6';
 import { tags } from 'https://esm.sh/@lezer/highlight@1';
 
+/**
+ * Per-role editor state.
+ *
+ * A multi-device game is several files -- one per device type -- and each
+ * needs its own text and its own version history. There is still ONE
+ * CodeMirror view on one #code-editor mount: switching role parks the
+ * current document in that role's slot and loads the new one, which is
+ * cheaper than N mounted editors and keeps the existing markup.
+ */
+import { ROLES } from './chat.js';
+
 let editorView = null;
-const codeVersions = [];
-let versionIndex = -1;
+let activeRole = ROLES[0];
+
+/** @returns {{doc: string, versions: {code: string, label: string}[], index: number}} */
+function emptyRole() {
+    return { doc: '', versions: [], index: -1 };
+}
+
+const roleState = {};
+for (const r of ROLES) roleState[r] = emptyRole();
+
+/** The slot for a role, or the active one when role is omitted. */
+function slot(role) {
+    return roleState[role || activeRole] || roleState[activeRole];
+}
 
 /* Same "GitHub Light" palette as the chat code blocks (see app.css --code-*
    variables) — referenced by var() here so there is one source of truth and
@@ -45,70 +68,122 @@ export function initEditor() {
     });
 }
 
-export function getCode() {
-    return editorView ? editorView.state.doc.toString() : "";
+/** The code for a role: live from the view when it is the active one. */
+export function getCode(role) {
+    if (!role || role === activeRole) {
+        return editorView ? editorView.state.doc.toString() : slot().doc;
+    }
+    return slot(role).doc;
 }
 
-export function setCode(code) {
-    if (!editorView) return;
+export function setCode(code, role) {
+    const target = role || activeRole;
+    roleState[target].doc = code;
+    if (target !== activeRole || !editorView) return;
     editorView.dispatch({
         changes: { from: 0, to: editorView.state.doc.length, insert: code },
     });
 }
 
-export function saveVersion(code, label = "AI generated") {
-    codeVersions.push({ code, label });
-    versionIndex = codeVersions.length - 1;
+export function getActiveRole() { return activeRole; }
+
+/** Roles that currently hold code -- what the device tab rail shows. */
+export function rolesWithCode() {
+    return ROLES.filter(r => getCode(r).trim().length > 0);
+}
+
+/**
+ * Park the current document in its own slot and show another role's.
+ * A no-op for an unknown role, so a stale tab cannot blank the editor.
+ */
+export function setActiveRole(role) {
+    if (!roleState[role] || role === activeRole) return activeRole;
+    roleState[activeRole].doc = getCode();
+    activeRole = role;
+    if (editorView) {
+        editorView.dispatch({
+            changes: { from: 0, to: editorView.state.doc.length, insert: slot().doc },
+        });
+    }
+    updateVersionUI();
+    return activeRole;
+}
+
+/** Drop every role's code and history -- starting a different game. */
+export function clearAllRoles() {
+    for (const r of ROLES) roleState[r] = emptyRole();
+    activeRole = ROLES[0];
+    setCode('');
     updateVersionUI();
 }
 
-export function getVersionCount() { return codeVersions.length; }
-export function getVersionIndex() { return versionIndex; }
+export function saveVersion(code, label = "AI generated", role) {
+    const st = slot(role);
+    st.versions.push({ code, label });
+    st.index = st.versions.length - 1;
+    st.doc = code;
+    updateVersionUI();
+}
+
+export function getVersionCount(role) { return slot(role).versions.length; }
+export function getVersionIndex(role) { return slot(role).index; }
 
 export function updateVersionUI() {
     const labelEl = document.getElementById("version-label");
     const prevBtn = document.getElementById("btn-prev");
     const nextBtn = document.getElementById("btn-next");
-    const total = codeVersions.length;
+    if (!labelEl || !prevBtn || !nextBtn) return;
+    const st = slot();
+    const total = st.versions.length;
     if (total === 0) {
         labelEl.textContent = "v0/0";
         prevBtn.disabled = true;
         nextBtn.disabled = true;
     } else {
-        labelEl.textContent = `v${versionIndex + 1}/${total}`;
-        prevBtn.disabled = versionIndex <= 0;
-        nextBtn.disabled = versionIndex >= total - 1;
+        labelEl.textContent = `v${st.index + 1}/${total}`;
+        prevBtn.disabled = st.index <= 0;
+        nextBtn.disabled = st.index >= total - 1;
     }
 }
 
 export function onPrevVersion(addMsg) {
-    if (versionIndex > 0) {
-        versionIndex--;
-        const v = codeVersions[versionIndex];
+    const st = slot();
+    if (st.index > 0) {
+        st.index--;
+        const v = st.versions[st.index];
         setCode(v.code);
         updateVersionUI();
-        addMsg(`Loaded v${versionIndex + 1}: ${v.label}`, "system");
+        addMsg(`Loaded v${st.index + 1}: ${v.label}`, "system");
     }
 }
 
 export function onNextVersion(addMsg) {
-    if (versionIndex < codeVersions.length - 1) {
-        versionIndex++;
-        const v = codeVersions[versionIndex];
+    const st = slot();
+    if (st.index < st.versions.length - 1) {
+        st.index++;
+        const v = st.versions[st.index];
         setCode(v.code);
         updateVersionUI();
-        addMsg(`Loaded v${versionIndex + 1}: ${v.label}`, "system");
+        addMsg(`Loaded v${st.index + 1}: ${v.label}`, "system");
     }
 }
 
-export function onDownload(addMsg) {
+/**
+ * Download the active role's code.
+ * @param {(msg: string, kind: string) => void} addMsg
+ * @param {string} [baseName]  defaults to the game's slug where the caller
+ *                             knows it, else the role name
+ */
+export function onDownload(addMsg, baseName) {
     const code = getCode().trim();
     if (!code) { addMsg("Nothing to download.", "system"); return; }
+    const st = slot();
+    const base = baseName || activeRole;
     const blob = new Blob([code], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = versionIndex >= 0 ? `jumpin_v${versionIndex + 1}.py` : "jumpin.py";
+    a.download = st.index >= 0 ? `${base}_v${st.index + 1}.py` : `${base}.py`;
     a.click();
     URL.revokeObjectURL(url);
     addMsg(`Downloaded as ${a.download}`, "system");

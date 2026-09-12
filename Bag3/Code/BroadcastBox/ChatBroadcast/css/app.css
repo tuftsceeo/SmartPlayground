@@ -467,13 +467,21 @@ body.ui-advanced #app-shell {
     align-items: center;
     gap: 4px;
     color: var(--ink);
+    /* Real <button>s now, so the browser's own chrome has to be cleared. */
+    background: none;
+    border: none;
+    border-left: 3px solid transparent;
+    width: 100%;
+    cursor: pointer;
+    font-family: inherit;
 }
+.role-item:hover:not(.disabled) { background: #faf7fb; }
 .role-item.active {
     background: #fff0f6;
-    border-left: 3px solid var(--pink);
+    border-left-color: var(--pink);
     color: var(--pink-dark);
 }
-.role-item.disabled { color: #a8a4b5; opacity: 0.7; }
+.role-item.disabled { color: #a8a4b5; opacity: 0.7; cursor: default; }
 .role-item.stations { display: none; }
 .role-rail.advanced .role-item.stations { display: flex; }
 .role-icon { display: flex; color: inherit; }

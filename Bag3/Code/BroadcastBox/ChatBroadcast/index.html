@@ -143,15 +143,19 @@
                     </div>
                 </header>
                 <div class="ws-body">
+                    <!-- Device tabs. data-role matches editor.js's per-role
+                         slots; app.js syncRoleRail() enables a tab once that
+                         role has code. -->
                     <div class="role-rail">
-                        <div class="role-item active" title="Wands">
+                        <button type="button" class="role-item active" data-role="wand" title="Wands">
                             <span class="role-icon" data-icon="wand" data-icon-size="18"></span>
                             Wands
-                        </div>
-                        <div class="role-item disabled stations" title="Coming later">
+                        </button>
+                        <button type="button" class="role-item stations disabled" data-role="icon"
+                                title="No display code in this game yet">
                             <span class="role-icon" data-icon="gamepad" data-icon-size="18"></span>
-                            Stations
-                        </div>
+                            Display
+                        </button>
                     </div>
                     <div class="chat-col">
                         <div id="chat-box"></div>

@@ -17,7 +17,12 @@ function writeAll(list) {
     localStorage.setItem(KEY, JSON.stringify(list));
 }
 
-export function saveGame({ name, desc, code, requiredTags, hardware, chatHistory }) {
+/**
+ * Store one game. `code` is the wand file; `iconCode` is the icon display's,
+ * empty for a single-device game. Entries saved before the display existed
+ * have no iconCode and load as wand-only.
+ */
+export function saveGame({ name, desc, code, iconCode, requiredTags, hardware, chatHistory }) {
     const list = loadSavedGames();
     const id =
         typeof crypto !== "undefined" && crypto.randomUUID
@@ -28,6 +33,7 @@ export function saveGame({ name, desc, code, requiredTags, hardware, chatHistory
         name: name || "Untitled game",
         desc: desc || "",
         code: code || "",
+        iconCode: iconCode || "",
         requiredTags: requiredTags || [],
         hardware: hardware || null,
         chatHistory: chatHistory || [],

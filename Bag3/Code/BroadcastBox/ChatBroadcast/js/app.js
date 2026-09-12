@@ -1,14 +1,16 @@
 import { loadEncryptedKey, initAuthModal, getApiKey, hasEncryptedKey } from './auth.js';
 import {
-    addMsg, addThinkingMsg, removeTyping, extractCode, parseNfcCards, stripNfcMarker,
+    addMsg, addThinkingMsg, removeTyping, extractCodeBlocks,
+    parseNfcCards, stripNfcMarker, stripDeviceMarkers,
     parseGameName, stripGameNameMarker,
     trimForHistory, loadKnowledgeBase, getKnowledgeText, getKnowledgeFileCount,
 } from './chat.js';
 import {
     initEditor, getCode, setCode, saveVersion, updateVersionUI,
     onPrevVersion, onNextVersion, getVersionCount, onDownload,
+    setActiveRole, getActiveRole, rolesWithCode, clearAllRoles,
 } from './editor.js';
-import { uploadPayload } from './upload.js';
+import { uploadPayload, validateGameCode } from './upload.js';
 import { showTagChecklist, updateTagChecklist } from './nfc.js';
 import { EXAMPLES, CATEGORIES, findExample, loadExampleCode } from './examples.js';
 import { showView, showOverlay, hideOverlay, setConnectionBadge, toast, setSendProgress, showConnectToast, syncNavTabs } from './router.js';
@@ -26,6 +28,8 @@ import { initPaneSplit } from './paneSplit.js';
 import { initSerialSplit } from './serialSplit.js';
 import { initCodeDrawerSplit } from './codeDrawerSplit.js';
 import { iconSvg, exampleIcon } from './icons.js';
+// LED icons for the display panel -- unrelated to icons.js, which is UI chrome.
+import { iconNamesIn, missingIconsIn, iconFileText } from './ledicons/iconLibrary.js';
 
 const SILENCE_LIMIT_MS = 15000;
 const SILENCE_SERVE_MS = 45000;
@@ -49,8 +53,11 @@ const SYSTEM_PROMPT_BASE = `You are an AI assistant helping teachers write Micro
 
 RULES:
 - All board details, APIs, and hardware specs are in the KNOWLEDGE BASE below. Reference it.
-- Generated code MUST follow the jumpin.py format with def play(nfc, leds, buz, accel, i2c, enow)
+- A wand game MUST use def play(nfc, leds, buz, accel, i2c, enow, batt=None)
+- An icon display game MUST use def play(nfc, panel, enow)
 - Put all code inside a fenced code block: \`\`\`python ... \`\`\`
+- Precede EVERY code block with a device marker on its own line: [DEVICE: wand] or [DEVICE: icon]
+- A game that uses both devices is TWO files, one per device, each in its own marked block. They are separate programs that happen to play the same game — never one file with a mode switch.
 - Do NOT use f-strings — they crash on this MicroPython build. Use % formatting only.
 - Keep explanations concise — the code block is auto-extracted to the editor
 - If the user sends serial output (prefixed with [HW]:), help debug it
@@ -180,6 +187,36 @@ class App {
             : SYSTEM_PROMPT_BASE;
     }
 
+    /**
+     * Reflect the roles the current game has onto the device tab rail.
+     *
+     * A tab is enabled once that role holds code, and marked active when it
+     * is the one the editor is showing. The wand tab always stays enabled:
+     * it is where a new game starts.
+     */
+    syncRoleRail() {
+        const have = new Set(rolesWithCode());
+        const active = getActiveRole();
+        document.querySelectorAll('.role-rail .role-item').forEach((el) => {
+            const role = el.dataset.role;
+            if (!role) return;
+            const enabled = role === 'wand' || have.has(role);
+            el.classList.toggle('disabled', !enabled);
+            el.classList.toggle('active', enabled && role === active);
+            el.disabled = !enabled;
+            if (!enabled) el.title = 'No display code in this game yet';
+            else el.title = role === 'wand' ? 'Wands' : 'Icon display';
+        });
+    }
+
+    /** Show a role's file in the editor, if that role has one. */
+    selectRole(role) {
+        if (role !== 'wand' && !rolesWithCode().includes(role)) return;
+        setActiveRole(role);
+        this.syncRoleRail();
+        dbg('app', `editor showing role: ${role}`);
+    }
+
     applyUiMode(mode) {
         const advanced = mode === 'advanced';
         const panel = document.getElementById('serial-log-panel');
@@ -200,7 +237,10 @@ class App {
                 document.body.style.paddingBottom = '';
             }
         }
-        if (rail) rail.classList.toggle('advanced', advanced);
+        if (rail) {
+            rail.classList.toggle('advanced', advanced);
+            this.syncRoleRail();
+        }
         if (gear) {
             gear.title = advanced ? 'Switch to simple mode' : 'Switch to advanced mode';
             gear.classList.toggle('active', advanced);
@@ -571,6 +611,9 @@ class App {
         document.getElementById('btn-box-stats-reset')?.addEventListener('click', () => this.resetBoxStats());
 
         document.getElementById('btn-mode-gear').addEventListener('click', () => toggleUiMode());
+        document.querySelectorAll('.role-rail .role-item').forEach((el) => {
+            el.addEventListener('click', () => this.selectRole(el.dataset.role));
+        });
         document.getElementById('btn-save-game').addEventListener('click', () => this.onSaveGame());
         document.getElementById('btn-download').addEventListener('click', () => onDownload(addMsg));
 
@@ -633,7 +676,8 @@ class App {
     }
 
     onSaveGame() {
-        const code = getCode();
+        const code = getCode('wand');
+        const iconCode = getCode('icon');
         if (!code.trim() || code.trim().startsWith('# AI-generated')) {
             toast('Nothing to save yet — generate or load some code first.', true);
             return;
@@ -642,6 +686,7 @@ class App {
             name: this.gameName,
             desc: this.gameDesc,
             code,
+            iconCode,
             requiredTags: this.requiredTags,
             hardware: this.hardware,
             chatHistory: this.chatHistory.slice(),
@@ -807,10 +852,16 @@ class App {
         const box = document.getElementById('chat-box');
         box.innerHTML = '';
         addMsg(`Loaded saved game “${g.name}”.`, 'system');
+        clearAllRoles();
         if (g.code) {
-            setCode(g.code);
-            saveVersion(g.code, 'Loaded from library');
+            setCode(g.code, 'wand');
+            saveVersion(g.code, 'Loaded from library', 'wand');
         }
+        if (g.iconCode) {
+            setCode(g.iconCode, 'icon');
+            saveVersion(g.iconCode, 'Loaded from library', 'icon');
+        }
+        this.syncRoleRail();
         this.dirty = false;
         this.updatePreview();
     }
@@ -936,6 +987,10 @@ class App {
      */
     resetGameContext() {
         dbg('app', 'resetGameContext() — clearing name/tags/example');
+        // Every role's code and history goes with the game it belonged to:
+        // a display file left behind would be sent alongside the next game.
+        clearAllRoles();
+        this.syncRoleRail();
         this.currentExample = null;
         this.declaredTags = null;
         this.gameName = 'Your game';
@@ -1283,7 +1338,7 @@ class App {
 
     async confirmSend() {
         dbg('app', 'confirmSend() — "Send" clicked on confirm overlay');
-        const code = getCode();
+        const code = getCode('wand');
         const nameInput = document.getElementById('send-game-name');
         const errEl = document.getElementById('send-name-error');
         const pretty = (nameInput?.value || this.gameName || '').trim();
@@ -1324,6 +1379,39 @@ class App {
         }
         const destPath = `/flash/games/${slug}.py`;
 
+        // A multi-device game ships as several files in one raw-REPL session:
+        // the wand's <slug>.py, the display's <slug>_icon.py, and every icon
+        // that display game names, under <slug>_icons/. The Box then serves
+        // each device whichever file its hubtype asks for.
+        const iconCode = getCode('icon').trim();
+        const extraFiles = [];
+        if (iconCode) {
+            // The wand file is checked inside uploadPayload; the display's
+            // has a different signature, so it is checked here.
+            const [iconOk, iconErr] = validateGameCode(iconCode, 'icon');
+            if (!iconOk) {
+                if (errEl) errEl.textContent = iconErr;
+                toast(iconErr, true);
+                return;
+            }
+            const missing = missingIconsIn(iconCode);
+            if (missing.length) {
+                // Sending blanks would leave a dark panel and no explanation.
+                const msg = `The display game asks for icons that do not exist: ${missing.join(', ')}.`;
+                if (errEl) errEl.textContent = msg;
+                toast(msg, true);
+                return;
+            }
+            extraFiles.push({ path: `/flash/games/${slug}_icon.py`, content: iconCode });
+            for (const name of iconNamesIn(iconCode)) {
+                extraFiles.push({
+                    path: `/flash/games/${slug}_icons/${name}.py`,
+                    content: iconFileText(name),
+                });
+            }
+            dbg('app', `display file plus ${extraFiles.length - 1} icon(s) queued`);
+        }
+
         document.getElementById('send-progress-wrap').classList.remove('hidden');
         setSendProgress(0, 'Starting…');
         this.setSendBusy(true);
@@ -1340,6 +1428,7 @@ class App {
                 destLabel: `${slug}.py`,
                 prettyName: check.pretty,
                 deviceLabel: this.deviceShort(),
+                extraFiles,
                 tags: buildHardwareReqs({
                     code, gameName: check.pretty, declared: this.declaredTags,
                 }).tags,
@@ -1707,7 +1796,7 @@ class App {
             const rawReply = data.content.filter((b) => b.type === 'text').map((b) => b.text).join('');
             const nfcCards = parseNfcCards(rawReply);
             const gameName = parseGameName(rawReply);
-            const reply = stripGameNameMarker(stripNfcMarker(rawReply));
+            const reply = stripDeviceMarkers(stripGameNameMarker(stripNfcMarker(rawReply)));
             dbg('chat', `reply received (${rawReply.length} chars)`, { nfcCards, gameName });
 
             removeTyping();
@@ -1719,13 +1808,25 @@ class App {
                 dbg('chat', `game name from marker: ${gameName}`);
             }
 
-            const code = extractCode(reply);
-            if (code) {
-                dbg('chat', `code block extracted (${code.length} chars) — saving version`);
-                setCode(code);
+            // A reply may carry one file per device: the markers were read
+            // off rawReply before they were stripped for display.
+            const blocks = extractCodeBlocks(rawReply);
+            if (blocks.length) {
                 const label = userMsg.length > 40 ? userMsg.slice(0, 40) + '…' : userMsg;
-                saveVersion(code, label);
-                addMsg(`Code updated (v${getVersionCount()})`, 'system');
+                const seen = [];
+                for (const { role, code } of blocks) {
+                    dbg('chat', `[${role}] code block extracted (${code.length} chars)`);
+                    setCode(code, role);
+                    saveVersion(code, label, role);
+                    seen.push(role);
+                }
+                // Show the first role this reply wrote for, so the editor is
+                // looking at something the teacher just asked for.
+                setActiveRole(seen[0]);
+                this.syncRoleRail();
+                addMsg(seen.length > 1
+                    ? `Code updated for ${seen.join(' and ')} (v${getVersionCount()})`
+                    : `Code updated (v${getVersionCount()})`, 'system');
                 // New code replaces the old tag declaration outright: no marker
                 // means this version reads no named tags, not "keep the old ones".
                 this.declaredTags = nfcCards?.length ? nfcCards : null;

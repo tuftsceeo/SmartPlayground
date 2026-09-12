@@ -57,7 +57,12 @@ export async function installBoxFirmware(repl, adapter, onProgress, device = nul
 export async function pushPayload(repl, adapter, code, onProgress, meta = {}) {
   const destPath = meta.destPath || "/flash/payload.py";
   const label = meta.destLabel || destPath.split("/").pop() || "payload.py";
-  onProgress?.({ current: 1, total: 1, file: label, status: "uploading" });
+  // A multi-device game is several files -- the wand's, the display's, and
+  // the display's named icons. All of them go in ONE raw-REPL session so the
+  // whole game costs a single reset.
+  const extras = Array.isArray(meta.extraFiles) ? meta.extraFiles : [];
+  const total = 1 + extras.length;
+  onProgress?.({ current: 1, total, file: label, status: "uploading" });
   await repl.enterRepl();
   await repl.enterRawRepl();
   // Ensure /flash/games exists when pushing into the library.
@@ -69,7 +74,17 @@ export async function pushPayload(repl, adapter, code, onProgress, meta = {}) {
     const tagsPath = destPath.replace(/\.py$/, "") + ".tags.json";
     await repl.uploadFile(tagsPath, JSON.stringify(meta.tags));
   }
-  onProgress?.({ current: 1, total: 1, file: label, status: "uploaded" });
+  let done = 1;
+  for (const extra of extras) {
+    if (!extra?.path || extra.content === undefined) continue;
+    const dir = extra.path.slice(0, extra.path.lastIndexOf("/"));
+    if (dir && dir !== "/flash") await repl.ensureDirectory(dir);
+    done++;
+    const name = extra.path.split("/").pop();
+    onProgress?.({ current: done, total, file: name, status: "uploading" });
+    await repl.uploadFile(extra.path, extra.content);
+  }
+  onProgress?.({ current: total, total, file: label, status: "uploaded" });
   await repl.exitRawRepl();
   await repl.softReset();
   const restarted = await waitForTypedMessage(adapter, 10000);
@@ -77,7 +92,7 @@ export async function pushPayload(repl, adapter, code, onProgress, meta = {}) {
     const who = meta.deviceLabel || "Box";
     return { ok: false, error: `Code uploaded, but the ${who} did not confirm restart.` };
   }
-  onProgress?.({ current: 1, total: 1, file: label, status: "done" });
+  onProgress?.({ current: total, total, file: label, status: "done" });
   return { ok: true };
 }
 

@@ -1,6 +1,11 @@
 import { renderMarkdown } from './markdown.js';
 
-const KNOWLEDGE_FILES = ["knowledge/knowledge.py"];
+// One file per device type. Each documents that device's own play()
+// signature and hardware; there is no shared game API to document.
+const KNOWLEDGE_FILES = [
+    "knowledge/knowledge.py",          // wand
+    "knowledge/icon_display.py",       // icon display
+];
 let knowledgeText = "";
 
 export async function loadKnowledgeBase() {
@@ -54,18 +59,73 @@ export function removeTyping() {
     });
 }
 
-export function extractCode(text) {
-    if (!text.includes("```")) return null;
-    const blocks = text.split("```");
-    for (let i = 1; i < blocks.length; i += 2) {
-        let code = blocks[i];
-        const lines = code.split("\n");
-        if (lines[0] && ["python", "py", "micropython", ""].includes(lines[0].trim().toLowerCase())) {
-            code = lines.slice(1).join("\n");
-        }
-        return code.trim();
+/** Device roles a reply may carry code for, in tab order. */
+export const ROLES = ["wand", "icon"];
+
+const LANG_LINES = ["python", "py", "micropython", ""];
+
+/**
+ * Strip a fenced block's language line and trim it.
+ * @param {string} block  the text between two ``` fences
+ */
+function blockCode(block) {
+    const lines = block.split("\n");
+    if (lines[0] && LANG_LINES.includes(lines[0].trim().toLowerCase())) {
+        return lines.slice(1).join("\n").trim();
     }
-    return null;
+    return block.trim();
+}
+
+/**
+ * The role a fenced block belongs to, from the [DEVICE: ...] marker most
+ * recently seen before it. Defaults to "wand" so a single-block reply --
+ * every reply before this marker existed -- still lands somewhere.
+ */
+function roleBefore(prose) {
+    const matches = [...prose.matchAll(/\[DEVICE:\s*([a-z_]+)\s*\]/gi)];
+    if (!matches.length) return null;
+    const role = matches[matches.length - 1][1].toLowerCase();
+    return ROLES.includes(role) ? role : null;
+}
+
+/**
+ * Every fenced code block in a reply, tagged with its device role.
+ *
+ * A multi-device game is several files -- one per device type -- so a reply
+ * can carry more than one block. Each is preceded by a [DEVICE: wand] or
+ * [DEVICE: icon] marker; blocks with no marker before them are wand code.
+ *
+ * @returns {{role: string, code: string}[]} in the order they appeared
+ */
+export function extractCodeBlocks(text) {
+    if (!text || !text.includes("```")) return [];
+    const parts = text.split("```");
+    const out = [];
+    let role = "wand";
+    for (let i = 0; i < parts.length; i++) {
+        if (i % 2 === 0) {
+            // Prose. A marker here names the role of the block that follows.
+            const named = roleBefore(parts[i]);
+            if (named) role = named;
+            continue;
+        }
+        const code = blockCode(parts[i]);
+        if (code) out.push({ role, code });
+    }
+    return out;
+}
+
+/**
+ * The first block's code, or null.
+ * Single-role callers that do not care which device a reply was for.
+ */
+export function extractCode(text) {
+    const blocks = extractCodeBlocks(text);
+    return blocks.length ? blocks[0].code : null;
+}
+
+export function stripDeviceMarkers(text) {
+    return text.replace(/\[DEVICE:\s*[a-z_]+\s*\]/gi, "").trim();
 }
 
 export function parseNfcCards(text) {
