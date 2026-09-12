@@ -66,7 +66,7 @@ if game_store.GAMES_DIR not in sys.path:
 # -- MicroPython's GC heap is carved out of the IDF heap in splits that
 # are never returned, and the eager-import baseline left too little
 # contiguous IDF heap for esp_wifi_init()/esp_wifi_start() to succeed.
-# See Bag3/Code/BroadcastBox/design/2026-09-01-wifi-handoff-diagnosis.md.
+# See Bag3/Code/BroadcastBox/docs_and_design/old/2026-09-01-wifi-handoff-diagnosis.md.
 #
 # GAME_MODULES maps tag name -> module basename (not a callable -- the
 # module is compiled only when its tag is actually tapped or ESP-NOW
@@ -723,7 +723,7 @@ def main():
     # least fragmented. This was measured directly: with enow.init() left
     # at its old position (after Stage 3, before Stage 4) the wand hit
     # "OSError: WiFi Out of Memory" with idf_free=12116; moved here it
-    # succeeds. See design/2026-09-01-wifi-handoff-diagnosis.md.
+    # succeeds. See docs_and_design/old/2026-09-01-wifi-handoff-diagnosis.md.
     #
     # No stage number of its own: SHAPE_LEFT_COL has exactly five pixels
     # (stages 0-4) and none to spare. It reports into stage 0's otherwise-

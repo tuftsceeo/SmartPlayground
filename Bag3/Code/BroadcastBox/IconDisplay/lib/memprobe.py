@@ -2,7 +2,7 @@
 
 Deviation from Bag3/Code/Wand Module/. Heap probes for diagnosing the
 "OSError: WiFi Out of Memory" failure at enow.init() -- see
-Bag3/Code/BroadcastBox/design/2026-09-01-wifi-handoff-diagnosis.md for the
+Bag3/Code/BroadcastBox/docs_and_design/old/2026-09-01-wifi-handoff-diagnosis.md for the
 background and REBOOT_PULL_PLAN.md for why enow.init() has to run on a
 cold radio. This module exists only so that claim can be checked against
 real heap numbers instead of guessed at.
