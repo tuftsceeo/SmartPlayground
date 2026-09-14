@@ -9,7 +9,7 @@ import {
     onPrevVersion, onNextVersion, getVersionCount, onDownload,
 } from './editor.js';
 import { uploadPayload } from './upload.js';
-import { showTagChecklist, updateTagChecklist } from './nfc.js';
+import { updateTagChecklist } from './nfc.js';
 import { EXAMPLES, CATEGORIES, findExample, loadExampleCode } from './examples.js';
 import { showView, showOverlay, hideOverlay, setConnectionBadge, toast, setSendProgress, showConnectToast, syncNavTabs } from './router.js';
 import { createDeviceLink, deviceShortName, deviceProductName } from './device/bboxDeviceLink.js';
@@ -572,14 +572,21 @@ class App {
         });
         document.getElementById('btn-send-confirm').addEventListener('click', () => this.confirmSend());
         document.getElementById('btn-send-cancel').addEventListener('click', () => hideOverlay('send-confirm-overlay'));
+        document.getElementById('btn-send-done').addEventListener('click', () => this.finishSend());
         // Kill switch: unlike Cancel (hidden by setSendBusy(true) while a
         // send is in flight -- there is no safe abort mid-write, see
         // setSendBusy()'s docstring), this button is never hidden or
-        // disabled. It does not try to cancel the upload -- that keeps
-        // running in the background and will resolve into the usual
-        // toast/link-state path -- it only frees the UI so the teacher
-        // isn't stuck looking at "Sending..." if something never resolves.
+        // disabled. On the form it does not try to cancel the upload --
+        // that keeps running in the background and will resolve into the
+        // usual toast/link-state path -- it only frees the UI so the
+        // teacher isn't stuck looking at "Sending..." if something never
+        // resolves. On the success screen it's equivalent to Done.
         document.getElementById('btn-send-close-x')?.addEventListener('click', () => {
+            const inSuccess = !document.getElementById('send-confirm-success').classList.contains('hidden');
+            if (inSuccess) {
+                this.finishSend();
+                return;
+            }
             this.setSendBusy(false);
             document.getElementById('send-progress-wrap').classList.add('hidden');
             hideOverlay('send-confirm-overlay');
@@ -1271,6 +1278,11 @@ class App {
         this.renderSendRequirements();
         this.setSendBusy(false);
         document.getElementById('send-progress-wrap').classList.add('hidden');
+        // Always reopen on the name/requirements form, never mid-way
+        // through a previous send's success screen.
+        document.getElementById('send-confirm-form').classList.remove('hidden');
+        document.getElementById('send-confirm-success').classList.add('hidden');
+        clearTimeout(this._sendSuccessTimer);
         // Refresh Box game list when live so duplicate checks work.
         if (this.link.state === 'live') {
             try {
@@ -1298,6 +1310,36 @@ class App {
         }
         if (cancel) cancel.classList.toggle('hidden', busy);
         if (nameInput) nameInput.disabled = busy;
+    }
+
+    /**
+     * Switch the send-confirm overlay from the name/requirements form to a
+     * success screen, once the device has confirmed the file write (the
+     * real point of success -- see pushPayload()/boxFirmwareInstaller.js).
+     * The device's own reboot happens after this and is expected; the
+     * overlay does not wait on it. Auto-closes on a timer as well as Done,
+     * since a teacher mid-classroom may not click through every dialog.
+     */
+    showSendSuccess(prettyName) {
+        document.getElementById('send-confirm-form').classList.add('hidden');
+        document.getElementById('send-confirm-success').classList.remove('hidden');
+        document.getElementById('send-success-title').textContent = `"${prettyName}" is on the ${this.deviceShort()}!`;
+        document.getElementById('send-success-note').textContent =
+            `The ${this.deviceShort()} will restart now — give it a few seconds.`;
+        clearTimeout(this._sendSuccessTimer);
+        this._sendSuccessTimer = setTimeout(() => this.finishSend(), 5000);
+    }
+
+    /** Close the send-confirm overlay after a successful send (Done, its
+     * auto-close timer, or the kill-switch X all land here) and put the
+     * link into 'rebooting' -- the state that quietly rides out the
+     * device's own reboot instead of reporting it as a disconnect. */
+    finishSend() {
+        clearTimeout(this._sendSuccessTimer);
+        hideOverlay('send-confirm-overlay');
+        this._pendingReplaceSlug = null;
+        this.setLinkState('rebooting');
+        this._armRebootTimer();
     }
 
     async confirmSend() {
@@ -1377,30 +1419,11 @@ class App {
             return;
         }
 
-        hideOverlay('send-confirm-overlay');
-        this._pendingReplaceSlug = null;
-
-        this.setLinkState('rebooting');
-        this._armRebootTimer();
-        dbg('app', 'send succeeded — showing tag to-do list');
-        const banner = document.getElementById('sent-banner');
-        banner.classList.remove('hidden');
-        setTimeout(() => banner.classList.add('hidden'), 4000);
-
-        // Post-send to-do list. Every game needs the baseline getcode:/play pair,
-        // so only open the overlay when there is more to write than that.
-        const tags = this.requiredTags;
-        if (tags.length > baselineTags(slug).length) {
-            this.tagWrites = {};
-            await showTagChecklist({
-                title: `Now write ${tags.length} tags on the ${this.deviceShort()}`,
-                subtitle: `Hold each card on the ${this.deviceShort()} in turn — you can unplug it first.`,
-                tags,
-                written: this.tagWrites,
-            });
-        } else {
-            toast(`Sent! Hold a card on the ${this.deviceShort()} to write the pickup tag.`);
-        }
+        dbg('app', 'send succeeded — showing success screen');
+        // Tag-writing to-do list is out of scope here now -- the device
+        // manages that itself (see chat). The overlay's job is just to make
+        // "it worked, the device is restarting" visible and unambiguous.
+        this.showSendSuccess(check.pretty);
     }
 
     async openBoxLibrary() {

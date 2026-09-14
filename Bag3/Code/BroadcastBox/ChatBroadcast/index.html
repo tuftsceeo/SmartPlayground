@@ -250,19 +250,31 @@
                 <button type="button" class="overlay-close-x" id="btn-send-close-x" title="Close">
                     <span data-icon="close" data-icon-size="18"></span>
                 </button>
-                <label class="send-name-label" for="send-game-name">Name this game</label>
-                <div class="send-name-field">
-                    <input type="text" id="send-game-name" maxlength="48" placeholder="Game name" />
-                    <span class="send-name-pencil" data-icon="pencil" data-icon-size="15" aria-hidden="true"></span>
+                <div id="send-confirm-form">
+                    <label class="send-name-label" for="send-game-name">Name this game</label>
+                    <div class="send-name-field">
+                        <input type="text" id="send-game-name" maxlength="48" placeholder="Game name" />
+                        <span class="send-name-pencil" data-icon="pencil" data-icon-size="15" aria-hidden="true"></span>
+                    </div>
+                    <p id="send-name-error" class="modal-error"></p>
+                    <ul class="send-requirements" id="send-requirements"></ul>
+                    <div id="send-progress-wrap" class="hidden">
+                        <div id="send-progress-track"><div id="send-progress-bar"></div></div>
+                        <p id="send-progress-label"></p>
+                    </div>
+                    <button class="btn-primary" id="btn-send-confirm" type="button">Send</button>
+                    <button class="btn-secondary" id="btn-send-cancel" type="button">Not yet</button>
                 </div>
-                <p id="send-name-error" class="modal-error"></p>
-                <ul class="send-requirements" id="send-requirements"></ul>
-                <div id="send-progress-wrap" class="hidden">
-                    <div id="send-progress-track"><div id="send-progress-bar"></div></div>
-                    <p id="send-progress-label"></p>
+                <!-- Shown once the device has confirmed the file write (the
+                     real point of success -- see boxFirmwareInstaller.js).
+                     The device's own reboot happens after this and is
+                     expected, not something this screen waits on. -->
+                <div id="send-confirm-success" class="hidden">
+                    <div class="send-success-icon" data-icon="circle-check" data-icon-size="40"></div>
+                    <h2 id="send-success-title">Sent!</h2>
+                    <p id="send-success-note"></p>
+                    <button class="btn-primary" id="btn-send-done" type="button">Done</button>
                 </div>
-                <button class="btn-primary" id="btn-send-confirm" type="button">Send</button>
-                <button class="btn-secondary" id="btn-send-cancel" type="button">Not yet</button>
             </div>
         </div>
 
