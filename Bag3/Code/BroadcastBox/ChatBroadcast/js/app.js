@@ -548,6 +548,13 @@ class App {
             hideOverlay('connect-overlay');
             showConnectToast(false);
         });
+        // Kill switch: same effect as Cancel, but never disabled/hidden by
+        // any busy state -- always a way out of this overlay.
+        document.getElementById('btn-connect-close-x')?.addEventListener('click', () => {
+            this.pendingSendAfterConnect = false;
+            hideOverlay('connect-overlay');
+            showConnectToast(false);
+        });
         document.querySelectorAll('.btn-connect-header').forEach((btn) => {
             btn.addEventListener('click', () => this.toggleConnect());
         });
@@ -565,6 +572,18 @@ class App {
         });
         document.getElementById('btn-send-confirm').addEventListener('click', () => this.confirmSend());
         document.getElementById('btn-send-cancel').addEventListener('click', () => hideOverlay('send-confirm-overlay'));
+        // Kill switch: unlike Cancel (hidden by setSendBusy(true) while a
+        // send is in flight -- there is no safe abort mid-write, see
+        // setSendBusy()'s docstring), this button is never hidden or
+        // disabled. It does not try to cancel the upload -- that keeps
+        // running in the background and will resolve into the usual
+        // toast/link-state path -- it only frees the UI so the teacher
+        // isn't stuck looking at "Sending..." if something never resolves.
+        document.getElementById('btn-send-close-x')?.addEventListener('click', () => {
+            this.setSendBusy(false);
+            document.getElementById('send-progress-wrap').classList.add('hidden');
+            hideOverlay('send-confirm-overlay');
+        });
         document.getElementById('btn-box-lib-close')?.addEventListener('click', () => hideOverlay('box-library-overlay'));
         document.getElementById('btn-box-lib-refresh')?.addEventListener('click', () => this.refreshBoxLibrary());
         document.getElementById('btn-box-lib-clear')?.addEventListener('click', () => this.clearBoxLibrary());

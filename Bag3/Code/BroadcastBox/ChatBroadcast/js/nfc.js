@@ -58,6 +58,7 @@ export function showTagChecklist({ title, subtitle, tags, written }) {
             _live = null;
             document.getElementById("tag-checklist-continue").removeEventListener("click", onContinue);
             document.getElementById("tag-checklist-back")?.removeEventListener("click", onBack);
+            document.getElementById("tag-checklist-close-x")?.removeEventListener("click", onDismiss);
         }
         function onContinue() {
             cleanup();
@@ -69,9 +70,18 @@ export function showTagChecklist({ title, subtitle, tags, written }) {
             overlay.classList.add("hidden");
             resolve({ action: "back" });
         }
+        // Kill switch: always available, independent of the tag-writing
+        // to-do list's own state -- this overlay has no busy-lock today,
+        // but the X is here so one added later can't remove the only exit.
+        function onDismiss() {
+            cleanup();
+            overlay.classList.add("hidden");
+            resolve({ action: "dismiss" });
+        }
 
         document.getElementById("tag-checklist-continue").addEventListener("click", onContinue);
         document.getElementById("tag-checklist-back")?.addEventListener("click", onBack);
+        document.getElementById("tag-checklist-close-x")?.addEventListener("click", onDismiss);
     });
 }
 

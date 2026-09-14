@@ -911,6 +911,7 @@ body.ui-advanced #app-shell {
     padding: 16px;
 }
 .overlay-card {
+    position: relative;
     background: #fff;
     border-radius: 20px;
     padding: 24px;
@@ -918,6 +919,23 @@ body.ui-advanced #app-shell {
     box-shadow: var(--overlay-shadow);
     text-align: center;
 }
+/* Kill switch: always-present, always-enabled dismiss control. Never gets
+   hidden/disabled by an overlay's own busy state (see app.js setSendBusy) --
+   that's the whole point, so there is always a way out. */
+.overlay-close-x {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: none;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    padding: 6px;
+    display: inline-flex;
+    border-radius: 8px;
+    z-index: 1;
+}
+.overlay-close-x:hover { background: var(--hover, rgba(0,0,0,0.05)); }
 .overlay-card.left { text-align: left; }
 .overlay-card h2 { font: 800 18px 'Nunito'; margin: 0 0 8px; }
 .overlay-card p { font: 14px 'Nunito'; color: var(--muted); margin: 0 0 12px; }

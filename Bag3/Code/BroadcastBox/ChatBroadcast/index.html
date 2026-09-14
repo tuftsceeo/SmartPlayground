@@ -217,6 +217,9 @@
         <!-- Tag checklist -->
         <div id="tag-checklist-overlay" class="overlay-view hidden">
             <div class="overlay-card overlay-card-tags left">
+                <button type="button" class="overlay-close-x" id="tag-checklist-close-x" title="Close">
+                    <span data-icon="close" data-icon-size="18"></span>
+                </button>
                 <h2 id="tag-checklist-title">This game needs tags</h2>
                 <p id="tag-checklist-subtitle"></p>
                 <div class="tag-bars" id="tag-checklist-bars"></div>
@@ -228,6 +231,9 @@
         <!-- Connect (send-while-disconnected / errors) -->
         <div id="connect-overlay" class="overlay-view hidden">
             <div class="overlay-card overlay-card-send">
+                <button type="button" class="overlay-close-x" id="btn-connect-close-x" title="Close">
+                    <span data-icon="close" data-icon-size="18"></span>
+                </button>
                 <div class="connect-hero" data-icon="cable" data-icon-size="40"></div>
                 <h2>Connect to Broadcast Box or Dial</h2>
                 <p>Plug it in, then pick it from the browser's list</p>
@@ -241,6 +247,9 @@
         <!-- Send confirm -->
         <div id="send-confirm-overlay" class="overlay-view hidden">
             <div class="overlay-card overlay-card-send">
+                <button type="button" class="overlay-close-x" id="btn-send-close-x" title="Close">
+                    <span data-icon="close" data-icon-size="18"></span>
+                </button>
                 <label class="send-name-label" for="send-game-name">Name this game</label>
                 <div class="send-name-field">
                     <input type="text" id="send-game-name" maxlength="48" placeholder="Game name" />
