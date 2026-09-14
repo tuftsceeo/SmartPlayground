@@ -213,6 +213,12 @@ BTN_H = 42
 # at +-60px from centre the circle has only ~104px of half-width left,
 # which the old length overran.
 TRACK_H = 80
+# Position track is a fixed-size pool of dots (one per option, current one
+# tinted) rather than a bar that grows with the list -- see _set_track().
+# Capped so a long list (melody's eleven tags) still fits the rim; a list
+# longer than this just clamps to the last dot rather than growing further.
+MAX_TRACK_DOTS = 8
+DOT_D = 8
 ACT_W = 104
 ACT_X_SOLO = (SCREEN_W - ACT_W) // 2
 ACT_X_PAIR = 88
@@ -231,7 +237,7 @@ class DialUI(object):
         self._lbl = {}
         self._btns = {}
         self._roller = None
-        self._track_fill = None
+        self._track_dots = []
         self._scan_ring = None
 
     def set_input(self, inputs):
@@ -363,15 +369,21 @@ class DialUI(object):
             self._roller.set_options("\n".join(rows), lv.roller.MODE.NORMAL)
 
     def _set_track(self, cursor, total):
-        """Right-rim position indicator, drawn from two plain lv.obj
-        rectangles rather than a m5ui widget (see module docstring)."""
-        if total <= 1:
-            frac = 1.0
-        else:
-            frac = (cursor + 1) / float(total)
-        fill_h = max(8, int(TRACK_H * frac))
-        self._track_fill.set_size(6, fill_h)
-        self._track_fill.align(lv.ALIGN.BOTTOM_MID, 0, 0)
+        """Right-rim position indicator: one dot per option (capped at
+        MAX_TRACK_DOTS), the current one tinted purple, the rest gray --
+        "there are N options, you're on number K", at a glance, without
+        reading it as a loading/progress bar the way a growing fill did."""
+        shown = max(1, min(total, MAX_TRACK_DOTS))
+        active = min(max(cursor, 0), shown - 1)
+        spacing = 0.0 if shown <= 1 else (TRACK_H - DOT_D) / float(shown - 1)
+        for i, dot in enumerate(self._track_dots):
+            if i >= shown:
+                dot.add_flag(lv.obj.FLAG.HIDDEN)
+                continue
+            dot.remove_flag(lv.obj.FLAG.HIDDEN)
+            dot.align(lv.ALIGN.TOP_MID, 0, int(round(i * spacing)))
+            dot.set_style_bg_color(
+                lv.color_hex(WRITE_FG if i == active else BORDER), 0)
 
     # ── build screens once ──────────────────────────────────────
 
@@ -389,27 +401,28 @@ class DialUI(object):
         # WRITE mode throughout both devices.
         self._chip("lst_crumb", pg, "", 12, FONT14, WRITE_FG, WRITE_BG, w=170)
 
-        # Position track -- a hairline channel with a purple fill that
-        # grows from the bottom as the cursor advances toward the end.
+        # Position track -- a column of dots, one per option (up to
+        # MAX_TRACK_DOTS), the current one tinted purple by _set_track().
         # Shortened from 120 to TRACK_H so its own ends stay inside the
         # round bezel's chord at that height (see _SAFE_NOTE).
         track = lv.obj(pg)
-        track.set_size(6, TRACK_H)
+        track.set_size(DOT_D, TRACK_H)
         track.align(lv.ALIGN.RIGHT_MID, -6, 4)
-        track.set_style_bg_color(lv.color_hex(BORDER), 0)
-        track.set_style_bg_opa(255, 0)
+        track.set_style_bg_opa(0, 0)
         track.set_style_border_width(0, 0)
-        track.set_style_radius(3, 0)
         track.remove_flag(lv.obj.FLAG.CLICKABLE)
-        fill = lv.obj(track)
-        fill.set_size(6, 8)
-        fill.align(lv.ALIGN.BOTTOM_MID, 0, 0)
-        fill.set_style_bg_color(lv.color_hex(WRITE_FG), 0)
-        fill.set_style_bg_opa(255, 0)
-        fill.set_style_border_width(0, 0)
-        fill.set_style_radius(3, 0)
-        fill.remove_flag(lv.obj.FLAG.CLICKABLE)
-        self._track_fill = fill
+        dots = []
+        for _ in range(MAX_TRACK_DOTS):
+            dot = lv.obj(track)
+            dot.set_size(DOT_D, DOT_D)
+            dot.set_style_radius(DOT_D // 2, 0)
+            dot.set_style_bg_color(lv.color_hex(BORDER), 0)
+            dot.set_style_bg_opa(255, 0)
+            dot.set_style_border_width(0, 0)
+            dot.remove_flag(lv.obj.FLAG.CLICKABLE)
+            dot.add_flag(lv.obj.FLAG.HIDDEN)
+            dots.append(dot)
+        self._track_dots = dots
 
         roller = m5ui.M5Roller(
             x=36, y=46, w=168, h=96, options=[""],
@@ -619,9 +632,13 @@ class DialUI(object):
         # only the DISPLAYED word changes here, to match the SHARE naming.
         # Kept ALL-CAPS deliberately: this mirrors the action-button
         # convention, not the Title Case applied to the rest of the copy.
+        # No arrow glyph -- this screen isn't decorative, it covers the
+        # real synchronous AP/NFC settle time in _set_mode() (see
+        # bdial_server.py), so the word alone plus the busy icon already
+        # says "something is happening" without needing "-> " in front.
         tint = SERVE_FG if to_mode == "SERVE" else WRITE_FG
         shown = "SHARE" if to_mode == "SERVE" else to_mode
-        self._status(IC["busy"], tint, "-> %s" % shown, tap_dismiss=False)
+        self._status(IC["busy"], tint, shown, tap_dismiss=False)
 
     def paint_no_pickup_hint(self):
         self._status(IC["warn"], WARN_FG, "Pickup Off", "DONE to Share",
@@ -662,17 +679,14 @@ class DialUI(object):
         self._show("list")
 
     def paint_tag_group(self, title, rows, cursor, written):
-        """Tier 2: one group's tags + "< back". Breadcrumb names the
-        group so the user always knows which list they are in."""
+        """Tier 2: one group's tags. Breadcrumb names the group so the
+        user always knows which list they are in. No "< Back" row in the
+        list itself -- the on-screen BACK button (lst_back, shown below)
+        is the one way back, rather than two redundant ones."""
         self._set_text("lst_crumb", _fit(IC["back"] + " " + title, 20))
         display_rows = []
         for r in rows:
-            if r == "< back":
-                # "< back" -> "< Back": not run through _display_tag(),
-                # whose first-letter capitalization would land on the
-                # leading "<" instead of the word "back".
-                display_rows.append("< Back")
-            elif not written or not written.get(r):
+            if not written or not written.get(r):
                 display_rows.append(_display_tag(r))
             else:
                 display_rows.append("%s (%d)" % (_display_tag(r),
@@ -682,12 +696,8 @@ class DialUI(object):
         # binding; plain bool is what set_selected() actually takes.
         self._roller.set_selected(cursor, False)
         self._set_track(cursor, len(rows))
-        cur = rows[cursor] if rows else ""
         btn = self._btns["lst_act"]
-        if cur == "< back":
-            btn.set_btn_text(IC["back"] + " BACK")
-        else:
-            btn.set_btn_text(IC["scan"] + " WRITE")
+        btn.set_btn_text(IC["scan"] + " WRITE")
         btn.align(lv.ALIGN.TOP_LEFT, ACT_X_PAIR, BTN_Y)
         self._btns["lst_back"].remove_flag(lv.obj.FLAG.HIDDEN)
         self._show("list")
@@ -716,7 +726,7 @@ def demo():
     long_games = ["Game %d" % i for i in range(1, 13)] + ["Utility Tags", "DONE"]
     long_group_rows = (
         ["getcode:my_super_long_melody_name", "my_super_long_melody_name"]
-        + ["note_%s" % c for c in "cdefgab"] + ["< back"])
+        + ["note_%s" % c for c in "cdefgab"])
     long_written = {"note_c": 3, "note_d": 1, "note_e": 12}
     screens = [
         lambda: ui.paint_idle(True),
@@ -724,7 +734,7 @@ def demo():
         lambda: ui.paint_tag_list(["Melody", "Utility Tags", "DONE"], 0),
         lambda: ui.paint_tag_list(long_games, 6),
         lambda: ui.paint_tag_group(
-            "Melody", ["getcode:my_melody", "my_melody", "note_c", "< back"],
+            "Melody", ["getcode:my_melody", "my_melody", "note_c"],
             2, {"note_c": 3}),
         lambda: ui.paint_tag_group("Melody", long_group_rows, 5, long_written),
         lambda: ui.paint_no_pickup_hint(),

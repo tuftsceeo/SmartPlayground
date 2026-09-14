@@ -121,7 +121,7 @@ check("presses to reach DONE from row 0", presses, 3)
 srv._cursor = 0
 srv._group_cursor = 0
 srv._write_state = BS.W_GROUP
-check("group rows end with back", srv._group_rows()[-1], "< back")
+check("group rows end with last real tag", srv._group_rows()[-1], "backspace")
 check("current entry inside group", srv._current_entry(), "getcode:my_melody")
 srv._group_cursor = 2
 check("current entry after 2 next", srv._current_entry(), "note_c")

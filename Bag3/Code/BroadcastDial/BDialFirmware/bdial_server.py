@@ -48,7 +48,6 @@ INDEX_PATH = GAMES_DIR + '/index.json'
 # games index. Kept as a fallback if the index is empty.
 TAG_LIST = ("getcode", "jumpin")
 DONE_ENTRY = "DONE"
-BACK_ENTRY = "< back"
 
 # Writable no matter which games are loaded. "stop" exits any running game;
 # "battery" asks the wand to report its charge. These are plain NDEF card
@@ -69,7 +68,7 @@ MODE_SERVE = "SERVE"
 # WRITE-mode sub-states. Dial intents: ACT confirms, NEXT/PREV scroll,
 # BACK cancels. Hold-to-EXIT is SERVE only (see dial_input.SERVE_EXIT_MS).
 #   MENU      list of groups   ACT = open (or serve on DONE)  NEXT/PREV
-#   GROUP     one group's tags ACT = scan (or back)           NEXT/PREV
+#   GROUP     one group's tags ACT = scan                     NEXT/PREV
 #   SCAN      RF field on      BACK = group
 #   SPLASH    result shown     ACT/BACK/NEXT = group
 #
@@ -131,7 +130,8 @@ class BdialServer:
 
         # (title, [tag, ...]) per game, then the utility group. Top-level
         # rows are these titles plus DONE; _group_cursor indexes into the
-        # open group's tags, which are followed by a "< back" row.
+        # open group's tags directly (BACK exits the group from any
+        # cursor position -- see _poll_write()'s W_GROUP handling).
         self._groups = [(UTILITY_GROUP, list(UTILITY_TAGS) + [READ_ENTRY])]
         self._entries = [UTILITY_GROUP, DONE_ENTRY]
         self._cursor = 0
@@ -298,7 +298,8 @@ class BdialServer:
             rows = self._group_rows()
             if self._group_cursor < len(rows):
                 return rows[self._group_cursor]
-            return BACK_ENTRY
+            return ""  # defensive only -- NEXT/PREV wrap on len(rows), so
+            # _group_cursor should never actually reach here
         return self._entries[self._cursor]
 
     # ─────────────────────────────────────────────
@@ -733,11 +734,13 @@ class BdialServer:
         return None
 
     def _group_rows(self):
-        """The open group's tags plus the trailing "< back" row."""
+        """The open group's tags. No trailing "< back" row -- BACK (the
+        on-screen button / touchscreen back gesture) already exits the
+        group from any cursor position (see _poll_write()'s W_GROUP
+        handling), so a selectable back row in the list was a second,
+        redundant way to do the same thing."""
         group = self._current_group()
-        tags = list(group[1]) if group else []
-        tags.append(BACK_ENTRY)
-        return tags
+        return list(group[1]) if group else []
 
     # ─────────────────────────────────────────────
     # WRITE MODE
@@ -859,10 +862,7 @@ class BdialServer:
                 self._repaint()
             elif intent == ACT:
                 self.ui.beep_click()
-                if self._current_entry() == BACK_ENTRY:
-                    self._to_menu()
-                else:
-                    self._to_scan()
+                self._to_scan()
             elif intent == BACK:
                 self.ui.beep_click()
                 self._to_menu()
