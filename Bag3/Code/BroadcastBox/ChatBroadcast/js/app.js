@@ -66,6 +66,23 @@ RULES:
 - If the game reads NFC tags at all, include exactly one line formatted as [NFC_CARDS: "value1", "value2"] listing every tag value the game reads. Omit the line only when the game never touches a tag.
 - After the code block, include exactly one line naming the game: [GAME_NAME: Short Pretty Name]`;
 
+/**
+ * Starter chips shown above the first chat message. Deliberately simpler
+ * and shorter than the gallery EXAMPLES (melody, freeze dance, etc.) --
+ * a teacher who wants those already knows to open the Examples page. These
+ * exist to get a first-time, novice user typing at all: one or two of the
+ * smallest possible game asks, plus a couple of plain questions about what
+ * the wand can even do, since "what are my options" is often the real
+ * first question, not a game idea yet.
+ */
+const CHAT_STARTER_PROMPTS = [
+    { icon: 'palette', text: 'Flash the lights blue five times when the button is pressed' },
+    { icon: 'shakePhone', text: 'Play notes based on the orientation of the wand' },
+    { icon: 'message-circle', text: 'Tell me what sorts of outputs are available' },
+    { icon: 'grid-3x3', text: 'What can I show on the LED screen?' },
+    { icon: 'message-circle', text: 'Tell me what sorts of sensors and inputs are available' },
+];
+
 /** Same placeholder-and-play() check the editor's code drawer uses to
  * decide there's real code worth doing anything with. */
 function isRunnableCode(code) {
@@ -1001,18 +1018,22 @@ class App {
         if (box.querySelector('.starter-chips')) return;
         const wrap = document.createElement('div');
         wrap.className = 'starter-chips';
+        // Intro lives INSIDE wrap (not a sibling) so removing '.starter-chips'
+        // on the first sent message takes both with it in one go -- it used
+        // to be a sibling appended straight to `box`, which meant onSend()'s
+        // wrap.remove() left this line behind permanently.
         const intro = document.createElement('div');
         intro.className = 'msg system';
         intro.textContent = 'Try one of these ideas — tap a chip to fill the box, then edit and send:';
-        box.appendChild(intro);
-        EXAMPLES.slice(0, 5).forEach((ex) => {
+        wrap.appendChild(intro);
+        CHAT_STARTER_PROMPTS.forEach((sp) => {
             const chip = document.createElement('button');
             chip.type = 'button';
             chip.className = 'starter-chip';
-            chip.innerHTML = `${iconSvg(exampleIcon(ex), { size: 14 })} <span>${escapeHtml(ex.starterPrompt)}</span>`;
+            chip.innerHTML = `${iconSvg(sp.icon, { size: 14 })} <span>${escapeHtml(sp.text)}</span>`;
             chip.addEventListener('click', () => {
                 const inp = document.getElementById('user-input');
-                inp.value = ex.starterPrompt;
+                inp.value = sp.text;
                 inp.focus();
                 inp.style.height = 'auto';
                 inp.style.height = Math.min(inp.scrollHeight, 120) + 'px';
