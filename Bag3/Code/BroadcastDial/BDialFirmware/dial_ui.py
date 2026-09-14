@@ -13,9 +13,9 @@ after any change here and update the H5 line with the new numbers.
 
 M5's docs say "do not mix M5GFX, M5Widgets and M5UI simultaneously", and
 recommend M5UI/LVGL for new interactive UI. This file follows that: it is
-cleanly `m5ui` + raw `lvgl`, never `M5.Lcd` or `M5.Widgets`. (Raw `lv.obj`
-primitives -- the scan ring and the position track -- are NOT mixing;
-m5ui is built on LVGL, so they are one stack.)
+cleanly `m5ui` + raw `lvgl`, never `M5.Lcd` or `M5.Widgets`. (The raw
+`lv.obj` scan ring is not mixing; m5ui is built on LVGL, so they are one
+stack.)
 
 The peer file bbox_ui.py CANNOT follow that recommendation. The Box's
 StickS3 UIFlow2 build has no `m5ui` module at all (`ImportError`,
@@ -64,16 +64,16 @@ it back to sentence case. ALL-CAPS is reserved for button labels
 Design notes (round-display / small-screen navigation):
   - The tag list is a real m5ui.M5Roller (centre-selected wheel), the
     canonical crown/encoder list widget, rather than three bare labels.
+    It runs in MODE.INFINITE (loops both directions) rather than
+    MODE.NORMAL -- see _build_list()'s comment. An earlier version of
+    this file also drew a position-track scrollbar on the right rim to
+    show list extent/position; after several rounds of on-device fit
+    and alignment problems, it was dropped entirely in favour of the
+    roller just looping, per explicit direction -- there is nothing to
+    "run off the end of" any more, so nothing to indicate.
   - A breadcrumb chip at the top always names the current tier, so a
     two-level hierarchy (games -> tags) never leaves the user unsure
     which list they are looking at.
-  - A raw-LVGL position track on the right rim shows list extent and
-    position, built from two plain lv.obj rectangles. NOTE: an earlier
-    version of this docstring claimed M5Arc/M5Bar signatures "were not
-    available to verify" -- that was wrong. M5UI does ship M5Arc and
-    M5Bar. The raw rectangles are kept because they work and swapping
-    widgets is unrelated risk; M5Arc is the obvious follow-up for a rim
-    indicator that actually follows the round bezel.
   - Every widget is placed against the round bezel's chord width at its
     OWN top and bottom edge, not just a flat inset -- see _SAFE_NOTE.
 
@@ -208,15 +208,6 @@ def _fonts():
 # it right to make room when both are shown (tier 2).
 BTN_Y = 158
 BTN_H = 42
-# Rim track height. Shortened from the old 120 so the track's own top and
-# bottom ends stay inside the bezel's chord at x~=228 (see _SAFE_NOTE):
-# at +-60px from centre the circle has only ~104px of half-width left,
-# which the old length overran.
-TRACK_H = 80
-# Scroll-thumb sizing (see _set_track()) -- keep THUMB_VISIBLE_ROWS equal
-# to the roller's visible_row_count in _build_list() if that ever changes.
-THUMB_VISIBLE_ROWS = 3
-THUMB_MIN_H = 14
 ACT_W = 104
 ACT_X_SOLO = (SCREEN_W - ACT_W) // 2
 ACT_X_PAIR = 88
@@ -235,7 +226,6 @@ class DialUI(object):
         self._lbl = {}
         self._btns = {}
         self._roller = None
-        self._track_thumb = None
         self._scan_ring = None
 
     def set_input(self, inputs):
@@ -360,57 +350,26 @@ class DialUI(object):
     def _roller_set(self, rows):
         """The constructor's `options=` list form is vendor-documented;
         set_options() at runtime is not, so fall back to a newline-joined
-        string if the list form raises on this firmware build."""
-        try:
-            self._roller.set_options(rows, lv.roller.MODE.NORMAL)
-        except Exception:
-            self._roller.set_options("\n".join(rows), lv.roller.MODE.NORMAL)
+        string if the list form raises on this firmware build.
 
-    def _set_track(self, cursor, total):
-        """Right-rim scroll THUMB, not a progress fill: fixed height per
-        list, sliding position -- top and bottom stay the same distance
-        apart, only where that span sits within the rail changes. Two
-        earlier versions got this wrong in the same direction: a fill
-        growing from a fixed bottom anchor (confirmed on-device, via
-        photos, that its height was genuinely changing with the cursor
-        exactly as designed -- the design itself was just the wrong
-        widget, a progress bar rather than a scrollbar) and, before
-        that, discrete dots (dropped for its own on-device problems, see
-        the dot-revert commit).
-
-        THUMB_VISIBLE_ROWS mirrors the roller's own visible_row_count in
-        _build_list() -- a real scrollbar's thumb is sized to roughly
-        "how much of the list fits on screen at once" (a short list gets
-        a tall thumb; a long one, a short thumb you can see slide a
-        long way), not to the raw cursor/total ratio a progress bar
-        would use. THUMB_MIN_H keeps a very long list's thumb from
-        shrinking to an unreadable sliver.
-
-        Sizing uses `total + 2`, not the raw item count: the roller
-        centers whichever row is selected, which means it needs a blank
-        pad row above item 1 and below the last item purely to have
-        something to center THOSE against -- so its actual scroll depth
-        is two rows deeper than the item count suggests. Skipping this
-        was the bug in the first version of this thumb: at
-        THUMB_VISIBLE_ROWS=3, a plain 3-item list sized out to a
-        permanently full-height, non-moving thumb, and a 2-item list
-        (the common case -- most games only declare two tags) would
-        have too. Padded, a 2-item list's functional depth is 4, giving
-        thumb_frac=3/4 -- a real, visibly-sliding thumb for the case
-        that actually matters most. Position still maps cursor 0 and
-        cursor total-1 to the very top/bottom of the rail (not the
-        padded ends) -- that's the intuitive "first item = top, last
-        item = bottom" reading; only the SIZE accounts for the padding.
+        MODE.INFINITE, not MODE.NORMAL: the roller loops both directions
+        instead of stopping at the first/last row. NEXT/PREV in
+        bdial_server.py already wrap the cursor with modulo arithmetic
+        (`(self._cursor + 1) % len(self._entries)`), so the roller's own
+        wraparound just needs to match that, and it removes the need for
+        a position indicator entirely -- there is no "end of the list" to
+        show a position against any more. UNVERIFIED on hardware: confirm
+        `lv.roller.MODE.INFINITE` actually exists on this binding (this
+        firmware has been missing documented LVGL enums before, e.g.
+        lv.ANIM.OFF) via REPL -- `print(dir(lv.roller.MODE))` -- before
+        trusting this in the field; fall back to MODE.NORMAL if it is
+        absent.
         """
-        total = max(1, total)
-        padded_total = total + 2
-        thumb_frac = min(1.0, THUMB_VISIBLE_ROWS / float(padded_total))
-        thumb_h = min(TRACK_H, max(THUMB_MIN_H, int(TRACK_H * thumb_frac)))
-        track_range = TRACK_H - thumb_h
-        scroll_frac = 0.0 if total <= 1 else min(1.0, max(0.0, cursor / float(total - 1)))
-        thumb_top = int(round(track_range * scroll_frac))
-        self._track_thumb.set_size(6, thumb_h)
-        self._track_thumb.align(lv.ALIGN.TOP_MID, 0, thumb_top)
+        mode = getattr(lv.roller.MODE, "INFINITE", lv.roller.MODE.NORMAL)
+        try:
+            self._roller.set_options(rows, mode)
+        except Exception:
+            self._roller.set_options("\n".join(rows), mode)
 
     # ── build screens once ──────────────────────────────────────
 
@@ -428,59 +387,21 @@ class DialUI(object):
         # WRITE mode throughout both devices.
         self._chip("lst_crumb", pg, "", 12, FONT14, WRITE_FG, WRITE_BG, w=170)
 
-        # Position track -- a hairline channel with a purple THUMB (fixed
-        # height, sliding position -- see _set_track()) rather than a fill
-        # that grows from a fixed end, which read as a loading/progress
-        # bar instead of a scroll position. Shortened from 120 to TRACK_H
-        # so its own ends stay inside the round bezel's chord at that
-        # height (see _SAFE_NOTE) -- but the horizontal inset also
-        # matters and was NOT far enough in: at dx=-6 the track's right
-        # edge sits at x=234, while the chord at the track's own bottom
-        # edge (the tightest row given TRACK_H=80) only allows x up to
-        # ~231.6 (_SAFE_NOTE's sqrt(120^2-(y-120)^2) formula) -- a real
-        # ~2.4px overrun, confirmed on-device as the old fill's bottom
-        # end reading squared-off instead of rounded. dx=-14 clears it
-        # with ~5.6px to spare while staying clear of the roller (right
-        # edge ~x=200); the thumb never exceeds this same [0, TRACK_H]
-        # span either, so that clearance still holds.
-        #
-        # dy: the original code (inherited, not something introduced by
-        # this rework) centred the track 4px below true screen centre
-        # (cy=124, not 120) -- invisible on the old growing fill, but
-        # once the thumb's actual position became legible, on-device
-        # measurement (photo, pixel-counted against the bezel) showed
-        # the whole track sitting too low/high relative to the real
-        # centre by about 5px. dy=-1 centres it 1px above true centre
-        # instead, per that measurement; re-checked against _SAFE_NOTE
-        # above and it *improves* the clipping margin (6.8px vs. the old
-        # 5.6px), since it moves the track's tightest edge toward the
-        # widest part of the chord.
-        track = lv.obj(pg)
-        track.set_size(6, TRACK_H)
-        track.align(lv.ALIGN.RIGHT_MID, -14, -1)
-        track.set_style_bg_color(lv.color_hex(BORDER), 0)
-        track.set_style_bg_opa(255, 0)
-        track.set_style_border_width(0, 0)
-        track.set_style_radius(3, 0)
-        track.remove_flag(lv.obj.FLAG.CLICKABLE)
-        thumb = lv.obj(track)
-        thumb.set_size(6, TRACK_H)
-        thumb.align(lv.ALIGN.TOP_MID, 0, 0)
-        thumb.set_style_bg_color(lv.color_hex(WRITE_FG), 0)
-        thumb.set_style_bg_opa(255, 0)
-        thumb.set_style_border_width(0, 0)
-        thumb.set_style_radius(3, 0)
-        thumb.remove_flag(lv.obj.FLAG.CLICKABLE)
-        self._track_thumb = thumb
-
+        # No rim position track: the roller runs in MODE.INFINITE (see
+        # _roller_set()) and loops, so there is no list extent/position
+        # left to indicate. An earlier fill-bar, then dot, then
+        # scrollbar-thumb design lived here through several rounds of
+        # on-device fit and alignment problems; dropped entirely rather
+        # than debugged further, per explicit direction.
         roller = m5ui.M5Roller(
             x=36, y=46, w=168, h=96, options=[""],
             mode=lv.roller.MODE.NORMAL, selected=0, visible_row_count=3,
             font=FONT16, parent=pg)
-        # Offset left of centre to clear the rim track. Span works out to
-        # x=32..200; the bezel's chord at y=46 allows 25.5..214.5, so this
-        # keeps a real margin on both sides rather than a half-pixel one.
-        roller.align(lv.ALIGN.TOP_MID, -4, 46)
+        # Centred now that there's no rim track to clear. Span works out
+        # to x=36..204; the bezel's chord at y=46 allows 25.5..214.5, so
+        # this keeps a real margin on both sides -- re-check against
+        # _SAFE_NOTE if the roller width/x ever changes.
+        roller.align(lv.ALIGN.TOP_MID, 0, 46)
         roller.set_style_radius(16, 0)          # brand card radius
         roller.set_style_bg_color(lv.color_hex(CARD_BG), 0)
         roller.set_style_border_width(1, 0)
@@ -712,7 +633,6 @@ class DialUI(object):
         # on-device: `dir(lv)` has no ANIM/ANIM_OFF, and set_selected(n,
         # False) succeeds against an isolated lv.roller instance).
         self._roller.set_selected(cursor, False)
-        self._set_track(cursor, len(entries))
         cur = entries[cursor] if entries else ""
         btn = self._btns["lst_act"]
         if cur == "DONE":
@@ -744,7 +664,6 @@ class DialUI(object):
         # See paint_tag_list() above -- lv.ANIM.OFF doesn't exist on this
         # binding; plain bool is what set_selected() actually takes.
         self._roller.set_selected(cursor, False)
-        self._set_track(cursor, len(rows))
         btn = self._btns["lst_act"]
         btn.set_btn_text(IC["scan"] + " WRITE")
         btn.align(lv.ALIGN.TOP_LEFT, ACT_X_PAIR, BTN_Y)
@@ -765,8 +684,8 @@ def demo():
     """Cycle screens — run from REPL: import dial_ui; dial_ui.demo()
 
     Includes a long tag list / long group and non-zero written counts, to
-    exercise roller scrolling, the position track and the middle-of-list
-    styling that a 2-3 row demo would never reach.
+    exercise roller scrolling and the middle-of-list styling that a 2-3
+    row demo would never reach.
     """
     import time
     M5.begin()
