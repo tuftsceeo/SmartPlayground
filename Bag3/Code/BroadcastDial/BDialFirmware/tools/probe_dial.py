@@ -521,7 +521,7 @@ def stage11_roller_and_heap():
         roller.set_options("\n".join(rows), lv.roller.MODE.NORMAL)
         opts_kind = "newline-joined string"
     print("# set_options accepted a %s" % opts_kind)
-    roller.set_selected(6, lv.ANIM.OFF)
+    roller.set_selected(6, False)  # lv.ANIM.OFF doesn't exist on this binding
     try:
         sel = roller.get_selected_str()
         print("# get_selected_str() ->", sel)

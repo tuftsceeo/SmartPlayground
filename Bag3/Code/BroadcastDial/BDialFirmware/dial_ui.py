@@ -641,7 +641,11 @@ class DialUI(object):
         display_entries = ["Enable Share" if e == "DONE" else e
                            for e in entries]
         self._roller_set([_fit(e) for e in display_entries])
-        self._roller.set_selected(cursor, lv.ANIM.OFF)
+        # This binding's set_selected() takes a plain bool for the anim
+        # flag, not lv.ANIM.OFF -- that enum doesn't exist here (confirmed
+        # on-device: `dir(lv)` has no ANIM/ANIM_OFF, and set_selected(n,
+        # False) succeeds against an isolated lv.roller instance).
+        self._roller.set_selected(cursor, False)
         self._set_track(cursor, len(entries))
         cur = entries[cursor] if entries else ""
         btn = self._btns["lst_act"]
@@ -674,7 +678,9 @@ class DialUI(object):
                 display_rows.append("%s (%d)" % (_display_tag(r),
                                                  written.get(r, 0)))
         self._roller_set([_fit(r) for r in display_rows])
-        self._roller.set_selected(cursor, lv.ANIM.OFF)
+        # See paint_tag_list() above -- lv.ANIM.OFF doesn't exist on this
+        # binding; plain bool is what set_selected() actually takes.
+        self._roller.set_selected(cursor, False)
         self._set_track(cursor, len(rows))
         cur = rows[cursor] if rows else ""
         btn = self._btns["lst_act"]
