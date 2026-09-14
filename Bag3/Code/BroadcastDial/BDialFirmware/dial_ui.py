@@ -219,6 +219,10 @@ TRACK_H = 80
 # longer than this just clamps to the last dot rather than growing further.
 MAX_TRACK_DOTS = 8
 DOT_D = 8
+# Inset from each end of TRACK_H -- a guess pending on-device confirmation
+# (see _set_track()'s docstring for why the old fill's safe height doesn't
+# automatically carry over to a dot flush against the same edge).
+DOT_MARGIN = 8
 ACT_W = 104
 ACT_X_SOLO = (SCREEN_W - ACT_W) // 2
 ACT_X_PAIR = 88
@@ -370,20 +374,32 @@ class DialUI(object):
 
     def _set_track(self, cursor, total):
         """Right-rim position indicator: one dot per option (capped at
-        MAX_TRACK_DOTS), the current one tinted purple, the rest gray --
-        "there are N options, you're on number K", at a glance, without
-        reading it as a loading/progress bar the way a growing fill did."""
+        MAX_TRACK_DOTS), the current one tinted purple, the rest a
+        visible gray -- "there are N options, you're on number K", at a
+        glance, without reading it as a loading/progress bar the way a
+        growing fill did.
+
+        DOT_MARGIN insets the column from both ends of TRACK_H: TRACK_H
+        itself was already sized (see _build_list()) to keep a thin rail
+        inside the round bezel's chord at this x-position, but that was
+        tuned for a faint line whose exact tip disappearing into the
+        curve was never going to be noticed. A solid dot sitting flush at
+        that same extreme edge is a different story -- needs an on-device
+        check to confirm this margin is enough (or too much).
+        """
         shown = max(1, min(total, MAX_TRACK_DOTS))
         active = min(max(cursor, 0), shown - 1)
-        spacing = 0.0 if shown <= 1 else (TRACK_H - DOT_D) / float(shown - 1)
+        span = TRACK_H - 2 * DOT_MARGIN - DOT_D
+        spacing = 0.0 if shown <= 1 else span / float(shown - 1)
+        start = DOT_MARGIN if shown > 1 else (TRACK_H - DOT_D) / 2.0
         for i, dot in enumerate(self._track_dots):
             if i >= shown:
                 dot.add_flag(lv.obj.FLAG.HIDDEN)
                 continue
             dot.remove_flag(lv.obj.FLAG.HIDDEN)
-            dot.align(lv.ALIGN.TOP_MID, 0, int(round(i * spacing)))
+            dot.align(lv.ALIGN.TOP_MID, 0, int(round(start + i * spacing)))
             dot.set_style_bg_color(
-                lv.color_hex(WRITE_FG if i == active else BORDER), 0)
+                lv.color_hex(WRITE_FG if i == active else MUTED), 0)
 
     # ── build screens once ──────────────────────────────────────
 
@@ -416,7 +432,7 @@ class DialUI(object):
             dot = lv.obj(track)
             dot.set_size(DOT_D, DOT_D)
             dot.set_style_radius(DOT_D // 2, 0)
-            dot.set_style_bg_color(lv.color_hex(BORDER), 0)
+            dot.set_style_bg_color(lv.color_hex(MUTED), 0)
             dot.set_style_bg_opa(255, 0)
             dot.set_style_border_width(0, 0)
             dot.remove_flag(lv.obj.FLAG.CLICKABLE)
@@ -428,6 +444,12 @@ class DialUI(object):
             x=36, y=46, w=168, h=96, options=[""],
             mode=lv.roller.MODE.NORMAL, selected=0, visible_row_count=3,
             font=FONT16, parent=pg)
+        # A roller is a scrollable widget, so LVGL draws its own default
+        # scrollbar on the roller's edge -- right where our own dot track
+        # sits, reading as an unexplained dark vertical line beside the
+        # dots. The dots ARE the position indicator; the built-in one is
+        # redundant and needs to be off.
+        roller.set_scrollbar_mode(lv.SCROLLBAR_MODE.OFF)
         # Offset left of centre to clear the rim track. Span works out to
         # x=32..200; the bezel's chord at y=46 allows 25.5..214.5, so this
         # keeps a real margin on both sides rather than a half-pixel one.
