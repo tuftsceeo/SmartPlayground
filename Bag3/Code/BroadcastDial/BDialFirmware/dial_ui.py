@@ -213,6 +213,10 @@ BTN_H = 42
 # at +-60px from centre the circle has only ~104px of half-width left,
 # which the old length overran.
 TRACK_H = 80
+# Scroll-thumb sizing (see _set_track()) -- keep THUMB_VISIBLE_ROWS equal
+# to the roller's visible_row_count in _build_list() if that ever changes.
+THUMB_VISIBLE_ROWS = 3
+THUMB_MIN_H = 14
 ACT_W = 104
 ACT_X_SOLO = (SCREEN_W - ACT_W) // 2
 ACT_X_PAIR = 88
@@ -231,7 +235,7 @@ class DialUI(object):
         self._lbl = {}
         self._btns = {}
         self._roller = None
-        self._track_fill = None
+        self._track_thumb = None
         self._scan_ring = None
 
     def set_input(self, inputs):
@@ -363,31 +367,33 @@ class DialUI(object):
             self._roller.set_options("\n".join(rows), lv.roller.MODE.NORMAL)
 
     def _set_track(self, cursor, total):
-        """Right-rim position indicator, drawn from two plain lv.obj
-        rectangles rather than a m5ui widget (see module docstring).
+        """Right-rim scroll THUMB, not a progress fill: fixed height per
+        list, sliding position -- top and bottom stay the same distance
+        apart, only where that span sits within the rail changes. Two
+        earlier versions got this wrong in the same direction: a fill
+        growing from a fixed bottom anchor (confirmed on-device, via
+        photos, that its height was genuinely changing with the cursor
+        exactly as designed -- the design itself was just the wrong
+        widget, a progress bar rather than a scrollbar) and, before
+        that, discrete dots (dropped for its own on-device problems, see
+        the dot-revert commit).
 
-        Reverted here from a discrete-dot redesign: two rounds of
-        on-device testing found the dots showed a stray scrollbar line
-        beside them, washed-out inactive-dot contrast, and the last dot
-        clipped by the round bezel, and by the time all three were
-        addressed it still read as a solid bar rather than distinct
-        dots at low counts -- not worth continuing to hand-tune LVGL
-        geometry blind. Back to the known-working fill; see chat for the
-        color-tuning idea (make the growing fill read less like a
-        loading bar) as a possible future revisit, not done here."""
-        if total <= 1:
-            frac = 1.0
-        else:
-            frac = (cursor + 1) / float(total)
-        fill_h = max(8, int(TRACK_H * frac))
-        # DIAGNOSTIC (temporary -- fill-not-growing investigation, see
-        # chat): the fill looked the same size across cursor 1/2/3 of 3 in
-        # photos, which this computed fill_h should rule in or out --
-        # print always (not gated on VERBOSE) since this is the one call
-        # site in question, not general chatty tracing.
-        print("# _set_track: cursor=%d total=%d frac=%.2f fill_h=%d" % (cursor, total, frac, fill_h))
-        self._track_fill.set_size(6, fill_h)
-        self._track_fill.align(lv.ALIGN.BOTTOM_MID, 0, 0)
+        THUMB_VISIBLE_ROWS mirrors the roller's own visible_row_count in
+        _build_list() -- a real scrollbar's thumb is sized to roughly
+        "how much of the list fits on screen at once" (a short list gets
+        a tall thumb; a long one, a short thumb you can see slide a
+        long way), not to the raw cursor/total ratio a progress bar
+        would use. THUMB_MIN_H keeps a very long list's thumb from
+        shrinking to an unreadable sliver.
+        """
+        total = max(1, total)
+        thumb_frac = min(1.0, THUMB_VISIBLE_ROWS / float(total))
+        thumb_h = min(TRACK_H, max(THUMB_MIN_H, int(TRACK_H * thumb_frac)))
+        track_range = TRACK_H - thumb_h
+        scroll_frac = 0.0 if total <= 1 else min(1.0, max(0.0, cursor / float(total - 1)))
+        thumb_top = int(round(track_range * scroll_frac))
+        self._track_thumb.set_size(6, thumb_h)
+        self._track_thumb.align(lv.ALIGN.TOP_MID, 0, thumb_top)
 
     # ── build screens once ──────────────────────────────────────
 
@@ -405,18 +411,22 @@ class DialUI(object):
         # WRITE mode throughout both devices.
         self._chip("lst_crumb", pg, "", 12, FONT14, WRITE_FG, WRITE_BG, w=170)
 
-        # Position track -- a hairline channel with a purple fill that
-        # grows from the bottom as the cursor advances toward the end.
-        # Shortened from 120 to TRACK_H so its own ends stay inside the
-        # round bezel's chord at that height (see _SAFE_NOTE) -- but the
-        # horizontal inset also matters and was NOT far enough in: at
-        # dx=-6 the track's right edge sits at x=234, while the chord at
-        # the track's own bottom edge (y=164, the tightest row given
-        # TRACK_H=80 centred here) only allows x up to ~231.6
-        # (_SAFE_NOTE's sqrt(120^2-(y-120)^2) formula) -- a real ~2.4px
-        # overrun, confirmed on-device as the fill's bottom end reading
-        # squared-off instead of rounded. dx=-14 clears it with ~5.6px
-        # to spare while staying clear of the roller (right edge ~x=200).
+        # Position track -- a hairline channel with a purple THUMB (fixed
+        # height, sliding position -- see _set_track()) rather than a fill
+        # that grows from a fixed end, which read as a loading/progress
+        # bar instead of a scroll position. Shortened from 120 to TRACK_H
+        # so its own ends stay inside the round bezel's chord at that
+        # height (see _SAFE_NOTE) -- but the horizontal inset also
+        # matters and was NOT far enough in: at dx=-6 the track's right
+        # edge sits at x=234, while the chord at the track's own bottom
+        # edge (y=164, the tightest row given TRACK_H=80 centred here)
+        # only allows x up to ~231.6 (_SAFE_NOTE's
+        # sqrt(120^2-(y-120)^2) formula) -- a real ~2.4px overrun,
+        # confirmed on-device as the old fill's bottom end reading
+        # squared-off instead of rounded. dx=-14 clears it with ~5.6px to
+        # spare while staying clear of the roller (right edge ~x=200);
+        # the thumb never exceeds this same [0, TRACK_H] span either, so
+        # that clearance still holds.
         track = lv.obj(pg)
         track.set_size(6, TRACK_H)
         track.align(lv.ALIGN.RIGHT_MID, -14, 4)
@@ -425,15 +435,15 @@ class DialUI(object):
         track.set_style_border_width(0, 0)
         track.set_style_radius(3, 0)
         track.remove_flag(lv.obj.FLAG.CLICKABLE)
-        fill = lv.obj(track)
-        fill.set_size(6, 8)
-        fill.align(lv.ALIGN.BOTTOM_MID, 0, 0)
-        fill.set_style_bg_color(lv.color_hex(WRITE_FG), 0)
-        fill.set_style_bg_opa(255, 0)
-        fill.set_style_border_width(0, 0)
-        fill.set_style_radius(3, 0)
-        fill.remove_flag(lv.obj.FLAG.CLICKABLE)
-        self._track_fill = fill
+        thumb = lv.obj(track)
+        thumb.set_size(6, TRACK_H)
+        thumb.align(lv.ALIGN.TOP_MID, 0, 0)
+        thumb.set_style_bg_color(lv.color_hex(WRITE_FG), 0)
+        thumb.set_style_bg_opa(255, 0)
+        thumb.set_style_border_width(0, 0)
+        thumb.set_style_radius(3, 0)
+        thumb.remove_flag(lv.obj.FLAG.CLICKABLE)
+        self._track_thumb = thumb
 
         roller = m5ui.M5Roller(
             x=36, y=46, w=168, h=96, options=[""],
