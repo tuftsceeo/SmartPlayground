@@ -213,16 +213,6 @@ BTN_H = 42
 # at +-60px from centre the circle has only ~104px of half-width left,
 # which the old length overran.
 TRACK_H = 80
-# Position track is a fixed-size pool of dots (one per option, current one
-# tinted) rather than a bar that grows with the list -- see _set_track().
-# Capped so a long list (melody's eleven tags) still fits the rim; a list
-# longer than this just clamps to the last dot rather than growing further.
-MAX_TRACK_DOTS = 8
-DOT_D = 8
-# Inset from each end of TRACK_H -- a guess pending on-device confirmation
-# (see _set_track()'s docstring for why the old fill's safe height doesn't
-# automatically carry over to a dot flush against the same edge).
-DOT_MARGIN = 8
 ACT_W = 104
 ACT_X_SOLO = (SCREEN_W - ACT_W) // 2
 ACT_X_PAIR = 88
@@ -241,7 +231,7 @@ class DialUI(object):
         self._lbl = {}
         self._btns = {}
         self._roller = None
-        self._track_dots = []
+        self._track_fill = None
         self._scan_ring = None
 
     def set_input(self, inputs):
@@ -373,33 +363,25 @@ class DialUI(object):
             self._roller.set_options("\n".join(rows), lv.roller.MODE.NORMAL)
 
     def _set_track(self, cursor, total):
-        """Right-rim position indicator: one dot per option (capped at
-        MAX_TRACK_DOTS), the current one tinted purple, the rest a
-        visible gray -- "there are N options, you're on number K", at a
-        glance, without reading it as a loading/progress bar the way a
-        growing fill did.
+        """Right-rim position indicator, drawn from two plain lv.obj
+        rectangles rather than a m5ui widget (see module docstring).
 
-        DOT_MARGIN insets the column from both ends of TRACK_H: TRACK_H
-        itself was already sized (see _build_list()) to keep a thin rail
-        inside the round bezel's chord at this x-position, but that was
-        tuned for a faint line whose exact tip disappearing into the
-        curve was never going to be noticed. A solid dot sitting flush at
-        that same extreme edge is a different story -- needs an on-device
-        check to confirm this margin is enough (or too much).
-        """
-        shown = max(1, min(total, MAX_TRACK_DOTS))
-        active = min(max(cursor, 0), shown - 1)
-        span = TRACK_H - 2 * DOT_MARGIN - DOT_D
-        spacing = 0.0 if shown <= 1 else span / float(shown - 1)
-        start = DOT_MARGIN if shown > 1 else (TRACK_H - DOT_D) / 2.0
-        for i, dot in enumerate(self._track_dots):
-            if i >= shown:
-                dot.add_flag(lv.obj.FLAG.HIDDEN)
-                continue
-            dot.remove_flag(lv.obj.FLAG.HIDDEN)
-            dot.align(lv.ALIGN.TOP_MID, 0, int(round(start + i * spacing)))
-            dot.set_style_bg_color(
-                lv.color_hex(WRITE_FG if i == active else MUTED), 0)
+        Reverted here from a discrete-dot redesign: two rounds of
+        on-device testing found the dots showed a stray scrollbar line
+        beside them, washed-out inactive-dot contrast, and the last dot
+        clipped by the round bezel, and by the time all three were
+        addressed it still read as a solid bar rather than distinct
+        dots at low counts -- not worth continuing to hand-tune LVGL
+        geometry blind. Back to the known-working fill; see chat for the
+        color-tuning idea (make the growing fill read less like a
+        loading bar) as a possible future revisit, not done here."""
+        if total <= 1:
+            frac = 1.0
+        else:
+            frac = (cursor + 1) / float(total)
+        fill_h = max(8, int(TRACK_H * frac))
+        self._track_fill.set_size(6, fill_h)
+        self._track_fill.align(lv.ALIGN.BOTTOM_MID, 0, 0)
 
     # ── build screens once ──────────────────────────────────────
 
@@ -417,39 +399,32 @@ class DialUI(object):
         # WRITE mode throughout both devices.
         self._chip("lst_crumb", pg, "", 12, FONT14, WRITE_FG, WRITE_BG, w=170)
 
-        # Position track -- a column of dots, one per option (up to
-        # MAX_TRACK_DOTS), the current one tinted purple by _set_track().
+        # Position track -- a hairline channel with a purple fill that
+        # grows from the bottom as the cursor advances toward the end.
         # Shortened from 120 to TRACK_H so its own ends stay inside the
         # round bezel's chord at that height (see _SAFE_NOTE).
         track = lv.obj(pg)
-        track.set_size(DOT_D, TRACK_H)
+        track.set_size(6, TRACK_H)
         track.align(lv.ALIGN.RIGHT_MID, -6, 4)
-        track.set_style_bg_opa(0, 0)
+        track.set_style_bg_color(lv.color_hex(BORDER), 0)
+        track.set_style_bg_opa(255, 0)
         track.set_style_border_width(0, 0)
+        track.set_style_radius(3, 0)
         track.remove_flag(lv.obj.FLAG.CLICKABLE)
-        dots = []
-        for _ in range(MAX_TRACK_DOTS):
-            dot = lv.obj(track)
-            dot.set_size(DOT_D, DOT_D)
-            dot.set_style_radius(DOT_D // 2, 0)
-            dot.set_style_bg_color(lv.color_hex(MUTED), 0)
-            dot.set_style_bg_opa(255, 0)
-            dot.set_style_border_width(0, 0)
-            dot.remove_flag(lv.obj.FLAG.CLICKABLE)
-            dot.add_flag(lv.obj.FLAG.HIDDEN)
-            dots.append(dot)
-        self._track_dots = dots
+        fill = lv.obj(track)
+        fill.set_size(6, 8)
+        fill.align(lv.ALIGN.BOTTOM_MID, 0, 0)
+        fill.set_style_bg_color(lv.color_hex(WRITE_FG), 0)
+        fill.set_style_bg_opa(255, 0)
+        fill.set_style_border_width(0, 0)
+        fill.set_style_radius(3, 0)
+        fill.remove_flag(lv.obj.FLAG.CLICKABLE)
+        self._track_fill = fill
 
         roller = m5ui.M5Roller(
             x=36, y=46, w=168, h=96, options=[""],
             mode=lv.roller.MODE.NORMAL, selected=0, visible_row_count=3,
             font=FONT16, parent=pg)
-        # A roller is a scrollable widget, so LVGL draws its own default
-        # scrollbar on the roller's edge -- right where our own dot track
-        # sits, reading as an unexplained dark vertical line beside the
-        # dots. The dots ARE the position indicator; the built-in one is
-        # redundant and needs to be off.
-        roller.set_scrollbar_mode(lv.SCROLLBAR_MODE.OFF)
         # Offset left of centre to clear the rim track. Span works out to
         # x=32..200; the bezel's chord at y=46 allows 25.5..214.5, so this
         # keeps a real margin on both sides rather than a half-pixel one.
