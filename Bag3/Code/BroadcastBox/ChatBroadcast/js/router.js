@@ -158,9 +158,13 @@ export function setConnectionBadge(link) {
             connectIcon = "unplug";
             break;
         case "rebooting":
-            btnLabel = "Disconnect";
+            // Not disabled, unlike "sending": there is nothing unsafe about
+            // walking away from a reboot/auto-reconnect wait, so the
+            // teacher always has a way to cancel it rather than watch a
+            // timer or a capped retry count run out.
+            btnLabel = "Cancel";
+            btnTitle = "Waiting for the device to restart — click to stop waiting";
             connectedClass = true;
-            btnDisabled = true;
             connectIcon = "unplug";
             break;
         case "lost":

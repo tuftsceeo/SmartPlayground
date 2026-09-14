@@ -31,6 +31,13 @@ const SILENCE_LIMIT_MS = 15000;
 const SILENCE_SERVE_MS = 45000;
 const REBOOT_LIMIT_MS = 20000;
 const WATCHDOG_TICK_MS = 2000;
+/* Auto-reconnect (tryAutoReconnect()) is a convenience for the ordinary
+   post-send reboot, not a guarantee -- cap it so a device that genuinely
+   isn't coming back (or one that keeps bouncing its USB) doesn't turn into
+   an endless silent retry loop. REBOOT_LIMIT_MS is the other half of that
+   ceiling; whichever is hit first ends the wait, and the teacher can always
+   cancel out sooner via the header button. */
+const MAX_AUTO_RECONNECT_ATTEMPTS = 2;
 /* A running Box sends a heartbeat every HEARTBEAT_MS (5s, bbox_server.py) on
    top of its boot identity, and GRACE_S is now 1s. So total silence for this long
    does not mean "still waking up" -- it means the firmware is not running (or
@@ -101,6 +108,7 @@ class App {
         this._rebootTimer = null;
         this._identifyNudgeTimer = null;
         this._reconnecting = false;
+        this._reconnectAttempts = 0;
         this._silenceLimitMs = SILENCE_LIMIT_MS;
         this._boxGames = []; // last games.list from the Box
         this._pendingReplaceSlug = null;
@@ -400,17 +408,29 @@ class App {
      * reports the device's port is available again. Only fires while we
      * are actively expecting or hoping for the device back (rebooting, or
      * lost after being connected) -- never for an intentional disconnect
-     * (state 'idle'), and never more than one attempt at a time.
+     * (state 'idle'), never more than one attempt at a time, and never more
+     * than MAX_AUTO_RECONNECT_ATTEMPTS total per drop -- this is a
+     * convenience for the ordinary post-send reboot, not a promise to keep
+     * retrying against a device that genuinely isn't coming back. The
+     * teacher can also always cancel out via the header button (see
+     * toggleConnect()'s 'rebooting' case) rather than wait on either the
+     * cap or the reboot timer.
      */
     async tryAutoReconnect() {
         if (this.link.state !== 'rebooting' && this.link.state !== 'lost') return;
         if (this._reconnecting) return;
+        if (this._reconnectAttempts >= MAX_AUTO_RECONNECT_ATTEMPTS) {
+            dbg('device', `tryAutoReconnect(): already made ${this._reconnectAttempts} attempt(s) — not retrying again`);
+            return;
+        }
         this._reconnecting = true;
-        dbg('device', `tryAutoReconnect() — link state is ${this.link.state}`);
+        this._reconnectAttempts += 1;
+        dbg('device', `tryAutoReconnect() attempt ${this._reconnectAttempts}/${MAX_AUTO_RECONNECT_ATTEMPTS} — link state is ${this.link.state}`);
         try {
             const reopened = await this.device.reconnect();
             if (reopened) {
                 this._clearRebootTimer();
+                this._reconnectAttempts = 0;
                 this.setLinkState('waiting');
                 toast(`Reconnected — waking up the ${this.deviceShort()}…`);
             } else {
@@ -453,8 +473,17 @@ class App {
             this._silenceLimitMs = SILENCE_LIMIT_MS;
             this._clearRebootTimer();
         }
+        if (state === 'idle') {
+            // A fresh cycle (explicit disconnect, or the teacher cancelling
+            // out of a reboot/reconnect wait) earns a full new attempt
+            // budget next time -- 'lost' does NOT reset this: it's usually
+            // mid-drop, on the way to 'rebooting', and resetting there would
+            // make the attempt cap meaningless.
+            this._reconnectAttempts = 0;
+        }
         if (state === 'live') {
             this._clearRebootTimer();
+            this._reconnectAttempts = 0;
             if (this.pendingSendAfterConnect) {
                 this.pendingSendAfterConnect = false;
                 dbg('app', 'link live — resuming deferred send confirm');
@@ -1218,10 +1247,15 @@ class App {
     /** Standalone header "Connect"/"Disconnect"/"Cancel" toggle. */
     async toggleConnect() {
         const s = this.link.state;
-        if (s === 'opening' || s === 'sending' || s === 'rebooting') return;
-        if (s === 'waiting') {
-            dbg('app', 'toggleConnect() — cancel waiting');
+        if (s === 'opening' || s === 'sending') return;
+        if (s === 'waiting' || s === 'rebooting') {
+            // 'rebooting' included: the auto-reconnect attempts this state
+            // waits for are a convenience, not something the teacher should
+            // be stuck watching -- always a way to bail out to idle instead
+            // of waiting on the reboot timer or an attempt limit.
+            dbg('app', `toggleConnect() — cancel ${s}`);
             showConnectToast(false);
+            this._clearRebootTimer();
             await this.device.disconnect();
             this.setLinkState('idle');
             toast('Cancelled.');
