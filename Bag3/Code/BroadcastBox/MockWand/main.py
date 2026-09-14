@@ -18,6 +18,7 @@ import time
 import sys
 import json
 import gc
+import os
 
 from hubtype import HUB_TYPE, HUB_CONFIG
 from pn532 import PN532
@@ -108,15 +109,36 @@ if set(GAME_MODULES.keys()) != (GAME_TAGS | HIDDEN_TAGS):
 # exactly the same path as a built-in.
 
 
+def _module_on_flash(mod):
+    """True if <mod>.py (or .mpy) is in the flash root.
+
+    Accepts .mpy so a future mpy-cross precompile pass needs no change here.
+    """
+    for ext in (".py", ".mpy"):
+        try:
+            os.stat(mod + ext)
+            return True
+        except OSError:
+            continue
+    return False
+
+
 def game_module(name):
-    """Module basename for a game tag, or None if there is no such game.
+    """Module basename for a game tag, or None if this wand cannot play it.
+
+    Every game is optional on every device. A built-in is only playable if
+    its file is actually on flash, exactly as a pulled game is only playable
+    if /games holds it -- so a tag whose file was never installed or was
+    removed reads as "not a game here" and falls through to the ordinary
+    unknown-tag response, rather than a load failure.
 
     Built-ins win over pulled games: a pulled file can never shadow one
     (the app also refuses those slugs at name-entry time), but if one ever
     lands on flash the built-in is still what runs.
     """
     if name in GAME_MODULES:
-        return GAME_MODULES[name]
+        mod = GAME_MODULES[name]
+        return mod if _module_on_flash(mod) else None
     if game_store.exists(name):
         return name          # /games is on sys.path; slug == module name
     return None
@@ -126,36 +148,19 @@ def is_game(name):
     return game_module(name) is not None
 
 
-def _check_game_modules():
-    """Every tag maps to a module file actually on flash.
+def _report_installed_games():
+    """Say which built-ins are installed on this wand, once, at boot.
 
-    The old eager imports proved this (and that the module compiled) as a
-    side effect of running at boot. This is the cheap half of that
-    guarantee: os.stat catches a typo'd or missing/renamed module file at
-    boot without compiling anything. Accepts .mpy too, so a future
-    mpy-cross precompile pass needs no change here. It cannot catch a
-    module that exists but fails to compile, or has no play() -- that is
-    what _game_load_failed()'s loud, on-tap failure path is for.
+    Every game is optional. A wand with a game file removed is not broken:
+    it simply cannot play that one, and says so when its tag is tapped.
+    This is a note, not a fault -- see game_module().
     """
-    import os
-    missing = []
-    for tag in GAME_MODULES:
-        mod = GAME_MODULES[tag]
-        found = False
-        for ext in (".py", ".mpy"):
-            try:
-                os.stat(mod + ext)
-                found = True
-                break
-            except OSError:
-                continue
-        if not found:
-            missing.append((tag, mod))
-    if missing:
-        print("  [ERR] game modules missing from flash: %s" % missing)
+    absent = [t for t in GAME_MODULES if not _module_on_flash(GAME_MODULES[t])]
+    if absent:
+        print("  Built-in games not installed on this wand: %s" % sorted(absent))
 
 
-_check_game_modules()
+_report_installed_games()
 memprobe.probe("after-imports")  # BENCH: the number that proves the fix
 
 # ─────────────────────────────────────────────
@@ -1145,7 +1150,11 @@ def main():
                 leds.show_programming(rules, editing)
                 print_rules(rules, editing); continue
 
+            # Also where a game tag lands when this wand does not have that
+            # game installed: game_module() returns None for it, so it is
+            # simply a tag this wand does not know.
             print("  Unknown command: %s" % cmd)
+            buz.reject()
             time.sleep_ms(200)
 
         except KeyboardInterrupt:

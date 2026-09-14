@@ -29,6 +29,7 @@ produced "OSError: WiFi Out of Memory" on the wand.
 """
 
 import gc
+import os
 import sys
 import time
 import machine
@@ -83,13 +84,30 @@ if set(GAME_MODULES.keys()) != GAME_TAGS:
 ALL_COMMANDS = set(GAME_MODULES.keys()) | set(game_store.slugs()) | CONTROL_TAGS
 
 
+def _module_on_flash(mod):
+    """True if <mod>.py (or .mpy) is in the flash root."""
+    for ext in (".py", ".mpy"):
+        try:
+            os.stat(mod + ext)
+            return True
+        except OSError:
+            continue
+    return False
+
+
 def game_module(name):
-    """Module basename for a game tag, or None if there is no such game.
+    """Module basename for a game tag, or None if this display cannot play it.
+
+    Every game is optional on every device. A built-in is only playable if
+    its file is actually on flash, exactly as a pulled game is only playable
+    if /games holds it -- so a tag naming a game this display does not have
+    reads as "not a game here" rather than a load failure.
 
     Built-ins win over pulled games: a pulled file can never shadow one.
     """
     if name in GAME_MODULES:
-        return GAME_MODULES[name]
+        mod = GAME_MODULES[name]
+        return mod if _module_on_flash(mod) else None
     if game_store.exists(name):
         return name          # /games is on sys.path; slug == module name
     return None
@@ -386,7 +404,10 @@ def main():
                 last_uid = None
                 frame = 0
             elif name:
-                print("  [WARN] start_game names an unknown game: %r" % name)
+                # Either a game that does not exist, or one this display does
+                # not have installed. Every game is optional; say so and stay
+                # idle rather than treating it as a fault.
+                print("  no game %r on this display" % name)
         elif msg_type == "stop":
             panel.clear()
             frame = 0
@@ -430,7 +451,10 @@ def main():
                 last_uid = None
                 frame = 0
             elif cmd:
-                print("  [WARN] unrecognised card: %r" % cmd)
+                # Also where a game tag lands when this display does not have
+                # that game installed -- game_module() returns None for it.
+                print("  no game %r on this display" % cmd)
+                flash(panel, AMBER, times=1, on_ms=120, off_ms=80)
 
         time.sleep_ms(IDLE_FRAME_MS)
 
