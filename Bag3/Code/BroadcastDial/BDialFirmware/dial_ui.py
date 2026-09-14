@@ -143,7 +143,7 @@ IC = {}
 # Roller rows are not clipped by the widget, so a long tag name just runs
 # past its row. ROW_CHARS is a rough character-count budget, not a
 # measured pixel width -- confirm it against the real roller width on
-# hardware.
+# hardware (168px wide, minus the 10px left pad set in _build_list()).
 ROW_CHARS = 26
 
 ELLIPSIS = "..."
@@ -208,6 +208,9 @@ def _fonts():
 # it right to make room when both are shown (tier 2).
 BTN_Y = 158
 BTN_H = 42
+# Roller's baseline/max visible-row window -- see _roller_set()'s
+# set_visible_row_count() call for why short lists shrink below this.
+ROLLER_MAX_ROWS = 3
 ACT_W = 104
 ACT_X_SOLO = (SCREEN_W - ACT_W) // 2
 ACT_X_PAIR = 88
@@ -370,6 +373,24 @@ class DialUI(object):
             self._roller.set_options(rows, mode)
         except Exception:
             self._roller.set_options("\n".join(rows), mode)
+        # Shrink the visible window to the item count (capped at
+        # ROLLER_MAX_ROWS) instead of always showing ROLLER_MAX_ROWS rows.
+        # MODE.INFINITE loops the option list to fake infinite scrolling,
+        # which means a visible window WIDER than the list repeats a real
+        # item into view at once -- a 2-item list in a 3-row window always
+        # shows one of its two items twice, confirmed on-device as a
+        # confusing duplicate row. Capping the window to the item count
+        # removes the repeat entirely (each row is then a distinct item).
+        # UNVERIFIED on hardware: set_visible_row_count() is not
+        # vendor-documented for this M5Roller binding (see the module
+        # docstring's set_options()-at-runtime caveat, same situation) --
+        # guarded so a missing/renamed method just leaves the row count
+        # (and thus this bug) as it was rather than crashing the screen.
+        visible = max(1, min(ROLLER_MAX_ROWS, len(rows)))
+        try:
+            self._roller.set_visible_row_count(visible)
+        except Exception:
+            pass
 
     # ── build screens once ──────────────────────────────────────
 
@@ -395,7 +416,8 @@ class DialUI(object):
         # than debugged further, per explicit direction.
         roller = m5ui.M5Roller(
             x=36, y=46, w=168, h=96, options=[""],
-            mode=lv.roller.MODE.NORMAL, selected=0, visible_row_count=3,
+            mode=lv.roller.MODE.NORMAL, selected=0,
+            visible_row_count=ROLLER_MAX_ROWS,
             font=FONT16, parent=pg)
         # Centred now that there's no rim track to clear. Span works out
         # to x=36..204; the bezel's chord at y=46 allows 25.5..214.5, so
@@ -408,6 +430,18 @@ class DialUI(object):
         roller.set_style_border_color(lv.color_hex(BORDER), 0)
         roller.set_style_text_color(lv.color_hex(INK_3), 0)
         roller.set_style_text_font(FONT14, 0)
+        # Left-justified, not centred (LVGL's roller default). A row
+        # fitted to ROW_CHARS (see _fit()) is sized in characters, not
+        # pixels, so it can still render wider than the column on some
+        # fonts/strings; centred text then clips symmetrically off BOTH
+        # ends, cropping the meaningful start of a row (e.g. the
+        # "getcode:" prefix) exactly where _fit() worked to preserve it.
+        # Left-aligned, an overflow clips only the tail -- the same end
+        # _fit()'s own "..." already flags as truncated.
+        roller.set_style_text_align(lv.TEXT_ALIGN.LEFT, 0)
+        roller.set_style_text_align(lv.TEXT_ALIGN.LEFT, lv.PART.SELECTED)
+        roller.set_style_pad_left(10, 0)
+        roller.set_style_pad_left(10, lv.PART.SELECTED)
         # The purple selection band -- the single most important piece of
         # this restyle, and the one thing in this file that no vendor
         # example confirms. See the module docstring's fallback.
