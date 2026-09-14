@@ -436,17 +436,28 @@ class DialUI(object):
         # height (see _SAFE_NOTE) -- but the horizontal inset also
         # matters and was NOT far enough in: at dx=-6 the track's right
         # edge sits at x=234, while the chord at the track's own bottom
-        # edge (y=164, the tightest row given TRACK_H=80 centred here)
-        # only allows x up to ~231.6 (_SAFE_NOTE's
-        # sqrt(120^2-(y-120)^2) formula) -- a real ~2.4px overrun,
-        # confirmed on-device as the old fill's bottom end reading
-        # squared-off instead of rounded. dx=-14 clears it with ~5.6px to
-        # spare while staying clear of the roller (right edge ~x=200);
-        # the thumb never exceeds this same [0, TRACK_H] span either, so
-        # that clearance still holds.
+        # edge (the tightest row given TRACK_H=80) only allows x up to
+        # ~231.6 (_SAFE_NOTE's sqrt(120^2-(y-120)^2) formula) -- a real
+        # ~2.4px overrun, confirmed on-device as the old fill's bottom
+        # end reading squared-off instead of rounded. dx=-14 clears it
+        # with ~5.6px to spare while staying clear of the roller (right
+        # edge ~x=200); the thumb never exceeds this same [0, TRACK_H]
+        # span either, so that clearance still holds.
+        #
+        # dy: the original code (inherited, not something introduced by
+        # this rework) centred the track 4px below true screen centre
+        # (cy=124, not 120) -- invisible on the old growing fill, but
+        # once the thumb's actual position became legible, on-device
+        # measurement (photo, pixel-counted against the bezel) showed
+        # the whole track sitting too low/high relative to the real
+        # centre by about 5px. dy=-1 centres it 1px above true centre
+        # instead, per that measurement; re-checked against _SAFE_NOTE
+        # above and it *improves* the clipping margin (6.8px vs. the old
+        # 5.6px), since it moves the track's tightest edge toward the
+        # widest part of the chord.
         track = lv.obj(pg)
         track.set_size(6, TRACK_H)
-        track.align(lv.ALIGN.RIGHT_MID, -14, 4)
+        track.align(lv.ALIGN.RIGHT_MID, -14, -1)
         track.set_style_bg_color(lv.color_hex(BORDER), 0)
         track.set_style_bg_opa(255, 0)
         track.set_style_border_width(0, 0)
