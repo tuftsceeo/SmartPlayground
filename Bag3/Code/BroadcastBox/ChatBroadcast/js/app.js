@@ -765,8 +765,12 @@ class App {
      * 'continue' when there's nothing to lose.
      */
     confirmUnsavedWork() {
-        const hasWork = getVersionCount() > 0 || this.chatHistory.length > 0 || this.dirty;
-        if (!hasWork) return Promise.resolve('continue');
+        // this.dirty alone, not getVersionCount()/chatHistory.length -- those
+        // stay > 0 for the rest of the session once you've done anything at
+        // all, save or no save, so ORing them in meant this prompted every
+        // time regardless of whether there was anything actually unsaved
+        // (e.g. right after clicking Save, which does clear this.dirty).
+        if (!this.dirty) return Promise.resolve('continue');
         return new Promise((resolve) => {
             const saveBtn = document.getElementById('btn-unsaved-save');
             const discardBtn = document.getElementById('btn-unsaved-discard');
@@ -1816,22 +1820,19 @@ class App {
     }
 
     paintMyBoxHealth() {
-        const mode = this.link.boxMode;
         const info = this.link.deviceInfo || {};
         const chip = document.getElementById('mybox-mode-chip');
         const label = document.getElementById('mybox-mode-label');
+        // Same "connected or not" rule as the header mode pill (router.js)
+        // -- this chip can't change the device's mode either, so it never
+        // names one ("Code Server"/"Tag Writing"), which read as if it
+        // reflected something this overlay controls.
         if (chip && label) {
-            chip.classList.toggle('write', mode === 'WRITE');
-            if (mode === 'SERVE') {
-                label.textContent = 'Code Server';
-                chip.title = 'Handing out code to wands.';
-            } else if (mode === 'WRITE') {
-                label.textContent = 'Tag Writing';
-                chip.title = 'Ready to write pickup tags.';
-            } else {
-                label.textContent = this.link.state === 'live' ? `${this.deviceShort()} Connected` : this.deviceShort();
-                chip.title = `Connect to see ${this.deviceShort()} status.`;
-            }
+            chip.classList.remove('write');
+            label.textContent = this.link.state === 'live' ? `${this.deviceShort()} ready` : this.deviceShort();
+            chip.title = this.link.state === 'live'
+                ? `Games, health & battery on the ${this.deviceShort()}.`
+                : `Connect to see ${this.deviceShort()} status.`;
         }
         const nfc = document.getElementById('mybox-nfc');
         const nfcStatus = document.getElementById('mybox-nfc-status');

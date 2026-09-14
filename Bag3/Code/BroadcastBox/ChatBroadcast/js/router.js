@@ -84,7 +84,6 @@ export function setConnectionBadge(link) {
     const ssid = link?.detail?.ssid || null;
     const isLive = state === "live";
     const isServing = isLive && mode === "SERVE";
-    const isWriting = isLive && mode === "WRITE";
     const short = deviceShortName(link?.deviceInfo);
     const product = deviceProductName(link?.deviceInfo);
 
@@ -99,7 +98,11 @@ export function setConnectionBadge(link) {
         }
     });
 
-    // Mode pill
+    // Mode pill -- opens the library overlay (games/health/tag status), it
+    // does NOT change the device's mode (that's the device's own controls
+    // to switch), so its label never names a mode ("Code Server"/"Tag
+    // Writing") -- that read as if clicking it would start/stop something.
+    // Just "connected or not", always the same regardless of SERVE/WRITE.
     all(".mode-pill").forEach((pill) => {
         const label = pill.querySelector(".mode-pill-label");
         pill.classList.remove("write", "muted");
@@ -110,17 +113,8 @@ export function setConnectionBadge(link) {
             pill.title = `Connect to the ${short} first`;
         } else {
             pill.disabled = false;
-            if (isServing) {
-                if (label) label.textContent = "Code Server";
-                pill.title = `Handing out code to wands. Switch modes with the controls on the ${short}.`;
-            } else if (isWriting) {
-                pill.classList.add("write");
-                if (label) label.textContent = "Tag Writing";
-                pill.title = `Ready to write pickup tags. Switch modes with the controls on the ${short}.`;
-            } else {
-                if (label) label.textContent = `${short} Connected`;
-                pill.title = `Games, health & battery on the ${short}`;
-            }
+            if (label) label.textContent = `${short} ready`;
+            pill.title = `Games, health & battery on the ${short}`;
         }
     });
 
