@@ -402,10 +402,18 @@ class DialUI(object):
         # Position track -- a hairline channel with a purple fill that
         # grows from the bottom as the cursor advances toward the end.
         # Shortened from 120 to TRACK_H so its own ends stay inside the
-        # round bezel's chord at that height (see _SAFE_NOTE).
+        # round bezel's chord at that height (see _SAFE_NOTE) -- but the
+        # horizontal inset also matters and was NOT far enough in: at
+        # dx=-6 the track's right edge sits at x=234, while the chord at
+        # the track's own bottom edge (y=164, the tightest row given
+        # TRACK_H=80 centred here) only allows x up to ~231.6
+        # (_SAFE_NOTE's sqrt(120^2-(y-120)^2) formula) -- a real ~2.4px
+        # overrun, confirmed on-device as the fill's bottom end reading
+        # squared-off instead of rounded. dx=-14 clears it with ~5.6px
+        # to spare while staying clear of the roller (right edge ~x=200).
         track = lv.obj(pg)
         track.set_size(6, TRACK_H)
-        track.align(lv.ALIGN.RIGHT_MID, -6, 4)
+        track.align(lv.ALIGN.RIGHT_MID, -14, 4)
         track.set_style_bg_color(lv.color_hex(BORDER), 0)
         track.set_style_bg_opa(255, 0)
         track.set_style_border_width(0, 0)
