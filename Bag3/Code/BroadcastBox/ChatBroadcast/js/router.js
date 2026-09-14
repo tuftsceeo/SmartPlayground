@@ -118,7 +118,7 @@ export function setConnectionBadge(link) {
                 if (label) label.textContent = "Tag Writing";
                 pill.title = `Ready to write pickup tags. Switch modes with the controls on the ${short}.`;
             } else {
-                if (label) label.textContent = `${short} ready`;
+                if (label) label.textContent = `${short} Connected`;
                 pill.title = `Games, health & battery on the ${short}`;
             }
         }
@@ -141,19 +141,24 @@ export function setConnectionBadge(link) {
             btnTitle = "Cancel connecting";
             break;
         case "live":
-            btnLabel = "Connected";
+            // Label names the CLICK ACTION (like Connect/Cancel above), not
+            // a status readout -- "Connected" as a label read as a status
+            // chip that couldn't be clicked, when this button disconnects
+            // on click just like the "wrong"/"stuck"/"no-answer" cases
+            // below already correctly say "Disconnect".
+            btnLabel = "Disconnect";
             btnTitle = "Connected — click to disconnect";
             connectedClass = true;
             connectIcon = "unplug";
             break;
         case "sending":
-            btnLabel = "Connected";
+            btnLabel = "Disconnect";
             connectedClass = true;
             btnDisabled = true;
             connectIcon = "unplug";
             break;
         case "rebooting":
-            btnLabel = "Connected";
+            btnLabel = "Disconnect";
             connectedClass = true;
             btnDisabled = true;
             connectIcon = "unplug";
