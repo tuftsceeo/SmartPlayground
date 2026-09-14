@@ -999,6 +999,8 @@ class App {
             return;
         }
         this.gameName = g.name;
+        // DIAGNOSTIC (temporary -- name-field investigation, see chat).
+        dbg('app', `openSavedGame(${id}): stored name=${JSON.stringify(g.name)} -> this.gameName=${JSON.stringify(this.gameName)}`);
         this.gameDesc = g.desc || '';
         this.declaredTags = g.hardware?.declaredTags || null;
         this.hardware = g.hardware || buildHardwareReqs({ gameName: g.name });
@@ -1490,6 +1492,14 @@ class App {
         if (errEl) errEl.textContent = '';
         if (nameInput) {
             nameInput.value = this.gameName && this.gameName !== 'Your game' ? this.gameName : '';
+            // DIAGNOSTIC (temporary -- name-field-appears-blank investigation,
+            // see chat): confirmSend() falls back to this.gameName when the
+            // input is empty, so a duplicate-name warning naming the right
+            // game even with a blank-looking field is consistent with EITHER
+            // this line failing to actually set .value, OR it succeeding but
+            // something visual hiding it. Logging both the source and the
+            // result right after assignment settles which one it is.
+            dbg('app', `showSendConfirm(): populated name field from gameName=${JSON.stringify(this.gameName)} -> input.value=${JSON.stringify(nameInput.value)}`);
         }
         this._pendingReplaceSlug = null;
         this.refreshHardware();
@@ -1573,6 +1583,11 @@ class App {
         const nameInput = document.getElementById('send-game-name');
         const errEl = document.getElementById('send-name-error');
         const pretty = (nameInput?.value || this.gameName || '').trim();
+        // DIAGNOSTIC (temporary -- name-field investigation, see chat): if
+        // input.value is empty here but this.gameName isn't, `pretty` is
+        // coming from the fallback, which is the strongest possible signal
+        // that the field itself was really empty (not just visually so).
+        dbg('app', `confirmSend(): input.value=${JSON.stringify(nameInput?.value)}, this.gameName=${JSON.stringify(this.gameName)} -> pretty=${JSON.stringify(pretty)}`);
         const existing = (this._boxGames || []).map((g) => g.slug);
         const btn = document.getElementById('btn-send-confirm');
         const check = validateGameName(pretty, {
