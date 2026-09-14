@@ -30,6 +30,12 @@ export class SerialAdapter {
     this.writer = null;
     this.readBuf = ""; // accumulated decoded text not yet claimed by a waiter
     this.waiters = []; // [{pattern, resolve}] -- readUntil() callers
+    // DIAGNOSTIC (temporary -- hang hypothesis test, see chat): tag each
+    // waiters array with an id so readUntil()'s timeout callback can log
+    // whether it's still looking at the array its waiter was pushed into.
+    this._waiterArraySeq = 0;
+    this._waiterSeq = 0;
+    this.waiters._arrId = ++this._waiterArraySeq;
     this.onData = null; // optional: (chunk:string) => void, called for every decoded chunk
     this.onClose = null; // optional: (reason:string) => void, fired once when the read loop dies
     this.readLoopActive = false;
@@ -44,11 +50,18 @@ export class SerialAdapter {
   _wireGlobalDisconnect() {
     if (!("serial" in navigator) || SerialAdapter._globalWired) return;
     SerialAdapter._globalWired = true;
+    // DIAGNOSTIC (temporary): count + timestamp each dispatch to check
+    // whether one physical unplug fires this listener once or many times,
+    // and whether repeats share the same port identity.
+    let connectSeq = 0;
+    let disconnectSeq = 0;
     navigator.serial.addEventListener("connect", (e) => {
-      logInfo("navigator.serial 'connect' event", describePort(e.target));
+      connectSeq += 1;
+      logInfo(`navigator.serial 'connect' event [#${connectSeq} @ ${Date.now()}]`, describePort(e.target));
     });
     navigator.serial.addEventListener("disconnect", (e) => {
-      logWarn("navigator.serial 'disconnect' event -- device went away", describePort(e.target));
+      disconnectSeq += 1;
+      logWarn(`navigator.serial 'disconnect' event -- device went away [#${disconnectSeq} @ ${Date.now()}]`, describePort(e.target));
     });
   }
 
@@ -149,7 +162,13 @@ export class SerialAdapter {
     this.reader = null;
     this.writer = null;
     this.readBuf = "";
+    // DIAGNOSTIC (temporary -- hang hypothesis test): log the outgoing
+    // array's id/length before reassigning, and the new array's id after,
+    // so a stuck readUntil() timeout can be matched against this moment.
+    logWarn(`disconnect(): discarding waiters array #${this.waiters._arrId} (len=${this.waiters.length})`);
     this.waiters = [];
+    this.waiters._arrId = ++this._waiterArraySeq;
+    logWarn(`disconnect(): now on waiters array #${this.waiters._arrId}`);
     logInfo(`disconnected (session totals: tx ${this._txBytes}B, rx ${this._rxBytes}B)`);
   }
 
@@ -252,6 +271,14 @@ export class SerialAdapter {
 
   _resolveWaiters() {
     if (!this.waiters.length) return;
+    // NOTE: .filter() also reassigns this.waiters to a new array -- this is
+    // the SAME hazard as disconnect()'s `this.waiters = []` (see chat: the
+    // hang hypothesis test). It means any other still-pending waiter's
+    // timeout closure now holds a stale array reference too, independent of
+    // any disconnect. Not fixing here yet -- carrying the diagnostic tag
+    // forward only, so this path doesn't produce false-positive mismatches
+    // while testing the disconnect-specific hypothesis.
+    const arrId = this.waiters._arrId;
     this.waiters = this.waiters.filter((w) => {
       const i = this.readBuf.indexOf(w.pattern);
       if (i < 0) return true;
@@ -261,6 +288,7 @@ export class SerialAdapter {
       w.resolve({ found: true, text: consumed });
       return false;
     });
+    this.waiters._arrId = arrId;
   }
 
   /** Wait until `pattern` appears in the incoming stream, or timeoutMs elapses. */
@@ -277,13 +305,22 @@ export class SerialAdapter {
       }
       const waiter = { pattern, resolve };
       this.waiters.push(waiter);
-      logInfo(`readUntil waiting for ${JSON.stringify(pattern)} (${timeoutMs}ms)`);
+      // DIAGNOSTIC (temporary -- hang hypothesis test): tag this waiter with
+      // the id of the array it was actually pushed into, so the timeout
+      // callback below can report whether disconnect() swapped that array
+      // out from under it.
+      const registeredArrId = this.waiters._arrId;
+      const waiterId = ++this._waiterSeq;
+      logInfo(`readUntil #${waiterId} waiting for ${JSON.stringify(pattern)} (${timeoutMs}ms) on waiters array #${registeredArrId}`);
       setTimeout(() => {
         const idx = this.waiters.indexOf(waiter);
+        logInfo(`readUntil #${waiterId} timeout fired: checking waiters array #${this.waiters._arrId} (registered on #${registeredArrId}), idx=${idx}`);
         if (idx >= 0) {
           this.waiters.splice(idx, 1);
-          logWarn(`readUntil TIMEOUT after ${timeoutMs}ms waiting for ${JSON.stringify(pattern)}`);
+          logWarn(`readUntil #${waiterId} TIMEOUT after ${timeoutMs}ms waiting for ${JSON.stringify(pattern)}`);
           resolve({ found: false, text: "" });
+        } else {
+          logWarn(`readUntil #${waiterId} timeout fired but waiter is not in the CURRENT waiters array (#${this.waiters._arrId} != #${registeredArrId}) -- promise is ORPHANED, will never resolve`);
         }
       }, timeoutMs);
     });
