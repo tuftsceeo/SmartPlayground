@@ -558,14 +558,22 @@ body.ui-advanced #app-shell {
 .msg.bot ul, .msg.bot ol { margin: 0.4em 0 0.4em 1.2em; }
 .msg.bot li { margin: 0.2em 0; }
 .msg.bot strong { font-weight: 700; }
-.msg.bot h3, .msg.bot h4, .msg.bot h5 {
+/* h1/h2/h6 had no rule here, so unlike h3-h5 they fell back to the
+   browser's default UA heading sizes -- h6 in particular renders SMALLER
+   than body text by default, which is what made it unreadable as a
+   heading at all. All six levels now render the same way: since a chat
+   bubble has no real use for a size hierarchy, every level reads as bold
+   + colored at body text size, distinguished from a paragraph but never
+   shrinking below it. */
+.msg.bot h1, .msg.bot h2, .msg.bot h3, .msg.bot h4, .msg.bot h5, .msg.bot h6 {
     color: var(--pink-dark);
     font-weight: 800;
     font-size: 1em;
     margin: 0.6em 0 0.2em;
 }
-.msg.bot p code, .msg.bot li code, .msg.bot h3 code, .msg.bot h4 code,
-.msg.bot h5 code, .msg.bot td code, .msg.bot th code {
+.msg.bot p code, .msg.bot li code, .msg.bot h1 code, .msg.bot h2 code,
+.msg.bot h3 code, .msg.bot h4 code, .msg.bot h5 code, .msg.bot h6 code,
+.msg.bot td code, .msg.bot th code {
     font-family: "SF Mono", Consolas, monospace;
     font-size: 0.85em;
     background: #e8e6f0;
