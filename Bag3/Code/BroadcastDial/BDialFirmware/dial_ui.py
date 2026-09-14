@@ -385,9 +385,26 @@ class DialUI(object):
         long way), not to the raw cursor/total ratio a progress bar
         would use. THUMB_MIN_H keeps a very long list's thumb from
         shrinking to an unreadable sliver.
+
+        Sizing uses `total + 2`, not the raw item count: the roller
+        centers whichever row is selected, which means it needs a blank
+        pad row above item 1 and below the last item purely to have
+        something to center THOSE against -- so its actual scroll depth
+        is two rows deeper than the item count suggests. Skipping this
+        was the bug in the first version of this thumb: at
+        THUMB_VISIBLE_ROWS=3, a plain 3-item list sized out to a
+        permanently full-height, non-moving thumb, and a 2-item list
+        (the common case -- most games only declare two tags) would
+        have too. Padded, a 2-item list's functional depth is 4, giving
+        thumb_frac=3/4 -- a real, visibly-sliding thumb for the case
+        that actually matters most. Position still maps cursor 0 and
+        cursor total-1 to the very top/bottom of the rail (not the
+        padded ends) -- that's the intuitive "first item = top, last
+        item = bottom" reading; only the SIZE accounts for the padding.
         """
         total = max(1, total)
-        thumb_frac = min(1.0, THUMB_VISIBLE_ROWS / float(total))
+        padded_total = total + 2
+        thumb_frac = min(1.0, THUMB_VISIBLE_ROWS / float(padded_total))
         thumb_h = min(TRACK_H, max(THUMB_MIN_H, int(TRACK_H * thumb_frac)))
         track_range = TRACK_H - thumb_h
         scroll_frac = 0.0 if total <= 1 else min(1.0, max(0.0, cursor / float(total - 1)))
