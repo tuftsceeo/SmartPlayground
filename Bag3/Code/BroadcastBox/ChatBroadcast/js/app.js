@@ -6,7 +6,7 @@ import {
 } from './chat.js';
 import {
     initEditor, getCode, setCode, saveVersion, updateVersionUI,
-    onPrevVersion, onNextVersion, getVersionCount, onDownload,
+    onPrevVersion, onNextVersion, getVersionCount, onDownload, resetEditor,
 } from './editor.js';
 import { uploadPayload } from './upload.js';
 import { updateTagChecklist } from './nfc.js';
@@ -112,6 +112,7 @@ class App {
         this._detailSimToken = 0;
         this._simLastSource = null;
         this._simPendingSource = null;
+        this._simForcePlayPending = false;
         // One store for connection UI — badge and button share this.
         this.link = {
             state: 'idle',
@@ -600,10 +601,8 @@ class App {
     }
 
     bindEvents() {
-        document.getElementById('btn-scratch').addEventListener('click', () => {
-            this.resetGameContext();
-            this.openWorkspace();
-        });
+        document.getElementById('btn-scratch').addEventListener('click', () => this.startNewGame());
+        document.getElementById('btn-new-game').addEventListener('click', () => this.startNewGame());
         document.getElementById('btn-gallery').addEventListener('click', () => this.goExamples());
         document.getElementById('btn-saved').addEventListener('click', () => this.goSaved());
         document.getElementById('gallery-search').addEventListener('input', () => this.renderGallery());
@@ -656,6 +655,17 @@ class App {
         });
         document.getElementById('btn-send-confirm').addEventListener('click', () => this.confirmSend());
         document.getElementById('btn-send-cancel').addEventListener('click', () => hideOverlay('send-confirm-overlay'));
+        // Editing the name after a duplicate-name warning armed the
+        // "Replace existing game" second click (see confirmSend()) cancels
+        // that arming -- otherwise a corrected, non-duplicate name would
+        // still show "Replace existing game" on the button.
+        document.getElementById('send-game-name')?.addEventListener('input', () => {
+            if (!this._pendingReplaceSlug) return;
+            this._pendingReplaceSlug = null;
+            document.getElementById('btn-send-confirm').textContent = 'Send';
+            const errEl = document.getElementById('send-name-error');
+            if (errEl) errEl.textContent = '';
+        });
         document.getElementById('btn-send-done').addEventListener('click', () => this.finishSend());
         // Kill switch: unlike Cancel (hidden by setSendBusy(true) while a
         // send is in flight -- there is no safe abort mid-write, see
@@ -729,17 +739,97 @@ class App {
         syncNavTabs('gallery');
     }
 
-    goHome() {
-        const hasWork = getVersionCount() > 0 || this.chatHistory.length > 0 || this.dirty;
-        if (hasWork) {
-            const saveFirst = confirm(
-                'You have unsaved work in this session.\n\nOK = Save then go home\nCancel = Stay here'
-            );
-            if (!saveFirst) return;
-            this.onSaveGame();
-        }
+    async goHome() {
+        const action = await this.confirmUnsavedWork();
+        if (action === 'cancel') return;
         this._sim?.stop();
         showView('splash');
+    }
+
+    /** "New game": the button near Save, and the splash "Start from
+     * scratch" tile -- both routed through the same unsaved-work check and
+     * the same clearWorkspace(), so there's exactly one way this happens
+     * rather than two that can drift. */
+    async startNewGame() {
+        const action = await this.confirmUnsavedWork();
+        if (action === 'cancel') return;
+        this.resetGameContext();
+        this.clearWorkspace();
+        this.openWorkspace();
+    }
+
+    /**
+     * Save/Discard/Cancel for leaving a dirty workspace, replacing
+     * window.confirm(). Resolves 'continue' (proceed -- saved first if the
+     * teacher chose Save) or 'cancel' (stay put). No-ops straight to
+     * 'continue' when there's nothing to lose.
+     */
+    confirmUnsavedWork() {
+        const hasWork = getVersionCount() > 0 || this.chatHistory.length > 0 || this.dirty;
+        if (!hasWork) return Promise.resolve('continue');
+        return new Promise((resolve) => {
+            const saveBtn = document.getElementById('btn-unsaved-save');
+            const discardBtn = document.getElementById('btn-unsaved-discard');
+            const cancelBtn = document.getElementById('btn-unsaved-cancel');
+            const xBtn = document.getElementById('btn-unsaved-close-x');
+            const cleanup = () => {
+                saveBtn.removeEventListener('click', onSave);
+                discardBtn.removeEventListener('click', onDiscard);
+                cancelBtn.removeEventListener('click', onCancel);
+                xBtn.removeEventListener('click', onCancel);
+            };
+            const onSave = () => { cleanup(); hideOverlay('unsaved-overlay'); this.onSaveGame(); resolve('continue'); };
+            const onDiscard = () => { cleanup(); hideOverlay('unsaved-overlay'); resolve('continue'); };
+            const onCancel = () => { cleanup(); hideOverlay('unsaved-overlay'); resolve('cancel'); };
+            saveBtn.addEventListener('click', onSave);
+            discardBtn.addEventListener('click', onDiscard);
+            cancelBtn.addEventListener('click', onCancel);
+            xBtn.addEventListener('click', onCancel);
+            showOverlay('unsaved-overlay');
+        });
+    }
+
+    /**
+     * Generic yes/no confirm, replacing window.confirm() for destructive
+     * device actions. Resolves true/false.
+     */
+    confirmDialog({ title = 'Are you sure?', message = '', okLabel = 'Confirm' } = {}) {
+        return new Promise((resolve) => {
+            document.getElementById('confirm-title').textContent = title;
+            document.getElementById('confirm-message').textContent = message;
+            const okBtn = document.getElementById('btn-confirm-ok');
+            okBtn.textContent = okLabel;
+            const cancelBtn = document.getElementById('btn-confirm-cancel');
+            const xBtn = document.getElementById('btn-confirm-close-x');
+            const cleanup = () => {
+                okBtn.removeEventListener('click', onOk);
+                cancelBtn.removeEventListener('click', onCancel);
+                xBtn.removeEventListener('click', onCancel);
+            };
+            const onOk = () => { cleanup(); hideOverlay('confirm-overlay'); resolve(true); };
+            const onCancel = () => { cleanup(); hideOverlay('confirm-overlay'); resolve(false); };
+            okBtn.addEventListener('click', onOk);
+            cancelBtn.addEventListener('click', onCancel);
+            xBtn.addEventListener('click', onCancel);
+            showOverlay('confirm-overlay');
+        });
+    }
+
+    /**
+     * Clear the workspace's visible state: chat transcript, editor code +
+     * version history, and the sim. resetGameContext() alone never touched
+     * any of this (it only clears bookkeeping like gameName/declaredTags),
+     * which is why "Start from scratch" used to leave the old code and
+     * chat sitting there even though it looked like a fresh session.
+     */
+    clearWorkspace() {
+        document.getElementById('chat-box').innerHTML = '';
+        document.getElementById('user-input').value = '';
+        resetEditor();
+        this.dirty = false;
+        this._sim?.stop();
+        this._simLastSource = null;
+        this.updatePreview();
     }
 
     onSaveGame() {
@@ -917,12 +1007,23 @@ class App {
         const box = document.getElementById('chat-box');
         box.innerHTML = '';
         addMsg(`Loaded saved game “${g.name}”.`, 'system');
+        // Replay the conversation, not just a one-line note -- the data was
+        // already being saved and restored into this.chatHistory (for the
+        // API's context) but never shown again, so a reopened game looked
+        // like a blank chat despite the model still "remembering" it. Code
+        // blocks in old assistant turns were already replaced with a
+        // "[code: N lines, sent to editor]" placeholder when saved (see
+        // trimForHistory() in chat.js), which reads fine here too: the
+        // actual current code is loaded into the editor below regardless.
+        this.chatHistory.forEach((turn) => {
+            addMsg(turn.content, turn.role === 'assistant' ? 'bot' : 'user');
+        });
         if (g.code) {
             setCode(g.code);
             saveVersion(g.code, 'Loaded from library');
         }
         this.dirty = false;
-        this.updatePreview();
+        this.updatePreview({ forcePlay: true });
     }
 
     openDetail(id) {
@@ -1089,7 +1190,7 @@ class App {
         }
         this.openWorkspace(this.currentExample.starterPrompt);
         addMsg(`Let's remix ${this.currentExample.name}! What would you like to change?`, 'system');
-        this.updatePreview();
+        this.updatePreview({ forcePlay: true });
     }
 
     /** The example's real Python, or null if it couldn't be read. A failure
@@ -1127,11 +1228,14 @@ class App {
             return;
         }
 
-        this.updatePreview();
+        this.updatePreview({ forcePlay: true });
         await this.startSendFlow();
     }
 
-    updatePreview() {
+    /** @param {{forcePlay?: boolean}} [opts] forcePlay: this is an explicit
+     * "load this specific game" action (saved game, remix, use-as-is), not
+     * an incidental chat/version-navigation refresh -- see pushSimSource(). */
+    updatePreview(opts = {}) {
         const code = getCode();
 
         this.refreshHardware(code);
@@ -1142,7 +1246,7 @@ class App {
 
         if (runnable) {
             this.setupSim();
-            this.pushSimSource(code);
+            this.pushSimSource(code, opts);
         }
     }
 
@@ -1171,8 +1275,10 @@ class App {
                 });
                 if (this._simPendingSource !== null) {
                     const pending = this._simPendingSource;
+                    const forcePlay = this._simForcePlayPending;
                     this._simPendingSource = null;
-                    this.pushSimSource(pending);
+                    this._simForcePlayPending = false;
+                    this.pushSimSource(pending, { forcePlay });
                 }
             })
             .catch((err) => {
@@ -1181,18 +1287,33 @@ class App {
         return this._simLoadPromise;
     }
 
-    /** Push code into the sim only when it actually changed — the element's
-     * source setter reloads (and would restart the running game)
+    /**
+     * Push code into the sim. Normally only when it actually changed — the
+     * element's source setter reloads (and would restart the running game)
      * unconditionally, and updatePreview() runs on every keystroke-adjacent
-     * chat/version event, not just real code changes. Only marks the code
-     * as "sent" (_simLastSource) once it's actually reached the element —
-     * setupSim() is still loading, this just queues it for that resolve. */
-    pushSimSource(code) {
+     * chat/version event, not just real code changes -- an organic chat
+     * edit gets a passive "new code is ready, play it" banner rather than
+     * yanking control from someone mid-test.
+     *
+     * `forcePlay` is for the opposite case: an explicit "load this game"
+     * action (a saved game, remix, use-as-is), where the teacher clicked
+     * something specifically to see THIS game, not incidentally touched
+     * code that happens to match what's already loaded (bypassing the
+     * equality check too -- reopening the same saved game twice in a row
+     * should still visibly restart it) -- and restart()s it immediately
+     * instead of leaving it to the passive banner.
+     *
+     * Only marks the code as "sent" (_simLastSource) once it's actually
+     * reached the element -- setupSim() is still loading, this just queues
+     * it for that resolve.
+     */
+    pushSimSource(code, { forcePlay = false } = {}) {
         if (!this._sim) {
             this._simPendingSource = code;
+            this._simForcePlayPending = forcePlay;
             return;
         }
-        if (code === this._simLastSource) return;
+        if (code === this._simLastSource && !forcePlay) return;
         // Only from the second push on: the first one *is* the game
         // appearing, which needs no announcement.
         const isUpdate = this._simLastSource != null;
@@ -1204,7 +1325,11 @@ class App {
         // down; a game generated from scratch has none and shows the lot.
         this._sim.profile = this.currentExample?.simProfile || null;
         this._sim.source = code;
-        if (isUpdate) this._sim.showOverlay('new-code');
+        if (forcePlay) {
+            this._sim.restart?.();
+        } else if (isUpdate) {
+            this._sim.showOverlay('new-code');
+        }
     }
 
     /**
@@ -1449,27 +1574,29 @@ class App {
         const errEl = document.getElementById('send-name-error');
         const pretty = (nameInput?.value || this.gameName || '').trim();
         const existing = (this._boxGames || []).map((g) => g.slug);
-        let check = validateGameName(pretty, {
+        const btn = document.getElementById('btn-send-confirm');
+        const check = validateGameName(pretty, {
             existingSlugs: existing,
             allowReplace: this._pendingReplaceSlug === slugify(pretty),
         });
         if (!check.ok && check.reason === 'replace') {
-            const ok = confirm(
-                `"${pretty}" is already on the ${this.deviceShort()}.\n\nOK = Replace it\nCancel = pick another name`
-            );
-            if (!ok) {
-                if (errEl) errEl.textContent = 'Pick a different name, or confirm Replace.';
-                return;
-            }
+            // First click on a duplicate name: explain inline and arm the
+            // button for a second click that actually replaces it, instead
+            // of a native confirm() popup. Editing the name (see its input
+            // listener in bindEvents()) disarms this.
             this._pendingReplaceSlug = check.slug;
-            check = validateGameName(pretty, { existingSlugs: existing, allowReplace: true });
+            if (errEl) errEl.textContent = `"${pretty}" is already on the ${this.deviceShort()}. Click Replace to overwrite it, or change the name.`;
+            if (btn) btn.textContent = 'Replace existing game';
+            return;
         }
         if (!check.ok) {
+            this._pendingReplaceSlug = null;
+            if (btn) btn.textContent = 'Send';
             if (errEl) errEl.textContent = check.reason || 'Invalid name.';
-            toast(check.reason || 'Invalid name.', true);
             return;
         }
         if (errEl) errEl.textContent = '';
+        if (btn) btn.textContent = 'Send';
         this.gameName = check.pretty;
         const slug = check.slug;
         // The name is settled now, so the baseline getcode:/play tags are too.
@@ -1735,7 +1862,17 @@ class App {
     }
 
     async deleteBoxGame(slug, alreadyConfirmed = false) {
-        if (!alreadyConfirmed && !confirm(`Delete "${slug}" from the ${this.deviceShort()}?`)) return;
+        // The library UI always confirms inline first (askDeleteBoxGame()'s
+        // "Delete?" button), so alreadyConfirmed is normally already true;
+        // this is only a fallback for a hypothetical direct call.
+        if (!alreadyConfirmed) {
+            const ok = await this.confirmDialog({
+                title: 'Delete this game?',
+                message: `This removes "${slug}" from the ${this.deviceShort()}.`,
+                okLabel: 'Delete',
+            });
+            if (!ok) return;
+        }
         try {
             await this.device.sendCmd({ cmd: 'games.delete', slug }, { timeoutMs: 5000 });
             toast(`Deleted ${slug}`);
@@ -1746,7 +1883,12 @@ class App {
     }
 
     async clearBoxLibrary() {
-        if (!confirm(`Remove ALL games from the ${this.deviceShort()}?`)) return;
+        const ok = await this.confirmDialog({
+            title: 'Remove all games?',
+            message: `This removes every game from the ${this.deviceShort()}.`,
+            okLabel: 'Remove all',
+        });
+        if (!ok) return;
         try {
             await this.device.sendCmd({ cmd: 'games.clear' }, { timeoutMs: 8000 });
             toast('Library cleared');
@@ -1757,7 +1899,12 @@ class App {
     }
 
     async resetBoxStats() {
-        if (!confirm(`Reset usage stats on the ${this.deviceShort()}?`)) return;
+        const ok = await this.confirmDialog({
+            title: 'Reset usage stats?',
+            message: `This resets pull/write counters on the ${this.deviceShort()}.`,
+            okLabel: 'Reset stats',
+        });
+        if (!ok) return;
         try {
             await this.device.sendCmd({ cmd: 'stats.reset' }, { timeoutMs: 5000 });
             toast('Stats reset');

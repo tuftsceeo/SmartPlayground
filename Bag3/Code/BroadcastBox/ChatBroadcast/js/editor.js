@@ -117,3 +117,14 @@ export function onDownload(addMsg) {
 export function onClearCode() {
     setCode("# Code will appear here\n");
 }
+
+/** Full reset for "New game": unlike onClearCode(), also drops the version
+ * history -- onClearCode() only ever touched the editor text, which is why
+ * "Start from scratch" used to leave the old version stack (and therefore
+ * getVersionCount() > 0, so the unsaved-work check still saw "work") behind. */
+export function resetEditor() {
+    codeVersions.length = 0;
+    versionIndex = -1;
+    setCode("# AI-generated code will appear here\n");
+    updateVersionUI();
+}

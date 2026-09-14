@@ -175,6 +175,9 @@
                 </div>
                 <div class="ws-footer">
                     <div class="footer-tools">
+                        <button class="icon-btn" id="btn-new-game" type="button" title="New game (clears the chat and code)">
+                            <span class="code-glyph">+</span>
+                        </button>
                         <button class="icon-btn" id="btn-save-game" type="button" title="Save (updates this game, no duplicate)">
                             <span data-icon="save" data-icon-size="15"></span>
                         </button>
@@ -317,6 +320,35 @@
         <div id="sent-banner" class="hidden">
             <span data-icon="circle-check" data-icon-size="16"></span>
             Sent! Hold a card on the device to write it.
+        </div>
+
+        <!-- Unsaved-work choice: Save/Discard/Cancel, replaces window.confirm()
+             for leaving a dirty workspace (Home, New game). -->
+        <div id="unsaved-overlay" class="overlay-view hidden">
+            <div class="overlay-card overlay-card-send">
+                <button type="button" class="overlay-close-x" id="btn-unsaved-close-x" title="Close">
+                    <span data-icon="close" data-icon-size="18"></span>
+                </button>
+                <h2>Unsaved changes</h2>
+                <p>This game hasn't been saved yet. What would you like to do?</p>
+                <button class="btn-primary" id="btn-unsaved-save" type="button">Save &amp; Continue</button>
+                <button class="btn-secondary" id="btn-unsaved-discard" type="button">Discard</button>
+                <button class="btn-secondary" id="btn-unsaved-cancel" type="button">Cancel</button>
+            </div>
+        </div>
+
+        <!-- Generic yes/no confirm, replaces window.confirm() for destructive
+             device actions (clear library, reset stats). -->
+        <div id="confirm-overlay" class="overlay-view hidden">
+            <div class="overlay-card overlay-card-send">
+                <button type="button" class="overlay-close-x" id="btn-confirm-close-x" title="Close">
+                    <span data-icon="close" data-icon-size="18"></span>
+                </button>
+                <h2 id="confirm-title">Are you sure?</h2>
+                <p id="confirm-message"></p>
+                <button class="btn-primary" id="btn-confirm-ok" type="button">Confirm</button>
+                <button class="btn-secondary" id="btn-confirm-cancel" type="button">Cancel</button>
+            </div>
         </div>
 
         <!-- Passphrase modal -->
