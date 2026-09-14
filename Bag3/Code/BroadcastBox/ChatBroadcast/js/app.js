@@ -100,6 +100,7 @@ class App {
         this._watchdogTimer = null;
         this._rebootTimer = null;
         this._identifyNudgeTimer = null;
+        this._reconnecting = false;
         this._silenceLimitMs = SILENCE_LIMIT_MS;
         this._boxGames = []; // last games.list from the Box
         this._pendingReplaceSlug = null;
@@ -380,8 +381,45 @@ class App {
                     this.onSerialDrop();
                 }
             });
+            // The device's own reboot (after a send, or a manual restart)
+            // re-enumerates its native USB, which the browser reports here
+            // the moment the port is available again -- well before any
+            // fixed timeout would give up. Device-agnostic: Box and Dial
+            // both reopen the same way (see BboxDeviceLink.reconnect()).
+            navigator.serial.addEventListener('connect', () => {
+                dbg('device', 'navigator.serial connect event fired');
+                this.tryAutoReconnect();
+            });
         } else {
             dbgWarn('device', 'Web Serial API not available in this browser (need Chrome/Edge)');
+        }
+    }
+
+    /**
+     * Reopen a previously granted port without prompting, when the browser
+     * reports the device's port is available again. Only fires while we
+     * are actively expecting or hoping for the device back (rebooting, or
+     * lost after being connected) -- never for an intentional disconnect
+     * (state 'idle'), and never more than one attempt at a time.
+     */
+    async tryAutoReconnect() {
+        if (this.link.state !== 'rebooting' && this.link.state !== 'lost') return;
+        if (this._reconnecting) return;
+        this._reconnecting = true;
+        dbg('device', `tryAutoReconnect() — link state is ${this.link.state}`);
+        try {
+            const reopened = await this.device.reconnect();
+            if (reopened) {
+                this._clearRebootTimer();
+                this.setLinkState('waiting');
+                toast(`Reconnected — waking up the ${this.deviceShort()}…`);
+            } else {
+                dbg('device', 'tryAutoReconnect(): no matching granted port to reopen yet');
+            }
+        } catch (e) {
+            dbgWarn('device', `tryAutoReconnect() failed: ${e.message}`);
+        } finally {
+            this._reconnecting = false;
         }
     }
 
@@ -1338,8 +1376,15 @@ class App {
         clearTimeout(this._sendSuccessTimer);
         hideOverlay('send-confirm-overlay');
         this._pendingReplaceSlug = null;
-        this.setLinkState('rebooting');
-        this._armRebootTimer();
+        // Only claim 'rebooting' if we're still sitting on the disconnect
+        // from the send's own reboot. tryAutoReconnect() can already have
+        // gotten us to 'waiting' or 'live' by the time Done is clicked (or
+        // the auto-close timer fires) -- forcing 'rebooting' here would
+        // wrongly downgrade an already-recovered connection.
+        if (this.link.state === 'lost') {
+            this.setLinkState('rebooting');
+            this._armRebootTimer();
+        }
     }
 
     async confirmSend() {
@@ -1492,7 +1537,7 @@ class App {
                 const del = document.createElement('button');
                 del.type = 'button';
                 del.className = 'box-lib-del';
-                del.title = 'Delete from Box';
+                del.title = `Delete from ${this.deviceShort()}`;
                 del.innerHTML = iconSvg('trash', { size: 15 });
                 del.addEventListener('click', () => this.askDeleteBoxGame(li, g));
 
@@ -1587,7 +1632,7 @@ class App {
                 label.textContent = 'Tag Writing';
                 chip.title = 'Ready to write pickup tags.';
             } else {
-                label.textContent = this.link.state === 'live' ? `${this.deviceShort()} ready` : this.deviceShort();
+                label.textContent = this.link.state === 'live' ? `${this.deviceShort()} Connected` : this.deviceShort();
                 chip.title = `Connect to see ${this.deviceShort()} status.`;
             }
         }
@@ -1649,7 +1694,7 @@ class App {
         if (!confirm(`Remove ALL games from the ${this.deviceShort()}?`)) return;
         try {
             await this.device.sendCmd({ cmd: 'games.clear' }, { timeoutMs: 8000 });
-            toast('Box library cleared');
+            toast('Library cleared');
             await this.refreshBoxLibrary();
         } catch (e) {
             toast(e.message || 'Clear failed', true);

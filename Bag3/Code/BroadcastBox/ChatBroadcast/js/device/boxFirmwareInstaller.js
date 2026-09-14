@@ -21,7 +21,10 @@ async function loadFirmwareFiles(device) {
 
 export async function installBoxFirmware(repl, adapter, onProgress, device = null) {
   const files = await loadFirmwareFiles(device || "broadcast_box");
-  const label = device === "broadcast_dial" ? "Dial" : "Box";
+  // Only the file manifest needs a hard default (something has to be
+  // flashed) -- the display label stays generic when the device type
+  // genuinely isn't known yet, rather than guessing "Box".
+  const label = device === "broadcast_dial" ? "Dial" : device === "broadcast_box" ? "Box" : "device";
 
   await repl.enterRepl();
   await repl.enterRawRepl();

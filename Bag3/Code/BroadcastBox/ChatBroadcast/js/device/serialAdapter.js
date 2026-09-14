@@ -37,6 +37,7 @@ export class SerialAdapter {
     this._rxBytes = 0;
     this._txBytes = 0;
     this._closeFired = false;
+    this._lastPortInfo = null; // {usbVendorId, usbProductId} of the last port opened via connect() -- lets reopenLastPort() find it again in getPorts() without a new requestPort() prompt
     this._wireGlobalDisconnect();
   }
 
@@ -105,9 +106,60 @@ export class SerialAdapter {
     this.readBuf = "";
     this._rxBytes = 0;
     this._txBytes = 0;
+    this._lastPortInfo = describePort(port);
 
     await this.logSignals("after open");
     this._startReadLoop();
+  }
+
+  /**
+   * Reopen the same physical port after an unplanned drop (e.g. the
+   * device's own soft-reset re-enumerating its native USB), without
+   * prompting the user again. requestPort() always shows a picker and
+   * needs a user gesture; getPorts() returns ports this origin was
+   * already granted, and opening one of those needs neither. Works
+   * identically for the Box and the Dial -- this only cares about the
+   * previously-seen USB vendor/product id, not what device it is.
+   * Resolves false (never throws) on anything short of success: no
+   * matching granted port, or that port refusing to open (already open
+   * elsewhere, or genuinely gone) -- the caller's timeout/retry logic is
+   * what decides how long to keep hoping.
+   */
+  async reopenLastPort(opts = {}) {
+    if (!("serial" in navigator) || !this._lastPortInfo) return false;
+    let granted;
+    try {
+      granted = await navigator.serial.getPorts();
+    } catch (e) {
+      logWarn(`reopenLastPort: getPorts() failed: ${e.message}`);
+      return false;
+    }
+    const match = granted.find((p) => {
+      const info = describePort(p);
+      return info.usbVendorId === this._lastPortInfo.usbVendorId
+        && info.usbProductId === this._lastPortInfo.usbProductId;
+    });
+    if (!match) {
+      logInfo("reopenLastPort: no previously granted port matches", this._lastPortInfo);
+      return false;
+    }
+    try {
+      const baudRate = opts.baudRate ?? 115200;
+      await match.open({ baudRate });
+    } catch (e) {
+      logWarn(`reopenLastPort: open() failed: ${e.message}`);
+      return false;
+    }
+    logInfo("reopenLastPort: reopened without prompting", describePort(match));
+    this.port = match;
+    this.reader = match.readable.getReader();
+    this.writer = match.writable.getWriter();
+    this.readBuf = "";
+    this._rxBytes = 0;
+    this._txBytes = 0;
+    await this.logSignals("after reopen");
+    this._startReadLoop();
+    return true;
   }
 
   /**
