@@ -380,6 +380,12 @@ class DialUI(object):
         else:
             frac = (cursor + 1) / float(total)
         fill_h = max(8, int(TRACK_H * frac))
+        # DIAGNOSTIC (temporary -- fill-not-growing investigation, see
+        # chat): the fill looked the same size across cursor 1/2/3 of 3 in
+        # photos, which this computed fill_h should rule in or out --
+        # print always (not gated on VERBOSE) since this is the one call
+        # site in question, not general chatty tracing.
+        print("# _set_track: cursor=%d total=%d frac=%.2f fill_h=%d" % (cursor, total, frac, fill_h))
         self._track_fill.set_size(6, fill_h)
         self._track_fill.align(lv.ALIGN.BOTTOM_MID, 0, 0)
 
