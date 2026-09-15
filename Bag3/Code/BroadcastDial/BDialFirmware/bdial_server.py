@@ -288,7 +288,8 @@ class BdialServer:
                 group = self._current_group()
                 self.ui.paint_tag_group(
                     group[0] if group else "", self._group_rows(),
-                    self._group_cursor, self._written)
+                    self._group_cursor, self._written,
+                    read_only=(self._current_entry() == READ_ENTRY))
             else:
                 self.ui.paint_tag_list(self._entries, self._cursor)
         elif self._mode == MODE_SERVE:

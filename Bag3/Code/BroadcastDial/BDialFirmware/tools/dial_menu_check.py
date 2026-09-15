@@ -66,10 +66,12 @@ import bdial_server as BS
 
 
 class FakeUI:
-    def __init__(self): self.screen = None
+    def __init__(self): self.screen = None; self.kwargs = None
     def __getattr__(self, n):
         def f(*a, **k):
-            if n.startswith("paint_"): self.screen = (n, a)
+            if n.startswith("paint_"):
+                self.screen = (n, a)
+                self.kwargs = k
         return f
 
 
@@ -162,6 +164,15 @@ srv._cursor = srv._entries.index("Utility Tags")
 srv._write_state = BS.W_GROUP
 srv._group_cursor = srv._group_rows().index(BS.READ_ENTRY)
 check("cursor lands on Read Card", srv._current_entry(), BS.READ_ENTRY)
+
+# The action button must say READ, not WRITE, on the Read Card row --
+# _repaint() is what decides this (read_only=True only for READ_ENTRY).
+srv._repaint()
+check("Read Card row paints read_only=True", srv.ui.kwargs.get("read_only"), True)
+srv._group_cursor = srv._group_rows().index("stop")
+srv._repaint()
+check("a real write row paints read_only=False", srv.ui.kwargs.get("read_only"), False)
+srv._group_cursor = srv._group_rows().index(BS.READ_ENTRY)  # leave it as found
 
 srv.nfc = FakeNfc()
 flink = _FakeReaderLink()

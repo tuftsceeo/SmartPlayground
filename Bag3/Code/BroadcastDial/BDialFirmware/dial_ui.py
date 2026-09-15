@@ -695,11 +695,16 @@ class DialUI(object):
         self._btns["lst_back"].add_flag(lv.obj.FLAG.HIDDEN)
         self._show("list")
 
-    def paint_tag_group(self, title, rows, cursor, written):
+    def paint_tag_group(self, title, rows, cursor, written, read_only=False):
         """Tier 2: one group's tags. Breadcrumb names the group so the
         user always knows which list they are in. No "< Back" row in the
         list itself -- the on-screen BACK button (lst_back, shown below)
-        is the one way back, rather than two redundant ones."""
+        is the one way back, rather than two redundant ones.
+
+        `read_only` is True when the selected row is the Utility Tags ->
+        Read Card entry: the action button says READ, not WRITE, so it
+        never implies the scan that follows will change the card (see
+        bdial_server._repaint()'s READ_ENTRY check)."""
         self._set_text("lst_crumb", _fit(IC["back"] + " " + title, 20))
         display_rows = []
         for r in rows:
@@ -713,7 +718,7 @@ class DialUI(object):
         # binding; plain bool is what set_selected() actually takes.
         self._roller.set_selected(cursor, False)
         btn = self._btns["lst_act"]
-        btn.set_btn_text(IC["scan"] + " WRITE")
+        btn.set_btn_text(IC["scan"] + (" READ" if read_only else " WRITE"))
         btn.align(lv.ALIGN.TOP_LEFT, ACT_X_PAIR, BTN_Y)
         self._btns["lst_back"].remove_flag(lv.obj.FLAG.HIDDEN)
         self._show("list")
@@ -753,6 +758,9 @@ def demo():
             "Melody", ["getcode:my_melody", "my_melody", "note_c"],
             2, {"note_c": 3}),
         lambda: ui.paint_tag_group("Melody", long_group_rows, 5, long_written),
+        lambda: ui.paint_tag_group(
+            "Utility Tags", ["stop", "battery", "Read Card"], 2, {},
+            read_only=True),
         lambda: ui.paint_no_pickup_hint(),
         lambda: ui.paint_armed("getcode", 1, 1),
         lambda: ui.paint_scanning("getcode"),
