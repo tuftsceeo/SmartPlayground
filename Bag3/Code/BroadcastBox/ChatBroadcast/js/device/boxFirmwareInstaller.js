@@ -21,7 +21,10 @@ async function loadFirmwareFiles(device) {
 
 export async function installBoxFirmware(repl, adapter, onProgress, device = null) {
   const files = await loadFirmwareFiles(device || "broadcast_box");
-  const label = device === "broadcast_dial" ? "Dial" : "Box";
+  // Only the file manifest needs a hard default (something has to be
+  // flashed) -- the display label stays generic when the device type
+  // genuinely isn't known yet, rather than guessing "Box".
+  const label = device === "broadcast_dial" ? "Dial" : device === "broadcast_box" ? "Box" : "device";
 
   await repl.enterRepl();
   await repl.enterRawRepl();
@@ -69,6 +72,10 @@ export async function pushPayload(repl, adapter, code, onProgress, meta = {}) {
   if (destPath.startsWith("/flash/games/")) {
     await repl.ensureDirectory("/flash/games");
   }
+  // uploadFile() throws if the device doesn't echo "OK" -- reaching the
+  // line after it IS the device's confirmation that the file is written.
+  // That is the real "receipt confirmed" moment; everything below is a
+  // best-effort reboot, not a condition of success.
   await repl.uploadFile(destPath, code);
   if (Array.isArray(meta.tags) && meta.tags.length) {
     const tagsPath = destPath.replace(/\.py$/, "") + ".tags.json";
@@ -85,15 +92,26 @@ export async function pushPayload(repl, adapter, code, onProgress, meta = {}) {
     await repl.uploadFile(extra.path, extra.content);
   }
   onProgress?.({ current: total, total, file: label, status: "uploaded" });
-  await repl.exitRawRepl();
-  await repl.softReset();
-  const restarted = await waitForTypedMessage(adapter, 10000);
-  if (!restarted) {
-    const who = meta.deviceLabel || "Box";
-    return { ok: false, error: `Code uploaded, but the ${who} did not confirm restart.` };
+  // Confirmed on hardware (both Box and Dial): exitRawRepl()+softReset()'s
+  // Ctrl-D reliably reboots the board's native USB CDC, which drops the
+  // serial connection before any post-reset message can arrive -- every
+  // time, not as a rare edge case. Treating that expected drop as a send
+  // failure was reporting real, completed sends (the files ARE on flash) as
+  // errors. So the reboot is now fire-and-forget: any error here (write
+  // failing because the port already died under it, etc.) is logged, not
+  // thrown, and never turns a completed write into a reported failure.
+  try {
+    await repl.exitRawRepl();
+    await repl.softReset();
+  } catch (e) {
+    console.warn(`pushPayload: reset step raised (expected on reboot): ${e.message}`);
   }
+  // Best-effort only, per the above -- if the device is still attached and
+  // happens to answer quickly, `restarted` says so, but nothing below
+  // depends on it.
+  const restarted = await waitForTypedMessage(adapter, 3000).catch(() => false);
   onProgress?.({ current: total, total, file: label, status: "done" });
-  return { ok: true };
+  return { ok: true, restarted };
 }
 
 async function waitForTypedMessage(adapter, timeoutMs) {

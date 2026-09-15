@@ -84,7 +84,6 @@ export function setConnectionBadge(link) {
     const ssid = link?.detail?.ssid || null;
     const isLive = state === "live";
     const isServing = isLive && mode === "SERVE";
-    const isWriting = isLive && mode === "WRITE";
     const short = deviceShortName(link?.deviceInfo);
     const product = deviceProductName(link?.deviceInfo);
 
@@ -99,7 +98,11 @@ export function setConnectionBadge(link) {
         }
     });
 
-    // Mode pill
+    // Mode pill -- opens the library overlay (games/health/tag status), it
+    // does NOT change the device's mode (that's the device's own controls
+    // to switch), so its label never names a mode ("Code Server"/"Tag
+    // Writing") -- that read as if clicking it would start/stop something.
+    // Just "connected or not", always the same regardless of SERVE/WRITE.
     all(".mode-pill").forEach((pill) => {
         const label = pill.querySelector(".mode-pill-label");
         pill.classList.remove("write", "muted");
@@ -110,17 +113,8 @@ export function setConnectionBadge(link) {
             pill.title = `Connect to the ${short} first`;
         } else {
             pill.disabled = false;
-            if (isServing) {
-                if (label) label.textContent = "Code Server";
-                pill.title = `Handing out code to wands. Switch modes with the controls on the ${short}.`;
-            } else if (isWriting) {
-                pill.classList.add("write");
-                if (label) label.textContent = "Tag Writing";
-                pill.title = `Ready to write pickup tags. Switch modes with the controls on the ${short}.`;
-            } else {
-                if (label) label.textContent = `${short} ready`;
-                pill.title = `Games, health & battery on the ${short}`;
-            }
+            if (label) label.textContent = `${short} ready`;
+            pill.title = `Games, health & battery on the ${short}`;
         }
     });
 
@@ -141,21 +135,30 @@ export function setConnectionBadge(link) {
             btnTitle = "Cancel connecting";
             break;
         case "live":
-            btnLabel = "Connected";
+            // Label names the CLICK ACTION (like Connect/Cancel above), not
+            // a status readout -- "Connected" as a label read as a status
+            // chip that couldn't be clicked, when this button disconnects
+            // on click just like the "wrong"/"stuck"/"no-answer" cases
+            // below already correctly say "Disconnect".
+            btnLabel = "Disconnect";
             btnTitle = "Connected — click to disconnect";
             connectedClass = true;
             connectIcon = "unplug";
             break;
         case "sending":
-            btnLabel = "Connected";
+            btnLabel = "Disconnect";
             connectedClass = true;
             btnDisabled = true;
             connectIcon = "unplug";
             break;
         case "rebooting":
-            btnLabel = "Connected";
+            // Not disabled, unlike "sending": there is nothing unsafe about
+            // walking away from a reboot/auto-reconnect wait, so the
+            // teacher always has a way to cancel it rather than watch a
+            // timer or a capped retry count run out.
+            btnLabel = "Cancel";
+            btnTitle = "Waiting for the device to restart — click to stop waiting";
             connectedClass = true;
-            btnDisabled = true;
             connectIcon = "unplug";
             break;
         case "lost":

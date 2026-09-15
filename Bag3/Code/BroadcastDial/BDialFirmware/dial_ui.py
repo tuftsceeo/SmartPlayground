@@ -13,9 +13,9 @@ after any change here and update the H5 line with the new numbers.
 
 M5's docs say "do not mix M5GFX, M5Widgets and M5UI simultaneously", and
 recommend M5UI/LVGL for new interactive UI. This file follows that: it is
-cleanly `m5ui` + raw `lvgl`, never `M5.Lcd` or `M5.Widgets`. (Raw `lv.obj`
-primitives -- the scan ring and the position track -- are NOT mixing;
-m5ui is built on LVGL, so they are one stack.)
+cleanly `m5ui` + raw `lvgl`, never `M5.Lcd` or `M5.Widgets`. (The raw
+`lv.obj` scan ring is not mixing; m5ui is built on LVGL, so they are one
+stack.)
 
 The peer file bbox_ui.py CANNOT follow that recommendation. The Box's
 StickS3 UIFlow2 build has no `m5ui` module at all (`ImportError`,
@@ -64,16 +64,16 @@ it back to sentence case. ALL-CAPS is reserved for button labels
 Design notes (round-display / small-screen navigation):
   - The tag list is a real m5ui.M5Roller (centre-selected wheel), the
     canonical crown/encoder list widget, rather than three bare labels.
+    It runs in MODE.INFINITE (loops both directions) rather than
+    MODE.NORMAL -- see _build_list()'s comment. An earlier version of
+    this file also drew a position-track scrollbar on the right rim to
+    show list extent/position; after several rounds of on-device fit
+    and alignment problems, it was dropped entirely in favour of the
+    roller just looping, per explicit direction -- there is nothing to
+    "run off the end of" any more, so nothing to indicate.
   - A breadcrumb chip at the top always names the current tier, so a
     two-level hierarchy (games -> tags) never leaves the user unsure
     which list they are looking at.
-  - A raw-LVGL position track on the right rim shows list extent and
-    position, built from two plain lv.obj rectangles. NOTE: an earlier
-    version of this docstring claimed M5Arc/M5Bar signatures "were not
-    available to verify" -- that was wrong. M5UI does ship M5Arc and
-    M5Bar. The raw rectangles are kept because they work and swapping
-    widgets is unrelated risk; M5Arc is the obvious follow-up for a rim
-    indicator that actually follows the round bezel.
   - Every widget is placed against the round bezel's chord width at its
     OWN top and bottom edge, not just a flat inset -- see _SAFE_NOTE.
 
@@ -143,7 +143,7 @@ IC = {}
 # Roller rows are not clipped by the widget, so a long tag name just runs
 # past its row. ROW_CHARS is a rough character-count budget, not a
 # measured pixel width -- confirm it against the real roller width on
-# hardware.
+# hardware (168px wide, minus the 10px left pad set in _build_list()).
 ROW_CHARS = 26
 
 ELLIPSIS = "..."
@@ -208,11 +208,12 @@ def _fonts():
 # it right to make room when both are shown (tier 2).
 BTN_Y = 158
 BTN_H = 42
-# Rim track height. Shortened from the old 120 so the track's own top and
-# bottom ends stay inside the bezel's chord at x~=228 (see _SAFE_NOTE):
-# at +-60px from centre the circle has only ~104px of half-width left,
-# which the old length overran.
-TRACK_H = 80
+# Roller's visible-row window. Fixed at 3 regardless of list length --
+# an earlier version shrank this for short lists (2 items -> 2 rows) to
+# avoid MODE.INFINITE's wraparound repeating an item into view at a
+# 3-row window, but a 2-row roller read visually wrong; reverted, so a
+# 2-item list still shows a repeated item once per lap.
+ROLLER_MAX_ROWS = 3
 ACT_W = 104
 ACT_X_SOLO = (SCREEN_W - ACT_W) // 2
 ACT_X_PAIR = 88
@@ -231,7 +232,6 @@ class DialUI(object):
         self._lbl = {}
         self._btns = {}
         self._roller = None
-        self._track_fill = None
         self._scan_ring = None
 
     def set_input(self, inputs):
@@ -356,22 +356,26 @@ class DialUI(object):
     def _roller_set(self, rows):
         """The constructor's `options=` list form is vendor-documented;
         set_options() at runtime is not, so fall back to a newline-joined
-        string if the list form raises on this firmware build."""
-        try:
-            self._roller.set_options(rows, lv.roller.MODE.NORMAL)
-        except Exception:
-            self._roller.set_options("\n".join(rows), lv.roller.MODE.NORMAL)
+        string if the list form raises on this firmware build.
 
-    def _set_track(self, cursor, total):
-        """Right-rim position indicator, drawn from two plain lv.obj
-        rectangles rather than a m5ui widget (see module docstring)."""
-        if total <= 1:
-            frac = 1.0
-        else:
-            frac = (cursor + 1) / float(total)
-        fill_h = max(8, int(TRACK_H * frac))
-        self._track_fill.set_size(6, fill_h)
-        self._track_fill.align(lv.ALIGN.BOTTOM_MID, 0, 0)
+        MODE.INFINITE, not MODE.NORMAL: the roller loops both directions
+        instead of stopping at the first/last row. NEXT/PREV in
+        bdial_server.py already wrap the cursor with modulo arithmetic
+        (`(self._cursor + 1) % len(self._entries)`), so the roller's own
+        wraparound just needs to match that, and it removes the need for
+        a position indicator entirely -- there is no "end of the list" to
+        show a position against any more. UNVERIFIED on hardware: confirm
+        `lv.roller.MODE.INFINITE` actually exists on this binding (this
+        firmware has been missing documented LVGL enums before, e.g.
+        lv.ANIM.OFF) via REPL -- `print(dir(lv.roller.MODE))` -- before
+        trusting this in the field; fall back to MODE.NORMAL if it is
+        absent.
+        """
+        mode = getattr(lv.roller.MODE, "INFINITE", lv.roller.MODE.NORMAL)
+        try:
+            self._roller.set_options(rows, mode)
+        except Exception:
+            self._roller.set_options("\n".join(rows), mode)
 
     # ── build screens once ──────────────────────────────────────
 
@@ -389,42 +393,40 @@ class DialUI(object):
         # WRITE mode throughout both devices.
         self._chip("lst_crumb", pg, "", 12, FONT14, WRITE_FG, WRITE_BG, w=170)
 
-        # Position track -- a hairline channel with a purple fill that
-        # grows from the bottom as the cursor advances toward the end.
-        # Shortened from 120 to TRACK_H so its own ends stay inside the
-        # round bezel's chord at that height (see _SAFE_NOTE).
-        track = lv.obj(pg)
-        track.set_size(6, TRACK_H)
-        track.align(lv.ALIGN.RIGHT_MID, -6, 4)
-        track.set_style_bg_color(lv.color_hex(BORDER), 0)
-        track.set_style_bg_opa(255, 0)
-        track.set_style_border_width(0, 0)
-        track.set_style_radius(3, 0)
-        track.remove_flag(lv.obj.FLAG.CLICKABLE)
-        fill = lv.obj(track)
-        fill.set_size(6, 8)
-        fill.align(lv.ALIGN.BOTTOM_MID, 0, 0)
-        fill.set_style_bg_color(lv.color_hex(WRITE_FG), 0)
-        fill.set_style_bg_opa(255, 0)
-        fill.set_style_border_width(0, 0)
-        fill.set_style_radius(3, 0)
-        fill.remove_flag(lv.obj.FLAG.CLICKABLE)
-        self._track_fill = fill
-
+        # No rim position track: the roller runs in MODE.INFINITE (see
+        # _roller_set()) and loops, so there is no list extent/position
+        # left to indicate. An earlier fill-bar, then dot, then
+        # scrollbar-thumb design lived here through several rounds of
+        # on-device fit and alignment problems; dropped entirely rather
+        # than debugged further, per explicit direction.
         roller = m5ui.M5Roller(
             x=36, y=46, w=168, h=96, options=[""],
-            mode=lv.roller.MODE.NORMAL, selected=0, visible_row_count=3,
+            mode=lv.roller.MODE.NORMAL, selected=0,
+            visible_row_count=ROLLER_MAX_ROWS,
             font=FONT16, parent=pg)
-        # Offset left of centre to clear the rim track. Span works out to
-        # x=32..200; the bezel's chord at y=46 allows 25.5..214.5, so this
-        # keeps a real margin on both sides rather than a half-pixel one.
-        roller.align(lv.ALIGN.TOP_MID, -4, 46)
+        # Centred now that there's no rim track to clear. Span works out
+        # to x=36..204; the bezel's chord at y=46 allows 25.5..214.5, so
+        # this keeps a real margin on both sides -- re-check against
+        # _SAFE_NOTE if the roller width/x ever changes.
+        roller.align(lv.ALIGN.TOP_MID, 0, 46)
         roller.set_style_radius(16, 0)          # brand card radius
         roller.set_style_bg_color(lv.color_hex(CARD_BG), 0)
         roller.set_style_border_width(1, 0)
         roller.set_style_border_color(lv.color_hex(BORDER), 0)
         roller.set_style_text_color(lv.color_hex(INK_3), 0)
         roller.set_style_text_font(FONT14, 0)
+        # Left-justified, not centred (LVGL's roller default). A row
+        # fitted to ROW_CHARS (see _fit()) is sized in characters, not
+        # pixels, so it can still render wider than the column on some
+        # fonts/strings; centred text then clips symmetrically off BOTH
+        # ends, cropping the meaningful start of a row (e.g. the
+        # "getcode:" prefix) exactly where _fit() worked to preserve it.
+        # Left-aligned, an overflow clips only the tail -- the same end
+        # _fit()'s own "..." already flags as truncated.
+        roller.set_style_text_align(lv.TEXT_ALIGN.LEFT, 0)
+        roller.set_style_text_align(lv.TEXT_ALIGN.LEFT, lv.PART.SELECTED)
+        roller.set_style_pad_left(10, 0)
+        roller.set_style_pad_left(10, lv.PART.SELECTED)
         # The purple selection band -- the single most important piece of
         # this restyle, and the one thing in this file that no vendor
         # example confirms. See the module docstring's fallback.
@@ -463,7 +465,10 @@ class DialUI(object):
     def _build_status(self):
         """One reusable screen behind every one-shot painter -- booting,
         idle, receiving, armed, writing/written/write_failed/already,
-        done, complete, error, mode_change, no_pickup_hint, read_result.
+        done, complete, error, mode_change, no_pickup_hint. (paint_reader()
+        is the one utility screen that is NOT one-shot -- it lives on the
+        reusable "scan" page instead, built in _build_scan(), since it
+        stays up and is repainted in place across multiple card reads.)
         Re-textured and re-tinted per call rather than rebuilt."""
         pg = self._page("status")
         self._label("st_glyph", pg, "", 0, 34, FONT24, WRITE_FG, w=170)
@@ -574,16 +579,42 @@ class DialUI(object):
             "Tag %d/%d" % (index, total), "Hold Near Reader",
             tap_dismiss=False)
 
-    def paint_read_result(self, existing):
-        if existing:
-            self._status(IC["read"], WRITE_FG, "Card Has:",
-                         '"%s"' % _display_tag(existing), "Tap to Continue")
-        else:
-            self._status(IC["read"], INK_3, "Blank Card",
-                         "No Text Found", "Tap to Continue")
-
     def paint_scanning(self, label):
         self._set_text("scn_label", '"%s"' % _display_tag(label))
+        self._show("scan")
+
+    def paint_reader(self, existing=None, scanned=False):
+        """Utility Tags -> Read Card: a continuous, read-only scan screen.
+
+        Unlike paint_scanning() (one write attempt, then bdial_server
+        hands off to the dismiss-to-continue "status" splash), this stays
+        on the "scan" page and is simply called again in place for each
+        card -- bdial_server._scan_step() never advances READ_ENTRY to
+        SPLASH -- so a teacher can read several cards back to back without
+        re-entering the menu between them. The reusable "scan" page's own
+        on-screen BACK button (see _build_scan()) is the exit.
+
+        `scanned=False` (the default) is the "nothing read yet" state,
+        painted once on entry. Every read after that passes `scanned=True`
+        with `existing` -- the NDEF text found (None/"" for a blank card).
+        scn_label carries the result (as paint_scanning() does for a write
+        target); scn_hint is the fixed instruction, same role split as
+        every other screen in this file -- kept short deliberately, unlike
+        scn_label, since a long tag name here would run past the row (see
+        ROW_CHARS's own note) with no ellipsis budget applied to it.
+        """
+        if not scanned:
+            self._set_text("scn_label", "NFC Reader")
+            self._set_text("scn_hint", "Hold Card on Screen")
+        elif existing:
+            # _fit(), unlike paint_scanning()'s label: that screen's targets
+            # are short internal constants ("note_c"), but a card read here
+            # can carry arbitrary previously-written text.
+            self._set_text("scn_label", '"%s"' % _fit(_display_tag(existing), ROW_CHARS))
+            self._set_text("scn_hint", "Scan Another or Exit")
+        else:
+            self._set_text("scn_label", "Blank Card")
+            self._set_text("scn_hint", "Scan Another or Exit")
         self._show("scan")
 
     def paint_already(self, label):
@@ -619,9 +650,13 @@ class DialUI(object):
         # only the DISPLAYED word changes here, to match the SHARE naming.
         # Kept ALL-CAPS deliberately: this mirrors the action-button
         # convention, not the Title Case applied to the rest of the copy.
+        # No arrow glyph -- this screen isn't decorative, it covers the
+        # real synchronous AP/NFC settle time in _set_mode() (see
+        # bdial_server.py), so the word alone plus the busy icon already
+        # says "something is happening" without needing "-> " in front.
         tint = SERVE_FG if to_mode == "SERVE" else WRITE_FG
         shown = "SHARE" if to_mode == "SERVE" else to_mode
-        self._status(IC["busy"], tint, "-> %s" % shown, tap_dismiss=False)
+        self._status(IC["busy"], tint, shown, tap_dismiss=False)
 
     def paint_no_pickup_hint(self):
         self._status(IC["warn"], WARN_FG, "Pickup Off", "DONE to Share",
@@ -641,8 +676,11 @@ class DialUI(object):
         display_entries = ["Enable Share" if e == "DONE" else e
                            for e in entries]
         self._roller_set([_fit(e) for e in display_entries])
-        self._roller.set_selected(cursor, lv.ANIM.OFF)
-        self._set_track(cursor, len(entries))
+        # This binding's set_selected() takes a plain bool for the anim
+        # flag, not lv.ANIM.OFF -- that enum doesn't exist here (confirmed
+        # on-device: `dir(lv)` has no ANIM/ANIM_OFF, and set_selected(n,
+        # False) succeeds against an isolated lv.roller instance).
+        self._roller.set_selected(cursor, False)
         cur = entries[cursor] if entries else ""
         btn = self._btns["lst_act"]
         if cur == "DONE":
@@ -657,31 +695,30 @@ class DialUI(object):
         self._btns["lst_back"].add_flag(lv.obj.FLAG.HIDDEN)
         self._show("list")
 
-    def paint_tag_group(self, title, rows, cursor, written):
-        """Tier 2: one group's tags + "< back". Breadcrumb names the
-        group so the user always knows which list they are in."""
+    def paint_tag_group(self, title, rows, cursor, written, read_only=False):
+        """Tier 2: one group's tags. Breadcrumb names the group so the
+        user always knows which list they are in. No "< Back" row in the
+        list itself -- the on-screen BACK button (lst_back, shown below)
+        is the one way back, rather than two redundant ones.
+
+        `read_only` is True when the selected row is the Utility Tags ->
+        Read Card entry: the action button says READ, not WRITE, so it
+        never implies the scan that follows will change the card (see
+        bdial_server._repaint()'s READ_ENTRY check)."""
         self._set_text("lst_crumb", _fit(IC["back"] + " " + title, 20))
         display_rows = []
         for r in rows:
-            if r == "< back":
-                # "< back" -> "< Back": not run through _display_tag(),
-                # whose first-letter capitalization would land on the
-                # leading "<" instead of the word "back".
-                display_rows.append("< Back")
-            elif not written or not written.get(r):
+            if not written or not written.get(r):
                 display_rows.append(_display_tag(r))
             else:
                 display_rows.append("%s (%d)" % (_display_tag(r),
                                                  written.get(r, 0)))
         self._roller_set([_fit(r) for r in display_rows])
-        self._roller.set_selected(cursor, lv.ANIM.OFF)
-        self._set_track(cursor, len(rows))
-        cur = rows[cursor] if rows else ""
+        # See paint_tag_list() above -- lv.ANIM.OFF doesn't exist on this
+        # binding; plain bool is what set_selected() actually takes.
+        self._roller.set_selected(cursor, False)
         btn = self._btns["lst_act"]
-        if cur == "< back":
-            btn.set_btn_text(IC["back"] + " BACK")
-        else:
-            btn.set_btn_text(IC["scan"] + " WRITE")
+        btn.set_btn_text(IC["scan"] + (" READ" if read_only else " WRITE"))
         btn.align(lv.ALIGN.TOP_LEFT, ACT_X_PAIR, BTN_Y)
         self._btns["lst_back"].remove_flag(lv.obj.FLAG.HIDDEN)
         self._show("list")
@@ -700,8 +737,8 @@ def demo():
     """Cycle screens — run from REPL: import dial_ui; dial_ui.demo()
 
     Includes a long tag list / long group and non-zero written counts, to
-    exercise roller scrolling, the position track and the middle-of-list
-    styling that a 2-3 row demo would never reach.
+    exercise roller scrolling and the middle-of-list styling that a 2-3
+    row demo would never reach.
     """
     import time
     M5.begin()
@@ -710,7 +747,7 @@ def demo():
     long_games = ["Game %d" % i for i in range(1, 13)] + ["Utility Tags", "DONE"]
     long_group_rows = (
         ["getcode:my_super_long_melody_name", "my_super_long_melody_name"]
-        + ["note_%s" % c for c in "cdefgab"] + ["< back"])
+        + ["note_%s" % c for c in "cdefgab"])
     long_written = {"note_c": 3, "note_d": 1, "note_e": 12}
     screens = [
         lambda: ui.paint_idle(True),
@@ -718,9 +755,12 @@ def demo():
         lambda: ui.paint_tag_list(["Melody", "Utility Tags", "DONE"], 0),
         lambda: ui.paint_tag_list(long_games, 6),
         lambda: ui.paint_tag_group(
-            "Melody", ["getcode:my_melody", "my_melody", "note_c", "< back"],
+            "Melody", ["getcode:my_melody", "my_melody", "note_c"],
             2, {"note_c": 3}),
         lambda: ui.paint_tag_group("Melody", long_group_rows, 5, long_written),
+        lambda: ui.paint_tag_group(
+            "Utility Tags", ["stop", "battery", "Read Card"], 2, {},
+            read_only=True),
         lambda: ui.paint_no_pickup_hint(),
         lambda: ui.paint_armed("getcode", 1, 1),
         lambda: ui.paint_scanning("getcode"),
@@ -728,8 +768,9 @@ def demo():
         lambda: ui.paint_already("getcode"),
         lambda: ui.paint_written("getcode", 3),
         lambda: ui.paint_write_failed("getcode"),
-        lambda: ui.paint_read_result("getcode:my_melody"),
-        lambda: ui.paint_read_result(None),
+        lambda: ui.paint_reader(),
+        lambda: ui.paint_reader("getcode:my_melody", scanned=True),
+        lambda: ui.paint_reader(None, scanned=True),
         lambda: ui.paint_done("getcode", 1, 1),
         lambda: ui.paint_complete(),
         lambda: ui.paint_mode_change("SERVE"),

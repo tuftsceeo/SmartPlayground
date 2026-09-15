@@ -192,3 +192,16 @@ export function onDownload(addMsg, baseName) {
 export function onClearCode() {
     setCode("# Code will appear here\n");
 }
+
+/** Full reset for "New game": unlike onClearCode(), also drops the version
+ * history -- onClearCode() only ever touched the editor text, which is why
+ * "Start from scratch" used to leave the old version stack (and therefore
+ * getVersionCount() > 0, so the unsaved-work check still saw "work") behind.
+ *
+ * Clears EVERY role, not just the one on screen: a display file left behind
+ * would otherwise be sent with the next game. */
+export function resetEditor() {
+    clearAllRoles();
+    setCode("# AI-generated code will appear here\n");
+    updateVersionUI();
+}

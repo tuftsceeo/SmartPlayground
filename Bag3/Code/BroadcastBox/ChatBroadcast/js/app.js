@@ -7,11 +7,11 @@ import {
 } from './chat.js';
 import {
     initEditor, getCode, setCode, saveVersion, updateVersionUI,
-    onPrevVersion, onNextVersion, getVersionCount, onDownload,
+    onPrevVersion, onNextVersion, getVersionCount, onDownload, resetEditor,
     setActiveRole, getActiveRole, rolesWithCode, clearAllRoles,
 } from './editor.js';
 import { uploadPayload, validateGameCode } from './upload.js';
-import { showTagChecklist, updateTagChecklist } from './nfc.js';
+import { updateTagChecklist } from './nfc.js';
 import { EXAMPLES, CATEGORIES, findExample, loadExampleCode } from './examples.js';
 import { showView, showOverlay, hideOverlay, setConnectionBadge, toast, setSendProgress, showConnectToast, syncNavTabs } from './router.js';
 import { createDeviceLink, deviceShortName, deviceProductName } from './device/bboxDeviceLink.js';
@@ -36,6 +36,13 @@ const SILENCE_LIMIT_MS = 15000;
 const SILENCE_SERVE_MS = 45000;
 const REBOOT_LIMIT_MS = 20000;
 const WATCHDOG_TICK_MS = 2000;
+/* Auto-reconnect (tryAutoReconnect()) is a convenience for the ordinary
+   post-send reboot, not a guarantee -- cap it so a device that genuinely
+   isn't coming back (or one that keeps bouncing its USB) doesn't turn into
+   an endless silent retry loop. REBOOT_LIMIT_MS is the other half of that
+   ceiling; whichever is hit first ends the wait, and the teacher can always
+   cancel out sooner via the header button. */
+const MAX_AUTO_RECONNECT_ATTEMPTS = 2;
 /* A running Box sends a heartbeat every HEARTBEAT_MS (5s, bbox_server.py) on
    top of its boot identity, and GRACE_S is now 1s. So total silence for this long
    does not mean "still waking up" -- it means the firmware is not running (or
@@ -67,6 +74,23 @@ RULES:
 - If the game reads NFC tags at all, include exactly one line formatted as [NFC_CARDS: "value1", "value2"] listing every tag value the game reads. Omit the line only when the game never touches a tag.
 - After the code block, include exactly one line naming the game: [GAME_NAME: Short Pretty Name]`;
 
+/**
+ * Starter chips shown above the first chat message. Deliberately simpler
+ * and shorter than the gallery EXAMPLES (melody, freeze dance, etc.) --
+ * a teacher who wants those already knows to open the Examples page. These
+ * exist to get a first-time, novice user typing at all: one or two of the
+ * smallest possible game asks, plus a couple of plain questions about what
+ * the wand can even do, since "what are my options" is often the real
+ * first question, not a game idea yet.
+ */
+const CHAT_STARTER_PROMPTS = [
+    { icon: 'palette', text: 'Flash the lights blue five times when the button is pressed' },
+    { icon: 'shakePhone', text: 'Play notes based on the orientation of the wand' },
+    { icon: 'message-circle', text: 'Tell me what sorts of outputs are available' },
+    { icon: 'grid-3x3', text: 'What can I show on the LED screen?' },
+    { icon: 'message-circle', text: 'Tell me what sorts of sensors and inputs are available' },
+];
+
 /** Same placeholder-and-play() check the editor's code drawer uses to
  * decide there's real code worth doing anything with. */
 function isRunnableCode(code) {
@@ -96,6 +120,7 @@ class App {
         this._detailSimToken = 0;
         this._simLastSource = null;
         this._simPendingSource = null;
+        this._simForcePlayPending = false;
         // One store for connection UI — badge and button share this.
         this.link = {
             state: 'idle',
@@ -108,6 +133,8 @@ class App {
         this._watchdogTimer = null;
         this._rebootTimer = null;
         this._identifyNudgeTimer = null;
+        this._reconnecting = false;
+        this._reconnectAttempts = 0;
         this._silenceLimitMs = SILENCE_LIMIT_MS;
         this._boxGames = []; // last games.list from the Box
         this._pendingReplaceSlug = null;
@@ -431,8 +458,57 @@ class App {
                     this.onSerialDrop();
                 }
             });
+            // The device's own reboot (after a send, or a manual restart)
+            // re-enumerates its native USB, which the browser reports here
+            // the moment the port is available again -- well before any
+            // fixed timeout would give up. Device-agnostic: Box and Dial
+            // both reopen the same way (see BboxDeviceLink.reconnect()).
+            navigator.serial.addEventListener('connect', () => {
+                dbg('device', 'navigator.serial connect event fired');
+                this.tryAutoReconnect();
+            });
         } else {
             dbgWarn('device', 'Web Serial API not available in this browser (need Chrome/Edge)');
+        }
+    }
+
+    /**
+     * Reopen a previously granted port without prompting, when the browser
+     * reports the device's port is available again. Only fires while we
+     * are actively expecting or hoping for the device back (rebooting, or
+     * lost after being connected) -- never for an intentional disconnect
+     * (state 'idle'), never more than one attempt at a time, and never more
+     * than MAX_AUTO_RECONNECT_ATTEMPTS total per drop -- this is a
+     * convenience for the ordinary post-send reboot, not a promise to keep
+     * retrying against a device that genuinely isn't coming back. The
+     * teacher can also always cancel out via the header button (see
+     * toggleConnect()'s 'rebooting' case) rather than wait on either the
+     * cap or the reboot timer.
+     */
+    async tryAutoReconnect() {
+        if (this.link.state !== 'rebooting' && this.link.state !== 'lost') return;
+        if (this._reconnecting) return;
+        if (this._reconnectAttempts >= MAX_AUTO_RECONNECT_ATTEMPTS) {
+            dbg('device', `tryAutoReconnect(): already made ${this._reconnectAttempts} attempt(s) — not retrying again`);
+            return;
+        }
+        this._reconnecting = true;
+        this._reconnectAttempts += 1;
+        dbg('device', `tryAutoReconnect() attempt ${this._reconnectAttempts}/${MAX_AUTO_RECONNECT_ATTEMPTS} — link state is ${this.link.state}`);
+        try {
+            const reopened = await this.device.reconnect();
+            if (reopened) {
+                this._clearRebootTimer();
+                this._reconnectAttempts = 0;
+                this.setLinkState('waiting');
+                toast(`Reconnected — waking up the ${this.deviceShort()}…`);
+            } else {
+                dbg('device', 'tryAutoReconnect(): no matching granted port to reopen yet');
+            }
+        } catch (e) {
+            dbgWarn('device', `tryAutoReconnect() failed: ${e.message}`);
+        } finally {
+            this._reconnecting = false;
         }
     }
 
@@ -466,8 +542,17 @@ class App {
             this._silenceLimitMs = SILENCE_LIMIT_MS;
             this._clearRebootTimer();
         }
+        if (state === 'idle') {
+            // A fresh cycle (explicit disconnect, or the teacher cancelling
+            // out of a reboot/reconnect wait) earns a full new attempt
+            // budget next time -- 'lost' does NOT reset this: it's usually
+            // mid-drop, on the way to 'rebooting', and resetting there would
+            // make the attempt cap meaningless.
+            this._reconnectAttempts = 0;
+        }
         if (state === 'live') {
             this._clearRebootTimer();
+            this._reconnectAttempts = 0;
             if (this.pendingSendAfterConnect) {
                 this.pendingSendAfterConnect = false;
                 dbg('app', 'link live — resuming deferred send confirm');
@@ -567,10 +652,8 @@ class App {
     }
 
     bindEvents() {
-        document.getElementById('btn-scratch').addEventListener('click', () => {
-            this.resetGameContext();
-            this.openWorkspace();
-        });
+        document.getElementById('btn-scratch').addEventListener('click', () => this.startNewGame());
+        document.getElementById('btn-new-game').addEventListener('click', () => this.startNewGame());
         document.getElementById('btn-gallery').addEventListener('click', () => this.goExamples());
         document.getElementById('btn-saved').addEventListener('click', () => this.goSaved());
         document.getElementById('gallery-search').addEventListener('input', () => this.renderGallery());
@@ -599,6 +682,13 @@ class App {
             hideOverlay('connect-overlay');
             showConnectToast(false);
         });
+        // Kill switch: same effect as Cancel, but never disabled/hidden by
+        // any busy state -- always a way out of this overlay.
+        document.getElementById('btn-connect-close-x')?.addEventListener('click', () => {
+            this.pendingSendAfterConnect = false;
+            hideOverlay('connect-overlay');
+            showConnectToast(false);
+        });
         document.querySelectorAll('.btn-connect-header').forEach((btn) => {
             btn.addEventListener('click', () => this.toggleConnect());
         });
@@ -616,6 +706,36 @@ class App {
         });
         document.getElementById('btn-send-confirm').addEventListener('click', () => this.confirmSend());
         document.getElementById('btn-send-cancel').addEventListener('click', () => hideOverlay('send-confirm-overlay'));
+        // Editing the name after a duplicate-name warning armed the
+        // "Replace existing game" second click (see confirmSend()) cancels
+        // that arming -- otherwise a corrected, non-duplicate name would
+        // still show "Replace existing game" on the button.
+        document.getElementById('send-game-name')?.addEventListener('input', () => {
+            if (!this._pendingReplaceSlug) return;
+            this._pendingReplaceSlug = null;
+            document.getElementById('btn-send-confirm').textContent = 'Send';
+            const errEl = document.getElementById('send-name-error');
+            if (errEl) errEl.textContent = '';
+        });
+        document.getElementById('btn-send-done').addEventListener('click', () => this.finishSend());
+        // Kill switch: unlike Cancel (hidden by setSendBusy(true) while a
+        // send is in flight -- there is no safe abort mid-write, see
+        // setSendBusy()'s docstring), this button is never hidden or
+        // disabled. On the form it does not try to cancel the upload --
+        // that keeps running in the background and will resolve into the
+        // usual toast/link-state path -- it only frees the UI so the
+        // teacher isn't stuck looking at "Sending..." if something never
+        // resolves. On the success screen it's equivalent to Done.
+        document.getElementById('btn-send-close-x')?.addEventListener('click', () => {
+            const inSuccess = !document.getElementById('send-confirm-success').classList.contains('hidden');
+            if (inSuccess) {
+                this.finishSend();
+                return;
+            }
+            this.setSendBusy(false);
+            document.getElementById('send-progress-wrap').classList.add('hidden');
+            hideOverlay('send-confirm-overlay');
+        });
         document.getElementById('btn-box-lib-close')?.addEventListener('click', () => hideOverlay('box-library-overlay'));
         document.getElementById('btn-box-lib-refresh')?.addEventListener('click', () => this.refreshBoxLibrary());
         document.getElementById('btn-box-lib-clear')?.addEventListener('click', () => this.clearBoxLibrary());
@@ -673,17 +793,102 @@ class App {
         syncNavTabs('gallery');
     }
 
-    goHome() {
-        const hasWork = getVersionCount() > 0 || this.chatHistory.length > 0 || this.dirty;
-        if (hasWork) {
-            const saveFirst = confirm(
-                'You have unsaved work in this session.\n\nOK = Save then go home\nCancel = Stay here'
-            );
-            if (!saveFirst) return;
-            this.onSaveGame();
-        }
+    async goHome() {
+        const action = await this.confirmUnsavedWork();
+        if (action === 'cancel') return;
         this._sim?.stop();
         showView('splash');
+    }
+
+    /** "New game": the button near Save, and the splash "Start from
+     * scratch" tile -- both routed through the same unsaved-work check and
+     * the same clearWorkspace(), so there's exactly one way this happens
+     * rather than two that can drift. */
+    async startNewGame() {
+        const action = await this.confirmUnsavedWork();
+        if (action === 'cancel') return;
+        this.resetGameContext();
+        this.clearWorkspace();
+        this.openWorkspace();
+    }
+
+    /**
+     * Save/Discard/Cancel for leaving a dirty workspace, replacing
+     * window.confirm(). Resolves 'continue' (proceed -- saved first if the
+     * teacher chose Save) or 'cancel' (stay put). No-ops straight to
+     * 'continue' when there's nothing to lose.
+     */
+    confirmUnsavedWork() {
+        // this.dirty alone, not getVersionCount()/chatHistory.length -- those
+        // stay > 0 for the rest of the session once you've done anything at
+        // all, save or no save, so ORing them in meant this prompted every
+        // time regardless of whether there was anything actually unsaved
+        // (e.g. right after clicking Save, which does clear this.dirty).
+        if (!this.dirty) return Promise.resolve('continue');
+        return new Promise((resolve) => {
+            const saveBtn = document.getElementById('btn-unsaved-save');
+            const discardBtn = document.getElementById('btn-unsaved-discard');
+            const cancelBtn = document.getElementById('btn-unsaved-cancel');
+            const xBtn = document.getElementById('btn-unsaved-close-x');
+            const cleanup = () => {
+                saveBtn.removeEventListener('click', onSave);
+                discardBtn.removeEventListener('click', onDiscard);
+                cancelBtn.removeEventListener('click', onCancel);
+                xBtn.removeEventListener('click', onCancel);
+            };
+            const onSave = () => { cleanup(); hideOverlay('unsaved-overlay'); this.onSaveGame(); resolve('continue'); };
+            const onDiscard = () => { cleanup(); hideOverlay('unsaved-overlay'); resolve('continue'); };
+            const onCancel = () => { cleanup(); hideOverlay('unsaved-overlay'); resolve('cancel'); };
+            saveBtn.addEventListener('click', onSave);
+            discardBtn.addEventListener('click', onDiscard);
+            cancelBtn.addEventListener('click', onCancel);
+            xBtn.addEventListener('click', onCancel);
+            showOverlay('unsaved-overlay');
+        });
+    }
+
+    /**
+     * Generic yes/no confirm, replacing window.confirm() for destructive
+     * device actions. Resolves true/false.
+     */
+    confirmDialog({ title = 'Are you sure?', message = '', okLabel = 'Confirm' } = {}) {
+        return new Promise((resolve) => {
+            document.getElementById('confirm-title').textContent = title;
+            document.getElementById('confirm-message').textContent = message;
+            const okBtn = document.getElementById('btn-confirm-ok');
+            okBtn.textContent = okLabel;
+            const cancelBtn = document.getElementById('btn-confirm-cancel');
+            const xBtn = document.getElementById('btn-confirm-close-x');
+            const cleanup = () => {
+                okBtn.removeEventListener('click', onOk);
+                cancelBtn.removeEventListener('click', onCancel);
+                xBtn.removeEventListener('click', onCancel);
+            };
+            const onOk = () => { cleanup(); hideOverlay('confirm-overlay'); resolve(true); };
+            const onCancel = () => { cleanup(); hideOverlay('confirm-overlay'); resolve(false); };
+            okBtn.addEventListener('click', onOk);
+            cancelBtn.addEventListener('click', onCancel);
+            xBtn.addEventListener('click', onCancel);
+            showOverlay('confirm-overlay');
+        });
+    }
+
+    /**
+     * Clear the workspace's visible state: chat transcript, editor code +
+     * version history, and the sim. resetGameContext() alone never touched
+     * any of this (it only clears bookkeeping like gameName/declaredTags),
+     * which is why "Start from scratch" used to leave the old code and
+     * chat sitting there even though it looked like a fresh session.
+     */
+    clearWorkspace() {
+        document.getElementById('chat-box').innerHTML = '';
+        document.getElementById('user-input').value = '';
+        resetEditor();
+        this.syncRoleRail();
+        this.dirty = false;
+        this._sim?.stop();
+        this._simLastSource = null;
+        this.updatePreview();
     }
 
     onSaveGame() {
@@ -855,6 +1060,8 @@ class App {
             return;
         }
         this.gameName = g.name;
+        // DIAGNOSTIC (temporary -- name-field investigation, see chat).
+        dbg('app', `openSavedGame(${id}): stored name=${JSON.stringify(g.name)} -> this.gameName=${JSON.stringify(this.gameName)}`);
         this.gameDesc = g.desc || '';
         this.declaredTags = g.hardware?.declaredTags || null;
         this.hardware = g.hardware || buildHardwareReqs({ gameName: g.name });
@@ -864,6 +1071,17 @@ class App {
         box.innerHTML = '';
         addMsg(`Loaded saved game “${g.name}”.`, 'system');
         clearAllRoles();
+        // Replay the conversation, not just a one-line note -- the data was
+        // already being saved and restored into this.chatHistory (for the
+        // API's context) but never shown again, so a reopened game looked
+        // like a blank chat despite the model still "remembering" it. Code
+        // blocks in old assistant turns were already replaced with a
+        // "[code: N lines, sent to editor]" placeholder when saved (see
+        // trimForHistory() in chat.js), which reads fine here too: the
+        // actual current code is loaded into the editor below regardless.
+        this.chatHistory.forEach((turn) => {
+            addMsg(turn.content, turn.role === 'assistant' ? 'bot' : 'user');
+        });
         if (g.code) {
             setCode(g.code, 'wand');
             saveVersion(g.code, 'Loaded from library', 'wand');
@@ -874,7 +1092,7 @@ class App {
         }
         this.syncRoleRail();
         this.dirty = false;
-        this.updatePreview();
+        this.updatePreview({ forcePlay: true });
     }
 
     openDetail(id) {
@@ -970,18 +1188,22 @@ class App {
         if (box.querySelector('.starter-chips')) return;
         const wrap = document.createElement('div');
         wrap.className = 'starter-chips';
+        // Intro lives INSIDE wrap (not a sibling) so removing '.starter-chips'
+        // on the first sent message takes both with it in one go -- it used
+        // to be a sibling appended straight to `box`, which meant onSend()'s
+        // wrap.remove() left this line behind permanently.
         const intro = document.createElement('div');
         intro.className = 'msg system';
         intro.textContent = 'Try one of these ideas — tap a chip to fill the box, then edit and send:';
-        box.appendChild(intro);
-        EXAMPLES.slice(0, 5).forEach((ex) => {
+        wrap.appendChild(intro);
+        CHAT_STARTER_PROMPTS.forEach((sp) => {
             const chip = document.createElement('button');
             chip.type = 'button';
             chip.className = 'starter-chip';
-            chip.innerHTML = `${iconSvg(exampleIcon(ex), { size: 14 })} <span>${escapeHtml(ex.starterPrompt)}</span>`;
+            chip.innerHTML = `${iconSvg(sp.icon, { size: 14 })} <span>${escapeHtml(sp.text)}</span>`;
             chip.addEventListener('click', () => {
                 const inp = document.getElementById('user-input');
-                inp.value = ex.starterPrompt;
+                inp.value = sp.text;
                 inp.focus();
                 inp.style.height = 'auto';
                 inp.style.height = Math.min(inp.scrollHeight, 120) + 'px';
@@ -1041,7 +1263,7 @@ class App {
         }
         this.openWorkspace(this.currentExample.starterPrompt);
         addMsg(`Let's remix ${this.currentExample.name}! What would you like to change?`, 'system');
-        this.updatePreview();
+        this.updatePreview({ forcePlay: true });
     }
 
     /** The example's real Python, or null if it couldn't be read. A failure
@@ -1079,11 +1301,14 @@ class App {
             return;
         }
 
-        this.updatePreview();
+        this.updatePreview({ forcePlay: true });
         await this.startSendFlow();
     }
 
-    updatePreview() {
+    /** @param {{forcePlay?: boolean}} [opts] forcePlay: this is an explicit
+     * "load this specific game" action (saved game, remix, use-as-is), not
+     * an incidental chat/version-navigation refresh -- see pushSimSource(). */
+    updatePreview(opts = {}) {
         const wandCode = getCode('wand');
         const iconCode = getCode('icon');
 
@@ -1102,7 +1327,7 @@ class App {
             this.updateIconSim(iconCode);
         } else if (runnable) {
             this.setupSim();
-            this.pushSimSource(wandCode);
+            this.pushSimSource(wandCode, opts);
         }
     }
 
@@ -1142,8 +1367,10 @@ class App {
                 });
                 if (this._simPendingSource !== null) {
                     const pending = this._simPendingSource;
+                    const forcePlay = this._simForcePlayPending;
                     this._simPendingSource = null;
-                    this.pushSimSource(pending);
+                    this._simForcePlayPending = false;
+                    this.pushSimSource(pending, { forcePlay });
                 }
             })
             .catch((err) => {
@@ -1152,18 +1379,33 @@ class App {
         return this._simLoadPromise;
     }
 
-    /** Push code into the sim only when it actually changed — the element's
-     * source setter reloads (and would restart the running game)
+    /**
+     * Push code into the sim. Normally only when it actually changed — the
+     * element's source setter reloads (and would restart the running game)
      * unconditionally, and updatePreview() runs on every keystroke-adjacent
-     * chat/version event, not just real code changes. Only marks the code
-     * as "sent" (_simLastSource) once it's actually reached the element —
-     * setupSim() is still loading, this just queues it for that resolve. */
-    pushSimSource(code) {
+     * chat/version event, not just real code changes -- an organic chat
+     * edit gets a passive "new code is ready, play it" banner rather than
+     * yanking control from someone mid-test.
+     *
+     * `forcePlay` is for the opposite case: an explicit "load this game"
+     * action (a saved game, remix, use-as-is), where the teacher clicked
+     * something specifically to see THIS game, not incidentally touched
+     * code that happens to match what's already loaded (bypassing the
+     * equality check too -- reopening the same saved game twice in a row
+     * should still visibly restart it) -- and restart()s it immediately
+     * instead of leaving it to the passive banner.
+     *
+     * Only marks the code as "sent" (_simLastSource) once it's actually
+     * reached the element -- setupSim() is still loading, this just queues
+     * it for that resolve.
+     */
+    pushSimSource(code, { forcePlay = false } = {}) {
         if (!this._sim) {
             this._simPendingSource = code;
+            this._simForcePlayPending = forcePlay;
             return;
         }
-        if (code === this._simLastSource) return;
+        if (code === this._simLastSource && !forcePlay) return;
         // Only from the second push on: the first one *is* the game
         // appearing, which needs no announcement.
         const isUpdate = this._simLastSource != null;
@@ -1175,7 +1417,11 @@ class App {
         // down; a game generated from scratch has none and shows the lot.
         this._sim.profile = this.currentExample?.simProfile || null;
         this._sim.source = code;
-        if (isUpdate) this._sim.showOverlay('new-code');
+        if (forcePlay) {
+            this._sim.restart?.();
+        } else if (isUpdate) {
+            this._sim.showOverlay('new-code');
+        }
     }
 
     /**
@@ -1192,7 +1438,7 @@ class App {
     }
 
     renderComponentList(targetId) {
-        const code = getCode();
+        const code = getCode('wand');
         const caps = scanCapabilities(code);
         const items = buildComponentChecklist(caps, this.requiredTags);
         const el = document.getElementById(targetId);
@@ -1239,10 +1485,15 @@ class App {
     /** Standalone header "Connect"/"Disconnect"/"Cancel" toggle. */
     async toggleConnect() {
         const s = this.link.state;
-        if (s === 'opening' || s === 'sending' || s === 'rebooting') return;
-        if (s === 'waiting') {
-            dbg('app', 'toggleConnect() — cancel waiting');
+        if (s === 'opening' || s === 'sending') return;
+        if (s === 'waiting' || s === 'rebooting') {
+            // 'rebooting' included: the auto-reconnect attempts this state
+            // waits for are a convenience, not something the teacher should
+            // be stuck watching -- always a way to bail out to idle instead
+            // of waiting on the reboot timer or an attempt limit.
+            dbg('app', `toggleConnect() — cancel ${s}`);
             showConnectToast(false);
+            this._clearRebootTimer();
             await this.device.disconnect();
             this.setLinkState('idle');
             toast('Cancelled.');
@@ -1282,7 +1533,7 @@ class App {
 
     async startSendFlow() {
         dbg('app', 'startSendFlow() — "Send to Broadcast Box" clicked');
-        const code = getCode();
+        const code = getCode('wand');
         if (!code.trim() || code.trim().startsWith('# AI-generated')) {
             dbgWarn('app', 'startSendFlow() aborted: no code in editor');
             toast('Generate some code first — describe your game in chat.', true);
@@ -1298,7 +1549,7 @@ class App {
     /** Recompute the hardware requirements from the current code + declared tags. */
     refreshHardware(code) {
         this.hardware = buildHardwareReqs({
-            code: code !== undefined ? code : getCode(),
+            code: code !== undefined ? code : getCode('wand'),
             gameName: this.gameName,
             declared: this.declaredTags,
         });
@@ -1331,12 +1582,25 @@ class App {
         if (errEl) errEl.textContent = '';
         if (nameInput) {
             nameInput.value = this.gameName && this.gameName !== 'Your game' ? this.gameName : '';
+            // DIAGNOSTIC (temporary -- name-field-appears-blank investigation,
+            // see chat): confirmSend() falls back to this.gameName when the
+            // input is empty, so a duplicate-name warning naming the right
+            // game even with a blank-looking field is consistent with EITHER
+            // this line failing to actually set .value, OR it succeeding but
+            // something visual hiding it. Logging both the source and the
+            // result right after assignment settles which one it is.
+            dbg('app', `showSendConfirm(): populated name field from gameName=${JSON.stringify(this.gameName)} -> input.value=${JSON.stringify(nameInput.value)}`);
         }
         this._pendingReplaceSlug = null;
         this.refreshHardware();
         this.renderSendRequirements();
         this.setSendBusy(false);
         document.getElementById('send-progress-wrap').classList.add('hidden');
+        // Always reopen on the name/requirements form, never mid-way
+        // through a previous send's success screen.
+        document.getElementById('send-confirm-form').classList.remove('hidden');
+        document.getElementById('send-confirm-success').classList.add('hidden');
+        clearTimeout(this._sendSuccessTimer);
         // Refresh Box game list when live so duplicate checks work.
         if (this.link.state === 'live') {
             try {
@@ -1366,34 +1630,78 @@ class App {
         if (nameInput) nameInput.disabled = busy;
     }
 
+    /**
+     * Switch the send-confirm overlay from the name/requirements form to a
+     * success screen, once the device has confirmed the file write (the
+     * real point of success -- see pushPayload()/boxFirmwareInstaller.js).
+     * The device's own reboot happens after this and is expected; the
+     * overlay does not wait on it. Auto-closes on a timer as well as Done,
+     * since a teacher mid-classroom may not click through every dialog.
+     */
+    showSendSuccess(prettyName) {
+        document.getElementById('send-confirm-form').classList.add('hidden');
+        document.getElementById('send-confirm-success').classList.remove('hidden');
+        document.getElementById('send-success-title').textContent = `"${prettyName}" is on the ${this.deviceShort()}!`;
+        document.getElementById('send-success-note').textContent =
+            `The ${this.deviceShort()} will restart now — give it a few seconds.`;
+        clearTimeout(this._sendSuccessTimer);
+        this._sendSuccessTimer = setTimeout(() => this.finishSend(), 5000);
+    }
+
+    /** Close the send-confirm overlay after a successful send (Done, its
+     * auto-close timer, or the kill-switch X all land here) and put the
+     * link into 'rebooting' -- the state that quietly rides out the
+     * device's own reboot instead of reporting it as a disconnect. */
+    finishSend() {
+        clearTimeout(this._sendSuccessTimer);
+        hideOverlay('send-confirm-overlay');
+        this._pendingReplaceSlug = null;
+        // Only claim 'rebooting' if we're still sitting on the disconnect
+        // from the send's own reboot. tryAutoReconnect() can already have
+        // gotten us to 'waiting' or 'live' by the time Done is clicked (or
+        // the auto-close timer fires) -- forcing 'rebooting' here would
+        // wrongly downgrade an already-recovered connection.
+        if (this.link.state === 'lost') {
+            this.setLinkState('rebooting');
+            this._armRebootTimer();
+        }
+    }
+
     async confirmSend() {
         dbg('app', 'confirmSend() — "Send" clicked on confirm overlay');
         const code = getCode('wand');
         const nameInput = document.getElementById('send-game-name');
         const errEl = document.getElementById('send-name-error');
         const pretty = (nameInput?.value || this.gameName || '').trim();
+        // DIAGNOSTIC (temporary -- name-field investigation, see chat): if
+        // input.value is empty here but this.gameName isn't, `pretty` is
+        // coming from the fallback, which is the strongest possible signal
+        // that the field itself was really empty (not just visually so).
+        dbg('app', `confirmSend(): input.value=${JSON.stringify(nameInput?.value)}, this.gameName=${JSON.stringify(this.gameName)} -> pretty=${JSON.stringify(pretty)}`);
         const existing = (this._boxGames || []).map((g) => g.slug);
-        let check = validateGameName(pretty, {
+        const btn = document.getElementById('btn-send-confirm');
+        const check = validateGameName(pretty, {
             existingSlugs: existing,
             allowReplace: this._pendingReplaceSlug === slugify(pretty),
         });
         if (!check.ok && check.reason === 'replace') {
-            const ok = confirm(
-                `"${pretty}" is already on the ${this.deviceShort()}.\n\nOK = Replace it\nCancel = pick another name`
-            );
-            if (!ok) {
-                if (errEl) errEl.textContent = 'Pick a different name, or confirm Replace.';
-                return;
-            }
+            // First click on a duplicate name: explain inline and arm the
+            // button for a second click that actually replaces it, instead
+            // of a native confirm() popup. Editing the name (see its input
+            // listener in bindEvents()) disarms this.
             this._pendingReplaceSlug = check.slug;
-            check = validateGameName(pretty, { existingSlugs: existing, allowReplace: true });
+            if (errEl) errEl.textContent = `"${pretty}" is already on the ${this.deviceShort()}. Click Replace to overwrite it, or change the name.`;
+            if (btn) btn.textContent = 'Replace existing game';
+            return;
         }
         if (!check.ok) {
+            this._pendingReplaceSlug = null;
+            if (btn) btn.textContent = 'Send';
             if (errEl) errEl.textContent = check.reason || 'Invalid name.';
-            toast(check.reason || 'Invalid name.', true);
             return;
         }
         if (errEl) errEl.textContent = '';
+        if (btn) btn.textContent = 'Send';
         this.gameName = check.pretty;
         const slug = check.slug;
         // The name is settled now, so the baseline getcode:/play tags are too.
@@ -1477,30 +1785,11 @@ class App {
             return;
         }
 
-        hideOverlay('send-confirm-overlay');
-        this._pendingReplaceSlug = null;
-
-        this.setLinkState('rebooting');
-        this._armRebootTimer();
-        dbg('app', 'send succeeded — showing tag to-do list');
-        const banner = document.getElementById('sent-banner');
-        banner.classList.remove('hidden');
-        setTimeout(() => banner.classList.add('hidden'), 4000);
-
-        // Post-send to-do list. Every game needs the baseline getcode:/play pair,
-        // so only open the overlay when there is more to write than that.
-        const tags = this.requiredTags;
-        if (tags.length > baselineTags(slug).length) {
-            this.tagWrites = {};
-            await showTagChecklist({
-                title: `Now write ${tags.length} tags on the ${this.deviceShort()}`,
-                subtitle: `Hold each card on the ${this.deviceShort()} in turn — you can unplug it first.`,
-                tags,
-                written: this.tagWrites,
-            });
-        } else {
-            toast(`Sent! Hold a card on the ${this.deviceShort()} to write the pickup tag.`);
-        }
+        dbg('app', 'send succeeded — showing success screen');
+        // Tag-writing to-do list is out of scope here now -- the device
+        // manages that itself (see chat). The overlay's job is just to make
+        // "it worked, the device is restarting" visible and unambiguous.
+        this.showSendSuccess(check.pretty);
     }
 
     async openBoxLibrary() {
@@ -1569,7 +1858,7 @@ class App {
                 const del = document.createElement('button');
                 del.type = 'button';
                 del.className = 'box-lib-del';
-                del.title = 'Delete from Box';
+                del.title = `Delete from ${this.deviceShort()}`;
                 del.innerHTML = iconSvg('trash', { size: 15 });
                 del.addEventListener('click', () => this.askDeleteBoxGame(li, g));
 
@@ -1651,22 +1940,19 @@ class App {
     }
 
     paintMyBoxHealth() {
-        const mode = this.link.boxMode;
         const info = this.link.deviceInfo || {};
         const chip = document.getElementById('mybox-mode-chip');
         const label = document.getElementById('mybox-mode-label');
+        // Same "connected or not" rule as the header mode pill (router.js)
+        // -- this chip can't change the device's mode either, so it never
+        // names one ("Code Server"/"Tag Writing"), which read as if it
+        // reflected something this overlay controls.
         if (chip && label) {
-            chip.classList.toggle('write', mode === 'WRITE');
-            if (mode === 'SERVE') {
-                label.textContent = 'Code Server';
-                chip.title = 'Handing out code to wands.';
-            } else if (mode === 'WRITE') {
-                label.textContent = 'Tag Writing';
-                chip.title = 'Ready to write pickup tags.';
-            } else {
-                label.textContent = this.link.state === 'live' ? `${this.deviceShort()} ready` : this.deviceShort();
-                chip.title = `Connect to see ${this.deviceShort()} status.`;
-            }
+            chip.classList.remove('write');
+            label.textContent = this.link.state === 'live' ? `${this.deviceShort()} ready` : this.deviceShort();
+            chip.title = this.link.state === 'live'
+                ? `Games, health & battery on the ${this.deviceShort()}.`
+                : `Connect to see ${this.deviceShort()} status.`;
         }
         const nfc = document.getElementById('mybox-nfc');
         const nfcStatus = document.getElementById('mybox-nfc-status');
@@ -1712,7 +1998,17 @@ class App {
     }
 
     async deleteBoxGame(slug, alreadyConfirmed = false) {
-        if (!alreadyConfirmed && !confirm(`Delete "${slug}" from the ${this.deviceShort()}?`)) return;
+        // The library UI always confirms inline first (askDeleteBoxGame()'s
+        // "Delete?" button), so alreadyConfirmed is normally already true;
+        // this is only a fallback for a hypothetical direct call.
+        if (!alreadyConfirmed) {
+            const ok = await this.confirmDialog({
+                title: 'Delete this game?',
+                message: `This removes "${slug}" from the ${this.deviceShort()}.`,
+                okLabel: 'Delete',
+            });
+            if (!ok) return;
+        }
         try {
             await this.device.sendCmd({ cmd: 'games.delete', slug }, { timeoutMs: 5000 });
             toast(`Deleted ${slug}`);
@@ -1723,10 +2019,15 @@ class App {
     }
 
     async clearBoxLibrary() {
-        if (!confirm(`Remove ALL games from the ${this.deviceShort()}?`)) return;
+        const ok = await this.confirmDialog({
+            title: 'Remove all games?',
+            message: `This removes every game from the ${this.deviceShort()}.`,
+            okLabel: 'Remove all',
+        });
+        if (!ok) return;
         try {
             await this.device.sendCmd({ cmd: 'games.clear' }, { timeoutMs: 8000 });
-            toast('Box library cleared');
+            toast('Library cleared');
             await this.refreshBoxLibrary();
         } catch (e) {
             toast(e.message || 'Clear failed', true);
@@ -1734,7 +2035,12 @@ class App {
     }
 
     async resetBoxStats() {
-        if (!confirm(`Reset usage stats on the ${this.deviceShort()}?`)) return;
+        const ok = await this.confirmDialog({
+            title: 'Reset usage stats?',
+            message: `This resets pull/write counters on the ${this.deviceShort()}.`,
+            okLabel: 'Reset stats',
+        });
+        if (!ok) return;
         try {
             await this.device.sendCmd({ cmd: 'stats.reset' }, { timeoutMs: 5000 });
             toast('Stats reset');

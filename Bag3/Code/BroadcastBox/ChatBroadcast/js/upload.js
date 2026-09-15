@@ -72,8 +72,11 @@ export function validateJumpin(code) {
 }
 
 export async function uploadPayload(device, code, onProgress, opts = {}) {
-    // App passes link.state; only live/sending may push.
-    const product = opts.deviceProduct || "Broadcast Box";
+    // App passes link.state; only live/sending may push. Falls back to a
+    // generic name only if a caller omits deviceProduct -- app.js always
+    // passes the real one, so this should never actually be user-visible.
+    // ("device", not "the device": both slot into "Connect your X first.")
+    const product = opts.deviceProduct || "device";
     if (opts.linkState) {
         if (opts.linkState !== "live" && opts.linkState !== "sending") {
             return { ok: false, error: `Connect your ${product} first.` };
@@ -88,7 +91,7 @@ export async function uploadPayload(device, code, onProgress, opts = {}) {
     try {
         const meta = { ...(opts.meta || {}) };
         if (!meta.deviceLabel) {
-            meta.deviceLabel = opts.deviceShort || "Box";
+            meta.deviceLabel = opts.deviceShort || "device";
         }
         return await device.sendGame(code, meta, onProgress);
     } catch (e) {

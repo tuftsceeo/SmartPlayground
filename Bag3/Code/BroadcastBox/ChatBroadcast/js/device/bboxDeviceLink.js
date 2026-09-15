@@ -31,20 +31,33 @@ const NUDGE_TIMEOUT_MS = 2000;
 /** Box and Dial share ChatBroadcast; anything else is wrong_device. */
 const EXPECTED_DEVICES = new Set(["broadcast_box", "broadcast_dial"]);
 
-/** Short label for UI copy: "Box" or "Dial". Defaults to Box when unknown. */
+/**
+ * Short label for UI copy: "Box" or "Dial". Generic "Device" before
+ * identity arrives or for any future product this app doesn't know about
+ * yet -- this used to default to "Box" whenever the device type was
+ * unknown, which wrongly named a specific product on every pre-connection
+ * label (the connect button, mode pill, restart button, etc.) and would
+ * misname any device added later (e.g. a wand). Only a confirmed
+ * broadcast_box/broadcast_dial identity earns its real name.
+ */
 export function deviceShortName(infoOrDevice) {
   const d = typeof infoOrDevice === "string"
     ? infoOrDevice
     : infoOrDevice?.device;
-  return d === "broadcast_dial" ? "Dial" : "Box";
+  if (d === "broadcast_dial") return "Dial";
+  if (d === "broadcast_box") return "Box";
+  return "Device";
 }
 
-/** Product name for UI copy: "Broadcast Box" or "Broadcast Dial". */
+/** Product name for UI copy: "Broadcast Box" or "Broadcast Dial". Same
+ *  generic-until-known rule as deviceShortName() above. */
 export function deviceProductName(infoOrDevice) {
   const d = typeof infoOrDevice === "string"
     ? infoOrDevice
     : infoOrDevice?.device;
-  return d === "broadcast_dial" ? "Broadcast Dial" : "Broadcast Box";
+  if (d === "broadcast_dial") return "Broadcast Dial";
+  if (d === "broadcast_box") return "Broadcast Box";
+  return "Broadcast Device";
 }
 
 function sleep(ms) {
@@ -161,18 +174,43 @@ export class BboxDeviceLink {
     // Fire the first identify without awaiting it. The reply arrives as an
     // ordinary `identity` event either way, so awaiting bought nothing and cost
     // the caller the full timeout sitting in "connecting…" before the UI
-    // could even show "waking up the Box". Retries are the host's job now
-    // (App._armIdentifyNudge), because one probe can cross a busy moment on the
-    // Box and nothing would ever ask again.
+    // could even show "waking up the device". Retries are the host's job now
+    // (App._armIdentifyNudge), because one probe can cross a busy moment on
+    // the device and nothing would ever ask again.
     this.nudgeIdentify().catch(() => {});
     logInfo("=== connect() returned (port open; awaiting device messages) ===");
   }
 
   /**
-   * Ask the Box to identify itself. Never throws — a timeout here is normal
-   * (the Box may still be booting, or mid-serve with its main loop blocked),
-   * and the caller decides when silence has gone on too long.
-   * @returns {Promise<boolean>} true if the Box replied
+   * Reopen the same physical port after an unplanned drop (typically the
+   * device's own reboot re-enumerating its native USB) without prompting
+   * for a new port pick. Device-agnostic -- Box and Dial both go through
+   * this the same way, since it only cares about the USB port, not what
+   * firmware answers on it. Resolves false (never throws) if there is
+   * nothing to reopen yet; the caller decides how long to keep trying.
+   */
+  async reconnect() {
+    logInfo("=== reconnect() begin (reopening previously granted port) ===");
+    this._autoRecoverArmed = true;
+    this.atRepl = false;
+    this.wrongDevice = false;
+    const reopened = await this.adapter.reopenLastPort();
+    if (!reopened) {
+      logInfo("=== reconnect(): nothing to reopen ===");
+      return false;
+    }
+    this._attachJson();
+    this.nudgeIdentify().catch(() => {});
+    logInfo("=== reconnect() returned (port open; awaiting device messages) ===");
+    return true;
+  }
+
+  /**
+   * Ask the device to identify itself. Never throws — a timeout here is
+   * normal (the device may still be booting, or mid-serve with its main
+   * loop blocked), and the caller decides when silence has gone on too
+   * long.
+   * @returns {Promise<boolean>} true if the device replied
    */
   async nudgeIdentify({ timeoutMs = NUDGE_TIMEOUT_MS } = {}) {
     if (!this.json) return false;
