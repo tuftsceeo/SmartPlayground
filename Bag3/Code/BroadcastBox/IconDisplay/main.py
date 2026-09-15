@@ -56,6 +56,7 @@ PULL_GRACE_S = 3          # seconds at the REPL before a queued pull starts
 NFC_POLL_FRAMES = 12      # idle frames between card reads -- a read is 200-500ms
 UID_REPEAT_MS = 1200      # ignore the same uid until it has been away this long
 IDLE_FRAME_MS = 80
+USB_HOLD_MS = 3000        # idle breath stays off this long after a USB frame
 
 # Pulled games live in /games/<slug>.py. Putting that directory on sys.path
 # is what lets _load_play() import a pulled game with the same bare
@@ -161,6 +162,8 @@ def show_idle(panel, frame):
     level = step if step < 16 else 31 - step
     panel.set_intensity(IDLE_INTENSITY)
     fill(panel, (0, 4 + level, 20 + level * 2))
+
+
 
 
 # ─────────────────────────────────────────────
@@ -357,7 +360,18 @@ def main():
     if pull_flag.is_pending():
         _run_pull_mode(panel, icon_store.DIR)
 
-    # ── 4. Card reader, when one is fitted ──
+    # ── 4. USB link for the icon editor web app ──
+    # Given the panel main.py already built: two NeoPixel objects on one pin
+    # fight. The link is simply live whenever this device is idle -- pump()
+    # returns promptly on a quiet port, so there is no mode to switch and
+    # nothing to trigger. start() announces this device, which is what the
+    # browser's connect flow listens for.
+    from icon_server import IconServer
+    server = IconServer(panel, debug=DEBUG)
+    server.start()
+    memprobe.probe("post-server")  # BENCH
+
+    # ── 5. Card reader, when one is fitted ──
     nfc = None
     reader = None
     if HUB_CONFIG.get("has_nfc"):
@@ -385,13 +399,33 @@ def main():
     print("  Icon display idle. %d built-in, %d pulled."
           % (len(GAME_MODULES), len(game_store.slugs())))
 
-    # ── 5. Idle loop ──
+    # ── 6. Idle loop ──
     frame = 0
     last_uid = None
     last_uid_ms = 0
     while True:
         frame += 1
-        show_idle(panel, frame)
+
+        # USB first: a browser waiting on a frame should not sit behind a
+        # card read. A game, when one runs, owns the loop instead -- so
+        # authoring pauses for its duration, by design.
+        if not server.step():
+            if server.exit_reason == "repl":
+                # Asked to get out of the way. Leave the panel dark and drop
+                # to the REPL rather than resetting, which would take the
+                # port the browser is holding with it.
+                print("  USB asked for the REPL -- exiting main()")
+                server.finish()
+                return
+            # A reboot command; finish() does the reset itself.
+            print("  USB asked for a reboot")
+            server.finish()
+            return
+
+        # Yield the panel to the editor while it is drawing on it: the
+        # breath and a browser frame are the same 256 pixels.
+        if not server.owns_panel(time.ticks_ms(), USB_HOLD_MS):
+            show_idle(panel, frame)
 
         # ESP-NOW every pass: a wand starting a game must not wait on a
         # card read.
