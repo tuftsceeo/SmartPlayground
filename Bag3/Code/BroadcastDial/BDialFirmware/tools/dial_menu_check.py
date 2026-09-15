@@ -82,6 +82,8 @@ srv._cursor = 0
 srv._group_cursor = 0
 srv._groups = []
 srv._entries = []
+srv._reader_last_uid = None
+srv.nfc = None
 srv._index = {
     "my_melody": {"name": "My Melody", "tags":
         ["note_c","note_d","note_e","note_f","note_g","note_a","note_b",
@@ -137,6 +139,59 @@ srv._rebuild_entries()
 check("no games: rows", srv._entries, ["Games", "Utility Tags", "DONE"])
 check("no games: utility still there", srv._groups[-1][1],
       ["stop", "battery", "Read Card"])
+
+# READ_ENTRY ("NFC Reader" utility) debounce inside _scan_step(): stays in
+# W_SCAN across reads (never advances to W_SPLASH like a write does), so it
+# needs its own guard against re-reporting a card that's just sitting on
+# the reader across repeated polls. This is the one piece of that flow that
+# is pure logic rather than LVGL painting, so it is the one piece worth
+# covering here.
+class FakeNfc:
+    def __init__(self):
+        self.next_tag = None
+    def detect_tag(self, timeout=80):
+        return self.next_tag
+
+
+class _FakeReaderLink:
+    def __init__(self): self.sent = {}
+    def send(self, obj): self.sent.clear(); self.sent.update(obj)
+
+
+srv._cursor = srv._entries.index("Utility Tags")
+srv._write_state = BS.W_GROUP
+srv._group_cursor = srv._group_rows().index(BS.READ_ENTRY)
+check("cursor lands on Read Card", srv._current_entry(), BS.READ_ENTRY)
+
+srv.nfc = FakeNfc()
+flink = _FakeReaderLink()
+srv.link = flink
+BS.existing_text = lambda nfc, tag: "hello"
+tag_a = {"uid_hex": "AA", "sak": 0, "tag_type": "ntag"}
+tag_b = {"uid_hex": "BB", "sak": 0, "tag_type": "ntag"}
+
+srv.nfc.next_tag = tag_a
+srv._scan_step()
+check("reader: first read reports the card", flink.sent.get("uid"), "AA")
+check("reader: last-seen uid latched", srv._reader_last_uid, "AA")
+
+flink.sent.clear()
+srv._scan_step()  # same card, still resting on the reader
+check("reader: card still resting does not re-report", flink.sent, {})
+
+srv.nfc.next_tag = None
+srv._scan_step()  # lifted
+check("reader: lifting the card clears the debounce", srv._reader_last_uid, None)
+
+srv.nfc.next_tag = tag_a
+srv._scan_step()  # same card set back down
+check("reader: same card replaced re-reports", flink.sent.get("uid"), "AA")
+
+flink.sent.clear()
+srv.nfc.next_tag = tag_b
+srv._scan_step()  # a different card, without ever reading "None" between
+check("reader: a different card reports without needing removal first",
+      flink.sent.get("uid"), "BB")
 
 # Sidecar reading.
 d = tempfile.mkdtemp()
