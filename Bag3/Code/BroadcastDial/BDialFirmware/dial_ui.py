@@ -208,8 +208,11 @@ def _fonts():
 # it right to make room when both are shown (tier 2).
 BTN_Y = 158
 BTN_H = 42
-# Roller's baseline/max visible-row window -- see _roller_set()'s
-# set_visible_row_count() call for why short lists shrink below this.
+# Roller's visible-row window. Fixed at 3 regardless of list length --
+# an earlier version shrank this for short lists (2 items -> 2 rows) to
+# avoid MODE.INFINITE's wraparound repeating an item into view at a
+# 3-row window, but a 2-row roller read visually wrong; reverted, so a
+# 2-item list still shows a repeated item once per lap.
 ROLLER_MAX_ROWS = 3
 ACT_W = 104
 ACT_X_SOLO = (SCREEN_W - ACT_W) // 2
@@ -373,24 +376,6 @@ class DialUI(object):
             self._roller.set_options(rows, mode)
         except Exception:
             self._roller.set_options("\n".join(rows), mode)
-        # Shrink the visible window to the item count (capped at
-        # ROLLER_MAX_ROWS) instead of always showing ROLLER_MAX_ROWS rows.
-        # MODE.INFINITE loops the option list to fake infinite scrolling,
-        # which means a visible window WIDER than the list repeats a real
-        # item into view at once -- a 2-item list in a 3-row window always
-        # shows one of its two items twice, confirmed on-device as a
-        # confusing duplicate row. Capping the window to the item count
-        # removes the repeat entirely (each row is then a distinct item).
-        # UNVERIFIED on hardware: set_visible_row_count() is not
-        # vendor-documented for this M5Roller binding (see the module
-        # docstring's set_options()-at-runtime caveat, same situation) --
-        # guarded so a missing/renamed method just leaves the row count
-        # (and thus this bug) as it was rather than crashing the screen.
-        visible = max(1, min(ROLLER_MAX_ROWS, len(rows)))
-        try:
-            self._roller.set_visible_row_count(visible)
-        except Exception:
-            pass
 
     # ── build screens once ──────────────────────────────────────
 
