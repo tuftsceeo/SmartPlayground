@@ -93,10 +93,12 @@ Scan and splash both return to the open group rather than the top level, so
 writing eight note cards does not mean re-entering the group eight times.
 
 `Widgets.Label` does not clip, so `bbox_ui._fit()` caps each row at
-`ROW_CHARS`/`SELECTED_CHARS` and ellipsizes the middle — the tail
-distinguishes `getcode:my_melody` from `getcode:my_melody_2`. The budgets
-are character-count estimates for proportional Montserrat on a 119px-wide
-card, not measured pixel widths; confirm on the device.
+`ROW_CHARS`/`SELECTED_CHARS`, keeping the start of the name and appending
+`...` — reported on hardware that splitting the budget between both ends
+(the earlier design, to keep a numbered variant like `_melody_2`
+distinguishable) cut the meaningful prefix down past legibility. The
+budgets are character-count estimates for proportional Montserrat on a
+119px-wide card, not measured pixel widths; confirm on the device.
 
 On detection the scan always ends, one of two ways:
 
@@ -166,6 +168,7 @@ Changing any row breaks the wand silently.
 | `tools/probe_stick.py` | Bench probe: Phase 0 StickS3 checks |
 | `tools/probe_ap_cycle.py` | Bench probe: AP down/up over repeat cycles; side-key check |
 | `tools/box_menu_check.py` | Host-side (no hardware) check of the WRITE-menu logic |
+| `tools/widget_test.py` | Bench diagnostic: `Widgets` glyph coverage + a same-value-redraw theory, both raised by hardware bug reports on `bbox_ui.py` |
 
 ## Serial protocol
 

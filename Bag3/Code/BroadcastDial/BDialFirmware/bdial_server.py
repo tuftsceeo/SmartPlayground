@@ -48,7 +48,6 @@ INDEX_PATH = GAMES_DIR + '/index.json'
 # games index. Kept as a fallback if the index is empty.
 TAG_LIST = ("getcode", "jumpin")
 DONE_ENTRY = "DONE"
-BACK_ENTRY = "< back"
 
 # Writable no matter which games are loaded. "stop" exits any running game;
 # "battery" asks the wand to report its charge. These are plain NDEF card
@@ -58,8 +57,10 @@ UTILITY_GROUP = "Utility Tags"
 
 # Not a write target -- a sentinel _scan_step() special-cases before it is
 # ever treated as NDEF text. Lets a teacher check what's already on a card
-# without writing anything to it. Lives in the utility group alongside the
-# real write tags so it shows up in the same menu.
+# without writing anything to it, and read several cards back to back (see
+# the SCAN sub-state note above) rather than one-at-a-time. Lives in the
+# utility group alongside the real write tags so it shows up in the same
+# menu.
 READ_ENTRY = "Read Card"
 
 MODE_IDLE = "IDLE"
@@ -69,9 +70,16 @@ MODE_SERVE = "SERVE"
 # WRITE-mode sub-states. Dial intents: ACT confirms, NEXT/PREV scroll,
 # BACK cancels. Hold-to-EXIT is SERVE only (see dial_input.SERVE_EXIT_MS).
 #   MENU      list of groups   ACT = open (or serve on DONE)  NEXT/PREV
-#   GROUP     one group's tags ACT = scan (or back)           NEXT/PREV
+#   GROUP     one group's tags ACT = scan                     NEXT/PREV
 #   SCAN      RF field on      BACK = group
 #   SPLASH    result shown     ACT/BACK/NEXT = group
+#
+# SCAN also covers the Utility Tags -> Read Card entry (READ_ENTRY below),
+# a read-only "NFC Reader" utility -- see _scan_step()'s READ_ENTRY branch
+# and dial_ui.paint_reader(). It never advances to SPLASH: each card read
+# just repaints the same SCAN screen in place, so a teacher can read
+# several cards back to back without re-entering the menu between them.
+# BACK still exits it to GROUP like any other scan.
 #
 # The menu is two-level because a single game can contribute a dozen tags
 # (melody alone has eleven). On one flat list, DONE -- the only way into
@@ -131,7 +139,8 @@ class BdialServer:
 
         # (title, [tag, ...]) per game, then the utility group. Top-level
         # rows are these titles plus DONE; _group_cursor indexes into the
-        # open group's tags, which are followed by a "< back" row.
+        # open group's tags directly (BACK exits the group from any
+        # cursor position -- see _poll_write()'s W_GROUP handling).
         self._groups = [(UTILITY_GROUP, list(UTILITY_TAGS) + [READ_ENTRY])]
         self._entries = [UTILITY_GROUP, DONE_ENTRY]
         self._cursor = 0
@@ -145,6 +154,7 @@ class BdialServer:
 
         self._pending_tag = None
         self._pending_existing = None
+        self._reader_last_uid = None  # debounce for READ_ENTRY; see _scan_step()
 
         self.handlers = {
             "identify": self.do_identify,
@@ -228,7 +238,7 @@ class BdialServer:
                 self.code.set_game(self._active)
             elif self.code.resolve() is None:
                 print("# SERVE refused: no active game")
-                self.ui.paint_error("no game to serve")
+                self.ui.paint_error("No Game to Serve")
                 time.sleep_ms(1500)
                 self._repaint()
                 return
@@ -239,7 +249,7 @@ class BdialServer:
                 # No game on flash, or the socket would not bind. Say so and
                 # stay where we were rather than sitting on a dead AP.
                 print("# SERVE refused: CodeServer.arm() failed")
-                self.ui.paint_error("no game to serve")
+                self.ui.paint_error("No Game to Serve")
                 time.sleep_ms(1500)
                 self._mode = old
                 self._repaint()
@@ -278,7 +288,8 @@ class BdialServer:
                 group = self._current_group()
                 self.ui.paint_tag_group(
                     group[0] if group else "", self._group_rows(),
-                    self._group_cursor, self._written)
+                    self._group_cursor, self._written,
+                    read_only=(self._current_entry() == READ_ENTRY))
             else:
                 self.ui.paint_tag_list(self._entries, self._cursor)
         elif self._mode == MODE_SERVE:
@@ -298,7 +309,8 @@ class BdialServer:
             rows = self._group_rows()
             if self._group_cursor < len(rows):
                 return rows[self._group_cursor]
-            return BACK_ENTRY
+            return ""  # defensive only -- NEXT/PREV wrap on len(rows), so
+            # _group_cursor should never actually reach here
         return self._entries[self._cursor]
 
     # ─────────────────────────────────────────────
@@ -733,11 +745,13 @@ class BdialServer:
         return None
 
     def _group_rows(self):
-        """The open group's tags plus the trailing "< back" row."""
+        """The open group's tags. No trailing "< back" row -- BACK (the
+        on-screen button / touchscreen back gesture) already exits the
+        group from any cursor position (see _poll_write()'s W_GROUP
+        handling), so a selectable back row in the list was a second,
+        redundant way to do the same thing."""
         group = self._current_group()
-        tags = list(group[1]) if group else []
-        tags.append(BACK_ENTRY)
-        return tags
+        return list(group[1]) if group else []
 
     # ─────────────────────────────────────────────
     # WRITE MODE
@@ -760,6 +774,7 @@ class BdialServer:
     def _clear_pending(self):
         self._pending_tag = None
         self._pending_existing = None
+        self._reader_last_uid = None
 
     # ─────────────────────────────────────────────
     # WRITE MODE — sub-state machine
@@ -807,7 +822,11 @@ class BdialServer:
                 # and reinit-after-N-failures will recover from that.
                 print("# NFC stop_crypto1 FAILED: %s" % str(e))
         self._nfc_field(True)
-        self.ui.paint_scanning(self._current_entry())
+        entry = self._current_entry()
+        if entry == READ_ENTRY:
+            self.ui.paint_reader()  # "nothing scanned yet" state
+        else:
+            self.ui.paint_scanning(entry)
 
     def _to_splash(self):
         """Result is on screen; it stays there until a button dismisses it.
@@ -859,10 +878,7 @@ class BdialServer:
                 self._repaint()
             elif intent == ACT:
                 self.ui.beep_click()
-                if self._current_entry() == BACK_ENTRY:
-                    self._to_menu()
-                else:
-                    self._to_scan()
+                self._to_scan()
             elif intent == BACK:
                 self.ui.beep_click()
                 self._to_menu()
@@ -890,11 +906,17 @@ class BdialServer:
     def _scan_step(self):
         """One polling pass while in W_SCAN. The field is already on.
 
-        Detection always ends the scan straight into SPLASH -- a write (or
-        a READ_ENTRY report) happens immediately, no on-screen confirmation
-        step -- so there is no same-card debounce to keep here: nothing
-        polls the reader again until the teacher starts a new scan from the
-        menu.
+        Detection ends a write scan straight into SPLASH -- the write
+        happens immediately, no on-screen confirmation step -- so there is
+        no same-card debounce to keep for that case: nothing polls the
+        reader again until the teacher starts a new scan from the menu.
+
+        READ_ENTRY (the "NFC Reader" utility) is the exception: it never
+        reaches SPLASH, so without a debounce a card just resting on the
+        reader would re-trigger a beep/repaint on every ~80ms poll. Guarded
+        below by tracking the last UID reported and skipping repeats of it;
+        the guard clears the moment the card is lifted (tag is None), so
+        the *same* card placed back down still reads again.
         """
         if self.nfc is None:
             return
@@ -928,7 +950,11 @@ class BdialServer:
             return
         self._nfc_fail_count = 0
         if tag is None:
+            if entry == READ_ENTRY:
+                self._reader_last_uid = None  # lifted -- arm for the next card
             return  # nothing on the reader yet -- keep scanning
+        if entry == READ_ENTRY and tag['uid_hex'] == self._reader_last_uid:
+            return  # same card still resting -- already reported, stay quiet
         self.ui.beep_scan()
         _log("DETECTED uid=%s sak=0x%02X type=%s"
              % (tag['uid_hex'], tag['sak'], tag['tag_type']))
@@ -939,10 +965,13 @@ class BdialServer:
         })
         if entry == READ_ENTRY:
             # Utility entry: report what's on the card, write nothing.
+            # Stays in W_SCAN afterwards (no splash/dismissal step) so the
+            # teacher can read several cards back to back -- see
+            # dial_ui.paint_reader() and the debounce above.
+            self._reader_last_uid = tag['uid_hex']
             _log("READ: uid=%s existing=%s" % (tag['uid_hex'], repr(existing)))
-            self.ui.paint_read_result(existing)
+            self.ui.paint_reader(existing, scanned=True)
             self.ui.beep_success()
-            self._to_splash()
             return
         if existing == entry:
             # Already carries the text we would write -- report, don't rewrite.
@@ -1009,7 +1038,7 @@ class BdialServer:
             self._pulls_total += 1
             self._repaint()
         elif xfer == 'fail':
-            self.ui.paint_error("transfer failed")
+            self.ui.paint_error("Transfer Failed")
             time.sleep_ms(1000)
             self._repaint()
         elif xfer == 'abort':
