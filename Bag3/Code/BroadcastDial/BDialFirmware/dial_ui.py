@@ -208,8 +208,11 @@ def _fonts():
 # it right to make room when both are shown (tier 2).
 BTN_Y = 158
 BTN_H = 42
-# Roller's baseline/max visible-row window -- see _roller_set()'s
-# set_visible_row_count() call for why short lists shrink below this.
+# Roller's visible-row window. Fixed at 3 regardless of list length --
+# an earlier version shrank this for short lists (2 items -> 2 rows) to
+# avoid MODE.INFINITE's wraparound repeating an item into view at a
+# 3-row window, but a 2-row roller read visually wrong; reverted, so a
+# 2-item list still shows a repeated item once per lap.
 ROLLER_MAX_ROWS = 3
 ACT_W = 104
 ACT_X_SOLO = (SCREEN_W - ACT_W) // 2
@@ -373,24 +376,6 @@ class DialUI(object):
             self._roller.set_options(rows, mode)
         except Exception:
             self._roller.set_options("\n".join(rows), mode)
-        # Shrink the visible window to the item count (capped at
-        # ROLLER_MAX_ROWS) instead of always showing ROLLER_MAX_ROWS rows.
-        # MODE.INFINITE loops the option list to fake infinite scrolling,
-        # which means a visible window WIDER than the list repeats a real
-        # item into view at once -- a 2-item list in a 3-row window always
-        # shows one of its two items twice, confirmed on-device as a
-        # confusing duplicate row. Capping the window to the item count
-        # removes the repeat entirely (each row is then a distinct item).
-        # UNVERIFIED on hardware: set_visible_row_count() is not
-        # vendor-documented for this M5Roller binding (see the module
-        # docstring's set_options()-at-runtime caveat, same situation) --
-        # guarded so a missing/renamed method just leaves the row count
-        # (and thus this bug) as it was rather than crashing the screen.
-        visible = max(1, min(ROLLER_MAX_ROWS, len(rows)))
-        try:
-            self._roller.set_visible_row_count(visible)
-        except Exception:
-            pass
 
     # ── build screens once ──────────────────────────────────────
 
@@ -480,7 +465,10 @@ class DialUI(object):
     def _build_status(self):
         """One reusable screen behind every one-shot painter -- booting,
         idle, receiving, armed, writing/written/write_failed/already,
-        done, complete, error, mode_change, no_pickup_hint, read_result.
+        done, complete, error, mode_change, no_pickup_hint. (paint_reader()
+        is the one utility screen that is NOT one-shot -- it lives on the
+        reusable "scan" page instead, built in _build_scan(), since it
+        stays up and is repainted in place across multiple card reads.)
         Re-textured and re-tinted per call rather than rebuilt."""
         pg = self._page("status")
         self._label("st_glyph", pg, "", 0, 34, FONT24, WRITE_FG, w=170)
@@ -591,16 +579,42 @@ class DialUI(object):
             "Tag %d/%d" % (index, total), "Hold Near Reader",
             tap_dismiss=False)
 
-    def paint_read_result(self, existing):
-        if existing:
-            self._status(IC["read"], WRITE_FG, "Card Has:",
-                         '"%s"' % _display_tag(existing), "Tap to Continue")
-        else:
-            self._status(IC["read"], INK_3, "Blank Card",
-                         "No Text Found", "Tap to Continue")
-
     def paint_scanning(self, label):
         self._set_text("scn_label", '"%s"' % _display_tag(label))
+        self._show("scan")
+
+    def paint_reader(self, existing=None, scanned=False):
+        """Utility Tags -> Read Card: a continuous, read-only scan screen.
+
+        Unlike paint_scanning() (one write attempt, then bdial_server
+        hands off to the dismiss-to-continue "status" splash), this stays
+        on the "scan" page and is simply called again in place for each
+        card -- bdial_server._scan_step() never advances READ_ENTRY to
+        SPLASH -- so a teacher can read several cards back to back without
+        re-entering the menu between them. The reusable "scan" page's own
+        on-screen BACK button (see _build_scan()) is the exit.
+
+        `scanned=False` (the default) is the "nothing read yet" state,
+        painted once on entry. Every read after that passes `scanned=True`
+        with `existing` -- the NDEF text found (None/"" for a blank card).
+        scn_label carries the result (as paint_scanning() does for a write
+        target); scn_hint is the fixed instruction, same role split as
+        every other screen in this file -- kept short deliberately, unlike
+        scn_label, since a long tag name here would run past the row (see
+        ROW_CHARS's own note) with no ellipsis budget applied to it.
+        """
+        if not scanned:
+            self._set_text("scn_label", "NFC Reader")
+            self._set_text("scn_hint", "Hold Card on Screen")
+        elif existing:
+            # _fit(), unlike paint_scanning()'s label: that screen's targets
+            # are short internal constants ("note_c"), but a card read here
+            # can carry arbitrary previously-written text.
+            self._set_text("scn_label", '"%s"' % _fit(_display_tag(existing), ROW_CHARS))
+            self._set_text("scn_hint", "Scan Another or Exit")
+        else:
+            self._set_text("scn_label", "Blank Card")
+            self._set_text("scn_hint", "Scan Another or Exit")
         self._show("scan")
 
     def paint_already(self, label):
@@ -681,11 +695,16 @@ class DialUI(object):
         self._btns["lst_back"].add_flag(lv.obj.FLAG.HIDDEN)
         self._show("list")
 
-    def paint_tag_group(self, title, rows, cursor, written):
+    def paint_tag_group(self, title, rows, cursor, written, read_only=False):
         """Tier 2: one group's tags. Breadcrumb names the group so the
         user always knows which list they are in. No "< Back" row in the
         list itself -- the on-screen BACK button (lst_back, shown below)
-        is the one way back, rather than two redundant ones."""
+        is the one way back, rather than two redundant ones.
+
+        `read_only` is True when the selected row is the Utility Tags ->
+        Read Card entry: the action button says READ, not WRITE, so it
+        never implies the scan that follows will change the card (see
+        bdial_server._repaint()'s READ_ENTRY check)."""
         self._set_text("lst_crumb", _fit(IC["back"] + " " + title, 20))
         display_rows = []
         for r in rows:
@@ -699,7 +718,7 @@ class DialUI(object):
         # binding; plain bool is what set_selected() actually takes.
         self._roller.set_selected(cursor, False)
         btn = self._btns["lst_act"]
-        btn.set_btn_text(IC["scan"] + " WRITE")
+        btn.set_btn_text(IC["scan"] + (" READ" if read_only else " WRITE"))
         btn.align(lv.ALIGN.TOP_LEFT, ACT_X_PAIR, BTN_Y)
         self._btns["lst_back"].remove_flag(lv.obj.FLAG.HIDDEN)
         self._show("list")
@@ -739,6 +758,9 @@ def demo():
             "Melody", ["getcode:my_melody", "my_melody", "note_c"],
             2, {"note_c": 3}),
         lambda: ui.paint_tag_group("Melody", long_group_rows, 5, long_written),
+        lambda: ui.paint_tag_group(
+            "Utility Tags", ["stop", "battery", "Read Card"], 2, {},
+            read_only=True),
         lambda: ui.paint_no_pickup_hint(),
         lambda: ui.paint_armed("getcode", 1, 1),
         lambda: ui.paint_scanning("getcode"),
@@ -746,8 +768,9 @@ def demo():
         lambda: ui.paint_already("getcode"),
         lambda: ui.paint_written("getcode", 3),
         lambda: ui.paint_write_failed("getcode"),
-        lambda: ui.paint_read_result("getcode:my_melody"),
-        lambda: ui.paint_read_result(None),
+        lambda: ui.paint_reader(),
+        lambda: ui.paint_reader("getcode:my_melody", scanned=True),
+        lambda: ui.paint_reader(None, scanned=True),
         lambda: ui.paint_done("getcode", 1, 1),
         lambda: ui.paint_complete(),
         lambda: ui.paint_mode_change("SERVE"),

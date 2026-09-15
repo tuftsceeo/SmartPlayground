@@ -176,6 +176,16 @@ def build_ndef_text_classic(text):
 # ─────────────────────────────────────────────
 # DECODE NDEF TEXT (ported from Bag2/Code/lib/nfc_reader.py's
 # _decode_ndef_text -- keep the two in sync if either changes)
+#
+# Text ('T') AND URI ('U') records: this file only ever WRITES Text
+# records (build_ndef_text() above), but older tags from Bag1/Bag2 can
+# carry either -- Bag2's own writetoNFCcards.py and this file's write
+# path both only emit 'T', yet Bag2/Code/lib/nfc_reader.py (and both
+# Bag2's and Bag3's readfromNFCcards.py diagnostic tools) always decoded
+# both, so some tags in circulation may be URI records (e.g. from a
+# generic/off-the-shelf NFC writer app, which defaults to URI). This
+# ported copy had silently dropped the URI branch -- restored below so
+# reading matches what Bag2 could always read; still never written here.
 # ─────────────────────────────────────────────
 def _decode_ndef_text(data):
     if not data or len(data) < 4:
@@ -216,6 +226,16 @@ def _decode_ndef_text(data):
                 if bytes(rec_type) == b'T' and len(payload) > 1:
                     lang_len = payload[0] & 0x3F
                     return bytes(payload[1 + lang_len:]).decode('utf-8', 'replace').strip().lower()
+                elif bytes(rec_type) == b'U' and len(payload) > 1:
+                    # URI abbreviation code (NFC Forum RTD-URI) -- payload[0]
+                    # is an index into this table, not raw text; the rest of
+                    # the payload is appended after the matched prefix.
+                    prefixes = [
+                        "", "http://www.", "https://www.", "http://",
+                        "https://", "tel:", "mailto:",
+                    ]
+                    pre = prefixes[payload[0]] if payload[0] < len(prefixes) else ""
+                    return (pre + bytes(payload[1:]).decode('utf-8', 'replace')).strip().lower()
             break
         else:
             if i + 1 < len(data):
