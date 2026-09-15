@@ -5,19 +5,28 @@ and unloads single-file game modules, the way MockWand does.
 
 It gets those files from the Broadcast Box: tap a `getcode:<slug>` card, the
 device queues a pull and reboots, and the next boot fetches its game file and
-that game's named icons over the Box's SoftAP. The Box is the only device on
-USB; this one has no serial protocol of its own.
+that game's named icons over the Box's SoftAP.
+
+It also answers the icon editor web app over USB while idle, so icons can be
+drawn and saved straight to it. That link is live whenever the device is not
+in a game — there is nothing to switch on. A game owns the loop while it runs,
+so authoring pauses for its duration.
 
 ## Relationship to `Bag3/Code/Stations/Icon Display Station/`
 
-That tree is the original station: a USB icon authoring server
-(`icon_server.py` over `json_link.py`) plus the host-side conversion pipeline
-and the browser editor. It is unchanged and still the place to author icons.
+That tree is the original station: the USB icon authoring server plus the
+host-side conversion pipeline and the browser editor. It is unchanged.
 
-This tree is a copy of the parts a game-playing device needs —
-`icon_matrix.py`, `icon_store.py`, `icons/` — with the USB server, the
-bring-up scripts and the host-side tooling left behind, and the wand's boot,
-radio, card-reading and code-pull machinery added.
+This tree copies the parts a game-playing device needs — `icon_matrix.py`,
+`icon_store.py`, `icons/`, and the USB server — leaving behind the bring-up
+scripts and the host-side tooling, and adds the wand's boot, radio,
+card-reading and code-pull machinery.
+
+`icon_server.py` differs from the station's copy in two ways, both because
+this device has a `main.py` that owns the panel and the loop: it is handed the
+`Matrix` rather than building one, and `run()` is split into `start()` /
+`step()` / `finish()` so the idle loop can drive the USB link alongside the
+radio and the card reader. Both copies carry a `PEER:` note.
 
 ## Layout
 
@@ -27,6 +36,8 @@ main.py            boot order, idle loop, game dispatch
 hubtype.txt        "icon_display"
 icon_matrix.py     Matrix: serpentine addressing, intensity LUT, bulk draw
 icon_store.py      read/write icons/<name>.py as text
+icon_server.py     USB command set for the icon editor; PEER of the station's
+json_link.py       one JSON object per line, printable ASCII only
 code_puller.py     SoftAP pull; PEER of BBoxFirmware/code_server.py
 pull_flag.py       what a getcode tap leaves behind across the reboot
 goalrace.py        built-in game (the display half of the two-device pair)
