@@ -41,6 +41,12 @@ VERSION = "0.1.0"
 HEARTBEAT_MS = 5000
 GRACE_S = 1
 
+# How long a "Transfer Failed" banner stays up after one wand's pull fails,
+# before the serve screen returns. poll() no longer blocks, so this can't
+# be a sleep_ms() any more -- a stalled transfer for one wand must not
+# freeze the others. See _on_serve_event()/_poll_serve().
+SERVE_ERROR_MS = 1000
+
 PAYLOAD_PATH = DEFAULT_SRC
 INDEX_PATH = GAMES_DIR + '/index.json'
 
@@ -140,6 +146,7 @@ class BdialServer:
         # stats_log at boot by _load_stats() and incremented in memory.
         self._written = {}
         self._pulls_total = 0  # cumulative games handed to wands, all boots
+        self._serve_error_until = 0  # ticks_ms() deadline for the "Transfer Failed" banner, 0 = none pending
         self._index = {}  # slug -> {name, added}
         self._active = None
 
@@ -985,43 +992,72 @@ class BdialServer:
     def _serve_abort_requested(self):
         """should_abort hook for CodeServer.poll().
 
-        Samples input itself: poll() blocks for the whole transfer, so the
-        main loop's update() is not running and a cached reading would never
-        change. Without this the hold-to-exit / CLOSE gesture is unreachable
-        for the duration of a transfer.
+        poll() no longer blocks -- it advances every in-flight wand a step
+        and returns the same tick. run()'s main loop already calls
+        self._input.update() once per iteration before _poll_serve(), so
+        the reading here is current; calling update() again would double
+        M5.update() per tick.
         """
-        self._input.update()
         if self._input.peek_exit():
             self._input.take(EXIT)
             return True
         return False
 
     def _on_serve_event(self, event):
-        if event == 'serving':
+        """CodeServer.poll() fires this per wand, possibly several times
+        per tick: 'serving' once a wand is accepted, then 'ok' or 'fail'
+        once it finishes. Repaint after each so the screen's wand count
+        and pickup total never lag more than one event behind reality.
+        """
+        if event == 'ok':
+            # Mirrors the line stats_log just recorded, so the screen and
+            # the log agree without re-reading flash on every repaint.
+            self._pulls_total += 1
+        elif event == 'fail':
+            self._serve_error_until = time.ticks_add(time.ticks_ms(), SERVE_ERROR_MS)
+        self._repaint_serve()
+
+    def _repaint_serve(self):
+        """Redraw the SERVE screen for the server's current state.
+
+        A transient "Transfer Failed" banner (one wand's own failure, not
+        an abort) takes priority for SERVE_ERROR_MS; otherwise show how
+        many wands are mid-pull right now, or fall back to the normal
+        serve/pickup-count screen once none are.
+        """
+        now = time.ticks_ms()
+        if self._serve_error_until and time.ticks_diff(self._serve_error_until, now) > 0:
+            self.ui.paint_error("Transfer Failed")
+            return
+        self._serve_error_until = 0
+        n = self.code.serving_count
+        if n > 1:
+            self.ui.paint_receiving("%d Wands" % n)
+        elif n == 1:
             self.ui.paint_receiving()
+        else:
+            self._repaint()
 
     def _poll_serve(self):
         xfer = self.code.poll(on_event=self._on_serve_event,
                               should_abort=self._serve_abort_requested)
-        if xfer == 'ok':
-            # Mirrors the line stats_log just recorded, so the screen and the
-            # log agree without re-reading flash on every repaint.
-            self._pulls_total += 1
-            self._repaint()
-        elif xfer == 'fail':
-            self.ui.paint_error("Transfer Failed")
-            time.sleep_ms(1000)
-            self._repaint()
-        elif xfer == 'abort':
-            # The teacher held the button (or tapped CLOSE) through a
-            # transfer; that is the exit gesture. The wand sees a short
-            # read, drops its .part file and retries within its budget.
+        if xfer == 'abort':
+            # The teacher held the button (or tapped CLOSE); that is the
+            # exit gesture, whether or not a wand was mid-transfer. Every
+            # in-flight wand sees a short read, drops its .part file and
+            # retries within its own budget. should_abort() (above) already
+            # took the EXIT intent off the queue, so the drain below never
+            # sees it -- it only has NEXT/PREV/ACT left to discard.
             print("# serve aborted by EXIT")
+            self._serve_error_until = 0
             self._set_mode(MODE_WRITE if self._payload_ready() else MODE_IDLE)
             return
-        intent = self._input.pop()
-        if intent == EXIT:
-            self._set_mode(MODE_WRITE if self._payload_ready() else MODE_IDLE)
+        if self._serve_error_until and time.ticks_diff(time.ticks_ms(), self._serve_error_until) >= 0:
+            self._serve_error_until = 0
+            self._repaint_serve()
+        # SERVE mode has nothing to do with NEXT/PREV/ACT; just drain them
+        # so the queue doesn't grow unbounded.
+        self._input.pop()
 
     # ─────────────────────────────────────────────
     # RUN
