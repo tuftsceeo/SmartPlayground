@@ -18,13 +18,17 @@ from machine import Pin
 from pn532 import PN532
 from nfc_reader import NfcReader
 from game_tags import exit_tags_excluding
+# Initialize LEDs
+from leds import Leds
+leds = Leds()
 
 _EXIT_TAGS = exit_tags_excluding("melody")
+
 from buzzer import NOTE_FREQ
 from leds import (
     OFF, RED, ORANGE, YELLOW, GREEN, BLUE, PURPLE, PINK, WHITE, TEAL,
     SHAPE_A, SHAPE_B, SHAPE_C, SHAPE_D, SHAPE_E, SHAPE_F, SHAPE_G,
-    SHAPE_X, SHAPE_MUSIC, SHAPE_SAD_FACE, SHAPE_QUESTION,
+    SHAPE_X, SHAPE_MUSIC, SHAPE_SAD_FACE, SHAPE_QUESTION, SHAPE_REST, SHAPE_DOUBLE, SHAPE_HALF,
 )
 
 
@@ -45,7 +49,7 @@ MAX_NOTES = 25
 COMMANDS = {
     "note_c", "note_d", "note_e", "note_f",
     "note_g", "note_a", "note_b", "note_c_high",
-    "erase", "melody", "backspace"
+    "erase", "melody", "backspace", "rest", "double_length", "halve_length",
 } | _EXIT_TAGS
 
 NOTE_COLOR = {
@@ -57,6 +61,7 @@ NOTE_COLOR = {
     "note_a": PURPLE,
     "note_b": PINK,
     "note_c_high": WHITE,
+    "rest": OFF,
 }
 
 NOTE_SHAPE = {
@@ -68,6 +73,7 @@ NOTE_SHAPE = {
     "note_a": SHAPE_A,
     "note_b": SHAPE_B,
     "note_c_high": SHAPE_C,
+    "rest": SHAPE_REST,
 }
 
 SCAN_NOTE_MS = 250
@@ -78,6 +84,8 @@ ERASE_FADE_MS = 500
 LOOP_SLEEP_MS = 40
 REPEAT_SCAN_GUARD_MS = 1200
 
+DOUBLE_LENGTH = False
+HALVE_LENGTH = False
 
 # ─────────────────────────────────────────────
 # Sound Sequences
@@ -120,7 +128,7 @@ class MelodyDisplay:
         """Render melody as one pixel per note in row-major order."""
         for i in range(self.leds.num):
             if i < len(melody):
-                color = NOTE_COLOR.get(melody[i], OFF)
+                color = NOTE_COLOR.get(_remove_markers(melody[i]), OFF)
                 if highlight_idx is not None and i == highlight_idx:
                     color = (
                         min(255, int(color[0] * 1.6)),
@@ -156,9 +164,17 @@ def _to_buzzer_key(cmd):
     """Convert "note_c" -> "notec" to match NOTE_FREQ keys."""
     return cmd.replace("_", "")
 
+def _remove_markers(cmd):
+    """remove the d and h markers for time variations"""
+    if cmd.startswith("d"):
+        cmd = cmd[1:]
+    if cmd.startswith("h"):
+        cmd = cmd[1:]
+    return cmd
 
-def _play_note_with_color(cmd, ms, leds, buz):
-    """Play a note while showing its letter shape in color on LEDs."""
+
+"""def _play_note_with_color(cmd, ms, leds, buz):
+    Play a note while showing its letter shape in color on LEDs.
     buz_key = _to_buzzer_key(cmd)
     
     if buz_key not in NOTE_FREQ or cmd not in NOTE_COLOR:
@@ -170,12 +186,46 @@ def _play_note_with_color(cmd, ms, leds, buz):
     shape = NOTE_SHAPE.get(cmd)
     freq = NOTE_FREQ[buz_key]
     
+    if cmd == "rest":
+        leds.show_shape(SHAPE_REST, WHITE)
     if shape:
         leds.show_shape(shape, color)
     else:
         leds.fill(color)
     buz.play_note(freq, ms)
     if NOTE_LETTER_HOLD_MS > ms:
+        time.sleep_ms(NOTE_LETTER_HOLD_MS - ms)"""
+
+def _play_note_with_color(cmd, ms, leds, buz):
+    """Play a note while showing its letter shape in color on LEDs."""
+    if cmd == "rest":
+        leds.show_shape(SHAPE_REST, WHITE)
+        time.sleep_ms(ms)
+        if NOTE_LETTER_HOLD_MS > ms:
+            time.sleep_ms(NOTE_LETTER_HOLD_MS - ms)
+        return
+
+    cmd = _remove_markers(cmd)
+    buz_key = _to_buzzer_key(cmd)
+
+    if _remove_markers(buz_key) not in NOTE_FREQ or _remove_markers(cmd) not in NOTE_COLOR:
+        leds.show_shape(SHAPE_QUESTION, RED, bg=OFF)
+        buz.reject()
+        return
+
+    color = NOTE_COLOR[cmd]
+    shape = NOTE_SHAPE.get(cmd)
+    freq = NOTE_FREQ[buz_key]
+
+    if shape:
+        leds.show_shape(shape, color)
+    else:
+        leds.fill(color)
+    if cmd != "rest":
+        buz.play_note(freq, ms)
+    else:
+        time.sleep_ms(ms)
+    if NOTE_LETTER_HOLD_MS > ms and cmd[0] != "h":
         time.sleep_ms(NOTE_LETTER_HOLD_MS - ms)
 
 
@@ -200,7 +250,7 @@ class MelodyGame:
         self.last_scan_ms = 0
         self._frame = 0
         
-        # Button state: read at init to avoid false trigger from held button
+        # Button state: read at init to avoid False trigger from held button
         self._btn_was_down = (self.btn.value() == 0)
     
     def _play_current(self):
@@ -213,7 +263,11 @@ class MelodyGame:
         Worst-case wait is ~9.5 s (25 notes at 380 ms each). ESP-NOW stop
         from the station still exits immediately.
         """
+        double_length = False
+        halve_length = False
         for i, cmd in enumerate(self.current_melody):
+            double_length = False
+            halve_length = False
             if self.enow:
                 msg_type, _, _ = self.enow.poll()
                 if msg_type in ("stop", "start_game"):
@@ -221,13 +275,28 @@ class MelodyGame:
                     return False
 
             self.display.show_melody_pixels(self.current_melody, highlight_idx=i)
-            buz_key = _to_buzzer_key(cmd)
-            if buz_key not in NOTE_FREQ:
+            if cmd.startswith("d"):
+                double_length = True
+            if cmd.startswith("h"):
+                halve_length = True
+            buz_key = _remove_markers(_to_buzzer_key(cmd))
+            if _remove_markers(buz_key) not in NOTE_FREQ:
                 self.display.show_error_unknown()
                 self.buz.reject()
                 continue
-            self.buz.play_note(NOTE_FREQ[buz_key], PLAY_NOTE_MS)
-            time.sleep_ms(GAP_MS)
+            if buz_key != "rest":
+                if double_length == True:
+                    self.buz.play_note(NOTE_FREQ[buz_key], PLAY_NOTE_MS*2)
+                elif halve_length == True:
+                    divided_ms = int(PLAY_NOTE_MS/2)
+                    if divided_ms == 0:
+                        divided_ms = 1
+                    self.buz.play_note(NOTE_FREQ[buz_key], divided_ms)
+                else:
+                    self.buz.play_note(NOTE_FREQ[buz_key], PLAY_NOTE_MS)
+                time.sleep_ms(GAP_MS)
+            else:
+                time.sleep_ms(GAP_MS + PLAY_NOTE_MS)
         
         self.buz.confirm()
         return True
@@ -250,6 +319,8 @@ class MelodyGame:
         print("  Tap ERASE to clear, press button to play back")
         print("  Tap STOP or station stop to exit\n")
         
+        DOUBLE_LENGTH = False
+        HALVE_LENGTH = False
         while True:
             # ── ESP-NOW ──
             if self.enow:
@@ -279,22 +350,43 @@ class MelodyGame:
                 else:
                     self.last_uid = uid
                     self.last_scan_ms = now
-                    
-                    if cmd in _EXIT_TAGS:
-                        print("  Exit tag detected: %s" % cmd)
-                        return
-                    elif cmd.startswith("note_"):
+                    print(cmd)
+                    if cmd == "double_length":
+                        DOUBLE_LENGTH = True
+                        print("scanned double")
+                        leds.show_shape(SHAPE_DOUBLE, WHITE)
+                        time.sleep_ms(SCAN_NOTE_MS)
+                    elif cmd == "halve_length":
+                        HALVE_LENGTH = True
+                        print("scanned half")
+                        leds.show_shape(SHAPE_HALF, WHITE)
+                        time.sleep_ms(SCAN_NOTE_MS)
+                        
+                    elif cmd.startswith("note_") or cmd == "rest":
                         if len(self.current_melody) >= MAX_NOTES:
                             self.display.show_error_max_notes()
                             self.buz.warn()
                             print("  Melody full (%d notes max)" % MAX_NOTES)
-                        elif cmd not in NOTE_COLOR or _to_buzzer_key(cmd) not in NOTE_FREQ:
+                        elif _remove_markers(cmd) not in NOTE_COLOR or _remove_markers(_to_buzzer_key(cmd)) not in NOTE_FREQ:
                             self.display.show_error_unknown()
                             self.buz.reject()
                         else:
-                            self.current_melody.append(cmd)
-                            _play_note_with_color(cmd, SCAN_NOTE_MS, self.leds, self.buz)
+                            if DOUBLE_LENGTH == False and HALVE_LENGTH == False:
+                                self.current_melody.append(cmd)
+                                _play_note_with_color(cmd, SCAN_NOTE_MS, self.leds, self.buz)
+                            elif DOUBLE_LENGTH == True:
+                                self.current_melody.append("d" + cmd)
+                                _play_note_with_color(cmd, SCAN_NOTE_MS*2, self.leds, self.buz)
+                            elif HALVE_LENGTH == True:
+                                self.current_melody.append("h" + cmd)
+                                divided_ms = int(SCAN_NOTE_MS/2)
+                                if divided_ms == 0:
+                                    divivded_ms = 1
+                                _play_note_with_color(cmd, divided_ms, self.leds, self.buz)
                             print("  Note: %s (%d in sequence)" % (cmd, len(self.current_melody)))
+                    elif cmd in _EXIT_TAGS:
+                        print("  Exit tag detected: %s" % cmd)
+                        return
                     elif cmd == "erase" or cmd == "melody":
                         if len(self.current_melody) == 0:
                             self.display.show_error_empty_erase()
@@ -315,6 +407,11 @@ class MelodyGame:
                             #self.display.show_erase_animation()
                             self.buz.confirm()
                             print("  Backspaced")
+                        
+                    if cmd != "double_length":
+                        DOUBLE_LENGTH = False
+                    if cmd != "halve_length":
+                        HALVE_LENGTH = False
             
             # ── BUTTON: Play current melody ──
             if self._check_button():
@@ -380,10 +477,6 @@ def main():
             print("  Light: %.0f lux -> brightness x%.2f" % (lux, mult))
     except Exception as e:
         print("  [WARN] OPT3002: %s — brightness x1.00" % e)
-    
-    # Initialize LEDs
-    from leds import Leds
-    leds = Leds()
     
     # Initialize buzzer
     from buzzer import Buzzer
