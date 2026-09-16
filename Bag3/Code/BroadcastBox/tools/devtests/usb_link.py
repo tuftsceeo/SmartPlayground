@@ -156,6 +156,33 @@ import main
 check("main.py imports with the USB server wired in", True)
 check("game dispatch is unaffected", main.is_game("goalrace") is True)
 
+# ── the start_game bench command ──
+srv4 = IconServer(icon_matrix.Matrix(pin=0, intensity=0.12), debug=False,
+                   is_game=main.is_game)
+srv4.dispatch({"cmd": "show", "name": "whale", "id": 30})  # engage the latch first
+srv4.dispatch({"cmd": "start_game", "name": "goalrace", "id": 31})
+ok_reply = [m for m in srv4.link.sent if m.get("id") == 31][-1]
+check("a known game queues", ok_reply == {"type": "ok", "id": 31, "cmd": "start_game", "name": "goalrace"})
+check("...and queuing releases the panel", srv4.panel_held is False)
+check("...and main.py's loop can see it queued", srv4.pending_start_game == "goalrace")
+
+srv4.dispatch({"cmd": "start_game", "name": "nosuchgame", "id": 32})
+err_reply = [m for m in srv4.link.sent if m.get("id") == 32][-1]
+check("an unknown slug is refused loudly, not silently ignored",
+      err_reply == {"type": "error", "id": 32, "code": "no_such_game", "name": "nosuchgame"})
+
+srv4.dispatch({"cmd": "start_game", "id": 33})
+missing_reply = [m for m in srv4.link.sent if m.get("id") == 33][-1]
+check("a start_game with no name is also refused loudly",
+      missing_reply["type"] == "error" and missing_reply["code"] == "bad_args")
+
+# Without a validator, every name is accepted -- the station's copy has no
+# games to validate against and never passes is_game.
+srv5 = IconServer(icon_matrix.Matrix(pin=0, intensity=0.12), debug=False)
+srv5.dispatch({"cmd": "start_game", "name": "anything", "id": 34})
+check("no validator installed means no validation",
+      srv5.pending_start_game == "anything")
+
 shutil.rmtree(TMP, ignore_errors=True)
 print()
 if fails:

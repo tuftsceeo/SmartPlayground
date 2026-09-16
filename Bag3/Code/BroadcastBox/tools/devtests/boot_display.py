@@ -120,11 +120,20 @@ check("game ran with (nfc, panel, enow)", "goalrace(nfc=False, panel=True)" in r
 check("module unloaded after the game", "goalrace" not in sys.modules)
 
 # ── Loud failure paths ──
+_load_fail_draws = []
+_orig_draw_shape_early = shapes.draw_shape
+shapes.draw_shape = lambda p, shape, rgb: (
+    _load_fail_draws.append((shape, rgb)), _orig_draw_shape_early(p, shape, rgb))[-1]
+
 main._launch_game("noplay", None, panel, enow)
 check("a module with no play() fails loudly and returns", "noplay" not in sys.modules)
 main._launch_game("broken", None, panel, enow)
 check("a module that will not compile fails loudly and returns", "broken" not in sys.modules)
 check("panel still usable after a load failure", panel.np.writes > 0)
+check("both load failures light SHAPE_X in red",
+      _load_fail_draws == [(shapes.SHAPE_X, main.RED)] * 2, str(_load_fail_draws))
+
+shapes.draw_shape = _orig_draw_shape_early
 
 # ── A built-in whose file is not installed is simply not a game here ──
 os.rename(os.path.join(FLASH, "goalrace.py"), os.path.join(FLASH, "goalrace.py.away"))
@@ -153,6 +162,108 @@ main._launch_game("goalrace", None, panel, ChainEnow())
 ran = open(CALLS).read()
 check("force-switch chained without returning to idle",
       "goalrace" in ran and "second" in ran, ran.replace("\n", " | "))
+
+# ── Pull mode: each outcome lights the glyph the phase 6 plan calls for ──
+import machine
+import pull_flag
+import icon_store
+import types
+
+
+class _Reset(Exception):
+    """Stands in for machine.reset(): the pull-mode branches that end in a
+    reset never return, so the test needs a way to stop execution there
+    without actually rebooting the process."""
+
+
+machine.reset = lambda: (_ for _ in ()).throw(_Reset())
+
+
+# noap/nojoin/norequest/budget-spent all go through flash_glyph(), which
+# draws, holds, then clears and restores idle intensity before returning --
+# so the glyph is gone by the time _run_pull_mode() itself returns. Spying
+# on shapes.draw_shape() (which flash_glyph and the success/retry branches
+# both call) records what was actually asked for, transient or not.
+_draw_calls = []
+_orig_draw_shape = shapes.draw_shape
+def _spy_draw_shape(panel, shape, rgb):
+    _draw_calls.append((shape, rgb))
+    return _orig_draw_shape(panel, shape, rgb)
+shapes.draw_shape = _spy_draw_shape
+
+
+def _run_pull_mode_with(outcome, on_status_calls=None, on_progress_calls=None):
+    """Drive one _run_pull_mode() call against a fake code_puller.pull()
+    that returns `outcome` and, if given, exercises the status/progress
+    callbacks main.py wires up. Clears _draw_calls first so each call's
+    result reflects only this run."""
+    del _draw_calls[:]
+    pull_flag.is_pending = lambda: True
+    pull_flag.budget_left = lambda: True
+    pull_flag.bump = lambda: 1
+    pull_flag.requested_slug = lambda: "goalrace"
+    pull_flag.clear = lambda: None
+    p = icon_matrix.Matrix(pin=0, intensity=main.IDLE_INTENSITY)
+
+    fake_puller = types.ModuleType("code_puller")
+    fake_puller.SSID = "SP-FILEPUSH"
+
+    def fake_pull(**kw):
+        if on_status_calls is not None and kw.get("on_status"):
+            for phase, tick in on_status_calls:
+                kw["on_status"](phase, tick)
+        if on_progress_calls is not None and kw.get("on_progress"):
+            for received, total in on_progress_calls:
+                kw["on_progress"](received, total)
+        return outcome
+    fake_puller.pull = fake_pull
+    sys.modules["code_puller"] = fake_puller
+
+    try:
+        main._run_pull_mode(p, icon_store.DIR)
+    except _Reset:
+        pass
+    return p
+
+
+_run_pull_mode_with("noap")
+check("AP not up lights SHAPE_WIFI_2 in red",
+      _draw_calls == [(shapes.SHAPE_WIFI_2, main.RED)], str(_draw_calls))
+
+_run_pull_mode_with("nojoin")
+check("join refused lights SHAPE_WIFI_2 in amber",
+      _draw_calls == [(shapes.SHAPE_WIFI_2, main.AMBER)], str(_draw_calls))
+
+_run_pull_mode_with("norequest")
+check("no such game for this role also lights SHAPE_WIFI_2 in amber",
+      _draw_calls == [(shapes.SHAPE_WIFI_2, main.AMBER)], str(_draw_calls))
+
+_run_pull_mode_with(True)
+check("success lights SHAPE_CHECK in green before resetting",
+      _draw_calls == [(shapes.SHAPE_CHECK, main.GREEN)], str(_draw_calls))
+
+_run_pull_mode_with(False)
+check("a broken transfer lights SHAPE_X in red before retrying",
+      _draw_calls == [(shapes.SHAPE_X, main.RED)], str(_draw_calls))
+
+# budget-spent path never calls code_puller.pull() at all
+del _draw_calls[:]
+panel = icon_matrix.Matrix(pin=0, intensity=main.IDLE_INTENSITY)
+pull_flag.budget_left = lambda: False
+pull_flag.clear = lambda: None
+main._run_pull_mode(panel, icon_store.DIR)
+check("attempt budget spent lights SHAPE_X in red",
+      _draw_calls == [(shapes.SHAPE_X, main.RED)], str(_draw_calls))
+
+# on_status/on_progress are actually wired up, not just accepted
+_run_pull_mode_with(
+    "noap",
+    on_status_calls=[("scan", 0), ("scan", 8)],
+    on_progress_calls=[(100, 400)],
+)
+check("on_status/on_progress callbacks run without error", True)
+
+shapes.draw_shape = _orig_draw_shape
 
 shutil.rmtree(TMP, ignore_errors=True)
 print()
