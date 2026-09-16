@@ -129,10 +129,14 @@ def is_game(name):
 # ─────────────────────────────────────────────
 # PANEL FEEDBACK
 # ─────────────────────────────────────────────
-# No buzzer and no 5x5 glyph set here, so status is whole-panel colour at low
-# intensity. Nothing in this file draws above IDLE_INTENSITY: MAX_INTENSITY
-# is a measured supply ceiling, not a preference, and a panel that sits lit
-# continuously should run well under it.
+# No buzzer here, so status is the panel alone. lib/shapes.py gives this
+# device the same 5x5 glyph vocabulary MockWand shows on its matrix -- a
+# child should read the same meaning off either, not a bit-exact copy.
+# Whole-panel colour remains only for the idle breath (show_idle()) and the
+# transfer progress bar, which have no wand equivalent to mirror. Nothing in
+# this file draws above IDLE_INTENSITY: MAX_INTENSITY is a measured supply
+# ceiling, not a preference, and a panel that sits lit continuously should
+# run well under it.
 IDLE_INTENSITY = 0.12
 ALERT_INTENSITY = 0.25
 
@@ -141,6 +145,8 @@ RED = (120, 0, 0)
 GREEN = (0, 120, 0)
 BLUE = (0, 20, 160)
 AMBER = (120, 60, 0)
+CYAN = (0, 180, 240)
+BLUE_DIM = (0, 20, 127)
 
 
 def fill(panel, rgb):
@@ -153,23 +159,26 @@ def fill(panel, rgb):
     panel.draw_bytes(src)
 
 
-def flash(panel, rgb, times=3, on_ms=180, off_ms=120):
-    """Blink the whole panel. The only attention-getter this device has."""
-    panel.set_intensity(ALERT_INTENSITY)
-    for _ in range(times):
-        fill(panel, rgb)
-        time.sleep_ms(on_ms)
-        panel.clear()
-        time.sleep_ms(off_ms)
-    panel.set_intensity(IDLE_INTENSITY)
-
-
 def show_idle(panel, frame):
     """A slow dim blue breath, so an idle display is visibly alive."""
     step = frame % 32
     level = step if step < 16 else 31 - step
     panel.set_intensity(IDLE_INTENSITY)
     fill(panel, (0, 4 + level, 20 + level * 2))
+
+
+def flash_glyph(panel, shape, rgb, hold_ms=900):
+    """Show one glyph at alert intensity, hold it, then go dark.
+
+    Mirrors MockWand's _pull_fail() -- same glyph, same colour meaning,
+    minus the buzzer this device does not have.
+    """
+    import shapes
+    panel.set_intensity(ALERT_INTENSITY)
+    shapes.draw_shape(panel, shape, rgb)
+    time.sleep_ms(hold_ms)
+    panel.clear()
+    panel.set_intensity(IDLE_INTENSITY)
 
 
 
@@ -229,13 +238,14 @@ def _game_load_failed(name, exc, panel):
 
     A pulled game is code an LLM just wrote, so a module that will not
     import or has no play() is expected input, not a device fault. With no
-    buzzer here, the whole panel flashes red -- readable across a room,
-    which is the point.
+    buzzer here, a red X glyph is the attention-getter -- readable across a
+    room, which is the point.
     """
     print("  [FAIL] game load: %s (module %s)" % (name, game_module(name)))
     sys.print_exception(exc)
     memprobe.probe("load-fail:%s" % name)   # BENCH
-    flash(panel, RED, times=3)
+    import shapes
+    flash_glyph(panel, shapes.SHAPE_X, RED)
     # A partial success (module compiled, no play()) can leave a stub entry
     # in sys.modules; clear it so the next tap recompiles cleanly instead of
     # reusing a module that will fail the same way silently.
@@ -274,6 +284,39 @@ def _launch_game(name, nfc, panel, enow):
 # ─────────────────────────────────────────────
 # PULL MODE
 # ─────────────────────────────────────────────
+def _pull_status(panel, phase, tick):
+    """Cycle the wifi bars in blue while the radio scans and joins.
+
+    Mirrors MockWand/main.py's _pull_status(): one bar per call during
+    `scan` (a scan blocks for ~2.5s, so each call is a countdown of the
+    scan budget), one bar every 3 calls during `join` (~200ms polls, so
+    ~600ms per step reads as a smooth cycle).
+    """
+    import shapes
+    shapes.wifi_animate(panel, tick, BLUE, frames_per_step=1 if phase == 'scan' else 3)
+
+
+def _pull_progress(panel, received, total):
+    """Light the panel left-to-right as bytes land, across all 256 pixels.
+
+    Mirrors MockWand/main.py's _pull_progress() on the 25-pixel matrix.
+    Palette colours only, matching that module's note: every write is
+    scaled by the panel's intensity LUT, so a raw dim tuple could round to
+    invisible.
+    """
+    pct = (received / total) if total else 0
+    src = panel.src
+    n = len(src) // 3
+    lit = max(1, int(pct * n))
+    for i in range(n):
+        o = i * 3
+        if i < lit:
+            src[o], src[o + 1], src[o + 2] = CYAN
+        else:
+            src[o], src[o + 1], src[o + 2] = BLUE_DIM
+    panel.draw_bytes(src)
+
+
 def _run_pull_mode(panel, icon_dir):
     """Join the Box's SoftAP and fetch this display's game file and icons.
 
@@ -284,10 +327,12 @@ def _run_pull_mode(panel, icon_dir):
     Returns only when the attempt budget is spent, so the caller falls
     through to a normal boot. Success and retry both reset the chip.
     """
+    import shapes
+
     if not pull_flag.budget_left():
         print("# pull: attempt budget spent -- giving up, booting normally")
         pull_flag.clear()
-        flash(panel, RED)
+        flash_glyph(panel, shapes.SHAPE_X, RED)
         return
 
     n = pull_flag.bump()
@@ -307,8 +352,15 @@ def _run_pull_mode(panel, icon_dir):
     # hubtype tells the Box which file this slug means for this device;
     # icon_dir asks for the named-icon leg after it. enow is deliberately
     # not passed: there is no ESP-NOW on this boot to shut down.
+    #
+    # on_progress/on_status wire this device into the same scan/join/
+    # transfer animation MockWand's pull mode shows -- see _pull_status()
+    # and _pull_progress() below, which mirror MockWand/main.py's functions
+    # of the same name.
     ok = code_puller.pull(verbose=True, slug=wanted,
-                          hubtype=HUB_TYPE, icon_dir=icon_dir)
+                          hubtype=HUB_TYPE, icon_dir=icon_dir,
+                          on_progress=lambda r, t: _pull_progress(panel, r, t),
+                          on_status=lambda phase, tick: _pull_status(panel, phase, tick))
 
     # Three of the four failures are certain -- a second boot would scan the
     # same air, join the same AP and ask for the same missing game -- so they
@@ -316,29 +368,33 @@ def _run_pull_mode(panel, icon_dir):
     if ok == 'noap':
         print("# pull: %r AP not up -- giving up" % code_puller.SSID)
         pull_flag.clear()
-        flash(panel, RED)
+        flash_glyph(panel, shapes.SHAPE_WIFI_2, RED)
         return
     if ok == 'nojoin':
         print("# pull: AP visible but pairing failed -- giving up")
         pull_flag.clear()
-        flash(panel, AMBER)
+        flash_glyph(panel, shapes.SHAPE_WIFI_2, AMBER)
         return
     if ok == 'norequest':
         print("# pull: Box has no %r for an icon display -- giving up" % wanted)
         pull_flag.clear()
-        flash(panel, AMBER)
+        flash_glyph(panel, shapes.SHAPE_WIFI_2, AMBER)
         return
     if ok:
         pull_flag.clear()
-        flash(panel, GREEN, times=2)
+        panel.set_intensity(ALERT_INTENSITY)
+        shapes.draw_shape(panel, shapes.SHAPE_CHECK, GREEN)
         print("# pull OK -- resetting into the new game")
+        time.sleep_ms(600)
         machine.reset()
 
     # A broken transfer is the one failure a fresh radio has a real chance of
     # getting past, so this one retries. The flag stays set.
     print("# pull failed mid-transfer -- resetting to retry (%d/%d spent)"
           % (n, pull_flag.MAX_ATTEMPTS))
-    flash(panel, RED)
+    panel.set_intensity(ALERT_INTENSITY)
+    shapes.draw_shape(panel, shapes.SHAPE_X, RED)
+    time.sleep_ms(600)
     machine.reset()
 
 
@@ -490,7 +546,8 @@ def main():
                     # Flag unwritable. Rebooting now would lose the tap, so
                     # say so instead of silently returning to idle.
                     print("# could not write pull flag: %s" % e)
-                    flash(panel, RED)
+                    import shapes
+                    flash_glyph(panel, shapes.SHAPE_X, RED)
                     continue
                 time.sleep_ms(300)
                 machine.reset()
@@ -506,7 +563,8 @@ def main():
                 # Also where a game tag lands when this display does not have
                 # that game installed -- game_module() returns None for it.
                 print("  no game %r on this display" % cmd)
-                flash(panel, AMBER, times=1, on_ms=120, off_ms=80)
+                import shapes
+                flash_glyph(panel, shapes.SHAPE_QUESTION, AMBER, hold_ms=400)
 
         time.sleep_ms(IDLE_FRAME_MS)
 

@@ -93,8 +93,9 @@ main.fill(panel, main.RED)
 check("fill writes the frame", panel.src[0] == 120 and panel.src[1] == 0)
 main.show_idle(panel, 5)
 check("show_idle draws", panel.np.writes > 1)
-main.flash(panel, main.AMBER, times=1, on_ms=0, off_ms=0)
-check("flash restores idle intensity", abs(panel.intensity - main.IDLE_INTENSITY) < 1e-9,
+import shapes
+main.flash_glyph(panel, shapes.SHAPE_X, main.AMBER, hold_ms=0)
+check("flash_glyph restores idle intensity", abs(panel.intensity - main.IDLE_INTENSITY) < 1e-9,
       str(panel.intensity))
 check("intensity never exceeds the measured ceiling",
       panel.intensity <= icon_matrix.MAX_INTENSITY)
