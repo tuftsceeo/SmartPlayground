@@ -168,7 +168,7 @@ def _check_m5ui():
             mode=lv.roller.MODE.NORMAL, selected=0, visible_row_count=2,
             font=lv.font_montserrat_14, parent=pg)
         roller.set_options(["A", "B", "C"], lv.roller.MODE.NORMAL)
-        roller.set_selected(1, False)  # lv.ANIM.OFF doesn't exist on this binding
+        roller.set_selected(1, lv.ANIM.OFF)
         gc.collect()
         _result("mem_after_page_and_roller", gc.mem_free(), True)
         _result("m5ui_pass", True, True)

@@ -29,7 +29,7 @@ export class SerialAdapter {
     this.reader = null;
     this.writer = null;
     this.readBuf = ""; // accumulated decoded text not yet claimed by a waiter
-    this.waiters = []; // [{pattern, resolve, settled}] -- readUntil() callers
+    this.waiters = []; // [{pattern, resolve}] -- readUntil() callers
     this.onData = null; // optional: (chunk:string) => void, called for every decoded chunk
     this.onClose = null; // optional: (reason:string) => void, fired once when the read loop dies
     this.readLoopActive = false;
@@ -37,44 +37,18 @@ export class SerialAdapter {
     this._rxBytes = 0;
     this._txBytes = 0;
     this._closeFired = false;
-    this._lastPortInfo = null; // {usbVendorId, usbProductId} of the last port opened via connect() -- lets reopenLastPort() find it again in getPorts() without a new requestPort() prompt
     this._wireGlobalDisconnect();
   }
 
-  /**
-   * A device yanked (or reset hard enough to re-enumerate) surfaces here.
-   * Confirmed on hardware (see chat) that one physical unplug can fire this
-   * listener a dozen times in under 5ms, all reporting the identical port
-   * (same usbVendorId/usbProductId) -- consistent with the browser dispatching
-   * once per stale SerialPort object the page has accumulated across earlier
-   * requestPort() calls this session, not per physical event. Logging is
-   * de-duplicated by port identity within a short window so the log (and
-   * anything reacting to it) isn't misled into thinking the device dropped
-   * and came back a dozen times.
-   */
+  /** A device yanked (or reset hard enough to re-enumerate) surfaces here. */
   _wireGlobalDisconnect() {
     if (!("serial" in navigator) || SerialAdapter._globalWired) return;
     SerialAdapter._globalWired = true;
-    const DEDUPE_MS = 250;
-    let lastConnectKey = null, lastConnectAt = 0;
-    let lastDisconnectKey = null, lastDisconnectAt = 0;
     navigator.serial.addEventListener("connect", (e) => {
-      const info = describePort(e.target);
-      const key = `${info.usbVendorId}:${info.usbProductId}`;
-      const now = Date.now();
-      if (key === lastConnectKey && now - lastConnectAt < DEDUPE_MS) return;
-      lastConnectKey = key;
-      lastConnectAt = now;
-      logInfo("navigator.serial 'connect' event", info);
+      logInfo("navigator.serial 'connect' event", describePort(e.target));
     });
     navigator.serial.addEventListener("disconnect", (e) => {
-      const info = describePort(e.target);
-      const key = `${info.usbVendorId}:${info.usbProductId}`;
-      const now = Date.now();
-      if (key === lastDisconnectKey && now - lastDisconnectAt < DEDUPE_MS) return;
-      lastDisconnectKey = key;
-      lastDisconnectAt = now;
-      logWarn("navigator.serial 'disconnect' event -- device went away", info);
+      logWarn("navigator.serial 'disconnect' event -- device went away", describePort(e.target));
     });
   }
 
@@ -106,60 +80,9 @@ export class SerialAdapter {
     this.readBuf = "";
     this._rxBytes = 0;
     this._txBytes = 0;
-    this._lastPortInfo = describePort(port);
 
     await this.logSignals("after open");
     this._startReadLoop();
-  }
-
-  /**
-   * Reopen the same physical port after an unplanned drop (e.g. the
-   * device's own soft-reset re-enumerating its native USB), without
-   * prompting the user again. requestPort() always shows a picker and
-   * needs a user gesture; getPorts() returns ports this origin was
-   * already granted, and opening one of those needs neither. Works
-   * identically for the Box and the Dial -- this only cares about the
-   * previously-seen USB vendor/product id, not what device it is.
-   * Resolves false (never throws) on anything short of success: no
-   * matching granted port, or that port refusing to open (already open
-   * elsewhere, or genuinely gone) -- the caller's timeout/retry logic is
-   * what decides how long to keep hoping.
-   */
-  async reopenLastPort(opts = {}) {
-    if (!("serial" in navigator) || !this._lastPortInfo) return false;
-    let granted;
-    try {
-      granted = await navigator.serial.getPorts();
-    } catch (e) {
-      logWarn(`reopenLastPort: getPorts() failed: ${e.message}`);
-      return false;
-    }
-    const match = granted.find((p) => {
-      const info = describePort(p);
-      return info.usbVendorId === this._lastPortInfo.usbVendorId
-        && info.usbProductId === this._lastPortInfo.usbProductId;
-    });
-    if (!match) {
-      logInfo("reopenLastPort: no previously granted port matches", this._lastPortInfo);
-      return false;
-    }
-    try {
-      const baudRate = opts.baudRate ?? 115200;
-      await match.open({ baudRate });
-    } catch (e) {
-      logWarn(`reopenLastPort: open() failed: ${e.message}`);
-      return false;
-    }
-    logInfo("reopenLastPort: reopened without prompting", describePort(match));
-    this.port = match;
-    this.reader = match.readable.getReader();
-    this.writer = match.writable.getWriter();
-    this.readBuf = "";
-    this._rxBytes = 0;
-    this._txBytes = 0;
-    await this.logSignals("after reopen");
-    this._startReadLoop();
-    return true;
   }
 
   /**
@@ -226,33 +149,8 @@ export class SerialAdapter {
     this.reader = null;
     this.writer = null;
     this.readBuf = "";
-    this._releaseWaiters("port disconnected");
-    logInfo(`disconnected (session totals: tx ${this._txBytes}B, rx ${this._rxBytes}B)`);
-  }
-
-  /**
-   * Resolve every still-pending readUntil() immediately with found:false,
-   * rather than leaving them for their own setTimeout.
-   *
-   * Confirmed on hardware (see chat: send-overlay hang investigation) that
-   * simply reassigning `this.waiters = []` here orphaned any waiter already
-   * in flight: its setTimeout closure captured the OLD array, so its later
-   * `indexOf` lookup against the NEW array always returned -1 and the
-   * `if (idx >= 0)` guard silently skipped calling resolve() -- the promise
-   * never settled, which is what kept confirmSend()'s send-confirm-overlay
-   * stuck on "Sending..." forever. Each waiter now carries its own
-   * `settled` flag instead of relying on array identity, so it resolves
-   * exactly once regardless of which array object holds it.
-   */
-  _releaseWaiters(reason) {
-    const pending = this.waiters;
     this.waiters = [];
-    for (const w of pending) {
-      if (w.settled) continue;
-      w.settled = true;
-      logWarn(`readUntil for ${JSON.stringify(w.pattern)} released early: ${reason}`);
-      w.resolve({ found: false, text: "", closed: true });
-    }
+    logInfo(`disconnected (session totals: tx ${this._txBytes}B, rx ${this._rxBytes}B)`);
   }
 
   /** Raw write -- string or Uint8Array, no framing. */
@@ -301,12 +199,6 @@ export class SerialAdapter {
     this.reader = null;
     this.writer = null;
     logWarn(`serial close: ${reason}`);
-    // Release BEFORE onClose: app.js's close handler calls disconnect() as
-    // part of handling this event, and by then any in-flight readUntil()
-    // (e.g. the one confirmSend() is awaiting deep inside pushPayload())
-    // should already be unblocked -- not still waiting on disconnect() to
-    // get around to it, and not left for its own now-irrelevant timeout.
-    this._releaseWaiters(`adapter closed: ${reason}`);
     try {
       this.onClose?.(reason);
     } catch (e) {
@@ -366,7 +258,6 @@ export class SerialAdapter {
       const consumed = this.readBuf.slice(0, i + w.pattern.length);
       this.readBuf = this.readBuf.slice(i + w.pattern.length);
       logInfo(`readUntil matched ${JSON.stringify(w.pattern)}`);
-      w.settled = true;
       w.resolve({ found: true, text: consumed });
       return false;
     });
@@ -384,21 +275,16 @@ export class SerialAdapter {
         resolve({ found: true, text: consumed });
         return;
       }
-      // `settled` (not array membership) is the single source of truth for
-      // whether this waiter still needs resolving -- a match, a disconnect,
-      // and this timeout can all race to be the one that settles it, and
-      // exactly one must win regardless of which `this.waiters` array
-      // object is live at that moment (see _releaseWaiters()).
-      const waiter = { pattern, resolve, settled: false };
+      const waiter = { pattern, resolve };
       this.waiters.push(waiter);
       logInfo(`readUntil waiting for ${JSON.stringify(pattern)} (${timeoutMs}ms)`);
       setTimeout(() => {
-        if (waiter.settled) return;
-        waiter.settled = true;
         const idx = this.waiters.indexOf(waiter);
-        if (idx >= 0) this.waiters.splice(idx, 1);
-        logWarn(`readUntil TIMEOUT after ${timeoutMs}ms waiting for ${JSON.stringify(pattern)}`);
-        resolve({ found: false, text: "" });
+        if (idx >= 0) {
+          this.waiters.splice(idx, 1);
+          logWarn(`readUntil TIMEOUT after ${timeoutMs}ms waiting for ${JSON.stringify(pattern)}`);
+          resolve({ found: false, text: "" });
+        }
       }, timeoutMs);
     });
   }

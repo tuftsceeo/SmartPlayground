@@ -183,9 +183,6 @@
                 </div>
                 <div class="ws-footer">
                     <div class="footer-tools">
-                        <button class="icon-btn" id="btn-new-game" type="button" title="New game (clears the chat and code)">
-                            <span class="code-glyph">+</span>
-                        </button>
                         <button class="icon-btn" id="btn-save-game" type="button" title="Save (updates this game, no duplicate)">
                             <span data-icon="save" data-icon-size="15"></span>
                         </button>
@@ -235,9 +232,6 @@
         <!-- Tag checklist -->
         <div id="tag-checklist-overlay" class="overlay-view hidden">
             <div class="overlay-card overlay-card-tags left">
-                <button type="button" class="overlay-close-x" id="tag-checklist-close-x" title="Close">
-                    <span data-icon="close" data-icon-size="18"></span>
-                </button>
                 <h2 id="tag-checklist-title">This game needs tags</h2>
                 <p id="tag-checklist-subtitle"></p>
                 <div class="tag-bars" id="tag-checklist-bars"></div>
@@ -249,9 +243,6 @@
         <!-- Connect (send-while-disconnected / errors) -->
         <div id="connect-overlay" class="overlay-view hidden">
             <div class="overlay-card overlay-card-send">
-                <button type="button" class="overlay-close-x" id="btn-connect-close-x" title="Close">
-                    <span data-icon="close" data-icon-size="18"></span>
-                </button>
                 <div class="connect-hero" data-icon="cable" data-icon-size="40"></div>
                 <h2>Connect over USB</h2>
                 <p>Plug it in, then pick it from the browser's list</p>
@@ -267,34 +258,19 @@
         <!-- Send confirm -->
         <div id="send-confirm-overlay" class="overlay-view hidden">
             <div class="overlay-card overlay-card-send">
-                <button type="button" class="overlay-close-x" id="btn-send-close-x" title="Close">
-                    <span data-icon="close" data-icon-size="18"></span>
-                </button>
-                <div id="send-confirm-form">
-                    <label class="send-name-label" for="send-game-name">Name this game</label>
-                    <div class="send-name-field">
-                        <input type="text" id="send-game-name" maxlength="48" placeholder="Game name" />
-                        <span class="send-name-pencil" data-icon="pencil" data-icon-size="15" aria-hidden="true"></span>
-                    </div>
-                    <p id="send-name-error" class="modal-error"></p>
-                    <ul class="send-requirements" id="send-requirements"></ul>
-                    <div id="send-progress-wrap" class="hidden">
-                        <div id="send-progress-track"><div id="send-progress-bar"></div></div>
-                        <p id="send-progress-label"></p>
-                    </div>
-                    <button class="btn-primary" id="btn-send-confirm" type="button">Send</button>
-                    <button class="btn-secondary" id="btn-send-cancel" type="button">Not yet</button>
+                <label class="send-name-label" for="send-game-name">Name this game</label>
+                <div class="send-name-field">
+                    <input type="text" id="send-game-name" maxlength="48" placeholder="Game name" />
+                    <span class="send-name-pencil" data-icon="pencil" data-icon-size="15" aria-hidden="true"></span>
                 </div>
-                <!-- Shown once the device has confirmed the file write (the
-                     real point of success -- see boxFirmwareInstaller.js).
-                     The device's own reboot happens after this and is
-                     expected, not something this screen waits on. -->
-                <div id="send-confirm-success" class="hidden">
-                    <div class="send-success-icon" data-icon="circle-check" data-icon-size="40"></div>
-                    <h2 id="send-success-title">Sent!</h2>
-                    <p id="send-success-note"></p>
-                    <button class="btn-primary" id="btn-send-done" type="button">Done</button>
+                <p id="send-name-error" class="modal-error"></p>
+                <ul class="send-requirements" id="send-requirements"></ul>
+                <div id="send-progress-wrap" class="hidden">
+                    <div id="send-progress-track"><div id="send-progress-bar"></div></div>
+                    <p id="send-progress-label"></p>
                 </div>
+                <button class="btn-primary" id="btn-send-confirm" type="button">Send</button>
+                <button class="btn-secondary" id="btn-send-cancel" type="button">Not yet</button>
             </div>
         </div>
 
@@ -337,35 +313,6 @@
         <div id="sent-banner" class="hidden">
             <span data-icon="circle-check" data-icon-size="16"></span>
             Sent! Hold a card on the device to write it.
-        </div>
-
-        <!-- Unsaved-work choice: Save/Discard/Cancel, replaces window.confirm()
-             for leaving a dirty workspace (Home, New game). -->
-        <div id="unsaved-overlay" class="overlay-view hidden">
-            <div class="overlay-card overlay-card-send">
-                <button type="button" class="overlay-close-x" id="btn-unsaved-close-x" title="Close">
-                    <span data-icon="close" data-icon-size="18"></span>
-                </button>
-                <h2>Unsaved changes</h2>
-                <p>This game hasn't been saved yet. What would you like to do?</p>
-                <button class="btn-primary" id="btn-unsaved-save" type="button">Save &amp; Continue</button>
-                <button class="btn-secondary" id="btn-unsaved-discard" type="button">Discard</button>
-                <button class="btn-secondary" id="btn-unsaved-cancel" type="button">Cancel</button>
-            </div>
-        </div>
-
-        <!-- Generic yes/no confirm, replaces window.confirm() for destructive
-             device actions (clear library, reset stats). -->
-        <div id="confirm-overlay" class="overlay-view hidden">
-            <div class="overlay-card overlay-card-send">
-                <button type="button" class="overlay-close-x" id="btn-confirm-close-x" title="Close">
-                    <span data-icon="close" data-icon-size="18"></span>
-                </button>
-                <h2 id="confirm-title">Are you sure?</h2>
-                <p id="confirm-message"></p>
-                <button class="btn-primary" id="btn-confirm-ok" type="button">Confirm</button>
-                <button class="btn-secondary" id="btn-confirm-cancel" type="button">Cancel</button>
-            </div>
         </div>
 
         <!-- Passphrase modal -->
