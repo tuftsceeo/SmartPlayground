@@ -40,12 +40,20 @@ GC_EVERY_N_FRAMES = 32
 
 
 class IconServer:
-    def __init__(self, matrix, debug=False):
+    def __init__(self, matrix, debug=False, is_game=None):
         """matrix: the Matrix this device already built. Required -- see the
-        module docstring on why this does not make its own."""
+        module docstring on why this does not make its own.
+
+        is_game: optional callable(name) -> bool, used only by do_start_game
+        (see its docstring) to validate a bench-requested game before
+        queuing it. None disables that validation."""
         self.m = matrix
         self.link = JsonLink(self.dispatch, debug=debug)
         self.running = True
+        self.is_game = is_game
+        # Set by do_start_game; main.py's idle loop picks it up and clears
+        # it, the same way it consumes an ESP-NOW start_game message.
+        self.pending_start_game = None
         # Set by do_repl/do_reboot so the caller can tell which of the two
         # stopped the loop. main.py reads these to decide whether to drop to
         # the REPL or reset.
@@ -77,6 +85,7 @@ class IconServer:
             "orient": self.do_orient,
             "repl": self.do_repl,
             "reboot": self.do_reboot,
+            "start_game": self.do_start_game,
         }
 
     # ── dispatch ────────────────────────────────────────────────────
@@ -250,6 +259,29 @@ class IconServer:
         self.running = False
         self.exit_reason = "reboot"
         self._reboot_hard = bool(cmd.get("hard"))
+
+    def do_start_game(self, cmd, rid):
+        """Bench-only: start a game over USB, the way an ESP-NOW start_game
+        message does. There is no card reader fitted yet (see hubtype.py's
+        has_nfc) and the display never pairs with a wand on its own, so this
+        is the only way to start a display game on the bench short of the
+        REPL incantation in pull_flag.set_pending() -- not part of the wire
+        protocol in HARDWARE_PROTOCOL.md.
+
+        Refuses loudly rather than falling back to anything: an unknown
+        or uninstalled slug is a mistake at the bench, not a spurious
+        network message to shrug off the way the ESP-NOW path does.
+        """
+        name = cmd.get("name")
+        if not name:
+            self.link.send({"type": "error", "id": rid, "code": "bad_args", "cmd": "start_game"})
+            return
+        if self.is_game is not None and not self.is_game(name):
+            self.link.send({"type": "error", "id": rid, "code": "no_such_game", "name": name})
+            return
+        self.release_panel()
+        self.pending_start_game = name
+        self.link.send({"type": "ok", "id": rid, "cmd": "start_game", "name": name})
 
     # ── cycle mode (replaces the old main.py's cycle_icons loop) ───────
     def _cycle_step(self, now):

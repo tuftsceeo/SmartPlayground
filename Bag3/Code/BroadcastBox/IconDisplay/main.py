@@ -435,7 +435,7 @@ def main():
     # nothing to trigger. start() announces this device, which is what the
     # browser's connect flow listens for.
     from icon_server import IconServer
-    server = IconServer(panel, debug=DEBUG)
+    server = IconServer(panel, debug=DEBUG, is_game=is_game)
     server.start()
     memprobe.probe("post-server")  # BENCH
 
@@ -495,6 +495,18 @@ def main():
         # stays up until a tap, a game or a long silence takes it back.
         if not server.owns_panel(time.ticks_ms(), USB_QUIET_MS):
             show_idle(panel, frame)
+
+        # A bench start_game over USB, queued by icon_server.do_start_game.
+        # Already validated at request time; re-checked here for the same
+        # reason the ESP-NOW branch below re-checks its own name.
+        if server.pending_start_game:
+            name = server.pending_start_game
+            server.pending_start_game = None
+            if is_game(name):
+                panel.clear()
+                _launch_game(name, reader, panel, enow)
+                last_uid = None
+                frame = 0
 
         # ESP-NOW every pass: a wand starting a game must not wait on a
         # card read.
