@@ -14,6 +14,21 @@ export const ROLE_SIGNATURES = {
     icon: ['nfc', 'panel', 'enow'],
 };
 
+/**
+ * Parameters a role's play() may omit and still run.
+ *
+ * `batt` became a real wand parameter long after games had been written
+ * against six, and MockWand/main.py's _start_play() still calls those the way
+ * they were written. Refusing to SEND one would strand every game a teacher
+ * generated before the change, on a device that can run it perfectly well.
+ * New code should still declare it -- the knowledge files ask for it -- but a
+ * missing one is not a reason to block a send.
+ */
+const OPTIONAL_PARAMS = {
+    wand: ['batt'],
+    icon: [],
+};
+
 /** Human-readable `def play(...)` line for a role, used in error text. */
 export function signatureFor(role) {
     const names = ROLE_SIGNATURES[role];
@@ -59,7 +74,8 @@ export function validateGameCode(code, role) {
     if (params === null) {
         return [false, `Missing ${sig} function.`];
     }
-    const missing = expected.filter(p => !params.has(p));
+    const optional = OPTIONAL_PARAMS[role] || [];
+    const missing = expected.filter(p => !params.has(p) && !optional.includes(p));
     if (missing.length > 0) {
         return [false, `play() is missing parameters: ${missing.join(', ')}\nExpected: ${sig}`];
     }

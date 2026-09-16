@@ -440,6 +440,44 @@ def _game_load_failed(name, exc):
     _unload_game(name)
 
 
+def _is_arity_error(e):
+    """True if this TypeError is "wrong number of arguments", not a fault
+    from inside the game. MicroPython words it distinctively."""
+    msg = str(e)
+    return ("positional argument" in msg
+            or ("argument" in msg and "given" in msg))
+
+
+def _start_play(play_func, name, nfc, leds, buz, accel, i2c, wrapper, batt_ref):
+    """Call a game's play(), tolerating the older six-parameter signature.
+
+    batt became a real seventh parameter long after games had been written
+    and pulled against six, and those games are still on flash and still on
+    the Box. Refusing to run them would make every game a teacher generated
+    before that change dead on this wand, which is a worse outcome than
+    calling them the way they were written.
+
+    Where the port exposes __code__.co_argcount the arity is read outright
+    and the right call is made first time. Where it does not, the seven-arg
+    call is tried and an arity TypeError falls back to six -- the game has
+    not started at that point, because Python raises on arity before
+    entering the function.
+    """
+    args = (nfc, leds, buz, accel, i2c, wrapper, batt_ref)
+    code = getattr(play_func, "__code__", None)
+    n = getattr(code, "co_argcount", None) if code is not None else None
+    if n is not None:
+        return play_func(*args[:n]) if n < len(args) else play_func(*args)
+    try:
+        return play_func(*args)
+    except TypeError as e:
+        if not _is_arity_error(e):
+            raise
+        print("  %s takes the older six-argument play(); calling it that way"
+              % name)
+        return play_func(*args[:6])
+
+
 def _launch_game(name, nfc, leds, buz, accel, i2c, enow, batt_ref):
     """Run a game and chain force-switches without returning to idle."""
     while is_game(name):
@@ -450,7 +488,17 @@ def _launch_game(name, nfc, leds, buz, accel, i2c, enow, batt_ref):
             return
         wrapper = _StartGameCapture(enow)
         _emit({"type": "game_start", "slug": name})
-        play_func(nfc, leds, buz, accel, i2c, wrapper, batt_ref)
+        try:
+            _start_play(play_func, name, nfc, leds, buz, accel, i2c,
+                        wrapper, batt_ref)
+        except TypeError as e:
+            # A game that cannot even be CALLED is a load failure, not a
+            # reason to take the main loop down with it. Anything raised
+            # from inside a running game still propagates, as before.
+            if not _is_arity_error(e):
+                raise
+            _game_load_failed(name, e)
+            return
         _emit({"type": "game_end", "slug": name})
         next_name = wrapper.pending_name
         # Drop the reference before unloading -- play_func is what pins
