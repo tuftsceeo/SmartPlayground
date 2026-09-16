@@ -134,11 +134,13 @@ def is_game(name):
 # child should read the same meaning off either, not a bit-exact copy.
 # Whole-panel colour remains only for the idle breath (show_idle()) and the
 # transfer progress bar, which have no wand equivalent to mirror. Nothing in
-# this file draws above IDLE_INTENSITY: MAX_INTENSITY is a measured supply
-# ceiling, not a preference, and a panel that sits lit continuously should
-# run well under it.
-IDLE_INTENSITY = 0.12
-ALERT_INTENSITY = 0.25
+# this file draws above IDLE_INTENSITY (equal to ALERT_INTENSITY for now --
+# a conservative single value while glyph current draw is uncharacterized on
+# the bench, see Stations/Icon Display Station/readme.md's voltage ramp):
+# MAX_INTENSITY is a measured supply ceiling, not a preference, and a panel
+# that sits lit continuously should run well under it.
+IDLE_INTENSITY = 0.15
+ALERT_INTENSITY = 0.15
 
 BLACK = (0, 0, 0)
 RED = (120, 0, 0)

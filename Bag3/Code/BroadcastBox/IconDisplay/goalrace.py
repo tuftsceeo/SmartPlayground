@@ -52,11 +52,12 @@ TEAM_ICON = {
 }
 
 # Below MAX_INTENSITY (0.50), which is a measured supply ceiling rather than
-# a preference: 256 pixels at full brightness exceed the driver board. The
-# ready mark sits dimmer still, because it is what the panel shows for most
-# of a session and sustained heat is its own failure mode.
-READY_INTENSITY = 0.12
-WINNER_INTENSITY = 0.30
+# a preference: 256 pixels at full brightness exceed the driver board. Both
+# marks are a single conservative value for now, matching main.py's
+# IDLE_INTENSITY/ALERT_INTENSITY -- see Stations/Icon Display Station/
+# readme.md's voltage ramp for the bench data behind that ceiling.
+READY_INTENSITY = 0.15
+WINNER_INTENSITY = 0.15
 
 NFC_POLL_FRAMES = 12      # a card read is 200-500ms; not every frame
 LOOP_DELAY_MS = 40

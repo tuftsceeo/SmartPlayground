@@ -95,7 +95,7 @@ Everything the editor does is re-runnable headless afterward: `python3 image_to_
 
 - `CH_FLOOR = 20` (`iconlib/emit.py`) -- does that survive the diffuser, or does the floor need to be higher?
 - Brown-as-dim-amber (`BROWN_AMBER = (60, 40, 0)`, `iconlib/segment.py`) -- reads as an "amber intruder" next to a bright saturated body in early testing; whether it reads as brown over a larger field with no brighter reference nearby needs a real test.
-- `INTENSITY = 0.30` (`main.py`) -- matched by eye against the ceiling below, not measured; check against a sustained hold before trusting it for anything left on for minutes.
+- `DEFAULT_INTENSITY = 0.30` (`icon_matrix.py` -- `main.py` no longer carries this constant itself) -- matched by eye against the ceiling below, not measured; check against a sustained hold before trusting it for anything left on for minutes.
 
 ## Open questions / next steps
 
