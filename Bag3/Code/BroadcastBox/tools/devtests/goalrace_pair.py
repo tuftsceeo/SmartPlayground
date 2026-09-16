@@ -30,21 +30,10 @@ _gc.threshold = lambda *a: 0
 
 TMP = tempfile.mkdtemp(prefix="pair-")
 DISPLAY = os.path.join(TMP, "display")
-def _stage_pulled_games(root):
-    """Model what a pull leaves on the display's flash.
-
-    In the repo tree a display game is named <slug>_icon.py -- that is the
-    name the Box serves it under. The pull writes it to the device as
-    <slug>.py, which is what GAME_MODULES resolves, so a test that flashes
-    the tree verbatim would look for a file no device ever has.
-    """
-    for name in os.listdir(root):
-        if name.endswith("_icon.py"):
-            shutil.copyfile(os.path.join(root, name),
-                            os.path.join(root, name[:-len("_icon.py")] + ".py"))
-
+# The repo tree now carries device names directly (goalrace.py, not
+# goalrace_icon.py -- that suffix lives only in the Box/Dial staging tree),
+# so flashing the tree verbatim is exactly what a real device has.
 shutil.copytree(os.path.join(ROOT, "IconDisplay"), DISPLAY)
-_stage_pulled_games(DISPLAY)
 os.chdir(DISPLAY)
 
 sys.path.insert(0, os.path.join(SCRATCH, "stubs"))

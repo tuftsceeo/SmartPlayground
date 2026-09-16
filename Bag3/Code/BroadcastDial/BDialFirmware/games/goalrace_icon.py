@@ -9,6 +9,12 @@ This is the ICON DISPLAY half of a two-device game. MockWand runs its own
 goalrace.py -- a different program, with its own signature and its own loop.
 Nothing is shared between them but the ESP-NOW messages below.
 
+PEER: Bag3/Code/BroadcastBox/IconDisplay/goalrace.py is the device-tree copy
+of this file. This copy is staged here under the _icon suffix so the Box/Dial
+code_server.py can serve it to a device that identifies as icon_display (see
+ROLE_FILES); the device itself always saves it as plain goalrace.py. Keep the
+two in sync.
+
 Messages this game listens for:
     {"type": "goal", "team": "green"|"blue"}   a wand reached the goal
 Messages it broadcasts:
