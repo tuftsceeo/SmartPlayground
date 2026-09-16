@@ -58,6 +58,9 @@ class IconServer:
         self.cycle_next = 0
         self.last_frame_ms = time.ticks_ms()
         self._frames = 0
+        # Latched: set by the first draw, cleared only by release_panel().
+        # See owns_panel() for why this is a latch and not a timer.
+        self.panel_held = False
 
         self.handlers = {
             "hello": self.do_hello,
@@ -122,7 +125,7 @@ class IconServer:
                 return
         self.cycle_on = False
         self.m.draw_bytes(src)
-        self.last_frame_ms = time.ticks_ms()
+        self._drew()
         self._frames += 1
         if self._frames % GC_EVERY_N_FRAMES == 0:
             gc.collect()  # ~3KB transient churn per frame; keeps the heap flat
@@ -138,7 +141,7 @@ class IconServer:
             return
         self.cycle_on = False
         self.m.set_pixels(triples)
-        self.last_frame_ms = time.ticks_ms()
+        self._drew()
         self.link.send({"type": "px_ok", "id": rid, "n": len(triples)})
 
     def do_intensity(self, cmd, rid):
@@ -159,6 +162,9 @@ class IconServer:
     def do_clear(self, cmd, rid):
         self.cycle_on = False
         self.m.clear()
+        # A deliberate blank is still the editor showing something, so the
+        # hold stays: the idle breath must not paint over it.
+        self._drew()
         self.link.send({"type": "ok", "id": rid, "cmd": "clear"})
 
     def do_list(self, cmd, rid):
@@ -173,7 +179,7 @@ class IconServer:
             return
         self.cycle_on = False
         self.m.draw_bytes(self.m.src)
-        self.last_frame_ms = time.ticks_ms()
+        self._drew()
         self.link.send({"type": "shown", "id": rid, "name": name})
 
     def do_save(self, cmd, rid):
@@ -255,7 +261,7 @@ class IconServer:
         try:
             store.read_icon(name, into=self.m.src)
             self.m.draw_bytes(self.m.src)
-            self.last_frame_ms = now
+            self._drew(now)
         except (OSError, ValueError):
             pass  # skip a bad/missing file, keep cycling
         self.cycle_idx += 1
@@ -304,18 +310,44 @@ class IconServer:
             self._last_hb = now
         return self.running
 
-    def owns_panel(self, now, window_ms):
-        """True while the editor has drawn on the panel recently.
+    def _drew(self, now=None):
+        """Record that the editor just put something on the panel.
+
+        Taking the hold is a latch, not a timer refresh: what the editor
+        drew stays up until something explicitly takes the panel back.
+        """
+        self.last_frame_ms = time.ticks_ms() if now is None else now
+        self.panel_held = True
+
+    def owns_panel(self, now, max_quiet_ms):
+        """True while what the editor drew should stay on the panel.
 
         A device that also shows something of its own -- an idle animation,
-        a game -- is writing the same 256 pixels, and whoever touched them
-        last wins. This says "leave them alone for now". False until the
-        first frame actually arrives, so a display with no browser attached
-        is never held back by it.
+        a game -- is writing the same 256 pixels, and an authored icon that
+        a breathing animation wipes a few seconds later is useless. So the
+        hold is latched by the first draw and released only by
+        release_panel(), which main.py calls on a card tap, a game start or
+        a stop.
+
+        max_quiet_ms is the one thing this decides for itself: the USB link
+        has no disconnect event -- the browser closing the port is invisible
+        here -- so a long silence is the only available stand-in for "the
+        web app is gone". It is a backstop measured in minutes, not the
+        normal way the hold ends.
+
+        False until the first draw actually arrives, so a display with no
+        browser attached is never held back by it.
         """
-        if self._frames == 0:
+        if not self.panel_held:
             return False
-        return time.ticks_diff(now, self.last_frame_ms) < window_ms
+        if time.ticks_diff(now, self.last_frame_ms) >= max_quiet_ms:
+            self.panel_held = False
+            return False
+        return True
+
+    def release_panel(self):
+        """Hand the panel back to main.py -- a tap, a game, a stop."""
+        self.panel_held = False
 
     def finish(self):
         """Clear the panel, and reset if a reboot command asked for one.

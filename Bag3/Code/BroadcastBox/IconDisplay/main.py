@@ -60,7 +60,11 @@ PULL_GRACE_S = 0
 NFC_POLL_FRAMES = 12      # idle frames between card reads -- a read is 200-500ms
 UID_REPEAT_MS = 1200      # ignore the same uid until it has been away this long
 IDLE_FRAME_MS = 80
-USB_HOLD_MS = 3000        # idle breath stays off this long after a USB frame
+# How long a silent USB link may stay silent before the idle breath takes
+# the panel back. The hold normally ends because something took the panel
+# -- a card tap, a game, a stop -- not because this elapsed: the link has
+# no disconnect event, so this is the only stand-in for "browser gone".
+USB_QUIET_MS = 300000     # 5 minutes
 
 # Pulled games live in /games/<slug>.py. Putting that directory on sys.path
 # is what lets _load_play() import a pulled game with the same bare
@@ -428,9 +432,10 @@ def main():
             server.finish()
             return
 
-        # Yield the panel to the editor while it is drawing on it: the
-        # breath and a browser frame are the same 256 pixels.
-        if not server.owns_panel(time.ticks_ms(), USB_HOLD_MS):
+        # Yield the panel to the editor once it has drawn on it: the breath
+        # and a browser frame are the same 256 pixels, and an authored icon
+        # stays up until a tap, a game or a long silence takes it back.
+        if not server.owns_panel(time.ticks_ms(), USB_QUIET_MS):
             show_idle(panel, frame)
 
         # ESP-NOW every pass: a wand starting a game must not wait on a
@@ -439,6 +444,7 @@ def main():
         if msg_type == "start_game":
             name = data.get("name") if isinstance(data, dict) else None
             if name and is_game(name):
+                server.release_panel()
                 panel.clear()
                 _launch_game(name, reader, panel, enow)
                 last_uid = None
@@ -449,6 +455,7 @@ def main():
                 # idle rather than treating it as a fault.
                 print("  no game %r on this display" % name)
         elif msg_type == "stop":
+            server.release_panel()
             panel.clear()
             frame = 0
 
@@ -465,6 +472,11 @@ def main():
             if uid is not None:
                 last_uid = uid
                 last_uid_ms = now
+            if cmd:
+                # Any recognised tap is the display being told to do
+                # something else, so the editor stops owning the panel --
+                # including the unknown-game case below, which flashes.
+                server.release_panel()
 
             if cmd == "getcode" or (cmd and cmd.startswith("getcode:")):
                 # Queue and reboot rather than pull here: ESP-NOW has owned
