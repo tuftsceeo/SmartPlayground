@@ -583,7 +583,12 @@ def run_event_loop(reader, rules, runner, accel_ref, enow=None, batt_ref=None):
 # to a few seconds on a test rig that does not -- a board whose REPL is hard
 # to catch is the only thing this is for.
 GRACE_S = 0
-PULL_GRACE_S = 2
+# Same again for the boot that runs a queued pull. Zero: what stops a
+# crashing pull from boot-looping is pull_flag's attempt budget, spent
+# BEFORE each attempt (see pull_flag.py), not this window -- and every
+# second here is one the teacher waits between tapping the card and
+# playing the game.
+PULL_GRACE_S = 0
 
 
 def _boot_grace():
@@ -665,11 +670,13 @@ def _run_pull_mode():
 
     n = pull_flag.bump()
     wanted = pull_flag.requested_slug()
-    print("# pull mode: attempt %d/%d for %r -- Ctrl-C within %ds to stay at the REPL"
-          % (n, pull_flag.MAX_ATTEMPTS, wanted or "<active>", PULL_GRACE_S))
-    for remaining in range(PULL_GRACE_S, 0, -1):
-        print("# %d..." % remaining)
-        time.sleep_ms(1000)
+    print("# pull mode: attempt %d/%d for %r"
+          % (n, pull_flag.MAX_ATTEMPTS, wanted or "<active>"))
+    if PULL_GRACE_S > 0:
+        print("# Ctrl-C within %ds to stay at the REPL" % PULL_GRACE_S)
+        for remaining in range(PULL_GRACE_S, 0, -1):
+            print("# %d..." % remaining)
+            time.sleep_ms(1000)
 
     leds.fill(BLUE_DIM)
     buz.start()

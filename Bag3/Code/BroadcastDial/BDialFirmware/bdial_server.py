@@ -39,7 +39,13 @@ from dial_board import make_reader, SCREEN_W, SCREEN_H
 
 VERSION = "0.1.0"
 HEARTBEAT_MS = 5000
-GRACE_S = 1
+# Seconds of countdown before the firmware takes the board, so a Ctrl-C
+# can land and leave you at the REPL. ZERO by default: Ctrl-C is never
+# disabled here (json_link.py leaves micropython.kbd_intr() at its
+# default), so it lands whenever the board is running Python -- the
+# countdown buys nothing. Set it on a test rig whose REPL is hard to
+# catch; that is the only thing it is for.
+GRACE_S = 0
 
 PAYLOAD_PATH = DEFAULT_SRC
 INDEX_PATH = GAMES_DIR + '/index.json'
@@ -106,7 +112,11 @@ def _dbg(msg):
 
 
 def _boot_grace(ui):
+    # The booting screen is painted either way -- it is what the teacher sees
+    # while the rest of boot runs, not part of the countdown.
     ui.paint_booting()
+    if GRACE_S <= 0:
+        return
     print("# booting -- Ctrl-C within %ds to stay at the REPL" % GRACE_S)
     for remaining in range(GRACE_S, 0, -1):
         print("# %d..." % remaining)

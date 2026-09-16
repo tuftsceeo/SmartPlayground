@@ -52,7 +52,11 @@ from hubtype import HUB_TYPE, HUB_CONFIG
 
 DEBUG = False
 
-PULL_GRACE_S = 3          # seconds at the REPL before a queued pull starts
+# Countdown before a queued pull starts, so a Ctrl-C can land. Zero:
+# Ctrl-C is never disabled here, and what stops a crashing pull from
+# boot-looping is pull_flag's attempt budget, spent before each
+# attempt -- not this window.
+PULL_GRACE_S = 0
 NFC_POLL_FRAMES = 12      # idle frames between card reads -- a read is 200-500ms
 UID_REPEAT_MS = 1200      # ignore the same uid until it has been away this long
 IDLE_FRAME_MS = 80
@@ -284,11 +288,13 @@ def _run_pull_mode(panel, icon_dir):
 
     n = pull_flag.bump()
     wanted = pull_flag.requested_slug()
-    print("# pull mode: attempt %d/%d for %r -- Ctrl-C within %ds to stay at the REPL"
-          % (n, pull_flag.MAX_ATTEMPTS, wanted or "<active>", PULL_GRACE_S))
-    for remaining in range(PULL_GRACE_S, 0, -1):
-        print("# %d..." % remaining)
-        time.sleep_ms(1000)
+    print("# pull mode: attempt %d/%d for %r"
+          % (n, pull_flag.MAX_ATTEMPTS, wanted or "<active>"))
+    if PULL_GRACE_S > 0:
+        print("# Ctrl-C within %ds to stay at the REPL" % PULL_GRACE_S)
+        for remaining in range(PULL_GRACE_S, 0, -1):
+            print("# %d..." % remaining)
+            time.sleep_ms(1000)
 
     panel.set_intensity(IDLE_INTENSITY)
     fill(panel, BLUE)
