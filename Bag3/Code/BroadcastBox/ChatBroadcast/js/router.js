@@ -84,8 +84,13 @@ export function setConnectionBadge(link) {
     const ssid = link?.detail?.ssid || null;
     const isLive = state === "live";
     const isServing = isLive && mode === "SERVE";
-    const short = deviceShortName(link?.deviceInfo);
-    const product = deviceProductName(link?.deviceInfo);
+    // `link.kind` (set by app.js's paintLink() from the active device link)
+    // is known the instant "Wand" is picked on the connect overlay, before
+    // its own `identity` has arrived -- deviceShortName() alone would still
+    // say the generic "Device" at that point. Box vs. Dial share one link
+    // class and are told apart only by deviceInfo, once it arrives.
+    const short = link?.kind === "wand" ? "Wand" : deviceShortName(link?.deviceInfo);
+    const product = link?.kind === "wand" ? "Wand" : deviceProductName(link?.deviceInfo);
 
     // SSID chip — only while serving
     all(".ssid-chip").forEach((chip) => {
@@ -103,14 +108,21 @@ export function setConnectionBadge(link) {
     // to switch), so its label never names a mode ("Code Server"/"Tag
     // Writing") -- that read as if clicking it would start/stop something.
     // Just "connected or not", always the same regardless of SERVE/WRITE.
+    //
+    // That overlay is Box/Dial-only: games.list/stats.get have no wand
+    // equivalent, because a wand has no command channel at all (see
+    // wandDeviceLink.js). So the pill stays muted and disabled for a wand
+    // even while live -- the same shape as "not live yet" for the Box -- and
+    // app.js's .mode-pill listener never fires for one.
+    const isWandLink = link?.kind === "wand";
     all(".mode-pill").forEach((pill) => {
         const label = pill.querySelector(".mode-pill-label");
         pill.classList.remove("write", "muted");
-        if (!isLive) {
+        if (!isLive || isWandLink) {
             pill.classList.add("muted");
             pill.disabled = true;
             if (label) label.textContent = short;
-            pill.title = `Connect to the ${short} first`;
+            pill.title = isWandLink ? "No game library on a wand" : `Connect to the ${short} first`;
         } else {
             pill.disabled = false;
             if (label) label.textContent = `${short} ready`;
@@ -257,9 +269,9 @@ export function setConnectionBadge(link) {
         sendBtn.title = canSend ? `Send to ${product}` : `Connect to the ${short} first`;
     }
 
-    // Keep static connect-overlay / banner copy in sync with the linked device.
-    const connectH2 = document.querySelector("#connect-overlay h2");
-    if (connectH2) connectH2.textContent = `Connect to ${product}`;
+    // The connect overlay's h2 stays static ("Connect over USB") -- it now
+    // offers a device-kind choice (Broadcast Box/Dial vs. Wand) rather than
+    // naming one device, so there is no single `product` to render into it.
     all("[data-restart-box], #btn-restart-box").forEach((btn) => {
         if (!btn.classList.contains("hidden")) {
             btn.textContent = `Restart the ${short}`;

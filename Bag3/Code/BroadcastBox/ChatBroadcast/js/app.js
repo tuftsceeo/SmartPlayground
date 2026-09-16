@@ -15,6 +15,7 @@ import { updateTagChecklist } from './nfc.js';
 import { EXAMPLES, CATEGORIES, findExample, loadExampleCode } from './examples.js';
 import { showView, showOverlay, hideOverlay, setConnectionBadge, toast, setSendProgress, showConnectToast, syncNavTabs } from './router.js';
 import { createDeviceLink, deviceShortName, deviceProductName } from './device/bboxDeviceLink.js';
+import { createWandDeviceLink } from './device/wandDeviceLink.js';
 import { subscribe, getEntries, toText } from './device/serialLog.js';
 import { setWorkspaceHandler } from './markdown.js';
 import { dbg, dbgWarn, dbgError } from './debug.js';
@@ -49,6 +50,11 @@ const MAX_AUTO_RECONNECT_ATTEMPTS = 2;
    the port we opened is not the one it talks on). Say so instead of waiting
    forever. */
 const WAITING_LIMIT_MS = 12000;
+/* The wand's full boot (grace + sensor init) runs >20s (HARDWARE_PROTOCOL.md)
+   vs. the Box's ~5s -- untested against real hardware as of this writing, so
+   generous rather than tuned. Only matters for a connect made while the wand
+   is mid-boot; once running, its heartbeat is every 5s same as the Box's. */
+const WAITING_LIMIT_WAND_MS = 25000;
 /* The Box volunteers its identity only once, at boot. If we opened the port
    after it booted, that one announcement is already gone, so re-ask on a cadence rather
    than betting everything on a single probe that may have crossed a busy
@@ -100,6 +106,9 @@ function isRunnableCode(code) {
 
 class App {
     constructor() {
+        // Default to a Box/Dial link; onConnect(kind) swaps this for a
+        // WandDeviceLink when the teacher picks "Wand" on the connect
+        // overlay, and re-runs setupDeviceListeners() -- see onConnect().
         this.device = createDeviceLink();
         this.chatHistory = [];
         this.isGenerating = false;
@@ -140,13 +149,20 @@ class App {
         this._pendingReplaceSlug = null;
     }
 
-    /** Short UI name for the linked device ("Box" or "Dial"). */
+    /** Short UI name for the linked device ("Box", "Dial" or "Wand").
+     *  `this.device.kind` is known the instant a WandDeviceLink is picked on
+     *  the connect overlay -- checked first so labels read right before the
+     *  wand's own `identity` has even arrived (link.deviceInfo is still
+     *  null then). deviceShortName() covers Box vs. Dial, which share one
+     *  link class and are told apart only by that identity. */
     deviceShort() {
+        if (this.device.kind === 'wand') return 'Wand';
         return deviceShortName(this.link.deviceInfo);
     }
 
-    /** Product UI name ("Broadcast Box" or "Broadcast Dial"). */
+    /** Product UI name ("Broadcast Box", "Broadcast Dial" or "Wand"). */
     deviceProduct() {
+        if (this.device.kind === 'wand') return 'Wand';
         return deviceProductName(this.link.deviceInfo);
     }
 
@@ -414,10 +430,40 @@ class App {
             dbgError('device', 'event: fatal', obj);
             toast(obj?.msg || `The ${this.deviceShort()} reported a serious error — check the cable.`, true);
         });
-        this.device.on('error', (obj) => dbgError('device', 'event: error', obj));
+        // Wand-only (MockWand/main.py's _launch_game()): a running game blocks
+        // the wand's idle loop, same as the Box's SERVE mode blocks its main
+        // loop -- raise the silence limit the same way the 'mode'/'armed'
+        // handlers above do for SERVE. Never fires on a BboxDeviceLink.
+        this.device.on('game_start', (obj) => {
+            dbg('device', 'event: game_start', obj);
+            this._noteMessage(obj);
+            this._silenceLimitMs = SILENCE_SERVE_MS;
+            if (this.link.state === 'waiting' || this.link.state === 'rebooting'
+                || this.link.state === 'no-answer') {
+                this.setLinkState('live');
+            } else {
+                this.paintLink();
+            }
+        });
+        this.device.on('game_end', (obj) => {
+            dbg('device', 'event: game_end', obj);
+            this._noteMessage(obj);
+            this._silenceLimitMs = SILENCE_LIMIT_MS;
+            this.paintLink();
+        });
+        this.device.on('error', (obj) => {
+            dbgError('device', 'event: error', obj);
+            // Wand-only shape (MockWand/main.py's _game_load_failed()): a
+            // pushed game that will not import. Box `error` events don't
+            // carry `where`, so this never toasts for the Box path.
+            if (obj?.where === 'game_load') {
+                toast(`The wand couldn't start "${obj.slug}": ${obj.err || 'unknown error'}`, true);
+            }
+        });
         this.device.on('wrong_device', (obj) => {
             dbgWarn('device', 'event: wrong_device', obj);
-            toast("That device isn't a Broadcast Box or Dial — check what's plugged in.", true);
+            const label = this.device.kind === 'wand' ? 'a wand' : 'a Broadcast Box or Dial';
+            toast(`That device isn't ${label} — check what's plugged in.`, true);
             this.setLinkState('wrong');
         });
         this.device.on('bye', (obj) => {
@@ -451,7 +497,12 @@ class App {
             toast(`${this.deviceProduct()} disconnected — check the cable.`, true);
         });
 
-        if (navigator.serial) {
+        // Guarded: setupDeviceListeners() now re-runs whenever onConnect()
+        // swaps device kinds (see onConnect()), and this listener must not
+        // stack a new closure onto navigator.serial (a global, not
+        // per-device) each time.
+        if (navigator.serial && !this._globalSerialWired) {
+            this._globalSerialWired = true;
             navigator.serial.addEventListener('disconnect', () => {
                 dbgWarn('device', 'navigator.serial disconnect event fired');
                 if (this.link.state !== 'idle' && this.link.state !== 'lost') {
@@ -467,7 +518,7 @@ class App {
                 dbg('device', 'navigator.serial connect event fired');
                 this.tryAutoReconnect();
             });
-        } else {
+        } else if (!navigator.serial) {
             dbgWarn('device', 'Web Serial API not available in this browser (need Chrome/Edge)');
         }
     }
@@ -564,7 +615,7 @@ class App {
     }
 
     paintLink() {
-        setConnectionBadge(this.link);
+        setConnectionBadge({ ...this.link, kind: this.device.kind });
     }
 
     _startWatchdog() {
@@ -581,7 +632,8 @@ class App {
         // here is what let this state hang indefinitely.
         if (s === 'waiting') {
             const waited = Date.now() - (this.link.waitingSince || Date.now());
-            if (waited > WAITING_LIMIT_MS) {
+            const limit = this.device.kind === 'wand' ? WAITING_LIMIT_WAND_MS : WAITING_LIMIT_MS;
+            if (waited > limit) {
                 dbgWarn('device', `no reply ${waited}ms after port open → no-answer`);
                 this.setLinkState('no-answer');
                 // Deliberately does not assert the Box is broken: connecting
@@ -606,9 +658,13 @@ class App {
     }
 
     /** Re-ask the Box to identify itself while waiting. Harmless to repeat:
-     *  do_identify() just replies, and each send carries a fresh id. */
+     *  do_identify() just replies, and each send carries a fresh id.
+     *  No-op for a wand: it has no command listener at all (see
+     *  wandDeviceLink.js), so there is nothing to nudge -- its identity is
+     *  volunteered once at boot and heartbeat is what proves it is alive. */
     _armIdentifyNudge() {
         if (this._identifyNudgeTimer) return;
+        if (this.device.kind === 'wand') return;
         this._identifyNudgeTimer = setInterval(() => {
             if (this.link.state !== 'waiting') {
                 this._clearIdentifyNudge();
@@ -676,7 +732,8 @@ class App {
             onNextVersion(addMsg);
             this.updatePreview();
         });
-        document.getElementById('btn-connect-usb').addEventListener('click', () => this.onConnect());
+        document.getElementById('btn-connect-box').addEventListener('click', () => this.onConnect('box'));
+        document.getElementById('btn-connect-wand').addEventListener('click', () => this.onConnect('wand'));
         document.getElementById('btn-connect-cancel').addEventListener('click', () => {
             this.pendingSendAfterConnect = false;
             hideOverlay('connect-overlay');
@@ -1454,8 +1511,20 @@ class App {
         });
     }
 
-    async onConnect() {
-        dbg('app', 'onConnect() — requesting serial port');
+    /**
+     * @param {'box'|'wand'} kind — which link implementation to open the
+     *   port with. Chosen on the connect overlay (Broadcast Box/Dial share
+     *   one protocol, told apart only after connecting, per
+     *   HARDWARE_PROTOCOL.md; Wand is the direct-USB path, a different
+     *   protocol entirely -- see wandDeviceLink.js).
+     */
+    async onConnect(kind) {
+        dbg('app', `onConnect(${kind}) — requesting serial port`);
+        if (this.device.kind !== kind) {
+            this.device = kind === 'wand' ? createWandDeviceLink() : createDeviceLink();
+            this._boxGames = []; // stale Box/Dial library from a previous session must not leak in
+            this.setupDeviceListeners();
+        }
         this.renderComponentList('connect-components');
         const errEl = document.getElementById('connect-error');
         if (errEl) errEl.textContent = '';
@@ -1506,9 +1575,12 @@ class App {
             toast('Disconnected.');
             return;
         }
-        // idle or lost → toast + picker (no instructional modal first)
+        // idle or lost → show the overlay and let the teacher pick a device
+        // kind; each of its buttons calls onConnect(kind) directly (needed
+        // for requestPort()'s user-gesture requirement anyway).
         this.pendingSendAfterConnect = false;
-        await this.onConnect();
+        this.renderComponentList('connect-components');
+        showOverlay('connect-overlay');
     }
 
     async onRestartBox() {
@@ -1601,8 +1673,11 @@ class App {
         document.getElementById('send-confirm-form').classList.remove('hidden');
         document.getElementById('send-confirm-success').classList.add('hidden');
         clearTimeout(this._sendSuccessTimer);
-        // Refresh Box game list when live so duplicate checks work.
-        if (this.link.state === 'live') {
+        // Refresh Box game list when live so duplicate checks work. The wand
+        // has no such command (no command listener at all -- see
+        // wandDeviceLink.js); its duplicate check instead reads the games
+        // list from its boot `identity` event (deviceInfo.games).
+        if (this.link.state === 'live' && this.device.kind !== 'wand') {
             try {
                 await this.fetchBoxGames();
             } catch (e) {
@@ -1673,14 +1748,11 @@ class App {
         const nameInput = document.getElementById('send-game-name');
         const errEl = document.getElementById('send-name-error');
         const pretty = (nameInput?.value || this.gameName || '').trim();
-        // DIAGNOSTIC (temporary -- name-field investigation, see chat): if
-        // input.value is empty here but this.gameName isn't, `pretty` is
-        // coming from the fallback, which is the strongest possible signal
-        // that the field itself was really empty (not just visually so).
-        dbg('app', `confirmSend(): input.value=${JSON.stringify(nameInput?.value)}, this.gameName=${JSON.stringify(this.gameName)} -> pretty=${JSON.stringify(pretty)}`);
-        const existing = (this._boxGames || []).map((g) => g.slug);
+        const existing = this.device.kind === 'wand'
+            ? (this.device.deviceInfo?.games || [])
+            : (this._boxGames || []).map((g) => g.slug);
         const btn = document.getElementById('btn-send-confirm');
-        const check = validateGameName(pretty, {
+        let check = validateGameName(pretty, {
             existingSlugs: existing,
             allowReplace: this._pendingReplaceSlug === slugify(pretty),
         });
@@ -1715,7 +1787,25 @@ class App {
             showOverlay('connect-overlay');
             return;
         }
-        const destPath = `/flash/games/${slug}.py`;
+        const isWand = this.device.kind === 'wand';
+        // wandGameInstaller.js derives /games/<slug>.py itself from `slug`;
+        // `destPath` is Box-only. `tags` drives the post-send NFC-card-write
+        // checklist below, which is Box-only too (the wand plays the game
+        // itself -- no card writing on this path).
+        const meta = {
+            slug,
+            destLabel: `${slug}.py`,
+            prettyName: check.pretty,
+            deviceLabel: this.deviceShort(),
+        };
+        if (!isWand) {
+            meta.destPath = `/flash/games/${slug}.py`;
+            // Recompute against the slug actually being written: the name can
+            // change on this overlay, and the device keys its menu off the slug.
+            meta.tags = buildHardwareReqs({
+                code, gameName: check.pretty, declared: this.declaredTags,
+            }).tags;
+        }
 
         // A multi-device game ships as several files in one raw-REPL session:
         // the wand's <slug>.py, the display's <slug>_icon.py, and every icon
@@ -1749,6 +1839,9 @@ class App {
             }
             dbg('app', `display file plus ${extraFiles.length - 1} icon(s) queued`);
         }
+        if (!isWand && extraFiles.length) {
+            meta.extraFiles = extraFiles;
+        }
 
         document.getElementById('send-progress-wrap').classList.remove('hidden');
         setSendProgress(0, 'Starting…');
@@ -1759,18 +1852,7 @@ class App {
             linkState: 'sending',
             deviceProduct: this.deviceProduct(),
             deviceShort: this.deviceShort(),
-            // Recompute against the slug actually being written: the name can
-            // change on this overlay, and the device keys its menu off the slug.
-            meta: {
-                destPath,
-                destLabel: `${slug}.py`,
-                prettyName: check.pretty,
-                deviceLabel: this.deviceShort(),
-                extraFiles,
-                tags: buildHardwareReqs({
-                    code, gameName: check.pretty, declared: this.declaredTags,
-                }).tags,
-            },
+            meta,
         });
         dbg('app', 'uploadPayload() result', result);
 
@@ -1787,9 +1869,13 @@ class App {
 
         dbg('app', 'send succeeded — showing success screen');
         // Tag-writing to-do list is out of scope here now -- the device
-        // manages that itself (see chat). The overlay's job is just to make
-        // "it worked, the device is restarting" visible and unambiguous.
+        // manages that itself. The overlay's job is just to make "it worked,
+        // the device is restarting" visible and unambiguous. A wand says
+        // something different because it auto-launches what it was just sent
+        // (see wandGameInstaller.js) rather than waiting for a card.
         this.showSendSuccess(check.pretty);
+        if (isWand) toast('Sent! The wand is starting the game now.');
+
     }
 
     async openBoxLibrary() {
