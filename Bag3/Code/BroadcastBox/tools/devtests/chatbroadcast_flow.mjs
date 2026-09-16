@@ -1,5 +1,6 @@
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
+import { readFileSync } from 'node:fs';
 // BroadcastBox/, two levels up from tools/devtests/.
 const BB = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 /**
@@ -129,6 +130,25 @@ check('the reset comes last',
 check('progress counted every file',
     progress[progress.length - 1].total === 1 + extraFiles.length,
     JSON.stringify(progress[progress.length - 1]));
+
+// ── The system prompt names every current icon (closes phase 6's §5.1) ──
+// app.js itself cannot be imported here (it and its own imports touch the
+// DOM and a CodeMirror CDN), so getSystemPrompt() is checked the same way
+// this file already checks the file list a send builds: read the source
+// and confirm the wiring, rather than duplicate its string-building logic
+// into a second copy that would drift from the real one.
+const appSrc = readFileSync(BB + '/ChatBroadcast/js/app.js', 'utf8');
+const startIdx = appSrc.indexOf('getSystemPrompt()');
+const endIdx = appSrc.indexOf('\n    }\n', startIdx);
+const promptMethod = startIdx >= 0 && endIdx >= 0 ? appSrc.slice(startIdx, endIdx) : '';
+check('getSystemPrompt() exists', promptMethod.length > 0);
+check('it builds the icon list from listIcons(), not a hardcoded copy',
+    /listIcons\(\)\.join/.test(promptMethod));
+check('the icon list is returned as part of the prompt, not just built',
+    /return[\s\S]*icons/.test(promptMethod));
+check('listIcons() currently returns at least one real name to inject',
+    lib.listIcons().length > 0 && lib.listIcons().every(n => typeof n === 'string' && n.length > 0),
+    lib.listIcons().join(','));
 
 // ── A single-device reply, the way every reply looked before markers ──
 const legacy = 'Sure.\n```python\ndef play(nfc, leds, buz, accel, i2c, enow, batt=None):\n    pass\n```';
