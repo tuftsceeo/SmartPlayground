@@ -22,11 +22,13 @@ This tree copies the parts a game-playing device needs — `icon_matrix.py`,
 scripts and the host-side tooling, and adds the wand's boot, radio,
 card-reading and code-pull machinery.
 
-`icon_server.py` differs from the station's copy in two ways, both because
-this device has a `main.py` that owns the panel and the loop: it is handed the
-`Matrix` rather than building one, and `run()` is split into `start()` /
-`step()` / `finish()` so the idle loop can drive the USB link alongside the
-radio and the card reader. Both copies carry a `PEER:` note.
+`icon_server.py` differs from the station's copy in two ways: it is handed
+the `Matrix` rather than building one (this device's `main.py` already made
+the real one), and it carries `do_start_game`/`is_game`, a bench-only way to
+launch a game over USB (see Writing a game, below) that the station has
+nothing to launch for. The panel-ownership latch and the `start()` /
+`step()` / `finish()` split are ported to both copies, not a divergence.
+Both copies carry a `PEER:` note.
 
 ## Layout
 
@@ -43,7 +45,7 @@ pull_flag.py       what a getcode tap leaves behind across the reboot
 goalrace.py        built-in game (the display half of the two-device pair)
 icons/             named icons, referenced from a game by name
 lib/               espnow_manager, game_store, hubtype, display_tags,
-                   nfc_reader, pn532, memprobe
+                   nfc_reader, pn532, memprobe, shapes
 ```
 
 ## Writing a game
@@ -72,6 +74,22 @@ Load a named icon with `icon_store.read_icon(name, into=panel.src)` then
 To add a built-in: add its tag to `GAME_TAGS` in `lib/display_tags.py` and to
 `GAME_MODULES` in `main.py`. The two are checked against each other at boot.
 
+With no card reader fitted, a bench game is started over USB instead of a
+tap: `{"cmd":"start_game","name":"<slug>"}` through `icon_server.py`. It
+refuses an unknown or uninstalled slug loudly rather than falling back --
+see `icon_server.py`'s `do_start_game()` docstring.
+
+## Glyph vocabulary
+
+`lib/shapes.py` is a PEER copy of `MockWand/lib/leds.py`'s 5x5 `SHAPE_*`
+tuples (data only, no LED driver), plus `draw_shape()` and `wifi_animate()`,
+which scale a 5x5 frame onto this 16x16 panel via `icon_store.scale_into()`.
+`main.py`'s pull mode and load-failure paths use these so the two devices
+show the same meaning for the same event -- a child should read it the same
+way off either, not byte-for-byte identical pixels. `show_idle()`'s breath
+and the transfer progress bar stay whole-panel colour; neither has a wand
+equivalent to mirror.
+
 ## Two constraints that are not preferences
 
 - **Radio before the panel.** `main.py` calls `enow.init()` before
@@ -83,6 +101,11 @@ To add a built-in: add its tag to `GAME_TAGS` in `lib/display_tags.py` and to
   `OSError: WiFi Out of Memory` on the wand.
 - **`MAX_INTENSITY = 0.50`** is a measured supply ceiling, not a preference.
   See the station tree's `readme.md` for the voltage ramp behind it.
+  `IDLE_INTENSITY`/`ALERT_INTENSITY` (`main.py`) and `READY_INTENSITY`/
+  `WINNER_INTENSITY` (`goalrace.py`) are all `0.15` for now -- a single
+  conservative value while sparse-glyph current draw at higher brightness is
+  uncharacterized on the bench, not a requirement the measured ceiling
+  itself demands.
 
 ## Unverified
 

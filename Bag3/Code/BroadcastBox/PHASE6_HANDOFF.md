@@ -66,17 +66,22 @@ Two hardware problems were found and fixed during these runs:
 
 ## 4. What is implemented
 
-**Pull protocol (v2).** `BBoxFirmware/code_server.py`, `BroadcastDial/BDialFirmware/code_server.py`,
+**Pull protocol (v2).** `BBoxFirmware/code_server.py`, `Bag3/Code/BroadcastDial/BDialFirmware/code_server.py`
+(a sibling tree of `BroadcastBox/`, not under it),
 `MockWand/code_puller.py`, `IconDisplay/code_puller.py`. The request frame gained a
 `0xFF` version sentinel carrying the hubtype; `ROLE_FILES` maps a role to a file
 suffix and whether it takes the icon leg. A v1 request behaves exactly as before.
 
 **Icon Display tree.** `IconDisplay/` — `main.py` (radio-first boot, lazy game
-load, chained force-switch, loud load failure), `icon_server.py` (USB link, split
-into `start`/`step`/`finish`), `icon_matrix.py`, `icon_store.py`, `lib/`, `icons/`.
+load, chained force-switch, loud load failure, wand-consistent glyphs), `icon_server.py`
+(USB link, split into `start`/`step`/`finish`, a bench `start_game` command),
+`icon_matrix.py`, `icon_store.py`, `lib/` (including `shapes.py`), `icons/`.
 
-**The game pair.** `MockWand/goalrace.py` and `IconDisplay/goalrace_icon.py`.
-Separate programs; they share only the ESP-NOW messages named in their docstrings.
+**The game pair.** `MockWand/goalrace.py` and `IconDisplay/goalrace.py`. Separate
+programs; they share only the ESP-NOW messages named in their docstrings. The
+`_icon` suffix (`IconDisplay/goalrace.py` was `goalrace_icon.py` through phase 5)
+lives only in the Box/Dial staging tree (`BroadcastDial/BDialFirmware/games/`) —
+see §5.4, resolved.
 
 **ChatBroadcast.** Two-role support: `chat.js` `extractCodeBlocks()`, per-role
 editor state in `editor.js`, role-aware validation in `upload.js`, the role rail
@@ -88,99 +93,152 @@ display game names an icon the library does not have.
 
 ---
 
-## 5. Phase 6 — the remaining work
+## 5. Phase 6 — done
 
-None of this needs hardware.
+All of §5.1–§5.8 below is implemented and covered by the host suite in §8.
+None of it needed hardware; §9 is still the hardware hand-back.
 
-### 5.1 Tell the model which icons exist
+### 5.1 Tell the model which icons exist -- done
 
-`knowledge/icon_display.py` is static and never names the library's contents, so
-the model guesses icon names. The send then blocks with "asks for icons that do
-not exist", which is correct but late — the teacher has to go draw one.
+`ChatApp.getSystemPrompt()` in `js/app.js` appends `listIcons()` (from
+`js/ledicons/iconLibrary.js`) to the system prompt as "ICONS CURRENTLY
+AVAILABLE ON THE ICON DISPLAY", so the model is told the library's current
+contents at send time rather than guessing and failing the send-time check
+late. `tools/devtests/chatbroadcast_flow.mjs` reads `app.js`'s source (it
+cannot import the module itself -- see §5.2) and confirms the prompt is
+built from `listIcons()` rather than a hardcoded copy.
 
-Inject the current icon names into the system prompt at build time.
-`listIcons()` in `js/ledicons/iconLibrary.js` already returns them, and
-`SYSTEM_PROMPT_BASE` in `js/app.js` is where the marker conventions live.
-
-**Done when:** a generated display game references only names in the library, and
-`tools/devtests/chatbroadcast_flow.mjs` covers the injection.
-
-### 5.2 Exercise the whole send path host-side
+### 5.2 Exercise the whole send path host-side -- done
 
 `tools/devtests/chatbroadcast_flow.mjs` drives `extractCodeBlocks`,
-`validateGameCode` and `pushPayload` against a fake REPL. Extend it to a realistic
-two-block reply: markers, both signatures, three named icons, and assert the exact
-file list and ordering `pushPayload` writes.
+`validateGameCode` and `pushPayload` against a fake REPL with a realistic
+two-block reply (both signatures, three named icons) and asserts the exact
+file list and ordering `pushPayload` writes: `<slug>.py`, `<slug>.tags.json`,
+`<slug>_icon.py`, then every `<slug>_icons/<name>.py`, one raw-REPL session,
+one soft reset, reset last.
 
-**Done when:** the harness fails if any file is dropped, misnamed or written in the
-wrong order.
+### 5.3 Role rail and editor state under a two-role game -- done
 
-### 5.3 Role rail and editor state under a two-role game
+`tools/devtests/role_state.mjs` drives `js/editor.js`'s per-role state
+(`getCode`/`setCode`/`setActiveRole`/`saveVersion`/`clearAllRoles`) through a
+full cycle: two blocks land, switching tabs carries each role's own code, an
+edit on the active tab never leaks into the other, version history is
+per-role, and `clearAllRoles()` empties every role's code, history and
+tab-rail membership. `editor.js` imports CodeMirror from four `esm.sh` URLs
+at module scope; a `node:module` loader hook
+(`tools/devtests/stubs/cm_loader.mjs`) redirects those to a bare local stub
+so the module imports under plain Node with no network access.
 
-The rail is live (`syncRoleRail()`, `selectRole()`), but the per-role editor
-shard has never been driven through a full authoring cycle: generate two blocks,
-switch tabs, edit each, send, start a new game, confirm nothing leaks between
-roles. A DOM-level harness in the shape of `tools/devtests/icon_panel.mjs` is
-enough; do not stand up a browser runner.
+App.js's `syncRoleRail()`/`selectRole()` and the per-game dirty/name/tags
+state stay untested here: `app.js` pulls in `auth.js`, `router.js` and other
+DOM-touching modules the loader-hook trick cannot paper over the way a
+handful of CodeMirror exports can.
 
-**Done when:** a role switch provably carries its own code, name, tags and dirty
-flag, and `clearAllRoles()` leaves no residue.
+### 5.4 The `goalrace_icon.py` naming question -- resolved
 
-### 5.4 Resolve the `goalrace_icon.py` naming question
+The device tree carries device names; the `_icon` suffix lives only in the
+Box/Dial staging tree. `IconDisplay/goalrace_icon.py` is now
+`IconDisplay/goalrace.py`, matching `MockWand/goalrace.py`.
+`BroadcastDial/BDialFirmware/games/goalrace_icon.py` (the staging copy the
+Box/Dial serve from under `ROLE_FILES`) is unchanged. The `_stage_pulled_games()`
+shim that used to rename `<slug>_icon.py` to `<slug>.py` for the devtests is
+gone from `boot_display.py`, `usb_link.py` and `goalrace_pair.py` — they
+flash the tree verbatim now, which is what a real device has.
 
-See §7, first entry. This is a decision, not a bug — put the options to the user
-rather than picking one silently.
+One defect this surfaced, also fixed: `_boot_scan_games()` on both the Box
+and the Dial enrolled a `*_icon.py` staging file as a playable game in its
+own right (`BDialFirmware/games/index.json` carried a phantom "Goalrace
+Icon" entry), and a newly-sent one could become the active game by mtime.
+Both boot scans now skip `*_icon.py`; covered by
+`tools/devtests/game_menu_scan.py`.
 
-### 5.5 Wand-consistent glyphs on the display
+### 5.5 Wand-consistent glyphs on the display -- done
 
-The display's pull mode and failure paths speak a different visual language from
-the wand's: whole-panel colour fills (`fill(panel, BLUE)`, `flash(panel, RED)`)
-where the wand shows glyphs. **The goal is a consistent vocabulary across the two
-devices, not bit-exact compatibility** — a child should read the same meaning off
-either.
+`IconDisplay/lib/shapes.py` carries the 105 `SHAPE_*` tuples (and
+`WIFI_FRAMES`) copied verbatim from `MockWand/lib/leds.py`'s "5x5 GRID
+SHAPES" section, plus `draw_shape()` and `wifi_animate()` built on
+`icon_store.scale_into()`'s existing integer 3x centred scale.
 
-Most of the machinery exists. `icon_store.scale_into()` already block-scales a
-5×5 frame onto the 16×16 panel at an integer 3×, centred, and its docstring was
-written for exactly this case; `icon_server.do_frame()` already uses it for 5×5
-frames arriving over USB.
+`main.py`'s pull mode and load-failure paths now match the table this
+section used to propose exactly: scanning/joining animates `SHAPE_WIFI_2`
+in blue (`code_puller.pull()`'s `on_status`/`on_progress` callbacks are
+wired up now — they never were before), AP-not-up is `SHAPE_WIFI_2` in red,
+refused is `SHAPE_WIFI_2` in amber, a broken transfer or a spent attempt
+budget is `SHAPE_X` in red, success is a steady `SHAPE_CHECK` in green
+before the reset, and a game load failure is `SHAPE_X` in red with
+`sys.print_exception()` unchanged. The pull-flag-write-failure and
+unknown-game-tag paths in the idle loop also moved off bare colour, onto
+`SHAPE_X` and `SHAPE_QUESTION` respectively. `show_idle()`'s breath and the
+transfer progress bar stay whole-panel colour — neither has a wand
+equivalent to mirror. `flash()` (whole-panel blink) is gone; every caller
+now uses `flash_glyph()`.
 
-**Build:**
+`tools/devtests/boot_display.py` spies on `shapes.draw_shape()` (the glyph
+is transient — `flash_glyph()` clears the panel again before four of the
+six pull outcomes return, so reading final pixels would miss it) and
+asserts the exact shape and colour every outcome asks for, plus both
+game-load failure paths. `tools/devtests/usb_link.py` covers the new
+`start_game` bench command (§5.6).
 
-1. `IconDisplay/lib/shapes.py` — the 5×5 index tuples copied from
-   `MockWand/lib/leds.py` (105 of them: digits, A–Z, symbols, faces, wifi bars,
-   battery, transport). **Data only**, no LED driver. Copy from the MockWand
-   tree, never from `Bag2/`.
-2. A `draw_shape(panel, shape, rgb)` helper that paints a 5×5 frame from an index
-   tuple and scales it in. Keep it next to the shapes, not in `main.py`.
-3. A wifi-bar animation matching `leds.wifi_animate()`'s meaning: during a scan
-   one bar per call (a countdown of the scan budget), during a join one bar per
-   three calls.
+Intensity: see §5.7, below — it changed from the values this section
+originally proposed.
 
-**Then replace the display's colour fills** in `IconDisplay/main.py` so the pull
-mirrors `MockWand/main.py:654-697`:
+### 5.6 The `{"cmd":"start_game"}` bench command -- done
 
-| State | Wand shows | Display should show |
-|---|---|---|
-| scanning / joining | blue wifi bars, animating | same, scaled |
-| transfer progress | left-to-right fill, cyan on dim blue | same idea across 256 px |
-| AP not up | red wifi bars | same |
-| refused (no such game for this role) | orange wifi bars | same |
-| transfer broke | red X | `SHAPE_X` |
-| success | — (reboots) | green `SHAPE_CHECK` |
-| game load failed | 3 red flashes + traceback | `SHAPE_X` in red, traceback unchanged |
+`icon_server.py`'s `do_start_game()` takes `{"cmd":"start_game","name":"<slug>"}`,
+validated against an `is_game` callable `main.py` injects at construction
+(avoiding a circular import). An unknown or uninstalled slug is refused
+loudly with a structured error reply — a deliberate difference from the
+ESP-NOW `start_game` path, which silently ignores a game this display
+does not have. A valid request releases the panel and queues
+`pending_start_game`, which `main.py`'s idle loop consumes the same way it
+consumes an ESP-NOW `start_game` message. Not part of the wire protocol in
+`HARDWARE_PROTOCOL.md` — a bench affordance only. This replaces the REPL
+incantation (`import pull_flag, machine; pull_flag.set_pending('goalrace');
+machine.reset()`) as the way to start a display game on the bench.
 
-Intensity stays at `IDLE_INTENSITY` / `ALERT_INTENSITY`; `MAX_INTENSITY = 0.50` is
-a measured supply ceiling, not a preference.
+### 5.7 Display brightness -- set to 0.15 across the board, for now
 
-**Done when:** `tools/devtests/boot_display.py` asserts each pull outcome lights
-the glyph it should, and no path in `main.py` still calls `fill()` with a bare
-status colour.
+`IDLE_INTENSITY`/`ALERT_INTENSITY` (`main.py`) and `READY_INTENSITY`/
+`WINNER_INTENSITY` (`goalrace.py`, and its Box/Dial staging copy) are all
+`0.15` — a single conservative value, per the user, pending a sparse-glyph
+current-draw measurement on the bench. `MAX_INTENSITY` (0.50) is unchanged;
+it is the measured supply ceiling, not a preference.
 
-### 5.6 Cleanup
+The bench data behind that ceiling does exist, contrary to what an earlier
+draft of this handoff implied about the display: `Stations/Icon Display
+Station/readme.md` and `voltage_test.py`, measured 2026-08-25 — 112 lit
+pixels safe at 50% white on the 5V path, 128 fails (driver board rated
+5V/3A); 192 on 12V; a full 256 on a non-white rainbow ramp. It is bench data
+for the station's driver board, not this tree (nothing in `IconDisplay/` has
+run on hardware — see its README's Unverified section), and glyph content
+(a scaled 5x5 frame lights at most ~150 of 256 px, usually far fewer) sits
+well inside that envelope even before this drop. **Correction to an earlier
+version of this section:** it attributed `LOG_LUX_MIN` and an "x0.05 indoor
+floor" to the display. Those are wand-only
+(`MockWand/lib/brightness.py`) — the display has no light sensor at all
+(`has_nfc` is the only capability flag `lib/hubtype.py` even has for this
+device that varies; there is no light-sensor flag, and no ambient-light code
+anywhere in this tree). Fixed a related stale pointer in the station's
+`readme.md`: the `INTENSITY` constant it named in `main.py` no longer exists
+there (`main.py` was rewritten to boot `IconServer`); it survives as
+`DEFAULT_INTENSITY` in `icon_matrix.py`.
 
-- **`ChatBroadcast/bak/`** and `9-4-known_issues.md` — stale; confirm with the user before deleting anything.
-- **`Stations/Icon Display Station/icon_server.py`** — PEER of the display's copy. The `start`/`step`/`finish` split and the panel latch were **not** ported. Decide whether the station copy should follow or deliberately diverge, and say so in both docstrings.
-- **`HARDWARE_PROTOCOL.md`** — check it still matches after any protocol edit. It documents v1/v2 frames, the icon leg and all four PEER files.
+### 5.8 Cleanup
+
+- **`ChatBroadcast/bak/`** and **`9-4-known_issues.md`** — kept, per the
+  user, with a header marking each clearly outdated.
+- **`Stations/Icon Display Station/icon_server.py`** — ported. It now
+  carries `_drew()`/`owns_panel()`/`release_panel()` and the `start`/`step`/
+  `finish` split, matching the display's copy. Two divergences are
+  deliberate and recorded in both docstrings: the station still builds its
+  own `Matrix` (it is the only NeoPixel owner on that device, unlike the
+  display), and `do_start_game`/`is_game` are display-only — the station has
+  nothing to launch.
+- **`HARDWARE_PROTOCOL.md`** — re-checked; it already stated the `_icon`
+  suffix is Box/Dial-staging-only and the destination name is always plain
+  `<slug>.py`, which is what §5.4 made the repo tree agree with. No changes
+  needed.
 
 ---
 
@@ -203,38 +261,28 @@ so phase 5 never stepped the USB server.
 
 ## 7. Known issues and open decisions
 
-**`IconDisplay/goalrace.py` was renamed to `goalrace_icon.py`** (commit `8a51b13`,
-by the user). `_icon` is the suffix the *Box* serves a display game under; on the
-*device* the pull writes it as `<slug>.py`, which is what `GAME_MODULES` resolves.
-So a freshly flashed display has no built-in `goalrace` — only a pulled one runs.
-That is harmless on the tested path and arguably correct, but it makes the
-`goalrace` entry in `GAME_MODULES` dead for a fresh flash, and `GAME_TAGS` must
-stay in step or `main.py` prints `[ERR] GAME_MODULES keys do not match`. The
-devtests model the pull by copying `*_icon.py` to `<slug>.py` when they stage a
-fake flash. **Ask the user** which they want: the device tree carrying device
-names, or the Box's staging names.
-
-**No card reader on the display.** `has_nfc` is `False` in `IconDisplay/lib/hubtype.py`.
-The code is written as though one is fitted. Until it is, the *only* way to start a
-game on the display is a pull, triggered from the REPL:
-`import pull_flag, machine; pull_flag.set_pending('goalrace'); machine.reset()`.
-A temporary `{"cmd":"start_game"}` in `icon_server.py` (~8 lines) would make bench
-iteration much faster; it was offered and not yet taken up.
+**The display can now be started on the bench without a card reader**, via
+`icon_server.py`'s `start_game` command (§5.6). The REPL incantation
+(`import pull_flag, machine; pull_flag.set_pending('goalrace');
+machine.reset()`) still works too — that path pulls a fresh copy from the
+Box first, where `start_game` just launches what is already on flash.
 
 **The display never sees a `stop`.** `send_stop_all_peers()` is unicast to paired
 peers, and goal messages are broadcasts, so the two devices never pair. The display
 stays in a game until it is reset. Not a defect in this demo; it will matter when a
 teacher needs to end a round.
 
-**Four hand-duplicated PEER files.** `code_server.py` ×2 (Box, Dial),
-`code_puller.py` ×2 (MockWand, IconDisplay), plus `icon_server.py` (display,
-station) and `json_link.py`. Each carries a `PEER:` comment. A fix in one is not a
-fix in the others — this has already bitten once, when the Dial's `code_server.py`
-was missed.
-
-**Display brightness is pinned at the `x0.05` floor.** `LOG_LUX_MIN = log10(500)`
-means any ordinary indoor light clamps to minimum. Noticed on the bench, not
-investigated, out of scope here.
+**Hand-duplicated PEER files.** `code_server.py` ×2 (Box, Dial),
+`code_puller.py` ×2 (MockWand, IconDisplay), `icon_server.py` ×2 (display,
+station — kept in sync as of phase 6, see §5.8), and `json_link.py`, plus
+several less-visible ones (`ws1850s.py`, `card_writer.py`, `stats_log.py`,
+`reset_log.py`, `boot.py`, `bbox_ui.py`/`dial_ui.py`,
+`ledColor.js`/`ledcolor.js`) and the new `shapes.py` (§5.5, PEER of
+`MockWand/lib/leds.py`'s shape data, drift tolerated for now — see §5.5).
+Each carries a `PEER:` comment. A fix in one is not a fix in the others —
+this has already bitten once, when the Dial's `code_server.py` was missed.
+Per the user: comments for now, real deduplication is a later refactor once
+the MVP is proven.
 
 **`iconmaker/js/device/` was kept**, contrary to the original plan, because it is
 what drives the display's USB editor link. Drop it only if that direct link is
@@ -253,11 +301,13 @@ From the repo root:
 bash Bag3/Code/BroadcastBox/tools/devtests/compile_check.sh    # py_compile over Bag3/Code
 python3 Bag3/Code/BroadcastBox/tools/devtests/wire_test.py       # Box pull protocol, both ends
 python3 Bag3/Code/BroadcastBox/tools/devtests/wire_test_dial.py  # Dial pull protocol
-python3 Bag3/Code/BroadcastBox/tools/devtests/boot_display.py    # display boot order + game dispatch
-python3 Bag3/Code/BroadcastBox/tools/devtests/usb_link.py        # icon server + panel latch
+python3 Bag3/Code/BroadcastBox/tools/devtests/boot_display.py    # display boot order + game dispatch + pull-mode glyphs
+python3 Bag3/Code/BroadcastBox/tools/devtests/usb_link.py        # icon server + panel latch + start_game
 python3 Bag3/Code/BroadcastBox/tools/devtests/goalrace_pair.py   # the pair, one fake radio between them
+python3 Bag3/Code/BroadcastBox/tools/devtests/game_menu_scan.py  # Box/Dial boot scan never enrolls a *_icon.py staging file
 node    Bag3/Code/BroadcastBox/tools/devtests/chatbroadcast_flow.mjs
 node    Bag3/Code/BroadcastBox/tools/devtests/icon_panel.mjs
+node    Bag3/Code/BroadcastBox/tools/devtests/role_state.mjs     # per-role editor state, a full authoring cycle
 cd Bag3/Code/Simulator && python3 -m pytest && python3 tools/sync_sources.py --check
 cd Bag3/Code/BroadcastBox/ChatBroadcast && node tools/check_tags.mjs
 ```
@@ -266,10 +316,11 @@ cd Bag3/Code/BroadcastBox/ChatBroadcast && node tools/check_tags.mjs
 tag checklist must not change for any existing game.
 
 The devtests run device modules under stubs in `tools/devtests/stubs/`
-(`machine`, `neopixel`, `network`, `espnow`, `select`, `memprobe`). They exercise
-no radio, panel, card reader or serial port. Passing means the code compiles and
-the protocol, boot order, dispatch and static derivations still agree — not that
-it works.
+(`machine`, `neopixel`, `network`, `espnow`, `select`, `memprobe`, and, added in
+phase 6, `M5`/`m5ui`/`lvgl` for `game_menu_scan.py` and a `node:module` loader
+hook for `role_state.mjs`'s CodeMirror imports). They exercise no radio, panel,
+card reader or serial port. Passing means the code compiles and the protocol,
+boot order, dispatch and static derivations still agree — not that it works.
 
 ---
 
@@ -279,8 +330,12 @@ When phase 6 is implemented and §8 is green, the user runs one test:
 
 1. Open ChatBroadcast against the Box or Dial and ask for a two-device game.
 2. Read the send checklist **before** anything reaches flash.
-3. Send; then pull on the wand by tapping `getcode:<slug>`, and on the display
-   with the REPL trigger in §7.
+3. Send; then pull on the wand by tapping `getcode:<slug>`. On the display,
+   pull the file onto flash the same way a real tap eventually will, once a
+   reader is fitted: `import pull_flag, machine;
+   pull_flag.set_pending('<slug>'); machine.reset()` at the REPL. The pull
+   auto-launches on that reset; to relaunch it later without another pull,
+   use the `start_game` USB command instead (§5.6).
 4. Play a round.
 
 Report what each step should print, so a deviation is recognisable without

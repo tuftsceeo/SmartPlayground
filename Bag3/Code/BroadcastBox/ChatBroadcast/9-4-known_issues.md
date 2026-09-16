@@ -1,3 +1,10 @@
+**OUTDATED — dated 9/4, kept per the user's direction rather than deleted (see
+`PHASE6_HANDOFF.md` §5.8). Entries below may already be resolved or
+superseded by later work; check the current tree before acting on any of
+them.**
+
+---
+
 The gallery's Python currently comes from hand-written payloads in examples.js, not the real games. Where should the real Wand Module .py be used?
 
 --> Everywhere
