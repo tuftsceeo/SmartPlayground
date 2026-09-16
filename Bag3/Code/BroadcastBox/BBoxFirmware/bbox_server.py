@@ -632,6 +632,11 @@ class BboxServer:
 
         New-this-boot files (not in previous index) become active; if several,
         latest mtime wins. Otherwise keep active.txt if still present.
+
+        A name ending "_icon.py" is a display game staged under the suffix
+        ROLE_FILES uses to pick it out for an icon_display pull (see
+        code_server.py) -- it is never itself a playable game on this device,
+        so it never enters the menu or becomes active.
         """
         self._ensure_games_dir()
         self._load_index()
@@ -643,7 +648,7 @@ class BboxServer:
         except OSError:
             names = []
         for name in names:
-            if not name.endswith('.py'):
+            if not name.endswith('.py') or name.endswith('_icon.py'):
                 continue
             slug = name[:-3]
             path = GAMES_DIR + '/' + name
