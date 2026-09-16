@@ -60,6 +60,17 @@ what `Widgets` can actually render:
     (`Widgets.FONTS.Montserrat12/16/18` -- the only sizes confirmed
     against this board's own UIFlow2-generated code) stands in for
     Nunito. Patrick Hand has no equivalent here and is dropped.
+  - Glyph coverage: confirmed on hardware via `tools/widget_test.py`
+    stage 1 -- coverage is narrow. Of the candidates tested, only
+    bullet "•" U+2022 and degree sign "°" U+00B0 render; ellipsis "…"
+    U+2026, middle dot "·" U+00B7, both arrows U+2190/2192, down
+    triangle U+25BC, multiplication sign U+00D7, em/en dash
+    U+2014/2013 and check mark U+2713 all came back blank/tofu boxes.
+    `_fit()`'s ellipsis and the written-count suffix are plain ASCII
+    (`"..."`, `"(%d)"`) because of this. Treat ASCII as the only safe
+    default and check anything else with `tools/widget_test.py` first
+    -- do not assume a character works because it looks like a plain
+    symbol.
   - Icons: the brand's SVG stroke-icon system cannot render through
     `Widgets`. Its own documented fallback -- plain "->"/"<-" text and
     `</>`-style literal characters -- carries over directly; a `Triangle`
@@ -128,20 +139,45 @@ def _fonts():
 
 # Card interior text budgets are character-count estimates for proportional
 # Montserrat on a 119px-wide card, not measured pixel widths -- confirm on
-# the device. The tail of a tag name is what distinguishes
-# "getcode:my_melody" from "getcode:my_melody_2", so ellipsize the middle.
+# the device.
 ROW_CHARS = 16
 SELECTED_CHARS = 13
 HEADER_CHARS = 20
 
 
+ELLIPSIS = "..."  # ASCII, not U+2026 -- see module docstring's font note
+
+
 def _fit(text, budget):
+    """Truncate to budget, keeping the START and appending ELLIPSIS.
+
+    An earlier version split the budget between head and tail (keeping
+    both ends, ellipsizing the middle) specifically so a numbered
+    variant like "getcode:my_melody_2" stayed distinguishable from
+    "getcode:my_melody". Reported on hardware as a net loss: it cut the
+    meaningful prefix ("getcode:...") down to a few characters to make
+    room for a tail fragment nobody was reading. Simple prefix
+    truncation trades that rare disambiguation for a name that's
+    actually legible at a glance, which is what people update this
+    hardware to see -- keep this if that trade comes up again.
+    """
     if len(text) <= budget:
         return text
-    keep = budget - 1
-    head = (keep + 1) // 2
-    tail = keep - head
-    return text[:head] + "…" + text[len(text) - tail:]
+    return text[:budget - len(ELLIPSIS)] + ELLIPSIS
+
+
+def _display_tag(text):
+    """Capitalize a raw tag/game identifier for display only.
+
+    bbox_server.py's entries, groups and written-count keys are raw
+    lowercase identifiers ("note_c", "getcode:my_melody", "stop") that
+    also have to match exactly what's written to a physical NFC card --
+    that underlying value is never touched. This only capitalizes the
+    first letter for the on-screen copy, so a plain lowercase identifier
+    never appears to someone reading the screen as a typo or an
+    afterthought. Internal colons/underscores are left alone.
+    """
+    return text[:1].upper() + text[1:] if text else text
 
 
 # Fixed 5-slot carousel: 2 rows above the cursor, the cursor's own row
@@ -197,9 +233,10 @@ class BboxUI(object):
         self._st_body3 = None
         self._exit_rect = None
         self._exit_label = None
+        self._srv_banner = None
         self._srv_title = None
-        self._srv_ssid = None
         self._srv_pickups = None
+        self._srv_hint_rect = None
         self._srv_hint = None
 
     def begin(self):
@@ -309,12 +346,23 @@ class BboxUI(object):
         self._exit_label = self._label("X", 107, BTN_Y + 4, DANGER_FG, CARD_BG, FONT18)
 
     def _build_serve(self):
-        self._srv_title = self._label("", 6, 40, SERVE_FG, PAGE_BG, FONT18)
-        self._srv_ssid = self._label("", 6, 76, INK, PAGE_BG, FONT16)
-        self._srv_pickups = self._label("", 6, 104, INK_3, PAGE_BG, FONT12)
-        self._srv_hint = self._label("", 6, 200, INK_3, PAGE_BG, FONT12)
+        # Full-width purple banner (reusing WRITE_FG, not a third colour --
+        # the ask was visual weight/distinctiveness from the WRITE screens,
+        # not a new SERVE tint) so this screen reads as different from the
+        # tag-writer screens at a glance. The SSID is intentionally never
+        # shown here -- see paint_serve()'s docstring.
+        self._srv_banner = self._card(0, 0, SCREEN_W, 64, WRITE_FG, WRITE_FG)
+        self._srv_title = self._label("", 8, 22, 0xFFFFFF, WRITE_FG, FONT18)
+        self._srv_pickups = self._label("", 6, 84, INK_3, PAGE_BG, FONT16)
+        # Pink hint card, matching the pink-card-behind-white-text language
+        # every other action button on this device already uses. Full
+        # screen width, not a 4px-margin card -- "Hold Button to Exit" is
+        # already long at FONT12 on a 135px screen.
+        self._srv_hint_rect = self._card(0, 194, SCREEN_W, 24, PINK, PINK)
+        self._srv_hint = self._label("", 6, 198, 0xFFFFFF, PINK, FONT12)
 
     def _set_text(self, label, text):
+        label.setText("")
         label.setText(text)
 
     # ── audio (same tones as every prior version of this file) ─────
@@ -359,41 +407,45 @@ class BboxUI(object):
         self._status("Starting", title_c=INK_3)
 
     def paint_idle(self, linked=True):
-        status = "linked to laptop" if linked else "not linked"
-        self._status(status, "no game loaded yet",
+        status = "Linked to Laptop" if linked else "Not Linked"
+        self._status(status, "No Game Loaded Yet",
                      title_c=SERVE_FG if linked else INK_3)
 
     def paint_receiving(self, game_name=""):
-        self._status(game_name if game_name else "game")
+        self._status(_display_tag(game_name) if game_name else "Game")
 
     def paint_armed(self, label, index=1, total=1):
-        self._status(label, "Tag %d/%d" % (index, total), "Hold Near Reader")
+        self._status('"%s"' % _display_tag(label), "Tag %d/%d" % (index, total),
+                     "Hold Near Reader")
 
     def paint_scanning(self, label):
-        self._status("Scanning", label, "Tap Tag Now")
+        self._status("Scanning", '"%s"' % _display_tag(label), "Tap Tag Now")
         self._exit_rect.setColor(BORDER, CARD_BG)
         self._exit_label.setColor(DANGER_FG, CARD_BG)
         self._set_text(self._exit_label, "X")
 
     def paint_already(self, label):
-        self._status('Already "%s"' % label, "no change needed",
+        self._status('Already "%s"' % _display_tag(label), "No Change Needed",
                      "Press Any Button", title_c=SERVE_FG)
 
     def paint_written(self, label, count):
-        self._status('"%s" written!' % label, "%d written so far" % count,
+        self._status('"%s" Written!' % _display_tag(label),
+                     "%d Written So Far" % count,
                      "Press Any Button", title_c=SERVE_FG)
 
     def paint_write_failed(self, label):
-        self._status("Write failed", label, "Press Any Button", title_c=DANGER_FG)
+        self._status("Write Failed", '"%s"' % _display_tag(label),
+                     "Press Any Button", title_c=DANGER_FG)
 
     def paint_writing(self, label):
-        self._status('Writing "%s"...' % label, "Hold Card Steady")
+        self._status('Writing "%s"...' % _display_tag(label), "Hold Card Steady")
 
     def paint_done(self, label, written, total):
-        self._status("%s done!" % label, "%d of %d written" % (written, total),
+        self._status("%s Done!" % _display_tag(label),
+                     "%d of %d Written" % (written, total),
                      title_c=SERVE_FG)
 
-    def paint_complete(self, msg="All tags ready!"):
+    def paint_complete(self, msg="All Tags Ready!"):
         self._status(msg, title_c=SERVE_FG)
 
     def paint_error(self, msg):
@@ -402,25 +454,63 @@ class BboxUI(object):
     def paint_mode_change(self, to_mode):
         # to_mode is bbox_server's raw mode constant ("SERVE"/"WRITE") --
         # only the DISPLAYED word changes here, to match the SHARE naming.
+        # Kept ALL-CAPS deliberately: this mirrors the action-button
+        # convention (OPEN/SHARE/WRITE/BACK), not the sentence-case pass
+        # applied to the rest of this file's copy.
         tint = SERVE_FG if to_mode == "SERVE" else WRITE_FG
         shown = "SHARE" if to_mode == "SERVE" else to_mode
         self._status("-> %s" % shown, title_c=tint)
 
     def paint_no_pickup_hint(self):
-        self._status("pickup off", "DONE to Share", title_c=WARN_FG)
+        self._status("Pickup Off", "DONE to Share", title_c=WARN_FG)
 
     # ── list-screen helper ───────────────────────────────────────
 
     def _redraw_list_chrome(self):
-        """Force-redraw every list-screen widget that is never otherwise
-        re-touched between paints (its color/text never changes) --
-        required because _clear() wipes the whole framebuffer first, and
-        this library only redraws a widget when a method on it is
-        actually called. Skipping this means the action button's card
-        and the next-chevron simply don't reappear."""
-        self._act_rect.setColor(PINK, PINK)
+        """Force-redraw list-screen widgets that are never otherwise
+        re-touched between paints -- required because _clear() wipes the
+        whole framebuffer first, and this library only redraws a widget
+        when a method on it is actually called. act_rect is NOT redrawn
+        here even though its color never changes either -- see
+        _set_act_label(), which owns it because a label sits on top."""
         self._next_rect.setColor(BORDER, CARD_BG)
         self._next_tri.setColor(INK_3, INK_3)
+
+    def _set_act_label(self, text):
+        """Set the action button's text, working around a second
+        hardware-reported bug: going from a longer label to a shorter
+        one (SHARE -> OPEN, WRITE -> BACK) left a white rectangle sized
+        to the OLD, wider text sitting past the end of the new one.
+        Theory: Label.setText("") -- added to force a redraw when the
+        new text equals the old one, see _set_text() -- erases the
+        PREVIOUS text's bounding box using a hardcoded white fill rather
+        than the label's own bg_c, and that erase pass is what leaves
+        the white slice behind once the new text is narrower. Recolour
+        the full-width button rectangle both BEFORE and AFTER the blank
+        step: before, so the button has a clean backdrop when the erase
+        happens; after, so anything the erase left behind is painted
+        over before the real (final) text is drawn on top of it.
+        """
+        self._act_rect.setColor(PINK, PINK)
+        self._act_label.setText("")
+        self._act_rect.setColor(PINK, PINK)
+        self._act_label.setText(text)
+
+    def _set_srv_title(self, text):
+        """Same recolour-before-and-after-blank sandwich as
+        _set_act_label() -- this label sits on the saturated purple
+        banner, so it's exposed to the same white-remnant bug."""
+        self._srv_banner.setColor(WRITE_FG, WRITE_FG)
+        self._srv_title.setText("")
+        self._srv_banner.setColor(WRITE_FG, WRITE_FG)
+        self._srv_title.setText(text)
+
+    def _set_srv_hint(self, text):
+        """Same sandwich as _set_srv_title(), for the pink hint card."""
+        self._srv_hint_rect.setColor(PINK, PINK)
+        self._srv_hint.setText("")
+        self._srv_hint_rect.setColor(PINK, PINK)
+        self._srv_hint.setText(text)
 
     def paint_tag_list(self, entries, cursor):
         """Tier 1: games + Utility Tags + DONE.
@@ -439,7 +529,7 @@ class BboxUI(object):
         display_entries = ["Enable Share" if e == "DONE" else e for e in entries]
         self._paint_slots(display_entries, cursor)
         cur = entries[cursor] if entries else ""
-        self._set_text(self._act_label, "SHARE" if cur == "DONE" else "OPEN")
+        self._set_act_label("SHARE" if cur == "DONE" else "OPEN")
 
     def paint_tag_group(self, title, rows, cursor, written):
         """Tier 2: one group's tags + "< back"."""
@@ -449,13 +539,18 @@ class BboxUI(object):
         self._crumb.setColor(INK_3, PAGE_BG)
         display_rows = []
         for r in rows:
-            if r == "< back" or not written or not written.get(r):
-                display_rows.append(r)
+            if r == "< back":
+                # "< back" -> "< Back": not run through _display_tag(),
+                # whose first-letter capitalization would land on the
+                # leading "<" instead of the word "back".
+                display_rows.append("< Back")
+            elif not written or not written.get(r):
+                display_rows.append(_display_tag(r))
             else:
-                display_rows.append("%s ·%d" % (r, written.get(r, 0)))
+                display_rows.append("%s (%d)" % (_display_tag(r), written.get(r, 0)))
         self._paint_slots(display_rows, cursor)
         cur = rows[cursor] if rows else ""
-        self._set_text(self._act_label, "BACK" if cur == "< back" else "WRITE")
+        self._set_act_label("BACK" if cur == "< back" else "WRITE")
 
     def _paint_slots(self, entries, cursor):
         """Recolour the rectangle and dot FIRST, the label LAST.
@@ -476,29 +571,35 @@ class BboxUI(object):
                 # Off the end of the list -- blend card, label and dot
                 # into the page background rather than leaving a blank
                 # card sitting in the layout looking like a stray box.
-                self._row_rects[i].setColor(PAGE_BG, PAGE_BG)
-                self._track_dots[i].setColor(PAGE_BG, PAGE_BG)
+                rect_c, fill_c, dot_c = PAGE_BG, PAGE_BG, PAGE_BG
                 label_c, label_bg = PAGE_BG, PAGE_BG
             elif is_selected:
-                self._row_rects[i].setColor(WRITE_FG, WRITE_BG)
-                self._track_dots[i].setColor(WRITE_FG, WRITE_FG)
+                rect_c, fill_c, dot_c = WRITE_FG, WRITE_BG, WRITE_FG
                 label_c, label_bg = WRITE_FG, WRITE_BG
             else:
-                self._row_rects[i].setColor(BORDER, CARD_BG)
-                self._track_dots[i].setColor(WRITE_FG, WRITE_FG)
+                rect_c, fill_c, dot_c = BORDER, CARD_BG, WRITE_FG
                 label_c, label_bg = INK_3, CARD_BG
+            self._row_rects[i].setColor(rect_c, fill_c)
+            self._track_dots[i].setColor(dot_c, dot_c)
             self._row_labels[i].setColor(label_c, label_bg)
-            self._set_text(self._row_labels[i], display)
+            # Recolour the card a second time, after blanking the label
+            # and before its real (final) text -- see _set_act_label()'s
+            # docstring for why the blank step alone can leave a white
+            # remnant when this row's new text is shorter than its last.
+            self._row_labels[i].setText("")
+            self._row_rects[i].setColor(rect_c, fill_c)
+            self._row_labels[i].setText(display)
 
     def paint_serve(self, ssid, pickups=0):
+        # `ssid` is accepted for call-site parity with bbox_server.py but
+        # deliberately never shown -- the SoftAP name is not information a
+        # teacher needs; that the box is sharing, and the pickup count,
+        # are. Kept as a parameter rather than dropped so bbox_server.py
+        # needs no change.
         self._clear()
-        # srv_title/srv_hint never change, but still need to be
-        # explicitly redrawn every call -- see the module docstring.
-        self._set_text(self._srv_title, "Sharing")
-        self._srv_title.setColor(SERVE_FG, PAGE_BG)
-        self._set_text(self._srv_ssid, ssid)
-        self._set_text(self._srv_pickups, "pickups: %d total" % pickups)
-        self._set_text(self._srv_hint, "Hold Button to Exit")
+        self._set_srv_title("Sharing")
+        self._set_text(self._srv_pickups, "Pickups: %d Total" % pickups)
+        self._set_srv_hint("Hold Button to Exit")
 
 
 def demo():
@@ -527,7 +628,7 @@ def demo():
         lambda: ui.paint_complete(),
         lambda: ui.paint_mode_change("SERVE"),
         lambda: ui.paint_serve("SP-FILEPUSH", 2),
-        lambda: ui.paint_error("no game to serve"),
+        lambda: ui.paint_error("No Game to Serve"),
     ]
     for fn in screens:
         fn()

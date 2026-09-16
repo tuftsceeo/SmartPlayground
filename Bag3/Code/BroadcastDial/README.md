@@ -36,14 +36,27 @@ Write all device files to **`/flash`**, not `/`.
 | Touch | LVGL callbacks | Enqueue intents only; server drains from its own loop |
 | USB | native CDC | Port drops on every reset; `mpremote` resets the board |
 
-Style reference (not a logic peer): `Bag2/Code/DialSpeaker/Dial_Music.py` —
-light page (white ground, dark-grey text, Material-blue accents, LVGL
-`SYMBOL` glyphs as icons). `dial_ui.py` and `bbox_ui.py` hand-duplicate the
-same palette block (there is no shared theme module on device); the tag
-list is a `m5ui.M5Roller` (centre-selected wheel) rather than three bare
-labels, with a breadcrumb chip naming the current tier and a right-rim
-position track. See `dial_ui.py`'s module docstring for the full screen
-inventory and what in it is still unverified on hardware.
+Colours come from `Live_Page/.design_system/Sept 2026/tokens/` — the same
+brand tokens `bbox_ui.py` carries, so the two devices read as one product.
+Pink is the one primary action per screen, purple (`--write-fg`/`--write-bg`)
+is the selection and anything write-mode, teal (`--serve-fg`) is success and
+share-mode. `dial_ui.py` and `bbox_ui.py` hand-duplicate the palette block
+because they are deliberately on **different rendering stacks** — M5's docs
+warn against mixing M5GFX/M5Widgets/M5UI, and the Box's StickS3 build has no
+`m5ui` at all — so they share tokens, never a renderer.
+
+Form reference (not a logic peer): `Bag2/Code/DialSpeaker/Dial_Music.py` —
+borderless buttons, generous radius, a large `montserrat_24` symbol, and soft
+drop shadows, all already proven on this display. The shadows here are
+coloured rather than grey, per the design system. The tag list is a
+`m5ui.M5Roller` (centre-selected wheel) rather than three bare labels, with a
+breadcrumb chip naming the current tier and a right-rim position track.
+
+Screen copy is **Title Case**, which deliberately diverges from the design
+system's "sentence case everywhere" rule: these screens are read at arm's
+length in a classroom, not in a browser. ALL-CAPS is reserved for button
+labels. See `dial_ui.py`'s module docstring for the full screen inventory and
+what in it is still unverified on hardware.
 
 ## Modes
 
@@ -59,7 +72,10 @@ energized at any instant.
 `_set_mode()` in `bdial_server.py` is the only place modes change.
 
 **The Dial does not serve code until a teacher selects `DONE` + ACT.** The
-`WRITE` screen header says `pickup off` for this reason.
+`WRITE` screen's breadcrumb chip reads `Tag Writer` — a positive mode label
+rather than the older `pickup off`, which read as an alarm about a normal,
+permanent state (WRITE mode always has the AP down). The `DONE` row itself
+displays as `Enable Share`; the underlying sentinel is still `DONE`.
 
 ## WRITE mode
 
@@ -71,6 +87,11 @@ Two-level menu (groups → tags), same shape as the Box including `W_GROUP`.
 | `group` | that group's tags (roller) | start scan (or menu on `< back`) | scroll | to menu | — |
 | `scan` | rim ring + label, field on | — | — | to group | — |
 | `splash` | result | to group | to group | to group | — |
+
+The utility group carries a third entry the Box has no equivalent for:
+`Read Card` (`READ_ENTRY`). It is a sentinel `_scan_step()` special-cases
+before the row is ever treated as NDEF text, so it is never written; the
+result lands on `paint_read_result()`.
 
 The Dial has **no `overwrite` state** — unlike the Box, it auto-overwrites
 and confirms only with `beep_success()`/`beep_fail()`. The antenna sits
@@ -103,16 +124,17 @@ trailers; NTAG writes start at page 4 and stop after 36 pages;
 |---|---|
 | `main.py` | Boot entry; prints a `fatal` JSON rather than a bare traceback |
 | `bdial_server.py` | Mode machine, WRITE sub-states, serial dispatch (`device=broadcast_dial`) |
-| `dial_ui.py` | 4 LVGL screens (light palette, roller list) + speaker behind `bbox_ui`'s painter API |
+| `dial_ui.py` | 4 LVGL screens (brand palette, roller list) + speaker behind `bbox_ui`'s painter API |
 | `dial_input.py` | Encoder + button + touch → `NEXT`/`PREV`/`ACT`/`BACK`/`EXIT` |
 | `dial_board.py` | Screen size, speaker volume, I2C pins, `make_reader()` |
 | `code_server.py` | SoftAP + TCP file server — **PEER of Box; keep in sync** |
 | `card_writer.py` | NDEF text read/write — **PEER of Box** |
-| `ws1850s.py` | WS1850S driver — **PEER of Box** (pending H2) |
+| `ws1850s.py` | WS1850S driver — **PEER of Box** (H2 PASS: 0x28, VersionReg 0x15) |
 | `json_link.py`, `reset_log.py`, `stats_log.py` | **PEER of Box** |
 | `manifest.js` | `DIAL_FILES` / `loadDialFiles()` for ChatBroadcast |
 | `boot.py` | M5Stack vendor UIFlow2 boot-option stub |
 | `tools/probe_dial.py` | Bench probe: Phase 0 hardware discovery, not part of `DIAL_FILES` |
+| `tools/dial_menu_check.py` | Host-side (no hardware) check of the WRITE-menu logic, `_fit()` and `_display_tag()` |
 
 Copied peers differ from the Box originals only by a leading `# PEER: …`
 header. `opcodes.py` / `pn532.py` / `nfc_reader.py` are not carried over.
@@ -155,7 +177,10 @@ Every module reachable from `main.py` must be listed in `manifest.js`.
 
 ## Verified vs open
 
-Software skeleton (P1) is in tree; nothing below is hardware-confirmed yet.
+Phase 0 bring-up is partly done — **H1 PASS** (UIFlow2, 240×240, Rotary,
+`m5ui`, BtnA/BtnB present), **H2 PASS** (WS1850S at `0x28`, VersionReg
+`0x15`), **H3 PASS for pins** (`sda=11 scl=12`, on the hardware `machine.I2C`
+peripheral). Everything below is still unconfirmed on hardware.
 
 Open / Phase 0–3:
 
@@ -165,5 +190,6 @@ Open / Phase 0–3:
   plus the wand pull the Box itself has not yet proven.
 - Off-USB (battery) speaker volume check for `SPEAKER_VOLUME` in `dial_board.py`.
 
-Static checks done off-device: `python3 -m py_compile` on every `.py`; import
-graph from `main.py` matches `DIAL_FILES`.
+Static checks done off-device: `python3 -m py_compile` on every `.py`;
+`python3 tools/dial_menu_check.py` (menu logic, row truncation, tag display)
+green; import graph from `main.py` matches `DIAL_FILES`.
