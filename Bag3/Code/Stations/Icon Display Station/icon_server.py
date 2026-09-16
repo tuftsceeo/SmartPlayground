@@ -2,6 +2,25 @@
 icon_server.py -- the command dispatcher and main loop. See the top-level
 plan for the full protocol table; this module is the implementation of it.
 
+PEER: Bag3/Code/BroadcastBox/IconDisplay/icon_server.py is the display's
+copy, hand-kept. A fix here is not a fix there.
+
+Two deliberate divergences from that copy, both because this station has
+no main.py of its own contending for the panel or the loop the way the
+Broadcast display does:
+
+  * __init__ builds its own Matrix rather than taking one -- this is the
+    only NeoPixel owner on this device, so there is no second object to
+    fight with.
+  * No start_game / is_game -- there is nothing here to launch. That
+    handler is specific to the display's game-playing main.py.
+
+Everything else -- the panel-ownership latch, the start/step/finish split,
+exit_reason -- is ported from the display's copy, because a station bench
+session benefits from the same non-blocking step() shape a caller with
+something else to do would need, even though today's caller (run()) has
+nothing else to do.
+
 Wire contract: every reply is exactly one JSON object per line. `id`, if
 present on a command, is echoed back so the browser can correlate a
 response to the request that caused it.
@@ -26,6 +45,10 @@ class IconServer:
         self.m = Matrix(intensity=DEFAULT_INTENSITY)
         self.link = JsonLink(self.dispatch, debug=debug)
         self.running = True
+        # Set by do_repl/do_reboot so a caller can tell which of the two
+        # stopped the loop.
+        self.exit_reason = None
+        self._reboot_hard = False
         self.cycle_on = False
         self.cycle_names = None
         self.cycle_idx = 0
@@ -33,6 +56,9 @@ class IconServer:
         self.cycle_next = 0
         self.last_frame_ms = time.ticks_ms()
         self._frames = 0
+        # Latched: set by the first draw, cleared only by release_panel().
+        # See owns_panel() for why this is a latch and not a timer.
+        self.panel_held = False
 
         self.handlers = {
             "hello": self.do_hello,
@@ -97,7 +123,7 @@ class IconServer:
                 return
         self.cycle_on = False
         self.m.draw_bytes(src)
-        self.last_frame_ms = time.ticks_ms()
+        self._drew()
         self._frames += 1
         if self._frames % GC_EVERY_N_FRAMES == 0:
             gc.collect()  # ~3KB transient churn per frame; keeps the heap flat
@@ -113,7 +139,7 @@ class IconServer:
             return
         self.cycle_on = False
         self.m.set_pixels(triples)
-        self.last_frame_ms = time.ticks_ms()
+        self._drew()
         self.link.send({"type": "px_ok", "id": rid, "n": len(triples)})
 
     def do_intensity(self, cmd, rid):
@@ -134,6 +160,9 @@ class IconServer:
     def do_clear(self, cmd, rid):
         self.cycle_on = False
         self.m.clear()
+        # A deliberate blank is still the editor showing something, so the
+        # hold stays: the idle breath must not paint over it.
+        self._drew()
         self.link.send({"type": "ok", "id": rid, "cmd": "clear"})
 
     def do_list(self, cmd, rid):
@@ -148,7 +177,7 @@ class IconServer:
             return
         self.cycle_on = False
         self.m.draw_bytes(self.m.src)
-        self.last_frame_ms = time.ticks_ms()
+        self._drew()
         self.link.send({"type": "shown", "id": rid, "name": name})
 
     def do_save(self, cmd, rid):
@@ -212,10 +241,12 @@ class IconServer:
     def do_repl(self, cmd, rid):
         self.link.send({"type": "bye", "id": rid})
         self.running = False
+        self.exit_reason = "repl"
 
     def do_reboot(self, cmd, rid):
         self.link.send({"type": "bye", "id": rid, "reboot": "hard" if cmd.get("hard") else "soft"})
         self.running = False
+        self.exit_reason = "reboot"
         self._reboot_hard = bool(cmd.get("hard"))
 
     # ── cycle mode (replaces the old main.py's cycle_icons loop) ───────
@@ -228,7 +259,7 @@ class IconServer:
         try:
             store.read_icon(name, into=self.m.src)
             self.m.draw_bytes(self.m.src)
-            self.last_frame_ms = now
+            self._drew(now)
         except (OSError, ValueError):
             pass  # skip a bad/missing file, keep cycling
         self.cycle_idx += 1
@@ -244,24 +275,97 @@ class IconServer:
             "serpentine": self.m.serpentine,
         })
 
-    def run(self):
+    def start(self):
+        """Announce this device on the wire.
+
+        The browser's connect flow does not await a handshake -- it listens
+        for this unsolicited hello and also sends its own query, so both
+        orders work. See Stations/serial_protocol_notes.md.
+        """
         self._send_hello()
-        last_hb = time.ticks_ms()
+        self._last_hb = time.ticks_ms()
+        self.running = True
+        self.exit_reason = None
         self._reboot_hard = False
+
+    def step(self):
+        """Service the USB link once. Non-blocking.
+
+        Returns True while the link should keep running, False once a repl
+        or reboot command has asked it to stop -- read exit_reason to tell
+        which. Safe to call with nothing on the wire: pump() returns
+        promptly when the port is quiet.
+        """
+        if not self.running:
+            return False
+        self.link.pump(idle_ms=20, drain_ms=40)
+        now = time.ticks_ms()
+        if self.cycle_on and time.ticks_diff(now, self.cycle_next) >= 0:
+            self._cycle_step(now)
+        if (time.ticks_diff(now, self._last_hb) > HEARTBEAT_MS
+                and time.ticks_diff(now, self.last_frame_ms) > BUSY_QUIET_MS):
+            self.link.send({"type": "heartbeat", "up": now, "mem": gc.mem_free()})
+            self._last_hb = now
+        return self.running
+
+    def _drew(self, now=None):
+        """Record that the editor just put something on the panel.
+
+        Taking the hold is a latch, not a timer refresh: what the editor
+        drew stays up until something explicitly takes the panel back.
+        """
+        self.last_frame_ms = time.ticks_ms() if now is None else now
+        self.panel_held = True
+
+    def owns_panel(self, now, max_quiet_ms):
+        """True while what the editor drew should stay on the panel.
+
+        A device that also shows something of its own -- an idle animation,
+        a game -- is writing the same 256 pixels, and an authored icon that
+        a breathing animation wipes a few seconds later is useless. So the
+        hold is latched by the first draw and released only by
+        release_panel().
+
+        max_quiet_ms is the one thing this decides for itself: the USB link
+        has no disconnect event -- the browser closing the port is invisible
+        here -- so a long silence is the only available stand-in for "the
+        web app is gone". It is a backstop measured in minutes, not the
+        normal way the hold ends.
+
+        False until the first draw actually arrives, so a station with no
+        browser attached is never held back by it.
+        """
+        if not self.panel_held:
+            return False
+        if time.ticks_diff(now, self.last_frame_ms) >= max_quiet_ms:
+            self.panel_held = False
+            return False
+        return True
+
+    def release_panel(self):
+        """Hand the panel back to whatever else wants it -- a caller with
+        something of its own to draw."""
+        self.panel_held = False
+
+    def finish(self):
+        """Clear the panel, and reset if a reboot command asked for one.
+
+        Does NOT reset for a repl command: that one means "get out of the
+        way so I can use the REPL", and resetting would take the port the
+        browser is holding with it.
+        """
+        self.m.clear()
+        if self._reboot_hard:
+            import machine
+            machine.reset()
+
+    def run(self):
+        """The blocking shape, for a caller that has nothing else to do."""
+        self.start()
         try:
-            while self.running:
-                self.link.pump(idle_ms=20, drain_ms=40)
-                now = time.ticks_ms()
-                if self.cycle_on and time.ticks_diff(now, self.cycle_next) >= 0:
-                    self._cycle_step(now)
-                if (time.ticks_diff(now, last_hb) > HEARTBEAT_MS
-                        and time.ticks_diff(now, self.last_frame_ms) > BUSY_QUIET_MS):
-                    self.link.send({"type": "heartbeat", "up": now, "mem": gc.mem_free()})
-                    last_hb = now
+            while self.step():
+                pass
         except KeyboardInterrupt:
             self.link.send({"type": "bye"})  # do_repl/do_reboot already sent their own
         finally:
-            self.m.clear()
-            if self._reboot_hard:
-                import machine
-                machine.reset()
+            self.finish()

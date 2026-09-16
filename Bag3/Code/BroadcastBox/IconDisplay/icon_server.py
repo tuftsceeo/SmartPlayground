@@ -1,19 +1,20 @@
 """
 icon_server.py -- the USB command dispatcher for the icon editor web app.
 
-The Broadcast display's copy. It differs from the station's in two ways,
-both because this device has a main.py that owns the panel and the loop:
+The Broadcast display's copy. It differs from the station's in two
+deliberate ways, both because this device has a main.py that owns the
+panel and the loop, and plays games the station has no concept of:
 
   * __init__ takes the Matrix rather than building one. Two NeoPixel
     objects on the same pin fight, and main.py already made the real one.
-  * run() is split into start() / step() / finish(), so the USB link is one
-    thing main.py's idle loop drives alongside the radio and the card
-    reader instead of a loop of its own. run() is kept as the three called
-    in order, for anything that still wants the blocking shape.
+  * do_start_game / is_game exist only here -- a bench-only way to launch a
+    display game over USB. The station has nothing to launch.
 
-While a game is running the game owns the loop, so step() is not called and
-USB authoring pauses until the game returns. That is inherent to one device
-doing both, not a fault.
+The panel-ownership latch (_drew/owns_panel/release_panel) and the
+start()/step()/finish() split are ported to both copies, not a divergence:
+a game owns the loop while it runs, so step() is not called and USB
+authoring pauses until the game returns -- inherent to one device doing
+both, not a fault -- but the split itself is identical in both files.
 
 PEER: Stations/Icon Display Station/icon_server.py is the station's copy,
 hand-kept. A fix here is not a fix there.
