@@ -1,14 +1,11 @@
 """
 NFC Reader — Tag scanning and command extraction (Mock Wand)
 ==============================================================
-Ported verbatim from Bag2/Code/lib/nfc_reader.py. MockWand is being used
-to test the Broadcast Box <-> wand handshake against Bag3's opcodes.py
-scheme, which is untested on real hardware -- so for now MockWand reads
-plain NDEF text instead, matching what card_writer.py on the Box actually
-writes and what Bag2/Utilities/writetoNFCcards.py has always written.
-opcodes.py in this lib/ is unused by this file; it's still referenced by
-game_tags.py for the tag-name vocabulary, which is unaffected by the wire
-encoding.
+Ported verbatim from Bag2/Code/lib/nfc_reader.py. Cards carry plain NDEF
+text, matching what card_writer.py on the Box actually writes and what
+Bag2/Utilities/writetoNFCcards.py has always written. The 4-byte opcode
+card scheme was never used on this device and its module is gone from this
+lib/; game_tags.py now declares the tag names directly.
 
 Supports two-phase reading: detect tag presence first, then read
 data. This lets the caller animate during the slow read phase.
