@@ -32,29 +32,36 @@ const NUDGE_TIMEOUT_MS = 2000;
 const EXPECTED_DEVICES = new Set(["broadcast_box", "broadcast_dial"]);
 
 /**
- * Short label for UI copy: "Box" or "Dial". Generic "Device" before
+ * Short label for UI copy: "Box", "Dial" or "Wand". Generic "Device" before
  * identity arrives or for any future product this app doesn't know about
  * yet -- this used to default to "Box" whenever the device type was
  * unknown, which wrongly named a specific product on every pre-connection
- * label (the connect button, mode pill, restart button, etc.) and would
- * misname any device added later (e.g. a wand). Only a confirmed
- * broadcast_box/broadcast_dial identity earns its real name.
+ * label (the connect button, mode pill, restart button, etc.). Only a
+ * confirmed identity earns its real name.
+ *
+ * "wand" is here, not just Box/Dial, because a wand's own `identity` payload
+ * really does say `"device":"wand"` (MockWand/main.py's `_emit()`) -- these
+ * two functions are shared UI copy, not exclusive to BboxDeviceLink, and
+ * app.js/router.js call them on whatever `deviceInfo` the currently-linked
+ * device reported.
  */
 export function deviceShortName(infoOrDevice) {
   const d = typeof infoOrDevice === "string"
     ? infoOrDevice
     : infoOrDevice?.device;
+  if (d === "wand") return "Wand";
   if (d === "broadcast_dial") return "Dial";
   if (d === "broadcast_box") return "Box";
   return "Device";
 }
 
-/** Product name for UI copy: "Broadcast Box" or "Broadcast Dial". Same
- *  generic-until-known rule as deviceShortName() above. */
+/** Product name for UI copy: "Broadcast Box", "Broadcast Dial" or "Wand".
+ *  Same generic-until-known rule as deviceShortName() above. */
 export function deviceProductName(infoOrDevice) {
   const d = typeof infoOrDevice === "string"
     ? infoOrDevice
     : infoOrDevice?.device;
+  if (d === "wand") return "Wand";
   if (d === "broadcast_dial") return "Broadcast Dial";
   if (d === "broadcast_box") return "Broadcast Box";
   return "Broadcast Device";
@@ -65,6 +72,8 @@ function sleep(ms) {
 }
 
 export class BboxDeviceLink {
+  kind = "box"; // covers both Box and Dial -- see deviceShortName()/deviceProductName() above
+
   constructor() {
     this.adapter = new SerialAdapter();
     this.repl = new ReplController(this.adapter);
