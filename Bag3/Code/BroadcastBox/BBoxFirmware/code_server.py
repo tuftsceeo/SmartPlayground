@@ -26,11 +26,11 @@ SOCK_REPLY_TIMEOUT_S = 30
 SOCK_REQUEST_TIMEOUT_S = 5   # how long to wait for the requester's frame
 AP_SETTLE_MS = 300  # same value the wand uses post-cycle
 
-# PEER: MockWand/code_puller.py and BroadcastBox/IconDisplay/code_puller.py
-# each hold a hand-kept copy of SSID/PWD/PORT/CHUNK/YIELD_MS and of the wire
-# protocol in _serve_client() below. There is no shared module (they run on
-# different devices), so any change here must be mirrored in both in the same
-# commit.
+# PEER: BroadcastDial/BDialFirmware/code_server.py, MockWand/code_puller.py
+# and BroadcastBox/IconDisplay/code_puller.py each hold a hand-kept copy of
+# SSID/PWD/PORT/CHUNK/YIELD_MS and of the wire protocol in _serve_client()
+# below. There is no shared module (they run on different devices), so any
+# change here must be mirrored in all three in the same commit.
 
 # Request-frame version sentinel. A v1 request opens with the slug's length,
 # capped at 16 by the slug rule, so a first byte of 0xFF cannot be one. That

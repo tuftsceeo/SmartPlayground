@@ -299,10 +299,14 @@ send checklist, so the two cannot disagree. `tools/check_tags.mjs` in
 `stop` and `battery` are always writable from the Box's `Utility Tags` group,
 whatever is loaded.
 
-The protocol is **hand-duplicated** in `BBoxFirmware/code_server.py`,
-`MockWand/code_puller.py` and `IconDisplay/code_puller.py` — different
-devices, no shared module. Each carries a `PEER:` comment. Change them in the
-same commit or a device breaks silently.
+The protocol is **hand-duplicated** in FOUR files — `BBoxFirmware/code_server.py`,
+`BroadcastDial/BDialFirmware/code_server.py`, `MockWand/code_puller.py` and
+`IconDisplay/code_puller.py` — different devices, no shared module. Each carries
+a `PEER:` comment. Change them in the same commit or a device breaks silently.
+
+The Dial serves games exactly as the Box does; its copy differs only in
+`prewarm_ap()` and an OOM-hardened `arm()`, both Dial-only, neither touching
+the wire.
 
 ## Direct-USB push (no Box in the loop)
 
