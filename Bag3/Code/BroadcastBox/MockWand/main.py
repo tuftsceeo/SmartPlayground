@@ -577,11 +577,18 @@ def run_event_loop(reader, rules, runner, accel_ref, enow=None, batt_ref=None):
         time.sleep_ms(20)
 
 
-GRACE_S = 5
+# Seconds of countdown before main() takes the board, so a Ctrl-C can land
+# and leave you at the REPL. ZERO by default: the wand should boot straight
+# into being a wand, and every board here answers Ctrl-C without help. Set it
+# to a few seconds on a test rig that does not -- a board whose REPL is hard
+# to catch is the only thing this is for.
+GRACE_S = 0
 PULL_GRACE_S = 2
 
 
 def _boot_grace():
+    if GRACE_S <= 0:
+        return
     print("# booting -- Ctrl-C within %ds to stay at the REPL" % GRACE_S)
     for remaining in range(GRACE_S, 0, -1):
         print("# %d..." % remaining)
