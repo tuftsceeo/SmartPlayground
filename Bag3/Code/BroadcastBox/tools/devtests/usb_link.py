@@ -45,6 +45,12 @@ def check(l, ok, d=""):
     print("%-4s %s%s" % ("ok" if ok else "FAIL", l, (" -- " + d) if d else ""))
     if not ok: fails.append(l)
 
+import game_store
+# main.py resolves a game through game_store, which defaults to the device's
+# /games. Point it at the copied tree's own games/ so the test sees what a
+# real device sees.
+game_store.GAMES_DIR = os.path.join(DEV, "games")
+
 import icon_matrix, icon_store
 from icon_server import IconServer
 

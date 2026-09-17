@@ -138,7 +138,13 @@ def game_module(name):
     """
     if name in GAME_MODULES:
         mod = GAME_MODULES[name]
-        return mod if _module_on_flash(mod) else None
+        if _module_on_flash(mod):
+            return mod
+        # Falls through rather than returning None: the built-in games are
+        # moving out of the flash root and into /games, alongside the pulled
+        # ones, and /games is on sys.path either way. Being in GAME_MODULES
+        # is a claim about the tag, not about where the file sits -- so a
+        # game found only in /games is still this wand's to play.
     if game_store.exists(name):
         return name          # /games is on sys.path; slug == module name
     return None

@@ -29,6 +29,19 @@ LIB_SRC = os.path.join(REPO, "Bag2", "Code", "lib")
 GAMES_SRC = os.path.join(REPO, "Bag3", "Code", "BroadcastBox", "MockWand")
 HUBTYPE_SRC = os.path.join(GAMES_SRC, "hubtype.txt")
 
+
+def _game_src(name):
+    """Where a MockWand game file lives.
+
+    They are moving out of the MockWand root into MockWand/games/ -- the same
+    directory a pulled game lands in on the device -- so look in both rather
+    than pinning this tool to one layout. Missing files are reported by the
+    copy step, not swallowed here.
+    """
+    nested = os.path.join(GAMES_SRC, "games", name)
+    return nested if os.path.exists(nested) else os.path.join(GAMES_SRC, name)
+
+
 VENDOR = os.path.join(ROOT, "vendor")
 VENDOR_LIB = os.path.join(VENDOR, "lib")
 VENDOR_GAMES = os.path.join(VENDOR, "games")
@@ -80,7 +93,7 @@ def collect_plan():
     for name in VERBATIM_LIBS:
         plan.append((os.path.join(LIB_SRC, name), os.path.join("lib", name)))
     for name in GAMES:
-        plan.append((os.path.join(GAMES_SRC, name), os.path.join("games", name)))
+        plan.append((_game_src(name), os.path.join("games", name)))
     if os.path.isfile(HUBTYPE_SRC):
         plan.append((HUBTYPE_SRC, "hubtype.txt"))
     return plan
@@ -139,7 +152,16 @@ def check():
         src = os.path.join(REPO, info["source"])
         vendor_path = os.path.join(VENDOR, dest_rel)
         if not os.path.isfile(src):
-            errors.append("source missing: %s" % info["source"])
+            # A game that moved between the MockWand root and MockWand/games
+            # is not missing, it is recorded at its old path -- one sync run
+            # rewrites the manifest. Say which it is rather than making the
+            # reader guess from a bare "missing".
+            moved_to = _game_src(os.path.basename(info["source"]))
+            if os.path.isfile(moved_to):
+                errors.append("source moved: %s is now %s (re-run sync)"
+                              % (info["source"], os.path.relpath(moved_to, REPO)))
+            else:
+                errors.append("source missing: %s" % info["source"])
             continue
         if not os.path.isfile(vendor_path):
             errors.append("vendor missing: %s" % dest_rel)

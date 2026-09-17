@@ -171,24 +171,34 @@ check("both load failures light SHAPE_X in red",
 
 shapes.draw_shape = _orig_draw_shape_early
 
-# ── A built-in whose file is not installed is simply not a game here ──
-os.rename(os.path.join(FLASH, "goalrace.py"), os.path.join(FLASH, "goalrace.py.away"))
-check("a built-in with no file on flash is not a game",
+# ── A game named in GAME_MODULES is only playable if its file exists ──
+# The tree ships goalrace in games/, which is also where a pull writes, so
+# both copies have to be out of the way for "not installed" to be true.
+_root_game = os.path.join(FLASH, "goalrace.py")
+_pulled_game = os.path.join(game_store.GAMES_DIR, "goalrace.py")
+os.rename(_root_game, _root_game + ".away")
+_had_pulled = os.path.exists(_pulled_game)
+if _had_pulled:
+    os.rename(_pulled_game, _pulled_game + ".away")
+
+check("a built-in with no file anywhere is not a game",
       main.game_module("goalrace") is None and not main.is_game("goalrace"))
 check("...and the other built-ins are unaffected",
       main.game_module("noplay") == "noplay")
 
-# ...unless the same slug has been pulled. A pulled goalrace is what the Box
-# serves this device, and the built-in entry must not hide it -- the symptom
-# on hardware was "no game 'goalrace' on this display" right after a pull
-# that had just written /games/goalrace.py.
-with open(os.path.join(game_store.GAMES_DIR, "goalrace.py"), "w") as f:
+# A name in GAME_MODULES must not hide a copy in games/. That is where the
+# tree now ships the display's own games AND where a pull writes, so the
+# hardware symptom was "no game 'goalrace' on this display" immediately
+# after a pull that had just written the file.
+with open(_pulled_game, "w") as f:
     f.write("COMMANDS = {'stop'}\n\n\ndef play(nfc, panel, enow):\n    pass\n")
-check("a pulled copy is playable even when the built-in file is absent",
+check("a copy in games/ is playable even with nothing in the flash root",
       main.is_game("goalrace") is True and main.game_module("goalrace") == "goalrace")
-os.remove(os.path.join(game_store.GAMES_DIR, "goalrace.py"))
+os.remove(_pulled_game)
+if _had_pulled:
+    os.rename(_pulled_game + ".away", _pulled_game)
 
-os.rename(os.path.join(FLASH, "goalrace.py.away"), os.path.join(FLASH, "goalrace.py"))
+os.rename(_root_game + ".away", _root_game)
 check("it comes back when the file does", main.is_game("goalrace") is True)
 
 # ── Chained force-switch: goalrace hands straight to another game ──

@@ -29,12 +29,27 @@ const EXPECTED = {
 };
 
 const MW = resolve(HERE, "../../MockWand");
+
+// Game files are moving out of the MockWand root into MockWand/games/,
+// which is also where a pulled game lands on the device. Either location
+// is a real layout, so read whichever one holds the file rather than
+// pinning this tool to one of them.
+function gameSource(name) {
+    for (const dir of [`${MW}/games`, MW]) {
+        try {
+            return readFileSync(`${dir}/${name}.py`, "utf8");
+        } catch (e) {
+            if (e.code !== "ENOENT") throw e;
+        }
+    }
+    throw new Error(`no source for game ${name} in ${MW}/games or ${MW}`);
+}
 let fail = 0;
 const eq = (a, b) => JSON.stringify([...a].sort()) === JSON.stringify([...b].sort());
 
 console.log("== MockWand sources ==");
 for (const [name, want] of Object.entries(EXPECTED)) {
-    const src = readFileSync(`${MW}/${name}.py`, "utf8");
+    const src = gameSource(name);
     const { declared, tags, unresolved } = extractGameTags(src);
     // A game with no COMMANDS assignment (jumpin) legitimately has no
     // game-specific tags; it is only an error if we expected some.
