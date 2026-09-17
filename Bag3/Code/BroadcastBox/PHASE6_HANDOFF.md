@@ -327,6 +327,7 @@ python3 Bag3/Code/BroadcastBox/tools/devtests/game_menu_scan.py  # Box/Dial boot
 node    Bag3/Code/BroadcastBox/tools/devtests/chatbroadcast_flow.mjs
 node    Bag3/Code/BroadcastBox/tools/devtests/icon_panel.mjs
 node    Bag3/Code/BroadcastBox/tools/devtests/role_state.mjs     # per-role editor state, a full authoring cycle
+python3 Bag3/Code/BroadcastBox/ChatBroadcast/tools/sync_icons.py --check  # defaultIcons.js matches IconDisplay/icons/
 cd Bag3/Code/Simulator && python3 -m pytest && python3 tools/sync_sources.py --check
 cd Bag3/Code/BroadcastBox/ChatBroadcast && node tools/check_tags.mjs
 ```

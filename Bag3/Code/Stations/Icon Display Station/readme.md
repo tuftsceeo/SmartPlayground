@@ -89,6 +89,71 @@ opens `http://localhost:8756` (needs `pip install pillow`; the editor is stdlib 
 
 Everything the editor does is re-runnable headless afterward: `python3 image_to_icon.py assets/*.png` reconverts every source against its committed map (decisions are keyed by exact source RGB, so they survive a source-art tweak instead of being discarded), `--report` prints each image's fill histogram and cells-won, `--check` lint-fails on things like a colored segment winning zero cells, too many distinct lit colors, or a channel value that will truncate to 0 on-device, and `--swatch` builds a 16-color test icon so a batch of hue questions can be settled with one flash instead of one per icon.
 
+### Source assets and what has been converted
+
+`assets/` holds 49 PNGs. Six of them -- `apple`, `cherries`, `grapes`, `lemon`,
+`orange`, `watermelon` -- are the conversion-pipeline fixtures: they are the
+only ones with a committed `maps/<name>.json`, and therefore the only ones
+with an `icons/<name>.py` and a `previews/<name>.png` in this directory. The
+other 43 are unconverted source art:
+
+| Group | Files | Converted |
+|---|---|---|
+| Fruit fixtures (`apple.png` … `watermelon.png`) | 6 | 6 |
+| `animalsprites [Converted]-01..19.png` | 19 | 0 |
+| `animal faces 2-01..10.png` | 10 | 0 |
+| `farm animals-01..09.png` | 9 | 0 |
+| Named singles: `dino`, `dolphin`, `griffin`, `snake`, `trex` | 5 | 0 |
+
+The sheet-derived names (`animalsprites [Converted]-07.png` and the like) are
+export numbering, not icon names. An icon name is a separate decision made when
+someone converts the image -- `icon_store.safe_name()` only accepts lowercase
+letters, digits and underscore anyway. The `.ai` files alongside them are the
+Illustrator sources the PNGs were exported from; the tools read only the PNGs.
+
+Two files in `assets/` are not source art: `assets/duck.json` is a segment map
+(its `"source"` is `null`) and `assets/sandcastle.py` is a generated icon file.
+Neither is read by anything -- `image_to_icon.py` globs images, and maps and
+icons are looked up in `maps/` and `icons/`.
+
+`icons/` here is this station's own conversion output. The display's live icon
+set is `Bag3/Code/BroadcastBox/IconDisplay/icons/` (28 icons), most of which
+were drawn in the web editor rather than converted from these PNGs; `snake` and
+the six fruit exist in both trees from different provenance.
+
+### Running the conversion tools
+
+Both entry points need `pillow`, which is **not installed in this repository's
+checkout environment** -- `import PIL` fails. Nothing under `iconlib/` that
+touches pixels can run until `pip install pillow` is done locally.
+
+```
+python3 image_to_icon.py assets/apple.png      # convert against maps/apple.json
+python3 image_to_icon.py --report assets/*.png # fill histogram + cells-won
+python3 image_to_icon.py --check assets/*.png  # lint the generated icons
+python3 image_to_icon.py --swatch              # 16-colour test icon
+python3 image_to_icon.py --push icons/apple.py # mpremote, device attached
+```
+
+```
+python3 icon_editor.py assets/trex.png   # segmentation UI on http://localhost:8756
+python3 serve.py                         # dev server for webapp/, same port
+```
+
+Converting a PNG is a human decision, not a batch job: the auto-proposed
+per-segment colours are starting points (see above), and the icon's name,
+whether it earns a slot on the display at all, and whether the 16x16 result is
+readable across a room are all curation. Running the converter over `assets/`
+would produce 43 files that nobody has looked at.
+
+The copied app at `Bag3/Code/BroadcastBox/ChatBroadcast/iconmaker/` cannot see
+any of this. Its `assets/` holds the editor's own UI SVGs only. Its fixture
+picker (`FIXTURES` in `iconmaker/js/main.js`) names the same six fruit and
+fetches `../assets/<name>.png`, i.e. `ChatBroadcast/assets/`, which holds only
+`wand/` and `new_improved_wand/` -- so those six buttons fetch 404s there. The
+station's own `webapp/` copy, served by `serve.py` from this directory, does
+find them.
+
 **Preview fidelity is honest, not complete:** the simulated render is reliable for cell-on/off, silhouette, thin-feature survival, and relative brightness ordering -- most of the failure modes that showed up on hardware, and the ones no one can eyeball from a table of RGB triples. It is *not* reliable for absolute hue -- WS2812 dies are narrowband and off-primary in a way no sRGB monitor simulation captures. Sign off on structure from the preview; sign off on hue only from the real matrix.
 
 ### Open tuning questions (need the physical device)
