@@ -2,6 +2,7 @@
  * topBar.js -- prototype header: name, file toolbar, mode badge, profile,
  * adjust/gear/download. Device plug lives in #deviceMount beside this mount.
  */
+import { FIXTURES } from "../fixtures.js";
 import { listProfiles } from "../pipeline/profiles.js";
 
 export function createTopBar(
@@ -9,6 +10,7 @@ export function createTopBar(
   {
     onMaxSegmentsChange,
     onSaveMap,
+    onSave,
     onExportIcon,
     onDownloadPreview,
     onLoadFixture,
@@ -40,7 +42,7 @@ export function createTopBar(
       <div class="flex items-center gap-1 pl-3 border-l-2 border-[var(--border)]">
         <button type="button" id="btnNew" class="icon-btn" title="New"><i data-lucide="file-plus" class="w-[15px] h-[15px]"></i></button>
         <button type="button" id="btnOpen" class="icon-btn" title="Open"><i data-lucide="folder-open" class="w-[15px] h-[15px]"></i></button>
-        <button type="button" id="btnSave" class="icon-btn" title="Save map" ${state.mode ? "" : "disabled"}><i data-lucide="save" class="w-[15px] h-[15px]"></i></button>
+        <button type="button" id="btnSave" class="icon-btn" title="Save icon to the game library (and the device, when one is connected)" ${state.mode ? "" : "disabled"}><i data-lucide="save" class="w-[15px] h-[15px]"></i></button>
         <button type="button" id="btnRename" class="icon-btn" title="Rename"><i data-lucide="pencil-line" class="w-[14px] h-[14px]"></i></button>
         <button type="button" id="btnUndo" class="icon-btn" title="Undo" ${canUndo ? "" : "disabled"}><i data-lucide="undo-2" class="w-[15px] h-[15px]"></i></button>
         <input type="file" id="fileOpenHidden" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml" class="hidden" />
@@ -55,7 +57,7 @@ export function createTopBar(
       </select>
       <select id="fixtureSelect" class="select-themed">
         <option value="">Load fixture…</option>
-        ${["apple", "cherries", "grapes", "lemon", "orange", "watermelon"]
+        ${FIXTURES
           .map((n) => `<option value="${n}" ${n === state.iconName ? "selected" : ""}>${n}</option>`)
           .join("")}
       </select>
@@ -70,12 +72,13 @@ export function createTopBar(
               ${cropOpen ? "disabled" : ""}>
         <i data-lucide="settings" class="w-[18px] h-[18px]"></i>
       </button>
-      <button type="button" id="btnExportIcon" title="Download icon"
-              class="icon-btn-square disabled:opacity-40"
-              style="background:var(--red-soft);border-color:var(--red);color:#8a3a30"
-              ${state.mode ? "" : "disabled"}>
-        <i data-lucide="download" class="w-[17px] h-[17px]"></i>
-      </button>
+      <select id="exportPick" class="select-themed" title="Download a file" ${state.mode ? "" : "disabled"}>
+        <option value="">Export…</option>
+        <option value="icon">Icon .py</option>
+        <option value="map">Segment map .json</option>
+        <option value="preview">Preview .png</option>
+      </select>
+      <button type="button" id="btnExportIcon" class="hidden" aria-hidden="true"></button>
       <button type="button" id="btnDownloadPreview" class="hidden" aria-hidden="true"></button>
       <button type="button" id="btnSaveMap" class="hidden" aria-hidden="true"></button>
       <input type="range" id="segSlider" class="hidden" min="1" max="${state.maxSegments > 12 ? state.maxSegments : 12}"
@@ -92,7 +95,14 @@ export function createTopBar(
   el.querySelector("#btnExportIcon")?.addEventListener("click", onExportIcon);
   el.querySelector("#btnDownloadPreview")?.addEventListener("click", onDownloadPreview);
   el.querySelector("#btnSaveMap")?.addEventListener("click", onSaveMap);
-  el.querySelector("#btnSave")?.addEventListener("click", onSaveMap);
+  el.querySelector("#btnSave")?.addEventListener("click", () => onSave?.());
+  el.querySelector("#exportPick")?.addEventListener("change", (e) => {
+    const what = e.target.value;
+    e.target.value = "";               // a picker, not a mode: always reads "Export…"
+    if (what === "icon") onExportIcon?.();
+    else if (what === "map") onSaveMap?.();
+    else if (what === "preview") onDownloadPreview?.();
+  });
   el.querySelector("#btnNew")?.addEventListener("click", () => onNew?.());
   el.querySelector("#btnOpen")?.addEventListener("click", () => {
     el.querySelector("#fileOpenHidden")?.click();

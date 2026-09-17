@@ -161,6 +161,26 @@ check('its .py text parses as ICON data',
     lib.iconFileText('dragon').includes('SIZE = (16, 16)') &&
     (lib.iconFileText('dragon').match(/\(\d+, \d+, \d+\)/g) || []).length === 256);
 
+// ── the Maker's one Save ────────────────────────────────────────────
+// The Maker can write a .json map, download a .py, and push over USB, but
+// the destination that makes an icon usable from the chat is the library.
+// saveToLibrary() is what the top bar's Save calls; a bad name must raise
+// rather than save under something a game will never find.
+const pix = bridge.flatToPixels(lib.getIcon('tree'));
+const savedName = bridge.saveToLibrary('  campfire  ', pix);
+check('Save trims the name and stores it', savedName === 'campfire' &&
+    lib.listIcons().includes('campfire'), savedName);
+check('...with the pixels it was given',
+    JSON.stringify(lib.getIcon('campfire')) === JSON.stringify(lib.getIcon('tree')));
+check('...and a game can then ask for it',
+    lib.missingIconsIn('icon_store.read_icon("campfire")').length === 0);
+
+let raised = '';
+try { bridge.saveToLibrary('no spaces here', pix); } catch (e) { raised = e.message; }
+check('an unusable name raises instead of saving a mangled one',
+    raised.includes('not a usable icon name') &&
+    !lib.listIcons().some((n) => n.includes(' ')), raised || '(no error)');
+
 console.log();
 if (fails.length) { console.log(`FAILED: ${fails.length}`); process.exit(1); }
 console.log('icon panel + Maker bridge OK');

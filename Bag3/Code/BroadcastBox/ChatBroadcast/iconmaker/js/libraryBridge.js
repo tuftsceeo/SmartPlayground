@@ -37,6 +37,25 @@ export function flatToPixels(flat) {
 }
 
 /**
+ * Save the icon under `name` into the game library.
+ *
+ * Raises on a bad name rather than saving under a mangled one: the name is
+ * how a generated game refers to the picture, so a silent rename here is a
+ * game that draws nothing later.
+ */
+export function saveToLibrary(name, pixels) {
+    const clean = (name || '').trim();
+    if (!isValidIconName(clean)) {
+        throw new Error(
+            'not a usable icon name: "' + clean + '" -- letters, digits and '
+            + '_ or - only, up to 24 characters');
+    }
+    saveIcon(clean, pixelsToFlat(pixels));
+    return clean;
+}
+
+
+/**
  * Add a library row to the Maker's chrome.
  *
  * @param {HTMLElement} mount  where the row goes

@@ -13,7 +13,7 @@ export function createSimpleTopBar(
     onUiModeChange,
     onNew,
     onOpen,
-    onSaveMap,
+    onSave,
     onRename,
     onToggleAdjust,
     onUndo,
@@ -35,7 +35,7 @@ export function createSimpleTopBar(
       <div class="flex items-center gap-1 pl-3 border-l-2 border-[var(--border)]">
         <button type="button" id="btnNew" class="icon-btn" title="New"><i data-lucide="file-plus" class="w-[15px] h-[15px]"></i></button>
         <button type="button" id="btnOpen" class="icon-btn" title="Open"><i data-lucide="folder-open" class="w-[15px] h-[15px]"></i></button>
-        <button type="button" id="btnSave" class="icon-btn" title="Save" ${state.mode ? "" : "disabled"}><i data-lucide="save" class="w-[15px] h-[15px]"></i></button>
+        <button type="button" id="btnSave" class="icon-btn" title="Save icon to the game library (and the device, when one is connected)" ${state.mode ? "" : "disabled"}><i data-lucide="save" class="w-[15px] h-[15px]"></i></button>
         <button type="button" id="btnRename" class="icon-btn" title="Rename"><i data-lucide="pencil-line" class="w-[14px] h-[14px]"></i></button>
         <button type="button" id="btnUndo" class="icon-btn" title="Undo" ${canUndo ? "" : "disabled"}><i data-lucide="undo-2" class="w-[15px] h-[15px]"></i></button>
         <input type="file" id="fileOpenHidden" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml" class="hidden" />
@@ -80,7 +80,7 @@ export function createSimpleTopBar(
   el.querySelector("#btnAdjust")?.addEventListener("click", () => onToggleAdjust?.());
   el.querySelector("#modeGear")?.addEventListener("click", () => onUiModeChange("advanced"));
   el.querySelector("#btnNew")?.addEventListener("click", () => onNew?.());
-  el.querySelector("#btnSave")?.addEventListener("click", () => onSaveMap?.());
+  el.querySelector("#btnSave")?.addEventListener("click", () => onSave?.());
   el.querySelector("#btnOpen")?.addEventListener("click", () => el.querySelector("#fileOpenHidden")?.click());
   el.querySelector("#fileOpenHidden")?.addEventListener("change", (e) => {
     const file = e.target.files?.[0];

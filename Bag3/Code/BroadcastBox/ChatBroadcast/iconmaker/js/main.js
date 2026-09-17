@@ -42,7 +42,7 @@ import { PalettePicker } from "./components/palettePicker.js";
 import { showToast } from "./components/toast.js";
 // Save/open against ChatBroadcast's named-icon library. See libraryBridge.js:
 // the rest of this app does not know it exists.
-import { attachLibraryBar } from "./libraryBridge.js";
+import { attachLibraryBar, saveToLibrary } from "./libraryBridge.js";
 import { OFF_DUTY } from "./pipeline/ledGamut.js";
 import { advancedLayoutHtml } from "./layouts/advancedLayout.js";
 import { simpleLayoutHtml } from "./layouts/simpleLayout.js";
@@ -52,7 +52,6 @@ import { FrameThrottle, suggestSafeIntensity } from "./device/frameThrottle.js";
 import { SerialMonitor } from "./components/serialMonitor.js";
 import { logInfo, logError } from "./device/serialLog.js";
 
-const FIXTURES = ["apple", "cherries", "grapes", "lemon", "orange", "watermelon"];
 const GRID_BACKING = 640;
 
 function downloadText(filename, text, mime) {
@@ -346,6 +345,50 @@ class App {
     }
   }
 
+  /**
+   * Save the icon where it is actually useful, from one button.
+   *
+   * The Maker has three export paths -- a .json segment map, a downloaded
+   * .py, and a push over USB -- and a fourth destination that matters more
+   * than any of them here: ChatBroadcast's named-icon library, which is what
+   * lets a generated display game refer to the picture BY NAME and what the
+   * send path pushes to the Box. Downloading a .py leaves the icon in the
+   * teacher's downloads folder, where nothing reads it.
+   *
+   * So Save writes the library always, and the device too when one is
+   * attached, and says which. The .py, the map and the preview stay
+   * available under Export for the cases that want a file.
+   */
+  async saveIcon() {
+    if (!doc.pixels) {
+      showToast("Nothing to save yet -- import or open an icon first.", { kind: "error" });
+      return;
+    }
+    let saved;
+    try {
+      saved = saveToLibrary(state.iconName, doc.pixels);
+    } catch (e) {
+      showToast(String(e.message || e), { kind: "error" });
+      return;
+    }
+    this.library?.refreshList?.(saved);
+
+    if (!state.deviceRunning) {
+      showToast(`saved ${saved} to the game library`, { kind: "success" });
+      return;
+    }
+    // The library save already happened, so a device failure is reported as
+    // exactly that rather than as "save failed".
+    try {
+      await this.device.saveIcon(saved, flattenPixels(doc.pixels), { overwrite: true });
+      this.refreshDeviceIcons();
+      showToast(`saved ${saved} to the game library and the device`, { kind: "success" });
+    } catch (e) {
+      showToast(`saved ${saved} to the game library, but the device refused it: `
+                + String(e.message || e), { kind: "error" });
+    }
+  }
+
   // ── live push ───────────────────────────────────────────────────────
   maybePushLiveFrame(force = false) {
     if (!doc.pixels) return;
@@ -549,6 +592,7 @@ class App {
             onUiModeChange: (mode) => this.setUiMode(mode),
             onNew: () => this.confirmNewIcon(),
             onOpen: fileOpen,
+            onSave: () => this.saveIcon(),
             onSaveMap: () => this.exportMap(),
             onToggleAdjust: () => setState({ showAdjust: !state.showAdjust }),
             onUndo: () => this.undo(),
@@ -557,6 +601,7 @@ class App {
           })
         : createTopBar(state, {
             onMaxSegmentsChange: (n) => this.changeMaxSegments(n),
+            onSave: () => this.saveIcon(),
             onSaveMap: () => this.exportMap(),
             onExportIcon: () => this.exportIcon(),
             onDownloadPreview: () => this.exportPreview(),
@@ -737,12 +782,16 @@ class App {
   async loadFixture(name) {
     setState({ loading: true, statusText: `loading ${name}…`, customPaletteColors: [] });
     releaseSource();
-    const { imageData, source, transform } = await decodeUrlToWorking(`../assets/${name}.png`);
+    // This copy carries its own assets/ and maps/. The station's webapp sits
+    // one level deeper, where ../assets reached the station's real asset
+    // directory; here that resolved to ChatBroadcast/assets (wand artwork
+    // only) and every fixture 404'd.
+    const { imageData, source, transform } = await decodeUrlToWorking(`assets/${name}.png`);
     doc.source = source;
     doc.transform = transform;
     let existingMap = null;
     try {
-      const res = await fetch(`../maps/${name}.json`);
+      const res = await fetch(`maps/${name}.json`);
       if (res.ok) existingMap = await res.json();
     } catch {
       /* no map yet -- fine */
