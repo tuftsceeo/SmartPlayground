@@ -30,7 +30,7 @@ _gc.threshold = lambda *a: 0
 
 TMP = tempfile.mkdtemp(prefix="pair-")
 DISPLAY = os.path.join(TMP, "display")
-# The repo tree now carries device names directly (goalrace.py, not
+# The repo tree carries device names directly (goalrace.py, not
 # goalrace_icon.py -- that suffix lives only in the Box/Dial staging tree),
 # so flashing the tree verbatim is exactly what a real device has.
 shutil.copytree(os.path.join(ROOT, "IconDisplay"), DISPLAY)
@@ -135,7 +135,12 @@ def load(name, path):
     spec.loader.exec_module(mod)
     return mod
 
-display_game = load("display_goalrace", os.path.join(DISPLAY, "goalrace.py"))
+# The display's built-in games live in games/ -- the same directory a pull
+# writes into, so a shipped game and a pulled one sit side by side.
+_display_src = os.path.join(DISPLAY, "games", "goalrace.py")
+if not os.path.exists(_display_src):
+    _display_src = os.path.join(DISPLAY, "goalrace.py")
+display_game = load("display_goalrace", _display_src)
 check("display game has COMMANDS", hasattr(display_game, "COMMANDS"),
       str(sorted(display_game.COMMANDS)))
 check("display COMMANDS are all literal strings",
