@@ -272,6 +272,13 @@ peers, and goal messages are broadcasts, so the two devices never pair. The disp
 stays in a game until it is reset. Not a defect in this demo; it will matter when a
 teacher needs to end a round.
 
+**`_icon` is a reserved slug suffix on the Box and the Dial.** `_boot_scan_games()`
+skips any `*_icon.py` so a display game's staging copy never enters the game menu,
+which means a game slug ending in `_icon` would lose its wand file from the menu.
+Documented in `HARDWARE_PROTOCOL.md`; **nothing enforces it at send time** —
+ChatBroadcast will happily push such a slug. A name check in the send path is the
+obvious fix if it ever bites.
+
 **Hand-duplicated PEER files.** `code_server.py` ×2 (Box, Dial),
 `code_puller.py` ×2 (MockWand, IconDisplay), `icon_server.py` ×2 (display,
 station — kept in sync as of phase 6, see §5.8), and `json_link.py`, plus

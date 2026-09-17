@@ -298,18 +298,37 @@ def _pull_status(panel, phase, tick):
     shapes.wifi_animate(panel, tick, BLUE, frames_per_step=1 if phase == 'scan' else 3)
 
 
-def _pull_progress(panel, received, total):
-    """Light the panel left-to-right as bytes land, across all 256 pixels.
+PROGRESS_ROWS = 16        # the panel's own rows: one step per 1/16th of a file
+_progress_row = -1        # last row drawn, so an unchanged bar costs nothing
 
-    Mirrors MockWand/main.py's _pull_progress() on the 25-pixel matrix.
+
+def _pull_progress(panel, received, total):
+    """Fill the panel a row at a time as bytes land, in sixteenths.
+
+    Mirrors MockWand/main.py's _pull_progress() on the 25-pixel matrix, but
+    quantized to whole rows rather than pixels: the callback fires once per
+    512-byte chunk, and repainting 256 pixels per chunk puts a full frame
+    write inside the transfer loop for a bar that mostly does not move. A
+    16x16 panel has 16 rows, so a row IS a sixteenth -- the bar advances at
+    most 16 times per file and redraws only when it actually changes.
+
     Palette colours only, matching that module's note: every write is
     scaled by the panel's intensity LUT, so a raw dim tuple could round to
     invisible.
     """
+    global _progress_row
     pct = (received / total) if total else 0
+    row = int(pct * PROGRESS_ROWS)
+    if row > PROGRESS_ROWS:
+        row = PROGRESS_ROWS
+    if row == _progress_row:
+        return                     # same sixteenth -- nothing to repaint
+    _progress_row = row
+
     src = panel.src
     n = len(src) // 3
-    lit = max(1, int(pct * n))
+    per_row = n // PROGRESS_ROWS
+    lit = row * per_row
     for i in range(n):
         o = i * 3
         if i < lit:
@@ -317,6 +336,9 @@ def _pull_progress(panel, received, total):
         else:
             src[o], src[o + 1], src[o + 2] = BLUE_DIM
     panel.draw_bytes(src)
+    # No reset between the files of one pull session: a finished file ends
+    # on row 16 and the next one's first callback is row 0, so the change
+    # redraws on its own.
 
 
 def _run_pull_mode(panel, icon_dir):
@@ -507,6 +529,15 @@ def main():
                 _launch_game(name, reader, panel, enow)
                 last_uid = None
                 frame = 0
+            else:
+                # do_start_game already validated this name, so reaching
+                # here means the game went away between the request and
+                # now. Say so: a bench command that quietly does nothing is
+                # the hardest kind of nothing to debug.
+                import shapes
+                print("  [WARN] bench start_game %r is no longer a game here"
+                      % (name,))
+                flash_glyph(panel, shapes.SHAPE_QUESTION, AMBER, hold_ms=400)
 
         # ESP-NOW every pass: a wand starting a game must not wait on a
         # card read.

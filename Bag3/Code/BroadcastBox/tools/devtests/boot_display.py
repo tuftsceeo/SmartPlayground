@@ -255,13 +255,49 @@ main._run_pull_mode(panel, icon_store.DIR)
 check("attempt budget spent lights SHAPE_X in red",
       _draw_calls == [(shapes.SHAPE_X, main.RED)], str(_draw_calls))
 
-# on_status/on_progress are actually wired up, not just accepted
+# on_status/on_progress are actually wired up, not just accepted: a callback
+# that silently drew nothing would pass a bare "it did not raise" check.
 _run_pull_mode_with(
     "noap",
     on_status_calls=[("scan", 0), ("scan", 8)],
     on_progress_calls=[(100, 400)],
 )
-check("on_status/on_progress callbacks run without error", True)
+_status_draws = _draw_calls[:2]
+check("on_status draws the wifi bars in blue",
+      len(_status_draws) == 2
+      and all(s in shapes.WIFI_FRAMES and c == main.BLUE for s, c in _status_draws),
+      str(_status_draws))
+check("...and a later tick is a different bar, so the bars actually cycle",
+      _status_draws[0][0] != _status_draws[1][0])
+
+# The progress bar fills by whole rows -- sixteenths of the panel -- and
+# repaints only when the row changes. The callback fires once per 512-byte
+# chunk, so a per-pixel bar would put a full 256-pixel frame write inside
+# the transfer loop for a bar that mostly does not move.
+_pp = icon_matrix.Matrix(pin=0, intensity=main.IDLE_INTENSITY)
+main._progress_row = -1
+_per_row = 256 // main.PROGRESS_ROWS
+
+
+def _px(panel, i):
+    o = i * 3
+    return (panel.src[o], panel.src[o + 1], panel.src[o + 2])
+
+
+main._pull_progress(_pp, 100, 400)          # 25% -> 4 of 16 rows
+_writes_at_4 = _pp.np.writes
+check("a quarter of the file lights a quarter of the rows",
+      _px(_pp, 4 * _per_row - 1) == main.CYAN and _px(_pp, 4 * _per_row) == main.BLUE_DIM,
+      "%s then %s" % (_px(_pp, 4 * _per_row - 1), _px(_pp, 4 * _per_row)))
+
+main._pull_progress(_pp, 101, 400)          # still inside the same sixteenth
+check("another chunk in the same sixteenth costs no frame write",
+      _pp.np.writes == _writes_at_4, "%d writes" % _pp.np.writes)
+
+main._pull_progress(_pp, 400, 400)          # done
+check("a finished file fills the whole panel",
+      _px(_pp, 0) == main.CYAN and _px(_pp, 255) == main.CYAN)
+check("...and that took one more frame write", _pp.np.writes == _writes_at_4 + 1)
 
 shapes.draw_shape = _orig_draw_shape
 

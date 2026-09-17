@@ -268,6 +268,15 @@ from that table is refused rather than guessed at. The role lives on the Box
 and in ChatBroadcast only — the destination name is always plain `<slug>.py`,
 so every device holds at most one module per slug.
 
+**`_icon` is a reserved suffix on the Box and the Dial.** Because that is how
+`ROLE_FILES` picks the display's file out of `/flash/games/`, `_boot_scan_games()`
+in `bbox_server.py` and `bdial_server.py` skips any name ending `_icon.py`: it is
+one role's staging copy, not a playable game on that device, so it never enters
+the game menu and never becomes active. A game slug may therefore not end in
+`_icon` — `spooky_icon` would be staged as `spooky_icon_icon.py` for the display
+and its wand file would vanish from the menu. Nothing enforces this at send
+time; ChatBroadcast has no such check today.
+
 A role whose `ROLE_FILES` entry sets `icons` reads one more leg after its ack:
 
 ```
