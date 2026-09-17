@@ -192,3 +192,121 @@ def wifi_animate(panel, frame, rgb, frames_per_step=3):
     """
     step = (frame // frames_per_step) % len(WIFI_FRAMES)
     draw_shape(panel, WIFI_FRAMES[step], rgb)
+
+
+# ══════════════════════════════════════════════
+# PER-CELL DRAWING
+# ══════════════════════════════════════════════
+# draw_shape() paints one glyph in one colour, which is every case except the
+# two below: the boot screen lights each cell its own colour, and both keep
+# earlier cells lit while later ones change. So those hold the 5x5 frame
+# between calls rather than rebuilding it from a shape each time.
+
+def draw_cells(panel, cells, clear=True):
+    """Paint individual 5x5 cells, each its own colour, scaled and centred.
+
+    `cells` is any iterable of (index, (r, g, b)). With clear=False the
+    frame keeps whatever was already in it, so a caller can light one more
+    cell without redrawing the rest.
+    """
+    buf = _glyph_buf
+    if clear:
+        for i in range(len(buf)):
+            buf[i] = 0
+    for idx, rgb in cells:
+        if 0 <= idx < _GLYPH_W * _GLYPH_H:
+            o = idx * 3
+            buf[o], buf[o + 1], buf[o + 2] = rgb
+    icon_store.scale_into(buf, _GLYPH_W, _GLYPH_H, panel.src, W, H)
+    panel.draw_bytes(panel.src)
+
+
+def idle_default(panel, rgb):
+    """The inner 3x3 lit, static -- what MockWand shows when it is waiting.
+
+    The wand colours this square by battery charge (leds.idle_default()).
+    This device has no battery, so the caller passes the colour; green means
+    the same thing on both: powered, idle, nothing wrong.
+
+    Static on purpose. An animation here would be a second thing writing the
+    panel every frame, and this device shares those 256 pixels with the icon
+    editor over USB.
+    """
+    draw_cells(panel, [(i, rgb) for i in SHAPE_INNER_3x3])
+
+
+# ══════════════════════════════════════════════
+# BOOT SCREEN
+# ══════════════════════════════════════════════
+# Mirrors MockWand's leds.boot_stage_*(): the left column is one cell per
+# boot stage, and the four cells to its right carry that stage's data. Same
+# colour language on both devices -- dim white means started, green ok, amber
+# a non-fatal problem, red a fatal one -- so the same glance reads either.
+#
+# The stages differ because the devices differ. The wand's are power,
+# brightness, battery, NFC, accel; this device has no battery, no light
+# sensor and no accelerometer, and has a panel and a USB link instead.
+
+STAGE_ROWS = (
+    (1, 2, 3, 4),        # stage 0: power / main() reached   (row: radio)
+    (6, 7, 8, 9),        # stage 1: panel
+    (11, 12, 13, 14),    # stage 2: storage                  (row: game count)
+    (16, 17, 18, 19),    # stage 3: USB link
+    (21, 22, 23, 24),    # stage 4: card reader
+)
+
+WHITE_DIM = (40, 40, 40)
+STAGE_OK = (0, 120, 0)
+STAGE_WARN = (120, 60, 0)
+STAGE_FAIL = (120, 0, 0)
+
+
+class BootScreen:
+    """The five stage cells and their data rows, held across calls.
+
+    Keeps its own cell->colour map because each stage paints only its own
+    cells: a stage that finishes must not blank the ones before it, which is
+    what makes the panel readable as a record of how far boot got.
+    """
+
+    def __init__(self, panel):
+        self.panel = panel
+        self.cells = {}
+
+    def _paint(self):
+        draw_cells(self.panel, self.cells.items())
+
+    def stage_start(self, stage):
+        """Dim white: this stage has begun. Left lit if the stage never ends,
+        which is exactly what a hang looks like from across the room."""
+        if stage < len(SHAPE_LEFT_COL):
+            self.cells[SHAPE_LEFT_COL[stage]] = WHITE_DIM
+            self._paint()
+
+    def stage_ok(self, stage, row_colors=None):
+        """Green, optionally with up to four data cells beside it."""
+        self._mark(stage, STAGE_OK, row_colors)
+
+    def stage_warn(self, stage, row_colors=None):
+        """Amber: this part did not come up, the device runs without it."""
+        self._mark(stage, STAGE_WARN, row_colors)
+
+    def stage_fail(self, stage):
+        """Red. Nothing here is fatal today, but the colour is reserved so
+        the display cannot say "fine" about something that was not."""
+        self._mark(stage, STAGE_FAIL, None)
+
+    def _mark(self, stage, color, row_colors):
+        if stage >= len(SHAPE_LEFT_COL):
+            return
+        self.cells[SHAPE_LEFT_COL[stage]] = color
+        if row_colors:
+            row = STAGE_ROWS[stage]
+            for i in range(len(row_colors)):
+                if i < len(row) and row_colors[i]:
+                    self.cells[row[i]] = row_colors[i]
+        self._paint()
+
+    def clear(self):
+        self.cells = {}
+        self.panel.clear()

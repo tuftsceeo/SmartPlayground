@@ -91,9 +91,45 @@ check("panel built", panel.np.n == 256)
 
 main.fill(panel, main.RED)
 check("fill writes the frame", panel.src[0] == 120 and panel.src[1] == 0)
-main.show_idle(panel, 5)
-check("show_idle draws", panel.np.writes > 1)
 import shapes
+
+
+def _px(pnl, x, y):
+    o = (y * 16 + x) * 3
+    return (pnl.src[o], pnl.src[o + 1], pnl.src[o + 2])
+
+
+# The waiting display is the wand's: a static green square, not an animation.
+panel.src[0] = 99
+main.show_idle(panel, 0)
+check("the idle display is a green square in the middle",
+      _px(panel, 8, 8) == main.IDLE_GREEN, str(_px(panel, 8, 8)))
+check("...with the edges dark", _px(panel, 0, 0) == (0, 0, 0), str(_px(panel, 0, 0)))
+
+_writes = panel.np.writes
+main.show_idle(panel, 1)
+check("...repainted on a cadence, not every frame, since it never changes",
+      panel.np.writes == _writes)
+main.show_idle(panel, main.IDLE_REPAINT_FRAMES)
+check("...and it does come back", panel.np.writes == _writes + 1)
+
+# ── Boot screen: the wand's stage column, same colour language ──
+_boot = shapes.BootScreen(panel)
+_boot.stage_start(0)
+check("a started stage is dim white", _px(panel, 1, 1) == shapes.WHITE_DIM,
+      str(_px(panel, 1, 1)))
+_boot.stage_ok(0, [None, None, None, shapes.STAGE_OK])
+check("a finished stage turns green", _px(panel, 1, 1) == shapes.STAGE_OK)
+check("...and its data cell lights beside it", _px(panel, 13, 1) == shapes.STAGE_OK,
+      str(_px(panel, 13, 1)))
+_boot.stage_warn(4)
+check("a warned stage is amber", _px(panel, 1, 13) == shapes.STAGE_WARN,
+      str(_px(panel, 1, 13)))
+check("...and earlier stages stay lit, so the column reads as a record",
+      _px(panel, 1, 1) == shapes.STAGE_OK)
+_boot.clear()
+check("clearing the boot screen blanks the panel",
+      all(v == 0 for v in panel.src))
 main.flash_glyph(panel, shapes.SHAPE_X, main.AMBER, hold_ms=0)
 check("flash_glyph restores idle intensity", abs(panel.intensity - main.IDLE_INTENSITY) < 1e-9,
       str(panel.intensity))
@@ -141,6 +177,17 @@ check("a built-in with no file on flash is not a game",
       main.game_module("goalrace") is None and not main.is_game("goalrace"))
 check("...and the other built-ins are unaffected",
       main.game_module("noplay") == "noplay")
+
+# ...unless the same slug has been pulled. A pulled goalrace is what the Box
+# serves this device, and the built-in entry must not hide it -- the symptom
+# on hardware was "no game 'goalrace' on this display" right after a pull
+# that had just written /games/goalrace.py.
+with open(os.path.join(game_store.GAMES_DIR, "goalrace.py"), "w") as f:
+    f.write("COMMANDS = {'stop'}\n\n\ndef play(nfc, panel, enow):\n    pass\n")
+check("a pulled copy is playable even when the built-in file is absent",
+      main.is_game("goalrace") is True and main.game_module("goalrace") == "goalrace")
+os.remove(os.path.join(game_store.GAMES_DIR, "goalrace.py"))
+
 os.rename(os.path.join(FLASH, "goalrace.py.away"), os.path.join(FLASH, "goalrace.py"))
 check("it comes back when the file does", main.is_game("goalrace") is True)
 

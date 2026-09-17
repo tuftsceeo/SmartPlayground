@@ -116,7 +116,16 @@ def game_module(name):
     """
     if name in GAME_MODULES:
         mod = GAME_MODULES[name]
-        return mod if _module_on_flash(mod) else None
+        if _module_on_flash(mod):
+            return mod
+        # Falls through instead of returning None: on this device a name can
+        # be BOTH a built-in and a pulled game -- goalrace is the demo pair's
+        # display half, shipped in the tree and also served by the Box -- and
+        # the built-in file is only on flash if someone copied it to the root.
+        # Being in the table is a claim about the tag, not about what is
+        # installed, so a missing built-in must not hide /games/<slug>.py.
+        # (MockWand has the same lookup and never hits this: none of its
+        # built-in names are pullable slugs.)
     if game_store.exists(name):
         return name          # /games is on sys.path; slug == module name
     return None
@@ -142,6 +151,12 @@ def is_game(name):
 IDLE_INTENSITY = 0.15
 ALERT_INTENSITY = 0.15
 
+# The waiting square is static, so it only needs repainting often enough to
+# come back promptly after something else has owned the panel.
+IDLE_REPAINT_FRAMES = 12      # ~1s at IDLE_FRAME_MS
+BOOT_SCREEN_HOLD_MS = 1200    # long enough to read the stage column
+IDLE_GREEN = (0, 120, 0)
+
 BLACK = (0, 0, 0)
 RED = (120, 0, 0)
 GREEN = (0, 120, 0)
@@ -162,11 +177,22 @@ def fill(panel, rgb):
 
 
 def show_idle(panel, frame):
-    """A slow dim blue breath, so an idle display is visibly alive."""
-    step = frame % 32
-    level = step if step < 16 else 31 - step
+    """The wand's waiting display: a static green square, centred.
+
+    MockWand lights its inner 3x3 in battery-charge colour while it waits
+    (leds.idle_default()). This device has no battery, so the square is
+    plain green -- powered, idle, nothing wrong -- and means the same thing
+    at a glance on either device.
+
+    Repainted on a slow cadence rather than every frame: it is static, and
+    the icon editor shares these 256 pixels, so an idle animation would be a
+    second writer competing for them every 80ms.
+    """
+    if frame % IDLE_REPAINT_FRAMES:
+        return
+    import shapes
     panel.set_intensity(IDLE_INTENSITY)
-    fill(panel, (0, 4 + level, 20 + level * 2))
+    shapes.idle_default(panel, IDLE_GREEN)
 
 
 def flash_glyph(panel, shape, rgb, hold_ms=900):
@@ -432,8 +458,10 @@ def main():
     enow = ESPNowManager()
     memprobe.probe("pre-enow")   # BENCH
     memprobe.frag("pre-enow")    # BENCH
+    radio_ok = False
     try:
         enow.init()
+        radio_ok = True
         print("  ESP-NOW ready")
     except Exception as e:
         print("  [WARN] ESP-NOW:")
@@ -446,9 +474,24 @@ def main():
     panel = icon_matrix.Matrix(pin=HUB_CONFIG["led_pin"], intensity=IDLE_INTENSITY)
     memprobe.probe("post-panel")  # BENCH
 
+    # The boot screen can only start here: the radio comes up before the
+    # panel exists (see the module docstring), so stage 0's result is held
+    # and painted as soon as there is something to paint it on.
+    import shapes
+    boot = shapes.BootScreen(panel)
+    panel.set_intensity(IDLE_INTENSITY)
+    boot.stage_ok(0, [None, None, None,
+                      shapes.STAGE_OK if radio_ok else shapes.STAGE_WARN])
+    boot.stage_ok(1)                      # the panel itself, self-evidently
+
     # ── 3. A queued pull runs before the session proper ──
+    # It owns the panel while it runs, so the boot screen is repainted after.
     if pull_flag.is_pending():
         _run_pull_mode(panel, icon_store.DIR)
+        boot._paint()
+
+    n_games = len(game_store.slugs())
+    boot.stage_ok(2, [shapes.STAGE_OK if i < n_games else None for i in range(4)])
 
     # ── 4. USB link for the icon editor web app ──
     # Given the panel main.py already built: two NeoPixel objects on one pin
@@ -459,6 +502,7 @@ def main():
     from icon_server import IconServer
     server = IconServer(panel, debug=DEBUG, is_game=is_game)
     server.start()
+    boot.stage_ok(3)
     memprobe.probe("post-server")  # BENCH
 
     # ── 5. Card reader, when one is fitted ──
@@ -488,14 +532,22 @@ def main():
                   % (addr, [hex(a) for a in found] or "nothing"))
             print("        card taps will not work this boot; everything"
                   " else still runs")
+            boot.stage_warn(4)
         else:
             nfc = Ws1850sReader(i2c, addr=addr)
             version = nfc.begin()
             reader = NfcReader(nfc, ALL_COMMANDS, prefixes={"getcode"})
             print("  NFC reader ready at 0x%02X (WS1850S ver 0x%02X, %d commands)"
                   % (addr, version, len(ALL_COMMANDS)))
+            boot.stage_ok(4)
     else:
         print("  No card reader fitted (hubtype has_nfc is False)")
+        boot.stage_warn(4)
+
+    # Hold the finished boot screen long enough to read, then clear it --
+    # the wand does the same before its idle display takes over.
+    time.sleep_ms(BOOT_SCREEN_HOLD_MS)
+    boot.clear()
 
     # A game that just landed launches itself on this boot rather than
     # waiting for a second tap.

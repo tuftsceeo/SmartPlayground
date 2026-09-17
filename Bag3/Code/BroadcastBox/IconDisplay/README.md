@@ -99,6 +99,13 @@ taps and nothing else -- the rest of the device still boots and runs.
 
 ## Glyph vocabulary
 
+The display speaks the wand's visual language, scaled 3x onto the 16x16
+panel: a **boot screen** whose left column is one cell per stage (dim white
+started, green ok, amber degraded, red fatal) with data cells beside it, and
+a **static green square** while it waits -- the wand's `idle_default()`, which
+colours that square by battery charge. This device has no battery, so it is
+plain green: powered, idle, nothing wrong.
+
 `lib/shapes.py` is a PEER copy of `MockWand/lib/leds.py`'s 5x5 `SHAPE_*`
 tuples (data only, no LED driver), plus `draw_shape()` and `wifi_animate()`,
 which scale a 5x5 frame onto this 16x16 panel via `icon_store.scale_into()`.
