@@ -91,12 +91,18 @@ pushes `<slug>.py`, `<slug>_icon.py`, every `<slug>_icons/<name>.py` and
 `<slug>.tags.json` in one raw-REPL session, and **refuses to send** when the
 display game names an icon the library does not have.
 
+`js/ledicons/defaultIcons.js` is generated from the display's own `icons/`
+by `tools/sync_icons.py` (28 icons); do not hand-edit it. In the Icon Maker
+copy under `iconmaker/`, **Save** writes that library, and the connected
+device too when there is one; the `.py`, the segment map and the preview are
+downloads under **Export**.
+
 ---
 
 ## 5. Phase 6 — done
 
 All of §5.1–§5.8 below is implemented and covered by the host suite in §8.
-None of it needed hardware; §9 is still the hardware hand-back.
+None of it needed hardware; §9 is the hardware pass it hands back to.
 
 ### 5.1 Tell the model which icons exist -- done
 
@@ -344,19 +350,74 @@ boot order, dispatch and static derivations still agree — not that it works.
 
 ---
 
-## 9. Handing back for hardware
+## 9. The complete flow, on hardware
 
-When phase 6 is implemented and §8 is green, the user runs one test:
+One pass, authoring a new two-device game in ChatBroadcast and playing it.
+Each step says what it should print or show, so a deviation is recognisable
+without guessing.
 
-1. Open ChatBroadcast against the Box or Dial and ask for a two-device game.
-2. Read the send checklist **before** anything reaches flash.
-3. Send; then pull on the wand by tapping `getcode:<slug>`. On the display,
-   pull the file onto flash the same way a real tap eventually will, once a
-   reader is fitted: `import pull_flag, machine;
-   pull_flag.set_pending('<slug>'); machine.reset()` at the REPL. The pull
-   auto-launches on that reset; to relaunch it later without another pull,
-   use the `start_game` USB command instead (§5.6).
-4. Play a round.
+### Before you start
 
-Report what each step should print, so a deviation is recognisable without
-guessing.
+Flash the display with the current `IconDisplay/` tree, the Dial (or Box)
+with its firmware, and the wand with `MockWand/`. Have the Dial's card
+writer to hand — the new game needs its own cards.
+
+### 1. Author
+
+Open ChatBroadcast, connect to the Box or Dial, and ask for a game that uses
+both a wand and the display. **Expect** two fenced blocks in the reply, each
+preceded by `[DEVICE: wand]` or `[DEVICE: icon]`, and both tabs in the role
+rail becoming live. The display game should name only icons in the library —
+the model is told the list — and the icon simulator beside the wand sim
+should draw them.
+
+**If the reply has one block**, the marker convention did not survive; say so
+rather than editing the code by hand, because the same thing will happen on
+every regeneration.
+
+### 2. Read the checklist, then send
+
+**Expect** the hardware checklist to name the cards the game needs. Send.
+
+**Expect** the progress readout to count `1 + 1 + N` files: `<slug>.py`,
+`<slug>.tags.json`, `<slug>_icon.py`, then one `<slug>_icons/<name>.py` per
+icon, all in one raw-REPL session, one soft reset at the end. A refusal
+naming a missing icon is the send working as intended, not a fault.
+
+### 3. Write the cards
+
+On the Dial, write `getcode:<slug>`, `<slug>`, and whatever tags the game
+declared. **Expect** the Dial's write menu to offer them — it reads the
+`<slug>.tags.json` that step 2 pushed. If the menu does not list them, the
+tags file did not land, and the game will still play for anyone holding the
+right cards.
+
+### 4. Pull to both devices
+
+Put the Dial in SERVE mode. Tap `getcode:<slug>` on the wand, then on the
+display.
+
+**Expect on the display:** blue wifi bars while it scans and joins, a cyan
+bar filling by whole rows, a green check, a reset, then the game running —
+`requested '<slug>' as 'icon_display'` and `icon leg: N file(s)` in the log.
+**Expect on the wand:** its own pull, then the game.
+
+Red wifi bars mean the AP is not up; amber means the Box has no file for
+that role, which is a send problem, not a radio one.
+
+### 5. Play
+
+Tap the game's cards. **Expect** the display to react to what the wands do.
+
+### 6. Repeat without re-pulling
+
+Tap `<slug>` on either device to start the game again — the file is on
+flash now. `stop` returns the wand to idle; the display returns to its green
+waiting square.
+
+### What is unproven going in
+
+The browser half of this has only ever run under host tests: the role rail,
+the per-role editor, the send progress UI, and the Icon Maker's Save and
+Export controls. The device half of steps 4-6 has run on hardware, with
+`goalrace` rather than a freshly authored game.
