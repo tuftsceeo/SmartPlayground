@@ -261,7 +261,18 @@ so phase 5 never stepped the USB server.
 
 ## 7. Known issues and open decisions
 
-**The display can now be started on the bench without a card reader**, via
+**The display's card reader is wired but has never read a tag.** It is a
+WS1850S at `0x28` — the same chip as the Broadcast Box, on the wand's I2C pins —
+so `has_nfc` is now `True` and `lib/nfc_ws1850s.py` presents it to
+`nfc_reader.py` as the four PN532 methods that file calls. The PN532 driver is
+gone from this tree. Covered host-side by `tools/devtests/nfc_display.py`
+(19 checks against a fake chip holding a real NDEF card image), **unproven on
+hardware**: the address, the Crypto1 clearing and the tap-to-launch path all
+want a bench run. `main.py` scans the bus at boot and prints what it found, so
+a wrong address reads off the boot log rather than presenting as a display that
+silently ignores cards.
+
+**The display can also be started on the bench without a card**, via
 `icon_server.py`'s `start_game` command (§5.6). The REPL incantation
 (`import pull_flag, machine; pull_flag.set_pending('goalrace');
 machine.reset()`) still works too — that path pulls a fresh copy from the
@@ -311,6 +322,7 @@ python3 Bag3/Code/BroadcastBox/tools/devtests/wire_test_dial.py  # Dial pull pro
 python3 Bag3/Code/BroadcastBox/tools/devtests/boot_display.py    # display boot order + game dispatch + pull-mode glyphs
 python3 Bag3/Code/BroadcastBox/tools/devtests/usb_link.py        # icon server + panel latch + start_game
 python3 Bag3/Code/BroadcastBox/tools/devtests/goalrace_pair.py   # the pair, one fake radio between them
+python3 Bag3/Code/BroadcastBox/tools/devtests/nfc_display.py     # the display's WS1850S shim + tag decode
 python3 Bag3/Code/BroadcastBox/tools/devtests/game_menu_scan.py  # Box/Dial boot scan never enrolls a *_icon.py staging file
 node    Bag3/Code/BroadcastBox/tools/devtests/chatbroadcast_flow.mjs
 node    Bag3/Code/BroadcastBox/tools/devtests/icon_panel.mjs

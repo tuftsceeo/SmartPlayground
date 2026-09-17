@@ -466,16 +466,34 @@ def main():
     reader = None
     if HUB_CONFIG.get("has_nfc"):
         from machine import Pin, SoftI2C
-        from pn532 import PN532
+        from nfc_ws1850s import Ws1850sReader
         from nfc_reader import NfcReader
+        addr = HUB_CONFIG["nfc_addr"]
         i2c = SoftI2C(sda=Pin(HUB_CONFIG["i2c_sda"]),
                       scl=Pin(HUB_CONFIG["i2c_scl"]),
                       freq=HUB_CONFIG["i2c_freq"])
-        nfc = PN532(i2c, addr=HUB_CONFIG["nfc_addr"])
-        nfc.begin()
-        nfc.SAMConfig()
-        reader = NfcReader(nfc, ALL_COMMANDS, prefixes={"getcode"})
-        print("  NFC reader ready (%d commands)" % len(ALL_COMMANDS))
+        # Scan before constructing: a reader on the wrong address, or a bus
+        # that is not wired, otherwise shows up as a display that simply
+        # never reads a card -- the hardest kind of nothing to diagnose.
+        # Every device address found is printed, so the fix is visible from
+        # the boot log alone.
+        try:
+            found = i2c.scan()
+        except Exception as e:
+            found = []
+            print("  [ERR] I2C scan failed on sda=%d scl=%d: %s"
+                  % (HUB_CONFIG["i2c_sda"], HUB_CONFIG["i2c_scl"], e))
+        if addr not in found:
+            print("  [ERR] no reader at 0x%02X -- I2C holds %s"
+                  % (addr, [hex(a) for a in found] or "nothing"))
+            print("        card taps will not work this boot; everything"
+                  " else still runs")
+        else:
+            nfc = Ws1850sReader(i2c, addr=addr)
+            version = nfc.begin()
+            reader = NfcReader(nfc, ALL_COMMANDS, prefixes={"getcode"})
+            print("  NFC reader ready at 0x%02X (WS1850S ver 0x%02X, %d commands)"
+                  % (addr, version, len(ALL_COMMANDS)))
     else:
         print("  No card reader fitted (hubtype has_nfc is False)")
 

@@ -91,19 +91,22 @@ _CONFIGS = {
     # ceiling live in icon_matrix.py, not here -- this entry only says which
     # pins the device drives and which parts are fitted.
     #
-    # UNVERIFIED PINS. The driver board has two data outputs (A0 screw
+    # UNVERIFIED LED PIN. The driver board has two data outputs (A0 screw
     # terminal -> GPIO0, D5 Grove -> GPIO23) and which one is wired differs
-    # per unit; icon_matrix.DATA_PIN is 0 for the bench unit. The card reader
-    # is not fitted yet, so has_nfc is False and the I2C pins below are the
-    # wand's, carried over as a starting point rather than measured. Confirm
-    # both against the actual board before trusting them.
+    # per unit; icon_matrix.DATA_PIN is 0 for the bench unit.
+    #
+    # The card reader IS fitted: the same chip as the Broadcast Box (WS1850S
+    # at 0x28, driven through lib/nfc_ws1850s.py), on the same I2C pins as
+    # the wand. Not a PN532 -- 0x24 is the wrong address here, and the PN532
+    # driver is not in this tree. main.py scans the bus at boot and says what
+    # it found if nfc_addr is not on it.
     "icon_display": {
         "num_leds":       256,      # 16x16
         "led_pin":        0,        # A0 screw terminal; D5 Grove is 23
         "matrix_cols":    16,
         "matrix_rows":    16,
-        "has_nfc":        False,    # flip to True when the PN532 is wired
-        "nfc_addr":       0x24,     # PN532 I2C address
+        "has_nfc":        True,
+        "nfc_addr":       0x28,     # WS1850S I2C address
         "has_accel":      False,
         "has_battery":    False,
         "has_buzzer":     False,
@@ -113,7 +116,7 @@ _CONFIGS = {
         "uses_ble":       False,
         "i2c_sda":        22,
         "i2c_scl":        23,
-        "i2c_freq":       100_000,  # the PN532 fails at 400 kHz
+        "i2c_freq":       100_000,  # wand-matching bus speed
     },
 }
 

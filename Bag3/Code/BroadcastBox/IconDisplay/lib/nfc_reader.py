@@ -1,14 +1,14 @@
 """
-NFC Reader — Tag scanning and command extraction (Mock Wand)
+NFC Reader — Tag scanning and command extraction (Icon Display)
 ==============================================================
-Ported verbatim from Bag2/Code/lib/nfc_reader.py. MockWand is being used
-to test the Broadcast Box <-> wand handshake against Bag3's opcodes.py
-scheme, which is untested on real hardware -- so for now MockWand reads
-plain NDEF text instead, matching what card_writer.py on the Box actually
-writes and what Bag2/Utilities/writetoNFCcards.py has always written.
-opcodes.py in this lib/ is unused by this file; it's still referenced by
-game_tags.py for the tag-name vocabulary, which is unaffected by the wire
-encoding.
+PEER: MockWand/lib/nfc_reader.py, itself ported verbatim from
+Bag2/Code/lib/nfc_reader.py. This copy differs from the wand's in one
+line -- the MIFARE_AUTH_* import above the class -- because this device's
+reader is a WS1850S behind lib/nfc_ws1850s.py rather than a PN532.
+
+Cards carry plain NDEF text -- what card_writer.py on the Box and the Dial
+writes, and what Bag2/Utilities/writetoNFCcards.py has always written. The
+tag vocabulary this device recognises is declared in lib/display_tags.py.
 
 Supports two-phase reading: detect tag presence first, then read
 data. This lets the caller animate during the slow read phase.
@@ -34,7 +34,11 @@ Usage:
 
 import sys
 import time
-from pn532 import MIFARE_AUTH_A, MIFARE_AUTH_B
+# The display's one divergence from the wand's copy of this file: its
+# reader is a WS1850S, not a PN532, so the two key-type constants come
+# from the shim that drives it. The values are identical (0x60/0x61) --
+# they are MIFARE command bytes, not a property of either chip.
+from nfc_ws1850s import MIFARE_AUTH_A, MIFARE_AUTH_B
 
 COMMON_KEYS = [
     b'\xFF\xFF\xFF\xFF\xFF\xFF',
