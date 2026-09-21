@@ -22,6 +22,7 @@ import time as _t
 _t.ticks_ms = lambda: int(_t.time() * 1000)
 _t.sleep_ms = lambda ms: None
 _t.ticks_diff = lambda a, b: a - b
+_t.ticks_add = lambda a, b: a + b   # code_server's per-client deadlines
 
 import bbox_server as BS
 
