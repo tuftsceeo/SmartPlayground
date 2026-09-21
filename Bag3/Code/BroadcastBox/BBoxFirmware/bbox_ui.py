@@ -424,6 +424,45 @@ class BboxUI(object):
         self._exit_label.setColor(DANGER_FG, CARD_BG)
         self._set_text(self._exit_label, "X")
 
+    def paint_reader(self, existing=None, scanned=False):
+        """Utility Tags -> Read Card: a continuous, read-only scan screen.
+
+        Unlike paint_scanning() (one write attempt, then bbox_server hands
+        off to the dismiss-to-continue "status" splash), this is simply
+        called again in place for each card -- bbox_server._scan_step()
+        never advances READ_ENTRY to _to_splash() -- so a teacher can read
+        several cards back to back without re-entering the menu between
+        them. Built on the same _status() shape and exit-X affordance as
+        paint_scanning(); W_SCAN already binds BtnB to exit.
+
+        `scanned=False` (the default) is the "nothing read yet" state,
+        painted once on entry. Every read after that passes `scanned=True`
+        with `existing` -- the NDEF text found (None/"" for a blank card).
+        Unlike paint_scanning()'s label, whose targets are short internal
+        constants, a card read here can carry arbitrary previously-written
+        text, so it goes through _fit() to ROW_CHARS and the same
+        recolour-blank-recolour sandwich _set_act_label() uses, rather than
+        the plain _set_text() every other _status() caller gets away with.
+        """
+        if not scanned:
+            title = "NFC Reader"
+        elif existing:
+            title = '"%s"' % _fit(_display_tag(existing), ROW_CHARS)
+        else:
+            title = "Blank Card"
+        self._clear()
+        self._st_title.setColor(INK, PAGE_BG)
+        self._st_title.setText("")
+        self._st_title.setColor(INK, PAGE_BG)
+        self._set_text(self._st_title, title)
+        self._set_text(self._st_body1, "")
+        self._set_text(self._st_body2, "")
+        self._set_text(self._st_body3,
+                        "Tap Tag Now" if not scanned else "Scan Another or Exit")
+        self._exit_rect.setColor(BORDER, CARD_BG)
+        self._exit_label.setColor(DANGER_FG, CARD_BG)
+        self._set_text(self._exit_label, "X")
+
     def paint_already(self, label):
         self._status('Already "%s"' % _display_tag(label), "No Change Needed",
                      "Press Any Button", title_c=SERVE_FG)
@@ -531,8 +570,15 @@ class BboxUI(object):
         cur = entries[cursor] if entries else ""
         self._set_act_label("SHARE" if cur == "DONE" else "OPEN")
 
-    def paint_tag_group(self, title, rows, cursor, written):
-        """Tier 2: one group's tags + "< back"."""
+    def paint_tag_group(self, title, rows, cursor, written, read_only=False):
+        """Tier 2: one group's tags + "< back".
+
+        `read_only` is True when the selected row is the Utility Tags ->
+        Read Card entry: the action button says READ, not WRITE, so it
+        never implies the scan that follows will change the card (see
+        bbox_server._repaint()'s READ_ENTRY check). The "< back" row keeps
+        its BACK label regardless.
+        """
         self._clear()
         self._redraw_list_chrome()
         self._set_text(self._crumb, _fit("< " + title, HEADER_CHARS))
@@ -550,7 +596,10 @@ class BboxUI(object):
                 display_rows.append("%s (%d)" % (_display_tag(r), written.get(r, 0)))
         self._paint_slots(display_rows, cursor)
         cur = rows[cursor] if rows else ""
-        self._set_act_label("BACK" if cur == "< back" else "WRITE")
+        if cur == "< back":
+            self._set_act_label("BACK")
+        else:
+            self._set_act_label("READ" if read_only else "WRITE")
 
     def _paint_slots(self, entries, cursor):
         """Recolour the rectangle and dot FIRST, the label LAST.
@@ -620,6 +669,9 @@ def demo():
         lambda: ui.paint_no_pickup_hint(),
         lambda: ui.paint_armed("getcode", 1, 1),
         lambda: ui.paint_scanning("getcode"),
+        lambda: ui.paint_reader(),
+        lambda: ui.paint_reader("getcode:my_melody", scanned=True),
+        lambda: ui.paint_reader(None, scanned=True),
         lambda: ui.paint_writing("getcode"),
         lambda: ui.paint_already("getcode"),
         lambda: ui.paint_written("getcode", 3),

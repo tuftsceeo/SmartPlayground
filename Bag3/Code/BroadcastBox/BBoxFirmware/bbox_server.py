@@ -71,6 +71,14 @@ BACK_ENTRY = "< back"
 UTILITY_TAGS = ("stop", "battery")
 UTILITY_GROUP = "Utility Tags"
 
+# Not a write target -- a sentinel _scan_step() special-cases before it is
+# ever treated as NDEF text. Lets a teacher check what's already on a card
+# without writing anything to it, and read several cards back to back (see
+# the SCAN sub-state note above) rather than one-at-a-time. Lives in the
+# utility group alongside the real write tags so it shows up in the same
+# menu.
+READ_ENTRY = "Read Card"
+
 # BtnA hold that leaves SERVE and returns to WRITE. This is the only hold
 # gesture left in the firmware, kept deliberately: leaving SERVE is rare and
 # should not happen from a stray bump. Everything in WRITE is a plain press.
@@ -85,6 +93,13 @@ MODE_SERVE = "SERVE"
 #   GROUP     one group's tags A = scan (or back)           B = next
 #   SCAN      RF field on      A = -                        B = group
 #   SPLASH    result shown     A = group                    B = group
+#
+# SCAN also covers the Utility Tags -> Read Card entry (READ_ENTRY above),
+# a read-only "NFC Reader" utility -- see _scan_step()'s READ_ENTRY branch
+# and bbox_ui.paint_reader(). It never advances to SPLASH: each card read
+# just repaints the same SCAN screen in place, so a teacher can read
+# several cards back to back without re-entering the menu between them.
+# BtnB still exits it to GROUP like any other scan.
 #
 # No overwrite confirmation: a card holding different text is overwritten
 # the same as a blank one (_scan_step()). A teacher who wants to check a
@@ -142,11 +157,12 @@ class BboxServer:
         self._nfc_field_on = False
         self._nfc_fail_count = 0  # consecutive detect_tag errors -- see _scan_step
         self._write_state = W_MENU  # WRITE sub-state; see W_* above
+        self._reader_last_uid = None  # debounce for READ_ENTRY; see _scan_step()
 
         # (title, [tag, ...]) per game, then the utility group. Top-level
         # rows are these titles plus DONE; _group_cursor indexes into the
         # open group's tags, which are followed by a "< back" row.
-        self._groups = [(UTILITY_GROUP, list(UTILITY_TAGS))]
+        self._groups = [(UTILITY_GROUP, list(UTILITY_TAGS) + [READ_ENTRY])]
         self._entries = [UTILITY_GROUP, DONE_ENTRY]
         self._cursor = 0
         self._group_cursor = 0
@@ -231,6 +247,7 @@ class BboxServer:
             self.code.disarm()  # ap.active(False) + AP_SETTLE_MS
         if old == MODE_WRITE:
             self._nfc_field(False)
+            self._clear_reader()
 
         # --- enter ---
         if new_mode == MODE_SERVE:
@@ -287,7 +304,8 @@ class BboxServer:
                 group = self._current_group()
                 self.ui.paint_tag_group(
                     group[0] if group else "", self._group_rows(),
-                    self._group_cursor, self._written)
+                    self._group_cursor, self._written,
+                    read_only=(self._current_entry() == READ_ENTRY))
             else:
                 self.ui.paint_tag_list(self._entries, self._cursor)
         elif self._mode == MODE_SERVE:
@@ -723,7 +741,7 @@ class BboxServer:
             groups.append((self._index[slug].get("name") or slug, tags))
         if not groups:
             groups.append(("Games", list(TAG_LIST)))
-        groups.append((UTILITY_GROUP, list(UTILITY_TAGS)))
+        groups.append((UTILITY_GROUP, list(UTILITY_TAGS) + [READ_ENTRY]))
 
         self._groups = groups
         self._entries = [title for title, _ in groups] + [DONE_ENTRY]
@@ -772,6 +790,9 @@ class BboxServer:
         except Exception as e:
             print("# NFC antenna %s FAILED: %s" % ("on" if on else "off", str(e)))
 
+    def _clear_reader(self):
+        self._reader_last_uid = None
+
     # ─────────────────────────────────────────────
     # WRITE MODE — sub-state machine
     # ─────────────────────────────────────────────
@@ -780,6 +801,7 @@ class BboxServer:
         _dbg("state %s -> menu" % self._write_state)
         self._write_state = W_MENU
         self._nfc_field(False)
+        self._clear_reader()
         self._repaint()
 
     def _to_group(self):
@@ -791,12 +813,14 @@ class BboxServer:
         _dbg("state %s -> group" % self._write_state)
         self._write_state = W_GROUP
         self._nfc_field(False)
+        self._clear_reader()
         self._repaint()
 
     def _to_scan(self):
         _dbg("state %s -> scan (target=%s)"
              % (self._write_state, self._current_entry()))
         self._write_state = W_SCAN
+        self._clear_reader()
         # Never begin a scan in encrypted mode: a MIFARE auth from an
         # earlier scan latches MFCrypto1On, and while it is set the reader
         # cannot answer a plain REQA, so nothing is ever detected. Toggling
@@ -806,7 +830,11 @@ class BboxServer:
         if self.nfc is not None:
             self.nfc.stop_crypto1()
         self._nfc_field(True)
-        self.ui.paint_scanning(self._current_entry())
+        entry = self._current_entry()
+        if entry == READ_ENTRY:
+            self.ui.paint_reader()  # "nothing scanned yet" state
+        else:
+            self.ui.paint_scanning(entry)
 
     def _to_splash(self):
         """Result is on screen; it stays there until a button dismisses it.
@@ -818,6 +846,7 @@ class BboxServer:
         _dbg("state %s -> splash" % self._write_state)
         self._write_state = W_SPLASH
         self._nfc_field(False)
+        self._clear_reader()
 
     def _poll_write(self):
         """WRITE mode. BtnA acts, BtnB scrolls/backs out. No holds."""
@@ -877,11 +906,18 @@ class BboxServer:
     def _scan_step(self):
         """One polling pass while in W_SCAN. The field is already on.
 
-        Detection always ends the scan straight through a write into
-        SPLASH -- no overwrite confirmation, a card with different text is
-        overwritten the same as a blank one -- so there is no same-card
-        debounce to keep here: nothing polls the reader again until the
-        teacher starts a new scan from the menu.
+        Detection ends a write scan straight into SPLASH -- no overwrite
+        confirmation, a card with different text is overwritten the same
+        as a blank one -- so there is no same-card debounce to keep for
+        that case: nothing polls the reader again until the teacher starts
+        a new scan from the menu.
+
+        READ_ENTRY (the "NFC Reader" utility) is the exception: it never
+        reaches SPLASH, so without a debounce a card just resting on the
+        reader would re-trigger a beep/repaint on every ~80ms poll. Guarded
+        below by tracking the last UID reported and skipping repeats of it;
+        the guard clears the moment the card is lifted (tag is None), so
+        the *same* card placed back down still reads again.
         """
         if self.nfc is None:
             return
@@ -915,7 +951,11 @@ class BboxServer:
             return
         self._nfc_fail_count = 0
         if tag is None:
+            if entry == READ_ENTRY:
+                self._reader_last_uid = None  # lifted -- arm for the next card
             return  # nothing on the reader yet -- keep scanning
+        if entry == READ_ENTRY and tag['uid_hex'] == self._reader_last_uid:
+            return  # same card still resting -- already reported, stay quiet
         self.ui.beep_scan()
         _log("DETECTED uid=%s sak=0x%02X type=%s"
              % (tag['uid_hex'], tag['sak'], tag['tag_type']))
@@ -924,6 +964,16 @@ class BboxServer:
         self.link.send({
             "type": "card_present", "uid": tag['uid_hex'], "existing": existing,
         })
+        if entry == READ_ENTRY:
+            # Utility entry: report what's on the card, write nothing.
+            # Stays in W_SCAN afterwards (no splash/dismissal step) so the
+            # teacher can read several cards back to back -- see
+            # bbox_ui.paint_reader() and the debounce above.
+            self._reader_last_uid = tag['uid_hex']
+            _log("READ: uid=%s existing=%s" % (tag['uid_hex'], repr(existing)))
+            self.ui.paint_reader(existing, scanned=True)
+            self.ui.beep_success()
+            return
         if existing == entry:
             # Already carries the text we would write -- report, don't rewrite.
             _log("card already carries %s -- no write" % repr(entry))

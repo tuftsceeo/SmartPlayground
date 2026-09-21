@@ -91,12 +91,12 @@ MODE_SERVE = "SERVE"
 # (melody alone has eleven). On one flat list, DONE -- the only way into
 # SERVE mode -- would be a dozen clicks away.
 #
-# Deliberately no OVERWRITE confirmation state (unlike bbox_server.py, the
-# Box peer, which still prompts before overwriting): on the Dial the
-# antenna is under the screen, so a card that's actually on the reader
-# covers the same touch targets a confirm/cancel prompt would need. Any
-# tag SCAN detects gets written immediately; beep_success()/beep_fail() in
-# _write_card() is the only confirmation that's reachable.
+# Deliberately no OVERWRITE confirmation state (same as bbox_server.py,
+# the Box peer -- both dropped this): on the Dial the antenna is under the
+# screen, so a card that's actually on the reader covers the same touch
+# targets a confirm/cancel prompt would need. Any tag SCAN detects gets
+# written immediately; beep_success()/beep_fail() in _write_card() is the
+# only confirmation that's reachable.
 W_MENU = "menu"
 W_GROUP = "group"
 W_SCAN = "scan"
@@ -162,8 +162,6 @@ class BdialServer:
         self._index = {}  # slug -> {name, added}
         self._active = None
 
-        self._pending_tag = None
-        self._pending_existing = None
         self._reader_last_uid = None  # debounce for READ_ENTRY; see _scan_step()
 
         self.handlers = {
@@ -787,8 +785,6 @@ class BdialServer:
             print("# NFC antenna %s FAILED: %s" % ("on" if on else "off", str(e)))
 
     def _clear_pending(self):
-        self._pending_tag = None
-        self._pending_existing = None
         self._reader_last_uid = None
 
     # ─────────────────────────────────────────────

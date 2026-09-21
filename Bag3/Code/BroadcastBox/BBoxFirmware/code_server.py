@@ -231,12 +231,33 @@ class CodeServer:
         if not self._file_ready():
             if self.resolve() is None or not self._file_ready():
                 return False
-        self._ap = _start_ap(self.ssid, self.pwd)
-        self._srv = socket.socket()
-        self._srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self._srv.bind(('0.0.0.0', self.port))
-        self._srv.listen(1)
-        self._srv.settimeout(0)
+        # Bringing up the WiFi stack needs a chunk of contiguous heap.
+        # Collect right before the one call that needs it, and treat a
+        # failure here the same as "no game to serve" -- every other
+        # failure path in this method returns False rather than raising,
+        # and this one should too.
+        gc.collect()
+        try:
+            self._ap = _start_ap(self.ssid, self.pwd)
+        except OSError as e:
+            print("# CodeServer.arm: AP start failed: %s" % str(e))
+            self._ap = None
+            return False
+        try:
+            self._srv = socket.socket()
+            self._srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            self._srv.bind(('0.0.0.0', self.port))
+            self._srv.listen(1)
+            self._srv.settimeout(0)
+        except OSError as e:
+            print("# CodeServer.arm: socket setup failed: %s" % str(e))
+            try:
+                self._ap.active(False)
+            except OSError:
+                pass
+            self._ap = None
+            self._srv = None
+            return False
         self._armed = True
         self._last_ok = None
         return True
