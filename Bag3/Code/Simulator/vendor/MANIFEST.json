@@ -2,72 +2,72 @@
   "files": {
     "games/cooking.py": {
       "sha256": "930c1b7c6a78c2d8190650c1de0058c1c5620207fdadb381c0a3c63b1b2b1df6",
-      "source": "Bag3/Code/BroadcastBox/MockWand/cooking.py",
+      "source": "Bag3/Code/BroadcastCode/BroadcastBox/MockWand/cooking.py",
       "vendor_sha256": "930c1b7c6a78c2d8190650c1de0058c1c5620207fdadb381c0a3c63b1b2b1df6"
     },
     "games/freeze_dance.py": {
       "sha256": "827db8331b0aaaa322b0ed2acc9494d7d48ff8657272bfc02c5174c784c55671",
-      "source": "Bag3/Code/BroadcastBox/MockWand/freeze_dance.py",
+      "source": "Bag3/Code/BroadcastCode/BroadcastBox/MockWand/freeze_dance.py",
       "vendor_sha256": "827db8331b0aaaa322b0ed2acc9494d7d48ff8657272bfc02c5174c784c55671"
     },
     "games/gestures.py": {
       "sha256": "294ab22856abb1674debf443dd468fe4ce4a8c7cf9f2744d4f73397e4c984825",
-      "source": "Bag3/Code/BroadcastBox/MockWand/gestures.py",
+      "source": "Bag3/Code/BroadcastCode/BroadcastBox/MockWand/gestures.py",
       "vendor_sha256": "294ab22856abb1674debf443dd468fe4ce4a8c7cf9f2744d4f73397e4c984825"
     },
     "games/jump.py": {
       "sha256": "6a88173105f8162747ebbceb5cf91069f785f0a2f5e05f165fa7ac4bbcfaf49c",
-      "source": "Bag3/Code/BroadcastBox/MockWand/jump.py",
+      "source": "Bag3/Code/BroadcastCode/BroadcastBox/MockWand/jump.py",
       "vendor_sha256": "6a88173105f8162747ebbceb5cf91069f785f0a2f5e05f165fa7ac4bbcfaf49c"
     },
     "games/jumpin.py": {
       "sha256": "ea8e64c26cfed59fab4dd6341fe22b42768d899a33e5830845c6faf52da472a0",
-      "source": "Bag3/Code/BroadcastBox/MockWand/jumpin.py",
+      "source": "Bag3/Code/BroadcastCode/BroadcastBox/MockWand/jumpin.py",
       "vendor_sha256": "ea8e64c26cfed59fab4dd6341fe22b42768d899a33e5830845c6faf52da472a0"
     },
     "games/melody.py": {
       "sha256": "cc6a9adc3c818b3daf52c2193315f7597ca3ea39296cbc3931998b5fcf2f226e",
-      "source": "Bag3/Code/BroadcastBox/MockWand/melody.py",
+      "source": "Bag3/Code/BroadcastCode/BroadcastBox/MockWand/melody.py",
       "vendor_sha256": "cc6a9adc3c818b3daf52c2193315f7597ca3ea39296cbc3931998b5fcf2f226e"
     },
     "games/multiicecream.py": {
       "sha256": "338499fca22accbc16249a4ef9b8c5b62b9660e636cc68e6201f782185ff9ec0",
-      "source": "Bag3/Code/BroadcastBox/MockWand/multiicecream.py",
+      "source": "Bag3/Code/BroadcastCode/BroadcastBox/MockWand/multiicecream.py",
       "vendor_sha256": "338499fca22accbc16249a4ef9b8c5b62b9660e636cc68e6201f782185ff9ec0"
     },
     "games/nfc_sound.py": {
       "sha256": "04dcd2ab9e96f191cf0b9b6d75585490bcecaa4163b48e273763ee9c6a1d8a9f",
-      "source": "Bag3/Code/BroadcastBox/MockWand/nfc_sound.py",
+      "source": "Bag3/Code/BroadcastCode/BroadcastBox/MockWand/nfc_sound.py",
       "vendor_sha256": "04dcd2ab9e96f191cf0b9b6d75585490bcecaa4163b48e273763ee9c6a1d8a9f"
     },
     "games/rainbow.py": {
       "sha256": "e5e2d177579e824bc667159add8f5592b81291975f7416b5d8a3556057e13126",
-      "source": "Bag3/Code/BroadcastBox/MockWand/rainbow.py",
+      "source": "Bag3/Code/BroadcastCode/BroadcastBox/MockWand/rainbow.py",
       "vendor_sha256": "e5e2d177579e824bc667159add8f5592b81291975f7416b5d8a3556057e13126"
     },
     "games/shake.py": {
       "sha256": "42f6616dc367e0e99875f702526ec70f12e0ef3603cae7cff622cf22e25725eb",
-      "source": "Bag3/Code/BroadcastBox/MockWand/shake.py",
+      "source": "Bag3/Code/BroadcastCode/BroadcastBox/MockWand/shake.py",
       "vendor_sha256": "42f6616dc367e0e99875f702526ec70f12e0ef3603cae7cff622cf22e25725eb"
     },
     "games/shake_rainbow.py": {
       "sha256": "64b5fb77225cfab43a2606d7c71d50b042767f68acf6616a6101b37a99c7eb2d",
-      "source": "Bag3/Code/BroadcastBox/MockWand/shake_rainbow.py",
+      "source": "Bag3/Code/BroadcastCode/BroadcastBox/MockWand/shake_rainbow.py",
       "vendor_sha256": "64b5fb77225cfab43a2606d7c71d50b042767f68acf6616a6101b37a99c7eb2d"
     },
     "games/simpleicecream.py": {
       "sha256": "15a9965bbecf9ecdcb4f021daaf0ebe261e4e0353b59c47467511e22494ba43e",
-      "source": "Bag3/Code/BroadcastBox/MockWand/simpleicecream.py",
+      "source": "Bag3/Code/BroadcastCode/BroadcastBox/MockWand/simpleicecream.py",
       "vendor_sha256": "15a9965bbecf9ecdcb4f021daaf0ebe261e4e0353b59c47467511e22494ba43e"
     },
     "games/sound.py": {
       "sha256": "42852e2c90691a0453267346fb731d14ffb815d014230d88b244359c1460700a",
-      "source": "Bag3/Code/BroadcastBox/MockWand/sound.py",
+      "source": "Bag3/Code/BroadcastCode/BroadcastBox/MockWand/sound.py",
       "vendor_sha256": "42852e2c90691a0453267346fb731d14ffb815d014230d88b244359c1460700a"
     },
     "hubtype.txt": {
       "sha256": "04224b1d2fb402314a8dfc9d03e00937aae352fd20d3070181209a66c5127fb2",
-      "source": "Bag3/Code/BroadcastBox/MockWand/hubtype.txt",
+      "source": "Bag3/Code/BroadcastCode/BroadcastBox/MockWand/hubtype.txt",
       "vendor_sha256": "04224b1d2fb402314a8dfc9d03e00937aae352fd20d3070181209a66c5127fb2"
     },
     "lib/actions.py": {

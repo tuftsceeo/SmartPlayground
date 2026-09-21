@@ -117,7 +117,7 @@ Neither is read by anything -- `image_to_icon.py` globs images, and maps and
 icons are looked up in `maps/` and `icons/`.
 
 `icons/` here is this station's own conversion output. The display's live icon
-set is `Bag3/Code/BroadcastBox/IconDisplay/icons/` (28 icons), most of which
+set is `Bag3/Code/BroadcastCode/BroadcastBox/IconDisplay/icons/` (28 icons), most of which
 were drawn in the web editor rather than converted from these PNGs; `snake` and
 the six fruit exist in both trees from different provenance.
 
@@ -146,7 +146,7 @@ whether it earns a slot on the display at all, and whether the 16x16 result is
 readable across a room are all curation. Running the converter over `assets/`
 would produce 43 files that nobody has looked at.
 
-The copied app at `Bag3/Code/BroadcastBox/ChatBroadcast/iconmaker/` cannot see
+The copied app at `Bag3/Code/BroadcastCode/BroadcastBox/ChatBroadcast/iconmaker/` cannot see
 any of this. Its `assets/` holds the editor's own UI SVGs only. Its fixture
 picker (`FIXTURES` in `iconmaker/js/main.js`) names the same six fruit and
 fetches `../assets/<name>.png`, i.e. `ChatBroadcast/assets/`, which holds only

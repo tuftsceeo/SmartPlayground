@@ -2,7 +2,7 @@
 icon_server.py -- the command dispatcher and main loop. See the top-level
 plan for the full protocol table; this module is the implementation of it.
 
-PEER: Bag3/Code/BroadcastBox/IconDisplay/icon_server.py is the display's
+PEER: Bag3/Code/BroadcastCode/BroadcastBox/IconDisplay/icon_server.py is the display's
 copy, hand-kept. A fix here is not a fix there.
 
 Two deliberate divergences from that copy, both because this station has

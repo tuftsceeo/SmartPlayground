@@ -8,7 +8,7 @@ four pop-ups available over the whole panel.
 
 The panel follows the "Wand Simulator v4", "Wand v4" and "Wand Sim Overlays"
 design artboards in
-`Bag3/Code/BroadcastBox/docs_and_design/simlution v4/`.
+`Bag3/Code/BroadcastCode/BroadcastBox/docs_and_design/simlution v4/`.
 
 Games: `jump`, `shake`, `shake_rainbow`, `sound`, `rainbow`, `jumpin`,
 `nfc_sound`, `gestures`, `simpleicecream`, `melody`, `cooking`,
@@ -193,7 +193,7 @@ the Bag trees, not here, and has been left alone.
 - The panel lays out in two panes above 420px of its own width and one below
   it, and shrinks the wand below 300px (container queries in
   `js/controls.js`). Its design width is 500px.
-- ChatBroadcast (`Bag3/Code/BroadcastBox/ChatBroadcast/`) embeds this
+- ChatBroadcast (`Bag3/Code/BroadcastCode/BroadcastBox/ChatBroadcast/`) embeds this
   element directly from `../../Simulator/wand-sim.js`, so both trees must be
   served from a common root (`Bag3/Code/`) rather than from ChatBroadcast's
   own directory.
