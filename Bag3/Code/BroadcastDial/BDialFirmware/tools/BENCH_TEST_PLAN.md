@@ -1,7 +1,7 @@
 # Dial multi-client SERVE — hardware bench test plan
 
 **For:** a Claude Code session with physical access to the Dial + wand hardware.
-**Branch:** `claude/multi-connection-code-servers-7n1bo6`, commit `28ce41c` ("Dial:
+**Branch:** `claude/multi-connection-code-servers-7n1bo6`, commit `677e526` ("Dial:
 serve up to 4 wands concurrently instead of one at a time") or later on that branch.
 **Nothing in this change has run on real hardware yet.** Static checks and an
 off-device CPython harness only — see the commit message for what those covered.
