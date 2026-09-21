@@ -104,8 +104,8 @@ drop the AP. Sampled inside `CodeServer.poll()` via `should_abort`.
 
 ## SERVE mode concurrency
 
-Unlike the Box, the Dial serves up to `MAX_CLIENTS` (4) wands at once. The
-old single-client `CodeServer` accepted one TCP connection and blocked the
+Both devices serve up to `MAX_CLIENTS` (4) wands at once. The old
+single-client `CodeServer` accepted one TCP connection and blocked the
 whole main loop until that transfer finished (or timed out at 30s) —
 everyone else waited, and one stalled wand stalled the room. Now `poll()`
 never blocks: it accepts any pending connections (up to `MAX_CLIENTS`, and
@@ -113,8 +113,16 @@ skipping an accept if `gc.mem_free()` is below `MIN_FREE_ACCEPT` — SoftAP
 bring-up is this board's known OOM-fragile spot, see H5 above), then
 advances every in-flight wand's transfer by one step (`select.select()`
 picks the ready sockets) each tick. The wire protocol on the wire is
-byte-for-byte the same as before — `MockWand/code_puller.py` needs no
-change, and a single wand sees exactly what it always did.
+byte-for-byte the same as before — `MockWand/code_puller.py` and
+`IconDisplay/code_puller.py` need no change, and a single wand sees exactly
+what it always did.
+
+A device taking the icon leg (a role whose `ROLE_FILES` entry sets `icons`)
+walks header → body → ack once for the game file and then once per icon,
+all inside the same per-client state machine; `_step_ack()` is what routes
+between the two legs. An icon that fails is printed and the leg carries
+on — the game is already on the device by then, so a failed picture never
+turns a successful pull into a failed one.
 
 Each client resolves its own requested game independently
 (`CodeServer._lookup()`), so two wands requesting different games at the
@@ -134,11 +142,18 @@ client, since the main loop's own `_input.update()` runs every tick now
 `paint_receiving()`'s existing free-text slot (`"3 Wands"`) — no
 `dial_ui.py` change was needed for this.
 
-**Not yet ported to the Box** (`BBoxFirmware/code_server.py` is still
-`listen(1)` / one blocking transfer at a time) — see that file's own
-"PEER" comment. `tools/pull_bench.py` is the bench client for verifying
-this on real hardware; there is no automated test for the socket layer
-itself.
+`BBoxFirmware/code_server.py` carries the same rewrite, and
+`bbox_server.py` the same SERVE glue (its abort gesture is the B1 hold
+rather than `EXIT`), so the two devices behave identically here.
+
+Verification: `BroadcastBox/tools/devtests/wire_test.py` and
+`wire_test_dial.py` run the same cases — in `wire_contract.py` — against
+each device's `code_server.py` over a real loopback listener, covering the
+v1/v2 request shapes, the icon leg, three concurrent mixed-role pulls, a
+refusal alongside live transfers, and an abort mid-transfer.
+`tools/pull_bench.py` drives N concurrent pulls against real hardware in
+SERVE mode (either device — it joins `SP-FILEPUSH` like a wand does), which
+is what the radio and heap behaviour still need.
 
 ## Card text / wire contract
 
@@ -165,7 +180,7 @@ trailers; NTAG writes start at page 4 and stop after 36 pages;
 | `dial_ui.py` | 4 LVGL screens (brand palette, roller list) + speaker behind `bbox_ui`'s painter API |
 | `dial_input.py` | Encoder + button + touch → `NEXT`/`PREV`/`ACT`/`BACK`/`EXIT` |
 | `dial_board.py` | Screen size, speaker volume, I2C pins, `make_reader()` |
-| `code_server.py` | SoftAP + TCP file server — **DIVERGED from Box 2026-09-15: multi-client here, still single-client there.** Wire protocol unchanged; see "SERVE mode concurrency" below. |
+| `code_server.py` | SoftAP + TCP file server, multi-client — **PEER of Box** (differs only in heap comments and the Dial-only `prewarm_ap()`); see "SERVE mode concurrency" above |
 | `card_writer.py` | NDEF text read/write — **PEER of Box** |
 | `ws1850s.py` | WS1850S driver — **PEER of Box** (H2 PASS: 0x28, VersionReg 0x15) |
 | `json_link.py`, `reset_log.py`, `stats_log.py` | **PEER of Box** |
@@ -173,7 +188,7 @@ trailers; NTAG writes start at page 4 and stop after 36 pages;
 | `boot.py` | M5Stack vendor UIFlow2 boot-option stub |
 | `tools/probe_dial.py` | Bench probe: Phase 0 hardware discovery, not part of `DIAL_FILES` |
 | `tools/dial_menu_check.py` | Host-side (no hardware) check of the WRITE-menu logic, `_fit()` and `_display_tag()` |
-| `tools/pull_bench.py` | Laptop-side (no hardware needed on the laptop end) CPython bench client: N concurrent pulls against a real Dial in SERVE mode, to confirm they overlap instead of queueing — not device firmware, not in `DIAL_FILES` |
+| `tools/pull_bench.py` | Laptop-side (no hardware needed on the laptop end) CPython bench client: N concurrent pulls against a real Dial **or Box** in SERVE mode, to confirm they overlap instead of queueing — not device firmware, not in `DIAL_FILES` |
 
 Copied peers differ from the Box originals only by a leading `# PEER: …`
 header. `opcodes.py` / `pn532.py` / `nfc_reader.py` are not carried over.

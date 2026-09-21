@@ -1,10 +1,18 @@
-# Dial multi-client SERVE — hardware bench test plan
+# Multi-client SERVE — hardware bench test plan (Dial **and** Box)
 
-**For:** a Claude Code session with physical access to the Dial + wand hardware.
-**Branch:** `claude/multi-connection-code-servers-7n1bo6`, commit `677e526` ("Dial:
-serve up to 4 wands concurrently instead of one at a time") or later on that branch.
-**Nothing in this change has run on real hardware yet.** Static checks and an
-off-device CPython harness only — see the commit message for what those covered.
+**For:** a Claude Code session with physical access to the Dial or Box + wand
+hardware.
+**Branch:** `Chat_to_Tap_Doggle`, from the merge of
+`claude/multi-connection-code-servers-7n1bo6` into the v2 pull protocol
+(hubtype + icon leg) — both devices now run the same multi-client server.
+**Nothing in this change has run on real hardware yet.** Static checks and
+off-device CPython harnesses only — see "What changed" below for what those
+covered.
+
+Run every test below on **both** devices. They run the same `code_server.py`
+(bar heap comments and the Dial-only `prewarm_ap()`), but not the same radio,
+heap budget or SERVE-mode glue, so a pass on one is not a pass on the other.
+Where a step names a Dial-only gesture, the Box equivalent is the B1 hold.
 
 ## Read first
 
@@ -21,12 +29,20 @@ section before starting — it has the design rationale for everything below.
 
 ## What changed, in one paragraph
 
-`code_server.py` on the Dial now serves up to 4 wands at once instead of one at a
-time, via a non-blocking per-client state machine + `select.select()`. The wire
-protocol on the wire is unchanged — a single wand should behave exactly as before.
-`bdial_server.py`'s SERVE-mode glue (event handling, abort, error display) was
-rewritten to match. `BBoxFirmware/code_server.py` (the Box) is untouched and still
-single-client — nothing here should be tested against the Box.
+`code_server.py` on **both** devices now serves up to 4 devices at once instead
+of one at a time, via a non-blocking per-client state machine +
+`select.select()`. The wire protocol on the wire is unchanged — a single wand
+should behave exactly as before, and the v2 request frame (hubtype) and icon
+leg an icon display pulls are carried inside the same state machine.
+`bdial_server.py` and `bbox_server.py`'s SERVE-mode glue (event handling,
+abort, error display) was rewritten to match.
+
+Host-side, `BroadcastBox/tools/devtests/wire_test.py` and `wire_test_dial.py`
+already cover the protocol and concurrency logic against both copies
+(`wire_contract.py` holds the cases): v1/v2 requests, the icon leg, three
+concurrent mixed-role pulls, a refusal beside live transfers, and abort. What
+they cannot cover — and what this plan is for — is the radio, the heap, and
+real wand timing.
 
 ## Known unknowns going in — check these first if anything fails to boot
 

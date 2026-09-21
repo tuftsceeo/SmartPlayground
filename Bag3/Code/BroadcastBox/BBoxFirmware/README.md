@@ -109,8 +109,24 @@ On detection the scan always ends, one of two ways:
 
 Leaving `SERVE` is the one remaining hold: **BtnA for `SERVE_EXIT_MS` (1000 ms)**.
 It is rare and should not fire from a stray bump. The hold is sampled inside
-`CodeServer.poll()` via `should_abort`, because a transfer blocks the main
-loop for its duration.
+`CodeServer.poll()` via `should_abort`, once per tick; every in-flight wand is
+dropped, sees a short read, and retries within its own budget.
+
+### Serving several wands at once
+
+`CodeServer` serves up to `MAX_CLIENTS` (4) wands concurrently and never
+blocks the main loop: `poll()` accepts what is pending, advances each
+in-flight transfer one step (`select.select()` picks the ready sockets), and
+returns. `on_event` fires `'serving'` per accepted wand and `'ok'`/`'fail'`
+per finished one — a single tick can finish several — while `poll()` itself
+returns only `'abort'` or `None`. The SERVE screen shows the live count
+through `paint_receiving()`'s free-text slot (`"3 Wands"`).
+
+This file is a **PEER of `BroadcastDial/BDialFirmware/code_server.py`** — the
+same server, differing only in heap comments and the Dial-only
+`prewarm_ap()`. The design notes live in `BroadcastDial/README.md`'s "SERVE
+mode concurrency"; both copies are held to the same cases by
+`tools/devtests/wire_test.py` and `wire_test_dial.py`.
 
 ## Card text
 
@@ -157,7 +173,7 @@ Changing any row breaks the wand silently.
 | `bbox_server.py` | Mode machine, WRITE sub-states, serial dispatch |
 | `bbox_ui.py` | LCD screens + speaker feedback |
 | `buttons.py` | BtnA/BtnB press edge and hold timing via `M5.BtnA`/`M5.BtnB` |
-| `code_server.py` | SoftAP + TCP file server (`CodeServer`) |
+| `code_server.py` | SoftAP + TCP file server (`CodeServer`), up to 4 wands at once — **PEER of Dial** |
 | `card_writer.py` | NDEF text read/write over the WS1850S |
 | `ws1850s.py` | WS1850S register driver (MFRC522-compatible) |
 | `json_link.py` | Non-blocking newline-delimited JSON over stdin/stdout |

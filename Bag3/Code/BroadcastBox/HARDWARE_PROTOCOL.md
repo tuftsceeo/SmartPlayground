@@ -352,7 +352,8 @@ reader parses either device unchanged:
 ```
 
 `heartbeat` is idle-loop-only: a running game blocks the wand's main loop
-for its whole duration, same as the Box's `SERVE` mode blocks its main loop.
+for its whole duration. (The Box's `SERVE` mode no longer blocks its own loop
+— `CodeServer.poll()` returns each tick — so it keeps sending heartbeats.)
 ChatBroadcast's `game_start`/`game_end` handlers raise and lower its silence
 watchdog the same way its Box `mode`/`armed` handlers do for `SERVE`.
 
