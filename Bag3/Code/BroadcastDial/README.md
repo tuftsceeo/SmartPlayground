@@ -157,10 +157,9 @@ is what the radio and heap behaviour still need.
 
 ## Card text / wire contract
 
-Identical to the Box. See `BroadcastBox/BBoxFirmware/README.md` and
-`HARDWARE_PROTOCOL.md`. Plain NDEF text; Classic writes never touch sector
-trailers; NTAG writes start at page 4 and stop after 36 pages;
-`stop_crypto1()` before every re-select.
+Identical to the Box. See `BroadcastBox/BBoxFirmware/README.md`. Plain NDEF
+text; Classic writes never touch sector trailers; NTAG writes start at page
+4 and stop after 36 pages; `stop_crypto1()` before every re-select.
 
 | Item | Value |
 |---|---|
@@ -205,11 +204,16 @@ Same commands and events as the Box. Identity payload:
 
 ## Deploy
 
+Pass `resume` on every `mpremote` call against this board or the first
+`fs`/`exec` de-enumerates the USB CDC port (see
+`Bag3/Code/HARDWARE_PROTOCOL.md`). Batch work into one invocation, then a
+plain `reset` (no `resume`) to bring the new code up.
+
 ```bash
 ls /dev/cu.usbmodem*
 cd Bag3/Code/BroadcastDial/BDialFirmware
 PORT=/dev/cu.usbmodemXXXX
-python3 -m mpremote connect $PORT \
+python3 -m mpremote connect $PORT resume \
   fs cp dial_board.py :/flash/dial_board.py + \
   fs cp dial_input.py :/flash/dial_input.py + \
   fs cp dial_ui.py :/flash/dial_ui.py + \
@@ -220,8 +224,8 @@ python3 -m mpremote connect $PORT \
   fs cp json_link.py :/flash/json_link.py + \
   fs cp reset_log.py :/flash/reset_log.py + \
   fs cp stats_log.py :/flash/stats_log.py + \
-  fs cp main.py :/flash/main.py + \
-  reset
+  fs cp main.py :/flash/main.py
+python3 -m mpremote connect $PORT reset
 ```
 
 Or ChatBroadcast's firmware installer, which picks `DIAL_FILES` when identity

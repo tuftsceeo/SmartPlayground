@@ -134,7 +134,10 @@ Plain NDEF text records, **not** `opcodes.py`'s 4-byte scheme. The wand
 matches by exact set membership, so the strings must stay exactly `getcode`
 (the wand's `BROADCAST` set) and `jumpin` (its `GAME_TAGS`). Build/parse logic
 is ported from `Bag2/Utilities/writetoNFCcards.py` and
-`Bag2/Code/lib/nfc_reader.py`.
+`Bag2/Code/lib/nfc_reader.py`. That opcode scheme is still used for ESP-NOW
+game names; `MockWand/lib/nfc_reader.py` does not consult it.
+`card_writer.py` keeps a hand-copied `_decode_ndef_text` mirroring the
+wand's — keep the two in sync.
 
 MIFARE Classic reads and writes authenticate per sector. **Any auth latches
 the reader's `MFCrypto1On` bit, and while it is set the reader cannot answer a
@@ -152,18 +155,75 @@ config/password pages.
 
 ## Wire contract (frozen -- the wand depends on every row)
 
-| Item | Value |
-|---|---|
-| SSID / password | `SP-FILEPUSH` / `playground1` |
-| Port | `8266` |
-| AP channel | `1` (an idle ESP-NOW radio sits here, so the wand never changes channel to join) |
-| AP power save | `ap.config(pm=0)` |
-| Header | `size(4B big-endian) \| sha256(32B) \| name_len(1B) \| name` |
-| Source / dest | `/flash/payload.py` -> `jumpin.py` |
-| Chunk / yield | `512` / `sleep_ms(20)` |
-| Ack | client writes `OK` / `NO`, 2 bytes |
+SSID `SP-FILEPUSH`, password `playground1`, port `8266`, AP channel `1` (an
+idle ESP-NOW radio sits here, so the wand never changes channel to join),
+`ap.config(pm=0)`. Chunk size `512`, yield `sleep_ms(20)`.
 
-Changing any row breaks the wand silently.
+The device speaks first. Two request frames. A v1 request opens with the
+slug's length, capped at 16 by the slug rule, so a first byte of `0xFF`
+cannot be one -- this lets the Box serve an un-updated wand and a
+hubtype-aware device from the same socket.
+
+```
+v1:  device -> box :  1 byte len | <len> bytes UTF-8 slug   (len 0 = "serve active")
+v2:  device -> box :  0xFF | len(1) | slug | len(1) | hubtype
+
+     box -> device :  size(4B BE) | sha256(32B) | name_len(1B) | name
+     box -> device :  file body, 512B chunks
+     device -> box :  2-byte ack, b'OK' or b'NO'
+```
+
+A `size` of 0 is an explicit refusal -- the Box has nothing for that slug and
+device kind. The device treats it as terminal, clears its flag, does not
+spend a retry.
+
+`ROLE_FILES` in `code_server.py` maps the hubtype to the file: `wand` gets
+`/flash/games/<slug>.py`, `icon_display` gets `/flash/games/<slug>_icon.py`.
+A v1 request names no hubtype and always gets the wand file. A hubtype
+absent from the table is refused, not guessed. The role lives on the Box and
+in ChatBroadcast only -- the destination name is always plain `<slug>.py`,
+so every device holds at most one module per slug.
+
+`_icon` is a reserved suffix on the Box and the Dial: `_boot_scan_games()`
+skips any name ending `_icon.py` when building the game menu, since that's
+how `ROLE_FILES` picks the display's file. A game slug may not end in
+`_icon` -- `spooky_icon` would be staged as `spooky_icon_icon.py` for the
+display and its wand file would vanish from the menu. Nothing enforces this
+at send time.
+
+A role whose `ROLE_FILES` entry sets `icons` reads one more leg after its
+ack:
+
+```
+     box -> device :  1 byte icon count            (0 ends the session)
+     box -> device :  header + body + ack, per icon, same shape as above
+```
+
+Icons come from `/flash/games/<slug>_icons/`, land in `icons/<name>.py` on
+the device, are data not modules -- `icon_store` parses them as text, the
+device hashes but does not compile them. A wand is always sent a count of 0.
+
+Alongside `/flash/games/<slug>.py`, ChatBroadcast pushes
+`/flash/games/<slug>.tags.json` -- a JSON array of the game's tag names --
+in the same raw-REPL session, no extra reset. The Box reads it in
+`_boot_scan_games()`; it fills that game's group in the WRITE menu, and
+without it a game offers only its two pickup tags. The list derives from
+the game's own `COMMANDS` set by `ChatBroadcast/js/nfc.js`, which also
+drives the send checklist. `tools/check_tags.mjs` in `ChatBroadcast/`
+asserts that derivation against every game source.
+
+`stop` and `battery` are always writable from the Box's `Utility Tags`
+group, whatever is loaded.
+
+Changing any row breaks the wand silently. The protocol is hand-duplicated
+in four files -- `BBoxFirmware/code_server.py`,
+`BroadcastDial/BDialFirmware/code_server.py`, `MockWand/code_puller.py`, and
+`IconDisplay/code_puller.py` -- no shared module. Each carries a `PEER:`
+comment. Change them in the same commit or a device breaks silently.
+
+The Dial serves games exactly as the Box does; its copy differs only in
+`prewarm_ap()` and an OOM-hardened `arm()`, both Dial-only, neither touching
+the wire.
 
 ## Files
 
@@ -278,6 +338,25 @@ change, so each line names the mode the box was in **before** the reset:
 Read it with `reset_log.last(n)`, newest first. `was:?` means no mode was
 recorded, not `IDLE`.
 
+## Stats log
+
+`stats_log.py` -> `/flash/stats.log` (200 lines) plus `/flash/stats_since.txt`.
+Product data, never gated:
+
+```
+<ticks> pull <slug> ok|fail
+<ticks> tag  <label> ok
+```
+
+`aggregate()` returns `{pulls:{slug:n}, writes:{label:n}, since:<ticks>}`.
+Written from `code_server.poll()` (every completed serve, attributed to the
+requested slug) and from the card-write success branch in `bbox_server.py`.
+
+The Box/Dial screen reads this at boot via `_load_stats()`, then counts in
+memory -- WRITE tag list and SERVE "pickups" are cumulative totals across
+all boots, not a session tally. `stats.reset` zeroes both the log and the
+in-memory counters.
+
 ## Deploy
 
 Confirm the port first -- names change between sessions and the box and wand
@@ -288,13 +367,16 @@ ls /dev/cu.usbmodem*
 ```
 
 Nothing else may hold the port; ChatBroadcast holds it over WebSerial while
-connected. Every `mpremote` command resets the box and it boots in >20 s, so
-batch work into one invocation.
+connected. Pass `resume` on every `mpremote` call against this board or the
+first `fs`/`exec` de-enumerates the USB CDC port (see
+`Bag3/Code/HARDWARE_PROTOCOL.md`). Batch work into one invocation, then a
+plain `reset` (no `resume`) to bring the new code up -- `resume` avoids the
+reboot on the write, it does not restart the program.
 
 ```bash
 cd Bag3/Code/BroadcastBox/BBoxFirmware
 PORT=/dev/cu.usbmodemXXXX
-python3 -m mpremote connect $PORT \
+python3 -m mpremote connect $PORT resume \
   fs cp bbox_server.py :/flash/bbox_server.py + \
   fs cp bbox_ui.py :/flash/bbox_ui.py + \
   fs cp buttons.py :/flash/buttons.py + \
@@ -303,14 +385,17 @@ python3 -m mpremote connect $PORT \
   fs cp ws1850s.py :/flash/ws1850s.py + \
   fs cp json_link.py :/flash/json_link.py + \
   fs cp reset_log.py :/flash/reset_log.py + \
-  fs cp main.py :/flash/main.py + \
-  reset
+  fs cp main.py :/flash/main.py
+python3 -m mpremote connect $PORT reset
 ```
 
 Or use ChatBroadcast's firmware installer, which pushes `BOX_FILES` from
 `manifest.js`. Every module reachable from `main.py` must be listed there --
 a missing one is an `ImportError` at boot and a `fatal` JSON, which looks
-like a bricked box.
+like a bricked box. Check mechanically: walk the import graph from `main.py`
+and compare against `BOX_FILES`. `boot.py` is deliberately absent; game
+files are pushed separately to `/flash/games/<slug>.py` by
+`boxFirmwareInstaller.js`.
 
 `mpremote ... exec` enters the raw REPL, which interrupts the running
 program; the server does not restart until the next reset. To watch the log

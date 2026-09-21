@@ -2,6 +2,9 @@
 
 Hardware is in flux and new boards are on order. Treat any hardware detail as possibly stale.
 
+Before opening a serial port or running `mpremote` against ESP32 hardware (the Wand, Box, Dial,
+or any other M5 prototype), read [Code/HARDWARE_PROTOCOL.md](Code/HARDWARE_PROTOCOL.md).
+
 ## Current hardware config
 
 `Bag3/Code/lib/hubtype.py` is the live source for pin maps, LED geometry, and I2C addresses — read it
