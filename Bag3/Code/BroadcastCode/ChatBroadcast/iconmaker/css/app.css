@@ -618,5 +618,43 @@ input[type="color"] {
     cursor: pointer;
 }
 .library-bar button:disabled { opacity: 0.5; cursor: default; }
+.library-bar-label {
+    font-weight: 700;
+    color: var(--muted, #6b6680);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-size: 11px;
+}
 .library-bar #libMsg { color: var(--muted, #6b6680); }
 .library-bar #libMsg.err { color: #b3261e; font-weight: 700; }
+
+/* Embedded in ChatBroadcast's icon drawer: the host's drawer header owns the
+   chrome, so the Maker shows only the editing surface. Saving happens when
+   the drawer closes -- see app.js closeIconDrawer(). */
+body.embed #topBarMount,
+body.embed #deviceMount,
+body.embed .library-bar,
+body.embed #adjustDrawerToggle,
+/* the empty row the two mounts left behind, and its divider */
+body.embed .app-card > .flex.items-stretch,
+/* the sample picker only -- crop & scale and import stay */
+body.embed #importMount #fixtureSelect,
+/* LED preview + brightness: the host already shows this icon on the display
+   simulator behind the drawer, at the same brightness */
+body.embed .panel:has([data-canvas-slot="preview"]) { display: none !important; }
+
+/* No outer card either: the drawer IS the card. */
+body.embed .app-card {
+  margin: 0;
+  width: 100%;
+  max-height: none;
+  height: 100%;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+/* No photo behind the open icon (it came from a stored map): hide the source
+   thumbnail and its label. The import control stays -- that is how a
+   replacement photo gets in. */
+body.no-source [data-canvas-slot="source"],
+body.no-source [data-source-label] { display: none !important; }

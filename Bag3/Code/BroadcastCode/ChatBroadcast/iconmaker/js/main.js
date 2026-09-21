@@ -42,7 +42,8 @@ import { PalettePicker } from "./components/palettePicker.js";
 import { showToast } from "./components/toast.js";
 // Save/open against ChatBroadcast's named-icon library. See libraryBridge.js:
 // the rest of this app does not know it exists.
-import { attachLibraryBar, saveToLibrary } from "./libraryBridge.js";
+import { attachLibraryBar, saveToLibrary, onLibraryBackendChange } from "./libraryBridge.js";
+import { createIconMakerApi, attachMessageBridge } from "./api.js";
 import { OFF_DUTY } from "./pipeline/ledGamut.js";
 import { advancedLayoutHtml } from "./layouts/advancedLayout.js";
 import { simpleLayoutHtml } from "./layouts/simpleLayout.js";
@@ -53,6 +54,22 @@ import { SerialMonitor } from "./components/serialMonitor.js";
 import { logInfo, logError } from "./device/serialLog.js";
 
 const GRID_BACKING = 640;
+
+/**
+ * Embedded mode: the Maker is running inside a host's panel
+ * (`iconmaker/?embed=1`) rather than as its own page.
+ *
+ * Reported through the API as `embedded` and nothing more -- this flag does
+ * not itself hide anything. It is here so a UI can decide what a panel-sized,
+ * host-owned context should show. The case that matters is the hardware plug:
+ * ChatBroadcast owns the serial port, so a second link opened from inside its
+ * drawer would be two apps contending for one device.
+ *
+ * Opt-in by query string rather than an iframe check, so nothing changes for
+ * anyone who embeds the page without asking for it.
+ */
+const EMBED = new URLSearchParams(location.search).get("embed") === "1";
+if (EMBED) document.body.classList.add("embed");
 
 function downloadText(filename, text, mime) {
   downloadBlob(filename, new Blob([text], { type: mime }));
@@ -117,11 +134,11 @@ class App {
     this.loadFixture("apple").catch((e) => showToast(String(e.message || e), { kind: "error" }));
   }
 
-  /** Wire the game-library row. Saving here is what lets a generated display
-   *  game refer to an icon by name. */
+  /** Wire the game-library row: browse and reopen what has been saved.
+   *  Writing to the library is saveIcon()'s job, via the top bar's Save. */
   attachLibrary() {
+    onLibraryBackendChange(() => this.library?.refreshList?.());
     this.library = attachLibraryBar(this.root, {
-      readDoc: () => ({ name: state.iconName, pixels: doc.pixels }),
       loadDoc: (name, pixels) => this.loadFromLibrary(name, pixels),
       say: (msg, isError) => showToast(msg, isError ? { kind: "error" } : {}),
     });
@@ -138,12 +155,18 @@ class App {
     doc.rasterPixels = pixels.map((p) => p.slice());
     doc.overlay.clear();
     doc.source = null;
+    // A stored icon is a map, not a photo. Without clearing these the panel
+    // keeps showing -- and offering to crop -- whichever image happened to be
+    // segmented before, which has nothing to do with the icon now open.
+    doc.imageData = null;
     setState({
       mode: "exact",
       iconName: name,
       fills: [],
       decisions: [],
       problems: [],
+      sourceInfo: null,
+      transformLabel: "",
       sourcePath: `library:${name}`,
     });
     this.recomputePixelsFromOverlay();
@@ -373,7 +396,10 @@ class App {
     }
     this.library?.refreshList?.(saved);
 
-    if (!state.deviceRunning) {
+    // Embedded, saving means "into the open game" and stops there: the only
+    // route to hardware is the host's own Send to Box/Dial, which writes the
+    // game's icons under /flash/games/<slug>_icons/ and never to a wand.
+    if (EMBED || !state.deviceRunning) {
       showToast(`saved ${saved} to the game library`, { kind: "success" });
       return;
     }
@@ -691,7 +717,8 @@ class App {
     }
 
     this.deviceMount.innerHTML = "";
-    this.deviceMount.appendChild(
+    // Embedded, the host owns the serial port -- see EMBED above. No plug.
+    if (!EMBED) this.deviceMount.appendChild(
       simple
         ? createSimpleDeviceBar(state, {
             onTogglePanel: () => setState({ devicePanelOpen: !state.devicePanelOpen }),
@@ -733,6 +760,7 @@ class App {
       ceilingMa: state.deviceTwelveV ? profile.ceiling12vMa : profile.ceilingMa,
     });
 
+    document.body.classList.toggle("no-source", !state.sourceInfo);
     this.applyDrawerVisibility();
     window.lucide?.createIcons?.();
   }
@@ -1105,4 +1133,13 @@ class App {
   }
 }
 
-new App();
+const app = new App();
+
+/* The editor's capabilities, reachable without its chrome -- see api.js.
+   Additive: no existing button goes through this. */
+window.iconMaker = createIconMakerApi(app, { embedded: EMBED });
+attachMessageBridge(window.iconMaker);
+window.dispatchEvent(new CustomEvent("iconmaker:ready", { detail: { version: window.iconMaker.version } }));
+if (window.parent && window.parent !== window) {
+    window.parent.postMessage({ type: "iconmaker:event", name: "ready", detail: { version: window.iconMaker.version } }, "*");
+}

@@ -40,10 +40,10 @@ export function createTopBar(
       </div>
       <span class="pill-badge flex-none">${modeLabel}</span>
       <div class="flex items-center gap-1 pl-3 border-l-2 border-[var(--border)]">
-        <button type="button" id="btnNew" class="icon-btn" title="New"><i data-lucide="file-plus" class="w-[15px] h-[15px]"></i></button>
-        <button type="button" id="btnOpen" class="icon-btn" title="Open"><i data-lucide="folder-open" class="w-[15px] h-[15px]"></i></button>
-        <button type="button" id="btnSave" class="icon-btn" title="Save icon to the game library (and the device, when one is connected)" ${state.mode ? "" : "disabled"}><i data-lucide="save" class="w-[15px] h-[15px]"></i></button>
-        <button type="button" id="btnRename" class="icon-btn" title="Rename"><i data-lucide="pencil-line" class="w-[14px] h-[14px]"></i></button>
+        <button type="button" id="btnNew" class="icon-btn" title="New icon"><i data-lucide="file-plus" class="w-[15px] h-[15px]"></i></button>
+        <button type="button" id="btnOpen" class="icon-btn" title="Open an image file…"><i data-lucide="folder-open" class="w-[15px] h-[15px]"></i></button>
+        <button type="button" id="btnSave" class="icon-btn" title="Save to the game library (and the device, when one is connected)" ${state.mode ? "" : "disabled"}><i data-lucide="save" class="w-[15px] h-[15px]"></i></button>
+        <button type="button" id="btnRename" class="icon-btn" title="Rename this icon"><i data-lucide="pencil-line" class="w-[14px] h-[14px]"></i></button>
         <button type="button" id="btnUndo" class="icon-btn" title="Undo" ${canUndo ? "" : "disabled"}><i data-lucide="undo-2" class="w-[15px] h-[15px]"></i></button>
         <input type="file" id="fileOpenHidden" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml" class="hidden" />
       </div>

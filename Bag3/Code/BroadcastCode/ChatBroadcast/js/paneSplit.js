@@ -28,9 +28,8 @@ function saveWidth(px) {
  * and by leaving at least MIN_PREVIEW_WIDTH for the sim panel, so dragging
  * can never push the preview off-screen on a narrow browser window. */
 function currentMaxWidth(wsBody, resizer) {
-    const railWidth = wsBody.querySelector('.role-rail')?.getBoundingClientRect().width || 0;
     const resizerWidth = resizer.getBoundingClientRect().width;
-    const available = wsBody.getBoundingClientRect().width - railWidth - resizerWidth;
+    const available = wsBody.getBoundingClientRect().width - resizerWidth;
     return Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, available - MIN_PREVIEW_WIDTH));
 }
 
@@ -51,7 +50,9 @@ export function initPaneSplit() {
     const onMove = (e) => {
         if (!dragging) return;
         const maxWidth = currentMaxWidth(wsBody, resizer);
-        const next = Math.min(maxWidth, Math.max(MIN_WIDTH, startWidth + (clientXOf(e) - startX)));
+        // The chat column sits to the RIGHT of the divider, so dragging left
+        // is what grows it.
+        const next = Math.min(maxWidth, Math.max(MIN_WIDTH, startWidth + (startX - clientXOf(e))));
         chatCol.style.width = `${next}px`;
         e.preventDefault();
     };
@@ -90,7 +91,7 @@ export function initPaneSplit() {
     resizer.addEventListener('keydown', (e) => {
         if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
         const maxWidth = currentMaxWidth(wsBody, resizer);
-        const delta = e.key === 'ArrowRight' ? KEYBOARD_STEP : -KEYBOARD_STEP;
+        const delta = e.key === 'ArrowLeft' ? KEYBOARD_STEP : -KEYBOARD_STEP;
         const next = Math.min(maxWidth, Math.max(MIN_WIDTH, chatCol.getBoundingClientRect().width + delta));
         chatCol.style.width = `${next}px`;
         saveWidth(next);

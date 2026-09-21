@@ -23,17 +23,14 @@ export function showView(name) {
     syncNavTabs(name);
 }
 
-/** Highlight Home / Saved / Examples from the visible view. */
+/** Highlight Saved / Examples from the visible view. Home is no longer a tab —
+ *  the brand carries it — so the views that are not a tab highlight nothing. */
 export function syncNavTabs(viewName) {
-    let tab = "home";
+    let tab = null;
     if (viewName === "gallery") {
         tab = document.body.dataset.galleryMode === "saved" ? "saved" : "examples";
     } else if (viewName === "detail") {
         tab = "examples";
-    } else if (viewName === "workspace") {
-        tab = "home";
-    } else if (viewName === "splash") {
-        tab = null;
     }
     document.querySelectorAll(".app-tab").forEach((btn) => {
         const nav = btn.dataset.nav;
@@ -260,13 +257,23 @@ export function setConnectionBadge(link) {
         btn.textContent = `Restart the ${short}`;
     });
 
-    // Send CTA enabled only when live
+    // Send CTA needs BOTH halves: a device to send to, and something to send.
+    // The code half is written to body.dataset by app.js's updatePreview(),
+    // because this function runs on link changes and knows nothing about the
+    // editor. The title says which half is missing.
     const sendBtn = document.getElementById("btn-send-box");
     if (sendBtn) {
-        const canSend = state === "live";
-        sendBtn.disabled = !canSend;
+        const isLinkReady = state === "live";
+        const hasCode = document.body.dataset.wsHasCode === "1";
+        sendBtn.disabled = !(isLinkReady && hasCode);
         sendBtn.textContent = `Send to ${short} →`;
-        sendBtn.title = canSend ? `Send to ${product}` : `Connect to the ${short} first`;
+        if (!hasCode) {
+            sendBtn.title = "Describe your game in chat first — there is no code to send yet";
+        } else if (!isLinkReady) {
+            sendBtn.title = `Connect to the ${short} first`;
+        } else {
+            sendBtn.title = `Send to ${product}`;
+        }
     }
 
     // The connect overlay's h2 stays static ("Connect over USB") -- it now

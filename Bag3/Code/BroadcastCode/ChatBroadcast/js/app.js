@@ -30,8 +30,12 @@ import { initSerialSplit } from './serialSplit.js';
 import { initCodeDrawerSplit } from './codeDrawerSplit.js';
 import { iconSvg, exampleIcon } from './icons.js';
 // LED icons for the display panel -- unrelated to icons.js, which is UI chrome.
-import { iconNamesIn, missingIconsIn, iconFileText, listIcons } from './ledicons/iconLibrary.js';
-import { mountIconPanel } from './ledicons/iconPanel.js';
+import {
+    iconNamesIn, missingIconsIn, iconFileText, listIcons,
+    getIcon, saveIcon, revertIcon, isCustom,
+    setGameIcons, getGameIcons, onIconsChange,
+} from './ledicons/iconLibrary.js';
+import { mountIconPanel, startingIcon } from './ledicons/iconPanel.js';
 
 const SILENCE_LIMIT_MS = 15000;
 const SILENCE_SERVE_MS = 45000;
@@ -197,6 +201,13 @@ class App {
             this.applyUiMode(e.detail.mode);
         });
 
+        // An edited icon is unsaved work like any other, and the display
+        // preview is drawing the old picture until it repaints.
+        onIconsChange(() => {
+            this.dirty = true;
+            this.updatePreview();
+        });
+
         const knowledge = await loadKnowledgeBase();
         if (knowledge) {
             dbg('app', `knowledge base loaded (${getKnowledgeFileCount()} file(s))`);
@@ -241,16 +252,22 @@ class App {
     }
 
     /**
-     * Reflect the roles the current game has onto the device tab rail.
+     * Reflect the roles the current game has onto both device-tab groups —
+     * the one over the preview and the one in the code drawer. They are two
+     * views of the same editor role, so they always move together.
      *
      * A tab is enabled once that role holds code, and marked active when it
      * is the one the editor is showing. The wand tab always stays enabled:
-     * it is where a new game starts.
+     * it is where a new game starts. With only wand code there is nothing to
+     * switch between, so the whole group hides rather than showing a lone
+     * tab next to a permanently dead one.
      */
     syncRoleRail() {
         const have = new Set(rolesWithCode());
         const active = getActiveRole();
-        document.querySelectorAll('.role-rail .role-item').forEach((el) => {
+        const hasDisplay = have.has('icon');
+
+        document.querySelectorAll('.device-tab').forEach((el) => {
             const role = el.dataset.role;
             if (!role) return;
             const enabled = role === 'wand' || have.has(role);
@@ -260,6 +277,263 @@ class App {
             if (!enabled) el.title = 'No display code in this game yet';
             else el.title = role === 'wand' ? 'Wands' : 'Icon display';
         });
+        document.getElementById('device-tabs')?.classList.toggle('hidden', !hasDisplay);
+        document.getElementById('code-device-tabs')?.classList.toggle('hidden', !hasDisplay);
+        // Editing icons only means something while the display is on screen.
+        document.getElementById('btn-icon-maker')
+            ?.classList.toggle('hidden', !(hasDisplay && active === 'icon'));
+    }
+
+    closeMoreMenu() {
+        document.getElementById('more-panel')?.classList.add('hidden');
+        document.getElementById('btn-more')?.setAttribute('aria-expanded', 'false');
+    }
+
+    /** The Icon Maker, in a drawer instead of its own browser tab. Its src is
+     * set on first open so the iframe (Tailwind, Lucide, Cropper) is not
+     * downloaded by teachers who never edit an icon. */
+    openIconDrawer() {
+        const drawer = document.getElementById('icon-drawer');
+        const frame = document.getElementById('icon-drawer-frame');
+        if (!drawer || !frame) return;
+        // ?embed=1 tells the Maker it is a panel inside this app rather than
+        // its own page -- see iconmaker/js/api.js. Its capabilities are
+        // reachable as frame.contentWindow.iconMaker.
+        if (!frame.getAttribute('src')) {
+            frame.setAttribute('src', 'iconmaker/?embed=1');
+            frame.addEventListener('load', () => this.wireIconMaker(frame), { once: true });
+        } else {
+            // Already loaded: re-point it, because the open game may have
+            // changed since it was last used.
+            this.wireIconMaker(frame);
+        }
+        document.getElementById('code-drawer')?.classList.add('hidden');
+        drawer.classList.remove('hidden');
+        dbg('app', 'icon drawer opened');
+    }
+
+    /** The embedded editor's API, or null before the drawer has loaded. */
+    iconApi() {
+        return document.getElementById('icon-drawer-frame')?.contentWindow?.iconMaker || null;
+    }
+
+    /**
+     * The drawer's own toolbar. The editor iframe shows the canvas only, so
+     * these are its verbs -- each one a call into iconmaker/js/api.js rather
+     * than a click synthesised on chrome this app does not own.
+     */
+    bindIconToolbar() {
+        const api = () => this.iconApi();
+        const fail = (e) => toast(String(e?.message || e), true);
+        const run = async (fn) => { try { await fn(); } catch (e) { fail(e); } };
+
+        document.getElementById('icon-pick')?.addEventListener('change', (e) => {
+            run(() => api()?.library.open(e.target.value));
+        });
+
+        const fileInput = document.getElementById('icon-file-input');
+        document.getElementById('btn-icon-import')?.addEventListener('click', () => fileInput?.click());
+        fileInput?.addEventListener('change', (e) => {
+            const file = e.target.files?.[0];
+            e.target.value = '';
+            if (file) run(() => api()?.source.importImage(file));
+        });
+
+        document.getElementById('btn-icon-undo')?.addEventListener('click', () => run(() => api()?.doc.undo()));
+        document.getElementById('btn-icon-save')?.addEventListener('click', () => run(async () => {
+            const saved = await api()?.library.save();
+            this.syncIconToolbar();
+            toast(`Saved “${saved}” into this game`);
+        }));
+
+        const moreBtn = document.getElementById('btn-icon-more');
+        const panel = document.getElementById('icon-more-panel');
+        moreBtn?.addEventListener('click', () => {
+            const open = panel.classList.toggle('hidden') === false;
+            moreBtn.setAttribute('aria-expanded', String(open));
+            if (!open) document.getElementById('icon-samples-list')?.classList.add('hidden');
+        });
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('#icon-more-panel, #btn-icon-more')) this.closeIconMenu();
+        });
+
+        document.getElementById('btn-icon-adjust')?.addEventListener('click', () => run(() => {
+            const on = api()?.doc.toggleAdjust();
+            document.getElementById('btn-icon-adjust').classList.toggle('active', !!on);
+        }));
+        document.getElementById('btn-icon-export')?.addEventListener('click', () => run(() => {
+            api()?.exportFile.icon();
+            this.closeIconMenu();
+        }));
+        document.getElementById('btn-icon-samples')?.addEventListener('click', () => {
+            const list = document.getElementById('icon-samples-list');
+            if (!list) return;
+            if (!list.dataset.filled) {
+                list.innerHTML = (api()?.source.listSamples() || [])
+                    .map((n) => `<button type="button" class="more-item" data-sample="${n}">${n}</button>`)
+                    .join('');
+                list.dataset.filled = '1';
+                list.querySelectorAll('[data-sample]').forEach((b) => {
+                    b.addEventListener('click', () => run(async () => {
+                        await api()?.source.loadSample(b.dataset.sample);
+                        this.closeIconMenu();
+                    }));
+                });
+            }
+            list.classList.toggle('hidden');
+        });
+    }
+
+    closeIconMenu() {
+        document.getElementById('icon-more-panel')?.classList.add('hidden');
+        document.getElementById('icon-samples-list')?.classList.add('hidden');
+        document.getElementById('btn-icon-more')?.setAttribute('aria-expanded', 'false');
+    }
+
+    /** Fill the picker with this game's icons and select the open one. */
+    syncIconToolbar() {
+        const pick = document.getElementById('icon-pick');
+        const api = this.iconApi();
+        if (!pick || !api) return;
+        const names = this.gameIconNames();
+        pick.innerHTML = names.map((n) => `<option value="${n}">${n}</option>`).join('');
+        const open = api.getState().name;
+        if (open && names.includes(open)) pick.value = open;
+        pick.disabled = names.length === 0;
+    }
+
+    /**
+     * The icons in the open game: the ones its display code names, same set
+     * the preview picker shows, plus anything authored here that the code
+     * does not mention yet -- without that second half an icon would vanish
+     * from the list the moment it was saved.
+     *
+     * Note the two differ in consequence: only a NAMED icon is uploaded by
+     * the send flow. An authored-but-unnamed one is kept with the game and
+     * waits for the code to ask for it.
+     */
+    gameIconNames() {
+        const named = iconNamesIn(getCode('icon'));
+        const authored = Object.keys(getGameIcons());
+        return [...new Set([...named, ...authored])].sort();
+    }
+
+    /**
+     * Point the embedded Maker at THIS GAME's icons.
+     *
+     * The iframe imports its own copy of iconLibrary.js, with its own empty
+     * per-game map, so without this its saves would land in a store nothing
+     * ever reads. These closures run in this window, against the open game.
+     */
+    wireIconMaker(frame) {
+        const api = frame.contentWindow?.iconMaker;
+        if (!api) {
+            dbgWarn('app', 'icon drawer: iconMaker API not present — is iconmaker/js/api.js loaded?');
+            return;
+        }
+        api.library.setBackend({
+            list: () => this.gameIconNames(),
+            get: (name) => getIcon(name),
+            save: (name, duty) => saveIcon(name, duty),
+            revert: (name) => revertIcon(name),
+            isCustom: (name) => isCustom(name),
+        });
+        api.on('change', () => this.syncIconToolbar());
+        this.syncIconToolbar();
+        this.openPreviewedIcon(api);
+        dbg('app', 'icon drawer wired to the open game’s icon store');
+    }
+
+    /**
+     * Start the editor on the icon the display preview is showing, rather
+     * than on the Maker's own apple sample.
+     *
+     * The Maker boots by loading that sample asynchronously, so opening
+     * immediately would be overwritten when the sample lands. Waiting for the
+     * first state with an icon in it is the reliable point to take over.
+     */
+    openPreviewedIcon(api) {
+        const wanted = document.querySelector('.icon-sim-pick')?.value
+            || startingIcon(getCode('icon'))
+            || this.gameIconNames()[0];
+        if (!wanted) return;
+
+        const open = () => {
+            try {
+                api.library.open(wanted);
+                this.syncIconToolbar();
+                dbg('app', `icon drawer opened on "${wanted}" (the previewed icon)`);
+            } catch (e) {
+                dbgWarn('app', `icon drawer: could not open "${wanted}" — ${e.message}`);
+            }
+        };
+
+        if (api.getState().hasIcon) { open(); return; }
+        const off = api.on('change', (s) => {
+            if (!s.hasIcon) return;
+            off();
+            open();
+        });
+    }
+
+    /** Closing is when this window picks up whatever the Maker saved: the two
+     * share only localStorage, with no change notification either way. */
+    closeIconDrawer() {
+        const drawer = document.getElementById('icon-drawer');
+        if (!drawer || drawer.classList.contains('hidden')) return;
+        this.closeIconMenu();
+        drawer.classList.add('hidden');
+        this.updatePreview();
+        dbg('app', 'icon drawer closed — saved into the game and preview refreshed');
+    }
+
+    /** Rename in place from the title bar. The name still gets its real
+     * validation at send time (a slug has to be a legal module name on the
+     * device); this only rejects what is obviously unusable. */
+    bindGameNameEditor() {
+        const btn = document.getElementById('btn-game-name');
+        const input = document.getElementById('ws-name-input');
+        if (!btn || !input) return;
+
+        const commit = (save) => {
+            if (input.classList.contains('hidden')) return;
+            const next = input.value.trim();
+            if (save && next && next !== this.gameName) {
+                const check = validateGameName(next);
+                if (!check.ok && check.reason !== 'replace') {
+                    toast(check.reason, true);
+                } else {
+                    this.gameName = check.pretty || next;
+                    this.dirty = true;
+                    dbg('app', `game renamed to ${JSON.stringify(this.gameName)}`);
+                }
+            }
+            input.classList.add('hidden');
+            btn.classList.remove('hidden');
+            this.syncGameName();
+        };
+
+        btn.addEventListener('click', () => {
+            input.value = this.gameName && this.gameName !== 'Your game' ? this.gameName : '';
+            btn.classList.add('hidden');
+            input.classList.remove('hidden');
+            input.focus();
+            input.select();
+        });
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') commit(true);
+            else if (e.key === 'Escape') commit(false);
+        });
+        input.addEventListener('blur', () => commit(true));
+    }
+
+    /** Title-bar label follows this.gameName, which chat, examples and saved
+     * games all write to. */
+    syncGameName() {
+        const label = document.getElementById('ws-name-label');
+        if (!label) return;
+        const name = (this.gameName || '').trim();
+        label.textContent = !name || name === 'Your game' ? 'Untitled game' : name;
     }
 
     /** Show a role's file in the editor, if that role has one. */
@@ -274,7 +548,6 @@ class App {
     applyUiMode(mode) {
         const advanced = mode === 'advanced';
         const panel = document.getElementById('serial-log-panel');
-        const rail = document.querySelector('.role-rail');
         const gear = document.getElementById('btn-mode-gear');
 
         document.body.classList.toggle('ui-advanced', advanced);
@@ -291,10 +564,7 @@ class App {
                 document.body.style.paddingBottom = '';
             }
         }
-        if (rail) {
-            rail.classList.toggle('advanced', advanced);
-            this.syncRoleRail();
-        }
+        this.syncRoleRail();
         if (gear) {
             gear.title = advanced ? 'Switch to simple mode' : 'Switch to advanced mode';
             gear.classList.toggle('active', advanced);
@@ -718,6 +988,8 @@ class App {
         document.getElementById('btn-use-as-is').addEventListener('click', () => this.useExampleAsIs());
         document.getElementById('btn-send').addEventListener('click', () => this.onSend());
         document.getElementById('btn-show-code').addEventListener('click', () => {
+            // Both drawers own the same right edge, so opening one closes the other.
+            this.closeIconDrawer();
             document.getElementById('code-drawer').classList.remove('hidden');
         });
         document.getElementById('btn-close-code').addEventListener('click', () => {
@@ -798,11 +1070,43 @@ class App {
         document.getElementById('btn-box-lib-clear')?.addEventListener('click', () => this.clearBoxLibrary());
         document.getElementById('btn-box-stats-reset')?.addEventListener('click', () => this.resetBoxStats());
 
-        document.getElementById('btn-mode-gear').addEventListener('click', () => toggleUiMode());
-        document.querySelectorAll('.role-rail .role-item').forEach((el) => {
+        document.getElementById('btn-mode-gear').addEventListener('click', () => {
+            toggleUiMode();
+            this.closeMoreMenu();
+        });
+        document.querySelectorAll('.device-tab').forEach((el) => {
             el.addEventListener('click', () => this.selectRole(el.dataset.role));
         });
         document.getElementById('btn-save-game').addEventListener('click', () => this.onSaveGame());
+
+        // The brand replaced the Home tab on every screen that had one, so it
+        // routes through onNavTab: that keeps the unsaved-work guard on the
+        // way out of the workspace, which a bare showView('splash') skips.
+        document.querySelectorAll('.brand-home').forEach((btn) => {
+            btn.addEventListener('click', () => this.onNavTab('home'));
+        });
+
+        const moreBtn = document.getElementById('btn-more');
+        moreBtn?.addEventListener('click', () => {
+            const panel = document.getElementById('more-panel');
+            const open = panel.classList.toggle('hidden') === false;
+            moreBtn.setAttribute('aria-expanded', String(open));
+        });
+        // Dismiss on a click anywhere outside the menu. Tested by what was
+        // clicked rather than by stopPropagation, so it cannot race the
+        // button's own toggle.
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.more-menu')) this.closeMoreMenu();
+        });
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') this.closeMoreMenu();
+        });
+
+        document.getElementById('btn-icon-maker')?.addEventListener('click', () => this.openIconDrawer());
+        document.getElementById('btn-close-icons')?.addEventListener('click', () => this.closeIconDrawer());
+        this.bindIconToolbar();
+
+        this.bindGameNameEditor();
         document.getElementById('btn-download').addEventListener('click', () => onDownload(addMsg));
 
         const userInput = document.getElementById('user-input');
@@ -963,6 +1267,9 @@ class App {
             requiredTags: this.requiredTags,
             hardware: this.hardware,
             chatHistory: this.chatHistory.slice(),
+            // Only what this game edited. Anything it merely uses still
+            // resolves to the shipped icon when it is reopened.
+            icons: getGameIcons(),
         });
         this.dirty = false;
         toast(`Saved “${entry.name}”`);
@@ -1123,6 +1430,11 @@ class App {
         this.declaredTags = g.hardware?.declaredTags || null;
         this.hardware = g.hardware || buildHardwareReqs({ gameName: g.name });
         this.chatHistory = Array.isArray(g.chatHistory) ? g.chatHistory.slice() : [];
+        // The pictures this game was saved with. A game saved before icons
+        // were per-game has none, and falls back to the shared starter
+        // palette and the shipped defaults -- which is what it was drawing
+        // from at the time.
+        setGameIcons(g.icons || {});
         showView('workspace');
         const box = document.getElementById('chat-box');
         box.innerHTML = '';
@@ -1279,7 +1591,10 @@ class App {
         dbg('app', 'resetGameContext() — clearing name/tags/example');
         // Every role's code and history goes with the game it belonged to:
         // a display file left behind would be sent alongside the next game.
+        // Edited icons go the same way, for the same reason -- and so a new
+        // game starts from the shipped pictures, not the last game's.
         clearAllRoles();
+        setGameIcons({});
         this.syncRoleRail();
         this.currentExample = null;
         this.declaredTags = null;
@@ -1312,6 +1627,8 @@ class App {
         this.gameName = this.currentExample.name;
         this.gameDesc = this.currentExample.description;
         this.declaredTags = [...this.currentExample.tags];
+        // A new game starts from the shipped pictures, not the last one's edits.
+        setGameIcons({});
         const code = await this.fetchExampleCode(this.currentExample);
         if (code) {
             setCode(code);
@@ -1345,6 +1662,8 @@ class App {
         this.gameName = this.currentExample.name;
         this.gameDesc = this.currentExample.description;
         this.declaredTags = [...this.currentExample.tags];
+        // A new game starts from the shipped pictures, not the last one's edits.
+        setGameIcons({});
         showView('workspace');
         addMsg(`Using ${this.currentExample.name} as-is.`, 'system');
 
@@ -1380,12 +1699,36 @@ class App {
         document.getElementById('icon-sim-panel')?.classList.toggle('hidden', !showingIcon);
         document.querySelector('.ws-body')?.classList.toggle('no-sim', !runnable);
 
+        this.syncGameName();
+        this.syncPreviewEmpty();
+
+        // Send is gated on having something to send as well as somewhere to
+        // send it; setConnectionBadge() owns the button and reads this back,
+        // because it runs on link changes and this runs on code changes.
+        const sendable = !!wandCode.trim() && !wandCode.trim().startsWith('# AI-generated');
+        document.body.dataset.wsHasCode = sendable ? '1' : '';
+        this.paintLink();
+
         if (showingIcon) {
             this.updateIconSim(iconCode);
         } else if (runnable) {
             this.setupSim();
             this.pushSimSource(wandCode, opts);
         }
+    }
+
+    /** The placeholder behind an empty stage names whichever device tab is
+     * selected, so the two never disagree. */
+    syncPreviewEmpty() {
+        const empty = document.getElementById('preview-empty');
+        if (!empty) return;
+        const isIcon = getActiveRole() === 'icon';
+        const host = empty.querySelector('.preview-empty-icon');
+        const caption = empty.querySelector('.preview-empty-caption');
+        // Built here rather than left to the load-time [data-icon] pass, which
+        // runs once and would keep whichever glyph the markup started with.
+        if (host) host.innerHTML = iconSvg(isIcon ? 'grid-3x3' : 'wand', { size: 46, strokeWidth: 1.3 });
+        if (caption) caption.textContent = isIcon ? 'display preview' : 'wand preview';
     }
 
     /** Show what the 16x16 panel would draw for the current display file. */

@@ -22,7 +22,7 @@ function writeAll(list) {
  * empty for a single-device game. Entries saved before the display existed
  * have no iconCode and load as wand-only.
  */
-export function saveGame({ name, desc, code, iconCode, requiredTags, hardware, chatHistory }) {
+export function saveGame({ name, desc, code, iconCode, requiredTags, hardware, chatHistory, icons }) {
     const list = loadSavedGames();
     const id =
         typeof crypto !== "undefined" && crypto.randomUUID
@@ -37,6 +37,10 @@ export function saveGame({ name, desc, code, iconCode, requiredTags, hardware, c
         requiredTags: requiredTags || [],
         hardware: hardware || null,
         chatHistory: chatHistory || [],
+        // {name: duty[768]} -- only the icons this game edited. Kept with the
+        // game so reopening it draws what it was saved with, whatever later
+        // games did to an icon of the same name.
+        icons: icons || {},
         updatedAt: Date.now(),
     };
     list.unshift(entry);

@@ -8,9 +8,22 @@
  * boundary with ledColor.js's predictLedAppearance() before putting one on a
  * screen.
  *
- * DEFAULT_ICONS ships with the app; anything a teacher edits or adds is kept
- * in localStorage on top of it, so a default can be corrected without losing
- * the original.
+ * An icon resolves through three layers, nearest first:
+ *
+ *   1. the OPEN GAME's own edits   -- in memory, saved with the game
+ *   2. the starter palette         -- read-only, shared, localStorage
+ *   3. DEFAULT_ICONS               -- read-only, ships with the app
+ *
+ * Layer 1 is the important one. Editing an icon changes it for THIS GAME
+ * ONLY: a game saved last week keeps the picture it was saved with, and
+ * correcting `apple` here cannot reach back and alter a game that already
+ * shipped with the old one. Games are already isolated on the device
+ * (/flash/games/<slug>_icons/<name>.py); this makes the browser agree.
+ *
+ * Layer 2 is what the shared `chatbroadcast.ledicons` map became. It is read
+ * as a starting point and never written to, so the edits already in it stay
+ * available to open and copy from without being able to change anything
+ * retroactively.
  */
 import { DEFAULT_ICONS } from './defaultIcons.js';
 
@@ -18,7 +31,8 @@ export const W = 16;
 export const H = 16;
 export const N = W * H;
 
-const STORE_KEY = 'chatbroadcast.ledicons';
+/** The legacy shared map. Read-only now -- see the layer note above. */
+const STARTER_KEY = 'chatbroadcast.ledicons';
 
 /**
  * Icon names are the device's rule, from icon_store.safe_name(): lowercase
@@ -41,37 +55,108 @@ export function isValidIconName(name) {
         && !RESERVED.includes(name);
 }
 
-function readOverrides() {
+function readStarter() {
     try {
-        return JSON.parse(localStorage.getItem(STORE_KEY) || '{}');
+        return JSON.parse(localStorage.getItem(STARTER_KEY) || '{}');
     } catch {
         return {};
     }
 }
 
-function writeOverrides(obj) {
-    localStorage.setItem(STORE_KEY, JSON.stringify(obj));
+/**
+ * Curate the shared starter palette.
+ *
+ * Read-only from inside ChatBroadcast -- a game must never be able to change
+ * what another game draws. These exist for the STANDALONE Icon Maker, where
+ * there is no open game and this palette is the whole library; without them
+ * a standalone save would land in an in-memory map and vanish on reload.
+ */
+export function saveStarterIcon(name, duty) {
+    if (!isValidIconName(name)) {
+        throw new Error(`"${name}" is not a valid icon name (lowercase letters, digits and _, max ${MAX_NAME_LEN}).`);
+    }
+    if (!Array.isArray(duty) || duty.length !== N * 3) {
+        throw new Error(`icon data must be ${N * 3} values, got ${duty?.length}`);
+    }
+    const starter = readStarter();
+    starter[name] = duty.map((v) => Math.max(0, Math.min(255, Math.round(v))));
+    localStorage.setItem(STARTER_KEY, JSON.stringify(starter));
+    notify();
 }
 
-/** Every icon name available, defaults and teacher edits together. */
+export function revertStarterIcon(name) {
+    const starter = readStarter();
+    delete starter[name];
+    localStorage.setItem(STARTER_KEY, JSON.stringify(starter));
+    notify();
+}
+
+/** True when the starter palette has its own version of this icon. */
+export function isStarterIcon(name) {
+    return Object.prototype.hasOwnProperty.call(readStarter(), name);
+}
+
+/**
+ * The open game's own icons, {name: duty[768]}. Owned by app.js, which loads
+ * it when a game is opened and hands it back when one is saved. Held in
+ * memory rather than localStorage precisely so it cannot outlive the game it
+ * belongs to.
+ */
+let gameIcons = {};
+
+const listeners = new Set();
+function notify() {
+    listeners.forEach((cb) => {
+        try { cb(); } catch (e) { console.error('[icons] listener threw', e); }
+    });
+}
+
+/** Subscribe to edits of the open game's icons. Returns an unsubscribe fn. */
+export function onIconsChange(cb) {
+    listeners.add(cb);
+    return () => listeners.delete(cb);
+}
+
+/** Load a game's icons. Called with {} for a new game. */
+export function setGameIcons(map) {
+    gameIcons = {};
+    for (const [name, duty] of Object.entries(map || {})) {
+        if (Array.isArray(duty) && duty.length === N * 3) gameIcons[name] = duty.slice();
+    }
+    notify();
+}
+
+/** The open game's icons, for saving with it. Only what this game edited. */
+export function getGameIcons() {
+    const out = {};
+    for (const [name, duty] of Object.entries(gameIcons)) out[name] = duty.slice();
+    return out;
+}
+
+/** Every icon name available to the open game, across all three layers. */
 export function listIcons() {
-    return [...new Set([...Object.keys(DEFAULT_ICONS), ...Object.keys(readOverrides())])].sort();
+    return [...new Set([
+        ...Object.keys(DEFAULT_ICONS),
+        ...Object.keys(readStarter()),
+        ...Object.keys(gameIcons),
+    ])].sort();
 }
 
 /**
  * One icon's duty bytes, or null if there is no such icon.
- * A teacher's version shadows the default of the same name.
+ * The open game's version shadows the starter palette, which shadows the default.
  */
 export function getIcon(name) {
-    const over = readOverrides();
-    if (over[name]) return over[name].slice();
+    if (gameIcons[name]) return gameIcons[name].slice();
+    const starter = readStarter();
+    if (starter[name]) return starter[name].slice();
     if (DEFAULT_ICONS[name]) return DEFAULT_ICONS[name].slice();
     return null;
 }
 
-/** True when this icon has been edited or added by the teacher. */
+/** True when THIS GAME has its own version of the icon. */
 export function isCustom(name) {
-    return Object.prototype.hasOwnProperty.call(readOverrides(), name);
+    return Object.prototype.hasOwnProperty.call(gameIcons, name);
 }
 
 /**
@@ -86,19 +171,18 @@ export function saveIcon(name, duty) {
     if (!Array.isArray(duty) || duty.length !== N * 3) {
         throw new Error(`icon data must be ${N * 3} values, got ${duty?.length}`);
     }
-    const over = readOverrides();
-    over[name] = duty.map((v) => Math.max(0, Math.min(255, Math.round(v))));
-    writeOverrides(over);
+    gameIcons[name] = duty.map((v) => Math.max(0, Math.min(255, Math.round(v))));
+    notify();
 }
 
 /**
- * Drop a teacher's version. A default of the same name comes back; an icon
- * that only ever existed here disappears.
+ * Drop this game's version. The starter palette's or the shipped default of
+ * the same name comes back; an icon that only ever existed in this game
+ * disappears. Affects this game alone.
  */
 export function revertIcon(name) {
-    const over = readOverrides();
-    delete over[name];
-    writeOverrides(over);
+    delete gameIcons[name];
+    notify();
 }
 
 /**

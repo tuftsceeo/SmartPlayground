@@ -111,6 +111,59 @@ body.ui-advanced #app-shell {
     flex: none;
 }
 .brand-title { font: 800 14px 'Nunito'; color: var(--ink); }
+/* On the workspace the brand is the way back to home, so it is a button and
+   its gem flips to a back arrow on hover to say so. */
+.brand-home {
+    border: none;
+    background: transparent;
+    padding: 2px;
+    cursor: pointer;
+    font-family: inherit;
+}
+.brand-glyph-hover { display: none; }
+.brand-home:hover .brand-glyph-rest,
+.brand-home:focus-visible .brand-glyph-rest { display: none; }
+.brand-home:hover .brand-glyph-hover,
+.brand-home:focus-visible .brand-glyph-hover { display: inline; }
+
+.more-menu { position: relative; display: flex; }
+.btn-more {
+    font: 800 14px 'Nunito';
+    letter-spacing: 1px;
+    line-height: 1;
+}
+.more-panel {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    background: #fff;
+    border: 1.5px solid var(--border);
+    border-radius: 14px;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.14);
+    padding: 8px;
+    width: 200px;
+    z-index: 50;
+}
+.more-item {
+    width: 100%;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    border: none;
+    background: transparent;
+    padding: 9px 10px;
+    border-radius: 10px;
+    cursor: pointer;
+    font: 700 12.5px 'Nunito';
+    font-family: 'Nunito', sans-serif;
+    color: var(--ink);
+}
+.more-item:hover { background: var(--border-soft); }
+.more-check { display: none; color: var(--teal); }
+.more-item.active .more-check { display: flex; }
+
 .app-tabs { display: flex; gap: 6px; margin-left: 10px; }
 .app-tab {
     border: none;
@@ -447,44 +500,119 @@ body.ui-advanced #app-shell {
 
 /* ── Workspace ── */
 .ws-body { display: flex; flex: 1; min-height: 0; }
-.role-rail {
-    width: 88px;
-    border-right: 1px solid var(--border);
-    padding: 14px 8px;
-    display: none;
-    flex-direction: column;
-    gap: 8px;
+
+/* Title bar — the actions that act on the open game. */
+.ws-titlebar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--border-soft);
     flex: none;
 }
-.role-rail.advanced { display: flex; }
-.role-item {
+.ws-titlebar-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+.ws-name {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    border: 1.5px solid var(--border);
+    background: #fff;
+    border-radius: 14px;
+    padding: 8px 12px;
+    cursor: pointer;
+    font: 800 13px 'Nunito';
+    color: var(--ink);
+    height: 36px;
+    box-sizing: border-box;
+    max-width: 260px;
+}
+.ws-name:hover { border-color: var(--pink); }
+.ws-name #ws-name-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.ws-name [data-icon] { color: var(--muted); display: flex; flex: none; }
+.ws-name-input {
+    border: 1.5px solid var(--pink);
+    border-radius: 14px;
+    padding: 8px 12px;
+    font: 800 13px 'Nunito';
+    color: var(--ink);
+    height: 36px;
+    box-sizing: border-box;
+    width: 220px;
+    outline: none;
+}
+
+/* Device tabs — a segmented control above the preview, replacing the old
+   88px rail. Unlike the rail these are visible in simple mode, which is the
+   only way the icon-display simulator was ever reachable. */
+.device-tabs {
+    display: flex;
+    gap: 4px;
+    background: var(--purple-100, #f4f2fa);
+    padding: 3px;
+    border-radius: 12px;
+    flex: none;
+}
+.device-tab {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    border: none;
+    padding: 7px 12px;
     border-radius: 10px;
-    padding: 10px 6px;
-    text-align: center;
-    font: 700 11px 'Nunito';
+    cursor: pointer;
+    font: 800 12px 'Nunito';
+    font-family: 'Nunito', sans-serif;
+    background: transparent;
+    color: var(--muted);
+}
+.device-tab [data-icon] { display: flex; color: inherit; }
+.device-tab:hover:not(.disabled):not(.active) { color: var(--ink); }
+.device-tab.active {
+    background: #fff;
+    color: var(--pink-dark);
+    box-shadow: 0 2px 6px rgba(108, 76, 209, 0.12);
+}
+.device-tab.disabled { color: #a8a4b5; opacity: 0.7; cursor: default; }
+
+.preview-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border-soft);
+    flex: none;
+    background: #fff;
+    min-height: 51px;
+    box-sizing: border-box;
+}
+.preview-toolbar-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+.btn-quiet {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: 1.5px solid var(--border);
+    background: #fff;
+    border-radius: 12px;
+    padding: 7px 12px;
+    cursor: pointer;
+    font: 800 12px 'Nunito';
+    font-family: 'Nunito', sans-serif;
+    color: var(--icon-ink);
+}
+.btn-quiet:hover { border-color: var(--purple); color: var(--purple); }
+.btn-quiet [data-icon] { display: flex; color: inherit; }
+
+.preview-stage {
+    flex: 1;
+    min-height: 0;
     display: flex;
     flex-direction: column;
-    align-items: center;
-    gap: 4px;
-    color: var(--ink);
-    /* Real <button>s now, so the browser's own chrome has to be cleared. */
-    background: none;
-    border: none;
-    border-left: 3px solid transparent;
-    width: 100%;
-    cursor: pointer;
-    font-family: inherit;
+    position: relative;
 }
-.role-item:hover:not(.disabled) { background: #faf7fb; }
-.role-item.active {
-    background: #fff0f6;
-    border-left-color: var(--pink);
-    color: var(--pink-dark);
-}
-.role-item.disabled { color: #a8a4b5; opacity: 0.7; cursor: default; }
-.role-item.stations { display: none; }
-.role-rail.advanced .role-item.stations { display: flex; }
-.role-icon { display: flex; color: inherit; }
 
 .chat-col {
     flex: 0 0 auto;
@@ -494,7 +622,7 @@ body.ui-advanced #app-shell {
     display: flex;
     flex-direction: column;
     min-height: 0;
-    border-right: 1px solid var(--border);
+    border-left: 1px solid var(--border);
 }
 #chat-box {
     flex: 1;
@@ -712,6 +840,8 @@ body.ui-advanced #app-shell {
     min-width: 180px;
     min-height: 0;
     position: relative;
+}
+.preview-stage {
     background: repeating-linear-gradient(45deg, #fbfaff, #fbfaff 14px, #f4f2fa 14px, #f4f2fa 28px);
 }
 .preview-empty {
@@ -737,7 +867,6 @@ body.ui-advanced #app-shell {
     min-height: 0;
     overflow: auto;
     padding: 16px;
-    background: #fff;
 }
 /* The panel's own design width; the preview column is user-resizable, so
    below this it lays itself out in one column (see the container queries in
@@ -746,30 +875,21 @@ body.ui-advanced #app-shell {
 #preview-panel wand-sim {
     width: 100%;
     max-width: 500px;
+    /* <wand-sim> ships as a standalone card — white ground, 24px radius, a
+       purple drop shadow. Inside the workspace the view panel is already
+       that card, so the defaults stack a second one on top of the striped
+       stage and read as a card in a card. The element exposes these three
+       for exactly this, so the stripes show through here the same way they
+       do behind the icon display preview. */
+    --wand-bg: transparent;
+    --wand-shadow: none;
+    --wand-radius: 0;
 }
-.ws-body.no-sim .chat-col {
-    width: auto !important;
-    max-width: none;
-    flex: 1 1 auto;
-    border-right: none;
-}
-.ws-body.no-sim .ws-resizer,
-.ws-body.no-sim .preview-col {
-    display: none;
-}
+/* The preview column no longer collapses when there is nothing to simulate:
+   it carries the device tabs and View code, which must stay reachable from
+   the very first message. The stage shows #preview-empty instead. */
 .ws-body:not(.no-sim) #preview-empty { display: none; }
 .ws-body:not(.no-sim) #preview-panel.hidden { display: none !important; }
-
-.ws-footer {
-    display: flex;
-    gap: 10px;
-    padding: 12px 20px;
-    border-top: 1px solid var(--border);
-    align-items: center;
-    flex: none;
-}
-.footer-tools { display: flex; gap: 8px; align-items: center; }
-.footer-actions { display: flex; gap: 8px; margin-left: auto; align-items: center; }
 
 .icon-btn {
     border: 1.5px solid var(--border);
@@ -913,6 +1033,86 @@ body.ui-advanced #app-shell {
 }
 #code-editor .cm-scroller {
     overflow: auto !important;
+}
+
+.drawer-device-tabs {
+    display: flex;
+    gap: 4px;
+    padding: 12px 16px 0;
+    flex: none;
+}
+
+/* ── Icon drawer (the Icon Maker, embedded) ── */
+#icon-drawer {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 640px;
+    max-width: 92vw;
+    background: #fff;
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    box-shadow: -8px 0 32px rgba(108, 76, 209, 0.18);
+    border-left: 1px solid var(--border);
+    border-radius: 20px 0 0 20px;
+    overflow: hidden;
+}
+/* Close sits hard right in both drawers; the code drawer gets there through
+   .drawer-tools, which the icon drawer has no need for. */
+#icon-drawer .drawer-header .icon-btn { margin-left: auto; }
+/* Square, so the glyph sits on both centre lines. .icon-btn's 8px/10px
+   padding makes a 38x34 box, which reads as off-centre for a symmetric mark
+   like the close X. */
+#icon-drawer .drawer-header .icon-btn,
+#code-drawer .drawer-header .icon-btn {
+    width: 36px;
+    height: 36px;
+    padding: 0;
+}
+#icon-drawer .drawer-header .icon-btn [data-icon],
+#code-drawer .drawer-header .icon-btn [data-icon] { display: flex; }
+
+.icon-drawer-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border-soft);
+    flex: none;
+    position: relative;
+}
+.icon-drawer-toolbar #icon-pick {
+    flex: none;
+    width: 150px;
+    min-width: 0;
+    border: 1.5px solid var(--border);
+    background: var(--surface-sunken);
+    border-radius: 12px;
+    padding: 8px 12px;
+    font: 800 13px 'Nunito';
+    color: var(--ink);
+    box-sizing: border-box;
+}
+.icon-drawer-toolbar .btn-quiet,
+.icon-drawer-toolbar .icon-btn { flex: none; height: 36px; }
+.icon-drawer-toolbar #btn-icon-import { margin-left: auto; }
+.more-item-label { display: flex; align-items: center; gap: 8px; }
+.more-item-label [data-icon] { display: flex; color: var(--muted); }
+.more-submenu {
+    border-top: 1px solid var(--border-soft);
+    margin-top: 6px;
+    padding-top: 6px;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+#icon-drawer-frame {
+    flex: 1;
+    min-height: 0;
+    width: 100%;
+    border: none;
 }
 
 /* ── Overlays ── */
@@ -1335,16 +1535,14 @@ body.ui-advanced .mybox-stats.advanced-only { display: block !important; }
         max-width: none;
         min-width: 0;
         flex: 1 1 auto;
-        border-right: none;
-        border-bottom: 1px solid var(--border);
+        border-left: none;
+        border-top: 1px solid var(--border);
     }
+    .preview-col { flex: 0 1 auto; }
     .ws-resizer { display: none; }
-    .role-rail.advanced {
-        flex-direction: row;
-        width: 100%;
-        border-right: none;
-        border-bottom: 1px solid var(--border);
-    }
+    .ws-titlebar { flex-wrap: wrap; }
+    .ws-titlebar-actions { margin-left: 0; width: 100%; }
+    .ws-titlebar-actions .btn-send-box { width: 100%; }
     .app-header { flex-wrap: wrap; }
     .app-tabs { margin-left: 0; }
     .header-actions { width: 100%; justify-content: flex-end; flex-wrap: wrap; }
