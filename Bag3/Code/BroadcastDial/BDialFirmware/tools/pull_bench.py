@@ -53,7 +53,8 @@ def pull(label, host, port, slug, stall, results, lock):
         size = int.from_bytes(_read_exact(s, 4), "big")
         if size == 0:
             with lock:
-                results[label] = {"ok": False, "reason": "norequest (no such game/nothing active)"}
+                results[label] = {"ok": False, "start": t_start,
+                                   "reason": "norequest (no such game/nothing active)"}
             return
 
         rest = _read_exact(s, 32 + 1)
@@ -90,7 +91,8 @@ def pull(label, host, port, slug, stall, results, lock):
             }
     except Exception as e:
         with lock:
-            results[label] = {"ok": False, "reason": "%s: %s" % (type(e).__name__, e)}
+            results[label] = {"ok": False, "start": t_start,
+                               "reason": "%s: %s" % (type(e).__name__, e)}
     finally:
         s.close()
 
@@ -136,20 +138,27 @@ def main():
         else:
             print("  %-16s FAIL %s" % (label, r.get("reason", "unknown")))
 
-    if non_stalled:
-        starts = [r["start"] for r in non_stalled]
-        ends = [r["end"] for r in non_stalled]
-        # Overlap check: any two non-stalled pulls whose windows intersect is
+    # Only a completed pull has an "end" (set right after the ack is sent);
+    # a failure -- including "every pull in this run failed" -- has "start"
+    # but no window to compare, so the overlap check must not assume every
+    # non-stalled result has both keys.
+    timed = [r for r in non_stalled if r.get("end") is not None]
+    if timed:
+        starts = [r["start"] for r in timed]
+        ends = [r["end"] for r in timed]
+        # Overlap check: any two completed pulls whose windows intersect is
         # direct evidence the server served them concurrently, not serially.
         overlapping = any(
             a["start"] < b["end"] and b["start"] < a["end"]
-            for i, a in enumerate(non_stalled)
-            for b in non_stalled[i + 1:]
+            for i, a in enumerate(timed)
+            for b in timed[i + 1:]
         )
         print("\n# window: first start=%.2f last end=%.2f span=%.2fs, overlap detected: %s"
               % (min(starts), max(ends), max(ends) - min(starts), overlapping))
-        if len(non_stalled) > 1 and not overlapping:
+        if len(timed) > 1 and not overlapping:
             print("# WARNING: no overlap between any two pulls -- looks serial, not concurrent")
+    elif non_stalled:
+        print("\n# no completed pulls -- every non-stalled client failed, see results above")
 
     ok_count = sum(1 for r in non_stalled if r.get("ok"))
     print("\n# %d/%d non-stalled pulls OK" % (ok_count, len(non_stalled)))

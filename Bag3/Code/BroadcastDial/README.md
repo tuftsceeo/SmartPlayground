@@ -214,6 +214,25 @@ reports `broadcast_dial` (defaults to Box when no identity yet).
 
 Every module reachable from `main.py` must be listed in `manifest.js`.
 
+**If a file goes missing after this and the board still boots the old
+code:** the batched chain above is not reliable on every unit. Found during
+the 2026-09-21 multi-client SERVE bench pass — the board reset itself
+mid-write on the two largest files (`bdial_server.py`, `code_server.py`),
+silently dropping the copy; nothing in the command's own output showed it.
+Use `tools/deploy_dial.py` instead — one `mpremote` invocation per file, a
+full read-back to verify each write actually landed (not just a size
+check), and a retry on failure:
+
+```bash
+python3 tools/deploy_dial.py $PORT
+```
+
+Its `--pause` between files defaults to 8s, the value that happened to work
+in that session — **not a confirmed minimum**. If a file still fails
+verification at the default, try a larger `--pause` before assuming
+something else is wrong. It reads the file list from `manifest.js` itself,
+so it can't drift from what the batched command or the installer deploy.
+
 ## Verified vs open
 
 Phase 0 bring-up is partly done — **H1 PASS** (UIFlow2, 240×240, Rotary,

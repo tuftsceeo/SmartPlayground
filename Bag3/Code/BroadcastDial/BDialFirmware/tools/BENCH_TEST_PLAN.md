@@ -50,9 +50,21 @@ single-client — nothing here should be tested against the Box.
 
 ## 1. Deploy
 
-Use the batched deploy block from `Bag3/Code/BroadcastDial/README.md`'s "Deploy"
-section — one `mpremote` invocation ending in `reset`, absolute paths, as
-`HARDWARE_PROTOCOL.md` requires. **Ask before opening the port; wait for "go."**
+**Ask before opening the port; wait for "go."** Use `tools/deploy_dial.py`
+(added 2026-09-21, after the batched one-shot `mpremote ... + reset` chain in
+the README was found to silently drop a write on this board — see the
+README's "Deploy" section for the finding):
+
+```bash
+python3 tools/deploy_dial.py $PORT
+```
+
+It copies one file per `mpremote` invocation, reads each one back to verify
+the write actually landed, and retries a failed file. Its `--pause` between
+files defaults to 8s (the value that worked in the session that found this
+bug — not a confirmed minimum); if a file still fails verification, try a
+larger `--pause`. If you use the batched block instead, verify file sizes
+afterward — don't assume a silent success.
 
 Capture the boot log with `serial_monitor.py` (path:
 `Bag3/Code/BroadcastBox/tools/serial_monitor.py` — board-agnostic, just reads a
