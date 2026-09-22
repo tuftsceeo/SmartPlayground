@@ -89,6 +89,8 @@ const ICONS = [
   ["cookie", "foods", true],
   ["icecream", "foods", true],
   ["banana", "foods", true],
+  ["strawberry", "foods", true],
+  ["milk", "foods", true],
 
   ["bunny", "animals", false],
   ["chicken", "animals", false],
@@ -131,6 +133,22 @@ const ICONS = [
   ["sunflower", "plants", true],
   ["cactus", "plants", true],
   ["mushroom", "plants", true],
+  ["leaf", "plants", true],
+
+  ["cloud", "weather", true],
+  ["rain_cloud", "weather", true],
+  ["snowflake", "weather", true],
+  ["lightning", "weather", true],
+
+  ["car", "vehicles", true],
+  ["train", "vehicles", true],
+  ["ship", "vehicles", true],
+  ["airplane", "vehicles", true],
+
+  ["police", "people", true],
+  ["firefighter", "people", true],
+  ["doctor", "people", true],
+  ["astronaut", "people", true],
 
   ["sun", "ideas", true],
   ["moon", "ideas", true],
@@ -146,16 +164,22 @@ const ICONS = [
   ["fireperson", "places", false],
   ["house", "places", true],
   ["umbrella", "places", true],
+  ["school", "places", true],
+  ["hospital", "places", true],
 
   ["ball", "activities", true],
   ["kite", "activities", true],
   ["music", "activities", true],
+  ["teddy_bear", "activities", true],
+  ["balloon", "activities", true],
+  ["blocks", "activities", true],
 ];
 
-const CATEGORY_ORDER = ["animals", "emotions", "plants", "foods", "ideas", "places", "activities"];
+const CATEGORY_ORDER = ["animals", "people", "emotions", "plants", "weather", "foods", "ideas", "places", "vehicles", "activities"];
 const CATEGORY_LABEL = {
-  animals: "Animals", emotions: "Emotions", plants: "Plants", foods: "Foods",
-  ideas: "Ideas & Concepts", places: "Places", activities: "Activities",
+  animals: "Animals", people: "People", emotions: "Emotions", plants: "Plants",
+  weather: "Weather", foods: "Foods", ideas: "Ideas & Concepts", places: "Places",
+  vehicles: "Vehicles", activities: "Activities",
 };
 
 const root = document.getElementById("categories");
