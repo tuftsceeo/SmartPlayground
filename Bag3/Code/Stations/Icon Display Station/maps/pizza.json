@@ -1,0 +1,64 @@
+{
+  "source": "hand-authored",
+  "max_segments": 3,
+  "intensity": 0.3,
+  "fills": [
+    {
+      "rgb": [
+        120,
+        70,
+        20
+      ],
+      "count": 30,
+      "frac": 0.11719
+    },
+    {
+      "rgb": [
+        230,
+        20,
+        20
+      ],
+      "count": 16,
+      "frac": 0.0625
+    },
+    {
+      "rgb": [
+        255,
+        210,
+        0
+      ],
+      "count": 74,
+      "frac": 0.28906
+    }
+  ],
+  "decisions": {
+    "120,70,20": {
+      "role": "color",
+      "priority": 1.0,
+      "color": [
+        120,
+        70,
+        20
+      ]
+    },
+    "230,20,20": {
+      "role": "color",
+      "priority": 1.0,
+      "color": [
+        230,
+        20,
+        20
+      ]
+    },
+    "255,210,0": {
+      "role": "color",
+      "priority": 1.0,
+      "color": [
+        255,
+        210,
+        0
+      ]
+    }
+  },
+  "overlay": {}
+}

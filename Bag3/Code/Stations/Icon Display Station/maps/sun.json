@@ -1,0 +1,46 @@
+{
+  "source": "hand-authored",
+  "max_segments": 2,
+  "intensity": 0.3,
+  "fills": [
+    {
+      "rgb": [
+        255,
+        140,
+        0
+      ],
+      "count": 52,
+      "frac": 0.20312
+    },
+    {
+      "rgb": [
+        255,
+        210,
+        0
+      ],
+      "count": 60,
+      "frac": 0.23438
+    }
+  ],
+  "decisions": {
+    "255,140,0": {
+      "role": "color",
+      "priority": 1.0,
+      "color": [
+        255,
+        140,
+        0
+      ]
+    },
+    "255,210,0": {
+      "role": "color",
+      "priority": 1.0,
+      "color": [
+        255,
+        210,
+        0
+      ]
+    }
+  },
+  "overlay": {}
+}

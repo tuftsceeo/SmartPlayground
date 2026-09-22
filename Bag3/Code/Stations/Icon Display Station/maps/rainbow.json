@@ -1,0 +1,100 @@
+{
+  "source": "hand-authored",
+  "max_segments": 5,
+  "intensity": 0.3,
+  "fills": [
+    {
+      "rgb": [
+        0,
+        200,
+        60
+      ],
+      "count": 26,
+      "frac": 0.10156
+    },
+    {
+      "rgb": [
+        60,
+        160,
+        255
+      ],
+      "count": 4,
+      "frac": 0.01562
+    },
+    {
+      "rgb": [
+        230,
+        20,
+        20
+      ],
+      "count": 46,
+      "frac": 0.17969
+    },
+    {
+      "rgb": [
+        255,
+        140,
+        0
+      ],
+      "count": 42,
+      "frac": 0.16406
+    },
+    {
+      "rgb": [
+        255,
+        210,
+        0
+      ],
+      "count": 48,
+      "frac": 0.1875
+    }
+  ],
+  "decisions": {
+    "0,200,60": {
+      "role": "color",
+      "priority": 1.0,
+      "color": [
+        0,
+        200,
+        60
+      ]
+    },
+    "60,160,255": {
+      "role": "color",
+      "priority": 1.0,
+      "color": [
+        60,
+        160,
+        255
+      ]
+    },
+    "230,20,20": {
+      "role": "color",
+      "priority": 1.0,
+      "color": [
+        230,
+        20,
+        20
+      ]
+    },
+    "255,140,0": {
+      "role": "color",
+      "priority": 1.0,
+      "color": [
+        255,
+        140,
+        0
+      ]
+    },
+    "255,210,0": {
+      "role": "color",
+      "priority": 1.0,
+      "color": [
+        255,
+        210,
+        0
+      ]
+    }
+  },
+  "overlay": {}
+}
