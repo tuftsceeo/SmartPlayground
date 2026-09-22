@@ -1,0 +1,95 @@
+{
+  "source": "assets/strawberry.png",
+  "max_segments": 5,
+  "intensity": 0.3,
+  "fills": [
+    {
+      "rgb": [
+        0,
+        0,
+        0
+      ],
+      "count": 25999,
+      "frac": 0.61866
+    },
+    {
+      "rgb": [
+        244,
+        4,
+        2
+      ],
+      "count": 11670,
+      "frac": 0.27769
+    },
+    {
+      "rgb": [
+        9,
+        172,
+        6
+      ],
+      "count": 3441,
+      "frac": 0.08188
+    },
+    {
+      "rgb": [
+        159,
+        23,
+        15
+      ],
+      "count": 521,
+      "frac": 0.0124
+    },
+    {
+      "rgb": [
+        253,
+        199,
+        7
+      ],
+      "count": 394,
+      "frac": 0.00938
+    }
+  ],
+  "decisions": {
+    "0,0,0": {
+      "role": "off",
+      "priority": 1.0
+    },
+    "244,4,2": {
+      "role": "color",
+      "priority": 1.0,
+      "color": [
+        157,
+        0,
+        0
+      ]
+    },
+    "9,172,6": {
+      "role": "color",
+      "priority": 0.6,
+      "color": [
+        0,
+        166,
+        0
+      ]
+    },
+    "159,23,15": {
+      "role": "color",
+      "priority": 2.5,
+      "color": [
+        116,
+        0,
+        0
+      ]
+    },
+    "253,199,7": {
+      "role": "color",
+      "priority": 2.5,
+      "color": [
+        220,
+        171,
+        0
+      ]
+    }
+  },
+  "overlay": {}
+}

@@ -92,7 +92,91 @@
 # before it sends, and refuses rather than shipping a blank.
 
 # ═══════════════════════════════════════════════════════════════════
-# 3. ESP-NOW — HOW THE TWO DEVICES TALK
+# 3. DRAWING AT RUNTIME — draw16
+# ═══════════════════════════════════════════════════════════════════
+# Named icons cover anything that can be drawn ahead of time. They cannot
+# cover a value only known while playing: there is no icons/ file for "7-4",
+# and there could not be without one file per score.
+#
+# lib/draw16.py composes a frame in place instead. Reach for it for a live
+# score, a countdown, a meter or a progress bar — and for anything else
+# reach for a named icon, because an authored picture beats one built out of
+# rectangles.
+#
+#   import draw16
+#   draw16.clear(panel.src)
+#   draw16.number(panel.src, score, 5, color=(0, 200, 60))
+#   draw16.show(panel)
+#
+#   Shapes   px, get, clear, rect, frame, circle, ellipse, line
+#   Text     glyph, text, number, width     (3x5 font: 0-9, space, - : .)
+#   Flush    show(panel)
+#
+# ALL COORDINATES ARE (row, col), top-left origin, in every function.
+#
+# Drawing calls take panel.src (the buffer), NOT panel, and do not push to
+# the strip. Compose the whole frame, then call show(panel) ONCE — flushing
+# after each shape is visible as flicker.
+#
+#   draw16.number(src, value, row, col=None, color=(190,190,190), spacing=1)
+#       col=None centres it, which is what a score wants: going from 9 to 10
+#       otherwise appears to lurch sideways.
+#   draw16.width(s)  -> width in cells, for centring anything else:
+#       col = (draw16.W - draw16.width(s)) // 2
+#
+# A 3x5 digit means two digits take 7 of the 16 columns, so two team scores
+# fit side by side. shapes.py's SHAPE_0..9 are a different thing — 5x5
+# scaled 3x, one character filling the whole panel.
+#
+# Redraw only when something CHANGED. The panel holds its last frame, so
+# pushing 768 bytes every loop buys nothing.
+#
+# draw16 lives on the display's firmware, not in the game file that gets
+# sent. A display flashed before it was added raises ImportError when the
+# game loads. If named icons can do the job, use them.
+
+# ═══════════════════════════════════════════════════════════════════
+# 4. COUNTABLE DISPLAYS — chart16
+# ═══════════════════════════════════════════════════════════════════
+# For young children, a quantity they can COUNT beats a numeral they have to
+# read. lib/chart16.py draws those, on top of draw16, and takes the SHAPE_*
+# tuples from shapes.py so a picture on the panel is pixel-for-pixel the
+# picture the wand shows.
+#
+#   import chart16, shapes
+#   chart16.blocks(panel.src, [green, blue], [(0,200,60), (40,120,200)],
+#                  empty=(45,45,45))
+#   draw16.show(panel)
+#
+# A 5x5 glyph placed 5 cells from the next one TOUCHES it — three across
+# fills 15 of the 16 columns with no room for a separator. Touching glyphs
+# are legible on the panel, so 3x3 with no padding is the default:
+#
+#   chart16.count_glyphs(src, n, shape, color, per_axis=3, gap=0, empty=None)
+#       one quantity as copies of its own picture. 3x3 counts to NINE;
+#       per_axis=2 with a gap counts to four with space between them. A gap
+#       that would not fit is dropped rather than overflowing the panel.
+#   chart16.blocks(src, values, colors, cap=5, empty=None, labels=None)
+#       countable blocks per team, up to FIVE. labels=[(shape,color),...]
+#       puts each team's wand glyph above its bar — pass cap=4 with it, the
+#       glyph costs the top 5 rows.
+#   chart16.grid(src, cells) / chart16.grid_row(src, entries)
+#       the same 3x3 geometry addressed cell by cell rather than by a count
+#       — a 3 letter word, a 9 slot board.
+#   chart16.line_graph(src, values, color, baseline=None)
+#       change over time, when the shape is the point.
+#
+# count_glyphs() and blocks() RETURN the count they had to clamp away, so a
+# score that outgrew the picture can be reported rather than silently
+# sitting at its cap.
+#
+# `empty` draws the unearned slots as dim outlines, which turns "we have
+# two" into "we need two more" — usually the better question.
+#
+# chart16 is firmware-resident, exactly like draw16.
+
+# ═══════════════════════════════════════════════════════════════════
+# 5. ESP-NOW — HOW THE TWO DEVICES TALK
 # ═══════════════════════════════════════════════════════════════════
 # enow.poll() returns (msg_type, data, mac) and never blocks.
 #
@@ -119,7 +203,7 @@
 # can react to what it decided.
 
 # ═══════════════════════════════════════════════════════════════════
-# 4. CARDS
+# 6. CARDS
 # ═══════════════════════════════════════════════════════════════════
 # The display reads cards only to LEAVE a game; rounds are driven over
 # ESP-NOW. Declare the cards a game reads as string literals in a
@@ -139,7 +223,7 @@
 #           return
 
 # ═══════════════════════════════════════════════════════════════════
-# 5. CANONICAL TEMPLATE
+# 7. CANONICAL TEMPLATE
 # ═══════════════════════════════════════════════════════════════════
 """
 Short title — one line on what the display shows
@@ -198,7 +282,7 @@ def play(nfc, panel, enow):
 
 
 # ═══════════════════════════════════════════════════════════════════
-# 6. CONSTRAINTS AND GOTCHAS
+# 8. CONSTRAINTS AND GOTCHAS
 # ═══════════════════════════════════════════════════════════════════
 # 1. No f-strings. Use % formatting: print("team %s" % team)
 # 2. play() takes exactly 3 parameters: (nfc, panel, enow)
@@ -214,9 +298,12 @@ def play(nfc, panel, enow):
 #    redrawn every frame — draw when something changed.
 # 9. ESP-NOW messages cap at ~240 bytes. Short type names, short keys.
 # 10. Refer to icons by name only, and only to names that exist.
+# 11. draw16 draws into panel.src and does not flush; call draw16.show(panel)
+#     once per frame, not once per shape.
+# 12. draw16 coordinates are (row, col), never (x, y).
 
 # ═══════════════════════════════════════════════════════════════════
-# 7. CHECKLIST
+# 9. CHECKLIST
 # ═══════════════════════════════════════════════════════════════════
 # [ ] The block is preceded by [DEVICE: icon]
 # [ ] play() has exactly 3 parameters: (nfc, panel, enow)
@@ -226,3 +313,6 @@ def play(nfc, panel, enow):
 # [ ] set_intensity never asked for more than 0.50
 # [ ] panel.clear() in a finally block
 # [ ] No f-strings
+# [ ] Anything drawn with draw16 flushes once per frame via show(panel)
+# [ ] Live values (scores, timers) use draw16; fixed pictures use named icons
+# [ ] A quantity a child should count uses chart16, not a numeral

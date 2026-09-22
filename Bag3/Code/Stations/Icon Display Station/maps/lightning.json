@@ -1,0 +1,95 @@
+{
+  "source": "assets/lightning.png",
+  "max_segments": 5,
+  "intensity": 0.3,
+  "fills": [
+    {
+      "rgb": [
+        0,
+        0,
+        0
+      ],
+      "count": 33595,
+      "frac": 0.79941
+    },
+    {
+      "rgb": [
+        251,
+        231,
+        9
+      ],
+      "count": 6641,
+      "frac": 0.15802
+    },
+    {
+      "rgb": [
+        252,
+        249,
+        165
+      ],
+      "count": 842,
+      "frac": 0.02004
+    },
+    {
+      "rgb": [
+        249,
+        241,
+        95
+      ],
+      "count": 786,
+      "frac": 0.0187
+    },
+    {
+      "rgb": [
+        102,
+        92,
+        15
+      ],
+      "count": 161,
+      "frac": 0.00383
+    }
+  ],
+  "decisions": {
+    "0,0,0": {
+      "role": "off",
+      "priority": 1.0
+    },
+    "251,231,9": {
+      "role": "color",
+      "priority": 1.0,
+      "color": [
+        209,
+        191,
+        0
+      ]
+    },
+    "252,249,165": {
+      "role": "color",
+      "priority": 2.5,
+      "color": [
+        209,
+        191,
+        0
+      ]
+    },
+    "249,241,95": {
+      "role": "color",
+      "priority": 2.5,
+      "color": [
+        209,
+        191,
+        0
+      ]
+    },
+    "102,92,15": {
+      "role": "color",
+      "priority": 2.5,
+      "color": [
+        62,
+        42,
+        0
+      ]
+    }
+  },
+  "overlay": {}
+}

@@ -1,0 +1,95 @@
+{
+  "source": "assets/balloon.png",
+  "max_segments": 5,
+  "intensity": 0.3,
+  "fills": [
+    {
+      "rgb": [
+        1,
+        0,
+        0
+      ],
+      "count": 31418,
+      "frac": 0.7476
+    },
+    {
+      "rgb": [
+        250,
+        2,
+        1
+      ],
+      "count": 9522,
+      "frac": 0.22658
+    },
+    {
+      "rgb": [
+        155,
+        12,
+        12
+      ],
+      "count": 385,
+      "frac": 0.00916
+    },
+    {
+      "rgb": [
+        253,
+        245,
+        244
+      ],
+      "count": 374,
+      "frac": 0.0089
+    },
+    {
+      "rgb": [
+        96,
+        8,
+        7
+      ],
+      "count": 326,
+      "frac": 0.00776
+    }
+  ],
+  "decisions": {
+    "1,0,0": {
+      "role": "off",
+      "priority": 1.0
+    },
+    "250,2,1": {
+      "role": "color",
+      "priority": 1.0,
+      "color": [
+        139,
+        0,
+        0
+      ]
+    },
+    "155,12,12": {
+      "role": "color",
+      "priority": 2.5,
+      "color": [
+        98,
+        0,
+        0
+      ]
+    },
+    "253,245,244": {
+      "role": "color",
+      "priority": 2.5,
+      "color": [
+        206,
+        220,
+        220
+      ]
+    },
+    "96,8,7": {
+      "role": "color",
+      "priority": 2.5,
+      "color": [
+        71,
+        0,
+        0
+      ]
+    }
+  },
+  "overlay": {}
+}
