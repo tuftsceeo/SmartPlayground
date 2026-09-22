@@ -1,0 +1,95 @@
+{
+  "source": "assets/snowflake.png",
+  "max_segments": 5,
+  "intensity": 0.3,
+  "fills": [
+    {
+      "rgb": [
+        1,
+        2,
+        2
+      ],
+      "count": 29507,
+      "frac": 0.70557
+    },
+    {
+      "rgb": [
+        166,
+        224,
+        250
+      ],
+      "count": 7791,
+      "frac": 0.1863
+    },
+    {
+      "rgb": [
+        203,
+        239,
+        253
+      ],
+      "count": 3829,
+      "frac": 0.09156
+    },
+    {
+      "rgb": [
+        107,
+        140,
+        158
+      ],
+      "count": 356,
+      "frac": 0.00851
+    },
+    {
+      "rgb": [
+        47,
+        75,
+        87
+      ],
+      "count": 337,
+      "frac": 0.00806
+    }
+  ],
+  "decisions": {
+    "1,2,2": {
+      "role": "off",
+      "priority": 1.0
+    },
+    "166,224,250": {
+      "role": "color",
+      "priority": 1.0,
+      "color": [
+        0,
+        149,
+        207
+      ]
+    },
+    "203,239,253": {
+      "role": "color",
+      "priority": 0.6,
+      "color": [
+        0,
+        149,
+        207
+      ]
+    },
+    "107,140,158": {
+      "role": "color",
+      "priority": 2.5,
+      "color": [
+        20,
+        102,
+        147
+      ]
+    },
+    "47,75,87": {
+      "role": "color",
+      "priority": 2.5,
+      "color": [
+        0,
+        68,
+        93
+      ]
+    }
+  },
+  "overlay": {}
+}

@@ -1,0 +1,95 @@
+{
+  "source": "assets/hospital.png",
+  "max_segments": 5,
+  "intensity": 0.3,
+  "fills": [
+    {
+      "rgb": [
+        1,
+        1,
+        1
+      ],
+      "count": 19265,
+      "frac": 0.46066
+    },
+    {
+      "rgb": [
+        230,
+        231,
+        231
+      ],
+      "count": 13854,
+      "frac": 0.33128
+    },
+    {
+      "rgb": [
+        17,
+        175,
+        248
+      ],
+      "count": 5398,
+      "frac": 0.12908
+    },
+    {
+      "rgb": [
+        137,
+        139,
+        143
+      ],
+      "count": 2103,
+      "frac": 0.05029
+    },
+    {
+      "rgb": [
+        247,
+        6,
+        5
+      ],
+      "count": 1200,
+      "frac": 0.02869
+    }
+  ],
+  "decisions": {
+    "1,1,1": {
+      "role": "off",
+      "priority": 1.0
+    },
+    "230,231,231": {
+      "role": "color",
+      "priority": 1.0,
+      "color": [
+        205,
+        220,
+        220
+      ]
+    },
+    "17,175,248": {
+      "role": "color",
+      "priority": 1.0,
+      "color": [
+        0,
+        121,
+        169
+      ]
+    },
+    "137,139,143": {
+      "role": "color",
+      "priority": 1.0,
+      "color": [
+        141,
+        151,
+        151
+      ]
+    },
+    "247,6,5": {
+      "role": "color",
+      "priority": 2.5,
+      "color": [
+        146,
+        0,
+        0
+      ]
+    }
+  },
+  "overlay": {}
+}

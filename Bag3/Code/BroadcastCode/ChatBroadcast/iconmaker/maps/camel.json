@@ -1,0 +1,77 @@
+{
+  "source": "assets/camel.png",
+  "max_segments": 12,
+  "intensity": 0.3,
+  "fills": [
+    {
+      "rgb": [
+        231,
+        106,
+        58
+      ],
+      "count": 48672,
+      "frac": 0.38298
+    },
+    {
+      "rgb": [
+        7,
+        24,
+        33
+      ],
+      "count": 47996,
+      "frac": 0.37766
+    },
+    {
+      "rgb": [
+        240,
+        197,
+        65
+      ],
+      "count": 18928,
+      "frac": 0.14894
+    },
+    {
+      "rgb": [
+        142,
+        61,
+        58
+      ],
+      "count": 11492,
+      "frac": 0.09043
+    }
+  ],
+  "decisions": {
+    "231,106,58": {
+      "role": "color",
+      "priority": 1.0,
+      "color": [
+        230,
+        90,
+        0
+      ]
+    },
+    "7,24,33": {
+      "role": "off",
+      "priority": 1.0
+    },
+    "240,197,65": {
+      "role": "color",
+      "priority": 1.0,
+      "color": [
+        255,
+        190,
+        0
+      ]
+    },
+    "142,61,58": {
+      "role": "color",
+      "priority": 0.6,
+      "color": [
+        150,
+        30,
+        10
+      ]
+    }
+  },
+  "overlay": {}
+}

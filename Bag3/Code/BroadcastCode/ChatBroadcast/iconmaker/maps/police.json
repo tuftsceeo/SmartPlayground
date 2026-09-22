@@ -1,0 +1,95 @@
+{
+  "source": "assets/police.png",
+  "max_segments": 5,
+  "intensity": 0.3,
+  "fills": [
+    {
+      "rgb": [
+        2,
+        2,
+        4
+      ],
+      "count": 29413,
+      "frac": 0.69989
+    },
+    {
+      "rgb": [
+        16,
+        68,
+        201
+      ],
+      "count": 7122,
+      "frac": 0.16947
+    },
+    {
+      "rgb": [
+        247,
+        170,
+        103
+      ],
+      "count": 3641,
+      "frac": 0.08664
+    },
+    {
+      "rgb": [
+        25,
+        67,
+        177
+      ],
+      "count": 1169,
+      "frac": 0.02782
+    },
+    {
+      "rgb": [
+        252,
+        220,
+        12
+      ],
+      "count": 680,
+      "frac": 0.01618
+    }
+  ],
+  "decisions": {
+    "2,2,4": {
+      "role": "off",
+      "priority": 1.0
+    },
+    "16,68,201": {
+      "role": "color",
+      "priority": 1.0,
+      "color": [
+        20,
+        39,
+        112
+      ]
+    },
+    "247,170,103": {
+      "role": "color",
+      "priority": 0.6,
+      "color": [
+        197,
+        98,
+        20
+      ]
+    },
+    "25,67,177": {
+      "role": "color",
+      "priority": 2.5,
+      "color": [
+        20,
+        39,
+        112
+      ]
+    },
+    "252,220,12": {
+      "role": "color",
+      "priority": 2.5,
+      "color": [
+        220,
+        190,
+        0
+      ]
+    }
+  },
+  "overlay": {}
+}

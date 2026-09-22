@@ -1,0 +1,59 @@
+{
+  "source": "assets/deer.png",
+  "max_segments": 12,
+  "intensity": 0.3,
+  "fills": [
+    {
+      "rgb": [
+        7,
+        24,
+        33
+      ],
+      "count": 50700,
+      "frac": 0.46012
+    },
+    {
+      "rgb": [
+        168,
+        158,
+        154
+      ],
+      "count": 40560,
+      "frac": 0.3681
+    },
+    {
+      "rgb": [
+        78,
+        74,
+        78
+      ],
+      "count": 18928,
+      "frac": 0.17178
+    }
+  ],
+  "decisions": {
+    "7,24,33": {
+      "role": "off",
+      "priority": 1.0
+    },
+    "168,158,154": {
+      "role": "color",
+      "priority": 1.0,
+      "color": [
+        200,
+        205,
+        205
+      ]
+    },
+    "78,74,78": {
+      "role": "color",
+      "priority": 1.0,
+      "color": [
+        105,
+        100,
+        110
+      ]
+    }
+  },
+  "overlay": {}
+}
