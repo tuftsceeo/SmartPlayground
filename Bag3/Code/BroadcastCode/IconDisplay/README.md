@@ -43,10 +43,38 @@ json_link.py       one JSON object per line, printable ASCII only
 code_puller.py     SoftAP pull; PEER of BBoxFirmware/code_server.py
 pull_flag.py       what a getcode tap leaves behind across the reboot
 goalrace.py        built-in game (the display half of the two-device pair)
+scoreboard.py      built-in game (running tally, the draw16/chart16 demo)
 icons/             named icons, referenced from a game by name
 lib/               espnow_manager, game_store, hubtype, display_tags,
-                   nfc_reader, ws1850s, nfc_ws1850s, memprobe, shapes
+                   nfc_reader, ws1850s, nfc_ws1850s, memprobe, shapes,
+                   draw16, chart16
 ```
+
+A built-in game is looked up by `main.py`'s `_module_on_flash()`, which
+checks the **flash root** -- the `games/` directory in this repo is where the
+sources live, not where the device wants them.
+
+### Adding an icon has a second step
+
+`icons/` here is the source of truth for a generated list the chat app sends
+to the model: `ChatBroadcast/js/ledicons/defaultIcons.js`. A display game may
+only name icons in that list -- `app.js` refuses a game naming anything else
+at send time -- so an icon that is only on the device is invisible to
+ChatBroadcast and unusable in a generated game. After adding or removing one
+here:
+
+    python3 ChatBroadcast/tools/sync_icons.py          # regenerate
+    python3 ChatBroadcast/tools/sync_icons.py --check  # exit 1 on drift
+
+Nothing runs that check automatically.
+
+### draw16 and chart16 are firmware-resident
+
+`code_server.py` sends a pulled game its own file and its icons; `ROLE_FILES`
+has no `lib` leg and the staging tree carries no `lib/`. A game that imports
+`draw16` or `chart16` therefore raises ImportError on a display flashed
+before they were added. Flash the display before handing out games that use
+them.
 
 ## Writing a game
 

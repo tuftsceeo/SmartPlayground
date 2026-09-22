@@ -60,7 +60,9 @@ Hand-painting in the web editor writes per-cell overrides into the map's
 
 ## Promoting a finished one
 
-Four steps. The second is the one that actually puts it on hardware:
+Step 2 is what puts it on hardware; step 3 is what makes ChatBroadcast able to
+use it. Skipping 3 is quiet — the icon works on the device and is simply
+missing from every generated game.
 
 1. Leave `icons/<name>.py`, `maps/<name>.json` and `previews/<name>.png` in place —
    that is where the toolchain writes them and where the provenance lives.
@@ -68,8 +70,23 @@ Four steps. The second is the one that actually puts it on hardware:
 
        cp icons/<name>.py ../../BroadcastCode/IconDisplay/icons/<name>.py
 
-3. Add a row to the `ICONS` array in `gallery.html`: `["<name>", "<category>", true]`.
-4. Delete the three draft files for it from `drafts/`.
+3. Regenerate the list the chat app sends to the model, from that device set:
+
+       python3 ../../BroadcastCode/ChatBroadcast/tools/sync_icons.py
+       python3 ../../BroadcastCode/ChatBroadcast/tools/sync_icons.py --check
+
+   A display game may only name icons in that list; `app.js` refuses one that
+   names anything else at send time. Nothing runs this check automatically.
+4. To make it editable in ChatBroadcast's Icon Maker too, copy its source and
+   map into that hand-kept peer and add the name to its `fixtures.js`:
+
+       cp assets/<name>.png ../../BroadcastCode/ChatBroadcast/iconmaker/assets/
+       cp maps/<name>.json ../../BroadcastCode/ChatBroadcast/iconmaker/maps/
+
+   Skip for a hand-authored icon — it has no source image, so there is
+   nothing for the Maker's loadFixture() to decode.
+5. Add a row to the `ICONS` array in `gallery.html`: `["<name>", "<category>", true]`.
+6. Delete the three draft files for it from `drafts/`.
 
 Names must be lowercase letters, digits and underscore, not starting with a digit,
 24 characters or fewer (`icon_store.safe_name`).
