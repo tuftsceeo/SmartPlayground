@@ -10,6 +10,14 @@ its own firmware tree and its own `lib/`.
 Line numbers are as of this writing and will drift. Symbol names are the stable
 reference.
 
+**On the word "icon".** The icon display is the only device so far, so several generic
+mechanisms carry its vocabulary in the code: `ROLE_FILES`' `icons` flag, the "icon
+leg" of the pull protocol, `icon_dir=` in `code_puller.pull()`. The generic mechanism
+is an **asset leg** — a role may need extra files shipped with the game file, and for
+the display those files happen to be pictures. This report uses "asset leg" for the
+mechanism and keeps the code's own names when naming a symbol. Everything that is
+genuinely about pictures is confined to *Icon-display-only, do not copy* at the end.
+
 ---
 
 ## Naming
@@ -64,7 +72,7 @@ New directory under `Bag3/Code/BroadcastCode/`, sibling to `MockWand/` and
 | `hubtype.txt` | one line, the hubtype string | `IconDisplay/hubtype.txt` |
 | `boot.py` | must not drive any output device | `MockWand/boot.py` (PEER) |
 | `main.py` | new — see the required structure below | shape of `IconDisplay/main.py` |
-| `code_puller.py` | `REQ_V2`, `_write_request()`, `pull(..., hubtype=, icon_dir=)` | `MockWand/code_puller.py` (PEER) |
+| `code_puller.py` | `REQ_V2`, `_write_request()`, `pull(..., hubtype=, icon_dir=)` — `icon_dir` is where the asset leg lands; pass `None` for a role with no assets | `MockWand/code_puller.py` (PEER) |
 | `pull_flag.py` | `PATH`, `MAX_ATTEMPTS`, `set_pending`/`bump`/`budget_left`/`requested_slug`/`clear` | `MockWand/pull_flag.py` (PEER; MockWand's and IconDisplay's are byte-identical) |
 | `games/` | empty directory, the pull destination | — |
 | `lib/hubtype.py` | `_CONFIGS["<hubtype>"]` entry: pins, LED count, capability flags | `IconDisplay/lib/hubtype.py` (PEER ×4, already divergent) |
@@ -141,7 +149,7 @@ already caused a defect once, when the Dial's `code_server.py` was missed.
 
 | File | Symbol | Change |
 |---|---|---|
-| `BroadcastBox/BBoxFirmware/code_server.py:84` | `ROLE_FILES` | Add `'<hubtype>': {'suffix': '_xxx', 'icons': <bool>}` |
+| `BroadcastBox/BBoxFirmware/code_server.py:84` | `ROLE_FILES` | Add `'<hubtype>': {'suffix': '_xxx', 'icons': <bool>}` — `icons` is the asset-leg flag, `False` for a role that ships only its game file |
 | `BroadcastDial/BDialFirmware/code_server.py:84` | `ROLE_FILES` | Identical entry |
 | `BroadcastBox/BBoxFirmware/bbox_server.py:676` | `_boot_scan_games()` | Add the new suffix to `name.endswith('_icon.py')` |
 | `BroadcastDial/BDialFirmware/bdial_server.py:668` | `_boot_scan_games()` | Identical change |
@@ -163,17 +171,26 @@ already caused a defect once, when the Dial's `code_server.py` was missed.
   loses its wand file from the menu. Nothing enforces this at send time; ChatBroadcast
   will push such a slug. With more than one reserved suffix, a check in
   `gameName.js`'s reserved list is the fix.
-- `icons: True` is only for a role that takes the icon leg (1-byte count, then that
-  many files, after the game file's ack). `icons_dir_for()` and `MAX_ICONS = 64` are
-  that leg's support and need no change for a role without it.
+- **`icons: <bool>` is the asset-leg flag.** `False` means the transfer ends at the
+  game file's ack. `True` means a second leg follows: a 1-byte file count, then that
+  many files from `icons_dir_for(slug)`, capped at `MAX_ICONS = 64`. The flag, the
+  directory helper and the cap are named for the display because it is the only role
+  using them; the mechanism is "this role needs extra files with its game". A new
+  device that needs none sets `False` and touches nothing else. A new device that needs
+  its own assets is the point at which these three names should be generalised —
+  reusing `icons_dir_for()` for something that is not a picture is worse than renaming
+  it.
 
 ### Known gaps a new role inherits
 
 - `do_games_delete()` (`bbox_server.py:480`, `bdial_server.py:472`) removes only
-  `<slug>.py` and `<slug>.tags.json`. Staging files under a role suffix, and the
-  `<slug>_icons/` directory, are left on flash.
-- `do_games_clear()` removes `*.py` and `*.tags.json` at the top of `GAMES_DIR`; the
-  `<slug>_icons/` subdirectories survive.
+  `<slug>.py` and `<slug>.tags.json`. A staging file under a role suffix, and any asset
+  directory, are left on flash.
+- `do_games_clear()` removes `*.py` and `*.tags.json` at the top of `GAMES_DIR`. Asset
+  subdirectories survive.
+
+Concretely today that means `<slug>_icon.py` and `<slug>_icons/` are orphaned by both.
+Any new role with a suffix or an asset directory is orphaned the same way.
 
 ### Wire protocol — no change needed
 
@@ -213,7 +230,7 @@ role unless it introduces its own tag family.
 | `js/app.js:540` | `selectRole()` | None | yes |
 | `js/app.js:1695` | `updatePreview()` | `showingIcon = getActiveRole() === 'icon' && …` is a two-way switch between `#preview-panel` and `#icon-sim-panel`. A third role needs its own branch | **no** |
 | `js/app.js:1725` | `syncPreviewEmpty()` | `isIcon = getActiveRole() === 'icon'` drives the placeholder glyph and caption | **no** |
-| `js/app.js:2157-2186` | `confirmSend()` | Hardcodes `getCode('icon')`, `validateGameCode(iconCode,'icon')`, `missingIconsIn()` and the literal `` `/flash/games/${slug}_icon.py` `` | **no** |
+| `js/app.js:2157-2186` | `confirmSend()` | The `extraFiles` block. Generically: validate the role's code, refuse the send if an asset it names is missing, then queue `<slug><suffix>.py` and any asset files. Today every step is written for one role — `getCode('icon')`, `validateGameCode(iconCode,'icon')`, `missingIconsIn()`, the literal `` `/flash/games/${slug}_icon.py` `` | **no** |
 | `index.html:172-181`, `:240-248` | `.device-tab[data-role]` | Two buttons per role — preview toolbar and code drawer. They are two views of one editor role and always move together | — |
 | `js/editor.js` | `roleState` | None. Built from `ROLES`, so per-role code, history and tab membership come free | yes |
 | `js/hardware.js:29,96` | `buildHardwareReqs()` `stations` | Populate when the role has code, so the send-confirm overlay states the device is needed. Always `[]` today | — |
@@ -243,9 +260,11 @@ document. Follow `knowledge/icon_display.py`:
 - MicroPython rules: `%` formatting, no f-strings, no type annotations,
   `time.sleep_ms()` is milliseconds.
 
-`getSystemPrompt()` (`js/app.js:~245`) appends a live capability inventory —
-`listIcons()` for the display. A role with an equivalent inventory appends it there
-rather than hardcoding a list in the prompt.
+`getSystemPrompt()` (`js/app.js:~245`) appends a live inventory of whatever assets the
+device currently holds, so the model is told what exists at send time instead of
+guessing and failing the send-time check. The display appends `listIcons()`. A role
+with no assets appends nothing; a role with its own appends its own list, read from
+the live source rather than hardcoded in the prompt.
 
 ### Preview
 
@@ -253,6 +272,30 @@ Only the wand has a Pyodide simulator (`Bag3/Code/Simulator/`). The display has 
 static preview (`js/ledicons/iconPanel.js` `mountIconPanel()`). A device with no visual
 output gets an explicit "no preview" branch in `updatePreview()` and
 `syncPreviewEmpty()`, not a third simulator.
+
+---
+
+## Icon-display-only, do not copy
+
+These exist for one device. They are not part of adding a device, and a new tree that
+copies them is carrying dead weight.
+
+| Thing | Where |
+|---|---|
+| Named 16×16 picture files, 768 duty bytes each | `IconDisplay/icons/*.py`, `icon_store.py` |
+| `Matrix` — serpentine addressing, intensity LUT, `MAX_INTENSITY = 0.50` | `IconDisplay/icon_matrix.py` |
+| USB icon-authoring server and its panel-ownership latch | `IconDisplay/icon_server.py` (PEER of the station's copy) |
+| Icon Maker web app, and the `#btn-icon-maker` visibility rule | `ChatBroadcast/iconmaker/`, `js/app.js` `syncRoleRail()` |
+| Browser icon library and the generated defaults | `ChatBroadcast/js/ledicons/`, `tools/sync_icons.py` |
+| `missingIconsIn()` / `iconNamesIn()` / `iconFileText()` send-time checks | `ChatBroadcast/js/app.js`, `js/ledicons/iconLibrary.js` |
+| `#icon-sim-panel` and `mountIconPanel()` | `ChatBroadcast/js/ledicons/iconPanel.js` |
+| `shapes.py` — 5×5 glyphs scaled 3× onto the panel | `IconDisplay/lib/shapes.py` |
+| `icon_panel.mjs`, `sync_icons.py --check` | devtests |
+
+What **is** generic, and what a new device inherits: the asset leg itself
+(`ROLE_FILES`' flag, the 1-byte count, `icon_dir=`), the rule that the send is refused
+when generated code names an asset that does not exist, and the rule that the model is
+told the asset inventory at prompt time. A device with no assets uses none of it.
 
 ---
 
@@ -265,7 +308,7 @@ output gets an explicit "no preview" branch in `updatePreview()` and
 | Test | Change for a new role |
 |---|---|
 | `compile_check.sh` | `py_compile` over `Bag3/Code`; picks the tree up automatically — confirm its glob reaches it |
-| `wire_contract.py` → `wire_test.py`, `wire_test_dial.py` | New role cases: the v2 request resolves `<slug><suffix>.py`, takes or skips the icon leg, and an unknown hubtype is still refused. Run against Box and Dial |
+| `wire_contract.py` → `wire_test.py`, `wire_test_dial.py` | New role cases: the v2 request resolves `<slug><suffix>.py`, takes or skips the asset leg, and an unknown hubtype is still refused. Run against Box and Dial |
 | `game_menu_scan.py` | Assert the boot scan skips the new suffix on both |
 | `boot_<device>.py` (new) | Model on `boot_display.py`: nothing radio-claiming imported before `_run_pull_mode()`; boot order; dispatch and force-switch chain; each pull-mode outcome's feedback; loud load failure |
 | `chatbroadcast_flow.mjs` | Extend to an N-block reply; assert the exact file list and ordering `pushPayload` writes, one raw-REPL session, one soft reset, reset last |
@@ -352,24 +395,27 @@ Tag vocabulary is duplicated separately with nothing enforcing consistency:
 4. Add the role to `ROLE_FILES` in **both** `code_server.py` copies in one commit.
 5. Add the staging suffix to **both** `_boot_scan_games()` copies in the same commit.
 6. Each staging suffix becomes a reserved slug ending.
-7. `pull_flag.is_pending()` is `main()`'s first statement; nothing radio-claiming is
+7. A device with no assets sets `icons: False` and uses none of the asset leg. Do not
+   copy the icon library, the panel, the Icon Maker or their devtests into a tree that
+   has no pictures.
+8. `pull_flag.is_pending()` is `main()`'s first statement; nothing radio-claiming is
    imported before it.
-8. A `getcode` tap queues a pull and resets; it never pulls in place.
-9. Radio comes up before any large allocation, unless `memprobe` proves otherwise on
+9. A `getcode` tap queues a pull and resets; it never pulls in place.
+10. Radio comes up before any large allocation, unless `memprobe` proves otherwise on
    hardware.
-10. Errors surface loudly. No `try/except: pass`, no silent degradation. A missing
+11. Errors surface loudly. No `try/except: pass`, no silent degradation. A missing
     capability costs that capability and nothing else.
-11. Device code is MicroPython: `%` formatting, no f-strings, no type annotations, no
+12. Device code is MicroPython: `%` formatting, no f-strings, no type annotations, no
     `typing`/`dataclasses`/`pathlib`/`logging`. Any loop doing serial I/O sleeps
     `1 ms` unconditionally every iteration. (The repo-root `AGENTS.md` says the
     opposite — "f-strings are used throughout, don't fix them". Flagged, not
     reconciled: no device tree under `Bag3/Code/` or `Bag2/Code/Wand Module/` contains
     an f-string, and both `PHASE6_HANDOFF.md` and `knowledge/icon_display.py` state
     that f-strings crash this MicroPython build.)
-12. Games are optional skills. A tag for a game this device lacks gives a warning, not
+13. Games are optional skills. A tag for a game this device lacks gives a warning, not
     a load failure.
-13. One knowledge file per device type, naming the other devices' signatures as
+14. One knowledge file per device type, naming the other devices' signatures as
     forbidden.
-14. `<slug><suffix>.py` is a Box/Dial staging name only. On the device the file is
+15. `<slug><suffix>.py` is a Box/Dial staging name only. On the device the file is
     always plain `<slug>.py`.
-15. Fixing one PEER copy fixes only that copy. Say which tree was touched.
+16. Fixing one PEER copy fixes only that copy. Say which tree was touched.
