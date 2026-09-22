@@ -171,28 +171,56 @@ def check(name, grid):
 # --------------------------------------------------------------- icon defs --
 
 def draw_dog(g):
-    ellipse(g, 9.5, 8, 5.5, 6, BROWN)      # head, rows[4,15] cols[2,14]
-    # ear bases sit at row 7, well inside the head's silhouette there (not
-    # just grazing its curved top edge), so they read as attached, not floating.
-    triangle(g, (1, 4), (7, 2), (7, 6), DKBROWN)    # left ear
-    triangle(g, (1, 12), (7, 10), (7, 14), DKBROWN)  # right ear
-    clear(g, 6, 6); clear(g, 6, 10)         # eyes
-    ellipse(g, 12, 8, 1.6, 2.2, DKBROWN)    # snout
-    clear(g, 12, 8)                          # nose (was row8,col12 -- off the snout entirely)
+    # Ear tips converge fast (only 1 row before the gap between them closes),
+    # so the notch stays narrow -- a wide notch reads as two separate lobes
+    # (bear-like) rather than small pointed ears on one head.
+    rect(g, 2, 5, 2, 6, DKBROWN); rect(g, 2, 9, 2, 10, DKBROWN)  # ear tips
+    rect(g, 3, 4, 3, 7, DKBROWN); rect(g, 3, 8, 3, 11, DKBROWN)  # gap closes here
+    rect(g, 4, 1, 4, 14, BROWN)  # head, full width from here down -- ears now read as part of one silhouette
+    rect(g, 5, 1, 5, 14, BROWN)
+    rect(g, 6, 1, 6, 14, BROWN)
+    rect(g, 7, 1, 7, 14, BROWN)
+    rect(g, 8, 1, 8, 14, BROWN)
+    rect(g, 9, 2, 9, 13, BROWN)
+    rect(g, 10, 2, 10, 13, BROWN)
+    rect(g, 11, 3, 11, 12, BROWN)
+    rect(g, 12, 4, 12, 11, BROWN)
+    rect(g, 13, 5, 13, 10, BROWN)
+    clear(g, 7, 4); clear(g, 7, 11)   # eyes
+    clear(g, 10, 7); clear(g, 10, 8)  # nose (a cutout, not a lit color -- exempt from min-feature-size)
 
 
 def draw_cat(g):
-    ellipse(g, 9, 8, 6, 6, ORANGE)  # head, rows[3,15] cols[2,14]
-    triangle(g, (1, 4), (7, 2), (7, 6), ORANGE)    # left ear (same color: silhouette-only)
-    triangle(g, (1, 12), (7, 10), (7, 14), ORANGE)  # right ear
-    clear(g, 6, 6); clear(g, 6, 11)
-    rect(g, 9, 8, 10, 9, DKBROWN)  # nose
+    rect(g, 2, 5, 2, 6, ORANGE); rect(g, 2, 9, 2, 10, ORANGE)  # ear tips
+    rect(g, 3, 4, 3, 7, ORANGE); rect(g, 3, 8, 3, 11, ORANGE)  # gap closes here
+    rect(g, 4, 1, 4, 14, ORANGE)
+    rect(g, 5, 1, 5, 14, ORANGE)
+    rect(g, 6, 1, 6, 14, ORANGE)
+    rect(g, 7, 1, 7, 14, ORANGE)
+    rect(g, 8, 1, 8, 14, ORANGE)
+    rect(g, 9, 2, 9, 13, ORANGE)
+    rect(g, 10, 2, 10, 13, ORANGE)
+    rect(g, 11, 3, 11, 12, ORANGE)
+    rect(g, 12, 4, 12, 11, ORANGE)
+    rect(g, 13, 5, 13, 10, ORANGE)
+    clear(g, 7, 4); clear(g, 7, 11)  # eyes
+    rect(g, 9, 7, 10, 8, DKBROWN)    # nose
 
 
 def draw_fish(g):
-    ellipse(g, 8, 9, 3.3, 5, SKY)  # body, rows[4.7,11.3] cols[4,14]
-    triangle(g, (8, 1), (4, 5), (12, 5), TEAL)  # tail, base at col5 -- inside the body, not past its left edge
-    rect(g, 6, 8, 7, 10, TEAL)  # top fin, inside the body's upper half
+    # Tail is a staircase diamond (widens then narrows toward the point) that
+    # shares its rightmost column with the body's leftmost column each row,
+    # so it's welded on rather than floating next to it.
+    rect(g, 4, 8, 4, 11, SKY)                      # body top
+    rect(g, 5, 6, 5, 12, SKY)
+    rect(g, 6, 1, 6, 2, TEAL); rect(g, 6, 5, 6, 13, SKY)
+    rect(g, 7, 1, 7, 3, TEAL); rect(g, 7, 4, 7, 14, SKY)
+    rect(g, 8, 1, 8, 4, TEAL); rect(g, 8, 4, 8, 14, SKY)  # tail's widest row
+    rect(g, 9, 1, 9, 3, TEAL); rect(g, 9, 4, 9, 14, SKY)
+    rect(g, 10, 1, 10, 2, TEAL); rect(g, 10, 5, 10, 13, SKY)
+    rect(g, 11, 6, 11, 12, SKY)
+    rect(g, 12, 8, 12, 11, SKY)
+    rect(g, 3, 8, 4, 9, TEAL)  # top fin, 2 rows so it clears the min-feature-size floor
     clear(g, 7, 12)  # eye, near the front (right side)
 
 
