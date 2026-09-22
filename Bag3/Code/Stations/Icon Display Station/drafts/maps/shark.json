@@ -1,0 +1,77 @@
+{
+  "source": "assets/shark.png",
+  "max_segments": 12,
+  "intensity": 0.3,
+  "fills": [
+    {
+      "rgb": [
+        7,
+        24,
+        33
+      ],
+      "count": 52728,
+      "frac": 0.42162
+    },
+    {
+      "rgb": [
+        97,
+        112,
+        117
+      ],
+      "count": 37856,
+      "frac": 0.3027
+    },
+    {
+      "rgb": [
+        131,
+        162,
+        186
+      ],
+      "count": 23660,
+      "frac": 0.18919
+    },
+    {
+      "rgb": [
+        123,
+        221,
+        230
+      ],
+      "count": 10816,
+      "frac": 0.08649
+    }
+  ],
+  "decisions": {
+    "7,24,33": {
+      "role": "off",
+      "priority": 1.0
+    },
+    "97,112,117": {
+      "role": "color",
+      "priority": 1.0,
+      "color": [
+        90,
+        130,
+        160
+      ]
+    },
+    "131,162,186": {
+      "role": "color",
+      "priority": 1.0,
+      "color": [
+        40,
+        120,
+        200
+      ]
+    },
+    "123,221,230": {
+      "role": "color",
+      "priority": 0.6,
+      "color": [
+        0,
+        180,
+        210
+      ]
+    }
+  },
+  "overlay": {}
+}

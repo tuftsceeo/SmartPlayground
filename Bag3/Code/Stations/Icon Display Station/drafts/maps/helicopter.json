@@ -1,0 +1,95 @@
+{
+  "source": "assets/helicopter.png",
+  "max_segments": 5,
+  "intensity": 0.3,
+  "fills": [
+    {
+      "rgb": [
+        1,
+        1,
+        1
+      ],
+      "count": 30710,
+      "frac": 0.73434
+    },
+    {
+      "rgb": [
+        246,
+        6,
+        3
+      ],
+      "count": 6100,
+      "frac": 0.14586
+    },
+    {
+      "rgb": [
+        159,
+        161,
+        166
+      ],
+      "count": 2580,
+      "frac": 0.06169
+    },
+    {
+      "rgb": [
+        36,
+        193,
+        252
+      ],
+      "count": 1423,
+      "frac": 0.03403
+    },
+    {
+      "rgb": [
+        36,
+        188,
+        248
+      ],
+      "count": 1007,
+      "frac": 0.02408
+    }
+  ],
+  "decisions": {
+    "1,1,1": {
+      "role": "off",
+      "priority": 1.0
+    },
+    "246,6,3": {
+      "role": "color",
+      "priority": 1.0,
+      "color": [
+        178,
+        0,
+        0
+      ]
+    },
+    "159,161,166": {
+      "role": "color",
+      "priority": 0.6,
+      "color": [
+        192,
+        206,
+        206
+      ]
+    },
+    "36,193,252": {
+      "role": "color",
+      "priority": 0.6,
+      "color": [
+        0,
+        162,
+        220
+      ]
+    },
+    "36,188,248": {
+      "role": "color",
+      "priority": 2.5,
+      "color": [
+        0,
+        162,
+        220
+      ]
+    }
+  },
+  "overlay": {}
+}
