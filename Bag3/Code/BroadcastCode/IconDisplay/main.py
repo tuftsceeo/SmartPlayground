@@ -81,6 +81,7 @@ if game_store.GAMES_DIR not in sys.path:
 # game held resident at boot is heap the radio cannot have.
 GAME_MODULES = {
     "goalrace": "goalrace",
+    "scoreboard": "scoreboard",
 }
 
 if set(GAME_MODULES.keys()) != GAME_TAGS:

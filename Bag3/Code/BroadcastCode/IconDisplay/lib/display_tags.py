@@ -18,6 +18,7 @@ mismatch: nothing else keeps the two in step.
 
 GAME_TAGS = {
     "goalrace",
+    "scoreboard",
 }
 
 CONTROL_TAGS = {"stop", "getcode"}
