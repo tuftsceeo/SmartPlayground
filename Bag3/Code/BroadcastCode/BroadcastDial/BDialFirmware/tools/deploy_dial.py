@@ -5,16 +5,14 @@ Host-side tool. Not firmware; never upload this to a device.
 
 Why this exists: the batched one-shot
 `mpremote ... fs cp a + fs cp b + ... + reset` chain documented in
-../../README.md's "Deploy" section is unreliable on at least one Dial unit
-(found during the multi-client SERVE bench pass, 2026-09-21) -- the board
-reset itself mid-write on the two largest files in the set
-(bdial_server.py, code_server.py -- the exact files that change rewrote),
-silently dropping the copy. A per-file deploy with pauses between files
-fixed it that session. This script makes that the repeatable, documented
-path instead of something done by hand: one mpremote invocation per file,
-a full-content read-back to verify the write actually landed (not just a
-size check -- catches truncation AND corruption), and a retry if a file
-fails.
+../../README.md's "Deploy" section gave a dropped/truncated copy during
+the multi-client SERVE bench pass (2026-09-21) -- traced afterward to the
+invocation not following HARDWARE_PROTOCOL.md's `resume` rule on every
+call, not to the Dial itself. This script makes the safer path repeatable
+and documented instead of something done by hand: one mpremote invocation
+per file (each properly `resume`d), a full-content read-back to verify the
+write actually landed (not just a size check -- catches truncation AND
+corruption), and a retry if a file fails.
 
 The file list comes from manifest.js (DIAL_FILES), not a hardcoded copy,
 so it can't drift from what ChatBroadcast's own installer deploys.
@@ -28,7 +26,7 @@ Usage (from BDialFirmware/):
     python3 tools/deploy_dial.py /dev/cu.usbmodemXXXX --pause 8
 
 --pause default is 8s -- the value that happened to work in the session
-that found this bug. It is NOT a confirmed minimum; if a file still fails
+that found this. It is NOT a confirmed minimum; if a file still fails
 verification at the default, try a larger --pause before assuming
 something else is wrong.
 """

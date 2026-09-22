@@ -18,6 +18,18 @@ Phase 0 (tools/probe_dial.py, 2026-09-09):
 
 make_reader() raises loudly rather than returning None — a broken reader
 must be a crash, matching buttons.py's stance on the Box.
+
+EXTERNAL READER: the built-in reader's antenna sits under the LCD, sharing
+the enclosure with the touch controller, RTC, encoder assembly, speaker
+and battery -- detuning the coil and causing the poor read/write
+reliability reported against the Box's external M5Stack RFID 2 Grove unit
+(same WS1850S chip, its own antenna, off on a cable away from other
+components). Confirmed on real hardware 2026-09-22: an external Grove
+RFID2 unit wired to the Dial's Port A header (sda=13 scl=15, ACKs 0x28 --
+probe_dial.run(stages=[4])) reads/writes noticeably better than the
+built-in reader. make_reader() now prefers that external unit whenever one
+is attached, and falls back to the built-in reader when it isn't -- a
+missing external unit must not brick a Dial that has none wired up.
 """
 
 from card_writer import NfcWriter
@@ -31,6 +43,15 @@ I2C_SCL = 12
 NFC_ADDR = 0x28  # WS1850S (H2); VersionReg read 0x15 on this unit
 I2C_FREQ = 100_000
 
+# External Grove RFID2 (WS1850S) on the Dial's Port A header -- see the
+# EXTERNAL READER note above. Pins confirmed live 2026-09-22 via
+# probe_dial.run(stages=[4]) on a real unit wired to Port A: sda=13 scl=15
+# ACKs a device at 0x28 (WS1850S), matching the internal chip's address on
+# a separate bus -- no address conflict either way.
+EXT_I2C_SDA = 13
+EXT_I2C_SCL = 15
+
+
 # StickS3 stayed under ~190 to avoid brown-out on battery. Dial 2 has a
 # larger enclosure and different power path; start moderate and check on
 # battery in Phase 1.
@@ -38,21 +59,41 @@ SPEAKER_VOLUME = 180
 
 
 def make_reader():
-    """Construct and init the built-in reader; antenna left off.
+    """Construct and init the reader; antenna left off.
 
-    Hardware I2C peripheral (not SoftI2C) on the shared internal bus (also
-    touch @ 0x38, RTC @ 0x51). SoftI2C ACKs a bare i2c.scan() of the WS1850S
-    at NFC_ADDR just fine, but its bit-banged clock cannot reliably stretch
-    for a real register read -- readfrom_mem() times out (ETIMEDOUT) even
-    though the chip is present and powered. machine.I2C's hardware
-    peripheral does not have that limitation; confirmed live against this
-    unit (readfrom_mem(NFC_ADDR, VersionReg) -> 0x15, matching H2's probe).
-    Raises whatever NfcWriter/WS1850S raises on a dead bus.
+    Prefers the external Grove unit on Port A (see EXTERNAL READER above);
+    falls back to the built-in reader when nothing acks at NFC_ADDR on that
+    bus. WS1850S.__init__ writes registers immediately, so a bus with
+    nothing listening raises there (OSError, no ACK) -- that's exactly the
+    signal used to detect "no external unit attached", not an error to
+    surface.
+
+    Hardware I2C peripheral (not SoftI2C) either way -- SoftI2C ACKs a bare
+    i2c.scan() of the WS1850S fine, but its bit-banged clock cannot reliably
+    stretch for a real register read (readfrom_mem() -- ETIMEDOUT) even
+    though the chip is present and powered; machine.I2C's hardware
+    peripheral does not have that limitation. Confirmed live on both buses
+    (readfrom_mem(NFC_ADDR, VersionReg) -> 0x15 on each).
+
+    Raises whatever NfcWriter/WS1850S raises if BOTH buses are dead -- a
+    fully broken reader must still be a crash, matching buttons.py's stance
+    on the Box.
     """
     import machine
-    i2c = machine.I2C(
-        0, sda=machine.Pin(I2C_SDA), scl=machine.Pin(I2C_SCL), freq=I2C_FREQ)
-    nfc = NfcWriter(i2c, NFC_ADDR)
+    try:
+        i2c = machine.I2C(
+            0, sda=machine.Pin(EXT_I2C_SDA), scl=machine.Pin(EXT_I2C_SCL),
+            freq=I2C_FREQ)
+        nfc = NfcWriter(i2c, NFC_ADDR)
+        print("# nfc: external reader on Port A (sda=%d scl=%d)"
+              % (EXT_I2C_SDA, EXT_I2C_SCL))
+    except Exception as e:
+        print("# nfc: no external reader on Port A (%s) -- using built-in"
+              % str(e))
+        i2c = machine.I2C(
+            0, sda=machine.Pin(I2C_SDA), scl=machine.Pin(I2C_SCL),
+            freq=I2C_FREQ)
+        nfc = NfcWriter(i2c, NFC_ADDR)
     nfc.init()
     # WS1850S.__init__ leaves the antenna on; idle until a scan says otherwise.
     nfc.antenna_off()

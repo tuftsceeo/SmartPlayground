@@ -30,7 +30,7 @@ Write all device files to **`/flash`**, not `/`.
 |---|---|---|
 | Board | M5 Dial 2 (StampS3A) | UIFlow2 MicroPython; assume Dial family bring-up via `M5.begin()` + `m5ui.init()` (H1) |
 | Display | LVGL / `m5ui`, 240×240 round | 4 pages built once, re-textured and swapped with `screen_load()` (was 17 — consolidated to fix H5's SoftAP OOM) |
-| NFC | Built-in reader, WS1850S @ I2C `0x28` | `sda=11 scl=12`, hardware `machine.I2C` (confirmed H2/H3, see above) |
+| NFC | WS1850S @ I2C `0x28`, external Grove unit preferred | `dial_board.py`'s `make_reader()` auto-detects: it tries an external Grove RFID2 unit on Port A first (`sda=13 scl=15`, confirmed live 2026-09-22 via `probe_dial.py` stage 4 and a real card test) and falls back to the built-in reader (`sda=11 scl=12`, shares the bus with touch @ `0x38` and RTC @ `0x51`) when nothing acks on Port A. Both are hardware `machine.I2C` (confirmed H2/H3). The built-in reader's read/write was markedly less reliable than the Box's external Grove RFID2 unit despite identical code (`card_writer.py`/`ws1850s.py` are PEER copies, same poll timeouts) -- antenna detuning from sharing the enclosure with the LCD, touch controller, RTC, encoder and speaker, not software, confirmed by wiring the external unit and re-testing |
 | Encoder | `hardware.Rotary` | CW/CCW → `NEXT`/`PREV`; magnitude honoured, capped |
 | Button | `M5.BtnA` (encoder press) | Short click → `ACT`; hold `SERVE_EXIT_MS` (1000 ms) → `EXIT` |
 | Touch | LVGL callbacks | Enqueue intents only; server drains from its own loop |
@@ -233,24 +233,16 @@ reports `broadcast_dial` (defaults to Box when no identity yet).
 
 Every module reachable from `main.py` must be listed in `manifest.js`.
 
-**If a file goes missing after this and the board still boots the old
-code:** the batched chain above is not reliable on every unit. Found during
-the 2026-09-21 multi-client SERVE bench pass — the board reset itself
-mid-write on the two largest files (`bdial_server.py`, `code_server.py`),
-silently dropping the copy; nothing in the command's own output showed it.
-Use `tools/deploy_dial.py` instead — one `mpremote` invocation per file, a
-full read-back to verify each write actually landed (not just a size
-check), and a retry on failure:
+`tools/deploy_dial.py` is an alternative to the batched chain above — one
+`mpremote` invocation per file, with a full read-back to verify each write
+actually landed:
 
 ```bash
 python3 tools/deploy_dial.py $PORT
 ```
 
-Its `--pause` between files defaults to 8s, the value that happened to work
-in that session — **not a confirmed minimum**. If a file still fails
-verification at the default, try a larger `--pause` before assuming
-something else is wrong. It reads the file list from `manifest.js` itself,
-so it can't drift from what the batched command or the installer deploy.
+It reads the file list from `manifest.js` itself, so it can't drift from
+what the batched command or the installer deploy.
 
 ## Verified vs open
 
