@@ -58,18 +58,18 @@ def rect(grid, r0, c0, r1, c1, color):
             grid[r][c] = color
 
 
-def circle(grid, cx, cy, radius, color):
+def circle(grid, row, col, radius, color):
     for r in range(H):
         for c in range(W):
-            if (c + 0.5 - cx) ** 2 + (r + 0.5 - cy) ** 2 <= radius * radius:
+            if (c + 0.5 - col) ** 2 + (r + 0.5 - row) ** 2 <= radius * radius:
                 grid[r][c] = color
 
 
-def ellipse(grid, cx, cy, rx, ry, color):
+def ellipse(grid, row, col, r_row, r_col, color):
     for r in range(H):
         for c in range(W):
-            dx = (c + 0.5 - cx) / rx
-            dy = (r + 0.5 - cy) / ry
+            dx = (c + 0.5 - col) / r_col
+            dy = (r + 0.5 - row) / r_row
             if dx * dx + dy * dy <= 1.0:
                 grid[r][c] = color
 
@@ -171,50 +171,52 @@ def check(name, grid):
 # --------------------------------------------------------------- icon defs --
 
 def draw_dog(g):
-    ellipse(g, 8, 9.5, 6, 5.5, BROWN)      # head
-    triangle(g, (2, 3), (5, 6), (2, 7), DKBROWN)   # left ear
-    triangle(g, (14, 3), (11, 6), (14, 7), DKBROWN)  # right ear
+    ellipse(g, 9.5, 8, 5.5, 6, BROWN)      # head, rows[4,15] cols[2,14]
+    # ear bases sit at row 7, well inside the head's silhouette there (not
+    # just grazing its curved top edge), so they read as attached, not floating.
+    triangle(g, (1, 4), (7, 2), (7, 6), DKBROWN)    # left ear
+    triangle(g, (1, 12), (7, 10), (7, 14), DKBROWN)  # right ear
     clear(g, 6, 6); clear(g, 6, 10)         # eyes
-    ellipse(g, 8, 12, 2.2, 1.6, DKBROWN)    # snout
-    clear(g, 8, 12)                          # nose
+    ellipse(g, 12, 8, 1.6, 2.2, DKBROWN)    # snout
+    clear(g, 12, 8)                          # nose (was row8,col12 -- off the snout entirely)
 
 
 def draw_cat(g):
-    triangle(g, (1, 2), (5, 6), (1, 8), ORANGE)   # left ear
-    triangle(g, (14, 2), (10, 6), (14, 8), ORANGE)  # right ear
-    ellipse(g, 8, 9, 6, 6, ORANGE)
+    ellipse(g, 9, 8, 6, 6, ORANGE)  # head, rows[3,15] cols[2,14]
+    triangle(g, (1, 4), (7, 2), (7, 6), ORANGE)    # left ear (same color: silhouette-only)
+    triangle(g, (1, 12), (7, 10), (7, 14), ORANGE)  # right ear
     clear(g, 6, 6); clear(g, 6, 11)
     rect(g, 9, 8, 10, 9, DKBROWN)  # nose
 
 
 def draw_fish(g):
-    ellipse(g, 6, 8, 5, 4.5, SKY)
-    triangle(g, (13, 8), (15, 4), (15, 12), TEAL)  # tail
-    clear(g, 4, 4)  # eye
-    rect(g, 8, 7, 10, 8, TEAL)  # top fin
+    ellipse(g, 8, 9, 3.3, 5, SKY)  # body, rows[4.7,11.3] cols[4,14]
+    triangle(g, (8, 1), (4, 5), (12, 5), TEAL)  # tail, base at col5 -- inside the body, not past its left edge
+    rect(g, 6, 8, 7, 10, TEAL)  # top fin, inside the body's upper half
+    clear(g, 7, 12)  # eye, near the front (right side)
 
 
 def draw_bird(g):
-    ellipse(g, 9, 8, 5, 4.5, SKY)
-    circle(g, 4, 6, 2.4, SKY)
-    triangle(g, (2, 6), (2, 9), (0, 7.5), ORANGE)  # beak
-    clear(g, 3, 5)
-    triangle(g, (13, 9), (15, 6), (15, 12), TEAL)  # wing/tail
+    ellipse(g, 8, 9, 4, 5, SKY)   # body, rows[4,12] cols[4,14]
+    circle(g, 6, 4, 2.6, SKY)     # head, overlaps the body's upper-left
+    triangle(g, (6, 0), (4, 2), (8, 2), ORANGE)  # beak, base at col2 -- inside the head
+    triangle(g, (8, 15), (6, 11), (11, 11), TEAL)  # tail, base at col11 -- inside the body
+    clear(g, 9, 13); clear(g, 10, 12)  # stray anti-aliased body slivers past the tail's edge
+    clear(g, 4, 5)  # eye
 
 
 def draw_butterfly(g):
-    ellipse(g, 4, 5, 3.4, 3.6, PURPLE)
-    ellipse(g, 12, 5, 3.4, 3.6, PURPLE)
-    ellipse(g, 4, 11, 2.6, 2.8, PINK)
-    ellipse(g, 12, 11, 2.6, 2.8, PINK)
+    ellipse(g, 5, 4, 3.6, 3.4, PURPLE)
+    ellipse(g, 5, 12, 3.6, 3.4, PURPLE)
+    ellipse(g, 11, 4, 2.8, 2.6, PINK)
+    ellipse(g, 11, 12, 2.8, 2.6, PINK)
     rect(g, 3, 7, 12, 8, DKBROWN)  # body
 
 
 def draw_surprised(g):
     circle(g, 8, 8, 7, YELLOW)
-    circle(g, 5, 6, 1.4, DKBROWN); circle(g, 5, 10, 1.4, DKBROWN)
-    circle(g, 11, 8, 2.0, DKBROWN)  # open mouth "O"
-    clear(g, 11, 8)
+    circle(g, 5, 6, 1.4, DKBROWN); circle(g, 5, 10, 1.4, DKBROWN)  # eyes: row5, col6/col10
+    circle(g, 11, 8, 1.6, DKBROWN)  # open mouth "O": row11, col8 -- a hollowed ring broke into slivers at this radius
 
 
 def draw_sleepy(g):
@@ -225,27 +227,28 @@ def draw_sleepy(g):
 
 
 def draw_love(g):
-    # face with heart-shaped eyes -- distinct from the plain "heart" concept icon
-    circle(g, 8, 9, 6.5, YELLOW)
-    circle(g, 4, 6.5, 1.6, PINK); circle(g, 6.5, 6.5, 1.6, PINK)
-    triangle(g, (5, 8), (8, 8), (6.5, 11), PINK)
-    circle(g, 4, 11, 1.6, PINK); circle(g, 6.5, 11, 1.6, PINK)
-    triangle(g, (5, 12.5), (8, 12.5), (6.5, 15.5), PINK)
+    # blushing face -- distinct from the plain "heart" concept icon; small
+    # heart-shaped eyes don't have enough pixels at this size to read as
+    # hearts (they render as blobs), so blush circles carry the "love" cue.
+    circle(g, 8, 8, 6.5, YELLOW)
+    circle(g, 5, 5, 1.3, DKBROWN); circle(g, 5, 11, 1.3, DKBROWN)  # eyes: row5, col5/col11
+    circle(g, 10, 4, 1.6, PINK); circle(g, 10, 12, 1.6, PINK)      # blush: row10, col4/col12
     rect(g, 12, 6, 12, 11, DKBROWN)  # smile
+    clear(g, 12, 12)  # stray anti-aliased face sliver past the blush's edge
 
 
 def draw_silly(g):
     circle(g, 8, 8, 7, LIME)
     rect(g, 4, 4, 5, 6, DKBROWN)  # winking eye
-    circle(g, 5, 10, 1.3, DKBROWN)
+    circle(g, 5, 10, 1.3, DKBROWN)  # open eye: row5, col10
     triangle(g, (10, 5), (10, 11), (13, 8), DKBROWN)  # tongue-out grin
 
 
 def draw_flower(g):
-    circle(g, 8, 5, 2.6, PINK)
-    circle(g, 4.5, 8, 2.6, PINK)
-    circle(g, 11.5, 8, 2.6, PINK)
-    circle(g, 8, 10.5, 2.6, PINK)
+    circle(g, 5, 8, 2.6, PINK)     # top petal
+    circle(g, 8, 4.5, 2.6, PINK)   # left petal
+    circle(g, 8, 11.5, 2.6, PINK)  # right petal
+    circle(g, 10.5, 8, 2.6, PINK)  # bottom petal
     circle(g, 8, 8, 2.0, YELLOW)
     rect(g, 11, 7, 15, 8, GREEN)  # stem
 
@@ -253,10 +256,10 @@ def draw_flower(g):
 def draw_sunflower(g):
     import math
     for ang in range(0, 360, 30):
-        cx = 8 + 5.5 * math.cos(math.radians(ang))
-        cy = 6 + 5.5 * math.sin(math.radians(ang))
-        circle(g, cx, cy, 1.8, YELLOW)
-    circle(g, 8, 6, 3.2, DKBROWN)
+        col = 8 + 5.5 * math.cos(math.radians(ang))
+        row = 6 + 5.5 * math.sin(math.radians(ang))
+        circle(g, row, col, 1.8, YELLOW)
+    circle(g, 6, 8, 3.2, DKBROWN)
     rect(g, 10, 7, 15, 8, GREEN)
 
 
@@ -270,35 +273,39 @@ def draw_cactus(g):
 
 
 def draw_mushroom(g):
-    ellipse(g, 8, 6, 6, 4.5, RED)
+    ellipse(g, 6, 8, 4.5, 6, RED)
     rect(g, 4, 3, 5, 4, CREAM); rect(g, 4, 8, 5, 9, CREAM)
     rect(g, 6, 5, 7, 6, CREAM); rect(g, 6, 10, 7, 11, CREAM)
     rect(g, 9, 6, 15, 9, CREAM)
 
 
 def draw_pizza(g):
-    triangle(g, (1, 8), (15, 2), (15, 14), YELLOW)
-    circle(g, 5, 8, 1.1, RED)
-    circle(g, 8, 6, 1.0, RED)
-    circle(g, 8, 10, 1.0, RED)
-    circle(g, 11, 8, 1.1, RED)
-    rect(g, 0, 1, 1, 15, BROWN)  # crust edge
+    # apex points down; crust is the outer triangle showing through where a
+    # smaller, inset cheese triangle doesn't cover it -- not a separate bar.
+    triangle(g, (15, 8), (1, 2), (1, 14), BROWN)   # crust (full slice silhouette)
+    triangle(g, (15, 8), (3, 4), (3, 12), YELLOW)  # cheese, inset from the crust
+    # stray anti-aliased slivers along the crust/cheese diagonal edges
+    for r, c in ((5, 4), (5, 11), (6, 4), (6, 11), (7, 6), (7, 9), (8, 5), (8, 10), (11, 6), (11, 9)):
+        clear(g, r, c)
+    circle(g, 6, 8, 1.0, RED)
+    circle(g, 8, 7, 0.7, RED)
+    circle(g, 8, 9, 0.7, RED)
+    circle(g, 11, 8, 0.9, RED)
 
 
 def draw_cookie(g):
     circle(g, 8, 8, 7, BROWN)
     circle(g, 5, 5, 1.1, DKBROWN)
-    circle(g, 5, 11, 1.1, DKBROWN)
-    circle(g, 9, 8, 1.1, DKBROWN)
-    circle(g, 12, 5, 1.1, DKBROWN)
-    circle(g, 11, 12, 1.1, DKBROWN)
+    circle(g, 11, 5, 1.1, DKBROWN)
+    circle(g, 8, 9, 1.1, DKBROWN)
+    circle(g, 5, 12, 1.1, DKBROWN)
+    circle(g, 12, 11, 1.1, DKBROWN)
 
 
 def draw_icecream(g):
-    triangle(g, (7, 5), (7, 11), (15, 8), BROWN)  # cone
-    circle(g, 5, 8, 5, PINK)
-    circle(g, 2, 8, 3.6, CREAM)
-    clear(g, 7, 10); clear(g, 10, 9)  # stray anti-aliased cone slivers the scoop didn't cover
+    triangle(g, (7, 5), (7, 11), (15, 8), BROWN)  # cone, apex row15 col8, base row7 cols5-11
+    circle(g, 6, 8, 5, PINK)     # scoop, centered over the cone
+    circle(g, 2, 8, 3.2, CREAM)  # topping dollop
 
 
 def draw_banana(g):
@@ -317,8 +324,8 @@ def draw_sun(g):
 
 
 def draw_moon(g):
-    circle(g, 7, 8, 6.5, SKY)
-    circle(g, 10, 5.5, 6.8, (0, 0, 0))  # bite out a crescent
+    circle(g, 8, 7, 6.5, SKY)
+    circle(g, 5.5, 10, 6.8, (0, 0, 0))  # bite out a crescent
 
 
 def draw_star(g):
@@ -335,10 +342,29 @@ def draw_star(g):
         triangle(g, (8, 8), p1, p2, YELLOW)
 
 
+# Explicit per-row column spans for a symmetric heart (col_start + col_end ==
+# 15 on every row, i.e. mirrored around the grid's center line at col 7.5).
+# The circle+triangle math this replaced didn't line up cleanly enough at
+# 16x16 to stay symmetric -- it read as a lopsided blob instead of a heart.
+HEART_ROWS = [
+    (2, 2, 4), (2, 11, 13),    # top lobes (two separate humps)
+    (3, 1, 5), (3, 10, 14),
+    (4, 1, 14),                # lobes merge into one band
+    (5, 1, 14),
+    (6, 1, 14),
+    (7, 2, 13),
+    (8, 3, 12),
+    (9, 4, 11),
+    (10, 5, 10),
+    (11, 6, 9),
+    (12, 7, 8),
+    (13, 7, 8),                # point
+]
+
+
 def draw_heart(g):
-    circle(g, 5, 5.5, 3.4, RED)
-    circle(g, 11, 5.5, 3.4, RED)
-    triangle(g, (2, 7), (14, 7), (8, 15.5), RED)
+    for row, c0, c1 in HEART_ROWS:
+        rect(g, row, c0, row, c1, RED)
 
 
 def draw_rainbow(g):
@@ -348,10 +374,10 @@ def draw_rainbow(g):
     radius = 15.0
     step = 15.0 / len(bands)
     for color in bands:
-        ellipse(g, 8, 15, radius, radius, color)
+        ellipse(g, 15, 8, radius, radius, color)
         radius -= step
     radius = max(radius, 0.5)
-    ellipse(g, 8, 15, radius, radius, (0, 0, 0))  # hollow center
+    ellipse(g, 15, 8, radius, radius, (0, 0, 0))  # hollow center
     for r in range(11, 16):
         rect(g, r, 0, r, 15, (0, 0, 0))  # keep only the upper arch
 
@@ -366,7 +392,7 @@ def draw_house(g):
 
 
 def draw_umbrella(g):
-    ellipse(g, 8, 5, 7.5, 4.5, TEAL)
+    ellipse(g, 5, 8, 4.5, 7.5, TEAL)
     rect(g, 5, 7, 5, 8, (0, 0, 0))
     rect(g, 5, 8, 14, 9, BROWN)
 
@@ -385,7 +411,7 @@ def draw_kite(g):
 
 
 def draw_music(g):
-    circle(g, 6, 12, 2.6, PURPLE)      # note head
+    circle(g, 12, 6, 2.6, PURPLE)      # note head
     rect(g, 2, 8, 12, 9, PURPLE)       # stem, touching the head's right edge
     triangle(g, (2, 9), (2, 13), (5, 9), PURPLE)  # flag
 
