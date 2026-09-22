@@ -1,0 +1,64 @@
+{
+  "source": "assets/griffin.png",
+  "max_segments": 12,
+  "intensity": 0.3,
+  "fills": [
+    {
+      "rgb": [
+        48,
+        52,
+        109
+      ],
+      "count": 61516,
+      "frac": 0.44828
+    },
+    {
+      "rgb": [
+        131,
+        162,
+        186
+      ],
+      "count": 52052,
+      "frac": 0.37931
+    },
+    {
+      "rgb": [
+        123,
+        221,
+        230
+      ],
+      "count": 23660,
+      "frac": 0.17241
+    }
+  ],
+  "decisions": {
+    "48,52,109": {
+      "role": "color",
+      "priority": 1.0,
+      "color": [
+        70,
+        75,
+        180
+      ]
+    },
+    "131,162,186": {
+      "role": "color",
+      "priority": 1.0,
+      "color": [
+        40,
+        120,
+        200
+      ]
+    },
+    "123,221,230": {
+      "role": "color",
+      "priority": 1.0,
+      "color": [
+        0,
+        180,
+        210
+      ]
+    }
+  },
+  "overlay": {}
+}

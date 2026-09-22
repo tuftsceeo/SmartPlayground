@@ -1,0 +1,77 @@
+{
+  "source": "assets/dino.png",
+  "max_segments": 12,
+  "intensity": 0.3,
+  "fills": [
+    {
+      "rgb": [
+        7,
+        24,
+        33
+      ],
+      "count": 35828,
+      "frac": 0.40769
+    },
+    {
+      "rgb": [
+        48,
+        104,
+        80
+      ],
+      "count": 22984,
+      "frac": 0.26154
+    },
+    {
+      "rgb": [
+        134,
+        192,
+        108
+      ],
+      "count": 19604,
+      "frac": 0.22308
+    },
+    {
+      "rgb": [
+        224,
+        248,
+        207
+      ],
+      "count": 9464,
+      "frac": 0.10769
+    }
+  ],
+  "decisions": {
+    "7,24,33": {
+      "role": "off",
+      "priority": 1.0
+    },
+    "48,104,80": {
+      "role": "color",
+      "priority": 1.0,
+      "color": [
+        0,
+        110,
+        50
+      ]
+    },
+    "134,192,108": {
+      "role": "color",
+      "priority": 1.0,
+      "color": [
+        60,
+        190,
+        0
+      ]
+    },
+    "224,248,207": {
+      "role": "color",
+      "priority": 1.0,
+      "color": [
+        190,
+        190,
+        190
+      ]
+    }
+  },
+  "overlay": {}
+}
