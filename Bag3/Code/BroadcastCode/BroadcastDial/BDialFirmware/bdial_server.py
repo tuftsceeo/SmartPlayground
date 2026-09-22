@@ -84,14 +84,13 @@ MODE_SERVE = "SERVE"
 #   MENU      list of groups   ACT = open (or serve on DONE)  NEXT/PREV
 #   GROUP     one group's tags ACT = scan                     NEXT/PREV
 #   SCAN      RF field on      BACK = group
-#   SPLASH    result shown     ACT/BACK/NEXT = group
 #
 # SCAN also covers the Utility Tags -> Read Card entry (READ_ENTRY below),
 # a read-only "NFC Reader" utility -- see _scan_step()'s READ_ENTRY branch
-# and dial_ui.paint_reader(). It never advances to SPLASH: each card read
-# just repaints the same SCAN screen in place, so a teacher can read
-# several cards back to back without re-entering the menu between them.
-# BACK still exits it to GROUP like any other scan.
+# and dial_ui.paint_reader(). It never triggers a write result screen: each
+# card read just repaints the same SCAN screen in place, so a teacher can
+# read several cards back to back without re-entering the menu between
+# them. BACK still exits it to GROUP like any other scan.
 #
 # The menu is two-level because a single game can contribute a dozen tags
 # (melody alone has eleven). On one flat list, DONE -- the only way into
@@ -103,10 +102,20 @@ MODE_SERVE = "SERVE"
 # targets a confirm/cancel prompt would need. Any tag SCAN detects gets
 # written immediately; beep_success()/beep_fail() in _write_card() is the
 # only confirmation that's reachable.
+#
+# A write result (success/already/failure) is not its own sub-state -- the
+# result screen is painted, held on screen for a fixed delay below, and
+# then _write_card()/_scan_step() transition on their own (success/already
+# back to GROUP, failure back into a fresh SCAN of the same target). A
+# "tap to continue" SPLASH state used to sit between the result and that
+# transition; testing showed the extra tap was a nuisance given the
+# screen+beep already say what happened, so it was removed -- these are
+# the only holds left standing in for it.
+RESULT_HOLD_OK_MS = 1000
+RESULT_HOLD_FAIL_MS = 500
 W_MENU = "menu"
 W_GROUP = "group"
 W_SCAN = "scan"
-W_SPLASH = "splash"
 
 
 # Chatty tracing (intents, state transitions, antenna toggles).
@@ -846,18 +855,6 @@ class BdialServer:
         else:
             self.ui.paint_scanning(entry)
 
-    def _to_splash(self):
-        """Result is on screen; it stays there until a button dismisses it.
-
-        The RF field goes down here rather than at the next menu paint --
-        nothing is being scanned while a result is being read, so there is
-        no reason to keep the antenna energized for it.
-        """
-        _dbg("state %s -> splash" % self._write_state)
-        self._write_state = W_SPLASH
-        self._nfc_field(False)
-        self._clear_pending()
-
     def _poll_write(self):
         """WRITE mode. Drain one intent per loop; scan runs when idle."""
         intent = self._input.pop()
@@ -908,12 +905,6 @@ class BdialServer:
                 self._to_group()
                 return
             self._scan_step()
-            return
-
-        if self._write_state == W_SPLASH:
-            if intent in (ACT, BACK, NEXT, PREV):
-                self.ui.beep_click()
-                self._to_group()
             return
 
     # Consecutive detect_tag() OSErrors before we assume the reader's
@@ -996,14 +987,25 @@ class BdialServer:
             _log("card already carries %s -- no write" % repr(entry))
             self.ui.paint_already(entry)
             self.ui.beep_success()
-            self._to_splash()
+            time.sleep_ms(RESULT_HOLD_OK_MS)
+            self._to_group()
             return
         if existing:
             _log("card has %s, want %s -> auto-overwrite" % (repr(existing), repr(entry)))
         self._write_card(tag, entry)
 
     def _write_card(self, tag, entry):
-        """Write, then leave the result on screen until a button dismisses it."""
+        """Write, then hold the result on screen briefly before moving on.
+
+        Success holds RESULT_HOLD_OK_MS and returns to the group's tag
+        list -- one write attempt done, ready for the next card. Failure
+        holds the shorter RESULT_HOLD_FAIL_MS and goes straight back into
+        a fresh scan on the *same* target, since the most likely next step
+        is just trying the tap again. Screen + beep already communicate
+        the result, so neither case waits on a button any more (that
+        "tap to continue" step was the original design but testing showed
+        it was just a nuisance -- see dial_ui.py's painters).
+        """
         _log("WRITE attempt: target=%s uid=%s" % (repr(entry), tag['uid_hex']))
         self.ui.paint_writing(entry)
         ok = write_text(self.nfc, tag, entry)
@@ -1020,10 +1022,13 @@ class BdialServer:
                 stats_log.record_tag(entry)
             except Exception as e:
                 print("# stats tag failed: %s" % str(e))
+            time.sleep_ms(RESULT_HOLD_OK_MS)
+            self._to_group()
         else:
             self.ui.paint_write_failed(entry)
             self.ui.beep_fail()
-        self._to_splash()
+            time.sleep_ms(RESULT_HOLD_FAIL_MS)
+            self._to_scan()
 
     # ─────────────────────────────────────────────
     # SERVE MODE

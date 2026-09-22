@@ -180,6 +180,50 @@ def _display_tag(text):
     return text[:1].upper() + text[1:] if text else text
 
 
+def _pickup_tags(rows):
+    """(code_tag, play_tag) raw values in `rows`, or (None, None).
+
+    Every game group's first two rows are always "getcode:<slug>" then
+    the bare slug (see bbox_server._rebuild_entries) -- the slug itself
+    is never passed down separately, so it's recovered here by stripping
+    the "getcode:" prefix off row 0 rather than threading a new parameter
+    through paint_tag_group(). The Utility Tags group has no "getcode:"
+    row at all, so this naturally no-ops there.
+    """
+    if not rows or not rows[0].startswith("getcode:"):
+        return None, None
+    code_tag = rows[0]
+    slug = code_tag[len("getcode:"):]
+    play_tag = rows[1] if len(rows) > 1 and rows[1] == slug else None
+    return code_tag, play_tag
+
+
+def _friendly_tag(r, code_tag, play_tag):
+    """Short, teacher-facing name for a game's own pickup tags.
+
+    "getcode:apple_button" / "apple_button" read as raw identifiers, not
+    words a non-technical teacher chose -- the game itself is already
+    named ("Apple Button Game") by the time this list is reached, so
+    these two just need to say what tapping them accomplishes. Same
+    wording as dial_ui.py's "Code Tag"/"Play Tag" -- no "Create " prefix
+    on either device; besides reading too similarly at a glance once both
+    started with the same word, this screen's ROW_CHARS/SELECTED_CHARS
+    budget (16/13) is much tighter than the Dial's (26) and would just
+    ellipsize a longer label back down to near-nothing on the selected
+    row. Unlike the Dial, there's no second WIFI/PLAY icon to lean on
+    here either -- glyph coverage on this hardware is bullet/degree only
+    (see the module docstring), so color is this file's only way to tell
+    the two apart; paired with a real per-row color in _paint_slots()'s
+    `special` flag, unlike the Dial's roller which can't color individual
+    rows -- see that file's _friendly_tag() for why.
+    """
+    if r == code_tag:
+        return "Code Tag"
+    if r == play_tag:
+        return "Play Tag"
+    return _display_tag(r)
+
+
 # Fixed 5-slot carousel: 2 rows above the cursor, the cursor's own row
 # (always rendered in the single, visually distinct SELECTED slot), 2
 # rows below. Unlike the old MAX_ROWS/_window() scheme this never shifts
@@ -191,14 +235,23 @@ ROWS_ABOVE = 2
 ROWS_BELOW = 2
 
 
-def _slots(entries, cursor):
-    """[(text_or_empty, is_selected), ...] for ROWS_ABOVE+1+ROWS_BELOW slots."""
+def _slots(entries, cursor, special=None):
+    """[(text_or_empty, is_selected, accent_or_None), ...] for the window.
+
+    `special` is {index_into_entries: accent_color} -- callers build it
+    against the same full list they pass here, e.g. {0: WRITE_FG} for a
+    game's own "Code Tag" row, or {len(entries)-1: SERVE_FG} for "Enable
+    Share". Different rows can carry different accents this way (a
+    game's quick pickup tags vs. the root "Enable Share" row don't mean
+    the same thing, so they don't share a color).
+    """
     n = len(entries)
     out = []
     for offset in range(-ROWS_ABOVE, ROWS_BELOW + 1):
         idx = cursor + offset
         text = entries[idx] if 0 <= idx < n else ""
-        out.append((text, offset == 0))
+        accent = special.get(idx) if special else None
+        out.append((text, offset == 0, accent))
     return out
 
 
@@ -465,16 +518,16 @@ class BboxUI(object):
 
     def paint_already(self, label):
         self._status('Already "%s"' % _display_tag(label), "No Change Needed",
-                     "Press Any Button", title_c=SERVE_FG)
+                     title_c=SERVE_FG)
 
     def paint_written(self, label, count):
         self._status('"%s" Written!' % _display_tag(label),
                      "%d Written So Far" % count,
-                     "Press Any Button", title_c=SERVE_FG)
+                     title_c=SERVE_FG)
 
     def paint_write_failed(self, label):
         self._status("Write Failed", '"%s"' % _display_tag(label),
-                     "Press Any Button", title_c=DANGER_FG)
+                     title_c=DANGER_FG)
 
     def paint_writing(self, label):
         self._status('Writing "%s"...' % _display_tag(label), "Hold Card Steady")
@@ -566,7 +619,15 @@ class BboxUI(object):
         self._set_text(self._crumb, "Tag Writer")
         self._crumb.setColor(INK_3, PAGE_BG)
         display_entries = ["Enable Share" if e == "DONE" else e for e in entries]
-        self._paint_slots(display_entries, cursor)
+        # "Enable Share" is the one row here that leaves WRITE mode
+        # entirely -- teal, same as every other SERVE/share-mode accent
+        # in this file, so it stands out from the game/group rows above
+        # it even before it's scrolled to.
+        special = {}
+        for i, e in enumerate(entries):
+            if e == "DONE":
+                special[i] = SERVE_FG
+        self._paint_slots(display_entries, cursor, special)
         cur = entries[cursor] if entries else ""
         self._set_act_label("SHARE" if cur == "DONE" else "OPEN")
 
@@ -583,25 +644,36 @@ class BboxUI(object):
         self._redraw_list_chrome()
         self._set_text(self._crumb, _fit("< " + title, HEADER_CHARS))
         self._crumb.setColor(INK_3, PAGE_BG)
+        code_tag, play_tag = _pickup_tags(rows)
         display_rows = []
-        for r in rows:
+        special = {}
+        for i, r in enumerate(rows):
             if r == "< back":
                 # "< back" -> "< Back": not run through _display_tag(),
                 # whose first-letter capitalization would land on the
                 # leading "<" instead of the word "back".
                 display_rows.append("< Back")
-            elif not written or not written.get(r):
-                display_rows.append(_display_tag(r))
-            else:
-                display_rows.append("%s (%d)" % (_display_tag(r), written.get(r, 0)))
-        self._paint_slots(display_rows, cursor)
+                continue
+            label = _friendly_tag(r, code_tag, play_tag)
+            if r in (code_tag, play_tag):
+                special[i] = WRITE_FG
+            if written and written.get(r):
+                # Not a checkmark: U+2713 is confirmed blank/tofu on this
+                # hardware (see the module docstring's glyph-coverage
+                # note). Bullet U+2022 is the one confirmed-safe glyph
+                # that reads as a mark rather than a word, so it stands in
+                # here for "already written" -- a plain present/absent
+                # signal, not the running count "(%d)" used to show.
+                label = "%s •" % label
+            display_rows.append(label)
+        self._paint_slots(display_rows, cursor, special)
         cur = rows[cursor] if rows else ""
         if cur == "< back":
             self._set_act_label("BACK")
         else:
             self._set_act_label("READ" if read_only else "WRITE")
 
-    def _paint_slots(self, entries, cursor):
+    def _paint_slots(self, entries, cursor, special=None):
         """Recolour the rectangle and dot FIRST, the label LAST.
 
         On hardware, a populated row was showing up with real text
@@ -612,8 +684,20 @@ class BboxUI(object):
         widget is touched most recently wins visually, regardless of the
         order things were constructed in back in _build_list(). Setting
         the label last guarantees it draws on top every time.
+
+        `special` (see _slots()) marks rows that should stand out even
+        while unselected -- a game's own quick pickup tags, or "Enable
+        Share" at the root. It never overrides the selected look (a
+        selected row is already the most prominent state on screen); it
+        only changes the unselected/plain style, via a coloured border +
+        dot + text instead of the neutral BORDER/INK_3 every other row
+        gets. This is real per-row styling (unlike dial_ui.py's roller,
+        which draws every option through one shared label/style and
+        falls back to an icon prefix instead -- see that file's
+        _friendly_tag()).
         """
-        for i, (text, is_selected) in enumerate(_slots(entries, cursor)):
+        for i, (text, is_selected, accent) in enumerate(
+                _slots(entries, cursor, special)):
             budget = SELECTED_CHARS if is_selected else ROW_CHARS
             display = _fit(text, budget) if text else ""
             if not text:
@@ -625,6 +709,9 @@ class BboxUI(object):
             elif is_selected:
                 rect_c, fill_c, dot_c = WRITE_FG, WRITE_BG, WRITE_FG
                 label_c, label_bg = WRITE_FG, WRITE_BG
+            elif accent is not None:
+                rect_c, fill_c, dot_c = accent, CARD_BG, accent
+                label_c, label_bg = accent, CARD_BG
             else:
                 rect_c, fill_c, dot_c = BORDER, CARD_BG, WRITE_FG
                 label_c, label_bg = INK_3, CARD_BG

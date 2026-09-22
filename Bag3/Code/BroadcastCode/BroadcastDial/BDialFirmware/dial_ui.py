@@ -180,6 +180,50 @@ def _display_tag(text):
     return text[:1].upper() + text[1:] if text else text
 
 
+def _pickup_tags(rows):
+    """(code_tag, play_tag) raw values in `rows`, or (None, None).
+
+    Every game group's first two rows are always "getcode:<slug>" then
+    the bare slug (see bdial_server._rebuild_entries) -- the slug itself
+    is never passed down separately, so it's recovered here by stripping
+    the "getcode:" prefix off row 0 rather than threading a new parameter
+    through paint_tag_group(). The Utility Tags group has no "getcode:"
+    row at all, so this naturally no-ops there.
+    """
+    if not rows or not rows[0].startswith("getcode:"):
+        return None, None
+    code_tag = rows[0]
+    slug = code_tag[len("getcode:"):]
+    play_tag = rows[1] if len(rows) > 1 and rows[1] == slug else None
+    return code_tag, play_tag
+
+
+def _friendly_tag(r, code_tag, play_tag):
+    """Short, teacher-facing name for a game's own pickup tags.
+
+    "getcode:apple_button" / "apple_button" read as raw identifiers, not
+    words a non-technical teacher chose -- the game itself is already
+    named ("Apple Button Game") by the time this list is reached, so
+    these two just need to say what tapping them accomplishes. Distinct
+    icons carry most of that distinction (WIFI for the code pickup --
+    pulling the game down, same association as paint_serve()'s "Sharing"
+    chip; PLAY for the one that starts the game the wand already has) --
+    "Create Code Tag"/"Create Play Tag" read too similarly at a glance
+    once both start with the same word, so the label itself is now just
+    "Code Tag"/"Play Tag", matching bbox_ui.py's shorter wording. Every
+    other row (extra tags the game itself requested, Utility Tags) is
+    not this predictable in meaning, so it's left as _display_tag() has
+    always shown it -- see the module docstring on why this can't also
+    take a distinct roller COLOR the way bbox_ui.py's per-row rects can:
+    the icon prefix is the fallback for that.
+    """
+    if r == code_tag:
+        return IC["serve"] + " Code Tag"
+    if r == play_tag:
+        return IC["play"] + " Play Tag"
+    return _display_tag(r)
+
+
 def _fonts():
     global FONT14, FONT16, FONT24
     if FONT14 is not None:
@@ -200,6 +244,7 @@ def _fonts():
         "stop": lv.SYMBOL.STOP,
         "battery": lv.SYMBOL.BATTERY_FULL,
         "read": lv.SYMBOL.EYE_OPEN,
+        "play": lv.SYMBOL.PLAY,
     })
 
 
@@ -619,15 +664,15 @@ class DialUI(object):
 
     def paint_already(self, label):
         self._status(IC["ok"], SERVE_FG, 'Already "%s"' % _display_tag(label),
-                     "No Change Needed", "Tap to Continue")
+                     "No Change Needed", tap_dismiss=False)
 
     def paint_written(self, label, count):
         self._status(IC["ok"], SERVE_FG, '"%s" Written!' % _display_tag(label),
-                     "%d Written So Far" % count, "Tap to Continue")
+                     "%d Written So Far" % count, tap_dismiss=False)
 
     def paint_write_failed(self, label):
         self._status(IC["fail"], DANGER_FG, "Write Failed",
-                     '"%s"' % _display_tag(label), "Tap to Continue")
+                     '"%s"' % _display_tag(label), tap_dismiss=False)
 
     def paint_writing(self, label):
         self._status(IC["busy"], WRITE_FG,
@@ -667,13 +712,16 @@ class DialUI(object):
 
         The DONE sentinel is bdial_server's, used verbatim in `entries`/
         `cursor` logic -- only its DISPLAYED text changes here, to
-        "Enable Share".
+        "Enable Share", led by the same WIFI glyph paint_serve()'s
+        "Sharing" chip uses -- one icon standing for the same concept
+        everywhere it appears, and the one row at this tier that isn't a
+        game/group name reads differently at a glance because of it.
         """
         # Positive mode label rather than a warning about what's disabled:
         # WRITE mode always has the AP down, so the old "pickup off"
         # breadcrumb read as an alarm about a normal, permanent state.
         self._set_text("lst_crumb", "Tag Writer")
-        display_entries = ["Enable Share" if e == "DONE" else e
+        display_entries = [IC["serve"] + " Enable Share" if e == "DONE" else e
                            for e in entries]
         self._roller_set([_fit(e) for e in display_entries])
         # This binding's set_selected() takes a plain bool for the anim
@@ -706,13 +754,19 @@ class DialUI(object):
         never implies the scan that follows will change the card (see
         bdial_server._repaint()'s READ_ENTRY check)."""
         self._set_text("lst_crumb", _fit(IC["back"] + " " + title, 20))
+        code_tag, play_tag = _pickup_tags(rows)
         display_rows = []
         for r in rows:
-            if not written or not written.get(r):
-                display_rows.append(_display_tag(r))
-            else:
-                display_rows.append("%s (%d)" % (_display_tag(r),
-                                                 written.get(r, 0)))
+            label = _friendly_tag(r, code_tag, play_tag)
+            # A running count ("(3)") answered "how many so far", which
+            # nobody asked and which crowded the row -- a teacher just
+            # needs to know "did I already do this one", so a plain
+            # checkmark (present/absent) replaces it. written[r]'s actual
+            # count is still tracked and reported elsewhere (paint_done(),
+            # do_stats_get()) -- only this row's copy is simplified.
+            if written and written.get(r):
+                label = "%s %s" % (label, IC["ok"])
+            display_rows.append(label)
         self._roller_set([_fit(r) for r in display_rows])
         # See paint_tag_list() above -- lv.ANIM.OFF doesn't exist on this
         # binding; plain bool is what set_selected() actually takes.
