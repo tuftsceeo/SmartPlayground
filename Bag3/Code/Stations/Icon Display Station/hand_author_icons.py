@@ -16,6 +16,20 @@ path is the only difference in the map shape.
 Run: python3 hand_author_icons.py
 Add a new icon: write a draw_<name>(g) function using the primitives below,
 then add ("<name>", "<category>", draw_<name>) to RECIPES.
+
+Writing icons/ here is not the last step. To reach hardware an icon has to be
+copied into BroadcastCode/IconDisplay/icons/, and to be usable in a generated
+game the chat app's list has to be regenerated from that device set:
+
+    python3 ../../BroadcastCode/ChatBroadcast/tools/sync_icons.py --check
+
+An icon that skips it works on the device and is silently absent from
+ChatBroadcast -- a game naming it is refused at send time. The full promote
+sequence is in drafts/README.md.
+
+Icons from here are procedural, so they have a map but no source image: they
+cannot be reopened in either Icon Maker, and are edited by changing the
+recipe below and re-running.
 """
 import json
 import os

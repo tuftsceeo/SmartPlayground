@@ -38,6 +38,15 @@ Game tags are consumed in four places, with nothing enforcing consistency: each 
 `lib/game_tags.py`, `Live_Page/WebApp2/hubCode2/game_tags.py`,
 `Live_Page/WebApp2/js/utils/commands.json`, and `Live_Page/wand_icons.html`.
 
+The 16x16 icon set is the same shape of problem. `BroadcastCode/IconDisplay/icons/` is the
+source of truth, and three things copy from it by hand or by script:
+`ChatBroadcast/js/ledicons/defaultIcons.js` (generated — run
+`ChatBroadcast/tools/sync_icons.py`, and `--check` to detect drift), the station's
+`Stations/Icon Display Station/icons/`, and `ChatBroadcast/iconmaker/`, which keeps its own
+`assets/`, `maps/` and `fixtures.js`. The generated list is what tells the chat model which
+icons exist — a game naming one outside it is refused at send time, so an icon added only to
+the device is unusable in a generated game. Nothing runs the check automatically.
+
 ## Dead trees
 
 `old_stuff/` and `WebAppDocs/` are dead, and will dominate a naive grep.
