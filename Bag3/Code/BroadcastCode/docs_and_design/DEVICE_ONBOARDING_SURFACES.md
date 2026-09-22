@@ -22,6 +22,34 @@ Three distinct identifiers, easy to conflate:
 | **role key** | `icon` | `js/chat.js` `ROLES`, `js/upload.js` `ROLE_SIGNATURES`, `data-role`, `[DEVICE: icon]` | web app only; short form, never on the wire |
 | **staging suffix** | `_icon` | `ROLE_FILES[...]['suffix']` | Box/Dial filesystem only; the file lands on the device as plain `<slug>.py` |
 
+### The designator rule
+
+The staging suffix is the designator: it is the only thing on the Box or Dial that
+says which device a given game file is for.
+
+| Staged filename | Device |
+|---|---|
+| `<slug>.py` — no designator | wand |
+| `<slug>_icon.py` | icon display |
+| `<slug>_<new>.py` | the new device, one distinct designator each |
+
+- **The empty suffix belongs to the wand and is not available to a new device.** It is
+  `ROLE_FILES['wand']['suffix'] = ''`, and it is also what `DEFAULT_ROLE = 'wand'`
+  resolves a v1 request to — a request that names no hubtype at all. Both paths reach
+  the undesignated file, so nothing else may claim it.
+- **`_icon` belongs to the icon display and to nothing else.** An icon game runs only
+  on an icon display. Three things hold that: `ROLE_FILES` serves `<slug>_icon.py` only
+  to a `icon_display` request, `ROLE_SIGNATURES.icon` requires
+  `def play(nfc, panel, enow)` which no other device calls, and `_boot_scan_games()`
+  skips `*_icon.py` so it never appears in the Box or Dial game menu as something
+  playable in its own right.
+- **Every new device declares its own distinct designator.** Reusing `_icon` would hand
+  an icon-display file to hardware that cannot run it, and the pull path has no way to
+  detect that: the file arrives as plain `<slug>.py` and fails at `play()` call time.
+
+Designators are Box/Dial-side only. The device never sees one — every pulled file lands
+as `<slug>.py` in `/games/`, because each device holds at most one module per slug.
+
 ---
 
 ## Surface 1 — the new device's firmware tree
@@ -319,23 +347,29 @@ Tag vocabulary is duplicated separately with nothing enforcing consistency:
 
 1. Each device gets its own tree and its own `lib/`. No shared device abstraction.
 2. hubtype string, `_CONFIGS` key and `ROLE_FILES` key are the same string.
-3. Add the role to `ROLE_FILES` in **both** `code_server.py` copies in one commit.
-4. Add the staging suffix to **both** `_boot_scan_games()` copies in the same commit.
-5. Each staging suffix becomes a reserved slug ending.
-6. `pull_flag.is_pending()` is `main()`'s first statement; nothing radio-claiming is
+3. Every new device declares its own distinct staging designator. No designator is the
+   wand's; `_icon` is the icon display's. Neither is available to a new device.
+4. Add the role to `ROLE_FILES` in **both** `code_server.py` copies in one commit.
+5. Add the staging suffix to **both** `_boot_scan_games()` copies in the same commit.
+6. Each staging suffix becomes a reserved slug ending.
+7. `pull_flag.is_pending()` is `main()`'s first statement; nothing radio-claiming is
    imported before it.
-7. A `getcode` tap queues a pull and resets; it never pulls in place.
-8. Radio comes up before any large allocation, unless `memprobe` proves otherwise on
+8. A `getcode` tap queues a pull and resets; it never pulls in place.
+9. Radio comes up before any large allocation, unless `memprobe` proves otherwise on
    hardware.
-9. Errors surface loudly. No `try/except: pass`, no silent degradation. A missing
-   capability costs that capability and nothing else.
-10. Device code is MicroPython: `%` formatting, no f-strings, no type annotations, no
+10. Errors surface loudly. No `try/except: pass`, no silent degradation. A missing
+    capability costs that capability and nothing else.
+11. Device code is MicroPython: `%` formatting, no f-strings, no type annotations, no
     `typing`/`dataclasses`/`pathlib`/`logging`. Any loop doing serial I/O sleeps
-    `1 ms` unconditionally every iteration.
-11. Games are optional skills. A tag for a game this device lacks gives a warning, not
+    `1 ms` unconditionally every iteration. (The repo-root `AGENTS.md` says the
+    opposite — "f-strings are used throughout, don't fix them". Flagged, not
+    reconciled: no device tree under `Bag3/Code/` or `Bag2/Code/Wand Module/` contains
+    an f-string, and both `PHASE6_HANDOFF.md` and `knowledge/icon_display.py` state
+    that f-strings crash this MicroPython build.)
+12. Games are optional skills. A tag for a game this device lacks gives a warning, not
     a load failure.
-12. One knowledge file per device type, naming the other devices' signatures as
+13. One knowledge file per device type, naming the other devices' signatures as
     forbidden.
-13. `<slug><suffix>.py` is a Box/Dial staging name only. On the device the file is
+14. `<slug><suffix>.py` is a Box/Dial staging name only. On the device the file is
     always plain `<slug>.py`.
-14. Fixing one PEER copy fixes only that copy. Say which tree was touched.
+15. Fixing one PEER copy fixes only that copy. Say which tree was touched.
