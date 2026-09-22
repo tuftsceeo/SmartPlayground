@@ -647,7 +647,8 @@ class App {
             // or comes back from a blocking serve, its first message promotes
             // us straight back to live with no user action.
             if (this.link.state === 'waiting' || this.link.state === 'rebooting'
-                || this.link.state === 'opening' || this.link.state === 'no-answer') {
+                || this.link.state === 'opening' || this.link.state === 'no-answer'
+                || this.link.state === 'sending') {
                 this.setLinkState('live');
             } else if (this.link.state === 'stuck' && obj?.type && obj.type !== 'repl') {
                 this.setLinkState('live');
@@ -674,7 +675,7 @@ class App {
             // Prefer mode==SERVE for silence threshold once mode events exist.
             this._silenceLimitMs = obj.mode === 'SERVE' ? SILENCE_SERVE_MS : SILENCE_LIMIT_MS;
             if (this.link.state === 'waiting' || this.link.state === 'rebooting'
-                || this.link.state === 'no-answer') {
+                || this.link.state === 'no-answer' || this.link.state === 'sending') {
                 this.setLinkState('live');
             } else {
                 this.paintLink();
