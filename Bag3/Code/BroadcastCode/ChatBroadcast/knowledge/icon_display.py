@@ -148,19 +148,21 @@
 #                  empty=(45,45,45))
 #   draw16.show(panel)
 #
-# WHAT FITS decides which one to reach for. A 5x5 glyph placed 5 cells from
-# the next one TOUCHES it, and three across with gaps needs 17 of 16
-# columns, so identical glyphs can only be counted two per axis:
+# A 5x5 glyph placed 5 cells from the next one TOUCHES it — three across
+# fills 15 of the 16 columns with no room for a separator. Touching glyphs
+# are legible on the panel, so 3x3 with no padding is the default:
 #
-#   chart16.count_glyphs(src, n, shape, color, empty=None)
-#       one quantity as up to FOUR copies of its own picture, 2x2 with gaps.
+#   chart16.count_glyphs(src, n, shape, color, per_axis=3, gap=0, empty=None)
+#       one quantity as copies of its own picture. 3x3 counts to NINE;
+#       per_axis=2 with a gap counts to four with space between them. A gap
+#       that would not fit is dropped rather than overflowing the panel.
 #   chart16.blocks(src, values, colors, cap=5, empty=None, labels=None)
 #       countable blocks per team, up to FIVE. labels=[(shape,color),...]
 #       puts each team's wand glyph above its bar — pass cap=4 with it, the
 #       glyph costs the top 5 rows.
 #   chart16.grid(src, cells) / chart16.grid_row(src, entries)
-#       3x3 (or one row) of DISTINCT glyphs — a 3 letter word, a 9 slot
-#       board. Cells touch, so this cannot count identical glyphs.
+#       the same 3x3 geometry addressed cell by cell rather than by a count
+#       — a 3 letter word, a 9 slot board.
 #   chart16.line_graph(src, values, color, baseline=None)
 #       change over time, when the shape is the point.
 #

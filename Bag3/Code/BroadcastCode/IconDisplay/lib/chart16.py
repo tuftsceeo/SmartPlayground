@@ -9,29 +9,29 @@ through unscaled means a heart on the panel is pixel-for-pixel the heart on
 the wand -- for children still building abstraction, the same picture in both
 places is doing real work, so nothing here redraws its own version of one.
 
-WHAT FITS, which decides the shape of this module:
+WHAT FITS:
 
     5x5 glyphs, 3 across     3*5 = 15 of 16     -> fits, 1 spare row/column
-    the same with any gap    3*5 + 2 = 17       -> DOES NOT FIT
+    the same with any gap    3*5 + 2 = 17       -> does not fit
     5x5 glyphs, 2 across     5*2 + 1 = 11       -> fits with room to spare
     2-row blocks, 1-row gap  5 units = 14 rows  -> counts to FIVE
 
-That second line is the one that shapes everything else. Every SHAPE_* fills
-all five of its rows and columns -- a star is a point on its top row and a
-point on its bottom row -- so two of them placed 5 apart touch, and three
-stacked identical glyphs read as one tall shape rather than three things.
-Counting needs a gap, a gap needs 17 rows, and there are 16.
+Every SHAPE_* fills all five of its rows and columns -- a star is a point on
+its top row and a point on its bottom row -- so glyphs placed 5 apart touch,
+and three across leaves no room for a separator. Touching glyphs are legible
+on the panel, which is a call made from the hardware rather than from a
+simulated preview: on a screen render adjacent identical glyphs look merged,
+on the LEDs they do not. 3x3 with no padding is therefore the default, and
+the gap is there for when a design wants the extra separation.
 
-So the split is:
+So:
 
-    counting identical pictures  -> count_glyphs(), 2x2 with real gaps, to 4
-    counting past four           -> blocks(), which can carry a glyph label
+    counting identical pictures  -> count_glyphs(), 3x3 to NINE by default,
+                                    or per_axis=2 with a gap to count to four
+    counting past nine           -> blocks(), which can carry a glyph label
                                     per bar so a team keeps its picture
-    nine DISTINCT glyphs         -> grid(), no gaps, where different shapes
-                                    and colours do the separating
-
-grid() is deliberately not offered as a way to count nine identical things;
-it cannot be made to work at this size.
+    nine DISTINCT glyphs         -> grid(), the same geometry, addressed by
+                                    cell rather than by a count
 
 Everything writes into a 768-byte frame (normally panel.src) and flushes
 nothing -- compose, then draw16.show(panel) once. Coordinates are (row, col)
@@ -41,8 +41,8 @@ from the top-left, as everywhere else.
 import draw16
 
 CELL = 5          # a wand glyph is 5x5, and is never scaled here
-GRID_N = 3        # 3x3 glyphs fit only because they touch
-COUNT_CAP = 4     # identical glyphs that fit WITH gaps, so they stay countable
+GRID_N = 3        # 3 glyphs per axis, which fills 15 of the 16 cells
+COUNT_CAP = 9     # GRID_N squared -- the default count_glyphs() ceiling
 BLOCK_CAP = 5     # countable blocks per bar at the default size
 
 W = draw16.W
@@ -73,8 +73,8 @@ def grid(src, cells, row0=0, col0=0):
     set row0=5 to centre one row.
 
     The cells touch: 15 of the 16 columns are glyph, so a separator would
-    have to eat a glyph's edge. Give adjacent cells different colours when
-    they need to read apart.
+    have to eat a glyph's edge. Use count_glyphs() for the same geometry
+    addressed by a count instead of cell by cell.
     """
     for i, entry in enumerate(cells):
         if entry is None:
@@ -99,27 +99,35 @@ def grid_row(src, entries, row=CELL, col0=0):
 
 # ─── pictograph: count things with pictures of the thing ────────────────
 
-def count_glyphs(src, n, shape, color, gap=2, empty=None):
-    """Count one quantity as up to four copies of its own picture.
+def count_glyphs(src, n, shape, color, per_axis=GRID_N, gap=0, empty=None):
+    """Count one quantity as copies of its own picture.
 
-    Laid out 2x2 with real gaps between them, because that is the largest
-    arrangement of 5x5 glyphs that stays countable: three across needs 17 of
-    16 columns, and glyphs placed 5 apart touch and merge into one shape.
+    per_axis=3, gap=0 (the default) is 3x3, counting to NINE, glyphs
+    touching. per_axis=2 leaves room for a gap, counting to four with clear
+    space between them.
 
     Fills left-to-right, top row first, the way a child reading a page
     counts. `empty` optionally outlines the slots not yet earned, which
     turns "we have two" into "we need two more".
 
+    A gap that would not fit is dropped rather than letting the grid run off
+    the panel: 3 across with any gap needs 17 of 16 columns.
+
     Returns the count clamped away, or 0.
     """
-    span = CELL * 2 + gap
+    if per_axis < 1:
+        return n
+    if per_axis * CELL + (per_axis - 1) * gap > W:
+        gap = 0
+    cap = per_axis * per_axis
+    span = per_axis * CELL + (per_axis - 1) * gap
     row0 = (H - span) // 2
     col0 = (W - span) // 2
-    lost = n - COUNT_CAP if n > COUNT_CAP else 0
-    shown = COUNT_CAP if n > COUNT_CAP else n
-    for k in range(COUNT_CAP):
-        r = row0 + (k // 2) * (CELL + gap)
-        c = col0 + (k % 2) * (CELL + gap)
+    lost = n - cap if n > cap else 0
+    shown = cap if n > cap else n
+    for k in range(cap):
+        r = row0 + (k // per_axis) * (CELL + gap)
+        c = col0 + (k % per_axis) * (CELL + gap)
         if k < shown:
             glyph5(src, r, c, shape, color)
         elif empty is not None:
