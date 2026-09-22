@@ -136,7 +136,45 @@
 # game loads. If named icons can do the job, use them.
 
 # ═══════════════════════════════════════════════════════════════════
-# 4. ESP-NOW — HOW THE TWO DEVICES TALK
+# 4. COUNTABLE DISPLAYS — chart16
+# ═══════════════════════════════════════════════════════════════════
+# For young children, a quantity they can COUNT beats a numeral they have to
+# read. lib/chart16.py draws those, on top of draw16, and takes the SHAPE_*
+# tuples from shapes.py so a picture on the panel is pixel-for-pixel the
+# picture the wand shows.
+#
+#   import chart16, shapes
+#   chart16.blocks(panel.src, [green, blue], [(0,200,60), (40,120,200)],
+#                  empty=(45,45,45))
+#   draw16.show(panel)
+#
+# WHAT FITS decides which one to reach for. A 5x5 glyph placed 5 cells from
+# the next one TOUCHES it, and three across with gaps needs 17 of 16
+# columns, so identical glyphs can only be counted two per axis:
+#
+#   chart16.count_glyphs(src, n, shape, color, empty=None)
+#       one quantity as up to FOUR copies of its own picture, 2x2 with gaps.
+#   chart16.blocks(src, values, colors, cap=5, empty=None, labels=None)
+#       countable blocks per team, up to FIVE. labels=[(shape,color),...]
+#       puts each team's wand glyph above its bar — pass cap=4 with it, the
+#       glyph costs the top 5 rows.
+#   chart16.grid(src, cells) / chart16.grid_row(src, entries)
+#       3x3 (or one row) of DISTINCT glyphs — a 3 letter word, a 9 slot
+#       board. Cells touch, so this cannot count identical glyphs.
+#   chart16.line_graph(src, values, color, baseline=None)
+#       change over time, when the shape is the point.
+#
+# count_glyphs() and blocks() RETURN the count they had to clamp away, so a
+# score that outgrew the picture can be reported rather than silently
+# sitting at its cap.
+#
+# `empty` draws the unearned slots as dim outlines, which turns "we have
+# two" into "we need two more" — usually the better question.
+#
+# chart16 is firmware-resident, exactly like draw16.
+
+# ═══════════════════════════════════════════════════════════════════
+# 5. ESP-NOW — HOW THE TWO DEVICES TALK
 # ═══════════════════════════════════════════════════════════════════
 # enow.poll() returns (msg_type, data, mac) and never blocks.
 #
@@ -163,7 +201,7 @@
 # can react to what it decided.
 
 # ═══════════════════════════════════════════════════════════════════
-# 5. CARDS
+# 6. CARDS
 # ═══════════════════════════════════════════════════════════════════
 # The display reads cards only to LEAVE a game; rounds are driven over
 # ESP-NOW. Declare the cards a game reads as string literals in a
@@ -183,7 +221,7 @@
 #           return
 
 # ═══════════════════════════════════════════════════════════════════
-# 6. CANONICAL TEMPLATE
+# 7. CANONICAL TEMPLATE
 # ═══════════════════════════════════════════════════════════════════
 """
 Short title — one line on what the display shows
@@ -242,7 +280,7 @@ def play(nfc, panel, enow):
 
 
 # ═══════════════════════════════════════════════════════════════════
-# 7. CONSTRAINTS AND GOTCHAS
+# 8. CONSTRAINTS AND GOTCHAS
 # ═══════════════════════════════════════════════════════════════════
 # 1. No f-strings. Use % formatting: print("team %s" % team)
 # 2. play() takes exactly 3 parameters: (nfc, panel, enow)
@@ -263,7 +301,7 @@ def play(nfc, panel, enow):
 # 12. draw16 coordinates are (row, col), never (x, y).
 
 # ═══════════════════════════════════════════════════════════════════
-# 8. CHECKLIST
+# 9. CHECKLIST
 # ═══════════════════════════════════════════════════════════════════
 # [ ] The block is preceded by [DEVICE: icon]
 # [ ] play() has exactly 3 parameters: (nfc, panel, enow)
@@ -275,3 +313,4 @@ def play(nfc, panel, enow):
 # [ ] No f-strings
 # [ ] Anything drawn with draw16 flushes once per frame via show(panel)
 # [ ] Live values (scores, timers) use draw16; fixed pictures use named icons
+# [ ] A quantity a child should count uses chart16, not a numeral
