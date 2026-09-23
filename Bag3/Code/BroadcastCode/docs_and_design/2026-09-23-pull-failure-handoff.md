@@ -157,6 +157,27 @@ restores it. This fits the stickiness, the Dial-only recovery (T4) and the
 first-attempt failures. It is correlation from one Dial across two boots, so
 it still needs the tests below.
 
+**Fix applied (Dial only): `BDialFirmware/serve_guard.py`.**
+
+- **What it does.** While SERVE is idle (no clients, no associated
+  stations), it samples free IDF heap every 5 s. Two readings below
+  `MIN_IDF_FREE = 22000` write `/flash/serve_guard.txt` and reset the board.
+  `bdial_server.run()` sees the flag and boots straight back into SERVE.
+- **Reboot limit.** After 2 reboots with no successful pull in between, it
+  stops rebooting and prints a WARNING on every sample. A successful pull
+  clears the count, and so does the teacher leaving SERVE.
+- **Memory order.** It is imported after `arm()`. The only pre-AP additions
+  to `bdial_server.py` are the flag-path literal and the hook calls.
+- **What to check first:**
+  - **The floor.** Every `# serve_guard: armed idf_free=...` line shows
+    whether a fresh boot actually clears 22000.
+  - **Reboot loops.** A WARNING line means a boot never reached the floor,
+    so the fix cannot work on that board as it stands.
+  - **Transfers after a guard reboot.** Clean first attempts must now
+    succeed.
+- **Not done.** The Box (`bbox_server.py`) has no guard. The USB serial link
+  to ChatBroadcast drops on every guard reboot.
+
 **Tests this adds, ahead of section 8's list:**
 
 - **Record the IDF heap at `arm()` on every boot,** with reset cause
