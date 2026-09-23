@@ -179,6 +179,33 @@ def _fit(text, budget):
     return text[:budget - len(ELLIPSIS)] + ELLIPSIS
 
 
+def _read_battery():
+    """(level_percent_or_None, is_charging) from M5.Power.
+
+    Confirmed live on this StickS3 2026-09-22 via `mpremote ... exec`:
+    M5.Power.getBatteryLevel() and .isCharging() both return real values
+    here (19, True on that box) -- unlike M5Paper, whose _read_battery()
+    in Bag2/Code/M5Paper Remote/ui.py has no charge-detection hardware at
+    all and only ever reads the level. Still guarded the same defensive
+    way that file uses: each call in its own try/except, because a
+    battery reading is a nice-to-have on the boot screen, never a reason
+    to fail booting if a future board variant lacks the PMU calls.
+    """
+    level = None
+    charging = False
+    try:
+        raw = M5.Power.getBatteryLevel()
+        if raw is not None:
+            level = max(0, min(100, int(raw)))
+    except Exception as e:
+        print("# battery level err: %s" % str(e))
+    try:
+        charging = bool(M5.Power.isCharging())
+    except Exception as e:
+        print("# battery charging err: %s" % str(e))
+    return level, charging
+
+
 def _display_tag(text):
     """Capitalize a raw tag/game identifier for display only.
 
@@ -459,18 +486,35 @@ class BboxUI(object):
 
     # ── status-screen helper ────────────────────────────────────
 
-    def _status(self, title, body1="", body2="", body3="", title_c=INK):
+    def _status(self, title, body1="", body2="", body3="", title_c=INK,
+                body3_c=INK_3):
         self._clear()
         self._set_text(self._st_title, title)
         self._st_title.setColor(title_c, PAGE_BG)
         self._set_text(self._st_body1, body1)
         self._set_text(self._st_body2, body2)
+        self._st_body3.setColor(body3_c, PAGE_BG)
         self._set_text(self._st_body3, body3)
 
     # ── painters (dial_ui signatures) ───────────────────────────
 
     def paint_booting(self):
-        self._status("Starting", title_c=INK_3)
+        # bbox_server.GRACE_S is currently 0, so this screen is only up
+        # for however long the rest of boot takes -- a glance, not
+        # something a teacher stops to read. Still worth painting: a box
+        # that's browning out/rebooting on a marginal USB port is exactly
+        # the case where whatever's on screen the instant before it dies
+        # is the only evidence anyone gets.
+        level, charging = _read_battery()
+        body3 = ""
+        body3_c = INK_3
+        if level is not None:
+            body3 = "Battery %d%%%s" % (level, " (Charging)" if charging else "")
+            if level <= 15:
+                body3_c = DANGER_FG
+            elif level <= 30:
+                body3_c = WARN_FG
+        self._status("Starting", body3=body3, body3_c=body3_c, title_c=INK_3)
 
     def paint_idle(self, linked=True):
         status = "Linked to Laptop" if linked else "Not Linked"
