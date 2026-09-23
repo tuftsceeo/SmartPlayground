@@ -115,6 +115,19 @@ DANGER_BG = 0xFDECEA     # --danger-bg
 WARN_FG = 0xA8781E       # --warn
 WARN_BG = 0xFFF8E0       # --warn-bg
 
+# --led-blue -- not a status/semantic token (those are all already spoken
+# for: purple=write, teal=serve/share, pink=primary action, red=danger,
+# amber=warn), but still straight from the same tokens/colors.css palette.
+# Used only to tell "Code Tag" (WRITE_FG) and "Play Tag" apart from each
+# other at a glance -- see _friendly_tag()/paint_tag_group().
+PLAY_FG = 0x2F6BFF       # --led-blue
+
+# --led-green. Read Card is the Utility Tags group's one row that never
+# writes anything -- green for "safe, non-destructive" reads naturally
+# against the purple/blue write-action accents above, and it's otherwise
+# unused in either firmware's UI. See paint_tag_group()'s READ_ENTRY case.
+READ_FG = 0x34C759       # --led-green
+
 ROTATION = 0
 SCREEN_W = 135
 SCREEN_H = 240
@@ -655,8 +668,12 @@ class BboxUI(object):
                 display_rows.append("< Back")
                 continue
             label = _friendly_tag(r, code_tag, play_tag)
-            if r in (code_tag, play_tag):
+            if r == code_tag:
                 special[i] = WRITE_FG
+            elif r == play_tag:
+                special[i] = PLAY_FG
+            elif r == "Read Card":
+                special[i] = READ_FG
             if written and written.get(r):
                 # Not a checkmark: U+2713 is confirmed blank/tofu on this
                 # hardware (see the module docstring's glyph-coverage

@@ -210,17 +210,30 @@ def _friendly_tag(r, code_tag, play_tag):
     chip; PLAY for the one that starts the game the wand already has) --
     "Create Code Tag"/"Create Play Tag" read too similarly at a glance
     once both start with the same word, so the label itself is now just
-    "Code Tag"/"Play Tag", matching bbox_ui.py's shorter wording. Every
-    other row (extra tags the game itself requested, Utility Tags) is
-    not this predictable in meaning, so it's left as _display_tag() has
-    always shown it -- see the module docstring on why this can't also
-    take a distinct roller COLOR the way bbox_ui.py's per-row rects can:
-    the icon prefix is the fallback for that.
+    "Code Tag"/"Play Tag", matching bbox_ui.py's shorter wording.
+
+    READ_ENTRY ("Read Card", bdial_server.py -- not imported here, this
+    file stays display-only and matches the literal like every other
+    sentinel below) gets the same icon treatment for the same reason: the
+    Utility Tags group otherwise reads as one undifferentiated list of
+    plain tag names, and this is the one row in it that doesn't write
+    anything. IC["read"] (EYE_OPEN) was defined for exactly this row (the
+    action button already says "READ" instead of "WRITE" when it's
+    selected -- see paint_tag_group()'s `read_only` branch) but, until
+    now, never actually drawn anywhere.
+
+    Every OTHER row (extra tags the game itself requested, "stop",
+    "battery") is not this predictable in meaning, so it's left as
+    _display_tag() has always shown it -- see the module docstring on why
+    this can't also take a distinct roller COLOR the way bbox_ui.py's
+    per-row rects can: the icon prefix is the fallback for that.
     """
     if r == code_tag:
         return IC["serve"] + " Code Tag"
     if r == play_tag:
         return IC["play"] + " Play Tag"
+    if r == "Read Card":
+        return IC["read"] + " " + r
     return _display_tag(r)
 
 
