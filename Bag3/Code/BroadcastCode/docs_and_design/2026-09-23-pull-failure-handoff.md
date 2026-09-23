@@ -27,17 +27,52 @@ Nothing is verified fixed. Real defects were found and fixed along the way
 (antenna selection, per-chunk allocation, exception handling), and the
 failure persists after every one of them.
 
-## 2. Two failure modes
+## 2. Four failure types, addressed separately
 
-They need separate explanations. F2 can follow F1, and can also happen on
-its own.
+These are the four types observed during the 9/22 tests. F1–F3 are
+symptoms: each is the point in the pull where it failed. F4 is a
+*condition*: the attempt started while the Dial was still holding the
+wand's previous attempt. F1 or F2 can happen inside it. Classify every
+failed attempt as one of F1–F3, and separately record whether it was in F4.
 
-| | **F1 — mid-transfer stall** | **F2 — join failure** |
-|---|---|---|
-| Wand log | header received, then `[XFER] failed: [Errno 116] ETIMEDOUT` ~10–11 s later | `status seen while joining: STAT_CONNECTING` → next attempt `STAT_IDLE`; `pairing failed -- giving up` |
-| Dial log | client in `body`, `sent` frozen at a multiple of 512, deadline counting down, no exception, reaped at the 30 s deadline | nothing — no accept |
-| AP visible? | yes | yes, −22 to −61 dBm, correct antenna |
-| Frozen offsets | 3072, 3072, 4096, 4096, 7680 of 5113/8208 | n/a |
+| | **F1 — stalls on block x of y** | **F2 — never connects** | **F3 — TCP client issue** | **F4 — timeout mismatch / retry overlap** |
+|---|---|---|---|---|
+| Where it fails | Mid-body, after the header | WiFi association, before any TCP | Joined, but socket connect, request or header fails before the first body byte | Retry begins while the Dial still holds the prior attempt for this wand's MAC |
+| Wand log | header, then `[Errno 116] ETIMEDOUT` ~10–11 s later; `pull failed mid-transfer` | `STAT_CONNECTING`, then `STAT_IDLE` on attempt 2; `pairing failed -- giving up` | `joined ...` present, **no** `receiving ...`; then **the same** `pairing failed -- giving up` line as F2 | `# pull mode: attempt 2/2`, or any attempt shortly after an unclean exit |
+| Dial log | client in `body`, `sent` frozen at a multiple of 512, deadline counting down, no exception, reaped at the 30 s deadline, no RST | no accept | `pull ? fail` in `stats.log`: accepted, then finished before its request resolved (slug unset) | `clients=1` and/or `stations=1` from the prior attempt when the new one begins |
+| Code path | `_recv_body` (`code_puller.py:223-259`) vs `_step_body` (`code_server.py:826-864`) | `_connect_wifi` (`code_puller.py:533-618`) vs the AP driver | `pull()` maps any `OSError` before the body to `'nojoin'` (`code_puller.py:801-808`); Dial `_S_REQ` 5 s deadline (`code_server.py:60, 618`) | Wand `recv` timeout 10 s + reset + boot + scan vs Dial reply deadline 30 s after last progress (`code_server.py:59`); station age-out ~85 s observed |
+| Observed instances | Instance 1 & 2, Update 2, Update 3 (×5 offsets: 3072, 3072, 4096, 4096, 7680), Update 4 cycle 1, T5-A | Instance 1 attempt 2, Update 2 retry, Update 4 cycle 2, T2 (most of 10), T5-A/B | **No wand-side capture this session.** Dial 1 `stats.log`: 138 `pull ? fail` in a 140–165 ms burst, source unknown | **By code, every attempt 2** (below). Plus T2's first attempts that followed a failed cycle by less than the age-out |
+
+**F3 is currently invisible on the wand.** The wand prints the same final
+line for F2 and F3. Tell them apart by whether `joined <ssid>` and
+`[XFER] connected to` appear before it. T2's "10/10 pairing failed" and
+T5's "pairing failed" have to be re-read with that in mind; the summary
+line alone cannot say which type occurred.
+
+**Every second attempt is in F4, by construction:**
+
+- A second boot only happens after an F1 (D6).
+- The wand abandons 10 s after the last byte, then resets, boots and
+  scans. Its retry join starts about 13–20 s after the stall began.
+- The Dial holds the stalled client until 30 s after its last progress
+  (D11), and the station entry for ~85 s (E20).
+
+So attempt 2 always overlaps the stale TCP client, and it has overlapped a
+stale station entry in every instance measured. This matches the user's 9/22
+observations: second attempts always failed, and the Dial still showed
+"receiving" when the retry began (E7).
+
+**Outcomes observed inside F4 are mixed.** Most were F2 (Instance 1,
+Update 2). Update 3 records one where the retry **joined and then stalled
+again** at a different offset (F1 inside F4). So a same-MAC re-association
+during the holdover *can* succeed. Whatever F4 does, it doesn't always
+block the join.
+
+**Two questions, kept apart:**
+
+1. What causes the *first* failure of a pairing? This is always F1 or F2,
+   outside F4.
+2. Does F4 cause the *repeat* failures? Test A and test H settle it.
 
 ## 3. Hypothesis status
 
@@ -55,7 +90,7 @@ signature.
 | H12 | `MemoryError` escaping `_advance()` | Catch-all live and printing nothing during a 28 s stall [T, Update 2] |
 | H13 | Per-chunk allocation churn | Buffer reuse live; stalls continue [T] |
 | H16 | Transfer rate tied to the UI loop | During a stall the Dial loop runs on time (2 s dumps, deadline counting down). It isn't moving *slowly*; it has stopped [T, Update 2] |
-| H17 | Stale TCP client blocks the retry | F2 fails at WiFi association, which happens before TCP. A lingering TCP client cannot block association, and the cap of 4 is never reached [T + C] |
+| H17a | The held TCP client uses up the slot the retry needs | The cap of 4 is never reached, and F2 fails before TCP exists [T + C]. **This refutes only the slot-exhaustion form.** The timeout mismatch itself (F4) is real, certain from code, and still open (H17b in 3.3) |
 | H21 | `_find_ap()` picks the wrong AP | Every failing log shows the wanted SSID matched [T] |
 | H23 | Real NFC tap vs scripted `pull_flag` path | The scripted path failed 10/10 in T2 [T, Update 6] |
 | H26a | Pools fill to `MAX_CLIENTS` | `stations=1` and `clients≤1` throughout failures; the cap is never reached [T, Update 6]. The lingering-station half survives as N1 |
@@ -75,8 +110,10 @@ signature.
 
 | ID | Hypothesis | Covers | State |
 |---|---|---|---|
-| **N1** | **SoftAP keeps a stale entry for the wand's MAC after an unclean exit; re-association from the same MAC fails until the AP drops it** | F2, persistence, "second attempts always fail" | **Leading explanation for F2 and for the sticky state.** Fits every item in 4.3. Explains nothing about what starts F1 |
+| **H17b** | **F4 causes the repeat failure: the Dial's holdover of the prior attempt (stale TCP client and/or TCP state) breaks the retry** | F4 → F1 or F2 | Holds for every attempt 2 by code. Whether it *causes* the retry's failure is untested. Test H separates the TCP half from the station half |
+| **N1** | **The station half of F4: the SoftAP keeps a stale entry for the wand's MAC after an unclean exit, and re-association from the same MAC fails while it stands** | F2 inside F4; the sticky state | **Leading explanation for F2 inside F4 and for the sticky state** (4.3). **Not absolute:** Update 3's retry re-associated during the holdover and then stalled. Explains nothing about the first failure |
 | **H5** | **Wand–AP link dies mid-body (association lost, or RF path stops carrying data)** | F1 | **Leading explanation for F1.** Wand association state during a stall has never been captured |
+| F3-src | Source and frequency of F3 | F3 | Unknown. The wand mislabels it as F2, and the Dial's `pull ? fail` burst has no attributed source. Test I |
 | H7 | Ambient 2.4 GHz congestion (24 APs, `tufts_eecs` on channel 1) | F1 | Untested |
 | H8/H9/H10 | Brownout during TX; peripherals left energized across reset; external antenna current | F1 | Untested. No battery data during a pull |
 | H14 | Dial LVGL/flash work starving the WiFi driver | F1 | Python loop proven alive; driver-level starvation not tested |
@@ -113,6 +150,8 @@ signature.
 | E22 | T6: two stalls, `sel` flat while in `body` | T | **Does not discriminate** (section 6, item 1). Neither kills nor supports H5 |
 | E23 | T5 Phase A (only Dial 1 armed): 2/2 failed, one F1 then F2. Phase B (both armed): 2/2 F2 | T | n=2 each; Dial 1 had not been reset. Needs the scan-log check (3.1, last row) |
 | E24 | PN532 `RuntimeError: Bad ACK` at boot, twice, only during rapid wand resets | T | Side effect of the test cadence. Not the pull path |
+| E25 | Update 3: two consecutive sub-attempts of one tap **both stalled**, at different offsets | T | Attempt 2 was in F4 and still re-associated. Then it failed as F1, not F2. **A counterexample to N1 as absolute** |
+| E26 | User, 9/22: "the second attempts will ALWAYS fail"; "the timeouts are out of sync" | O | Every attempt 2 is in F4 by code (section 2). The outcome inside F4 varies (E25) |
 
 ### 4.2 What the evidence establishes
 
@@ -127,7 +166,7 @@ signature.
 4. **A station entry can outlive the wand's attempt by about 85 s** (E20).
 5. **Signal strength, antenna and AP selection are not the cause** (E9–E13).
 
-### 4.3 Why N1 fits the whole pattern
+### 4.3 How F4 (and N1 within it) fits the pattern — and where it doesn't
 
 - **Sticky good:** a pull that succeeds ends with a live link, so the
   wand's close and deauth actually arrive (D4). Nothing is left behind, and
@@ -145,11 +184,17 @@ signature.
   is an F1 (D6). So every second attempt lands on an unclean exit.
 - **The laptop never fails:** it never re-associates (E2).
 
+**Where it doesn't fit:** in E25 the retry re-associated during the
+holdover, then stalled. Either the station entry had already cleared, or the
+holdover harms the retry some other way (H17b: the stale TCP client, or TCP
+state for the same IP). Test H separates the two.
+
 [X] Whether the ESP32 SoftAP actually rejects re-association from a MAC it
 still lists, and what its age-out timer is on this IDF build, is
 unverified. Test A decides it without needing to know.
 
-**N1 does not explain what starts F1.** That is the other open question.
+**F4 explains nothing about the first failure** of a pairing, which is
+always an F1 or F2 outside F4. That is the other open question.
 
 ## 5. Live code analysis (`7efa4ff`)
 
@@ -256,7 +301,10 @@ The tap and the pull run in different boots:
 | D11 | Timeouts: wand join 6 s, wand `recv` idle 10 s; Dial request 5 s, reply 30 s | E7 |
 | D12 | Every Dial: channel 1, same PSK, 192.168.4.1, `max_clients=4` | H1/H22 |
 
-### 5.5 Timeline of an F1 → F2 tap, from code and logs
+### 5.5 Timeline of an F1 → F4 → F2 tap, from code and logs
+
+Rows from ~11 s to ~30 s are the F4 window for the TCP client. The station
+half runs to ~90 s.
 
 | t (s) | Wand | Dial |
 |---|---|---|
@@ -264,7 +312,7 @@ The tap and the pull run in different boots:
 | ~10 | `recv` times out → close, disconnect, `active(False)` | still `body`, retransmitting (no ACKs) |
 | ~11 | `machine.reset()` | station entry still listed (E20) |
 | ~13–20 | pull boot → antenna → scan → `connect()` from the same MAC | TCP client still held (E7); station entry still listed |
-| ~19–26 | 6 s join fails → attempt 2 fails → `pairing failed -- giving up` | no accept |
+| ~19–26 | F2: 6 s join fails → attempt 2 fails → `pairing failed -- giving up`. (In E25 the join succeeded here and the body stalled again: F1) | no accept (or, in E25, a second client alongside the stale one) |
 | ~30 | normal boot | TCP client reaped at the deadline, no RST (E4) |
 | ~90+ | — | station entry ages out (E20) |
 
@@ -287,6 +335,11 @@ The tap and the pull run in different boots:
 7. **The arm-time OOM (`95f684c`) and the T0 gate are unrelated** to the
    pull failure. That was a defect introduced during the investigation, and
    it is closed.
+8. **The first version of this report (`142afdd`) collapsed the four failure
+   types into two.** It dropped F3 (TCP client issue), and it marked H17
+   "disproven" while only refuting slot exhaustion, not the timeout
+   mismatch (F4). It also called N1 a fit for every observation, missing
+   E25. All three are corrected here.
 
 ## 7. Confounds in the existing data
 
@@ -316,7 +369,7 @@ Before every run:
 - **Record which Dials are armed**, and confirm it from the wand's scan
   list, not the command sent.
 
-**A. Retry timed against `stations=` (decides N1; no code change).**
+**A. Retry timed against `stations=` (station half of F4, N1; no code change).**
 From a failing state, fire a scripted pull while `stations>=1` and the wand
 is not connected; then again right after `stations` drops to 0. Repeat
 ≥5 times each, and record the failure-to-`stations=0` time.
@@ -367,11 +420,39 @@ the memory-order rule (section 9).
 
 **G. [hands] A second wand**, same tests A and D (H25).
 
+**H. Take F4 apart, one half at a time (H17b vs N1).** Two value-only
+changes, run one at a time. Neither adds module-scope content.
+
+- **Close the TCP half:** drop `SOCK_REPLY_TIMEOUT_S` on the Dial from 30 to
+  8, below the wand's 10 s `recv` timeout, so the stale client is reaped
+  before the retry arrives. If attempt 2 now succeeds, H17b is the cause.
+- **Close the station half:** delay the wand's retry reset
+  (`main.py:796-801`) past the observed station age-out, e.g. 100 s, on the
+  bench only. If attempt 2 now succeeds and the first change alone did not,
+  N1 is the cause.
+
+Record every attempt as F1/F2/F3, plus whether it was in F4.
+
+**I. Make F3 visible.**
+
+- **Re-read existing wand logs.** Class each `pairing failed` by whether
+  `joined` and `connected to` precede it.
+- **Split the wand's failure line.** Give the `OSError`-before-body branch
+  its own return value and message, distinct from a join failure
+  (`code_puller.py:801-808`, `main.py:770-774`). Both files are imported
+  before the radio claims its memory, so any new literal in either one is
+  allocated ahead of it. Keep the change to one short return token, and
+  reuse an existing print format for the message. Then gate the change: a
+  scripted pull must still join before anything else is tested.
+- **Find the source of the Dial's `pull ? fail` burst.** Log the peer
+  address on accept in `serve_probe.accepted()`.
+
 **What would close it:**
 
-- A passes and C removes the persistence → N1 explains F2 and the
-  hysteresis. The fix is on the wand (wait for age-out, a MAC per attempt,
-  or a longer retry delay) or on the Dial (deauth stale stations).
+- H identifies which half of F4 breaks the retry, and A/C confirm it. That
+  explains the repeat failures and the hysteresis. The fix then goes on the
+  wand (a longer retry delay, or a new MAC per attempt) or on the Dial
+  (reap sooner, or deauth stale stations).
 - D shows association loss → F1 is H5, and the question becomes what
   drops it: E's controls, then F's reason codes.
 
