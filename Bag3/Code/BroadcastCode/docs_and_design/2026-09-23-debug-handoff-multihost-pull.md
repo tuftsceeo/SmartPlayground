@@ -1,3 +1,9 @@
+**Note for the sparring partner**: T2/T4 traced most of today's failures to
+per-Dial IDF-heap fragmentation from repeated `arm()`/`serve()` cycles (clears
+with a plain soft reset, no power cycle needed), and T6 independently landed
+on the same `sel`-flat-during-a-stall symptom your `7efa4ff`/`5781335` already
+fix -- worth re-running these tests against that newer firmware.
+
 ## Update 6: revert confirmed the fix; T0 (flag gate) passed; T1 (stats.log) settled
 
 Pulled and reflashed in order: `41f78dc` (revert of `95f684c`'s instrumentation),
