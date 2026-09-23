@@ -1,0 +1,95 @@
+{
+  "source": "assets/train.png",
+  "max_segments": 5,
+  "intensity": 0.3,
+  "fills": [
+    {
+      "rgb": [
+        1,
+        0,
+        1
+      ],
+      "count": 28912,
+      "frac": 0.69134
+    },
+    {
+      "rgb": [
+        236,
+        24,
+        2
+      ],
+      "count": 6069,
+      "frac": 0.14512
+    },
+    {
+      "rgb": [
+        162,
+        246,
+        6
+      ],
+      "count": 2868,
+      "frac": 0.06858
+    },
+    {
+      "rgb": [
+        155,
+        159,
+        167
+      ],
+      "count": 2003,
+      "frac": 0.0479
+    },
+    {
+      "rgb": [
+        46,
+        60,
+        104
+      ],
+      "count": 1968,
+      "frac": 0.04706
+    }
+  ],
+  "decisions": {
+    "1,0,1": {
+      "role": "off",
+      "priority": 1.0
+    },
+    "236,24,2": {
+      "role": "color",
+      "priority": 1.0,
+      "color": [
+        149,
+        20,
+        0
+      ]
+    },
+    "162,246,6": {
+      "role": "color",
+      "priority": 0.6,
+      "color": [
+        143,
+        220,
+        0
+      ]
+    },
+    "155,159,167": {
+      "role": "color",
+      "priority": 0.6,
+      "color": [
+        27,
+        72,
+        174
+      ]
+    },
+    "46,60,104": {
+      "role": "color",
+      "priority": 0.6,
+      "color": [
+        20,
+        27,
+        91
+      ]
+    }
+  },
+  "overlay": {}
+}

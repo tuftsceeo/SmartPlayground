@@ -1,0 +1,77 @@
+:root {
+    --bg: #f0f2f5;
+    --surface: #ffffff;
+    --border: #d1d5db;
+    --text: #1f2937;
+    --text-dim: #6b7280;
+    --accent: #5b6abf;
+    --accent-hover: #6e7dd4;
+    --green: #00b894;
+    --orange: #f39c12;
+    --user-bg: #dbeafe;
+    --bot-bg: #ffffff;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+    font-family: 'Segoe UI', -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.topbar {
+    display: flex;
+    align-items: center;
+    padding: 8px 16px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    gap: 12px;
+    flex-shrink: 0;
+}
+
+.topbar h1 { font-size: 15px; font-weight: 600; flex-shrink: 0; }
+
+.topbar .api-input {
+    flex: 1;
+    max-width: 400px;
+    padding: 5px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+    font-size: 12px;
+    font-family: monospace;
+}
+
+.topbar .api-input::placeholder { color: var(--text-dim); }
+
+.status-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--text-dim);
+}
+
+.status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #e74c3c;
+}
+
+.status-dot.connected { background: var(--green); }
+
+.main-layout { flex: 1; display: flex; overflow: hidden; }
+
+.left-panel { width: 45%; min-width: 320px; display: flex; flex-direction: column; }
+
+.right-panel { flex: 1; display: flex; flex-direction: column; position: relative; }
+
+.resizer { width: 5px; cursor: col-resize; background: var(--border); flex-shrink: 0; }
+.resizer:hover { background: var(--accent); }

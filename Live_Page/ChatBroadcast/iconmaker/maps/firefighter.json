@@ -1,0 +1,95 @@
+{
+  "source": "assets/firefighter.png",
+  "max_segments": 5,
+  "intensity": 0.3,
+  "fills": [
+    {
+      "rgb": [
+        1,
+        0,
+        0
+      ],
+      "count": 24999,
+      "frac": 0.59486
+    },
+    {
+      "rgb": [
+        244,
+        4,
+        2
+      ],
+      "count": 8758,
+      "frac": 0.2084
+    },
+    {
+      "rgb": [
+        250,
+        174,
+        108
+      ],
+      "count": 3825,
+      "frac": 0.09102
+    },
+    {
+      "rgb": [
+        172,
+        9,
+        10
+      ],
+      "count": 2478,
+      "frac": 0.05896
+    },
+    {
+      "rgb": [
+        253,
+        232,
+        8
+      ],
+      "count": 1965,
+      "frac": 0.04676
+    }
+  ],
+  "decisions": {
+    "1,0,0": {
+      "role": "off",
+      "priority": 1.0
+    },
+    "244,4,2": {
+      "role": "color",
+      "priority": 1.0,
+      "color": [
+        146,
+        0,
+        0
+      ]
+    },
+    "250,174,108": {
+      "role": "color",
+      "priority": 0.6,
+      "color": [
+        194,
+        97,
+        20
+      ]
+    },
+    "172,9,10": {
+      "role": "color",
+      "priority": 1.0,
+      "color": [
+        113,
+        0,
+        0
+      ]
+    },
+    "253,232,8": {
+      "role": "color",
+      "priority": 0.6,
+      "color": [
+        220,
+        200,
+        0
+      ]
+    }
+  },
+  "overlay": {}
+}

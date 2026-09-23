@@ -1,0 +1,549 @@
+:root {
+    --bg: #f0f2f5;
+    --surface: #ffffff;
+    --border: #d1d5db;
+    --text: #1f2937;
+    --text-dim: #6b7280;
+    --accent: #5b6abf;
+    --accent-hover: #6e7dd4;
+    --green: #00b894;
+    --orange: #f39c12;
+    --user-bg: #dbeafe;
+    --bot-bg: #ffffff;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+    font-family: 'Segoe UI', -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* =========================================
+   Top Bar
+   ========================================= */
+.topbar {
+    display: flex;
+    align-items: center;
+    padding: 8px 16px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    gap: 12px;
+    flex-shrink: 0;
+}
+
+.topbar h1 {
+    font-size: 15px;
+    font-weight: 600;
+    flex-shrink: 0;
+}
+
+.topbar .api-input {
+    flex: 1;
+    max-width: 400px;
+    padding: 5px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+    font-size: 12px;
+    font-family: monospace;
+}
+
+.topbar .api-input::placeholder {
+    color: var(--text-dim);
+}
+
+.status-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--text-dim);
+}
+
+.status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #e74c3c;
+}
+
+.status-dot.connected {
+    background: var(--green);
+}
+
+/* =========================================
+   Main Layout (Left + Resizer + Right)
+   ========================================= */
+.main-layout {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+}
+
+/* =========================================
+   Buttons
+   ========================================= */
+.btn {
+    padding: 6px 14px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+}
+
+.btn:hover {
+    background: var(--bg);
+}
+
+.connect-btn {
+    background: var(--accent);
+    border-color: var(--accent);
+    font-weight: 600;
+    color: #fff;
+}
+
+.connect-btn:hover {
+    background: var(--accent-hover);
+}
+
+.connect-btn.on {
+    background: var(--green);
+    border-color: var(--green);
+}
+
+.send-btn {
+    background: var(--accent);
+    border-color: var(--accent);
+    font-weight: 600;
+    color: #fff;
+    font-size: 14px;
+    padding: 12px 20px;
+    align-self: flex-end;
+}
+
+.send-btn:hover {
+    background: var(--accent-hover);
+}
+
+.stop-btn {
+    background: #e74c3c;
+    border-color: #e74c3c;
+    font-weight: 600;
+    color: #fff;
+    display: none;
+    font-size: 14px;
+    padding: 12px 20px;
+    align-self: flex-end;
+}
+
+.run-btn {
+    background: var(--orange);
+    border-color: var(--orange);
+    font-weight: 600;
+    color: #fff;
+}
+
+.upload-btn {
+    background: var(--green);
+    border-color: var(--green);
+    font-weight: 600;
+    color: #fff;
+}
+
+.upload-btn:hover {
+    opacity: 0.85;
+}
+
+/* =========================================
+   Left Panel: Connect Bar + Chat
+   ========================================= */
+.left-panel {
+    width: 45%;
+    min-width: 320px;
+    display: flex;
+    flex-direction: column;
+}
+
+/* ---- Chat Messages ---- */
+.chat-area {
+    flex: 1;
+    overflow-y: auto;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    background: var(--bg);
+}
+
+.msg {
+    max-width: 85%;
+    padding: 10px 14px;
+    border-radius: 10px;
+    font-size: 13px;
+    line-height: 1.55;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+.msg.user {
+    align-self: flex-end;
+    background: var(--user-bg);
+    border: 1px solid #93c5fd;
+    border-bottom-right-radius: 4px;
+    color: var(--text);
+}
+
+.msg.bot {
+    align-self: flex-start;
+    background: var(--bot-bg);
+    border: 1px solid var(--border);
+    border-bottom-left-radius: 4px;
+    color: var(--text);
+}
+
+.msg.system {
+    align-self: center;
+    color: var(--text-dim);
+    font-size: 11px;
+    padding: 2px 10px;
+}
+
+.msg.hw {
+    align-self: flex-start;
+    background: #d1fae5;
+    border: 1px solid #6ee7b7;
+    font-family: monospace;
+    font-size: 12px;
+    color: #065f46;
+}
+
+/* ---- Chat Input ---- */
+.chat-input-area {
+    padding: 12px 14px;
+    background: var(--surface);
+    border-top: 2px solid var(--accent);
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.chat-input-area textarea {
+    flex: 1;
+    padding: 12px 14px;
+    border-radius: 10px;
+    border: 2px solid var(--border);
+    background: #ffffff;
+    color: var(--text);
+    font-size: 15px;
+    font-family: inherit;
+    resize: none;
+    min-height: 60px;
+    max-height: 120px;
+    line-height: 1.5;
+}
+
+.chat-input-area textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(233, 69, 96, 0.15);
+}
+
+.chat-input-area textarea::placeholder {
+    color: var(--text-dim);
+}
+
+/* =========================================
+   Help Button & Modal
+   ========================================= */
+.help-btn {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    padding: 0;
+    font-size: 16px;
+    font-weight: 700;
+    text-align: center;
+    line-height: 28px;
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+    flex-shrink: 0;
+}
+
+.help-btn:hover {
+    background: var(--accent-hover);
+}
+
+.help-modal {
+    width: 480px;
+    max-height: 80vh;
+    overflow-y: auto;
+    text-align: left;
+}
+
+.help-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    margin-top: 16px;
+}
+
+.help-step {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+}
+
+.step-num {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.help-step p {
+    font-size: 13px;
+    color: var(--text-dim);
+    margin-top: 2px;
+    line-height: 1.5;
+}
+
+.help-step strong {
+    font-size: 14px;
+    color: var(--text);
+}
+
+.help-step code {
+    background: var(--bg);
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 12px;
+}
+
+.help-step em {
+    color: var(--accent);
+    font-style: normal;
+    font-weight: 600;
+}
+
+/* =========================================
+   Tools & Write NFC Button
+   ========================================= */
+.tools-btn {
+    font-size: 14px;
+    padding: 4px 8px;
+}
+
+.nfc-btn {
+    background: #8e44ad;
+    border-color: #8e44ad;
+    color: #fff;
+    font-weight: 600;
+}
+
+.nfc-btn:hover {
+    background: #9b59b6;
+}
+
+.hidden {
+    display: none !important;
+}
+
+/* =========================================
+   Passphrase Modal
+   ========================================= */
+.modal-overlay {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    backdrop-filter: blur(4px);
+}
+
+.modal-overlay.hidden {
+    display: none;
+}
+
+.modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 32px;
+    width: 360px;
+    text-align: center;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+}
+
+.modal h2 {
+    font-size: 20px;
+    margin-bottom: 8px;
+    color: var(--text);
+}
+
+.modal p {
+    font-size: 14px;
+    color: var(--text-dim);
+    margin-bottom: 20px;
+}
+
+.modal input {
+    width: 100%;
+    padding: 10px 14px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+    font-size: 16px;
+    text-align: center;
+    letter-spacing: 2px;
+    margin-bottom: 12px;
+}
+
+.modal input:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+.modal input::placeholder {
+    color: var(--text-dim);
+    letter-spacing: normal;
+}
+
+.modal .btn {
+    width: 100%;
+    padding: 10px;
+    font-size: 14px;
+}
+
+.modal-error {
+    color: var(--accent);
+    font-size: 12px;
+    margin-bottom: 8px;
+    min-height: 18px;
+}
+
+/* =========================================
+   Resizer (draggable divider)
+   ========================================= */
+.resizer {
+    width: 5px;
+    cursor: col-resize;
+    background: var(--border);
+    flex-shrink: 0;
+}
+
+.resizer:hover {
+    background: var(--accent);
+}
+
+/* =========================================
+   Right Panel: Code Editor + REPL + Actions
+   ========================================= */
+.right-panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+}
+
+.code-header {
+    padding: 8px 14px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-dim);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+}
+
+.version-controls {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.version-btn {
+    padding: 3px 8px;
+    font-size: 10px;
+    min-width: 28px;
+}
+
+.version-btn:disabled {
+    opacity: 0.3;
+    cursor: default;
+}
+
+.version-label {
+    font-size: 11px;
+    color: var(--text-dim);
+    min-width: 40px;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+}
+
+.code-container {
+    flex: 1;
+    overflow: auto;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.repl-bar {
+    padding: 6px 14px;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.repl-bar label {
+    font-size: 12px;
+    color: var(--text-dim);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.repl-bar-spacer {
+    flex: 1;
+}
+
+.repl-container {
+    height: 150px;
+    border-top: 1px solid var(--border);
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+.repl-container .repl-box {
+    width: 100%;
+    height: 100%;
+}

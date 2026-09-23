@@ -1,0 +1,82 @@
+{
+  "source": "assets/goldfish.png",
+  "max_segments": 12,
+  "intensity": 0.3,
+  "fills": [
+    {
+      "rgb": [
+        68,
+        36,
+        52
+      ],
+      "count": 65572,
+      "frac": 0.52151
+    },
+    {
+      "rgb": [
+        240,
+        197,
+        65
+      ],
+      "count": 34476,
+      "frac": 0.27419
+    },
+    {
+      "rgb": [
+        231,
+        106,
+        58
+      ],
+      "count": 25012,
+      "frac": 0.19892
+    },
+    {
+      "rgb": [
+        224,
+        248,
+        207
+      ],
+      "count": 676,
+      "frac": 0.00538
+    }
+  ],
+  "decisions": {
+    "68,36,52": {
+      "role": "color",
+      "priority": 1.0,
+      "color": [
+        110,
+        40,
+        30
+      ]
+    },
+    "240,197,65": {
+      "role": "color",
+      "priority": 1.0,
+      "color": [
+        255,
+        190,
+        0
+      ]
+    },
+    "231,106,58": {
+      "role": "color",
+      "priority": 1.0,
+      "color": [
+        230,
+        90,
+        0
+      ]
+    },
+    "224,248,207": {
+      "role": "color",
+      "priority": 2.5,
+      "color": [
+        190,
+        190,
+        190
+      ]
+    }
+  },
+  "overlay": {}
+}
