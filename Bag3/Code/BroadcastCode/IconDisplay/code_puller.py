@@ -61,6 +61,13 @@ PWD = 'playground1'
 CHUNK = 512
 YIELD_MS = 20
 
+# Diagnostic switch, default off. main.py imports this module inside pull
+# mode, BEFORE the join, and the radio takes its contiguous block at
+# sta.active(True) -- so the probe's strings live in pull_probe.py, imported
+# only when this is True and only after the join has succeeded. Nothing added
+# here may allocate before the radio has its memory.
+DEBUG_PULL = False
+
 # Request-frame version sentinel. A v1 request opens with the slug's length,
 # which is capped at 16 by game_store's slug rule, so a first byte of 0xFF
 # cannot be mistaken for one. That is what lets a Box serve both an
@@ -215,7 +222,8 @@ def _read_file_header(cs):
     return size, head[0:32], name
 
 
-def _recv_body(cs, tmp_path, expected_size, expected_digest, on_progress=None):
+def _recv_body(cs, tmp_path, expected_size, expected_digest, on_progress=None,
+               probe=None):
     """Stream one file body to tmp_path and verify length and hash.
 
     Returns True only when every byte arrived and the sha256 matches. The
@@ -245,7 +253,11 @@ def _recv_body(cs, tmp_path, expected_size, expected_digest, on_progress=None):
                     on_progress(received, expected_size)
                 except Exception:
                     pass
+            if probe is not None:
+                probe.step(received, expected_size)
             sleep_ms(YIELD_MS)
+    if probe is not None:
+        probe.done(received, expected_size)
     return (received == expected_size) and (h.digest() == expected_digest)
 
 
@@ -581,6 +593,10 @@ def _connect_wifi(ssid, pwd, external_antenna, verbose, enow=None,
             print("  status seen while joining: %s" % (', '.join(seen) or 'none',))
 
         if sta.isconnected():
+            if DEBUG_PULL:
+                import pull_probe
+                pull_probe.joined(sta, found_ssid, bssid, found_ch, nets,
+                                  ssid_prefix, tick)
             try:
                 sta.config(pm=0)
             except (ValueError, OSError, AttributeError) as e:
@@ -706,7 +722,12 @@ def pull(host=HOST, port=PORT, ssid=SSID, pwd=PWD,
         memprobe.probe("pull:pre-body")  # BENCH
 
         body_started = True
-        good = _recv_body(cs, tmp_path, expected_size, expected_digest, on_progress)
+        _probe = None
+        if DEBUG_PULL:
+            import pull_probe
+            _probe = pull_probe.BodyProbe(sta)
+        good = _recv_body(cs, tmp_path, expected_size, expected_digest,
+                          on_progress, probe=_probe)
 
         memprobe.probe("pull:post-body")  # BENCH
 

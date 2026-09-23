@@ -747,6 +747,13 @@ def _run_pull_mode():
     ok = code_puller.pull(verbose=True, on_progress=_pull_progress,
                           on_status=_pull_status, slug=wanted,
                           host_id=wanted_host)
+    # After the pull, never before: reading reset_cause() is free but
+    # printing it is not, and nothing may allocate ahead of the radio's
+    # contiguous block. See pull_probe.reset_cause().
+    if code_puller.DEBUG_PULL:
+        import pull_probe
+        print("# DBG pull boot: reset_cause=%s"
+              % pull_probe.reset_cause(machine))
     memprobe.probe("pull-mode:post-pull")  # BENCH
 
     # Three of the four failures are certain: a second boot would scan the

@@ -60,6 +60,14 @@ SOCK_REPLY_TIMEOUT_S = 30
 SOCK_REQUEST_TIMEOUT_S = 5   # how long to wait for the requester's frame
 AP_SETTLE_MS = 300  # same value the wand uses post-cycle
 
+# Diagnostic switch, default off. Every string in this module is allocated
+# when bdial_server.py imports it -- before prewarm_ap(), long before arm()
+# -- and the AP needs a large contiguous block it can only get early. So the
+# probe's strings live in serve_probe.py, which is imported only when this is
+# True and only after _start_ap() has returned. Keep it that way: nothing
+# added here may allocate before the radio has its memory.
+DEBUG_SERVE = False
+
 # How many devices CodeServer will serve at once. The ESP32 SoftAP itself
 # associates several stations fine -- this cap exists for RAM, not radio,
 # reasons (see MIN_FREE_ACCEPT below). Bench-verified starting point; lower
@@ -287,6 +295,12 @@ class _Client:
         # first body step, released by _drop(). See _step_body().
         self.chunkbuf = None
 
+        # serve_probe counters. sel = times select() named this socket ready;
+        # blocked = times a body write then moved no bytes.
+        self.started_ms = ticks_ms()
+        self.sel = 0
+        self.blocked = 0
+
         # Icon leg. game_ok is this client's real outcome: an icon that fails
         # costs a picture, not the game, so it never changes game_ok.
         self.game_ok = False
@@ -321,6 +335,7 @@ class CodeServer:
         # which is why the cache is keyed by path rather than assumed to hold
         # the game.
         self._digest_cache = (None, None, None)  # (path, size, digest)
+        self._probe = None      # serve_probe.Probe, set in arm() if DEBUG_SERVE
 
     @property
     def armed(self):
@@ -452,6 +467,10 @@ class CodeServer:
             return False
         self._armed = True
         self._last_ok = None
+        # Only now: the AP has its memory, so parsing a module cannot cost it.
+        if DEBUG_SERVE:
+            import serve_probe
+            self._probe = serve_probe.Probe(self)
         return True
 
     def disarm(self):
@@ -470,6 +489,7 @@ class CodeServer:
             self._ap = None
             sleep_ms(AP_SETTLE_MS)
         self._armed = False
+        self._probe = None
         gc.collect()
 
     def poll(self, on_event=None, should_abort=None):
@@ -492,6 +512,8 @@ class CodeServer:
         self._on_event = on_event
 
         self._accept_new()
+        if self._probe is not None:
+            self._probe.tick()
 
         if _asked_to_abort(should_abort):
             self._drop_all()
@@ -534,6 +556,8 @@ class CodeServer:
         return None
 
     def _accept_new(self):
+        if self._probe is not None and len(self._clients) >= MAX_CLIENTS:
+            self._probe.at_cap(MAX_CLIENTS)
         while len(self._clients) < MAX_CLIENTS:
             if self._clients and gc.mem_free() < MIN_FREE_ACCEPT:
                 print("# CodeServer.poll: low mem (%d free), deferring accept"
@@ -549,6 +573,8 @@ class CodeServer:
                 cs.settimeout(0)
             deadline = ticks_add(ticks_ms(), SOCK_REQUEST_TIMEOUT_S * 1000)
             self._clients.append(_Client(cs, deadline))
+            if self._probe is not None:
+                self._probe.accepted()
             _emit(self._on_event, 'serving')
 
     def _file_ready(self):
@@ -590,6 +616,8 @@ class CodeServer:
         already been counted as a pickup's worth of work by then; a failed
         icon inside that leg is printed, not reported here.
         """
+        if self._probe is not None:
+            self._probe.finished(c, ok)
         self._drop(c)
         try:
             self._clients.remove(c)
@@ -606,6 +634,7 @@ class CodeServer:
             print("# stats pull failed: %s" % str(e))
 
     def _advance(self, c):
+        c.sel += 1
         try:
             if c.state == _S_REQ:
                 self._step_req(c)
@@ -782,6 +811,7 @@ class CodeServer:
             c.outpos = 0
         n = c.sock.write(memoryview(c.outbuf)[c.outpos:c._chunk_len])
         if not n:
+            c.blocked += 1
             return
         c.outpos += n
         c.deadline = ticks_add(ticks_ms(), SOCK_REPLY_TIMEOUT_S * 1000)

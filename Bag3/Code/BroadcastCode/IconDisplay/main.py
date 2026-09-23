@@ -413,6 +413,13 @@ def _run_pull_mode(panel, icon_dir):
                           hubtype=HUB_TYPE, icon_dir=icon_dir,
                           on_progress=lambda r, t: _pull_progress(panel, r, t),
                           on_status=lambda phase, tick: _pull_status(panel, phase, tick))
+    # After the pull, never before: reading reset_cause() is free but
+    # printing it is not, and nothing may allocate ahead of the radio's
+    # contiguous block. See pull_probe.reset_cause().
+    if code_puller.DEBUG_PULL:
+        import pull_probe
+        print("# DBG pull boot: reset_cause=%s"
+              % pull_probe.reset_cause(machine))
 
     # Three of the four failures are certain -- a second boot would scan the
     # same air, join the same AP and ask for the same missing game -- so they

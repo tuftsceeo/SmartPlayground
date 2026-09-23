@@ -11,6 +11,7 @@ export const DIAL_FILES = [
     { path: 'ws1850s.py', remotePath: '/flash/ws1850s.py' },
     { path: 'card_writer.py', remotePath: '/flash/card_writer.py' },
     { path: 'code_server.py', remotePath: '/flash/code_server.py' },
+    { path: 'serve_probe.py', remotePath: '/flash/serve_probe.py' },
     { path: 'dial_board.py', remotePath: '/flash/dial_board.py' },
     { path: 'dial_input.py', remotePath: '/flash/dial_input.py' },
     { path: 'dial_ui.py', remotePath: '/flash/dial_ui.py' },
