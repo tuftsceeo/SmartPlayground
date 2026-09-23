@@ -59,7 +59,18 @@ YIELD_MS = 20
 SOCK_REPLY_TIMEOUT_S = 30
 SOCK_REQUEST_TIMEOUT_S = 5   # how long to wait for the requester's frame
 AP_SETTLE_MS = 300  # same value the wand uses post-cycle
-DEBUG_INTERVAL_MS = 2000  # temporary -- see poll()'s per-client state dump
+# ── Diagnostic instrumentation ────────────────────────────────────────
+# TEMPORARY. Set DEBUG_SERVE = False to silence every print below it, or
+# delete the flag and its guarded blocks together once the intermittent
+# mid-transfer stall and join failure are diagnosed. Nothing here changes
+# behaviour -- it only prints. Peer copies carry the same block.
+DEBUG_SERVE = True
+DEBUG_INTERVAL_MS = 2000  # how often poll() dumps its state summary
+
+
+def _dbg(msg):
+    if DEBUG_SERVE:
+        print("# DBG " + msg)
 
 # How many devices CodeServer will serve at once. The ESP32 SoftAP itself
 # associates several stations fine -- this cap exists for RAM, not radio,
@@ -314,6 +325,16 @@ class _Client:
         # first body step, released by _drop(). See _step_body().
         self.chunkbuf = None
 
+        # DEBUG_SERVE counters. sel counts how often select() named this
+        # socket ready; blocked counts how often a body write then moved no
+        # bytes. sel rising while sent does not means the socket says
+        # writable and refuses anyway (the peer has stopped acking); sel
+        # flat means select() never offered it (the loop or the driver is
+        # the problem, not the peer).
+        self.started_ms = ticks_ms()
+        self.sel = 0
+        self.blocked = 0
+
         # Icon leg. game_ok is this client's real outcome: an icon that fails
         # costs a picture, not the game, so it never changes game_ok.
         self.game_ok = False
@@ -348,9 +369,9 @@ class CodeServer:
         # which is why the cache is keyed by path rather than assumed to hold
         # the game.
         self._digest_cache = (None, None, None)  # (path, size, digest)
-        # Debug only -- see poll()'s per-client state dump below. Remove
-        # once the intermittent mid-transfer stall is diagnosed.
+        # DEBUG_SERVE only -- see _debug_dump(). Remove with the flag.
         self._last_debug_ms = 0
+        self._polls = 0
 
     @property
     def armed(self):
@@ -563,21 +584,56 @@ class CodeServer:
             # spinning the poll() loop as fast as possible.
             sleep_ms(YIELD_MS)
 
-        # DEBUG -- temporary, see _last_debug_ms above. A gap between two
-        # of these prints noticeably larger than DEBUG_INTERVAL_MS means
-        # poll() itself wasn't called promptly (something else is blocking
-        # the main loop); sent/size not advancing between prints while a
-        # client sits in 'body' means sock.write() is the thing not making
-        # progress, not the scheduling around it.
-        if self._clients and ticks_diff(now, self._last_debug_ms) >= DEBUG_INTERVAL_MS:
-            self._last_debug_ms = now
-            for c in self._clients:
-                print("# DEBUG client state=%s sent=%d/%d ms_to_deadline=%d"
-                      % (c.state, c.sent, c.size, ticks_diff(c.deadline, now)))
-
+        self._debug_dump(now)
         return None
 
+    def _debug_dump(self, now):
+        """Periodic state summary while armed. DEBUG_SERVE only.
+
+        Deliberately runs with no clients too: a station count that stays
+        high after every transfer has ended is the signature of entries
+        lingering after devices that reset without deauthenticating, which
+        is what eventually refuses new associations at max_clients.
+
+        polls is how many poll() calls happened since the last dump. Far
+        fewer than the interval allows means the main loop, not the socket,
+        is setting the transfer rate -- _step_body() moves at most one CHUNK
+        per poll() per client.
+        """
+        if not DEBUG_SERVE:
+            return
+        self._polls += 1
+        if ticks_diff(now, self._last_debug_ms) < DEBUG_INTERVAL_MS:
+            return
+        _dbg("serve: clients=%d stations=%d free=%d polls=%d"
+             % (len(self._clients), self._stations(), gc.mem_free(), self._polls))
+        for c in self._clients:
+            _dbg("  client state=%s sent=%d/%d ms_to_deadline=%d sel=%d blocked=%d"
+                 % (c.state, c.sent, c.size, ticks_diff(c.deadline, now),
+                    c.sel, c.blocked))
+        self._last_debug_ms = now
+        self._polls = 0
+
+    def _stations(self):
+        """How many stations the SoftAP currently holds, or -1 if unknown.
+
+        ap.config(max_clients=MAX_CLIENTS) makes this a hard cap: at the cap
+        the AP refuses new associations outright, which a joining device sees
+        as a connect that never leaves STAT_CONNECTING. A device that dies
+        mid-transfer and resets never sends a clean deauth, so its entry can
+        linger -- this is what says whether they accumulate.
+        """
+        if self._ap is None:
+            return -1
+        try:
+            return len(self._ap.status('stations'))
+        except (OSError, ValueError, AttributeError, TypeError):
+            return -1
+
     def _accept_new(self):
+        if DEBUG_SERVE and len(self._clients) >= MAX_CLIENTS:
+            _dbg("accept BLOCKED: clients=%d at MAX_CLIENTS=%d stations=%d"
+                 % (len(self._clients), MAX_CLIENTS, self._stations()))
         while len(self._clients) < MAX_CLIENTS:
             if self._clients and gc.mem_free() < MIN_FREE_ACCEPT:
                 print("# CodeServer.poll: low mem (%d free), deferring accept"
@@ -593,6 +649,8 @@ class CodeServer:
                 cs.settimeout(0)
             deadline = ticks_add(ticks_ms(), SOCK_REQUEST_TIMEOUT_S * 1000)
             self._clients.append(_Client(cs, deadline))
+            _dbg("accepted: clients=%d stations=%d free=%d"
+                 % (len(self._clients), self._stations(), gc.mem_free()))
             _emit(self._on_event, 'serving')
 
     def _file_ready(self):
@@ -634,6 +692,10 @@ class CodeServer:
         already been counted as a pickup's worth of work by then; a failed
         icon inside that leg is printed, not reported here.
         """
+        _dbg("finish ok=%s state=%s sent=%d/%d age_ms=%d sel=%d blocked=%d "
+             "clients=%d stations=%d"
+             % (ok, c.state, c.sent, c.size, ticks_diff(ticks_ms(), c.started_ms),
+                c.sel, c.blocked, len(self._clients) - 1, self._stations()))
         self._drop(c)
         try:
             self._clients.remove(c)
@@ -650,6 +712,7 @@ class CodeServer:
             print("# stats pull failed: %s" % str(e))
 
     def _advance(self, c):
+        c.sel += 1
         try:
             if c.state == _S_REQ:
                 self._step_req(c)
@@ -826,6 +889,7 @@ class CodeServer:
             c.outpos = 0
         n = c.sock.write(memoryview(c.outbuf)[c.outpos:c._chunk_len])
         if not n:
+            c.blocked += 1
             return
         c.outpos += n
         c.deadline = ticks_add(ticks_ms(), SOCK_REPLY_TIMEOUT_S * 1000)

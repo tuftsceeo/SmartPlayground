@@ -401,6 +401,22 @@ def _run_pull_mode(panel, icon_dir):
     fill(panel, BLUE)
 
     import code_puller
+    if code_puller.DEBUG_PULL:
+        # TEMPORARY, tied to code_puller.DEBUG_PULL -- remove together.
+        # Which reset landed us here separates a soft reset (the tap handler's
+        # machine.reset(), which leaves RTC-held radio calibration, the LED
+        # strip's latched colours and the NFC reader's own state untouched)
+        # from a power-on (which clears all three). The reported pattern is
+        # that a pairing which starts failing keeps failing until both devices
+        # are fully power-cycled, so this is the field that says whether the
+        # sticky state is something only a power-on clears.
+        _cause = machine.reset_cause()
+        for _n in ('PWRON_RESET', 'HARD_RESET', 'WDT_RESET',
+                   'DEEPSLEEP_RESET', 'SOFT_RESET'):
+            if getattr(machine, _n, None) == _cause:
+                _cause = "%s (%s)" % (_n, _cause)
+                break
+        print("# DBG pull boot: reset_cause=%s" % (_cause,))
     # hubtype tells the Box which file this slug means for this device;
     # icon_dir asks for the named-icon leg after it. enow is deliberately
     # not passed: there is no ESP-NOW on this boot to shut down.

@@ -10,7 +10,12 @@ import gc
 import os
 import socket
 import network
-from time import sleep_ms
+from time import sleep_ms, ticks_ms, ticks_diff
+
+try:
+    from ubinascii import hexlify
+except ImportError:
+    from binascii import hexlify
 
 try:
     import hashlib
@@ -57,6 +62,20 @@ PWD = 'playground1'
 
 CHUNK = 512
 YIELD_MS = 20
+
+# ── Diagnostic instrumentation ──────────────────────────────────
+# TEMPORARY. Set DEBUG_PULL = False to silence every print below it, or
+# delete the flag and its guarded blocks together once the intermittent
+# mid-transfer stall and join failure are diagnosed. Nothing here changes
+# behaviour -- it only prints. The peer copy carries the same block, and
+# code_server.py's DEBUG_SERVE is the other half of the same picture.
+DEBUG_PULL = True
+DEBUG_INTERVAL_MS = 2000  # how often the body loop reports progress
+
+
+def _dbg(msg):
+    if DEBUG_PULL:
+        print("# DBG " + msg)
 
 # Request-frame version sentinel. A v1 request opens with the slug's length,
 # which is capped at 16 by game_store's slug rule, so a first byte of 0xFF
@@ -213,17 +232,26 @@ def _read_file_header(cs):
     return size, head[0:32], name
 
 
-def _recv_body(cs, tmp_path, expected_size, expected_digest, on_progress=None):
+def _recv_body(cs, tmp_path, expected_size, expected_digest, on_progress=None,
+               sta=None):
     """Stream one file body to tmp_path and verify length and hash.
 
     Returns True only when every byte arrived and the sha256 matches. The
     caller decides what to do with tmp_path either way -- this does not
     promote, delete, or ack.
+
+    sta is passed only so DEBUG_PULL can report whether the station is still
+    associated while the body is arriving. This loop otherwise prints
+    nothing per chunk, which is why a stall here used to look identical to
+    a transfer that never started: the only evidence was the ETIMEDOUT at
+    the end. Not passing it costs the association reading, nothing else.
     """
     buf = bytearray(CHUNK)
     mv = memoryview(buf)
     received = 0
     h = hashlib.sha256()
+    dbg_ms = ticks_ms()
+    dbg_last = -1
     if on_progress:
         try:
             on_progress(0, expected_size)
@@ -243,7 +271,24 @@ def _recv_body(cs, tmp_path, expected_size, expected_digest, on_progress=None):
                     on_progress(received, expected_size)
                 except Exception:
                     pass
+            if DEBUG_PULL and ticks_diff(ticks_ms(), dbg_ms) >= DEBUG_INTERVAL_MS:
+                dbg_ms = ticks_ms()
+                # "stalled" means not one byte since the previous report.
+                # Paired with the server's sel/blocked counters for the same
+                # window, that says which side stopped: the server still
+                # selecting and writing while this stays flat means the
+                # bytes are not crossing the air.
+                _dbg("body %d/%d assoc=%s status=%s%s"
+                     % (received, expected_size,
+                        sta.isconnected() if sta is not None else "?",
+                        _status_name(sta) if sta is not None else "?",
+                        " STALLED" if received == dbg_last else ""))
+                dbg_last = received
             sleep_ms(YIELD_MS)
+    if DEBUG_PULL:
+        _dbg("body done %d/%d assoc=%s"
+             % (received, expected_size,
+                sta.isconnected() if sta is not None else "?"))
     return (received == expected_size) and (h.digest() == expected_digest)
 
 
@@ -333,6 +378,20 @@ def _log_visible_aps(nets, prefix, host_id):
         # the C6 won't accept looks the same from isconnected() alone.
         print("    %-24s ch=%s rssi=%s sec=%s%s"
               % (name, net[2], net[3], net[4], mark))
+
+
+def _count_prefix(nets, prefix):
+    """How many APs in a scan share `prefix`. DEBUG_PULL reporting only."""
+    if not nets:
+        return 0
+    n = 0
+    for net in nets:
+        try:
+            if net[0].decode('utf-8').startswith(prefix):
+                n += 1
+        except Exception:
+            continue
+    return n
 
 
 def _find_ap(sta, prefix, host_id, verbose):
@@ -580,6 +639,15 @@ def _connect_wifi(ssid_prefix, pwd, host_id, external_antenna, verbose,
             print("  status seen while joining: %s" % (', '.join(seen) or 'none',))
 
         if sta.isconnected():
+            if DEBUG_PULL:
+                # On failure _log_visible_aps() already dumps the whole scan.
+                # Logging the chosen AP on SUCCESS too is what makes a good
+                # run and a bad one comparable -- how many hosts were up, and
+                # how loud each was, at the moment the join worked.
+                _dbg("joined %s bssid=%s ch=%s after %d scan/join ticks; "
+                     "%d %s* AP(s) visible"
+                     % (found_ssid, hexlify(bssid) if bssid else b'?', found_ch,
+                        tick, _count_prefix(nets, ssid_prefix), ssid_prefix))
             try:
                 sta.config(pm=0)
             except (ValueError, OSError, AttributeError) as e:
@@ -713,7 +781,8 @@ def pull(host=HOST, port=PORT, ssid=SSID, pwd=PWD,
         memprobe.probe("pull:pre-body")  # BENCH
 
         body_started = True
-        good = _recv_body(cs, tmp_path, expected_size, expected_digest, on_progress)
+        good = _recv_body(cs, tmp_path, expected_size, expected_digest,
+                          on_progress, sta=sta)
 
         memprobe.probe("pull:post-body")  # BENCH
 

@@ -737,6 +737,22 @@ def _run_pull_mode():
     buz.start()
 
     import code_puller
+    if code_puller.DEBUG_PULL:
+        # TEMPORARY, tied to code_puller.DEBUG_PULL -- remove together.
+        # Which reset landed us here separates a soft reset (the tap handler's
+        # machine.reset(), which leaves RTC-held radio calibration, the LED
+        # strip's latched colours and the NFC reader's own state untouched)
+        # from a power-on (which clears all three). The reported pattern is
+        # that a pairing which starts failing keeps failing until both devices
+        # are fully power-cycled, so this is the field that says whether the
+        # sticky state is something only a power-on clears.
+        _cause = machine.reset_cause()
+        for _n in ('PWRON_RESET', 'HARD_RESET', 'WDT_RESET',
+                   'DEEPSLEEP_RESET', 'SOFT_RESET'):
+            if getattr(machine, _n, None) == _cause:
+                _cause = "%s (%s)" % (_n, _cause)
+                break
+        print("# DBG pull boot: reset_cause=%s" % (_cause,))
     # BENCH: code_puller.pull() has its own memprobe calls bracketing the
     # radio join and the transfer body (pull:pre-wifi-join, post-wifi-join,
     # pre-body, post-body, cleanup, etc.) -- these two just mark the whole

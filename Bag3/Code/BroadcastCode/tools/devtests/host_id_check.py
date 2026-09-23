@@ -27,11 +27,13 @@ sys.path.insert(0, os.path.join(BROADCASTCODE, "MockWand", "lib"))  # game_store
 sys.path.insert(0, os.path.join(BROADCASTCODE, "MockWand"))
 
 # MicroPython's `time` has sleep_ms/ticks_*; CPython's doesn't. code_puller.py
-# only calls sleep_ms() inside functions this check never reaches (the real
-# radio join/transfer path), so a no-op stands in fine -- same technique
-# wire_contract.py uses for the same reason.
+# calls these only inside functions this check never reaches (the real radio
+# join/transfer path, and DEBUG_PULL's body-progress timer), so no-ops stand
+# in fine -- same technique wire_contract.py uses for the same reason.
 import time as _time
 _time.sleep_ms = lambda ms: None
+_time.ticks_ms = lambda: int(_time.time() * 1000)
+_time.ticks_diff = lambda a, b: a - b
 
 import code_puller as CP
 
