@@ -59,6 +59,7 @@ YIELD_MS = 20
 SOCK_REPLY_TIMEOUT_S = 30
 SOCK_REQUEST_TIMEOUT_S = 5   # how long to wait for the requester's frame
 AP_SETTLE_MS = 300  # same value the wand uses post-cycle
+DEBUG_INTERVAL_MS = 2000  # temporary -- see poll()'s per-client state dump
 
 # How many devices CodeServer will serve at once. The ESP32 SoftAP itself
 # associates several stations fine -- this cap exists for RAM, not radio,
@@ -347,6 +348,9 @@ class CodeServer:
         # which is why the cache is keyed by path rather than assumed to hold
         # the game.
         self._digest_cache = (None, None, None)  # (path, size, digest)
+        # Debug only -- see poll()'s per-client state dump below. Remove
+        # once the intermittent mid-transfer stall is diagnosed.
+        self._last_debug_ms = 0
 
     @property
     def armed(self):
@@ -558,6 +562,18 @@ class CodeServer:
             # WiFi driver a breather between chunk writes rather than
             # spinning the poll() loop as fast as possible.
             sleep_ms(YIELD_MS)
+
+        # DEBUG -- temporary, see _last_debug_ms above. A gap between two
+        # of these prints noticeably larger than DEBUG_INTERVAL_MS means
+        # poll() itself wasn't called promptly (something else is blocking
+        # the main loop); sent/size not advancing between prints while a
+        # client sits in 'body' means sock.write() is the thing not making
+        # progress, not the scheduling around it.
+        if self._clients and ticks_diff(now, self._last_debug_ms) >= DEBUG_INTERVAL_MS:
+            self._last_debug_ms = now
+            for c in self._clients:
+                print("# DEBUG client state=%s sent=%d/%d ms_to_deadline=%d"
+                      % (c.state, c.sent, c.size, ticks_diff(c.deadline, now)))
 
         return None
 
