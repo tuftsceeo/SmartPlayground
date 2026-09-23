@@ -54,15 +54,22 @@ GRACE_S = 0
 SERVE_ERROR_MS = 1000
 
 # Whether boot cycles the AP radio once before the UI and NFC driver claim
-# heap. prewarm_ap()'s own docstring calls this unverified: the theory is
-# that ap.active(False) does not hand the WiFi driver's internal pools back,
-# so taking them early means arm() later reuses an already-reserved block.
-# If that theory is wrong in the other direction -- the prewarm reserves
-# pools that arm() then cannot get again -- this is what an
-# "arm: AP start failed: WiFi Out of Memory" at high gc.mem_free() would
-# look like, since that error comes from the IDF driver's own pools and not
-# from the Python heap gc.mem_free() reports. Set False to take the prewarm
-# out of the boot path and find out; it is Dial-only either way.
+# heap. The AP needs one large contiguous block, and the block has to be
+# taken first thing on boot -- for WiFi or for ESP-NOW -- because nothing
+# later in boot can un-fragment the heap enough to find it again. That is
+# why this exists; it is not an experiment to turn off.
+#
+# The flag is here to make it an A/B, and the expected result of False is
+# that arm() fails MORE often, not less. It is worth running only to
+# confirm the prewarm is doing its job, or alongside a boot log that shows
+# prewarm_ap() never ran at all.
+#
+# Reading an "arm: AP start failed: WiFi Out of Memory" at a HIGH
+# gc.mem_free(): the two are not in tension. MicroPython's GC heap is
+# itself carved out of the same DRAM the WiFi driver allocates from, so a
+# large idle Python heap is DRAM the driver cannot have. A high mem_free()
+# alongside this error is consistent with the block never having been
+# reserved, not evidence against it.
 PREWARM_AP = True
 
 PAYLOAD_PATH = DEFAULT_SRC
