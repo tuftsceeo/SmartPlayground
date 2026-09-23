@@ -181,18 +181,44 @@ def copy_and_verify(port, local, remote, attempts, pause):
     return False
 
 
+def _boot_main_first(files, extra_boot=None):
+    """Move boot.py and main.py to the front of the write order.
+
+    Confirmed necessary 2026-09-23: a Dial wedged mid-deploy (raw REPL
+    unreachable) only came back after boot.py/main.py were rewritten by
+    hand. main.py used to sort last (manifest order) and boot.py wasn't
+    written at all for Dial/Box -- so an interrupted deploy could leave a
+    board with no path back to a working REPL. extra_boot is a
+    (local, remote) pair to inject when boot.py isn't already in `files`
+    (true for Dial/Box, whose manifest.js doesn't list it).
+    """
+    files = list(files)
+    if extra_boot and not any(os.path.basename(r) == "boot.py" for _, r in files):
+        files.insert(0, extra_boot)
+    order = {"boot.py": 0, "main.py": 1}
+    return sorted(files, key=lambda pair: order.get(os.path.basename(pair[1]), 2))
+
+
 def _files_for(dev_key, code_only):
     if dev_key == "dial":
         firmware_dir = os.path.join(BROADCASTCODE, "BroadcastDial", "BDialFirmware")
-        return _manifest_files(firmware_dir, "manifest.js", "DIAL_FILES"), 8.0
+        boot_local = os.path.join(firmware_dir, "boot.py")
+        extra_boot = (boot_local, "/flash/boot.py") if os.path.exists(boot_local) else None
+        files = _manifest_files(firmware_dir, "manifest.js", "DIAL_FILES")
+        return _boot_main_first(files, extra_boot), 8.0
     if dev_key == "box":
         firmware_dir = os.path.join(BROADCASTCODE, "BroadcastBox", "BBoxFirmware")
-        return _manifest_files(firmware_dir, "manifest.js", "BOX_FILES"), 0.0
+        boot_local = os.path.join(firmware_dir, "boot.py")
+        extra_boot = (boot_local, "/flash/boot.py") if os.path.exists(boot_local) else None
+        files = _manifest_files(firmware_dir, "manifest.js", "BOX_FILES")
+        return _boot_main_first(files, extra_boot), 0.0
     if dev_key == "wand":
-        return _tree_files(os.path.join(BROADCASTCODE, "MockWand")), 0.0
+        files = _tree_files(os.path.join(BROADCASTCODE, "MockWand"))
+        return _boot_main_first(files), 0.0
     # icon
     skip = {"icons"} if code_only else ()
-    return _tree_files(os.path.join(BROADCASTCODE, "IconDisplay"), skip_dirs=skip), 0.0
+    files = _tree_files(os.path.join(BROADCASTCODE, "IconDisplay"), skip_dirs=skip)
+    return _boot_main_first(files), 0.0
 
 
 def main():
