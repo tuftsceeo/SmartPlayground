@@ -31,7 +31,10 @@ REPORT_GAP_MS = 120
 # queue (ESP_ERR_ESPNOW_NO_MEM) on rapid back-to-back sends.
 SEND_RETRY_MS = 30
 
-# This MockWand has no antenna on the u.FL connector; see _configure_antenna().
+# The Icon Display has nothing on its u.FL connector, so it uses the onboard
+# antenna; see _configure_antenna(). Deliberately False, and deliberately not
+# the same as MockWand's, whose wands do have an external antenna fitted --
+# this is per-device hardware, not a setting to reconcile across the copies.
 EXTERNAL_ANTENNA = False
 # Settle time after releasing the radio, before anything else claims it.
 RADIO_SETTLE_MS = 300
