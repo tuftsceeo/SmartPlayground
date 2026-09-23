@@ -53,25 +53,6 @@ GRACE_S = 0
 # freeze the others. See _on_serve_event()/_poll_serve().
 SERVE_ERROR_MS = 1000
 
-# Whether boot cycles the AP radio once before the UI and NFC driver claim
-# heap. The AP needs one large contiguous block, and the block has to be
-# taken first thing on boot -- for WiFi or for ESP-NOW -- because nothing
-# later in boot can un-fragment the heap enough to find it again. That is
-# why this exists; it is not an experiment to turn off.
-#
-# The flag is here to make it an A/B, and the expected result of False is
-# that arm() fails MORE often, not less. It is worth running only to
-# confirm the prewarm is doing its job, or alongside a boot log that shows
-# prewarm_ap() never ran at all.
-#
-# Reading an "arm: AP start failed: WiFi Out of Memory" at a HIGH
-# gc.mem_free(): the two are not in tension. MicroPython's GC heap is
-# itself carved out of the same DRAM the WiFi driver allocates from, so a
-# large idle Python heap is DRAM the driver cannot have. A high mem_free()
-# alongside this error is consistent with the block never having been
-# reserved, not evidence against it.
-PREWARM_AP = True
-
 PAYLOAD_PATH = DEFAULT_SRC
 INDEX_PATH = GAMES_DIR + '/index.json'
 
@@ -1172,14 +1153,11 @@ class BdialServer:
         # actually reserves anything past .active(False) -- that's exactly
         # what the surrounding _log_mem calls (and prewarm_ap()'s own) are
         # here to check on a real retry.
-        if PREWARM_AP:
-            try:
-                prewarm_ap()
-            except Exception as e:
-                print("# AP prewarm failed: %s" % str(e))
-            self._log_mem("after AP prewarm")
-        else:
-            print("# AP prewarm skipped (PREWARM_AP = False)")
+        try:
+            prewarm_ap()
+        except Exception as e:
+            print("# AP prewarm failed: %s" % str(e))
+        self._log_mem("after AP prewarm")
 
         self._input.begin()
         self.ui.begin()  # calls m5ui.init(); builds LVGL screens once

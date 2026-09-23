@@ -40,11 +40,6 @@ try:
 except ImportError:
     from binascii import hexlify
 
-try:
-    import esp32
-except ImportError:
-    esp32 = None
-
 SSID_PREFIX = 'SP-FILEPUSH'
 # Four lowercase hex chars from the tail of this ESP32's base MAC. Readable
 # with no network call (unlike a station MAC, which needs STA_IF active),
@@ -64,51 +59,6 @@ YIELD_MS = 20
 SOCK_REPLY_TIMEOUT_S = 30
 SOCK_REQUEST_TIMEOUT_S = 5   # how long to wait for the requester's frame
 AP_SETTLE_MS = 300  # same value the wand uses post-cycle
-
-# ── Diagnostic instrumentation ──────────────────────────────────
-# TEMPORARY. Set DEBUG_SERVE = False to silence every print below it, or
-# delete the flag and its guarded blocks together once the intermittent
-# mid-transfer stall and join failure are diagnosed. Nothing here changes
-# behaviour -- it only prints. Peer copies carry the same block.
-DEBUG_SERVE = True
-DEBUG_INTERVAL_MS = 2000  # how often poll() dumps its state summary
-
-
-def _dbg(msg):
-    if DEBUG_SERVE:
-        print("# DBG " + msg)
-
-
-def idf_heap():
-    """(total IDF free, largest single free block), or (None, None).
-
-    gc.mem_free() is the wrong number for AP bring-up and reading it as
-    reassurance is how an "AP start failed: WiFi Out of Memory" at 82 KB
-    free gets misread. The WiFi driver needs one large CONTIGUOUS block of
-    IDF DRAM; MicroPython's GC heap is itself carved out of that same DRAM,
-    so a large idle Python heap is memory the driver cannot have, and a heap
-    chopped into small pieces by many live Python objects can hold plenty in
-    total and still have nothing big enough. Total free vs largest free
-    block is what separates "out of memory" from "out of contiguous memory".
-
-    Same source and shape as MockWand/lib/memprobe.py's _idf_free(), which
-    is where this device has no copy -- memprobe is wand-side bench code.
-    """
-    if esp32 is None:
-        return None, None
-    try:
-        regions = esp32.idf_heap_info(esp32.HEAP_DATA)
-    except Exception:
-        return None, None
-    total = 0
-    largest = 0
-    for r in regions:
-        total += r[1]
-        biggest = r[2] if len(r) > 2 else 0
-        if biggest > largest:
-            largest = biggest
-    return total, largest
-
 
 # How many devices CodeServer will serve at once. The ESP32 SoftAP itself
 # associates several stations fine -- this cap exists for RAM, not radio,
@@ -337,16 +287,6 @@ class _Client:
         # first body step, released by _drop(). See _step_body().
         self.chunkbuf = None
 
-        # DEBUG_SERVE counters. sel counts how often select() named this
-        # socket ready; blocked counts how often a body write then moved no
-        # bytes. sel rising while sent does not means the socket says
-        # writable and refuses anyway (the peer has stopped acking); sel
-        # flat means select() never offered it (the loop or the driver is
-        # the problem, not the peer).
-        self.started_ms = ticks_ms()
-        self.sel = 0
-        self.blocked = 0
-
         # Icon leg. game_ok is this client's real outcome: an icon that fails
         # costs a picture, not the game, so it never changes game_ok.
         self.game_ok = False
@@ -381,9 +321,6 @@ class CodeServer:
         # which is why the cache is keyed by path rather than assumed to hold
         # the game.
         self._digest_cache = (None, None, None)  # (path, size, digest)
-        # DEBUG_SERVE only -- see _debug_dump(). Remove with the flag.
-        self._last_debug_ms = 0
-        self._polls = 0
 
     @property
     def armed(self):
@@ -492,19 +429,10 @@ class CodeServer:
         # failure path in this method returns False rather than raising,
         # and this one should too.
         gc.collect()
-        if DEBUG_SERVE:
-            _total, _largest = idf_heap()
-            _dbg("arm: pre-AP gc_free=%d idf_free=%s idf_largest=%s"
-                 % (gc.mem_free(), _total, _largest))
         try:
             self._ap = _start_ap(self.ssid, self.pwd)
         except OSError as e:
-            # idf_largest here is the number that matters: a large total with
-            # a small largest block means the heap is fragmented, not full.
-            _total, _largest = idf_heap()
-            print("# CodeServer.arm: AP start failed: %s "
-                  "(gc_free=%d idf_free=%s idf_largest=%s)"
-                  % (str(e), gc.mem_free(), _total, _largest))
+            print("# CodeServer.arm: AP start failed: %s" % str(e))
             self._ap = None
             return False
         try:
@@ -564,10 +492,6 @@ class CodeServer:
         self._on_event = on_event
 
         self._accept_new()
-        # Before the no-client early returns below: a station count that stays
-        # high once every transfer has ended is exactly what this is for, and
-        # that is a moment when self._clients is empty.
-        self._debug_dump()
 
         if _asked_to_abort(should_abort):
             self._drop_all()
@@ -609,57 +533,7 @@ class CodeServer:
 
         return None
 
-    def _debug_dump(self):
-        """Periodic state summary while armed. DEBUG_SERVE only.
-
-        Deliberately runs with no clients too: a station count that stays
-        high after every transfer has ended is the signature of entries
-        lingering after devices that reset without deauthenticating, which
-        is what eventually refuses new associations at max_clients.
-
-        polls is how many poll() calls happened since the last dump. Far
-        fewer than the interval allows means the main loop, not the socket,
-        is setting the transfer rate -- _step_body() moves at most one CHUNK
-        per poll() per client.
-        """
-        if not DEBUG_SERVE:
-            return
-        self._polls += 1
-        now = ticks_ms()
-        if ticks_diff(now, self._last_debug_ms) < DEBUG_INTERVAL_MS:
-            return
-        _total, _largest = idf_heap()
-        _dbg("serve: clients=%d stations=%d gc_free=%d idf_free=%s "
-             "idf_largest=%s polls=%d"
-             % (len(self._clients), self._stations(), gc.mem_free(),
-                _total, _largest, self._polls))
-        for c in self._clients:
-            _dbg("  client state=%s sent=%d/%d ms_to_deadline=%d sel=%d blocked=%d"
-                 % (c.state, c.sent, c.size, ticks_diff(c.deadline, now),
-                    c.sel, c.blocked))
-        self._last_debug_ms = now
-        self._polls = 0
-
-    def _stations(self):
-        """How many stations the SoftAP currently holds, or -1 if unknown.
-
-        ap.config(max_clients=MAX_CLIENTS) makes this a hard cap: at the cap
-        the AP refuses new associations outright, which a joining device sees
-        as a connect that never leaves STAT_CONNECTING. A device that dies
-        mid-transfer and resets never sends a clean deauth, so its entry can
-        linger -- this is what says whether they accumulate.
-        """
-        if self._ap is None:
-            return -1
-        try:
-            return len(self._ap.status('stations'))
-        except (OSError, ValueError, AttributeError, TypeError):
-            return -1
-
     def _accept_new(self):
-        if DEBUG_SERVE and len(self._clients) >= MAX_CLIENTS:
-            _dbg("accept BLOCKED: clients=%d at MAX_CLIENTS=%d stations=%d"
-                 % (len(self._clients), MAX_CLIENTS, self._stations()))
         while len(self._clients) < MAX_CLIENTS:
             if self._clients and gc.mem_free() < MIN_FREE_ACCEPT:
                 print("# CodeServer.poll: low mem (%d free), deferring accept"
@@ -675,8 +549,6 @@ class CodeServer:
                 cs.settimeout(0)
             deadline = ticks_add(ticks_ms(), SOCK_REQUEST_TIMEOUT_S * 1000)
             self._clients.append(_Client(cs, deadline))
-            _dbg("accepted: clients=%d stations=%d free=%d"
-                 % (len(self._clients), self._stations(), gc.mem_free()))
             _emit(self._on_event, 'serving')
 
     def _file_ready(self):
@@ -718,10 +590,6 @@ class CodeServer:
         already been counted as a pickup's worth of work by then; a failed
         icon inside that leg is printed, not reported here.
         """
-        _dbg("finish ok=%s state=%s sent=%d/%d age_ms=%d sel=%d blocked=%d "
-             "clients=%d stations=%d"
-             % (ok, c.state, c.sent, c.size, ticks_diff(ticks_ms(), c.started_ms),
-                c.sel, c.blocked, len(self._clients) - 1, self._stations()))
         self._drop(c)
         try:
             self._clients.remove(c)
@@ -738,7 +606,6 @@ class CodeServer:
             print("# stats pull failed: %s" % str(e))
 
     def _advance(self, c):
-        c.sel += 1
         try:
             if c.state == _S_REQ:
                 self._step_req(c)
@@ -915,7 +782,6 @@ class CodeServer:
             c.outpos = 0
         n = c.sock.write(memoryview(c.outbuf)[c.outpos:c._chunk_len])
         if not n:
-            c.blocked += 1
             return
         c.outpos += n
         c.deadline = ticks_add(ticks_ms(), SOCK_REPLY_TIMEOUT_S * 1000)
