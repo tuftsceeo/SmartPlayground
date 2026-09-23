@@ -22,6 +22,14 @@ A 5×5 + PN532 @ 0x24 variant was explored on `origin/claude/pn532-5x5` and not 
 Same serial protocol and wire contract. ChatBroadcast accepts both. Do not silently
 reconcile PEER-copied modules between the two trees — fix one copy and say which.
 
+**Do not add module-scope content to `code_server.py` or `code_puller.py`.** Both are imported
+before their radio claims the contiguous DRAM block it needs, so a docstring or a format string
+added there is allocated ahead of that block and can leave it unfindable — `arm()` then fails with
+`WiFi Out of Memory` at a healthy-looking `gc.mem_free()`. This has cost two sessions. Diagnostics
+belong in `serve_probe.py` / `pull_probe.py`, imported lazily after bring-up behind `DEBUG_SERVE` /
+`DEBUG_PULL`. See
+[Code/BroadcastCode/docs_and_design/2026-09-23-ap-memory-order.md](Code/BroadcastCode/docs_and_design/2026-09-23-ap-memory-order.md).
+
 ## `Wand Module/readme.md` and `GAME_AUTHORING_GUIDE.md` are unmodified Bag2 copies
 
 Their hardware sections (LED shape, NFC part, I2C addresses, pin map) describe Bag2, not this tree.

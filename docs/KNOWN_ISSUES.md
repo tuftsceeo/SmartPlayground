@@ -20,6 +20,16 @@ mark them resolved.
   standalone (missing `css/layout.css`, `css/buttons.css`, `css/chat.css`, `css/editor.css`,
   `js/app.js`). The working 22-file version lives on `origin/chatApp`, unmerged since 2026-06-16.
 
+### Landmines
+
+- **Adding a print to `code_server.py` or `code_puller.py` can stop a device's radio starting.**
+  Both are imported before their radio claims the large contiguous IDF DRAM block it needs, and
+  import-time allocation (docstrings, format strings) is paid whether or not the code runs. On
+  2026-09-23 this left both Dials at `idf_largest=7680` and unable to arm until power-cycled, with
+  `gc.mem_free()` reading a reassuring 81 KB — the failure is fragmentation, not exhaustion.
+  Diagnostics belong in `serve_probe.py` / `pull_probe.py`, imported lazily after bring-up. See
+  [Bag3/Code/BroadcastCode/docs_and_design/2026-09-23-ap-memory-order.md](../Bag3/Code/BroadcastCode/docs_and_design/2026-09-23-ap-memory-order.md).
+
 ### Verified drift
 
 - `Live_Page/WebApp2/hubCode2/game_tags.py` vs `Bag3/Code/lib/game_tags.py`: hubCode2 has extra

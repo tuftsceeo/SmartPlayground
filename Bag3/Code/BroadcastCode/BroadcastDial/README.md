@@ -58,6 +58,33 @@ length in a classroom, not in a browser. ALL-CAPS is reserved for button
 labels. See `dial_ui.py`'s module docstring for the full screen inventory and
 what in it is still unverified on hardware.
 
+## AP memory order — do not add prints ahead of `arm()`
+
+The SoftAP needs one large **contiguous** block of IDF DRAM and takes it early;
+nothing later in boot can un-fragment the heap enough to find it again.
+`gc.mem_free()` does not measure this, because MicroPython's GC heap comes out
+of the same DRAM — the failure mode is fragmentation, not exhaustion, and it
+reads as a healthy free-heap number next to `WiFi Out of Memory`.
+
+``bdial_server.py`` is imported at module scope, so **anything added
+to `code_server.py` — a docstring, a format string, a function — is allocated
+before `prewarm_ap()` and long before `arm()`**. Diagnostic prints added there
+on 2026-09-23 left `idf_largest=7680` against `idf_free=12456` and both Dials
+unable to arm until they were power-cycled. Reverting them fixed it.
+
+Rules, in order of how easy they are to break:
+
+1. No new module-scope content in `code_server.py` (or `code_puller.py` on the
+   clients). Import-time cost is paid whether or not the code runs.
+2. Nothing between `gc.collect()` and `_start_ap()` in `arm()` — the collect is
+   what makes the block findable.
+3. Diagnostics go in `serve_probe.py`, imported lazily at the end of `arm()`
+   behind `DEBUG_SERVE` (default off), so with the flag off it is never parsed.
+4. `prewarm_ap()` is required, not an experiment. `PREWARM_AP` exists to A/B it
+   deliberately; expect `False` to make `arm()` fail more often.
+
+Full note: [`docs_and_design/2026-09-23-ap-memory-order.md`](../docs_and_design/2026-09-23-ap-memory-order.md)
+
 ## Modes
 
 Same invariant as the Box: at most one of {WiFi AP, NFC RF field} is

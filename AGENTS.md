@@ -10,6 +10,13 @@ M5Stack) plus static web tools. Small team, weekly iteration.
 - Shipped style, across all targets: f-strings are used throughout — don't "fix" them. No type
   annotations, and no `typing` / `dataclasses` / `pathlib` / `logging`.
 - Any loop doing serial I/O needs a `time.sleep_ms(1)` unconditional sleep every iteration.
+- **Nothing may allocate before the radio claims its memory.** WiFi/ESP-NOW bring-up needs one
+  large *contiguous* block of IDF DRAM and must take it first thing on boot; nothing later can
+  un-fragment the heap enough to find it again. `gc.mem_free()` does not measure this — the failure
+  is fragmentation, not exhaustion. Adding prints (their format strings and docstrings are allocated
+  at import, whether or not the code runs) to a module imported ahead of the radio has taken devices
+  down twice. Diagnostics go in a separate module, imported lazily after bring-up. See
+  [Bag3/Code/BroadcastCode/docs_and_design/2026-09-23-ap-memory-order.md](Bag3/Code/BroadcastCode/docs_and_design/2026-09-23-ap-memory-order.md).
 
 ## Branches
 
