@@ -31,8 +31,12 @@ REPORT_GAP_MS = 120
 # queue (ESP_ERR_ESPNOW_NO_MEM) on rapid back-to-back sends.
 SEND_RETRY_MS = 30
 
-# This MockWand has no antenna on the u.FL connector; see _configure_antenna().
-EXTERNAL_ANTENNA = False
+# The wands have a u.FL external antenna fitted; see _configure_antenna().
+# False here drives GPIO14 to the onboard trace antenna, which on a board
+# that HAS an external antenna leaves the radio on the wrong switch path --
+# it associates at close range and then loses the link under sustained
+# throughput.
+EXTERNAL_ANTENNA = True
 # Settle time after releasing the radio, before anything else claims it.
 RADIO_SETTLE_MS = 300
 

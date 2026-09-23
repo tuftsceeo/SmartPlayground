@@ -115,12 +115,13 @@ class JoinFailed(OSError):
 
 # There is one radio and one pair of antenna-select pins, and espnow_manager
 # drives them too, so it owns the setting -- a disagreement would mean
-# whichever module ran last silently won. Falls back to internal so this
-# still runs on a board with no /lib.
+# whichever module ran last silently won. The fallback is only reached on a
+# board with no /lib; it matches espnow_manager's value so a bench board
+# without the library still selects the antenna these wands actually have.
 try:
     from espnow_manager import EXTERNAL_ANTENNA
 except ImportError:
-    EXTERNAL_ANTENNA = False
+    EXTERNAL_ANTENNA = True
 
 
 def _configure_antenna(external, verbose=False):
