@@ -100,6 +100,76 @@ The user's decisions, with the evidence behind them:
   a test artifact.
 - **Focus: F1 and F2 on first attempts.** That is section 8.
 
+### 2.2 Raw-log reanalysis (test records in `9d9a553`)
+
+Read from `2026-09-23-test-records/`. **This supersedes sections 2.1, 3 and 4
+where they conflict.**
+
+**Every wand attempt in the records:**
+
+| Run | First attempts | Retries |
+|---|---|---|
+| T2, 10 files (Dial 2) | 1 × F1 (`cycle_1`, stalled at 7680/8208), **9 × F2** | 1 × F2 (after the F1) |
+| T5-A, only Dial 1 armed (`1 SP-FILEPUSH* visible`) | 1 × F1 (5113 B, stalled), 1 × F2 | not captured |
+| T5-B, both armed | 2 × F2 | — |
+| **Total** | **14: 2 × F1, 12 × F2, 0 OK** | 1 × F2 |
+
+The only successes are 2 pulls after the Dial 2 reset (`dial2_continuous_run2.txt`).
+
+**Findings that change the analysis:**
+
+1. **F2 happens outside F4.** Dial 2 shows `stations=0` from 298 s to 389 s
+   (~90 s, beyond the station age-out). The wand's join at 391 s still
+   fails. Between cycles, `stations` also returns to 0 within ~6 s of every
+   attempt. **N1 is disproven, and the 8 s/12 s timeout fix (section 2.1)
+   cannot address first-attempt F2.**
+2. **During F2 the wand does associate.** Each attempt shows on the Dial as
+   `stations=1` for ~6 s — the wand's join timeout — and then drops. The
+   failure comes *after* the 802.11 association: the WPA2 handshake, or
+   DHCP, never completes. [X: which one depends on what the SoftAP station
+   list counts and what `isconnected()` requires on this build]
+3. **During F1 the wand stays associated.** In both stalls, `stations=1`
+   holds for the first ~10 s while `sent` is frozen, then drops to 0 when
+   the wand gives up. So the link stays associated with no data moving, and
+   H5 (association loss) is not supported. The wand's exit is seen by the
+   AP (`stations` → 0), which contradicts D4's "deauth never arrives" for
+   these instances.
+4. **Dial 2's IDF heap was low in every failing window and high in every
+   passing one:**
+
+| Window | Idle `idf_free` | With the station associated | `idf_largest` | Outcome |
+|---|---|---|---|---|
+| run1, before the first failure | 17364 | 14800 | 7936→7680 | F1 (stall at 9536 free) |
+| run1, after the first stall | ~12048 (never recovers over ~350 s) | ~9840 | 7680 (one dip to 5632) | F2 every time |
+| run2, after the Dial reset | 28632 | 24928 | 16384 | 2/2 OK (2.6 s, 3.0 s) |
+
+   Each association costs ~2.2 KB of IDF heap, and the first failed
+   transfer cost ~5 KB that never came back. The heap level was **already
+   low about 150 s after a hard boot** (heartbeat `up`=148730 at the start
+   of run1). So this is not only accumulation over a long uptime: the level
+   differs between boots, and then drops further after a stall.
+
+**Leading hypothesis now (H-heap, promoted):** the Dial runs short of IDF
+heap. That starves the WiFi/lwIP buffers, which stalls TX mid-body (F1) and
+stops the WPA2 handshake or DHCP after association (F2). The level is set at
+boot, varies between boots, and is lowered by each failed transfer. A reset
+restores it. This fits the stickiness, the Dial-only recovery (T4) and the
+first-attempt failures. It is correlation from one Dial across two boots, so
+it still needs the tests below.
+
+**Tests this adds, ahead of section 8's list:**
+
+- **Record the IDF heap at `arm()` on every boot,** with reset cause
+  (`reset_log`) and boot path (hard reset, soft reset after mpremote, power
+  on). Find what sets a 17 K boot versus a 28 K boot.
+- **Record the IDF heap before and after each transfer.** Confirm the ~5 KB
+  loss after a stall, and whether it returns after lwIP's retransmit and
+  FIN timers expire.
+- **Threshold:** clean first attempts on a Dial at known heap levels. Is
+  there an `idf_free` below which F2 and F1 begin?
+- **Dial 1 serve logs:** none were captured for T5. Its heap during those
+  failures is unknown.
+
 ## 3. Hypothesis status
 
 ### 3.1 Disproven
