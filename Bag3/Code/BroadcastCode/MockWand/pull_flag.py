@@ -39,7 +39,11 @@ has no line 3, and _read() below treats that the same as an empty host id.
 """
 
 PATH = "/pullpending"
-MAX_ATTEMPTS = 2
+# 1 = no automatic retry. Every observed retry failed: it started while the
+# host still held the failed attempt. With 1, a failed transfer still resets
+# once (main.py prints "resetting to retry (1/1 spent)"), and that boot gives
+# up. Set to 2 to measure retries under the 8 s/12 s timeout pairing.
+MAX_ATTEMPTS = 1
 
 
 def is_pending():

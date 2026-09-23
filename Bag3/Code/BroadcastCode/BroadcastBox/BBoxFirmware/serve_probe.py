@@ -104,15 +104,19 @@ class Probe:
         if ticks_diff(now, self.last_ms) < INTERVAL_MS:
             return
         total, largest = idf_heap()
-        print("# DBG serve: clients=%d stations=%d gc_free=%d idf_free=%s "
-              "idf_largest=%s polls=%d"
+        # gc_total rising means the GC heap has grown into IDF DRAM, which it
+        # does not give back -- one way the radio's headroom shrinks at runtime.
+        print("# DBG serve: clients=%d stations=%d gc_free=%d gc_total=%d "
+              "idf_free=%s idf_largest=%s polls=%d"
               % (len(self.srv._clients), self.stations(), gc.mem_free(),
-                 total, largest, self.polls))
+                 gc.mem_free() + gc.mem_alloc(), total, largest, self.polls))
         for c in self.srv._clients:
-            # sel rising while sent does not means the socket says writable
-            # and refuses anyway -- the peer has stopped acking. sel flat
-            # means select() never offered it, which points at the loop or
-            # the driver rather than the peer.
+            # sel counts select() reporting this socket ready. sel flat in
+            # body does NOT separate peer from driver: a peer that stops
+            # acking fills the TCP send buffer, and a full buffer is not
+            # writable, so select() goes quiet either way. Tell them apart
+            # from the wand side (pull_probe assoc/STALLED) and stations=.
+            # sel rising with blocked rising means writable-but-refusing.
             print("# DBG   client state=%s sent=%d/%d ms_to_deadline=%d "
                   "sel=%d blocked=%d"
                   % (c.state, c.sent, c.size, ticks_diff(c.deadline, now),
@@ -129,8 +133,11 @@ class Probe:
               % (len(self.srv._clients), max_clients, self.stations()))
 
     def finished(self, c, ok):
+        # idf_largest per transfer is the dose-response series: does it fall
+        # pull by pull, and at what value do joins start failing?
+        total, largest = idf_heap()
         print("# DBG finish ok=%s state=%s sent=%d/%d age_ms=%d sel=%d "
-              "blocked=%d clients=%d stations=%d"
+              "blocked=%d clients=%d stations=%d idf_free=%s idf_largest=%s"
               % (ok, c.state, c.sent, c.size,
                  ticks_diff(ticks_ms(), c.started_ms), c.sel, c.blocked,
-                 len(self.srv._clients) - 1, self.stations()))
+                 len(self.srv._clients) - 1, self.stations(), total, largest))
