@@ -1,4 +1,4 @@
-# PEER: Bag3/Code/BroadcastCode/BroadcastBox/BBoxFirmware/serve_guard.py — keep in sync.
+# PEER: Bag3/Code/BroadcastCode/BroadcastDial/BDialFirmware/serve_guard.py — keep in sync.
 """
 serve_guard.py — keep enough IDF heap free for the SoftAP to serve.
 
@@ -11,7 +11,7 @@ stalled transfer lowered it by ~5 KB that did not come back.
 
 Guard samples free IDF heap whenever the server is idle (no clients, no
 associated stations). A reading below MIN_IDF_FREE on two consecutive
-samples writes FLAG_PATH and calls machine.reset(); bdial_server.run() sees
+samples writes FLAG_PATH and calls machine.reset(); bbox_server.run() sees
 the flag on the next boot and goes straight back into SERVE on a fresh heap.
 The flag holds the count of consecutive guard reboots. A successful pull or
 a teacher leaving SERVE removes it. After MAX_REBOOTS reboots with no
@@ -35,8 +35,10 @@ except ImportError:
 
 FLAG_PATH = '/flash/serve_guard.txt'
 
-# Floor for idle free IDF heap. Bench readings: failing 12-17 KB, passing
-# ~28 KB. Tune from the "# serve_guard:" lines once more boards report.
+# Floor for idle free IDF heap. Bench readings are from the Dial (failing
+# 12-17 KB, passing ~28 KB); the Box's own level is unmeasured. If the Box
+# reboots straight after arming, its normal level is below this -- read the
+# "# serve_guard: armed" line and lower the floor.
 MIN_IDF_FREE = 22000
 
 MAX_REBOOTS = 2

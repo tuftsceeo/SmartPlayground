@@ -15,6 +15,7 @@ export const BOX_FILES = [
     { path: 'card_writer.py', remotePath: '/flash/card_writer.py' },
     { path: 'code_server.py', remotePath: '/flash/code_server.py' },
     { path: 'serve_probe.py', remotePath: '/flash/serve_probe.py' },
+    { path: 'serve_guard.py', remotePath: '/flash/serve_guard.py' },
     { path: 'bbox_ui.py', remotePath: '/flash/bbox_ui.py' },
     { path: 'bbox_server.py', remotePath: '/flash/bbox_server.py' },
     { path: 'main.py', remotePath: '/flash/main.py' },

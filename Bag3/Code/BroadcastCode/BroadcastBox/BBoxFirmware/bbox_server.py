@@ -190,6 +190,7 @@ class BboxServer:
         self._nfc_fail_count = 0  # consecutive detect_tag errors -- see _scan_step
         self._write_state = W_MENU  # WRITE sub-state; see W_* above
         self._reader_last_uid = None  # debounce for READ_ENTRY; see _scan_step()
+        self._guard = None  # serve_guard.Guard while in SERVE; see _set_mode()
 
         # (title, [tag, ...]) per game, then the utility group. Top-level
         # rows are these titles plus DONE; _group_cursor indexes into the
@@ -277,6 +278,9 @@ class BboxServer:
 
         # --- leave ---
         if old == MODE_SERVE:
+            if self._guard is not None:
+                self._guard.stop()
+                self._guard = None
             self.code.disarm()  # ap.active(False) + AP_SETTLE_MS
         if old == MODE_WRITE:
             self._nfc_field(False)
@@ -302,6 +306,10 @@ class BboxServer:
                 self._repaint()
                 return
             self.link.send({"type": "armed", "id": None, "ssid": SSID})
+            # Imported here, after arm() has the AP up, never at module
+            # scope: nothing may allocate before the AP claims its memory.
+            import serve_guard
+            self._guard = serve_guard.Guard(self.code)
 
         self._mode = new_mode
         reset_log.note_mode(new_mode)
@@ -1112,6 +1120,8 @@ class BboxServer:
         if self._serve_error_until and time.ticks_diff(time.ticks_ms(), self._serve_error_until) >= 0:
             self._serve_error_until = 0
             self._repaint_serve()
+        if self._guard is not None:
+            self._guard.poll()  # may reset the board; see serve_guard.py
 
     # ─────────────────────────────────────────────
     # RUN
@@ -1146,8 +1156,19 @@ class BboxServer:
         # Late-connecting apps learn the mode without asking.
         # Emit after scan so games/active are accurate; _set_mode may emit again.
         self._mode = MODE_IDLE
-        self._set_mode(MODE_WRITE if self._payload_ready() else MODE_IDLE,
-                       announce=False)
+        # A serve_guard reboot (its flag file exists) comes straight back
+        # into SERVE on the fresh heap. Path must match serve_guard.FLAG_PATH;
+        # serve_guard itself is not imported until after arm().
+        try:
+            os.stat('/flash/serve_guard.txt')
+            resume_serve = self._payload_ready()
+        except OSError:
+            resume_serve = False
+        if resume_serve:
+            self._set_mode(MODE_SERVE, announce=False)
+        else:
+            self._set_mode(MODE_WRITE if self._payload_ready() else MODE_IDLE,
+                           announce=False)
         if self._mode == MODE_IDLE:
             self._emit_mode()
         self._repaint()
