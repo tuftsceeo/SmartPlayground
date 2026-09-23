@@ -519,6 +519,10 @@ class CodeServer:
         self._on_event = on_event
 
         self._accept_new()
+        # Before the no-client early returns below: a station count that stays
+        # high once every transfer has ended is exactly what this is for, and
+        # that is a moment when self._clients is empty.
+        self._debug_dump()
 
         if _asked_to_abort(should_abort):
             self._drop_all()
@@ -558,10 +562,9 @@ class CodeServer:
             # spinning the poll() loop as fast as possible.
             sleep_ms(YIELD_MS)
 
-        self._debug_dump(now)
         return None
 
-    def _debug_dump(self, now):
+    def _debug_dump(self):
         """Periodic state summary while armed. DEBUG_SERVE only.
 
         Deliberately runs with no clients too: a station count that stays
@@ -577,6 +580,7 @@ class CodeServer:
         if not DEBUG_SERVE:
             return
         self._polls += 1
+        now = ticks_ms()
         if ticks_diff(now, self._last_debug_ms) < DEBUG_INTERVAL_MS:
             return
         _dbg("serve: clients=%d stations=%d free=%d polls=%d"

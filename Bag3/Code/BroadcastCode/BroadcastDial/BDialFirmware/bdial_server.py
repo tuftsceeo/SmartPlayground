@@ -53,6 +53,18 @@ GRACE_S = 0
 # freeze the others. See _on_serve_event()/_poll_serve().
 SERVE_ERROR_MS = 1000
 
+# Whether boot cycles the AP radio once before the UI and NFC driver claim
+# heap. prewarm_ap()'s own docstring calls this unverified: the theory is
+# that ap.active(False) does not hand the WiFi driver's internal pools back,
+# so taking them early means arm() later reuses an already-reserved block.
+# If that theory is wrong in the other direction -- the prewarm reserves
+# pools that arm() then cannot get again -- this is what an
+# "arm: AP start failed: WiFi Out of Memory" at high gc.mem_free() would
+# look like, since that error comes from the IDF driver's own pools and not
+# from the Python heap gc.mem_free() reports. Set False to take the prewarm
+# out of the boot path and find out; it is Dial-only either way.
+PREWARM_AP = True
+
 PAYLOAD_PATH = DEFAULT_SRC
 INDEX_PATH = GAMES_DIR + '/index.json'
 
@@ -1153,11 +1165,14 @@ class BdialServer:
         # actually reserves anything past .active(False) -- that's exactly
         # what the surrounding _log_mem calls (and prewarm_ap()'s own) are
         # here to check on a real retry.
-        try:
-            prewarm_ap()
-        except Exception as e:
-            print("# AP prewarm failed: %s" % str(e))
-        self._log_mem("after AP prewarm")
+        if PREWARM_AP:
+            try:
+                prewarm_ap()
+            except Exception as e:
+                print("# AP prewarm failed: %s" % str(e))
+            self._log_mem("after AP prewarm")
+        else:
+            print("# AP prewarm skipped (PREWARM_AP = False)")
 
         self._input.begin()
         self.ui.begin()  # calls m5ui.init(); builds LVGL screens once
