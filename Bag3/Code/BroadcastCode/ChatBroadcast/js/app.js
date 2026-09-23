@@ -23,7 +23,7 @@ import { loadUiMode, toggleUiMode } from './uiMode.js';
 import { loadSavedGames, saveGame, findSavedGame, renameSavedGame, deleteSavedGame } from './library.js';
 import { scanCapabilities } from './sim/codeCapabilities.js';
 import { buildComponentChecklist } from './checklist.js';
-import { validateGameName, slugify } from './gameName.js';
+import { validateGameName, slugify, remixName } from './gameName.js';
 import { buildHardwareReqs, formatHardwareReqs, baselineTags } from './hardware.js';
 import { initPaneSplit } from './paneSplit.js';
 import { initSerialSplit } from './serialSplit.js';
@@ -887,6 +887,18 @@ class App {
 
     paintLink() {
         setConnectionBadge({ ...this.link, kind: this.device.kind });
+        // Use as-is is a send shortcut — only useful when a device is live.
+        const useBtn = document.getElementById('btn-use-as-is');
+        if (useBtn) {
+            const live = this.link.state === 'live';
+            useBtn.disabled = !live;
+            if (!live) {
+                useBtn.title = `Connect to the ${this.deviceShort()} first`;
+            } else {
+                const name = this.currentExample?.name || 'this game';
+                useBtn.title = `Send ${name} to the ${this.deviceShort()}`;
+            }
+        }
     }
 
     _startWatchdog() {
@@ -1484,6 +1496,7 @@ class App {
         }
         this.mountDetailSim(ex);
         showView('detail');
+        this.paintLink();
     }
 
     /** Show the selected example actually running, in place of the old
@@ -1624,21 +1637,43 @@ class App {
             dbgWarn('app', 'remixCurrentExample() called with no currentExample set');
             return;
         }
-        dbg('app', `remixCurrentExample("${this.currentExample.name}")`);
-        this.gameName = this.currentExample.name;
-        this.gameDesc = this.currentExample.description;
-        this.declaredTags = [...this.currentExample.tags];
-        // A new game starts from the shipped pictures, not the last one's edits.
-        setGameIcons({});
-        const code = await this.fetchExampleCode(this.currentExample);
-        if (code) {
-            setCode(code);
-            saveVersion(code, `${this.currentExample.name} (remix base)`);
-            this.dirty = true;
-        }
-        this.openWorkspace(this.currentExample.starterPrompt);
-        addMsg(`Let's remix ${this.currentExample.name}! What would you like to change?`, 'system');
+        const action = await this.confirmUnsavedWork();
+        if (action === 'cancel') return;
+
+        const ex = this.currentExample;
+        dbg('app', `remixCurrentExample("${ex.name}")`);
+
+        this.resetGameContext();
+        this.clearWorkspace();
+
+        this.currentExample = ex;
+        this.gameName = remixName(ex.name);
+        this.gameDesc = ex.description;
+        this.declaredTags = [...ex.tags];
+        this.chatHistory = [];
+        this.refreshHardware();
+
+        const code = await this.fetchExampleCode(ex);
+        if (!code) return;
+
+        setCode(code);
+        saveVersion(code, `${ex.name} (remix base)`);
+        this.dirty = true;
+
+        // One leading user turn: ask + real fenced code (not trimForHistory —
+        // that would replace fences with a placeholder and hide the example
+        // from Claude). callClaude shows it and posts it as the first message.
+        const userMsg = [
+            `I would like to remix the ${ex.name} example as a starting point. Here is the ${ex.name} code:`,
+            '',
+            '```python',
+            code,
+            '```',
+        ].join('\n');
+
+        this.openWorkspace();
         this.updatePreview({ forcePlay: true });
+        await this.callClaude(userMsg);
     }
 
     /** The example's real Python, or null if it couldn't be read. A failure
@@ -1659,25 +1694,32 @@ class App {
             dbgWarn('app', 'useExampleAsIs() called with no currentExample set');
             return;
         }
-        dbg('app', `useExampleAsIs("${this.currentExample.name}")`);
-        this.gameName = this.currentExample.name;
-        this.gameDesc = this.currentExample.description;
-        this.declaredTags = [...this.currentExample.tags];
+        if (this.link.state !== 'live') {
+            toast(`Connect to the ${this.deviceShort()} first.`, true);
+            return;
+        }
+        const action = await this.confirmUnsavedWork();
+        if (action === 'cancel') return;
+
+        const ex = this.currentExample;
+        dbg('app', `useExampleAsIs("${ex.name}")`);
+        this.gameName = remixName(ex.name);
+        this.gameDesc = ex.description;
+        this.declaredTags = [...ex.tags];
         // A new game starts from the shipped pictures, not the last one's edits.
         setGameIcons({});
-        showView('workspace');
-        addMsg(`Using ${this.currentExample.name} as-is.`, 'system');
 
-        const code = await this.fetchExampleCode(this.currentExample);
-        if (code) {
-            setCode(code);
-            saveVersion(code, `${this.currentExample.name} as-is`);
-            this.dirty = true;
-        } else {
+        const code = await this.fetchExampleCode(ex);
+        if (!code) {
             this.updatePreview();
             return;
         }
 
+        setCode(code);
+        saveVersion(code, `${ex.name} as-is`);
+        this.dirty = true;
+        showView('workspace');
+        this.syncGameName();
         this.updatePreview({ forcePlay: true });
         await this.startSendFlow();
     }

@@ -481,6 +481,11 @@ body.ui-advanced #app-shell {
     color: var(--icon-ink);
     width: 100%;
 }
+.btn-secondary:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    color: var(--muted);
+}
 .btn-secondary.btn-compact {
     width: auto;
     padding: 7px 12px;

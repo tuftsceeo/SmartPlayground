@@ -97,3 +97,18 @@ export function validateGameName(prettyName, opts = {}) {
   }
   return { ok: true, slug, pretty };
 }
+
+/**
+ * A non-reserved pretty name for a remixed / sent-as-is example.
+ * "Melody" → "My Melody" (slug my_melody). If that is reserved, tries
+ * "My Melody 2", "My Melody 3", … until validateGameName accepts it.
+ */
+export function remixName(pretty) {
+  const base = (pretty || "").trim() || "Game";
+  for (let n = 1; n < 100; n++) {
+    const candidate = n === 1 ? `My ${base}` : `My ${base} ${n}`;
+    const check = validateGameName(candidate);
+    if (check.ok) return check.pretty;
+  }
+  return `My ${base} Copy`;
+}
