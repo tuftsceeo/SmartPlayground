@@ -40,6 +40,11 @@ try:
 except ImportError:
     from binascii import hexlify
 
+try:
+    import esp32
+except ImportError:
+    esp32 = None
+
 SSID_PREFIX = 'SP-FILEPUSH'
 # Four lowercase hex chars from the tail of this ESP32's base MAC. Readable
 # with no network call (unlike a station MAC, which needs STA_IF active),
@@ -72,6 +77,37 @@ DEBUG_INTERVAL_MS = 2000  # how often poll() dumps its state summary
 def _dbg(msg):
     if DEBUG_SERVE:
         print("# DBG " + msg)
+
+
+def idf_heap():
+    """(total IDF free, largest single free block), or (None, None).
+
+    gc.mem_free() is the wrong number for AP bring-up and reading it as
+    reassurance is how an "AP start failed: WiFi Out of Memory" at 82 KB
+    free gets misread. The WiFi driver needs one large CONTIGUOUS block of
+    IDF DRAM; MicroPython's GC heap is itself carved out of that same DRAM,
+    so a large idle Python heap is memory the driver cannot have, and a heap
+    chopped into small pieces by many live Python objects can hold plenty in
+    total and still have nothing big enough. Total free vs largest free
+    block is what separates "out of memory" from "out of contiguous memory".
+
+    Same source and shape as MockWand/lib/memprobe.py's _idf_free(), which
+    is where this device has no copy -- memprobe is wand-side bench code.
+    """
+    if esp32 is None:
+        return None, None
+    try:
+        regions = esp32.idf_heap_info(esp32.HEAP_DATA)
+    except Exception:
+        return None, None
+    total = 0
+    largest = 0
+    for r in regions:
+        total += r[1]
+        biggest = r[2] if len(r) > 2 else 0
+        if biggest > largest:
+            largest = biggest
+    return total, largest
 
 
 # How many devices CodeServer will serve at once. The ESP32 SoftAP itself
@@ -456,10 +492,19 @@ class CodeServer:
         # failure path in this method returns False rather than raising,
         # and this one should too.
         gc.collect()
+        if DEBUG_SERVE:
+            _total, _largest = idf_heap()
+            _dbg("arm: pre-AP gc_free=%d idf_free=%s idf_largest=%s"
+                 % (gc.mem_free(), _total, _largest))
         try:
             self._ap = _start_ap(self.ssid, self.pwd)
         except OSError as e:
-            print("# CodeServer.arm: AP start failed: %s" % str(e))
+            # idf_largest here is the number that matters: a large total with
+            # a small largest block means the heap is fragmented, not full.
+            _total, _largest = idf_heap()
+            print("# CodeServer.arm: AP start failed: %s "
+                  "(gc_free=%d idf_free=%s idf_largest=%s)"
+                  % (str(e), gc.mem_free(), _total, _largest))
             self._ap = None
             return False
         try:
@@ -583,8 +628,11 @@ class CodeServer:
         now = ticks_ms()
         if ticks_diff(now, self._last_debug_ms) < DEBUG_INTERVAL_MS:
             return
-        _dbg("serve: clients=%d stations=%d free=%d polls=%d"
-             % (len(self._clients), self._stations(), gc.mem_free(), self._polls))
+        _total, _largest = idf_heap()
+        _dbg("serve: clients=%d stations=%d gc_free=%d idf_free=%s "
+             "idf_largest=%s polls=%d"
+             % (len(self._clients), self._stations(), gc.mem_free(),
+                _total, _largest, self._polls))
         for c in self._clients:
             _dbg("  client state=%s sent=%d/%d ms_to_deadline=%d sel=%d blocked=%d"
                  % (c.state, c.sent, c.size, ticks_diff(c.deadline, now),
