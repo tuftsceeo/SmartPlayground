@@ -513,33 +513,36 @@ def _notify(on_status, phase, tick):
         pass
 
 
-def _scan_for_ap(sta, ssid, verbose, on_status, tick, tries):
-    """Look for `ssid` in up to `tries` scans.
+def _scan_for_ap(sta, prefix, host_id, verbose, on_status, tick, tries):
+    """Look for a "<prefix>[-<host_id>]" AP in up to `tries` scans.
 
-    Returns (bssid, channel, tick, nets), where nets is the last scan's raw
-    results so a failing caller can log them. bssid is None when it never showed
-    up, which the caller turns into NoAP -- we scan before ever calling
-    connect() precisely so that "the Box is off" is answered in seconds by a
-    scan rather than in tens of seconds by a connect timeout.
+    Returns (ssid, bssid, channel, tick, nets), where nets is the last
+    scan's raw results so a failing caller can log them. ssid/bssid are
+    None when nothing matching ever showed up, which the caller turns into
+    NoAP -- we scan before ever calling connect() precisely so that "the
+    host is off" is answered in seconds by a scan rather than in tens of
+    seconds by a connect timeout.
     """
     nets = None
+    wanted = _wanted_ssid(prefix, host_id) or (prefix + '*')
     for attempt in range(tries):
         _notify(on_status, 'scan', tick)
         tick += 1
-        bssid, ch, nets = _find_ap(sta, ssid, verbose)
+        ssid, bssid, ch, nets = _find_ap(sta, prefix, host_id, verbose)
         if bssid is not None:
-            return bssid, ch, tick, nets
+            return ssid, bssid, ch, tick, nets
         if verbose:
-            print("[XFER] scan %d/%d: %s not visible" % (attempt + 1, tries, ssid))
-    return None, None, tick, nets
+            print("[XFER] scan %d/%d: %s not visible" % (attempt + 1, tries, wanted))
+    return None, None, None, tick, nets
 
 
-def _connect_wifi(ssid, pwd, external_antenna, verbose, enow=None,
-                  on_status=None):
+def _connect_wifi(ssid_prefix, pwd, host_id, external_antenna, verbose,
+                  enow=None, on_status=None):
     if enow is not None:
         _shutdown_espnow(enow, verbose)
     # The antenna is selected in _reset_sta(), once per join attempt, right
     # before each active(True) -- not once here. See its docstring.
+    wanted = _wanted_ssid(ssid_prefix, host_id) or (ssid_prefix + '*')
     tick = 0
     last_status = "unknown"
     for attempt in range(JOIN_ATTEMPTS):
@@ -559,24 +562,24 @@ def _connect_wifi(ssid, pwd, external_antenna, verbose, enow=None,
         # have already seen the AP once, so one confirming scan is enough --
         # re-spending three would double the cost of the slowest failure.
         tries = SCAN_ATTEMPTS if attempt == 0 else 1
-        bssid, found_ch, tick, nets = _scan_for_ap(sta, ssid, verbose,
-                                                   on_status, tick, tries)
+        found_ssid, bssid, found_ch, tick, nets = _scan_for_ap(
+            sta, ssid_prefix, host_id, verbose, on_status, tick, tries)
         if bssid is None:
             # Not visible on the first pass: the AP is not up. Say so now
             # instead of spending a join timeout (and then a second attempt)
             # proving it the slow way. If it vanished only on the retry it was
-            # up a moment ago, so that is a flaky join, not a missing Box.
+            # up a moment ago, so that is a flaky join, not a missing host.
             if verbose:
-                _log_visible_aps(nets, ssid)
+                _log_visible_aps(nets, ssid_prefix, host_id)
             if attempt == 0:
-                raise NoAP("%s not visible in %d scans" % (ssid, SCAN_ATTEMPTS))
-            raise JoinFailed("%s vanished between join attempts" % (ssid,))
+                raise NoAP("%s not visible in %d scans" % (wanted, SCAN_ATTEMPTS))
+            raise JoinFailed("%s vanished between join attempts" % (wanted,))
 
         try:
-            sta.connect(ssid, pwd, bssid=bssid)
+            sta.connect(found_ssid, pwd, bssid=bssid)
         except TypeError:
             # Older builds have no bssid kwarg.
-            sta.connect(ssid, pwd)
+            sta.connect(found_ssid, pwd)
         # Sample status through the wait, not just at the end. A run that
         # never leaves STAT_IDLE means connect() was refused and no attempt
         # was ever made (driver still held elsewhere); one that reaches
@@ -605,7 +608,7 @@ def _connect_wifi(ssid, pwd, external_antenna, verbose, enow=None,
                 if verbose:
                     print("[XFER] WARNING: could not disable power-save: %s" % (e,))
             if verbose:
-                print("  joined %s, ip=%s" % (ssid, sta.ifconfig()[0]))
+                print("  joined %s, ip=%s" % (found_ssid, sta.ifconfig()[0]))
             return sta, prev_pm
 
         last_status = _status_name(sta)
@@ -616,20 +619,28 @@ def _connect_wifi(ssid, pwd, external_antenna, verbose, enow=None,
     # The AP was visible every time, so this is association/auth, not radio
     # or range -- still worth logging what we could hear before giving up.
     if verbose:
-        _log_visible_aps(nets, ssid)
+        _log_visible_aps(nets, ssid_prefix, host_id)
     raise JoinFailed("could not join %s within %ds (status=%s)"
-                     % (ssid, CONNECT_TIMEOUT_S, last_status))
+                     % (wanted, CONNECT_TIMEOUT_S, last_status))
 
 
 def pull(host=HOST, port=PORT, ssid=SSID, pwd=PWD,
          external_antenna=EXTERNAL_ANTENNA, verbose=False, enow=None,
          on_progress=None, on_status=None, slug="", hubtype="",
-         icon_dir=None):
-    """Pull one game file from the Box. Returns True on verified promote.
+         icon_dir=None, host_id=""):
+    """Pull one game file from a Box/Dial host. Returns True on verified
+    promote.
 
-    slug names the game to ask for; "" means "whatever the Box has active".
-    It comes from the tapped card ("getcode:<slug>") by way of pull_flag,
-    since the tap and the pull happen in different boots.
+    ssid is really the SSID *prefix* every host shares (SSID_PREFIX);
+    host_id, when given, narrows the scan to the one host whose SSID is
+    "<ssid>-<host_id>" instead of whichever "<ssid>*" host answers
+    strongest -- see _find_ap(). It comes from the tapped card
+    ("getcode:<slug>@<host_id>") by way of pull_flag, since the tap and the
+    pull happen in different boots.
+
+    slug names the game to ask for; "" means "whatever the chosen host has
+    active". It comes from the tapped card ("getcode:<slug>") by way of
+    pull_flag, since the tap and the pull happen in different boots.
 
     hubtype says what kind of device is asking, so the Box can hand a wand
     and an icon display different files for the same slug. Pass HUB_TYPE
@@ -685,8 +696,8 @@ def pull(host=HOST, port=PORT, ssid=SSID, pwd=PWD,
         # enow.init(). frag() brackets it the same way main.py's pre-enow
         # probe does.
         memprobe.frag("pull:pre-wifi-join")  # BENCH
-        sta, prev_pm = _connect_wifi(ssid, pwd, external_antenna, verbose,
-                                     enow=enow, on_status=on_status)
+        sta, prev_pm = _connect_wifi(ssid, pwd, host_id, external_antenna,
+                                     verbose, enow=enow, on_status=on_status)
         memprobe.probe("pull:post-wifi-join")  # BENCH
 
         cs = socket.socket()
