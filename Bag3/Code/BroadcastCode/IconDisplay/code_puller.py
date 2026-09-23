@@ -96,7 +96,9 @@ MAX_ICONS = 64
 # in a scan moments earlier, so an association that has not completed in this
 # long is not going to.
 CONNECT_TIMEOUT_S = 6
-SOCK_TIMEOUT_S = 10
+# Must stay above code_server.py's SOCK_REPLY_TIMEOUT_S (8 s), so the host
+# reaps a stalled transfer before this side gives up and retries.
+SOCK_TIMEOUT_S = 12
 
 # How many full scans to spend looking for the Box's SSID before deciding the
 # AP simply is not up. A scan is ~1.5-2s, so three is ~6s worst case -- enough

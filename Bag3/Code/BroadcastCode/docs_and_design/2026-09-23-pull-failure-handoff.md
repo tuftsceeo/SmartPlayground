@@ -41,7 +41,7 @@ failed attempt as one of F1–F3, and separately record whether it was in F4.
 | Wand log | header, then `[Errno 116] ETIMEDOUT` ~10–11 s later; `pull failed mid-transfer` | `STAT_CONNECTING`, then `STAT_IDLE` on attempt 2; `pairing failed -- giving up` | `joined ...` present, **no** `receiving ...`; then **the same** `pairing failed -- giving up` line as F2 | `# pull mode: attempt 2/2`, or any attempt shortly after an unclean exit |
 | Dial log | client in `body`, `sent` frozen at a multiple of 512, deadline counting down, no exception, reaped at the 30 s deadline, no RST | no accept | `pull ? fail` in `stats.log`: accepted, then finished before its request resolved (slug unset) | `clients=1` and/or `stations=1` from the prior attempt when the new one begins |
 | Code path | `_recv_body` (`code_puller.py:223-259`) vs `_step_body` (`code_server.py:826-864`) | `_connect_wifi` (`code_puller.py:533-618`) vs the AP driver | `pull()` maps any `OSError` before the body to `'nojoin'` (`code_puller.py:801-808`); Dial `_S_REQ` 5 s deadline (`code_server.py:60, 618`) | Wand `recv` timeout 10 s + reset + boot + scan vs Dial reply deadline 30 s after last progress (`code_server.py:59`); station age-out ~85 s observed |
-| Observed instances | Instance 1 & 2, Update 2, Update 3 (×5 offsets: 3072, 3072, 4096, 4096, 7680), Update 4 cycle 1, T5-A | Instance 1 attempt 2, Update 2 retry, Update 4 cycle 2, T2 (most of 10), T5-A/B | **No wand-side capture this session.** Dial 1 `stats.log`: 138 `pull ? fail` in a 140–165 ms burst, source unknown | **By code, every attempt 2** (below). Plus T2's first attempts that followed a failed cycle by less than the age-out |
+| Observed instances | Instance 1 & 2, Update 2, Update 3 (×5 offsets: 3072, 3072, 4096, 4096, 7680), Update 4 cycle 1, T5-A | Instance 1 attempt 2, Update 2 retry, Update 4 cycle 2, T2 paced run (most of 10), T5-A/B. **Not** the T2 pre-pacing join failure: the test reset the wand mid-join, so it was a bad test, not a failure | **No wand-side capture this session.** Dial 1 `stats.log`: 138 `pull ? fail` in a 140–165 ms burst, source unknown | **By code, every attempt 2** (below). Plus T2's first attempts that followed a failed cycle by less than the age-out |
 
 **F3 is currently invisible on the wand.** The wand prints the same final
 line for F2 and F3. Tell them apart by whether `joined <ssid>` and
@@ -72,7 +72,33 @@ block the join.
 
 1. What causes the *first* failure of a pairing? This is always F1 or F2,
    outside F4.
-2. Does F4 cause the *repeat* failures? Test A and test H settle it.
+2. Does F4 cause the *repeat* failures? Parked: see section 8, "Parked".
+
+### 2.1 Triage and fix applied (2026-09-23)
+
+The user's decisions, with the evidence behind them:
+
+- **F4 is taken as F2 caused by the timeout mismatch, and fixed at low
+  priority rather than investigated further.** There are 4 recorded retries
+  (Instance 1, Update 2, Update 3, T5-A); **0 succeeded**. Instance 2's
+  retry was not captured.
+- **Fix applied, in all four copies** (`code_server.py` for Dial and Box,
+  `code_puller.py` for MockWand and IconDisplay):
+  - The Dial's `SOCK_REPLY_TIMEOUT_S` goes from 30 to **8**.
+  - The wand's `SOCK_TIMEOUT_S` goes from 10 to **12**.
+
+  The host's last progress is never later than the wand's last byte, so a
+  stalled client is now reaped before the wand gives up. This closes the
+  TCP half of F4. It does not touch the station half (N1, ~85 s).
+- **Automatic retries are disabled** (`pull_flag.MAX_ATTEMPTS` 2 → 1, in
+  both copies). A retry has shown ~0% success, and each failing retry
+  leaves another unclean exit that can contaminate the *next* first
+  attempt. Set it back to 2 to measure retry success under the new
+  timeouts.
+- **F3 is deprioritized.** It was seen only as one Dial-side burst of
+  `pull ? fail`, with no wand-side instance. It was most likely transient or
+  a test artifact.
+- **Focus: F1 and F2 on first attempts.** That is section 8.
 
 ## 3. Hypothesis status
 
@@ -104,16 +130,16 @@ signature.
 |---|---|---|
 | H6′ | Wand RTC-held radio calibration is the sticky state | T2: the wand hard-reset every cycle and stayed failing. T4: a reset of the Dial alone recovered it. **Low weight** — mpremote activity during the session interrupted devices (section 7) |
 | H11/H15 | Dial Python-heap pressure | `gc_free` was 40–55 K during failures; no allocation error anywhere |
-| H-heap | Dial IDF heap fragmented over a long uptime (Update 6) | Only evidence: `idf_largest` 7680 while failing vs 20480 after a reset. The two readings are not shown to be at the same point, and nothing links contiguous IDF heap to association. The Dial-reset recovery fits N1 just as well. Test B separates them |
+| H-heap | Dial IDF heap fragmented over a long uptime (Update 6) | Only evidence: `idf_largest` 7680 while failing vs 20480 after a reset. The two readings are not shown to be at the same point, and nothing links contiguous IDF heap to association. The Dial-reset recovery fits N1 just as well. Parked (section 8) |
 
 ### 3.3 Open
 
 | ID | Hypothesis | Covers | State |
 |---|---|---|---|
-| **H17b** | **F4 causes the repeat failure: the Dial's holdover of the prior attempt (stale TCP client and/or TCP state) breaks the retry** | F4 → F1 or F2 | Holds for every attempt 2 by code. Whether it *causes* the retry's failure is untested. Test H separates the TCP half from the station half |
+| **H17b** | **F4 causes the repeat failure: the Dial's holdover of the prior attempt (stale TCP client and/or TCP state) breaks the retry** | F4 → F1 or F2 | Holds for every attempt 2 by code. Whether it *causes* the retry's failure is untested. **TCP half fixed** (section 2.1); the parked retry test shows whether anything is left |
 | **N1** | **The station half of F4: the SoftAP keeps a stale entry for the wand's MAC after an unclean exit, and re-association from the same MAC fails while it stands** | F2 inside F4; the sticky state | **Leading explanation for F2 inside F4 and for the sticky state** (4.3). **Not absolute:** Update 3's retry re-associated during the holdover and then stalled. Explains nothing about the first failure |
 | **H5** | **Wand–AP link dies mid-body (association lost, or RF path stops carrying data)** | F1 | **Leading explanation for F1.** Wand association state during a stall has never been captured |
-| F3-src | Source and frequency of F3 | F3 | Unknown. The wand mislabels it as F2, and the Dial's `pull ? fail` burst has no attributed source. Test I |
+| F3-src | Source and frequency of F3 | F3 | Unknown. The wand mislabels it as F2, and the Dial's `pull ? fail` burst has no attributed source. Deprioritized (section 2.1) |
 | H7 | Ambient 2.4 GHz congestion (24 APs, `tufts_eecs` on channel 1) | F1 | Untested |
 | H8/H9/H10 | Brownout during TX; peripherals left energized across reset; external antenna current | F1 | Untested. No battery data during a pull |
 | H14 | Dial LVGL/flash work starving the WiFi driver | F1 | Python loop proven alive; driver-level starvation not tested |
@@ -187,11 +213,11 @@ signature.
 **Where it doesn't fit:** in E25 the retry re-associated during the
 holdover, then stalled. Either the station entry had already cleared, or the
 holdover harms the retry some other way (H17b: the stale TCP client, or TCP
-state for the same IP). Test H separates the two.
+state for the same IP). The TCP half is now fixed (section 2.1).
 
 [X] Whether the ESP32 SoftAP actually rejects re-association from a MAC it
 still lists, and what its age-out timer is on this IDF build, is
-unverified. Test A decides it without needing to know.
+unverified. The parked station-half tests (section 8) decide it without needing to know.
 
 **F4 explains nothing about the first failure** of a pairing, which is
 always an F1 or F2 outside F4. That is the other open question.
@@ -358,103 +384,99 @@ half runs to ~90 s.
 
 ## 8. Next tests (hands-off unless marked), ranked
 
+Priority is **F1 and F2 on first attempts**. The F4 and F3 tests are parked
+at the end.
+
 Before every run:
 
+- **Flash the fix** (section 2.1). Confirm `SOCK_REPLY_TIMEOUT_S = 8` on each
+  Dial, and `SOCK_TIMEOUT_S = 12` and `MAX_ATTEMPTS = 1` on the wand.
 - **Hard-reset both Dials** and record `sys.version`/`os.uname()` once.
 - **Arm with `DEBUG_SERVE=True`** on the Dial.
 - **Keep mpremote off any armed Dial** for the whole run. Read serial
   passively only (`tools/serial_monitor.py`).
-- **Pace wand cycles on its settle marker** (`pull OK`, `attempt budget
-  spent`, `pairing failed`, `Tap a TRIGGER tag`).
-- **Record which Dials are armed**, and confirm it from the wand's scan
-  list, not the command sent.
+- **Never reset the wand mid-pull.** Pace cycles on its settle marker (`pull
+  OK`, `attempt budget spent`, `pairing failed`, `Tap a TRIGGER tag`). The
+  T2 pre-pacing join failure was an artifact of exactly this.
+- **Make every first attempt clean.** Start it only when the Dial shows
+  `stations=0`, or ≥100 s after the last failure on that Dial. Otherwise it
+  falls in the station half of F4 and says nothing about first-attempt F2.
+- **Record per attempt:**
+  - type (OK / F1 / F2 / F3)
+  - `stations=` at the start
+  - seconds since the last unclean exit on that Dial
+  - which Dials are armed, confirmed from the wand's scan list, not from the
+    command sent.
 
-**A. Retry timed against `stations=` (station half of F4, N1; no code change).**
-From a failing state, fire a scripted pull while `stations>=1` and the wand
-is not connected; then again right after `stations` drops to 0. Repeat
-≥5 times each, and record the failure-to-`stations=0` time.
+**1. Clean first-attempt baseline (F1 and F2 rates).** ≥20 clean first
+attempts against one Dial, with a second Dial armed.
 
-- *N1 predicts:* fail while the entry is listed; succeed after it clears.
-- *H-heap predicts:* no dependence on `stations`.
+- **F2 never occurs from `stations=0`** → F2 is entirely an F4 effect, and
+  F1 is the only first failure to explain.
+- **F2 does occur** → it has an independent cause, and it joins F1 in
+  tests 2–4.
 
-Add the station MAC list to `serve_probe.stations()` first. It runs after
-bring-up, so this is safe. That confirms the lingering entry is the
-wand's MAC.
-
-**B. AP restart without a reset (N1 vs H-heap).** From a failing state:
-switch SERVE→WRITE→SERVE over `json_drive` (an in-place `disarm()`/`arm()`,
-no reset). Record `idf_largest` before and after, then pull.
-
-- *N1 predicts:* success, with `idf_largest` about the same.
-- *H-heap predicts:* still failing unless `idf_largest` rises.
-
-**C. Vary the wand's STA MAC per boot (confirms N1 by removal).** Set a
-random locally-administered MAC after `sta.active(True)` and before
-`connect()`, behind a flag. Put the logic in a module imported *after*
-`active(True)`, never in `code_puller.py`'s import-time body.
-
-- *N1 predicts:* F2 stops following F1, and the sticky-bad state
-  disappears. F1 still occurs.
-
-**D. Capture a stall from both sides (decides H5 for F1).** Run
-`DEBUG_PULL=True` on the wand and `DEBUG_SERVE=True` on the Dial, until
-F1 appears.
+**2. Capture F1 from both sides (decides H5).** Run `DEBUG_PULL=True` on the
+wand, alongside test 1.
 
 - Wand `assoc=False` during `STALLED` → association lost (H5).
 - `assoc=True` with `STALLED`, and the Dial still lists the station → both
   ends think they are associated and no data moves. That is RF or driver;
-  go to E.
+  go to test 3.
 
-**E. Controls for what starts F1.**
+**3. Controls for what starts F1** (and any first-attempt F2 from test 1).
+Clean first attempts, ≥10 per arm:
 
-- **Disable wand memprobe** (`ENABLED=False`) for one run (N4).
-- **One AP vs two**, ≥10 cycles each, from freshly reset Dials, with the
-  scan list confirming which SSIDs were audible (H1).
-- **Leave the progress LEDs off** for one run (D10, H8).
+- **Wand memprobe off** (`ENABLED=False`) (N4).
+- **One AP vs two**, with the scan list confirming which SSIDs were audible
+  (H1).
+- **Progress LEDs off** (D10, H8).
 
-**F. Reason codes.** Try IDF WiFi logging (`esp.osdebug`) on the wand and
+**4. Reason codes.** Try IDF WiFi logging (`esp.osdebug`) on the wand and
 the Dial, to get STA disconnect reasons and SoftAP join/leave events. First
 confirm where the output goes: on the S3's native USB it may go to a UART
 nobody is reading. Put any call made on the wand before the join through
 the memory-order rule (section 9).
 
-**G. [hands] A second wand**, same tests A and D (H25).
+**5. Watch for new issues from the fix.** Check on every run:
 
-**H. Take F4 apart, one half at a time (H17b vs N1).** Two value-only
-changes, run one at a time. Neither adds module-scope content.
+- **A good transfer reaped at 8 s.** Look for a Dial `finish ok=False`
+  whose `sent` was still advancing, or a successful pull with a pause over
+  ~8 s between chunks.
+- **Promoted but reported failed.** The Dial's ack wait (8 s) covers the
+  wand's hash check, `compile()` and rename. If a large game takes longer,
+  the Dial reaps the client, and the wand's `cs.write(b'OK')` after
+  promoting may raise. Then the pull reports failure although the file
+  landed. Signature: wand `[XFER] OK: ... promoted` followed by a failure
+  line, in the same pull.
+- **Icon Display icon leg.** Each icon's ack wait is now 8 s. The Icon
+  Display is untested with this change.
+- **Box.** The same constant changed in `BBoxFirmware/code_server.py`,
+  also untested on hardware.
+- **Expected, not regressions:**
+  - F1 now costs 12 s on the wand instead of 10.
+  - With `MAX_ATTEMPTS = 1`, a failed transfer prints `resetting to retry
+    (1/1 spent)`, and the next boot prints `attempt budget spent -- giving
+    up`.
+  - `pull_bench.py --stall K` with K ≥ 8 is now reaped by the Dial.
+  - `ChatBroadcast/js/app.js:912`'s comment still says ~30 s.
 
-- **Close the TCP half:** drop `SOCK_REPLY_TIMEOUT_S` on the Dial from 30 to
-  8, below the wand's 10 s `recv` timeout, so the stale client is reaped
-  before the retry arrives. If attempt 2 now succeeds, H17b is the cause.
-- **Close the station half:** delay the wand's retry reset
-  (`main.py:796-801`) past the observed station age-out, e.g. 100 s, on the
-  bench only. If attempt 2 now succeeds and the first change alone did not,
-  N1 is the cause.
+**6. [hands] A second wand**, tests 1–2 (H25).
 
-Record every attempt as F1/F2/F3, plus whether it was in F4.
+**Parked (F4 and F3, low priority):**
 
-**I. Make F3 visible.**
+- **Retry success under the fix.** Set `MAX_ATTEMPTS = 2`, and count attempt-2
+  outcomes. The TCP half is closed; any failure left points at the station
+  half (N1).
+- **Station half, if it matters later.** Retry timed against `stations=`
+  (former test A); an AP restart without a reset (former B); a random STA
+  MAC per boot (former C); or a retry delay past the age-out (former H).
+- **F3.** Class old `pairing failed` lines by whether `joined` and
+  `connected to` precede them. Log the peer address in
+  `serve_probe.accepted()` if a `pull ? fail` burst recurs.
 
-- **Re-read existing wand logs.** Class each `pairing failed` by whether
-  `joined` and `connected to` precede it.
-- **Split the wand's failure line.** Give the `OSError`-before-body branch
-  its own return value and message, distinct from a join failure
-  (`code_puller.py:801-808`, `main.py:770-774`). Both files are imported
-  before the radio claims its memory, so any new literal in either one is
-  allocated ahead of it. Keep the change to one short return token, and
-  reuse an existing print format for the message. Then gate the change: a
-  scripted pull must still join before anything else is tested.
-- **Find the source of the Dial's `pull ? fail` burst.** Log the peer
-  address on accept in `serve_probe.accepted()`.
-
-**What would close it:**
-
-- H identifies which half of F4 breaks the retry, and A/C confirm it. That
-  explains the repeat failures and the hysteresis. The fix then goes on the
-  wand (a longer retry delay, or a new MAC per attempt) or on the Dial
-  (reap sooner, or deauth stale stations).
-- D shows association loss → F1 is H5, and the question becomes what
-  drops it: E's controls, then F's reason codes.
+**What would close it:** test 1 says whether F2 exists outside F4, test 2
+says whether F1 is association loss, and test 3 finds what brings it on.
 
 ## 9. Constraints for the next agent
 

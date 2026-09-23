@@ -56,7 +56,13 @@ PORT = 8266
 AP_CHANNEL = 1
 CHUNK = 512
 YIELD_MS = 20
-SOCK_REPLY_TIMEOUT_S = 30
+# Must stay below the requester's SOCK_TIMEOUT_S (code_puller.py, 12 s).
+# This side's last progress is never later than the requester's last byte
+# received, so a stalled transfer is reaped here before the requester gives
+# up, resets and retries -- a retry never lands on a client still held here.
+# Also bounds the ack wait, which covers the requester's hash and compile
+# check of the file it just received.
+SOCK_REPLY_TIMEOUT_S = 8
 SOCK_REQUEST_TIMEOUT_S = 5   # how long to wait for the requester's frame
 AP_SETTLE_MS = 300  # same value the wand uses post-cycle
 
