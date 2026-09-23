@@ -1,0 +1,18 @@
+[   0.0s] # monitor: port opened
+[   1.9s] {"mem": 82704, "up": 10431, "type": "heartbeat"}
+[   6.9s] {"mem": 83616, "up": 15434, "type": "heartbeat"}
+[  12.0s] {"mem": 84528, "up": 20443, "type": "heartbeat"}
+[  17.0s] {"mem": 82704, "up": 25465, "type": "heartbeat"}
+[  22.0s] {"mem": 83616, "up": 30473, "type": "heartbeat"}
+[  23.0s] # monitor: port dropped (device reports readiness to read but returned no data (device disconnected or multiple access on port?)) -- retrying
+[  24.0s] # monitor: port opened
+[  25.3s] {
+[  27.0s] {"mem": 84624, "up": 35485, "type": "heartbeat"}
+[  32.0s] {"mem": 82784, "up": 40506, "type": "heartbeat"}
+[  37.0s] {"mem": 83696, "up": 45513, "type": "heartbeat"}
+[  41.9s] # monitor: port dropped (device reports readiness to read but returned no data (device disconnected or multiple access on port?)) -- retrying
+[  42.9s] # monitor: port opened
+[  47.1s] {"mem": 85136, "up": 55560, "type": "heartbeat"}
+[  52.1s] {"mem": 83312, "up": 60574, "type": "heartbeat"}
+[  57.1s] {"mem": 84224, "up": 65581, "type": "heartbeat"}
+[  60.1s] # monitor: done
