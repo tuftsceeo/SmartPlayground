@@ -7,7 +7,7 @@ ES modules; Tailwind and Lucide load from unpinned CDNs.
 
 ## Deploy
 
-`.github/workflows/static.yml` publishes to Pages only on push to `May_2026`. Changes on any other
+`.github/workflows/static.yml` publishes to Pages only on push to `September_2026`. Changes on any other
 branch are not live regardless of correctness — serve the directory locally to test them.
 
 ## Canonical vs. dead
