@@ -283,6 +283,9 @@ class _Client:
         self.fh = None
         self.sent = 0
         self._chunk_len = 0
+        # Reused for every chunk this client ever sends -- allocated on the
+        # first body step, released by _drop(). See _step_body().
+        self.chunkbuf = None
 
         # Icon leg. game_ok is this client's real outcome: an icon that fails
         # costs a picture, not the game, so it never changes game_ok.
@@ -569,6 +572,11 @@ class CodeServer:
             c.sock.close()
         except OSError:
             pass
+        # Hand the chunk buffer back now rather than waiting for the client
+        # object itself to be collected -- this is the one choke point both
+        # _finish() and abort/disarm go through.
+        c.chunkbuf = None
+        c.outbuf = None
 
     def _drop_all(self):
         for c in self._clients:
@@ -610,6 +618,19 @@ class CodeServer:
             elif c.state == _S_ICOUNT:
                 self._step_icount(c)
         except OSError:
+            # Expected: the device closed, reset, or walked out of range
+            # mid-transfer. Its own retry budget covers this.
+            self._finish(c, False)
+        except Exception as e:
+            # Anything else is a fault in this server -- a MemoryError on a
+            # tight heap is the one seen in the field -- not a device going
+            # away. It has to be caught here: escaping _advance() leaves the
+            # client parked in its current state, sending nothing, until its
+            # deadline expires, while the device sits on a socket nothing
+            # will ever write to again. Reap it, and print, because this
+            # path is never normal.
+            print("# CodeServer: %s in %s for %r: %s"
+                  % (type(e).__name__, c.state, c.slug or '?', e))
             self._finish(c, False)
 
     # ── per-state steps ──────────────────────────────────────────
@@ -742,14 +763,21 @@ class CodeServer:
                 c.deadline = ticks_add(ticks_ms(), SOCK_REPLY_TIMEOUT_S * 1000)
                 return
             want = min(CHUNK, c.size - c.sent)
-            buf = bytearray(want)
-            n = c.fh.readinto(buf)
+            if c.chunkbuf is None:
+                # One buffer per client, reused for every chunk of every
+                # file it takes (game, then each icon). Allocating a fresh
+                # bytearray per chunk put a 512-byte request on the hottest
+                # path of a device that already defers accepts below
+                # MIN_FREE_ACCEPT; a slow client spans far more of that
+                # churn than a fast one.
+                c.chunkbuf = bytearray(CHUNK)
+            n = c.fh.readinto(memoryview(c.chunkbuf)[:want])
             if not n:
                 # File shrank/vanished under us mid-serve -- treat like any
                 # other mid-transfer failure.
                 self._finish(c, False)
                 return
-            c.outbuf = buf
+            c.outbuf = c.chunkbuf
             c._chunk_len = n
             c.outpos = 0
         n = c.sock.write(memoryview(c.outbuf)[c.outpos:c._chunk_len])
