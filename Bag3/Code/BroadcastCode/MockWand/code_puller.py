@@ -406,8 +406,19 @@ def _status_name(sta):
     return str(raw)
 
 
-def _reset_sta(verbose):
+def _reset_sta(external_antenna, verbose):
     """Return a STA interface clean enough to associate with an AP.
+
+    Selects the antenna immediately before active(True), the way
+    ESPNowManager.init() does, rather than once per pull. This is called
+    once per join attempt, and each attempt cycles the interface down and
+    up again; the RF switch's enable line is GPIO3, which the WiFi driver
+    also knows as WIFI_ENABLE, so an active(False) is not a safe moment to
+    assume the pins survive. Re-asserting costs 100 ms and removes the
+    question. It matters because an unpowered FM8625H connects the antenna
+    to neither port -- what gets through is leakage across about 30 dB of
+    isolation, which is enough to see an AP in a scan and not enough to
+    associate with it.
 
     ESPNowManager.shutdown() only calls enow.active(False) -- it leaves the
     STA active in whatever state ESP-NOW's init() put it in (active,
@@ -426,6 +437,7 @@ def _reset_sta(verbose):
             sleep_ms(RADIO_SETTLE_MS)
     except OSError:
         pass
+    _configure_antenna(external_antenna, verbose)
     sta.active(True)
     sleep_ms(RADIO_SETTLE_MS)
     if verbose:
@@ -510,15 +522,13 @@ def _connect_wifi(ssid_prefix, pwd, host_id, external_antenna, verbose,
                   enow=None, on_status=None):
     if enow is not None:
         _shutdown_espnow(enow, verbose)
-    # Always select, either way -- see _configure_antenna() docstring for why
-    # "leave the pins alone" isn't a safe default here.
-    _configure_antenna(external_antenna, verbose)
-
+    # The antenna is selected in _reset_sta(), once per join attempt, right
+    # before each active(True) -- not once here. See its docstring.
     wanted = _wanted_ssid(ssid_prefix, host_id) or (ssid_prefix + '*')
     tick = 0
     last_status = "unknown"
     for attempt in range(JOIN_ATTEMPTS):
-        sta = _reset_sta(verbose)
+        sta = _reset_sta(external_antenna, verbose)
         try:
             prev_pm = sta.config('pm')
         except (ValueError, OSError, AttributeError):
