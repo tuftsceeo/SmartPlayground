@@ -54,6 +54,48 @@ Load-bearing, must survive any future edit:
   resets; the pull succeeds and resets again.
 - The attempt budget is spent before each attempt (`pull_flag.bump()`), so a
   crash mid-pull cannot boot-loop.
+- **Nothing allocates ahead of the radio.** See below — this one is easy to
+  break by adding a print.
+
+## Radio memory order — do not add prints ahead of the join
+
+`esp_wifi_init()`/`esp_wifi_start()` need one large **contiguous** block of
+internal IDF heap, and the radio has to take it early: MicroPython's GC heap
+is carved out of that same heap in splits that are never returned, so nothing
+later can un-fragment it enough to find the block again. `gc.mem_free()` does
+not measure this. The failure is **fragmentation, not exhaustion**, and it
+reads as a comfortable free-heap number sitting next to
+`OSError: WiFi Out of Memory`.
+
+`lib/memprobe.py` exists because of exactly this failure at `enow.init()`.
+Its `_idf_free()` returns total free **and largest free block** for that
+reason — the second number is the one that decides.
+
+Two places on this device claim the block, and both have a queue of imports
+ahead of them:
+
+- **Normal boot** — `ESPNowManager.init()`. `main.py` imports roughly fifteen
+  modules at module scope before `main()` runs, and every game module it
+  pulls in costs heap before the radio gets its turn. A new built-in game is
+  not free.
+- **Pull mode** — `sta.active(True)` in `code_puller._reset_sta()`.
+  `main.py` imports `code_puller` inside `_run_pull_mode()`, *before* the
+  join, so anything at that module's scope — a docstring, a format string, a
+  function object — is allocated ahead of the block.
+
+So:
+
+1. No new module-scope content in `code_puller.py`. Import-time cost is paid
+   whether or not the code runs.
+2. Diagnostics go in `pull_probe.py`, imported lazily once
+   `sta.isconnected()` is true, behind `DEBUG_PULL` (default off). With the
+   flag off it is never parsed.
+3. Anything logged about the boot itself — `reset_cause()`, battery — prints
+   *after* the pull returns, not before it.
+
+The same constraint bit the Dial and Box on 2026-09-23, from the server side:
+[`docs_and_design/2026-09-23-ap-memory-order.md`](../docs_and_design/2026-09-23-ap-memory-order.md)
+has the numbers and the rules for both ends.
 
 ## Slugs are module names
 

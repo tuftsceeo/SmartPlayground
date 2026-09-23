@@ -151,7 +151,11 @@ equivalent to mirror.
   that same heap in splits that are never returned, and `Matrix()` takes a
   768-byte NeoPixel buffer, a 512-byte offset table, a 256-byte LUT and a
   768-byte frame. Building the panel first is what produced
-  `OSError: WiFi Out of Memory` on the wand.
+  `OSError: WiFi Out of Memory` on the wand. The same constraint applies to
+  `code_puller.py`, which `main.py` imports before the pull's own
+  `sta.active(True)`: keep diagnostics in `pull_probe.py`, imported lazily
+  after the join. See
+  [`docs_and_design/2026-09-23-ap-memory-order.md`](../docs_and_design/2026-09-23-ap-memory-order.md).
 - **`MAX_INTENSITY = 0.50`** is a measured supply ceiling, not a preference.
   See the station tree's `readme.md` for the voltage ramp behind it.
   `IDLE_INTENSITY`/`ALERT_INTENSITY` (`main.py`) and `READY_INTENSITY`/

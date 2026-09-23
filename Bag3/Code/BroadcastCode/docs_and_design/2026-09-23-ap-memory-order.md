@@ -1,7 +1,8 @@
-# AP bring-up needs contiguous memory, claimed early — 2026-09-23
+# Radio bring-up needs contiguous memory, claimed early — 2026-09-23
 
 The bench-findings note `docs_and_design/old/TODO-2026-09.md` asked for and
-nobody wrote. Two incidents have now been paid for; this is the record.
+nobody wrote. Three devices have now hit the same constraint; this is
+the record.
 
 ## The constraint
 
@@ -43,19 +44,37 @@ largest single block was 7680 bytes. Not short of memory — short of
 
 Reverting the instrumentation (`41f78dc`) restored arming.
 
-**Earlier, same class.** `MockWand/lib/memprobe.py` exists because of an
-`OSError: WiFi Out of Memory` at `enow.init()`. Its `_idf_free()` returns
-total free *and largest free block* for exactly this reason. See
+**Earlier, same class, on the clients.** `MockWand/lib/memprobe.py` exists
+because of an `OSError: WiFi Out of Memory` at `enow.init()`. Its
+`_idf_free()` returns total free *and largest free block* for exactly this
+reason. The Icon Display's README records the same constraint as a rule about
+build order — "Radio before the panel": `main.py` calls `enow.init()` before
+`icon_matrix` is imported, because `Matrix()` takes a 768-byte NeoPixel
+buffer, a 512-byte offset table, a 256-byte LUT and a 768-byte frame, and
+building the panel first produced the OOM. See
 `docs_and_design/old/2026-09-01-wifi-handoff-diagnosis.md` and
 `old/REBOOT_PULL_PLAN.md`.
+
+This is not a host-side problem with a client-side echo. It is one constraint
+that every device in the tree is subject to, and it has now been hit from
+three directions: `enow.init()` on the wand, panel-before-radio on the icon
+display, and `arm()` on the Dials.
 
 ## The rule
 
 **Nothing may allocate before the radio has claimed its memory.**
 
-On the Dial and Box that means before `prewarm_ap()` and `_start_ap()`. On
-the wand and icon display it means before `sta.active(True)` in
-`code_puller._reset_sta()`, and before `ESPNowManager.init()`.
+Per device, the moment the block is claimed:
+
+| Device | Claims the block at | Imported ahead of it |
+|---|---|---|
+| Dial, Box | `prewarm_ap()`, then `_start_ap()` in `arm()` | `code_server.py`, at `bdial_server.py`/`bbox_server.py` module scope |
+| Wand, Icon Display — normal boot | `ESPNowManager.init()` | everything `main.py` imports at module scope, including every built-in game |
+| Wand, Icon Display — pull mode | `sta.active(True)` in `code_puller._reset_sta()` | `code_puller.py`, imported inside `_run_pull_mode()` |
+
+On the wand the first row of that table is the easy one to forget: adding a
+built-in game adds a module-scope import, and that costs heap before
+`enow.init()` ever runs.
 
 In practice:
 
@@ -67,7 +86,9 @@ In practice:
 3. **Diagnostics live in `serve_probe.py` / `pull_probe.py`**, which are
    imported lazily and only after the radio is up — `serve_probe` at the end
    of `arm()`, `pull_probe` once `sta.isconnected()` is true. With
-   `DEBUG_SERVE` / `DEBUG_PULL` false, neither file is ever parsed.
+   `DEBUG_SERVE` / `DEBUG_PULL` false, neither file is ever parsed. Anything
+   logged about the boot itself (`reset_cause()`, battery) prints *after* the
+   pull returns, not before it.
 4. **`prewarm_ap()` is required, not experimental.** Its own docstring is
    more tentative than the evidence warrants. Turning it off should be
    expected to make `arm()` fail more often. `PREWARM_AP` exists only to run
