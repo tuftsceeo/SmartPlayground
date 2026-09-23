@@ -1,0 +1,870 @@
+[   0.0s] # monitor: port opened
+[   0.8s] # DBG serve: clients=0 stations=0 gc_free=55440 idf_free=28632 idf_largest=16384 polls=89
+[   2.8s] # DBG serve: clients=0 stations=0 gc_free=53824 idf_free=28632 idf_largest=16384 polls=90
+[   4.5s] {"mem": 54752, "up": 935340, "type": "heartbeat"}
+[   4.9s] # DBG serve: clients=0 stations=0 gc_free=55456 idf_free=28632 idf_largest=16384 polls=89
+[   6.9s] # DBG serve: clients=0 stations=0 gc_free=53808 idf_free=28632 idf_largest=16384 polls=90
+[   8.9s] # DBG serve: clients=0 stations=0 gc_free=55488 idf_free=28632 idf_largest=16384 polls=89
+[   9.5s] {"mem": 55744, "up": 940342, "type": "heartbeat"}
+[  10.9s] # DBG serve: clients=0 stations=0 gc_free=53936 idf_free=28632 idf_largest=16384 polls=89
+[  12.9s] # DBG serve: clients=0 stations=0 gc_free=55616 idf_free=28632 idf_largest=16384 polls=89
+[  14.5s] {"mem": 56816, "up": 945353, "type": "heartbeat"}
+[  14.9s] # DBG serve: clients=0 stations=0 gc_free=53936 idf_free=28632 idf_largest=16384 polls=89
+[  16.9s] # DBG serve: clients=0 stations=0 gc_free=55712 idf_free=28632 idf_largest=16384 polls=89
+[  18.9s] # DBG serve: clients=0 stations=0 gc_free=54064 idf_free=28632 idf_largest=16384 polls=90
+[  19.5s] {"mem": 54464, "up": 950375, "type": "heartbeat"}
+[  21.0s] # DBG serve: clients=0 stations=0 gc_free=55712 idf_free=28864 idf_largest=16384 polls=89
+[  23.0s] # DBG serve: clients=0 stations=0 gc_free=54192 idf_free=28864 idf_largest=16384 polls=89
+[  24.5s] {"mem": 55488, "up": 955383, "type": "heartbeat"}
+[  25.0s] # DBG serve: clients=0 stations=0 gc_free=55824 idf_free=28864 idf_largest=16384 polls=89
+[  27.0s] # DBG serve: clients=0 stations=0 gc_free=54272 idf_free=28864 idf_largest=16384 polls=89
+[  29.0s] # DBG serve: clients=0 stations=0 gc_free=55952 idf_free=28864 idf_largest=16384 polls=89
+[  29.5s] {"mem": 56480, "up": 960387, "type": "heartbeat"}
+[  31.0s] # DBG serve: clients=0 stations=0 gc_free=54400 idf_free=28864 idf_largest=16384 polls=89
+[  33.0s] # DBG serve: clients=0 stations=0 gc_free=56080 idf_free=28864 idf_largest=16384 polls=89
+[  34.5s] {"mem": 54224, "up": 965405, "type": "heartbeat"}
+[  35.0s] # DBG serve: clients=0 stations=1 gc_free=52928 idf_free=24928 idf_largest=14848 polls=89
+[  36.8s] # DBG accepted: clients=1 stations=1 gc_free=54240
+[  36.8s] # DEBUG client state=req sent=0/0 ms_to_deadline=4989
+[  37.0s] # DBG serve: clients=1 stations=1 gc_free=51968 idf_free=24360 idf_largest=14848 polls=83
+[  37.0s] # DBG   client state=req sent=0/0 ms_to_deadline=4900 sel=1 blocked=0
+[  38.8s] # DEBUG client state=ack sent=8208/8208 ms_to_deadline=29165
+[  39.0s] # DBG serve: clients=1 stations=1 gc_free=55168 idf_free=26124 idf_largest=16384 polls=61
+[  39.0s] # DBG   client state=ack sent=8208/8208 ms_to_deadline=28899 sel=21 blocked=0
+[  39.4s] # DBG finish ok=True state=ack sent=8208/8208 age_ms=2650 sel=22 blocked=0 clients=0 stations=1
+[  39.6s] {"mem": 56080, "up": 970501, "type": "heartbeat"}
+[  41.0s] # DBG serve: clients=0 stations=0 gc_free=56000 idf_free=28632 idf_largest=16384 polls=76
+[  43.1s] # DBG serve: clients=0 stations=0 gc_free=54496 idf_free=28632 idf_largest=16384 polls=89
+[  44.7s] {"mem": 55568, "up": 975521, "type": "heartbeat"}
+[  45.1s] # DBG serve: clients=0 stations=0 gc_free=56112 idf_free=28632 idf_largest=16384 polls=89
+[  47.1s] # DBG serve: clients=0 stations=0 gc_free=54448 idf_free=28632 idf_largest=16384 polls=90
+[  49.1s] # DBG serve: clients=0 stations=0 gc_free=56112 idf_free=28632 idf_largest=16384 polls=89
+[  49.7s] {"mem": 56496, "up": 980528, "type": "heartbeat"}
+[  51.1s] # DBG serve: clients=0 stations=0 gc_free=54448 idf_free=28632 idf_largest=16384 polls=90
+[  53.1s] # DBG serve: clients=0 stations=0 gc_free=56112 idf_free=28632 idf_largest=16384 polls=89
+[  54.7s] {"mem": 54224, "up": 985539, "type": "heartbeat"}
+[  55.1s] # DBG serve: clients=0 stations=0 gc_free=54512 idf_free=28632 idf_largest=16384 polls=89
+[  57.1s] # DBG serve: clients=0 stations=0 gc_free=56176 idf_free=28632 idf_largest=16384 polls=89
+[  59.1s] # DBG serve: clients=0 stations=0 gc_free=54624 idf_free=28632 idf_largest=16384 polls=89
+[  59.7s] {"mem": 55136, "up": 990552, "type": "heartbeat"}
+[  61.2s] # DBG serve: clients=0 stations=0 gc_free=56224 idf_free=28864 idf_largest=16384 polls=89
+[  63.2s] # DBG serve: clients=0 stations=0 gc_free=54576 idf_free=28864 idf_largest=16384 polls=90
+[  64.7s] {"mem": 56064, "up": 995571, "type": "heartbeat"}
+[  65.2s] # DBG serve: clients=0 stations=0 gc_free=56256 idf_free=28864 idf_largest=16384 polls=89
+[  67.2s] # DBG serve: clients=0 stations=1 gc_free=54672 idf_free=26668 idf_largest=16384 polls=89
+[  67.3s] # DBG accepted: clients=1 stations=1 gc_free=51392
+[  67.3s] # DEBUG client state=req sent=0/0 ms_to_deadline=5010
+[  69.2s] # DBG serve: clients=1 stations=1 gc_free=52368 idf_free=26120 idf_largest=14336 polls=57
+[  69.2s] # DBG   client state=ack sent=8208/8208 ms_to_deadline=29298 sel=21 blocked=0
+[  69.3s] # DEBUG client state=ack sent=8208/8208 ms_to_deadline=29141
+[  69.7s] {"mem": 48192, "up": 1000586, "type": "heartbeat"}
+[  70.3s] # DBG finish ok=True state=ack sent=8208/8208 age_ms=3004 sel=22 blocked=0 clients=0 stations=1
+[  71.2s] # DBG serve: clients=0 stations=1 gc_free=56496 idf_free=26304 idf_largest=16384 polls=72
+[  73.2s] # DBG serve: clients=0 stations=0 gc_free=54992 idf_free=28632 idf_largest=16384 polls=89
+[  74.7s] {"mem": 56560, "up": 1005589, "type": "heartbeat"}
+[  75.2s] # DBG serve: clients=0 stations=0 gc_free=56624 idf_free=28632 idf_largest=16384 polls=89
+[  77.2s] # DBG serve: clients=0 stations=0 gc_free=55120 idf_free=28632 idf_largest=16384 polls=89
+[  79.2s] # DBG serve: clients=0 stations=0 gc_free=56736 idf_free=28632 idf_largest=16384 polls=89
+[  79.7s] {"mem": 54048, "up": 1010591, "type": "heartbeat"}
+[  81.2s] # DBG serve: clients=0 stations=0 gc_free=55248 idf_free=28632 idf_largest=16384 polls=89
+[  83.2s] # DBG serve: clients=0 stations=0 gc_free=53696 idf_free=28632 idf_largest=16384 polls=89
+[  84.7s] {"mem": 55632, "up": 1015600, "type": "heartbeat"}
+[  85.3s] # DBG serve: clients=0 stations=0 gc_free=55584 idf_free=28632 idf_largest=16384 polls=89
+[  87.3s] # DBG serve: clients=0 stations=0 gc_free=57184 idf_free=28632 idf_largest=16384 polls=90
+[  89.3s] # DBG serve: clients=0 stations=0 gc_free=55568 idf_free=28632 idf_largest=16384 polls=89
+[  89.7s] {"mem": 56576, "up": 1020610, "type": "heartbeat"}
+[  91.3s] # DBG serve: clients=0 stations=0 gc_free=54016 idf_free=28632 idf_largest=16384 polls=89
+[  93.3s] # DBG serve: clients=0 stations=0 gc_free=55680 idf_free=28632 idf_largest=16384 polls=89
+[  94.8s] {"mem": 54288, "up": 1025627, "type": "heartbeat"}
+[  95.3s] # DBG serve: clients=0 stations=0 gc_free=54112 idf_free=28632 idf_largest=16384 polls=89
+[  97.3s] # DBG serve: clients=0 stations=0 gc_free=55824 idf_free=28632 idf_largest=16384 polls=89
+[  99.3s] # DBG serve: clients=0 stations=0 gc_free=54128 idf_free=28632 idf_largest=16384 polls=90
+[  99.8s] {"mem": 55264, "up": 1030634, "type": "heartbeat"}
+[ 101.3s] # DBG serve: clients=0 stations=0 gc_free=55776 idf_free=28632 idf_largest=16384 polls=89
+[ 103.4s] # DBG serve: clients=0 stations=0 gc_free=54128 idf_free=28632 idf_largest=16384 polls=90
+[ 104.8s] {"mem": 56320, "up": 1035635, "type": "heartbeat"}
+[ 105.4s] # DBG serve: clients=0 stations=0 gc_free=55872 idf_free=28632 idf_largest=16384 polls=88
+[ 107.4s] # DBG serve: clients=0 stations=0 gc_free=54384 idf_free=28632 idf_largest=16384 polls=89
+[ 109.4s] # DBG serve: clients=0 stations=0 gc_free=56000 idf_free=28632 idf_largest=16384 polls=89
+[ 109.8s] {"mem": 57424, "up": 1040638, "type": "heartbeat"}
+[ 111.4s] # DBG serve: clients=0 stations=0 gc_free=54464 idf_free=28632 idf_largest=16384 polls=89
+[ 113.4s] # DBG serve: clients=0 stations=0 gc_free=56144 idf_free=28632 idf_largest=16384 polls=89
+[ 114.4s] # monitor: port dropped (device reports readiness to read but returned no data (device disconnected or multiple access on port?)) -- retrying
+[ 115.4s] # monitor: port opened
+[ 119.8s] {"mem": 55488, "up": 1050681, "type": "heartbeat"}
+[ 124.8s] {"mem": 56400, "up": 1055688, "type": "heartbeat"}
+[ 129.8s] {"mem": 57312, "up": 1060695, "type": "heartbeat"}
+[ 134.8s] {"mem": 55488, "up": 1065716, "type": "heartbeat"}
+[ 139.9s] {"mem": 56400, "up": 1070723, "type": "heartbeat"}
+[ 144.9s] {"mem": 57312, "up": 1075730, "type": "heartbeat"}
+[ 149.9s] {"mem": 55472, "up": 1080751, "type": "heartbeat"}
+[ 154.9s] {"mem": 56384, "up": 1085758, "type": "heartbeat"}
+[ 159.9s] {"mem": 57312, "up": 1090765, "type": "heartbeat"}
+[ 164.9s] {"mem": 55472, "up": 1095786, "type": "heartbeat"}
+[ 169.9s] {"mem": 56384, "up": 1100793, "type": "heartbeat"}
+[ 174.9s] {"mem": 57312, "up": 1105800, "type": "heartbeat"}
+[ 180.0s] {"mem": 55472, "up": 1110821, "type": "heartbeat"}
+[ 185.0s] {"mem": 56400, "up": 1115828, "type": "heartbeat"}
+[ 190.0s] {"mem": 57312, "up": 1120835, "type": "heartbeat"}
+[ 195.0s] {"mem": 55472, "up": 1125856, "type": "heartbeat"}
+[ 200.0s] {"mem": 56400, "up": 1130862, "type": "heartbeat"}
+[ 205.0s] {"mem": 57312, "up": 1135868, "type": "heartbeat"}
+[ 210.0s] {"mem": 55472, "up": 1140889, "type": "heartbeat"}
+[ 215.0s] {"mem": 56400, "up": 1145896, "type": "heartbeat"}
+[ 220.0s] {"mem": 57312, "up": 1150903, "type": "heartbeat"}
+[ 225.1s] {"mem": 55488, "up": 1155924, "type": "heartbeat"}
+[ 228.7s] # monitor: port dropped (device reports readiness to read but returned no data (device disconnected or multiple access on port?)) -- retrying
+[ 229.7s] # monitor: port opened
+[ 230.1s] # monitor: port dropped (device reports readiness to read but returned no data (device disconnected or multiple access on port?)) -- retrying
+[ 231.1s] # monitor: port opened
+[ 232.9s] # DBG serve: clients=0 stations=0 gc_free=56064 idf_free=28908 idf_largest=16384 polls=89
+[ 234.9s] # DBG serve: clients=0 stations=0 gc_free=54384 idf_free=28908 idf_largest=16384 polls=90
+[ 235.1s] {"mem": 57152, "up": 1165945, "type": "heartbeat"}
+[ 236.9s] # DBG serve: clients=0 stations=0 gc_free=56000 idf_free=28908 idf_largest=16384 polls=89
+[ 238.9s] # DBG serve: clients=0 stations=0 gc_free=54512 idf_free=28908 idf_largest=16384 polls=89
+[ 240.1s] {"mem": 54848, "up": 1170960, "type": "heartbeat"}
+[ 241.0s] # DBG serve: clients=0 stations=0 gc_free=56128 idf_free=28908 idf_largest=16384 polls=89
+[ 243.0s] # DBG serve: clients=0 stations=0 gc_free=54576 idf_free=28908 idf_largest=16384 polls=89
+[ 245.0s] # DBG serve: clients=0 stations=0 gc_free=56240 idf_free=28908 idf_largest=16384 polls=89
+[ 245.1s] {"mem": 55520, "up": 1175970, "type": "heartbeat"}
+[ 247.0s] # DBG serve: clients=0 stations=0 gc_free=54656 idf_free=28908 idf_largest=16384 polls=89
+[ 249.0s] # DBG serve: clients=0 stations=0 gc_free=56304 idf_free=28908 idf_largest=16384 polls=89
+[ 250.1s] {"mem": 56768, "up": 1180981, "type": "heartbeat"}
+[ 251.0s] # DBG serve: clients=0 stations=0 gc_free=54736 idf_free=28908 idf_largest=16384 polls=89
+[ 253.0s] # DBG serve: clients=0 stations=0 gc_free=56432 idf_free=28908 idf_largest=16384 polls=89
+[ 255.0s] # DBG serve: clients=0 stations=0 gc_free=54752 idf_free=28908 idf_largest=16384 polls=90
+[ 255.1s] {"mem": 54160, "up": 1185999, "type": "heartbeat"}
+[ 257.0s] # DBG serve: clients=0 stations=0 gc_free=56384 idf_free=28908 idf_largest=16384 polls=89
+[ 259.0s] # DBG serve: clients=0 stations=0 gc_free=54736 idf_free=28908 idf_largest=16384 polls=90
+[ 260.1s] {"mem": 55488, "up": 1191001, "type": "heartbeat"}
+[ 261.1s] # DBG serve: clients=0 stations=0 gc_free=56384 idf_free=28908 idf_largest=16384 polls=89
+[ 263.1s] # DBG serve: clients=0 stations=0 gc_free=54896 idf_free=28908 idf_largest=16384 polls=89
+[ 265.1s] # DBG serve: clients=0 stations=0 gc_free=56496 idf_free=28908 idf_largest=16384 polls=89
+[ 265.1s] {"mem": 56144, "up": 1196011, "type": "heartbeat"}
+[ 267.1s] # DBG serve: clients=0 stations=0 gc_free=54944 idf_free=28908 idf_largest=16384 polls=89
+[ 269.1s] # DBG serve: clients=0 stations=0 gc_free=56608 idf_free=28908 idf_largest=16384 polls=89
+[ 270.2s] {"mem": 57328, "up": 1201029, "type": "heartbeat"}
+[ 271.1s] # DBG serve: clients=0 stations=0 gc_free=54896 idf_free=28908 idf_largest=16384 polls=90
+[ 273.1s] # DBG serve: clients=0 stations=0 gc_free=56576 idf_free=28908 idf_largest=16384 polls=89
+[ 275.1s] # DBG serve: clients=0 stations=0 gc_free=54896 idf_free=28908 idf_largest=16384 polls=90
+[ 275.2s] {"mem": 54672, "up": 1206040, "type": "heartbeat"}
+[ 277.1s] # DBG serve: clients=0 stations=0 gc_free=56560 idf_free=28908 idf_largest=16384 polls=89
+[ 279.2s] # DBG serve: clients=0 stations=0 gc_free=54880 idf_free=28908 idf_largest=16384 polls=90
+[ 280.2s] {"mem": 56000, "up": 1211044, "type": "heartbeat"}
+[ 281.2s] # DBG serve: clients=0 stations=0 gc_free=56512 idf_free=28908 idf_largest=16384 polls=89
+[ 283.2s] # DBG serve: clients=0 stations=0 gc_free=54992 idf_free=28908 idf_largest=16384 polls=89
+[ 285.2s] # DBG serve: clients=0 stations=0 gc_free=56624 idf_free=28568 idf_largest=16384 polls=89
+[ 285.2s] {"mem": 56656, "up": 1216056, "type": "heartbeat"}
+[ 287.2s] # DBG serve: clients=0 stations=0 gc_free=55136 idf_free=28908 idf_largest=16384 polls=89
+[ 289.2s] # DBG serve: clients=0 stations=0 gc_free=56720 idf_free=28908 idf_largest=16384 polls=89
+[ 290.2s] {"mem": 54608, "up": 1221064, "type": "heartbeat"}
+[ 291.2s] # DBG serve: clients=0 stations=0 gc_free=55072 idf_free=28908 idf_largest=16384 polls=90
+[ 293.2s] # DBG serve: clients=0 stations=0 gc_free=56688 idf_free=28908 idf_largest=16384 polls=89
+[ 295.2s] {"mem": 55536, "up": 1226080, "type": "heartbeat"}
+[ 295.2s] # DBG serve: clients=0 stations=0 gc_free=54896 idf_free=28908 idf_largest=16384 polls=90
+[ 297.2s] # DBG serve: clients=0 stations=0 gc_free=56672 idf_free=28908 idf_largest=16384 polls=89
+[ 299.3s] # DBG serve: clients=0 stations=0 gc_free=55008 idf_free=28908 idf_largest=16384 polls=90
+[ 300.2s] {"mem": 56480, "up": 1231085, "type": "heartbeat"}
+[ 301.3s] # DBG serve: clients=0 stations=0 gc_free=56624 idf_free=28908 idf_largest=16384 polls=89
+[ 303.3s] # DBG serve: clients=0 stations=0 gc_free=55072 idf_free=28908 idf_largest=16384 polls=89
+[ 305.2s] {"mem": 57376, "up": 1236113, "type": "heartbeat"}
+[ 305.3s] # DBG serve: clients=0 stations=0 gc_free=56608 idf_free=28908 idf_largest=16384 polls=89
+[ 307.3s] # DBG serve: clients=0 stations=0 gc_free=55184 idf_free=28908 idf_largest=16384 polls=89
+[ 309.3s] # DBG serve: clients=0 stations=0 gc_free=56816 idf_free=28908 idf_largest=16384 polls=89
+[ 310.3s] {"mem": 54976, "up": 1241134, "type": "heartbeat"}
+[ 311.3s] # DBG serve: clients=0 stations=0 gc_free=55248 idf_free=28908 idf_largest=16384 polls=89
+[ 313.3s] # DBG serve: clients=0 stations=0 gc_free=56928 idf_free=28908 idf_largest=16384 polls=89
+[ 315.3s] {"mem": 55888, "up": 1246153, "type": "heartbeat"}
+[ 315.3s] # DBG serve: clients=0 stations=0 gc_free=55120 idf_free=28908 idf_largest=16384 polls=90
+[ 317.3s] # DBG serve: clients=0 stations=0 gc_free=56864 idf_free=28908 idf_largest=16384 polls=89
+[ 319.4s] # DBG serve: clients=0 stations=0 gc_free=55248 idf_free=28908 idf_largest=16384 polls=90
+[ 320.3s] {"mem": 56832, "up": 1251157, "type": "heartbeat"}
+[ 321.4s] # DBG serve: clients=0 stations=0 gc_free=56864 idf_free=28908 idf_largest=16384 polls=89
+[ 323.4s] # DBG serve: clients=0 stations=0 gc_free=55312 idf_free=28908 idf_largest=16384 polls=89
+[ 325.3s] {"mem": 54640, "up": 1256160, "type": "heartbeat"}
+[ 325.4s] # DBG serve: clients=0 stations=0 gc_free=56944 idf_free=28908 idf_largest=16384 polls=89
+[ 327.4s] # DBG serve: clients=0 stations=0 gc_free=55392 idf_free=28908 idf_largest=16384 polls=89
+[ 329.4s] # DBG serve: clients=0 stations=0 gc_free=57008 idf_free=28908 idf_largest=16384 polls=89
+[ 330.3s] {"mem": 55584, "up": 1261176, "type": "heartbeat"}
+[ 331.4s] # DBG serve: clients=0 stations=0 gc_free=55472 idf_free=28908 idf_largest=16384 polls=89
+[ 333.4s] # DBG serve: clients=0 stations=0 gc_free=54000 idf_free=28908 idf_largest=16384 polls=89
+[ 335.3s] {"mem": 56640, "up": 1266180, "type": "heartbeat"}
+[ 335.4s] # DBG serve: clients=0 stations=0 gc_free=55520 idf_free=28908 idf_largest=16384 polls=89
+[ 337.4s] # DBG serve: clients=0 stations=0 gc_free=53984 idf_free=28908 idf_largest=16384 polls=90
+[ 339.5s] # DBG serve: clients=0 stations=0 gc_free=55648 idf_free=28908 idf_largest=16384 polls=89
+[ 340.3s] {"mem": 54288, "up": 1271191, "type": "heartbeat"}
+[ 341.5s] # DBG serve: clients=0 stations=0 gc_free=54112 idf_free=28908 idf_largest=16384 polls=89
+[ 343.5s] # DBG serve: clients=0 stations=0 gc_free=55760 idf_free=28908 idf_largest=16384 polls=89
+[ 345.3s] {"mem": 55360, "up": 1276201, "type": "heartbeat"}
+[ 345.5s] # DBG serve: clients=0 stations=0 gc_free=54112 idf_free=28908 idf_largest=16384 polls=89
+[ 347.5s] # DBG serve: clients=0 stations=0 gc_free=55872 idf_free=28908 idf_largest=16384 polls=89
+[ 349.5s] # DBG serve: clients=0 stations=0 gc_free=54240 idf_free=28908 idf_largest=16384 polls=90
+[ 350.3s] {"mem": 56320, "up": 1281208, "type": "heartbeat"}
+[ 351.5s] # DBG serve: clients=0 stations=0 gc_free=55872 idf_free=28908 idf_largest=16384 polls=89
+[ 353.5s] # DBG serve: clients=0 stations=0 gc_free=54368 idf_free=28908 idf_largest=16384 polls=89
+[ 355.4s] {"mem": 57264, "up": 1286226, "type": "heartbeat"}
+[ 355.5s] # DBG serve: clients=0 stations=0 gc_free=55888 idf_free=28908 idf_largest=16384 polls=89
+[ 357.5s] # DBG serve: clients=0 stations=0 gc_free=54352 idf_free=28568 idf_largest=16384 polls=90
+[ 359.5s] # DBG serve: clients=0 stations=0 gc_free=56016 idf_free=28908 idf_largest=16384 polls=89
+[ 360.4s] {"mem": 54912, "up": 1291236, "type": "heartbeat"}
+[ 361.5s] # DBG serve: clients=0 stations=0 gc_free=54480 idf_free=28908 idf_largest=16384 polls=89
+[ 363.5s] # DBG serve: clients=0 stations=0 gc_free=56128 idf_free=28908 idf_largest=16384 polls=89
+[ 365.4s] {"mem": 55888, "up": 1296258, "type": "heartbeat"}
+[ 365.6s] # DBG serve: clients=0 stations=0 gc_free=54512 idf_free=28908 idf_largest=16384 polls=89
+[ 367.6s] # DBG serve: clients=0 stations=0 gc_free=56240 idf_free=28908 idf_largest=16384 polls=89
+[ 369.6s] # DBG serve: clients=0 stations=0 gc_free=54592 idf_free=28908 idf_largest=16384 polls=90
+[ 370.4s] {"mem": 56816, "up": 1301266, "type": "heartbeat"}
+[ 371.6s] # DBG serve: clients=0 stations=0 gc_free=56208 idf_free=28908 idf_largest=16384 polls=89
+[ 373.6s] # DBG serve: clients=0 stations=0 gc_free=54576 idf_free=28908 idf_largest=16384 polls=90
+[ 375.4s] {"mem": 54528, "up": 1306283, "type": "heartbeat"}
+[ 375.6s] # DBG serve: clients=0 stations=0 gc_free=56208 idf_free=28908 idf_largest=16384 polls=89
+[ 377.6s] # DBG serve: clients=0 stations=0 gc_free=54640 idf_free=28908 idf_largest=16384 polls=89
+[ 379.7s] # DBG serve: clients=0 stations=0 gc_free=56144 idf_free=28908 idf_largest=16384 polls=90
+[ 380.4s] {"mem": 55280, "up": 1311302, "type": "heartbeat"}
+[ 381.7s] # DBG serve: clients=0 stations=0 gc_free=54608 idf_free=28908 idf_largest=16384 polls=89
+[ 383.7s] # DBG serve: clients=0 stations=0 gc_free=56256 idf_free=28908 idf_largest=16384 polls=89
+[ 385.4s] {"mem": 56320, "up": 1316309, "type": "heartbeat"}
+[ 385.7s] # DBG serve: clients=0 stations=0 gc_free=54576 idf_free=28908 idf_largest=16384 polls=89
+[ 387.7s] # DBG serve: clients=0 stations=0 gc_free=56368 idf_free=28908 idf_largest=16384 polls=89
+[ 389.7s] # DBG serve: clients=0 stations=0 gc_free=54816 idf_free=28908 idf_largest=16384 polls=89
+[ 390.5s] {"mem": 57264, "up": 1321317, "type": "heartbeat"}
+[ 391.7s] # DBG serve: clients=0 stations=0 gc_free=56432 idf_free=28908 idf_largest=16384 polls=89
+[ 393.7s] # DBG serve: clients=0 stations=0 gc_free=54784 idf_free=28908 idf_largest=16384 polls=90
+[ 395.5s] {"mem": 54992, "up": 1326330, "type": "heartbeat"}
+[ 395.7s] # DBG serve: clients=0 stations=0 gc_free=56384 idf_free=28908 idf_largest=16384 polls=89
+[ 397.7s] # DBG serve: clients=0 stations=0 gc_free=54752 idf_free=28908 idf_largest=16384 polls=90
+[ 399.8s] # DBG serve: clients=0 stations=0 gc_free=56384 idf_free=28908 idf_largest=16384 polls=89
+[ 400.5s] {"mem": 55936, "up": 1331337, "type": "heartbeat"}
+[ 401.8s] # DBG serve: clients=0 stations=0 gc_free=54864 idf_free=28908 idf_largest=16384 polls=89
+[ 403.8s] # DBG serve: clients=0 stations=0 gc_free=56512 idf_free=28908 idf_largest=16384 polls=89
+[ 405.5s] {"mem": 56880, "up": 1336359, "type": "heartbeat"}
+[ 405.8s] # DBG serve: clients=0 stations=0 gc_free=54880 idf_free=28908 idf_largest=16384 polls=89
+[ 407.8s] # DBG serve: clients=0 stations=0 gc_free=56640 idf_free=28908 idf_largest=16384 polls=89
+[ 409.8s] # DBG serve: clients=0 stations=0 gc_free=55136 idf_free=28908 idf_largest=16384 polls=89
+[ 410.5s] {"mem": 54528, "up": 1341373, "type": "heartbeat"}
+[ 411.8s] # DBG serve: clients=0 stations=0 gc_free=56752 idf_free=28908 idf_largest=16384 polls=89
+[ 413.8s] # DBG serve: clients=0 stations=0 gc_free=55200 idf_free=28908 idf_largest=16384 polls=89
+[ 415.5s] {"mem": 55504, "up": 1346379, "type": "heartbeat"}
+[ 415.8s] # DBG serve: clients=0 stations=0 gc_free=56816 idf_free=28908 idf_largest=16384 polls=89
+[ 417.8s] # DBG serve: clients=0 stations=0 gc_free=55248 idf_free=28908 idf_largest=16384 polls=89
+[ 419.8s] # DBG serve: clients=0 stations=0 gc_free=56928 idf_free=28908 idf_largest=16384 polls=89
+[ 420.5s] {"mem": 56336, "up": 1351398, "type": "heartbeat"}
+[ 421.8s] # DBG serve: clients=0 stations=0 gc_free=55376 idf_free=28908 idf_largest=16384 polls=89
+[ 423.8s] # DBG serve: clients=0 stations=0 gc_free=57008 idf_free=28908 idf_largest=16384 polls=89
+[ 425.5s] {"mem": 57376, "up": 1356408, "type": "heartbeat"}
+[ 425.8s] # DBG serve: clients=0 stations=0 gc_free=55376 idf_free=28908 idf_largest=16384 polls=89
+[ 427.8s] # DBG serve: clients=0 stations=0 gc_free=56992 idf_free=28908 idf_largest=16384 polls=90
+[ 429.9s] # DBG serve: clients=0 stations=0 gc_free=55376 idf_free=28908 idf_largest=16384 polls=90
+[ 430.6s] {"mem": 55008, "up": 1361426, "type": "heartbeat"}
+[ 431.9s] # DBG serve: clients=0 stations=0 gc_free=56992 idf_free=28908 idf_largest=16384 polls=89
+[ 433.9s] # DBG serve: clients=0 stations=0 gc_free=55472 idf_free=28908 idf_largest=16384 polls=89
+[ 435.6s] {"mem": 55952, "up": 1366442, "type": "heartbeat"}
+[ 435.9s] # DBG serve: clients=0 stations=0 gc_free=57008 idf_free=28908 idf_largest=16384 polls=90
+[ 437.9s] # DBG serve: clients=0 stations=0 gc_free=55344 idf_free=28908 idf_largest=16384 polls=90
+[ 439.9s] # DBG serve: clients=0 stations=0 gc_free=56880 idf_free=28908 idf_largest=16384 polls=90
+[ 440.6s] {"mem": 56768, "up": 1371456, "type": "heartbeat"}
+[ 441.9s] # DBG serve: clients=0 stations=0 gc_free=55344 idf_free=28908 idf_largest=16384 polls=89
+[ 444.0s] # DBG serve: clients=0 stations=0 gc_free=57008 idf_free=28908 idf_largest=16384 polls=89
+[ 445.6s] {"mem": 54640, "up": 1376457, "type": "heartbeat"}
+[ 446.0s] # DBG serve: clients=0 stations=0 gc_free=55456 idf_free=28908 idf_largest=16384 polls=89
+[ 448.0s] # DBG serve: clients=0 stations=0 gc_free=57008 idf_free=28908 idf_largest=16384 polls=90
+[ 450.0s] # DBG serve: clients=0 stations=0 gc_free=55472 idf_free=28908 idf_largest=16384 polls=89
+[ 450.6s] {"mem": 55632, "up": 1381460, "type": "heartbeat"}
+[ 452.0s] # DBG serve: clients=0 stations=0 gc_free=53904 idf_free=28908 idf_largest=16384 polls=89
+[ 454.0s] # DBG serve: clients=0 stations=0 gc_free=55600 idf_free=28908 idf_largest=16384 polls=89
+[ 455.6s] {"mem": 56688, "up": 1386465, "type": "heartbeat"}
+[ 456.0s] # DBG serve: clients=0 stations=0 gc_free=53824 idf_free=28908 idf_largest=16384 polls=90
+[ 458.0s] # DBG serve: clients=0 stations=0 gc_free=55600 idf_free=28908 idf_largest=16384 polls=89
+[ 460.0s] # DBG serve: clients=0 stations=0 gc_free=53968 idf_free=28908 idf_largest=16384 polls=90
+[ 460.6s] {"mem": 54352, "up": 1391478, "type": "heartbeat"}
+[ 462.1s] # DBG serve: clients=0 stations=0 gc_free=55584 idf_free=28908 idf_largest=16384 polls=89
+[ 464.1s] # DBG serve: clients=0 stations=0 gc_free=54080 idf_free=28908 idf_largest=16384 polls=89
+[ 465.6s] {"mem": 55392, "up": 1396486, "type": "heartbeat"}
+[ 466.1s] # DBG serve: clients=0 stations=0 gc_free=55712 idf_free=28908 idf_largest=16384 polls=89
+[ 468.1s] # DBG serve: clients=0 stations=0 gc_free=54032 idf_free=28908 idf_largest=16384 polls=90
+[ 470.1s] # DBG serve: clients=0 stations=0 gc_free=55568 idf_free=28908 idf_largest=16384 polls=90
+[ 470.6s] {"mem": 56208, "up": 1401501, "type": "heartbeat"}
+[ 472.1s] # DBG serve: clients=0 stations=0 gc_free=54016 idf_free=28908 idf_largest=16384 polls=89
+[ 474.1s] # DBG serve: clients=0 stations=0 gc_free=55680 idf_free=28908 idf_largest=16384 polls=89
+[ 475.6s] {"mem": 57248, "up": 1406510, "type": "heartbeat"}
+[ 476.1s] # DBG serve: clients=0 stations=0 gc_free=54000 idf_free=28908 idf_largest=16384 polls=89
+[ 478.1s] # DBG serve: clients=0 stations=0 gc_free=55760 idf_free=28908 idf_largest=16384 polls=89
+[ 480.1s] # DBG serve: clients=0 stations=0 gc_free=54144 idf_free=28908 idf_largest=16384 polls=90
+[ 480.6s] {"mem": 54880, "up": 1411527, "type": "heartbeat"}
+[ 482.2s] # DBG serve: clients=0 stations=0 gc_free=55744 idf_free=28908 idf_largest=16384 polls=89
+[ 484.2s] # DBG serve: clients=0 stations=0 gc_free=54256 idf_free=28908 idf_largest=16384 polls=89
+[ 485.7s] {"mem": 55952, "up": 1416536, "type": "heartbeat"}
+[ 486.2s] # DBG serve: clients=0 stations=0 gc_free=55888 idf_free=28908 idf_largest=16384 polls=89
+[ 488.2s] # DBG serve: clients=0 stations=0 gc_free=54384 idf_free=28908 idf_largest=16384 polls=89
+[ 490.2s] # DBG serve: clients=0 stations=0 gc_free=56000 idf_free=28908 idf_largest=16384 polls=89
+[ 490.7s] {"mem": 56880, "up": 1421547, "type": "heartbeat"}
+[ 492.2s] # DBG serve: clients=0 stations=0 gc_free=54496 idf_free=28908 idf_largest=16384 polls=89
+[ 494.2s] # DBG serve: clients=0 stations=0 gc_free=56128 idf_free=28908 idf_largest=16384 polls=89
+[ 495.7s] {"mem": 54624, "up": 1426565, "type": "heartbeat"}
+[ 496.2s] # DBG serve: clients=0 stations=0 gc_free=54576 idf_free=28908 idf_largest=16384 polls=89
+[ 498.2s] # DBG serve: clients=0 stations=0 gc_free=56192 idf_free=28908 idf_largest=16384 polls=89
+[ 500.2s] # DBG serve: clients=0 stations=0 gc_free=54512 idf_free=28908 idf_largest=16384 polls=90
+[ 500.7s] {"mem": 55520, "up": 1431574, "type": "heartbeat"}
+[ 502.2s] # DBG serve: clients=0 stations=0 gc_free=56176 idf_free=28908 idf_largest=16384 polls=89
+[ 504.2s] # DBG serve: clients=0 stations=0 gc_free=54640 idf_free=28908 idf_largest=16384 polls=89
+[ 505.7s] {"mem": 56560, "up": 1436579, "type": "heartbeat"}
+[ 506.3s] # DBG serve: clients=0 stations=0 gc_free=56256 idf_free=28908 idf_largest=16384 polls=89
+[ 508.3s] # DBG serve: clients=0 stations=0 gc_free=54736 idf_free=28908 idf_largest=16384 polls=89
+[ 510.3s] # DBG serve: clients=0 stations=0 gc_free=56352 idf_free=28908 idf_largest=16384 polls=89
+[ 510.7s] {"mem": 57392, "up": 1441605, "type": "heartbeat"}
+[ 512.3s] # DBG serve: clients=0 stations=0 gc_free=54816 idf_free=28908 idf_largest=16384 polls=89
+[ 514.3s] # DBG serve: clients=0 stations=0 gc_free=56464 idf_free=28908 idf_largest=16384 polls=89
+[ 515.7s] {"mem": 55104, "up": 1446616, "type": "heartbeat"}
+[ 516.3s] # DBG serve: clients=0 stations=0 gc_free=54768 idf_free=28908 idf_largest=16384 polls=90
+[ 518.3s] # DBG serve: clients=0 stations=0 gc_free=56448 idf_free=28908 idf_largest=16384 polls=89
+[ 520.3s] # DBG serve: clients=0 stations=0 gc_free=54912 idf_free=28908 idf_largest=16384 polls=89
+[ 520.7s] {"mem": 56032, "up": 1451623, "type": "heartbeat"}
+[ 522.3s] # DBG serve: clients=0 stations=0 gc_free=56544 idf_free=28908 idf_largest=16384 polls=89
+[ 524.3s] # DBG serve: clients=0 stations=0 gc_free=55008 idf_free=28908 idf_largest=16384 polls=89
+[ 525.8s] {"mem": 56944, "up": 1456644, "type": "heartbeat"}
+[ 526.3s] # DBG serve: clients=0 stations=0 gc_free=56640 idf_free=28908 idf_largest=16384 polls=89
+[ 528.3s] # DBG serve: clients=0 stations=0 gc_free=55104 idf_free=28908 idf_largest=16384 polls=89
+[ 530.3s] # DBG serve: clients=0 stations=0 gc_free=56736 idf_free=28908 idf_largest=16384 polls=89
+[ 530.8s] {"mem": 54416, "up": 1461648, "type": "heartbeat"}
+[ 532.3s] # DBG serve: clients=0 stations=0 gc_free=55184 idf_free=28908 idf_largest=16384 polls=89
+[ 534.3s] # DBG serve: clients=0 stations=0 gc_free=56816 idf_free=28908 idf_largest=16384 polls=89
+[ 535.8s] {"mem": 55648, "up": 1466649, "type": "heartbeat"}
+[ 536.4s] # DBG serve: clients=0 stations=0 gc_free=55232 idf_free=28908 idf_largest=16384 polls=89
+[ 538.4s] # DBG serve: clients=0 stations=0 gc_free=56928 idf_free=28908 idf_largest=16384 polls=89
+[ 540.4s] # DBG serve: clients=0 stations=0 gc_free=55376 idf_free=28908 idf_largest=16384 polls=89
+[ 540.8s] {"mem": 56640, "up": 1471663, "type": "heartbeat"}
+[ 542.4s] # DBG serve: clients=0 stations=0 gc_free=57008 idf_free=28908 idf_largest=16384 polls=89
+[ 544.4s] # DBG serve: clients=0 stations=0 gc_free=55504 idf_free=28908 idf_largest=16384 polls=89
+[ 545.8s] {"mem": 54400, "up": 1476680, "type": "heartbeat"}
+[ 546.4s] # DBG serve: clients=0 stations=0 gc_free=56992 idf_free=28880 idf_largest=16384 polls=90
+[ 548.4s] # DBG serve: clients=0 stations=0 gc_free=55504 idf_free=28908 idf_largest=16384 polls=89
+[ 550.4s] # DBG serve: clients=0 stations=0 gc_free=53984 idf_free=28568 idf_largest=16384 polls=89
+[ 550.8s] {"mem": 55264, "up": 1481702, "type": "heartbeat"}
+[ 552.4s] # DBG serve: clients=0 stations=0 gc_free=55632 idf_free=28908 idf_largest=16384 polls=89
+[ 554.4s] # DBG serve: clients=0 stations=0 gc_free=54000 idf_free=28908 idf_largest=16384 polls=90
+[ 555.8s] {"mem": 56192, "up": 1486720, "type": "heartbeat"}
+[ 556.4s] # DBG serve: clients=0 stations=0 gc_free=55632 idf_free=28908 idf_largest=16384 polls=89
+[ 558.4s] # DBG serve: clients=0 stations=0 gc_free=54112 idf_free=28908 idf_largest=16384 polls=89
+[ 560.5s] # DBG serve: clients=0 stations=0 gc_free=55648 idf_free=28908 idf_largest=16384 polls=90
+[ 560.9s] {"mem": 57072, "up": 1491742, "type": "heartbeat"}
+[ 562.5s] # DBG serve: clients=0 stations=0 gc_free=54112 idf_free=28908 idf_largest=16384 polls=89
+[ 564.5s] # DBG serve: clients=0 stations=0 gc_free=55760 idf_free=28908 idf_largest=16384 polls=89
+[ 565.9s] {"mem": 54784, "up": 1496761, "type": "heartbeat"}
+[ 566.5s] # DBG serve: clients=0 stations=0 gc_free=54256 idf_free=28908 idf_largest=16384 polls=89
+[ 568.5s] # DBG serve: clients=0 stations=0 gc_free=55888 idf_free=28908 idf_largest=16384 polls=89
+[ 570.5s] # DBG serve: clients=0 stations=0 gc_free=54352 idf_free=28908 idf_largest=16384 polls=89
+[ 570.9s] {"mem": 55776, "up": 1501771, "type": "heartbeat"}
+[ 572.5s] # DBG serve: clients=0 stations=0 gc_free=56048 idf_free=28908 idf_largest=16384 polls=89
+[ 574.5s] # DBG serve: clients=0 stations=0 gc_free=54384 idf_free=28908 idf_largest=16384 polls=90
+[ 575.9s] {"mem": 56720, "up": 1506787, "type": "heartbeat"}
+[ 576.5s] # DBG serve: clients=0 stations=0 gc_free=56016 idf_free=28908 idf_largest=16384 polls=89
+[ 578.6s] # DBG serve: clients=0 stations=0 gc_free=54400 idf_free=28908 idf_largest=16384 polls=90
+[ 580.6s] # DBG serve: clients=0 stations=0 gc_free=56016 idf_free=28908 idf_largest=16384 polls=89
+[ 580.9s] {"mem": 54064, "up": 1511808, "type": "heartbeat"}
+[ 582.6s] # DBG serve: clients=0 stations=0 gc_free=54512 idf_free=28908 idf_largest=16384 polls=89
+[ 584.6s] # DBG serve: clients=0 stations=0 gc_free=56144 idf_free=28908 idf_largest=16384 polls=89
+[ 585.9s] {"mem": 55392, "up": 1516826, "type": "heartbeat"}
+[ 586.6s] # DBG serve: clients=0 stations=0 gc_free=54592 idf_free=28908 idf_largest=16384 polls=89
+[ 588.6s] # DBG serve: clients=0 stations=0 gc_free=56224 idf_free=28908 idf_largest=16384 polls=89
+[ 590.6s] # DBG serve: clients=0 stations=0 gc_free=54704 idf_free=28908 idf_largest=16384 polls=89
+[ 591.0s] {"mem": 56336, "up": 1521836, "type": "heartbeat"}
+[ 592.6s] # DBG serve: clients=0 stations=0 gc_free=56368 idf_free=28908 idf_largest=16384 polls=89
+[ 594.6s] # DBG serve: clients=0 stations=0 gc_free=54704 idf_free=28908 idf_largest=16384 polls=90
+[ 596.0s] {"mem": 57248, "up": 1526858, "type": "heartbeat"}
+[ 596.6s] # DBG serve: clients=0 stations=0 gc_free=56336 idf_free=28908 idf_largest=16384 polls=89
+[ 598.7s] # DBG serve: clients=0 stations=0 gc_free=54784 idf_free=28908 idf_largest=16384 polls=89
+[ 600.7s] # DBG serve: clients=0 stations=0 gc_free=56448 idf_free=28908 idf_largest=16384 polls=89
+[ 601.0s] {"mem": 54624, "up": 1531871, "type": "heartbeat"}
+[ 602.7s] # DBG serve: clients=0 stations=0 gc_free=54880 idf_free=28908 idf_largest=16384 polls=89
+[ 604.7s] # DBG serve: clients=0 stations=0 gc_free=56496 idf_free=28908 idf_largest=16384 polls=89
+[ 606.0s] {"mem": 55904, "up": 1536882, "type": "heartbeat"}
+[ 606.7s] # DBG serve: clients=0 stations=0 gc_free=54992 idf_free=28908 idf_largest=16384 polls=89
+[ 608.7s] # DBG serve: clients=0 stations=0 gc_free=56640 idf_free=28908 idf_largest=16384 polls=89
+[ 610.7s] # DBG serve: clients=0 stations=0 gc_free=55088 idf_free=28908 idf_largest=16384 polls=89
+[ 611.0s] {"mem": 56832, "up": 1541884, "type": "heartbeat"}
+[ 612.7s] # DBG serve: clients=0 stations=0 gc_free=56720 idf_free=28908 idf_largest=16384 polls=89
+[ 614.7s] # DBG serve: clients=0 stations=0 gc_free=55136 idf_free=28908 idf_largest=16384 polls=89
+[ 616.0s] {"mem": 54528, "up": 1546899, "type": "heartbeat"}
+[ 616.7s] # DBG serve: clients=0 stations=0 gc_free=56752 idf_free=28908 idf_largest=16384 polls=89
+[ 618.7s] # DBG serve: clients=0 stations=0 gc_free=55232 idf_free=28908 idf_largest=16384 polls=89
+[ 620.7s] # DBG serve: clients=0 stations=0 gc_free=56848 idf_free=28908 idf_largest=16384 polls=89
+[ 621.0s] {"mem": 55136, "up": 1551905, "type": "heartbeat"}
+[ 622.7s] # DBG serve: clients=0 stations=0 gc_free=55184 idf_free=28908 idf_largest=16384 polls=90
+[ 624.7s] # DBG serve: clients=0 stations=0 gc_free=56832 idf_free=28908 idf_largest=16384 polls=89
+[ 626.0s] {"mem": 56320, "up": 1556924, "type": "heartbeat"}
+[ 626.7s] # DBG serve: clients=0 stations=0 gc_free=55280 idf_free=28908 idf_largest=16384 polls=89
+[ 628.7s] # DBG serve: clients=0 stations=0 gc_free=56944 idf_free=28908 idf_largest=16384 polls=89
+[ 630.8s] # DBG serve: clients=0 stations=0 gc_free=55328 idf_free=28908 idf_largest=16384 polls=90
+[ 631.1s] {"mem": 57200, "up": 1561938, "type": "heartbeat"}
+[ 632.8s] # DBG serve: clients=0 stations=0 gc_free=56960 idf_free=28908 idf_largest=16384 polls=89
+[ 634.8s] # DBG serve: clients=0 stations=0 gc_free=55312 idf_free=28908 idf_largest=16384 polls=90
+[ 636.1s] {"mem": 54912, "up": 1566953, "type": "heartbeat"}
+[ 636.8s] # DBG serve: clients=0 stations=0 gc_free=56960 idf_free=28908 idf_largest=16384 polls=89
+[ 638.8s] # DBG serve: clients=0 stations=0 gc_free=55312 idf_free=28908 idf_largest=16384 polls=90
+[ 640.8s] # DBG serve: clients=0 stations=0 gc_free=56992 idf_free=28908 idf_largest=16384 polls=89
+[ 641.1s] {"mem": 55664, "up": 1571958, "type": "heartbeat"}
+[ 642.8s] # DBG serve: clients=0 stations=0 gc_free=55312 idf_free=28908 idf_largest=16384 polls=90
+[ 644.9s] # DBG serve: clients=0 stations=0 gc_free=56992 idf_free=28908 idf_largest=16384 polls=89
+[ 646.1s] {"mem": 56864, "up": 1576977, "type": "heartbeat"}
+[ 646.9s] # DBG serve: clients=0 stations=0 gc_free=55392 idf_free=28908 idf_largest=16384 polls=89
+[ 648.9s] # DBG serve: clients=0 stations=0 gc_free=57008 idf_free=28908 idf_largest=16384 polls=89
+[ 650.9s] # DBG serve: clients=0 stations=0 gc_free=55552 idf_free=28908 idf_largest=16384 polls=89
+[ 651.1s] {"mem": 54224, "up": 1581995, "type": "heartbeat"}
+[ 652.9s] # DBG serve: clients=0 stations=0 gc_free=54016 idf_free=28908 idf_largest=16384 polls=89
+[ 654.9s] # DBG serve: clients=0 stations=0 gc_free=55632 idf_free=28908 idf_largest=16384 polls=89
+[ 656.1s] {"mem": 55504, "up": 1587001, "type": "heartbeat"}
+[ 656.9s] # DBG serve: clients=0 stations=0 gc_free=53968 idf_free=28908 idf_largest=16384 polls=90
+[ 658.9s] # DBG serve: clients=0 stations=0 gc_free=55648 idf_free=28908 idf_largest=16384 polls=89
+[ 660.9s] # DBG serve: clients=0 stations=0 gc_free=54016 idf_free=28908 idf_largest=16384 polls=90
+[ 661.1s] {"mem": 56352, "up": 1592015, "type": "heartbeat"}
+[ 662.9s] # DBG serve: clients=0 stations=0 gc_free=55632 idf_free=28908 idf_largest=16384 polls=89
+[ 664.9s] # DBG serve: clients=0 stations=0 gc_free=54112 idf_free=28908 idf_largest=16384 polls=89
+[ 666.1s] {"mem": 57344, "up": 1597035, "type": "heartbeat"}
+[ 666.9s] # DBG serve: clients=0 stations=0 gc_free=55776 idf_free=28908 idf_largest=16384 polls=89
+[ 669.0s] # DBG serve: clients=0 stations=0 gc_free=54128 idf_free=28908 idf_largest=16384 polls=90
+[ 671.0s] # DBG serve: clients=0 stations=0 gc_free=55760 idf_free=28908 idf_largest=16384 polls=89
+[ 671.2s] {"mem": 54688, "up": 1602052, "type": "heartbeat"}
+[ 673.0s] # DBG serve: clients=0 stations=0 gc_free=54240 idf_free=28908 idf_largest=16384 polls=89
+[ 675.0s] # DBG serve: clients=0 stations=0 gc_free=55856 idf_free=28908 idf_largest=16384 polls=89
+[ 676.2s] {"mem": 56016, "up": 1607054, "type": "heartbeat"}
+[ 677.0s] # DBG serve: clients=0 stations=0 gc_free=54352 idf_free=28908 idf_largest=16384 polls=89
+[ 679.0s] # DBG serve: clients=0 stations=0 gc_free=55872 idf_free=28908 idf_largest=16384 polls=90
+[ 681.0s] # DBG serve: clients=0 stations=0 gc_free=54368 idf_free=28908 idf_largest=16384 polls=89
+[ 681.2s] {"mem": 56880, "up": 1612073, "type": "heartbeat"}
+[ 683.0s] # DBG serve: clients=0 stations=0 gc_free=56000 idf_free=28908 idf_largest=16384 polls=89
+[ 685.0s] # DBG serve: clients=0 stations=0 gc_free=54448 idf_free=28908 idf_largest=16384 polls=89
+[ 686.2s] {"mem": 54528, "up": 1617090, "type": "heartbeat"}
+[ 687.0s] # DBG serve: clients=0 stations=0 gc_free=56064 idf_free=28908 idf_largest=16384 polls=89
+[ 689.0s] # DBG serve: clients=0 stations=0 gc_free=54448 idf_free=28908 idf_largest=16384 polls=90
+[ 691.1s] # DBG serve: clients=0 stations=0 gc_free=56128 idf_free=28908 idf_largest=16384 polls=89
+[ 691.2s] {"mem": 55296, "up": 1622095, "type": "heartbeat"}
+[ 693.1s] # DBG serve: clients=0 stations=0 gc_free=54464 idf_free=28908 idf_largest=16384 polls=90
+[ 695.1s] # DBG serve: clients=0 stations=0 gc_free=56096 idf_free=28908 idf_largest=16384 polls=89
+[ 696.2s] {"mem": 56464, "up": 1627101, "type": "heartbeat"}
+[ 697.1s] # DBG serve: clients=0 stations=0 gc_free=54416 idf_free=28908 idf_largest=16384 polls=90
+[ 699.1s] # DBG serve: clients=0 stations=0 gc_free=55952 idf_free=28908 idf_largest=16384 polls=90
+[ 701.1s] # DBG serve: clients=0 stations=0 gc_free=54320 idf_free=28908 idf_largest=16384 polls=90
+[ 701.2s] {"mem": 57328, "up": 1632106, "type": "heartbeat"}
+[ 703.1s] # DBG serve: clients=0 stations=0 gc_free=55968 idf_free=28568 idf_largest=16384 polls=89
+[ 705.2s] # DBG serve: clients=0 stations=0 gc_free=54288 idf_free=28908 idf_largest=16384 polls=90
+[ 706.2s] {"mem": 55008, "up": 1637127, "type": "heartbeat"}
+[ 707.2s] # DBG serve: clients=0 stations=0 gc_free=55936 idf_free=28908 idf_largest=16384 polls=89
+[ 709.2s] # DBG serve: clients=0 stations=0 gc_free=54256 idf_free=28908 idf_largest=16384 polls=90
+[ 711.2s] # DBG serve: clients=0 stations=0 gc_free=55952 idf_free=28908 idf_largest=16384 polls=89
+[ 711.3s] {"mem": 55600, "up": 1642147, "type": "heartbeat"}
+[ 713.2s] # DBG serve: clients=0 stations=0 gc_free=54400 idf_free=28908 idf_largest=16384 polls=89
+[ 715.2s] # DBG serve: clients=0 stations=0 gc_free=56016 idf_free=28568 idf_largest=16384 polls=89
+[ 716.3s] {"mem": 56896, "up": 1647157, "type": "heartbeat"}
+[ 717.2s] # DBG serve: clients=0 stations=0 gc_free=54512 idf_free=28908 idf_largest=16384 polls=89
+[ 719.2s] # DBG serve: clients=0 stations=0 gc_free=56144 idf_free=28908 idf_largest=16384 polls=89
+[ 721.2s] # DBG serve: clients=0 stations=0 gc_free=54496 idf_free=28908 idf_largest=16384 polls=90
+[ 721.3s] {"mem": 54272, "up": 1652172, "type": "heartbeat"}
+[ 723.3s] # DBG serve: clients=0 stations=0 gc_free=56128 idf_free=28908 idf_largest=16384 polls=89
+[ 725.3s] # DBG serve: clients=0 stations=0 gc_free=54576 idf_free=28908 idf_largest=16384 polls=89
+[ 726.3s] {"mem": 55536, "up": 1657179, "type": "heartbeat"}
+[ 727.3s] # DBG serve: clients=0 stations=0 gc_free=56208 idf_free=28908 idf_largest=16384 polls=89
+[ 729.3s] # DBG serve: clients=0 stations=0 gc_free=54528 idf_free=28908 idf_largest=16384 polls=90
+[ 731.3s] # DBG serve: clients=0 stations=0 gc_free=56176 idf_free=28908 idf_largest=16384 polls=89
+[ 731.3s] {"mem": 56208, "up": 1662184, "type": "heartbeat"}
+[ 733.3s] # DBG serve: clients=0 stations=0 gc_free=54640 idf_free=28908 idf_largest=16384 polls=89
+[ 735.3s] # DBG serve: clients=0 stations=0 gc_free=56272 idf_free=28908 idf_largest=16384 polls=89
+[ 736.3s] {"mem": 57376, "up": 1667208, "type": "heartbeat"}
+[ 737.3s] # DBG serve: clients=0 stations=0 gc_free=54720 idf_free=28908 idf_largest=16384 polls=89
+[ 739.3s] # DBG serve: clients=0 stations=0 gc_free=56368 idf_free=28908 idf_largest=16384 polls=89
+[ 741.3s] # DBG serve: clients=0 stations=0 gc_free=54816 idf_free=28908 idf_largest=16384 polls=89
+[ 741.3s] {"mem": 54848, "up": 1672214, "type": "heartbeat"}
+[ 743.3s] # DBG serve: clients=0 stations=0 gc_free=56464 idf_free=28908 idf_largest=16384 polls=89
+[ 745.3s] # DBG serve: clients=0 stations=0 gc_free=54944 idf_free=28908 idf_largest=16384 polls=89
+[ 746.3s] {"mem": 56144, "up": 1677223, "type": "heartbeat"}
+[ 747.4s] # DBG serve: clients=0 stations=0 gc_free=56592 idf_free=28908 idf_largest=16384 polls=89
+[ 749.4s] # DBG serve: clients=0 stations=0 gc_free=55008 idf_free=28908 idf_largest=16384 polls=89
+[ 751.4s] # DBG serve: clients=0 stations=0 gc_free=56704 idf_free=28908 idf_largest=16384 polls=89
+[ 751.4s] {"mem": 56720, "up": 1682248, "type": "heartbeat"}
+[ 753.4s] # DBG serve: clients=0 stations=0 gc_free=55136 idf_free=28908 idf_largest=16384 polls=89
+[ 755.4s] # DBG serve: clients=0 stations=0 gc_free=56752 idf_free=28908 idf_largest=16384 polls=89
+[ 756.4s] {"mem": 54656, "up": 1687264, "type": "heartbeat"}
+[ 757.4s] # DBG serve: clients=0 stations=0 gc_free=55200 idf_free=28908 idf_largest=16384 polls=89
+[ 759.4s] # DBG serve: clients=0 stations=0 gc_free=56848 idf_free=28908 idf_largest=16384 polls=89
+[ 761.4s] # DBG serve: clients=0 stations=0 gc_free=55152 idf_free=28908 idf_largest=16384 polls=90
+[ 761.4s] {"mem": 55184, "up": 1692282, "type": "heartbeat"}
+[ 763.4s] # DBG serve: clients=0 stations=0 gc_free=56864 idf_free=28908 idf_largest=16384 polls=89
+[ 765.4s] # DBG serve: clients=0 stations=0 gc_free=55152 idf_free=28908 idf_largest=16384 polls=90
+[ 766.4s] {"mem": 56496, "up": 1697292, "type": "heartbeat"}
+[ 767.4s] # DBG serve: clients=0 stations=0 gc_free=56752 idf_free=28908 idf_largest=16384 polls=89
+[ 769.4s] # DBG serve: clients=0 stations=0 gc_free=55232 idf_free=28908 idf_largest=16384 polls=89
+[ 771.4s] {"mem": 57376, "up": 1702315, "type": "heartbeat"}
+[ 771.5s] # DBG serve: clients=0 stations=0 gc_free=56736 idf_free=28908 idf_largest=16384 polls=89
+[ 773.5s] # DBG serve: clients=0 stations=0 gc_free=55264 idf_free=28908 idf_largest=16384 polls=89
+[ 775.5s] # DBG serve: clients=0 stations=0 gc_free=56960 idf_free=28908 idf_largest=16384 polls=89
+[ 776.4s] {"mem": 55152, "up": 1707322, "type": "heartbeat"}
+[ 777.5s] # DBG serve: clients=0 stations=0 gc_free=55392 idf_free=28908 idf_largest=16384 polls=89
+[ 779.5s] # DBG serve: clients=0 stations=0 gc_free=56960 idf_free=28908 idf_largest=16384 polls=90
+[ 781.4s] {"mem": 56192, "up": 1712323, "type": "heartbeat"}
+[ 781.5s] # DBG serve: clients=0 stations=0 gc_free=55312 idf_free=28908 idf_largest=16384 polls=89
+[ 783.5s] # DBG serve: clients=0 stations=0 gc_free=57008 idf_free=28908 idf_largest=16384 polls=89
+[ 785.5s] # DBG serve: clients=0 stations=0 gc_free=55456 idf_free=28908 idf_largest=16384 polls=90
+[ 786.5s] {"mem": 57024, "up": 1717344, "type": "heartbeat"}
+[ 787.5s] # DBG serve: clients=0 stations=0 gc_free=57008 idf_free=28908 idf_largest=16384 polls=89
+[ 789.5s] # DBG serve: clients=0 stations=0 gc_free=55568 idf_free=28908 idf_largest=16384 polls=89
+[ 791.5s] {"mem": 54768, "up": 1722361, "type": "heartbeat"}
+[ 791.5s] # DBG serve: clients=0 stations=0 gc_free=53888 idf_free=28908 idf_largest=16384 polls=89
+[ 793.6s] # DBG serve: clients=0 stations=0 gc_free=55648 idf_free=28908 idf_largest=16384 polls=89
+[ 795.6s] # DBG serve: clients=0 stations=0 gc_free=54128 idf_free=28908 idf_largest=16384 polls=89
+[ 796.5s] {"mem": 55712, "up": 1727368, "type": "heartbeat"}
+[ 797.6s] # DBG serve: clients=0 stations=0 gc_free=55744 idf_free=28908 idf_largest=16384 polls=89
+[ 799.6s] # DBG serve: clients=0 stations=0 gc_free=54112 idf_free=28908 idf_largest=16384 polls=90
+[ 801.5s] {"mem": 56752, "up": 1732378, "type": "heartbeat"}
+[ 801.6s] # DBG serve: clients=0 stations=0 gc_free=55632 idf_free=28908 idf_largest=16384 polls=89
+[ 803.6s] # DBG serve: clients=0 stations=0 gc_free=54128 idf_free=28908 idf_largest=16384 polls=90
+[ 805.6s] # DBG serve: clients=0 stations=0 gc_free=55760 idf_free=28908 idf_largest=16384 polls=89
+[ 806.5s] {"mem": 54416, "up": 1737394, "type": "heartbeat"}
+[ 807.6s] # DBG serve: clients=0 stations=0 gc_free=54240 idf_free=28908 idf_largest=16384 polls=89
+[ 809.7s] # DBG serve: clients=0 stations=0 gc_free=55872 idf_free=28908 idf_largest=16384 polls=89
+[ 811.5s] {"mem": 55456, "up": 1742407, "type": "heartbeat"}
+[ 811.7s] # DBG serve: clients=0 stations=0 gc_free=54208 idf_free=28908 idf_largest=16384 polls=89
+[ 813.7s] # DBG serve: clients=0 stations=0 gc_free=55984 idf_free=28908 idf_largest=16384 polls=89
+[ 815.7s] # DBG serve: clients=0 stations=0 gc_free=54320 idf_free=28908 idf_largest=16384 polls=90
+[ 816.5s] {"mem": 56368, "up": 1747409, "type": "heartbeat"}
+[ 817.7s] # DBG serve: clients=0 stations=0 gc_free=55968 idf_free=28908 idf_largest=16384 polls=89
+[ 819.7s] # DBG serve: clients=0 stations=0 gc_free=54416 idf_free=28908 idf_largest=16384 polls=89
+[ 821.5s] {"mem": 57440, "up": 1752412, "type": "heartbeat"}
+[ 821.7s] # DBG serve: clients=0 stations=0 gc_free=55936 idf_free=28908 idf_largest=16384 polls=89
+[ 823.7s] # DBG serve: clients=0 stations=0 gc_free=54512 idf_free=28908 idf_largest=16384 polls=89
+[ 825.7s] # DBG serve: clients=0 stations=0 gc_free=56144 idf_free=28908 idf_largest=16384 polls=89
+[ 826.5s] {"mem": 55168, "up": 1757417, "type": "heartbeat"}
+[ 827.7s] # DBG serve: clients=0 stations=0 gc_free=54592 idf_free=28908 idf_largest=16384 polls=89
+[ 829.7s] # DBG serve: clients=0 stations=0 gc_free=56224 idf_free=28908 idf_largest=16384 polls=89
+[ 831.5s] {"mem": 56208, "up": 1762429, "type": "heartbeat"}
+[ 831.7s] # DBG serve: clients=0 stations=0 gc_free=54576 idf_free=28908 idf_largest=16384 polls=89
+[ 833.8s] # DBG serve: clients=0 stations=0 gc_free=56304 idf_free=28908 idf_largest=16384 polls=89
+[ 835.8s] # DBG serve: clients=0 stations=0 gc_free=54640 idf_free=28908 idf_largest=16384 polls=90
+[ 836.6s] {"mem": 57120, "up": 1767436, "type": "heartbeat"}
+[ 837.8s] # DBG serve: clients=0 stations=0 gc_free=56272 idf_free=28908 idf_largest=16384 polls=89
+[ 839.8s] # DBG serve: clients=0 stations=0 gc_free=54768 idf_free=28908 idf_largest=16384 polls=89
+[ 841.6s] {"mem": 54832, "up": 1772455, "type": "heartbeat"}
+[ 841.8s] # DBG serve: clients=0 stations=0 gc_free=56384 idf_free=28908 idf_largest=16384 polls=89
+[ 843.8s] # DBG serve: clients=0 stations=0 gc_free=54880 idf_free=28908 idf_largest=16384 polls=89
+[ 845.8s] # DBG serve: clients=0 stations=0 gc_free=56512 idf_free=28908 idf_largest=16384 polls=89
+[ 846.6s] {"mem": 55776, "up": 1777464, "type": "heartbeat"}
+[ 847.8s] # DBG serve: clients=0 stations=0 gc_free=54976 idf_free=28908 idf_largest=16384 polls=89
+[ 849.8s] # DBG serve: clients=0 stations=0 gc_free=56592 idf_free=28908 idf_largest=16384 polls=89
+[ 851.6s] {"mem": 56816, "up": 1782469, "type": "heartbeat"}
+[ 851.8s] # DBG serve: clients=0 stations=0 gc_free=54944 idf_free=28908 idf_largest=16384 polls=89
+[ 853.8s] # DBG serve: clients=0 stations=0 gc_free=56688 idf_free=28908 idf_largest=16384 polls=89
+[ 855.8s] # DBG serve: clients=0 stations=0 gc_free=55152 idf_free=28908 idf_largest=16384 polls=89
+[ 856.6s] {"mem": 54416, "up": 1787491, "type": "heartbeat"}
+[ 857.9s] # DBG serve: clients=0 stations=0 gc_free=56800 idf_free=28568 idf_largest=16384 polls=89
+[ 859.9s] # DBG serve: clients=0 stations=0 gc_free=55136 idf_free=28908 idf_largest=16384 polls=90
+[ 861.6s] {"mem": 55456, "up": 1792492, "type": "heartbeat"}
+[ 861.9s] # DBG serve: clients=0 stations=0 gc_free=56752 idf_free=28908 idf_largest=16384 polls=89
+[ 863.9s] # DBG serve: clients=0 stations=0 gc_free=55232 idf_free=28908 idf_largest=16384 polls=89
+[ 865.9s] # DBG serve: clients=0 stations=0 gc_free=56848 idf_free=28908 idf_largest=16384 polls=89
+[ 866.6s] {"mem": 56352, "up": 1797501, "type": "heartbeat"}
+[ 867.9s] # DBG serve: clients=0 stations=0 gc_free=55312 idf_free=28908 idf_largest=16384 polls=89
+[ 869.9s] # DBG serve: clients=0 stations=0 gc_free=56992 idf_free=28908 idf_largest=16384 polls=89
+[ 871.6s] {"mem": 57440, "up": 1802503, "type": "heartbeat"}
+[ 871.9s] # DBG serve: clients=0 stations=0 gc_free=55312 idf_free=28908 idf_largest=16384 polls=89
+[ 873.9s] # DBG serve: clients=0 stations=0 gc_free=56992 idf_free=28908 idf_largest=16384 polls=89
+[ 875.9s] # DBG serve: clients=0 stations=0 gc_free=55552 idf_free=28908 idf_largest=16384 polls=89
+[ 876.6s] {"mem": 55200, "up": 1807505, "type": "heartbeat"}
+[ 877.9s] # DBG serve: clients=0 stations=0 gc_free=54000 idf_free=28908 idf_largest=16384 polls=89
+[ 879.9s] # DBG serve: clients=0 stations=0 gc_free=55696 idf_free=28908 idf_largest=16384 polls=89
+[ 881.6s] {"mem": 56256, "up": 1812511, "type": "heartbeat"}
+[ 881.9s] # DBG serve: clients=0 stations=0 gc_free=54016 idf_free=28908 idf_largest=16384 polls=89
+[ 883.9s] # DBG serve: clients=0 stations=0 gc_free=55760 idf_free=28908 idf_largest=16384 polls=89
+[ 886.0s] # DBG serve: clients=0 stations=0 gc_free=54128 idf_free=28568 idf_largest=16384 polls=90
+[ 886.6s] {"mem": 57248, "up": 1817515, "type": "heartbeat"}
+[ 888.0s] # DBG serve: clients=0 stations=0 gc_free=55776 idf_free=28908 idf_largest=16384 polls=89
+[ 890.0s] # DBG serve: clients=0 stations=0 gc_free=54272 idf_free=28908 idf_largest=16384 polls=89
+[ 891.6s] {"mem": 55008, "up": 1822532, "type": "heartbeat"}
+[ 892.0s] # DBG serve: clients=0 stations=0 gc_free=55888 idf_free=28908 idf_largest=16384 polls=89
+[ 894.0s] # DBG serve: clients=0 stations=0 gc_free=54368 idf_free=28908 idf_largest=16384 polls=89
+[ 896.0s] # DBG serve: clients=0 stations=0 gc_free=56064 idf_free=28908 idf_largest=16384 polls=89
+[ 896.7s] {"mem": 55968, "up": 1827541, "type": "heartbeat"}
+[ 898.0s] # DBG serve: clients=0 stations=0 gc_free=54480 idf_free=28908 idf_largest=16384 polls=89
+[ 900.0s] # DBG serve: clients=0 stations=0 gc_free=56176 idf_free=28908 idf_largest=16384 polls=89
+[ 901.7s] {"mem": 56992, "up": 1832548, "type": "heartbeat"}
+[ 902.0s] # DBG serve: clients=0 stations=0 gc_free=54512 idf_free=28908 idf_largest=16384 polls=89
+[ 904.0s] # DBG serve: clients=0 stations=0 gc_free=56256 idf_free=28908 idf_largest=16384 polls=89
+[ 906.0s] # DBG serve: clients=0 stations=0 gc_free=54752 idf_free=28908 idf_largest=16384 polls=89
+[ 906.7s] {"mem": 54768, "up": 1837562, "type": "heartbeat"}
+[ 908.1s] # DBG serve: clients=0 stations=0 gc_free=56368 idf_free=28908 idf_largest=16384 polls=89
+[ 910.1s] # DBG serve: clients=0 stations=0 gc_free=54720 idf_free=28908 idf_largest=16384 polls=90
+[ 911.7s] {"mem": 55776, "up": 1842569, "type": "heartbeat"}
+[ 912.1s] # DBG serve: clients=0 stations=0 gc_free=56368 idf_free=28908 idf_largest=16384 polls=89
+[ 914.1s] # DBG serve: clients=0 stations=0 gc_free=54688 idf_free=28908 idf_largest=16384 polls=90
+[ 916.1s] # DBG serve: clients=0 stations=0 gc_free=56368 idf_free=28908 idf_largest=16384 polls=89
+[ 916.7s] {"mem": 56736, "up": 1847581, "type": "heartbeat"}
+[ 918.1s] # DBG serve: clients=0 stations=0 gc_free=54704 idf_free=28908 idf_largest=16384 polls=90
+[ 920.2s] # DBG serve: clients=0 stations=0 gc_free=56336 idf_free=28908 idf_largest=16384 polls=89
+[ 921.7s] {"mem": 54464, "up": 1852588, "type": "heartbeat"}
+[ 922.2s] # DBG serve: clients=0 stations=0 gc_free=54768 idf_free=28908 idf_largest=16384 polls=89
+[ 924.2s] # DBG serve: clients=0 stations=0 gc_free=56432 idf_free=28908 idf_largest=16384 polls=89
+[ 926.2s] # DBG serve: clients=0 stations=0 gc_free=54784 idf_free=28908 idf_largest=16384 polls=90
+[ 926.7s] {"mem": 55344, "up": 1857599, "type": "heartbeat"}
+[ 928.2s] # DBG serve: clients=0 stations=0 gc_free=56432 idf_free=28908 idf_largest=16384 polls=89
+[ 930.2s] # DBG serve: clients=0 stations=0 gc_free=54752 idf_free=28908 idf_largest=16384 polls=90
+[ 931.7s] {"mem": 56480, "up": 1862605, "type": "heartbeat"}
+[ 932.2s] # DBG serve: clients=0 stations=0 gc_free=56384 idf_free=28908 idf_largest=16384 polls=89
+[ 934.3s] # DBG serve: clients=0 stations=0 gc_free=54768 idf_free=28908 idf_largest=16384 polls=90
+[ 936.3s] # DBG serve: clients=0 stations=0 gc_free=56432 idf_free=28908 idf_largest=16384 polls=89
+[ 936.7s] {"mem": 57440, "up": 1867606, "type": "heartbeat"}
+[ 938.3s] # DBG serve: clients=0 stations=0 gc_free=54736 idf_free=28908 idf_largest=16384 polls=90
+[ 940.3s] # DBG serve: clients=0 stations=0 gc_free=56368 idf_free=28908 idf_largest=16384 polls=89
+[ 941.7s] {"mem": 55104, "up": 1872614, "type": "heartbeat"}
+[ 942.3s] # DBG serve: clients=0 stations=0 gc_free=54832 idf_free=28908 idf_largest=16384 polls=89
+[ 944.3s] # DBG serve: clients=0 stations=0 gc_free=56480 idf_free=28908 idf_largest=16384 polls=89
+[ 946.3s] # DBG serve: clients=0 stations=0 gc_free=54784 idf_free=28908 idf_largest=16384 polls=90
+[ 946.7s] {"mem": 56080, "up": 1877615, "type": "heartbeat"}
+[ 948.3s] # DBG serve: clients=0 stations=0 gc_free=56464 idf_free=28908 idf_largest=16384 polls=89
+[ 950.3s] # DBG serve: clients=0 stations=0 gc_free=54944 idf_free=28908 idf_largest=16384 polls=89
+[ 951.7s] {"mem": 57104, "up": 1882624, "type": "heartbeat"}
+[ 952.3s] # DBG serve: clients=0 stations=0 gc_free=56576 idf_free=28908 idf_largest=16384 polls=89
+[ 954.4s] # DBG serve: clients=0 stations=0 gc_free=54896 idf_free=28908 idf_largest=16384 polls=90
+[ 956.4s] # DBG serve: clients=0 stations=0 gc_free=56560 idf_free=28908 idf_largest=16384 polls=89
+[ 956.8s] {"mem": 54480, "up": 1887643, "type": "heartbeat"}
+[ 958.4s] # DBG serve: clients=0 stations=0 gc_free=55008 idf_free=28908 idf_largest=16384 polls=89
+[ 960.4s] # DBG serve: clients=0 stations=0 gc_free=56640 idf_free=28908 idf_largest=16384 polls=89
+[ 961.8s] {"mem": 55760, "up": 1892648, "type": "heartbeat"}
+[ 962.4s] # DBG serve: clients=0 stations=0 gc_free=55072 idf_free=28908 idf_largest=16384 polls=89
+[ 964.4s] # DBG serve: clients=0 stations=0 gc_free=56720 idf_free=28908 idf_largest=16384 polls=89
+[ 966.4s] # DBG serve: clients=0 stations=0 gc_free=55072 idf_free=28908 idf_largest=16384 polls=90
+[ 966.8s] {"mem": 56640, "up": 1897653, "type": "heartbeat"}
+[ 968.4s] # DBG serve: clients=0 stations=0 gc_free=56688 idf_free=28908 idf_largest=16384 polls=89
+[ 970.4s] # DBG serve: clients=0 stations=0 gc_free=55136 idf_free=28908 idf_largest=16384 polls=89
+[ 971.8s] {"mem": 54400, "up": 1902674, "type": "heartbeat"}
+[ 972.5s] # DBG serve: clients=0 stations=0 gc_free=56752 idf_free=28908 idf_largest=16384 polls=89
+[ 974.5s] # DBG serve: clients=0 stations=0 gc_free=55232 idf_free=28908 idf_largest=16384 polls=89
+[ 976.5s] # DBG serve: clients=0 stations=0 gc_free=56864 idf_free=28908 idf_largest=16384 polls=89
+[ 976.8s] {"mem": 55040, "up": 1907683, "type": "heartbeat"}
+[ 978.5s] # DBG serve: clients=0 stations=0 gc_free=55312 idf_free=28908 idf_largest=16384 polls=89
+[ 980.5s] # DBG serve: clients=0 stations=0 gc_free=56976 idf_free=28908 idf_largest=16384 polls=89
+[ 981.8s] {"mem": 56336, "up": 1912685, "type": "heartbeat"}
+[ 982.5s] # DBG serve: clients=0 stations=0 gc_free=55440 idf_free=28908 idf_largest=16384 polls=89
+[ 984.5s] # DBG serve: clients=0 stations=0 gc_free=57008 idf_free=28908 idf_largest=16384 polls=89
+[ 986.5s] # DBG serve: clients=0 stations=0 gc_free=55552 idf_free=28908 idf_largest=16384 polls=89
+[ 986.8s] {"mem": 57184, "up": 1917707, "type": "heartbeat"}
+[ 988.5s] # DBG serve: clients=0 stations=0 gc_free=54000 idf_free=28908 idf_largest=16384 polls=89
+[ 990.5s] # DBG serve: clients=0 stations=0 gc_free=55648 idf_free=28908 idf_largest=16384 polls=89
+[ 991.8s] {"mem": 54896, "up": 1922715, "type": "heartbeat"}
+[ 992.5s] # DBG serve: clients=0 stations=0 gc_free=54096 idf_free=28908 idf_largest=16384 polls=89
+[ 994.5s] # DBG serve: clients=0 stations=0 gc_free=55760 idf_free=28908 idf_largest=16384 polls=89
+[ 996.5s] # DBG serve: clients=0 stations=0 gc_free=54112 idf_free=28908 idf_largest=16384 polls=90
+[ 996.8s] {"mem": 55904, "up": 1927717, "type": "heartbeat"}
+[ 998.5s] # DBG serve: clients=0 stations=0 gc_free=55808 idf_free=28908 idf_largest=16384 polls=89
+[1000.5s] # DBG serve: clients=0 stations=0 gc_free=54144 idf_free=28908 idf_largest=16384 polls=90
+[1001.9s] {"mem": 56816, "up": 1932738, "type": "heartbeat"}
+[1002.6s] # DBG serve: clients=0 stations=0 gc_free=55760 idf_free=28908 idf_largest=16384 polls=89
+[1004.6s] # DBG serve: clients=0 stations=0 gc_free=54272 idf_free=28908 idf_largest=16384 polls=89
+[1006.6s] # DBG serve: clients=0 stations=0 gc_free=55888 idf_free=28908 idf_largest=16384 polls=89
+[1006.9s] {"mem": 54304, "up": 1937745, "type": "heartbeat"}
+[1008.6s] # DBG serve: clients=0 stations=0 gc_free=54384 idf_free=28908 idf_largest=16384 polls=89
+[1010.6s] # DBG serve: clients=0 stations=0 gc_free=56016 idf_free=28908 idf_largest=16384 polls=89
+[1011.9s] {"mem": 55632, "up": 1942748, "type": "heartbeat"}
+[1012.6s] # DBG serve: clients=0 stations=0 gc_free=54352 idf_free=28908 idf_largest=16384 polls=90
+[1014.6s] # DBG serve: clients=0 stations=0 gc_free=56016 idf_free=28568 idf_largest=16384 polls=89
+[1016.6s] # DBG serve: clients=0 stations=0 gc_free=54512 idf_free=28908 idf_largest=16384 polls=89
+[1016.9s] {"mem": 56512, "up": 1947763, "type": "heartbeat"}
+[1018.6s] # DBG serve: clients=0 stations=0 gc_free=56112 idf_free=28908 idf_largest=16384 polls=89
+[1020.6s] # DBG serve: clients=0 stations=0 gc_free=54512 idf_free=28908 idf_largest=16384 polls=90
+[1021.9s] {"mem": 57392, "up": 1952787, "type": "heartbeat"}
+[1022.6s] # DBG serve: clients=0 stations=0 gc_free=56128 idf_free=28908 idf_largest=16384 polls=89
+[1024.6s] # DBG serve: clients=0 stations=0 gc_free=54576 idf_free=28908 idf_largest=16384 polls=89
+[1026.7s] # DBG serve: clients=0 stations=0 gc_free=56224 idf_free=28880 idf_largest=16384 polls=89
+[1026.9s] {"mem": 54896, "up": 1957791, "type": "heartbeat"}
+[1028.7s] # DBG serve: clients=0 stations=0 gc_free=54624 idf_free=28908 idf_largest=16384 polls=89
+[1030.7s] # DBG serve: clients=0 stations=0 gc_free=56304 idf_free=28908 idf_largest=16384 polls=89
+[1031.9s] {"mem": 56160, "up": 1962800, "type": "heartbeat"}
+[1032.7s] # DBG serve: clients=0 stations=0 gc_free=54752 idf_free=28908 idf_largest=16384 polls=89
+[1034.7s] # DBG serve: clients=0 stations=0 gc_free=56384 idf_free=28908 idf_largest=16384 polls=89
+[1036.7s] # DBG serve: clients=0 stations=0 gc_free=54768 idf_free=28908 idf_largest=16384 polls=90
+[1036.9s] {"mem": 57072, "up": 1967809, "type": "heartbeat"}
+[1038.7s] # DBG serve: clients=0 stations=0 gc_free=56368 idf_free=28908 idf_largest=16384 polls=89
+[1040.7s] # DBG serve: clients=0 stations=0 gc_free=54816 idf_free=28908 idf_largest=16384 polls=89
+[1041.9s] {"mem": 54784, "up": 1972828, "type": "heartbeat"}
+[1042.7s] # DBG serve: clients=0 stations=0 gc_free=56464 idf_free=28908 idf_largest=16384 polls=89
+[1044.7s] # DBG serve: clients=0 stations=0 gc_free=54944 idf_free=28908 idf_largest=16384 polls=89
+[1046.8s] # DBG serve: clients=0 stations=0 gc_free=56608 idf_free=28908 idf_largest=16384 polls=89
+[1047.0s] {"mem": 55520, "up": 1977840, "type": "heartbeat"}
+[1048.8s] # DBG serve: clients=0 stations=0 gc_free=54944 idf_free=28908 idf_largest=16384 polls=90
+[1050.8s] # DBG serve: clients=0 stations=0 gc_free=56576 idf_free=28908 idf_largest=16384 polls=89
+[1052.0s] {"mem": 56688, "up": 1982860, "type": "heartbeat"}
+[1052.8s] # DBG serve: clients=0 stations=0 gc_free=55024 idf_free=28908 idf_largest=16384 polls=89
+[1054.8s] # DBG serve: clients=0 stations=0 gc_free=56672 idf_free=28908 idf_largest=16384 polls=89
+[1056.8s] # DBG serve: clients=0 stations=0 gc_free=55120 idf_free=28908 idf_largest=16384 polls=89
+[1057.0s] {"mem": 54160, "up": 1987864, "type": "heartbeat"}
+[1058.8s] # DBG serve: clients=0 stations=0 gc_free=56736 idf_free=28908 idf_largest=16384 polls=89
+[1060.8s] # DBG serve: clients=0 stations=0 gc_free=55088 idf_free=28908 idf_largest=16384 polls=90
+[1062.0s] {"mem": 55328, "up": 1992880, "type": "heartbeat"}
+[1062.8s] # DBG serve: clients=0 stations=0 gc_free=56704 idf_free=28908 idf_largest=16384 polls=89
+[1064.8s] # DBG serve: clients=0 stations=0 gc_free=55184 idf_free=28908 idf_largest=16384 polls=89
+[1066.8s] # DBG serve: clients=0 stations=0 gc_free=56816 idf_free=28908 idf_largest=16384 polls=89
+[1067.0s] {"mem": 55984, "up": 1997890, "type": "heartbeat"}
+[1068.9s] # DBG serve: clients=0 stations=0 gc_free=55264 idf_free=28908 idf_largest=16384 polls=89
+[1070.9s] # DBG serve: clients=0 stations=0 gc_free=56928 idf_free=28908 idf_largest=16384 polls=89
+[1072.0s] {"mem": 57264, "up": 2002899, "type": "heartbeat"}
+[1072.9s] # DBG serve: clients=0 stations=0 gc_free=55376 idf_free=28908 idf_largest=16384 polls=89
+[1074.9s] # DBG serve: clients=0 stations=0 gc_free=57008 idf_free=28908 idf_largest=16384 polls=89
+[1076.9s] # DBG serve: clients=0 stations=0 gc_free=55504 idf_free=28908 idf_largest=16384 polls=89
+[1077.0s] {"mem": 54672, "up": 2007921, "type": "heartbeat"}
+[1078.9s] # DBG serve: clients=0 stations=0 gc_free=53952 idf_free=28908 idf_largest=16384 polls=89
+[1080.9s] # DBG serve: clients=0 stations=0 gc_free=55616 idf_free=28908 idf_largest=16384 polls=89
+[1082.0s] {"mem": 55968, "up": 2012922, "type": "heartbeat"}
+[1082.9s] # DBG serve: clients=0 stations=0 gc_free=53904 idf_free=28908 idf_largest=16384 polls=90
+[1084.9s] # DBG serve: clients=0 stations=0 gc_free=55600 idf_free=28908 idf_largest=16384 polls=89
+[1086.9s] # DBG serve: clients=0 stations=0 gc_free=53952 idf_free=28908 idf_largest=16384 polls=90
+[1087.1s] {"mem": 56832, "up": 2017942, "type": "heartbeat"}
+[1088.9s] # DBG serve: clients=0 stations=0 gc_free=55600 idf_free=28908 idf_largest=16384 polls=89
+[1090.9s] # DBG serve: clients=0 stations=0 gc_free=54080 idf_free=28908 idf_largest=16384 polls=89
+[1092.1s] {"mem": 54528, "up": 2022959, "type": "heartbeat"}
+[1093.0s] # DBG serve: clients=0 stations=0 gc_free=55696 idf_free=28908 idf_largest=16384 polls=89
+[1095.0s] # DBG serve: clients=0 stations=0 gc_free=54080 idf_free=28908 idf_largest=16384 polls=90
+[1097.0s] # DBG serve: clients=0 stations=0 gc_free=55760 idf_free=28908 idf_largest=16384 polls=89
+[1097.1s] {"mem": 55296, "up": 2027962, "type": "heartbeat"}
+[1099.0s] # DBG serve: clients=0 stations=0 gc_free=54080 idf_free=28908 idf_largest=16384 polls=90
+[1101.0s] # DBG serve: clients=0 stations=0 gc_free=55744 idf_free=28908 idf_largest=16384 polls=89
+[1102.1s] {"mem": 56480, "up": 2032984, "type": "heartbeat"}
+[1103.0s] # DBG serve: clients=0 stations=0 gc_free=54160 idf_free=28908 idf_largest=16384 polls=89
+[1105.0s] # DBG serve: clients=0 stations=0 gc_free=55824 idf_free=28908 idf_largest=16384 polls=89
+[1107.0s] # DBG serve: clients=0 stations=0 gc_free=54208 idf_free=28908 idf_largest=16384 polls=90
+[1107.1s] {"mem": 57328, "up": 2038006, "type": "heartbeat"}
+[1109.1s] # DBG serve: clients=0 stations=0 gc_free=55840 idf_free=28908 idf_largest=16384 polls=89
+[1111.1s] # DBG serve: clients=0 stations=0 gc_free=54192 idf_free=28908 idf_largest=16384 polls=90
+[1112.1s] {"mem": 55040, "up": 2043013, "type": "heartbeat"}
+[1113.1s] # DBG serve: clients=0 stations=0 gc_free=55824 idf_free=28908 idf_largest=16384 polls=89
+[1115.1s] # DBG serve: clients=0 stations=0 gc_free=54320 idf_free=28908 idf_largest=16384 polls=89
+[1117.1s] # DBG serve: clients=0 stations=0 gc_free=55984 idf_free=28908 idf_largest=16384 polls=89
+[1117.1s] {"mem": 55776, "up": 2048026, "type": "heartbeat"}
+[1119.1s] # DBG serve: clients=0 stations=0 gc_free=54416 idf_free=28908 idf_largest=16384 polls=89
+[1121.1s] # DBG serve: clients=0 stations=0 gc_free=56080 idf_free=28908 idf_largest=16384 polls=89
+[1122.1s] {"mem": 56960, "up": 2053035, "type": "heartbeat"}
+[1123.1s] # DBG serve: clients=0 stations=0 gc_free=54400 idf_free=28228 idf_largest=16384 polls=90
+[1125.1s] # DBG serve: clients=0 stations=0 gc_free=56096 idf_free=28908 idf_largest=16384 polls=89
+[1127.1s] # DBG serve: clients=0 stations=0 gc_free=54448 idf_free=28908 idf_largest=16384 polls=90
+[1127.2s] {"mem": 54352, "up": 2058058, "type": "heartbeat"}
+[1129.2s] # DBG serve: clients=0 stations=0 gc_free=56064 idf_free=28908 idf_largest=16384 polls=89
+[1131.2s] # DBG serve: clients=0 stations=0 gc_free=54448 idf_free=28908 idf_largest=16384 polls=90
+[1132.2s] {"mem": 55568, "up": 2063073, "type": "heartbeat"}
+[1133.2s] # DBG serve: clients=0 stations=0 gc_free=56112 idf_free=28908 idf_largest=16384 polls=89
+[1135.2s] # DBG serve: clients=0 stations=0 gc_free=54592 idf_free=28908 idf_largest=16384 polls=89
+[1137.2s] # DBG serve: clients=0 stations=0 gc_free=56240 idf_free=28908 idf_largest=16384 polls=89
+[1137.2s] {"mem": 56272, "up": 2068075, "type": "heartbeat"}
+[1139.2s] # DBG serve: clients=0 stations=0 gc_free=54704 idf_free=28908 idf_largest=16384 polls=89
+[1141.2s] # DBG serve: clients=0 stations=0 gc_free=56368 idf_free=28908 idf_largest=16384 polls=89
+[1142.2s] {"mem": 54256, "up": 2073090, "type": "heartbeat"}
+[1143.2s] # DBG serve: clients=0 stations=0 gc_free=54768 idf_free=28908 idf_largest=16384 polls=89
+[1145.2s] # DBG serve: clients=0 stations=0 gc_free=56432 idf_free=28908 idf_largest=16384 polls=89
+[1147.2s] {"mem": 55264, "up": 2078105, "type": "heartbeat"}
+[1147.2s] # DBG serve: clients=0 stations=0 gc_free=54624 idf_free=28908 idf_largest=16384 polls=90
+[1149.3s] # DBG serve: clients=0 stations=0 gc_free=56384 idf_free=28908 idf_largest=16384 polls=89
+[1151.3s] # DBG serve: clients=0 stations=0 gc_free=54880 idf_free=28908 idf_largest=16384 polls=89
+[1152.2s] {"mem": 56208, "up": 2083110, "type": "heartbeat"}
+[1153.3s] # DBG serve: clients=0 stations=0 gc_free=56496 idf_free=28908 idf_largest=16384 polls=89
+[1155.3s] # DBG serve: clients=0 stations=0 gc_free=54864 idf_free=28908 idf_largest=16384 polls=90
+[1157.2s] {"mem": 57136, "up": 2088126, "type": "heartbeat"}
+[1157.3s] # DBG serve: clients=0 stations=0 gc_free=56384 idf_free=28908 idf_largest=16384 polls=89
+[1159.3s] # DBG serve: clients=0 stations=0 gc_free=54976 idf_free=28908 idf_largest=16384 polls=89
+[1161.3s] # DBG serve: clients=0 stations=0 gc_free=56624 idf_free=28908 idf_largest=16384 polls=89
+[1162.2s] {"mem": 54864, "up": 2093130, "type": "heartbeat"}
+[1163.3s] # DBG serve: clients=0 stations=0 gc_free=55024 idf_free=28568 idf_largest=16384 polls=89
+[1165.3s] # DBG serve: clients=0 stations=0 gc_free=56688 idf_free=28908 idf_largest=16384 polls=89
+[1167.3s] {"mem": 55872, "up": 2098138, "type": "heartbeat"}
+[1167.3s] # DBG serve: clients=0 stations=0 gc_free=54992 idf_free=28908 idf_largest=16384 polls=89
+[1169.3s] # DBG serve: clients=0 stations=0 gc_free=56752 idf_free=28908 idf_largest=16384 polls=89
+[1171.3s] # DBG serve: clients=0 stations=0 gc_free=55248 idf_free=28908 idf_largest=16384 polls=89
+[1172.3s] {"mem": 56816, "up": 2103143, "type": "heartbeat"}
+[1173.3s] # DBG serve: clients=0 stations=0 gc_free=56864 idf_free=28908 idf_largest=16384 polls=89
+[1175.3s] # DBG serve: clients=0 stations=0 gc_free=55312 idf_free=28908 idf_largest=16384 polls=89
+[1177.3s] {"mem": 54528, "up": 2108155, "type": "heartbeat"}
+[1177.3s] # DBG serve: clients=0 stations=0 gc_free=56944 idf_free=28908 idf_largest=16384 polls=89
+[1179.4s] # DBG serve: clients=0 stations=0 gc_free=55312 idf_free=28908 idf_largest=16384 polls=90
+[1181.4s] # DBG serve: clients=0 stations=0 gc_free=56992 idf_free=28908 idf_largest=16384 polls=89
+[1182.3s] {"mem": 55376, "up": 2113170, "type": "heartbeat"}
+[1183.4s] # DBG serve: clients=0 stations=0 gc_free=55328 idf_free=28568 idf_largest=16384 polls=90
+[1185.4s] # DBG serve: clients=0 stations=0 gc_free=56992 idf_free=28908 idf_largest=16384 polls=89
+[1187.3s] {"mem": 56320, "up": 2118192, "type": "heartbeat"}
+[1187.4s] # DBG serve: clients=0 stations=0 gc_free=55312 idf_free=28908 idf_largest=16384 polls=89
+[1189.4s] # DBG serve: clients=0 stations=0 gc_free=57008 idf_free=28908 idf_largest=16384 polls=89
+[1191.4s] # DBG serve: clients=0 stations=0 gc_free=55552 idf_free=28908 idf_largest=16384 polls=89
+[1192.3s] {"mem": 57264, "up": 2123196, "type": "heartbeat"}
+[1193.4s] # DBG serve: clients=0 stations=0 gc_free=53968 idf_free=28908 idf_largest=16384 polls=89
+[1195.4s] # DBG serve: clients=0 stations=0 gc_free=55648 idf_free=28908 idf_largest=16384 polls=89
+[1197.3s] {"mem": 55024, "up": 2128208, "type": "heartbeat"}
+[1197.4s] # DBG serve: clients=0 stations=0 gc_free=54016 idf_free=28908 idf_largest=16384 polls=89
+[1199.4s] # DBG serve: clients=0 stations=0 gc_free=55744 idf_free=28908 idf_largest=16384 polls=89
+[1201.4s] # DBG serve: clients=0 stations=0 gc_free=54144 idf_free=28908 idf_largest=16384 polls=90
+[1202.3s] {"mem": 55824, "up": 2133227, "type": "heartbeat"}
+[1203.4s] # DBG serve: clients=0 stations=0 gc_free=55744 idf_free=28908 idf_largest=16384 polls=89
+[1205.5s] # DBG serve: clients=0 stations=0 gc_free=54080 idf_free=28908 idf_largest=16384 polls=90
+[1207.3s] {"mem": 56880, "up": 2138232, "type": "heartbeat"}
+[1207.5s] # DBG serve: clients=0 stations=0 gc_free=55616 idf_free=28908 idf_largest=16384 polls=89
+[1209.5s] # DBG serve: clients=0 stations=0 gc_free=54080 idf_free=28908 idf_largest=16384 polls=90
+[1211.5s] # DBG serve: clients=0 stations=0 gc_free=55728 idf_free=28908 idf_largest=16384 polls=89
+[1212.4s] {"mem": 54544, "up": 2143245, "type": "heartbeat"}
+[1213.5s] # DBG serve: clients=0 stations=0 gc_free=54096 idf_free=28908 idf_largest=16384 polls=90
+[1215.5s] # DBG serve: clients=0 stations=0 gc_free=55760 idf_free=28908 idf_largest=16384 polls=89
+[1217.4s] {"mem": 55520, "up": 2148257, "type": "heartbeat"}
+[1217.5s] # DBG serve: clients=0 stations=0 gc_free=54144 idf_free=28908 idf_largest=16384 polls=89
+[1219.5s] # DBG serve: clients=0 stations=0 gc_free=55872 idf_free=28908 idf_largest=16384 polls=89
+[1221.5s] # DBG serve: clients=0 stations=0 gc_free=54368 idf_free=28908 idf_largest=16384 polls=89
+[1222.4s] {"mem": 56464, "up": 2153263, "type": "heartbeat"}
+[1223.5s] # DBG serve: clients=0 stations=0 gc_free=56000 idf_free=28908 idf_largest=16384 polls=89
+[1225.6s] # DBG serve: clients=0 stations=0 gc_free=54464 idf_free=28908 idf_largest=16384 polls=89
+[1227.4s] {"mem": 57392, "up": 2158280, "type": "heartbeat"}
+[1227.6s] # DBG serve: clients=0 stations=0 gc_free=56000 idf_free=28908 idf_largest=16384 polls=89
+[1229.6s] # DBG serve: clients=0 stations=0 gc_free=54448 idf_free=28908 idf_largest=16384 polls=90
+[1231.6s] # DBG serve: clients=0 stations=0 gc_free=56080 idf_free=28568 idf_largest=16384 polls=89
+[1232.4s] {"mem": 55136, "up": 2163283, "type": "heartbeat"}
+[1233.6s] # DBG serve: clients=0 stations=0 gc_free=54528 idf_free=28908 idf_largest=16384 polls=89
+[1235.6s] # DBG serve: clients=0 stations=0 gc_free=56176 idf_free=28908 idf_largest=16384 polls=89
+[1237.4s] {"mem": 56096, "up": 2168285, "type": "heartbeat"}
+[1237.6s] # DBG serve: clients=0 stations=0 gc_free=54464 idf_free=28908 idf_largest=16384 polls=89
+[1239.6s] # DBG serve: clients=0 stations=0 gc_free=56256 idf_free=28908 idf_largest=16384 polls=89
+[1241.6s] # DBG serve: clients=0 stations=0 gc_free=54768 idf_free=28908 idf_largest=16384 polls=89
+[1242.4s] {"mem": 57120, "up": 2173297, "type": "heartbeat"}
+[1243.6s] # DBG serve: clients=0 stations=0 gc_free=56368 idf_free=28908 idf_largest=16384 polls=89
+[1245.6s] # DBG serve: clients=0 stations=0 gc_free=54880 idf_free=28908 idf_largest=16384 polls=89
+[1247.4s] {"mem": 54832, "up": 2178317, "type": "heartbeat"}
+[1247.6s] # DBG serve: clients=0 stations=0 gc_free=56512 idf_free=28908 idf_largest=16384 polls=89
+[1249.6s] # DBG serve: clients=0 stations=0 gc_free=55008 idf_free=28908 idf_largest=16384 polls=89
+[1251.7s] # DBG serve: clients=0 stations=0 gc_free=56624 idf_free=28908 idf_largest=16384 polls=89
+[1252.4s] {"mem": 55776, "up": 2183329, "type": "heartbeat"}
+[1253.7s] # DBG serve: clients=0 stations=0 gc_free=55104 idf_free=28908 idf_largest=16384 polls=89
+[1255.7s] # DBG serve: clients=0 stations=0 gc_free=56736 idf_free=28908 idf_largest=16384 polls=89
+[1257.5s] {"mem": 56688, "up": 2188348, "type": "heartbeat"}
+[1257.7s] # DBG serve: clients=0 stations=0 gc_free=55072 idf_free=28908 idf_largest=16384 polls=89
+[1259.7s] # DBG serve: clients=0 stations=0 gc_free=56864 idf_free=28908 idf_largest=16384 polls=89
+[1261.7s] # DBG serve: clients=0 stations=0 gc_free=55184 idf_free=28908 idf_largest=16384 polls=90
+[1262.5s] {"mem": 54288, "up": 2193367, "type": "heartbeat"}
+[1263.7s] # DBG serve: clients=0 stations=0 gc_free=56816 idf_free=28908 idf_largest=16384 polls=89
+[1265.7s] # DBG serve: clients=0 stations=0 gc_free=55248 idf_free=28908 idf_largest=16384 polls=89
+[1267.5s] {"mem": 55248, "up": 2198388, "type": "heartbeat"}
+[1267.7s] # DBG serve: clients=0 stations=0 gc_free=56928 idf_free=28908 idf_largest=16384 polls=89
+[1269.7s] # DBG serve: clients=0 stations=0 gc_free=55248 idf_free=28908 idf_largest=16384 polls=90
+[1271.7s] # DBG serve: clients=0 stations=0 gc_free=56928 idf_free=28908 idf_largest=16384 polls=89
+[1272.5s] {"mem": 56208, "up": 2203394, "type": "heartbeat"}
+[1273.7s] # DBG serve: clients=0 stations=0 gc_free=55360 idf_free=28908 idf_largest=16384 polls=89
+[1275.0s] # monitor: port dropped (read failed: [Errno 6] Device not configured) -- retrying
+[1276.0s] # monitor: port dropped ([Errno 2] could not open port /dev/cu.usbmodem3101: [Errno 2] No such file or directory: '/dev/cu.usbmodem3101') -- retrying
+[1277.0s] # monitor: port dropped ([Errno 2] could not open port /dev/cu.usbmodem3101: [Errno 2] No such file or directory: '/dev/cu.usbmodem3101') -- retrying
+[1278.0s] # monitor: port dropped ([Errno 2] could not open port /dev/cu.usbmodem3101: [Errno 2] No such file or directory: '/dev/cu.usbmodem3101') -- retrying
+[1279.0s] # monitor: port dropped ([Errno 2] could not open port /dev/cu.usbmodem3101: [Errno 2] No such file or directory: '/dev/cu.usbmodem3101') -- retrying
+[1280.0s] # monitor: port dropped ([Errno 2] could not open port /dev/cu.usbmodem3101: [Errno 2] No such file or directory: '/dev/cu.usbmodem3101') -- retrying
+[1281.0s] # monitor: port dropped ([Errno 2] could not open port /dev/cu.usbmodem3101: [Errno 2] No such file or directory: '/dev/cu.usbmodem3101') -- retrying
+[1282.0s] # monitor: port dropped ([Errno 2] could not open port /dev/cu.usbmodem3101: [Errno 2] No such file or directory: '/dev/cu.usbmodem3101') -- retrying
+[1283.0s] # monitor: port dropped ([Errno 2] could not open port /dev/cu.usbmodem3101: [Errno 2] No such file or directory: '/dev/cu.usbmodem3101') -- retrying
+[1284.0s] # monitor: port dropped ([Errno 2] could not open port /dev/cu.usbmodem3101: [Errno 2] No such file or directory: '/dev/cu.usbmodem3101') -- retrying
+[1285.0s] # monitor: port dropped ([Errno 2] could not open port /dev/cu.usbmodem3101: [Errno 2] No such file or directory: '/dev/cu.usbmodem3101') -- retrying
+[1286.1s] # monitor: port dropped ([Errno 2] could not open port /dev/cu.usbmodem3101: [Errno 2] No such file or directory: '/dev/cu.usbmodem3101') -- retrying
+[1287.1s] # monitor: port dropped ([Errno 2] could not open port /dev/cu.usbmodem3101: [Errno 2] No such file or directory: '/dev/cu.usbmodem3101') -- retrying
+[1288.1s] # monitor: port dropped ([Errno 2] could not open port /dev/cu.usbmodem3101: [Errno 2] No such file or directory: '/dev/cu.usbmodem3101') -- retrying
+[1289.1s] # monitor: port dropped ([Errno 2] could not open port /dev/cu.usbmodem3101: [Errno 2] No such file or directory: '/dev/cu.usbmodem3101') -- retrying
+[1290.1s] # monitor: port dropped ([Errno 2] could not open port /dev/cu.usbmodem3101: [Errno 2] No such file or directory: '/dev/cu.usbmodem3101') -- retrying
+[1291.1s] # monitor: port dropped ([Errno 2] could not open port /dev/cu.usbmodem3101: [Errno 2] No such file or directory: '/dev/cu.usbmodem3101') -- retrying
+[1292.1s] # monitor: port dropped ([Errno 2] could not open port /dev/cu.usbmodem3101: [Errno 2] No such file or directory: '/dev/cu.usbmodem3101') -- retrying
+[1293.1s] # monitor: port dropped ([Errno 2] could not open port /dev/cu.usbmodem3101: [Errno 2] No such file or directory: '/dev/cu.usbmodem3101') -- retrying
+[1294.1s] # monitor: port dropped ([Errno 2] could not open port /dev/cu.usbmodem3101: [Errno 2] No such file or directory: '/dev/cu.usbmodem3101') -- retrying
+[1295.1s] # monitor: port dropped ([Errno 2] could not open port /dev/cu.usbmodem3101: [Errno 2] No such file or directory: '/dev/cu.usbmodem3101') -- retrying
+[1296.1s] # monitor: port dropped ([Errno 2] could not open port /dev/cu.usbmodem3101: [Errno 2] No such file or directory: '/dev/cu.usbmodem3101') -- retrying
+[1297.1s] # monitor: port dropped ([Errno 2] could not open port /dev/cu.usbmodem3101: [Errno 2] No such file or directory: '/dev/cu.usbmodem3101') -- retrying
+[2137.8s] # monitor: done
