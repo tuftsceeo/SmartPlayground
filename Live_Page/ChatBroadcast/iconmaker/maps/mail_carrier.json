@@ -1,0 +1,95 @@
+{
+  "source": "assets/mail_carrier.png",
+  "max_segments": 5,
+  "intensity": 0.3,
+  "fills": [
+    {
+      "rgb": [
+        0,
+        0,
+        1
+      ],
+      "count": 27391,
+      "frac": 0.65178
+    },
+    {
+      "rgb": [
+        21,
+        112,
+        232
+      ],
+      "count": 8645,
+      "frac": 0.20571
+    },
+    {
+      "rgb": [
+        247,
+        175,
+        110
+      ],
+      "count": 3701,
+      "frac": 0.08807
+    },
+    {
+      "rgb": [
+        106,
+        60,
+        42
+      ],
+      "count": 1540,
+      "frac": 0.03664
+    },
+    {
+      "rgb": [
+        136,
+        70,
+        40
+      ],
+      "count": 748,
+      "frac": 0.0178
+    }
+  ],
+  "decisions": {
+    "0,0,1": {
+      "role": "off",
+      "priority": 1.0
+    },
+    "21,112,232": {
+      "role": "color",
+      "priority": 1.0,
+      "color": [
+        33,
+        84,
+        154
+      ]
+    },
+    "247,175,110": {
+      "role": "color",
+      "priority": 0.6,
+      "color": [
+        220,
+        112,
+        20
+      ]
+    },
+    "106,60,42": {
+      "role": "color",
+      "priority": 1.0,
+      "color": [
+        111,
+        31,
+        0
+      ]
+    },
+    "136,70,40": {
+      "role": "color",
+      "priority": 2.5,
+      "color": [
+        111,
+        31,
+        0
+      ]
+    }
+  },
+  "overlay": {}
+}

@@ -1,0 +1,95 @@
+{
+  "source": "assets/teddy_bear.png",
+  "max_segments": 5,
+  "intensity": 0.3,
+  "fills": [
+    {
+      "rgb": [
+        1,
+        0,
+        0
+      ],
+      "count": 26768,
+      "frac": 0.64008
+    },
+    {
+      "rgb": [
+        168,
+        92,
+        46
+      ],
+      "count": 10485,
+      "frac": 0.25072
+    },
+    {
+      "rgb": [
+        232,
+        152,
+        79
+      ],
+      "count": 3873,
+      "frac": 0.09261
+    },
+    {
+      "rgb": [
+        154,
+        102,
+        71
+      ],
+      "count": 497,
+      "frac": 0.01188
+    },
+    {
+      "rgb": [
+        112,
+        69,
+        46
+      ],
+      "count": 197,
+      "frac": 0.00471
+    }
+  ],
+  "decisions": {
+    "1,0,0": {
+      "role": "off",
+      "priority": 1.0
+    },
+    "168,92,46": {
+      "role": "color",
+      "priority": 1.0,
+      "color": [
+        164,
+        63,
+        0
+      ]
+    },
+    "232,152,79": {
+      "role": "color",
+      "priority": 0.6,
+      "color": [
+        220,
+        113,
+        20
+      ]
+    },
+    "154,102,71": {
+      "role": "color",
+      "priority": 2.5,
+      "color": [
+        164,
+        63,
+        0
+      ]
+    },
+    "112,69,46": {
+      "role": "color",
+      "priority": 2.5,
+      "color": [
+        129,
+        46,
+        0
+      ]
+    }
+  },
+  "overlay": {}
+}

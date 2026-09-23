@@ -1,0 +1,95 @@
+{
+  "source": "assets/car.png",
+  "max_segments": 5,
+  "intensity": 0.3,
+  "fills": [
+    {
+      "rgb": [
+        0,
+        0,
+        0
+      ],
+      "count": 29611,
+      "frac": 0.70806
+    },
+    {
+      "rgb": [
+        248,
+        5,
+        3
+      ],
+      "count": 8983,
+      "frac": 0.2148
+    },
+    {
+      "rgb": [
+        41,
+        58,
+        106
+      ],
+      "count": 1261,
+      "frac": 0.03015
+    },
+    {
+      "rgb": [
+        33,
+        193,
+        253
+      ],
+      "count": 1257,
+      "frac": 0.03006
+    },
+    {
+      "rgb": [
+        110,
+        136,
+        164
+      ],
+      "count": 708,
+      "frac": 0.01693
+    }
+  ],
+  "decisions": {
+    "0,0,0": {
+      "role": "off",
+      "priority": 1.0
+    },
+    "248,5,3": {
+      "role": "color",
+      "priority": 1.0,
+      "color": [
+        178,
+        0,
+        0
+      ]
+    },
+    "41,58,106": {
+      "role": "color",
+      "priority": 1.0,
+      "color": [
+        20,
+        33,
+        104
+      ]
+    },
+    "33,193,253": {
+      "role": "color",
+      "priority": 0.6,
+      "color": [
+        0,
+        162,
+        220
+      ]
+    },
+    "110,136,164": {
+      "role": "color",
+      "priority": 2.5,
+      "color": [
+        42,
+        108,
+        179
+      ]
+    }
+  },
+  "overlay": {}
+}

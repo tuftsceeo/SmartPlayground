@@ -1,0 +1,77 @@
+{
+  "source": "assets/dove.png",
+  "max_segments": 12,
+  "intensity": 0.3,
+  "fills": [
+    {
+      "rgb": [
+        224,
+        248,
+        207
+      ],
+      "count": 45292,
+      "frac": 0.39645
+    },
+    {
+      "rgb": [
+        7,
+        24,
+        33
+      ],
+      "count": 36504,
+      "frac": 0.31953
+    },
+    {
+      "rgb": [
+        168,
+        158,
+        154
+      ],
+      "count": 20280,
+      "frac": 0.17751
+    },
+    {
+      "rgb": [
+        48,
+        104,
+        80
+      ],
+      "count": 12168,
+      "frac": 0.10651
+    }
+  ],
+  "decisions": {
+    "224,248,207": {
+      "role": "color",
+      "priority": 1.0,
+      "color": [
+        190,
+        190,
+        190
+      ]
+    },
+    "7,24,33": {
+      "role": "off",
+      "priority": 1.0
+    },
+    "168,158,154": {
+      "role": "color",
+      "priority": 1.0,
+      "color": [
+        140,
+        150,
+        150
+      ]
+    },
+    "48,104,80": {
+      "role": "color",
+      "priority": 1.0,
+      "color": [
+        0,
+        110,
+        50
+      ]
+    }
+  },
+  "overlay": {}
+}

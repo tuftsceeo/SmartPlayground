@@ -118,6 +118,29 @@
             border-color: rgba(255, 255, 255, 0.6);
         }
 
+        .button-card.test-card {
+            border: 3px solid #f59e0b;
+            box-shadow: 0 8px 20px rgba(245, 158, 11, 0.35);
+            position: relative;
+        }
+
+        .button-card.test-card:hover {
+            box-shadow: 0 12px 30px rgba(245, 158, 11, 0.45);
+        }
+
+        .test-badge {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: #f59e0b;
+            color: #1f2937;
+            font-size: 0.7rem;
+            font-weight: 800;
+            letter-spacing: 0.06em;
+            padding: 0.2rem 0.5rem;
+            border-radius: 6px;
+        }
+
         @media (max-width: 600px) {
             h1 {
                 font-size: 2rem;
@@ -167,6 +190,13 @@
         
         
         <div class="buttons-container">
+            <a href="ChatBroadcast/index.html" class="button-card test-card">
+                <span class="test-badge">TEST</span>
+                <div class="icon" aria-hidden="true">🧪</div>
+                <h2>Wand &amp; Station Coder</h2>
+                <p>Bag3 chat → code → Box/Dial (test)</p>
+            </a>
+
             <a href="WebApp2/index.html" class="button-card">
                 <div class="icon">🪄</div>
                 <h2>WebApp2</h2>

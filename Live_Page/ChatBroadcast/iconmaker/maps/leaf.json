@@ -1,0 +1,95 @@
+{
+  "source": "assets/leaf.png",
+  "max_segments": 5,
+  "intensity": 0.3,
+  "fills": [
+    {
+      "rgb": [
+        0,
+        1,
+        0
+      ],
+      "count": 26328,
+      "frac": 0.62648
+    },
+    {
+      "rgb": [
+        82,
+        218,
+        4
+      ],
+      "count": 9367,
+      "frac": 0.22289
+    },
+    {
+      "rgb": [
+        8,
+        162,
+        17
+      ],
+      "count": 5606,
+      "frac": 0.1334
+    },
+    {
+      "rgb": [
+        46,
+        199,
+        11
+      ],
+      "count": 496,
+      "frac": 0.0118
+    },
+    {
+      "rgb": [
+        35,
+        98,
+        35
+      ],
+      "count": 228,
+      "frac": 0.00543
+    }
+  ],
+  "decisions": {
+    "0,1,0": {
+      "role": "off",
+      "priority": 1.0
+    },
+    "82,218,4": {
+      "role": "color",
+      "priority": 1.0,
+      "color": [
+        81,
+        220,
+        0
+      ]
+    },
+    "8,162,17": {
+      "role": "color",
+      "priority": 1.0,
+      "color": [
+        20,
+        174,
+        22
+      ]
+    },
+    "46,199,11": {
+      "role": "color",
+      "priority": 2.5,
+      "color": [
+        38,
+        203,
+        0
+      ]
+    },
+    "35,98,35": {
+      "role": "color",
+      "priority": 2.5,
+      "color": [
+        0,
+        124,
+        0
+      ]
+    }
+  },
+  "overlay": {}
+}

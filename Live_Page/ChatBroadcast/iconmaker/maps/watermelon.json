@@ -1,0 +1,59 @@
+{
+  "source": "assets/watermelon.png",
+  "max_segments": 12,
+  "intensity": 0.3,
+  "fills": [
+    {
+      "rgb": [
+        255,
+        83,
+        100
+      ],
+      "count": 100078,
+      "frac": 0.71357
+    },
+    {
+      "rgb": [
+        113,
+        194,
+        133
+      ],
+      "count": 28604,
+      "frac": 0.20395
+    },
+    {
+      "rgb": [
+        96,
+        62,
+        38
+      ],
+      "count": 8667,
+      "frac": 0.0618
+    }
+  ],
+  "decisions": {
+    "255,83,100": {
+      "role": "color",
+      "priority": 1.0,
+      "color": [
+        150,
+        14,
+        27
+      ]
+    },
+    "113,194,133": {
+      "role": "color",
+      "priority": 1.0,
+      "color": [
+        19,
+        164,
+        57
+      ]
+    },
+    "96,62,38": {
+      "role": "off",
+      "priority": 0.0
+    }
+  },
+  "overlay": {}
+}
