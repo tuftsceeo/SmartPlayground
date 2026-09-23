@@ -388,8 +388,9 @@ def _run_pull_mode(panel, icon_dir):
 
     n = pull_flag.bump()
     wanted = pull_flag.requested_slug()
-    print("# pull mode: attempt %d/%d for %r"
-          % (n, pull_flag.MAX_ATTEMPTS, wanted or "<active>"))
+    wanted_host = pull_flag.requested_host()
+    print("# pull mode: attempt %d/%d for %r on host %r"
+          % (n, pull_flag.MAX_ATTEMPTS, wanted or "<active>", wanted_host or "<any>"))
     if PULL_GRACE_S > 0:
         print("# Ctrl-C within %ds to stay at the REPL" % PULL_GRACE_S)
         for remaining in range(PULL_GRACE_S, 0, -1):
@@ -408,7 +409,7 @@ def _run_pull_mode(panel, icon_dir):
     # transfer animation MockWand's pull mode shows -- see _pull_status()
     # and _pull_progress() below, which mirror MockWand/main.py's functions
     # of the same name.
-    ok = code_puller.pull(verbose=True, slug=wanted,
+    ok = code_puller.pull(verbose=True, slug=wanted, host_id=wanted_host,
                           hubtype=HUB_TYPE, icon_dir=icon_dir,
                           on_progress=lambda r, t: _pull_progress(panel, r, t),
                           on_status=lambda phase, tick: _pull_status(panel, phase, tick))
@@ -512,7 +513,7 @@ def main():
     if HUB_CONFIG.get("has_nfc"):
         from machine import Pin, SoftI2C
         from nfc_ws1850s import Ws1850sReader
-        from nfc_reader import NfcReader
+        from nfc_reader import NfcReader, split_prefixed
         addr = HUB_CONFIG["nfc_addr"]
         i2c = SoftI2C(sda=Pin(HUB_CONFIG["i2c_sda"]),
                       scl=Pin(HUB_CONFIG["i2c_scl"]),
@@ -650,14 +651,18 @@ def main():
                 # including the unknown-game case below, which flashes.
                 server.release_panel()
 
-            if cmd == "getcode" or (cmd and cmd.startswith("getcode:")):
+            head, wanted, wanted_host = split_prefixed(cmd) if cmd else ("", "", "")
+            if head == "getcode":
                 # Queue and reboot rather than pull here: ESP-NOW has owned
                 # the radio all boot, and a WiFi join from that state fails.
-                wanted = cmd[8:] if cmd.startswith("getcode:") else ""
-                print("# getcode tapped (slug=%r) -- queueing pull, rebooting" % wanted)
+                # A trailing "@<id>" (either form) pins the pull to that one
+                # host instead of whichever SP-FILEPUSH* AP answers
+                # strongest -- see code_puller.py's _find_ap().
+                print("# getcode tapped (slug=%r host=%r) -- queueing pull, rebooting"
+                      % (wanted, wanted_host))
                 fill(panel, BLUE)
                 try:
-                    pull_flag.set_pending(wanted)
+                    pull_flag.set_pending(wanted, wanted_host)
                 except OSError as e:
                     # Flag unwritable. Rebooting now would lose the tap, so
                     # say so instead of silently returning to idle.

@@ -13,6 +13,12 @@ import { extractGameTags } from "./gameTags.js";
 
 /** Tags every game needs, whatever it does. */
 export function baselineTags(slug) {
+    // Advisory text only: this app has no way to know a host's HOST_ID, so
+    // it shows the bare "getcode:<slug>" form here. The bytes actually
+    // written to a card come from the device's own menu (bdial_server.py /
+    // bbox_server.py's _card_text()), which appends "@<host_id>" to any
+    // getcode row at write time -- so the printed requirements card and
+    // the physical card can legitimately differ by that suffix.
     const s = slug || "game";
     return [`getcode:${s}`, s];
 }

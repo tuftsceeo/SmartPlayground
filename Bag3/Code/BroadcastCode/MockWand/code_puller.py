@@ -47,7 +47,12 @@ print("# code_puller rev", REV)
 # mirrored there in the same commit.
 HOST = '192.168.4.1'
 PORT = 8266
-SSID = 'SP-FILEPUSH'
+# Every host's SSID is "SP-FILEPUSH-<id>" (see BBoxFirmware/code_server.py's
+# HOST_ID) -- SSID_PREFIX is the part every host shares, SSID is kept as an
+# alias for existing log/print call sites and as pull()'s default `ssid`
+# kwarg (which is really the prefix to search on -- see _find_ap()).
+SSID_PREFIX = 'SP-FILEPUSH'
+SSID = SSID_PREFIX
 PWD = 'playground1'
 
 CHUNK = 512
@@ -292,13 +297,19 @@ def _pull_icons(cs, icon_dir, verbose=False):
     return promoted
 
 
-def _log_visible_aps(nets, wanted):
-    """Print every SSID the radio can see, flagging the one we wanted.
+def _wanted_ssid(prefix, host_id):
+    """The exact SSID a host id names, or None for "any <prefix>* host"."""
+    return (prefix + '-' + host_id) if host_id else None
+
+
+def _log_visible_aps(nets, prefix, host_id):
+    """Print every SSID the radio can see, flagging the one(s) we wanted.
 
     Takes the nets from a scan the caller already did rather than scanning
     again. On the failure path we have just spent three scans; a fourth one
     only to print it added ~2.5s to the answer the user is waiting for.
     """
+    wanted = _wanted_ssid(prefix, host_id)
     if nets is None:
         print("[XFER] scan failed, nothing to report")
         return
@@ -311,7 +322,10 @@ def _log_visible_aps(nets, wanted):
             name = net[0].decode('utf-8')
         except Exception:
             name = str(net[0])
-        mark = "  <-- wanted" if name == wanted else ""
+        if wanted is not None:
+            mark = "  <-- wanted" if name.lower() == wanted.lower() else ""
+        else:
+            mark = "  <-- candidate" if name.startswith(prefix) else ""
         # scan() tuple: (ssid, bssid, channel, rssi, security, hidden).
         # Channel and security matter here: the Box's AP inherits the
         # channel of whatever else its radio is doing, and a security mode
@@ -320,14 +334,25 @@ def _log_visible_aps(nets, wanted):
               % (name, net[2], net[3], net[4], mark))
 
 
-def _find_ap(sta, wanted, verbose):
-    """Return (bssid, channel, nets) for wanted, or (None, None, nets).
+def _find_ap(sta, prefix, host_id, verbose):
+    """Return (ssid, bssid, channel, nets) for the best match, or
+    (None, None, None, nets).
 
-    Hands back the raw scan results too, so a caller that ends up failing can
-    log what was audible without paying for another scan.
+    With a host_id, matches SSID == "<prefix>-<host_id>" exactly (case-
+    insensitive): a card that named a host means that host and only that
+    host. With no host_id -- a card written before per-host identity, or a
+    bare "getcode" -- matches any "<prefix>*" and picks the one with the
+    highest RSSI, since several hosts can be live in one room and the
+    loudest one is a strict improvement over "whichever the scan happened
+    to list first".
+
+    Returns the matched SSID (not just the prefix) because
+    sta.connect(ssid, ...) needs the real name. Hands back the raw scan
+    results too, so a caller that ends up failing can log what was audible
+    without paying for another scan.
 
     Reports the channel because that is the one radio property the wand and
-    the Box must agree on, and because a channel outside the wand's
+    the host must agree on, and because a channel outside the wand's
     regulatory domain is visible to a scan yet impossible to associate with.
     """
     try:
@@ -335,20 +360,29 @@ def _find_ap(sta, wanted, verbose):
     except Exception as e:
         if verbose:
             print("  pre-join scan failed: %s" % (e,))
-        return None, None, None
+        return None, None, None, None
+    wanted = _wanted_ssid(prefix, host_id)
+    best = None  # (rssi, ssid, bssid, channel)
     for net in nets:
         try:
             name = net[0].decode('utf-8')
         except Exception:
             continue
-        if name == wanted:
-            if verbose:
-                print("  found %s on ch=%s rssi=%s sec=%s"
-                      % (wanted, net[2], net[3], net[4]))
-            return net[1], net[2], nets
+        if wanted is not None:
+            if name.lower() != wanted.lower():
+                continue
+        elif not name.startswith(prefix):
+            continue
+        rssi = net[3]
+        if best is None or rssi > best[0]:
+            best = (rssi, name, net[1], net[2])
+    if best is None:
+        if verbose:
+            print("  %s not in pre-join scan" % (wanted or (prefix + '*'),))
+        return None, None, None, nets
     if verbose:
-        print("  %s not in pre-join scan" % (wanted,))
-    return None, None, nets
+        print("  found %s on ch=%s rssi=%s" % (best[1], best[3], best[0]))
+    return best[1], best[2], best[3], nets
 
 
 def _status_name(sta):
@@ -448,35 +482,38 @@ def _notify(on_status, phase, tick):
         pass
 
 
-def _scan_for_ap(sta, ssid, verbose, on_status, tick, tries):
-    """Look for `ssid` in up to `tries` scans.
+def _scan_for_ap(sta, prefix, host_id, verbose, on_status, tick, tries):
+    """Look for a "<prefix>[-<host_id>]" AP in up to `tries` scans.
 
-    Returns (bssid, channel, tick, nets), where nets is the last scan's raw
-    results so a failing caller can log them. bssid is None when it never showed
-    up, which the caller turns into NoAP -- we scan before ever calling
-    connect() precisely so that "the Box is off" is answered in seconds by a
-    scan rather than in tens of seconds by a connect timeout.
+    Returns (ssid, bssid, channel, tick, nets), where nets is the last
+    scan's raw results so a failing caller can log them. ssid/bssid are
+    None when nothing matching ever showed up, which the caller turns into
+    NoAP -- we scan before ever calling connect() precisely so that "the
+    host is off" is answered in seconds by a scan rather than in tens of
+    seconds by a connect timeout.
     """
     nets = None
+    wanted = _wanted_ssid(prefix, host_id) or (prefix + '*')
     for attempt in range(tries):
         _notify(on_status, 'scan', tick)
         tick += 1
-        bssid, ch, nets = _find_ap(sta, ssid, verbose)
+        ssid, bssid, ch, nets = _find_ap(sta, prefix, host_id, verbose)
         if bssid is not None:
-            return bssid, ch, tick, nets
+            return ssid, bssid, ch, tick, nets
         if verbose:
-            print("[XFER] scan %d/%d: %s not visible" % (attempt + 1, tries, ssid))
-    return None, None, tick, nets
+            print("[XFER] scan %d/%d: %s not visible" % (attempt + 1, tries, wanted))
+    return None, None, None, tick, nets
 
 
-def _connect_wifi(ssid, pwd, external_antenna, verbose, enow=None,
-                  on_status=None):
+def _connect_wifi(ssid_prefix, pwd, host_id, external_antenna, verbose,
+                  enow=None, on_status=None):
     if enow is not None:
         _shutdown_espnow(enow, verbose)
     # Always select, either way -- see _configure_antenna() docstring for why
     # "leave the pins alone" isn't a safe default here.
     _configure_antenna(external_antenna, verbose)
 
+    wanted = _wanted_ssid(ssid_prefix, host_id) or (ssid_prefix + '*')
     tick = 0
     last_status = "unknown"
     for attempt in range(JOIN_ATTEMPTS):
@@ -496,24 +533,24 @@ def _connect_wifi(ssid, pwd, external_antenna, verbose, enow=None,
         # have already seen the AP once, so one confirming scan is enough --
         # re-spending three would double the cost of the slowest failure.
         tries = SCAN_ATTEMPTS if attempt == 0 else 1
-        bssid, found_ch, tick, nets = _scan_for_ap(sta, ssid, verbose,
-                                                   on_status, tick, tries)
+        found_ssid, bssid, found_ch, tick, nets = _scan_for_ap(
+            sta, ssid_prefix, host_id, verbose, on_status, tick, tries)
         if bssid is None:
             # Not visible on the first pass: the AP is not up. Say so now
             # instead of spending a join timeout (and then a second attempt)
             # proving it the slow way. If it vanished only on the retry it was
-            # up a moment ago, so that is a flaky join, not a missing Box.
+            # up a moment ago, so that is a flaky join, not a missing host.
             if verbose:
-                _log_visible_aps(nets, ssid)
+                _log_visible_aps(nets, ssid_prefix, host_id)
             if attempt == 0:
-                raise NoAP("%s not visible in %d scans" % (ssid, SCAN_ATTEMPTS))
-            raise JoinFailed("%s vanished between join attempts" % (ssid,))
+                raise NoAP("%s not visible in %d scans" % (wanted, SCAN_ATTEMPTS))
+            raise JoinFailed("%s vanished between join attempts" % (wanted,))
 
         try:
-            sta.connect(ssid, pwd, bssid=bssid)
+            sta.connect(found_ssid, pwd, bssid=bssid)
         except TypeError:
             # Older builds have no bssid kwarg.
-            sta.connect(ssid, pwd)
+            sta.connect(found_ssid, pwd)
         # Sample status through the wait, not just at the end. A run that
         # never leaves STAT_IDLE means connect() was refused and no attempt
         # was ever made (driver still held elsewhere); one that reaches
@@ -538,7 +575,7 @@ def _connect_wifi(ssid, pwd, external_antenna, verbose, enow=None,
                 if verbose:
                     print("[XFER] WARNING: could not disable power-save: %s" % (e,))
             if verbose:
-                print("  joined %s, ip=%s" % (ssid, sta.ifconfig()[0]))
+                print("  joined %s, ip=%s" % (found_ssid, sta.ifconfig()[0]))
             return sta, prev_pm
 
         last_status = _status_name(sta)
@@ -549,20 +586,28 @@ def _connect_wifi(ssid, pwd, external_antenna, verbose, enow=None,
     # The AP was visible every time, so this is association/auth, not radio
     # or range -- still worth logging what we could hear before giving up.
     if verbose:
-        _log_visible_aps(nets, ssid)
+        _log_visible_aps(nets, ssid_prefix, host_id)
     raise JoinFailed("could not join %s within %ds (status=%s)"
-                     % (ssid, CONNECT_TIMEOUT_S, last_status))
+                     % (wanted, CONNECT_TIMEOUT_S, last_status))
 
 
 def pull(host=HOST, port=PORT, ssid=SSID, pwd=PWD,
          external_antenna=EXTERNAL_ANTENNA, verbose=False, enow=None,
          on_progress=None, on_status=None, slug="", hubtype="",
-         icon_dir=None):
-    """Pull one game file from the Box. Returns True on verified promote.
+         icon_dir=None, host_id=""):
+    """Pull one game file from a Box/Dial host. Returns True on verified
+    promote.
 
-    slug names the game to ask for; "" means "whatever the Box has active".
-    It comes from the tapped card ("getcode:<slug>") by way of pull_flag,
-    since the tap and the pull happen in different boots.
+    ssid is really the SSID *prefix* every host shares (SSID_PREFIX);
+    host_id, when given, narrows the scan to the one host whose SSID is
+    "<ssid>-<host_id>" instead of whichever "<ssid>*" host answers
+    strongest -- see _find_ap(). It comes from the tapped card
+    ("getcode:<slug>@<host_id>") by way of pull_flag, since the tap and the
+    pull happen in different boots.
+
+    slug names the game to ask for; "" means "whatever the chosen host has
+    active". It comes from the tapped card ("getcode:<slug>") by way of
+    pull_flag, since the tap and the pull happen in different boots.
 
     hubtype says what kind of device is asking, so the Box can hand a wand
     and an icon display different files for the same slug. Pass HUB_TYPE
@@ -618,8 +663,8 @@ def pull(host=HOST, port=PORT, ssid=SSID, pwd=PWD,
         # enow.init(). frag() brackets it the same way main.py's pre-enow
         # probe does.
         memprobe.frag("pull:pre-wifi-join")  # BENCH
-        sta, prev_pm = _connect_wifi(ssid, pwd, external_antenna, verbose,
-                                     enow=enow, on_status=on_status)
+        sta, prev_pm = _connect_wifi(ssid, pwd, host_id, external_antenna,
+                                     verbose, enow=enow, on_status=on_status)
         memprobe.probe("pull:post-wifi-join")  # BENCH
 
         cs = socket.socket()

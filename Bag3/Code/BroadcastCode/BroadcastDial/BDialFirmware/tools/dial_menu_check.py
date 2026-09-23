@@ -55,6 +55,9 @@ sys.modules["M5"].Lcd = _Any()
 sys.modules["M5"].Speaker = _Any()
 sys.modules["M5"].begin = _Any()
 sys.modules["M5"].update = _Any()
+# code_server.py reads machine.unique_id() at import time (HOST_ID) -- real
+# bytes, not an _Any(), since it gets sliced ([-2:]) and hexlify()'d.
+sys.modules["machine"].unique_id = lambda: b"\x01\x02\x03\x04\x05\x06"
 sys.modules["hardware"].Rotary = _Any()
 
 import time as _t
@@ -131,10 +134,11 @@ check("current entry inside group", srv._current_entry(), "getcode:my_melody")
 srv._group_cursor = 2
 check("current entry after 2 next", srv._current_entry(), "note_c")
 
-# The scan/write states act on the tag, not the group title.
-for st in (BS.W_SCAN, BS.W_SPLASH):
-    srv._write_state = st
-    check("current entry in %s" % st, srv._current_entry(), "note_c")
+# The scan state acts on the tag, not the group title. (W_SPLASH no longer
+# exists -- the result-hold-then-auto-transition in _write_card()/
+# _scan_step() replaced it; see bdial_server.py's W_* docstring.)
+srv._write_state = BS.W_SCAN
+check("current entry in %s" % BS.W_SCAN, srv._current_entry(), "note_c")
 
 # Utility group is reachable and writable with no games loaded.
 srv._index = {}
@@ -290,6 +294,41 @@ check("decode: URI record with a prefix code",
 check("decode: URI record with no prefix (code 0)",
       CW._decode_ndef_text(_build_ndef_uri("getcode:my_melody", prefix_code=0)),
       "getcode:my_melody")
+
+# --- per-host identity: _card_text() and split_prefixed() ------------
+# _card_text() is applied only where a card is actually written
+# (_write_card()), never where menu/group rows are built
+# (_rebuild_entries(), tested above with plain "getcode:<slug>" rows) --
+# these cases check that split alone.
+check("getcode:<slug> row gains @<host_id> at write time",
+      BS._card_text("getcode:my_melody"), "getcode:my_melody@" + BS.HOST_ID)
+check("bare getcode row gains @<host_id> at write time",
+      BS._card_text("getcode"), "getcode@" + BS.HOST_ID)
+check("a play tag is untouched", BS._card_text("my_melody"), "my_melody")
+check("a utility tag is untouched", BS._card_text("stop"), "stop")
+check("Read Card sentinel is untouched", BS._card_text(BS.READ_ENTRY), BS.READ_ENTRY)
+
+# nfc_reader.py is not part of the Dial firmware itself (bdial_server.py
+# never imports it -- see card_writer.py instead); split_prefixed() lives
+# there because it's shared logic for the wand/display clients that
+# actually parse a getcode card's "@<host_id>" suffix. Reach into
+# MockWand/lib for it rather than duplicating the function here.
+BROADCASTCODE = os.path.dirname(os.path.dirname(BD))  # BDialFirmware -> BroadcastDial -> BroadcastCode
+sys.path.insert(0, os.path.join(BROADCASTCODE, "MockWand", "lib"))
+import nfc_reader as NR
+check("split: prefix + slug + host id",
+      NR.split_prefixed("getcode:jumpin@7a3f"), ("getcode", "jumpin", "7a3f"))
+check("split: prefix + host id, no slug",
+      NR.split_prefixed("getcode@7a3f"), ("getcode", "", "7a3f"))
+check("split: prefix + slug, no host id (old card)",
+      NR.split_prefixed("getcode:jumpin"), ("getcode", "jumpin", ""))
+check("split: bare prefix", NR.split_prefixed("getcode"), ("getcode", "", ""))
+check("split: empty text", NR.split_prefixed(""), ("", "", ""))
+check("host id validation: lowercase hex ok", NR.is_valid_host_id("7a3f"), True)
+check("host id validation: rejects uppercase", NR.is_valid_host_id("7A3F"), False)
+check("host id validation: rejects empty", NR.is_valid_host_id(""), False)
+check("host id validation: rejects over-long",
+      NR.is_valid_host_id("a" * (NR.HOST_ID_MAX + 1)), False)
 
 print("\n%s" % ("all dial checks passed" if not fail else "%d FAILURES" % fail))
 sys.exit(1 if fail else 0)

@@ -547,11 +547,11 @@ class DialUI(object):
         pg = self._page("serve")
         # The Box's full-width purple SERVE banner, reshaped for a round
         # panel: an inset pill carrying the icon and the word together.
-        # Static text -- LVGL retains it, so paint_serve() never re-sets
-        # it (contrast bbox_ui.py, which must redraw everything).
+        # paint_serve() re-sets this text with the host id appended -- see
+        # its docstring.
         self._chip("srv_title", pg, IC["serve"] + " Sharing", 44, FONT16,
                    WHITE, WRITE_FG, w=160, pad=8)
-        # The SoftAP SSID is deliberately NOT shown -- see paint_serve().
+        # The SoftAP SSID in full is deliberately NOT shown -- see paint_serve().
         self._label("srv_pickups", pg, "", 0, 106, FONT16, INK, w=190)
         self._label("srv_hint", pg, "Hold Button to Exit", 0, 142, FONT14,
                     INK_3, w=190)
@@ -791,11 +791,15 @@ class DialUI(object):
         self._show("list")
 
     def paint_serve(self, ssid, pickups=0):
-        # `ssid` is accepted for call-site parity with bdial_server.py but
-        # deliberately never shown -- the SoftAP name is not information a
-        # teacher needs; that the box is sharing, and the pickup count,
-        # are. Kept as a parameter rather than dropped so bdial_server.py
-        # needs no change.
+        # The SoftAP name in full is still not shown -- a teacher does not
+        # need to read "SP-FILEPUSH-7a3f" off the dial. But with several
+        # hosts live in one room, which host this is now IS information
+        # they need (to match it against a getcode card's "@<id>" suffix),
+        # so the id -- the part of the SSID that actually varies -- goes on
+        # the title chip.
+        host_id = ssid.rsplit('-', 1)[-1] if ssid else ""
+        title = IC["serve"] + " Sharing " + host_id if host_id else IC["serve"] + " Sharing"
+        self._set_text("srv_title", title)
         self._set_text("srv_pickups", "Pickups: %d Total" % pickups)
         self._show("serve")
 

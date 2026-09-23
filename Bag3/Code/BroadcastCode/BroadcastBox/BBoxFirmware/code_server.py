@@ -22,6 +22,7 @@ import gc
 import os
 import socket
 import network
+import machine
 from time import sleep_ms, ticks_ms, ticks_diff, ticks_add
 
 try:
@@ -34,7 +35,22 @@ try:
 except ImportError:
     import uselect as select
 
-SSID = 'SP-FILEPUSH'
+try:
+    from ubinascii import hexlify
+except ImportError:
+    from binascii import hexlify
+
+SSID_PREFIX = 'SP-FILEPUSH'
+# Four lowercase hex chars from the tail of this ESP32's base MAC. Readable
+# with no network call (unlike a station MAC, which needs STA_IF active),
+# which matters because arm()/_start_ap() run with the AP still down -- see
+# the module-level invariant note in bdial_server.py/bbox_server.py. Gives
+# each host a distinct SSID so several hosts in one room can be told apart
+# by a scanning client (see code_puller.py's _find_ap()) and by a getcode
+# card's "@<id>" suffix (see card_writer callers in bdial_server.py /
+# bbox_server.py).
+HOST_ID = hexlify(machine.unique_id()[-2:]).decode()
+SSID = SSID_PREFIX + '-' + HOST_ID
 PWD = 'playground1'
 PORT = 8266
 AP_CHANNEL = 1
@@ -229,6 +245,7 @@ def _start_ap(ssid=SSID, pwd=PWD):
         print("# CodeServer: ap.config(max_clients=...) unsupported on this port")
     while not ap.active():
         sleep_ms(100)
+    print("# CodeServer: AP up, ssid=%s" % ssid)
     return ap
 
 

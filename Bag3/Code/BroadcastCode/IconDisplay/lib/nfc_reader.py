@@ -167,6 +167,47 @@ def is_valid_slug(slug):
 
 
 # ─────────────────────────────────────────────
+# PER-HOST IDENTITY ("<prefix>[:<slug>]@<host_id>")
+# ─────────────────────────────────────────────
+# Several Broadcast hosts (Dial/Box) can be live in one room, each serving
+# different code from its own SP-FILEPUSH-<id> SoftAP. A getcode card can
+# name which one it means by appending "@<id>", where <id> is the writing
+# host's code_server.HOST_ID -- see card_writer callers in bdial_server.py /
+# bbox_server.py. A card with no "@<id>" (every one written before this)
+# still means "whatever SP-FILEPUSH* host answers strongest" -- see
+# code_puller.py's _find_ap().
+
+HOST_ID_MAX = 8
+
+
+def is_valid_host_id(host_id):
+    if not host_id or len(host_id) > HOST_ID_MAX:
+        return False
+    for ch in host_id:
+        if not (('a' <= ch <= 'z') or ('0' <= ch <= '9')):
+            return False
+    return True
+
+
+def split_prefixed(text):
+    """("getcode:jumpin@7a3f") -> ("getcode", "jumpin", "7a3f").
+
+    Any part may be "": "getcode" -> ("getcode", "", ""); "getcode@7a3f"
+    (host id, no slug) -> ("getcode", "", "7a3f"); "getcode:jumpin" (old
+    card, no host id) -> ("getcode", "jumpin", ""). The "@<id>" suffix is
+    split off before the ":slug" split, so it applies independently of
+    whether a slug is present.
+    """
+    if not text:
+        return "", "", ""
+    body, _, host_id = text.partition('@')
+    head, colon, slug = body.partition(':')
+    if not colon:
+        slug = ""
+    return head, slug, host_id
+
+
+# ─────────────────────────────────────────────
 # NFC READER CLASS (command dispatch)
 # ─────────────────────────────────────────────
 
@@ -304,19 +345,30 @@ class NfcReader:
     # ── Prefixed commands ("<prefix>:<slug>") ──
 
     def _match_prefixed(self, text):
-        """Return the full text for a valid "<prefix>:<slug>" card, else None.
+        """Return the full text for a valid "<prefix>[:<slug>][@<id>]" card,
+        else None.
 
         The slug must be a legal Python identifier because it doubles as the
         module name of a pulled game (/games/<slug>.py, imported by name in
-        main.py). Rejecting anything else here keeps a malformed card from
-        ever reaching the filesystem or __import__.
+        main.py). The host id, when present, is validated the same way
+        (see is_valid_host_id()) -- either rejecting anything else here
+        keeps a malformed card from ever reaching the filesystem, __import__,
+        or code_puller's SSID match.
+
+        A bare prefix with neither part ("getcode") is not matched here --
+        read_command()'s direct membership check against self.commands
+        already handles it.
         """
-        if not text or ':' not in text:
+        if not text:
             return None
-        head, _, tail = text.partition(':')
+        if ':' not in text and '@' not in text:
+            return None
+        head, slug, host_id = split_prefixed(text)
         if head not in self.prefixes:
             return None
-        if tail and not is_valid_slug(tail):
+        if slug and not is_valid_slug(slug):
+            return None
+        if host_id and not is_valid_host_id(host_id):
             return None
         return text
 

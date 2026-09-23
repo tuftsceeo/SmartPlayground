@@ -38,7 +38,7 @@ from leds import (
 )
 from power_led import PowerLed
 from buzzer import Buzzer
-from nfc_reader import NfcReader
+from nfc_reader import NfcReader, split_prefixed
 from actions import ActionRunner, ACTIONS, ANIMAL_SOUNDS, ACTION_RESOURCE, resolve_and_group, chain_to_str
 from battery import show_battery
 from espnow_manager import ESPNowManager
@@ -724,8 +724,9 @@ def _run_pull_mode():
 
     n = pull_flag.bump()
     wanted = pull_flag.requested_slug()
-    print("# pull mode: attempt %d/%d for %r"
-          % (n, pull_flag.MAX_ATTEMPTS, wanted or "<active>"))
+    wanted_host = pull_flag.requested_host()
+    print("# pull mode: attempt %d/%d for %r on host %r"
+          % (n, pull_flag.MAX_ATTEMPTS, wanted or "<active>", wanted_host or "<any>"))
     if PULL_GRACE_S > 0:
         print("# Ctrl-C within %ds to stay at the REPL" % PULL_GRACE_S)
         for remaining in range(PULL_GRACE_S, 0, -1):
@@ -744,7 +745,8 @@ def _run_pull_mode():
     # enow is deliberately not passed: there is no ESP-NOW on this boot to
     # shut down, and omitting it keeps _shutdown_espnow() out of the path.
     ok = code_puller.pull(verbose=True, on_progress=_pull_progress,
-                          on_status=_pull_status, slug=wanted)
+                          on_status=_pull_status, slug=wanted,
+                          host_id=wanted_host)
     memprobe.probe("pull-mode:post-pull")  # BENCH
 
     # Three of the four failures are certain: a second boot would scan the
@@ -1127,17 +1129,20 @@ def main():
             # A cold radio joins first try, every time. So queue the pull and
             # reboot: the next boot runs it in _run_pull_mode() before
             # ESPNowManager is ever constructed. See pull_flag.py.
-            if cmd == "getcode" or cmd.startswith("getcode:"):
-                # "getcode:<slug>" asks the Box for that specific game;
-                # a bare "getcode" takes whatever the Box has active.
-                # nfc_reader has already validated the slug's shape.
-                wanted = cmd[8:] if cmd.startswith("getcode:") else ""
-                print("# getcode tapped (slug=%r) -- queueing pull, rebooting"
-                      % wanted)
+            head, wanted, wanted_host = split_prefixed(cmd) if cmd else ("", "", "")
+            if head == "getcode":
+                # "getcode:<slug>" asks for that specific game; a bare
+                # "getcode" takes whatever the chosen host has active. A
+                # trailing "@<id>" (either form) pins the pull to that one
+                # host instead of whichever SP-FILEPUSH* AP answers
+                # strongest -- see code_puller.py's _find_ap(). nfc_reader
+                # has already validated the slug's and the id's shape.
+                print("# getcode tapped (slug=%r host=%r) -- queueing pull, rebooting"
+                      % (wanted, wanted_host))
                 leds.fill(BLUE_DIM)
                 buz.start()
                 try:
-                    pull_flag.set_pending(wanted)
+                    pull_flag.set_pending(wanted, wanted_host)
                 except OSError as e:
                     # Flag unwritable (full/corrupt fs). Rebooting now would
                     # just come back to the idle loop having lost the tap, so

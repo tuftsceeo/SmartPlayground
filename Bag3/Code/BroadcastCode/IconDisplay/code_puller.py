@@ -50,7 +50,12 @@ print("# code_puller rev", REV)
 # any change here must be mirrored in both in the same commit.
 HOST = '192.168.4.1'
 PORT = 8266
-SSID = 'SP-FILEPUSH'
+# Every host's SSID is "SP-FILEPUSH-<id>" (see BBoxFirmware/code_server.py's
+# HOST_ID) -- SSID_PREFIX is the part every host shares, SSID is kept as an
+# alias for existing log/print call sites and as pull()'s default `ssid`
+# kwarg (which is really the prefix to search on -- see _find_ap()).
+SSID_PREFIX = 'SP-FILEPUSH'
+SSID = SSID_PREFIX
 PWD = 'playground1'
 
 CHUNK = 512
@@ -295,13 +300,19 @@ def _pull_icons(cs, icon_dir, verbose=False):
     return promoted
 
 
-def _log_visible_aps(nets, wanted):
-    """Print every SSID the radio can see, flagging the one we wanted.
+def _wanted_ssid(prefix, host_id):
+    """The exact SSID a host id names, or None for "any <prefix>* host"."""
+    return (prefix + '-' + host_id) if host_id else None
+
+
+def _log_visible_aps(nets, prefix, host_id):
+    """Print every SSID the radio can see, flagging the one(s) we wanted.
 
     Takes the nets from a scan the caller already did rather than scanning
     again. On the failure path we have just spent three scans; a fourth one
     only to print it added ~2.5s to the answer the user is waiting for.
     """
+    wanted = _wanted_ssid(prefix, host_id)
     if nets is None:
         print("[XFER] scan failed, nothing to report")
         return
@@ -314,7 +325,10 @@ def _log_visible_aps(nets, wanted):
             name = net[0].decode('utf-8')
         except Exception:
             name = str(net[0])
-        mark = "  <-- wanted" if name == wanted else ""
+        if wanted is not None:
+            mark = "  <-- wanted" if name.lower() == wanted.lower() else ""
+        else:
+            mark = "  <-- candidate" if name.startswith(prefix) else ""
         # scan() tuple: (ssid, bssid, channel, rssi, security, hidden).
         # Channel and security matter here: the Box's AP inherits the
         # channel of whatever else its radio is doing, and a security mode
@@ -323,14 +337,25 @@ def _log_visible_aps(nets, wanted):
               % (name, net[2], net[3], net[4], mark))
 
 
-def _find_ap(sta, wanted, verbose):
-    """Return (bssid, channel, nets) for wanted, or (None, None, nets).
+def _find_ap(sta, prefix, host_id, verbose):
+    """Return (ssid, bssid, channel, nets) for the best match, or
+    (None, None, None, nets).
 
-    Hands back the raw scan results too, so a caller that ends up failing can
-    log what was audible without paying for another scan.
+    With a host_id, matches SSID == "<prefix>-<host_id>" exactly (case-
+    insensitive): a card that named a host means that host and only that
+    host. With no host_id -- a card written before per-host identity, or a
+    bare "getcode" -- matches any "<prefix>*" and picks the one with the
+    highest RSSI, since several hosts can be live in one room and the
+    loudest one is a strict improvement over "whichever the scan happened
+    to list first".
+
+    Returns the matched SSID (not just the prefix) because
+    sta.connect(ssid, ...) needs the real name. Hands back the raw scan
+    results too, so a caller that ends up failing can log what was audible
+    without paying for another scan.
 
     Reports the channel because that is the one radio property the wand and
-    the Box must agree on, and because a channel outside the wand's
+    the host must agree on, and because a channel outside the wand's
     regulatory domain is visible to a scan yet impossible to associate with.
     """
     try:
@@ -338,20 +363,29 @@ def _find_ap(sta, wanted, verbose):
     except Exception as e:
         if verbose:
             print("  pre-join scan failed: %s" % (e,))
-        return None, None, None
+        return None, None, None, None
+    wanted = _wanted_ssid(prefix, host_id)
+    best = None  # (rssi, ssid, bssid, channel)
     for net in nets:
         try:
             name = net[0].decode('utf-8')
         except Exception:
             continue
-        if name == wanted:
-            if verbose:
-                print("  found %s on ch=%s rssi=%s sec=%s"
-                      % (wanted, net[2], net[3], net[4]))
-            return net[1], net[2], nets
+        if wanted is not None:
+            if name.lower() != wanted.lower():
+                continue
+        elif not name.startswith(prefix):
+            continue
+        rssi = net[3]
+        if best is None or rssi > best[0]:
+            best = (rssi, name, net[1], net[2])
+    if best is None:
+        if verbose:
+            print("  %s not in pre-join scan" % (wanted or (prefix + '*'),))
+        return None, None, None, nets
     if verbose:
-        print("  %s not in pre-join scan" % (wanted,))
-    return None, None, nets
+        print("  found %s on ch=%s rssi=%s" % (best[1], best[3], best[0]))
+    return best[1], best[2], best[3], nets
 
 
 def _status_name(sta):

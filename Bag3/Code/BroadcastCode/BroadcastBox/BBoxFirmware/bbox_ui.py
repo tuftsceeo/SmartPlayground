@@ -788,13 +788,15 @@ class BboxUI(object):
             self._row_labels[i].setText(display)
 
     def paint_serve(self, ssid, pickups=0):
-        # `ssid` is accepted for call-site parity with bbox_server.py but
-        # deliberately never shown -- the SoftAP name is not information a
-        # teacher needs; that the box is sharing, and the pickup count,
-        # are. Kept as a parameter rather than dropped so bbox_server.py
-        # needs no change.
+        # The SoftAP name in full is still not shown -- a teacher does not
+        # need to read "SP-FILEPUSH-7a3f" on the box. But with several
+        # hosts live in one room, which host this is now IS information
+        # they need (to match it against a getcode card's "@<id>" suffix),
+        # so the id -- the part of the SSID that actually varies -- goes
+        # on the title.
         self._clear()
-        self._set_srv_title("Sharing")
+        host_id = ssid.rsplit('-', 1)[-1] if ssid else ""
+        self._set_srv_title("Sharing " + host_id if host_id else "Sharing")
         self._set_text(self._srv_pickups, "Pickups: %d Total" % pickups)
         self._set_srv_hint("Hold Button to Exit")
 

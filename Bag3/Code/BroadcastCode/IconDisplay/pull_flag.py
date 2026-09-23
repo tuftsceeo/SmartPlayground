@@ -20,18 +20,22 @@ never needed -- only ESP-NOW -> WiFi *within one boot* has to be avoided.
 This flag is how a tap in the ESP-NOW-owning boot hands the job to a fresh
 boot that owns the radio instead:
 
-    tap "getcode:<slug>" -> set_pending(slug) -> machine.reset()
-    next boot      -> is_pending()  -> pull on a cold radio -> reset again
+    tap "getcode:<slug>@<id>" -> set_pending(slug, host_id) -> machine.reset()
+    next boot           -> is_pending()  -> pull on a cold radio -> reset again
 
-Format: two text lines --
+Format: three text lines --
 
     line 1: the attempt count
     line 2: the requested slug ("" = "whatever the Box has active")
+    line 3: the requested host id ("" = "whatever SP-FILEPUSH* answers
+            strongest" -- see code_puller.py's _find_ap())
 
 The count is bumped *before* each attempt so a hard crash mid-pull still
-spends budget and cannot boot-loop. The slug is what the tapped card asked
-for ("getcode:<slug>"); it has to be stored here because the tap and the
-pull happen in *different boots*, and nothing else survives the reset.
+spends budget and cannot boot-loop. The slug and host id are what the
+tapped card asked for ("getcode:<slug>@<id>"); they have to be stored here
+because the tap and the pull happen in *different boots*, and nothing else
+survives the reset. Line 3 is new; a flag written by older firmware simply
+has no line 3, and _read() below treats that the same as an empty host id.
 """
 
 PATH = "/pullpending"
@@ -53,23 +57,26 @@ def is_pending():
 
 
 def _read():
-    """(attempts, slug). Returns (0, "") when unset, empty or unreadable.
+    """(attempts, slug, host_id). Returns (0, "", "") when unset, empty or
+    unreadable.
 
     A truncated or malformed file still counts as pending with a fresh
     budget -- losing the flag entirely would silently drop the teacher's tap.
+    A file with no line 3 (written by older firmware) reads as host_id="".
     """
     try:
         with open(PATH, "r") as f:
             raw = f.read()
     except OSError:
-        return 0, ""
+        return 0, "", ""
     lines = raw.split("\n")
     try:
         n = int(lines[0].strip()) if lines[0].strip() else 0
     except ValueError:
         n = 0
     slug = lines[1].strip() if len(lines) > 1 else ""
-    return n, slug
+    host_id = lines[2].strip() if len(lines) > 2 else ""
+    return n, slug, host_id
 
 
 def attempts():
@@ -82,23 +89,30 @@ def requested_slug():
     return _read()[1]
 
 
-def _write(n, slug):
+def requested_host():
+    """The host id the card asked for, or "" for "whatever SP-FILEPUSH*
+    answers strongest" -- see code_puller.py's _find_ap()."""
+    return _read()[2]
+
+
+def _write(n, slug, host_id):
     # Closed before returning: the caller resets the chip moments later and
     # an unflushed buffer would lose the flag entirely.
     with open(PATH, "w") as f:
-        f.write("%d\n%s" % (n, slug or ""))
+        f.write("%d\n%s\n%s" % (n, slug or "", host_id or ""))
 
 
-def set_pending(slug=""):
+def set_pending(slug="", host_id=""):
     """Queue a pull for the next boot. Attempt budget starts fresh."""
-    _write(0, slug)
+    _write(0, slug, host_id)
 
 
 def bump():
-    """Spend one attempt. Returns the new count. Keeps the requested slug."""
-    n, slug = _read()
+    """Spend one attempt. Returns the new count. Keeps the requested
+    slug/host_id."""
+    n, slug, host_id = _read()
     n += 1
-    _write(n, slug)
+    _write(n, slug, host_id)
     return n
 
 

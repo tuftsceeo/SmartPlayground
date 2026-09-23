@@ -32,7 +32,7 @@ import reset_log
 from dial_input import DialInput, NEXT, PREV, ACT, BACK, EXIT
 from json_link import JsonLink
 from code_server import (
-    CodeServer, DEFAULT_SRC, SSID, GAMES_DIR, ACTIVE_PATH, prewarm_ap)
+    CodeServer, DEFAULT_SRC, SSID, HOST_ID, GAMES_DIR, ACTIVE_PATH, prewarm_ap)
 from card_writer import existing_text, write_text
 from dial_ui import DialUI
 from dial_board import make_reader, SCREEN_W, SCREEN_H
@@ -132,6 +132,23 @@ def _log(msg):
 def _dbg(msg):
     if VERBOSE:
         print("# [dial] %s" % msg)
+
+
+def _card_text(label):
+    """Card bytes for a menu row. getcode rows carry this host's id, so a
+    scanning wand or icon display can pin to this exact host instead of
+    whichever SP-FILEPUSH* AP its scan happened to see first (see
+    code_puller.py's _find_ap()). Only getcode rows: a bare "<slug>"/"stop"/
+    "battery" card is not host-specific and must keep working on any host
+    exactly as it read before this change. Called only where a card is
+    actually written (_write_card()), never where the menu/group rows
+    themselves are built (_rebuild_entries()), so the on-screen label a
+    teacher picks stays "getcode:<slug>" and only the written bytes gain
+    the suffix.
+    """
+    if label == 'getcode' or label.startswith('getcode:'):
+        return label + '@' + HOST_ID
+    return label
 
 
 def _boot_grace(ui):
@@ -370,6 +387,11 @@ class BdialServer:
             # Report what _init_nfc() actually did. Never hardcode True —
             # a failed init must surface as nfc:false so the app can say so.
             "w": SCREEN_W, "h": SCREEN_H, "nfc": self._nfc_ok,
+            # Fixed for the life of the boot (see code_server.HOST_ID), so
+            # it belongs here rather than in `mode`/`info` -- lets
+            # ChatBroadcast title this connected device without waiting
+            # for a SERVE-mode "armed"/"mode" event to carry the SSID.
+            "host_id": HOST_ID,
         }
 
     def _send_identity(self, rid=None):
@@ -982,8 +1004,10 @@ class BdialServer:
             self.ui.paint_reader(existing, scanned=True)
             self.ui.beep_success()
             return
-        if existing == entry:
-            # Already carries the text we would write -- report, don't rewrite.
+        if existing == _card_text(entry):
+            # Already carries the bytes we would write (getcode rows compare
+            # against the @<id>-suffixed text, since that's what actually
+            # landed on the card -- see _card_text()) -- report, don't rewrite.
             _log("card already carries %s -- no write" % repr(entry))
             self.ui.paint_already(entry)
             self.ui.beep_success()
@@ -1006,9 +1030,11 @@ class BdialServer:
         "tap to continue" step was the original design but testing showed
         it was just a nuisance -- see dial_ui.py's painters).
         """
-        _log("WRITE attempt: target=%s uid=%s" % (repr(entry), tag['uid_hex']))
+        card_text = _card_text(entry)
+        _log("WRITE attempt: target=%s (card=%s) uid=%s"
+             % (repr(entry), repr(card_text), tag['uid_hex']))
         self.ui.paint_writing(entry)
-        ok = write_text(self.nfc, tag, entry)
+        ok = write_text(self.nfc, tag, card_text)
         _log("WRITE result: %s" % ("OK" if ok else "FAILED"))
         if ok:
             self._written[entry] = self._written.get(entry, 0) + 1
