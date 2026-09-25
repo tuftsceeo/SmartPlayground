@@ -91,8 +91,11 @@ class _Reset(BaseException):
 
 
 class WDT:
+    armed = []
+
     def __init__(self, timeout):
         self.timeout = timeout
+        WDT.armed.append((_state["boots"], time.monotonic(), timeout))
 
     def feed(self):
         pass
@@ -223,10 +226,14 @@ def _run_modem():
     with open(path) as f:
         src = f.read().replace('"/last_error.txt"',
                                repr(os.path.join(_tmp, "last_error.txt")))
+    assert "WDT_ARM_AFTER_MS = 180000" in src
+    src = src.replace("WDT_ARM_AFTER_MS = 180000", "WDT_ARM_AFTER_MS = 400")
+    src = src.replace('"/no_wdt"', repr(os.path.join(_tmp, "no_wdt")))
     code = compile(src, path, "exec")
     while True:
         g = {"__name__": "__main__"}
         _state["boots"] += 1
+        _state["boot_t"] = time.monotonic()
         _modem_globals.clear()
         try:
             _exec_into(code, g)
@@ -274,6 +281,16 @@ def drain_all(mgr, timeout_ms=200):
 
 
 # ─── Tests ───────────────────────────────────
+
+def test_watchdog_arms_after_delay_and_host(mgr):
+    deadline = time.monotonic() + 3
+    while not WDT.armed and time.monotonic() < deadline:
+        mgr.poll(10)
+    assert WDT.armed, "watchdog never armed"
+    boot, t_armed, timeout = WDT.armed[0]
+    assert timeout == 5000
+    assert t_armed - _state["boot_t"] >= 0.4, "armed before WDT_ARM_AFTER_MS"
+
 
 def test_init_and_mac(mgr):
     assert radio().cfg["rxbuf"] == 8192
@@ -444,6 +461,7 @@ if __name__ == "__main__":
     mgr = EM.ESPNowManager()
     mgr.init()
     tests = [
+        test_watchdog_arms_after_delay_and_host,
         test_init_and_mac, test_classified_receive, test_send_paths,
         test_status_poll_passthrough, test_status_auto_reply,
         test_burst_no_loss, test_burst_overflow_reported, test_drain_flushes,

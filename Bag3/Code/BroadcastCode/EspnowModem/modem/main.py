@@ -54,12 +54,18 @@ SEND_RETRY_MS = 30
 
 # Recovery. A fault is any unexpected exception in a request or loop step.
 # More than FAULT_LIMIT faults within FAULT_WINDOW_MS resets the chip; the
-# host sees the new boot_id and restores its state. The watchdog covers
-# hangs that raise nothing (e.g. a send that never returns); it must exceed
-# the longest blocking call in one loop pass.
+# host sees the new boot_id and restores its state.
 FAULT_LIMIT = 5
 FAULT_WINDOW_MS = 10000
-WDT_TIMEOUT_MS = 3000
+
+# Watchdog: covers hangs that raise nothing (e.g. a send that never returns).
+# It is armed only after WDT_ARM_AFTER_MS of uptime AND a first valid host
+# request, leaving a window to Ctrl-C into the REPL or run mpremote. An ESP32
+# watchdog cannot be disabled once armed: after that, stopping the loop
+# resets the chip within WDT_TIMEOUT_MS. The file NO_WDT_PATH disables it.
+WDT_TIMEOUT_MS = 5000
+WDT_ARM_AFTER_MS = 180000
+NO_WDT_PATH = "/no_wdt"
 LAST_ERROR_PATH = "/last_error.txt"
 
 # Status auto-reply timing, from MockWand/lib/espnow_manager.py.
@@ -101,6 +107,7 @@ class Modem:
         self.n_overflow = 0
         self.n_dup = 0
         self.n_fault = 0
+        self.host_seen = False
         self.fault_times = []
         self.reset_cause = machine.reset_cause()
         self.prev_error = self._load_last_error()
@@ -269,6 +276,7 @@ class Modem:
 
     def _handle_safe(self, ftype, seq, plen):
         """Dispatch one request; on an exception reply T_ERROR instead."""
+        self.host_seen = True
         try:
             self._handle(ftype, seq, plen)
         except Exception as e:
@@ -424,9 +432,26 @@ class Modem:
                  SLOT_LEN, UART_ID, UART_TX, UART_RX, UART_BAUD))
         if self.prev_error:
             print("EUM modem: previous boot's last fault:\n" + self.prev_error)
-        wdt = machine.WDT(timeout=WDT_TIMEOUT_MS)
+        try:
+            os.stat(NO_WDT_PATH)
+            wdt_allowed = False
+        except OSError:
+            wdt_allowed = True
+        if wdt_allowed:
+            print("EUM modem: watchdog (%d ms) arms after %d s uptime and a "
+                  "host request; create %s to disable"
+                  % (WDT_TIMEOUT_MS, WDT_ARM_AFTER_MS // 1000, NO_WDT_PATH))
+        else:
+            print("EUM modem: watchdog disabled (%s exists)" % NO_WDT_PATH)
+        boot_ms = time.ticks_ms()
+        wdt = None
         while True:
-            wdt.feed()
+            if wdt is not None:
+                wdt.feed()
+            elif (wdt_allowed and self.host_seen and
+                  time.ticks_diff(time.ticks_ms(), boot_ms) >= WDT_ARM_AFTER_MS):
+                wdt = machine.WDT(timeout=WDT_TIMEOUT_MS)
+                print("EUM modem: watchdog armed (%d ms)" % WDT_TIMEOUT_MS)
             self._step("drain_radio", self.drain_radio)
             self._step("service_uart", self.service_uart)
             self._step("drain_radio", self.drain_radio)

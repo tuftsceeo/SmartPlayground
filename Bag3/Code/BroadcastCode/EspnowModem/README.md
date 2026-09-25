@@ -89,7 +89,10 @@ If a request raises on the modem, the modem sends a **`T_ERROR` reply (type 0xFF
 - **Loop faults:** the same guard wraps each loop step (radio drain, UART service, status timer).
 - **Fault handling:** each fault prints its traceback on the modem's USB console, writes it to `/last_error.txt`, and increments the `faults` counter.
 - **Reset on repeated faults:** more than `FAULT_LIMIT` (5) faults within `FAULT_WINDOW_MS` (10 s) calls `machine.reset()`.
-- **Watchdog:** `machine.WDT(timeout=3000)` is fed once per loop pass, so a hang that raises nothing (for example a send that never returns) also resets the chip. It starts after radio bring-up.
+- **Watchdog:** `machine.WDT(timeout=5000)` is fed once per loop pass, so a hang that raises nothing (for example a send that never returns) also resets the chip.
+  - **When it arms:** only after `WDT_ARM_AFTER_MS` (180 s) of uptime **and** a first valid host request. Until then you can Ctrl-C into the REPL or run `mpremote`.
+  - **Once armed:** an ESP32 watchdog cannot be turned off, so stopping the loop resets the chip within 5 s.
+  - **To disable it:** create `/no_wdt` on the modem, e.g. `python3 -m mpremote connect $PORT resume fs touch :/no_wdt`, then `reset`. Delete the file to re-enable it.
 - **After a reset:** at boot the modem reads `/last_error.txt`, deletes it, and returns its contents through `LAST_ERROR`. Each fault is therefore reported on one boot only.
 
 **Host:**
