@@ -28,8 +28,11 @@ _enow.add_peer(BROADCAST_MAC)
 
 import gc
 import json
+import io
 import os
+import sys
 import time
+import machine
 from machine import UART
 
 import eum_proto as P
@@ -48,6 +51,16 @@ SLOT_LEN = P.REC_HDR_LEN + P.ESPNOW_MAX_DATA + 1   # 260
 DEDUP_MS = 0
 
 SEND_RETRY_MS = 30
+
+# Recovery. A fault is any unexpected exception in a request or loop step.
+# More than FAULT_LIMIT faults within FAULT_WINDOW_MS resets the chip; the
+# host sees the new boot_id and restores its state. The watchdog covers
+# hangs that raise nothing (e.g. a send that never returns); it must exceed
+# the longest blocking call in one loop pass.
+FAULT_LIMIT = 5
+FAULT_WINDOW_MS = 10000
+WDT_TIMEOUT_MS = 3000
+LAST_ERROR_PATH = "/last_error.txt"
 
 # Status auto-reply timing, from MockWand/lib/espnow_manager.py.
 N_SLOTS = 16
@@ -87,6 +100,10 @@ class Modem:
         self.n_tx_fail = 0
         self.n_overflow = 0
         self.n_dup = 0
+        self.n_fault = 0
+        self.fault_times = []
+        self.reset_cause = machine.reset_cause()
+        self.prev_error = self._load_last_error()
 
         self.uart = UART(UART_ID, baudrate=UART_BAUD, tx=UART_TX, rx=UART_RX,
                          rxbuf=UART_RXBUF)
@@ -213,6 +230,57 @@ class Modem:
                 self.n_tx_fail += 1
                 return P.ST_ERR, e.args[0] if e.args else -1, 0
 
+    # ─── FAULTS ──────────────────────────────
+
+    def _load_last_error(self):
+        """Previous boot's fault text, or '' if none was recorded."""
+        try:
+            with open(LAST_ERROR_PATH) as f:
+                text = f.read(P.ERROR_TEXT_MAX)
+        except OSError:
+            return ""
+        os.remove(LAST_ERROR_PATH)   # report each fault on one boot only
+        return text
+
+    def _fault(self, where, e):
+        """Record an unexpected exception; reset if faults are too frequent.
+
+        The traceback goes to the USB console and to LAST_ERROR_PATH so the
+        host can read it (T_LAST_ERROR) after the next boot.
+        """
+        self.n_fault += 1
+        buf = io.StringIO()
+        buf.write("boot_id %d fault %d in %s\n" % (self.boot_id, self.n_fault, where))
+        sys.print_exception(e, buf)
+        text = buf.getvalue()
+        print("EUM modem FAULT:", text)
+        with open(LAST_ERROR_PATH, "w") as f:
+            f.write(text[:P.ERROR_TEXT_MAX])
+        now = time.ticks_ms()
+        self.fault_times = [t for t in self.fault_times
+                            if time.ticks_diff(now, t) < FAULT_WINDOW_MS]
+        self.fault_times.append(now)
+        if len(self.fault_times) > FAULT_LIMIT:
+            print("EUM modem: %d faults in %d ms, resetting"
+                  % (len(self.fault_times), FAULT_WINDOW_MS))
+            time.sleep_ms(50)
+            machine.reset()
+        return text
+
+    def _handle_safe(self, ftype, seq, plen):
+        """Dispatch one request; on an exception reply T_ERROR instead."""
+        try:
+            self._handle(ftype, seq, plen)
+        except Exception as e:
+            text = self._fault("request 0x%02X" % ftype, e)
+            body = P.HDR_LEN + P.REPLY_HDR_LEN
+            self.tx[body] = ftype
+            P.put_i16(self.tx, body + 1,
+                      e.args[0] if e.args and isinstance(e.args[0], int) else -1)
+            msg = ("%s: %s" % (type(e).__name__, e)).encode()[:200]
+            self.tx[body + 3:body + 3 + len(msg)] = msg
+            self._reply(P.T_ERROR, seq, 3 + len(msg))
+
     # ─── UART REQUESTS ───────────────────────
 
     def service_uart(self):
@@ -221,7 +289,7 @@ class Modem:
             return
         n = self.uart.readinto(self.rbuf)
         if n:
-            self.parser.feed(self.rbuf_mv, n, self._handle)
+            self.parser.feed(self.rbuf_mv, n, self._handle_safe)
 
     def _reply(self, ftype, seq, body_len):
         """Write the common reply header and send buf[HDR_LEN:] + body."""
@@ -326,25 +394,43 @@ class Modem:
 
         elif ftype == P.T_STATS:
             vals = (self.n_rx, self.n_tx, self.n_tx_fail, self.n_overflow,
-                    self.parser.crc_errors, self.n_dup, self.parser.len_errors)
+                    self.parser.crc_errors, self.n_dup, self.parser.len_errors,
+                    self.n_fault)
             for i, v in enumerate(vals):
                 P.put_u16(t, body + 2 * i, v & 0xFFFF)
             self._reply(ftype, seq, 2 * len(vals))
+
+        elif ftype == P.T_LAST_ERROR:
+            t[body] = self.reset_cause & 0xFF
+            msg = self.prev_error.encode()[:P.ERROR_TEXT_MAX]
+            t[body + 1:body + 1 + len(msg)] = msg
+            self._reply(ftype, seq, 1 + len(msg))
 
         else:
             self._reply(ftype, seq, self._status_body(P.ST_ERR, -ftype))
 
     # ─── MAIN LOOP ───────────────────────────
 
+    def _step(self, where, fn):
+        try:
+            fn()
+        except Exception as e:
+            self._fault(where, e)
+
     def run(self):
-        print("EUM modem: MAC %s boot_id %d ring %dx%d uart%d tx=%d rx=%d @%d"
-              % (self.mac_hex, self.boot_id, RING_SLOTS, SLOT_LEN,
-                 UART_ID, UART_TX, UART_RX, UART_BAUD))
+        print("EUM modem: MAC %s boot_id %d reset_cause %d ring %dx%d "
+              "uart%d tx=%d rx=%d @%d"
+              % (self.mac_hex, self.boot_id, self.reset_cause, RING_SLOTS,
+                 SLOT_LEN, UART_ID, UART_TX, UART_RX, UART_BAUD))
+        if self.prev_error:
+            print("EUM modem: previous boot's last fault:\n" + self.prev_error)
+        wdt = machine.WDT(timeout=WDT_TIMEOUT_MS)
         while True:
-            self.drain_radio()
-            self.service_uart()
-            self.drain_radio()
-            self.service_status()
+            wdt.feed()
+            self._step("drain_radio", self.drain_radio)
+            self._step("service_uart", self.service_uart)
+            self._step("drain_radio", self.drain_radio)
+            self._step("service_status", self.service_status)
             time.sleep_ms(1)
 
 

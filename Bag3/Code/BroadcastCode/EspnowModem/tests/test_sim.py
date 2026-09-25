@@ -7,10 +7,14 @@ the "air" is a list of frames the fake radio sent.
 Run: python tests/test_sim.py
 """
 
+import contextlib
+import io
 import os
 import sys
 import threading
 import time
+import tempfile
+import traceback
 import types
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -25,7 +29,7 @@ BCAST = b"\xff" * 6
 
 # ─── MicroPython time shims ──────────────────
 
-class _Stop(Exception):
+class _Stop(BaseException):
     pass
 
 
@@ -60,9 +64,9 @@ _uarts = []
 
 class UART:
     def __init__(self, uid, baudrate, tx, rx, rxbuf):
-        first = not _uarts
-        self.out = _a_to_b if first else _b_to_a
-        self.inp = _b_to_a if first else _a_to_b
+        is_modem = threading.current_thread() in _modem_thread
+        self.out = _a_to_b if is_modem else _b_to_a
+        self.inp = _b_to_a if is_modem else _a_to_b
         _uarts.append(self)
 
     def any(self):
@@ -82,9 +86,43 @@ class UART:
         return len(data)
 
 
+class _Reset(BaseException):
+    pass
+
+
+class WDT:
+    def __init__(self, timeout):
+        self.timeout = timeout
+
+    def feed(self):
+        pass
+
+
+def _reset():
+    raise _Reset()
+
+
 machine = types.ModuleType("machine")
 machine.UART = UART
+machine.WDT = WDT
+machine.reset = _reset
+machine.PWRON_RESET = 1
+machine.WDT_RESET = 3
+machine.SOFT_RESET = 5
+machine.reset_cause = lambda: _state["reset_cause"]
 sys.modules["machine"] = machine
+
+_state = {"reset_cause": machine.PWRON_RESET, "boots": 0}
+
+
+def _print_exception(e, file=sys.stderr):
+    traceback.print_exception(type(e), e, e.__traceback__, file=file)
+
+
+sys.print_exception = _print_exception
+
+# The modem writes LAST_ERROR_PATH at "/"; redirect it to a temp dir.
+_tmp = tempfile.mkdtemp()
 
 
 # ─── Fake network / espnow ───────────────────
@@ -121,6 +159,9 @@ class ESPNow:
         self.peers = set()
         self.peers_table = {}
         self.cfg = {}
+        self.fail_send = 0
+        self.fail_irecv = 0
+        self.hang = threading.Event()
 
     def config(self, **kw):
         self.cfg.update(kw)
@@ -137,6 +178,9 @@ class ESPNow:
         self.peers.discard(mac)
 
     def send(self, mac, data, sync=True):
+        if self.fail_send:
+            self.fail_send -= 1
+            raise RuntimeError("injected send fault")
         if mac != BCAST and mac not in self.peers:
             raise OSError(-12389)
         if isinstance(data, str):
@@ -145,6 +189,14 @@ class ESPNow:
         return True
 
     def irecv(self, timeout):
+        if self.fail_irecv:
+            self.fail_irecv -= 1
+            raise RuntimeError("injected irecv fault")
+        if self.hang.is_set():
+            while self.hang.is_set():
+                time.sleep(0.01)
+            _state["reset_cause"] = machine.WDT_RESET
+            raise _Reset()           # watchdog fired during the hang
         with self.lock:
             if not self.inbox:
                 return None, None
@@ -161,28 +213,53 @@ espnow.ESPNow = ESPNow
 sys.modules["espnow"] = espnow
 
 
-# ─── Start modem ─────────────────────────────
+# ─── Start modem (reboots on machine.reset / watchdog) ──
 
-_modem_globals = {"__name__": "__main__"}
+_modem_globals = {}
 
 
 def _run_modem():
     path = os.path.join(ROOT, "modem", "main.py")
     with open(path) as f:
-        code = compile(f.read(), path, "exec")
-    try:
-        exec(code, _modem_globals)
-    except _Stop:
-        pass
+        src = f.read().replace('"/last_error.txt"',
+                               repr(os.path.join(_tmp, "last_error.txt")))
+    code = compile(src, path, "exec")
+    while True:
+        g = {"__name__": "__main__"}
+        _state["boots"] += 1
+        _modem_globals.clear()
+        try:
+            _exec_into(code, g)
+        except _Stop:
+            return
+        except _Reset:
+            if _state["reset_cause"] != machine.WDT_RESET:
+                _state["reset_cause"] = machine.SOFT_RESET
+            continue
+
+
+def _exec_into(code, g):
+    _modem_globals["g"] = g
+    exec(code, g)
+
+
+def modem():
+    return _modem_globals["g"]["_modem"]
+
+
+def radio():
+    return ESPNow.instance
+
+
+def wait_boot(n):
+    while _state["boots"] < n or "_modem" not in _modem_globals.get("g", {}):
+        time.sleep(0.01)
 
 
 t = threading.Thread(target=_run_modem, daemon=True)
 _modem_thread.append(t)
 t.start()
-while "_modem" not in _modem_globals:
-    time.sleep(0.01)
-modem = _modem_globals["_modem"]
-radio = ESPNow.instance
+wait_boot(1)
 
 import espnow_manager as EM  # noqa: E402  (after fakes are installed)
 
@@ -199,17 +276,17 @@ def drain_all(mgr, timeout_ms=200):
 # ─── Tests ───────────────────────────────────
 
 def test_init_and_mac(mgr):
-    assert radio.cfg["rxbuf"] == 8192
+    assert radio().cfg["rxbuf"] == 8192
     assert EM.get_own_mac() == "AA:BB:CC:DD:EE:10"
     assert mgr.is_active
 
 
 def test_classified_receive(mgr):
-    radio.inject(WAND_MAC, b'["turnred","turnblue"]')
-    radio.inject(WAND_MAC, b'{"type":"stop"}')
-    radio.inject(WAND_MAC, b'\x01\x02')
-    radio.inject(WAND_MAC, b'{"type":"find_device","mac":"00:00:00:00:00:01"}')
-    radio.inject(WAND_MAC, b'{"type":"find_device","mac":"aa:bb:cc:dd:ee:10"}')
+    radio().inject(WAND_MAC, b'["turnred","turnblue"]')
+    radio().inject(WAND_MAC, b'{"type":"stop"}')
+    radio().inject(WAND_MAC, b'\x01\x02')
+    radio().inject(WAND_MAC, b'{"type":"find_device","mac":"00:00:00:00:00:01"}')
+    radio().inject(WAND_MAC, b'{"type":"find_device","mac":"aa:bb:cc:dd:ee:10"}')
     got = drain_all(mgr)
     ms = "11:22:33:44:55:66"
     assert got == [
@@ -222,34 +299,34 @@ def test_classified_receive(mgr):
 
 
 def test_send_paths(mgr):
-    radio.air.clear()
+    radio().air.clear()
     assert mgr.broadcast(["turnred"])
     assert not mgr.send_to("11:22:33:44:55:66", {"type": "x"})   # not a peer
     mgr.add_peer("11:22:33:44:55:66")
     assert mgr.send_to("11:22:33:44:55:66", {"type": "x"})
     assert mgr.send_raw(EM.BROADCAST_MAC, b"\x09")
-    assert radio.air == [
+    assert radio().air == [
         (BCAST, b'["turnred"]', False),
         (WAND_MAC, b'{"type": "x"}', True),
         (BCAST, b"\x09", False),
-    ], radio.air
+    ], radio().air
 
 
 def test_status_poll_passthrough(mgr):
-    radio.inject(WAND_MAC, b'{"type":"status_poll"}')
+    radio().inject(WAND_MAC, b'{"type":"status_poll"}')
     got = drain_all(mgr)
     assert got and got[0][0] == "status_poll", got
 
 
 def test_status_auto_reply(mgr):
     mgr.set_status_provider(lambda: 77)
-    radio.air.clear()
-    radio.inject(WAND_MAC, b'{"type":"status_poll"}')
+    radio().air.clear()
+    radio().inject(WAND_MAC, b'{"type":"status_poll"}')
     assert drain_all(mgr) == []
     slot = MODEM_MAC[5] % EM_SLOTS
     time.sleep((400 + slot * 180 + 120 + 300) / 1000)
-    reports = [d for m, d, s in radio.air if b"status_report" in d]
-    assert len(reports) == 2, radio.air
+    reports = [d for m, d, s in radio().air if b"status_report" in d]
+    assert len(reports) == 2, radio().air
     assert b'"battery": 77' in reports[0] and b'"rssi": -40' in reports[0]
     mgr.set_status_provider(None)
 
@@ -257,7 +334,7 @@ def test_status_auto_reply(mgr):
 def test_burst_no_loss(mgr):
     mgr.drain()
     for i in range(100):
-        radio.inject(WAND_MAC, b'{"type":"burst","n":%d}' % i)
+        radio().inject(WAND_MAC, b'{"type":"burst","n":%d}' % i)
     time.sleep(0.3)            # host busy; modem holds the burst
     got = drain_all(mgr)
     assert [d["n"] for _, d, _ in got] == list(range(100))
@@ -266,17 +343,17 @@ def test_burst_no_loss(mgr):
 def test_burst_overflow_reported(mgr):
     base = mgr.link_stats()["modem_rx_overflow"]
     for i in range(200):
-        radio.inject(WAND_MAC, b'{"type":"burst","n":%d}' % i)
+        radio().inject(WAND_MAC, b'{"type":"burst","n":%d}' % i)
     time.sleep(0.3)
     got = drain_all(mgr)
-    ring = _modem_globals["RING_SLOTS"]
+    ring = _modem_globals["g"]["RING_SLOTS"]
     assert [d["n"] for _, d, _ in got] == list(range(200 - ring, 200))
     assert mgr.link_stats()["modem_rx_overflow"] - base == 200 - ring
 
 
 def test_drain_flushes(mgr):
     for i in range(10):
-        radio.inject(WAND_MAC, b'["turnred"]')
+        radio().inject(WAND_MAC, b'["turnred"]')
     time.sleep(0.05)
     mgr.drain()
     assert mgr.poll() == (None, None, None)
@@ -285,28 +362,79 @@ def test_drain_flushes(mgr):
 def test_corrupt_link_recovers(mgr):
     with _a_to_b.lock:
         _a_to_b.buf += b"\xA5\x5A\x87\x01\x05\x00garbage"   # bad frame to host
-    radio.inject(WAND_MAC, b'["turnblue"]')
+    radio().inject(WAND_MAC, b'["turnblue"]')
     got = drain_all(mgr)
     assert got and got[0][1] == ["turnblue"], got
 
 
 def test_modem_reset_restores_state(mgr):
-    radio.peers.clear()
-    modem.peers.clear()
-    modem.boot_id = (modem.boot_id + 1) & 0xFF
-    modem.accepting = False
+    radio().peers.clear()
+    modem().peers.clear()
+    modem().boot_id = (modem().boot_id + 1) & 0xFF
+    modem().accepting = False
     mgr.poll()                  # sees new boot_id, restores
-    assert WAND_MAC in radio.peers
-    assert modem.accepting
+    assert WAND_MAC in radio().peers
+    assert modem().accepting
+    assert mgr.send_to("11:22:33:44:55:66", ["ok"])
+
+
+def test_request_fault_reported(mgr):
+    before = mgr.link_stats()
+    radio().fail_send = 1
+    assert not mgr.broadcast(["turnred"])        # modem replied T_ERROR
+    assert mgr.broadcast(["turnred"])            # modem loop still running
+    after = mgr.link_stats()
+    assert after["host_modem_errors"] == before["host_modem_errors"] + 1
+    assert after["modem_faults"] == before["modem_faults"] + 1
+
+
+def test_repeated_faults_reset_modem(mgr):
+    boots = _state["boots"]
+    limit = _modem_globals["g"]["FAULT_LIMIT"]
+    radio().fail_irecv = limit + 1
+    wait_boot(boots + 1)
+    out = io.StringIO()
+    with contextlib.redirect_stdout(out):
+        mgr.poll()
+    text = out.getvalue()
+    assert "injected irecv fault" in text, text
+    assert "reset_cause %d" % machine.SOFT_RESET in text, text
+    assert WAND_MAC in radio().peers
+    assert mgr.send_to("11:22:33:44:55:66", ["ok"])
+    assert mgr.link_stats()["host_resets_seen"] >= 1
+
+
+def test_hang_watchdog_and_link_down(mgr):
+    boots = _state["boots"]
+    radio().hang.set()
+    time.sleep(0.05)
+    for _ in range(3):
+        assert not mgr.broadcast(["x"])
+    assert mgr._link.down
+    t0 = time.monotonic()
+    assert not mgr.broadcast(["x"])              # fails fast while down
+    assert time.monotonic() - t0 < 0.02
+    reconnects = mgr._link.reconnects
+    radio().hang.clear()                         # "watchdog" reboots modem
+    wait_boot(boots + 1)
+    out = io.StringIO()
+    deadline = time.monotonic() + 3
+    with contextlib.redirect_stdout(out):
+        while mgr._link.down and time.monotonic() < deadline:
+            mgr.poll(10)
+    assert not mgr._link.down, out.getvalue()
+    assert mgr._link.reconnects == reconnects + 1
+    assert "reset_cause %d" % machine.WDT_RESET in out.getvalue(), out.getvalue()
+    assert WAND_MAC in radio().peers
     assert mgr.send_to("11:22:33:44:55:66", ["ok"])
 
 
 def test_shutdown(mgr):
-    radio.air.clear()
+    radio().air.clear()
     mgr.shutdown()
     assert not mgr.is_active
-    assert (WAND_MAC, b'{"type": "stop"}', True) in radio.air
-    assert not modem.peers and not modem.accepting
+    assert (WAND_MAC, b'{"type": "stop"}', True) in radio().air
+    assert not modem().peers and not modem().accepting
     assert mgr.poll() == (None, None, None)
 
 
@@ -320,7 +448,8 @@ if __name__ == "__main__":
         test_status_poll_passthrough, test_status_auto_reply,
         test_burst_no_loss, test_burst_overflow_reported, test_drain_flushes,
         test_corrupt_link_recovers, test_modem_reset_restores_state,
-        test_shutdown,
+        test_request_fault_reported, test_repeated_faults_reset_modem,
+        test_hang_watchdog_and_link_down, test_shutdown,
     ]
     for fn in tests:
         fn(mgr)

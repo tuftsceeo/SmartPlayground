@@ -63,8 +63,11 @@ Every reply body starts with `boot_id(1) | rx_overflow(u16) | pending(1)`:
 | `FETCH` 0x07 | max records (≤ 4) | count, then records `mac(6) rssi(i8) code(1) len(1) data` |
 | `GET_RSSI` 0x08 | mac(6) | rssi (i8, 0x7F = unknown) |
 | `SET_STATUS` 0x09 | battery (i8, −1 = none), auto-reply enable | status, err |
-| `STATS` 0x0A | — | rx, tx, tx_fail, rx_overflow, crc_err, dup_drop, len_err (u16 each) |
+| `STATS` 0x0A | — | rx, tx, tx_fail, rx_overflow, crc_err, dup_drop, len_err, faults (u16 each) |
 | `FLUSH` 0x0B | — | discarded count (u16) |
+| `LAST_ERROR` 0x0C | — | reset_cause(1), previous boot's fault traceback (utf-8, ≤ 900 B) |
+
+If a request raises on the modem, the modem sends a **`T_ERROR` reply (type 0xFF)** with the same `seq` in place of the normal reply. Its body is the failed request type(1), err(i16), and a text message. The host prints the message and the call fails.
 
 **Send behaviour:**
 - **Sync mode:** broadcasts are sent async, and unicasts are sent sync (the modem waits for the ESP-NOW ACK).
@@ -78,6 +81,26 @@ Every reply body starts with `boot_id(1) | rx_overflow(u16) | pending(1)`:
 - **Overflow:** when the ring is full, the oldest message is dropped and counted.
 - **Blocking sends:** a sync unicast blocks the modem loop until its ACK arrives. The driver buffer absorbs arrivals during that time.
 - **Host side:** `poll()` fetches up to 4 messages per request. When `timeout_ms > 0`, it re-fetches every 5 ms until a message arrives or the timeout runs out.
+
+## Fault recovery
+
+**Modem:**
+- **Request faults:** every request is handled inside a guard. An unexpected exception becomes a `T_ERROR` reply and the loop keeps running.
+- **Loop faults:** the same guard wraps each loop step (radio drain, UART service, status timer).
+- **Fault handling:** each fault prints its traceback on the modem's USB console, writes it to `/last_error.txt`, and increments the `faults` counter.
+- **Reset on repeated faults:** more than `FAULT_LIMIT` (5) faults within `FAULT_WINDOW_MS` (10 s) calls `machine.reset()`.
+- **Watchdog:** `machine.WDT(timeout=3000)` is fed once per loop pass, so a hang that raises nothing (for example a send that never returns) also resets the chip. It starts after radio bring-up.
+- **After a reset:** at boot the modem reads `/last_error.txt`, deletes it, and returns its contents through `LAST_ERROR`. Each fault is therefore reported on one boot only.
+
+**Host:**
+- **Reset detection:** a changed `boot_id` means the modem reset. The host prints the reset cause and the previous fault (`LAST_ERROR`), then restores activation, peers and status.
+- **Link down:** after 3 consecutive timeouts the link is marked down, and requests fail immediately.
+- **Reconnect:** while the link is down, the host tries one `HELLO` (50 ms timeout) every second. When it succeeds, the host restores state as it does after a reset.
+- **Counters:** `link_stats()` adds `modem_faults`, `host_modem_errors`, `host_link_down_events`, `host_reconnects` and `host_resets_seen`.
+
+**Lost on reset:** the modem's RX ring. How many messages were in it is not knowable.
+
+**To explore later: EN-pin hard reset.** Wire one host GPIO to the modem's EN/RST pin so the host can hard-reset a modem that stays silent through the reconnect attempts. That covers a wedge the watchdog cannot clear, such as a stuck peripheral or a watchdog that was never started. Not implemented yet.
 
 ## Adding a message type
 
@@ -93,6 +116,7 @@ Unknown types arrive as `("raw", decoded_json, mac)`, as they do with the built-
 - **MAC:** `get_own_mac()` returns the modem's MAC, because that is the address peers see.
 - **Broadcast mode in `send_raw` / `send_score`:** both send broadcasts async. The built-in version sends them sync and gets ETIMEDOUT.
 - **Missing modem:** if no modem answers within 2 s, or the protocol version differs, `init()` raises `OSError`.
+- **Link loss after init:** calls return `False` or `(None, None, None)` and print; they do not raise. See Fault recovery.
 - **`shutdown()`:** it sends stop to peers, then `DEACTIVATE`. There is no host radio to release.
 - **`self.enow`:** it is always `None`. `code_puller.py` sets it to `None`, which is harmless here.
 - **`link_stats()`:** new; it returns modem and host counters.
@@ -105,6 +129,9 @@ python tests/test_sim.py
 ```
 
 `test_sim.py` covers:
+- per-request fault reply
+- reset after repeated loop faults, with the fault text reported
+- a hang, then link down, fail-fast, watchdog reboot, reconnect and restore
 - init and MAC
 - classified receive, including `find_device` filtering
 - send paths
@@ -121,6 +148,7 @@ On hardware: run `host/test_link.py` against an ordinary MockWand or hub, then r
 ## Not in the PoC
 
 - an ESP32-C6 modem (it would only need the antenna select)
+- the EN-pin hard reset (see Fault recovery)
 - a data-ready GPIO
 - OTA updates for the modem
 - a WiFi/BLE coexistence test on the host

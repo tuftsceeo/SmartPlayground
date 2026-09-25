@@ -12,6 +12,8 @@ crc8 (poly 0x07, init 0) covers type..payload.
 Every reply (type = request | REPLY_FLAG) begins with a common header:
     boot_id(1) | rx_overflow(2, LE) | pending(1)
 followed by the request-specific body. See README.md for the table.
+A request that raises on the modem gets a T_ERROR reply (type 0xFF) with
+the same seq instead of its normal reply.
 
 Pure Python, no MicroPython-only imports, so it runs under CPython tests.
 """
@@ -36,9 +38,14 @@ T_GET_RSSI = 0x08
 T_SET_STATUS = 0x09
 T_STATS = 0x0A
 T_FLUSH = 0x0B
+T_LAST_ERROR = 0x0C
+T_ERROR = 0x7F               # never requested; reply 0xFF = internal error
 REPLY_FLAG = 0x80
 
 REPLY_HDR_LEN = 4            # boot_id(1) rx_overflow(2) pending(1)
+# T_ERROR reply body: failed request type(1) err(i16) text(utf-8)
+# T_LAST_ERROR reply body: reset_cause(1) text(utf-8, previous boot's fault)
+ERROR_TEXT_MAX = 900
 
 SEND_FLAG_SYNC = 0x01        # wait for the unicast ACK
 

@@ -44,6 +44,9 @@ REPLY_TIMEOUT_MS = 100
 SEND_SYNC_TIMEOUT_MS = 300   # unicast waits for the ESP-NOW ACK on the modem
 FETCH_INTERVAL_MS = 5
 STATUS_PUSH_MS = 30000
+LINK_DOWN_AFTER = 3          # consecutive timeouts before the link is down
+RECONNECT_EVERY_MS = 1000
+RECONNECT_TIMEOUT_MS = 50
 
 
 def mac_str_to_bytes(mac_str):
@@ -56,7 +59,13 @@ def mac_bytes_to_str(mac_bytes):
 
 
 class _Link:
-    """UART request/reply transport to the modem. One request in flight."""
+    """UART request/reply transport to the modem. One request in flight.
+
+    After LINK_DOWN_AFTER consecutive timeouts the link is marked down:
+    requests then fail immediately, except for one HELLO attempt every
+    RECONNECT_EVERY_MS. A successful HELLO marks the link up and sets
+    boot_changed so the manager restores modem state.
+    """
 
     def __init__(self):
         self.uart = UART(UART_ID, baudrate=UART_BAUD, tx=UART_TX, rx=UART_RX,
@@ -64,25 +73,39 @@ class _Link:
         self.parser = P.FrameParser()
         self.tx = bytearray(P.MAX_FRAME)
         self.tx_mv = memoryview(self.tx)
+        self.hello_tx = bytearray(P.HDR_LEN + 1)   # keeps tx payload intact
+        self.hello_mv = memoryview(self.hello_tx)
         self.rbuf = bytearray(256)
         self.rbuf_mv = memoryview(self.rbuf)
         self.seq = 0
         self.want_type = 0
         self.want_seq = 0
         self.got_len = -1
+        self.got_error = False
         self.boot_id = None
         self.boot_changed = False
         self.rx_overflow = 0
         self.pending = 0
         self.modem_mac = None
+        self.down = False
+        self.consecutive_timeouts = 0
+        self.next_reconnect = 0
         self.timeouts = 0
         self.stale_frames = 0
+        self.modem_errors = 0
+        self.link_down_events = 0
+        self.reconnects = 0
+        self.resets_seen = 0
 
     def _on_frame(self, ftype, seq, plen):
-        if ftype != self.want_type or seq != self.want_seq:
+        if seq != self.want_seq or plen < P.REPLY_HDR_LEN:
             self.stale_frames += 1
             return
-        if plen < P.REPLY_HDR_LEN:
+        if ftype == self.want_type:
+            self.got_error = False
+        elif ftype == P.T_ERROR | P.REPLY_FLAG:
+            self.got_error = True
+        else:
             self.stale_frames += 1
             return
         self.got_len = plen
@@ -95,14 +118,14 @@ class _Link:
             self.parser.feed(self.rbuf_mv, n, self._on_frame)
         self.parser.reset()
 
-    def _exchange(self, ftype, plen, timeout_ms):
+    def _exchange(self, buf, mv, ftype, plen, timeout_ms):
         self.seq = (self.seq + 1) & 0xFF
         self.want_type = ftype | P.REPLY_FLAG
         self.want_seq = self.seq
         self.got_len = -1
         self._flush_input()
-        n = P.build_frame(self.tx, ftype, self.seq, plen)
-        self.uart.write(self.tx_mv[:n])
+        n = P.build_frame(buf, ftype, self.seq, plen)
+        self.uart.write(mv[:n])
         deadline = time.ticks_add(time.ticks_ms(), timeout_ms)
         while True:
             if self.uart.any():
@@ -115,23 +138,12 @@ class _Link:
                 return False
             time.sleep_ms(1)
 
-    def request(self, ftype, plen=0, timeout_ms=REPLY_TIMEOUT_MS, retry=True):
-        """Send tx[HDR_LEN:HDR_LEN+plen] as ftype and wait for the reply.
-
-        Returns a memoryview of the reply body (after the common header),
-        valid until the next request, or None on timeout. retry resends
-        once on timeout; only safe for idempotent requests.
-        """
-        ok = self._exchange(ftype, plen, timeout_ms)
-        if not ok and retry:
-            ok = self._exchange(ftype, plen, timeout_ms)
-        if not ok:
-            self.timeouts += 1
-            return None
+    def _read_header(self):
         b = self.parser.buf
         boot_id = b[0]
         if self.boot_id is not None and boot_id != self.boot_id:
             self.boot_changed = True
+            self.resets_seen += 1
         self.boot_id = boot_id
         overflow = P.get_u16(b, 1)
         if overflow != self.rx_overflow:
@@ -140,7 +152,76 @@ class _Link:
                       % (overflow - self.rx_overflow))
             self.rx_overflow = overflow
         self.pending = b[3]
+
+    def _body(self):
         return self.parser.mv[P.REPLY_HDR_LEN:self.got_len]
+
+    def _timed_out(self):
+        self.timeouts += 1
+        self.consecutive_timeouts += 1
+        if not self.down and self.consecutive_timeouts >= LINK_DOWN_AFTER:
+            self.down = True
+            self.link_down_events += 1
+            self.next_reconnect = time.ticks_add(time.ticks_ms(),
+                                                 RECONNECT_EVERY_MS)
+            print("EUM: link down after %d timeouts; requests fail until "
+                  "the modem answers" % self.consecutive_timeouts)
+
+    def _hello_once(self, timeout_ms):
+        """One HELLO exchange. Returns the reply body or None."""
+        if not self._exchange(self.hello_tx, self.hello_mv, P.T_HELLO, 0,
+                              timeout_ms):
+            return None
+        if self.got_error:
+            return None
+        self._read_header()
+        body = self._body()
+        if body[0] != P.PROTO_VERSION:
+            raise OSError("EUM: modem protocol %d, host expects %d"
+                          % (body[0], P.PROTO_VERSION))
+        self.modem_mac = bytes(body[1:7])
+        return body
+
+    def _try_reconnect(self):
+        now = time.ticks_ms()
+        if time.ticks_diff(now, self.next_reconnect) < 0:
+            return False
+        self.next_reconnect = time.ticks_add(now, RECONNECT_EVERY_MS)
+        if self._hello_once(RECONNECT_TIMEOUT_MS) is None:
+            return False
+        self.down = False
+        self.consecutive_timeouts = 0
+        self.reconnects += 1
+        self.boot_changed = True      # modem state is unknown; restore it
+        print("EUM: link restored")
+        return True
+
+    def request(self, ftype, plen=0, timeout_ms=REPLY_TIMEOUT_MS, retry=True):
+        """Send tx[HDR_LEN:HDR_LEN+plen] as ftype and wait for the reply.
+
+        Returns a memoryview of the reply body (after the common header),
+        valid until the next request, or None on timeout, link down, or a
+        modem internal error (printed). retry resends once on timeout; only
+        safe for idempotent requests.
+        """
+        if self.down and not self._try_reconnect():
+            return None
+        ok = self._exchange(self.tx, self.tx_mv, ftype, plen, timeout_ms)
+        if not ok and retry:
+            ok = self._exchange(self.tx, self.tx_mv, ftype, plen, timeout_ms)
+        if not ok:
+            self._timed_out()
+            return None
+        self.consecutive_timeouts = 0
+        self._read_header()
+        body = self._body()
+        if self.got_error:
+            self.modem_errors += 1
+            print("EUM: modem internal error on request 0x%02X (err %d): %s"
+                  % (body[0], P.get_i16(body, 1),
+                     bytes(body[3:]).decode("utf-8", "replace")))
+            return None
+        return body
 
     def payload(self):
         """Writable view of the outgoing payload area."""
@@ -148,17 +229,12 @@ class _Link:
 
     def hello(self):
         deadline = time.ticks_add(time.ticks_ms(), HELLO_WAIT_MS)
-        while True:
-            body = self.request(P.T_HELLO, 0, retry=False)
-            if body is not None:
-                break
+        while self._hello_once(REPLY_TIMEOUT_MS) is None:
             if time.ticks_diff(deadline, time.ticks_ms()) <= 0:
                 raise OSError("EUM: no modem on UART%d (tx=%d rx=%d)"
                               % (UART_ID, UART_TX, UART_RX))
-        if body[0] != P.PROTO_VERSION:
-            raise OSError("EUM: modem protocol %d, host expects %d"
-                          % (body[0], P.PROTO_VERSION))
-        self.modem_mac = bytes(body[1:7])
+        self.down = False
+        self.consecutive_timeouts = 0
         self.boot_changed = False
         return self.modem_mac
 
@@ -229,7 +305,7 @@ class ESPNowManager:
         """Request with a status reply. Returns True on ST_OK."""
         body = self._link.request(ftype, plen)
         if body is None:
-            msg = "EUM: %s: no reply from modem" % what
+            msg = "EUM: %s: modem request failed" % what
             if raise_on_fail:
                 raise OSError(msg)
             print("  " + msg)
@@ -249,7 +325,8 @@ class ESPNowManager:
         if not link.boot_changed:
             return
         link.boot_changed = False
-        print("  EUM: modem reset detected; restoring state")
+        print("  EUM: modem reset or reconnect; restoring state")
+        self._report_last_error()
         if not self._active:
             return
         self._link.request(P.T_ACTIVATE, 0)
@@ -257,6 +334,17 @@ class ESPNowManager:
             self._peer_op(P.T_ADD_PEER, mac_bytes)
         self._status_pushed_ms = None
         self._push_status()
+
+    def _report_last_error(self):
+        """Print the modem's reset cause and its previous boot's fault."""
+        body = self._link.request(P.T_LAST_ERROR, 0)
+        if body is None:
+            return
+        cause = body[0]
+        text = bytes(body[1:]).decode("utf-8", "replace")
+        print("  EUM: modem reset_cause %d" % cause)
+        if text:
+            print("  EUM: modem fault before reset:\n" + text)
 
     # ─── PEER MANAGEMENT ─────────────────────
 
@@ -374,7 +462,7 @@ class ESPNowManager:
             P.T_SEND, 7 + n,
             SEND_SYNC_TIMEOUT_MS if sync else REPLY_TIMEOUT_MS, retry=False)
         if body is None:
-            print("  ESPNow: %s err: no reply from modem" % what)
+            print("  ESPNow: %s err: modem request failed" % what)
             return False
         ok = body[0] == P.ST_OK
         if not ok:
@@ -456,7 +544,8 @@ class ESPNowManager:
         # No retry: a lost reply's records were already dequeued on the modem.
         body = self._link.request(P.T_FETCH, 1, retry=False)
         if body is None:
-            print("  ESPNow(EUM): fetch: no reply from modem (records lost)")
+            if not self._link.down:
+                print("  ESPNow(EUM): fetch failed (any records in it are lost)")
             return
         count = body[0]
         o = 1
@@ -532,7 +621,7 @@ class ESPNowManager:
         if body is None:
             return None
         names = ("rx", "tx", "tx_fail", "rx_overflow", "crc_err",
-                 "dup_drop", "len_err")
+                 "dup_drop", "len_err", "faults")
         stats = {}
         for i, name in enumerate(names):
             stats["modem_" + name] = P.get_u16(body, 2 * i)
@@ -540,5 +629,9 @@ class ESPNowManager:
         stats["host_len_err"] = link.parser.len_errors
         stats["host_timeouts"] = link.timeouts
         stats["host_stale_frames"] = link.stale_frames
+        stats["host_modem_errors"] = link.modem_errors
+        stats["host_link_down_events"] = link.link_down_events
+        stats["host_reconnects"] = link.reconnects
+        stats["host_resets_seen"] = link.resets_seen
         stats["modem_pending"] = link.pending
         return stats
