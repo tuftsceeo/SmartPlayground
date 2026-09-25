@@ -65,8 +65,11 @@ FAULT_WINDOW_MS = 10000
 # resets the chip within WDT_TIMEOUT_MS. The file NO_WDT_PATH disables it.
 WDT_TIMEOUT_MS = 5000
 WDT_ARM_AFTER_MS = 180000
-NO_WDT_PATH = "/no_wdt"
-LAST_ERROR_PATH = "/last_error.txt"
+
+# UIFlow (M5) boards only allow writes under /flash; plain MicroPython uses /.
+FS_ROOT = "/flash" if "flash" in os.listdir("/") else ""
+NO_WDT_PATH = FS_ROOT + "/no_wdt"
+LAST_ERROR_PATH = FS_ROOT + "/last_error.txt"
 
 # Status auto-reply timing, from MockWand/lib/espnow_manager.py.
 N_SLOTS = 16
@@ -261,8 +264,13 @@ class Modem:
         sys.print_exception(e, buf)
         text = buf.getvalue()
         print("EUM modem FAULT:", text)
-        with open(LAST_ERROR_PATH, "w") as f:
-            f.write(text[:P.ERROR_TEXT_MAX])
+        try:
+            with open(LAST_ERROR_PATH, "w") as f:
+                f.write(text[:P.ERROR_TEXT_MAX])
+        except OSError as we:
+            # Keep running: losing the record must not turn one fault into a
+            # crash. Reported here and via the console traceback above.
+            print("EUM modem: could not write %s: %s" % (LAST_ERROR_PATH, we))
         now = time.ticks_ms()
         self.fault_times = [t for t in self.fault_times
                             if time.ticks_diff(now, t) < FAULT_WINDOW_MS]

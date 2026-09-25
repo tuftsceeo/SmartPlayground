@@ -224,11 +224,12 @@ _modem_globals = {}
 def _run_modem():
     path = os.path.join(ROOT, "modem", "main.py")
     with open(path) as f:
-        src = f.read().replace('"/last_error.txt"',
-                               repr(os.path.join(_tmp, "last_error.txt")))
+        src = f.read()
+    fs_line = 'FS_ROOT = "/flash" if "flash" in os.listdir("/") else ""'
+    assert fs_line in src
+    src = src.replace(fs_line, "FS_ROOT = %r" % _tmp)
     assert "WDT_ARM_AFTER_MS = 180000" in src
     src = src.replace("WDT_ARM_AFTER_MS = 180000", "WDT_ARM_AFTER_MS = 400")
-    src = src.replace('"/no_wdt"', repr(os.path.join(_tmp, "no_wdt")))
     code = compile(src, path, "exec")
     while True:
         g = {"__name__": "__main__"}

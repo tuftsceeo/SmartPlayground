@@ -35,8 +35,10 @@ What moves off the host:
 
 ## Flashing
 
-- **Modem:** copy `modem/main.py` to `/`, and `modem/lib/*.py` to `/lib/`.
-- **Host:** copy `host/lib/*.py` to `/lib/`, replacing the built-in `espnow_manager.py`. Game files run unchanged.
+- **Modem:** copy `modem/main.py` to `/flash/main.py` and `modem/lib/*.py` to `/flash/lib/` on UIFlow (M5) boards. On plain MicroPython, use `/` and `/lib/`.
+- **Host:** copy `host/lib/*.py` into the lib directory the same way, replacing the built-in `espnow_manager.py`. Game files run unchanged.
+- **State files:** the modem keeps `no_wdt` and `last_error.txt` under `/flash` when that directory exists, and under `/` otherwise (`FS_ROOT`).
+- **UIFlow pins:** check that GPIO43/44 are brought out on the board and not used by UIFlow before wiring. The pins are constants at the top of each file.
 - **Before flashing,** confirm the two protocol copies match: `cmp modem/lib/eum_proto.py host/lib/eum_proto.py` (`tests/test_proto.py` also checks this).
 
 ## Protocol
@@ -92,7 +94,7 @@ If a request raises on the modem, the modem sends a **`T_ERROR` reply (type 0xFF
 - **Watchdog:** `machine.WDT(timeout=5000)` is fed once per loop pass, so a hang that raises nothing (for example a send that never returns) also resets the chip.
   - **When it arms:** only after `WDT_ARM_AFTER_MS` (180 s) of uptime **and** a first valid host request. Until then you can Ctrl-C into the REPL or run `mpremote`.
   - **Once armed:** an ESP32 watchdog cannot be turned off, so stopping the loop resets the chip within 5 s.
-  - **To disable it:** create `/no_wdt` on the modem, e.g. `python3 -m mpremote connect $PORT resume fs touch :/no_wdt`, then `reset`. Delete the file to re-enable it.
+  - **To disable it:** create `no_wdt` on the modem, e.g. `python3 -m mpremote connect $PORT resume fs touch :/flash/no_wdt` (UIFlow; plain MicroPython uses `:/no_wdt`), then `reset`. Delete the file to re-enable it.
 - **After a reset:** at boot the modem reads `/last_error.txt`, deletes it, and returns its contents through `LAST_ERROR`. Each fault is therefore reported on one boot only.
 
 **Host:**
