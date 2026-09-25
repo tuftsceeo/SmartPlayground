@@ -1,0 +1,352 @@
+"""
+main.py -- ESP-NOW UART Modem (EUM) firmware, ESP32-S3
+=======================================================
+Bridges a hardware UART to ESP-NOW. The host drives every exchange
+(request -> one reply); the modem never sends unsolicited frames.
+
+Received ESP-NOW messages are classified (eum_classify) and queued in a
+preallocated ring; the host pulls them with FETCH. status_poll is answered
+here when the host has enabled auto-reply with SET_STATUS.
+
+The radio is brought up before anything else is imported or allocated,
+per the memory-order rule in AGENTS.md.
+"""
+
+import network
+import espnow
+
+ESPNOW_RXBUF = 8192          # driver buffer; default 526 B holds ~2 messages
+BROADCAST_MAC = b'\xFF\xFF\xFF\xFF\xFF\xFF'
+
+_sta = network.WLAN(network.STA_IF)
+_sta.active(True)
+_sta.disconnect()
+_enow = espnow.ESPNow()
+_enow.config(rxbuf=ESPNOW_RXBUF)
+_enow.active(True)
+_enow.add_peer(BROADCAST_MAC)
+
+import gc
+import json
+import os
+import time
+from machine import UART
+
+import eum_proto as P
+from eum_classify import classify
+
+UART_ID = 1
+UART_TX = 43
+UART_RX = 44
+UART_BAUD = 921600
+UART_RXBUF = 2048
+
+RING_SLOTS = 128
+SLOT_LEN = P.REC_HDR_LEN + P.ESPNOW_MAX_DATA + 1   # 260
+
+# 0 disables duplicate suppression. freeze_dance repeats MSG_STOP on purpose.
+DEDUP_MS = 0
+
+SEND_RETRY_MS = 30
+
+# Status auto-reply timing, from MockWand/lib/espnow_manager.py.
+N_SLOTS = 16
+BASE_DELAY_MS = 400
+SLOT_MS = 180
+REPORT_GAP_MS = 120
+
+
+class Modem:
+    def __init__(self, sta, enow):
+        self.enow = enow
+        self.mac = bytes(sta.config('mac'))
+        self.mac_hex = ''.join('%02X' % b for b in self.mac)
+        self.boot_id = os.urandom(1)[0]
+
+        self.ring = bytearray(RING_SLOTS * SLOT_LEN)
+        self.ring_mv = memoryview(self.ring)
+        self.head = 0          # next slot to read
+        self.count = 0
+
+        self.accepting = True
+        self.peers = {}        # mac bytes -> True (excludes broadcast)
+
+        self.auto_status = False
+        self.battery = P.BATTERY_NONE
+        self.report_due = None
+        self.report_second_due = None
+        self.report_mac = None
+
+        self.last_mac = bytearray(6)
+        self.last_data = bytearray(P.ESPNOW_MAX_DATA)
+        self.last_len = -1
+        self.last_ms = 0
+
+        self.n_rx = 0
+        self.n_tx = 0
+        self.n_tx_fail = 0
+        self.n_overflow = 0
+        self.n_dup = 0
+
+        self.uart = UART(UART_ID, baudrate=UART_BAUD, tx=UART_TX, rx=UART_RX,
+                         rxbuf=UART_RXBUF)
+        self.rbuf = bytearray(256)
+        self.rbuf_mv = memoryview(self.rbuf)
+        self.tx = bytearray(P.MAX_FRAME)
+        self.tx_mv = memoryview(self.tx)
+        self.parser = P.FrameParser()
+
+    # ─── RX RING ─────────────────────────────
+
+    def _rssi(self, mac):
+        entry = self.enow.peers_table.get(mac)
+        if entry is None:
+            return P.RSSI_UNKNOWN
+        return entry[0] & 0xFF
+
+    def _is_dup(self, mac, msg, n, now):
+        if DEDUP_MS <= 0 or n != self.last_len:
+            return False
+        if time.ticks_diff(now, self.last_ms) > DEDUP_MS:
+            return False
+        return self.last_mac == mac and self.last_data[:n] == msg
+
+    def _remember(self, mac, msg, n, now):
+        if DEDUP_MS <= 0:
+            return
+        self.last_mac[:] = mac
+        self.last_data[:n] = msg
+        self.last_len = n
+        self.last_ms = now
+
+    def _enqueue(self, mac, rssi, code, msg, n):
+        if self.count == RING_SLOTS:
+            self.head = (self.head + 1) % RING_SLOTS
+            self.count -= 1
+            self.n_overflow += 1
+        slot = (self.head + self.count) % RING_SLOTS
+        o = slot * SLOT_LEN
+        r = self.ring_mv
+        r[o:o + 6] = mac
+        r[o + 6] = rssi
+        r[o + 7] = code
+        r[o + 8] = n
+        r[o + P.REC_HDR_LEN:o + P.REC_HDR_LEN + n] = msg
+        self.count += 1
+
+    def drain_radio(self):
+        """Move every waiting ESP-NOW message into the ring."""
+        while True:
+            mac, msg = self.enow.irecv(0)
+            if mac is None:
+                return
+            self.n_rx += 1
+            if not self.accepting:
+                continue
+            mac = bytes(mac)
+            n = len(msg)
+            now = time.ticks_ms()
+            if self._is_dup(mac, msg, n, now):
+                self.n_dup += 1
+                continue
+            self._remember(mac, msg, n, now)
+            code = classify(msg, self.mac_hex)
+            if code == P.C_DROP:
+                continue
+            if code == P.C_STATUS_POLL and self.auto_status:
+                self._schedule_status_reply(mac)
+                continue
+            self._enqueue(mac, self._rssi(mac), code, msg, n)
+
+    # ─── STATUS AUTO-REPLY ───────────────────
+
+    def _schedule_status_reply(self, mac):
+        slot = self.mac[5] % N_SLOTS
+        self.report_due = time.ticks_add(time.ticks_ms(),
+                                         BASE_DELAY_MS + slot * SLOT_MS)
+        self.report_second_due = None
+        self.report_mac = mac
+
+    def _send_status_report(self):
+        rssi = self._rssi(self.report_mac)
+        report = {
+            "type": "status_report",
+            "battery": None if self.battery == P.BATTERY_NONE else self.battery,
+            "rssi": None if rssi == P.RSSI_UNKNOWN else P.to_i8(rssi),
+        }
+        self._send(BROADCAST_MAC, json.dumps(report), False)
+
+    def service_status(self):
+        now = time.ticks_ms()
+        if self.report_second_due is not None:
+            if time.ticks_diff(now, self.report_second_due) >= 0:
+                self._send_status_report()
+                self.report_second_due = None
+                self.report_due = None
+                self.report_mac = None
+            return
+        if self.report_due is None:
+            return
+        if time.ticks_diff(now, self.report_due) < 0:
+            return
+        self._send_status_report()
+        self.report_second_due = time.ticks_add(now, REPORT_GAP_MS)
+
+    # ─── SENDING ─────────────────────────────
+
+    def _send(self, mac, data, sync):
+        """Send once, retrying once after SEND_RETRY_MS on OSError.
+
+        Returns (status, err, acked).
+        """
+        for attempt in range(2):
+            try:
+                acked = self.enow.send(mac, data, sync)
+                self.n_tx += 1
+                if sync and not acked:
+                    self.n_tx_fail += 1
+                return P.ST_OK, 0, 1 if acked else 0
+            except OSError as e:
+                if attempt == 0:
+                    time.sleep_ms(SEND_RETRY_MS)
+                    continue
+                self.n_tx_fail += 1
+                return P.ST_ERR, e.args[0] if e.args else -1, 0
+
+    # ─── UART REQUESTS ───────────────────────
+
+    def service_uart(self):
+        n = self.uart.any()
+        if not n:
+            return
+        n = self.uart.readinto(self.rbuf)
+        if n:
+            self.parser.feed(self.rbuf_mv, n, self._handle)
+
+    def _reply(self, ftype, seq, body_len):
+        """Write the common reply header and send buf[HDR_LEN:] + body."""
+        t = self.tx
+        o = P.HDR_LEN
+        t[o] = self.boot_id
+        P.put_u16(t, o + 1, self.n_overflow & 0xFFFF)
+        t[o + 3] = self.count if self.count < 255 else 255
+        n = P.build_frame(t, ftype | P.REPLY_FLAG, seq,
+                          P.REPLY_HDR_LEN + body_len)
+        self.uart.write(self.tx_mv[:n])
+
+    def _status_body(self, status, err):
+        o = P.HDR_LEN + P.REPLY_HDR_LEN
+        self.tx[o] = status
+        P.put_i16(self.tx, o + 1, err)
+        return 3
+
+    def _handle(self, ftype, seq, plen):
+        p = self.parser.buf
+        body = P.HDR_LEN + P.REPLY_HDR_LEN
+        t = self.tx
+
+        if ftype == P.T_HELLO:
+            t[body] = P.PROTO_VERSION
+            t[body + 1:body + 7] = self.mac
+            self._reply(ftype, seq, 7)
+
+        elif ftype == P.T_ACTIVATE:
+            self.accepting = True
+            self._reply(ftype, seq, self._status_body(P.ST_OK, 0))
+
+        elif ftype == P.T_DEACTIVATE:
+            self.accepting = False
+            self.head = 0
+            self.count = 0
+            self.auto_status = False
+            self.report_due = None
+            self.report_second_due = None
+            for mac in list(self.peers):
+                self.enow.del_peer(mac)
+            self.peers.clear()
+            gc.collect()
+            self._reply(ftype, seq, self._status_body(P.ST_OK, 0))
+
+        elif ftype == P.T_ADD_PEER or ftype == P.T_DEL_PEER:
+            mac = bytes(p[0:6])
+            status, err = P.ST_OK, 0
+            try:
+                if ftype == P.T_ADD_PEER:
+                    if mac not in self.peers:
+                        self.enow.add_peer(mac)
+                        self.peers[mac] = True
+                elif mac in self.peers:
+                    self.enow.del_peer(mac)
+                    del self.peers[mac]
+            except OSError as e:
+                status, err = P.ST_ERR, e.args[0] if e.args else -1
+            self._reply(ftype, seq, self._status_body(status, err))
+
+        elif ftype == P.T_SEND:
+            mac = bytes(p[0:6])
+            sync = bool(p[6] & P.SEND_FLAG_SYNC)
+            data = bytes(p[7:plen])
+            status, err, acked = self._send(mac, data, sync)
+            n = self._status_body(status, err)
+            t[body + n] = acked
+            self._reply(ftype, seq, n + 1)
+
+        elif ftype == P.T_FETCH:
+            want = p[0] if plen else 1
+            if want > P.FETCH_MAX:
+                want = P.FETCH_MAX
+            o = body + 1
+            got = 0
+            while got < want and self.count:
+                s = self.head * SLOT_LEN
+                rec_len = P.REC_HDR_LEN + self.ring[s + 8]
+                t[o:o + rec_len] = self.ring_mv[s:s + rec_len]
+                o += rec_len
+                self.head = (self.head + 1) % RING_SLOTS
+                self.count -= 1
+                got += 1
+            t[body] = got
+            self._reply(ftype, seq, o - body)
+
+        elif ftype == P.T_GET_RSSI:
+            t[body] = self._rssi(bytes(p[0:6]))
+            self._reply(ftype, seq, 1)
+
+        elif ftype == P.T_SET_STATUS:
+            self.battery = P.to_i8(p[0])
+            self.auto_status = bool(p[1])
+            self._reply(ftype, seq, self._status_body(P.ST_OK, 0))
+
+        elif ftype == P.T_FLUSH:
+            dropped = self.count
+            self.head = 0
+            self.count = 0
+            P.put_u16(t, body, dropped)
+            self._reply(ftype, seq, 2)
+
+        elif ftype == P.T_STATS:
+            vals = (self.n_rx, self.n_tx, self.n_tx_fail, self.n_overflow,
+                    self.parser.crc_errors, self.n_dup, self.parser.len_errors)
+            for i, v in enumerate(vals):
+                P.put_u16(t, body + 2 * i, v & 0xFFFF)
+            self._reply(ftype, seq, 2 * len(vals))
+
+        else:
+            self._reply(ftype, seq, self._status_body(P.ST_ERR, -ftype))
+
+    # ─── MAIN LOOP ───────────────────────────
+
+    def run(self):
+        print("EUM modem: MAC %s boot_id %d ring %dx%d uart%d tx=%d rx=%d @%d"
+              % (self.mac_hex, self.boot_id, RING_SLOTS, SLOT_LEN,
+                 UART_ID, UART_TX, UART_RX, UART_BAUD))
+        while True:
+            self.drain_radio()
+            self.service_uart()
+            self.drain_radio()
+            self.service_status()
+            time.sleep_ms(1)
+
+
+_modem = Modem(_sta, _enow)
+_modem.run()
