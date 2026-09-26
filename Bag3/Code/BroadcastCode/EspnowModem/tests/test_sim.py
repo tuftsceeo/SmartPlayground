@@ -145,6 +145,17 @@ class WLAN:
         return MODEM_MAC
 
 
+esp32 = types.ModuleType("esp32")
+esp32.HEAP_DATA = 4
+esp32.idf_heap_info = lambda cap: [(300000, 120000, 90000, 100000),
+                                   (30000, 20000, 18000, 15000)]
+sys.modules["esp32"] = esp32
+gc_mod = sys.modules.setdefault("gc", __import__("gc"))
+if not hasattr(gc_mod, "mem_free"):
+    gc_mod.mem_free = lambda: 150000
+    gc_mod.mem_alloc = lambda: 50000
+
+
 network = types.ModuleType("network")
 network.WLAN = WLAN
 network.STA_IF = 0
@@ -447,6 +458,16 @@ def test_hang_watchdog_and_link_down(mgr):
     assert mgr.send_to("11:22:33:44:55:66", ["ok"])
 
 
+def test_mem_stats(mgr):
+    m = mgr.mem_stats()
+    assert m["modem_idf_free"] == 140000
+    assert m["modem_idf_largest"] == 90000
+    assert m["modem_idf_min_free"] == 115000
+    assert m["modem_gc_free"] == 150000 and m["modem_gc_alloc"] == 50000
+    assert m["modem_ring_slots"] == _modem_globals["g"]["RING_SLOTS"]
+    assert m["host_idf_largest"] == 90000
+
+
 def test_shutdown(mgr):
     radio().air.clear()
     mgr.shutdown()
@@ -468,7 +489,7 @@ if __name__ == "__main__":
         test_burst_no_loss, test_burst_overflow_reported, test_drain_flushes,
         test_corrupt_link_recovers, test_modem_reset_restores_state,
         test_request_fault_reported, test_repeated_faults_reset_modem,
-        test_hang_watchdog_and_link_down, test_shutdown,
+        test_hang_watchdog_and_link_down, test_mem_stats, test_shutdown,
     ]
     for fn in tests:
         fn(mgr)

@@ -39,6 +39,7 @@ T_SET_STATUS = 0x09
 T_STATS = 0x0A
 T_FLUSH = 0x0B
 T_LAST_ERROR = 0x0C
+T_MEM = 0x0D
 T_ERROR = 0x7F               # never requested; reply 0xFF = internal error
 REPLY_FLAG = 0x80
 
@@ -46,6 +47,9 @@ REPLY_HDR_LEN = 4            # boot_id(1) rx_overflow(2) pending(1)
 # T_ERROR reply body: failed request type(1) err(i16) text(utf-8)
 # T_LAST_ERROR reply body: reset_cause(1) text(utf-8, previous boot's fault)
 ERROR_TEXT_MAX = 900
+# T_MEM reply body (u32 LE each): gc_free, gc_alloc, idf_free, idf_largest,
+# idf_min_free; then ring_count(u16), ring_slots(u16)
+MEM_FIELDS = ("gc_free", "gc_alloc", "idf_free", "idf_largest", "idf_min_free")
 
 SEND_FLAG_SYNC = 0x01        # wait for the unicast ACK
 
@@ -134,6 +138,35 @@ def get_i16(buf, off):
 
 def to_i8(v):
     return v - 256 if v & 0x80 else v
+
+
+def put_u32(buf, off, v):
+    put_u16(buf, off, v & 0xFFFF)
+    put_u16(buf, off + 2, (v >> 16) & 0xFFFF)
+
+
+def get_u32(buf, off):
+    return get_u16(buf, off) | (get_u16(buf, off + 2) << 16)
+
+
+def idf_heap():
+    """(free, largest_free_block, min_free_ever) summed over IDF DATA regions.
+
+    largest_free_block is the fragmentation measure: the radio and big
+    buffers need one contiguous block, which gc.mem_free() does not show.
+    Imports esp32 lazily so this module still loads under CPython.
+    """
+    import esp32
+    regions = esp32.idf_heap_info(esp32.HEAP_DATA)
+    free = 0
+    largest = 0
+    min_free = 0
+    for total, f, big, mn in regions:
+        free += f
+        min_free += mn
+        if big > largest:
+            largest = big
+    return free, largest, min_free
 
 
 def build_frame(buf, ftype, seq, plen):

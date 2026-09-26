@@ -416,6 +416,17 @@ class Modem:
                 P.put_u16(t, body + 2 * i, v & 0xFFFF)
             self._reply(ftype, seq, 2 * len(vals))
 
+        elif ftype == P.T_MEM:
+            idf_free, idf_largest, idf_min = P.idf_heap()
+            vals = (gc.mem_free(), gc.mem_alloc(), idf_free, idf_largest,
+                    idf_min)
+            for i, v in enumerate(vals):
+                P.put_u32(t, body + 4 * i, v)
+            o = body + 4 * len(vals)
+            P.put_u16(t, o, self.count)
+            P.put_u16(t, o + 2, RING_SLOTS)
+            self._reply(ftype, seq, o + 4 - body)
+
         elif ftype == P.T_LAST_ERROR:
             t[body] = self.reset_cause & 0xFF
             msg = self.prev_error.encode()[:P.ERROR_TEXT_MAX]

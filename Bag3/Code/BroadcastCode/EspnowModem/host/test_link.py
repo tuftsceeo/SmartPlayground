@@ -5,7 +5,7 @@ Requires host/lib/ (espnow_manager.py, eum_proto.py) on the board and a
 modem running modem/main.py on UART1 (tx=43, rx=44).
 
 Broadcasts ["turnred"] every second, prints every received message, and
-prints link counters every 10 s. Ctrl-C to stop.
+prints link counters and heap figures every 10 s. Ctrl-C to stop.
 """
 
 import time
@@ -30,6 +30,7 @@ while True:
         next_bcast = time.ticks_add(now, BROADCAST_EVERY_MS)
     if time.ticks_diff(now, next_stats) >= 0:
         print("stats", mgr.link_stats())
+        print("mem", mgr.mem_stats())
         next_stats = time.ticks_add(now, STATS_EVERY_MS)
     msg_type, data, mac = mgr.poll()
     if msg_type is not None:
