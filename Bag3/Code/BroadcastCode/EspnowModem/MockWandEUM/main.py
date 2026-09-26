@@ -834,6 +834,11 @@ def _espnow_pull_and_launch(enow, slug, nfc, accel, i2c, batt):
     """
     import espnow_code
     print("# getcode via ESP-NOW (slug=%r)" % (slug or "<active>"))
+    # The receive ends in a compile check that needs one large contiguous
+    # block: drop any imported copy of this game and collect first.
+    if slug:
+        _unload_game(slug)
+    gc.collect()
     leds.fill(BLUE_DIM)
     buz.start()
     memprobe.probe("enx:pre")  # BENCH
@@ -843,7 +848,10 @@ def _espnow_pull_and_launch(enow, slug, nfc, accel, i2c, batt):
     stats = espnow_code.LAST_STATS or {}
     _emit({"type": "enx_result", "slug": slug or "", "result": str(ok),
            "total_ms": stats.get("total_ms"), "body_ms": stats.get("body_ms"),
-           "bytes": stats.get("bytes"), "min_gc_free": stats.get("min_gc_free")})
+           "bytes": stats.get("bytes"), "min_gc_free": stats.get("min_gc_free"),
+           "pre_compile_gc_free": stats.get("pre_compile_gc_free"),
+           "pre_compile_idf_largest": stats.get("pre_compile_idf_largest"),
+           "why": stats.get("why")})
     if ok == 'nohost':
         _pull_fail(SHAPE_WIFI_2, RED)
         return

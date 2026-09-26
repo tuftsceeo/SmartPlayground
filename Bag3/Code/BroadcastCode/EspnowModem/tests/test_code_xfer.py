@@ -194,6 +194,7 @@ def test_clean_big_file(ctx):
     assert same(os.path.join(hg, "bigtest.py"), os.path.join(wg, "bigtest.py"))
     st = espnow_code.LAST_STATS
     assert st["chunks"] == (st["bytes"] + 244) // 245 and st["dup"] == 0
+    assert st["pre_compile_gc_free"] > 0 and "pre_compile_idf_largest" in st
     r = host_result(sender)
     assert r["ok"] and r["frames"] == st["chunks"] and r["send_fail"] == 0
 
