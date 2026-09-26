@@ -617,8 +617,9 @@ class ESPNowManager:
     def mem_stats(self):
         """Modem and host heap figures as a dict (modem part None on failure).
 
-        idf_largest is the largest contiguous free block, the figure that
-        predicts allocation failures from fragmentation.
+        idf_* figures cover internal RAM only (PSRAM reported separately);
+        idf_largest is the largest contiguous internal free block, the
+        figure that predicts allocation failures from fragmentation.
         """
         import gc
         link = self._link or _get_link()
@@ -630,12 +631,13 @@ class ESPNowManager:
             o = 4 * len(P.MEM_FIELDS)
             stats["modem_ring_count"] = P.get_u16(body, o)
             stats["modem_ring_slots"] = P.get_u16(body, o + 2)
-        idf_free, idf_largest, idf_min = P.idf_heap()
+        idf_free, idf_largest, idf_min, psram_free = P.idf_heap()
         stats["host_gc_free"] = gc.mem_free()
         stats["host_gc_alloc"] = gc.mem_alloc()
         stats["host_idf_free"] = idf_free
         stats["host_idf_largest"] = idf_largest
         stats["host_idf_min_free"] = idf_min
+        stats["host_psram_free"] = psram_free
         return stats
 
     def link_stats(self):

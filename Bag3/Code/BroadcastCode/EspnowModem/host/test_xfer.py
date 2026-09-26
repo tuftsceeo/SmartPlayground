@@ -36,6 +36,9 @@ SRC_PATH = None                  # sender: file to send; None = main.py (this sc
 MODE = "unicast"                 # or "broadcast"
 CHUNK = 246                      # 250 B ESP-NOW max minus 4 B header
 WRITE_FILE = True                # receiver: write to flash like a real pull
+WRITE_BUF = 0                    # receiver: 0 = write each chunk; N = batch N bytes
+RX_BUF = 0                       # receiver: 0 = driver default (526 B); N = set
+                                 # ESP-NOW rxbuf (built-in espnow_manager only)
 BEGIN_GAP_MS = 50
 RESULT_WAIT_MS = 5000
 IDLE_TIMEOUT_MS = 5000           # receiver: give up if chunks stop arriving
@@ -45,18 +48,41 @@ DEST_PATH = FS_ROOT + "/xfer_test.bin"
 DEFAULT_SRC = FS_ROOT + "/main.py"
 
 
+PSRAM_REGION_MIN = 1024 * 1024   # same split as eum_proto.idf_heap()
+
+
 def _heap():
-    """gc free and, where available, the largest IDF free block."""
+    """gc free and internal-RAM IDF figures (PSRAM regions excluded)."""
     gc.collect()
     out = {"gc_free": gc.mem_free()}
     try:
         import esp32
     except ImportError:
         return out
-    regions = esp32.idf_heap_info(esp32.HEAP_DATA)
+    regions = [r for r in esp32.idf_heap_info(esp32.HEAP_DATA)
+               if r[0] < PSRAM_REGION_MIN]
     out["idf_largest"] = max(r[2] for r in regions)
     out["idf_free"] = sum(r[1] for r in regions)
     return out
+
+
+def _set_rxbuf(mgr, size):
+    """Restart the built-in manager's ESPNow object with a larger rxbuf.
+
+    rxbuf takes effect on active(True). The EUM variant has no local radio
+    (mgr.enow is None); its modem already uses 8 KB.
+    """
+    if mgr.enow is None:
+        print("xfer: RX_BUF ignored (EUM manager; modem rxbuf is fixed)")
+        return
+    mgr.enow.active(False)
+    mgr.enow.config(rxbuf=size)
+    mgr.enow.active(True)
+    try:
+        mgr.enow.add_peer(BROADCAST_MAC)
+    except OSError as e:
+        print("xfer: re-adding broadcast peer: %s" % e)
+    print("xfer: ESP-NOW rxbuf set to %d" % mgr.enow.config("rxbuf"))
 
 
 def _mem_snapshot(mgr, label):
@@ -136,7 +162,10 @@ def sender():
 def receiver():
     mgr = ESPNowManager()
     mgr.init()
-    print("xfer receiver ready; waiting for xfer_begin")
+    if RX_BUF:
+        _set_rxbuf(mgr, RX_BUF)
+    print("xfer receiver ready (write_file=%s write_buf=%d rx_buf=%d); "
+          "waiting for xfer_begin" % (WRITE_FILE, WRITE_BUF, RX_BUF))
     _mem_snapshot(mgr, "idle")
     while True:
         t, d, sender_mac = mgr.poll(100)
@@ -154,6 +183,9 @@ def receiver():
     next_seq = 0
     min_free = gc.mem_free()
     fh = open(DEST_PATH, "wb") if WRITE_FILE else None
+    wbuf = bytearray(WRITE_BUF) if (fh and WRITE_BUF) else None
+    wlen = 0
+    write_ms = 0
     last_rx = time.ticks_ms()
     ended = False
     while not ended:
@@ -176,9 +208,19 @@ def receiver():
             got[seq >> 3] |= 1 << (seq & 7)
             n_got += 1
             if seq == next_seq:
-                h.update(d[4:])
+                data = d[4:]
+                h.update(data)
                 if fh:
-                    fh.write(d[4:])
+                    tw = time.ticks_ms()
+                    if wbuf is None:
+                        fh.write(data)
+                    else:
+                        if wlen + len(data) > WRITE_BUF:
+                            fh.write(memoryview(wbuf)[:wlen])
+                            wlen = 0
+                        wbuf[wlen:wlen + len(data)] = data
+                        wlen += len(data)
+                    write_ms += time.ticks_diff(time.ticks_ms(), tw)
             else:
                 out_of_order += 1
             next_seq = seq + 1
@@ -189,17 +231,23 @@ def receiver():
             ended = True
         time.sleep_ms(1)
     if fh:
+        if wlen:
+            fh.write(memoryview(wbuf)[:wlen])
         fh.close()
     elapsed = time.ticks_diff(time.ticks_ms(), t0)
     ok = n_got == chunks and out_of_order == 0 and \
         hexlify(h.digest()).decode() == sha
     result = {"type": "xfer_result", "ok": ok, "chunks": chunks,
               "got": n_got, "dup": dup, "out_of_order": out_of_order,
-              "ms": elapsed, "bytes": size, "min_gc_free": min_free}
+              "ms": elapsed, "bytes": size, "min_gc_free": min_free,
+              "write_ms": write_ms, "write_file": WRITE_FILE,
+              "write_buf": WRITE_BUF, "rx_buf": RX_BUF}
     print("xfer: %s %d/%d chunks in %d ms (%.1f KB/s) dup=%d ooo=%d "
-          "min_gc_free=%d" % ("OK" if ok else "FAIL", n_got, chunks, elapsed,
-                             size / 1024 / max(elapsed, 1) * 1000, dup,
-                             out_of_order, min_free))
+          "min_gc_free=%d write_ms=%d" % ("OK" if ok else "FAIL", n_got,
+                                          chunks, elapsed,
+                                          size / 1024 / max(elapsed, 1) * 1000,
+                                          dup, out_of_order, min_free,
+                                          write_ms))
     _mem_snapshot(mgr, "after")
     mgr.add_peer(sender_mac)
     mgr.send_to(sender_mac, result)

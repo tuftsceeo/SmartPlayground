@@ -148,7 +148,8 @@ class WLAN:
 esp32 = types.ModuleType("esp32")
 esp32.HEAP_DATA = 4
 esp32.idf_heap_info = lambda cap: [(300000, 120000, 90000, 100000),
-                                   (30000, 20000, 18000, 15000)]
+                                   (30000, 20000, 18000, 15000),
+                                   (8388608, 8000000, 7900000, 7950000)]
 sys.modules["esp32"] = esp32
 gc_mod = sys.modules.setdefault("gc", __import__("gc"))
 if not hasattr(gc_mod, "mem_free"):
@@ -465,7 +466,8 @@ def test_mem_stats(mgr):
     assert m["modem_idf_min_free"] == 115000
     assert m["modem_gc_free"] == 150000 and m["modem_gc_alloc"] == 50000
     assert m["modem_ring_slots"] == _modem_globals["g"]["RING_SLOTS"]
-    assert m["host_idf_largest"] == 90000
+    assert m["modem_psram_free"] == 8000000
+    assert m["host_idf_largest"] == 90000 and m["host_psram_free"] == 8000000
 
 
 def test_shutdown(mgr):

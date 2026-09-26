@@ -69,7 +69,7 @@ Every reply body starts with `boot_id(1) | rx_overflow(u16) | pending(1)`:
 | `STATS` 0x0A | — | rx, tx, tx_fail, rx_overflow, crc_err, dup_drop, len_err, faults (u16 each) |
 | `FLUSH` 0x0B | — | discarded count (u16) |
 | `LAST_ERROR` 0x0C | — | reset_cause(1), previous boot's fault traceback (utf-8, ≤ 900 B) |
-| `MEM` 0x0D | — | gc_free, gc_alloc, idf_free, idf_largest, idf_min_free (u32 each), ring_count, ring_slots (u16) |
+| `MEM` 0x0D | — | gc_free, gc_alloc, idf_free, idf_largest, idf_min_free (internal RAM), psram_free (u32 each), ring_count, ring_slots (u16) |
 
 If a request raises on the modem, the modem sends a **`T_ERROR` reply (type 0xFF)** with the same `seq` in place of the normal reply. Its body is the failed request type(1), err(i16), and a text message. The host prints the message and the call fails.
 
@@ -111,12 +111,14 @@ If a request raises on the modem, the modem sends a **`T_ERROR` reply (type 0xFF
 
 ## Memory and transfer baseline
 
-- **`mgr.mem_stats()`:** returns the modem's figures (via `MEM`) and the host's own. `idf_largest` is the largest contiguous free block, and it is the figure to watch: allocation failures here come from fragmentation, which `gc.mem_free()` does not show. `idf_min_free` is the lowest free level since boot. `test_link.py` prints `mem` every 10 s.
+- **`mgr.mem_stats()`:** returns the modem's figures (via `MEM`) and the host's own. `idf_largest` is the largest contiguous free block, and it is the figure to watch: allocation failures here come from fragmentation, which `gc.mem_free()` does not show. `idf_min_free` is the lowest free level since boot. All `idf_*` figures cover internal RAM only: regions of 1 MiB or more are counted as PSRAM and reported as `psram_free`, since `esp32.idf_heap_info()` cannot filter by capability. On PSRAM boards `gc_free` is mostly PSRAM too. `test_link.py` prints `mem` every 10 s.
 - **`host/test_xfer.py`:** sends a file to a receiver in 246-byte frames and checks the SHA-256.
   - **Unicast mode:** each frame waits for its ESP-NOW ACK.
   - **Broadcast mode:** async; shows raw loss under load.
   - **Report:** elapsed ms, KB/s, missing, duplicate and out-of-order frames, and heap before and after on both ends.
   - **Receiver:** any board with an `espnow_manager.py`. It writes the file to flash (`WRITE_FILE`) to match a real code pull.
+  - **Receiver knobs:** `WRITE_BUF` batches flash writes into N-byte blocks. `RX_BUF` enlarges the ESP-NOW driver receive buffer on a built-in-manager receiver; the default is 526 B, about 2 frames. The result reports `write_ms`, the total time spent in flash writes.
+  - **ACK ≠ delivery:** an ESP-NOW unicast ACK only means the receiver's radio got the frame. A frame can still be dropped afterwards when the driver's receive buffer is full, for example while the receiver is blocked on a flash write.
 - **Comparison:** the WiFi path is `BroadcastDial/BDialFirmware/code_server.py` with `MockWand/code_puller.py`. Time it from the puller's `[XFER] requested` / `[XFER] receiving` / `[XFER] OK` lines in a `tools/serial_monitor.py` log, which timestamps each line. That separates the transfer itself from the radio switch, scan and join overhead.
 
 ## Adding a message type

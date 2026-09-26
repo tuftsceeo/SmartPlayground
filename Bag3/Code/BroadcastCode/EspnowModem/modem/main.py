@@ -417,9 +417,9 @@ class Modem:
             self._reply(ftype, seq, 2 * len(vals))
 
         elif ftype == P.T_MEM:
-            idf_free, idf_largest, idf_min = P.idf_heap()
+            idf_free, idf_largest, idf_min, psram_free = P.idf_heap()
             vals = (gc.mem_free(), gc.mem_alloc(), idf_free, idf_largest,
-                    idf_min)
+                    idf_min, psram_free)
             for i, v in enumerate(vals):
                 P.put_u32(t, body + 4 * i, v)
             o = body + 4 * len(vals)

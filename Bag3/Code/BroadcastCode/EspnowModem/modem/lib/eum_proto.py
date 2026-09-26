@@ -18,7 +18,7 @@ the same seq instead of its normal reply.
 Pure Python, no MicroPython-only imports, so it runs under CPython tests.
 """
 
-PROTO_VERSION = 1
+PROTO_VERSION = 2
 
 SYNC1 = 0xA5
 SYNC2 = 0x5A
@@ -47,9 +47,16 @@ REPLY_HDR_LEN = 4            # boot_id(1) rx_overflow(2) pending(1)
 # T_ERROR reply body: failed request type(1) err(i16) text(utf-8)
 # T_LAST_ERROR reply body: reset_cause(1) text(utf-8, previous boot's fault)
 ERROR_TEXT_MAX = 900
-# T_MEM reply body (u32 LE each): gc_free, gc_alloc, idf_free, idf_largest,
-# idf_min_free; then ring_count(u16), ring_slots(u16)
-MEM_FIELDS = ("gc_free", "gc_alloc", "idf_free", "idf_largest", "idf_min_free")
+# T_MEM reply body (u32 LE each): gc_free, gc_alloc, then internal-RAM
+# idf_free, idf_largest, idf_min_free, then psram_free; then ring_count(u16),
+# ring_slots(u16). See idf_heap() for the internal/PSRAM split.
+MEM_FIELDS = ("gc_free", "gc_alloc", "idf_free", "idf_largest",
+              "idf_min_free", "psram_free")
+
+# IDF heap regions at least this large are taken to be PSRAM. Internal DRAM
+# regions on the ESP32-S3/C6 are a few hundred KB; PSRAM is one multi-MB
+# region. esp32.idf_heap_info() has no capability filter for this.
+PSRAM_REGION_MIN = 1024 * 1024
 
 SEND_FLAG_SYNC = 0x01        # wait for the unicast ACK
 
@@ -150,10 +157,12 @@ def get_u32(buf, off):
 
 
 def idf_heap():
-    """(free, largest_free_block, min_free_ever) summed over IDF DATA regions.
+    """IDF heap figures, internal RAM separated from PSRAM.
 
-    largest_free_block is the fragmentation measure: the radio and big
-    buffers need one contiguous block, which gc.mem_free() does not show.
+    Returns (free, largest_free_block, min_free_ever, psram_free), the first
+    three over internal DATA regions only. largest_free_block is the
+    fragmentation measure: the radio needs one contiguous internal block,
+    which gc.mem_free() (often PSRAM-backed on these boards) does not show.
     Imports esp32 lazily so this module still loads under CPython.
     """
     import esp32
@@ -161,12 +170,16 @@ def idf_heap():
     free = 0
     largest = 0
     min_free = 0
+    psram_free = 0
     for total, f, big, mn in regions:
+        if total >= PSRAM_REGION_MIN:
+            psram_free += f
+            continue
         free += f
         min_free += mn
         if big > largest:
             largest = big
-    return free, largest, min_free
+    return free, largest, min_free, psram_free
 
 
 def build_frame(buf, ftype, seq, plen):
