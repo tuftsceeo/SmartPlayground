@@ -113,8 +113,9 @@ REQ_V2 = 0xFF
 #   suffix  -- appended to the slug for this role's source file
 #   icons   -- send the named-icon leg after the game file
 ROLE_FILES = {
-    'wand':         {'suffix': '',      'icons': False},
-    'icon_display': {'suffix': '_icon', 'icons': True},
+    'wand':            {'suffix': '',       'icons': False},
+    'icon_display':    {'suffix': '_icon',  'icons': True},
+    'splat_companion': {'suffix': '_splat', 'icons': False},
 }
 DEFAULT_ROLE = 'wand'   # what a v1 request, which names no hubtype, gets
 

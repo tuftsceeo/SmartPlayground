@@ -242,9 +242,11 @@ def run(firmware_dir, device):
 
     wand_src = "# wand file\nCOMMANDS = {'goal'}\n"
     icon_src = "# icon file\nCOMMANDS = {'goal'}\n"
+    splat_src = "# splat file\nCOMMANDS = {'goal'}\n"
     jump_src = "# another wand file\nCOMMANDS = {'jump'}\n"
     write_game("goalrace.py", wand_src)
     write_game("goalrace_icon.py", icon_src)
+    write_game("goalrace_splat.py", splat_src)
     write_game("wandonly.py", "# wand only\n")
     write_game("jumpin.py", jump_src)
 
@@ -275,6 +277,13 @@ def run(firmware_dir, device):
     run_case("a display asking for a wand-only game is refused, not handed the wand file",
              [("a", "wandonly", "icon_display", None)], {"a": {"name": None}})
 
+    run_case("v2 splat_companion: the _splat file, landing as <slug>.py, no icon leg",
+             [("a", "goalrace", "splat_companion", None)],
+             {"a": {"name": "goalrace.py", "body": splat_src}})
+
+    run_case("a splat companion asking for a wand-only game is refused, not handed the wand file",
+             [("a", "wandonly", "splat_companion", None)], {"a": {"name": None}})
+
     run_case("an unknown hubtype is refused rather than guessed at",
              [("a", "goalrace", "radar", None)], {"a": {"name": None}})
 
@@ -296,17 +305,19 @@ def run(firmware_dir, device):
     print("%s: CONCURRENCY (several devices at once)" % device.upper())
 
     events, srv = run_case(
-        "three devices, different games and roles, all served at once",
+        "four devices, different games and roles, all served at once",
         [("wand1", "goalrace", "wand", None),
          ("wand2", "jumpin", "wand", None),
-         ("disp", "goalrace", "icon_display", device_icons)],
+         ("disp", "goalrace", "icon_display", device_icons),
+         ("splat", "goalrace", "splat_companion", None)],
         {"wand1": {"name": "goalrace.py", "body": wand_src},
          "wand2": {"name": "jumpin.py", "body": jump_src},
-         "disp": {"name": "goalrace.py", "body": icon_src, "icons": 2}})
-    check("three 'serving' events", events.count("serving"), 3)
-    check("three 'ok' events", events.count("ok"), 3)
+         "disp": {"name": "goalrace.py", "body": icon_src, "icons": 2},
+         "splat": {"name": "goalrace.py", "body": splat_src}})
+    check("four 'serving' events", events.count("serving"), 4)
+    check("four 'ok' events", events.count("ok"), 4)
     check("no 'fail' events", events.count("fail"), 0)
-    check("pickups counted per device", srv.pickups, 3)
+    check("pickups counted per device", srv.pickups, 4)
 
     events, srv = run_case(
         "a refused device does not disturb the two real transfers beside it",

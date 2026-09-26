@@ -59,6 +59,11 @@ INDEX_PATH = GAMES_DIR + '/index.json'
 # Legacy single-game tags — replaced at boot by _rebuild_entries() from the
 # games index. Kept as a fallback if the index is empty.
 TAG_LIST = ("getcode", "jumpin")
+
+# PEER: BBoxFirmware/bbox_server.py, BDialFirmware/bdial_server.py.
+# Every non-wand ROLE_FILES suffix (in code_server.py) goes here too,
+# so _boot_scan_games() never enrols another device's staged file.
+STAGING_SUFFIXES = ('_icon.py', '_splat.py')
 DONE_ENTRY = "DONE"
 
 # Writable no matter which games are loaded. "stop" exits any running game;
@@ -689,10 +694,11 @@ class BdialServer:
         New-this-boot files (not in previous index) become active; if several,
         latest mtime wins. Otherwise keep active.txt if still present.
 
-        A name ending "_icon.py" is a display game staged under the suffix
-        ROLE_FILES uses to pick it out for an icon_display pull (see
-        code_server.py) -- it is never itself a playable game on this device,
-        so it never enters the menu or becomes active.
+        A name ending in a staging suffix (STAGING_SUFFIXES below) is another
+        device's game, staged under the suffix ROLE_FILES uses to pick it
+        out for that device's pull (see code_server.py) -- it is never
+        itself a playable game on this device, so it never enters the menu
+        or becomes active.
         """
         self._ensure_games_dir()
         self._load_index()
@@ -704,7 +710,8 @@ class BdialServer:
         except OSError:
             names = []
         for name in names:
-            if not name.endswith('.py') or name.endswith('_icon.py'):
+            if not name.endswith('.py') or any(
+                    name.endswith(suf) for suf in STAGING_SUFFIXES):
                 continue
             slug = name[:-3]
             path = GAMES_DIR + '/' + name
