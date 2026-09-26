@@ -45,19 +45,22 @@ const check = (label, ok, detail = '') => {
 };
 
 check('editor.js imported with no network access', true);
-check('ROLES is wand then icon', ROLES.join(',') === 'wand,icon', ROLES.join(','));
+check('ROLES is wand, icon, then splat', ROLES.join(',') === 'wand,icon,splat', ROLES.join(','));
 check('editorView never mounts -- getCode/setCode fall back to roleState',
     editor.getActiveRole() === 'wand');
 
 // ── Two blocks land, the way confirmSend's role split would place them ──
 editor.setCode('# wand code v1\n', 'wand');
 editor.setCode('# icon code v1\n', 'icon');
-check('wand code set independently of icon',
+editor.setCode('# splat code v1\n', 'splat');
+check('wand code set independently of the others',
     editor.getCode('wand') === '# wand code v1\n');
-check('icon code set independently of wand',
+check('icon code set independently of the others',
     editor.getCode('icon') === '# icon code v1\n');
-check('both roles now show up in the tab rail',
-    JSON.stringify(editor.rolesWithCode()) === JSON.stringify(['wand', 'icon']),
+check('splat code set independently of the others',
+    editor.getCode('splat') === '# splat code v1\n');
+check('all three roles now show up in the tab rail',
+    JSON.stringify(editor.rolesWithCode()) === JSON.stringify(['wand', 'icon', 'splat']),
     editor.rolesWithCode().join(','));
 
 // ── Switch tabs, edit each, and confirm nothing leaks between roles ──
@@ -80,6 +83,8 @@ check('switching back to wand carries its own code, unaffected by icon edits',
 editor.setCode('# wand code v2, edited while active\n');
 check('an edit on the wand tab does not leak into icon',
     editor.getCode('icon') === '# icon code v2, edited while active\n');
+check('...or into a third role (splat)',
+    editor.getCode('splat') === '# splat code v1\n');
 
 check('setActiveRole is a no-op for an unknown role',
     editor.setActiveRole('nosuchrole') === 'wand' && editor.getActiveRole() === 'wand');

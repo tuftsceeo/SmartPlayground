@@ -3,16 +3,16 @@
  *
  * A game's play() signature is fixed per device role: a wand game only ever
  * runs on wands and an icon display game only ever runs on icon displays, so
- * each role names its own hardware. ROLE_SIGNATURES is the client-side copy
- * of what each device's main.py actually calls; keep it in step with
- * MockWand/main.py's _launch_game() and IconDisplay/main.py's.
+ * each role names its own hardware. roles.js is the client-side copy of
+ * what each device's main.py actually calls; keep it in step with
+ * MockWand/main.py's _launch_game(), IconDisplay/main.py's and
+ * SplatCompanion/main.py's.
  */
+import { ROLES as ROLE_TABLE, signatureFor } from './roles.js';
 
 /** Required play() parameter names, in order, keyed by device role. */
-export const ROLE_SIGNATURES = {
-    wand: ['nfc', 'leds', 'buz', 'accel', 'i2c', 'enow', 'batt'],
-    icon: ['nfc', 'panel', 'enow'],
-};
+export const ROLE_SIGNATURES = Object.fromEntries(
+    ROLE_TABLE.map(r => [r.key, r.signature]));
 
 /**
  * Parameters a role's play() may omit and still run.
@@ -24,19 +24,10 @@ export const ROLE_SIGNATURES = {
  * New code should still declare it -- the knowledge files ask for it -- but a
  * missing one is not a reason to block a send.
  */
-const OPTIONAL_PARAMS = {
-    wand: ['batt'],
-    icon: [],
-};
+const OPTIONAL_PARAMS = Object.fromEntries(
+    ROLE_TABLE.map(r => [r.key, r.optional]));
 
-/** Human-readable `def play(...)` line for a role, used in error text. */
-export function signatureFor(role) {
-    const names = ROLE_SIGNATURES[role];
-    if (!names) return null;
-    // batt is the one parameter main.py tolerates a default on.
-    const shown = names.map(n => (n === 'batt' ? 'batt=None' : n));
-    return `def play(${shown.join(', ')})`;
-}
+export { signatureFor };
 
 /**
  * Parse the parameter names out of a `def play(...)` line.

@@ -1,11 +1,9 @@
 import { renderMarkdown } from './markdown.js';
+import { ROLES as ROLE_TABLE, DEFAULT_ROLE } from './roles.js';
 
 // One file per device type. Each documents that device's own play()
 // signature and hardware; there is no shared game API to document.
-const KNOWLEDGE_FILES = [
-    "knowledge/knowledge.py",          // wand
-    "knowledge/icon_display.py",       // icon display
-];
+const KNOWLEDGE_FILES = ROLE_TABLE.map(r => r.knowledgeFile);
 let knowledgeText = "";
 
 export async function loadKnowledgeBase() {
@@ -59,8 +57,8 @@ export function removeTyping() {
     });
 }
 
-/** Device roles a reply may carry code for, in tab order. */
-export const ROLES = ["wand", "icon"];
+/** Device roles a reply may carry code for, in tab order (roles.js). */
+export const ROLES = ROLE_TABLE.map(r => r.key);
 
 const LANG_LINES = ["python", "py", "micropython", ""];
 
@@ -101,7 +99,7 @@ export function extractCodeBlocks(text) {
     if (!text || !text.includes("```")) return [];
     const parts = text.split("```");
     const out = [];
-    let role = "wand";
+    let role = DEFAULT_ROLE;
     for (let i = 0; i < parts.length; i++) {
         if (i % 2 === 0) {
             // Prose. A marker here names the role of the block that follows.

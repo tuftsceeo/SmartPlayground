@@ -11,6 +11,7 @@ import {
     setActiveRole, getActiveRole, rolesWithCode, clearAllRoles,
 } from './editor.js';
 import { uploadPayload, validateGameCode } from './upload.js';
+import { ROLES as ROLE_TABLE, roleInfo, DEFAULT_ROLE, signatureFor } from './roles.js';
 import { updateTagChecklist } from './nfc.js';
 import { EXAMPLES, CATEGORIES, findExample, loadExampleCode } from './examples.js';
 import { showView, showOverlay, hideOverlay, setConnectionBadge, toast, setSendProgress, showConnectToast, syncNavTabs } from './router.js';
@@ -67,15 +68,22 @@ const WAITING_LIMIT_WAND_MS = 25000;
    within 5s regardless. */
 const IDENTIFY_NUDGE_MS = 2500;
 
-const SYSTEM_PROMPT_BASE = `You are an AI assistant helping teachers write MicroPython games for the PlaygroundV5 wand.
+// One "<role> game MUST use ..." line per role, and the marker list for
+// the [DEVICE: ...] rule -- built from roles.js so a new role needs no
+// second edit here.
+const ROLE_SIGNATURE_LINES = ROLE_TABLE
+    .map(r => `- A ${r.label.toLowerCase()} game MUST use ${signatureFor(r.key)}`)
+    .join('\n');
+const ROLE_MARKER_LIST = ROLE_TABLE.map(r => `[DEVICE: ${r.key}]`).join(' or ');
+
+const SYSTEM_PROMPT_BASE = `You are an AI assistant helping teachers write MicroPython games for playground devices.
 
 RULES:
 - All board details, APIs, and hardware specs are in the KNOWLEDGE BASE below. Reference it.
-- A wand game MUST use def play(nfc, leds, buz, accel, i2c, enow, batt=None)
-- An icon display game MUST use def play(nfc, panel, enow)
+${ROLE_SIGNATURE_LINES}
 - Put all code inside a fenced code block: \`\`\`python ... \`\`\`
-- Precede EVERY code block with a device marker on its own line: [DEVICE: wand] or [DEVICE: icon]
-- A game that uses both devices is TWO files, one per device, each in its own marked block. They are separate programs that happen to play the same game — never one file with a mode switch.
+- Precede EVERY code block with a device marker on its own line: ${ROLE_MARKER_LIST}
+- A game that uses more than one device is one file per device, each in its own marked block. They are separate programs that happen to play the same game — never one file with a mode switch.
 - Do NOT use f-strings — they crash on this MicroPython build. Use % formatting only.
 - Keep explanations concise — the code block is auto-extracted to the editor
 - If the user sends serial output (prefixed with [HW]:), help debug it
@@ -265,23 +273,26 @@ class App {
     syncRoleRail() {
         const have = new Set(rolesWithCode());
         const active = getActiveRole();
-        const hasDisplay = have.has('icon');
+        // The rail is worth showing once ANY non-wand role has code -- the
+        // wand tab is otherwise the only one ever enabled, so a single-role
+        // (wand-only) game keeps the rail hidden exactly as before.
+        const hasOther = [...have].some(r => r !== DEFAULT_ROLE);
 
         document.querySelectorAll('.device-tab').forEach((el) => {
             const role = el.dataset.role;
-            if (!role) return;
-            const enabled = role === 'wand' || have.has(role);
+            const info = role && roleInfo(role);
+            if (!info) return;
+            const enabled = role === DEFAULT_ROLE || have.has(role);
             el.classList.toggle('disabled', !enabled);
             el.classList.toggle('active', enabled && role === active);
             el.disabled = !enabled;
-            if (!enabled) el.title = 'No display code in this game yet';
-            else el.title = role === 'wand' ? 'Wands' : 'Icon display';
+            el.title = enabled ? info.label : `No ${info.label.toLowerCase()} code in this game yet`;
         });
-        document.getElementById('device-tabs')?.classList.toggle('hidden', !hasDisplay);
-        document.getElementById('code-device-tabs')?.classList.toggle('hidden', !hasDisplay);
+        document.getElementById('device-tabs')?.classList.toggle('hidden', !hasOther);
+        document.getElementById('code-device-tabs')?.classList.toggle('hidden', !hasOther);
         // Editing icons only means something while the display is on screen.
         document.getElementById('btn-icon-maker')
-            ?.classList.toggle('hidden', !(hasDisplay && active === 'icon'));
+            ?.classList.toggle('hidden', !(have.has('icon') && active === 'icon'));
     }
 
     closeMoreMenu() {
@@ -538,7 +549,7 @@ class App {
 
     /** Show a role's file in the editor, if that role has one. */
     selectRole(role) {
-        if (role !== 'wand' && !rolesWithCode().includes(role)) return;
+        if (role !== DEFAULT_ROLE && !rolesWithCode().includes(role)) return;
         setActiveRole(role);
         this.syncRoleRail();
         this.updatePreview();
@@ -1266,17 +1277,22 @@ class App {
     }
 
     onSaveGame() {
-        const code = getCode('wand');
-        const iconCode = getCode('icon');
+        const code = getCode(DEFAULT_ROLE);
         if (!code.trim() || code.trim().startsWith('# AI-generated')) {
             toast('Nothing to save yet — generate or load some code first.', true);
             return;
+        }
+        const roleCode = {};
+        for (const info of ROLE_TABLE) {
+            if (info.key === DEFAULT_ROLE) continue;
+            const c = getCode(info.key).trim();
+            if (c) roleCode[info.key] = c;
         }
         const entry = saveGame({
             name: this.gameName,
             desc: this.gameDesc,
             code,
-            iconCode,
+            roleCode,
             requiredTags: this.requiredTags,
             hardware: this.hardware,
             chatHistory: this.chatHistory.slice(),
@@ -1465,12 +1481,20 @@ class App {
             addMsg(turn.content, turn.role === 'assistant' ? 'bot' : 'user');
         });
         if (g.code) {
-            setCode(g.code, 'wand');
-            saveVersion(g.code, 'Loaded from library', 'wand');
+            setCode(g.code, DEFAULT_ROLE);
+            saveVersion(g.code, 'Loaded from library', DEFAULT_ROLE);
         }
-        if (g.iconCode) {
-            setCode(g.iconCode, 'icon');
-            saveVersion(g.iconCode, 'Loaded from library', 'icon');
+        // g.iconCode predates roleCode and is read as roleCode.icon's
+        // fallback (see saveGame() in library.js); either way it ends up
+        // set on roleCode by the time an entry reaches here.
+        const roleCode = { ...(g.roleCode || {}) };
+        if (g.iconCode && !roleCode.icon) roleCode.icon = g.iconCode;
+        for (const info of ROLE_TABLE) {
+            if (info.key === DEFAULT_ROLE) continue;
+            const code = roleCode[info.key];
+            if (!code) continue;
+            setCode(code, info.key);
+            saveVersion(code, 'Loaded from library', info.key);
         }
         this.syncRoleRail();
         this.dirty = false;
@@ -1730,13 +1754,20 @@ class App {
     updatePreview(opts = {}) {
         const wandCode = getCode('wand');
         const iconCode = getCode('icon');
+        const active = getActiveRole();
+        const activeInfo = roleInfo(active);
 
         this.refreshHardware(wandCode);
 
         // Which simulator is on screen follows the device tab: the wand's
-        // Pyodide sim for wand code, the panel preview for display code.
-        const showingIcon = getActiveRole() === 'icon' && isRunnableCode(iconCode);
-        const runnable = showingIcon ? true : isRunnableCode(wandCode);
+        // Pyodide sim for wand code, the panel preview for display code. A
+        // role with no simulator (hasPreview: false) always falls to the
+        // placeholder, even with code -- syncPreviewEmpty() gives it its
+        // own caption rather than reusing "wand preview".
+        const showingIcon = active === 'icon' && isRunnableCode(iconCode);
+        const runnable = showingIcon ? true
+            : (activeInfo && !activeInfo.hasPreview) ? false
+            : isRunnableCode(wandCode);
 
         document.getElementById('preview-panel').classList.toggle('hidden', !runnable || showingIcon);
         document.getElementById('icon-sim-panel')?.classList.toggle('hidden', !showingIcon);
@@ -1765,13 +1796,13 @@ class App {
     syncPreviewEmpty() {
         const empty = document.getElementById('preview-empty');
         if (!empty) return;
-        const isIcon = getActiveRole() === 'icon';
+        const info = roleInfo(getActiveRole()) || roleInfo(DEFAULT_ROLE);
         const host = empty.querySelector('.preview-empty-icon');
         const caption = empty.querySelector('.preview-empty-caption');
         // Built here rather than left to the load-time [data-icon] pass, which
         // runs once and would keep whichever glyph the markup started with.
-        if (host) host.innerHTML = iconSvg(isIcon ? 'grid-3x3' : 'wand', { size: 46, strokeWidth: 1.3 });
-        if (caption) caption.textContent = isIcon ? 'display preview' : 'wand preview';
+        if (host) host.innerHTML = iconSvg(info.previewGlyph, { size: 46, strokeWidth: 1.3 });
+        if (caption) caption.textContent = info.previewCaption;
     }
 
     /** Show what the 16x16 panel would draw for the current display file. */
@@ -2007,9 +2038,14 @@ class App {
     /** Recompute the hardware requirements from the current code + declared tags. */
     refreshHardware(code) {
         this.hardware = buildHardwareReqs({
-            code: code !== undefined ? code : getCode('wand'),
+            code: code !== undefined ? code : getCode(DEFAULT_ROLE),
             gameName: this.gameName,
             declared: this.declaredTags,
+            // Every non-wand role with no simulator is a physical station
+            // the game needs, named for the send-confirm overlay.
+            stations: ROLE_TABLE
+                .filter(r => r.key !== DEFAULT_ROLE && !r.hasPreview && getCode(r.key).trim())
+                .map(r => r.label),
         });
         return this.hardware;
     }
@@ -2194,36 +2230,43 @@ class App {
         }
 
         // A multi-device game ships as several files in one raw-REPL session:
-        // the wand's <slug>.py, the display's <slug>_icon.py, and every icon
-        // that display game names, under <slug>_icons/. The Box then serves
-        // each device whichever file its hubtype asks for.
-        const iconCode = getCode('icon').trim();
+        // the wand's <slug>.py, and one <slug><designator>.py per other role
+        // that has code (plus, for icon, every icon that game names, under
+        // <slug>_icons/). The Box then serves each device whichever file its
+        // hubtype asks for.
         const extraFiles = [];
-        if (iconCode) {
-            // The wand file is checked inside uploadPayload; the display's
-            // has a different signature, so it is checked here.
-            const [iconOk, iconErr] = validateGameCode(iconCode, 'icon');
-            if (!iconOk) {
-                if (errEl) errEl.textContent = iconErr;
-                toast(iconErr, true);
+        for (const info of ROLE_TABLE) {
+            if (info.key === DEFAULT_ROLE) continue;
+            const roleCode = getCode(info.key).trim();
+            if (!roleCode) continue;
+            // The wand file is checked inside uploadPayload; every other
+            // role has a different signature, so it is checked here.
+            const [ok, err] = validateGameCode(roleCode, info.key);
+            if (!ok) {
+                if (errEl) errEl.textContent = err;
+                toast(err, true);
                 return;
             }
-            const missing = missingIconsIn(iconCode);
-            if (missing.length) {
-                // Sending blanks would leave a dark panel and no explanation.
-                const msg = `The display game asks for icons that do not exist: ${missing.join(', ')}.`;
-                if (errEl) errEl.textContent = msg;
-                toast(msg, true);
-                return;
+            if (info.hasIconLeg) {
+                const missing = missingIconsIn(roleCode);
+                if (missing.length) {
+                    // Sending blanks would leave a dark panel and no explanation.
+                    const msg = `The display game asks for icons that do not exist: ${missing.join(', ')}.`;
+                    if (errEl) errEl.textContent = msg;
+                    toast(msg, true);
+                    return;
+                }
             }
-            extraFiles.push({ path: `/flash/games/${slug}_icon.py`, content: iconCode });
-            for (const name of iconNamesIn(iconCode)) {
-                extraFiles.push({
-                    path: `/flash/games/${slug}_icons/${name}.py`,
-                    content: iconFileText(name),
-                });
+            extraFiles.push({ path: `/flash/games/${slug}${info.designator}.py`, content: roleCode });
+            if (info.hasIconLeg) {
+                for (const name of iconNamesIn(roleCode)) {
+                    extraFiles.push({
+                        path: `/flash/games/${slug}_icons/${name}.py`,
+                        content: iconFileText(name),
+                    });
+                }
             }
-            dbg('app', `display file plus ${extraFiles.length - 1} icon(s) queued`);
+            dbg('app', `${info.label} file plus its extras queued (${extraFiles.length} so far)`);
         }
         if (!isWand && extraFiles.length) {
             meta.extraFiles = extraFiles;

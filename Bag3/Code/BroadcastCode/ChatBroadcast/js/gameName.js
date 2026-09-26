@@ -8,6 +8,7 @@
  */
 
 import { EXAMPLES } from "./examples.js";
+import { ROLES as ROLE_TABLE } from "./roles.js";
 
 export const SLUG_MAX = 16;
 
@@ -45,6 +46,16 @@ export const RESERVED_SLUGS = new Set([
   ...WAND_RESERVED,
   ...BOX_RESERVED,
 ]);
+
+/**
+ * Every non-wand role's Box/Dial staging suffix (roles.js). A slug ending
+ * in one of these would be staged as that role's own file and skipped by
+ * the boot-time menu scan (bbox_server.py / bdial_server.py
+ * STAGING_SUFFIXES) -- invisible on the device, not merely renamed.
+ */
+export const RESERVED_SUFFIXES = ROLE_TABLE
+  .map((r) => r.designator)
+  .filter(Boolean);
 
 /**
  * Lowercase, non-alphanumerics→underscores, collapse repeats, cap SLUG_MAX.
@@ -85,6 +96,14 @@ export function validateGameName(prettyName, opts = {}) {
   }
   if (RESERVED_SLUGS.has(slug)) {
     return { ok: false, reason: `"${pretty}" is reserved — pick another name.`, slug };
+  }
+  const badSuffix = RESERVED_SUFFIXES.find((suf) => slug.endsWith(suf));
+  if (badSuffix) {
+    return {
+      ok: false,
+      reason: `"${pretty}" ends in "${badSuffix}", reserved for device staging — pick another name.`,
+      slug,
+    };
   }
   const existing = opts.existingSlugs || [];
   if (existing.includes(slug) && !opts.allowReplace) {

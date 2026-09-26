@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 // BroadcastBox/, two levels up from tools/devtests/.
 const BB = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 /**
- * Walk a two-device reply through ChatBroadcast's pipeline, host-side.
+ * Walk a three-device reply through ChatBroadcast's pipeline, host-side.
  *
  * editor.js and app.js import CodeMirror from a CDN and touch the DOM, so
  * they cannot run here; this covers the parts that can -- block extraction,
@@ -57,22 +57,38 @@ def play(nfc, panel, enow):
     icon_store.read_icon("ready", into=panel.src)
 \`\`\`
 
+[DEVICE: splat]
+\`\`\`python
+def play(splat, leds, enow, batt=None):
+    msg_type, data, mac = enow.poll()
+    if msg_type in ("stop", "start_game"):
+        return
+    ev = splat.poll()
+    if ev == "press":
+        splat.play(["turngreen"])
+        enow.broadcast({"type": "score", "hit": True})
+\`\`\`
+
 [NFC_CARDS: "teamgreen", "teamblue", "goal"]
 [GAME_NAME: Team Goal Race]`;
 
 const blocks = extractCodeBlocks(REPLY);
-check('both device blocks extracted', blocks.length === 2, `${blocks.length} blocks`);
-check('roles are wand then icon',
-    blocks.map(b => b.role).join(',') === 'wand,icon', blocks.map(b => b.role).join(','));
+check('three device blocks extracted', blocks.length === 3, `${blocks.length} blocks`);
+check('roles are wand, icon, then splat',
+    blocks.map(b => b.role).join(',') === 'wand,icon,splat', blocks.map(b => b.role).join(','));
 check('device markers are stripped from the displayed text',
     !stripDeviceMarkers(REPLY).includes('[DEVICE:'));
 
-const wand = blocks[0].code, icon = blocks[1].code;
+const wand = blocks[0].code, icon = blocks[1].code, splat = blocks[2].code;
 check('wand file validates as wand', validateGameCode(wand, 'wand')[0] === true);
 check('icon file validates as icon', validateGameCode(icon, 'icon')[0] === true);
+check('splat file validates as splat', validateGameCode(splat, 'splat')[0] === true,
+    validateGameCode(splat, 'splat')[1]);
 check('wand file is REJECTED as an icon file', validateGameCode(wand, 'icon')[0] === false,
     validateGameCode(wand, 'icon')[1]);
 check('icon file is REJECTED as a wand file', validateGameCode(icon, 'wand')[0] === false);
+check('splat file is REJECTED as a wand file', validateGameCode(splat, 'wand')[0] === false);
+check('wand file is REJECTED as a splat file', validateGameCode(wand, 'splat')[0] === false);
 check('every role has a documented signature',
     ROLES.every(r => typeof signatureFor(r) === 'string'));
 
@@ -90,6 +106,7 @@ const extraFiles = [{ path: `/flash/games/${slug}_icon.py`, content: icon }];
 for (const n of names) {
     extraFiles.push({ path: `/flash/games/${slug}_icons/${n}.py`, content: lib.iconFileText(n) });
 }
+extraFiles.push({ path: `/flash/games/${slug}_splat.py`, content: splat });
 
 // ── pushPayload against a fake REPL ──
 const written = [];
@@ -118,6 +135,7 @@ check('display file pushed', puts.includes('/flash/games/goalrace_icon.py'));
 for (const n of names) {
     check(`icon ${n} pushed`, puts.includes(`/flash/games/goalrace_icons/${n}.py`));
 }
+check('splat file pushed', puts.includes('/flash/games/goalrace_splat.py'));
 check('icons directory created before its files',
     written.indexOf('mkdir /flash/games/goalrace_icons') <
     written.indexOf('put /flash/games/goalrace_icons/ready.py'));
@@ -162,4 +180,4 @@ if (fails.length) {
     for (const f of fails) console.log('  -', f);
     process.exit(1);
 }
-console.log('ChatBroadcast two-device flow OK');
+console.log('ChatBroadcast three-device flow OK');

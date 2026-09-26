@@ -37,6 +37,8 @@
 #   def play(nfc, leds, buz, accel, i2c):          # WRONG — missing enow
 #   def play(nfc, leds, buz, accel, enow):           # WRONG — missing i2c
 #   def play(nfc, leds, buz, i2c, enow):             # WRONG — missing accel
+#   def play(nfc, panel, enow):                      # WRONG — that is the icon display
+#   def play(splat, leds, enow, batt=None):          # WRONG — that is the Splat Companion
 #
 # FORBIDDEN docstrings / comments (do not write these):
 #   play(nfc, leds, buz, accel, i2c)                 # WRONG — omits enow

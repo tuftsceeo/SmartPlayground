@@ -29,6 +29,7 @@
 # FORBIDDEN signatures (will crash at launch):
 #   def play(panel, enow):                        # WRONG — missing nfc
 #   def play(nfc, leds, buz, accel, i2c, enow):   # WRONG — that is a wand
+#   def play(splat, leds, enow, batt=None):       # WRONG — that is the Splat Companion
 #
 # Arguments:
 #   nfc   — an NfcReader, ALREADY BUILT, or None while no card reader is
