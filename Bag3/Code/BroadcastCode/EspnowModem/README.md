@@ -22,6 +22,8 @@ What moves off the host:
 | `tests/test_proto.py` | PC | CPython tests: protocol, classification, copy check |
 | `tests/test_code_xfer.py` | PC | CPython: ESP-NOW code transfer, receiver ↔ sender, lossy link |
 | `tests/test_sim.py` | PC | CPython end-to-end: real modem `main.py` and host manager joined by a fake UART and a fake radio |
+| `SplatCompanionEUM/` | XIAO ESP32-C6 host | Splat Companion: ESP-NOW via the modem, BLE to a Splat on its own radio (see its README) |
+| `tests/test_splat_companion.py` | PC | CPython: companion loop on `test_sim.py`'s modem + host, with a fake BLE Splat |
 
 ## Wiring (S3 ↔ S3)
 
@@ -170,6 +172,7 @@ Unknown types arrive as `("raw", decoded_json, mac)`, as they do with the built-
 ```
 python tests/test_proto.py
 python tests/test_sim.py
+python tests/test_splat_companion.py
 ```
 
 `test_sim.py` covers:

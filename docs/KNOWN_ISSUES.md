@@ -139,3 +139,36 @@ mark them resolved.
   earlier claim that every JS and Python file must be listed was wrong.
 - **`Bag2/Documentation/README.md` links `FREEZE_DANCE_README.md`; the file on disk is
   `freeze-dance-readme.md`.** One-character fix; previously recorded in `Bag2/AGENTS.md`.
+
+## 2026-09-26 (Splat Companion EUM pass)
+
+Found while writing `Bag3/Code/BroadcastCode/EspnowModem/SplatCompanionEUM/`. None of these were
+changed in the trees they are in; details in that directory's README, "Drift and findings".
+
+### Verified drift
+
+- Splat note names: `Bag2/Code/lib/actions.py` (and the note cards) use `note_a` … `note_c_high`;
+  `Bag2/Code/Splat Companion/main.py` `NOTE_MIDI` uses `notea` … `noteb`, so card note names are
+  dropped there silently. Note values also differ between that file (`c`=0 … `b`=11, velocity
+  127, instrument 17) and `legacy_jan26_wand_ble_splat_ctrl.py` (`c`=1 … `b`=15, velocity 255,
+  instrument 16). Confirmed by reading both.
+- `Bag2/Code/Splat Companion/ble_splat.py` holds the wand-side `ble_splat_ctrl.py` controller, not
+  the `OpenSplat` driver its sibling `main.py` imports; the import only works when
+  `/lib/ble_splat.py` wins. Confirmed by reading the file header and `grep "class OpenSplat"`.
+
+### Latent bugs
+
+- `Bag2/Code/lib/ble_splat.py` ≡ `Bag3/Code/lib/ble_splat.py`: `_handle_button` updates
+  `_last_raw_state` before its 80 ms debounce check, so a release < 80 ms after a press is dropped
+  and the button stays "pressed" until the next full press. Reproduced in
+  `EspnowModem/tests/test_splat_companion.py` before `SplatLink` overrode the handler.
+- Same driver: a late `SCAN_DONE` IRQ clears `_scanning` while a newer scan runs; the next
+  `gap_scan()` raises `EALREADY`. Reproduced in the same simulation (fake BLE).
+- `send_splat_config()` is defined in every `espnow_manager.py` copy and called nowhere, so no
+  fielded wand sends `splat_config` to the Bag2 companion. Confirmed by grep across `Bag2/`,
+  `Bag3/`, `Live_Page/`.
+
+### Dead code update
+
+- `Bag3/Code/lib/ble_splat.py` still has no importers in `Bag3/Code/`, but a byte copy is now used
+  by `EspnowModem/SplatCompanionEUM/lib/ble_splat.py` (copy checked by its test).
