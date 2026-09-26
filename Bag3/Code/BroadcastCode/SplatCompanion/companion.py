@@ -195,14 +195,21 @@ class ChainPlayer:
 
 
 class Companion:
-    def __init__(self, mgr, link, leds=None):
+    def __init__(self, mgr, link, leds=None, is_game_fn=None):
+        """is_game_fn(name) -> bool, checked before honouring an ESP-NOW
+        start_game (same check main.py's own NFC dispatch uses). None means
+        this device never accepts start_game -- used in the CPython
+        simulation, which has no game table.
+        """
         self.mgr = mgr
         self.link = link
         self.leds = leds
+        self.is_game_fn = is_game_fn
         self.player = ChainPlayer(link)
         self.config = None           # parsed steps played on each press
         self.owner = None            # mac_str of the last controller
         self.pressed = False
+        self.pending_start_game = None  # set by on_message, read by main.py
         now = time.ticks_ms()
         self._next_poll = now
         self._last_ka = now
@@ -213,6 +220,7 @@ class Companion:
             "rx": 0, "configs": 0, "cmds": 0, "stops": 0, "ignored": 0,
             "bad_msgs": 0, "presses": 0, "releases": 0, "relays": 0,
             "relay_failures": 0, "cmds_dropped": 0, "ble_up": 0, "ble_down": 0,
+            "start_games": 0, "start_games_unknown": 0,
         }
 
     # ─── Loop ─────────────────────────────────
@@ -352,11 +360,26 @@ class Companion:
             self._on_config(data, mac)
         elif msg_type == "stop":
             self._on_stop(mac)
+        elif msg_type == "start_game":
+            self._on_start_game(data, mac)
         elif (msg_type == "raw" and isinstance(data, dict) and
               data.get("type") == "splat_cmd"):
             self._on_cmd(data, mac)
         else:
             self.counters["ignored"] += 1
+
+    def _on_start_game(self, data, mac):
+        # Bubbled up rather than launched here: only main.py's idle loop
+        # knows the game table (is_game_fn), and only it may unload this
+        # bridge's own state before handing the Splat to a game.
+        name = data.get("name") if isinstance(data, dict) else None
+        if self.is_game_fn is not None and name and self.is_game_fn(name):
+            self.counters["start_games"] += 1
+            self.pending_start_game = name
+        else:
+            self.counters["start_games_unknown"] += 1
+            print("  Companion: ignoring unknown start_game name %r from %s"
+                  % (name, mac))
 
     def _bad(self, what, mac, errors):
         self.counters["bad_msgs"] += 1

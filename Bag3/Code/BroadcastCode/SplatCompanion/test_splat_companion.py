@@ -1,13 +1,13 @@
 """CPython simulation of the Splat Companion's combined ESP-NOW + BLE loop.
 
-Reuses test_sim.py's harness: the real modem/main.py runs in a thread behind
-a fake UART and a fake ESP-NOW radio, and the real host espnow_manager.py
-talks to it. On top of that, the real SplatCompanionEUM code (companion.py,
-splat_link.py and its unmodified lib/ble_splat.py) runs against a fake
-ubluetooth whose IRQ events arrive from a separate thread, as scheduled
-BLE IRQs do on the device.
+Reuses ../EspnowModem/tests/test_sim.py's harness: the real modem/main.py
+runs in a thread behind a fake UART and a fake ESP-NOW radio, and the real
+host espnow_manager.py talks to it. On top of that, the real SplatCompanion
+code (companion.py, splat_link.py and its unmodified lib/ble_splat.py) runs
+against a fake ubluetooth whose IRQ events arrive from a separate thread,
+as scheduled BLE IRQs do on the device.
 
-Run: python tests/test_splat_companion.py
+Run: python SplatCompanion/test_splat_companion.py
 """
 
 import heapq
@@ -19,13 +19,14 @@ import time
 import types
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, HERE)
+EUM_TESTS = os.path.join(HERE, "..", "EspnowModem", "tests")
+sys.path.insert(0, EUM_TESTS)
 
 import test_sim as S  # noqa: E402  (installs fakes, starts the modem thread)
 
-ROOT = os.path.join(HERE, "..")
-COMP_DIR = os.path.join(ROOT, "SplatCompanionEUM")
-BAG3_LIB = os.path.join(ROOT, "..", "..", "lib")
+EUM_ROOT = os.path.join(EUM_TESTS, "..")
+COMP_DIR = HERE
+BAG3_LIB = os.path.join(HERE, "..", "..", "lib")
 sys.path.insert(0, COMP_DIR)
 sys.path.append(os.path.join(COMP_DIR, "lib"))
 
@@ -266,14 +267,17 @@ def press_release(r, hold_ms):
 # ─── Tests ───────────────────────────────────
 
 def test_copies_match(r):
-    host_lib = os.path.join(ROOT, "host", "lib")
+    # hubtype.py is deliberately NOT checked here: this tree's entry now
+    # differs from MockWand's/Bag3/Code/lib's by design (nfc_addr, has_nfc,
+    # i2c_freq) -- see the device-tree README.
+    host_lib = os.path.join(EUM_ROOT, "host", "lib")
     for name, src in (("espnow_manager.py", host_lib), ("eum_proto.py", host_lib),
-                      ("ble_splat.py", BAG3_LIB), ("hubtype.py", BAG3_LIB)):
+                      ("ble_splat.py", BAG3_LIB)):
         with open(os.path.join(COMP_DIR, "lib", name), "rb") as f:
             a = f.read()
         with open(os.path.join(src, name), "rb") as f:
             b = f.read()
-        assert a == b, "SplatCompanionEUM/lib/%s differs from %s" % (name, src)
+        assert a == b, "SplatCompanion/lib/%s differs from %s" % (name, src)
 
 
 def test_parse_chain(r):
@@ -447,6 +451,31 @@ def test_modem_reset_restores_owner_peer(r):
     assert ev and ev[0][:2] == (WAND_MAC, "press"), ev
 
 
+def test_start_game_bubbles_to_pending(r):
+    # No is_game_fn wired (the simulation's Companion is built with the
+    # default None, matching a bench that never dispatches games): unknown
+    # by construction, counted, and never queued.
+    n0 = r.comp.counters["start_games_unknown"]
+    inject(WAND_MAC, {"type": "start_game", "name": "splatwhack"})
+    assert r.run(500, lambda: r.comp.counters["start_games_unknown"] == n0 + 1)
+    assert r.comp.pending_start_game is None
+
+    # Wire a fake game table for this one check, as main.py's is_game() does.
+    r.comp.is_game_fn = lambda name: name == "splatwhack"
+    try:
+        inject(WAND_MAC, {"type": "start_game", "name": "splatwhack"})
+        assert r.run(500, lambda: r.comp.pending_start_game == "splatwhack")
+        assert r.comp.counters["start_games"] == 1
+
+        n1 = r.comp.counters["start_games_unknown"]
+        inject(WAND_MAC, {"type": "start_game", "name": "nosuchgame"})
+        assert r.run(500, lambda: r.comp.counters["start_games_unknown"] == n1 + 1)
+        assert r.comp.pending_start_game == "splatwhack", "must not clear itself"
+        r.comp.pending_start_game = None    # as main.py's dispatch would
+    finally:
+        r.comp.is_game_fn = None
+
+
 def test_shutdown_does_not_stop_owner(r):
     a0 = len(S.radio().air)
     r.comp.shutdown()
@@ -469,7 +498,7 @@ if __name__ == "__main__":
         test_splat_cmd_direct, test_stop_clears_and_press_broadcasts,
         test_ble_drop_espnow_keeps_flowing, test_connect_timeout_retries,
         test_burst_during_playback, test_modem_reset_restores_owner_peer,
-        test_shutdown_does_not_stop_owner,
+        test_start_game_bubbles_to_pending, test_shutdown_does_not_stop_owner,
     ]
     for fn in tests:
         fn(r)

@@ -1,9 +1,9 @@
 """
 companion_probe.py -- periodic diagnostics for the Splat Companion
 ==================================================================
-Imported lazily by splat_companion.py when DEBUG_PROBE is True, after BLE
-and the modem link are up, so its strings are allocated after BLE's
-memory (AGENTS.md, memory order).
+Imported lazily by main.py when DEBUG_PROBE is True, after BLE and the
+modem link are up, so its strings are allocated after BLE's memory
+(AGENTS.md, memory order).
 
 Each report prints the companion counters, the BLE link state and write
 counts, and the EUM link and memory figures. host_idf_largest is the

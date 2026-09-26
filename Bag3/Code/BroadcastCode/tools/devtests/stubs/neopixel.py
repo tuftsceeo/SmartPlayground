@@ -13,3 +13,6 @@ class NeoPixel:
         return tuple(self.buf[o:o + 3])
     def write(self):
         self.writes += 1
+    def fill(self, v):
+        for i in range(self.n):
+            self[i] = v

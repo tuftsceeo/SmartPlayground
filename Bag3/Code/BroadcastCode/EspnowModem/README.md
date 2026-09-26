@@ -23,8 +23,6 @@ What moves off the host:
 | `tests/test_code_xfer.py` | PC | CPython: ESP-NOW code transfer, receiver ↔ sender, lossy link |
 | `tests/test_sim.py` | PC | CPython end-to-end: real modem `main.py` and host manager joined by a fake UART and a fake radio |
 | `tests/test_board_select.py` | PC | CPython: S3 vs. C6 UART pin / ring / antenna selection in `modem/main.py` |
-| `SplatCompanionEUM/` | XIAO ESP32-C6 host | Splat Companion: ESP-NOW via the modem, BLE to a Splat on its own radio (see its README) |
-| `tests/test_splat_companion.py` | PC | CPython: companion loop on `test_sim.py`'s modem + host, with a fake BLE Splat |
 
 ## Wiring (S3 ↔ S3)
 
@@ -196,8 +194,11 @@ Unknown types arrive as `("raw", decoded_json, mac)`, as they do with the built-
 python tests/test_proto.py
 python tests/test_sim.py
 python tests/test_board_select.py
-python tests/test_splat_companion.py
 ```
+
+The Splat Companion moved to `../SplatCompanion/`; run its own
+`test_splat_companion.py` from there (it reuses this directory's
+`tests/test_sim.py` harness).
 
 `test_sim.py` covers:
 - per-request fault reply
