@@ -376,14 +376,20 @@ def _load_play(name):
     """Compile a game's module on demand and return its play(). Raises on
     failure -- caller (_launch_game) turns that into the loud failure path.
 
-    Shows the game's GAME_ICON while the (blocking) import/compile runs,
-    so a tap gets an immediate response even before the module's own
-    entry fanfare. No animation here by design -- Phase 3 measures
-    per-game import time before deciding whether one is warranted.
+    Shows the game's GAME_ICON, if it has one (built-ins only), while the
+    (blocking) import/compile runs, so a tap gets an immediate response even
+    before the module's own entry fanfare. Pulled games show nothing. No
+    animation here by design -- Phase 3 measures per-game import time before
+    deciding whether one is warranted.
     """
     mod_name = game_module(name)
-    shape, color = GAME_ICON.get(name, (SHAPE_MUSIC, WHITE))
-    leds.show_shape(shape, color)
+    # Only built-ins have an icon. A pulled game used to get a white music
+    # note here, which testers read as the game itself; show nothing instead.
+    icon = GAME_ICON.get(name)
+    if icon is not None:
+        leds.show_shape(icon[0], icon[1])
+    else:
+        leds.off()
     memprobe.probe("pre-import:%s" % name)   # BENCH
     tok = memprobe.mark()                    # BENCH
     mod = __import__(mod_name)
