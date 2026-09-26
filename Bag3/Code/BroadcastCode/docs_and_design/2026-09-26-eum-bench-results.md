@@ -63,8 +63,76 @@ wand's loop, so the next remote trigger timed out. During the session this
 was worked around by broadcasting stop between runs. `code_host.py` now does
 this itself (`STOP_LEAD_MS`).
 
+## Compile margin, cold vs warm (commit `3dcfe64`)
+
+Before `compile()` the receiver now releases its transfer buffers and
+collects garbage twice. It also logs `pre_compile_gc_free` and
+`pre_compile_idf_largest`.
+
+**Setup:**
+- **Cold:** fresh boot, no game played.
+- **Warm:** `rainbow` played for about 30 s, then stopped.
+- **edgetest:** `code_puller.py` (33,004 B). It has no `play()`, so a
+  game-load failure after promotion is expected.
+
+| File | State | Runs OK | pre_compile_gc_free | pre_compile_idf_largest | min_gc_free | Launched |
+|---|---|---|---|---|---|---|
+| gesttest (27,870 B) | cold | 1/1 | 195,136 | 40,960 | 41,264 | yes |
+| edgetest (33,004 B) | cold | 1/1 | 193,408 | 40,960 | 51,088 | expected load failure (no `play()`) |
+| gesttest | warm | 3/3 | 192,800 | 40,960 | 50,528 | yes |
+| edgetest | warm | 3/3 | 192,800 | 40,960 | 50,528 | expected load failure |
+
+- **Heap shape:** the largest free internal block was 40,960 B in every run,
+  cold and warm. Playing a game beforehand made no measurable difference.
+- **Size limit:** 33 KB of source compiles. The compile limit on this wand
+  now lies between 33 KB and 57 KB.
+- **Harness fix confirmed:** `code_host.py`'s built-in stop-between-runs ran
+  all multi-run sets without manual help.
+
+## Busy retry and peer cleanup, one wand (commit `b2e637e`)
+
+What the commit changed:
+- **Peer cleanup:** the host removes a wand's peer when its session ends.
+- **Busy reply:** a wand over `MAX_SESSIONS` gets a `"busy"` offer with
+  `retry_ms`. It waits that long plus random jitter, for at most 120 s.
+- **Jitter:** each `code_req` waits a random 0–300 ms first.
+- **Bench hook:** `code_host.BUSY_FOR_MS` forces busy replies.
+
+Test file: gesttest (27,870 B).
+
+| Step | Run | Result | Total ms | busy_waits | Host peers after | busy_replies (cumulative) |
+|---|---|---|---|---|---|---|
+| normal | 1 | True | 4820 | 0 | `[]` | 0 |
+| normal | 2 | True | 4278 | 0 | `[]` | 0 |
+| normal | 3 | True | 4461 | 0 | `[]` | 0 |
+| BUSY_FOR_MS=5000 | 1 | True | 12097 | 2 | `[]` | 2 |
+| BUSY_FOR_MS=5000 | 2 | True | 10573 | 2 | `[]` | 4 |
+| BUSY_FOR_MS=150000 | 1 | `"busy"` | — | 38 | `[]` | kept rising |
+
+- **Peers:** the host peer table was empty after every run, including
+  across repeated refusals.
+- **Give-up:** the wand gave up at about 130 s (the 120 s budget plus its
+  last random wait) with `[ENX] sender still busy after 120 s, giving up`.
+  `enx_result` read `result: "busy"`, with the fields that don't apply left
+  null.
+- **Harness bug:** `code_host.RUN_TIMEOUT_MS` (60 s) was shorter than the
+  wand's 120 s busy budget. The host recorded a false "host timeout" at
+  about 66 s while the exchange carried on correctly. Fixed in `1c5ab8b`
+  (180 s).
+- **Not observed:** the amber pull-failure display after give-up was not
+  confirmed by eye.
+- **Modem stop:** the modem's program had stopped after both boards were
+  reconnected to USB, and needed a manual reset. Probably a Ctrl-C from a
+  tool opening its port; not confirmed. `modem_faults` and `modem_crc_err`
+  stayed 0 afterwards.
+- **Multi-wand:** multi-wand behaviour is covered only in simulation
+  (`tests/test_code_xfer.py`: 8 concurrent wands against a cap of 3, and 25
+  wands in a row against the 20-peer limit). Only one wand was on the bench.
+
 ## Not measured
 
 - **WiFi comparison:** no WiFi `code_server.py` / `code_puller.py` baseline; no Dial or Box was available.
 - **Watchdog:** the watchdog firing on a real hang (only power-cycle and wire-pull recovery were tested).
+- **Multiple wands:** two or more real wands transferring at once; shared throughput has only been estimated.
+- **Compile threshold:** the exact limit between 33 KB and 57 KB.
 - **Boot banner:** the modem's boot banner was never captured; `mpremote reset` re-enumerates USB before it prints.
