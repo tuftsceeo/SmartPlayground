@@ -23,7 +23,13 @@ between two Mock Wands reliably, and how fast. Everything is in
 - **Timeout tuning is the only allowed code change:** if a transfer fails with
   `InDataExchange status 0x01`, raise `TIMEOUT_CODE` in `pn532_dep.py` one step at a time
   (0x0B → 0x0C → 0x0D → 0x0E). Record the value that worked, and commit only that.
-- **Report every failure in full:** paste the whole `RESULT FAIL` line and the traceback, if any.
+- **Report every failure in full:** paste the whole `RESULT FAIL` line, the `#` detail lines
+  around it from both wands, and the traceback, if any.
+- **Keep full logs:** save both wands' serial output for every step, for example
+  `mpremote connect <A> run dep_sender.py | tee logs/A_<step>.log`, and commit the logs under
+  `tools/devtests/nfc_dep/logs/`.
+- **Trace repeated failures:** if a failure repeats, rerun that step once with `TRACE = True` in both
+  scripts. That's a logging switch, not a code change, but set it back to False before committing.
 
 **Setup**
 1. **List** the ports with `mpremote connect list`. Pick wand A (sender) and wand B (receiver),
@@ -57,5 +63,7 @@ between two Mock Wands reliably, and how fast. Everything is in
 - **Record findings:** add a short "Findings" section with failure modes, the `TIMEOUT_CODE`
   used, and anything unexpected.
 - **Commit** with a message like `nfc_dep: bench results <date>`, then push to the same branch.
+- **Report the bottleneck:** say whether `wait_us` or `read_us` dominates, and give the sender's
+  `tg_set_us` median.
 - **Report back:** the go/no-go verdict against the criteria in `README.md`, plus the headline
   numbers (B/s and xfer_ms for `jumpin.py` at 100 kHz and 400 kHz).

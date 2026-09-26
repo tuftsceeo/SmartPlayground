@@ -58,16 +58,46 @@ _FELICA_PARAMS = bytes([0x01, 0xFE, 0xA2, 0xA3, 0xA4, 0xA5, 0xA6, 0xA7,
 _NFCID3T = bytes([0xAA, 0x99, 0x88, 0x77, 0x66, 0x55, 0x44, 0x33, 0x22, 0x11])
 TG_MODE_DEP_ONLY = 0x02
 
+# PN532 error codes (UM0701 table 13), for readable error messages.
+STATUS_NAMES = {
+    0x01: "timeout", 0x02: "CRC error", 0x03: "parity error",
+    0x04: "bad anticollision bit count", 0x05: "framing error",
+    0x06: "abnormal bit collision", 0x07: "buffer too small",
+    0x09: "RF buffer overflow", 0x0A: "RF field not on in time",
+    0x0B: "RF protocol error", 0x0D: "overheat", 0x0E: "internal buffer overflow",
+    0x10: "invalid parameter", 0x12: "DEP unsupported command",
+    0x13: "DEP bad frame format", 0x25: "DEP invalid device state",
+    0x26: "operation not allowed", 0x27: "command not valid in this state",
+    0x29: "released by initiator", 0x2A: "card ID mismatch",
+    0x2B: "card disappeared", 0x2C: "NFCID3 mismatch", 0x2D: "over-current",
+    0x2E: "DEP NAD missing",
+}
+
+_ACK_FRAME = b'\x00\x00\xFF\x00\xFF\x00'
+
 # Polling request required as PassiveInitiatorData at 212/424 kbps.
 _FELICA_POLL = bytes([0x00, 0xFF, 0xFF, 0x00, 0x00])
 
 
+def status_str(status):
+    """Return e.g. '0x01 (timeout)' for a PN532 status byte."""
+    return "0x%02X (%s)" % (status, STATUS_NAMES.get(status, "unknown"))
+
+
 class DepError(Exception):
-    """PN532 protocol failure; .status holds the PN532 status byte if any."""
+    """PN532 protocol failure.
+
+    .status is the PN532 status byte, or None for a host-side failure (I2C,
+    framing, timeout waiting for the ready bit). .timing is the command's
+    phase timing dict at the point of failure (see PN532Dep.timing).
+    """
 
     def __init__(self, msg, status=None):
+        if status is not None:
+            msg = "%s status %s" % (msg, status_str(status))
         super().__init__(msg)
         self.status = status
+        self.timing = None
 
 
 class PN532Dep:
@@ -77,6 +107,16 @@ class PN532Dep:
         self.i2c = i2c
         self.addr = addr
         self.tg = 1
+        # Set True to print one line per command (code, sizes, phase timings).
+        self.trace = False
+        # Phase timings of the most recent command, in microseconds:
+        #   write  -- I2C write of the command frame
+        #   ack    -- wait for ready + ACK read
+        #   wait   -- wait for ready before the response (PN532 + RF time)
+        #   read   -- I2C read of the response frame (bus time)
+        # plus 'cmd', 'tx' (command frame bytes) and 'rx' (response data bytes).
+        self.timing = {}
+        self.polls = 0      # ready-bit polls in the last _wait_ready()
 
     # ─── Framing ───
 
@@ -84,7 +124,9 @@ class PN532Dep:
         """Poll the I2C status byte every 1 ms; timeout_ms=None waits forever."""
         start = time.ticks_ms()
         last_err = None
+        self.polls = 0
         while True:
+            self.polls += 1
             try:
                 if self.i2c.readfrom(self.addr, 1)[0] == 0x01:
                     return
@@ -92,7 +134,8 @@ class PN532Dep:
                 # The PN532 NACKs its address while busy on some boards.
                 last_err = e
             if timeout_ms is not None and time.ticks_diff(time.ticks_ms(), start) > timeout_ms:
-                raise DepError("ready timeout after %d ms (last I2C error: %r)" % (timeout_ms, last_err))
+                raise DepError("ready timeout after %d ms, %d polls (last I2C error: %r)"
+                               % (timeout_ms, self.polls, last_err))
             time.sleep_ms(1)
 
     def _write_command(self, cmd, params):
@@ -112,9 +155,8 @@ class PN532Dep:
         if raw[1:7] != b'\x00\x00\xFF\x00\xFF\x00':
             raise DepError("bad ACK: %s" % hexlify(raw))
 
-    def _read_response(self, cmd, max_data, timeout_ms):
-        """Read one response frame; max_data sizes the I2C read."""
-        self._wait_ready(timeout_ms)
+    def _read_response(self, cmd, max_data):
+        """Read one response frame; max_data sizes the I2C read. Caller has waited for ready."""
         # status(1) + preamble/start(3) + LEN/LCS(2) + TFI/code(2) + data + DCS/post(2)
         raw = bytes(self.i2c.readfrom(self.addr, max_data + 10))
         i = raw.find(b'\x00\xFF', 1)
@@ -122,21 +164,72 @@ class PN532Dep:
             raise DepError("no frame start: %s" % hexlify(raw[:16]))
         n = raw[i + 2]
         if (n + raw[i + 3]) & 0xFF:
-            raise DepError("bad LCS")
+            raise DepError("bad LCS: %s" % hexlify(raw[:i + 4]))
         body = raw[i + 4:i + 4 + n]
         if len(body) < n:
             raise DepError("frame LEN %d exceeds read size (raise max_data above %d)" % (n, max_data))
         if (sum(body) + raw[i + 4 + n]) & 0xFF:
-            raise DepError("bad DCS")
+            raise DepError("bad DCS, LEN %d: %s" % (n, hexlify(raw[:i + 6 + n])))
         if body[0] != _TFI_PN5322HOST or body[1] != cmd + 1:
             raise DepError("unexpected response %s to cmd 0x%02X" % (hexlify(body[:2]), cmd))
         return body[2:]
 
     def command(self, cmd, params=b'', max_data=32, timeout_ms=1000):
-        """Send a command and return its response data (after TFI/code)."""
-        self._write_command(cmd, params)
-        self._read_ack(timeout_ms)
-        return self._read_response(cmd, max_data, timeout_ms)
+        """Send a command and return its response data (after TFI/code).
+
+        Records phase timings in self.timing; on failure the timings so far
+        are attached to the raised DepError as .timing.
+        """
+        tm = {'cmd': cmd, 'tx': len(params) + 2}
+        self.timing = tm
+        t = time.ticks_us()
+        try:
+            self._write_command(cmd, params)
+            t1 = time.ticks_us()
+            tm['write'] = time.ticks_diff(t1, t)
+            self._read_ack(timeout_ms)
+            t2 = time.ticks_us()
+            tm['ack'] = time.ticks_diff(t2, t1)
+            self._wait_ready(timeout_ms)
+            t3 = time.ticks_us()
+            tm['wait'] = time.ticks_diff(t3, t2)
+            tm['polls'] = self.polls
+            resp = self._read_response(cmd, max_data)
+            tm['read'] = time.ticks_diff(time.ticks_us(), t3)
+        except DepError as e:
+            e.timing = tm
+            if self.trace:
+                print("#  cmd 0x%02X FAILED %s timing=%r" % (cmd, e, tm))
+            raise
+        except OSError as e:
+            err = DepError("I2C OSError %r during cmd 0x%02X" % (e, cmd))
+            err.timing = tm
+            if self.trace:
+                print("#  cmd 0x%02X FAILED %s timing=%r" % (cmd, err, tm))
+            raise err
+        tm['rx'] = len(resp)
+        if self.trace:
+            print("#  cmd 0x%02X tx=%d rx=%d write=%d ack=%d wait=%d(polls %d) read=%d us"
+                  % (cmd, tm['tx'], tm['rx'], tm['write'], tm['ack'], tm['wait'],
+                     tm['polls'], tm['read']))
+        return resp
+
+    def _status_error(self, what, status):
+        """DepError for a non-zero PN532 status, carrying this command's timing."""
+        err = DepError(what, status)
+        err.timing = self.timing
+        return err
+
+    def abort(self):
+        """Cancel a pending command (host ACK frame, UM0701 6.2.1.3).
+
+        Needed after a host-side ready timeout: the PN532 is still executing
+        the command and would otherwise reject or garble the next one.
+        """
+        self.i2c.writeto(self.addr, _ACK_FRAME)
+        time.sleep_ms(1)
+        if self.trace:
+            print("#  abort sent")
 
     # ─── Setup ───
 
@@ -166,7 +259,7 @@ class PN532Dep:
         if status == STATUS_TIMEOUT:
             return None
         if status:
-            raise DepError("InJumpForDEP status 0x%02X" % status, status)
+            raise self._status_error("InJumpForDEP", status)
         self.tg = resp[1]
         return resp[2:]
 
@@ -178,16 +271,16 @@ class PN532Dep:
                             max_data=max_resp + 1, timeout_ms=timeout_ms)
         status = resp[0]
         if status & 0x40:
-            raise DepError("chained (MI) reply not supported; lower CHUNK", status)
+            raise DepError("chained (MI) reply, raw status 0x%02X, not supported; lower CHUNK" % status)
         if status & 0x3F:
-            raise DepError("InDataExchange status 0x%02X" % (status & 0x3F), status & 0x3F)
+            raise self._status_error("InDataExchange", status & 0x3F)
         return resp[1:]
 
     def release(self):
         """Release the current target so the next jump_for_dep() starts a fresh link."""
         status = self.command(CMD_INRELEASE, bytes([self.tg]))[0] & 0x3F
         if status:
-            raise DepError("InRelease status 0x%02X" % status, status)
+            raise self._status_error("InRelease", status)
 
     # ─── Target ───
 
@@ -203,7 +296,7 @@ class PN532Dep:
         resp = self.command(CMD_TGGETDATA, b'', max_data=max_data + 1, timeout_ms=timeout_ms)
         status = resp[0] & 0x3F
         if status:
-            raise DepError("TgGetData status 0x%02X" % status, status)
+            raise self._status_error("TgGetData", status)
         return resp[1:]
 
     def set_data(self, data, timeout_ms=1000):
@@ -213,4 +306,4 @@ class PN532Dep:
         resp = self.command(CMD_TGSETDATA, data, timeout_ms=timeout_ms)
         status = resp[0] & 0x3F
         if status:
-            raise DepError("TgSetData status 0x%02X" % status, status)
+            raise self._status_error("TgSetData", status)

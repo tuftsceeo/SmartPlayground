@@ -41,6 +41,29 @@ RESULT FAIL err='...' after_ms=.. bytes_received=..
 - `xfer_ms` runs from link up to the verified end, including the header and the sha256 check.
 - `rtt_us` is the per-chunk round trip, from InDataExchange command to reply.
 
+Each `RESULT OK` line is followed by detail lines:
+- `wait_us`: ready-bit wait before each chunk reply (RF time plus the target's reply).
+- `read_us`: the I2C read of the reply on the receiver (bus time).
+- `ready_polls`, `header_us`.
+
+If `read_us` dominates, the I2C bus is the bottleneck. If `wait_us` dominates, the air link or the
+target host is.
+
+On each link the sender prints:
+- ATR_REQ bytes and per-op request counts;
+- `tg_get_us`: the TgGetData wait;
+- `tg_set_us`: the target host's reply latency, which is what counts against the receiver's
+  `TIMEOUT_CODE`.
+
+The receiver also prints ATR_RES, including the target's TO value.
+
+Failures print:
+- the PN532 status code with its UM0701 name;
+- the phase timing of the failing command;
+- the last op or offset reached.
+
+Set `TRACE = True` in either script for one line per PN532 command.
+
 ## Results
 
 Not yet run on hardware.

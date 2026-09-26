@@ -11,6 +11,8 @@ under CPython in dep_loopback.py. The initiator drives every exchange.
 The header layout matches the WiFi pull in MockWand/code_puller.py.
 """
 
+from binascii import hexlify
+
 try:
     import hashlib
 except ImportError:
@@ -84,8 +86,18 @@ def pull(exchange, chunk, on_chunk=None):
         off += n
         if on_chunk:
             on_chunk(off, n)
-    if hashlib.sha256(buf).digest() != digest:
-        raise ProtoError("sha256 mismatch")
+    got = hashlib.sha256(buf).digest()
+    if got != digest:
+        raise ProtoError("sha256 mismatch: header %s, received %s"
+                         % (hexlify(digest[:8]), hexlify(got[:8])))
     if exchange(b'D', 2) != b'OK':
         raise ProtoError("bad done reply")
     return name, bytes(buf)
+
+
+def stats(xs):
+    """Return 'n=.. min=.. med=.. max=..' for a list of numbers ('n=0' if empty)."""
+    if not xs:
+        return "n=0"
+    s = sorted(xs)
+    return "n=%d min=%d med=%d max=%d" % (len(s), s[0], s[len(s) // 2], s[-1])
