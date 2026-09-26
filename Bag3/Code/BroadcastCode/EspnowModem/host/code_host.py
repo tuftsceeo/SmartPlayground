@@ -25,6 +25,9 @@ RUN_GAP_MS = 4000            # after a result, before the next trigger
 # each trigger after the first.
 STOP_LEAD_MS = 1500
 RUN_TIMEOUT_MS = 60000
+# BENCH: for this long after each trigger, refuse every request as "busy",
+# so a single wand exercises the busy/retry path. 0 = off.
+BUSY_FOR_MS = 0
 STATS_EVERY_MS = 30000
 
 mgr = ESPNowManager()
@@ -49,6 +52,8 @@ while True:
         last_seen = sender.last_result
         results.append(last_seen)
         print("mem after run %d" % len(results), mgr.mem_stats())
+        print("peers after run %d: %s busy_replies=%d"
+              % (len(results), mgr.get_peer_macs(), sender.busy_replies))
         waiting_since = None
         if TRIGGER_SLUG and len(results) < TRIGGER_RUNS:
             next_trigger = time.ticks_add(now, RUN_GAP_MS)
@@ -68,6 +73,8 @@ while True:
             time.sleep_ms(STOP_LEAD_MS)
         print("code_host: trigger run %d getcode %r"
               % (len(results) + 1, TRIGGER_SLUG))
+        if BUSY_FOR_MS:
+            sender.busy_until = time.ticks_add(time.ticks_ms(), BUSY_FOR_MS)
         mgr.broadcast({"type": "getcode", "slug": TRIGGER_SLUG})
         next_trigger = None
         waiting_since = now

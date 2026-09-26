@@ -138,8 +138,13 @@ This replaces the WiFi `code_server.py` → `code_puller.py` pull with ESP-NOW. 
 - **Recovery:** a window left incomplete after 400 ms is requested again from its first missing chunk. The transfer fails after 12 windows in a row with no progress.
 - **Flash writes:** batched into 4 KB blocks.
 - **Before promotion:** the file is checked for size, SHA-256 and `compile()`. On failure the previous copy stays in place.
+- **Several wands:** the host serves up to `MAX_SESSIONS` (6) wands at once, interleaving their windows. They share the link's throughput.
+  - **Busy:** a wand over the cap gets a `"busy"` offer with `retry_ms`. It waits that long plus up to as much again at random, then asks again, for at most 120 s. After that it shows the amber pull failure.
+  - **Collision avoidance:** each `code_req` waits a random 0–300 ms first, so wands tapped together don't collide.
+  - **Peer table:** a wand is a host peer only while it has a session (or for its one refusal reply), so the ~20-entry ESP-NOW peer table never fills.
+  - **Bench hook:** `code_host.BUSY_FOR_MS` makes the host answer busy for a while after each trigger, so the retry path can be tested with one wand.
 
-`tests/test_code_xfer.py` runs the real receiver against the real sender over a simulated link. It covers a clean transfer, 25 % loss with duplicates and reordering, refusals, no host, a file that fails to compile (old copy kept), in-transit corruption, and the active-slug lookup.
+`tests/test_code_xfer.py` runs the real receiver against the real sender over a simulated link. It covers a clean transfer, 25 % loss with duplicates and reordering, refusals, no host, a file that fails to compile (old copy kept), in-transit corruption, the active-slug lookup, 8 concurrent wands against a cap of 3 (busy and retry), 25 wands in a row against the 20-peer limit, and giving up after the busy budget.
 
 ## Adding a message type
 

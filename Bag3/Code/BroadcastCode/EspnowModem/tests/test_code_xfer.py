@@ -61,7 +61,7 @@ class Air:
 
     def deliver(self, src, dst, payload):
         payload = bytes(payload)
-        targets = [WAND, HOST] if dst == "FF:FF:FF:FF:FF:FF" else [dst]
+        targets = list(self.inbox) if dst == "FF:FF:FF:FF:FF:FF" else [dst]
         is_data = payload[:2] == b"CX"
         with self.lock:
             self.sent += 1
@@ -83,16 +83,25 @@ class Air:
                 if is_data and self.rng.random() < self.dup:
                     q.append((src, payload))
 
+    def register(self, mac):
+        with self.lock:
+            self.inbox.setdefault(mac, [])
+
     def take(self, me):
         with self.lock:
             q = self.inbox[me]
             return q.pop(0) if q else None
 
 
+PEER_LIMIT = 20   # ESP-NOW unencrypted peer table size
+
+
 class FakeMgr:
     def __init__(self, air, me):
         self.air = air
         self.me = me
+        air.register(me)
+        self.max_peers = 0
         self.peers = set()
         self._peers = {}
         self.enow = None
@@ -110,6 +119,12 @@ class FakeMgr:
 
     def add_peer(self, mac_str):
         self.peers.add(mac_str)
+        if len(self.peers) > PEER_LIMIT:
+            raise OSError("ESP_ERR_ESPNOW_FULL (%d peers)" % len(self.peers))
+        self.max_peers = max(self.max_peers, len(self.peers))
+
+    def remove_peer(self, mac_str):
+        self.peers.discard(mac_str)
 
     def broadcast(self, data):
         msg = json.dumps(data) if not isinstance(data, (str, bytes)) else data
@@ -167,7 +182,7 @@ def setup():
     host = FakeMgr(air, HOST)
     sender = code_sender.CodeSender(host, games_dir=host_games, verbose=False)
     ht = HostThread(host, sender)
-    return tmp, air, wand, sender, ht, host_games, wand_games
+    return tmp, air, wand, sender, ht, host_games, wand_games, host
 
 
 def host_result(sender, timeout=2.0):
@@ -187,7 +202,7 @@ def same(a, b):
 
 
 def test_clean_big_file(ctx):
-    tmp, air, wand, sender, ht, hg, wg = ctx
+    tmp, air, wand, sender, ht, hg, wg, host = ctx
     air.loss = air.dup = air.reorder = 0
     sender.last_result = None
     assert espnow_code.receive(wand, "bigtest", "wand", verbose=False) is True
@@ -200,7 +215,7 @@ def test_clean_big_file(ctx):
 
 
 def test_lossy_link(ctx):
-    tmp, air, wand, sender, ht, hg, wg = ctx
+    tmp, air, wand, sender, ht, hg, wg, host = ctx
     air.loss, air.dup, air.reorder = 0.25, 0.05, 0.10
     os.remove(os.path.join(wg, "bigtest.py"))
     assert espnow_code.receive(wand, "bigtest", "wand", verbose=False) is True
@@ -211,19 +226,19 @@ def test_lossy_link(ctx):
 
 
 def test_old_game_kept_as_bak(ctx):
-    tmp, air, wand, sender, ht, hg, wg = ctx
+    tmp, air, wand, sender, ht, hg, wg, host = ctx
     assert espnow_code.receive(wand, "bigtest", "wand", verbose=False) is True
     assert os.path.exists(os.path.join(wg, "bigtest.py.bak"))
 
 
 def test_refusals(ctx):
-    tmp, air, wand, sender, ht, hg, wg = ctx
+    tmp, air, wand, sender, ht, hg, wg, host = ctx
     assert espnow_code.receive(wand, "nosuch", "wand", verbose=False) == "norequest"
     assert espnow_code.receive(wand, "tiny", "icon_display", verbose=False) == "norequest"
 
 
 def test_no_host(ctx):
-    tmp, air, wand, sender, ht, hg, wg = ctx
+    tmp, air, wand, sender, ht, hg, wg, host = ctx
     ht.run.clear()
     assert espnow_code.receive(wand, "tiny", "wand", verbose=False) == "nohost"
     ht.run.set()
@@ -232,7 +247,7 @@ def test_no_host(ctx):
 
 
 def test_broken_file_rejected_old_kept(ctx):
-    tmp, air, wand, sender, ht, hg, wg = ctx
+    tmp, air, wand, sender, ht, hg, wg, host = ctx
     with open(os.path.join(wg, "broken.py"), "w") as f:
         f.write("# previous good copy\n")
     sender.last_result = None
@@ -245,14 +260,14 @@ def test_broken_file_rejected_old_kept(ctx):
 
 
 def test_corruption_detected(ctx):
-    tmp, air, wand, sender, ht, hg, wg = ctx
+    tmp, air, wand, sender, ht, hg, wg, host = ctx
     air.corrupt_once = True
     assert espnow_code.receive(wand, "tiny", "wand", verbose=False) is False
     assert espnow_code.LAST_STATS["why"] == "sha256 mismatch"
 
 
 def test_active_slug(ctx):
-    tmp, air, wand, sender, ht, hg, wg = ctx
+    tmp, air, wand, sender, ht, hg, wg, host = ctx
     code_sender.ACTIVE_PATH = os.path.join(tmp, "active.txt")
     with open(code_sender.ACTIVE_PATH, "w") as f:
         f.write("tiny\n")
@@ -260,13 +275,79 @@ def test_active_slug(ctx):
     assert same(os.path.join(hg, "tiny.py"), os.path.join(wg, "tiny.py"))
 
 
+def _wand_mac(i):
+    return "02:00:00:00:%02X:%02X" % (i >> 8, i & 0xFF)
+
+
+def test_many_wands_concurrent_with_busy(ctx):
+    """More wands than MAX_SESSIONS at once: all finish, some wait busy."""
+    tmp, air, wand, sender, ht, hg, wg, host = ctx
+    n = 8
+    code_sender.MAX_SESSIONS = 3
+    for i in range(n):
+        shutil.copy(os.path.join(hg, "bigtest.py"), os.path.join(hg, "w%d.py" % i))
+    wands = [FakeMgr(air, _wand_mac(i)) for i in range(n)]
+    results = [None] * n
+
+    def run(i):
+        results[i] = espnow_code.receive(wands[i], "w%d" % i, "wand",
+                                         verbose=False)
+
+    busy_before = sender.busy_replies
+    host.max_peers = 0
+    threads = [threading.Thread(target=run, args=(i,)) for i in range(n)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join(120)
+    assert results == [True] * n, results
+    for i in range(n):
+        assert same(os.path.join(hg, "w%d.py" % i), os.path.join(wg, "w%d.py" % i))
+    assert sender.busy_replies > busy_before, "cap never reached"
+    assert host.max_peers <= code_sender.MAX_SESSIONS + 1, host.max_peers
+    deadline = time.monotonic() + 2
+    while host.peers and time.monotonic() < deadline:
+        time.sleep(0.01)
+    assert not host.peers, host.peers
+    code_sender.MAX_SESSIONS = 6
+
+
+def test_peer_table_never_fills(ctx):
+    """25 different wands in a row stay under the 20-entry peer table."""
+    tmp, air, wand, sender, ht, hg, wg, host = ctx
+    host.max_peers = 0
+    for i in range(25):
+        w = FakeMgr(air, _wand_mac(0x100 + i))
+        assert espnow_code.receive(w, "tiny", "wand", verbose=False) is True
+    deadline = time.monotonic() + 2
+    while host.peers and time.monotonic() < deadline:
+        time.sleep(0.01)
+    assert host.max_peers <= 2 and not host.peers, (host.max_peers, host.peers)
+
+
+def test_busy_gives_up_after_budget(ctx):
+    tmp, air, wand, sender, ht, hg, wg, host = ctx
+    code_sender.MAX_SESSIONS = 0
+    espnow_code.BUSY_WAIT_MAX_MS = 400
+    r = espnow_code.receive(wand, "tiny", "wand", verbose=False)
+    assert r == "busy", r
+    assert espnow_code.LAST_STATS["busy_waits"] >= 1
+    code_sender.MAX_SESSIONS = 6
+    espnow_code.BUSY_WAIT_MAX_MS = 120000
+    assert not host.peers, host.peers
+
+
 if __name__ == "__main__":
     espnow_code.GET_WAIT_MS = 60
     espnow_code.OFFER_WAIT_MS = 150
+    espnow_code.REQ_JITTER_MS = 30
+    code_sender.BUSY_RETRY_MS = 100
     ctx = setup()
     tests = [test_clean_big_file, test_lossy_link, test_old_game_kept_as_bak,
              test_refusals, test_no_host, test_broken_file_rejected_old_kept,
-             test_corruption_detected, test_active_slug]
+             test_corruption_detected, test_active_slug,
+             test_many_wands_concurrent_with_busy, test_peer_table_never_fills,
+             test_busy_gives_up_after_budget]
     for fn in tests:
         fn(ctx)
         print("ok  ", fn.__name__)

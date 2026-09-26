@@ -35,8 +35,13 @@ FRAME_TAG = b"CX"
 FRAME_HDR = 5                # tag(2) id(1) seq(2)
 CHUNK = 245                  # 250 B ESP-NOW max minus FRAME_HDR
 MAX_WINDOW = 16              # largest code_get honoured
-MAX_SESSIONS = 4
+# Wands served at once. They share the link (each frame costs one modem
+# round trip), so more sessions do not raise total throughput; the cap keeps
+# the ESP-NOW peer table (~20 entries) well clear of full. Wands over the cap
+# get a "busy" offer and retry after BUSY_RETRY_MS plus random jitter.
+MAX_SESSIONS = 6
 SESSION_IDLE_MS = 15000
+BUSY_RETRY_MS = 2000
 
 # Same roles as code_server.ROLE_FILES (icon leg not implemented here).
 ROLE_SUFFIX = {"wand": "", "": ""}
@@ -77,6 +82,10 @@ class _Session:
 
 
 class CodeSender:
+    """Serves code_req/code_get/code_done. The wand is a peer only while it
+    has a session (or for the one refusal reply), so the peer table never
+    holds more than MAX_SESSIONS + 1 wands."""
+
     def __init__(self, mgr, games_dir=GAMES_DIR, verbose=True):
         self.mgr = mgr
         self.games_dir = games_dir
@@ -88,6 +97,11 @@ class CodeSender:
         self.frame[0:2] = FRAME_TAG
         self.served = 0
         self.failed = 0
+        self.busy_replies = 0
+        # BENCH: answer "busy" to every request until this tick (see
+        # code_host.BUSY_FOR_MS), to exercise the wand's retry path with
+        # one wand.
+        self.busy_until = time.ticks_ms()
         self.last_result = None
 
     # ─── LOOKUP ──────────────────────────────
@@ -145,15 +159,24 @@ class CodeSender:
         hub = data.get("hub", "")
         old = self.sessions.pop(mac_str, None)
         if old is not None:
-            old.close()
+            old.close()     # the wand restarted its request; peer is reused
         self.mgr.add_peer(mac_str)
         found = self._lookup(slug, hub)
-        if found is None or len(self.sessions) >= MAX_SESSIONS:
-            why = "busy" if found is not None else "no such game"
+        busy = (len(self.sessions) >= MAX_SESSIONS or
+                time.ticks_diff(self.busy_until, time.ticks_ms()) > 0)
+        if found is None or busy:
+            offer = {"type": "code_offer", "id": rid, "size": 0}
+            if found is None:
+                offer["why"] = "no such game"
+            else:
+                offer["why"] = "busy"
+                offer["retry_ms"] = BUSY_RETRY_MS
+                self.busy_replies += 1
             if self.verbose:
-                print("[ENX] refuse %s %r/%r: %s" % (mac_str, slug, hub, why))
-            self.mgr.send_to(mac_str, {"type": "code_offer", "id": rid,
-                                       "size": 0, "why": why})
+                print("[ENX] refuse %s %r/%r: %s"
+                      % (mac_str, slug, hub, offer["why"]))
+            self.mgr.send_to(mac_str, offer)
+            self.mgr.remove_peer(mac_str)
             return
         slug, path = found
         size = os.stat(path)[6]
@@ -192,6 +215,7 @@ class CodeSender:
         if s is None or data.get("id") != s.rid:
             return
         s.close()
+        self.mgr.remove_peer(mac_str)
         ms = time.ticks_diff(time.ticks_ms(), s.t_start)
         ok = bool(data.get("ok"))
         if ok:
@@ -219,4 +243,5 @@ class CodeSender:
                       % (mac_str, SESSION_IDLE_MS))
                 s.close()
                 del self.sessions[mac_str]
+                self.mgr.remove_peer(mac_str)
                 self.failed += 1

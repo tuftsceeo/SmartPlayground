@@ -851,12 +851,15 @@ def _espnow_pull_and_launch(enow, slug, nfc, accel, i2c, batt):
            "bytes": stats.get("bytes"), "min_gc_free": stats.get("min_gc_free"),
            "pre_compile_gc_free": stats.get("pre_compile_gc_free"),
            "pre_compile_idf_largest": stats.get("pre_compile_idf_largest"),
-           "why": stats.get("why")})
+           "why": stats.get("why"), "busy_waits": stats.get("busy_waits")})
     if ok == 'nohost':
         _pull_fail(SHAPE_WIFI_2, RED)
         return
     if ok == 'norequest':
         _pull_fail(SHAPE_WIFI_2, ORANGE, sound="reject")
+        return
+    if ok == 'busy':
+        _pull_fail(SHAPE_WIFI_2, AMBER)
         return
     if not ok:
         _pull_fail(SHAPE_X, RED)

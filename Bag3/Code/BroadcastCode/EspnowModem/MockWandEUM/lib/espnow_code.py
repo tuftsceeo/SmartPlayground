@@ -9,7 +9,8 @@ rxbuf and window buffer can hold:
 
     wand -> broadcast  {"type":"code_req","id":r,"slug":s,"hub":h}
     host -> wand       {"type":"code_offer","id":r,"name":n,"size":N,
-                        "sha":hex,"chunks":K,"chunk":C}   (size 0 = refusal)
+                        "sha":hex,"chunks":K,"chunk":C}
+                       size 0 = refusal; why "busy" + retry_ms = ask again
     wand -> host       {"type":"code_get","id":r,"from":b,"n":w}
     host -> wand       b"CX" + id(1) + seq(u16 BE) + data      (w frames)
     wand -> host       {"type":"code_done","id":r,"ok":bool,"why":str}
@@ -42,6 +43,14 @@ WINDOW = 8                   # chunks per code_get; must fit the ESP-NOW rxbuf
 WRITE_BUF = 4096             # batch flash writes; one write stalls the radio
 REQ_TRIES = 3
 OFFER_WAIT_MS = 800
+# Random delay before each code_req, so wands tapped together do not keep
+# colliding on the same broadcast slots.
+REQ_JITTER_MS = 300
+# A "busy" offer means the sender is serving its maximum number of wands.
+# Wait its retry_ms plus up to as much again at random, then ask again,
+# for at most BUSY_WAIT_MAX_MS in total.
+BUSY_RETRY_MS = 2000
+BUSY_WAIT_MAX_MS = 120000
 GET_WAIT_MS = 400
 MAX_STALLS = 12              # consecutive windows with no progress
 
@@ -68,6 +77,21 @@ def _idf_largest():
         if total < PSRAM_REGION_MIN and largest > big:
             big = largest
     return big
+
+
+def _jitter(max_ms):
+    """Random delay in [0, max_ms] ms."""
+    if max_ms <= 0:
+        return 0
+    return int.from_bytes(os.urandom(2), 'big') % (max_ms + 1)
+
+
+def _sleep_polling(enow, ms):
+    """Sleep ms while draining (and discarding) incoming messages."""
+    deadline = time.ticks_add(time.ticks_ms(), ms)
+    while time.ticks_diff(deadline, time.ticks_ms()) > 0:
+        enow.poll()
+        time.sleep_ms(1)
 
 
 def _compile_check(path, stats, verbose):
@@ -122,8 +146,9 @@ def receive(enow, slug=None, hubtype=None, on_progress=None, verbose=True):
     """Fetch a game over ESP-NOW and promote it into /games.
 
     Returns True on success, 'nohost' if no sender answered, 'norequest' if
-    the sender has no such game, or False on a failed transfer (old game
-    left in place). Timing and counters go to LAST_STATS.
+    the sender has no such game, 'busy' if the sender stayed at capacity for
+    BUSY_WAIT_MAX_MS, or False on a failed transfer (old game left in
+    place). Timing and counters go to LAST_STATS.
     """
     global LAST_STATS
     stats = {"t_start": time.ticks_ms()}
@@ -134,9 +159,14 @@ def receive(enow, slug=None, hubtype=None, on_progress=None, verbose=True):
 
     offer = None
     sender = None
-    for attempt in range(REQ_TRIES):
+    tries = 0
+    busy_waits = 0
+    busy_deadline = time.ticks_add(time.ticks_ms(), BUSY_WAIT_MAX_MS)
+    while tries < REQ_TRIES:
+        _sleep_polling(enow, _jitter(REQ_JITTER_MS))
+        tries += 1
         if not enow.broadcast(req):
-            print("[ENX] code_req broadcast failed (attempt %d)" % (attempt + 1))
+            print("[ENX] code_req broadcast failed (attempt %d)" % tries)
         deadline = time.ticks_add(time.ticks_ms(), OFFER_WAIT_MS)
         while time.ticks_diff(deadline, time.ticks_ms()) > 0:
             mt, data, mac = enow.poll()
@@ -146,9 +176,28 @@ def receive(enow, slug=None, hubtype=None, on_progress=None, verbose=True):
                 offer, sender = data, mac
                 break
             time.sleep_ms(1)
-        if offer is not None:
+        if offer is None:
+            continue
+        if offer.get("size", 0) or offer.get("why") != "busy":
             break
+        # Sender is at capacity: back off and ask again.
+        busy_waits += 1
+        stats["busy_waits"] = busy_waits
+        if time.ticks_diff(busy_deadline, time.ticks_ms()) <= 0:
+            if verbose:
+                print("[ENX] sender still busy after %d s, giving up"
+                      % (BUSY_WAIT_MAX_MS // 1000))
+            return 'busy'
+        retry = offer.get("retry_ms", BUSY_RETRY_MS)
+        wait = retry + _jitter(retry)
+        if verbose:
+            print("[ENX] sender busy, retrying in %d ms (wait %d)"
+                  % (wait, busy_waits))
+        _sleep_polling(enow, wait)
+        offer = None
+        tries = 0
     stats["t_offer"] = time.ticks_ms()
+    stats["busy_waits"] = busy_waits
     if offer is None:
         if verbose:
             print("[ENX] no sender answered code_req for %r" % (slug or "<active>"))
