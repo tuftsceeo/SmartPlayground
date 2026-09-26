@@ -6,7 +6,9 @@ Serves <fs_root>/games/<slug>.py to wands running MockWandEUM firmware.
 
 TRIGGER_SLUG set: after STARTUP_MS, broadcasts {"type":"getcode"} (the
 MockWandEUM REMOTE_GETCODE bench hook) TRIGGER_RUNS times, one after each
-finished transfer, then prints a summary. None: serve on request only
+finished transfer, then prints a summary. Before each trigger after the
+first it broadcasts stop, so the game launched by the previous transfer
+exits and the wand is back in its idle loop. None: serve on request only
 (real getcode taps).
 """
 
@@ -18,6 +20,10 @@ TRIGGER_SLUG = None          # e.g. "bigtest"
 TRIGGER_RUNS = 3
 STARTUP_MS = 3000
 RUN_GAP_MS = 4000            # after a result, before the next trigger
+# A successful transfer launches the game, which holds the wand's main loop
+# until it exits. Games exit on "stop", so one is broadcast this long before
+# each trigger after the first.
+STOP_LEAD_MS = 1500
 RUN_TIMEOUT_MS = 60000
 STATS_EVERY_MS = 30000
 
@@ -57,6 +63,9 @@ while True:
                          r["gets"], r["frames"], r["send_fail"], r["why"]))
             print("stats", mgr.link_stats())
     if next_trigger is not None and time.ticks_diff(now, next_trigger) >= 0:
+        if results:
+            mgr.broadcast_stop()
+            time.sleep_ms(STOP_LEAD_MS)
         print("code_host: trigger run %d getcode %r"
               % (len(results) + 1, TRIGGER_SLUG))
         mgr.broadcast({"type": "getcode", "slug": TRIGGER_SLUG})
