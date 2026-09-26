@@ -24,7 +24,10 @@ RUN_GAP_MS = 4000            # after a result, before the next trigger
 # until it exits. Games exit on "stop", so one is broadcast this long before
 # each trigger after the first.
 STOP_LEAD_MS = 1500
-RUN_TIMEOUT_MS = 60000
+# Must exceed the wand's busy budget (espnow_code.BUSY_WAIT_MAX_MS, 120 s)
+# plus a transfer, or a long busy run is recorded as a host timeout before
+# the wand has given up.
+RUN_TIMEOUT_MS = 180000
 # BENCH: for this long after each trigger, refuse every request as "busy",
 # so a single wand exercises the busy/retry path. 0 = off.
 BUSY_FOR_MS = 0
