@@ -7,6 +7,7 @@ the two copies are expected to diverge. Differences from MockWand:
 - **`lib/espnow_code.py` (new):** receives a game over the ESP-NOW link that is already up, with no WiFi join and no reset. The wand drives the transfer in windows of `WINDOW` (8) chunks and re-requests from the first missing chunk. The file lands as `/games/<slug>.py.part` and is checked (size, SHA-256, `compile()`) before promotion, keeping `.bak`, as `code_puller` does.
 - **`lib/espnow_manager.py`:** sets `ESPNOW_RXBUF = 4096` before `active(True)`, at radio bring-up. The MicroPython default of 526 B holds about 2 frames.
 - **`main.py`:**
+  - **`_load_play()`:** a game with no `GAME_ICON` entry (every pulled game) shows nothing while it loads, instead of the white music note.
   - **`CODE_VIA_ESPNOW = True`:** a `getcode` tap calls `_espnow_pull_and_launch()`, which receives the game and launches it in place. `False` restores the original pull_flag / reset / `code_puller` path. The `@<host>` suffix on a card is ignored in ESP-NOW mode, and any sender in range may answer.
   - **`REMOTE_GETCODE = True` (bench):** a broadcast `{"type":"getcode","slug":s}` acts as a tap, so transfers can be repeated without a card.
   - **Result line:** each transfer prints a JSON `enx_result` line with total/body ms, bytes and `min_gc_free`, plus the usual `memprobe` lines `enx:pre` / `enx:post`.
