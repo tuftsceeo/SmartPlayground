@@ -8,7 +8,7 @@ the two copies are expected to diverge. Differences from MockWand:
 - **`lib/espnow_manager.py`:** sets `ESPNOW_RXBUF = 4096` before `active(True)`, at radio bring-up. The MicroPython default of 526 B holds about 2 frames.
 - **`main.py`:**
   - **`_load_play()`:** a game with no `GAME_ICON` entry (every pulled game) shows nothing while it loads, instead of the white music note.
-  - **`CODE_VIA_ESPNOW = True`:** a `getcode` tap calls `_espnow_pull_and_launch()`, which receives the game and launches it in place. `False` restores the original pull_flag / reset / `code_puller` path. The `@<host>` suffix on a card is ignored in ESP-NOW mode, and any sender in range may answer.
+  - **`CODE_VIA_ESPNOW = True`:** a `getcode` tap calls `_espnow_pull_and_launch()`, which receives the game and launches it in place. `False` restores the original pull_flag / reset / `code_puller` path. The `@<host>` suffix on a card is sent in `code_req` as `"host"`, and only the sender with that host id answers (`EspnowModem/BDialEUM` sets its id; `host/code_host.py` has none and answers every request). A card with no suffix takes the first sender to answer.
   - **`REMOTE_GETCODE = True` (bench):** a broadcast `{"type":"getcode","slug":s}` acts as a tap, so transfers can be repeated without a card.
   - **Result line:** each transfer prints a JSON `enx_result` line with total/body ms, bytes and `min_gc_free`, plus the usual `memprobe` lines `enx:pre` / `enx:post`.
 

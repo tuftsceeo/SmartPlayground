@@ -22,6 +22,8 @@ What moves off the host:
 | `tests/test_proto.py` | PC | CPython tests: protocol, classification, copy check |
 | `tests/test_code_xfer.py` | PC | CPython: ESP-NOW code transfer, receiver ↔ sender, lossy link |
 | `tests/test_sim.py` | PC | CPython end-to-end: real modem `main.py` and host manager joined by a fake UART and a fake radio |
+| `tests/test_bdial_eum.py` | PC | CPython end-to-end: the BDialEUM Dial's main loop → modem `main.py` → fake radio → MockWandEUM receiver |
+| `BDialEUM/` | M5 Dial 2 host | Broadcast Dial build that serves game code over this modem instead of WiFi; see `BDialEUM/README.md` |
 
 ## Wiring (S3 ↔ S3)
 
@@ -143,6 +145,9 @@ This replaces the WiFi `code_server.py` → `code_puller.py` pull with ESP-NOW. 
   - **Collision avoidance:** each `code_req` waits a random 0–300 ms first, so wands tapped together don't collide.
   - **Peer table:** a wand is a host peer only while it has a session (or for its one refusal reply), so the ~20-entry ESP-NOW peer table never fills.
   - **Bench hook:** `code_host.BUSY_FOR_MS` makes the host answer busy for a while after each trigger, so the retry path can be tested with one wand.
+- **Host pinning:** a `getcode:<slug>@<id>` card makes the wand send `"host": "<id>"` in `code_req`. A `CodeSender` built with `host_id` answers only requests with no host or its own id; the rest are counted in `ignored` and get no reply. Without it, a sender that lacks the game can answer first with a refusal. `code_host.py` passes no `host_id` and answers everything; `BDialEUM` passes its `HOST_ID`.
+- **Events:** `CodeSender(on_event=fn)` calls `fn(kind, info)` for `"serving"`, `"done"` (with `last_result`, which now carries `slug`) and `"dropped"` (idle session expired).
+- **Icon leg:** not implemented. An icon display cannot pull its `_icon.py` game over ESP-NOW.
 
 `tests/test_code_xfer.py` runs the real receiver against the real sender over a simulated link. It covers a clean transfer, 25 % loss with duplicates and reordering, refusals, no host, a file that fails to compile (old copy kept), in-transit corruption, the active-slug lookup, 8 concurrent wands against a cap of 3 (busy and retry), 25 wands in a row against the 20-peer limit, and giving up after the busy budget.
 
@@ -170,7 +175,12 @@ Unknown types arrive as `("raw", decoded_json, mac)`, as they do with the built-
 ```
 python tests/test_proto.py
 python tests/test_sim.py
+python tests/test_code_xfer.py
+python tests/test_bdial_eum.py
+python BDialEUM/tools/dial_menu_check.py
 ```
+
+`test_bdial_eum.py` runs `BdialServer.run()` from `BDialEUM/` against the real modem firmware (via `test_sim.py`'s fake UART and radio) and the real wand receiver. It covers: the three shared modules being byte-identical to `host/`; boot with the modem up (identity `variant: "eum"`, UART pins from `dial_board.py`, no `DONE` row); writing a `getcode` card and pulling that game while the Dial holds its result screen; the share breadcrumb during a transfer; a request pinned to another host being ignored; unpinned pulls and refusals; three wands at once; `arm`/`disarm`/`info`; a modem reset mid-session; and shutdown.
 
 `test_sim.py` covers:
 - per-request fault reply
