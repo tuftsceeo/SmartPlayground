@@ -46,3 +46,31 @@ STILL OPEN. The gallery shows 7 of the 13 vendored games. Not yet exposed:
 `gestures`, `multiicecream`, `nfc_sound`, `shake`, `simpleicecream`,
 `sound` — each needs a name, icon, category, description and starter prompt
 written for it.
+
+---
+
+**Added 2026-09-26 (current, not covered by the OUTDATED note above).**
+
+No file size check before sending a game to wands. What should the limit be?
+
+--> Add a check in ChatBroadcast, before Send to Box / ESP-NOW send.
+
+STILL OPEN. The wand compiles a pulled game in its running heap, and on the
+XIAO ESP32-C6 (no PSRAM) that needs one contiguous block the heap does not
+always have. The limit has been hit on the WiFi pull path as well as the
+ESP-NOW one; it is a wand heap limit, not a transport limit. Measured on
+the MockWand, 2026-09-26 (see
+`../docs_and_design/2026-09-26-eum-bench-results.md`):
+
+- 27,870 B (`gestures.py`) and 33,004 B compile, cold and warm.
+- 56,926 B fails: `compile()` asks for 41,216 B; the largest free internal
+  block is 40,960 B, unchanged across every run.
+- The threshold lies between 33 KB and 57 KB and has not been narrowed.
+
+The WiFi pull (`code_puller._compiles()`) and the ESP-NOW receiver
+(`MockWandEUM/lib/espnow_code.py`) both reject an over-size file after the
+full transfer, leaving the previous copy in place. The teacher only sees the
+wand's failure display. A check in ChatBroadcast would refuse, or warn about,
+an over-size generated game before sending it, and could ask the model to
+shorten it. The threshold must be measured first, and it may differ per
+board.
