@@ -54,17 +54,28 @@ def _rid():
     return os.urandom(1)[0]
 
 
-def _compiles(path, verbose):
-    """True if path parses; same check as code_puller._compiles()."""
+def _compile_check(path, verbose):
+    """'' if path parses, else the reason (same check as code_puller).
+
+    A MemoryError is reported separately from a syntax error: the source is
+    fine but this heap cannot hold the compile, and the game could not be
+    imported in this state either.
+    """
+    size = os.stat(path)[6]
+    gc.collect()
     try:
         with open(path, 'r') as f:
             src = f.read()
         compile(src, path, 'exec')
-        return True
+        return ""
+    except MemoryError as e:
+        why = ("too large to compile here (%d B source, %d B gc free): %s"
+               % (size, gc.mem_free(), e))
     except Exception as e:
-        if verbose:
-            print("[ENX] rejected: %s does not compile: %s" % (path, e))
-        return False
+        why = "does not compile: %s" % e
+    if verbose:
+        print("[ENX] rejected: %s %s" % (path, why))
+    return why
 
 
 def _progress(cb, got, total):
@@ -218,8 +229,8 @@ def receive(enow, slug=None, hubtype=None, on_progress=None, verbose=True):
             why = "size mismatch"
         elif hexlify(h.digest()).decode() != want_sha:
             why = "sha256 mismatch"
-        elif not _compiles(tmp_path, verbose):
-            why = "does not compile"
+        else:
+            why = _compile_check(tmp_path, verbose)
     if why:
         if verbose:
             print("[ENX] FAILED: %s: %s" % (dest, why))

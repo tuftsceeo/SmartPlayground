@@ -236,7 +236,7 @@ def test_broken_file_rejected_old_kept(ctx):
         f.write("# previous good copy\n")
     sender.last_result = None
     assert espnow_code.receive(wand, "broken", "wand", verbose=False) is False
-    assert espnow_code.LAST_STATS["why"] == "does not compile"
+    assert espnow_code.LAST_STATS["why"].startswith("does not compile")
     with open(os.path.join(wg, "broken.py")) as f:
         assert f.read() == "# previous good copy\n"
     assert not os.path.exists(os.path.join(wg, "broken.py.part"))
