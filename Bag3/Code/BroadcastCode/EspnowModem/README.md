@@ -20,6 +20,7 @@ What moves off the host:
 | `host/test_burst.py` | host + another board | Burst / overflow test |
 | `host/test_xfer.py` | host + another board | File transfer over ESP-NOW: time, throughput, loss, SHA-256, heap |
 | `tests/test_proto.py` | PC | CPython tests: protocol, classification, copy check |
+| `tests/test_code_xfer.py` | PC | CPython: ESP-NOW code transfer, receiver ↔ sender, lossy link |
 | `tests/test_sim.py` | PC | CPython end-to-end: real modem `main.py` and host manager joined by a fake UART and a fake radio |
 
 ## Wiring (S3 ↔ S3)
@@ -120,6 +121,25 @@ If a request raises on the modem, the modem sends a **`T_ERROR` reply (type 0xFF
   - **Receiver knobs:** `WRITE_BUF` batches flash writes into N-byte blocks. `RX_BUF` enlarges the ESP-NOW driver receive buffer on a built-in-manager receiver; the default is 526 B, about 2 frames. The result reports `write_ms`, the total time spent in flash writes.
   - **ACK ≠ delivery:** an ESP-NOW unicast ACK only means the receiver's radio got the frame. A frame can still be dropped afterwards when the driver's receive buffer is full, for example while the receiver is blocked on a flash write.
 - **Comparison:** the WiFi path is `BroadcastDial/BDialFirmware/code_server.py` with `MockWand/code_puller.py`. Time it from the puller's `[XFER] requested` / `[XFER] receiving` / `[XFER] OK` lines in a `tools/serial_monitor.py` log, which timestamps each line. That separates the transfer itself from the radio switch, scan and join overhead.
+
+## ESP-NOW code transfer
+
+This replaces the WiFi `code_server.py` → `code_puller.py` pull with ESP-NOW. There is no radio switch and no reset.
+
+| Side | File | Role |
+|---|---|---|
+| Host | `host/code_sender.py` | `CodeSender`: answers `code_req`, sends the chunks each `code_get` asks for |
+| Host | `host/code_host.py` | Bench main: serves `/flash/games/`; optional repeated remote triggers |
+| Wand | `MockWandEUM/lib/espnow_code.py` | `receive()`: request, windowed fetch, verify, promote |
+| Wand | `MockWandEUM/main.py` | `getcode` tap (or bench broadcast) runs `receive()`, then launches the game |
+
+**How the transfer runs:**
+- **Receiver-driven:** the wand asks for `WINDOW` (8) chunks of 245 B at a time, never more than its 4 KB ESP-NOW rxbuf and 2 KB window buffer can hold.
+- **Recovery:** a window left incomplete after 400 ms is requested again from its first missing chunk. The transfer fails after 12 windows in a row with no progress.
+- **Flash writes:** batched into 4 KB blocks.
+- **Before promotion:** the file is checked for size, SHA-256 and `compile()`. On failure the previous copy stays in place.
+
+`tests/test_code_xfer.py` runs the real receiver against the real sender over a simulated link. It covers a clean transfer, 25 % loss with duplicates and reordering, refusals, no host, a file that fails to compile (old copy kept), in-transit corruption, and the active-slug lookup.
 
 ## Adding a message type
 
