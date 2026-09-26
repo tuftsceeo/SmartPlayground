@@ -120,7 +120,7 @@ If a request raises on the modem, the modem sends a **`T_ERROR` reply (type 0xFF
   - **Receiver:** any board with an `espnow_manager.py`. It writes the file to flash (`WRITE_FILE`) to match a real code pull.
   - **Receiver knobs:** `WRITE_BUF` batches flash writes into N-byte blocks. `RX_BUF` enlarges the ESP-NOW driver receive buffer on a built-in-manager receiver; the default is 526 B, about 2 frames. The result reports `write_ms`, the total time spent in flash writes.
   - **ACK ≠ delivery:** an ESP-NOW unicast ACK only means the receiver's radio got the frame. A frame can still be dropped afterwards when the driver's receive buffer is full, for example while the receiver is blocked on a flash write.
-- **Comparison:** the WiFi path is `BroadcastDial/BDialFirmware/code_server.py` with `MockWand/code_puller.py`. Time it from the puller's `[XFER] requested` / `[XFER] receiving` / `[XFER] OK` lines in a `tools/serial_monitor.py` log, which timestamps each line. That separates the transfer itself from the radio switch, scan and join overhead.
+- **WiFi comparison:** not run and out of scope for now (no Dial/Box on the bench). The WiFi path it would compare against is `BroadcastDial/BDialFirmware/code_server.py` with `MockWand/code_puller.py`.
 
 ## ESP-NOW code transfer
 
