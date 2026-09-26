@@ -1,8 +1,10 @@
 """
-main.py -- ESP-NOW UART Modem (EUM) firmware, ESP32-S3
-=======================================================
-Bridges a hardware UART to ESP-NOW. The host drives every exchange
-(request -> one reply); the modem never sends unsolicited frames.
+main.py -- ESP-NOW UART Modem (EUM) firmware
+=============================================
+Runs on an ESP32-S3 or an ESP32-C6 (antenna-switch GPIOs only; RING_SLOTS
+below is picked at import time for the board's PSRAM). Bridges a hardware
+UART to ESP-NOW. The host drives every exchange (request -> one reply);
+the modem never sends unsolicited frames.
 
 Received ESP-NOW messages are classified (eum_classify) and queued in a
 preallocated ring; the host pulls them with FETCH. status_poll is answered
@@ -18,6 +20,31 @@ import espnow
 ESPNOW_RXBUF = 8192          # driver buffer; default 526 B holds ~2 messages
 BROADCAST_MAC = b'\xFF\xFF\xFF\xFF\xFF\xFF'
 
+# u.FL external antenna switch (ESP32-C6 only); see espnow_manager.py's
+# _configure_antenna() docstring on MockWand for the GPIO3/14 rationale.
+# No-op on an S3, which has no such switch.
+MODEM_EXTERNAL_ANTENNA = True
+
+
+def _is_esp32c6():
+    try:
+        import os
+        return 'ESP32C6' in (os.uname().machine or '').upper()
+    except Exception:
+        return False
+
+
+def _configure_antenna():
+    if not _is_esp32c6():
+        return
+    from machine import Pin
+    import time
+    Pin(3, Pin.OUT).value(0)
+    time.sleep_ms(100)
+    Pin(14, Pin.OUT).value(1 if MODEM_EXTERNAL_ANTENNA else 0)
+
+
+_configure_antenna()
 _sta = network.WLAN(network.STA_IF)
 _sta.active(True)
 _sta.disconnect()
@@ -39,12 +66,21 @@ import eum_proto as P
 from eum_classify import classify
 
 UART_ID = 1
-UART_TX = 43
-UART_RX = 44
 UART_BAUD = 921600
 UART_RXBUF = 2048
 
-RING_SLOTS = 128
+# S3 pins are GPIO43/44 (its default UART0 console pins; see the EUM
+# README's wiring table). The C6's XIAO layout has no equivalent free
+# pair there, so it uses D0/D1 (GPIO0/1) instead. UNVERIFIED on a C6 board.
+if _is_esp32c6():
+    UART_TX = 0
+    UART_RX = 1
+    RING_SLOTS = 64          # no PSRAM on the C6; halved pending MEM figures
+else:
+    UART_TX = 43
+    UART_RX = 44
+    RING_SLOTS = 128
+
 SLOT_LEN = P.REC_HDR_LEN + P.ESPNOW_MAX_DATA + 1   # 260
 
 # 0 disables duplicate suppression. freeze_dance repeats MSG_STOP on purpose.

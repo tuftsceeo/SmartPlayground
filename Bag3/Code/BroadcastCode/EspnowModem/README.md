@@ -22,6 +22,7 @@ What moves off the host:
 | `tests/test_proto.py` | PC | CPython tests: protocol, classification, copy check |
 | `tests/test_code_xfer.py` | PC | CPython: ESP-NOW code transfer, receiver ↔ sender, lossy link |
 | `tests/test_sim.py` | PC | CPython end-to-end: real modem `main.py` and host manager joined by a fake UART and a fake radio |
+| `tests/test_board_select.py` | PC | CPython: S3 vs. C6 UART pin / ring / antenna selection in `modem/main.py` |
 | `SplatCompanionEUM/` | XIAO ESP32-C6 host | Splat Companion: ESP-NOW via the modem, BLE to a Splat on its own radio (see its README) |
 | `tests/test_splat_companion.py` | PC | CPython: companion loop on `test_sim.py`'s modem + host, with a fake BLE Splat |
 
@@ -37,12 +38,34 @@ What moves off the host:
 - **Power:** give the modem its own supply (USB or its own regulator). If it shares the host's 3V3 rail, the brown-out problem comes back.
 - **Pin caveat:** GPIO43/44 are the S3's default UART0 console pins. They are free on boards whose REPL runs over native USB (GPIO19/20). They are **not** free on boards whose USB port goes through a CH340/CP210x bridge wired to 43/44.
 
+### Modem on an ESP32-C6
+
+`modem/main.py` picks its UART pins, ring size and antenna GPIOs by board at
+import time (`_is_esp32c6()`, checked against `tests/test_board_select.py`).
+UNVERIFIED on real C6 hardware — no bench run yet.
+
+| Host | C6 modem |
+|---|---|
+| TX | GPIO1 (D1) |
+| RX | GPIO0 (D0) |
+| GND | GND |
+
+- **Pins:** GPIO0/1 (D0/D1), not GPIO43/44 — the C6's XIAO layout has no free
+  pair there. A host that is itself a C6 (see `SplatCompanion/`) sets its own
+  UART pins on `host/lib/espnow_manager` before `init()`; they don't have to
+  match the modem's.
+- **Antenna:** `MODEM_EXTERNAL_ANTENNA` in `modem/main.py` drives the same
+  GPIO3/14 u.FL switch as `MockWand/lib/espnow_manager.py`'s
+  `_configure_antenna()`. Set it to match the board actually in hand.
+- **Ring:** `RING_SLOTS` halves to 64 (no PSRAM on the C6). Confirm with
+  `MEM` under load before trusting it at 128.
+
 ## Flashing
 
 - **Modem:** copy `modem/main.py` to `/flash/main.py` and `modem/lib/*.py` to `/flash/lib/` on UIFlow (M5) boards. On plain MicroPython, use `/` and `/lib/`.
 - **Host:** copy `host/lib/*.py` into the lib directory the same way, replacing the built-in `espnow_manager.py`. Game files run unchanged.
 - **State files:** the modem keeps `no_wdt` and `last_error.txt` under `/flash` when that directory exists, and under `/` otherwise (`FS_ROOT`).
-- **UIFlow pins:** check that GPIO43/44 are brought out on the board and not used by UIFlow before wiring. The pins are constants at the top of each file.
+- **UIFlow pins:** check that GPIO43/44 (S3) or GPIO0/1 (C6) are brought out on the board and not used by UIFlow before wiring. The pins are constants at the top of each file.
 - **Before flashing,** confirm the two protocol copies match: `cmp modem/lib/eum_proto.py host/lib/eum_proto.py` (`tests/test_proto.py` also checks this).
 
 ## Protocol
@@ -172,6 +195,7 @@ Unknown types arrive as `("raw", decoded_json, mac)`, as they do with the built-
 ```
 python tests/test_proto.py
 python tests/test_sim.py
+python tests/test_board_select.py
 python tests/test_splat_companion.py
 ```
 
@@ -194,7 +218,7 @@ On hardware: run `host/test_link.py` against an ordinary MockWand or hub, then r
 
 ## Not in the PoC
 
-- an ESP32-C6 modem (it would only need the antenna select)
+- an ESP32-C6 modem verified on hardware (the board-select code is written and CPython-tested; see "Modem on an ESP32-C6" above, and `SplatCompanion/` for the C6 host that pairs with it)
 - the EN-pin hard reset (see Fault recovery)
 - a data-ready GPIO
 - OTA updates for the modem
