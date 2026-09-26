@@ -142,8 +142,11 @@ mark them resolved.
 
 ## 2026-09-26 (Splat Companion EUM pass)
 
-Found while writing `Bag3/Code/BroadcastCode/EspnowModem/SplatCompanionEUM/`. None of these were
-changed in the trees they are in; details in that directory's README, "Drift and findings".
+Found while writing the Splat Companion bridge, then at
+`Bag3/Code/BroadcastCode/EspnowModem/SplatCompanionEUM/`, since moved to
+`Bag3/Code/BroadcastCode/SplatCompanion/` (2026-09-26, device-onboarding pass, below). None of
+these were changed in the trees they are in; details in that directory's README, "Drift and
+findings".
 
 ### Verified drift
 
@@ -171,4 +174,51 @@ changed in the trees they are in; details in that directory's README, "Drift and
 ### Dead code update
 
 - `Bag3/Code/lib/ble_splat.py` still has no importers in `Bag3/Code/`, but a byte copy is now used
-  by `EspnowModem/SplatCompanionEUM/lib/ble_splat.py` (copy checked by its test).
+  by `SplatCompanion/lib/ble_splat.py` (copy checked by its test).
+
+## 2026-09-26 (Splat Companion device-onboarding pass)
+
+Found while turning the bridge above into a full `Bag3/Code/BroadcastCode/SplatCompanion/`
+device tree per `Bag3/Code/BroadcastCode/docs_and_design/DEVICE_ONBOARDING_SURFACES.md`. Not
+fixed in the trees they're in unless noted.
+
+### Latent bugs
+
+- **`IconDisplay/main.py`'s `main()` calls `ESPNowManager().init()` before
+  `pull_flag.is_pending()`**, violating the onboarding doc's rule 1 (nothing radio-claiming may run
+  ahead of the pull check) and its own file's comment saying otherwise. `SplatCompanion/main.py`
+  follows the rule correctly and `tools/devtests/boot_splat.py` calls the real `main()` with a
+  pending flag to prove it (asserting `ubluetooth`/`espnow_manager` never enter `sys.modules`);
+  `tools/devtests/boot_display.py` never calls IconDisplay's `main()` at all, so this went
+  unnoticed. Not fixed on `IconDisplay/` — flagged per AGENTS.md's "flag rather than silently
+  reconcile."
+- **`tools/devtests/game_menu_scan.py` fails independently of this pass**: `_run_one("Box", ...)`
+  raises `ModuleNotFoundError: No module named 'bbox_server'`, and the Dial case is presumably hit
+  the same way. Confirmed with `git stash` that it fails identically on the pre-onboarding tree, so
+  it is not a regression from `SplatCompanion/` or the `STAGING_SUFFIXES` change to
+  `bbox_server.py`/`bdial_server.py`. `tools/devtests/nfc_display.py` fails for the same shape of
+  reason (`ModuleNotFoundError: No module named 'card_writer'`). Not investigated further; not
+  fixed.
+
+### `hubtype.py` divergence, widened
+
+- `SplatCompanion/lib/hubtype.py`'s own `"splat_companion"` entry now has `has_nfc: True`,
+  `nfc_addr: 0x24` and `i2c_freq: 100_000`, matching this device's actual PN532 + MAX17048 bus. The
+  four other copies (`MockWand/lib/`, `Bag3/Code/lib/`, `Bag2/Code/lib/`, and the tree removed by
+  this pass) still carry the earlier bridge-only entry (`has_nfc: False`, `i2c_freq: 400_000`).
+  Deliberately not reconciled: those four are peers of each other and of the wand's own hubtype
+  handling, not of this device's actual hardware.
+
+### Dead code, updated again
+
+- `Bag3/Code/lib/ble_splat.py` is still imported nowhere in `Bag3/Code/` proper; its only real
+  consumer remains `SplatCompanion/lib/ble_splat.py`, a checked byte copy in the tree this pass
+  created.
+
+### Stale paths
+
+- `Bag3/AGENTS.md`'s broadcast-devices table rows for `broadcast_box` and `broadcast_dial` give
+  their trees as `Code/BroadcastBox/BBoxFirmware/` and `Code/BroadcastDial/BDialFirmware/`, missing
+  the `BroadcastCode/` component both actually live under (confirmed against the real tree). The
+  new `splat_companion` row added by this pass uses the correct full path; the other two are left
+  as found.

@@ -140,6 +140,23 @@ Add logging that reports state at the moment of failure, not just that it
 failed. Remove or gate the instrumentation once resolved — verbose logging
 drowns the signal.
 
+## Reserved Box/Dial staging suffixes
+
+A non-wand device's game is staged on the Box/Dial as `<slug><suffix>.py`
+(`ROLE_FILES` in `BroadcastCode/BroadcastBox/BBoxFirmware/code_server.py`
+and its Dial peer). A slug ending in one of these is refused client-side
+(`ChatBroadcast/js/gameName.js`, `RESERVED_SUFFIXES`) and skipped by the
+boot-time menu scan on-device (`STAGING_SUFFIXES` in `bbox_server.py` /
+`bdial_server.py`) — both lists must agree with `ROLE_FILES`.
+
+| Suffix | Role | Device |
+|---|---|---|
+| `_icon` | `icon_display` | `BroadcastCode/IconDisplay/` |
+| `_splat` | `splat_companion` | `BroadcastCode/SplatCompanion/` |
+
+The wand's own suffix is `''`: no designator, since it is what a v1 request
+(no hubtype at all) resolves to.
+
 ## Device-specific reference
 
 Firmware layout, wire protocol, slug rules, NFC card safety, and logging
@@ -151,6 +168,8 @@ conventions are code-tied and belong with the code, not here:
   direct-USB push.
 - `BroadcastDial/README.md` — Dial specifics; shares the Box's wire contract
   and card rules.
+- `BroadcastCode/SplatCompanion/README.md` — device layout, the `play()`
+  contract, and its own Unverified section.
 
 ## A reasonable session shape
 

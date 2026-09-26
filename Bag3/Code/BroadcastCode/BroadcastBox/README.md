@@ -205,18 +205,22 @@ device kind. The device treats it as terminal, clears its flag, does not
 spend a retry.
 
 `ROLE_FILES` in `code_server.py` maps the hubtype to the file: `wand` gets
-`/flash/games/<slug>.py`, `icon_display` gets `/flash/games/<slug>_icon.py`.
-A v1 request names no hubtype and always gets the wand file. A hubtype
-absent from the table is refused, not guessed. The role lives on the Box and
-in ChatBroadcast only -- the destination name is always plain `<slug>.py`,
-so every device holds at most one module per slug.
+`/flash/games/<slug>.py`, `icon_display` gets `/flash/games/<slug>_icon.py`,
+`splat_companion` gets `/flash/games/<slug>_splat.py`. A v1 request names no
+hubtype and always gets the wand file. A hubtype absent from the table is
+refused, not guessed. The role lives on the Box and in ChatBroadcast only --
+the destination name is always plain `<slug>.py`, so every device holds at
+most one module per slug.
 
-`_icon` is a reserved suffix on the Box and the Dial: `_boot_scan_games()`
-skips any name ending `_icon.py` when building the game menu, since that's
-how `ROLE_FILES` picks the display's file. A game slug may not end in
-`_icon` -- `spooky_icon` would be staged as `spooky_icon_icon.py` for the
-display and its wand file would vanish from the menu. Nothing enforces this
-at send time.
+`_icon` and `_splat` are reserved suffixes on the Box and the Dial (the full
+list is `Bag3/Code/HARDWARE_PROTOCOL.md`, "Reserved Box/Dial staging
+suffixes"): `_boot_scan_games()` skips any name ending in one of them when
+building the game menu, since that's how `ROLE_FILES` picks each non-wand
+device's file. A game slug may not end in a reserved suffix -- `spooky_icon`
+would be staged as `spooky_icon_icon.py` for the display and its wand file
+would vanish from the menu. `ChatBroadcast/js/gameName.js` refuses these
+slugs client-side; the device-side scan is the backstop for anything that
+reaches it another way.
 
 A role whose `ROLE_FILES` entry sets `icons` reads one more leg after its
 ack:
