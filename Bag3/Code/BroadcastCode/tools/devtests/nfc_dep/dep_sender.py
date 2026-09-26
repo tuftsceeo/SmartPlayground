@@ -25,7 +25,7 @@ I2C_SCL = 23
 I2C_FREQ = 100_000     # shipped value; the matrix also runs 400_000
 NFC_ADDR = 0x24
 
-PAYLOAD = "jumpin.py"  # file on this wand's flash to serve
+PAYLOAD = "dep_jumpin.bin"  # file on this wand's flash to serve (named to avoid the wand's own games)
 TRACE = False          # True: one line per PN532 command and per request
 
 
@@ -67,6 +67,7 @@ def main():
     print("# sender i2c.scan:", ["0x%02X" % a for a in i2c.scan()])
     nfc = PN532Dep(i2c, NFC_ADDR)
     nfc.trace = TRACE
+    nfc.abort()   # main.py was interrupted by mpremote and may have left a command pending
     print("# sender PN532 fw", nfc.begin(), "i2c", I2C_FREQ, "mem_free", gc.mem_free())
     with open(PAYLOAD, "rb") as f:
         data = f.read()

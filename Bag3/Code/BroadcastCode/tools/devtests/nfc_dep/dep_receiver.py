@@ -126,6 +126,7 @@ def main():
     print("# receiver i2c.scan:", ["0x%02X" % a for a in i2c.scan()])
     nfc = PN532Dep(i2c, NFC_ADDR)
     nfc.trace = TRACE
+    nfc.abort()   # main.py was interrupted by mpremote and may have left a command pending
     print("# receiver PN532 fw", nfc.begin(), "i2c", I2C_FREQ, "mem_free", gc.mem_free())
     nfc.configure_initiator()
     print("# config baud=%d chunk=%d runs=%d timeout_code=0x%02X atr_timeout_code=0x%02X"

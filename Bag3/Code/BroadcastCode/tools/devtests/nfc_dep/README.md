@@ -18,14 +18,27 @@ stock Mock Wands and doesn't touch Mock Wand firmware (`main.py`, `lib/pn532.py`
 - **Roles:** wand A is the target and wand B the initiator. The PN532 antennas face each other.
 
 ## Run
+Follow `Bag3/Code/HARDWARE_PROTOCOL.md`: ask which wand is on which port, pass `resume` on every
+`mpremote` call, and use absolute paths. The payloads get non-colliding names, so the wand's own
+`jumpin.py` is never overwritten.
 ```sh
-mpremote connect <A> cp pn532_dep.py dep_proto.py :
-mpremote connect <A> cp ../../../MockWand/jumpin.py :
-mpremote connect <A> run dep_sender.py
+D=<repo>/Bag3/Code/BroadcastCode
+python3 -m mpremote connect $PORT_A resume \
+  fs cp $D/tools/devtests/nfc_dep/pn532_dep.py :pn532_dep.py + \
+  fs cp $D/tools/devtests/nfc_dep/dep_proto.py :dep_proto.py + \
+  fs cp $D/MockWand/jumpin.py :dep_jumpin.bin
+python3 -m mpremote connect $PORT_B resume \
+  fs cp $D/tools/devtests/nfc_dep/pn532_dep.py :pn532_dep.py + \
+  fs cp $D/tools/devtests/nfc_dep/dep_proto.py :dep_proto.py
 
-mpremote connect <B> cp pn532_dep.py dep_proto.py :
-mpremote connect <B> run dep_receiver.py
+python3 -m mpremote connect $PORT_A resume run $D/tools/devtests/nfc_dep/dep_sender.py
+python3 -m mpremote connect $PORT_B resume run $D/tools/devtests/nfc_dep/dep_receiver.py
 ```
+- **Editing settings:** `run` sends the local script, so changes to `dep_sender.py` or
+  `dep_receiver.py` constants need no re-copy. A change to `pn532_dep.py` does.
+- **Restoring the wands:** afterwards, run a plain `python3 -m mpremote connect $PORT reset`
+  (no `resume`) to bring `main.py` back.
+
 The settings are constants at the top of each script:
 - **Receiver:** `BAUD`, `CHUNK`, `RUNS`.
 - **Sender:** `PAYLOAD`.
@@ -35,7 +48,7 @@ The settings are constants at the top of each script:
 ## Output
 The receiver prints one line per run:
 ```
-RESULT OK name=jumpin.py bytes=7048 i2c=100000 baud=106 chunk=240 timeout_code=0x0B poll_ms=.. xfer_ms=.. Bps=.. rtt_us_min=.. med=.. max=..
+RESULT OK name=dep_jumpin.bin bytes=7048 i2c=100000 baud=106 chunk=240 timeout_code=0x0B poll_ms=.. xfer_ms=.. Bps=.. rtt_us_min=.. med=.. max=..
 RESULT FAIL err='...' after_ms=.. bytes_received=..
 ```
 - `xfer_ms` runs from link up to the verified end, including the header and the sha256 check.
