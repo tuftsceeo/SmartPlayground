@@ -12,6 +12,7 @@ import {
 } from './editor.js';
 import { uploadPayload, validateGameCode } from './upload.js';
 import { ROLES as ROLE_TABLE, roleInfo, DEFAULT_ROLE, signatureFor } from './roles.js';
+import { listSplatActions } from './splat/splatActionCheck.js';
 import { updateTagChecklist } from './nfc.js';
 import { EXAMPLES, CATEGORIES, findExample, loadExampleCode } from './examples.js';
 import { showView, showOverlay, hideOverlay, setConnectionBadge, toast, setSendProgress, showConnectToast, syncNavTabs } from './router.js';
@@ -254,9 +255,18 @@ class App {
             `\nRefer to icons by these names only. If a game needs a picture that is ` +
             `not in this list, say so and suggest the closest one rather than ` +
             `inventing a name.`;
+        // Splat action names come from the device's own splat_api.py (via
+        // the generated splatActions.js); a Splat game naming anything else
+        // is refused at send time.
+        const sa = listSplatActions();
+        const splatNames = `\n\nSPLAT ACTION NAMES ON THE SPLAT COMPANION:\n` +
+            `colors (splat.color): ${sa.colors.join(', ')}\n` +
+            `notes (splat.note): ${sa.notes.join(', ')}\n` +
+            `sounds (splat.sound): ${sa.sounds.join(', ')}\n` +
+            `splat.play([...]) takes any mix of these. Use these names only.`;
         return knowledge
-            ? SYSTEM_PROMPT_BASE + icons + '\n\nPROJECT KNOWLEDGE BASE:\n' + knowledge
-            : SYSTEM_PROMPT_BASE + icons;
+            ? SYSTEM_PROMPT_BASE + icons + splatNames + '\n\nPROJECT KNOWLEDGE BASE:\n' + knowledge
+            : SYSTEM_PROMPT_BASE + icons + splatNames;
     }
 
     /**
@@ -2246,6 +2256,16 @@ class App {
                 if (errEl) errEl.textContent = err;
                 toast(err, true);
                 return;
+            }
+            if (info.unknownNamesIn) {
+                const unknown = info.unknownNamesIn(roleCode);
+                if (unknown.length) {
+                    // The device would print [ERR] and do nothing for each.
+                    const msg = `The ${info.label} game uses names the device does not have: ${unknown.join(', ')}.`;
+                    if (errEl) errEl.textContent = msg;
+                    toast(msg, true);
+                    return;
+                }
             }
             if (info.hasIconLeg) {
                 const missing = missingIconsIn(roleCode);

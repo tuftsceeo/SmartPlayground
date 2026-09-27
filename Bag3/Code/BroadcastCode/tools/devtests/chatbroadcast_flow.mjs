@@ -100,6 +100,32 @@ check('none of them are missing', lib.missingIconsIn(icon).length === 0);
 check('a game naming a nonexistent icon is caught',
     lib.missingIconsIn('icon_store.read_icon("dragon")').join(',') === 'dragon');
 
+// ── Splat action names the splat file uses (roles.js unknownNamesIn) ──
+const { roleInfo } = await import(BB + '/ChatBroadcast/js/roles.js');
+const { unknownSplatActionsIn, listSplatActions } = await import(
+    BB + '/ChatBroadcast/js/splat/splatActionCheck.js');
+check('the splat role carries the name check',
+    roleInfo('splat').unknownNamesIn === unknownSplatActionsIn);
+check('wand and icon roles carry none',
+    !roleInfo('wand').unknownNamesIn && !roleInfo('icon').unknownNamesIn);
+check('the splat file uses only known action names',
+    unknownSplatActionsIn(splat).length === 0, unknownSplatActionsIn(splat).join(','));
+check('a misspelled color is caught',
+    unknownSplatActionsIn('splat.color("turnpurpel")').join(',') === 'turnpurpel');
+check('a name from the wrong category is caught',
+    unknownSplatActionsIn('splat.sound("turnred")').join(',') === 'turnred');
+check('play() accepts a mix of categories',
+    unknownSplatActionsIn('splat.play(["cat", "note_c", "turnblue"])').length === 0);
+check('an unknown name inside play() is caught',
+    unknownSplatActionsIn("splat.play(['cat', 'lion'])").join(',') === 'lion');
+check('a call on one unit is checked too',
+    unknownSplatActionsIn('splat.unit(1).note("note_z")').join(',') === 'note_z');
+check('a name held in a variable is not guessed at',
+    unknownSplatActionsIn('c = COLORS[i]\nsplat.color(c)').length === 0);
+const sa = listSplatActions();
+check('the prompt list has all three categories',
+    sa.colors.includes('turnred') && sa.notes.includes('note_c') && sa.sounds.includes('cat'));
+
 // ── The file list a send builds (mirrors app.js confirmSend) ──
 const slug = 'goalrace';
 const extraFiles = [{ path: `/flash/games/${slug}_icon.py`, content: icon }];

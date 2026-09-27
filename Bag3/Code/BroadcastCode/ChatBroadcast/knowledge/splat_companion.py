@@ -86,14 +86,11 @@
 #   splat.off()                  stop everything: the held note, then
 #                                 allTasksOff and allLEDsOff.
 #
-# Action names are the SAME card names the wand's action cards use:
-#   colors: turnred, turngreen, turnblue, turnpurple, turnyellow,
-#           turnwhite, turnoff
-#   notes:  note_c, note_d, note_e, note_f, note_g, note_a, note_b,
-#           note_c_high, playnote
-#   sounds: cat, chicken, cow, dog, pig, duck, elephant, horse, goat
-#
-# An unknown name prints [ERR] and does nothing -- it does not raise.
+# Action names are the wand's action-card names. The full list for each
+# call is appended to this prompt under "SPLAT ACTION NAMES ON THE SPLAT
+# COMPANION" -- use only those. A Splat game naming anything else is
+# refused before it is sent. (On the device an unknown name prints [ERR]
+# and does nothing; it does not raise.)
 
 # ═══════════════════════════════════════════════════════════════════
 # 2. ESP-NOW — HOW THE WAND AND THE SPLAT COMPANION TALK

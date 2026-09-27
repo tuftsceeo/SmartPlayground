@@ -112,7 +112,10 @@ def play(splat, leds, enow, batt=None):
   loop -- services the BLE link and returns `"press"`/`"release"`/`None`),
   `color(name)`, `sound(name)`, `note(name)`, `play([names])`, `off()`.
   Action names are the tables in `splat_api.py` (`COLOR_RGB`,
-  `NOTE_VALUES`, `ANIMAL_SOUNDS`): the wand's action-card names.
+  `NOTE_VALUES`, `ANIMAL_SOUNDS`): the wand's action-card names. After
+  editing any of them, run `python3 ChatBroadcast/tools/sync_splat_actions.py`
+  (from `BroadcastCode/`): ChatBroadcast puts the generated list in its
+  system prompt and refuses to send a Splat game that names anything else.
 - **`leds`**: this device's 3-pixel strip, `fill(color)` / `off()` -- not
   a wand's 25-pixel matrix.
 - **`enow`**: an already-initialised `ESPNowManager` (the EUM drop-in).

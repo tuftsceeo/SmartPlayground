@@ -28,7 +28,12 @@
  *   hasIconLeg    true only for the role whose games ship extra named
  *                 files alongside the game file (only icon, today)
  *   knowledgeFile path fetched into the system prompt's knowledge base
+ *   unknownNamesIn optional (code) => string[]: names the game uses that
+ *                 the device does not have; a non-empty result refuses
+ *                 the send (splat only, today)
  */
+import { unknownSplatActionsIn } from './splat/splatActionCheck.js';
+
 export const ROLES = [
     {
         key: 'wand',
@@ -74,6 +79,7 @@ export const ROLES = [
         hasPreview: false,
         hasIconLeg: false,
         knowledgeFile: 'knowledge/splat_companion.py',
+        unknownNamesIn: unknownSplatActionsIn,
     },
 ];
 
