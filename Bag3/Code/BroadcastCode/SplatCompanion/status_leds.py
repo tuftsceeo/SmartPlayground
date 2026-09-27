@@ -2,7 +2,7 @@
 status_leds.py -- companion status LEDs (NeoPixel strip)
 ========================================================
 show(color, breathe, now) writes the strip only when the output changes,
-for the idle bridge's status colors (see main.py / companion.py). fill()
+for the idle station's status colors (see companion.py). fill()
 is the same 3-LED strip made available to games as the `leds` parameter --
 it always writes, since a game's own animation may repeat a color on
 purpose (a blink), which show()'s dedup would otherwise swallow.
@@ -39,7 +39,7 @@ class StatusLeds:
 
     def fill(self, color):
         """Unconditional solid write, for a game's own animation. Clears
-        the dedup state show() uses, so the bridge repaints on resume
+        the dedup state show() uses, so the idle loop repaints on resume
         instead of trusting a color a game may have left behind."""
         self._last = None
         self.np.fill(color)

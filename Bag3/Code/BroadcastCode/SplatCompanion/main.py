@@ -1,6 +1,6 @@
 """
-Splat Companion — ESP-NOW <-> BLE bridge and game station
-============================================================
+Splat Companion — game station for one Splat
+==============================================
 Board: Seeed XIAO ESP32-C6 (hubtype.txt: splat_companion), paired over
 UART1 (GPIO0 TX / GPIO1 RX) with a second board (M5StickS3 or XIAO C6)
 running EspnowModem/modem/main.py. ESP-NOW never runs on this board's own
@@ -18,11 +18,10 @@ Games get: def play(splat, leds, enow, batt=None)
            naming another game.
     batt   a max17048.MAX17048, or None if the gauge failed at boot.
 
-Idle (no game running), this device also runs the ESP-NOW<->BLE bridge
-from companion.py: splat_config/splat_cmd/stop from a wand play the Splat
-directly, and every press/release relays back as splat_event. A game tag,
-tapped or arriving as ESP-NOW start_game, pauses the bridge and hands the
-same BLE link to the game; the bridge resumes when the game returns.
+A games-only station, like the icon display. Idle (no game running),
+companion.py keeps the Splat's BLE link up and waits: a game tag, tapped
+or arriving as ESP-NOW start_game, launches that game with the same
+SplatAPI the idle loop polls. Nothing plays on a Splat press while idle.
 """
 
 import sys
@@ -289,15 +288,13 @@ def _game_load_failed(name, exc):
 def _launch_game(name, splat, enow, batt_ref):
     """Run a game and chain force-switches without returning to idle.
 
-    The bridge (companion.py) is not serviced while a game runs -- the
-    game's `splat` object polls the same BLE link directly instead. This
-    is the same "one loop owns the link at a time" rule as MockWand's
-    "one loop owns enow" for games vs. the trigger/rules engine.
+    The idle loop (companion.py) is not serviced while a game runs -- the
+    game polls the same SplatAPI instead. One loop owns the link at a
+    time, the same rule as MockWand's "one loop owns enow".
 
     splat.off() runs in `finally`, on every exit path (normal return, a
     failed load, or an exception): a game that forgets to silence the
-    Splat before returning must not leave it lit or sounding once the
-    bridge resumes.
+    Splat before returning must not leave it lit or sounding afterwards.
     """
     try:
         while is_game(name):
@@ -362,6 +359,9 @@ def main():
     from splat_api import SplatAPI
 
     link = SplatLink()
+    # One SplatAPI for the whole boot: the idle loop and every game poll
+    # the same object, so keepalive and switch-poll timing never restart.
+    splat = SplatAPI(link)
     mgr = espnow_manager.ESPNowManager()
     memprobe.probe("pre-enow")  # BENCH
     try:
@@ -375,7 +375,7 @@ def main():
         raise
 
     # ── Battery + PN532, non-fatal on failure: a missing gauge or reader
-    # costs only that capability (rule 9/10), and the bridge still runs.
+    # costs only that capability (rule 9/10), and the station still runs.
     i2c = machine.SoftI2C(sda=machine.Pin(HUB_CONFIG["i2c_sda"]),
                           scl=machine.Pin(HUB_CONFIG["i2c_scl"]),
                           freq=HUB_CONFIG["i2c_freq"])
@@ -412,7 +412,7 @@ def main():
             except Exception:
                 pass
 
-    comp = Companion(mgr, link, status, is_game_fn=is_game)
+    comp = Companion(mgr, splat, status, is_game_fn=is_game)
     probe = None
     if DEBUG_PROBE:
         import companion_probe
@@ -426,13 +426,12 @@ def main():
     _just_pulled = game_store.take_last_pulled()
     if _just_pulled:
         print("  Launching just-pulled game: %s" % _just_pulled)
-        splat = SplatAPI(link)
         try:
             _launch_game(_just_pulled, splat, mgr, batt)
         except Exception as e:
             _game_load_failed(_just_pulled, e)
 
-    run_event_loop(comp, reader, mgr, batt, probe)
+    run_event_loop(comp, splat, reader, mgr, batt, probe)
 
 
 HEARTBEAT_MS = 5000
@@ -441,9 +440,10 @@ DEBUG_PROBE = False          # periodic stats from companion_probe.py
 PROBE_EVERY_MS = 10000
 
 
-def run_event_loop(comp, reader, enow, batt_ref, probe=None):
-    """Idle loop: run the ESP-NOW<->BLE bridge, poll NFC for a tag, launch
-    a game or a pull on one, and launch a game on ESP-NOW start_game."""
+def run_event_loop(comp, splat, reader, enow, batt_ref, probe=None):
+    """Idle loop: service the station (companion.py), poll NFC for a tag,
+    launch a game or a pull on one, and launch a game on ESP-NOW
+    start_game."""
     frame = 0
     last_heartbeat = time.ticks_ms()
     last_uid = None
@@ -462,7 +462,6 @@ def run_event_loop(comp, reader, enow, batt_ref, probe=None):
             if start_name is not None:
                 comp.pending_start_game = None
                 print("  ESP-NOW start_game: %s" % start_name)
-                splat = SplatAPI(comp.link)
                 _launch_game(start_name, splat, enow, batt_ref)
                 last_uid = None
 
@@ -479,10 +478,8 @@ def run_event_loop(comp, reader, enow, batt_ref, probe=None):
                         if head == "getcode":
                             print("# getcode tapped (slug=%r host=%r) -- "
                                   "queueing pull, rebooting" % (wanted, wanted_host))
-                            # Deliberately no comp.shutdown() here: the chip
-                            # resets in a moment regardless, and the pull
-                            # itself must run on a radio nothing has
-                            # touched this boot -- see pull_flag.py.
+                            # The pull itself runs after the reset, on a
+                            # radio nothing has touched -- see pull_flag.py.
                             try:
                                 pull_flag.set_pending(wanted, wanted_host)
                             except OSError as e:
@@ -492,11 +489,8 @@ def run_event_loop(comp, reader, enow, batt_ref, probe=None):
                             machine.reset()
                         elif cmd == "stop":
                             print("  STOP tag")
-                            # The bridge's own "stop" handling (splat_config
-                            # cleared, splat silenced) is for ESP-NOW stop;
-                            # an NFC stop while idle has nothing else to do.
+                            splat.off()
                         elif is_game(cmd):
-                            splat = SplatAPI(comp.link)
                             _launch_game(cmd, splat, enow, batt_ref)
                             last_uid = None
                         else:

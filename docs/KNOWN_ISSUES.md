@@ -222,3 +222,13 @@ fixed in the trees they're in unless noted.
   the `BroadcastCode/` component both actually live under (confirmed against the real tree). The
   new `splat_companion` row added by this pass uses the correct full path; the other two are left
   as found.
+
+## 2026-09-27 (Splat Companion review follow-up)
+
+### Behavior change
+
+- **The Bag3 Splat Companion no longer handles `splat_config`, `splat_cmd` or `splat_event`.** The
+  idle ESP-NOW↔BLE bridge carried over from the Bag2 companion was removed; the station is
+  games-only, like the icon display. The `send_splat_config()` helpers in the other trees'
+  `espnow_manager.py` copies, and the modem's `splat_config` classification in
+  `EspnowModem/modem/lib/eum_classify.py`, are unchanged and now have no Bag3 consumer.

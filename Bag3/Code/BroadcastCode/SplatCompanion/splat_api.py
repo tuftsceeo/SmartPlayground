@@ -6,21 +6,51 @@ the wand's five hardware objects: there is no NFC, buzzer, motor or
 accelerometer here, and the Splat itself is BLE, not a local peripheral.
 
 A game MUST call splat.poll() every loop iteration, exactly as it polls
-enow. While a game runs, main.py's bridge (companion.py) is not running, so
-nothing else services the BLE link, its keepalive or its button debounce --
-poll() is what does all three.
+enow. main.py hands the same SplatAPI to the idle loop (companion.py) and
+to each game in turn, so exactly one loop polls it at a time and nothing
+else services the BLE link, its keepalive or its button debounce.
 
-Action names are the card names from lib/actions.py (colors, note_c ...
-note_c_high, the animal sounds) -- see knowledge/splat_companion.py.
+This file is the single source of the action vocabulary below.
+ChatBroadcast's js/splat/splatActions.js is generated from it by
+ChatBroadcast/tools/sync_splat_actions.py -- run that after editing any of
+COLOR_RGB, NOTE_VALUES or ANIMAL_SOUNDS (--check reports drift). The names
+are the Bag2 wand's action-card names.
 """
 
 import time
 
-from companion import (
-    COLOR_RGB, NOTE_VALUES, ANIMAL_SOUNDS,
-    NOTE_OCTAVE, NOTE_VELOCITY, NOTE_INSTRUMENT, SOUND_VOLUME,
-    KEEPALIVE_MS, SWITCH_POLL_MS,
-)
+
+# ─── Action vocabulary (card names) ───────────
+
+COLOR_RGB = {
+    "turnred": (255, 0, 0), "turngreen": (0, 255, 0),
+    "turnblue": (0, 0, 255), "turnpurple": (160, 0, 200),
+    "turnyellow": (255, 180, 0), "turnwhite": (200, 200, 200),
+    "turnoff": (0, 0, 0),
+}
+
+# name -> (note value, octave offset). Values from the Bag2 companion's
+# NOTE_MIDI; the Jan 2026 wand-side controller used different values
+# (see README "Drift").
+NOTE_VALUES = {
+    "note_c": (0, 0), "note_d": (2, 0), "note_e": (4, 0), "note_f": (5, 0),
+    "note_g": (7, 0), "note_a": (9, 0), "note_b": (11, 0),
+    "note_c_high": (0, 1), "playnote": (0, 0),
+}
+
+ANIMAL_SOUNDS = {
+    "cat": 19, "chicken": 20, "cow": 21, "dog": 22,
+    "pig": 23, "duck": 24, "elephant": 25, "horse": 26, "goat": 28,
+}
+
+# ─── Splat write settings ─────────────────────
+
+NOTE_OCTAVE = 4
+NOTE_VELOCITY = 127
+NOTE_INSTRUMENT = 17
+SOUND_VOLUME = 255
+KEEPALIVE_MS = 2500
+SWITCH_POLL_MS = 150         # readSwitches cadence while ready; 0 = off
 
 
 class SplatAPI:

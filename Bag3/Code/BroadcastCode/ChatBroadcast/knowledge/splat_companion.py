@@ -1,16 +1,17 @@
 # ═══════════════════════════════════════════════════════════════════
 # SPLAT COMPANION — knowledge base
 # ═══════════════════════════════════════════════════════════════════
-# The Splat Companion is a XIAO ESP32-C6 that bridges ESP-NOW (through a
-# paired modem board) to a stock, unmodified Splat toy over BLE. It has a
-# PN532 card reader (same wiring as the wand), a battery gauge, and a
-# 3-pixel status strip. It has NO buzzer, motor or accelerometer, and NO
-# 5x5 matrix -- do not treat `leds` as a wand's LED matrix.
+# The Splat Companion is an independent game station, like the icon
+# display: a XIAO ESP32-C6 that runs games on a stock, unmodified Splat toy
+# over BLE, and talks to the rest of the playground over ESP-NOW (through a
+# paired modem board). It has a PN532 card reader (same wiring as the
+# wand), a battery gauge, and a 3-pixel status strip. It has NO buzzer,
+# motor or accelerometer, and NO 5x5 matrix -- do not treat `leds` as a
+# wand's LED matrix.
 #
-# When idle (no game running), this device also runs its own ESP-NOW<->BLE
-# bridge: a wand's splat_config/splat_cmd/stop play the Splat directly, with
-# no game code involved. A game only runs while its tag is active, and while
-# it does, it -- not the bridge -- owns the Splat.
+# Between games the station does nothing on its own: a Splat press while no
+# game is running plays nothing and sends nothing. Everything the Splat
+# does comes from a game file for this station.
 #
 # A game that involves both a wand and the Splat Companion is TWO FILES --
 # one per device, each in its own fenced block with its own [DEVICE:]
@@ -123,9 +124,7 @@
 #   if ev == "press":
 #       enow.broadcast({"type": "score", "hit": True})
 #
-# The bridge (not a game) also relays every press/release as its own
-# {"type": "splat_event", "event": "press"|"release", "splat": "<mac>"}
-# message, but only while no game is running -- a game that wants the wand
+# Nothing relays Splat presses for you: a game that wants another device
 # to know about a press must broadcast its own message, as above.
 
 # ═══════════════════════════════════════════════════════════════════

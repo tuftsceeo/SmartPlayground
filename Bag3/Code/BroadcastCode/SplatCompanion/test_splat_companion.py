@@ -1,9 +1,10 @@
-"""CPython simulation of the Splat Companion's combined ESP-NOW + BLE loop.
+"""CPython simulation of the Splat Companion's idle station (ESP-NOW + BLE).
 
 Reuses ../EspnowModem/tests/test_sim.py's harness: the real modem/main.py
 runs in a thread behind a fake UART and a fake ESP-NOW radio, and the real
 host espnow_manager.py talks to it. On top of that, the real SplatCompanion
-code (companion.py, splat_link.py and its unmodified lib/ble_splat.py) runs
+code (companion.py, splat_api.py, splat_link.py and its unmodified
+lib/ble_splat.py) runs
 against a fake ubluetooth whose IRQ events arrive from a separate thread,
 as scheduled BLE IRQs do on the device.
 
@@ -204,6 +205,7 @@ micropython.const = lambda x: x
 sys.modules["micropython"] = micropython
 
 import companion as C          # noqa: E402
+import splat_api as A          # noqa: E402
 import splat_link as L         # noqa: E402
 
 ble = BLE()
@@ -246,22 +248,16 @@ def air_since(n):
     return S.radio().air[n:]
 
 
-def splat_events(air):
-    out = []
-    for mac, data, sync in air:
-        if b"splat_event" in data:
-            d = json.loads(data)
-            out.append((mac, d["event"], d["splat"], sync))
-    return out
-
-
 def press_release(r, hold_ms):
-    r.run(100)                       # past ble_splat's 80 ms button debounce
+    """Press and release the fake Splat's button; wait for SplatLink to
+    accept both edges."""
+    link = r.comp.link
+    r.run(100)                       # past the 80 ms button debounce
     ble.button(True)
-    assert r.run(500, lambda: r.comp.pressed), "press not seen"
+    assert r.run(500, lambda: link.splat_pressed), "press not seen"
     r.run(hold_ms)
     ble.button(False)
-    assert r.run(500, lambda: not r.comp.pressed), "release not seen"
+    assert r.run(500, lambda: not link.splat_pressed), "release not seen"
 
 
 # ─── Tests ───────────────────────────────────
@@ -280,96 +276,60 @@ def test_copies_match(r):
         assert a == b, "SplatCompanion/lib/%s differs from %s" % (name, src)
 
 
-def test_parse_chain(r):
-    steps, errs = C.parse_chain([["turnred", "cat"], "note_c_high", ["notea"]])
-    assert steps == [((255, 0, 0), 19, None), (None, None, (0, 5)),
-                     (None, None, None)], steps
-    assert errs == ["group 2: unknown action 'notea'"], errs
-    steps, errs = C.parse_chain("turnred")
-    assert steps == [] and errs, errs
+def test_no_bridge_left(r):
+    with open(os.path.join(COMP_DIR, "companion.py")) as f:
+        src = f.read()
+    code = src[src.index('"""', 3) + 3:]        # past the module docstring
+    for word in ("splat_config", "splat_cmd", "splat_event", "add_peer",
+                 "send_to"):
+        assert word not in code, "companion.py still handles %s" % word
 
 
 def test_espnow_serviced_while_ble_connecting(r):
     ble.delay_ms = 400               # slow advertising + connect
-    inject(WAND_MAC, {"type": "splat_config",
-                      "actions": [["turnred", "cat"], ["turnblue", "note_c"]]})
-    assert r.run(2000, lambda: r.comp.config is not None)
-    assert not r.comp.link.ready, "expected config before BLE came up"
-    assert r.comp.owner == WAND and WAND_MAC in S.radio().peers
+    rx0 = r.comp.counters["rx"]
+    inject(WAND_MAC, {"type": "score", "n": 1})
+    assert r.run(2000, lambda: r.comp.counters["rx"] == rx0 + 1)
+    assert not r.comp.link.ready, "expected the message before BLE came up"
     assert r.comp.leds.last == C.LED_BLE_WAIT
     assert r.run(5000, lambda: r.comp.link.ready), r.comp.link.state_name()
     ble.delay_ms = 30
-    r.run(C.CONNECT_FLASH_MS + 100)
-    assert ble.cmds()[:2] == [("setLEDs", bytes([1, 0x50, 0xFF, 0x3F, 0, 255, 0])),
-                              ("allLEDsOff", bytes([3, 0]))], ble.cmds()
-    assert r.comp.leds.last == C.LED_CONFIGURED
-
-
-def test_press_plays_config_and_relays(r):
-    w0, a0 = len(ble.writes), len(S.radio().air)
-    press_release(r, C.GROUP_GAP_MS + 150)
-    names = [n for n, _ in ble.cmds(w0)]
-    assert names == ["setLEDs", "playSound", "setLEDs", "noteOn",
-                     "allTasksOff", "allLEDsOff"], names
-    cmds = ble.cmds(w0)
-    assert cmds[0][1][4:] == bytes([255, 0, 0]) and cmds[2][1][4:] == bytes([0, 0, 255])
-    assert cmds[1][1] == bytes([0, 0x20, 19, 255])
-    assert cmds[3][1] == bytes([0, 0x40, 0, 4, 127, 17])
-    ev = splat_events(air_since(a0))
-    assert ev == [(WAND_MAC, "press", SPLAT, True),
-                  (WAND_MAC, "release", SPLAT, True)], ev
-
-
-def test_release_before_second_group(r):
-    w0 = len(ble.writes)
-    press_release(r, 100)
-    r.run(C.GROUP_GAP_MS + 100)
-    names = [n for n, _ in ble.cmds(w0)]
-    assert names == ["setLEDs", "playSound", "allTasksOff", "allLEDsOff"], names
-
-
-def test_short_tap_not_stuck(r):
-    # ble_splat's own debounce drops a release < 80 ms after the press and
-    # leaves the button "pressed"; SplatLink re-checks the raw state.
-    w0, a0 = len(ble.writes), len(S.radio().air)
-    press_release(r, 20)
-    names = [n for n, _ in ble.cmds(w0)]
-    assert names == ["setLEDs", "playSound", "allTasksOff", "allLEDsOff"], names
-    ev = [e for _, e, _, _ in splat_events(air_since(a0))]
-    assert ev == ["press", "release"], ev
-
-
-def test_splat_cmd_direct(r):
-    w0 = len(ble.writes)
-    inject(WAND2_MAC, {"type": "splat_cmd", "actions": [["turnyellow", "note_e"]]})
-    r.run(C.NOTE_HOLD_MS + 150)
-    names = [n for n, _ in ble.cmds(w0)]
-    assert names == ["setLEDs", "noteOn", "noteOff"], names
-    assert r.comp.owner == WAND2
-    assert WAND2_MAC in S.radio().peers and WAND_MAC not in S.radio().peers
-    w1 = len(ble.writes)
-    inject(WAND2_MAC, {"type": "splat_cmd", "off": True})
     r.run(100)
-    assert [n for n, _ in ble.cmds(w1)] == ["allTasksOff", "allLEDsOff"]
-    bad = r.comp.counters["bad_msgs"]
-    inject(WAND2_MAC, {"type": "splat_cmd"})
-    r.run(100)
-    assert r.comp.counters["bad_msgs"] == bad + 1
-
-
-def test_stop_clears_and_press_broadcasts(r):
-    inject(WAND2_MAC, {"type": "stop"})
-    assert r.run(500, lambda: r.comp.config is None and r.comp.owner is None)
-    r.run(50)
-    assert WAND2_MAC not in S.radio().peers
     assert r.comp.leds.last == C.LED_READY
+    assert r.comp.counters["ble_up"] == 1
+    assert ble.cmds() == [], ble.cmds()
+
+
+def test_idle_press_does_nothing(r):
     w0, a0 = len(ble.writes), len(S.radio().air)
+    p0 = r.comp.counters["idle_presses"]
+    press_release(r, 100)
+    r.run(50)
+    assert r.comp.counters["idle_presses"] == p0 + 1
+    assert ble.cmds(w0) == [], ble.cmds(w0)
+    assert air_since(a0) == [], air_since(a0)
+
+
+def test_bridge_messages_ignored(r):
+    w0, a0 = len(ble.writes), len(S.radio().air)
+    i0 = r.comp.counters["ignored"]
+    inject(WAND_MAC, {"type": "splat_config", "actions": [["turnred", "cat"]]})
+    inject(WAND2_MAC, {"type": "splat_cmd", "actions": [["turnyellow"]]})
+    assert r.run(500, lambda: r.comp.counters["ignored"] == i0 + 2), r.comp.counters
     press_release(r, 100)
     r.run(50)
     assert ble.cmds(w0) == [], ble.cmds(w0)
-    ev = splat_events(air_since(a0))
-    assert ev == [(S.BCAST, "press", SPLAT, False),
-                  (S.BCAST, "release", SPLAT, False)], ev
+    assert air_since(a0) == [], air_since(a0)
+    assert WAND_MAC not in S.radio().peers and WAND2_MAC not in S.radio().peers
+
+
+def test_idle_stop_silences(r):
+    w0 = len(ble.writes)
+    s0 = r.comp.counters["stops"]
+    inject(WAND2_MAC, {"type": "stop"})
+    assert r.run(500, lambda: r.comp.counters["stops"] == s0 + 1)
+    r.run(50)
+    assert [n for n, _ in ble.cmds(w0)] == ["allTasksOff", "allLEDsOff"], ble.cmds(w0)
 
 
 def test_ble_drop_espnow_keeps_flowing(r):
@@ -379,18 +339,18 @@ def test_ble_drop_espnow_keeps_flowing(r):
     assert r.run(500, lambda: not r.comp.link.ready)
     for i in range(20):
         inject(WAND_MAC, ["turnred", "turnblue"])
-    inject(WAND_MAC, {"type": "splat_config", "actions": [["turngreen", "dog"]]})
+    inject(WAND_MAC, {"type": "stop"})
     assert r.run(1000, lambda: r.comp.counters["rx"] == rx0 + 21), r.comp.counters
     assert not r.comp.link.ready
-    assert r.comp.owner == WAND
+    assert r.comp.leds.last == C.LED_BLE_WAIT
     ble.available = True
     assert r.run(L.CONNECT_TIMEOUT_MS + L.RETRY_BACKOFF_MS + 2000,
                  lambda: r.comp.link.ready), r.comp.link.state_name()
-    r.run(C.CONNECT_FLASH_MS + 100)
+    r.run(50)
     w0 = len(ble.writes)
-    press_release(r, 100)
-    names = [n for n, _ in ble.cmds(w0)]
-    assert names == ["setLEDs", "playSound", "allTasksOff", "allLEDsOff"], names
+    inject(WAND_MAC, {"type": "stop"})
+    r.run(200)
+    assert [n for n, _ in ble.cmds(w0)] == ["allTasksOff", "allLEDsOff"], ble.cmds(w0)
 
 
 def test_connect_timeout_retries(r):
@@ -409,46 +369,24 @@ def test_connect_timeout_retries(r):
         assert r.run(2000, lambda: r.comp.link.ready), r.comp.link.state_name()
     finally:
         L.CONNECT_TIMEOUT_MS, L.RETRY_BACKOFF_MS = saved
-    r.run(C.CONNECT_FLASH_MS + 100)
+    r.run(100)
 
 
-def test_burst_during_playback(r):
-    c0 = r.comp.counters["configs"]
-    inject(WAND_MAC, {"type": "splat_config", "actions": [
-        ["turnred", "note_c"], ["turnblue", "note_d"], ["turngreen", "note_e"],
-        ["turnyellow", "note_f"], ["turnwhite", "note_g"]]})
-    assert r.run(500, lambda: r.comp.counters["configs"] == c0 + 1)
+def test_keepalive_under_burst(r):
     rx0 = r.comp.counters["rx"]
     w0 = len(ble.writes)
     r.max_step_ms = 0
-    ble.button(True)
     for i in range(60):
         inject(WAND2_MAC, {"type": "burst", "n": i})
-    r.run(C.KEEPALIVE_MS * 2 + 300)
-    ble.button(False)
-    r.run(200)
+    r.run(A.KEEPALIVE_MS * 2 + 300)
     assert r.comp.counters["rx"] == rx0 + 60, (r.comp.counters["rx"], rx0)
-    names = [n for n, _ in ble.cmds(w0)]
-    assert names.count("noteOn") == 5 and names[-2:] == ["allTasksOff", "allLEDsOff"], names
     ka = [t for t, n, _ in ble.writes[w0:] if n == "keepAlive"]
     gaps = [b - a for a, b in zip(ka, ka[1:])]
-    assert len(ka) >= 2 and max(gaps) <= C.KEEPALIVE_MS + 100, (ka, gaps)
+    assert len(ka) >= 2 and max(gaps) <= A.KEEPALIVE_MS + 100, (ka, gaps)
     sw = [t for t, n, _ in ble.writes[w0:] if n == "readSwitches"]
     sgaps = [b - a for a, b in zip(sw, sw[1:])]
-    assert max(sgaps) <= C.SWITCH_POLL_MS + 100, sgaps
+    assert max(sgaps) <= A.SWITCH_POLL_MS + 100, sgaps
     assert r.max_step_ms < 150, r.max_step_ms
-
-
-def test_modem_reset_restores_owner_peer(r):
-    S.radio().peers.clear()
-    S.modem().peers.clear()
-    S.modem().boot_id = (S.modem().boot_id + 1) & 0xFF
-    r.run(50)
-    assert WAND_MAC in S.radio().peers
-    a0 = len(S.radio().air)
-    press_release(r, 50)
-    ev = splat_events(air_since(a0))
-    assert ev and ev[0][:2] == (WAND_MAC, "press"), ev
 
 
 def test_start_game_bubbles_to_pending(r):
@@ -476,29 +414,19 @@ def test_start_game_bubbles_to_pending(r):
         r.comp.is_game_fn = None
 
 
-def test_shutdown_does_not_stop_owner(r):
-    a0 = len(S.radio().air)
-    r.comp.shutdown()
-    stops = [m for m, d, s in air_since(a0) if b'"stop"' in d]
-    assert stops == [], stops
-    assert not r.comp.mgr.is_active
-
-
 if __name__ == "__main__":
     mgr = S.EM.ESPNowManager()
     mgr.init()
     link = L.SplatLink()
-    comp = C.Companion(mgr, link, FakeLeds())
+    comp = C.Companion(mgr, A.SplatAPI(link), FakeLeds())
     r = Runner(comp)
     tests = [
-        test_copies_match, test_parse_chain,
+        test_copies_match, test_no_bridge_left,
         test_espnow_serviced_while_ble_connecting,
-        test_press_plays_config_and_relays, test_release_before_second_group,
-        test_short_tap_not_stuck,
-        test_splat_cmd_direct, test_stop_clears_and_press_broadcasts,
+        test_idle_press_does_nothing, test_bridge_messages_ignored,
+        test_idle_stop_silences,
         test_ble_drop_espnow_keeps_flowing, test_connect_timeout_retries,
-        test_burst_during_playback, test_modem_reset_restores_owner_peer,
-        test_start_game_bubbles_to_pending, test_shutdown_does_not_stop_owner,
+        test_keepalive_under_burst, test_start_game_bubbles_to_pending,
     ]
     for fn in tests:
         fn(r)

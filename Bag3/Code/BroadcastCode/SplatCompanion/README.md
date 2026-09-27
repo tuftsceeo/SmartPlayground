@@ -1,19 +1,28 @@
 # Splat Companion
 
-Bag3 broadcast device that bridges ESP-NOW to a stock, unmodified Splat toy
-over BLE, and that ChatBroadcast can generate games for and a Broadcast Box
-or Dial can serve, per
+Bag3 broadcast station that runs games on a stock, unmodified Splat toy
+over BLE. ChatBroadcast can generate games for it and a Broadcast Box or
+Dial can serve them, per
 `Bag3/Code/BroadcastCode/docs_and_design/DEVICE_ONBOARDING_SURFACES.md`.
 
-Status: passes the CPython simulation (`test_splat_companion.py`, 14
-tests) and a stubbed boot smoke test (`../tools/devtests/boot_splat.py`).
+```
+SPLAT <-[BLE]-> companion (XIAO C6) <-[UART]-> modem board <-[ESP-NOW]-> playground
+```
+
+It is a games-only station, like the icon display: between games it keeps
+the Splat connected and waits for a game card or an ESP-NOW `start_game`.
+Nothing plays on a Splat press while idle, and no other device drives the
+Splat directly.
+
+Status: passes the CPython simulation (`test_splat_companion.py`) and a
+stubbed boot smoke test (`../tools/devtests/boot_splat.py`).
 **Not yet run on hardware.** See `HARDWARE_TEST.md`.
 
 ## Hardware
 
 - **Host:** Seeed XIAO ESP32-C6. `hubtype.txt`: `splat_companion`.
   - BLE to one Splat, on its own radio.
-  - ESP-NOW to wands, over UART1 to a paired modem board (`../EspnowModem/`)
+  - ESP-NOW to the rest of the playground, over UART1 to a paired modem board (`../EspnowModem/`)
     running `modem/main.py` -- never on this board's own radio, so BLE and
     ESP-NOW run at the same time without the coexistence problems the Bag2
     companion has (see "How this differs" below).
@@ -45,10 +54,10 @@ tests) and a stubbed boot smoke test (`../tools/devtests/boot_splat.py`).
 
 | Path | Purpose |
 |---|---|
-| `main.py` | Entry point: pull check, boot, dispatch, idle loop (bridge + games) |
-| `companion.py` | The ESP-NOW↔BLE bridge, run only while idle |
+| `main.py` | Entry point: pull check, boot, dispatch, idle loop |
+| `companion.py` | Idle station: keeps the BLE link up, handles `start_game`/`stop`, status LEDs |
 | `splat_link.py` | `SplatLink(OpenSplat)`: non-blocking BLE connect/reconnect, IRQ-safe button debounce |
-| `splat_api.py` | `SplatAPI`: the `splat` object games receive |
+| `splat_api.py` | `SplatAPI`: the `splat` object games receive; the single source of the action names |
 | `status_leds.py` | The 3-pixel strip: `fill()`, `off()` |
 | `companion_probe.py` | Diagnostics, imported only when `DEBUG_PROBE = True` |
 | `splatwhack.py` | Built-in game |
@@ -59,7 +68,6 @@ tests) and a stubbed boot smoke test (`../tools/devtests/boot_splat.py`).
 | `lib/splat_tags.py` | `GAME_TAGS = {"splatwhack"}`, `CONTROL_TAGS = {"stop", "getcode"}`, `EXIT_TAGS`, `exit_tags_excluding()` |
 | `lib/espnow_manager.py`, `lib/eum_proto.py` | Byte copies of `../EspnowModem/host/lib/` |
 | `lib/ble_splat.py` | Byte copy of `Bag3/Code/lib/ble_splat.py` |
-| `bench_wand.py` | Stand-in wand for bench tests (no wand code sends `splat_config`/`splat_cmd` yet) |
 | `test_splat_companion.py` | CPython simulation (reuses `../EspnowModem/tests/test_sim.py`'s modem/host harness plus a fake BLE Splat) |
 
 `../tools/devtests/boot_splat.py` boots `main.py` under stubs (dispatch
@@ -84,13 +92,14 @@ combination on this device; the bench run checks it.
 **Boot order:**
 1. `pull_flag.is_pending()` -> `_run_pull_mode()` if set (WiFi join to a
    Box/Dial, `code_puller.pull(hubtype="splat_companion")`, then reset).
-2. BLE up, `SplatLink` created.
+2. BLE up, `SplatLink` and the one `SplatAPI` created (shared by the idle
+   loop and every game).
 3. ESP-NOW via the modem (`mgr.init()`), then the battery gauge and PN532
    (each optional -- a missing one costs only that capability).
 4. Identity emitted, `take_last_pulled()` auto-launches a just-pulled game.
-5. `run_event_loop()`: the bridge (`Companion.step()`) runs when idle, and
-   a game tag -- tapped, or arriving as ESP-NOW `start_game` -- launches a
-   game and pauses the bridge until it returns.
+5. `run_event_loop()`: `Companion.step()` runs when idle, and a game tag
+   -- tapped, or arriving as ESP-NOW `start_game` -- launches a game; the
+   idle loop resumes when it returns.
 
 ## The `play()` contract
 
@@ -102,8 +111,8 @@ def play(splat, leds, enow, batt=None):
 - **`splat`** (`splat_api.SplatAPI`): `connected`, `poll()` (call every
   loop -- services the BLE link and returns `"press"`/`"release"`/`None`),
   `color(name)`, `sound(name)`, `note(name)`, `play([names])`, `off()`.
-  Action names are the card names from `lib/actions.py`: `turnred` …
-  `turnoff`, `note_c` … `note_c_high`/`playnote`, and the animal sounds.
+  Action names are the tables in `splat_api.py` (`COLOR_RGB`,
+  `NOTE_VALUES`, `ANIMAL_SOUNDS`): the wand's action-card names.
 - **`leds`**: this device's 3-pixel strip, `fill(color)` / `off()` -- not
   a wand's 25-pixel matrix.
 - **`enow`**: an already-initialised `ESPNowManager` (the EUM drop-in).
@@ -131,21 +140,18 @@ python3 -m mpremote connect $COMP_PORT reset
 runs the unchanged `../EspnowModem/modem/` firmware -- no new ESP-NOW
 message codes were added, so it needs no reflash for this device.
 
-## Messages (idle bridge, `companion.py`)
+## Messages while idle (`companion.py`)
 
-| Direction | Message | Effect |
-|---|---|---|
-| in | `{"type": "splat_config", "actions": [[...], ...]}` | Chain to play on each splat press. Sender becomes the owner. |
-| in | `{"type": "splat_cmd", "actions": [[...], ...]}` | Play now. Notes stop 400 ms after the last group. Dropped with `[WARN]` while BLE is not ready. |
-| in | `{"type": "splat_cmd", "off": true}` | `allTasksOff` + `allLEDsOff` |
-| in | `{"type": "stop"}` / `["stop"]` | Clear config, stop the splat, forget the owner |
-| in | `{"type": "start_game", "name": "..."}` | Bubbles to `main.py`, which launches the game if it's one this device has |
-| out | `{"type": "splat_event", "event": "press"\|"release", "splat": "<BLE MAC>"}` | Unicast to the owner (ESP-NOW peer, ACKed), broadcast otherwise. Idle only -- a running game speaks for itself. |
+| Message in | Effect |
+|---|---|
+| `{"type": "start_game", "name": "..."}` | Bubbles to `main.py`, which launches the game if it's one this station has; any other name is printed and ignored |
+| `{"type": "stop"}` / `["stop"]` | `splat.off()` |
+| anything else | Counted as ignored |
 
-`splat_cmd` and `splat_event` are not classified by the modem; they arrive
-as `("raw", dict, mac)` on both the EUM and the built-in manager. No
-fielded wand code sends `splat_config`/`splat_cmd`/`start_game` naming this
-device yet -- `bench_wand.py` plays the wand for bench testing.
+The station sends nothing and adds no ESP-NOW peers while idle. A game
+that wants other devices to know about a press broadcasts its own message.
+The Bag2 companion's `splat_config`/`splat_cmd`/`splat_event` messages are
+not handled here.
 
 ## Status LEDs (idle)
 
@@ -153,13 +159,11 @@ device yet -- `bench_wand.py` plays the wand for bench testing.
 |---|---|
 | Red, solid | Modem link down, or no modem found at boot |
 | Blue, solid | BLE not ready (scanning/connecting) |
-| Cyan, breathing | Ready, no config |
-| Purple, breathing | Ready, config loaded |
-| White, solid | Splat held down |
+| Cyan, breathing | Ready, waiting for a game |
 
 A game gets the same 3-pixel strip via `leds.fill()`/`leds.off()` and may
-use it however it likes; the bridge repaints its own state once the game
-returns.
+use it however it likes; the idle loop repaints its own state once the
+game returns.
 
 ## Drift and findings (flagged, not reconciled)
 
@@ -168,13 +172,13 @@ returns.
   `i2c_freq: 100_000` (shared with the PN532); `MockWand/lib/`,
   `Bag3/Code/lib/` and `Bag2/Code/lib/` still carry the earlier bridge-only
   entry (`has_nfc: False`, `i2c_freq: 400_000`). See `docs/KNOWN_ISSUES.md`.
-- **Note names:** cards and `lib/actions.py` use `note_a` … `note_c_high`;
+- **Note names:** cards and Bag2's `lib/actions.py` use `note_a` … `note_c_high`;
   the Bag2 companion uses `notea` … `noteb` and drops card names silently.
   This device accepts card names only.
 - **Note values, release command, switch polling, and note-triggering
   quirks** inherited from the Bag2/Jan-2026 companions -- see the git
-  history of this file (`companion.py`'s introduction) for the fuller
-  writeup; unresolved on hardware either way.
+  history of this file (`companion.py`'s introduction, commit `50fe511`)
+  for the fuller writeup; unresolved on hardware either way.
 - **`ble_splat.py` debounce and scan race:** `OpenSplat._handle_button`
   drops a release under 80 ms after the press (fixed by `SplatLink`'s
   override, not by the shared driver); a late `SCAN_DONE` can make the
@@ -187,7 +191,6 @@ returns.
 
 - Hardware bench run of any kind (modem link, BLE, NFC, pull, a game).
 - Several Splats per companion.
-- Wand-side code that sends `splat_config`/`splat_cmd`/`start_game` naming
-  this device, or reacts to `splat_event`.
+- Wand-side code that sends `start_game` naming a Splat game.
 - The EUM's acknowledged-fetch fix (`../EspnowModem/README.md`) -- a
   timed-out `FETCH` still loses up to 4 messages.

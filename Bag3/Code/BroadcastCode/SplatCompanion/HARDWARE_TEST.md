@@ -20,7 +20,7 @@ You are testing `Bag3/Code/BroadcastCode/SplatCompanion/` on branch `splat-espno
 - XIAO ESP32-C6 companion, with a PN532 wired as on the wand (I2C 0x24) and a MAX17048 gauge
 - a modem board (M5StickS3 or a second XIAO C6) running `../EspnowModem/modem/main.py`, with its own USB power
 - one stock Splat
-- one MockWand (Bag3, built-in `espnow_manager.py`) to run `bench_wand.py`
+- one MockWand (Bag3, built-in `espnow_manager.py`) to broadcast `start_game` and `stop` from its REPL (step 4)
 - a Broadcast Box or Dial with a game staged as `<slug>_splat.py` (for step 5)
 - NFC cards: one printed `splatwhack`, one printed `stop`, one printed `getcode:<slug>` naming the staged game
 - UART wiring (ask the user to confirm it): companion D0 (GPIO0, TX) → modem RX, companion D1 (GPIO1, RX) ← modem TX, GND–GND (see README "Wiring" for the exact modem-side pin per board)
@@ -30,32 +30,25 @@ You are testing `Bag3/Code/BroadcastCode/SplatCompanion/` on branch `splat-espno
 2. **Capture** the companion boot for 60 s with `tools/serial_monitor.py`. Expect, in order:
    - `[hubtype] splat_companion`
    - a battery line (or `[WARN] Battery:` if the gauge isn't wired)
-   - `PN532 firmware ... -- NFC ready` (or an I2C scan dump if it isn't)
-   - `ESPNow(EUM): active (MAC: ...)` (note this MAC)
+   - `PN532 firmware ... -- NFC ready` (or a `[WARN] PN532 not at 0x24; I2C devices found: [...]` line if it isn't)
+   - `ESPNow(EUM): active (MAC: ...)`
    - a `{"type": "identity", ...}` JSON line
-   - `SplatLink: ready, Splat <MAC>`
+   - `SplatLink: ready, Splat <MAC>` then `Companion: Splat <MAC> ready`
 
-   Ask the user whether the Splat flashed green once. Report any `[ERR]`, `Traceback`, or `gap_scan failed`.
-3. **Bridge test.** Set `COMPANION_MAC` in `bench_wand.py` to the MAC from step 2. Run it on the MockWand with `mpremote connect $WAND_PORT resume run bench_wand.py`, capturing the companion log in the background. The user, per phase:
-   - config: press and release the Splat 3 times, including one very short tap; report light and sound on each press, and whether they stop on release
-   - cmd: report whether the Splat shows yellow + dog, then purple + a note, then goes off
-   - stop: press once; report that nothing lights or sounds
-
-   From the logs, report `[bench] DONE` counts (expect presses == releases) and `splat_event` arrival times against the companion's press lines.
-4. **Card dispatch.** With the bridge idle:
+   Report any `[ERR]`, `Traceback`, or `gap_scan failed`.
+3. **Idle station.** With no game running, the user presses the Splat 3 times, including one very short tap. Expect: nothing lights or sounds on the Splat, the status strip stays cyan (breathing), and nothing is logged except heartbeats. Report anything the Splat did.
+4. **Card dispatch.**
    - Tap the `splatwhack` card. Expect a `game_start` JSON line, then the companion's own prompts (a splat color) with the user pressing on cue; report the printed score line and whether it matches what the user actually hit.
    - While the game is running, tell the user to press the Splat once with no prompt showing (a miss) and once during a prompt (a hit); report both outcomes.
-   - Tap the `stop` card (or send ESP-NOW stop from `bench_wand.py`). Expect a `game_end` line and the bridge's status LEDs to return.
+   - Broadcast `{"type": "stop"}` from the MockWand REPL. Expect a `game_end` line, the Splat going dark, and the cyan status LEDs to return.
+   - With the companion idle, broadcast `{"type": "start_game", "name": "nosuchgame"}` from the MockWand REPL. Expect `ignoring unknown start_game name 'nosuchgame'` and no game. Then broadcast `{"type": "start_game", "name": "splatwhack"}`. Expect `ESP-NOW start_game: splatwhack` and a `game_start` line; stop it again with `{"type": "stop"}`.
 5. **Pull.** With a `<slug>_splat.py` staged on the Box/Dial, tap the `getcode:<slug>` card. Expect: LEDs go blue, the companion resets, then either the pulled game auto-launches (report its `game_start` line) or a pull-failure color per README's status-LED table. Report which.
-6. **Concurrency.** With the companion idle and running the bridge, the user switches the Splat off. Rerun `bench_wand.py` phase 1 (config) while the Splat is off, then the user switches it back on.
-   - Expect: `Companion: splat_config ...` logged while BLE shows not ready, then `SplatLink: ready`, then presses after reconnect play the config.
-   - Report how long the reconnect took.
-7. **Modem link.** The user pulls the modem's TX wire for about 5 s, then replaces it. Expect the companion LEDs to go red, then recover, with `link restored` in the log. Presses during the outage should still light the Splat. Report the `splat_event` lines after recovery.
-8. **Switch polling off.** Set `SWITCH_POLL_MS = 0` in `companion.py`, redeploy, and repeat step 3's config phase. Report whether presses still arrive.
-9. **Probe.** Set `DEBUG_PROBE = True` in `main.py`, redeploy, and capture 2 min of idle plus a few presses and one game session. Report:
+6. **Reconnect.** With the companion idle, the user switches the Splat off, waits 10 s, then switches it back on. Expect `Companion: Splat link down`, blue status LEDs, then `SplatLink: ready` and cyan again. Report how long the reconnect took.
+7. **Modem link.** The user pulls the modem's TX wire for about 5 s, then replaces it. Expect the companion LEDs to go red, then recover, with `link restored` in the log. Then broadcast `{"type": "start_game", "name": "splatwhack"}` and confirm the game starts.
+8. **Probe.** Set `DEBUG_PROBE = True` in `main.py`, redeploy, and capture 2 min of idle plus a few presses and one game session. Report:
    - `max_step_gap_ms`
    - `host_idf_largest` and `gc_free`
-   - `modem_crc_err`, `host_timeouts`, `relay_failures`, `player_fail`
+   - `modem_crc_err`, `host_timeouts`, `splat_fail`
    - the `writes=/errors=` counts
 
    Then set `DEBUG_PROBE` back to `False`.
@@ -65,5 +58,4 @@ You are testing `Bag3/Code/BroadcastCode/SplatCompanion/` on branch `splat-espno
 - every `[ERR]` / `[WARN]` line, with a count
 - open questions for the user, including:
   - Do the note pitches sound right?
-  - Did a chain with notes still react to the Splat button?
   - Was the pull's antenna behaviour (README's UNVERIFIED note) a problem -- did the join take noticeably longer or fail on a first attempt?

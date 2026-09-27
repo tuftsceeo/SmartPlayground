@@ -35,10 +35,10 @@ class Probe:
         lk = c.link
         print("[probe] t=%d comp=%s" % (now, c.counters))
         print("[probe] ble state=%s splat=%s attempts=%d connects=%d drops=%d "
-              "failed=%d btn_dropped=%d %s player_fail=%d"
+              "failed=%d btn_dropped=%d %s splat_fail=%d"
               % (lk.state_name(), lk.mac_address, lk.attempts, lk.connects,
                  lk.drops, lk.failed_attempts, lk.events_dropped,
-                 lk.write_stats(), c.player.write_failures))
+                 lk.write_stats(), c.splat.write_failures))
         print("[probe] link=%s" % c.mgr.link_stats())
         print("[probe] mem=%s" % c.mgr.mem_stats())
         print("[probe] gc_free=%d max_step_gap_ms=%d"
