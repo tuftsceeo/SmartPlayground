@@ -1,8 +1,26 @@
 """
 ble_splat.py — BLE driver for Open Splat devices
 ==================================================
-v2: Write pacing, response capture, WRITE_DONE status tracking,
-always-on error logging. Button debouncing.
+Write pacing, response capture, WRITE_DONE status tracking, always-on
+error logging, button debouncing.
+
+Several OpenSplat instances can share the one ubluetooth.BLE() radio when a
+caller routes IRQ events to them (see SplatCompanion/splat_hub.py):
+
+- Disconnect and GATT events are acted on only when their conn_handle is
+  this instance's.
+- Once mac_address is set -- passed in, or learned from the first device
+  advertising as "Splat" -- only that address is connected to; it is never
+  replaced by another advertisement.
+- Scans are counted (_scans_pending): each started scan delivers exactly
+  one SCAN_DONE, so a late SCAN_DONE from a stopped scan does not clear
+  the flag of a newer one.
+- disconnect() leaves the radio active.
+
+Button debounce compares each raw state against the last *accepted* one,
+so a change rejected inside the debounce window is taken on the next
+notification (a readSwitches response, or the next button event) instead
+of being lost.
 """
 
 import ubluetooth
@@ -86,7 +104,7 @@ class OpenSplat():
         # Button state with debounce
         self.splat_pressed = False
         self._last_button_change_ms = 0
-        self._last_raw_state = False
+        self._scans_pending = 0     # started scans whose SCAN_DONE is still due
 
         # Write tracking
         self._last_write_ms = 0
@@ -108,34 +126,44 @@ class OpenSplat():
                 print("Connected as central")
 
         elif event == 2:  # _IRQ_CENTRAL_DISCONNECT
+            if data[0] != self._conn_handle:
+                return
             self._reset_connection_state()
             if self._verbose:
                 print("Disconnected")
 
         elif event == 5:  # _IRQ_SCAN_RESULT
-            self._addr_type, self.addr, adv_type, rssi, adv_data = data
+            addr_type, addr, adv_type, rssi, adv_data = data
+            addr_str = ':'.join(['%02X' % i for i in addr])
+            if self._connecting:
+                return
+            if self.mac_address is None:
+                if self._parse_adv_name(adv_data) != 'Splat':
+                    return
+                # First Splat seen: remember it and stop; the next scan
+                # connects to exactly this address.
+                self.mac_address = addr_str
+                self._stop_scan()
+                return
+            if addr_str != self.mac_address:
+                return
+            self._addr_type, self.addr, self.target_addr = addr_type, bytes(addr), addr_str
             self.device_name = self._parse_adv_name(adv_data)
-            self.target_addr = ':'.join(['%02X' % i for i in self.addr])
-
-            if self.target_addr == self.mac_address and not self._connecting:
-                self._ble.gap_scan(None)
-                self._scanning = False
-                self._connecting = True
-                try:
-                    self._ble.gap_connect(self._addr_type, self.addr)
-                    if self._verbose:
-                        print("Connecting...")
-                except Exception as e:
-                    print("Connection failed: %s" % str(e))
-                    self._connecting = False
-
-            elif self.device_name == 'Splat' and not self._connecting:
-                self.mac_address = self.target_addr
-                self._ble.gap_scan(None)
-                self._scanning = False
+            self._stop_scan()
+            self._connecting = True
+            try:
+                self._ble.gap_connect(self._addr_type, self.addr)
+                if self._verbose:
+                    print("Connecting...")
+            except OSError as e:
+                print("Connection failed: %s" % str(e))
+                self._connecting = False
 
         elif event == 6:  # _IRQ_SCAN_DONE
-            self._scanning = False
+            if self._scans_pending > 0:
+                self._scans_pending -= 1
+            if self._scans_pending == 0:
+                self._scanning = False
             if self._verbose:
                 print("Scan complete")
 
@@ -152,9 +180,14 @@ class OpenSplat():
                 self._ble.gattc_discover_services(self._conn_handle)
 
         elif event == 8:  # _IRQ_PERIPHERAL_DISCONNECT
+            if data[0] != self._conn_handle:
+                return
             self._reset_connection_state()
             if self._verbose:
                 print("Peripheral disconnected")
+
+        elif 9 <= event <= 18 and data[0] != self._conn_handle:
+            return      # GATT event for another connection
 
         elif event == 9:  # _IRQ_GATTC_SERVICE_RESULT
             conn_handle, start_handle, end_handle, uuid = data
@@ -209,8 +242,8 @@ class OpenSplat():
                 name_bytes = adv_data[i + 2:i + 1 + length]
                 try:
                     return bytes(name_bytes).decode('utf-8')
-                except:
-                    return None
+                except UnicodeError:
+                    return None     # not a UTF-8 name, so not a Splat
             i += 1 + length
         return None
 
@@ -251,22 +284,22 @@ class OpenSplat():
                 print("Notification: %s" % ' '.join('%02X' % b for b in data))
 
     def _handle_button(self, value):
+        """Runs in the BLE IRQ. Compares against the accepted state, so a
+        change rejected inside _DEBOUNCE_MS is taken on a later
+        notification rather than dropped."""
         now = time.ticks_ms()
         raw_pressed = bool(value & 0x0F)
-        
-        print("  [BTN raw=%d pressed=%s last_raw=%s]" % (value, raw_pressed, self._last_raw_state))
-
-        if raw_pressed == self._last_raw_state:
+        if raw_pressed == self.splat_pressed:
             return
-        self._last_raw_state = raw_pressed
-
         if time.ticks_diff(now, self._last_button_change_ms) < _DEBOUNCE_MS:
-            print("  [BTN debounce rejected]")
+            if self._verbose:
+                print("  [BTN debounce rejected raw=%d]" % value)
             return
         self._last_button_change_ms = now
 
         was_pressed = self.splat_pressed
-        print("  [BTN was=%s raw=%s cb=%s]" % (was_pressed, raw_pressed, self.on_splat_pressed is not None))
+        if self._verbose:
+            print("  [BTN was=%s raw=%s]" % (was_pressed, raw_pressed))
 
         if raw_pressed and not was_pressed:
             self.splat_pressed = True
@@ -368,17 +401,28 @@ class OpenSplat():
 
     # ── Scanning / Connection ──
 
-    def scanSplat(self, timeout=5):
-        print("Scanning for Splat...")
-        self._reset_connection_state()
+    def _start_scan(self, duration_ms=0, interval_us=30000, window_us=30000):
+        """Start a scan and count it. Raises OSError as gap_scan does (an
+        EALREADY means the radio is still scanning)."""
+        self._ble.gap_scan(duration_ms, interval_us, window_us)
+        self._scans_pending += 1
         self._scanning = True
-        self._ble.gap_scan(0, 1000, 1000)
-        start = time.time()
-        while self._scanning and (time.time() - start < timeout):
-            time.sleep(0.1)
+
+    def _stop_scan(self):
+        """Stop the running scan, if any. Its SCAN_DONE still arrives and
+        is counted off in the IRQ."""
         if self._scanning:
             self._ble.gap_scan(None)
             self._scanning = False
+
+    def scanSplat(self, timeout=5):
+        print("Scanning for Splat...")
+        self._reset_connection_state()
+        self._start_scan(0, 1000, 1000)
+        start = time.time()
+        while self._scanning and self.mac_address is None and (time.time() - start < timeout):
+            time.sleep(0.1)
+        self._stop_scan()
         return self.mac_address
 
     def connect(self, timeout=30):
@@ -386,18 +430,14 @@ class OpenSplat():
         if self.connected:
             return True
         self._reset_connection_state()
-        self._scanning = True
-        self._ble.gap_scan(0, 30000, 30000)
+        self._start_scan()
         start_time = time.time()
         while not self.connected and (time.time() - start_time < timeout):
             if not self._scanning and not self._connecting:
-                self._scanning = True
-                self._ble.gap_scan(0, 30000, 30000)
+                self._start_scan()
             print(".", end="")
             time.sleep(0.5)
-        if self._scanning:
-            self._ble.gap_scan(None)
-            self._scanning = False
+        self._stop_scan()
         if not self.connected:
             print("\nConnection timeout after %ds" % timeout)
             return False
@@ -412,13 +452,14 @@ class OpenSplat():
         return True
 
     def disconnect(self):
+        """Drop this Splat's connection. The radio stays active: other
+        OpenSplat instances may be using it."""
         if self._conn_handle is not None:
             self._ble.gap_disconnect(self._conn_handle)
             self._conn_handle = None
             self.connected = False
             if self._verbose:
                 print("Disconnected from Splat")
-            self._ble.active(False)
 
     def is_connected(self):
         return self.connected

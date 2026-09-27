@@ -473,6 +473,124 @@ def test_start_game_bubbles_to_pending(r):
         r.comp.is_game_fn = None
 
 
+# ─── Driver (lib/ble_splat.py) fixes, IRQ handler driven directly ─────
+
+import ble_splat as BS          # noqa: E402
+
+ADV_SPLAT = b"\x06\x09Splat"
+ADDR_A, ADDR_B = (bytes.fromhex("AB4200007EB6"),
+                                    bytes.fromhex("AB4200007EB7"))
+
+
+class StubRadio:
+    """Records calls; delivers nothing on its own."""
+    def __init__(self):
+        self.calls = []
+        self.is_active = True
+
+    def active(self, v=None):
+        if v is not None:
+            self.is_active = bool(v)
+            self.calls.append(("active", bool(v)))
+        return self.is_active
+
+    def gap_scan(self, *a):
+        self.calls.append(("gap_scan",) + a)
+
+    def gap_connect(self, addr_type, addr=None, *a):
+        self.calls.append(("gap_connect", None if addr is None else bytes(addr)))
+
+    def gap_disconnect(self, conn):
+        self.calls.append(("gap_disconnect", conn))
+
+    def gattc_discover_services(self, conn):
+        self.calls.append(("discover", conn))
+
+    def gattc_write(self, *a):
+        self.calls.append(("write",) + a)
+
+
+def driver(mac=None):
+    o = BS.OpenSplat(mac_address=mac)
+    o._ble = StubRadio()
+    return o
+
+
+def adv(o, addr):
+    o._irq_handler(5, (0, memoryview(addr), 0, -50, ADV_SPLAT))
+
+
+def test_driver_locks_onto_first_splat(r):
+    o = driver()
+    o._start_scan()
+    adv(o, ADDR_A)
+    assert o.mac_address == "AB:42:00:00:7E:B6" and not o._scanning
+    o._start_scan()
+    adv(o, ADDR_B)                   # another Splat advertises first
+    assert o.mac_address == "AB:42:00:00:7E:B6", o.mac_address
+    assert ("gap_connect", ADDR_B) not in o._ble.calls
+    adv(o, ADDR_A)
+    assert o._ble.calls[-1] == ("gap_connect", ADDR_A), o._ble.calls[-1]
+    assert isinstance(o.addr, bytes), type(o.addr)
+
+
+def test_driver_pinned_mac_never_replaced(r):
+    o = driver("AB:42:00:00:7E:B7")
+    o._start_scan()
+    adv(o, ADDR_A)
+    assert o.mac_address == "AB:42:00:00:7E:B7" and o._scanning
+    adv(o, ADDR_B)
+    assert o._ble.calls[-1] == ("gap_connect", ADDR_B), o._ble.calls[-1]
+
+
+def test_driver_ignores_other_connections(r):
+    o = driver("AB:42:00:00:7E:B6")
+    o._irq_handler(7, (5, 0, memoryview(ADDR_A)))
+    assert o.connected and o._conn_handle == 5
+    o._irq_handler(9, (6, 10, 20, BS.UUID_SERVICE))      # conn 6's service
+    assert o._start_handle is None, o._start_handle
+    o._irq_handler(8, (6, 0, memoryview(ADDR_B)))        # conn 6 drops
+    assert o.connected and o._conn_handle == 5
+    o._irq_handler(8, (5, 0, memoryview(ADDR_A)))
+    assert not o.connected and o._conn_handle is None
+
+
+def test_driver_short_tap_release_not_lost(r):
+    o = driver()
+    o._handle_button(1)
+    assert o.splat_pressed
+    o._handle_button(0)              # inside the 80 ms window: rejected
+    assert o.splat_pressed
+    o._last_button_change_ms = time.ticks_ms() - BS._DEBOUNCE_MS - 1
+    o._handle_button(0)              # e.g. the next readSwitches response
+    assert not o.splat_pressed
+
+
+def test_driver_late_scan_done_keeps_new_scan(r):
+    o = driver()
+    o._start_scan()
+    o._stop_scan()
+    o._start_scan()                  # new scan before the old DONE arrives
+    o._irq_handler(6, ())            # the stopped scan's late DONE
+    assert o._scanning, "late SCAN_DONE cleared the running scan"
+    o._irq_handler(6, ())
+    assert not o._scanning and o._scans_pending == 0
+
+
+def test_driver_disconnect_keeps_radio(r):
+    o = driver("AB:42:00:00:7E:B6")
+    o._irq_handler(7, (5, 0, memoryview(ADDR_A)))
+    o.disconnect()
+    assert ("active", False) not in o._ble.calls, o._ble.calls
+
+
+DRIVER_TESTS = [
+    test_driver_locks_onto_first_splat, test_driver_pinned_mac_never_replaced,
+    test_driver_ignores_other_connections, test_driver_short_tap_release_not_lost,
+    test_driver_late_scan_done_keeps_new_scan, test_driver_disconnect_keeps_radio,
+]
+
+
 # ─── Several Splats on one companion (splat_hub.SplatHub) ───────
 
 MULTI_ADDRS = [SPLAT_ADDR, bytes.fromhex("AB4200007EB7"), bytes.fromhex("AB4200007EB8")]
@@ -599,6 +717,9 @@ def test_pinned_macs_order(r):
 
 
 if __name__ == "__main__":
+    for fn in DRIVER_TESTS:
+        fn(None)
+        print("ok  ", fn.__name__)
     mgr = S.EM.ESPNowManager()
     mgr.init()
     hub = HUB.SplatHub(1)
@@ -635,7 +756,7 @@ if __name__ == "__main__":
     retire(rm)
     test_pinned_macs_order(rm)
     print("ok  ", test_pinned_macs_order.__name__)
-    tests += multi_tests + [test_pinned_macs_order]
+    tests += multi_tests + [test_pinned_macs_order] + DRIVER_TESTS
     S._stop.set()
     S.t.join(1)
     print("%d passed" % len(tests))

@@ -69,7 +69,7 @@ stubbed boot smoke test (`../tools/devtests/boot_splat.py`).
 | `lib/hubtype.py` | This tree's own `splat_companion` entry -- **diverges from the other four copies**, see "Drift" |
 | `lib/splat_tags.py` | `GAME_TAGS = {"splatwhack"}`, `CONTROL_TAGS = {"stop", "getcode"}`, `EXIT_TAGS`, `exit_tags_excluding()` |
 | `lib/espnow_manager.py`, `lib/eum_proto.py` | Byte copies of `../EspnowModem/host/lib/` |
-| `lib/ble_splat.py` | Byte copy of `Bag3/Code/lib/ble_splat.py` |
+| `lib/ble_splat.py` | Byte copy of `Bag3/Code/lib/ble_splat.py` (checked by `test_copies_match`) |
 | `test_splat_companion.py` | CPython simulation (reuses `../EspnowModem/tests/test_sim.py`'s modem/host harness plus a fake BLE Splat) |
 
 `../tools/devtests/boot_splat.py` boots `main.py` under stubs (dispatch
@@ -177,12 +177,11 @@ off by default; set it in `lib/hubtype.py`'s `splat_companion` entry:
   4 prints `[ERR]` at boot and runs with 4. A custom firmware build could
   raise the limit (`BLE_MAX_CONNECTIONS` in `splat_hub.py`), at a NimBLE
   heap cost per connection on a board with no PSRAM.
-- **Why a hub:** `ubluetooth.BLE()` has one IRQ handler, and
-  `lib/ble_splat.py`'s `OpenSplat` (an unmodified byte copy) registers its
-  own per instance without filtering by connection. `SplatHub` takes the
-  IRQ over and routes each event to its link; only one link scans at a
-  time; a link locks onto the first Splat it picks for the length of an
-  attempt, and never onto one another link owns.
+- **Why a hub:** `ubluetooth.BLE()` has one IRQ handler, and each
+  `OpenSplat` registers its own in `__init__`. `SplatHub` takes the IRQ
+  over and routes each event to its link; only one link scans at a time;
+  a link never picks a Splat another link owns. The driver itself keeps
+  to its own connection and its chosen address.
 - **Write cost:** each BLE write waits up to 20 ms (`_WRITE_PACE_MS` in
   `ble_splat.py`) per Splat, so `splat.color()` on 4 Splats can hold the
   loop for about 80 ms. Keepalives are per Splat too.
@@ -234,11 +233,12 @@ game returns.
   quirks** inherited from the Bag2/Jan-2026 companions -- see the git
   history of this file (`companion.py`'s introduction, commit `50fe511`)
   for the fuller writeup; unresolved on hardware either way.
-- **`ble_splat.py` debounce and scan race:** `OpenSplat._handle_button`
-  drops a release under 80 ms after the press (fixed by `SplatLink`'s
-  override, not by the shared driver); a late `SCAN_DONE` can make the
-  next `gap_scan()` raise `EALREADY` (`SplatLink` retries instead of
-  failing). Not fixed in `Bag2/Code/lib/` or `Bag3/Code/lib/`.
+- **`ble_splat.py` fixed in `Bag3/Code/lib/` (2026-09-27), not in
+  `Bag2/Code/lib/`:** short-tap release no longer dropped, late
+  `SCAN_DONE` no longer clears a newer scan, a chosen or pinned Splat
+  address is never replaced by another advertisement, disconnect/GATT
+  events for other connections are ignored, and `disconnect()` leaves the
+  radio on. See `docs/KNOWN_ISSUES.md`.
 - **`Bag2/Code/Splat Companion/ble_splat.py`** actually holds the wand-side
   controller, not the `OpenSplat` driver its own `main.py` imports.
 

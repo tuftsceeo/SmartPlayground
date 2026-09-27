@@ -233,7 +233,7 @@ fixed in the trees they're in unless noted.
   `espnow_manager.py` copies, and the modem's `splat_config` classification in
   `EspnowModem/modem/lib/eum_classify.py`, are unchanged and now have no Bag3 consumer.
 
-### Latent bugs (found while adding multi-Splat support)
+### Latent bugs (found while adding multi-Splat support) -- fixed in Bag3, see below
 
 - **`OpenSplat` re-picks its target on every "Splat" advertisement until it connects**
   (`Bag2/Code/lib/ble_splat.py` ≡ `Bag3/Code/lib/ble_splat.py`, `_irq_handler`, `_IRQ_SCAN_RESULT`
@@ -245,3 +245,19 @@ fixed in the trees they're in unless noted.
 - Same driver: `ubluetooth.BLE()` is a singleton and `OpenSplat.__init__` registers its own IRQ
   handler without filtering events by `conn_handle`, so two `OpenSplat` instances in one program
   silently take each other's events. `SplatHub` routes events per link instead.
+
+### `Bag3/Code/lib/ble_splat.py` fixed (Bag2 copy unchanged)
+
+`Bag3/Code/lib/ble_splat.py` (and its byte copy `SplatCompanion/lib/ble_splat.py`) now:
+- keeps a chosen or pinned `mac_address` -- a later "Splat" advertisement never replaces it;
+- ignores disconnect and GATT events whose `conn_handle` is not its own;
+- debounces against the accepted button state, so a release inside the 80 ms window is taken on
+  the next notification instead of lost;
+- counts scans (`_scans_pending`, `_start_scan()`/`_stop_scan()`), so a late `SCAN_DONE` no longer
+  clears a newer scan's flag;
+- leaves the radio active in `disconnect()` (it used to call `BLE().active(False)`, shutting BLE
+  off for every connection);
+- prints button debug lines only when `verbose`, not from every IRQ.
+
+Covered by six driver tests in `SplatCompanion/test_splat_companion.py`. `Bag2/Code/lib/ble_splat.py`
+still has every bug listed above; cross-generation compatibility is not a goal, so it was left as is.

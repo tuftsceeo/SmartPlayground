@@ -1,7 +1,8 @@
 """
 splat_link.py -- non-blocking BLE link to one Splat
 ===================================================
-SplatLink subclasses OpenSplat (lib/ble_splat.py, unmodified copy) and
+SplatLink subclasses OpenSplat (lib/ble_splat.py, a byte copy of
+Bag3/Code/lib/ble_splat.py) and
 replaces its blocking connect() with a state machine advanced by
 service(now), so the main loop keeps polling ESP-NOW while BLE scans,
 connects, discovers services, and reconnects.
@@ -10,10 +11,9 @@ Splat button notifications arrive in the BLE IRQ handler. SplatLink
 overrides OpenSplat._handle_button so the IRQ only records raw state
 changes with their time. service() debounces them in the main loop and
 queues accepted events (1 = press, 0 = release); take_events() hands them
-to the companion, which does the BLE writes. After a rejected change the
-latest raw state is re-checked once DEBOUNCE_MS has passed, so a tap
-shorter than DEBOUNCE_MS still ends in a release. (OpenSplat's own
-debounce drops that release and leaves the button reported as pressed.)
+to the caller. After a rejected change the latest raw state is re-checked
+once DEBOUNCE_MS has passed, so a tap shorter than DEBOUNCE_MS still ends
+in a release without waiting for another notification.
 
 States: IDLE -> CONNECTING -> SETTLING -> READY. A CONNECTING attempt that
 is not ready after CONNECT_TIMEOUT_MS is torn down and retried after
@@ -171,16 +171,16 @@ class SplatLink(OpenSplat):
         self._scan(now)
 
     def _scan(self, now):
-        self._scanning = True
         try:
-            self._ble.gap_scan(0, 30000, 30000)
+            self._start_scan(0, 30000, 30000)
         except OSError as e:
             if e.args and e.args[0] == errno.EALREADY:
-                # A late SCAN_DONE from the previous scan cleared the
-                # driver's _scanning flag while a scan is still running.
+                # The radio is still scanning (another caller's scan, or
+                # one this driver lost track of): counted, retried next
+                # service().
                 self.scan_already += 1
+                print("  SplatLink: gap_scan EALREADY (count=%d)" % self.scan_already)
                 return
-            self._scanning = False
             print("  SplatLink: gap_scan failed: %s" % str(e))
             self._give_up(now)
 
@@ -196,9 +196,7 @@ class SplatLink(OpenSplat):
         self._t = now
 
     def _teardown(self):
-        if self._scanning:
-            self._ble.gap_scan(None)
-            self._scanning = False
+        self._stop_scan()
         if self._connecting and not self.connected:
             try:
                 self._ble.gap_connect(None)     # cancel the pending connect

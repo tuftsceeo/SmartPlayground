@@ -1,17 +1,16 @@
 """
 splat_hub.py -- BLE links to one or more Splats on one radio
 =============================================================
-ubluetooth.BLE() is a singleton with one IRQ handler, and lib/ble_splat.py's
-OpenSplat (kept an unmodified byte copy) registers its own handler per
-instance and does not filter events by connection. SplatHub builds N
-SplatLinks, then takes the IRQ over and routes each event to the one link
-it belongs to:
+ubluetooth.BLE() is a singleton with one IRQ handler, and every
+lib/ble_splat.py OpenSplat instance registers its own in __init__, so the
+last one built would receive every event. SplatHub builds N SplatLinks,
+then takes the IRQ over and routes each event to the one link it belongs
+to (OpenSplat also ignores disconnect/GATT events for other connections):
 
-  scan result / scan done (5, 6)   the link currently scanning, after
+  scan result (5)                  the link currently scanning, after
                                    dropping any address another link owns
-                                   and, once the link has a target (pinned,
-                                   or learned from a first "Splat"
-                                   advertisement), any address but that one
+  scan done (6)                    the link with a scan still counted
+                                   (OpenSplat._scans_pending)
   peripheral connect (7)           the link whose mac_address matches
   disconnect, GATT events (8-18)   the link whose conn_handle matches
                                    (8 falls back to the address)
@@ -112,18 +111,14 @@ class SplatHub:
             if link is None:
                 return
             addr = _addr_str(data[1])
-            # Lock on: OpenSplat re-picks its target on every "Splat"
-            # advertisement until it connects, so with several Splats in
-            # range it would chase whichever advertised last.
-            if link.mac_address is not None and addr != link.mac_address:
-                return
             if self._owned_by_other(link, addr):
                 return
             link._irq_handler(event, data)
         elif event == _IRQ_SCAN_DONE:
             for link in self.links:
-                if link._scanning:
+                if link._scans_pending > 0:
                     link._irq_handler(event, data)
+                    return
         elif event == _IRQ_PERIPHERAL_CONNECT:
             link = self._by_addr(_addr_str(data[2]))
             if link is None:
