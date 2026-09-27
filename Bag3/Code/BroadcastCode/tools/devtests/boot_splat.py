@@ -11,7 +11,9 @@ py_compile only proves the file parses. This runs it: boot order (pull
 before any radio import), the pull-mode outcomes, game dispatch
 (game_module/is_game), a game load, a game with no play(), a game that
 will not compile, the _start_play arity fallback, a force-switch chain,
-and the loud failure path.
+the loud failure path, in-game cards (_GameEnow: stop, another game,
+getcode, the launching card ignored), the boot-time I2C scan, and the
+idle loop's 1 ms sleep on a failed pull-flag write.
 """
 import os
 import sys
@@ -202,6 +204,182 @@ check("a module that will not compile fails loudly and returns", "broken" not in
 check("splat.off() still ran after both load failures", splat2.off_calls == 2, str(splat2.off_calls))
 
 # ── A name in GAME_MODULES is only playable if its file exists ──
+# ── In-game cards: _GameEnow turns a tapped card into enow stop/start_game ──
+class FakeReader:
+    """detect_tag() consumes one step per call: None (no card) or
+    (uid, cmd); read_command() returns the cmd of the step last detected."""
+    def __init__(self, steps=()):
+        self.steps = list(steps)
+        self.timeouts = []
+        self.reads = 0
+        self._cur = None
+
+    def detect_tag(self, timeout=250):
+        self.timeouts.append(timeout)
+        self._cur = self.steps.pop(0) if self.steps else None
+        return (self._cur[0], 0) if self._cur else (None, None)
+
+    def read_command(self, timeout=250, **kw):
+        self.reads += 1
+        return self._cur[1], self._cur[0]
+
+
+import splat_tags
+splat_tags.EXIT_TAGS = splat_tags.EXIT_TAGS | {"gamea", "oldstyle"}
+main.NFC_GAME_POLL_MS = 0          # check the reader on every empty poll
+
+w = main._GameEnow(FakeEnow(), None, "gamea", None)
+check("no reader: _GameEnow is a pass-through", w.poll() == (None, None, None))
+
+rd = FakeReader([("U1", "gamea")])
+w = main._GameEnow(FakeEnow(), rd, "gamea", "U1")
+check("the launching card is ignored while it stays on the reader",
+      w.poll() == (None, None, None) and rd.reads == 0, str(rd.reads))
+check("in-game detect_tag uses the short timeout",
+      rd.timeouts == [main.NFC_GAME_TIMEOUT_MS], str(rd.timeouts))
+
+rd = FakeReader([None, ("U2", "stop")])
+w = main._GameEnow(FakeEnow(), rd, "gamea", "U1")
+w.poll()
+check("the launching card leaving the field clears it", w.last_uid is None)
+check("a stop card mid-game arrives as enow stop", w.poll()[0] == "stop")
+
+rd = FakeReader([("U3", "oldstyle")])
+w = main._GameEnow(FakeEnow(), rd, "gamea", None)
+mt, data, _ = w.poll()
+check("another game's card mid-game arrives as start_game naming it",
+      mt == "start_game" and data == {"name": "oldstyle"}
+      and w.pending_name == "oldstyle", "%r %r" % (mt, data))
+
+rd = FakeReader([("U4", "gamea")])
+w = main._GameEnow(FakeEnow(), rd, "gamea", None)
+check("the running game's own card tapped again is ignored",
+      w.poll() == (None, None, None) and w.pending_name is None)
+
+rd = FakeReader([("U5", "nosuchgame")])
+w = main._GameEnow(FakeEnow(), rd, "gamea", None)
+check("an unknown card mid-game is ignored", w.poll() == (None, None, None))
+
+rd = FakeReader([("U6", "stop")])
+w = main._GameEnow(FakeEnow(script=[("start_game", {"name": "oldstyle"}, "AA")]),
+                   rd, "gamea", None)
+mt, data, _ = w.poll()
+check("a real ESP-NOW message is passed through ahead of the reader",
+      mt == "start_game" and w.pending_name == "oldstyle" and rd.timeouts == [])
+
+_pending = []
+main.pull_flag.set_pending = lambda slug, host=None: _pending.append((slug, host))
+rd = FakeReader([("U7", "getcode:foo")])
+w = main._GameEnow(FakeEnow(), rd, "gamea", None)
+try:
+    w.poll()
+    check("a getcode card mid-game must reset", False)
+except _Reset:
+    check("a getcode card mid-game queues the pull and resets",
+          len(_pending) == 1 and _pending[0][0] == "foo", str(_pending))
+
+
+def _flag_write_fails(slug, host=None):
+    raise OSError(28)
+
+
+main.pull_flag.set_pending = _flag_write_fails
+rd = FakeReader([("U8", "getcode:foo")])
+w = main._GameEnow(FakeEnow(), rd, "gamea", None)
+check("a getcode card whose flag write fails is printed and the game goes on",
+      w.poll() == (None, None, None))
+
+# A game run through _launch_game with a reader: a stop card ends it.
+with open(os.path.join(FLASH, "loopgame.py"), "w") as f:
+    f.write('''
+def play(splat, leds, enow, batt=None):
+    while True:
+        mt, data, mac = enow.poll()
+        if mt in ("stop", "start_game"):
+            return
+''')
+main.GAME_MODULES = dict(main.GAME_MODULES, loopgame="loopgame")
+splat_tags.EXIT_TAGS = splat_tags.EXIT_TAGS | {"loopgame"}
+splat3 = FakeSplat()
+rd = FakeReader([("U0", "loopgame"), None, ("U9", "stop")])
+last = main._launch_game("loopgame", splat3, FakeEnow(), None, rd, "U0")
+check("a stop card ends a game launched with a reader", "loopgame" not in sys.modules)
+check("...splat.off() ran", splat3.off_calls == 1, str(splat3.off_calls))
+check("...and the stop card's UID is handed back to the idle loop", last == "U9", repr(last))
+
+if os.path.exists(CALLS):
+    os.remove(CALLS)
+splat4 = FakeSplat()
+rd = FakeReader([("U5", "oldstyle")])
+main._launch_game("loopgame", splat4, FakeEnow(), None, rd, None)
+ran = open(CALLS).read() if os.path.exists(CALLS) else ""
+check("another game's card mid-game chains into that game", "oldstyle(3-arg)" in ran, ran.strip())
+main.NFC_GAME_POLL_MS = 150
+
+
+# ── Boot-time I2C scan (finding: no swallowed errors) ──
+import io
+import contextlib
+
+
+class _Bus:
+    def __init__(self, found=None, fail=False):
+        self.found = found or []
+        self.fail = fail
+
+    def scan(self):
+        if self.fail:
+            raise OSError(19)
+        return self.found
+
+
+def _captured(fn, *a):
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(buf):
+        ret = fn(*a)
+    return ret, buf.getvalue()
+
+
+ret, out = _captured(main._check_i2c_for_reader, _Bus([0x36]), 0x24)
+check("PN532 missing: the scan prints every address found",
+      ret == [0x36] and "PN532 not at 0x24" in out and "0x36" in out, out.strip())
+ret, out = _captured(main._check_i2c_for_reader, _Bus([0x24, 0x36]), 0x24)
+check("PN532 present: the scan stays quiet", ret == [0x24, 0x36] and out == "", out.strip())
+ret, out = _captured(main._check_i2c_for_reader, _Bus(fail=True), 0x24)
+check("a scan OSError is printed, not swallowed",
+      ret is None and "I2C scan failed" in out and "OSError" in out, out.strip())
+
+
+# ── Idle loop: a failed pull-flag write still reaches the 1 ms sleep ──
+class _LoopComp:
+    def __init__(self, stop_after):
+        self.n = 0
+        self.stop_after = stop_after
+        self.pending_start_game = None
+
+    def step(self):
+        self.n += 1
+        if self.n > self.stop_after:
+            raise KeyboardInterrupt
+
+
+_sleeps = []
+_saved_sleep = _time.sleep_ms
+_time.sleep_ms = lambda ms: _sleeps.append(ms)
+main.pull_flag.set_pending = _flag_write_fails
+comp = _LoopComp(stop_after=main.NFC_POLL_EVERY * 2)
+rd = FakeReader([("UG", "getcode:foo")] * 4)
+try:
+    main.run_event_loop(comp, FakeSplat(), rd, FakeEnow(), None)
+except KeyboardInterrupt:
+    pass
+_time.sleep_ms = _saved_sleep
+check("the getcode card was read in the idle loop", rd.reads >= 1, str(rd.reads))
+check("every idle iteration slept 1 ms, including the failed flag write",
+      _sleeps.count(1) >= comp.stop_after, "%d sleeps over %d iterations"
+      % (_sleeps.count(1), comp.stop_after))
+
+
 os.remove(os.path.join(FLASH, "gamea.py"))
 check("a built-in with no file anywhere is not a game",
       main.game_module("gamea") is None and not main.is_game("gamea"))

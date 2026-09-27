@@ -8,6 +8,8 @@ not shared, per AGENTS.md ("Shared libraries are duplicated by hand").
                   a tapped game tag launches directly, like IconDisplay).
   EXIT_TAGS    -- every tag that exits a running game (GAME_TAGS | {"stop"}).
   exit_tags_excluding(tag) -- EXIT_TAGS without one game's own entry tag.
+                  main.py's _GameEnow uses it to decide which built-in
+                  game cards switch away from the running game.
 
 main.py checks GAME_TAGS against its own GAME_MODULES at boot and prints a
 mismatch: nothing else keeps the two in step.

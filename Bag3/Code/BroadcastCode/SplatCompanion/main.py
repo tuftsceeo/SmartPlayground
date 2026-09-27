@@ -43,7 +43,7 @@ status = StatusLeds(HUB_CONFIG["led_pin"], HUB_CONFIG["num_leds"])
 status.fill((0, 0, 15))
 
 import game_store
-from splat_tags import GAME_TAGS, CONTROL_TAGS
+from splat_tags import GAME_TAGS, CONTROL_TAGS, exit_tags_excluding
 from nfc_reader import NfcReader, split_prefixed
 import memprobe  # BENCH: see lib/memprobe.py's docstring
 
@@ -212,18 +212,100 @@ def _run_pull_mode():
 # ─────────────────────────────────────────────
 # GAME LAUNCH (NFC + ESP-NOW start_game, force-switch chaining)
 # ─────────────────────────────────────────────
-class _StartGameCapture:
-    """Wrap enow so an in-game start_game poll captures the target name."""
+def _queue_pull(wanted, wanted_host):
+    """Queue a pull for the next boot and reset (spec rule 10: a getcode
+    tap never pulls in place -- the pull runs after the reset, on a radio
+    nothing has touched this boot; see pull_flag.py).
 
-    def __init__(self, enow):
+    Returns only when the flag could not be written; the caller carries
+    on as if the card had not been tapped.
+    """
+    print("# getcode tapped (slug=%r host=%r) -- queueing pull, rebooting"
+          % (wanted, wanted_host))
+    try:
+        pull_flag.set_pending(wanted, wanted_host)
+    except OSError as e:
+        print("# could not write pull flag: %s" % e)
+        return
+    time.sleep_ms(200)
+    machine.reset()
+
+
+NFC_GAME_POLL_MS = 150     # in-game card check cadence
+NFC_GAME_TIMEOUT_MS = 30   # detect_tag wait per check (idle uses 250)
+
+
+class _GameEnow:
+    """The `enow` a game receives: the real manager, plus in-game cards.
+
+    Games have no NFC parameter; they already return on enow "stop" and
+    "start_game". So while a game runs, this wrapper checks the reader at
+    most every NFC_GAME_POLL_MS whenever the real enow has nothing, and
+    turns a tapped card into the message the game already handles:
+
+      stop card                    -> ("stop", {}, None)
+      another game's card          -> ("start_game", {"name": ...}, None),
+                                      chained by _launch_game
+      getcode:<slug>               -> _queue_pull() (resets)
+
+    The card that launched the game is ignored until it leaves the field.
+    A real ESP-NOW start_game is passed through and its name recorded.
+    With no reader (reader is None) this is a pass-through.
+
+    UNVERIFIED on hardware: each check blocks the game for up to
+    NFC_GAME_TIMEOUT_MS while no card is present.
+    """
+
+    def __init__(self, enow, reader, current_name, entry_uid):
         self._enow = enow
+        self._reader = reader
+        self._name = current_name
+        self._exit_tags = exit_tags_excluding(current_name)
+        self.last_uid = entry_uid
         self.pending_name = None
+        self._next_nfc = time.ticks_add(time.ticks_ms(), NFC_GAME_POLL_MS)
 
     def poll(self, timeout_ms=0):
         mt, data, mac = self._enow.poll(timeout_ms)
-        if mt == "start_game":
-            self.pending_name = data.get("name") if isinstance(data, dict) else None
-        return mt, data, mac
+        if mt is not None:
+            if mt == "start_game":
+                self.pending_name = data.get("name") if isinstance(data, dict) else None
+            return mt, data, mac
+        if self._reader is None:
+            return mt, data, mac
+        now = time.ticks_ms()
+        if time.ticks_diff(now, self._next_nfc) < 0:
+            return None, None, None
+        self._next_nfc = time.ticks_add(now, NFC_GAME_POLL_MS)
+        return self._poll_card()
+
+    def _poll_card(self):
+        uid_peek, _ = self._reader.detect_tag(timeout=NFC_GAME_TIMEOUT_MS)
+        if uid_peek is None:
+            self.last_uid = None
+            return None, None, None
+        if uid_peek == self.last_uid:
+            return None, None, None
+        cmd, uid = self._reader.read_command()
+        self.last_uid = uid
+        if not cmd:
+            return None, None, None
+        head, wanted, wanted_host = split_prefixed(cmd)
+        if head == "getcode":
+            _queue_pull(wanted, wanted_host)
+            return None, None, None
+        if cmd == "stop":
+            print("  STOP tag during %s" % self._name)
+            return "stop", {}, None
+        if cmd == self._name:
+            print("  %s tag tapped again -- already running" % cmd)
+            return None, None, None
+        if is_game(cmd) and (cmd in self._exit_tags or game_store.exists(cmd)):
+            print("  %s tag during %s -- switching" % (cmd, self._name))
+            self.pending_name = cmd
+            return "start_game", {"name": cmd}, None
+        print("  Unknown NFC command: %s" % cmd)
+        return None, None, None
 
     def __getattr__(self, attr):
         return getattr(self._enow, attr)
@@ -285,8 +367,11 @@ def _game_load_failed(name, exc):
     _unload_game(name)
 
 
-def _launch_game(name, splat, enow, batt_ref):
+def _launch_game(name, splat, enow, batt_ref, reader=None, entry_uid=None):
     """Run a game and chain force-switches without returning to idle.
+
+    Returns the UID of the card last seen on the reader, so the idle loop
+    does not relaunch a game from a card still lying on it.
 
     The idle loop (companion.py) is not serviced while a game runs -- the
     game polls the same SplatAPI instead. One loop owns the link at a
@@ -296,14 +381,15 @@ def _launch_game(name, splat, enow, batt_ref):
     failed load, or an exception): a game that forgets to silence the
     Splat before returning must not leave it lit or sounding afterwards.
     """
+    last_uid = entry_uid
     try:
         while is_game(name):
             try:
                 play_func = _load_play(name)
             except Exception as e:
                 _game_load_failed(name, e)
-                return
-            wrapper = _StartGameCapture(enow)
+                return last_uid
+            wrapper = _GameEnow(enow, reader, name, last_uid)
             _emit({"type": "game_start", "slug": name})
             try:
                 _start_play(play_func, name, splat, status, wrapper, batt_ref)
@@ -311,9 +397,10 @@ def _launch_game(name, splat, enow, batt_ref):
                 if not _is_arity_error(e):
                     raise
                 _game_load_failed(name, e)
-                return
+                return wrapper.last_uid
             _emit({"type": "game_end", "slug": name})
             next_name = wrapper.pending_name
+            last_uid = wrapper.last_uid
             play_func = None
             wrapper = None
             memprobe.probe("post-game:%s" % name)  # BENCH
@@ -324,11 +411,28 @@ def _launch_game(name, splat, enow, batt_ref):
             name = next_name
     finally:
         splat.off()
+    return last_uid
 
 
 # ─────────────────────────────────────────────
 # MAIN
 # ─────────────────────────────────────────────
+def _check_i2c_for_reader(i2c, nfc_addr):
+    """Scan the bus before PN532 init and print every address found when
+    nfc_addr is not among them, so a wrong address reads off the boot log
+    instead of the reader silently ignoring every tap. Returns the list
+    found, or None if the scan itself failed (printed)."""
+    try:
+        found = i2c.scan()
+    except OSError as e:
+        print("  [WARN] I2C scan failed:"); sys.print_exception(e)
+        return None
+    if nfc_addr not in found:
+        print("  [WARN] PN532 not at 0x%02X; I2C devices found: %s"
+              % (nfc_addr, [hex(a) for a in found]))
+    return found
+
+
 def main():
     # Before anything else, and before BLE or ESP-NOW claim any radio.
     if pull_flag.is_pending():
@@ -393,9 +497,11 @@ def main():
 
     reader = None
     if HUB_CONFIG.get("has_nfc"):
+        nfc_addr = HUB_CONFIG.get("nfc_addr", 0x24)
+        _check_i2c_for_reader(i2c, nfc_addr)
         try:
             from pn532 import PN532
-            nfc = PN532(i2c, HUB_CONFIG.get("nfc_addr", 0x24))
+            nfc = PN532(i2c, nfc_addr)
             ic, ver, rev = nfc.begin()
             print("  PN532 firmware %d.%d (IC 0x%02X) -- NFC ready" % (ver, rev, ic))
             all_commands = GAME_TAGS | CONTROL_TAGS | set(game_store.slugs())
@@ -403,14 +509,6 @@ def main():
         except Exception as e:
             print("  [WARN] NFC reader not available:"); sys.print_exception(e)
             reader = None
-            # Boot-time I2C scan, so a wrong address reads off the log
-            # instead of the reader silently ignoring every tap.
-            try:
-                found = i2c.scan()
-                print("  I2C devices found: %s"
-                      % [hex(a) for a in found])
-            except Exception:
-                pass
 
     comp = Companion(mgr, splat, status, is_game_fn=is_game)
     probe = None
@@ -427,7 +525,7 @@ def main():
     if _just_pulled:
         print("  Launching just-pulled game: %s" % _just_pulled)
         try:
-            _launch_game(_just_pulled, splat, mgr, batt)
+            _launch_game(_just_pulled, splat, mgr, batt, reader)
         except Exception as e:
             _game_load_failed(_just_pulled, e)
 
@@ -462,8 +560,8 @@ def run_event_loop(comp, splat, reader, enow, batt_ref, probe=None):
             if start_name is not None:
                 comp.pending_start_game = None
                 print("  ESP-NOW start_game: %s" % start_name)
-                _launch_game(start_name, splat, enow, batt_ref)
-                last_uid = None
+                last_uid = _launch_game(start_name, splat, enow, batt_ref,
+                                        reader, last_uid)
 
             frame += 1
             if reader is not None and frame % NFC_POLL_EVERY == 0:
@@ -476,23 +574,13 @@ def run_event_loop(comp, splat, reader, enow, batt_ref, probe=None):
                     if cmd:
                         head, wanted, wanted_host = split_prefixed(cmd)
                         if head == "getcode":
-                            print("# getcode tapped (slug=%r host=%r) -- "
-                                  "queueing pull, rebooting" % (wanted, wanted_host))
-                            # The pull itself runs after the reset, on a
-                            # radio nothing has touched -- see pull_flag.py.
-                            try:
-                                pull_flag.set_pending(wanted, wanted_host)
-                            except OSError as e:
-                                print("# could not write pull flag: %s" % e)
-                                continue
-                            time.sleep_ms(200)
-                            machine.reset()
+                            _queue_pull(wanted, wanted_host)
                         elif cmd == "stop":
                             print("  STOP tag")
                             splat.off()
                         elif is_game(cmd):
-                            _launch_game(cmd, splat, enow, batt_ref)
-                            last_uid = None
+                            last_uid = _launch_game(cmd, splat, enow, batt_ref,
+                                                    reader, uid)
                         else:
                             print("  Unknown NFC command: %s" % cmd)
         except KeyboardInterrupt:

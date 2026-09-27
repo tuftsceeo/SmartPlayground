@@ -120,8 +120,20 @@ def play(splat, leds, enow, batt=None):
   game.
 - **`batt`**: a `MAX17048`, or `None` if the gauge failed at boot.
 
-No NFC parameter: a game cannot read cards while it runs (see
-`knowledge/splat_companion.py` in ChatBroadcast). Exit only on ESP-NOW.
+No NFC parameter: a game cannot read cards itself. While it runs,
+`main.py`'s `_GameEnow` wrapper checks the reader (at most every
+`NFC_GAME_POLL_MS` = 150 ms, `NFC_GAME_TIMEOUT_MS` = 30 ms per check) and
+delivers a tapped card through `enow`:
+
+| Card tapped mid-game | Arrives as |
+|---|---|
+| `stop` | `("stop", {}, None)` |
+| another game on this station | `("start_game", {"name": ...}, None)` -- chained without returning to idle |
+| `getcode:<slug>` | not delivered: the pull is queued and the station resets |
+| the game's own card | ignored, as is the launching card until it leaves the reader |
+
+So a game that returns on `"stop"`/`"start_game"` exits on cards too.
+UNVERIFIED on hardware: each check can hold the game for up to 30 ms.
 
 ## Deploying (plain MicroPython: `/` and `/lib/`)
 

@@ -42,6 +42,10 @@ You are testing `Bag3/Code/BroadcastCode/SplatCompanion/` on branch `splat-espno
    - While the game is running, tell the user to press the Splat once with no prompt showing (a miss) and once during a prompt (a hit); report both outcomes.
    - Broadcast `{"type": "stop"}` from the MockWand REPL. Expect a `game_end` line, the Splat going dark, and the cyan status LEDs to return.
    - With the companion idle, broadcast `{"type": "start_game", "name": "nosuchgame"}` from the MockWand REPL. Expect `ignoring unknown start_game name 'nosuchgame'` and no game. Then broadcast `{"type": "start_game", "name": "splatwhack"}`. Expect `ESP-NOW start_game: splatwhack` and a `game_start` line; stop it again with `{"type": "stop"}`.
+   - **Cards during a game.** Start `splatwhack` with its card and remove the card, then tap the `stop` card. Expect `STOP tag during splatwhack`, a `game_end` line and the Splat going dark.
+   - Start it again, leave the `splatwhack` card on the reader for 5 s. Expect no restart and no `tag tapped again` spam beyond one line per re-tap.
+   - Start it again and tap the `getcode:<slug>` card. Expect the pull flow of step 5.
+   - Report whether prompts or presses felt delayed while no card was on the reader (each in-game check can hold the game for up to 30 ms).
 5. **Pull.** With a `<slug>_splat.py` staged on the Box/Dial, tap the `getcode:<slug>` card. Expect: LEDs go blue, the companion resets, then either the pulled game auto-launches (report its `game_start` line) or a pull-failure color per README's status-LED table. Report which.
 6. **Reconnect.** With the companion idle, the user switches the Splat off, waits 10 s, then switches it back on. Expect `Companion: Splat link down`, blue status LEDs, then `SplatLink: ready` and cyan again. Report how long the reconnect took.
 7. **Modem link.** The user pulls the modem's TX wire for about 5 s, then replaces it. Expect the companion LEDs to go red, then recover, with `link restored` in the log. Then broadcast `{"type": "start_game", "name": "splatwhack"}` and confirm the game starts.

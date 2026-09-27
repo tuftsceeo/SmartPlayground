@@ -53,9 +53,11 @@
 #           every use with `if batt is not None:`.
 #
 # This device has no NFC access inside a game (nfc is not one of the
-# parameters) -- a game cannot read cards while it runs; it only receives
-# NFC as the tag that launched it. Exit on ESP-NOW "stop" or "start_game",
-# never on a card.
+# parameters) -- a game never reads cards itself. The station does it for
+# the game: a stop card or another game's card tapped mid-game arrives
+# through enow as "stop" or "start_game", exactly like the ESP-NOW
+# messages. So returning on those two message types is all a game needs
+# to exit on a card as well.
 #
 # No f-strings — they crash on this MicroPython build. Use % formatting.
 # No type annotations. time.sleep_ms() is milliseconds; time.sleep() is
@@ -198,4 +200,4 @@ def play(splat, leds, enow, batt=None):
 # [ ] Every batt use is guarded with `if batt is not None:`
 # [ ] splat.off() runs in a finally block
 # [ ] No f-strings
-# [ ] The game exits on ESP-NOW "stop" or "start_game", never on a card
+# [ ] The game returns on enow "stop" or "start_game" (cards arrive that way too)
