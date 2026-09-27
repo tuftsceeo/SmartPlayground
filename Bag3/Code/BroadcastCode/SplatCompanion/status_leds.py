@@ -17,6 +17,7 @@ BREATHE_PERIOD_MS = 2000
 class StatusLeds:
     def __init__(self, pin, num):
         self.np = neopixel.NeoPixel(machine.Pin(pin), num)
+        self.n = num
         self._last = None
 
     def show(self, color, breathe, now):
@@ -30,6 +31,16 @@ class StatusLeds:
         if color != self._last:
             self._last = color
             self.np.fill(color)
+            self.np.write()
+
+    def show_each(self, colors):
+        """One color per pixel (len(colors) == n), written only on change.
+        Used for per-Splat status when several Splats are configured."""
+        key = tuple(colors)
+        if key != self._last:
+            self._last = key
+            for i, c in enumerate(colors):
+                self.np[i] = c
             self.np.write()
 
     def off(self):

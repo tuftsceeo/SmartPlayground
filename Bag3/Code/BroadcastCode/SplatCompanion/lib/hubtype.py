@@ -30,7 +30,17 @@ _CONFIGS = {
         "has_motor":      False,
         "has_button":     False,
         "has_ble":        True,
-        "uses_ble":       True,     # actively connects to a Splat
+        "uses_ble":       True,     # actively connects to Splats
+        # Splats this companion connects to at once. 1 is the default and
+        # the only count run on hardware so far; up to
+        # splat_hub.BLE_MAX_CONNECTIONS (4 on stock MicroPython firmware).
+        # More than one is UNVERIFIED on hardware -- see README "Multiple
+        # Splats".
+        "max_splats":     1,
+        # None: take the first max_splats Splats found by BLE name. A list
+        # of MAC strings, e.g. ["AB:42:00:00:7E:B6", ...], pins specific
+        # Splats and their order (unit 0, 1, ...); its length is the count.
+        "splat_macs":     None,
         "i2c_sda":        22,
         "i2c_scl":        23,
         # Shared with the PN532 (100 kHz is the wand's rate; 400 kHz was the

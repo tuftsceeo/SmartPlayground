@@ -1,14 +1,23 @@
 """
 splat_api.py -- the `splat` object games receive
 ==================================================
-play(splat, leds, enow, batt=None) games get a SplatAPI instance instead of
-the wand's five hardware objects: there is no NFC, buzzer, motor or
-accelerometer here, and the Splat itself is BLE, not a local peripheral.
+play(splat, leds, enow, batt=None) games get a SplatGroup instead of the
+wand's five hardware objects: there is no NFC, buzzer, motor or
+accelerometer here, and the Splats themselves are BLE, not local
+peripherals.
+
+SplatGroup drives every Splat this station is configured for (hubtype.py
+max_splats / splat_macs; 1 by default) through one SplatAPI per Splat:
+color/sound/note/play/off act on all of them, poll() reports a press or
+release from any of them with last_index saying which, and unit(i) is one
+Splat's own SplatAPI. With one Splat it behaves exactly as that Splat's
+SplatAPI.
 
 A game MUST call splat.poll() every loop iteration, exactly as it polls
-enow. main.py hands the same SplatAPI to the idle loop (companion.py) and
-to each game in turn, so exactly one loop polls it at a time and nothing
-else services the BLE link, its keepalive or its button debounce.
+enow. main.py hands the same SplatGroup to the idle loop (companion.py)
+and to each game in turn, so exactly one loop polls it at a time and
+nothing else services the BLE links, their keepalives or their button
+debounce.
 
 This file is the single source of the action vocabulary below.
 ChatBroadcast's js/splat/splatActions.js is generated from it by
@@ -171,3 +180,97 @@ class SplatAPI:
         a = self._check(self.link.allTasksOff(), "off(allTasksOff)")
         b = self._check(self.link.allLEDsOff(), "off(allLEDsOff)")
         return a and b
+
+
+EVENT_QUEUE_MAX = 16    # SplatGroup press/release events held between polls
+
+
+class SplatGroup:
+    """Every configured Splat, as one `splat` game argument."""
+
+    def __init__(self, hub):
+        self.hub = hub
+        self.units = [SplatAPI(link) for link in hub.links]
+        self.links = hub.links
+        self.last_index = None
+        self._pending = []           # (index, "press"/"release"), oldest first
+        self.events_dropped = 0
+
+    @property
+    def count(self):
+        """Splats this station is configured for (not how many are up)."""
+        return len(self.units)
+
+    @property
+    def connected_count(self):
+        n = 0
+        for u in self.units:
+            if u.connected:
+                n += 1
+        return n
+
+    @property
+    def connected(self):
+        """True once at least one Splat's BLE link is up."""
+        return self.connected_count > 0
+
+    @property
+    def write_failures(self):
+        return sum(u.write_failures for u in self.units)
+
+    def unit(self, i):
+        """One Splat's own SplatAPI, 0-based. IndexError past count."""
+        return self.units[i]
+
+    def poll(self):
+        """Service every Splat; return "press", "release" or None.
+
+        Events from different Splats are queued and returned one per call,
+        oldest first; last_index is the index of the Splat that produced
+        the event just returned.
+        """
+        for i, u in enumerate(self.units):
+            ev = u.poll()
+            if ev is not None:
+                if len(self._pending) >= EVENT_QUEUE_MAX:
+                    self.events_dropped += 1
+                    print("  [ERR] splat group event queue full: %s from %d dropped"
+                          % (ev, i))
+                else:
+                    self._pending.append((i, ev))
+        if not self._pending:
+            return None
+        i, ev = self._pending.pop(0)
+        self.last_index = i
+        return ev
+
+    def _each(self, call):
+        """call(unit) on every connected unit. True only if at least one is
+        connected and every connected unit's write succeeded."""
+        any_up = False
+        ok = True
+        for u in self.units:
+            if u.connected:
+                any_up = True
+                ok = call(u) and ok
+        return any_up and ok
+
+    def color(self, name):
+        return self._each(lambda u: u.color(name))
+
+    def sound(self, name):
+        return self._each(lambda u: u.sound(name))
+
+    def note(self, name):
+        return self._each(lambda u: u.note(name))
+
+    def play(self, names):
+        return self._each(lambda u: u.play(names))
+
+    def off(self):
+        """Stop everything on every Splat, connected or not (each unit's
+        off() clears its held-note state either way)."""
+        ok = True
+        for u in self.units:
+            ok = u.off() and ok
+        return ok

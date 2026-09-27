@@ -86,6 +86,20 @@
 #   splat.off()                  stop everything: the held note, then
 #                                 allTasksOff and allLEDsOff.
 #
+# One companion may be set up with SEVERAL Splats (up to 4). The calls
+# above then act on EVERY connected Splat, and poll() reports a press or
+# release from any of them. To tell them apart or address one:
+#   splat.count                  Splats this station is set up for
+#   splat.connected_count        how many are connected right now
+#   splat.last_index             which Splat (0, 1, ...) the event just
+#                                 returned by poll() came from
+#   splat.unit(i)                one Splat, with the same color/sound/
+#                                 note/play/off calls, e.g.
+#                                 splat.unit(splat.last_index).color("turngreen")
+# The count is set on the device, not in the game: a game MUST still work
+# when splat.count == 1 (never assume unit(1) exists without checking
+# splat.count first).
+#
 # Action names are the wand's action-card names. The full list for each
 # call is appended to this prompt under "SPLAT ACTION NAMES ON THE SPLAT
 # COMPANION" -- use only those. A Splat game naming anything else is

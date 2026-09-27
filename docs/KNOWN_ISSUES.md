@@ -232,3 +232,16 @@ fixed in the trees they're in unless noted.
   games-only, like the icon display. The `send_splat_config()` helpers in the other trees'
   `espnow_manager.py` copies, and the modem's `splat_config` classification in
   `EspnowModem/modem/lib/eum_classify.py`, are unchanged and now have no Bag3 consumer.
+
+### Latent bugs (found while adding multi-Splat support)
+
+- **`OpenSplat` re-picks its target on every "Splat" advertisement until it connects**
+  (`Bag2/Code/lib/ble_splat.py` ≡ `Bag3/Code/lib/ble_splat.py`, `_irq_handler`, `_IRQ_SCAN_RESULT`
+  branch). With more than one Splat advertising, each scan's first result overwrites
+  `mac_address`, so a caller that rescans until connected can chase Splats indefinitely; a pinned
+  `mac_address` is overwritten the same way. Reproduced in `SplatCompanion/test_splat_companion.py`
+  with three fake Splats advertising round-robin. Worked around in `SplatCompanion/splat_hub.py`
+  (scan results filtered to the link's chosen address) — not fixed in the shared driver copies.
+- Same driver: `ubluetooth.BLE()` is a singleton and `OpenSplat.__init__` registers its own IRQ
+  handler without filtering events by `conn_handle`, so two `OpenSplat` instances in one program
+  silently take each other's events. `SplatHub` routes events per link instead.

@@ -57,6 +57,13 @@ You are testing `Bag3/Code/BroadcastCode/SplatCompanion/` on branch `splat-espno
 
    Then set `DEBUG_PROBE` back to `False`.
 
+9. **Multiple Splats (only if 2+ Splats are available).** Set `"max_splats": 2` in `lib/hubtype.py`, redeploy, and switch both Splats on.
+   - Expect `Splats configured: 2`, then `Companion: Splat 0 (...) ready` and `Splat 1 (...) ready` with two different MACs; status pixels 0 and 1 cyan, pixel 2 off.
+   - Tap `splatwhack`: both Splats should show each prompt. The user presses each Splat once; report both hits.
+   - Switch one Splat off for 10 s, then on. Expect only its pixel to go blue, the other Splat to keep working, and a reconnect to the same MAC.
+   - With 4 Splats, repeat with `"max_splats": 4` and report `max_step_gap_ms` from step 8's probe during a game (each color change writes to all four).
+   - Set `max_splats` back to `1`.
+
 **Report:**
 - a table per step (expected / seen / evidence line)
 - every `[ERR]` / `[WARN]` line, with a count

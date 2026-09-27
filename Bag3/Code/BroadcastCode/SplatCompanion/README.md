@@ -21,7 +21,8 @@ stubbed boot smoke test (`../tools/devtests/boot_splat.py`).
 ## Hardware
 
 - **Host:** Seeed XIAO ESP32-C6. `hubtype.txt`: `splat_companion`.
-  - BLE to one Splat, on its own radio.
+  - BLE to one Splat (default) or up to 4, on its own radio -- see
+    "Multiple Splats".
   - ESP-NOW to the rest of the playground, over UART1 to a paired modem board (`../EspnowModem/`)
     running `modem/main.py` -- never on this board's own radio, so BLE and
     ESP-NOW run at the same time without the coexistence problems the Bag2
@@ -57,7 +58,8 @@ stubbed boot smoke test (`../tools/devtests/boot_splat.py`).
 | `main.py` | Entry point: pull check, boot, dispatch, idle loop |
 | `companion.py` | Idle station: keeps the BLE link up, handles `start_game`/`stop`, status LEDs |
 | `splat_link.py` | `SplatLink(OpenSplat)`: non-blocking BLE connect/reconnect, IRQ-safe button debounce |
-| `splat_api.py` | `SplatAPI`: the `splat` object games receive; the single source of the action names |
+| `splat_hub.py` | `SplatHub`: one or more `SplatLink`s on the one BLE radio; routes IRQ events per link, one scan at a time |
+| `splat_api.py` | `SplatAPI` (one Splat) and `SplatGroup` (the `splat` object games receive); the single source of the action names |
 | `status_leds.py` | The 3-pixel strip: `fill()`, `off()` |
 | `companion_probe.py` | Diagnostics, imported only when `DEBUG_PROBE = True` |
 | `splatwhack.py` | Built-in game |
@@ -92,8 +94,8 @@ combination on this device; the bench run checks it.
 **Boot order:**
 1. `pull_flag.is_pending()` -> `_run_pull_mode()` if set (WiFi join to a
    Box/Dial, `code_puller.pull(hubtype="splat_companion")`, then reset).
-2. BLE up, `SplatLink` and the one `SplatAPI` created (shared by the idle
-   loop and every game).
+2. BLE up, `SplatHub` (one `SplatLink` per configured Splat) and the one
+   `SplatGroup` created (shared by the idle loop and every game).
 3. ESP-NOW via the modem (`mgr.init()`), then the battery gauge and PN532
    (each optional -- a missing one costs only that capability).
 4. Identity emitted, `take_last_pulled()` auto-launches a just-pulled game.
@@ -108,9 +110,13 @@ def play(splat, leds, enow, batt=None):
     ...
 ```
 
-- **`splat`** (`splat_api.SplatAPI`): `connected`, `poll()` (call every
-  loop -- services the BLE link and returns `"press"`/`"release"`/`None`),
-  `color(name)`, `sound(name)`, `note(name)`, `play([names])`, `off()`.
+- **`splat`** (`splat_api.SplatGroup`): `connected`, `poll()` (call every
+  loop -- services the BLE links and returns `"press"`/`"release"`/`None`),
+  `color(name)`, `sound(name)`, `note(name)`, `play([names])`, `off()` --
+  each acting on every connected Splat -- plus `count`, `connected_count`,
+  `last_index` (which Splat the last event came from) and `unit(i)` (one
+  Splat's own `SplatAPI`). With the default one Splat it behaves as that
+  Splat's `SplatAPI`.
   Action names are the tables in `splat_api.py` (`COLOR_RGB`,
   `NOTE_VALUES`, `ANIMAL_SOUNDS`): the wand's action-card names. After
   editing any of them, run `python3 ChatBroadcast/tools/sync_splat_actions.py`
@@ -143,7 +149,7 @@ UNVERIFIED on hardware: each check can hold the game for up to 30 ms.
 ```bash
 cd Bag3/Code/BroadcastCode/SplatCompanion
 python3 -m mpremote connect $COMP_PORT resume \
-  fs cp main.py companion.py splat_link.py splat_api.py status_leds.py \
+  fs cp main.py companion.py splat_link.py splat_hub.py splat_api.py status_leds.py \
         companion_probe.py splatwhack.py code_puller.py pull_flag.py \
         pull_probe.py boot.py hubtype.txt : + \
   fs mkdir :lib + \
@@ -154,6 +160,39 @@ python3 -m mpremote connect $COMP_PORT reset
 `fs mkdir` fails if `/lib` already exists; drop that step then. The modem
 runs the unchanged `../EspnowModem/modem/` firmware -- no new ESP-NOW
 message codes were added, so it needs no reflash for this device.
+
+## Multiple Splats
+
+One companion can hold BLE connections to several Splats at once. It is
+off by default; set it in `lib/hubtype.py`'s `splat_companion` entry:
+
+| Key | Default | Meaning |
+|---|---|---|
+| `max_splats` | `1` | Splats to connect, 1 to `splat_hub.BLE_MAX_CONNECTIONS` (4) |
+| `splat_macs` | `None` | `None`: the first `max_splats` Splats found by name. A list of MAC strings pins specific Splats and their order (`unit(0)`, `unit(1)`, ...); its length is the count |
+
+- **Limit:** 4, the stock MicroPython ESP32 build's
+  `CONFIG_BT_NIMBLE_MAX_CONNECTIONS` (`ports/esp32/boards/sdkconfig.ble`).
+  The companion is BLE central only, so all 4 can be Splats. A value above
+  4 prints `[ERR]` at boot and runs with 4. A custom firmware build could
+  raise the limit (`BLE_MAX_CONNECTIONS` in `splat_hub.py`), at a NimBLE
+  heap cost per connection on a board with no PSRAM.
+- **Why a hub:** `ubluetooth.BLE()` has one IRQ handler, and
+  `lib/ble_splat.py`'s `OpenSplat` (an unmodified byte copy) registers its
+  own per instance without filtering by connection. `SplatHub` takes the
+  IRQ over and routes each event to its link; only one link scans at a
+  time; a link locks onto the first Splat it picks for the length of an
+  attempt, and never onto one another link owns.
+- **Write cost:** each BLE write waits up to 20 ms (`_WRITE_PACE_MS` in
+  `ble_splat.py`) per Splat, so `splat.color()` on 4 Splats can hold the
+  loop for about 80 ms. Keepalives are per Splat too.
+- **Status LEDs:** with 2 or 3 Splats, pixel *i* shows Splat *i* (blue
+  waiting, cyan ready). With 4, the whole strip is blue until every Splat
+  is ready.
+- **Games:** a game must still work with `splat.count == 1` -- the count
+  is set per device, and a generated game cannot know it.
+- **UNVERIFIED on hardware** for more than one Splat. Bench 2 before 4
+  (`HARDWARE_TEST.md`, step 9).
 
 ## Messages while idle (`companion.py`)
 
@@ -173,8 +212,9 @@ not handled here.
 | Color | Meaning |
 |---|---|
 | Red, solid | Modem link down, or no modem found at boot |
-| Blue, solid | BLE not ready (scanning/connecting) |
+| Blue, solid | BLE not ready (scanning/connecting) -- any Splat, when several |
 | Cyan, breathing | Ready, waiting for a game |
+| One pixel per Splat, blue/cyan | 2 or 3 Splats configured: that Splat waiting/ready |
 
 A game gets the same 3-pixel strip via `leds.fill()`/`leds.off()` and may
 use it however it likes; the idle loop repaints its own state once the
@@ -205,7 +245,8 @@ game returns.
 ## Not done
 
 - Hardware bench run of any kind (modem link, BLE, NFC, pull, a game).
-- Several Splats per companion.
+- Several Splats per companion on hardware (simulated only; see
+  "Multiple Splats").
 - Wand-side code that sends `start_game` naming a Splat game.
 - The EUM's acknowledged-fetch fix (`../EspnowModem/README.md`) -- a
   timed-out `FETCH` still loses up to 4 messages.

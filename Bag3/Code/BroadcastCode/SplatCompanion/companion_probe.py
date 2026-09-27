@@ -32,13 +32,16 @@ class Probe:
             return
         self._next = time.ticks_add(now, self.every_ms)
         c = self.comp
-        lk = c.link
         print("[probe] t=%d comp=%s" % (now, c.counters))
-        print("[probe] ble state=%s splat=%s attempts=%d connects=%d drops=%d "
-              "failed=%d btn_dropped=%d %s splat_fail=%d"
-              % (lk.state_name(), lk.mac_address, lk.attempts, lk.connects,
-                 lk.drops, lk.failed_attempts, lk.events_dropped,
-                 lk.write_stats(), c.splat.write_failures))
+        for i, lk in enumerate(c.links):
+            print("[probe] ble[%d] state=%s splat=%s attempts=%d connects=%d "
+                  "drops=%d failed=%d btn_dropped=%d %s splat_fail=%d"
+                  % (i, lk.state_name(), lk.mac_address, lk.attempts,
+                     lk.connects, lk.drops, lk.failed_attempts,
+                     lk.events_dropped, lk.write_stats(),
+                     c.splat.unit(i).write_failures))
+        print("[probe] group_dropped=%d hub_misrouted=%d"
+              % (c.splat.events_dropped, c.splat.hub.misrouted))
         print("[probe] link=%s" % c.mgr.link_stats())
         print("[probe] mem=%s" % c.mgr.mem_stats())
         print("[probe] gc_free=%d max_step_gap_ms=%d"

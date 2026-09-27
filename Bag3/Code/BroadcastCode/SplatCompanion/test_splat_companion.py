@@ -65,8 +65,23 @@ CMD_NAMES = {
 NOISE = ("keepAlive", "readSwitches")
 
 
+class Periph:
+    """One fake Splat: address, advertising/connectable flag, connection."""
+    def __init__(self, addr):
+        self.addr = addr
+        self.name = ":".join("%02X" % x for x in addr)
+        self.available = True
+        self.conn = None
+        self.subscribed = False
+
+
 class BLE:
-    """Singleton like ubluetooth.BLE; one fake Splat peripheral in range."""
+    """Singleton like ubluetooth.BLE; fake Splat peripherals in range.
+
+    periphs[0] is the Splat the single-link tests use; available, conn,
+    subscribed, button() and drop() default to it. Advertising cycles
+    through every available, unconnected peripheral while a scan runs.
+    """
     _inst = None
 
     def __new__(cls):
@@ -82,14 +97,37 @@ class BLE:
         self.q = []
         self.seq = 0
         self.scanning = False
-        self.pending_connect = False
-        self.conn = None
-        self.subscribed = False
-        self.available = True        # Splat advertising and connectable
+        self.pending = None          # Periph a gap_connect is waiting on
+        self.periphs = [Periph(SPLAT_ADDR)]
+        self._adv_i = 0
         self.delay_ms = 30
-        self.writes = []             # (t_ms, name, bytes)
+        self.writes = []             # (t_ms, name, bytes), every peripheral
+        self.writes_by = []          # (periph index, name)
         self.next_conn = 1
         threading.Thread(target=self._dispatch, daemon=True).start()
+
+    # single-Splat shorthands (periphs[0])
+    @property
+    def available(self):
+        return self.periphs[0].available
+
+    @available.setter
+    def available(self, v):
+        self.periphs[0].available = v
+
+    @property
+    def conn(self):
+        return self.periphs[0].conn
+
+    @property
+    def subscribed(self):
+        return self.periphs[0].subscribed
+
+    def _periph_by_conn(self, conn):
+        for p in self.periphs:
+            if p.conn is not None and p.conn == conn:
+                return p
+        return None
 
     # event queue: delivered from a separate thread
     def _later(self, ms, event, data):
@@ -112,7 +150,7 @@ class BLE:
             elif self.handler is not None:
                 self.handler(event, data)
 
-    # ubluetooth API used by ble_splat.py / splat_link.py
+    # ubluetooth API used by ble_splat.py / splat_link.py / splat_hub.py
     def active(self, v=None):
         if v is not None:
             self.is_active = bool(v)
@@ -133,27 +171,37 @@ class BLE:
         self._later(self.delay_ms, self._adv, None)
 
     def _adv(self):
-        if self.scanning and self.available and self.handler:
-            self.handler(5, (0, memoryview(SPLAT_ADDR), 0, -50, b"\x06\x09Splat"))
-        elif self.scanning:
+        if not self.scanning:
+            return
+        cands = [p for p in self.periphs if p.available and p.conn is None]
+        if cands and self.handler:
+            p = cands[self._adv_i % len(cands)]
+            self._adv_i += 1
+            self.handler(5, (0, memoryview(p.addr), 0, -50, b"\x06\x09Splat"))
+        if self.scanning:
             self._later(self.delay_ms, self._adv, None)
 
     def gap_connect(self, addr_type, addr=None, *a):
         if addr_type is None:
-            self.pending_connect = False
+            self.pending = None
             return
-        self.pending_connect = True
+        target = bytes(addr)
+        self.pending = None
+        for p in self.periphs:
+            if p.addr == target:
+                self.pending = p
         self._later(self.delay_ms, self._complete_connect, None)
 
     def _complete_connect(self):
-        if not self.pending_connect:
+        p = self.pending
+        if p is None:
             return
-        self.pending_connect = False
-        if not self.available:
+        self.pending = None
+        if not p.available:
             return                   # stays pending forever: link times out
-        self.conn = self.next_conn
+        p.conn = self.next_conn
         self.next_conn += 1
-        self.handler(7, (self.conn, 0, memoryview(SPLAT_ADDR)))
+        self.handler(7, (p.conn, 0, memoryview(p.addr)))
 
     def gattc_discover_services(self, conn):
         self._later(5, 9, (conn, H_SVC_START, H_SVC_END, UUID(0xfff0)))
@@ -165,32 +213,37 @@ class BLE:
         self._later(6, 12, (conn, 0))
 
     def gattc_write(self, conn, handle, data, mode=0):
-        if conn is None or conn != self.conn:
+        p = self._periph_by_conn(conn) if conn is not None else None
+        if p is None:
             raise OSError(128)       # ENOTCONN
         data = bytes(data)
         if handle == H_RECV + 1:
-            self.subscribed = data == b"\x01\x00"
+            p.subscribed = data == b"\x01\x00"
             return
         assert handle == H_WRITE, handle
         name = CMD_NAMES.get((data[0], data[1]), "?%02X%02X" % (data[0], data[1]))
         self.writes.append((time.ticks_ms(), name, data))
+        self.writes_by.append((self.periphs.index(p), name))
 
     def gap_disconnect(self, conn):
-        if conn == self.conn:
-            self.conn = None
-            self.subscribed = False
-            self._later(1, 8, (conn, 0, memoryview(SPLAT_ADDR)))
+        p = self._periph_by_conn(conn)
+        if p is not None:
+            p.conn = None
+            p.subscribed = False
+            self._later(1, 8, (conn, 0, memoryview(p.addr)))
 
     # test controls
-    def button(self, pressed):
-        assert self.conn is not None and self.subscribed
-        self._later(1, 18, (self.conn, H_RECV, bytes([3, 0, 1 if pressed else 0])))
+    def button(self, pressed, i=0):
+        p = self.periphs[i]
+        assert p.conn is not None and p.subscribed
+        self._later(1, 18, (p.conn, H_RECV, bytes([3, 0, 1 if pressed else 0])))
 
-    def drop(self):
-        conn = self.conn
-        self.conn = None
-        self.subscribed = False
-        self._later(1, 8, (conn, 0, memoryview(SPLAT_ADDR)))
+    def drop(self, i=0):
+        p = self.periphs[i]
+        conn = p.conn
+        p.conn = None
+        p.subscribed = False
+        self._later(1, 8, (conn, 0, memoryview(p.addr)))
 
     def cmds(self, since=0, noise=False):
         return [(n, d) for t, n, d in self.writes[since:] if noise or n not in NOISE]
@@ -207,16 +260,22 @@ sys.modules["micropython"] = micropython
 import companion as C          # noqa: E402
 import splat_api as A          # noqa: E402
 import splat_link as L         # noqa: E402
+import splat_hub as HUB        # noqa: E402
 
 ble = BLE()
 
 
 class FakeLeds:
+    n = 3
+
     def __init__(self):
         self.last = None
 
     def show(self, color, breathe, now):
         self.last = (color, breathe)
+
+    def show_each(self, colors):
+        self.last = ("each", tuple(colors))
 
 
 # ─── Helpers ─────────────────────────────────
@@ -414,11 +473,137 @@ def test_start_game_bubbles_to_pending(r):
         r.comp.is_game_fn = None
 
 
+# ─── Several Splats on one companion (splat_hub.SplatHub) ───────
+
+MULTI_ADDRS = [SPLAT_ADDR, bytes.fromhex("AB4200007EB7"), bytes.fromhex("AB4200007EB8")]
+
+
+def retire(r):
+    """Disconnect a runner's links and stop servicing them."""
+    for link in r.comp.links:
+        link.close()
+    r.run(50)
+
+
+def multi_runner(mgr, count, macs=None):
+    hub = HUB.SplatHub(count, macs)
+    return Runner(C.Companion(mgr, A.SplatGroup(hub), FakeLeds()))
+
+
+def all_ready(r):
+    return all(link.ready for link in r.comp.links)
+
+
+def unit_for(r, periph_i):
+    name = ble.periphs[periph_i].name
+    for i, link in enumerate(r.comp.links):
+        if link.mac_address == name:
+            return i
+    raise AssertionError("no link owns %s" % name)
+
+
+def poll_until_event(splat, ms):
+    end = time.monotonic() + ms / 1000
+    while time.monotonic() < end:
+        ev = splat.poll()
+        if ev is not None:
+            return ev
+        time.sleep_ms(1)
+    return None
+
+
+def test_multi_all_ready(r):
+    assert r.run(5000, lambda: all_ready(r)), [l.state_name() for l in r.comp.links]
+    macs = sorted(l.mac_address for l in r.comp.links)
+    assert macs == sorted(p.name for p in ble.periphs), macs
+    assert r.comp.splat.count == 3 and r.comp.splat.connected_count == 3
+    r.run(50)
+    px = C.PIXEL_READY
+    assert r.comp.leds.last == ("each", (px, px, px)), r.comp.leds.last
+
+
+def test_multi_press_reports_index(r):
+    splat = r.comp.splat
+    r.run(100)
+    ble.button(True, 2)
+    assert poll_until_event(splat, 500) == "press"
+    assert splat.last_index == unit_for(r, 2), (splat.last_index, unit_for(r, 2))
+    ble.button(False, 2)
+    assert poll_until_event(splat, 500) == "release"
+    r.run(100)
+    ble.button(True, 0)
+    ble.button(True, 1)
+    evs = [(poll_until_event(splat, 500), splat.last_index) for _ in range(2)]
+    assert sorted(i for _, i in evs) == sorted([unit_for(r, 0), unit_for(r, 1)]), evs
+    assert all(e == "press" for e, _ in evs), evs
+    ble.button(False, 0)
+    ble.button(False, 1)
+    r.run(200)
+
+
+def test_multi_color_all_and_unit(r):
+    splat = r.comp.splat
+    w0 = len(ble.writes_by)
+    assert splat.color("turnred")
+    hit = sorted(i for i, n in ble.writes_by[w0:] if n == "setLEDs")
+    assert hit == [0, 1, 2], hit
+    w1 = len(ble.writes_by)
+    u = unit_for(r, 1)
+    assert splat.unit(u).color("turnblue")
+    hit = [i for i, n in ble.writes_by[w1:] if n == "setLEDs"]
+    assert hit == [1], hit
+    try:
+        splat.unit(3)
+        raise AssertionError("unit(3) must raise with 3 Splats")
+    except IndexError:
+        pass
+    splat.off()
+
+
+def test_multi_drop_one(r):
+    u = unit_for(r, 1)
+    ble.periphs[1].available = False
+    ble.drop(1)
+    assert r.run(500, lambda: not r.comp.links[u].ready)
+    r.run(50)
+    others = [l.ready for i, l in enumerate(r.comp.links) if i != u]
+    assert all(others), others
+    assert r.comp.leds.last[1][u] == C.PIXEL_WAIT, r.comp.leds.last
+    assert r.comp.splat.connected and r.comp.splat.connected_count == 2
+    ble.periphs[1].available = True
+    assert r.run(L.CONNECT_TIMEOUT_MS + L.RETRY_BACKOFF_MS + 2000,
+                 lambda: all_ready(r)), [l.state_name() for l in r.comp.links]
+    assert r.comp.links[u].mac_address == ble.periphs[1].name
+
+
+def test_hub_caps_connections(r):
+    import io
+    import contextlib
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        extra = HUB.SplatHub(HUB.BLE_MAX_CONNECTIONS + 1)
+    assert extra.count == HUB.BLE_MAX_CONNECTIONS, extra.count
+    assert "[ERR]" in buf.getvalue(), buf.getvalue()
+    ble.irq(r.comp.splat.hub._irq)       # hand the IRQ back to the live hub
+
+
+def test_pinned_macs_order(r):
+    want = [ble.periphs[2].name, ble.periphs[0].name]
+    r2 = multi_runner(r.comp.mgr, 3, want)
+    assert r2.comp.splat.count == 2, r2.comp.splat.count
+    assert r2.run(5000, lambda: all_ready(r2)), [l.state_name() for l in r2.comp.links]
+    got = [l.mac_address for l in r2.comp.links]
+    assert got == want, got
+    assert ble.periphs[1].conn is None, "an unpinned Splat was connected"
+    retire(r2)
+
+
 if __name__ == "__main__":
     mgr = S.EM.ESPNowManager()
     mgr.init()
-    link = L.SplatLink()
-    comp = C.Companion(mgr, A.SplatAPI(link), FakeLeds())
+    hub = HUB.SplatHub(1)
+    link = hub.links[0]
+    comp = C.Companion(mgr, A.SplatGroup(hub), FakeLeds())
     r = Runner(comp)
     tests = [
         test_copies_match, test_no_bridge_left,
@@ -435,6 +620,22 @@ if __name__ == "__main__":
     print("link attempts=%d connects=%d drops=%d failed=%d max_step_ms=%.1f"
           % (link.attempts, link.connects, link.drops, link.failed_attempts,
              r.max_step_ms))
+
+    retire(r)
+    ble.periphs = [Periph(a) for a in MULTI_ADDRS]
+    rm = multi_runner(mgr, 3)
+    multi_tests = [
+        test_multi_all_ready, test_multi_press_reports_index,
+        test_multi_color_all_and_unit, test_multi_drop_one,
+        test_hub_caps_connections,
+    ]
+    for fn in multi_tests:
+        fn(rm)
+        print("ok  ", fn.__name__)
+    retire(rm)
+    test_pinned_macs_order(rm)
+    print("ok  ", test_pinned_macs_order.__name__)
+    tests += multi_tests + [test_pinned_macs_order]
     S._stop.set()
     S.t.join(1)
     print("%d passed" % len(tests))

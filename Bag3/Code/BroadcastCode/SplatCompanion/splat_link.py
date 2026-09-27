@@ -18,6 +18,10 @@ debounce drops that release and leaves the button reported as pressed.)
 States: IDLE -> CONNECTING -> SETTLING -> READY. A CONNECTING attempt that
 is not ready after CONNECT_TIMEOUT_MS is torn down and retried after
 RETRY_BACKOFF_MS. A drop from READY starts a new attempt immediately.
+
+scan_gate, when set (splat_hub.SplatHub sets it), is called as
+scan_gate(link) before every new attempt; while it returns False the link
+waits in IDLE/BACKOFF. The hub uses it so only one link scans at a time.
 """
 
 import errno
@@ -44,6 +48,10 @@ STATE_NAMES = ("idle", "connecting", "settling", "ready", "backoff")
 class SplatLink(OpenSplat):
     def __init__(self, mac_address=None, verbose=False):
         super().__init__(mac_address=mac_address, verbose=verbose)
+        # A pinned link keeps its address; an unpinned one forgets the
+        # Splat it picked after a failed attempt, so the next attempt can
+        # pick another. A drop from READY keeps it (reconnect to the same).
+        self.pinned = mac_address is not None
         self._raw_q = []             # (ticks_ms, pressed), appended in the IRQ
         self._irq_raw = False        # last raw state seen by the IRQ
         self._raw = False            # last raw state seen by the main loop
@@ -57,6 +65,7 @@ class SplatLink(OpenSplat):
         self.failed_attempts = 0
         self.events_dropped = 0
         self.scan_already = 0
+        self.scan_gate = None
 
     # ─── IRQ side ─────────────────────────────
 
@@ -104,6 +113,9 @@ class SplatLink(OpenSplat):
         self._events = []
         return ev
 
+    def _may_begin(self):
+        return self.scan_gate is None or self.scan_gate(self)
+
     def service(self, now):
         st = self.state
         if st == ST_READY:
@@ -111,14 +123,18 @@ class SplatLink(OpenSplat):
                 self.drops += 1
                 print("  SplatLink: connection to %s lost (drops=%d)"
                       % (self.mac_address, self.drops))
-                self._begin(now)
+                self.state = ST_IDLE
+                if self._may_begin():
+                    self._begin(now)
             else:
                 self._debounce(now)
             return
         if st == ST_IDLE:
-            self._begin(now)
+            if self._may_begin():
+                self._begin(now)
         elif st == ST_BACKOFF:
-            if time.ticks_diff(now, self._t) >= RETRY_BACKOFF_MS:
+            if (time.ticks_diff(now, self._t) >= RETRY_BACKOFF_MS
+                    and self._may_begin()):
                 self._begin(now)
         elif st == ST_CONNECTING:
             if self.connected and self._tx_char_handle and self._rx_char_handle:
@@ -134,7 +150,9 @@ class SplatLink(OpenSplat):
             if not self.connected:
                 self.drops += 1
                 print("  SplatLink: dropped while settling")
-                self._begin(now)
+                self.state = ST_IDLE
+                if self._may_begin():
+                    self._begin(now)
             elif time.ticks_diff(now, self._t) >= READY_SETTLE_MS:
                 self.state = ST_READY
                 self.connects += 1
@@ -168,6 +186,8 @@ class SplatLink(OpenSplat):
 
     def _give_up(self, now):
         self.failed_attempts += 1
+        if not self.pinned:
+            self.mac_address = None
         print("  SplatLink: attempt %d not ready after %d ms (failed=%d), "
               "retry in %d ms" % (self.attempts, time.ticks_diff(now, self._t),
                                   self.failed_attempts, RETRY_BACKOFF_MS))

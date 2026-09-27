@@ -1,16 +1,19 @@
 """
-Splat Companion — game station for one Splat
-==============================================
+Splat Companion — game station for one or more Splats
+=======================================================
 Board: Seeed XIAO ESP32-C6 (hubtype.txt: splat_companion), paired over
 UART1 (GPIO0 TX / GPIO1 RX) with a second board (M5StickS3 or XIAO C6)
 running EspnowModem/modem/main.py. ESP-NOW never runs on this board's own
 radio -- it goes to the modem over UART (lib/espnow_manager.py, the EUM
-drop-in). This board's own radio is BLE only, to one Splat.
+drop-in). This board's own radio is BLE only, to one Splat by default or
+up to splat_hub.BLE_MAX_CONNECTIONS (hubtype.py max_splats / splat_macs).
 
 Games get: def play(splat, leds, enow, batt=None)
-    splat  a splat_api.SplatAPI: connected, poll() -> "press"/"release"/None
+    splat  a splat_api.SplatGroup: connected, poll() -> "press"/"release"/None
            (call every loop!), color(name), sound(name), note(name),
-           play(names), off(). No NFC, buzzer, motor or accelerometer here.
+           play(names), off() -- each acting on every Splat -- plus count,
+           connected_count, last_index and unit(i) for one Splat. No NFC,
+           buzzer, motor or accelerometer here.
     leds   this device's 3-pixel status strip (status_leds.StatusLeds):
            fill(color), off().
     enow   an already-initialised espnow_manager.ESPNowManager (the EUM
@@ -19,9 +22,9 @@ Games get: def play(splat, leds, enow, batt=None)
     batt   a max17048.MAX17048, or None if the gauge failed at boot.
 
 A games-only station, like the icon display. Idle (no game running),
-companion.py keeps the Splat's BLE link up and waits: a game tag, tapped
+companion.py keeps the Splats' BLE links up and waits: a game tag, tapped
 or arriving as ESP-NOW start_game, launches that game with the same
-SplatAPI the idle loop polls. Nothing plays on a Splat press while idle.
+SplatGroup the idle loop polls. Nothing plays on a Splat press while idle.
 """
 
 import sys
@@ -374,7 +377,7 @@ def _launch_game(name, splat, enow, batt_ref, reader=None, entry_uid=None):
     does not relaunch a game from a card still lying on it.
 
     The idle loop (companion.py) is not serviced while a game runs -- the
-    game polls the same SplatAPI instead. One loop owns the link at a
+    game polls the same SplatGroup instead. One loop owns the link at a
     time, the same rule as MockWand's "one loop owns enow".
 
     splat.off() runs in `finally`, on every exit path (normal return, a
@@ -458,14 +461,16 @@ def main():
     status.fill((0, 0, 15))
 
     import espnow_manager
-    from splat_link import SplatLink
+    from splat_hub import SplatHub
     from companion import Companion
-    from splat_api import SplatAPI
+    from splat_api import SplatGroup
 
-    link = SplatLink()
-    # One SplatAPI for the whole boot: the idle loop and every game poll
+    hub = SplatHub(HUB_CONFIG.get("max_splats", 1), HUB_CONFIG.get("splat_macs"))
+    print("  Splats configured: %d%s" % (hub.count, "" if HUB_CONFIG.get(
+        "splat_macs") is None else " (pinned)"))
+    # One SplatGroup for the whole boot: the idle loop and every game poll
     # the same object, so keepalive and switch-poll timing never restart.
-    splat = SplatAPI(link)
+    splat = SplatGroup(hub)
     mgr = espnow_manager.ESPNowManager()
     memprobe.probe("pre-enow")  # BENCH
     try:
