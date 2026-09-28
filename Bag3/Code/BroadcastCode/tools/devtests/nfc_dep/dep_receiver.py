@@ -104,7 +104,11 @@ def one_run(nfc):
             print("#   release after failure: %s" % re)
         return False
     t_done = time.ticks_ms()
-    nfc.release()
+    try:
+        nfc.release()
+    except DepError as e:
+        # Transfer is already verified; a release failure is logged, not counted as a failed run.
+        print("#   release after OK: %s timing=%r" % (e, e.timing))
     with open(OUT, "wb") as f:
         f.write(data)
     xfer_ms = time.ticks_diff(t_done, t_link)

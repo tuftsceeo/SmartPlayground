@@ -39,7 +39,12 @@ def serve_link(nfc, header, data, log):
             req = nfc.get_data(MAX_CHUNK + 16, timeout_ms=2000)
         except DepError as e:
             if e.status == STATUS_RELEASED:
-                log['end'] = "released"
+                log['end'] = "done+released" if log['end'] == "done" else "released"
+                return
+            if log['end'] == "done" and e.status is None:
+                # Transfer finished but the initiator never released; log and clear the PN532.
+                print("# no release after done: %s" % e)
+                nfc.abort()
                 return
             raise
         log['get'].append(nfc.timing['ack'] + nfc.timing['wait'] + nfc.timing['read'])
@@ -57,8 +62,9 @@ def serve_link(nfc, header, data, log):
         if TRACE:
             print("#  req %s -> %d bytes, set %d us" % (log['last'], len(resp), log['set'][-1]))
         if op == b'D':
+            # Keep reading until the initiator's InRelease arrives (status 0x29). Issuing
+            # TgInitAsTarget before then collides with the release frame.
             log['end'] = "done"
-            return
         time.sleep_ms(1)
 
 
