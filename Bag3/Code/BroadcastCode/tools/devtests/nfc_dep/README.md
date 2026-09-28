@@ -11,6 +11,8 @@ stock Mock Wands and doesn't touch Mock Wand firmware (`main.py`, `lib/pn532.py`
 | `dep_receiver.py` | wand B | Initiator: pulls `RUNS` times and prints `RESULT` lines |
 | `dep_loopback.py` | host (CPython) | Checks `dep_proto.py` in memory; the driver isn't exercised |
 | `HANDOFF.md` | — | Prompt for the local agent that runs the hardware tests |
+| `RESULTS.md` | — | Measured results from the hardware runs |
+| `logs/` | — | Raw serial output from the hardware runs |
 
 ## Assumptions
 - **Wiring:** Mock Wand, with the PN532 at I2C `0x24` on SDA 22 / SCL 23, as in `MockWand/lib/hubtype.py` `"wand"`.
@@ -44,6 +46,11 @@ The settings are constants at the top of each script:
 - **Sender:** `PAYLOAD`.
 - **Both:** `I2C_FREQ`.
 - **Initiator reply timeout:** `pn532_dep.TIMEOUT_CODE`.
+- **Tracing, both scripts:** `TRACE` prints one line per PN532 command.
+- **General bytes, both scripts:** `USE_LLCP_GB` sends LLCP general bytes at activation.
+
+At startup each script unloads `pn532_dep` and `dep_proto` from `sys.modules`, because
+`resume run` keeps the interpreter between runs. It then prints each module's `REV`.
 
 ## Output
 The receiver prints one line per run:
@@ -75,17 +82,4 @@ Failures print:
 - the phase timing of the failing command;
 - the last op or offset reached.
 
-Set `TRACE = True` in either script for one line per PN532 command.
-
-## Results
-
-Not yet run on hardware.
-
-| i2c | baud | chunk | payload | spacing | runs ok | xfer_ms (median) | B/s | rtt med (µs) | notes |
-|---|---|---|---|---|---|---|---|---|---|
-| | | | | | | | | | |
-
-## Go / no-go
-- **Trigger only:** the link comes up in under 1 s, and a 1 KB transfer verifies.
-- **WiFi replacement:** a 7 KB game verifies in under about 5 s, hand-held, on 3 of 3 runs.
-- **No-go:** target-side timeouts that raising `TIMEOUT_CODE` doesn't fix, or less than 1 KB/s.
+Each side also prints its decoded ATR PP byte (LR, frame size, G, NAD).

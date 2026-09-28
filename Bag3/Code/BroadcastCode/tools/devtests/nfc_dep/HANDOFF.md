@@ -113,15 +113,10 @@ Record pass/fail for each step, citing the log lines, before moving on.
 1. **Restore both wands** with a plain reset, no `resume`:
    `python3 -m mpremote connect $PORT reset`. Ask the user to confirm each wand is back in its
    normal idle state.
-2. **Fill in** the Results table in `README.md`, one row per cell, with the median across runs.
-   Replace "Not yet run on hardware." with the date and the wand identifiers.
-3. **Add a "Findings" section** to `README.md`. For each claim, say how it was verified, by log
-   file and line. Cover:
-   - failure modes, with the full `RESULT FAIL` line and the `#` detail lines from both wands;
-   - the `TIMEOUT_CODE` used;
-   - whether `wait_us` or `read_us` dominates, and the sender's `tg_set_us` median;
-   - anything unexpected.
-4. **Commit** the README and `logs/` with a message like `nfc_dep: bench results <date>`. Push to
+2. **Record results in `RESULTS.md`:** add rows to its tables, copying values from the logs and
+   naming the log file for each row. Keep it to measured values and test outcomes: no
+   recommendations or verdicts. Don't add results to `README.md`, which holds only the overview
+   and usage.
+3. **Commit** `RESULTS.md` and `logs/` with a message like `nfc_dep: bench results <date>`. Push to
    `claude/rfid-nfc-controller-emulation-rrvc6n`.
-5. **Report back:** the go/no-go verdict against the criteria in `README.md`, plus the headline
-   numbers (B/s and xfer_ms for `dep_jumpin.bin` at 100 kHz and 400 kHz).
+4. **Report back:** the rows you added, and any step that was skipped or failed.
