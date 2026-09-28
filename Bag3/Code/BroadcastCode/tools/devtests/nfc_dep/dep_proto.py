@@ -13,6 +13,9 @@ The header layout matches the WiFi pull in MockWand/code_puller.py.
 
 from binascii import hexlify
 
+# Printed at script start so each log records which copy on flash actually ran.
+REV = "2026-09-28b"
+
 try:
     import hashlib
 except ImportError:

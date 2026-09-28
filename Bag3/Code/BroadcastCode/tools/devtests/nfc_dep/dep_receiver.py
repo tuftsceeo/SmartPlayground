@@ -14,6 +14,13 @@ If 'read' dominates, the I2C bus is the bottleneck; if 'wait' does, it is the
 air link or the target host.
 """
 
+import sys
+# `mpremote resume run` reuses the interpreter without a soft reset, so a module
+# imported by an earlier run stays cached in sys.modules even after a fresh
+# copy lands on flash. Drop the bench modules so this run imports the flash copy.
+for _m in ("pn532_dep", "dep_proto"):
+    sys.modules.pop(_m, None)
+
 import gc
 import time
 import machine
@@ -21,6 +28,7 @@ from binascii import hexlify
 
 import pn532_dep
 from pn532_dep import PN532Dep, DepError, BAUD_106, BAUD_212, BAUD_424
+import dep_proto
 from dep_proto import pull, stats, ProtoError
 
 # Mock Wand wiring (MockWand/lib/hubtype.py "wand").
@@ -130,6 +138,7 @@ def one_run(nfc):
 
 def main():
     i2c = machine.SoftI2C(sda=machine.Pin(I2C_SDA), scl=machine.Pin(I2C_SCL), freq=I2C_FREQ)
+    print("# receiver modules pn532_dep %s, dep_proto %s" % (pn532_dep.REV, dep_proto.REV))
     print("# receiver i2c.scan:", ["0x%02X" % a for a in i2c.scan()])
     if USE_LLCP_GB:
         pn532_dep.GENERAL_BYTES = pn532_dep.LLCP_GB

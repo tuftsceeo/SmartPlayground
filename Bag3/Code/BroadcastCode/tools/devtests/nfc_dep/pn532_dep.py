@@ -17,6 +17,9 @@ jump_for_dep() for the expected "no target in field" status.
 import time
 from binascii import hexlify
 
+# Printed at script start so each log records which copy on flash actually ran.
+REV = "2026-09-28b"
+
 _TFI_HOST2PN532 = 0xD4
 _TFI_PN5322HOST = 0xD5
 

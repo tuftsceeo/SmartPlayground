@@ -11,6 +11,13 @@ hand the reply to the PN532. The second is the part that eats into the
 initiator's reply timeout (pn532_dep.TIMEOUT_CODE on wand B).
 """
 
+import sys
+# `mpremote resume run` reuses the interpreter without a soft reset, so a module
+# imported by an earlier run stays cached in sys.modules even after a fresh
+# copy lands on flash. Drop the bench modules so this run imports the flash copy.
+for _m in ("pn532_dep", "dep_proto"):
+    sys.modules.pop(_m, None)
+
 import gc
 import time
 import machine
@@ -18,6 +25,7 @@ from binascii import hexlify
 
 import pn532_dep
 from pn532_dep import PN532Dep, DepError, STATUS_RELEASED
+import dep_proto
 from dep_proto import build_header, handle_request, stats, ProtoError
 
 # Mock Wand wiring (MockWand/lib/hubtype.py "wand").
@@ -75,6 +83,7 @@ def serve_link(nfc, header, data, log):
 
 def main():
     i2c = machine.SoftI2C(sda=machine.Pin(I2C_SDA), scl=machine.Pin(I2C_SCL), freq=I2C_FREQ)
+    print("# sender modules pn532_dep %s, dep_proto %s" % (pn532_dep.REV, dep_proto.REV))
     print("# sender i2c.scan:", ["0x%02X" % a for a in i2c.scan()])
     if USE_LLCP_GB:
         pn532_dep.GENERAL_BYTES = pn532_dep.LLCP_GB
