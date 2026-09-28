@@ -2,6 +2,9 @@
 .micropico
 .cursor/
 
+# Temporary Log and Debug files
+*.log
+
 # Project Related
 /Bag2/Code/legacy/wand_bak
 /Bag2/Code/debug
@@ -189,3 +192,4 @@ cython_debug/
 
 SmartPlayground_dupe.code-workspace
 /Bag3/Code/BroadcastCode/docs_and_design/App icon consistency review
+Bag3/Code/BroadcastCode/.TODO.md
