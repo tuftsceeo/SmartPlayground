@@ -1,0 +1,37 @@
+# sender modules pn532_dep 2026-09-28b, dep_proto 2026-09-28b
+# sender i2c.scan: ['0x19', '0x24', '0x36', '0x44']
+#  abort sent
+#  cmd 0x02 tx=2 rx=4 write=981 ack=1978 wait=1399(polls 2) read=2121 us
+#  cmd 0x14 tx=5 rx=0 write=1030 ack=1788 wait=1386(polls 2) read=2067 us
+# sender PN532 fw (50, 1, 6) i2c 400000 mem_free 149488
+# serving dep_kb1.bin (1024 bytes), sha256 b'0f4c37475faff1f2'
+# waiting as target
+#  cmd 0x8C tx=39 rx=18 write=2697 ack=1908 wait=920153(polls 770) read=4662 us
+# link 1 up, mode 0x26, initiator cmd b'11d40001fea2a3a4a5a6a7000000000000' gt=b''
+#   initiator PP=0x00 LR=0 (64-byte frames) G=0 NAD=0
+#  cmd 0x86 tx=2 rx=2 write=948 ack=1869 wait=11032(polls 10) read=1428 us
+#  cmd 0x8E tx=50 rx=1 write=3083 ack=1837 wait=12377(polls 11) read=2088 us
+#  req b'48' -> 48 bytes, set 20061 us
+#  cmd 0x86 tx=2 rx=7 write=875 ack=1814 wait=21872(polls 19) read=1427 us
+#  cmd 0x8E tx=246 rx=1 write=12247 ack=1816 wait=78673(polls 66) read=2087 us
+#  req b'4300000000f0' -> 244 bytes, set 95654 us
+#  cmd 0x86 tx=2 rx=7 write=909 ack=1829 wait=37497(polls 32) read=1440 us
+#  cmd 0x8E tx=246 rx=1 write=12240 ack=1822 wait=78668(polls 66) read=2090 us
+#  req b'43000000f0f0' -> 244 bytes, set 95623 us
+#  cmd 0x86 tx=2 rx=7 write=910 ack=1834 wait=37495(polls 32) read=1438 us
+#  cmd 0x8E tx=246 rx=1 write=12256 ack=1819 wait=78664(polls 66) read=2082 us
+#  req b'43000001e0f0' -> 244 bytes, set 95623 us
+#  cmd 0x86 tx=2 rx=7 write=924 ack=1910 wait=37550(polls 32) read=1446 us
+#  cmd 0x8E tx=246 rx=1 write=12264 ack=1831 wait=78871(polls 66) read=2085 us
+#  req b'43000002d0f0' -> 244 bytes, set 95869 us
+#  cmd 0x86 tx=2 rx=7 write=898 ack=1805 wait=36329(polls 31) read=1446 us
+#  cmd 0x8E tx=70 rx=1 write=4003 ack=1817 wait=25635(polls 22) read=2074 us
+#  req b'43000003c040' -> 68 bytes, set 34363 us
+#  cmd 0x86 tx=2 rx=2 write=895 ack=1821 wait=17049(polls 15) read=1423 us
+#  cmd 0x8E tx=4 rx=1 write=929 ack=1819 wait=6211(polls 6) read=2073 us
+#  req b'44' -> 2 bytes, set 11797 us
+#  cmd 0x86 tx=2 rx=1 write=897 ack=1809 wait=3790(polls 4) read=1421 us
+# link 1 done+released in 709 ms, ops {b'H': 1, b'C': 5, b'D': 1}
+#   tg_get_us n=7 min=14329 med=39580 max=40906
+#   tg_set_us n=7 min=11797 med=95623 max=95869
+# waiting as target
