@@ -1,0 +1,26 @@
+# receiver i2c.scan: ['0x19', '0x24', '0x36', '0x44']
+# receiver PN532 fw (50, 1, 6) i2c 400000 mem_free 179632
+# config baud=106 chunk=240 runs=3 timeout_code=0x0B atr_timeout_code=0x0B
+# run 1/3: bring wands together
+# link up after 48 ms / 1 polls, tg=1 ATR_RES b'aa9988776655443322110000000901' (TO=0x09)
+RESULT OK name=dep_jumpin.bin bytes=7048 i2c=400000 baud=106 chunk=240 timeout_code=0x0B poll_ms=48 xfer_ms=5120 Bps=1376 rtt_us_min=84787 med=168743 max=184434
+#   header_us 61930
+#   wait_us n=30 min=76682 med=153450 max=168997
+#   read_us n=30 min=5010 med=12077 max=13109
+#   ready_polls n=30 min=58 med=112 max=125
+# separate wands
+# run 2/3: bring wands together
+# link up after 47 ms / 1 polls, tg=1 ATR_RES b'aa9988776655443322110000000901' (TO=0x09)
+RESULT OK name=dep_jumpin.bin bytes=7048 i2c=400000 baud=106 chunk=240 timeout_code=0x0B poll_ms=47 xfer_ms=5100 Bps=1381 rtt_us_min=84767 med=168798 max=169258
+#   header_us 61313
+#   wait_us n=30 min=76656 med=153497 max=153988
+#   read_us n=30 min=4991 med=12062 max=12538
+#   ready_polls n=30 min=58 med=112 max=113
+# separate wands
+# run 3/3: bring wands together
+# link up after 49 ms / 1 polls, tg=1 ATR_RES b'aa9988776655443322110000000901' (TO=0x09)
+RESULT FAIL err='ready timeout after 1000 ms, 818 polls (last I2C error: None)' after_ms=6083 bytes_received=7048 op=b'D' chunks_ok=30
+#   failing cmd timing {'write': 892, 'tx': 4, 'ack': 1826, 'cmd': 64}
+#   rtt_us n=30 min=85568 med=168679 max=184596
+# separate wands
+SUMMARY ok=2/3

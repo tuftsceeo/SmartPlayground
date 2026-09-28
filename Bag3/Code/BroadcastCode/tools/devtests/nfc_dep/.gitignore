@@ -1,0 +1,2 @@
+# Bench logs are results, keep them despite the repo-wide *.log rule.
+!logs/*.log

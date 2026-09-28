@@ -1,0 +1,43 @@
+# receiver i2c.scan: ['0x19', '0x24', '0x36', '0x44']
+# receiver PN532 fw (50, 1, 6) i2c 100000 mem_free 171696
+# config baud=106 chunk=240 runs=5 timeout_code=0x0B atr_timeout_code=0x0B
+# run 1/5: bring wands together
+# link up after 56 ms / 1 polls, tg=1 ATR_RES b'aa9988776655443322110000000901' (TO=0x09)
+RESULT OK name=dep_kb1.bin bytes=1024 i2c=100000 baud=106 chunk=240 timeout_code=0x0B poll_ms=56 xfer_ms=1219 Bps=840 rtt_us_min=109514 med=232554 max=245980
+#   header_us 98063
+#   wait_us n=5 min=95037 med=194421 max=207928
+#   read_us n=5 min=10282 med=32510 max=33560
+#   ready_polls n=5 min=67 med=129 max=139
+# separate wands
+# run 2/5: bring wands together
+# link up after 54 ms / 1 polls, tg=1 ATR_RES b'aa9988776655443322110000000901' (TO=0x09)
+RESULT OK name=dep_kb1.bin bytes=1024 i2c=100000 baud=106 chunk=240 timeout_code=0x0B poll_ms=54 xfer_ms=1201 Bps=852 rtt_us_min=110789 med=231118 max=232393
+#   header_us 96396
+#   wait_us n=5 min=95122 med=194457 max=194513
+#   read_us n=5 min=10273 med=32467 max=32486
+#   ready_polls n=5 min=67 med=129 max=129
+# separate wands
+# run 3/5: bring wands together
+# link up after 55 ms / 1 polls, tg=1 ATR_RES b'aa9988776655443322110000000901' (TO=0x09)
+RESULT OK name=dep_kb1.bin bytes=1024 i2c=100000 baud=106 chunk=240 timeout_code=0x0B poll_ms=55 xfer_ms=1199 Bps=854 rtt_us_min=110100 med=230926 max=231502
+#   header_us 97062
+#   wait_us n=5 min=95578 med=194222 max=194810
+#   read_us n=5 min=10308 med=32460 max=32526
+#   ready_polls n=5 min=68 med=129 max=130
+# separate wands
+# run 4/5: bring wands together
+# link up after 55 ms / 1 polls, tg=1 ATR_RES b'aa9988776655443322110000000901' (TO=0x09)
+RESULT OK name=dep_kb1.bin bytes=1024 i2c=100000 baud=106 chunk=240 timeout_code=0x0B poll_ms=55 xfer_ms=1215 Bps=842 rtt_us_min=109431 med=231894 max=246003
+#   header_us 97123
+#   wait_us n=5 min=94932 med=194371 max=195071
+#   read_us n=5 min=10270 med=32706 max=32991
+#   ready_polls n=5 min=67 med=129 max=130
+# separate wands
+# run 5/5: bring wands together
+# link up after 55 ms / 1 polls, tg=1 ATR_RES b'aa9988776655443322110000000901' (TO=0x09)
+Traceback (most recent call last):
+  File "<stdin>", line 144, in <module>
+  File "<stdin>", line 137, in main
+  File "<stdin>", line 107, in one_run
+  File "pn532_dep.py", line 283, in release
+DepError: InRelease status 0x13 (DEP bad frame format)

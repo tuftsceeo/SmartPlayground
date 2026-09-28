@@ -1,0 +1,14 @@
+# receiver modules pn532_dep 2026-09-28b, dep_proto 2026-09-28b
+# receiver i2c.scan: ['0x19', '0x24', '0x36', '0x44']
+# receiver PN532 fw (50, 1, 6) i2c 400000 mem_free 82096
+# config baud=424 chunk=240 runs=1 timeout_code=0x0B atr_timeout_code=0x0B gi=b''
+# run 1/1: bring wands together
+# link up after 47 ms / 1 polls, tg=1 ATR_RES b'aa9988776655443322110000000901' (TO=0x09)
+#   target PP=0x01 LR=0 (64-byte frames) G=0 NAD=1
+RESULT OK name=dep_kb1.bin bytes=1024 i2c=400000 baud=424 chunk=240 timeout_code=0x0B poll_ms=47 xfer_ms=699 Bps=1464 rtt_us_min=56818 med=138836 max=139208
+#   header_us 46528
+#   wait_us n=5 min=49743 med=123564 max=123959
+#   read_us n=5 min=3892 med=12057 max=12147
+#   ready_polls n=5 min=42 med=101 max=101
+# separate wands
+SUMMARY ok=1/1

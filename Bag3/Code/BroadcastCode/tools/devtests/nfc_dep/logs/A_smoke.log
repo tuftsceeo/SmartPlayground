@@ -1,0 +1,9 @@
+# sender i2c.scan: ['0x19', '0x24', '0x36', '0x44']
+# sender PN532 fw (50, 1, 6) i2c 100000 mem_free 94736
+# serving dep_kb1.bin (1024 bytes), sha256 b'0f4c37475faff1f2'
+# waiting as target
+# link 1 up, mode 0x04, initiator cmd b'11d400fe06250e3a028d799ba200000000'
+# link 1 done in 1222 ms, ops {b'H': 1, b'C': 5, b'D': 1}
+#   tg_get_us n=7 min=47269 med=90132 max=104749
+#   tg_set_us n=7 min=17433 med=138577 max=139436
+# waiting as target

@@ -1,0 +1,19 @@
+# sender i2c.scan: ['0x19', '0x24', '0x36', '0x44']
+# sender PN532 fw (50, 1, 6) i2c 400000 mem_free 163408
+# serving dep_jumpin.bin (7048 bytes), sha256 b'ea8e64c26cfed59f'
+# waiting as target
+# link 1 up, mode 0x04, initiator cmd b'11d400369f5d87d6e1b9f03efd00000000'
+# link 1 done+released in 5142 ms, ops {b'H': 1, b'C': 30, b'D': 1}
+#   tg_get_us n=32 min=25920 med=52937 max=55001
+#   tg_set_us n=32 min=12468 med=114168 max=129627
+# waiting as target
+# link 2 up, mode 0x04, initiator cmd b'11d400282b9758530e144cbb0f00000000'
+# link 2 done+released in 5120 ms, ops {b'H': 1, b'C': 30, b'D': 1}
+#   tg_get_us n=32 min=24678 med=52927 max=53785
+#   tg_set_us n=32 min=12492 med=114199 max=115276
+# waiting as target
+# link 3 up, mode 0x04, initiator cmd b'11d400f2797dc8a741841ce9ae00000000'
+# link 3 done+released in 6127 ms, ops {b'H': 1, b'C': 30, b'D': 1}
+#   tg_get_us n=32 min=26121 med=52954 max=68425
+#   tg_set_us n=32 min=12359 med=114176 max=117162
+# waiting as target
