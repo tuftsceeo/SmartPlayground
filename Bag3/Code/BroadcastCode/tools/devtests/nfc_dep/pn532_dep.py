@@ -75,6 +75,22 @@ STATUS_NAMES = {
 
 _ACK_FRAME = b'\x00\x00\xFF\x00\xFF\x00'
 
+# NFC-DEP general bytes (Gi/Gt) sent at activation. Empty by default, which is
+# what the first bench runs used (both sides then advertised LR=0, 64-byte
+# frames). LLCP_GB is the NFC Forum LLCP magic 46 66 6D plus a VERSION TLV
+# (01 01 10); set GENERAL_BYTES = LLCP_GB to test whether the PN532 firmware
+# advertises a larger frame (LR=3, 254 bytes) when general bytes are present.
+LLCP_GB = bytes([0x46, 0x66, 0x6D, 0x01, 0x01, 0x10])
+GENERAL_BYTES = b''
+
+
+def pp_str(pp):
+    """Decode an ATR PP byte: LR (max DEP frame payload), G (general bytes), NAD."""
+    lr = (pp >> 4) & 0x03
+    return "PP=0x%02X LR=%d (%d-byte frames) G=%d NAD=%d" % (
+        pp, lr, (64, 128, 192, 254)[lr], (pp >> 1) & 1, pp & 1)
+
+
 # Polling request required as PassiveInitiatorData at 212/424 kbps.
 _FELICA_POLL = bytes([0x00, 0xFF, 0xFF, 0x00, 0x00])
 
@@ -250,10 +266,12 @@ class PN532Dep:
 
     def jump_for_dep(self, baud=BAUD_106, timeout_ms=1000):
         """Activate a passive DEP target. Returns the ATR_RES info bytes, or None if none in field."""
+        gi_flag = 0x04 if GENERAL_BYTES else 0x00
         if baud == BAUD_106:
-            params = bytes([0x00, baud, 0x00])
+            params = bytes([0x00, baud, gi_flag])
         else:
-            params = bytes([0x00, baud, 0x01]) + _FELICA_POLL
+            params = bytes([0x00, baud, 0x01 | gi_flag]) + _FELICA_POLL
+        params += GENERAL_BYTES
         resp = self.command(CMD_INJUMPFORDEP, params, max_data=64, timeout_ms=timeout_ms)
         status = resp[0] & 0x3F
         if status == STATUS_TIMEOUT:
@@ -287,7 +305,7 @@ class PN532Dep:
     def init_as_target(self, timeout_ms=None):
         """Wait for an initiator to activate this PN532. Returns (mode, initiator command bytes)."""
         params = (bytes([TG_MODE_DEP_ONLY]) + _MIFARE_PARAMS + _FELICA_PARAMS
-                  + _NFCID3T + b'\x00' + b'\x00')
+                  + _NFCID3T + bytes([len(GENERAL_BYTES)]) + GENERAL_BYTES + b'\x00')
         resp = self.command(CMD_TGINITASTARGET, params, max_data=64, timeout_ms=timeout_ms)
         return resp[0], resp[1:]
 

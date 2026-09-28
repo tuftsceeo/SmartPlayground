@@ -34,6 +34,7 @@ CHUNK = 240            # 64 / 128 / 192 / 240
 RUNS = 3
 OUT = "/dep_rx.bin"
 TRACE = False          # True: one line per PN532 command
+USE_LLCP_GB = False    # True: send LLCP general bytes at activation (frame-size test)
 
 _BAUD_KBPS = {BAUD_106: 106, BAUD_212: 212, BAUD_424: 424}
 
@@ -68,6 +69,8 @@ def one_run(nfc):
     # ATR_RES: NFCID3t(10) DIDt BSt BRt TO PPt [Gt]; TO sets the target's response waiting time.
     print("# link up after %d ms / %d polls, tg=%d ATR_RES %s (TO=0x%02X)"
           % (poll_ms, attempts, nfc.tg, hexlify(atr), atr[13] & 0x0F if len(atr) > 13 else 0xFF))
+    if len(atr) > 14:
+        print("#   target %s" % pn532_dep.pp_str(atr[14]))
     rtts, waits, reads, polls = [], [], [], []
     state = {'op': None, 'off': 0, 'hdr_us': 0}
 
@@ -128,13 +131,16 @@ def one_run(nfc):
 def main():
     i2c = machine.SoftI2C(sda=machine.Pin(I2C_SDA), scl=machine.Pin(I2C_SCL), freq=I2C_FREQ)
     print("# receiver i2c.scan:", ["0x%02X" % a for a in i2c.scan()])
+    if USE_LLCP_GB:
+        pn532_dep.GENERAL_BYTES = pn532_dep.LLCP_GB
     nfc = PN532Dep(i2c, NFC_ADDR)
     nfc.trace = TRACE
     nfc.abort()   # main.py was interrupted by mpremote and may have left a command pending
     print("# receiver PN532 fw", nfc.begin(), "i2c", I2C_FREQ, "mem_free", gc.mem_free())
     nfc.configure_initiator()
-    print("# config baud=%d chunk=%d runs=%d timeout_code=0x%02X atr_timeout_code=0x%02X"
-          % (_BAUD_KBPS[BAUD], CHUNK, RUNS, pn532_dep.TIMEOUT_CODE, pn532_dep.ATR_TIMEOUT_CODE))
+    print("# config baud=%d chunk=%d runs=%d timeout_code=0x%02X atr_timeout_code=0x%02X gi=%s"
+          % (_BAUD_KBPS[BAUD], CHUNK, RUNS, pn532_dep.TIMEOUT_CODE, pn532_dep.ATR_TIMEOUT_CODE,
+             hexlify(pn532_dep.GENERAL_BYTES)))
     ok = 0
     for i in range(RUNS):
         print("# run %d/%d: bring wands together" % (i + 1, RUNS))

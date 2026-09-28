@@ -16,6 +16,7 @@ import time
 import machine
 from binascii import hexlify
 
+import pn532_dep
 from pn532_dep import PN532Dep, DepError, STATUS_RELEASED
 from dep_proto import build_header, handle_request, stats, ProtoError
 
@@ -27,6 +28,7 @@ NFC_ADDR = 0x24
 
 PAYLOAD = "dep_jumpin.bin"  # file on this wand's flash to serve (named to avoid the wand's own games)
 TRACE = False          # True: one line per PN532 command and per request
+USE_LLCP_GB = False    # True: send LLCP general bytes at activation (frame-size test)
 REQ_MAX = 16           # largest request this sender reads (dep_proto requests are <= 6 bytes)
 
 
@@ -74,6 +76,8 @@ def serve_link(nfc, header, data, log):
 def main():
     i2c = machine.SoftI2C(sda=machine.Pin(I2C_SDA), scl=machine.Pin(I2C_SCL), freq=I2C_FREQ)
     print("# sender i2c.scan:", ["0x%02X" % a for a in i2c.scan()])
+    if USE_LLCP_GB:
+        pn532_dep.GENERAL_BYTES = pn532_dep.LLCP_GB
     nfc = PN532Dep(i2c, NFC_ADDR)
     nfc.trace = TRACE
     nfc.abort()   # main.py was interrupted by mpremote and may have left a command pending
@@ -88,7 +92,11 @@ def main():
         mode, atr_req = nfc.init_as_target()
         links += 1
         t0 = time.ticks_ms()
-        print("# link %d up, mode 0x%02X, initiator cmd %s" % (links, mode, hexlify(atr_req)))
+        print("# link %d up, mode 0x%02X, initiator cmd %s gt=%s"
+              % (links, mode, hexlify(atr_req), hexlify(pn532_dep.GENERAL_BYTES)))
+        # atr_req: LEN D4 00 NFCID3i(10) DIDi BSi BRi PPi [Gi]
+        if len(atr_req) > 16 and atr_req[1:3] == b'\xd4\x00':
+            print("#   initiator %s" % pn532_dep.pp_str(atr_req[16]))
         log = {'get': [], 'set': [], 'ops': {}, 'last': None, 'end': None}
         try:
             serve_link(nfc, header, data, log)
