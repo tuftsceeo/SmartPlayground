@@ -1,0 +1,11 @@
+# receiver i2c.scan: ['0x19', '0x24', '0x36', '0x44']
+# receiver PN532 fw (50, 1, 6) i2c 100000 mem_free 122832
+# config baud=106 chunk=240 runs=3 timeout_code=0x0B atr_timeout_code=0x0B
+# run 1/3: bring wands together
+# link up after 55 ms / 1 polls, tg=1 ATR_RES b'aa9988776655443322110000000901' (TO=0x09)
+Traceback (most recent call last):
+  File "<stdin>", line 144, in <module>
+  File "<stdin>", line 137, in main
+  File "<stdin>", line 107, in one_run
+  File "pn532_dep.py", line 283, in release
+DepError: InRelease status 0x01 (timeout)
