@@ -17,7 +17,7 @@ import machine
 from binascii import hexlify
 
 from pn532_dep import PN532Dep, DepError, STATUS_RELEASED
-from dep_proto import build_header, handle_request, stats, ProtoError, MAX_CHUNK
+from dep_proto import build_header, handle_request, stats, ProtoError
 
 # Mock Wand wiring (MockWand/lib/hubtype.py "wand").
 I2C_SDA = 22
@@ -27,6 +27,7 @@ NFC_ADDR = 0x24
 
 PAYLOAD = "dep_jumpin.bin"  # file on this wand's flash to serve (named to avoid the wand's own games)
 TRACE = False          # True: one line per PN532 command and per request
+REQ_MAX = 16           # largest request this sender reads (dep_proto requests are <= 6 bytes)
 
 
 def serve_link(nfc, header, data, log):
@@ -36,7 +37,9 @@ def serve_link(nfc, header, data, log):
     """
     while True:
         try:
-            req = nfc.get_data(MAX_CHUNK + 16, timeout_ms=2000)
+            # Requests are at most 6 bytes ('C' + offset + len); sizing the I2C read to
+            # that instead of a full frame saves ~250 bytes of bus time per chunk.
+            req = nfc.get_data(REQ_MAX, timeout_ms=2000)
         except DepError as e:
             if e.status == STATUS_RELEASED:
                 log['end'] = "done+released" if log['end'] == "done" else "released"
