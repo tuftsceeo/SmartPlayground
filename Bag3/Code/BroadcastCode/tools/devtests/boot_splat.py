@@ -178,10 +178,14 @@ class _PressSplat(FakeSplat):
 _ps = _PressSplat()
 main.game_module("jumpin")
 import jumpin as _jumpin
-_jumpin.play(_ps, FakeLeds(), FakeEnow(script=[(None, None, None)] * 3
-                                        + [("stop", {}, "AA")]))
-check("jumpin blinks green on a press and exits on stop",
-      _ps.colors == ["turngreen"], str(_ps.colors))
+_je = FakeEnow(script=[(None, None, None)] * 3
+               + [("raw", {"type": "jumpin", "from": "wand"}, "AA")]
+               + [(None, None, None)] * 3 + [("stop", {}, "AA")])
+_jumpin.play(_ps, FakeLeds(), _je)
+check("jumpin: a Splat press blinks green and broadcasts to the wand",
+      _je.sent == [{"type": "jumpin", "from": "splat"}], str(_je.sent))
+check("jumpin: a wand press blinks the Splat too, and stop ends it",
+      _ps.colors == ["turngreen", "turngreen"], str(_ps.colors))
 sys.modules.pop("jumpin", None)
 check("pulled games are discovered",
       set(game_store.slugs()) >= {"noplay", "broken", "oldstyle"},

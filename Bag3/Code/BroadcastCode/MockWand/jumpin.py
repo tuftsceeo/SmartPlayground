@@ -2,7 +2,9 @@
 Jump In — Button Press LED Blink
 ================================
 Tap the "jumpin" NFC tag to enter this mode.
-Press the button to blink all LEDs green.
+Press the button to blink all LEDs green. Each press also broadcasts
+{"type": "jumpin", "from": "wand"}; a {"type": "jumpin", "from": "splat"}
+from the Splat Companion's jumpin blinks this wand too.
 Tap "stop" tag to exit back to programming mode.
 
 Colors from leds.py — auto-scale with ambient brightness.
@@ -77,11 +79,16 @@ class JumpInGame:
         self._frame = 0
     
     def _check_stop(self):
-        """Check ESP-NOW and NFC for stop. Returns True if stop detected."""
+        """Check ESP-NOW and NFC for stop. Returns True if stop detected.
+        A Splat Companion jumpin press blinks this wand."""
         if self.enow:
-            msg_type, _, _ = self.enow.poll()
+            msg_type, data, _ = self.enow.poll()
             if msg_type in ("stop", "start_game"):
                 return True
+            if (isinstance(data, dict) and data.get("type") == "jumpin"
+                    and data.get("from") == "splat"):
+                print("  Splat pressed")
+                self._blink_green()
         if self._frame % NFC_POLL_INTERVAL != 0:
             return False
         try:
@@ -116,6 +123,8 @@ class JumpInGame:
             # ── GAME LOGIC ──
             if self.btn.value() == 0:
                 print("  Button pressed!")
+                if self.enow:
+                    self.enow.broadcast({"type": "jumpin", "from": "wand"})
                 self._blink_green()
             
             time.sleep_ms(LOOP_DELAY_MS)
