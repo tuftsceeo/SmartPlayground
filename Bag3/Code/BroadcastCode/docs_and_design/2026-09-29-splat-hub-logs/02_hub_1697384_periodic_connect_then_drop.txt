@@ -1,0 +1,109 @@
+[   0.0s] # monitor: port opened
+[   0.1s] ESP-ROM:esp32c6-20220919
+[   0.1s] Build:Sep 19 2022
+[   0.1s] rst:0xc (SW_CPU),boot:0x7f (SPI_FAST_FLASH_BOOT)
+[   0.1s] Saved PC:0x4001975a
+[   0.1s] SPIWP:0xee
+[   0.1s] mode:DIO, clock div:2
+[   0.1s] load:0x40875730,len:0xdbc
+[   0.1s] load:0x4086b910,len:0xc50
+[   0.1s] load:0x4086e610,len:0x2e3c
+[   0.1s] entry 0x4086b910
+[   1.0s] MEM tag=boot gct=334336 gcu=6592 gcf=327744 idf=291600 idfmax=270336
+[   1.4s] [hubtype] splat_companion (12 LEDs)
+[   2.0s] MEM tag=after-imports gct=334336 gcu=43168 gcf=291168 idf=295340 idfmax=270336
+[   2.0s] 
+[   2.0s] ==================================================
+[   2.0s]   Splat Companion
+[   2.0s]   Hub type: splat_companion
+[   2.0s] ==================================================
+[   2.0s] MEM tag=pre-ble gct=334336 gcu=44800 gcf=289536 idf=295340 idfmax=270336
+[   2.1s] MEM tag=post-ble gct=317952 gcu=45504 gcf=272448 idf=266740 idfmax=253952
+[   4.2s]   Splats configured: 2
+[   4.2s] MEM tag=pre-enow gct=316352 gcu=110272 gcf=206080 idf=201164 idfmax=188416
+[   4.2s]   ESPNow(EUM): active (MAC: A0:F2:62:85:A9:9C)
+[   4.2s] MEM tag=post-enow gct=312256 gcu=114336 gcf=197920 idf=197724 idfmax=184320
+[   4.3s]   [WARN] Battery:
+[   4.3s] Traceback (most recent call last):
+[   4.3s]   File "main.py", line 501, in main
+[   4.3s]   File "/lib/max17048.py", line 91, in read_all
+[   4.3s]   File "/lib/max17048.py", line 50, in voltage
+[   4.3s]   File "/lib/max17048.py", line 40, in _read_reg16
+[   4.3s] OSError: [Errno 19] ENODEV
+[   4.4s]   PN532 firmware 1.6 (IC 0x32) -- NFC ready
+[   4.4s]   Boot complete
+[   4.4s] 
+[   4.5s] {"hub": "splat_companion", "games": ["jumpin", "splatwhack"], "version": "0.1.0", "device": "splat_companion", "type": "identity"}
+[   9.6s] {"up": 8659, "type": "heartbeat"}
+[  14.6s] {"up": 13661, "type": "heartbeat"}
+[  17.5s]   SplatLink: ready, Splat AB:42:00:00:62:2F (connects=1)
+[  17.6s]   Companion: Splat 0 (AB:42:00:00:62:2F) ready
+[  17.6s]   SplatLink: connection to AB:42:00:00:62:2F lost (drops=1)
+[  17.6s]   Companion: Splat 0 link down
+[  19.7s] {"up": 18781, "type": "heartbeat"}
+[  24.7s] {"up": 23806, "type": "heartbeat"}
+[  29.8s] {"up": 28856, "type": "heartbeat"}
+[  34.8s] {"up": 33885, "type": "heartbeat"}
+[  37.7s]   SplatLink: attempt 1 not ready after 20204 ms (failed=1), retry in 2000 ms
+[  38.9s]   SplatLink: ready, Splat AB:42:00:00:62:2F (connects=2)
+[  38.9s]   Companion: Splat 0 (AB:42:00:00:62:2F) ready
+[  39.9s] {"up": 38984, "type": "heartbeat"}
+[  40.0s]   SplatLink: connection to AB:42:00:00:62:2F lost (drops=2)
+[  40.0s]   Companion: Splat 0 link down
+[  45.0s] {"up": 44091, "type": "heartbeat"}
+[  50.0s] {"up": 49146, "type": "heartbeat"}
+[  55.1s] {"up": 54180, "type": "heartbeat"}
+[  60.1s] {"up": 59236, "type": "heartbeat"}
+[  60.1s]   SplatLink: attempt 2 not ready after 20251 ms (failed=2), retry in 2000 ms
+[  61.3s]   SplatLink: ready, Splat AB:42:00:00:62:2F (connects=3)
+[  61.4s]   Companion: Splat 0 (AB:42:00:00:62:2F) ready
+[  62.3s]   SplatLink: connection to AB:42:00:00:62:2F lost (drops=3)
+[  62.3s]   Companion: Splat 0 link down
+[  65.3s] {"up": 64425, "type": "heartbeat"}
+[  70.4s] {"up": 69470, "type": "heartbeat"}
+[  75.4s] {"up": 74511, "type": "heartbeat"}
+[  80.5s] {"up": 79557, "type": "heartbeat"}
+[  82.5s]   SplatLink: attempt 3 not ready after 20238 ms (failed=3), retry in 2000 ms
+[  83.7s]   SplatLink: ready, Splat AB:42:00:00:62:2F (connects=4)
+[  83.7s]   Companion: Splat 0 (AB:42:00:00:62:2F) ready
+[  84.7s]   SplatLink: connection to AB:42:00:00:62:2F lost (drops=4)
+[  84.7s]   Companion: Splat 0 link down
+[  85.6s] {"up": 84716, "type": "heartbeat"}
+[  90.6s] {"up": 89729, "type": "heartbeat"}
+[  95.7s] {"up": 94760, "type": "heartbeat"}
+[ 100.7s] {"up": 99810, "type": "heartbeat"}
+[ 104.8s]   SplatLink: attempt 4 not ready after 20186 ms (failed=4), retry in 2000 ms
+[ 105.8s] {"up": 104899, "type": "heartbeat"}
+[ 106.1s]   SplatLink: ready, Splat AB:42:00:00:62:2F (connects=5)
+[ 106.1s]   Companion: Splat 0 (AB:42:00:00:62:2F) ready
+[ 107.0s]   SplatLink: connection to AB:42:00:00:62:2F lost (drops=5)
+[ 107.0s]   Companion: Splat 0 link down
+[ 110.9s] {"up": 109992, "type": "heartbeat"}
+[ 115.9s] {"up": 115011, "type": "heartbeat"}
+[ 121.0s] {"up": 120062, "type": "heartbeat"}
+[ 126.0s] {"up": 125085, "type": "heartbeat"}
+[ 127.1s]   SplatLink: attempt 5 not ready after 20145 ms (failed=5), retry in 2000 ms
+[ 128.4s]   SplatLink: ready, Splat AB:42:00:00:62:2F (connects=6)
+[ 128.4s]   Companion: Splat 0 (AB:42:00:00:62:2F) ready
+[ 129.3s]   SplatLink: connection to AB:42:00:00:62:2F lost (drops=6)
+[ 129.3s]   Companion: Splat 0 link down
+[ 131.1s] {"up": 130239, "type": "heartbeat"}
+[ 136.2s] {"up": 135271, "type": "heartbeat"}
+[ 141.2s] {"up": 140306, "type": "heartbeat"}
+[ 146.2s] {"up": 145331, "type": "heartbeat"}
+[ 149.5s]   SplatLink: attempt 6 not ready after 20189 ms (failed=6), retry in 2000 ms
+[ 151.0s]   SplatLink: ready, Splat AB:42:00:00:62:2F (connects=7)
+[ 151.0s]   Companion: Splat 0 (AB:42:00:00:62:2F) ready
+[ 151.4s] {"up": 150459, "type": "heartbeat"}
+[ 151.7s]   SplatLink: connection to AB:42:00:00:62:2F lost (drops=7)
+[ 151.7s]   Companion: Splat 0 link down
+[ 156.5s] {"up": 155562, "type": "heartbeat"}
+[ 161.5s] {"up": 160591, "type": "heartbeat"}
+[ 166.5s] {"up": 165619, "type": "heartbeat"}
+[ 171.6s] {"up": 170677, "type": "heartbeat"}
+[ 171.9s]   SplatLink: attempt 7 not ready after 20213 ms (failed=7), retry in 2000 ms
+[ 173.1s]   SplatLink: ready, Splat AB:42:00:00:62:2F (connects=8)
+[ 173.1s]   Companion: Splat 0 (AB:42:00:00:62:2F) ready
+[ 174.1s]   SplatLink: connection to AB:42:00:00:62:2F lost (drops=8)
+[ 174.1s]   Companion: Splat 0 link down
+[ 176.8s] {"up": 175856, "type": "heartbeat"}

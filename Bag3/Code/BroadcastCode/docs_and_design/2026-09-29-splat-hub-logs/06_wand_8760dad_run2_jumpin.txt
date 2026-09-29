@@ -1,0 +1,75 @@
+[   0.0s] # monitor: port opened
+[  49.1s]   Stop detected
+[  49.1s] 
+[  49.1s]   === RETURNING TO PROGRAMMING MODE ===
+[  49.1s] 
+[  49.1s] {"slug": "jumpin", "type": "game_end"}
+[  49.1s] MEM tag=post-game:jumpin gct=296768 gcu=240704 gcf=56064 idf=52332 idfmax=40960
+[  49.1s] MEM tag=post-unload:jumpin gct=296768 gcu=89216 gcf=207552 idf=52332 idfmax=40960
+[  49.2s] MEM tag=pre-import:jumpin gct=296768 gcu=92896 gcf=203872 idf=52332 idfmax=40960
+[  49.4s] MEMSPAN tag=import:jumpin ms=208 dgcu=6912 gcf=196736 idf=52332
+[  49.4s] {"slug": "jumpin", "type": "game_start"}
+[  49.5s] 
+[  49.5s]   === BUTTON BLINK MODE ===
+[  49.5s]   Press button to blink green LEDs!
+[  49.5s]   Tap STOP tag or station stop to exit
+[  49.5s] 
+[  49.5s]   Stop detected
+[  49.5s] 
+[  49.5s]   === RETURNING TO PROGRAMMING MODE ===
+[  49.5s] 
+[  49.5s] {"slug": "jumpin", "type": "game_end"}
+[  49.5s] MEM tag=post-game:jumpin gct=296768 gcu=103200 gcf=193568 idf=52332 idfmax=40960
+[  49.6s] MEM tag=post-unload:jumpin gct=296768 gcu=89216 gcf=207552 idf=52332 idfmax=40960
+[  49.6s] MEM tag=pre-import:jumpin gct=296768 gcu=92896 gcf=203872 idf=52332 idfmax=40960
+[  49.9s] MEMSPAN tag=import:jumpin ms=209 dgcu=6912 gcf=196736 idf=52332
+[  49.9s] {"slug": "jumpin", "type": "game_start"}
+[  50.0s] 
+[  50.0s]   === BUTTON BLINK MODE ===
+[  50.0s]   Press button to blink green LEDs!
+[  50.0s]   Tap STOP tag or station stop to exit
+[  50.0s] 
+[  53.3s]   Button pressed!
+[  53.9s]   Button pressed!
+[  62.3s]   Stop detected
+[  62.3s] 
+[  62.3s]   === RETURNING TO PROGRAMMING MODE ===
+[  62.3s] 
+[  62.3s] {"slug": "jumpin", "type": "game_end"}
+[  62.3s] MEM tag=post-game:jumpin gct=296768 gcu=139232 gcf=157536 idf=52332 idfmax=40960
+[  62.3s] MEM tag=post-unload:jumpin gct=296768 gcu=89216 gcf=207552 idf=52332 idfmax=40960
+[  62.6s] {"up": 5661547, "type": "heartbeat"}
+[  63.1s]   Reset via broadcast
+[  64.0s] MEM tag=pre-import:jumpin gct=296768 gcu=106912 gcf=189856 idf=52332 idfmax=40960
+[  64.2s] MEMSPAN tag=import:jumpin ms=205 dgcu=6912 gcf=182720 idf=52332
+[  64.2s] {"slug": "jumpin", "type": "game_start"}
+[  64.3s] 
+[  64.3s]   === BUTTON BLINK MODE ===
+[  64.3s]   Press button to blink green LEDs!
+[  64.3s]   Tap STOP tag or station stop to exit
+[  64.3s] 
+[  64.3s]   Stop detected
+[  64.3s] 
+[  64.3s]   === RETURNING TO PROGRAMMING MODE ===
+[  64.3s] 
+[  64.3s] {"slug": "jumpin", "type": "game_end"}
+[  64.3s] MEM tag=post-game:jumpin gct=296768 gcu=117216 gcf=179552 idf=52332 idfmax=40960
+[  64.4s] MEM tag=post-unload:jumpin gct=296768 gcu=89216 gcf=207552 idf=52332 idfmax=40960
+[  64.4s] MEM tag=pre-import:jumpin gct=296768 gcu=92896 gcf=203872 idf=52332 idfmax=40960
+[  64.6s] MEMSPAN tag=import:jumpin ms=209 dgcu=6912 gcf=196736 idf=52332
+[  64.6s] {"slug": "jumpin", "type": "game_start"}
+[  64.7s] 
+[  64.7s]   === BUTTON BLINK MODE ===
+[  64.7s]   Press button to blink green LEDs!
+[  64.8s]   Tap STOP tag or station stop to exit
+[  64.8s] 
+[  67.3s]   Button pressed!
+[  67.8s]   Button pressed!
+[ 140.1s]   Stop detected
+[ 140.1s] 
+[ 140.1s]   === RETURNING TO PROGRAMMING MODE ===
+[ 140.1s] 
+[ 140.1s] {"slug": "jumpin", "type": "game_end"}
+[ 140.1s] MEM tag=post-game:jumpin gct=296768 gcu=105504 gcf=191264 idf=52332 idfmax=40960
+[ 140.1s] MEM tag=post-unload:jumpin gct=296768 gcu=89216 gcf=207552 idf=52332 idfmax=40960
+[ 140.2s] MEM tag=pre-import:jumpin gct=296768 gcu=92896 gcf=203872 idf=52332 idfmax=40960

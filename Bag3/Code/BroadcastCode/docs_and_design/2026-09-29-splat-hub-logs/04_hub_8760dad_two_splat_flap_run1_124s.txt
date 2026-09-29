@@ -1,0 +1,569 @@
+[   0.0s] # monitor: port opened
+[   0.1s] ESP-ROM:esp32c6-20220919
+[   0.1s] Build:Sep 19 2022
+[   0.1s] rst:0xc (SW_CPU),boot:0x7f (SPI_FAST_FLASH_BOOT)
+[   0.1s] Saved PC:0x4001975a
+[   0.1s] SPIWP:0xee
+[   0.1s] mode:DIO, clock div:2
+[   0.1s] load:0x40875730,len:0xdbc
+[   0.1s] load:0x4086b910,len:0xc50
+[   0.1s] load:0x4086e610,len:0x2e3c
+[   0.1s] entry 0x4086b910
+[   1.0s] MEM tag=boot gct=334336 gcu=6592 gcf=327744 idf=291600 idfmax=270336
+[   1.5s] [hubtype] splat_companion (12 LEDs)
+[   2.1s] MEM tag=after-imports gct=334336 gcu=43168 gcf=291168 idf=295340 idfmax=270336
+[   2.1s] 
+[   2.1s] ==================================================
+[   2.1s]   Splat Companion
+[   2.1s]   Hub type: splat_companion
+[   2.1s] ==================================================
+[   2.1s] MEM tag=pre-ble gct=334336 gcu=44800 gcf=289536 idf=295340 idfmax=270336
+[   2.2s] MEM tag=post-ble gct=317952 gcu=45504 gcf=272448 idf=266740 idfmax=253952
+[   4.7s]   Splats configured: 2
+[   4.7s] MEM tag=pre-enow gct=316352 gcu=113296 gcf=203056 idf=201164 idfmax=188416
+[   4.7s]   ESPNow(EUM): active (MAC: A0:F2:62:85:A9:9C)
+[   4.7s] MEM tag=post-enow gct=312256 gcu=117360 gcf=194896 idf=197724 idfmax=184320
+[   4.8s]   [WARN] Battery:
+[   4.8s] Traceback (most recent call last):
+[   4.8s]   File "main.py", line 501, in main
+[   4.8s]   File "/lib/max17048.py", line 91, in read_all
+[   4.8s]   File "/lib/max17048.py", line 50, in voltage
+[   4.8s]   File "/lib/max17048.py", line 40, in _read_reg16
+[   4.8s] OSError: [Errno 19] ENODEV
+[   4.9s]   PN532 firmware 1.6 (IC 0x32) -- NFC ready
+[   4.9s]   Boot complete
+[   4.9s] 
+[   5.0s] {"hub": "splat_companion", "games": ["jumpin", "splatwhack"], "version": "0.1.0", "device": "splat_companion", "type": "identity"}
+[   5.0s]   SplatHub: discovering (2 Splat(s) wanted)
+[   5.3s]   SplatHub: unit 0 -> AB:42:00:00:62:2F
+[   5.3s]   SplatHub: unit 1 -> AB:42:00:00:80:B4
+[   6.2s]   SplatLink: ready, Splat AB:42:00:00:80:B4 (connects=1)
+[   6.2s]   Companion: Splat 1 (AB:42:00:00:80:B4) ready
+[   6.3s]   SplatLink: connection to AB:42:00:00:80:B4 lost (drops=1)
+[   6.3s]   Companion: Splat 1 link down
+[   7.5s]   SplatLink: ready, Splat AB:42:00:00:62:2F (connects=1)
+[   7.6s]   Companion: Splat 0 (AB:42:00:00:62:2F) ready
+[   7.6s]   SplatLink: connection to AB:42:00:00:62:2F lost (drops=1)
+[   7.6s]   Companion: Splat 0 link down
+[   8.5s]   SplatLink: ready, Splat AB:42:00:00:80:B4 (connects=2)
+[   8.5s]   Companion: Splat 1 (AB:42:00:00:80:B4) ready
+[   8.5s]   SplatLink: connection to AB:42:00:00:80:B4 lost (drops=2)
+[   8.5s]   Companion: Splat 1 link down
+[   9.4s]   SplatLink: ready, Splat AB:42:00:00:62:2F (connects=2)
+[   9.5s]   Companion: Splat 0 (AB:42:00:00:62:2F) ready
+[   9.5s]   SplatLink: connection to AB:42:00:00:62:2F lost (drops=2)
+[   9.5s]   Companion: Splat 0 link down
+[  10.2s] {"up": 9261, "type": "heartbeat"}
+[  10.5s]   SplatLink: ready, Splat AB:42:00:00:80:B4 (connects=3)
+[  10.5s]   Companion: Splat 1 (AB:42:00:00:80:B4) ready
+[  10.5s]   SplatLink: connection to AB:42:00:00:80:B4 lost (drops=3)
+[  10.5s]   Companion: Splat 1 link down
+[  11.7s]   SplatLink: ready, Splat AB:42:00:00:62:2F (connects=3)
+[  11.8s]   Companion: Splat 0 (AB:42:00:00:62:2F) ready
+[  11.8s]   SplatLink: connection to AB:42:00:00:62:2F lost (drops=3)
+[  11.8s]   Companion: Splat 0 link down
+[  12.6s]   SplatLink: ready, Splat AB:42:00:00:80:B4 (connects=4)
+[  12.7s]   Companion: Splat 1 (AB:42:00:00:80:B4) ready
+[  12.7s]   SplatLink: connection to AB:42:00:00:80:B4 lost (drops=4)
+[  12.7s]   Companion: Splat 1 link down
+[  13.6s]   SplatLink: ready, Splat AB:42:00:00:62:2F (connects=4)
+[  13.7s]   Companion: Splat 0 (AB:42:00:00:62:2F) ready
+[  13.7s]   SplatLink: connection to AB:42:00:00:62:2F lost (drops=4)
+[  13.7s]   Companion: Splat 0 link down
+[  14.9s]   SplatLink: ready, Splat AB:42:00:00:80:B4 (connects=5)
+[  14.9s]   Companion: Splat 1 (AB:42:00:00:80:B4) ready
+[  15.0s]   SplatLink: connection to AB:42:00:00:80:B4 lost (drops=5)
+[  15.0s]   Companion: Splat 1 link down
+[  15.3s] {"up": 14440, "type": "heartbeat"}
+[  16.2s]   SplatLink: ready, Splat AB:42:00:00:62:2F (connects=5)
+[  16.3s]   Companion: Splat 0 (AB:42:00:00:62:2F) ready
+[  16.3s]   SplatLink: connection to AB:42:00:00:62:2F lost (drops=5)
+[  16.3s]   Companion: Splat 0 link down
+[  17.2s]   SplatLink: ready, Splat AB:42:00:00:80:B4 (connects=6)
+[  17.2s]   Companion: Splat 1 (AB:42:00:00:80:B4) ready
+[  17.2s]   SplatLink: connection to AB:42:00:00:80:B4 lost (drops=6)
+[  17.2s]   Companion: Splat 1 link down
+[  18.1s]   SplatLink: ready, Splat AB:42:00:00:62:2F (connects=6)
+[  18.1s]   Companion: Splat 0 (AB:42:00:00:62:2F) ready
+[  18.2s]   SplatLink: connection to AB:42:00:00:62:2F lost (drops=6)
+[  18.2s]   Companion: Splat 0 link down
+[  19.0s]   SplatLink: ready, Splat AB:42:00:00:80:B4 (connects=7)
+[  19.0s]   Companion: Splat 1 (AB:42:00:00:80:B4) ready
+[  19.1s]   SplatLink: connection to AB:42:00:00:80:B4 lost (drops=7)
+[  19.1s]   Companion: Splat 1 link down
+[  20.2s]   SplatLink: ready, Splat AB:42:00:00:62:2F (connects=7)
+[  20.3s]   Companion: Splat 0 (AB:42:00:00:62:2F) ready
+[  20.4s] {"up": 19543, "type": "heartbeat"}
+[  20.4s]   SplatLink: connection to AB:42:00:00:62:2F lost (drops=7)
+[  20.4s]   Companion: Splat 0 link down
+[  21.3s]   SplatLink: ready, Splat AB:42:00:00:80:B4 (connects=8)
+[  21.4s]   Companion: Splat 1 (AB:42:00:00:80:B4) ready
+[  21.4s]   SplatLink: connection to AB:42:00:00:80:B4 lost (drops=8)
+[  21.4s]   Companion: Splat 1 link down
+[  22.3s]   SplatLink: ready, Splat AB:42:00:00:62:2F (connects=8)
+[  22.4s]   Companion: Splat 0 (AB:42:00:00:62:2F) ready
+[  22.4s]   SplatLink: connection to AB:42:00:00:62:2F lost (drops=8)
+[  22.4s]   Companion: Splat 0 link down
+[  23.5s]   SplatLink: ready, Splat AB:42:00:00:80:B4 (connects=9)
+[  23.5s]   Companion: Splat 1 (AB:42:00:00:80:B4) ready
+[  23.6s]   SplatLink: connection to AB:42:00:00:80:B4 lost (drops=9)
+[  23.6s]   Companion: Splat 1 link down
+[  24.5s]   SplatLink: ready, Splat AB:42:00:00:62:2F (connects=9)
+[  24.5s]   Companion: Splat 0 (AB:42:00:00:62:2F) ready
+[  24.5s]   SplatLink: connection to AB:42:00:00:62:2F lost (drops=9)
+[  24.5s]   Companion: Splat 0 link down
+[  25.5s] {"up": 24610, "type": "heartbeat"}
+[  25.5s]   SplatLink: ready, Splat AB:42:00:00:80:B4 (connects=10)
+[  25.5s]   Companion: Splat 1 (AB:42:00:00:80:B4) ready
+[  25.6s]   SplatLink: connection to AB:42:00:00:80:B4 lost (drops=10)
+[  25.6s]   Companion: Splat 1 link down
+[  26.8s]   SplatLink: ready, Splat AB:42:00:00:62:2F (connects=10)
+[  26.9s]   Companion: Splat 0 (AB:42:00:00:62:2F) ready
+[  26.9s]   SplatLink: connection to AB:42:00:00:62:2F lost (drops=10)
+[  26.9s]   Companion: Splat 0 link down
+[  28.0s]   SplatLink: ready, Splat AB:42:00:00:80:B4 (connects=11)
+[  28.1s]   Companion: Splat 1 (AB:42:00:00:80:B4) ready
+[  28.1s]   SplatLink: connection to AB:42:00:00:80:B4 lost (drops=11)
+[  28.1s]   Companion: Splat 1 link down
+[  29.3s]   SplatLink: ready, Splat AB:42:00:00:62:2F (connects=11)
+[  29.4s]   Companion: Splat 0 (AB:42:00:00:62:2F) ready
+[  29.4s]   SplatLink: connection to AB:42:00:00:62:2F lost (drops=11)
+[  29.4s]   Companion: Splat 0 link down
+[  30.6s] {"up": 29746, "type": "heartbeat"}
+[  30.6s]   SplatLink: ready, Splat AB:42:00:00:80:B4 (connects=12)
+[  30.7s]   Companion: Splat 1 (AB:42:00:00:80:B4) ready
+[  30.7s]   SplatLink: connection to AB:42:00:00:80:B4 lost (drops=12)
+[  30.7s]   Companion: Splat 1 link down
+[  31.6s]   SplatLink: ready, Splat AB:42:00:00:62:2F (connects=12)
+[  31.6s]   Companion: Splat 0 (AB:42:00:00:62:2F) ready
+[  31.6s]   SplatLink: connection to AB:42:00:00:62:2F lost (drops=12)
+[  31.6s]   Companion: Splat 0 link down
+[  32.8s]   SplatLink: ready, Splat AB:42:00:00:80:B4 (connects=13)
+[  32.8s]   Companion: Splat 1 (AB:42:00:00:80:B4) ready
+[  32.9s]   SplatLink: connection to AB:42:00:00:80:B4 lost (drops=13)
+[  32.9s]   Companion: Splat 1 link down
+[  33.7s]   SplatLink: ready, Splat AB:42:00:00:62:2F (connects=13)
+[  33.8s]   Companion: Splat 0 (AB:42:00:00:62:2F) ready
+[  33.8s]   SplatLink: connection to AB:42:00:00:62:2F lost (drops=13)
+[  33.8s]   Companion: Splat 0 link down
+[  34.7s]   SplatLink: ready, Splat AB:42:00:00:80:B4 (connects=14)
+[  34.7s]   Companion: Splat 1 (AB:42:00:00:80:B4) ready
+[  34.8s]   SplatLink: connection to AB:42:00:00:80:B4 lost (drops=14)
+[  34.8s]   Companion: Splat 1 link down
+[  35.8s] {"up": 34899, "type": "heartbeat"}
+[  35.8s]   SplatLink: ready, Splat AB:42:00:00:62:2F (connects=14)
+[  35.9s]   Companion: Splat 0 (AB:42:00:00:62:2F) ready
+[  35.9s]   SplatLink: connection to AB:42:00:00:62:2F lost (drops=14)
+[  35.9s]   Companion: Splat 0 link down
+[  37.0s]   SplatLink: ready, Splat AB:42:00:00:80:B4 (connects=15)
+[  37.0s]   Companion: Splat 1 (AB:42:00:00:80:B4) ready
+[  37.1s]   SplatLink: connection to AB:42:00:00:80:B4 lost (drops=15)
+[  37.1s]   Companion: Splat 1 link down
+[  38.0s]   SplatLink: ready, Splat AB:42:00:00:62:2F (connects=15)
+[  38.0s]   Companion: Splat 0 (AB:42:00:00:62:2F) ready
+[  38.0s]   SplatLink: connection to AB:42:00:00:62:2F lost (drops=15)
+[  38.0s]   Companion: Splat 0 link down
+[  39.2s]   SplatLink: ready, Splat AB:42:00:00:80:B4 (connects=16)
+[  39.2s]   Companion: Splat 1 (AB:42:00:00:80:B4) ready
+[  39.3s]   SplatLink: connection to AB:42:00:00:80:B4 lost (drops=16)
+[  39.3s]   Companion: Splat 1 link down
+[  40.2s]   SplatLink: ready, Splat AB:42:00:00:62:2F (connects=16)
+[  40.2s]   Companion: Splat 0 (AB:42:00:00:62:2F) ready
+[  40.3s]   SplatLink: connection to AB:42:00:00:62:2F lost (drops=16)
+[  40.3s]   Companion: Splat 0 link down
+[  40.9s] {"up": 40030, "type": "heartbeat"}
+[  41.2s]   SplatLink: ready, Splat AB:42:00:00:80:B4 (connects=17)
+[  41.2s]   Companion: Splat 1 (AB:42:00:00:80:B4) ready
+[  41.3s]   SplatLink: connection to AB:42:00:00:80:B4 lost (drops=17)
+[  41.3s]   Companion: Splat 1 link down
+[  42.2s]   SplatLink: ready, Splat AB:42:00:00:62:2F (connects=17)
+[  42.3s]   Companion: Splat 0 (AB:42:00:00:62:2F) ready
+[  42.3s]   SplatLink: connection to AB:42:00:00:62:2F lost (drops=17)
+[  42.3s]   Companion: Splat 0 link down
+[  43.2s]   SplatLink: ready, Splat AB:42:00:00:80:B4 (connects=18)
+[  43.2s]   Companion: Splat 1 (AB:42:00:00:80:B4) ready
+[  43.3s]   SplatLink: connection to AB:42:00:00:80:B4 lost (drops=18)
+[  43.3s]   Companion: Splat 1 link down
+[  44.2s]   SplatLink: ready, Splat AB:42:00:00:62:2F (connects=18)
+[  44.2s]   Companion: Splat 0 (AB:42:00:00:62:2F) ready
+[  44.2s]   SplatLink: connection to AB:42:00:00:62:2F lost (drops=18)
+[  44.2s]   Companion: Splat 0 link down
+[  45.1s]   SplatLink: ready, Splat AB:42:00:00:80:B4 (connects=19)
+[  45.1s]   Companion: Splat 1 (AB:42:00:00:80:B4) ready
+[  45.2s]   SplatLink: connection to AB:42:00:00:80:B4 lost (drops=19)
+[  45.2s]   Companion: Splat 1 link down
+[  46.2s] {"up": 45259, "type": "heartbeat"}
+[  46.2s]   SplatLink: ready, Splat AB:42:00:00:62:2F (connects=19)
+[  46.2s]   Companion: Splat 0 (AB:42:00:00:62:2F) ready
+[  46.3s]   SplatLink: connection to AB:42:00:00:62:2F lost (drops=19)
+[  46.3s]   Companion: Splat 0 link down
+[  47.4s]   SplatLink: ready, Splat AB:42:00:00:80:B4 (connects=20)
+[  47.4s]   Companion: Splat 1 (AB:42:00:00:80:B4) ready
+[  47.5s]   SplatLink: connection to AB:42:00:00:80:B4 lost (drops=20)
+[  47.5s]   Companion: Splat 1 link down
+[  48.4s]   SplatLink: ready, Splat AB:42:00:00:62:2F (connects=20)
+[  48.4s]   Companion: Splat 0 (AB:42:00:00:62:2F) ready
+[  48.4s]   SplatLink: connection to AB:42:00:00:62:2F lost (drops=20)
+[  48.4s]   Companion: Splat 0 link down
+[  49.6s]   SplatLink: ready, Splat AB:42:00:00:80:B4 (connects=21)
+[  49.6s]   Companion: Splat 1 (AB:42:00:00:80:B4) ready
+[  49.6s]   SplatLink: connection to AB:42:00:00:80:B4 lost (drops=21)
+[  49.6s]   Companion: Splat 1 link down
+[  50.5s]   SplatLink: ready, Splat AB:42:00:00:62:2F (connects=21)
+[  50.6s]   Companion: Splat 0 (AB:42:00:00:62:2F) ready
+[  50.6s]   SplatLink: connection to AB:42:00:00:62:2F lost (drops=21)
+[  50.6s]   Companion: Splat 0 link down
+[  51.3s] {"up": 50391, "type": "heartbeat"}
+[  51.9s]   SplatLink: ready, Splat AB:42:00:00:80:B4 (connects=22)
+[  51.9s]   Companion: Splat 1 (AB:42:00:00:80:B4) ready
+[  51.9s]   SplatLink: connection to AB:42:00:00:80:B4 lost (drops=22)
+[  51.9s]   Companion: Splat 1 link down
+[  52.8s]   SplatLink: ready, Splat AB:42:00:00:62:2F (connects=22)
+[  52.9s]   Companion: Splat 0 (AB:42:00:00:62:2F) ready
+[  52.9s]   SplatLink: connection to AB:42:00:00:62:2F lost (drops=22)
+[  52.9s]   Companion: Splat 0 link down
+[  54.0s]   SplatLink: ready, Splat AB:42:00:00:80:B4 (connects=23)
+[  54.0s]   Companion: Splat 1 (AB:42:00:00:80:B4) ready
+[  54.1s]   SplatLink: connection to AB:42:00:00:80:B4 lost (drops=23)
+[  54.1s]   Companion: Splat 1 link down
+[  55.0s]   SplatLink: ready, Splat AB:42:00:00:62:2F (connects=23)
+[  55.0s]   Companion: Splat 0 (AB:42:00:00:62:2F) ready
+[  55.0s]   SplatLink: connection to AB:42:00:00:62:2F lost (drops=23)
+[  55.0s]   Companion: Splat 0 link down
+[  56.2s]   SplatLink: ready, Splat AB:42:00:00:80:B4 (connects=24)
+[  56.2s]   Companion: Splat 1 (AB:42:00:00:80:B4) ready
+[  56.3s] {"up": 55417, "type": "heartbeat"}
+[  56.4s]   SplatLink: connection to AB:42:00:00:80:B4 lost (drops=24)
+[  56.4s]   Companion: Splat 1 link down
+[  57.6s]   SplatLink: ready, Splat AB:42:00:00:62:2F (connects=24)
+[  57.7s]   Companion: Splat 0 (AB:42:00:00:62:2F) ready
+[  57.7s]   SplatLink: connection to AB:42:00:00:62:2F lost (drops=24)
+[  57.7s]   Companion: Splat 0 link down
+[  58.8s]   SplatLink: ready, Splat AB:42:00:00:80:B4 (connects=25)
+[  58.8s]   Companion: Splat 1 (AB:42:00:00:80:B4) ready
+[  58.9s]   SplatLink: connection to AB:42:00:00:80:B4 lost (drops=25)
+[  58.9s]   Companion: Splat 1 link down
+[  59.8s]   SplatLink: ready, Splat AB:42:00:00:62:2F (connects=25)
+[  59.9s]   Companion: Splat 0 (AB:42:00:00:62:2F) ready
+[  59.9s]   SplatLink: connection to AB:42:00:00:62:2F lost (drops=25)
+[  59.9s]   Companion: Splat 0 link down
+[  60.7s]   SplatLink: ready, Splat AB:42:00:00:80:B4 (connects=26)
+[  60.7s]   Companion: Splat 1 (AB:42:00:00:80:B4) ready
+[  60.8s]   SplatLink: connection to AB:42:00:00:80:B4 lost (drops=26)
+[  60.8s]   Companion: Splat 1 link down
+[  61.5s] {"up": 60570, "type": "heartbeat"}
+[  61.8s]   SplatLink: ready, Splat AB:42:00:00:62:2F (connects=26)
+[  61.8s]   Companion: Splat 0 (AB:42:00:00:62:2F) ready
+[  61.8s]   SplatLink: connection to AB:42:00:00:62:2F lost (drops=26)
+[  61.8s]   Companion: Splat 0 link down
+[  62.7s]   SplatLink: ready, Splat AB:42:00:00:80:B4 (connects=27)
+[  62.7s]   Companion: Splat 1 (AB:42:00:00:80:B4) ready
+[  62.8s]   SplatLink: connection to AB:42:00:00:80:B4 lost (drops=27)
+[  62.8s]   Companion: Splat 1 link down
+[  63.6s]   SplatLink: ready, Splat AB:42:00:00:62:2F (connects=27)
+[  63.7s]   Companion: Splat 0 (AB:42:00:00:62:2F) ready
+[  63.7s]   SplatLink: connection to AB:42:00:00:62:2F lost (drops=27)
+[  63.7s]   Companion: Splat 0 link down
+[  64.9s]   SplatLink: ready, Splat AB:42:00:00:80:B4 (connects=28)
+[  64.9s]   Companion: Splat 1 (AB:42:00:00:80:B4) ready
+[  64.9s]   SplatLink: connection to AB:42:00:00:80:B4 lost (drops=28)
+[  64.9s]   Companion: Splat 1 link down
+[  66.1s]   SplatLink: ready, Splat AB:42:00:00:62:2F (connects=28)
+[  66.2s]   Companion: Splat 0 (AB:42:00:00:62:2F) ready
+[  66.2s]   SplatLink: connection to AB:42:00:00:62:2F lost (drops=28)
+[  66.2s]   Companion: Splat 0 link down
+[  66.6s] {"up": 65688, "type": "heartbeat"}
+[  67.2s]   SplatLink: ready, Splat AB:42:00:00:80:B4 (connects=29)
+[  67.2s]   Companion: Splat 1 (AB:42:00:00:80:B4) ready
+[  67.2s]   SplatLink: connection to AB:42:00:00:80:B4 lost (drops=29)
+[  67.2s]   Companion: Splat 1 link down
+[  68.1s]   SplatLink: ready, Splat AB:42:00:00:62:2F (connects=29)
+[  68.2s]   Companion: Splat 0 (AB:42:00:00:62:2F) ready
+[  68.2s]   SplatLink: connection to AB:42:00:00:62:2F lost (drops=29)
+[  68.2s]   Companion: Splat 0 link down
+[  69.4s]   SplatLink: ready, Splat AB:42:00:00:80:B4 (connects=30)
+[  69.4s]   Companion: Splat 1 (AB:42:00:00:80:B4) ready
+[  69.4s]   SplatLink: connection to AB:42:00:00:80:B4 lost (drops=30)
+[  69.4s]   Companion: Splat 1 link down
+[  70.3s]   SplatLink: ready, Splat AB:42:00:00:62:2F (connects=30)
+[  70.4s]   Companion: Splat 0 (AB:42:00:00:62:2F) ready
+[  70.4s]   SplatLink: connection to AB:42:00:00:62:2F lost (drops=30)
+[  70.4s]   Companion: Splat 0 link down
+[  71.3s]   SplatLink: ready, Splat AB:42:00:00:80:B4 (connects=31)
+[  71.3s]   Companion: Splat 1 (AB:42:00:00:80:B4) ready
+[  71.4s]   SplatLink: connection to AB:42:00:00:80:B4 lost (drops=31)
+[  71.4s]   Companion: Splat 1 link down
+[  71.7s] {"up": 70841, "type": "heartbeat"}
+[  72.3s]   SplatLink: ready, Splat AB:42:00:00:62:2F (connects=31)
+[  72.4s]   Companion: Splat 0 (AB:42:00:00:62:2F) ready
+[  72.4s]   SplatLink: connection to AB:42:00:00:62:2F lost (drops=31)
+[  72.4s]   Companion: Splat 0 link down
+[  73.6s]   SplatLink: ready, Splat AB:42:00:00:80:B4 (connects=32)
+[  73.6s]   Companion: Splat 1 (AB:42:00:00:80:B4) ready
+[  73.7s]   SplatLink: connection to AB:42:00:00:80:B4 lost (drops=32)
+[  73.7s]   Companion: Splat 1 link down
+[  74.5s]   SplatLink: ready, Splat AB:42:00:00:62:2F (connects=32)
+[  74.6s]   Companion: Splat 0 (AB:42:00:00:62:2F) ready
+[  74.6s]   SplatLink: connection to AB:42:00:00:62:2F lost (drops=32)
+[  74.6s]   Companion: Splat 0 link down
+[  75.8s]   SplatLink: ready, Splat AB:42:00:00:80:B4 (connects=33)
+[  75.8s]   Companion: Splat 1 (AB:42:00:00:80:B4) ready
+[  75.9s]   SplatLink: connection to AB:42:00:00:80:B4 lost (drops=33)
+[  75.9s]   Companion: Splat 1 link down
+[  76.9s] {"up": 75985, "type": "heartbeat"}
+[  76.9s]   SplatLink: ready, Splat AB:42:00:00:62:2F (connects=33)
+[  77.0s]   Companion: Splat 0 (AB:42:00:00:62:2F) ready
+[  77.0s]   SplatLink: connection to AB:42:00:00:62:2F lost (drops=33)
+[  77.0s]   Companion: Splat 0 link down
+[  78.1s]   SplatLink: ready, Splat AB:42:00:00:80:B4 (connects=34)
+[  78.1s]   Companion: Splat 1 (AB:42:00:00:80:B4) ready
+[  78.2s]   SplatLink: connection to AB:42:00:00:80:B4 lost (drops=34)
+[  78.2s]   Companion: Splat 1 link down
+[  79.1s]   SplatLink: ready, Splat AB:42:00:00:62:2F (connects=34)
+[  79.2s]   Companion: Splat 0 (AB:42:00:00:62:2F) ready
+[  79.2s]   SplatLink: connection to AB:42:00:00:62:2F lost (drops=34)
+[  79.2s]   Companion: Splat 0 link down
+[  80.1s]   SplatLink: ready, Splat AB:42:00:00:80:B4 (connects=35)
+[  80.1s]   Companion: Splat 1 (AB:42:00:00:80:B4) ready
+[  80.2s]   SplatLink: connection to AB:42:00:00:80:B4 lost (drops=35)
+[  80.2s]   Companion: Splat 1 link down
+[  81.3s]   SplatLink: ready, Splat AB:42:00:00:62:2F (connects=35)
+[  81.4s]   Companion: Splat 0 (AB:42:00:00:62:2F) ready
+[  81.4s]   SplatLink: connection to AB:42:00:00:62:2F lost (drops=35)
+[  81.4s]   Companion: Splat 0 link down
+[  82.1s] {"up": 81169, "type": "heartbeat"}
+[  82.4s]   SplatLink: ready, Splat AB:42:00:00:80:B4 (connects=36)
+[  82.4s]   Companion: Splat 1 (AB:42:00:00:80:B4) ready
+[  82.4s]   SplatLink: connection to AB:42:00:00:80:B4 lost (drops=36)
+[  82.4s]   Companion: Splat 1 link down
+[  83.3s]   SplatLink: ready, Splat AB:42:00:00:62:2F (connects=36)
+[  83.4s]   Companion: Splat 0 (AB:42:00:00:62:2F) ready
+[  83.4s]   SplatLink: connection to AB:42:00:00:62:2F lost (drops=36)
+[  83.4s]   Companion: Splat 0 link down
+[  84.3s]   SplatLink: ready, Splat AB:42:00:00:80:B4 (connects=37)
+[  84.3s]   Companion: Splat 1 (AB:42:00:00:80:B4) ready
+[  84.4s]   SplatLink: connection to AB:42:00:00:80:B4 lost (drops=37)
+[  84.4s]   Companion: Splat 1 link down
+[  85.3s]   SplatLink: ready, Splat AB:42:00:00:62:2F (connects=37)
+[  85.3s]   Companion: Splat 0 (AB:42:00:00:62:2F) ready
+[  85.3s]   SplatLink: connection to AB:42:00:00:62:2F lost (drops=37)
+[  85.3s]   Companion: Splat 0 link down
+[  86.5s]   SplatLink: ready, Splat AB:42:00:00:80:B4 (connects=38)
+[  86.5s]   Companion: Splat 1 (AB:42:00:00:80:B4) ready
+[  86.6s]   SplatLink: connection to AB:42:00:00:80:B4 lost (drops=38)
+[  86.6s]   Companion: Splat 1 link down
+[  87.3s] {"up": 86367, "type": "heartbeat"}
+[  87.6s]   SplatLink: ready, Splat AB:42:00:00:62:2F (connects=38)
+[  87.7s]   Companion: Splat 0 (AB:42:00:00:62:2F) ready
+[  87.7s]   SplatLink: connection to AB:42:00:00:62:2F lost (drops=38)
+[  87.7s]   Companion: Splat 0 link down
+[  88.6s]   SplatLink: ready, Splat AB:42:00:00:80:B4 (connects=39)
+[  88.6s]   Companion: Splat 1 (AB:42:00:00:80:B4) ready
+[  88.6s]   SplatLink: connection to AB:42:00:00:80:B4 lost (drops=39)
+[  88.6s]   Companion: Splat 1 link down
+[  89.5s]   SplatLink: ready, Splat AB:42:00:00:62:2F (connects=39)
+[  89.6s]   Companion: Splat 0 (AB:42:00:00:62:2F) ready
+[  89.6s]   SplatLink: connection to AB:42:00:00:62:2F lost (drops=39)
+[  89.6s]   Companion: Splat 0 link down
+[  90.5s]   SplatLink: ready, Splat AB:42:00:00:80:B4 (connects=40)
+[  90.5s]   Companion: Splat 1 (AB:42:00:00:80:B4) ready
+[  90.6s]   SplatLink: connection to AB:42:00:00:80:B4 lost (drops=40)
+[  90.6s]   Companion: Splat 1 link down
+[  91.4s]   SplatLink: ready, Splat AB:42:00:00:62:2F (connects=40)
+[  91.5s]   Companion: Splat 0 (AB:42:00:00:62:2F) ready
+[  91.5s]   SplatLink: connection to AB:42:00:00:62:2F lost (drops=40)
+[  91.5s]   Companion: Splat 0 link down
+[  92.5s] {"up": 91603, "type": "heartbeat"}
+[  92.8s]   SplatLink: ready, Splat AB:42:00:00:80:B4 (connects=41)
+[  92.8s]   Companion: Splat 1 (AB:42:00:00:80:B4) ready
+[  92.9s]   SplatLink: connection to AB:42:00:00:80:B4 lost (drops=41)
+[  92.9s]   Companion: Splat 1 link down
+[  93.7s]   SplatLink: ready, Splat AB:42:00:00:62:2F (connects=41)
+[  93.8s]   Companion: Splat 0 (AB:42:00:00:62:2F) ready
+[  93.8s]   SplatLink: connection to AB:42:00:00:62:2F lost (drops=41)
+[  93.8s]   Companion: Splat 0 link down
+[  94.7s]   SplatLink: ready, Splat AB:42:00:00:80:B4 (connects=42)
+[  94.7s]   Companion: Splat 1 (AB:42:00:00:80:B4) ready
+[  94.8s]   SplatLink: connection to AB:42:00:00:80:B4 lost (drops=42)
+[  94.8s]   Companion: Splat 1 link down
+[  95.7s]   SplatLink: ready, Splat AB:42:00:00:62:2F (connects=42)
+[  95.7s]   Companion: Splat 0 (AB:42:00:00:62:2F) ready
+[  95.8s]   SplatLink: connection to AB:42:00:00:62:2F lost (drops=42)
+[  95.8s]   Companion: Splat 0 link down
+[  96.9s]   SplatLink: ready, Splat AB:42:00:00:80:B4 (connects=43)
+[  96.9s]   Companion: Splat 1 (AB:42:00:00:80:B4) ready
+[  97.0s]   SplatLink: connection to AB:42:00:00:80:B4 lost (drops=43)
+[  97.0s]   Companion: Splat 1 link down
+[  97.7s] {"up": 96777, "type": "heartbeat"}
+[  98.0s]   SplatLink: ready, Splat AB:42:00:00:62:2F (connects=43)
+[  98.0s]   Companion: Splat 0 (AB:42:00:00:62:2F) ready
+[  98.0s]   SplatLink: connection to AB:42:00:00:62:2F lost (drops=43)
+[  98.0s]   Companion: Splat 0 link down
+[  98.9s]   SplatLink: ready, Splat AB:42:00:00:80:B4 (connects=44)
+[  98.9s]   Companion: Splat 1 (AB:42:00:00:80:B4) ready
+[  99.0s]   SplatLink: connection to AB:42:00:00:80:B4 lost (drops=44)
+[  99.0s]   Companion: Splat 1 link down
+[  99.9s]   SplatLink: ready, Splat AB:42:00:00:62:2F (connects=44)
+[ 100.0s]   Companion: Splat 0 (AB:42:00:00:62:2F) ready
+[ 100.0s]   SplatLink: connection to AB:42:00:00:62:2F lost (drops=44)
+[ 100.0s]   Companion: Splat 0 link down
+[ 100.8s]   SplatLink: ready, Splat AB:42:00:00:80:B4 (connects=45)
+[ 100.9s]   Companion: Splat 1 (AB:42:00:00:80:B4) ready
+[ 101.0s]   SplatLink: connection to AB:42:00:00:80:B4 lost (drops=45)
+[ 101.0s]   Companion: Splat 1 link down
+[ 101.8s]   SplatLink: ready, Splat AB:42:00:00:62:2F (connects=45)
+[ 101.9s]   Companion: Splat 0 (AB:42:00:00:62:2F) ready
+[ 101.9s]   SplatLink: connection to AB:42:00:00:62:2F lost (drops=45)
+[ 101.9s]   Companion: Splat 0 link down
+[ 102.9s] {"up": 101975, "type": "heartbeat"}
+[ 103.2s]   SplatLink: ready, Splat AB:42:00:00:80:B4 (connects=46)
+[ 103.2s]   Companion: Splat 1 (AB:42:00:00:80:B4) ready
+[ 103.2s]   SplatLink: connection to AB:42:00:00:80:B4 lost (drops=46)
+[ 103.2s]   Companion: Splat 1 link down
+[ 104.1s]   SplatLink: ready, Splat AB:42:00:00:62:2F (connects=46)
+[ 104.2s]   Companion: Splat 0 (AB:42:00:00:62:2F) ready
+[ 104.2s]   SplatLink: connection to AB:42:00:00:62:2F lost (drops=46)
+[ 104.2s]   Companion: Splat 0 link down
+[ 105.0s]   SplatLink: ready, Splat AB:42:00:00:80:B4 (connects=47)
+[ 105.1s]   Companion: Splat 1 (AB:42:00:00:80:B4) ready
+[ 105.1s]   SplatLink: connection to AB:42:00:00:80:B4 lost (drops=47)
+[ 105.1s]   Companion: Splat 1 link down
+[ 106.0s]   SplatLink: ready, Splat AB:42:00:00:62:2F (connects=47)
+[ 106.0s]   Companion: Splat 0 (AB:42:00:00:62:2F) ready
+[ 106.0s]   SplatLink: connection to AB:42:00:00:62:2F lost (drops=47)
+[ 106.0s]   Companion: Splat 0 link down
+[ 106.9s]   SplatLink: ready, Splat AB:42:00:00:80:B4 (connects=48)
+[ 106.9s]   Companion: Splat 1 (AB:42:00:00:80:B4) ready
+[ 107.0s]   SplatLink: connection to AB:42:00:00:80:B4 lost (drops=48)
+[ 107.0s]   Companion: Splat 1 link down
+[ 107.9s] {"up": 107038, "type": "heartbeat"}
+[ 107.9s]   SplatLink: ready, Splat AB:42:00:00:62:2F (connects=48)
+[ 108.0s]   Companion: Splat 0 (AB:42:00:00:62:2F) ready
+[ 108.0s]   SplatLink: connection to AB:42:00:00:62:2F lost (drops=48)
+[ 108.0s]   Companion: Splat 0 link down
+[ 109.2s]   SplatLink: ready, Splat AB:42:00:00:80:B4 (connects=49)
+[ 109.2s]   Companion: Splat 1 (AB:42:00:00:80:B4) ready
+[ 109.3s]   SplatLink: connection to AB:42:00:00:80:B4 lost (drops=49)
+[ 109.3s]   Companion: Splat 1 link down
+[ 110.2s]   SplatLink: ready, Splat AB:42:00:00:62:2F (connects=49)
+[ 110.3s]   Companion: Splat 0 (AB:42:00:00:62:2F) ready
+[ 110.3s]   SplatLink: connection to AB:42:00:00:62:2F lost (drops=49)
+[ 110.3s]   Companion: Splat 0 link down
+[ 111.4s]   SplatLink: ready, Splat AB:42:00:00:80:B4 (connects=50)
+[ 111.4s]   Companion: Splat 1 (AB:42:00:00:80:B4) ready
+[ 111.5s]   SplatLink: connection to AB:42:00:00:80:B4 lost (drops=50)
+[ 111.5s]   Companion: Splat 1 link down
+[ 112.4s]   SplatLink: ready, Splat AB:42:00:00:62:2F (connects=50)
+[ 112.5s]   Companion: Splat 0 (AB:42:00:00:62:2F) ready
+[ 112.5s]   SplatLink: connection to AB:42:00:00:62:2F lost (drops=50)
+[ 112.5s]   Companion: Splat 0 link down
+[ 113.2s] {"up": 112254, "type": "heartbeat"}
+[ 113.4s]   SplatLink: ready, Splat AB:42:00:00:80:B4 (connects=51)
+[ 113.5s]   Companion: Splat 1 (AB:42:00:00:80:B4) ready
+[ 113.5s]   SplatLink: connection to AB:42:00:00:80:B4 lost (drops=51)
+[ 113.5s]   Companion: Splat 1 link down
+[ 114.4s]   SplatLink: ready, Splat AB:42:00:00:62:2F (connects=51)
+[ 114.5s]   Companion: Splat 0 (AB:42:00:00:62:2F) ready
+[ 114.5s]   SplatLink: connection to AB:42:00:00:62:2F lost (drops=51)
+[ 114.5s]   Companion: Splat 0 link down
+[ 115.6s]   SplatLink: ready, Splat AB:42:00:00:80:B4 (connects=52)
+[ 115.7s]   Companion: Splat 1 (AB:42:00:00:80:B4) ready
+[ 115.7s]   SplatLink: connection to AB:42:00:00:80:B4 lost (drops=52)
+[ 115.7s]   Companion: Splat 1 link down
+[ 116.6s]   SplatLink: ready, Splat AB:42:00:00:62:2F (connects=52)
+[ 116.6s]   Companion: Splat 0 (AB:42:00:00:62:2F) ready
+[ 116.7s]   SplatLink: connection to AB:42:00:00:62:2F lost (drops=52)
+[ 116.7s]   Companion: Splat 0 link down
+[ 117.8s]   SplatLink: ready, Splat AB:42:00:00:80:B4 (connects=53)
+[ 117.8s]   Companion: Splat 1 (AB:42:00:00:80:B4) ready
+[ 117.9s]   SplatLink: connection to AB:42:00:00:80:B4 lost (drops=53)
+[ 117.9s]   Companion: Splat 1 link down
+[ 118.3s] {"up": 117384, "type": "heartbeat"}
+[ 118.9s]   SplatLink: ready, Splat AB:42:00:00:62:2F (connects=53)
+[ 118.9s]   Companion: Splat 0 (AB:42:00:00:62:2F) ready
+[ 118.9s]   SplatLink: connection to AB:42:00:00:62:2F lost (drops=53)
+[ 118.9s]   Companion: Splat 0 link down
+[ 119.8s]   SplatLink: ready, Splat AB:42:00:00:80:B4 (connects=54)
+[ 119.8s]   Companion: Splat 1 (AB:42:00:00:80:B4) ready
+[ 119.9s]   SplatLink: connection to AB:42:00:00:80:B4 lost (drops=54)
+[ 119.9s]   Companion: Splat 1 link down
+[ 121.0s]   SplatLink: ready, Splat AB:42:00:00:62:2F (connects=54)
+[ 121.1s]   Companion: Splat 0 (AB:42:00:00:62:2F) ready
+[ 121.1s]   SplatLink: connection to AB:42:00:00:62:2F lost (drops=54)
+[ 121.1s]   Companion: Splat 0 link down
+[ 122.9s]   SplatLink: ready, Splat AB:42:00:00:80:B4 (connects=55)
+[ 122.9s]   Companion: Splat 1 (AB:42:00:00:80:B4) ready
+[ 123.0s]   SplatLink: connection to AB:42:00:00:80:B4 lost (drops=55)
+[ 123.0s]   Companion: Splat 1 link down
+[ 123.3s] {"up": 122441, "type": "heartbeat"}
+[ 123.9s]   SplatLink: ready, Splat AB:42:00:00:62:2F (connects=55)
+[ 124.0s]   Companion: Splat 0 (AB:42:00:00:62:2F) ready
+[ 124.0s]   SplatLink: connection to AB:42:00:00:62:2F lost (drops=55)
+[ 124.0s]   Companion: Splat 0 link down
+[ 125.2s]   SplatLink: ready, Splat AB:42:00:00:80:B4 (connects=56)
+[ 125.2s]   Companion: Splat 1 (AB:42:00:00:80:B4) ready
+[ 125.3s]   SplatLink: connection to AB:42:00:00:80:B4 lost (drops=56)
+[ 125.3s]   Companion: Splat 1 link down
+[ 126.2s]   SplatLink: ready, Splat AB:42:00:00:62:2F (connects=56)
+[ 126.2s]   Companion: Splat 0 (AB:42:00:00:62:2F) ready
+[ 126.2s]   SplatLink: connection to AB:42:00:00:62:2F lost (drops=56)
+[ 126.2s]   Companion: Splat 0 link down
+[ 127.1s]   SplatLink: ready, Splat AB:42:00:00:80:B4 (connects=57)
+[ 127.1s]   Companion: Splat 1 (AB:42:00:00:80:B4) ready
+[ 127.2s]   SplatLink: connection to AB:42:00:00:80:B4 lost (drops=57)
+[ 127.2s]   Companion: Splat 1 link down
+[ 128.1s]   SplatLink: ready, Splat AB:42:00:00:62:2F (connects=57)
+[ 128.2s]   Companion: Splat 0 (AB:42:00:00:62:2F) ready
+[ 128.2s]   SplatLink: connection to AB:42:00:00:62:2F lost (drops=57)
+[ 128.2s]   Companion: Splat 0 link down
+[ 128.6s] {"up": 127679, "type": "heartbeat"}
+[ 129.2s]   SplatLink: ready, Splat AB:42:00:00:80:B4 (connects=58)
+[ 129.2s]   Companion: Splat 1 (AB:42:00:00:80:B4) ready
+[ 129.2s]   SplatLink: connection to AB:42:00:00:80:B4 lost (drops=58)
+[ 129.2s]   Companion: Splat 1 link down
+[ 130.4s]   SplatLink: ready, Splat AB:42:00:00:62:2F (connects=58)
+[ 130.5s]   Companion: Splat 0 (AB:42:00:00:62:2F) ready
+[ 130.5s]   SplatLink: connection to AB:42:00:00:62:2F lost (drops=58)
+[ 130.5s]   Companion: Splat 0 link down
+[ 131.4s]   SplatLink: ready, Splat AB:42:00:00:80:B4 (connects=59)
+[ 131.4s]   Companion: Splat 1 (AB:42:00:00:80:B4) ready
+[ 131.5s]   SplatLink: connection to AB:42:00:00:80:B4 lost (drops=59)
+[ 131.5s]   Companion: Splat 1 link down
+[ 132.3s]   SplatLink: ready, Splat AB:42:00:00:62:2F (connects=59)
+[ 132.4s]   Companion: Splat 0 (AB:42:00:00:62:2F) ready
+[ 132.4s]   SplatLink: connection to AB:42:00:00:62:2F lost (drops=59)
+[ 132.4s]   Companion: Splat 0 link down
+[ 133.7s] {"up": 132767, "type": "heartbeat"}
+[ 133.7s]   SplatLink: ready, Splat AB:42:00:00:80:B4 (connects=60)
+[ 133.7s]   Companion: Splat 1 (AB:42:00:00:80:B4) ready
+[ 133.8s]   SplatLink: connection to AB:42:00:00:80:B4 lost (drops=60)
+[ 133.8s]   Companion: Splat 1 link down
+[ 134.6s]   SplatLink: ready, Splat AB:42:00:00:62:2F (connects=60)
+[ 134.7s]   Companion: Splat 0 (AB:42:00:00:62:2F) ready
+[ 134.7s]   SplatLink: connection to AB:42:00:00:62:2F lost (drops=60)
+[ 134.7s]   Companion: Splat 0 link down
+[ 135.9s]   SplatLink: ready, Splat AB:42:00:00:80:B4 (connects=61)
+[ 135.9s]   Companion: Splat 1 (AB:42:00:00:80:B4) ready
+[ 135.9s]   SplatLink: connection to AB:42:00:00:80:B4 lost (drops=61)
+[ 135.9s]   Companion: Splat 1 link down
+[ 136.8s]   SplatLink: ready, Splat AB:42:00:00:62:2F (connects=61)
+[ 136.9s]   Companion: Splat 0 (AB:42:00:00:62:2F) ready
+[ 136.9s]   SplatLink: connection to AB:42:00:00:62:2F lost (drops=61)
+[ 136.9s]   Companion: Splat 0 link down
+[ 137.8s]   SplatLink: ready, Splat AB:42:00:00:80:B4 (connects=62)
+[ 137.8s]   Companion: Splat 1 (AB:42:00:00:80:B4) ready
+[ 137.8s]   SplatLink: connection to AB:42:00:00:80:B4 lost (drops=62)
+[ 137.8s]   Companion: Splat 1 link down
+[ 138.8s] {"up": 137898, "type": "heartbeat"}
+[ 138.8s]   SplatLink: ready, Splat AB:42:00:00:62:2F (connects=62)
+[ 138.9s]   Companion: Splat 0 (AB:42:00:00:62:2F) ready
+[ 138.9s]   SplatLink: connection to AB:42:00:00:62:2F lost (drops=62)
+[ 138.9s]   Companion: Splat 0 link down
+[ 139.7s]   SplatLink: ready, Splat AB:42:00:00:80:B4 (connects=63)
+[ 139.8s]   Companion: Splat 1 (AB:42:00:00:80:B4) ready
+[ 139.9s]   SplatLink: connection to AB:42:00:00:80:B4 lost (drops=63)
+[ 139.9s]   Companion: Splat 1 link down
+[ 140.7s]   SplatLink: ready, Splat AB:42:00:00:62:2F (connects=63)
+[ 140.8s]   Companion: Splat 0 (AB:42:00:00:62:2F) ready
+[ 140.9s]   SplatLink: connection to AB:42:00:00:62:2F lost (drops=63)
+[ 140.9s]   Companion: Splat 0 link down

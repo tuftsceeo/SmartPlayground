@@ -1,0 +1,541 @@
+[   0.0s] # monitor: port opened
+[   0.1s] ESP-ROM:esp32c6-20220919
+[   0.1s] Build:Sep 19 2022
+[   0.1s] rst:0xc (SW_CPU),boot:0x7f (SPI_FAST_FLASH_BOOT)
+[   0.1s] Saved PC:0x4001975a
+[   0.1s] SPIWP:0xee
+[   0.1s] mode:DIO, clock div:2
+[   0.1s] load:0x40875730,len:0xdbc
+[   0.1s] load:0x4086b910,len:0xc50
+[   0.1s] load:0x4086e610,len:0x2e3c
+[   0.1s] entry 0x4086b910
+[   1.0s] MEM tag=boot gct=334336 gcu=6592 gcf=327744 idf=291600 idfmax=270336
+[   1.4s] [hubtype] splat_companion (12 LEDs)
+[   1.9s] MEM tag=after-imports gct=334336 gcu=43088 gcf=291248 idf=295340 idfmax=270336
+[   2.0s] 
+[   2.0s] ==================================================
+[   2.0s]   Splat Companion
+[   2.0s]   Hub type: splat_companion
+[   2.0s] ==================================================
+[   2.0s] MEM tag=pre-ble gct=334336 gcu=44720 gcf=289616 idf=295340 idfmax=270336
+[   2.1s] MEM tag=post-ble gct=317952 gcu=45424 gcf=272528 idf=266740 idfmax=253952
+[   4.1s]   Splats configured: 2
+[   4.1s] MEM tag=pre-enow gct=316352 gcu=109808 gcf=206544 idf=201164 idfmax=188416
+[   4.1s]   ESPNow(EUM): active (MAC: A0:F2:62:85:A9:9C)
+[   4.1s] MEM tag=post-enow gct=312256 gcu=113872 gcf=198384 idf=197724 idfmax=184320
+[   4.2s]   [WARN] Battery:
+[   4.2s] Traceback (most recent call last):
+[   4.2s]   File "main.py", line 501, in main
+[   4.2s]   File "/lib/max17048.py", line 91, in read_all
+[   4.2s]   File "/lib/max17048.py", line 50, in voltage
+[   4.2s]   File "/lib/max17048.py", line 40, in _read_reg16
+[   4.2s] OSError: [Errno 19] ENODEV
+[   4.3s]   PN532 firmware 1.6 (IC 0x32) -- NFC ready
+[   4.3s]   Boot complete
+[   4.3s] 
+[   4.4s] {"hub": "splat_companion", "games": ["jumpin", "splatwhack"], "version": "0.1.0", "device": "splat_companion", "type": "identity"}
+[   5.6s]   SplatLink: dropped while settling
+[   6.6s]   SplatLink: dropped while settling
+[   7.5s]   SplatLink: dropped while settling
+[   8.5s]   SplatLink: dropped while settling
+[   9.6s] {"up": 8696, "type": "heartbeat"}
+[   9.6s]   SplatLink: dropped while settling
+[  10.3s]   SplatLink: dropped while settling
+[  11.2s]   SplatLink: dropped while settling
+[  12.4s]   SplatLink: dropped while settling
+[  13.3s]   SplatLink: dropped while settling
+[  14.3s]   SplatLink: dropped while settling
+[  14.6s] {"up": 13759, "type": "heartbeat"}
+[  15.3s]   SplatLink: dropped while settling
+[  16.5s]   SplatLink: dropped while settling
+[  17.5s]   SplatLink: dropped while settling
+[  18.4s]   SplatLink: dropped while settling
+[  19.3s]   SplatLink: dropped while settling
+[  19.7s] {"up": 18799, "type": "heartbeat"}
+[  20.3s]   SplatLink: dropped while settling
+[  21.3s]   SplatLink: dropped while settling
+[  22.2s]   SplatLink: dropped while settling
+[  22.8s]   Companion: stop from 5C:01:3B:0D:BE:94
+[  22.8s]   Companion: stop from 5C:01:3B:0D:BE:94
+[  23.5s]   Companion: stop from 5C:01:3B:0D:BE:94
+[  23.5s]   Companion: stop from 5C:01:3B:0D:BE:94
+[  23.5s]   SplatLink: dropped while settling
+[  24.4s]   SplatLink: dropped while settling
+[  24.8s] {"up": 23885, "type": "heartbeat"}
+[  25.3s]   ESP-NOW start_game: jumpin
+[  25.5s] MEM tag=pre-import:jumpin gct=299968 gcu=86256 gcf=213712 idf=194392 idfmax=172032
+[  25.7s] MEM tag=post-import:jumpin gct=299968 gcu=91280 gcf=208688 idf=194280 idfmax=172032
+[  25.8s] {"slug": "jumpin", "type": "game_start"}
+[  25.8s]   jumpin: Splat 0 -> turnwhite, chicken, 988 Hz
+[  25.8s]   jumpin: Splat 1 -> turnblue, dog, 784 Hz
+[  25.8s]   SplatLink: dropped while settling
+[  26.0s]   SplatLink: dropped while settling
+[  27.5s]   SplatLink: dropped while settling
+[  28.3s]   SplatLink: dropped while settling
+[  29.0s]   SplatLink: dropped while settling
+[  29.6s]   jumpin: wand pressed (A0:F2:62:87:92:CC)
+[  29.8s]   SplatLink: dropped while settling
+[  30.3s]   jumpin: wand pressed (A0:F2:62:87:92:CC)
+[  30.5s]   SplatLink: dropped while settling
+[  31.3s]   SplatLink: dropped while settling
+[  32.0s]   SplatLink: dropped while settling
+[  32.8s]   SplatLink: dropped while settling
+[  33.5s]   SplatLink: dropped while settling
+[  34.7s]   SplatLink: dropped while settling
+[  35.5s]   SplatLink: dropped while settling
+[  36.2s]   SplatLink: dropped while settling
+[  37.0s]   SplatLink: dropped while settling
+[  37.7s]   SplatLink: dropped while settling
+[  38.6s]   SplatLink: dropped while settling
+[  39.3s]   SplatLink: dropped while settling
+[  40.1s]   SplatLink: dropped while settling
+[  40.9s]   SplatLink: dropped while settling
+[  41.7s]   SplatLink: dropped while settling
+[  42.4s]   SplatLink: dropped while settling
+[  43.5s]   SplatLink: dropped while settling
+[  44.2s]   SplatLink: dropped while settling
+[  45.0s]   SplatLink: dropped while settling
+[  45.7s]   SplatLink: dropped while settling
+[  46.5s]   SplatLink: dropped while settling
+[  47.2s]   SplatLink: dropped while settling
+[  51.1s]   SplatLink: dropped while settling
+[  51.8s]   SplatLink: dropped while settling
+[  52.6s]   SplatLink: dropped while settling
+[  53.3s]   SplatLink: dropped while settling
+[  54.0s]   SplatLink: dropped while settling
+[  54.8s]   SplatLink: dropped while settling
+[  54.8s]   jumpin: wand pressed (A0:F2:62:87:92:CC)
+[  55.3s]   jumpin: wand pressed (A0:F2:62:87:92:CC)
+[  55.6s]   SplatLink: dropped while settling
+[  56.2s]   SplatLink: dropped while settling
+[  56.9s]   SplatLink: dropped while settling
+[  57.8s]   SplatLink: dropped while settling
+[  58.6s]   SplatLink: dropped while settling
+[  78.5s]   SplatLink: attempt 30 not ready after 20006 ms (failed=1), retry in 2000 ms
+[  79.4s]   SplatLink: ready, Splat AB:42:00:00:62:2F (connects=1)
+[  80.5s]   SplatLink: connection to AB:42:00:00:62:2F lost (drops=31)
+[  82.0s]   SplatLink: dropped while settling
+[  82.9s]   SplatLink: dropped while settling
+[  83.5s]   SplatLink: dropped while settling
+[  84.3s]   SplatLink: dropped while settling
+[  85.3s]   SplatLink: dropped while settling
+[  86.0s]   SplatLink: dropped while settling
+[  86.7s]   SplatLink: dropped while settling
+[  87.4s]   SplatLink: dropped while settling
+[  88.7s]   SplatLink: dropped while settling
+[  89.4s]   SplatLink: dropped while settling
+[  90.4s]   SplatLink: dropped while settling
+[  91.2s]   SplatLink: dropped while settling
+[  91.9s]   SplatLink: dropped while settling
+[  92.6s]   SplatLink: dropped while settling
+[  93.3s]   SplatLink: dropped while settling
+[  94.0s]   SplatLink: dropped while settling
+[  94.8s]   SplatLink: dropped while settling
+[  95.6s]   SplatLink: dropped while settling
+[  96.7s]   SplatLink: dropped while settling
+[  97.6s]   SplatLink: dropped while settling
+[  98.4s]   SplatLink: dropped while settling
+[  99.1s]   SplatLink: dropped while settling
+[  99.9s]   SplatLink: dropped while settling
+[ 100.7s]   SplatLink: dropped while settling
+[ 101.3s]   SplatLink: dropped while settling
+[ 102.1s]   SplatLink: dropped while settling
+[ 102.8s]   SplatLink: dropped while settling
+[ 103.6s]   SplatLink: dropped while settling
+[ 104.3s]   SplatLink: dropped while settling
+[ 105.4s]   SplatLink: dropped while settling
+[ 106.2s]   SplatLink: dropped while settling
+[ 106.9s]   SplatLink: dropped while settling
+[ 107.6s]   SplatLink: dropped while settling
+[ 108.3s]   SplatLink: dropped while settling
+[ 109.0s]   SplatLink: dropped while settling
+[ 109.7s]   SplatLink: dropped while settling
+[ 110.4s]   SplatLink: dropped while settling
+[ 111.2s]   SplatLink: dropped while settling
+[ 112.0s]   SplatLink: dropped while settling
+[ 112.8s]   SplatLink: dropped while settling
+[ 113.6s]   SplatLink: dropped while settling
+[ 114.4s]   SplatLink: dropped while settling
+[ 115.2s]   SplatLink: dropped while settling
+[ 115.9s]   SplatLink: dropped while settling
+[ 116.8s]   SplatLink: dropped while settling
+[ 117.6s]   SplatLink: dropped while settling
+[ 118.3s]   SplatLink: dropped while settling
+[ 119.0s]   SplatLink: dropped while settling
+[ 120.1s]   SplatLink: dropped while settling
+[ 121.0s]   SplatLink: dropped while settling
+[ 121.7s]   SplatLink: dropped while settling
+[ 122.4s]   SplatLink: dropped while settling
+[ 123.2s]   SplatLink: dropped while settling
+[ 123.9s]   SplatLink: dropped while settling
+[ 124.7s]   SplatLink: dropped while settling
+[ 125.4s]   SplatLink: dropped while settling
+[ 126.2s]   SplatLink: dropped while settling
+[ 126.9s]   SplatLink: dropped while settling
+[ 127.8s]   SplatLink: dropped while settling
+[ 128.5s]   SplatLink: dropped while settling
+[ 129.5s]   SplatLink: dropped while settling
+[ 130.2s]   SplatLink: dropped while settling
+[ 131.0s]   SplatLink: dropped while settling
+[ 131.7s]   SplatLink: dropped while settling
+[ 132.5s]   SplatLink: dropped while settling
+[ 134.3s]   SplatLink: dropped while settling
+[ 135.1s]   SplatLink: dropped while settling
+[ 136.0s]   SplatLink: dropped while settling
+[ 136.6s]   SplatLink: dropped while settling
+[ 137.4s]   SplatLink: dropped while settling
+[ 138.1s]   SplatLink: dropped while settling
+[ 138.9s]   SplatLink: dropped while settling
+[ 139.7s]   SplatLink: dropped while settling
+[ 140.4s]   SplatLink: dropped while settling
+[ 141.2s]   SplatLink: dropped while settling
+[ 142.1s]   SplatLink: dropped while settling
+[ 142.8s]   SplatLink: dropped while settling
+[ 143.5s]   SplatLink: dropped while settling
+[ 144.2s]   SplatLink: dropped while settling
+[ 144.9s]   SplatLink: dropped while settling
+[ 145.7s]   SplatLink: dropped while settling
+[ 146.4s]   SplatLink: dropped while settling
+[ 147.3s]   SplatLink: dropped while settling
+[ 148.0s]   SplatLink: dropped while settling
+[ 148.8s]   SplatLink: dropped while settling
+[ 149.5s]   SplatLink: dropped while settling
+[ 150.3s]   SplatLink: dropped while settling
+[ 151.3s]   SplatLink: dropped while settling
+[ 152.1s]   SplatLink: dropped while settling
+[ 152.8s]   SplatLink: dropped while settling
+[ 153.7s]   SplatLink: dropped while settling
+[ 154.4s]   SplatLink: dropped while settling
+[ 155.5s]   SplatLink: dropped while settling
+[ 156.2s]   SplatLink: dropped while settling
+[ 156.9s]   SplatLink: dropped while settling
+[ 157.7s]   SplatLink: dropped while settling
+[ 158.6s]   SplatLink: dropped while settling
+[ 159.4s]   SplatLink: dropped while settling
+[ 160.2s]   SplatLink: dropped while settling
+[ 161.0s]   SplatLink: dropped while settling
+[ 162.1s]   SplatLink: dropped while settling
+[ 162.8s]   SplatLink: dropped while settling
+[ 163.6s]   SplatLink: dropped while settling
+[ 164.5s]   SplatLink: dropped while settling
+[ 166.4s]   SplatLink: dropped while settling
+[ 167.1s]   SplatLink: dropped while settling
+[ 167.9s]   SplatLink: dropped while settling
+[ 168.7s]   SplatLink: dropped while settling
+[ 169.4s]   SplatLink: dropped while settling
+[ 170.2s]   SplatLink: dropped while settling
+[ 170.9s]   SplatLink: dropped while settling
+[ 171.7s]   SplatLink: dropped while settling
+[ 172.4s]   SplatLink: dropped while settling
+[ 173.2s]   SplatLink: dropped while settling
+[ 174.0s]   SplatLink: dropped while settling
+[ 174.7s]   SplatLink: dropped while settling
+[ 175.5s]   SplatLink: dropped while settling
+[ 176.4s]   SplatLink: dropped while settling
+[ 177.7s]   SplatLink: dropped while settling
+[ 178.5s]   SplatLink: dropped while settling
+[ 179.3s]   SplatLink: dropped while settling
+[ 180.0s]   SplatLink: dropped while settling
+[ 180.8s]   SplatLink: dropped while settling
+[ 181.5s]   SplatLink: dropped while settling
+[ 182.3s]   SplatLink: dropped while settling
+[ 183.1s]   SplatLink: dropped while settling
+[ 183.8s]   SplatLink: dropped while settling
+[ 184.5s]   SplatLink: dropped while settling
+[ 185.2s]   SplatLink: dropped while settling
+[ 186.0s]   SplatLink: dropped while settling
+[ 186.7s]   SplatLink: dropped while settling
+[ 187.5s]   SplatLink: dropped while settling
+[ 188.3s]   SplatLink: dropped while settling
+[ 189.1s]   SplatLink: dropped while settling
+[ 190.0s]   SplatLink: dropped while settling
+[ 190.7s]   SplatLink: dropped while settling
+[ 191.8s]   SplatLink: dropped while settling
+[ 192.5s]   SplatLink: dropped while settling
+[ 193.3s]   SplatLink: dropped while settling
+[ 194.1s]   SplatLink: dropped while settling
+[ 194.7s]   SplatLink: dropped while settling
+[ 195.8s]   SplatLink: dropped while settling
+[ 196.5s]   SplatLink: dropped while settling
+[ 197.4s]   SplatLink: dropped while settling
+[ 198.2s]   SplatLink: dropped while settling
+[ 199.0s]   SplatLink: dropped while settling
+[ 199.8s]   SplatLink: dropped while settling
+[ 200.5s]   SplatLink: dropped while settling
+[ 201.2s]   SplatLink: dropped while settling
+[ 202.3s]   SplatLink: dropped while settling
+[ 203.2s]   SplatLink: dropped while settling
+[ 203.9s]   SplatLink: dropped while settling
+[ 204.8s]   SplatLink: dropped while settling
+[ 205.9s]   SplatLink: dropped while settling
+[ 206.6s]   SplatLink: dropped while settling
+[ 208.0s]   SplatLink: dropped while settling
+[ 208.8s]   SplatLink: dropped while settling
+[ 209.5s]   SplatLink: dropped while settling
+[ 210.6s]   SplatLink: dropped while settling
+[ 211.3s]   SplatLink: dropped while settling
+[ 212.1s]   SplatLink: dropped while settling
+[ 212.8s]   SplatLink: dropped while settling
+[ 213.7s]   SplatLink: dropped while settling
+[ 214.4s]   SplatLink: dropped while settling
+[ 215.4s]   SplatLink: dropped while settling
+[ 216.3s]   SplatLink: dropped while settling
+[ 217.0s]   SplatLink: dropped while settling
+[ 218.0s]   SplatLink: dropped while settling
+[ 219.0s]   SplatLink: dropped while settling
+[ 219.8s]   SplatLink: dropped while settling
+[ 220.5s]   SplatLink: dropped while settling
+[ 221.3s]   SplatLink: dropped while settling
+[ 222.0s]   SplatLink: dropped while settling
+[ 222.7s]   SplatLink: dropped while settling
+[ 223.4s]   SplatLink: dropped while settling
+[ 224.1s]   SplatLink: dropped while settling
+[ 225.1s]   SplatLink: dropped while settling
+[ 226.0s]   SplatLink: dropped while settling
+[ 226.7s]   SplatLink: dropped while settling
+[ 227.5s]   SplatLink: dropped while settling
+[ 228.3s]   SplatLink: dropped while settling
+[ 229.0s]   SplatLink: dropped while settling
+[ 229.7s]   SplatLink: dropped while settling
+[ 230.5s]   SplatLink: dropped while settling
+[ 231.2s]   SplatLink: dropped while settling
+[ 232.2s]   SplatLink: dropped while settling
+[ 232.9s]   SplatLink: dropped while settling
+[ 233.7s]   SplatLink: dropped while settling
+[ 235.1s]   SplatLink: dropped while settling
+[ 235.8s]   SplatLink: dropped while settling
+[ 236.6s]   SplatLink: dropped while settling
+[ 237.4s]   SplatLink: dropped while settling
+[ 238.1s]   SplatLink: dropped while settling
+[ 238.9s]   SplatLink: dropped while settling
+[ 239.8s]   SplatLink: dropped while settling
+[ 240.5s]   SplatLink: dropped while settling
+[ 241.4s]   SplatLink: dropped while settling
+[ 242.2s]   SplatLink: dropped while settling
+[ 243.0s]   SplatLink: dropped while settling
+[ 243.7s]   SplatLink: dropped while settling
+[ 244.6s]   SplatLink: dropped while settling
+[ 245.3s]   SplatLink: dropped while settling
+[ 246.1s]   SplatLink: dropped while settling
+[ 246.9s]   SplatLink: dropped while settling
+[ 247.6s]   SplatLink: dropped while settling
+[ 248.5s]   SplatLink: dropped while settling
+[ 249.1s]   SplatLink: dropped while settling
+[ 249.9s]   SplatLink: dropped while settling
+[ 250.7s]   SplatLink: dropped while settling
+[ 251.4s]   SplatLink: dropped while settling
+[ 252.6s]   SplatLink: dropped while settling
+[ 253.6s]   SplatLink: dropped while settling
+[ 254.3s]   SplatLink: dropped while settling
+[ 255.0s]   SplatLink: dropped while settling
+[ 255.7s]   SplatLink: dropped while settling
+[ 256.4s]   SplatLink: dropped while settling
+[ 257.1s]   SplatLink: dropped while settling
+[ 258.0s]   SplatLink: dropped while settling
+[ 258.8s]   SplatLink: dropped while settling
+[ 259.7s]   SplatLink: dropped while settling
+[ 260.5s]   SplatLink: dropped while settling
+[ 261.3s]   SplatLink: dropped while settling
+[ 262.0s]   SplatLink: dropped while settling
+[ 262.7s]   SplatLink: dropped while settling
+[ 263.5s]   SplatLink: dropped while settling
+[ 264.3s]   SplatLink: dropped while settling
+[ 265.0s]   SplatLink: dropped while settling
+[ 265.8s]   SplatLink: dropped while settling
+[ 266.6s]   SplatLink: dropped while settling
+[ 267.5s]   SplatLink: dropped while settling
+[ 268.3s]   SplatLink: dropped while settling
+[ 269.1s]   SplatLink: dropped while settling
+[ 269.9s]   SplatLink: dropped while settling
+[ 271.1s]   SplatLink: dropped while settling
+[ 271.9s]   SplatLink: dropped while settling
+[ 273.0s]   SplatLink: dropped while settling
+[ 273.9s]   SplatLink: dropped while settling
+[ 274.6s]   SplatLink: dropped while settling
+[ 275.5s]   SplatLink: dropped while settling
+[ 276.3s]   SplatLink: dropped while settling
+[ 277.0s]   SplatLink: dropped while settling
+[ 277.8s]   SplatLink: dropped while settling
+[ 278.6s]   SplatLink: dropped while settling
+[ 279.3s]   SplatLink: dropped while settling
+[ 280.2s]   SplatLink: dropped while settling
+[ 281.1s]   SplatLink: dropped while settling
+[ 281.9s]   SplatLink: dropped while settling
+[ 282.6s]   SplatLink: dropped while settling
+[ 283.5s]   SplatLink: dropped while settling
+[ 284.3s]   SplatLink: dropped while settling
+[ 285.1s]   SplatLink: dropped while settling
+[ 285.9s]   SplatLink: dropped while settling
+[ 286.6s]   SplatLink: dropped while settling
+[ 287.4s]   SplatLink: dropped while settling
+[ 288.4s]   SplatLink: dropped while settling
+[ 289.2s]   SplatLink: dropped while settling
+[ 289.9s]   SplatLink: dropped while settling
+[ 290.7s]   SplatLink: dropped while settling
+[ 291.6s]   SplatLink: dropped while settling
+[ 292.5s]   SplatLink: dropped while settling
+[ 293.2s]   SplatLink: dropped while settling
+[ 294.0s]   SplatLink: dropped while settling
+[ 295.5s]   SplatLink: dropped while settling
+[ 296.2s]   SplatLink: dropped while settling
+[ 297.4s]   SplatLink: dropped while settling
+[ 298.2s]   SplatLink: dropped while settling
+[ 299.0s]   SplatLink: dropped while settling
+[ 299.8s]   SplatLink: dropped while settling
+[ 301.2s]   SplatLink: dropped while settling
+[ 301.9s]   SplatLink: dropped while settling
+[ 302.9s]   SplatLink: dropped while settling
+[ 303.8s]   SplatLink: dropped while settling
+[ 304.5s]   SplatLink: dropped while settling
+[ 305.3s]   SplatLink: dropped while settling
+[ 306.3s]   SplatLink: dropped while settling
+[ 307.2s]   SplatLink: dropped while settling
+[ 307.9s]   SplatLink: dropped while settling
+[ 308.8s]   SplatLink: dropped while settling
+[ 309.6s]   SplatLink: dropped while settling
+[ 310.3s]   SplatLink: dropped while settling
+[ 311.1s]   SplatLink: dropped while settling
+[ 312.0s]   SplatLink: dropped while settling
+[ 312.7s]   SplatLink: dropped while settling
+[ 313.6s]   SplatLink: dropped while settling
+[ 314.3s]   SplatLink: dropped while settling
+[ 315.0s]   SplatLink: dropped while settling
+[ 316.2s]   SplatLink: dropped while settling
+[ 317.1s]   SplatLink: dropped while settling
+[ 317.8s]   SplatLink: dropped while settling
+[ 318.5s]   SplatLink: dropped while settling
+[ 319.4s]   SplatLink: dropped while settling
+[ 320.2s]   SplatLink: dropped while settling
+[ 321.0s]   SplatLink: dropped while settling
+[ 321.7s]   SplatLink: dropped while settling
+[ 322.4s]   SplatLink: dropped while settling
+[ 323.3s]   SplatLink: dropped while settling
+[ 324.4s]   SplatLink: dropped while settling
+[ 325.5s]   SplatLink: dropped while settling
+[ 326.4s]   SplatLink: dropped while settling
+[ 327.2s]   SplatLink: dropped while settling
+[ 328.0s]   SplatLink: dropped while settling
+[ 328.9s]   SplatLink: dropped while settling
+[ 329.6s]   SplatLink: dropped while settling
+[ 330.3s]   SplatLink: dropped while settling
+[ 331.1s]   SplatLink: dropped while settling
+[ 332.0s]   SplatLink: dropped while settling
+[ 332.6s]   SplatLink: dropped while settling
+[ 333.4s]   SplatLink: dropped while settling
+[ 334.2s]   SplatLink: dropped while settling
+[ 335.0s]   SplatLink: dropped while settling
+[ 335.7s]   SplatLink: dropped while settling
+[ 336.4s]   SplatLink: dropped while settling
+[ 337.2s]   SplatLink: dropped while settling
+[ 337.9s]   SplatLink: dropped while settling
+[ 338.7s]   SplatLink: dropped while settling
+[ 339.4s]   SplatLink: dropped while settling
+[ 340.2s]   SplatLink: dropped while settling
+[ 341.0s]   SplatLink: dropped while settling
+[ 341.7s]   SplatLink: dropped while settling
+[ 342.6s]   SplatLink: dropped while settling
+[ 343.3s]   SplatLink: dropped while settling
+[ 344.1s]   SplatLink: dropped while settling
+[ 344.9s]   SplatLink: dropped while settling
+[ 345.7s]   SplatLink: dropped while settling
+[ 346.4s]   SplatLink: dropped while settling
+[ 347.1s]   SplatLink: dropped while settling
+[ 347.9s]   SplatLink: dropped while settling
+[ 348.8s]   SplatLink: dropped while settling
+[ 349.5s]   SplatLink: dropped while settling
+[ 350.3s]   SplatLink: dropped while settling
+[ 351.3s]   SplatLink: dropped while settling
+[ 352.1s]   SplatLink: dropped while settling
+[ 352.8s]   SplatLink: dropped while settling
+[ 354.0s]   SplatLink: dropped while settling
+[ 355.1s]   SplatLink: dropped while settling
+[ 355.9s]   SplatLink: dropped while settling
+[ 357.1s]   SplatLink: dropped while settling
+[ 357.9s]   SplatLink: dropped while settling
+[ 358.6s]   SplatLink: dropped while settling
+[ 359.5s]   SplatLink: dropped while settling
+[ 360.3s]   SplatLink: dropped while settling
+[ 361.2s]   SplatLink: dropped while settling
+[ 361.9s]   SplatLink: dropped while settling
+[ 362.7s]   SplatLink: dropped while settling
+[ 363.4s]   SplatLink: dropped while settling
+[ 364.2s]   SplatLink: dropped while settling
+[ 384.1s]   SplatLink: attempt 204 not ready after 20001 ms (failed=2), retry in 2000 ms
+[ 404.2s]   SplatLink: attempt 205 not ready after 20000 ms (failed=1), retry in 2000 ms
+[ 424.2s]   SplatLink: attempt 205 not ready after 20004 ms (failed=3), retry in 2000 ms
+[ 444.2s]   SplatLink: attempt 206 not ready after 20041 ms (failed=2), retry in 2000 ms
+[ 464.3s]   SplatLink: attempt 206 not ready after 20039 ms (failed=4), retry in 2000 ms
+[ 484.3s]   SplatLink: attempt 207 not ready after 20000 ms (failed=3), retry in 2000 ms
+[ 504.3s]   SplatLink: attempt 207 not ready after 20009 ms (failed=5), retry in 2000 ms
+[ 524.3s]   SplatLink: attempt 208 not ready after 20000 ms (failed=4), retry in 2000 ms
+[ 544.3s]   SplatLink: attempt 208 not ready after 20000 ms (failed=6), retry in 2000 ms
+[ 564.3s]   SplatLink: attempt 209 not ready after 20000 ms (failed=5), retry in 2000 ms
+[ 584.3s]   SplatLink: attempt 209 not ready after 20021 ms (failed=7), retry in 2000 ms
+[ 604.3s]   SplatLink: attempt 210 not ready after 20002 ms (failed=6), retry in 2000 ms
+[ 624.3s]   SplatLink: attempt 210 not ready after 20001 ms (failed=8), retry in 2000 ms
+[ 644.3s]   SplatLink: attempt 211 not ready after 20009 ms (failed=7), retry in 2000 ms
+[ 664.4s]   SplatLink: attempt 211 not ready after 20036 ms (failed=9), retry in 2000 ms
+[ 684.4s]   SplatLink: attempt 212 not ready after 20002 ms (failed=8), retry in 2000 ms
+[ 704.4s]   SplatLink: attempt 212 not ready after 20003 ms (failed=10), retry in 2000 ms
+[ 724.4s]   SplatLink: attempt 213 not ready after 20039 ms (failed=9), retry in 2000 ms
+[ 744.4s]   SplatLink: attempt 213 not ready after 20000 ms (failed=11), retry in 2000 ms
+[ 764.4s]   SplatLink: attempt 214 not ready after 20002 ms (failed=10), retry in 2000 ms
+[ 784.5s]   SplatLink: attempt 214 not ready after 20025 ms (failed=12), retry in 2000 ms
+[ 804.5s]   SplatLink: attempt 215 not ready after 20002 ms (failed=11), retry in 2000 ms
+[ 824.5s]   SplatLink: attempt 215 not ready after 20000 ms (failed=13), retry in 2000 ms
+[ 844.5s]   SplatLink: attempt 216 not ready after 20001 ms (failed=12), retry in 2000 ms
+[ 864.5s]   SplatLink: attempt 216 not ready after 20007 ms (failed=14), retry in 2000 ms
+[ 884.6s]   SplatLink: attempt 217 not ready after 20019 ms (failed=13), retry in 2000 ms
+[ 904.6s]   SplatLink: attempt 217 not ready after 20036 ms (failed=15), retry in 2000 ms
+[ 924.6s]   SplatLink: attempt 218 not ready after 20026 ms (failed=14), retry in 2000 ms
+[ 944.7s]   SplatLink: attempt 218 not ready after 20003 ms (failed=16), retry in 2000 ms
+[ 964.7s]   SplatLink: attempt 219 not ready after 20026 ms (failed=15), retry in 2000 ms
+[ 984.7s]   SplatLink: attempt 219 not ready after 20017 ms (failed=17), retry in 2000 ms
+[1004.8s]   SplatLink: attempt 220 not ready after 20040 ms (failed=16), retry in 2000 ms
+[1024.8s]   SplatLink: attempt 220 not ready after 20018 ms (failed=18), retry in 2000 ms
+[1044.8s]   SplatLink: attempt 221 not ready after 20010 ms (failed=17), retry in 2000 ms
+[1064.9s]   SplatLink: attempt 221 not ready after 20020 ms (failed=19), retry in 2000 ms
+[1084.9s]   SplatLink: attempt 222 not ready after 20002 ms (failed=18), retry in 2000 ms
+[1104.9s]   SplatLink: attempt 222 not ready after 20002 ms (failed=20), retry in 2000 ms
+[1124.9s]   SplatLink: attempt 223 not ready after 20003 ms (failed=19), retry in 2000 ms
+[1144.9s]   SplatLink: attempt 223 not ready after 20005 ms (failed=21), retry in 2000 ms
+[1164.9s]   SplatLink: attempt 224 not ready after 20000 ms (failed=20), retry in 2000 ms
+[1184.9s]   SplatLink: attempt 224 not ready after 20005 ms (failed=22), retry in 2000 ms
+[1204.9s]   SplatLink: attempt 225 not ready after 20002 ms (failed=21), retry in 2000 ms
+[1224.9s]   SplatLink: attempt 225 not ready after 20005 ms (failed=23), retry in 2000 ms
+[1244.9s]   SplatLink: attempt 226 not ready after 20027 ms (failed=22), retry in 2000 ms
+[1265.0s]   SplatLink: attempt 226 not ready after 20029 ms (failed=24), retry in 2000 ms
+[1285.0s]   SplatLink: attempt 227 not ready after 20025 ms (failed=23), retry in 2000 ms
+[1305.1s]   SplatLink: attempt 227 not ready after 20039 ms (failed=25), retry in 2000 ms
+[1325.1s]   SplatLink: attempt 228 not ready after 20029 ms (failed=24), retry in 2000 ms
+[1345.1s]   SplatLink: attempt 228 not ready after 20034 ms (failed=26), retry in 2000 ms
+[1365.2s]   SplatLink: attempt 229 not ready after 20024 ms (failed=25), retry in 2000 ms
+[1385.2s]   SplatLink: attempt 229 not ready after 20020 ms (failed=27), retry in 2000 ms
+[1405.2s]   SplatLink: attempt 230 not ready after 20031 ms (failed=26), retry in 2000 ms
+[1425.2s]   SplatLink: attempt 230 not ready after 20001 ms (failed=28), retry in 2000 ms
+[1445.2s]   SplatLink: attempt 231 not ready after 20001 ms (failed=27), retry in 2000 ms
+[1465.2s]   SplatLink: attempt 231 not ready after 20000 ms (failed=29), retry in 2000 ms
+[1485.2s]   SplatLink: attempt 232 not ready after 20015 ms (failed=28), retry in 2000 ms
+[1505.3s]   SplatLink: attempt 232 not ready after 20043 ms (failed=30), retry in 2000 ms
+[1525.3s]   SplatLink: attempt 233 not ready after 20019 ms (failed=29), retry in 2000 ms
+[1545.3s]   SplatLink: attempt 233 not ready after 20037 ms (failed=31), retry in 2000 ms
+[1565.4s]   SplatLink: attempt 234 not ready after 20000 ms (failed=30), retry in 2000 ms
+[1585.4s]   SplatLink: attempt 234 not ready after 20016 ms (failed=32), retry in 2000 ms
+[1605.4s]   SplatLink: attempt 235 not ready after 20004 ms (failed=31), retry in 2000 ms
+[1625.4s]   SplatLink: attempt 235 not ready after 20001 ms (failed=33), retry in 2000 ms
+[1645.4s]   SplatLink: attempt 236 not ready after 20002 ms (failed=32), retry in 2000 ms
+[1665.4s]   SplatLink: attempt 236 not ready after 20000 ms (failed=34), retry in 2000 ms
+[1685.5s]   SplatLink: attempt 237 not ready after 20029 ms (failed=33), retry in 2000 ms
+[1705.5s]   SplatLink: attempt 237 not ready after 20037 ms (failed=35), retry in 2000 ms
+[1725.6s]   SplatLink: attempt 238 not ready after 20035 ms (failed=34), retry in 2000 ms
+[1745.6s]   SplatLink: attempt 238 not ready after 20024 ms (failed=36), retry in 2000 ms
+[1765.6s]   SplatLink: attempt 239 not ready after 20004 ms (failed=35), retry in 2000 ms
+[1785.6s]   SplatLink: attempt 239 not ready after 20044 ms (failed=37), retry in 2000 ms
+[1805.7s]   SplatLink: attempt 240 not ready after 20011 ms (failed=36), retry in 2000 ms
+[1825.7s]   SplatLink: attempt 240 not ready after 20038 ms (failed=38), retry in 2000 ms
+[1845.7s]   SplatLink: attempt 241 not ready after 20028 ms (failed=37), retry in 2000 ms
+[1865.7s]   SplatLink: attempt 241 not ready after 20000 ms (failed=39), retry in 2000 ms
+[1885.7s]   SplatLink: attempt 242 not ready after 20000 ms (failed=38), retry in 2000 ms
+[1905.7s]   SplatLink: attempt 242 not ready after 20000 ms (failed=40), retry in 2000 ms
+[1925.7s]   SplatLink: attempt 243 not ready after 20003 ms (failed=39), retry in 2000 ms
+[1945.8s]   SplatLink: attempt 243 not ready after 20003 ms (failed=41), retry in 2000 ms
