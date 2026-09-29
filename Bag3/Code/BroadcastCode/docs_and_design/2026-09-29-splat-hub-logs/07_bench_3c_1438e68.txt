@@ -1,0 +1,66 @@
+3c: firmware 1.29.0 | Seeed XIAO ESP32C6 with ESP32-C6
+3c: gc_free 197472
+[  0.05] === variant default: interval=None direct_ms=10000 gap_ms=0
+  SplatHub: discovering (2 Splat(s) wanted)
+  SplatHub: unit 0 -> AB:42:00:00:62:2F
+  SplatHub: unit 1 -> AB:42:00:00:80:B4
+[  0.18] IRQ event 29 (2, 0, None)
+[  0.18] IRQ event 29 (10, 0, <memoryview>)
+[  0.18] IRQ event 30 (10, <memoryview>, <memoryview>)
+[  0.19] INITIATE unit 1 -> AB:42:00:00:80:B4 timeout=10000 ms interval=None
+VARIANT default crashed:
+Traceback (most recent call last):
+  File "<stdin>", line 230, in <module>
+  File "<stdin>", line 142, in run
+  File "splat_api.py", line 233, in poll
+  File "splat_api.py", line 87, in poll
+  File "splat_link.py", line 144, in service
+  File "splat_link.py", line 183, in _begin
+  File "splat_link.py", line 190, in _attempt
+  File "<stdin>", line 117, in cd
+TypeError: function takes 2 positional arguments but 3 were given
+[  0.21] IRQ event 29 (2, 0, None)
+[  0.21] IRQ event 29 (10, 0, <memoryview>)
+[  0.21] IRQ event 30 (10, <memoryview>, <memoryview>)
+[  0.24] === variant long-interval: interval=(100000, 200000) direct_ms=10000 gap_ms=0
+  SplatHub: discovering (2 Splat(s) wanted)
+  SplatHub: unit 0 -> AB:42:00:00:62:2F
+  SplatHub: unit 1 -> AB:42:00:00:80:B4
+[  0.29] IRQ event 29 (2, 0, None)
+[  0.29] IRQ event 29 (10, 0, <memoryview>)
+[  0.29] IRQ event 30 (10, <memoryview>, <memoryview>)
+[  0.29] INITIATE unit 1 -> AB:42:00:00:80:B4 timeout=10000 ms interval=None
+VARIANT long-interval crashed:
+Traceback (most recent call last):
+  File "<stdin>", line 230, in <module>
+  File "<stdin>", line 142, in run
+  File "splat_api.py", line 233, in poll
+  File "splat_api.py", line 87, in poll
+  File "splat_link.py", line 144, in service
+  File "splat_link.py", line 183, in _begin
+  File "splat_link.py", line 190, in _attempt
+  File "<stdin>", line 117, in cd
+TypeError: function takes 2 positional arguments but 3 were given
+[  0.32] IRQ event 29 (2, 0, None)
+[  0.32] IRQ event 29 (10, 0, <memoryview>)
+[  0.32] IRQ event 30 (10, <memoryview>, <memoryview>)
+[  0.35] === variant short-bursts: interval=None direct_ms=400 gap_ms=600
+  SplatHub: discovering (2 Splat(s) wanted)
+  SplatHub: unit 0 -> AB:42:00:00:62:2F
+  SplatHub: unit 1 -> AB:42:00:00:80:B4
+[  0.39] IRQ event 29 (2, 0, None)
+[  0.39] IRQ event 29 (10, 0, <memoryview>)
+[  0.40] IRQ event 30 (10, <memoryview>, <memoryview>)
+[  0.40] INITIATE unit 1 -> AB:42:00:00:80:B4 timeout=400 ms interval=None
+VARIANT short-bursts crashed:
+Traceback (most recent call last):
+  File "<stdin>", line 230, in <module>
+  File "<stdin>", line 142, in run
+  File "splat_api.py", line 233, in poll
+  File "splat_api.py", line 87, in poll
+  File "splat_link.py", line 144, in service
+  File "splat_link.py", line 183, in _begin
+  File "splat_link.py", line 190, in _attempt
+  File "<stdin>", line 117, in cd
+TypeError: function takes 2 positional arguments but 3 were given
+DONE
