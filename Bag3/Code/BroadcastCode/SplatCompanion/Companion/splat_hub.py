@@ -7,7 +7,7 @@ last one built would receive every event. SplatHub builds N SplatLinks,
 then takes the IRQ over and routes each event to the one link it belongs
 to (OpenSplat also ignores disconnect/GATT events for other connections).
 
-Discover, then connect -- never scan beside a live connection:
+Discover, then connect:
 
 1. Discovery: only while no link is connecting, settling or ready, the hub
    runs one scan until it has found an address for every link (pinned
@@ -19,17 +19,10 @@ Discover, then connect -- never scan beside a live connection:
 3. A link whose Splat was not found waits; discovery runs again only once
    no link is up. Switch every Splat on before the hub boots.
 
-Hardware (2026-09-29, XIAO C6): a continuous scan beside a connected
-Splat lost that link within about a second, while a 20% duty scan did not
-(bench/3b_scan_while_connected.py). With two Splats, starting the second
-connection lost the first about 0.1 s later, every time
-(docs_and_design/2026-09-29-splat-hub-logs/); cause not yet known --
-bench/3c_two_links.py records the negotiated connection parameters.
-
 The connection count is capped at BLE_MAX_CONNECTIONS, the stock
 MicroPython ESP32 build's CONFIG_BT_NIMBLE_MAX_CONNECTIONS (4, in
 ports/esp32/boards/sdkconfig.ble). A firmware built with a larger value
-can raise it here. UNVERIFIED on hardware for more than one Splat.
+can raise it here. Run on hardware with 1 and 2 Splats; 3 and 4 untested.
 """
 
 import time
@@ -90,10 +83,10 @@ class SplatHub:
         """Disconnect every Splat and keep the links from reconnecting.
 
         Call on every exit path the program controls (Ctrl-C, a finished
-        bench script, an uncaught exception): a Splat whose hub vanished
-        without disconnecting stays "connected" on its side for minutes
-        and does not advertise, so the next boot cannot find it (seen on
-        hardware, 2026-09-29). A machine.reset() cannot run this.
+        bench script, an uncaught exception). A Splat left connected by a
+        hub that stops without disconnecting stays in its connected state
+        for minutes and does not advertise, so the next discovery cannot
+        find it. A machine.reset() cannot run this; power-cycle the Splat.
         """
         for i, link in enumerate(self.links):
             link.scan_gate = lambda l: False

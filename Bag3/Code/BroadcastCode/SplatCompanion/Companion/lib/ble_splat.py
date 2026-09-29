@@ -122,12 +122,12 @@ class OpenSplat():
         self._capture_responses = False
 
     def _ensure_active(self):
-        """Turn BLE on only if it is off. On MicroPython 1.29 / XIAO C6,
-        active(True) on an already active radio restarts the stack: every
-        open connection drops (IRQ disconnect, then the stack's key-store
-        reads, IRQ 29/30) and the peer is not told, so a Splat stays
-        "connected" on its side. Seen with two Splats, 2026-09-29
-        (docs_and_design/2026-09-29-splat-hub-logs/09_bench_3c_18c78a2.txt)."""
+        """Turn BLE on only if it is off.
+
+        On MicroPython 1.29 (ESP32-C6), active(True) on an active radio
+        restarts the stack: every open connection drops and the peer is
+        not notified, so a Splat stays in its connected state.
+        """
         if not self._ble.active():
             self._ble.active(True)
 

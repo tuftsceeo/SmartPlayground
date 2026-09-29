@@ -1,50 +1,27 @@
 """
-3c_two_links.py -- why does a second Splat connection drop the first?
-=====================================================================
+3c_two_links.py -- diagnostic for two Splat connections on one hub
+===================================================================
 Run on the hub: mpremote connect $HUB resume run bench/3c_two_links.py
-Needs on the hub: the stage-3 files (bench/README.md). BOTH Splats on,
-not connected to a phone or web app. /main.py moved aside.
+Needs on the hub: the stage-3 files (bench/README.md). BOTH Splats on and
+searching. /main.py moved aside.
 
-Hardware so far (docs_and_design/2026-09-29-splat-hub-logs/): one Splat
-holds, with or without a 20% duty scan beside it; with two, starting the
-second connection loses the first ~0.1 s later, every time. Hypotheses:
+For each entry in VARIANTS (connection interval, direct-connect timeout,
+retry gap) it builds SplatHub(2), runs RUN_S and logs, with times: each
+INITIATE (gap_connect call), BLE IRQ connect/disconnect/conn-parameter
+update and any other unhandled event, a link state reset while connected
+with the last IRQ seen, and each link loss with a write probe on its old
+handle. It ends each variant with a SUMMARY and the run with VERDICT
+lines.
 
-  H1 connecting starves the live link: while a connection is being
-     initiated the radio listens continuously (MicroPython fixes the
-     initiator duty), the live link misses its events and hits its
-     supervision timeout. Evidence: a real IRQ disconnect for the live
-     handle, shortly after the other link's INITIATE and before its
-     connect completes; short supervision timeout in the conn updates;
-     short connect bursts with gaps hold both.
-  H2 connection limit (controller or build allows one central link).
-     Evidence: the loss follows the other link's CONNECT completion, not
-     its initiation; bursts that never complete never drop the live link.
-  H3 hub software: link state reset without a radio disconnect.
-     Evidence: no IRQ disconnect for the handle before the loss, and a
-     write on the old handle still succeeds after it.
-
-Splat side (user, 2026-09-29): after the hub reports a link lost, the
-Splat often stays in its connected state (no lights) for minutes, then a
-connected sleep (rare blue breathing), and does not advertise until it
-gives up or is power-cycled. Both ends share one supervision timeout, so
-a real radio timeout should free the Splat too; a Splat that stays
-connected points to H3 (the link is alive and only the hub's state was
-reset) or to Splat firmware not enforcing the timeout. The write probe
-separates the two on the hub side.
-
-IRQ 29/30 (_IRQ_GET_SECRET / _IRQ_SET_SECRET): the stack reading/writing
-its key store. In 07_bench_3c_1438e68.txt they appear once per variant at
-hub start-up, before any connect completes -- most likely the stack's own
-local identity key, not the Splat requesting pairing. Nothing here stores
-them (the handler returns None). Bag2's Splat code never pairs, and one
-unpaired Splat held on this hub (stage 3), so pairing is not assumed to be
-required; if a verdict stays unclear, a gap_pair() test is the next step.
-
-Per variant it logs, with times: every INITIATE (gap_connect call), every
-BLE IRQ (connect, disconnect, conn-parameter update, notify counts per
-handle), every link state reset with the last IRQ seen, and, on each loss,
-a write probe on the old handle. It ends each variant with a SUMMARY and a
-per-loss table, and the run with VERDICT lines.
+VERDICT labels a variant's losses by the evidence pattern it matches:
+  H1  loss within 1.5 s of the other link's INITIATE, before its connect
+  H2  loss within 0.5 s after the other link's connect completes
+  H3  loss with no IRQ disconnect for that handle, or the old handle
+      still accepts a write
+Times are measured from when the loss is detected, which can follow the
+disconnect by a few ms; read the IRQ lines for exact order.
+IRQ 29/30 (_IRQ_GET_SECRET / _IRQ_SET_SECRET) are the stack's key-store
+reads and writes; nothing here stores keys.
 """
 
 import gc

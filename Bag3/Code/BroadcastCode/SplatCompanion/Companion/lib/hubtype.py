@@ -31,11 +31,9 @@ _CONFIGS = {
         "has_button":     False,
         "has_ble":        True,
         "uses_ble":       True,     # actively connects to Splats
-        # Splats this companion connects to at once. 1 is the default and
-        # the only count run on hardware so far; up to
+        # Splats this companion connects to at once, 1 to
         # splat_hub.BLE_MAX_CONNECTIONS (4 on stock MicroPython firmware).
-        # More than one is UNVERIFIED on hardware -- see README "Multiple
-        # Splats".
+        # Run on hardware with 1 and 2; see README "Multiple Splats".
         "max_splats":     1,
         # None: take the first max_splats Splats found by BLE name. A list
         # of MAC strings, e.g. ["AB:42:00:00:7E:B6", ...], pins specific

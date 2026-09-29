@@ -15,8 +15,10 @@ Nothing plays on a Splat press while idle, and no other device drives the
 Splat directly.
 
 Status: passes the CPython simulation (`test_splat_companion.py`) and a
-stubbed boot smoke test (`../../tools/devtests/boot_splat.py`).
-**Not yet run on hardware.** See `HARDWARE_TEST.md`.
+stubbed boot smoke test (`../../tools/devtests/boot_splat.py`). Run on
+hardware: bench stages 1-4, full boot, and `jumpin` with the MockWand and
+with 1 and 2 Splats. Not yet run on hardware: a pull, a card-driven game,
+the MAX17048 gauge (not found on I2C), 3 or 4 Splats. See `HARDWARE_TEST.md`.
 
 ## Hardware
 
@@ -93,8 +95,8 @@ ubluetooth.BLE().active(True)` runs before ESP-NOW (over UART, via the
 modem) or the PN532/MAX17048 are touched. `memprobe.probe()` calls
 bracket each stage; the module-level imports ahead of BLE (game tables,
 the NFC/PN532 driver classes, the LED ring) mirror what MockWand's
-own `main.py` allocates ahead of `enow.init()` -- UNVERIFIED at this size
-combination on this device; the bench run checks it.
+own `main.py` allocates ahead of `enow.init()`. With this order the full
+boot completes on the XIAO C6 hub, BLE and the modem link both up.
 
 **Boot order:**
 1. `pull_flag.is_pending()` -> `_run_pull_mode()` if set (WiFi join to a
@@ -192,10 +194,14 @@ off by default; set it in `lib/hubtype.py`'s `splat_companion` entry:
   connected, until it has an address for every unit (or 8 s pass), then
   each unit connects straight to its address, one at a time, with no scan.
   A dropped unit reconnects the same way.
-- **Two Splats do not hold yet (hardware, 2026-09-29).** Starting the
-  second connection loses the first about 0.1 s later, every time; one
-  Splat holds, and a 20% duty scan beside it does not drop it (bench 3b).
-  `bench/3c_two_links.py` is the next diagnostic.
+- **Radio on only once:** nothing calls `BLE().active(True)` on an active
+  radio (`ble_splat._ensure_active()`). On MicroPython 1.29 (ESP32-C6) that
+  restarts the stack and drops every connection without notifying the
+  Splat.
+- **Clean exit:** `SplatHub.close_all()` disconnects every Splat on Ctrl-C,
+  an uncaught exception, and at the end of each bench script. A Splat left
+  connected by a hub that stopped without it stays connected and does not
+  advertise until power-cycled.
 - **Switch every Splat on before the hub boots.** A Splat not found at
   discovery is looked for again only when no Splat is connected.
 - **Write cost:** each BLE write waits up to 20 ms (`_WRITE_PACE_MS` in
@@ -206,8 +212,8 @@ off by default; set it in `lib/hubtype.py`'s `splat_companion` entry:
   is ready.
 - **Games:** a game must still work with `splat.count == 1` -- the count
   is set per device, and a generated game cannot know it.
-- **UNVERIFIED on hardware** for more than one Splat. Bench 2 before 4
-  (`HARDWARE_TEST.md`, step 9).
+- **Hardware:** 2 Splats connect and hold (`bench/3c_two_links.py`,
+  `jumpin`); 3 and 4 untested (`HARDWARE_TEST.md`, step 9).
 
 ## Messages while idle (`companion.py`)
 
@@ -249,20 +255,18 @@ game returns.
   quirks** inherited from the Bag2/Jan-2026 companions -- see the git
   history of this file (`companion.py`'s introduction, commit `50fe511`)
   for the fuller writeup; unresolved on hardware either way.
-- **`ble_splat.py` fixed in `Bag3/Code/lib/` (2026-09-27), not in
-  `Bag2/Code/lib/`:** short-tap release no longer dropped, late
-  `SCAN_DONE` no longer clears a newer scan, a chosen or pinned Splat
-  address is never replaced by another advertisement, disconnect/GATT
-  events for other connections are ignored, and `disconnect()` leaves the
-  radio on. See `docs/KNOWN_ISSUES.md`.
+- **`ble_splat.py` in `Bag3/Code/lib/` differs from `Bag2/Code/lib/`:** it
+  keeps a short-tap release, counts scans so a late `SCAN_DONE` does not
+  clear a newer scan, never replaces a chosen or pinned Splat address,
+  ignores disconnect/GATT events for other connections, leaves the radio
+  on in `disconnect()`, turns the radio on only when it is off, and has
+  `connect_direct()`. See `docs/KNOWN_ISSUES.md`.
 - **`Bag2/Code/Splat Companion/ble_splat.py`** actually holds the wand-side
   controller, not the `OpenSplat` driver its own `main.py` imports.
 
 ## Not done
 
-- Hardware bench run of any kind (modem link, BLE, NFC, pull, a game).
-- Several Splats per companion on hardware (simulated only; see
-  "Multiple Splats").
+- Hardware: a pull, a card-driven game, 3 or 4 Splats.
 - Wand-side code that sends `start_game` naming a Splat game.
 - The EUM's acknowledged-fetch fix (`../../EspnowModem/README.md`) -- a
   timed-out `FETCH` still loses up to 4 messages.

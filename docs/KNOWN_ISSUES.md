@@ -267,3 +267,14 @@ still has every bug listed above; cross-generation compatibility is not a goal, 
 `Bag3/Code/BroadcastCode/SplatCompanion/` is now the two-board station: the hub tree moved to
 `SplatCompanion/Companion/`, and the C6 modem firmware lives in `SplatCompanion/ESPNowModem/`.
 Earlier entries above name the old flat paths.
+
+### `BLE().active(True)` on an active radio drops every connection
+
+On MicroPython 1.29 (ESP32-C6), calling `active(True)` while BLE is already active restarts the
+stack: every open connection drops and the peer is not notified, so a Splat stays in its
+connected state and stops advertising until power-cycled. With two Splats this dropped each link
+when the other link began connecting (`docs_and_design/2026-09-29-splat-hub-logs/09_*`).
+`Bag3/Code/lib/ble_splat.py` (`_ensure_active()`, and its byte copy) and
+`SplatCompanion/Companion/splat_link.py` now turn BLE on only when it is off; two Splats then
+connected and held (`10_bench_3c_39209e3.txt`). `Bag2/Code/lib/ble_splat.py` still calls
+`active(True)` unconditionally.

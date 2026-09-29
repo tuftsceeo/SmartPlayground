@@ -6,7 +6,7 @@ Needs on the hub: the stage-3 files (bench/README.md). One Splat on.
 
 Connects one Splat, holds the link HOLD_S with no scan, then HOLD_S with a
 scan running at SCAN (interval_us, window_us), and counts link drops in
-each phase. splat_hub.py is built on the answer being "yes, it drops".
+each phase.
 """
 
 import time
