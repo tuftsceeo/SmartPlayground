@@ -11,7 +11,7 @@ Only the listed files must already be on it. Report each PASS/FAIL line
 | 2 LED ring | `mpremote connect $HUB resume run bench/2_leds.py` | + `status_leds.py` |
 | 3 BLE Splats | `mpremote connect $HUB resume run bench/3_ble_splat.py` | + `splat_link.py`, `splat_hub.py`, `splat_api.py`, `lib/ble_splat.py` |
 | 3b scan vs link (diagnostic) | `mpremote connect $HUB resume run bench/3b_scan_while_connected.py` | stage-3 files; one Splat on. Reports drops with and without a scan running |
-| 3c two links (diagnostic) | `mpremote connect $HUB resume run bench/3c_two_links.py` | stage-3 files; both Splats on. Logs connect/disconnect/parameter-update events and one SUMMARY per connection-interval variant |
+| 3c two links (diagnostic) | `mpremote connect $HUB resume run bench/3c_two_links.py` | stage-3 files; both Splats on. Three variants (default, long interval, short connect bursts). Logs every INITIATE, IRQ connect/disconnect/parameter update, state reset and loss (with a write probe on the old handle); SUMMARY per variant and VERDICT lines for hypotheses H1-H3 (see the script docstring) |
 | 4 NFC reader | `mpremote connect $HUB resume run bench/4_nfc.py` | + `lib/pn532.py`, `lib/nfc_reader.py`, `lib/splat_tags.py` |
 
 Copy with, for example:
