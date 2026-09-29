@@ -17,7 +17,7 @@ ubluetooth.BLE().active(True)
 from splat_hub import SplatHub
 from splat_api import SplatGroup
 
-HOLD_S = 15
+HOLD_S = 10
 SCAN = (100000, 20000)   # 20% duty, the hub's earlier shared-scan setting
 
 
