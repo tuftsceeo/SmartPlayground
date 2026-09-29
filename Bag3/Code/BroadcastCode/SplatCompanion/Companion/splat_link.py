@@ -192,7 +192,9 @@ class SplatLink(OpenSplat):
                       % (self.mac_address, self.connects))
 
     def _begin(self, now):
-        self._ble.active(True)
+        # Never active(True) on a live radio: it restarts the stack and
+        # drops every other link (see ble_splat._ensure_active).
+        self._ensure_active()
         self._reset_connection_state()
         self._raw_q = []
         self._irq_raw = self._raw = self.splat_pressed = False

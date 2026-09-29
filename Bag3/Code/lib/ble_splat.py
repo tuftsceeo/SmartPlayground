@@ -15,7 +15,9 @@ caller routes IRQ events to them (see BroadcastCode/SplatCompanion/Companion/spl
 - Scans are counted (_scans_pending): each started scan delivers exactly
   one SCAN_DONE, so a late SCAN_DONE from a stopped scan does not clear
   the flag of a newer one.
-- disconnect() leaves the radio active.
+- disconnect() leaves the radio active, and nothing here calls
+  active(True) on a radio that is already on (_ensure_active()): that
+  restarts the stack and drops every other connection.
 - connect_direct() connects to a known address (addr, _addr_type) with no
   scan; a failed attempt (a disconnect event for this address with no
   connection handle yet) clears _connecting.
@@ -69,7 +71,7 @@ _RESPONSE_BUF_SIZE = 8
 class OpenSplat():
     def __init__(self, mac_address=None, verbose=False):
         self._ble = ubluetooth.BLE()
-        self._ble.active(True)
+        self._ensure_active()
 
         self.mac_address = mac_address
 
@@ -118,6 +120,16 @@ class OpenSplat():
         # Response capture — ring buffer of recent notifications
         self._responses = []
         self._capture_responses = False
+
+    def _ensure_active(self):
+        """Turn BLE on only if it is off. On MicroPython 1.29 / XIAO C6,
+        active(True) on an already active radio restarts the stack: every
+        open connection drops (IRQ disconnect, then the stack's key-store
+        reads, IRQ 29/30) and the peer is not told, so a Splat stays
+        "connected" on its side. Seen with two Splats, 2026-09-29
+        (docs_and_design/2026-09-29-splat-hub-logs/09_bench_3c_18c78a2.txt)."""
+        if not self._ble.active():
+            self._ble.active(True)
 
     def _irq_handler(self, event, data):
         """Handle BLE IRQ events"""
@@ -454,7 +466,7 @@ class OpenSplat():
         return self.mac_address
 
     def connect(self, timeout=30):
-        self._ble.active(True)
+        self._ensure_active()
         if self.connected:
             return True
         self._reset_connection_state()
