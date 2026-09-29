@@ -333,6 +333,15 @@ def test_copies_match(r):
         with open(os.path.join(src, name), "rb") as f:
             b = f.read()
         assert a == b, "SplatCompanion/lib/%s differs from %s" % (name, src)
+    # The ESPNowModem board must speak the same protocol as this hub.
+    modem_lib = os.path.join(COMP_DIR, "..", "ESPNowModem", "lib")
+    for name, src in (("eum_proto.py", host_lib),
+                      ("eum_classify.py", os.path.join(EUM_ROOT, "modem", "lib"))):
+        with open(os.path.join(modem_lib, name), "rb") as f:
+            a = f.read()
+        with open(os.path.join(src, name), "rb") as f:
+            b = f.read()
+        assert a == b, "ESPNowModem/lib/%s differs from %s" % (name, src)
 
 
 def test_no_bridge_left(r):

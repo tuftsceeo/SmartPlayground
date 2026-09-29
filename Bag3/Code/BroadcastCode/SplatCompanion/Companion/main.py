@@ -471,6 +471,10 @@ def main():
     # One SplatGroup for the whole boot: the idle loop and every game poll
     # the same object, so keepalive and switch-poll timing never restart.
     splat = SplatGroup(hub)
+    # lib/espnow_manager.py is a byte copy of the S3 proof of concept's
+    # host library (UART pins 43/44); this board's pins come from hubtype.
+    espnow_manager.UART_TX = HUB_CONFIG["modem_uart_tx"]
+    espnow_manager.UART_RX = HUB_CONFIG["modem_uart_rx"]
     mgr = espnow_manager.ESPNowManager()
     memprobe.probe("pre-enow")  # BENCH
     try:

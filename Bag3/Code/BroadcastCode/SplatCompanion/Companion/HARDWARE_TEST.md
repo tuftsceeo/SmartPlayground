@@ -7,26 +7,27 @@ Paste the block below into a local agent session on the machine with the boards 
 You are testing `Bag3/Code/BroadcastCode/SplatCompanion/` on branch `splat-espnow`. Read these first:
 - `Bag3/Code/HARDWARE_PROTOCOL.md`
 - `SplatCompanion/README.md`
-- `../../EspnowModem/README.md`
+- `../README.md` and `../ESPNowModem/README.md`
 
 **Rules:**
 - **Ask** which board is on which port, and confirm nothing else holds the ports.
 - **Pass** `resume` on every `mpremote` call.
-- **Write** only under `/flash/` on a UIFlow modem board. The XIAO C6 companion, a C6 modem, and the MockWand use `/` and `/lib/`.
+- **Write** under `/` and `/lib/` on both XIAO C6 boards and the MockWand.
 - **Leave** physical steps to the user, including any card taps. Give numbered steps, then wait for "go".
 - **Report** what the logs show; only the user can confirm what the Splat did, or read a card result off a screen.
 
 **Hardware:**
 - XIAO ESP32-C6 companion, with a PN532 wired as on the wand (I2C 0x24) and a MAX17048 gauge
-- a modem board (M5StickS3 or a second XIAO C6) running `../../EspnowModem/modem/main.py`, with its own USB power
+- the station's modem board, a second XIAO C6 running `../ESPNowModem/main.py`, with its own USB power
 - one stock Splat
 - one MockWand (Bag3, built-in `espnow_manager.py`) to broadcast `start_game` and `stop` from its REPL (step 4)
 - a Broadcast Box or Dial with a game staged as `<slug>_splat.py` (for step 5)
 - NFC cards: one printed `splatwhack`, one printed `stop`, one printed `getcode:<slug>` naming the staged game
-- UART wiring (ask the user to confirm it): companion D0 (GPIO0, TX) → modem RX, companion D1 (GPIO1, RX) ← modem TX, GND–GND (see README "Wiring" for the exact modem-side pin per board)
+- UART wiring (ask the user to confirm it): hub GPIO16 (D6, TX) → modem GPIO17 (D7, RX), hub GPIO17 (D7, RX) ← modem GPIO16 (D6, TX), GND–GND
+- the bench scripts in `bench/` (run 1→4 first; see `bench/README.md`)
 
 **Steps:**
-1. **Flash** the companion as in README "Deploying". Check the modem's firmware matches the branch (`cmp` a copy of `lib/eum_proto.py` read back against the repo's).
+1. **Flash** the companion as in README "Deploying". Flash the modem as in `../ESPNowModem/README.md`, and check its `lib/eum_proto.py` read back matches this hub's (`cmp`).
 2. **Capture** the companion boot for 60 s with `tools/serial_monitor.py`. Expect, in order:
    - `[hubtype] splat_companion`
    - a battery line (or `[WARN] Battery:` if the gauge isn't wired)

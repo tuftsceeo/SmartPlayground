@@ -20,36 +20,40 @@ stubbed boot smoke test (`../../tools/devtests/boot_splat.py`).
 
 ## Hardware
 
-- **Host:** Seeed XIAO ESP32-C6. `hubtype.txt`: `splat_companion`.
+This is the hub board of the two-board station; see `../README.md`.
+
+- **Hub:** Seeed XIAO ESP32-C6. `hubtype.txt`: `splat_companion`.
   - BLE to one Splat (default) or up to 4, on its own radio -- see
     "Multiple Splats".
-  - ESP-NOW to the rest of the playground, over UART1 to a paired modem board (`../../EspnowModem/`)
-    running `modem/main.py` -- never on this board's own radio, so BLE and
-    ESP-NOW run at the same time without the coexistence problems the Bag2
-    companion has (see "How this differs" below).
-  - PN532 card reader, same I2C wiring as the wand (0x24).
+  - ESP-NOW to the rest of the playground over UART1 to the station's
+    modem board (`../ESPNowModem/`) -- never on this board's own radio.
+  - PN532 card reader on I2C (0x24).
   - MAX17048 battery gauge, same bus.
-  - 3-pixel NeoPixel status strip.
-- **Modem:** an M5StickS3 or a second XIAO ESP32-C6 (`../../EspnowModem/README.md`,
-  "Modem on an ESP32-C6" -- UNVERIFIED on hardware either way).
+  - 12-LED NeoPixel ring.
+- **Modem:** a second XIAO ESP32-C6 running `../ESPNowModem/main.py`.
 
-## Wiring (XIAO ESP32-C6 host ↔ modem)
+## Wiring (hub)
 
-| Host | Modem (S3) | Modem (C6) |
-|---|---|---|
-| GPIO0 (D0, TX) | GPIO44 (RX) | GPIO1 (D1, RX) |
-| GPIO1 (D1, RX) | GPIO43 (TX) | GPIO0 (D0, TX) |
-| GND | GND | GND |
+| Hub pin | Goes to |
+|---|---|
+| GPIO16 (D6), UART TX | modem GPIO17 (D7), RX |
+| GPIO17 (D7), UART RX | modem GPIO16 (D6), TX |
+| GND | modem GND |
+| GPIO22 (D4), I2C SDA | PN532 SDA (and MAX17048) |
+| GPIO23 (D5), I2C SCL | PN532 SCL (and MAX17048) |
+| GPIO20 (D9) | NeoPixel ring data in |
 
-- **Why GPIO0/1 on the host:** GPIO20 drives the status LEDs, GPIO22/23 are
-  I2C (PN532 + MAX17048), and GPIO16/17 (D6/D7) carry the boot log over the
-  C6's default UART0. GPIO0/1 are free and not strapping pins. UNVERIFIED
-  on a real board.
-- **Pins are constants**, not hubtype-driven: `MODEM_UART_TX` /
-  `MODEM_UART_RX`, set on `espnow_manager` before `mgr.init()` in `main.py`
-  (see "Memory order and boot" below) -- `lib/espnow_manager.py` itself
-  stays a byte copy of `../../EspnowModem/host/lib/espnow_manager.py`.
-- **Power:** the modem needs its own supply; see `../../EspnowModem/README.md`.
+- **Pins live in `lib/hubtype.py`:** `modem_uart_tx`/`modem_uart_rx`
+  (16/17), `i2c_sda`/`i2c_scl` (22/23), `led_pin` (20), `num_leds` (12).
+  `main.py` sets the UART pins on `espnow_manager` before `mgr.init()`;
+  `lib/espnow_manager.py` stays a byte copy of
+  `../../EspnowModem/host/lib/espnow_manager.py`, whose own defaults are
+  the S3 proof of concept's 43/44.
+- **UART0 noise:** GPIO16/17 are the C6's UART0 pins. At reset each board's
+  ROM boot log goes out on GPIO16 at 115200 into the other board's RX. EUM
+  frames are CRC-checked, so this shows as a few `crc_err` in the link
+  stats after either board resets. The USB REPL is unaffected.
+- **Power:** each board on its own USB supply.
 
 ## Layout
 
@@ -158,7 +162,7 @@ python3 -m mpremote connect $COMP_PORT reset
 ```
 
 `fs mkdir` fails if `/lib` already exists; drop that step then. The modem
-runs the unchanged `../../EspnowModem/modem/` firmware -- no new ESP-NOW
+runs `../ESPNowModem/` (see its README) -- no new ESP-NOW
 message codes were added, so it needs no reflash for this device.
 
 ## Multiple Splats

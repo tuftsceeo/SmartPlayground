@@ -20,7 +20,7 @@ Usage:
 
 _CONFIGS = {
     "splat_companion": {
-        "num_leds":       3,
+        "num_leds":       12,       # NeoPixel ring on GPIO20 (D9)
         "led_pin":        20,
         "has_nfc":        True,
         "nfc_addr":       0x24,     # PN532 I2C address, same wiring as the wand
@@ -46,6 +46,10 @@ _CONFIGS = {
         # Shared with the PN532 (100 kHz is the wand's rate; 400 kHz was the
         # bridge-only config's, back when nothing else was on this bus).
         "i2c_freq":       100_000,
+        # UART1 to the ESPNowModem board (XIAO D6/D7), crossed: this TX
+        # to its RX. main.py sets these on espnow_manager before init().
+        "modem_uart_tx":  16,
+        "modem_uart_rx":  17,
     },
 }
 
