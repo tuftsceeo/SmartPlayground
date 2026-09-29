@@ -162,16 +162,33 @@ check("built-in jumpin resolves", main.game_module("jumpin") == "jumpin")
 
 # jumpin: a press blinks green, and ESP-NOW stop ends it.
 class _PressSplat(FakeSplat):
+    """A two-Splat group: a press on unit 1, then nothing."""
     def __init__(self):
         super().__init__()
-        self.colors = []
+        self.colors = []            # (who, name): "all" or a unit index
         self._evs = ["press"]
+        self.last_index = None
+        self._units = [self._Unit(self, 0), self._Unit(self, 1)]
+
+    class _Unit:
+        def __init__(self, group, i):
+            self.group, self.i = group, i
+
+        def color(self, name):
+            self.group.colors.append((self.i, name))
+            return True
 
     def poll(self):
-        return self._evs.pop(0) if self._evs else None
+        if self._evs:
+            self.last_index = 1
+            return self._evs.pop(0)
+        return None
+
+    def unit(self, i):
+        return self._units[i]
 
     def color(self, name):
-        self.colors.append(name)
+        self.colors.append(("all", name))
         return True
 
 
@@ -182,10 +199,10 @@ _je = FakeEnow(script=[(None, None, None)] * 3
                + [("raw", {"type": "jumpin", "from": "wand"}, "AA")]
                + [(None, None, None)] * 3 + [("stop", {}, "AA")])
 _jumpin.play(_ps, FakeLeds(), _je)
-check("jumpin: a Splat press blinks green and broadcasts to the wand",
-      _je.sent == [{"type": "jumpin", "from": "splat"}], str(_je.sent))
-check("jumpin: a wand press blinks the Splat too, and stop ends it",
-      _ps.colors == ["turngreen", "turngreen"], str(_ps.colors))
+check("jumpin: a Splat press broadcasts which unit was pressed",
+      _je.sent == [{"type": "jumpin", "from": "splat", "unit": 1}], str(_je.sent))
+check("jumpin: only the pressed Splat blinks; a wand press blinks all; stop ends it",
+      _ps.colors == [(1, "turngreen"), ("all", "turngreen")], str(_ps.colors))
 sys.modules.pop("jumpin", None)
 check("pulled games are discovered",
       set(game_store.slugs()) >= {"noplay", "broken", "oldstyle"},
