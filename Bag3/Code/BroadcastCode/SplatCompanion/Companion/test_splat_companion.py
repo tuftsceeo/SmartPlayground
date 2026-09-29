@@ -703,6 +703,17 @@ def test_multi_drop_one(r):
     assert r.comp.links[u].mac_address == ble.periphs[1].name
 
 
+def test_hub_scan_waits_and_shares(r):
+    hub = r.comp.splat.hub
+    a, b = hub.links[0], hub.links[1]
+    saved = a.state
+    a.state = L.ST_SETTLING
+    assert not hub._may_scan(b), "must not scan while another link settles"
+    a.state = L.ST_READY
+    assert hub._may_scan(b) and b.scan_params == HUB.SHARED_SCAN, b.scan_params
+    a.state = saved
+
+
 def test_hub_caps_connections(r):
     import io
     import contextlib
@@ -757,7 +768,7 @@ if __name__ == "__main__":
     multi_tests = [
         test_multi_all_ready, test_multi_press_reports_index,
         test_multi_color_all_and_unit, test_multi_drop_one,
-        test_hub_caps_connections,
+        test_hub_scan_waits_and_shares, test_hub_caps_connections,
     ]
     for fn in multi_tests:
         fn(rm)

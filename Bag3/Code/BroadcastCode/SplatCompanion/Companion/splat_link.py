@@ -66,6 +66,10 @@ class SplatLink(OpenSplat):
         self.events_dropped = 0
         self.scan_already = 0
         self.scan_gate = None
+        # gap_scan (interval_us, window_us). Equal values scan continuously,
+        # which is right with no connection up; SplatHub lowers the duty
+        # while another Splat is connected so its link is not starved.
+        self.scan_params = (30000, 30000)
 
     # ─── IRQ side ─────────────────────────────
 
@@ -172,7 +176,7 @@ class SplatLink(OpenSplat):
 
     def _scan(self, now):
         try:
-            self._start_scan(0, 30000, 30000)
+            self._start_scan(0, self.scan_params[0], self.scan_params[1])
         except OSError as e:
             if e.args and e.args[0] == errno.EALREADY:
                 # The radio is still scanning (another caller's scan, or
