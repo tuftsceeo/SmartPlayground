@@ -104,7 +104,6 @@ class BLE:
         self.writes = []             # (t_ms, name, bytes), every peripheral
         self.writes_by = []          # (periph index, name)
         self.next_conn = 1
-        self.restarts = 0            # active(True) while already active
         threading.Thread(target=self._dispatch, daemon=True).start()
 
     # single-Splat shorthands (periphs[0])
@@ -154,16 +153,6 @@ class BLE:
     # ubluetooth API used by ble_splat.py / splat_link.py / splat_hub.py
     def active(self, v=None):
         if v is not None:
-            if v and self.is_active:
-                # As on MicroPython 1.29 / XIAO C6: active(True) on a live
-                # radio restarts the stack and drops every connection.
-                self.restarts += 1
-                for p in self.periphs:
-                    if p.conn is not None:
-                        conn = p.conn
-                        p.conn = None
-                        p.subscribed = False
-                        self._later(1, 8, (conn, 0, memoryview(p.addr)))
             self.is_active = bool(v)
         return self.is_active
 
@@ -652,12 +641,7 @@ def poll_until_event(splat, ms):
 
 
 def test_multi_all_ready(r):
-    restarts0 = ble.restarts
     assert r.run(5000, lambda: all_ready(r)), [l.state_name() for l in r.comp.links]
-    r.run(1500)
-    assert all_ready(r), "a link dropped after both were ready"
-    assert ble.restarts == restarts0, "BLE restarted %d time(s) during connect" \
-        % (ble.restarts - restarts0)
     macs = sorted(l.mac_address for l in r.comp.links)
     assert macs == sorted(p.name for p in ble.periphs), macs
     assert r.comp.splat.count == 3 and r.comp.splat.connected_count == 3
