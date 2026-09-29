@@ -32,9 +32,13 @@ connected points to H3 (the link is alive and only the hub's state was
 reset) or to Splat firmware not enforcing the timeout. The write probe
 separates the two on the hub side.
 
-IRQ 29/30 (_IRQ_GET_SECRET / _IRQ_SET_SECRET) are the stack asking for
-or offering bonding keys around a connect; nothing here stores them (the
-handler returns None). Logged as "IRQ event 29/30".
+IRQ 29/30 (_IRQ_GET_SECRET / _IRQ_SET_SECRET): the stack reading/writing
+its key store. In 07_bench_3c_1438e68.txt they appear once per variant at
+hub start-up, before any connect completes -- most likely the stack's own
+local identity key, not the Splat requesting pairing. Nothing here stores
+them (the handler returns None). Bag2's Splat code never pairs, and one
+unpaired Splat held on this hub (stage 3), so pairing is not assumed to be
+required; if a verdict stays unclear, a gap_pair() test is the next step.
 
 Per variant it logs, with times: every INITIATE (gap_connect call), every
 BLE IRQ (connect, disconnect, conn-parameter update, notify counts per
