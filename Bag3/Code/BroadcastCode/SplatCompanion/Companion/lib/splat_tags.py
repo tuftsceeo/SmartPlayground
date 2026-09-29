@@ -16,6 +16,7 @@ mismatch: nothing else keeps the two in step.
 """
 
 GAME_TAGS = {
+    "jumpin",
     "splatwhack",
 }
 

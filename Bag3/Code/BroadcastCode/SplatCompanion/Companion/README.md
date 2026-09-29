@@ -66,7 +66,8 @@ This is the hub board of the two-board station; see `../README.md`.
 | `splat_api.py` | `SplatAPI` (one Splat) and `SplatGroup` (the `splat` object games receive); the single source of the action names |
 | `status_leds.py` | The 3-pixel strip: `fill()`, `off()` |
 | `companion_probe.py` | Diagnostics, imported only when `DEBUG_PROBE = True` |
-| `splatwhack.py` | Built-in game |
+| `jumpin.py` | Built-in test game: each press blinks the Splat and ring green (the neutral `jumpin` name every Bag3 device answers to) |
+| `splatwhack.py` | Built-in demo game |
 | `code_puller.py`, `pull_flag.py`, `pull_probe.py` | PEER copies of MockWand's (unchanged wire behaviour; `code_puller.py`'s docstring/PEER comment adapted, and it alone owns the antenna select -- see below) |
 | `boot.py` | Docstring only, IconDisplay-style: outputs are built in `main.py`, after BLE |
 | `lib/game_store.py`, `lib/memprobe.py`, `lib/nfc_reader.py`, `lib/pn532.py`, `lib/max17048.py` | PEER copies of MockWand's / `Bag3/Code/lib`'s, unchanged |
@@ -157,7 +158,7 @@ LED ring, BLE, NFC; see `bench/README.md`), then deploy the full tree:
 cd Bag3/Code/BroadcastCode/SplatCompanion
 python3 -m mpremote connect $COMP_PORT resume \
   fs cp main.py companion.py splat_link.py splat_hub.py splat_api.py status_leds.py \
-        companion_probe.py splatwhack.py code_puller.py pull_flag.py \
+        companion_probe.py jumpin.py splatwhack.py code_puller.py pull_flag.py \
         pull_probe.py boot.py hubtype.txt : + \
   fs mkdir :lib + \
   fs cp lib/*.py :lib/

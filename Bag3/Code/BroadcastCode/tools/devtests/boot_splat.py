@@ -158,6 +158,31 @@ check("hubtype read from the copied tree", main.HUB_TYPE == "splat_companion", m
 check("GAME_MODULES matches GAME_TAGS at import (no [ERR])",
       set(main.GAME_MODULES.keys()) == main.GAME_TAGS)
 check("built-in splatwhack resolves", main.game_module("splatwhack") == "splatwhack")
+check("built-in jumpin resolves", main.game_module("jumpin") == "jumpin")
+
+# jumpin: a press blinks green, and ESP-NOW stop ends it.
+class _PressSplat(FakeSplat):
+    def __init__(self):
+        super().__init__()
+        self.colors = []
+        self._evs = ["press"]
+
+    def poll(self):
+        return self._evs.pop(0) if self._evs else None
+
+    def color(self, name):
+        self.colors.append(name)
+        return True
+
+
+_ps = _PressSplat()
+main.game_module("jumpin")
+import jumpin as _jumpin
+_jumpin.play(_ps, FakeLeds(), FakeEnow(script=[(None, None, None)] * 3
+                                        + [("stop", {}, "AA")]))
+check("jumpin blinks green on a press and exits on stop",
+      _ps.colors == ["turngreen"], str(_ps.colors))
+sys.modules.pop("jumpin", None)
 check("pulled games are discovered",
       set(game_store.slugs()) >= {"noplay", "broken", "oldstyle"},
       str(sorted(game_store.slugs())))

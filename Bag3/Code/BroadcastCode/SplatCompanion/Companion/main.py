@@ -61,6 +61,7 @@ if game_store.GAMES_DIR not in sys.path:
 # GAME MODULES (lazy import on tap or start_game)
 # ─────────────────────────────────────────────
 GAME_MODULES = {
+    "jumpin": "jumpin",
     "splatwhack": "splatwhack",
 }
 
