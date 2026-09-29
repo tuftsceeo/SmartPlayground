@@ -14,7 +14,7 @@ Games get: def play(splat, leds, enow, batt=None)
            play(names), off() -- each acting on every Splat -- plus count,
            connected_count, last_index and unit(i) for one Splat. No NFC,
            buzzer, motor or accelerometer here.
-    leds   this device's 3-pixel status strip (status_leds.StatusLeds):
+    leds   this device's 12-LED ring (status_leds.StatusLeds):
            fill(color), off().
     enow   an already-initialised espnow_manager.ESPNowManager (the EUM
            drop-in). Poll every loop; return on "stop" or a start_game
@@ -137,7 +137,7 @@ def _pull_progress(received, total):
 
 
 def _pull_status(phase, tick):
-    # No wifi-bar animation on a 3-pixel strip; blink instead.
+    # No wifi-bar animation on the ring; blink instead.
     status.fill(PULL_COLOR if tick % 2 == 0 else (0, 0, 0))
 
 
@@ -451,7 +451,7 @@ def main():
     # ── BLE first: it must claim its controller memory before anything
     # else *activates a radio*. See AGENTS.md's memory-order rule. Module
     # imports above (game_store, splat_tags, nfc_reader/pn532's constants,
-    # the 3-pixel status strip) are small, non-radio allocations, the same
+    # the LED ring) are small, non-radio allocations, the same
     # ones MockWand's main.py makes before enow.init() -- see its
     # docstring. UNVERIFIED at this size combination; the memprobe.probe()
     # calls bracketing this block are what the first bench run checks.

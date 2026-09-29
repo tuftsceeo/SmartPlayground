@@ -5,7 +5,7 @@
 # display: a XIAO ESP32-C6 that runs games on a stock, unmodified Splat toy
 # over BLE, and talks to the rest of the playground over ESP-NOW (through a
 # paired modem board). It has a PN532 card reader (same wiring as the
-# wand), a battery gauge, and a 3-pixel status strip. It has NO buzzer,
+# wand), a battery gauge, and a 12-LED NeoPixel ring. It has NO buzzer,
 # motor or accelerometer, and NO 5x5 matrix -- do not treat `leds` as a
 # wand's LED matrix.
 #
@@ -44,7 +44,7 @@
 # Arguments:
 #   splat — the Splat, over BLE. See section 1. NEVER construct BLE or an
 #           ESPNowManager yourself; splat and enow are already built.
-#   leds  — this device's 3-pixel status strip: leds.fill((r,g,b)),
+#   leds  — this device's 12-LED ring: leds.fill((r,g,b)),
 #           leds.off(). Not a wand's 25-pixel matrix -- do not import
 #           anything from the wand's leds.py or address individual pixels.
 #   enow  — ESPNowManager, already initialized. Poll it EVERY loop

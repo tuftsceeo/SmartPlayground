@@ -64,7 +64,7 @@ This is the hub board of the two-board station; see `../README.md`.
 | `splat_link.py` | `SplatLink(OpenSplat)`: non-blocking BLE connect/reconnect, IRQ-safe button debounce |
 | `splat_hub.py` | `SplatHub`: one or more `SplatLink`s on the one BLE radio; routes IRQ events per link, one scan at a time |
 | `splat_api.py` | `SplatAPI` (one Splat) and `SplatGroup` (the `splat` object games receive); the single source of the action names |
-| `status_leds.py` | The 3-pixel strip: `fill()`, `off()` |
+| `status_leds.py` | The 12-LED ring: `fill()`, `off()`, `show_each()` |
 | `companion_probe.py` | Diagnostics, imported only when `DEBUG_PROBE = True` |
 | `jumpin.py` | Built-in test game: each press blinks the Splat and ring green (the neutral `jumpin` name every Bag3 device answers to) |
 | `splatwhack.py` | Built-in demo game |
@@ -92,7 +92,7 @@ anything else *activates a radio* -- `import ubluetooth;
 ubluetooth.BLE().active(True)` runs before ESP-NOW (over UART, via the
 modem) or the PN532/MAX17048 are touched. `memprobe.probe()` calls
 bracket each stage; the module-level imports ahead of BLE (game tables,
-the NFC/PN532 driver classes, the 3-pixel strip) mirror what MockWand's
+the NFC/PN532 driver classes, the LED ring) mirror what MockWand's
 own `main.py` allocates ahead of `enow.init()` -- UNVERIFIED at this size
 combination on this device; the bench run checks it.
 
@@ -127,7 +127,7 @@ def play(splat, leds, enow, batt=None):
   editing any of them, run `python3 ChatBroadcast/tools/sync_splat_actions.py`
   (from `BroadcastCode/`): ChatBroadcast puts the generated list in its
   system prompt and refuses to send a Splat game that names anything else.
-- **`leds`**: this device's 3-pixel strip, `fill(color)` / `off()` -- not
+- **`leds`**: this device's 12-LED ring, `fill(color)` / `off()` -- not
   a wand's 25-pixel matrix.
 - **`enow`**: an already-initialised `ESPNowManager` (the EUM drop-in).
   Poll every loop; return on `"stop"` or a `start_game` naming another
@@ -223,7 +223,7 @@ not handled here.
 | Cyan, breathing | Ready, waiting for a game |
 | One pixel per Splat, blue/cyan | 2 or 3 Splats configured: that Splat waiting/ready |
 
-A game gets the same 3-pixel strip via `leds.fill()`/`leds.off()` and may
+A game gets the same ring via `leds.fill()`/`leds.off()` and may
 use it however it likes; the idle loop repaints its own state once the
 game returns.
 
