@@ -5,19 +5,28 @@ Card / start_game name: jumpin (lib/splat_tags.py GAME_TAGS), the neutral
 test game name every Bag3 device answers to.
 
 At start, each Splat is randomly given its own color, animal sound and
-wand buzzer tone, all distinct (_assign()). A press on Splat i shows its
-color on that Splat and the ring, plays its sound, and broadcasts
-{"type": "jumpin", "from": "splat", "unit": i, "rgb": [r, g, b],
- "tone": hz}; a wand's jumpin (MockWand/jumpin.py) blinks that color and
-beeps that tone. A {"type": "jumpin", "from": "wand"} blinks every Splat
-green. Exits on ESP-NOW "stop" or "start_game" (a stop card or another
-game's card arrives the same way; see main.py's _GameEnow).
+wand buzzer tone, all distinct (_assign()). Press-and-hold:
+
+- A Splat stays lit in its color while held and goes dark on release;
+  its sound plays on the press.
+- The ring and the wand show the most recently pressed Splat still held;
+  when that one is released they fall back to the next most recent held
+  one (no sound replay), and go dark when none is held.
+- Every change broadcasts {"type": "jumpin", "from": "splat", "unit": i,
+  "event": "press"|"release", "rgb": [r, g, b]} (the color to show now,
+  [0, 0, 0] for dark), plus "tone": hz on a press. MockWand/jumpin.py
+  shows rgb and beeps tone.
+- A {"type": "jumpin", "from": "wand"} flashes every Splat and the ring
+  green for BLINK_MS, then restores the held state.
+
+Exits on ESP-NOW "stop" or "start_game" (a stop card or another game's
+card arrives the same way; see main.py's _GameEnow).
 """
 
 import random
 import time
 
-BLINK_MS = 300
+BLINK_MS = 300          # green flash on a wand press
 
 # (Splat color name, ring/wand RGB). Green is kept for wand presses.
 _COLORS = (
@@ -47,13 +56,27 @@ def _assign(n):
     return [(colors[i][0], colors[i][1], sounds[i], tones[i]) for i in range(n)]
 
 
+DARK = (0, 0, 0)
+
+
+def _show(splat, leds, roles, held):
+    """Apply the held state: each held Splat in its color, the rest dark;
+    the ring in the latest held Splat's color. Returns the ring color."""
+    for i in range(splat.count):
+        splat.unit(i).color(roles[i][0] if i in held else "turnoff")
+    rgb = roles[held[-1]][1] if held else DARK
+    leds.fill(rgb)
+    return rgb
+
+
 def play(splat, leds, enow, batt=None):
     roles = _assign(splat.count)
     for i, (cname, rgb, sound, tone) in enumerate(roles):
         print("  jumpin: Splat %d -> %s, %s, %d Hz" % (i, cname, sound, tone))
-    leds.fill((0, 0, 0))
+    held = []           # units held down, oldest first
     splat.off()
-    off_at = None
+    leds.fill(DARK)
+    green_until = None
     while True:
         mt, data, mac = enow.poll()
         if mt in ("stop", "start_game"):
@@ -64,22 +87,30 @@ def play(splat, leds, enow, batt=None):
             print("  jumpin: wand pressed (%s)" % mac)
             splat.color("turngreen")
             leds.fill((0, 30, 0))
-            off_at = time.ticks_add(time.ticks_ms(), BLINK_MS)
-        if splat.poll() == "press":
+            green_until = time.ticks_add(time.ticks_ms(), BLINK_MS)
+        ev = splat.poll()
+        if ev is not None:
             i = splat.last_index
-            cname, rgb, sound, tone = roles[i]
-            print("  jumpin: Splat %d pressed (%s, %s)" % (i, cname, sound))
-            enow.broadcast({"type": "jumpin", "from": "splat", "unit": i,
-                            "rgb": list(rgb), "tone": tone})
-            u = splat.unit(i)
-            u.color(cname)
-            u.sound(sound)
-            leds.fill(rgb)
-            off_at = time.ticks_add(time.ticks_ms(), BLINK_MS)
-        if off_at is not None and time.ticks_diff(time.ticks_ms(), off_at) >= 0:
-            # LEDs only: splat.off() would also cut a sound still playing.
-            # main.py runs splat.off() when the game returns.
-            splat.color("turnoff")
-            leds.fill((0, 0, 0))
-            off_at = None
+            if ev == "press" and i not in held:
+                held.append(i)
+                print("  jumpin: Splat %d pressed (%s, %s)"
+                      % (i, roles[i][0], roles[i][2]))
+                splat.unit(i).sound(roles[i][2])
+            elif ev == "release" and i in held:
+                held.remove(i)
+                print("  jumpin: Splat %d released" % i)
+            else:
+                ev = None
+        if ev is not None:
+            rgb = roles[held[-1]][1] if held else DARK
+            msg = {"type": "jumpin", "from": "splat", "unit": i,
+                   "event": ev, "rgb": list(rgb)}
+            if ev == "press":
+                msg["tone"] = roles[i][3]
+            enow.broadcast(msg)
+            if green_until is None:
+                _show(splat, leds, roles, held)
+        if green_until is not None and time.ticks_diff(time.ticks_ms(), green_until) >= 0:
+            green_until = None
+            _show(splat, leds, roles, held)
         time.sleep_ms(1)

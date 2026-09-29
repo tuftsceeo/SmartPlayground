@@ -162,13 +162,13 @@ check("built-in jumpin resolves", main.game_module("jumpin") == "jumpin")
 
 # jumpin: a press blinks green, and ESP-NOW stop ends it.
 class _PressSplat(FakeSplat):
-    """A two-Splat group: a press on unit 1, then nothing."""
-    def __init__(self):
+    """A two-Splat group replaying (event, unit) pairs, one per poll."""
+    def __init__(self, evs):
         super().__init__()
         self.colors = []            # (who, name): "all" or a unit index
         self.sounds = []
         self.count = 2
-        self._evs = ["press"]
+        self._evs = list(evs)
         self.last_index = None
         self._units = [self._Unit(self, 0), self._Unit(self, 1)]
 
@@ -186,8 +186,8 @@ class _PressSplat(FakeSplat):
 
     def poll(self):
         if self._evs:
-            self.last_index = 1
-            return self._evs.pop(0)
+            ev, self.last_index = self._evs.pop(0)
+            return ev
         return None
 
     def unit(self, i):
@@ -198,22 +198,31 @@ class _PressSplat(FakeSplat):
         return True
 
 
-_ps = _PressSplat()
 main.game_module("jumpin")
 import jumpin as _jumpin
-_je = FakeEnow(script=[(None, None, None)] * 3
+_ROLES = [("turnred", (60, 0, 0), "cat", 392), ("turnblue", (0, 0, 60), "dog", 523)]
+_real_assign = _jumpin._assign
+_jumpin._assign = lambda n: _ROLES[:n]
+# 1 pressed, 0 pressed on top, 0 released (back to 1), 1 released (dark)
+_ps = _PressSplat([("press", 1), ("press", 0), ("release", 0), ("release", 1)])
+_je = FakeEnow(script=[(None, None, None)] * 6
                + [("raw", {"type": "jumpin", "from": "wand"}, "AA")]
-               + [(None, None, None)] * 3 + [("stop", {}, "AA")])
+               + [(None, None, None)] * 60 + [("stop", {}, "AA")])
 _jumpin.play(_ps, FakeLeds(), _je)
-_sent = _je.sent[0] if _je.sent else {}
-check("jumpin: a Splat press broadcasts its unit, color and tone",
-      len(_je.sent) == 1 and _sent.get("unit") == 1 and len(_sent.get("rgb", [])) == 3
-      and _sent.get("tone") in _jumpin._TONES, str(_je.sent))
-check("jumpin: only the pressed Splat shows its color and sound; a wand press greens all",
-      len(_ps.colors) == 2 and _ps.colors[0][0] == 1
-      and _ps.colors[0][1] in [c for c, _ in _jumpin._COLORS]
-      and _ps.colors[1] == ("all", "turngreen")
-      and len(_ps.sounds) == 1 and _ps.sounds[0][0] == 1, "%s %s" % (_ps.colors, _ps.sounds))
+_jumpin._assign = _real_assign
+_seq = [(m["event"], m["unit"], tuple(m["rgb"]), m.get("tone")) for m in _je.sent]
+check("jumpin: broadcasts follow the latest held Splat, dark when none",
+      _seq == [("press", 1, (0, 0, 60), 523), ("press", 0, (60, 0, 0), 392),
+               ("release", 0, (0, 0, 60), None), ("release", 1, (0, 0, 0), None)],
+      str(_seq))
+check("jumpin: each press plays only that Splat's sound, releases none",
+      _ps.sounds == [(1, "dog"), (0, "cat")], str(_ps.sounds))
+check("jumpin: a held Splat stays lit, a released one goes dark",
+      _ps.colors[:2] == [(0, "turnoff"), (1, "turnblue")]
+      and (0, "turnred") in _ps.colors and _ps.colors[-2:] == [(0, "turnoff"), (1, "turnoff")],
+      str(_ps.colors))
+check("jumpin: a wand press flashes all green, then restores",
+      ("all", "turngreen") in _ps.colors, str(_ps.colors))
 _ok = True
 for _ in range(50):
     _r = _jumpin._assign(4)

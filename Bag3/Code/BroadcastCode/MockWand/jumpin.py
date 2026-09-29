@@ -4,8 +4,9 @@ Jump In — Button Press LED Blink
 Tap the "jumpin" NFC tag to enter this mode.
 Press the button to blink all LEDs green. Each press also broadcasts
 {"type": "jumpin", "from": "wand"}; a {"type": "jumpin", "from": "splat"}
-from the Splat Companion's jumpin blinks this wand in that Splat's "rgb"
-and beeps its "tone" (green and no beep if the message has neither).
+from the Splat Companion's jumpin sets this wand's LEDs to its "rgb" and
+keeps them there ([0, 0, 0] is dark), and beeps its "tone" if present:
+the wand shows the latest Splat still held down.
 Tap "stop" tag to exit back to programming mode.
 
 Colors from leds.py — auto-scale with ambient brightness.
@@ -78,6 +79,7 @@ class JumpInGame:
         self.np = leds.np
         self.btn = Pin(BUTTON_PIN, Pin.IN, Pin.PULL_UP)
         self._frame = 0
+        self._splat_rgb = OFF     # latest held Splat's color, from the hub
     
     def _check_stop(self):
         """Check ESP-NOW and NFC for stop. Returns True if stop detected.
@@ -90,11 +92,13 @@ class JumpInGame:
                     and data.get("from") == "splat"):
                 rgb = data.get("rgb")
                 tone = data.get("tone")
-                print("  Splat %s pressed rgb=%s tone=%s"
-                      % (data.get("unit"), rgb, tone))
+                print("  Splat %s %s rgb=%s tone=%s"
+                      % (data.get("unit"), data.get("event"), rgb, tone))
                 if tone:
                     self.buz.beep(int(tone), 120)
-                self._blink(tuple(rgb) if rgb else GREEN)
+                if rgb is not None:
+                    self._splat_rgb = tuple(rgb)
+                    self._fill(self._splat_rgb)
         if self._frame % NFC_POLL_INTERVAL != 0:
             return False
         try:
@@ -103,9 +107,15 @@ class JumpInGame:
         except Exception:
             return False
     
+    def _fill(self, color):
+        for i in range(NUM_LEDS):
+            self.np[i] = color
+        self.np.write()
+
     def _blink_green(self):
-        """Blink all LEDs green once."""
+        """Blink all LEDs green once, then restore the Splat color shown."""
         self._blink(GREEN)
+        self._fill(self._splat_rgb)
 
     def _blink(self, color):
         """Blink all LEDs in color once."""
