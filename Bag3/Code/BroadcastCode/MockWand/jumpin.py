@@ -4,7 +4,8 @@ Jump In — Button Press LED Blink
 Tap the "jumpin" NFC tag to enter this mode.
 Press the button to blink all LEDs green. Each press also broadcasts
 {"type": "jumpin", "from": "wand"}; a {"type": "jumpin", "from": "splat"}
-from the Splat Companion's jumpin blinks this wand too.
+from the Splat Companion's jumpin blinks this wand in that Splat's "rgb"
+and beeps its "tone" (green and no beep if the message has neither).
 Tap "stop" tag to exit back to programming mode.
 
 Colors from leds.py — auto-scale with ambient brightness.
@@ -87,8 +88,13 @@ class JumpInGame:
                 return True
             if (isinstance(data, dict) and data.get("type") == "jumpin"
                     and data.get("from") == "splat"):
-                print("  Splat pressed")
-                self._blink_green()
+                rgb = data.get("rgb")
+                tone = data.get("tone")
+                print("  Splat %s pressed rgb=%s tone=%s"
+                      % (data.get("unit"), rgb, tone))
+                if tone:
+                    self.buz.beep(int(tone), 120)
+                self._blink(tuple(rgb) if rgb else GREEN)
         if self._frame % NFC_POLL_INTERVAL != 0:
             return False
         try:
@@ -99,8 +105,12 @@ class JumpInGame:
     
     def _blink_green(self):
         """Blink all LEDs green once."""
+        self._blink(GREEN)
+
+    def _blink(self, color):
+        """Blink all LEDs in color once."""
         for i in range(NUM_LEDS):
-            self.np[i] = GREEN
+            self.np[i] = color
         self.np.write()
         time.sleep_ms(BLINK_ON_MS)
         

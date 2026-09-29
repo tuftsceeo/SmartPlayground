@@ -166,6 +166,8 @@ class _PressSplat(FakeSplat):
     def __init__(self):
         super().__init__()
         self.colors = []            # (who, name): "all" or a unit index
+        self.sounds = []
+        self.count = 2
         self._evs = ["press"]
         self.last_index = None
         self._units = [self._Unit(self, 0), self._Unit(self, 1)]
@@ -176,6 +178,10 @@ class _PressSplat(FakeSplat):
 
         def color(self, name):
             self.group.colors.append((self.i, name))
+            return True
+
+        def sound(self, name):
+            self.group.sounds.append((self.i, name))
             return True
 
     def poll(self):
@@ -199,10 +205,20 @@ _je = FakeEnow(script=[(None, None, None)] * 3
                + [("raw", {"type": "jumpin", "from": "wand"}, "AA")]
                + [(None, None, None)] * 3 + [("stop", {}, "AA")])
 _jumpin.play(_ps, FakeLeds(), _je)
-check("jumpin: a Splat press broadcasts which unit was pressed",
-      _je.sent == [{"type": "jumpin", "from": "splat", "unit": 1}], str(_je.sent))
-check("jumpin: only the pressed Splat blinks; a wand press blinks all; stop ends it",
-      _ps.colors == [(1, "turngreen"), ("all", "turngreen")], str(_ps.colors))
+_sent = _je.sent[0] if _je.sent else {}
+check("jumpin: a Splat press broadcasts its unit, color and tone",
+      len(_je.sent) == 1 and _sent.get("unit") == 1 and len(_sent.get("rgb", [])) == 3
+      and _sent.get("tone") in _jumpin._TONES, str(_je.sent))
+check("jumpin: only the pressed Splat shows its color and sound; a wand press greens all",
+      len(_ps.colors) == 2 and _ps.colors[0][0] == 1
+      and _ps.colors[0][1] in [c for c, _ in _jumpin._COLORS]
+      and _ps.colors[1] == ("all", "turngreen")
+      and len(_ps.sounds) == 1 and _ps.sounds[0][0] == 1, "%s %s" % (_ps.colors, _ps.sounds))
+_ok = True
+for _ in range(50):
+    _r = _jumpin._assign(4)
+    _ok = _ok and all(len(set(x[k] for x in _r)) == 4 for k in (0, 2, 3))
+check("jumpin: _assign gives every Splat a distinct color, sound and tone", _ok)
 sys.modules.pop("jumpin", None)
 check("pulled games are discovered",
       set(game_store.slugs()) >= {"noplay", "broken", "oldstyle"},
