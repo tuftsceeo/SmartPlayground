@@ -36,6 +36,7 @@ for i, link in enumerate(hub.links):
 if splat.connected_count < splat.count:
     print("FAIL: %d/%d Splats ready after %d s"
           % (splat.connected_count, splat.count, CONNECT_S))
+    hub.close_all()
     raise SystemExit
 print("PASS: %d Splat(s) ready -- press each one now (%d s)" % (splat.count, PRESS_S))
 
@@ -56,3 +57,4 @@ while time.ticks_diff(end, time.ticks_ms()) > 0:
     time.sleep_ms(1)
 splat.off()
 print("DONE: presses per unit %s, write failures %d" % (presses, splat.write_failures))
+hub.close_all()

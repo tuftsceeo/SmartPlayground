@@ -52,3 +52,4 @@ link._stop_scan()
 print("RESULT: no-scan drops %d, with-scan drops %d -> %s"
       % (quiet, scanning, "scan drops the link" if scanning > quiet
          else "scan did not drop the link"))
+hub.close_all()

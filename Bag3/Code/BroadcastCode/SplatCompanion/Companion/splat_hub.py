@@ -86,6 +86,22 @@ class SplatHub:
         self._ble = self.links[0]._ble
         self._ble.irq(self._irq)
 
+    def close_all(self):
+        """Disconnect every Splat and keep the links from reconnecting.
+
+        Call on every exit path the program controls (Ctrl-C, a finished
+        bench script, an uncaught exception): a Splat whose hub vanished
+        without disconnecting stays "connected" on its side for minutes
+        and does not advertise, so the next boot cannot find it (seen on
+        hardware, 2026-09-29). A machine.reset() cannot run this.
+        """
+        for i, link in enumerate(self.links):
+            link.scan_gate = lambda l: False
+            was = link.connected
+            link.close()
+            print("  SplatHub: unit %d closed (%s)"
+                  % (i, "disconnected" if was else "was not connected"))
+
     @property
     def count(self):
         return len(self.links)

@@ -466,7 +466,9 @@ def main():
     from companion import Companion
     from splat_api import SplatGroup
 
+    global _HUB
     hub = SplatHub(HUB_CONFIG.get("max_splats", 1), HUB_CONFIG.get("splat_macs"))
+    _HUB = hub
     print("  Splats configured: %d%s" % (hub.count, "" if HUB_CONFIG.get(
         "splat_macs") is None else " (pinned)"))
     # One SplatGroup for the whole boot: the idle loop and every game poll
@@ -601,9 +603,15 @@ def run_event_loop(comp, splat, reader, enow, batt_ref, probe=None):
         time.sleep_ms(1)
 
 
+_HUB = None     # set by main(); closed on exit so no Splat is left paired
+
+
 if __name__ == "__main__":
     try:
         main()
     except KeyboardInterrupt:
         print("\n  Exiting.")
         status.off()
+    finally:
+        if _HUB is not None:
+            _HUB.close_all()

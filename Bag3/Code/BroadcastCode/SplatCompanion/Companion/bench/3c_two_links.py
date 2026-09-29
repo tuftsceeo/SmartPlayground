@@ -23,6 +23,15 @@ second connection loses the first ~0.1 s later, every time. Hypotheses:
      Evidence: no IRQ disconnect for the handle before the loss, and a
      write on the old handle still succeeds after it.
 
+Splat side (user, 2026-09-29): after the hub reports a link lost, the
+Splat often stays in its connected state (no lights) for minutes, then a
+connected sleep (rare blue breathing), and does not advertise until it
+gives up or is power-cycled. Both ends share one supervision timeout, so
+a real radio timeout should free the Splat too; a Splat that stays
+connected points to H3 (the link is alive and only the hub's state was
+reset) or to Splat firmware not enforcing the timeout. The write probe
+separates the two on the hub side.
+
 Per variant it logs, with times: every INITIATE (gap_connect call), every
 BLE IRQ (connect, disconnect, conn-parameter update, notify counts per
 handle), every link state reset with the last IRQ seen, and, on each loss,
@@ -183,9 +192,7 @@ def run(label, interval, direct_ms, gap_ms):
     for u in updates:
         print("  update t=%.2f handle=%d interval=%.1f ms latency=%d supervision=%d ms status=%d"
               % (u[0], u[1], u[2] * 1.25, u[3], u[4] * 10, u[5]))
-    for link in links:
-        link.scan_gate = lambda l: False
-        link.close()
+    hub.close_all()
     t = time.ticks_add(time.ticks_ms(), 2000)
     while time.ticks_diff(t, time.ticks_ms()) > 0:
         time.sleep_ms(1)
