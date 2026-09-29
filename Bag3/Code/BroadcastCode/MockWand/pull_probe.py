@@ -1,4 +1,4 @@
-# PEER: Bag3/Code/BroadcastCode/{IconDisplay,SplatCompanion}/pull_probe.py -- keep in sync.
+# PEER: Bag3/Code/BroadcastCode/{IconDisplay,SplatCompanion/Companion}/pull_probe.py -- keep in sync.
 """
 pull_probe.py — DIAGNOSTIC ONLY. Not part of pulling; delete with
 code_puller.DEBUG_PULL once the intermittent pull failure is understood.

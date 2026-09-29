@@ -6,7 +6,7 @@
  * each role names its own hardware. roles.js is the client-side copy of
  * what each device's main.py actually calls; keep it in step with
  * MockWand/main.py's _launch_game(), IconDisplay/main.py's and
- * SplatCompanion/main.py's.
+ * SplatCompanion/Companion/main.py's.
  */
 import { ROLES as ROLE_TABLE, signatureFor } from './roles.js';
 

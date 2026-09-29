@@ -15,7 +15,7 @@ Nothing plays on a Splat press while idle, and no other device drives the
 Splat directly.
 
 Status: passes the CPython simulation (`test_splat_companion.py`) and a
-stubbed boot smoke test (`../tools/devtests/boot_splat.py`).
+stubbed boot smoke test (`../../tools/devtests/boot_splat.py`).
 **Not yet run on hardware.** See `HARDWARE_TEST.md`.
 
 ## Hardware
@@ -23,14 +23,14 @@ stubbed boot smoke test (`../tools/devtests/boot_splat.py`).
 - **Host:** Seeed XIAO ESP32-C6. `hubtype.txt`: `splat_companion`.
   - BLE to one Splat (default) or up to 4, on its own radio -- see
     "Multiple Splats".
-  - ESP-NOW to the rest of the playground, over UART1 to a paired modem board (`../EspnowModem/`)
+  - ESP-NOW to the rest of the playground, over UART1 to a paired modem board (`../../EspnowModem/`)
     running `modem/main.py` -- never on this board's own radio, so BLE and
     ESP-NOW run at the same time without the coexistence problems the Bag2
     companion has (see "How this differs" below).
   - PN532 card reader, same I2C wiring as the wand (0x24).
   - MAX17048 battery gauge, same bus.
   - 3-pixel NeoPixel status strip.
-- **Modem:** an M5StickS3 or a second XIAO ESP32-C6 (`../EspnowModem/README.md`,
+- **Modem:** an M5StickS3 or a second XIAO ESP32-C6 (`../../EspnowModem/README.md`,
   "Modem on an ESP32-C6" -- UNVERIFIED on hardware either way).
 
 ## Wiring (XIAO ESP32-C6 host ↔ modem)
@@ -48,8 +48,8 @@ stubbed boot smoke test (`../tools/devtests/boot_splat.py`).
 - **Pins are constants**, not hubtype-driven: `MODEM_UART_TX` /
   `MODEM_UART_RX`, set on `espnow_manager` before `mgr.init()` in `main.py`
   (see "Memory order and boot" below) -- `lib/espnow_manager.py` itself
-  stays a byte copy of `../EspnowModem/host/lib/espnow_manager.py`.
-- **Power:** the modem needs its own supply; see `../EspnowModem/README.md`.
+  stays a byte copy of `../../EspnowModem/host/lib/espnow_manager.py`.
+- **Power:** the modem needs its own supply; see `../../EspnowModem/README.md`.
 
 ## Layout
 
@@ -68,11 +68,11 @@ stubbed boot smoke test (`../tools/devtests/boot_splat.py`).
 | `lib/game_store.py`, `lib/memprobe.py`, `lib/nfc_reader.py`, `lib/pn532.py`, `lib/max17048.py` | PEER copies of MockWand's / `Bag3/Code/lib`'s, unchanged |
 | `lib/hubtype.py` | This tree's own `splat_companion` entry -- **diverges from the other four copies**, see "Drift" |
 | `lib/splat_tags.py` | `GAME_TAGS = {"splatwhack"}`, `CONTROL_TAGS = {"stop", "getcode"}`, `EXIT_TAGS`, `exit_tags_excluding()` |
-| `lib/espnow_manager.py`, `lib/eum_proto.py` | Byte copies of `../EspnowModem/host/lib/` |
+| `lib/espnow_manager.py`, `lib/eum_proto.py` | Byte copies of `../../EspnowModem/host/lib/` |
 | `lib/ble_splat.py` | Byte copy of `Bag3/Code/lib/ble_splat.py` (checked by `test_copies_match`) |
-| `test_splat_companion.py` | CPython simulation (reuses `../EspnowModem/tests/test_sim.py`'s modem/host harness plus a fake BLE Splat) |
+| `test_splat_companion.py` | CPython simulation (reuses `../../EspnowModem/tests/test_sim.py`'s modem/host harness plus a fake BLE Splat) |
 
-`../tools/devtests/boot_splat.py` boots `main.py` under stubs (dispatch
+`../../tools/devtests/boot_splat.py` boots `main.py` under stubs (dispatch
 check, game load/unload, the arity fallback, a force-switch chain, loud
 failure, and the pull-mode boot order and outcomes).
 
@@ -158,7 +158,7 @@ python3 -m mpremote connect $COMP_PORT reset
 ```
 
 `fs mkdir` fails if `/lib` already exists; drop that step then. The modem
-runs the unchanged `../EspnowModem/modem/` firmware -- no new ESP-NOW
+runs the unchanged `../../EspnowModem/modem/` firmware -- no new ESP-NOW
 message codes were added, so it needs no reflash for this device.
 
 ## Multiple Splats
@@ -248,5 +248,5 @@ game returns.
 - Several Splats per companion on hardware (simulated only; see
   "Multiple Splats").
 - Wand-side code that sends `start_game` naming a Splat game.
-- The EUM's acknowledged-fetch fix (`../EspnowModem/README.md`) -- a
+- The EUM's acknowledged-fetch fix (`../../EspnowModem/README.md`) -- a
   timed-out `FETCH` still loses up to 4 messages.

@@ -7,7 +7,7 @@ Paste the block below into a local agent session on the machine with the boards 
 You are testing `Bag3/Code/BroadcastCode/SplatCompanion/` on branch `splat-espnow`. Read these first:
 - `Bag3/Code/HARDWARE_PROTOCOL.md`
 - `SplatCompanion/README.md`
-- `../EspnowModem/README.md`
+- `../../EspnowModem/README.md`
 
 **Rules:**
 - **Ask** which board is on which port, and confirm nothing else holds the ports.
@@ -18,7 +18,7 @@ You are testing `Bag3/Code/BroadcastCode/SplatCompanion/` on branch `splat-espno
 
 **Hardware:**
 - XIAO ESP32-C6 companion, with a PN532 wired as on the wand (I2C 0x24) and a MAX17048 gauge
-- a modem board (M5StickS3 or a second XIAO C6) running `../EspnowModem/modem/main.py`, with its own USB power
+- a modem board (M5StickS3 or a second XIAO C6) running `../../EspnowModem/modem/main.py`, with its own USB power
 - one stock Splat
 - one MockWand (Bag3, built-in `espnow_manager.py`) to broadcast `start_game` and `stop` from its REPL (step 4)
 - a Broadcast Box or Dial with a game staged as `<slug>_splat.py` (for step 5)

@@ -54,7 +54,7 @@ source of truth, and three things copy from it by hand or by script:
 icons exist — a game naming one outside it is refused at send time, so an icon added only to
 the device is unusable in a generated game. Nothing runs the check automatically.
 
-Splat action names follow the same pattern: `SplatCompanion/splat_api.py` (`COLOR_RGB`,
+Splat action names follow the same pattern: `SplatCompanion/Companion/splat_api.py` (`COLOR_RGB`,
 `NOTE_VALUES`, `ANIMAL_SOUNDS`) is the source of truth, and
 `ChatBroadcast/js/splat/splatActions.js` is generated from it by
 `ChatBroadcast/tools/sync_splat_actions.py` (`--check` for drift). A Splat game naming an action

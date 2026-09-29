@@ -1,5 +1,5 @@
 """
-Boot SplatCompanion/main.py under MicroPython stubs.
+Boot SplatCompanion/Companion/main.py under MicroPython stubs.
 
 Modeled on boot_display.py, and closes its one open gap: this test also
 calls the real main() with a pending pull flag, so a future regression
@@ -22,7 +22,7 @@ import tempfile
 import types
 
 _BB = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-DEV = _BB + "/SplatCompanion"
+DEV = _BB + "/SplatCompanion/Companion"
 SCRATCH = os.path.dirname(os.path.abspath(__file__))
 
 import time as _time

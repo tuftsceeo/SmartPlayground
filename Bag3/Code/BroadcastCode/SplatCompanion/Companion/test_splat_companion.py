@@ -1,6 +1,6 @@
 """CPython simulation of the Splat Companion's idle station (ESP-NOW + BLE).
 
-Reuses ../EspnowModem/tests/test_sim.py's harness: the real modem/main.py
+Reuses ../../EspnowModem/tests/test_sim.py's harness: the real modem/main.py
 runs in a thread behind a fake UART and a fake ESP-NOW radio, and the real
 host espnow_manager.py talks to it. On top of that, the real SplatCompanion
 code (companion.py, splat_api.py, splat_link.py and its unmodified
@@ -20,14 +20,14 @@ import time
 import types
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-EUM_TESTS = os.path.join(HERE, "..", "EspnowModem", "tests")
+EUM_TESTS = os.path.join(HERE, "..", "..", "EspnowModem", "tests")
 sys.path.insert(0, EUM_TESTS)
 
 import test_sim as S  # noqa: E402  (installs fakes, starts the modem thread)
 
 EUM_ROOT = os.path.join(EUM_TESTS, "..")
 COMP_DIR = HERE
-BAG3_LIB = os.path.join(HERE, "..", "..", "lib")
+BAG3_LIB = os.path.join(HERE, "..", "..", "..", "lib")
 sys.path.insert(0, COMP_DIR)
 sys.path.append(os.path.join(COMP_DIR, "lib"))
 

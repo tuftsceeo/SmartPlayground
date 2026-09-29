@@ -152,7 +152,7 @@ boot-time menu scan on-device (`STAGING_SUFFIXES` in `bbox_server.py` /
 | Suffix | Role | Device |
 |---|---|---|
 | `_icon` | `icon_display` | `BroadcastCode/IconDisplay/` |
-| `_splat` | `splat_companion` | `BroadcastCode/SplatCompanion/` |
+| `_splat` | `splat_companion` | `BroadcastCode/SplatCompanion/Companion/` (+ `ESPNowModem/`) |
 
 The wand's own suffix is `''`: no designator, since it is what a v1 request
 (no hubtype at all) resolves to.
@@ -168,7 +168,7 @@ conventions are code-tied and belong with the code, not here:
   direct-USB push.
 - `BroadcastDial/README.md` — Dial specifics; shares the Box's wire contract
   and card rules.
-- `BroadcastCode/SplatCompanion/README.md` — device layout, the `play()`
+- `BroadcastCode/SplatCompanion/README.md` and `Companion/README.md` — device layout, the `play()`
   contract, and its own Unverified section.
 
 ## A reasonable session shape

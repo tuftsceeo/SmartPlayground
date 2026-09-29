@@ -5,7 +5,7 @@ Write pacing, response capture, WRITE_DONE status tracking, always-on
 error logging, button debouncing.
 
 Several OpenSplat instances can share the one ubluetooth.BLE() radio when a
-caller routes IRQ events to them (see SplatCompanion/splat_hub.py):
+caller routes IRQ events to them (see BroadcastCode/SplatCompanion/Companion/splat_hub.py):
 
 - Disconnect and GATT events are acted on only when their conn_handle is
   this instance's.

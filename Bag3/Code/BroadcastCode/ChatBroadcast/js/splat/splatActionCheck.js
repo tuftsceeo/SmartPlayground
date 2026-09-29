@@ -3,7 +3,7 @@
  * check a Splat game gets before it is sent.
  *
  * The names come from splatActions.js, generated from the device's own
- * SplatCompanion/splat_api.py -- see tools/sync_splat_actions.py.
+ * SplatCompanion/Companion/splat_api.py -- see tools/sync_splat_actions.py.
  */
 import { COLORS, NOTES, SOUNDS } from './splatActions.js';
 

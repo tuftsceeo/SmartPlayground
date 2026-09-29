@@ -261,3 +261,9 @@ fixed in the trees they're in unless noted.
 
 Covered by six driver tests in `SplatCompanion/test_splat_companion.py`. `Bag2/Code/lib/ble_splat.py`
 still has every bug listed above; cross-generation compatibility is not a goal, so it was left as is.
+
+### Path change (2026-09-29)
+
+`Bag3/Code/BroadcastCode/SplatCompanion/` is now the two-board station: the hub tree moved to
+`SplatCompanion/Companion/`, and the C6 modem firmware lives in `SplatCompanion/ESPNowModem/`.
+Earlier entries above name the old flat paths.
