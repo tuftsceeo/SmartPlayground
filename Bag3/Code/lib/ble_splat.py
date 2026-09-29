@@ -16,6 +16,9 @@ caller routes IRQ events to them (see BroadcastCode/SplatCompanion/Companion/spl
   one SCAN_DONE, so a late SCAN_DONE from a stopped scan does not clear
   the flag of a newer one.
 - disconnect() leaves the radio active.
+- connect_direct() connects to a known address (addr, _addr_type) with no
+  scan; a failed attempt (a disconnect event for this address with no
+  connection handle yet) clears _connecting.
 
 Button debounce compares each raw state against the last *accepted* one,
 so a change rejected inside the debounce window is taken on the next
@@ -181,6 +184,12 @@ class OpenSplat():
 
         elif event == 8:  # _IRQ_PERIPHERAL_DISCONNECT
             if data[0] != self._conn_handle:
+                # A connect attempt to our address that never completed.
+                if (self._connecting and not self.connected
+                        and ':'.join(['%02X' % i for i in data[2]]) == self.mac_address):
+                    self._connecting = False
+                    if self._verbose:
+                        print("Connect attempt failed")
                 return
             self._reset_connection_state()
             if self._verbose:
@@ -414,6 +423,19 @@ class OpenSplat():
         if self._scanning:
             self._ble.gap_scan(None)
             self._scanning = False
+
+    def connect_direct(self, timeout_ms=10000):
+        """Start a connect to the known address (self.addr, self._addr_type,
+        learned from an earlier scan) without scanning. Completion arrives
+        as _IRQ_PERIPHERAL_CONNECT. Raises OSError as gap_connect does."""
+        if self.addr is None or self._addr_type is None:
+            raise OSError("connect_direct: no known address for %s" % self.mac_address)
+        self._connecting = True
+        try:
+            self._ble.gap_connect(self._addr_type, self.addr, timeout_ms)
+        except OSError:
+            self._connecting = False
+            raise
 
     def scanSplat(self, timeout=5):
         print("Scanning for Splat...")

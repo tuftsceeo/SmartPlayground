@@ -21,7 +21,11 @@ RETRY_BACKOFF_MS. A drop from READY starts a new attempt immediately.
 
 scan_gate, when set (splat_hub.SplatHub sets it), is called as
 scan_gate(link) before every new attempt; while it returns False the link
-waits in IDLE/BACKOFF. The hub uses it so only one link scans at a time.
+waits in IDLE/BACKOFF.
+
+direct, when True (the hub sets it once it has found this link's Splat and
+filled in addr/_addr_type), makes every attempt a connect_direct() to that
+address instead of a scan; the address is then kept across failures.
 """
 
 import errno
@@ -33,6 +37,7 @@ from ble_splat import OpenSplat
 CONNECT_TIMEOUT_MS = 20000
 RETRY_BACKOFF_MS = 2000
 READY_SETTLE_MS = 200        # lets the IRQ's CCCD subscribe write go out first
+DIRECT_CONNECT_MS = 10000    # one connect_direct() attempt's radio timeout
 EVENT_QUEUE_MAX = 16
 DEBOUNCE_MS = 80             # same window as ble_splat._DEBOUNCE_MS
 
@@ -66,6 +71,7 @@ class SplatLink(OpenSplat):
         self.events_dropped = 0
         self.scan_already = 0
         self.scan_gate = None
+        self.direct = False
         # gap_scan (interval_us, window_us). Equal values scan continuously,
         # which is right with no connection up; SplatHub lowers the duty
         # while another Splat is connected so its link is not starved.
@@ -147,9 +153,11 @@ class SplatLink(OpenSplat):
             elif time.ticks_diff(now, self._t) >= CONNECT_TIMEOUT_MS:
                 self._give_up(now)
             elif not self.connected and not self._scanning and not self._connecting:
-                # The IRQ stops the scan when it first sees a "Splat" by name
-                # and records its MAC; the next scan connects to that MAC.
-                self._scan(now)
+                # Scan mode: the IRQ stops the scan when it first sees a
+                # "Splat" by name and records its MAC; the next scan
+                # connects to that MAC. Direct mode: the last connect
+                # attempt failed; try again.
+                self._attempt(now)
         elif st == ST_SETTLING:
             if not self.connected:
                 self.drops += 1
@@ -172,7 +180,17 @@ class SplatLink(OpenSplat):
         self.attempts += 1
         self.state = ST_CONNECTING
         self._t = now
-        self._scan(now)
+        self._attempt(now)
+
+    def _attempt(self, now):
+        if not self.direct:
+            self._scan(now)
+            return
+        try:
+            self.connect_direct(DIRECT_CONNECT_MS)
+        except OSError as e:
+            print("  SplatLink: connect to %s failed: %s" % (self.mac_address, e))
+            self._give_up(now)
 
     def _scan(self, now):
         try:
@@ -190,7 +208,7 @@ class SplatLink(OpenSplat):
 
     def _give_up(self, now):
         self.failed_attempts += 1
-        if not self.pinned:
+        if not self.pinned and not self.direct:
             self.mac_address = None
         print("  SplatLink: attempt %d not ready after %d ms (failed=%d), "
               "retry in %d ms" % (self.attempts, time.ticks_diff(now, self._t),

@@ -187,9 +187,15 @@ off by default; set it in `lib/hubtype.py`'s `splat_companion` entry:
   heap cost per connection on a board with no PSRAM.
 - **Why a hub:** `ubluetooth.BLE()` has one IRQ handler, and each
   `OpenSplat` registers its own in `__init__`. `SplatHub` takes the IRQ
-  over and routes each event to its link; only one link scans at a time;
-  a link never picks a Splat another link owns. The driver itself keeps
-  to its own connection and its chosen address.
+  over and routes each event to its link.
+- **Discover, then connect:** the hub scans only while no Splat is
+  connected, until it has an address for every unit (or 8 s pass), then
+  each unit connects straight to its address, one at a time, with no scan.
+  A dropped unit reconnects the same way. On hardware (2026-09-29) any
+  scan while a Splat was connected lost that link within about a second;
+  `bench/3b_scan_while_connected.py` measures it.
+- **Switch every Splat on before the hub boots.** A Splat not found at
+  discovery is looked for again only when no Splat is connected.
 - **Write cost:** each BLE write waits up to 20 ms (`_WRITE_PACE_MS` in
   `ble_splat.py`) per Splat, so `splat.color()` on 4 Splats can hold the
   loop for about 80 ms. Keepalives are per Splat too.

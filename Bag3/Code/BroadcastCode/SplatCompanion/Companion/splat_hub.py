@@ -5,36 +5,38 @@ ubluetooth.BLE() is a singleton with one IRQ handler, and every
 lib/ble_splat.py OpenSplat instance registers its own in __init__, so the
 last one built would receive every event. SplatHub builds N SplatLinks,
 then takes the IRQ over and routes each event to the one link it belongs
-to (OpenSplat also ignores disconnect/GATT events for other connections):
+to (OpenSplat also ignores disconnect/GATT events for other connections).
 
-  scan result (5)                  the link currently scanning, after
-                                   dropping any address another link owns
-  scan done (6)                    the link with a scan still counted
-                                   (OpenSplat._scans_pending)
-  peripheral connect (7)           the link whose mac_address matches
-  disconnect, GATT events (8-18)   the link whose conn_handle matches
-                                   (8 falls back to the address)
+Discover, then connect -- never scan beside a live connection:
 
-Only one link scans at a time (SplatLink.scan_gate), and none while
-another link is still connecting or settling; the others wait in
-IDLE/BACKOFF. While any other link is up, a scan runs at SHARED_SCAN
-duty instead of continuously: on hardware (2026-09-29) a continuous scan
-for a second Splat that never advertised dropped the first Splat's
-connection about once a second.
+1. Discovery: only while no link is connecting, settling or ready, the hub
+   runs one scan until it has found an address for every link (pinned
+   splat_macs, else the first Splats advertising by name) or DISCOVER_MS
+   passes. Found addresses (with their address type) go to the links, in
+   order, which then switch to direct mode (SplatLink.direct).
+2. Connect: one link at a time, each by connect_direct() to its own
+   address -- no scan. A dropped link reconnects the same way.
+3. A link whose Splat was not found waits; discovery runs again only once
+   no link is up. Switch every Splat on before the hub boots.
+
+Why: on hardware (2026-09-29, XIAO C6) any scan while a Splat was
+connected -- continuous, or 20% duty -- lost that link on the hub side
+within about a second, while the Splat stayed paired.
 
 The connection count is capped at BLE_MAX_CONNECTIONS, the stock
 MicroPython ESP32 build's CONFIG_BT_NIMBLE_MAX_CONNECTIONS (4, in
-ports/esp32/boards/sdkconfig.ble). The companion is BLE central only, so
-all of them can be Splats. A firmware built with a larger value can raise
-it here. UNVERIFIED on hardware for more than one Splat.
+ports/esp32/boards/sdkconfig.ble). A firmware built with a larger value
+can raise it here. UNVERIFIED on hardware for more than one Splat.
 """
+
+import time
 
 from splat_link import SplatLink, ST_CONNECTING, ST_SETTLING, ST_READY
 
 BLE_MAX_CONNECTIONS = 4
 
-SOLO_SCAN = (30000, 30000)     # (interval_us, window_us): nothing else up
-SHARED_SCAN = (100000, 20000)  # 20% duty while another Splat is connected
+DISCOVER_MS = 8000             # one discovery scan's longest run
+DISCOVER_SCAN = (30000, 30000) # (interval_us, window_us): no link is up
 
 _IRQ_SCAN_RESULT = 5
 _IRQ_SCAN_DONE = 6
@@ -73,6 +75,10 @@ class SplatHub:
         for link in self.links:
             link.scan_gate = self._may_scan
         self.misrouted = 0
+        self.discovering = False
+        self._disc_until = 0
+        self._found = []             # [(addr_str, addr_type, addr_bytes)]
+        self.discoveries = 0
         # Registered last: each OpenSplat.__init__ above set its own.
         self._ble = self.links[0]._ble
         self._ble.irq(self._irq)
@@ -81,23 +87,67 @@ class SplatHub:
     def count(self):
         return len(self.links)
 
-    def _may_scan(self, link):
-        shared = False
-        for other in self.links:
-            if other is link:
-                continue
-            if other.state in (ST_CONNECTING, ST_SETTLING):
-                return False
-            if other.state == ST_READY:
-                shared = True
-        link.scan_params = SHARED_SCAN if shared else SOLO_SCAN
-        return True
-
-    def _scanner(self):
+    def _any_up(self):
         for link in self.links:
-            if link.state == ST_CONNECTING and not link.connected:
-                return link
-        return None
+            if link.state in (ST_CONNECTING, ST_SETTLING, ST_READY):
+                return True
+        return False
+
+    def _may_scan(self, link):
+        """scan_gate for every link: True lets this link start an attempt."""
+        if link.direct:
+            if self.discovering:
+                return False
+            for other in self.links:
+                if other is not link and other.state in (ST_CONNECTING, ST_SETTLING):
+                    return False
+            return True
+        # No address yet: discovery, which never runs beside a live link.
+        if self.discovering:
+            self._check_discovery()
+        elif not self._any_up():
+            self._start_discovery()
+        return False
+
+    def _start_discovery(self):
+        self._found = []
+        try:
+            self.links[0]._start_scan(0, DISCOVER_SCAN[0], DISCOVER_SCAN[1])
+        except OSError as e:
+            print("  SplatHub: discovery scan failed to start: %s" % e)
+            return
+        self.discovering = True
+        self.discoveries += 1
+        self._disc_until = time.ticks_add(time.ticks_ms(), DISCOVER_MS)
+        print("  SplatHub: discovering (%d Splat(s) wanted)" % self._wanted())
+
+    def _wanted(self):
+        return sum(1 for link in self.links if not link.direct)
+
+    def _check_discovery(self):
+        if (len(self._found) < self._wanted()
+                and time.ticks_diff(self._disc_until, time.ticks_ms()) > 0):
+            return
+        self.links[0]._stop_scan()
+        self.discovering = False
+        found = list(self._found)
+        for i, link in enumerate(self.links):
+            if link.direct:
+                continue
+            pick = None
+            for f in found:
+                if self.pinned[i] is None or f[0] == self.pinned[i]:
+                    pick = f
+                    break
+            if pick is None:
+                print("  [WARN] SplatHub: no Splat found for unit %d%s; "
+                      "discovery runs again when no Splat is connected"
+                      % (i, "" if self.pinned[i] is None else " (" + self.pinned[i] + ")"))
+                continue
+            found.remove(pick)
+            link.mac_address, link._addr_type, link.addr = pick
+            link.direct = True
+            print("  SplatHub: unit %d -> %s" % (i, pick[0]))
 
     def _owned_by_other(self, link, addr):
         for other in self.links:
@@ -120,13 +170,21 @@ class SplatHub:
     def _irq(self, event, data):
         """BLE IRQ: route to exactly one link, or drop."""
         if event == _IRQ_SCAN_RESULT:
-            link = self._scanner()
-            if link is None:
+            if not self.discovering:
                 return
-            addr = _addr_str(data[1])
-            if self._owned_by_other(link, addr):
-                return
-            link._irq_handler(event, data)
+            addr_type, addr, adv_type, rssi, adv_data = data
+            addr_s = _addr_str(addr)
+            for f in self._found:
+                if f[0] == addr_s:
+                    return
+            for link in self.links:
+                if link.direct and link.mac_address == addr_s:
+                    return          # already assigned to a link
+            if addr_s in self.pinned:
+                self._found.append((addr_s, addr_type, bytes(addr)))
+            elif (None in self.pinned
+                    and self.links[0]._parse_adv_name(adv_data) == 'Splat'):
+                self._found.append((addr_s, addr_type, bytes(addr)))
         elif event == _IRQ_SCAN_DONE:
             for link in self.links:
                 if link._scans_pending > 0:

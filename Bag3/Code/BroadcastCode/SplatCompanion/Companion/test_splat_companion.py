@@ -606,8 +606,9 @@ MULTI_ADDRS = [SPLAT_ADDR, bytes.fromhex("AB4200007EB7"), bytes.fromhex("AB42000
 
 
 def retire(r):
-    """Disconnect a runner's links and stop servicing them."""
+    """Disconnect a runner's links and keep them from reconnecting."""
     for link in r.comp.links:
+        link.scan_gate = lambda l: False
         link.close()
     r.run(50)
 
@@ -703,15 +704,37 @@ def test_multi_drop_one(r):
     assert r.comp.links[u].mac_address == ble.periphs[1].name
 
 
-def test_hub_scan_waits_and_shares(r):
+def test_hub_never_scans_beside_a_link(r):
     hub = r.comp.splat.hub
     a, b = hub.links[0], hub.links[1]
-    saved = a.state
+    saved = (a.state, b.direct)
     a.state = L.ST_SETTLING
-    assert not hub._may_scan(b), "must not scan while another link settles"
+    assert not hub._may_scan(b), "a direct link must wait while another settles"
     a.state = L.ST_READY
-    assert hub._may_scan(b) and b.scan_params == HUB.SHARED_SCAN, b.scan_params
-    a.state = saved
+    b.direct = False
+    d0 = hub.discoveries
+    assert not hub._may_scan(b) and hub.discoveries == d0 and not hub.discovering, \
+        "discovery must not start while a link is up"
+    a.state, b.direct = saved
+
+
+def test_multi_reconnect_is_direct(r):
+    u = unit_for(r, 2)
+    scans = []
+    orig = ble.gap_scan
+
+    def spy(duration, *a):
+        if duration is not None:
+            scans.append(duration)
+        return orig(duration, *a)
+    ble.gap_scan = spy
+    try:
+        ble.drop(2)
+        assert r.run(500, lambda: not r.comp.links[u].ready)
+        assert r.run(5000, lambda: all_ready(r)), [l.state_name() for l in r.comp.links]
+    finally:
+        ble.gap_scan = orig
+    assert scans == [], "reconnect scanned: %r" % scans
 
 
 def test_hub_caps_connections(r):
@@ -768,7 +791,8 @@ if __name__ == "__main__":
     multi_tests = [
         test_multi_all_ready, test_multi_press_reports_index,
         test_multi_color_all_and_unit, test_multi_drop_one,
-        test_hub_scan_waits_and_shares, test_hub_caps_connections,
+        test_multi_reconnect_is_direct, test_hub_never_scans_beside_a_link,
+        test_hub_caps_connections,
     ]
     for fn in multi_tests:
         fn(rm)
