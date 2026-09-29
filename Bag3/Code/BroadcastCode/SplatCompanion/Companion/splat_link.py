@@ -38,6 +38,7 @@ CONNECT_TIMEOUT_MS = 20000
 RETRY_BACKOFF_MS = 2000
 READY_SETTLE_MS = 200        # lets the IRQ's CCCD subscribe write go out first
 DIRECT_CONNECT_MS = 10000    # one connect_direct() attempt's radio timeout
+CONN_INTERVAL_US = None      # None = stack default, or (min_us, max_us)
 EVENT_QUEUE_MAX = 16
 DEBOUNCE_MS = 80             # same window as ble_splat._DEBOUNCE_MS
 
@@ -187,7 +188,7 @@ class SplatLink(OpenSplat):
             self._scan(now)
             return
         try:
-            self.connect_direct(DIRECT_CONNECT_MS)
+            self.connect_direct(DIRECT_CONNECT_MS, CONN_INTERVAL_US)
         except OSError as e:
             print("  SplatLink: connect to %s failed: %s" % (self.mac_address, e))
             self._give_up(now)

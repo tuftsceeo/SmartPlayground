@@ -424,15 +424,21 @@ class OpenSplat():
             self._ble.gap_scan(None)
             self._scanning = False
 
-    def connect_direct(self, timeout_ms=10000):
+    def connect_direct(self, timeout_ms=10000, interval_us=None):
         """Start a connect to the known address (self.addr, self._addr_type,
         learned from an earlier scan) without scanning. Completion arrives
-        as _IRQ_PERIPHERAL_CONNECT. Raises OSError as gap_connect does."""
+        as _IRQ_PERIPHERAL_CONNECT. interval_us: None for the stack's
+        default connection interval, or (min_us, max_us). Raises OSError as
+        gap_connect does."""
         if self.addr is None or self._addr_type is None:
             raise OSError("connect_direct: no known address for %s" % self.mac_address)
         self._connecting = True
         try:
-            self._ble.gap_connect(self._addr_type, self.addr, timeout_ms)
+            if interval_us is None:
+                self._ble.gap_connect(self._addr_type, self.addr, timeout_ms)
+            else:
+                self._ble.gap_connect(self._addr_type, self.addr, timeout_ms,
+                                      interval_us[0], interval_us[1])
         except OSError:
             self._connecting = False
             raise

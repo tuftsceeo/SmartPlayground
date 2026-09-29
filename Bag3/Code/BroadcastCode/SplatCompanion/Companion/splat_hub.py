@@ -19,9 +19,12 @@ Discover, then connect -- never scan beside a live connection:
 3. A link whose Splat was not found waits; discovery runs again only once
    no link is up. Switch every Splat on before the hub boots.
 
-Why: on hardware (2026-09-29, XIAO C6) any scan while a Splat was
-connected -- continuous, or 20% duty -- lost that link on the hub side
-within about a second, while the Splat stayed paired.
+Hardware (2026-09-29, XIAO C6): a continuous scan beside a connected
+Splat lost that link within about a second, while a 20% duty scan did not
+(bench/3b_scan_while_connected.py). With two Splats, starting the second
+connection lost the first about 0.1 s later, every time
+(docs_and_design/2026-09-29-splat-hub-logs/); cause not yet known --
+bench/3c_two_links.py records the negotiated connection parameters.
 
 The connection count is capped at BLE_MAX_CONNECTIONS, the stock
 MicroPython ESP32 build's CONFIG_BT_NIMBLE_MAX_CONNECTIONS (4, in

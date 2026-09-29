@@ -191,9 +191,11 @@ off by default; set it in `lib/hubtype.py`'s `splat_companion` entry:
 - **Discover, then connect:** the hub scans only while no Splat is
   connected, until it has an address for every unit (or 8 s pass), then
   each unit connects straight to its address, one at a time, with no scan.
-  A dropped unit reconnects the same way. On hardware (2026-09-29) any
-  scan while a Splat was connected lost that link within about a second;
-  `bench/3b_scan_while_connected.py` measures it.
+  A dropped unit reconnects the same way.
+- **Two Splats do not hold yet (hardware, 2026-09-29).** Starting the
+  second connection loses the first about 0.1 s later, every time; one
+  Splat holds, and a 20% duty scan beside it does not drop it (bench 3b).
+  `bench/3c_two_links.py` is the next diagnostic.
 - **Switch every Splat on before the hub boots.** A Splat not found at
   discovery is looked for again only when no Splat is connected.
 - **Write cost:** each BLE write waits up to 20 ms (`_WRITE_PACE_MS` in
