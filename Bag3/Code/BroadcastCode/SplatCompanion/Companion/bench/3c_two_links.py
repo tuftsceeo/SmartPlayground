@@ -32,6 +32,10 @@ connected points to H3 (the link is alive and only the hub's state was
 reset) or to Splat firmware not enforcing the timeout. The write probe
 separates the two on the hub side.
 
+IRQ 29/30 (_IRQ_GET_SECRET / _IRQ_SET_SECRET) are the stack asking for
+or offering bonding keys around a connect; nothing here stores them (the
+handler returns None). Logged as "IRQ event 29/30".
+
 Per variant it logs, with times: every INITIATE (gap_connect call), every
 BLE IRQ (connect, disconnect, conn-parameter update, notify counts per
 handle), every link state reset with the last IRQ seen, and, on each loss,
@@ -119,7 +123,13 @@ def run(label, interval, direct_ms, gap_ms):
         def make_cd(link=link, i=i):
             orig = link.connect_direct
 
-            def cd(timeout_ms=10000, interval_us=None):
+            # MicroPython passes the instance to a function stored on it
+            # (CPython does not), so accept and drop a leading link.
+            def cd(*a):
+                if a and a[0] is link:
+                    a = a[1:]
+                timeout_ms = a[0] if len(a) > 0 else 10000
+                interval_us = a[1] if len(a) > 1 else None
                 initiates.append((_t(), i, link.mac_address))
                 print("[%6.2f] INITIATE unit %d -> %s timeout=%d ms interval=%s"
                       % (_t(), i, link.mac_address, timeout_ms, interval_us))
@@ -130,7 +140,7 @@ def run(label, interval, direct_ms, gap_ms):
         def make_reset(link=link, i=i):
             orig = link._reset_connection_state
 
-            def reset():
+            def reset(*a):
                 if link.connected:
                     print("[%6.2f] RESET unit %d while connected (handle=%s, last IRQ %s)"
                           % (_t(), i, link._conn_handle, last_irq[0]))
