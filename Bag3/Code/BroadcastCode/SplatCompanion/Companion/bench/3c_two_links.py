@@ -81,6 +81,26 @@ def _addr(a):
 print("3c: firmware %s | %s" % (os.uname().release, os.uname().machine))
 print("3c: gc_free %d" % gc.mem_free())
 
+# A copy of a lib/ module in / shadows /lib/ (MicroPython searches / first)
+# and has caused a stale driver to run: report every module's file and
+# size, and stop on a shadow.
+import ble_splat
+_shadow = []
+for _name, _mod in (("ble_splat", ble_splat), ("splat_link", splat_link),
+                    ("splat_hub", sys.modules["splat_hub"]),
+                    ("splat_api", sys.modules["splat_api"])):
+    _f = _mod.__file__
+    print("3c: %s from %s (%d bytes)" % (_name, _f, os.stat(_f)[6]))
+for _lib in os.listdir("/lib"):
+    try:
+        os.stat("/" + _lib)
+        _shadow.append(_lib)
+    except OSError:
+        pass
+if _shadow:
+    print("FAIL: root copies shadow /lib/: %s -- remove them and rerun" % _shadow)
+    raise SystemExit
+
 
 def run(label, interval, direct_ms, gap_ms):
     splat_link.CONN_INTERVAL_US = interval
