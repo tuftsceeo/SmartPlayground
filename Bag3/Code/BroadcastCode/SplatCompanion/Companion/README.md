@@ -150,6 +150,9 @@ UNVERIFIED on hardware: each check can hold the game for up to 30 ms.
 
 ## Deploying (plain MicroPython: `/` and `/lib/`)
 
+On a new board, bring it up in stages with `bench/` first (modem link,
+LED ring, BLE, NFC; see `bench/README.md`), then deploy the full tree:
+
 ```bash
 cd Bag3/Code/BroadcastCode/SplatCompanion
 python3 -m mpremote connect $COMP_PORT resume \
