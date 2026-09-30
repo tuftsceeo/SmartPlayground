@@ -10,7 +10,7 @@ import {
     onPrevVersion, onNextVersion, getVersionCount, onDownload, resetEditor,
     setActiveRole, getActiveRole, rolesWithCode, clearAllRoles,
 } from './editor.js';
-import { uploadPayload, validateGameCode } from './upload.js';
+import { uploadPayload, validateGameCode, codeBytes, MAX_WAND_GAME_BYTES } from './upload.js';
 import { ROLES as ROLE_TABLE, roleInfo, DEFAULT_ROLE, signatureFor } from './roles.js';
 import { listSplatActions } from './splat/splatActionCheck.js';
 import { updateTagChecklist } from './nfc.js';
@@ -68,6 +68,12 @@ const WAITING_LIMIT_WAND_MS = 25000;
    This is a convenience, not the liveness test: `heartbeat` alone reaches live
    within 5s regardless. */
 const IDENTIFY_NUDGE_MS = 2500;
+
+/** Claude model for chat replies. */
+const CLAUDE_MODEL = 'claude-sonnet-5-5';
+/** output_config.effort: controls thinking depth and so reply latency.
+ * One of 'low' | 'medium' | 'high' | 'xhigh' | 'max'. */
+const CLAUDE_EFFORT = 'low';
 
 // One "<role> game MUST use ..." line per role, and the marker list for
 // the [DEVICE: ...] rule -- built from roles.js so a new role needs no
@@ -2632,8 +2638,12 @@ class App {
 
         try {
             const body = JSON.stringify({
-                model: 'claude-sonnet-4-6',
+                model: CLAUDE_MODEL,
                 max_tokens: 16384,
+                output_config: { effort: CLAUDE_EFFORT },
+                // A safety-classifier decline is re-run server-side on the
+                // model Anthropic recommends for that decline category.
+                fallbacks: 'default',
                 system: [{ type: 'text', text: this.getSystemPrompt(), cache_control: { type: 'ephemeral' } }],
                 messages: this.chatHistory.slice(-10),
             });
@@ -2646,6 +2656,7 @@ class App {
                     'x-api-key': apiKey,
                     'anthropic-version': '2023-06-01',
                     'anthropic-dangerous-direct-browser-access': 'true',
+                    'anthropic-beta': 'server-side-fallback-2026-07-01',
                 },
                 body,
             });
@@ -2664,6 +2675,23 @@ class App {
             }
 
             const data = await resp.json();
+            dbg('chat', `stop_reason=${data.stop_reason}`, data.usage);
+            if (data.stop_reason === 'refusal') {
+                const msg = 'The AI declined to answer that request. Try rewording it.';
+                dbgWarn('chat', 'refusal', data.stop_details);
+                addMsg(msg, 'system');
+                this.chatHistory.pop();
+                return;
+            }
+            if (data.stop_reason === 'max_tokens') {
+                // A truncated reply usually ends mid-code-block; extracting it
+                // would put broken code in the editor.
+                const msg = 'The reply was too long and got cut off. Ask for a simpler or shorter version of the game.';
+                dbgWarn('chat', 'reply truncated at max_tokens');
+                addMsg(msg, 'system');
+                this.chatHistory.pop();
+                return;
+            }
             const rawReply = data.content.filter((b) => b.type === 'text').map((b) => b.text).join('');
             const nfcCards = parseNfcCards(rawReply);
             const gameName = parseGameName(rawReply);
@@ -2687,6 +2715,11 @@ class App {
                 const seen = [];
                 for (const { role, code } of blocks) {
                     dbg('chat', `[${role}] code block extracted (${code.length} chars)`);
+                    if (role === 'wand' && codeBytes(code) > MAX_WAND_GAME_BYTES) {
+                        addMsg(`This wand game is ${Math.round(codeBytes(code) / 1000)} KB, over the `
+                            + `${MAX_WAND_GAME_BYTES / 1000} KB the wand can load. Ask for a shorter version before sending it.`,
+                            'system');
+                    }
                     setCode(code, role);
                     saveVersion(code, label, role);
                     seen.push(role);
