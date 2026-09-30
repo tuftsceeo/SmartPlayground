@@ -13,6 +13,7 @@ the Broadcast Box / Dial serving side, host devtests and repository docs, follow
 |---|---|---|
 | `policy.md` | Behavior: audience, scope, honesty, reply format, game design | Always |
 | `platform.md` | Rules shared by every device: markers, MicroPython limits, ESP-NOW, exit behavior, size budget | Always |
+| `game_patterns.md` | Multi-player, mixed-device and combined game patterns; message design | Always |
 | `troubleshooting.md` | Firmware-verified meaning of every light, sound and screen, per device; USB and card-writing steps | Always |
 | `advanced.md` | Technical addendum | Advanced UI mode only |
 | `devices/<role>.md` | One device: contract, API, template, limits, checklist | Always, one per row in `js/roles.js` |
@@ -48,12 +49,15 @@ edits `platform.md` only if the device changes a rule every device shares.
 5. **Add the device's signals to `troubleshooting.md`** — every light, sound or screen a teacher can
    see without a serial cable, with the trigger, taken from the firmware. Anything not verified is
    left out.
-6. **Starter ideas and guided mode.** Add two or three teacher-language ideas tagged with the role
+6. **Game patterns.** If the device takes part in games with wands, add a line to
+   `game_patterns.md` saying which role it usually plays (reporter, referee, output) and one
+   example message. Keep the patterns themselves device-agnostic.
+7. **Starter ideas and guided mode.** Add two or three teacher-language ideas tagged with the role
    to `js/starterIdeas.js`, and add the device as a choice in guided mode. *(Both land with step 5
    of the prompt plan; skip until they exist.)*
-7. **Test prompts.** Add prompts for the device to `tools/prompt_eval.mjs`: one game for the device
+8. **Test prompts.** Add prompts for the device to `tools/prompt_eval.mjs`: one game for the device
    alone and one two-device game with the wand. *(Lands with step 4 of the prompt plan.)*
-8. **Firmware, Box/Dial, devtests, docs:** `DEVICE_ONBOARDING_SURFACES.md`.
+9. **Firmware, Box/Dial, devtests, docs:** `DEVICE_ONBOARDING_SURFACES.md`.
 
 ## App surfaces a device touches
 
@@ -78,8 +82,8 @@ needed. Checked against the code on 2026-09-30; re-check line references before 
 | Hardware requirements overlay | `js/hardware.js` `buildHardwareReqs` `stations` | Not wired for any device yet |
 | Direct USB connection | `js/device/wandDeviceLink.js` model | **Per device**, only if it connects without the Box |
 | Troubleshooting | `knowledge/troubleshooting.md` | **Per device** (step 5) |
-| Starter ideas / guided mode | `js/starterIdeas.js`, guided-mode choices | **Per device** (step 6), once they exist |
-| Test prompts | `tools/prompt_eval.mjs` | **Per device** (step 7), once it exists |
+| Starter ideas / guided mode | `js/starterIdeas.js`, guided-mode choices | **Per device** (step 7), once they exist |
+| Test prompts | `tools/prompt_eval.mjs` | **Per device** (step 8), once it exists |
 
 ## Done means
 

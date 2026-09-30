@@ -10,7 +10,7 @@ play at once; each runs its own copy of the game.
 It has **no screen and no speaker for music** — only the light grid, simple beeps, and vibration.
 
 A wand game can work together with the **icon display** and the **Splat Companion** by sending them
-messages (platform rules, "Games that use several devices"). Their own game files are described in
+messages (see the game patterns section). Their own game files are described in
 their device sections.
 
 ## The `play()` contract

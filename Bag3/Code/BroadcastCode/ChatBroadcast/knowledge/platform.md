@@ -84,30 +84,10 @@ keeps two games from reacting to each other's messages.
 end or switch the games on all wands, the display and the Splat Companion. Use them only when the
 game really should stop or switch everything.
 
-## Games that use several devices
+## Games with several players or device types
 
-Write one complete file per device, each under its own `[DEVICE:]` marker. Plan the messages first
-and use the same type names and keys in every file:
-
-1. **Pick one message type** for the game (usually the slug) and a `"from"` key saying which kind
-   of device sent it (`"wand"`, `"splat"`, `"icon"`).
-2. **Decide who sends what.** For each thing that happens ("a child presses the Splat"), say which
-   device notices it and broadcasts, and which devices react.
-3. **Send what the receiver needs** in small plain values: a color *name* (`"red"`) or a short
-   `[r, g, b]` list, a team name, a count.
-4. **Every file still exits** on `"stop"` / `"start_game"`.
-
-Worked example — the wand and the Splat echo each other (from the built-in Jump In game):
-
-- Wand: when the button is pressed, `enow.broadcast({"type": "jumpin", "from": "wand"})`.
-- Splat: on `msg_type == "raw"` with `data.get("type") == "jumpin"` and `data.get("from") == "wand"`,
-  blink the Splat.
-- Splat: on a press, `enow.broadcast({"type": "jumpin", "from": "splat", "rgb": [r, g, b]})`.
-- Wand: on that message, `leds.fill(tuple(data["rgb"]))` — a color received in a message is used
-  as it arrives.
-
-Adding the icon display: each device that scores broadcasts `{"type": "<slug>", "from": "wand",
-"team": "green"}`; the display keeps a count per team and shows it with `chart16.blocks`.
+See the game patterns section: roles chosen by card, message design, and worked examples for many
+wands, mixed device types, and both together.
 
 ## Exiting and switching games
 
