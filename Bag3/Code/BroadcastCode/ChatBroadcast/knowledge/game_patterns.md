@@ -5,9 +5,10 @@ Companion. The message rules it builds on are in the platform section ("Talking 
 
 ## Facts that shape every multi-player game
 
-- **Every wand gets the same game file.** The Box serves one wand file per game, so a game cannot
-  send different code to different children. Anything that differs between wands (caller or
-  player, green team or blue team) is chosen **while the game runs**.
+- **Today, every wand gets the same game file.** The Box currently serves one file per device
+  type for each game, so different children cannot be sent different code. Anything that differs
+  between wands (caller or player, green team or blue team) is chosen **while the game runs**.
+  This is how distribution works now, not a design rule; it may change.
 - **Choose roles with cards.** A child taps a role card (`"caller"`, `"player"`) or a team card
   (`"green"`, `"blue"`) after the game starts. Show the chosen role on the lights straight away
   (a color or a shape) so the teacher can see who is what. Give every wand a **default role** so a
