@@ -63,7 +63,8 @@ class BodyProbe:
 
     def __init__(self, sta):
         self.sta = sta
-        self.last_ms = ticks_ms()
+        self.start_ms = ticks_ms()
+        self.last_ms = self.start_ms
         self.last_n = -1
 
     def step(self, received, expected):
@@ -88,7 +89,10 @@ class BodyProbe:
             assoc = self.sta.isconnected() if self.sta is not None else '?'
         except Exception:
             assoc = '?'
-        print("# DBG body done %d/%d assoc=%s" % (received, expected, assoc))
+        # ms = first readinto() to last byte (or give-up), the body alone:
+        # no join, request, header, compile or promote.
+        print("# DBG body done %d/%d assoc=%s ms=%d"
+              % (received, expected, assoc, ticks_diff(ticks_ms(), self.start_ms)))
 
 
 def reset_cause(machine):
