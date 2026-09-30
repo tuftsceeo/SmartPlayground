@@ -44,8 +44,9 @@ edits `platform.md` only if the device changes a rule every device shares.
      prompt and an `unknown…In(code)` function; point the role's `unknownNamesIn` at it. The app
      then refuses to send a game that names something the device lacks.
    - Append the list to the request under a clear heading, and name that heading in the device
-     file ("Use only the names in '<HEADING>' sent with the request"). Today this is
-     `getSystemPrompt()` in `js/app.js`; after the planned move it is `js/prompt/buildRequest.js`.
+     file ("Use only the names in '<HEADING>' sent with the request"). The request is assembled
+     in `js/prompt/buildRequest.js` (`knowledgeText` for fixed lists, `sessionText` for lists that
+     change while the app runs, like icons) from inputs gathered in `js/app.js` `getSystemBlocks()`.
 5. **Add the device's signals to `troubleshooting.md`** — every light, sound or screen a teacher can
    see without a serial cable, with the trigger, taken from the firmware. Anything not verified is
    left out.
@@ -55,7 +56,8 @@ edits `platform.md` only if the device changes a rule every device shares.
 7. **Starter ideas and guided mode.** Add two or three teacher-language ideas tagged with the role
    to `js/starterIdeas.js`, and add the device as a choice in guided mode. *(Both land with step 5
    of the prompt plan; skip until they exist.)*
-8. **Test prompts.** Add prompts for the device to `tools/prompt_eval.mjs`: one game for the device
+8. **Test prompts.** Run `node tools/chat_request_test.mjs` (fails if the new file is missing).
+   Add prompts for the device to `tools/prompt_eval.mjs`: one game for the device
    alone and one two-device game with the wand. *(Lands with step 4 of the prompt plan.)*
 9. **Firmware, Box/Dial, devtests, docs:** `DEVICE_ONBOARDING_SURFACES.md`.
 
@@ -67,7 +69,7 @@ needed. Checked against the code on 2026-09-29; re-check line references before 
 | Surface | File | Status |
 |---|---|---|
 | Role table | `js/roles.js` `ROLES` | **Per device** — the one row (step 3) |
-| Knowledge loading | `js/chat.js` `loadKnowledgeBase` (from `knowledgeFile`) | Generic |
+| Knowledge loading | `js/chat.js` `loadKnowledgeBase` via `buildRequest.js` `knowledgePaths` (from `knowledgeFile`) | Generic |
 | Code block routing | `js/chat.js` `extractCodeBlocks` / `roleBefore` | Generic |
 | Signature check at send | `js/upload.js` `validateGameCode` (from `signature`, `optional`) | Generic |
 | Size check at send | `js/upload.js` `MAX_WAND_GAME_BYTES` | Wand only; add a limit if the device has its own measured one |
@@ -77,8 +79,8 @@ needed. Checked against the code on 2026-09-29; re-check line references before 
 | Tab enable / labels | `js/app.js` `syncRoleRail` | Generic, except the icon-maker button (icon only) |
 | Preview | `js/app.js` `updatePreview` / `syncPreviewEmpty` | Generic "no preview" when `hasPreview: false`; a live preview needs its own branch |
 | Send: extra files | `js/app.js` `confirmSend` (loop over roles; `designator`, `unknownNamesIn`, `hasIconLeg`) | Generic, unless the device ships extra files like the display's icons |
-| Inventory in the prompt | `js/app.js` `getSystemPrompt` (icons, Splat actions) | **Per device** if it has an inventory (step 4) |
-| Required-signature lines in the prompt | `js/app.js` `ROLE_SIGNATURE_LINES` | Generic |
+| Inventory in the prompt | `js/prompt/buildRequest.js` + `js/app.js` `getSystemBlocks` (icons, Splat actions) | **Per device** if it has an inventory (step 4) |
+| Marker and signature lines in the prompt | `js/prompt/buildRequest.js` `roleSummary` | Generic |
 | Hardware requirements overlay | `js/hardware.js` `buildHardwareReqs` `stations` | Not wired for any device yet |
 | Direct USB connection | `js/device/wandDeviceLink.js` model | **Per device**, only if it connects without the Box |
 | Troubleshooting | `knowledge/troubleshooting.md` | **Per device** (step 5) |

@@ -667,7 +667,8 @@ body.ui-advanced #app-shell {
     border: 1px solid var(--border);
     border-radius: 14px 14px 14px 3px;
 }
-.starter-chips {
+.starter-chips,
+.choice-chips {
     display: flex;
     flex-wrap: wrap;
     gap: 8px;

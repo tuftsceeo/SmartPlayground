@@ -66,12 +66,12 @@ function playParams(code) {
 }
 
 /**
- * Check a game file against its role's signature.
+ * Check a game file against its role's play() signature only.
  * @param {string} code
  * @param {string} role  a key of ROLE_SIGNATURES
  * @returns {[boolean, string|null]} [ok, error message]
  */
-export function validateGameCode(code, role) {
+export function validateGameSignature(code, role) {
     const expected = ROLE_SIGNATURES[role];
     if (!expected) {
         return [false, `Unknown device role "${role}".`];
@@ -86,6 +86,19 @@ export function validateGameCode(code, role) {
     if (missing.length > 0) {
         return [false, `play() is missing parameters: ${missing.join(', ')}\nExpected: ${sig}`];
     }
+    return [true, null];
+}
+
+/**
+ * Check a game file before sending: its role's signature, and for the
+ * wand the size the wand can load.
+ * @param {string} code
+ * @param {string} role  a key of ROLE_SIGNATURES
+ * @returns {[boolean, string|null]} [ok, error message]
+ */
+export function validateGameCode(code, role) {
+    const sigCheck = validateGameSignature(code, role);
+    if (!sigCheck[0]) return sigCheck;
     if (role === 'wand') {
         const size = codeBytes(code);
         if (size > MAX_WAND_GAME_BYTES) {

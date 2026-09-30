@@ -27,7 +27,8 @@
  *                 instead of a live simulator
  *   hasIconLeg    true only for the role whose games ship extra named
  *                 files alongside the game file (only icon, today)
- *   knowledgeFile path fetched into the system prompt's knowledge base
+ *   knowledgeFile device knowledge file (knowledge/devices/<role>.md), loaded
+ *                 into the system prompt after the shared files
  *   unknownNamesIn optional (code) => string[]: names the game uses that
  *                 the device does not have; a non-empty result refuses
  *                 the send (splat only, today)
@@ -48,7 +49,7 @@ export const ROLES = [
         optional: ['batt'],
         hasPreview: true,
         hasIconLeg: false,
-        knowledgeFile: 'knowledge/knowledge.py',
+        knowledgeFile: 'knowledge/devices/wand.md',
     },
     {
         key: 'icon',
@@ -63,7 +64,7 @@ export const ROLES = [
         optional: [],
         hasPreview: true,
         hasIconLeg: true,
-        knowledgeFile: 'knowledge/icon_display.py',
+        knowledgeFile: 'knowledge/devices/icon_display.md',
     },
     {
         key: 'splat',
@@ -78,7 +79,7 @@ export const ROLES = [
         optional: ['batt'],
         hasPreview: false,
         hasIconLeg: false,
-        knowledgeFile: 'knowledge/splat_companion.py',
+        knowledgeFile: 'knowledge/devices/splat_companion.md',
         unknownNamesIn: unknownSplatActionsIn,
     },
 ];

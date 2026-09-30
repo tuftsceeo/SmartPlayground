@@ -1,30 +1,38 @@
 import { renderMarkdown } from './markdown.js';
 import { ROLES as ROLE_TABLE, DEFAULT_ROLE } from './roles.js';
+import { knowledgePaths } from './prompt/buildRequest.js';
 
-// One file per device type. Each documents that device's own play()
-// signature and hardware; there is no shared game API to document.
-const KNOWLEDGE_FILES = ROLE_TABLE.map(r => r.knowledgeFile);
-let knowledgeText = "";
+// path -> text for every knowledge file (knowledgePaths()); empty until
+// loadKnowledgeBase() succeeds.
+let knowledgeFiles = {};
 
+/**
+ * Fetch every knowledge file. All of them are required: a chat without its
+ * knowledge base answers from general memory, which is how it ends up
+ * inventing device behavior. Throws naming every file that failed.
+ * @returns {Promise<Object<string,string>>} path -> text
+ */
 export async function loadKnowledgeBase() {
-    knowledgeText = "";
-    for (const filepath of KNOWLEDGE_FILES) {
+    knowledgeFiles = {};
+    const paths = knowledgePaths();
+    const failed = [];
+    const loaded = {};
+    await Promise.all(paths.map(async (path) => {
         try {
-            const resp = await fetch(filepath);
-            if (resp.ok) {
-                const text = await resp.text();
-                knowledgeText += `\n\n--- FILE: ${filepath} ---\n${text}`;
-                console.log("Loaded knowledge: " + filepath);
-            }
+            const resp = await fetch(path, { cache: "no-cache" });
+            if (!resp.ok) { failed.push(`${path} (HTTP ${resp.status})`); return; }
+            loaded[path] = await resp.text();
         } catch (e) {
-            console.log("Could not load " + filepath + ": " + e);
+            failed.push(`${path} (${e.message})`);
         }
-    }
-    return knowledgeText;
+    }));
+    if (failed.length) throw new Error(`Could not load knowledge files: ${failed.join(", ")}`);
+    knowledgeFiles = loaded;
+    return knowledgeFiles;
 }
 
-export function getKnowledgeText() { return knowledgeText; }
-export function getKnowledgeFileCount() { return KNOWLEDGE_FILES.length; }
+export function getKnowledgeFiles() { return knowledgeFiles; }
+export function getKnowledgeFileCount() { return Object.keys(knowledgeFiles).length; }
 
 export function addMsg(text, cls = "bot") {
     const box = document.getElementById("chat-box");
@@ -144,6 +152,24 @@ export function parseGameName(text) {
 
 export function stripGameNameMarker(text) {
     return text.replace(/\[GAME_NAME:[^\]]+\]/g, "").trim();
+}
+
+/** Follow-up options from a [CHOICES: "a", "b"] marker, or null. */
+export function parseChoices(text) {
+    const match = text.match(/\[CHOICES:\s*([^\]]+)\]/);
+    if (!match) return null;
+    const quoted = [...match[1].matchAll(/["“]([^"”]+)["”]/g)].map(m => m[1].trim());
+    const list = quoted.length ? quoted : match[1].split(",").map(s => s.trim());
+    return list.filter(Boolean).slice(0, 4);
+}
+
+export function stripChoicesMarker(text) {
+    return text.replace(/\[CHOICES:[^\]]+\]/g, "").trim();
+}
+
+/** Every marker line removed, for showing a reply (complete or partial). */
+export function stripAllMarkers(text) {
+    return stripDeviceMarkers(stripChoicesMarker(stripGameNameMarker(stripNfcMarker(text))));
 }
 
 export function trimForHistory(text) {
