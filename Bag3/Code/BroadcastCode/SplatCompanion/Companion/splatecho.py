@@ -1,24 +1,34 @@
 """
-Splat Echo -- two-player pattern game, Splat Companion half
-=============================================================
+Splat Echo -- two-player Simon, Splat Companion half (game master)
+===================================================================
 Tag / start_game name: splatecho (lib/splat_tags.py GAME_TAGS). Runs with
 the wand's splatecho.py (MockWand/), a separate program for the same game.
 
-The wand (Caller) sends a pattern of Splat units one step at a time; each
-step lights that Splat in its color and plays its sound. When the wand
-sends echo_go, the Echo player presses the Splats in the same order within
-STEP_MS per step. A correct press lights and sounds that Splat; the whole
-pattern scores for Echo, a wrong Splat or a timeout scores for Caller.
+Rules:
+  Players take turns on one shared pattern. On a turn the hub plays the
+  whole pattern on the Splats; the player repeats it on the Splats, with
+  feedback on every press; after a full repeat the player adds one step
+  with their wand (tilt + press) and the turn passes. A wrong Splat or a
+  STEP_MS timeout ends the round: the other player scores and the pattern
+  starts again from empty.
+
+This half runs the game: joining, turns, playback, checking, scores.
+Each wand sends echo_hello until it is given a player number by a unicast
+echo_you. With one wand after LOBBY_MS the game runs solo.
 
 Unit colors and sounds are fixed by unit index (UNITS) so they match the
-wand's colors. With fewer than 4 Splats, a unit index wraps onto the
+wand's tilt colors. With fewer than 4 Splats a unit index wraps onto the
 Splats present (index % splat.count).
 
-Messages (dicts, "type" names not used elsewhere):
-  received  {"type": "echo_add", "unit": i}
-            {"type": "echo_go", "n": steps}
-  sent      {"type": "echo_step", "idx": k}
-            {"type": "echo_result", "ok": bool, "n": steps}
+Messages (dicts; "type" names not used elsewhere):
+  from a wand  {"type": "echo_hello"}
+               {"type": "echo_add", "unit": i}
+  to one wand  {"type": "echo_you", "player": p}              (p = 0 or 1)
+  broadcast    {"type": "echo_turn", "player": p, "len": n}
+               {"type": "echo_add_now", "player": p}
+               {"type": "echo_step", "player": p, "idx": k}
+               {"type": "echo_result", "ok": bool, "player": p,
+                "len": n, "scores": [s0, s1]}
 
 Exits on ESP-NOW "stop" or "start_game" (cards arrive the same way; see
 main.py's _GameEnow).
@@ -33,85 +43,203 @@ UNITS = (
     ("turnyellow", (60, 40, 0), "cow"),
     ("turnpurple", (36, 0, 45), "duck"),
 )
-SHOW_MS = 400          # how long a step or a correct press stays lit
-STEP_MS = 3000         # Echo's time allowed per step
-RESULT_MS = 800        # all-Splat result flash
+PLAYER_RGB = ((0, 40, 40), (50, 20, 0))    # player 0 cyan, player 1 orange
+LOBBY_MS = 8000        # wait this long for a second wand, then play solo
+SHOW_MS = 450          # one playback step lit
+GAP_MS = 250           # dark gap between playback steps
+PRESS_MS = 300         # a correct press stays lit
+STEP_MS = 4000         # time allowed for each press while repeating
+OK_MS = 600            # green after a full repeat
+FAIL_MS = 1500         # red when a round ends
+MAX_LEN = 12           # ring pixels; the pattern stops growing here
 
 
-def _unit(splat, i):
-    return splat.unit(i % splat.count)
-
-
-def _light(splat, leds, i):
+def _light(splat, i):
     cname, rgb, sound = UNITS[i % len(UNITS)]
-    u = _unit(splat, i)
+    u = splat.unit(i % splat.count)
     u.color(cname)
     u.sound(sound)
-    leds.fill(rgb)
-    return time.ticks_add(time.ticks_ms(), SHOW_MS)
+    return rgb
 
 
-def _dark(splat, leds):
-    splat.color("turnoff")
-    leds.fill((0, 0, 0))
+def _ring_count(leds, n, rgb):
+    """First n ring pixels in rgb, the rest dark (n capped at leds.n)."""
+    n = min(n, leds.n)
+    leds.show_each([rgb] * n + [(0, 0, 0)] * (leds.n - n))
+
+
+class _Game:
+    def __init__(self, splat, leds, enow):
+        self.splat = splat
+        self.leds = leds
+        self.enow = enow
+        self.players = []            # wand MAC strings, index = player number
+        self.scores = [0, 0]
+        self.pattern = []
+
+    # ── messages ──
+    def poll(self):
+        """One ESP-NOW message. Handles joining; returns (kind, data), or
+        ("exit", None) on stop/start_game."""
+        mt, data, mac = self.enow.poll()
+        if mt in ("stop", "start_game"):
+            return "exit", None
+        kind = data.get("type") if isinstance(data, dict) else None
+        if kind == "echo_hello" and mac:
+            if mac not in self.players and len(self.players) < 2:
+                self.players.append(mac)
+                self.enow.add_peer(mac)
+                print("  splatecho: player %d joined (%s)" % (len(self.players) - 1, mac))
+            if mac in self.players:
+                self.enow.send_to(mac, {"type": "echo_you",
+                                        "player": self.players.index(mac)})
+        return kind, data
+
+    def wait(self, ms):
+        """Service the Splats and messages for ms. Returns "exit" or None.
+        Splat presses during the wait are discarded."""
+        end = time.ticks_add(time.ticks_ms(), ms)
+        while time.ticks_diff(end, time.ticks_ms()) > 0:
+            kind, _ = self.poll()
+            if kind == "exit":
+                return "exit"
+            self.splat.poll()
+            time.sleep_ms(1)
+        return None
+
+    def dark(self):
+        self.splat.color("turnoff")
+
+    # ── phases ──
+    def intro(self):
+        """Show each Splat's color and sound once, then wait for wands."""
+        for i in range(min(len(UNITS), self.splat.count)):
+            _light(self.splat, i)
+            if self.wait(600) == "exit":
+                return "exit"
+            self.dark()
+        start = time.ticks_ms()
+        step = 0
+        while len(self.players) < 2:
+            if self.players and time.ticks_diff(time.ticks_ms(), start) >= LOBBY_MS:
+                print("  splatecho: one wand -- solo")
+                break
+            colors = [(0, 0, 0)] * self.leds.n
+            colors[step % self.leds.n] = (40, 30, 0)
+            self.leds.show_each(colors)
+            step += 1
+            if self.wait(120) == "exit":
+                return "exit"
+        return None
+
+    def playback(self, p):
+        rgb = PLAYER_RGB[p]
+        _ring_count(self.leds, len(self.pattern), rgb)
+        if self.wait(600) == "exit":
+            return "exit"
+        for unit in self.pattern:
+            _light(self.splat, unit)
+            if self.wait(SHOW_MS) == "exit":
+                return "exit"
+            self.dark()
+            if self.wait(GAP_MS) == "exit":
+                return "exit"
+        return None
+
+    def repeat(self, p):
+        """Player p repeats the pattern. Returns True, False or "exit"."""
+        rgb = PLAYER_RGB[p]
+        splat = self.splat
+        for idx, unit in enumerate(self.pattern):
+            _ring_count(self.leds, len(self.pattern) - idx, rgb)
+            want = unit % splat.count
+            deadline = time.ticks_add(time.ticks_ms(), STEP_MS)
+            while True:
+                kind, _ = self.poll()
+                if kind == "exit":
+                    return "exit"
+                if splat.poll() == "press":
+                    if splat.last_index == want:
+                        _light(splat, unit)
+                        self.enow.broadcast({"type": "echo_step", "player": p, "idx": idx})
+                        if self.wait(PRESS_MS) == "exit":
+                            return "exit"
+                        self.dark()
+                        break
+                    print("  splatecho: player %d pressed Splat %d, wanted %d"
+                          % (p, splat.last_index, want))
+                    return False
+                if time.ticks_diff(time.ticks_ms(), deadline) >= 0:
+                    print("  splatecho: player %d timed out on step %d" % (p, idx + 1))
+                    return False
+                time.sleep_ms(1)
+        return True
+
+    def add_step(self, p):
+        """Player p adds one step with their wand. Returns "exit" or None."""
+        self.enow.broadcast({"type": "echo_add_now", "player": p})
+        _ring_count(self.leds, len(self.pattern), PLAYER_RGB[p])
+        while True:
+            kind, data = self.poll()
+            if kind == "exit":
+                return "exit"
+            if kind == "echo_add" and isinstance(data.get("unit"), int):
+                unit = data["unit"]
+                self.pattern.append(unit)
+                print("  splatecho: player %d added unit %d (length %d)"
+                      % (p, unit, len(self.pattern)))
+                rgb = _light(self.splat, unit)
+                _ring_count(self.leds, len(self.pattern), rgb)
+                if self.wait(SHOW_MS) == "exit":
+                    return "exit"
+                self.dark()
+                return None
+            self.splat.poll()
+            time.sleep_ms(1)
+
+    def result(self, p, ok):
+        """Show and broadcast a repeat's result. A failed repeat scores for
+        the other player (no score change when playing solo)."""
+        if not ok and len(self.players) > 1:
+            self.scores[1 - p] += 1
+        self.enow.broadcast({"type": "echo_result", "ok": ok, "player": p,
+                             "len": len(self.pattern), "scores": list(self.scores)})
+        self.splat.color("turngreen" if ok else "turnred")
+        self.leds.fill((0, 30, 0) if ok else (30, 0, 0))
+        print("  splatecho: %s  scores %s" % ("correct" if ok else "round over", self.scores))
+        r = self.wait(OK_MS if ok else FAIL_MS)
+        self.dark()
+        return r
+
+    def run(self):
+        print("  splatecho: %d Splat(s); waiting for wands" % self.splat.count)
+        self.splat.off()
+        if self.intro() == "exit":
+            return
+        p = 0
+        while True:
+            self.enow.broadcast({"type": "echo_turn", "player": p, "len": len(self.pattern)})
+            print("  splatecho: player %d's turn, length %d" % (p, len(self.pattern)))
+            if self.pattern:
+                if self.playback(p) == "exit":
+                    return
+                ok = self.repeat(p)
+                if ok == "exit":
+                    return
+                if self.result(p, ok) == "exit":
+                    return
+                if not ok:
+                    self.pattern = []
+                    p = (p + 1) % max(1, len(self.players))
+                    continue
+            if len(self.pattern) < MAX_LEN:
+                if self.add_step(p) == "exit":
+                    return
+            p = (p + 1) % max(1, len(self.players))
 
 
 def play(splat, leds, enow, batt=None):
-    print("  splatecho: %d Splat(s); waiting for the wand's pattern" % splat.count)
-    splat.off()
-    leds.fill((0, 0, 0))
-    pattern = []
-    echo = False          # False: Caller is adding steps; True: Echo's turn
-    idx = 0
-    deadline = None
-    off_at = None
-    while True:
-        now = time.ticks_ms()
-        mt, data, mac = enow.poll()
-        if mt in ("stop", "start_game"):
-            print("  splatecho: exit on %s" % mt)
-            return
-        kind = data.get("type") if isinstance(data, dict) else None
-
-        if kind == "echo_add" and not echo:
-            unit = data.get("unit")
-            if isinstance(unit, int):
-                pattern.append(unit)
-                print("  splatecho: step %d -> unit %d" % (len(pattern), unit))
-                off_at = _light(splat, leds, unit)
-        elif kind == "echo_go" and not echo and pattern:
-            echo, idx = True, 0
-            deadline = time.ticks_add(now, STEP_MS)
-            print("  splatecho: Echo's turn, %d step(s)" % len(pattern))
-
-        ev = splat.poll()
-        result = None
-        if echo and ev == "press":
-            pressed = splat.last_index
-            want = pattern[idx] % splat.count
-            if pressed == want:
-                off_at = _light(splat, leds, pattern[idx])
-                enow.broadcast({"type": "echo_step", "idx": idx})
-                idx += 1
-                deadline = time.ticks_add(now, STEP_MS)
-                if idx == len(pattern):
-                    result = True
-            else:
-                print("  splatecho: wrong Splat %d, wanted %d" % (pressed, want))
-                result = False
-        elif echo and time.ticks_diff(now, deadline) >= 0:
-            print("  splatecho: timeout on step %d" % (idx + 1))
-            result = False
-
-        if result is not None:
-            enow.broadcast({"type": "echo_result", "ok": result, "n": len(pattern)})
-            print("  splatecho: %s" % ("Echo scores" if result else "Caller scores"))
-            splat.color("turngreen" if result else "turnred")
-            leds.fill((0, 30, 0) if result else (30, 0, 0))
-            off_at = time.ticks_add(time.ticks_ms(), RESULT_MS)
-            pattern, echo, deadline = [], False, None
-
-        if off_at is not None and time.ticks_diff(time.ticks_ms(), off_at) >= 0:
-            _dark(splat, leds)
-            off_at = None
-        time.sleep_ms(1)
+    try:
+        _Game(splat, leds, enow).run()
+    finally:
+        leds.fill((0, 0, 0))
