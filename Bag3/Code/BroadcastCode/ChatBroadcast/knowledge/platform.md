@@ -64,6 +64,51 @@ touch `network.WLAN` — two radio stacks crash the device.
 - Nothing relays messages for you: if one device must know what happened on another, the game on
   the second device has to broadcast it.
 
+### Reserved message types — never use them for game messages
+
+Every device sorts incoming messages before the game sees them. These `"type"` values are taken,
+and arrive as their own `msg_type` instead of `"raw"`, so a game checking for `"raw"` never sees
+them:
+
+`stop`, `start_game`, `score`, `splat_config`, `battery`, `scan_request`, `find_device`,
+`status_poll`, `status_report`.
+
+A **list** (for example `["turnred"]`) arrives as `msg_type "colors"` (or `"stop"` / `"battery"` if
+it contains those words). Game messages are therefore always **dicts with the game's own `"type"`**,
+such as `{"type": "hit"}` or `{"type": "frogs", "from": "wand"}`. Using the game's slug as the type
+keeps two games from reacting to each other's messages.
+
+### Stop and start reach every device
+
+`enow.broadcast_stop()` and `enow.broadcast_start_game(name)` go to **every** device in range: they
+end or switch the games on all wands, the display and the Splat Companion. Use them only when the
+game really should stop or switch everything.
+
+## Games that use several devices
+
+Write one complete file per device, each under its own `[DEVICE:]` marker. Plan the messages first
+and use the same type names and keys in every file:
+
+1. **Pick one message type** for the game (usually the slug) and a `"from"` key saying which kind
+   of device sent it (`"wand"`, `"splat"`, `"icon"`).
+2. **Decide who sends what.** For each thing that happens ("a child presses the Splat"), say which
+   device notices it and broadcasts, and which devices react.
+3. **Send what the receiver needs** in small plain values: a color *name* (`"red"`) or a short
+   `[r, g, b]` list, a team name, a count.
+4. **Every file still exits** on `"stop"` / `"start_game"`.
+
+Worked example — the wand and the Splat echo each other (from the built-in Jump In game):
+
+- Wand: when the button is pressed, `enow.broadcast({"type": "jumpin", "from": "wand"})`.
+- Splat: on `msg_type == "raw"` with `data.get("type") == "jumpin"` and `data.get("from") == "wand"`,
+  blink the Splat.
+- Splat: on a press, `enow.broadcast({"type": "jumpin", "from": "splat", "rgb": [r, g, b]})`.
+- Wand: on that message, `leds.fill(tuple(data["rgb"]))` — a color received in a message is used
+  as it arrives.
+
+Adding the icon display: each device that scores broadcasts `{"type": "<slug>", "from": "wand",
+"team": "green"}`; the display keeps a count per team and shows it with `chart16.blocks`.
+
 ## Exiting and switching games
 
 Every game must stop promptly when told to, so the teacher can switch games at any time:

@@ -9,6 +9,10 @@ play at once; each runs its own copy of the game.
 
 It has **no screen and no speaker for music** — only the light grid, simple beeps, and vibration.
 
+A wand game can work together with the **icon display** and the **Splat Companion** by sending them
+messages (platform rules, "Games that use several devices"). Their own game files are described in
+their device sections.
+
 ## The `play()` contract
 
 The wand calls a game with exactly seven arguments, in this order:
@@ -104,7 +108,8 @@ def play(nfc, leds, buz, accel, i2c, enow, batt=None):
 ### Lights — `leds`
 
 Import color and shape names from `leds`; they are tuned for the hardware and dim automatically in
-bright rooms. Do not use raw `(r, g, b)` tuples for these colors.
+bright rooms. Do not write raw `(r, g, b)` tuples for these colors. A color that arrives in a
+message from another device may be used as it arrives: `leds.fill(tuple(data["rgb"]))`.
 
 - **Colors:** `OFF RED ROSE ORANGE AMBER YELLOW LIME GREEN TEAL CYAN BLUE INDIGO PURPLE MAGENTA
   WHITE PINK PEACH MINT SKY`, and dim versions `RED_DIM GREEN_DIM BLUE_DIM YELLOW_DIM WHITE_DIM
@@ -214,6 +219,8 @@ Keep buzzes short; the motor draws a lot of power.
 | "lay it flat, lights up" | `z < -0.8` |
 | "tap a card" | `reader.read_command(...)` every `NFC_EVERY` loops |
 | "vibrate", "rumble" | motor on pin 21 |
+| "tell the Splat", "make the Splat light up" | `enow.broadcast({"type": "<slug>", "from": "wand"})`; the Splat game reacts |
+| "show it on the display", "add a point on the big screen" | `enow.broadcast({"type": "<slug>", "from": "wand", "team": "green"})`; the display game draws it |
 | "start / freeze the music" | `enow.broadcast("FD_GO")` / `enow.broadcast("FD_FREEZE")` — plays on the speaker devices |
 
 ## Limits and why

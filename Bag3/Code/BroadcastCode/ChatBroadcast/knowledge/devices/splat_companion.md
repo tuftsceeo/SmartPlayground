@@ -56,7 +56,7 @@ def play(splat, leds, enow, batt=None):
             ev = splat.poll()
             if ev == "press":
                 splat.play(["turngreen", "cat"])
-                enow.broadcast({"type": "score", "hit": True})
+                enow.broadcast({"type": "your_game", "from": "splat", "hit": True})
             elif ev == "release":
                 splat.off()
 
@@ -101,7 +101,7 @@ A game must still work when `splat.count == 1`. Check `splat.count` before using
 | "when a child jumps on the Splat" | `splat.poll() == "press"` |
 | "the Splat turns green and barks" | `splat.play(["turngreen", "dog"])` |
 | "play a note" | `splat.note("note_c")` |
-| "tell the wands / display" | `enow.broadcast({"type": "hit"})` |
+| "tell the wands / display" | `enow.broadcast({"type": "<slug>", "from": "splat"})` — never a reserved type like `"score"` |
 | "each Splat a different color" | `splat.unit(i).color(...)` for `i` below `splat.count` |
 
 ## Limits and why
