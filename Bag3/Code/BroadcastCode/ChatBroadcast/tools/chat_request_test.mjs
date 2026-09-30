@@ -165,6 +165,17 @@ await test("markers parse and strip", () => {
     assert.equal(blocks[0].role, "wand");
 });
 
+await test("code blocks route by signature when markers are misplaced or missing", () => {
+    const w = WAND_GAME;
+    const sp = "def play(splat, leds, enow, batt=None):\n    pass";
+    const roles = t => extractCodeBlocks(t).map(b => b.role);
+    const block = c => "```python\n" + c + "\n```";
+    assert.deepEqual(roles(`[DEVICE: wand]\n${block(w)}\n[DEVICE: splat]\n${block(sp)}`), ["wand", "splat"]);
+    assert.deepEqual(roles(`${block(w)}\n[DEVICE: wand]\n${block(sp)}\n[DEVICE: splat]`), ["wand", "splat"]);
+    assert.deepEqual(roles(`[DEVICE: wand]\n${block(w)}\n${block(sp)}`), ["wand", "splat"]);
+    assert.deepEqual(roles(`[DEVICE: splat]\n${block('splat.color("turnred")')}`), ["splat"], "snippet keeps its marker");
+});
+
 await test("starter draws always include a non-wand idea; ideas name real roles", () => {
     const keys = new Set(ROLES.map(r => r.key));
     for (const idea of STARTER_IDEAS) for (const r of idea.roles) assert.ok(keys.has(r), `${idea.text}: ${r}`);

@@ -21,6 +21,24 @@ Companion. The message rules it builds on are in the platform section ("Talking 
   repeat that state about once a second, so a wand that missed it, or joined late, catches up.
 - **Every file exits** on `"stop"` / `"start_game"`, whatever its role.
 
+## Same colors on every device
+
+Devices have different color sets. When the same thing appears on several devices (a team, an
+animal, a card), give it **one color that every device in the game can show**, so children can
+match them by eye:
+
+| Color | Wand (`leds`) | Splat (`splat.color`) | Icon display |
+|---|---|---|---|
+| red | `RED` | `"turnred"` | any `(r, g, b)` |
+| green | `GREEN` | `"turngreen"` | any |
+| blue | `BLUE` | `"turnblue"` | any |
+| yellow | `YELLOW` | `"turnyellow"` | any |
+| purple | `PURPLE` | `"turnpurple"` | any |
+| white | `WHITE` | `"turnwhite"` | any |
+
+The Splat has no orange, pink or other colors. A game using only the wand and the display may use
+any wand color.
+
 ## Designing the messages
 
 Plan the messages before writing any file, and use exactly the same names in every file.
@@ -103,6 +121,5 @@ A Splat can join the same way: a press is a report (`{"type": "<slug>", "from": 
 ## For young children
 
 - **The teacher holds the leading wand** in role games, and tells the class what each light means.
-- **Role and team cards should carry a picture or color**, since children cannot read the names.
 - **Everyone stays in.** Being caught or losing a round shows a short, friendly signal, then the
   wand is back in the game.

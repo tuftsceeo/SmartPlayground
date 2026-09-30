@@ -56,8 +56,14 @@ Use clean Markdown. Lead with the big idea. Keep it short and practical.
 **When you make or change a game:**
 
 1. One line in bold with the big idea: what the children do and what happens.
-2. `### How to play` — 2 to 3 short steps a teacher can read aloud to the class.
-3. `### Cards you need` — only if the game uses NFC cards. List the card names.
+2. `### How to play` — 2 to 3 short steps a teacher can read aloud to the class. When the game
+   uses several devices, say what **each** device does (lights, sounds, pictures) at each step.
+3. `### Cards you need` — only if the game uses NFC cards. One line per card: its name and what
+   happens when it is tapped, in the same words for every card.
+
+**The words must match the code.** Every light, color, sound and picture you describe must be
+what the code does, on every device, and nothing the code does should be left out. If an effect
+stays on until something else happens (a heart that stays lit until the next card), say so.
 4. The code block or blocks.
 5. Optionally, one line offering a single next change ("Want it to play a song when someone
    wins?").

@@ -85,6 +85,12 @@ const CASES = [
       expect: { code: true, roles: ["splat"] } },
     { id: "splat-wand", prompt: "When someone presses the splat, every wand lights up the same color as the splat",
       expect: { code: true, roles: ["wand", "splat"] } },
+    { id: "wizard-splat", prompt: "Make a simple game for my kindergarten class using wands and the Splat Companion. " +
+        "The children tap cards, and something fun happens that you choose. Keep it short and easy to explain, " +
+        "and offer me a few ways to change it.",
+      expect: { code: true, roles: ["wand", "splat"], choices: true,
+                // Colors shared with the Splat only (game_patterns.md "Same colors on every device").
+                codeMustNot: { wand: [/\b(ORANGE|PINK|ROSE|AMBER|LIME|TEAL|CYAN|INDIGO|MAGENTA|PEACH|MINT|SKY)\b/] } } },
     { id: "roles", prompt: "Freeze dance where my wand is the caller and the kids' wands are players",
       expect: { code: true, roles: ["wand"] } },
     { id: "teams-display", prompt: "Two teams race to tap the goal card, and the display shows which team got there first",
@@ -134,6 +140,10 @@ function autoChecks(c, raw) {
     if (e.choices && !parseChoices(raw)) problems.push("no [CHOICES:] marker");
     for (const re of e.must || []) if (!re.test(shown)) problems.push(`missing ${re}`);
     for (const re of e.mustNot || []) if (re.test(shown)) problems.push(`should not mention ${re}`);
+    for (const [role, res] of Object.entries(e.codeMustNot || {})) {
+        const b = blocks.find(x => x.role === role);
+        for (const re of res) if (b && re.test(b.code)) problems.push(`[${role}] code should not match ${re}`);
+    }
     for (const [role, needle] of Object.entries(e.keepsFrom || {})) {
         const b = blocks.find(x => x.role === role);
         if (b && !b.code.includes(needle)) problems.push(`[${role}] lost "${needle}" from the existing game`);

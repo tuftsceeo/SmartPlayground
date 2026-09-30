@@ -1,6 +1,7 @@
 import { renderMarkdown } from './markdown.js';
 import { ROLES as ROLE_TABLE, DEFAULT_ROLE } from './roles.js';
 import { knowledgePaths } from './prompt/buildRequest.js';
+import { validateGameSignature } from './upload.js';
 
 // path -> text for every knowledge file (knowledgePaths()); empty until
 // loadKnowledgeBase() succeeds.
@@ -95,11 +96,25 @@ function roleBefore(prose) {
 }
 
 /**
+ * The one role whose play() signature the code matches, or null when none
+ * or several do. Each device's signature is distinct, so a complete game
+ * file names its own device.
+ */
+export function roleFromSignature(code) {
+    const matches = ROLES.filter(r => validateGameSignature(code, r)[0]);
+    return matches.length === 1 ? matches[0] : null;
+}
+
+/**
  * Every fenced code block in a reply, tagged with its device role.
  *
  * A multi-device game is several files -- one per device type -- so a reply
- * can carry more than one block. Each is preceded by a [DEVICE: wand] or
- * [DEVICE: icon] marker; blocks with no marker before them are wand code.
+ * can carry more than one block. Each should be preceded by a
+ * [DEVICE: wand] / [DEVICE: icon] / ... marker; blocks with no marker before
+ * them default to the wand. When a block's play() signature matches a
+ * different device than its marker (a marker placed after the block, or
+ * left out), the signature wins: routing by marker alone once put a Splat
+ * game in the wand tab.
  *
  * @returns {{role: string, code: string}[]} in the order they appeared
  */
@@ -116,7 +131,9 @@ export function extractCodeBlocks(text) {
             continue;
         }
         const code = blockCode(parts[i]);
-        if (code) out.push({ role, code });
+        if (!code) continue;
+        const bySig = validateGameSignature(code, role)[0] ? null : roleFromSignature(code);
+        out.push({ role: bySig || role, code });
     }
     return out;
 }
