@@ -1,0 +1,47 @@
+[   0.0s] # monitor: port opened
+[   0.1s] ESP-ROM:esp32c6-20220919
+[   0.1s] Build:Sep 19 2022
+[   0.1s] rst:0xc (SW_CPU),boot:0x1e (SPI_FAST_FLASH_BOOT)
+[   0.1s] Saved PC:0x4001975a
+[   0.1s] SPIWP:0xee
+[   0.1s] mode:DIO, clock div:2
+[   0.1s] load:0x40875730,len:0xdbc
+[   0.1s] load:0x4086b910,len:0xc34
+[   0.1s] load:0x4086e610,len:0x2e3c
+[   0.1s] entry 0x4086b910
+[   1.6s] [hubtype] wand (25 LEDs)
+[   4.6s] 
+[   4.6s] ==================================================
+[   4.6s]   PlaygroundV5 -- Multi-Trigger Event Engine
+[   4.6s]   Hub type: wand
+[   4.6s] ==================================================
+[   5.8s]   ESPNow: active (MAC: A0:F2:62:87:B4:30)
+[   6.5s]   Light: 545 lux -> brightness x0.06
+[   6.5s]   Battery: 4.20V, 98.9%
+[   6.6s]   PN532 firmware 1.6 (IC 0x32) -- NFC ready
+[   6.6s]   Accelerometer OK
+[   6.6s]   Accel wake-up (INT1) armed
+[   6.6s]   Boot complete — all systems OK
+[   7.0s] {"hub": "wand", "games": ["button_flash_blu", "colorquest", "cooking", "finddevice", "freezedance", "gestures", "goalrace", "jump", "jumpin", "melody", "multiicecream", "nfcsound", "rainbow", "shake", "shakerainbow", "simpleicecream", "sound", "speed05", "speed20", "speed28", "speed32", "speed36", "speed40", "splatecho", "splatecho"], "version": "0.1.0", "device": "wand", "type": "identity"}
+[   8.6s]   Launching just-pulled game: splatecho
+[   9.1s] {"slug": "splatecho", "type": "game_start"}
+[   9.2s]   [echo]       5 START espnow=(0, 0, 0, 0, 0)
+[   9.2s]   [echo]      22 STATE join
+[   9.2s]   [echo]      24 TX echo_hello #1 ok=True
+[   9.2s]   [echo]      55 RX {'player': 1, 'type': 'echo_you'} (state=join)
+[   9.2s]   splatecho: I am player 1
+[   9.2s]   [echo]      57 JOINED as player 1 after 1 hello(s)
+[   9.3s]   [echo]     148 STATE waiting
+[   9.3s]   [echo]     151 RX {'q': 1, 'type': 'echo_turn', 'player': 0, 'len': 0} (state=waiting)
+[   9.3s]   [echo]     152 STATE other's turn
+[   9.3s]   [echo]     182 RX {'q': 2, 'type': 'echo_add_now', 'player': 0} (state=other's turn)
+[  17.6s]   [echo]    8425 RX {'type': 'echo_hello'} (state=other's turn)
+[  27.7s]   [echo]   18509 QUIET 10081 ms: state=other's turn me=1 last_rx=echo_hello 10081 ms ago rx={'echo_you': 1, 'echo_hello': 1, 'echo_turn': 1, 'echo_add_now': 1} last_q=2 missed=0 adds=0 btn_down=0 tilt=None max_poll_gap=93 espnow=(1, 1, 0, 4, 0)
+[  47.7s]   [echo]   38533 QUIET 30104 ms: state=other's turn me=1 last_rx=echo_hello 30105 ms ago rx={'echo_you': 1, 'echo_hello': 1, 'echo_turn': 1, 'echo_add_now': 1} last_q=2 missed=0 adds=0 btn_down=0 tilt=None max_poll_gap=93 espnow=(1, 1, 0, 4, 0)
+[  87.7s]   [echo]   78538 QUIET 70110 ms: state=other's turn me=1 last_rx=echo_hello 70110 ms ago rx={'echo_you': 1, 'echo_hello': 1, 'echo_turn': 1, 'echo_add_now': 1} last_q=2 missed=0 adds=0 btn_down=0 tilt=None max_poll_gap=93 espnow=(1, 1, 0, 4, 0)
+[ 167.8s]   [echo]  158629 QUIET 150200 ms: state=other's turn me=1 last_rx=echo_hello 150200 ms ago rx={'echo_you': 1, 'echo_hello': 1, 'echo_turn': 1, 'echo_add_now': 1} last_q=2 missed=0 adds=0 btn_down=0 tilt=None max_poll_gap=93 espnow=(1, 1, 0, 4, 0)
+[ 288.2s]   [echo]  279032 BUTTON pressed outside add (state=other's turn)
+[ 291.0s]   [echo]  281861 BUTTON pressed outside add (state=other's turn)
+[ 291.3s]   [echo]  282178 BUTTON pressed outside add (state=other's turn)
+[ 301.5s]   [echo]  292296 QUIET 10115 ms: state=other's turn me=1 last_rx=echo_hello 283868 ms ago rx={'echo_you': 1, 'echo_hello': 1, 'echo_turn': 1, 'echo_add_now': 1} last_q=2 missed=0 adds=0 btn_down=0 tilt=None max_poll_gap=93 espnow=(1, 1, 0, 4, 0)
+[ 321.5s]   [echo]  312306 QUIET 30125 ms: state=other's turn me=1 last_rx=echo_hello 303878 ms ago rx={'echo_you': 1, 'echo_hello': 1, 'echo_turn': 1, 'echo_add_now': 1} last_q=2 missed=0 adds=0 btn_down=0 tilt=None max_poll_gap=93 espnow=(1, 1, 0, 4, 0)

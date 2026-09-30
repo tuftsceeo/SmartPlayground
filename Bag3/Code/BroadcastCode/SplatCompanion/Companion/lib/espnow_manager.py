@@ -266,6 +266,7 @@ class ESPNowManager:
         self._status_pushed_ms = None
         self._rx = []             # local batch: (code, mac_bytes, rssi, bytes)
         self._rssi = {}           # mac_str -> last rssi seen in a record
+        self.last_acked = False   # last unicast: the peer ACKed (body[3])
 
     # ─── INIT / SHUTDOWN ──────────────────────
 
@@ -467,6 +468,9 @@ class ESPNowManager:
         ok = body[0] == P.ST_OK
         if not ok:
             print("  ESPNow: %s err: %d" % (what, P.get_i16(body, 1)))
+        # ST_OK means the modem sent it; for a unicast, body[3] says
+        # whether the peer ACKed. send_to() still returns ok.
+        self.last_acked = ok and sync and len(body) > 3 and body[3] == 1
         self._check_reboot()
         return ok
 

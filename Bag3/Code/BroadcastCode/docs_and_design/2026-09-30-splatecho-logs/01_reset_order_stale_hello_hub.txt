@@ -1,0 +1,254 @@
+[   0.0s] # monitor: port opened
+[   0.1s] ESP-ROM:esp32c6-20220919
+[   0.1s] Build:Sep 19 2022
+[   0.1s] rst:0xc (SW_CPU),boot:0x1e (SPI_FAST_FLASH_BOOT)
+[   0.1s] Saved PC:0x4001975a
+[   0.1s] SPIWP:0xee
+[   0.1s] mode:DIO, clock div:2
+[   0.1s] load:0x40875730,len:0xdbc
+[   0.1s] load:0x4086b910,len:0xc50
+[   0.1s] load:0x4086e610,len:0x2e3c
+[   0.1s] entry 0x4086b910
+[   1.4s] [hubtype] splat_companion (12 LEDs)
+[   1.9s] 
+[   1.9s] ==================================================
+[   1.9s]   Splat Companion
+[   1.9s]   Hub type: splat_companion
+[   1.9s] ==================================================
+[   4.2s]   Splats configured: 4
+[   4.2s] EUM: 3116 messages dropped (modem ring full)
+[   4.2s]   ESPNow(EUM): active (MAC: A0:F2:62:85:A9:9C)
+[   4.3s]   [WARN] Battery:
+[   4.3s] Traceback (most recent call last):
+[   4.3s]   File "main.py", line 504, in main
+[   4.3s]   File "/lib/max17048.py", line 91, in read_all
+[   4.3s]   File "/lib/max17048.py", line 50, in voltage
+[   4.3s]   File "/lib/max17048.py", line 40, in _read_reg16
+[   4.3s] OSError: [Errno 19] ENODEV
+[   4.4s]   PN532 firmware 1.6 (IC 0x32) -- NFC ready
+[   4.4s]   Boot complete
+[   4.4s] 
+[   4.5s] {"hub": "splat_companion", "games": ["jumpin", "splatecho", "splatecho", "splatwhack"], "version": "0.1.0", "device": "splat_companion", "type": "identity"}
+[   4.6s]   Launching just-pulled game: splatecho
+[   5.3s] {"slug": "splatecho", "type": "game_start"}
+[   5.3s]   splatecho: 4 Splat(s); waiting for wands
+[   5.3s]   [echo]      16 START 4 Splat(s); splats: u0:idle p=0/0/0 drops=0 evdrop=0 wfail=0 | u1:idle p=0/0/0 drops=0 evdrop=0 wfail=0 | u2:idle p=0/0/0 drops=0 evdrop=0 wfail=0 | u3:idle p=0/0/0 drops=0 evdrop=0 wfail=0
+[   5.3s]   [echo]      18 PHASE intro
+[   5.3s]   ESPNow: added peer A0:F2:62:87:92:CC
+[   5.3s]   splatecho: player 0 joined (A0:F2:62:87:92:CC)
+[   5.3s]   [echo]      35 JOIN player 0 = A0:F2:62:87:92:CC add_peer=None
+[   5.3s]   [echo]      76 TX echo_you #1 to A0:F2:62:87:92:CC ok=True
+[   5.3s]   SplatHub: discovering (4 Splat(s) wanted)
+[   5.4s]   [echo]     126 TX echo_you #2 to A0:F2:62:87:92:CC ok=True
+[   7.8s]   [echo]    2538 PHASE lobby
+[   8.1s]   [echo]    2814 RX other raw from A0:F2:62:87:B4:30: {'type': 'jumpin', 'from': 'wand'}
+[   8.1s]   [echo]    2871 RX other raw from A0:F2:62:87:B4:30: {'type': 'jumpin', 'from': 'wand'}
+[   9.6s]   ESPNow: added peer A0:F2:62:87:B4:30
+[   9.6s]   splatecho: player 1 joined (A0:F2:62:87:B4:30)
+[   9.6s]   [echo]    4320 JOIN player 1 = A0:F2:62:87:B4:30 add_peer=None
+[   9.6s]   [echo]    4330 TX echo_you #1 to A0:F2:62:87:B4:30 ok=True
+[   9.6s]   [echo]    4386 PHASE turn p0 len 0
+[   9.7s]   [echo]    4394 TX {'q': 1, 'type': 'echo_turn', 'player': 0, 'len': 0} ok=True
+[   9.7s]   splatecho: player 0's turn, length 0
+[   9.7s]   [echo]    4397 PHASE add p0 (len 0)
+[   9.7s]   [echo]    4403 TX {'q': 2, 'type': 'echo_add_now', 'player': 0} ok=True
+[  13.3s]   [WARN] SplatHub: no Splat found for unit 0; discovery runs again when no Splat is connected
+[  13.3s]   [WARN] SplatHub: no Splat found for unit 1; discovery runs again when no Splat is connected
+[  13.3s]   [WARN] SplatHub: no Splat found for unit 2; discovery runs again when no Splat is connected
+[  13.3s]   [WARN] SplatHub: no Splat found for unit 3; discovery runs again when no Splat is connected
+[  13.3s]   SplatHub: discovering (4 Splat(s) wanted)
+[  19.7s]   [echo]   14440 QUIET 10027 ms: phase=add p0 (len 0) pattern=[] players=['A0:F2:62:87:92:CC', 'A0:F2:62:87:B4:30'] last_rx=echo_hello from A0:F2:62:87:92:CC 1730 ms ago rx={'jumpin': 2, 'echo_hello': 64} ignored_presses=0 q=2 modem[rx=3242 rx_overflow=3116 tx_fail=62 host_timeouts=0] splats[u0:idle p=0/0/0 drops=0 evdrop=0 wfail=0 | u1:idle p=0/0/0 drops=0 evdrop=0 wfail=0 | u2:idle p=0/0/0 drops=0 evdrop=0 wfail=0 | u3:idle p=0/0/0 drops=0 evdrop=0 wfail=0]
+[  21.4s]   [WARN] SplatHub: no Splat found for unit 0; discovery runs again when no Splat is connected
+[  21.4s]   [WARN] SplatHub: no Splat found for unit 1; discovery runs again when no Splat is connected
+[  21.4s]   [WARN] SplatHub: no Splat found for unit 2; discovery runs again when no Splat is connected
+[  21.4s]   [WARN] SplatHub: no Splat found for unit 3; discovery runs again when no Splat is connected
+[  21.4s]   SplatHub: discovering (4 Splat(s) wanted)
+[  29.4s]   [WARN] SplatHub: no Splat found for unit 0; discovery runs again when no Splat is connected
+[  29.4s]   [WARN] SplatHub: no Splat found for unit 1; discovery runs again when no Splat is connected
+[  29.4s]   [WARN] SplatHub: no Splat found for unit 2; discovery runs again when no Splat is connected
+[  29.4s]   [WARN] SplatHub: no Splat found for unit 3; discovery runs again when no Splat is connected
+[  29.4s]   SplatHub: discovering (4 Splat(s) wanted)
+[  37.4s]   [WARN] SplatHub: no Splat found for unit 0; discovery runs again when no Splat is connected
+[  37.4s]   [WARN] SplatHub: no Splat found for unit 1; discovery runs again when no Splat is connected
+[  37.4s]   [WARN] SplatHub: no Splat found for unit 2; discovery runs again when no Splat is connected
+[  37.4s]   [WARN] SplatHub: no Splat found for unit 3; discovery runs again when no Splat is connected
+[  37.4s]   SplatHub: discovering (4 Splat(s) wanted)
+[  39.7s]   [echo]   34442 QUIET 30029 ms: phase=add p0 (len 0) pattern=[] players=['A0:F2:62:87:92:CC', 'A0:F2:62:87:B4:30'] last_rx=echo_hello from A0:F2:62:87:92:CC 21733 ms ago rx={'jumpin': 2, 'echo_hello': 64} ignored_presses=0 q=2 modem[rx=3242 rx_overflow=3116 tx_fail=62 host_timeouts=0] splats[u0:idle p=0/0/0 drops=0 evdrop=0 wfail=0 | u1:idle p=0/0/0 drops=0 evdrop=0 wfail=0 | u2:idle p=0/0/0 drops=0 evdrop=0 wfail=0 | u3:idle p=0/0/0 drops=0 evdrop=0 wfail=0]
+[  45.4s]   [WARN] SplatHub: no Splat found for unit 0; discovery runs again when no Splat is connected
+[  45.4s]   [WARN] SplatHub: no Splat found for unit 1; discovery runs again when no Splat is connected
+[  45.4s]   [WARN] SplatHub: no Splat found for unit 2; discovery runs again when no Splat is connected
+[  45.4s]   [WARN] SplatHub: no Splat found for unit 3; discovery runs again when no Splat is connected
+[  45.4s]   SplatHub: discovering (4 Splat(s) wanted)
+[  53.4s]   [WARN] SplatHub: no Splat found for unit 0; discovery runs again when no Splat is connected
+[  53.4s]   [WARN] SplatHub: no Splat found for unit 1; discovery runs again when no Splat is connected
+[  53.4s]   [WARN] SplatHub: no Splat found for unit 2; discovery runs again when no Splat is connected
+[  53.4s]   [WARN] SplatHub: no Splat found for unit 3; discovery runs again when no Splat is connected
+[  53.4s]   SplatHub: discovering (4 Splat(s) wanted)
+[  61.4s]   [WARN] SplatHub: no Splat found for unit 0; discovery runs again when no Splat is connected
+[  61.4s]   [WARN] SplatHub: no Splat found for unit 1; discovery runs again when no Splat is connected
+[  61.4s]   [WARN] SplatHub: no Splat found for unit 2; discovery runs again when no Splat is connected
+[  61.4s]   [WARN] SplatHub: no Splat found for unit 3; discovery runs again when no Splat is connected
+[  61.4s]   SplatHub: discovering (4 Splat(s) wanted)
+[  69.4s]   [WARN] SplatHub: no Splat found for unit 0; discovery runs again when no Splat is connected
+[  69.4s]   [WARN] SplatHub: no Splat found for unit 1; discovery runs again when no Splat is connected
+[  69.4s]   [WARN] SplatHub: no Splat found for unit 2; discovery runs again when no Splat is connected
+[  69.4s]   [WARN] SplatHub: no Splat found for unit 3; discovery runs again when no Splat is connected
+[  69.4s]   SplatHub: discovering (4 Splat(s) wanted)
+[  77.4s]   [WARN] SplatHub: no Splat found for unit 0; discovery runs again when no Splat is connected
+[  77.4s]   [WARN] SplatHub: no Splat found for unit 1; discovery runs again when no Splat is connected
+[  77.4s]   [WARN] SplatHub: no Splat found for unit 2; discovery runs again when no Splat is connected
+[  77.4s]   [WARN] SplatHub: no Splat found for unit 3; discovery runs again when no Splat is connected
+[  77.4s]   SplatHub: discovering (4 Splat(s) wanted)
+[  79.7s]   [echo]   74442 QUIET 70030 ms: phase=add p0 (len 0) pattern=[] players=['A0:F2:62:87:92:CC', 'A0:F2:62:87:B4:30'] last_rx=echo_hello from A0:F2:62:87:92:CC 61733 ms ago rx={'jumpin': 2, 'echo_hello': 64} ignored_presses=0 q=2 modem[rx=3242 rx_overflow=3116 tx_fail=62 host_timeouts=0] splats[u0:idle p=0/0/0 drops=0 evdrop=0 wfail=0 | u1:idle p=0/0/0 drops=0 evdrop=0 wfail=0 | u2:idle p=0/0/0 drops=0 evdrop=0 wfail=0 | u3:idle p=0/0/0 drops=0 evdrop=0 wfail=0]
+[  85.4s]   [WARN] SplatHub: no Splat found for unit 0; discovery runs again when no Splat is connected
+[  85.4s]   [WARN] SplatHub: no Splat found for unit 1; discovery runs again when no Splat is connected
+[  85.4s]   [WARN] SplatHub: no Splat found for unit 2; discovery runs again when no Splat is connected
+[  85.4s]   [WARN] SplatHub: no Splat found for unit 3; discovery runs again when no Splat is connected
+[  85.4s]   SplatHub: discovering (4 Splat(s) wanted)
+[  93.4s]   [WARN] SplatHub: no Splat found for unit 0; discovery runs again when no Splat is connected
+[  93.4s]   [WARN] SplatHub: no Splat found for unit 1; discovery runs again when no Splat is connected
+[  93.4s]   [WARN] SplatHub: no Splat found for unit 2; discovery runs again when no Splat is connected
+[  93.4s]   [WARN] SplatHub: no Splat found for unit 3; discovery runs again when no Splat is connected
+[  93.4s]   SplatHub: discovering (4 Splat(s) wanted)
+[ 101.4s]   [WARN] SplatHub: no Splat found for unit 0; discovery runs again when no Splat is connected
+[ 101.4s]   [WARN] SplatHub: no Splat found for unit 1; discovery runs again when no Splat is connected
+[ 101.4s]   [WARN] SplatHub: no Splat found for unit 2; discovery runs again when no Splat is connected
+[ 101.4s]   [WARN] SplatHub: no Splat found for unit 3; discovery runs again when no Splat is connected
+[ 101.4s]   SplatHub: discovering (4 Splat(s) wanted)
+[ 109.4s]   [WARN] SplatHub: no Splat found for unit 0; discovery runs again when no Splat is connected
+[ 109.4s]   [WARN] SplatHub: no Splat found for unit 1; discovery runs again when no Splat is connected
+[ 109.4s]   [WARN] SplatHub: no Splat found for unit 2; discovery runs again when no Splat is connected
+[ 109.4s]   [WARN] SplatHub: no Splat found for unit 3; discovery runs again when no Splat is connected
+[ 109.4s]   SplatHub: discovering (4 Splat(s) wanted)
+[ 117.5s]   [WARN] SplatHub: no Splat found for unit 0; discovery runs again when no Splat is connected
+[ 117.5s]   [WARN] SplatHub: no Splat found for unit 1; discovery runs again when no Splat is connected
+[ 117.5s]   [WARN] SplatHub: no Splat found for unit 2; discovery runs again when no Splat is connected
+[ 117.5s]   [WARN] SplatHub: no Splat found for unit 3; discovery runs again when no Splat is connected
+[ 117.5s]   SplatHub: discovering (4 Splat(s) wanted)
+[ 125.5s]   [WARN] SplatHub: no Splat found for unit 0; discovery runs again when no Splat is connected
+[ 125.5s]   [WARN] SplatHub: no Splat found for unit 1; discovery runs again when no Splat is connected
+[ 125.5s]   [WARN] SplatHub: no Splat found for unit 2; discovery runs again when no Splat is connected
+[ 125.5s]   [WARN] SplatHub: no Splat found for unit 3; discovery runs again when no Splat is connected
+[ 125.5s]   SplatHub: discovering (4 Splat(s) wanted)
+[ 133.5s]   [WARN] SplatHub: no Splat found for unit 0; discovery runs again when no Splat is connected
+[ 133.5s]   [WARN] SplatHub: no Splat found for unit 1; discovery runs again when no Splat is connected
+[ 133.5s]   [WARN] SplatHub: no Splat found for unit 2; discovery runs again when no Splat is connected
+[ 133.5s]   [WARN] SplatHub: no Splat found for unit 3; discovery runs again when no Splat is connected
+[ 133.5s]   SplatHub: discovering (4 Splat(s) wanted)
+[ 141.5s]   [WARN] SplatHub: no Splat found for unit 0; discovery runs again when no Splat is connected
+[ 141.5s]   [WARN] SplatHub: no Splat found for unit 1; discovery runs again when no Splat is connected
+[ 141.5s]   [WARN] SplatHub: no Splat found for unit 2; discovery runs again when no Splat is connected
+[ 141.5s]   [WARN] SplatHub: no Splat found for unit 3; discovery runs again when no Splat is connected
+[ 141.5s]   SplatHub: discovering (4 Splat(s) wanted)
+[ 149.5s]   [WARN] SplatHub: no Splat found for unit 0; discovery runs again when no Splat is connected
+[ 149.5s]   [WARN] SplatHub: no Splat found for unit 1; discovery runs again when no Splat is connected
+[ 149.5s]   [WARN] SplatHub: no Splat found for unit 2; discovery runs again when no Splat is connected
+[ 149.5s]   [WARN] SplatHub: no Splat found for unit 3; discovery runs again when no Splat is connected
+[ 149.5s]   SplatHub: discovering (4 Splat(s) wanted)
+[ 157.5s]   [WARN] SplatHub: no Splat found for unit 0; discovery runs again when no Splat is connected
+[ 157.5s]   [WARN] SplatHub: no Splat found for unit 1; discovery runs again when no Splat is connected
+[ 157.5s]   [WARN] SplatHub: no Splat found for unit 2; discovery runs again when no Splat is connected
+[ 157.5s]   [WARN] SplatHub: no Splat found for unit 3; discovery runs again when no Splat is connected
+[ 157.5s]   SplatHub: discovering (4 Splat(s) wanted)
+[ 159.7s]   [echo]  154445 QUIET 150033 ms: phase=add p0 (len 0) pattern=[] players=['A0:F2:62:87:92:CC', 'A0:F2:62:87:B4:30'] last_rx=echo_hello from A0:F2:62:87:92:CC 141737 ms ago rx={'jumpin': 2, 'echo_hello': 64} ignored_presses=0 q=2 modem[rx=3242 rx_overflow=3116 tx_fail=62 host_timeouts=0] splats[u0:idle p=0/0/0 drops=0 evdrop=0 wfail=0 | u1:idle p=0/0/0 drops=0 evdrop=0 wfail=0 | u2:idle p=0/0/0 drops=0 evdrop=0 wfail=0 | u3:idle p=0/0/0 drops=0 evdrop=0 wfail=0]
+[ 165.5s]   [WARN] SplatHub: no Splat found for unit 0; discovery runs again when no Splat is connected
+[ 165.5s]   [WARN] SplatHub: no Splat found for unit 1; discovery runs again when no Splat is connected
+[ 165.5s]   [WARN] SplatHub: no Splat found for unit 2; discovery runs again when no Splat is connected
+[ 165.5s]   [WARN] SplatHub: no Splat found for unit 3; discovery runs again when no Splat is connected
+[ 165.5s]   SplatHub: discovering (4 Splat(s) wanted)
+[ 173.5s]   [WARN] SplatHub: no Splat found for unit 0; discovery runs again when no Splat is connected
+[ 173.5s]   [WARN] SplatHub: no Splat found for unit 1; discovery runs again when no Splat is connected
+[ 173.5s]   [WARN] SplatHub: no Splat found for unit 2; discovery runs again when no Splat is connected
+[ 173.5s]   [WARN] SplatHub: no Splat found for unit 3; discovery runs again when no Splat is connected
+[ 173.5s]   SplatHub: discovering (4 Splat(s) wanted)
+[ 181.5s]   [WARN] SplatHub: no Splat found for unit 0; discovery runs again when no Splat is connected
+[ 181.5s]   [WARN] SplatHub: no Splat found for unit 1; discovery runs again when no Splat is connected
+[ 181.5s]   [WARN] SplatHub: no Splat found for unit 2; discovery runs again when no Splat is connected
+[ 181.5s]   [WARN] SplatHub: no Splat found for unit 3; discovery runs again when no Splat is connected
+[ 181.5s]   SplatHub: discovering (4 Splat(s) wanted)
+[ 189.5s]   [WARN] SplatHub: no Splat found for unit 0; discovery runs again when no Splat is connected
+[ 189.5s]   [WARN] SplatHub: no Splat found for unit 1; discovery runs again when no Splat is connected
+[ 189.5s]   [WARN] SplatHub: no Splat found for unit 2; discovery runs again when no Splat is connected
+[ 189.5s]   [WARN] SplatHub: no Splat found for unit 3; discovery runs again when no Splat is connected
+[ 189.5s]   SplatHub: discovering (4 Splat(s) wanted)
+[ 197.6s]   [WARN] SplatHub: no Splat found for unit 0; discovery runs again when no Splat is connected
+[ 197.6s]   [WARN] SplatHub: no Splat found for unit 1; discovery runs again when no Splat is connected
+[ 197.6s]   [WARN] SplatHub: no Splat found for unit 2; discovery runs again when no Splat is connected
+[ 197.6s]   [WARN] SplatHub: no Splat found for unit 3; discovery runs again when no Splat is connected
+[ 197.6s]   SplatHub: discovering (4 Splat(s) wanted)
+[ 205.6s]   [WARN] SplatHub: no Splat found for unit 0; discovery runs again when no Splat is connected
+[ 205.6s]   [WARN] SplatHub: no Splat found for unit 1; discovery runs again when no Splat is connected
+[ 205.6s]   [WARN] SplatHub: no Splat found for unit 2; discovery runs again when no Splat is connected
+[ 205.6s]   [WARN] SplatHub: no Splat found for unit 3; discovery runs again when no Splat is connected
+[ 205.6s]   SplatHub: discovering (4 Splat(s) wanted)
+[ 213.6s]   [WARN] SplatHub: no Splat found for unit 0; discovery runs again when no Splat is connected
+[ 213.6s]   [WARN] SplatHub: no Splat found for unit 1; discovery runs again when no Splat is connected
+[ 213.6s]   [WARN] SplatHub: no Splat found for unit 2; discovery runs again when no Splat is connected
+[ 213.6s]   [WARN] SplatHub: no Splat found for unit 3; discovery runs again when no Splat is connected
+[ 213.6s]   SplatHub: discovering (4 Splat(s) wanted)
+[ 221.6s]   [WARN] SplatHub: no Splat found for unit 0; discovery runs again when no Splat is connected
+[ 221.6s]   [WARN] SplatHub: no Splat found for unit 1; discovery runs again when no Splat is connected
+[ 221.6s]   [WARN] SplatHub: no Splat found for unit 2; discovery runs again when no Splat is connected
+[ 221.6s]   [WARN] SplatHub: no Splat found for unit 3; discovery runs again when no Splat is connected
+[ 221.6s]   SplatHub: discovering (4 Splat(s) wanted)
+[ 229.6s]   [WARN] SplatHub: no Splat found for unit 0; discovery runs again when no Splat is connected
+[ 229.6s]   [WARN] SplatHub: no Splat found for unit 1; discovery runs again when no Splat is connected
+[ 229.6s]   [WARN] SplatHub: no Splat found for unit 2; discovery runs again when no Splat is connected
+[ 229.6s]   [WARN] SplatHub: no Splat found for unit 3; discovery runs again when no Splat is connected
+[ 229.6s]   SplatHub: discovering (4 Splat(s) wanted)
+[ 237.6s]   [WARN] SplatHub: no Splat found for unit 0; discovery runs again when no Splat is connected
+[ 237.6s]   [WARN] SplatHub: no Splat found for unit 1; discovery runs again when no Splat is connected
+[ 237.6s]   [WARN] SplatHub: no Splat found for unit 2; discovery runs again when no Splat is connected
+[ 237.6s]   [WARN] SplatHub: no Splat found for unit 3; discovery runs again when no Splat is connected
+[ 237.6s]   SplatHub: discovering (4 Splat(s) wanted)
+[ 245.6s]   [WARN] SplatHub: no Splat found for unit 0; discovery runs again when no Splat is connected
+[ 245.6s]   [WARN] SplatHub: no Splat found for unit 1; discovery runs again when no Splat is connected
+[ 245.6s]   [WARN] SplatHub: no Splat found for unit 2; discovery runs again when no Splat is connected
+[ 245.6s]   [WARN] SplatHub: no Splat found for unit 3; discovery runs again when no Splat is connected
+[ 245.6s]   SplatHub: discovering (4 Splat(s) wanted)
+[ 253.7s]   [WARN] SplatHub: no Splat found for unit 0; discovery runs again when no Splat is connected
+[ 253.7s]   [WARN] SplatHub: no Splat found for unit 1; discovery runs again when no Splat is connected
+[ 253.7s]   [WARN] SplatHub: no Splat found for unit 2; discovery runs again when no Splat is connected
+[ 253.7s]   [WARN] SplatHub: no Splat found for unit 3; discovery runs again when no Splat is connected
+[ 253.7s]   SplatHub: discovering (4 Splat(s) wanted)
+[ 261.7s]   [WARN] SplatHub: no Splat found for unit 0; discovery runs again when no Splat is connected
+[ 261.7s]   [WARN] SplatHub: no Splat found for unit 1; discovery runs again when no Splat is connected
+[ 261.7s]   [WARN] SplatHub: no Splat found for unit 2; discovery runs again when no Splat is connected
+[ 261.7s]   [WARN] SplatHub: no Splat found for unit 3; discovery runs again when no Splat is connected
+[ 261.7s]   SplatHub: discovering (4 Splat(s) wanted)
+[ 269.7s]   [WARN] SplatHub: no Splat found for unit 0; discovery runs again when no Splat is connected
+[ 269.7s]   [WARN] SplatHub: no Splat found for unit 1; discovery runs again when no Splat is connected
+[ 269.7s]   [WARN] SplatHub: no Splat found for unit 2; discovery runs again when no Splat is connected
+[ 269.7s]   [WARN] SplatHub: no Splat found for unit 3; discovery runs again when no Splat is connected
+[ 269.7s]   SplatHub: discovering (4 Splat(s) wanted)
+[ 277.7s]   [WARN] SplatHub: no Splat found for unit 0; discovery runs again when no Splat is connected
+[ 277.7s]   [WARN] SplatHub: no Splat found for unit 1; discovery runs again when no Splat is connected
+[ 277.7s]   [WARN] SplatHub: no Splat found for unit 2; discovery runs again when no Splat is connected
+[ 277.7s]   [WARN] SplatHub: no Splat found for unit 3; discovery runs again when no Splat is connected
+[ 277.7s]   SplatHub: discovering (4 Splat(s) wanted)
+[ 285.7s]   [WARN] SplatHub: no Splat found for unit 0; discovery runs again when no Splat is connected
+[ 285.7s]   [WARN] SplatHub: no Splat found for unit 1; discovery runs again when no Splat is connected
+[ 285.7s]   [WARN] SplatHub: no Splat found for unit 2; discovery runs again when no Splat is connected
+[ 285.7s]   [WARN] SplatHub: no Splat found for unit 3; discovery runs again when no Splat is connected
+[ 285.7s]   SplatHub: discovering (4 Splat(s) wanted)
+[ 293.7s]   [WARN] SplatHub: no Splat found for unit 0; discovery runs again when no Splat is connected
+[ 293.7s]   [WARN] SplatHub: no Splat found for unit 1; discovery runs again when no Splat is connected
+[ 293.7s]   [WARN] SplatHub: no Splat found for unit 2; discovery runs again when no Splat is connected
+[ 293.7s]   [WARN] SplatHub: no Splat found for unit 3; discovery runs again when no Splat is connected
+[ 293.7s]   SplatHub: discovering (4 Splat(s) wanted)
+[ 301.7s]   SplatHub: unit 0 -> AB:42:00:00:64:3F
+[ 301.7s]   [WARN] SplatHub: no Splat found for unit 1; discovery runs again when no Splat is connected
+[ 301.7s]   [WARN] SplatHub: no Splat found for unit 2; discovery runs again when no Splat is connected
+[ 301.7s]   [WARN] SplatHub: no Splat found for unit 3; discovery runs again when no Splat is connected
+[ 301.7s]   SplatHub: discovering (3 Splat(s) wanted)
+[ 309.7s]   SplatHub: unit 1 -> AB:42:00:00:B2:16
+[ 309.7s]   [WARN] SplatHub: no Splat found for unit 2; discovery runs again when no Splat is connected
+[ 309.7s]   [WARN] SplatHub: no Splat found for unit 3; discovery runs again when no Splat is connected
+[ 309.7s]   SplatHub: discovering (2 Splat(s) wanted)
+[ 314.2s]   SplatHub: unit 2 -> AB:42:00:00:62:2F
+[ 314.2s]   SplatHub: unit 3 -> AB:42:00:00:80:B4
+[ 315.2s]   SplatLink: ready, Splat AB:42:00:00:80:B4 (connects=1)
+[ 316.0s]   SplatLink: ready, Splat AB:42:00:00:64:3F (connects=1)
+[ 318.5s]   SplatLink: ready, Splat AB:42:00:00:B2:16 (connects=1)
+[ 319.3s]   SplatLink: ready, Splat AB:42:00:00:62:2F (connects=1)
+[ 319.7s]   [echo]  314444 QUIET 310033 ms: phase=add p0 (len 0) pattern=[] players=['A0:F2:62:87:92:CC', 'A0:F2:62:87:B4:30'] last_rx=echo_hello from A0:F2:62:87:92:CC 301736 ms ago rx={'jumpin': 2, 'echo_hello': 64} ignored_presses=0 q=2 modem[rx=3242 rx_overflow=3116 tx_fail=62 host_timeouts=0] splats[u0:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u1:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u2:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u3:ready p=0/0/0 drops=0 evdrop=0 wfail=0]
