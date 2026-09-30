@@ -555,7 +555,7 @@ def check_broadcast(enow, batt_ref, leds_ref, buz_ref):
         print("  ESP-NOW: ignoring unknown start_game name: %r" % name)
     if (REMOTE_GETCODE and msg_type == "raw" and isinstance(data, dict)
             and data.get("type") == "getcode"):
-        return ("getcode", data.get("slug") or "")
+        return ("getcode", data.get("slug") or "", data.get("via") or "espnow")
     return None
 
 
@@ -826,14 +826,17 @@ CODE_VIA_ESPNOW = True
 REMOTE_GETCODE = True
 
 
-def _espnow_pull_and_launch(enow, slug, nfc, accel, i2c, batt):
+def _espnow_pull_and_launch(enow, slug, nfc, accel, i2c, batt, via="espnow"):
     """Receive a game over ESP-NOW, then launch it. No reset either way.
 
     On failure the old copy of the game (if any) stays in place and the
     wand returns to idle with the pull-failure display.
     """
+    # BENCH: via="nfc" (a remote getcode carrying "via":"nfc") pulls from a
+    # wand held face-to-face over NFC-DEP instead (lib/nfc_dep_code.py).
+    # Kept as a comment: main.py is compiled before ESP-NOW takes its memory.
     import espnow_code
-    print("# getcode via ESP-NOW (slug=%r)" % (slug or "<active>"))
+    print("# getcode via %s (slug=%r)" % (via, slug or "<active>"))
     # The receive ends in a compile check that needs one large contiguous
     # block: drop any imported copy of this game and collect first.
     if slug:
@@ -842,11 +845,17 @@ def _espnow_pull_and_launch(enow, slug, nfc, accel, i2c, batt):
     leds.fill(BLUE_DIM)
     buz.start()
     memprobe.probe("enx:pre")  # BENCH
-    ok = espnow_code.receive(enow, slug=slug, hubtype=HUB_TYPE,
-                             on_progress=_pull_progress, verbose=True)
+    if via == "nfc":
+        import nfc_dep_code
+        ok = nfc_dep_code.receive(I2C_SDA, I2C_SCL, slug=slug,
+                                  on_progress=_pull_progress, verbose=True)
+        stats = nfc_dep_code.LAST_STATS or {}
+    else:
+        ok = espnow_code.receive(enow, slug=slug, hubtype=HUB_TYPE,
+                                 on_progress=_pull_progress, verbose=True)
+        stats = espnow_code.LAST_STATS or {}
     memprobe.probe("enx:post")  # BENCH
-    stats = espnow_code.LAST_STATS or {}
-    _emit({"type": "enx_result", "slug": slug or "", "result": str(ok),
+    _emit({"type": "enx_result", "via": via, "slug": slug or "", "result": str(ok),
            "total_ms": stats.get("total_ms"), "body_ms": stats.get("body_ms"),
            "bytes": stats.get("bytes"), "min_gc_free": stats.get("min_gc_free"),
            "pre_compile_gc_free": stats.get("pre_compile_gc_free"),
@@ -1101,7 +1110,8 @@ def main():
                     _clear_rules_state(enow)
                     rules = {}; editing = None; pending_combinator = None
                     buz.stop()
-                    _espnow_pull_and_launch(enow, result[1], nfc, accel, i2c, batt)
+                    _espnow_pull_and_launch(enow, result[1], nfc, accel, i2c, batt,
+                                            via=result[2])
                     last_activity_ms = time.ticks_ms()
                     idle_frame = 0
                     show_idle(last_soc, 0)
@@ -1182,7 +1192,8 @@ def main():
                     _clear_rules_state(enow)
                     rules = {}; editing = None; pending_combinator = None
                     buz.stop()
-                    _espnow_pull_and_launch(enow, result[1], nfc, accel, i2c, batt)
+                    _espnow_pull_and_launch(enow, result[1], nfc, accel, i2c, batt,
+                                            via=result[2])
                     last_activity_ms = time.ticks_ms()
                     idle_frame = 0
                     show_idle(last_soc, 0)

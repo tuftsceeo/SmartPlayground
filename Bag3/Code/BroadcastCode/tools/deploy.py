@@ -35,6 +35,7 @@ ask for you -- it only prompts for the choices it cannot make on its own
 Usage:
     python3 tools/deploy.py                    # fully interactive
     python3 tools/deploy.py /dev/cu.usbmodemX --type wand
+    python3 tools/deploy.py /dev/cu.usbmodemX --type wand --wand-tree EspnowModem/MockWandEUM
     python3 tools/deploy.py /dev/cu.usbmodemX --type icon --code-only
     python3 tools/deploy.py /dev/cu.usbmodemX --type dial --pause 8
 
@@ -199,7 +200,7 @@ def _boot_main_first(files, extra_boot=None):
     return sorted(files, key=lambda pair: order.get(os.path.basename(pair[1]), 2))
 
 
-def _files_for(dev_key, code_only):
+def _files_for(dev_key, code_only, wand_tree="MockWand"):
     if dev_key == "dial":
         firmware_dir = os.path.join(BROADCASTCODE, "BroadcastDial", "BDialFirmware")
         boot_local = os.path.join(firmware_dir, "boot.py")
@@ -213,7 +214,7 @@ def _files_for(dev_key, code_only):
         files = _manifest_files(firmware_dir, "manifest.js", "BOX_FILES")
         return _boot_main_first(files, extra_boot), 0.0
     if dev_key == "wand":
-        files = _tree_files(os.path.join(BROADCASTCODE, "MockWand"))
+        files = _tree_files(os.path.join(BROADCASTCODE, wand_tree))
         return _boot_main_first(files), 0.0
     # icon
     skip = {"icons"} if code_only else ()
@@ -236,6 +237,9 @@ def main():
                      help="skip the final reset; leave the board as-is")
     ap.add_argument("--code-only", action="store_true",
                      help="Icon Display only: skip icons/ (already on the device)")
+    ap.add_argument("--wand-tree", default="MockWand",
+                     help="Mock Wand only: tree to deploy, relative to BroadcastCode/ "
+                          "(e.g. EspnowModem/MockWandEUM)")
     ap.add_argument("-y", "--yes", action="store_true",
                      help="skip the confirmation prompt")
     args = ap.parse_args()
@@ -259,7 +263,7 @@ def main():
         dev_key = DEVICE_TYPES[idx][1]
     type_label = next(label for label, key in DEVICE_TYPES if key == dev_key)
 
-    files, default_pause = _files_for(dev_key, args.code_only)
+    files, default_pause = _files_for(dev_key, args.code_only, args.wand_tree)
     pause = args.pause if args.pause is not None else default_pause
 
     print("\n%s -> %s, %d files." % (type_label, port, len(files)))
