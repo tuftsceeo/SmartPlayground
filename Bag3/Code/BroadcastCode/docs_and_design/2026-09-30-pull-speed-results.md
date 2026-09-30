@@ -98,3 +98,27 @@ Wand and Dial, `speed40` run 2:
 ```
 
 Raw serial captures were not committed.
+
+
+## True Speed for Wifi Transfers
+ 
+The Wifi Transfer additional require two reboots (reboot to pull mode, pull, reboot to game mode) which are also factored into speed. Some of this time could be reduce by eliminating hardware checks after boot (the hardware check visualization).
+
+| step | mean | range |
+|---|---|---|
+| reset → chip restarts (`rst:`) | 0.13 s | 0.10–0.17 |
+| chip restart → `[hubtype]` (ROM plus MicroPython startup) | 1.70 s | 1.52–1.87 |
+| `[hubtype]` → `# pull mode: attempt` | 3.3 s | 2.3–4.4 |
+| **total** | **5.16 s** | 4.08–6.28 |
+
+----- 
+
+| step | time |
+|---|---|
+| reboot to pull mode | ~5.2 s |
+| join the Dial's WiFi | ~7.0 s |
+| request and body | ~1.2 s |
+| verify and promote | ~0.35 s |
+| check, sound and reboot | ~2.5 s |
+| **total** | **~16 s** |
+
