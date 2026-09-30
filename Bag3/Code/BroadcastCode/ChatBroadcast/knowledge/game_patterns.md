@@ -89,7 +89,8 @@ The icon display usually acts as **referee and scoreboard**: the wands report, t
 decides, and everyone reacts to the display. Based on the built-in Team Goal Race (which predates
 the slug-as-type rule and uses the types `"goal"` and `"winner"`; new games use their slug):
 
-- Wand: tap `"green"` or `"blue"` to join a team (shown on the lights).
+- Wand: tap a team card to join (the built-in uses `"teamgreen"` / `"teamblue"`), shown on the
+  lights.
 - Wand: tap the `"goal"` card → `{"type": "<slug>", "e": "goal", "team": "green"}`.
 - Display: the **first** goal message of a round wins; it shows the team's picture and broadcasts
   `{"type": "<slug>", "e": "winner", "team": "green"}`.
