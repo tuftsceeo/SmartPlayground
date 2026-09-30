@@ -62,7 +62,7 @@ edits `platform.md` only if the device changes a rule every device shares.
 ## App surfaces a device touches
 
 "Generic" means the code reads `js/roles.js` and needs no edit. "Per device" means an edit is
-needed. Checked against the code on 2026-09-30; re-check line references before relying on them.
+needed. Checked against the code on 2026-09-29; re-check line references before relying on them.
 
 | Surface | File | Status |
 |---|---|---|
