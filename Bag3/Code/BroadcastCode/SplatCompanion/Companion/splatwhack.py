@@ -10,7 +10,7 @@ lib/splat_api.py's poll() docstring for why `splat.poll()` must be called
 every loop.
 
 Requires no NFC, buzzer, motor or accelerometer -- this device has none of
-those; see knowledge/splat_companion.py's argument notes.
+those; see ChatBroadcast/knowledge/devices/splat_companion.md's argument notes.
 """
 
 import time

@@ -30,6 +30,22 @@ const OPTIONAL_PARAMS = Object.fromEntries(
 export { signatureFor };
 
 /**
+ * Largest wand game file, in UTF-8 bytes, that ChatBroadcast will send.
+ *
+ * The wand compiles a pulled game in its running heap, which needs one
+ * contiguous block. Measured on the MockWand (2026-09-26, see
+ * docs_and_design/2026-09-26-eum-bench-results.md): 33,004 B compiles,
+ * 56,926 B fails. The threshold between them has not been narrowed, so
+ * this sits just under the largest size known to work.
+ */
+export const MAX_WAND_GAME_BYTES = 32000;
+
+/** Size of `code` in UTF-8 bytes, as it is written to the device. */
+export function codeBytes(code) {
+    return new TextEncoder().encode(code || '').length;
+}
+
+/**
  * Parse the parameter names out of a `def play(...)` line.
  * Defaults are stripped, so `batt=None` reads as `batt`.
  * @returns {Set<string>|null} null when the code has no play() at all.
@@ -50,12 +66,12 @@ function playParams(code) {
 }
 
 /**
- * Check a game file against its role's signature.
+ * Check a game file against its role's play() signature only.
  * @param {string} code
  * @param {string} role  a key of ROLE_SIGNATURES
  * @returns {[boolean, string|null]} [ok, error message]
  */
-export function validateGameCode(code, role) {
+export function validateGameSignature(code, role) {
     const expected = ROLE_SIGNATURES[role];
     if (!expected) {
         return [false, `Unknown device role "${role}".`];
@@ -69,6 +85,27 @@ export function validateGameCode(code, role) {
     const missing = expected.filter(p => !params.has(p) && !optional.includes(p));
     if (missing.length > 0) {
         return [false, `play() is missing parameters: ${missing.join(', ')}\nExpected: ${sig}`];
+    }
+    return [true, null];
+}
+
+/**
+ * Check a game file before sending: its role's signature, and for the
+ * wand the size the wand can load.
+ * @param {string} code
+ * @param {string} role  a key of ROLE_SIGNATURES
+ * @returns {[boolean, string|null]} [ok, error message]
+ */
+export function validateGameCode(code, role) {
+    const sigCheck = validateGameSignature(code, role);
+    if (!sigCheck[0]) return sigCheck;
+    if (role === 'wand') {
+        const size = codeBytes(code);
+        if (size > MAX_WAND_GAME_BYTES) {
+            return [false, `This wand game is too big for the wand's memory `
+                + `(${Math.round(size / 1000)} KB; the limit is ${MAX_WAND_GAME_BYTES / 1000} KB). `
+                + `Ask the assistant to make it shorter.`];
+        }
     }
     return [true, null];
 }

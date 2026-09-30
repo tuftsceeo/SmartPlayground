@@ -217,66 +217,11 @@ device introduces its own tag family.
 
 ## Surface 3 — the ChatBroadcast web app
 
-The app calls a device a **role**. The wand role is the default: it is the tab a new
-game starts on, the role an unmarked code block lands in, and the fallback everywhere a
-role is not named.
-
-### Files to modify
-
-| File | Symbol | Change | Generic today? |
-|---|---|---|---|
-| `js/chat.js:63` | `ROLES` | Add the role key, in tab order | — |
-| `js/chat.js:5` | `KNOWLEDGE_FILES` | Add `knowledge/<device>.py` | — |
-| `js/chat.js:85` | `roleBefore()` | None. The `[DEVICE: …]` regex accepts any lowercase word; `ROLES` is the only gate | yes |
-| `js/chat.js:100` | `extractCodeBlocks()` | None. An unmarked block defaults to the wand | yes |
-| `js/upload.js:12` | `ROLE_SIGNATURES` | This device's `play()` parameter names, in order | — |
-| `js/upload.js:27` | `OPTIONAL_PARAMS` | Parameters its `play()` may omit and still run | — |
-| `js/app.js:~75` | `SYSTEM_PROMPT_BASE` | The required-signature line and the `[DEVICE: <role>]` marker | — |
-| `js/editor.js` | `roleState` | None. Built from `ROLES`, so per-role code, history and tab membership come free | yes |
-| `js/app.js:540` | `selectRole()` | None | yes |
-| `js/app.js:265` | `syncRoleRail()` | Tab enable/label/visibility. Written for exactly two roles: one boolean decides whether the tab groups show at all, and the label is a wand/other ternary | **no** |
-| `js/app.js:1695` | `updatePreview()` | A two-way switch over which preview is on screen. A further role needs its own branch | **no** |
-| `js/app.js:1725` | `syncPreviewEmpty()` | Same two-way assumption, drives the placeholder glyph and caption | **no** |
-| `js/app.js:2157` | `confirmSend()` | Validate this role's code and queue `<slug><designator>.py` into the same raw-REPL session. Written per-role today | **no** |
-| `index.html:172`, `:240` | `.device-tab[data-role]` | One button per role in each of two groups — preview toolbar and code drawer. They are two views of one editor role and always move together | — |
-| `js/hardware.js:29,96` | `buildHardwareReqs()` `stations` | Populate when the role has code, so the send-confirm overlay states the device is needed. Always `[]` today | — |
-| `css/app.css:551` | `.device-tab` | None expected; confirm the rail does not overflow | — |
-
-### Direct USB connection — only if the device connects without the Box
-
-| File | Symbol |
-|---|---|
-| `js/device/bboxDeviceLink.js:32` | `EXPECTED_DEVICES`, `deviceShortName()`, `deviceProductName()` |
-| `js/device/wandDeviceLink.js:30` | the model: `EXPECTED_DEVICE`, `FORWARDED_EVENTS`, and a `/hubtype.txt` check that refuses a mismatch |
-| `js/device/wandGameInstaller.js` | the model: raw-REPL write to `/games/<slug>.py`, `set_last_pulled()`, exit raw REPL, Ctrl-D |
-| `index.html:339` | connect-overlay picker entry |
-
-### Knowledge file
-
-`knowledge/<device>.py`, one per device type — there is no shared game API to document.
-`knowledge/knowledge.py` is the wand's and the model to follow:
-
-- A critical-contract block first: the exact signature to copy, and a
-  forbidden-signatures list naming the other devices' signatures explicitly.
-- What each argument is, whether it arrives already built, and what a game must never
-  construct for itself.
-- Which arguments can be `None` and the guard that requires.
-- The hardware this device does **not** have.
-- The ESP-NOW messages it exchanges with the other half of a pair.
-- MicroPython rules: `%` formatting, no f-strings, no type annotations,
-  `time.sleep_ms()` is milliseconds.
-
-Where a device's generated code can name something that must already exist on it,
-`getSystemPrompt()` (`js/app.js:~245`) appends the live inventory to the prompt and the
-send is refused if the code names something absent. Read the inventory from its live
-source, never hardcode it in the prompt.
-
-### Preview
-
-Only the wand has a simulator (`Bag3/Code/Simulator/`, Pyodide). A new device gets an
-explicit branch in `updatePreview()` and `syncPreviewEmpty()` — a static preview if it
-has visible output worth drawing, otherwise a "no preview for this device" state. Not a
-second simulator.
+The app and the chat assistant's knowledge are documented in
+[`../ChatBroadcast/knowledge/ADDING_A_DEVICE.md`](../ChatBroadcast/knowledge/ADDING_A_DEVICE.md):
+the step-by-step process, the device knowledge template (`knowledge/devices/_TEMPLATE.md`), and
+the table of app surfaces a device touches, each marked generic (read from `js/roles.js`) or per
+device. It replaces the table that was here, which predated `roles.js`.
 
 ---
 
@@ -367,9 +312,8 @@ Tag vocabulary is duplicated separately with nothing enforcing consistency:
     `typing`/`dataclasses`/`pathlib`/`logging`. Any loop doing serial I/O sleeps `1 ms`
     unconditionally every iteration. (The repo-root `AGENTS.md` says the opposite —
     "f-strings are used throughout, don't fix them". Flagged, not reconciled: no device
-    tree under `Bag3/Code/` or `Bag2/Code/Wand Module/` contains an f-string, and both
-    `knowledge/knowledge.py` and `knowledge/icon_display.py` state that f-strings crash
-    this MicroPython build.)
-15. One knowledge file per device type, naming the other devices' signatures as
-    forbidden.
+    tree under `Bag3/Code/` or `Bag2/Code/Wand Module/` contains an f-string, and ChatBroadcast's
+    `knowledge/platform.md` states that f-strings crash this MicroPython build.)
+15. One knowledge file per device type, `ChatBroadcast/knowledge/devices/<role>.md`,
+    following `devices/_TEMPLATE.md`.
 16. Fixing one PEER copy fixes only that copy. Say which tree was touched.

@@ -667,7 +667,8 @@ body.ui-advanced #app-shell {
     border: 1px solid var(--border);
     border-radius: 14px 14px 14px 3px;
 }
-.starter-chips {
+.starter-chips,
+.choice-chips {
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
@@ -812,6 +813,28 @@ body.ui-advanced #app-shell {
     display: flex;
     align-items: center;
     justify-content: center;
+}
+
+.btn-guided {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    background: #fff;
+    color: var(--ink);
+    border: 1.5px solid var(--border);
+    cursor: pointer;
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.starter-chip-guided {
+    border-color: var(--pink);
+}
+.guided-card {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
 }
 
 .ws-resizer {

@@ -1,17 +1,22 @@
 import { loadEncryptedKey, initAuthModal, getApiKey, hasEncryptedKey } from './auth.js';
 import {
     addMsg, addThinkingMsg, removeTyping, extractCodeBlocks,
-    parseNfcCards, stripNfcMarker, stripDeviceMarkers,
-    parseGameName, stripGameNameMarker,
-    trimForHistory, loadKnowledgeBase, getKnowledgeText, getKnowledgeFileCount,
+    parseNfcCards, parseGameName, parseChoices, stripAllMarkers,
+    trimForHistory, loadKnowledgeBase, getKnowledgeFiles, getKnowledgeFileCount,
 } from './chat.js';
+import {
+    knowledgeText, buildSystemBlocks, buildRequestBody, requestHeaders, ADVANCED_KNOWLEDGE,
+} from './prompt/buildRequest.js';
+import { readMessageStream } from './prompt/stream.js';
+import { renderMarkdown } from './markdown.js';
+import { drawStarterIdeas, GUIDED_STEPS, guidedPrompt } from './starterIdeas.js';
 import {
     initEditor, getCode, setCode, saveVersion, updateVersionUI,
     onPrevVersion, onNextVersion, getVersionCount, onDownload, resetEditor,
     setActiveRole, getActiveRole, rolesWithCode, clearAllRoles,
 } from './editor.js';
-import { uploadPayload, validateGameCode } from './upload.js';
-import { ROLES as ROLE_TABLE, roleInfo, DEFAULT_ROLE, signatureFor } from './roles.js';
+import { uploadPayload, validateGameCode, validateGameSignature, codeBytes, MAX_WAND_GAME_BYTES } from './upload.js';
+import { ROLES as ROLE_TABLE, roleInfo, DEFAULT_ROLE } from './roles.js';
 import { listSplatActions } from './splat/splatActionCheck.js';
 import { updateTagChecklist } from './nfc.js';
 import { EXAMPLES, CATEGORIES, findExample, loadExampleCode } from './examples.js';
@@ -21,7 +26,7 @@ import { createWandDeviceLink } from './device/wandDeviceLink.js';
 import { subscribe, getEntries, toText } from './device/serialLog.js';
 import { setWorkspaceHandler } from './markdown.js';
 import { dbg, dbgWarn, dbgError } from './debug.js';
-import { loadUiMode, toggleUiMode } from './uiMode.js';
+import { loadUiMode, toggleUiMode, getUiMode } from './uiMode.js';
 import { loadSavedGames, saveGame, findSavedGame, renameSavedGame, deleteSavedGame } from './library.js';
 import { scanCapabilities } from './sim/codeCapabilities.js';
 import { buildComponentChecklist } from './checklist.js';
@@ -69,46 +74,8 @@ const WAITING_LIMIT_WAND_MS = 25000;
    within 5s regardless. */
 const IDENTIFY_NUDGE_MS = 2500;
 
-// One "<role> game MUST use ..." line per role, and the marker list for
-// the [DEVICE: ...] rule -- built from roles.js so a new role needs no
-// second edit here.
-const ROLE_SIGNATURE_LINES = ROLE_TABLE
-    .map(r => `- A ${r.label.toLowerCase()} game MUST use ${signatureFor(r.key)}`)
-    .join('\n');
-const ROLE_MARKER_LIST = ROLE_TABLE.map(r => `[DEVICE: ${r.key}]`).join(' or ');
-
-const SYSTEM_PROMPT_BASE = `You are an AI assistant helping teachers write MicroPython games for playground devices.
-
-RULES:
-- All board details, APIs, and hardware specs are in the KNOWLEDGE BASE below. Reference it.
-${ROLE_SIGNATURE_LINES}
-- Put all code inside a fenced code block: \`\`\`python ... \`\`\`
-- Precede EVERY code block with a device marker on its own line: ${ROLE_MARKER_LIST}
-- A game that uses more than one device is one file per device, each in its own marked block. They are separate programs that happen to play the same game — never one file with a mode switch.
-- Do NOT use f-strings — they crash on this MicroPython build. Use % formatting only.
-- Keep explanations concise — the code block is auto-extracted to the editor
-- If the user sends serial output (prefixed with [HW]:), help debug it
-- Always include try/finally cleanup and periodic NFC stop-tag polling
-- Default to simple, working examples over complex ones
-- If the game reads NFC tags at all, include exactly one line formatted as [NFC_CARDS: "value1", "value2"] listing every tag value the game reads. Omit the line only when the game never touches a tag.
-- After the code block, include exactly one line naming the game: [GAME_NAME: Short Pretty Name]`;
-
-/**
- * Starter chips shown above the first chat message. Deliberately simpler
- * and shorter than the gallery EXAMPLES (melody, freeze dance, etc.) --
- * a teacher who wants those already knows to open the Examples page. These
- * exist to get a first-time, novice user typing at all: one or two of the
- * smallest possible game asks, plus a couple of plain questions about what
- * the wand can even do, since "what are my options" is often the real
- * first question, not a game idea yet.
- */
-const CHAT_STARTER_PROMPTS = [
-    { icon: 'palette', text: 'Flash the lights blue five times when the button is pressed' },
-    { icon: 'shakePhone', text: 'Play notes based on the orientation of the wand' },
-    { icon: 'message-circle', text: 'Tell me what sorts of outputs are available' },
-    { icon: 'grid-3x3', text: 'What can I show on the LED screen?' },
-    { icon: 'message-circle', text: 'Tell me what sorts of sensors and inputs are available' },
-];
+/** Minimum interval between redraws of a streaming chat reply. */
+const STREAM_RENDER_MS = 80;
 
 /** Same placeholder-and-play() check the editor's code drawer uses to
  * decide there's real code worth doing anything with. */
@@ -217,11 +184,14 @@ class App {
             this.updatePreview();
         });
 
-        const knowledge = await loadKnowledgeBase();
-        if (knowledge) {
+        // No knowledge, no chat: callClaude() refuses while this is set.
+        this.knowledgeError = null;
+        try {
+            await loadKnowledgeBase();
             dbg('app', `knowledge base loaded (${getKnowledgeFileCount()} file(s))`);
-        } else {
-            dbgWarn('app', 'knowledge base did not load — chat will run without project context');
+        } catch (e) {
+            this.knowledgeError = e.message;
+            dbgError('app', e.message);
         }
 
         window.onUploadProgress = (p) => {
@@ -244,29 +214,25 @@ class App {
         dbg('app', 'init() complete');
     }
 
-    getSystemPrompt() {
-        const knowledge = getKnowledgeText();
-        // The icon library is per-teacher and changes as they edit it, so the
-        // names live here rather than in the knowledge file. A display game
-        // that asks for a name outside this list is refused at send time,
-        // which is a worse way to find out.
-        const icons = `\n\nICONS CURRENTLY AVAILABLE ON THE ICON DISPLAY:\n` +
-            listIcons().join(', ') +
-            `\nRefer to icons by these names only. If a game needs a picture that is ` +
-            `not in this list, say so and suggest the closest one rather than ` +
-            `inventing a name.`;
-        // Splat action names come from the device's own splat_api.py (via
-        // the generated splatActions.js); a Splat game naming anything else
-        // is refused at send time.
-        const sa = listSplatActions();
-        const splatNames = `\n\nSPLAT ACTION NAMES ON THE SPLAT COMPANION:\n` +
-            `colors (splat.color): ${sa.colors.join(', ')}\n` +
-            `notes (splat.note): ${sa.notes.join(', ')}\n` +
-            `sounds (splat.sound): ${sa.sounds.join(', ')}\n` +
-            `splat.play([...]) takes any mix of these. Use these names only.`;
-        return knowledge
-            ? SYSTEM_PROMPT_BASE + icons + splatNames + '\n\nPROJECT KNOWLEDGE BASE:\n' + knowledge
-            : SYSTEM_PROMPT_BASE + icons + splatNames;
+    /**
+     * System blocks for the next request (js/prompt/buildRequest.js):
+     * the cached knowledge base, the Advanced-mode addendum when that mode
+     * is on, then this turn's icon names and editor code.
+     */
+    getSystemBlocks() {
+        const files = getKnowledgeFiles();
+        // The editor's placeholder comment is not code; send it as empty.
+        const editorCode = Object.fromEntries(ROLE_TABLE.map((r) => {
+            const code = getCode(r.key);
+            return [r.key, code.trim().startsWith('# AI-generated') ? '' : code];
+        }));
+        return buildSystemBlocks({
+            knowledge: knowledgeText(files, listSplatActions()),
+            advanced: files[ADVANCED_KNOWLEDGE],
+            advancedMode: getUiMode() === 'advanced',
+            icons: listIcons(),
+            editorCode,
+        });
     }
 
     /**
@@ -1021,6 +987,7 @@ class App {
         document.getElementById('btn-remix').addEventListener('click', () => this.remixCurrentExample());
         document.getElementById('btn-use-as-is').addEventListener('click', () => this.useExampleAsIs());
         document.getElementById('btn-send').addEventListener('click', () => this.onSend());
+        document.getElementById('btn-guided').addEventListener('click', () => this.startGuidedMode());
         document.getElementById('btn-show-code').addEventListener('click', () => {
             // Both drawers own the same right edge, so opening one closes the other.
             this.closeIconDrawer();
@@ -1600,6 +1567,75 @@ class App {
         }).observe(panel, { attributes: true, attributeFilter: ['class'] });
     }
 
+    /**
+     * One-tap follow-ups from a reply's [CHOICES: ...] marker. Tapping one
+     * sends it as the teacher's next message.
+     */
+    renderChoiceChips(choices) {
+        const box = document.getElementById('chat-box');
+        box.querySelectorAll('.choice-chips').forEach(el => el.remove());
+        const wrap = document.createElement('div');
+        wrap.className = 'choice-chips';
+        for (const text of choices) {
+            const chip = document.createElement('button');
+            chip.type = 'button';
+            chip.className = 'starter-chip';
+            chip.textContent = text;
+            chip.addEventListener('click', () => {
+                if (this.isGenerating) return;
+                wrap.remove();
+                document.getElementById('user-input').value = text;
+                this.onSend();
+            });
+            wrap.appendChild(chip);
+        }
+        box.appendChild(wrap);
+        box.scrollTop = box.scrollHeight;
+    }
+
+    /**
+     * Guided mode: the GUIDED_STEPS questions as tap-to-answer cards in the
+     * chat, answered instantly in the app; the answers are then sent as one
+     * request (starterIdeas.js guidedPrompt).
+     */
+    startGuidedMode() {
+        if (this.isGenerating) return;
+        const box = document.getElementById('chat-box');
+        box.querySelector('.starter-chips')?.remove();
+        box.querySelectorAll('.guided-card, .choice-chips').forEach(el => el.remove());
+        const answers = [];
+        const card = document.createElement('div');
+        card.className = 'guided-card';
+        box.appendChild(card);
+        const showStep = (i) => {
+            if (i === GUIDED_STEPS.length) {
+                card.remove();
+                document.getElementById('user-input').value = guidedPrompt(answers);
+                this.onSend();
+                return;
+            }
+            const step = GUIDED_STEPS[i];
+            card.innerHTML = '';
+            const q = document.createElement('div');
+            q.className = 'msg system';
+            q.textContent = `${step.question} (${i + 1} of ${GUIDED_STEPS.length})`;
+            card.appendChild(q);
+            const row = document.createElement('div');
+            row.className = 'choice-chips';
+            for (const opt of step.options) {
+                const chip = document.createElement('button');
+                chip.type = 'button';
+                chip.className = 'starter-chip';
+                chip.textContent = opt.label;
+                chip.addEventListener('click', () => { answers[i] = opt; showStep(i + 1); });
+                row.appendChild(chip);
+            }
+            card.appendChild(row);
+            box.scrollTop = box.scrollHeight;
+        };
+        showStep(0);
+    }
+
     renderStarterChips() {
         const box = document.getElementById('chat-box');
         if (box.querySelector('.starter-chips')) return;
@@ -1611,9 +1647,15 @@ class App {
         // wrap.remove() left this line behind permanently.
         const intro = document.createElement('div');
         intro.className = 'msg system';
-        intro.textContent = 'Try one of these ideas — tap a chip to fill the box, then edit and send:';
+        intro.textContent = 'Tap “Help me make a game” to choose step by step, or tap an idea to fill the box, then edit and send:';
         wrap.appendChild(intro);
-        CHAT_STARTER_PROMPTS.forEach((sp) => {
+        const guided = document.createElement('button');
+        guided.type = 'button';
+        guided.className = 'starter-chip starter-chip-guided';
+        guided.innerHTML = `${iconSvg('sparkles', { size: 14 })} <span>Help me make a game</span>`;
+        guided.addEventListener('click', () => this.startGuidedMode());
+        wrap.appendChild(guided);
+        drawStarterIdeas(4).forEach((sp) => {
             const chip = document.createElement('button');
             chip.type = 'button';
             chip.className = 'starter-chip';
@@ -2596,6 +2638,7 @@ class App {
         inp.value = '';
         // Remove starter chips once conversation starts
         document.querySelector('.starter-chips')?.remove();
+        document.querySelectorAll('.choice-chips').forEach(el => el.remove());
         addMsg(msg, 'user');
         this.dirty = true;
         await this.callClaude(msg);
@@ -2626,34 +2669,35 @@ class App {
         }
         dbg('chat', 'passphrase accepted — API key derived, calling Claude');
 
+        if (this.knowledgeError) {
+            // Without the knowledge base the model answers from general
+            // memory and invents device behavior. Refuse instead.
+            addMsg(`The assistant's knowledge files did not load, so it cannot help right now. `
+                + `Reload the page; if this keeps happening, contact the SmartPlayground team. `
+                + `(${this.knowledgeError})`, 'system');
+            return;
+        }
+
         this.chatHistory.push({ role: 'user', content: userMsg });
         addThinkingMsg();
         this.isGenerating = true;
 
         try {
-            const body = JSON.stringify({
-                model: 'claude-sonnet-4-6',
-                max_tokens: 16384,
-                system: [{ type: 'text', text: this.getSystemPrompt(), cache_control: { type: 'ephemeral' } }],
-                messages: this.chatHistory.slice(-10),
-            });
-            dbg('chat', `POST /v1/messages — ${this.chatHistory.length} history message(s)`);
+            const body = JSON.stringify(buildRequestBody({
+                system: this.getSystemBlocks(),
+                history: this.chatHistory,
+            }));
+            dbg('chat', `POST /v1/messages (stream) — ${this.chatHistory.length} history message(s)`);
 
             const resp = await fetch('https://api.anthropic.com/v1/messages', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'x-api-key': apiKey,
-                    'anthropic-version': '2023-06-01',
-                    'anthropic-dangerous-direct-browser-access': 'true',
-                },
+                headers: requestHeaders(apiKey),
                 body,
             });
             dbg('chat', `response status: ${resp.status}`);
 
-            removeTyping();
-
             if (!resp.ok) {
+                removeTyping();
                 const errData = await resp.json().catch(() => ({}));
                 const errMsg = errData?.error?.message ?? `Could not reach the AI (${resp.status}). Check your network.`;
                 dbgError('chat', `API error (${resp.status}): ${errMsg}`, errData);
@@ -2663,30 +2707,98 @@ class App {
                 return;
             }
 
-            const data = await resp.json();
-            const rawReply = data.content.filter((b) => b.type === 'text').map((b) => b.text).join('');
-            const nfcCards = parseNfcCards(rawReply);
-            const gameName = parseGameName(rawReply);
-            const reply = stripDeviceMarkers(stripGameNameMarker(stripNfcMarker(rawReply)));
-            dbg('chat', `reply received (${rawReply.length} chars)`, { nfcCards, gameName });
-
+            // Stream the reply into one bot message, redrawn at most every
+            // STREAM_RENDER_MS so long code blocks do not re-render per token.
+            let botDiv = null;
+            let pending = null;
+            let renderTimer = null;
+            const draw = () => {
+                renderTimer = null;
+                if (pending === null) return;
+                if (!botDiv) { removeTyping(); botDiv = addMsg('', 'bot'); }
+                renderMarkdown(botDiv, stripAllMarkers(pending));
+                const box = document.getElementById('chat-box');
+                box.scrollTop = box.scrollHeight;
+            };
+            const result = await readMessageStream(resp, (text) => {
+                pending = text;
+                if (!renderTimer) renderTimer = setTimeout(draw, STREAM_RENDER_MS);
+            });
+            if (renderTimer) { clearTimeout(renderTimer); }
             removeTyping();
-            this.chatHistory.push({ role: 'assistant', content: trimForHistory(reply) });
-            addMsg(reply, 'bot');
+            dbg('chat', `stream done: stop_reason=${result.stopReason}, first text ${result.firstTextMs} ms`, result.usage);
 
-            if (gameName) {
-                this.gameName = gameName;
-                dbg('chat', `game name from marker: ${gameName}`);
+            if (result.error) {
+                const msg = `The AI stopped with an error: ${result.error.message || result.error.type}. Try again.`;
+                dbgError('chat', 'stream error event', result.error);
+                if (botDiv) botDiv.remove();
+                addMsg(msg, 'system');
+                this.chatHistory.pop();
+                return;
+            }
+            if (result.stopReason === 'refusal') {
+                dbgWarn('chat', 'refusal', result.stopDetails);
+                if (botDiv) botDiv.remove();
+                addMsg('The AI declined to answer that request. Try rewording it.', 'system');
+                this.chatHistory.pop();
+                return;
+            }
+            const rawReply = result.text;
+            const reply = stripAllMarkers(rawReply);
+            if (!botDiv) botDiv = addMsg('', 'bot');
+            renderMarkdown(botDiv, reply);
+
+            if (result.stopReason === 'max_tokens') {
+                // A truncated reply usually ends mid-code-block; extracting it
+                // would put broken code in the editor.
+                dbgWarn('chat', 'reply truncated at max_tokens');
+                addMsg('The reply was too long and got cut off, so your game was not changed. '
+                    + 'Ask for a simpler or shorter version.', 'system');
+                this.chatHistory.pop();
+                return;
             }
 
+            const nfcCards = parseNfcCards(rawReply);
+            const gameName = parseGameName(rawReply);
+            const choices = parseChoices(rawReply);
+            dbg('chat', `reply received (${rawReply.length} chars)`, { nfcCards, gameName, choices });
+            this.chatHistory.push({ role: 'assistant', content: trimForHistory(reply) });
+
             // A reply may carry one file per device: the markers were read
-            // off rawReply before they were stripped for display.
+            // off rawReply before they were stripped for display. Only a
+            // complete game file for its device replaces the editor; a
+            // snippet stays in the chat.
             const blocks = extractCodeBlocks(rawReply);
-            if (blocks.length) {
+            const games = [];
+            const snippets = [];
+            for (const blk of blocks) {
+                // Signature only: an over-size wand file is still a complete
+                // game, kept in the editor with a warning below.
+                const [ok, err] = validateGameSignature(blk.code, blk.role);
+                if (ok) {
+                    games.push(blk);
+                } else {
+                    snippets.push(blk);
+                    dbg('chat', `[${blk.role}] block is not a complete game, editor unchanged: ${err}`);
+                }
+            }
+            if (snippets.length && !games.length) {
+                addMsg('This is a code snippet — your game was not changed.', 'system');
+            }
+            if (games.length) {
+                if (gameName) {
+                    this.gameName = gameName;
+                    dbg('chat', `game name from marker: ${gameName}`);
+                }
                 const label = userMsg.length > 40 ? userMsg.slice(0, 40) + '…' : userMsg;
                 const seen = [];
-                for (const { role, code } of blocks) {
-                    dbg('chat', `[${role}] code block extracted (${code.length} chars)`);
+                for (const { role, code } of games) {
+                    dbg('chat', `[${role}] game file extracted (${code.length} chars)`);
+                    if (role === 'wand' && codeBytes(code) > MAX_WAND_GAME_BYTES) {
+                        addMsg(`This wand game is ${Math.round(codeBytes(code) / 1000)} KB, over the `
+                            + `${MAX_WAND_GAME_BYTES / 1000} KB the wand can load. Ask for a shorter version before sending it.`,
+                            'system');
+                    }
                     setCode(code, role);
                     saveVersion(code, label, role);
                     seen.push(role);
@@ -2705,9 +2817,10 @@ class App {
                 this.gameDesc = userMsg;
                 this.dirty = true;
                 this.updatePreview();
-            } else {
+            } else if (!blocks.length) {
                 dbg('chat', 'no code block found in reply — editor unchanged');
             }
+            if (choices?.length) this.renderChoiceChips(choices);
         } catch (e) {
             removeTyping();
             dbgError('chat', `network/fetch error: ${e.message}`, e);
