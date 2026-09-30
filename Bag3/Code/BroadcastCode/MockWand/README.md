@@ -16,7 +16,7 @@ either file, `diff` the two copies.
 
 1. Box writes a `getcode` opcode card.
 2. Wand taps card in idle loop.
-3. `code_puller.pull()` shuts down ESP-NOW, joins `SP-FILEPUSH`, pulls
+3. `code_puller.pull()` shuts down ESP-NOW, joins `SP-FILEPUSH-<id>`, pulls
    `jumpin.py`, verifies sha256, promotes atomically.
 4. `machine.reset()` — next boot runs the new game via `from jumpin import play`.
 

@@ -1,12 +1,9 @@
 """
-code_puller.py — join Broadcast Box SoftAP and pull this device's game file.
+code_puller.py — join a Broadcast Box/Dial SoftAP and pull one game file.
 
-The Splat Companion's copy. Identical in wire behaviour to MockWand's;
-main.py is what differs, passing hubtype="splat_companion".
-
-Calls enow.shutdown() before WiFi connect. See EXTERNAL_ANTENNA below for
-the GPIO 3/14 antenna switch. UNVERIFIED which state matches this board --
-kept at the wand's default (external) until checked on hardware.
+Splat Companion copy; same code as MockWand/code_puller.py. main.py passes
+hubtype="splat_companion". The antenna state for this board is unverified
+on hardware; it uses the MockWand default (external).
 """
 
 import gc
@@ -25,10 +22,8 @@ try:
 except ImportError:
     Pin = None
 
-# BENCH: heap/IDF-heap instrumentation for the memory-stabilization work.
-# Not part of the pull protocol itself -- see lib/memprobe.py's docstring.
-# Optional import, matching this file's existing style (hashlib/Pin above):
-# code_puller.py predates memprobe.py and should still run without it.
+# BENCH: heap probes (lib/memprobe.py). Optional; a no-op stand-in is used
+# when the module is absent.
 try:
     import memprobe
 except ImportError:
@@ -44,17 +39,13 @@ import game_store
 REV = "phase0-2026-09-04"
 print("# code_puller rev", REV)
 
-# PEER: BBoxFirmware/code_server.py, BDialFirmware/code_server.py and
-# MockWand/code_puller.py each hold a hand-kept copy of SSID/PWD/PORT/
-# CHUNK/YIELD_MS and of the wire protocol in pull() below. There is no shared
-# module (they run on different devices), so any change here must be
-# mirrored in all of them in the same commit.
+# PEER: SSID/PWD/PORT/CHUNK/YIELD_MS and the wire protocol are mirrored by
+# hand in BBoxFirmware/ and BDialFirmware/code_server.py and in the MockWand
+# and IconDisplay pullers. Change them together.
 HOST = '192.168.4.1'
 PORT = 8266
-# Every host's SSID is "SP-FILEPUSH-<id>" (see BBoxFirmware/code_server.py's
-# HOST_ID) -- SSID_PREFIX is the part every host shares, SSID is kept as an
-# alias for existing log/print call sites and as pull()'s default `ssid`
-# kwarg (which is really the prefix to search on -- see _find_ap()).
+# Host SSIDs are "SP-FILEPUSH-<id>" (code_server.HOST_ID). SSID is an alias
+# of SSID_PREFIX, kept for log call sites and as pull()'s `ssid` default.
 SSID_PREFIX = 'SP-FILEPUSH'
 SSID = SSID_PREFIX
 PWD = 'playground1'
@@ -62,76 +53,49 @@ PWD = 'playground1'
 CHUNK = 512
 YIELD_MS = 20
 
-# Diagnostic switch, default off. main.py imports this module inside pull
-# mode, BEFORE the join, and the radio takes its contiguous block at
-# sta.active(True) -- so the probe's strings live in pull_probe.py, imported
-# only when this is True and only after the join has succeeded. Nothing added
-# here may allocate before the radio has its memory.
+# Diagnostic switch. This module is imported before sta.active(True) claims
+# the radio's memory, so diagnostic strings live in pull_probe.py, imported
+# only when this is True and only after the join. Nothing added to this
+# module may allocate ahead of the radio (AGENTS.md).
 DEBUG_PULL = False
 
-# Request-frame version sentinel. A v1 request opens with the slug's length,
-# which is capped at 16 by game_store's slug rule, so a first byte of 0xFF
-# cannot be mistaken for one. That is what lets a Box serve both an
-# un-updated wand (v1) and a device that names its hubtype (v2).
-#
+# Wire protocol. Request (requester speaks first):
 #   v1:  len(1) | slug
 #   v2:  0xFF | len(1) | slug | len(1) | hubtype
-#
-# The response is unchanged for both: size(4B BE) | sha256(32B) |
-# name_len(1B) | name, then the body in CHUNK-byte pieces, then a 2-byte
-# b'OK'/b'NO' ack from this side.
-#
-# A device that asked for icons (pull(icon_dir=...)) reads one more leg after
-# that ack: a 1-byte icon count, then that many files in the same
-# header+body+ack shape. A count of 0 ends the session, which is what a wand
-# would get if it ever asked.
+# Slugs are at most 16 bytes, so a first byte of 0xFF marks v2.
+# Response, per file: size(4B BE) | sha256(32B) | name_len(1B) | name, the
+# body in CHUNK-byte pieces, then a 2-byte b'OK'/b'NO' ack from this side.
+# size 0 is a refusal and carries nothing else. With icon_dir set, a 1-byte
+# icon count follows the game's ack, then that many files in the same shape.
 REQ_V2 = 0xFF
 MAX_ICONS = 64
 
-# Timeouts are deliberately short. A failed pull is cheap to recover from --
-# the teacher just taps the card again -- so waiting a long time to be told
-# "no" is worse than failing fast and letting them retap. Everything here is
-# sized so a total failure costs a few seconds, not most of a minute.
-#
-# The join timeout is short because we never call connect() blind: the AP was
-# in a scan moments earlier, so an association that has not completed in this
-# long is not going to.
+# Per-join-attempt association timeout. connect() is only called after a
+# scan has found the AP.
 CONNECT_TIMEOUT_S = 6
-# Must stay above code_server.py's SOCK_REPLY_TIMEOUT_S (8 s), so the host
-# reaps a stalled transfer before this side gives up and retries.
+# Socket idle timeout, per recv. Must stay above code_server.py's
+# SOCK_REPLY_TIMEOUT_S (8 s) so the host reaps a stalled transfer first.
 SOCK_TIMEOUT_S = 12
 
-# How many full scans to spend looking for the Box's SSID before deciding the
-# AP simply is not up. A scan is ~1.5-2s, so three is ~6s worst case -- enough
-# to ride out one scan landing between beacons without making "the Box is off"
-# an expensive answer.
+# Scans on the first join attempt before reporting NoAP.
 SCAN_ATTEMPTS = 3
 
-# Settle time after toggling the STA interface off/on. The driver needs a
-# moment before connect() will take; without it the reset is cosmetic.
+# Wait after each STA active(False)/active(True) before the next call.
 RADIO_SETTLE_MS = 300
-# One retry: the first join after ESP-NOW teardown is the flaky one.
+# Join attempts per pull boot; each re-cycles the STA interface.
 JOIN_ATTEMPTS = 2
 
 
 class NoAP(OSError):
-    """The Box's SSID was never seen in any scan -- the AP is not up.
-
-    Distinct from JoinFailed because the two mean different things to the
-    person holding the wand: no AP means "the Box isn't broadcasting",
-    which no amount of retrying on this wand can fix.
-    """
+    """The host's SSID was not seen in any scan on the first attempt."""
 
 
 class JoinFailed(OSError):
-    """The SSID was visible but the association or auth never completed."""
+    """The SSID was visible but the join did not complete."""
 
-# This tree's espnow_manager.py is the EUM drop-in (talks UART to a modem
-# board, never touches WLAN or these pins), so it defines no
-# EXTERNAL_ANTENNA and this always falls back to True. code_puller.py is
-# therefore the only thing on this device that drives the antenna switch,
-# and only during a pull -- there is no "last module to touch WLAN wins"
-# race here, unlike MockWand.
+# This tree's espnow_manager.py is the EUM drop-in (UART to a modem board),
+# which defines no EXTERNAL_ANTENNA, so the fallback always applies. Only
+# this module drives the antenna pins on this device, during a pull.
 try:
     from espnow_manager import EXTERNAL_ANTENNA
 except ImportError:
@@ -139,16 +103,10 @@ except ImportError:
 
 
 def _configure_antenna(external, verbose=False):
-    """Select internal (onboard) or external (u.FL) antenna on the C6.
+    """Drive the XIAO ESP32-C6 RF switch to the onboard or u.FL antenna.
 
-    Selects explicitly in BOTH directions rather than only switching to
-    external, so the state does not depend on what last touched these pins:
-    espnow_manager._configure_antenna() drives them too, on every
-    ESPNowManager.init(). Leaving them alone could mean transmitting into a
-    u.FL connector with no antenna attached.
-
-    GPIO3 = RF switch enable (active low), GPIO14 = select (0 = onboard,
-    1 = external).
+    GPIO3 = switch enable (active low), GPIO14 = select (0 onboard,
+    1 external). Both pins are driven for either selection.
     """
     if Pin is None:
         return
@@ -162,12 +120,10 @@ def _configure_antenna(external, verbose=False):
 
 
 def _compiles(path, verbose=False):
-    """True if `path` parses as MicroPython source.
+    """True if `path` compiles. Runs no module code.
 
-    compile() runs the parser only -- no imports, no side effects from the
-    game's module body -- so this is safe to run on untrusted-ish code that
-    the teacher's LLM just wrote. It catches the common failure (a syntax
-    error in generated code) without pretending to catch runtime errors.
+    Reads the whole file, so it needs a free block about the file's size;
+    a MemoryError is reported like a syntax error.
     """
     try:
         with open(path, 'r') as f:
@@ -194,9 +150,7 @@ def _read_exact(sock, n):
 
 
 def _write_request(cs, slug, hubtype, verbose=False):
-    """Send the opening frame. The requester speaks first; the Box writes
-    nothing until it has read this. See BBoxFirmware/code_server.py
-    _read_request()."""
+    """Send the v1 or v2 request frame (see REQ_V2)."""
     req = (slug or "").encode('utf-8')
     if hubtype:
         hub = hubtype.encode('utf-8')
@@ -214,11 +168,7 @@ def _write_request(cs, slug, hubtype, verbose=False):
 
 
 def _read_file_header(cs):
-    """Read one file header. Returns (size, digest, name).
-
-    A size of 0 is the Box's explicit refusal and carries no digest or name,
-    so the caller must check it before reading further.
-    """
+    """Read one file header. Returns (size, digest, name); size 0 = refusal."""
     size = int.from_bytes(_read_exact(cs, 4), 'big')
     if size == 0:
         return 0, b'', ''
@@ -229,11 +179,9 @@ def _read_file_header(cs):
 
 def _recv_body(cs, tmp_path, expected_size, expected_digest, on_progress=None,
                probe=None):
-    """Stream one file body to tmp_path and verify length and hash.
+    """Write one file body to tmp_path. True if length and sha256 match.
 
-    Returns True only when every byte arrived and the sha256 matches. The
-    caller decides what to do with tmp_path either way -- this does not
-    promote, delete, or ack.
+    Does not promote, delete or ack. Sleeps YIELD_MS after each chunk.
     """
     buf = bytearray(CHUNK)
     mv = memoryview(buf)
@@ -269,12 +217,8 @@ def _recv_body(cs, tmp_path, expected_size, expected_digest, on_progress=None,
 def _pull_icons(cs, icon_dir, verbose=False):
     """Receive the icon leg into icon_dir. Returns the number promoted.
 
-    Only reached by a device that passed icon_dir to pull(); the Box sends a
-    count of 0 to anything else. Icons are data, not modules -- icon_store
-    parses them as text -- so there is no compile check here, only the hash.
-    A bad icon is dropped and the rest of the leg still runs: a missing
-    picture is a better outcome than abandoning a game file that arrived
-    intact.
+    Icons are hash-checked only, not compiled. A failed icon is acked NO and
+    the leg continues.
     """
     try:
         os.mkdir(icon_dir)
@@ -318,17 +262,12 @@ def _pull_icons(cs, icon_dir, verbose=False):
 
 
 def _wanted_ssid(prefix, host_id):
-    """The exact SSID a host id names, or None for "any <prefix>* host"."""
+    """The exact SSID for host_id, or None for any "<prefix>*" host."""
     return (prefix + '-' + host_id) if host_id else None
 
 
 def _log_visible_aps(nets, prefix, host_id):
-    """Print every SSID the radio can see, flagging the one(s) we wanted.
-
-    Takes the nets from a scan the caller already did rather than scanning
-    again. On the failure path we have just spent three scans; a fourth one
-    only to print it added ~2.5s to the answer the user is waiting for.
-    """
+    """Print the caller's scan results, marking the wanted SSID(s)."""
     wanted = _wanted_ssid(prefix, host_id)
     if nets is None:
         print("[XFER] scan failed, nothing to report")
@@ -347,33 +286,16 @@ def _log_visible_aps(nets, prefix, host_id):
         else:
             mark = "  <-- candidate" if name.startswith(prefix) else ""
         # scan() tuple: (ssid, bssid, channel, rssi, security, hidden).
-        # Channel and security matter here: the Box's AP inherits the
-        # channel of whatever else its radio is doing, and a security mode
-        # the C6 won't accept looks the same from isconnected() alone.
         print("    %-24s ch=%s rssi=%s sec=%s%s"
               % (name, net[2], net[3], net[4], mark))
 
 
 def _find_ap(sta, prefix, host_id, verbose):
-    """Return (ssid, bssid, channel, nets) for the best match, or
-    (None, None, None, nets).
+    """Scan once. Returns (ssid, bssid, channel, nets) or (None, None, None, nets).
 
-    With a host_id, matches SSID == "<prefix>-<host_id>" exactly (case-
-    insensitive): a card that named a host means that host and only that
-    host. With no host_id -- a card written before per-host identity, or a
-    bare "getcode" -- matches any "<prefix>*" and picks the one with the
-    highest RSSI, since several hosts can be live in one room and the
-    loudest one is a strict improvement over "whichever the scan happened
-    to list first".
-
-    Returns the matched SSID (not just the prefix) because
-    sta.connect(ssid, ...) needs the real name. Hands back the raw scan
-    results too, so a caller that ends up failing can log what was audible
-    without paying for another scan.
-
-    Reports the channel because that is the one radio property the wand and
-    the host must agree on, and because a channel outside the wand's
-    regulatory domain is visible to a scan yet impossible to associate with.
+    With host_id: exact, case-insensitive match on "<prefix>-<host_id>".
+    Without: the strongest-RSSI "<prefix>*" SSID. nets is the raw scan
+    result, or None if scan() raised.
     """
     try:
         nets = sta.scan()
@@ -406,12 +328,7 @@ def _find_ap(sta, prefix, host_id, verbose):
 
 
 def _status_name(sta):
-    """Decode sta.status() into a name, for join diagnostics.
-
-    Distinguishes a wrong password from an AP that never answered, which
-    isconnected() alone cannot. Built by lookup because which STAT_*
-    constants exist varies by port and MicroPython version.
-    """
+    """sta.status() as "NAME (value)"; STAT_* constants vary by port."""
     try:
         raw = sta.status()
     except (OSError, AttributeError):
@@ -426,27 +343,10 @@ def _status_name(sta):
 
 
 def _reset_sta(external_antenna, verbose):
-    """Return a STA interface clean enough to associate with an AP.
+    """Cycle the STA interface off and on and return it.
 
-    Selects the antenna immediately before active(True), the way
-    ESPNowManager.init() does, rather than once per pull. This is called
-    once per join attempt, and each attempt cycles the interface down and
-    up again; the RF switch's enable line is GPIO3, which the WiFi driver
-    also knows as WIFI_ENABLE, so an active(False) is not a safe moment to
-    assume the pins survive. Re-asserting costs 100 ms and removes the
-    question. It matters because an unpowered FM8625H connects the antenna
-    to neither port -- what gets through is leakage across about 30 dB of
-    isolation, which is enough to see an AP in a scan and not enough to
-    associate with it.
-
-    ESPNowManager.shutdown() only calls enow.active(False) -- it leaves the
-    STA active in whatever state ESP-NOW's init() put it in (active,
-    disconnected, and channel-locked by the ESP-NOW driver). Calling
-    connect() from there can scan and see the AP while never associating,
-    which is exactly the "AP visible at good rssi but join times out" case.
-    BBoxPrototype/c6_receiver.py never hit this because it ran standalone
-    with no ESP-NOW; fully cycling the interface is what puts the radio back
-    into that same known-good starting state.
+    The antenna is selected before every active(True): GPIO3 is also the
+    driver's WIFI_ENABLE line and is not assumed to survive active(False).
     """
     sta = network.WLAN(network.STA_IF)
     try:
@@ -465,14 +365,10 @@ def _reset_sta(external_antenna, verbose):
 
 
 def _shutdown_espnow(enow, verbose):
-    """Release the radio from ESP-NOW before trying to join an AP.
+    """Shut ESP-NOW down and drop its object before a WiFi join.
 
-    ESPNowManager.shutdown() now drops its espnow object itself, so the
-    reach-through below is normally a no-op. It stays as a fallback for an
-    older manager copy that only called active(False) and kept the object
-    alive: while an espnow.ESPNow object holds the interface, sta.connect()
-    is refused silently, leaving status at STAT_IDLE for the whole timeout
-    instead of advancing to STAT_CONNECTING or reporting a failure.
+    A live espnow.ESPNow object makes sta.connect() stay at STAT_IDLE. The
+    direct active(False) is a fallback for manager copies that keep it.
     """
     try:
         enow.shutdown()
@@ -501,11 +397,7 @@ def _shutdown_espnow(enow, verbose):
 
 
 def _notify(on_status, phase, tick):
-    """Call the caller's status hook, ignoring anything it raises.
-
-    Same contract as on_progress in pull(): the display is never allowed to
-    break the transfer.
-    """
+    """Call on_status(phase, tick); exceptions from it are ignored."""
     if on_status is None:
         return
     try:
@@ -515,14 +407,9 @@ def _notify(on_status, phase, tick):
 
 
 def _scan_for_ap(sta, prefix, host_id, verbose, on_status, tick, tries):
-    """Look for a "<prefix>[-<host_id>]" AP in up to `tries` scans.
+    """Scan up to `tries` times. Returns (ssid, bssid, channel, tick, nets).
 
-    Returns (ssid, bssid, channel, tick, nets), where nets is the last
-    scan's raw results so a failing caller can log them. ssid/bssid are
-    None when nothing matching ever showed up, which the caller turns into
-    NoAP -- we scan before ever calling connect() precisely so that "the
-    host is off" is answered in seconds by a scan rather than in tens of
-    seconds by a connect timeout.
+    ssid and bssid are None if no match was seen; nets is the last scan.
     """
     nets = None
     wanted = _wanted_ssid(prefix, host_id) or (prefix + '*')
@@ -541,8 +428,6 @@ def _connect_wifi(ssid_prefix, pwd, host_id, external_antenna, verbose,
                   enow=None, on_status=None):
     if enow is not None:
         _shutdown_espnow(enow, verbose)
-    # The antenna is selected in _reset_sta(), once per join attempt, right
-    # before each active(True) -- not once here. See its docstring.
     wanted = _wanted_ssid(ssid_prefix, host_id) or (ssid_prefix + '*')
     tick = 0
     last_status = "unknown"
@@ -553,23 +438,11 @@ def _connect_wifi(ssid_prefix, pwd, host_id, external_antenna, verbose,
         except (ValueError, OSError, AttributeError):
             prev_pm = None
 
-        # Point the driver at one specific AP rather than trusting whatever
-        # channel it thinks it is on. ESP-NOW pins the radio to a channel
-        # while it runs, and that pin can outlive the teardown -- connecting
-        # by BSSID makes the driver resolve the AP from a fresh scan, which
-        # is the same reason an ESP-NOW-only peer has to be handed the
-        # channel of the AP the other side is associated with.
-        # Only the first pass spends the full scan budget. By the second we
-        # have already seen the AP once, so one confirming scan is enough --
-        # re-spending three would double the cost of the slowest failure.
+        # Full scan budget on the first attempt, one scan on the second.
         tries = SCAN_ATTEMPTS if attempt == 0 else 1
         found_ssid, bssid, found_ch, tick, nets = _scan_for_ap(
             sta, ssid_prefix, host_id, verbose, on_status, tick, tries)
         if bssid is None:
-            # Not visible on the first pass: the AP is not up. Say so now
-            # instead of spending a join timeout (and then a second attempt)
-            # proving it the slow way. If it vanished only on the retry it was
-            # up a moment ago, so that is a flaky join, not a missing host.
             if verbose:
                 _log_visible_aps(nets, ssid_prefix, host_id)
             if attempt == 0:
@@ -581,10 +454,9 @@ def _connect_wifi(ssid_prefix, pwd, host_id, external_antenna, verbose,
         except TypeError:
             # Older builds have no bssid kwarg.
             sta.connect(found_ssid, pwd)
-        # Sample status through the wait, not just at the end. A run that
-        # never leaves STAT_IDLE means connect() was refused and no attempt
-        # was ever made (driver still held elsewhere); one that reaches
-        # STAT_CONNECTING and falls back means the association itself failed.
+        # Record every status seen during the wait: STAT_IDLE throughout
+        # means connect() did not start; STAT_CONNECTING then a fall back
+        # means the association or handshake failed.
         waited = 0
         seen = []
         while not sta.isconnected() and waited < CONNECT_TIMEOUT_S * 1000:
@@ -617,8 +489,6 @@ def _connect_wifi(ssid_prefix, pwd, host_id, external_antenna, verbose,
             print("[XFER] join attempt %d/%d failed, status=%s"
                   % (attempt + 1, JOIN_ATTEMPTS, last_status))
 
-    # The AP was visible every time, so this is association/auth, not radio
-    # or range -- still worth logging what we could hear before giving up.
     if verbose:
         _log_visible_aps(nets, ssid_prefix, host_id)
     raise JoinFailed("could not join %s within %ds (status=%s)"
@@ -629,73 +499,33 @@ def pull(host=HOST, port=PORT, ssid=SSID, pwd=PWD,
          external_antenna=EXTERNAL_ANTENNA, verbose=False, enow=None,
          on_progress=None, on_status=None, slug="", hubtype="",
          icon_dir=None, host_id=""):
-    """Pull one game file from a Box/Dial host. Returns True on verified
-    promote.
+    """Join a Box/Dial SoftAP and pull one game file.
 
-    ssid is really the SSID *prefix* every host shares (SSID_PREFIX);
-    host_id, when given, narrows the scan to the one host whose SSID is
-    "<ssid>-<host_id>" instead of whichever "<ssid>*" host answers
-    strongest -- see _find_ap(). It comes from the tapped card
-    ("getcode:<slug>@<host_id>") by way of pull_flag, since the tap and the
-    pull happen in different boots.
+    ssid: SSID prefix. host_id: pin the pull to "<ssid>-<host_id>"; empty
+    takes the strongest "<ssid>*" host. slug: game to request; empty asks
+    for the host's active game. hubtype: sent in a v2 request; empty sends
+    v1, which the host answers with the wand file. icon_dir: request the
+    icon leg and write it there. on_progress(received, total) runs after
+    each chunk; on_status(phase, tick) runs during scan and join. Exceptions
+    from either callback are ignored.
 
-    slug names the game to ask for; "" means "whatever the chosen host has
-    active". It comes from the tapped card ("getcode:<slug>") by way of
-    pull_flag, since the tap and the pull happen in different boots.
-
-    hubtype says what kind of device is asking, so the Box can hand a wand
-    and an icon display different files for the same slug. Pass HUB_TYPE
-    from lib/hubtype.py. Leaving it "" sends the older request frame, which
-    a Box always answers with the wand file.
-
-    icon_dir, when set, asks for the icon leg after the game file and writes
-    what arrives into that directory. A device with no panel leaves it None.
-
-    on_progress(received, expected_size), if given, is called after each
-    chunk is written to flash -- lets the caller drive an LED progress
-    indicator without this module knowing anything about LEDs. Wrapped in
-    try/except so a bad callback can't break the transfer.
-
-    on_status(phase, tick), if given, is called repeatedly while the radio is
-    working -- phase is 'scan' or 'join' and tick is a free-running counter,
-    which is exactly what an LED animation needs. Also wrapped in try/except.
-
-    Returns, in order of how the caller should treat them:
-
-      True          the file arrived, verified and was promoted.
-      'noap'        the Box's SSID was never seen. Do not retry: nothing on
-                    this wand can make an AP that is not up appear.
-      'nojoin'      the AP was there but the join or the connection to the
-                    server failed before any of the file arrived. Do not
-                    retry -- a second boot joins the same AP the same way.
-      'norequest'   the Box answered that it has no such game. Do not retry;
-                    a retry cannot change the answer.
-      False         the transfer itself failed partway through. This one IS
-                    worth retrying: the pieces are all present and it is the
-                    kind of failure a fresh radio often gets past.
+    Returns:
+      True         file verified, compiled and promoted
+      'noap'       no matching SSID seen
+      'nojoin'     join failed, or socket/request/header failed before the body
+      'norequest'  host refused (size 0)
+      False        body failed, hash mismatch, or compile() rejected the file
     """
     ok = False
-    # Everything up to the first body byte is "setup": a failure there is a
-    # pairing problem, not a transfer problem, and the two get different
-    # treatment by the caller (give up vs. reboot and retry).
+    # An OSError before the first body byte returns 'nojoin', after it False.
     body_started = False
     cs = None
     sta = None
     prev_pm = None
     memprobe.probe("pull:entry")  # BENCH
     try:
-        # Inside the try: _connect_wifi() raises OSError if the Box's AP
-        # never shows up, and it has already called enow.shutdown() by
-        # then. Letting that escape left ESP-NOW dead, the STA still
-        # active, and the caller unable to tell a failure from a crash --
-        # it skipped the caller's own failure handling entirely.
-        #
-        # BENCH: this sta.active(True) is structurally the same allocation
-        # as enow.init()'s -- esp_wifi_init()/esp_wifi_start() on a radio
-        # that has never run WiFi this boot. It is the pull's own OOM risk
-        # point, distinct from (and in addition to) the *next* boot's
-        # enow.init(). frag() brackets it the same way main.py's pre-enow
-        # probe does.
+        # BENCH: frag() records the heap just before sta.active(True), the
+        # pull boot's radio memory claim.
         memprobe.frag("pull:pre-wifi-join")  # BENCH
         sta, prev_pm = _connect_wifi(ssid, pwd, host_id, external_antenna,
                                      verbose, enow=enow, on_status=on_status)
@@ -708,31 +538,22 @@ def pull(host=HOST, port=PORT, ssid=SSID, pwd=PWD,
             print("[XFER] connected to %s:%d" % (host, port))
         memprobe.probe("pull:post-sock-connect")  # BENCH
 
-        # ── Request frame: the requester speaks first ── see REQ_V2.
         _write_request(cs, slug, hubtype, verbose)
 
         expected_size, expected_digest, name = _read_file_header(cs)
         if expected_size == 0:
-            # Explicit refusal: the Box has no such game for this kind of
-            # device. Distinct from a transfer failure -- retrying cannot
-            # change the answer, so say so.
             if verbose:
                 print("[XFER] Box has no game %r for %r"
                       % (slug or "<active>", hubtype or "<v1>"))
             return 'norequest'
 
-        # Pulled games live in /games, never the flash root -- they must not
-        # be able to shadow a built-in game or main.py. See lib/game_store.py.
+        # Pulled games go in /games so they cannot shadow flash-root modules.
         game_store.ensure_dir()
         dest = game_store.GAMES_DIR + '/' + name
         tmp_path = dest + '.part'
 
         if verbose:
             print("[XFER] receiving %s, %d bytes expected" % (dest, expected_size))
-        # BENCH: the transfer body is the peak-memory window of the whole
-        # pull -- socket buffers, the sha256 hasher, and the chunk buffer
-        # are all live at once. This is the state that matters most for
-        # "how fragile is a pull", not just before/after the whole call.
         memprobe.probe("pull:pre-body")  # BENCH
 
         body_started = True
@@ -755,10 +576,7 @@ def pull(host=HOST, port=PORT, ssid=SSID, pwd=PWD,
             cs.write(b'NO')
             sleep_ms(100)
         elif not _compiles(tmp_path, verbose):
-            # Bytes arrived intact but the file is not importable. Promoting
-            # it would replace a working game with one that can only fail at
-            # _load_play() time, on a device with no way to show a traceback.
-            # Keep the old game, discard this one, and report failure.
+            # Intact but does not compile: keep the previous game.
             good = False
             try:
                 os.remove(tmp_path)
@@ -776,16 +594,13 @@ def pull(host=HOST, port=PORT, ssid=SSID, pwd=PWD,
             sleep_ms(100)
             if verbose:
                 print("[XFER] OK: %s promoted, %d bytes" % (dest, expected_size))
-            # Remember what we just pulled so the boot after the imminent
-            # reset can launch it instead of dropping into the idle loop.
+            # The next boot launches the last pulled game.
             if name.endswith('.py'):
                 game_store.set_last_pulled(name[:-3])
             ok = True
         memprobe.probe("pull:post-promote")  # BENCH
 
-        # ── Icon leg ── only a device that asked for one reads this. The
-        # game file is already promoted and acked by here, so an icon that
-        # fails costs a picture, not the game.
+        # Icon leg. An icon failure does not change the game's result.
         if ok and icon_dir:
             try:
                 n_icons = _pull_icons(cs, icon_dir, verbose)
@@ -809,14 +624,11 @@ def pull(host=HOST, port=PORT, ssid=SSID, pwd=PWD,
         if verbose:
             print("[XFER] failed: %s" % (e,))
         memprobe.probe("pull:exception")  # BENCH
-        # Before the body started this is still the setup phase (socket
-        # connect, request, header) -- same "give up" class as a bad join.
         if not body_started:
             ok = 'nojoin'
     finally:
         if cs is not None:
             cs.close()
-        # sta stays None if _connect_wifi() itself failed early.
         if sta is not None:
             try:
                 if prev_pm is not None:
@@ -829,6 +641,6 @@ def pull(host=HOST, port=PORT, ssid=SSID, pwd=PWD,
             except OSError:
                 pass
         gc.collect()
-        memprobe.probe("pull:cleanup")  # BENCH -- what the NEXT reset inherits
+        memprobe.probe("pull:cleanup")  # BENCH
 
     return ok

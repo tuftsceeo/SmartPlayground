@@ -66,7 +66,7 @@ Full note: [`docs_and_design/2026-09-23-ap-memory-order.md`](../docs_and_design/
 |---|---|---|---|
 | `IDLE` | down | off | No game on flash (`/flash/payload.py` absent or empty) |
 | `WRITE` | down | on only while scanning | Game on flash -- this is the boot state |
-| `SERVE` | **up** (`SP-FILEPUSH`) | off, and no I2C at all | Teacher selects `DONE` + BtnA |
+| `SERVE` | **up** (`SP-FILEPUSH-<id>`) | off, and no I2C at all | Teacher selects `DONE` + BtnA |
 
 `_set_mode()` in `bbox_server.py` is the only place modes change, and it
 de-energizes what it is leaving before energizing what it is entering. If
@@ -74,8 +74,7 @@ de-energizes what it is leaving before energizing what it is entering. If
 put rather than sitting on a dead AP.
 
 **The box does not serve code until a teacher selects `DONE` + BtnA.** A wand
-tapping `getcode` before that burns its two-attempt budget (~31 s each) and
-error-blinks.
+tapping `getcode` before that finds no AP, shows red wifi bars and gives up.
 
 ## WRITE mode
 
@@ -137,7 +136,8 @@ On detection the scan always ends, one of two ways:
 Leaving `SERVE` is the one remaining hold: **BtnA for `SERVE_EXIT_MS` (1000 ms)**.
 It is rare and should not fire from a stray bump. The hold is sampled inside
 `CodeServer.poll()` via `should_abort`, once per tick; every in-flight wand is
-dropped, sees a short read, and retries within its own budget.
+dropped and sees a short read; that pull fails (the wand does not retry,
+`pull_flag.MAX_ATTEMPTS = 1`).
 
 ### Serving several wands at once
 
@@ -182,7 +182,7 @@ config/password pages.
 
 ## Wire contract (frozen -- the wand depends on every row)
 
-SSID `SP-FILEPUSH`, password `playground1`, port `8266`, AP channel `1` (an
+SSID `SP-FILEPUSH-<id>` (`<id>` = `code_server.HOST_ID`), password `playground1`, port `8266`, AP channel `1` (an
 idle ESP-NOW radio sits here, so the wand never changes channel to join),
 `ap.config(pm=0)`. Chunk size `512`, yield `sleep_ms(20)`.
 
@@ -333,7 +333,7 @@ and the field off. Without it the AP stayed up with nothing serving it.
 3. Teacher opens the game's group in the `WRITE` menu and writes its cards —
    `getcode:<slug>`, `<slug>`, and whatever the game itself needs.
 4. Teacher selects `DONE` + BtnA. AP comes up; box is serving.
-5. Wand taps `getcode`, reboots, joins `SP-FILEPUSH` on a cold radio, pulls
+5. Wand taps `getcode`, reboots, joins `SP-FILEPUSH-<id>` on a cold radio, pulls
    `jumpin.py`, reboots into the game (`MockWand/code_puller.py`).
 
 ## Serial logging

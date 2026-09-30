@@ -94,7 +94,7 @@ energized at any instant.
 |---|---|---|---|
 | `IDLE` | down | off | No game on flash |
 | `WRITE` | down | on only while scanning | Game on flash — boot state |
-| `SERVE` | **up** (`SP-FILEPUSH`) | off, and no I2C at all | Teacher selects `DONE` + `ACT` |
+| `SERVE` | **up** (`SP-FILEPUSH-<id>`) | off, and no I2C at all | Teacher selects `DONE` + `ACT` |
 
 `_set_mode()` in `bdial_server.py` is the only place modes change.
 
@@ -179,7 +179,7 @@ each device's `code_server.py` over a real loopback listener, covering the
 v1/v2 request shapes, the icon leg, three concurrent mixed-role pulls, a
 refusal alongside live transfers, and an abort mid-transfer.
 `tools/pull_bench.py` drives N concurrent pulls against real hardware in
-SERVE mode (either device — it joins `SP-FILEPUSH` like a wand does), which
+SERVE mode (either device — it joins `SP-FILEPUSH-<id>` like a wand does), which
 is what the radio and heap behaviour still need.
 
 ## Card text / wire contract
@@ -190,7 +190,7 @@ text; Classic writes never touch sector trailers; NTAG writes start at page
 
 | Item | Value |
 |---|---|
-| SSID / password | `SP-FILEPUSH` / `playground1` |
+| SSID / password | `SP-FILEPUSH-<id>` (`<id>` = `code_server.HOST_ID`) / `playground1` |
 | Port | `8266` |
 | AP channel | `1` |
 | AP power save | `ap.config(pm=0)` |

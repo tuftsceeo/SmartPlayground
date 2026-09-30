@@ -1,21 +1,12 @@
 # PEER: Bag3/Code/BroadcastCode/BroadcastDial/BDialFirmware/code_server.py — keep in sync.
-# The two are the same server on different boards; only the comments about
-# each board's heap, and the Dial-only prewarm_ap() it carries, differ. Fix
-# one copy and say which (Bag3/AGENTS.md).
+# The Dial copy adds prewarm_ap() and an ungated per-client DEBUG print.
 """
-code_server.py — SoftAP + TCP file server (non-blocking arm/poll, multi-client).
+code_server.py — SoftAP + TCP game-file server, non-blocking, multi-client.
 
-Split from BBoxPrototype/s3_sender.py so the UI loop can coexist with
-accept().
-
-Each connected device is driven through a small per-client state machine
-(_Client / _step_req / _step_hdr / _step_body / _step_ack / _step_icount) so
-poll() can advance several transfers a little bit per call instead of blocking
-on one at a time. select.select() (0 timeout) is used each tick to find which
-client sockets are actually ready, so idle clients cost nothing.
-
-A client that takes the icon leg walks HDR->BODY->ACK once for the game file
-and then once more per icon; _step_ack() is what routes between the two.
+arm() brings up the AP and listening socket; the caller's main loop calls
+poll(). Each client is a _Client state machine (REQ -> HDR -> BODY -> ACK,
+then ICOUNT and one HDR -> BODY -> ACK per icon for the icon leg). poll()
+uses select() with a 0 timeout and advances each ready client one step.
 """
 
 import gc
@@ -41,14 +32,8 @@ except ImportError:
     from binascii import hexlify
 
 SSID_PREFIX = 'SP-FILEPUSH'
-# Four lowercase hex chars from the tail of this ESP32's base MAC. Readable
-# with no network call (unlike a station MAC, which needs STA_IF active),
-# which matters because arm()/_start_ap() run with the AP still down -- see
-# the module-level invariant note in bdial_server.py/bbox_server.py. Gives
-# each host a distinct SSID so several hosts in one room can be told apart
-# by a scanning client (see code_puller.py's _find_ap()) and by a getcode
-# card's "@<id>" suffix (see card_writer callers in bdial_server.py /
-# bbox_server.py).
+# Last four hex digits of the base MAC (machine.unique_id(), no radio
+# needed). Names this host's SSID and the "@<id>" suffix on its getcode cards.
 HOST_ID = hexlify(machine.unique_id()[-2:]).decode()
 SSID = SSID_PREFIX + '-' + HOST_ID
 PWD = 'playground1'
@@ -56,59 +41,38 @@ PORT = 8266
 AP_CHANNEL = 1
 CHUNK = 512
 YIELD_MS = 20
-# Must stay below the requester's SOCK_TIMEOUT_S (code_puller.py, 12 s).
-# This side's last progress is never later than the requester's last byte
-# received, so a stalled transfer is reaped here before the requester gives
-# up, resets and retries -- a retry never lands on a client still held here.
-# Also bounds the ack wait, which covers the requester's hash and compile
-# check of the file it just received.
+# Client deadline after each unit of progress. Must stay below the
+# requester's SOCK_TIMEOUT_S (code_puller.py, 12 s), so a stalled client is
+# reaped before the requester retries. Also bounds the ack wait, which
+# covers the requester's hash and compile check.
 SOCK_REPLY_TIMEOUT_S = 8
-SOCK_REQUEST_TIMEOUT_S = 5   # how long to wait for the requester's frame
-AP_SETTLE_MS = 300  # same value the wand uses post-cycle
+SOCK_REQUEST_TIMEOUT_S = 5   # wait for the request frame after accept
+AP_SETTLE_MS = 300           # after ap.active(False) in disarm()
 
-# Diagnostic switch, default off. Every string in this module is allocated
-# when bdial_server.py imports it -- before prewarm_ap(), long before arm()
-# -- and the AP needs a large contiguous block it can only get early. So the
-# probe's strings live in serve_probe.py, which is imported only when this is
-# True and only after _start_ap() has returned. Keep it that way: nothing
-# added here may allocate before the radio has its memory.
+# Diagnostic switch. This module is imported before the AP claims its
+# memory, so diagnostic strings live in serve_probe.py, imported only when
+# this is True and only after _start_ap(). Nothing added to this module may
+# allocate ahead of the radio (AGENTS.md).
 DEBUG_SERVE = False
 
-# How many devices CodeServer will serve at once. The ESP32 SoftAP itself
-# associates several stations fine -- this cap exists for RAM, not radio,
-# reasons (see MIN_FREE_ACCEPT below). Bench-verified starting point; lower
-# it here if gc.mem_free() gets uncomfortably low during a multi-wand burst.
+# Maximum concurrent clients; also the AP's max_clients and the listen
+# backlog.
 MAX_CLIENTS = 4
 
-# Below this much free heap, poll() defers accepting any *additional*
-# client rather than risk an OOM mid-transfer -- a queued wand just waits
-# one more poll() tick and retries within its own budget. SoftAP bring-up is
-# the OOM-fragile spot on both boards (see arm()'s gc.collect() below); 30 KB
-# is a starting guess, not a measured floor -- tune after a real multi-wand
-# bench run.
+# With at least one client connected, a further accept waits while
+# gc.mem_free() is below this. Unmeasured starting value.
 MIN_FREE_ACCEPT = 30000
 
-# PEER: MockWand/code_puller.py and BroadcastBox/IconDisplay/code_puller.py
-# each hold a hand-kept copy of SSID/PWD/PORT/CHUNK/YIELD_MS and of the wire
-# protocol (spread across _parse_request/_step_hdr/_step_body/_step_ack below;
-# the framing is unchanged from the single-client version these files were
-# written against). There is no shared module (they run on different devices),
-# so any wire protocol change here must be mirrored in all of them in the same
-# commit.
+# PEER: SSID/PWD/PORT/CHUNK/YIELD_MS and the wire protocol are mirrored by
+# hand in the MockWand, IconDisplay and SplatCompanion code_puller.py.
+# Change them together.
 
-# Request-frame version sentinel. A v1 request opens with the slug's length,
-# capped at 16 by the slug rule, so a first byte of 0xFF cannot be one. That
-# is what lets this serve an un-updated wand and a hubtype-aware device from
-# the same socket.
-#
-#   v1:  len(1) | slug                          -> always the wand file
+# Request frame (see code_puller.py for the full protocol):
+#   v1:  len(1) | slug                          -> DEFAULT_ROLE's file
 #   v2:  0xFF | len(1) | slug | len(1) | hubtype
 REQ_V2 = 0xFF
 
-# Which file each kind of device gets for a slug, and whether it also takes
-# the icon leg. A hubtype absent from here is refused rather than guessed at:
-# handing a device a file written for different hardware is worse than
-# telling it plainly that there is nothing for it.
+# Per-hubtype source file and icon leg. An unlisted hubtype is refused.
 #   suffix  -- appended to the slug for this role's source file
 #   icons   -- send the named-icon leg after the game file
 ROLE_FILES = {
@@ -116,7 +80,7 @@ ROLE_FILES = {
     'icon_display':    {'suffix': '_icon',  'icons': True},
     'splat_companion': {'suffix': '_splat', 'icons': False},
 }
-DEFAULT_ROLE = 'wand'   # what a v1 request, which names no hubtype, gets
+DEFAULT_ROLE = 'wand'   # role for a v1 request
 
 MAX_ICONS = 64
 
@@ -133,26 +97,17 @@ _S_BODY = 'body'      # streaming the current file
 _S_ACK = 'ack'        # reading the 2-byte OK/NO
 _S_ICOUNT = 'icount'  # writing the icon leg's 1-byte count
 
-# Which states are waiting to write rather than to read. poll() hands these
-# to select()'s write list; everything else goes in the read list.
+# States that go on select()'s write list; all others on the read list.
 _WRITE_STATES = (_S_HDR, _S_BODY, _S_ICOUNT)
 
 
 def icons_dir_for(slug):
-    """Where a game's named icons live on the Box.
-
-    ChatBroadcast writes them here in the same raw-REPL session as the game
-    files, so a pull can serve a game and its pictures without a second trip.
-    """
+    """Directory holding a game's named icons (written by ChatBroadcast)."""
     return GAMES_DIR + '/' + slug + '_icons'
 
 
 def _emit(cb, event):
-    """Fire a caller callback without letting it break the server.
-
-    Mirrors how the wand guards its own on_progress hook: a UI paint that
-    throws must not abort a transfer or take down the main loop.
-    """
+    """Call cb(event); an exception from it is printed and ignored."""
     if cb is None:
         return
     try:
@@ -162,11 +117,7 @@ def _emit(cb, event):
 
 
 def _asked_to_abort(cb):
-    """True only if the caller's should_abort() clearly said so.
-
-    A callback that raises is treated as "keep going": dropping a transfer
-    because a button read glitched would be worse than finishing it.
-    """
+    """True if should_abort() returns true. An exception counts as False."""
     if cb is None:
         return False
     try:
@@ -190,18 +141,10 @@ def _hash_file(path):
 
 
 def _parse_request(buf):
-    """Parse an opening frame out of whatever bytes have arrived so far.
+    """Parse a v1 or v2 request frame from the bytes received so far.
 
-    Returns one of three things, because the frame arrives a piece at a time
-    and the caller has to know which:
-      (slug, role)  the frame is complete; slug '' means "whatever is active"
-      an int        that many more bytes are needed before it can be parsed
-      None          the frame is unusable and the client should be dropped
-
-    Pure, and the only place either device reads this frame, so the two
-    shapes cannot drift apart. See REQ_V2 for both; a v1 frame names no
-    hubtype and gets DEFAULT_ROLE, which is what keeps an un-updated wand
-    working.
+    Returns (slug, role) when complete (slug '' = active game), an int count
+    of bytes still needed, or None if the frame is unusable.
     """
     if not buf:
         return 1
@@ -238,14 +181,7 @@ def _start_ap(ssid=SSID, pwd=PWD):
         ap.config(essid=ssid, password=pwd, authmode=network.AUTH_WPA_WPA2_PSK)
     except (ValueError, OSError):
         ap.config(essid=ssid, password=pwd, security=3)
-    # Pin the channel rather than taking the port default. A radio has one
-    # channel, so the wand can only associate here after tearing ESP-NOW
-    # down, and an idle ESP-NOW radio sits on channel 1 -- landing on the
-    # same channel means the wand never has to change channel to join.
-    # Staying in 1-11 also keeps this reachable regardless of the wand's
-    # regulatory domain: 12-14 are restricted in some regions, and a station
-    # that is restricted can still see the AP in a scan while being unable
-    # to associate with it.
+    # Channel 1: the ESP-NOW default channel, and inside 1-11.
     try:
         ap.config(channel=AP_CHANNEL)
     except (ValueError, OSError):
@@ -265,14 +201,7 @@ def _start_ap(ssid=SSID, pwd=PWD):
 
 
 class _Client:
-    """One device's in-flight connection: a tiny resumable state machine.
-
-    Nothing here is shared between clients -- role/slug/src_path/dest_name are
-    captured per client at request time (see CodeServer._lookup) instead of
-    living on CodeServer itself, so two devices requesting different games, or
-    the same game in different roles, cannot cross-contaminate each other's
-    transfer.
-    """
+    """One connection's transfer state. Request fields are per client."""
 
     def __init__(self, sock, deadline):
         self.sock = sock
@@ -298,8 +227,8 @@ class _Client:
         self.fh = None
         self.sent = 0
         self._chunk_len = 0
-        # Reused for every chunk this client ever sends -- allocated on the
-        # first body step, released by _drop(). See _step_body().
+        # One chunk buffer per client: allocated on the first body step,
+        # released by _drop().
         self.chunkbuf = None
 
         # serve_probe counters. sel = times select() named this socket ready;
@@ -308,8 +237,7 @@ class _Client:
         self.sel = 0
         self.blocked = 0
 
-        # Icon leg. game_ok is this client's real outcome: an icon that fails
-        # costs a picture, not the game, so it never changes game_ok.
+        # Icon leg. game_ok is the game file's result; icons do not change it.
         self.game_ok = False
         self.icon_names = None
         self.icon_idx = 0
@@ -332,15 +260,9 @@ class CodeServer:
         self._armed = False
         self._last_ok = None
         self._pickups = 0
-        # Set for the duration of one poll() call so the per-client step
-        # functions (which run several layers below poll()) can report
-        # 'ok'/'fail' without threading the callback through every method.
+        # poll()'s on_event, held for the step functions during one call.
         self._on_event = None
-        # One-entry digest cache: several devices pulling the same game in
-        # the same burst should not each re-hash the whole file. One entry is
-        # enough for that case; an icon leg evicts it as it walks its files,
-        # which is why the cache is keyed by path rather than assumed to hold
-        # the game.
+        # One-entry sha256 cache keyed by (path, size).
         self._digest_cache = (None, None, None)  # (path, size, digest)
         self._probe = None      # serve_probe.Probe, set in arm() if DEBUG_SERVE
 
@@ -363,20 +285,14 @@ class CodeServer:
 
     @property
     def pickups(self):
-        """Completed successful serves this session."""
+        """Successful transfers since boot."""
         return self._pickups
 
     def set_game(self, slug, src_path=None, role=DEFAULT_ROLE):
-        """Point the server at a slug's source file for one device role.
+        """Set the active slug and its source file for `role`.
 
-        The file on the Box carries the role's suffix (<slug>_icon.py for an
-        icon display); the name it lands under on the device does not. Every
-        device holds at most one module per slug, so the role lives here and
-        in ChatBroadcast, never on the device's flash.
-
-        This is the shared, mutating view of "what is loaded", used by
-        bdial_server.py for the menu and mode entry. It is NOT what an
-        in-flight transfer reads -- see _lookup().
+        The source carries the role suffix (<slug>_icon.py); the device-side
+        name does not. Transfers resolve their own file via _lookup().
         """
         if not slug:
             self.active_slug = None
@@ -391,12 +307,9 @@ class CodeServer:
         self.dest_name = slug + '.py'
 
     def _lookup(self, slug, role=DEFAULT_ROLE):
-        """Resolve slug (or /flash/active.txt) into (slug, src_path, dest_name).
+        """Resolve slug (or /flash/active.txt) to (slug, src_path, dest_name).
 
-        Pure -- never touches self. Used per-client during a transfer so one
-        device's request can never redirect another's in-flight file. An
-        unknown role resolves to nothing at all, so the requester gets the
-        explicit zero-size refusal rather than a file it cannot run.
+        Does not modify self. None for an unknown role or a missing/empty file.
         """
         if role not in ROLE_FILES:
             return None
@@ -419,10 +332,7 @@ class CodeServer:
         return None
 
     def resolve(self, slug=None, role=DEFAULT_ROLE):
-        """Resolve slug (or /flash/active.txt) and update self in place.
-
-        Returns the slug used, or None if nothing is serveable for this role.
-        """
+        """_lookup() then set_game(). Returns the slug, or None."""
         result = self._lookup(slug, role)
         if result is None:
             return None
@@ -441,15 +351,11 @@ class CodeServer:
     def arm(self):
         if self._armed:
             return True
-        # Prefer active game; fall back to whatever src_path already is.
         if not self._file_ready():
             if self.resolve() is None or not self._file_ready():
                 return False
-        # Bringing up the WiFi stack needs a chunk of contiguous heap.
-        # Collect right before the one call that needs it, and treat a
-        # failure here the same as "no game to serve" -- every other
-        # failure path in this method returns False rather than raising,
-        # and this one should too.
+        # Nothing may run between this collect and _start_ap(). An AP start
+        # failure returns False like the other failure paths.
         gc.collect()
         try:
             self._ap = _start_ap(self.ssid, self.pwd)
@@ -474,7 +380,7 @@ class CodeServer:
             return False
         self._armed = True
         self._last_ok = None
-        # Only now: the AP has its memory, so parsing a module cannot cost it.
+        # serve_probe is imported only after _start_ap().
         if DEBUG_SERVE:
             import serve_probe
             self._probe = serve_probe.Probe(self)
@@ -500,19 +406,11 @@ class CodeServer:
         gc.collect()
 
     def poll(self, on_event=None, should_abort=None):
-        """Non-blocking: accept up to MAX_CLIENTS devices and advance each a
-        step. Returns 'abort' if should_abort() fired, else None.
+        """Accept new clients and advance each ready one a step. Non-blocking.
 
-        on_event('serving') fires once per accepted client, before that
-        client's transfer starts, so a caller can paint a "serving" screen.
-        on_event('ok') / on_event('fail') fires once per client as it
-        finishes. should_abort() is sampled once per poll() call (not once
-        per client or per chunk -- poll() no longer blocks, so the caller's
-        own main loop keeps sampling input on every tick); a True return
-        drops every in-flight client without acking or promoting any of
-        them. An aborted transfer is safe on the device side -- it sees a
-        short read or hash mismatch, removes its .part file, does not
-        promote, and retries within its own budget.
+        on_event('serving') fires per accepted client; 'ok' or 'fail' per
+        finished client. should_abort() is sampled once per call; true drops
+        every client and returns 'abort'. Otherwise returns None.
         """
         if not self._armed or self._srv is None:
             return None
@@ -555,9 +453,7 @@ class CodeServer:
                 self._advance(c)
 
         if any(c.state == _S_BODY for c in self._clients):
-            # Same pacing as the old single-client loop: give the AP's
-            # WiFi driver a breather between chunk writes rather than
-            # spinning the poll() loop as fast as possible.
+            # Pacing between chunk writes.
             sleep_ms(YIELD_MS)
 
         return None
@@ -591,11 +487,7 @@ class CodeServer:
             return False
 
     def _drop(self, c):
-        """Close a client without treating it as a completed transfer.
-
-        Used for disarm() and abort -- neither is a pass/fail outcome, so
-        no on_event('ok'/'fail') fires and stats_log is not touched.
-        """
+        """Close a client's file and socket. No event, no stats record."""
         try:
             if c.fh is not None:
                 c.fh.close()
@@ -605,9 +497,6 @@ class CodeServer:
             c.sock.close()
         except OSError:
             pass
-        # Hand the chunk buffer back now rather than waiting for the client
-        # object itself to be collected -- this is the one choke point both
-        # _finish() and abort/disarm go through.
         c.chunkbuf = None
         c.outbuf = None
 
@@ -617,11 +506,9 @@ class CodeServer:
         self._clients = []
 
     def _finish(self, c, ok):
-        """One client's transfer is over (success, failure, or timeout).
+        """End a client: drop it, emit 'ok'/'fail', record to stats_log.
 
-        `ok` is the GAME file's outcome. A client that took the icon leg has
-        already been counted as a pickup's worth of work by then; a failed
-        icon inside that leg is printed, not reported here.
+        `ok` is the game file's result.
         """
         if self._probe is not None:
             self._probe.finished(c, ok)
@@ -654,39 +541,23 @@ class CodeServer:
             elif c.state == _S_ICOUNT:
                 self._step_icount(c)
         except OSError:
-            # Expected: the device closed, reset, or walked out of range
-            # mid-transfer. Its own retry budget covers this.
+            # Peer closed, reset or dropped.
             self._finish(c, False)
         except Exception as e:
-            # Anything else is a fault in this server -- a MemoryError on a
-            # tight heap is the one seen in the field -- not a device going
-            # away. It has to be caught here: escaping _advance() leaves the
-            # client parked in its current state, sending nothing, until its
-            # deadline expires, while the device sits on a socket nothing
-            # will ever write to again. Reap it, and print, because this
-            # path is never normal.
+            # Any other error (e.g. MemoryError) is printed and the client
+            # reaped, so it does not sit until its deadline.
             print("# CodeServer: %s in %s for %r: %s"
                   % (type(e).__name__, c.state, c.slug or '?', e))
             self._finish(c, False)
 
     # ── per-state steps ──────────────────────────────────────────
     #
-    # Each of these does at most one read or one write per call -- poll()
-    # calls _advance() once per ready client per tick, which is what makes
-    # several transfers progress "a little bit at a time" instead of one
-    # running to completion while the rest wait. c.deadline is refreshed on
-    # every unit of progress rather than being a single upfront budget for
-    # the whole transfer, mirroring the old blocking code's per-call
-    # settimeout() (each read/write got its own SOCK_*_TIMEOUT_S, not the
-    # transfer as a whole) -- a client that is still moving bytes, however
-    # slowly, is never dropped just for taking a while.
+    # Each step does at most one read or write. c.deadline is refreshed on
+    # every unit of progress, so a slow client that is still moving bytes
+    # is not dropped.
 
     def _step_req(self, c):
-        """Accumulate the opening frame until _parse_request() can read it.
-
-        Reads only the bytes the parser says are still missing, so this can
-        never swallow the ack that comes later on the same socket.
-        """
+        """Read the request frame, only as many bytes as the parser needs."""
         result = _parse_request(c.inbuf)
         if isinstance(result, int):
             part = c.sock.read(result)
@@ -707,21 +578,12 @@ class CodeServer:
         self._resolve_request(c, slug, role)
 
     def _resolve_request(self, c, requested, role):
-        """requested == '' means "serve whatever is active" (see _step_req).
-
-        This is where a client's own file is chosen, per client: the result
-        goes onto the _Client record, never onto self, so a second device
-        asking for a different game (or the same game as a different role)
-        cannot redirect this one's in-flight transfer.
-        """
+        """Choose this client's file; requested '' = active game."""
         c.role = role
         result = self._lookup(requested or None, role)
         c.deadline = ticks_add(ticks_ms(), SOCK_REPLY_TIMEOUT_S * 1000)
         if result is None:
-            # Unknown slug, nothing active, or a role this device has no file
-            # for. Say so plainly with a zero size rather than dropping the
-            # connection, so the requester can show a real error instead of
-            # waiting out its socket timeout.
+            # Nothing to serve: send the 4-byte zero-size refusal.
             c.outbuf = (0).to_bytes(4, 'big')
             c.outpos = 0
             c.refusing = True
@@ -732,16 +594,10 @@ class CodeServer:
         self._begin_file(c, src_path, dest_name)
 
     def _begin_file(self, c, src_path, dest_name):
-        """Queue one file's header and move the client into _S_HDR.
+        """Queue a file header (game or icon) and enter _S_HDR.
 
-        Shared by the game file and every icon, so the two legs cannot drift
-        apart on framing.
-
-        A file that cannot be sized or named ends the client, because the
-        requester has already been told how many icons to expect and would
-        otherwise wait out its timeout for a header that is never coming.
-        The outcome reported is c.game_ok: if the game file itself already
-        landed, a vanished icon costs a picture, not the game.
+        A file that cannot be sized or named finishes the client with
+        c.game_ok.
         """
         name_bytes = dest_name.encode('utf-8')
         if len(name_bytes) > 255:
@@ -800,17 +656,11 @@ class CodeServer:
                 return
             want = min(CHUNK, c.size - c.sent)
             if c.chunkbuf is None:
-                # One buffer per client, reused for every chunk of every
-                # file it takes (game, then each icon). Allocating a fresh
-                # bytearray per chunk put a 512-byte request on the hottest
-                # path of a device that already defers accepts below
-                # MIN_FREE_ACCEPT; a slow client spans far more of that
-                # churn than a fast one.
+                # One buffer per client, reused for every chunk and file.
                 c.chunkbuf = bytearray(CHUNK)
             n = c.fh.readinto(memoryview(c.chunkbuf)[:want])
             if not n:
-                # File shrank/vanished under us mid-serve -- treat like any
-                # other mid-transfer failure.
+                # File shrank or vanished mid-serve.
                 self._finish(c, False)
                 return
             c.outbuf = c.chunkbuf
@@ -827,20 +677,15 @@ class CodeServer:
             c.outbuf = None
 
     def _step_ack(self, c):
-        """Read one file's 2-byte ack, then decide what this client gets next.
-
-        The game file's ack either ends the client or opens the icon leg; an
-        icon's ack moves to the next icon. A failed icon is printed and the
-        leg carries on -- the game is already on the device by then.
+        """Read a 2-byte ack. After the game file: finish, or start the icon
+        leg. After an icon: next icon. A NO on an icon is printed only.
         """
         remaining = 2 - len(c.inbuf)
         part = c.sock.read(remaining)
         if part is None:
             return
         if not part:
-            # Peer closed mid-ack. game_ok is still False unless the game
-            # file was already acked, so this reports the game's outcome
-            # whichever leg we were in.
+            # Peer closed mid-ack: report the game's result.
             self._finish(c, c.game_ok)
             return
         c.inbuf.extend(part)
@@ -893,11 +738,7 @@ class CodeServer:
         self._begin_file(c, icons_dir_for(c.slug) + '/' + name, name)
 
     def _icon_files(self, slug):
-        """The .py files in this game's icon directory, sorted, capped.
-
-        Empty when the game has no icons or the directory was never written,
-        which is the normal case -- the leg then costs one zero byte.
-        """
+        """Sorted .py names in the game's icon directory, up to MAX_ICONS."""
         try:
             names = sorted(n for n in os.listdir(icons_dir_for(slug))
                            if n.endswith('.py'))
