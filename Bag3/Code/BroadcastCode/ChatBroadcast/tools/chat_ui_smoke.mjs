@@ -10,7 +10,7 @@
  * leaves the editor unchanged; Advanced mode adds the addendum block.
  *
  * Needs Playwright (global install is fine) and Chromium. From
- * ChatBroadcast/:   NODE_PATH=$(npm root -g) node tools/chat_ui_smoke.mjs
+ * ChatBroadcast/:   NODE_PATH=$(npm root -g) node tools/chat_ui_smoke.mjs [--screenshot DIR]
  * Exits non-zero on the first failure.
  */
 import { createServer } from "node:http";
@@ -28,6 +28,8 @@ const SERVE_ROOT = resolve(HERE, "../../..");          // Bag3/Code
 const PAGE = "/BroadcastCode/ChatBroadcast/index.html";
 const PASS = "testpass";
 const FAKE_KEY = "sk-ant-smoke-test-key";
+const shotArg = process.argv.indexOf("--screenshot");
+const SHOT_DIR = shotArg >= 0 ? process.argv[shotArg + 1] : null;
 
 const MIME = { ".html": "text/html", ".js": "text/javascript", ".mjs": "text/javascript",
                ".css": "text/css", ".md": "text/markdown", ".json": "application/json",
@@ -106,11 +108,13 @@ const REPLIES = [
     `**Every wand glows red.**\n\n### How to play\n1. Tap the game card.\n\n[DEVICE: wand]\n\`\`\`python\n${GAME}\n\`\`\`\n[GAME_NAME: Red Flash]\n[CHOICES: "Make it blink", "Add a sound"]`,
     `Change the color line to \`leds.fill(BLUE)\`:\n\n\`\`\`python\nleds.fill(BLUE)\n\`\`\``,
     `Advanced reply.`,
+    `**A guided game.**`,
 ];
 
 const requests = [];
 const browser = await chromium.launch();
-const page = await browser.newPage();
+const page = await browser.newPage({ viewport: { width: 1280, height: 860 } });
+async function shot(name) { if (SHOT_DIR) await page.screenshot({ path: `${SHOT_DIR}/${name}.png` }); }
 const pageErrors = [];
 page.on("pageerror", e => pageErrors.push(e.message));
 
@@ -149,6 +153,13 @@ await test("page has no errors after load", () => {
     assert.deepEqual(pageErrors, []);
 });
 
+await shot("1-starter-chips");
+await test("starter chips: guided chip plus four ideas, one beyond the wand", async () => {
+    const chips = await page.$$eval(".starter-chips .starter-chip", els => els.map(e => e.textContent.trim()));
+    assert.equal(chips.length, 5);
+    assert.equal(chips[0], "Help me make a game");
+});
+
 await test("first reply: complete game lands in the editor, markers hidden, chips shown", async () => {
     await send("Make every wand glow red");
     const r = requests[0];
@@ -166,6 +177,7 @@ await test("first reply: complete game lands in the editor, markers hidden, chip
     assert.deepEqual(chips, ["Make it blink", "Add a sound"]);
 });
 
+await shot("2-game-reply");
 await test("second request carries the editor code; snippet leaves the editor unchanged", async () => {
     await send("How do I make it blue?");
     const r = requests[1];
@@ -184,6 +196,21 @@ await test("Advanced mode adds the addendum block", async () => {
     const r = requests[2];
     assert.equal(r.body.system.length, 3);
     assert.ok(r.body.system[1].text.includes("# Advanced mode"));
+});
+
+await test("guided mode: three instant steps, then one composed request", async () => {
+    const before = requests.length;
+    await page.click("#btn-guided");
+    await shot("3-guided-step");
+    for (const label of ["Wands and the big display", "Tap a card", "Lights and colors"]) {
+        assert.equal(requests.length, before, "no model call during the steps");
+        await page.click(`.guided-card .starter-chip:text-is("${label}")`);
+    }
+    await page.waitForTimeout(600);
+    assert.equal(requests.length, before + 1);
+    const last = requests.at(-1).body.messages.at(-1).content;
+    assert.ok(last.startsWith("Make a simple game for my kindergarten class using wands and the icon display."), last);
+    assert.equal(await page.$(".guided-card"), null, "card removed after the last step");
 });
 
 await test("no page errors during the run", () => {

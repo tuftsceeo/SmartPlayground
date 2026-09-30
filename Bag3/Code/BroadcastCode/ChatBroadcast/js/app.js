@@ -9,6 +9,7 @@ import {
 } from './prompt/buildRequest.js';
 import { readMessageStream } from './prompt/stream.js';
 import { renderMarkdown } from './markdown.js';
+import { drawStarterIdeas, GUIDED_STEPS, guidedPrompt } from './starterIdeas.js';
 import {
     initEditor, getCode, setCode, saveVersion, updateVersionUI,
     onPrevVersion, onNextVersion, getVersionCount, onDownload, resetEditor,
@@ -75,23 +76,6 @@ const IDENTIFY_NUDGE_MS = 2500;
 
 /** Minimum interval between redraws of a streaming chat reply. */
 const STREAM_RENDER_MS = 80;
-
-/**
- * Starter chips shown above the first chat message. Deliberately simpler
- * and shorter than the gallery EXAMPLES (melody, freeze dance, etc.) --
- * a teacher who wants those already knows to open the Examples page. These
- * exist to get a first-time, novice user typing at all: one or two of the
- * smallest possible game asks, plus a couple of plain questions about what
- * the wand can even do, since "what are my options" is often the real
- * first question, not a game idea yet.
- */
-const CHAT_STARTER_PROMPTS = [
-    { icon: 'palette', text: 'Flash the lights blue five times when the button is pressed' },
-    { icon: 'shakePhone', text: 'Play notes based on the orientation of the wand' },
-    { icon: 'message-circle', text: 'Tell me what sorts of outputs are available' },
-    { icon: 'grid-3x3', text: 'What can I show on the LED screen?' },
-    { icon: 'message-circle', text: 'Tell me what sorts of sensors and inputs are available' },
-];
 
 /** Same placeholder-and-play() check the editor's code drawer uses to
  * decide there's real code worth doing anything with. */
@@ -1003,6 +987,7 @@ class App {
         document.getElementById('btn-remix').addEventListener('click', () => this.remixCurrentExample());
         document.getElementById('btn-use-as-is').addEventListener('click', () => this.useExampleAsIs());
         document.getElementById('btn-send').addEventListener('click', () => this.onSend());
+        document.getElementById('btn-guided').addEventListener('click', () => this.startGuidedMode());
         document.getElementById('btn-show-code').addEventListener('click', () => {
             // Both drawers own the same right edge, so opening one closes the other.
             this.closeIconDrawer();
@@ -1608,6 +1593,49 @@ class App {
         box.scrollTop = box.scrollHeight;
     }
 
+    /**
+     * Guided mode: the GUIDED_STEPS questions as tap-to-answer cards in the
+     * chat, answered instantly in the app; the answers are then sent as one
+     * request (starterIdeas.js guidedPrompt).
+     */
+    startGuidedMode() {
+        if (this.isGenerating) return;
+        const box = document.getElementById('chat-box');
+        box.querySelector('.starter-chips')?.remove();
+        box.querySelectorAll('.guided-card, .choice-chips').forEach(el => el.remove());
+        const answers = [];
+        const card = document.createElement('div');
+        card.className = 'guided-card';
+        box.appendChild(card);
+        const showStep = (i) => {
+            if (i === GUIDED_STEPS.length) {
+                card.remove();
+                document.getElementById('user-input').value = guidedPrompt(answers);
+                this.onSend();
+                return;
+            }
+            const step = GUIDED_STEPS[i];
+            card.innerHTML = '';
+            const q = document.createElement('div');
+            q.className = 'msg system';
+            q.textContent = `${step.question} (${i + 1} of ${GUIDED_STEPS.length})`;
+            card.appendChild(q);
+            const row = document.createElement('div');
+            row.className = 'choice-chips';
+            for (const opt of step.options) {
+                const chip = document.createElement('button');
+                chip.type = 'button';
+                chip.className = 'starter-chip';
+                chip.textContent = opt.label;
+                chip.addEventListener('click', () => { answers[i] = opt; showStep(i + 1); });
+                row.appendChild(chip);
+            }
+            card.appendChild(row);
+            box.scrollTop = box.scrollHeight;
+        };
+        showStep(0);
+    }
+
     renderStarterChips() {
         const box = document.getElementById('chat-box');
         if (box.querySelector('.starter-chips')) return;
@@ -1619,9 +1647,15 @@ class App {
         // wrap.remove() left this line behind permanently.
         const intro = document.createElement('div');
         intro.className = 'msg system';
-        intro.textContent = 'Try one of these ideas — tap a chip to fill the box, then edit and send:';
+        intro.textContent = 'Tap “Help me make a game” to choose step by step, or tap an idea to fill the box, then edit and send:';
         wrap.appendChild(intro);
-        CHAT_STARTER_PROMPTS.forEach((sp) => {
+        const guided = document.createElement('button');
+        guided.type = 'button';
+        guided.className = 'starter-chip starter-chip-guided';
+        guided.innerHTML = `${iconSvg('sparkles', { size: 14 })} <span>Help me make a game</span>`;
+        guided.addEventListener('click', () => this.startGuidedMode());
+        wrap.appendChild(guided);
+        drawStarterIdeas(4).forEach((sp) => {
             const chip = document.createElement('button');
             chip.type = 'button';
             chip.className = 'starter-chip';

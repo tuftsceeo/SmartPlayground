@@ -22,6 +22,8 @@ import { readMessageStream } from "../js/prompt/stream.js";
 import { extractCodeBlocks, parseChoices, stripAllMarkers, parseNfcCards, parseGameName } from "../js/chat.js";
 import { validateGameSignature, validateGameCode, MAX_WAND_GAME_BYTES } from "../js/upload.js";
 import { listSplatActions } from "../js/splat/splatActionCheck.js";
+import { drawStarterIdeas, STARTER_IDEAS, GUIDED_STEPS, guidedPrompt } from "../js/starterIdeas.js";
+import { ROLES } from "../js/roles.js";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 let passed = 0;
@@ -161,6 +163,24 @@ await test("markers parse and strip", () => {
     const blocks = extractCodeBlocks(reply);
     assert.equal(blocks.length, 1);
     assert.equal(blocks[0].role, "wand");
+});
+
+await test("starter draws always include a non-wand idea; ideas name real roles", () => {
+    const keys = new Set(ROLES.map(r => r.key));
+    for (const idea of STARTER_IDEAS) for (const r of idea.roles) assert.ok(keys.has(r), `${idea.text}: ${r}`);
+    let seed = 1;
+    const rand = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+    for (let i = 0; i < 500; i++) {
+        const d = drawStarterIdeas(4, rand);
+        assert.equal(d.length, 4);
+        assert.equal(new Set(d).size, 4);
+        assert.ok(d.some(x => x.roles.some(r => r !== "wand")));
+    }
+});
+
+await test("guided prompt uses every answer", () => {
+    const p = guidedPrompt(GUIDED_STEPS.map(s => s.options[1]));
+    for (const s of GUIDED_STEPS) assert.ok(p.includes(s.options[1].says));
 });
 
 console.log(`\n${passed} checks passed`);

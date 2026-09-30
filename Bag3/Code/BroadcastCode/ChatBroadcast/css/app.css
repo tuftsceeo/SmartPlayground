@@ -815,6 +815,28 @@ body.ui-advanced #app-shell {
     justify-content: center;
 }
 
+.btn-guided {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    background: #fff;
+    color: var(--ink);
+    border: 1.5px solid var(--border);
+    cursor: pointer;
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.starter-chip-guided {
+    border-color: var(--pink);
+}
+.guided-card {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
 .ws-resizer {
     flex: none;
     width: 10px;
