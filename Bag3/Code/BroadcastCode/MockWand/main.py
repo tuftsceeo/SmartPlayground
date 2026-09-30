@@ -29,7 +29,7 @@ from leds import (
     Leds, TRIGGER_ORDER, battery_color, WHITE, OFF,
     SHAPE_CHECK, SHAPE_X, RED, GREEN, AMBER, CYAN, BLUE_DIM,
     # GAME_ICON palette/shapes (loading indicator, see below).
-    PURPLE, ORANGE, LIME, SKY, TEAL, MAGENTA, PINK, ROSE, INDIGO,
+    PURPLE, ORANGE, LIME, SKY, TEAL, MAGENTA, PINK, ROSE, INDIGO, YELLOW,
     SHAPE_BULLSEYE, SHAPE_INNER_3x3, SHAPE_FLAME, SHAPE_MUSIC,
     SHAPE_ARROW_UP, SHAPE_ROW3, SHAPE_SPIRAL, SHAPE_SLASH_L, SHAPE_WIFI,
     SHAPE_WIFI_2, BLUE, ORANGE,
@@ -90,6 +90,8 @@ GAME_MODULES = {
     # Two-device game: this is the wand half. The icon display runs its own
     # goalrace.py, a different program that happens to play the same game.
     "goalrace":       "goalrace",
+    # Two-device game: wand half; the Splat Companion runs its splatecho.py.
+    "splatecho":      "splatecho",
     # Hidden (ESP-NOW only, never NFC): targeted identify animation.
     "finddevice":     "finddevice",
 }
@@ -218,6 +220,7 @@ GAME_ICON = {
     "multiicecream":  (SHAPE_DIAMOND,    ROSE),
     "gestures":       (SHAPE_POINTER,    INDIGO),
     "goalrace":       (SHAPE_FASTFORWARD, LIME),
+    "splatecho":      (SHAPE_DIAMOND,    YELLOW),
     "finddevice":     (SHAPE_EXCLAIM,    WHITE),
 }
 
