@@ -33,8 +33,9 @@ UART1 at 921600 baud. At boot the modem prints
 - **Pins:** UART TX/RX are GPIO16/17 (the proof of concept's C6 branch
   used GPIO0/1).
 - **Ring:** `RING_SLOTS = 64` (no PSRAM).
-- **Antenna:** the u.FL antenna select (GPIO3/14) always runs;
-  `MODEM_EXTERNAL_ANTENNA = True` is UNVERIFIED for this board.
+- **Antenna:** the antenna select (GPIO3/14) always runs;
+  `MODEM_EXTERNAL_ANTENNA = False` selects the onboard antenna. This
+  station's modem board has no u.FL antenna fitted.
 
 Everything else, including `lib/`, is the proof of concept's code
 unchanged; `lib/` is byte-checked by `../Companion/test_splat_companion.py`.

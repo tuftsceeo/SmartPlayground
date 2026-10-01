@@ -19,10 +19,10 @@ import espnow
 ESPNOW_RXBUF = 8192          # driver buffer; default 526 B holds ~2 messages
 BROADCAST_MAC = b'\xFF\xFF\xFF\xFF\xFF\xFF'
 
-# XIAO C6 u.FL external antenna switch; see MockWand's espnow_manager.py
-# _configure_antenna() for the GPIO3/14 rationale. UNVERIFIED which state
-# this station's board needs.
-MODEM_EXTERNAL_ANTENNA = True
+# XIAO C6 antenna switch (GPIO3/14; see MockWand's espnow_manager.py
+# _configure_antenna()). This station's modem board has no u.FL antenna
+# fitted, so the onboard antenna is selected.
+MODEM_EXTERNAL_ANTENNA = False
 
 
 def _configure_antenna():

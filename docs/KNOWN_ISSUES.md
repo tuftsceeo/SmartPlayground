@@ -286,9 +286,10 @@ Results and logs:
 
 ### Latent bugs
 
-- **ESP-NOW broadcasts are not delivered reliably.** In a link test, 2–10% of hub broadcasts
-  were not received by each wand, with receive-buffer drops at 0. A game that waits on one
-  broadcast can deadlock. `splatecho` now uses ACKed unicast. Other two-device games that rely on
+- **ESP-NOW broadcasts are not ACKed or retried.** With the Splat modem on its external antenna
+  path and no antenna fitted, 2–10% of hub broadcasts were not received by each wand. With the
+  onboard antenna selected (2026-10-01), 0 of 1800 were lost. A game that waits on one broadcast
+  can deadlock on any loss. `splatecho` uses ACKed unicast; other two-device games that rely on
   single broadcasts have not been checked.
 - **`send_to()` does not report whether the peer ACKed.**
   - `Bag3/Code/BroadcastCode/MockWand/lib/espnow_manager.py` discards the return value of
@@ -347,10 +348,28 @@ Results and logs:
   `test_driver_short_tap_release_not_lost`** (`assert o.splat_pressed`, line 570), at `bf37b81`
   and with this change. The tests after it do not run.
 
-### Deployment state
+### Diagnostics
 
-- **The boards used on 2026-09-30 do not hold the committed `splatecho` code.**
-  - The hub has the first unicast build.
-  - The wands have a later build with the pattern-length add handshake. That handshake answers a
-    new add request with an old step after a round resets the pattern.
 - **The `DIAGNOSTIC` logging in both `splatecho.py` halves is still enabled.**
+
+## 2026-10-01 (Splat Companion antenna)
+
+Neither the hub nor the modem board has a u.FL antenna fitted. Measurements are in
+`Bag3/Code/BroadcastCode/docs_and_design/2026-09-30-splatecho-logs/07_*` and `08_*`.
+
+### Fixed in `SplatCompanion/`
+
+- **Modem:** `MODEM_EXTERNAL_ANTENNA = False`. Wand RSSI went from −65 to −74 dBm to −22 to
+  −28 dBm, and broadcast loss to 0 of 300 per condition.
+- **Hub:** `boot.py` now drives GPIO3 = 0 and GPIO14 = 0 before BLE starts. Before that, nothing
+  drove them (GPIO3 read 1), and Splat RSSI at the hub was −76 to −87 dBm; with onboard selected
+  it is −61 to −69 dBm.
+- **Hub `code_puller.py`:** the `EXTERNAL_ANTENNA` fallback is `False`.
+
+### Open
+
+- **Proof-of-concept modem:** `Bag3/Code/BroadcastCode/EspnowModem/modem/main.py` now defaults
+  to `MODEM_EXTERNAL_ANTENNA = False`. Boards already flashed with it keep the old value until
+  reflashed. `EspnowModem/MockWandEUM/` is a wand build and keeps `EXTERNAL_ANTENNA = True`.
+- **Missing Splat lights and sounds on failed rounds** (user report, run 06, with the hub on the
+  undriven antenna switch): not retested since `boot.py` selects onboard.

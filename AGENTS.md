@@ -10,6 +10,10 @@ M5Stack) plus static web tools. Small team, weekly iteration.
 - Shipped style, across all targets: f-strings are used throughout — don't "fix" them. No type
   annotations, and no `typing` / `dataclasses` / `pathlib` / `logging`.
 - Any loop doing serial I/O needs a `time.sleep_ms(1)` unconditional sleep every iteration.
+- **ESP32-C6 (XIAO): default to the onboard antenna.** GPIO3 = 0 enables the RF switch and
+  GPIO14 selects onboard (0) or external (1); the switch carries both WiFi/ESP-NOW and BLE. Only
+  the wand prototypes have u.FL antennas fitted. Ask before selecting external on any other board.
+  Each board's code has its own setting (e.g. `EXTERNAL_ANTENNA`, `MODEM_EXTERNAL_ANTENNA`).
 - **Nothing may allocate before the radio claims its memory.** WiFi/ESP-NOW bring-up needs one
   large *contiguous* block of IDF DRAM and must take it first thing on boot; nothing later can
   un-fragment the heap enough to find it again. `gc.mem_free()` does not measure this — the failure

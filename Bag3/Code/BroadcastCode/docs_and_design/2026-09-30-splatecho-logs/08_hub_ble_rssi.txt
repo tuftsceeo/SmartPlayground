@@ -1,0 +1,9 @@
+# 08 Splat advertisement RSSI at the hub (08_hub_ble_rssi.py): count, avg, min dBm per Splat
+## before boot.py antenna select
+PINS before: gpio3 1 gpio14 0
+SCAN default {'5dd0': (28, -76, -78), '5e40': (29, -78, -79), '2060': (25, -87, -91), '6d27': (27, -78, -79)}
+SCAN onboard {'5dd0': (25, -62, -68), '5e40': (26, -66, -87), '2060': (23, -67, -73), '6d27': (26, -61, -65)}
+SCAN external {'5dd0': (28, -86, -87), '2060': (17, -91, -92), '5e40': (22, -95, -98), '6d27': (27, -87, -89)}
+## after boot.py antenna select
+PINS before: gpio3 0 gpio14 0
+SCAN default {'5dd0': (21, -67, -69), '5e40': (17, -68, -71), '2060': (22, -64, -66), '6d27': (28, -61, -61)}

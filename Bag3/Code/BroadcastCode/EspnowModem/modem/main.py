@@ -20,10 +20,11 @@ import espnow
 ESPNOW_RXBUF = 8192          # driver buffer; default 526 B holds ~2 messages
 BROADCAST_MAC = b'\xFF\xFF\xFF\xFF\xFF\xFF'
 
-# u.FL external antenna switch (ESP32-C6 only); see espnow_manager.py's
+# Antenna switch (ESP32-C6 only); see espnow_manager.py's
 # _configure_antenna() docstring on MockWand for the GPIO3/14 rationale.
-# No-op on an S3, which has no such switch.
-MODEM_EXTERNAL_ANTENNA = True
+# False selects the onboard antenna; modem boards have no u.FL antenna
+# fitted. No-op on an S3, which has no such switch.
+MODEM_EXTERNAL_ANTENNA = False
 
 
 def _is_esp32c6():
