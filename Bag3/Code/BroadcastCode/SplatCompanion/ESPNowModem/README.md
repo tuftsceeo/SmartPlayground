@@ -42,7 +42,6 @@ unchanged; `lib/` is byte-checked by `../Companion/test_splat_companion.py`.
 
 ## Not verified on hardware
 
-- The UART link at 921600 over these pins.
 - UART0 boot-log noise on GPIO16/17 at reset. EUM frames are CRC-checked,
   so it should show only as `crc_err` counts; see the hub's
   `bench/1_modem_link.py`.

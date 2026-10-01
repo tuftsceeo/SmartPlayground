@@ -14,6 +14,8 @@ SPLAT <-[BLE]-> Companion (hub) <-[UART]-> ESPNowModem <-[ESP-NOW]-> playground
 
 Both boards run plain MicroPython; files go to `/` and `/lib/`.
 
+Writing a game for this station: [SPLAT_GAME_AUTHORING_GUIDE.md](SPLAT_GAME_AUTHORING_GUIDE.md).
+
 ## Wiring between the boards
 
 | Hub | Modem |

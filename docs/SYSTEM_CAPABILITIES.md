@@ -290,7 +290,7 @@ Bell Choir, Shake, Jump, Ice Cream, Gestures, and the others) and adds:
 - **Team Goal Race.** Children join the green or blue team and race to tap the goal card. The Icon
   Display shows the winning team's icon.
 - **Splat Echo.** A two-player Simon game: the Splat pads play a pattern, the player repeats it,
-  then adds a step using their Wand. Players take turns.
+  then adds a step by tilting their Wand or pressing a pad. Players take turns.
 
 **Icon Display games:**
 
@@ -319,9 +319,9 @@ Bag 3 is a prototype, so these items are expected at this stage:
 - **Wireless game download** sometimes fails, especially with several Broadcast devices in one room.
 - **Very large AI-generated games** can be too big to load on a Wand, and the app does not yet warn
   about this.
-- **Splat Companion:** tested with 1 and 2 pads only. Downloading Splat games wirelessly and using
-  3–4 pads have not been tested on hardware yet.
-- **Splat Echo:** a fix for Wands freezing mid-game was written but has not run on hardware yet.
+- **Splat Companion:** tested with 1, 2 and 4 pads. Downloading Splat games wirelessly and using
+  3 pads have not been tested on hardware yet.
+- **Splat Echo:** a Wand that restarts during a game cannot rejoin it; restart the game.
 - **Icon Display:** only the Goal Race game has been proven end to end. It does not yet respond to
   a "stop" command, and its own card reader has not been tested on hardware.
 - **Broadcast Box:** writing an NFC card replaces what was on it without asking first.

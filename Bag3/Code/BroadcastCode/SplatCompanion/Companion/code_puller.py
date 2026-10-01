@@ -5,8 +5,7 @@ The Splat Companion's copy. Identical in wire behaviour to MockWand's;
 main.py is what differs, passing hubtype="splat_companion".
 
 Calls enow.shutdown() before WiFi connect. See EXTERNAL_ANTENNA below for
-the GPIO 3/14 antenna switch. UNVERIFIED which state matches this board --
-kept at the wand's default (external) until checked on hardware.
+the GPIO 3/14 antenna switch; this board selects the onboard antenna.
 """
 
 import gc
