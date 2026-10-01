@@ -77,6 +77,7 @@ This is the hub board of the two-board station; see `../README.md`.
 | `lib/splat_tags.py` | `GAME_TAGS = {"splatwhack"}`, `CONTROL_TAGS = {"stop", "getcode"}`, `EXIT_TAGS`, `exit_tags_excluding()` |
 | `lib/espnow_manager.py`, `lib/eum_proto.py` | Byte copies of `../../EspnowModem/host/lib/` |
 | `lib/ble_splat.py` | Byte copy of `Bag3/Code/lib/ble_splat.py` (checked by `test_copies_match`) |
+| `lib/buzzer.py` | PEER copy of `MockWand/lib/buzzer.py`, unchanged. The piezo is on GPIO19 (`buzzer_pin`); `play()` does not receive it, so a game builds `Buzzer(HUB_CONFIG["buzzer_pin"])` itself |
 | `test_splat_companion.py` | CPython simulation (reuses `../../EspnowModem/tests/test_sim.py`'s modem/host harness plus a fake BLE Splat) |
 
 `../../tools/devtests/boot_splat.py` boots `main.py` under stubs (dispatch
@@ -178,7 +179,7 @@ off by default; set it in `lib/hubtype.py`'s `splat_companion` entry:
 
 | Key | Default | Meaning |
 |---|---|---|
-| `max_splats` | `1` | Splats to connect, 1 to `splat_hub.BLE_MAX_CONNECTIONS` (4) |
+| `max_splats` | `4` | Splats to connect, 1 to `splat_hub.BLE_MAX_CONNECTIONS` (4). A game unit whose Splat is not found cannot be pressed |
 | `splat_macs` | `None` | `None`: the first `max_splats` Splats found by name. A list of MAC strings pins specific Splats and their order (`unit(0)`, `unit(1)`, ...); its length is the count |
 
 - **Limit:** 4, the stock MicroPython ESP32 build's

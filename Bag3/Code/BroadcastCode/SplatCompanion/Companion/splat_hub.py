@@ -22,7 +22,7 @@ Discover, then connect:
 The connection count is capped at BLE_MAX_CONNECTIONS, the stock
 MicroPython ESP32 build's CONFIG_BT_NIMBLE_MAX_CONNECTIONS (4, in
 ports/esp32/boards/sdkconfig.ble). A firmware built with a larger value
-can raise it here. Run on hardware with 1 and 2 Splats; 3 and 4 untested.
+can raise it here. Run on hardware with 1, 2 and 4 Splats; 3 untested.
 """
 
 import time

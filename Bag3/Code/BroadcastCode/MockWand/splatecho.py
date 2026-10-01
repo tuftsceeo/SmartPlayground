@@ -8,14 +8,18 @@ turns, playback, checking and scores. See that file for the rules.
 This wand:
   joins     sends echo_hello every HELLO_MS until the hub answers with
             echo_you (its player number); blinks dim white until then
-  identity  player 0 is cyan, player 1 is orange
-  turn      own turn: steady player color and a chirp -- watch the Splats
-            play the pattern; other player's turn: dim player color
-  repeat    green when the hub is ready for the repeat (echo_repeat_now) --
-            press the Splats now; each correct press: a short beep
-  add       when the hub asks (echo_add_now): tilt to pick a Splat
-            (forward = 0, right = 1, back = 2, left = 3; the LEDs show its
-            color, flat shows the player color), press to add it. The hub
+  identity  the player number is logged; wand icons do not use player colors
+  icons     each phase has its own icon on the wand whose turn it is; the
+            other player's wand shows a dim hourglass in every phase:
+              watch   hourglass, white, and a chirp (echo_turn)
+              play    play arrow, green, and a beep (echo_repeat_now) --
+                      press the Splats now; each correct press: a short beep
+              add     plus (echo_add_now), see below
+  add       when the hub asks (echo_add_now): the plus always shows one
+            Splat's color, starting with Splat 0; tilt to pick another
+            (forward = 0, right = 1, back = 2, left = 3; flat keeps the last
+            pick) and press to add the one shown. A Splat press on the hub
+            also adds a step; the hub's echo_added ends add mode either way. The hub
             resends echo_add_now (same "add" id) until it has the step; a
             resend for an id already answered sends the same echo_add again
   result    whoever won the round (a full repeat, or the other player's
@@ -46,6 +50,7 @@ from machine import Pin
 from nfc_reader import read_tag_command
 from game_tags import exit_tags_excluding
 from leds import RED, BLUE, YELLOW, PURPLE, GREEN, WHITE_DIM, OFF
+from leds import SHAPE_HOURGLASS, SHAPE_PLAY, SHAPE_PLUS
 
 _EXIT_TAGS = exit_tags_excluding("splatecho")
 
@@ -67,8 +72,10 @@ SLOW_POLL_MS = 300      # log a gap between polls longer than this
 # Splat unit -> wand color and buzzer tone; same unit order as the hub's.
 UNIT_COLOR = (RED, BLUE, YELLOW, PURPLE)
 UNIT_TONE = (392, 523, 659, 784)
-PLAYER_COLOR = ((0, 180, 240), (200, 80, 0))       # cyan, orange
-PLAYER_DIM = ((0, 20, 30), (25, 10, 0))
+# Icons not tied to a Splat are white, so every other color on the wand is
+# a Splat's color, green (press now) or a result color.
+PLAYER_COLOR = ((150, 150, 150), (150, 150, 150))
+PLAYER_DIM = ((15, 15, 15), (15, 15, 15))
 
 
 class _Log:
@@ -128,7 +135,7 @@ class _Log:
 
 
 RAINBOW_MS = 900
-RAINBOW_LEVEL = 150     # peak channel value, near the player colors'
+RAINBOW_LEVEL = 150     # peak channel value, same as the white icons
 
 
 def _wheel(pos):
@@ -258,6 +265,11 @@ class SplatEchoGame:
             self.log("BUTTON pressed outside add (state=%s)" % self.state)
         self.btn_was = down
 
+    def _icon(self, shape, color):
+        for i in range(NUM_LEDS):
+            self.np[i] = color if i in shape else OFF
+        self.np.write()
+
     def _fill(self, color, n=NUM_LEDS):
         for i in range(NUM_LEDS):
             self.np[i] = color if i < n else OFF
@@ -327,7 +339,7 @@ class SplatEchoGame:
                 self._fill(WHITE_DIM if blink else OFF)
                 next_hello = time.ticks_add(now, HELLO_MS)
             time.sleep_ms(LOOP_DELAY_MS)
-        self._fill(PLAYER_DIM[self.me])
+        self._icon(SHAPE_HOURGLASS, PLAYER_DIM[self.me])
         return True
 
     def add_step(self, add_id):
@@ -336,23 +348,27 @@ class SplatEchoGame:
         print("  splatecho: your turn to add a step")
         self._set_state("add")
         t_add = time.ticks_ms()
-        shown = -1
+        unit = 0
+        self._icon(SHAPE_PLUS, UNIT_COLOR[unit])
         was_down = self.btn.value() == 0
         while True:
-            kind, _ = self._poll()
+            kind, data = self._poll()
             if kind == "exit":
                 return False
+            if kind == "echo_added" and data.get("add") == add_id:
+                # Added on the hub (a Splat press) before this wand sent one.
+                self.added = (add_id, data.get("unit"))
+                self._icon(SHAPE_HOURGLASS, PLAYER_DIM[self.me])
+                self._set_state("added on hub, waiting")
+                return True
             if kind is not None and kind != "echo_add_now":
                 self.log("  %s ignored while adding" % kind)
-            unit = _pick(self.accel)
-            if unit != shown:
-                self._fill(UNIT_COLOR[unit] if unit is not None else PLAYER_COLOR[self.me])
-                shown = unit
+            tilt = _pick(self.accel)
+            if tilt is not None and tilt != unit:
+                unit = tilt
+                self._icon(SHAPE_PLUS, UNIT_COLOR[unit])
             down = self.btn.value() == 0
             if down and not was_down:
-                if unit is None:
-                    self.log("BUTTON in add with wand flat -- no step")
-            if down and not was_down and unit is not None:
                 self.adds += 1
                 self.added = (add_id, unit)
                 tries = self._send_hub({"type": "echo_add", "unit": unit, "add": add_id})
@@ -361,7 +377,7 @@ class SplatEchoGame:
                          % (unit, add_id, tries, "" if tries > 0 else " NOT ACKED",
                             time.ticks_diff(time.ticks_ms(), t_add)))
                 self.buz.beep(UNIT_TONE[unit], 150)
-                self._fill(PLAYER_DIM[self.me])
+                self._icon(SHAPE_HOURGLASS, PLAYER_DIM[self.me])
                 self.btn_was = True
                 self._set_state("added, waiting")
                 return True
@@ -405,7 +421,7 @@ class SplatEchoGame:
         if not ok:
             self._fill(PLAYER_COLOR[self.me], n=min(mine, NUM_LEDS))
             time.sleep_ms(SCORE_MS)
-        self._fill(PLAYER_DIM[self.me])
+        self._icon(SHAPE_HOURGLASS, PLAYER_DIM[self.me])
         self.log("RESULT shown ok=%s %s, blocked %d ms"
                  % (ok, outcome, time.ticks_diff(time.ticks_ms(), t)))
 
@@ -423,20 +439,24 @@ class SplatEchoGame:
                 if data.get("player") == self.me:
                     print("  splatecho: my turn (length %d)" % data.get("len", 0))
                     self._set_state("my turn len %s" % data.get("len"))
-                    self._fill(PLAYER_COLOR[self.me])
+                    self._icon(SHAPE_HOURGLASS, PLAYER_COLOR[self.me])
                     self.buz.beep(1047, 80)
                     self.buz.beep(1319, 80)
                 else:
                     self._set_state("other's turn")
-                    self._fill(PLAYER_DIM[self.me])
+                    self._icon(SHAPE_HOURGLASS, PLAYER_DIM[self.me])
             elif kind == "echo_repeat_now":
                 if data.get("player") == self.me:
                     self._set_state("repeat")
-                    self._fill(GREEN)
+                    self._icon(SHAPE_PLAY, GREEN)
                     self.buz.beep(1319, 60)
+                else:
+                    self._icon(SHAPE_HOURGLASS, PLAYER_DIM[self.me])
             elif kind == "echo_step" and data.get("player") == self.me:
                 self.buz.beep(880, 50)
-            elif kind == "echo_add_now" and data.get("player") == self.me:
+            elif kind == "echo_add_now" and data.get("player") != self.me:
+                self._icon(SHAPE_HOURGLASS, PLAYER_DIM[self.me])
+            elif kind == "echo_add_now":
                 add_id = data.get("add")
                 if self.added and self.added[0] == add_id:
                     # The hub asked again for a step already sent: it did

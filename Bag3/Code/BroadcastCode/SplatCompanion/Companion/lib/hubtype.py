@@ -26,15 +26,15 @@ _CONFIGS = {
         "nfc_addr":       0x24,     # PN532 I2C address, same wiring as the wand
         "has_accel":      False,
         "has_battery":    True,
-        "has_buzzer":     False,
+        "has_buzzer":     True,     # piezo on GPIO19 (buzzer_pin)
         "has_motor":      False,
         "has_button":     False,
         "has_ble":        True,
         "uses_ble":       True,     # actively connects to Splats
         # Splats this companion connects to at once, 1 to
         # splat_hub.BLE_MAX_CONNECTIONS (4 on stock MicroPython firmware).
-        # Run on hardware with 1 and 2; see README "Multiple Splats".
-        "max_splats":     1,
+        # Run on hardware with 1, 2 and 4; see README "Multiple Splats".
+        "max_splats":     4,
         # None: take the first max_splats Splats found by BLE name. A list
         # of MAC strings, e.g. ["AB:42:00:00:7E:B6", ...], pins specific
         # Splats and their order (unit 0, 1, ...); its length is the count.
