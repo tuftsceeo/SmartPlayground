@@ -7,7 +7,7 @@ accelerometer here, and the Splats themselves are BLE, not local
 peripherals.
 
 SplatGroup drives every Splat this station is configured for (hubtype.py
-max_splats / splat_macs; 1 by default) through one SplatAPI per Splat:
+max_splats / splat_macs; 4 by default) through one SplatAPI per Splat:
 color/sound/note/play/off act on all of them, poll() reports a press or
 release from any of them with last_index saying which, and unit(i) is one
 Splat's own SplatAPI. With one Splat it behaves exactly as that Splat's

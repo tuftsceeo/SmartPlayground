@@ -31,7 +31,14 @@ address instead of a scan; the address is then kept across failures.
 import errno
 import time
 
+import ble_splat
 from ble_splat import OpenSplat
+
+# Minimum ms between two commands to one Splat, switch reads and keepalives
+# included: a Splat occasionally drops a command that arrives 20-30 ms after
+# the previous one. ble_splat._write_command reads this module global on
+# every write.
+ble_splat._WRITE_PACE_MS = 50
 
 
 CONNECT_TIMEOUT_MS = 20000

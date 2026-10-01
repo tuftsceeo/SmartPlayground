@@ -56,31 +56,16 @@ Neither the hub nor the modem board has a u.FL antenna fitted; the wands do.
 
 - The freeze in run 02 is the add-phase wait. The hub waited for `echo_add` with no timeout, and the wand never received `echo_add_now`.
 - The lost messages were broadcasts that did not arrive at the wand. The wands were not blocked or dropping them: the receive buffer drop count did not change during the game. Broadcast loss in run 04 was 2–10% per wand, with the modem transmitting on its external antenna path and nothing fitted. With the onboard antenna selected, loss in run 07 was 0.
-- The hub's BLE link to the Splats ran 12–20 dB below the onboard-antenna level until `boot.py` selected the antenna. Run 06's missing Splat lights and sounds happened at that level; whether they recur with the onboard antenna has not been tested.
+- The hub's BLE link to the Splats ran 12–20 dB below the onboard-antenna level until `boot.py` selected the antenna. Separately, a Splat can drop a command sent less than 50 ms after the previous one; `splat_link.py` now spaces commands to each Splat 50 ms apart.
 - Run 02 ruled out, for that freeze: Splat presses not registering, Splat link drops, a hub exception, a wand reset, and loss at the hub or modem.
 
-## Changes in `acfffe4`
+## Current code
 
-- **Hub game** (`SplatCompanion/Companion/splatecho.py`):
-  - After joining, every message goes by unicast to each player and is retried up to `SEND_TRIES` times until ACKed.
-  - The add request has a per-request id (`"add"`) and is resent every `ADD_RESEND_MS`. An `echo_add` with another id is ignored.
-  - There is an `ADD_PAUSE_MS` pause after a step is added.
-  - `echo_repeat_now` is sent before a repeat.
-- **Hub ESP-NOW library** (`SplatCompanion/Companion/lib/espnow_manager.py`): `last_acked` records whether the last unicast was ACKed (reply `body[3]`). `send_to()` still returns the modem status.
-- **Wand game** (`MockWand/splatecho.py`):
-  - `echo_add` goes by unicast to the hub, retried until ACKed. A repeat of an answered `"add"` id resends the same step.
-  - Hub messages whose `q` equals the last one are dropped as duplicates.
-  - The wand turns green on `echo_repeat_now`.
-  - The round's winner gets a rainbow and `buz.celebrate()`; the player who missed gets red and `buz.error()`.
-
-## Antenna changes
-
-- `SplatCompanion/ESPNowModem/main.py`: `MODEM_EXTERNAL_ANTENNA = False`.
-- `SplatCompanion/Companion/boot.py` sets GPIO3 = 0, then GPIO14 = 0 (onboard) before `main.py` runs.
-- `SplatCompanion/Companion/code_puller.py`: the `EXTERNAL_ANTENNA` fallback is `False`.
-
-## Not verified on hardware
-
-- Run 05 used a build that keyed the add handshake on pattern length. That length repeats after a round resets the pattern, so a new request matched an old answer. In run 05, wand 101 logged 22 `RESEND echo_add`s. The hub log shows `ADDED unit 0 after ~1.7 s, pattern [0]` repeatedly, with the player not choosing.
-- The per-request id replaced that, and in run 06 every add followed a wand press. `echo_repeat_now`, the rainbow and tunes, and `ADD_PAUSE_MS` ran in run 06.
-- Play with both onboard-antenna changes in place has not been run.
+- **Messaging** (`SplatCompanion/Companion/splatecho.py`, `MockWand/splatecho.py`):
+  - After joining, hub → wand messages are unicast to each player and retried until ACKed (`enow.last_acked`), and wand → hub `echo_add` is sent with an ACK check.
+  - Hub messages carry `q`, and a wand drops a repeated `q`.
+  - Each add request has an `"add"` id and is resent every `ADD_RESEND_MS` until a step arrives, by wand or by Splat press. `echo_added` then ends add mode on the wands.
+- **Hub ESP-NOW library** (`SplatCompanion/Companion/lib/espnow_manager.py`): `last_acked` records the peer ACK from the modem reply (`body[3]`).
+- **Antenna:** `SplatCompanion/ESPNowModem/main.py` and `EspnowModem/modem/main.py` set `MODEM_EXTERNAL_ANTENNA = False`; `Companion/boot.py` selects the onboard antenna before BLE starts; `Companion/code_puller.py` falls back to onboard.
+- **Splat command pacing:** 50 ms per Splat (`Companion/splat_link.py`).
+- **Game state outputs** (wand icons, Splat LED patterns, hub buzzer, timing): [SplatCompanion/SPLAT_GAME_AUTHORING_GUIDE.md](../SplatCompanion/SPLAT_GAME_AUTHORING_GUIDE.md), whose examples are this game.

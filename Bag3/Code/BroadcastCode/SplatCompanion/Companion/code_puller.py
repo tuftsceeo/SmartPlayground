@@ -1,9 +1,11 @@
 """
 code_puller.py — join a Broadcast Box/Dial SoftAP and pull one game file.
 
-Splat Companion copy; same code as MockWand/code_puller.py. main.py passes
-hubtype="splat_companion". The antenna state for this board is unverified
-on hardware; it uses the MockWand default (external).
+The Splat Companion's copy. Identical in wire behaviour to MockWand's;
+main.py is what differs, passing hubtype="splat_companion".
+
+Calls enow.shutdown() before WiFi connect. See EXTERNAL_ANTENNA below for
+the GPIO 3/14 antenna switch; this board selects the onboard antenna.
 """
 
 import gc

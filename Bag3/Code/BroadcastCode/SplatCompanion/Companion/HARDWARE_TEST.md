@@ -70,4 +70,3 @@ You are testing `Bag3/Code/BroadcastCode/SplatCompanion/` on branch `splat-espno
 - every `[ERR]` / `[WARN]` line, with a count
 - open questions for the user, including:
   - Do the note pitches sound right?
-  - Was the pull's antenna behaviour (README's UNVERIFIED note) a problem -- did the join take noticeably longer or fail on a first attempt?

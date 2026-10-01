@@ -304,11 +304,12 @@ Results and logs:
   - Modem `rx_overflow` read 3116, accumulated over the modem's uptime before this session.
 - **A wand that rejoins `splatecho` mid-game receives `echo_you` only.** The hub resends no game
   state except the pending `echo_add_now`.
-- **`splatecho` discards Splat presses outside the repeat phase without feedback.** 14 presses
-  were ignored in one session, during playback, results and adds. `echo_repeat_now`, which turns
-  the repeating wand green, has not run on hardware.
-- **The Splat hub game starts before every Splat is connected.** `intro()` lights units whose
-  links are still connecting, and those writes are skipped.
+- **Resolved: `splatecho` discarded Splat presses outside the repeat phase without feedback.**
+  During add, a Splat press now adds that Splat. In other phases, a press blinks that Splat's
+  outside LEDs red, with a low buzz on the hub buzzer.
+- **Resolved: the Splat hub game started before every Splat was connected.** The lobby now waits
+  up to `SPLAT_WAIT_MS` for every Splat, and a Splat that connects mid-game is set to the current
+  phase's pattern.
 - **`Bag3/.../Companion/lib/ble_splat.py` and `splat_link.py`: from reading the code, not
   reproduced.**
   - The button state is `bool(value & 0x0F)`, so one stuck pad reads as permanently pressed.
@@ -371,5 +372,6 @@ Neither the hub nor the modem board has a u.FL antenna fitted. Measurements are 
 - **Proof-of-concept modem:** `Bag3/Code/BroadcastCode/EspnowModem/modem/main.py` now defaults
   to `MODEM_EXTERNAL_ANTENNA = False`. Boards already flashed with it keep the old value until
   reflashed. `EspnowModem/MockWandEUM/` is a wand build and keeps `EXTERNAL_ANTENNA = True`.
-- **Missing Splat lights and sounds on failed rounds** (user report, run 06, with the hub on the
-  undriven antenna switch): not retested since `boot.py` selects onboard.
+- **Resolved: missing Splat lights and sounds** (user report, run 06). A Splat can drop a
+  command sent 20–30 ms after the previous one. `Companion/splat_link.py` spaces commands to each
+  Splat at least 50 ms apart, and play since then has shown no missing lights or sounds.

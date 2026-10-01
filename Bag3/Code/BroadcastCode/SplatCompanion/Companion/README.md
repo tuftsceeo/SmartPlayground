@@ -70,13 +70,14 @@ This is the hub board of the two-board station; see `../README.md`.
 | `companion_probe.py` | Diagnostics, imported only when `DEBUG_PROBE = True` |
 | `jumpin.py` | Built-in test game: each press blinks the Splat and ring green (the neutral `jumpin` name every Bag3 device answers to) |
 | `splatwhack.py` | Built-in demo game |
-| `code_puller.py`, `pull_flag.py`, `pull_probe.py` | PEER copies of MockWand's (unchanged wire behaviour; `code_puller.py`'s docstring/PEER comment adapted, and it alone owns the antenna select -- see below) |
-| `boot.py` | Docstring only, IconDisplay-style: outputs are built in `main.py`, after BLE |
+| `code_puller.py`, `pull_flag.py`, `pull_probe.py` | PEER copies of MockWand's (unchanged wire behaviour; `code_puller.py`'s docstring/PEER comment adapted; it selects the onboard antenna for a pull) |
+| `boot.py` | Selects the onboard antenna (GPIO3 = 0, GPIO14 = 0) before BLE starts; otherwise IconDisplay-style: outputs are built in `main.py`, after BLE |
 | `lib/game_store.py`, `lib/memprobe.py`, `lib/nfc_reader.py`, `lib/pn532.py`, `lib/max17048.py` | PEER copies of MockWand's / `Bag3/Code/lib`'s, unchanged |
 | `lib/hubtype.py` | This tree's own `splat_companion` entry -- **diverges from the other four copies**, see "Drift" |
 | `lib/splat_tags.py` | `GAME_TAGS = {"splatwhack"}`, `CONTROL_TAGS = {"stop", "getcode"}`, `EXIT_TAGS`, `exit_tags_excluding()` |
 | `lib/espnow_manager.py`, `lib/eum_proto.py` | Byte copies of `../../EspnowModem/host/lib/` |
 | `lib/ble_splat.py` | Byte copy of `Bag3/Code/lib/ble_splat.py` (checked by `test_copies_match`) |
+| `lib/buzzer.py` | PEER copy of `MockWand/lib/buzzer.py`, unchanged. The piezo is on GPIO19 (`buzzer_pin`); `play()` does not receive it, so a game builds `Buzzer(HUB_CONFIG["buzzer_pin"])` itself |
 | `test_splat_companion.py` | CPython simulation (reuses `../../EspnowModem/tests/test_sim.py`'s modem/host harness plus a fake BLE Splat) |
 
 `../../tools/devtests/boot_splat.py` boots `main.py` under stubs (dispatch
@@ -178,7 +179,7 @@ off by default; set it in `lib/hubtype.py`'s `splat_companion` entry:
 
 | Key | Default | Meaning |
 |---|---|---|
-| `max_splats` | `1` | Splats to connect, 1 to `splat_hub.BLE_MAX_CONNECTIONS` (4) |
+| `max_splats` | `4` | Splats to connect, 1 to `splat_hub.BLE_MAX_CONNECTIONS` (4). A game unit whose Splat is not found cannot be pressed |
 | `splat_macs` | `None` | `None`: the first `max_splats` Splats found by name. A list of MAC strings pins specific Splats and their order (`unit(0)`, `unit(1)`, ...); its length is the count |
 
 - **Limit:** 4, the stock MicroPython ESP32 build's
@@ -204,16 +205,17 @@ off by default; set it in `lib/hubtype.py`'s `splat_companion` entry:
   advertise until power-cycled.
 - **Switch every Splat on before the hub boots.** A Splat not found at
   discovery is looked for again only when no Splat is connected.
-- **Write cost:** each BLE write waits up to 20 ms (`_WRITE_PACE_MS` in
-  `ble_splat.py`) per Splat, so `splat.color()` on 4 Splats can hold the
-  loop for about 80 ms. Keepalives are per Splat too.
+- **Write pacing:** a write to a Splat waits until 50 ms after that
+  Splat's previous write (`splat_link.py` sets `ble_splat._WRITE_PACE_MS`);
+  a Splat can drop a command sent sooner. Switch reads and keepalives count
+  as writes. See [../SPLAT_GAME_AUTHORING_GUIDE.md](../SPLAT_GAME_AUTHORING_GUIDE.md).
 - **Status LEDs:** with 2 or 3 Splats, pixel *i* shows Splat *i* (blue
   waiting, cyan ready). With 4, the whole strip is blue until every Splat
   is ready.
 - **Games:** a game must still work with `splat.count == 1` -- the count
   is set per device, and a generated game cannot know it.
-- **Hardware:** 2 Splats connect and hold (`bench/3c_two_links.py`,
-  `jumpin`); 3 and 4 untested (`HARDWARE_TEST.md`, step 9).
+- **Hardware:** 1, 2 and 4 Splats connect and hold (`bench/3c_two_links.py`,
+  `jumpin`, `splatecho`); 3 untested.
 
 ## Messages while idle (`companion.py`)
 
