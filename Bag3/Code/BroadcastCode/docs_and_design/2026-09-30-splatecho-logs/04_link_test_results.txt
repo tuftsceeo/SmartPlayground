@@ -1,0 +1,19 @@
+# 04 link test: 300 numbered broadcasts per condition, hub -> both wands
+## hub (hub_tx.py)
+BURST a/b/c: sent 300 fails 0 each; SPLATS connected 4 after 3787 ms; modem tx_fail unchanged
+## wand101 (wand_rx.py)
+RESULT a got 294 missing 6 rssi avg -65 min -67
+MISS a [27, 45, 148, 207, 269, 295]
+RESULT b got 286 missing 14 rssi avg -66 min -70
+MISS b [33, 50, 54, 81, 110, 168, 179, 201, 240, 266, 269, 274, 287, 291]
+RESULT c got 292 missing 8 rssi avg -66 min -74
+MISS c [4, 22, 37, 152, 160, 183, 191, 229]
+STATS before (15, 15, 0, 23, 0) after (15, 15, 0, 896, 0)
+## wand1101 (wand_rx.py)
+RESULT a got 284 missing 16 rssi avg -69 min -71
+MISS a [27, 39, 82, 91, 119, 131, 148, 152, 183, 194, 197, 222, 239, 269, 279, 282]
+RESULT b got 284 missing 16 rssi avg -69 min -72
+MISS b [13, 33, 44, 48, 126, 131, 159, 164, 201, 205, 247, 259, 271, 274, 285, 290]
+RESULT c got 268 missing 32 rssi avg -69 min -73
+MISS c [2, 3, 4, 22, 23, 24, 25, 27, 36, 37, 44, 54, 58, 76, 102, 111, 115, 154, 160, 183, 191, 195, 208, 232, 240, 249, 259, 276, 278, 282, 283, 297]
+STATS before (8, 8, 0, 24, 0) after (8, 8, 0, 861, 0)

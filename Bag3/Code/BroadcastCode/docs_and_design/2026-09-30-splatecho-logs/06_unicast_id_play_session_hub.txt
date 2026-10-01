@@ -1,0 +1,813 @@
+[   0.0s] # monitor: port opened
+[   0.1s] ESP-ROM:esp32c6-20220919
+[   0.1s] Build:Sep 19 2022
+[   0.1s] rst:0xc (SW_CPU),boot:0x1e (SPI_FAST_FLASH_BOOT)
+[   0.1s] Saved PC:0x4001975a
+[   0.1s] SPIWP:0xee
+[   0.1s] mode:DIO, clock div:2
+[   0.1s] load:0x40875730,len:0xdbc
+[   0.1s] load:0x4086b910,len:0xc50
+[   0.1s] load:0x4086e610,len:0x2e3c
+[   0.1s] entry 0x4086b910
+[   1.4s] [hubtype] splat_companion (12 LEDs)
+[   1.9s] 
+[   1.9s] ==================================================
+[   1.9s]   Splat Companion
+[   1.9s]   Hub type: splat_companion
+[   1.9s] ==================================================
+[   4.2s]   Splats configured: 4
+[   4.2s]   ESPNow(EUM): active (MAC: A0:F2:62:85:A9:9C)
+[   4.3s]   [WARN] Battery:
+[   4.3s] Traceback (most recent call last):
+[   4.3s]   File "main.py", line 504, in main
+[   4.3s]   File "/lib/max17048.py", line 91, in read_all
+[   4.3s]   File "/lib/max17048.py", line 50, in voltage
+[   4.3s]   File "/lib/max17048.py", line 40, in _read_reg16
+[   4.3s] OSError: [Errno 19] ENODEV
+[   4.4s]   PN532 firmware 1.6 (IC 0x32) -- NFC ready
+[   4.4s]   Boot complete
+[   4.4s] 
+[   4.6s] {"hub": "splat_companion", "games": ["jumpin", "splatecho", "splatecho", "splatwhack"], "version": "0.1.0", "device": "splat_companion", "type": "identity"}
+[   4.6s]   Launching just-pulled game: splatecho
+[   5.3s] {"slug": "splatecho", "type": "game_start"}
+[   5.5s]   splatecho: 4 Splat(s); waiting for wands
+[   5.5s]   [echo]     141 START 4 Splat(s); splats: u0:idle p=0/0/0 drops=0 evdrop=0 wfail=0 | u1:idle p=0/0/0 drops=0 evdrop=0 wfail=0 | u2:idle p=0/0/0 drops=0 evdrop=0 wfail=0 | u3:idle p=0/0/0 drops=0 evdrop=0 wfail=0
+[   5.5s]   [echo]     142 PHASE intro
+[   5.5s]   ESPNow: added peer A0:F2:62:87:92:CC
+[   5.5s]   splatecho: player 0 joined (A0:F2:62:87:92:CC)
+[   5.5s]   [echo]     158 JOIN player 0 = A0:F2:62:87:92:CC add_peer=None
+[   5.5s]   [echo]     168 TX echo_you #1 to A0:F2:62:87:92:CC ok=True
+[   5.5s]   SplatHub: discovering (4 Splat(s) wanted)
+[   5.5s]   ESPNow: added peer A0:F2:62:87:B4:30
+[   5.5s]   splatecho: player 1 joined (A0:F2:62:87:B4:30)
+[   5.5s]   [echo]     183 JOIN player 1 = A0:F2:62:87:B4:30 add_peer=None
+[   5.5s]   [echo]     193 TX echo_you #1 to A0:F2:62:87:B4:30 ok=True
+[   5.6s]   [echo]     211 TX echo_you #2 to A0:F2:62:87:92:CC ok=True
+[   5.6s]   [echo]     226 TX echo_you #2 to A0:F2:62:87:B4:30 ok=True
+[   5.6s]   SplatHub: unit 0 -> AB:42:00:00:5D:D0
+[   5.6s]   SplatHub: unit 1 -> AB:42:00:00:5E:40
+[   5.6s]   SplatHub: unit 2 -> AB:42:00:00:20:60
+[   5.6s]   SplatHub: unit 3 -> AB:42:00:00:6D:27
+[   6.4s]   SplatLink: ready, Splat AB:42:00:00:5E:40 (connects=1)
+[   7.6s]   SplatLink: ready, Splat AB:42:00:00:20:60 (connects=1)
+[   7.9s]   [echo]    2565 PHASE lobby
+[   7.9s]   [echo]    2566 PHASE turn p0 len 0
+[   7.9s]   [echo]    2586 TX {'q': 1, 'type': 'echo_turn', 'player': 0, 'len': 0} tries=[1, 1]
+[   7.9s]   splatecho: player 0's turn, length 0
+[   7.9s]   [echo]    2587 PHASE add p0 (len 0)
+[   8.0s]   [echo]    2605 TX {'player': 0, 'len': 0, 'q': 2, 'add': 4669, 'type': 'echo_add_now'} tries=[1, 1]
+[   8.5s]   SplatLink: ready, Splat AB:42:00:00:6D:27 (connects=1)
+[  10.0s]   SplatLink: ready, Splat AB:42:00:00:5D:D0 (connects=1)
+[  18.0s]   [echo]   12651 QUIET 10033 ms: phase=add p0 (len 0) pattern=[] players=['A0:F2:62:87:92:CC', 'A0:F2:62:87:B4:30'] last_rx=echo_hello from A0:F2:62:87:B4:30 12269 ms ago rx={'echo_hello': 14} ignored_presses=0 q=11 resends=9 modem[rx=14 rx_overflow=0 tx_fail=0 host_timeouts=0] splats[u0:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u1:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u2:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u3:ready p=0/0/0 drops=0 evdrop=0 wfail=0]
+[  38.0s]   [echo]   32653 QUIET 30038 ms: phase=add p0 (len 0) pattern=[] players=['A0:F2:62:87:92:CC', 'A0:F2:62:87:B4:30'] last_rx=echo_hello from A0:F2:62:87:B4:30 32274 ms ago rx={'echo_hello': 14} ignored_presses=0 q=30 resends=28 modem[rx=14 rx_overflow=0 tx_fail=0 host_timeouts=0] splats[u0:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u1:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u2:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u3:ready p=0/0/0 drops=0 evdrop=0 wfail=0]
+[  66.4s]   [echo]   61058 SPLAT press on 2 IGNORED (phase=add p0 (len 0), ignored=1)
+[  67.1s]   [echo]   61720 SPLAT press on 1 IGNORED (phase=add p0 (len 0), ignored=2)
+[  67.2s]   [echo]   61849 SPLAT press on 2 IGNORED (phase=add p0 (len 0), ignored=3)
+[  74.2s]   [echo]   68899 SPLAT press on 0 IGNORED (phase=add p0 (len 0), ignored=4)
+[  74.5s]   [echo]   69198 SPLAT press on 0 IGNORED (phase=add p0 (len 0), ignored=5)
+[  74.6s]   [echo]   69220 SPLAT press on 3 IGNORED (phase=add p0 (len 0), ignored=6)
+[  75.6s]   [echo]   70267 SPLAT press on 1 IGNORED (phase=add p0 (len 0), ignored=7)
+[  75.7s]   [echo]   70350 SPLAT press on 3 IGNORED (phase=add p0 (len 0), ignored=8)
+[  75.8s]   [echo]   70429 SPLAT press on 1 IGNORED (phase=add p0 (len 0), ignored=9)
+[  75.9s]   [echo]   70502 SPLAT press on 2 IGNORED (phase=add p0 (len 0), ignored=10)
+[  75.9s]   [echo]   70550 SPLAT press on 0 IGNORED (phase=add p0 (len 0), ignored=11)
+[  76.0s]   [echo]   70643 SPLAT press on 1 IGNORED (phase=add p0 (len 0), ignored=12)
+[  76.0s]   [echo]   70699 SPLAT press on 2 IGNORED (phase=add p0 (len 0), ignored=13)
+[  76.9s]   [echo]   71598 SPLAT press on 1 IGNORED (phase=add p0 (len 0), ignored=14)
+[  83.8s]   [echo]   78458 RX {'add': 4669, 'type': 'echo_add', 'unit': 3} from A0:F2:62:87:92:CC (phase=add p0 (len 0))
+[  83.8s]   splatecho: player 0 added unit 3 (length 1)
+[  83.8s]   [echo]   78460 ADDED unit 3 after 75849 ms, pattern [3] (resends so far 72)
+[  84.9s]   [echo]   79565 SPLAT press on 3 IGNORED (phase=add p0 (len 0), ignored=15)
+[  85.5s]   [echo]   80140 PHASE turn p1 len 1
+[  85.5s]   [echo]   80162 TX {'q': 75, 'type': 'echo_turn', 'player': 1, 'len': 1} tries=[1, 1]
+[  85.5s]   splatecho: player 1's turn, length 1
+[  85.5s]   [echo]   80164 PHASE playback p1
+[  86.9s]   [echo]   81518 TX {'q': 76, 'type': 'echo_repeat_now', 'player': 1, 'len': 1} tries=[1, 1]
+[  86.9s]   [echo]   81520 PHASE repeat p1 step 1/1 want 3
+[  86.9s]   [echo]   81522   splats at step start: u0:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u1:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u2:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u3:ready p=0/0/0 drops=0 evdrop=0 wfail=0
+[  90.3s]   [echo]   84915 SPLAT press on 3 after 3391 ms (want 3)
+[  90.3s]   [echo]   84955 TX {'idx': 0, 'type': 'echo_step', 'player': 1, 'q': 77} tries=[1, 1]
+[  90.6s]   [echo]   85261 PHASE result p1 ok=True
+[  90.6s]   [echo]   85280 TX {'player': 1, 'scores': [0, 0], 'len': 1, 'ok': True, 'q': 78, 'type': 'echo_result'} tries=[1, 1]
+[  90.6s]   splatecho: correct  scores [0, 0]
+[  91.8s]   [echo]   86494 PHASE add p1 (len 1)
+[  91.9s]   [echo]   86514 TX {'player': 1, 'len': 1, 'q': 79, 'add': 4670, 'type': 'echo_add_now'} tries=[1, 1]
+[  94.4s]   [echo]   89019 RX {'add': 4670, 'type': 'echo_add', 'unit': 2} from A0:F2:62:87:B4:30 (phase=add p1 (len 1))
+[  94.4s]   splatecho: player 1 added unit 2 (length 2)
+[  94.4s]   [echo]   89020 ADDED unit 2 after 2502 ms, pattern [3, 2] (resends so far 74)
+[  96.1s]   [echo]   90710 PHASE turn p0 len 2
+[  96.1s]   [echo]   90729 TX {'q': 82, 'type': 'echo_turn', 'player': 0, 'len': 2} tries=[1, 1]
+[  96.1s]   splatecho: player 0's turn, length 2
+[  96.1s]   [echo]   90730 PHASE playback p0
+[  98.2s]   [echo]   92824 TX {'q': 83, 'type': 'echo_repeat_now', 'player': 0, 'len': 2} tries=[1, 1]
+[  98.2s]   [echo]   92825 PHASE repeat p0 step 1/2 want 3
+[  98.2s]   [echo]   92828   splats at step start: u0:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u1:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u2:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u3:ready p=0/0/0 drops=0 evdrop=0 wfail=0
+[  99.1s]   [echo]   93762 SPLAT press on 3 after 933 ms (want 3)
+[  99.2s]   [echo]   93803 TX {'idx': 0, 'type': 'echo_step', 'player': 0, 'q': 84} tries=[1, 1]
+[  99.5s]   [echo]   94112 PHASE repeat p0 step 2/2 want 2
+[  99.5s]   [echo]   94118   splats at step start: u0:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u1:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u2:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u3:ready p=1/1/1 drops=0 evdrop=0 wfail=0
+[  99.6s]   [echo]   94264 SPLAT release on 3 after 143 ms (want 2)
+[ 100.1s]   [echo]   94791 SPLAT press on 2 after 671 ms (want 2)
+[ 100.2s]   [echo]   94833 TX {'idx': 1, 'type': 'echo_step', 'player': 0, 'q': 85} tries=[1, 1]
+[ 100.5s]   [echo]   95138 PHASE result p0 ok=True
+[ 100.5s]   [echo]   95160 TX {'player': 0, 'scores': [0, 0], 'len': 2, 'ok': True, 'q': 86, 'type': 'echo_result'} tries=[1, 1]
+[ 100.5s]   splatecho: correct  scores [0, 0]
+[ 101.7s]   [echo]   96372 PHASE add p0 (len 2)
+[ 101.7s]   [echo]   96389 TX {'player': 0, 'len': 2, 'q': 87, 'add': 4671, 'type': 'echo_add_now'} tries=[1, 1]
+[ 105.6s]   [echo]  100291 RX {'add': 4671, 'type': 'echo_add', 'unit': 0} from A0:F2:62:87:92:CC (phase=add p0 (len 2))
+[ 105.6s]   splatecho: player 0 added unit 0 (length 3)
+[ 105.6s]   [echo]  100294 ADDED unit 0 after 3898 ms, pattern [3, 2, 0] (resends so far 77)
+[ 107.3s]   [echo]  101979 PHASE turn p1 len 3
+[ 107.3s]   [echo]  101997 TX {'q': 91, 'type': 'echo_turn', 'player': 1, 'len': 3} tries=[1, 1]
+[ 107.3s]   splatecho: player 1's turn, length 3
+[ 107.3s]   [echo]  101998 PHASE playback p1
+[ 107.5s]   [echo]  102107 SPLAT press on 0 IGNORED (phase=playback p1, ignored=16)
+[ 110.2s]   [echo]  104860 TX {'q': 92, 'type': 'echo_repeat_now', 'player': 1, 'len': 3} tries=[1, 1]
+[ 110.2s]   [echo]  104862 PHASE repeat p1 step 1/3 want 3
+[ 110.2s]   [echo]  104865   splats at step start: u0:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u1:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u2:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u3:ready p=0/0/0 drops=0 evdrop=0 wfail=0
+[ 112.5s]   [echo]  107161 SPLAT press on 3 after 2295 ms (want 3)
+[ 112.6s]   [echo]  107203 TX {'idx': 0, 'type': 'echo_step', 'player': 1, 'q': 93} tries=[1, 1]
+[ 112.9s]   [echo]  107515 PHASE repeat p1 step 2/3 want 2
+[ 112.9s]   [echo]  107519   splats at step start: u0:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u1:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u2:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u3:ready p=1/0/1 drops=0 evdrop=0 wfail=0
+[ 112.9s]   [echo]  107532 SPLAT release on 3 after 12 ms (want 2)
+[ 114.2s]   [echo]  108898 SPLAT press on 2 after 1378 ms (want 2)
+[ 114.3s]   [echo]  108956 TX {'idx': 1, 'type': 'echo_step', 'player': 1, 'q': 94} tries=[1, 1]
+[ 114.6s]   [echo]  109265 PHASE repeat p1 step 3/3 want 0
+[ 114.6s]   [echo]  109268   splats at step start: u0:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u1:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u2:ready p=1/1/1 drops=0 evdrop=0 wfail=0 | u3:ready p=0/0/0 drops=0 evdrop=0 wfail=0
+[ 114.7s]   [echo]  109401 SPLAT release on 2 after 131 ms (want 0)
+[ 116.0s]   [echo]  110680 SPLAT press on 0 after 1411 ms (want 0)
+[ 116.1s]   [echo]  110723 TX {'idx': 2, 'type': 'echo_step', 'player': 1, 'q': 95} tries=[1, 1]
+[ 116.4s]   [echo]  111031 PHASE result p1 ok=True
+[ 116.4s]   [echo]  111055 TX {'player': 1, 'scores': [0, 0], 'len': 3, 'ok': True, 'q': 96, 'type': 'echo_result'} tries=[1, 1]
+[ 116.4s]   splatecho: correct  scores [0, 0]
+[ 117.6s]   [echo]  112268 PHASE add p1 (len 3)
+[ 117.6s]   [echo]  112285 TX {'player': 1, 'len': 3, 'q': 97, 'add': 4672, 'type': 'echo_add_now'} tries=[1, 1]
+[ 120.1s]   [echo]  114718 RX {'add': 4672, 'type': 'echo_add', 'unit': 0} from A0:F2:62:87:B4:30 (phase=add p1 (len 3))
+[ 120.1s]   splatecho: player 1 added unit 0 (length 4)
+[ 120.1s]   [echo]  114719 ADDED unit 0 after 2430 ms, pattern [3, 2, 0, 0] (resends so far 79)
+[ 121.7s]   [echo]  116401 PHASE turn p0 len 4
+[ 121.8s]   [echo]  116421 TX {'q': 100, 'type': 'echo_turn', 'player': 0, 'len': 4} tries=[1, 1]
+[ 121.8s]   splatecho: player 0's turn, length 4
+[ 121.8s]   [echo]  116422 PHASE playback p0
+[ 125.4s]   [echo]  120027 TX {'q': 101, 'type': 'echo_repeat_now', 'player': 0, 'len': 4} tries=[1, 1]
+[ 125.4s]   [echo]  120029 PHASE repeat p0 step 1/4 want 3
+[ 125.4s]   [echo]  120031   splats at step start: u0:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u1:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u2:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u3:ready p=0/0/0 drops=0 evdrop=0 wfail=0
+[ 126.3s]   [echo]  120916 SPLAT press on 3 after 883 ms (want 3)
+[ 126.3s]   [echo]  120955 TX {'idx': 0, 'type': 'echo_step', 'player': 0, 'q': 102} tries=[1, 1]
+[ 126.6s]   [echo]  121269 PHASE repeat p0 step 2/4 want 2
+[ 126.6s]   [echo]  121271   splats at step start: u0:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u1:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u2:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u3:ready p=0/0/0 drops=0 evdrop=0 wfail=0
+[ 127.3s]   [echo]  121951 SPLAT press on 2 after 678 ms (want 2)
+[ 127.3s]   [echo]  121992 TX {'idx': 1, 'type': 'echo_step', 'player': 0, 'q': 103} tries=[1, 1]
+[ 127.6s]   [echo]  122301 PHASE repeat p0 step 3/4 want 0
+[ 127.7s]   [echo]  122304   splats at step start: u0:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u1:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u2:ready p=1/1/1 drops=0 evdrop=0 wfail=0 | u3:ready p=0/0/0 drops=0 evdrop=0 wfail=0
+[ 127.8s]   [echo]  122497 SPLAT release on 2 after 193 ms (want 0)
+[ 128.4s]   [echo]  123047 SPLAT press on 0 after 742 ms (want 0)
+[ 128.4s]   [echo]  123086 TX {'idx': 2, 'type': 'echo_step', 'player': 0, 'q': 104} tries=[1, 1]
+[ 128.7s]   [echo]  123398 PHASE repeat p0 step 4/4 want 0
+[ 128.8s]   [echo]  123402   splats at step start: u0:ready p=1/1/1 drops=0 evdrop=0 wfail=0 | u1:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u2:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u3:ready p=0/0/0 drops=0 evdrop=0 wfail=0
+[ 130.1s]   [echo]  124797 SPLAT release on 0 after 1395 ms (want 0)
+[ 130.5s]   [echo]  125197 SPLAT press on 0 after 1794 ms (want 0)
+[ 130.6s]   [echo]  125238 TX {'idx': 3, 'type': 'echo_step', 'player': 0, 'q': 105} tries=[1, 1]
+[ 130.9s]   [echo]  125546 PHASE result p0 ok=True
+[ 130.9s]   [echo]  125567 TX {'player': 0, 'scores': [0, 0], 'len': 4, 'ok': True, 'q': 106, 'type': 'echo_result'} tries=[1, 1]
+[ 130.9s]   splatecho: correct  scores [0, 0]
+[ 132.1s]   [echo]  126780 PHASE add p0 (len 4)
+[ 132.1s]   [echo]  126799 TX {'player': 0, 'len': 4, 'q': 107, 'add': 4673, 'type': 'echo_add_now'} tries=[1, 1]
+[ 137.0s]   [echo]  131645 RX {'add': 4673, 'type': 'echo_add', 'unit': 2} from A0:F2:62:87:92:CC (phase=add p0 (len 4))
+[ 137.0s]   splatecho: player 0 added unit 2 (length 5)
+[ 137.0s]   [echo]  131647 ADDED unit 2 after 4844 ms, pattern [3, 2, 0, 0, 2] (resends so far 83)
+[ 138.7s]   [echo]  133328 PHASE turn p1 len 5
+[ 138.7s]   [echo]  133346 TX {'q': 112, 'type': 'echo_turn', 'player': 1, 'len': 5} tries=[1, 1]
+[ 138.7s]   splatecho: player 1's turn, length 5
+[ 138.7s]   [echo]  133347 PHASE playback p1
+[ 143.0s]   [echo]  137695 TX {'q': 113, 'type': 'echo_repeat_now', 'player': 1, 'len': 5} tries=[1, 1]
+[ 143.0s]   [echo]  137697 PHASE repeat p1 step 1/5 want 3
+[ 143.0s]   [echo]  137699   splats at step start: u0:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u1:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u2:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u3:ready p=0/0/0 drops=0 evdrop=0 wfail=0
+[ 143.6s]   [echo]  138212 SPLAT press on 3 after 512 ms (want 3)
+[ 143.6s]   [echo]  138255 TX {'idx': 0, 'type': 'echo_step', 'player': 1, 'q': 114} tries=[1, 1]
+[ 143.9s]   [echo]  138566 PHASE repeat p1 step 2/5 want 2
+[ 143.9s]   [echo]  138569   splats at step start: u0:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u1:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u2:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u3:ready p=1/1/1 drops=0 evdrop=0 wfail=0
+[ 144.0s]   [echo]  138623 SPLAT release on 3 after 52 ms (want 2)
+[ 144.3s]   [echo]  138917 SPLAT press on 0 after 346 ms (want 2)
+[ 144.3s]   splatecho: player 1 pressed Splat 0, wanted 2
+[ 144.3s]   [echo]  138919 WRONG press: 0, wanted 2
+[ 144.3s]   [echo]  138920 PHASE result p1 ok=False
+[ 144.3s]   [echo]  138944 TX {'player': 1, 'scores': [1, 0], 'len': 5, 'ok': False, 'q': 115, 'type': 'echo_result'} tries=[1, 1]
+[ 144.3s]   splatecho: round over  scores [1, 0]
+[ 144.6s]   [echo]  139224 SPLAT press on 0 IGNORED (phase=result p1 ok=False, ignored=17)
+[ 144.6s]   [echo]  139247 SPLAT press on 2 IGNORED (phase=result p1 ok=False, ignored=18)
+[ 145.8s]   [echo]  140455 PHASE turn p0 len 0
+[ 145.8s]   [echo]  140475 TX {'q': 116, 'type': 'echo_turn', 'player': 0, 'len': 0} tries=[1, 1]
+[ 145.8s]   splatecho: player 0's turn, length 0
+[ 145.8s]   [echo]  140477 PHASE add p0 (len 0)
+[ 145.8s]   [echo]  140496 TX {'player': 0, 'len': 0, 'q': 117, 'add': 4674, 'type': 'echo_add_now'} tries=[1, 1]
+[ 151.2s]   [echo]  145834 RX {'add': 4674, 'type': 'echo_add', 'unit': 0} from A0:F2:62:87:92:CC (phase=add p0 (len 0))
+[ 151.2s]   splatecho: player 0 added unit 0 (length 1)
+[ 151.2s]   [echo]  145835 ADDED unit 0 after 5336 ms, pattern [0] (resends so far 88)
+[ 151.4s]   [echo]  146066 RX {'add': 4674, 'type': 'echo_add', 'unit': 0} from A0:F2:62:87:92:CC (phase=add p0 (len 0))
+[ 152.7s]   [echo]  147351 SPLAT press on 0 IGNORED (phase=add p0 (len 0), ignored=19)
+[ 152.9s]   [echo]  147523 PHASE turn p1 len 1
+[ 152.9s]   [echo]  147541 TX {'q': 123, 'type': 'echo_turn', 'player': 1, 'len': 1} tries=[1, 1]
+[ 152.9s]   splatecho: player 1's turn, length 1
+[ 152.9s]   [echo]  147544 PHASE playback p1
+[ 154.2s]   [echo]  148897 TX {'q': 124, 'type': 'echo_repeat_now', 'player': 1, 'len': 1} tries=[1, 1]
+[ 154.2s]   [echo]  148899 PHASE repeat p1 step 1/1 want 0
+[ 154.3s]   [echo]  148901   splats at step start: u0:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u1:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u2:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u3:ready p=0/0/0 drops=0 evdrop=0 wfail=0
+[ 158.3s]   splatecho: player 1 timed out on step 1
+[ 158.3s]   [echo]  152919 TIMEOUT p1 step 1 want 0; splats: u0:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u1:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u2:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u3:ready p=0/0/0 drops=0 evdrop=0 wfail=0
+[ 158.3s]   [echo]  152920 PHASE result p1 ok=False
+[ 158.3s]   [echo]  152941 TX {'player': 1, 'scores': [2, 0], 'len': 1, 'ok': False, 'q': 125, 'type': 'echo_result'} tries=[1, 1]
+[ 158.3s]   splatecho: round over  scores [2, 0]
+[ 159.8s]   [echo]  154456 PHASE turn p0 len 0
+[ 160.0s]   [echo]  154616 TX {'q': 126, 'type': 'echo_turn', 'player': 0, 'len': 0} tries=[1, -3] NOT ACKED
+[ 160.0s]   splatecho: player 0's turn, length 0
+[ 160.0s]   [echo]  154618 PHASE add p0 (len 0)
+[ 160.1s]   [echo]  154776 TX {'player': 0, 'len': 0, 'q': 127, 'add': 4675, 'type': 'echo_add_now'} tries=[1, -3] NOT ACKED
+[ 164.8s]   [echo]  159418 RX {'add': 4675, 'type': 'echo_add', 'unit': 1} from A0:F2:62:87:92:CC (phase=add p0 (len 0))
+[ 164.8s]   splatecho: player 0 added unit 1 (length 1)
+[ 164.8s]   [echo]  159420 ADDED unit 1 after 4640 ms, pattern [1] (resends so far 92)
+[ 166.5s]   [echo]  161105 PHASE turn p1 len 1
+[ 166.5s]   [echo]  161132 TX {'q': 132, 'type': 'echo_turn', 'player': 1, 'len': 1} tries=[1, 1]
+[ 166.5s]   splatecho: player 1's turn, length 1
+[ 166.5s]   [echo]  161134 PHASE playback p1
+[ 166.6s]   [echo]  161264 SPLAT press on 3 IGNORED (phase=playback p1, ignored=20)
+[ 167.8s]   [echo]  162487 TX {'q': 133, 'type': 'echo_repeat_now', 'player': 1, 'len': 1} tries=[1, 1]
+[ 167.8s]   [echo]  162489 PHASE repeat p1 step 1/1 want 1
+[ 167.8s]   [echo]  162491   splats at step start: u0:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u1:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u2:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u3:ready p=1/1/1 drops=0 evdrop=0 wfail=0
+[ 168.3s]   [echo]  162967 SPLAT press on 1 after 473 ms (want 1)
+[ 168.4s]   [echo]  163009 TX {'idx': 0, 'type': 'echo_step', 'player': 1, 'q': 134} tries=[1, 1]
+[ 168.7s]   [echo]  163319 PHASE result p1 ok=True
+[ 168.7s]   [echo]  163338 TX {'player': 1, 'scores': [2, 0], 'len': 1, 'ok': True, 'q': 135, 'type': 'echo_result'} tries=[1, 1]
+[ 168.7s]   splatecho: correct  scores [2, 0]
+[ 169.9s]   [echo]  164554 PHASE add p1 (len 1)
+[ 169.9s]   [echo]  164579 TX {'player': 1, 'len': 1, 'q': 136, 'add': 4676, 'type': 'echo_add_now'} tries=[1, 1]
+[ 174.8s]   [echo]  169438 RX {'add': 4676, 'type': 'echo_add', 'unit': 3} from A0:F2:62:87:B4:30 (phase=add p1 (len 1))
+[ 174.8s]   splatecho: player 1 added unit 3 (length 2)
+[ 174.8s]   [echo]  169439 ADDED unit 3 after 4857 ms, pattern [1, 3] (resends so far 96)
+[ 176.5s]   [echo]  171122 PHASE turn p0 len 2
+[ 176.5s]   [echo]  171139 TX {'q': 141, 'type': 'echo_turn', 'player': 0, 'len': 2} tries=[1, 1]
+[ 176.5s]   splatecho: player 0's turn, length 2
+[ 176.5s]   [echo]  171141 PHASE playback p0
+[ 178.6s]   [echo]  173226 TX {'q': 142, 'type': 'echo_repeat_now', 'player': 0, 'len': 2} tries=[1, 1]
+[ 178.6s]   [echo]  173227 PHASE repeat p0 step 1/2 want 1
+[ 178.6s]   [echo]  173230   splats at step start: u0:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u1:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u2:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u3:ready p=0/0/0 drops=0 evdrop=0 wfail=0
+[ 180.3s]   [echo]  175002 SPLAT press on 1 after 1770 ms (want 1)
+[ 180.4s]   [echo]  175041 TX {'idx': 0, 'type': 'echo_step', 'player': 0, 'q': 143} tries=[1, 1]
+[ 180.7s]   [echo]  175352 PHASE repeat p0 step 2/2 want 3
+[ 180.7s]   [echo]  175354   splats at step start: u0:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u1:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u2:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u3:ready p=0/0/0 drops=0 evdrop=0 wfail=0
+[ 181.2s]   [echo]  175814 SPLAT press on 3 after 458 ms (want 3)
+[ 181.2s]   [echo]  175854 TX {'idx': 1, 'type': 'echo_step', 'player': 0, 'q': 144} tries=[1, 1]
+[ 181.5s]   [echo]  176161 PHASE result p0 ok=True
+[ 181.5s]   [echo]  176185 TX {'player': 0, 'scores': [2, 0], 'len': 2, 'ok': True, 'q': 145, 'type': 'echo_result'} tries=[1, 1]
+[ 181.5s]   splatecho: correct  scores [2, 0]
+[ 182.7s]   [echo]  177399 PHASE add p0 (len 2)
+[ 182.8s]   [echo]  177423 TX {'player': 0, 'len': 2, 'q': 146, 'add': 4677, 'type': 'echo_add_now'} tries=[1, 1]
+[ 183.7s]   [echo]  178399 SPLAT press on 0 IGNORED (phase=add p0 (len 2), ignored=21)
+[ 186.6s]   [echo]  181219 RX {'add': 4677, 'type': 'echo_add', 'unit': 2} from A0:F2:62:87:92:CC (phase=add p0 (len 2))
+[ 186.6s]   splatecho: player 0 added unit 2 (length 3)
+[ 186.6s]   [echo]  181220 ADDED unit 2 after 3793 ms, pattern [1, 3, 2] (resends so far 99)
+[ 188.3s]   [echo]  182906 PHASE turn p1 len 3
+[ 188.3s]   [echo]  182927 TX {'q': 150, 'type': 'echo_turn', 'player': 1, 'len': 3} tries=[1, 1]
+[ 188.3s]   splatecho: player 1's turn, length 3
+[ 188.3s]   [echo]  182929 PHASE playback p1
+[ 190.6s]   [echo]  185279 SPLAT press on 3 IGNORED (phase=playback p1, ignored=22)
+[ 191.1s]   [echo]  185760 TX {'q': 151, 'type': 'echo_repeat_now', 'player': 1, 'len': 3} tries=[1, 1]
+[ 191.1s]   [echo]  185762 PHASE repeat p1 step 1/3 want 1
+[ 191.1s]   [echo]  185767   splats at step start: u0:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u1:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u2:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u3:ready p=0/0/0 drops=0 evdrop=0 wfail=0
+[ 192.6s]   [echo]  187213 SPLAT press on 3 after 1443 ms (want 1)
+[ 192.6s]   splatecho: player 1 pressed Splat 3, wanted 1
+[ 192.6s]   [echo]  187214 WRONG press: 3, wanted 1
+[ 192.6s]   [echo]  187216 PHASE result p1 ok=False
+[ 192.6s]   [echo]  187234 TX {'player': 1, 'scores': [3, 0], 'len': 3, 'ok': False, 'q': 152, 'type': 'echo_result'} tries=[1, 1]
+[ 192.6s]   splatecho: round over  scores [3, 0]
+[ 194.1s]   [echo]  188747 PHASE turn p0 len 0
+[ 194.1s]   [echo]  188768 TX {'q': 153, 'type': 'echo_turn', 'player': 0, 'len': 0} tries=[1, 1]
+[ 194.1s]   splatecho: player 0's turn, length 0
+[ 194.1s]   [echo]  188769 PHASE add p0 (len 0)
+[ 194.1s]   [echo]  188786 TX {'player': 0, 'len': 0, 'q': 154, 'add': 4678, 'type': 'echo_add_now'} tries=[1, 1]
+[ 201.3s]   [echo]  195964 SPLAT press on 3 IGNORED (phase=add p0 (len 0), ignored=23)
+[ 203.2s]   [echo]  197846 RX {'add': 4678, 'type': 'echo_add', 'unit': 0} from A0:F2:62:87:92:CC (phase=add p0 (len 0))
+[ 203.2s]   splatecho: player 0 added unit 0 (length 1)
+[ 203.2s]   [echo]  197848 ADDED unit 0 after 9059 ms, pattern [0] (resends so far 107)
+[ 204.6s]   [echo]  199298 SPLAT press on 0 IGNORED (phase=add p0 (len 0), ignored=24)
+[ 204.9s]   [echo]  199534 PHASE turn p1 len 1
+[ 204.9s]   [echo]  199553 TX {'q': 163, 'type': 'echo_turn', 'player': 1, 'len': 1} tries=[1, 1]
+[ 204.9s]   splatecho: player 1's turn, length 1
+[ 204.9s]   [echo]  199554 PHASE playback p1
+[ 206.3s]   [echo]  200913 TX {'q': 164, 'type': 'echo_repeat_now', 'player': 1, 'len': 1} tries=[1, 1]
+[ 206.3s]   [echo]  200915 PHASE repeat p1 step 1/1 want 0
+[ 206.3s]   [echo]  200917   splats at step start: u0:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u1:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u2:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u3:ready p=0/0/0 drops=0 evdrop=0 wfail=0
+[ 208.4s]   [echo]  203097 SPLAT press on 0 after 2178 ms (want 0)
+[ 208.5s]   [echo]  203137 TX {'idx': 0, 'type': 'echo_step', 'player': 1, 'q': 165} tries=[1, 1]
+[ 208.8s]   [echo]  203446 PHASE result p1 ok=True
+[ 208.8s]   [echo]  203471 TX {'player': 1, 'scores': [3, 0], 'len': 1, 'ok': True, 'q': 166, 'type': 'echo_result'} tries=[1, 1]
+[ 208.8s]   splatecho: correct  scores [3, 0]
+[ 210.0s]   [echo]  204685 PHASE add p1 (len 1)
+[ 210.1s]   [echo]  204705 TX {'player': 1, 'len': 1, 'q': 167, 'add': 4679, 'type': 'echo_add_now'} tries=[1, 1]
+[ 213.8s]   [echo]  208410 RX {'add': 4679, 'type': 'echo_add', 'unit': 0} from A0:F2:62:87:B4:30 (phase=add p1 (len 1))
+[ 213.8s]   splatecho: player 1 added unit 0 (length 2)
+[ 213.8s]   [echo]  208414 ADDED unit 0 after 3702 ms, pattern [0, 0] (resends so far 110)
+[ 215.4s]   [echo]  210097 PHASE turn p0 len 2
+[ 215.5s]   [echo]  210118 TX {'q': 171, 'type': 'echo_turn', 'player': 0, 'len': 2} tries=[1, 1]
+[ 215.5s]   splatecho: player 0's turn, length 2
+[ 215.5s]   [echo]  210120 PHASE playback p0
+[ 217.6s]   [echo]  212215 TX {'q': 172, 'type': 'echo_repeat_now', 'player': 0, 'len': 2} tries=[1, 1]
+[ 217.6s]   [echo]  212217 PHASE repeat p0 step 1/2 want 0
+[ 217.6s]   [echo]  212219   splats at step start: u0:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u1:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u2:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u3:ready p=0/0/0 drops=0 evdrop=0 wfail=0
+[ 218.5s]   [echo]  213147 SPLAT press on 0 after 926 ms (want 0)
+[ 218.5s]   [echo]  213185 TX {'idx': 0, 'type': 'echo_step', 'player': 0, 'q': 173} tries=[1, 1]
+[ 218.8s]   [echo]  213496 PHASE repeat p0 step 2/2 want 0
+[ 218.8s]   [echo]  213500   splats at step start: u0:ready p=1/1/1 drops=0 evdrop=0 wfail=0 | u1:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u2:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u3:ready p=0/0/0 drops=0 evdrop=0 wfail=0
+[ 218.9s]   [echo]  213560 SPLAT release on 0 after 58 ms (want 0)
+[ 219.7s]   [echo]  214349 SPLAT press on 0 after 848 ms (want 0)
+[ 219.7s]   [echo]  214388 TX {'idx': 1, 'type': 'echo_step', 'player': 0, 'q': 174} tries=[1, 1]
+[ 220.0s]   [echo]  214697 PHASE result p0 ok=True
+[ 220.1s]   [echo]  214719 TX {'player': 0, 'scores': [3, 0], 'len': 2, 'ok': True, 'q': 175, 'type': 'echo_result'} tries=[1, 1]
+[ 220.1s]   splatecho: correct  scores [3, 0]
+[ 221.3s]   [echo]  215931 PHASE add p0 (len 2)
+[ 221.3s]   [echo]  215953 TX {'player': 0, 'len': 2, 'q': 176, 'add': 4680, 'type': 'echo_add_now'} tries=[1, 1]
+[ 227.0s]   [echo]  221669 RX {'add': 4680, 'type': 'echo_add', 'unit': 0} from A0:F2:62:87:92:CC (phase=add p0 (len 2))
+[ 227.0s]   splatecho: player 0 added unit 0 (length 3)
+[ 227.0s]   [echo]  221671 ADDED unit 0 after 5714 ms, pattern [0, 0, 0] (resends so far 115)
+[ 228.7s]   [echo]  223358 PHASE turn p1 len 3
+[ 228.7s]   [echo]  223379 TX {'q': 182, 'type': 'echo_turn', 'player': 1, 'len': 3} tries=[1, 1]
+[ 228.7s]   splatecho: player 1's turn, length 3
+[ 228.7s]   [echo]  223380 PHASE playback p1
+[ 231.6s]   [echo]  226224 TX {'q': 183, 'type': 'echo_repeat_now', 'player': 1, 'len': 3} tries=[1, 1]
+[ 231.6s]   [echo]  226225 PHASE repeat p1 step 1/3 want 0
+[ 231.6s]   [echo]  226228   splats at step start: u0:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u1:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u2:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u3:ready p=0/0/0 drops=0 evdrop=0 wfail=0
+[ 233.2s]   [echo]  227887 SPLAT press on 0 after 1657 ms (want 0)
+[ 233.3s]   [echo]  227942 TX {'idx': 0, 'type': 'echo_step', 'player': 1, 'q': 184} tries=[1, 1]
+[ 233.6s]   [echo]  228255 PHASE repeat p1 step 2/3 want 0
+[ 233.6s]   [echo]  228260   splats at step start: u0:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u1:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u2:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u3:ready p=0/0/0 drops=0 evdrop=0 wfail=0
+[ 234.4s]   [echo]  229050 SPLAT press on 0 after 788 ms (want 0)
+[ 234.4s]   [echo]  229088 TX {'idx': 1, 'type': 'echo_step', 'player': 1, 'q': 185} tries=[1, 1]
+[ 234.7s]   [echo]  229400 PHASE repeat p1 step 3/3 want 0
+[ 234.8s]   [echo]  229403   splats at step start: u0:ready p=1/1/1 drops=0 evdrop=0 wfail=0 | u1:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u2:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u3:ready p=0/0/0 drops=0 evdrop=0 wfail=0
+[ 234.8s]   [echo]  229456 SPLAT release on 0 after 51 ms (want 0)
+[ 235.5s]   [echo]  230147 SPLAT press on 0 after 743 ms (want 0)
+[ 235.5s]   [echo]  230194 TX {'idx': 2, 'type': 'echo_step', 'player': 1, 'q': 186} tries=[1, 1]
+[ 235.9s]   [echo]  230502 PHASE result p1 ok=True
+[ 235.9s]   [echo]  230565 TX {'player': 1, 'scores': [3, 0], 'len': 3, 'ok': True, 'q': 187, 'type': 'echo_result'} tries=[1, 1]
+[ 235.9s]   splatecho: correct  scores [3, 0]
+[ 237.1s]   [echo]  231781 PHASE add p1 (len 3)
+[ 237.2s]   [echo]  231802 TX {'player': 1, 'len': 3, 'q': 188, 'add': 4681, 'type': 'echo_add_now'} tries=[1, 1]
+[ 238.3s]   [echo]  232976 TX {'player': 1, 'len': 3, 'q': 189, 'add': 4681, 'type': 'echo_add_now'} tries=[1, -3] NOT ACKED
+[ 239.6s]   [echo]  234273 RX {'add': 4681, 'type': 'echo_add', 'unit': 3} from A0:F2:62:87:B4:30 (phase=add p1 (len 3))
+[ 239.6s]   splatecho: player 1 added unit 3 (length 4)
+[ 239.6s]   [echo]  234274 ADDED unit 3 after 2469 ms, pattern [0, 0, 0, 3] (resends so far 117)
+[ 241.3s]   [echo]  235959 PHASE turn p0 len 4
+[ 241.3s]   [echo]  235978 TX {'q': 191, 'type': 'echo_turn', 'player': 0, 'len': 4} tries=[1, 1]
+[ 241.3s]   splatecho: player 0's turn, length 4
+[ 241.3s]   [echo]  235980 PHASE playback p0
+[ 245.0s]   [echo]  239623 TX {'q': 192, 'type': 'echo_repeat_now', 'player': 0, 'len': 4} tries=[1, 1]
+[ 245.0s]   [echo]  239625 PHASE repeat p0 step 1/4 want 0
+[ 245.0s]   [echo]  239627   splats at step start: u0:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u1:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u2:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u3:ready p=0/0/0 drops=0 evdrop=0 wfail=0
+[ 246.7s]   [echo]  241349 SPLAT press on 0 after 1720 ms (want 0)
+[ 246.7s]   [echo]  241391 TX {'idx': 0, 'type': 'echo_step', 'player': 0, 'q': 193} tries=[1, 1]
+[ 247.0s]   [echo]  241700 PHASE repeat p0 step 2/4 want 0
+[ 247.1s]   [echo]  241703   splats at step start: u0:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u1:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u2:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u3:ready p=0/0/0 drops=0 evdrop=0 wfail=0
+[ 248.5s]   [echo]  243122 SPLAT press on 0 after 1418 ms (want 0)
+[ 248.5s]   [echo]  243161 TX {'idx': 1, 'type': 'echo_step', 'player': 0, 'q': 194} tries=[1, 1]
+[ 248.8s]   [echo]  243475 PHASE repeat p0 step 3/4 want 0
+[ 248.8s]   [echo]  243477   splats at step start: u0:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u1:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u2:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u3:ready p=0/0/0 drops=0 evdrop=0 wfail=0
+[ 249.3s]   [echo]  243912 SPLAT press on 3 after 433 ms (want 0)
+[ 249.3s]   splatecho: player 0 pressed Splat 3, wanted 0
+[ 249.3s]   [echo]  243914 WRONG press: 3, wanted 0
+[ 249.3s]   [echo]  243915 PHASE result p0 ok=False
+[ 249.3s]   [echo]  243937 TX {'player': 0, 'scores': [3, 1], 'len': 4, 'ok': False, 'q': 195, 'type': 'echo_result'} tries=[1, 1]
+[ 249.3s]   splatecho: round over  scores [3, 1]
+[ 250.8s]   [echo]  245449 PHASE turn p1 len 0
+[ 251.0s]   [echo]  245607 TX {'q': 196, 'type': 'echo_turn', 'player': 1, 'len': 0} tries=[1, -3] NOT ACKED
+[ 251.0s]   splatecho: player 1's turn, length 0
+[ 251.0s]   [echo]  245609 PHASE add p1 (len 0)
+[ 251.0s]   [echo]  245627 TX {'player': 1, 'len': 0, 'q': 197, 'add': 4682, 'type': 'echo_add_now'} tries=[1, 1]
+[ 255.1s]   [echo]  249733 RX {'add': 4682, 'type': 'echo_add', 'unit': 2} from A0:F2:62:87:B4:30 (phase=add p1 (len 0))
+[ 255.1s]   splatecho: player 1 added unit 2 (length 1)
+[ 255.1s]   [echo]  249734 ADDED unit 2 after 4103 ms, pattern [2] (resends so far 120)
+[ 256.8s]   [echo]  251419 PHASE turn p0 len 1
+[ 256.8s]   [echo]  251436 TX {'q': 201, 'type': 'echo_turn', 'player': 0, 'len': 1} tries=[1, 1]
+[ 256.8s]   splatecho: player 0's turn, length 1
+[ 256.8s]   [echo]  251437 PHASE playback p0
+[ 258.1s]   [echo]  252786 TX {'q': 202, 'type': 'echo_repeat_now', 'player': 0, 'len': 1} tries=[1, 1]
+[ 258.1s]   [echo]  252787 PHASE repeat p0 step 1/1 want 2
+[ 258.1s]   [echo]  252790   splats at step start: u0:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u1:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u2:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u3:ready p=0/0/0 drops=0 evdrop=0 wfail=0
+[ 259.0s]   [echo]  253621 SPLAT press on 2 after 830 ms (want 2)
+[ 259.0s]   [echo]  253663 TX {'idx': 0, 'type': 'echo_step', 'player': 0, 'q': 203} tries=[1, 1]
+[ 259.3s]   [echo]  253969 PHASE result p0 ok=True
+[ 259.3s]   [echo]  253987 TX {'player': 0, 'scores': [3, 1], 'len': 1, 'ok': True, 'q': 204, 'type': 'echo_result'} tries=[1, 1]
+[ 259.3s]   splatecho: correct  scores [3, 1]
+[ 260.5s]   [echo]  255201 PHASE add p0 (len 1)
+[ 260.6s]   [echo]  255222 TX {'player': 0, 'len': 1, 'q': 205, 'add': 4683, 'type': 'echo_add_now'} tries=[1, 1]
+[ 267.3s]   [echo]  261920 RX {'add': 4683, 'type': 'echo_add', 'unit': 3} from A0:F2:62:87:92:CC (phase=add p0 (len 1))
+[ 267.3s]   splatecho: player 0 added unit 3 (length 2)
+[ 267.3s]   [echo]  261922 ADDED unit 3 after 6697 ms, pattern [2, 3] (resends so far 126)
+[ 269.0s]   [echo]  263605 PHASE turn p1 len 2
+[ 269.0s]   [echo]  263627 TX {'q': 212, 'type': 'echo_turn', 'player': 1, 'len': 2} tries=[1, 1]
+[ 269.0s]   splatecho: player 1's turn, length 2
+[ 269.0s]   [echo]  263628 PHASE playback p1
+[ 271.1s]   [echo]  265712 TX {'q': 213, 'type': 'echo_repeat_now', 'player': 1, 'len': 2} tries=[1, 1]
+[ 271.1s]   [echo]  265714 PHASE repeat p1 step 1/2 want 2
+[ 271.1s]   [echo]  265717   splats at step start: u0:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u1:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u2:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u3:ready p=0/0/0 drops=0 evdrop=0 wfail=0
+[ 271.7s]   [echo]  266306 SPLAT press on 3 after 587 ms (want 2)
+[ 271.7s]   splatecho: player 1 pressed Splat 3, wanted 2
+[ 271.7s]   [echo]  266309 WRONG press: 3, wanted 2
+[ 271.7s]   [echo]  266311 PHASE result p1 ok=False
+[ 271.7s]   [echo]  266333 TX {'player': 1, 'scores': [4, 1], 'len': 2, 'ok': False, 'q': 214, 'type': 'echo_result'} tries=[1, 1]
+[ 271.7s]   splatecho: round over  scores [4, 1]
+[ 273.2s]   [echo]  267845 PHASE turn p0 len 0
+[ 273.2s]   [echo]  267864 TX {'q': 215, 'type': 'echo_turn', 'player': 0, 'len': 0} tries=[1, 1]
+[ 273.2s]   splatecho: player 0's turn, length 0
+[ 273.2s]   [echo]  267865 PHASE add p0 (len 0)
+[ 273.2s]   [echo]  267883 TX {'player': 0, 'len': 0, 'q': 216, 'add': 4684, 'type': 'echo_add_now'} tries=[1, 1]
+[ 279.4s]   [echo]  274099 SPLAT press on 0 IGNORED (phase=add p0 (len 0), ignored=25)
+[ 279.6s]   [echo]  274300 SPLAT press on 2 IGNORED (phase=add p0 (len 0), ignored=26)
+[ 281.3s]   [echo]  275948 SPLAT press on 0 IGNORED (phase=add p0 (len 0), ignored=27)
+[ 283.6s]   [echo]  278286 RX {'add': 4684, 'type': 'echo_add', 'unit': 3} from A0:F2:62:87:92:CC (phase=add p0 (len 0))
+[ 283.6s]   splatecho: player 0 added unit 3 (length 1)
+[ 283.6s]   [echo]  278287 ADDED unit 3 after 10400 ms, pattern [3] (resends so far 136)
+[ 285.3s]   [echo]  279973 PHASE turn p1 len 1
+[ 285.3s]   [echo]  279990 TX {'q': 227, 'type': 'echo_turn', 'player': 1, 'len': 1} tries=[1, 1]
+[ 285.3s]   splatecho: player 1's turn, length 1
+[ 285.3s]   [echo]  279993 PHASE playback p1
+[ 285.4s]   [echo]  280046 SPLAT press on 3 IGNORED (phase=playback p1, ignored=28)
+[ 286.7s]   [echo]  281345 TX {'q': 228, 'type': 'echo_repeat_now', 'player': 1, 'len': 1} tries=[1, 1]
+[ 286.7s]   [echo]  281347 PHASE repeat p1 step 1/1 want 3
+[ 286.7s]   [echo]  281349   splats at step start: u0:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u1:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u2:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u3:ready p=0/0/0 drops=0 evdrop=0 wfail=0
+[ 287.8s]   [echo]  282499 SPLAT press on 3 after 1149 ms (want 3)
+[ 287.9s]   [echo]  282560 TX {'idx': 0, 'type': 'echo_step', 'player': 1, 'q': 229} tries=[1, 1]
+[ 288.2s]   [echo]  282870 PHASE result p1 ok=True
+[ 288.2s]   [echo]  282889 TX {'player': 1, 'scores': [4, 1], 'len': 1, 'ok': True, 'q': 230, 'type': 'echo_result'} tries=[1, 1]
+[ 288.2s]   splatecho: correct  scores [4, 1]
+[ 289.5s]   [echo]  284103 PHASE add p1 (len 1)
+[ 289.5s]   [echo]  284122 TX {'player': 1, 'len': 1, 'q': 231, 'add': 4685, 'type': 'echo_add_now'} tries=[1, 1]
+[ 292.7s]   [echo]  287325 RX {'add': 4685, 'type': 'echo_add', 'unit': 3} from A0:F2:62:87:B4:30 (phase=add p1 (len 1))
+[ 292.7s]   splatecho: player 1 added unit 3 (length 2)
+[ 292.7s]   [echo]  287326 ADDED unit 3 after 3201 ms, pattern [3, 3] (resends so far 139)
+[ 294.4s]   [echo]  289028 PHASE turn p0 len 2
+[ 294.4s]   [echo]  289045 TX {'q': 235, 'type': 'echo_turn', 'player': 0, 'len': 2} tries=[1, 1]
+[ 294.4s]   splatecho: player 0's turn, length 2
+[ 294.4s]   [echo]  289047 PHASE playback p0
+[ 296.5s]   [echo]  291123 TX {'q': 236, 'type': 'echo_repeat_now', 'player': 0, 'len': 2} tries=[1, 1]
+[ 296.5s]   [echo]  291125 PHASE repeat p0 step 1/2 want 3
+[ 296.5s]   [echo]  291127   splats at step start: u0:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u1:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u2:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u3:ready p=0/0/0 drops=0 evdrop=0 wfail=0
+[ 299.3s]   [echo]  293971 SPLAT press on 0 after 2843 ms (want 3)
+[ 299.3s]   splatecho: player 0 pressed Splat 0, wanted 3
+[ 299.3s]   [echo]  293972 WRONG press: 0, wanted 3
+[ 299.3s]   [echo]  293973 PHASE result p0 ok=False
+[ 299.3s]   [echo]  293994 TX {'player': 0, 'scores': [4, 2], 'len': 2, 'ok': False, 'q': 237, 'type': 'echo_result'} tries=[1, 1]
+[ 299.3s]   splatecho: round over  scores [4, 2]
+[ 300.9s]   [echo]  295520 PHASE turn p1 len 0
+[ 300.9s]   [echo]  295537 TX {'q': 238, 'type': 'echo_turn', 'player': 1, 'len': 0} tries=[1, 1]
+[ 300.9s]   splatecho: player 1's turn, length 0
+[ 300.9s]   [echo]  295538 PHASE add p1 (len 0)
+[ 300.9s]   [echo]  295562 TX {'player': 1, 'len': 0, 'q': 239, 'add': 4686, 'type': 'echo_add_now'} tries=[1, 1]
+[ 303.7s]   [echo]  298324 RX {'add': 4686, 'type': 'echo_add', 'unit': 3} from A0:F2:62:87:B4:30 (phase=add p1 (len 0))
+[ 303.7s]   splatecho: player 1 added unit 3 (length 1)
+[ 303.7s]   [echo]  298326 ADDED unit 3 after 2760 ms, pattern [3] (resends so far 141)
+[ 305.4s]   [echo]  300010 PHASE turn p0 len 1
+[ 305.4s]   [echo]  300028 TX {'q': 242, 'type': 'echo_turn', 'player': 0, 'len': 1} tries=[1, 1]
+[ 305.4s]   splatecho: player 0's turn, length 1
+[ 305.4s]   [echo]  300030 PHASE playback p0
+[ 306.7s]   [echo]  301383 TX {'q': 243, 'type': 'echo_repeat_now', 'player': 0, 'len': 1} tries=[1, 1]
+[ 306.7s]   [echo]  301385 PHASE repeat p0 step 1/1 want 3
+[ 306.7s]   [echo]  301387   splats at step start: u0:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u1:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u2:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u3:ready p=0/0/0 drops=0 evdrop=0 wfail=0
+[ 307.7s]   [echo]  302314 SPLAT press on 3 after 925 ms (want 3)
+[ 307.7s]   [echo]  302353 TX {'idx': 0, 'type': 'echo_step', 'player': 0, 'q': 244} tries=[1, 1]
+[ 308.0s]   [echo]  302661 PHASE result p0 ok=True
+[ 308.0s]   [echo]  302685 TX {'player': 0, 'scores': [4, 2], 'len': 1, 'ok': True, 'q': 245, 'type': 'echo_result'} tries=[1, 1]
+[ 308.0s]   splatecho: correct  scores [4, 2]
+[ 309.2s]   [echo]  303899 PHASE add p0 (len 1)
+[ 309.3s]   [echo]  303918 TX {'player': 0, 'len': 1, 'q': 246, 'add': 4687, 'type': 'echo_add_now'} tries=[1, 1]
+[ 311.2s]   [echo]  305877 RX {'add': 4687, 'type': 'echo_add', 'unit': 3} from A0:F2:62:87:92:CC (phase=add p0 (len 1))
+[ 311.2s]   splatecho: player 0 added unit 3 (length 2)
+[ 311.2s]   [echo]  305879 ADDED unit 3 after 1958 ms, pattern [3, 3] (resends so far 142)
+[ 312.9s]   [echo]  307561 PHASE turn p1 len 2
+[ 312.9s]   [echo]  307580 TX {'q': 248, 'type': 'echo_turn', 'player': 1, 'len': 2} tries=[1, 1]
+[ 312.9s]   splatecho: player 1's turn, length 2
+[ 312.9s]   [echo]  307582 PHASE playback p1
+[ 315.0s]   [echo]  309662 TX {'q': 249, 'type': 'echo_repeat_now', 'player': 1, 'len': 2} tries=[1, 1]
+[ 315.0s]   [echo]  309665 PHASE repeat p1 step 1/2 want 3
+[ 315.0s]   [echo]  309667   splats at step start: u0:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u1:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u2:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u3:ready p=0/0/0 drops=0 evdrop=0 wfail=0
+[ 316.5s]   [echo]  311162 SPLAT press on 3 after 1493 ms (want 3)
+[ 316.6s]   [echo]  311203 TX {'idx': 0, 'type': 'echo_step', 'player': 1, 'q': 250} tries=[1, 1]
+[ 316.9s]   [echo]  311516 PHASE repeat p1 step 2/2 want 3
+[ 316.9s]   [echo]  311519   splats at step start: u0:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u1:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u2:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u3:ready p=1/1/1 drops=0 evdrop=0 wfail=0
+[ 317.0s]   [echo]  311609 SPLAT release on 3 after 89 ms (want 3)
+[ 317.5s]   [echo]  312116 SPLAT press on 3 after 596 ms (want 3)
+[ 317.5s]   [echo]  312156 TX {'idx': 1, 'type': 'echo_step', 'player': 1, 'q': 251} tries=[1, 1]
+[ 317.8s]   [echo]  312462 PHASE result p1 ok=True
+[ 317.8s]   [echo]  312486 TX {'player': 1, 'scores': [4, 2], 'len': 2, 'ok': True, 'q': 252, 'type': 'echo_result'} tries=[1, 1]
+[ 317.8s]   splatecho: correct  scores [4, 2]
+[ 319.0s]   [echo]  313699 PHASE add p1 (len 2)
+[ 319.1s]   [echo]  313723 TX {'player': 1, 'len': 2, 'q': 253, 'add': 4688, 'type': 'echo_add_now'} tries=[1, 1]
+[ 323.7s]   [echo]  318317 RX {'add': 4688, 'type': 'echo_add', 'unit': 2} from A0:F2:62:87:B4:30 (phase=add p1 (len 2))
+[ 323.7s]   splatecho: player 1 added unit 2 (length 3)
+[ 323.7s]   [echo]  318319 ADDED unit 2 after 4592 ms, pattern [3, 3, 2] (resends so far 146)
+[ 325.4s]   [echo]  320014 PHASE turn p0 len 3
+[ 325.4s]   [echo]  320034 TX {'q': 258, 'type': 'echo_turn', 'player': 0, 'len': 3} tries=[1, 1]
+[ 325.4s]   splatecho: player 0's turn, length 3
+[ 325.4s]   [echo]  320036 PHASE playback p0
+[ 328.2s]   [echo]  322854 TX {'q': 259, 'type': 'echo_repeat_now', 'player': 0, 'len': 3} tries=[1, 1]
+[ 328.2s]   [echo]  322856 PHASE repeat p0 step 1/3 want 3
+[ 328.2s]   [echo]  322860   splats at step start: u0:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u1:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u2:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u3:ready p=0/0/0 drops=0 evdrop=0 wfail=0
+[ 329.3s]   [echo]  323913 SPLAT press on 3 after 1052 ms (want 3)
+[ 329.3s]   [echo]  323953 TX {'idx': 0, 'type': 'echo_step', 'player': 0, 'q': 260} tries=[1, 1]
+[ 329.6s]   [echo]  324267 PHASE repeat p0 step 2/3 want 3
+[ 329.6s]   [echo]  324270   splats at step start: u0:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u1:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u2:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u3:ready p=1/1/1 drops=0 evdrop=0 wfail=0
+[ 329.7s]   [echo]  324312 SPLAT release on 3 after 41 ms (want 3)
+[ 330.1s]   [echo]  324762 SPLAT press on 3 after 491 ms (want 3)
+[ 330.2s]   [echo]  324804 TX {'idx': 1, 'type': 'echo_step', 'player': 0, 'q': 261} tries=[1, 1]
+[ 330.5s]   [echo]  325116 PHASE repeat p0 step 3/3 want 2
+[ 330.5s]   [echo]  325119   splats at step start: u0:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u1:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u2:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u3:ready p=1/1/1 drops=0 evdrop=0 wfail=0
+[ 330.5s]   [echo]  325172 SPLAT release on 3 after 52 ms (want 2)
+[ 331.1s]   [echo]  325798 SPLAT press on 2 after 677 ms (want 2)
+[ 331.2s]   [echo]  325838 TX {'idx': 2, 'type': 'echo_step', 'player': 0, 'q': 262} tries=[1, 1]
+[ 331.5s]   [echo]  326148 PHASE result p0 ok=True
+[ 331.5s]   [echo]  326168 TX {'player': 0, 'scores': [4, 2], 'len': 3, 'ok': True, 'q': 263, 'type': 'echo_result'} tries=[1, 1]
+[ 331.5s]   splatecho: correct  scores [4, 2]
+[ 332.7s]   [echo]  327382 PHASE add p0 (len 3)
+[ 332.8s]   [echo]  327404 TX {'player': 0, 'len': 3, 'q': 264, 'add': 4689, 'type': 'echo_add_now'} tries=[1, 1]
+[ 339.9s]   [echo]  334571 RX {'add': 4689, 'type': 'echo_add', 'unit': 3} from A0:F2:62:87:92:CC (phase=add p0 (len 3))
+[ 339.9s]   splatecho: player 0 added unit 3 (length 4)
+[ 339.9s]   [echo]  334573 ADDED unit 3 after 7164 ms, pattern [3, 3, 2, 3] (resends so far 152)
+[ 341.6s]   [echo]  336260 PHASE turn p1 len 4
+[ 341.6s]   [echo]  336278 TX {'q': 271, 'type': 'echo_turn', 'player': 1, 'len': 4} tries=[1, 1]
+[ 341.6s]   splatecho: player 1's turn, length 4
+[ 341.6s]   [echo]  336280 PHASE playback p1
+[ 345.2s]   [echo]  339878 TX {'q': 272, 'type': 'echo_repeat_now', 'player': 1, 'len': 4} tries=[1, 1]
+[ 345.2s]   [echo]  339880 PHASE repeat p1 step 1/4 want 3
+[ 345.2s]   [echo]  339882   splats at step start: u0:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u1:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u2:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u3:ready p=0/0/0 drops=0 evdrop=0 wfail=0
+[ 346.9s]   [echo]  341534 SPLAT press on 3 after 1650 ms (want 3)
+[ 346.9s]   [echo]  341577 TX {'idx': 0, 'type': 'echo_step', 'player': 1, 'q': 273} tries=[1, 1]
+[ 347.2s]   [echo]  341887 PHASE repeat p1 step 2/4 want 3
+[ 347.2s]   [echo]  341890   splats at step start: u0:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u1:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u2:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u3:ready p=0/0/0 drops=0 evdrop=0 wfail=0
+[ 348.8s]   [echo]  343415 SPLAT press on 3 after 1523 ms (want 3)
+[ 348.8s]   [echo]  343454 TX {'idx': 1, 'type': 'echo_step', 'player': 1, 'q': 274} tries=[1, 1]
+[ 349.1s]   [echo]  343765 PHASE repeat p1 step 3/4 want 2
+[ 349.1s]   [echo]  343769   splats at step start: u0:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u1:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u2:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u3:ready p=1/1/1 drops=0 evdrop=0 wfail=0
+[ 350.1s]   [echo]  344797 SPLAT press on 2 after 1026 ms (want 2)
+[ 350.2s]   [echo]  344836 TX {'idx': 2, 'type': 'echo_step', 'player': 1, 'q': 275} tries=[1, 1]
+[ 350.5s]   [echo]  345148 PHASE repeat p1 step 4/4 want 3
+[ 350.5s]   [echo]  345152   splats at step start: u0:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u1:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u2:ready p=1/1/1 drops=0 evdrop=0 wfail=0 | u3:ready p=1/1/1 drops=0 evdrop=0 wfail=0
+[ 350.6s]   [echo]  345214 SPLAT release on 2 after 61 ms (want 3)
+[ 351.8s]   [echo]  346435 SPLAT release on 3 after 1282 ms (want 3)
+[ 352.1s]   [echo]  346765 SPLAT press on 3 after 1612 ms (want 3)
+[ 352.2s]   [echo]  346807 TX {'idx': 3, 'type': 'echo_step', 'player': 1, 'q': 276} tries=[1, 1]
+[ 352.5s]   [echo]  347113 PHASE result p1 ok=True
+[ 352.5s]   [echo]  347133 TX {'player': 1, 'scores': [4, 2], 'len': 4, 'ok': True, 'q': 277, 'type': 'echo_result'} tries=[1, 1]
+[ 352.5s]   splatecho: correct  scores [4, 2]
+[ 353.7s]   [echo]  348346 PHASE add p1 (len 4)
+[ 353.7s]   [echo]  348368 TX {'player': 1, 'len': 4, 'q': 278, 'add': 4690, 'type': 'echo_add_now'} tries=[1, 1]
+[ 359.0s]   [echo]  353647 RX {'add': 4690, 'type': 'echo_add', 'unit': 0} from A0:F2:62:87:B4:30 (phase=add p1 (len 4))
+[ 359.0s]   splatecho: player 1 added unit 0 (length 5)
+[ 359.0s]   [echo]  353650 ADDED unit 0 after 5277 ms, pattern [3, 3, 2, 3, 0] (resends so far 157)
+[ 360.7s]   [echo]  355331 PHASE turn p0 len 5
+[ 360.7s]   [echo]  355348 TX {'q': 284, 'type': 'echo_turn', 'player': 0, 'len': 5} tries=[1, 1]
+[ 360.7s]   splatecho: player 0's turn, length 5
+[ 360.7s]   [echo]  355349 PHASE playback p0
+[ 365.1s]   [echo]  359750 TX {'q': 285, 'type': 'echo_repeat_now', 'player': 0, 'len': 5} tries=[1, 1]
+[ 365.1s]   [echo]  359752 PHASE repeat p0 step 1/5 want 3
+[ 365.1s]   [echo]  359754   splats at step start: u0:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u1:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u2:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u3:ready p=0/0/0 drops=0 evdrop=0 wfail=0
+[ 366.3s]   [echo]  360949 SPLAT press on 3 after 1194 ms (want 3)
+[ 366.3s]   [echo]  360989 TX {'idx': 0, 'type': 'echo_step', 'player': 0, 'q': 286} tries=[1, 1]
+[ 366.6s]   [echo]  361300 PHASE repeat p0 step 2/5 want 3
+[ 366.7s]   [echo]  361303   splats at step start: u0:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u1:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u2:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u3:ready p=1/1/1 drops=0 evdrop=0 wfail=0
+[ 366.7s]   [echo]  361317 SPLAT release on 3 after 12 ms (want 3)
+[ 367.2s]   [echo]  361814 SPLAT press on 3 after 510 ms (want 3)
+[ 367.2s]   [echo]  361856 TX {'idx': 1, 'type': 'echo_step', 'player': 0, 'q': 287} tries=[1, 1]
+[ 367.5s]   [echo]  362168 PHASE repeat p0 step 3/5 want 2
+[ 367.5s]   [echo]  362170   splats at step start: u0:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u1:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u2:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u3:ready p=1/1/1 drops=0 evdrop=0 wfail=0
+[ 367.6s]   [echo]  362224 SPLAT release on 3 after 52 ms (want 2)
+[ 368.2s]   [echo]  362848 SPLAT press on 2 after 676 ms (want 2)
+[ 368.2s]   [echo]  362886 TX {'idx': 2, 'type': 'echo_step', 'player': 0, 'q': 288} tries=[1, 1]
+[ 368.5s]   [echo]  363197 PHASE repeat p0 step 4/5 want 3
+[ 368.6s]   [echo]  363201   splats at step start: u0:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u1:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u2:ready p=1/1/1 drops=0 evdrop=0 wfail=0 | u3:ready p=0/0/0 drops=0 evdrop=0 wfail=0
+[ 368.8s]   [echo]  363451 SPLAT release on 2 after 249 ms (want 3)
+[ 370.3s]   [echo]  364947 SPLAT press on 3 after 1745 ms (want 3)
+[ 370.3s]   [echo]  364987 TX {'idx': 3, 'type': 'echo_step', 'player': 0, 'q': 289} tries=[1, 1]
+[ 370.7s]   [echo]  365319 PHASE repeat p0 step 5/5 want 0
+[ 370.7s]   [echo]  365321   splats at step start: u0:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u1:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u2:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u3:ready p=1/1/1 drops=0 evdrop=0 wfail=0
+[ 370.8s]   [echo]  365404 SPLAT release on 3 after 82 ms (want 0)
+[ 371.2s]   [echo]  365859 SPLAT press on 0 after 537 ms (want 0)
+[ 371.3s]   [echo]  365901 TX {'idx': 4, 'type': 'echo_step', 'player': 0, 'q': 290} tries=[1, 1]
+[ 371.6s]   [echo]  366211 PHASE result p0 ok=True
+[ 371.6s]   [echo]  366232 TX {'player': 0, 'scores': [4, 2], 'len': 5, 'ok': True, 'q': 291, 'type': 'echo_result'} tries=[1, 1]
+[ 371.6s]   splatecho: correct  scores [4, 2]
+[ 372.8s]   [echo]  367446 PHASE add p0 (len 5)
+[ 372.8s]   [echo]  367466 TX {'player': 0, 'len': 5, 'q': 292, 'add': 4691, 'type': 'echo_add_now'} tries=[1, 1]
+[ 375.0s]   [echo]  369624 RX {'add': 4691, 'type': 'echo_add', 'unit': 0} from A0:F2:62:87:92:CC (phase=add p0 (len 5))
+[ 375.0s]   splatecho: player 0 added unit 0 (length 6)
+[ 375.0s]   [echo]  369625 ADDED unit 0 after 2155 ms, pattern [3, 3, 2, 3, 0, 0] (resends so far 159)
+[ 376.7s]   [echo]  371312 PHASE turn p1 len 6
+[ 376.7s]   [echo]  371331 TX {'q': 295, 'type': 'echo_turn', 'player': 1, 'len': 6} tries=[1, 1]
+[ 376.7s]   splatecho: player 1's turn, length 6
+[ 376.7s]   [echo]  371332 PHASE playback p1
+[ 381.8s]   [echo]  376423 TX {'q': 296, 'type': 'echo_repeat_now', 'player': 1, 'len': 6} tries=[1, 1]
+[ 381.8s]   [echo]  376425 PHASE repeat p1 step 1/6 want 3
+[ 381.8s]   [echo]  376427   splats at step start: u0:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u1:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u2:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u3:ready p=0/0/0 drops=0 evdrop=0 wfail=0
+[ 383.2s]   [echo]  377811 SPLAT press on 3 after 1382 ms (want 3)
+[ 383.2s]   [echo]  377853 TX {'idx': 0, 'type': 'echo_step', 'player': 1, 'q': 297} tries=[1, 1]
+[ 383.5s]   [echo]  378175 PHASE repeat p1 step 2/6 want 3
+[ 383.5s]   [echo]  378177   splats at step start: u0:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u1:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u2:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u3:ready p=1/0/1 drops=0 evdrop=0 wfail=0
+[ 383.6s]   [echo]  378225 SPLAT release on 3 after 47 ms (want 3)
+[ 384.0s]   [echo]  378613 SPLAT press on 3 after 433 ms (want 3)
+[ 384.0s]   [echo]  378653 TX {'idx': 1, 'type': 'echo_step', 'player': 1, 'q': 298} tries=[1, 1]
+[ 384.3s]   [echo]  378965 PHASE repeat p1 step 3/6 want 2
+[ 384.3s]   [echo]  378968   splats at step start: u0:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u1:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u2:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u3:ready p=1/1/1 drops=0 evdrop=0 wfail=0
+[ 384.5s]   [echo]  379111 SPLAT release on 3 after 141 ms (want 2)
+[ 385.0s]   [echo]  379645 SPLAT press on 2 after 676 ms (want 2)
+[ 385.1s]   [echo]  379704 TX {'idx': 2, 'type': 'echo_step', 'player': 1, 'q': 299} tries=[1, 1]
+[ 385.4s]   [echo]  380014 PHASE repeat p1 step 4/6 want 3
+[ 385.4s]   [echo]  380017   splats at step start: u0:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u1:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u2:ready p=1/1/1 drops=0 evdrop=0 wfail=0 | u3:ready p=0/0/0 drops=0 evdrop=0 wfail=0
+[ 385.5s]   [echo]  380108 SPLAT release on 2 after 88 ms (want 3)
+[ 386.1s]   [echo]  380717 SPLAT press on 3 after 698 ms (want 3)
+[ 386.1s]   [echo]  380768 TX {'idx': 3, 'type': 'echo_step', 'player': 1, 'q': 300} tries=[1, 1]
+[ 386.4s]   [echo]  381075 PHASE repeat p1 step 5/6 want 0
+[ 386.4s]   [echo]  381078   splats at step start: u0:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u1:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u2:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u3:ready p=1/1/1 drops=0 evdrop=0 wfail=0
+[ 386.6s]   [echo]  381261 SPLAT release on 3 after 182 ms (want 0)
+[ 387.9s]   [echo]  382552 SPLAT press on 2 after 1473 ms (want 0)
+[ 387.9s]   splatecho: player 1 pressed Splat 2, wanted 0
+[ 387.9s]   [echo]  382553 WRONG press: 2, wanted 0
+[ 387.9s]   [echo]  382554 PHASE result p1 ok=False
+[ 387.9s]   [echo]  382578 TX {'player': 1, 'scores': [5, 2], 'len': 6, 'ok': False, 'q': 301, 'type': 'echo_result'} tries=[1, 1]
+[ 387.9s]   splatecho: round over  scores [5, 2]
+[ 389.4s]   [echo]  384097 PHASE turn p0 len 0
+[ 389.5s]   [echo]  384116 TX {'q': 302, 'type': 'echo_turn', 'player': 0, 'len': 0} tries=[1, 1]
+[ 389.5s]   splatecho: player 0's turn, length 0
+[ 389.5s]   [echo]  384117 PHASE add p0 (len 0)
+[ 389.5s]   [echo]  384134 TX {'player': 0, 'len': 0, 'q': 303, 'add': 4692, 'type': 'echo_add_now'} tries=[1, 1]
+[ 399.5s]   [echo]  394145 QUIET 10000 ms: phase=add p0 (len 0) pattern=[] players=['A0:F2:62:87:92:CC', 'A0:F2:62:87:B4:30'] last_rx=echo_add from A0:F2:62:87:92:CC 24511 ms ago rx={'echo_add': 24, 'echo_hello': 14} ignored_presses=28 q=312 resends=168 modem[rx=38 rx_overflow=0 tx_fail=12 host_timeouts=0] splats[u0:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u1:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u2:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u3:ready p=0/0/0 drops=0 evdrop=0 wfail=0]
+[ 415.0s]   [echo]  409611 RX stop from A0:F2:62:87:B4:30: {'type': 'stop'} -- exiting
+[ 415.0s]   [echo]  409625 END phase=add p0 (len 0): phase=add p0 (len 0) pattern=[] players=['A0:F2:62:87:92:CC', 'A0:F2:62:87:B4:30'] last_rx=stop from A0:F2:62:87:B4:30 4 ms ago rx={'echo_hello': 14, 'echo_add': 24, 'stop': 1} ignored_presses=28 q=327 resends=183 modem[rx=39 rx_overflow=0 tx_fail=12 host_timeouts=0] splats[u0:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u1:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u2:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u3:ready p=0/0/0 drops=0 evdrop=0 wfail=0]
+[ 415.3s] {"slug": "splatecho", "type": "game_end"}
+[ 415.6s]   Companion: Splat 0 (AB:42:00:00:5D:D0) ready
+[ 415.6s]   Companion: Splat 1 (AB:42:00:00:5E:40) ready
+[ 415.6s]   Companion: Splat 2 (AB:42:00:00:20:60) ready
+[ 415.6s]   Companion: Splat 3 (AB:42:00:00:6D:27) ready
+[ 416.7s]   STOP tag
+[ 419.4s]   STOP tag
+[ 420.8s] {"up": 419897, "type": "heartbeat"}
+[ 425.8s] {"up": 424899, "type": "heartbeat"}
+[ 430.8s] {"up": 429900, "type": "heartbeat"}
+[ 435.8s] {"up": 434909, "type": "heartbeat"}
+[ 440.9s] {"up": 439934, "type": "heartbeat"}
+[ 445.9s] {"up": 444937, "type": "heartbeat"}
+[ 451.1s] {"up": 450165, "type": "heartbeat"}
+[ 456.1s] {"up": 455176, "type": "heartbeat"}
+[ 461.1s] {"up": 460185, "type": "heartbeat"}
+[ 466.1s] {"up": 465185, "type": "heartbeat"}
+[ 471.1s] {"up": 470197, "type": "heartbeat"}
+[ 476.1s] {"up": 475200, "type": "heartbeat"}
+[ 481.4s] {"up": 480440, "type": "heartbeat"}
+[ 486.4s] {"up": 485441, "type": "heartbeat"}
+[ 491.4s] {"up": 490445, "type": "heartbeat"}
+[ 496.4s] {"up": 495449, "type": "heartbeat"}
+[ 501.6s] {"up": 500708, "type": "heartbeat"}
+[ 506.6s] {"up": 505710, "type": "heartbeat"}
+[ 511.6s] {"up": 510710, "type": "heartbeat"}
+[ 516.6s] {"up": 515725, "type": "heartbeat"}
+[ 521.7s] {"up": 520732, "type": "heartbeat"}
+[ 526.7s] {"up": 525737, "type": "heartbeat"}
+[ 531.7s] {"up": 530747, "type": "heartbeat"}
+[ 536.7s] {"up": 535750, "type": "heartbeat"}
+[ 541.7s] {"up": 540751, "type": "heartbeat"}
+[ 546.9s] {"up": 545992, "type": "heartbeat"}
+[ 551.9s] {"up": 550999, "type": "heartbeat"}
+[ 556.9s] {"up": 556010, "type": "heartbeat"}
+[ 561.9s] {"up": 561010, "type": "heartbeat"}
+[ 566.9s] {"up": 566010, "type": "heartbeat"}
+[ 572.2s] {"up": 571236, "type": "heartbeat"}
+[ 577.2s] {"up": 576241, "type": "heartbeat"}
+[ 582.2s] {"up": 581245, "type": "heartbeat"}
+[ 587.2s] {"up": 586264, "type": "heartbeat"}
+[ 592.2s] {"up": 591296, "type": "heartbeat"}
+[ 597.2s] {"up": 596297, "type": "heartbeat"}
+[ 602.2s] {"up": 601319, "type": "heartbeat"}
+[ 607.2s] {"up": 606321, "type": "heartbeat"}
+[ 612.2s] {"up": 611328, "type": "heartbeat"}
+[ 617.3s] {"up": 616331, "type": "heartbeat"}
+[ 622.3s] {"up": 621359, "type": "heartbeat"}
+[ 627.3s] {"up": 626362, "type": "heartbeat"}
+[ 632.3s] {"up": 631366, "type": "heartbeat"}
+[ 637.3s] {"up": 636374, "type": "heartbeat"}
+[ 642.3s] {"up": 641374, "type": "heartbeat"}
+[ 647.5s] {"up": 646630, "type": "heartbeat"}
+[ 652.6s] {"up": 651630, "type": "heartbeat"}
+[ 657.8s] {"up": 656895, "type": "heartbeat"}
+[ 662.8s] {"up": 661896, "type": "heartbeat"}
+[ 667.8s] {"up": 666902, "type": "heartbeat"}
+[ 672.8s] {"up": 671905, "type": "heartbeat"}
+[ 678.1s] {"up": 677177, "type": "heartbeat"}
+[ 683.1s] {"up": 682181, "type": "heartbeat"}
+[ 688.1s] {"up": 687183, "type": "heartbeat"}
+[ 693.4s] {"up": 692442, "type": "heartbeat"}
+[ 698.4s] {"up": 697442, "type": "heartbeat"}
+[ 703.4s] {"up": 702444, "type": "heartbeat"}
+[ 708.4s] {"up": 707461, "type": "heartbeat"}
+[ 713.6s] {"up": 712715, "type": "heartbeat"}
+[ 718.6s] {"up": 717716, "type": "heartbeat"}
+[ 723.6s] {"up": 722728, "type": "heartbeat"}
+[ 728.7s] {"up": 727729, "type": "heartbeat"}
+[ 733.9s] {"up": 732986, "type": "heartbeat"}
+[ 738.9s] {"up": 738013, "type": "heartbeat"}
+[ 743.9s] {"up": 743013, "type": "heartbeat"}
+[ 748.9s] {"up": 748015, "type": "heartbeat"}
+[ 754.2s] {"up": 753280, "type": "heartbeat"}
+[ 759.2s] {"up": 758304, "type": "heartbeat"}
+[ 764.2s] {"up": 763317, "type": "heartbeat"}
+[ 769.2s] {"up": 768328, "type": "heartbeat"}
+[ 774.3s] {"up": 773347, "type": "heartbeat"}
+[ 779.3s] {"up": 778347, "type": "heartbeat"}
+[ 784.5s] {"up": 783566, "type": "heartbeat"}
+[ 789.5s] {"up": 788567, "type": "heartbeat"}
+[ 794.5s] {"up": 793571, "type": "heartbeat"}
+[ 799.8s] {"up": 798837, "type": "heartbeat"}
+[ 804.8s] {"up": 803843, "type": "heartbeat"}
+[ 809.8s] {"up": 808846, "type": "heartbeat"}
+[ 814.8s] {"up": 813850, "type": "heartbeat"}
+[ 819.8s] {"up": 818851, "type": "heartbeat"}
+[ 824.8s] {"up": 823853, "type": "heartbeat"}
+[ 829.8s] {"up": 828855, "type": "heartbeat"}
+[ 835.0s] {"up": 834100, "type": "heartbeat"}
+[ 840.0s] {"up": 839106, "type": "heartbeat"}
+[ 845.0s] {"up": 844109, "type": "heartbeat"}
+[ 850.0s] {"up": 849111, "type": "heartbeat"}
+[ 855.0s] {"up": 854120, "type": "heartbeat"}
+[ 860.1s] {"up": 859144, "type": "heartbeat"}
+[ 865.1s] {"up": 864148, "type": "heartbeat"}
+[ 870.1s] {"up": 869167, "type": "heartbeat"}
+[ 875.1s] {"up": 874178, "type": "heartbeat"}
+[ 880.4s] {"up": 879442, "type": "heartbeat"}
+[ 885.4s] {"up": 884442, "type": "heartbeat"}
+[ 890.4s] {"up": 889455, "type": "heartbeat"}
+[ 895.4s] {"up": 894457, "type": "heartbeat"}
+[ 900.4s] {"up": 899482, "type": "heartbeat"}
+[ 905.4s] {"up": 904506, "type": "heartbeat"}
+[ 910.4s] {"up": 909508, "type": "heartbeat"}
+[ 915.7s] {"up": 914765, "type": "heartbeat"}
+[ 920.7s] {"up": 919766, "type": "heartbeat"}
+[ 925.7s] {"up": 924767, "type": "heartbeat"}
+[ 930.7s] {"up": 929773, "type": "heartbeat"}
+[ 935.9s] {"up": 935000, "type": "heartbeat"}
+[ 940.9s] {"up": 940001, "type": "heartbeat"}
+[ 945.9s] {"up": 945001, "type": "heartbeat"}
+[ 950.9s] {"up": 950003, "type": "heartbeat"}
+[ 955.9s] {"up": 955003, "type": "heartbeat"}
+[ 960.9s] {"up": 960005, "type": "heartbeat"}
+[ 966.2s] {"up": 965261, "type": "heartbeat"}
+[ 971.2s] {"up": 970261, "type": "heartbeat"}
+[ 976.2s] {"up": 975276, "type": "heartbeat"}
+[ 981.2s] {"up": 980296, "type": "heartbeat"}
+[ 986.5s] {"up": 985559, "type": "heartbeat"}
+[ 991.5s] {"up": 990560, "type": "heartbeat"}
+[ 996.5s] {"up": 995563, "type": "heartbeat"}
+[1001.5s] {"up": 1000587, "type": "heartbeat"}
+[1006.5s] {"up": 1005599, "type": "heartbeat"}
+[1011.5s] {"up": 1010599, "type": "heartbeat"}
+[1016.8s] {"up": 1015842, "type": "heartbeat"}
+[1021.8s] {"up": 1020844, "type": "heartbeat"}
+[1101.6s] # monitor: port opened
+[1102.0s] [hubtype] splat_companion (12 LEDs)
+[1102.6s] 
+[1102.6s] ==================================================
+[1102.6s]   Splat Companion
+[1102.6s]   Hub type: splat_companion
+[1102.6s] ==================================================
+[1105.1s]   Splats configured: 4
+[1105.1s]   ESPNow(EUM): active (MAC: A0:F2:62:85:A9:9C)
+[1105.3s]   [WARN] Battery:
+[1105.3s] Traceback (most recent call last):
+[1105.3s]   File "main.py", line 504, in main
+[1105.3s]   File "/lib/max17048.py", line 91, in read_all
+[1105.3s]   File "/lib/max17048.py", line 50, in voltage
+[1105.3s]   File "/lib/max17048.py", line 40, in _read_reg16
+[1105.3s] OSError: [Errno 19] ENODEV
+[1105.3s]   PN532 firmware 1.6 (IC 0x32) -- NFC ready
+[1105.4s]   Boot complete
+[1105.4s] 
+[1105.5s] {"hub": "splat_companion", "games": ["jumpin", "splatecho", "splatecho", "splatwhack"], "version": "0.1.0", "device": "splat_companion", "type": "identity"}
+[1105.5s]   SplatHub: discovering (4 Splat(s) wanted)
+[1105.8s]   SplatHub: unit 0 -> AB:42:00:00:5D:D0
+[1105.8s]   SplatHub: unit 1 -> AB:42:00:00:5E:40
+[1105.8s]   SplatHub: unit 2 -> AB:42:00:00:6D:27
+[1105.8s]   SplatHub: unit 3 -> AB:42:00:00:20:60
+[1106.8s]   SplatLink: ready, Splat AB:42:00:00:5E:40 (connects=1)
+[1106.8s]   Companion: Splat 1 (AB:42:00:00:5E:40) ready
+[1107.7s]   SplatLink: ready, Splat AB:42:00:00:6D:27 (connects=1)
+[1107.7s]   Companion: Splat 2 (AB:42:00:00:6D:27) ready
+[1108.6s]   SplatLink: ready, Splat AB:42:00:00:20:60 (connects=1)
+[1108.6s]   Companion: Splat 3 (AB:42:00:00:20:60) ready
+[1110.1s]   SplatLink: ready, Splat AB:42:00:00:5D:D0 (connects=1)
+[1110.1s]   Companion: Splat 0 (AB:42:00:00:5D:D0) ready
+[1110.8s] {"up": 9540, "type": "heartbeat"}
+[1115.9s] {"up": 14561, "type": "heartbeat"}
+[1120.9s] {"up": 19601, "type": "heartbeat"}
+[1126.2s] {"up": 24865, "type": "heartbeat"}
+[1131.2s] {"up": 29890, "type": "heartbeat"}
+[1132.5s]   ESPNow(EUM): fetch failed (any records in it are lost)
+[1132.6s]   ESPNow(EUM): fetch failed (any records in it are lost)
+[1132.8s] EUM: link down after 3 timeouts; requests fail until the modem answers
+[1136.4s] {"up": 35105, "type": "heartbeat"}
+[1141.4s] {"up": 40110, "type": "heartbeat"}
+[1146.7s] {"up": 45369, "type": "heartbeat"}

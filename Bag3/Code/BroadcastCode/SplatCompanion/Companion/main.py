@@ -62,6 +62,7 @@ if game_store.GAMES_DIR not in sys.path:
 # ─────────────────────────────────────────────
 GAME_MODULES = {
     "jumpin": "jumpin",
+    "splatecho": "splatecho",
     "splatwhack": "splatwhack",
 }
 

@@ -32,6 +32,7 @@ GAME_TAGS = {
     "multiicecream",
     "gestures",
     "goalrace",
+    "splatecho",
 }
 
 CONTROL_TAGS = {"start", "stop"}

@@ -93,13 +93,17 @@ class NoAP(OSError):
 class JoinFailed(OSError):
     """The SSID was visible but the join did not complete."""
 
-# This tree's espnow_manager.py is the EUM drop-in (UART to a modem board),
-# which defines no EXTERNAL_ANTENNA, so the fallback always applies. Only
-# this module drives the antenna pins on this device, during a pull.
+# This tree's espnow_manager.py is the EUM drop-in (talks UART to a modem
+# board, never touches WLAN or these pins), so it defines no
+# EXTERNAL_ANTENNA and this always falls back to False (the hub board has
+# no u.FL antenna fitted; onboard is selected). code_puller.py is
+# therefore the only thing on this device that drives the antenna switch,
+# and only during a pull -- there is no "last module to touch WLAN wins"
+# race here, unlike MockWand.
 try:
     from espnow_manager import EXTERNAL_ANTENNA
 except ImportError:
-    EXTERNAL_ANTENNA = True
+    EXTERNAL_ANTENNA = False
 
 
 def _configure_antenna(external, verbose=False):

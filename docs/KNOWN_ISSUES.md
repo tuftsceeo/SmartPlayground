@@ -278,3 +278,98 @@ when the other link began connecting (`docs_and_design/2026-09-29-splat-hub-logs
 `SplatCompanion/Companion/splat_link.py` now turn BLE on only when it is off; two Splats then
 connected and held (`10_bench_3c_39209e3.txt`). `Bag2/Code/lib/ble_splat.py` still calls
 `active(True)` unconditionally.
+
+## 2026-09-30 (Splat Echo freeze investigation)
+
+Results and logs:
+[Bag3/Code/BroadcastCode/docs_and_design/2026-09-30-splatecho-freeze-results.md](../Bag3/Code/BroadcastCode/docs_and_design/2026-09-30-splatecho-freeze-results.md).
+
+### Latent bugs
+
+- **ESP-NOW broadcasts are not ACKed or retried.** With the Splat modem on its external antenna
+  path and no antenna fitted, 2–10% of hub broadcasts were not received by each wand. With the
+  onboard antenna selected (2026-10-01), 0 of 1800 were lost. A game that waits on one broadcast
+  can deadlock on any loss. `splatecho` uses ACKed unicast; other two-device games that rely on
+  single broadcasts have not been checked.
+- **`send_to()` does not report whether the peer ACKed.**
+  - `Bag3/Code/BroadcastCode/MockWand/lib/espnow_manager.py` discards the return value of
+    `ESPNow.send()` and returns `True`.
+  - `SplatCompanion/Companion/lib/espnow_manager.py` returns the modem status (`ST_OK`) whether or
+    not the peer ACKed. The hub copy now sets `last_acked`; the wand copy is unchanged.
+- **The modem ring holds messages received while the hub is not fetching.** The ring has 64
+  slots, and the hub drains it when a game starts.
+  - Verified: at one `splatecho` start the hub read 64 old `echo_hello`s, answered each with an
+    `echo_you`, and assigned a player from a stale hello. Wand 101 then dropped 13 packets
+    (`rx_dropped`) at join.
+  - Modem `rx_overflow` read 3116, accumulated over the modem's uptime before this session.
+- **A wand that rejoins `splatecho` mid-game receives `echo_you` only.** The hub resends no game
+  state except the pending `echo_add_now`.
+- **`splatecho` discards Splat presses outside the repeat phase without feedback.** 14 presses
+  were ignored in one session, during playback, results and adds. `echo_repeat_now`, which turns
+  the repeating wand green, has not run on hardware.
+- **The Splat hub game starts before every Splat is connected.** `intro()` lights units whose
+  links are still connecting, and those writes are skipped.
+- **`Bag3/.../Companion/lib/ble_splat.py` and `splat_link.py`: from reading the code, not
+  reproduced.**
+  - The button state is `bool(value & 0x0F)`, so one stuck pad reads as permanently pressed.
+    There is no learned resting state.
+  - `SplatLink._debounce` swaps out `_raw_q` in two statements, so an edge appended by the BLE
+    task in between is lost. `_irq_raw` has already moved, so readSwitches does not recover it.
+  - `_process_notification` indexes `buffer[11]` on an 11-byte notification and `buffer[10]` on a
+    10-byte one (IndexError in the IRQ), and `data[0]` on an empty one.
+  - Commands are written with `gattc_write` mode 0, for which `_IRQ_GATTC_WRITE_DONE` is not
+    raised. `_write_errors` stays 0.
+  - The notification subscription is a mode-0 write to `_rx_char_handle + 1`, and nothing
+    confirms it. `SplatLink` goes READY a fixed `READY_SETTLE_MS` after the handles are known.
+  - `_teardown()` clears `_conn_handle` right after `gap_disconnect()`. A late disconnect event
+    for that connection arriving during the next `connect_direct()` clears the new attempt's
+    `_connecting`.
+
+### Verified drift
+
+- **`Bag2/Code/Splat Companion/ble_splat.py` holds the wand-side controller**
+  (`DirectSplatController`, `sp_connect`, …), not the `OpenSplat` driver. It is close to
+  `legacy_jan26_wand_ble_splat_ctrl.py` but not identical.
+  - `Bag2/Code/Splat Companion/main.py` does `from ble_splat import OpenSplat`, and root is ahead
+    of `/lib` on `sys.path`. With this file on root, that import fails. Not checked on a fielded
+    device.
+  - `Bag3/.../Companion/lib/ble_splat.py` descends from `Bag2/Code/lib/ble_splat.py`.
+
+### Observed, cause not established
+
+- **Splats stopped advertising.** After a clean `close_all()` and a few minutes unconnected, no
+  Splat advertised until each was pressed or power-cycled.
+- **Boot and flash timing on wand `A0:F2:62:87:92:CC`:** it took about 40 s to reach its game.
+  Its first `/echo_log.txt` write took about 2.1 s.
+
+### Failing test
+
+- **`SplatCompanion/Companion/test_splat_companion.py` stops at
+  `test_driver_short_tap_release_not_lost`** (`assert o.splat_pressed`, line 570), at `bf37b81`
+  and with this change. The tests after it do not run.
+
+### Diagnostics
+
+- **The `DIAGNOSTIC` logging in both `splatecho.py` halves is still enabled.**
+
+## 2026-10-01 (Splat Companion antenna)
+
+Neither the hub nor the modem board has a u.FL antenna fitted. Measurements are in
+`Bag3/Code/BroadcastCode/docs_and_design/2026-09-30-splatecho-logs/07_*` and `08_*`.
+
+### Fixed in `SplatCompanion/`
+
+- **Modem:** `MODEM_EXTERNAL_ANTENNA = False`. Wand RSSI went from −65 to −74 dBm to −22 to
+  −28 dBm, and broadcast loss to 0 of 300 per condition.
+- **Hub:** `boot.py` now drives GPIO3 = 0 and GPIO14 = 0 before BLE starts. Before that, nothing
+  drove them (GPIO3 read 1), and Splat RSSI at the hub was −76 to −87 dBm; with onboard selected
+  it is −61 to −69 dBm.
+- **Hub `code_puller.py`:** the `EXTERNAL_ANTENNA` fallback is `False`.
+
+### Open
+
+- **Proof-of-concept modem:** `Bag3/Code/BroadcastCode/EspnowModem/modem/main.py` now defaults
+  to `MODEM_EXTERNAL_ANTENNA = False`. Boards already flashed with it keep the old value until
+  reflashed. `EspnowModem/MockWandEUM/` is a wand build and keeps `EXTERNAL_ANTENNA = True`.
+- **Missing Splat lights and sounds on failed rounds** (user report, run 06, with the hub on the
+  undriven antenna switch): not retested since `boot.py` selects onboard.
