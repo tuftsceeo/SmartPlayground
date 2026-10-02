@@ -215,6 +215,7 @@ class TextEntryTests(unittest.TestCase):
         self.assertFalse(e.view()["written"])
         self.tap(e, te.DEL)
         self.assertTrue(e.view()["written"])
+        self.assertEqual(e.handle(EXIT), ("cancel",))   # no confirm needed
 
     def test_exit_from_more_returns_to_letters(self):
         e = te.TextEntry(54)
@@ -345,11 +346,15 @@ class StationTests(unittest.TestCase):
         self.st.step()                                  # written -> back to TEXT
         self.assertEqual(self.st.mode, station.TEXT)
         self.assertTrue(self.st.entry.view()["written"])
-        run(self.st, self.inp, "tap:%d" % self.st.entry.choices().index(te.DONE))
-        run(self.st, self.inp, EXIT)                    # back keeps text
+        run(self.st, self.inp, EXIT)                    # written: one hold leaves
+        self.assertEqual(self.st.mode, station.HOME)
+
+    def test_text_unwritten_needs_second_hold(self):
+        run(self.st, self.inp, PREV, ACT, "tap:0")      # Text, 'a'
+        run(self.st, self.inp, EXIT)
         self.assertEqual(self.st.mode, station.TEXT)
-        self.assertEqual(self.st.entry.text, "a")
-        run(self.st, self.inp, EXIT, EXIT)              # discard
+        self.assertEqual(self.st.entry.mode, te.M_CANCEL)
+        run(self.st, self.inp, EXIT)                    # discard
         self.assertEqual(self.st.mode, station.HOME)
 
     def test_serial_catalog_and_write(self):

@@ -71,8 +71,8 @@ the centre names the selection large.
      chosen word is appended with a space.
    - Centre: typed text (trimmed from the left to fit), the highlighted
      item at 48 px, byte count `n/54`.
-   - Hold with text entered asks for a second hold: a back arrow if the
-     text is already on a card, a trash glyph if leaving would discard it.
+   - Hold leaves. If the text is not yet on a card, a trash glyph asks
+     for a second hold to discard it.
 
 Writes are verified by reading back. A failed write re-arms the same scan.
 
