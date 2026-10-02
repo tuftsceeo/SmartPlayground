@@ -299,7 +299,7 @@ button.primary { background: var(--accent); color: var(--surface); border-color:
     if (v.hint) text(ctx, v.hint, 120, 200, F.body, C.WRITE_FG, 110, v.t);
   }
   function keyLabel(c) { return c === SPACE ? "_" : c; }
-  let lastSlots = null;
+  let lastSlots = null, lastKey = -1e9;
   function paintKeyboard(ctx, e, t) {
     const mode = e.mode, ch = e.choices(), n = ch.length, sel = e.sel;
     const keys = mode === "letters" || mode === "more";
@@ -337,9 +337,13 @@ button.primary { background: var(--accent); color: var(--surface); border-color:
     }
     if (mode === "words") { dotRing(ctx, n, sel, C.PINK); }
     // typed text, trimmed from the left to fit
-    let shown = e.text + "|", cut = 0;
-    while (measure(ctx, shown, F.body) > TYPED_MAX_W && cut < e.text.length) { cut++; shown = ".." + e.text.slice(cut) + "|"; }
-    text(ctx, shown, 120, 84, F.body, C.INK);
+    // Typed text + blinking pink caret bar (station_ui._fit_tail / _blink)
+    const room = TYPED_MAX_W - 6;
+    let shown = e.text, cut = 0;
+    while (measure(ctx, shown, F.body) > room && cut < e.text.length) { cut++; shown = ".." + e.text.slice(cut); }
+    const tw = shown ? measure(ctx, shown, F.body) : 0, total = tw + 6;
+    if (shown) text(ctx, shown, 120 - total / 2 + tw / 2, 84, F.body, C.INK);
+    if (Math.floor((t || 0) / 530) % 2 === 0 || (t || 0) - lastKey < 530) { ctx.save(); ctx.fillStyle = C.PINK; ctx.fillRect(120 + total / 2 - 3, 84 - 13, 3, 26); ctx.restore(); }
     if (mode === "cancel") { icon(ctx, "trash", 120, 126, 38, C.PINK); text(ctx, "Hold", 120, 164, F.body, C.DANGER_FG); return; }
     const item = ch[sel];
     if (variant === "zone" && keys && e.zone !== null) {
@@ -394,6 +398,7 @@ button.primary { background: var(--accent); color: var(--surface); border-color:
 
   function intent(i) {
     if (st.busy) return;
+    lastKey = performance.now();
     if (i === "next" || i === "prev") stats.det++; else if (i === "act" || i.startsWith("tap:")) stats.press++;
     updateStats();
     const step = (sel, n) => i === "next" ? (sel + 1) % n : i === "prev" ? (sel - 1 + n) % n : sel;

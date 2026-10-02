@@ -73,6 +73,10 @@ KEY_SLOTS = 30          # preallocated keyboard labels (len(LETTERS))
 HOME_R = 86             # home icon centre radius
 HOME_D = 52             # home icon diameter (selected: HOME_D + 10)
 TYPED_MAX_W = 100       # px: inner-circle chord at the typed line (y=-36)
+CARET_W = 3             # px: caret bar width; CARET_GAP px after the text
+CARET_GAP = 3
+CARET_H = 26
+CARET_BLINK_MS = 530
 
 HOME_STYLE = {          # home item -> (glyph key, circle colour)
     "Read": ("read", SERVE_FG),
@@ -367,21 +371,48 @@ class StationUI:
         self._k_slots = None
         self._k_rot = None
         self.k_typed = self._label(pg, self.f["body"], INK, y=-36)
+        # Caret: a separate pink bar, not a "|" glyph, which reads as "l".
+        self.k_caret = lv.obj(pg)
+        self.k_caret.set_size(CARET_W, CARET_H)
+        self.k_caret.set_style_radius(1, 0)
+        self.k_caret.set_style_border_width(0, 0)
+        self.k_caret.set_style_bg_color(lv.color_hex(PINK), 0)
+        self.k_caret.set_style_bg_opa(255, 0)
+        self.k_caret.remove_flag(lv.obj.FLAG.CLICKABLE)
+        self.k_caret.remove_flag(lv.obj.FLAG.SCROLLABLE)
+        self._caret_on = True
+        lv.timer_create(self._blink, CARET_BLINK_MS, None)
         self.k_sel = self._label(pg, self.f["glyph"], PINK, w=120, y=6)
         self.k_count = self._label(pg, self.f["body"], INK_3, y=44)
 
     def _fit_tail(self, lbl, text, max_w):
-        """Show the end of text plus a cursor, dropping leading characters
-        (marked "..") until the label is at most max_w px wide."""
-        shown = text + "|"
+        """Show the end of text, dropping leading characters (marked "..")
+        until text plus caret is at most max_w px wide, then place the
+        caret after it. Returns the label width."""
+        room = max_w - CARET_GAP - CARET_W
+        shown = text
         cut = 0
         while True:
             lbl.set_text(shown)
             lbl.update_layout()
-            if lbl.get_width() <= max_w or cut >= len(text):
-                return
+            w = lbl.get_width()
+            if w <= room or cut >= len(text):
+                break
             cut += 1
-            shown = ".." + text[cut:] + "|"
+            shown = ".." + text[cut:]
+        # Text + caret centred as one unit.
+        total = w + CARET_GAP + CARET_W
+        lbl.align(lv.ALIGN.CENTER, (w - total) // 2, -36)
+        self.k_caret.align(lv.ALIGN.CENTER, total // 2 - CARET_W // 2, -36)
+        self._caret_on = True       # solid right after a keystroke
+        self._visible(self.k_caret, True)
+        return w
+
+    def _blink(self, timer):
+        if self._cur != "keyboard":
+            return
+        self._caret_on = not self._caret_on
+        self._visible(self.k_caret, self._caret_on)
 
     def _key_text(self, c):
         if c in self.ic:
