@@ -1,19 +1,31 @@
 """station_ui.py -- round-screen painter for the NFC Station (m5ui + LVGL).
 
-Four pages, built once in begin() and re-textured per paint:
+Every selector puts its choices on the rim at fixed angles, so turning the
+dial moves the highlight around the ring in the same direction as the
+knob, and the centre names the selection large. No rectangular roller.
 
-  ring      Home. Glyphs on the rim, highlight arc, selection named in the
-            centre at FOCUS size.
-  list      Curved carousel. Title on top, selected item at FOCUS size,
-            neighbours dimmed above/below, "n/N" below, position arc on
-            the right rim.
-  status    Glyph, title, body, hint. Used by reader, scan and results.
-  keyboard  Ring keyboard for text_entry. Choices on the rim (tappable);
-            typed text, expanded selection and byte count in the centre.
+Pages, built once in begin() and re-textured per paint:
 
-Text is BODY (28 px) minimum everywhere; see station_fonts.py. No
-rectangular roller. Content stays inside the ~170 px inscribed square; the
-rim carries arcs and ring items.
+  home      Icon ring: coloured circles with glyphs at 12, 4 and 8
+            o'clock; the selected one is enlarged and outlined; its name
+            sits in the centre.
+  list      Dot ring: one dot per item around the rim (selected dot large
+            and filled, with an arc pointer); title, item name (FOCUS) and
+            n/N in the centre. Over DOT_SLOTS items the dots give way to a
+            position arc.
+  status    Full rim arc coloured by result (ok / fail / busy ...), glyph,
+            title, body, hint. Reader, scan and write results.
+  keyboard  Segmented ring keyboard: all ring items as labels in a rim
+            band, each in an arc slot sized to its glyph width
+            (slot_angles), grouped into SEGMENT-item sections with
+            alternating tint;
+            the highlighted item gets a filled arc cell. Centre: typed
+            text, the highlighted item at GLYPH size, byte count. Rim
+            labels are tappable. WORDS mode uses the dot ring in the band
+            with the word in the centre. CANCEL shows a trash glyph and
+            "Hold" (a second hold discards).
+
+Text is BODY (28 px) minimum; see station_fonts.py.
 
 Painter API used by station.py:
   show_ring(names, sel)          show_list(title, items, sel)
@@ -36,34 +48,76 @@ from dial_board import SPEAKER_VOLUME
 # Brand tokens, from Live_Page/.design_system/Sept 2026/tokens/ (same values
 # as BroadcastDial's dial_ui.py).
 PAGE_BG = 0xF7F7FB
+CARD_BG = 0xFFFFFF
 INK = 0x231F2E
 INK_3 = 0x5B5468
 BORDER = 0xE8E6F0
 PINK = 0xEF4D92
 WRITE_FG = 0x6C4CD1
+WRITE_BG = 0xF2EEFC
 SERVE_FG = 0x1C9A82
 DANGER_FG = 0xC0392B
 WARN_FG = 0xA8781E
+WHITE = 0xFFFFFF
 
-RIM_R = 94          # radius of ring item centres
-ARC_SIZE = 236
-ARC_W = 8
-RING_SLOTS = 12     # preallocated rim labels (keyboard max is 11)
-TYPED_TAIL = 8      # characters of typed text shown before the cursor
+# Rim geometry (screen 240 x 240, centre 120,120).
+RIM_OUTER = 118         # outer edge of the keyboard band
+BAND_W = 44             # keyboard band width: radii 74..118
+KEY_R = 97              # keyboard label centre radius
+DOT_R = 106             # list dot centre radius
+DOT_SMALL = 12
+DOT_BIG = 26
+DOT_SLOTS = 24          # most items shown as dots; more -> position arc
+KEY_SLOTS = 30          # preallocated keyboard labels (len(LETTERS))
+HOME_R = 86             # home icon centre radius
+HOME_D = 52             # home icon diameter (selected: HOME_D + 10)
+TYPED_MAX_W = 100       # px: inner-circle chord at the typed line (y=-36)
 
-KIND_STYLE = {      # show_result kind -> (glyph key, colour)
-    "ok": ("ok", SERVE_FG),
-    "fail": ("fail", DANGER_FG),
-    "warn": ("warn", WARN_FG),
-    "busy": ("busy", WRITE_FG),
-    "info": ("read", WRITE_FG),
+HOME_STYLE = {          # home item -> (glyph key, circle colour)
+    "Read": ("read", SERVE_FG),
+    "Tags": ("tags", WRITE_FG),
+    "Text": ("text", PINK),
+}
+KIND_STYLE = {          # show_result kind -> (glyph key, colour, arc fill %)
+    "ok": ("ok", SERVE_FG, 100),
+    "fail": ("fail", DANGER_FG, 100),
+    "warn": ("warn", WARN_FG, 100),
+    "busy": ("busy", WRITE_FG, 30),
+    "info": ("read", WRITE_FG, 100),
 }
 
 
-def _rim_xy(deg, r=RIM_R):
+def _rim_xy(deg, r):
     """Offset from centre for a clock angle (0 = 12 o'clock, clockwise)."""
     a = math.radians(deg)
     return int(r * math.sin(a)), int(-r * math.cos(a))
+
+
+def slot_angles(widths, radius, min_gap=2):
+    """Centre angle and half-span (degrees) per ring item, item 0 at 12.
+
+    Each item's slot is proportional to its rendered width plus an equal
+    share of the leftover circumference, so wide glyphs (m, w) get more
+    arc than narrow ones (i, l) and adjacent labels do not overlap.
+    Raises ValueError if the items cannot fit with min_gap px between
+    neighbours at this radius.
+    """
+    circ = 2 * math.pi * radius
+    total = sum(widths)
+    spare = circ - total
+    n = len(widths)
+    if spare < min_gap * n:
+        raise ValueError("ring items need %d px, %d available at r=%d"
+                         % (total + min_gap * n, circ, radius))
+    gap = spare / n
+    out = []
+    pos = -(widths[0] + gap) / 2        # centre item 0 at 0 deg
+    for w in widths:
+        slot = w + gap
+        centre = pos + slot / 2
+        out.append((centre * 360 / circ, slot * 180 / circ))
+        pos += slot
+    return out
 
 
 class StationUI:
@@ -85,18 +139,18 @@ class StationUI:
         }
         S = lv.SYMBOL
         self.ic = {
-            "Read": S.EYE_OPEN, "Tags": S.LIST, "Text": S.EDIT,
-            "read": S.EYE_OPEN, "scan": S.SD_CARD, "ok": S.OK,
-            "fail": S.CLOSE, "warn": S.WARNING, "busy": S.REFRESH,
+            "read": S.EYE_OPEN, "tags": S.LIST, "text": S.EDIT,
+            "scan": S.SD_CARD, "ok": S.OK, "fail": S.CLOSE,
+            "warn": S.WARNING, "busy": S.REFRESH, "trash": S.TRASH,
             text_entry.DEL: S.BACKSPACE, text_entry.DONE: S.OK,
             text_entry.WORDS_ITEM: S.LIST, text_entry.BACK_ITEM: S.LEFT,
         }
-        self._build_ring()
+        self._build_home()
         self._build_list()
         self._build_status()
         self._build_keyboard()
 
-    # -- helpers -----------------------------------------------------
+    # -- primitives --------------------------------------------------
 
     def _enqueue(self, intent):
         if self._input is not None:
@@ -124,24 +178,37 @@ class StationUI:
         lbl.align(lv.ALIGN.CENTER, 0, y)
         return lbl
 
-    def _arc(self, parent, color):
+    def _arc(self, parent, color, width, size=RIM_OUTER * 2):
+        """Non-interactive arc, 0 deg at 12 o'clock, angles clockwise."""
         arc = lv.arc(parent)
-        arc.set_size(ARC_SIZE, ARC_SIZE)
+        arc.set_size(size, size)
         arc.align(lv.ALIGN.CENTER, 0, 0)
-        arc.set_bg_angles(0, 360)
-        arc.set_rotation(270)       # LVGL 0 deg is 3 o'clock; make it 12
+        arc.set_rotation(270)
+        arc.set_bg_angles(0, 0)
         arc.remove_style(None, lv.PART.KNOB)
         arc.remove_flag(lv.obj.FLAG.CLICKABLE)
-        arc.set_style_arc_width(ARC_W, lv.PART.MAIN)
-        arc.set_style_arc_width(ARC_W, lv.PART.INDICATOR)
-        arc.set_style_arc_color(lv.color_hex(BORDER), lv.PART.MAIN)
+        arc.set_style_arc_rounded(False, lv.PART.INDICATOR)
+        arc.set_style_arc_width(width, lv.PART.MAIN)
+        arc.set_style_arc_width(width, lv.PART.INDICATOR)
+        arc.set_style_arc_opa(0, lv.PART.MAIN)
         arc.set_style_arc_color(lv.color_hex(color), lv.PART.INDICATOR)
         return arc
 
+    def _circle(self, parent, d, color):
+        c = lv.obj(parent)
+        c.set_size(d, d)
+        c.set_style_radius(d // 2, 0)
+        c.set_style_bg_color(lv.color_hex(color), 0)
+        c.set_style_bg_opa(255, 0)
+        c.set_style_border_width(0, 0)
+        c.set_style_pad_all(0, 0)
+        c.remove_flag(lv.obj.FLAG.CLICKABLE)
+        c.remove_flag(lv.obj.FLAG.SCROLLABLE)
+        return c
+
     @staticmethod
-    def _segment(arc, centre_deg, span_deg):
-        arc.set_angles(int(centre_deg - span_deg / 2) % 360,
-                       int(centre_deg + span_deg / 2) % 360)
+    def _span(arc, start_deg, end_deg):
+        arc.set_angles(int(start_deg) % 360, int(end_deg) % 360)
 
     @staticmethod
     def _color(lbl, color):
@@ -154,101 +221,93 @@ class StationUI:
         else:
             obj.add_flag(lv.obj.FLAG.HIDDEN)
 
-    def _ring_labels(self, parent, n, tappable):
-        labels = []
-        for i in range(n):
-            lbl = self._label(parent, self.f["body"], INK_3)
-            if tappable:
-                lbl.add_flag(lv.obj.FLAG.CLICKABLE)
-                lbl.set_ext_click_area(12)
-                lbl.add_event_cb(self._tap_cb(i), lv.EVENT.CLICKED, None)
-            labels.append(lbl)
-        return labels
-
     def _tap_cb(self, i):
         def handler(event_struct):
             self._enqueue("tap:%d" % i)
         return handler
 
-    def _place_ring(self, labels, texts, sel, arc, color):
-        """Lay texts out around the rim; an empty list hides every label
-        and leaves the arc to the caller."""
-        n = len(texts)
-        if n == 0:
-            for lbl in labels:
-                self._visible(lbl, False)
-            return
-        step = 360 / n
-        for i, lbl in enumerate(labels):
-            if i >= n:
-                self._visible(lbl, False)
+    # -- home: icon ring ---------------------------------------------
+
+    def _build_home(self):
+        pg = self._page("home")
+        self.h_icons = []
+        for name in ("Read", "Tags", "Text"):
+            glyph, color = HOME_STYLE[name]
+            c = self._circle(pg, HOME_D, color)
+            g = self._label(c, self.f["body"], WHITE)
+            g.set_text(self.ic[glyph])
+            self.h_icons.append(c)
+        self.h_name = self._label(pg, self.f["focus"], INK, w=100)
+
+    def show_ring(self, names, sel):
+        step = 360 / len(names)
+        for i, c in enumerate(self.h_icons):
+            if i >= len(names):
+                self._visible(c, False)
                 continue
-            self._visible(lbl, True)
-            lbl.set_text(texts[i])
-            dx, dy = _rim_xy(i * step, RIM_R - 14)
-            lbl.align(lv.ALIGN.CENTER, dx, dy)
-            self._color(lbl, color if i == sel else INK_3)
-        self._segment(arc, sel * step, step - 6)
+            self._visible(c, True)
+            big = i == sel
+            d = HOME_D + 10 if big else HOME_D
+            c.set_size(d, d)
+            c.set_style_radius(d // 2, 0)
+            c.set_style_border_width(4 if big else 0, 0)
+            c.set_style_border_color(lv.color_hex(INK), 0)
+            c.set_style_opa(255 if big else 170, 0)
+            dx, dy = _rim_xy(i * step, HOME_R)
+            c.align(lv.ALIGN.CENTER, dx, dy)
+        self.h_name.set_text(names[sel])
+        self._show("home")
 
-    # -- pages -------------------------------------------------------
-
-    def _build_ring(self):
-        pg = self._page("ring")
-        self.r_arc = self._arc(pg, WRITE_FG)
-        self.r_items = self._ring_labels(pg, 3, False)
-        self.r_name = self._label(pg, self.f["focus"], INK, w=150, y=0)
+    # -- list: dot ring ----------------------------------------------
 
     def _build_list(self):
         pg = self._page("list")
-        self.l_arc = self._arc(pg, WRITE_FG)
-        self.l_title = self._label(pg, self.f["body"], WRITE_FG, w=120, y=-82)
-        self.l_prev = self._label(pg, self.f["body"], INK_3, w=150, y=-42)
-        self.l_prev.set_style_opa(140, 0)
-        self.l_cur = self._label(pg, self.f["focus"], INK, w=190, y=0)
-        self.l_next = self._label(pg, self.f["body"], INK_3, w=150, y=42)
-        self.l_next.set_style_opa(140, 0)
-        self.l_count = self._label(pg, self.f["body"], INK_3, y=82)
+        self.l_ptr = self._arc(pg, WRITE_FG, 6)
+        self.l_dots = [self._circle(pg, DOT_SMALL, BORDER) for _ in range(DOT_SLOTS)]
+        self.l_title = self._label(pg, self.f["body"], WRITE_FG, w=130, y=-52)
+        self.l_cur = self._label(pg, self.f["focus"], INK, w=170, y=0)
+        self.l_count = self._label(pg, self.f["body"], INK_3, y=50)
+
+    def _dot_ring(self, n, sel):
+        """Dots for n items (selected large), or a position arc if n is
+        more than DOT_SLOTS."""
+        dots = n <= DOT_SLOTS
+        step = 360 / n
+        for i, d in enumerate(self.l_dots):
+            if not dots or i >= n:
+                self._visible(d, False)
+                continue
+            self._visible(d, True)
+            big = i == sel
+            size = DOT_BIG if big else DOT_SMALL
+            d.set_size(size, size)
+            d.set_style_radius(size // 2, 0)
+            d.set_style_bg_color(lv.color_hex(WRITE_FG if big else BORDER), 0)
+            dx, dy = _rim_xy(i * step, DOT_R)
+            d.align(lv.ALIGN.CENTER, dx, dy)
+        half = max(step / 2, 4)
+        self._span(self.l_ptr, sel * step - half, sel * step + half)
+
+    def show_list(self, title, items, sel):
+        self._dot_ring(len(items), sel)
+        self.l_title.set_text(title)
+        self.l_cur.set_text(items[sel])
+        self.l_count.set_text("%d/%d" % (sel + 1, len(items)))
+        self._show("list")
+
+    # -- status: result ring -----------------------------------------
 
     def _build_status(self):
         pg = self._page("status")
-        self.s_glyph = self._label(pg, self.f["glyph"], WRITE_FG, y=-56)
-        self.s_title = self._label(pg, self.f["focus"], INK, w=190, y=-4)
-        self.s_body = self._label(pg, self.f["body"], INK_3, w=180, y=40)
-        self.s_hint = self._label(pg, self.f["body"], WRITE_FG, w=130, y=80)
+        self.s_ring = self._arc(pg, WRITE_FG, 10)
+        self.s_glyph = self._label(pg, self.f["glyph"], WRITE_FG, y=-50)
+        self.s_title = self._label(pg, self.f["focus"], INK, w=180, y=2)
+        self.s_body = self._label(pg, self.f["body"], INK_3, w=160, y=44)
+        self.s_hint = self._label(pg, self.f["body"], WRITE_FG, w=110, y=80)
 
-    def _build_keyboard(self):
-        pg = self._page("keyboard")
-        self.k_arc = self._arc(pg, PINK)
-        self.k_items = self._ring_labels(pg, RING_SLOTS, True)
-        self.k_typed = self._label(pg, self.f["body"], INK, y=-36)
-        self.k_hint = self._label(pg, self.f["focus"], PINK, w=130, y=6)
-        self.k_count = self._label(pg, self.f["body"], INK_3, y=46)
-
-    # -- painters ----------------------------------------------------
-
-    def show_ring(self, names, sel):
-        self._place_ring(self.r_items, [self.ic.get(n, n[:1]) for n in names],
-                         sel, self.r_arc, WRITE_FG)
-        self.r_name.set_text(names[sel])
-        self._show("ring")
-
-    def show_list(self, title, items, sel):
-        n = len(items)
-        self.l_title.set_text(title)
-        self.l_cur.set_text(items[sel])
-        many = n > 1
-        self._visible(self.l_prev, many)
-        self._visible(self.l_next, many)
-        if many:
-            self.l_prev.set_text(items[(sel - 1) % n])
-            self.l_next.set_text(items[(sel + 1) % n])
-        self.l_count.set_text("%d/%d" % (sel + 1, n))
-        # Position on the right half of the rim, 30..150 deg.
-        span = 120 / n
-        self._segment(self.l_arc, 30 + sel * span + span / 2, max(span, 8))
-        self._show("list")
-
-    def _status(self, glyph, color, title, body="", hint=""):
+    def _status(self, glyph, color, title, body="", hint="", fill=100):
+        self.s_ring.set_style_arc_color(lv.color_hex(color), lv.PART.INDICATOR)
+        self._span(self.s_ring, 0, 360 * fill // 100)
         self.s_glyph.set_text(self.ic[glyph])
         self._color(self.s_glyph, color)
         self.s_title.set_text(title)
@@ -259,69 +318,157 @@ class StationUI:
 
     def show_reader(self, text, tag_type=""):
         if text is None and not tag_type:
-            self._status("read", WRITE_FG, "Read", "Hold Card", "Hold: Back")
+            self._status("read", WRITE_FG, "Read", "Hold Card", "Hold: Back", 0)
         elif text:
             self._status("ok", SERVE_FG, text, tag_type, "Click: Copy")
         else:
             self._status("warn", WARN_FG, "No Text", tag_type, "Hold: Back")
 
     def show_scan(self, text):
-        self._status("scan", WRITE_FG, text, "Hold Card", "Hold: Back")
+        self._status("scan", WRITE_FG, text, "Hold Card", "Hold: Back", 0)
 
     def show_result(self, kind, title, body=""):
-        glyph, color = KIND_STYLE[kind]
-        self._status(glyph, color, title, body)
+        glyph, color, fill = KIND_STYLE[kind]
+        self._status(glyph, color, title, body, "", fill)
+
+    # -- keyboard: segmented ring ------------------------------------
+
+    def _build_keyboard(self):
+        pg = self._page("keyboard")
+        nseg = KEY_SLOTS // text_entry.SEGMENT
+        self.k_segs = [self._arc(pg, WRITE_BG if i % 2 else CARD_BG, BAND_W)
+                       for i in range(nseg)]
+        self.k_cell = self._arc(pg, PINK, BAND_W)
+        self.k_keys = []
+        for i in range(KEY_SLOTS):
+            lbl = self._label(pg, self.f["body"], INK)
+            lbl.add_flag(lv.obj.FLAG.CLICKABLE)
+            lbl.set_ext_click_area(6)
+            lbl.add_event_cb(self._tap_cb(i), lv.EVENT.CLICKED, None)
+            self.k_keys.append(lbl)
+        self.k_dots = [self._circle(pg, DOT_SMALL, BORDER) for _ in range(DOT_SLOTS)]
+        self._k_ring = None
+        self._k_slots = None
+        self.k_typed = self._label(pg, self.f["body"], INK, y=-36)
+        self.k_sel = self._label(pg, self.f["glyph"], PINK, w=120, y=6)
+        self.k_count = self._label(pg, self.f["body"], INK_3, y=44)
+
+    def _fit_tail(self, lbl, text, max_w):
+        """Show the end of text plus a cursor, dropping leading characters
+        (marked "..") until the label is at most max_w px wide."""
+        shown = text + "|"
+        cut = 0
+        while True:
+            lbl.set_text(shown)
+            lbl.update_layout()
+            if lbl.get_width() <= max_w or cut >= len(text):
+                return
+            cut += 1
+            shown = ".." + text[cut:] + "|"
+
+    def _key_text(self, c):
+        if c in self.ic:
+            return self.ic[c]
+        if c == text_entry.SPACE:
+            return "_"
+        return c
+
+    def _sel_text(self, c):
+        if c == text_entry.SPACE:
+            return "_"
+        if c == text_entry.MORE_ITEM:
+            return "123"
+        if c in self.ic:
+            return self.ic[c]
+        return c
 
     def show_keyboard(self, view):
         mode = view["mode"]
         choices = view["choices"]
         sel = view["sel"]
-        if mode == text_entry.M_WORDS:
-            # Words do not fit on the rim: carousel-style centre word.
-            self._place_ring(self.k_items, [], 0, self.k_arc, PINK)
-            span = 360 / len(choices)
-            self._segment(self.k_arc, sel * span, max(span - 4, 6))
-            item = choices[sel]
-            self.k_hint.set_text("back" if item == text_entry.BACK_ITEM else item)
-        elif mode == text_entry.M_CANCEL:
-            self._place_ring(self.k_items, [], 0, self.k_arc, PINK)
-            self.k_arc.set_angles(0, 0)
-            self.k_hint.set_text("Hold: Discard")
+        n = len(choices)
+        step = 360 / n
+        keys = mode in (text_entry.M_LETTERS, text_entry.M_MORE)
+
+        slots = None
+        if keys:
+            # Texts and slot angles change only with the ring's contents;
+            # a detent just moves the highlight.
+            ring = tuple(choices)
+            if ring != self._k_ring:
+                for i in range(n):
+                    self.k_keys[i].set_text(self._key_text(choices[i]))
+                self.k_keys[0].get_parent().update_layout()
+                self._k_slots = slot_angles(
+                    [self.k_keys[i].get_width() for i in range(n)], KEY_R)
+                self._k_ring = ring
+            slots = self._k_slots
+        for i, lbl in enumerate(self.k_keys):
+            if not keys or i >= n:
+                self._visible(lbl, False)
+                continue
+            self._visible(lbl, True)
+            dx, dy = _rim_xy(slots[i][0], KEY_R)
+            lbl.align(lv.ALIGN.CENTER, dx, dy)
+            self._color(lbl, WHITE if i == sel else INK)
+
+        # Segment band: SEGMENT items per tinted section.
+        seg_items = text_entry.SEGMENT
+        nseg = (n + seg_items - 1) // seg_items if keys else 0
+        for i, arc in enumerate(self.k_segs):
+            if i >= nseg:
+                self._visible(arc, False)
+                continue
+            self._visible(arc, True)
+            first = slots[i * seg_items]
+            last = slots[min((i + 1) * seg_items, n) - 1]
+            self._span(arc, first[0] - first[1], last[0] + last[1])
+
+        words = mode == text_entry.M_WORDS
+        if words:
+            # Reuse the list's dot logic on this page's dots.
+            dots_on = n <= DOT_SLOTS
+            for i, d in enumerate(self.k_dots):
+                show = dots_on and i < n
+                self._visible(d, show)
+                if not show:
+                    continue
+                big = i == sel
+                size = DOT_BIG if big else DOT_SMALL
+                d.set_size(size, size)
+                d.set_style_radius(size // 2, 0)
+                d.set_style_bg_color(lv.color_hex(PINK if big else BORDER), 0)
+                dx, dy = _rim_xy(i * step, DOT_R)
+                d.align(lv.ALIGN.CENTER, dx, dy)
         else:
-            labels = [self._key_label(c, mode) for c in choices]
-            self._place_ring(self.k_items, labels, sel, self.k_arc, PINK)
-            self.k_hint.set_text(self._key_hint(choices[sel], mode))
-        tail = view["text"][-TYPED_TAIL:]
-        if len(view["text"]) > TYPED_TAIL:
-            tail = "..." + tail[3:]
-        self.k_typed.set_text(tail + "|")
-        self.k_count.set_text("%d/%d" % (view["used"], view["max"]))
-        self._color(self.k_count, DANGER_FG if view["used"] >= view["max"] else INK_3)
+            for d in self.k_dots:
+                self._visible(d, False)
+
+        if mode == text_entry.M_CANCEL:
+            self._visible(self.k_cell, False)
+            self.k_sel.set_style_text_font(self.f["glyph"], 0)
+            self.k_sel.set_text(self.ic["trash"])
+        else:
+            self._visible(self.k_cell, keys)
+            if keys:
+                c, half = slots[sel]
+                self._span(self.k_cell, c - half, c + half)
+            item = choices[sel]
+            if words:
+                self.k_sel.set_style_text_font(self.f["focus"], 0)
+                self.k_sel.set_text("back" if item == text_entry.BACK_ITEM else item)
+            else:
+                self.k_sel.set_style_text_font(self.f["glyph"], 0)
+                self.k_sel.set_text(self._sel_text(item))
+
+        self._fit_tail(self.k_typed, view["text"], TYPED_MAX_W)
+        if mode == text_entry.M_CANCEL:
+            self.k_count.set_text("Hold")
+            self._color(self.k_count, DANGER_FG)
+        else:
+            self.k_count.set_text("%d/%d" % (view["used"], view["max"]))
+            self._color(self.k_count, DANGER_FG if view["used"] >= view["max"] else INK_3)
         self._show("keyboard")
-
-    def _key_label(self, c, mode):
-        if c in self.ic:
-            return self.ic[c]
-        if c == " ":
-            return "sp"
-        if mode == text_entry.M_GROUPS:
-            return c[0]         # group shown by its first character
-        return c
-
-    def _key_hint(self, c, mode):
-        if c == text_entry.DEL:
-            return "delete"
-        if c == text_entry.DONE:
-            return "done"
-        if c == text_entry.WORDS_ITEM:
-            return "words"
-        if c == text_entry.BACK_ITEM:
-            return "back"
-        if c == " ":
-            return "space"
-        if mode == text_entry.M_GROUPS:
-            return " ".join("sp" if ch == " " else ch for ch in c)
-        return c
 
     # -- sound (piezo peaks ~3 kHz; values from dial_ui.py) ----------
 

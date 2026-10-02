@@ -19,7 +19,7 @@ Port A (sda=13 scl=15) and falls back to the built-in reader.
 |---|---|
 | `main.py` | Boot: M5, input, UI, then `Station.run()` |
 | `station.py` | Mode machine, scan/write, serial commands |
-| `station_ui.py` | Round-screen painter (ring, carousel, status, keyboard pages) |
+| `station_ui.py` | Round-screen painter (icon ring, dot ring, result ring, ring keyboard) |
 | `station_fonts.py` | 28 / 40 / 48 px fonts; built-in or `/flash/fonts/*.bin` |
 | `text_entry.py` | Ring keyboard state machine (no display code) |
 | `tag_catalog.py` | Tags grouped by game; word bank |
@@ -45,18 +45,30 @@ Copies, not imports -- fixing one fixes only this copy:
 
 ## Screens
 
-1. **Home** ring: Read / Tags / Text.
-2. **Read**: hold a card; its text and card type show. Click copies the
-   text to the next card presented.
-3. **Tags**: game carousel, then that game's tags, then hold a card to
-   write. A card already carrying the text is not rewritten.
-4. **Text**: ring keyboard.
-   - Rim: groups `a f k p u z 0 5` (first character shown, full group in
-     the centre), words, delete, done.
-   - Click a group to put its characters on the rim; click one to type it.
-   - Words: whole tag names and `/flash/words.json` entries.
-   - Centre: typed text, selection, byte count `n/54`.
-   - Hold with text entered asks for a second hold to discard.
+Every selector puts its choices on the rim at fixed angles: turning the
+dial moves the highlight around the ring the same way the knob turns, and
+the centre names the selection large.
+
+1. **Home**: icon ring -- three coloured circles (Read, Tags, Text); the
+   selected one is enlarged and outlined, its name in the centre.
+2. **Read**: hold a card; its text and card type show inside a result
+   ring. Click copies the text to the next card presented.
+3. **Tags**: dot ring of games, then a dot ring of that game's tags (one
+   dot per item, selected dot large, name in the centre, `n/N` below;
+   past 24 items a position arc replaces the dots). Hold a card to write.
+   A card already carrying the text is not rewritten.
+4. **Text**: segmented ring keyboard.
+   - Rim: `a`-`z`, `_` (space), `#`, delete, done -- 30 items, one detent
+     each, in tinted sections of three. Each item's arc slot is sized to
+     its glyph width, so `m` and `w` do not crowd their neighbours.
+   - Click types the highlighted item; the highlight stays, so repeated
+     and nearby letters need no extra turns. Tapping a rim item types it.
+   - `#` swaps the rim to `0`-`9`, `-`, `.`, words, `abc`, delete, done.
+   - Words: dot ring of tag names and `/flash/words.json` entries; the
+     chosen word is appended with a space.
+   - Centre: typed text (trimmed from the left to fit), the highlighted
+     item at 48 px, byte count `n/54`.
+   - Hold with text entered shows a trash glyph; a second hold discards.
 
 Writes are verified by reading back. A failed write re-arms the same scan.
 
@@ -101,8 +113,8 @@ Events: `card_read`, `card_written`, `write_failed`, `heartbeat`.
 ## UI rules
 
 - Minimum text 28 px; 40 px for the focused item; 48 px for glyphs.
-- No rectangular roller. Selection lives on the rim (ring, arc); the
-  centre names it large.
+- No rectangular roller. Selection lives on the rim and rotates with the
+  dial; the centre names it large.
 - Content inside the ~170 px inscribed square.
 - Every result pairs a glyph and a beep with its colour.
 
@@ -112,7 +124,7 @@ Events: `card_read`, `card_written`, `write_failed`, `heartbeat`.
 python3 tools/test_station.py                       # host tests
 python3 tools/deploy_station.py /dev/cu.usbmodemXXXX
 mpremote run tools/font_probe.py                    # fonts present?
-mpremote run tools/ui_sketches.py                   # layout comparison
+mpremote run tools/ui_sketches.py                   # every page with sample data
 ```
 
 If `font_probe.py` reports a size missing, convert Montserrat at that size

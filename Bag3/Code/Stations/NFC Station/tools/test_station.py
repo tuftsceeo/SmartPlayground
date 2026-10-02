@@ -6,6 +6,7 @@ input, reader and card modules. No LVGL, no hardware.
     cd "Bag3/Code/Stations/NFC Station" && python3 tools/test_station.py
 """
 
+import math
 import os
 import sys
 import tempfile
@@ -121,25 +122,35 @@ def run(st, inp, *intents):
 
 
 class TextEntryTests(unittest.TestCase):
-    def test_type_word(self):
+    def tap(self, e, item):
+        return e.handle("tap:%d" % e.choices().index(item))
+
+    def test_type_word_by_tap(self):
         e = te.TextEntry(54)
-        # "hi": h is group 1 ("fghij") index 2; i is index 3.
-        for i in ("tap:1", "tap:2", "tap:1", "tap:3"):
-            e.handle(i)
+        self.tap(e, "h")
+        self.tap(e, "i")
         self.assertEqual(e.text, "hi")
         self.assertEqual(e.handle(te.DONE), ("done", "hi"))
 
-    def test_encoder_only(self):
+    def test_encoder_one_detent_per_letter(self):
         e = te.TextEntry(54)
-        e.handle(NEXT)          # fghij
+        for _ in range(7):
+            e.handle(NEXT)
+        self.assertEqual(e.selected(), "h")
         e.handle(ACT)
-        e.handle(ACT)           # f
-        self.assertEqual(e.text, "f")
-        self.assertEqual(e.mode, te.M_GROUPS)
-        for _ in range(len(e.choices()) - 1):
-            e.handle(NEXT)      # last item is done
+        e.handle(NEXT)
+        e.handle(ACT)
+        self.assertEqual(e.text, "hi")
+        e.handle(ACT)                       # highlight stays: "i" again
+        self.assertEqual(e.text, "hii")
+        for _ in range(9):
+            e.handle(PREV)                  # 'i' (8) wraps back to done (29)
         self.assertEqual(e.selected(), te.DONE)
-        self.assertEqual(e.handle(ACT), ("done", "f"))
+        self.assertEqual(e.handle(ACT), ("done", "hii"))
+
+    def test_letters_ring_segments(self):
+        self.assertEqual(len(te.LETTERS), 30)
+        self.assertEqual(len(te.LETTERS) % te.SEGMENT, 0)
 
     def test_space_and_strip(self):
         e = te.TextEntry(54, text=" a ")
@@ -148,24 +159,39 @@ class TextEntryTests(unittest.TestCase):
 
     def test_delete(self):
         e = te.TextEntry(54, text="ab")
-        e.handle("tap:%d" % e.choices().index(te.DEL))
+        self.tap(e, te.DEL)
         self.assertEqual(e.text, "a")
 
     def test_full(self):
         e = te.TextEntry(2, text="ab")
-        self.assertEqual(e.handle("tap:0"), None)       # open group
-        self.assertEqual(e.handle("tap:0"), ("full",))  # 'a' would overflow
+        self.assertEqual(self.tap(e, "a"), ("full",))
         self.assertEqual(e.text, "ab")
+
+    def test_more_ring_and_return(self):
+        e = te.TextEntry(54)
+        for _ in range(4):
+            e.handle(NEXT)                  # 'e'
+        self.tap(e, te.MORE_ITEM)
+        self.assertEqual(e.mode, te.M_MORE)
+        self.tap(e, "7")
+        self.assertEqual(e.text, "7")
+        self.tap(e, te.LETTERS_ITEM)
+        self.assertEqual(e.mode, te.M_LETTERS)
+        self.assertEqual(e.selected(), te.MORE_ITEM)   # where it was left
 
     def test_words(self):
         e = te.TextEntry(54, words=["melody", "stop"], text="go")
-        e.handle("tap:%d" % e.choices().index(te.WORDS_ITEM))
+        self.tap(e, te.MORE_ITEM)
+        self.tap(e, te.WORDS_ITEM)
         self.assertEqual(e.mode, te.M_WORDS)
-        e.handle("tap:2")       # back, melody, stop
+        self.tap(e, "stop")
         self.assertEqual(e.text, "go stop")
+        self.assertEqual(e.mode, te.M_LETTERS)
 
     def test_no_words_item_without_words(self):
-        self.assertNotIn(te.WORDS_ITEM, te.TextEntry(54).choices())
+        e = te.TextEntry(54)
+        self.tap(e, te.MORE_ITEM)
+        self.assertNotIn(te.WORDS_ITEM, e.choices())
 
     def test_cancel(self):
         self.assertEqual(te.TextEntry(54).handle(EXIT), ("cancel",))
@@ -173,20 +199,20 @@ class TextEntryTests(unittest.TestCase):
         self.assertIsNone(e.handle(EXIT))
         self.assertEqual(e.mode, te.M_CANCEL)
         e.handle(NEXT)                       # any other intent keeps text
-        self.assertEqual(e.mode, te.M_GROUPS)
+        self.assertEqual(e.mode, te.M_LETTERS)
         e.handle(EXIT)
         self.assertEqual(e.handle(EXIT), ("cancel",))
 
-    def test_exit_from_chars_returns_to_groups(self):
+    def test_exit_from_more_returns_to_letters(self):
         e = te.TextEntry(54)
-        e.handle("tap:0")
+        self.tap(e, te.MORE_ITEM)
         self.assertIsNone(e.handle(EXIT))
-        self.assertEqual(e.mode, te.M_GROUPS)
+        self.assertEqual(e.mode, te.M_LETTERS)
 
     def test_tap_out_of_range_ignored(self):
         e = te.TextEntry(54)
         self.assertIsNone(e.handle("tap:40"))
-        self.assertEqual(e.mode, te.M_GROUPS)
+        self.assertEqual(e.text, "")
 
 
 class CatalogTests(unittest.TestCase):
@@ -297,7 +323,7 @@ class StationTests(unittest.TestCase):
     def test_text_flow(self):
         run(self.st, self.inp, PREV, ACT)               # Text
         self.assertEqual(self.st.mode, station.TEXT)
-        run(self.st, self.inp, "tap:0", "tap:0")        # 'a'
+        run(self.st, self.inp, "tap:0")                 # 'a'
         run(self.st, self.inp, "tap:%d" % self.st.entry.choices().index(te.DONE))
         self.assertEqual(self.st.mode, station.SCAN)
         self.assertEqual(self.st.scan_text, "a")
@@ -334,6 +360,8 @@ class _Stub:
     """Accepts any attribute access or call; stands in for lvgl / m5ui."""
 
     def __getattr__(self, name):
+        if name == "get_width":
+            return lambda: 17
         return _Stub()
 
     def __call__(self, *a, **k):
@@ -372,19 +400,64 @@ class PainterSmokeTests(unittest.TestCase):
             ui.show_result(kind, "T", "b")
         e = te.TextEntry(54, words=["melody"], text="x" * 20)
         ui.show_keyboard(e.view())
-        e.handle("tap:0")
+        for _ in range(29):
+            e.handle(NEXT)
+            ui.show_keyboard(e.view())
+        e.handle("tap:%d" % e.choices().index(te.MORE_ITEM))
         ui.show_keyboard(e.view())
-        e.handle(EXIT)
         e.handle("tap:%d" % e.choices().index(te.WORDS_ITEM))
         ui.show_keyboard(e.view())
         e.handle(EXIT)
         e.handle(EXIT)
         self.assertEqual(e.mode, te.M_CANCEL)
         ui.show_keyboard(e.view())
-        self.assertLessEqual(len(te.TextEntry(54, words=["w"]).choices()),
-                             self.mod.RING_SLOTS)
+        ui.show_list("Games", ["g%d" % i for i in range(20)], 19)
         ui.beep_success()
         ui.beep_fail()
+
+    # Montserrat Medium advance widths at 28 px, measured from the Google
+    # Fonts variable TTF at wght 500 (LVGL's built-ins are Medium). Icons
+    # (backspace, ok) assumed 28 px.
+    MONT28 = {"a": 16.7, "b": 19.1, "c": 16.0, "d": 19.1, "e": 17.1, "f": 9.9,
+              "g": 19.3, "h": 19.1, "i": 7.8, "j": 8.0, "k": 17.2, "l": 7.8,
+              "m": 29.6, "n": 19.1, "o": 17.8, "p": 19.1, "q": 19.1, "r": 11.5,
+              "s": 14.0, "t": 11.6, "u": 19.0, "v": 15.7, "w": 25.2, "x": 15.5,
+              "y": 15.7, "z": 14.6, "_": 14.0, "#": 19.7,
+              "0": 18.7, "1": 10.4, "2": 16.1, "3": 16.0, "4": 18.7, "5": 16.1,
+              "6": 17.3, "7": 16.7, "8": 18.0, "9": 17.3, "-": 10.7, ".": 6.4}
+    ICON_W = 28
+
+    def _widths(self, choices):
+        out = []
+        for c in choices:
+            key = "_" if c == te.SPACE else c
+            out.append(self.MONT28.get(key, self.ICON_W))
+        return out
+
+    def _assert_no_overlap(self, widths, radius):
+        slots = self.mod.slot_angles(widths, radius)
+        circ = 2 * math.pi * radius
+        for i, (c, half) in enumerate(slots):
+            arc_px = 2 * half * circ / 360
+            self.assertGreaterEqual(arc_px, widths[i] + 2)
+        total = sum(2 * h for _, h in slots)
+        self.assertAlmostEqual(total, 360, places=3)
+
+    def test_letters_ring_fits_at_28px(self):
+        widths = self._widths(te.LETTERS)
+        self._assert_no_overlap(widths, self.mod.KEY_R)
+        # Uniform pitch would not: l-m-n needs 24.4 px, pitch is 20.3 px.
+        pitch = 2 * math.pi * self.mod.KEY_R / len(widths)
+        self.assertLess(pitch, (self.MONT28["m"] + self.MONT28["n"]) / 2)
+
+    def test_more_ring_fits_at_28px(self):
+        e = te.TextEntry(54, words=["w"])
+        e.handle("tap:%d" % e.choices().index(te.MORE_ITEM))
+        self._assert_no_overlap(self._widths(e.choices()), self.mod.KEY_R)
+
+    def test_slot_angles_refuses_overflow(self):
+        with self.assertRaises(ValueError):
+            self.mod.slot_angles([30] * 40, 97)
 
 
 if __name__ == "__main__":

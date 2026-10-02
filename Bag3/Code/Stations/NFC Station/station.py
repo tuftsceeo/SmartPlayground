@@ -5,8 +5,8 @@ Modes (intents from dial_input; EXIT = 1 s hold):
   HOME   ring: Read / Tags / Text          ACT opens
   READ   field on, reports each new card   ACT on a read card copies it
                                            EXIT -> HOME
-  GAMES  carousel of catalog groups        ACT -> TAGS, EXIT -> HOME
-  TAGS   carousel of one group's tags      ACT -> SCAN, EXIT -> GAMES
+  GAMES  dot ring of catalog groups        ACT -> TAGS, EXIT -> HOME
+  TAGS   dot ring of one group's tags      ACT -> SCAN, EXIT -> GAMES
   TEXT   ring keyboard (text_entry)        done -> SCAN, cancel -> HOME
   SCAN   field on, writes the target text  EXIT -> where it came from
 

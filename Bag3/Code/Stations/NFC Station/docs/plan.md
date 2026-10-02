@@ -136,3 +136,32 @@ Open, needs hardware:
 - LVGL calls in `station_ui.py` (arc rotation, `set_ext_click_area`,
   `LONG_MODE.SCROLL_CIRCULAR` names) against this UIFlow2 build.
 - Read/write reliability with external and built-in readers.
+
+## Revision: rotation-aligned UI (2026-10-02)
+
+Reference images from the user: the segmented alphabet ring keyboard, the
+M5 Dial icon ring menu, the circular slider, and a full-height watch-face
+roller. Direction taken: every selector is rotation-aligned (choices on
+the rim, highlight moves with the knob, selection enlarged in the centre).
+The CHI 2023 paper (doi 10.1145/3544548.3580770) could not be read from
+this environment (dl.acm.org blocked by the network policy).
+
+- **Keyboard**: the two-step group picker is replaced by a single ring
+  with the whole alphabet (`a`-`z`, space, `#`, delete, done; 30 items, one
+  detent each) in tinted sections of three. `#` swaps to digits, `-`,
+  `.`, and the word bank.
+- **Fit at 28 px** (Montserrat Medium widths measured from the Google
+  Fonts TTF): uniform 20.3 px pitch at r=97 overlaps at `l m n` (needs
+  24.4 px). Slots are sized per glyph width (`station_ui.slot_angles`);
+  `tools/test_station.py` checks both rings fit with the measured widths.
+  The centre trims typed text by measured width.
+- **Lists**: the vertical carousel is replaced by a dot ring; past 24
+  items, a position arc.
+- **Home**: icon ring of three coloured circles.
+- **Status**: full rim arc coloured by result; partial arc while writing.
+- `tools/ui_sketches.py` now drives the real `StationUI` pages.
+
+Still needs hardware: whether LVGL label widths match the TTF
+measurement, `update_layout()`/`get_width()` cost per keyboard repaint
+(30 labels), arc z-order under labels, and touch accuracy on 20 px rim
+targets.
