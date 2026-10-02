@@ -32,7 +32,7 @@ GAMES = ["Colorquest", "Cooking", "Freezedance", "Gestures", "Goalrace",
 LONG = ["item %d" % i for i in range(30)]
 WORDS = ["melody", "stop", "goal", "teamblue", "rainbow"]
 STATUS = (("reader", None), ("read", "melody"), ("scan", "teamgreen"),
-          ("busy", "Writing"), ("ok", "Written"), ("fail", "Try Again"),
+          ("busy", "Writing"), ("ok", "Done"), ("fail", "Oops"),
           ("warn", "No Text"))
 SKETCHES = ("home", "games", "long", "keyboard", "status")
 

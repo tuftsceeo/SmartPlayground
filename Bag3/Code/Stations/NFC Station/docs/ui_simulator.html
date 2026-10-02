@@ -424,7 +424,7 @@ button.primary { background: var(--accent); color: var(--surface); border-color:
       const txt = st.scanText;
       if (have === txt) { result("ok", "Already Set", txt); hold(1000, () => go(st.scanRet)); return; }
       result("busy", "Writing", txt); st.busy = true;
-      setTimeout(() => { store[uid] = txt; log(`card_written "${uid}" <- ${JSON.stringify(txt)}`); result("ok", "Written", txt); renderCards(); hold(1000, () => go(st.scanRet)); }, 600);
+      setTimeout(() => { store[uid] = txt; log(`card_written "${uid}" <- ${JSON.stringify(txt)}`); result("ok", "Done", txt); renderCards(); hold(1000, () => go(st.scanRet)); }, 600);
     } else log("(reader field is off on this screen)");
   }
   function hold(ms, then) { st.busy = true; setTimeout(() => { st.busy = false; then(); }, ms); }
@@ -501,7 +501,7 @@ button.primary { background: var(--accent); color: var(--surface); border-color:
       ["Keyboard: words", { page: "keyboard", entry: e3 }],
       ["Scan: hold card", status("scan", C.WRITE_FG, "teamblue", "Hold Card", "", 0)],
       ["Writing", status("busy", C.WRITE_FG, "Writing", "teamblue", "", 30)],
-      ["Written", status("ok", C.SERVE_FG, "Written", "teamblue", "", 100)],
+      ["Done", status("ok", C.SERVE_FG, "Done", "teamblue", "", 100)],
       ["Read result", status("ok", C.SERVE_FG, "melody", "NTAG", "Copy", 100)],
       ["Write failed", status("fail", C.DANGER_FG, "Oops", "Hold Still", "", 100)],
     ];

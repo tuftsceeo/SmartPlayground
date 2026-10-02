@@ -391,7 +391,7 @@ class Station:
         if ok:
             _log("written %r uid=%s" % (text, tag["uid_hex"]))
             self._send({"type": "card_written", "uid": tag["uid_hex"], "text": text})
-            self.ui.show_result("ok", "Written", text)
+            self.ui.show_result("ok", "Done", text)
             self.ui.beep_success()
             self._hold(RESULT_HOLD_OK_MS)
             self._go(self.scan_return)
