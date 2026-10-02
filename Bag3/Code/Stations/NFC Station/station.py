@@ -417,6 +417,7 @@ class Station:
     def step(self):
         """One loop iteration minus serial: input, then the current mode."""
         self.inputs.update()
+        self.ui.show_hold(self.inputs.hold_fraction())
         intent = self.inputs.pop()
         if self.mode == HOME:
             if intent:

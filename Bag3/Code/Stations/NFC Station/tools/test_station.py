@@ -58,6 +58,9 @@ class FakeInputs:
     def clear(self):
         pass
 
+    def hold_fraction(self):
+        return None
+
 
 class FakeNfc:
     def __init__(self):
@@ -430,6 +433,8 @@ class PainterSmokeTests(unittest.TestCase):
         ui.show_list("Games", ["g%d" % i for i in range(20)], 19)
         ui.beep_success()
         ui.beep_fail()
+        for f in (None, 0.1, 0.5, 1.0, None):
+            ui.show_hold(f)
 
     # Montserrat Medium advance widths at 28 px, measured from the Google
     # Fonts variable TTF at wght 500 (LVGL's built-ins are Medium). Icons

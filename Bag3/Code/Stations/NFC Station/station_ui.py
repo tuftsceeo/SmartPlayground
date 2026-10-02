@@ -29,11 +29,13 @@ Pages, built once in begin() and re-textured per paint:
 
 Text is BODY (28 px) minimum; see station_fonts.py.
 
+A hold ring on LVGL's top layer fills over the 1 s hold on any page.
+
 Painter API used by station.py:
   show_ring(names, sel)          show_list(title, items, sel)
   show_reader(text, tag_type)    show_scan(text)
   show_result(kind, title, body) show_keyboard(view)
-  beep_click/scan/success/fail
+  show_hold(fraction)            beep_click/scan/success/fail
 """
 
 import math
@@ -78,6 +80,8 @@ CARET_W = 3             # px: caret bar width; CARET_GAP px after the text
 CARET_GAP = 3
 CARET_H = 26
 CARET_BLINK_MS = 530
+HOLD_SHOW = 0.15        # hold fraction before the hold ring appears (150 ms)
+HOLD_W = 10             # hold ring width, same as the result ring
 
 HOME_STYLE = {          # home item -> (glyph key, circle colour)
     "Read": ("read", SERVE_FG),
@@ -171,6 +175,10 @@ class StationUI:
         self._build_list()
         self._build_status()
         self._build_keyboard()
+        # Hold-to-back progress ring, on LVGL's top layer above every page.
+        self.hold_arc = self._arc(lv.layer_top(), INK_3, HOLD_W)
+        self._visible(self.hold_arc, False)
+        self._hold_shown = False
 
     # -- primitives --------------------------------------------------
 
@@ -527,6 +535,22 @@ class StationUI:
             self.k_count.set_text("%d/%d" % (view["used"], view["max"]))
             self._color(self.k_count, DANGER_FG if view["used"] >= view["max"] else INK_3)
         self._show("keyboard")
+
+    # -- hold progress -----------------------------------------------
+
+    def show_hold(self, fraction):
+        """Fill a rim ring clockwise from 12 o'clock while the button is
+        held toward the 1 s back/exit. Hidden for short clicks (under
+        HOLD_SHOW) and once the hold fires or the button is released."""
+        if fraction is None or fraction < HOLD_SHOW:
+            if self._hold_shown:
+                self._visible(self.hold_arc, False)
+                self._hold_shown = False
+            return
+        self._span(self.hold_arc, 0, 360 * fraction)
+        if not self._hold_shown:
+            self._visible(self.hold_arc, True)
+            self._hold_shown = True
 
     # -- sound (piezo peaks ~3 kHz; values from dial_ui.py) ----------
 

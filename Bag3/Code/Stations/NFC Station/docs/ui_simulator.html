@@ -300,7 +300,7 @@ button.primary { background: var(--accent); color: var(--surface); border-color:
     if (v.hint) text(ctx, v.hint, 120, 200, F.body, C.WRITE_FG, 110, v.t);
   }
   function keyLabel(c) { return c === SPACE ? "_" : c; }
-  let lastSlots = null, lastKey = -1e9;
+  let lastSlots = null, lastKey = -1e9, pressAt = null;
   function paintKeyboard(ctx, e, t) {
     const mode = e.mode, ch = e.choices(), n = ch.length, sel = e.sel;
     const keys = mode === "letters" || mode === "more";
@@ -438,7 +438,15 @@ button.primary { background: var(--accent); color: var(--surface); border-color:
 
   /* ---- UI wiring ---- */
   const cv = document.getElementById("screen"), ctx = cv.getContext("2d");
-  function frame(t) { paint(ctx, scene, t); requestAnimationFrame(frame); }
+  // Hold ring (station_ui.show_hold): fills over the 1 s hold, above any page.
+  function frame(t) {
+    paint(ctx, scene, t);
+    if (pressAt !== null) {
+      const f = Math.min((performance.now() - pressAt) / 1000, 1);
+      if (f >= 0.15) { ctx.save(); ctx.setTransform(cv.width / 240, 0, 0, cv.height / 240, 0, 0); ring(ctx, 0, 360 * f, 10, C.INK_3); ctx.restore(); }
+    }
+    requestAnimationFrame(frame);
+  }
   function updateStats() {
     document.getElementById("s-det").textContent = stats.det;
     document.getElementById("s-press").textContent = stats.press;
@@ -457,10 +465,10 @@ button.primary { background: var(--accent); color: var(--surface); border-color:
   }
   // press: short = act, 1 s hold = exit (dial_input.SERVE_EXIT_MS)
   let pressTimer = null, exited = false;
-  const down = () => { if (pressTimer) return; exited = false; pressTimer = setTimeout(() => { exited = true; intent("exit"); }, 1000); };
-  const up = () => { if (!pressTimer) return; clearTimeout(pressTimer); pressTimer = null; if (!exited) intent("act"); };
+  const down = () => { if (pressTimer) return; exited = false; pressAt = performance.now(); pressTimer = setTimeout(() => { exited = true; pressAt = null; intent("exit"); }, 1000); };
+  const up = () => { if (!pressTimer) return; clearTimeout(pressTimer); pressTimer = null; pressAt = null; if (!exited) intent("act"); };
   const pressBtn = document.getElementById("press");
-  pressBtn.addEventListener("pointerdown", down); pressBtn.addEventListener("pointerup", up); pressBtn.addEventListener("pointerleave", () => { if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; } });
+  pressBtn.addEventListener("pointerdown", down); pressBtn.addEventListener("pointerup", up); pressBtn.addEventListener("pointerleave", () => { if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; pressAt = null; } });
   document.getElementById("cw").onclick = () => intent("next");
   document.getElementById("ccw").onclick = () => intent("prev");
   document.getElementById("tapcard").onclick = presentCard;

@@ -34,13 +34,16 @@ Copies, not imports -- fixing one fixes only this copy:
 | `dial_board.py`, `ws1850s.py`, `card_writer.py`, `dial_input.py`, `boot.py`, `json_link.py` | `Bag3/Code/BroadcastCode/BroadcastDial/BDialFirmware/` |
 | `game_tags.py` | `Bag3/Code/BroadcastCode/MockWand/lib/` |
 
+`dial_input.py` has diverged on purpose: it adds `hold_fraction()` for the
+hold-progress ring.
+
 ## Controls
 
 | Input | Action |
 |---|---|
 | Turn | Move selection |
 | Click | Select |
-| Hold 1 s | Back |
+| Hold 1 s | Back (a grey rim ring fills while holding) |
 | Tap a rim item (keyboard) | Select and act on it |
 
 ## Screens

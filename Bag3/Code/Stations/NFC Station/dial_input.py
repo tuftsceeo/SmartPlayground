@@ -127,6 +127,15 @@ class DialInput:
             return self._queue.pop(0)
         return None
 
+    def hold_fraction(self):
+        """0.0-1.0 progress of the current press toward EXIT, or None when
+        the button is up or EXIT has already fired. NFC Station addition;
+        not in BroadcastDial's copy."""
+        if not self._btn_was_down or self._exit_emitted:
+            return None
+        held = time.ticks_diff(time.ticks_ms(), self._btn_pressed_at)
+        return min(held / SERVE_EXIT_MS, 1.0)
+
     def peek_exit(self):
         """True if an EXIT is pending (does not consume). For should_abort."""
         return EXIT in self._queue
