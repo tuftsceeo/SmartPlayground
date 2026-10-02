@@ -41,6 +41,10 @@ separate per-tree copies rather than imported across directories. Fixing one fix
 If you find a copy that has diverged from its Bag's version, flag it rather than silently
 reconciling.
 
+`Bag3/Code/Stations/NFC Station/` holds copies of `ws1850s.py`, `card_writer.py`,
+`dial_board.py` and `dial_input.py` from `BroadcastDial/BDialFirmware/`, and `game_tags.py` from
+`BroadcastCode/MockWand/lib/`.
+
 Game tags are consumed in four places, with nothing enforcing consistency: each Bag's
 `lib/game_tags.py`, `Live_Page/WebApp2/hubCode2/game_tags.py`,
 `Live_Page/WebApp2/js/utils/commands.json`, and `Live_Page/wand_icons.html`.
