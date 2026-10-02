@@ -185,6 +185,7 @@ station flow interactively (LVGL symbols redrawn as vector icons).
   multi-tap): the simulator has a "zone + multi-tap" keyboard variant with
   live detent/click counts. Turning replaces Crownboard's 1,000 ms
   auto-scan and double-press. Not in firmware.
-- **Write-failed screen**: title "Missed" (141 px at 40 px) with body
-  "Hold Still" (127 px at 28 px). "Try Again" needed 192 px in a 180 px
+- **Write-failed screen**: title "Oops" (106 px at 40 px) with body
+  "Hold Still" (127 px at 28 px); red X, red ring and fail beep carry
+  the meaning. "Try Again" needed 192 px in a 180 px
   title box and scrolled.
