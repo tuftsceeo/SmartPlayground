@@ -360,7 +360,7 @@ class _Stub:
     """Accepts any attribute access or call; stands in for lvgl / m5ui."""
 
     def __getattr__(self, name):
-        if name == "get_width":
+        if name in ("get_width", "get_height"):
             return lambda: 17
         return _Stub()
 
@@ -454,6 +454,14 @@ class PainterSmokeTests(unittest.TestCase):
         e = te.TextEntry(54, words=["w"])
         e.handle("tap:%d" % e.choices().index(te.MORE_ITEM))
         self._assert_no_overlap(self._widths(e.choices()), self.mod.KEY_R)
+
+    def test_rim_rotation_never_upside_down(self):
+        for deg in range(0, 360, 5):
+            r = self.mod.rim_rotation(deg)
+            self.assertTrue(-90 <= r <= 90, (deg, r))
+        self.assertEqual(self.mod.rim_rotation(0), 0)
+        self.assertEqual(self.mod.rim_rotation(180), 0)
+        self.assertEqual(self.mod.rim_rotation(90), 90)
 
     def test_slot_angles_refuses_overflow(self):
         with self.assertRaises(ValueError):

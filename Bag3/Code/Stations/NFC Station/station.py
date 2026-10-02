@@ -398,7 +398,7 @@ class Station:
         else:
             _log("write FAILED %r uid=%s" % (text, tag["uid_hex"]))
             self._send({"type": "write_failed", "uid": tag["uid_hex"], "text": text})
-            self.ui.show_result("fail", "Try Again", "Hold card still")
+            self.ui.show_result("fail", "Try Again", "Hold Still")
             self.ui.beep_fail()
             self._hold(RESULT_HOLD_FAIL_MS)
             self.go_scan(text, self.scan_return)

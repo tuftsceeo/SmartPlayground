@@ -165,3 +165,22 @@ Still needs hardware: whether LVGL label widths match the TTF
 measurement, `update_layout()`/`get_width()` cost per keyboard repaint
 (30 labels), arc z-order under labels, and touch accuracy on 20 px rim
 targets.
+
+## Revision: simulator findings (2026-10-02)
+
+`docs/ui_simulator.html` renders every StationUI page on a 240 px canvas
+with the firmware's geometry, colours and Montserrat sizes, and runs the
+station flow interactively (LVGL symbols redrawn as vector icons).
+
+- **Upright rim letters overlap** at 3 and 9 o'clock: neighbours stack
+  vertically there, so line height, not glyph width, sets the spacing,
+  and 30 upright 28 px labels do not fit. Rim labels are now rotated
+  tangent to the ring (`station_ui.rim_rotation`, LVGL
+  `transform_rotation`), upper half tops out, lower half tops in.
+  Unverified on hardware: label rotation draws through an LVGL layer.
+- **Status hints clipped** by the circle ("Hold: Back", "Hold card
+  still"); removed or shortened. Hold-to-back is the same on every screen.
+- **Crownboard comparison** (Gupta et al., CHI 2023, out-of-vocabulary
+  multi-tap): the simulator has a "zone + multi-tap" keyboard variant with
+  live detent/click counts. Turning replaces Crownboard's 1,000 ms
+  auto-scan and double-press. Not in firmware.

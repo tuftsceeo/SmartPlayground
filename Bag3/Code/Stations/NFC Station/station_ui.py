@@ -16,8 +16,8 @@ Pages, built once in begin() and re-textured per paint:
   status    Full rim arc coloured by result (ok / fail / busy ...), glyph,
             title, body, hint. Reader, scan and write results.
   keyboard  Segmented ring keyboard: all ring items as labels in a rim
-            band, each in an arc slot sized to its glyph width
-            (slot_angles), grouped into SEGMENT-item sections with
+            band, rotated tangent to the ring (rim_rotation), each in an
+            arc slot sized to its glyph width (slot_angles), grouped into SEGMENT-item sections with
             alternating tint;
             the highlighted item gets a filled arc cell. Centre: typed
             text, the highlighted item at GLYPH size, byte count. Rim
@@ -91,6 +91,22 @@ def _rim_xy(deg, r):
     """Offset from centre for a clock angle (0 = 12 o'clock, clockwise)."""
     a = math.radians(deg)
     return int(r * math.sin(a)), int(-r * math.cos(a))
+
+
+def rim_rotation(deg):
+    """Label rotation (degrees) for a rim item at clock angle deg.
+
+    Tangent to the ring: tops face outward on the upper half and inward on
+    the lower half, so no label reads upside down. Upright labels do not
+    fit 30-up at 28 px: at 3 and 9 o'clock neighbours stack vertically and
+    the line height, not the glyph width, sets the spacing.
+    """
+    d = deg % 360
+    if 90 < d < 270:
+        return d - 180
+    if d >= 270:
+        return d - 360
+    return d
 
 
 def slot_angles(widths, radius, min_gap=2):
@@ -318,14 +334,14 @@ class StationUI:
 
     def show_reader(self, text, tag_type=""):
         if text is None and not tag_type:
-            self._status("read", WRITE_FG, "Read", "Hold Card", "Hold: Back", 0)
+            self._status("read", WRITE_FG, "Read", "Hold Card", "", 0)
         elif text:
-            self._status("ok", SERVE_FG, text, tag_type, "Click: Copy")
+            self._status("ok", SERVE_FG, text, tag_type, "Copy")
         else:
-            self._status("warn", WARN_FG, "No Text", tag_type, "Hold: Back")
+            self._status("warn", WARN_FG, "No Text", tag_type, "")
 
     def show_scan(self, text):
-        self._status("scan", WRITE_FG, text, "Hold Card", "Hold: Back", 0)
+        self._status("scan", WRITE_FG, text, "Hold Card", "", 0)
 
     def show_result(self, kind, title, body=""):
         glyph, color, fill = KIND_STYLE[kind]
@@ -349,6 +365,7 @@ class StationUI:
         self.k_dots = [self._circle(pg, DOT_SMALL, BORDER) for _ in range(DOT_SLOTS)]
         self._k_ring = None
         self._k_slots = None
+        self._k_rot = None
         self.k_typed = self._label(pg, self.f["body"], INK, y=-36)
         self.k_sel = self._label(pg, self.f["glyph"], PINK, w=120, y=6)
         self.k_count = self._label(pg, self.f["body"], INK_3, y=44)
@@ -391,6 +408,7 @@ class StationUI:
         keys = mode in (text_entry.M_LETTERS, text_entry.M_MORE)
 
         slots = None
+        ring = None
         if keys:
             # Texts and slot angles change only with the ring's contents;
             # a detent just moves the highlight.
@@ -411,6 +429,11 @@ class StationUI:
             dx, dy = _rim_xy(slots[i][0], KEY_R)
             lbl.align(lv.ALIGN.CENTER, dx, dy)
             self._color(lbl, WHITE if i == sel else INK)
+            if ring != self._k_rot:
+                lbl.set_style_transform_pivot_x(lbl.get_width() // 2, 0)
+                lbl.set_style_transform_pivot_y(lbl.get_height() // 2, 0)
+                lbl.set_style_transform_rotation(int(rim_rotation(slots[i][0]) * 10), 0)
+        self._k_rot = ring
 
         # Segment band: SEGMENT items per tinted section.
         seg_items = text_entry.SEGMENT
