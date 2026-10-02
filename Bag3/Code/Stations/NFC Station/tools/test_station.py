@@ -455,13 +455,13 @@ class PainterSmokeTests(unittest.TestCase):
         e.handle("tap:%d" % e.choices().index(te.MORE_ITEM))
         self._assert_no_overlap(self._widths(e.choices()), self.mod.KEY_R)
 
-    def test_rim_rotation_never_upside_down(self):
+    def test_rim_rotation_bottoms_face_centre(self):
         for deg in range(0, 360, 5):
             r = self.mod.rim_rotation(deg)
-            self.assertTrue(-90 <= r <= 90, (deg, r))
-        self.assertEqual(self.mod.rim_rotation(0), 0)
-        self.assertEqual(self.mod.rim_rotation(180), 0)
-        self.assertEqual(self.mod.rim_rotation(90), 90)
+            self.assertTrue(-180 < r <= 180, (deg, r))
+            self.assertEqual((r - deg) % 360, 0)
+        self.assertEqual(self.mod.rim_rotation(180), 180)
+        self.assertEqual(self.mod.rim_rotation(270), -90)
 
     def test_slot_angles_refuses_overflow(self):
         with self.assertRaises(ValueError):

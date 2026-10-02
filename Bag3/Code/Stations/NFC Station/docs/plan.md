@@ -176,7 +176,8 @@ station flow interactively (LVGL symbols redrawn as vector icons).
   vertically there, so line height, not glyph width, sets the spacing,
   and 30 upright 28 px labels do not fit. Rim labels are now rotated
   tangent to the ring (`station_ui.rim_rotation`, LVGL
-  `transform_rotation`), upper half tops out, lower half tops in.
+  `transform_rotation`) with every letter's bottom toward the centre, so
+  the ring reads continuously (lower half upside down, as on a dial).
   Unverified on hardware: label rotation draws through an LVGL layer.
 - **Status hints clipped** by the circle ("Hold: Back", "Hold card
   still"); removed or shortened. Hold-to-back is the same on every screen.
@@ -184,3 +185,6 @@ station flow interactively (LVGL symbols redrawn as vector icons).
   multi-tap): the simulator has a "zone + multi-tap" keyboard variant with
   live detent/click counts. Turning replaces Crownboard's 1,000 ms
   auto-scan and double-press. Not in firmware.
+- **Write-failed screen**: title "Missed" (141 px at 40 px) with body
+  "Hold Still" (127 px at 28 px). "Try Again" needed 192 px in a 180 px
+  title box and scrolled.

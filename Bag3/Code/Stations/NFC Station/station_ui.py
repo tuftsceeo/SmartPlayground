@@ -16,7 +16,8 @@ Pages, built once in begin() and re-textured per paint:
   status    Full rim arc coloured by result (ok / fail / busy ...), glyph,
             title, body, hint. Reader, scan and write results.
   keyboard  Segmented ring keyboard: all ring items as labels in a rim
-            band, rotated tangent to the ring (rim_rotation), each in an
+            band, rotated tangent to the ring with bottoms toward the centre
+            (rim_rotation), each in an
             arc slot sized to its glyph width (slot_angles), grouped into SEGMENT-item sections with
             alternating tint;
             the highlighted item gets a filled arc cell. Centre: typed
@@ -94,17 +95,16 @@ def _rim_xy(deg, r):
 
 
 def rim_rotation(deg):
-    """Label rotation (degrees) for a rim item at clock angle deg.
+    """Label rotation (degrees, -180..180) for a rim item at clock angle deg.
 
-    Tangent to the ring: tops face outward on the upper half and inward on
-    the lower half, so no label reads upside down. Upright labels do not
-    fit 30-up at 28 px: at 3 and 9 o'clock neighbours stack vertically and
-    the line height, not the glyph width, sets the spacing.
+    Tangent to the ring with every label's baseline toward the centre, so
+    the ring reads continuously all the way round (lower-half letters are
+    upside down, as on a printed dial). Upright labels do not fit 30-up at
+    28 px: at 3 and 9 o'clock neighbours stack vertically and the line
+    height, not the glyph width, sets the spacing.
     """
     d = deg % 360
-    if 90 < d < 270:
-        return d - 180
-    if d >= 270:
+    if d > 180:
         return d - 360
     return d
 

@@ -237,7 +237,7 @@ button.primary { background: var(--accent); color: var(--surface); border-color:
     ctx.restore(); return w;
   }
   function measure(ctx, s, px) { ctx.save(); ctx.font = font(px); const w = ctx.measureText(s).width; ctx.restore(); return w; }
-  function rimRotation(deg) { const d = ((deg % 360) + 360) % 360; return d > 90 && d < 270 ? d - 180 : d >= 270 ? d - 360 : d; }
+  function rimRotation(deg) { const d = ((deg % 360) + 360) % 360; return d > 180 ? d - 360 : d; }
   function slotAngles(widths, r, minGap = 2) {
     const circ = 2 * Math.PI * r, total = widths.reduce((a, b) => a + b, 0), n = widths.length, spare = circ - total;
     if (spare < minGap * n) throw new Error("ring items do not fit");
@@ -329,8 +329,7 @@ button.primary { background: var(--accent); color: var(--surface); border-color:
         const [x, y] = rimXY(slots[i][0], KEY_R);
         const lit = variant === "zone" && e.zone === null ? (i >= zs && i < zs + SEGMENT) : i === sel;
         const col = lit ? C.WHITE : C.INK;
-        // Tangent rotation (station_ui.rim_rotation): tops face out on the
-        // upper half, in on the lower half, so nothing reads upside down.
+        // Tangent rotation (station_ui.rim_rotation): bottoms toward the centre.
         ctx.save(); ctx.translate(x, y); ctx.rotate(rimRotation(slots[i][0]) * Math.PI / 180);
         if (ICON_KEYS[c]) icon(ctx, ICON_KEYS[c], 0, 0, 20, col); else text(ctx, keyLabel(c), 0, 0, F.body, col);
         ctx.restore();
@@ -504,7 +503,7 @@ button.primary { background: var(--accent); color: var(--surface); border-color:
       ["Writing", status("busy", C.WRITE_FG, "Writing", "teamblue", "", 30)],
       ["Written", status("ok", C.SERVE_FG, "Written", "teamblue", "", 100)],
       ["Read result", status("ok", C.SERVE_FG, "melody", "NTAG", "Copy", 100)],
-      ["Write failed", status("fail", C.DANGER_FG, "Try Again", "Hold Still", "", 100)],
+      ["Write failed", status("fail", C.DANGER_FG, "Missed", "Hold Still", "", 100)],
     ];
     const saved = variant; variant = "ring";
     items.forEach(([cap, sc]) => {
