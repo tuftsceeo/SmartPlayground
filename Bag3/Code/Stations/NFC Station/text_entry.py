@@ -10,8 +10,10 @@ Rings (mode):
   MORE     0..9, "-", ".", words (if any), "abc", delete, done
   WORDS    back, then whole words (tag names, /flash/words.json); ACT
            appends the word with a separating space and returns to LETTERS
-  CANCEL   after a hold with text entered: a second hold discards, any
-           other intent returns to LETTERS
+  CANCEL   after a hold with text entered: a second hold leaves (and
+           discards unwritten text), any other intent returns to LETTERS.
+           view()["written"] tells the painter whether the text was
+           already written to a card (back arrow) or would be lost (trash).
 
 LETTERS is laid out in segments of three (abc, def, ... yz_, then the
 three commands), matching the ring's drawn segments.
@@ -51,6 +53,7 @@ class TextEntry:
         self.mode = M_LETTERS
         self.sel = 0
         self._letters_sel = 0
+        self.written = None     # text last written to a card, if any
 
     # -- choices -----------------------------------------------------
 
@@ -150,6 +153,15 @@ class TextEntry:
             return ev
         return self._append(item)
 
+    def mark_written(self, text):
+        """Record that text was written to a card."""
+        self.written = text
+
+    def is_written(self):
+        """True when the current text is what was last written to a card,
+        so leaving loses nothing."""
+        return self.written is not None and self.text.strip() == self.written
+
     # -- view --------------------------------------------------------
 
     def view(self):
@@ -161,4 +173,5 @@ class TextEntry:
             "text": self.text,
             "used": len(self.text.encode("utf-8")),
             "max": self.max_bytes,
+            "written": self.is_written(),
         }

@@ -23,8 +23,9 @@ Pages, built once in begin() and re-textured per paint:
             the highlighted item gets a filled arc cell. Centre: typed
             text, the highlighted item at GLYPH size, byte count. Rim
             labels are tappable. WORDS mode uses the dot ring in the band
-            with the word in the centre. CANCEL shows a trash glyph and
-            "Hold" (a second hold discards).
+            with the word in the centre. CANCEL shows "Hold" under a back
+            arrow when the text is already written to a card, or a trash
+            glyph when leaving would discard it.
 
 Text is BODY (28 px) minimum; see station_fonts.py.
 
@@ -162,6 +163,7 @@ class StationUI:
             "read": S.EYE_OPEN, "tags": S.LIST, "text": S.EDIT,
             "scan": S.SD_CARD, "ok": S.OK, "fail": S.CLOSE,
             "warn": S.WARNING, "busy": S.REFRESH, "trash": S.TRASH,
+            "back": S.LEFT,
             text_entry.DEL: S.BACKSPACE, text_entry.DONE: S.OK,
             text_entry.WORDS_ITEM: S.LIST, text_entry.BACK_ITEM: S.LEFT,
         }
@@ -501,7 +503,9 @@ class StationUI:
         if mode == text_entry.M_CANCEL:
             self._visible(self.k_cell, False)
             self.k_sel.set_style_text_font(self.f["glyph"], 0)
-            self.k_sel.set_text(self.ic["trash"])
+            # Back arrow when the text is already on a card; trash when
+            # leaving would lose it.
+            self.k_sel.set_text(self.ic["back" if view["written"] else "trash"])
         else:
             self._visible(self.k_cell, keys)
             if keys:
@@ -518,7 +522,7 @@ class StationUI:
         self._fit_tail(self.k_typed, view["text"], TYPED_MAX_W)
         if mode == text_entry.M_CANCEL:
             self.k_count.set_text("Hold")
-            self._color(self.k_count, DANGER_FG)
+            self._color(self.k_count, INK_3 if view["written"] else DANGER_FG)
         else:
             self.k_count.set_text("%d/%d" % (view["used"], view["max"]))
             self._color(self.k_count, DANGER_FG if view["used"] >= view["max"] else INK_3)

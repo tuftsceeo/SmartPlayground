@@ -203,6 +203,16 @@ class TextEntryTests(unittest.TestCase):
         e.handle(EXIT)
         self.assertEqual(e.handle(EXIT), ("cancel",))
 
+    def test_written_flag(self):
+        e = te.TextEntry(54, text="go")
+        self.assertFalse(e.view()["written"])
+        e.mark_written("go")
+        self.assertTrue(e.view()["written"])
+        self.tap(e, "a")                    # edited after writing
+        self.assertFalse(e.view()["written"])
+        self.tap(e, te.DEL)
+        self.assertTrue(e.view()["written"])
+
     def test_exit_from_more_returns_to_letters(self):
         e = te.TextEntry(54)
         self.tap(e, te.MORE_ITEM)
@@ -327,6 +337,12 @@ class StationTests(unittest.TestCase):
         run(self.st, self.inp, "tap:%d" % self.st.entry.choices().index(te.DONE))
         self.assertEqual(self.st.mode, station.SCAN)
         self.assertEqual(self.st.scan_text, "a")
+        self.assertFalse(self.st.entry.view()["written"])
+        self.nfc.cards.append(tag())
+        self.st.step()                                  # written -> back to TEXT
+        self.assertEqual(self.st.mode, station.TEXT)
+        self.assertTrue(self.st.entry.view()["written"])
+        run(self.st, self.inp, "tap:%d" % self.st.entry.choices().index(te.DONE))
         run(self.st, self.inp, EXIT)                    # back keeps text
         self.assertEqual(self.st.mode, station.TEXT)
         self.assertEqual(self.st.entry.text, "a")

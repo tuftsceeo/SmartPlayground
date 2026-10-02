@@ -153,7 +153,8 @@ button.primary { background: var(--accent); color: var(--surface); border-color:
   const MORE_ITEMS = "0123456789-.".split("");
 
   class TextEntry {
-    constructor(max, words) { this.max = max; this.words = words.slice(); this.text = ""; this.mode = "letters"; this.sel = 0; this.lsel = 0; this.zone = null; }
+    constructor(max, words) { this.max = max; this.words = words.slice(); this.text = ""; this.mode = "letters"; this.sel = 0; this.lsel = 0; this.zone = null; this.written = null; }
+    isWritten() { return this.written !== null && this.text.trim() === this.written; }
     choices() {
       if (this.mode === "letters") return LETTERS.slice();
       if (this.mode === "more") return MORE_ITEMS.concat(this.words.length ? [WORDS_ITEM] : [], [LETTERS_ITEM, DEL, DONE]);
@@ -344,7 +345,7 @@ button.primary { background: var(--accent); color: var(--surface); border-color:
     const tw = shown ? measure(ctx, shown, F.body) : 0, total = tw + 6;
     if (shown) text(ctx, shown, 120 - total / 2 + tw / 2, 84, F.body, C.INK);
     if (Math.floor((t || 0) / 530) % 2 === 0 || (t || 0) - lastKey < 530) { ctx.save(); ctx.fillStyle = C.PINK; ctx.fillRect(120 + total / 2 - 3, 84 - 13, 3, 26); ctx.restore(); }
-    if (mode === "cancel") { icon(ctx, "trash", 120, 126, 38, C.PINK); text(ctx, "Hold", 120, 164, F.body, C.DANGER_FG); return; }
+    if (mode === "cancel") { const w = e.isWritten(); icon(ctx, w ? "back" : "trash", 120, 126, 38, C.PINK); text(ctx, "Hold", 120, 164, F.body, w ? C.INK_3 : C.DANGER_FG); return; }
     const item = ch[sel];
     if (variant === "zone" && keys && e.zone !== null) {
       // multi-tap row: the zone's letters in the centre, current one highlighted
@@ -427,9 +428,10 @@ button.primary { background: var(--accent); color: var(--surface); border-color:
       log(`card_read text=${JSON.stringify(have)}`);
     } else if (st.mode === "scan") {
       const txt = st.scanText;
-      if (have === txt) { result("ok", "Already Set", txt); hold(1000, () => go(st.scanRet)); return; }
+      const mark = () => { if (st.scanRet === "text" && st.entry) st.entry.written = txt; };
+      if (have === txt) { mark(); result("ok", "Already Set", txt); hold(1000, () => go(st.scanRet)); return; }
       result("busy", "Writing", txt); st.busy = true;
-      setTimeout(() => { store[uid] = txt; log(`card_written "${uid}" <- ${JSON.stringify(txt)}`); result("ok", "Done", txt); renderCards(); hold(1000, () => go(st.scanRet)); }, 600);
+      setTimeout(() => { store[uid] = txt; mark(); log(`card_written "${uid}" <- ${JSON.stringify(txt)}`); result("ok", "Done", txt); renderCards(); hold(1000, () => go(st.scanRet)); }, 600);
     } else log("(reader field is off on this screen)");
   }
   function hold(ms, then) { st.busy = true; setTimeout(() => { st.busy = false; then(); }, ms); }

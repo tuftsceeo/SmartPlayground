@@ -381,6 +381,7 @@ class Station:
         text = self.scan_text
         existing = self.card.existing_text(self.nfc, tag)
         if existing == text:
+            self._mark_written(text)
             self.ui.show_result("ok", "Already Set", text)
             self.ui.beep_success()
             self._hold(RESULT_HOLD_OK_MS)
@@ -391,6 +392,7 @@ class Station:
         if ok:
             _log("written %r uid=%s" % (text, tag["uid_hex"]))
             self._send({"type": "card_written", "uid": tag["uid_hex"], "text": text})
+            self._mark_written(text)
             self.ui.show_result("ok", "Done", text)
             self.ui.beep_success()
             self._hold(RESULT_HOLD_OK_MS)
@@ -402,6 +404,10 @@ class Station:
             self.ui.beep_fail()
             self._hold(RESULT_HOLD_FAIL_MS)
             self.go_scan(text, self.scan_return)
+
+    def _mark_written(self, text):
+        if self.scan_return == TEXT and self.entry is not None:
+            self.entry.mark_written(text)
 
     def _hold(self, ms):
         time.sleep_ms(ms)
