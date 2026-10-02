@@ -110,3 +110,29 @@ The rectangular `M5Roller` is not used. In a 240 px circle it leaves the corners
   - Enter free text, write it, read it back.
   - Check legibility at about 1 m.
 - **Fault cases:** test with no external reader (built-in fallback), a full card (byte limit), and a card removed mid-write (verify fails loudly).
+
+## Implementation status (2026-10-02, no hardware run yet)
+
+Done, host-tested only (`tools/test_station.py`, 26 tests):
+- Phases 1-4 in code: `station.py`, `station_ui.py`, `text_entry.py`,
+  `tag_catalog.py`, `main.py`, serial commands, `tools/deploy_station.py`.
+
+Changes from the plan above:
+- **Text limit is 54 bytes, not ~137.** `card_writer.existing_text()` and
+  the wands' `nfc_reader.py` read NTAG pages 4-19 (64 bytes); longer text
+  would fail verify and never read on a wand.
+- **Rim touch keys:** every keyboard rim item is tappable (select + act),
+  and delete/done are rim items, instead of fixed zones at 9 and 3 o'clock.
+  Encoder-only use still works.
+- **Home** uses the ring selector; game and tag lists use the carousel;
+  keyboard uses the ring keyboard. Phase 0b on hardware may change these.
+- **getcode tags excluded** from the catalog: they need a Dial/Box host id.
+- `reset_log.py` not copied (unused).
+
+Open, needs hardware:
+- Fonts at 28/40/48 px present (`font_probe.py`), and whether LVGL symbol
+  glyphs exist in any `.bin` replacement.
+- Ring label positions vs. centre text overlap at 28 px; legibility at 1 m.
+- LVGL calls in `station_ui.py` (arc rotation, `set_ext_click_area`,
+  `LONG_MODE.SCROLL_CIRCULAR` names) against this UIFlow2 build.
+- Read/write reliability with external and built-in readers.
