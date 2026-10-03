@@ -275,6 +275,15 @@ class StationTests(unittest.TestCase):
         self.assertNotEqual(card_writer._decode_ndef_text(over[:station.READ_WINDOW]),
                             "x" * (station.TEXT_MAX + 2))
 
+    def test_hold_ring_hidden_on_home(self):
+        self.inp.hold_fraction = lambda: 0.5
+        self.st.step()
+        self.assertEqual(self.ui.last("show_hold"), ("show_hold", None))
+        run(self.st, self.inp, ACT)                     # Read
+        self.st.step()
+        self.assertEqual(self.ui.last("show_hold"), ("show_hold", 0.5))
+        self.inp.hold_fraction = lambda: None
+
     def test_boot_home(self):
         self.assertEqual(self.st.mode, station.HOME)
         self.assertEqual(self.link.sent[0]["type"], "identity")

@@ -43,7 +43,7 @@ hold-progress ring.
 |---|---|
 | Turn | Move selection |
 | Click | Select |
-| Hold 1 s | Back (a grey rim ring fills while holding) |
+| Hold 1 s | Back (a grey rim ring fills while holding; nothing on Home) |
 | Tap a rim item (keyboard) | Select and act on it |
 
 ## Screens

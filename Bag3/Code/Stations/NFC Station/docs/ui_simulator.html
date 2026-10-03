@@ -441,7 +441,7 @@ button.primary { background: var(--accent); color: var(--surface); border-color:
   // Hold ring (station_ui.show_hold): fills over the 1 s hold, above any page.
   function frame(t) {
     paint(ctx, scene, t);
-    if (pressAt !== null) {
+    if (pressAt !== null && st.mode !== "home") {   // home has no back
       const f = Math.min((performance.now() - pressAt) / 1000, 1);
       if (f >= 0.15) { ctx.save(); ctx.setTransform(cv.width / 240, 0, 0, cv.height / 240, 0, 0); ring(ctx, 0, 360 * f, 10, C.INK_3); ctx.restore(); }
     }
