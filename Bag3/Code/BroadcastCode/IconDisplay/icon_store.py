@@ -73,14 +73,13 @@ def exists(name):
 def list_icons():
     ensure_dir()
     out = []
-    for fn in os.listdir(DIR):
+    # ilistdir carries each file's size, so there is no per-file stat.
+    for entry in os.ilistdir(DIR):
+        fn = entry[0]
         if not fn.endswith(".py") or fn.startswith("_"):
             continue
         name = fn[:-3]
-        try:
-            size = os.stat(DIR + "/" + fn)[6]
-        except OSError:
-            size = 0
+        size = entry[3] if len(entry) > 3 else 0
         out.append({"name": name, "bytes": size})
     out.sort(key=lambda e: e["name"])
     return out
