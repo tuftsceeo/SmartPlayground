@@ -449,7 +449,7 @@ button.primary { background: var(--accent); color: var(--surface); border-color:
     paint(ctx, scene, t);
     if (pressAt !== null && st.mode !== "home") {   // home has no back
       const f = Math.min((performance.now() - pressAt) / 1000, 1);
-      if (f >= 0.35) { const deg = Math.max(Math.floor(360 * (f - 0.35) / 0.65 / 12) * 12, 12); ctx.save(); ctx.setTransform(cv.width / 240, 0, 0, cv.height / 240, 0, 0); ring(ctx, 0, deg, 10, C.INK_3); ctx.restore(); }
+      if (f >= 0.5) { const deg = Math.max(Math.floor(360 * (f - 0.5) / 0.5 / 12) * 12, 12); ctx.save(); ctx.setTransform(cv.width / 240, 0, 0, cv.height / 240, 0, 0); ring(ctx, 0, deg, 10, C.INK_3); ctx.restore(); }
     }
     requestAnimationFrame(frame);
   }
@@ -472,8 +472,8 @@ button.primary { background: var(--accent); color: var(--surface); border-color:
   // press: short = act, 1 s hold = exit (dial_input.SERVE_EXIT_MS)
   let pressTimer = null, exited = false;
   const down = () => { if (pressTimer) return; exited = false; pressAt = performance.now(); pressTimer = setTimeout(() => { exited = true; pressAt = null; intent("exit"); }, 1000); };
-  // Released after 350 ms (ring showing) but before 1 s: failed hold, nothing (dial_input.HOLD_MAYBE_MS)
-  const up = () => { if (!pressTimer) return; clearTimeout(pressTimer); pressTimer = null; const held = pressAt === null ? 0 : performance.now() - pressAt; pressAt = null; if (!exited && held < 350) intent("act"); };
+  // Released after 500 ms (ring showing) but before 1 s: failed hold, nothing (dial_input.HOLD_MAYBE_MS)
+  const up = () => { if (!pressTimer) return; clearTimeout(pressTimer); pressTimer = null; const held = pressAt === null ? 0 : performance.now() - pressAt; pressAt = null; if (!exited && held < 500) intent("act"); };
   const pressBtn = document.getElementById("press");
   pressBtn.addEventListener("pointerdown", down); pressBtn.addEventListener("pointerup", up); pressBtn.addEventListener("pointerleave", () => { if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; pressAt = null; } });
   document.getElementById("cw").onclick = () => intent("next");

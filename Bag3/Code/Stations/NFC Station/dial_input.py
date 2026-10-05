@@ -33,7 +33,7 @@ MAX_POLL_GAP_MS = 100
 # hold and emits nothing (not ACT). station_ui shows the hold ring from
 # the same point, so "ring visible" means "this will not be a click".
 # NFC Station addition.
-HOLD_MAYBE_MS = 350
+HOLD_MAYBE_MS = 500
 
 NEXT = "next"
 PREV = "prev"
