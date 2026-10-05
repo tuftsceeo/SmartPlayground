@@ -6,9 +6,9 @@ thick arcs on every redraw. Only the highlight (cell + one white label) is
 drawn live by station_ui.
 
 Outputs, in the tree root (deploy them to /flash/ with the .py files):
-  kb_letters.bin, kb_more.bin   240x240 LVGL v9 image, RGB565, 115 KB each
+  kb_letters.bin                240x240 LVGL v9 image, RGB565, 115 KB
   kb_rings.json                 per ring: items and slot [centre, half] deg
-  kb_letters.png, kb_more.png   previews (host only)
+  tools/kb_letters.png          preview (host only)
 
 Geometry, colours and slot rules match station_ui.py (KEY_R, BAND_W,
 RIM_OUTER, slot_angles, rim_rotation). Fonts: LVGL's Montserrat-Medium and
@@ -38,10 +38,10 @@ RIM_OUTER, BAND_W, KEY_R, BODY = 118, 44, 97, 28
 PAGE_BG, CARD_BG, WRITE_BG, INK = 0xF7F7FB, 0xFFFFFF, 0xF2EEFC, 0x231F2E
 ICONS = {text_entry.DEL: "", text_entry.DONE: "",
          text_entry.WORDS_ITEM: ""}
+# Only the letters ring is pre-rendered: each image is 115 KB of the Dial's
+# ~786 KB /flash. The # ring is drawn from live labels (station_ui.IMAGE_RINGS).
 RINGS = {
     "letters": list(text_entry.LETTERS),
-    "more": list(text_entry.MORE) + [text_entry.WORDS_ITEM, text_entry.LETTERS_ITEM,
-                                     text_entry.DEL, text_entry.DONE],
 }
 
 
@@ -147,7 +147,7 @@ def main():
         table[name] = {"items": items, "slots": slots}
     with open(os.path.join(HERE, "kb_rings.json"), "w") as f:
         json.dump(table, f)
-    print("wrote kb_letters.bin kb_more.bin kb_rings.json")
+    print("wrote %s kb_rings.json" % " ".join("kb_%s.bin" % n for n in RINGS))
 
 
 if __name__ == "__main__":

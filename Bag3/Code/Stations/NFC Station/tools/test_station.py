@@ -553,9 +553,7 @@ class PainterSmokeTests(unittest.TestCase):
         with open(os.path.join(HERE, "kb_rings.json")) as f:
             rings = json.load(f)
         self.assertEqual(rings["letters"]["items"], list(te.LETTERS))
-        e = te.TextEntry(54, words=["w"])
-        e.handle("tap:%d" % e.choices().index(te.MORE_ITEM))
-        self.assertEqual(rings["more"]["items"], e.choices())
+        self.assertEqual(sorted(rings), sorted(self.mod.IMAGE_RINGS))
 
     def _detent_calls(self):
         ui = self.mod.StationUI(FakeInputs())

@@ -144,7 +144,7 @@ python3 -m mpremote connect PORT reset
 ```
 
 Keyboard ring images (`IMAGE_RING = True` in `station_ui.py`): also copy
-`kb_letters.bin kb_more.bin kb_rings.json` to `:/flash/`. They are
+`kb_letters.bin kb_rings.json` to `:/flash/` (115 KB; the `#` ring stays live labels). They are
 pre-rendered by `python3 tools/gen_ring.py` (rerun after changing the ring
 items, fonts or geometry); `tools/kb_*.png` are previews. With
 `IMAGE_RING = False` the ring is drawn from 30 live rotated labels.

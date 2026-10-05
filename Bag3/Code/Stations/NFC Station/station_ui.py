@@ -87,7 +87,9 @@ SEG_TINTS = True        # False: no tinted section arcs behind the rim letters
 CELL_DOT = False        # True: selection is a filled circle behind the letter,
                         # not a 44 px-wide arc segment (cheaper to redraw)
 CELL_DOT_D = 36         # selection circle diameter
-IMAGE_RING = True       # draw the letter/# rings from pre-rendered images
+IMAGE_RING = True       # draw IMAGE_RINGS from pre-rendered images
+IMAGE_RINGS = ("letters",)  # rings with an image; others use live labels
+                        # (each image is 115 KB of the ~786 KB /flash)
                         # (tools/gen_ring.py): only the highlight is live
 RING_DIR = "/flash"     # kb_<ring>.bin and kb_rings.json location
 HOLD_SHOW = 0.35        # hold fraction before the hold ring appears (350 ms)
@@ -409,8 +411,9 @@ class StationUI:
             self.k_img.add_flag(lv.obj.FLAG.CLICKABLE)
             self.k_img.add_event_cb(self._ring_tap, lv.EVENT.CLICKED, None)
             self._k_img_src = None
+        self._img_active = False
         nseg = KEY_SLOTS // text_entry.SEGMENT
-        live = not IMAGE_RING
+        live = True                 # live labels serve rings without an image
         self.k_segs = [self._arc(pg, WRITE_BG if i % 2 else CARD_BG, BAND_W)
                        for i in range(nseg if SEG_TINTS and live else 0)]
         if CELL_DOT:
@@ -558,11 +561,13 @@ class StationUI:
 
         slots = None
         ring = tuple(choices) if keys else None
+        name = "letters" if mode == text_entry.M_LETTERS else "more"
+        use_img = (keys and self.k_img is not None and name in IMAGE_RINGS)
+        self._img_active = use_img
         if self.k_img is not None:
-            self._visible(self.k_img, keys)
-            self._visible(self.k_hi, keys)
-        if keys and self.k_img is not None:
-            name = "letters" if mode == text_entry.M_LETTERS else "more"
+            self._visible(self.k_img, use_img)
+            self._visible(self.k_hi, use_img)
+        if use_img:
             spec = self._rings[name]
             if list(spec["items"]) != list(choices):
                 raise ValueError("kb_rings.json %s ring %r does not match %r; "
@@ -575,7 +580,7 @@ class StationUI:
             self._k_ring = ring
             slots = self._k_slots
         elif keys:
-            if ring != self._k_ring:
+            if ring != self._k_ring or self._k_rot != ring:
                 for i in range(n):
                     self.k_keys[i].set_text(self._key_text(choices[i]))
                 self.k_keys[0].get_parent().update_layout()
@@ -584,7 +589,7 @@ class StationUI:
                 self._k_ring = ring
             slots = self._k_slots
         for i, lbl in enumerate(self.k_keys):
-            if not keys or i >= n:
+            if not keys or use_img or i >= n:
                 self._visible(lbl, False)
                 continue
             self._visible(lbl, True)
@@ -596,11 +601,11 @@ class StationUI:
                 if ROTATE_RIM:
                     lbl.set_style_transform_rotation(int(rim_rotation(slots[i][0]) * 10), 0)
             self._color(lbl, WHITE if i == sel else INK)
-        if keys:
+        if keys and not use_img:
             self._k_rot = ring
 
         seg_items = text_entry.SEGMENT
-        nseg = (n + seg_items - 1) // seg_items if keys else 0
+        nseg = (n + seg_items - 1) // seg_items if keys and not use_img else 0
         for i, arc in enumerate(self.k_segs):
             if i >= nseg:
                 self._visible(arc, False)
@@ -628,7 +633,7 @@ class StationUI:
         self._visible(self.k_cell, keys)
         if keys:
             self._cell_to(slots[sel])
-            if self.k_hi is not None:
+            if use_img:
                 self._hi_to(choices[sel], slots[sel])
         self.k_sel.set_style_text_font(self.f["focus" if words else "glyph"], 0)
         self._set_sel_text(view)
@@ -639,7 +644,7 @@ class StationUI:
         mode = view["mode"]
         sel = view["sel"]
         if mode in (text_entry.M_LETTERS, text_entry.M_MORE):
-            if self.k_hi is not None:
+            if self._img_active:
                 self._hi_to(view["choices"][sel], self._k_slots[sel])
             else:
                 self._color(self.k_keys[old], INK)
