@@ -38,7 +38,7 @@ HOLD_MAYBE_MS = 500
 # Screen taps within this long of a knob turn or button activity (before or
 # after) are dropped: a thumb on the button or knob brushes the touch panel.
 # Taps are held this long before they are accepted. NFC Station addition.
-TAP_GUARD_MS = 300
+TAP_GUARD_MS = 200
 
 NEXT = "next"
 PREV = "prev"
