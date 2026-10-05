@@ -189,3 +189,12 @@ station flow interactively (LVGL symbols redrawn as vector icons).
   "Hold Still" (127 px at 28 px); red X, red ring and fail beep carry
   the meaning. "Try Again" needed 192 px in a 180 px
   title box and scrolled.
+
+## Revision: minimal first hardware test (2026-10-05)
+
+Bundled `.bin` fonts, `tools/gen_fonts.sh`, `tools/deploy_station.py` and
+`boot.py` removed. Device code is 12 `.py` files copied with one
+`mpremote ... resume fs cp ... :/flash/`. Fonts are built-in only; a missing
+28/40/48 px size falls back to the next smaller built-in and prints
+`# font: ...`. Earlier plan text about `.bin` fonts and the deploy tool is
+superseded.

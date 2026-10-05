@@ -1,21 +1,22 @@
-"""station_fonts.py -- resolve the NFC Station's large fonts.
+"""station_fonts.py -- the NFC Station's font sizes, from built-in fonts.
 
 Sizes: BODY 28 px (the minimum anywhere on screen -- 2x the Dial's 14 px
 small text), FOCUS 40 px (selected item, titles), GLYPH 48 px.
 
-Each size comes from the LVGL build's built-in Montserrat if present,
-otherwise from /flash/fonts/montserrat_<size>.bin. A required size with
-neither source raises -- the UI must not quietly fall back to small text.
+Only fonts compiled into the firmware are used (lv.font_montserrat_<n>);
+nothing is loaded from flash. A size the build lacks falls back to the
+largest built-in size below it, and the substitution is printed so it is
+visible in the serial log -- the layout is then smaller than designed.
 """
-
-import os
 
 import lvgl as lv
 
 BODY = 28
 FOCUS = 40
 GLYPH = 48
-BIN_DIR = "/flash/fonts"
+
+# Montserrat sizes LVGL can be built with, largest first.
+_SIZES = (48, 46, 44, 42, 40, 38, 36, 34, 32, 30, 28, 26, 24, 22, 20, 18, 16, 14)
 
 
 def builtin(size):
@@ -23,48 +24,22 @@ def builtin(size):
     return getattr(lv, "font_montserrat_%d" % size, None)
 
 
-def binfont(size):
-    """Load /flash/fonts/montserrat_<size>.bin, or None if absent.
-
-    A file that exists but fails to load raises: that is a broken asset,
-    not a missing one.
-    """
-    name = "montserrat_%d.bin" % size
-    try:
-        files = os.listdir(BIN_DIR)
-    except OSError:
-        return None
-    if name not in files:
-        return None
-    path = "S:%s/%s" % (BIN_DIR, name)
-    # LVGL 9: binfont_create; LVGL 8: font_load. Neither -> this build
-    # cannot load binary fonts at all, which must be a crash.
-    loader = getattr(lv, "binfont_create", None) or getattr(lv, "font_load", None)
-    if loader is None:
-        raise RuntimeError("no binary font loader in this LVGL build")
-    font = loader(path)
-    if font is None:
-        raise RuntimeError("font loader returned None for %s (LVGL drive "
-                           "letter or path wrong?)" % path)
-    return font
-
-
 def find(size):
-    """(font, source) for a size, or (None, None)."""
-    font = builtin(size)
-    if font is not None:
-        return font, "builtin"
-    font = binfont(size)
-    if font is not None:
-        return font, "binfont"
+    """(font, actual_size) for the largest built-in size <= size."""
+    for s in _SIZES:
+        if s <= size:
+            font = builtin(s)
+            if font is not None:
+                return font, s
     return None, None
 
 
 def require(size):
-    """The font for a size; raises RuntimeError if unavailable."""
-    font, _ = find(size)
+    """Font for a size, substituting a smaller built-in one if needed.
+    Raises RuntimeError if no Montserrat at or below size is built in."""
+    font, actual = find(size)
     if font is None:
-        raise RuntimeError(
-            "font montserrat_%d unavailable: no builtin and no %s/montserrat_%d.bin"
-            % (size, BIN_DIR, size))
+        raise RuntimeError("no built-in montserrat font at or below %d px" % size)
+    if actual != size:
+        print("# font: montserrat_%d not built in, using %d" % (size, actual))
     return font

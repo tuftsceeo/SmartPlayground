@@ -20,20 +20,18 @@ Port A (sda=13 scl=15) and falls back to the built-in reader.
 | `main.py` | Boot: M5, input, UI, then `Station.run()` |
 | `station.py` | Mode machine, scan/write, serial commands |
 | `station_ui.py` | Round-screen painter (icon ring, dot ring, result ring, ring keyboard) |
-| `station_fonts.py` | 28 / 40 / 48 px fonts; built-in or `/flash/fonts/*.bin` |
+| `station_fonts.py` | 28 / 40 / 48 px built-in fonts, smaller fallback |
 | `text_entry.py` | Ring keyboard state machine (no display code) |
 | `tag_catalog.py` | Tags grouped by game; word bank |
 | `tools/test_station.py` | Host tests (CPython, fakes) |
 | `tools/font_probe.py`, `tools/ui_sketches.py` | On-device Phase 0 probes |
-| `tools/deploy_station.py` | Verified per-file deploy (firmware + fonts) |
-| `tools/gen_fonts.sh` | Regenerates `fonts/*.bin` |
 | `docs/ui_simulator.html` | Browser simulation of every screen |
 
 Copies, not imports -- fixing one fixes only this copy:
 
 | File | Source |
 |---|---|
-| `dial_board.py`, `ws1850s.py`, `card_writer.py`, `dial_input.py`, `boot.py`, `json_link.py` | `Bag3/Code/BroadcastCode/BroadcastDial/BDialFirmware/` |
+| `dial_board.py`, `ws1850s.py`, `card_writer.py`, `dial_input.py`, `json_link.py` | `Bag3/Code/BroadcastCode/BroadcastDial/BDialFirmware/` |
 | `game_tags.py` | `Bag3/Code/BroadcastCode/MockWand/lib/` |
 
 `dial_input.py` has diverged on purpose: it adds `hold_fraction()` for the
@@ -126,19 +124,24 @@ Events: `card_read`, `card_written`, `write_failed`, `heartbeat`.
 
 ## Running
 
+Device files (12): `main.py station.py station_ui.py station_fonts.py
+text_entry.py tag_catalog.py game_tags.py dial_board.py dial_input.py
+card_writer.py ws1850s.py json_link.py`. Everything under `tools/` and
+`docs/` stays on the host. Fonts are the firmware's built-in Montserrat;
+a missing size falls back to the next smaller one and prints
+`# font: ...` on serial.
+
+Copying `main.py` replaces whatever `main.py` the Dial runs now
+(e.g. the Broadcast Dial firmware).
+
 ```
-python3 tools/test_station.py                       # host tests
-python3 tools/deploy_station.py /dev/cu.usbmodemXXXX
-mpremote run tools/font_probe.py                    # fonts present?
-mpremote run tools/ui_sketches.py                   # every page with sample data
+cd "Bag3/Code/Stations/NFC Station"
+python3 -m mpremote connect PORT resume fs cp main.py station.py station_ui.py \
+  station_fonts.py text_entry.py tag_catalog.py game_tags.py dial_board.py \
+  dial_input.py card_writer.py ws1850s.py json_link.py :/flash/
+python3 -m mpremote connect PORT reset
 ```
 
-`fonts/montserrat_{28,40,48}.bin` ship with the tree and deploy to
-`/flash/fonts/`. `station_fonts.py` uses a built-in Montserrat size when
-the firmware has it and loads the `.bin` only when it does not.
-`tools/gen_fonts.sh` regenerates them from LVGL's own font sources
-(printable ASCII + the 11 `lv.SYMBOL` glyphs used; 48 px holds only
-lowercase, digits, `_ - .` and the symbols). Uncompressed, ~84 KB total,
-loaded into RAM.
+Host tests: `python3 tools/test_station.py`.
 
 Record hardware results in `docs/circular-ui-notes.md`.
