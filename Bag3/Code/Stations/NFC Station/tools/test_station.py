@@ -433,6 +433,50 @@ class StationTests(unittest.TestCase):
         self.assertEqual(self.st.mode, station.TAGS)
         self.assertEqual(self.ui.last("show_result")[2], "All Done")
 
+    def test_read_returns_to_hold_card_after_lift(self):
+        clock = [0]
+        time.ticks_ms = lambda: clock[0]
+        try:
+            self.card.store["AA"] = "melody"
+            run(self.st, self.inp, ACT)                 # Read
+            self.nfc.cards.append(tag("AA"))
+            self.st.step()
+            self.assertEqual(self.ui.last("show_reader")[1], "melody")
+            for _ in range(station.ABSENT_POLLS):       # lifted
+                self.st.step()
+            clock[0] += station.READ_CLEAR_MS - 1
+            self.st.step()
+            self.assertEqual(self.ui.last("show_reader")[1], "melody")
+            self.assertEqual(self.st.read_text, "melody")   # Copy still works
+            clock[0] += 1
+            self.st.step()
+            self.assertEqual(self.ui.last("show_reader"), ("show_reader", None, False))
+            self.assertIsNone(self.st.read_text)
+        finally:
+            time.ticks_ms = lambda: int(time.monotonic() * 1000)
+
+    def test_read_clear_waits_while_button_held(self):
+        clock = [0]
+        time.ticks_ms = lambda: clock[0]
+        try:
+            self.card.store["AA"] = "melody"
+            run(self.st, self.inp, ACT)
+            self.nfc.cards.append(tag("AA"))
+            self.st.step()
+            for _ in range(station.ABSENT_POLLS):
+                self.st.step()
+            self.inp.hold_fraction = lambda: 0.5        # hold in progress
+            clock[0] += station.READ_CLEAR_MS + 10
+            self.st.step()
+            self.assertEqual(self.st.read_text, "melody")
+            self.inp.hold_fraction = lambda: None
+        finally:
+            time.ticks_ms = lambda: int(time.monotonic() * 1000)
+
+    def test_read_single_hold_exits_home(self):
+        run(self.st, self.inp, ACT, EXIT)
+        self.assertEqual(self.st.mode, station.HOME)
+
     def test_utilities_has_no_all(self):
         self.st.game_sel = [n for n, _ in self.st.groups].index("Utilities")
         rows = self.st.tag_options()

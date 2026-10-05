@@ -4,7 +4,8 @@ Modes (intents from dial_input; EXIT = 1 s hold):
 
   HOME   ring: Read / Tags / Text          ACT opens
   READ   field on, reports each new card   ACT on a read card copies it
-                                           EXIT -> HOME
+                                           EXIT -> HOME (one hold)
+         back to Hold Card READ_CLEAR_MS after the card is lifted
   GAMES  dot ring of catalog groups        ACT -> TAGS, EXIT -> HOME
   TAGS   dot ring: All, Start <Game>, the game's card tags
                                            ACT -> SCAN (All -> write-all),
@@ -62,6 +63,7 @@ RESULT_HOLD_FAIL_MS = 700
 NFC_REINIT_AFTER = 15
 DETECT_MS = 80
 ABSENT_POLLS = 3          # consecutive misses before a card counts as lifted
+READ_CLEAR_MS = 5000      # Read: back to Hold Card this long after the card is lifted
 
 HOME = "home"
 READ = "read"
@@ -107,6 +109,7 @@ class Station:
         self.read_text = None
         self._last_uid = None
         self._misses = 0
+        self._lifted_at = None
         self._beat = 0
         self._cancel_at = None
         self.running = True
@@ -255,6 +258,7 @@ class Station:
         self.inputs.clear()
         self._last_uid = None
         self._misses = 0
+        self._lifted_at = None
 
     def go_home(self):
         self._enter(HOME)
@@ -470,10 +474,13 @@ class Station:
             # often misses the next REQA, and clearing _last_uid then re-ran
             # the ~2 s read on the same card, over and over.
             self._misses += 1
-            if self._misses >= ABSENT_POLLS:
+            if self._misses >= ABSENT_POLLS and self._last_uid is not None:
                 self._last_uid = None
+                self._lifted_at = time.ticks_ms()
+            self._read_clear()
             return
         self._misses = 0
+        self._lifted_at = None
         if tag["uid_hex"] == self._last_uid:
             return
         self._last_uid = tag["uid_hex"]
@@ -488,6 +495,19 @@ class Station:
             self.ui.beep_success()
         else:
             self.ui.beep_fail()
+
+    def _read_clear(self):
+        """Back to Hold Card READ_CLEAR_MS after the card was lifted, unless
+        a hold has started (Copy and a new card leave this state first)."""
+        if self._lifted_at is None:
+            return
+        if self.inputs.hold_fraction() is not None:
+            self._lifted_at = time.ticks_ms()   # button down: restart the wait
+            return
+        if time.ticks_diff(time.ticks_ms(), self._lifted_at) >= READ_CLEAR_MS:
+            self._lifted_at = None
+            self.read_text = None
+            self.ui.show_reader(None, read=False)
 
     def _scan(self, intent):
         if intent == EXIT:
