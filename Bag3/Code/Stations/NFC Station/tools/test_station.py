@@ -253,8 +253,9 @@ class DialInputTests(unittest.TestCase):
     def press(self, ms):
         self.down = True
         self.inp.update()
-        self.now += ms
-        self.inp.update()
+        for _ in range(ms // 10):
+            self.now += 10
+            self.inp.update()
 
     def release(self, after_ms=0):
         self.now += after_ms
@@ -283,6 +284,24 @@ class DialInputTests(unittest.TestCase):
         self.inp.update()
         self.release(after_ms=800)
         self.assertEqual(self.drain(), [])  # no stray click, no second EXIT
+
+    def test_short_click_across_slow_redraw_is_a_click(self):
+        # Press seen, then the loop blocks 1.2 s in a redraw; the button was
+        # released in the meantime but the next poll still reads it down.
+        self.down = True
+        self.inp.update()
+        self.now += 1200
+        self.inp.update()                   # stale "down" after the redraw
+        self.release(after_ms=10)
+        self.assertEqual(self.drain(), [ACT])
+
+    def test_real_hold_with_normal_polling_exits(self):
+        self.down = True
+        self.inp.update()
+        for _ in range(100):                # 100 polls x 10 ms
+            self.now += 10
+            self.inp.update()
+        self.assertEqual(self.drain(), [EXIT])
 
     def test_next_press_after_spent_hold_works(self):
         self.press(1000)

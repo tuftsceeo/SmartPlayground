@@ -23,6 +23,12 @@ SERVE_EXIT_MS = 1000
 # whole list. Dial_Music.py discarded magnitude entirely — we honour it.
 ENCODER_CAP = 8
 
+# Most time one poll gap may add to a hold (ms). A long gap means the loop
+# was blocked (LVGL redraws inside M5.update()), not that the button was
+# watched down for that long; counting it turned short clicks into holds.
+# NFC Station addition.
+MAX_POLL_GAP_MS = 100
+
 NEXT = "next"
 PREV = "prev"
 ACT = "act"
@@ -36,6 +42,8 @@ class DialInput:
         self._rotary = None
         self._last_rotary = 0
         self._btn_pressed_at = 0
+        self._held_ms = 0
+        self._last_poll = 0
         self._btn_was_down = False
         self._exit_emitted = False
 
@@ -95,9 +103,14 @@ class DialInput:
         now = time.ticks_ms()
         if down and not self._btn_was_down:
             self._btn_pressed_at = now
+            self._held_ms = 0
             self._exit_emitted = False
+        elif down:
+            gap = time.ticks_diff(now, self._last_poll)
+            self._held_ms += min(gap, MAX_POLL_GAP_MS)
+        self._last_poll = now
         if down:
-            held = time.ticks_diff(now, self._btn_pressed_at)
+            held = self._held_ms
             if held >= SERVE_EXIT_MS and not self._exit_emitted:
                 self._queue.append(EXIT)
                 self._exit_emitted = True
@@ -119,6 +132,8 @@ class DialInput:
         """
         self._queue = []
         self._btn_pressed_at = time.ticks_ms()
+        self._held_ms = 0
+        self._last_poll = self._btn_pressed_at
         try:
             self._btn_was_down = M5.BtnA.isPressed()
         except Exception:
@@ -137,8 +152,7 @@ class DialInput:
         not in BroadcastDial's copy."""
         if not self._btn_was_down or self._exit_emitted:
             return None
-        held = time.ticks_diff(time.ticks_ms(), self._btn_pressed_at)
-        return min(held / SERVE_EXIT_MS, 1.0)
+        return min(self._held_ms / SERVE_EXIT_MS, 1.0)
 
     def peek(self):
         """Next intent without removing it, or None. NFC Station addition."""

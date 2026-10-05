@@ -370,6 +370,8 @@ button.primary { background: var(--accent); color: var(--surface); border-color:
     if (scene.page === "home") paintHome(ctx, scene);
     else if (scene.page === "list") paintList(ctx, scene);
     else if (scene.page === "status") paintStatus(ctx, scene);
+    else if (scene.entry.mode === "cancel")   // discard prompt uses the status page
+      paintStatus(ctx, { glyph: "trash", color: C.DANGER_FG, title: "Clear?", body: "Hold", hint: "", fill: 0, t });
     else paintKeyboard(ctx, scene.entry, t);
     ctx.restore();
   }

@@ -24,7 +24,7 @@ Pages, built once in begin() and re-textured per paint:
             text, the highlighted item at GLYPH size, byte count. Rim
             labels are tappable. WORDS mode uses the dot ring in the band
             with the word in the centre. CANCEL (unwritten text only)
-            shows a trash glyph and "Hold".
+            uses the status page: red trash, "Clear?", "Hold".
 
 Text is BODY (28 px) minimum; see station_fonts.py.
 
@@ -394,7 +394,6 @@ class StationUI:
         self._kb_ring_shown = None
         self._kb_sel = None
         self._kb_text = None
-        self._kb_cancel_shown = False
         self.k_typed = self._label(pg, self.f["body"], INK, y=-36)
         # Caret: a separate pink bar, not a "|" glyph, which reads as "l".
         self.k_caret = lv.obj(pg)
@@ -487,29 +486,14 @@ class StationUI:
             print("# paint keyboard %d ms" % time.ticks_diff(time.ticks_ms(), t0))
 
     def _kb_cancel(self, view):
-        """Discard prompt over the current ring: only the centre changes,
-        so entering and leaving it does not relayout the ring."""
-        self._visible(self.k_cell, False)
-        self.k_sel.set_style_text_font(self.f["glyph"], 0)
-        self.k_sel.set_text(self.ic["trash"])
-        self.k_count.set_text("Hold")
-        self._color(self.k_count, DANGER_FG)
-        self._kb_cancel_shown = True
-        self._kb_text = None        # count line must repaint on return
-        self._show("keyboard")
+        """Discard prompt on the status page, so the keyboard is not on
+        screen while it cannot be used. The keyboard page is left as it
+        was; returning to it only swaps the page back."""
+        self._status("trash", DANGER_FG, "Clear?", "Hold", "", 0)
 
     def _kb_paint(self, view):
         mode = view["mode"]
         ring = tuple(view["choices"])
-        if self._kb_cancel_shown:
-            # Back from the prompt: restore cell and centre on the same ring.
-            self._kb_cancel_shown = False
-            if mode == self._kb_mode and ring == self._kb_ring_shown:
-                keys = mode in (text_entry.M_LETTERS, text_entry.M_MORE)
-                self._visible(self.k_cell, keys)
-                words = mode == text_entry.M_WORDS
-                self.k_sel.set_style_text_font(self.f["focus" if words else "glyph"], 0)
-                self._kb_sel = None if not keys else self._kb_sel
         if mode != self._kb_mode or ring != self._kb_ring_shown:
             self._kb_layout(view)
         elif view["sel"] != self._kb_sel:
