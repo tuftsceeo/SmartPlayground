@@ -29,6 +29,12 @@ ENCODER_CAP = 8
 # NFC Station addition.
 MAX_POLL_GAP_MS = 100
 
+# A press released after this long but before SERVE_EXIT_MS is a failed
+# hold and emits nothing (not ACT). station_ui shows the hold ring from
+# the same point, so "ring visible" means "this will not be a click".
+# NFC Station addition.
+HOLD_MAYBE_MS = 350
+
 NEXT = "next"
 PREV = "prev"
 ACT = "act"
@@ -124,8 +130,9 @@ class DialInput:
                 self._queue.append(EXIT)
                 self._exit_emitted = True
         elif self._btn_was_down:
-            # Release: short press is ACT unless a hold already emitted EXIT.
-            if not self._exit_emitted:
+            # Release: a short press is ACT. Nothing if a hold already
+            # emitted EXIT, or the press reached HOLD_MAYBE_MS (failed hold).
+            if not self._exit_emitted and self._held_ms < HOLD_MAYBE_MS:
                 self._queue.append(ACT)
         self._btn_was_down = down
 

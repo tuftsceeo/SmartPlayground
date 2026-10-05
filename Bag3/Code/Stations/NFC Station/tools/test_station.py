@@ -270,6 +270,18 @@ class DialInputTests(unittest.TestCase):
                 return out
             out.append(i)
 
+    def test_press_lengths(self):
+        import dial_input
+        cases = ((100, [ACT]),                      # quick
+                 (300, [ACT]),                      # kind of quick
+                 (dial_input.HOLD_MAYBE_MS, []),    # ring showing: failed hold
+                 (800, []),
+                 (1000, [EXIT]))                    # ring full: hold
+        for ms, want in cases:
+            self.press(ms)
+            self.release()
+            self.assertEqual(self.drain(), want, ms)
+
     def test_short_click(self):
         self.press(100)
         self.release()

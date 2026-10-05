@@ -48,6 +48,7 @@ import lvgl as lv
 import station_fonts
 import text_entry
 from dial_board import SPEAKER_VOLUME, SCREEN_W, SCREEN_H
+from dial_input import HOLD_MAYBE_MS, SERVE_EXIT_MS
 
 # Brand tokens, from Live_Page/.design_system/Sept 2026/tokens/ (same values
 # as BroadcastDial's dial_ui.py).
@@ -92,7 +93,7 @@ IMAGE_RINGS = ("letters",)  # rings with an image; others use live labels
                         # (each image is 115 KB of the ~786 KB /flash)
                         # (tools/gen_ring.py): only the highlight is live
 RING_DIR = "/flash"     # kb_<ring>.bin and kb_rings.json location
-HOLD_SHOW = 0.35        # hold fraction before the hold ring appears (350 ms)
+HOLD_SHOW = HOLD_MAYBE_MS / SERVE_EXIT_MS   # ring appears where a release stops being a click
 HOLD_STEP = 12          # degrees per hold-ring update (30 redraws per hold)
 HOLD_W = 10             # hold ring width, same as the result ring
 
