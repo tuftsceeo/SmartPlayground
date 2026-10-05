@@ -140,6 +140,12 @@ class DialInput:
         held = time.ticks_diff(time.ticks_ms(), self._btn_pressed_at)
         return min(held / SERVE_EXIT_MS, 1.0)
 
+    def peek(self):
+        """Next intent without removing it, or None. NFC Station addition."""
+        if self._queue:
+            return self._queue[0]
+        return None
+
     def peek_exit(self):
         """True if an EXIT is pending (does not consume). For should_abort."""
         return EXIT in self._queue

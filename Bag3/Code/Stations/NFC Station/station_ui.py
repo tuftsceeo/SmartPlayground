@@ -79,6 +79,7 @@ CARET_W = 3             # px: caret bar width; CARET_GAP px after the text
 CARET_GAP = 3
 CARET_H = 26
 CARET_BLINK_MS = 530
+PAINT_MS = False        # True: print keyboard paint time (incl. LVGL refresh)
 HOLD_SHOW = 0.15        # hold fraction before the hold ring appears (150 ms)
 HOLD_W = 10             # hold ring width, same as the result ring
 
@@ -385,6 +386,10 @@ class StationUI:
         self._k_ring = None
         self._k_slots = None
         self._k_rot = None
+        self._kb_mode = None        # last painted state, for show_keyboard
+        self._kb_ring_shown = None
+        self._kb_sel = None
+        self._kb_text = None
         self.k_typed = self._label(pg, self.f["body"], INK, y=-36)
         # Caret: a separate pink bar, not a "|" glyph, which reads as "l".
         self.k_caret = lv.obj(pg)
@@ -446,19 +451,46 @@ class StationUI:
         return c
 
     def show_keyboard(self, view):
+        """Paint the keyboard, touching only what changed since the last
+        call: a detent recolours two labels, moves the cell and sets the
+        centre item; the text line repaints only when the text changes;
+        the full ring layout only when the ring's contents change.
+
+        Every widget change marks its area for redraw, and rim labels are
+        rotated (drawn through an LVGL layer), so a full repaint per
+        detent redraws most of the band and lags behind the encoder.
+        """
+        t0 = time.ticks_ms() if PAINT_MS else 0
+        mode = view["mode"]
+        ring = tuple(view["choices"])
+        if mode != self._kb_mode or ring != self._kb_ring_shown:
+            self._kb_layout(view)
+        elif view["sel"] != self._kb_sel:
+            self._kb_move(view, self._kb_sel)
+        text_key = (view["text"], view["used"], view["written"], mode)
+        if text_key != self._kb_text:
+            self._kb_text_line(view)
+            self._kb_text = text_key
+        self._kb_mode = mode
+        self._kb_ring_shown = ring
+        self._kb_sel = view["sel"]
+        self._show("keyboard")
+        if PAINT_MS:
+            lv.refr_now(None)
+            print("# paint keyboard %d ms" % time.ticks_diff(time.ticks_ms(), t0))
+
+    def _kb_layout(self, view):
+        """Full keyboard layout for a new ring (or a new mode)."""
         mode = view["mode"]
         choices = view["choices"]
         sel = view["sel"]
         n = len(choices)
-        step = 360 / n
         keys = mode in (text_entry.M_LETTERS, text_entry.M_MORE)
+        words = mode == text_entry.M_WORDS
 
         slots = None
-        ring = None
+        ring = tuple(choices) if keys else None
         if keys:
-            # Texts and slot angles change only with the ring's contents;
-            # a detent just moves the highlight.
-            ring = tuple(choices)
             if ring != self._k_ring:
                 for i in range(n):
                     self.k_keys[i].set_text(self._key_text(choices[i]))
@@ -472,16 +504,16 @@ class StationUI:
                 self._visible(lbl, False)
                 continue
             self._visible(lbl, True)
-            dx, dy = _rim_xy(slots[i][0], KEY_R)
-            lbl.align(lv.ALIGN.CENTER, dx, dy)
-            self._color(lbl, WHITE if i == sel else INK)
             if ring != self._k_rot:
+                dx, dy = _rim_xy(slots[i][0], KEY_R)
+                lbl.align(lv.ALIGN.CENTER, dx, dy)
                 lbl.set_style_transform_pivot_x(lbl.get_width() // 2, 0)
                 lbl.set_style_transform_pivot_y(lbl.get_height() // 2, 0)
                 lbl.set_style_transform_rotation(int(rim_rotation(slots[i][0]) * 10), 0)
-        self._k_rot = ring
+            self._color(lbl, WHITE if i == sel else INK)
+        if keys:
+            self._k_rot = ring
 
-        # Segment band: SEGMENT items per tinted section.
         seg_items = text_entry.SEGMENT
         nseg = (n + seg_items - 1) // seg_items if keys else 0
         for i, arc in enumerate(self.k_segs):
@@ -493,51 +525,64 @@ class StationUI:
             last = slots[min((i + 1) * seg_items, n) - 1]
             self._span(arc, first[0] - first[1], last[0] + last[1])
 
-        words = mode == text_entry.M_WORDS
-        if words:
-            # Reuse the list's dot logic on this page's dots.
-            dots_on = n <= DOT_SLOTS
-            for i, d in enumerate(self.k_dots):
-                show = dots_on and i < n
-                self._visible(d, show)
-                if not show:
-                    continue
-                big = i == sel
-                size = DOT_BIG if big else DOT_SMALL
-                d.set_size(size, size)
-                d.set_style_radius(size // 2, 0)
-                d.set_style_bg_color(lv.color_hex(PINK if big else BORDER), 0)
+        step = 360 / n
+        dots_on = words and n <= DOT_SLOTS
+        for i, d in enumerate(self.k_dots):
+            show = dots_on and i < n
+            self._visible(d, show)
+            if show:
                 dx, dy = _rim_xy(i * step, DOT_R)
                 d.align(lv.ALIGN.CENTER, dx, dy)
-        else:
-            for d in self.k_dots:
-                self._visible(d, False)
+                self._dot_style(d, i == sel)
 
         if mode == text_entry.M_CANCEL:
             self._visible(self.k_cell, False)
             self.k_sel.set_style_text_font(self.f["glyph"], 0)
             self.k_sel.set_text(self.ic["trash"])
-        else:
-            self._visible(self.k_cell, keys)
-            if keys:
-                c, half = slots[sel]
-                self._span(self.k_cell, c - half, c + half)
-            item = choices[sel]
-            if words:
-                self.k_sel.set_style_text_font(self.f["focus"], 0)
-                self.k_sel.set_text("back" if item == text_entry.BACK_ITEM else item)
-            else:
-                self.k_sel.set_style_text_font(self.f["glyph"], 0)
-                self.k_sel.set_text(self._sel_text(item))
+            return
+        self._visible(self.k_cell, keys)
+        if keys:
+            c, half = slots[sel]
+            self._span(self.k_cell, c - half, c + half)
+        self.k_sel.set_style_text_font(self.f["focus" if words else "glyph"], 0)
+        self._set_sel_text(view)
 
+    def _kb_move(self, view, old):
+        """Selection moved within the same ring: two labels (or dots), the
+        cell, the centre item."""
+        mode = view["mode"]
+        sel = view["sel"]
+        if mode in (text_entry.M_LETTERS, text_entry.M_MORE):
+            self._color(self.k_keys[old], INK)
+            self._color(self.k_keys[sel], WHITE)
+            c, half = self._k_slots[sel]
+            self._span(self.k_cell, c - half, c + half)
+        elif mode == text_entry.M_WORDS and len(view["choices"]) <= DOT_SLOTS:
+            self._dot_style(self.k_dots[old], False)
+            self._dot_style(self.k_dots[sel], True)
+        self._set_sel_text(view)
+
+    def _dot_style(self, d, big):
+        size = DOT_BIG if big else DOT_SMALL
+        d.set_size(size, size)
+        d.set_style_radius(size // 2, 0)
+        d.set_style_bg_color(lv.color_hex(PINK if big else BORDER), 0)
+
+    def _set_sel_text(self, view):
+        item = view["choices"][view["sel"]]
+        if view["mode"] == text_entry.M_WORDS:
+            self.k_sel.set_text("back" if item == text_entry.BACK_ITEM else item)
+        else:
+            self.k_sel.set_text(self._sel_text(item))
+
+    def _kb_text_line(self, view):
         self._fit_tail(self.k_typed, view["text"], TYPED_MAX_W)
-        if mode == text_entry.M_CANCEL:
+        if view["mode"] == text_entry.M_CANCEL:
             self.k_count.set_text("Hold")
             self._color(self.k_count, DANGER_FG)
         else:
             self.k_count.set_text("%d/%d" % (view["used"], view["max"]))
             self._color(self.k_count, DANGER_FG if view["used"] >= view["max"] else INK_3)
-        self._show("keyboard")
 
     # -- hold progress -----------------------------------------------
 

@@ -43,7 +43,7 @@ reconciling.
 
 `Bag3/Code/Stations/NFC Station/` holds copies of `ws1850s.py`, `card_writer.py`,
 `dial_board.py`, `dial_input.py` and `json_link.py` from `BroadcastDial/BDialFirmware/`, and `game_tags.py` from
-`BroadcastCode/MockWand/lib/`. Its `dial_input.py` adds `hold_fraction()` and fixes `clear()` so a hold
+`BroadcastCode/MockWand/lib/`. Its `dial_input.py` adds `hold_fraction()` and `peek()`, and fixes `clear()` so a hold
 that changes screens does not click on release; that divergence is intended.
 
 Game tags are consumed in four places, with nothing enforcing consistency: each Bag's

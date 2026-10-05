@@ -55,6 +55,9 @@ class FakeInputs:
     def pop(self):
         return self.q.pop(0) if self.q else None
 
+    def peek(self):
+        return self.q[0] if self.q else None
+
     def clear(self):
         pass
 
@@ -427,6 +430,22 @@ class StationTests(unittest.TestCase):
         run(self.st, self.inp, EXIT)                    # discard
         self.assertEqual(self.st.mode, station.HOME)
 
+    def test_fast_turn_one_repaint(self):
+        run(self.st, self.inp, PREV, ACT)               # Text
+        before = sum(1 for c in self.ui.calls if c[0] == "show_keyboard")
+        self.inp.q.extend([NEXT] * 5 + [PREV])
+        self.st.step()
+        after = sum(1 for c in self.ui.calls if c[0] == "show_keyboard")
+        self.assertEqual(after - before, 1)
+        self.assertEqual(self.st.entry.selected(), "e")  # +5 -1 from 'a'
+
+    def test_fast_turn_in_list(self):
+        run(self.st, self.inp, NEXT, ACT)               # Games
+        self.inp.q.extend([NEXT] * 3)
+        self.st.step()
+        self.assertEqual(self.st.game_sel, 3)
+        self.assertEqual(self.inp.q, [])
+
     def test_serial_catalog_and_write(self):
         self.st.dispatch({"cmd": "catalog.set", "id": 1,
                           "index": {"g": {"name": "G", "tags": ["x", "y"]}}})
@@ -479,6 +498,21 @@ class PainterSmokeTests(unittest.TestCase):
         import station_ui
         importlib.reload(station_fonts)
         self.mod = importlib.reload(station_ui)
+
+    def test_keyboard_detent_touches_few_widgets(self):
+        ui = self.mod.StationUI(FakeInputs())
+        ui.begin()
+        e = te.TextEntry(54)
+        ui.show_keyboard(e.view())
+        calls = []
+        orig_color, orig_span = ui._color, ui._span
+        ui._color = lambda lbl, c: calls.append("color")
+        ui._span = lambda arc, a, b: calls.append("span")
+        e.handle(NEXT)
+        ui.show_keyboard(e.view())
+        ui._color, ui._span = orig_color, orig_span
+        # old label, new label, cell; no full relayout (30 labels, 10 arcs)
+        self.assertEqual(sorted(calls), ["color", "color", "span"])
 
     def test_painters(self):
         ui = self.mod.StationUI(FakeInputs())

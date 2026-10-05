@@ -288,13 +288,21 @@ class Station:
     # -- per-mode input ----------------------------------------------
 
     def _step(self, sel, n, intent):
-        if intent == NEXT:
-            self.ui.beep_click()
-            return (sel + 1) % n
-        if intent == PREV:
-            self.ui.beep_click()
-            return (sel - 1) % n
+        if intent not in (NEXT, PREV):
+            return sel
+        self.ui.beep_click()
+        for i in [intent] + self._more_turns():
+            sel = (sel + (1 if i == NEXT else -1)) % n
         return sel
+
+    def _more_turns(self):
+        """Pop rotation intents already queued behind the current one, so a
+        fast turn moves several items with one repaint instead of
+        repainting once per detent."""
+        out = []
+        while self.inputs.peek() in (NEXT, PREV):
+            out.append(self.inputs.pop())
+        return out
 
     def _home(self, intent):
         if intent in (NEXT, PREV):
@@ -331,6 +339,8 @@ class Station:
         if ev is None:
             if intent in (NEXT, PREV):
                 self.ui.beep_click()
+                for i in self._more_turns():
+                    self.entry.handle(i)     # rotation never returns an event
             self.ui.show_keyboard(self.entry.view())
             return
         kind = ev[0]
