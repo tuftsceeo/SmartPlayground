@@ -538,21 +538,49 @@ class PainterSmokeTests(unittest.TestCase):
         import station_ui
         importlib.reload(station_fonts)
         self.mod = importlib.reload(station_ui)
+        self.mod.RING_DIR = HERE            # generated kb_*.json lives in the tree
 
-    def test_keyboard_detent_touches_few_widgets(self):
+    def test_slot_at(self):
+        slots = [(0, 10), (90, 10), (180, 10), (270, 10)]
+        self.assertEqual(self.mod.slot_at(slots, 0, -97), 0)
+        self.assertEqual(self.mod.slot_at(slots, 97, 0), 1)
+        self.assertEqual(self.mod.slot_at(slots, -97, 0), 3)
+        self.assertIsNone(self.mod.slot_at(slots, 0, 0))          # centre
+        self.assertIsNone(self.mod.slot_at(slots, 60, -60 * 1.4)) # between
+
+    def test_ring_json_matches_text_entry(self):
+        import json
+        with open(os.path.join(HERE, "kb_rings.json")) as f:
+            rings = json.load(f)
+        self.assertEqual(rings["letters"]["items"], list(te.LETTERS))
+        e = te.TextEntry(54, words=["w"])
+        e.handle("tap:%d" % e.choices().index(te.MORE_ITEM))
+        self.assertEqual(rings["more"]["items"], e.choices())
+
+    def _detent_calls(self):
         ui = self.mod.StationUI(FakeInputs())
         ui.begin()
         e = te.TextEntry(54)
         ui.show_keyboard(e.view())
         calls = []
-        orig_color, orig_span = ui._color, ui._span
+        orig = (ui._color, ui._span, ui._kb_layout)
         ui._color = lambda lbl, c: calls.append("color")
         ui._span = lambda arc, a, b: calls.append("span")
+        ui._kb_layout = lambda v: calls.append("layout")
         e.handle(NEXT)
         ui.show_keyboard(e.view())
-        ui._color, ui._span = orig_color, orig_span
-        # old label, new label, cell; no full relayout (30 labels, 10 arcs)
-        self.assertEqual(sorted(calls), ["color", "color", "span"])
+        ui._color, ui._span, ui._kb_layout = orig
+        return sorted(calls)
+
+    def test_keyboard_detent_touches_few_widgets(self):
+        # Image ring: just the cell moves (highlight label repositioned).
+        self.assertEqual(self._detent_calls(), ["span"])
+        self.mod.IMAGE_RING = False
+        try:
+            # Live labels: old and new label colour plus the cell.
+            self.assertEqual(self._detent_calls(), ["color", "color", "span"])
+        finally:
+            self.mod.IMAGE_RING = True
 
     def test_cancel_prompt_does_not_relayout(self):
         ui = self.mod.StationUI(FakeInputs())

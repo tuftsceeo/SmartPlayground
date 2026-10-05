@@ -37,6 +37,7 @@ Painter API used by station.py:
   show_hold(fraction)            beep_click/scan/success/fail
 """
 
+import json
 import math
 import time
 
@@ -46,7 +47,7 @@ import lvgl as lv
 
 import station_fonts
 import text_entry
-from dial_board import SPEAKER_VOLUME
+from dial_board import SPEAKER_VOLUME, SCREEN_W, SCREEN_H
 
 # Brand tokens, from Live_Page/.design_system/Sept 2026/tokens/ (same values
 # as BroadcastDial's dial_ui.py).
@@ -86,6 +87,9 @@ SEG_TINTS = True        # False: no tinted section arcs behind the rim letters
 CELL_DOT = False        # True: selection is a filled circle behind the letter,
                         # not a 44 px-wide arc segment (cheaper to redraw)
 CELL_DOT_D = 36         # selection circle diameter
+IMAGE_RING = True       # draw the letter/# rings from pre-rendered images
+                        # (tools/gen_ring.py): only the highlight is live
+RING_DIR = "/flash"     # kb_<ring>.bin and kb_rings.json location
 HOLD_SHOW = 0.35        # hold fraction before the hold ring appears (350 ms)
 HOLD_STEP = 12          # degrees per hold-ring update (30 redraws per hold)
 HOLD_W = 10             # hold ring width, same as the result ring
@@ -123,6 +127,20 @@ def rim_rotation(deg):
     if d > 180:
         return d - 360
     return d
+
+
+def slot_at(slots, dx, dy):
+    """Index of the ring slot under a touch at (dx, dy) from the centre,
+    or None if the touch is off the keyboard band."""
+    r = math.sqrt(dx * dx + dy * dy)
+    if not slots or r < RIM_OUTER - BAND_W - 6 or r > RIM_OUTER + 6:
+        return None
+    a = math.degrees(math.atan2(dx, -dy)) % 360
+    for i, (c, half) in enumerate(slots):
+        d = (a - c + 540) % 360 - 180
+        if abs(d) <= half:
+            return i
+    return None
 
 
 def slot_angles(widths, radius, min_gap=2):
@@ -379,15 +397,30 @@ class StationUI:
 
     def _build_keyboard(self):
         pg = self._page("keyboard")
+        self.k_img = None
+        self._rings = None
+        if IMAGE_RING:
+            # Rings pre-rendered by tools/gen_ring.py. A missing file is a
+            # deploy error: fail loudly rather than fall back silently.
+            with open(RING_DIR + "/kb_rings.json") as f:
+                self._rings = json.load(f)
+            self.k_img = lv.image(pg)
+            self.k_img.align(lv.ALIGN.CENTER, 0, 0)
+            self.k_img.add_flag(lv.obj.FLAG.CLICKABLE)
+            self.k_img.add_event_cb(self._ring_tap, lv.EVENT.CLICKED, None)
+            self._k_img_src = None
         nseg = KEY_SLOTS // text_entry.SEGMENT
+        live = not IMAGE_RING
         self.k_segs = [self._arc(pg, WRITE_BG if i % 2 else CARD_BG, BAND_W)
-                       for i in range(nseg if SEG_TINTS else 0)]
+                       for i in range(nseg if SEG_TINTS and live else 0)]
         if CELL_DOT:
             self.k_cell = self._circle(pg, CELL_DOT_D, PINK)
         else:
             self.k_cell = self._arc(pg, PINK, BAND_W)
+        # Image mode: one live label draws the highlighted item in white.
+        self.k_hi = self._label(pg, self.f["body"], WHITE) if IMAGE_RING else None
         self.k_keys = []
-        for i in range(KEY_SLOTS):
+        for i in range(KEY_SLOTS if live else 0):
             lbl = self._label(pg, self.f["body"], INK)
             lbl.add_flag(lv.obj.FLAG.CLICKABLE)
             lbl.set_ext_click_area(6)
@@ -525,7 +558,23 @@ class StationUI:
 
         slots = None
         ring = tuple(choices) if keys else None
-        if keys:
+        if self.k_img is not None:
+            self._visible(self.k_img, keys)
+            self._visible(self.k_hi, keys)
+        if keys and self.k_img is not None:
+            name = "letters" if mode == text_entry.M_LETTERS else "more"
+            spec = self._rings[name]
+            if list(spec["items"]) != list(choices):
+                raise ValueError("kb_rings.json %s ring %r does not match %r; "
+                                 "rerun tools/gen_ring.py" % (name, spec["items"], choices))
+            src = "S:%s/kb_%s.bin" % (RING_DIR, name)
+            if src != self._k_img_src:
+                self.k_img.set_src(src)
+                self._k_img_src = src
+            self._k_slots = [tuple(x) for x in spec["slots"]]
+            self._k_ring = ring
+            slots = self._k_slots
+        elif keys:
             if ring != self._k_ring:
                 for i in range(n):
                     self.k_keys[i].set_text(self._key_text(choices[i]))
@@ -579,6 +628,8 @@ class StationUI:
         self._visible(self.k_cell, keys)
         if keys:
             self._cell_to(slots[sel])
+            if self.k_hi is not None:
+                self._hi_to(choices[sel], slots[sel])
         self.k_sel.set_style_text_font(self.f["focus" if words else "glyph"], 0)
         self._set_sel_text(view)
 
@@ -588,13 +639,36 @@ class StationUI:
         mode = view["mode"]
         sel = view["sel"]
         if mode in (text_entry.M_LETTERS, text_entry.M_MORE):
-            self._color(self.k_keys[old], INK)
-            self._color(self.k_keys[sel], WHITE)
+            if self.k_hi is not None:
+                self._hi_to(view["choices"][sel], self._k_slots[sel])
+            else:
+                self._color(self.k_keys[old], INK)
+                self._color(self.k_keys[sel], WHITE)
             self._cell_to(self._k_slots[sel])
         elif mode == text_entry.M_WORDS and len(view["choices"]) <= DOT_SLOTS:
             self._dot_style(self.k_dots[old], False)
             self._dot_style(self.k_dots[sel], True)
         self._set_sel_text(view)
+
+    def _ring_tap(self, event_struct):
+        """Image mode: map a touch on the ring band to the slot under it."""
+        p = lv.point_t()
+        lv.indev_active().get_point(p)
+        i = slot_at(self._k_slots, p.x - SCREEN_W // 2, p.y - SCREEN_H // 2)
+        if i is not None:
+            self._enqueue("tap:%d" % i)
+
+    def _hi_to(self, item, slot):
+        """Image mode: draw the highlighted item as one white rotated label
+        over the cell; the ring image underneath stays untouched."""
+        lbl = self.k_hi
+        lbl.set_text(self._key_text(item))
+        lbl.update_layout()
+        dx, dy = _rim_xy(slot[0], KEY_R)
+        lbl.align(lv.ALIGN.CENTER, dx, dy)
+        lbl.set_style_transform_pivot_x(lbl.get_width() // 2, 0)
+        lbl.set_style_transform_pivot_y(lbl.get_height() // 2, 0)
+        lbl.set_style_transform_rotation(int(rim_rotation(slot[0]) * 10), 0)
 
     def _cell_to(self, slot):
         """Move the selection highlight to a rim slot (centre, half-span)."""
