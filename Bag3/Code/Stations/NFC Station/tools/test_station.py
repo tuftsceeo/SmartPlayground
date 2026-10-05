@@ -270,6 +270,52 @@ class DialInputTests(unittest.TestCase):
                 return out
             out.append(i)
 
+    def test_tap_alone_accepted_after_guard(self):
+        self.inp.enqueue("tap:3")
+        self.inp.update()
+        self.assertEqual(self.drain(), [])          # held for the guard
+        self.now += self.di.TAP_GUARD_MS
+        self.inp.update()
+        self.assertEqual(self.drain(), ["tap:3"])
+
+    def test_tap_just_before_button_press_dropped(self):
+        self.now = 10000
+        self.inp.enqueue("tap:5")
+        self.now += 100
+        self.press(100)
+        self.release()
+        self.now += self.di.TAP_GUARD_MS
+        self.inp.update()
+        self.assertEqual(self.drain(), [ACT])
+
+    def test_tap_just_after_button_release_dropped(self):
+        self.now = 10000
+        self.press(100)
+        self.release()
+        self.now += 200
+        self.inp.enqueue("tap:5")
+        self.now += self.di.TAP_GUARD_MS
+        self.inp.update()
+        self.assertEqual(self.drain(), [ACT])
+
+    def test_tap_during_knob_turn_dropped(self):
+        self.now = 10000
+        self.inp._mark_physical()                   # encoder delta seen
+        self.now += 150
+        self.inp.enqueue("tap:2")
+        self.now += self.di.TAP_GUARD_MS
+        self.inp.update()
+        self.assertEqual(self.drain(), [])
+
+    def test_tap_well_after_activity_accepted(self):
+        self.now = 10000
+        self.inp._mark_physical()
+        self.now += self.di.TAP_GUARD_MS + 50
+        self.inp.enqueue("tap:2")
+        self.now += self.di.TAP_GUARD_MS
+        self.inp.update()
+        self.assertEqual(self.drain(), ["tap:2"])
+
     def test_press_lengths(self):
         import dial_input
         cases = ((100, [ACT]),                      # quick

@@ -35,6 +35,11 @@ MAX_POLL_GAP_MS = 100
 # NFC Station addition.
 HOLD_MAYBE_MS = 500
 
+# Screen taps within this long of a knob turn or button activity (before or
+# after) are dropped: a thumb on the button or knob brushes the touch panel.
+# Taps are held this long before they are accepted. NFC Station addition.
+TAP_GUARD_MS = 300
+
 NEXT = "next"
 PREV = "prev"
 ACT = "act"
@@ -45,6 +50,8 @@ EXIT = "exit"
 class DialInput:
     def __init__(self):
         self._queue = []
+        self._taps = []             # (tap intent, ticks) awaiting TAP_GUARD_MS
+        self._physical_at = -100000
         self._rotary = None
         self._last_rotary = 0
         self._btn_pressed_at = 0
@@ -69,8 +76,16 @@ class DialInput:
             pass
 
     def enqueue(self, intent):
-        """LVGL callbacks post intents here; never mutate server state."""
-        if intent:
+        """LVGL callbacks post intents here; never mutate server state.
+
+        Screen taps ("tap:<i>") are held TAP_GUARD_MS and dropped if a knob
+        turn or button activity falls within TAP_GUARD_MS of them.
+        """
+        if not intent:
+            return
+        if intent.startswith("tap:"):
+            self._taps.append((intent, time.ticks_ms()))
+        else:
             self._queue.append(intent)
 
     def update(self):
@@ -78,6 +93,24 @@ class DialInput:
         M5.update()
         self._poll_encoder()
         self._poll_button()
+        self._release_taps()
+
+    def _mark_physical(self):
+        self._physical_at = time.ticks_ms()
+
+    def _release_taps(self):
+        if not self._taps:
+            return
+        now = time.ticks_ms()
+        keep = []
+        for intent, t in self._taps:
+            if abs(time.ticks_diff(t, self._physical_at)) <= TAP_GUARD_MS:
+                continue                    # brushed while turning/pressing
+            if time.ticks_diff(now, t) >= TAP_GUARD_MS:
+                self._queue.append(intent)
+            else:
+                keep.append((intent, t))
+        self._taps = keep
 
     def _poll_encoder(self):
         if self._rotary is None:
@@ -93,6 +126,7 @@ class DialInput:
         self._last_rotary = new_val
         if delta == 0:
             return
+        self._mark_physical()
         n = abs(delta)
         if n > ENCODER_CAP:
             n = ENCODER_CAP
@@ -108,6 +142,8 @@ class DialInput:
         except Exception as e:
             raise RuntimeError("M5.BtnA unavailable: %s" % str(e))
         now = time.ticks_ms()
+        if down or self._btn_was_down:
+            self._mark_physical()       # pressed, held, or just released
         if down and not self._btn_was_down:
             self._btn_pressed_at = now
             self._held_ms = 0
@@ -147,6 +183,7 @@ class DialInput:
         reads as an ACT there.)
         """
         self._queue = []
+        self._taps = []
         self._btn_pressed_at = time.ticks_ms()
         self._held_ms = 0
         self._pending_ms = 0
