@@ -47,7 +47,11 @@ def ensure_fonts_dir(port):
 
 
 def mpremote(port, *args, timeout=60):
-    cmd = ["python3", "-m", "mpremote", "connect", port] + list(args)
+    """Run one mpremote invocation. Every call except a bare "reset" gets
+    `resume`: without it, mpremote's soft-reset on the first fs/exec
+    de-enumerates the M5 CDC port (Bag3/Code/HARDWARE_PROTOCOL.md)."""
+    lead = [] if list(args) == ["reset"] else ["resume"]
+    cmd = ["python3", "-m", "mpremote", "connect", port] + lead + list(args)
     try:
         return subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
     except subprocess.TimeoutExpired as e:
