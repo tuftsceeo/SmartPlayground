@@ -283,7 +283,7 @@ button.primary { background: var(--accent); color: var(--surface); border-color:
   function dotRing(ctx, n, sel, color) {
     const step = 360 / n;
     if (n <= DOT_SLOTS) for (let i = 0; i < n; i++) { const [x, y] = rimXY(i * step, DOT_R), big = i === sel; circle(ctx, x, y, big ? DOT_BIG : DOT_SMALL, big ? color : C.BORDER); }
-    const half = Math.max(step / 2, 4); ring(ctx, sel * step - half, sel * step + half, 6, color);
+    if (n > DOT_SLOTS) { const half = Math.max(step / 2, 4); ring(ctx, sel * step - half, sel * step + half, 6, color); }
   }
   function paintList(ctx, view) {
     dotRing(ctx, view.items.length, view.sel, C.WRITE_FG);

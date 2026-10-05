@@ -6,7 +6,11 @@ Modes (intents from dial_input; EXIT = 1 s hold):
   READ   field on, reports each new card   ACT on a read card copies it
                                            EXIT -> HOME
   GAMES  dot ring of catalog groups        ACT -> TAGS, EXIT -> HOME
-  TAGS   dot ring of one group's tags      ACT -> SCAN, EXIT -> GAMES
+  TAGS   dot ring: All, Start <Game>, the game's card tags
+                                           ACT -> SCAN (All -> write-all),
+                                           EXIT -> GAMES. A one-tag game
+                                           skips TAGS and scans directly.
+  ALLNEXT write-all: next tag shown, click to scan it, EXIT -> TAGS
   TEXT   ring keyboard (text_entry)        done -> SCAN, cancel -> HOME
   SCAN   field on, writes the target text  EXIT -> where it came from
 
@@ -34,6 +38,7 @@ Events: card_read {uid,type,text}, card_written {uid,text},
 import time
 
 import tag_catalog
+from game_tags import GAME_TAGS
 import text_entry
 from dial_input import NEXT, PREV, ACT, EXIT
 
@@ -62,6 +67,8 @@ GAMES = "games"
 TAGS = "tags"
 TEXT = "text"
 SCAN = "scan"
+ALLNEXT = "allnext"     # write-all: waiting for a click before the next tag
+ALL_ITEM = "All"
 
 HOME_ITEMS = (("Read", READ), ("Tags", GAMES), ("Text", TEXT))
 
@@ -262,12 +269,37 @@ class Station:
         self.game_sel %= max(len(self.groups), 1)
         self.ui.show_list("Games", [n for n, _ in self.groups], self.game_sel)
 
+    def tag_options(self):
+        """(label, card text) rows for the open group. A group with several
+        tags starts with All (write every tag in turn); a game's entry tag
+        is labelled "Start <Game>"."""
+        name, tags = self.groups[self.game_sel]
+        rows = []
+        if len(tags) > 1:
+            rows.append((ALL_ITEM, None))
+        for i, t in enumerate(tags):
+            label = "Start " + name if i == 0 and t in GAME_TAGS else t
+            rows.append((label, t))
+        return rows
+
     def go_tags(self):
         self._enter(TAGS)
         self._set_field(False)
-        name, tags = self.groups[self.game_sel]
-        self.tag_sel %= len(tags)
-        self.ui.show_list(name, tags, self.tag_sel)
+        name, _ = self.groups[self.game_sel]
+        rows = self.tag_options()
+        self.tag_sel %= len(rows)
+        self.ui.show_list(name, [r[0] for r in rows], self.tag_sel)
+
+    def go_all(self):
+        """Write every tag of the open group, one card each."""
+        self.all_tags = list(self.groups[self.game_sel][1])
+        self.all_i = 0
+        self.go_scan(self.all_tags[0], ALLNEXT)
+
+    def go_allnext(self):
+        self._enter(ALLNEXT)
+        self._set_field(False)
+        self.ui.show_next(self.all_tags[self.all_i], self.all_i + 1, len(self.all_tags))
 
     def go_text(self, keep=False):
         self._enter(TEXT)
@@ -281,7 +313,24 @@ class Station:
         self.scan_text = text
         self.scan_return = ret
         self._set_field(True)
-        self.ui.show_scan(text)
+        if ret == ALLNEXT:
+            self.ui.show_scan(text, "%d/%d" % (self.all_i + 1, len(self.all_tags)))
+        else:
+            self.ui.show_scan(text)
+
+    def _after_write(self):
+        """Where a scan goes after the card is written (or already set)."""
+        if self.scan_return != ALLNEXT:
+            self._go(self.scan_return)
+            return
+        self.all_i += 1
+        if self.all_i < len(self.all_tags):
+            self.go_allnext()
+            return
+        self.ui.show_result("ok", "All Done", self.groups[self.game_sel][0])
+        self.ui.beep_success()
+        self._hold(RESULT_HOLD_OK_MS)
+        self.go_tags()
 
     def _go(self, mode):
         if mode == HOME:
@@ -294,6 +343,8 @@ class Station:
             self.go_tags()
         elif mode == TEXT:
             self.go_text(keep=True)
+        elif mode == ALLNEXT:
+            self.go_tags()      # leaving write-all ends it
         else:
             raise ValueError("no transition to %r" % mode)
 
@@ -331,20 +382,36 @@ class Station:
         elif intent == ACT:
             self.ui.beep_click()
             self.tag_sel = 0
-            self.go_tags()
+            tags = self.groups[self.game_sel][1]
+            if len(tags) == 1:
+                self.go_scan(tags[0], GAMES)    # nothing to choose
+            else:
+                self.go_tags()
         elif intent == EXIT:
             self.go_home()
 
     def _tags(self, intent):
-        name, tags = self.groups[self.game_sel]
+        name, _ = self.groups[self.game_sel]
+        rows = self.tag_options()
         if intent in (NEXT, PREV):
-            self.tag_sel = self._step(self.tag_sel, len(tags), intent)
-            self.ui.show_list(name, tags, self.tag_sel)
+            self.tag_sel = self._step(self.tag_sel, len(rows), intent)
+            self.ui.show_list(name, [r[0] for r in rows], self.tag_sel)
         elif intent == ACT:
             self.ui.beep_click()
-            self.go_scan(tags[self.tag_sel], TAGS)
+            text = rows[self.tag_sel][1]
+            if text is None:
+                self.go_all()
+            else:
+                self.go_scan(text, TAGS)
         elif intent == EXIT:
             self.go_games()
+
+    def _allnext(self, intent):
+        if intent == ACT:
+            self.ui.beep_click()
+            self.go_scan(self.all_tags[self.all_i], ALLNEXT)
+        elif intent == EXIT:
+            self.go_tags()
 
     def _text(self, intent):
         if intent is None:
@@ -420,7 +487,7 @@ class Station:
             self.ui.show_result("ok", "Already Set", text)
             self.ui.beep_success()
             self._hold(RESULT_HOLD_OK_MS)
-            self._go(self.scan_return)
+            self._after_write()
             return
         self.ui.show_result("busy", "Writing", text)
         ok = self.card.write_text(self.nfc, tag, text)
@@ -431,7 +498,7 @@ class Station:
             self.ui.show_result("ok", "Done", text)
             self.ui.beep_success()
             self._hold(RESULT_HOLD_OK_MS)
-            self._go(self.scan_return)
+            self._after_write()
         else:
             _log("write FAILED %r uid=%s" % (text, tag["uid_hex"]))
             self._send({"type": "write_failed", "uid": tag["uid_hex"], "text": text})
@@ -468,6 +535,9 @@ class Station:
         elif self.mode == TAGS:
             if intent:
                 self._tags(intent)
+        elif self.mode == ALLNEXT:
+            if intent:
+                self._allnext(intent)
         elif self.mode == TEXT:
             self._text(intent)
         elif self.mode == READ:

@@ -349,8 +349,12 @@ class StationUI:
             d.set_style_bg_color(lv.color_hex(WRITE_FG if big else BORDER), 0)
             dx, dy = _rim_xy(i * step, DOT_R)
             d.align(lv.ALIGN.CENTER, dx, dy)
-        half = max(step / 2, 4)
-        self._span(self.l_ptr, sel * step - half, sel * step + half)
+        # The large dot marks the selection; the arc only stands in for
+        # dots on lists too long to show them.
+        self._visible(self.l_ptr, not dots)
+        if not dots:
+            half = max(step / 2, 4)
+            self._span(self.l_ptr, sel * step - half, sel * step + half)
 
     def show_list(self, title, items, sel):
         self._dot_ring(len(items), sel)
@@ -388,8 +392,12 @@ class StationUI:
         else:
             self._status("warn", WARN_FG, "No Text", tag_type, "")
 
-    def show_scan(self, text):
-        self._status("scan", WRITE_FG, text, "Hold Card", "", 0)
+    def show_scan(self, text, progress=""):
+        self._status("scan", WRITE_FG, text, "Hold Card", progress, 0)
+
+    def show_next(self, text, i, n):
+        """Write-all: the next tag to write, waiting for a click."""
+        self._status("scan", WRITE_FG, text, "Next %d/%d" % (i, n), "Click", 0)
 
     def show_result(self, kind, title, body=""):
         glyph, color, fill = KIND_STYLE[kind]

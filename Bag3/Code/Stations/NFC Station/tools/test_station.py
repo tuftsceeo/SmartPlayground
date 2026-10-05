@@ -318,6 +318,8 @@ class CatalogTests(unittest.TestCase):
             g = tag_catalog.load_groups(os.path.join(d, "none.json"))
         names = [n for n, _ in g]
         self.assertIn("Melody", names)
+        self.assertEqual(dict(g)["Melody"][0], "melody")
+        self.assertIn("note_c_high", dict(g)["Melody"])
         self.assertEqual(names[-1], "Controls")
 
     def test_index_drops_getcode_and_lowercases(self):
@@ -372,21 +374,58 @@ class StationTests(unittest.TestCase):
         self.assertEqual(self.link.sent[0]["type"], "identity")
         self.assertFalse(self.nfc.field)
 
-    def test_tag_write_flow(self):
-        run(self.st, self.inp, NEXT, ACT)               # Tags
-        self.assertEqual(self.st.mode, station.GAMES)
-        run(self.st, self.inp, ACT)                     # first game
-        self.assertEqual(self.st.mode, station.TAGS)
-        target = self.st.groups[0][1][0]
+    def _open_game(self, name):
+        run(self.st, self.inp, NEXT, ACT)               # Tags -> GAMES
+        self.st.game_sel = [n for n, _ in self.st.groups].index(name)
         run(self.st, self.inp, ACT)
+
+    def test_single_tag_game_scans_directly(self):
+        self._open_game("Jump")
         self.assertEqual(self.st.mode, station.SCAN)
-        self.assertTrue(self.nfc.field)
+        self.assertEqual(self.st.scan_text, "jump")
         self.nfc.cards.append(tag())
         self.st.step()
-        self.assertEqual(self.card.store["01:02"], target)
-        self.assertEqual(self.st.mode, station.TAGS)
+        self.assertEqual(self.card.store["01:02"], "jump")
+        self.assertEqual(self.st.mode, station.GAMES)
         self.assertFalse(self.nfc.field)
         self.assertEqual(self.link.sent[-1]["type"], "card_written")
+
+    def test_multi_tag_game_options(self):
+        self._open_game("Goalrace")
+        self.assertEqual(self.st.mode, station.TAGS)
+        rows = self.st.tag_options()
+        self.assertEqual(rows, [("All", None), ("Start Goalrace", "goalrace"),
+                                ("teamgreen", "teamgreen"), ("teamblue", "teamblue"),
+                                ("goal", "goal")])
+        run(self.st, self.inp, NEXT, NEXT, ACT)         # teamgreen
+        self.assertEqual(self.st.scan_text, "teamgreen")
+        self.nfc.cards.append(tag())
+        self.st.step()
+        self.assertEqual(self.st.mode, station.TAGS)
+
+    def test_write_all_waits_for_click_between_cards(self):
+        self._open_game("Goalrace")
+        run(self.st, self.inp, ACT)                     # All
+        written = []
+        for i, want in enumerate(["goalrace", "teamgreen", "teamblue", "goal"]):
+            self.assertEqual(self.st.mode, station.SCAN)
+            self.assertEqual(self.st.scan_text, want)
+            self.nfc.cards.append(tag("C%d" % i))
+            self.st.step()
+            written.append(self.card.store["C%d" % i])
+            if i < 3:
+                self.assertEqual(self.st.mode, station.ALLNEXT)
+                self.st.step()                          # no click: stays
+                self.assertEqual(self.st.mode, station.ALLNEXT)
+                run(self.st, self.inp, ACT)
+        self.assertEqual(written, ["goalrace", "teamgreen", "teamblue", "goal"])
+        self.assertEqual(self.st.mode, station.TAGS)
+        self.assertEqual(self.ui.last("show_result")[2], "All Done")
+
+    def test_write_all_exit_returns_to_options(self):
+        self._open_game("Goalrace")
+        run(self.st, self.inp, ACT, EXIT)               # All, then back out
+        self.assertEqual(self.st.mode, station.TAGS)
 
     def test_already_written_not_rewritten(self):
         self.card.store["01:02"] = "stop"

@@ -14,7 +14,11 @@ Geometry, colours and slot rules match station_ui.py (KEY_R, BAND_W,
 RIM_OUTER, slot_angles, rim_rotation). Fonts: LVGL's Montserrat-Medium and
 FontAwesome5 (pass their paths, or they are fetched from LVGL release/v9.2).
 
-    python3 tools/gen_ring.py [Montserrat-Medium.ttf FontAwesome5.woff]
+    python3 tools/gen_ring.py [--size PX] [Montserrat-Medium.ttf FontAwesome5.woff]
+
+--size must equal the font size station_ui really gets for BODY (28, or the
+smaller built-in station_fonts falls back to -- check the "# font:" boot line
+or tools/font_probe.py); otherwise the image and the live highlight differ.
 """
 
 import json
@@ -83,13 +87,14 @@ def fetch(name):
     return path
 
 
-def render(items, mont, fa):
-    text_f = ImageFont.truetype(mont, BODY * SS)
-    icon_f = ImageFont.truetype(fa, BODY * SS)
+def render(items, mont, fa, size):
+    text_f = ImageFont.truetype(mont, size * SS)
+    icon_f = ImageFont.truetype(fa, size * SS)
     font_of = lambda c: icon_f if c in ICONS else text_f
     glyph = lambda c: ICONS.get(c, label(c))
-    widths = [font_of(c).getlength(glyph(c)) / SS if c not in ICONS else BODY
-              for c in items]
+    # Real advance widths, icons included: the backspace glyph is ~1.25 em,
+    # and a fixed icon width made its cell too narrow.
+    widths = [font_of(c).getlength(glyph(c)) / SS for c in items]
     slots = slot_angles(widths, KEY_R)
 
     img = Image.new("RGB", (W * SS, H * SS), rgb(PAGE_BG))
@@ -134,14 +139,20 @@ def write_lvgl_bin(img, path):
 
 
 def main():
-    if len(sys.argv) == 3:
-        mont, fa = sys.argv[1], sys.argv[2]
+    args = sys.argv[1:]
+    size = BODY
+    if "--size" in args:
+        i = args.index("--size")
+        size = int(args[i + 1])
+        del args[i:i + 2]
+    if len(args) == 2:
+        mont, fa = args
     else:
         mont = fetch("Montserrat-Medium.ttf")
         fa = fetch("FontAwesome5-Solid+Brands+Regular.woff")
     table = {}
     for name, items in RINGS.items():
-        img, slots = render(items, mont, fa)
+        img, slots = render(items, mont, fa, size)
         write_lvgl_bin(img, os.path.join(HERE, "kb_%s.bin" % name))
         img.save(os.path.join(HERE, "tools", "kb_%s.png" % name))
         table[name] = {"items": items, "slots": slots}

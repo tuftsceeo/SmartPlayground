@@ -5,7 +5,8 @@ Sources, in order:
        {"<slug>": {"name": "Goalrace", "tags": ["goalrace", "goal", ...]}}
      ChatBroadcast (or a hand copy of a Dial's index.json) supplies this.
   2. Built-in: one group per game in game_tags.GAME_TAGS, holding that
-     game's entry tag, and a "Controls" group (start, stop).
+     game's entry tag followed by GAME_CARD_TAGS (cards it reads in play),
+     and a "Controls" group (start, stop).
 
 "getcode..." tags are dropped: their written form carries a Broadcast
 Dial/Box host id, and this station serves no code.
@@ -48,8 +49,24 @@ def _clean_tags(tags):
     return out
 
 
+# Cards each game reacts to while running, besides its own entry tag. From
+# the MockWand game modules (Bag3/Code/BroadcastCode/MockWand/*.py), which
+# read lowercased NDEF text. Nothing keeps this in step with those files.
+GAME_CARD_TAGS = {
+    "colorquest": ["color_quest_scan", "turnred", "turngreen", "turnblue",
+                   "turnpurple", "turnpink", "turnyellow", "turnwhite", "turnoff"],
+    "freezedance": ["caller", "player", "go", "freeze", "rejoin"],
+    "cooking": ["tomato", "milk", "cheese", "flour", "egg", "butter", "sugar"],
+    "melody": ["note_c", "note_d", "note_e", "note_f", "note_g", "note_a",
+               "note_b", "note_c_high", "erase", "backspace"],
+    "nfcsound": ["note_c", "note_d", "note_e", "note_f", "note_g", "note_a", "note_b"],
+    "gestures": ["red", "green", "blue", "play"],
+    "goalrace": ["teamgreen", "teamblue", "goal"],
+}
+
+
 def builtin_groups():
-    groups = [(_pretty(g), [g]) for g in sorted(GAME_TAGS)]
+    groups = [(_pretty(g), [g] + GAME_CARD_TAGS.get(g, [])) for g in sorted(GAME_TAGS)]
     groups.append((CONTROLS_NAME, sorted(CONTROL_TAGS)))
     return groups
 
