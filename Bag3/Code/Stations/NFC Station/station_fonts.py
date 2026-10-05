@@ -36,9 +36,16 @@ def binfont(size):
         return None
     if name not in files:
         return None
-    font = lv.binfont_create("S:%s/%s" % (BIN_DIR, name))
+    path = "S:%s/%s" % (BIN_DIR, name)
+    # LVGL 9: binfont_create; LVGL 8: font_load. Neither -> this build
+    # cannot load binary fonts at all, which must be a crash.
+    loader = getattr(lv, "binfont_create", None) or getattr(lv, "font_load", None)
+    if loader is None:
+        raise RuntimeError("no binary font loader in this LVGL build")
+    font = loader(path)
     if font is None:
-        raise RuntimeError("binfont_create returned None for %s" % name)
+        raise RuntimeError("font loader returned None for %s (LVGL drive "
+                           "letter or path wrong?)" % path)
     return font
 
 

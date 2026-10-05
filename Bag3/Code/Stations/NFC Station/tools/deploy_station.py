@@ -4,8 +4,8 @@ Host-side tool; not firmware. Copied from BroadcastDial's
 tools/deploy_dial.py: one mpremote invocation per file, full read-back
 verify, retry, and no reset if any file failed.
 
-The file list is every *.py at the tree root (device firmware only;
-tools/ stays on the host). Run tools/font_probe.py and tools/ui_sketches.py
+The file list is every *.py at the tree root plus fonts/*.bin (to
+/flash/fonts/); tools/ stays on the host. Run tools/font_probe.py and tools/ui_sketches.py
 with `mpremote run` after deploying.
 
 Follow HARDWARE_PROTOCOL.md: ask which port is the Dial, ask before
@@ -27,12 +27,23 @@ HERE = pathlib.Path(__file__).resolve().parent.parent  # NFC Station/
 
 
 def device_files():
-    """Root-level .py files; main.py last so a partial copy cannot boot."""
+    """Root-level .py files and fonts/*.bin; main.py last so a partial
+    copy cannot boot."""
     names = sorted(p.name for p in HERE.glob("*.py"))
     if "main.py" not in names:
         raise SystemExit("main.py missing from %s" % HERE)
     names.remove("main.py")
-    return names + ["main.py"]
+    fonts = sorted("fonts/" + p.name for p in (HERE / "fonts").glob("*.bin"))
+    return fonts + names + ["main.py"]
+
+
+def ensure_fonts_dir(port):
+    """Create /flash/fonts; an existing directory is fine, anything else
+    is a failure."""
+    r = mpremote(port, "fs", "mkdir", ":/flash/fonts")
+    out = (r.stderr + r.stdout).strip()
+    if r.returncode != 0 and "exist" not in out.lower():
+        raise SystemExit("mkdir /flash/fonts failed: %s" % out)
 
 
 def mpremote(port, *args, timeout=60):
@@ -90,6 +101,8 @@ def main():
     args = ap.parse_args()
 
     files = device_files()
+    if any(f.startswith("fonts/") for f in files):
+        ensure_fonts_dir(args.port)
     print("# deploying %d files to %s" % (len(files), args.port))
     failed = []
     for name in files:

@@ -25,7 +25,9 @@ Port A (sda=13 scl=15) and falls back to the built-in reader.
 | `tag_catalog.py` | Tags grouped by game; word bank |
 | `tools/test_station.py` | Host tests (CPython, fakes) |
 | `tools/font_probe.py`, `tools/ui_sketches.py` | On-device Phase 0 probes |
-| `tools/deploy_station.py` | Verified per-file deploy |
+| `tools/deploy_station.py` | Verified per-file deploy (firmware + fonts) |
+| `tools/gen_fonts.sh` | Regenerates `fonts/*.bin` |
+| `docs/ui_simulator.html` | Browser simulation of every screen |
 
 Copies, not imports -- fixing one fixes only this copy:
 
@@ -131,8 +133,12 @@ mpremote run tools/font_probe.py                    # fonts present?
 mpremote run tools/ui_sketches.py                   # every page with sample data
 ```
 
-If `font_probe.py` reports a size missing, convert Montserrat at that size
-with the LVGL font converter (binary output, include the LVGL symbol range
-F001-F8FF for the glyphs) to `/flash/fonts/montserrat_<size>.bin`.
+`fonts/montserrat_{28,40,48}.bin` ship with the tree and deploy to
+`/flash/fonts/`. `station_fonts.py` uses a built-in Montserrat size when
+the firmware has it and loads the `.bin` only when it does not.
+`tools/gen_fonts.sh` regenerates them from LVGL's own font sources
+(printable ASCII + the 11 `lv.SYMBOL` glyphs used; 48 px holds only
+lowercase, digits, `_ - .` and the symbols). Uncompressed, ~84 KB total,
+loaded into RAM.
 
 Record hardware results in `docs/circular-ui-notes.md`.

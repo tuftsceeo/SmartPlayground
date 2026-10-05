@@ -237,6 +237,12 @@ class StationUI:
 
     @staticmethod
     def _span(arc, start_deg, end_deg):
+        """Show the arc from start_deg to end_deg (clockwise, 0 = 12
+        o'clock). A span of 360 or more is a full ring; reducing both ends
+        mod 360 would give start == end, which LVGL draws as nothing."""
+        if end_deg - start_deg >= 360:
+            arc.set_angles(0, 360)
+            return
         arc.set_angles(int(start_deg) % 360, int(end_deg) % 360)
 
     @staticmethod

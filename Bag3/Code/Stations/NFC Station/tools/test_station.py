@@ -498,6 +498,17 @@ class PainterSmokeTests(unittest.TestCase):
         self.assertEqual(self.mod.rim_rotation(180), 180)
         self.assertEqual(self.mod.rim_rotation(270), -90)
 
+    def test_span_full_ring_not_empty(self):
+        calls = []
+
+        class Arc:
+            def set_angles(self, a, b):
+                calls.append((a, b))
+
+        self.mod.StationUI._span(Arc(), 0, 360)
+        self.mod.StationUI._span(Arc(), -10, 20)
+        self.assertEqual(calls, [(0, 360), (350, 20)])
+
     def test_slot_angles_refuses_overflow(self):
         with self.assertRaises(ValueError):
             self.mod.slot_angles([30] * 40, 97)

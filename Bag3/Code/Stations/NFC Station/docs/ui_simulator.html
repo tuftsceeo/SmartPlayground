@@ -313,8 +313,6 @@ button.primary { background: var(--accent); color: var(--surface); border-color:
         const a = slots[i * SEGMENT], b = slots[Math.min((i + 1) * SEGMENT, n) - 1];
         ring(ctx, a[0] - a[1], b[0] + b[1], BAND_W, i % 2 ? C.WRITE_BG : C.CARD_BG);
       }
-      // segment dividers, as in the reference keyboard
-      for (let i = 0; i < nseg; i++) { const a = slots[i * SEGMENT], d = a[0] - a[1], [x1, y1] = rimXY(d, RIM_OUTER - BAND_W), [x2, y2] = rimXY(d, RIM_OUTER); ctx.save(); ctx.strokeStyle = C.BORDER; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke(); ctx.restore(); }
       if (mode !== "cancel") {
         if (variant === "zone" && e.zone === null) {
           const zs = Math.floor(sel / SEGMENT) * SEGMENT, a = slots[zs], b = slots[Math.min(zs + SEGMENT, n) - 1];
