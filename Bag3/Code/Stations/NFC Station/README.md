@@ -35,7 +35,8 @@ Copies, not imports -- fixing one fixes only this copy:
 | `game_tags.py` | `Bag3/Code/BroadcastCode/MockWand/lib/` |
 
 `dial_input.py` has diverged on purpose: it adds `hold_fraction()` for the
-hold-progress ring.
+hold-progress ring, and `clear()` marks a still-held press as spent so its
+release after a hold does not register as a click.
 
 ## Controls
 

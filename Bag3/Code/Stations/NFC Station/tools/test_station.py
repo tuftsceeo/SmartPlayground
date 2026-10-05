@@ -229,6 +229,67 @@ class TextEntryTests(unittest.TestCase):
         self.assertEqual(e.text, "")
 
 
+class DialInputTests(unittest.TestCase):
+    """dial_input button logic with a fake M5.BtnA and clock."""
+
+    def setUp(self):
+        import dial_input
+        self.di = dial_input
+        self.down = False
+        self.now = 0
+        btn = types.SimpleNamespace(isPressed=lambda: self.down)
+        sys.modules["M5"].BtnA = btn
+        sys.modules["M5"].update = lambda: None
+        self._ticks = time.ticks_ms
+        time.ticks_ms = lambda: self.now
+        self.inp = dial_input.DialInput()
+
+    def tearDown(self):
+        time.ticks_ms = self._ticks
+
+    def press(self, ms):
+        self.down = True
+        self.inp.update()
+        self.now += ms
+        self.inp.update()
+
+    def release(self, after_ms=0):
+        self.now += after_ms
+        self.down = False
+        self.inp.update()
+
+    def drain(self):
+        out = []
+        while True:
+            i = self.inp.pop()
+            if i is None:
+                return out
+            out.append(i)
+
+    def test_short_click(self):
+        self.press(100)
+        self.release()
+        self.assertEqual(self.drain(), [ACT])
+
+    def test_hold_then_clear_then_late_release_is_silent(self):
+        self.press(1000)
+        self.assertEqual(self.drain(), [EXIT])
+        self.inp.clear()                    # screen change while still held
+        self.assertIsNone(self.inp.hold_fraction())
+        self.now += 1500                    # user keeps holding
+        self.inp.update()
+        self.release(after_ms=800)
+        self.assertEqual(self.drain(), [])  # no stray click, no second EXIT
+
+    def test_next_press_after_spent_hold_works(self):
+        self.press(1000)
+        self.inp.clear()
+        self.release(after_ms=500)
+        self.press(100)
+        self.release()
+        self.assertEqual(self.drain(), [ACT])
+
+
 class CatalogTests(unittest.TestCase):
     def test_builtin(self):
         with tempfile.TemporaryDirectory() as d:

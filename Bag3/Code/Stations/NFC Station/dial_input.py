@@ -112,6 +112,10 @@ class DialInput:
 
         Call on every mode change so a hold that caused the switch does not
         immediately read as a hold (or an ACT on release) in the new mode.
+        A press still held here is marked spent: its release, however long
+        after, emits nothing. (NFC Station fix; BroadcastDial's copy resets
+        the flag to False, so the release of a hold that changed screens
+        reads as an ACT there.)
         """
         self._queue = []
         self._btn_pressed_at = time.ticks_ms()
@@ -119,7 +123,7 @@ class DialInput:
             self._btn_was_down = M5.BtnA.isPressed()
         except Exception:
             self._btn_was_down = False
-        self._exit_emitted = False
+        self._exit_emitted = self._btn_was_down
 
     def pop(self):
         """Next intent, or None. Non-blocking."""
