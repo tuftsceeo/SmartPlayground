@@ -390,6 +390,7 @@ class StationUI:
         self._kb_ring_shown = None
         self._kb_sel = None
         self._kb_text = None
+        self._kb_cancel_shown = False
         self.k_typed = self._label(pg, self.f["body"], INK, y=-36)
         # Caret: a separate pink bar, not a "|" glyph, which reads as "l".
         self.k_caret = lv.obj(pg)
@@ -401,7 +402,7 @@ class StationUI:
         self.k_caret.remove_flag(lv.obj.FLAG.CLICKABLE)
         self.k_caret.remove_flag(lv.obj.FLAG.SCROLLABLE)
         self._caret_on = True
-        lv.timer_create(self._blink, CARET_BLINK_MS, None)
+        self._caret_at = 0
         self.k_sel = self._label(pg, self.f["glyph"], PINK, w=120, y=6)
         self.k_count = self._label(pg, self.f["body"], INK_3, y=44)
 
@@ -425,12 +426,23 @@ class StationUI:
         lbl.align(lv.ALIGN.CENTER, (w - total) // 2, -36)
         self.k_caret.align(lv.ALIGN.CENTER, total // 2 - CARET_W // 2, -36)
         self._caret_on = True       # solid right after a keystroke
+        self._caret_at = time.ticks_ms()
         self._visible(self.k_caret, True)
         return w
 
-    def _blink(self, timer):
+    def tick(self):
+        """Call once per main-loop iteration: blinks the caret.
+
+        Driven from the main loop rather than an LVGL timer: a Ctrl-C that
+        lands inside an LVGL timer callback is caught by m5ui's port and
+        never reaches the REPL, which blocks mpremote.
+        """
         if self._cur != "keyboard":
             return
+        now = time.ticks_ms()
+        if time.ticks_diff(now, self._caret_at) < CARET_BLINK_MS:
+            return
+        self._caret_at = now
         self._caret_on = not self._caret_on
         self._visible(self.k_caret, self._caret_on)
 
@@ -462,7 +474,38 @@ class StationUI:
         """
         t0 = time.ticks_ms() if PAINT_MS else 0
         mode = view["mode"]
+        if mode == text_entry.M_CANCEL:
+            self._kb_cancel(view)
+        else:
+            self._kb_paint(view)
+        if PAINT_MS:
+            lv.refr_now(None)
+            print("# paint keyboard %d ms" % time.ticks_diff(time.ticks_ms(), t0))
+
+    def _kb_cancel(self, view):
+        """Discard prompt over the current ring: only the centre changes,
+        so entering and leaving it does not relayout the ring."""
+        self._visible(self.k_cell, False)
+        self.k_sel.set_style_text_font(self.f["glyph"], 0)
+        self.k_sel.set_text(self.ic["trash"])
+        self.k_count.set_text("Hold")
+        self._color(self.k_count, DANGER_FG)
+        self._kb_cancel_shown = True
+        self._kb_text = None        # count line must repaint on return
+        self._show("keyboard")
+
+    def _kb_paint(self, view):
+        mode = view["mode"]
         ring = tuple(view["choices"])
+        if self._kb_cancel_shown:
+            # Back from the prompt: restore cell and centre on the same ring.
+            self._kb_cancel_shown = False
+            if mode == self._kb_mode and ring == self._kb_ring_shown:
+                keys = mode in (text_entry.M_LETTERS, text_entry.M_MORE)
+                self._visible(self.k_cell, keys)
+                words = mode == text_entry.M_WORDS
+                self.k_sel.set_style_text_font(self.f["focus" if words else "glyph"], 0)
+                self._kb_sel = None if not keys else self._kb_sel
         if mode != self._kb_mode or ring != self._kb_ring_shown:
             self._kb_layout(view)
         elif view["sel"] != self._kb_sel:
@@ -475,9 +518,6 @@ class StationUI:
         self._kb_ring_shown = ring
         self._kb_sel = view["sel"]
         self._show("keyboard")
-        if PAINT_MS:
-            lv.refr_now(None)
-            print("# paint keyboard %d ms" % time.ticks_diff(time.ticks_ms(), t0))
 
     def _kb_layout(self, view):
         """Full keyboard layout for a new ring (or a new mode)."""

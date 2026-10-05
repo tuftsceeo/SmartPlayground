@@ -446,6 +446,27 @@ class StationTests(unittest.TestCase):
         self.assertEqual(self.st.game_sel, 3)
         self.assertEqual(self.inp.q, [])
 
+    def test_cancel_prompt_times_out(self):
+        clock = [0]
+        time.ticks_ms = lambda: clock[0]
+        run(self.st, self.inp, PREV, ACT, "tap:0")      # Text, 'a'
+        run(self.st, self.inp, EXIT)
+        self.assertEqual(self.st.entry.mode, te.M_CANCEL)
+        self.st.step()                                  # idle: timer starts
+        clock[0] += station.CANCEL_PROMPT_MS - 1
+        self.st.step()
+        self.assertEqual(self.st.entry.mode, te.M_CANCEL)
+        clock[0] += 1
+        self.st.step()
+        self.assertEqual(self.st.entry.mode, te.M_LETTERS)
+        self.assertEqual(self.st.entry.text, "a")
+        time.ticks_ms = lambda: int(time.monotonic() * 1000)
+
+    def test_repl_command_stops_loop(self):
+        self.st.dispatch({"cmd": "repl", "id": 9})
+        self.assertFalse(self.st.running)
+        self.assertEqual(self.link.sent[-1]["type"], "bye")
+
     def test_serial_catalog_and_write(self):
         self.st.dispatch({"cmd": "catalog.set", "id": 1,
                           "index": {"g": {"name": "G", "tags": ["x", "y"]}}})
@@ -514,6 +535,24 @@ class PainterSmokeTests(unittest.TestCase):
         # old label, new label, cell; no full relayout (30 labels, 10 arcs)
         self.assertEqual(sorted(calls), ["color", "color", "span"])
 
+    def test_cancel_prompt_does_not_relayout(self):
+        ui = self.mod.StationUI(FakeInputs())
+        ui.begin()
+        e = te.TextEntry(54, text="ab")
+        ui.show_keyboard(e.view())
+        layouts = []
+        orig = ui._kb_layout
+        ui._kb_layout = lambda v: (layouts.append(v["mode"]), orig(v))
+        e.handle(EXIT)                       # prompt
+        ui.show_keyboard(e.view())
+        e.handle(NEXT)                       # any intent: back to letters
+        ui.show_keyboard(e.view())
+        e.handle(EXIT)
+        ui.show_keyboard(e.view())
+        e.resume()                           # timeout path
+        ui.show_keyboard(e.view())
+        self.assertEqual(layouts, [])
+
     def test_painters(self):
         ui = self.mod.StationUI(FakeInputs())
         ui.begin()
@@ -544,6 +583,7 @@ class PainterSmokeTests(unittest.TestCase):
         ui.beep_fail()
         for f in (None, 0.1, 0.5, 1.0, None):
             ui.show_hold(f)
+        ui.tick()
 
     # Montserrat Medium advance widths at 28 px, measured from the Google
     # Fonts variable TTF at wght 500 (LVGL's built-ins are Medium). Icons

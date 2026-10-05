@@ -152,6 +152,11 @@ class TextEntry:
             return ev
         return self._append(item)
 
+    def resume(self):
+        """Leave the discard prompt, keeping the text (prompt timed out)."""
+        if self.mode == M_CANCEL:
+            self._to(M_LETTERS)
+
     def mark_written(self, text):
         """Record that text was written to a card."""
         self.written = text

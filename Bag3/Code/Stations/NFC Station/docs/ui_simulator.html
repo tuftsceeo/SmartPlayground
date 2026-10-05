@@ -437,7 +437,13 @@ button.primary { background: var(--accent); color: var(--surface); border-color:
   /* ---- UI wiring ---- */
   const cv = document.getElementById("screen"), ctx = cv.getContext("2d");
   // Hold ring (station_ui.show_hold): fills over the 1 s hold, above any page.
+  let cancelAt = null;
   function frame(t) {
+    // Discard prompt returns to the keyboard after 2 s (station CANCEL_PROMPT_MS)
+    if (st.mode === "text" && st.entry && st.entry.mode === "cancel") {
+      if (cancelAt === null) cancelAt = performance.now();
+      else if (performance.now() - cancelAt >= 2000) { cancelAt = null; st.entry.to("letters"); }
+    } else cancelAt = null;
     paint(ctx, scene, t);
     if (pressAt !== null && st.mode !== "home") {   // home has no back
       const f = Math.min((performance.now() - pressAt) / 1000, 1);

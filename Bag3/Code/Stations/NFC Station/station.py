@@ -25,6 +25,7 @@ Serial (newline JSON, json_link.py):
   {"cmd":"words.set","words":[...]}       -> ok
   {"cmd":"write","text":"..."}            -> ok; opens SCAN for that text
   {"cmd":"home"}                          -> ok
+  {"cmd":"repl"}                          -> bye; loop exits to the REPL
   {"cmd":"reboot"}
 Events: card_read {uid,type,text}, card_written {uid,text},
         write_failed {uid,text}, heartbeat {mode}.
@@ -49,6 +50,7 @@ READ_WINDOW = 64
 TEXT_MAX = READ_WINDOW - NDEF_OVERHEAD
 
 RESULT_HOLD_OK_MS = 1000
+CANCEL_PROMPT_MS = 2000   # discard prompt returns to the keyboard after this
 RESULT_HOLD_FAIL_MS = 700
 NFC_REINIT_AFTER = 15
 DETECT_MS = 80
@@ -95,6 +97,8 @@ class Station:
         self.read_text = None
         self._last_uid = None
         self._beat = 0
+        self._cancel_at = None
+        self.running = True
 
         self.handlers = {
             "identify": self.do_identify,
@@ -103,6 +107,7 @@ class Station:
             "words.set": self.do_words_set,
             "write": self.do_write,
             "home": self.do_home,
+            "repl": self.do_repl,
             "reboot": self.do_reboot,
         }
 
@@ -189,6 +194,12 @@ class Station:
     def do_home(self, cmd, rid):
         self._send({"type": "ok", "id": rid, "cmd": "home"})
         self.go_home()
+
+    def do_repl(self, cmd, rid):
+        """Stop the main loop and return to the REPL, so mpremote can take
+        the board without a Ctrl-C (which m5ui's LVGL callbacks can eat)."""
+        self._send({"type": "bye", "id": rid})
+        self.running = False
 
     def do_reboot(self, cmd, rid):
         self._send({"type": "ok", "id": rid, "cmd": "reboot"})
@@ -335,6 +346,19 @@ class Station:
             self.go_games()
 
     def _text(self, intent):
+        if intent is None:
+            # Discard prompt left alone: back to the keyboard, text kept.
+            if self.entry.mode == text_entry.M_CANCEL:
+                if self._cancel_at is None:
+                    self._cancel_at = time.ticks_ms()
+                elif time.ticks_diff(time.ticks_ms(), self._cancel_at) >= CANCEL_PROMPT_MS:
+                    self._cancel_at = None
+                    self.entry.resume()
+                    self.ui.show_keyboard(self.entry.view())
+            else:
+                self._cancel_at = None
+            return
+        self._cancel_at = None
         ev = self.entry.handle(intent)
         if ev is None:
             if intent in (NEXT, PREV):
@@ -440,8 +464,7 @@ class Station:
             if intent:
                 self._tags(intent)
         elif self.mode == TEXT:
-            if intent:
-                self._text(intent)
+            self._text(intent)
         elif self.mode == READ:
             self._read(intent)
         elif self.mode == SCAN:
@@ -449,10 +472,11 @@ class Station:
 
     def run(self):
         self.begin()
-        while True:
+        while self.running:
             if self.link is not None:
                 self.link.pump(idle_ms=0)
             self.step()
+            self.ui.tick()
             now = time.ticks_ms()
             if time.ticks_diff(now, self._beat) >= HEARTBEAT_MS:
                 self._beat = now
