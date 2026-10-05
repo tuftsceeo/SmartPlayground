@@ -586,6 +586,22 @@ class PainterSmokeTests(unittest.TestCase):
             ui.show_hold(ms / 1000)
         self.assertEqual(spans, [])
 
+    def test_lean_keyboard_flags(self):
+        self.mod.SEG_TINTS, self.mod.CELL_DOT = False, True
+        try:
+            ui = self.mod.StationUI(FakeInputs())
+            ui.begin()
+            self.assertEqual(ui.k_segs, [])
+            e = te.TextEntry(54, words=["w"])
+            ui.show_keyboard(e.view())
+            for _ in range(31):
+                e.handle(NEXT)
+                ui.show_keyboard(e.view())
+            e.handle("tap:%d" % e.choices().index(te.MORE_ITEM))
+            ui.show_keyboard(e.view())
+        finally:
+            self.mod.SEG_TINTS, self.mod.CELL_DOT = True, False
+
     def test_painters(self):
         ui = self.mod.StationUI(FakeInputs())
         ui.begin()

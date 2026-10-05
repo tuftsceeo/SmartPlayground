@@ -82,6 +82,10 @@ CARET_BLINK_MS = 530
 PAINT_MS = False        # True: print keyboard paint time (incl. LVGL refresh)
 ROTATE_RIM = True       # False: upright rim letters (A/B test of rotation cost)
 TURN_BEEP = True        # False: no beep per detent (A/B test of speaker cost)
+SEG_TINTS = True        # False: no tinted section arcs behind the rim letters
+CELL_DOT = False        # True: selection is a filled circle behind the letter,
+                        # not a 44 px-wide arc segment (cheaper to redraw)
+CELL_DOT_D = 36         # selection circle diameter
 HOLD_SHOW = 0.35        # hold fraction before the hold ring appears (350 ms)
 HOLD_STEP = 12          # degrees per hold-ring update (30 redraws per hold)
 HOLD_W = 10             # hold ring width, same as the result ring
@@ -377,8 +381,11 @@ class StationUI:
         pg = self._page("keyboard")
         nseg = KEY_SLOTS // text_entry.SEGMENT
         self.k_segs = [self._arc(pg, WRITE_BG if i % 2 else CARD_BG, BAND_W)
-                       for i in range(nseg)]
-        self.k_cell = self._arc(pg, PINK, BAND_W)
+                       for i in range(nseg if SEG_TINTS else 0)]
+        if CELL_DOT:
+            self.k_cell = self._circle(pg, CELL_DOT_D, PINK)
+        else:
+            self.k_cell = self._arc(pg, PINK, BAND_W)
         self.k_keys = []
         for i in range(KEY_SLOTS):
             lbl = self._label(pg, self.f["body"], INK)
@@ -571,8 +578,7 @@ class StationUI:
             return
         self._visible(self.k_cell, keys)
         if keys:
-            c, half = slots[sel]
-            self._span(self.k_cell, c - half, c + half)
+            self._cell_to(slots[sel])
         self.k_sel.set_style_text_font(self.f["focus" if words else "glyph"], 0)
         self._set_sel_text(view)
 
@@ -584,12 +590,20 @@ class StationUI:
         if mode in (text_entry.M_LETTERS, text_entry.M_MORE):
             self._color(self.k_keys[old], INK)
             self._color(self.k_keys[sel], WHITE)
-            c, half = self._k_slots[sel]
-            self._span(self.k_cell, c - half, c + half)
+            self._cell_to(self._k_slots[sel])
         elif mode == text_entry.M_WORDS and len(view["choices"]) <= DOT_SLOTS:
             self._dot_style(self.k_dots[old], False)
             self._dot_style(self.k_dots[sel], True)
         self._set_sel_text(view)
+
+    def _cell_to(self, slot):
+        """Move the selection highlight to a rim slot (centre, half-span)."""
+        c, half = slot
+        if CELL_DOT:
+            dx, dy = _rim_xy(c, KEY_R)
+            self.k_cell.align(lv.ALIGN.CENTER, dx, dy)
+        else:
+            self._span(self.k_cell, c - half, c + half)
 
     def _dot_style(self, d, big):
         size = DOT_BIG if big else DOT_SMALL
