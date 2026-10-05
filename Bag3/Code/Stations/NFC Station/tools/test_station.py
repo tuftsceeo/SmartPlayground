@@ -34,8 +34,8 @@ class FakeUI:
         self.calls = []
 
     def __getattr__(self, name):
-        def rec(*args):
-            self.calls.append((name,) + args)
+        def rec(*args, **kw):
+            self.calls.append((name,) + args + tuple(kw.values()))
         return rec
 
     def last(self, name):
@@ -303,6 +303,15 @@ class DialInputTests(unittest.TestCase):
             self.inp.update()
         self.assertEqual(self.drain(), [EXIT])
 
+    def test_hold_through_blocking_read_exits(self):
+        # Button held throughout; the loop blocks 2 s twice (NFC reads).
+        self.down = True
+        self.inp.update()
+        for gap in (10, 2000, 10, 2000, 10):
+            self.now += gap
+            self.inp.update()
+        self.assertEqual(self.drain(), [EXIT])
+
     def test_next_press_after_spent_hold_works(self):
         self.press(1000)
         self.inp.clear()
@@ -320,7 +329,7 @@ class CatalogTests(unittest.TestCase):
         self.assertIn("Melody", names)
         self.assertEqual(dict(g)["Melody"][0], "melody")
         self.assertIn("note_c_high", dict(g)["Melody"])
-        self.assertEqual(names[-1], "Controls")
+        self.assertEqual(names[-1], "Utilities")
 
     def test_index_drops_getcode_and_lowercases(self):
         g = tag_catalog.groups_from_index(
@@ -403,7 +412,7 @@ class StationTests(unittest.TestCase):
         self.st.step()
         self.assertEqual(self.st.mode, station.TAGS)
 
-    def test_write_all_waits_for_click_between_cards(self):
+    def test_write_all_waits_for_card_removal(self):
         self._open_game("Goalrace")
         run(self.st, self.inp, ACT)                     # All
         written = []
@@ -415,12 +424,35 @@ class StationTests(unittest.TestCase):
             written.append(self.card.store["C%d" % i])
             if i < 3:
                 self.assertEqual(self.st.mode, station.ALLNEXT)
-                self.st.step()                          # no click: stays
+                self.nfc.cards.append(tag("C%d" % i))   # still on the reader
+                self.st.step()
                 self.assertEqual(self.st.mode, station.ALLNEXT)
-                run(self.st, self.inp, ACT)
+                for _ in range(station.ABSENT_POLLS):   # lifted
+                    self.st.step()
         self.assertEqual(written, ["goalrace", "teamgreen", "teamblue", "goal"])
         self.assertEqual(self.st.mode, station.TAGS)
         self.assertEqual(self.ui.last("show_result")[2], "All Done")
+
+    def test_utilities_has_no_all(self):
+        self.st.game_sel = [n for n, _ in self.st.groups].index("Utilities")
+        rows = self.st.tag_options()
+        self.assertEqual([r[1] for r in rows], ["start", "stop", "battery"])
+
+    def test_read_ignores_single_missed_poll(self):
+        self.card.store["AA"] = "melody"
+        run(self.st, self.inp, ACT)                     # Read
+        reads = []
+        self.card.existing_text = lambda nfc, t: (reads.append(1), "melody")[1]
+        for present in (1, 0, 1, 0, 0, 1):              # flicker, no lift
+            if present:
+                self.nfc.cards.append(tag("AA"))
+            self.st.step()
+        self.assertEqual(len(reads), 1)
+        for _ in range(station.ABSENT_POLLS):           # real lift
+            self.st.step()
+        self.nfc.cards.append(tag("AA"))
+        self.st.step()
+        self.assertEqual(len(reads), 2)
 
     def test_write_all_exit_returns_to_options(self):
         self._open_game("Goalrace")
@@ -529,7 +561,7 @@ class StationTests(unittest.TestCase):
         self.st.dispatch({"cmd": "catalog.set", "id": 1,
                           "index": {"g": {"name": "G", "tags": ["x", "y"]}}})
         self.assertEqual(self.st.groups[0], ("G", ["x", "y"]))
-        self.assertEqual(self.st.groups[-1][0], "Controls")
+        self.assertEqual(self.st.groups[-1][0], "Utilities")
         self.st.dispatch({"cmd": "write", "id": 2, "text": "Hello"})
         self.assertEqual(self.st.scan_text, "hello")
         self.st.dispatch({"cmd": "write", "id": 3, "text": "x" * 60})
@@ -673,9 +705,9 @@ class PainterSmokeTests(unittest.TestCase):
         ui.show_ring(["Read", "Tags", "Text"], 2)
         ui.show_list("Games", ["a"], 0)
         ui.show_list("Games", ["a", "b", "c"], 2)
+        ui.show_reader(None, read=False)
+        ui.show_reader("melody")
         ui.show_reader(None)
-        ui.show_reader("melody", "NTAG")
-        ui.show_reader(None, "NTAG")
         ui.show_scan("stop")
         for kind in self.mod.KIND_STYLE:
             ui.show_result(kind, "T", "b")

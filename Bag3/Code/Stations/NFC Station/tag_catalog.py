@@ -6,7 +6,7 @@ Sources, in order:
      ChatBroadcast (or a hand copy of a Dial's index.json) supplies this.
   2. Built-in: one group per game in game_tags.GAME_TAGS, holding that
      game's entry tag followed by GAME_CARD_TAGS (cards it reads in play),
-     and a "Controls" group (start, stop).
+     and a "Utilities" group (start, stop, battery).
 
 "getcode..." tags are dropped: their written form carries a Broadcast
 Dial/Box host id, and this station serves no code.
@@ -21,7 +21,7 @@ from game_tags import GAME_TAGS, CONTROL_TAGS
 
 CATALOG_PATH = "/flash/catalog.json"
 WORDS_PATH = "/flash/words.json"
-CONTROLS_NAME = "Controls"
+CONTROLS_NAME = "Utilities"
 
 
 def _pretty(slug):
@@ -65,9 +65,14 @@ GAME_CARD_TAGS = {
 }
 
 
+# Utilities group: wand control cards read outside games (MockWand main.py:
+# "start", "stop", "battery").
+UTILITY_TAGS = sorted(CONTROL_TAGS) + ["battery"]
+
+
 def builtin_groups():
     groups = [(_pretty(g), [g] + GAME_CARD_TAGS.get(g, [])) for g in sorted(GAME_TAGS)]
-    groups.append((CONTROLS_NAME, sorted(CONTROL_TAGS)))
+    groups.append((CONTROLS_NAME, UTILITY_TAGS))
     return groups
 
 
@@ -93,7 +98,7 @@ def load_groups(path=CATALOG_PATH):
         return builtin_groups()
     groups = groups_from_index(index)
     if not any(name == CONTROLS_NAME for name, _ in groups):
-        groups.append((CONTROLS_NAME, sorted(CONTROL_TAGS)))
+        groups.append((CONTROLS_NAME, UTILITY_TAGS))
     return groups
 
 

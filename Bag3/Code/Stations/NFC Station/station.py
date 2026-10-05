@@ -10,7 +10,8 @@ Modes (intents from dial_input; EXIT = 1 s hold):
                                            ACT -> SCAN (All -> write-all),
                                            EXIT -> GAMES. A one-tag game
                                            skips TAGS and scans directly.
-  ALLNEXT write-all: next tag shown, click to scan it, EXIT -> TAGS
+  ALLNEXT write-all: next tag shown; scans it once the written card is
+          removed (ABSENT_POLLS misses), EXIT -> TAGS
   TEXT   ring keyboard (text_entry)        done -> SCAN, cancel -> HOME
   SCAN   field on, writes the target text  EXIT -> where it came from
 
@@ -60,6 +61,7 @@ CANCEL_PROMPT_MS = 2000   # discard prompt returns to the keyboard after this
 RESULT_HOLD_FAIL_MS = 700
 NFC_REINIT_AFTER = 15
 DETECT_MS = 80
+ABSENT_POLLS = 3          # consecutive misses before a card counts as lifted
 
 HOME = "home"
 READ = "read"
@@ -104,6 +106,7 @@ class Station:
         self.scan_return = HOME
         self.read_text = None
         self._last_uid = None
+        self._misses = 0
         self._beat = 0
         self._cancel_at = None
         self.running = True
@@ -251,6 +254,7 @@ class Station:
         self.mode = mode
         self.inputs.clear()
         self._last_uid = None
+        self._misses = 0
 
     def go_home(self):
         self._enter(HOME)
@@ -261,7 +265,7 @@ class Station:
         self._enter(READ)
         self.read_text = None
         self._set_field(True)
-        self.ui.show_reader(None)
+        self.ui.show_reader(None, read=False)
 
     def go_games(self):
         self._enter(GAMES)
@@ -270,12 +274,12 @@ class Station:
         self.ui.show_list("Games", [n for n, _ in self.groups], self.game_sel)
 
     def tag_options(self):
-        """(label, card text) rows for the open group. A group with several
+        """(label, card text) rows for the open group. A game with several
         tags starts with All (write every tag in turn); a game's entry tag
-        is labelled "Start <Game>"."""
+        is labelled "Start <Game>". Utilities has no All."""
         name, tags = self.groups[self.game_sel]
         rows = []
-        if len(tags) > 1:
+        if len(tags) > 1 and tags[0] in GAME_TAGS:
             rows.append((ALL_ITEM, None))
         for i, t in enumerate(tags):
             label = "Start " + name if i == 0 and t in GAME_TAGS else t
@@ -297,8 +301,10 @@ class Station:
         self.go_scan(self.all_tags[0], ALLNEXT)
 
     def go_allnext(self):
+        """Write-all between cards: show the next tag and wait until the
+        card just written leaves the field, then scan for the next one."""
         self._enter(ALLNEXT)
-        self._set_field(False)
+        self._set_field(True)
         self.ui.show_next(self.all_tags[self.all_i], self.all_i + 1, len(self.all_tags))
 
     def go_text(self, keep=False):
@@ -407,11 +413,15 @@ class Station:
             self.go_games()
 
     def _allnext(self, intent):
-        if intent == ACT:
-            self.ui.beep_click()
-            self.go_scan(self.all_tags[self.all_i], ALLNEXT)
-        elif intent == EXIT:
+        if intent == EXIT:
             self.go_tags()
+            return
+        if self._detect() is not None:
+            self._misses = 0
+            return
+        self._misses += 1
+        if self._misses >= ABSENT_POLLS:
+            self.go_scan(self.all_tags[self.all_i], ALLNEXT)
 
     def _text(self, intent):
         if intent is None:
@@ -456,17 +466,24 @@ class Station:
             return
         tag = self._detect()
         if tag is None:
-            self._last_uid = None
+            # One missed poll is not a lift: a Classic card that failed auth
+            # often misses the next REQA, and clearing _last_uid then re-ran
+            # the ~2 s read on the same card, over and over.
+            self._misses += 1
+            if self._misses >= ABSENT_POLLS:
+                self._last_uid = None
             return
+        self._misses = 0
         if tag["uid_hex"] == self._last_uid:
             return
         self._last_uid = tag["uid_hex"]
         self.ui.beep_scan()
         text = self.card.existing_text(self.nfc, tag)
+        self.nfc.stop_crypto1()     # leave plain mode for the next REQA
         self.read_text = text
         self._send({"type": "card_read", "uid": tag["uid_hex"],
                     "tag_type": tag["tag_type"], "text": text})
-        self.ui.show_reader(text, tag["tag_type"])
+        self.ui.show_reader(text)
         if text:
             self.ui.beep_success()
         else:
@@ -536,8 +553,7 @@ class Station:
             if intent:
                 self._tags(intent)
         elif self.mode == ALLNEXT:
-            if intent:
-                self._allnext(intent)
+            self._allnext(intent)
         elif self.mode == TEXT:
             self._text(intent)
         elif self.mode == READ:

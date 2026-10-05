@@ -43,6 +43,7 @@ class DialInput:
         self._last_rotary = 0
         self._btn_pressed_at = 0
         self._held_ms = 0
+        self._pending_ms = 0
         self._last_poll = 0
         self._btn_was_down = False
         self._exit_emitted = False
@@ -104,10 +105,18 @@ class DialInput:
         if down and not self._btn_was_down:
             self._btn_pressed_at = now
             self._held_ms = 0
+            self._pending_ms = 0
             self._exit_emitted = False
         elif down:
             gap = time.ticks_diff(now, self._last_poll)
-            self._held_ms += min(gap, MAX_POLL_GAP_MS)
+            # Credit a long gap only once a later poll confirms the button
+            # is still down: right after a blocking call the sample can be
+            # stale (a click already released), but a real hold through a
+            # blocking NFC read must still reach SERVE_EXIT_MS.
+            self._held_ms += min(gap, MAX_POLL_GAP_MS) + self._pending_ms
+            self._pending_ms = max(gap - MAX_POLL_GAP_MS, 0)
+        else:
+            self._pending_ms = 0
         self._last_poll = now
         if down:
             held = self._held_ms
@@ -133,6 +142,7 @@ class DialInput:
         self._queue = []
         self._btn_pressed_at = time.ticks_ms()
         self._held_ms = 0
+        self._pending_ms = 0
         self._last_poll = self._btn_pressed_at
         try:
             self._btn_was_down = M5.BtnA.isPressed()

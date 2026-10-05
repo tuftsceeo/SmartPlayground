@@ -99,7 +99,7 @@ Writes are verified by reading back. A failed write re-arms the same scan.
 ```
 
 A Dial's `index.json` can be copied as-is. Without the file, one group per
-game in `game_tags.GAME_TAGS` is used. A "Controls" group (start, stop) is
+game in `game_tags.GAME_TAGS` is used. A "Utilities" group (start, stop, battery) is
 always present.
 
 ## Serial (newline JSON)

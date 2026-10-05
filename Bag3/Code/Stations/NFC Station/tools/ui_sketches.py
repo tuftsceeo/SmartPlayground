@@ -28,7 +28,7 @@ from station_ui import StationUI
 
 GAMES = ["Colorquest", "Cooking", "Freezedance", "Gestures", "Goalrace",
          "Jump", "Jumpin", "Melody", "Multiicecream", "Nfcsound", "Rainbow",
-         "Shake", "Shakerainbow", "Simpleicecream", "Sound", "Controls"]
+         "Shake", "Shakerainbow", "Simpleicecream", "Sound", "Utilities"]
 LONG = ["item %d" % i for i in range(30)]
 WORDS = ["melody", "stop", "goal", "teamblue", "rainbow"]
 STATUS = (("reader", None), ("read", "melody"), ("scan", "teamgreen"),
@@ -58,9 +58,9 @@ class Sketch:
         else:
             kind, text = STATUS[self.sel % len(STATUS)]
             if kind == "reader":
-                ui.show_reader(None)
+                ui.show_reader(None, read=False)
             elif kind == "read":
-                ui.show_reader(text, "NTAG")
+                ui.show_reader(text)
             elif kind == "scan":
                 ui.show_scan(text)
             else:

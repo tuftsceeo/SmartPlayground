@@ -32,7 +32,7 @@ A hold ring on LVGL's top layer fills over the 1 s hold on any page.
 
 Painter API used by station.py:
   show_ring(names, sel)          show_list(title, items, sel)
-  show_reader(text, tag_type)    show_scan(text)
+  show_reader(text, read)        show_scan(text, progress)
   show_result(kind, title, body) show_keyboard(view)
   show_hold(fraction)            beep_click/scan/success/fail
 """
@@ -384,20 +384,22 @@ class StationUI:
         self._show("status")
         lv.refr_now(None)   # results are painted just before a blocking write
 
-    def show_reader(self, text, tag_type=""):
-        if text is None and not tag_type:
+    def show_reader(self, text, read=True):
+        """Read screen. read=False: waiting for a card; otherwise the text
+        read (None: card had no text). The card type is not shown."""
+        if not read:
             self._status("read", WRITE_FG, "Read", "Hold Card", "", 0)
         elif text:
-            self._status("ok", SERVE_FG, text, tag_type, "Copy")
+            self._status("ok", SERVE_FG, text, "", "Copy")
         else:
-            self._status("warn", WARN_FG, "No Text", tag_type, "")
+            self._status("warn", WARN_FG, "No Text", "", "")
 
     def show_scan(self, text, progress=""):
         self._status("scan", WRITE_FG, text, "Hold Card", progress, 0)
 
     def show_next(self, text, i, n):
-        """Write-all: the next tag to write, waiting for a click."""
-        self._status("scan", WRITE_FG, text, "Next %d/%d" % (i, n), "Click", 0)
+        """Write-all: the next tag, shown until the written card is removed."""
+        self._status("scan", WRITE_FG, text, "Next %d/%d" % (i, n), "Remove Card", 0)
 
     def show_result(self, kind, title, body=""):
         glyph, color, fill = KIND_STYLE[kind]
