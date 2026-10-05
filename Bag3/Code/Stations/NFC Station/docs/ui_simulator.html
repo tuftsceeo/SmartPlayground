@@ -447,7 +447,7 @@ button.primary { background: var(--accent); color: var(--surface); border-color:
     paint(ctx, scene, t);
     if (pressAt !== null && st.mode !== "home") {   // home has no back
       const f = Math.min((performance.now() - pressAt) / 1000, 1);
-      if (f >= 0.15) { ctx.save(); ctx.setTransform(cv.width / 240, 0, 0, cv.height / 240, 0, 0); ring(ctx, 0, 360 * f, 10, C.INK_3); ctx.restore(); }
+      if (f >= 0.35) { const deg = Math.max(Math.floor(360 * (f - 0.35) / 0.65 / 12) * 12, 12); ctx.save(); ctx.setTransform(cv.width / 240, 0, 0, cv.height / 240, 0, 0); ring(ctx, 0, deg, 10, C.INK_3); ctx.restore(); }
     }
     requestAnimationFrame(frame);
   }

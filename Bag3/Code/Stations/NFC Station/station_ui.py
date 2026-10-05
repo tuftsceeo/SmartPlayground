@@ -80,7 +80,10 @@ CARET_GAP = 3
 CARET_H = 26
 CARET_BLINK_MS = 530
 PAINT_MS = False        # True: print keyboard paint time (incl. LVGL refresh)
-HOLD_SHOW = 0.15        # hold fraction before the hold ring appears (150 ms)
+ROTATE_RIM = True       # False: upright rim letters (A/B test of rotation cost)
+TURN_BEEP = True        # False: no beep per detent (A/B test of speaker cost)
+HOLD_SHOW = 0.35        # hold fraction before the hold ring appears (350 ms)
+HOLD_STEP = 12          # degrees per hold-ring update (30 redraws per hold)
 HOLD_W = 10             # hold ring width, same as the result ring
 
 HOME_STYLE = {          # home item -> (glyph key, circle colour)
@@ -179,6 +182,7 @@ class StationUI:
         self.hold_arc = self._arc(lv.layer_top(), INK_3, HOLD_W)
         self._visible(self.hold_arc, False)
         self._hold_shown = False
+        self._hold_deg = -1
 
     # -- primitives --------------------------------------------------
 
@@ -549,7 +553,8 @@ class StationUI:
                 lbl.align(lv.ALIGN.CENTER, dx, dy)
                 lbl.set_style_transform_pivot_x(lbl.get_width() // 2, 0)
                 lbl.set_style_transform_pivot_y(lbl.get_height() // 2, 0)
-                lbl.set_style_transform_rotation(int(rim_rotation(slots[i][0]) * 10), 0)
+                if ROTATE_RIM:
+                    lbl.set_style_transform_rotation(int(rim_rotation(slots[i][0]) * 10), 0)
             self._color(lbl, WHITE if i == sel else INK)
         if keys:
             self._k_rot = ring
@@ -634,8 +639,17 @@ class StationUI:
             if self._hold_shown:
                 self._visible(self.hold_arc, False)
                 self._hold_shown = False
+                self._hold_deg = -1
             return
-        self._span(self.hold_arc, 0, 360 * fraction)
+        # The ring fills over the time left after it appears, in HOLD_STEP
+        # steps: it sits on the top layer, so every change redraws the
+        # (rotated) labels beneath it.
+        f = (fraction - HOLD_SHOW) / (1.0 - HOLD_SHOW)
+        deg = int(360 * f) // HOLD_STEP * HOLD_STEP
+        if deg == self._hold_deg:
+            return
+        self._hold_deg = deg
+        self._span(self.hold_arc, 0, max(deg, HOLD_STEP))
         if not self._hold_shown:
             self._visible(self.hold_arc, True)
             self._hold_shown = True
@@ -647,6 +661,11 @@ class StationUI:
 
     def beep_click(self):
         self._tone(3400, 20)
+
+    def beep_turn(self):
+        """Per-detent tick; off when TURN_BEEP is False."""
+        if TURN_BEEP:
+            self._tone(3400, 20)
 
     def beep_scan(self):
         self._tone(3000, 30)

@@ -553,6 +553,20 @@ class PainterSmokeTests(unittest.TestCase):
         ui.show_keyboard(e.view())
         self.assertEqual(layouts, [])
 
+    def test_hold_ring_late_and_stepped(self):
+        ui = self.mod.StationUI(FakeInputs())
+        ui.begin()
+        spans = []
+        ui._span = lambda arc, a, b: spans.append(b)
+        for ms in range(0, 1001, 5):        # 5 ms loop over a 1 s hold
+            ui.show_hold(ms / 1000)
+        self.assertNotIn(True, [b < 0 for b in spans])
+        self.assertLessEqual(len(spans), 360 // self.mod.HOLD_STEP + 1)
+        spans.clear()
+        for ms in range(0, 300, 5):         # a slow 300 ms click: no ring
+            ui.show_hold(ms / 1000)
+        self.assertEqual(spans, [])
+
     def test_painters(self):
         ui = self.mod.StationUI(FakeInputs())
         ui.begin()

@@ -39,6 +39,7 @@ from dial_input import NEXT, PREV, ACT, EXIT
 
 VERSION = "0.1.0"
 HEARTBEAT_MS = 5000
+LOOP_MS = 0               # >0: print loop iterations slower than this (ms), by stage
 
 # NDEF text overhead: TLV (2) + record header (3) + "T" (1) + lang "en"
 # with its length byte (3) + terminator (1) = 10 bytes. The readers'
@@ -301,7 +302,7 @@ class Station:
     def _step(self, sel, n, intent):
         if intent not in (NEXT, PREV):
             return sel
-        self.ui.beep_click()
+        self.ui.beep_turn()
         for i in [intent] + self._more_turns():
             sel = (sel + (1 if i == NEXT else -1)) % n
         return sel
@@ -362,7 +363,7 @@ class Station:
         ev = self.entry.handle(intent)
         if ev is None:
             if intent in (NEXT, PREV):
-                self.ui.beep_click()
+                self.ui.beep_turn()
                 for i in self._more_turns():
                     self.entry.handle(i)     # rotation never returns an event
             self.ui.show_keyboard(self.entry.view())
@@ -450,10 +451,14 @@ class Station:
 
     def step(self):
         """One loop iteration minus serial: input, then the current mode."""
-        self.inputs.update()
+        t0 = time.ticks_ms()
+        self.inputs.update()        # M5.update(): includes LVGL redraw
+        t1 = time.ticks_ms()
         # Home has no back, so a hold there shows no progress ring.
         self.ui.show_hold(None if self.mode == HOME else self.inputs.hold_fraction())
+        t2 = time.ticks_ms()
         intent = self.inputs.pop()
+        self._t = (t0, t1, t2, intent)
         if self.mode == HOME:
             if intent:
                 self._home(intent)
@@ -475,9 +480,16 @@ class Station:
         while self.running:
             if self.link is not None:
                 self.link.pump(idle_ms=0)
+            t0 = time.ticks_ms()
             self.step()
             self.ui.tick()
             now = time.ticks_ms()
+            if LOOP_MS and time.ticks_diff(now, t0) >= LOOP_MS:
+                s0, s1, s2, intent = self._t
+                print("# loop %d ms: m5.update %d, hold %d, mode %d (%s, %s)"
+                      % (time.ticks_diff(now, t0), time.ticks_diff(s1, s0),
+                         time.ticks_diff(s2, s1), time.ticks_diff(now, s2),
+                         self.mode, intent))
             if time.ticks_diff(now, self._beat) >= HEARTBEAT_MS:
                 self._beat = now
                 self._send({"type": "heartbeat", "mode": self.mode})
