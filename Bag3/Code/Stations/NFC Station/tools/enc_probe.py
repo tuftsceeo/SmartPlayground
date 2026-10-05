@@ -4,7 +4,7 @@ No station code. Instructions are shown on the Dial's screen. For each
 trial the screen names a motion ("Turn 5 forward"); make it, then press
 the button. The count since the trial started is recorded and printed.
 
-Trials (detents forward): 1, 5, 20 slowly, 20 quickly. All four run twice:
+Trials (detents forward, counted at a human pace): 1, 5, 20. All run twice:
   fast   loop polls every 1 ms
   stall  loop sleeps 300 ms per iteration, like a slow redraw
 
@@ -22,8 +22,7 @@ import m5ui
 import lvgl as lv
 from hardware import Rotary
 
-TRIALS = ((1, "1 forward"), (5, "5 forward"), (20, "20 forward, slowly"),
-          (20, "20 forward, quickly"))
+TRIALS = ((1, "1 forward"), (5, "5 forward"), (20, "20 forward"))
 PHASES = (("fast", 1), ("stall", 300))
 
 M5.begin()
