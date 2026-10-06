@@ -1,0 +1,545 @@
+<title>NFC Station Simulator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500&family=Instrument+Sans:wght@400;600&family=JetBrains+Mono:wght@400&display=swap">
+<style>
+/* Layout: device on the left as the hero, controls + notes beside it; static screen gallery below. */
+:root {
+  --bg: #F3F2F7;
+  --surface: #FFFFFF;
+  --fg: #231F2E;
+  --muted: #5B5468;
+  --line: #DEDBE8;
+  --accent: #6C4CD1;
+  --bezel: #E8662B;
+  --bezel-dark: #B9481A;
+  --sans: "Instrument Sans", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #17151D; --surface: #211E29; --fg: #ECEAF2; --muted: #A9A3B8;
+    --line: #34303F; --accent: #A994F0; --bezel: #E2672F; --bezel-dark: #9C3C14;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #17151D; --surface: #211E29; --fg: #ECEAF2; --muted: #A9A3B8;
+  --line: #34303F; --accent: #A994F0; --bezel: #E2672F; --bezel-dark: #9C3C14;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font-family: var(--sans); font-size: 15px; line-height: 1.5; padding: 24px 16px 48px; }
+.wrap { max-width: 1060px; margin: 0 auto; display: grid; gap: 28px; }
+header h1 { font-size: 26px; margin: 0 0 4px; text-wrap: balance; letter-spacing: -0.01em; }
+header p { margin: 0; color: var(--muted); max-width: 70ch; }
+.main { display: grid; grid-template-columns: minmax(0, 420px) minmax(0, 1fr); gap: 32px; align-items: start; }
+@media (max-width: 820px) { .main { grid-template-columns: minmax(0, 1fr); } }
+.device { position: relative; width: 100%; max-width: 420px; aspect-ratio: 1; margin: 0 auto; border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, var(--bezel) 0 60%, var(--bezel-dark) 100%);
+  box-shadow: 0 18px 40px rgba(40, 20, 10, .28), inset 0 -6px 12px rgba(0,0,0,.18);
+  display: grid; place-items: center; touch-action: none; user-select: none; cursor: grab; }
+.device .mark { position: absolute; font: 600 13px var(--sans); color: rgba(0,0,0,.28); letter-spacing: .12em; }
+.device .mark.top { top: 4.5%; } .device .mark.bot { bottom: 4.5%; }
+.screen-hole { width: 72%; aspect-ratio: 1; border-radius: 50%; background: #111; padding: 2.2%; box-shadow: inset 0 3px 8px rgba(0,0,0,.6); }
+#screen { width: 100%; height: 100%; border-radius: 50%; display: block; cursor: pointer; }
+.panel { display: grid; gap: 18px; min-width: 0; }
+.controls { display: flex; flex-wrap: wrap; gap: 8px; }
+button, select { font: 600 14px var(--sans); color: var(--fg); background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 8px 14px; cursor: pointer; }
+button:hover { border-color: var(--accent); }
+button:focus-visible, select:focus-visible, #screen:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+button.primary { background: var(--accent); color: var(--surface); border-color: var(--accent); }
+.label { font: 600 11px var(--sans); text-transform: uppercase; letter-spacing: .1em; color: var(--muted); margin-bottom: 6px; }
+.cards { display: flex; flex-wrap: wrap; gap: 8px; }
+.cards button { font-family: var(--mono); font-weight: 400; border-radius: 6px; }
+.cards button[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.keys { font-size: 13px; color: var(--muted); }
+.keys kbd { font: 12px var(--mono); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; background: var(--surface); color: var(--fg); }
+.stats { display: flex; gap: 22px; flex-wrap: wrap; font-variant-numeric: tabular-nums; }
+.stats div b { display: block; font-size: 22px; }
+.stats div span { font-size: 12px; color: var(--muted); }
+#log { font: 12px/1.6 var(--mono); background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; height: 130px; overflow-y: auto; margin: 0; white-space: pre-wrap; }
+.notes { font-size: 14px; color: var(--muted); max-width: 68ch; }
+.notes b { color: var(--fg); }
+.gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 18px; }
+.gallery figure { margin: 0; display: grid; gap: 6px; justify-items: center; }
+.gallery canvas { width: 100%; max-width: 170px; aspect-ratio: 1; border-radius: 50%; background: #111; padding: 4px; }
+.gallery figcaption { font-size: 13px; color: var(--muted); text-align: center; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>NFC Station Simulator</h1>
+    <p>The M5 Dial 2 screens as written in <code>station_ui.py</code>: same 240&nbsp;px geometry, colours, 28/40/48&nbsp;px Montserrat and rim slot sizing. LVGL symbol glyphs are redrawn as simple vector icons, so icons are approximate. Text is real Montserrat Medium.</p>
+  </header>
+
+  <section class="main">
+    <div>
+      <div class="device" id="device" aria-label="Dial: scroll or drag the bezel to turn">
+        <span class="mark top">&#8963;</span>
+        <div class="screen-hole"><canvas id="screen" width="480" height="480" tabindex="0" aria-label="Dial screen"></canvas></div>
+        <span class="mark bot">M5</span>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div>
+        <div class="label">Dial</div>
+        <div class="controls">
+          <button id="ccw" type="button" aria-label="Turn counter-clockwise">&#10226; Turn</button>
+          <button id="cw" type="button" aria-label="Turn clockwise">Turn &#10227;</button>
+          <button id="press" type="button" class="primary">Click / hold 1 s</button>
+        </div>
+        <p class="keys">Keys: <kbd>&larr;</kbd><kbd>&rarr;</kbd> turn, <kbd>Enter</kbd> click (hold 1&nbsp;s = back), <kbd>Esc</kbd> back. Scroll over the dial to turn. On the keyboard, tap a rim letter.</p>
+      </div>
+
+      <div>
+        <div class="label">Card on the reader</div>
+        <div class="cards" id="cards"></div>
+        <div class="controls" style="margin-top:8px"><button id="tapcard" type="button">Hold card on Dial</button></div>
+      </div>
+
+      <div>
+        <div class="label">Keyboard variant</div>
+        <div class="controls">
+          <select id="variant" aria-label="Keyboard variant">
+            <option value="ring">Letter ring (current firmware)</option>
+            <option value="zone">Zone + multi-tap (Crownboard-style)</option>
+          </select>
+          <button id="resetstats" type="button">Reset counts</button>
+        </div>
+        <div class="stats" style="margin-top:10px">
+          <div><b id="s-det">0</b><span>detents</span></div>
+          <div><b id="s-press">0</b><span>clicks</span></div>
+          <div><b id="s-chars">0</b><span>chars typed</span></div>
+          <div><b id="s-per">–</b><span>actions / char</span></div>
+        </div>
+      </div>
+
+      <div>
+        <div class="label">Events</div>
+        <pre id="log" aria-live="polite"></pre>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="label">Every screen at rest</div>
+    <div class="gallery" id="gallery"></div>
+  </section>
+
+  <section class="notes">
+    <p><b>Letter ring.</b> All 30 items on the rim, one detent each; the highlight stays after a click, so repeated and nearby letters cost no turns. Slots are sized to each glyph's width, which is why <code>m</code> and <code>w</code> get wider cells.</p>
+    <p><b>Zone + multi-tap.</b> Adapted from Crownboard's out-of-vocabulary mode: the dial moves a zone of three, a click opens it, the three letters appear in the centre, the dial picks one and a click enters it. Crownboard auto-scans zones every 1,000&nbsp;ms and uses a double-press; a rotary encoder lets the user turn instead, so no timing is needed. Fewer detents per letter, one extra click.</p>
+  </section>
+</div>
+
+<script>
+(() => {
+  "use strict";
+  /* ---- tokens from station_ui.py ---- */
+  const C = { PAGE_BG: "#F7F7FB", CARD_BG: "#FFFFFF", INK: "#231F2E", INK_3: "#5B5468", BORDER: "#E8E6F0",
+    PINK: "#EF4D92", WRITE_FG: "#6C4CD1", WRITE_BG: "#F2EEFC", SERVE_FG: "#1C9A82", DANGER_FG: "#C0392B",
+    WARN_FG: "#A8781E", WHITE: "#FFFFFF" };
+  const RIM_OUTER = 118, BAND_W = 44, KEY_R = 97, DOT_R = 106, DOT_SMALL = 12, DOT_BIG = 26, DOT_SLOTS = 24;
+  const HOME_R = 86, HOME_D = 52, TYPED_MAX_W = 100, TEXT_MAX = 54, SEGMENT = 3;
+  const F = { body: 28, focus: 40, glyph: 48 };
+  const font = px => `500 ${px}px Montserrat, sans-serif`;
+
+  /* ---- text_entry.py port ---- */
+  const DEL = "del", DONE = "done", MORE = "#", LETTERS_ITEM = "abc", WORDS_ITEM = "words", BACK = "back", SPACE = " ";
+  const LETTERS = "abcdefghijklmnopqrstuvwxyz".split("").concat([SPACE, MORE, DEL, DONE]);
+  const MORE_ITEMS = "0123456789-.".split("");
+
+  class TextEntry {
+    constructor(max, words) { this.max = max; this.words = words.slice(); this.text = ""; this.mode = "letters"; this.sel = 0; this.lsel = 0; this.zone = null; this.written = null; }
+    isWritten() { return this.written !== null && this.text.trim() === this.written; }
+    choices() {
+      if (this.mode === "letters") return LETTERS.slice();
+      if (this.mode === "more") return MORE_ITEMS.concat(this.words.length ? [WORDS_ITEM] : [], [LETTERS_ITEM, DEL, DONE]);
+      if (this.mode === "words") return [BACK].concat(this.words);
+      return [DONE];
+    }
+    to(mode) { if (this.mode === "letters") this.lsel = this.sel; this.mode = mode; this.sel = mode === "letters" ? this.lsel : 0; this.zone = null; }
+    append(s) { if (new TextEncoder().encode(this.text + s).length > this.max) return ["full"]; this.text += s; stats.chars += s.length; return null; }
+    finish() { const t = this.text.trim(); return t ? ["done", t] : ["empty"]; }
+    act(item) {
+      if (item === DEL) { this.text = this.text.slice(0, -1); return null; }
+      if (item === DONE) return this.finish();
+      if (item === MORE) { this.to("more"); return null; }
+      if (item === LETTERS_ITEM || item === BACK) { this.to("letters"); return null; }
+      if (item === WORDS_ITEM) { this.to("words"); return null; }
+      if (this.mode === "words") { const sep = this.text && !this.text.endsWith(" ") ? " " : ""; const ev = this.append(sep + item); this.to("letters"); return ev; }
+      return this.append(item);
+    }
+    handle(intent) {
+      const zoneMode = variant === "zone" && (this.mode === "letters" || this.mode === "more");
+      if (intent.startsWith("tap:")) {
+        const i = +intent.slice(4);
+        if (this.mode === "cancel" || i >= this.choices().length) return null;
+        this.zone = null; this.sel = i; return this.act(this.choices()[i]);
+      }
+      if (this.mode === "cancel") { if (intent === "exit") return ["cancel"]; this.to("letters"); return null; }
+      const n = this.choices().length;
+      if (zoneMode && this.zone !== null) {
+        const zs = this.zone * SEGMENT, ze = Math.min(zs + SEGMENT, n);
+        if (intent === "next") { this.sel = zs + (this.sel - zs + 1) % (ze - zs); return null; }
+        if (intent === "prev") { this.sel = zs + (this.sel - zs - 1 + (ze - zs)) % (ze - zs); return null; }
+        if (intent === "exit") { this.zone = null; this.sel = zs; return null; }
+        if (intent === "act") { const item = this.choices()[this.sel]; this.zone = null; const keep = this.mode; const ev = this.act(item); if (this.mode === keep) this.sel = zs; return ev; }
+        return null;
+      }
+      if (zoneMode) {
+        const nz = Math.ceil(n / SEGMENT), z = Math.floor(this.sel / SEGMENT);
+        if (intent === "next") { this.sel = ((z + 1) % nz) * SEGMENT; return null; }
+        if (intent === "prev") { this.sel = ((z - 1 + nz) % nz) * SEGMENT; return null; }
+        if (intent === "act") { this.zone = z; this.sel = z * SEGMENT; return null; }
+      } else {
+        if (intent === "next") { this.sel = (this.sel + 1) % n; return null; }
+        if (intent === "prev") { this.sel = (this.sel - 1 + n) % n; return null; }
+      }
+      if (intent === "exit") {
+        if (this.mode !== "letters") { this.to("letters"); return null; }
+        if (this.text && !this.isWritten()) { this.to("cancel"); return null; }
+        return ["cancel"];
+      }
+      if (intent !== "act") return null;
+      return this.act(this.choices()[this.sel]);
+    }
+  }
+
+  /* ---- catalog (built-in groups + a Goalrace index entry) ---- */
+  const pretty = s => s.replace(/_/g, " ").split(" ").map(w => w[0].toUpperCase() + w.slice(1)).join(" ");
+  const GAME_TAGS = ["colorquest","freezedance","jumpin","cooking","melody","shake","shakerainbow","rainbow","jump","sound","nfcsound","simpleicecream","multiicecream","gestures"];
+  const groups = GAME_TAGS.sort().map(g => [pretty(g), [g]]);
+  groups.push(["Goalrace", ["goalrace", "teamgreen", "teamblue", "goal"]]);
+  groups.sort((a, b) => a[0].localeCompare(b[0]));
+  groups.push(["Controls", ["start", "stop"]]);
+  const words = [];
+  groups.forEach(([, t]) => t.forEach(x => words.includes(x) || words.push(x)));
+
+  /* ---- drawing helpers ---- */
+  const rad = d => (d - 90) * Math.PI / 180;
+  const rimXY = (deg, r) => [120 + r * Math.sin(deg * Math.PI / 180), 120 - r * Math.cos(deg * Math.PI / 180)];
+  function ring(ctx, startDeg, endDeg, width, color, rOuter = RIM_OUTER) {
+    ctx.save(); ctx.strokeStyle = color; ctx.lineWidth = width; ctx.lineCap = "butt";
+    ctx.beginPath(); ctx.arc(120, 120, rOuter - width / 2, rad(startDeg), rad(endDeg)); ctx.stroke(); ctx.restore();
+  }
+  function circle(ctx, x, y, d, fill, alpha = 1) { ctx.save(); ctx.globalAlpha = alpha; ctx.fillStyle = fill; ctx.beginPath(); ctx.arc(x, y, d / 2, 0, 7); ctx.fill(); ctx.restore(); }
+  function text(ctx, s, x, y, px, color, maxW, t) {
+    ctx.save(); ctx.font = font(px); ctx.fillStyle = color; ctx.textBaseline = "middle";
+    const w = ctx.measureText(s).width;
+    if (maxW && w > maxW) {           // LVGL LONG_MODE.SCROLL_CIRCULAR
+      ctx.beginPath(); ctx.rect(x - maxW / 2, y - px, maxW, px * 2); ctx.clip();
+      const gap = px * 1.2, period = w + gap, off = ((t || 0) * 0.03) % period;
+      ctx.textAlign = "left"; ctx.fillText(s, x - maxW / 2 - off, y); ctx.fillText(s, x - maxW / 2 - off + period, y);
+    } else { ctx.textAlign = "center"; ctx.fillText(s, x, y); }
+    ctx.restore(); return w;
+  }
+  function measure(ctx, s, px) { ctx.save(); ctx.font = font(px); const w = ctx.measureText(s).width; ctx.restore(); return w; }
+  function rimRotation(deg) { const d = ((deg % 360) + 360) % 360; return d > 180 ? d - 360 : d; }
+  function slotAngles(widths, r, minGap = 2) {
+    const circ = 2 * Math.PI * r, total = widths.reduce((a, b) => a + b, 0), n = widths.length, spare = circ - total;
+    if (spare < minGap * n) throw new Error("ring items do not fit");
+    const gap = spare / n; let pos = -(widths[0] + gap) / 2;
+    return widths.map(w => { const slot = w + gap, c = pos + slot / 2; pos += slot; return [c * 360 / circ, slot * 180 / circ]; });
+  }
+
+  /* ---- icons standing in for LVGL symbols ---- */
+  function icon(ctx, name, x, y, s, color) {
+    ctx.save(); ctx.translate(x, y); ctx.strokeStyle = color; ctx.fillStyle = color;
+    ctx.lineWidth = Math.max(2, s / 9); ctx.lineCap = "round"; ctx.lineJoin = "round"; const h = s / 2;
+    ctx.beginPath();
+    switch (name) {
+      case "ok": ctx.moveTo(-h * .8, 0); ctx.lineTo(-h * .2, h * .6); ctx.lineTo(h * .85, -h * .6); ctx.stroke(); break;
+      case "fail": ctx.moveTo(-h * .6, -h * .6); ctx.lineTo(h * .6, h * .6); ctx.moveTo(h * .6, -h * .6); ctx.lineTo(-h * .6, h * .6); ctx.stroke(); break;
+      case "read": ctx.moveTo(-h, 0); ctx.quadraticCurveTo(0, -h * 1.1, h, 0); ctx.quadraticCurveTo(0, h * 1.1, -h, 0); ctx.stroke(); ctx.beginPath(); ctx.arc(0, 0, h * .3, 0, 7); ctx.fill(); break;
+      case "tags": for (const yy of [-.55, 0, .55]) { ctx.moveTo(-h * .3, yy * h); ctx.lineTo(h * .85, yy * h); ctx.stroke(); ctx.beginPath(); ctx.arc(-h * .75, yy * h, s / 14, 0, 7); ctx.fill(); ctx.beginPath(); } break;
+      case "text": ctx.moveTo(-h * .7, h * .7); ctx.lineTo(-h * .5, h * .1); ctx.lineTo(h * .4, -h * .8); ctx.lineTo(h * .8, -h * .4); ctx.lineTo(-h * .1, h * .5); ctx.closePath(); ctx.stroke(); break;
+      case "scan": ctx.strokeRect(-h * .7, -h * .85, h * 1.4, h * 1.7); ctx.beginPath(); ctx.moveTo(-h * .35, -h * .4); ctx.lineTo(h * .35, -h * .4); ctx.stroke(); break;
+      case "busy": ctx.arc(0, 0, h * .7, -1.2, 3.6); ctx.stroke(); ctx.beginPath(); ctx.moveTo(h * .7 * Math.cos(-1.2) + 6, h * .7 * Math.sin(-1.2) - 2); ctx.lineTo(h * .7 * Math.cos(-1.2), h * .7 * Math.sin(-1.2)); ctx.lineTo(h * .7 * Math.cos(-1.2) + 2, h * .7 * Math.sin(-1.2) + 7); ctx.stroke(); break;
+      case "warn": ctx.moveTo(0, -h * .85); ctx.lineTo(h * .9, h * .75); ctx.lineTo(-h * .9, h * .75); ctx.closePath(); ctx.stroke(); ctx.beginPath(); ctx.moveTo(0, -h * .25); ctx.lineTo(0, h * .2); ctx.stroke(); ctx.beginPath(); ctx.arc(0, h * .48, s / 18, 0, 7); ctx.fill(); break;
+      case "trash": ctx.moveTo(-h * .75, -h * .55); ctx.lineTo(h * .75, -h * .55); ctx.moveTo(-h * .25, -h * .55); ctx.lineTo(-h * .2, -h * .8); ctx.lineTo(h * .2, -h * .8); ctx.lineTo(h * .25, -h * .55); ctx.moveTo(-h * .55, -h * .4); ctx.lineTo(-h * .45, h * .85); ctx.lineTo(h * .45, h * .85); ctx.lineTo(h * .55, -h * .4); ctx.stroke(); break;
+      case "del": ctx.moveTo(-h * .95, 0); ctx.lineTo(-h * .4, -h * .6); ctx.lineTo(h * .9, -h * .6); ctx.lineTo(h * .9, h * .6); ctx.lineTo(-h * .4, h * .6); ctx.closePath(); ctx.stroke(); ctx.beginPath(); ctx.moveTo(-h * .05, -h * .25); ctx.lineTo(h * .5, h * .25); ctx.moveTo(h * .5, -h * .25); ctx.lineTo(-h * .05, h * .25); ctx.stroke(); break;
+      case "back": ctx.moveTo(h * .35, -h * .7); ctx.lineTo(-h * .35, 0); ctx.lineTo(h * .35, h * .7); ctx.stroke(); break;
+    }
+    ctx.restore();
+  }
+  const ICON_KEYS = { [DEL]: "del", [DONE]: "ok", [WORDS_ITEM]: "tags", [BACK]: "back" };
+  const ICON_W = F.body;   // icon slot width assumed in station_ui tests
+
+  /* ---- painters (station_ui.py) ---- */
+  function paintHome(ctx, view) {
+    const names = ["Read", "Tags", "Text"], styles = { Read: ["read", C.SERVE_FG], Tags: ["tags", C.WRITE_FG], Text: ["text", C.PINK] };
+    names.forEach((nm, i) => {
+      const big = i === view.sel, d = big ? HOME_D + 10 : HOME_D, [x, y] = rimXY(i * 120, HOME_R);
+      circle(ctx, x, y, d, styles[nm][1], big ? 1 : 170 / 255);
+      if (big) { ctx.save(); ctx.strokeStyle = C.INK; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(x, y, d / 2 - 2, 0, 7); ctx.stroke(); ctx.restore(); }
+      icon(ctx, styles[nm][0], x, y, 24, C.WHITE);
+    });
+    text(ctx, names[view.sel], 120, 120, F.focus, C.INK, 100, view.t);
+  }
+  function dotRing(ctx, n, sel, color) {
+    const step = 360 / n;
+    if (n <= DOT_SLOTS) for (let i = 0; i < n; i++) { const [x, y] = rimXY(i * step, DOT_R), big = i === sel; circle(ctx, x, y, big ? DOT_BIG : DOT_SMALL, big ? color : C.BORDER); }
+    if (n > DOT_SLOTS) { const half = Math.max(step / 2, 4); ring(ctx, sel * step - half, sel * step + half, 6, color); }
+  }
+  function paintList(ctx, view) {
+    dotRing(ctx, view.items.length, view.sel, C.WRITE_FG);
+    text(ctx, view.title, 120, 68, F.body, C.WRITE_FG, 130, view.t);
+    text(ctx, view.items[view.sel], 120, 120, F.focus, C.INK, 170, view.t);
+    text(ctx, `${view.sel + 1}/${view.items.length}`, 120, 170, F.body, C.INK_3);
+  }
+  const KIND = { ok: ["ok", C.SERVE_FG, 100], fail: ["fail", C.DANGER_FG, 100], warn: ["warn", C.WARN_FG, 100], busy: ["busy", C.WRITE_FG, 30], info: ["read", C.WRITE_FG, 100] };
+  function paintStatus(ctx, v) {
+    if (v.fill > 0) ring(ctx, 0, 360 * v.fill / 100, 10, v.color);
+    icon(ctx, v.glyph, 120, 70, 38, v.color);
+    text(ctx, v.title, 120, 122, F.focus, C.INK, 180, v.t);
+    if (v.body) text(ctx, v.body, 120, 164, F.body, C.INK_3, 160, v.t);
+    if (v.hint) text(ctx, v.hint, 120, 200, F.body, C.WRITE_FG, 110, v.t);
+  }
+  function keyLabel(c) { return c === SPACE ? "_" : c; }
+  let lastSlots = null, lastKey = -1e9, pressAt = null;
+  function paintKeyboard(ctx, e, t) {
+    const mode = e.mode, ch = e.choices(), n = ch.length, sel = e.sel;
+    const keys = mode === "letters" || mode === "more";
+    let slots = null;
+    if (keys) {
+      const widths = ch.map(c => ICON_KEYS[c] ? ICON_W : measure(ctx, keyLabel(c), F.body));
+      slots = slotAngles(widths, KEY_R); lastSlots = { slots, n };
+      const nseg = Math.ceil(n / SEGMENT);
+      for (let i = 0; i < nseg; i++) {
+        const a = slots[i * SEGMENT], b = slots[Math.min((i + 1) * SEGMENT, n) - 1];
+        ring(ctx, a[0] - a[1], b[0] + b[1], BAND_W, i % 2 ? C.WRITE_BG : C.CARD_BG);
+      }
+      if (mode !== "cancel") {
+        if (variant === "zone" && e.zone === null) {
+          const zs = Math.floor(sel / SEGMENT) * SEGMENT, a = slots[zs], b = slots[Math.min(zs + SEGMENT, n) - 1];
+          ring(ctx, a[0] - a[1], b[0] + b[1], BAND_W, C.PINK);
+        } else if (variant === "zone") {
+          const zs = e.zone * SEGMENT, a = slots[zs], b = slots[Math.min(zs + SEGMENT, n) - 1];
+          ring(ctx, a[0] - a[1], b[0] + b[1], BAND_W, "#F9C6DC");
+          ring(ctx, slots[sel][0] - slots[sel][1], slots[sel][0] + slots[sel][1], BAND_W, C.PINK);
+        } else ring(ctx, slots[sel][0] - slots[sel][1], slots[sel][0] + slots[sel][1], BAND_W, C.PINK);
+      }
+      const zs = Math.floor(sel / SEGMENT) * SEGMENT;
+      ch.forEach((c, i) => {
+        const [x, y] = rimXY(slots[i][0], KEY_R);
+        const lit = variant === "zone" && e.zone === null ? (i >= zs && i < zs + SEGMENT) : i === sel;
+        const col = lit ? C.WHITE : C.INK;
+        // Tangent rotation (station_ui.rim_rotation): bottoms toward the centre.
+        ctx.save(); ctx.translate(x, y); ctx.rotate(rimRotation(slots[i][0]) * Math.PI / 180);
+        if (ICON_KEYS[c]) icon(ctx, ICON_KEYS[c], 0, 0, 20, col); else text(ctx, keyLabel(c), 0, 0, F.body, col);
+        ctx.restore();
+      });
+    }
+    if (mode === "words") { dotRing(ctx, n, sel, C.PINK); }
+    // typed text, trimmed from the left to fit
+    // Typed text + blinking pink caret bar (station_ui._fit_tail / _blink)
+    const room = TYPED_MAX_W - 6;
+    let shown = e.text, cut = 0;
+    while (measure(ctx, shown, F.body) > room && cut < e.text.length) { cut++; shown = ".." + e.text.slice(cut); }
+    const tw = shown ? measure(ctx, shown, F.body) : 0, total = tw + 6;
+    if (shown) text(ctx, shown, 120 - total / 2 + tw / 2, 84, F.body, C.INK);
+    if (Math.floor((t || 0) / 530) % 2 === 0 || (t || 0) - lastKey < 530) { ctx.save(); ctx.fillStyle = C.PINK; ctx.fillRect(120 + total / 2 - 3, 84 - 13, 3, 26); ctx.restore(); }
+    if (mode === "cancel") { icon(ctx, "trash", 120, 126, 38, C.PINK); text(ctx, "Hold", 120, 164, F.body, C.DANGER_FG); return; }
+    const item = ch[sel];
+    if (variant === "zone" && keys && e.zone !== null) {
+      // multi-tap row: the zone's letters in the centre, current one highlighted
+      const zs = e.zone * SEGMENT, row = ch.slice(zs, Math.min(zs + SEGMENT, n));
+      row.forEach((c, j) => {
+        const x = 120 + (j - (row.length - 1) / 2) * 38, on = zs + j === sel;
+        if (on) circle(ctx, x, 126, 40, C.PINK);
+        if (ICON_KEYS[c]) icon(ctx, ICON_KEYS[c], x, 126, 20, on ? C.WHITE : C.INK); else text(ctx, keyLabel(c), x, 126, F.body, on ? C.WHITE : C.INK);
+      });
+    } else if (mode === "words") text(ctx, item === BACK ? "back" : item, 120, 126, F.focus, C.PINK, 120, t);
+    else if (variant === "zone" && keys) {
+      const zs = Math.floor(sel / SEGMENT) * SEGMENT;
+      text(ctx, ch.slice(zs, zs + SEGMENT).map(c => ICON_KEYS[c] ? "·" : (c === MORE ? "#" : keyLabel(c))).join(" "), 120, 126, F.focus, C.PINK, 120, t);
+    } else if (ICON_KEYS[item]) icon(ctx, ICON_KEYS[item], 120, 126, 38, C.PINK);
+    else text(ctx, item === MORE ? "123" : keyLabel(item), 120, 126, F.glyph, C.PINK, 120, t);
+    const used = new TextEncoder().encode(e.text).length;
+    text(ctx, `${used}/${e.max}`, 120, 164, F.body, used >= e.max ? C.DANGER_FG : C.INK_3);
+  }
+  function paint(ctx, scene, t) {
+    ctx.save(); ctx.setTransform(ctx.canvas.width / 240, 0, 0, ctx.canvas.height / 240, 0, 0);
+    ctx.fillStyle = C.PAGE_BG; ctx.fillRect(0, 0, 240, 240);
+    ctx.beginPath(); ctx.arc(120, 120, 120, 0, 7); ctx.clip();
+    scene.t = t;
+    if (scene.page === "home") paintHome(ctx, scene);
+    else if (scene.page === "list") paintList(ctx, scene);
+    else if (scene.page === "status") paintStatus(ctx, scene);
+    else if (scene.entry.mode === "cancel")   // discard prompt uses the status page
+      paintStatus(ctx, { glyph: "trash", color: C.DANGER_FG, title: "Clear?", body: "Hold", hint: "", fill: 0, t });
+    else paintKeyboard(ctx, scene.entry, t);
+    ctx.restore();
+  }
+
+  /* ---- station.py port ---- */
+  const cards = { "blank card": null, "melody": "melody", "stop": "stop", "teamblue": "teamblue" };
+  const store = Object.assign({}, cards);
+  let current = "melody";
+  let st = { mode: "home", homeSel: 0, gameSel: 0, tagSel: 0, entry: null, scanText: null, scanRet: "home", readText: null, busy: false };
+  let scene = null;
+  const stats = { det: 0, press: 0, chars: 0 };
+  let variant = "ring";
+  const logEl = document.getElementById("log");
+  function log(s) { logEl.textContent += s + "\n"; logEl.scrollTop = logEl.scrollHeight; }
+
+  const showHome = () => { st.mode = "home"; scene = { page: "home", sel: st.homeSel }; };
+  const showGames = () => { st.mode = "games"; scene = { page: "list", title: "Games", items: groups.map(g => g[0]), sel: st.gameSel }; };
+  const showTags = () => { st.mode = "tags"; const [nm, t] = groups[st.gameSel]; scene = { page: "list", title: nm, items: t, sel: st.tagSel }; };
+  const showText = keep => { st.mode = "text"; if (!keep || !st.entry) st.entry = new TextEntry(TEXT_MAX, words); scene = { page: "keyboard", entry: st.entry }; };
+  const status = (glyph, color, title, body, hint, fill) => ({ page: "status", glyph, color, title, body, hint, fill });
+  const showRead = () => { st.mode = "read"; st.readText = null; scene = status("read", C.WRITE_FG, "Read", "Hold Card", "", 0); };
+  const showScan = (txt, ret) => { st.mode = "scan"; st.scanText = txt; st.scanRet = ret; scene = status("scan", C.WRITE_FG, txt, "Hold Card", "", 0); };
+  const result = (kind, title, body) => { const [g, c, f] = KIND[kind]; scene = status(g, c, title, body || "", "", f); };
+  function go(m) { ({ home: showHome, read: showRead, games: showGames, tags: showTags, text: () => showText(true) })[m](); }
+
+  function intent(i) {
+    if (st.busy) return;
+    lastKey = performance.now();
+    if (i === "next" || i === "prev") stats.det++; else if (i === "act" || i.startsWith("tap:")) stats.press++;
+    updateStats();
+    const step = (sel, n) => i === "next" ? (sel + 1) % n : i === "prev" ? (sel - 1 + n) % n : sel;
+    switch (st.mode) {
+      case "home": if (i === "act") go(["read", "games", "text"][st.homeSel]); else { st.homeSel = step(st.homeSel, 3); showHome(); } break;
+      case "games": if (i === "act") { st.tagSel = 0; showTags(); } else if (i === "exit") showHome(); else { st.gameSel = step(st.gameSel, groups.length); showGames(); } break;
+      case "tags": if (i === "act") showScan(groups[st.gameSel][1][st.tagSel], "tags"); else if (i === "exit") showGames(); else { st.tagSel = step(st.tagSel, groups[st.gameSel][1].length); showTags(); } break;
+      case "text": {
+        const ev = st.entry.handle(i);
+        if (ev && ev[0] === "done") { log(`text done: "${ev[1]}"`); showScan(ev[1], "text"); }
+        else if (ev && ev[0] === "cancel") { st.entry = null; showHome(); }
+        else if (ev) log(`text: ${ev[0]}`);
+        break;
+      }
+      case "read": if (i === "exit") showHome(); else if (i === "act" && st.readText) showScan(st.readText, "read"); break;
+      case "scan": if (i === "exit") go(st.scanRet); break;
+    }
+  }
+  function presentCard() {
+    if (st.busy) return;
+    const uid = current, have = store[uid];
+    log(`card "${uid}" on reader`);
+    if (st.mode === "read") {
+      st.readText = have;
+      scene = have ? status("ok", C.SERVE_FG, have, "NTAG", "Copy", 100) : status("warn", C.WARN_FG, "No Text", "NTAG", "", 100);
+      log(`card_read text=${JSON.stringify(have)}`);
+    } else if (st.mode === "scan") {
+      const txt = st.scanText;
+      const mark = () => { if (st.scanRet === "text" && st.entry) st.entry.written = txt; };
+      if (have === txt) { mark(); result("ok", "Already Set", txt); hold(1000, () => go(st.scanRet)); return; }
+      result("busy", "Writing", txt); st.busy = true;
+      setTimeout(() => { store[uid] = txt; mark(); log(`card_written "${uid}" <- ${JSON.stringify(txt)}`); result("ok", "Done", txt); renderCards(); hold(1000, () => go(st.scanRet)); }, 600);
+    } else log("(reader field is off on this screen)");
+  }
+  function hold(ms, then) { st.busy = true; setTimeout(() => { st.busy = false; then(); }, ms); }
+
+  /* ---- UI wiring ---- */
+  const cv = document.getElementById("screen"), ctx = cv.getContext("2d");
+  // Hold ring (station_ui.show_hold): fills over the 1 s hold, above any page.
+  let cancelAt = null;
+  function frame(t) {
+    // Discard prompt returns to the keyboard after 2 s (station CANCEL_PROMPT_MS)
+    if (st.mode === "text" && st.entry && st.entry.mode === "cancel") {
+      if (cancelAt === null) cancelAt = performance.now();
+      else if (performance.now() - cancelAt >= 2000) { cancelAt = null; st.entry.to("letters"); }
+    } else cancelAt = null;
+    paint(ctx, scene, t);
+    if (pressAt !== null && st.mode !== "home") {   // home has no back
+      const f = Math.min((performance.now() - pressAt) / 1000, 1);
+      if (f >= 0.5) { const deg = Math.max(Math.floor(360 * (f - 0.5) / 0.5 / 12) * 12, 12); ctx.save(); ctx.setTransform(cv.width / 240, 0, 0, cv.height / 240, 0, 0); ring(ctx, 0, deg, 10, C.INK_3); ctx.restore(); }
+    }
+    requestAnimationFrame(frame);
+  }
+  function updateStats() {
+    document.getElementById("s-det").textContent = stats.det;
+    document.getElementById("s-press").textContent = stats.press;
+    document.getElementById("s-chars").textContent = stats.chars;
+    document.getElementById("s-per").textContent = stats.chars ? ((stats.det + stats.press) / stats.chars).toFixed(1) : "–";
+  }
+  function renderCards() {
+    const box = document.getElementById("cards"); box.textContent = "";
+    Object.keys(cards).forEach(k => {
+      const b = document.createElement("button"); b.type = "button";
+      b.textContent = k === "blank card" ? `blank → ${store[k] ?? "∅"}` : `${k} → ${store[k] ?? "∅"}`;
+      b.setAttribute("aria-pressed", String(k === current));
+      b.onclick = () => { current = k; renderCards(); };
+      box.appendChild(b);
+    });
+  }
+  // press: short = act, 1 s hold = exit (dial_input.SERVE_EXIT_MS)
+  let pressTimer = null, exited = false;
+  const down = () => { if (pressTimer) return; exited = false; pressAt = performance.now(); pressTimer = setTimeout(() => { exited = true; pressAt = null; intent("exit"); }, 1000); };
+  // Released after 500 ms (ring showing) but before 1 s: failed hold, nothing (dial_input.HOLD_MAYBE_MS)
+  const up = () => { if (!pressTimer) return; clearTimeout(pressTimer); pressTimer = null; const held = pressAt === null ? 0 : performance.now() - pressAt; pressAt = null; if (!exited && held < 500) intent("act"); };
+  const pressBtn = document.getElementById("press");
+  pressBtn.addEventListener("pointerdown", down); pressBtn.addEventListener("pointerup", up); pressBtn.addEventListener("pointerleave", () => { if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; pressAt = null; } });
+  document.getElementById("cw").onclick = () => intent("next");
+  document.getElementById("ccw").onclick = () => intent("prev");
+  document.getElementById("tapcard").onclick = presentCard;
+  document.getElementById("variant").onchange = e => { variant = e.target.value; if (st.entry) { st.entry.zone = null; st.entry.sel = 0; } log(`keyboard: ${variant}`); };
+  document.getElementById("resetstats").onclick = () => { stats.det = stats.press = stats.chars = 0; updateStats(); };
+  document.addEventListener("keydown", e => {
+    if (e.target.tagName === "SELECT") return;
+    if (e.key === "ArrowRight" || e.key === "ArrowDown") { intent("next"); e.preventDefault(); }
+    else if (e.key === "ArrowLeft" || e.key === "ArrowUp") { intent("prev"); e.preventDefault(); }
+    else if (e.key === "Enter" && !e.repeat) { down(); e.preventDefault(); }
+    else if (e.key === "Escape") intent("exit");
+  });
+  document.addEventListener("keyup", e => { if (e.key === "Enter") up(); });
+  // scroll / drag the bezel = turn
+  const dev = document.getElementById("device");
+  let acc = 0;
+  dev.addEventListener("wheel", e => { e.preventDefault(); acc += e.deltaY; while (Math.abs(acc) >= 60) { intent(acc > 0 ? "next" : "prev"); acc -= Math.sign(acc) * 60; } }, { passive: false });
+  let dragA = null;
+  const ang = e => { const r = dev.getBoundingClientRect(); return Math.atan2(e.clientY - r.top - r.height / 2, e.clientX - r.left - r.width / 2) * 180 / Math.PI; };
+  dev.addEventListener("pointerdown", e => { if (e.target === cv) return; dragA = ang(e); dev.setPointerCapture(e.pointerId); });
+  dev.addEventListener("pointermove", e => { if (dragA === null) return; let d = ang(e) - dragA; if (d > 180) d -= 360; if (d < -180) d += 360; if (Math.abs(d) >= 12) { intent(d > 0 ? "next" : "prev"); dragA = ang(e); } });
+  dev.addEventListener("pointerup", () => { dragA = null; });
+  // tap a rim key on the keyboard page
+  cv.addEventListener("click", e => {
+    if (scene.page !== "keyboard" || !lastSlots) return;
+    const r = cv.getBoundingClientRect(), x = (e.clientX - r.left) * 240 / r.width - 120, y = (e.clientY - r.top) * 240 / r.height - 120;
+    const dist = Math.hypot(x, y); if (dist < RIM_OUTER - BAND_W - 6) return;
+    let a = Math.atan2(x, -y) * 180 / Math.PI; if (a < 0) a += 360;
+    const { slots } = lastSlots;
+    for (let i = 0; i < slots.length; i++) { let d = a - slots[i][0]; d = ((d + 540) % 360) - 180; if (Math.abs(d) <= slots[i][1]) { intent(`tap:${i}`); return; } }
+  });
+
+  /* ---- gallery ---- */
+  function gallery() {
+    const g = document.getElementById("gallery"); g.textContent = "";
+    const e1 = new TextEntry(TEXT_MAX, words); e1.text = "team bl"; e1.sel = 20;
+    const e2 = new TextEntry(TEXT_MAX, words); e2.text = "goal 7"; e2.mode = "more"; e2.sel = 7;
+    const e3 = new TextEntry(TEXT_MAX, words); e3.text = "go"; e3.mode = "words"; e3.sel = 5;
+    const items = [
+      ["Home: icon ring", { page: "home", sel: 1 }],
+      ["Games: dot ring", { page: "list", title: "Games", items: groups.map(x => x[0]), sel: 4 }],
+      ["Tags in a game", { page: "list", title: "Goalrace", items: groups.find(x => x[0] === "Goalrace")[1], sel: 2 }],
+      ["Keyboard: letters", { page: "keyboard", entry: e1 }],
+      ["Keyboard: # ring", { page: "keyboard", entry: e2 }],
+      ["Keyboard: words", { page: "keyboard", entry: e3 }],
+      ["Scan: hold card", status("scan", C.WRITE_FG, "teamblue", "Hold Card", "", 0)],
+      ["Writing", status("busy", C.WRITE_FG, "Writing", "teamblue", "", 30)],
+      ["Done", status("ok", C.SERVE_FG, "Done", "teamblue", "", 100)],
+      ["Read result", status("ok", C.SERVE_FG, "melody", "NTAG", "Copy", 100)],
+      ["Write failed", status("fail", C.DANGER_FG, "Oops", "Hold Still", "", 100)],
+    ];
+    const saved = variant; variant = "ring";
+    items.forEach(([cap, sc]) => {
+      const f = document.createElement("figure"), c = document.createElement("canvas"); c.width = c.height = 340;
+      c.setAttribute("role", "img"); c.setAttribute("aria-label", cap);
+      paint(c.getContext("2d"), sc, 0);
+      const fc = document.createElement("figcaption"); fc.textContent = cap; f.append(c, fc); g.appendChild(f);
+    });
+    variant = saved;
+  }
+
+  showHome(); renderCards(); updateStats();
+  log("boot: identity {device: nfc_station, text_max: 54}");
+  document.fonts.load(font(28)).then(() => document.fonts.ready).then(gallery);
+  gallery(); requestAnimationFrame(frame);
+})();
+</script>
