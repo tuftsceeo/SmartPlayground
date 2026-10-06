@@ -46,7 +46,7 @@ from dial_input import NEXT, PREV, ACT, EXIT
 
 VERSION = "0.1.0"
 HEARTBEAT_MS = 5000
-LOOP_MS = 1              # >0: print loop iterations slower than this (ms), by stage
+LOOP_MS = 0              # >0: print loop iterations slower than this (ms), by stage
 
 # NDEF text overhead: TLV (2) + record header (3) + "T" (1) + lang "en"
 # with its length byte (3) + terminator (1) = 10 bytes. The readers'
