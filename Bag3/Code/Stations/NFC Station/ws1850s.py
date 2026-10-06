@@ -1,3 +1,4 @@
+# ws1850s rev 2026-10-06: _select() returns -1 on failure so a real SAK of 0x00 (NTAG/Ultralight, 7-byte UID) is not read as a failed select.
 # PEER: verbatim copy of Bag3/Code/BroadcastCode/BroadcastBox/BBoxFirmware/ws1850s.py.
 # Keep the two in sync -- see HARDWARE_PROTOCOL.md's PEER convention.
 """
@@ -231,7 +232,7 @@ class WS1850S:
         status, back, bits = self._to_card(self.PCD_TRANSCEIVE, buf)
         if status == self.MI_OK and bits == 0x18:
             return back[0]
-        return 0
+        return -1
 
     def anticoll(self):
         """Cascade level 1 anticollision. Returns (status, [4 UID bytes + BCC])."""
@@ -374,7 +375,7 @@ class WS1850S:
             return None
 
         sak = self.select_tag(cl1)
-        if sak == 0:
+        if sak < 0:
             return None
 
         if cl1[0] != self.CT:
@@ -385,7 +386,7 @@ class WS1850S:
         if status != self.MI_OK or len(cl2) < 5:
             return None
         sak2 = self.select_tag_cl2(cl2)
-        if sak2 == 0:
+        if sak2 < 0:
             return None
 
         uid = bytes(cl1[1:4]) + bytes(cl2[:4])
