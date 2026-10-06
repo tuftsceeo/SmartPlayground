@@ -19,9 +19,10 @@ import M5
 # Mirror bbox_server.SERVE_EXIT_MS — leaving SERVE must not fire from a bump.
 SERVE_EXIT_MS = 1000
 
-# A fast flick can produce a large delta; cap so one update cannot skip the
-# whole list. Dial_Music.py discarded magnitude entirely — we honour it.
-ENCODER_CAP = 8
+# Most detents one poll may report; guards against a glitched count only.
+# A slow redraw can leave 20+ real detents between polls, and the old cap
+# of 8 discarded the rest. NFC Station change (BroadcastDial uses 8).
+ENCODER_CAP = 60
 
 # Most time one poll gap may add to a hold (ms). A long gap means the loop
 # was blocked (LVGL redraws inside M5.update()), not that the button was
@@ -116,8 +117,10 @@ class DialInput:
         if self._rotary is None:
             return
         try:
-            if not self._rotary.get_rotary_status():
-                return
+            # Read the count every poll. No get_rotary_status() gate:
+            # tools/enc_probe.py counted every detent reading the value
+            # directly, even with 300 ms loop stalls, while the station's
+            # gated read lost detents. NFC Station change.
             new_val = self._rotary.get_rotary_value()
         except Exception as e:
             print("# rotary err: %s" % str(e))

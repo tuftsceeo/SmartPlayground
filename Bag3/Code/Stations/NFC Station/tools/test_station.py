@@ -316,6 +316,25 @@ class DialInputTests(unittest.TestCase):
         self.inp.update()
         self.assertEqual(self.drain(), ["tap:2"])
 
+    def test_encoder_every_detent_counted(self):
+        class Rot:
+            v = 0
+            def get_rotary_value(self):
+                return self.v
+            def get_rotary_status(self):
+                return False            # must not gate the read
+        rot = Rot()
+        self.inp._rotary = rot
+        self.inp._last_rotary = 0
+        for v in (1, 2, 7, 27):         # +1, +1, +5, +20 between polls
+            rot.v = v
+            self.inp.update()
+        out = self.drain()
+        self.assertEqual(out, [NEXT] * 27)
+        rot.v = 22
+        self.inp.update()
+        self.assertEqual(self.drain(), [PREV] * 5)
+
     def test_press_lengths(self):
         import dial_input
         cases = ((100, [ACT]),                      # quick
