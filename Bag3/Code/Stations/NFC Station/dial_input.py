@@ -27,7 +27,7 @@ ENCODER_CAP = 60
 # Turns are held until the knob has been still this long, then released as
 # one batch: a fast spin produces one jump, one repaint and one tick
 # instead of a repaint per detent. NFC Station change.
-TURN_SETTLE_MS = 150
+TURN_SETTLE_MS = 300
 
 # True: print a timestamp per encoder change ("# enc <ms> <delta>").
 ENC_LOG = False
