@@ -176,6 +176,7 @@ def slot_angles(widths, radius, min_gap=2):
 class StationUI:
     def __init__(self, inputs=None):
         self._input = inputs
+        self._tones = []            # (start ticks, freq, ms), see _tone_seq
         self._pages = {}
         self._cur = None
         self.f = {}
@@ -383,7 +384,12 @@ class StationUI:
         self.s_body.set_text(body)
         self.s_hint.set_text(hint)
         self._show("status")
-        lv.refr_now(None)   # results are painted just before a blocking write
+
+    def flush(self):
+        """Render now. Only for a screen that must be visible before a
+        blocking call (the card write); everything else renders in the
+        main loop's M5.update()."""
+        lv.refr_now(None)
 
     def show_reader(self, text, read=True):
         """Read screen. read=False: waiting for a card; otherwise the text
@@ -488,15 +494,17 @@ class StationUI:
         return w
 
     def tick(self):
-        """Call once per main-loop iteration: blinks the caret.
+        """Call once per main-loop iteration: plays queued tones and blinks
+        the caret.
 
         Driven from the main loop rather than an LVGL timer: a Ctrl-C that
         lands inside an LVGL timer callback is caught by m5ui's port and
         never reaches the REPL, which blocks mpremote.
         """
+        now = time.ticks_ms()
+        self._play_tones(now)
         if self._cur != "keyboard":
             return
-        now = time.ticks_ms()
         if time.ticks_diff(now, self._caret_at) < CARET_BLINK_MS:
             return
         self._caret_at = now
@@ -758,14 +766,21 @@ class StationUI:
     def beep_scan(self):
         self._tone(3000, 30)
 
+    def _tone_seq(self, seq):
+        """Queue (offset_ms, freq, ms) tones; tick() starts each on time, so
+        a multi-tone beep does not sleep the main loop."""
+        now = time.ticks_ms()
+        self._tones = [(time.ticks_add(now, off), f, ms) for off, f, ms in seq]
+        self._play_tones(now)
+
+    def _play_tones(self, now):
+        while self._tones and time.ticks_diff(now, self._tones[0][0]) >= 0:
+            _, f, ms = self._tones.pop(0)
+            self._tone(f, ms)
+
+    # Offsets keep the old spacing: each tone, then a 50 ms gap.
     def beep_success(self):
-        self._tone(2800, 100)
-        time.sleep_ms(50)
-        self._tone(3000, 100)
-        time.sleep_ms(50)
-        self._tone(3300, 200)
+        self._tone_seq(((0, 2800, 100), (150, 3000, 100), (300, 3300, 200)))
 
     def beep_fail(self):
-        self._tone(3000, 200)
-        time.sleep_ms(50)
-        self._tone(2200, 400)
+        self._tone_seq(((0, 3000, 200), (250, 2200, 400)))

@@ -22,6 +22,7 @@ sys.modules.setdefault("M5", types.ModuleType("M5"))
 time.sleep_ms = lambda ms: None
 time.ticks_ms = lambda: int(time.monotonic() * 1000)
 time.ticks_diff = lambda a, b: a - b
+time.ticks_add = lambda a, b: a + b
 
 import station                                  # noqa: E402
 import tag_catalog                              # noqa: E402
@@ -316,7 +317,7 @@ class DialInputTests(unittest.TestCase):
         self.inp.update()
         self.assertEqual(self.drain(), ["tap:2"])
 
-    def test_encoder_every_detent_counted(self):
+    def _rot(self):
         class Rot:
             v = 0
             def get_rotary_value(self):
@@ -326,14 +327,46 @@ class DialInputTests(unittest.TestCase):
         rot = Rot()
         self.inp._rotary = rot
         self.inp._last_rotary = 0
-        for v in (1, 2, 7, 27):         # +1, +1, +5, +20 between polls
+        return rot
+
+    def test_spin_released_once_after_settle(self):
+        rot = self._rot()
+        for v in range(1, 11):          # 10 detents, 30 ms apart
             rot.v = v
+            self.now += 30
             self.inp.update()
-        out = self.drain()
-        self.assertEqual(out, [NEXT] * 27)
-        rot.v = 22
+            self.assertEqual(self.drain(), [])      # nothing while spinning
+        self.now += self.di.TURN_SETTLE_MS - 1
+        self.inp.update()
+        self.assertEqual(self.drain(), [])
+        self.now += 1
+        self.inp.update()
+        self.assertEqual(self.drain(), [NEXT] * 10)  # A + 10 -> K
+
+    def test_spin_back_and_forth_nets(self):
+        rot = self._rot()
+        for v in (3, 7, 5):             # +3, +4, -2 within one spin
+            rot.v = v
+            self.now += 20
+            self.inp.update()
+        self.now += self.di.TURN_SETTLE_MS
+        self.inp.update()
+        self.assertEqual(self.drain(), [NEXT] * 5)
+        rot.v = 0
+        self.now += 10
+        self.inp.update()
+        self.now += self.di.TURN_SETTLE_MS
         self.inp.update()
         self.assertEqual(self.drain(), [PREV] * 5)
+
+    def test_big_jump_between_polls_counted(self):
+        rot = self._rot()
+        rot.v = 27                      # whole spin during a slow redraw
+        self.now += 1500
+        self.inp.update()
+        self.now += self.di.TURN_SETTLE_MS
+        self.inp.update()
+        self.assertEqual(self.drain(), [NEXT] * 27)
 
     def test_press_lengths(self):
         import dial_input
@@ -425,10 +458,14 @@ class CatalogTests(unittest.TestCase):
 
 class StationTests(unittest.TestCase):
     def setUp(self):
+        # Result screens wait without blocking (_wait); flow tests skip it.
+        self._holds = (station.RESULT_HOLD_OK_MS, station.RESULT_HOLD_FAIL_MS)
+        station.RESULT_HOLD_OK_MS = station.RESULT_HOLD_FAIL_MS = 0
         self.tmp = tempfile.TemporaryDirectory()
         self.st, self.ui, self.inp, self.nfc, self.card, self.link = make(self.tmp.name)
 
     def tearDown(self):
+        station.RESULT_HOLD_OK_MS, station.RESULT_HOLD_FAIL_MS = self._holds
         self.tmp.cleanup()
 
     def test_text_max(self):
@@ -553,6 +590,48 @@ class StationTests(unittest.TestCase):
     def test_read_single_hold_exits_home(self):
         run(self.st, self.inp, ACT, EXIT)
         self.assertEqual(self.st.mode, station.HOME)
+
+    def _clock(self):
+        clock = [0]
+        time.ticks_ms = lambda: clock[0]
+        self.addCleanup(setattr, time, "ticks_ms", lambda: int(time.monotonic() * 1000))
+        return clock
+
+    def test_done_wait_does_not_block_loop(self):
+        clock = self._clock()
+        station.RESULT_HOLD_OK_MS = 1000
+        self._open_game("Jump")
+        self.nfc.cards.append(tag())
+        self.st.step()                                  # write -> Done
+        self.assertEqual(self.ui.last("show_result")[2], "Done")
+        self.assertEqual(self.st.mode, station.SCAN)
+        steps = 0
+        while self.st.mode == station.SCAN:
+            clock[0] += 50
+            self.st.step()                              # loop keeps running
+            steps += 1
+        self.assertEqual(self.st.mode, station.GAMES)
+        self.assertEqual(steps, 20)                     # 1000 ms / 50 ms
+
+    def test_hold_during_done_wait_goes_back(self):
+        clock = self._clock()
+        station.RESULT_HOLD_OK_MS = 1000
+        self._open_game("Goalrace")
+        run(self.st, self.inp, NEXT, NEXT, ACT)         # teamgreen
+        self.nfc.cards.append(tag())
+        self.st.step()
+        clock[0] += 100
+        run(self.st, self.inp, EXIT)
+        self.assertEqual(self.st.mode, station.TAGS)
+
+    def test_flush_before_write(self):
+        self._open_game("Jump")
+        calls = self.ui.calls
+        self.card.write_text = lambda nfc, t, text: (calls.append(("write",)), True)[1]
+        self.nfc.cards.append(tag())
+        self.st.step()
+        names = [c[0] for c in calls]
+        self.assertLess(names.index("flush"), names.index("write"))
 
     def test_utilities_has_no_all(self):
         self.st.game_sel = [n for n, _ in self.st.groups].index("Utilities")
@@ -819,6 +898,39 @@ class PainterSmokeTests(unittest.TestCase):
             ui.show_keyboard(e.view())
         finally:
             self.mod.SEG_TINTS, self.mod.CELL_DOT = True, False
+
+    def test_beeps_queue_without_sleeping(self):
+        clock = [0]
+        orig = time.ticks_ms
+        time.ticks_ms = lambda: clock[0]
+        try:
+            ui = self.mod.StationUI(FakeInputs())
+            ui.begin()
+            played = []
+            ui._tone = lambda f, ms: played.append(f)
+            slept = []
+            time.sleep_ms = lambda ms: slept.append(ms)
+            ui.beep_success()
+            self.assertEqual(played, [2800])
+            for t in (100, 150, 299, 300):
+                clock[0] = t
+                ui.tick()
+            self.assertEqual(played, [2800, 3000, 3300])
+            self.assertEqual(slept, [])
+        finally:
+            time.ticks_ms = orig
+            time.sleep_ms = lambda ms: None
+
+    def test_status_does_not_force_render(self):
+        ui = self.mod.StationUI(FakeInputs())
+        ui.begin()
+        renders = []
+        self.mod.lv.refr_now = lambda d: renders.append(1)
+        ui.show_scan("stop")
+        ui.show_result("ok", "Done", "stop")
+        self.assertEqual(renders, [])
+        ui.flush()
+        self.assertEqual(renders, [1])
 
     def test_painters(self):
         ui = self.mod.StationUI(FakeInputs())

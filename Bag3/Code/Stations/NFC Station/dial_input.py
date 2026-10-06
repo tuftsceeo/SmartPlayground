@@ -24,6 +24,14 @@ SERVE_EXIT_MS = 1000
 # of 8 discarded the rest. NFC Station change (BroadcastDial uses 8).
 ENCODER_CAP = 60
 
+# Turns are held until the knob has been still this long, then released as
+# one batch: a fast spin produces one jump, one repaint and one tick
+# instead of a repaint per detent. NFC Station change.
+TURN_SETTLE_MS = 150
+
+# True: print a timestamp per encoder change ("# enc <ms> <delta>").
+ENC_LOG = False
+
 # Most time one poll gap may add to a hold (ms). A long gap means the loop
 # was blocked (LVGL redraws inside M5.update()), not that the button was
 # watched down for that long; counting it turned short clicks into holds.
@@ -52,6 +60,8 @@ class DialInput:
     def __init__(self):
         self._queue = []
         self._taps = []             # (tap intent, ticks) awaiting TAP_GUARD_MS
+        self._turn = 0              # detents since the knob last settled
+        self._turn_at = 0
         self._physical_at = -100000
         self._rotary = None
         self._last_rotary = 0
@@ -127,13 +137,22 @@ class DialInput:
             return
         delta = new_val - self._last_rotary
         self._last_rotary = new_val
-        if delta == 0:
+        now = time.ticks_ms()
+        if delta != 0:
+            self._mark_physical()
+            if ENC_LOG:
+                print("# enc %d %+d" % (now, delta))
+            self._turn += delta
+            self._turn_at = now
             return
-        self._mark_physical()
-        n = abs(delta)
+        if self._turn == 0 or time.ticks_diff(now, self._turn_at) < TURN_SETTLE_MS:
+            return
+        # Knob still for TURN_SETTLE_MS: release the whole spin at once.
+        n = abs(self._turn)
         if n > ENCODER_CAP:
             n = ENCODER_CAP
-        intent = NEXT if delta > 0 else PREV
+        intent = NEXT if self._turn > 0 else PREV
+        self._turn = 0
         for _ in range(n):
             self._queue.append(intent)
 

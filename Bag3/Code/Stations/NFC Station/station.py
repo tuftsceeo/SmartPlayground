@@ -110,6 +110,9 @@ class Station:
         self._last_uid = None
         self._misses = 0
         self._lifted_at = None
+        self._wait_until = None     # see _wait
+        self._wait_then = None
+        self._wait_back = None
         self._beat = 0
         self._cancel_at = None
         self.running = True
@@ -339,8 +342,7 @@ class Station:
             return
         self.ui.show_result("ok", "All Done", self.groups[self.game_sel][0])
         self.ui.beep_success()
-        self._hold(RESULT_HOLD_OK_MS)
-        self.go_tags()
+        self._wait(RESULT_HOLD_OK_MS, self.go_tags, self.go_tags)
 
     def _go(self, mode):
         if mode == HOME:
@@ -519,14 +521,16 @@ class Station:
         self.ui.beep_scan()
         text = self.scan_text
         existing = self.card.existing_text(self.nfc, tag)
+        ret = self.scan_return
+        back = lambda: self._go(ret)
         if existing == text:
             self._mark_written(text)
             self.ui.show_result("ok", "Already Set", text)
             self.ui.beep_success()
-            self._hold(RESULT_HOLD_OK_MS)
-            self._after_write()
+            self._wait(RESULT_HOLD_OK_MS, self._after_write, back)
             return
         self.ui.show_result("busy", "Writing", text)
+        self.ui.flush()             # visible before the blocking write
         ok = self.card.write_text(self.nfc, tag, text)
         if ok:
             _log("written %r uid=%s" % (text, tag["uid_hex"]))
@@ -534,22 +538,42 @@ class Station:
             self._mark_written(text)
             self.ui.show_result("ok", "Done", text)
             self.ui.beep_success()
-            self._hold(RESULT_HOLD_OK_MS)
-            self._after_write()
+            self._wait(RESULT_HOLD_OK_MS, self._after_write, back)
         else:
             _log("write FAILED %r uid=%s" % (text, tag["uid_hex"]))
             self._send({"type": "write_failed", "uid": tag["uid_hex"], "text": text})
             self.ui.show_result("fail", "Oops", "Hold Still")
             self.ui.beep_fail()
-            self._hold(RESULT_HOLD_FAIL_MS)
-            self.go_scan(text, self.scan_return)
+            self._wait(RESULT_HOLD_FAIL_MS, lambda: self.go_scan(text, ret), back)
 
     def _mark_written(self, text):
         if self.scan_return == TEXT and self.entry is not None:
             self.entry.mark_written(text)
 
-    def _hold(self, ms):
-        time.sleep_ms(ms)
+    def _wait(self, ms, then, back):
+        """Keep the current screen for ms without blocking the loop, then run
+        `then`. A hold (EXIT) during the wait runs `back` instead; other
+        input is dropped. ms <= 0 runs `then` at once."""
+        if ms <= 0:
+            then()
+            return
+        self._wait_until = time.ticks_add(time.ticks_ms(), ms)
+        self._wait_then = then
+        self._wait_back = back
+
+    def _waiting(self, intent):
+        """True while a _wait is pending (and handles it)."""
+        if self._wait_until is None:
+            return False
+        if intent == EXIT:
+            fn = self._wait_back
+        elif time.ticks_diff(time.ticks_ms(), self._wait_until) >= 0:
+            fn = self._wait_then
+        else:
+            return True
+        self._wait_until = None
+        fn()
+        return True
 
     # -- loop --------------------------------------------------------
 
@@ -563,6 +587,8 @@ class Station:
         t2 = time.ticks_ms()
         intent = self.inputs.pop()
         self._t = (t0, t1, t2, intent)
+        if self._waiting(intent):
+            return
         if self.mode == HOME:
             if intent:
                 self._home(intent)
