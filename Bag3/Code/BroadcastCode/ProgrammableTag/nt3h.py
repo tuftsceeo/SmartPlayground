@@ -28,6 +28,7 @@ class NT3H:
     NS_REG = 0x06
 
     # NS_REG bits
+    NS_NDEF_DATA_READ   = 0x80
     NS_RF_FIELD_PRESENT = 0x01
     NS_EEPROM_WR_BUSY   = 0x02
     NS_EEPROM_WR_ERR    = 0x04
