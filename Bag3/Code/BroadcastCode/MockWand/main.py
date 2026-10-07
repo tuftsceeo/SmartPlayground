@@ -811,6 +811,58 @@ def _run_pull_mode():
 
 
 # ─────────────────────────────────────────────
+# SPLAT PAIRING (boot)
+# ─────────────────────────────────────────────
+# Both functions run from main() after enow.init(). Nothing here may be
+# called, and no pairing module imported, ahead of the radio claim.
+_PAIRING_PATH = "/pairing.json"   # same file as lib/pairing.py PATH
+_pair_ctl = None                  # splatpair.SplatPairing for a paired wand
+
+
+def _read_pairing():
+    # Inline read: lib/pairing.py is not imported on an unpaired boot.
+    # A power-on reset ends every pairing (session-scoped).
+    try:
+        os.stat(_PAIRING_PATH)
+    except OSError:
+        return []
+    # UNVERIFIED on hardware: PWRON_RESET on the C6 after USB or battery
+    # power-up, and that machine.reset() / watchdog / crash resets differ.
+    if machine.reset_cause() == machine.PWRON_RESET:
+        os.remove(_PAIRING_PATH)
+        print("  Pairing cleared (power-on reset)")
+        return []
+    with open(_PAIRING_PATH) as f:
+        items = json.load(f)["splats"]
+    return [m for m in items if isinstance(m, str)]
+
+
+def _boot_pairing(enow):
+    global _pair_ctl
+    try:
+        macs = _read_pairing()
+        if not macs:
+            return
+        import ubluetooth
+        ubluetooth.BLE().active(True)
+        import splatpair
+        _pair_ctl = splatpair.SplatPairing(macs, enow, leds, buz)
+        print("  Splat pairing: %d Splat(s) %s" % (_pair_ctl.count, _pair_ctl.macs))
+    except Exception as e:
+        print("  [WARN] Splat pairing unavailable, booting unpaired:")
+        sys.print_exception(e)
+        _emit({"type": "error", "where": "pairing", "err": str(e)})
+        _pair_ctl = None
+        try:
+            os.stat(_PAIRING_PATH)
+        except OSError:
+            pass        # nothing on flash to clear
+        else:
+            os.remove(_PAIRING_PATH)
+        leds.boot_stage_ok(0, row_colors=[OFF, OFF, AMBER, GREEN if enow.is_active else AMBER])
+
+
+# ─────────────────────────────────────────────
 # MAIN
 # ─────────────────────────────────────────────
 def main():
@@ -856,6 +908,12 @@ def main():
         print("  [WARN] ESP-NOW:"); sys.print_exception(e)
         leds.boot_stage_ok(0, row_colors=[OFF, OFF, OFF, AMBER])
     memprobe.probe("post-enow")  # BENCH
+
+    # ── Splat pairing: BLE comes up only for a paired wand, here and not
+    # earlier: the radio has claimed its memory, and every later boot stage
+    # runs with BLE already holding its own. ──
+    _boot_pairing(enow)
+    memprobe.probe("post-ble")  # BENCH
 
     # ── Stage 1: Brightness calibration (OPT3002) ──
     leds.boot_stage_start(1)
@@ -1005,6 +1063,9 @@ def main():
             last_heartbeat_ms = time.ticks_ms()
             _emit({"type": "heartbeat", "up": last_heartbeat_ms})
         try:
+            if _pair_ctl is not None:
+                _pair_ctl.poll()
+
             # ─────────────────────────────────────
             # NFC SLEEPING — minimal power mode
             # ─────────────────────────────────────

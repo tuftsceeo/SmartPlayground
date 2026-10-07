@@ -26,7 +26,7 @@ def _tmp():
     return PATH + ".tmp"
 
 
-def _valid(mac):
+def valid(mac):
     if not isinstance(mac, str) or len(mac) != 17:
         return False
     parts = mac.split(":")
@@ -58,7 +58,7 @@ def load():
         return []
     out = []
     for m in items:
-        if _valid(m) and m not in out:
+        if valid(m) and m not in out:
             out.append(m)
     return out[:MAX_SPLATS]
 
@@ -92,7 +92,7 @@ def holds(mac):
 def add(mac):
     """Append mac and write the file. Returns the new list. A MAC already
     held leaves the file alone; ValueError for a malformed MAC or a full list."""
-    if not _valid(mac):
+    if not valid(mac):
         raise ValueError("bad MAC %r" % (mac,))
     macs = load()
     if mac in macs:
