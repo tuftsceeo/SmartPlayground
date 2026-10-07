@@ -51,7 +51,20 @@ None of these are touched by Part A. The `espnow_manager.py` divergence is flagg
 - `unpair` is not in `EXIT_TAGS`, so a running game ignores it; the idle loop acts on it in A5.
 - UNVERIFIED on hardware: a real NDEF read of a `splat-` card. The test feeds a synthetic NTAG page image
   through `read_command()`.
-## A3. Pairing store — not done
+## A3. Pairing store — done
+
+- Files: `MockWand/lib/pairing.py` (`load`, `add`, `remove`, `clear`, `holds`, `exists`, `MAX_SPLATS = 2`,
+  `PATH = "/pairing.json"`), `tools/devtests/test_wand_pairing_store.py`.
+- Test: `python3 tools/devtests/test_wand_pairing_store.py`.
+- Decisions:
+  - `add()` raises `ValueError` for a malformed MAC or a full list, and is a no-op for a MAC already held.
+    `remove()` of the last entry deletes the file. Callers pass the stored form (uppercase, colons).
+  - A corrupt file prints `[WARN]` and reads empty; `load()` drops invalid and duplicate entries and caps at
+    `MAX_SPLATS`.
+  - A write or rename `OSError` propagates after the temp file is removed; the previous file stays. Callers
+    (A5) report it with error feedback.
+- UNVERIFIED on hardware: `os.rename` over an existing file on the C6's littlefs (`game_store.py` and
+  `pull_flag.py` rely on the same behavior).
 ## A4. Boot integration — not done
 ## A5. Pair and unpair in the idle loop — not done
 ## A6. `party.py` — not done
