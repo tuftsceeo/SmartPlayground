@@ -236,4 +236,42 @@ sc.run(1500)
 check("the leader leaving ends the game and darkens the Splats",
       all(w.result == "done" for w in (w1, w2, w3)) and lit(p1) == OFFC and lit(p2) == OFFC)
 
+# ── The README's two example games run ──
+import re
+import types
+readme = open(os.path.join(BB, "MockWand", "README.md")).read()
+section = readme.split("### Writing a party game")[1].split("Rules:")[0]
+blocks = re.findall(r"```python\n(.*?)```", section, re.S)
+check("the README has a pooled and a messages example", len(blocks) == 2, str(len(blocks)))
+mods = []
+for i, src in enumerate(blocks):
+    m = types.ModuleType("readme_game%d" % i)
+    exec(compile(src, "README block %d" % i, "exec"), m.__dict__)
+    mods.append(m)
+check("...declaring SPLATS_MIN", [m.SPLATS_MIN for m in mods] == [2, 1])
+
+sc = Sc()
+w1, w2 = sc.wand(1, [1]), sc.wand(2, [2])
+bystander = sc.wand(5)              # sends the ESP-NOW stop; a broadcast never reaches its sender
+start(sc, [1, 2], mods[0], smin=2)
+splat_press(sc, w2, S[2])
+sc.run(500)
+check("pooled example: the leader lights a pressed pool Splat in its owner's identity color",
+      lit(w2.periph(S[2])) == BLUE, str(lit(w2.periph(S[2]))))
+sc.sim.at(sc.sim.now + 5, lambda: bystander.enow.broadcast(["stop"]))
+sc.run(800)
+check("...and both wands return on the end", w1.result == "done" and w2.result == "done")
+
+sc = Sc()
+w1, w2 = sc.wand(1, [1]), sc.wand(2, [2])
+bystander = sc.wand(5)
+start(sc, [1, 2], mods[1], smin=1)
+splat_press(sc, w2, S[2])
+sc.run(600)
+check("messages example: a follower's press is sent to the next wand, which colors its own Splat",
+      lit(w1.periph(S[1])) == GREEN, str(lit(w1.periph(S[1]))))
+sc.sim.at(sc.sim.now + 5, lambda: bystander.enow.broadcast(["stop"]))
+sc.run(800)
+check("...and both wands return on the end", w1.result == "done" and w2.result == "done")
+
 check.finish("party games OK")

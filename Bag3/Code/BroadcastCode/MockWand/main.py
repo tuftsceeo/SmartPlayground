@@ -264,11 +264,13 @@ ALL_COMMANDS   = BASE_COMMANDS | set(game_store.slugs())
 # "yourgame":
 #
 #   1. Create `yourgame.py` in this folder exposing
-#      `def play(nfc, leds, buz, accel, i2c, enow, batt=None): ...`
+#      `def play(nfc, leds, buz, accel, i2c, enow, batt=None, net=None): ...`
 #      returning when the "stop" NFC tag, ESP-NOW stop, or ESP-NOW
-#      start_game is received (poll enow every loop). All seven
-#      parameters are always passed positionally; `batt` is the
-#      MAX17048 fuel gauge and is None when the board has none.
+#      start_game is received (poll enow every loop). Parameters are
+#      passed positionally up to as many as play() declares (6, 7 or 8);
+#      `batt` is the MAX17048 fuel gauge and is None when the board has
+#      none. `net` is None unless the module declares SPLATS_MIN (a party
+#      game, see README.md).
 #   2. Add the tag name `"yourgame"` to GAME_TAGS in lib/game_tags.py.
 #   3. Add `"yourgame": "yourgame"` to GAME_MODULES in this file --
 #      key is the tag name, value is the module's filename (no `.py`).

@@ -3,6 +3,27 @@
 Branch `wands_with_splats-partA`, from `wands_with_splats`. Plan: [PLAN.md](PLAN.md). Design: [SPEC.md](SPEC.md).
 Resume rule: read this file and `git log`, continue from the first unfinished step.
 
+## Summary
+
+A1-A8 are done, one commit each. Software only: nothing here has run on a board.
+
+Run from `Bag3/Code/BroadcastCode/` (all pass): `tools/devtests/compile_check.sh`, then
+`python3 tools/devtests/<name>.py` for `test_wand_copies`, `test_wand_cards`, `test_wand_pairing_store`,
+`boot_wand_pairing`, `boot_wand_idle`, `boot_wand_party`, `test_party`, `test_party_games`; the existing `boot_splat`,
+`wire_test` and `host_id_check` still pass. `boot_display.py`, `game_menu_scan.py`, `wire_contract.py` and
+`SplatCompanion/Companion/test_splat_companion.py` fail or stop exactly as before this work (Baseline).
+
+Only `Bag3/Code/BroadcastCode/MockWand/`, `tools/devtests/` and this directory changed. `Wand Module/`, `Bag1/`, `Bag2/` and
+the SplatCompanion tree are untouched.
+
+Highest-priority items for Part B:
+
+- **`main.py` grew from 57345 to 63587 bytes of source** (plus 815 bytes in `nfc_reader.py`), all compiled ahead of
+  `enow.init()`. Measure `idf_largest` after imports and after `enow.init()` against RESULTS-M1 (208896 / 172032) before
+  anything else. If it is too tight, `_enter_party`, `_pair_card` and `_boot_pairing` can move into a lazily imported module.
+- The paired idle loop's 100 ms NFC timeout against card-read reliability, and claim-check latency.
+- Commit trailers use the line the task text gave (`Co-Authored-By: Claude Opus 5.5`).
+
 ## Baseline (before A1)
 
 Run from `Bag3/Code/BroadcastCode/`.
@@ -221,4 +242,20 @@ None of these are touched by Part A. The `espnow_manager.py` divergence is flagg
 - UNVERIFIED on hardware: matrix and Splat appearance and sounds in all three games, pooled-command latency as
   `partytest` logs it, `splattag` round timing (`ROUND_MS`, `PAUSE_MS`) with real BLE write pacing, the 30 ms NFC
   stall in games.
-## A8. Docs — not done
+## A8. Docs — done (A8.3 not applied)
+
+- Files: `MockWand/README.md` (Splat pairing, boot order, party games, `play()` contract, `net` and events, two authoring
+  examples, tests, `UNVERIFIED on hardware` list; the PEER-copies note is from A1), `MockWand/main.py` (the "ADDING A NEW
+  GAME" comment now describes the 6/7/8-parameter `play()`), `tools/devtests/test_party_games.py` (runs the README's two
+  example games in the simulation, so the examples cannot drift from working code).
+- Test: `python3 tools/devtests/test_party_games.py`.
+- A8.3 (note in `docs_and_design/2026-10-07-coex-benchc6/RESULTS.md` that its rtt figures are inflated by the undrained
+  bench loop): **not edited.** PLAN says to ask before editing that committed results doc and no one is available to
+  answer, so the conservative choice is to leave it. Proposed text, to add under the results table (its `Ping rtt p50 /
+  max` column, line 21):
+
+  > Caveat: `coex_bench.py` did not read the receive buffer between sends when `send()` took longer than the gap, so the
+  > rtt columns include pickup delay at the hub (169-3333 ms), not just air time. A drained rerun is in
+  > [../2026-10-07-splat-pairing/RESULTS-M1.md](../2026-10-07-splat-pairing/RESULTS-M1.md) (Caveats): send-call times
+  > match; rtt does not.
+
