@@ -79,13 +79,17 @@ class SplatPairing:
 
     def poll(self):
         """Service the BLE links; flash and glow on a (re)connect; enforce
-        PAIR_CONNECT_MS once."""
+        PAIR_CONNECT_MS once. Returns the Splat button events taken, as
+        [(unit index, "press" or "release"), ...]; the idle loop ignores them."""
         g = self.group
         if g is None:
-            return
+            return []
+        events = []
         for _ in range(UNIT_DRAIN):
-            if g.poll() is None:
+            ev = g.poll()
+            if ev is None:
                 break
+            events.append((g.last_index, ev))
         for i, link in enumerate(self.hub.links):
             if link.connects != self._connects[i]:
                 first = self._connects[i] == 0
@@ -95,6 +99,7 @@ class SplatPairing:
                 and time.ticks_diff(time.ticks_ms(), self._born) >= PAIR_CONNECT_MS):
             self._deadline_done = True
             self._drop_unconnected()
+        return events
 
     def _on_ready(self, i, first):
         if first:

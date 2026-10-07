@@ -142,6 +142,55 @@ None of these are touched by Part A. The `espnow_manager.py` divergence is flagg
   reads; `show_idle` and the corner pixel next to the idle ring; flash, tone and glow appearance on wand and Splat;
   palette distinctness on the matrix and a Splat; `unpair` and `splat-` cards read from real NDEF; peer add/remove
   of an asker while ESP-NOW is busy.
-## A6. `party.py` — not done
+## A6. `party.py` — done
+
+- Files: `MockWand/lib/party.py` (`enter`, `Net`, `run_lobby`, lobby display, `_PoolSplat`), `MockWand/lib/pwire.py`
+  (A5), `MockWand/lib/splatpair.py` (`poll()` returns the Splat events), `MockWand/main.py` (`_splat_limits`,
+  `_enter_party`, `_run_games` lobby flow with `net.close()` in a `finally`, `_start_play` with 8 parameters and
+  the 8, 7, 6 fallback), `tools/devtests/test_party.py`, `tools/devtests/boot_wand_party.py`,
+  `tools/devtests/wandboot.py` (game files, fake button, MAC wiring), `tools/devtests/wandsim.py`.
+- Tests:
+  - `python3 tools/devtests/test_party.py`: simulated wands on a fake ESP-NOW bus with fake BLE Splats. Cases: join,
+    lobby count and display, button start at SPLATS_MIN, auto-start at SPLATS_MAX, full lobby refused, plain wand
+    counting 0, simultaneous leaders (lowest MAC wins), a follower of a yielding leader re-finding, two groups on the
+    same slug with different ids and no cross-talk, stop card on a follower and on the leader, pooled commands to the
+    owner, remote and local presses, `splat_lost` / `splat_back` (follower's and leader's own), `wand_lost` /
+    `wand_back`, `leader_lost` once, a follower returning from `play()` giving `wand_lost` at once, a lost ACK
+    resent with the same `q` and applied once, duplicated frames, `SEND_TRIES` exhaustion, a join surviving lost
+    frames, 25% frame and ACK loss, ESP-NOW `stop` / `start_game`, a leader that never answers a join, another game's
+    lobby not joined, a leader holding enough Splats starting alone.
+  - `python3 tools/devtests/boot_wand_party.py`: the real `main.py` leading and following a party game; 6/7/8
+    parameter `play()`; invalid `SPLATS_*` declarations as load failures; `net.close()` after a game that raises;
+    a lobby cancelled by ESP-NOW stop; a `SPLATS_MIN` game whose `play()` has no `net` parameter.
+- Decisions the SPEC did not settle:
+  - Identity color in `net.wands` is the palette name (`"turngreen"`), usable directly in `splat(i).color()`.
+  - `pw_joined` carries `first` (this wand's first pool index) and `wands` (the roster so far); the final roster is
+    in `pw_start`. Followers do not use the interim roster.
+  - Followers send `pw_hb` from joining on, and the leader removes a lobby follower silent for `WAND_LOST_MS`.
+  - A leader answers `pw_find` for its slug with an immediate broadcast `pw_lobby`, in addition to the 1 s one.
+  - Pool order is join order, each wand's Splats contiguous in local order; the leader's come first.
+  - `pw_end` carries an optional `r`: `"yield"` (the lobby's leader joined a lower-MAC lobby; followers look again),
+    `"full"` (the join would exceed SPLATS_MAX). `enter()` re-finds up to `REFIND_MAX` (2) times after a yield or a
+    join that went unanswered, and leads if no lobby answers.
+  - A wand that receives a `pw_join` for a lobby it no longer leads answers `pw_end` with `r: "yield"`.
+  - `net.poll()` returns `("end",)` repeatedly once the game has ended, and also on an ESP-NOW `stop`,
+    `start_game` or `pw_release_all` (SPEC lists `end` for followers only; the leader gets it too). A `pw_end`
+    that arrives in the same loop pass as `pw_start` gives `("end",)` from the first `poll()`.
+  - `net.send()` refuses a body over `MSG_MAX_BYTES` (200) with `ValueError`; ESP-NOW's frame limit is 250.
+  - `pw_leave` during a game gives the leader `wand_lost` at once.
+  - `splat_lost` / `splat_back` for a follower's Splat come from the `l` bitmask in its `pw_hb`, so they can lag by
+    up to `HEARTBEAT_MS`; the baseline is "all READY", so a Splat not READY at game start is reported lost.
+  - A party game whose `play()` has no `net` parameter still goes through its lobby and then runs without `net`.
+  - `pw_start` that cannot be delivered to a follower (3 tries) is not retried; that follower sees no game and the
+    leader reports it `wand_lost` after `WAND_LOST_MS`.
+  - Lobby feedback on `enter()` returning `None`: neutral stop tone for the wand's own stop card or an ESP-NOW stop,
+    red X and reject tone otherwise.
+  - Test harness: `/games` at the filesystem root was created once by the first version of `wandboot.py` (an empty
+    directory in the sandbox, not in the repo); the harness now keeps those paths in its temp directory.
+- UNVERIFIED on hardware: everything about ESP-NOW latency and the slow-send board (`pw_cmd` round trips, lobby
+  timing with `FIND_WAIT_MS` 500, `JOIN_WAIT_MS` 1000), BLE and ESP-NOW coexistence on one C6 radio while a
+  party game runs, `WAND_LOST_MS` against real packet loss, peer table use with 20 peers, `read_ndef_text`
+  stop-card reads in the lobby loop every 8 iterations (`LOBBY_NFC_MS` 40), lobby display legibility, Splat write
+  pacing (50 ms per command) inside `net.poll()` at game rate.
 ## A7. Games — not done
 ## A8. Docs — not done

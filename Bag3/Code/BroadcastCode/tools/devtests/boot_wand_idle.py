@@ -153,6 +153,8 @@ sp = sys.modules["splatpair"]
 ident = sp.identity_name(wandboot.MY_MAC)
 check("identity is the last MAC byte modulo the palette",
       ident == sp.PALETTE[0x07 % len(sp.PALETTE)] == "turngreen", ident)
+check("the controller's identity comes from the wand's own MAC", b.m._pair_ctl.identity == ident
+      and b.m._pair_ctl.my_mac == wandboot.MY_MAC, b.m._pair_ctl.my_mac)
 cols = b.wand.periph(A).colors()
 check("first connect: the Splat flashes the identity color, then glows dim",
       cols[0] == (0, 255, 0) and cols[-1] == (0, 38, 0), str(cols))

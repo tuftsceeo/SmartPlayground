@@ -42,8 +42,7 @@ _gc.mem_free = lambda: 100_000
 _gc.threshold = lambda *a: 0
 
 import machine  # noqa: E402  (the stub)
-import game_store  # noqa: E402
-game_store.GAMES_DIR = os.path.join(FLASH, "games")
+GAMES_DIR = os.path.join(FLASH, "games")
 
 A = "AB:42:00:00:7E:B6"
 B = "AB:42:00:00:20:60"
@@ -63,11 +62,17 @@ machine.reset = _reset
 
 
 class FakePN532:
-    def __init__(self, i2c, addr):
+    """No card is ever on the reader; read_passive_target burns its timeout."""
+    def __init__(self, i2c=None, addr=None):
         pass
 
     def begin(self):
         return (0x32, 1, 6)
+
+    def read_passive_target(self, timeout=0):
+        import time
+        time.sleep_ms(timeout)
+        return None
 
 
 class FakeReader:
@@ -132,16 +137,35 @@ class Boot:
     pass
 
 
+class FakeButton:
+    """Replaces main's btn pin: value() is 0 while .down is True."""
+    def __init__(self):
+        self.down = False
+
+    def value(self, *a):
+        return 0 if self.down else 1
+
+
 def boot(cause=machine.SOFT_RESET, macs=None, in_range=(), ble_fail=None, ticks=10,
-         file_text=None, cards=None, setup=None, my_mac=MY_MAC):
+         file_text=None, cards=None, setup=None, my_mac=MY_MAC, games=None):
     """Boot main.main() once.
 
     cards: list of None / card text, one per NFC detect (see FakeReader); when
       None, `ticks` empty detects.
     setup(b): called with the Boot (m, wand, sim, bus filled in) just before
       main() runs, to spawn other wands or schedule events.
+    games: {slug: source} written to the pulled-games directory before main
+      is loaded, so each slug is a card the idle loop plays.
     """
     _purge()
+    import game_store as gs          # a fresh copy; keep its paths off the real root
+    gs.GAMES_DIR = GAMES_DIR
+    gs.LAST_PULLED = GAMES_DIR + "/last_pulled.txt"
+    shutil.rmtree(GAMES_DIR, ignore_errors=True)
+    os.makedirs(GAMES_DIR)
+    for slug, text in (games or {}).items():
+        with open(os.path.join(GAMES_DIR, slug + ".py"), "w") as f:
+            f.write(text)
     for f in (PAIRING, PAIRING + ".tmp"):
         if os.path.exists(f):
             os.remove(f)
@@ -152,6 +176,8 @@ def boot(cause=machine.SOFT_RESET, macs=None, in_range=(), ble_fail=None, ticks=
         with open(PAIRING, "w") as f:
             f.write(file_text)
     machine._reset_cause = cause
+    import network
+    network.WLAN.mac = wandsim.mac_bytes(my_mac)   # what get_own_mac() reports
     sim, bus = wandsim.new_sim()
     wand = wandsim.Wand(sim, bus, my_mac)
     wand.ble_fail_active = ble_fail
@@ -170,12 +196,15 @@ def boot(cause=machine.SOFT_RESET, macs=None, in_range=(), ble_fail=None, ticks=
     exec(compile(src, m.__file__, "exec"), m.__dict__)
     m._PAIRING_PATH = PAIRING
     m.buz = wand.buz
+    b_button = FakeButton()
+    m.btn = b_button
     m.PN532 = FakePN532
     m.NfcReader = FakeReader
     m.ESPNowManager = lambda: wand.enow
 
     b = Boot()
     b.m, b.wand, b.sim, b.bus = m, wand, sim, bus
+    b.button = b_button
     b.reset = False
     b.order = wandsim.CALLS
     del b.order[:]

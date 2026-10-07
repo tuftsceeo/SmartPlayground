@@ -406,6 +406,21 @@ def _load_play(name):
     return getattr(mod, "play")
 
 
+def _splat_limits(name):
+    """(SPLATS_MIN, SPLATS_MAX) if the loaded game module declares a party
+    game, else None. Raises ValueError for an invalid declaration."""
+    mod = sys.modules[game_module(name)]
+    lo = getattr(mod, "SPLATS_MIN", None)
+    if lo is None:
+        return None
+    hi = getattr(mod, "SPLATS_MAX", None)
+    if (not isinstance(lo, int) or isinstance(lo, bool) or lo < 1
+            or (hi is not None and (not isinstance(hi, int) or isinstance(hi, bool) or hi < lo))):
+        raise ValueError("%s: SPLATS_MIN=%r SPLATS_MAX=%r (need int >= 1, and None or >= SPLATS_MIN)"
+                         % (name, lo, hi))
+    return lo, hi
+
+
 def _unload_game(name):
     """Drop a finished game's module so the next one starts from a
     cleaner heap rather than stacking on top of it.
@@ -469,34 +484,53 @@ def _is_arity_error(e):
             or ("argument" in msg and "given" in msg))
 
 
-def _start_play(play_func, name, nfc, leds, buz, accel, i2c, wrapper, batt_ref):
-    """Call a game's play(), tolerating the older six-parameter signature.
+def _start_play(play_func, name, nfc, leds, buz, accel, i2c, wrapper, batt_ref, net=None):
+    """Call a game's play(), tolerating the older six- and seven-parameter
+    signatures.
 
     batt became a real seventh parameter long after games had been written
-    and pulled against six, and those games are still on flash and still on
-    the Box. Refusing to run them would make every game a teacher generated
-    before that change dead on this wand, which is a worse outcome than
-    calling them the way they were written.
+    and pulled against six, and net an eighth for party games. Those games
+    are still on flash and still on the Box. Refusing to run them would make
+    every game a teacher generated before the change dead on this wand, which
+    is a worse outcome than calling them the way they were written. net is
+    None for a game that is not a party game.
 
     Where the port exposes __code__.co_argcount the arity is read outright
-    and the right call is made first time. Where it does not, the seven-arg
-    call is tried and an arity TypeError falls back to six -- the game has
-    not started at that point, because Python raises on arity before
+    and the right call is made first time. Where it does not, the eight-arg
+    call is tried and an arity TypeError falls back to seven, then six -- the
+    game has not started at that point, because Python raises on arity before
     entering the function.
     """
-    args = (nfc, leds, buz, accel, i2c, wrapper, batt_ref)
+    args = (nfc, leds, buz, accel, i2c, wrapper, batt_ref, net)
     code = getattr(play_func, "__code__", None)
     n = getattr(code, "co_argcount", None) if code is not None else None
     if n is not None:
         return play_func(*args[:n]) if n < len(args) else play_func(*args)
-    try:
-        return play_func(*args)
-    except TypeError as e:
-        if not _is_arity_error(e):
-            raise
-        print("  %s takes the older six-argument play(); calling it that way"
-              % name)
-        return play_func(*args[:6])
+    for k in (8, 7, 6):
+        try:
+            return play_func(*args[:k])
+        except TypeError as e:
+            if not _is_arity_error(e) or k == 6:
+                raise
+            print("  %s does not take %d arguments; trying %d" % (name, k, k - 1))
+
+
+def _enter_party(name, limits, enow, nfc, leds, buz):
+    # Lobby for a party game. Returns a party.Net in its game phase, or None
+    # (cancelled, left or lost), after giving feedback.
+    import party
+    from espnow_manager import get_own_mac
+    net = party.enter(enow, name, limits[0], limits[1], _pair_ctl, get_own_mac(),
+                      nfc, leds, buz, lambda: btn.value() == 0)
+    if net is None:
+        if party.last_end in ("left", "external"):
+            buz.stop()
+        else:
+            leds.show_shape(SHAPE_X, RED)
+            buz.reject()
+            time.sleep_ms(500)
+        leds.off()
+    return net
 
 
 def _launch_game(name, nfc, leds, buz, accel, i2c, enow, batt_ref):
@@ -518,19 +552,32 @@ def _run_games(name, nfc, leds, buz, accel, i2c, enow, batt_ref):
             _game_load_failed(name, e)
             return
         wrapper = _StartGameCapture(enow)
-        _emit({"type": "game_start", "slug": name})
+        net = None
         try:
-            _start_play(play_func, name, nfc, leds, buz, accel, i2c,
-                        wrapper, batt_ref)
-        except TypeError as e:
-            # A game that cannot even be CALLED is a load failure, not a
-            # reason to take the main loop down with it. Anything raised
-            # from inside a running game still propagates, as before.
-            if not _is_arity_error(e):
-                raise
+            limits = _splat_limits(name)
+        except ValueError as e:
             _game_load_failed(name, e)
             return
-        _emit({"type": "game_end", "slug": name})
+        if limits is not None:
+            net = _enter_party(name, limits, wrapper, nfc, leds, buz)
+        if limits is None or net is not None:
+            _emit({"type": "game_start", "slug": name})
+            try:
+                try:
+                    _start_play(play_func, name, nfc, leds, buz, accel, i2c,
+                                wrapper, batt_ref, net)
+                except TypeError as e:
+                    # A game that cannot even be CALLED is a load failure, not a
+                    # reason to take the main loop down with it. Anything raised
+                    # from inside a running game still propagates, as before.
+                    if not _is_arity_error(e):
+                        raise
+                    _game_load_failed(name, e)
+                    return
+            finally:
+                if net is not None:
+                    net.close()
+            _emit({"type": "game_end", "slug": name})
         next_name = wrapper.pending_name
         # Drop the reference before unloading -- play_func is what pins
         # the module in this frame; a chained force-switch must not

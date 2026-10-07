@@ -93,6 +93,7 @@ class Sim:
         self._parked = threading.Semaphore(0)
         self.default_wand = None
         self.in_event = False
+        self.max_ms = 600_000            # a scenario still running here is stuck
 
     # ── time functions ──
     def install(self):
@@ -147,6 +148,8 @@ class Sim:
         """Advance virtual time to until_ms, running threads and events."""
         if getattr(self._local, "cur", None) is not None:
             raise SimError("Sim.run() from a simulated thread")
+        if until_ms > self.max_ms:
+            raise SimError("virtual time passed %d ms: the scenario is stuck" % self.max_ms)
         while True:
             live = [t for t in self._threads if not t.done]
             cands = [t.wake for t in live] + [e[0] for e in self._events]
