@@ -12,6 +12,12 @@ the tag vocabulary (alongside each Bag's `lib/`, `hubCode2/game_tags.py`,
 **`getcode` must match** `BBoxFirmware/opcodes.py` byte-for-byte. After editing
 either file, `diff` the two copies.
 
+**PEER copies of the Splat libraries.** `lib/splat_hub.py`, `lib/splat_link.py`,
+`lib/splat_api.py` and `lib/ble_splat.py` are byte copies of
+`SplatCompanion/Companion/`'s (`ble_splat.py` also of `Bag3/Code/lib/`'s).
+`splat_api.py` stays the source of truth for Splat action names. Fixing one
+copy fixes only that copy; `tools/devtests/test_wand_copies.py` reports drift.
+
 ## getcode flow
 
 1. Box writes a `getcode` opcode card.
