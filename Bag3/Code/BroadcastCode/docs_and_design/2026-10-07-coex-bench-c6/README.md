@@ -39,28 +39,32 @@ Reused unchanged:
 
 ## Setup (once)
 
+Read [Bag3/Code/HARDWARE_PROTOCOL.md](../../../HARDWARE_PROTOCOL.md) first. In particular: ask which board is on
+which port, and pass `resume` on every `mpremote` call except a plain `reset`.
+
 From the repo root:
 
 ```sh
-HUB=/dev/ttyACM0          # hub MockWand
-PEER=/dev/ttyACM1         # peer MockWand
+HUB=/dev/cu.usbmodemXXXX     # hub MockWand -- ask, never guess
+PEER=/dev/cu.usbmodemYYYY    # peer MockWand
+MP="python3 -m mpremote"
 SC=Bag3/Code/BroadcastCode/SplatCompanion/Companion
 S3=Bag3/Code/BroadcastCode/docs_and_design/2026-10-06-coex-bench
 C6=Bag3/Code/BroadcastCode/docs_and_design/2026-10-07-coex-bench-c6
 
 # Firmware has BLE and esp32.idf_heap_info
-mpremote connect $HUB exec "import sys, bluetooth, esp32; print(sys.implementation)"
+$MP connect $HUB resume exec "import sys, bluetooth, esp32; print(sys.implementation)"
 
 # Splat modules on the hub
-mpremote connect $HUB fs mkdir :coex
-mpremote connect $HUB fs cp $SC/splat_link.py $SC/splat_hub.py $SC/splat_api.py $SC/lib/ble_splat.py :coex/
+$MP connect $HUB resume fs mkdir :coex
+$MP connect $HUB resume fs cp $SC/splat_link.py $SC/splat_hub.py $SC/splat_api.py $SC/lib/ble_splat.py :coex/
 
 # Disable the wand firmware on the hub so a reset gives a clean boot (boot.py only)
-mpremote connect $HUB exec "import os; os.rename('main.py', 'main_off.py')"
+$MP connect $HUB resume exec "import os; os.rename('main.py', 'main_off.py')"
 ```
 
-The peer keeps its normal firmware. `mpremote ... resume run` interrupts its `main.py`, and the peer scripts
-reconfigure ESP-NOW themselves.
+The peer keeps its normal firmware. `resume run` interrupts its `main.py`, and the peer scripts reconfigure
+ESP-NOW themselves.
 
 ## Each run
 
@@ -68,27 +72,31 @@ reconfigure ESP-NOW themselves.
 
 ```sh
 mkdir -p $C6/logs
-mpremote connect $HUB reset
+$MP connect $HUB reset
 sleep 3
-mpremote connect $PEER resume run $S3/coex_peer.py &          # leave running
-mpremote connect $HUB resume run $C6/<script>.py | tee $C6/logs/<name>.log
+$MP connect $PEER resume run $S3/coex_peer.py > $C6/logs/<name>_peer.log &    # stop it after the run
+$MP connect $HUB resume run $C6/<script>.py | tee $C6/logs/<name>.log
 ```
 
-Keep `resume` on the hub command. Without it, mpremote soft-resets first. A soft reset may not give back
-heap that boot already split off; the Dial's fragmentation survived one.
+Keep `resume` on the hub's `run`. Without it, mpremote soft-resets first. A soft reset may not give back heap
+that boot already split off; the Dial's fragmentation survived one.
 
-### Suggested order (about 45 minutes)
+### Run order (about 50 minutes; the person is needed only at the start and for the last ~15)
+
+Unattended runs come first. One person step at the start: switch on 4 Splats. After that, a person is needed
+only for the hands-on block at the end.
 
 | # | Script | Splats | Person | Length | What it answers |
 |---|---|---|---|---|---|
-| 1 | `coex_c6_one.py` | 1 | presses, ~10 per 30 s phase | ~3 min | Does ESP-NOW start **after** BLE on a C6 (the #18859 order)? BLE alone vs BLE + ESP-NOW latency. |
-| 2 | `coex_c6_bench.py`, `ORDER = "enow_first"` | 4 | none | ~12 min | Does BLE start **after** ESP-NOW (the S3 order)? This run also gives the no-BLE baseline the S3 run never reached. ESP-NOW at 1, 2 and 4 Splats, compile budget, 5 min soak. |
-| 3 | `coex_c6_bench.py`, `ORDER = "ble_first"` | 4 | none | ~12 min | The same tests with the other order. Skip it if run 1 failed at ESP-NOW bring-up. Set `SOAK_S = 0` to save time. |
-| 4 | `coex_c6_buf.py` | 4 | presses in the two 30 s button phases | ~10 min | `rxbuf` capacity and limit on a C6; Splat press latency, quiet vs loaded. |
-| 5 | `demo_c6_hub.py`, with `demo_wand.py` on the peer | 4 | plays | as long as useful | End-to-end play. The hub logs memory and loop stall every 60 s. |
+| 1 | `coex_c6_bench.py`, `ORDER = "enow_first"` | 4 | none | ~12 min | Does BLE start **after** ESP-NOW (the S3 order)? This run also gives the no-BLE baseline the S3 run never reached. ESP-NOW at 1, 2 and 4 Splats, compile budget, 5 min soak. |
+| 2 | `coex_c6_bench.py`, `ORDER = "ble_first"`, `SOAK_S = 0` | 4 | none | ~8 min | Does ESP-NOW start **after** BLE (the #18859 order)? The same tests with that order. |
+| 3 | `coex_c6_buf.py`, `RUN_BUTTONS = False` | 4 | none | ~8 min | `rxbuf` capacity and limit on a C6. |
+| 4 | `coex_c6_buf.py`, `RUN_BUFFER = False` | 4 | presses in two 30 s phases | ~2 min | Splat press latency, quiet vs loaded. |
+| 5 | `demo_c6_hub.py`, with `demo_wand.py` on the peer | 4 | plays | 3–5 min | End-to-end play. The hub logs memory and loop stall every 60 s. |
+| 6 | `coex_c6_one.py` | 1 (switch 3 off) | presses, ~10 per 30 s phase | ~3 min | BLE alone vs BLE + ESP-NOW latency, one Splat. Skip it if run 2 failed at ESP-NOW bring-up: it uses the same order and would fail after phase A. |
 
-To change `ORDER`, `SOAK_S` or another constant, edit it in the local file before `run`. mpremote passes no
-arguments.
+To change `ORDER`, `SOAK_S`, `RUN_BUFFER` or `RUN_BUTTONS`, edit the local file before `run`, then revert it.
+mpremote passes no arguments.
 
 If the hub stops at `FAIL: largest free IDF block is below CLEAN_BOOT_MIN_LARGEST`:
 1. **Check** that `main.py` is renamed, and that the run used a hard reset and `resume`.
@@ -99,9 +107,9 @@ If the hub stops at `FAIL: largest free IDF block is below CLEAN_BOOT_MIN_LARGES
 ### Restore the hub afterwards
 
 ```sh
-mpremote connect $HUB exec "import os; os.rename('main_off.py', 'main.py')"
-mpremote connect $HUB fs rm -r :coex      # optional
-mpremote connect $HUB reset
+$MP connect $HUB resume exec "import os; os.rename('main_off.py', 'main.py')"
+$MP connect $HUB resume fs rm -r :coex      # optional
+$MP connect $HUB reset
 ```
 
 ## Reading the results
