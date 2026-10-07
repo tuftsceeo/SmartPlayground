@@ -35,7 +35,7 @@ GAME_TAGS = {
     "splatecho",
 }
 
-CONTROL_TAGS = {"start", "stop"}
+CONTROL_TAGS = {"start", "stop", "unpair"}
 
 # ESP-NOW only, never printed on a card.
 HIDDEN_TAGS = {"finddevice"}

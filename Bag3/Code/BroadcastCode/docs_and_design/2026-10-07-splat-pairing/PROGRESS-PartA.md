@@ -37,7 +37,20 @@ None of these are touched by Part A. The `espnow_manager.py` divergence is flagg
   (PEER copies note), `tools/devtests/test_wand_copies.py`.
 - Test: `python3 tools/devtests/test_wand_copies.py`.
 
-## A2. Card parsing and the `unpair` tag — not done
+## A2. Card parsing and the `unpair` tag — done
+
+- Files: `MockWand/lib/nfc_reader.py` (`parse_splat_card`, `read_command` accepts a Splat card),
+  `MockWand/lib/game_tags.py` (`unpair` in `CONTROL_TAGS`), `tools/devtests/test_wand_cards.py`.
+- Test: `python3 tools/devtests/test_wand_cards.py`.
+- Decision: `nfc_reader.py` and `game_tags.py` are imported at `main.py` module scope, ahead of
+  `enow.init()`. The new function has no docstring, print or module constant, and the explanation is a `#`
+  comment, so the only added allocation is one small function object plus the `"unpair"` string.
+  Part B's `memprobe` run should confirm `idf_largest` after imports is unchanged within noise.
+- Decision: `read_command()` returns the lowercase decoded text (`splat-ab42...`), as it does for every card;
+  `parse_splat_card` is case-insensitive.
+- `unpair` is not in `EXIT_TAGS`, so a running game ignores it; the idle loop acts on it in A5.
+- UNVERIFIED on hardware: a real NDEF read of a `splat-` card. The test feeds a synthetic NTAG page image
+  through `read_command()`.
 ## A3. Pairing store — not done
 ## A4. Boot integration — not done
 ## A5. Pair and unpair in the idle loop — not done
