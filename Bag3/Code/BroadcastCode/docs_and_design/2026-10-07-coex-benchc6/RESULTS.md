@@ -3,10 +3,10 @@
 Hub: MockWand XIAO ESP32-C6 (`/dev/cu.usbmodem1101`), external antenna. Peer: second MockWand
 running `coex_peer.py`, external antenna. 2 Splats on hand (S3 bench used 4). MicroPython
 1.28.0. Each hub script was run after a plain reset with `main.py` renamed to `main.py.bak`
-(radio unclaimed, `idf_largest=270336` at start). Compared against `../2026-10-06-coex-bench/`
+(restored afterward; radio unclaimed, `idf_largest=270336` at start). Compared against `../2026-10-06-coex-bench/`
 (StickS3 hub). One run per test; no repeats.
 
-Logs here: `bench1.log`, `buf1.log`, `btn1_crash.log`, `btn2.log`, `one1.log`.
+Logs here: `bench1.log`, `buf1.log`, `btn1_crash.log`, `btn2.log`, `one1.log`, `demo_hub.log`, `demo_wand.log`.
 
 ## Result
 
@@ -83,6 +83,20 @@ Loaded phase C: broadcasts received 1496/1500 (99.7%), pings ACKed 300/300 (S3: 
 (85.4%, `btn2.log`); the two runs differ in Splat count and in who pressed what, so the
 cause is not isolated.
 
+## Demo (`demo_hub.py` / `demo_wand.py`, `demo_hub.log`, `demo_wand.log`)
+
+2 Splats, wand on the peer board. Stopped by hand at about t=45 s of a 180 s run (S3 ran 900 s).
+
+- Hub found the wand at t=1.75; Splat 1 connected at t=3.40, Splat 0 at t=4.80.
+- 9 wand-button presses, each lit the next Splat; the hub told the wand first try (`tries=1`,
+  2-4 ms, e.g. t=14.80, t=23.67). Hub handling time 6-54 ms (36 ms at t=14.80, 51 ms at t=31.79).
+- 17 HIT and 6 miss messages to the wand, all ACKed first try; send 2 ms (5 ms once, t=34.60);
+  press IRQ to ACK 3-6 ms. `demo_wand.log` shows the same sequence of lit Splats, HITs and misses.
+- No Splat disconnects, no retries, no failed wand ACKs.
+- t=25.30 logs `press IRQ to ACK -1 ms` (no press timestamp captured); the S3 demo log has the same
+  at t=23.31.
+- Wand sounds and LED colors were not observed by the agent.
+
 ## Caveats
 
 - **Press counts are unreliable.** Every button run logged more presses than the ~5–10
@@ -91,5 +105,4 @@ cause is not isolated.
   that may not each be a real press.
 - 2 Splats versus the S3's 4; 60 s soak versus 300 s; single runs. S3 button/loaded rows
   are not like-for-like with the C6's.
-- The demo (`demo_hub.py` / `demo_wand.py`) was not run.
-- Both wands still have `main.py` renamed to `main.py.bak`.
+- The demo ran about 45 s of its 180 s.
