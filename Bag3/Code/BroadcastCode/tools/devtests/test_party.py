@@ -12,145 +12,11 @@ import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import wandsim  # noqa: E402
+from partysim import *  # noqa: E402,F401,F403
+from partysim import (Sc, W, S, NETS, net_of, press, loop, evs, long_loop,  # noqa: E402,F401
+                      party, pwire, splatpair, nfc_reader)
 
 check = wandsim.Checker()
-
-import nfc_reader  # noqa: E402  (MockWand/lib, via wandsim.setup_paths)
-import party  # noqa: E402
-import pwire  # noqa: E402
-import splatpair  # noqa: E402
-
-SLUG = "pgame"
-S = {n: "AB:42:00:00:00:%02X" % n for n in range(1, 9)}      # fake Splat MACs
-W = {n: "AA:00:00:00:00:%02X" % n for n in range(1, 9)}      # wand MACs
-
-
-class FakeNfc:
-    """stop_at: virtual ms at which a `stop` card is on the reader."""
-    def __init__(self):
-        self.stop_at = None
-
-
-def _fake_read(nfc, timeout=500, resel_timeout=150):
-    time.sleep_ms(timeout)
-    if nfc.stop_at is not None and time.ticks_ms() >= nfc.stop_at:
-        return "stop", "UIDSTOP"
-    return None, None
-
-
-nfc_reader.read_ndef_text = _fake_read
-
-NETS = []
-_RealNet = party.Net
-
-
-class RecNet(_RealNet):
-    """party.Net that records itself, so a test can look at a lobby in progress."""
-    def __init__(self, *a, **k):
-        super().__init__(*a, **k)
-        NETS.append(self)
-
-
-party.Net = RecNet
-
-
-def net_of(w):
-    for n in reversed(NETS):
-        if n.my_mac == w.mac:
-            return n
-    return None
-
-
-def press(sc, w, at_ms, hold_ms=60):
-    sc.sim.at(at_ms, lambda: setattr(w, "button", True))
-    sc.sim.at(at_ms + hold_ms, lambda: setattr(w, "button", False))
-
-
-class Sc:
-    """One scenario: a Sim, a Bus and the wands on it."""
-
-    def __init__(self):
-        self.sim, self.bus = wandsim.new_sim()
-        self.wands = {}
-        self.log = []
-
-    def wand(self, n, splats=()):
-        w = wandsim.Wand(self.sim, self.bus, W[n])
-        w.n = n
-        w.nfc = FakeNfc()
-        w.button = False
-        w.events = []
-        w.net = None
-        w.ctl = None
-        w.result = None
-        w.splat_macs = [S[s] for s in splats]
-        for s in splats:
-            w.splat(S[s])
-        self.wands[n] = w
-        return w
-
-    def tap(self, n, at_ms, game, smin=2, smax=None, slug=SLUG, wait_ready=True):
-        """Wand n taps the party game's card at at_ms and then runs game(net, w)."""
-        w = self.wands[n]
-
-        def run():
-            if w.splat_macs:
-                w.ctl = splatpair.SplatPairing(list(w.splat_macs), w.enow, w.leds, w.buz,
-                                               my_mac=w.mac)
-                if wait_ready:
-                    t0 = time.ticks_ms()
-                    while (not all(l.ready for l in w.ctl.hub.links)
-                           and time.ticks_ms() - t0 < 5000):
-                        w.ctl.poll()
-                        time.sleep_ms(5)
-            if time.ticks_ms() < at_ms:
-                time.sleep_ms(at_ms - time.ticks_ms())
-            w.tap_ms = time.ticks_ms()
-            net = party.enter(w.enow, slug, smin, smax, w.ctl, w.mac, w.nfc, w.leds, w.buz,
-                              lambda: w.button)
-            w.net = net
-            w.last_end = party.last_end
-            w.started_ms = time.ticks_ms() if net is not None else None
-            if net is not None:
-                try:
-                    game(net, w)
-                finally:
-                    net.close()
-            w.finished_ms = time.ticks_ms()
-            w.result = "done"
-
-        return self.sim.spawn("wand%d" % n, run, w)
-
-    def run(self, ms):
-        self.sim.run(self.sim.now + ms)
-
-
-def loop(net, w, ms, each=None, stop_on_end=True):
-    """The shape of a game's play() loop: poll, record, sleep 1 ms."""
-    end = time.ticks_ms() + ms
-    while time.ticks_ms() < end:
-        ev = net.poll()
-        if ev is not None:
-            w.events.append(ev)
-            if ev == ("end",) and stop_on_end:
-                return
-        if each is not None:
-            each(net, w)
-        time.sleep_ms(1)
-
-
-def passive(ms):
-    return lambda net, w: loop(net, w, ms)
-
-
-
-def evs(w, kind=None):
-    return [e for e in w.events if kind is None or e[0] == kind]
-
-
-def long_loop(ms=30000):
-    return lambda net, w: loop(net, w, ms)
-
 
 # ── 1. Two wands, one Splat each: join, lobby count, start, roster, pool ──
 sc = Sc()
@@ -258,6 +124,29 @@ check("the leader's game ended, followers got ('end',)", ("end",) in w2.events, 
 check("every peer was removed at game end",
       w1.enow.get_peer_macs() == [] and w2.enow.get_peer_macs() == [])
 
+
+# ── 1b. A command sent the moment the game starts is not lost on a follower that is still in enter() ──
+sc = Sc()
+w1, w2 = sc.wand(1, [1]), sc.wand(2, [2])
+
+
+def eager_leader(net, w):
+    w.res = [net.splat(1).color("turnred")]
+    loop(net, w, 2000)
+
+
+def lazy_follower(net, w):
+    time.sleep_ms(50)               # starts polling late
+    loop(net, w, 2000)
+
+
+sc.tap(1, 0, eager_leader, smin=2)
+sc.tap(2, 700, lazy_follower, smin=2)
+sc.run(1800)
+press(sc, w1, sc.sim.now + 10)
+sc.run(1200)
+check("a pw_cmd sent right after pw_start is applied by the follower",
+      (255, 0, 0) in w2.periph(S[2]).colors(), str(w2.periph(S[2]).colors()))
 
 # ── 2. Plain wands count 0 Splats; auto-start at SPLATS_MAX ──
 sc = Sc()

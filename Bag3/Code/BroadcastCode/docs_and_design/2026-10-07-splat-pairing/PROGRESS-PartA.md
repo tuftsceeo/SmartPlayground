@@ -192,5 +192,33 @@ None of these are touched by Part A. The `espnow_manager.py` divergence is flagg
   party game runs, `WAND_LOST_MS` against real packet loss, peer table use with 20 peers, `read_ndef_text`
   stop-card reads in the lobby loop every 8 iterations (`LOBBY_NFC_MS` 40), lobby display legibility, Splat write
   pacing (50 ms per command) inside `net.poll()` at game rate.
-## A7. Games — not done
+## A7. Games — done
+
+- Files: `MockWand/games/partytest.py`, `MockWand/games/splattag.py` (pooled), `MockWand/games/relaycolor.py`
+  (messages), `tools/devtests/partysim.py` (scaffolding shared with `test_party.py`),
+  `tools/devtests/test_party_games.py`, a regression case in `test_party.py`, a card check in `boot_wand_party.py`;
+  `MockWand/lib/party.py` (see below).
+- Tests: `python3 tools/devtests/test_party_games.py` (a scripted session per game on the A6 simulation).
+  - partytest: a follower's, the leader's and a plain wand's button light the next pool Splat in the presser's
+    identity color and turn the previous one off; a Splat press lights it for its owner; the leader's stop card
+    ends the game for all; a follower's stop card leaves only that wand.
+  - splattag (3 wands, 4 Splats, seeded): one target at a time, a press on it scores for the Splat's owner, five
+    points wins, the winner is announced, every wand's `play()` returns and every Splat is dark; a press on a
+    non-target Splat scores nothing; a dropped target Splat is replaced; a silent wand's Splats are never picked.
+  - relaycolor (3 wands, one with no Splats): the token passes by button or by a press on the holder's own Splat,
+    wraps around, ignores presses on other wands' Splats, and is re-issued when the holder's wand is lost.
+- Decisions:
+  - The games are in `MockWand/games/`, not the flash root. `tools/deploy.py` copies that directory to `/games/`,
+    where `main.py` finds a game by its slug without a `GAME_MODULES`, `GAME_TAGS` or `GAME_ICON` entry. That
+    adds nothing to the built-in tables, to `main.py`'s module scope, or to the tag consumers listed in AGENTS.md.
+    The cards read `partytest`, `splattag` and `relaycolor`. Each game must be on every participating wand.
+  - The games import `splatpair.WAND_RGB` for identity colors; `splatpair` is on every MockWand's `/lib`.
+  - A bug found by the simulation, fixed in `party.py`: `lobby_step()` kept draining the rx queue through the lobby
+    handler after `pw_start`, so a leader's first `pw_cmd` (sent immediately after starting) was dropped by a
+    follower that had not begun polling. It now stops at `pw_start` and leaves later frames for `poll()`.
+  - The games read the stop card with `read_tag_command` every 25 loops with a 30 ms detect timeout, which stalls
+    `net.poll()` for up to 30 ms each time; they sleep 1 ms per loop otherwise.
+- UNVERIFIED on hardware: matrix and Splat appearance and sounds in all three games, pooled-command latency as
+  `partytest` logs it, `splattag` round timing (`ROUND_MS`, `PAUSE_MS`) with real BLE write pacing, the 30 ms NFC
+  stall in games.
 ## A8. Docs — not done

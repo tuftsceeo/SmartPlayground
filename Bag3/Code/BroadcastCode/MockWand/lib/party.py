@@ -283,6 +283,8 @@ class Net:
                 return "cancel"
             if mt == "raw" and isinstance(data, dict):
                 self._lobby_msg(data, sender, now)
+                if self.phase == "game":
+                    break           # the rest are in-game frames: leave them for poll()
         if self.phase == "game":
             if self._end_reason is not None:     # pw_end followed pw_start at once
                 self._finish(self._end_reason)

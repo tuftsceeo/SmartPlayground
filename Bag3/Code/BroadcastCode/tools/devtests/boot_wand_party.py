@@ -233,5 +233,21 @@ b = boot(macs=[A], in_range=[A], games=GAMES, cards=NONE * 25 + ["nonet"] + NONE
 check("a SPLATS_MIN game whose play() takes seven parameters runs after its lobby (net not passed)",
       ("nonet",) in gamelog.calls, str(gamelog.calls))
 
+# ── The shipped demo games are playable cards through main.py ──
+demo = {}
+for slug in ("partytest", "splattag", "relaycolor"):
+    with open(os.path.join(wandsim.WAND_DIR, "games", slug + ".py")) as f:
+        demo[slug] = f.read()
+b = boot(games=demo, cards=NONE * 2)
+m = b.m
+limits = {}
+for slug in demo:
+    m._load_play(slug)
+    limits[slug] = m._splat_limits(slug)
+    sys.modules.pop(slug, None)
+check("partytest, splattag and relaycolor are cards a wand plays, declaring their SPLATS_MIN / MAX",
+      limits == {"partytest": (2, None), "splattag": (2, None), "relaycolor": (1, None)}
+      and all(m.is_game(s) for s in demo), str(limits))
+
 shutil.rmtree(wandboot.TMP, ignore_errors=True)
 check.finish("wand party boot OK")
