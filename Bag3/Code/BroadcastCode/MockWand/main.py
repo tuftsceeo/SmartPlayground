@@ -38,7 +38,7 @@ from leds import (
 )
 from power_led import PowerLed
 from buzzer import Buzzer
-from nfc_reader import NfcReader, split_prefixed
+from nfc_reader import NfcReader, split_prefixed, parse_splat_card
 from actions import ActionRunner, ACTIONS, ANIMAL_SOUNDS, ACTION_RESOURCE, resolve_and_group, chain_to_str
 from battery import show_battery
 from espnow_manager import ESPNowManager
@@ -264,11 +264,13 @@ ALL_COMMANDS   = BASE_COMMANDS | set(game_store.slugs())
 # "yourgame":
 #
 #   1. Create `yourgame.py` in this folder exposing
-#      `def play(nfc, leds, buz, accel, i2c, enow, batt=None): ...`
+#      `def play(nfc, leds, buz, accel, i2c, enow, batt=None, net=None): ...`
 #      returning when the "stop" NFC tag, ESP-NOW stop, or ESP-NOW
-#      start_game is received (poll enow every loop). All seven
-#      parameters are always passed positionally; `batt` is the
-#      MAX17048 fuel gauge and is None when the board has none.
+#      start_game is received (poll enow every loop). Parameters are
+#      passed positionally up to as many as play() declares (6, 7 or 8);
+#      `batt` is the MAX17048 fuel gauge and is None when the board has
+#      none. `net` is None unless the module declares SPLATS_MIN (a party
+#      game, see README.md).
 #   2. Add the tag name `"yourgame"` to GAME_TAGS in lib/game_tags.py.
 #   3. Add `"yourgame": "yourgame"` to GAME_MODULES in this file --
 #      key is the tag name, value is the module's filename (no `.py`).
@@ -369,6 +371,12 @@ class _StartGameCapture:
         mt, data, mac = self._enow.poll(timeout_ms)
         if mt == "start_game":
             self.pending_name = data.get("name") if isinstance(data, dict) else None
+        elif mt == "raw" and _pair_ctl is not None and isinstance(data, dict):
+            r = _pair_ctl.on_msg(data, mac)
+            if r == "who":
+                return None, None, None
+            if r == "release":
+                return "stop", data, mac     # pw_release_all ends the game
         return mt, data, mac
 
     def __getattr__(self, attr):
@@ -398,6 +406,21 @@ def _load_play(name):
     mod = __import__(mod_name)
     memprobe.span("import:%s" % name, tok)   # BENCH
     return getattr(mod, "play")
+
+
+def _splat_limits(name):
+    """(SPLATS_MIN, SPLATS_MAX) if the loaded game module declares a party
+    game, else None. Raises ValueError for an invalid declaration."""
+    mod = sys.modules[game_module(name)]
+    lo = getattr(mod, "SPLATS_MIN", None)
+    if lo is None:
+        return None
+    hi = getattr(mod, "SPLATS_MAX", None)
+    if (not isinstance(lo, int) or isinstance(lo, bool) or lo < 1
+            or (hi is not None and (not isinstance(hi, int) or isinstance(hi, bool) or hi < lo))):
+        raise ValueError("%s: SPLATS_MIN=%r SPLATS_MAX=%r (need int >= 1, and None or >= SPLATS_MIN)"
+                         % (name, lo, hi))
+    return lo, hi
 
 
 def _unload_game(name):
@@ -463,37 +486,66 @@ def _is_arity_error(e):
             or ("argument" in msg and "given" in msg))
 
 
-def _start_play(play_func, name, nfc, leds, buz, accel, i2c, wrapper, batt_ref):
-    """Call a game's play(), tolerating the older six-parameter signature.
+def _start_play(play_func, name, nfc, leds, buz, accel, i2c, wrapper, batt_ref, net=None):
+    """Call a game's play(), tolerating the older six- and seven-parameter
+    signatures.
 
     batt became a real seventh parameter long after games had been written
-    and pulled against six, and those games are still on flash and still on
-    the Box. Refusing to run them would make every game a teacher generated
-    before that change dead on this wand, which is a worse outcome than
-    calling them the way they were written.
+    and pulled against six, and net an eighth for party games. Those games
+    are still on flash and still on the Box. Refusing to run them would make
+    every game a teacher generated before the change dead on this wand, which
+    is a worse outcome than calling them the way they were written. net is
+    None for a game that is not a party game.
 
     Where the port exposes __code__.co_argcount the arity is read outright
-    and the right call is made first time. Where it does not, the seven-arg
-    call is tried and an arity TypeError falls back to six -- the game has
-    not started at that point, because Python raises on arity before
+    and the right call is made first time. Where it does not, the eight-arg
+    call is tried and an arity TypeError falls back to seven, then six -- the
+    game has not started at that point, because Python raises on arity before
     entering the function.
     """
-    args = (nfc, leds, buz, accel, i2c, wrapper, batt_ref)
+    args = (nfc, leds, buz, accel, i2c, wrapper, batt_ref, net)
     code = getattr(play_func, "__code__", None)
     n = getattr(code, "co_argcount", None) if code is not None else None
     if n is not None:
         return play_func(*args[:n]) if n < len(args) else play_func(*args)
-    try:
-        return play_func(*args)
-    except TypeError as e:
-        if not _is_arity_error(e):
-            raise
-        print("  %s takes the older six-argument play(); calling it that way"
-              % name)
-        return play_func(*args[:6])
+    for k in (8, 7, 6):
+        try:
+            return play_func(*args[:k])
+        except TypeError as e:
+            if not _is_arity_error(e) or k == 6:
+                raise
+            print("  %s does not take %d arguments; trying %d" % (name, k, k - 1))
+
+
+def _enter_party(name, limits, enow, nfc, leds, buz):
+    # Lobby for a party game. Returns a party.Net in its game phase, or None
+    # (cancelled, left or lost), after giving feedback.
+    import party
+    from espnow_manager import get_own_mac
+    net = party.enter(enow, name, limits[0], limits[1], _pair_ctl, get_own_mac(),
+                      nfc, leds, buz, lambda: btn.value() == 0)
+    if net is None:
+        if party.last_end in ("left", "external"):
+            buz.stop()
+        else:
+            leds.show_shape(SHAPE_X, RED)
+            buz.reject()
+            time.sleep_ms(500)
+        leds.off()
+    return net
 
 
 def _launch_game(name, nfc, leds, buz, accel, i2c, enow, batt_ref):
+    """Run a game (and any chained force-switches), then give a paired
+    wand's Splats their idle state back."""
+    try:
+        _run_games(name, nfc, leds, buz, accel, i2c, enow, batt_ref)
+    finally:
+        if _pair_ctl is not None:
+            _pair_ctl.after_game()
+
+
+def _run_games(name, nfc, leds, buz, accel, i2c, enow, batt_ref):
     """Run a game and chain force-switches without returning to idle."""
     while is_game(name):
         try:
@@ -502,19 +554,32 @@ def _launch_game(name, nfc, leds, buz, accel, i2c, enow, batt_ref):
             _game_load_failed(name, e)
             return
         wrapper = _StartGameCapture(enow)
-        _emit({"type": "game_start", "slug": name})
+        net = None
         try:
-            _start_play(play_func, name, nfc, leds, buz, accel, i2c,
-                        wrapper, batt_ref)
-        except TypeError as e:
-            # A game that cannot even be CALLED is a load failure, not a
-            # reason to take the main loop down with it. Anything raised
-            # from inside a running game still propagates, as before.
-            if not _is_arity_error(e):
-                raise
+            limits = _splat_limits(name)
+        except ValueError as e:
             _game_load_failed(name, e)
             return
-        _emit({"type": "game_end", "slug": name})
+        if limits is not None:
+            net = _enter_party(name, limits, wrapper, nfc, leds, buz)
+        if limits is None or net is not None:
+            _emit({"type": "game_start", "slug": name})
+            try:
+                try:
+                    _start_play(play_func, name, nfc, leds, buz, accel, i2c,
+                                wrapper, batt_ref, net)
+                except TypeError as e:
+                    # A game that cannot even be CALLED is a load failure, not a
+                    # reason to take the main loop down with it. Anything raised
+                    # from inside a running game still propagates, as before.
+                    if not _is_arity_error(e):
+                        raise
+                    _game_load_failed(name, e)
+                    return
+            finally:
+                if net is not None:
+                    net.close()
+            _emit({"type": "game_end", "slug": name})
         next_name = wrapper.pending_name
         # Drop the reference before unloading -- play_func is what pins
         # the module in this frame; a chained force-switch must not
@@ -556,6 +621,8 @@ def check_broadcast(enow, batt_ref, leds_ref, buz_ref):
         if is_game(name):
             return ("start_game", name)
         print("  ESP-NOW: ignoring unknown start_game name: %r" % name)
+    if msg_type == "raw" and _pair_ctl is not None and isinstance(data, dict):
+        _pair_ctl.on_msg(data, mac_str)
     return None
 
 
@@ -570,6 +637,8 @@ def show_idle(last_soc, idle_frame):
         leds.idle_low_blink(idle_frame)
     else:
         leds.idle_default(last_soc)
+    if _pair_ctl is not None:
+        _pair_ctl.mark(leds)
 
 
 # ─────────────────────────────────────────────
@@ -811,6 +880,70 @@ def _run_pull_mode():
 
 
 # ─────────────────────────────────────────────
+# SPLAT PAIRING (boot)
+# ─────────────────────────────────────────────
+# Both functions run from main() after enow.init(). Nothing here may be
+# called, and no pairing module imported, ahead of the radio claim.
+_PAIRING_PATH = "/pairing.json"   # same file as lib/pairing.py PATH
+_pair_ctl = None                  # splatpair.SplatPairing for a paired wand
+
+
+def _read_pairing():
+    # Inline read: lib/pairing.py is not imported on an unpaired boot.
+    # A power-on reset ends every pairing (session-scoped).
+    try:
+        os.stat(_PAIRING_PATH)
+    except OSError:
+        return []
+    # UNVERIFIED on hardware: PWRON_RESET on the C6 after USB or battery
+    # power-up, and that machine.reset() / watchdog / crash resets differ.
+    if machine.reset_cause() == machine.PWRON_RESET:
+        os.remove(_PAIRING_PATH)
+        print("  Pairing cleared (power-on reset)")
+        return []
+    with open(_PAIRING_PATH) as f:
+        items = json.load(f)["splats"]
+    return [m for m in items if isinstance(m, str)]
+
+
+def _boot_pairing(enow):
+    global _pair_ctl
+    try:
+        macs = _read_pairing()
+        if not macs:
+            return
+        import ubluetooth
+        ubluetooth.BLE().active(True)
+        import splatpair
+        _pair_ctl = splatpair.SplatPairing(macs, enow, leds, buz)
+        print("  Splat pairing: %d Splat(s) %s" % (_pair_ctl.count, _pair_ctl.macs))
+    except Exception as e:
+        print("  [WARN] Splat pairing unavailable, booting unpaired:")
+        sys.print_exception(e)
+        _emit({"type": "error", "where": "pairing", "err": str(e)})
+        _pair_ctl = None
+        try:
+            os.stat(_PAIRING_PATH)
+        except OSError:
+            pass        # nothing on flash to clear
+        else:
+            os.remove(_PAIRING_PATH)
+        leds.boot_stage_ok(0, row_colors=[OFF, OFF, AMBER, GREEN if enow.is_active else AMBER])
+
+
+def _pair_card(cmd, enow):
+    # A Splat card or the unpair card, idle loop only. An unpaired wand
+    # builds a controller without a hub; adding a pairing resets the wand.
+    global _pair_ctl
+    import splatpair
+    if _pair_ctl is None:
+        _pair_ctl = splatpair.SplatPairing([], enow, leds, buz)
+    if _pair_ctl.on_card(cmd) == "reset":
+        time.sleep_ms(300)           # let the confirm tone finish
+        machine.reset()
+
+
+# ─────────────────────────────────────────────
 # MAIN
 # ─────────────────────────────────────────────
 def main():
@@ -856,6 +989,12 @@ def main():
         print("  [WARN] ESP-NOW:"); sys.print_exception(e)
         leds.boot_stage_ok(0, row_colors=[OFF, OFF, OFF, AMBER])
     memprobe.probe("post-enow")  # BENCH
+
+    # ── Splat pairing: BLE comes up only for a paired wand, here and not
+    # earlier: the radio has claimed its memory, and every later boot stage
+    # runs with BLE already holding its own. ──
+    _boot_pairing(enow)
+    memprobe.probe("post-ble")  # BENCH
 
     # ── Stage 1: Brightness calibration (OPT3002) ──
     leds.boot_stage_start(1)
@@ -1005,6 +1144,9 @@ def main():
             last_heartbeat_ms = time.ticks_ms()
             _emit({"type": "heartbeat", "up": last_heartbeat_ms})
         try:
+            if _pair_ctl is not None:
+                _pair_ctl.poll()
+
             # ─────────────────────────────────────
             # NFC SLEEPING — minimal power mode
             # ─────────────────────────────────────
@@ -1081,7 +1223,8 @@ def main():
             # ─────────────────────────────────────
             # NORMAL NFC POLLING
             # ─────────────────────────────────────
-            uid_peek, sak_peek = reader.detect_tag()
+            held = _pair_ctl is not None and _pair_ctl.count > 0
+            uid_peek, sak_peek = reader.detect_tag(_pair_ctl.detect_ms if held else 250)
 
             if uid_peek is None:
                 if last_uid is not None:
@@ -1120,7 +1263,7 @@ def main():
                     nfc_sleeping = True
                     print("  NFC sleeping (30s idle) — move or press button to wake")
 
-                time.sleep_ms(200)
+                time.sleep_ms(_pair_ctl.idle_sleep_ms if held else 200)
                 continue
 
             # ─────────────────────────────────────
@@ -1136,6 +1279,13 @@ def main():
             last_uid = uid
             if cmd is None:
                 time.sleep_ms(200); continue
+
+            # ── SPLAT CARD / UNPAIR (idle loop only) ──
+            if cmd == "unpair" or parse_splat_card(cmd):
+                _pair_card(cmd, enow)
+                last_activity_ms = time.ticks_ms()
+                idle_frame = 0
+                show_idle(last_soc, 0); continue
 
             # ── BROADCAST BOX PULL ──
             # Deliberately does NOT pull here. ESP-NOW has owned the radio
