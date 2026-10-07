@@ -222,6 +222,7 @@ class Bus:
         obj = self._decode(msg)
         src_s = mac_str(src.mac)
         if dst_mac == BROADCAST:
+            self.log.append((self.sim.now, src_s, "*", obj, "broadcast"))
             for mb, r in list(self.radios.items()):
                 if r is src:
                     continue
@@ -230,7 +231,6 @@ class Bus:
                     self.log.append((self.sim.now, src_s, dst_s, obj, "dropped"))
                     continue
                 self._deliver(src, r, msg)
-                self.log.append((self.sim.now, src_s, dst_s, obj, "bcast"))
             return True
         dst_s = mac_str(dst_mac)
         r = self.radios.get(dst_mac)
@@ -252,7 +252,9 @@ class Bus:
         self.sim.after(self.latency_ms, lambda: dst._rx(src.mac, data))
 
     def sent(self, src=None, typ=None):
-        """Logged frames, optionally filtered by sender MAC string and message type."""
+        """Logged frames, optionally filtered by sender MAC string and message
+        type. A broadcast is one entry with dst "*" (plus a "dropped" entry per
+        receiver that lost it); a unicast is one entry with its outcome."""
         out = []
         for ms, s, d, obj, outcome in self.log:
             if src is not None and s != src:

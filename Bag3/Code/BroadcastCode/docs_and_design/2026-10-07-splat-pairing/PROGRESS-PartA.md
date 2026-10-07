@@ -100,7 +100,48 @@ None of these are touched by Part A. The `espnow_manager.py` divergence is flagg
   `connects` timing with `main.py`'s import load, NFC and the matrix running; whether a Splat stays connected
   through a non-party game with no keepalive; `os.remove` / `os.stat` of `/pairing.json` on littlefs.
 - Pre-existing test status: unchanged (see Baseline).
-## A5. Pair and unpair in the idle loop — not done
+## A5. Pair and unpair in the idle loop — done
+
+- Files: `MockWand/lib/splatpair.py` (full controller: `on_card`, `claimed_elsewhere`, `on_msg`, `release`,
+  `release_all`, identity palette, glow, `mark`, `after_game`, feedback), `MockWand/lib/pwire.py` (`send_acked`,
+  `ensure_peer`, `Dedupe`, `SEND_TRIES`), `MockWand/main.py` (card routing, `_pair_card`, `_StartGameCapture`
+  and `check_broadcast` hand `pw_` messages to the controller, `_launch_game` wrapper over `_run_games`,
+  `show_idle` corner pixel, paired idle timing), `tools/devtests/wandboot.py` (shared boot harness, scripted NFC
+  reader), `tools/devtests/boot_wand_idle.py`; `boot_wand_pairing.py` now uses `wandboot.py`.
+- Tests: `python3 tools/devtests/boot_wand_idle.py` (real `main.py` idle loop, scripted cards, other simulated wands
+  on the fake bus that do or do not answer `pw_who`).
+  Cases: unpaired tap with no answer calls `machine.reset()` once and writes the file; a holder's `pw_held` refuses
+  with no reset and no write; a holder slower than `CLAIM_WAIT_MS` is not heard; a full wand refuses without
+  broadcasting; a held card releases that Splat only; the last held card leaves an unpaired wand with BLE still
+  active; the `unpair` card releases everything; `pw_release_all` in idle; `pw_who` answered for held MACs only and
+  never by an unpaired wand; identity glow, success flash and tone, corner pixel; reconnect refreshes the glow
+  without a second flash; in-game `pw_who` consumed and `pw_release_all` ending the game as a `stop`;
+  `_launch_game` restoring the idle Splat state.
+- Decisions:
+  - Identity palette is the six non-off `splat_api.COLOR_RGB` names (SPEC allows 6-8). Wand colors for the names:
+    red, green, blue, purple -> `MAGENTA` (leds `PURPLE` reads as blue), yellow -> `AMBER`, white. Corner pixel is 4.
+  - Idle glow is `COLOR_RGB[identity]` scaled by `GLOW_SCALE` (0.15), written with `link.setLEDsON`, because
+    `SplatAPI.color()` has no brightness.
+  - Paired-wand idle timing: NFC detect timeout 100 ms (`PAIRED_DETECT_MS`) and idle sleep 20 ms
+    (`PAIRED_IDLE_SLEEP_MS`) instead of 250 ms / 200 ms. The unmodified idle iteration is about 450 ms, longer than
+    `CLAIM_WAIT_MS` (300), so a holder would miss most claim checks. Unpaired wands are unchanged.
+  - The `pw_who` responder adds the asker as a peer for the unicast reply and removes it afterwards unless it was
+    already a peer. The reply uses `pwire.send_acked` (`SEND_TRIES`).
+  - `pw_who` and `pw_release_all` are handled in `check_broadcast` (idle, sleeping, programming run mode) and in
+    `_StartGameCapture.poll` (any running game). In a game, `pw_who` is hidden from the game and `pw_release_all`
+    is returned as `stop` after releasing, which is how SPEC's "handled as a game exit" is implemented.
+  - The claim check consumes other messages during its 300 ms window; `pw_who` from others is answered, anything
+    else (for example a `stop` broadcast in that window) is dropped.
+  - A claim check with ESP-NOW down is refused (error feedback): it cannot be made.
+  - `pw_find` is not answered in the idle loop. The lobby loop (A6) answers it; a wand in the idle loop has no
+    open lobby.
+  - The first READY of each Splat in a boot flashes the identity color and plays the success tone, including after
+    a reset that was not a new pairing.
+  - A write failure from `pairing.add()` gives error feedback and no reset.
+- UNVERIFIED on hardware: claim-check latency with the real idle loop; the 100 ms NFC detect timeout's effect on card
+  reads; `show_idle` and the corner pixel next to the idle ring; flash, tone and glow appearance on wand and Splat;
+  palette distinctness on the matrix and a Splat; `unpair` and `splat-` cards read from real NDEF; peer add/remove
+  of an asker while ESP-NOW is busy.
 ## A6. `party.py` — not done
 ## A7. Games — not done
 ## A8. Docs — not done

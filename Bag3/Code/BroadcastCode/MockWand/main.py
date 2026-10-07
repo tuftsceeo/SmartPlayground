@@ -38,7 +38,7 @@ from leds import (
 )
 from power_led import PowerLed
 from buzzer import Buzzer
-from nfc_reader import NfcReader, split_prefixed
+from nfc_reader import NfcReader, split_prefixed, parse_splat_card
 from actions import ActionRunner, ACTIONS, ANIMAL_SOUNDS, ACTION_RESOURCE, resolve_and_group, chain_to_str
 from battery import show_battery
 from espnow_manager import ESPNowManager
@@ -369,6 +369,12 @@ class _StartGameCapture:
         mt, data, mac = self._enow.poll(timeout_ms)
         if mt == "start_game":
             self.pending_name = data.get("name") if isinstance(data, dict) else None
+        elif mt == "raw" and _pair_ctl is not None and isinstance(data, dict):
+            r = _pair_ctl.on_msg(data, mac)
+            if r == "who":
+                return None, None, None
+            if r == "release":
+                return "stop", data, mac     # pw_release_all ends the game
         return mt, data, mac
 
     def __getattr__(self, attr):
@@ -494,6 +500,16 @@ def _start_play(play_func, name, nfc, leds, buz, accel, i2c, wrapper, batt_ref):
 
 
 def _launch_game(name, nfc, leds, buz, accel, i2c, enow, batt_ref):
+    """Run a game (and any chained force-switches), then give a paired
+    wand's Splats their idle state back."""
+    try:
+        _run_games(name, nfc, leds, buz, accel, i2c, enow, batt_ref)
+    finally:
+        if _pair_ctl is not None:
+            _pair_ctl.after_game()
+
+
+def _run_games(name, nfc, leds, buz, accel, i2c, enow, batt_ref):
     """Run a game and chain force-switches without returning to idle."""
     while is_game(name):
         try:
@@ -556,6 +572,8 @@ def check_broadcast(enow, batt_ref, leds_ref, buz_ref):
         if is_game(name):
             return ("start_game", name)
         print("  ESP-NOW: ignoring unknown start_game name: %r" % name)
+    if msg_type == "raw" and _pair_ctl is not None and isinstance(data, dict):
+        _pair_ctl.on_msg(data, mac_str)
     return None
 
 
@@ -570,6 +588,8 @@ def show_idle(last_soc, idle_frame):
         leds.idle_low_blink(idle_frame)
     else:
         leds.idle_default(last_soc)
+    if _pair_ctl is not None:
+        _pair_ctl.mark(leds)
 
 
 # ─────────────────────────────────────────────
@@ -862,6 +882,18 @@ def _boot_pairing(enow):
         leds.boot_stage_ok(0, row_colors=[OFF, OFF, AMBER, GREEN if enow.is_active else AMBER])
 
 
+def _pair_card(cmd, enow):
+    # A Splat card or the unpair card, idle loop only. An unpaired wand
+    # builds a controller without a hub; adding a pairing resets the wand.
+    global _pair_ctl
+    import splatpair
+    if _pair_ctl is None:
+        _pair_ctl = splatpair.SplatPairing([], enow, leds, buz)
+    if _pair_ctl.on_card(cmd) == "reset":
+        time.sleep_ms(300)           # let the confirm tone finish
+        machine.reset()
+
+
 # ─────────────────────────────────────────────
 # MAIN
 # ─────────────────────────────────────────────
@@ -1142,7 +1174,8 @@ def main():
             # ─────────────────────────────────────
             # NORMAL NFC POLLING
             # ─────────────────────────────────────
-            uid_peek, sak_peek = reader.detect_tag()
+            held = _pair_ctl is not None and _pair_ctl.count > 0
+            uid_peek, sak_peek = reader.detect_tag(_pair_ctl.detect_ms if held else 250)
 
             if uid_peek is None:
                 if last_uid is not None:
@@ -1181,7 +1214,7 @@ def main():
                     nfc_sleeping = True
                     print("  NFC sleeping (30s idle) — move or press button to wake")
 
-                time.sleep_ms(200)
+                time.sleep_ms(_pair_ctl.idle_sleep_ms if held else 200)
                 continue
 
             # ─────────────────────────────────────
@@ -1197,6 +1230,13 @@ def main():
             last_uid = uid
             if cmd is None:
                 time.sleep_ms(200); continue
+
+            # ── SPLAT CARD / UNPAIR (idle loop only) ──
+            if cmd == "unpair" or parse_splat_card(cmd):
+                _pair_card(cmd, enow)
+                last_activity_ms = time.ticks_ms()
+                idle_frame = 0
+                show_idle(last_soc, 0); continue
 
             # ── BROADCAST BOX PULL ──
             # Deliberately does NOT pull here. ESP-NOW has owned the radio
