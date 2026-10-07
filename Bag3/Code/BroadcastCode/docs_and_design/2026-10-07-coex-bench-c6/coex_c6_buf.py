@@ -54,8 +54,8 @@ N = 100
 GAP_MS = 20
 SIZE = 250
 BURST_N = 150
-BUTTON_S = 30
-RUN_BUFFER = True
+BUTTON_S = 15                # S3 run: 30
+RUN_BUFFER = False           # rxbuf sweep; S3 run: True
 RUN_BUTTONS = True
 CLEAN_BOOT_MIN_LARGEST = 150000   # 0 = run on any boot
 BCAST = b'\xff' * 6

@@ -21,7 +21,7 @@ open questions are:
 | **One core.** The WiFi task, NimBLE host and MicroPython all share it. The S3 has two cores. | — | Every test logs `loop stall max`, the longest gap between game-loop iterations. |
 | **Antenna.** On a XIAO C6, GPIO3 = 0 enables the RF switch and GPIO14 selects external (1). The switch carries BLE as well as WiFi. Undriven, GPIO3 reads high. | `MockWand/lib/espnow_manager.py`, `SplatCompanion/Companion/boot.py`. The S3 has no switch. | `EXTERNAL_ANTENNA = True` (MockWands have u.FL antennas fitted), set as the first statement, before either radio starts. |
 | **Paths.** | MockWand's flash root is `/`, not `/flash`. | Splat modules go in `/coex/`. |
-| **`rxbuf` limit.** | The S3 failed between 30000 and 32768. The C6's limit is unknown. | `coex_c6_buf.py` sweeps 4096, 8192, 16384 and 30000. A `ValueError` or `MemoryError` is logged as a result, and the next size still runs. |
+| **`rxbuf` limit.** | The S3 failed between 30000 and 32768. The C6's limit is unknown. | With `RUN_BUFFER = True`, `coex_c6_buf.py` sweeps 4096, 8192, 16384 and 30000. A `ValueError` or `MemoryError` is logged as a result, and the next size still runs. |
 
 Everything else is unchanged from the S3 scripts: tests, frame formats, Splat load and timing.
 
@@ -81,22 +81,28 @@ $MP connect $HUB resume run $C6/<script>.py | tee $C6/logs/<name>.log
 Keep `resume` on the hub's `run`. Without it, mpremote soft-resets first. A soft reset may not give back heap
 that boot already split off; the Dial's fragmentation survived one.
 
-### Run order (about 50 minutes; the person is needed only at the start and for the last ~15)
+### Run order (proof of concept)
 
-Unattended runs come first. One person step at the start: switch on 4 Splats. After that, a person is needed
-only for the hands-on block at the end.
+The script defaults are a minimal proof-of-concept configuration: 100 frames per test, 4 Splats only, no
+soak, no `rxbuf` sweep, 15 s button phases and a 120 s demo. Each changed constant carries its S3-run value
+in a comment; restore those values for a full run.
 
-| # | Script | Splats | Person | Length | What it answers |
-|---|---|---|---|---|---|
-| 1 | `coex_c6_bench.py`, `ORDER = "enow_first"` | 4 | none | ~12 min | Does BLE start **after** ESP-NOW (the S3 order)? This run also gives the no-BLE baseline the S3 run never reached. ESP-NOW at 1, 2 and 4 Splats, compile budget, 5 min soak. |
-| 2 | `coex_c6_bench.py`, `ORDER = "ble_first"`, `SOAK_S = 0` | 4 | none | ~8 min | Does ESP-NOW start **after** BLE (the #18859 order)? The same tests with that order. |
-| 3 | `coex_c6_buf.py`, `RUN_BUTTONS = False` | 4 | none | ~8 min | `rxbuf` capacity and limit on a C6. |
-| 4 | `coex_c6_buf.py`, `RUN_BUFFER = False` | 4 | presses in two 30 s phases | ~2 min | Splat press latency, quiet vs loaded. |
-| 5 | `demo_c6_hub.py`, with `demo_wand.py` on the peer | 4 | plays | 3–5 min | End-to-end play. The hub logs memory and loop stall every 60 s. |
-| 6 | `coex_c6_one.py` | 1 (switch 3 off) | presses, ~10 per 30 s phase | ~3 min | BLE alone vs BLE + ESP-NOW latency, one Splat. Skip it if run 2 failed at ESP-NOW bring-up: it uses the same order and would fail after phase A. |
+Unattended runs come first. The person switches on 4 Splats at the start, then is needed again only for
+runs 3 and 4.
 
-To change `ORDER`, `SOAK_S`, `RUN_BUFFER` or `RUN_BUTTONS`, edit the local file before `run`, then revert it.
-mpremote passes no arguments.
+| # | Script | Splats | Person | What it answers |
+|---|---|---|---|---|
+| 1 | `coex_c6_bench.py` (`ORDER = "enow_first"`, the default) | 4 | none | Does BLE start **after** ESP-NOW (the S3 order)? No-BLE baseline, then ESP-NOW tests and compile budget with 4 Splats. |
+| 2 | `coex_c6_bench.py`, `ORDER = "ble_first"` | 4 | none | Does ESP-NOW start **after** BLE (the #18859 order)? The same tests with that order. |
+| 3 | `coex_c6_buf.py` (defaults: buttons only) | 4 | presses in two 15 s phases | Splat press latency, quiet vs loaded. |
+| 4 | `demo_c6_hub.py`, with `demo_wand.py` on the peer | 4 | plays until the hub stops | End-to-end play. |
+
+Not in the proof of concept:
+- **`coex_c6_one.py`:** needs the Splats switched down to one.
+- **The `rxbuf` sweep:** `coex_c6_buf.py` with `RUN_BUFFER = True`.
+
+To change `ORDER` or another constant, edit the local file before `run`, then revert it. mpremote passes no
+arguments.
 
 If the hub stops at `FAIL: largest free IDF block is below CLEAN_BOOT_MIN_LARGEST`:
 1. **Check** that `main.py` is renamed, and that the run used a hard reset and `resume`.

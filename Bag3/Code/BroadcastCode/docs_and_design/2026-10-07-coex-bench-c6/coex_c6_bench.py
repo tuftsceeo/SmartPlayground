@@ -57,12 +57,12 @@ import esp32
 
 ORDER = "enow_first"         # or "ble_first"
 RXBUF = 8192
-N = 300
+N = 100                      # S3 run: 300
 GAP_MS = 20
 BULK_BYTES = 36 * 1024
 CHUNK = 245
-SPLAT_COUNTS = (1, 2, 4)
-SOAK_S = 300
+SPLAT_COUNTS = (4,)          # S3 run: (1, 2, 4)
+SOAK_S = 0                   # S3 run: 300
 CONNECT_WAIT_S = 90
 CONN_INTERVAL_US = None      # None = stack default, or (min_us, max_us)
 COMPILE_SIZES = (16384, 24576, 32768, 36864)

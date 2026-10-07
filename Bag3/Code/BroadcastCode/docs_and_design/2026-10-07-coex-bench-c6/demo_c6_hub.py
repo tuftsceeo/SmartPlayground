@@ -37,7 +37,7 @@ import espnow
 import esp32
 import ubluetooth
 
-DEMO_S = 900
+DEMO_S = 120                 # S3 run: 900
 SPLATS = 4
 RXBUF = 16384
 MEM_EVERY_S = 60
