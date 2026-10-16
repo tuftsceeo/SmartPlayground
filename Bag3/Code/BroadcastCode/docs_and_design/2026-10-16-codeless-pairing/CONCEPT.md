@@ -39,7 +39,7 @@ What all four share:
 
 | Kind | Part | Notes for this concept |
 |---|---|---|
-| Input | One push button (GPIO0) | Press, hold, double-press and press count are all available from one button. |
+| Input | One push button (GPIO0) | Press timing and counts are unreliable for young children (Section 4). Used as an input, and press rate is available. |
 | Input | LIS2DW12 accelerometer | Tilt (3 axes), shake energy, free fall. The chip has hardware single/double tap and 6D orientation detection; `lib/lis2dw12.py` does not expose them yet. |
 | Input | OPT3002 ambient light | Currently used only for LED auto-brightness. A child can use it as a **"shadow" input**: cover it with a hand, point it at the sky. |
 | Input | NFC reader | Cards, Splat cards, and NFC-DEP to another wand (bench only). |
@@ -68,8 +68,9 @@ layer can write arbitrary RGB. This needs checking before relying on smooth fade
 1. **Something happens by default.** Every pairing has a sensible behavior with zero setup.
 2. **Screenless and non-reader.** Meaning comes from color, light count, sound, the position of
    things and the pictures on cards. Nothing requires reading.
-3. **One button, shallow state.** At most one level of "mode" on a wand alone. The child can
-   always get back to the default in one known action (**long hold = reset to default**).
+3. **No timing, no sequences.** Young children (about 5 years old) cannot reliably make a short
+   vs. long press, double-press, or press at the right step of a sequence. Nothing depends on
+   press duration or count, and every action is complete on its own (Section 4).
 4. **The physical act is the instruction.** Touching, placing, holding up and showing do the
    work menus would do.
 5. **Show the relationship while it runs.** The input's current value is visible or audible so
@@ -81,26 +82,61 @@ layer can write arbitrary RGB. This needs checking before relying on smooth fade
 
 ---
 
-## 4. A wand-only control grammar
+## 4. Controls for young children
 
-This vocabulary is shared by every scenario so a child learns it once.
+### What the design has to absorb
 
-| Action | Meaning | Feedback |
+- **Timing is inconsistent.** A five-year-old's "press" ranges from a flick to several seconds.
+  A press that looks like a hold is often a child who forgot to let go.
+- **Fidgeting.** Rapid, idle pressing is fun in itself. It will happen whatever the button
+  means.
+- **Intent at a step is hard.** "Do X, then press the button at the right moment" is a
+  demanding task on its own, apart from what X is.
+- **Fine motor control varies.** Small targets, two-handed coordination and holding a pose
+  steady all cost effort.
+
+### Rules
+
+1. **The button does one thing, on press only.** Press and hold are the same event. Release is
+   ignored. There is no double-press, long hold or press count. A child who forgets to let go
+   has pressed once.
+2. **By default the button is an input, not a control.** It drives the output like any other
+   sensor: each press steps the Splat's color, or press rate sets brightness. **Fidgeting is
+   using the system,** so it can't break anything.
+3. **Changes to the relationship are tangible acts:** tapping a card, touching two devices
+   together, placing a device on the Pairing Station. These are deliberate, discrete and
+   self-labeled: the card's picture is the feedback.
+4. **Every state is visible, and every change is reversible by the same kind of act.** Tapping
+   the same card again undoes it, and a **reset card** returns to the default. Power-off already
+   clears everything (SPEC §2).
+5. **No sequences on a wand alone.** Each action finishes by itself. Anything multi-step (teach)
+   is either spread across two children or moved to the Pairing Station.
+6. **Every press gives feedback at once** (a click and a pixel), and so does every card. When a
+   control does need a press, its effect is rate-limited so each state is shown long enough to
+   see (~0.5 s), even when the child presses rapidly.
+
+### Act → meaning
+
+| Act | Meaning on a wand | Feedback |
 |---|---|---|
-| **Press** | Do the "next" thing: next input source, or next output value while teaching. | One click. The matrix shows the new choice for ~1 s. |
-| **Double-press** | **Flip** the direction (invert the sign). | Rising or falling two-tone. An arrow on the matrix points up or down. |
-| **Hold (~1 s) while posed** | **Record** this input → current output pair (teach). | A fill animation during the hold; a chime on capture. |
-| **Long hold (~3 s)** | **Reset** to the default relationship. | Rainbow wipe; "start" sound. |
-| **Hardware tap on the wand body** (optional) | A second "button" if one is not enough. Candidate meaning: freeze/unfreeze the output. | Matrix blinks. |
-| **Tap a card** | Change something by picture: a relationship card, an input card, an output card, a Splat card to pair. | Card picture on the matrix. |
+| **Press** (any length) | Input event, in the scenario's relationship | Click plus the output changing |
+| **Tap an input card** (tilt, shake, light, button) | Choose what drives the output | The input's icon on the matrix |
+| **Tap the "opposite" card** | Flip direction; tap again to flip back | Arrow up or down, rising or falling tone |
+| **Tap a relationship card** | Change the relationship (Section 6) | The card's glyph |
+| **Tap the reset card** | Return to the default | Rainbow wipe, "start" sound |
+| **Touch another device** (Splat card, another wand) | Link to it | Shared identity color, rising tone |
+| **Hold the wand still** (teach only) | Capture this pose; moving away cancels | A ring fills over ~2 s |
 
-**Recommendation:** start with press, double-press and the two holds only. Add body taps only if
-testing shows the button grammar runs out. Body taps compete with shaking as an input, so they
-can fire by accident.
+**Input icons on the 5×5:** tilt = a dot that slides, shake = scattered pixels, light = a sun,
+button = a filled square. Each is shown for about 1 s after a card tap, then the live output
+returns.
 
-**Input source icons on the 5×5:** tilt = a dot that slides, shake = scattered pixels,
-light = a sun, button = a filled square. The icon is shown for about 1 s after each change, then
-the live output returns.
+**Option to test:** automatic input choice. "The wand listens to whatever you're doing":
+the most active sensor drives the output (shaking → shake, covering → light). It needs no cards,
+but the switch between inputs can look random to a child. Compare it against input cards.
+
+**Accelerometer body taps are out.** They have the same timing problem as the button and are
+set off by shaking.
 
 ---
 
@@ -113,23 +149,24 @@ what it exercises, and open questions.
 
 **Setup.** Wand on, nothing else. A "feel" card (or idle after boot) starts the mode.
 
-**Default.** Tilt → hue on the whole matrix (proportional, Flutter-style), with brightness
-following shake energy. Tipping the wand forward sweeps red → violet. Holding it still keeps
-the color.
+**Default.** Tilt → hue on the whole matrix (proportional, Flutter-style). Tipping the wand
+forward sweeps red → violet. Holding it still keeps the color. **Each button press** adds a
+sparkle and a note, so pressing is a second input that always does something.
 
 **Child controls.**
-- **Press** cycles the input source: tilt → light (shadow) → shake → back to tilt.
-- **Double-press** flips the direction: tilting forward now goes violet → red; covering the light
-  sensor now makes it brighter instead of darker.
-- **Long hold** resets.
-- Optional output cycle (an output card or a body tap): hue → fill count (a 0–25 light "level
-  meter") → buzzer pitch. Smart LED ring precedent: one device, several output dimensions.
+- **Input cards** change the input: light (shadow), shake, or button (each press steps the
+  hue).
+- The **opposite card** flips direction: tilting forward now goes violet → red; covering the
+  light sensor now makes it brighter instead of darker.
+- **Output cards** (optional) choose the output: hue, fill count (a 0–25 light "level meter"),
+  or buzzer pitch. Smart LED ring precedent: one device, several output dimensions.
+- The **reset card** returns to tilt → hue.
 
 **Exercises.** Input/output, proportionality, sign. The level-meter output makes "more input,
 more output" countable.
 
-**Open questions.** Is three inputs × three outputs too many for a wand alone? A first test
-could fix the output at hue and only cycle inputs.
+**Open questions.** Is three inputs × three outputs too many cards for a wand alone? A first
+test could fix the output at hue and only offer input cards.
 
 ### Scenario 2. "Magic remote": wand → Splat (Spike heart)
 
@@ -139,14 +176,14 @@ identity color.
 **Default.** Both directions work right away, like an input and an output placed opposite each
 other on a Spike hub:
 - **Wand tilt → Splat color**, stepped across the Splat color set.
-- **Splat press → wand sound and flash**, so the Splat works as a remote button for the wand.
+- **Wand button → Splat sound.** Each press plays a note or animal sound. Fidget pressing plays a
+  rhythm.
+- **Splat press → wand sound and flash**, so the Splat works as a big remote button for the
+  wand.
 
 **Child controls.**
-- **Double-press** on the wand flips the tilt direction.
-- **Press** cycles the wand input (tilt, light, shake), as in Scenario 1, with the Splat as the
-  output.
-- **Pressing the Splat** while the wand is in "hold" (frozen) mode steps the Splat to the next
-  color manually. This is the Spike "lone output has buttons" pattern.
+- The **opposite card** flips the tilt direction.
+- **Input cards** change what drives the Splat color (tilt, light, shake, button).
 - **Two Splats paired:** the default could split one input across both (tilt left lights Splat
   A, tilt right lights Splat B). That is a two-endpoint threshold children can see.
 
@@ -155,24 +192,30 @@ direction.
 
 **Open questions.** BLE write rate and latency for live tilt → color (needs a bench number). Does
 the Splat → wand direction confuse things when the child is focused on wand → Splat? It could be
-off until a second card turns it on.
+off until a card turns it on.
 
-### Scenario 3. "Teach the Splat": Smart Motor training
+### Scenario 3. "Teach the Splat": Smart Motor training without a sequence
 
-**Setup.** A paired wand and Splat, plus a "teach" card, or a hold on the wand at the start of
-Scenario 2.
+The Smart Motor loop (set the output, hold the input, press record) is a three-step sequence with
+a timed press. Three ways to make it workable for young children, in order of preference:
 
-**Default after "teach".** The relationship is empty. The Splat shows white, and the wand shows
-an empty 5×5 with one pixel per recorded example (max 5–8).
+**3a. Two children, one job each.** One child holds the wand in a pose. The other presses the
+Splat until it shows the color they want. When the Splat has rested on a color for ~2 s and the
+wand has been still, the pair is recorded: a chime, and a pixel in that color on the wand. Each
+child does one simple, untimed thing. It also suits a playground, where children play in pairs.
 
-**Child controls (the Smart Motor loop on existing hardware):**
-1. **Press the Splat** to choose an output color. Each press steps the color.
-2. **Hold the wand in a pose** (tipped left, upside down, in shadow).
-3. **Hold the wand button** to record the pair. The wand shows a new pixel in that color; the
-   Splat flashes.
-4. Repeat for 2–5 poses. Then press the wand button once to **play**: moving the wand drives the
-   Splat to the nearest recorded color.
-5. **Long hold** clears the examples.
+**3b. One child, dwell capture.** The same rule with one child: press the Splat to pick a color
+(the Splat can sit on the floor), then hold the wand still. A ring fills on the matrix over ~2 s
+and records the pair; moving away cancels. Pressing the Splat again at any time just changes the
+color, so fidgeting is harmless.
+
+**3c. At the Pairing Station.** The station holds the wand steady in a cradle tilted by hand, or
+records from a demonstrated motion, and shows the examples on its screen (Section 7).
+
+**Default after a "teach" card.** The relationship is empty. The Splat shows white, and the wand
+shows an empty 5×5 that gains one pixel per recorded example (max 5–8). Once there are two
+examples, moving the wand drives the Splat to the nearest recorded color. Recording and playing
+are the same state: there is no mode to switch. The **reset card** clears the examples.
 
 **Exercises.** Classification by example and the idea that the device "learned" from
 demonstration. It is a first contact with ML ideas, with no numbers anywhere.
@@ -180,9 +223,10 @@ demonstration. It is a first contact with ML ideas, with no numbers anywhere.
 **Variation.** The output is a Splat **sound** (animal or note) instead of a color: "tip the wand
 toward the cow and it moos." Sound is easier for some children to tell apart than 7 colors.
 
-**Open questions.** Which input features does the nearest-neighbor use? Raw 3-axis tilt is the
-Smart Motor default and the simplest. Shake and light can be features later. Do children need to
-see *which* example is closest while it runs? The matching pixel on the wand could pulse.
+**Open questions.** Can five-year-olds hold a pose still for ~2 s? The dwell time and stillness
+tolerance need tuning with children, not on the bench. Does recording and playing in one state
+cause accidental recordings while a child is just moving around? Which input features does the
+nearest-neighbor use? Raw 3-axis tilt is the Smart Motor default and the simplest.
 
 ### Scenario 4. "Buddy link": wand ↔ wand by touching
 
@@ -190,26 +234,26 @@ see *which* example is closest while it runs? The matching pixel on the wand cou
 handshake triggered by the touch links them. Each wand shows the other's identity color in a
 corner.
 
-**Default.** **My input drives your output.** Tilting my wand changes your colors, and yours
-changes mine. It is symmetric, so both children feel in control immediately. Only cross-links
-are made by default; my own wand keeps showing my own output.
+**Default.** **My input drives your output.** Tilting my wand changes your colors, and pressing
+my button makes your wand beep. It is symmetric, so both children feel in control immediately.
+Fidget pressing becomes a game of making a friend's wand chatter.
 
 **Child controls.**
-- **Double-press** flips how *my input* affects *your wand*. Each child owns their own side of
-  the link.
-- **Press** changes *my* input source, as in Scenario 1.
+- The **opposite card** flips how *my input* affects *your wand*. Each child owns their own side
+  of the link.
+- **Input cards** change *my* input source.
 - **Touch again** unlinks. Touching a third wand adds it to a chain (A → B → C), which is a
   "telephone" game with no rules beyond the default.
-- **A relationship card** (Section 6) tapped on one wand changes how that wand transforms
-  incoming values. One child can make the partner's tilt "echo" with a delay, or work only past a
-  threshold.
+- A **relationship card** tapped on one wand changes how that wand transforms incoming values.
+  One child can make the partner's tilt "echo" with a delay, or work only past a threshold.
 
 **Exercises.** Shared control, networks and chains. It also makes "who controls what" a social
 negotiation, which is the point in a playground.
 
-**Open questions.** ESP-NOW broadcast vs. unicast after the NFC handshake. Range and fade-out:
-should the link drop when the partners walk apart? NFC-DEP needs both PN532s in DEP modes. Check
-that this is reachable from the idle loop without breaking card reads.
+**Open questions.** Will accidental touches link or unlink wands in normal play? Unlinking may
+need a deliberate act (e.g. the reset card) rather than a second touch. ESP-NOW broadcast vs.
+unicast after the NFC handshake. Range and fade-out. NFC-DEP needs both PN532s in DEP modes;
+check that this is reachable from the idle loop without breaking card reads.
 
 ### Scenario 5. "Puppet show": wand → Icon Display (threshold and change)
 
@@ -218,19 +262,18 @@ tapping an NFC tag on the display's frame.
 
 **Default.** **Tilt picks the picture.** The tilt range is split into as many bins as the display
 has icons in its current set (e.g. 3–5): tip left for the cat, center for the dog, right for the
-duck. This is a stepped/threshold relationship the child can see without numbers. A shake
-triggers the icon's animation if it has one.
+duck. This is a stepped/threshold relationship the child can see without numbers. **Each button
+press** makes the current picture do its animation or sound.
 
 **Child controls.**
-- **Press** steps the display to the next icon *set* (animals, faces, weather). The icon set
-  names come from the existing icon library.
-- **Double-press** reverses the order.
-- **Hold while posed** records a pose for the icon currently shown. This is teach, as in
-  Scenario 3, and replaces the even bins with the child's own poses.
-- **A "change" card:** the display shows a picture only when the wand *moves* (derivative). It
+- **Icon-set cards** (animals, faces, weather) change what the display shows. The icon set names
+  come from the existing icon library.
+- The **opposite card** reverses the order.
+- A **"wiggle" card:** the display shows a picture only when the wand *moves* (derivative). It
   returns to a "sleeping" icon when still, which makes stillness a game.
-- **A "count" card:** each shake advances one icon (cumulative). The display becomes a flipbook
-  or story driven by the child's rhythm.
+- A **"count" card:** each button press or shake advances one icon (cumulative). The display
+  becomes a flipbook or story driven by the child's rhythm. Fidget pressing flips the book fast.
+- Teaching poses for each icon uses the dwell capture from Scenario 3b.
 
 **Exercises.** Thresholds, sequence and storytelling. The display gives the child a large,
 readable output that a 5×5 matrix cannot.
@@ -256,7 +299,7 @@ The catalog behind the cards and the Pairing Station. Each needs a **picture** (
 | Kid name (working) | Behavior | Parameters | Precedent | 5×5 glyph idea |
 |---|---|---|---|---|
 | **Follow** | Proportional; output tracks input linearly between endpoints. | low end, high end, sign | Spike, Flutter default | Diagonal line |
-| **Opposite** | Follow with the sign flipped. Also reachable by double-press. | — | Spike sign | Diagonal the other way |
+| **Opposite** | Follow with the sign flipped. Also the opposite card. | — | Spike sign | Diagonal the other way |
 | **Switch** | Threshold: output A below a level, output B above. | threshold, A, B | Flutter threshold | Step shape |
 | **Steps** | Quantized: input range split into N bins. | N, outputs per bin | Smart Motor (discrete) | Staircase |
 | **Wiggle** | Change/derivative: output responds to movement, rests when still. | sensitivity | Flutter change | Zigzag |
@@ -316,9 +359,9 @@ manifests, so the choices change depending on what is placed.
 3. **Live graph ring.** An LED ring or strip around the dial shows the input's current value as a
    moving dot and the output as a second dot. The relationship's shape is drawn as the path
    between them. It makes Smooth and Echo legible.
-4. **Demonstrate endpoints.** No numbers: "move your wand to the low end, press; to the high end,
-   press." The station captures the input range the child actually uses, then shows the output at
-   each end. This is Flutter's endpoints, set by showing instead of by slider.
+4. **Demonstrate endpoints.** No numbers and no timed press: "wave your wand around." The
+   station keeps the lowest and highest input of the last few seconds as the endpoints, then shows
+   the output at each end. This is Flutter's endpoints, set by showing instead of by slider.
 5. **Save to a card.** The station writes the relationship to a blank card with the existing card
    writer. The child takes it home or to another wand. Tapping the card restores the
    relationship. This makes customization a physical, tradeable object.
@@ -330,7 +373,8 @@ manifests, so the choices change depending on what is placed.
 
 - **Pad shapes and pictures** that say input vs. output without words.
 - **A device-shaped outline** on each pad (wand cradle, Splat ring) so placement is obvious.
-- **A dial** for "choose" and a **press** for "set", the same grammar as the wand button.
+- **A dial** for "choose", where what is shown is what is active. No confirm press: the dial
+  is coarse, untimed motion, and a child who turns it idly only browses.
 - **A big "undo/reset" area**, e.g. a lift-and-replace or a dedicated back button.
 - **Card slot or reader zone** for relationship cards and saving.
 
@@ -354,8 +398,8 @@ manifests, so the choices change depending on what is placed.
 | Level | Where | What the child controls |
 |---|---|---|
 | 0 | Wand alone, at power-on | Nothing; the default plays |
-| 1 | Wand alone | Input source (press), direction (double-press), reset (long hold) |
-| 2 | Wand + partner device | The same, plus teach (hold while posed) |
+| 1 | Wand alone | Input cards, opposite card, reset card; the button is always an input |
+| 2 | Wand + partner device | The same, plus teach (two children, or dwell capture) |
 | 3 | Wand + relationship cards | Choose from the first relationship set |
 | 4 | Pairing Station | Full catalog, endpoints by demonstration, live view, output dimension |
 | 5 | Pairing Station + card writer | Save, carry and share relationships; chains |
@@ -368,7 +412,8 @@ manifests, so the choices change depending on what is placed.
 
 1. **Pair:** tap the Splat card with the wand. *Feedback:* shared identity color, rising tone.
 2. **Observe the default:** tip the wand. *Feedback:* the Splat steps through colors.
-3. **Adjust direction (optional):** double-press. *Feedback:* two-tone; the order reverses.
+3. **Adjust direction (optional):** tap the opposite card. *Feedback:* two-tone and an arrow;
+   the order reverses.
 
 Risks: the child expects the Splat to follow *their* color choice, not a sweep, which leads to
 Scenario 3. They tip around an axis the default does not use. **Mitigation:** the default uses
@@ -376,15 +421,20 @@ the axis with the most range for a natural wrist motion; test which one that is.
 
 ### T2. "Teach the Splat my three poses" (Level 2)
 
-1. Start teaching (card or long hold, depending on the decision in Section 9).
-2. For each pose: press the Splat to pick a color → hold the pose → hold the wand button →
+1. Tap the teach card. *Feedback:* the Splat goes white; the wand shows an empty grid.
+2. For each pose (Scenario 3a, two children): child A holds the wand in a pose; child B presses
+   the Splat until it shows the color they want, then stops. After ~2 s of both resting:
    *chime, pixel added*.
-3. Press once to play. Move between poses. *Feedback:* the Splat changes to the matching color.
-4. Clear with a long hold if unhappy.
+3. Move between poses. *Feedback:* the Splat changes to the matching color. No step switches
+   from recording to playing.
+4. Tap the reset card to start over.
 
-Risks: step 2 needs two hands on two devices while holding a pose. Test with Splat-on-floor
-plus wand-in-hand. The child forgets which state they are in; **mitigation:** the teach state has
-a distinctive matrix look (empty grid with example pixels) and a quiet tick.
+Each child's job is one untimed act: hold a pose, or press until it looks right. Nothing depends
+on when or how long anyone presses.
+
+Risks: holding a pose still for ~2 s. Accidental recordings when a child moves through a pose and
+pauses. **Mitigation:** a visible filling ring before each capture, and a cap on examples (the
+oldest drops out) so a bad recording is soon replaced.
 
 ### T3. "Make my friend's wand only light up when I tip a lot" (Level 3)
 
@@ -398,10 +448,12 @@ live bar earns its place.
 
 1. Place the wand on the input pad, the Splat on the output pad. *Feedback:* both pictures
    appear; the live link starts.
-2. Turn the dial to a relationship glyph; press.
-3. Demonstrate the endpoints: move to low, press; move to high, press.
+2. Turn the dial to a relationship glyph. It takes effect as soon as it is shown; there is no
+   "confirm" press.
+3. Wave the wand through its range. The station captures the lowest and highest values it saw in
+   the last few seconds as the endpoints.
 4. Watch the live view; adjust.
-5. Put a blank card on the reader zone; press save.
+5. Put a blank card on the reader zone. It is written as soon as it is placed.
 6. Lift the wand. The behavior persists. Tapping the card on any wand restores it later.
 
 ---
@@ -413,7 +465,10 @@ live bar earns its place.
 - **Starting a mode:** does each scenario need a card to start it (clear, uses existing
   practice), or does the wand infer it from what it is paired with (less to carry, more
   magic)?
-- **Teach entry:** a card or a gesture? A long hold is already "reset" in this grammar.
+- **Card load:** input, opposite, relationship, teach and reset cards add up. Which ones does a
+  wand-alone session need, and can a single card bundle common changes?
+- **Automatic input choice** (Section 4) vs. input cards.
+- **Two-child teach (3a)** depends on a partner; does a child alone fall back to 3b easily?
 - **Who sees state:** with two children on one link, whose wand shows the relationship?
 - **Visible "off":** how a child tells "nothing is linked" from "linked, input at zero".
 
@@ -437,12 +492,14 @@ live bar earns its place.
 
 ## 10. Suggested next steps (research, not implementation)
 
-1. **Paper/Wizard-of-Oz test of Scenarios 1–3** with the button grammar: an adult drives a
-   Splat by hand from the child's wand motions to test comprehension before any firmware.
-2. **Draw the relationship glyphs** on a 5×5 grid and test whether children can match glyph to
+1. **Observe button and pose behavior in five-year-olds:** press durations, fidget rates, how
+   long a pose is held still. Log presses on a stock wand to set the dwell time and rate limit.
+2. **Paper/Wizard-of-Oz test of Scenarios 1–3** with cards as the only controls: an adult drives
+   a Splat by hand from the child's wand motions to test comprehension before any firmware.
+3. **Draw the relationship glyphs** on a 5×5 grid and test whether children can match glyph to
    behavior.
-3. **Bench numbers:** BLE color write rate with ESP-NOW active; tilt axis range for natural wrist
+4. **Bench numbers:** BLE color write rate with ESP-NOW active; tilt axis range for natural wrist
    motions.
-4. **Pairing Station paper prototype:** two pads plus dial, with the screen as cards swapped by
+5. **Pairing Station paper prototype:** two pads plus dial, with the screen as cards swapped by
    hand.
-5. **Decide** which relationships ship first (recommended: Follow, Opposite, Switch, Taught).
+6. **Decide** which relationships ship first (recommended: Follow, Opposite, Switch, Taught).
