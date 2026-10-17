@@ -90,3 +90,13 @@ outside that list is refused at send time.
 
 In `Live_Page/`, the teacher-facing ESP32 that bridges USB serial to ESP-NOW. In the Bag trees, any
 playground component (`hubtype.txt` → `HUB_CONFIG`).
+
+## "Station" is not one thing
+
+`Bag3/Code/Stations/` holds several unrelated bench prototypes (`NFC Station`, `Icon Display Station`,
+`Radar Station`), and the Broadcast Box and Dial are also called stations. All are beta or bench
+tests, not used by teachers. Always name the specific one; never write "the Station". `NFC Station`
+is a one-off NFC tag-writing tool, not live to teachers or the team.
+
+Likewise, `goalrace`, `splatecho`, and `jumpin1`–`jumpin5` (code-slot experiment) are bench-only
+games, not classroom games. Bag3 MockWand uses plain NDEF text tags; `opcodes.py` is not used there.
