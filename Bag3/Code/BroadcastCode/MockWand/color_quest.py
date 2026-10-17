@@ -530,6 +530,10 @@ def run_game(nfc, buz, display, targets, enow, start_ticks=None):
             display.clear()
             return "stop"
 
+        # The entry tag is not in _EXIT_TAGS and is not an answer; ignore it.
+        if text == "colorquest":
+            continue
+
         expected = targets[found]
 
         if text == expected:
