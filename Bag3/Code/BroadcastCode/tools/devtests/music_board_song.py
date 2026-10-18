@@ -2,8 +2,9 @@
 Drive the Music Board Station's song handling under stubs.
 
 Checks: addressing by HOST_ID, ack contents, retry de-dup, person+ append,
-the 64-note cap, rejection of malformed songs, beat timing per voice, and
-that MockWand melody.py's NOTE_CHAR encodes the same notes the board parses.
+the 64-note cap, rejection of malformed songs, that every note file the
+board can request exists, song-clock timing per voice, and that MockWand
+melody.py's NOTE_CHAR encodes the same notes the board parses.
 
 Run from anywhere: python3 music_board_song.py
 """
@@ -32,6 +33,9 @@ class _Pin:
 
     def irq(self, **k):
         pass
+
+    def value(self):
+        return 0       # buttons read as still held when take() checks
 
 
 class _I2S:
@@ -135,17 +139,23 @@ def main():
     check(mb.parse_song("ce-e-g+r") == [(1, 2), (3, 1), (3, 1), (5, 4), (0, 2)],
           "length marks and rest parse")
 
-    for v, (name, _, quarter_ms, _) in enumerate(mb.VOICES):
-        b._on_song(song("cg+r", 10 + v), "TIME")
+    missing = [f"{v}_{n}_{f}.wav" for v, _ in mb.VOICES for n in range(1, 9)
+               for f in mb.LENGTH_FILE.values()
+               if not os.path.exists(os.path.join(mb.NOTE_DIR, f"{v}_{n}_{f}.wav"))]
+    check(not missing, f"all {len(mb.VOICES) * 8 * len(mb.LENGTH_FILE)} note files present {missing[:3]}")
+
+    for v, (name, _) in enumerate(mb.VOICES):
+        b._on_song(song("cg+e-r", 10 + v), "TIME")
         b.voice = v
         b.play()
         start = _clock[0]
         while b.playing:
             _clock[0] += 5
             b._step_playback()
-        expect = (2 + 4 + 2) * quarter_ms // 2
+        expect = (2 + 4 + 1 + 2) * mb.EIGHTH_MS
         took = _clock[0] - start
-        check(abs(took - expect) <= 5, f"{name}: 3 tokens in {took} ms (expect {expect})")
+        check(abs(took - expect) <= 5 and b._tok >= len(b.song),
+              f"{name}: 4 tokens in {took} ms (expect {expect}), all files written")
 
     tree = ast.parse(open(MELODY).read())
     note_char = None

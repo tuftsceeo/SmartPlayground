@@ -3,7 +3,10 @@ Streamed WAV playback over I2S.
 
 One note plays at a time. start() opens a WAV and step() writes one chunk
 per call from the main loop, so the radio and buttons stay serviced during
-playback. All buffers are allocated in __init__, after the radio is up.
+playback. I2S.write() blocks while the DMA buffer is full, which paces the
+loop to the audio. start() of the next note does not drain the buffer, so
+consecutive notes play without a gap. All buffers are allocated in
+__init__, after the radio is up.
 """
 
 import struct
@@ -13,15 +16,18 @@ I2S_ID = 0
 SCK_PIN = 20   # BCLK, XIAO D9
 WS_PIN = 18    # LRC, XIAO D10
 SD_PIN = 19    # DIN, XIAO D8
-CHUNK = 256    # bytes per step(): 16 ms at 8 kHz 16-bit mono
-IBUF = 2048
+CHUNK = 1024   # bytes per step(): 64 ms at 8 kHz 16-bit mono, as in the pilot
+IBUF = 4096    # DMA buffer: ~256 ms of audio queued ahead of the main loop
 HEADER_LEN = 44
+DEFAULT_FMT = (8000, 16)   # used for silence before any note has set the format
 
 
 class Audio:
     def __init__(self):
         self._buf = bytearray(CHUNK)
         self._mv = memoryview(self._buf)
+        self._zeros = memoryview(bytearray(CHUNK))
+        self._silence = 0   # bytes of silence still to write
         self._hdr = bytearray(HEADER_LEN)
         self._i2s = None
         self._fmt = None   # (rate, bits) the I2S peripheral is set up for
@@ -63,8 +69,20 @@ class Audio:
         self._setup(fmt)
         self._f = f
 
+    def silence(self, ms):
+        """Queue ms of silence (a rest) through I2S, so rests keep sample time."""
+        self.stop()
+        self._setup(self._fmt or DEFAULT_FMT)
+        rate, bits = self._fmt
+        self._silence = rate * (bits // 8) * ms // 1000
+
     def step(self):
-        """Write one chunk. Returns True while the note still has data."""
+        """Write one chunk. Returns True while the note or rest still has data."""
+        if self._silence:
+            n = min(self._silence, CHUNK)
+            self._i2s.write(self._zeros[:n])
+            self._silence -= n
+            return True
         if self._f is None:
             return False
         n = self._f.readinto(self._buf)
@@ -75,10 +93,11 @@ class Audio:
         return True
 
     def stop(self):
+        self._silence = 0
         if self._f is not None:
             self._f.close()
             self._f = None
 
     @property
     def busy(self):
-        return self._f is not None
+        return self._f is not None or self._silence > 0
