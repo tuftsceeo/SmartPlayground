@@ -114,6 +114,44 @@ python3 tools/synth_notes.py --check
 The FluidR3 nylon guitar keeps ringing after key release, so guitar eighth notes end on the
 fade rather than their natural decay.
 
+## LED glitches
+
+The pilot board occasionally showed shifted or blurred colours after running a while, as if a
+frame was received wrong. It was not supply voltage and was never resolved; the pilot's
+`sleep_ms(10)` before each write was an attempt. This firmware writes the LEDs more often (each
+eighth-beat, while audio streams), so the glitch may show up more.
+
+Shifted colours mean the WS2812 chain mis-read bits. Two likely causes:
+
+1. **Data logic level.** GPIO21 drives the chain directly at 3.3 V; WS2812s at 5 V need
+   0.7 x 5 V = 3.5 V for a guaranteed high. The margin moves with LED temperature, which fits
+   "after some running time". Fix in hardware: a 74AHCT125 (or 74HCT245) 3.3 -> 5 V buffer on
+   the data line, plus a 330 ohm series resistor at the first LED's DIN and 1000 uF across the
+   LED supply.
+2. **RMT refill delayed by radio interrupts.** 67 pixels (1608 bits) is more than one RMT
+   channel's memory on the C6, so an interrupt refills it mid-frame. If WiFi/ESP-NOW delays that
+   refill past the WS2812 reset time (~50 us), the chain latches early and the rest of the frame
+   is shifted.
+
+Settings at the top of `staff.py`:
+
+| Setting | Default | Effect |
+|---|---|---|
+| `LED_MODE` | `"rmt"` | `"bitbang"` = `esp32.RMT.bitstream_channel(None)`: CPU bit-bang with interrupts off for the ~2 ms frame (I2S DMA keeps playing; radio RX waits up to ~2 ms) |
+| `WRITE_TWICE` | `True` | Each frame is sent twice back to back; a corrupted first pass is overwritten |
+| `REFRESH_MS` | `250` | Unchanged frame is rewritten this often, so any glitch clears within 250 ms; `0` = off |
+| `PRE_WRITE_MS` | `0` | The pilot's pause before each write (it used 10) |
+
+The boot log prints the active settings.
+
+### Bench procedure
+
+1. Baseline: `LED_MODE = "rmt"`, `WRITE_TWICE = False`, `REFRESH_MS = 0`. Loop a long song for
+   30 min and note the time to the first glitch.
+2. Same, with `LED_MODE = "bitbang"`. Glitches gone -> cause 2.
+3. Glitches in both modes -> cause 1; fit the level buffer.
+4. Run with the clean mode, `WRITE_TWICE = True` and `REFRESH_MS = 250`.
+
 ## Tests
 
 - `python3 -m py_compile` on each file.

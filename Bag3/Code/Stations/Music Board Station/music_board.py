@@ -271,4 +271,5 @@ class MusicBoard:
             self._poll_buttons()
             if self.playing:
                 self._step_playback()
+            self.staff.refresh()
             time.sleep_ms(1)
