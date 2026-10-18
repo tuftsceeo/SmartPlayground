@@ -109,10 +109,21 @@ is not touched unless asked.
 4. **Two boards:** two stickers with different ids; each wand's song lands only on the tapped
    board.
 
-## Open questions
+## Decisions (2026-10-18)
 
-1. Auto-play on receive, or wait for Play?
-2. Keep or clear the wand's melody after a successful send?
-3. What should the Coder button do now?
-4. Is the 25-note wand limit right for this station, or should the board cap at 8 like the pilot?
-5. Should `musicbox` go in `game_tags.py`?
+Implemented in `Bag3/Code/Stations/Music Board Station/` (see its README) and
+`MockWand/melody.py`; this section overrides earlier sections where they differ.
+
+- **Standalone melody unchanged.** The wand only gains the `musicbox` sticker branch.
+- **Auto-play once** on receipt; Play button plays / stops.
+- **Wand keeps** its melody after a send. Success (check) needs `len > 0` in the ack.
+- **Person+ button** (person with "+" icon): the next song received is appended (one-shot, 30 s
+  timeout). Board cap 64 notes.
+- **Voice button:** piano / guitar / violin = normal / `_fast` / `_slow` WAVs, as in the pilot.
+- **Note lengths:** song tokens may carry `+` (half) or `-` (eighth), and `r` is a rest. The
+  board supports them now; MockWand sends bare letters (quarters). Lengths exist only in Bag2's
+  `Wand Module/melody.py`, which has scoping bugs (`DOUBLE_LENGTH` assigned without `global`,
+  undefined `leds`) and was not changed.
+- **Staff:** one column per eighth-beat, head + dim tail, scrolling under a playhead at column 3.
+- **Ack:** `{"type": "song_ack", "seq", "len"}`; retries are re-acked with the earlier `len`.
+- **`musicbox` is melody-only**; not added to the shared game-tag lists.

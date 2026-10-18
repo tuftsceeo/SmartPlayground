@@ -251,8 +251,9 @@ class MelodyGame:
     def _send_song(self, host_id):
         """
         Broadcast the melody to the Music Board with this host id and wait
-        for its song_ack. Returns True if acked, False if no ack after
-        SONG_TRIES, None if an ESP-NOW stop arrived while waiting.
+        for its song_ack. Returns True if the board took at least one note,
+        False if it took none or never acked after SONG_TRIES, None if an
+        ESP-NOW stop arrived while waiting.
         The melody is kept either way.
         """
         if not self.enow:
@@ -270,8 +271,9 @@ class MelodyGame:
                 if msg_type in ("stop", "start_game"):
                     return None
                 if msg_type == "song_ack" and data.get("seq") == seq:
-                    print("  Song acked by %s (try %d, %s notes)" % (host_id, attempt + 1, data.get("len")))
-                    return True
+                    taken = data.get("len") or 0
+                    print("  Song acked by %s (try %d, %d notes taken)" % (host_id, attempt + 1, taken))
+                    return taken > 0
                 time.sleep_ms(1)
         print("  No song_ack from %s" % host_id)
         return False
