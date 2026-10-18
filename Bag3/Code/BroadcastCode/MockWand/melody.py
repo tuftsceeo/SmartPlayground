@@ -2,7 +2,8 @@
 Melody Builder — NFC Note Recording Game
 ========================================
 Scan note tags to build a melody, tap "erase" to clear,
-press button to play back. Tap "stop" tag to exit.
+press button to play back. Tap a Music Board's "musicbox@<id>" sticker
+to send the melody to that board. Tap "stop" tag to exit.
 
 Colors from leds.py — auto-scale with ambient brightness.
 
@@ -16,7 +17,7 @@ import time
 from machine import Pin
 
 from pn532 import PN532
-from nfc_reader import NfcReader
+from nfc_reader import NfcReader, split_prefixed
 from game_tags import exit_tags_excluding
 
 _EXIT_TAGS = exit_tags_excluding("melody")
@@ -25,6 +26,7 @@ from leds import (
     OFF, RED, ORANGE, YELLOW, GREEN, BLUE, PURPLE, PINK, WHITE, TEAL,
     SHAPE_A, SHAPE_B, SHAPE_C, SHAPE_D, SHAPE_E, SHAPE_F, SHAPE_G,
     SHAPE_X, SHAPE_MUSIC, SHAPE_SAD_FACE, SHAPE_QUESTION,
+    SHAPE_ARROW_R, SHAPE_CHECK,
 )
 
 
@@ -77,6 +79,19 @@ GAP_MS = 80
 ERASE_FADE_MS = 500
 LOOP_SLEEP_MS = 40
 REPEAT_SCAN_GUARD_MS = 1200
+
+# Music Board hand-off ("musicbox@<host_id>" sticker on the board)
+MUSICBOX_PREFIX = "musicbox"
+SONG_TRIES = 3
+SONG_ACK_WAIT_MS = 150
+SONG_RESULT_HOLD_MS = 600
+
+# One character per note in the "song" message, so 25 notes fit in one
+# ESP-NOW frame. Must match NOTE_CHARS in the Music Board's music_board.py.
+NOTE_CHAR = {
+    "note_c": "c", "note_d": "d", "note_e": "e", "note_f": "f",
+    "note_g": "g", "note_a": "a", "note_b": "b", "note_c_high": "C",
+}
 
 
 # ─────────────────────────────────────────────
@@ -192,13 +207,14 @@ class MelodyGame:
         self.enow = enow
         self.display = MelodyDisplay(leds)
         self.btn = Pin(BUTTON_PIN, Pin.IN, Pin.PULL_UP)
-        self.reader = NfcReader(nfc, COMMANDS)
+        self.reader = NfcReader(nfc, COMMANDS, prefixes={MUSICBOX_PREFIX})
         
         # Game state
         self.current_melody = []
         self.last_uid = None
         self.last_scan_ms = 0
         self._frame = 0
+        self._song_seq = time.ticks_ms() & 0xFFFF
         
         # Button state: read at init to avoid false trigger from held button
         self._btn_was_down = (self.btn.value() == 0)
@@ -232,6 +248,34 @@ class MelodyGame:
         self.buz.confirm()
         return True
     
+    def _send_song(self, host_id):
+        """
+        Broadcast the melody to the Music Board with this host id and wait
+        for its song_ack. Returns True if acked, False if no ack after
+        SONG_TRIES, None if an ESP-NOW stop arrived while waiting.
+        The melody is kept either way.
+        """
+        if not self.enow:
+            print("  No ESP-NOW; cannot send song")
+            return False
+        notes = "".join(NOTE_CHAR[cmd] for cmd in self.current_melody)
+        self._song_seq = (self._song_seq + 1) & 0xFFFF
+        seq = self._song_seq
+        self.leds.show_shape(SHAPE_ARROW_R, TEAL, bg=OFF)
+        for attempt in range(SONG_TRIES):
+            self.enow.broadcast_song(host_id, notes, seq)
+            start = time.ticks_ms()
+            while time.ticks_diff(time.ticks_ms(), start) < SONG_ACK_WAIT_MS:
+                msg_type, data, _ = self.enow.poll()
+                if msg_type in ("stop", "start_game"):
+                    return None
+                if msg_type == "song_ack" and data.get("seq") == seq:
+                    print("  Song acked by %s (try %d, %s notes)" % (host_id, attempt + 1, data.get("len")))
+                    return True
+                time.sleep_ms(1)
+        print("  No song_ack from %s" % host_id)
+        return False
+
     def _check_button(self):
         """Check for debounced button press edge. Returns True on press."""
         down = (self.btn.value() == 0)
@@ -283,6 +327,24 @@ class MelodyGame:
                     if cmd in _EXIT_TAGS:
                         print("  Exit tag detected: %s" % cmd)
                         return
+                    elif cmd.startswith(MUSICBOX_PREFIX):
+                        _, _, host_id = split_prefixed(cmd)
+                        if not host_id or len(self.current_melody) == 0:
+                            self.display.show_error_max_notes()
+                            self.buz.warn()
+                            print("  Nothing to send" if host_id else "  Music Board tag has no id")
+                        else:
+                            sent = self._send_song(host_id)
+                            if sent is None:
+                                print("  ESP-NOW stop")
+                                return
+                            if sent:
+                                self.leds.show_shape(SHAPE_CHECK, GREEN, bg=OFF)
+                                self.buz.confirm()
+                            else:
+                                self.display.show_error_max_notes()
+                                self.buz.warn()
+                            time.sleep_ms(SONG_RESULT_HOLD_MS)
                     elif cmd.startswith("note_"):
                         if len(self.current_melody) >= MAX_NOTES:
                             self.display.show_error_max_notes()
