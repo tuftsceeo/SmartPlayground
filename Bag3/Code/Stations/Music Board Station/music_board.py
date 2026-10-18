@@ -11,6 +11,10 @@ Song string: one token per note. Note char c d e f g a b C, or r for a
 rest, optionally followed by "+" (half note) or "-" (eighth note); no
 mark = quarter. MockWand currently sends bare note chars only.
 
+Each note plays its own WAV to the end: notes/{voice}_{n}_{len}.wav,
+rendered by tools/synth_notes.py at quarter = 500 ms with the release
+inside the file, so files played back to back keep time.
+
 Buttons: play (play / stop), voice (piano / guitar / violin), person+
 (append the next song received instead of replacing).
 """
@@ -29,6 +33,8 @@ NOTE_DIR = "notes"
 NOTE_CHARS = "cdefgabC"           # index + 1 = note number; must match melody.py NOTE_CHAR
 LENGTH_MARKS = {"+": 4, "-": 1}   # eighth-beats; quarter (no mark) = 2
 QUARTER = 2
+EIGHTH_MS = 250                   # quarter = 500 ms; must match tools/synth_notes.py
+LENGTH_FILE = {1: 8, 2: 4, 4: 2}  # eighth-beats -> file suffix (8th, quarter, half)
 MAX_TOKENS = 64
 
 PLAY_PIN = 2
@@ -38,11 +44,11 @@ DEBOUNCE_MS = 200
 ADD_TIMEOUT_MS = 30000
 SEQ_TABLE_MAX = 20
 
-# (name, WAV suffix, quarter-note ms, button LED colour)
+# (file prefix, button LED colour)
 VOICES = (
-    ("piano", "", 600, (0, 255, 0)),
-    ("guitar", "_fast", 320, (255, 0, 0)),
-    ("violin", "_slow", 1000, (0, 0, 255)),
+    ("piano", (0, 255, 0)),
+    ("guitar", (255, 0, 0)),
+    ("violin", (0, 0, 255)),
 )
 
 LED_OFF = (0, 0, 0)
@@ -91,10 +97,12 @@ class Button:
             self.pressed = True
 
     def take(self):
-        if self.pressed:
-            self.pressed = False
-            return True
-        return False
+        """True once per press. A falling edge with the pin already high
+        again (release bounce) is discarded."""
+        if not self.pressed:
+            return False
+        self.pressed = False
+        return self.pin.value() == 0
 
 
 class MusicBoard:
@@ -114,9 +122,8 @@ class MusicBoard:
 
         self.playing = False
         self._tok = 0           # token index being played
-        self._col = 0           # timeline column of that token's head
-        self._tok_start = 0
-        self._eighth = 0        # column within the token currently drawn
+        self._t0 = 0            # ticks_ms when the song started sounding
+        self._shown = -1        # timeline column currently drawn as playing
         print(f"  Music Board ready: sticker text musicbox@{HOST_ID}")
         self._refresh()
 
@@ -139,25 +146,19 @@ class MusicBoard:
             play = LED_READY
         else:
             play = LED_OFF
-        self.staff.buttons(VOICES[self.voice][3], play, add)
+        self.staff.buttons(VOICES[self.voice][1], play, add)
 
     # ── playback ──────────────────────────────
 
-    def _eighth_ms(self):
-        return VOICES[self.voice][2] // QUARTER
-
     def _start_token(self):
-        note, _ = self.song[self._tok]
-        self._tok_start = time.ticks_ms()
-        self._eighth = 0
+        note, length = self.song[self._tok]
         if note:
-            self.audio.start(f"{NOTE_DIR}/notet{note}{VOICES[self.voice][1]}.wav")
+            self.audio.start(f"{NOTE_DIR}/{VOICES[self.voice][0]}_{note}_{LENGTH_FILE[length]}.wav")
         else:
-            self.audio.stop()
-        self._draw_playing()
+            self.audio.silence(length * EIGHTH_MS)
 
-    def _draw_playing(self):
-        t = self._col + self._eighth
+    def _draw_playing(self, t):
+        self._shown = t
         self.staff.draw(self.cols, self.staff.window_start(len(self.cols), t), playing=t)
 
     def play(self):
@@ -165,9 +166,10 @@ class MusicBoard:
             return
         self.playing = True
         self._tok = 0
-        self._col = 0
+        self._shown = -1
         self._leds()
         self._start_token()
+        self._t0 = time.ticks_ms()
 
     def stop(self):
         self.audio.stop()
@@ -175,22 +177,20 @@ class MusicBoard:
         self._refresh()
 
     def _step_playback(self):
-        note, length = self.song[self._tok]
-        elapsed = time.ticks_diff(time.ticks_ms(), self._tok_start)
-        eighth = self._eighth_ms()
-        if elapsed >= length * eighth:
-            self._col += length
+        """Feed audio one chunk; start the next token's file when the current
+        one is fully written. Notes and rests are exact multiples of
+        EIGHTH_MS, so the staff follows the song clock, not the write
+        position (which runs up to IBUF ahead of the speaker)."""
+        if self._tok < len(self.song) and not self.audio.step():
             self._tok += 1
-            if self._tok >= len(self.song):
-                self.stop()
-                return
-            self._start_token()
+            if self._tok < len(self.song):
+                self._start_token()
+        t = time.ticks_diff(time.ticks_ms(), self._t0) // EIGHTH_MS
+        if t >= len(self.cols):
+            self.stop()
             return
-        e = elapsed // eighth
-        if e != self._eighth:
-            self._eighth = e
-            self._draw_playing()
-        self.audio.step()
+        if t != self._shown:
+            self._draw_playing(t)
 
     # ── radio ─────────────────────────────────
 

@@ -14,9 +14,10 @@ display, and combining songs from several students.
 | `main.py` | Brings up ESP-NOW first, then imports and runs `music_board` |
 | `music_board.py` | Song protocol, parsing, playback state, buttons |
 | `staff.py` | 8x8 staff timeline rendering and button LEDs |
-| `audio.py` | Streamed WAV to I2S, one chunk per main-loop pass |
+| `audio.py` | Streamed WAV to I2S, one 1 KB chunk per main-loop pass; rests written as silence |
+| `tools/synth_notes.py` | Renders `notes/` with FluidSynth; `--check` verifies all 72 files |
 | `lib/espnow_manager.py` | Copy of `BroadcastCode/MockWand/lib/espnow_manager.py` with `EXTERNAL_ANTENNA = False` |
-| `notes/notet{1-8}[_fast\|_slow].wav` | Note sounds, 8 kHz 16-bit mono, from the pilot |
+| `notes/{piano,guitar,violin}_{1-8}_{8,4,2}.wav` | 72 note files: voice, note (1 = C4 .. 8 = C5), length (eighth, quarter, half); 8 kHz 16-bit mono |
 | `hubtype.txt` | `music_board` |
 
 `lib/espnow_manager.py` is a per-tree copy. It differs from the IconDisplay copy; it matches the
@@ -71,7 +72,7 @@ melody sends bare note letters only; length marks are for wands that add length 
 |---|---|
 | Song received | Replaces the board song (or appends, after person+) and plays it once |
 | Play | Play from the start / stop |
-| Voice | piano (green) -> guitar (red) -> violin (blue); takes effect on the next note |
+| Voice | piano (green) -> guitar (red) -> violin (blue); takes effect on the next note written |
 | Person+ | LED blue: the next song received is appended. One-shot; cancels after 30 s or a second press |
 | `stop` broadcast | Stop and clear |
 
@@ -89,13 +90,35 @@ the first 8 columns are shown, with a dim pixel top-right when more follows.
 
 ### Timing
 
-Each note's WAV starts on its beat and is cut at the next onset. Quarter-note length per voice:
-piano 600 ms, guitar 320 ms, violin 1000 ms (`VOICES` in `music_board.py`).
+Quarter = 500 ms for every voice. Each note plays its own file to the end; files are exactly
+250 / 500 / 1000 ms with the instrument's release inside, so back-to-back playback keeps time
+with no cutting. Rests are written to I2S as silence of the same length. The staff follows the
+song clock (`EIGHTH_MS` steps from the first write), not the write position, which runs up to
+the 4 KB DMA buffer (~256 ms) ahead of the speaker.
+
+## Note files
+
+`tools/synth_notes.py` renders each note as a single MIDI note through FluidSynth with the
+FluidR3_GM SoundFont (MIT licence) — GM programs 0 Acoustic Grand Piano, 24 Nylon Guitar,
+40 Violin — at 44.1 kHz, then resamples to 8 kHz mono. The key is released 200 / 150 / 220 ms
+(piano / guitar / violin) before the end of the note, but held at least 35 % of the note; a
+30 ms fade ends every file on zero. Each voice is normalised as a set (loudest note -1 dBFS) so
+notes keep their relative levels.
+
+```
+apt install fluidsynth fluid-soundfont-gm      # numpy also required
+python3 tools/synth_notes.py                   # writes notes/
+python3 tools/synth_notes.py --check
+```
+
+The FluidR3 nylon guitar keeps ringing after key release, so guitar eighth notes end on the
+fade rather than their natural decay.
 
 ## Tests
 
 - `python3 -m py_compile` on each file.
 - `BroadcastCode/tools/devtests/music_board_song.py` runs the song handling under stubs:
-  addressing, ack, retry de-dup, person+ append, the 64-note cap, malformed input, timing per
-  voice, and that `MockWand/melody.py`'s `NOTE_CHAR` matches `NOTE_CHARS`.
+  addressing, ack, retry de-dup, person+ append, the 64-note cap, malformed input, presence of
+  all 72 note files, song-clock timing per voice, and that `MockWand/melody.py`'s `NOTE_CHAR`
+  matches `NOTE_CHARS`.
 - Not yet run on hardware.
