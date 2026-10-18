@@ -54,9 +54,10 @@ class _I2S:
 class _NeoPixel(list):
     def __init__(self, pin, n):
         super().__init__([(0, 0, 0)] * n)
+        self.writes = 0
 
     def write(self):
-        pass
+        self.writes += 1
 
 
 machine = types.ModuleType("machine")
@@ -165,6 +166,18 @@ def main():
     order = ["note_c", "note_d", "note_e", "note_f", "note_g", "note_a", "note_b", "note_c_high"]
     check(note_char is not None and "".join(note_char[k] for k in order) == mb.NOTE_CHARS,
           "melody.py NOTE_CHAR matches board NOTE_CHARS")
+    import staff as st
+    b.stop()
+    w0 = b.staff.np.writes
+    b.staff.buttons((1, 1, 1), (0, 0, 0), (0, 0, 0))
+    check(b.staff.np.writes - w0 == (2 if st.WRITE_TWICE else 1), "WRITE_TWICE repeats each frame")
+    w0 = b.staff.np.writes
+    for _ in range(1000):          # 1000 ms idle
+        _clock[0] += 1
+        b.staff.refresh()
+    per = 2 if st.WRITE_TWICE else 1
+    check((b.staff.np.writes - w0) // per == 1000 // st.REFRESH_MS,
+          f"idle refresh every {st.REFRESH_MS} ms")
     print("music_board_song: all checks passed")
 
 

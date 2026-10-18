@@ -8,10 +8,23 @@ Pixels 64-66 light the voice, play and person+ buttons.
 The staff is a window onto a timeline where one column is one
 eighth-beat. A note's first column is its head (full colour); the rest
 of its length is a dim tail. Rests are empty columns.
+
+The pilot board showed occasional shifted/blurred colours after running a
+while (a corrupted WS2812 frame). The LED_* settings below exist to bench
+that; see README "LED glitches".
 """
 
+import time
 import neopixel
 from machine import Pin
+
+# "rmt": MicroPython's default RMT bitstream. "bitbang": CPU bit-bang with
+# interrupts off for the ~2 ms frame, so WiFi interrupts cannot delay an RMT
+# refill mid-frame.
+LED_MODE = "rmt"
+WRITE_TWICE = True    # repeat each frame immediately; overwrites a corrupted first pass
+REFRESH_MS = 250      # rewrite the current frame this often; 0 = off
+PRE_WRITE_MS = 0      # pilot's sleep before each write; 10 there, did not fix the glitch
 
 NEOPIXEL_PIN = 21
 NUM_PIXELS = 67
@@ -58,13 +71,33 @@ def timeline(tokens):
 
 class Staff:
     def __init__(self):
+        if LED_MODE == "bitbang":
+            import esp32
+            esp32.RMT.bitstream_channel(None)
+        elif LED_MODE != "rmt":
+            raise ValueError(f"LED_MODE must be 'rmt' or 'bitbang', got {LED_MODE!r}")
+        print(f"  LEDs: mode={LED_MODE} write_twice={WRITE_TWICE} refresh={REFRESH_MS} ms")
         self.np = neopixel.NeoPixel(Pin(NEOPIXEL_PIN), NUM_PIXELS)
+        self._last_write = 0
         self.clear()
+
+    def _write(self):
+        if PRE_WRITE_MS:
+            time.sleep_ms(PRE_WRITE_MS)
+        self.np.write()
+        if WRITE_TWICE:
+            self.np.write()
+        self._last_write = time.ticks_ms()
+
+    def refresh(self):
+        """Rewrite the unchanged frame every REFRESH_MS so a glitched frame clears."""
+        if REFRESH_MS and time.ticks_diff(time.ticks_ms(), self._last_write) >= REFRESH_MS:
+            self._write()
 
     def clear(self):
         for i in range(COLS * ROWS):
             self.np[i] = OFF
-        self.np.write()
+        self._write()
 
     def window_start(self, cols_len, t):
         """First timeline column shown when column t is playing."""
@@ -99,10 +132,10 @@ class Staff:
             idx = _index(COLS - 1, ROWS - 1)
             if self.np[idx] == OFF:
                 self.np[idx] = MORE_COLOR
-        self.np.write()
+        self._write()
 
     def buttons(self, voice_rgb, play_rgb, add_rgb):
         self.np[VOICE_LED] = voice_rgb
         self.np[PLAY_LED] = play_rgb
         self.np[ADD_LED] = add_rgb
-        self.np.write()
+        self._write()
