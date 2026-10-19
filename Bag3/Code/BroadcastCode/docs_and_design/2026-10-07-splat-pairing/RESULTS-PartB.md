@@ -92,7 +92,7 @@ is woken. A paired Splat in the idle loop stays connected.
 ## B3. Party game (`partytest`)
 
 Two wands, one Splat each, real `partytest` card tapped on both. `85:CB:FC` led (lower MAC),
-`86:28:FC` followed; both logged `game_start` 0.1 s apart. 41 pooled Splat commands, local and
+`86:28:FC` followed; both logged `game_start` 0.1 s apart. 38 pooled Splat commands, local and
 remote presses, all `ok`; time from the leader's send to the Splat write: 1-82 ms. The
 follower's lobby hourglass was drawn in its red identity color and read as an error; it is now
 `BLUE_DIM`.
