@@ -92,6 +92,9 @@ GAME_MODULES = {
     "goalrace":       "goalrace",
     # Two-device game: wand half; the Splat Companion runs its splatecho.py.
     "splatecho":      "splatecho",
+    # Solo Splat games (SPLATS_LOCAL): this wand and its own paired Splats.
+    "soloecho":       "solo_echo",
+    "solotest":       "solotest",
     # Hidden (ESP-NOW only, never NFC): targeted identify animation.
     "finddevice":     "finddevice",
 }
@@ -269,6 +272,8 @@ ALL_COMMANDS   = BASE_COMMANDS | set(game_store.slugs())
 #      start_game is received (poll enow every loop). All seven
 #      parameters are always passed positionally; `batt` is the
 #      MAX17048 fuel gauge and is None when the board has none.
+#      A Splat game declares SPLATS_LOCAL (solo) or SPLATS_MIN (party)
+#      and takes an eighth parameter, `net=None` (README "Splat games").
 #   2. Add the tag name `"yourgame"` to GAME_TAGS in lib/game_tags.py.
 #   3. Add `"yourgame": "yourgame"` to GAME_MODULES in this file --
 #      key is the tag name, value is the module's filename (no `.py`).
@@ -466,7 +471,7 @@ def _is_arity_error(e):
             or ("argument" in msg and "given" in msg))
 
 
-def _start_play(play_func, name, nfc, leds, buz, accel, i2c, wrapper, batt_ref):
+def _start_play(play_func, name, nfc, leds, buz, accel, i2c, wrapper, batt_ref, net=None):
     """Call a game's play(), tolerating the older six-parameter signature.
 
     batt became a real seventh parameter long after games had been written
@@ -482,6 +487,8 @@ def _start_play(play_func, name, nfc, leds, buz, accel, i2c, wrapper, batt_ref):
     entering the function.
     """
     args = (nfc, leds, buz, accel, i2c, wrapper, batt_ref)
+    if net is not None:
+        args = args + (net,)   # SPEC section 6: 8-parameter play(..., net=None)
     code = getattr(play_func, "__code__", None)
     n = getattr(code, "co_argcount", None) if code is not None else None
     if n is not None:
@@ -499,16 +506,30 @@ def _start_play(play_func, name, nfc, leds, buz, accel, i2c, wrapper, batt_ref):
 def _launch_game(name, nfc, leds, buz, accel, i2c, enow, batt_ref):
     """Run a game and chain force-switches without returning to idle."""
     while is_game(name):
+        net = None
         try:
             play_func = _load_play(name)
+            # Splat games (SPLATS_LOCAL / SPLATS_MIN): logic in lib/solo.py.
+            mod = sys.modules[game_module(name)]
+            if hasattr(mod, "SPLATS_LOCAL") or hasattr(mod, "SPLATS_MIN"):
+                import solo
+                net = solo.prepare(mod, name, nfc, leds, buz, enow)
+                if net is None:
+                    _unload_game(name)
+                    return
+            mod = None
         except Exception as e:
             _game_load_failed(name, e)
             return
-        wrapper = _StartGameCapture(enow)
+        wrapper = _StartGameCapture(enow if net is None else net.wrap(enow))
         _emit({"type": "game_start", "slug": name})
         try:
-            _start_play(play_func, name, nfc, leds, buz, accel, i2c,
-                        wrapper, batt_ref)
+            if net is None:
+                _start_play(play_func, name, nfc, leds, buz, accel, i2c,
+                            wrapper, batt_ref)
+            else:
+                net.run(_start_play, play_func, name, nfc, leds, buz, accel,
+                        i2c, wrapper, batt_ref, net)
         except TypeError as e:
             # A game that cannot even be CALLED is a load failure, not a
             # reason to take the main loop down with it. An error raised
@@ -528,6 +549,7 @@ def _launch_game(name, nfc, leds, buz, accel, i2c, enow, batt_ref):
         # compile the next game on top of a still-referenced one.
         play_func = None
         wrapper = None
+        net = None
         memprobe.probe("post-game:%s" % name)      # BENCH
         if UNLOAD_AFTER_GAME:
             _unload_game(name)

@@ -33,7 +33,8 @@ export const WAND_RESERVED = [
   "colorquest", "freezedance", "jumpin", "cooking", "melody", "shake",
   "shakerainbow", "rainbow", "jump", "sound", "nfcsound", "simpleicecream",
   "multiicecream", "gestures", "finddevice", "goalrace", "splatecho",
-  "start", "stop", "erase", "battery", "getcode", "done",
+  "soloecho", "solotest",
+  "start", "stop", "unpair", "erase", "battery", "getcode", "done",
   "buttondown", "buttonup", "whenshake", "playnote",
 ];
 
@@ -43,16 +44,12 @@ const BOX_RESERVED = ["payload", "index", "active", "stats"];
 /** Icon Display built-in games (IconDisplay/lib/display_tags.py GAME_TAGS). */
 const DISPLAY_RESERVED = ["scoreboard", "goalrace"];
 
-/** Splat pairing command tag. */
-const PAIRING_RESERVED = ["unpair"];
-
 export const RESERVED_SLUGS = new Set([
   ...EXAMPLES.map((e) => e.id),
   ...PYTHON_RESERVED,
   ...WAND_RESERVED,
   ...BOX_RESERVED,
   ...DISPLAY_RESERVED,
-  ...PAIRING_RESERVED,
 ]);
 
 /**

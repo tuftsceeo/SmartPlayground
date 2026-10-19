@@ -33,6 +33,8 @@ GAME_TAGS = {
     "gestures",
     "goalrace",
     "splatecho",
+    "soloecho",
+    "solotest",
 }
 
 CONTROL_TAGS = {"start", "stop", "unpair"}

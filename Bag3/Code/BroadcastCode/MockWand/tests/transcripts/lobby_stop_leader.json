@@ -1,0 +1,195 @@
+{
+ "format": "pw-transcript/1",
+ "scenario": "lobby_stop_leader",
+ "description": "A, B, C in A's lobby; a stop card on A cancels it for everyone (pw_end)",
+ "constants": {
+  "FIND_WAIT_MS": 500,
+  "LOBBY_PERIOD_MS": 1000,
+  "HB_PERIOD_MS": 1000,
+  "WAND_LOST_MS": 3000,
+  "SEND_TRIES": 3,
+  "JOIN_WAIT_MS": 500
+ },
+ "wands": {
+  "A": "AA:00:00:00:00:01",
+  "B": "AA:00:00:00:00:02",
+  "C": "AA:00:00:00:00:03"
+ },
+ "splats": {
+  "A": 1,
+  "B": 1,
+  "C": 1
+ },
+ "frames": [
+  {
+   "t": 0,
+   "src": "AA:00:00:00:00:01",
+   "dst": "*",
+   "msg": {
+    "type": "pw_find",
+    "g": "partytest"
+   },
+   "delivered": [
+    "AA:00:00:00:00:02",
+    "AA:00:00:00:00:03"
+   ],
+   "acked": null
+  },
+  {
+   "t": 500,
+   "src": "AA:00:00:00:00:01",
+   "dst": "*",
+   "msg": {
+    "type": "pw_lobby",
+    "g": "partytest",
+    "id": "00010C",
+    "n": 1,
+    "min": 3,
+    "max": null
+   },
+   "delivered": [
+    "AA:00:00:00:00:02",
+    "AA:00:00:00:00:03"
+   ],
+   "acked": null
+  },
+  {
+   "t": 600,
+   "src": "AA:00:00:00:00:02",
+   "dst": "*",
+   "msg": {
+    "type": "pw_find",
+    "g": "partytest"
+   },
+   "delivered": [
+    "AA:00:00:00:00:01",
+    "AA:00:00:00:00:03"
+   ],
+   "acked": null
+  },
+  {
+   "t": 600,
+   "src": "AA:00:00:00:00:03",
+   "dst": "*",
+   "msg": {
+    "type": "pw_find",
+    "g": "partytest"
+   },
+   "delivered": [
+    "AA:00:00:00:00:01",
+    "AA:00:00:00:00:02"
+   ],
+   "acked": null
+  },
+  {
+   "t": 600,
+   "src": "AA:00:00:00:00:01",
+   "dst": "AA:00:00:00:00:02",
+   "msg": {
+    "type": "pw_lobby",
+    "g": "partytest",
+    "id": "00010C",
+    "n": 1,
+    "min": 3,
+    "max": null,
+    "q": 1
+   },
+   "delivered": true,
+   "acked": true
+  },
+  {
+   "t": 600,
+   "src": "AA:00:00:00:00:01",
+   "dst": "AA:00:00:00:00:03",
+   "msg": {
+    "type": "pw_lobby",
+    "g": "partytest",
+    "id": "00010C",
+    "n": 1,
+    "min": 3,
+    "max": null,
+    "q": 2
+   },
+   "delivered": true,
+   "acked": true
+  },
+  {
+   "t": 600,
+   "src": "AA:00:00:00:00:02",
+   "dst": "AA:00:00:00:00:01",
+   "msg": {
+    "type": "pw_join",
+    "id": "00010C",
+    "splats": 1,
+    "q": 1
+   },
+   "delivered": true,
+   "acked": true
+  },
+  {
+   "t": 600,
+   "src": "AA:00:00:00:00:03",
+   "dst": "AA:00:00:00:00:01",
+   "msg": {
+    "type": "pw_join",
+    "id": "00010C",
+    "splats": 1,
+    "q": 1
+   },
+   "delivered": true,
+   "acked": true
+  },
+  {
+   "t": 610,
+   "src": "AA:00:00:00:00:01",
+   "dst": "AA:00:00:00:00:02",
+   "msg": {
+    "type": "pw_joined",
+    "id": "00010C",
+    "first": 1,
+    "wands": 2,
+    "q": 3
+   },
+   "delivered": true,
+   "acked": true
+  },
+  {
+   "t": 610,
+   "src": "AA:00:00:00:00:01",
+   "dst": "AA:00:00:00:00:03",
+   "msg": {
+    "type": "pw_joined",
+    "id": "00010C",
+    "first": 2,
+    "wands": 3,
+    "q": 4
+   },
+   "delivered": true,
+   "acked": true
+  },
+  {
+   "t": 1200,
+   "src": "AA:00:00:00:00:01",
+   "dst": "AA:00:00:00:00:02",
+   "msg": {
+    "type": "pw_end",
+    "id": "00010C",
+    "q": 5
+   },
+   "delivered": true,
+   "acked": true
+  },
+  {
+   "t": 1200,
+   "src": "AA:00:00:00:00:01",
+   "dst": "AA:00:00:00:00:03",
+   "msg": {
+    "type": "pw_end",
+    "id": "00010C",
+    "q": 6
+   },
+   "delivered": true,
+   "acked": true
+  }
+ ]
+}

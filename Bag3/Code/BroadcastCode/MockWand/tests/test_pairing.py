@@ -18,7 +18,9 @@ WAND = os.path.dirname(HERE)
 BC = os.path.dirname(WAND)
 sys.path.insert(0, os.path.join(WAND, "lib"))
 
-_now = [0]
+# One clock list per process, shared with fakes.py under pytest.
+_now = getattr(time, "_fake_now", None) or [0]
+time._fake_now = _now
 time.sleep_ms = lambda ms: _now.__setitem__(0, _now[0] + ms)
 time.ticks_ms = lambda: _now[0]
 time.ticks_diff = lambda a, b: a - b
