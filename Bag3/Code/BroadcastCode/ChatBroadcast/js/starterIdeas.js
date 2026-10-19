@@ -3,7 +3,7 @@
  *
  * Ideas are tagged with the device roles they need (roles.js keys). Each
  * new chat draws a few, always including at least one that uses a device
- * other than the wand, so teachers see what the display and Splat can do.
+ * other than the wand, so teachers see what the display can do.
  * A device added to roles.js gets ideas here (knowledge/ADDING_A_DEVICE.md).
  */
 
@@ -26,15 +26,9 @@ export const STARTER_IDEAS = [
     { text: 'The display shows which team reached the goal first', icon: 'grid-3x3', roles: ['wand', 'icon'] },
     { text: 'The display shows an animal and children find the matching card', icon: 'grid-3x3', roles: ['wand', 'icon'] },
     { text: 'A countdown on the display, then every wand lights up', icon: 'grid-3x3', roles: ['wand', 'icon'] },
-    // Splat Companion
-    { text: 'Jump on the Splat to make it turn green and bark', icon: 'cable', roles: ['splat'] },
-    { text: 'Each Splat plays a different animal sound', icon: 'volume-2', roles: ['splat'] },
-    { text: 'Press the Splat and every wand lights up the same color', icon: 'cable', roles: ['wand', 'splat'] },
-    { text: 'Press the wand button to make the Splat light up', icon: 'cable', roles: ['wand', 'splat'] },
-    { text: 'Splat, wands and the display: every Splat press adds a block on the display', icon: 'cable', roles: ['wand', 'splat', 'icon'] },
     // Questions
     { text: 'What can the wand show on its lights?', icon: 'message-circle', roles: ['wand'] },
-    { text: 'What can the big display and the Splat do?', icon: 'message-circle', roles: ['icon', 'splat'] },
+    { text: 'What can the big display do?', icon: 'message-circle', roles: ['icon'] },
 ];
 
 /**
@@ -67,8 +61,6 @@ export const GUIDED_STEPS = [
         options: [
             { label: 'Just wands', says: 'wands' },
             { label: 'Wands and the big display', says: 'wands and the icon display' },
-            { label: 'Wands and the Splat', says: 'wands and the Splat Companion' },
-            { label: 'The Splat on its own', says: 'the Splat Companion' },
         ],
     },
     {
@@ -76,7 +68,7 @@ export const GUIDED_STEPS = [
         options: [
             { label: 'Tap a card', says: 'The children tap cards' },
             { label: 'Shake or move', says: 'The children shake or move' },
-            { label: 'Press a button or the Splat', says: 'The children press a button or the Splat' },
+            { label: 'Press a button', says: 'The children press the wand button' },
             { label: 'Take turns', says: 'The children take turns' },
         ],
     },

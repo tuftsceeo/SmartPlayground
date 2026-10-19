@@ -17,7 +17,7 @@
  * Automatic checks per reply (reported, never fatal):
  *   - every code block is a complete game for its [DEVICE:] role (validateGameCode,
  *     which includes the wand size limit)
- *   - icon display games name only existing icons; Splat games only known actions
+ *   - icon display games name only existing icons; no file for the retired splat role
  *   - no f-strings; no reserved ESP-NOW message types used as game messages
  *   - the case's own expectations: code expected or not, phrases required or forbidden
  * Exit code: 0 when every check passed, 1 otherwise, 2 on setup errors.
@@ -33,7 +33,7 @@ import {
 import { readMessageStream } from "../js/prompt/stream.js";
 import { extractCodeBlocks, parseNfcCards, parseGameName, parseChoices, stripAllMarkers } from "../js/chat.js";
 import { validateGameCode } from "../js/upload.js";
-import { listSplatActions, unknownSplatActionsIn } from "../js/splat/splatActionCheck.js";
+import { listSplatActions } from "../js/splat/splatActionCheck.js";
 import { listIcons, missingIconsIn } from "../js/ledicons/iconLibrary.js";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -81,10 +81,9 @@ const CASES = [
       expect: { code: true, roles: ["wand", "icon"] } },
     { id: "display-count", prompt: "Count how many times the class taps the star card and show it on the display so the kids can count",
       expect: { code: true, roles: ["icon"] } },
-    { id: "splat", prompt: "When a kid jumps on the splat it turns green and barks",
-      expect: { code: true, roles: ["splat"] } },
-    { id: "splat-wand", prompt: "When someone presses the splat, every wand lights up the same color as the splat",
-      expect: { code: true, roles: ["wand", "splat"] } },
+    // The Splat Companion is retired: a Splat request gets no [DEVICE: splat] file.
+    { id: "splat-retired", prompt: "When a kid jumps on the splat it turns green and barks",
+      expect: { noRoles: ["splat"] } },
     { id: "roles", prompt: "Freeze dance where my wand is the caller and the kids' wands are players",
       expect: { code: true, roles: ["wand"] } },
     { id: "teams-display", prompt: "Two teams race to tap the goal card, and the display shows which team got there first",
@@ -114,6 +113,9 @@ function autoChecks(c, raw) {
     for (const role of e.roles || []) {
         if (!blocks.some(b => b.role === role)) problems.push(`no [DEVICE: ${role}] file`);
     }
+    for (const role of e.noRoles || []) {
+        if (blocks.some(b => b.role === role)) problems.push(`unexpected [DEVICE: ${role}] file`);
+    }
     for (const b of blocks) {
         const [ok, err] = validateGameCode(b.code, b.role);
         if (!ok) problems.push(`[${b.role}] ${err.replace(/\n/g, " ")}`);
@@ -121,10 +123,6 @@ function autoChecks(c, raw) {
         if (b.role === "icon") {
             const missing = missingIconsIn(b.code);
             if (missing.length) problems.push(`[icon] unknown icons: ${missing.join(", ")}`);
-        }
-        if (b.role === "splat") {
-            const unknown = unknownSplatActionsIn(b.code);
-            if (unknown.length) problems.push(`[splat] unknown actions: ${unknown.join(", ")}`);
         }
         for (const m of b.code.matchAll(/broadcast\(\s*\{[^}]*["']type["']\s*:\s*["']([a-z_]+)["']/g)) {
             if (RESERVED.includes(m[1])) problems.push(`[${b.role}] broadcasts reserved type "${m[1]}"`);

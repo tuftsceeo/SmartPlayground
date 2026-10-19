@@ -59,6 +59,7 @@ def play(nfc, panel, enow):
 
 [DEVICE: splat]
 \`\`\`python
+# A block for the retired Splat Companion role, as an older reply had.
 def play(splat, leds, enow, batt=None):
     msg_type, data, mac = enow.poll()
     if msg_type in ("stop", "start_game"):
@@ -73,22 +74,27 @@ def play(splat, leds, enow, batt=None):
 [GAME_NAME: Team Goal Race]`;
 
 const blocks = extractCodeBlocks(REPLY);
-check('three device blocks extracted', blocks.length === 3, `${blocks.length} blocks`);
-check('roles are wand, icon, then splat',
-    blocks.map(b => b.role).join(',') === 'wand,icon,splat', blocks.map(b => b.role).join(','));
+check('two device blocks extracted (the retired splat block is left out)',
+    blocks.length === 2, `${blocks.length} blocks`);
+check('roles are wand then icon',
+    blocks.map(b => b.role).join(',') === 'wand,icon', blocks.map(b => b.role).join(','));
 check('device markers are stripped from the displayed text',
     !stripDeviceMarkers(REPLY).includes('[DEVICE:'));
 
-const wand = blocks[0].code, icon = blocks[1].code, splat = blocks[2].code;
+const wand = blocks[0].code, icon = blocks[1].code;
+const splat = REPLY.split('```')[5].replace(/^python\n/, '');
+check('the splat block did not land in the icon slot', !icon.includes('splat.poll'));
 check('wand file validates as wand', validateGameCode(wand, 'wand')[0] === true);
 check('icon file validates as icon', validateGameCode(icon, 'icon')[0] === true);
-check('splat file validates as splat', validateGameCode(splat, 'splat')[0] === true,
+check('the retired splat role is refused',
+    validateGameCode(splat, 'splat')[0] === false && /Unknown device role/.test(validateGameCode(splat, 'splat')[1]),
     validateGameCode(splat, 'splat')[1]);
 check('wand file is REJECTED as an icon file', validateGameCode(wand, 'icon')[0] === false,
     validateGameCode(wand, 'icon')[1]);
 check('icon file is REJECTED as a wand file', validateGameCode(icon, 'wand')[0] === false);
 check('splat file is REJECTED as a wand file', validateGameCode(splat, 'wand')[0] === false);
-check('wand file is REJECTED as a splat file', validateGameCode(wand, 'splat')[0] === false);
+check('display file size limit applies',
+    validateGameCode(icon + '#'.repeat(33000), 'icon')[0] === false);
 check('every role has a documented signature',
     ROLES.every(r => typeof signatureFor(r) === 'string'));
 
@@ -100,14 +106,17 @@ check('none of them are missing', lib.missingIconsIn(icon).length === 0);
 check('a game naming a nonexistent icon is caught',
     lib.missingIconsIn('icon_store.read_icon("dragon")').join(',') === 'dragon');
 
-// ── Splat action names the splat file uses (roles.js unknownNamesIn) ──
-const { roleInfo } = await import(BB + '/ChatBroadcast/js/roles.js');
+// ── The Splat Companion role is retired; the action-name checker stays ──
+const { roleInfo, ROLES: ROLE_ROWS } = await import(BB + '/ChatBroadcast/js/roles.js');
 const { unknownSplatActionsIn, listSplatActions } = await import(
     BB + '/ChatBroadcast/js/splat/splatActionCheck.js');
-check('the splat role carries the name check',
-    roleInfo('splat').unknownNamesIn === unknownSplatActionsIn);
-check('wand and icon roles carry none',
+check('there is no splat role', roleInfo('splat') === undefined);
+check('roles are wand then icon', ROLE_ROWS.map(r => r.key).join(',') === 'wand,icon');
+check('wand and icon roles carry no name check',
     !roleInfo('wand').unknownNamesIn && !roleInfo('icon').unknownNamesIn);
+const { RESERVED_SUFFIXES } = await import(BB + '/ChatBroadcast/js/gameName.js');
+check('_splat stays a reserved suffix (devices skip _splat.py)',
+    RESERVED_SUFFIXES.includes('_splat') && RESERVED_SUFFIXES.includes('_icon'), RESERVED_SUFFIXES.join(','));
 check('the splat file uses only known action names',
     unknownSplatActionsIn(splat).length === 0, unknownSplatActionsIn(splat).join(','));
 check('a misspelled color is caught',
@@ -132,7 +141,6 @@ const extraFiles = [{ path: `/flash/games/${slug}_icon.py`, content: icon }];
 for (const n of names) {
     extraFiles.push({ path: `/flash/games/${slug}_icons/${n}.py`, content: lib.iconFileText(n) });
 }
-extraFiles.push({ path: `/flash/games/${slug}_splat.py`, content: splat });
 
 // ── pushPayload against a fake REPL ──
 const written = [];
@@ -161,7 +169,7 @@ check('display file pushed', puts.includes('/flash/games/goalrace_icon.py'));
 for (const n of names) {
     check(`icon ${n} pushed`, puts.includes(`/flash/games/goalrace_icons/${n}.py`));
 }
-check('splat file pushed', puts.includes('/flash/games/goalrace_splat.py'));
+check('no splat file pushed', !puts.some(p => p.includes('_splat')));
 check('icons directory created before its files',
     written.indexOf('mkdir /flash/games/goalrace_icons') <
     written.indexOf('put /flash/games/goalrace_icons/ready.py'));
@@ -174,6 +182,29 @@ check('the reset comes last',
 check('progress counted every file',
     progress[progress.length - 1].total === 1 + extraFiles.length,
     JSON.stringify(progress[progress.length - 1]));
+
+// ── A display-only game: the display file is the primary file ──
+// (mirrors app.js confirmSend: destPath is <slug><designator>.py, and the
+// icon leg rides as extra files)
+const dWritten = [];
+const dRepl = {
+    async enterRepl() {}, async enterRawRepl() {}, async exitRawRepl() {},
+    async softReset() { dWritten.push('softReset'); },
+    async ensureDirectory(p) { dWritten.push(`mkdir ${p}`); },
+    async uploadFile(p) { dWritten.push(`put ${p}`); },
+};
+const dExtra = names.map(n => ({ path: `/flash/games/scoreonly_icons/${n}.py`, content: lib.iconFileText(n) }));
+const dRes = await pushPayload(dRepl, adapter, icon, () => {}, {
+    destPath: '/flash/games/scoreonly_icon.py',
+    destLabel: 'scoreonly_icon.py',
+    tags: ['getcode:scoreonly', 'scoreonly'],
+    extraFiles: dExtra,
+});
+check('display-only push reported ok', dRes.ok === true, JSON.stringify(dRes));
+const dPuts = dWritten.filter(w => w.startsWith('put ')).map(w => w.slice(4));
+check('display-only game writes <slug>_icon.py', dPuts.includes('/flash/games/scoreonly_icon.py'));
+check('display-only game writes no wand file', !dPuts.includes('/flash/games/scoreonly.py'));
+check('display-only game ships its icons', names.every(n => dPuts.includes(`/flash/games/scoreonly_icons/${n}.py`)));
 
 // ── The system prompt names every current icon (closes phase 6's §5.1) ──
 // app.js cannot be imported here (it and its imports touch the DOM and a
