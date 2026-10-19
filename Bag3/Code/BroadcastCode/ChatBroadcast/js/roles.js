@@ -31,10 +31,8 @@
  *                 into the system prompt after the shared files
  *   unknownNamesIn optional (code) => string[]: names the game uses that
  *                 the device does not have; a non-empty result refuses
- *                 the send (splat only, today)
+ *                 the send (no role sets it today)
  */
-import { unknownSplatActionsIn } from './splat/splatActionCheck.js';
-
 export const ROLES = [
     {
         key: 'wand',
@@ -65,22 +63,6 @@ export const ROLES = [
         hasPreview: true,
         hasIconLeg: true,
         knowledgeFile: 'knowledge/devices/icon_display.md',
-    },
-    {
-        key: 'splat',
-        label: 'Splat Companion',
-        tabLabel: 'Splat',
-        glyph: 'cable',
-        previewGlyph: 'cable',
-        previewCaption: 'no preview for this device',
-        designator: '_splat',
-        hubtype: 'splat_companion',
-        signature: ['splat', 'leds', 'enow', 'batt'],
-        optional: ['batt'],
-        hasPreview: false,
-        hasIconLeg: false,
-        knowledgeFile: 'knowledge/devices/splat_companion.md',
-        unknownNamesIn: unknownSplatActionsIn,
     },
 ];
 

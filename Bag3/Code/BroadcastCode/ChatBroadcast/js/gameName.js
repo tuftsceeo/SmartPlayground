@@ -61,9 +61,11 @@ export const RESERVED_SLUGS = new Set([
  * the boot-time menu scan (bbox_server.py / bdial_server.py
  * STAGING_SUFFIXES) -- invisible on the device, not merely renamed.
  */
-export const RESERVED_SUFFIXES = ROLE_TABLE
-  .map((r) => r.designator)
-  .filter(Boolean);
+export const RESERVED_SUFFIXES = [
+  ...ROLE_TABLE.map((r) => r.designator).filter(Boolean),
+  // Retired Splat Companion role: devices still skip `_splat.py` files.
+  "_splat",
+];
 
 /**
  * Lowercase, non-alphanumerics→underscores, collapse repeats, cap SLUG_MAX.

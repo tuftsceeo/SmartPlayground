@@ -22,6 +22,8 @@ import { updateTagChecklist } from './nfc.js';
 import { EXAMPLES, CATEGORIES, findExample, loadExampleCode } from './examples.js';
 import { showView, showOverlay, hideOverlay, setConnectionBadge, toast, setSendProgress, showConnectToast, syncNavTabs } from './router.js';
 import { createDeviceLink, deviceShortName, deviceProductName } from './device/bboxDeviceLink.js';
+import { SerialAdapter } from './device/serialAdapter.js';
+import { NfcStationLink } from './device/nfcStationLink.js';
 import { createWandDeviceLink } from './device/wandDeviceLink.js';
 import { subscribe, getEntries, toText } from './device/serialLog.js';
 import { setWorkspaceHandler } from './markdown.js';
@@ -82,6 +84,19 @@ const STREAM_RENDER_MS = 80;
 function isRunnableCode(code) {
     const trimmed = (code || '').trim();
     return !!trimmed && !trimmed.startsWith('# AI-generated') && /def\s+play\s*\(/.test(trimmed);
+}
+
+/**
+ * The game's primary file: the first role (ROLE_TABLE order, wand first)
+ * with runnable code. A display-only game's primary role is `icon`.
+ * @returns {{role: string, info: object, code: string}|null}
+ */
+function primaryRoleCode() {
+    for (const info of ROLE_TABLE) {
+        const code = getCode(info.key);
+        if (isRunnableCode(code)) return { role: info.key, info, code };
+    }
+    return null;
 }
 
 class App {
@@ -983,6 +998,8 @@ class App {
         document.getElementById('btn-gallery').addEventListener('click', () => this.goExamples());
         document.getElementById('btn-saved').addEventListener('click', () => this.goSaved());
         document.getElementById('gallery-search').addEventListener('input', () => this.renderGallery());
+        document.getElementById('btn-station-catalog')
+            .addEventListener('click', () => this.sendCatalogToStation());
         document.getElementById('btn-detail-back').addEventListener('click', () => this.goExamples());
         document.getElementById('btn-remix').addEventListener('click', () => this.remixCurrentExample());
         document.getElementById('btn-use-as-is').addEventListener('click', () => this.useExampleAsIs());
@@ -1246,6 +1263,7 @@ class App {
         document.getElementById('chat-box').innerHTML = '';
         document.getElementById('user-input').value = '';
         resetEditor();
+        this.retiredRoleCode = {};
         this.syncRoleRail();
         this.dirty = false;
         this._sim?.stop();
@@ -1254,8 +1272,11 @@ class App {
     }
 
     onSaveGame() {
-        const code = getCode(DEFAULT_ROLE);
-        if (!code.trim() || code.trim().startsWith('# AI-generated')) {
+        // `code` stays the wand file (library.js shape); a display-only game
+        // saves an empty one and its display code under roleCode.icon.
+        const wand = getCode(DEFAULT_ROLE);
+        const code = isRunnableCode(wand) ? wand : '';
+        if (!primaryRoleCode()) {
             toast('Nothing to save yet — generate or load some code first.', true);
             return;
         }
@@ -1264,6 +1285,9 @@ class App {
             if (info.key === DEFAULT_ROLE) continue;
             const c = getCode(info.key).trim();
             if (c) roleCode[info.key] = c;
+        }
+        for (const [key, c] of Object.entries(this.retiredRoleCode || {})) {
+            if (!(key in roleCode)) roleCode[key] = c;
         }
         const entry = saveGame({
             name: this.gameName,
@@ -1308,6 +1332,10 @@ class App {
         document.body.dataset.galleryMode = this.galleryMode;
         syncNavTabs('gallery');
 
+        document.getElementById('btn-station-catalog')
+            .classList.toggle('hidden', this.galleryMode !== 'saved');
+        document.getElementById('station-catalog-status')
+            .classList.toggle('hidden', this.galleryMode !== 'saved');
         if (this.galleryMode === 'saved') {
             title.textContent = 'My saved games';
             chips.classList.add('hidden');
@@ -1473,9 +1501,82 @@ class App {
             setCode(code, info.key);
             saveVersion(code, 'Loaded from library', info.key);
         }
+        this.retainRetiredRoleCode(g.name, roleCode);
         this.syncRoleRail();
         this.dirty = false;
         this.updatePreview({ forcePlay: true });
+    }
+
+    /**
+     * A saved game can carry code for a role that no longer exists (the
+     * retired Splat Companion role, `roleCode.splat`). That code is kept
+     * read-only: shown in the chat, never sent, and written back unchanged
+     * by onSaveGame so it is not dropped.
+     */
+    retainRetiredRoleCode(gameName, roleCode) {
+        this.retiredRoleCode = {};
+        const known = new Set(ROLE_TABLE.map((r) => r.key));
+        for (const [key, code] of Object.entries(roleCode)) {
+            if (known.has(key) || !code) continue;
+            this.retiredRoleCode[key] = code;
+            const label = key === 'splat' ? 'Splat Companion' : key;
+            const div = addMsg(`“${gameName}” has ${label} code. That device is retired, so this code `
+                + `will not be sent; it is kept read-only with the saved game. `
+                + `Splats are now driven from the wand game.`, 'system');
+            div.classList.add('retired-role-warning');
+            const det = document.createElement('details');
+            const sum = document.createElement('summary');
+            sum.textContent = `${label} code (read-only)`;
+            const pre = document.createElement('pre');
+            pre.textContent = code;
+            det.append(sum, pre);
+            div.appendChild(det);
+            dbgWarn('app', `saved game "${gameName}" has retired role code: ${key}`);
+        }
+    }
+
+    /**
+     * Connect the NFC Station on its own serial port (the Box/Dial link, if
+     * any, is left alone), push the saved-games catalog, then close the port.
+     */
+    async sendCatalogToStation() {
+        const btn = document.getElementById('btn-station-catalog');
+        const status = document.getElementById('station-catalog-status');
+        const show = (text) => { status.textContent = text; status.classList.remove('hidden'); };
+        const games = loadSavedGames();
+        if (!games.length) {
+            show('No saved games to send yet.');
+            return;
+        }
+        const adapter = new SerialAdapter();
+        let link = null;
+        btn.disabled = true;
+        try {
+            show('Pick the NFC Station in the port list…');
+            await adapter.connect();
+            link = new NfcStationLink(adapter);
+            link.start();
+            show(`Sending ${games.length} game${games.length === 1 ? '' : 's'}…`);
+            const r = await link.pushCatalog(games);
+            if (r.ok) {
+                show(`NFC Station has the games list (${r.groups ?? games.length} groups).`);
+                toast('Games sent to the NFC Station.');
+            } else {
+                show(`NFC Station refused the list: ${r.code}${r.msg ? ` (${r.msg})` : ''}`);
+                toast('The NFC Station refused the games list.', true);
+            }
+            dbg('app', 'catalog.set result', r);
+        } catch (e) {
+            dbgError('app', `NFC Station catalog push failed: ${e.message}`, e);
+            show(`Could not send to the NFC Station: ${e.message}`);
+            toast('Could not send to the NFC Station.', true);
+        } finally {
+            link?.stop();
+            if (adapter.isConnected()) {
+                await adapter.disconnect().catch((e) => dbgWarn('app', `station disconnect: ${e.message}`));
+            }
+            btn.disabled = false;
+        }
     }
 
     openDetail(id) {
@@ -1809,14 +1910,17 @@ class App {
         const active = getActiveRole();
         const activeInfo = roleInfo(active);
 
-        this.refreshHardware(wandCode);
+        const primary = primaryRoleCode();
+        this.refreshHardware(primary?.code ?? wandCode);
 
         // Which simulator is on screen follows the device tab: the wand's
         // Pyodide sim for wand code, the panel preview for display code. A
         // role with no simulator (hasPreview: false) always falls to the
         // placeholder, even with code -- syncPreviewEmpty() gives it its
         // own caption rather than reusing "wand preview".
-        const showingIcon = active === 'icon' && isRunnableCode(iconCode);
+        // A display-only game shows the panel whichever tab is selected.
+        const showingIcon = isRunnableCode(iconCode)
+            && (active === 'icon' || primary?.role === 'icon');
         const runnable = showingIcon ? true
             : (activeInfo && !activeInfo.hasPreview) ? false
             : isRunnableCode(wandCode);
@@ -1831,7 +1935,7 @@ class App {
         // Send is gated on having something to send as well as somewhere to
         // send it; setConnectionBadge() owns the button and reads this back,
         // because it runs on link changes and this runs on code changes.
-        const sendable = !!wandCode.trim() && !wandCode.trim().startsWith('# AI-generated');
+        const sendable = !!primary;
         document.body.dataset.wsHasCode = sendable ? '1' : '';
         this.paintLink();
 
@@ -2074,13 +2178,13 @@ class App {
 
     async startSendFlow() {
         dbg('app', 'startSendFlow() — "Send to Broadcast Box" clicked');
-        const code = getCode('wand');
-        if (!code.trim() || code.trim().startsWith('# AI-generated')) {
+        const primary = primaryRoleCode();
+        if (!primary) {
             dbgWarn('app', 'startSendFlow() aborted: no code in editor');
             toast('Generate some code first — describe your game in chat.', true);
             return;
         }
-        this.refreshHardware(code);
+        this.refreshHardware(primary.code);
         dbg('app', `required tags: [${this.requiredTags.join(', ')}]`);
         // Confirm is the FIRST screen: name the game and see what it needs.
         // Connecting and the tag to-do list both happen on the far side of Send.
@@ -2138,7 +2242,7 @@ class App {
             dbg('app', `showSendConfirm(): populated name field from gameName=${JSON.stringify(this.gameName)} -> input.value=${JSON.stringify(nameInput.value)}`);
         }
         this._pendingReplaceSlug = null;
-        this.refreshHardware();
+        this.refreshHardware(primaryRoleCode()?.code);
         this.renderSendRequirements();
         this.setSendBusy(false);
         document.getElementById('send-progress-wrap').classList.add('hidden');
@@ -2218,7 +2322,20 @@ class App {
 
     async confirmSend() {
         dbg('app', 'confirmSend() — "Send" clicked on confirm overlay');
-        const code = getCode('wand');
+        const primary = primaryRoleCode();
+        const errEl0 = document.getElementById('send-name-error');
+        if (!primary) {
+            toast('Generate some code first — describe your game in chat.', true);
+            return;
+        }
+        const { role: primaryRole, info: primaryInfo, code } = primary;
+        if (this.device.kind === 'wand' && primaryRole !== DEFAULT_ROLE) {
+            // wandGameInstaller.js installs only <slug>.py on the wand.
+            const msg = `This game has no wand code, so it cannot be installed on a wand. Send it to a Box or Dial instead.`;
+            if (errEl0) errEl0.textContent = msg;
+            toast(msg, true);
+            return;
+        }
         const nameInput = document.getElementById('send-game-name');
         const errEl = document.getElementById('send-name-error');
         const pretty = (nameInput?.value || this.gameName || '').trim();
@@ -2273,7 +2390,8 @@ class App {
             deviceLabel: this.deviceShort(),
         };
         if (!isWand) {
-            meta.destPath = `/flash/games/${slug}.py`;
+            meta.destPath = `/flash/games/${slug}${primaryInfo.designator}.py`;
+            meta.destLabel = `${slug}${primaryInfo.designator}.py`;
             // Recompute against the slug actually being written: the name can
             // change on this overlay, and the device keys its menu off the slug.
             meta.tags = buildHardwareReqs({
@@ -2291,8 +2409,9 @@ class App {
             if (info.key === DEFAULT_ROLE) continue;
             const roleCode = getCode(info.key).trim();
             if (!roleCode) continue;
-            // The wand file is checked inside uploadPayload; every other
-            // role has a different signature, so it is checked here.
+            // Every non-wand role is checked here, the primary one too (its
+            // icon leg is queued below); uploadPayload checks the primary
+            // file again and sends it as meta.destPath.
             const [ok, err] = validateGameCode(roleCode, info.key);
             if (!ok) {
                 if (errEl) errEl.textContent = err;
@@ -2319,7 +2438,9 @@ class App {
                     return;
                 }
             }
-            extraFiles.push({ path: `/flash/games/${slug}${info.designator}.py`, content: roleCode });
+            if (info.key !== primaryRole) {
+                extraFiles.push({ path: `/flash/games/${slug}${info.designator}.py`, content: roleCode });
+            }
             if (info.hasIconLeg) {
                 for (const name of iconNamesIn(roleCode)) {
                     extraFiles.push({
@@ -2343,6 +2464,7 @@ class App {
             linkState: 'sending',
             deviceProduct: this.deviceProduct(),
             deviceShort: this.deviceShort(),
+            role: primaryRole,
             meta,
         });
         dbg('app', 'uploadPayload() result', result);

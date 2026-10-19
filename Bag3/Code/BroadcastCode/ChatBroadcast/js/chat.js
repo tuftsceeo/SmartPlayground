@@ -90,8 +90,7 @@ function blockCode(block) {
 function roleBefore(prose) {
     const matches = [...prose.matchAll(/\[DEVICE:\s*([a-z_]+)\s*\]/gi)];
     if (!matches.length) return null;
-    const role = matches[matches.length - 1][1].toLowerCase();
-    return ROLES.includes(role) ? role : null;
+    return matches[matches.length - 1][1].toLowerCase();
 }
 
 /**
@@ -100,6 +99,8 @@ function roleBefore(prose) {
  * A multi-device game is several files -- one per device type -- so a reply
  * can carry more than one block. Each is preceded by a [DEVICE: wand] or
  * [DEVICE: icon] marker; blocks with no marker before them are wand code.
+ * A block under a marker naming no current role (e.g. the retired `splat`)
+ * is left out, so it never lands in another role's editor.
  *
  * @returns {{role: string, code: string}[]} in the order they appeared
  */
@@ -116,7 +117,7 @@ export function extractCodeBlocks(text) {
             continue;
         }
         const code = blockCode(parts[i]);
-        if (code) out.push({ role, code });
+        if (code && ROLES.includes(role)) out.push({ role, code });
     }
     return out;
 }

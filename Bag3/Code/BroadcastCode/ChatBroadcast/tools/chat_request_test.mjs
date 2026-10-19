@@ -45,10 +45,12 @@ await test("every knowledge file is non-empty", () => {
 await test("knowledge text contains every file, policy first", () => {
     assert.ok(knowledge.indexOf("# SmartPlayground Game Helper") < knowledge.indexOf("# Device: Wand"));
     for (const h of ["# Platform rules", "# Game patterns", "# Troubleshooting",
-                     "# Device: Wand", "# Device: Icon display", "# Device: Splat Companion",
-                     "SPLAT ACTION NAMES"]) {
+                     "# Device: Wand", "# Device: Icon display", "SPLAT ACTION NAMES"]) {
         assert.ok(knowledge.includes(h), `missing ${h}`);
     }
+    // The Splat Companion role is retired; its device file must not come back.
+    assert.ok(!knowledge.includes("# Device: Splat Companion"), "retired Splat Companion file is in the prompt");
+    assert.ok(!knowledgePaths().some(p => p.includes("splat_companion")), "splat_companion.md still listed");
     assert.ok(!knowledge.includes("# Advanced mode"), "advanced.md must not be in the cached base");
 });
 

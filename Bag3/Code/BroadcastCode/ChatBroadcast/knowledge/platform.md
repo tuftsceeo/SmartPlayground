@@ -8,7 +8,7 @@ file format, documented in its own device section. The rules here apply to all o
 The app reads these marker lines out of your reply and hides them from the teacher.
 
 - **`[DEVICE: <role>]`** on its own line directly before **every** code block. `<role>` is the
-  device key given in the device section (`wand`, `icon`, `splat`). An unmarked block is treated as
+  device key given in the device section (`wand`, `icon`). An unmarked block is treated as
   wand code.
 - **`[GAME_NAME: Short Pretty Name]`** exactly once after the code blocks. Two to four plain words,
   no file extension. The app turns it into the game's stored name (its *slug*): lowercase, with
@@ -81,7 +81,7 @@ keeps two games from reacting to each other's messages.
 ### Stop and start reach every device
 
 `enow.broadcast_stop()` and `enow.broadcast_start_game(name)` go to **every** device in range: they
-end or switch the games on all wands, the display and the Splat Companion. Use them only when the
+end or switch the games on all wands and the display. Use them only when the
 game really should stop or switch everything.
 
 ## Games with several players or device types

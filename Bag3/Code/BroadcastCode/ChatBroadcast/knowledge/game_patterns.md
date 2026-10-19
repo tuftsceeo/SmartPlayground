@@ -1,7 +1,6 @@
 # Game patterns: many players, many device types, or both
 
-Read this whenever a game involves more than one wand, or a wand plus the icon display or Splat
-Companion. The message rules it builds on are in the platform section ("Talking between devices").
+Read this whenever a game involves more than one wand, or a wand plus the icon display. The message rules it builds on are in the platform section ("Talking between devices").
 
 ## Facts that shape every multi-player game
 
@@ -76,12 +75,12 @@ Role and team cards go in `COMMANDS` and in `[NFC_CARDS: ...]`.
 Each device type gets its own complete file under its own `[DEVICE:]` marker. Decide, for each
 thing that happens, which device notices it and broadcasts, and which devices react.
 
-Worked example — the wand and the Splat echo each other (the built-in Jump In game):
+Worked example — the wand and the display echo each other:
 
-- Wand: button pressed → `enow.broadcast({"type": "jumpin", "from": "wand"})`.
-- Splat: `"raw"` message with `type == "jumpin"` and `from == "wand"` → blink the Splat.
-- Splat: pressed → `enow.broadcast({"type": "jumpin", "from": "splat", "rgb": [r, g, b]})`.
-- Wand: that message → `leds.fill(tuple(data["rgb"]))`.
+- Wand: button pressed → `enow.broadcast({"type": "<slug>", "from": "wand", "rgb": [r, g, b]})`.
+- Display: `"raw"` message with `type == "<slug>"` and `from == "wand"` → show an icon in that color.
+- Display: after drawing → `enow.broadcast({"type": "<slug>", "from": "icon", "shown": True})`.
+- Wand: that message → a short `buz.confirm()`.
 
 ## Pattern D — many wands on teams, plus other devices
 
@@ -96,9 +95,6 @@ the slug-as-type rule and uses the types `"goal"` and `"winner"`; new games use 
   `{"type": "<slug>", "e": "winner", "team": "green"}`.
 - Wands: on the winner message, the winning team celebrates and the others show a friendly
   "next round" color. Nobody is out.
-
-A Splat can join the same way: a press is a report (`{"type": "<slug>", "from": "splat",
-"team": ...}`) that the display counts.
 
 ## For young children
 
