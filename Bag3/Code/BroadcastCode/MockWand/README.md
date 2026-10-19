@@ -149,6 +149,52 @@ for its duration, same as Box `SERVE` mode. ChatBroadcast's
 `game_start`/`game_end` handlers raise and lower the silence watchdog the
 same way its Box `mode`/`armed` handlers do for `SERVE`.
 
+## Splat games (solo and party)
+
+Spec: `../docs_and_design/2026-10-07-splat-pairing/SPEC.md` sections 6-8.
+A wand pairs with up to `pairing.MAX_SPLATS` Splats by tapping `splat-<MAC>`
+cards (`lib/pairing.py`, `lib/pair_idle.py`); `unpair` releases them. A game
+module opts in with one constant, read by `main.py` after `_load_play()`:
+
+| Constant | Kind | Before `play()` |
+|---|---|---|
+| `SPLATS_LOCAL = n` | solo: this wand and its own Splats, no ESP-NOW | at least `n` local Splats READY, else amber X + beep and no start |
+| `SPLATS_MIN = n` (`SPLATS_MAX` optional) | party: several wands, pooled Splats | lobby (`party.lobby()`): leader's button starts at `n`, auto-start at max |
+
+Declaring both fails the load (red X, `{"type":"error"}`). The logic lives in
+`lib/solo.py` (and `lib/party.py` for party games), imported only when a game
+declares one of them; `main.py` holds the hook only (memory-order rule).
+
+`play(nfc, leds, buz, accel, i2c, enow, batt=None, net=None)`: `net` is passed
+only to a Splat game whose `play()` takes 8 parameters (arity read from
+`__code__.co_argcount` where the port has it). Six- and seven-parameter
+games are called as before. `net` members (SPEC section 7): `is_leader`, `me`,
+`wands`, `local`, `splat_count`, `splat(i)`, `owner(i)`, `send(to, data)`,
+`poll()`. Solo: `SoloNet`, `send()` raises, `poll()` returns only
+`press`/`release`/`splat_lost`/`splat_back`. Party: `splat(i)` is leader-only;
+read ESP-NOW through the `enow` argument (main.py passes `net.wrap(enow)`, which
+hands `pw_*` messages to the net).
+
+Cleanup: `net.run()` wraps `play()` in `try`/`finally`. On return, stop or
+error the leader sends `pw_end`, a follower `pw_leave`, local Splats go off;
+an error is re-raised to `main.py`'s red-X path. Timing constants are at the
+top of `lib/party.py` (`FIND_WAIT_MS`, `LOBBY_PERIOD_MS`, `HB_PERIOD_MS`,
+`WAND_LOST_MS`, `SEND_TRIES`).
+
+Games: `solotest` (each wand-button or Splat press steps Splat 0 through the
+identity palette) and `soloecho` (`solo_echo.py`, Simon on one Splat; the solo
+port of `splatecho`, which stays until the port is play-tested). A solo game
+becomes a party game by replacing `SPLATS_LOCAL` with `SPLATS_MIN`.
+
+Tests (CPython, no hardware): `python3 tests/test_party.py`,
+`python3 tests/test_pairing.py`, `python3 tests/boot_wand_pairing.py`, or
+`pytest tests/`. `test_party.py` writes `tests/transcripts/*.json` (format in
+its docstring) for the Simulator's virtual peers.
+
+UNVERIFIED on hardware: party timing constants under BLE load, the lobby
+display, the amber refusal, both solo games, `net` arity detection on the
+device port.
+
 ## Deploy
 
 Copy all `.py` files and `hubtype.txt` to the wand's flash root (same layout as

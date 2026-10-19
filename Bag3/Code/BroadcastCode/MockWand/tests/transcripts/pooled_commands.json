@@ -1,0 +1,344 @@
+{
+ "format": "pw-transcript/1",
+ "scenario": "pooled_commands",
+ "description": "A (leader) drives B's and C's Splats by pool index with pw_cmd: color, play, off",
+ "constants": {
+  "FIND_WAIT_MS": 500,
+  "LOBBY_PERIOD_MS": 1000,
+  "HB_PERIOD_MS": 1000,
+  "WAND_LOST_MS": 3000,
+  "SEND_TRIES": 3,
+  "JOIN_WAIT_MS": 500
+ },
+ "wands": {
+  "A": "AA:00:00:00:00:01",
+  "B": "AA:00:00:00:00:02",
+  "C": "AA:00:00:00:00:03"
+ },
+ "splats": {
+  "A": 1,
+  "B": 1,
+  "C": 1
+ },
+ "frames": [
+  {
+   "t": 0,
+   "src": "AA:00:00:00:00:01",
+   "dst": "*",
+   "msg": {
+    "type": "pw_find",
+    "g": "partytest"
+   },
+   "delivered": [
+    "AA:00:00:00:00:02",
+    "AA:00:00:00:00:03"
+   ],
+   "acked": null
+  },
+  {
+   "t": 500,
+   "src": "AA:00:00:00:00:01",
+   "dst": "*",
+   "msg": {
+    "type": "pw_lobby",
+    "g": "partytest",
+    "id": "00010F",
+    "n": 1,
+    "min": 3,
+    "max": null
+   },
+   "delivered": [
+    "AA:00:00:00:00:02",
+    "AA:00:00:00:00:03"
+   ],
+   "acked": null
+  },
+  {
+   "t": 600,
+   "src": "AA:00:00:00:00:02",
+   "dst": "*",
+   "msg": {
+    "type": "pw_find",
+    "g": "partytest"
+   },
+   "delivered": [
+    "AA:00:00:00:00:01",
+    "AA:00:00:00:00:03"
+   ],
+   "acked": null
+  },
+  {
+   "t": 600,
+   "src": "AA:00:00:00:00:03",
+   "dst": "*",
+   "msg": {
+    "type": "pw_find",
+    "g": "partytest"
+   },
+   "delivered": [
+    "AA:00:00:00:00:01",
+    "AA:00:00:00:00:02"
+   ],
+   "acked": null
+  },
+  {
+   "t": 600,
+   "src": "AA:00:00:00:00:01",
+   "dst": "AA:00:00:00:00:02",
+   "msg": {
+    "type": "pw_lobby",
+    "g": "partytest",
+    "id": "00010F",
+    "n": 1,
+    "min": 3,
+    "max": null,
+    "q": 1
+   },
+   "delivered": true,
+   "acked": true
+  },
+  {
+   "t": 600,
+   "src": "AA:00:00:00:00:01",
+   "dst": "AA:00:00:00:00:03",
+   "msg": {
+    "type": "pw_lobby",
+    "g": "partytest",
+    "id": "00010F",
+    "n": 1,
+    "min": 3,
+    "max": null,
+    "q": 2
+   },
+   "delivered": true,
+   "acked": true
+  },
+  {
+   "t": 600,
+   "src": "AA:00:00:00:00:02",
+   "dst": "AA:00:00:00:00:01",
+   "msg": {
+    "type": "pw_join",
+    "id": "00010F",
+    "splats": 1,
+    "q": 1
+   },
+   "delivered": true,
+   "acked": true
+  },
+  {
+   "t": 600,
+   "src": "AA:00:00:00:00:03",
+   "dst": "AA:00:00:00:00:01",
+   "msg": {
+    "type": "pw_join",
+    "id": "00010F",
+    "splats": 1,
+    "q": 1
+   },
+   "delivered": true,
+   "acked": true
+  },
+  {
+   "t": 610,
+   "src": "AA:00:00:00:00:01",
+   "dst": "AA:00:00:00:00:02",
+   "msg": {
+    "type": "pw_joined",
+    "id": "00010F",
+    "first": 1,
+    "wands": 2,
+    "q": 3
+   },
+   "delivered": true,
+   "acked": true
+  },
+  {
+   "t": 610,
+   "src": "AA:00:00:00:00:01",
+   "dst": "AA:00:00:00:00:03",
+   "msg": {
+    "type": "pw_joined",
+    "id": "00010F",
+    "first": 2,
+    "wands": 3,
+    "q": 4
+   },
+   "delivered": true,
+   "acked": true
+  },
+  {
+   "t": 1200,
+   "src": "AA:00:00:00:00:01",
+   "dst": "AA:00:00:00:00:02",
+   "msg": {
+    "type": "pw_start",
+    "id": "00010F",
+    "wands": [
+     [
+      "AA:00:00:00:00:01",
+      1
+     ],
+     [
+      "AA:00:00:00:00:02",
+      1
+     ],
+     [
+      "AA:00:00:00:00:03",
+      1
+     ]
+    ],
+    "pool": [
+     [
+      0,
+      0
+     ],
+     [
+      1,
+      0
+     ],
+     [
+      2,
+      0
+     ]
+    ],
+    "q": 5
+   },
+   "delivered": true,
+   "acked": true
+  },
+  {
+   "t": 1200,
+   "src": "AA:00:00:00:00:01",
+   "dst": "AA:00:00:00:00:03",
+   "msg": {
+    "type": "pw_start",
+    "id": "00010F",
+    "wands": [
+     [
+      "AA:00:00:00:00:01",
+      1
+     ],
+     [
+      "AA:00:00:00:00:02",
+      1
+     ],
+     [
+      "AA:00:00:00:00:03",
+      1
+     ]
+    ],
+    "pool": [
+     [
+      0,
+      0
+     ],
+     [
+      1,
+      0
+     ],
+     [
+      2,
+      0
+     ]
+    ],
+    "q": 6
+   },
+   "delivered": true,
+   "acked": true
+  },
+  {
+   "t": 1210,
+   "src": "AA:00:00:00:00:01",
+   "dst": "*",
+   "msg": {
+    "type": "pw_hb",
+    "id": "00010F",
+    "l": 1
+   },
+   "delivered": [
+    "AA:00:00:00:00:02",
+    "AA:00:00:00:00:03"
+   ],
+   "acked": null
+  },
+  {
+   "t": 1210,
+   "src": "AA:00:00:00:00:02",
+   "dst": "*",
+   "msg": {
+    "type": "pw_hb",
+    "id": "00010F",
+    "l": 1
+   },
+   "delivered": [
+    "AA:00:00:00:00:01",
+    "AA:00:00:00:00:03"
+   ],
+   "acked": null
+  },
+  {
+   "t": 1210,
+   "src": "AA:00:00:00:00:03",
+   "dst": "*",
+   "msg": {
+    "type": "pw_hb",
+    "id": "00010F",
+    "l": 1
+   },
+   "delivered": [
+    "AA:00:00:00:00:01",
+    "AA:00:00:00:00:02"
+   ],
+   "acked": null
+  },
+  {
+   "t": 1220,
+   "src": "AA:00:00:00:00:01",
+   "dst": "AA:00:00:00:00:02",
+   "msg": {
+    "type": "pw_cmd",
+    "id": "00010F",
+    "s": 0,
+    "op": "color",
+    "v": "turnblue",
+    "q": 7
+   },
+   "delivered": true,
+   "acked": true
+  },
+  {
+   "t": 1220,
+   "src": "AA:00:00:00:00:01",
+   "dst": "AA:00:00:00:00:03",
+   "msg": {
+    "type": "pw_cmd",
+    "id": "00010F",
+    "s": 0,
+    "op": "play",
+    "v": [
+     "turnred",
+     "cat"
+    ],
+    "q": 8
+   },
+   "delivered": true,
+   "acked": true
+  },
+  {
+   "t": 1250,
+   "src": "AA:00:00:00:00:01",
+   "dst": "AA:00:00:00:00:02",
+   "msg": {
+    "type": "pw_cmd",
+    "id": "00010F",
+    "s": 0,
+    "op": "off",
+    "v": null,
+    "q": 9
+   },
+   "delivered": true,
+   "acked": true
+  }
+ ]
+}
