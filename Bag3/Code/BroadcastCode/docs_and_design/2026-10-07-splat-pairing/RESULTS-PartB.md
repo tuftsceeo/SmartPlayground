@@ -139,3 +139,6 @@ was asleep: its SplatHub kept running 100%-duty discovery scans, and 3 s into th
 `leader_lost` while the leader logged `wand_lost` for it. Party games now stop discovery scans for
 the length of the game (`SplatPairing.pause_search()`); a Splat with a known address still
 reconnects.
+
+After the fix, three wands each paired a Splat and played `relaycolor`; reported as working by the
+person at the bench. The serial capture had ended before this run, so there is no log of it.
