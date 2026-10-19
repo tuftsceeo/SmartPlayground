@@ -58,15 +58,25 @@ def get_time_scale():
     return _SCALE
 
 
+# Sleeps started so far; transform.py's busy-loop watchdog reads it.
+sleeps = 0
+
+
 async def sleep_ms(ms):
+    global sleeps
+    sleeps += 1
     await asyncio.sleep(max(0, float(ms)) / 1000.0 / _SCALE)
 
 
 async def sleep_us(us):
+    global sleeps
+    sleeps += 1
     await asyncio.sleep(max(0, float(us)) / 1_000_000.0 / _SCALE)
 
 
 async def sleep(seconds):
+    global sleeps
+    sleeps += 1
     await asyncio.sleep(max(0, float(seconds)) / _SCALE)
 
 

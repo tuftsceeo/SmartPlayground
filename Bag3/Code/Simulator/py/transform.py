@@ -14,6 +14,7 @@ from __future__ import annotations
 import ast
 import asyncio
 import inspect
+import sys
 import time as _time
 
 
@@ -40,12 +41,18 @@ def reset_watchdog():
     _busy_start = None
 
 
+def _sleep_count():
+    tp = sys.modules.get("time_patch")
+    return getattr(tp, "sleeps", 0) if tp is not None else 0
+
+
 async def _aw(value):
     """Await *value* if it is awaitable; otherwise pass it through.
 
     Forces an event-loop yield every N calls so the UI stays responsive,
     and raises SimTimeout if wall-clock time spent without a meaningful
-    sleep (await that takes >=1ms) exceeds _TIMEOUT_S.
+    sleep (a time_patch sleep, or an await that takes >=1ms) exceeds
+    _TIMEOUT_S.
     """
     global _aw_calls, _last_yield, _busy_start
 
@@ -60,11 +67,14 @@ async def _aw(value):
 
     if inspect.isawaitable(value):
         t0 = _time.monotonic()
+        slept = _sleep_count()
         result = await value
         elapsed = _time.monotonic() - t0
         # Only real sleeps / blocking awaits reset the busy timer.
-        # Instant async functions (transformed no-ops) do not.
-        if elapsed >= 0.001:
+        # Instant async functions (transformed no-ops) do not. A sleep
+        # counts however short it was: with time_patch's scale above 1, a
+        # game's sleep_ms(1) waits well under 1ms of real time.
+        if elapsed >= 0.001 or _sleep_count() != slept:
             now = _time.monotonic()
             _busy_start = now
             _last_yield = now
@@ -348,23 +358,25 @@ class _Asyncify(ast.NodeTransformer):
         self._skip_wrap -= 1
         return node
 
-    def visit_ListComp(self, node):
+    def _visit_comp(self, node):
+        # Inside an async function a list/set/dict comprehension may await,
+        # so its calls are wrapped like any other (splattag.py's
+        # `[i for i in ... if self.alive[net.owner(i)]]`). Elsewhere (module or class level, a lambda) they are not.
+        if self._async_depth > 0 and self._skip_wrap == 0:
+            return self.generic_visit(node)
         self._skip_wrap += 1
         node = self.generic_visit(node)
         self._skip_wrap -= 1
         return node
+
+    def visit_ListComp(self, node):
+        return self._visit_comp(node)
 
     def visit_SetComp(self, node):
-        self._skip_wrap += 1
-        node = self.generic_visit(node)
-        self._skip_wrap -= 1
-        return node
+        return self._visit_comp(node)
 
     def visit_DictComp(self, node):
-        self._skip_wrap += 1
-        node = self.generic_visit(node)
-        self._skip_wrap -= 1
-        return node
+        return self._visit_comp(node)
 
     def visit_GeneratorExp(self, node):
         self._skip_wrap += 1
