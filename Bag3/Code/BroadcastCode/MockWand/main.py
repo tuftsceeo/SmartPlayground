@@ -927,14 +927,51 @@ def _boot_pairing(enow):
 
 def _pair_card(cmd, enow):
     # A Splat card or the unpair card, idle loop only. An unpaired wand
-    # builds a controller without a hub; adding a pairing resets the wand.
+    # builds a controller without a hub; adding a pairing resets the wand,
+    # and that boot skips the boot-stage display (_QUICK_BOOT_PATH).
     global _pair_ctl
     import splatpair
     if _pair_ctl is None:
         _pair_ctl = splatpair.SplatPairing([], enow, leds, buz)
     if _pair_ctl.on_card(cmd) == "reset":
+        try:
+            with open(_QUICK_BOOT_PATH, "w") as f:
+                f.write("1")
+        except OSError:
+            pass                     # a full boot display is the only cost
         time.sleep_ms(300)           # let the confirm tone finish
         machine.reset()
+
+
+# Written just before a pairing reset; read and removed after enow.init().
+# That boot keeps the matrix dark through the boot stages and skips the
+# hold on the finished bar. Every check still runs and prints.
+_QUICK_BOOT_PATH = "/quick_boot"
+_BOOT_STAGE_CALLS = ("boot_stage_start", "boot_stage_ok", "boot_stage_warn", "boot_stage_fail")
+
+
+def _take_quick_boot():
+    try:
+        os.remove(_QUICK_BOOT_PATH)
+    except OSError:
+        return False
+    for name in _BOOT_STAGE_CALLS:
+        setattr(leds, name, _no_stage)
+    leds.off()
+    print("  Quick boot after pairing: boot stages not shown")
+    return True
+
+
+def _no_stage(*args, **kwargs):
+    pass
+
+
+def _end_quick_boot():
+    for name in _BOOT_STAGE_CALLS:
+        try:
+            delattr(leds, name)
+        except AttributeError:
+            pass
 
 
 # ─────────────────────────────────────────────
@@ -989,6 +1026,7 @@ def main():
     # runs with BLE already holding its own. ──
     _boot_pairing(enow)
     memprobe.probe("post-ble")  # BENCH
+    quick_boot = _take_quick_boot()
 
     # ── Stage 1: Brightness calibration (OPT3002) ──
     leds.boot_stage_start(1)
@@ -1085,7 +1123,10 @@ def main():
         "type": "identity", "device": "wand", "version": WAND_VERSION,
         "hub": HUB_TYPE, "games": sorted(list(GAME_MODULES.keys()) + game_store.slugs()),
     })
-    time.sleep_ms(1500)  # hold boot bar so it can be read before idle takes over
+    if quick_boot:
+        _end_quick_boot()
+    else:
+        time.sleep_ms(1500)  # hold boot bar so it can be read before idle takes over
 
     # Transition to idle
     leds.off()

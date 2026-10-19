@@ -48,6 +48,7 @@ A = "AB:42:00:00:7E:B6"
 B = "AB:42:00:00:20:60"
 MY_MAC = "AA:00:00:00:00:07"
 PAIRING = os.path.join(FLASH, "pairing.json")
+QUICK_BOOT = os.path.join(FLASH, "quick_boot")
 
 
 class _Reset(BaseException):
@@ -147,7 +148,7 @@ class FakeButton:
 
 
 def boot(cause=machine.SOFT_RESET, macs=None, in_range=(), ble_fail=None, ticks=10,
-         file_text=None, cards=None, setup=None, my_mac=MY_MAC, games=None):
+         file_text=None, cards=None, setup=None, my_mac=MY_MAC, games=None, quick=False):
     """Boot main.main() once.
 
     cards: list of None / card text, one per NFC detect (see FakeReader); when
@@ -166,7 +167,7 @@ def boot(cause=machine.SOFT_RESET, macs=None, in_range=(), ble_fail=None, ticks=
     for slug, text in (games or {}).items():
         with open(os.path.join(GAMES_DIR, slug + ".py"), "w") as f:
             f.write(text)
-    for f in (PAIRING, PAIRING + ".tmp"):
+    for f in (PAIRING, PAIRING + ".tmp", QUICK_BOOT):
         if os.path.exists(f):
             os.remove(f)
     if macs is not None:
@@ -175,6 +176,9 @@ def boot(cause=machine.SOFT_RESET, macs=None, in_range=(), ble_fail=None, ticks=
     if file_text is not None:
         with open(PAIRING, "w") as f:
             f.write(file_text)
+    if quick:
+        with open(QUICK_BOOT, "w") as f:
+            f.write("1")
     machine._reset_cause = cause
     import network
     network.WLAN.mac = wandsim.mac_bytes(my_mac)   # what get_own_mac() reports
@@ -195,6 +199,7 @@ def boot(cause=machine.SOFT_RESET, macs=None, in_range=(), ble_fail=None, ticks=
     sys.modules["main"] = m
     exec(compile(src, m.__file__, "exec"), m.__dict__)
     m._PAIRING_PATH = PAIRING
+    m._QUICK_BOOT_PATH = QUICK_BOOT
     m.buz = wand.buz
     b_button = FakeButton()
     m.btn = b_button

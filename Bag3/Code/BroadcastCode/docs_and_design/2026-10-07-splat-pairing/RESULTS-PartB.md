@@ -147,3 +147,9 @@ Logged rerun: `87:92:CC` paired `6D:27` and `86:28:FC` paired `20:60` by card (R
 after the tap, through the reset); `85:CB:FC` held `5E:40`. `relaycolor` with `85:CB:FC` leading:
 27 passes in 16 s around all three wands, game_end on all three within 0.1 s, no warning, error or
 lost event on any wand.
+
+## Quick boot after a pairing reset
+
+A pairing tap writes `/quick_boot` before `machine.reset()`; the next boot removes it after
+`enow.init()`, keeps the matrix dark through the boot stages and skips the 1.5 s hold. Tap to
+Splat READY: 13.0 s (`85:CB:FC`) and 16.3 s (`87:92:CC`), against 20.4 s with the full display.

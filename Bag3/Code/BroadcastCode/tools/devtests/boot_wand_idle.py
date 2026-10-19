@@ -65,10 +65,20 @@ def types(b, typ):
 b = boot(cards=NONE * 2 + [CARD_A] + NONE * 3)
 check("unpaired tap, no answer: machine.reset() called", b.reset)
 check("...the MAC is in /pairing.json", pairing_file() == [A], str(pairing_file()))
+check("...and the quick-boot marker is written for the next boot", os.path.exists(wandboot.QUICK_BOOT))
 who = types(b, "pw_who")
 check("...one pw_who for that MAC was broadcast",
       len(who) == 1 and who[0][3]["m"] == A and who[0][2] == "*", str(who))
 check("...an unpaired boot never imported ubluetooth", "ubluetooth" not in sys.modules)
+
+# ── The boot after a pairing reset is quick ──
+b = boot(macs=[A], in_range=[A], quick=True, ticks=20)
+check("quick boot: the marker is removed and the boot says so",
+      not os.path.exists(wandboot.QUICK_BOOT) and "Quick boot after pairing" in b.out)
+check("...the Splat still connects", b.m._pair_ctl.hub.links[0].connects >= 1)
+check("...and the boot-stage methods are the Leds class's again", "boot_stage_ok" not in vars(b.m.leds))
+b = boot(macs=[A], in_range=[A], ticks=5)
+check("an ordinary boot is not a quick boot", "Quick boot" not in b.out)
 
 # ── Another wand holds it: refuse, no reset ──
 b = boot(cards=NONE * 2 + [CARD_A] + NONE * 8, setup=lambda b: start_holder(b))
