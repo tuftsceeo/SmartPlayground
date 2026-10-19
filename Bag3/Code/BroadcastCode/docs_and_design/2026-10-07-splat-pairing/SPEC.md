@@ -135,12 +135,14 @@ Every wand taps the game card. On tap of a party game:
 
 1. Broadcast `{"type":"pw_find","g":<slug>}` and listen `FIND_WAIT_MS` (500) for a
    `{"type":"pw_lobby","g":<slug>,"id":<game id>,"n":<splats so far>}` from a leader whose
-   lobby is open.
+   lobby is open. A leader with an open lobby for that slug answers a `pw_find` at once with
+   a unicast `pw_lobby` to the finder, so the finder does not depend on the periodic
+   broadcast (1 s period vs a 500 ms listen, and broadcasts lose 2-15% with BLE running).
 2. **Answer received:** join it. Unicast `{"type":"pw_join","id":...,"splats":<count>}`;
    the leader replies `pw_joined` with this wand's Splat pool indexes. If several leaders
    answer, the first answer wins.
 3. **No answer:** become leader. Game id is the leader's MAC last 2 bytes plus a 1-byte
-   counter. Broadcast `pw_lobby` every 1 s while the lobby is open.
+   counter. Broadcast `pw_lobby` every `LOBBY_PERIOD_MS` (1000) while the lobby is open.
 4. Two wands that tap within the same window both become leaders. A leader that hears another
    leader's `pw_lobby` for the same slug with a lower MAC closes its lobby and joins that one.
 
@@ -167,6 +169,39 @@ def play(nfc, leds, buz, accel, i2c, enow, batt=None, net=None):
 `_start_play()`, extended to 8 parameters). Every wand in the game, leader and followers,
 calls the same `play()`; `net.is_leader` selects the role. `net` is `None` for non-party
 games.
+
+### Ending and cleanup
+
+`party.py` wraps the game in `try`/`finally`. On return, on a `stop`, or on an error, the
+leader sends `pw_end` to every follower, a follower sends `pw_leave` to the leader, and the
+wand's local Splats are turned off. An error is re-raised after cleanup.
+
+### Timing constants
+
+Module constants in `party.py`: `FIND_WAIT_MS` (500), `LOBBY_PERIOD_MS` (1000),
+`HB_PERIOD_MS` (1000), `WAND_LOST_MS` (3000), `SEND_TRIES` (3).
+
+### Solo Splat games
+
+A game that declares `SPLATS_LOCAL = n` runs on one wand with its own paired Splats: no
+lobby, no ESP-NOW traffic, no find wait, no button start.
+
+```python
+SPLATS_LOCAL = 1    # Splats this wand must have paired and READY
+```
+
+- Declaring both `SPLATS_LOCAL` and `SPLATS_MIN` fails the load (`_game_load_failed`).
+- **Start check:** at least `SPLATS_LOCAL` paired Splats must be READY. Otherwise the wand
+  shows amber error feedback and beeps, and the game does not start.
+- `play()` receives `net=SoloNet(...)`, with the §7 members:
+  - `is_leader` is `True`; `wands` holds only this wand; `me` is 0.
+  - `splat(i)` addresses local Splat `i`; `poll()` services the local Splats.
+  - `send()` raises, since there are no other wands.
+- Events: only `("press", i)` / `("release", i)` and `("splat_lost", i)` /
+  `("splat_back", i)`.
+- `finally` turns off the local Splats.
+
+A solo game becomes a party game by replacing `SPLATS_LOCAL` with `SPLATS_MIN`.
 
 ## 7. The `net` object (`lib/party.py`)
 
@@ -217,13 +252,13 @@ non-party games and old firmware ignore it). Every message carries `"type"` with
 | `pw_held` | holder → asker | unicast | `m` |
 | `pw_release_all` | teacher/hub → all | broadcast | — |
 | `pw_find` | tapper → all | broadcast | `g` |
-| `pw_lobby` | leader → all | broadcast, 1 s | `g`, `id`, `n`, `min`, `max` |
+| `pw_lobby` | leader → all | broadcast every `LOBBY_PERIOD_MS`; unicast reply to `pw_find` | `g`, `id`, `n`, `min`, `max` |
 | `pw_join` / `pw_joined` / `pw_leave` | follower ↔ leader | unicast | `id`, `splats` / `first`, `wands` |
 | `pw_start` | leader → followers | unicast | `id`, `wands`, `pool` |
 | `pw_cmd` | leader → owner | unicast | `id`, `q`, `s` (local idx), `op`, `v` |
 | `pw_evt` | owner → leader | unicast | `id`, `q`, `s` (pool idx), `e` (1 press / 0 release) |
 | `pw_msg` | wand → wand | unicast | `id`, `q`, `d` |
-| `pw_hb` | every wand | broadcast, 1 s | `id`, `l` (local Splats READY bitmask) |
+| `pw_hb` | every wand | broadcast every `HB_PERIOD_MS` | `id`, `l` (local Splats READY bitmask) |
 | `pw_end` | leader → all | unicast to each follower | `id` |
 
 - Unicast is synchronous `ESPNow.send()` (MAC-layer ACK) with up to `SEND_TRIES` (3)
@@ -255,17 +290,11 @@ non-party games and old firmware ignore it). Every message carries `"type"` with
 - **Single-chip coexistence on the wand.** The Splat Companion uses a separate modem board for
   ESP-NOW; the wand runs BLE and ESP-NOW on one C6 radio. Measured only with the bench
   scripts, not with `main.py`'s import load, the NFC reader or the LED matrix running.
-- **Splat Companions are unaware of pairings.** A companion without `splat_macs` takes the
-  first Splats it finds by name, which may be a Splat a wand is about to pair with. Rooms
-  should pin companion MACs or not mix the two.
 - **Offline holders.** First-holder-keeps relies on the holder answering `pw_who`. A holder
   out of range is detected only by the new wand's 30 s connect failure.
 - **`unpair` is a new control tag** in `MockWand/lib/game_tags.py` only. The other tag
   consumers (`hubCode2/game_tags.py`, `commands.json`, `wand_icons.html`, each Bag's
   `lib/game_tags.py`) are not updated.
-- **New PEER copies.** `splat_hub.py`, `splat_link.py`, `splat_api.py` and `ble_splat.py` go
-  into `MockWand/lib/` as copies of `SplatCompanion/Companion/`'s. `splat_api.py` remains the
-  source of truth for action names (`sync_splat_actions.py` reads the companion copy).
 - **Splat battery** with an idle glow on for a whole session is unmeasured.
 - **`pw_release_all` has no sender yet.** Live_Page and the Box do not send it.
 

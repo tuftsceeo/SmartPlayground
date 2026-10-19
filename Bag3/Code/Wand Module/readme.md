@@ -1,3 +1,5 @@
+> **Legacy.** The Bag3 wand is `BroadcastCode/MockWand/`. This tree is not under active development.
+
 # Wand Module Code Reference v6
 
 ---

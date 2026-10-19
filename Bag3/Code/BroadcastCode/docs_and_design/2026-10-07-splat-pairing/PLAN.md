@@ -156,5 +156,15 @@ SPEC §10 and README `UNVERIFIED` list from B0–B4; retune constants if needed.
 - ChatBroadcast generation: SPEC §11.
 - A `pw_release_all` sender in Live_Page / Box.
 - Symmetric-peer games replacing the leader model.
-- Port to `Bag3/Code/Wand Module/`.
-- Splat Companions honoring wand pairings.
+
+## Decisions 2026-10-14/19
+
+From [../2026-10-14-integration/PLAN.md](../2026-10-14-integration/PLAN.md):
+
+- MockWand is the Bag3 wand. `Bag3/Code/Wand Module/` is legacy; no port is planned.
+- The Splat Companion is retired (marked legacy, not deleted). Fallback if the hardware gates
+  fail: `BroadcastCode/EspnowModem/` (EUM).
+- `MockWand/lib/splat_api.py` becomes the Splat action source of truth.
+- Solo Splat games (`SPLATS_LOCAL`, SPEC §6) run on one wand with no lobby.
+- SPEC fixes: unicast `pw_lobby` reply to `pw_find`, party cleanup in `try`/`finally`, lobby
+  and heartbeat timing as module constants.

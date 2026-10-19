@@ -21,6 +21,7 @@ M5Stack) plus static web tools. Small team, weekly iteration.
   at import, whether or not the code runs) to a module imported ahead of the radio has taken devices
   down twice. Diagnostics go in a separate module, imported lazily after bring-up. See
   [Bag3/Code/BroadcastCode/docs_and_design/2026-09-23-ap-memory-order.md](Bag3/Code/BroadcastCode/docs_and_design/2026-09-23-ap-memory-order.md).
+  A change to code imported before the radio records `memprobe`'s pre-ESP-NOW `idf_largest` before and after.
 
 ## Branches
 
@@ -37,6 +38,9 @@ progress. Cross-generation compatibility is not a goal.
 - `Bag1/` is fielded and not under active development — ask before editing.
 - `Bag2/Code/Wand Module/` and `Bag3/Code/Wand Module/` are independent copies. Divergence is
   expected. Never apply a change to both silently; say which tree you touched.
+- The Bag3 wand is `Bag3/Code/BroadcastCode/MockWand/`; `Bag3/Code/Wand Module/` is legacy.
+- The Splat Companion (`BroadcastCode/SplatCompanion/`) is retired; wands pair with Splats
+  directly. Fallback: `BroadcastCode/EspnowModem/` (EUM).
 
 ## Shared libraries are duplicated by hand
 
@@ -63,8 +67,9 @@ source of truth, and three things copy from it by hand or by script:
 icons exist — a game naming one outside it is refused at send time, so an icon added only to
 the device is unusable in a generated game. Nothing runs the check automatically.
 
-Splat action names follow the same pattern: `SplatCompanion/Companion/splat_api.py` (`COLOR_RGB`,
-`NOTE_VALUES`, `ANIMAL_SOUNDS`) is the source of truth, and
+Splat action names follow the same pattern: `MockWand/lib/splat_api.py` (`COLOR_RGB`,
+`NOTE_VALUES`, `ANIMAL_SOUNDS`) is the source of truth (until it is copied there, the
+`SplatCompanion/Companion/` copy is), and
 `ChatBroadcast/js/splat/splatActions.js` is generated from it by
 `ChatBroadcast/tools/sync_splat_actions.py` (`--check` for drift). A Splat game naming an action
 outside that list is refused at send time.

@@ -1,3 +1,5 @@
+> **Legacy (retired 2026-10-19).** Wands now pair with Splats directly; see `docs_and_design/2026-10-07-splat-pairing/SPEC.md`. The fallback for ESP-NOW plus BLE is `BroadcastCode/EspnowModem/` (EUM).
+
 # Splat Companion station
 
 A Bag3 game station for stock Splat toys, built from two Seeed XIAO
