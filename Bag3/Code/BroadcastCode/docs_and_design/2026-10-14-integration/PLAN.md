@@ -4,7 +4,7 @@
 
 **Implemented, offline checks passing:** Phase 0; Phase 1 items 1.1–1.10 (1.8 dropped) and 1.11; Phase 2 A1–A7, including the solo games `soloecho` and `solotest` and the party games; Phase 4 items 4.1–4.5; Phase 5 items 5.1–5.2; Phase 6 items 6.1–6.3.
 
-**In progress:** Simulator 5.3–5.10. **Not started:** A8.
+**In progress:** Simulator 5.3–5.10. A8 (MockWand README "Splat games") is done.
 
 **Awaiting hardware** (see "Hardware needs per task" below): gates G1 and G2; sessions 3.2, 3.3b, 3.4, 3.5 and 3.6; device confirmation of 1.1, 1.3/A2.4, 1.5, 1.6, 1.9, Phase 2 (including each `main.py` hook's `idf_largest` change), the 4.1 firmware side, 4.3 and 4.4.
 
