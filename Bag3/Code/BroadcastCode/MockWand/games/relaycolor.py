@@ -63,7 +63,7 @@ class _Relay:
         if self.net.is_leader:
             self.holder = self.net.me
             self.color = c
-        # For a listening display (IconDisplay/games/relaytimer.py): the
+        # For a listening display (IconDisplay/games/relaycolor.py): the
         # passes themselves are unicast, so nothing else here is broadcast.
         self.net.enow.broadcast({"type": "relay_pass", "color": name, "to": self.net.me})
         print("  relaycolor: holding %s" % name)

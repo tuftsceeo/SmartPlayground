@@ -7,7 +7,8 @@ colour moves on, the time that pass took drops to the lower half in the old
 colour, and the counter starts again from 0.
 
 It only listens: it is not a player and not the leader. It assumes one
-relaycolor game is running nearby.
+relaycolor game is running nearby. It has the wands' slug, so the same
+relaycolor card or start_game starts it, as goalrace does on both devices.
 
 Messages this game listens for:
     {"type": "relay_pass", "color": "turnblue", "to": 1}
@@ -25,7 +26,7 @@ import time
 from display_tags import exit_tags_excluding
 import draw16
 
-_EXIT_TAGS = exit_tags_excluding("relaytimer")
+_EXIT_TAGS = exit_tags_excluding("relaycolor")
 
 COMMANDS = _EXIT_TAGS
 
