@@ -7,7 +7,7 @@ in step with them. This file used to re-export them from opcodes.py, whose
 that module.
 
   GAME_TAGS    -- names of game tags only (no "stop", no "start").
-  CONTROL_TAGS -- programming-mode controls ("start", "stop").
+  CONTROL_TAGS -- controls ("start", "stop", "unpair").
   HIDDEN_TAGS  -- ESP-NOW-only "games" (never on a physical card).
   EXIT_TAGS    -- every tag that exits a running game (GAME_TAGS | {"stop"}).
   exit_tags_excluding(tag) -- EXIT_TAGS without one game's own entry tag.
@@ -32,9 +32,10 @@ GAME_TAGS = {
     "multiicecream",
     "gestures",
     "goalrace",
+    "splatecho",
 }
 
-CONTROL_TAGS = {"start", "stop"}
+CONTROL_TAGS = {"start", "stop", "unpair"}
 
 # ESP-NOW only, never printed on a card.
 HIDDEN_TAGS = {"finddevice"}

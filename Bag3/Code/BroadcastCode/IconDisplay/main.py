@@ -293,7 +293,14 @@ def _launch_game(name, nfc, panel, enow):
             _game_load_failed(name, e, panel)
             return
         wrapper = _StartGameCapture(enow)
-        play_func(nfc, panel, wrapper)
+        try:
+            play_func(nfc, panel, wrapper)
+        except Exception as e:
+            # Runtime error in a game: same red X, unload and idle as a load failure.
+            play_func = None
+            print('{"type":"error","code":"game_error","name":"%s"}' % name)
+            _game_load_failed(name, e, panel)
+            return
         next_name = wrapper.pending_name
         # Drop the reference before unloading -- play_func is what pins the
         # module in this frame; a chained force-switch must not compile the
