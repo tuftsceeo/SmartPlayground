@@ -8,6 +8,8 @@
  * MockWand/main.py's _launch_game() and IconDisplay/main.py's.
  */
 import { ROLES as ROLE_TABLE, signatureFor } from './roles.js';
+import { splatGameProblems } from './splat/splatGameCheck.js';
+import { unknownSplatActionsIn } from './splat/splatActionCheck.js';
 
 /** Required play() parameter names, in order, keyed by device role. */
 export const ROLE_SIGNATURES = Object.fromEntries(
@@ -97,7 +99,8 @@ export function validateGameSignature(code, role) {
 
 /**
  * Check a game file before sending: its role's signature, and for the
- * wand the size the wand can load.
+ * wand the size the wand can load, its Splat declarations and `net` use
+ * (splatGameCheck.js), and its Splat action names (splatActionCheck.js).
  * @param {string} code
  * @param {string} role  a key of ROLE_SIGNATURES
  * @returns {[boolean, string|null]} [ok, error message]
@@ -113,6 +116,15 @@ export function validateGameCode(code, role) {
             return [false, `This ${name} game is too big for the ${name}'s memory `
                 + `(${Math.round(size / 1000)} KB; the limit is ${max / 1000} KB). `
                 + `Ask the assistant to make it shorter.`];
+        }
+    }
+    if (role === 'wand') {
+        const problems = splatGameProblems(code);
+        if (problems.length) return [false, problems.join('\n')];
+        const unknown = unknownSplatActionsIn(code);
+        if (unknown.length) {
+            return [false, `The wand game uses Splat action names the Splats do not have: `
+                + `${unknown.join(', ')}.`];
         }
     }
     return [true, null];

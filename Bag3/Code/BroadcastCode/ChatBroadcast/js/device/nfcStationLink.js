@@ -19,8 +19,9 @@ export const STATION_EVENTS = ["card_read", "card_written", "write_failed"];
 
 /**
  * {slug: {name, tags}} from saved-game entries (library.js shape). Tags come
- * from buildHardwareReqs, as for a Box send. The list is newest-first, so the
- * first entry for a slug wins.
+ * from buildHardwareReqs, as for a Box send: from the wand code, or from the
+ * display code (roleCode.icon, else iconCode) when the game has no wand code.
+ * The list is newest-first, so the first entry for a slug wins.
  */
 export function buildCatalogIndex(games) {
   const index = {};
@@ -29,8 +30,10 @@ export function buildCatalogIndex(games) {
     const name = g.name || "";
     const slug = slugify(name);
     if (!slug || index[slug]) continue;
+    const wandCode = (g.code || "").trim();
+    const code = wandCode ? g.code : (g.roleCode && g.roleCode.icon) || g.iconCode || "";
     const { tags } = buildHardwareReqs({
-      code: g.code || "",
+      code,
       gameName: name,
       declared: g.requiredTags,
     });

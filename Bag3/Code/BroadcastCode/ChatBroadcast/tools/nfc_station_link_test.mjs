@@ -44,6 +44,15 @@ await t("first (newest) entry wins a slug; blanks skipped", () => {
   assert.ok(idx.hop.tags.includes("new") && !idx.hop.tags.includes("old"));
 });
 
+await t("display-only game: tags come from the display code", () => {
+  const idx = buildCatalogIndex([
+    { name: "Board", code: "  \n", roleCode: { icon: 'COMMANDS = {"star"}\n' }, requiredTags: [] },
+    { name: "Old Board", code: "", iconCode: 'COMMANDS = {"moon"}\n', requiredTags: [] },
+  ]);
+  assert.ok(idx.board.tags.includes("star"), idx.board.tags.join(","));
+  assert.ok(idx.old_board.tags.includes("moon"), idx.old_board.tags.join(","));
+});
+
 await t("command shape", () => {
   assert.deepEqual(buildCatalogSetCommand([]), { cmd: "catalog.set", index: {} });
 });

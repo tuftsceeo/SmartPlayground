@@ -2,8 +2,8 @@
  * Splat action names: the list the system prompt carries, and the static
  * check a Splat game gets before it is sent.
  *
- * The names come from splatActions.js, generated from the device's own
- * SplatCompanion/Companion/splat_api.py -- see tools/sync_splat_actions.py.
+ * The names come from splatActions.js, generated from the wand's
+ * MockWand/lib/splat_api.py -- see tools/sync_splat_actions.py.
  */
 import { COLORS, NOTES, SOUNDS } from './splatActions.js';
 
@@ -26,7 +26,9 @@ export function listSplatActions() {
  * Checks the first argument of any `.color("x")`, `.note("x")` and
  * `.sound("x")` call against that category, and every string literal inside
  * a `.play([...])` list against all three. The receiver is not checked, so
- * `splat.unit(1).color("x")` is covered too. Names built at run time (a
+ * `net.splat(i).color("x")`, `net.local.splat(0)` and an alias such as
+ * `s = net.splat(i); s.color("x")` are all covered; `buz.play(name)` takes no
+ * list and is not matched. Names built at run time (a
  * variable, a table lookup) cannot be checked here; the device prints
  * `[ERR]` for those.
  */
