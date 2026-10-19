@@ -96,3 +96,9 @@ Two wands, one Splat each, real `partytest` card tapped on both. `85:CB:FC` led 
 remote presses, all `ok`; time from the leader's send to the Splat write: 1-82 ms. The
 follower's lobby hourglass was drawn in its red identity color and read as an error; it is now
 `BLUE_DIM`.
+
+## B4. `relaycolor`
+
+Two wands, one Splat each. `85:CB:FC` led. The token passed between the wands 35 times in
+47 s (18 from the leader, 17 from the follower), by button and by Splat press, both directions, with no warning or error on either wand.
+`splattag` has not run on hardware.
