@@ -276,6 +276,9 @@ class NfcReader:
         if text:
             if text in self.commands:
                 command = text
+            elif text.startswith("splat-"):
+                # Splat card; validated by pairing.parse_splat_card in the idle loop.
+                command = text
             else:
                 command = self._match_prefixed(text)
         else:
