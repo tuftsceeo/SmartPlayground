@@ -40,11 +40,19 @@ export const WAND_RESERVED = [
 /** Box-side names that are not games. */
 const BOX_RESERVED = ["payload", "index", "active", "stats"];
 
+/** Icon Display built-in games (IconDisplay/lib/display_tags.py GAME_TAGS). */
+const DISPLAY_RESERVED = ["scoreboard", "goalrace"];
+
+/** Splat pairing command tag. */
+const PAIRING_RESERVED = ["unpair"];
+
 export const RESERVED_SLUGS = new Set([
   ...EXAMPLES.map((e) => e.id),
   ...PYTHON_RESERVED,
   ...WAND_RESERVED,
   ...BOX_RESERVED,
+  ...DISPLAY_RESERVED,
+  ...PAIRING_RESERVED,
 ]);
 
 /**
