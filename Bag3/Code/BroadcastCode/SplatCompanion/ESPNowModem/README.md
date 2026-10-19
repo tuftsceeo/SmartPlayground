@@ -1,3 +1,5 @@
+> **Legacy.** The Splat Companion role is retired; where this file disagrees with the pairing spec, the spec wins. See [the Splat Companion README](../README.md).
+
 # Splat Companion modem (XIAO ESP32-C6)
 
 UART <-> ESP-NOW bridge for the Splat Companion hub (`../Companion/`).

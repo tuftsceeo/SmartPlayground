@@ -16,7 +16,7 @@ Where a step names a Dial-only gesture, the Box equivalent is the B1 hold.
 
 ## Read first
 
-**`Bag3/Code/BroadcastCode/BroadcastBox/HARDWARE_PROTOCOL.md`.** It is written for the Box, but
+**`Bag3/Code/HARDWARE_PROTOCOL.md`.** It is written for the Box, but
 every rule in it applies unchanged to the Dial + wand: the CDC/`mpremote` traps,
 "ask which port, never guess," "ask before opening a port and wait for an explicit
 go," the no-`exec`-on-a-live-board rule, `serial_monitor.py` usage, and the
@@ -37,7 +37,7 @@ leg an icon display pulls are carried inside the same state machine.
 `bdial_server.py` and `bbox_server.py`'s SERVE-mode glue (event handling,
 abort, error display) was rewritten to match.
 
-Host-side, `BroadcastBox/tools/devtests/wire_test.py` and `wire_test_dial.py`
+Host-side, `BroadcastCode/tools/devtests/wire_test.py` and `wire_test_dial.py`
 already cover the protocol and concurrency logic against both copies
 (`wire_contract.py` holds the cases): v1/v2 requests, the icon leg, three
 concurrent mixed-role pulls, a refusal beside live transfers, and abort. What
@@ -83,11 +83,11 @@ larger `--pause`. If you use the batched block instead, verify file sizes
 afterward — don't assume a silent success.
 
 Capture the boot log with `serial_monitor.py` (path:
-`Bag3/Code/BroadcastCode/BroadcastBox/tools/serial_monitor.py` — board-agnostic, just reads a
+`Bag3/Code/BroadcastCode/tools/serial_monitor.py` — board-agnostic, just reads a
 port):
 
 ```bash
-python3 Bag3/Code/BroadcastCode/BroadcastBox/tools/serial_monitor.py /dev/cu.usbmodemXXXX 900 > run.log
+python3 Bag3/Code/BroadcastCode/tools/serial_monitor.py /dev/cu.usbmodemXXXX 900 > run.log
 ```
 
 Read `run.log` for the two unverified items above before declaring the boot good.

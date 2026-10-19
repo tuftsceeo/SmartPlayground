@@ -1,6 +1,6 @@
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
-// BroadcastBox/, two levels up from tools/devtests/.
+// BroadcastCode/, two levels up from tools/devtests/.
 const BB = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 /**
  * Check the icon panel picks the right icon out of a display game, and that

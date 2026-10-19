@@ -1,3 +1,5 @@
+> **Legacy.** The Splat Companion role is retired; where this file disagrees with the pairing spec, the spec wins. See [the Splat Companion README](../README.md).
+
 # Splat Companion
 
 Bag3 broadcast station that runs games on a stock, unmodified Splat toy

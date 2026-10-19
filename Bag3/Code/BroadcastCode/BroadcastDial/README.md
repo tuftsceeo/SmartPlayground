@@ -173,7 +173,7 @@ client, since the main loop's own `_input.update()` runs every tick now
 `bbox_server.py` the same SERVE glue (its abort gesture is the B1 hold
 rather than `EXIT`), so the two devices behave identically here.
 
-Verification: `BroadcastBox/tools/devtests/wire_test.py` and
+Verification: `BroadcastCode/tools/devtests/wire_test.py` and
 `wire_test_dial.py` run the same cases — in `wire_contract.py` — against
 each device's `code_server.py` over a real loopback listener, covering the
 v1/v2 request shapes, the icon leg, three concurrent mixed-role pulls, a

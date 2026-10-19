@@ -56,7 +56,11 @@ that changes screens does not click on release; that divergence is intended.
 
 Game tags are consumed in four places, with nothing enforcing consistency: each Bag's
 `lib/game_tags.py`, `Live_Page/WebApp2/hubCode2/game_tags.py`,
-`Live_Page/WebApp2/js/utils/commands.json`, and `Live_Page/wand_icons.html`.
+`Live_Page/WebApp2/js/utils/commands.json`, and `Live_Page/wand_icons.html`. Within Bag3,
+`BroadcastCode/MockWand/lib/game_tags.py` is the source (it includes the Splat games
+`splatecho`, `soloecho`, `solotest`, `partytest`, `splattag`, `relaycolor` and the `unpair`
+control); the NFC Station, `EspnowModem/MockWandEUM/lib/`, ChatBroadcast's `gameName.js`
+`WAND_RESERVED` and the Simulator's `vendor/lib/` copy from it.
 
 The 16x16 icon set is the same shape of problem. `BroadcastCode/IconDisplay/icons/` is the
 source of truth, and three things copy from it by hand or by script:
@@ -68,11 +72,19 @@ icons exist — a game naming one outside it is refused at send time, so an icon
 the device is unusable in a generated game. Nothing runs the check automatically.
 
 Splat action names follow the same pattern: `MockWand/lib/splat_api.py` (`COLOR_RGB`,
-`NOTE_VALUES`, `ANIMAL_SOUNDS`) is the source of truth (until it is copied there, the
-`SplatCompanion/Companion/` copy is), and
+`NOTE_VALUES`, `ANIMAL_SOUNDS`) is the source of truth, and
 `ChatBroadcast/js/splat/splatActions.js` is generated from it by
 `ChatBroadcast/tools/sync_splat_actions.py` (`--check` for drift). A Splat game naming an action
 outside that list is refused at send time.
+
+Drift checks available for these copies (paths under `Bag3/Code/`; each takes `--check` and exits
+1 on drift; none runs automatically):
+
+- `BroadcastCode/ChatBroadcast/tools/sync_icons.py --check` (add `--station` for the Icon Display
+  Station's `icons/`)
+- `BroadcastCode/ChatBroadcast/tools/sync_splat_actions.py --check`
+- `BroadcastCode/tools/sync_game_tags.py --check` (Bag3 tag copies listed above)
+- `Simulator/tools/sync_sources.py --check` (Simulator `vendor/` against `MockWand`)
 
 ## Dead trees
 

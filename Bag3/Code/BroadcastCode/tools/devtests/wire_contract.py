@@ -42,7 +42,7 @@ import gc as _gc
 _gc.mem_free = lambda: 1 << 20
 
 SCRATCH = os.path.dirname(os.path.abspath(__file__))
-# BroadcastBox/, two levels up from tools/devtests/.
+# BroadcastCode/, two levels up from tools/devtests/.
 REPO = os.path.dirname(os.path.dirname(SCRATCH))
 
 
@@ -103,7 +103,7 @@ class Listener:
 def run(firmware_dir, device):
     """Drive every case against one device's code_server.py.
 
-    firmware_dir: path to the firmware directory, relative to BroadcastBox/.
+    firmware_dir: path to the firmware directory, relative to BroadcastCode/.
     device:       name for the banner ("Box" / "Dial").
     Returns the number of failed checks.
     """

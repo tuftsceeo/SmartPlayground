@@ -20,7 +20,7 @@ per note and breathes a music shape when idle.
 
 Simulator/tools/sync_sources.py copies vendor/ from Bag2/Code, not Bag3. That is why the vendored melody/jumpin/nfc_sound are stale. Repoint it?
 
---> Games now come from Bag3/Code/BroadcastCode/BroadcastBox/MockWand. lib/ still comes from
+--> Games now come from Bag3/Code/BroadcastCode/MockWand. lib/ still comes from
     Bag2/Code/lib, whose leds.py and hubtype.py define the LED geometry the
     golden-frame tests are pinned to.
 

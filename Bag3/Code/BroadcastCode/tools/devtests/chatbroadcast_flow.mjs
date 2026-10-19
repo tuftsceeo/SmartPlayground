@@ -1,7 +1,7 @@
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { readFileSync } from 'node:fs';
-// BroadcastBox/, two levels up from tools/devtests/.
+// BroadcastCode/, two levels up from tools/devtests/.
 const BB = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 /**
  * Walk a three-device reply through ChatBroadcast's pipeline, host-side.

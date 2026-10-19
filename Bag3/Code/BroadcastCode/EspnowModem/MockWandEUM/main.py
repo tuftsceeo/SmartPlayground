@@ -67,7 +67,7 @@ if game_store.GAMES_DIR not in sys.path:
 # -- MicroPython's GC heap is carved out of the IDF heap in splits that
 # are never returned, and the eager-import baseline left too little
 # contiguous IDF heap for esp_wifi_init()/esp_wifi_start() to succeed.
-# See Bag3/Code/BroadcastCode/BroadcastBox/docs_and_design/old/2026-09-01-wifi-handoff-diagnosis.md.
+# See Bag3/Code/BroadcastCode/docs_and_design/old/2026-09-01-wifi-handoff-diagnosis.md.
 #
 # GAME_MODULES maps tag name -> module basename (not a callable -- the
 # module is compiled only when its tag is actually tapped or ESP-NOW

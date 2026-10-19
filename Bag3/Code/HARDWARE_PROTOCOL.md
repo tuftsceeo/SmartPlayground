@@ -162,11 +162,11 @@ The wand's own suffix is `''`: no designator, since it is what a v1 request
 Firmware layout, wire protocol, slug rules, NFC card safety, and logging
 conventions are code-tied and belong with the code, not here:
 
-- `BroadcastBox/BBoxFirmware/README.md` — wire contract, card text/safety,
+- `BroadcastCode/BroadcastBox/BBoxFirmware/README.md` — wire contract, card text/safety,
   logging, reset and stats logs, manifest check.
-- `BroadcastBox/MockWand/README.md` — wand tree invariants, slug rules,
+- `BroadcastCode/MockWand/README.md` — wand tree invariants, slug rules,
   direct-USB push.
-- `BroadcastDial/README.md` — Dial specifics; shares the Box's wire contract
+- `BroadcastCode/BroadcastDial/README.md` — Dial specifics; shares the Box's wire contract
   and card rules.
 - `BroadcastCode/SplatCompanion/README.md` and `Companion/README.md` — device layout, the `play()`
   contract, and its own Unverified section.

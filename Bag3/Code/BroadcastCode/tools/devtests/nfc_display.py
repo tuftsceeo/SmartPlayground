@@ -14,7 +14,7 @@ test is the shim and the decode path, not the driver.
 import os, sys, tempfile, shutil
 
 import os
-# BroadcastBox/, two levels up from tools/devtests/.
+# BroadcastCode/, two levels up from tools/devtests/.
 _BB = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 DEV = _BB + "/IconDisplay"
 DIAL = os.path.dirname(_BB) + "/BroadcastDial/BDialFirmware"

@@ -1,3 +1,5 @@
+> **Legacy.** The Splat Companion role is retired; where this file disagrees with the pairing spec, the spec wins. See [the Splat Companion README](../README.md).
+
 # Hardware test prompt: Splat Companion
 
 Paste the block below into a local agent session on the machine with the boards attached.

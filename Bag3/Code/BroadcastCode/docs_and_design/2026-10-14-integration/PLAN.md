@@ -1,5 +1,13 @@
 # Bag3 integration plan: wands, Splats, icon displays, NFC tags, ChatBroadcast, Simulator
 
+## Status (2026-10-19, branch `october19demo`)
+
+**Implemented, offline checks passing:** Phase 0; Phase 1 items 1.1–1.10 (1.8 dropped) and 1.11; Phase 2 A1–A7, including the solo games `soloecho` and `solotest` and the party games; Phase 4 items 4.1–4.5; Phase 5 items 5.1–5.2; Phase 6 items 6.1–6.3.
+
+**In progress:** Simulator 5.3–5.10. **Not started:** A8.
+
+**Awaiting hardware** (see "Hardware needs per task" below): gates G1 and G2; sessions 3.2, 3.3b, 3.4, 3.5 and 3.6; device confirmation of 1.1, 1.3/A2.4, 1.5, 1.6, 1.9, Phase 2 (including each `main.py` hook's `idf_largest` change), the 4.1 firmware side, 4.3 and 4.4.
+
 ## Context
 
 A survey of `wands_with_splats` (HEAD `a60e471`) found that each device works on its own, and one wand-plus-display game (goalrace) has been played. Five gaps block the full system:

@@ -10,7 +10,7 @@ gets wrong.
 import os, sys, tempfile, shutil, types
 
 import os
-# BroadcastBox/, two levels up from tools/devtests/.
+# BroadcastCode/, two levels up from tools/devtests/.
 _BB = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 DEV = _BB + "/IconDisplay"
 SCRATCH = os.path.dirname(os.path.abspath(__file__))

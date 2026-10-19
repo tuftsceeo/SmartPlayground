@@ -322,20 +322,20 @@ undiscovered PEER files.
 From the repo root:
 
 ```
-bash Bag3/Code/BroadcastCode/BroadcastBox/tools/devtests/compile_check.sh    # py_compile over Bag3/Code
-python3 Bag3/Code/BroadcastCode/BroadcastBox/tools/devtests/wire_test.py       # Box pull protocol, both ends
-python3 Bag3/Code/BroadcastCode/BroadcastBox/tools/devtests/wire_test_dial.py  # Dial pull protocol
-python3 Bag3/Code/BroadcastCode/BroadcastBox/tools/devtests/boot_display.py    # display boot order + game dispatch + pull-mode glyphs
-python3 Bag3/Code/BroadcastCode/BroadcastBox/tools/devtests/usb_link.py        # icon server + panel latch + start_game
-python3 Bag3/Code/BroadcastCode/BroadcastBox/tools/devtests/goalrace_pair.py   # the pair, one fake radio between them
-python3 Bag3/Code/BroadcastCode/BroadcastBox/tools/devtests/nfc_display.py     # the display's WS1850S shim + tag decode
-python3 Bag3/Code/BroadcastCode/BroadcastBox/tools/devtests/game_menu_scan.py  # Box/Dial boot scan never enrolls a *_icon.py staging file
-node    Bag3/Code/BroadcastCode/BroadcastBox/tools/devtests/chatbroadcast_flow.mjs
-node    Bag3/Code/BroadcastCode/BroadcastBox/tools/devtests/icon_panel.mjs
-node    Bag3/Code/BroadcastCode/BroadcastBox/tools/devtests/role_state.mjs     # per-role editor state, a full authoring cycle
-python3 Bag3/Code/BroadcastCode/BroadcastBox/ChatBroadcast/tools/sync_icons.py --check  # defaultIcons.js matches IconDisplay/icons/
+bash Bag3/Code/BroadcastCode/tools/devtests/compile_check.sh    # py_compile over Bag3/Code
+python3 Bag3/Code/BroadcastCode/tools/devtests/wire_test.py       # Box pull protocol, both ends
+python3 Bag3/Code/BroadcastCode/tools/devtests/wire_test_dial.py  # Dial pull protocol
+python3 Bag3/Code/BroadcastCode/tools/devtests/boot_display.py    # display boot order + game dispatch + pull-mode glyphs
+python3 Bag3/Code/BroadcastCode/tools/devtests/usb_link.py        # icon server + panel latch + start_game
+python3 Bag3/Code/BroadcastCode/tools/devtests/goalrace_pair.py   # the pair, one fake radio between them
+python3 Bag3/Code/BroadcastCode/tools/devtests/nfc_display.py     # the display's WS1850S shim + tag decode
+python3 Bag3/Code/BroadcastCode/tools/devtests/game_menu_scan.py  # Box/Dial boot scan never enrolls a *_icon.py staging file
+node    Bag3/Code/BroadcastCode/tools/devtests/chatbroadcast_flow.mjs
+node    Bag3/Code/BroadcastCode/tools/devtests/icon_panel.mjs
+node    Bag3/Code/BroadcastCode/tools/devtests/role_state.mjs     # per-role editor state, a full authoring cycle
+python3 Bag3/Code/BroadcastCode/ChatBroadcast/tools/sync_icons.py --check  # defaultIcons.js matches IconDisplay/icons/
 cd Bag3/Code/Simulator && python3 -m pytest && python3 tools/sync_sources.py --check
-cd Bag3/Code/BroadcastCode/BroadcastBox/ChatBroadcast && node tools/check_tags.mjs
+cd Bag3/Code/BroadcastCode/ChatBroadcast && node tools/check_tags.mjs
 ```
 
 `check_tags.mjs` going red is a regression to report, never a test to edit — the

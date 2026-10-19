@@ -1,3 +1,5 @@
+> **Legacy.** The Splat Companion role is retired; where this file disagrees with the pairing spec, the spec wins. See [the Splat Companion README](../../README.md).
+
 # Hub bench bring-up
 
 Run these on the hub in order, from `SplatCompanion/Companion/`. Each is

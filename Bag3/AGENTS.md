@@ -16,11 +16,9 @@ A 5×5 + PN532 @ 0x24 variant was explored on `origin/claude/pn532-5x5` and not 
 
 | Tree | Device identity | Hardware |
 |---|---|---|
-| `Code/BroadcastBox/BBoxFirmware/` | `broadcast_box` | M5 StickS3 + Grove RFID 2 (WS1850S) — fielded prototype |
-| `Code/BroadcastDial/BDialFirmware/` | `broadcast_dial` | M5 Dial 2 (StampS3A) — sibling port; Phase 0 pins still open |
+| `Code/BroadcastCode/BroadcastBox/BBoxFirmware/` | `broadcast_box` | M5 StickS3 + Grove RFID 2 (WS1850S) — fielded prototype |
+| `Code/BroadcastCode/BroadcastDial/BDialFirmware/` | `broadcast_dial` | M5 Dial 2 (StampS3A) — sibling port; Phase 0 pins still open |
 | `Code/BroadcastCode/SplatCompanion/` (`Companion/` hub + `ESPNowModem/` modem, two XIAO C6) | `splat_companion` | XIAO ESP32-C6 + PN532 (wand wiring) + MAX17048; BLE to a stock Splat toy, ESP-NOW via a paired EUM modem board over UART (`Code/BroadcastCode/EspnowModem/`); runs on hardware with 4 Splats |
-
-The other two rows above are missing `BroadcastCode/` — see `docs/KNOWN_ISSUES.md`, not fixed here.
 
 Same serial protocol and wire contract. ChatBroadcast accepts both. Do not silently
 reconcile PEER-copied modules between the two trees — fix one copy and say which.

@@ -1,3 +1,5 @@
+> **Legacy.** The Splat Companion role is retired; where this file disagrees with the pairing spec, the spec wins. See [the Splat Companion README](README.md).
+
 # Splat game authoring guide
 
 Rules for games that run on the Splat Companion hub (`Companion/`), alone or with Bag3 MockWands.
