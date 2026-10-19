@@ -43,3 +43,14 @@ class NfcReader:
         if on_complete:
             on_complete()
         return cmd, uid
+
+
+# Same as MockWand/lib/nfc_reader.py parse_splat_card (party.py's lobby uses it).
+def parse_splat_card(text):
+    if not text or len(text) != 18 or text[:6].lower() != "splat-":
+        return None
+    h = text[6:].upper()
+    for ch in h:
+        if ch not in "0123456789ABCDEF":
+            return None
+    return ":".join([h[i:i + 2] for i in range(0, 12, 2)])
