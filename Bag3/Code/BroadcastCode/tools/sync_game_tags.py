@@ -8,8 +8,9 @@ Copies checked:
       Sets must match the source. Allowed extra: "unpair" (a station/control
       card, not a wand game), in any set.
   BroadcastCode/EspnowModem/MockWandEUM/lib/game_tags.py
-      Sets must match the source. Allowed missing: "splatecho", "soloecho",
-      "solotest" and "unpair" (the EUM wand has no Splat games or pairing).
+      Sets must match the source. Allowed missing: the Splat games
+      ("splatecho", "soloecho", "solotest", "partytest", "splattag",
+      "relaycolor") and "unpair" (the EUM wand has no Splat games or pairing).
   BroadcastCode/ChatBroadcast/js/gameName.js  WAND_RESERVED
       Must contain every GAME_TAGS | CONTROL_TAGS | HIDDEN_TAGS name, so a
       generated game slug can never collide with a wand tag. Extra names are
@@ -47,7 +48,8 @@ SET_NAMES = ("GAME_TAGS", "CONTROL_TAGS", "HIDDEN_TAGS")
 # path -> (allowed extra names, allowed missing names)
 PY_COPIES = {
     STATION: ({"unpair"}, set()),
-    EUM: (set(), {"splatecho", "soloecho", "solotest", "unpair"}),
+    EUM: (set(), {"splatecho", "soloecho", "solotest",
+                "partytest", "splattag", "relaycolor", "unpair"}),
 }
 
 

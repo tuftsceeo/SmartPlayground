@@ -95,6 +95,10 @@ GAME_MODULES = {
     # Solo Splat games (SPLATS_LOCAL): this wand and its own paired Splats.
     "soloecho":       "solo_echo",
     "solotest":       "solotest",
+    # Party Splat games (SPLATS_MIN): lobby, then several wands share a Splat pool.
+    "partytest":      "partytest",
+    "splattag":       "splattag",
+    "relaycolor":     "relaycolor",
     # Hidden (ESP-NOW only, never NFC): targeted identify animation.
     "finddevice":     "finddevice",
 }

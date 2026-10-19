@@ -35,6 +35,9 @@ GAME_TAGS = {
     "splatecho",
     "soloecho",
     "solotest",
+    "partytest",
+    "splattag",
+    "relaycolor",
 }
 
 CONTROL_TAGS = {"start", "stop", "unpair"}
