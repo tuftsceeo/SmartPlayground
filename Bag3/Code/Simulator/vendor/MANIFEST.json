@@ -191,9 +191,9 @@
       "vendor_sha256": "615e38339d682855d5c6227fa095b64a4ca858b66ebf2e7be54d9edd8a81bb60"
     },
     "lib/party.py": {
-      "sha256": "42e74b6d53e56348c218f4a04e83fed6761366f9e68cd0dce9bfe7efafe0c509",
+      "sha256": "d5f671e247d9ea009f72c0449422b3e9f1628a8d92ec6c7c90cc8919fc2ff83d",
       "source": "Bag3/Code/BroadcastCode/MockWand/lib/party.py",
-      "vendor_sha256": "42e74b6d53e56348c218f4a04e83fed6761366f9e68cd0dce9bfe7efafe0c509"
+      "vendor_sha256": "d5f671e247d9ea009f72c0449422b3e9f1628a8d92ec6c7c90cc8919fc2ff83d"
     },
     "lib/pwire.py": {
       "sha256": "fd0b0417b93676a953ad4f8204977f772a8f5d978667a197fe1bde3fcffbf297",
@@ -206,9 +206,9 @@
       "vendor_sha256": "793638859231d52cca98560ae64d5212818811c58f7abe66e590419e4053b340"
     },
     "lib/splatpair.py": {
-      "sha256": "3ae57d6779048fe827676e31f2d2066ffcd3801066dd7dbb6bd11c7f52c7f13c",
+      "sha256": "75718a3383eba66a87cf35152d022835b96622d0b8b55b43091493013b8cfe9b",
       "source": "Bag3/Code/BroadcastCode/MockWand/lib/splatpair.py",
-      "vendor_sha256": "3ae57d6779048fe827676e31f2d2066ffcd3801066dd7dbb6bd11c7f52c7f13c"
+      "vendor_sha256": "75718a3383eba66a87cf35152d022835b96622d0b8b55b43091493013b8cfe9b"
     }
   },
   "version": 1

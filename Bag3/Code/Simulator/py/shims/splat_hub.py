@@ -66,6 +66,7 @@ class SplatLink:
     def __init__(self, mac_address):
         self.mac_address = mac_address
         self.pinned = True
+        self.direct = True       # address known: splatpair.pause_search() lets it reconnect
         self.ready = False
         self.want_ready = _want.get(mac_address, True)
         self.connects = 0
@@ -134,3 +135,7 @@ class SplatHub:
         self.discovering = False
         self.misrouted = 0
         _hub = self
+
+    def _may_scan(self, link):
+        # scan_gate, as on the device; the Simulator never scans.
+        return True
