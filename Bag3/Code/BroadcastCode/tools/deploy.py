@@ -272,6 +272,18 @@ def main():
             print("aborted")
             return
 
+    # `fs cp` does not create parent directories. mkdir fails when the
+    # directory already exists, so its result is ignored; a real failure
+    # shows up as the copy failing below.
+    made = set()
+    for _, remote in files:
+        parts = remote.strip("/").split("/")[:-1]
+        for i in range(1, len(parts) + 1):
+            d = "/" + "/".join(parts[:i])
+            if d not in made and d != "/flash":
+                made.add(d)
+                mpremote(port, "fs", "mkdir", ":" + d)
+
     failed = []
     for local, remote in files:
         print("copying %s -> %s ..." % (os.path.relpath(local, BROADCASTCODE), remote))
