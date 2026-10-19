@@ -710,10 +710,16 @@ class BdialServer:
         except OSError:
             names = []
         for name in names:
-            if not name.endswith('.py') or any(
-                    name.endswith(suf) for suf in STAGING_SUFFIXES):
+            if not name.endswith('.py'):
                 continue
-            slug = name[:-3]
+            # A slug with only <slug>_icon.py is a display-only game and is
+            # enrolled under <slug>; otherwise staged files are skipped.
+            if name.endswith('_icon.py') and name[:-8] + '.py' not in names:
+                slug = name[:-8]
+            elif any(name.endswith(suf) for suf in STAGING_SUFFIXES):
+                continue
+            else:
+                slug = name[:-3]
             path = GAMES_DIR + '/' + name
             try:
                 st = os.stat(path)

@@ -307,11 +307,12 @@ class CodeServer:
         """Successful transfers since boot."""
         return self._pickups
 
-    def set_game(self, slug, src_path=None, role=DEFAULT_ROLE):
+    def set_game(self, slug, src_path=None, role=None):
         """Set the active slug and its source file for `role`.
 
         The source carries the role suffix (<slug>_icon.py); the device-side
         name does not. Transfers resolve their own file via _lookup().
+        role None: the wand file, or <slug>_icon.py when <slug>.py is absent.
         """
         if not slug:
             self.active_slug = None
@@ -319,17 +320,28 @@ class CodeServer:
             self.src_path = DEFAULT_SRC
             self.dest_name = DEFAULT_DEST
             return
+        if role is None:
+            role = DEFAULT_ROLE
+            if src_path is None:
+                found = self._lookup(slug)
+                if found is not None:
+                    src_path = found[1]
+                    role = found[3]
         suffix = ROLE_FILES.get(role, ROLE_FILES[DEFAULT_ROLE])['suffix']
         self.active_slug = slug
         self.role = role
         self.src_path = src_path if src_path else (GAMES_DIR + '/' + slug + suffix + '.py')
         self.dest_name = slug + '.py'
 
-    def _lookup(self, slug, role=DEFAULT_ROLE):
-        """Resolve slug (or /flash/active.txt) to (slug, src_path, dest_name).
+    def _lookup(self, slug, role=None):
+        """Resolve slug (or /flash/active.txt) to (slug, src_path, dest_name, role).
 
         Does not modify self. None for an unknown role or a missing/empty file.
+        role None tries the wand file, then icon_display.
         """
+        if role is None:
+            return (self._lookup(slug, DEFAULT_ROLE)
+                    or self._lookup(slug, 'icon_display'))
         if role not in ROLE_FILES:
             return None
         if slug:
@@ -337,7 +349,7 @@ class CodeServer:
             path = GAMES_DIR + '/' + slug + suffix + '.py'
             try:
                 if os.stat(path)[6] > 0:
-                    return (slug, path, slug + '.py')
+                    return (slug, path, slug + '.py', role)
             except OSError:
                 return None
             return None
@@ -350,12 +362,12 @@ class CodeServer:
             return self._lookup(active, role)
         return None
 
-    def resolve(self, slug=None, role=DEFAULT_ROLE):
+    def resolve(self, slug=None, role=None):
         """_lookup() then set_game(). Returns the slug, or None."""
         result = self._lookup(slug, role)
         if result is None:
             return None
-        slug_used, src_path, _dest_name = result
+        slug_used, src_path, _dest_name, role = result
         self.set_game(slug_used, src_path, role)
         return slug_used
 
@@ -616,7 +628,7 @@ class CodeServer:
             c.refusing = True
             c.state = _S_HDR
             return
-        slug_used, src_path, dest_name = result
+        slug_used, src_path, dest_name, _role = result
         c.slug = slug_used
         self._begin_file(c, src_path, dest_name)
 
