@@ -121,3 +121,11 @@ to 77824 on both wands (post-enow 35840 on `85:CB:FC`). A/B boots on `85:CB:FC`:
 The report (an `os.stat` per built-in at import) is removed. Small edits to `main.py` flip this
 result, so its import is at the fragmentation edge described in
 [2026-09-23-ap-memory-order.md](../2026-09-23-ap-memory-order.md).
+
+## Precompiled `main.py`
+
+`main.py` compiled with mpy-cross 1.28.0.post2 (mpy v6.3; both wands report `_mpy` 12038) to
+`/wand_main.mpy`, with `/main.py` = `import wand_main`. On `85:CB:FC`, the variant that read 77824
+after imports as source read 208896 precompiled (post-enow 163840). The current `main.py`, deployed
+this way by `tools/deploy.py`: after imports 208896 on both wands, post-enow 172032 (`86:28:FC`) and
+163840 (`85:CB:FC`), boot complete.

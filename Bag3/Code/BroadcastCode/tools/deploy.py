@@ -200,6 +200,41 @@ def _boot_main_first(files, extra_boot=None):
     return sorted(files, key=lambda pair: order.get(os.path.basename(pair[1]), 2))
 
 
+# MockWand's main.py is compiled at boot otherwise, and that compile can leave
+# the contiguous IDF block the radio needs fragmented: a few bytes added to
+# main.py took idf_largest after imports from 208896 to 77824, and the same
+# source precompiled stayed at 208896 (docs_and_design/2026-10-07-splat-pairing/
+# RESULTS-PartB.md). The wand gets wand_main.mpy plus a one-line main.py.
+WAND_APP = "wand_main"
+WAND_STUB = "import %s\n" % WAND_APP
+
+
+def _precompile_wand_main(files):
+    """Replace MockWand's main.py with wand_main.mpy and a stub main.py.
+    Needs mpy-cross (`pip install --user mpy-cross==1.28.0.post2`, matching
+    the wands' MicroPython). Order: boot.py, wand_main.mpy, then main.py, so an
+    interrupted deploy never leaves a stub that imports a missing module."""
+    src = next((l for l, r in files if r == "/main.py"), None)
+    if src is None:
+        return files
+    tmp = tempfile.mkdtemp(prefix="deploy_wand_")
+    mpy = os.path.join(tmp, WAND_APP + ".mpy")
+    staged = os.path.join(tmp, WAND_APP + ".py")
+    with open(src, "rb") as f_in, open(staged, "wb") as f_out:
+        f_out.write(f_in.read())
+    r = subprocess.run([sys.executable, "-m", "mpy_cross", staged, "-o", mpy],
+                       capture_output=True, text=True)
+    if r.returncode != 0:
+        sys.exit("mpy-cross failed (pip install --user mpy-cross==1.28.0.post2): %s"
+                 % (r.stderr.strip() or r.stdout.strip()))
+    stub = os.path.join(tmp, "main.py")
+    with open(stub, "w") as f:
+        f.write(WAND_STUB)
+    rest = [(l, r) for l, r in files if r not in ("/main.py", "/boot.py")]
+    boot = [(l, r) for l, r in files if r == "/boot.py"]
+    return boot + [(mpy, "/" + WAND_APP + ".mpy"), (stub, "/main.py")] + rest
+
+
 def _files_for(dev_key, code_only, wand_tree="MockWand"):
     if dev_key == "dial":
         firmware_dir = os.path.join(BROADCASTCODE, "BroadcastDial", "BDialFirmware")
@@ -215,6 +250,8 @@ def _files_for(dev_key, code_only, wand_tree="MockWand"):
         return _boot_main_first(files, extra_boot), 0.0
     if dev_key == "wand":
         files = _tree_files(os.path.join(BROADCASTCODE, wand_tree))
+        if wand_tree == "MockWand":
+            return _precompile_wand_main(files), 0.0
         return _boot_main_first(files), 0.0
     # icon
     skip = {"icons"} if code_only else ()

@@ -337,5 +337,10 @@ and listed per step in `docs_and_design/2026-10-07-splat-pairing/PROGRESS-PartA.
 
 ## Deploy
 
-Copy all `.py` files and `hubtype.txt` to the wand's flash root (same layout as
-Bag3 Wand Module).
+`python3 tools/deploy.py --type wand <port>` copies every `.py` file and `hubtype.txt` to the
+wand's flash root, keeping `lib/` and `games/`. `main.py` is not copied as source: deploy compiles
+it with `mpy-cross` (`pip install --user mpy-cross==1.28.0.post2`, matching the wands'
+MicroPython) to `/wand_main.mpy` and writes a one-line `/main.py` that imports it. Compiling
+`main.py` on the wand at boot can fragment the IDF block the radio needs (see
+`docs_and_design/2026-10-07-splat-pairing/RESULTS-PartB.md`). Copying the source `main.py` by
+hand still runs, without that protection.
