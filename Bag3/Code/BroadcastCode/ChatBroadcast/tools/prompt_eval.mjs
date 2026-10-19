@@ -9,6 +9,7 @@
  * Usage, from ChatBroadcast/:
  *   node tools/prompt_eval.mjs --dry-run            build every request, no API calls
  *   node tools/prompt_eval.mjs --self-test          run the automatic checks on canned replies
+ *   node tools/prompt_eval.mjs --self-test-sim      run the simulation check on a good and two broken party games
  *   ANTHROPIC_API_KEY=sk-ant-... node tools/prompt_eval.mjs [--out report.md] [--only id,id]
  *
  * Costs real API usage when not a dry run: about 20 requests, mostly cache
@@ -20,12 +21,13 @@
  *   - icon display games name only existing icons; no file for the retired splat role
  *   - no f-strings; no reserved ESP-NOW message types used as game messages
  *   - the case's own expectations: code expected or not, phrases required or forbidden
- *   - a wand game declaring SPLATS_MIN runs in the Simulator's
- *     headless mode (simulateSplatGame below); skipped with a notice until
- *     Simulator/tools/sim_run.mjs exists (integration plan 5.8)
+ *   - a wand game declaring SPLATS_MIN runs in the Simulator's headless
+ *     mode (Simulator/tools/sim_run.mjs, simulateSplatGame below) with
+ *     virtual peer wands and Splats: no exception, and play() returns when
+ *     the leader ends the game or goes silent
  * Exit code: 0 when every check passed, 1 otherwise, 2 on setup errors.
  */
-import { readFileSync, writeFileSync, existsSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -44,36 +46,23 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const args = process.argv.slice(2);
 const DRY = args.includes("--dry-run");
 const SELF_TEST = args.includes("--self-test");
+const SELF_TEST_SIM = args.includes("--self-test-sim");
 const outArg = args.indexOf("--out");
 const OUT = outArg >= 0 ? args[outArg + 1] : "prompt_eval_report.md";
 const onlyArg = args.indexOf("--only");
 const ONLY = onlyArg >= 0 ? new Set(args[onlyArg + 1].split(",")) : null;
 
-/** Simulator headless runner (integration plan 5.8); absent until built. */
+/** Simulator headless runner. */
 const SIM_RUN = resolve(ROOT, "../../Simulator/tools/sim_run.mjs");
 const SIM_SECONDS = 30;
-let simNoticeShown = false;
 
 /**
- * STUB until Simulator/tools/sim_run.mjs exists. Runs one generated Splat
- * game headless for SIM_SECONDS with virtual peer wands and Splats, and
- * returns problem strings: an exception, or a follower that does not return
- * on ("leader_lost",) / ("end",). The runner's interface is assumed, not
- * yet defined: `simRun({ code, seconds }) -> { exceptions: string[],
- * unhandled: string[] }`. Returns null (and prints a notice once) when the
- * runner is missing.
+ * Run one generated Splat game headless for SIM_SECONDS with virtual peer
+ * wands and Splats (Simulator/tools/sim_run.mjs, which boots Pyodide under
+ * Node). Returns problem strings: an exception, or play() not returning
+ * on ("end",) or ("leader_lost",) as a follower.
  */
-function simAvailable() {
-    if (existsSync(SIM_RUN)) return true;
-    if (!simNoticeShown) {
-        console.log(`notice: ${SIM_RUN} not found; generated Splat games are not simulated (plan 5.8).`);
-        simNoticeShown = true;
-    }
-    return false;
-}
-
 async function simulateSplatGame(code) {
-    if (!simAvailable()) return null;
     const { simRun } = await import(pathToFileURL(SIM_RUN).href);
     const r = await simRun({ code, seconds: SIM_SECONDS });
     return [...(r.exceptions || []).map(e => `simulator exception: ${e}`),
@@ -218,9 +207,29 @@ function selfTest() {
     return bad ? 1 : 0;
 }
 
+/** The simulation check on games with a known outcome. */
+async function selfTestSim() {
+    const PARTY = readFileSync(resolve(ROOT, "../MockWand/games/relaycolor.py"), "utf8");
+    const HEAD = "import time\nSPLATS_MIN = 1\n\ndef play(nfc, leds, buz, accel, i2c, enow, batt=None, net=None):\n";
+    const cases = [
+        ["relaycolor passes", PARTY, []],
+        ["a raise is an exception", HEAD + "    net.poll()\n    raise ValueError('boom')\n", [/exception.*boom/]],
+        ["ignoring end is unhandled", HEAD + "    while True:\n        net.poll()\n        time.sleep_ms(1)\n",
+            [/unhandled follow: end/, /unhandled lost: leader_lost/]],
+    ];
+    let bad = 0;
+    for (const [name, code, want] of cases) {
+        const got = await simulateSplatGame(code);
+        const ok = want.every(re => got.some(p => re.test(p))) && got.every(p => want.some(re => re.test(p)));
+        if (!ok) bad++;
+        console.log(`${ok ? "ok  " : "FAIL"} ${name}: ${got.length} problem(s)${got.length ? " — " + got.join("; ") : ""}`);
+    }
+    return bad ? 1 : 0;
+}
+
 async function main() {
     if (SELF_TEST) return selfTest();
-    simAvailable();
+    if (SELF_TEST_SIM) return selfTestSim();
     const files = Object.fromEntries(knowledgePaths().map(p => [p, readFileSync(resolve(ROOT, p), "utf8")]));
     const knowledge = knowledgeText(files, listSplatActions());
     const icons = listIcons();

@@ -65,7 +65,7 @@ export function wandMac(mac) {
 
 /** The Splat MACs a wand holds (same scheme as runtime.local_splat_macs()). */
 export function splatMac(ownerMac, i) {
-  return `5A:00:00:00:${wandMac(ownerMac).slice(-2)}:${i.toString(16).toUpperCase().padStart(2, "0")}`;
+  return `5A:00:${wandMac(ownerMac).slice(-5)}:00:${i.toString(16).toUpperCase().padStart(2, "0")}`;
 }
 
 const enc = new TextEncoder();

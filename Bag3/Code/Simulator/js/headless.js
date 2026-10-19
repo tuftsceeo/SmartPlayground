@@ -50,7 +50,7 @@ export async function createHeadlessRoom({ pyodide, readText, scale = 4 }) {
     set_motor_callback: () => {},
     set_enow_sent_callback: () => {},
   });
-  attachWand(pyodide, {
+  const wandLink = attachWand(pyodide, {
     bus, clock, mac: WAND_MAC,
     tx: (src, dst, hex) => {
       bus.send(src, dst, hexToBytes(hex));
@@ -62,6 +62,10 @@ export async function createHeadlessRoom({ pyodide, readText, scale = 4 }) {
   const simState = pyodide.pyimport("sim_state");
   const room = {
     pyodide, clock, bus, party, out, rt,
+    dispose() {
+      party.dispose();
+      wandLink.detach();
+    },
     /** Wait `ms` of virtual time. */
     wait: (ms) => new Promise((r) => setTimeout(r, clock.toRealMs(ms))),
     async load(gameOrCode) {
@@ -164,6 +168,13 @@ function addFollowers(party, have, need, max) {
   return have;
 }
 
+/** True (after noting it) when play() has already returned or raised. */
+function gone(room, res) {
+  if (room.running()) return false;
+  if (!room.out.errors.length) res.warnings.push("play() returned before the game was over");
+  return true;
+}
+
 async function scenarioLead(room, slug, caps, seconds, rand) {
   const { party } = room;
   const res = { name: "lead", problems: [], warnings: [], actions: [] };
@@ -176,17 +187,19 @@ async function scenarioLead(room, slug, caps, seconds, rand) {
   await room.start();
   const joined = await until(room, () => {
     const lobby = party.peers.every(({ peer }) => peer.state === "lobby" || peer.state === "game");
-    return lobby || room.netPhase() === "game";
+    return lobby || room.netPhase() === "game" || !room.running();
   }, 4000);
   if (!joined) {
     res.problems.push("the peers never got into the wand's lobby");
     return res;
   }
+  if (gone(room, res)) return res;
   if (room.netPhase() !== "game") await room.button();
-  if (!await until(room, () => room.netPhase() === "game", 3000)) {
+  if (!await until(room, () => room.netPhase() === "game" || !room.running(), 3000)) {
     res.problems.push("the wand's button did not start the game");
     return res;
   }
+  if (gone(room, res)) return res;
   await randomPlay(room, seconds * 1000, rand, res.actions);
   if (room.running()) {
     room.tapNfc("stop");
@@ -211,15 +224,17 @@ async function scenarioFollow(room, slug, caps, seconds, rand, { lose }) {
   await room.wait(100);
   await room.start();
   const all = party.peers.length + 1;
-  if (!await until(room, () => leader.members.length >= all && leader.canStart(), 4000)) {
+  if (!await until(room, () => (leader.members.length >= all && leader.canStart()) || !room.running(), 4000)) {
     res.problems.push(`the wand did not join the leader's lobby (${leader.members.length} of ${all} wands)`);
     return res;
   }
+  if (gone(room, res)) return res;
   leader.start();
-  if (!await until(room, () => room.netPhase() === "game", 3000)) {
+  if (!await until(room, () => room.netPhase() === "game" || !room.running(), 3000)) {
     res.problems.push("the wand did not start on the leader's pw_start");
     return res;
   }
+  if (gone(room, res)) return res;
   await randomPlay(room, lose ? 2000 : (seconds * 1000) / 2, rand, res.actions);
   if (!room.running()) {
     res.warnings.push("play() returned before the time was up");

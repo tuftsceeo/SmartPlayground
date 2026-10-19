@@ -1,15 +1,17 @@
 /**
  * Splat panel for <sim-room>: every Splat in the room.
  *
- * The wand's own Splats come first; in a party game the virtual peers'
- * Splats follow, each with an owner badge in that peer's identity color.
- * A tile shows the Splat's color, its last sound or note as text, a
- * press button (held while the pointer is down) and a link checkbox (off =
- * the Splat drops, splat_lost). Sounds and notes also play a short tone once
+ * The simulated wand's own Splats come first, then each virtual peer's,
+ * under an owner badge in that wand's identity color. A tile shows the
+ * Splat's color, its last sound or note as text, a press button (held while
+ * the pointer is down) and a link checkbox (off = the Splat drops out, as
+ * when its BLE link is lost). Sounds and notes also play a short tone once
  * the page has had a click.
  *
  * The panel draws models (js/splats.js); the room wires them up:
+ *   createSplatPanel({ mount, onLocalCount(n) })   n: Splats on this wand
  *   setGroups([{ owner, label, rgb, splats, onButton(i, down), onReady(i, up) }])
+ *   setLocalCount(n)
  *   refresh()   redraw after a model change
  */
 
@@ -35,18 +37,25 @@ export const SPLAT_STYLE = `
   touch-action: none; }
 .splat-tile label { font-size: 0.72rem; color: #8b859a; }
 .splat-panel .empty { font-size: 0.8rem; color: #8b859a; }
+.splat-panel .local-count { font-size: 0.8rem; color: #8b859a; }
+.splat-panel .local-count select { font: 700 0.75rem 'Nunito', system-ui, sans-serif; }
 `;
 
 const css = (rgb) => `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`;
 
-export function createSplatPanel({ mount }) {
-  const root = document.createElement("div");
-  root.className = "splat-panel";
-  root.dataset.el = "splat-panel";
-  mount.appendChild(root);
+export function createSplatPanel({ mount, onLocalCount = null }) {
+  const outer = document.createElement("div");
+  outer.className = "splat-panel";
+  outer.innerHTML = `<label class="local-count">Splats paired to this wand
+    <select data-el="local-count"><option>0</option><option>1</option><option>2</option></select>
+    (restarts the game)</label><div data-el="splat-panel" class="splat-panel"></div>`;
+  mount.appendChild(outer);
+  const root = outer.querySelector('[data-el="splat-panel"]');
+  const countSel = outer.querySelector('[data-el="local-count"]');
+  countSel.addEventListener("change", () => onLocalCount?.(Number(countSel.value)));
   let groups = [];
   let audio = null;
-  const heard = new WeakMap(); // splat -> last "sound|note" played
+  const heard = new WeakMap(); // splat -> sounds count last played
 
   function tone(freq, ms) {
     if (!audio) return;
@@ -66,9 +75,8 @@ export function createSplatPanel({ mount }) {
   }
 
   function sounds(splat) {
-    const key = `${splat.sound}|${splat.note}`;
-    if (heard.get(splat) === key) return;
-    heard.set(splat, key);
+    if ((heard.get(splat) ?? 0) === splat.sounds) return;
+    heard.set(splat, splat.sounds);
     if (splat.note) tone(noteFreq(splat.note) || 262, 250);
     else if (splat.sound) tone(330, 120);
   }
@@ -122,7 +130,8 @@ export function createSplatPanel({ mount }) {
         const tile = root.querySelector(`[data-splat="${s.mac}"]`);
         if (!tile) return;
         tile.querySelector(".disc").style.background = css(s.rgb);
-        const what = [s.color, s.sound, s.note].filter(Boolean).join(" · ");
+        const lit = s.color || (s.rgb.some(Boolean) ? "glow" : null);
+        const what = [lit, s.sound, s.note].filter(Boolean).join(" · ");
         tile.querySelector(".what").textContent = what || "off";
         tile.querySelector("input").checked = s.ready;
         tile.classList.toggle("lost", !s.ready);
@@ -133,7 +142,10 @@ export function createSplatPanel({ mount }) {
   }
 
   return {
-    root,
+    root: outer,
+    setLocalCount(n) {
+      countSel.value = String(n);
+    },
     setGroups(next) {
       groups = next;
       render();

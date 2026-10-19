@@ -52,7 +52,7 @@ export function createPartyHost({ bus, clock, py, wandMac }) {
       console.warn("splat write", err);
     }
   });
-  splatHub.set_write_callback(py.globals.get("_js_splat_write"));
+  py.runPython("import splat_hub\nsplat_hub.set_write_callback(_js_splat_write)");
 
   function syncWandSplats() {
     const proxy = runtime.local_splat_macs();

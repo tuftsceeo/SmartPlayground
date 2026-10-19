@@ -608,9 +608,9 @@ class Runtime:
         return lo, hi
 
     def local_splat_macs(self):
-        """The simulated wand's Splat MACs: 5A:00:00:00:<wand's last byte>:<i>."""
+        """The simulated wand's Splat MACs: 5A:00:<wand's last two bytes>:00:<i>."""
         own = self.sim_state.mac_to_str(self.sim_state.own_mac).upper()
-        return ["5A:00:00:00:%s:%02X" % (own[-2:], i) for i in range(self._local_splats)]
+        return ["5A:00:%s:00:%02X" % (own[-5:], i) for i in range(self._local_splats)]
 
     async def _pairing(self, hw):
         """main.py _boot_pairing: a SplatPairing over the simulated Splats,

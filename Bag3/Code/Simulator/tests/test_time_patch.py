@@ -30,3 +30,15 @@ def test_rejects_non_callable():
     except TypeError:
         return
     raise AssertionError("expected TypeError")
+
+
+def test_clock_anchor_runs_on_and_never_steps_back():
+    time_patch.set_clock_anchor(5000.0, 2.0)
+    try:
+        a = time_patch.ticks_ms()
+        assert a >= 5000 + time_patch._UPTIME_OFFSET_MS
+        # A re-anchor behind the mirrored time holds ticks where they were.
+        time_patch.set_clock_anchor(4000.0, 2.0)
+        assert time_patch.ticks_diff(time_patch.ticks_ms(), a) >= 0
+    finally:
+        time_patch.set_clock_anchor(None)

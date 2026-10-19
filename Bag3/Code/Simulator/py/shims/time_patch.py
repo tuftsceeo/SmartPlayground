@@ -43,9 +43,34 @@ def set_clock_source(fn):
     _SOURCE = fn
 
 
+# Or a mirror of that clock: set_clock_anchor(virtual_ms, scale) records
+# where the host clock stood, and ticks run on from there on this side's
+# monotonic(). The browser rooms use this: a JS call per ticks_ms() from a
+# party game's loops (thousands a second) has taken Pyodide down with a
+# fatal "invalid address in funcref table". The host re-anchors
+# periodically; ticks never step backwards across a re-anchor.
+_ANCHOR = None          # (monotonic s, virtual ms, scale)
+_last_ms = 0.0
+
+
+def set_clock_anchor(virtual_ms, scale=1.0):
+    """Mirror a host clock that read *virtual_ms* now and runs at *scale*
+    virtual ms per real ms. None restores monotonic."""
+    global _ANCHOR
+    _ANCHOR = None if virtual_ms is None else (_time.monotonic(), float(virtual_ms), float(scale))
+
+
 def _virtual_ms():
+    global _last_ms
     if _SOURCE is not None:
         return float(_SOURCE())
+    if _ANCHOR is not None:
+        m, v, k = _ANCHOR
+        now = v + (_time.monotonic() - m) * 1000 * k
+        if now < _last_ms:
+            now = _last_ms
+        _last_ms = now
+        return now
     return (_time.monotonic() - _BOOT) * 1000 * _SCALE
 
 

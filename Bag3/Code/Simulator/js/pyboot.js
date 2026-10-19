@@ -126,20 +126,70 @@ for _n in _js_callback_names.split(","):
 `);
 }
 
+let jspiHidden = 0;
+let jspiSaved = null;
+
+/**
+ * loadPyodide(opts) with WebAssembly's stack-switching (JSPI) API hidden, so
+ * Pyodide takes its non-JSPI path, as it does under Node. Pyodide 0.27.0
+ * on Chrome 152's JSPI dies with a fatal "function signature mismatch" or
+ * "invalid address in funcref table" after a minute or so of a party game's
+ * Python/JS traffic; with JSPI hidden the same play runs on. Nothing here
+ * uses what JSPI adds (run_sync, blocking on a JS promise). The API is put
+ * back once every load in flight has finished.
+ */
+export async function loadPyodideNoJspi(load, opts) {
+  if (jspiHidden++ === 0) {
+    jspiSaved = {};
+    for (const k of ["Suspending", "promising", "Function"]) {
+      if (k in WebAssembly) {
+        jspiSaved[k] = WebAssembly[k];
+        delete WebAssembly[k];
+      }
+    }
+  }
+  try {
+    return await load(opts);
+  } finally {
+    if (--jspiHidden === 0) Object.assign(WebAssembly, jspiSaved);
+  }
+}
+
+/** How often (real ms) the wand's mirror of the room clock is re-anchored. */
+const CLOCK_SYNC_MS = 1000;
+
 /**
  * Put a booted wand on a room's bus and clock: its own MAC, sends onto the
  * bus, ticks from the clock. tx(src, dst, hex) returns the ACK count.
+ *
+ * The wand's ticks mirror the clock (time_patch.set_clock_anchor) rather
+ * than calling it: Python calling a JS function on every ticks_ms() has
+ * crashed Pyodide in the browser. The anchor is refreshed every
+ * CLOCK_SYNC_MS, and at once by sync() after a change to the clock's scale.
+ * Returns { detach(), sync() }.
  */
 export function attachWand(pyodide, { bus, clock, mac, tx }) {
   const simState = pyodide.pyimport("sim_state");
   pyodide.globals.set("_room_tx", (src, dst, hex) => tx(String(src), String(dst), String(hex)));
-  pyodide.globals.set("_room_now", () => clock.nowMs());
   simState.set_own_mac(mac);
-  simState.set_radio_tx(pyodide.globals.get("_room_tx"));
+  // Registered from Python, as wand-sim.js does its callbacks: a JS function
+  // handed to a Python setter from JS has ended in Pyodide fatal errors.
+  pyodide.runPython("import sim_state\nsim_state.set_radio_tx(_room_tx)");
   const timePatch = pyodide.pyimport("time_patch");
-  timePatch.set_clock_source(pyodide.globals.get("_room_now"));
-  timePatch.set_time_scale(clock.getScale());
-  return bus.attach(mac, (src, payload) => {
+  const sync = () => {
+    timePatch.set_clock_anchor(clock.nowMs(), clock.getScale());
+    timePatch.set_time_scale(clock.getScale());
+  };
+  sync();
+  const timer = setInterval(sync, CLOCK_SYNC_MS);
+  const detachBus = bus.attach(mac, (src, payload) => {
     simState.deliver_enow(src, Array.from(payload, (b) => b.toString(16).padStart(2, "0")).join(""));
   });
+  return {
+    sync,
+    detach() {
+      clearInterval(timer);
+      detachBus();
+    },
+  };
 }

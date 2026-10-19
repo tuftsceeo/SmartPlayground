@@ -14,6 +14,7 @@
 
 import { PYODIDE_CDN } from "../../wand-sim.js";
 import { hexToBytes, bytesToHex } from "../radio.js";
+import { loadPyodideNoJspi } from "../pyboot.js";
 
 const PREVIEW_URL = "../../../BroadcastCode/ChatBroadcast/iconmaker/js/pipeline/preview.js";
 const FEED_LIMIT = 60;
@@ -134,7 +135,7 @@ export function createDisplayPanel({ bus, clock, mac, mount }) {
           document.head.appendChild(s);
         });
       }
-      py = await window.loadPyodide({ indexURL: PYODIDE_CDN });
+      py = await loadPyodideNoJspi(window.loadPyodide, { indexURL: PYODIDE_CDN });
       const texts = await Promise.all(DISPLAY_FILES.map(async (rel) => {
         const res = await fetch(simUrl(rel), { cache: "no-cache" });
         if (!res.ok) throw new Error(`fetch ${rel}: ${res.status}`);

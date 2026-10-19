@@ -28,7 +28,7 @@ import { getAccel, setPadTilt, setPose, fireMove, cancelMove } from "./js/motion
 import { createAudio } from "./js/audio.js";
 import { createControls, CONTROLS_STYLE } from "./js/controls.js";
 import { icon } from "./js/icons.js";
-import { bootWand, wireCallbacks } from "./js/pyboot.js";
+import { bootWand, wireCallbacks, loadPyodideNoJspi } from "./js/pyboot.js";
 
 const PYODIDE_VERSION = "0.27.0";
 const PYODIDE_CDN = `https://cdn.jsdelivr.net/pyodide/v${PYODIDE_VERSION}/full/`;
@@ -603,7 +603,7 @@ class WandSim extends HTMLElement {
         document.head.appendChild(s);
       });
     }
-    this._pyodide = await window.loadPyodide({ indexURL: PYODIDE_CDN });
+    this._pyodide = await loadPyodideNoJspi(window.loadPyodide, { indexURL: PYODIDE_CDN });
   }
 
   async _runPython(code) {

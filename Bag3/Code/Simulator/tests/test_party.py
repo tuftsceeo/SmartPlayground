@@ -101,9 +101,9 @@ def test_capabilities_of_the_party_games(runtime):
 
 def test_local_splat_macs(runtime):
     runtime.sim_state.set_own_mac(WAND)
-    assert runtime.local_splat_macs() == ["5A:00:00:00:01:00"]
+    assert runtime.local_splat_macs() == ["5A:00:0A:01:00:00"]
     runtime.set_local_splats(2)
-    assert runtime.local_splat_macs() == ["5A:00:00:00:01:00", "5A:00:00:00:01:01"]
+    assert runtime.local_splat_macs() == ["5A:00:0A:01:00:00", "5A:00:0A:01:00:01"]
     with pytest.raises(ValueError):
         runtime.set_local_splats(3)
 
@@ -125,7 +125,7 @@ async def test_partytest_wand_leads(runtime, air, writes):
     writes.clear()
     await _press_wand_button(rt)
     await asyncio.sleep(0.05)
-    assert ("5A:00:00:00:01:00", "leds", [0, 255, 0]) in writes   # 0x01 % 6 -> turngreen
+    assert ("5A:00:0A:01:00:00", "leds", [0, 255, 0]) in writes   # 0x01 % 6 -> turngreen
 
     # Button again: pool Splat 1 is the peer's, so it goes out as pw_cmd.
     await _press_wand_button(rt)
@@ -168,11 +168,11 @@ async def test_wand_follows_a_leader(runtime, air, writes):
         if writes:
             break
         await asyncio.sleep(0.01)
-    assert writes[0] == ("5A:00:00:00:01:00", "leds", [0, 0, 255])
+    assert writes[0] == ("5A:00:0A:01:00:00", "leds", [0, 0, 255])
 
     # A press on this wand's Splat goes to the leader as pw_evt, pool index 1.
     import splat_hub
-    splat_hub.press("5A:00:00:00:01:00")
+    splat_hub.press("5A:00:0A:01:00:00")
     evt = await air.wait_for("pw_evt", PEER)
     assert (evt["s"], evt["e"]) == (1, 1)
 
@@ -188,16 +188,16 @@ async def test_relaycolor_passes_the_token(runtime, air, writes):
     await _press_wand_button(rt)
     await air.wait_for("pw_start", PEER)
     await asyncio.sleep(0.05)
-    assert ("5A:00:00:00:01:00", "leds", [255, 0, 0]) in writes   # the leader holds turnred
+    assert ("5A:00:0A:01:00:00", "leds", [255, 0, 0]) in writes   # the leader holds turnred
     # A press on the wand's own Splat passes the token to the peer.
     import splat_hub
-    splat_hub.press("5A:00:00:00:01:00")
+    splat_hub.press("5A:00:0A:01:00:00")
     msg = await air.wait_for("pw_msg", PEER)
     assert msg["d"] == {"relay": 1}
     # The peer passes it back.
     air.deliver({"type": "pw_msg", "id": gid, "q": 1, "d": {"relay": 2}})
     await asyncio.sleep(0.05)
-    assert ("5A:00:00:00:01:00", "leds", [0, 0, 255]) in writes
+    assert ("5A:00:0A:01:00:00", "leds", [0, 0, 255]) in writes
     await _stop(rt, task)
 
 
@@ -209,7 +209,7 @@ async def test_unplugged_splat_reports_in_the_heartbeat(runtime, air, writes):
     import splat_hub
     hb = await air.wait_for("pw_hb", n=len(air.frames("pw_hb")) + 1)
     assert hb["l"] == 1
-    splat_hub.set_ready("5A:00:00:00:01:00", False)
+    splat_hub.set_ready("5A:00:0A:01:00:00", False)
     hb = await air.wait_for("pw_hb", n=len(air.frames("pw_hb")) + 1)
     assert hb["l"] == 0
     await _stop(rt, task)

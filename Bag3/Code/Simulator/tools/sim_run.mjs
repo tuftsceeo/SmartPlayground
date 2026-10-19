@@ -60,7 +60,8 @@ export async function simRun({ code = null, game = null, seconds = 20, seed = 1,
   try {
     return await simRunWith(room, { code, game, seconds, seed });
   } finally {
-    room.party.dispose();
+    await room.stop();
+    room.dispose();
   }
 }
 
