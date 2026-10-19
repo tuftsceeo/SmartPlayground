@@ -623,7 +623,8 @@ def _draw_lobby(leds, net, last):
         return view
     if last == "wait":
         return last
-    leds.show_shape(SHAPE_HOURGLASS, rgb)
+    # A follower waits in blue, not its identity color: a red identity read as an error.
+    leds.show_shape(SHAPE_HOURGLASS, BLUE_DIM)
     return "wait"
 
 
