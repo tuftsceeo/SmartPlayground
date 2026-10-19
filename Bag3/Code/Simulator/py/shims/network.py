@@ -1,4 +1,7 @@
-"""Fake `network` module — import safety only."""
+"""Fake `network` module. config('mac') reports sim_state.own_mac, so each
+simulated device has its own address on the bus."""
+
+import sim_state
 
 STA_IF = 0
 AP_IF = 1
@@ -28,5 +31,5 @@ class WLAN:
 
     def config(self, *a, **k):
         if a and a[0] == "mac":
-            return b"\xaa\xbb\xcc\xdd\xee\xff"
+            return sim_state.mac_to_bytes(sim_state.own_mac)
         return None
