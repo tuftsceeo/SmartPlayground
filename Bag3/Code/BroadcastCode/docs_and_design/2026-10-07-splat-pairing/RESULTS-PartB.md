@@ -10,6 +10,7 @@ Hardware session for [PLAN.md](PLAN.md) Part B. Code: `wands_with_splats` at the
 | `usbmodem1101` | `A0:F2:62:86:28:FC` | MicroPython v1.28.0 (2026-04-06), ESP32C6 | Older MockWand build plus stale files |
 | `usbmodem3101` | `A0:F2:62:87:AF:74` | MicroPython v1.28.0 (2026-04-06), ESP32C6 | Bag2 wand code, no `/games/` |
 | `usbmodem3101` | `A0:F2:62:85:CB:FC` | MicroPython v1.29.0 (2026-08-24), ESP32-C6 | Older MockWand build plus stale files |
+| `usbmodem101` | `A0:F2:62:87:92:CC` | MicroPython v1.28.0 (2026-04-06), ESP32C6 | Older MockWand build; deployed precompiled: after imports 208896, post-enow 172032 |
 
 All three were deployed with `tools/deploy.py --type wand` (52 files, each read back and verified).
 Files on flash that are not in the MockWand tree were left in place; nothing in the tree imports
@@ -129,3 +130,12 @@ result, so its import is at the fragmentation edge described in
 after imports as source read 208896 precompiled (post-enow 163840). The current `main.py`, deployed
 this way by `tools/deploy.py`: after imports 208896 on both wands, post-enow 172032 (`86:28:FC`) and
 163840 (`85:CB:FC`), boot complete.
+
+## Three wands (`partytest`)
+
+`85:CB:FC` led, `86:28:FC` and `87:92:CC` followed; all three logged `game_start` within 0.3 s.
+`85:CB:FC` held one connected Splat (remote press lit it in 2 ms). `87:92:CC` held `5E:40`, which
+was asleep: its SplatHub kept running 100%-duty discovery scans, and 3 s into the game it logged
+`leader_lost` while the leader logged `wand_lost` for it. Party games now stop discovery scans for
+the length of the game (`SplatPairing.pause_search()`); a Splat with a known address still
+reconnects.

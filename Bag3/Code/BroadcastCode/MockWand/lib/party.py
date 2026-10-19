@@ -422,6 +422,8 @@ class Net:
         self._seen_leader = now
         self._hb_at = now - HEARTBEAT_MS
         self.phase = "game"
+        if self.ctl is not None:
+            self.ctl.pause_search()
 
     # ── in-game ──
 
@@ -582,6 +584,8 @@ class Net:
         if self.phase == "closed":
             return
         self.phase = "closed"
+        if self.ctl is not None:
+            self.ctl.resume_search()
         if self.id is not None and self.enow.is_active:
             if self.is_leader:
                 for m in self._members[1:]:

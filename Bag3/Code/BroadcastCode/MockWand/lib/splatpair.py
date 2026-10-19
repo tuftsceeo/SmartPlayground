@@ -142,6 +142,30 @@ class SplatPairing:
             self.buz.success()
         self.glow(i)
 
+    def pause_search(self):
+        """Stop SplatHub's discovery scan for the rest of a party game. It runs
+        at 100% duty while no Splat is connected, and on the C6 that starved
+        ESP-NOW: a party wand whose Splat was asleep lost the leader's
+        heartbeats for 3 s. A Splat with a known address (link.direct) still
+        reconnects; one never found waits for resume_search()."""
+        h = self.hub
+        if h is None:
+            return
+        if h.discovering:
+            h.links[0]._stop_scan()
+            h.discovering = False
+        gate = lambda link: link.direct and h._may_scan(link)
+        for link in h.links:
+            link.scan_gate = gate
+
+    def resume_search(self):
+        """Let SplatHub scan and reconnect again (after a party game)."""
+        h = self.hub
+        if h is None:
+            return
+        for link in h.links:
+            link.scan_gate = h._may_scan
+
     def glow(self, i=None):
         """Glow color on Splat i (every connected Splat if None): the identity
         color, or the second color in the second phase of a two-color code."""
