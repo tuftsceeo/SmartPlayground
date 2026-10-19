@@ -36,9 +36,9 @@
       "vendor_sha256": "ae4d4419f0a3822fbb1e6c8dddd1bf88bbe4b6f72af33e519e504bbb3d385fa2"
     },
     "display/lib/shapes.py": {
-      "sha256": "b362615e2411091ca988c352d7bce981252d85a80058b039183c6e388c20c79c",
+      "sha256": "6c944df239ec8aa2584c902b1dd5eee747326c5b648697c5aba8717b5d2e564e",
       "source": "Bag3/Code/BroadcastCode/IconDisplay/lib/shapes.py",
-      "vendor_sha256": "b362615e2411091ca988c352d7bce981252d85a80058b039183c6e388c20c79c"
+      "vendor_sha256": "6c944df239ec8aa2584c902b1dd5eee747326c5b648697c5aba8717b5d2e564e"
     },
     "games/color_quest.py": {
       "sha256": "32aca8bd217cd97701a741a8b99fd4dbb873ed324e9a6a79fbf8e00b528a3218",
@@ -156,9 +156,9 @@
       "vendor_sha256": "7f9e772b6f6bb2614911dd9d232cacd6076b166d5116b2790c5201faf4b022ce"
     },
     "lib/game_tags.py": {
-      "sha256": "ee319b652df60729f92914f45d2dc17854e9ba98d3286c66eb37b61b2a1766f4",
+      "sha256": "4d73e6b6bc65f085e02ea8fce8b8b894899272c6c38b78b4e51a72279e4a0866",
       "source": "Bag3/Code/BroadcastCode/MockWand/lib/game_tags.py",
-      "vendor_sha256": "ee319b652df60729f92914f45d2dc17854e9ba98d3286c66eb37b61b2a1766f4"
+      "vendor_sha256": "4d73e6b6bc65f085e02ea8fce8b8b894899272c6c38b78b4e51a72279e4a0866"
     },
     "lib/hubtype.py": {
       "sha256": "bb3e1b1e32d298e1707e63dfea553e7018b77a2c0193046cfdbbe1fea73a22d1",
