@@ -1,0 +1,3229 @@
+diff --git a/Bag3/Code/Simulator/js/panels/peers.js b/Bag3/Code/Simulator/js/panels/peers.js
+new file mode 100644
+index 0000000..02ec64a
+--- /dev/null
++++ b/Bag3/Code/Simulator/js/panels/peers.js
+@@ -0,0 +1,131 @@
++/**
++ * Peer strip for <sim-room>: one compact row per virtual peer (js/peers.js)
++ * and the room's pw_* bus log. Shown for party games only.
++ *
++ * Row: identity color, MAC, mode and state, Splat count, and buttons:
++ * "button" (a follower's wand button: pw_msg {"b": 1} to the leader, what
++ * partytest's followers send), "drop"/"back" (silence the peer, for
++ * wand_lost), and "start"/"end" on a leader peer. "+ peer" / "+ leader"
++ * add peers.
++ *
++ *   setPeers(peers)   rows to show
++ *   refresh()         redraw rows after a peer change
++ *   pushLog(line)     one bus log line
++ *   clearLog()
++ */
++
++import { decodePw } from "../peers.js";
++
++const LOG_LIMIT = 80;
++
++export const PEERS_STYLE = `
++.peer-strip { display: flex; flex-direction: column; gap: 6px; }
++.peer-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 0.8rem; }
++.peer-row .swatch { width: 14px; height: 14px; border-radius: 4px; border: 1px solid #0002; }
++.peer-row .mac { font: 12px ui-monospace, monospace; }
++.peer-row .state { color: #8b859a; min-width: 7em; }
++.peer-row.dropped .state { color: #d13a7c; }
++.peer-strip button { font: 700 0.75rem 'Nunito', system-ui, sans-serif; padding: 3px 9px;
++  border-radius: 10px; border: 1.5px solid #e8e6f0; background: #fff; cursor: pointer; }
++.peer-strip .add { display: flex; gap: 6px; }
++.peer-strip .buslog { font: 11px/1.35 ui-monospace, monospace; max-height: 160px; overflow-y: auto;
++  background: #f7f7fb; border-radius: 8px; padding: 6px 8px; margin: 0; white-space: pre-wrap;
++  word-break: break-all; }
++.peer-strip .buslog:empty::before { content: "no pw_ messages yet"; color: #8b859a; }
++`;
++
++const css = (rgb) => `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`;
++
++/** One bus "send" log entry as a line, or null when it is not a pw_ message. */
++export function pwLogLine(e) {
++  const d = decodePw(e.payload);
++  if (!d) return null;
++  const { type, ...rest } = d;
++  const dst = e.dst === "ff:ff:ff:ff:ff:ff" ? "*" : e.dst;
++  return `${Math.round(e.t)} ${e.src} -> ${dst} ${type} ${JSON.stringify(rest)}`;
++}
++
++export function createPeerStrip({ mount, onAdd, onRemove }) {
++  const root = document.createElement("div");
++  root.className = "peer-strip";
++  root.innerHTML = `<div class="rows" data-el="peer-rows"></div>
++    <div class="add"><button type="button" data-act="add">+ peer</button>
++    <button type="button" data-act="add-leader">+ leader</button></div>
++    <pre class="buslog" data-el="buslog"></pre>`;
++  mount.appendChild(root);
++  const rowsEl = root.querySelector('[data-el="peer-rows"]');
++  const logEl = root.querySelector('[data-el="buslog"]');
++  root.querySelector('[data-act="add"]').addEventListener("click", () => onAdd("follower"));
++  root.querySelector('[data-act="add-leader"]').addEventListener("click", () => onAdd("leader"));
++  let peers = [];
++  const lines = [];
++
++  function action(p, act) {
++    if (act === "button") p.sendMsg({ b: 1 }, 0);
++    else if (act === "drop") p.drop(!p.dropped);
++    else if (act === "start") p.start();
++    else if (act === "end") p.end();
++    else if (act === "remove") onRemove(p);
++  }
++
++  function render() {
++    rowsEl.textContent = "";
++    for (const p of peers) {
++      const row = document.createElement("div");
++      row.className = "peer-row";
++      row.dataset.peer = p.mac;
++      row.innerHTML = `<span class="swatch"></span><span class="mac"></span><span class="state"></span>
++        <span class="count"></span>
++        ${p.mode === "leader"
++          ? `<button type="button" data-act="start">start</button><button type="button" data-act="end">end</button>`
++          : `<button type="button" data-act="button">button</button>`}
++        <button type="button" data-act="drop"></button>
++        <button type="button" data-act="remove">remove</button>`;
++      row.querySelector(".swatch").style.background = css(p.identity[1]);
++      row.querySelector(".mac").textContent = p.mac;
++      row.addEventListener("click", (e) => {
++        const act = e.target.dataset?.act;
++        if (!act) return;
++        try {
++          action(p, act);
++        } catch (err) {
++          pushLog(`! ${p.mac} ${act}: ${err.message}`);
++        }
++      });
++      rowsEl.appendChild(row);
++    }
++    refresh();
++  }
++
++  function refresh() {
++    for (const p of peers) {
++      const row = rowsEl.querySelector(`[data-peer="${p.mac}"]`);
++      if (!row) continue;
++      row.querySelector(".state").textContent = `${p.mode} · ${p.dropped ? "dropped" : p.state}`;
++      row.querySelector(".count").textContent = `${p.splats.length} Splat${p.splats.length === 1 ? "" : "s"}`;
++      row.querySelector('[data-act="drop"]').textContent = p.dropped ? "back" : "drop";
++      row.classList.toggle("dropped", p.dropped);
++    }
++  }
++
++  function pushLog(line) {
++    lines.push(line);
++    if (lines.length > LOG_LIMIT) lines.splice(0, lines.length - LOG_LIMIT);
++    logEl.textContent = lines.join("\n");
++    logEl.scrollTop = logEl.scrollHeight;
++  }
++
++  return {
++    root,
++    setPeers(next) {
++      peers = next;
++      render();
++    },
++    refresh,
++    pushLog,
++    clearLog() {
++      lines.length = 0;
++      logEl.textContent = "";
++    },
++  };
++}
+diff --git a/Bag3/Code/Simulator/js/panels/splat.js b/Bag3/Code/Simulator/js/panels/splat.js
+new file mode 100644
+index 0000000..cf0a518
+--- /dev/null
++++ b/Bag3/Code/Simulator/js/panels/splat.js
+@@ -0,0 +1,143 @@
++/**
++ * Splat panel for <sim-room>: every Splat in the room.
++ *
++ * The wand's own Splats come first; in a party game the virtual peers'
++ * Splats follow, each with an owner badge in that peer's identity color.
++ * A tile shows the Splat's color, its last sound or note as text, a
++ * press button (held while the pointer is down) and a link checkbox (off =
++ * the Splat drops, splat_lost). Sounds and notes also play a short tone once
++ * the page has had a click.
++ *
++ * The panel draws models (js/splats.js); the room wires them up:
++ *   setGroups([{ owner, label, rgb, splats, onButton(i, down), onReady(i, up) }])
++ *   refresh()   redraw after a model change
++ */
++
++import { noteFreq } from "../splats.js";
++
++export const SPLAT_STYLE = `
++.splat-panel { display: flex; flex-direction: column; gap: 10px; }
++.splat-group { display: flex; flex-direction: column; gap: 6px; }
++.splat-owner { font: 700 0.78rem 'Nunito', system-ui, sans-serif; color: #8b859a;
++  display: flex; align-items: center; gap: 6px; }
++.splat-owner .badge { width: 12px; height: 12px; border-radius: 50%; border: 1px solid #0002; }
++.splat-tiles { display: flex; flex-wrap: wrap; gap: 8px; }
++.splat-tile { display: flex; flex-direction: column; align-items: center; gap: 4px;
++  width: 92px; padding: 6px; border-radius: 12px; background: #f7f7fb; }
++.splat-tile .disc { width: 48px; height: 48px; border-radius: 50%; border: 2px solid #0003;
++  background: #222; transition: background 80ms; }
++.splat-tile.down .disc { transform: scale(0.92); }
++.splat-tile.lost { opacity: 0.45; }
++.splat-tile .what { font: 12px/1.2 ui-monospace, monospace; min-height: 2.4em; text-align: center;
++  word-break: break-word; }
++.splat-tile button { font: 700 0.75rem 'Nunito', system-ui, sans-serif; padding: 4px 10px;
++  border-radius: 10px; border: 1.5px solid #6c4cd1; background: #6c4cd1; color: #fff; cursor: pointer;
++  touch-action: none; }
++.splat-tile label { font-size: 0.72rem; color: #8b859a; }
++.splat-panel .empty { font-size: 0.8rem; color: #8b859a; }
++`;
++
++const css = (rgb) => `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`;
++
++export function createSplatPanel({ mount }) {
++  const root = document.createElement("div");
++  root.className = "splat-panel";
++  root.dataset.el = "splat-panel";
++  mount.appendChild(root);
++  let groups = [];
++  let audio = null;
++  const heard = new WeakMap(); // splat -> last "sound|note" played
++
++  function tone(freq, ms) {
++    if (!audio) return;
++    const osc = audio.createOscillator();
++    const gain = audio.createGain();
++    osc.frequency.value = freq;
++    gain.gain.value = 0.08;
++    osc.connect(gain).connect(audio.destination);
++    osc.start();
++    osc.stop(audio.currentTime + ms / 1000);
++  }
++
++  function unlockAudio() {
++    if (audio) return;
++    const AC = window.AudioContext || window.webkitAudioContext;
++    if (AC) audio = new AC();
++  }
++
++  function sounds(splat) {
++    const key = `${splat.sound}|${splat.note}`;
++    if (heard.get(splat) === key) return;
++    heard.set(splat, key);
++    if (splat.note) tone(noteFreq(splat.note) || 262, 250);
++    else if (splat.sound) tone(330, 120);
++  }
++
++  function render() {
++    root.textContent = "";
++    if (!groups.length) {
++      root.innerHTML = `<div class="empty">no Splats</div>`;
++      return;
++    }
++    for (const g of groups) {
++      const box = document.createElement("div");
++      box.className = "splat-group";
++      box.dataset.owner = g.owner;
++      const head = document.createElement("div");
++      head.className = "splat-owner";
++      head.innerHTML = `<span class="badge"></span><span></span>`;
++      head.querySelector(".badge").style.background = css(g.rgb);
++      head.lastChild.textContent = g.label;
++      box.appendChild(head);
++      const tiles = document.createElement("div");
++      tiles.className = "splat-tiles";
++      g.splats.forEach((s, i) => {
++        const tile = document.createElement("div");
++        tile.className = "splat-tile";
++        tile.dataset.splat = s.mac;
++        tile.innerHTML = `<div class="disc"></div><div class="what"></div>
++          <button type="button">press</button>
++          <label><input type="checkbox"> link</label>`;
++        const btn = tile.querySelector("button");
++        btn.addEventListener("pointerdown", (e) => {
++          unlockAudio();
++          btn.setPointerCapture?.(e.pointerId);
++          g.onButton(i, true);
++        });
++        const up = () => { if (s.pressed) g.onButton(i, false); };
++        btn.addEventListener("pointerup", up);
++        btn.addEventListener("pointercancel", up);
++        tile.querySelector("input").addEventListener("change", (e) => g.onReady(i, e.target.checked));
++        tiles.appendChild(tile);
++      });
++      box.appendChild(tiles);
++      root.appendChild(box);
++    }
++    refresh();
++  }
++
++  function refresh() {
++    for (const g of groups) {
++      g.splats.forEach((s) => {
++        const tile = root.querySelector(`[data-splat="${s.mac}"]`);
++        if (!tile) return;
++        tile.querySelector(".disc").style.background = css(s.rgb);
++        const what = [s.color, s.sound, s.note].filter(Boolean).join(" · ");
++        tile.querySelector(".what").textContent = what || "off";
++        tile.querySelector("input").checked = s.ready;
++        tile.classList.toggle("lost", !s.ready);
++        tile.classList.toggle("down", s.pressed);
++        sounds(s);
++      });
++    }
++  }
++
++  return {
++    root,
++    setGroups(next) {
++      groups = next;
++      render();
++    },
++    refresh,
++  };
++}
+diff --git a/Bag3/Code/Simulator/js/peers.js b/Bag3/Code/Simulator/js/peers.js
+new file mode 100644
+index 0000000..0ace2f1
+--- /dev/null
++++ b/Bag3/Code/Simulator/js/peers.js
+@@ -0,0 +1,457 @@
++/**
++ * Virtual peers: JS wands that take part in a party game's pw_* protocol
++ * (SPEC sections 6-8, MockWand/lib/party.py) beside the simulated wand.
++ *
++ * A peer runs no game code. A "follower" peer does what party.py's follower
++ * side does: finds the lobby (pw_find), joins on pw_lobby (pw_join, resent
++ * every JOIN_WAIT_MS up to SEND_TRIES), waits for pw_start, then heartbeats
++ * (pw_hb with its ready-Splat bitmask), runs pooled pw_cmd on its own
++ * Splats, forwards Splat presses as pw_evt, and leaves (pw_leave) or ends
++ * on pw_end. Incoming pw_msg goes to `respond(data, fromWand, peer)`; a
++ * non-null return is sent back to that wand. A "leader" peer covers only the
++ * lobby (pw_lobby, pw_joined), pw_start, heartbeats and pw_end, so the
++ * simulated wand's follower path can be exercised.
++ *
++ * Every unicast carries a fresh "q" and repeated q's from a sender are
++ * dropped, as in party.Link. A peer sends each frame once: the bus gives a
++ * JS peer no ACK to retry on.
++ *
++ * drop(true) silences the peer (nothing sent or received; its timers keep
++ * running), which is what tests wand_lost on the simulated wand.
++ *
++ * tests/js/peers.test.mjs replays MockWand/tests/transcripts/*.json against
++ * the follower side.
++ */
++
++import { BROADCAST, normalizeMac } from "./bus.js";
++import { createSplat } from "./splats.js";
++
++/** party.py timing; tests/js/peers.test.mjs checks it against the transcripts. */
++export const PW = {
++  FIND_WAIT_MS: 500,
++  LOBBY_PERIOD_MS: 1000,
++  HB_PERIOD_MS: 1000,
++  WAND_LOST_MS: 3000,
++  SEND_TRIES: 3,
++  JOIN_WAIT_MS: 500,
++};
++
++export const OPS = ["color", "sound", "note", "play", "off"];
++
++/** pairing.IDENTITY: [Splat color name, wand matrix RGB]. */
++export const IDENTITY = [
++  ["turnred", [130, 0, 0]],
++  ["turngreen", [0, 230, 0]],
++  ["turnblue", [0, 20, 255]],
++  ["turnpurple", [50, 0, 250]],
++  ["turnyellow", [110, 120, 0]],
++  ["turnwhite", [140, 150, 150]],
++];
++
++/** pairing.identity(mac): indexed by the MAC's last byte. */
++export function identity(mac) {
++  return IDENTITY[parseInt(String(mac).slice(-2), 16) % IDENTITY.length];
++}
++
++const enc = new TextEncoder();
++const dec = new TextDecoder();
++
++/** A bus payload as a pw_ message object, or null. */
++export function decodePw(payload) {
++  let d;
++  try {
++    d = JSON.parse(typeof payload === "string" ? payload : dec.decode(payload));
++  } catch {
++    return null;
++  }
++  if (!d || typeof d !== "object" || Array.isArray(d)) return null;
++  return String(d.type || "").startsWith("pw_") ? d : null;
++}
++
++let gameCounter = 0;
++
++/**
++ * opts:
++ *   mac        this peer's MAC
++ *   clock      { nowMs() }
++ *   transport  (dstMacUpper | "*", msgObject) => void; attachPeer() sets it
++ *   splats     number of Splats this peer holds (default 1)
++ *   mode       "follower" (default) | "leader"
++ *   respond    (data, fromWand, peer) => reply data | null, for pw_msg
++ *   exitOn     game events after which the peer's "game" exits and closes
++ *              (default ["end", "leader_lost"])
++ *   onChange   (peer) => void after any state change
++ */
++export function createPeer(opts) {
++  const mac = normalizeMac(opts.mac).toUpperCase();
++  const clock = opts.clock;
++  const exitOn = opts.exitOn || ["end", "leader_lost"];
++  const p = {
++    mac,
++    mode: opts.mode || "follower",
++    identity: identity(mac),
++    state: "idle",
++    slug: null,
++    id: null,
++    leader: null,
++    dropped: false,
++    respond: opts.respond || null,
++    transport: opts.transport || null,
++    onChange: opts.onChange || null,
++    /** Net events, oldest first, as party.Net.poll() returns them. */
++    events: [],
++    /** Things party.py would print: bad pw_cmd, unknown actions. */
++    log: [],
++    // follower lobby / net
++    wands: [],
++    pool: [],
++    me: null,
++    // leader
++    roster: [],
++    smin: 1,
++    smax: null,
++  };
++  p.splats = [];
++  for (let i = 0; i < (opts.splats ?? 1); i++) {
++    p.splats.push(createSplat({ mac: splatMac(mac, i), owner: mac, onChange: () => changed() }));
++  }
++
++  let q = 0;
++  let seen = {};
++  let t = 0;
++  let tries = 0;
++  let hbT = 0;
++  let seenLeader = 0;
++  let lost = false;
++  let ended = false;
++  let seenWand = [];
++
++  const now = () => clock.nowMs();
++  const expired = (since, ms) => now() - since >= ms;
++  function changed() { p.onChange?.(p); }
++
++  function out(dst, msg) {
++    if (p.dropped || !p.transport) return;
++    p.transport(dst, msg);
++  }
++  function broadcast(msg) { out("*", msg); }
++  function send(dst, msg) {
++    q += 1;
++    out(dst, { ...msg, q });
++  }
++
++  function event(ev) {
++    p.events.push(ev);
++    if (exitOn.includes(ev[0])) p.close();
++  }
++
++  function readyBits() {
++    let bits = 0;
++    p.splats.forEach((s, i) => { if (s.ready) bits |= 1 << i; });
++    return bits;
++  }
++
++  function poolIndex(w, s) {
++    return p.pool.findIndex((e) => e[0] === w && e[1] === s);
++  }
++
++  function resetLink() {
++    q = 0;
++    seen = {};
++  }
++
++  // ── follower ────────────────────────────────
++
++  function join(src, gid) {
++    p.state = "join";
++    p.leader = src;
++    p.id = gid;
++    tries = 1;
++    t = now();
++    send(src, { type: "pw_join", id: gid, splats: p.splats.length });
++  }
++
++  function refind() {
++    p.state = "find";
++    p.id = null;
++    p.leader = null;
++    t = now();
++    broadcast({ type: "pw_find", g: p.slug });
++  }
++
++  function startNet(d) {
++    p.wands = (d.wands || []).map((w) => [String(w[0]).toUpperCase(), Number(w[1])]);
++    p.pool = (d.pool || []).map((e) => [e[0], e[1]]);
++    p.me = p.wands.findIndex((w) => w[0] === mac);
++    if (p.me < 0) throw new Error(`pw_start without this peer (${mac}) in wands`);
++    p.state = "game";
++    ended = false;
++    lost = false;
++    hbT = now() - PW.HB_PERIOD_MS;
++    seenLeader = now();
++  }
++
++  function runCmd(d) {
++    const s = d.s;
++    if (!OPS.includes(d.op) || !Number.isInteger(s) || s < 0 || s >= p.splats.length) {
++      p.log.push(`bad pw_cmd ${JSON.stringify(d)}`);
++      return;
++    }
++    try {
++      p.splats[s].applyAction(d.op, d.v);
++    } catch (err) {
++      p.log.push(`pw_cmd ${d.op} ${JSON.stringify(d.v)}: ${err.message}`);
++    }
++  }
++
++  function followerHandle(d, src) {
++    const ty = d.type;
++    if (p.state === "find") {
++      if (ty === "pw_lobby" && d.g === p.slug) join(src, d.id);
++      return;
++    }
++    if (p.state === "join" || p.state === "member") {
++      if (src !== p.leader || d.id !== p.id) return;
++      if (ty === "pw_lobby") t = now();
++      else if (ty === "pw_joined" && p.state === "join") {
++        p.state = "member";
++        t = now();
++      } else if (ty === "pw_start") startNet(d);
++      else if (ty === "pw_end") {
++        if (d.r === "merge") refind();
++        else p.state = "idle";
++      }
++      return;
++    }
++    if (p.state !== "game") return;
++    const w = p.wands.findIndex((x) => x[0] === src);
++    if (d.id !== p.id || w < 0) return;
++    if (w === 0) {
++      seenLeader = now();
++      lost = false;
++    }
++    if (ty === "pw_msg") {
++      event(["msg", w, d.d]);
++      if (p.respond && p.state === "game") {
++        const reply = p.respond(d.d, w, p);
++        if (reply != null) p.sendMsg(reply, w);
++      }
++    } else if (w === 0 && ty === "pw_cmd") runCmd(d);
++    else if (w === 0 && ty === "pw_end") {
++      ended = true;
++      event(["end"]);
++    }
++  }
++
++  function followerTick() {
++    if (p.state === "join" && expired(t, PW.JOIN_WAIT_MS)) {
++      if (tries >= PW.SEND_TRIES) {
++        refind();
++        return;
++      }
++      tries += 1;
++      t = now();
++      send(p.leader, { type: "pw_join", id: p.id, splats: p.splats.length });
++    } else if (p.state === "member" && expired(t, PW.WAND_LOST_MS)) {
++      p.state = "idle";
++      event(["leader_lost"]);
++    } else if (p.state === "game") {
++      if (expired(hbT, PW.HB_PERIOD_MS)) {
++        hbT = now();
++        broadcast({ type: "pw_hb", id: p.id, l: readyBits() });
++      }
++      if (!ended && !lost && expired(seenLeader, PW.WAND_LOST_MS)) {
++        lost = true;
++        event(["leader_lost"]);
++      }
++    }
++  }
++
++  // ── leader ──────────────────────────────────
++
++  function lobbyMsg() {
++    const n = p.roster.reduce((a, r) => a + r[1], 0);
++    return { type: "pw_lobby", g: p.slug, id: p.id, n, min: p.smin, max: p.smax };
++  }
++
++  function first(m) {
++    let n = 0;
++    for (const [rm, c] of p.roster) {
++      if (rm === m) return n;
++      n += c;
++    }
++    return null;
++  }
++
++  function leaderHandle(d, src) {
++    const ty = d.type;
++    if (p.state === "lead") {
++      if (ty === "pw_find" && d.g === p.slug) send(src, lobbyMsg());
++      else if (ty === "pw_join" && d.id === p.id) {
++        if (first(src) === null) p.roster.push([src, Number(d.splats) || 0]);
++        send(src, { type: "pw_joined", id: p.id, first: first(src), wands: p.roster.length });
++      } else if (ty === "pw_leave" && d.id === p.id) {
++        p.roster = p.roster.filter((r) => r[0] !== src);
++      }
++      return;
++    }
++    if (p.state !== "lead_game" || d.id !== p.id) return;
++    const w = p.wands.findIndex((x) => x[0] === src);
++    if (w < 0) return;
++    seenWand[w] = now();
++    if (ty === "pw_evt") event([d.e ? "press" : "release", d.s]);
++    else if (ty === "pw_msg") event(["msg", w, d.d]);
++    else if (ty === "pw_leave") event(["wand_lost", w]);
++  }
++
++  function leaderTick() {
++    if (p.state === "lead" && expired(t, PW.LOBBY_PERIOD_MS)) {
++      t = now();
++      broadcast(lobbyMsg());
++    } else if (p.state === "lead_game" && expired(hbT, PW.HB_PERIOD_MS)) {
++      hbT = now();
++      broadcast({ type: "pw_hb", id: p.id, l: readyBits() });
++    }
++  }
++
++  // ── public ──────────────────────────────────
++
++  /** A tap of the game's card: find (follower) or open a lobby (leader). */
++  p.tap = (slug, { smin = 1, smax = null } = {}) => {
++    resetLink();
++    p.slug = slug;
++    p.events = [];
++    p.wands = [];
++    p.pool = [];
++    p.me = null;
++    if (p.mode === "leader") {
++      gameCounter = (gameCounter + 1) & 0xff;
++      p.id = mac.slice(-5).replace(":", "") + gameCounter.toString(16).toUpperCase().padStart(2, "0");
++      p.smin = smin;
++      p.smax = smax;
++      p.roster = [[mac, p.splats.length]];
++      p.state = "lead";
++      t = now();
++      broadcast(lobbyMsg());
++    } else {
++      refind();
++    }
++    changed();
++  };
++
++  /** Bus input: src MAC (any case), payload bytes or text. */
++  p.receive = (src, payload) => {
++    if (p.dropped) return;
++    const d = decodePw(payload);
++    if (!d) return;
++    const from = normalizeMac(src).toUpperCase();
++    if (d.q !== undefined && d.q !== null) {
++      const last = seen[from];
++      if (last !== undefined && d.q <= last) return;
++      seen[from] = d.q;
++    }
++    if (p.mode === "leader") leaderHandle(d, from);
++    else followerHandle(d, from);
++    changed();
++  };
++
++  p.tick = () => {
++    const before = p.state;
++    if (p.mode === "leader") leaderTick();
++    else followerTick();
++    if (p.state !== before) changed();
++  };
++
++  /** Leader peer: start the game with everyone in the lobby. */
++  p.start = () => {
++    if (p.mode !== "leader" || p.state !== "lead") throw new Error("start(): not a leader in its lobby");
++    p.pool = [];
++    p.roster.forEach(([, c], w) => { for (let s = 0; s < c; s++) p.pool.push([w, s]); });
++    p.wands = p.roster.map(([m, c]) => [m, c]);
++    for (const [m] of p.wands.slice(1)) {
++      send(m, { type: "pw_start", id: p.id, wands: p.wands, pool: p.pool });
++    }
++    p.me = 0;
++    p.state = "lead_game";
++    hbT = now() - PW.HB_PERIOD_MS;
++    seenWand = p.wands.map(() => now());
++    changed();
++  };
++
++  /** Leader peer: end the lobby or game for everyone (pw_end). */
++  p.end = () => {
++    if (p.mode !== "leader") throw new Error("end(): not a leader");
++    const members = p.state === "lead" ? p.roster.slice(1).map((r) => r[0])
++      : p.wands.slice(1).map((w) => w[0]);
++    for (const m of members) send(m, { type: "pw_end", id: p.id });
++    for (const s of p.splats) s.applyAction("off");
++    p.state = "idle";
++    changed();
++  };
++
++  /** A press (down=true) or release on this peer's Splat s. */
++  p.splatButton = (s, down) => {
++    const splat = p.splats[s];
++    splat.setPressed(down);
++    if (p.state === "game" && !ended) {
++      const i = poolIndex(p.me, s);
++      if (i >= 0) send(p.wands[0][0], { type: "pw_evt", id: p.id, s: i, e: down ? 1 : 0 });
++    } else if (p.state === "lead_game") {
++      const i = poolIndex(0, s);
++      if (i >= 0) event([down ? "press" : "release", i]);
++    }
++  };
++
++  p.setSplatReady = (s, up) => p.splats[s].setReady(up);
++
++  /** net.send(): a pw_msg to wand `to` (default the leader), or to all with null. */
++  p.sendMsg = (data, to = 0) => {
++    if (p.state !== "game" && p.state !== "lead_game") throw new Error("sendMsg(): not in a game");
++    const targets = to === null ? p.wands.map((_, i) => i) : [to];
++    for (const w of targets) {
++      if (w !== p.me) send(p.wands[w][0], { type: "pw_msg", id: p.id, d: data });
++    }
++  };
++
++  /** The peer's game exits: net.close() (pw_leave unless ended), Splats off. */
++  p.close = () => {
++    if (p.state === "game") {
++      if (!ended) send(p.wands[0][0], { type: "pw_leave", id: p.id });
++      for (const s of p.splats) s.applyAction("off");
++    } else if (p.state === "join" || p.state === "member") {
++      send(p.leader, { type: "pw_leave", id: p.id });
++    }
++    p.state = "idle";
++    changed();
++  };
++
++  p.drop = (on) => {
++    p.dropped = !!on;
++    changed();
++  };
++
++  return p;
++}
++
++export function splatMac(ownerMac, i) {
++  const last = normalizeMac(ownerMac).slice(-2).toUpperCase();
++  return `5A:00:00:00:${last}:${i.toString(16).toUpperCase().padStart(2, "0")}`;
++}
++
++/**
++ * Put a peer on a bus (js/bus.js): its frames go out as JSON, the bus
++ * delivers to receive(). With tickMs, tick() runs on a real-time interval.
++ * Returns detach().
++ */
++export function attachPeer(bus, peer, { tickMs = 10 } = {}) {
++  const detachBus = bus.attach(peer.mac, (src, payload) => peer.receive(src, payload));
++  peer.transport = (dst, msg) => {
++    bus.send(peer.mac, dst === "*" ? BROADCAST : dst, enc.encode(JSON.stringify(msg)));
++  };
++  const timer = tickMs ? setInterval(() => peer.tick(), tickMs) : null;
++  return () => {
++    if (timer !== null) clearInterval(timer);
++    peer.transport = null;
++    detachBus();
++  };
++}
+diff --git a/Bag3/Code/Simulator/js/splats.js b/Bag3/Code/Simulator/js/splats.js
+new file mode 100644
+index 0000000..74790c7
+--- /dev/null
++++ b/Bag3/Code/Simulator/js/splats.js
+@@ -0,0 +1,165 @@
++/**
++ * Splat model: one simulated Splat's visible state.
++ *
++ * A Splat shows a color, plays an animal sound or a note, and has a button.
++ * The vocabulary mirrors MockWand/lib/splat_api.py (COLOR_RGB, NOTE_VALUES,
++ * ANIMAL_SOUNDS); the names are checked against the generated
++ * ChatBroadcast/js/splat/splatActions.js by tests/js/peers.test.mjs.
++ *
++ * Two ways in:
++ *   applyAction(op, v)   the pw_cmd / splat_api level: op "color" | "sound" |
++ *                        "note" | "play" | "off", v a card name or name list
++ *   applyWrite(op, args) the BLE-write level py/shims/sim_splats.py reports
++ *                        for the wand's own Splats ("leds", "sound",
++ *                        "noteOn", "noteOff", "tasksOff", "ledsOff")
++ *
++ * State: rgb [r,g,b], color (name or null), sound (name or null), note
++ * (name or null), ready (link up), pressed. onChange(splat, what) fires
++ * after every change; what is "color" | "sound" | "note" | "off" |
++ * "ready" | "press".
++ */
++
++export const COLOR_RGB = {
++  turnred: [255, 0, 0], turngreen: [0, 255, 0], turnblue: [0, 0, 255],
++  turnpurple: [160, 0, 200], turnyellow: [255, 180, 0], turnwhite: [200, 200, 200],
++  turnoff: [0, 0, 0],
++};
++
++export const NOTE_VALUES = {
++  note_c: [0, 0], note_d: [2, 0], note_e: [4, 0], note_f: [5, 0], note_g: [7, 0],
++  note_a: [9, 0], note_b: [11, 0], note_c_high: [0, 1], playnote: [0, 0],
++};
++
++export const ANIMAL_SOUNDS = {
++  cat: 19, chicken: 20, cow: 21, dog: 22, pig: 23, duck: 24, elephant: 25, horse: 26, goat: 28,
++};
++
++/** splat_api.NOTE_OCTAVE */
++export const NOTE_OCTAVE = 4;
++
++/** Frequency in Hz of a note card, at splat_api's octave. */
++export function noteFreq(name) {
++  const v = NOTE_VALUES[name];
++  if (!v) return null;
++  const midi = 12 * (NOTE_OCTAVE + v[1] + 1) + v[0];
++  return 440 * 2 ** ((midi - 69) / 12);
++}
++
++function noteName(value, octave) {
++  for (const [n, [v, o]] of Object.entries(NOTE_VALUES)) {
++    if (n !== "playnote" && v === value && NOTE_OCTAVE + o === octave) return n;
++  }
++  return `note ${value}/${octave}`;
++}
++
++function soundName(idx) {
++  for (const [n, i] of Object.entries(ANIMAL_SOUNDS)) if (i === idx) return n;
++  return `sound ${idx}`;
++}
++
++function colorName(rgb) {
++  for (const [n, c] of Object.entries(COLOR_RGB)) {
++    if (c[0] === rgb[0] && c[1] === rgb[1] && c[2] === rgb[2]) return n;
++  }
++  return null;
++}
++
++export function createSplat({ mac, owner = null, onChange = null } = {}) {
++  const s = {
++    mac,
++    owner,
++    rgb: [0, 0, 0],
++    color: null,
++    sound: null,
++    note: null,
++    ready: true,
++    pressed: false,
++    /** Applied actions, oldest first: [op, v]. */
++    history: [],
++    onChange,
++  };
++  const changed = (what) => s.onChange?.(s, what);
++
++  function setColor(name) {
++    const rgb = COLOR_RGB[name];
++    if (!rgb) throw new Error(`unknown Splat color: ${name}`);
++    s.rgb = [...rgb];
++    s.color = name;
++    changed("color");
++  }
++
++  function setSound(name) {
++    if (!(name in ANIMAL_SOUNDS)) throw new Error(`unknown Splat sound: ${name}`);
++    s.sound = name;
++    changed("sound");
++  }
++
++  function setNote(name) {
++    if (!(name in NOTE_VALUES)) throw new Error(`unknown Splat note: ${name}`);
++    s.note = name;
++    changed("note");
++  }
++
++  function off() {
++    s.rgb = [0, 0, 0];
++    s.color = null;
++    s.sound = null;
++    s.note = null;
++    changed("off");
++  }
++
++  s.applyAction = (op, v) => {
++    s.history.push([op, v]);
++    if (op === "color") setColor(v);
++    else if (op === "sound") setSound(v);
++    else if (op === "note") setNote(v);
++    else if (op === "off") off();
++    else if (op === "play") {
++      if (!Array.isArray(v)) throw new Error(`play needs a list of names, got ${JSON.stringify(v)}`);
++      for (const name of v) {
++        if (name in COLOR_RGB) setColor(name);
++        else if (name in ANIMAL_SOUNDS) setSound(name);
++        else if (name in NOTE_VALUES) setNote(name);
++        else throw new Error(`unknown Splat action: ${name}`);
++      }
++    } else throw new Error(`unknown Splat op: ${op}`);
++  };
++
++  s.applyWrite = (op, args = []) => {
++    s.history.push([op, args]);
++    if (op === "leds") {
++      s.rgb = [args[0] | 0, args[1] | 0, args[2] | 0];
++      s.color = colorName(s.rgb);
++      changed("color");
++    } else if (op === "sound") {
++      s.sound = soundName(args[0]);
++      changed("sound");
++    } else if (op === "noteOn") {
++      s.note = noteName(args[0], args[1]);
++      changed("note");
++    } else if (op === "noteOff") {
++      s.note = null;
++      changed("note");
++    } else if (op === "tasksOff") {
++      s.sound = null;
++      s.note = null;
++      changed("off");
++    } else if (op === "ledsOff") {
++      s.rgb = [0, 0, 0];
++      s.color = null;
++      changed("off");
++    } else throw new Error(`unknown Splat write: ${op}`);
++  };
++
++  s.setReady = (up) => {
++    s.ready = !!up;
++    changed("ready");
++  };
++
++  s.setPressed = (down) => {
++    s.pressed = !!down;
++    changed("press");
++  };
++
++  return s;
++}
+diff --git a/Bag3/Code/Simulator/py/runtime.py b/Bag3/Code/Simulator/py/runtime.py
+index bfec937..e73e493 100644
+--- a/Bag3/Code/Simulator/py/runtime.py
++++ b/Bag3/Code/Simulator/py/runtime.py
+@@ -32,6 +32,8 @@
+     "actions",
+     "battery",
+     "espnow_manager",
++    "party",
++    "solo",
+ )
+ 
+ # Transformed libs a game cannot run without: a failure raises instead of
+@@ -44,9 +46,14 @@
+ _GAME_HELPERS = ("target",)
+ 
+ # Libs with module-level calls / no sleeps — load verbatim (sync).
++# pairing and splat_api run sync over sim_splats' fake links: party.py
++# calls pairing.identity() inside a comprehension, where the transform does
++# not await.
+ _RAW_LIBS = (
+     "hubtype",
+     "game_tags",
++    "pairing",
++    "splat_api",
+ )
+ 
+ _SHIM_MODULES = (
+@@ -58,6 +65,7 @@
+     "espnow",
+     "ubluetooth",
+     "micropython",
++    "sim_splats",
+ )
+ 
+ _DEVICE_MODULES = (
+@@ -175,6 +183,8 @@ def __init__(self):
+         self._old_stdout = None
+         self._loop = None
+         self.sim_state = None
++        self.net = None
++        self._local_splats = None
+ 
+     # ── Bootstrap ───────────────────────────────────────────────────
+ 
+@@ -570,6 +580,49 @@ def _restore_stdout(self):
+             sys.stdout = self._old_stdout
+             self._old_stdout = None
+ 
++    def _splat_kind(self):
++        """solo.kind() for the loaded game, read without awaiting: ("solo", n,
++        None), ("party", min, max) or None. ValueError if both are declared."""
++        mod = self._game_mod
++        n_local = getattr(mod, "SPLATS_LOCAL", None)
++        n_min = getattr(mod, "SPLATS_MIN", None)
++        if n_local is not None and n_min is not None:
++            raise ValueError("game declares both SPLATS_LOCAL and SPLATS_MIN")
++        if n_local is not None:
++            return ("solo", int(n_local), None)
++        if n_min is not None:
++            n_max = getattr(mod, "SPLATS_MAX", None)
++            return ("party", int(n_min), None if n_max is None else int(n_max))
++        return None
++
++    def set_local_splats(self, n):
++        """Paired Splats on the simulated wand. None: as many as a solo game
++        declares (SPLATS_LOCAL), 1 for a party game, 0 otherwise."""
++        self._local_splats = None if n is None else int(n)
++
++    def local_splat_count(self):
++        n = getattr(self, "_local_splats", None)
++        if n is not None:
++            return n
++        k = self._splat_kind() if self._game_mod else None
++        if k is None:
++            return 0
++        return k[1] if k[0] == "solo" else 1
++
++    async def _prepare_net(self, hw):
++        """main.py's Splat-game step: SoloNet or party Net from solo.prepare(),
++        None for a game without Splat constants. Returns (net, start) where
++        start is False when the game must not run (refused, lobby cancelled)."""
++        k = self._splat_kind()
++        import sim_splats
++        sim_splats.ensure(self.local_splat_count())
++        if k is None:
++            return None, True
++        import solo
++        net = await solo.prepare(self._game_mod, self._game_name, hw["nfc"], hw["leds"],
++                                 hw["buz"], hw["enow"])
++        return net, net is not None
++
+     async def _run_play(self):
+         from transform import reset_watchdog
+         reset_watchdog()
+@@ -578,13 +631,25 @@ async def _run_play(self):
+         play = getattr(self._game_mod, "play", None)
+         if play is None:
+             raise RuntimeError("game module has no play()")
+-        args = (hw["nfc"], hw["leds"], hw["buz"], hw["accel"], hw["i2c"], hw["enow"])
++        net, go = await self._prepare_net(hw)
++        self.net = net
++        if not go:
++            return
++        enow = hw["enow"] if net is None else await net.wrap(hw["enow"])
++        # main.py _start_play: the arity picks how many of
++        # (nfc, leds, buz, accel, i2c, enow, batt, net) the game takes.
++        args = (hw["nfc"], hw["leds"], hw["buz"], hw["accel"], hw["i2c"], enow, hw["batt"])
++        if net is not None:
++            args = args + (net,)
++        code = getattr(play, "__code__", None)
++        n = code.co_argcount if code is not None else len(args)
+         try:
+-            result = play(*args, batt=hw["batt"])
+-        except TypeError:
+-            result = play(*args)
+-        if asyncio.iscoroutine(result) or asyncio.isfuture(result):
+-            await result
++            result = play(*args[:n])
++            if asyncio.iscoroutine(result) or asyncio.isfuture(result):
++                await result
++        finally:
++            if net is not None:
++                await net.close()
+ 
+     async def start(self):
+         """Start the loaded game as a cancellable task. Returns the task."""
+@@ -680,5 +745,9 @@ def get_capabilities():
+     return get_runtime().get_capabilities()
+ 
+ 
++def set_local_splats(n):
++    get_runtime().set_local_splats(n)
++
++
+ def set_display_source(src):
+     get_runtime().set_display_source(src)
+diff --git a/Bag3/Code/Simulator/py/shims/sim_splats.py b/Bag3/Code/Simulator/py/shims/sim_splats.py
+new file mode 100644
+index 0000000..7caffab
+--- /dev/null
++++ b/Bag3/Code/Simulator/py/shims/sim_splats.py
+@@ -0,0 +1,132 @@
++"""
++The wand's paired Splats, simulated.
++
++Fake BLE links stand in for splat_link.SplatLink, under the real
++splat_api.SplatGroup and pairing.LocalSplats, so games and party.py / solo.py
++drive the vendored code unchanged. Every link write goes to the host
++callback set with set_write_callback(): cb(index, op, args), op one of
++"leds" (r, g, b), "sound" (idx,), "noteOn" (value, octave),
++"noteOff" (value, octave), "tasksOff" (), "ledsOff" ().
++
++Local Splats are auto-paired: ensure(n) builds pairing's LocalSplats over n
++ready links, without BLE or /pairing.json. The host presses a Splat with
++press(i) / release(i) and drops its link with set_ready(i, False).
++"""
++
++import sim_state
++
++_write_cb = None
++_links = []
++_local = None
++
++
++def set_write_callback(cb):
++    global _write_cb
++    _write_cb = cb
++
++
++def splat_mac(own_mac, i):
++    return "5A:00:00:00:%02X:%02X" % (int(own_mac[-2:], 16), i)
++
++
++class FakeSplatLink:
++    """splat_link.SplatLink surface used by splat_api and pairing."""
++
++    def __init__(self, index, ready=True):
++        self.index = index
++        self.ready = ready
++        self.events = []
++        self.scan_gate = None
++
++    def service(self, now_ms):
++        pass
++
++    def take_events(self):
++        ev, self.events = self.events, []
++        return ev
++
++    def _w(self, op, *args):
++        if _write_cb is not None:
++            _write_cb(self.index, op, list(args))
++        return True
++
++    def keepAlive(self):
++        return True
++
++    def readSwitches(self):
++        return True
++
++    def setLEDsON(self, rgb):
++        return self._w("leds", *tuple(rgb))
++
++    def playSound(self, idx, vol):
++        return self._w("sound", idx)
++
++    def noteOn(self, v, vel, octave, inst):
++        return self._w("noteOn", v, octave)
++
++    def noteOff(self, v, vel, octave, inst):
++        return self._w("noteOff", v, octave)
++
++    def allTasksOff(self):
++        return self._w("tasksOff")
++
++    def allLEDsOff(self):
++        return self._w("ledsOff")
++
++    def close(self):
++        self.ready = False
++
++
++class FakeHub:
++    def __init__(self, n):
++        self.links = [FakeSplatLink(i) for i in range(n)]
++
++
++def ensure(n, own_mac=None):
++    """pairing's LocalSplats over n links (None for n == 0). Reused while
++    the count is unchanged, so link state survives a restart."""
++    global _links, _local
++    import pairing
++    if n <= 0:
++        _links = []
++        _local = None
++        pairing._local = None
++        return None
++    if _local is not None and len(_links) == n:
++        pairing._local = _local
++        return _local
++    from splat_api import SplatGroup
++    own = own_mac or sim_state.mac_to_str(sim_state.own_mac).upper()
++    hub = FakeHub(n)
++    _links = hub.links
++    macs = [splat_mac(own, i) for i in range(n)]
++    _local = pairing.LocalSplats(hub, SplatGroup(hub), macs, own, "/pairing.json")
++    while _local.poll() is not None:     # boot-time splat_back events
++        pass
++    pairing._local = _local
++    return _local
++
++
++def count():
++    return len(_links)
++
++
++def macs():
++    return [] if _local is None else _local.macs
++
++
++def press(i):
++    _links[i].events.append(1)
++
++
++def release(i):
++    _links[i].events.append(0)
++
++
++def set_ready(i, up):
++    _links[i].ready = bool(up)
++
++
++def is_ready(i):
++    return _links[i].ready
+diff --git a/Bag3/Code/Simulator/tests/conftest.py b/Bag3/Code/Simulator/tests/conftest.py
+index 6ba825e..bc9532f 100644
+--- a/Bag3/Code/Simulator/tests/conftest.py
++++ b/Bag3/Code/Simulator/tests/conftest.py
+@@ -37,7 +37,8 @@ def runtime(tmp_path):
+             "jump", "shake", "shake_rainbow", "sound", "rainbow", "jumpin",
+             "nfc_sound", "gestures", "simpleicecream", "melody", "cooking",
+             "multiicecream", "freeze_dance", "goalrace", "color_quest",
+-            "finddevice", "target",
++            "finddevice", "target", "sim_splats", "pairing", "splat_api",
++            "party", "solo", "solotest", "partytest", "custom",
+         ) or name.startswith("vendor"):
+             del sys.modules[name]
+ 
+diff --git a/Bag3/Code/Simulator/tests/js/peers.test.mjs b/Bag3/Code/Simulator/tests/js/peers.test.mjs
+new file mode 100644
+index 0000000..26bf950
+--- /dev/null
++++ b/Bag3/Code/Simulator/tests/js/peers.test.mjs
+@@ -0,0 +1,237 @@
++// Virtual peers (js/peers.js) against MockWand/tests/transcripts/*.json.
++// Run: node --test tests/js/*.test.mjs
++//
++// Each follower wand X in a transcript is replaced by a JS peer. The peer is
++// fed every frame delivered to X at its recorded time, plus the stimuli the
++// transcript implies (tap at X's first pw_find, Splat presses from X's
++// pw_evt, pw_msg / pw_leave from the game, Splat readiness from X's pw_hb
++// bits, a drop window where X's heartbeats are missing). Its frames must
++// equal X's recorded frames: same type, destination, fields and q, with
++// link-level retries (same q repeated) collapsed.
++
++import test from "node:test";
++import assert from "node:assert/strict";
++import { readFileSync, readdirSync } from "node:fs";
++import { dirname, join } from "node:path";
++import { fileURLToPath } from "node:url";
++
++import { createPeer, attachPeer, PW, IDENTITY, identity } from "../../js/peers.js";
++import { COLOR_RGB, NOTE_VALUES, ANIMAL_SOUNDS, createSplat } from "../../js/splats.js";
++import { createBus } from "../../js/bus.js";
++import { createClock } from "../../js/clock.js";
++import * as splatActions from "../../../BroadcastCode/ChatBroadcast/js/splat/splatActions.js";
++
++const HERE = dirname(fileURLToPath(import.meta.url));
++const TRANSCRIPTS = join(HERE, "..", "..", "..", "BroadcastCode", "MockWand", "tests", "transcripts");
++const STEP = 10;
++
++// The leader peer is not modelled for the merge of two leaders.
++const SKIP = { simultaneous_leaders: "B leads, then merges: leader side, not a follower peer" };
++
++function load(name) {
++  return JSON.parse(readFileSync(join(TRANSCRIPTS, name), "utf8"));
++}
++
++/** X's sent frames with link retries (same dst and q in a row) collapsed. */
++function sentBy(doc, x) {
++  const out = [];
++  for (const f of doc.frames) {
++    if (f.src !== x) continue;
++    const prev = out[out.length - 1];
++    if (prev && f.msg.q !== undefined && prev.dst === f.dst && prev.msg.q === f.msg.q) continue;
++    out.push({ t: f.t, dst: f.dst, msg: f.msg });
++  }
++  return out;
++}
++
++function deliveredTo(f, x) {
++  if (f.dst === "*") return Array.isArray(f.delivered) && f.delivered.includes(x);
++  return f.dst === x && f.delivered === true;
++}
++
++/** Stimuli implied by X's own frames: [{t, pre?, fn(peer)}]. */
++function stimuli(doc, x, sent) {
++  const st = [];
++  const first = sent.find((f) => f.msg.type === "pw_find");
++  const slug = first.msg.g;
++  st.push({ t: first.t, pre: true, fn: (p) => p.tap(slug) });
++  const hbs = sent.filter((f) => f.msg.type === "pw_hb");
++  for (let i = 0; i < hbs.length; i++) {
++    const h = hbs[i];
++    st.push({ t: h.t, pre: true, fn: (p) => p.splats.forEach((s, k) => {
++      const up = !!(h.msg.l & (1 << k));
++      if (s.ready !== up) s.setReady(up);
++    }) });
++    const next = hbs[i + 1];
++    if (next && next.t - h.t > 1.5 * PW.HB_PERIOD_MS) {
++      st.push({ t: h.t + STEP, pre: true, fn: (p) => p.drop(true) });
++      st.push({ t: next.t - STEP, pre: true, fn: (p) => p.drop(false) });
++    }
++  }
++  for (const f of sent) {
++    const m = f.msg;
++    if (m.type === "pw_evt") {
++      st.push({ t: f.t, fn: (p) => {
++        const [w, s] = p.pool[m.s];
++        assert.equal(w, p.me, "pw_evt for a pool Splat this wand holds");
++        p.splatButton(s, !!m.e);
++      } });
++    } else if (m.type === "pw_msg") {
++      st.push({ t: f.t, fn: (p) => p.sendMsg(m.d, p.wands.findIndex((w) => w[0] === f.dst)) });
++    } else if (m.type === "pw_leave") {
++      st.push({ t: f.t, fn: (p) => p.close() });
++    }
++  }
++  return st;
++}
++
++function replay(doc, x) {
++  const clock = createClock({ manual: true });
++  const out = [];
++  const received = [];
++  const leaderLostDropped = doc.scenario === "wand_lost_back";
++  const peer = createPeer({
++    mac: x, clock, splats: doc.splats[Object.keys(doc.wands).find((k) => doc.wands[k] === x)],
++    transport: (dst, msg) => out.push({ t: clock.nowMs(), dst, msg }),
++    respond: (d, w) => { received.push([w, d]); return null; },
++    // The transcript harness runs no game, so nothing exits on leader_lost.
++    exitOn: leaderLostDropped ? ["end"] : undefined,
++  });
++  const sent = sentBy(doc, x);
++  const st = stimuli(doc, x, sent);
++  const end = doc.frames[doc.frames.length - 1].t;
++  for (let t = 0; t <= end; t += STEP) {
++    clock.advance(t - clock.nowMs());
++    for (const s of st) if (s.pre && s.t === t) s.fn(peer);
++    peer.tick();
++    for (const f of doc.frames) {
++      if (f.t === t && deliveredTo(f, x)) peer.receive(f.src, JSON.stringify(f.msg));
++    }
++    for (const s of st) if (!s.pre && s.t === t) s.fn(peer);
++  }
++  return { peer, out, sent, received };
++}
++
++const strip = (frames) => frames.map((f) => ({ dst: f.dst, msg: f.msg }));
++
++const files = readdirSync(TRANSCRIPTS).filter((f) => f.endsWith(".json")).sort();
++
++test("transcripts exist and use party.py's timing", () => {
++  assert.ok(files.length >= 10, `transcripts in ${TRANSCRIPTS}`);
++  for (const f of files) {
++    const doc = load(f);
++    assert.equal(doc.format, "pw-transcript/1");
++    for (const [k, v] of Object.entries(PW)) assert.equal(doc.constants[k], v, `${f} ${k}`);
++  }
++});
++
++for (const f of files) {
++  const doc = load(f);
++  const leader = doc.frames[0].src;
++  const followers = Object.values(doc.wands).filter((m) => m !== leader
++    && doc.frames.some((fr) => fr.src === m));
++  for (const x of followers) {
++    const label = Object.keys(doc.wands).find((k) => doc.wands[k] === x);
++    test(`${doc.scenario}: peer as ${label} sends what party.py sent`, { skip: SKIP[doc.scenario] }, () => {
++      const { peer, out, sent, received } = replay(doc, x);
++      assert.deepEqual(strip(out), strip(sent));
++      const cmds = doc.frames.filter((fr) => fr.dst === x && fr.msg.type === "pw_cmd" && fr.delivered);
++      const qs = [...new Set(cmds.map((fr) => fr.msg.q))];
++      if (doc.scenario === "duplicate_q") {
++        assert.equal(peer.splats[0].history.length, qs.length, "each q runs once");
++      }
++      if (doc.scenario === "pooled_commands" && label === "B") {
++        assert.deepEqual(peer.splats[0].history, [["color", "turnblue"], ["off", null]]);
++        assert.deepEqual(peer.splats[0].rgb, [0, 0, 0]);
++      }
++      if (doc.scenario === "pooled_commands" && label === "C") {
++        assert.deepEqual(peer.splats[0].rgb, [255, 0, 0]);
++        assert.equal(peer.splats[0].sound, "cat");
++      }
++      if (doc.scenario === "messages") {
++        const msgs = doc.frames.filter((fr) => fr.dst === x && fr.msg.type === "pw_msg");
++        assert.deepEqual(received, msgs.map((fr) => [0, fr.msg.d]));
++      }
++      if (["leader_end", "follower_error_leave"].includes(doc.scenario) && peer.events.some((e) => e[0] === "end")) {
++        assert.equal(peer.state, "idle");
++        assert.deepEqual(peer.splats[0].history.at(-1), ["off", undefined]);
++      }
++      if (doc.scenario === "wand_lost_back" && label === "C") {
++        assert.deepEqual(peer.events, [["leader_lost"]]);
++      }
++    });
++  }
++}
++
++test("splats.js vocabulary matches the generated splatActions.js", () => {
++  assert.deepEqual(Object.keys(COLOR_RGB).sort(), [...splatActions.COLORS].sort());
++  assert.deepEqual(Object.keys(NOTE_VALUES).sort(), [...splatActions.NOTES].sort());
++  assert.deepEqual(Object.keys(ANIMAL_SOUNDS).sort(), [...splatActions.SOUNDS].sort());
++});
++
++test("Splat model: BLE writes from the wand's own Splats", () => {
++  const s = createSplat({ mac: "5A:00:00:00:01:00" });
++  s.applyWrite("leds", [160, 0, 200]);
++  assert.equal(s.color, "turnpurple");
++  s.applyWrite("sound", [21]);
++  assert.equal(s.sound, "cow");
++  s.applyWrite("noteOn", [4, 4]);
++  assert.equal(s.note, "note_e");
++  s.applyWrite("tasksOff", []);
++  s.applyWrite("ledsOff", []);
++  assert.deepEqual([s.rgb, s.sound, s.note], [[0, 0, 0], null, null]);
++  assert.throws(() => s.applyAction("color", "turnpink"));
++});
++
++test("identity() follows pairing.IDENTITY", () => {
++  assert.equal(identity("AA:00:00:00:00:01")[0], "turngreen");
++  assert.equal(identity("AA:00:00:00:00:06")[0], IDENTITY[0][0]);
++});
++
++test("leader peer and follower peer play a game over the bus", () => {
++  const clock = createClock({ manual: true });
++  const bus = createBus({ clock, autoRun: false, settings: { latencyMs: 0 } });
++  const lead = createPeer({ mac: "02:00:00:00:01:01", clock, mode: "leader" });
++  const fol = createPeer({ mac: "02:00:00:00:0b:01", clock, splats: 2 });
++  attachPeer(bus, lead, { tickMs: 0 });
++  attachPeer(bus, fol, { tickMs: 0 });
++  const run = (ms) => {
++    for (let i = 0; i < ms; i += STEP) {
++      clock.advance(STEP);
++      lead.tick();
++      fol.tick();
++      bus.pump();
++    }
++  };
++  lead.tap("partytest", { smin: 2 });
++  fol.tap("partytest");
++  run(1100);
++  assert.equal(fol.state, "member");
++  assert.deepEqual(lead.roster.map((r) => r[1]), [1, 2]);
++  lead.start();
++  run(50);
++  assert.equal(fol.state, "game");
++  assert.deepEqual(fol.pool, [[0, 0], [1, 0], [1, 1]]);
++  fol.splatButton(1, true);
++  run(20);
++  assert.deepEqual(lead.events.at(-1), ["press", 2]);
++  lead.end();
++  run(20);
++  assert.deepEqual(fol.events, [["end"]]);
++  assert.equal(fol.state, "idle");
++  // A dropped follower hears nothing: leader_lost, and its game exits.
++  lead.tap("partytest", { smin: 2 });
++  fol.tap("partytest");
++  run(1100);
++  lead.start();
++  run(50);
++  fol.drop(true);
++  run(PW.WAND_LOST_MS + 100);
++  assert.deepEqual(fol.events, [["leader_lost"]]);
++  assert.equal(fol.state, "idle");
++  const types = bus.log.filter((e) => e.event === "send")
++    .map((e) => JSON.parse(new TextDecoder().decode(e.payload)).type);
++  for (const t of ["pw_find", "pw_lobby", "pw_join", "pw_joined", "pw_start", "pw_hb", "pw_evt", "pw_end"]) {
++    assert.ok(types.includes(t), `bus log has ${t}`);
++  }
++});
+diff --git a/Bag3/Code/Simulator/tests/test_splats_net.py b/Bag3/Code/Simulator/tests/test_splats_net.py
+new file mode 100644
+index 0000000..938390f
+--- /dev/null
++++ b/Bag3/Code/Simulator/tests/test_splats_net.py
+@@ -0,0 +1,213 @@
++"""
++Fake Splats (py/shims/sim_splats.py) under the real pairing / splat_api, and
++the `net` runtime._run_play passes by play()'s arity (integration PLAN 5.6,
++5.7).
++"""
++
++from __future__ import annotations
++
++import asyncio
++import json
++
++import pytest
++
++WAND = "02:00:00:00:0a:01"
++LEADER = "02:00:00:00:01:01"
++
++
++async def _until(pred, timeout=3.0, step=0.01):
++    loop = asyncio.get_event_loop()
++    end = loop.time() + timeout
++    while loop.time() < end:
++        if pred():
++            return True
++        await asyncio.sleep(step)
++    return pred()
++
++
++@pytest.fixture
++def splats(runtime):
++    import sim_splats
++    writes = []
++    sim_splats.set_write_callback(lambda i, op, args: writes.append((i, op, tuple(args))))
++    yield sim_splats, writes
++    sim_splats.set_write_callback(None)
++    sim_splats.ensure(0)
++
++
++@pytest.fixture
++def radio(runtime):
++    """The wand on a capture bus: sent frames as (dst, decoded JSON)."""
++    sent = []
++
++    def tx(src, dst, hexs):
++        payload = bytes.fromhex(hexs)
++        try:
++            sent.append((dst, json.loads(payload)))
++        except ValueError:
++            sent.append((dst, payload))
++        return 1
++
++    runtime.sim_state.set_own_mac(WAND)
++    runtime.sim_state.set_radio_tx(tx)
++    yield sent
++    runtime.sim_state.set_radio_tx(None)
++
++
++def _inject(rt, src, msg):
++    rt.sim_state.deliver_enow(src, json.dumps(msg).encode())
++
++
++def _types(sent, dst=None):
++    return [m.get("type") for d, m in sent
++            if isinstance(m, dict) and (dst is None or d == dst)]
++
++
++def test_fake_splats_under_real_libs(runtime, splats):
++    sim_splats, writes = splats
++    import pairing
++    ls = sim_splats.ensure(2, "02:00:00:00:0A:01")
++    assert pairing.local() is ls
++    assert ls.count == 2 and ls.ready() == [0, 1]
++    assert ls.macs == ["5A:00:00:00:01:00", "5A:00:00:00:01:01"]
++    assert ls.splat(1).color("turnred") is True
++    assert writes[-1] == (1, "leds", (255, 0, 0))
++    ls.splat(0).play(["cat", "note_e"])
++    assert (0, "sound", (19,)) in writes and (0, "noteOn", (4, 4)) in writes
++    sim_splats.press(1)
++    assert ls.poll() == ("press", 1)
++    sim_splats.release(1)
++    assert ls.poll() == ("release", 1)
++    sim_splats.set_ready(0, False)
++    assert ls.poll() == ("splat_lost", 0)
++    assert ls.ready() == [1]
++    assert sim_splats.ensure(2) is ls          # same count: reused
++    assert sim_splats.ensure(0) is None and pairing.local() is None
++
++
++def test_local_splat_count(runtime):
++    rt = runtime
++    rt.load_game("solotest")
++    assert rt.local_splat_count() == 1
++    rt.load_game("partytest")
++    assert rt.local_splat_count() == 1
++    rt.load_game("jump")
++    assert rt.local_splat_count() == 0
++    rt.set_local_splats(3)
++    assert rt.local_splat_count() == 3
++    rt.set_local_splats(None)
++
++
++ARITY_SRC = '''
++SPLATS_LOCAL = 1
++GOT = []
++
++def play(nfc, leds, buz, accel, i2c, enow, batt=None, net=None):
++    GOT.append(net)
++    net.splat(0).color("turngreen")
++'''
++
++SIX_SRC = '''
++GOT = []
++
++def play(nfc, leds, buz, accel, i2c, enow):
++    GOT.append(enow)
++'''
++
++
++async def test_solo_game_gets_solonet(runtime, splats):
++    sim_splats, writes = splats
++    rt = runtime
++    rt.load_game(ARITY_SRC)
++    task = await rt.start()
++    await task
++    net = rt._game_mod.GOT[0]
++    assert type(net).__name__ == "SoloNet"
++    assert net.splat_count == 1 and net.is_leader
++    assert (0, "leds", (0, 255, 0)) in writes
++    assert writes[-1] == (0, "ledsOff", ())        # net.close() after play()
++
++
++async def test_six_arg_game_without_net(runtime, splats):
++    rt = runtime
++    rt.load_game(SIX_SRC)
++    task = await rt.start()
++    await task
++    assert type(rt._game_mod.GOT[0]).__name__ == "ESPNowManager"
++    assert rt.net is None
++
++
++async def test_solo_refused_without_ready_splat(runtime, splats):
++    sim_splats, _ = splats
++    rt = runtime
++    rt.set_local_splats(1)
++    sim_splats.ensure(1)
++    sim_splats.set_ready(0, False)
++    rt.load_game(ARITY_SRC)
++    task = await rt.start()
++    await task
++    assert rt._game_mod.GOT == []
++    sim_splats.set_ready(0, True)
++    rt.set_local_splats(None)
++
++
++async def test_solotest_press_cycles_identity(runtime, splats):
++    sim_splats, writes = splats
++    rt = runtime
++    rt.load_game("solotest")
++    await rt.start()
++    assert await _until(lambda: (0, "leds", (255, 0, 0)) in writes)   # IDENTITY[0]
++    sim_splats.press(0)        # splat_api reports only the latest edge per poll
++    assert await _until(lambda: (0, "leds", (0, 255, 0)) in writes)   # IDENTITY[1]
++    sim_splats.release(0)
++    await rt.stop()
++
++
++async def test_partytest_leader_alone(runtime, splats, radio):
++    """No other wand: the lobby leads after FIND_WAIT_MS, a button press
++    starts it with the wand's own Splat, a Splat press lights it."""
++    sim_splats, writes = splats
++    rt = runtime
++    rt.load_game("partytest")
++    await rt.start()
++    assert await _until(lambda: "pw_lobby" in _types(radio))
++    rt.sim_state.set_button(True)
++    await asyncio.sleep(0.05)
++    rt.sim_state.set_button(False)
++    assert await _until(lambda: "pw_hb" in _types(radio))
++    assert rt.net is not None and rt.net.is_leader
++    sim_splats.press(0)
++    # Wand MAC ends in 01 -> IDENTITY[1] turngreen.
++    assert await _until(lambda: (0, "leds", (0, 255, 0)) in writes)
++    await rt.stop()
++
++
++async def test_partytest_follower(runtime, splats, radio):
++    """A scripted leader: the wand joins, runs the pooled pw_cmd on its own
++    Splat and returns on pw_end without sending pw_leave."""
++    sim_splats, writes = splats
++    rt = runtime
++    rt.load_game("partytest")
++    await rt.start()
++    assert await _until(lambda: "pw_find" in _types(radio))
++    _inject(rt, LEADER, {"type": "pw_lobby", "g": "partytest", "id": "L1", "n": 0,
++                         "min": 1, "max": None})
++    assert await _until(lambda: "pw_join" in _types(radio, LEADER))
++    join = [m for d, m in radio if d == LEADER][-1]
++    assert join["splats"] == 1 and join["id"] == "L1"
++    W = WAND.upper()
++    L = LEADER.upper()
++    _inject(rt, LEADER, {"type": "pw_joined", "id": "L1", "first": 0, "wands": 2, "q": 1})
++    _inject(rt, LEADER, {"type": "pw_start", "id": "L1", "wands": [[L, 0], [W, 1]],
++                         "pool": [[1, 0]], "q": 2})
++    assert await _until(lambda: rt.net is not None)
++    assert rt.net.is_leader is False and rt.net.me == 1
++    _inject(rt, LEADER, {"type": "pw_cmd", "id": "L1", "s": 0, "op": "color",
++                         "v": "turnpurple", "q": 3})
++    assert await _until(lambda: (0, "leds", (160, 0, 200)) in writes)
++    sim_splats.press(0)
++    assert await _until(lambda: "pw_evt" in _types(radio, LEADER))
++    _inject(rt, LEADER, {"type": "pw_end", "id": "L1", "q": 4})
++    assert await _until(lambda: not rt.is_running())
++    assert "pw_leave" not in _types(radio)
++    assert writes[-1] == (0, "ledsOff", ())
+diff --git a/Bag3/Code/Simulator/tools/sync_sources.py b/Bag3/Code/Simulator/tools/sync_sources.py
+index 8c3a4ce..447a91f 100644
+--- a/Bag3/Code/Simulator/tools/sync_sources.py
++++ b/Bag3/Code/Simulator/tools/sync_sources.py
+@@ -57,6 +57,12 @@ def _game_src(name):
+     "actions.py",
+     "battery.py",
+     "espnow_manager.py",
++    # Splat games: party.py / solo.py run through the transform; pairing.py
++    # and splat_api.py run sync over py/shims/sim_splats.py's fake links.
++    "pairing.py",
++    "splat_api.py",
++    "party.py",
++    "solo.py",
+ ]
+ 
+ # The icon display's half of two-device games, for the display panel
+@@ -96,6 +102,8 @@ def _game_src(name):
+     "goalrace.py",
+     "color_quest.py",
+     "finddevice.py",
++    "solotest.py",
++    "partytest.py",
+     "target.py",
+ ]
+ 
+diff --git a/Bag3/Code/Simulator/vendor/MANIFEST.json b/Bag3/Code/Simulator/vendor/MANIFEST.json
+index b5a3ac0..080c93a 100644
+--- a/Bag3/Code/Simulator/vendor/MANIFEST.json
++++ b/Bag3/Code/Simulator/vendor/MANIFEST.json
+@@ -95,6 +95,11 @@
+       "source": "Bag3/Code/BroadcastCode/MockWand/nfc_sound.py",
+       "vendor_sha256": "04dcd2ab9e96f191cf0b9b6d75585490bcecaa4163b48e273763ee9c6a1d8a9f"
+     },
++    "games/partytest.py": {
++      "sha256": "cead8d632d0b6a0d83fe3f0203349e549524a844a0552c467372aecfdf57a36f",
++      "source": "Bag3/Code/BroadcastCode/MockWand/partytest.py",
++      "vendor_sha256": "cead8d632d0b6a0d83fe3f0203349e549524a844a0552c467372aecfdf57a36f"
++    },
+     "games/rainbow.py": {
+       "sha256": "e5e2d177579e824bc667159add8f5592b81291975f7416b5d8a3556057e13126",
+       "source": "Bag3/Code/BroadcastCode/MockWand/rainbow.py",
+@@ -115,6 +120,11 @@
+       "source": "Bag3/Code/BroadcastCode/MockWand/simpleicecream.py",
+       "vendor_sha256": "15a9965bbecf9ecdcb4f021daaf0ebe261e4e0353b59c47467511e22494ba43e"
+     },
++    "games/solotest.py": {
++      "sha256": "b8dcc28c9689c220336da1deea25f4d843468217878dd35fbe107b7993739c85",
++      "source": "Bag3/Code/BroadcastCode/MockWand/solotest.py",
++      "vendor_sha256": "b8dcc28c9689c220336da1deea25f4d843468217878dd35fbe107b7993739c85"
++    },
+     "games/sound.py": {
+       "sha256": "42852e2c90691a0453267346fb731d14ffb815d014230d88b244359c1460700a",
+       "source": "Bag3/Code/BroadcastCode/MockWand/sound.py",
+@@ -169,6 +179,26 @@
+       "sha256": "408187a3e06812791aa2ee465504b1cb069fdc74c1124e0e41d7bf6725d47fa1",
+       "source": "Bag3/Code/BroadcastCode/MockWand/lib/leds.py",
+       "vendor_sha256": "408187a3e06812791aa2ee465504b1cb069fdc74c1124e0e41d7bf6725d47fa1"
++    },
++    "lib/pairing.py": {
++      "sha256": "81d97a2801ce76c1559e197aac6c925c7840e2d1bc2bb77b017010ad6f5cb5cc",
++      "source": "Bag3/Code/BroadcastCode/MockWand/lib/pairing.py",
++      "vendor_sha256": "81d97a2801ce76c1559e197aac6c925c7840e2d1bc2bb77b017010ad6f5cb5cc"
++    },
++    "lib/party.py": {
++      "sha256": "d4e92f55d8f9c232c3c942d0605e0b2ea0635421ccb6c2e08c16a9d8bea55ec6",
++      "source": "Bag3/Code/BroadcastCode/MockWand/lib/party.py",
++      "vendor_sha256": "d4e92f55d8f9c232c3c942d0605e0b2ea0635421ccb6c2e08c16a9d8bea55ec6"
++    },
++    "lib/solo.py": {
++      "sha256": "e5f233955255d9e69de7f4ae87f295e7b0d83e1caccbac5b370bcb265a5d3ec8",
++      "source": "Bag3/Code/BroadcastCode/MockWand/lib/solo.py",
++      "vendor_sha256": "e5f233955255d9e69de7f4ae87f295e7b0d83e1caccbac5b370bcb265a5d3ec8"
++    },
++    "lib/splat_api.py": {
++      "sha256": "793638859231d52cca98560ae64d5212818811c58f7abe66e590419e4053b340",
++      "source": "Bag3/Code/BroadcastCode/MockWand/lib/splat_api.py",
++      "vendor_sha256": "793638859231d52cca98560ae64d5212818811c58f7abe66e590419e4053b340"
+     }
+   },
+   "version": 1
+diff --git a/Bag3/Code/Simulator/vendor/games/partytest.py b/Bag3/Code/Simulator/vendor/games/partytest.py
+new file mode 100644
+index 0000000..39b674a
+--- /dev/null
++++ b/Bag3/Code/Simulator/vendor/games/partytest.py
+@@ -0,0 +1,114 @@
++"""
++Party Test -- every wand's button lights the next pool Splat
++============================================================
++Tag / start_game name: partytest. Party game, pooled model (SPEC sections
++6-7): SPLATS_MIN 1 across all joined wands.
++
++Each wand-button press lights the next pool Splat (round robin) in the
++presser's identity color and beeps on the leader. A press on a pool Splat
++counts as a press by the wand that holds it. Followers send {"b": 1} to the
++leader; the leader drives every Splat. Each wand's matrix shows its own
++identity color.
++
++Followers return on ("end",) or ("leader_lost",). The leader keeps going
++when a follower drops (its Splats' commands fail and are logged by
++party.py). Every wand exits on a stop / other game tag or ESP-NOW "stop" /
++"start_game".
++
++Entry point:
++    play(nfc, leds, buz, accel, i2c, enow, batt=None, net=None)
++"""
++
++import time
++from machine import Pin
++
++from nfc_reader import read_tag_command
++from game_tags import exit_tags_excluding
++from pairing import IDENTITY
++
++SPLATS_MIN = 1
++
++_EXIT_TAGS = exit_tags_excluding("partytest")
++BUTTON_PIN = 0
++NFC_POLL_INTERVAL = 10
++LOOP_DELAY_MS = 20
++
++
++def _rgb(name):
++    for n, rgb in IDENTITY:
++        if n == name:
++            return rgb
++    return (60, 60, 60)
++
++
++class Game:
++    """One wand's game state. step(pressed) -> False when the game ends."""
++
++    def __init__(self, net, leds, buz):
++        self.net = net
++        self.leds = leds
++        self.buz = buz
++        self.k = -1                  # last lit pool index (leader)
++        leds.fill(_rgb(net.wands[net.me][1]))
++
++    def _light(self, w):
++        net = self.net
++        if net.splat_count == 0:
++            return
++        self.k = (self.k + 1) % net.splat_count
++        net.splat(self.k).color(net.wands[w][1])
++        self.buz.beep(660 + 60 * w, 50)
++
++    def step(self, pressed):
++        net = self.net
++        if pressed:
++            if net.is_leader:
++                self._light(net.me)
++            else:
++                net.send(0, {"b": 1})
++        while True:
++            ev = net.poll()
++            if ev is None:
++                return True
++            kind = ev[0]
++            if kind in ("end", "leader_lost"):
++                print(f"  partytest: {kind}")
++                return False
++            if not net.is_leader:
++                continue
++            if kind == "msg" and isinstance(ev[2], dict) and ev[2].get("b"):
++                self._light(ev[1])
++            elif kind == "press":
++                self._light(net.owner(ev[1]))
++            elif kind in ("wand_lost", "wand_back"):
++                print(f"  partytest: {kind} {ev[1]}")
++
++
++def _loop(nfc, leds, buz, enow, net):
++    btn = Pin(BUTTON_PIN, Pin.IN, Pin.PULL_UP)
++    was = btn.value() == 0
++    g = Game(net, leds, buz)
++    frame = 0
++    while True:
++        mt, _, _ = enow.poll()
++        if mt in ("stop", "start_game"):
++            return
++        frame += 1
++        if frame % NFC_POLL_INTERVAL == 0:
++            text, _ = read_tag_command(nfc, timeout=100)
++            if text in _EXIT_TAGS:
++                return
++        down = btn.value() == 0
++        pressed = down and not was
++        was = down
++        if not g.step(pressed):
++            return
++        time.sleep_ms(LOOP_DELAY_MS)
++
++
++def play(nfc, leds, buz, accel, i2c, enow, batt=None, net=None):
++    buz.beep(523, 100)
++    try:
++        _loop(nfc, leds, buz, enow, net)
++    finally:
++        leds.off()
+diff --git a/Bag3/Code/Simulator/vendor/games/solotest.py b/Bag3/Code/Simulator/vendor/games/solotest.py
+new file mode 100644
+index 0000000..7313c1d
+--- /dev/null
++++ b/Bag3/Code/Simulator/vendor/games/solotest.py
+@@ -0,0 +1,75 @@
++"""
++Solo Test -- one local Splat, cycled through the identity palette
++=================================================================
++Tag / start_game name: solotest. Solo Splat game (SPEC section 6, "Solo
++Splat games"): needs 1 paired, READY Splat on this wand.
++
++Each wand-button press, or a press on Splat 0, moves Splat 0 and the wand
++matrix to the next pairing.IDENTITY color and beeps. A dropped Splat shows
++dim red on the wand until it is back. Exits on a stop / other game tag or
++ESP-NOW "stop" / "start_game".
++
++Entry point:
++    play(nfc, leds, buz, accel, i2c, enow, batt=None, net=None)
++"""
++
++import time
++from machine import Pin
++
++from nfc_reader import read_tag_command
++from game_tags import exit_tags_excluding
++from pairing import IDENTITY
++
++SPLATS_LOCAL = 1
++
++_EXIT_TAGS = exit_tags_excluding("solotest")
++BUTTON_PIN = 0
++NFC_POLL_INTERVAL = 10
++LOOP_DELAY_MS = 20
++LOST_RGB = (20, 0, 0)
++
++
++def _show(net, leds, k):
++    name, rgb = IDENTITY[k]
++    net.splat(0).color(name)
++    leds.fill(rgb)
++
++
++def _loop(nfc, leds, buz, enow, net):
++    btn = Pin(BUTTON_PIN, Pin.IN, Pin.PULL_UP)
++    was = btn.value() == 0
++    k = 0
++    frame = 0
++    _show(net, leds, k)
++    while True:
++        mt, _, _ = enow.poll()
++        if mt in ("stop", "start_game"):
++            return
++        frame += 1
++        if frame % NFC_POLL_INTERVAL == 0:
++            text, _ = read_tag_command(nfc, timeout=100)
++            if text in _EXIT_TAGS:
++                return
++        down = btn.value() == 0
++        step = down and not was
++        was = down
++        ev = net.poll()
++        if ev == ("press", 0):
++            step = True
++        elif ev == ("splat_lost", 0):
++            leds.fill(LOST_RGB)
++        elif ev == ("splat_back", 0):
++            _show(net, leds, k)
++        if step:
++            k = (k + 1) % len(IDENTITY)
++            _show(net, leds, k)
++            buz.beep(660 + 40 * k, 60)
++        time.sleep_ms(LOOP_DELAY_MS)
++
++
++def play(nfc, leds, buz, accel, i2c, enow, batt=None, net=None):
++    buz.beep(523, 100)
++    try:
++        _loop(nfc, leds, buz, enow, net)
++    finally:
++        leds.off()
+diff --git a/Bag3/Code/Simulator/vendor/lib/pairing.py b/Bag3/Code/Simulator/vendor/lib/pairing.py
+new file mode 100644
+index 0000000..965f7e5
+--- /dev/null
++++ b/Bag3/Code/Simulator/vendor/lib/pairing.py
+@@ -0,0 +1,270 @@
++"""
++pairing.py -- wand-to-Splat pairing store, boot bring-up and local Splats
++==========================================================================
++SPEC: docs_and_design/2026-10-07-splat-pairing/SPEC.md sections 2, 4, 5, 9.
++
++Imported by main.py only after enow.init() (AGENTS.md memory-order rule).
++An unpaired wand imports this module but never ubluetooth or the Splat
++libraries.
++
++Store: /pairing.json = {"splats": ["AB:42:00:00:7E:B6", ...]}, tap order,
++at most MAX_SPLATS entries. Written atomically (tmp + rename). A missing or
++corrupt file reads as empty. Deleted at boot after a power-on reset.
++
++Public API for game-side libraries (party.py, SoloNet):
++
++    pairing.local()            -> LocalSplats, or None if this wand is unpaired
++    ls.macs                    -> paired MACs still held, local order
++    ls.count                   -> len(ls.macs)
++    ls.ready()                 -> list of local indexes whose link is READY
++    ls.is_ready(i)             -> bool
++    ls.splat(i)                -> splat_api.SplatAPI for local index i
++                                  (color/sound/note/play/off; IndexError past count)
++    ls.poll()                  -> one event or None, oldest first:
++                                  ("press", i) / ("release", i)
++                                  ("splat_lost", i) / ("splat_back", i)
++                                  Services every link (keepalives, reconnects);
++                                  call every loop iteration.
++    ls.off()                   -> off() on every held Splat
++    ls.identity                -> (color_name, wand_rgb) for this wand
++    pairing.identity(mac_str)  -> same, for any wand MAC
++
++Local index i counts held Splats only: after one is unpaired, the indexes
++of the ones after it shift down by one.
++
++UNVERIFIED on hardware: BLE bring-up after enow.init() with this module
++imported first; PAIR_CONNECT_MS; IDENTITY palette distinctness on a Splat.
++"""
++
++import json
++import os
++import time
++
++PAIR_FILE = "/pairing.json"
++MAX_SPLATS = 2               # gate G2 sets the final value
++PAIR_CONNECT_MS = 30000      # a Splat not READY this long after boot is dropped
++
++# Identity palette: (splat_api.COLOR_RGB name, wand matrix RGB). Indexed by
++# the last byte of the wand's MAC.
++IDENTITY = (
++    ("turnred", (130, 0, 0)),
++    ("turngreen", (0, 230, 0)),
++    ("turnblue", (0, 20, 255)),
++    ("turnpurple", (50, 0, 250)),
++    ("turnyellow", (110, 120, 0)),
++    ("turnwhite", (140, 150, 150)),
++)
++
++_HEX = "0123456789ABCDEF"
++
++
++def parse_splat_card(text):
++    """"splat-ab4200007eb6" -> "AB:42:00:00:7E:B6"; anything else -> None."""
++    if not isinstance(text, str) or len(text) != 18:
++        return None
++    if text[:6].lower() != "splat-":
++        return None
++    h = text[6:].upper()
++    for ch in h:
++        if ch not in _HEX:
++            return None
++    return ":".join([h[i:i + 2] for i in range(0, 12, 2)])
++
++
++def identity(mac_str):
++    return IDENTITY[int(mac_str[-2:], 16) % len(IDENTITY)]
++
++
++# ─── Store ───────────────────────────────────
++
++def load(path=None):
++    path = path or PAIR_FILE
++    try:
++        with open(path) as f:
++            data = json.load(f)
++    except OSError:
++        return []
++    except ValueError as e:
++        print(f"  pairing: {path} unreadable ({e}); treating as empty")
++        return []
++    macs = data.get("splats") if isinstance(data, dict) else None
++    if not isinstance(macs, list):
++        return []
++    out = []
++    for m in macs:
++        if isinstance(m, str) and m not in out:
++            out.append(m.upper())
++    return out[:MAX_SPLATS]
++
++
++def _save(macs, path):
++    tmp = path + ".tmp"
++    with open(tmp, "w") as f:
++        json.dump({"splats": macs}, f)
++    os.rename(tmp, path)
++
++
++def add(mac, path=None):
++    """Append mac. Returns False if already held or the store is full."""
++    path = path or PAIR_FILE
++    macs = load(path)
++    mac = mac.upper()
++    if mac in macs or len(macs) >= MAX_SPLATS:
++        return False
++    macs.append(mac)
++    _save(macs, path)
++    return True
++
++
++def remove(mac, path=None):
++    path = path or PAIR_FILE
++    macs = load(path)
++    mac = mac.upper()
++    if mac not in macs:
++        return False
++    macs.remove(mac)
++    if macs:
++        _save(macs, path)
++    else:
++        clear(path)
++    return True
++
++
++def clear(path=None):
++    try:
++        os.remove(path or PAIR_FILE)
++    except OSError:
++        pass
++
++
++# ─── Boot ────────────────────────────────────
++
++_local = None
++
++
++def local():
++    return _local
++
++
++def boot(machine, own_mac=None, path=None):
++    """SPEC section 4 steps 3-4. Call right after enow.init().
++
++    Returns None when unpaired, True when BLE and the Splat links are up,
++    False when BLE bring-up failed (file cleared, wand continues unpaired).
++    """
++    global _local
++    path = path or PAIR_FILE
++    if machine.reset_cause() == machine.PWRON_RESET:
++        clear(path)
++        return None
++    macs = load(path)
++    if not macs:
++        return None
++    if own_mac is None:
++        from espnow_manager import get_own_mac
++        own_mac = get_own_mac()
++    try:
++        import ubluetooth
++        ubluetooth.BLE().active(True)
++        from splat_hub import SplatHub
++        from splat_api import SplatGroup
++        hub = SplatHub(count=len(macs), macs=macs)
++        _local = LocalSplats(hub, SplatGroup(hub), macs, own_mac, path)
++    except Exception as e:
++        print("  [WARN] pairing: BLE bring-up failed; booting unpaired")
++        import sys
++        sys.print_exception(e)
++        clear(path)
++        _local = None
++        return False
++    print(f"  pairing: {len(macs)} Splat(s) {macs}")
++    return True
++
++
++class LocalSplats:
++    """This wand's paired Splats. See the module docstring for the API."""
++
++    def __init__(self, hub, group, macs, own_mac, path):
++        self.hub = hub
++        self.group = group
++        self.path = path
++        self.identity = identity(own_mac)
++        self._units = list(range(len(macs)))   # hub unit index per local index
++        self._all_macs = list(macs)
++        self._was_ready = [False] * len(macs)
++        self._ever_ready = [False] * len(macs)
++        self._boot_ms = time.ticks_ms()
++        self._events = []
++
++    @property
++    def macs(self):
++        return [self._all_macs[u] for u in self._units]
++
++    @property
++    def count(self):
++        return len(self._units)
++
++    def splat(self, i):
++        return self.group.units[self._units[i]]
++
++    def is_ready(self, i):
++        return self.group.units[self._units[i]].connected
++
++    def ready(self):
++        return [i for i in range(len(self._units)) if self.is_ready(i)]
++
++    def index_of(self, mac):
++        mac = mac.upper()
++        for i, u in enumerate(self._units):
++            if self._all_macs[u] == mac:
++                return i
++        return None
++
++    def poll(self):
++        ev = self.group.poll()
++        if ev is not None:
++            u = self.group.last_index
++            if u in self._units:
++                self._events.append((ev, self._units.index(u)))
++        for i, u in enumerate(self._units):
++            up = self.group.units[u].connected
++            if up != self._was_ready[u]:
++                self._was_ready[u] = up
++                if up:
++                    self._ever_ready[u] = True
++                self._events.append(("splat_back" if up else "splat_lost", i))
++        if self._events:
++            return self._events.pop(0)
++        return None
++
++    def off(self):
++        ok = True
++        for i in range(len(self._units)):
++            ok = self.splat(i).off() and ok
++        return ok
++
++    def overdue(self):
++        """MACs never READY within PAIR_CONNECT_MS of boot (SPEC section 4)."""
++        if time.ticks_diff(time.ticks_ms(), self._boot_ms) < PAIR_CONNECT_MS:
++            return []
++        return [self._all_macs[u] for u in self._units if not self._ever_ready[u]]
++
++    def release(self, mac):
++        """Disconnect one Splat, stop it reconnecting, drop it from the store.
++        BLE stays active (SPEC section 3)."""
++        i = self.index_of(mac)
++        if i is None:
++            return False
++        u = self._units.pop(i)
++        link = self.hub.links[u]
++        link.scan_gate = lambda l: False
++        link.close()
++        self._events = [e for e in self._events if e[1] != i]
++        self._events = [(e[0], e[1] - 1) if e[1] > i else e for e in self._events]
++        remove(mac, self.path)
++        return True
++
++    def release_all(self):
++        for mac in self.macs:
++            self.release(mac)
++        clear(self.path)
+diff --git a/Bag3/Code/Simulator/vendor/lib/party.py b/Bag3/Code/Simulator/vendor/lib/party.py
+new file mode 100644
+index 0000000..25d5436
+--- /dev/null
++++ b/Bag3/Code/Simulator/vendor/lib/party.py
+@@ -0,0 +1,592 @@
++"""
++party.py -- party games: lobby, roster and the `net` object
++===========================================================
++SPEC: docs_and_design/2026-10-07-splat-pairing/SPEC.md sections 6-8.
++
++Imported lazily (by solo.prepare(), from main.py) only when a tapped game
++declares SPLATS_MIN, after enow.init() (AGENTS.md memory-order rule).
++
++Non-blocking parts, driven by tests and by the blocking wrapper:
++
++    Link(enow, own_mac)        unicast with SEND_TRIES and per-sender "q"
++                               dedupe; keeps non-pw_ messages for the game
++    Lobby(link, slug, smin, smax, local)
++        .step(press=False, stop=False)
++                               -> None while the lobby runs,
++                                  ("start", Net) or ("cancel", reason)
++    Net                        SPEC section 7 members; .poll(), .close(),
++                               .run(fn, *args) (try/finally close)
++
++Blocking wrapper for main.py:
++
++    lobby(enow, leds, buz, nfc, slug, smin, smax) -> Net, or None if cancelled
++
++A Net's game must read ESP-NOW through net.wrap(enow) (main.py passes that
++as play()'s enow): pw_ messages go to the net, everything else ("stop",
++"start_game", game messages) reaches the game unchanged.
++
++UNVERIFIED on hardware: FIND_WAIT_MS, LOBBY_PERIOD_MS, HB_PERIOD_MS,
++WAND_LOST_MS and SEND_TRIES under BLE load; the lobby display.
++"""
++
++import time
++
++import pairing
++
++FIND_WAIT_MS = 500
++LOBBY_PERIOD_MS = 1000
++HB_PERIOD_MS = 1000
++WAND_LOST_MS = 3000
++SEND_TRIES = 3
++JOIN_WAIT_MS = 500           # pw_joined wait before pw_join is resent
++LOOP_MS = 10                 # blocking lobby loop period
++NFC_EVERY = 10               # lobby loop iterations between stop-card reads
++BUTTON_PIN = 0
++
++OPS = ("color", "sound", "note", "play", "off")
++
++_counter = 0
++
++
++def _game_id(own_mac):
++    global _counter
++    _counter = (_counter + 1) & 0xFF
++    return "%s%02X" % (own_mac[-5:].replace(":", ""), _counter)
++
++
++def _expired(t, ms):
++    return time.ticks_diff(time.ticks_ms(), t) >= ms
++
++
++class Link:
++    """ESP-NOW access shared by the lobby and the net of one game."""
++
++    def __init__(self, enow, own_mac):
++        self.enow = enow
++        self.mac = own_mac
++        self.q = 0
++        self.seen = {}           # sender MAC -> last q accepted
++        self.other = []          # non-pw_ messages, for the game
++        self.peers = []
++
++    def add_peer(self, mac):
++        if mac not in self.peers:
++            self.peers.append(mac)
++            self.enow.add_peer(mac)
++
++    def drop_peers(self):
++        for mac in self.peers:
++            self.enow.remove_peer(mac)
++        self.peers = []
++
++    def broadcast(self, data):
++        return self.enow.broadcast(data)
++
++    def send(self, mac, data):
++        """Unicast with a fresh q, up to SEND_TRIES attempts. True if ACKed."""
++        self.q += 1
++        data["q"] = self.q
++        for _ in range(SEND_TRIES):
++            if self.enow.send_to(mac, data):
++                return True
++        print(f"  party: {data.get('type')} to {mac} not ACKed after {SEND_TRIES} tries")
++        return False
++
++    def recv(self):
++        """One pw_ message as (data, mac), or None. Other messages are
++        kept for the game; a repeated q from a sender is dropped."""
++        while True:
++            mt, data, mac = self.enow.poll(0)
++            if mt is None:
++                return None
++            if not (mt == "raw" and isinstance(data, dict)
++                    and str(data.get("type", "")).startswith("pw_")):
++                self.other.append((mt, data, mac))
++                continue
++            q = data.get("q")
++            if q is not None and mac is not None:
++                last = self.seen.get(mac)
++                if last is not None and q <= last:
++                    continue
++                self.seen[mac] = q
++            return data, mac
++
++
++class _GameEnow:
++    """play()'s enow for a party game: pw_ messages are handled by the net."""
++
++    def __init__(self, net, enow):
++        self._net = net
++        self._enow = enow
++
++    def poll(self, timeout_ms=0):
++        net = self._net
++        if not net.link.other:
++            net._pump()
++        if net.link.other:
++            return net.link.other.pop(0)
++        return None, None, None
++
++    def __getattr__(self, attr):
++        return getattr(self._enow, attr)
++
++
++# ─── Lobby ──────────────────────────────────
++
++class Lobby:
++    def __init__(self, link, slug, smin, smax=None, local=None):
++        self.link = link
++        self.slug = slug
++        self.smin = smin
++        self.smax = smax
++        self.local = local
++        self.mine = local.count if local is not None else 0
++        self.state = "find"
++        self.id = None
++        self.leader = None       # leader MAC (follower)
++        self.roster = []         # [(mac, splat_count)], leader first (leader)
++        self._t = time.ticks_ms()
++        self._tries = 0
++        self.link.broadcast({"type": "pw_find", "g": slug})
++
++    def total(self):
++        return sum(c for _, c in self.roster)
++
++    def _lobby_msg(self):
++        return {"type": "pw_lobby", "g": self.slug, "id": self.id,
++                "n": self.total(), "min": self.smin, "max": self.smax}
++
++    def _lead(self):
++        self.state = "lead"
++        self.id = _game_id(self.link.mac)
++        self.roster = [(self.link.mac, self.mine)]
++        self.link.broadcast(self._lobby_msg())
++        self._t = time.ticks_ms()
++        print(f"  party: leading {self.slug} as {self.id}")
++
++    def _join(self, mac, gid):
++        self.state = "join"
++        self.leader = mac
++        self.id = gid
++        self.roster = []
++        self.link.add_peer(mac)
++        self._tries = 1
++        self._t = time.ticks_ms()
++        self.link.send(mac, {"type": "pw_join", "id": gid, "splats": self.mine})
++
++    def _refind(self):
++        self.link.drop_peers()
++        self.state = "find"
++        self.id = None
++        self.leader = None
++        self._t = time.ticks_ms()
++        self.link.broadcast({"type": "pw_find", "g": self.slug})
++
++    def _first(self, mac):
++        n = 0
++        for m, c in self.roster:
++            if m == mac:
++                return n
++            n += c
++        return None
++
++    def step(self, press=False, stop=False):
++        if stop:
++            return self._stop()
++        while True:
++            got = self.link.recv()
++            if got is None:
++                break
++            r = self._handle(got[0], got[1])
++            if r is not None:
++                return r
++        return self._tick(press)
++
++    def _stop(self):
++        if self.state == "lead":
++            for mac, _ in self.roster[1:]:
++                self.link.send(mac, {"type": "pw_end", "id": self.id})
++        elif self.state in ("join", "member"):
++            self.link.send(self.leader, {"type": "pw_leave", "id": self.id})
++        self.link.drop_peers()
++        return ("cancel", "stop")
++
++    def _handle(self, d, mac):
++        t = d.get("type")
++        st = self.state
++        if st == "find":
++            if t == "pw_lobby" and d.get("g") == self.slug:
++                self._join(mac, d.get("id"))
++            return None
++        if st == "lead":
++            if t == "pw_find" and d.get("g") == self.slug:
++                self.link.add_peer(mac)
++                self.link.send(mac, self._lobby_msg())
++            elif t == "pw_lobby" and d.get("g") == self.slug and d.get("id") != self.id:
++                if mac < self.link.mac:
++                    print(f"  party: {mac} also leads {self.slug}; merging into it")
++                    for m, _ in self.roster[1:]:
++                        self.link.send(m, {"type": "pw_end", "id": self.id, "r": "merge"})
++                    self.link.drop_peers()
++                    self._join(mac, d.get("id"))
++            elif t == "pw_join" and d.get("id") == self.id:
++                if self._first(mac) is None:
++                    self.link.add_peer(mac)
++                    self.roster.append((mac, int(d.get("splats") or 0)))
++                self.link.send(mac, {"type": "pw_joined", "id": self.id,
++                                     "first": self._first(mac), "wands": len(self.roster)})
++            elif t == "pw_leave" and d.get("id") == self.id:
++                self.roster = [w for w in self.roster if w[0] != mac]
++            return None
++        # join / member
++        if mac != self.leader or d.get("id") != self.id:
++            return None
++        if t == "pw_lobby":
++            self._t = time.ticks_ms()
++        elif t == "pw_joined" and st == "join":
++            self.state = "member"
++            self._t = time.ticks_ms()
++            print(f"  party: joined {self.id} (first Splat {d.get('first')})")
++        elif t == "pw_start":
++            wands = [(w[0], int(w[1])) for w in d.get("wands", [])]
++            pool = [(p[0], p[1]) for p in d.get("pool", [])]
++            return ("start", Net(self.link, self.id, False, wands, pool, self.local))
++        elif t == "pw_end":
++            if d.get("r") == "merge":
++                self._refind()
++                return None
++            self.link.drop_peers()
++            return ("cancel", "end")
++        return None
++
++    def _tick(self, press):
++        st = self.state
++        if st == "find":
++            if _expired(self._t, FIND_WAIT_MS):
++                self._lead()
++            return None
++        if st == "lead":
++            n = self.total()
++            if (self.smax is not None and n >= self.smax) or (press and n >= self.smin):
++                return ("start", self._start())
++            if _expired(self._t, LOBBY_PERIOD_MS):
++                self._t = time.ticks_ms()
++                self.link.broadcast(self._lobby_msg())
++            return None
++        if st == "join":
++            if _expired(self._t, JOIN_WAIT_MS):
++                if self._tries >= SEND_TRIES:
++                    print(f"  party: no pw_joined from {self.leader}; finding again")
++                    self._refind()
++                    return None
++                self._tries += 1
++                self._t = time.ticks_ms()
++                self.link.send(self.leader, {"type": "pw_join", "id": self.id,
++                                             "splats": self.mine})
++            return None
++        # member: the lobby broadcast is the leader's heartbeat
++        if _expired(self._t, WAND_LOST_MS):
++            print(f"  party: lobby {self.id} silent for {WAND_LOST_MS} ms")
++            self.link.drop_peers()
++            return ("cancel", "leader_lost")
++        return None
++
++    def _start(self):
++        pool = []
++        for w, (_, c) in enumerate(self.roster):
++            for s in range(c):
++                pool.append((w, s))
++        wands = list(self.roster)
++        msg_wands = [[m, c] for m, c in wands]
++        msg_pool = [[w, s] for w, s in pool]
++        for mac, _ in wands[1:]:
++            self.link.send(mac, {"type": "pw_start", "id": self.id,
++                                 "wands": msg_wands, "pool": msg_pool})
++        print(f"  party: {self.id} started, {len(wands)} wand(s), {len(pool)} Splat(s)")
++        return Net(self.link, self.id, True, wands, pool, self.local)
++
++
++# ─── net ────────────────────────────────────
++
++class _Remote:
++    """Pool Splat held by another wand (leader side): pw_cmd per call."""
++
++    def __init__(self, net, i):
++        self._net = net
++        self._i = i
++
++    def _cmd(self, op, v=None):
++        return self._net._cmd(self._i, op, v)
++
++    def color(self, name):
++        return self._cmd("color", name)
++
++    def sound(self, name):
++        return self._cmd("sound", name)
++
++    def note(self, name):
++        return self._cmd("note", name)
++
++    def play(self, names):
++        return self._cmd("play", list(names))
++
++    def off(self):
++        return self._cmd("off")
++
++
++class Net:
++    def __init__(self, link, gid, is_leader, roster, pool, local):
++        self.link = link
++        self.id = gid
++        self.is_leader = is_leader
++        self.local = local
++        self.wands = [(m, pairing.identity(m)[0], c) for m, c in roster]
++        self._macs = [m for m, _ in roster]
++        self.me = self._macs.index(link.mac)
++        for m in self._macs:         # SPEC section 8: every member is a peer
++            if m != link.mac:
++                link.add_peer(m)
++        self._pool = pool
++        self.splat_count = len(pool)
++        self._events = []
++        self._closed = False
++        self._ended = False
++        now = time.ticks_ms()
++        self._hb_t = time.ticks_add(now, -HB_PERIOD_MS)
++        self._seen = [now] * len(roster)
++        self._lost = [False] * len(roster)
++        self._left = [False] * len(roster)
++        self._bits = [(1 << c) - 1 for _, c in roster]
++
++    # members
++
++    def owner(self, i):
++        return self._pool[i][0]
++
++    def _pool_index(self, w, s):
++        for i, p in enumerate(self._pool):
++            if p[0] == w and p[1] == s:
++                return i
++        return None
++
++    def splat(self, i):
++        if not self.is_leader:
++            raise RuntimeError("net.splat() is leader only; use net.local")
++        w, s = self._pool[i]
++        if w == self.me:
++            return self.local.splat(s)
++        return _Remote(self, i)
++
++    def send(self, to, data):
++        targets = range(len(self._macs)) if to is None else (to,)
++        ok = True
++        for w in targets:
++            if w != self.me:
++                ok = self.link.send(self._macs[w], {"type": "pw_msg", "id": self.id,
++                                                    "d": data}) and ok
++        return ok
++
++    def wrap(self, enow):
++        return _GameEnow(self, enow)
++
++    def _cmd(self, i, op, v):
++        w, s = self._pool[i]
++        return self.link.send(self._macs[w], {"type": "pw_cmd", "id": self.id,
++                                              "s": s, "op": op, "v": v})
++
++    # poll
++
++    def poll(self):
++        self._pump()
++        if self._events:
++            return self._events.pop(0)
++        return None
++
++    def _pump(self):
++        if self._closed:
++            return
++        if self.local is not None:
++            while True:
++                ev = self.local.poll()
++                if ev is None:
++                    break
++                self._local_event(ev)
++        while True:
++            got = self.link.recv()
++            if got is None:
++                break
++            self._handle(got[0], got[1])
++        self._tick()
++
++    def _local_event(self, ev):
++        kind, s = ev
++        if kind in ("press", "release"):
++            i = self._pool_index(self.me, s)
++            if self.is_leader:
++                if i is not None:
++                    self._events.append((kind, i))
++                return
++            self._events.append((kind, s))
++            if i is not None and not self._ended:
++                self.link.send(self._macs[0], {"type": "pw_evt", "id": self.id,
++                                               "s": i, "e": 1 if kind == "press" else 0})
++        elif self.is_leader:
++            i = self._pool_index(self.me, s)
++            if i is not None:
++                self._events.append((kind, i))
++
++    def _handle(self, d, mac):
++        if d.get("id") != self.id or mac not in self._macs:
++            return
++        w = self._macs.index(mac)
++        t = d.get("type")
++        self._seen[w] = time.ticks_ms()
++        if self._lost[w] and t != "pw_leave":
++            self._lost[w] = False
++            if self.is_leader and not self._left[w]:
++                self._events.append(("wand_back", w))
++        if t == "pw_hb":
++            if self.is_leader:
++                self._hb_bits(w, int(d.get("l", 0)))
++        elif t == "pw_msg":
++            self._events.append(("msg", w, d.get("d")))
++        elif self.is_leader:
++            if t == "pw_evt":
++                self._events.append(("press" if d.get("e") else "release", d.get("s")))
++            elif t == "pw_leave":
++                self._left[w] = True
++                self._lost[w] = True
++                self._events.append(("wand_lost", w))
++        elif w == 0:
++            if t == "pw_cmd":
++                self._run_cmd(d)
++            elif t == "pw_end":
++                self._ended = True
++                self._events.append(("end",))
++
++    def _hb_bits(self, w, bits):
++        old = self._bits[w]
++        self._bits[w] = bits
++        for s in range(self.wands[w][2]):
++            m = 1 << s
++            if (old & m) != (bits & m):
++                i = self._pool_index(w, s)
++                if i is not None:
++                    self._events.append(("splat_back" if bits & m else "splat_lost", i))
++
++    def _run_cmd(self, d):
++        op = d.get("op")
++        s = d.get("s")
++        if op not in OPS or self.local is None or not isinstance(s, int) or s >= self.local.count:
++            print(f"  party: bad pw_cmd {d}")
++            return
++        u = self.local.splat(s)
++        if op == "off":
++            u.off()
++        else:
++            getattr(u, op)(d.get("v"))
++
++    def _ready_bits(self):
++        bits = 0
++        if self.local is not None:
++            for s in self.local.ready():
++                bits |= 1 << s
++        return bits
++
++    def _tick(self):
++        if _expired(self._hb_t, HB_PERIOD_MS):
++            self._hb_t = time.ticks_ms()
++            self.link.broadcast({"type": "pw_hb", "id": self.id, "l": self._ready_bits()})
++        if self._ended:
++            return
++        for w in range(len(self._macs)):
++            if w == self.me or self._lost[w]:
++                continue
++            if not self.is_leader and w != 0:
++                continue
++            if _expired(self._seen[w], WAND_LOST_MS):
++                self._lost[w] = True
++                self._events.append(("wand_lost", w) if self.is_leader else ("leader_lost",))
++
++    # cleanup
++
++    def close(self):
++        """SPEC section 6: pw_end (leader) or pw_leave (follower), local
++        Splats off, party peers removed. Safe to call twice."""
++        if self._closed:
++            return
++        self._closed = True
++        if self.is_leader:
++            for w in range(1, len(self._macs)):
++                if not self._left[w]:
++                    self.link.send(self._macs[w], {"type": "pw_end", "id": self.id})
++        elif not self._ended:
++            self.link.send(self._macs[0], {"type": "pw_leave", "id": self.id})
++        if self.local is not None:
++            self.local.off()
++        self.link.drop_peers()
++
++    def run(self, fn, *args):
++        """fn(*args) with close() on return, stop or error; errors re-raise."""
++        try:
++            return fn(*args)
++        finally:
++            self.close()
++
++
++# ─── Blocking lobby for main.py ─────────────
++
++def _show(leds, lob):
++    np = leds.np
++    if lob.state == "lead":
++        n = lob.total()
++        for i in range(len(np)):
++            np[i] = (0, 0, 0)
++        for i in range(min(lob.smin, len(np))):
++            np[i] = (0, 120, 0) if i < n else (0, 12, 0)
++        np.write()
++    else:
++        rgb = lob.local.identity[1] if lob.local is not None else (60, 60, 60)
++        for i in range(len(np)):
++            np[i] = rgb if i in (0, 4, 12, 20, 24) else (0, 0, 0)
++        np.write()
++
++
++def lobby(enow, leds, buz, nfc, slug, smin, smax=None):
++    """Run the lobby until the game starts (returns a Net) or is cancelled
++    (stop card, pw_end, leader gone: returns None)."""
++    from machine import Pin
++    from espnow_manager import get_own_mac
++    from nfc_reader import read_tag_command
++    from game_tags import exit_tags_excluding
++    exits = exit_tags_excluding(slug)
++    btn = Pin(BUTTON_PIN, Pin.IN, Pin.PULL_UP)
++    was = btn.value() == 0
++    lob = Lobby(Link(enow, get_own_mac()), slug, smin, smax, pairing.local())
++    shown = None
++    k = 0
++    while True:
++        down = btn.value() == 0
++        press = down and not was
++        was = down
++        stop = False
++        k += 1
++        if k % NFC_EVERY == 0:
++            text, _ = read_tag_command(nfc, timeout=50)
++            stop = text in exits
++        r = lob.step(press, stop)
++        if r is not None:
++            leds.off()
++            if r[0] == "start":
++                buz.beep(1047, 80)
++                return r[1]
++            print(f"  party: lobby cancelled ({r[1]})")
++            buz.beep(400, 120)
++            return None
++        key = (lob.state, lob.total())
++        if key != shown:
++            shown = key
++            _show(leds, lob)
++            if lob.state == "member":
++                buz.beep(784, 60)
++        time.sleep_ms(LOOP_MS)
+diff --git a/Bag3/Code/Simulator/vendor/lib/solo.py b/Bag3/Code/Simulator/vendor/lib/solo.py
+new file mode 100644
+index 0000000..0bd0c43
+--- /dev/null
++++ b/Bag3/Code/Simulator/vendor/lib/solo.py
+@@ -0,0 +1,114 @@
++"""
++solo.py -- Splat game setup and the solo `net` (SoloNet)
++========================================================
++SPEC: docs_and_design/2026-10-07-splat-pairing/SPEC.md section 6
++("Solo Splat games").
++
++Imported lazily by main.py, after a game module loads, only when it
++declares SPLATS_LOCAL or SPLATS_MIN. party.py is imported only for
++SPLATS_MIN games.
++
++    prepare(mod, slug, nfc, leds, buz, enow)
++        -> SoloNet or party.Net to pass to play(), or None when the game
++           must not start (too few READY Splats, lobby cancelled).
++           Raises ValueError when the game declares both constants.
++    check(local, n)  -> True if at least n local Splats are READY
++
++SoloNet has the SPEC section 7 members. is_leader is True, wands holds
++only this wand, me is 0; splat(i) is local Splat i; poll() services the
++local Splats; send() raises. close() turns the local Splats off;
++run(fn, *args) calls fn and closes on return, stop or error.
++
++UNVERIFIED on hardware: the amber refusal feedback.
++"""
++
++import time
++
++import pairing
++
++_REFUSE_SHAPE = (0, 4, 6, 8, 12, 16, 18, 20, 24)   # leds.SHAPE_X
++_AMBER = (120, 80, 0)
++
++
++def kind(mod):
++    """("solo", n, None), ("party", min, max) or None. ValueError if both."""
++    n_local = getattr(mod, "SPLATS_LOCAL", None)
++    n_min = getattr(mod, "SPLATS_MIN", None)
++    if n_local is not None and n_min is not None:
++        raise ValueError("game declares both SPLATS_LOCAL and SPLATS_MIN")
++    if n_local is not None:
++        return ("solo", int(n_local), None)
++    if n_min is not None:
++        n_max = getattr(mod, "SPLATS_MAX", None)
++        return ("party", int(n_min), None if n_max is None else int(n_max))
++    return None
++
++
++def check(local, n):
++    return local is not None and len(local.ready()) >= n
++
++
++def refuse(leds, buz, why):
++    print(f"  solo: not starting: {why}")
++    for _ in range(2):
++        leds.show_shape(_REFUSE_SHAPE, _AMBER)
++        buz.beep(350, 150)
++        time.sleep_ms(150)
++        leds.off()
++        time.sleep_ms(100)
++
++
++def prepare(mod, slug, nfc, leds, buz, enow):
++    k = kind(mod)
++    if k is None:
++        return None
++    local = pairing.local()
++    if k[0] == "solo":
++        if not check(local, k[1]):
++            have = 0 if local is None else len(local.ready())
++            refuse(leds, buz, f"{slug} needs {k[1]} READY Splat(s), {have} READY")
++            return None
++        from espnow_manager import get_own_mac
++        return SoloNet(local, get_own_mac())
++    import party
++    return party.lobby(enow, leds, buz, nfc, slug, k[1], k[2])
++
++
++class SoloNet:
++    is_leader = True
++    me = 0
++
++    def __init__(self, local, own_mac):
++        self.local = local
++        self.wands = [(own_mac, local.identity[0], local.count)]
++        self.splat_count = local.count
++        self._closed = False
++
++    def splat(self, i):
++        return self.local.splat(i)
++
++    def owner(self, i):
++        if not 0 <= i < self.splat_count:
++            raise IndexError(i)
++        return 0
++
++    def send(self, to, data):
++        raise RuntimeError("solo game: there are no other wands to send to")
++
++    def poll(self):
++        return self.local.poll()
++
++    def wrap(self, enow):
++        return enow
++
++    def close(self):
++        if self._closed:
++            return
++        self._closed = True
++        self.local.off()
++
++    def run(self, fn, *args):
++        try:
++            return fn(*args)
++        finally:
++            self.close()
+diff --git a/Bag3/Code/Simulator/vendor/lib/splat_api.py b/Bag3/Code/Simulator/vendor/lib/splat_api.py
+new file mode 100644
+index 0000000..b0b6071
+--- /dev/null
++++ b/Bag3/Code/Simulator/vendor/lib/splat_api.py
+@@ -0,0 +1,276 @@
++"""
++splat_api.py -- the `splat` object games receive
++==================================================
++play(splat, leds, enow, batt=None) games get a SplatGroup instead of the
++wand's five hardware objects: there is no NFC, buzzer, motor or
++accelerometer here, and the Splats themselves are BLE, not local
++peripherals.
++
++SplatGroup drives every Splat this station is configured for (hubtype.py
++max_splats / splat_macs; 4 by default) through one SplatAPI per Splat:
++color/sound/note/play/off act on all of them, poll() reports a press or
++release from any of them with last_index saying which, and unit(i) is one
++Splat's own SplatAPI. With one Splat it behaves exactly as that Splat's
++SplatAPI.
++
++A game MUST call splat.poll() every loop iteration, exactly as it polls
++enow. main.py hands the same SplatGroup to the idle loop (companion.py)
++and to each game in turn, so exactly one loop polls it at a time and
++nothing else services the BLE links, their keepalives or their button
++debounce.
++
++This file is the single source of the action vocabulary below.
++ChatBroadcast's js/splat/splatActions.js is generated from it by
++ChatBroadcast/tools/sync_splat_actions.py -- run that after editing any of
++COLOR_RGB, NOTE_VALUES or ANIMAL_SOUNDS (--check reports drift). The names
++are the Bag2 wand's action-card names.
++"""
++
++import time
++
++
++# ─── Action vocabulary (card names) ───────────
++
++COLOR_RGB = {
++    "turnred": (255, 0, 0), "turngreen": (0, 255, 0),
++    "turnblue": (0, 0, 255), "turnpurple": (160, 0, 200),
++    "turnyellow": (255, 180, 0), "turnwhite": (200, 200, 200),
++    "turnoff": (0, 0, 0),
++}
++
++# name -> (note value, octave offset). Values from the Bag2 companion's
++# NOTE_MIDI; the Jan 2026 wand-side controller used different values
++# (see README "Drift").
++NOTE_VALUES = {
++    "note_c": (0, 0), "note_d": (2, 0), "note_e": (4, 0), "note_f": (5, 0),
++    "note_g": (7, 0), "note_a": (9, 0), "note_b": (11, 0),
++    "note_c_high": (0, 1), "playnote": (0, 0),
++}
++
++ANIMAL_SOUNDS = {
++    "cat": 19, "chicken": 20, "cow": 21, "dog": 22,
++    "pig": 23, "duck": 24, "elephant": 25, "horse": 26, "goat": 28,
++}
++
++# ─── Splat write settings ─────────────────────
++
++NOTE_OCTAVE = 4
++NOTE_VELOCITY = 127
++NOTE_INSTRUMENT = 17
++SOUND_VOLUME = 255
++KEEPALIVE_MS = 2500
++SWITCH_POLL_MS = 150         # readSwitches cadence while ready; 0 = off
++
++
++class SplatAPI:
++    def __init__(self, link):
++        self.link = link
++        self.write_failures = 0
++        self._active_note = None       # (value, octave), or None
++        now = time.ticks_ms()
++        self._last_ka = now
++        self._last_sw = now
++
++    @property
++    def connected(self):
++        return self.link.ready
++
++    def poll(self):
++        """Service the BLE link; return "press", "release", or None.
++
++        Only the most recent debounced edge is reported when more than one
++        arrived since the last poll() -- a game loop that polls every
++        `time.sleep_ms(1)` iteration never falls behind enough for that to
++        matter in practice.
++        """
++        now = time.ticks_ms()
++        self.link.service(now)
++        if not self.link.ready:
++            return None
++        if time.ticks_diff(now, self._last_ka) >= KEEPALIVE_MS:
++            self._last_ka = now
++            self._check(self.link.keepAlive(), "keepAlive")
++        if SWITCH_POLL_MS and time.ticks_diff(now, self._last_sw) >= SWITCH_POLL_MS:
++            self._last_sw = now
++            self._check(self.link.readSwitches(), "readSwitches")
++        events = self.link.take_events()
++        if not events:
++            return None
++        return "press" if events[-1] == 1 else "release"
++
++    def _check(self, ok, what):
++        if not ok:
++            self.write_failures += 1
++            print("  [ERR] splat.%s write failed (failures=%d)"
++                  % (what, self.write_failures))
++        return ok
++
++    def color(self, name):
++        """Set the Splat's LEDs to a card color name, e.g. "turnred"."""
++        if not self.link.ready:
++            return False
++        rgb = COLOR_RGB.get(name)
++        if rgb is None:
++            print("  [ERR] splat.color: unknown name %r" % name)
++            return False
++        return self._check(self.link.setLEDsON(rgb), "color")
++
++    def sound(self, name):
++        """Play an animal sound card name, e.g. "cat"."""
++        if not self.link.ready:
++            return False
++        idx = ANIMAL_SOUNDS.get(name)
++        if idx is None:
++            print("  [ERR] splat.sound: unknown name %r" % name)
++            return False
++        return self._check(self.link.playSound(idx, SOUND_VOLUME), "sound")
++
++    def note(self, name):
++        """Play a note card name, e.g. "note_c". Replaces any note already
++        held -- only one note plays at a time through this call."""
++        if not self.link.ready:
++            return False
++        v = NOTE_VALUES.get(name)
++        if v is None:
++            print("  [ERR] splat.note: unknown name %r" % name)
++            return False
++        self._note_off()
++        value, octave_offset = v
++        octave = NOTE_OCTAVE + octave_offset
++        ok = self._check(
++            self.link.noteOn(value, NOTE_VELOCITY, octave, NOTE_INSTRUMENT),
++            "note")
++        if ok:
++            self._active_note = (value, octave)
++        return ok
++
++    def _note_off(self):
++        if self._active_note is None:
++            return
++        value, octave = self._active_note
++        self._active_note = None
++        self._check(
++            self.link.noteOff(value, NOTE_VELOCITY, octave, NOTE_INSTRUMENT),
++            "note_off")
++
++    def play(self, names):
++        """Play a group of card action names together: colors, notes and
++        sounds may all be named in one call, same as one AND-group in a
++        wand action chain. Unknown names print [ERR] and are skipped;
++        returns True only if every write in the group succeeded."""
++        ok = True
++        for name in names:
++            if name in COLOR_RGB:
++                ok = self.color(name) and ok
++            elif name in ANIMAL_SOUNDS:
++                ok = self.sound(name) and ok
++            elif name in NOTE_VALUES:
++                ok = self.note(name) and ok
++            else:
++                print("  [ERR] splat.play: unknown action %r" % name)
++                ok = False
++        return ok
++
++    def off(self):
++        """Stop everything: the held note (if any), then allTasksOff and
++        allLEDsOff (allTasksOff alone can leave a static color lit)."""
++        self._note_off()
++        if not self.link.ready:
++            return False
++        a = self._check(self.link.allTasksOff(), "off(allTasksOff)")
++        b = self._check(self.link.allLEDsOff(), "off(allLEDsOff)")
++        return a and b
++
++
++EVENT_QUEUE_MAX = 16    # SplatGroup press/release events held between polls
++
++
++class SplatGroup:
++    """Every configured Splat, as one `splat` game argument."""
++
++    def __init__(self, hub):
++        self.hub = hub
++        self.units = [SplatAPI(link) for link in hub.links]
++        self.links = hub.links
++        self.last_index = None
++        self._pending = []           # (index, "press"/"release"), oldest first
++        self.events_dropped = 0
++
++    @property
++    def count(self):
++        """Splats this station is configured for (not how many are up)."""
++        return len(self.units)
++
++    @property
++    def connected_count(self):
++        n = 0
++        for u in self.units:
++            if u.connected:
++                n += 1
++        return n
++
++    @property
++    def connected(self):
++        """True once at least one Splat's BLE link is up."""
++        return self.connected_count > 0
++
++    @property
++    def write_failures(self):
++        return sum(u.write_failures for u in self.units)
++
++    def unit(self, i):
++        """One Splat's own SplatAPI, 0-based. IndexError past count."""
++        return self.units[i]
++
++    def poll(self):
++        """Service every Splat; return "press", "release" or None.
++
++        Events from different Splats are queued and returned one per call,
++        oldest first; last_index is the index of the Splat that produced
++        the event just returned.
++        """
++        for i, u in enumerate(self.units):
++            ev = u.poll()
++            if ev is not None:
++                if len(self._pending) >= EVENT_QUEUE_MAX:
++                    self.events_dropped += 1
++                    print("  [ERR] splat group event queue full: %s from %d dropped"
++                          % (ev, i))
++                else:
++                    self._pending.append((i, ev))
++        if not self._pending:
++            return None
++        i, ev = self._pending.pop(0)
++        self.last_index = i
++        return ev
++
++    def _each(self, call):
++        """call(unit) on every connected unit. True only if at least one is
++        connected and every connected unit's write succeeded."""
++        any_up = False
++        ok = True
++        for u in self.units:
++            if u.connected:
++                any_up = True
++                ok = call(u) and ok
++        return any_up and ok
++
++    def color(self, name):
++        return self._each(lambda u: u.color(name))
++
++    def sound(self, name):
++        return self._each(lambda u: u.sound(name))
++
++    def note(self, name):
++        return self._each(lambda u: u.note(name))
++
++    def play(self, names):
++        return self._each(lambda u: u.play(names))
++
++    def off(self):
++        """Stop everything on every Splat, connected or not (each unit's
++        off() clears its held-note state either way)."""
++        ok = True
++        for u in self.units:
++            ok = u.off() and ok
++        return ok

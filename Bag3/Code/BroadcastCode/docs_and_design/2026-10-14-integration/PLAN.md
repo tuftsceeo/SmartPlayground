@@ -4,7 +4,9 @@
 
 **Implemented, offline checks passing:** Phase 0; Phase 1 items 1.1–1.10 (1.8 dropped) and 1.11; Phase 2 A1–A7, including the solo games `soloecho` and `solotest` and the party games; Phase 4 items 4.1–4.5; Phase 5 items 5.1–5.2; Phase 6 items 6.1–6.3.
 
-**In progress:** Simulator 5.3–5.10. A8 (MockWand README "Splat games") is done.
+**Simulator, paused 2026-10-19:** 5.1–5.5 merged (bus, clock, real espnow_manager over the bus, `<sim-room>` panel registry, capabilities, display panel with `icon_host.py`, `tools/room_smoke.mjs` passing). 5.6/5.7 (Splats, virtual peers, `net` in the wand) are partial and uncommitted: saved as `w2f-simulator-splats-wip.patch` in this folder (apply with `git apply` from the repo root; untested, the Splat panel was not started). Not started: 5.8 headless mode + `tools/sim_run.mjs` (the `prompt_eval.mjs` simulation check is a stub until it exists), 5.9 ChatBroadcast preview mounting `<sim-room>` and the `game-icons-changed` reload, 5.10 remaining tests. Hardware session H4 waits on 5.9; H1–H3 do not.
+
+**Known pre-existing devtest failures:** `boot_display.py`, `usb_link.py`, `nfc_display.py` (stub `code_puller` lacks `DEBUG_PULL`). `test_splat_companion.py` fails `test_copies_match` (Companion vs EUM `espnow_manager.py`). A8 (MockWand README "Splat games") is done.
 
 **Awaiting hardware** (see "Hardware needs per task" below): gates G1 and G2; sessions 3.2, 3.3b, 3.4, 3.5 and 3.6; device confirmation of 1.1, 1.3/A2.4, 1.5, 1.6, 1.9, Phase 2 (including each `main.py` hook's `idf_largest` change), the 4.1 firmware side, 4.3 and 4.4.
 
