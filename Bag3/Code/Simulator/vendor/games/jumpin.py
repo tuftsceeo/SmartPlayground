@@ -2,7 +2,11 @@
 Jump In — Button Press LED Blink
 ================================
 Tap the "jumpin" NFC tag to enter this mode.
-Press the button to blink all LEDs green.
+Press the button to blink all LEDs green. Each press also broadcasts
+{"type": "jumpin", "from": "wand"}; a {"type": "jumpin", "from": "splat"}
+from the Splat Companion's jumpin sets this wand's LEDs to its "rgb" and
+keeps them there ([0, 0, 0] is dark), and beeps its "tone" if present:
+the wand shows the latest Splat still held down.
 Tap "stop" tag to exit back to programming mode.
 
 Colors from leds.py — auto-scale with ambient brightness.
@@ -75,13 +79,26 @@ class JumpInGame:
         self.np = leds.np
         self.btn = Pin(BUTTON_PIN, Pin.IN, Pin.PULL_UP)
         self._frame = 0
+        self._splat_rgb = OFF     # latest held Splat's color, from the hub
     
     def _check_stop(self):
-        """Check ESP-NOW and NFC for stop. Returns True if stop detected."""
+        """Check ESP-NOW and NFC for stop. Returns True if stop detected.
+        A Splat Companion jumpin press blinks this wand."""
         if self.enow:
-            msg_type, _, _ = self.enow.poll()
+            msg_type, data, _ = self.enow.poll()
             if msg_type in ("stop", "start_game"):
                 return True
+            if (isinstance(data, dict) and data.get("type") == "jumpin"
+                    and data.get("from") == "splat"):
+                rgb = data.get("rgb")
+                tone = data.get("tone")
+                print("  Splat %s %s rgb=%s tone=%s"
+                      % (data.get("unit"), data.get("event"), rgb, tone))
+                if tone:
+                    self.buz.beep(int(tone), 120)
+                if rgb is not None:
+                    self._splat_rgb = tuple(rgb)
+                    self._fill(self._splat_rgb)
         if self._frame % NFC_POLL_INTERVAL != 0:
             return False
         try:
@@ -90,10 +107,20 @@ class JumpInGame:
         except Exception:
             return False
     
-    def _blink_green(self):
-        """Blink all LEDs green once."""
+    def _fill(self, color):
         for i in range(NUM_LEDS):
-            self.np[i] = GREEN
+            self.np[i] = color
+        self.np.write()
+
+    def _blink_green(self):
+        """Blink all LEDs green once, then restore the Splat color shown."""
+        self._blink(GREEN)
+        self._fill(self._splat_rgb)
+
+    def _blink(self, color):
+        """Blink all LEDs in color once."""
+        for i in range(NUM_LEDS):
+            self.np[i] = color
         self.np.write()
         time.sleep_ms(BLINK_ON_MS)
         
@@ -116,6 +143,8 @@ class JumpInGame:
             # ── GAME LOGIC ──
             if self.btn.value() == 0:
                 print("  Button pressed!")
+                if self.enow:
+                    self.enow.broadcast({"type": "jumpin", "from": "wand"})
                 self._blink_green()
             
             time.sleep_ms(LOOP_DELAY_MS)
