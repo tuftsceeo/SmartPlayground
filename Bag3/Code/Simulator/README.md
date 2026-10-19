@@ -44,8 +44,11 @@ ChatBroadcast's preview and example detail view do.
   `../BroadcastCode/ChatBroadcast/iconmaker/`, so serve `Bag3/Code/` (from
   `Simulator/` alone the panel falls back to plain squares and warns).
 
-- **Splats** and **Peer wands:** shown for a party game (`SPLATS_MIN`); see
-  "Party games" below.
+- **Splats on this wand** and **friend wands:** shown below the wand for a
+  party game (`SPLATS_MIN`); see "Party games" below. The friend wands strip
+  is one line until opened. In advanced mode (the `advanced` attribute) the
+  Splats gain an "In reach" box and the friend wands their radio controls
+  and the `pw_` message log.
 
 Not simulated: heap and fragmentation, compile size, radio timing, BLE
 pacing, and peers running real game code.
@@ -62,12 +65,13 @@ What stands in for what:
 
 - **BLE:** `py/shims/splat_hub.py` replaces `splat_hub.py`,
   `splat_link.py` and `ble_splat.py`. Its links are ready unless unplugged
-  (the panel's "link" box), so `splat_api.SplatGroup`, the pairing glow and
+  (the panel's "In reach" box, advanced mode), so `splat_api.SplatGroup`, the pairing glow and
   `net`'s ready mask (`splat_lost` / `splat_back`) run unchanged. Writes
-  (color, sound, note, off) are drawn on the Splat panel; a press there is
-  a button press on the Splat.
-- **Pairing:** the wand holds 1 Splat by default (0–2 from the panel; a
-  change restarts the game). MACs are `5A:00:<wand's last two bytes>:00:<i>`.
+  (color, sound, note, off) are drawn on the Splat tiles; pressing and
+  holding a tile is a button press on the Splat. A peer's Splats are small
+  tiles on its friend wand row.
+- **Pairing:** the wand holds 1 Splat by default (0–2 from the panel's
+  −/+; a change restarts the game). MACs are `5A:00:<wand's last two bytes>:00:<i>`.
   There are no Splat cards, `/pairing.json`, `pw_who` claim checks or the
   30 s connect deadline.
 - **Other wands:** `js/peers.js` virtual peers on the room's bus, speaking
@@ -75,10 +79,12 @@ What stands in for what:
   ready mask, pooled `pw_cmd`, `pw_evt`, `pw_msg`, leave, end, `q`
   dedupe). They run no game code. A follower peer keeps looking for a lobby
   and joins whichever the wand opens; a leader peer opens one, and its
-  "start" / "end" buttons run the game from the leader's side, so the wand
-  plays as a follower. "drop" silences a peer and stops its ACKs
-  (`wand_lost`, `leader_lost`). The room starts with one follower holding
-  one Splat; the peer strip adds more and logs the `pw_` traffic.
+  "Start game" / "End game" buttons (advanced mode; a leader is "+ Add a
+  host") run the game from the leader's side, so the wand plays as a
+  follower. "Go quiet" silences a peer and stops its ACKs (`wand_lost`,
+  `leader_lost`). The room starts with one follower holding one Splat; the
+  friend wands strip adds more and, in advanced mode, logs the `pw_`
+  traffic.
 - **Game scripts:** where a game needs the other wands to act, a short
   script in `js/peers.js` (`GAME_SCRIPTS`) plays their part: `partytest`'s
   follower button and leader lighting, `relaycolor`'s token passing.

@@ -70,7 +70,9 @@ class SimRoom extends HTMLElement {
    * Register an output panel.
    *   id       unique name
    *   slot     "panels" (beside the wand) or "strip" (below it)
-   *   title    heading shown above the panel
+   *   title    heading shown above the panel; null = none, and no padding
+   *            (the panel draws its own header)
+   *   hint     optional handwritten line beside the title
    *   wants    (capabilities, room) => bool: whether to show it
    *   create   (room, mountEl) => instance; called once, on first show
    *   update   optional (instance, capabilities, room) => void|Promise,
@@ -160,9 +162,13 @@ class SimRoom extends HTMLElement {
         .wand wand-sim { width: 100%; }
         .panels { display: flex; flex-direction: column; gap: 16px; flex: 1 1 240px; min-width: 0; }
         .strip { display: flex; flex-direction: column; gap: 12px; margin-top: 16px; }
-        .box { background: #fff; border: 1.5px solid #e8e6f0; border-radius: 16px; padding: 12px; }
+        .box { background: #fff; border: 1.5px solid #e8e6f0; border-radius: 16px; padding: 14px 16px;
+          color: #231f2e; font-family: 'Nunito', system-ui, sans-serif; }
+        .box.flush { padding: 0; }
         .box[hidden] { display: none; }
-        .box h3 { font: 800 0.9rem 'Nunito', system-ui, sans-serif; margin: 0 0 8px; }
+        .box-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; margin: 0 0 12px; }
+        .box-head h3 { font: 800 15px 'Nunito', system-ui, sans-serif; margin: 0; }
+        .box-head .hint { font: 400 18px 'Patrick Hand', 'Nunito', system-ui, sans-serif; color: #5b5468; }
         ${DISPLAY_STYLE}
         ${SPLAT_STYLE}
         ${PEERS_STYLE}
@@ -294,8 +300,18 @@ class SimRoom extends HTMLElement {
         const box = document.createElement("section");
         box.className = "box";
         box.dataset.panel = id;
-        box.innerHTML = `<h3></h3>`;
-        box.querySelector("h3").textContent = spec.title;
+        if (spec.title) {
+          box.innerHTML = `<div class="box-head"><h3></h3></div>`;
+          box.querySelector("h3").textContent = spec.title;
+          if (spec.hint) {
+            const hint = document.createElement("span");
+            hint.className = "hint";
+            hint.textContent = spec.hint;
+            box.firstChild.appendChild(hint);
+          }
+        } else {
+          box.classList.add("flush");
+        }
         this._root.querySelector(`[data-slot="${spec.slot}"]`).appendChild(box);
         entry = { spec, box, instance: spec.create(this, box) };
         this._panels.set(id, entry);
@@ -340,29 +356,22 @@ SimRoom.registerPanel("display", {
   },
 });
 
-const WAND_RGB_OF = (mac) => WAND_RGB[identityName(mac)];
-
-/** The wand's own Splats, then each peer's, as Splat panel groups. */
-function splatGroups(party) {
-  const wandIdent = WAND_RGB_OF(party.wandMac);
-  const groups = [{
-    owner: party.wandMac, label: "this wand", rgb: wandIdent, splats: party.wandSplats,
+/** The wand's own Splats as a Splat panel group; peers' are on the peer strip. */
+function wandGroup(party) {
+  return {
+    owner: party.wandMac, label: "this wand", rgb: WAND_RGB[identityName(party.wandMac)],
+    splats: party.wandSplats,
     onButton: (i, down) => party.wandSplatButton(i, down),
     onReady: (i, up) => party.wandSplatReady(i, up),
-  }];
-  for (const { peer } of party.peers) {
-    if (!peer.splats.length) continue;
-    groups.push({
-      owner: peer.mac, label: peer.name, rgb: peer.rgb, splats: peer.splats,
-      onButton: (i, down) => peer.splatButton(i, down),
-      onReady: (i, up) => peer.setSplatReady(i, up),
-    });
-  }
-  return groups;
+  };
 }
 
+// Both party panels sit below the wand: the Splats belong to it, and the
+// friend wands fold into one line until opened.
 SimRoom.registerPanel("splats", {
-  title: "Splats",
+  slot: "strip",
+  title: "Splats on this wand",
+  hint: "press and hold one to squish it",
   wants: (caps) => !!caps.party,
   create(room, box) {
     const panel = createSplatPanel({
@@ -374,11 +383,11 @@ SimRoom.registerPanel("splats", {
     });
     let shape = "";
     panel.sync = () => {
-      const groups = splatGroups(room.party);
-      const key = groups.map((g) => `${g.owner}:${g.splats.map((s) => s.mac).join("+")}`).join(",");
+      const group = wandGroup(room.party);
+      const key = group.splats.map((s) => s.mac).join("+");
       if (key !== shape) {
         shape = key;
-        panel.setGroups(groups);
+        panel.setGroups([group]);
       } else {
         panel.refresh();
       }
@@ -393,9 +402,9 @@ SimRoom.registerPanel("splats", {
 
 SimRoom.registerPanel("peers", {
   slot: "strip",
-  title: "Peer wands",
+  title: null,
   wants: (caps) => !!caps.party,
-  create: (room, box) => createPeerStrip({ mount: box, host: room.party }),
+  create: (room, box) => createPeerStrip({ mount: box, host: room.party, identOf: identityName }),
   update(strip) {
     strip.clearLog();
     strip.refresh();
