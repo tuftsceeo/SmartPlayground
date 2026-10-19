@@ -15,13 +15,14 @@ pair), so this drives both BboxServer and BdialServer the same way.
 import os, sys, tempfile, shutil
 
 _BB = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-CODE_ROOT = os.path.dirname(_BB)  # Bag3/Code/, parent of BroadcastBox/ and BroadcastDial/
+CODE_ROOT = _BB  # BroadcastCode/, parent of BroadcastBox/ and BroadcastDial/
 SCRATCH = os.path.dirname(os.path.abspath(__file__))
 
 import time as _time
 _time.sleep_ms = lambda ms: None
 _time.ticks_ms = lambda: int(_time.time() * 1000)
 _time.ticks_diff = lambda a, b: a - b
+_time.ticks_add = lambda a, b: a + b
 
 sys.path.insert(0, os.path.join(SCRATCH, "stubs"))
 
@@ -46,7 +47,8 @@ def _run_one(label, fw_dir, server_module_name, server_class_name):
     """
     tmp = tempfile.mkdtemp(prefix="menu-")
     games_dir = os.path.join(tmp, "games")
-    _write_games(games_dir, ["goalrace.py", "goalrace_icon.py", "tilt_tones.py"])
+    _write_games(games_dir, ["goalrace.py", "goalrace_icon.py", "tilt_tones.py",
+                             "showonly_icon.py", "splatonly_splat.py"])
 
     # Fresh import per firmware: both define same-named globals (GAMES_DIR,
     # INDEX_PATH, ACTIVE_PATH, handlers...) and must not leak into each other.
@@ -81,6 +83,29 @@ def _run_one(label, fw_dir, server_module_name, server_class_name):
     check("%s: the other game is still there" % label, "tilt_tones" in srv._index)
     check("%s: the staged peer never becomes active" % label,
           srv._active != "goalrace_icon", "active: %r" % srv._active)
+
+    check("%s: an _icon-only slug is enrolled under its slug" % label,
+          "showonly" in srv._index and "showonly_icon" not in srv._index,
+          "index: %s" % sorted(srv._index))
+    check("%s: a _splat-only slug is not enrolled" % label,
+          "splatonly" not in srv._index and "splatonly_splat" not in srv._index)
+
+    cs = sys.modules["code_server"]
+    cs.GAMES_DIR = games_dir
+    cs.ACTIVE_PATH = server_mod.ACTIVE_PATH
+    code = srv.code
+    code.set_game("showonly")
+    check("%s: set_game falls back to _icon for a display-only slug" % label,
+          code.src_path.endswith("showonly_icon.py") and code.role == "icon_display"
+          and code._file_ready(), "src=%s role=%s" % (code.src_path, code.role))
+    code.set_game("goalrace")
+    check("%s: set_game prefers the wand file" % label,
+          code.src_path.endswith("goalrace.py") and code.role == "wand")
+    check("%s: a wand request for a display-only slug is refused" % label,
+          code._lookup("showonly", "wand") is None)
+    r = code._lookup("showonly", "icon_display")
+    check("%s: an icon_display request gets the _icon file" % label,
+          r is not None and r[1].endswith("showonly_icon.py"))
 
     shutil.rmtree(tmp, ignore_errors=True)
 
