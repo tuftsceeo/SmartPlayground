@@ -142,3 +142,8 @@ reconnects.
 
 After the fix, three wands each paired a Splat and played `relaycolor`; reported as working by the
 person at the bench. The serial capture had ended before this run, so there is no log of it.
+
+Logged rerun: `87:92:CC` paired `6D:27` and `86:28:FC` paired `20:60` by card (READY 20 s and 15 s
+after the tap, through the reset); `85:CB:FC` held `5E:40`. `relaycolor` with `85:CB:FC` leading:
+27 passes in 16 s around all three wands, game_end on all three within 0.1 s, no warning, error or
+lost event on any wand.
