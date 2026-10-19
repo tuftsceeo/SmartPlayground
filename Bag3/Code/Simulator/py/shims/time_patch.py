@@ -3,7 +3,9 @@ Patch CPython's `time` module with MicroPython-compatible helpers.
 
 sleep_ms / sleep_us / sleep become async wrappers over asyncio.sleep so
 transformed game loops can await them without blocking the event loop.
-ticks_* use time.monotonic for a stable millisecond clock.
+ticks_* read a clock source: time.monotonic by default, or the shared
+virtual clock (js/clock.js nowMs) once set_clock_source() is called, so
+every simulated device measures timeouts against one time base.
 """
 
 from __future__ import annotations
@@ -24,6 +26,27 @@ _UPTIME_OFFSET_MS = 60_000
 # real await is short enough that transform.py's busy-loop watchdog (which
 # is keyed on real wall-clock time) never fires.
 _SCALE = 1.0
+
+
+# Optional external clock: a callable returning virtual ms (js/clock.js
+# nowMs). When set, it replaces monotonic()*_SCALE for ticks_*; the source
+# already includes its own scale. sleep_* still divide by _SCALE, so the
+# host keeps set_time_scale() equal to the clock scale.
+_SOURCE = None
+
+
+def set_clock_source(fn):
+    """Read ticks from *fn* (returns virtual ms); None restores monotonic."""
+    global _SOURCE
+    if fn is not None and not callable(fn):
+        raise TypeError("clock source must be callable or None")
+    _SOURCE = fn
+
+
+def _virtual_ms():
+    if _SOURCE is not None:
+        return float(_SOURCE())
+    return (_time.monotonic() - _BOOT) * 1000 * _SCALE
 
 
 def set_time_scale(k):
@@ -48,11 +71,11 @@ async def sleep(seconds):
 
 
 def ticks_ms():
-    return int((_time.monotonic() - _BOOT) * 1000 * _SCALE + _UPTIME_OFFSET_MS) & 0x3FFFFFFF
+    return int(_virtual_ms() + _UPTIME_OFFSET_MS) & 0x3FFFFFFF
 
 
 def ticks_us():
-    return int((_time.monotonic() - _BOOT) * 1_000_000 * _SCALE + _UPTIME_OFFSET_MS * 1000) & 0x3FFFFFFF
+    return int((_virtual_ms() + _UPTIME_OFFSET_MS) * 1000) & 0x3FFFFFFF
 
 
 def ticks_diff(a, b):

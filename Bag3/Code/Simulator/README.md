@@ -37,10 +37,9 @@ testing a game under development without re-vendoring it.
 
 ## Sync vendored sources
 
-Games and verbatim libs are copied into `vendor/` from `Bag2/Code/Wand
-Module` and `Bag2/Code/lib` — a different Bag than this tool now lives in,
-since Pyodide can't read the real filesystem live and `vendor/` is what it
-actually imports:
+Games and verbatim libs are copied into `vendor/` from
+`Bag3/Code/BroadcastCode/MockWand` and its `lib/`, since Pyodide can't read
+the real filesystem live and `vendor/` is what it actually imports:
 
 ```bash
 python3 tools/sync_sources.py          # refresh vendor/ + MANIFEST.json
@@ -54,12 +53,6 @@ git config core.hooksPath Bag3/Code/Simulator/.githooks
 ```
 
 (or copy the hook into `.git/hooks`).
-
-`buzzer.py` is the one exception: it's hand-mirrored from
-`Bag3/BroadcastBox/MockWand/lib/buzzer.py`, not synced from Bag2, so it's
-not in `sync_sources.py`'s `VERBATIM_LIBS` and `--check` doesn't touch it.
-If MockWand's `buzzer.py` changes, copy it into `vendor/lib/buzzer.py` by
-hand and re-run `sync_sources.py`.
 
 ## Tests
 
@@ -138,9 +131,8 @@ the Bag trees, not here, and has been left alone.
 ## Design notes
 
 - **Verbatim**: `leds.py`, `brightness.py`, `hubtype.py`, `game_tags.py`,
-  `actions.py`, `battery.py` (AST-transformed sync→async), synced from
-  Bag2. `buzzer.py` is verbatim too, hand-mirrored from MockWand: see
-  "Sync vendored sources" above.
+  `actions.py`, `battery.py`, `buzzer.py` (AST-transformed sync→async),
+  synced from MockWand/lib.
 - **Faked wholesale**: `lis2dw12`, `max17048`, `opt3002`, `pn532`,
   `nfc_reader`, `espnow_manager`.
 - **Platform shims**: `machine`, `neopixel`, `time.sleep_ms` / `ticks_*`,
