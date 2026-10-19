@@ -28,6 +28,7 @@ import { getAccel, setPadTilt, setPose, fireMove, cancelMove } from "./js/motion
 import { createAudio } from "./js/audio.js";
 import { createControls, CONTROLS_STYLE } from "./js/controls.js";
 import { icon } from "./js/icons.js";
+import { bootWand, wireCallbacks, loadPyodideNoJspi } from "./js/pyboot.js";
 
 const PYODIDE_VERSION = "0.27.0";
 const PYODIDE_CDN = `https://cdn.jsdelivr.net/pyodide/v${PYODIDE_VERSION}/full/`;
@@ -177,7 +178,7 @@ function assetUrl(rel) {
 }
 
 /**
- * The ~38 Python files below are one unit with this file: the bootstrap
+ * The Python files in js/pyboot.js FILE_LIST are one unit with this file: the bootstrap
  * calls sim_state functions by name, so a stale copy of any of them breaks
  * boot outright (an old sim_state.py against a new wand-sim.js raises
  * `no attribute 'set_error_callback'`). A plain static server sends no
@@ -227,51 +228,6 @@ function speakerColorForFreq(freq) {
 // 60Hz is just churn.
 const AXIS_REFRESH_MS = 100;
 
-const FILE_LIST = [
-  "py/transform.py",
-  "py/runtime.py",
-  "py/shims/sim_state.py",
-  "py/shims/machine.py",
-  "py/shims/neopixel.py",
-  "py/shims/_thread.py",
-  "py/shims/network.py",
-  "py/shims/espnow.py",
-  "py/shims/ubluetooth.py",
-  "py/shims/micropython.py",
-  "py/shims/time_patch.py",
-  "py/devices/lis2dw12.py",
-  "py/devices/max17048.py",
-  "py/devices/opt3002.py",
-  "py/devices/pn532.py",
-  "py/devices/nfc_reader.py",
-  "vendor/hubtype.txt",
-  "vendor/lib/brightness.py",
-  "vendor/lib/hubtype.py",
-  "vendor/lib/leds.py",
-  "vendor/lib/buzzer.py",
-  "vendor/lib/game_tags.py",
-  "vendor/lib/actions.py",
-  "vendor/lib/battery.py",
-  "vendor/lib/espnow_manager.py",
-  "vendor/games/jump.py",
-  "vendor/games/shake.py",
-  "vendor/games/shake_rainbow.py",
-  "vendor/games/sound.py",
-  "vendor/games/rainbow.py",
-  "vendor/games/jumpin.py",
-  "vendor/games/nfc_sound.py",
-  "vendor/games/gestures.py",
-  "vendor/games/simpleicecream.py",
-  "vendor/games/melody.py",
-  "vendor/games/cooking.py",
-  "vendor/games/multiicecream.py",
-  "vendor/games/freeze_dance.py",
-  "vendor/games/goalrace.py",
-  "vendor/games/color_quest.py",
-  "vendor/games/finddevice.py",
-  // Not a game: color_quest.py imports SCORE_MAC from it.
-  "vendor/games/target.py",
-];
 
 class WandSim extends HTMLElement {
   static get observedAttributes() {
@@ -551,41 +507,12 @@ class WandSim extends HTMLElement {
   async _boot() {
     try {
       await this._loadPyodide();
-      const contents = {};
-      await Promise.all(FILE_LIST.map(async (rel) => {
-        contents[rel] = await fetchText(rel);
-      }));
-
-      // Write sources into Pyodide FS and bootstrap runtime.
-      this._pyodide.FS.mkdirTree("/sim");
-      for (const [rel, text] of Object.entries(contents)) {
-        const path = "/sim/" + rel;
-        const dir = path.slice(0, path.lastIndexOf("/"));
-        this._pyodide.FS.mkdirTree(dir);
-        this._pyodide.FS.writeFile(path, text);
-      }
-
-      await this._pyodide.runPythonAsync(`
-import sys
-sys.path.insert(0, "/sim/py")
-sys.path.insert(0, "/sim/py/shims")
-sys.path.insert(0, "/sim/py/devices")
-from runtime import get_runtime, load_game, start, stop, get_commands, get_capabilities
-import os
-contents = {}
-for root, dirs, files in os.walk("/sim"):
-    for f in files:
-        p = os.path.join(root, f)
-        rel = p[len("/sim/"):]
-        with open(p) as fh:
-            contents[rel] = fh.read()
-rt = get_runtime()
-rt.bootstrap(file_contents=contents, workdir="/sim/vendor")
-`);
+      await bootWand(this._pyodide, fetchText);
 
       // Wire JS callbacks into sim_state
       const self = this;
-      this._pyodide.globals.set("_js_led", (pixels) => {
+      const cb = {};
+      cb.set_led_callback = (pixels) => {
         const arr = pixels.toJs ? pixels.toJs() : pixels;
         const flat = Array.from(arr).map((p) => {
           const t = p.toJs ? p.toJs() : p;
@@ -593,8 +520,8 @@ rt.bootstrap(file_contents=contents, workdir="/sim/vendor")
         });
         self._renderer.applyFrame(flat);
         self.dispatchEvent(new CustomEvent("sim-frame", { detail: { pixels: flat } }));
-      });
-      this._pyodide.globals.set("_js_pwm", (f, d) => {
+      };
+      cb.set_pwm_callback = (f, d) => {
         self._audio.setPwm(f, d);
         const freq = Number(f) || 0;
         const on = freq > 20 && (Number(d) || 0) > 0;
@@ -603,55 +530,34 @@ rt.bootstrap(file_contents=contents, workdir="/sim/vendor")
         // One expanding ring per note, in that note's own color — the
         // visible counterpart of a beep for anyone with sound off.
         if (on) self._renderer.ping(color);
-      });
-      this._pyodide.globals.set("_js_motor", (on) => self._audio.setMotor(!!on));
-      this._pyodide.globals.set("_js_print", (t) => {
+      };
+      cb.set_motor_callback = (on) => self._audio.setMotor(!!on);
+      cb.set_print_callback = (t) => {
         const line = String(t);
         self._consoleEl.textContent += line + "\n";
         self._consoleEl.scrollTop = self._consoleEl.scrollHeight;
         self._logLine(line);
         self.dispatchEvent(new CustomEvent("sim-print", { detail: { text: line } }));
-      });
+      };
       // Diagnostic trace, not a failure — a library that wouldn't load, a
       // radio message going out. This used to be wired to sim-error, which
       // meant every ESP-NOW broadcast read as a crash to the host.
-      this._pyodide.globals.set("_js_log", (t) => {
+      cb.set_log_callback = (t) => {
         self._logLine(String(t));
-      });
+      };
       // A traceback out of the running game goes through the same path as a
       // boot/load failure: the game is dead either way, and leaving only a
       // red status line behind is too quiet for something this final.
-      this._pyodide.globals.set("_js_error", (t) => {
+      cb.set_error_callback = (t) => {
         self._fail("run", String(t));
-      });
-      this._pyodide.globals.set("_js_enow_sent", (kind, data, mac) => {
+      };
+      cb.set_enow_sent_callback = (kind, data, mac) => {
         self._controls?.setEnowSent(String(kind), String(data || ""));
         self.dispatchEvent(new CustomEvent("sim-enow-sent", {
           detail: { kind: String(kind), data: String(data || ""), mac: String(mac || "") },
         }));
-      });
-
-      await this._pyodide.runPythonAsync(`
-import sim_state
-_missing = [n for n in (
-    "set_led_callback", "set_pwm_callback", "set_motor_callback",
-    "set_print_callback", "set_log_callback", "set_error_callback",
-    "set_enow_sent_callback",
-) if not hasattr(sim_state, n)]
-if _missing:
-    raise RuntimeError(
-        "sim_state.py is out of date with wand-sim.js (missing %s) — "
-        "a cached copy is being served; reload without cache"
-        % ", ".join(_missing)
-    )
-sim_state.set_led_callback(_js_led)
-sim_state.set_pwm_callback(_js_pwm)
-sim_state.set_motor_callback(_js_motor)
-sim_state.set_print_callback(_js_print)
-sim_state.set_log_callback(_js_log)
-sim_state.set_error_callback(_js_error)
-sim_state.set_enow_sent_callback(_js_enow_sent)
-`);
+      };
+      await wireCallbacks(this._pyodide, cb);
       // Held once so per-frame accel/button pushes call methods directly
       // instead of recompiling a Python source string every tick.
       this._sim = this._pyodide.pyimport("sim_state");
@@ -697,7 +603,7 @@ sim_state.set_enow_sent_callback(_js_enow_sent)
         document.head.appendChild(s);
       });
     }
-    this._pyodide = await window.loadPyodide({ indexURL: PYODIDE_CDN });
+    this._pyodide = await loadPyodideNoJspi(window.loadPyodide, { indexURL: PYODIDE_CDN });
   }
 
   async _runPython(code) {

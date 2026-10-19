@@ -12,7 +12,8 @@ design artboards in
 
 Games: `jump`, `shake`, `shake_rainbow`, `sound`, `rainbow`, `jumpin`,
 `nfc_sound`, `gestures`, `simpleicecream`, `melody`, `cooking`,
-`multiicecream`, `freeze_dance`, `goalrace`, `color_quest`, `finddevice`
+`multiicecream`, `freeze_dance`, `goalrace`, `color_quest`, `finddevice`,
+and the party games `partytest`, `splattag` and `relaycolor`
 (`target.py` is vendored beside them for `color_quest`).
 
 ## `<sim-room>`
@@ -25,9 +26,14 @@ classified as on the device; each device gets its own MAC through
 `network.WLAN().config('mac')`.
 
 Panels appear from the loaded game's capabilities (`get_capabilities()`:
-`party`, `splats_local`, `splats_min`, `splats_max`, `uses_display`,
+`party`, `local_splats`, `splats_min`, `splats_max`, `uses_display`,
 `has_display_file`). New panels register with `SimRoom.registerPanel(id,
 {slot, title, wants, create, update, hide})`.
+
+The room re-dispatches `<wand-sim>`'s events and passes through its
+`autostart`, `profile`, `start()`, `stop()`, `restart()`, `showOverlay()`
+and `hideOverlay()`, so a host can use it in place of `<wand-sim>`;
+ChatBroadcast's preview and example detail view do.
 
 - **Icon display:** shown when the game has a display file
   (`vendor/display/games/<game>.py`, or the `displaySource` property) or
@@ -38,8 +44,79 @@ Panels appear from the loaded game's capabilities (`get_capabilities()`:
   `../BroadcastCode/ChatBroadcast/iconmaker/`, so serve `Bag3/Code/` (from
   `Simulator/` alone the panel falls back to plain squares and warns).
 
+- **Splats** and **Peer wands:** shown for a party game (`SPLATS_MIN`); see
+  "Party games" below.
+
 Not simulated: heap and fragmentation, compile size, radio timing, BLE
 pacing, and peers running real game code.
+
+## Party games
+
+A game that declares `SPLATS_MIN` runs as `MockWand/main.py` runs it: the
+wand builds its `splatpair.SplatPairing`, `party.enter()` finds a lobby or
+opens one, and `play()` gets the `party.Net` as its eighth argument
+(`runtime._run_party`). All of it is the vendored code: `party.py`,
+`pwire.py`, `splatpair.py`, `pairing.py` and `splat_api.py`.
+
+What stands in for what:
+
+- **BLE:** `py/shims/splat_hub.py` replaces `splat_hub.py`,
+  `splat_link.py` and `ble_splat.py`. Its links are ready unless unplugged
+  (the panel's "link" box), so `splat_api.SplatGroup`, the pairing glow and
+  `net`'s ready mask (`splat_lost` / `splat_back`) run unchanged. Writes
+  (color, sound, note, off) are drawn on the Splat panel; a press there is
+  a button press on the Splat.
+- **Pairing:** the wand holds 1 Splat by default (0–2 from the panel; a
+  change restarts the game). MACs are `5A:00:<wand's last two bytes>:00:<i>`.
+  There are no Splat cards, `/pairing.json`, `pw_who` claim checks or the
+  30 s connect deadline.
+- **Other wands:** `js/peers.js` virtual peers on the room's bus, speaking
+  `party.py`'s `pw_*` frames (find, lobby, join, start, heartbeat with the
+  ready mask, pooled `pw_cmd`, `pw_evt`, `pw_msg`, leave, end, `q`
+  dedupe). They run no game code. A follower peer keeps looking for a lobby
+  and joins whichever the wand opens; a leader peer opens one, and its
+  "start" / "end" buttons run the game from the leader's side, so the wand
+  plays as a follower. "drop" silences a peer and stops its ACKs
+  (`wand_lost`, `leader_lost`). The room starts with one follower holding
+  one Splat; the peer strip adds more and logs the `pw_` traffic.
+- **Game scripts:** where a game needs the other wands to act, a short
+  script in `js/peers.js` (`GAME_SCRIPTS`) plays their part: `partytest`'s
+  follower button and leader lighting, `relaycolor`'s token passing.
+  `splattag` needs none (followers only display). A generated game gets the
+  protocol and the Splats only.
+
+In a room the wand's ticks mirror the room clock
+(`time_patch.set_clock_anchor`, re-synced every second by `js/pyboot.js`
+`attachWand`) rather than calling into JS on every `ticks_ms()`.
+
+Pyodide loads with WebAssembly's JSPI hidden (`js/pyboot.js`
+`loadPyodideNoJspi`), the path it takes under Node. With JSPI, Pyodide
+0.27.0 on Chrome 152 stops with a fatal "function signature mismatch" or
+"invalid address in funcref table" after about a minute of party play.
+
+## Headless runs
+
+`tools/sim_run.mjs` runs a party game in Pyodide under Node, with no
+browser (`js/headless.js`): the same wand, peers and Splats on a bus and a
+clock running 4x real time.
+
+```bash
+node Bag3/Code/Simulator/tools/sim_run.mjs --game splattag --seconds 20
+node Bag3/Code/Simulator/tools/sim_run.mjs --file my_game.py --verbose
+```
+
+Three scenarios: **lead** (the wand leads, follower peers fill the lobby to
+`SPLATS_MIN`, the wand's button starts it, random Splat and button presses
+for `--seconds`, then the stop card), **follow** (a leader peer runs the
+game with the wand in it, then ends it) and **lost** (the leader goes
+silent). It reports exceptions, and an unhandled `end` or `leader_lost` when
+`play()` does not return after the leader ends the game or goes silent;
+exit 1 on either. `ChatBroadcast/tools/prompt_eval.mjs` runs every generated
+party game through it (`simRun`), and `prompt_eval.mjs --self-test-sim`
+checks that on a good and two broken games.
+
+Pyodide comes from its npm package: `PYODIDE_DIR`, or fetched once with
+`npm pack` into the OS temp dir.
 
 ## Run locally
 
@@ -91,7 +168,13 @@ python3 -m pytest
 - `test_transform.py` — pure AST sync→async transform (no Pyodide).
 - `test_radio.py` / `test_icon_host.py` — the radio stack and capabilities,
   and the display host running IconDisplay's goalrace.
-- `node --test tests/js/*.test.mjs` — bus, clock and payload helpers.
+- `test_party.py` — party games on the wand: lobby, start, pooled
+  commands, Splat presses and the ready mask, against hand-written peer
+  frames.
+- `node --test tests/js/*.test.mjs` — bus, clock and payload helpers, and
+  the virtual peers against each other (`peers.test.mjs`).
+- `node tools/sim_run.mjs --game partytest` — a party game end to end,
+  headless (see "Headless runs").
 - `node tools/room_smoke.mjs` — Playwright: goalrace in `<sim-room>`, the
   display panel appears and reacts to `goal`. Serves `Bag3/Code/`; Pyodide
   is answered from a local copy of its npm package (see the script header).

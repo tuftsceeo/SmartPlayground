@@ -168,7 +168,7 @@ def test_capabilities_new_fields(runtime):
     rt.load_game("goalrace")
     caps = rt.get_capabilities()
     assert caps["party"] is False
-    assert caps["splats_local"] is None and caps["splats_min"] is None
+    assert caps["local_splats"] == 1 and caps["splats_min"] is None
     assert caps["splats_max"] is None
     assert caps["uses_display"] is True
     assert caps["has_display_file"] is True
@@ -188,10 +188,11 @@ def test_capabilities_splat_declarations(runtime):
         "    time.sleep_ms(10)\n")
     caps = rt.get_capabilities()
     assert caps["party"] is True
-    assert (caps["splats_min"], caps["splats_max"], caps["splats_local"]) == (2, 4, None)
+    assert (caps["splats_min"], caps["splats_max"]) == (2, 4)
 
+    # There is no solo Splat path: SPLATS_LOCAL is not a declaration.
     rt.load_game("import time\nSPLATS_LOCAL = 1\n"
                  "def play(nfc, leds, buz, accel, i2c, enow, batt=None):\n"
                  "    time.sleep_ms(10)\n")
     caps = rt.get_capabilities()
-    assert caps["party"] is False and caps["splats_local"] == 1
+    assert caps["party"] is False and caps["splats_min"] is None

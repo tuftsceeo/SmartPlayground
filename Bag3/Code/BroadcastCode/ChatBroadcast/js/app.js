@@ -123,6 +123,7 @@ class App {
         this._detailSim = null;
         this._detailSimToken = 0;
         this._simLastSource = null;
+        this._simLastDisplay = null;
         this._simPendingSource = null;
         this._simForcePlayPending = false;
         // One store for connection UI — badge and button share this.
@@ -1331,6 +1332,7 @@ class App {
         this.dirty = false;
         this._sim?.stop();
         this._simLastSource = null;
+        this._simLastDisplay = null;
         this.updatePreview();
     }
 
@@ -1665,7 +1667,7 @@ class App {
     }
 
     /** Show the selected example actually running, in place of the old
-     * static "preview animation" placeholder. A fresh <wand-sim> is built
+     * static "preview animation" placeholder. A fresh <sim-room> is built
      * per visit and torn down on the way out (see watchDetailView) rather
      * than kept alive hidden — each instance boots its own Pyodide, and a
      * gallery browse would otherwise leave one running per example opened. */
@@ -1679,13 +1681,16 @@ class App {
             empty.classList.remove('hidden');
         }
         const token = ++this._detailSimToken;
-        dbg('app', `mountDetailSim("${ex.id}") — loading wand-sim module`);
-        import('../../../Simulator/wand-sim.js')
+        dbg('app', `mountDetailSim("${ex.id}") — loading sim-room module`);
+        import('../../../Simulator/sim-room.js')
             .then(() => {
                 // The teacher moved on while Pyodide's module was loading —
                 // don't mount a sim into a panel nobody is looking at.
                 if (token !== this._detailSimToken) return;
-                const sim = document.createElement('wand-sim');
+                // <sim-room>: the wand plus whatever the game uses beside it
+                // (Splats and peer wands for a party game, the icon display
+                // for a two-device one).
+                const sim = document.createElement('sim-room');
                 sim.id = 'detail-sim';
                 sim.toggleAttribute('advanced', loadUiMode() === 'advanced');
                 // Look-what-it-does preview — already playing when the
@@ -1705,7 +1710,7 @@ class App {
                 if (empty) empty.classList.add('hidden');
             })
             .catch((err) => {
-                dbgError('sim', 'failed to load wand-sim module for the detail preview', err);
+                dbgError('sim', 'failed to load sim-room module for the detail preview', err);
                 if (token !== this._detailSimToken || !empty) return;
                 empty.textContent = "The practice window isn't available right now — you can still remix or send this game.";
             });
@@ -2012,16 +2017,25 @@ class App {
         if (caption) caption.textContent = info.previewCaption;
     }
 
-    /** Lazily load the <wand-sim> module the first time it's needed —
-     * Pyodide plus its ~37 game/shim files is a real download, and booting
+    /** Lazily load the <sim-room> module the first time it's needed —
+     * Pyodide plus its game/shim files is a real download, and booting
      * it while the teacher is still typing their first chat message would
-     * only add to that wait. Safe to call repeatedly; the import runs once. */
+     * only add to that wait. Safe to call repeatedly; the import runs once.
+     *
+     * #wand-sim is a <sim-room>: the wand, plus the panels the game uses
+     * (the icon display for a two-device game, Splats and virtual peer
+     * wands for a party game). It takes the same calls <wand-sim> did. */
     setupSim() {
         if (this._simLoadPromise) return this._simLoadPromise;
-        dbg('app', 'setupSim() — loading wand-sim module');
-        this._simLoadPromise = import('../../../Simulator/wand-sim.js')
+        dbg('app', 'setupSim() — loading sim-room module');
+        this._simLoadPromise = import('../../../Simulator/sim-room.js')
             .then(() => {
                 this._sim = document.getElementById('wand-sim');
+                // An icon edit reaches the running display: the room rewrites
+                // the display game's icon files.
+                document.addEventListener('game-icons-changed', () => {
+                    if (this._sim && this._simLastDisplay) this._sim.displayIcons = this.simDisplayIcons(this._simLastDisplay);
+                });
                 // Every push of new code reloads the game; start it right away.
                 this._sim.autostart = true;
                 // <wand-sim> shows its own "Can't simulate" pop-up on a
@@ -2044,7 +2058,7 @@ class App {
                 }
             })
             .catch((err) => {
-                dbgError('sim', 'failed to load wand-sim module', err);
+                dbgError('sim', 'failed to load sim-room module', err);
             });
         return this._simLoadPromise;
     }
@@ -2075,12 +2089,17 @@ class App {
             this._simForcePlayPending = forcePlay;
             return;
         }
-        if (code === this._simLastSource && !forcePlay) return;
+        // The display half runs beside the wand when the game has one.
+        const display = getCode('icon') || null;
+        if (code === this._simLastSource && display === this._simLastDisplay && !forcePlay) return;
         // Only from the second push on: the first one *is* the game
         // appearing, which needs no announcement.
         const isUpdate = this._simLastSource != null;
         this._simLastSource = code;
+        this._simLastDisplay = display;
         this._sim.hideOverlay();
+        this._sim.displayIcons = display ? this.simDisplayIcons(display) : null;
+        this._sim.displaySource = display;
         // Workspace code is pushed as source — it may have been edited — so
         // _TEACHER_TABLE can't match it and capabilities fall back to "show
         // everything". The example's own profile is what narrows that back
@@ -2092,6 +2111,17 @@ class App {
         } else if (isUpdate) {
             this._sim.showOverlay('new-code');
         }
+    }
+
+    /** {name: duty[768]} for every icon the display code names, this
+     * game's own version where it has one (getIcon's order). */
+    simDisplayIcons(displayCode) {
+        const out = {};
+        for (const name of iconNamesIn(displayCode)) {
+            const duty = getIcon(name);
+            if (duty) out[name] = duty;
+        }
+        return out;
     }
 
     /**

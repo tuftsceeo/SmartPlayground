@@ -4,11 +4,13 @@
  *
  * The wand is always shown. Panels come from a registry and appear only when
  * `wants(capabilities)` says the loaded game uses them; capabilities are
- * py/runtime.py get_capabilities() (party, splats_local, splats_min,
+ * py/runtime.py get_capabilities() (party, local_splats, splats_min,
  * splats_max, uses_display, has_display_file, ...). Built in here: the
- * display panel (js/panels/display.js). The Splat panel and the peer strip
- * register the same way (SimRoom.registerPanel), into the "panels" or
- * "strip" slot.
+ * display panel (js/panels/display.js), and for a party game the Splat
+ * panel (js/panels/splats.js) and the peer strip (js/panels/peers.js),
+ * which draw the room's party host (js/party.js): the wand's own Splats and
+ * the virtual peer wands (js/peers.js). The room starts with one follower
+ * peer holding one Splat.
  *
  * Attributes passed through to the inner <wand-sim>: game, autostart,
  * advanced, show-console, log-lines.
@@ -22,18 +24,29 @@
  *                  the icon files, which is how an icon edit reaches a
  *                  running display.
  *   bus, clock     the room's bus (js/bus.js) and clock (js/clock.js)
+ *   party          the party host (js/party.js), once the wand has booted
  *   wand           the inner <wand-sim>
  *   capabilities   the last capabilities, or null
+ *   autostart, profile   passed to the inner <wand-sim>
  *
- * Events: room-capabilities (detail: capabilities), plus everything
- * <wand-sim> fires, which bubbles out unchanged.
+ * Methods passed to the inner <wand-sim>: start(), stop(), restart(),
+ * showOverlay(), hideOverlay().
+ *
+ * Events: room-capabilities (detail: capabilities), and <wand-sim>'s own
+ * events (FORWARDED below), re-dispatched from the room so a host page can
+ * listen on the room itself.
  */
 
 import "./wand-sim.js";
 import { createBus, BROADCAST } from "./js/bus.js";
 import { createClock } from "./js/clock.js";
-import { hexToBytes, bytesToHex, describePayload } from "./js/radio.js";
+import { hexToBytes, describePayload } from "./js/radio.js";
 import { createDisplayPanel, DISPLAY_STYLE } from "./js/panels/display.js";
+import { createSplatPanel, SPLAT_STYLE } from "./js/panels/splats.js";
+import { createPeerStrip, PEERS_STYLE } from "./js/panels/peers.js";
+import { createPartyHost } from "./js/party.js";
+import { WAND_RGB, identityName } from "./js/peers.js";
+import { attachWand } from "./js/pyboot.js";
 
 export const WAND_MAC = "02:00:00:00:0a:01";
 export const DISPLAY_MAC = "02:00:00:00:0d:01";
@@ -41,6 +54,10 @@ export const DISPLAY_MAC = "02:00:00:00:0d:01";
 export const ROOM_MAC = "02:00:00:00:00:fe";
 
 const PASS_ATTRS = ["game", "autostart", "advanced", "show-console", "log-lines"];
+
+/** <wand-sim> events the room re-dispatches (they do not leave its shadow root). */
+const FORWARDED = ["sim-ready", "sim-loaded", "sim-frame", "sim-print", "sim-error",
+  "sim-stopped", "sim-overlay-action", "sim-enow-sent"];
 
 function simUrl(rel) {
   return new URL(rel, import.meta.url).href;
@@ -82,7 +99,32 @@ class SimRoom extends HTMLElement {
     this._panels = new Map(); // id -> { spec, box, instance }
     this._manifest = null;
     this._loadSeq = 0;
+    this.party = null;
+    this._profile = null;
+    this._autostart = null;
   }
+
+  get autostart() { return this.wand ? this.wand.autostart : !!this._autostart; }
+  set autostart(v) {
+    this._autostart = !!v;
+    if (this.wand) this.wand.autostart = !!v;
+  }
+
+  get profile() { return this._profile; }
+  set profile(v) {
+    this._profile = v || null;
+    if (this.wand) this.wand.profile = this._profile;
+  }
+
+  get game() { return this.wand ? this.wand.game : this.getAttribute("game"); }
+  set game(v) { this.setAttribute("game", v); }
+
+  get pyodide() { return this.wand ? this.wand.pyodide : null; }
+
+  start() { return this.wand?.start(); }
+  stop() { return this.wand?.stop(); }
+  showOverlay(kind, opts) { return this.wand?.showOverlay(kind, opts); }
+  hideOverlay() { return this.wand?.hideOverlay(); }
 
   get source() { return this._source; }
   set source(v) {
@@ -122,6 +164,8 @@ class SimRoom extends HTMLElement {
         .box[hidden] { display: none; }
         .box h3 { font: 800 0.9rem 'Nunito', system-ui, sans-serif; margin: 0 0 8px; }
         ${DISPLAY_STYLE}
+        ${SPLAT_STYLE}
+        ${PEERS_STYLE}
       </style>
       <div class="room">
         <div class="wand" data-slot="wand"></div>
@@ -133,7 +177,14 @@ class SimRoom extends HTMLElement {
       if (this.hasAttribute(a)) wand.setAttribute(a, this.getAttribute(a));
     }
     if (this._source) wand.source = this._source;
+    if (this._profile) wand.profile = this._profile;
+    if (this._autostart !== null) wand.autostart = this._autostart;
     this.wand = wand;
+    for (const type of FORWARDED) {
+      wand.addEventListener(type, (e) => {
+        this.dispatchEvent(new CustomEvent(type, { detail: e.detail }));
+      });
+    }
     wand.addEventListener("sim-ready", () => this._attachWand());
     wand.addEventListener("sim-loaded", () => {
       this._refresh().catch((err) => console.error("sim-room refresh", err));
@@ -148,18 +199,28 @@ class SimRoom extends HTMLElement {
     else this.wand.setAttribute(name, value);
   }
 
-  restart() { return this.wand?.restart(); }
+  restart() {
+    this.party?.retap();
+    return this.wand?.restart();
+  }
 
   /** Put the wand on the bus and the room clock (runs before its game loads). */
   _attachWand() {
     const py = this.wand.pyodide;
-    const simState = py.pyimport("sim_state");
-    py.globals.set("_room_tx", (src, dst, hex) => this._tx(String(src), String(dst), String(hex)));
-    py.globals.set("_room_now", () => this.clock.nowMs());
-    simState.set_own_mac(WAND_MAC);
-    simState.set_radio_tx(py.globals.get("_room_tx"));
-    py.pyimport("time_patch").set_clock_source(py.globals.get("_room_now"));
-    this.bus.attach(WAND_MAC, (src, payload) => simState.deliver_enow(src, bytesToHex(payload)));
+    attachWand(py, { bus: this.bus, clock: this.clock, mac: WAND_MAC, tx: (s, d, h) => this._tx(s, d, h) });
+    this.party = createPartyHost({ bus: this.bus, clock: this.clock, py, wandMac: WAND_MAC });
+    this.party.addPeer({ mode: "follower", splats: 1 });
+    let queued = false;
+    this.party.onChange(() => {
+      if (queued) return;
+      queued = true;
+      requestAnimationFrame(() => {
+        queued = false;
+        this.panel("splats")?.sync();
+        this.panel("peers")?.refresh();
+      });
+    });
+    this.party.onPwLog((line, frame) => this.panel("peers")?.pushLog(line, frame));
   }
 
   /** Bus send from a Python device; returns the ACK count espnow.send uses. */
@@ -220,7 +281,12 @@ class SimRoom extends HTMLElement {
     this.capabilities = caps;
     this._display = display;
     this._displaySlug = display ? display.slug : null;
+    this.party?.setGame(this._source ? "custom" : this.wand.game.replace(/\.py$/, ""), caps);
     this.dispatchEvent(new CustomEvent("room-capabilities", { detail: caps }));
+    // Show and hide every panel first: an update can take a while (the
+    // display boots its own Pyodide), and a panel the new game does not use
+    // must not linger meanwhile.
+    const shownNow = [];
     for (const [id, spec] of PANELS) {
       const shown = !!spec.wants(caps, this);
       let entry = this._panels.get(id);
@@ -236,8 +302,12 @@ class SimRoom extends HTMLElement {
       }
       if (!entry) continue;
       entry.box.hidden = !shown;
-      if (shown && spec.update) await spec.update(entry.instance, caps, this);
-      if (!shown && spec.hide) await spec.hide(entry.instance, this);
+      shownNow.push([entry, shown]);
+    }
+    for (const [{ spec, instance }, shown] of shownNow) {
+      if (seq !== this._loadSeq) return;
+      if (shown && spec.update) await spec.update(instance, caps, this);
+      if (!shown && spec.hide) await spec.hide(instance, this);
     }
   }
 
@@ -267,6 +337,68 @@ SimRoom.registerPanel("display", {
   },
   hide(panel, room) {
     room.bus.send(ROOM_MAC, DISPLAY_MAC, new TextEncoder().encode(JSON.stringify({ type: "stop" })));
+  },
+});
+
+const WAND_RGB_OF = (mac) => WAND_RGB[identityName(mac)];
+
+/** The wand's own Splats, then each peer's, as Splat panel groups. */
+function splatGroups(party) {
+  const wandIdent = WAND_RGB_OF(party.wandMac);
+  const groups = [{
+    owner: party.wandMac, label: "this wand", rgb: wandIdent, splats: party.wandSplats,
+    onButton: (i, down) => party.wandSplatButton(i, down),
+    onReady: (i, up) => party.wandSplatReady(i, up),
+  }];
+  for (const { peer } of party.peers) {
+    if (!peer.splats.length) continue;
+    groups.push({
+      owner: peer.mac, label: peer.name, rgb: peer.rgb, splats: peer.splats,
+      onButton: (i, down) => peer.splatButton(i, down),
+      onReady: (i, up) => peer.setSplatReady(i, up),
+    });
+  }
+  return groups;
+}
+
+SimRoom.registerPanel("splats", {
+  title: "Splats",
+  wants: (caps) => !!caps.party,
+  create(room, box) {
+    const panel = createSplatPanel({
+      mount: box,
+      onLocalCount: (n) => {
+        room.party.setLocalSplats(n);
+        room.restart();
+      },
+    });
+    let shape = "";
+    panel.sync = () => {
+      const groups = splatGroups(room.party);
+      const key = groups.map((g) => `${g.owner}:${g.splats.map((s) => s.mac).join("+")}`).join(",");
+      if (key !== shape) {
+        shape = key;
+        panel.setGroups(groups);
+      } else {
+        panel.refresh();
+      }
+    };
+    return panel;
+  },
+  update(panel, caps) {
+    panel.setLocalCount(caps.local_splats ?? 1);
+    panel.sync();
+  },
+});
+
+SimRoom.registerPanel("peers", {
+  slot: "strip",
+  title: "Peer wands",
+  wants: (caps) => !!caps.party,
+  create: (room, box) => createPeerStrip({ mount: box, host: room.party }),
+  update(strip) {
+    strip.clearLog();
+    strip.refresh();
   },
 });
 
