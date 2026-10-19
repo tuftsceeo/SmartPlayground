@@ -343,6 +343,9 @@ class Net:
         self.wands = [(m, pairing.identity(m)[0], c) for m, c in roster]
         self._macs = [m for m, _ in roster]
         self.me = self._macs.index(link.mac)
+        for m in self._macs:         # SPEC section 8: every member is a peer
+            if m != link.mac:
+                link.add_peer(m)
         self._pool = pool
         self.splat_count = len(pool)
         self._events = []

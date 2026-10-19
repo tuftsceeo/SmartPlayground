@@ -354,6 +354,18 @@ def test_messages():
     sim.save("messages", "B sends A a pw_msg; A sends one to every other wand")
 
 
+def test_follower_sends_to_followers():
+    sim, a, b, c = _started()
+    assert C in b.enow.peers and B in c.enow.peers
+    assert b.net.send(2, {"k": "toC"})
+    assert c.net.send(None, {"k": "fromC"})
+    sim.run(30)
+    assert ("msg", 1, {"k": "toC"}) in c.events
+    assert ("msg", 2, {"k": "fromC"}) in a.events and ("msg", 2, {"k": "fromC"}) in b.events
+    a.net.close(); b.net.close(); c.net.close()
+    assert not b.enow.peers and not c.enow.peers
+
+
 def test_splat_lost_and_back():
     sim, a, b, c = _started()
     sim.run(1200)
