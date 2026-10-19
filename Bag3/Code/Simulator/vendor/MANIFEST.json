@@ -106,9 +106,9 @@
       "vendor_sha256": "e5e2d177579e824bc667159add8f5592b81291975f7416b5d8a3556057e13126"
     },
     "games/relaycolor.py": {
-      "sha256": "5a4796c6212a794e7af0bbd1b3c9b8e3a243993990f084f703ae0793abcf0a3a",
+      "sha256": "52394bad51739c985a9cfefe61d4bf8dd86f7260255582747403e64b047af570",
       "source": "Bag3/Code/BroadcastCode/MockWand/games/relaycolor.py",
-      "vendor_sha256": "5a4796c6212a794e7af0bbd1b3c9b8e3a243993990f084f703ae0793abcf0a3a"
+      "vendor_sha256": "52394bad51739c985a9cfefe61d4bf8dd86f7260255582747403e64b047af570"
     },
     "games/shake.py": {
       "sha256": "42f6616dc367e0e99875f702526ec70f12e0ef3603cae7cff622cf22e25725eb",
@@ -191,9 +191,9 @@
       "vendor_sha256": "615e38339d682855d5c6227fa095b64a4ca858b66ebf2e7be54d9edd8a81bb60"
     },
     "lib/party.py": {
-      "sha256": "d5f671e247d9ea009f72c0449422b3e9f1628a8d92ec6c7c90cc8919fc2ff83d",
+      "sha256": "6b1ec502f20d1c064775a8abd4140c7a7ae11be80671189ffa968efa73bf1d1c",
       "source": "Bag3/Code/BroadcastCode/MockWand/lib/party.py",
-      "vendor_sha256": "d5f671e247d9ea009f72c0449422b3e9f1628a8d92ec6c7c90cc8919fc2ff83d"
+      "vendor_sha256": "6b1ec502f20d1c064775a8abd4140c7a7ae11be80671189ffa968efa73bf1d1c"
     },
     "lib/pwire.py": {
       "sha256": "fd0b0417b93676a953ad4f8204977f772a8f5d978667a197fe1bde3fcffbf297",
