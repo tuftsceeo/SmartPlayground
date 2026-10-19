@@ -176,20 +176,25 @@ check('progress counted every file',
     JSON.stringify(progress[progress.length - 1]));
 
 // ── The system prompt names every current icon (closes phase 6's §5.1) ──
-// app.js itself cannot be imported here (it and its own imports touch the
-// DOM and a CodeMirror CDN), so getSystemPrompt() is checked the same way
-// this file already checks the file list a send builds: read the source
-// and confirm the wiring, rather than duplicate its string-building logic
-// into a second copy that would drift from the real one.
+// app.js cannot be imported here (it and its imports touch the DOM and a
+// CodeMirror CDN), so getSystemBlocks() is checked by reading its source;
+// sessionText() in prompt/buildRequest.js is the part that writes the names.
 const appSrc = readFileSync(BB + '/ChatBroadcast/js/app.js', 'utf8');
-const startIdx = appSrc.indexOf('getSystemPrompt()');
+const startIdx = appSrc.indexOf('getSystemBlocks()');
 const endIdx = appSrc.indexOf('\n    }\n', startIdx);
-const promptMethod = startIdx >= 0 && endIdx >= 0 ? appSrc.slice(startIdx, endIdx) : '';
-check('getSystemPrompt() exists', promptMethod.length > 0);
-check('it builds the icon list from listIcons(), not a hardcoded copy',
-    /listIcons\(\)\.join/.test(promptMethod));
-check('the icon list is returned as part of the prompt, not just built',
-    /return[\s\S]*icons/.test(promptMethod));
+const blocksMethod = startIdx >= 0 && endIdx >= 0 ? appSrc.slice(startIdx, endIdx) : '';
+check('getSystemBlocks() exists', blocksMethod.length > 0);
+check('it passes listIcons() to buildSystemBlocks, not a hardcoded copy',
+    /buildSystemBlocks\([\s\S]*icons:\s*listIcons\(\)/.test(blocksMethod));
+const reqSrc = readFileSync(BB + '/ChatBroadcast/js/prompt/buildRequest.js', 'utf8');
+const sIdx = reqSrc.indexOf('export function sessionText(');
+const sEnd = reqSrc.indexOf('\n}\n', sIdx);
+const sessionSrc = sIdx >= 0 && sEnd >= 0 ? reqSrc.slice(sIdx, sEnd) : '';
+check('sessionText() exists', sessionSrc.length > 0);
+check('sessionText() writes the icon list into the block',
+    /icons\.join\(/.test(sessionSrc));
+check('buildSystemBlocks() includes sessionText(icons, ...)',
+    /sessionText\(icons,/.test(reqSrc));
 check('listIcons() currently returns at least one real name to inject',
     lib.listIcons().length > 0 && lib.listIcons().every(n => typeof n === 'string' && n.length > 0),
     lib.listIcons().join(','));
