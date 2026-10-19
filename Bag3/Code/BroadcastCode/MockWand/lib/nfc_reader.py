@@ -201,6 +201,23 @@ def split_prefixed(text):
 
 
 # ─────────────────────────────────────────────
+# SPLAT CARDS ("splat-<12 hex>")
+# ─────────────────────────────────────────────
+# Imported ahead of the radio (main.py module scope): no docstring or
+# constant here. "splat-AB4200007EB6" -> "AB:42:00:00:7E:B6"; anything else,
+# including a ":slug" or "@id" suffix, -> None.
+
+def parse_splat_card(text):
+    if not text or len(text) != 18 or text[:6].lower() != "splat-":
+        return None
+    h = text[6:].upper()
+    for ch in h:
+        if ch not in "0123456789ABCDEF":
+            return None
+    return ":".join([h[i:i + 2] for i in range(0, 12, 2)])
+
+
+# ─────────────────────────────────────────────
 # NFC READER CLASS (command dispatch)
 # ─────────────────────────────────────────────
 
@@ -274,7 +291,7 @@ class NfcReader:
         # ── Standard command lookup ──
         command = None
         if text:
-            if text in self.commands:
+            if text in self.commands or parse_splat_card(text):
                 command = text
             else:
                 command = self._match_prefixed(text)

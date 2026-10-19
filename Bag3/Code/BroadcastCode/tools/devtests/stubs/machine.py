@@ -27,8 +27,35 @@ class SoftI2C:
         return bytes(n)
 
 
+class PWM:
+    def __init__(self, *a, **k):
+        pass
+
+    def freq(self, *a):
+        return 0
+
+    def duty_u16(self, *a):
+        return 0
+
+    def deinit(self):
+        pass
+
+
 class RESET:
     pass
+
+
+# reset_cause() values as on the esp32 port; tests set _reset_cause.
+PWRON_RESET = 1
+HARD_RESET = 2
+WDT_RESET = 3
+DEEPSLEEP_RESET = 4
+SOFT_RESET = 5
+_reset_cause = PWRON_RESET
+
+
+def reset_cause():
+    return _reset_cause
 
 
 def reset():
