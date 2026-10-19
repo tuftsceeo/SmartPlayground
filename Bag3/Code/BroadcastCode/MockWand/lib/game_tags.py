@@ -33,6 +33,10 @@ GAME_TAGS = {
     "gestures",
     "goalrace",
     "splatecho",
+    # Party games: every tapping wand joins one game over its paired Splats.
+    "partytest",
+    "splattag",
+    "relaycolor",
 }
 
 CONTROL_TAGS = {"start", "stop", "unpair"}

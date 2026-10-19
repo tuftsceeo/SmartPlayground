@@ -92,6 +92,10 @@ GAME_MODULES = {
     "goalrace":       "goalrace",
     # Two-device game: wand half; the Splat Companion runs its splatecho.py.
     "splatecho":      "splatecho",
+    # Party games (SPLATS_MIN): each wand taps the card and joins one lobby.
+    "partytest":      "partytest",
+    "splattag":       "splattag",
+    "relaycolor":     "relaycolor",
     # Hidden (ESP-NOW only, never NFC): targeted identify animation.
     "finddevice":     "finddevice",
 }
@@ -179,19 +183,6 @@ def is_game(name):
     return game_module(name) is not None
 
 
-def _report_installed_games():
-    """Say which built-ins are installed on this wand, once, at boot.
-
-    Every game is optional. A wand with a game file removed is not broken:
-    it simply cannot play that one, and says so when its tag is tapped.
-    This is a note, not a fault -- see game_module().
-    """
-    absent = [t for t in GAME_MODULES if not _module_on_flash(GAME_MODULES[t])]
-    if absent:
-        print("  Built-in games not installed on this wand: %s" % sorted(absent))
-
-
-_report_installed_games()
 memprobe.probe("after-imports")  # BENCH: the number that proves the fix
 
 # ─────────────────────────────────────────────
@@ -221,6 +212,9 @@ GAME_ICON = {
     "gestures":       (SHAPE_POINTER,    INDIGO),
     "goalrace":       (SHAPE_FASTFORWARD, LIME),
     "splatecho":      (SHAPE_DIAMOND,    YELLOW),
+    "partytest":      (SHAPE_DIAMOND,    CYAN),
+    "splattag":       (SHAPE_BULLSEYE,   RED),
+    "relaycolor":     (SHAPE_SPIRAL,     ORANGE),
     "finddevice":     (SHAPE_EXCLAIM,    WHITE),
 }
 

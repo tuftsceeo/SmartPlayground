@@ -102,3 +102,22 @@ follower's lobby hourglass was drawn in its red identity color and read as an er
 Two wands, one Splat each. `85:CB:FC` led. The token passed between the wands 35 times in
 47 s (18 from the leader, 17 from the follower), by button and by Splat press, both directions, with no warning or error on either wand.
 `splattag` has not run on hardware.
+
+## Built-in party games and boot memory
+
+`partytest`, `splattag` and `relaycolor` are in `GAME_MODULES`, `GAME_ICON` and `game_tags.py`
+(files stay in `MockWand/games/`). With that change alone, `idfmax` after imports fell from 208896
+to 77824 on both wands (post-enow 35840 on `85:CB:FC`). A/B boots on `85:CB:FC`:
+
+| `main.py` | after-imports idfmax |
+|---|---|
+| committed (before) | 208896 |
+| new entries | 77824 |
+| new entries, ~550 bytes of comments removed | 77824 |
+| new entries, `_report_installed_games()` not called | 208896 |
+| new entries, report called after `enow.init()`, longer docstring | 77824 |
+| new entries, report removed | 208896 (`86:28:FC` and `85:CB:FC`); post-enow 172032 / 163840 |
+
+The report (an `os.stat` per built-in at import) is removed. Small edits to `main.py` flip this
+result, so its import is at the fragmentation edge described in
+[2026-09-23-ap-memory-order.md](../2026-09-23-ap-memory-order.md).

@@ -302,10 +302,10 @@ def play(nfc, leds, buz, accel, i2c, enow, batt=None, net=None):
 ```
 
 Rules: poll `net.poll()` every loop with a `time.sleep_ms(1)`; return on `end` and `leader_lost`; read the Splat colors
-from `net.wands` and `net.owner(i)` rather than assuming them. Games in `games/`: `partytest.py` (button lights the next
+from `net.wands` and `net.owner(i)` rather than assuming them. Built-in party games, in `games/`: `partytest.py` (button lights the next
 pool Splat in the presser's identity color), `splattag.py` (pooled: the leader lights a random Splat, the first press
-scores for its owner), `relaycolor.py` (messages: a color passes from wand to wand). `tools/deploy.py` copies
-`games/` to `/games/` on the wand; each game must be on every participating wand, and its card reads its file name
+scores for its owner), `relaycolor.py` (messages: a color passes from wand to wand). They are in `GAME_MODULES`
+and `game_tags.py` like any built-in game; each must be on every participating wand, and its card reads its tag
 (`partytest`, `splattag`, `relaycolor`).
 
 ## Tests (off-device)
