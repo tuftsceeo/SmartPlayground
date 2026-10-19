@@ -1125,6 +1125,7 @@ class App {
             if (errEl) errEl.textContent = '';
         });
         document.getElementById('btn-send-done').addEventListener('click', () => this.finishSend());
+        document.getElementById('btn-send-another-wand')?.addEventListener('click', () => this.installOnAnotherWand());
         // Kill switch: unlike Cancel (hidden by setSendBusy(true) while a
         // send is in flight -- there is no safe abort mid-write, see
         // setSendBusy()'s docstring), this button is never hidden or
@@ -2336,6 +2337,8 @@ class App {
         document.getElementById('send-success-title').textContent = `"${prettyName}" is on the ${this.deviceShort()}!`;
         document.getElementById('send-success-note').textContent =
             `The ${this.deviceShort()} will restart now — give it a few seconds.`;
+        // Direct USB install reaches one wand per send: offer the next one.
+        document.getElementById('btn-send-another-wand')?.classList.toggle('hidden', this.device.kind !== 'wand');
         clearTimeout(this._sendSuccessTimer);
         this._sendSuccessTimer = setTimeout(() => this.finishSend(), 5000);
     }
@@ -2357,6 +2360,27 @@ class App {
             this.setLinkState('rebooting');
             this._armRebootTimer();
         }
+    }
+
+    /** "Install on another wand" on the success screen of a direct wand
+     * install: release this wand's port and reopen the connect overlay with
+     * the send armed, so connecting the next wand returns to the send
+     * confirm with the same game and name. */
+    async installOnAnotherWand() {
+        clearTimeout(this._sendSuccessTimer);
+        hideOverlay('send-confirm-overlay');
+        this._pendingReplaceSlug = null;
+        this._clearRebootTimer();
+        try {
+            await this.device.disconnect();
+        } catch (e) {
+            dbgWarn('app', `disconnect before next wand: ${e.message}`);
+        }
+        this.setLinkState('idle');
+        this.pendingSendAfterConnect = true;
+        this.renderComponentList('connect-components');
+        showOverlay('connect-overlay');
+        toast('Plug in the next wand, then choose Wand.');
     }
 
     async confirmSend() {

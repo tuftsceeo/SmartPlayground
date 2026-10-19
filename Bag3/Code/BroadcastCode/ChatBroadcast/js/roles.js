@@ -43,8 +43,8 @@ export const ROLES = [
         previewCaption: 'wand preview',
         designator: '',
         hubtype: 'wand',
-        signature: ['nfc', 'leds', 'buz', 'accel', 'i2c', 'enow', 'batt'],
-        optional: ['batt'],
+        signature: ['nfc', 'leds', 'buz', 'accel', 'i2c', 'enow', 'batt', 'net'],
+        optional: ['batt', 'net'],
         hasPreview: true,
         hasIconLeg: false,
         knowledgeFile: 'knowledge/devices/wand.md',
@@ -75,11 +75,16 @@ export function roleInfo(key) {
 
 export const DEFAULT_ROLE = ROLES[0].key;
 
-/** `def play(...)` line for a role, `batt` shown with its device-side
- * default. Used in error text and the system prompt. */
+/** Parameters shown with a `=None` default: the device passes `batt` to a
+ * 7- or 8-parameter play() and `net` only to an 8-parameter Splat game
+ * (MockWand/main.py). */
+const DEFAULT_NONE = new Set(['batt', 'net']);
+
+/** `def play(...)` line for a role, optional wand parameters shown with
+ * their device-side default. Used in error text and the system prompt. */
 export function signatureFor(key) {
     const r = BY_KEY[key];
     if (!r) return null;
-    const shown = r.signature.map(n => (n === 'batt' ? 'batt=None' : n));
+    const shown = r.signature.map(n => (DEFAULT_NONE.has(n) ? `${n}=None` : n));
     return `def play(${shown.join(', ')})`;
 }

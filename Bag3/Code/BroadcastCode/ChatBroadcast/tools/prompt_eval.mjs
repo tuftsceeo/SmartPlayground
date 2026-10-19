@@ -20,11 +20,15 @@
  *   - icon display games name only existing icons; no file for the retired splat role
  *   - no f-strings; no reserved ESP-NOW message types used as game messages
  *   - the case's own expectations: code expected or not, phrases required or forbidden
+ *   - a wand game declaring SPLATS_LOCAL or SPLATS_MIN runs in the Simulator's
+ *     headless mode (simulateSplatGame below); skipped with a notice until
+ *     Simulator/tools/sim_run.mjs exists (integration plan 5.8)
  * Exit code: 0 when every check passed, 1 otherwise, 2 on setup errors.
  */
-import { readFileSync, writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 
 import {
     knowledgePaths, knowledgeText, buildSystemBlocks, buildRequestBody, requestHeaders,
@@ -44,6 +48,42 @@ const outArg = args.indexOf("--out");
 const OUT = outArg >= 0 ? args[outArg + 1] : "prompt_eval_report.md";
 const onlyArg = args.indexOf("--only");
 const ONLY = onlyArg >= 0 ? new Set(args[onlyArg + 1].split(",")) : null;
+
+/** Simulator headless runner (integration plan 5.8); absent until built. */
+const SIM_RUN = resolve(ROOT, "../../Simulator/tools/sim_run.mjs");
+const SIM_SECONDS = 30;
+let simNoticeShown = false;
+
+/**
+ * STUB until Simulator/tools/sim_run.mjs exists. Runs one generated Splat
+ * game headless for SIM_SECONDS with virtual peer wands and Splats, and
+ * returns problem strings: an exception, or a follower that does not return
+ * on ("leader_lost",) / ("end",). The runner's interface is assumed, not
+ * yet defined: `simRun({ code, seconds }) -> { exceptions: string[],
+ * unhandled: string[] }`. Returns null (and prints a notice once) when the
+ * runner is missing.
+ */
+function simAvailable() {
+    if (existsSync(SIM_RUN)) return true;
+    if (!simNoticeShown) {
+        console.log(`notice: ${SIM_RUN} not found; generated Splat games are not simulated (plan 5.8).`);
+        simNoticeShown = true;
+    }
+    return false;
+}
+
+async function simulateSplatGame(code) {
+    if (!simAvailable()) return null;
+    const { simRun } = await import(pathToFileURL(SIM_RUN).href);
+    const r = await simRun({ code, seconds: SIM_SECONDS });
+    return [...(r.exceptions || []).map(e => `simulator exception: ${e}`),
+            ...(r.unhandled || []).map(e => `simulator: unhandled ${e}`)];
+}
+
+/** True for a wand file that declares a solo or party Splat game. */
+function isSplatGame(code) {
+    return /^SPLATS_(LOCAL|MIN)\s*=/m.test(code);
+}
 
 const WAND_GAME = readFileSync(resolve(ROOT, "tools/eval_fixtures/red_glow_wand.py"), "utf8");
 
@@ -84,6 +124,10 @@ const CASES = [
     // The Splat Companion is retired: a Splat request gets no [DEVICE: splat] file.
     { id: "splat-retired", prompt: "When a kid jumps on the splat it turns green and barks",
       expect: { noRoles: ["splat"] } },
+    { id: "splat-solo", prompt: "One kid presses our Splat when it lights green; it plays a happy note if they're quick",
+      expect: { code: true, roles: ["wand"], codeHas: { wand: /^SPLATS_LOCAL\s*=/m } } },
+    { id: "splat-party", prompt: "Every kid's wand joins one game: light a random Splat and whoever presses it first gets a point",
+      expect: { code: true, roles: ["wand"], codeHas: { wand: /^SPLATS_MIN\s*=/m } } },
     { id: "roles", prompt: "Freeze dance where my wand is the caller and the kids' wands are players",
       expect: { code: true, roles: ["wand"] } },
     { id: "teams-display", prompt: "Two teams race to tap the goal card, and the display shows which team got there first",
@@ -132,6 +176,10 @@ function autoChecks(c, raw) {
     if (e.choices && !parseChoices(raw)) problems.push("no [CHOICES:] marker");
     for (const re of e.must || []) if (!re.test(shown)) problems.push(`missing ${re}`);
     for (const re of e.mustNot || []) if (re.test(shown)) problems.push(`should not mention ${re}`);
+    for (const [role, re] of Object.entries(e.codeHas || {})) {
+        const b = blocks.find(x => x.role === role);
+        if (b && !re.test(b.code)) problems.push(`[${role}] code does not match ${re}`);
+    }
     for (const [role, needle] of Object.entries(e.keepsFrom || {})) {
         const b = blocks.find(x => x.role === role);
         if (b && !b.code.includes(needle)) problems.push(`[${role}] lost "${needle}" from the existing game`);
@@ -155,6 +203,8 @@ function selfTest() {
             good.replace("buz.confirm()", 'print(f"x{1}"); enow.broadcast({"type": "score"})'), 2],
         ["snippet block", { expect: { code: true } }, "[DEVICE: wand]\n```python\nleds.fill(RED)\n```\n[GAME_NAME: X]", 1],
         ["forbidden phrase", { expect: { code: false, mustNot: [/driver/i] } }, "Install the driver.", 1],
+        ["splat game without net", { expect: { code: true } },
+            good.replace("import time", "SPLATS_LOCAL = 1\nimport time"), 1],
         ["unknown icon", { expect: { code: true } },
             "[DEVICE: icon]\n```python\nimport icon_store\ndef play(nfc, panel, enow):\n    icon_store.read_icon(\"no_such_icon_x\", into=panel.src)\n```\n[GAME_NAME: X]", 1],
     ];
@@ -170,6 +220,7 @@ function selfTest() {
 
 async function main() {
     if (SELF_TEST) return selfTest();
+    simAvailable();
     const files = Object.fromEntries(knowledgePaths().map(p => [p, readFileSync(resolve(ROOT, p), "utf8")]));
     const knowledge = knowledgeText(files, listSplatActions());
     const icons = listIcons();
@@ -209,6 +260,11 @@ async function main() {
             ? { problems: [`stream error: ${JSON.stringify(r.error)}`], blocks: [], shown: "" }
             : autoChecks(c, r.text);
         if (r.stopReason !== "end_turn") problems.push(`stop_reason ${r.stopReason}`);
+        for (const b of blocks) {
+            if (b.role !== "wand" || !isSplatGame(b.code)) continue;
+            const sim = await simulateSplatGame(b.code);
+            if (sim) problems.push(...sim);
+        }
         if (problems.length) failures++;
         const sizes = blocks.map(b => `${b.role} ${Buffer.byteLength(b.code)} B`).join(", ") || "—";
         rows.push(`| ${c.id} | ${problems.length ? "**FAIL**" : "pass"} | ${r.firstTextMs ?? "—"} | ${totalMs} | ` +
