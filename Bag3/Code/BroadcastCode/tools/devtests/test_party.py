@@ -42,8 +42,8 @@ check("...as a follower in the lobby", n2 is not None and not n2.is_leader and n
 check("...with the same game id", n1.id == n2.id and n1.id is not None)
 check("lobby display: both Splats joined shows the filled bar in green",
       w1.leds.pixels.get(0) == GREEN and w1.leds.pixels.get(1) == GREEN, str(w1.leds.pixels))
-check("lobby display: a follower shows the waiting icon in blue",
-      any(c[0] == "show_shape" and c[2] == sys.modules["leds"].BLUE_DIM for c in w2.leds.calls))
+check("lobby display: a follower shows a blue waiting spinner",
+      any(c[0] == "animate_spin" and c[2] == sys.modules["leds"].BLUE_DIM for c in w2.leds.calls))
 press(sc, w1, sc.sim.now + 10)
 sc.run(300)
 check("the leader's button starts the game", n1.phase == "game" and n2.phase == "game")

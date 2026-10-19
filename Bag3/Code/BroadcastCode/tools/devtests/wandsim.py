@@ -354,6 +354,9 @@ class FakeLeds:
     def show_shape(self, indices, color, bg=(0, 0, 0)):
         self._rec("show_shape", tuple(indices), color)
 
+    def animate_spin(self, frame, color, bg=(0, 0, 0), frames_per_step=6):
+        self._rec("animate_spin", frame, color)
+
     def idle_default(self, soc):
         self._rec("idle_default", soc)
 

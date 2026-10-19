@@ -24,6 +24,7 @@ from splat_api import COLOR_RGB, NOTE_VALUES, ANIMAL_SOUNDS
 
 FIND_WAIT_MS = 500        # listen for a lobby after broadcasting pw_find
 JOIN_WAIT_MS = 1000       # wait for the leader's pw_joined
+LOBBY_SPIN_MS = 150      # follower's waiting spinner step
 LOBBY_MS = 1000           # leader's pw_lobby broadcast interval
 HEARTBEAT_MS = 1000       # pw_hb broadcast interval
 WAND_LOST_MS = 3000       # silence before wand_lost / leader_lost
@@ -604,7 +605,7 @@ _LEADER_ENDED = ("ended", "yield", "full", "leader_lost", "external")
 # ── lobby display ──
 
 def _draw_lobby(leds, net, last):
-    from leds import OFF, GREEN, BLUE_DIM, SHAPE_HOURGLASS
+    from leds import OFF, GREEN, BLUE_DIM
     rgb = splatpair.WAND_RGB[net.ident]
     if net.is_leader:
         joined, need = net.lobby_splats(), net.splats_min
@@ -621,11 +622,12 @@ def _draw_lobby(leds, net, last):
                 leds.np[i] = rgb if i < joined else BLUE_DIM
         leds.np.write()
         return view
-    if last == "wait":
+    # A follower waits with a blue spinner: a still icon in a red identity read as an error.
+    step = time.ticks_ms() // LOBBY_SPIN_MS
+    if last == ("wait", step):
         return last
-    # A follower waits in blue, not its identity color: a red identity read as an error.
-    leds.show_shape(SHAPE_HOURGLASS, BLUE_DIM)
-    return "wait"
+    leds.animate_spin(step, BLUE_DIM, frames_per_step=1)
+    return ("wait", step)
 
 
 def run_lobby(net, nfc, button_down, leds, buz):
