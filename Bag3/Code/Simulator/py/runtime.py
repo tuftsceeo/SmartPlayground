@@ -31,7 +31,17 @@ _TRANSFORM_LIBS = (
     "buzzer",
     "actions",
     "battery",
+    "espnow_manager",
 )
+
+# Transformed libs a game cannot run without: a failure raises instead of
+# being logged and skipped.
+_REQUIRED_LIBS = ("espnow_manager",)
+
+# Non-game modules shipped beside the games that a game imports by name
+# (color_quest.py: `from target import SCORE_MAC`). Constants only, so
+# loaded verbatim.
+_GAME_HELPERS = ("target",)
 
 # Libs with module-level calls / no sleeps — load verbatim (sync).
 _RAW_LIBS = (
@@ -56,7 +66,6 @@ _DEVICE_MODULES = (
     "opt3002",
     "pn532",
     "nfc_reader",
-    "espnow_manager",
 )
 
 # All named poses/gestures the motion controls can offer. Used verbatim as
@@ -158,6 +167,7 @@ class Runtime:
         self._bootstrapped = False
         self._sources = {}  # optional in-memory file map: relpath -> text
         self._game_src = None  # last loaded game's source, for _game_reads_battery
+        self._display_source = None  # host-supplied display (_icon.py) code
         self._game_mod = None
         self._game_name = None
         self._task = None
@@ -211,6 +221,8 @@ class Runtime:
             self._load_raw_lib(name)
         for name in _TRANSFORM_LIBS:
             self._load_transformed_lib(name)
+        for name in _GAME_HELPERS:
+            self._load_game_helper(name)
 
         self._bootstrapped = True
         return self
@@ -293,6 +305,8 @@ class Runtime:
         try:
             code = transform_and_compile(src, filename=name + ".py")
         except Exception as e:
+            if name in _REQUIRED_LIBS:
+                raise
             # Optional libs shouldn't abort bootstrap.
             import sim_state
             sim_state.emit_log("skip lib %s: %s" % (name, e))
@@ -306,9 +320,22 @@ class Runtime:
             exec(code, mod.__dict__)
         except Exception as e:
             del sys.modules[name]
+            if name in _REQUIRED_LIBS:
+                raise
             import sim_state
             sim_state.emit_log("exec lib %s failed: %s" % (name, e))
             return None
+        return mod
+
+    def _load_game_helper(self, name):
+        fs_path = os.path.join(_VENDOR_GAMES, name + ".py")
+        src = self._read_text("vendor/games/%s.py" % name, fs_path)
+        if src is None:
+            raise FileNotFoundError("missing game helper module: vendor/games/%s.py" % name)
+        mod = types.ModuleType(name)
+        mod.__file__ = fs_path
+        sys.modules[name] = mod
+        exec(compile(src, fs_path, "exec"), mod.__dict__)
         return mod
 
     # ── Game loading ────────────────────────────────────────────────
@@ -344,6 +371,7 @@ class Runtime:
         exec(code, mod.__dict__)
         self._game_mod = mod
         self._game_name = name
+        self._display_source = None
         self._game_src = src
         return mod
 
@@ -379,6 +407,53 @@ class Runtime:
             return False
         return False
 
+    def set_display_source(self, src):
+        """The display half of the loaded game, when the host has one (a
+        generated game's _icon.py). None: only a vendored display file for
+        the game's name counts."""
+        self._display_source = src or None
+
+    def _has_display_file(self):
+        if self._display_source:
+            return True
+        if not self._game_name or self._game_name == "custom":
+            return False
+        rel = "vendor/display/games/%s.py" % self._game_name
+        return self._read_text(rel, os.path.join(_VENDOR, "display", "games",
+                                                 self._game_name + ".py")) is not None
+
+    def _game_sends_dicts(self):
+        """True when the game source passes a dict literal to an ESP-NOW send
+        (enow.broadcast({...}), enow.send_to(mac, {...})) -- the messages a
+        display or another device reads."""
+        if not self._game_src:
+            return False
+        import ast
+        try:
+            tree = ast.parse(self._game_src)
+        except SyntaxError:
+            return False
+        for node in ast.walk(tree):
+            if (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+                    and node.func.attr in ("broadcast", "send_to")
+                    and any(isinstance(a, ast.Dict) for a in node.args)):
+                return True
+        return False
+
+    def _splat_fields(self):
+        mod = self._game_mod
+        local = getattr(mod, "SPLATS_LOCAL", None)
+        smin = getattr(mod, "SPLATS_MIN", None)
+        smax = getattr(mod, "SPLATS_MAX", None)
+        return {
+            "party": smin is not None,
+            "splats_local": local,
+            "splats_min": smin,
+            "splats_max": smax,
+            "uses_display": self._game_sends_dicts(),
+            "has_display_file": self._has_display_file(),
+        }
+
     def get_capabilities(self):
         """Return what the loaded game actually uses, for filtering controls.
 
@@ -390,7 +465,8 @@ class Runtime:
         """
         if not self._game_mod:
             return {"button": "tap", "motion": list(_ALL_MOTION), "nfcTags": [], "battery": False,
-                    "buzzer": True}
+                    "buzzer": True, "party": False, "splats_local": None, "splats_min": None,
+                    "splats_max": None, "uses_display": False, "has_display_file": False}
 
         mod = self._game_mod
         import game_tags
@@ -418,6 +494,7 @@ class Runtime:
             "nfcTags": nfc_tags,
             "battery": battery,
             "buzzer": True,  # every wand game plays sound; not derived
+            **self._splat_fields(),
         }
 
     # ── Hardware + run ──────────────────────────────────────────────
@@ -461,8 +538,8 @@ class Runtime:
 
         leds = await self._maybe_await(Leds())
         buz = await self._maybe_await(Buzzer(19))
-        enow = ESPNowManager()
-        enow.init()
+        enow = await self._maybe_await(ESPNowManager())
+        await self._maybe_await(enow.init())
 
         return {
             "nfc": nfc,
@@ -601,3 +678,7 @@ def get_commands():
 
 def get_capabilities():
     return get_runtime().get_capabilities()
+
+
+def set_display_source(src):
+    get_runtime().set_display_source(src)

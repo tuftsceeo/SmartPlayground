@@ -8,15 +8,18 @@
  */
 
 async function loadFirmwareFiles(device) {
+  // import() resolves against this module (ChatBroadcast/js/device/); the
+  // base passed to the loader is used by fetch(), which resolves against the
+  // page (ChatBroadcast/index.html). Both firmware trees are siblings of
+  // ChatBroadcast/ under BroadcastCode/.
   if (device === "broadcast_dial") {
-    // ChatBroadcast lives under BroadcastBox/; Dial firmware is a sibling tree.
     const { loadDialFiles } = await import(
-      "../../../../BroadcastDial/BDialFirmware/manifest.js"
+      "../../../BroadcastDial/BDialFirmware/manifest.js"
     );
-    return loadDialFiles("../../../../BroadcastDial/BDialFirmware/");
+    return loadDialFiles("../BroadcastDial/BDialFirmware/");
   }
-  const { loadBoxFiles } = await import("../../../BBoxFirmware/manifest.js");
-  return loadBoxFiles("../../../BBoxFirmware/");
+  const { loadBoxFiles } = await import("../../../BroadcastBox/BBoxFirmware/manifest.js");
+  return loadBoxFiles("../BroadcastBox/BBoxFirmware/");
 }
 
 export async function installBoxFirmware(repl, adapter, onProgress, device = null) {

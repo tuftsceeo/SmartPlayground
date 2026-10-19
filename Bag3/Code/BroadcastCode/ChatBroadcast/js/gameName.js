@@ -33,19 +33,23 @@ export const WAND_RESERVED = [
   "colorquest", "freezedance", "jumpin", "cooking", "melody", "shake",
   "shakerainbow", "rainbow", "jump", "sound", "nfcsound", "simpleicecream",
   "multiicecream", "gestures", "finddevice", "goalrace", "splatecho",
-  "partytest", "splattag", "relaycolor", "unpair",
-  "start", "stop", "erase", "battery", "getcode", "done",
+  "partytest", "splattag", "relaycolor",
+  "start", "stop", "unpair", "erase", "battery", "getcode", "done",
   "buttondown", "buttonup", "whenshake", "playnote",
 ];
 
 /** Box-side names that are not games. */
 const BOX_RESERVED = ["payload", "index", "active", "stats"];
 
+/** Icon Display built-in games (IconDisplay/lib/display_tags.py GAME_TAGS). */
+const DISPLAY_RESERVED = ["scoreboard", "goalrace"];
+
 export const RESERVED_SLUGS = new Set([
   ...EXAMPLES.map((e) => e.id),
   ...PYTHON_RESERVED,
   ...WAND_RESERVED,
   ...BOX_RESERVED,
+  ...DISPLAY_RESERVED,
 ]);
 
 /**
@@ -54,9 +58,11 @@ export const RESERVED_SLUGS = new Set([
  * the boot-time menu scan (bbox_server.py / bdial_server.py
  * STAGING_SUFFIXES) -- invisible on the device, not merely renamed.
  */
-export const RESERVED_SUFFIXES = ROLE_TABLE
-  .map((r) => r.designator)
-  .filter(Boolean);
+export const RESERVED_SUFFIXES = [
+  ...ROLE_TABLE.map((r) => r.designator).filter(Boolean),
+  // Retired Splat Companion role: devices still skip `_splat.py` files.
+  "_splat",
+];
 
 /**
  * Lowercase, non-alphanumerics→underscores, collapse repeats, cap SLUG_MAX.

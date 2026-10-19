@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
-Bundle Bag2 lib + Bag3 MockWand game sources into Simulator/vendor/.
+Bundle Bag3 MockWand lib + game sources, and the IconDisplay files the
+display panel runs, into Simulator/vendor/.
 
 Usage:
     python tools/sync_sources.py          # copy + write MANIFEST.json
@@ -22,11 +23,10 @@ import sys
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 REPO = os.path.abspath(os.path.join(ROOT, "..", "..", ".."))  # Bag3/Code/Simulator -> repo root
 
-# Games come from the Bag3 wand tree; lib still comes from Bag2, whose
-# leds.py/hubtype.py define the LED geometry the golden-frame tests are
-# pinned to. Re-pointing LIB_SRC is a separate change.
-LIB_SRC = os.path.join(REPO, "Bag2", "Code", "lib")
-GAMES_SRC = os.path.join(REPO, "Bag3", "Code", "BroadcastBox", "MockWand")
+# Lib and games both come from the Bag3 MockWand tree. Its leds.py is the
+# 5x5 row-major (25 LED) matrix the renderer and golden frames assume.
+GAMES_SRC = os.path.join(REPO, "Bag3", "Code", "BroadcastCode", "MockWand")
+LIB_SRC = os.path.join(GAMES_SRC, "lib")
 HUBTYPE_SRC = os.path.join(GAMES_SRC, "hubtype.txt")
 
 
@@ -47,21 +47,38 @@ VENDOR_LIB = os.path.join(VENDOR, "lib")
 VENDOR_GAMES = os.path.join(VENDOR, "games")
 MANIFEST = os.path.join(VENDOR, "MANIFEST.json")
 
-# Modules run verbatim (copied from Bag2/Code/lib).
-#
-# buzzer.py is not listed here -- vendor/lib/buzzer.py is hand-maintained
-# from Bag3/BroadcastBox/MockWand/lib/buzzer.py instead. See the README's
-# "Sync vendored sources" section.
+# Modules copied verbatim from MockWand/lib.
 VERBATIM_LIBS = [
     "leds.py",
+    "buzzer.py",
     "brightness.py",
     "hubtype.py",
     "game_tags.py",
     "actions.py",
     "battery.py",
+    "espnow_manager.py",
 ]
 
-# Game modules to bundle (from Bag3/Code/BroadcastCode/BroadcastBox/MockWand).
+# The icon display's half of two-device games, for the display panel
+# (py/icon_host.py). Its libs come from the IconDisplay tree, not MockWand:
+# the two espnow_manager.py copies differ (antenna setting).
+DISPLAY_SRC = os.path.join(REPO, "Bag3", "Code", "BroadcastCode", "IconDisplay")
+DISPLAY_FILES = [
+    # (source relative to DISPLAY_SRC, vendor path relative to vendor/)
+    ("icon_store.py", "display/lib/icon_store.py"),
+    ("lib/display_tags.py", "display/lib/display_tags.py"),
+    ("lib/shapes.py", "display/lib/shapes.py"),
+    ("lib/espnow_manager.py", "display/lib/espnow_manager.py"),
+    ("games/goalrace.py", "display/games/goalrace.py"),
+]
+# Icons each display game reads, from IconDisplay/icons/, vendored as
+# display/games/<game>_icons/<name>.py (the layout a pulled game has).
+DISPLAY_GAME_ICONS = {
+    "goalrace": ["ready", "tree", "whale"],
+}
+
+# Game modules to bundle (from Bag3/Code/BroadcastCode/MockWand).
+# target.py is not a game; color_quest.py imports SCORE_MAC from it.
 GAMES = [
     "jump.py",
     "shake.py",
@@ -76,6 +93,10 @@ GAMES = [
     "cooking.py",
     "multiicecream.py",
     "freeze_dance.py",
+    "goalrace.py",
+    "color_quest.py",
+    "finddevice.py",
+    "target.py",
 ]
 
 
@@ -94,6 +115,12 @@ def collect_plan():
         plan.append((os.path.join(LIB_SRC, name), os.path.join("lib", name)))
     for name in GAMES:
         plan.append((_game_src(name), os.path.join("games", name)))
+    for src_rel, dest_rel in DISPLAY_FILES:
+        plan.append((os.path.join(DISPLAY_SRC, src_rel), dest_rel))
+    for game, icons in DISPLAY_GAME_ICONS.items():
+        for name in icons:
+            plan.append((os.path.join(DISPLAY_SRC, "icons", name + ".py"),
+                         "display/games/%s_icons/%s.py" % (game, name)))
     if os.path.isfile(HUBTYPE_SRC):
         plan.append((HUBTYPE_SRC, "hubtype.txt"))
     return plan
@@ -201,7 +228,7 @@ def main():
     args = ap.parse_args()
     if args.check:
         sys.exit(check())
-    print("Syncing Bag2 lib + Bag3 MockWand games into Simulator/vendor/ ...")
+    print("Syncing Bag3 MockWand lib + games into Simulator/vendor/ ...")
     sync()
     print("Done.")
 

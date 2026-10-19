@@ -1,42 +1,58 @@
-"""Single source of truth for wand game / control tag names.
+"""Wand game / control tag names.
 
-Imported by main.py (for CONTROLS / dispatch) and by every game module so
-each game's NfcReader can recognize *any* game tag and exit cleanly when
-one is tapped. This is what enables fluid game-to-game switching without
-requiring an explicit "stop" tag.
+Cards carry plain NDEF text (see HARDWARE_PROTOCOL.md, "NFC card safety"),
+so the names below ARE the wire format -- there is no byte encoding to keep
+in step with them. This file used to re-export them from opcodes.py, whose
+4-byte card scheme the wand stopped using; nothing here needed the rest of
+that module.
 
-Set design:
-  GAME_TAGS  — names of game tags only (no "stop", no "start").
-  CONTROL_TAGS — programming-mode controls ("start", "stop").
-  EXIT_TAGS  — superset: every tag that should cause a running game to
-               exit back to main.py. Equals GAME_TAGS | {"stop"}.
-               GAME_TAGS itself stays clean (games only) so it can be
-               used wherever "is this a game?" is the question.
+  GAME_TAGS    -- names of game tags only (no "stop", no "start").
+  CONTROL_TAGS -- programming-mode controls ("start", "stop").
+  HIDDEN_TAGS  -- ESP-NOW-only "games" (never on a physical card).
+  EXIT_TAGS    -- every tag that exits a running game (GAME_TAGS | {"stop"}).
+  exit_tags_excluding(tag) -- EXIT_TAGS without one game's own entry tag.
+
+main.py checks GAME_TAGS|HIDDEN_TAGS against its own GAME_MODULES at boot and
+prints a mismatch: nothing else keeps the two in step.
 """
 
 GAME_TAGS = {
-    "colorquest", "freezedance", "jumpin",
-    "jumpin1", "jumpin2", "jumpin3", "jumpin4", "jumpin5",
-    "cooking", "melody",
-    "shake", "shakerainbow", "rainbow", "jump", "sound", "nfcsound",
-    "simpleicecream", "multiicecream", "gestures",
+    "colorquest",
+    "freezedance",
+    "jumpin",
+    "cooking",
+    "melody",
+    "shake",
+    "shakerainbow",
+    "rainbow",
+    "jump",
+    "sound",
+    "nfcsound",
+    "simpleicecream",
+    "multiicecream",
+    "gestures",
+    "goalrace",
+    "splatecho",
+    # Party games: every tapping wand joins one game over its paired Splats.
+    "partytest",
+    "splattag",
+    "relaycolor",
 }
 
-CONTROL_TAGS = {"start", "stop"}
+CONTROL_TAGS = {"start", "stop", "unpair"}
 
-# Games dispatched only over ESP-NOW (never via NFC). Not in GAME_TAGS, so they
-# never appear as tappable games / webapp commands / remote buttons, but they
-# are valid GAME_DISPATCH keys. "finddevice" is the targeted identify animation.
+# ESP-NOW only, never printed on a card.
 HIDDEN_TAGS = {"finddevice"}
 
 EXIT_TAGS = GAME_TAGS | {"stop"}
 
 
 def exit_tags_excluding(game_tag):
-    """EXIT_TAGS copy without this game's entry tag.
+    """EXIT_TAGS copy without this game's own entry tag.
 
-    The entry tag is often still under the wand when play() starts; excluding
-    it avoids an immediate exit on the first NFC poll. Never mutates EXIT_TAGS.
+    The entry tag is often still under the wand when play() starts;
+    excluding it avoids an immediate exit on the first NFC poll. Never
+    mutates EXIT_TAGS.
     """
     tags = set(EXIT_TAGS)
     tags.discard(game_tag)

@@ -13,6 +13,8 @@
  *
  * Events:
  *   sim-ready, sim-frame, sim-print, sim-stopped
+ *   sim-loaded — detail.capabilities is get_capabilities() for the game
+ *     just loaded; fired before autostart starts it
  *   sim-error — detail.phase is one of "boot" / "load" / "run"
  *   sim-overlay-action — detail is { kind, action }, fired when a button on
  *     one of the overlays is pressed (see showOverlay below)
@@ -242,7 +244,6 @@ const FILE_LIST = [
   "py/devices/opt3002.py",
   "py/devices/pn532.py",
   "py/devices/nfc_reader.py",
-  "py/devices/espnow_manager.py",
   "vendor/hubtype.txt",
   "vendor/lib/brightness.py",
   "vendor/lib/hubtype.py",
@@ -251,6 +252,7 @@ const FILE_LIST = [
   "vendor/lib/game_tags.py",
   "vendor/lib/actions.py",
   "vendor/lib/battery.py",
+  "vendor/lib/espnow_manager.py",
   "vendor/games/jump.py",
   "vendor/games/shake.py",
   "vendor/games/shake_rainbow.py",
@@ -264,6 +266,11 @@ const FILE_LIST = [
   "vendor/games/cooking.py",
   "vendor/games/multiicecream.py",
   "vendor/games/freeze_dance.py",
+  "vendor/games/goalrace.py",
+  "vendor/games/color_quest.py",
+  "vendor/games/finddevice.py",
+  // Not a game: color_quest.py imports SCORE_MAC from it.
+  "vendor/games/target.py",
 ];
 
 class WandSim extends HTMLElement {
@@ -329,6 +336,10 @@ class WandSim extends HTMLElement {
     this._profile = v || null;
     if (this._ready) this._applyCapabilities();
   }
+
+  /** The wand's Pyodide, once sim-ready has fired (null before). Hosts
+   * such as <sim-room> use it to attach the radio to a bus. */
+  get pyodide() { return this._ready ? this._pyodide : null; }
 
   get source() { return this._source; }
   set source(v) {
@@ -759,6 +770,7 @@ sim_state.set_enow_sent_callback(_js_enow_sent)
       this._applyCapabilities();
       this._setStatus("loaded", `loaded ${this._source ? "custom" : this.game}`);
       this._controls.setRestartEnabled(true);
+      this.dispatchEvent(new CustomEvent("sim-loaded", { detail: { capabilities: this._caps } }));
       if (this.autostart) {
         await this.start();
       }
@@ -804,4 +816,4 @@ sim_state.set_enow_sent_callback(_js_enow_sent)
 }
 
 customElements.define("wand-sim", WandSim);
-export { WandSim, OVERLAYS };
+export { WandSim, OVERLAYS, PYODIDE_CDN };

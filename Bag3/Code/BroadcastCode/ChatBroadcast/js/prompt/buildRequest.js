@@ -28,6 +28,7 @@ export const SHARED_KNOWLEDGE = [
     'knowledge/policy.md',
     'knowledge/platform.md',
     'knowledge/game_patterns.md',
+    'knowledge/party_games.md',
     'knowledge/troubleshooting.md',
 ];
 /** Addendum sent only in Advanced UI mode. */
@@ -55,11 +56,13 @@ export function knowledgeText(files, splatActions) {
     const paths = [...SHARED_KNOWLEDGE, ...ROLES.map(r => r.knowledgeFile)];
     const missing = paths.filter(p => typeof files[p] !== 'string');
     if (missing.length) throw new Error(`knowledge files not loaded: ${missing.join(', ')}`);
-    const splat = '# SPLAT ACTION NAMES ON THE SPLAT COMPANION\n\n' +
-        `- colors (splat.color): ${splatActions.colors.join(', ')}\n` +
-        `- notes (splat.note): ${splatActions.notes.join(', ')}\n` +
-        `- sounds (splat.sound): ${splatActions.sounds.join(', ')}\n\n` +
-        'splat.play([...]) takes any mix of these. Use these names only.';
+    const splat = '# SPLAT ACTION NAMES\n\n' +
+        'For a Splat from net.splat(i) (leader) or net.local.unit(s) ' +
+        '(this wand\'s own Splat, any game role):\n\n' +
+        `- colors (.color): ${splatActions.colors.join(', ')}\n` +
+        `- notes (.note): ${splatActions.notes.join(', ')}\n` +
+        `- sounds (.sound): ${splatActions.sounds.join(', ')}\n\n` +
+        '.play([...]) takes any mix of these. Use these names only.';
     return [roleSummary(), ...paths.map(p => files[p]), splat].join('\n\n---\n\n');
 }
 
@@ -67,12 +70,18 @@ export function knowledgeText(files, splatActions) {
  * The per-turn block (block 3): icon names and the code in the editor.
  * @param {string[]} icons  icon names available on the display
  * @param {Object<string,string>} editorCode  role key -> current code
+ * @param {string[]} [customIcons]  names the teacher drew or edited for this
+ *     game; each is listed with a "(custom)" suffix
  */
-export function sessionText(icons, editorCode) {
+export function sessionText(icons, editorCode, customIcons = []) {
+    const custom = new Set(customIcons);
+    const listed = icons.map(n => (custom.has(n) ? `${n} (custom)` : n));
     const parts = [
-        '# ICONS CURRENTLY AVAILABLE ON THE ICON DISPLAY\n\n' + icons.join(', ') +
+        '# ICONS CURRENTLY AVAILABLE ON THE ICON DISPLAY\n\n' + listed.join(', ') +
         '\n\nRefer to icons by these names only. If a game needs a picture that is not in this ' +
-        'list, say so and suggest the closest one rather than inventing a name.',
+        'list, say so and suggest the closest one rather than inventing a name.' +
+        (custom.size ? ' Icons marked (custom) were drawn by the teacher for this game; ' +
+            'refer to them by name without the "(custom)" suffix.' : ''),
     ];
     const withCode = ROLES.filter(r => (editorCode[r.key] || '').trim());
     if (withCode.length) {
@@ -91,15 +100,15 @@ export function sessionText(icons, editorCode) {
 /**
  * System blocks for one request.
  * @param {{knowledge:string, advanced:string, advancedMode:boolean,
- *          icons:string[], editorCode:Object<string,string>}} o
+ *          icons:string[], customIcons?:string[], editorCode:Object<string,string>}} o
  */
-export function buildSystemBlocks({ knowledge, advanced, advancedMode, icons, editorCode }) {
+export function buildSystemBlocks({ knowledge, advanced, advancedMode, icons, customIcons, editorCode }) {
     const blocks = [{ type: 'text', text: knowledge, cache_control: { type: 'ephemeral' } }];
     if (advancedMode) {
         if (typeof advanced !== 'string') throw new Error(`${ADVANCED_KNOWLEDGE} not loaded`);
         blocks.push({ type: 'text', text: advanced, cache_control: { type: 'ephemeral' } });
     }
-    blocks.push({ type: 'text', text: sessionText(icons, editorCode) });
+    blocks.push({ type: 'text', text: sessionText(icons, editorCode, customIcons) });
     return blocks;
 }
 

@@ -12,7 +12,34 @@ design artboards in
 
 Games: `jump`, `shake`, `shake_rainbow`, `sound`, `rainbow`, `jumpin`,
 `nfc_sound`, `gestures`, `simpleicecream`, `melody`, `cooking`,
-`multiicecream`, `freeze_dance`.
+`multiicecream`, `freeze_dance`, `goalrace`, `color_quest`, `finddevice`
+(`target.py` is vendored beside them for `color_quest`).
+
+## `<sim-room>`
+
+`sim-room.js` wraps `<wand-sim>` (unchanged) with output panels on one
+virtual ESP-NOW bus (`js/bus.js`) and clock (`js/clock.js`). `index.html`
+uses it. The wand runs the real `espnow_manager.py` over a bus-backed
+`espnow` shim (`py/shims/espnow.py`), so dicts go out as JSON and are
+classified as on the device; each device gets its own MAC through
+`network.WLAN().config('mac')`.
+
+Panels appear from the loaded game's capabilities (`get_capabilities()`:
+`party`, `splats_local`, `splats_min`, `splats_max`, `uses_display`,
+`has_display_file`). New panels register with `SimRoom.registerPanel(id,
+{slot, title, wants, create, update, hide})`.
+
+- **Icon display:** shown when the game has a display file
+  (`vendor/display/games/<game>.py`, or the `displaySource` property) or
+  broadcasts dicts. With a file, a second Pyodide runs `py/icon_host.py`
+  (IconDisplay/main.py's idle loop, without `main()`), drawn with
+  iconmaker's `renderPreview`; the room unicasts `start_game` to it. It
+  always lists the wand's messages. `renderPreview` is imported from
+  `../BroadcastCode/ChatBroadcast/iconmaker/`, so serve `Bag3/Code/` (from
+  `Simulator/` alone the panel falls back to plain squares and warns).
+
+Not simulated: heap and fragmentation, compile size, radio timing, BLE
+pacing, and peers running real game code.
 
 ## Run locally
 
@@ -37,10 +64,9 @@ testing a game under development without re-vendoring it.
 
 ## Sync vendored sources
 
-Games and verbatim libs are copied into `vendor/` from `Bag2/Code/Wand
-Module` and `Bag2/Code/lib` — a different Bag than this tool now lives in,
-since Pyodide can't read the real filesystem live and `vendor/` is what it
-actually imports:
+Games and verbatim libs are copied into `vendor/` from
+`Bag3/Code/BroadcastCode/MockWand` and its `lib/`, since Pyodide can't read
+the real filesystem live and `vendor/` is what it actually imports:
 
 ```bash
 python3 tools/sync_sources.py          # refresh vendor/ + MANIFEST.json
@@ -55,12 +81,6 @@ git config core.hooksPath Bag3/Code/Simulator/.githooks
 
 (or copy the hook into `.git/hooks`).
 
-`buzzer.py` is the one exception: it's hand-mirrored from
-`Bag3/BroadcastBox/MockWand/lib/buzzer.py`, not synced from Bag2, so it's
-not in `sync_sources.py`'s `VERBATIM_LIBS` and `--check` doesn't touch it.
-If MockWand's `buzzer.py` changes, copy it into `vendor/lib/buzzer.py` by
-hand and re-run `sync_sources.py`.
-
 ## Tests
 
 ```bash
@@ -69,6 +89,12 @@ python3 -m pytest
 ```
 
 - `test_transform.py` — pure AST sync→async transform (no Pyodide).
+- `test_radio.py` / `test_icon_host.py` — the radio stack and capabilities,
+  and the display host running IconDisplay's goalrace.
+- `node --test tests/js/*.test.mjs` — bus, clock and payload helpers.
+- `node tools/room_smoke.mjs` — Playwright: goalrace in `<sim-room>`, the
+  display panel appears and reacts to `goal`. Serves `Bag3/Code/`; Pyodide
+  is answered from a local copy of its npm package (see the script header).
 - `test_golden_frames.py` / `test_new_games.py` / `test_capabilities.py` —
   CPython asyncio harness that loads shims + devices + transformed games and
   asserts LED frames, capabilities, and audio/motor output under scripted
@@ -100,24 +126,28 @@ gets it, but skips the beep if the loaded game already made its own sound in
 response within a short window (`melody.py`/`cooking.py`/`nfc_sound.py` all
 do) — see `_nfc_confirm_pulse()`'s docstring for the exact timing and why.
 
-## ESP-NOW is one-sided
+## ESP-NOW
 
-There is no second wand, so the radio is two halves that don't meet.
+The wand runs the vendored `vendor/lib/espnow_manager.py` (transformed like
+the other libs) over `py/shims/espnow.py`. Without a bus (plain
+`<wand-sim>`) the radio is two halves that don't meet; inside `<sim-room>`
+both halves go over the room's bus.
 
-**Outgoing.** `py/devices/espnow_manager.py` reports every send through
-`sim_state.emit_enow_sent()`, which the panel shows under "Sent by this
-wand" and the element re-emits as `sim-enow-sent`. Showing the message *is*
-the output — nothing receives it. `send_raw` is spelled out on the fake
-manager rather than left to its `__getattr__` no-op because
-`freeze_dance.py` drives the whole game through it.
+**Outgoing.** Every frame goes through `sim_state.radio_send()`, which
+reports it through `sim_state.emit_enow_sent()` (kind `broadcast` or
+`send`; the panel shows it under "Sent by this wand", the element re-emits
+it as `sim-enow-sent`) and, when a host set `sim_state.set_radio_tx()`,
+hands it to the bus. Unicast needs the peer added first, as on the device.
 
-**Incoming.** The advanced block's "Heard from the caller" buttons queue
-messages via `sim_state.enqueue_enow()` as if a peer had sent them. A game
-reading a raw payload needs real bytes (`freeze_dance.py` compares against
-`MSG_GO = b"FD_GO"`), so `wand-sim.js` builds a hex-escaped Python bytes
-literal rather than passing a JS string. The vocabulary per game is
-`RADIO_BY_GAME` in `js/controls.js`; every game also gets `stop` and
-`start_game`, the two the hub broadcasts.
+**Incoming.** The advanced block's "Heard from the caller" buttons call
+`sim_state.enqueue_enow()`, which encodes the message as the hub would send
+it (`sim_state.encode_panel_message()`: a word `w` becomes `{"type": w}`,
+`start_game` carries the loaded game's name, JSON text goes out as is, a
+`raw` message keeps its bytes) and delivers it from `PANEL_MAC`, over the
+bus when there is one. A game reading a raw payload needs real bytes
+(`freeze_dance.py` compares against `MSG_GO = b"FD_GO"`), so `wand-sim.js`
+builds a hex-escaped Python bytes literal rather than passing a JS string.
+The vocabulary per game is `RADIO_BY_GAME` in `js/controls.js`.
 
 `emit_log` and `emit_error` are deliberately separate channels. A send is
 routine traffic and must not reach the error channel — while they shared
@@ -138,13 +168,13 @@ the Bag trees, not here, and has been left alone.
 ## Design notes
 
 - **Verbatim**: `leds.py`, `brightness.py`, `hubtype.py`, `game_tags.py`,
-  `actions.py`, `battery.py` (AST-transformed sync→async), synced from
-  Bag2. `buzzer.py` is verbatim too, hand-mirrored from MockWand: see
-  "Sync vendored sources" above.
+  `actions.py`, `battery.py`, `buzzer.py` (AST-transformed sync→async),
+  synced from MockWand/lib.
+- **Verbatim, transformed**: `espnow_manager.py` (from MockWand/lib).
 - **Faked wholesale**: `lis2dw12`, `max17048`, `opt3002`, `pn532`,
-  `nfc_reader`, `espnow_manager`.
+  `nfc_reader`.
 - **Platform shims**: `machine`, `neopixel`, `time.sleep_ms` / `ticks_*`,
-  `_thread`, `network`, `ubluetooth`, `micropython`.
+  `_thread`, `network`, `espnow`, `ubluetooth`, `micropython`.
 - Stop = cancel the `play()` asyncio task; games' `try/finally: leds.off()`
   still runs.
 - LED colors: incoming bytes are the wand's actual NeoPixel duty cycle
@@ -179,7 +209,8 @@ the Bag trees, not here, and has been left alone.
   `source`, `muted`, `advanced` (shows the axis readout, the custom tag /
   radio message drawer, the hardware dials and the log; off by default, so an
   embedding host opts in explicitly), `log-lines` (default 2).
-  Events: `sim-ready`, `sim-frame`, `sim-print`, `sim-error` (`detail.phase`
+  Property `pyodide` (after `sim-ready`).
+  Events: `sim-ready`, `sim-loaded` (`detail.capabilities`), `sim-frame`, `sim-print`, `sim-error` (`detail.phase`
   is `"boot"`, `"load"`, or `"run"`), `sim-stopped`, `sim-overlay-action`
   (`detail` is `{ kind, action }`), `sim-enow-sent` (`detail` is
   `{ kind, data, mac }`).

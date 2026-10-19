@@ -1,7 +1,7 @@
 # Adding a new device to ChatBroadcast's knowledge
 
 Instructions for an agent (or person) adding a device type the chat assistant can write games for.
-Based on how the icon display and the Splat Companion were added.
+Based on how the icon display and the (since retired) Splat Companion were added.
 
 This file covers the **assistant's knowledge and the ChatBroadcast app**. For the device firmware,
 the Broadcast Box / Dial serving side, host devtests and repository docs, follow
@@ -32,11 +32,11 @@ edits `platform.md` only if the device changes a rule every device shares.
    `[DEVICE: <role>]` markers: lowercase letters and underscores. Keep the canonical template small,
    because every generated game starts from it.
 3. **Add the role row** in `js/roles.js`: `key`, `label`, `tabLabel`, `glyph`, `previewGlyph`,
-   `previewCaption`, `designator` (the Box/Dial file suffix, e.g. `_splat`), `hubtype`,
+   `previewCaption`, `designator` (the Box/Dial file suffix, e.g. `_icon`), `hubtype`,
    `signature`, `optional`, `hasPreview`, `hasIconLeg`, `knowledgeFile: 'knowledge/devices/<role>.md'`,
    and `unknownNamesIn` if the device has an inventory (step 4).
 4. **Inventory of named things** — only if a game names things that must already exist on the
-   device (like icons on the display or action names on the Splat). Follow the Splat pattern:
+   device (like icons on the display or Splat action names). Follow the Splat action pattern:
    - The device's source file is the source of truth (e.g. `SplatCompanion/Companion/splat_api.py`).
    - Add `tools/sync_<role>_<things>.py` that generates `js/<role>/<role><Things>.js` from it and
      supports `--check` for drift (model: `tools/sync_splat_actions.py`).

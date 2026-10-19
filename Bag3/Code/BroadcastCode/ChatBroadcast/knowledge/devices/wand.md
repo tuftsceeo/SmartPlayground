@@ -9,9 +9,9 @@ play at once; each runs its own copy of the game.
 
 It has **no screen and no speaker for music** — only the light grid, simple beeps, and vibration.
 
-A wand game can work together with the **icon display** and the **Splat Companion** by sending them
-messages (see the game patterns section). Their own game files are described in
-their device sections.
+A wand game can work together with the **icon display** by sending it messages (see the game
+patterns section). The display's own game file is described in its device section. **Splats** are
+reached only through a wand: see "Splats" below.
 
 ## The `play()` contract
 
@@ -22,7 +22,8 @@ def play(nfc, leds, buz, accel, i2c, enow, batt=None):
 ```
 
 Write all seven, even if the game uses only some. A shorter signature crashes at launch with
-`TypeError`. (The icon display and Splat Companion have different signatures; never use theirs.)
+`TypeError`. A Splat game adds an eighth, `net=None`, after `batt=None` (see "Splat games
+(party)"); write it only in a game that uses Splats. (The icon display has a different signature; never use it.)
 
 | Argument | What it is | Notes |
 |---|---|---|
@@ -219,9 +220,15 @@ Keep buzzes short; the motor draws a lot of power.
 | "lay it flat, lights up" | `z < -0.8` |
 | "tap a card" | `reader.read_command(...)` every `NFC_EVERY` loops |
 | "vibrate", "rumble" | motor on pin 21 |
-| "tell the Splat", "make the Splat light up" | `enow.broadcast({"type": "<slug>", "from": "wand"})`; the Splat game reacts |
 | "show it on the display", "add a point on the big screen" | `enow.broadcast({"type": "<slug>", "from": "wand", "team": "green"})`; the display game draws it |
 | "start / freeze the music" | `enow.broadcast("FD_GO")` / `enow.broadcast("FD_FREEZE")` — plays on the speaker devices |
+
+## Splats
+
+A **Splat** is a pad children press, which lights up and plays sounds. Splats are paired to a wand
+and driven by that wand's game through the `net` parameter: see "Splat games (party)".
+There is no separate Splat game file and no `[DEVICE: splat]` block. Never write a
+`def play(splat, ...)` function or code that creates Bluetooth (`ubluetooth`) itself.
 
 ## Limits and why
 

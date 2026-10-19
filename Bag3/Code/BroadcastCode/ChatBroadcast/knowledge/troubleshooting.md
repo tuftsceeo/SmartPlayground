@@ -64,18 +64,6 @@ When a wand is on, a short row of lights shows each start-up step. This is norma
 
 On the Box, a red battery line means the battery is at 15% or below.
 
-## Splat Companion (light ring)
-
-| Ring | Meaning |
-|---|---|
-| Dim blue | Turning on |
-| Solid blue | Looking for the Splat — turn the Splat on and bring it close |
-| Cyan, slowly glowing | Ready |
-| Solid red that stays | The station cannot reach its radio board — contact the team |
-| **Three quick red blinks** | The game could not start — ask the assistant for a corrected version |
-| Green, then restart | New game received |
-| Orange | Could not join the Box, or the Box does not have that game |
-
 ## Icon display
 
 | Picture | Meaning |

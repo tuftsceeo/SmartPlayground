@@ -57,6 +57,14 @@
                 <div class="gallery-toolbar">
                     <h1 id="gallery-title">Example games</h1>
                     <input type="search" id="gallery-search" placeholder="search games…" />
+                    <!-- Saved-games view only: pushes the saved-game list to
+                         the NFC Station so it can write cards for them. -->
+                    <button class="btn-quiet hidden" id="btn-station-catalog" type="button"
+                            title="Send the saved games list to the NFC Station over USB">
+                        <span data-icon="nfcCard" data-icon-size="14"></span>
+                        Send games to NFC Station
+                    </button>
+                    <span id="station-catalog-status" class="hidden" role="status"></span>
                 </div>
                 <div class="chips" id="gallery-chips"></div>
                 <div class="gallery-grid" id="gallery-grid"></div>
@@ -161,32 +169,15 @@
 
                 <!-- One chat for the whole game: a game can drive several
                      devices at once, so the device choice belongs to the
-                     preview and the code drawer, not to the conversation. -->
+                     code drawer, not to the conversation. -->
                 <div class="ws-body">
                     <div class="preview-col">
                         <div class="preview-toolbar">
-                            <!-- data-role matches editor.js's per-role slots;
-                                 syncRoleRail() enables Display once that role
-                                 has code, and hides the pair entirely when it
-                                 doesn't. -->
-                            <div class="device-tabs hidden" id="device-tabs">
-                                <button type="button" class="device-tab active" data-role="wand" title="Wands">
-                                    <span data-icon="wand" data-icon-size="14"></span>
-                                    Wand
-                                </button>
-                                <button type="button" class="device-tab" data-role="icon" title="Icon display">
-                                    <span data-icon="gamepad" data-icon-size="14"></span>
-                                    Display
-                                </button>
-                                <button type="button" class="device-tab" data-role="splat" title="Splat Companion">
-                                    <span data-icon="cable" data-icon-size="14"></span>
-                                    Splat
-                                </button>
-                            </div>
                             <div class="preview-toolbar-actions">
-                                <button class="btn-quiet hidden" id="btn-icon-maker" type="button" title="Edit display icons">
+                                <button class="btn-quiet" id="btn-icons-view" type="button" title="See and edit this game's display icons"
+                                        aria-pressed="false">
                                     <span data-icon="palette" data-icon-size="14"></span>
-                                    Edit icons
+                                    Icons
                                 </button>
                                 <button class="btn-quiet" id="btn-show-code" type="button" title="Show code">
                                     <span data-icon="code" data-icon-size="14"></span>
@@ -202,10 +193,62 @@
                             <div id="preview-panel" class="hidden">
                                 <wand-sim id="wand-sim"></wand-sim>
                             </div>
-                            <!-- The icon display simulator, shown when the game
-                                 has a display file. Renders through the Icon
-                                 Maker's own preview so it matches the panel. -->
-                            <div id="icon-sim-panel" class="icon-sim hidden"></div>
+                        </div>
+                        <!-- Icons view: a sibling of the preview stage, shown in
+                             its place by #btn-icons-view. The list is every
+                             icon the game uses; selecting one opens it in the
+                             embedded Icon Maker beside it. -->
+                        <div id="icons-view" class="icons-view hidden">
+                            <div class="icons-list-col">
+                                <div class="icons-list-head">This game's icons</div>
+                                <ul class="icons-list" id="icons-list" aria-label="Icons this game uses"></ul>
+                                <p class="icons-list-note" id="icons-list-note"></p>
+                            </div>
+                            <div class="icons-editor-col">
+                                <div class="icons-toolbar">
+                                    <span class="icons-editing" id="icons-editing">No icon open</span>
+                                    <button class="btn-quiet" id="btn-icon-import" type="button" title="Import a different photo for this icon">
+                                        <span data-icon="folder-open" data-icon-size="14"></span>
+                                        Load new image
+                                    </button>
+                                    <input type="file" id="icon-file-input" class="hidden"
+                                           accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml" />
+                                    <button class="icon-btn" id="btn-icon-undo" type="button" title="Undo">
+                                        <span data-icon="undo" data-icon-size="15"></span>
+                                    </button>
+                                    <button class="btn-quiet" id="btn-icon-save" type="button" title="Save this icon into the game">
+                                        <span data-icon="save" data-icon-size="14"></span>
+                                        Save game icon
+                                    </button>
+                                    <div class="more-menu">
+                                        <button class="icon-btn btn-more" id="btn-icon-more" type="button" title="More"
+                                                aria-haspopup="true" aria-expanded="false">⋮</button>
+                                        <div class="more-panel hidden" id="icon-more-panel">
+                                            <button class="more-item" id="btn-icon-adjust" type="button">
+                                                <span class="more-item-label">
+                                                    <span data-icon="wrench" data-icon-size="15"></span>
+                                                    Pixelation &amp; segment colours
+                                                </span>
+                                                <span class="more-check" data-icon="check" data-icon-size="15"></span>
+                                            </button>
+                                            <button class="more-item" id="btn-icon-export" type="button">
+                                                <span class="more-item-label">
+                                                    <span data-icon="download" data-icon-size="15"></span>
+                                                    Export icon file
+                                                </span>
+                                            </button>
+                                            <button class="more-item" id="btn-icon-samples" type="button">
+                                                <span class="more-item-label">
+                                                    <span data-icon="sparkles" data-icon-size="15"></span>
+                                                    New from sample library
+                                                </span>
+                                            </button>
+                                            <div class="more-submenu hidden" id="icon-samples-list"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <iframe id="icon-maker-frame" title="Icon maker"></iframe>
+                            </div>
                         </div>
                     </div>
                     <div class="ws-resizer" id="ws-resizer" role="separator" aria-orientation="vertical" aria-label="Resize chat and simulator panels" tabindex="0"></div>
@@ -253,73 +296,10 @@
                     <span data-icon="gamepad" data-icon-size="13"></span>
                     Display code
                 </button>
-                <button type="button" class="device-tab" data-role="splat" title="Splat Companion">
-                    <span data-icon="cable" data-icon-size="13"></span>
-                    Splat code
-                </button>
             </div>
             <div id="code-editor-container">
                 <div id="code-editor"></div>
             </div>
-        </div>
-
-        <!-- Icon maker, as a drawer rather than its own browser tab. It writes
-             into the same localStorage icon library the main app reads, so
-             closing the drawer is when this window picks changes up. -->
-        <div id="icon-drawer" class="hidden">
-            <div class="drawer-header">
-                <span class="drawer-title">Edit display icons</span>
-                <button class="icon-btn" id="btn-close-icons" type="button" title="Close">
-                    <span data-icon="close" data-icon-size="18"></span>
-                </button>
-            </div>
-
-            <!-- Pick which game icon, then the verbs that matter here;
-                 everything else behind "⋮". The editor iframe below shows the
-                 canvas only -- this row is its toolbar. -->
-            <div class="icon-drawer-toolbar">
-                <select id="icon-pick" title="Choose which of this game's icons to edit"></select>
-                <button class="btn-quiet" id="btn-icon-import" type="button" title="Import a different photo for this icon">
-                    <span data-icon="folder-open" data-icon-size="14"></span>
-                    Load new image
-                </button>
-                <input type="file" id="icon-file-input" class="hidden"
-                       accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml" />
-                <button class="icon-btn" id="btn-icon-undo" type="button" title="Undo">
-                    <span data-icon="undo" data-icon-size="15"></span>
-                </button>
-                <button class="btn-quiet" id="btn-icon-save" type="button" title="Save this icon into the game">
-                    <span data-icon="save" data-icon-size="14"></span>
-                    Save game icon
-                </button>
-                <div class="more-menu">
-                    <button class="icon-btn btn-more" id="btn-icon-more" type="button" title="More"
-                            aria-haspopup="true" aria-expanded="false">⋮</button>
-                    <div class="more-panel hidden" id="icon-more-panel">
-                        <button class="more-item" id="btn-icon-adjust" type="button">
-                            <span class="more-item-label">
-                                <span data-icon="wrench" data-icon-size="15"></span>
-                                Pixelation &amp; segment colours
-                            </span>
-                            <span class="more-check" data-icon="check" data-icon-size="15"></span>
-                        </button>
-                        <button class="more-item" id="btn-icon-export" type="button">
-                            <span class="more-item-label">
-                                <span data-icon="download" data-icon-size="15"></span>
-                                Export icon file
-                            </span>
-                        </button>
-                        <button class="more-item" id="btn-icon-samples" type="button">
-                            <span class="more-item-label">
-                                <span data-icon="sparkles" data-icon-size="15"></span>
-                                New from sample library
-                            </span>
-                        </button>
-                        <div class="more-submenu hidden" id="icon-samples-list"></div>
-                    </div>
-                </div>
-            </div>
-            <iframe id="icon-drawer-frame" title="Icon maker"></iframe>
         </div>
 
         <!-- Tag checklist -->
@@ -383,6 +363,7 @@
                     <div class="send-success-icon" data-icon="circle-check" data-icon-size="40"></div>
                     <h2 id="send-success-title">Sent!</h2>
                     <p id="send-success-note"></p>
+                    <button class="btn-secondary hidden" id="btn-send-another-wand" type="button">Install on another wand</button>
                     <button class="btn-primary" id="btn-send-done" type="button">Done</button>
                 </div>
             </div>

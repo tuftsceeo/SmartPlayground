@@ -17,14 +17,18 @@
  * Automatic checks per reply (reported, never fatal):
  *   - every code block is a complete game for its [DEVICE:] role (validateGameCode,
  *     which includes the wand size limit)
- *   - icon display games name only existing icons; Splat games only known actions
+ *   - icon display games name only existing icons; no file for the retired splat role
  *   - no f-strings; no reserved ESP-NOW message types used as game messages
  *   - the case's own expectations: code expected or not, phrases required or forbidden
+ *   - a wand game declaring SPLATS_MIN runs in the Simulator's
+ *     headless mode (simulateSplatGame below); skipped with a notice until
+ *     Simulator/tools/sim_run.mjs exists (integration plan 5.8)
  * Exit code: 0 when every check passed, 1 otherwise, 2 on setup errors.
  */
-import { readFileSync, writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 
 import {
     knowledgePaths, knowledgeText, buildSystemBlocks, buildRequestBody, requestHeaders,
@@ -33,7 +37,7 @@ import {
 import { readMessageStream } from "../js/prompt/stream.js";
 import { extractCodeBlocks, parseNfcCards, parseGameName, parseChoices, stripAllMarkers } from "../js/chat.js";
 import { validateGameCode } from "../js/upload.js";
-import { listSplatActions, unknownSplatActionsIn } from "../js/splat/splatActionCheck.js";
+import { listSplatActions } from "../js/splat/splatActionCheck.js";
 import { listIcons, missingIconsIn } from "../js/ledicons/iconLibrary.js";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -44,6 +48,42 @@ const outArg = args.indexOf("--out");
 const OUT = outArg >= 0 ? args[outArg + 1] : "prompt_eval_report.md";
 const onlyArg = args.indexOf("--only");
 const ONLY = onlyArg >= 0 ? new Set(args[onlyArg + 1].split(",")) : null;
+
+/** Simulator headless runner (integration plan 5.8); absent until built. */
+const SIM_RUN = resolve(ROOT, "../../Simulator/tools/sim_run.mjs");
+const SIM_SECONDS = 30;
+let simNoticeShown = false;
+
+/**
+ * STUB until Simulator/tools/sim_run.mjs exists. Runs one generated Splat
+ * game headless for SIM_SECONDS with virtual peer wands and Splats, and
+ * returns problem strings: an exception, or a follower that does not return
+ * on ("leader_lost",) / ("end",). The runner's interface is assumed, not
+ * yet defined: `simRun({ code, seconds }) -> { exceptions: string[],
+ * unhandled: string[] }`. Returns null (and prints a notice once) when the
+ * runner is missing.
+ */
+function simAvailable() {
+    if (existsSync(SIM_RUN)) return true;
+    if (!simNoticeShown) {
+        console.log(`notice: ${SIM_RUN} not found; generated Splat games are not simulated (plan 5.8).`);
+        simNoticeShown = true;
+    }
+    return false;
+}
+
+async function simulateSplatGame(code) {
+    if (!simAvailable()) return null;
+    const { simRun } = await import(pathToFileURL(SIM_RUN).href);
+    const r = await simRun({ code, seconds: SIM_SECONDS });
+    return [...(r.exceptions || []).map(e => `simulator exception: ${e}`),
+            ...(r.unhandled || []).map(e => `simulator: unhandled ${e}`)];
+}
+
+/** True for a wand file that declares a Splat (party) game. */
+function isSplatGame(code) {
+    return /^SPLATS_MIN\s*=/m.test(code);
+}
 
 const WAND_GAME = readFileSync(resolve(ROOT, "tools/eval_fixtures/red_glow_wand.py"), "utf8");
 
@@ -81,10 +121,13 @@ const CASES = [
       expect: { code: true, roles: ["wand", "icon"] } },
     { id: "display-count", prompt: "Count how many times the class taps the star card and show it on the display so the kids can count",
       expect: { code: true, roles: ["icon"] } },
-    { id: "splat", prompt: "When a kid jumps on the splat it turns green and barks",
-      expect: { code: true, roles: ["splat"] } },
-    { id: "splat-wand", prompt: "When someone presses the splat, every wand lights up the same color as the splat",
-      expect: { code: true, roles: ["wand", "splat"] } },
+    // The Splat Companion is retired: a Splat request gets no [DEVICE: splat] file.
+    { id: "splat-retired", prompt: "When a kid jumps on the splat it turns green and barks",
+      expect: { noRoles: ["splat"] } },
+    { id: "splat-one-wand", prompt: "One kid presses our Splat when it lights green; it plays a happy note if they're quick",
+      expect: { code: true, roles: ["wand"], codeHas: { wand: /^SPLATS_MIN\s*=\s*1\b/m } } },
+    { id: "splat-party", prompt: "Every kid's wand joins one game: light a random Splat and whoever presses it first gets a point",
+      expect: { code: true, roles: ["wand"], codeHas: { wand: /^SPLATS_MIN\s*=/m } } },
     { id: "roles", prompt: "Freeze dance where my wand is the caller and the kids' wands are players",
       expect: { code: true, roles: ["wand"] } },
     { id: "teams-display", prompt: "Two teams race to tap the goal card, and the display shows which team got there first",
@@ -114,6 +157,9 @@ function autoChecks(c, raw) {
     for (const role of e.roles || []) {
         if (!blocks.some(b => b.role === role)) problems.push(`no [DEVICE: ${role}] file`);
     }
+    for (const role of e.noRoles || []) {
+        if (blocks.some(b => b.role === role)) problems.push(`unexpected [DEVICE: ${role}] file`);
+    }
     for (const b of blocks) {
         const [ok, err] = validateGameCode(b.code, b.role);
         if (!ok) problems.push(`[${b.role}] ${err.replace(/\n/g, " ")}`);
@@ -121,10 +167,6 @@ function autoChecks(c, raw) {
         if (b.role === "icon") {
             const missing = missingIconsIn(b.code);
             if (missing.length) problems.push(`[icon] unknown icons: ${missing.join(", ")}`);
-        }
-        if (b.role === "splat") {
-            const unknown = unknownSplatActionsIn(b.code);
-            if (unknown.length) problems.push(`[splat] unknown actions: ${unknown.join(", ")}`);
         }
         for (const m of b.code.matchAll(/broadcast\(\s*\{[^}]*["']type["']\s*:\s*["']([a-z_]+)["']/g)) {
             if (RESERVED.includes(m[1])) problems.push(`[${b.role}] broadcasts reserved type "${m[1]}"`);
@@ -134,6 +176,10 @@ function autoChecks(c, raw) {
     if (e.choices && !parseChoices(raw)) problems.push("no [CHOICES:] marker");
     for (const re of e.must || []) if (!re.test(shown)) problems.push(`missing ${re}`);
     for (const re of e.mustNot || []) if (re.test(shown)) problems.push(`should not mention ${re}`);
+    for (const [role, re] of Object.entries(e.codeHas || {})) {
+        const b = blocks.find(x => x.role === role);
+        if (b && !re.test(b.code)) problems.push(`[${role}] code does not match ${re}`);
+    }
     for (const [role, needle] of Object.entries(e.keepsFrom || {})) {
         const b = blocks.find(x => x.role === role);
         if (b && !b.code.includes(needle)) problems.push(`[${role}] lost "${needle}" from the existing game`);
@@ -157,6 +203,8 @@ function selfTest() {
             good.replace("buz.confirm()", 'print(f"x{1}"); enow.broadcast({"type": "score"})'), 2],
         ["snippet block", { expect: { code: true } }, "[DEVICE: wand]\n```python\nleds.fill(RED)\n```\n[GAME_NAME: X]", 1],
         ["forbidden phrase", { expect: { code: false, mustNot: [/driver/i] } }, "Install the driver.", 1],
+        ["splat game without net", { expect: { code: true } },
+            good.replace("import time", "SPLATS_MIN = 1\nimport time"), 1],
         ["unknown icon", { expect: { code: true } },
             "[DEVICE: icon]\n```python\nimport icon_store\ndef play(nfc, panel, enow):\n    icon_store.read_icon(\"no_such_icon_x\", into=panel.src)\n```\n[GAME_NAME: X]", 1],
     ];
@@ -172,6 +220,7 @@ function selfTest() {
 
 async function main() {
     if (SELF_TEST) return selfTest();
+    simAvailable();
     const files = Object.fromEntries(knowledgePaths().map(p => [p, readFileSync(resolve(ROOT, p), "utf8")]));
     const knowledge = knowledgeText(files, listSplatActions());
     const icons = listIcons();
@@ -211,6 +260,11 @@ async function main() {
             ? { problems: [`stream error: ${JSON.stringify(r.error)}`], blocks: [], shown: "" }
             : autoChecks(c, r.text);
         if (r.stopReason !== "end_turn") problems.push(`stop_reason ${r.stopReason}`);
+        for (const b of blocks) {
+            if (b.role !== "wand" || !isSplatGame(b.code)) continue;
+            const sim = await simulateSplatGame(b.code);
+            if (sim) problems.push(...sim);
+        }
         if (problems.length) failures++;
         const sizes = blocks.map(b => `${b.role} ${Buffer.byteLength(b.code)} B`).join(", ") || "—";
         rows.push(`| ${c.id} | ${problems.length ? "**FAIL**" : "pass"} | ${r.firstTextMs ?? "—"} | ${totalMs} | ` +

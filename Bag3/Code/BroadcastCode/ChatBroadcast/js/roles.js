@@ -31,10 +31,8 @@
  *                 into the system prompt after the shared files
  *   unknownNamesIn optional (code) => string[]: names the game uses that
  *                 the device does not have; a non-empty result refuses
- *                 the send (splat only, today)
+ *                 the send (no role sets it today)
  */
-import { unknownSplatActionsIn } from './splat/splatActionCheck.js';
-
 export const ROLES = [
     {
         key: 'wand',
@@ -45,8 +43,8 @@ export const ROLES = [
         previewCaption: 'wand preview',
         designator: '',
         hubtype: 'wand',
-        signature: ['nfc', 'leds', 'buz', 'accel', 'i2c', 'enow', 'batt'],
-        optional: ['batt'],
+        signature: ['nfc', 'leds', 'buz', 'accel', 'i2c', 'enow', 'batt', 'net'],
+        optional: ['batt', 'net'],
         hasPreview: true,
         hasIconLeg: false,
         knowledgeFile: 'knowledge/devices/wand.md',
@@ -66,22 +64,6 @@ export const ROLES = [
         hasIconLeg: true,
         knowledgeFile: 'knowledge/devices/icon_display.md',
     },
-    {
-        key: 'splat',
-        label: 'Splat Companion',
-        tabLabel: 'Splat',
-        glyph: 'cable',
-        previewGlyph: 'cable',
-        previewCaption: 'no preview for this device',
-        designator: '_splat',
-        hubtype: 'splat_companion',
-        signature: ['splat', 'leds', 'enow', 'batt'],
-        optional: ['batt'],
-        hasPreview: false,
-        hasIconLeg: false,
-        knowledgeFile: 'knowledge/devices/splat_companion.md',
-        unknownNamesIn: unknownSplatActionsIn,
-    },
 ];
 
 const BY_KEY = Object.fromEntries(ROLES.map(r => [r.key, r]));
@@ -93,11 +75,16 @@ export function roleInfo(key) {
 
 export const DEFAULT_ROLE = ROLES[0].key;
 
-/** `def play(...)` line for a role, `batt` shown with its device-side
- * default. Used in error text and the system prompt. */
+/** Parameters shown with a `=None` default: the device passes `batt` to a
+ * 7- or 8-parameter play() and `net` only to an 8-parameter Splat game
+ * (MockWand/main.py). */
+const DEFAULT_NONE = new Set(['batt', 'net']);
+
+/** `def play(...)` line for a role, optional wand parameters shown with
+ * their device-side default. Used in error text and the system prompt. */
 export function signatureFor(key) {
     const r = BY_KEY[key];
     if (!r) return null;
-    const shown = r.signature.map(n => (n === 'batt' ? 'batt=None' : n));
+    const shown = r.signature.map(n => (DEFAULT_NONE.has(n) ? `${n}=None` : n));
     return `def play(${shown.join(', ')})`;
 }

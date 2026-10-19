@@ -5,10 +5,11 @@
  * runs on wands and an icon display game only ever runs on icon displays, so
  * each role names its own hardware. roles.js is the client-side copy of
  * what each device's main.py actually calls; keep it in step with
- * MockWand/main.py's _launch_game(), IconDisplay/main.py's and
- * SplatCompanion/Companion/main.py's.
+ * MockWand/main.py's _launch_game() and IconDisplay/main.py's.
  */
 import { ROLES as ROLE_TABLE, signatureFor } from './roles.js';
+import { splatGameProblems } from './splat/splatGameCheck.js';
+import { unknownSplatActionsIn } from './splat/splatActionCheck.js';
 
 /** Required play() parameter names, in order, keyed by device role. */
 export const ROLE_SIGNATURES = Object.fromEntries(
@@ -39,6 +40,13 @@ export { signatureFor };
  * this sits just under the largest size known to work.
  */
 export const MAX_WAND_GAME_BYTES = 32000;
+
+/**
+ * Largest icon display game file, in UTF-8 bytes. Provisional: the same
+ * figure as the wand until the display's compile limit is measured
+ * (integration plan session 3.4).
+ */
+export const MAX_DISPLAY_GAME_BYTES = 32000;
 
 /** Size of `code` in UTF-8 bytes, as it is written to the device. */
 export function codeBytes(code) {
@@ -91,7 +99,8 @@ export function validateGameSignature(code, role) {
 
 /**
  * Check a game file before sending: its role's signature, and for the
- * wand the size the wand can load.
+ * wand the size the wand can load, its Splat declarations and `net` use
+ * (splatGameCheck.js), and its Splat action names (splatActionCheck.js).
  * @param {string} code
  * @param {string} role  a key of ROLE_SIGNATURES
  * @returns {[boolean, string|null]} [ok, error message]
@@ -99,12 +108,23 @@ export function validateGameSignature(code, role) {
 export function validateGameCode(code, role) {
     const sigCheck = validateGameSignature(code, role);
     if (!sigCheck[0]) return sigCheck;
-    if (role === 'wand') {
+    const limits = { wand: [MAX_WAND_GAME_BYTES, 'wand'], icon: [MAX_DISPLAY_GAME_BYTES, 'display'] };
+    if (limits[role]) {
+        const [max, name] = limits[role];
         const size = codeBytes(code);
-        if (size > MAX_WAND_GAME_BYTES) {
-            return [false, `This wand game is too big for the wand's memory `
-                + `(${Math.round(size / 1000)} KB; the limit is ${MAX_WAND_GAME_BYTES / 1000} KB). `
+        if (size > max) {
+            return [false, `This ${name} game is too big for the ${name}'s memory `
+                + `(${Math.round(size / 1000)} KB; the limit is ${max / 1000} KB). `
                 + `Ask the assistant to make it shorter.`];
+        }
+    }
+    if (role === 'wand') {
+        const problems = splatGameProblems(code);
+        if (problems.length) return [false, problems.join('\n')];
+        const unknown = unknownSplatActionsIn(code);
+        if (unknown.length) {
+            return [false, `The wand game uses Splat action names the Splats do not have: `
+                + `${unknown.join(', ')}.`];
         }
     }
     return [true, null];

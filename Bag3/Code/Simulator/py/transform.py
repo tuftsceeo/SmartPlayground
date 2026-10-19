@@ -193,6 +193,34 @@ def _has_yield_in_body(node):
     return f.found
 
 
+def _makes_no_calls(node):
+    """True if the function body (nested defs included) calls nothing but
+    known-sync builtins/stdlib."""
+    for stmt in node.body:
+        for child in ast.walk(stmt):
+            if isinstance(child, ast.Call) and not _callee_is_known_sync(child):
+                return False
+            if isinstance(child, (ast.Await, ast.AsyncFor, ast.AsyncWith)):
+                return False
+    return True
+
+
+def _import_time_calls(tree):
+    """Names called directly by module-level statements (not inside a def)."""
+    names = set()
+
+    def walk(n):
+        for child in ast.iter_child_nodes(n):
+            if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
+                continue
+            if isinstance(child, ast.Call) and isinstance(child.func, ast.Name):
+                names.add(child.func.id)
+            walk(child)
+
+    walk(tree)
+    return names
+
+
 def _is_exception_base(base):
     """Heuristic: does this ClassDef base look like an Exception subclass?"""
     if isinstance(base, ast.Name):
@@ -219,7 +247,8 @@ def _callee_is_known_sync(call_node):
 class _Asyncify(ast.NodeTransformer):
     """Convert sync functions to async and wrap calls in await _aw(...)."""
 
-    def __init__(self):
+    def __init__(self, import_time_calls=()):
+        self._import_time_calls = frozenset(import_time_calls)
         self._async_depth = 0
         self._skip_wrap = 0  # >0 inside lambda / comprehension / defaults
         self._classes_needing_meta = set()  # class names that got async __init__
@@ -233,6 +262,12 @@ class _Asyncify(ast.NodeTransformer):
         if _is_property_decorator(node):
             return True
         if _has_yield_in_body(node):
+            return True
+        if name in self._import_time_calls and _makes_no_calls(node):
+            # Called while the module is being imported (color_quest.py's
+            # `TOP_ROW_LEDS = [rc(0, c) for c in range(5)]`), where nothing
+            # awaits it; it calls nothing that could sleep, so it stays
+            # sync. Callers' `await _aw(...)` passes the value through.
             return True
         return False
 
@@ -390,7 +425,7 @@ def transform_source(source, filename="<game>"):
     Returns (transformed_source: str, tree: ast.Module).
     """
     tree = ast.parse(source, filename=filename)
-    transformer = _Asyncify()
+    transformer = _Asyncify(_import_time_calls(tree))
     new_tree = transformer.visit(tree)
     ast.fix_missing_locations(new_tree)
     # Python 3.8+: type_ignores

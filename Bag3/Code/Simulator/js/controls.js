@@ -58,6 +58,11 @@ const RADIO_BY_GAME = {
     { label: "DANCE", type: "raw", data: "FD_DANCE" },
     { label: "RESET", type: "raw", data: "FD_RESET" },
   ],
+  // A type that is JSON text goes out as that dict (sim_state.encode_panel_message).
+  goalrace: [
+    { label: "green won", type: '{"type": "winner", "team": "green"}' },
+    { label: "blue won", type: '{"type": "winner", "team": "blue"}' },
+  ],
 };
 
 // Pale violet-leaning pastels — the tint scale the design system uses for
@@ -703,8 +708,8 @@ export function createControls(container, handlers = {}) {
   const sendEnow = () => {
     const msg = enowInput.value.trim();
     if (!msg) return;
-    // No payload: this field sends a bare msg_type, which is what the
-    // hub-style messages (stop / start_game) look like on the wire.
+    // No payload: a bare word w goes out as {"type": w}, the shape of the
+    // hub's messages (stop / start_game); JSON text goes out as is.
     handlers.onEnow?.(msg);
   };
   q('[data-act="enow-send"]').addEventListener("click", sendEnow);
@@ -741,7 +746,11 @@ export function createControls(container, handlers = {}) {
       b.title = m.data
         ? `Receive ${m.data} as if a caller broadcast it`
         : `Receive a ${m.label} message`;
-      b.addEventListener("click", () => handlers.onEnow?.(m.type, m.data));
+      // A start_game names a game on the wire ({"type": "start_game",
+      // "name": ...}); without one espnow_manager classifies it as raw.
+      // The loaded game's own name is the one that exercises its exit path.
+      const data = m.type === "start_game" && m.data == null ? gameName || undefined : m.data;
+      b.addEventListener("click", () => handlers.onEnow?.(m.type, data));
       el.enowRecv.appendChild(b);
     }
   }
