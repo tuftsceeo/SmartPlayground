@@ -223,7 +223,7 @@ const sEnd = reqSrc.indexOf('\n}\n', sIdx);
 const sessionSrc = sIdx >= 0 && sEnd >= 0 ? reqSrc.slice(sIdx, sEnd) : '';
 check('sessionText() exists', sessionSrc.length > 0);
 check('sessionText() writes the icon list into the block',
-    /icons\.join\(/.test(sessionSrc));
+    /icons\.map\(/.test(sessionSrc) && /listed\.join\(/.test(sessionSrc));
 check('buildSystemBlocks() includes sessionText(icons, ...)',
     /sessionText\(icons,/.test(reqSrc));
 check('listIcons() currently returns at least one real name to inject',

@@ -550,17 +550,7 @@ body.ui-advanced #app-shell {
     outline: none;
 }
 
-/* Device tabs — a segmented control above the preview, replacing the old
-   88px rail. Unlike the rail these are visible in simple mode, which is the
-   only way the icon-display simulator was ever reachable. */
-.device-tabs {
-    display: flex;
-    gap: 4px;
-    background: var(--purple-100, #f4f2fa);
-    padding: 3px;
-    border-radius: 12px;
-    flex: none;
-}
+/* Device tabs in the code drawer (#code-device-tabs). */
 .device-tab {
     display: flex;
     align-items: center;
@@ -1070,39 +1060,7 @@ body.ui-advanced #app-shell {
     flex: none;
 }
 
-/* ── Icon drawer (the Icon Maker, embedded) ── */
-#icon-drawer {
-    position: fixed;
-    top: 0;
-    right: 0;
-    bottom: 0;
-    width: 640px;
-    max-width: 92vw;
-    background: #fff;
-    z-index: 100;
-    display: flex;
-    flex-direction: column;
-    box-shadow: -8px 0 32px rgba(108, 76, 209, 0.18);
-    border-left: 1px solid var(--border);
-    border-radius: 20px 0 0 20px;
-    overflow: hidden;
-}
-/* Close sits hard right in both drawers; the code drawer gets there through
-   .drawer-tools, which the icon drawer has no need for. */
-#icon-drawer .drawer-header .icon-btn { margin-left: auto; }
-/* Square, so the glyph sits on both centre lines. .icon-btn's 8px/10px
-   padding makes a 38x34 box, which reads as off-centre for a symmetric mark
-   like the close X. */
-#icon-drawer .drawer-header .icon-btn,
-#code-drawer .drawer-header .icon-btn {
-    width: 36px;
-    height: 36px;
-    padding: 0;
-}
-#icon-drawer .drawer-header .icon-btn [data-icon],
-#code-drawer .drawer-header .icon-btn [data-icon] { display: flex; }
-
-.icon-drawer-toolbar {
+.icons-toolbar {
     display: flex;
     align-items: center;
     gap: 8px;
@@ -1111,21 +1069,9 @@ body.ui-advanced #app-shell {
     flex: none;
     position: relative;
 }
-.icon-drawer-toolbar #icon-pick {
-    flex: none;
-    width: 150px;
-    min-width: 0;
-    border: 1.5px solid var(--border);
-    background: var(--surface-sunken);
-    border-radius: 12px;
-    padding: 8px 12px;
-    font: 800 13px 'Nunito';
-    color: var(--ink);
-    box-sizing: border-box;
-}
-.icon-drawer-toolbar .btn-quiet,
-.icon-drawer-toolbar .icon-btn { flex: none; height: 36px; }
-.icon-drawer-toolbar #btn-icon-import { margin-left: auto; }
+.icons-toolbar .btn-quiet,
+.icons-toolbar .icon-btn { flex: none; height: 36px; }
+.icons-toolbar #btn-icon-import { margin-left: auto; }
 .more-item-label { display: flex; align-items: center; gap: 8px; }
 .more-item-label [data-icon] { display: flex; color: var(--muted); }
 .more-submenu {
@@ -1136,7 +1082,92 @@ body.ui-advanced #app-shell {
     overflow-y: auto;
 }
 
-#icon-drawer-frame {
+/* ── Icons view (replaces the preview stage while open) ── */
+.icons-view {
+    flex: 1;
+    display: flex;
+    min-height: 0;
+    background: #fff;
+}
+.icons-view.hidden { display: none; }
+.preview-stage.hidden { display: none; }
+#btn-icons-view.active { border-color: var(--purple); color: var(--purple); }
+.icons-list-col {
+    flex: none;
+    width: 200px;
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid var(--border-soft);
+    min-height: 0;
+}
+.icons-list-head {
+    font: 800 12px 'Nunito';
+    color: var(--muted);
+    padding: 14px 14px 8px;
+}
+.icons-list {
+    list-style: none;
+    margin: 0;
+    padding: 0 8px;
+    overflow-y: auto;
+    flex: 1;
+    min-height: 0;
+}
+.icons-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    border: 1.5px solid transparent;
+    background: transparent;
+    border-radius: 10px;
+    padding: 4px 6px;
+    cursor: pointer;
+    font: 700 13px 'Nunito';
+    color: var(--ink);
+    text-align: left;
+}
+.icons-item:hover { background: var(--surface-sunken, #f4f2fa); }
+.icons-item.active { border-color: var(--purple); }
+.icons-thumb {
+    width: 28px;
+    height: 28px;
+    border-radius: 4px;
+    background: #0a0a0c;
+    flex: none;
+}
+.icons-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.icons-badge {
+    flex: none;
+    font: 800 10px 'Nunito';
+    padding: 2px 6px;
+    border-radius: 6px;
+    background: var(--surface-sunken, #f4f2fa);
+    color: var(--muted);
+}
+.icons-badge.custom { background: var(--write-bg); color: var(--write-fg); }
+.icons-badge.missing { background: #fde8ef; color: var(--pink-dark); }
+.icons-list-note {
+    margin: 0;
+    padding: 8px 14px 14px;
+    font: 600 12px 'Nunito';
+    color: var(--muted);
+}
+.icons-editor-col {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+.icons-editing {
+    font: 800 13px 'Nunito';
+    color: var(--ink);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+}
+#icon-maker-frame {
     flex: 1;
     min-height: 0;
     width: 100%;
@@ -1617,53 +1648,3 @@ body.ui-advanced .mybox-stats.advanced-only { display: block !important; }
 }
 #send-game-name:disabled { color: var(--muted); cursor: not-allowed; }
 
-/* ── Icon display simulator (js/ledicons/iconPanel.js) ────────────────
-   Sits where <wand-sim> does, shown instead of it when the editor is on
-   the display's file. The canvas renders through the Icon Maker's own
-   preview, so it shows the device's truncating LUT and LED bloom rather
-   than flat CSS colours. */
-.icon-sim {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 10px;
-    padding: 16px;
-    min-height: 0;
-}
-.icon-sim.hidden { display: none; }
-.icon-sim-canvas {
-    width: min(100%, 384px);
-    height: auto;
-    aspect-ratio: 1;
-    border-radius: 12px;
-    background: #0a0a0c;
-}
-.icon-sim-controls {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    flex-wrap: wrap;
-    justify-content: center;
-}
-.icon-sim-pick {
-    font: 700 12px 'Nunito';
-    padding: 4px 10px;
-    border-radius: 8px;
-    border: 1px solid var(--border);
-    background: #fff;
-}
-.icon-sim-pick:disabled { opacity: 0.6; }
-.icon-sim-bright { display: flex; align-items: center; gap: 6px; }
-.icon-sim-bright span {
-    font: 700 11px 'Nunito';
-    color: var(--muted);
-    width: 32px;
-    text-align: right;
-}
-.icon-sim-note {
-    margin: 0;
-    font: 600 12px 'Nunito';
-    color: var(--muted);
-    text-align: center;
-    max-width: 340px;
-}

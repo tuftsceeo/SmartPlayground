@@ -67,12 +67,18 @@ export function knowledgeText(files, splatActions) {
  * The per-turn block (block 3): icon names and the code in the editor.
  * @param {string[]} icons  icon names available on the display
  * @param {Object<string,string>} editorCode  role key -> current code
+ * @param {string[]} [customIcons]  names the teacher drew or edited for this
+ *     game; each is listed with a "(custom)" suffix
  */
-export function sessionText(icons, editorCode) {
+export function sessionText(icons, editorCode, customIcons = []) {
+    const custom = new Set(customIcons);
+    const listed = icons.map(n => (custom.has(n) ? `${n} (custom)` : n));
     const parts = [
-        '# ICONS CURRENTLY AVAILABLE ON THE ICON DISPLAY\n\n' + icons.join(', ') +
+        '# ICONS CURRENTLY AVAILABLE ON THE ICON DISPLAY\n\n' + listed.join(', ') +
         '\n\nRefer to icons by these names only. If a game needs a picture that is not in this ' +
-        'list, say so and suggest the closest one rather than inventing a name.',
+        'list, say so and suggest the closest one rather than inventing a name.' +
+        (custom.size ? ' Icons marked (custom) were drawn by the teacher for this game; ' +
+            'refer to them by name without the "(custom)" suffix.' : ''),
     ];
     const withCode = ROLES.filter(r => (editorCode[r.key] || '').trim());
     if (withCode.length) {
@@ -91,15 +97,15 @@ export function sessionText(icons, editorCode) {
 /**
  * System blocks for one request.
  * @param {{knowledge:string, advanced:string, advancedMode:boolean,
- *          icons:string[], editorCode:Object<string,string>}} o
+ *          icons:string[], customIcons?:string[], editorCode:Object<string,string>}} o
  */
-export function buildSystemBlocks({ knowledge, advanced, advancedMode, icons, editorCode }) {
+export function buildSystemBlocks({ knowledge, advanced, advancedMode, icons, customIcons, editorCode }) {
     const blocks = [{ type: 'text', text: knowledge, cache_control: { type: 'ephemeral' } }];
     if (advancedMode) {
         if (typeof advanced !== 'string') throw new Error(`${ADVANCED_KNOWLEDGE} not loaded`);
         blocks.push({ type: 'text', text: advanced, cache_control: { type: 'ephemeral' } });
     }
-    blocks.push({ type: 'text', text: sessionText(icons, editorCode) });
+    blocks.push({ type: 'text', text: sessionText(icons, editorCode, customIcons) });
     return blocks;
 }
 

@@ -39,7 +39,8 @@ globalThis.document = {
 };
 
 const lib = await import(`${CB}/js/ledicons/iconLibrary.js`);
-const panel = await import(`${CB}/js/ledicons/iconPanel.js`);
+const panel = await import(`${CB}/js/ledicons/iconView.js`);
+const req = await import(`${CB}/js/prompt/buildRequest.js`);
 const bridge = await import(`${CB}/iconmaker/js/libraryBridge.js`);
 
 const fails = [];
@@ -180,6 +181,32 @@ try { bridge.saveToLibrary('no spaces here', pix); } catch (e) { raised = e.mess
 check('an unusable name raises instead of saving a mangled one',
     raised.includes('not a usable icon name') &&
     !lib.listIcons().some((n) => n.includes(' ')), raised || '(no error)');
+
+// ── the Icons view's list ───────────────────────────────────────────
+// Every icon the wand and display code use, plus the game's own, each
+// marked built-in, custom or missing.
+lib.setGameIcons({});
+lib.saveIcon('campfire', lib.getIcon('tree'));
+const entries = panel.gameIconEntries([
+    'leds.show("tree")',
+    'icon_store.read_icon("nosuch")\nicon_store.read_icon("whale")',
+]);
+const status = Object.fromEntries(entries.map((e) => [e.name, e.status]));
+check('a built-in icon named in wand code is listed as built-in', status.tree === 'built-in',
+    JSON.stringify(status));
+check('a built-in named in display code is listed', status.whale === 'built-in');
+check('an unknown read_icon name is listed as missing', status.nosuch === 'missing');
+check("the game's own icon is listed as custom even when no code names it",
+    status.campfire === 'custom');
+check('the list is sorted by name',
+    entries.map((e) => e.name).join() === [...entries.map((e) => e.name)].sort().join());
+check('a game with no code and no icons lists nothing', (lib.setGameIcons({}),
+    panel.gameIconEntries(['', '']).length === 0));
+
+// ── the prompt's icon list marks custom icons ──────────────────────
+const sess = req.sessionText(['campfire', 'tree'], {}, ['campfire']);
+check('a custom icon is marked (custom) in the prompt', sess.includes('campfire (custom), tree'), sess.split('\n')[2]);
+check('no custom icons, no marker', !req.sessionText(['tree'], {}).includes('(custom)'));
 
 console.log();
 if (fails.length) { console.log(`FAILED: ${fails.length}`); process.exit(1); }
