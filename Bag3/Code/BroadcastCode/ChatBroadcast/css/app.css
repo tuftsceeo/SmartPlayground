@@ -875,12 +875,14 @@ body.ui-advanced #app-shell {
     font: 12px ui-monospace, monospace;
     color: #c9a3bd;
 }
+/* Centred by the child's auto margins, not justify-content: a sim taller
+   than the stage (a party game's Splat and friend wand panels) would
+   overflow above the scroll origin and its top could not be scrolled to. */
 #preview-panel {
     flex: 1;
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
     gap: 10px;
     min-height: 0;
     overflow: auto;
@@ -892,6 +894,8 @@ body.ui-advanced #app-shell {
    default so those queries own it. */
 #preview-panel sim-room {
     width: 100%;
+    flex: none;
+    margin-block: auto;
     /* <sim-room>'s <wand-sim> ships as a standalone card — white ground,
        24px radius, a purple drop shadow. Inside the workspace the view panel
        is already that card, so the defaults stack a second one on top of the
