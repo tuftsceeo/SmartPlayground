@@ -5,6 +5,9 @@ Scan note tags to build a melody, tap "erase" to clear,
 press button to play back. Tap a Music Board's "musicbox@<id>" sticker
 to send the melody to that board. Tap "stop" tag to exit.
 
+"rest" adds a silent step. "double_length" or "halve_length" changes the
+duration of the next note scanned only; any other tag cancels it.
+
 Colors from leds.py — auto-scale with ambient brightness.
 
 Entry points:
@@ -27,6 +30,7 @@ from leds import (
     SHAPE_A, SHAPE_B, SHAPE_C, SHAPE_D, SHAPE_E, SHAPE_F, SHAPE_G,
     SHAPE_X, SHAPE_MUSIC, SHAPE_SAD_FACE, SHAPE_QUESTION,
     SHAPE_ARROW_R, SHAPE_CHECK,
+    SHAPE_REST, SHAPE_DOUBLE, SHAPE_HALF,
 )
 
 
@@ -47,7 +51,7 @@ MAX_NOTES = 25
 COMMANDS = {
     "note_c", "note_d", "note_e", "note_f",
     "note_g", "note_a", "note_b", "note_c_high",
-    "erase", "melody", "backspace",
+    "erase", "melody", "backspace", "rest", "double_length", "halve_length",
 } | _EXIT_TAGS
 
 NOTE_COLOR = {
@@ -59,6 +63,7 @@ NOTE_COLOR = {
     "note_a": PURPLE,
     "note_b": PINK,
     "note_c_high": WHITE,
+    "rest": OFF,
 }
 
 NOTE_SHAPE = {
@@ -70,6 +75,7 @@ NOTE_SHAPE = {
     "note_a": SHAPE_A,
     "note_b": SHAPE_B,
     "note_c_high": SHAPE_C,
+    "rest": SHAPE_REST,
 }
 
 SCAN_NOTE_MS = 250
@@ -86,12 +92,15 @@ SONG_TRIES = 3
 SONG_ACK_WAIT_MS = 150
 SONG_RESULT_HOLD_MS = 600
 
-# One character per note in the "song" message, so 25 notes fit in one
-# ESP-NOW frame. Must match NOTE_CHARS in the Music Board's music_board.py.
+# One character per note in the "song" message, plus an optional length
+# mark, so 25 notes fit in one ESP-NOW frame. Must match NOTE_CHARS and
+# LENGTH_MARKS in the Music Board's music_board.py.
 NOTE_CHAR = {
     "note_c": "c", "note_d": "d", "note_e": "e", "note_f": "f",
     "note_g": "g", "note_a": "a", "note_b": "b", "note_c_high": "C",
+    "rest": "r",
 }
+LENGTH_CHAR = {"d": "+", "h": "-", "": ""}
 
 
 # ─────────────────────────────────────────────
@@ -135,7 +144,7 @@ class MelodyDisplay:
         """Render melody as one pixel per note in row-major order."""
         for i in range(self.leds.num):
             if i < len(melody):
-                color = NOTE_COLOR.get(melody[i], OFF)
+                color = NOTE_COLOR.get(_split_marker(melody[i])[0], OFF)
                 if highlight_idx is not None and i == highlight_idx:
                     color = (
                         min(255, int(color[0] * 1.6)),
@@ -172,10 +181,36 @@ def _to_buzzer_key(cmd):
     return cmd.replace("_", "")
 
 
+def _split_marker(entry):
+    """Split a stored melody entry: "dnote_c" -> ("note_c", "d").
+
+    Notes scanned after double_length / halve_length are stored with a
+    leading "d" / "h". No tag name starts with either letter, so a bare
+    entry returns an empty marker.
+    """
+    if entry[0] in ("d", "h"):
+        return entry[1:], entry[0]
+    return entry, ""
+
+
+def _note_ms(ms, marker):
+    """Scale a note duration by its marker (d = x2, h = x0.5)."""
+    if marker == "d":
+        return ms * 2
+    if marker == "h":
+        return max(1, ms // 2)
+    return ms
+
+
 def _play_note_with_color(cmd, ms, leds, buz):
-    """Play a note while showing its letter shape in color on LEDs."""
+    """Play a note (or rest) while showing its shape on LEDs."""
+    if cmd == "rest":
+        leds.show_shape(SHAPE_REST, WHITE)
+        time.sleep_ms(max(ms, NOTE_LETTER_HOLD_MS))
+        return
+
     buz_key = _to_buzzer_key(cmd)
-    
+
     if buz_key not in NOTE_FREQ or cmd not in NOTE_COLOR:
         leds.show_shape(SHAPE_QUESTION, RED, bg=OFF)
         buz.reject()
@@ -215,7 +250,8 @@ class MelodyGame:
         self.last_scan_ms = 0
         self._frame = 0
         self._song_seq = time.ticks_ms() & 0xFFFF
-        
+        self._length_mod = ""   # "d" / "h" applies to the next note scanned
+
         # Button state: read at init to avoid false trigger from held button
         self._btn_was_down = (self.btn.value() == 0)
     
@@ -237,12 +273,16 @@ class MelodyGame:
                     return False
 
             self.display.show_melody_pixels(self.current_melody, highlight_idx=i)
-            buz_key = _to_buzzer_key(cmd)
+            base, marker = _split_marker(cmd)
+            if base == "rest":
+                time.sleep_ms(PLAY_NOTE_MS + GAP_MS)
+                continue
+            buz_key = _to_buzzer_key(base)
             if buz_key not in NOTE_FREQ:
                 self.display.show_error_unknown()
                 self.buz.reject()
                 continue
-            self.buz.play_note(NOTE_FREQ[buz_key], PLAY_NOTE_MS)
+            self.buz.play_note(NOTE_FREQ[buz_key], _note_ms(PLAY_NOTE_MS, marker))
             time.sleep_ms(GAP_MS)
         
         self.buz.confirm()
@@ -259,7 +299,10 @@ class MelodyGame:
         if not self.enow:
             print("  No ESP-NOW; cannot send song")
             return False
-        notes = "".join(NOTE_CHAR[cmd] for cmd in self.current_melody)
+        notes = ""
+        for entry in self.current_melody:
+            base, marker = _split_marker(entry)
+            notes += NOTE_CHAR[base] + LENGTH_CHAR[marker]
         self._song_seq = (self._song_seq + 1) & 0xFFFF
         seq = self._song_seq
         self.leds.show_shape(SHAPE_ARROW_R, TEAL, bg=OFF)
@@ -326,6 +369,11 @@ class MelodyGame:
                     self.last_uid = uid
                     self.last_scan_ms = now
                     
+                    # Any tag other than a length tag cancels a pending one.
+                    marker = self._length_mod
+                    if cmd not in ("double_length", "halve_length"):
+                        self._length_mod = ""
+
                     if cmd in _EXIT_TAGS:
                         print("  Exit tag detected: %s" % cmd)
                         return
@@ -347,18 +395,31 @@ class MelodyGame:
                                 self.display.show_error_max_notes()
                                 self.buz.warn()
                             time.sleep_ms(SONG_RESULT_HOLD_MS)
-                    elif cmd.startswith("note_"):
+                    elif cmd == "double_length" or cmd == "halve_length":
+                        if cmd == "double_length":
+                            self._length_mod = "d"
+                            self.leds.show_shape(SHAPE_DOUBLE, WHITE)
+                        else:
+                            self._length_mod = "h"
+                            self.leds.show_shape(SHAPE_HALF, WHITE)
+                        time.sleep_ms(SCAN_NOTE_MS)
+                    elif cmd.startswith("note_") or cmd == "rest":
                         if len(self.current_melody) >= MAX_NOTES:
                             self.display.show_error_max_notes()
                             self.buz.warn()
                             print("  Melody full (%d notes max)" % MAX_NOTES)
+                        elif cmd == "rest":
+                            # Rests are a fixed length; a pending marker is consumed.
+                            self.current_melody.append(cmd)
+                            _play_note_with_color(cmd, SCAN_NOTE_MS, self.leds, self.buz)
+                            print("  Rest (%d in sequence)" % len(self.current_melody))
                         elif cmd not in NOTE_COLOR or _to_buzzer_key(cmd) not in NOTE_FREQ:
                             self.display.show_error_unknown()
                             self.buz.reject()
                         else:
-                            self.current_melody.append(cmd)
-                            _play_note_with_color(cmd, SCAN_NOTE_MS, self.leds, self.buz)
-                            print("  Note: %s (%d in sequence)" % (cmd, len(self.current_melody)))
+                            self.current_melody.append(marker + cmd)
+                            _play_note_with_color(cmd, _note_ms(SCAN_NOTE_MS, marker), self.leds, self.buz)
+                            print("  Note: %s%s (%d in sequence)" % (marker, cmd, len(self.current_melody)))
                     elif cmd == "erase" or cmd == "melody":
                         if len(self.current_melody) == 0:
                             self.display.show_error_empty_erase()

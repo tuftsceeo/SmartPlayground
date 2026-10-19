@@ -9,7 +9,7 @@ stores the song (or appends it after a person+ press) and plays it once.
 
 Song string: one token per note. Note char c d e f g a b C, or r for a
 rest, optionally followed by "+" (half note) or "-" (eighth note); no
-mark = quarter. MockWand currently sends bare note chars only.
+mark = quarter.
 
 Each note plays its own WAV to the end: notes/{voice}_{n}_{len}.wav,
 rendered by tools/synth_notes.py at quarter = 500 ms with the release
