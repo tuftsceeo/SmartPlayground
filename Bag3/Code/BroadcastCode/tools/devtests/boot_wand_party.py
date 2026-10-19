@@ -219,6 +219,29 @@ check("an ESP-NOW stop in the lobby cancels it: play() never runs, no game_start
       not gamelog.calls and '"type": "game_start"' not in b.out and not b.reset, str(gamelog.calls))
 check("...and the wand is back in its idle loop", "Main loop" not in b.out or "[ERR] Main loop" not in b.out)
 
+# ── A Splat card in the lobby leaves it and pairs (reset), like a tap at idle ──
+reset_log()
+
+
+def paircard_setup(b):
+    b.sim.max_ms = 60000
+    import nfc_reader
+    reads = {"n": 0}
+
+    def fake_read(nfc, timeout=500, resel_timeout=150):
+        reads["n"] += 1
+        if reads["n"] == 3:
+            return "splat-" + B.replace(":", "").lower(), "04:01:02:03"
+        nfc.read_passive_target(timeout)
+        return None, None
+    nfc_reader.read_ndef_text = fake_read
+
+
+b = boot(games=GAMES, cards=NONE * 25 + ["pgame"] + NONE * 10, setup=paircard_setup)
+check("a Splat card in the lobby: no game, the wand pairs it and resets",
+      not gamelog.calls and b.reset and wandboot.pairing_file() == [B], str(wandboot.pairing_file()))
+check("...and the reset is a quick boot", os.path.exists(wandboot.QUICK_BOOT))
+
 # ── A party game whose play() has no net parameter still runs after its lobby ──
 reset_log()
 

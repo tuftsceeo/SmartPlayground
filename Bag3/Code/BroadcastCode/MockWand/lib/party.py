@@ -36,6 +36,7 @@ LOBBY_NFC_MS = 40         # NFC detect timeout for those reads
 
 _counter = 0              # 1-byte game id counter, per boot
 last_end = None           # why the last enter() returned None
+pair_card = None          # a Splat or unpair card read in the lobby, for main.py
 
 
 def _new_game_id(my_mac):
@@ -637,7 +638,8 @@ def _draw_lobby(leds, net, last):
 def run_lobby(net, nfc, button_down, leds, buz):
     """Block in the lobby. Returns "start", "cancel" or "refind", or the
     ("yield", ...) tuple from Net.lobby_step()."""
-    from nfc_reader import read_ndef_text
+    global pair_card
+    from nfc_reader import read_ndef_text, parse_splat_card
     shown = None
     was_down = button_down()
     n = 0
@@ -649,6 +651,12 @@ def run_lobby(net, nfc, button_down, leds, buz):
         if n % LOBBY_NFC_EVERY == 0:
             text, _ = read_ndef_text(nfc, timeout=LOBBY_NFC_MS)
             if text == "stop":
+                net.leave_lobby()
+                return "cancel"
+            # Pairing needs the idle loop (and a reset for a new Splat): leave
+            # the lobby and hand the card to main.py.
+            if text == "unpair" or (text and parse_splat_card(text)):
+                pair_card = text
                 net.leave_lobby()
                 return "cancel"
         down = button_down()
@@ -668,7 +676,8 @@ def enter(enow, slug, splats_min, splats_max, ctl, my_mac, nfc, leds, buz, butto
     take this wand's Splats) or "no_answer" (every join attempt went
     unanswered). A join that fails, or a leader that yields its lobby, makes
     the wand look again, up to REFIND_MAX more times."""
-    global last_end
+    global last_end, pair_card
+    pair_card = None
     last_end = None
     net = Net(enow, my_mac, ctl, slug, splats_min, splats_max)
     for attempt in range(1 + REFIND_MAX):

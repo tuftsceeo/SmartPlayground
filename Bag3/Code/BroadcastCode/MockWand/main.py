@@ -518,6 +518,11 @@ def _enter_party(name, limits, enow, nfc, leds, buz):
     from espnow_manager import get_own_mac
     net = party.enter(enow, name, limits[0], limits[1], _pair_ctl, get_own_mac(),
                       nfc, leds, buz, lambda: btn.value() == 0)
+    if net is None and party.pair_card:
+        card, party.pair_card = party.pair_card, None
+        leds.off()
+        _pair_card(card, enow)       # resets after a new pairing
+        return None
     if net is None:
         if party.last_end in ("left", "external"):
             buz.stop()
