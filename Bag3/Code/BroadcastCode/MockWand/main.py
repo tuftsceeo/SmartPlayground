@@ -421,8 +421,11 @@ def _unload_game(name):
 
 UNLOAD_AFTER_GAME = True  # bench toggle -- see the post-unload probe
 
+# pair_idle.PairIdle, set in main() after boot (lib/pair_idle.py).
+_pair = None
 
-def _game_load_failed(name, exc):
+
+def _game_load_failed(name, exc, where="game_load"):
     """Loud, unmissable, non-fatal. Wand returns to idle and stays usable.
 
     Deliberately not boot_stage_fail(): that writes one pixel on the numbered
@@ -436,7 +439,7 @@ def _game_load_failed(name, exc):
     print("  [FAIL] game load: %s (module %s)"
           % (name, game_module(name)))
     sys.print_exception(exc)
-    _emit({"type": "error", "where": "game_load", "slug": name, "err": str(exc)})
+    _emit({"type": "error", "where": where, "slug": name, "err": str(exc)})
     memprobe.probe("load-fail:%s" % name)   # BENCH
     memprobe.frag("load-fail:%s" % name)    # BENCH
     for _ in range(3):
@@ -508,12 +511,16 @@ def _launch_game(name, nfc, leds, buz, accel, i2c, enow, batt_ref):
                         wrapper, batt_ref)
         except TypeError as e:
             # A game that cannot even be CALLED is a load failure, not a
-            # reason to take the main loop down with it. Anything raised
-            # from inside a running game still propagates, as before.
-            if not _is_arity_error(e):
-                raise
-            _game_load_failed(name, e)
+            # reason to take the main loop down with it. An error raised
+            # inside a running game takes the same red-X path ("game_run").
+            _game_load_failed(name, e, "game_load" if _is_arity_error(e) else "game_run")
             return
+        except Exception as e:
+            _game_load_failed(name, e, "game_run")
+            return
+        finally:
+            if _pair is not None:
+                _pair.after_game()
         _emit({"type": "game_end", "slug": name})
         next_name = wrapper.pending_name
         # Drop the reference before unloading -- play_func is what pins
@@ -546,6 +553,9 @@ def check_broadcast(enow, batt_ref, leds_ref, buz_ref):
     Returns "stop", "battery", ("start_game", name), or None.
     """
     msg_type, data, mac_str = enow.poll()
+    if msg_type == "raw" and _pair is not None:
+        _pair.espnow(data, mac_str)
+        return None
     if msg_type == "stop":
         return "stop"
     if msg_type == "battery":
@@ -570,6 +580,8 @@ def show_idle(last_soc, idle_frame):
         leds.idle_low_blink(idle_frame)
     else:
         leds.idle_default(last_soc)
+    if _pair is not None:
+        _pair.paint()
 
 
 # ─────────────────────────────────────────────
@@ -814,6 +826,7 @@ def _run_pull_mode():
 # MAIN
 # ─────────────────────────────────────────────
 def main():
+    global _pair
     # Before anything else, and before ESP-NOW claims the radio.
     if pull_flag.is_pending():
         _run_pull_mode()
@@ -849,13 +862,20 @@ def main():
     # radio), unlike Stage 3's fatal NFC failure below.
     enow = ESPNowManager()
     memprobe.probe("pre-enow"); memprobe.frag("pre-enow")  # BENCH
+    enow_col = GREEN
     try:
         enow.init()
-        leds.boot_stage_ok(0, row_colors=[OFF, OFF, OFF, GREEN])
     except Exception as e:
         print("  [WARN] ESP-NOW:"); sys.print_exception(e)
-        leds.boot_stage_ok(0, row_colors=[OFF, OFF, OFF, AMBER])
+        enow_col = AMBER
     memprobe.probe("post-enow")  # BENCH
+
+    # Splat pairing (SPEC section 4): BLE comes up here, after ESP-NOW and
+    # ahead of Stage 1, only if /pairing.json survives this boot.
+    import pairing
+    ble = pairing.boot(machine)
+    leds.boot_stage_ok(0, row_colors=[OFF, OFF, OFF if ble is None else (GREEN if ble else AMBER), enow_col])
+    memprobe.probe("post-pairing")  # BENCH
 
     # ── Stage 1: Brightness calibration (OPT3002) ──
     leds.boot_stage_start(1)
@@ -993,6 +1013,9 @@ def main():
         last_activity_ms = time.ticks_ms()
         last_uid = None
 
+    import pair_idle
+    _pair = pair_idle.PairIdle(enow, leds, buz, machine)
+
     show_idle(last_soc, 0)
     print("\n  Tap a TRIGGER tag to start programming\n")
 
@@ -1005,6 +1028,7 @@ def main():
             last_heartbeat_ms = time.ticks_ms()
             _emit({"type": "heartbeat", "up": last_heartbeat_ms})
         try:
+            _pair.tick()
             # ─────────────────────────────────────
             # NFC SLEEPING — minimal power mode
             # ─────────────────────────────────────
@@ -1175,6 +1199,12 @@ def main():
                     continue
                 time.sleep_ms(300)   # let the beeps finish before the reset
                 machine.reset()
+
+            # ── SPLAT PAIRING (splat-<MAC> and unpair cards) ──
+            if _pair.card(cmd):
+                last_activity_ms = time.ticks_ms()
+                idle_frame = 0
+                show_idle(last_soc, 0); continue
 
             # ── UTILITY ──
             if cmd == "battery":
