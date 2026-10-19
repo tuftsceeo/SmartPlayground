@@ -1,5 +1,45 @@
 {
   "files": {
+    "display/games/goalrace.py": {
+      "sha256": "22cf50798ee1980c711b4f5dd3ec9869889429474fc9e2aae472da38dd2399a6",
+      "source": "Bag3/Code/BroadcastCode/IconDisplay/games/goalrace.py",
+      "vendor_sha256": "22cf50798ee1980c711b4f5dd3ec9869889429474fc9e2aae472da38dd2399a6"
+    },
+    "display/games/goalrace_icons/ready.py": {
+      "sha256": "253bf13e3f19c743e70f01c7cb30529a36a92df90171a4f395773da0dc079136",
+      "source": "Bag3/Code/BroadcastCode/IconDisplay/icons/ready.py",
+      "vendor_sha256": "253bf13e3f19c743e70f01c7cb30529a36a92df90171a4f395773da0dc079136"
+    },
+    "display/games/goalrace_icons/tree.py": {
+      "sha256": "78cc2f9585fab929664477193e693d9c9b27333c29b7d55b66edb254f7ee75c2",
+      "source": "Bag3/Code/BroadcastCode/IconDisplay/icons/tree.py",
+      "vendor_sha256": "78cc2f9585fab929664477193e693d9c9b27333c29b7d55b66edb254f7ee75c2"
+    },
+    "display/games/goalrace_icons/whale.py": {
+      "sha256": "0ecd173e4b5184ba817a0e319ba1f6e9ccd4a23173447f2f6230924781c2197d",
+      "source": "Bag3/Code/BroadcastCode/IconDisplay/icons/whale.py",
+      "vendor_sha256": "0ecd173e4b5184ba817a0e319ba1f6e9ccd4a23173447f2f6230924781c2197d"
+    },
+    "display/lib/display_tags.py": {
+      "sha256": "070d665c0434f7a86edc1cca8c12d90c91c0d9a44a8601786f18d9a824b84fc6",
+      "source": "Bag3/Code/BroadcastCode/IconDisplay/lib/display_tags.py",
+      "vendor_sha256": "070d665c0434f7a86edc1cca8c12d90c91c0d9a44a8601786f18d9a824b84fc6"
+    },
+    "display/lib/espnow_manager.py": {
+      "sha256": "3a33ee041515a6b6221943a82c2741378b5930542132a0e91732d5b1ee72b89b",
+      "source": "Bag3/Code/BroadcastCode/IconDisplay/lib/espnow_manager.py",
+      "vendor_sha256": "3a33ee041515a6b6221943a82c2741378b5930542132a0e91732d5b1ee72b89b"
+    },
+    "display/lib/icon_store.py": {
+      "sha256": "ae4d4419f0a3822fbb1e6c8dddd1bf88bbe4b6f72af33e519e504bbb3d385fa2",
+      "source": "Bag3/Code/BroadcastCode/IconDisplay/icon_store.py",
+      "vendor_sha256": "ae4d4419f0a3822fbb1e6c8dddd1bf88bbe4b6f72af33e519e504bbb3d385fa2"
+    },
+    "display/lib/shapes.py": {
+      "sha256": "b362615e2411091ca988c352d7bce981252d85a80058b039183c6e388c20c79c",
+      "source": "Bag3/Code/BroadcastCode/IconDisplay/lib/shapes.py",
+      "vendor_sha256": "b362615e2411091ca988c352d7bce981252d85a80058b039183c6e388c20c79c"
+    },
     "games/color_quest.py": {
       "sha256": "32aca8bd217cd97701a741a8b99fd4dbb873ed324e9a6a79fbf8e00b528a3218",
       "source": "Bag3/Code/BroadcastCode/MockWand/color_quest.py",
@@ -109,6 +149,11 @@
       "sha256": "ef86aab78ffdf1df1b265604988050f72b2fadb764d8ca7d26774943458830bb",
       "source": "Bag3/Code/BroadcastCode/MockWand/lib/buzzer.py",
       "vendor_sha256": "ef86aab78ffdf1df1b265604988050f72b2fadb764d8ca7d26774943458830bb"
+    },
+    "lib/espnow_manager.py": {
+      "sha256": "7f9e772b6f6bb2614911dd9d232cacd6076b166d5116b2790c5201faf4b022ce",
+      "source": "Bag3/Code/BroadcastCode/MockWand/lib/espnow_manager.py",
+      "vendor_sha256": "7f9e772b6f6bb2614911dd9d232cacd6076b166d5116b2790c5201faf4b022ce"
     },
     "lib/game_tags.py": {
       "sha256": "ee319b652df60729f92914f45d2dc17854e9ba98d3286c66eb37b61b2a1766f4",

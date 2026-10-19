@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
-Bundle Bag3 MockWand lib + game sources into Simulator/vendor/.
+Bundle Bag3 MockWand lib + game sources, and the IconDisplay files the
+display panel runs, into Simulator/vendor/.
 
 Usage:
     python tools/sync_sources.py          # copy + write MANIFEST.json
@@ -55,7 +56,26 @@ VERBATIM_LIBS = [
     "game_tags.py",
     "actions.py",
     "battery.py",
+    "espnow_manager.py",
 ]
+
+# The icon display's half of two-device games, for the display panel
+# (py/icon_host.py). Its libs come from the IconDisplay tree, not MockWand:
+# the two espnow_manager.py copies differ (antenna setting).
+DISPLAY_SRC = os.path.join(REPO, "Bag3", "Code", "BroadcastCode", "IconDisplay")
+DISPLAY_FILES = [
+    # (source relative to DISPLAY_SRC, vendor path relative to vendor/)
+    ("icon_store.py", "display/lib/icon_store.py"),
+    ("lib/display_tags.py", "display/lib/display_tags.py"),
+    ("lib/shapes.py", "display/lib/shapes.py"),
+    ("lib/espnow_manager.py", "display/lib/espnow_manager.py"),
+    ("games/goalrace.py", "display/games/goalrace.py"),
+]
+# Icons each display game reads, from IconDisplay/icons/, vendored as
+# display/games/<game>_icons/<name>.py (the layout a pulled game has).
+DISPLAY_GAME_ICONS = {
+    "goalrace": ["ready", "tree", "whale"],
+}
 
 # Game modules to bundle (from Bag3/Code/BroadcastCode/MockWand).
 # target.py is not a game; color_quest.py imports SCORE_MAC from it.
@@ -95,6 +115,12 @@ def collect_plan():
         plan.append((os.path.join(LIB_SRC, name), os.path.join("lib", name)))
     for name in GAMES:
         plan.append((_game_src(name), os.path.join("games", name)))
+    for src_rel, dest_rel in DISPLAY_FILES:
+        plan.append((os.path.join(DISPLAY_SRC, src_rel), dest_rel))
+    for game, icons in DISPLAY_GAME_ICONS.items():
+        for name in icons:
+            plan.append((os.path.join(DISPLAY_SRC, "icons", name + ".py"),
+                         "display/games/%s_icons/%s.py" % (game, name)))
     if os.path.isfile(HUBTYPE_SRC):
         plan.append((HUBTYPE_SRC, "hubtype.txt"))
     return plan

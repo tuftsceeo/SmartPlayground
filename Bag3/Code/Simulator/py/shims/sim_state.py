@@ -7,6 +7,7 @@ all see the same live state.
 """
 
 import asyncio
+import json
 import time  # patched in-place by time_patch.patch_time_module() during bootstrap
 
 # ── Inputs (host -> Python) ─────────────────────────────────────────
@@ -22,7 +23,13 @@ ambient_lux = 500.0
 pending_nfc_cmd = None       # str or None
 pending_nfc_uid = None       # str or None
 pending_nfc_until = 0        # ticks_ms() the tag stays "under the reader" until
-enow_queue = []              # list of (msg_type, data, mac_str)
+# ── Radio (py/shims/espnow.py reads these) ─────────────────────────
+DEFAULT_MAC = "aa:bb:cc:dd:ee:ff"
+# Sender MAC of the "Heard from..." panel; distinct from any device's own.
+PANEL_MAC = "02:00:00:00:00:01"
+own_mac = DEFAULT_MAC        # what network.WLAN().config('mac') reports
+enow_inbox = []              # received frames: (mac_bytes, payload_bytes)
+_radio_tx = None             # host bus: fn(src_mac, dst_mac, payload_hex) -> deliveries
 
 # ── Callbacks (Python -> host) ──────────────────────────────────────
 _led_frame_cb = None
@@ -139,14 +146,95 @@ def consume_nfc():
     return pending_nfc_cmd, pending_nfc_uid
 
 
-def enqueue_enow(msg_type, data=None, mac_str="aa:bb:cc:dd:ee:ff"):
-    enow_queue.append((msg_type, data, mac_str))
+def mac_to_bytes(mac):
+    if isinstance(mac, (bytes, bytearray)):
+        if len(mac) != 6:
+            raise ValueError("MAC must be 6 bytes, got %d" % len(mac))
+        return bytes(mac)
+    hexs = str(mac).replace(":", "").replace("-", "")
+    if len(hexs) != 12:
+        raise ValueError("bad MAC: %r" % (mac,))
+    return bytes.fromhex(hexs)
 
 
-def dequeue_enow():
-    if enow_queue:
-        return enow_queue.pop(0)
-    return None, None, None
+def mac_to_str(mac):
+    return ":".join("%02x" % b for b in mac_to_bytes(mac))
+
+
+def set_own_mac(mac):
+    global own_mac
+    own_mac = mac_to_str(mac)
+
+
+def set_radio_tx(fn):
+    """Route sends onto a host bus. fn(src_mac, dst_mac, payload_hex) returns
+    how many devices the frame was queued for. None: no bus, sends are only
+    reported through emit_enow_sent."""
+    global _radio_tx
+    if fn is not None and not callable(fn):
+        raise TypeError("radio tx must be callable or None")
+    _radio_tx = fn
+
+
+def radio_send(dst_mac, payload):
+    """Called by the espnow shim for every frame this device transmits.
+    Returns the number of devices it was queued for (0 with no bus)."""
+    payload = bytes(payload)
+    dst = mac_to_str(dst_mac)
+    emit_enow_sent("broadcast" if dst == "ff:ff:ff:ff:ff:ff" else "send", payload, dst)
+    if _radio_tx is None:
+        return 0
+    return int(_radio_tx(own_mac, dst, payload.hex()) or 0)
+
+
+def deliver_enow(src_mac, payload):
+    """A frame arrived for this device. payload: bytes, or a hex string from
+    the JS bus."""
+    if isinstance(payload, str):
+        payload = bytes.fromhex(payload)
+    enow_inbox.append((mac_to_bytes(src_mac), bytes(payload)))
+
+
+def encode_panel_message(msg_type, data=None):
+    """Wire bytes for a message typed into or picked on the radio panel.
+
+    - JSON text (starts with { or [) goes out as is, so the panel can send
+      any dict a game listens for.
+    - "raw" with data sends data's bytes unchanged (freeze_dance's FD_*).
+    - "start_game" with data names the game: {"type": "start_game", "name": data}.
+    - any other word w: {"type": w}.
+    """
+    if isinstance(data, (bytes, bytearray)):
+        data_bytes = bytes(data)
+        data_text = data_bytes.decode("utf-8", "replace")
+    else:
+        data_bytes = None if data is None else str(data).encode()
+        data_text = None if data is None else str(data)
+    text = str(msg_type).strip()
+    if data is None and text[:1] in ("{", "["):
+        json.loads(text)  # refuse malformed JSON here, not in the game
+        return text.encode()
+    if text == "raw":
+        if data_bytes is None:
+            raise ValueError("a raw message needs data")
+        return data_bytes
+    msg = {"type": text}
+    if text == "start_game" and data_text:
+        msg["name"] = data_text
+    elif data_text is not None:
+        msg["data"] = data_text
+    return json.dumps(msg).encode()
+
+
+def enqueue_enow(msg_type, data=None, mac_str=PANEL_MAC):
+    """Receive a panel message as if mac_str had sent it. Goes over the host
+    bus when one is attached (so it is logged and delayed like any frame),
+    otherwise straight into this device's inbox."""
+    payload = encode_panel_message(msg_type, data)
+    if _radio_tx is not None:
+        _radio_tx(mac_to_str(mac_str), own_mac, payload.hex())
+    else:
+        deliver_enow(mac_str, payload)
 
 
 def set_led_callback(cb):
@@ -235,7 +323,9 @@ def emit_enow_sent(kind, data=None, mac_str=None):
 
 
 def _as_text(data):
-    """bytes for the wire, str for a readout."""
+    """bytes for the wire, str for a readout; dicts and lists as JSON."""
+    if isinstance(data, (dict, list)):
+        return json.dumps(data)
     if isinstance(data, (bytes, bytearray)):
         try:
             return bytes(data).decode()
@@ -254,7 +344,7 @@ def reset_io():
     accel_x, accel_y, accel_z = -1.0, 0.0, 0.0  # tip-up default (js/motion.js's POSES.tip_up)
     pending_nfc_cmd = None
     pending_nfc_uid = None
-    enow_queue.clear()
+    enow_inbox.clear()
     led_frame = [(0, 0, 0)] * 25
     pwm_freq = 0
     pwm_duty = 0
