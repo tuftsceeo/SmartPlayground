@@ -8,8 +8,7 @@ its own net.local Splats.
 One wand holds the baton: its matrix and its own Splats show the current
 color (pairing.IDENTITY, in order). The holder's button, or a press on one
 of its Splats, passes the baton to the next wand with the next color, sent
-as {"h": holder, "k": color index}; a follower sends it to the leader,
-which forwards it to every wand. Wands without Splats show
+to every wand as {"h": holder, "k": color index}. Wands without Splats show
 the color on the matrix only. The leader starts holding color 0.
 
 Dropouts: the leader keeps the lost-wand list and sends it as {"x": [...]};
@@ -88,10 +87,7 @@ class Game:
         self._announce()
 
     def _announce(self):
-        # Followers hold only the leader as a peer (party.py), so they send
-        # to wand 0 and the leader forwards to every wand.
-        net = self.net
-        net.send(None if net.is_leader else 0, {"h": self.holder, "k": self.k})
+        self.net.send(None, {"h": self.holder, "k": self.k})
 
     def _local_press(self, ev):
         """True if a press event is on one of this wand's own Splats."""
@@ -119,8 +115,6 @@ class Game:
                     self.lost = list(d["x"])
                 if "h" in d:
                     self._set(int(d["h"]), int(d.get("k", 0)))
-                    if net.is_leader:
-                        self._announce()
             elif kind == "wand_lost":
                 print(f"  relaycolor: wand {ev[1]} lost")
                 if ev[1] not in self.lost:
