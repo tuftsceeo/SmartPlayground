@@ -152,7 +152,7 @@ check("game_start was emitted after the lobby, game_end after play",
       '"type": "game_start", "slug": "pgame"' in b.out and '"type": "game_end", "slug": "pgame"' in b.out)
 check("net.close() removed every peer", b.wand.enow.get_peer_macs() == [], str(b.wand.enow.get_peer_macs()))
 check("the wand's Splat got its idle glow back after the game",
-      b.wand.periph(A).colors()[-1] == (0, 38, 0), str(b.wand.periph(A).colors()[-2:]))
+      b.wand.periph(A).colors()[-1] in ((0, int(255 * sys.modules["splatpair"].GLOW_SCALE), 0), (int(255 * sys.modules["splatpair"].GLOW_SCALE), 0, 0)), str(b.wand.periph(A).colors()[-2:]))
 check("no error in the main loop", "[ERR] Main loop" not in b.out, b.out[-400:])
 
 # ── The booted wand follows ──

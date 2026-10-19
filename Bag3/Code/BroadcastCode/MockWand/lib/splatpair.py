@@ -22,8 +22,11 @@ CLAIM_WAIT_MS = 300        # how long a pairing tap waits for a pw_held answer
 UNIT_DRAIN = 8             # most SplatGroup events taken per poll()
 PAIRED_DETECT_MS = 100     # NFC detect timeout while paired (idle loop)
 PAIRED_IDLE_SLEEP_MS = 20  # idle-loop sleep while paired
-GLOW_SCALE = 0.15          # idle glow brightness on a Splat
+GLOW_SCALE = 0.5           # idle glow brightness on a Splat
+GLOW_REFRESH_MS = 5000     # idle glow is rewritten this often (one-color code)
+GLOW_ALT_MS = 1000         # two-color code: the glow alternates this often
 CORNER_PIXEL = 4           # wand matrix pixel showing the identity color
+SECOND_PIXEL = 3           # wand matrix pixel showing the second color
 
 # Identity palette: splat_api.COLOR_RGB names, so a wand and its Splats show
 # the same name. WAND_RGB gives each name's wand-matrix color.
@@ -39,6 +42,12 @@ def identity_name(mac_str):
     return PALETTE[int(mac_str[-2:], 16) % len(PALETTE)]
 
 
+def second_name(mac_str):
+    """Second color of the wand's two-color code: next-to-last MAC byte modulo
+    the palette size. Equal to identity_name() for one wand in six."""
+    return PALETTE[int(mac_str[-5:-3], 16) % len(PALETTE)]
+
+
 class SplatPairing:
     def __init__(self, macs, enow, leds, buz, my_mac=None):
         self.enow = enow
@@ -49,6 +58,8 @@ class SplatPairing:
             my_mac = get_own_mac()
         self.my_mac = my_mac
         self.identity = identity_name(my_mac)
+        self.second = second_name(my_mac)
+        self._phase = 0                # 0: identity, 1: second (two-color glow)
         self.macs = [m for m in macs if pairing.valid(m)][:pairing.MAX_SPLATS]
         self.hub = None
         self.group = None
@@ -56,6 +67,7 @@ class SplatPairing:
         self._connects = []            # per unit: link.connects already handled
         self._born = time.ticks_ms()
         self._deadline_done = False
+        self._last_glow = self._born
         if self.macs:
             from splat_hub import SplatHub
             from splat_api import SplatGroup
@@ -80,7 +92,7 @@ class SplatPairing:
     def poll(self):
         """Service the BLE links; flash and glow on a (re)connect; enforce
         PAIR_CONNECT_MS once. Returns the Splat button events taken, as
-        [(unit index, "press" or "release"), ...]; the idle loop ignores them."""
+        [(unit index, "press" or "release"), ...]; the idle loop answers presses."""
         g = self.group
         if g is None:
             return []
@@ -101,6 +113,27 @@ class SplatPairing:
             self._drop_unconnected()
         return events
 
+    def refresh_glow(self):
+        """Rewrite the idle glow every GLOW_REFRESH_MS. Idle loop only: a game owns
+        the Splat colors while it runs."""
+        two = self.second != self.identity
+        if time.ticks_diff(time.ticks_ms(), self._last_glow) >= (GLOW_ALT_MS if two else GLOW_REFRESH_MS):
+            if two:
+                self._phase ^= 1
+            self.glow()
+
+    def on_press(self, i):
+        """A press on paired Splat i, at idle: the Splat shows the identity color
+        at full brightness and the wand flashes its two-color code and beeps."""
+        # UNVERIFIED on hardware: how the press answer looks and sounds.
+        if self.group is None or i >= len(self.group.units):
+            return
+        self.group.unit(i).color(self.identity)
+        self.leds.flash_color(WAND_RGB[self.identity], times=1)
+        self.leds.flash_color(WAND_RGB[self.second], times=1)
+        self.buz.beep(1500, 60)
+        self._last_glow = time.ticks_ms()
+
     def _on_ready(self, i, first):
         if first:
             # UNVERIFIED on hardware: how the flash and rising tone look and sound.
@@ -110,12 +143,15 @@ class SplatPairing:
         self.glow(i)
 
     def glow(self, i=None):
-        """Dim identity color on Splat i (every connected Splat if None)."""
+        """Glow color on Splat i (every connected Splat if None): the identity
+        color, or the second color in the second phase of a two-color code."""
         from splat_api import COLOR_RGB
-        r, g, b = COLOR_RGB[self.identity]
+        r, g, b = COLOR_RGB[self.second if self._phase else self.identity]
         rgb = (int(r * GLOW_SCALE), int(g * GLOW_SCALE), int(b * GLOW_SCALE))
         if self.group is None:
             return
+        if i is None:
+            self._last_glow = time.ticks_ms()
         units = self.group.units if i is None else [self.group.unit(i)]
         for u in units:
             if u.connected:
@@ -129,9 +165,10 @@ class SplatPairing:
         self.glow()
 
     def mark(self, leds):
-        """Identity color in one corner pixel of the wand matrix."""
+        """Two-color code in the top corner of the wand matrix."""
         if self.macs:
             leds.np[CORNER_PIXEL] = WAND_RGB[self.identity]
+            leds.np[SECOND_PIXEL] = WAND_RGB[self.second]
             leds.np.write()
 
     # ── ESP-NOW ──

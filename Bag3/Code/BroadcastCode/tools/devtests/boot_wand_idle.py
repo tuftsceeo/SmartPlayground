@@ -157,7 +157,7 @@ check("the controller's identity comes from the wand's own MAC", b.m._pair_ctl.i
       and b.m._pair_ctl.my_mac == wandboot.MY_MAC, b.m._pair_ctl.my_mac)
 cols = b.wand.periph(A).colors()
 check("first connect: the Splat flashes the identity color, then glows dim",
-      cols[0] == (0, 255, 0) and cols[-1] == (0, 38, 0), str(cols))
+      cols[0] == (0, 255, 0) and cols[-1] == (0, int(255 * sp.GLOW_SCALE), 0), str(cols))
 check("...the wand plays the rising success tone", "play:success" in b.wand.buz.names())
 mult = b.m.brightness.MULTIPLIER
 want = tuple(int(c * mult) for c in sp.WAND_RGB[ident])
@@ -177,7 +177,7 @@ def drop_later(b):
 b = boot(macs=[A], in_range=[A], cards=NONE * 120, setup=drop_later)
 cols = b.wand.periph(A).colors()
 check("a dropped Splat reconnects and the glow returns",
-      b.m._pair_ctl.hub.links[0].connects == 2 and cols[-1] == (0, 38, 0)
+      b.m._pair_ctl.hub.links[0].connects == 2 and cols[-1] in ((0, int(255 * sp.GLOW_SCALE), 0), (int(255 * sp.GLOW_SCALE), 0, 0))
       and cols.count((0, 255, 0)) == 1, "connects=%d cols=%s" % (b.m._pair_ctl.hub.links[0].connects, cols))
 check("...and the file still holds the Splat", pairing_file() == [A])
 

@@ -1145,7 +1145,13 @@ def main():
             _emit({"type": "heartbeat", "up": last_heartbeat_ms})
         try:
             if _pair_ctl is not None:
-                _pair_ctl.poll()
+                for _i, _ev in _pair_ctl.poll():
+                    if _ev == "press":
+                        _pair_ctl.on_press(_i)
+                        motor.value(1); time.sleep_ms(80); motor.value(0)
+                        if not nfc_sleeping:
+                            show_idle(last_soc, 0)
+                _pair_ctl.refresh_glow()
 
             # ─────────────────────────────────────
             # NFC SLEEPING — minimal power mode

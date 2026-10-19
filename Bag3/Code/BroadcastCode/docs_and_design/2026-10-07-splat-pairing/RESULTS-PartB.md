@@ -56,3 +56,35 @@ All three boards reached `Boot complete`, listed `partytest`, `relaycolor` and `
 identity frame, and sent heartbeats for 30 s. No `post-ble` change on an unpaired boot.
 
 Paired boot (BLE up, Splats connecting) is not measured yet.
+
+## B1. Paired boot
+
+`/pairing.json` written over `mpremote`, then `machine.reset()`.
+
+- A file left unclosed before the reset read as empty: both wands printed `syntax error in JSON`,
+  emitted `{"type":"error","where":"pairing"}` and booted unpaired.
+- With a valid file: `Splat pairing: 2 Splat(s)` on both wands. 3101 (`85:CB:FC`) connected
+  `6D:27` 11.7 s after reset. The other three Splats were asleep and not found; each was dropped
+  after `PAIR_CONNECT_MS` (30 s) and removed from the file.
+- Largest free IDF block after BLE bring-up: 13312 (`86:28:FC`, v1.28), 10240 (`85:CB:FC`, v1.29).
+  Boot completed on both.
+
+## B2. Pairing by card
+
+Real cards, NDEF read through the idle loop. Two wands, Splats 3 and 4 awake.
+
+| Action | Log |
+|---|---|
+| `86:28:FC` taps `20:60` (unheld) | `paired, resetting to connect`; READY 17 s after the tap |
+| `85:CB:FC` taps `6D:27`, which it held | `unpairing`, no reset |
+| `85:CB:FC` taps `6D:27` (unheld) | paired, reset, READY 14 s after the tap |
+| `86:28:FC` taps `6D:27`, held by `85:CB:FC` | `already paired to another wand` |
+| `85:CB:FC` taps `20:60`, held by `86:28:FC` | `already paired to another wand` |
+| `86:28:FC` taps `20:60` again | `unpairing`; re-tapped 36 s later: paired, READY 13 s after the tap |
+
+`86:28:FC` held `20:60` from 34 s to 387 s of the capture, through NFC sleep from 62 s, with no
+link drop logged. `85:CB:FC` logged one `6D:27` drop and reconnect (`drops=2`, `connects=3`)
+before the capture.
+
+A Splat that no wand holds stops advertising after about a minute and cannot be paired until it
+is woken. A paired Splat in the idle loop stays connected.
