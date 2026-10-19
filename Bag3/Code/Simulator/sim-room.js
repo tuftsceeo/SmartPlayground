@@ -283,6 +283,10 @@ class SimRoom extends HTMLElement {
     this._displaySlug = display ? display.slug : null;
     this.party?.setGame(this._source ? "custom" : this.wand.game.replace(/\.py$/, ""), caps);
     this.dispatchEvent(new CustomEvent("room-capabilities", { detail: caps }));
+    // Show and hide every panel first: an update can take a while (the
+    // display boots its own Pyodide), and a panel the new game does not use
+    // must not linger meanwhile.
+    const shownNow = [];
     for (const [id, spec] of PANELS) {
       const shown = !!spec.wants(caps, this);
       let entry = this._panels.get(id);
@@ -298,8 +302,12 @@ class SimRoom extends HTMLElement {
       }
       if (!entry) continue;
       entry.box.hidden = !shown;
-      if (shown && spec.update) await spec.update(entry.instance, caps, this);
-      if (!shown && spec.hide) await spec.hide(entry.instance, this);
+      shownNow.push([entry, shown]);
+    }
+    for (const [{ spec, instance }, shown] of shownNow) {
+      if (seq !== this._loadSeq) return;
+      if (shown && spec.update) await spec.update(instance, caps, this);
+      if (!shown && spec.hide) await spec.hide(instance, this);
     }
   }
 

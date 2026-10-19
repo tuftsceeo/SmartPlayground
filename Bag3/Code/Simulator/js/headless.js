@@ -298,8 +298,8 @@ export async function simRunWith(room, { game = null, code = null, seconds = 20,
     for (const w of res.warnings) result.warnings.push(`${res.name}: ${w}`);
     for (const line of room.out.prints.slice(printed)) {
       if (!/\[(ERR|WARN)\]/.test(line)) continue;
-      // party.py's own goodbye to a leader that is gone: expected in "lost".
-      if (res.name === "lost" && /pw_leave to .* failed/.test(line)) continue;
+      // Unicasts to the leader that went silent: expected in "lost".
+      if (res.name === "lost" && /pwire: pw_\w+ to .* failed/.test(line)) continue;
       result.warnings.push(`${res.name}: ${line.trim()}`);
     }
     result.scenarios.push({ name: res.name, problems: res.problems, warnings: res.warnings,

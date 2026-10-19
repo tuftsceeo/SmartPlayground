@@ -163,8 +163,7 @@ const CLOCK_SYNC_MS = 1000;
  * bus, ticks from the clock. tx(src, dst, hex) returns the ACK count.
  *
  * The wand's ticks mirror the clock (time_patch.set_clock_anchor) rather
- * than calling it: Python calling a JS function on every ticks_ms() has
- * crashed Pyodide in the browser. The anchor is refreshed every
+ * than calling into JS on every ticks_ms(). The anchor is refreshed every
  * CLOCK_SYNC_MS, and at once by sync() after a change to the clock's scale.
  * Returns { detach(), sync() }.
  */
@@ -172,8 +171,6 @@ export function attachWand(pyodide, { bus, clock, mac, tx }) {
   const simState = pyodide.pyimport("sim_state");
   pyodide.globals.set("_room_tx", (src, dst, hex) => tx(String(src), String(dst), String(hex)));
   simState.set_own_mac(mac);
-  // Registered from Python, as wand-sim.js does its callbacks: a JS function
-  // handed to a Python setter from JS has ended in Pyodide fatal errors.
   pyodide.runPython("import sim_state\nsim_state.set_radio_tx(_room_tx)");
   const timePatch = pyodide.pyimport("time_patch");
   const sync = () => {
