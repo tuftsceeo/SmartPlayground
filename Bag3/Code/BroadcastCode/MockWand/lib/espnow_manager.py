@@ -39,6 +39,11 @@ SEND_RETRY_MS = 30
 EXTERNAL_ANTENNA = True
 # Settle time after releasing the radio, before anything else claims it.
 RADIO_SETTLE_MS = 300
+# ESP-NOW driver receive buffer. The MicroPython default (526 B) holds ~2
+# frames; espnow_code.receive() asks for WINDOW (8) frames at a time, so it
+# needs >= 8 x ~256 B. Allocated at active(True), i.e. at radio bring-up,
+# before the rest of boot fragments the heap.
+ESPNOW_RXBUF = 4096
 
 
 def _is_esp32c6():
@@ -124,6 +129,7 @@ class ESPNowManager:
         sta.active(True)
         sta.disconnect()
         self.enow = espnow.ESPNow()
+        self.enow.config(rxbuf=ESPNOW_RXBUF)
         self.enow.active(True)
         try:
             self.enow.add_peer(BROADCAST_MAC)

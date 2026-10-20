@@ -244,6 +244,9 @@ COMBINATORS    = {"and", "then"}
 CONTROLS       = GAME_TAGS | CONTROL_TAGS
 UTILITY        = {"battery"}
 BROADCAST      = {"getcode"}
+# getcode pulls over ESP-NOW (_espnow_pull_and_launch). False restores the
+# pull_flag/reset/code_puller SoftAP path.
+CODE_VIA_ESPNOW = True
 BASE_COMMANDS  = FIXED_TRIGGERS | ACTIONS | ANIMAL_SOUNDS | COMBINATORS | CONTROLS | UTILITY | BROADCAST
 # Pulled games answer to their own slug as a tag. Computed once at import:
 # the wand resets after every successful pull, so this can never go stale.
@@ -777,6 +780,44 @@ def _pull_progress(received, total):
     for i in range(leds.num):
         leds.np[i] = CYAN if i < lit else BLUE_DIM
     leds.np.write()
+
+
+# ─────────────────────────────────────────────
+# ESP-NOW CODE PULL — getcode over the radio already up, no reset
+# ─────────────────────────────────────────────
+def _espnow_pull_and_launch(enow, slug, host_id, nfc, accel, i2c, batt):
+    """Receive a game from the Box/Dial over ESP-NOW (lib/espnow_code.py),
+    then launch it. On failure the old copy stays and the wand returns to
+    idle with the pull-failure display."""
+    import espnow_code
+    print("# getcode (slug=%r host=%r) via espnow" % (slug, host_id))
+    if slug:
+        _unload_game(slug)
+    gc.collect()
+    leds.fill(BLUE_DIM)
+    buz.start()
+    ok = espnow_code.receive(enow, slug=slug, hubtype=HUB_TYPE,
+                             on_progress=_pull_progress, verbose=True,
+                             host_id=host_id)
+    stats = espnow_code.LAST_STATS or {}
+    _emit({"type": "pull", "slug": slug or "", "host": host_id or "",
+           "result": str(ok), "why": stats.get("why"),
+           "bytes": stats.get("bytes"), "total_ms": stats.get("total_ms")})
+    if ok == 'nohost':
+        _pull_fail(SHAPE_WIFI_2, RED)
+    elif ok == 'norequest':
+        _pull_fail(SHAPE_WIFI_2, ORANGE, sound="reject")
+    elif ok == 'busy':
+        _pull_fail(SHAPE_WIFI_2, AMBER)
+    elif ok is not True:
+        _pull_fail(SHAPE_X, RED)
+    else:
+        leds.show_shape(SHAPE_CHECK, GREEN)
+        buz.success()
+        time.sleep_ms(600)
+        name = stats.get("name") or slug
+        _unload_game(name)
+        _launch_game(name, nfc, leds, buz, accel, i2c, enow, batt)
 
 
 def _run_pull_mode():
@@ -1334,14 +1375,22 @@ def main():
                 show_idle(last_soc, 0); continue
 
             # ── BROADCAST BOX PULL ──
-            # Deliberately does NOT pull here. ESP-NOW has owned the radio
-            # for this entire boot, and a WiFi join from that state fails --
-            # measured 3/3 on real taps, either STAT_WRONG_PASSWORD then
-            # stuck STAT_CONNECTING, or STAT_IDLE for the whole 15s window.
-            # A cold radio joins first try, every time. So queue the pull and
-            # reboot: the next boot runs it in _run_pull_mode() before
-            # ESPNowManager is ever constructed. See pull_flag.py.
+            # CODE_VIA_ESPNOW: pull over the ESP-NOW link already up, no
+            # reset. Otherwise (SoftAP path) queue the pull and reboot: a
+            # WiFi join fails once ESP-NOW has owned the radio this boot, so
+            # the next boot runs it in _run_pull_mode() before
+            # ESPNowManager is constructed. See pull_flag.py.
             head, wanted, wanted_host = split_prefixed(cmd) if cmd else ("", "", "")
+            if head == "getcode" and CODE_VIA_ESPNOW and enow.is_active:
+                _clear_rules_state(enow)
+                rules = {}; editing = None; pending_combinator = None
+                buz.stop()
+                _espnow_pull_and_launch(enow, wanted, wanted_host, nfc, accel, i2c, batt)
+                last_activity_ms = time.ticks_ms()
+                idle_frame = 0
+                show_idle(last_soc, 0)
+                last_uid = None
+                continue
             if head == "getcode":
                 # "getcode:<slug>" asks for that specific game; a bare
                 # "getcode" takes whatever the chosen host has active. A
