@@ -184,6 +184,7 @@ class Runtime:
         self._loop = None
         self.sim_state = None
         self._local_splats = 1   # Splats paired to the simulated wand
+        self._splats_src = None  # game source _local_splats was last set from
         self._pair_ctl = None    # splatpair.SplatPairing, kept across games
         self.net = None          # the running party game's party.Net
         self.party_end = None    # party.last_end when the lobby gave up
@@ -385,7 +386,22 @@ class Runtime:
         self._game_name = name
         self._display_source = None
         self._game_src = src
+        self._apply_wand_splats(mod, src)
         return mod
+
+    def _apply_wand_splats(self, mod, src):
+        """A newly loaded game sets how many Splats the wand holds: its
+        WAND_SPLATS (0..2), else 1. Reloading the same source (a restart)
+        keeps the count, so set_local_splats() holds until the game changes.
+        The wand firmware does not read WAND_SPLATS; ChatBroadcast refuses a
+        value outside 0..2 when the game is sent."""
+        if src == self._splats_src:
+            return
+        self._splats_src = src
+        n = getattr(mod, "WAND_SPLATS", None)
+        if not (isinstance(n, int) and not isinstance(n, bool) and 0 <= n <= 2):
+            n = 1
+        self.set_local_splats(n)
 
     def get_commands(self):
         if not self._game_mod:

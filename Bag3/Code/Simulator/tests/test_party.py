@@ -108,6 +108,21 @@ def test_local_splat_macs(runtime):
         runtime.set_local_splats(3)
 
 
+def test_wand_splats_declared_by_the_game(runtime):
+    two = "WAND_SPLATS = 2\nSPLATS_MIN = 1\ndef play(nfc, leds, buz, accel, i2c, enow, batt=None, net=None):\n    pass\n"
+    runtime.load_game(two)
+    assert runtime.get_capabilities()["local_splats"] == 2
+    # A restart reloads the same source and keeps a count set meanwhile.
+    runtime.set_local_splats(0)
+    runtime.load_game(two)
+    assert runtime.get_capabilities()["local_splats"] == 0
+    # Another game without the constant (or with a bad value) holds 1.
+    runtime.load_game("relaycolor")
+    assert runtime.get_capabilities()["local_splats"] == 1
+    runtime.load_game(two.replace("= 2", "= 5"))
+    assert runtime.get_capabilities()["local_splats"] == 1
+
+
 async def test_partytest_wand_leads(runtime, air, writes):
     rt = runtime
     task, gid, joined = await _lead_with_peer(rt, air, "partytest")

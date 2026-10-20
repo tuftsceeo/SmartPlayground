@@ -18,6 +18,9 @@ through one extra `play()` parameter, `net`. There is no separate Splat file and
   `SPLATS_LOCAL`: the wand has no solo Splat path and the game is refused when it is sent.
 - `SPLATS_MIN` counts Splats across **all** joined wands (at least 1); `SPLATS_MAX`, if set, is at
   least `SPLATS_MIN`, and the game starts by itself when that many have joined.
+- Also declare `WAND_SPLATS = n` (0, 1 or 2): how many Splats each child's wand is meant to have
+  paired for this game. The practice window shows that many Splats beside its wand (1 if not
+  declared). The wand itself does not read it.
 - A Splat game's `play()` takes **eight** parameters, with `net=None` last:
 
 ```python

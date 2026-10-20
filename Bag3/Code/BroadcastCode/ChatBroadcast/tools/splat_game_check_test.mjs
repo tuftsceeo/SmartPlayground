@@ -83,5 +83,12 @@ t("MockWand party games pass the wand checks", () => {
   }
 });
 
+t("WAND_SPLATS: 0..2 with SPLATS_MIN", () => {
+  for (const n of [0, 1, 2]) assert.deepEqual(probs(`SPLATS_MIN = 1\nWAND_SPLATS = ${n}\n${SIG}    pass\n`), []);
+  one(`SPLATS_MIN = 1\nWAND_SPLATS = 3\n${SIG}    pass\n`, /WAND_SPLATS must be 0, 1 or 2/);
+  one(`SPLATS_MIN = 1\nWAND_SPLATS = two\n${SIG}    pass\n`, /WAND_SPLATS must be/);
+  one(`WAND_SPLATS = 1\n${SIG}    pass\n`, /WAND_SPLATS is set without SPLATS_MIN/);
+});
+
 console.log(failed ? `${failed} failed` : "all passed");
 process.exit(failed ? 1 : 0);

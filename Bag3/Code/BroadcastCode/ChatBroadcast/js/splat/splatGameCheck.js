@@ -6,7 +6,8 @@
  * and int() after the module loads, and passes `net` only to a play() that
  * takes 8 parameters. Each problem listed here is one the wand would hit
  * only when a child taps the card: a load failure, a refusal, or a None
- * `net`.
+ * `net`. WAND_SPLATS (how many Splats each wand is expected to hold) is
+ * read only by the simulator, which shows that many beside its wand.
  */
 
 /** Pairing slots per wand: MockWand/lib/pairing.py MAX_SPLATS. */
@@ -44,6 +45,7 @@ export function splatGameProblems(code) {
     const local = constant(code, 'SPLATS_LOCAL');
     const min = constant(code, 'SPLATS_MIN');
     const max = constant(code, 'SPLATS_MAX');
+    const wandSplats = constant(code, 'WAND_SPLATS');
     // The name `net` anywhere outside play()'s def line, comments and
     // string literals; this covers aliases such as `n = net`.
     const body = code.replace(/^def\s+play\s*\([^)]*\)/m, '')
@@ -68,6 +70,14 @@ export function splatGameProblems(code) {
     }
     if (max !== undefined && min === undefined) {
         out.push('SPLATS_MAX is set without SPLATS_MIN.');
+    }
+    if (wandSplats !== undefined) {
+        const w = intLiteral(wandSplats);
+        if (min === undefined) {
+            out.push('WAND_SPLATS is set without SPLATS_MIN.');
+        } else if (w === null || w > MAX_SPLATS) {
+            out.push(`WAND_SPLATS must be 0, 1 or ${MAX_SPLATS}; it is ${wandSplats || 'empty'}.`);
+        }
     }
     if (min !== undefined) {
         const n = intLiteral(min);
