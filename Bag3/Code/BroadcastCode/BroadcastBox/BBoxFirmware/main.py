@@ -6,6 +6,14 @@ Writes to /flash. Never let a bare traceback hit stdout.
 
 DEBUG = False
 
+# First, before any other import: this boot's reset_cause() goes to flash,
+# because the USB port drops with the reset and serial misses it.
+try:
+    import reset_log
+    reset_log.record("main")
+except Exception:
+    pass
+
 try:
     from bbox_server import BboxServer
     BboxServer(debug=DEBUG).run()

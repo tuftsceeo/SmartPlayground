@@ -1135,12 +1135,6 @@ class BboxServer:
     # ─────────────────────────────────────────────
 
     def run(self):
-        # First, before the grace window or anything that can raise: this
-        # boot's reset_cause(). The board's USB is native CDC, so a reset
-        # drops the port and the cause has to be read on the *next* boot
-        # (known_issue.md discriminating test 1).
-        reset_log.record()
-
         import M5
         M5.begin()
         self.ui.begin()
