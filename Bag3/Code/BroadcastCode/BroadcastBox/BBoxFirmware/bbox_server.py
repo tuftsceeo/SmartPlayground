@@ -32,7 +32,7 @@ import os
 import reset_log
 from buttons import Buttons
 from json_link import JsonLink
-from code_server import CodeServer, FS_ROOT, DEFAULT_SRC, SSID, HOST_ID, GAMES_DIR, ACTIVE_PATH
+from code_link import CodeLink, HOST_ID, GAMES_DIR, ACTIVE_PATH, prewarm
 from card_writer import NfcWriter, existing_text, write_text
 from bbox_ui import BboxUI
 
@@ -56,7 +56,6 @@ I2C_SCL = 10
 NFC_ADDR = 0x28
 I2C_FREQ = 100_000
 
-PAYLOAD_PATH = DEFAULT_SRC
 INDEX_PATH = GAMES_DIR + '/index.json'
 
 # Legacy single-game tags — replaced at boot by _rebuild_entries() from the
@@ -94,6 +93,10 @@ SERVE_EXIT_MS = 1000
 # be a sleep_ms() any more -- a stalled transfer for one wand must not
 # freeze the others. See _on_serve_event()/_poll_serve().
 SERVE_ERROR_MS = 1000
+# WRITE mode serves over ESP-NOW whenever the reader field is off; the radio
+# goes down only while scanning a card. False keeps serving to SERVE alone.
+SHARE_IN_MENUS = True
+SHARE_RETRY_MS = 2000        # wait after a failed menu-share arm()
 
 MODE_IDLE = "IDLE"
 MODE_WRITE = "WRITE"
@@ -184,7 +187,7 @@ class BboxServer:
     def __init__(self, debug=False):
         self.ui = BboxUI()
         self.link = JsonLink(self.dispatch, debug=debug)
-        self.code = CodeServer()
+        self.code = CodeLink()
         self.nfc = None
         self.running = True
         self.linked = True
@@ -195,7 +198,7 @@ class BboxServer:
         self._nfc_fail_count = 0  # consecutive detect_tag errors -- see _scan_step
         self._write_state = W_MENU  # WRITE sub-state; see W_* above
         self._reader_last_uid = None  # debounce for READ_ENTRY; see _scan_step()
-        self._guard = None  # serve_guard.Guard while in SERVE; see _set_mode()
+        self._share_retry_at = 0
 
         # (title, [tag, ...]) per game, then the utility group. Top-level
         # rows are these titles plus DONE; _group_cursor indexes into the
@@ -283,13 +286,12 @@ class BboxServer:
 
         # --- leave ---
         if old == MODE_SERVE:
-            if self._guard is not None:
-                self._guard.stop()
-                self._guard = None
-            self.code.disarm()  # ap.active(False) + AP_SETTLE_MS
+            self.code.disarm()  # ESP-NOW and STA off
         if old == MODE_WRITE:
             self._nfc_field(False)
             self._clear_reader()
+            if new_mode != MODE_SERVE:
+                self.code.disarm()
 
         # --- enter ---
         if new_mode == MODE_SERVE:
@@ -302,21 +304,18 @@ class BboxServer:
                 self._repaint()
                 return
             if not self.code.arm():
-                # No game on flash, or the socket would not bind. Say so and
-                # stay where we were rather than sitting on a dead AP.
-                print("# SERVE refused: CodeServer.arm() failed")
+                # No game on flash, or the radio would not start.
+                print("# SERVE refused: CodeLink.arm() failed")
                 self.ui.paint_error("No Game to Serve")
                 time.sleep_ms(1500)
                 self._mode = old
                 self._repaint()
                 return
-            self.link.send({"type": "armed", "id": None, "ssid": SSID})
-            # Imported here, after arm() has the AP up, never at module
-            # scope: nothing may allocate before the AP claims its memory.
-            import serve_guard
-            self._guard = serve_guard.Guard(self.code)
+            self.link.send({"type": "armed", "id": None, "ssid": None})
 
         self._mode = new_mode
+        if new_mode == MODE_WRITE:
+            self._menu_share()
         reset_log.note_mode(new_mode)
         # A gesture that caused the switch must not carry into the new mode:
         # the B1 hold that left SERVE would otherwise immediately read as a
@@ -338,7 +337,7 @@ class BboxServer:
             "mode": self._mode,
             "games": len(self._index),
             "active": self._active,
-            "ssid": SSID if self._mode == MODE_SERVE else None,
+            "ssid": None,
         }
 
     def _emit_mode(self, rid=None):
@@ -355,7 +354,7 @@ class BboxServer:
             else:
                 self.ui.paint_tag_list(self._entries, self._cursor)
         elif self._mode == MODE_SERVE:
-            self.ui.paint_serve(SSID, self._pulls_total)
+            self.ui.paint_serve(HOST_ID, self._pulls_total)
         else:
             self.ui.paint_idle(self.linked)
 
@@ -408,10 +407,7 @@ class BboxServer:
             # True even when init raised ETIMEDOUT, so the app was told a
             # reader was present when it was not (known_issue.md).
             "w": 240, "h": 135, "nfc": self._nfc_ok,
-            # Fixed for the life of the boot (see code_server.HOST_ID), so
-            # it belongs here rather than in `mode`/`info` -- lets
-            # ChatBroadcast title this connected device without waiting
-            # for a SERVE-mode "armed"/"mode" event to carry the SSID.
+            # Fixed for the life of the boot (see code_link.HOST_ID).
             "host_id": HOST_ID,
         }
 
@@ -453,7 +449,7 @@ class BboxServer:
             self.code.set_game(self._active)
         self._set_mode(MODE_SERVE)
         if self._mode == MODE_SERVE:
-            self.link.send({"type": "ok", "id": rid, "cmd": "arm", "ssid": SSID})
+            self.link.send({"type": "ok", "id": rid, "cmd": "arm", "ssid": None})
         else:
             self.link.send({"type": "error", "id": rid, "code": "arm_failed"})
 
@@ -834,14 +830,52 @@ class BboxServer:
         I2C writes on every loop iteration."""
         if self.nfc is None or on == self._nfc_field_on:
             return
+        if on and self.code.armed:
+            self.code.disarm()
         self._nfc_field_on = on
         try:
-            self.nfc.antenna_on() if on else self.nfc.antenna_off()
+            if on:
+                self.nfc.antenna_on()
+            else:
+                self.nfc.antenna_off()
+                # A MIFARE auth latches MFCrypto1On; clear it with the field.
+                self.nfc.stop_crypto1()
             _dbg("field -> %s (chip reports ant=%s crypto=%s)"
                  % ("ON" if on else "off", self.nfc.antenna_is_on(),
                     self.nfc.crypto_on()))
         except Exception as e:
             print("# NFC antenna %s FAILED: %s" % ("on" if on else "off", str(e)))
+
+    def _menu_share(self):
+        """WRITE with the field off: serve over ESP-NOW if there is a game."""
+        if (not SHARE_IN_MENUS or self._mode != MODE_WRITE
+                or self._nfc_field_on or self.code.armed
+                or time.ticks_diff(self._share_retry_at, time.ticks_ms()) > 0):
+            return
+        if self._active:
+            self.code.set_game(self._active)
+        elif self.code.resolve() is None:
+            return
+        if not self.code.arm():
+            print("# menu share: CodeLink.arm() failed")
+            self._share_retry_at = time.ticks_add(time.ticks_ms(), SHARE_RETRY_MS)
+
+    def _on_menu_share_event(self, event):
+        if event in ('ok', 'fail'):
+            self._emit_pull()
+        if event == 'ok':
+            self._pulls_total += 1
+            self.ui.beep_scan()
+
+    def _emit_pull(self):
+        r = self.code.last_result
+        if r is None:
+            return
+        path = r["path"] or ""
+        self.link.send({"type": "pull", "id": None,
+                        "slug": path.rsplit("/", 1)[-1][:-3] if path else None,
+                        "role": "wand", "wand": r["mac"], "ok": r["ok"],
+                        "ms": r["ms"], "why": r["why"] or None})
 
     def _clear_reader(self):
         self._reader_last_uid = None
@@ -891,6 +925,10 @@ class BboxServer:
 
     def _poll_write(self):
         """WRITE mode. BtnA acts, BtnB scrolls/backs out. No holds."""
+        if self.code.armed:
+            self.code.poll(on_event=self._on_menu_share_event)
+        elif self._write_state != W_SCAN:
+            self._menu_share()
         b1 = self._b1_press_edge()
         b2 = self._buttons.b2_pressed()
         if b1 or b2:
@@ -1082,6 +1120,8 @@ class BboxServer:
         once it finishes. Repaint after each so the screen's wand count
         and pickup total never lag more than one event behind reality.
         """
+        if event in ('ok', 'fail'):
+            self._emit_pull()
         if event == 'ok':
             # Mirrors the line stats_log just recorded, so the screen and the
             # log agree without re-reading flash on every repaint.
@@ -1127,8 +1167,6 @@ class BboxServer:
         if self._serve_error_until and time.ticks_diff(time.ticks_ms(), self._serve_error_until) >= 0:
             self._serve_error_until = 0
             self._repaint_serve()
-        if self._guard is not None:
-            self._guard.poll()  # may reset the board; see serve_guard.py
 
     # ─────────────────────────────────────────────
     # RUN
@@ -1137,6 +1175,12 @@ class BboxServer:
     def run(self):
         import M5
         M5.begin()
+        # The radio's first allocation must precede the UI and NFC
+        # allocations (docs_and_design/2026-09-23-ap-memory-order.md).
+        try:
+            prewarm()
+        except Exception as e:
+            print("# radio prewarm failed: %s" % str(e))
         self.ui.begin()
         _boot_grace(self.ui)
         try:
@@ -1157,19 +1201,8 @@ class BboxServer:
         # Late-connecting apps learn the mode without asking.
         # Emit after scan so games/active are accurate; _set_mode may emit again.
         self._mode = MODE_IDLE
-        # A serve_guard reboot (its flag file exists) comes straight back
-        # into SERVE on the fresh heap. Path must match serve_guard.FLAG_PATH;
-        # serve_guard itself is not imported until after arm().
-        try:
-            os.stat('/flash/serve_guard.txt')
-            resume_serve = self._payload_ready()
-        except OSError:
-            resume_serve = False
-        if resume_serve:
-            self._set_mode(MODE_SERVE, announce=False)
-        else:
-            self._set_mode(MODE_WRITE if self._payload_ready() else MODE_IDLE,
-                           announce=False)
+        self._set_mode(MODE_WRITE if self._payload_ready() else MODE_IDLE,
+                       announce=False)
         if self._mode == MODE_IDLE:
             self._emit_mode()
         self._repaint()
