@@ -39,7 +39,8 @@ def mac_bytes_to_str(mac_bytes):
 class NativeManager:
     """add_peer/remove_peer/send_to/send_raw/poll/broadcast over `espnow`."""
 
-    def __init__(self):
+    def __init__(self, tx_power=None):
+        self.tx_power = tx_power     # dBm; None leaves the driver default
         self.enow = None
         self.sta = None
         self._active = False
@@ -57,6 +58,11 @@ class NativeManager:
         self.sta = network.WLAN(network.STA_IF)
         self.sta.active(True)
         self.sta.disconnect()
+        if self.tx_power is not None:
+            try:
+                self.sta.config(txpower=self.tx_power)
+            except Exception as e:
+                print("# code_link txpower: %s" % str(e))
         self.enow = espnow.ESPNow()
         try:
             self.enow.config(rxbuf=ESPNOW_RXBUF)
@@ -167,8 +173,8 @@ def prewarm():
 
 
 class CodeLink:
-    def __init__(self):
-        self.mgr = NativeManager()
+    def __init__(self, tx_power=None):
+        self.mgr = NativeManager(tx_power)
         self.sender = None
         self.active_slug = None
         self._armed = False

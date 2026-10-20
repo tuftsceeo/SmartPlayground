@@ -97,6 +97,9 @@ SERVE_ERROR_MS = 1000
 # goes down only while scanning a card. False keeps serving to SERVE alone.
 SHARE_IN_MENUS = True
 SHARE_RETRY_MS = 2000        # wait after a failed menu-share arm()
+# Radio TX power. Full power resets the Box on USB mid-transfer (PWRON);
+# wands are held next to it.
+TX_POWER_DBM = 8
 
 MODE_IDLE = "IDLE"
 MODE_WRITE = "WRITE"
@@ -187,7 +190,7 @@ class BboxServer:
     def __init__(self, debug=False):
         self.ui = BboxUI()
         self.link = JsonLink(self.dispatch, debug=debug)
-        self.code = CodeLink()
+        self.code = CodeLink(tx_power=TX_POWER_DBM)
         self.nfc = None
         self.running = True
         self.linked = True
