@@ -1,12 +1,12 @@
 /**
  * Friend wands for <sim-room>: the virtual peer wands (js/peers.js) of a
- * party game, and in advanced mode the room's pw_* traffic. Shown for party
- * games.
+ * party game, and the room's pw_* traffic. Shown for party games in
+ * advanced mode only (sim-room's style hides it otherwise).
  *
  * Collapsed by default to one line: a dot per friend wand in its identity
  * color and a count. Opened, one row per friend wand: its name (identity
- * color, numbered when two wands share one), a status chip, its Splats as
- * small press-and-hold tiles (createSplatTile), "Press its button" (the peer
+ * color, numbered when two wands share one), a status chip, its Splats
+ * (createSplatToy, a click presses one), "Press its button" (the peer
  * wand's own button, which does what the game's script says) and a remove
  * button; "+ Add a friend wand" adds a follower with one Splat.
  *
@@ -23,7 +23,7 @@
  */
 
 import { icon } from "../icons.js";
-import { createSplatTile } from "./splats.js";
+import { createSplatToy } from "./splats.js";
 
 const LOG_LIMIT = 120;
 
@@ -256,8 +256,8 @@ export function createPeerStrip({ mount, host, identOf }) {
       row.querySelector(".detail").textContent = `${peer.mac} · ${count} Splat${count === 1 ? "" : "s"}`;
       const splatsEl = row.querySelector(".splats");
       peer.splats.forEach((s, i) => {
-        const t = createSplatTile(s, {
-          mini: true,
+        const t = createSplatToy(s, {
+          size: 40,
           label: count === 1 ? `The ${lower}'s Splat` : `Splat ${i + 1} on the ${lower}`,
           onButton: (down) => peer.splatButton(i, down),
         });

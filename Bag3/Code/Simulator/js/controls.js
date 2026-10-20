@@ -163,6 +163,13 @@ export const CONTROLS_STYLE = `
 /* Re-enabled on the wand itself so its drawn button stays clickable
    through the pad's pointer handling. */
 .pad-wand .wand-body { pointer-events: auto; }
+/* Things the host puts beside the drawn wand (<sim-room>'s Splats): a
+   row along the pad's bottom edge, the wand lifted to clear it. */
+.pad-extras {
+  position: absolute; left: 0; right: 0; bottom: 8px;
+  display: flex; justify-content: center; pointer-events: none;
+}
+.pad.has-extras .pad-wand { padding-bottom: 72px; }
 
 .pad-foot { display: flex; gap: 10px; align-items: flex-start; justify-content: space-between; }
 .status { flex: 1 1 auto; display: flex; gap: 6px; align-items: center; font: 700 11px 'Nunito', system-ui, sans-serif; color: #5b5468; min-width: 0; }
@@ -341,6 +348,7 @@ export function createControls(container, handlers = {}) {
           <span class="pad-ring"></span>
         </div>
         <div class="pad-wand" data-el="wand"></div>
+        <div class="pad-extras"><slot name="pad" data-el="pad-slot"></slot></div>
       </div>
       <div class="pad-foot">
         <div class="status" data-el="status">
@@ -544,6 +552,11 @@ export function createControls(container, handlers = {}) {
     clearTimeout(timers.settle);
     timers.settle = setTimeout(snapToPose, SETTLE_MS);
   }
+
+  el.padSlot = root.querySelector('[data-el="pad-slot"]');
+  el.padSlot.addEventListener("slotchange", () => {
+    el.pad.classList.toggle("has-extras", el.padSlot.assignedElements().length > 0);
+  });
 
   el.pad.addEventListener("pointermove", padFromEvent);
   el.pad.addEventListener("pointerdown", (e) => {

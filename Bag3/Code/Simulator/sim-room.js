@@ -72,7 +72,6 @@ class SimRoom extends HTMLElement {
    *   slot     "panels" (beside the wand) or "strip" (below it)
    *   title    heading shown above the panel; null = none, and no padding
    *            (the panel draws its own header)
-   *   hint     optional handwritten line beside the title
    *   wants    (capabilities, room) => bool: whether to show it
    *   create   (room, mountEl) => instance; called once, on first show
    *   update   optional (instance, capabilities, room) => void|Promise,
@@ -168,10 +167,12 @@ class SimRoom extends HTMLElement {
         .box[hidden] { display: none; }
         .box-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; margin: 0 0 12px; }
         .box-head h3 { font: 800 15px 'Nunito', system-ui, sans-serif; margin: 0; }
-        .box-head .hint { font: 400 18px 'Patrick Hand', 'Nunito', system-ui, sans-serif; color: #5b5468; }
         ${DISPLAY_STYLE}
         ${SPLAT_STYLE}
         ${PEERS_STYLE}
+        /* Simple mode is the wand alone; its Splats are drawn in its pad. */
+        :host(:not([advanced])) .box[data-panel="splats"],
+        :host(:not([advanced])) .box[data-panel="peers"] { display: none; }
       </style>
       <div class="room">
         <div class="wand" data-slot="wand"></div>
@@ -303,12 +304,6 @@ class SimRoom extends HTMLElement {
         if (spec.title) {
           box.innerHTML = `<div class="box-head"><h3></h3></div>`;
           box.querySelector("h3").textContent = spec.title;
-          if (spec.hint) {
-            const hint = document.createElement("span");
-            hint.className = "hint";
-            hint.textContent = spec.hint;
-            box.firstChild.appendChild(hint);
-          }
         } else {
           box.classList.add("flush");
         }
@@ -366,37 +361,57 @@ function wandGroup(party) {
   };
 }
 
-// Both party panels sit below the wand: the Splats belong to it, and the
-// friend wands fold into one line until opened.
+// The wand's Splats are drawn in its pad, below the drawn wand, in both
+// modes. In advanced mode a card below the wand adds their count and links,
+// and the friend wands strip follows it.
 SimRoom.registerPanel("splats", {
   slot: "strip",
   title: "Splats on this wand",
-  hint: "press and hold one to squish it",
   wants: (caps) => !!caps.party,
   create(room, box) {
+    const overlay = document.createElement("div");
+    overlay.className = "pad-splats";
+    overlay.slot = "pad";
     const panel = createSplatPanel({
       mount: box,
+      overlay,
       onLocalCount: (n) => {
         room.party.setLocalSplats(n);
         room.restart();
       },
     });
     let shape = "";
+    let shown = false;
     panel.sync = () => {
+      if (!shown) return;
       const group = wandGroup(room.party);
       const key = group.splats.map((s) => s.mac).join("+");
       if (key !== shape) {
         shape = key;
         panel.setGroups([group]);
+        // In the wand's pad only while there is a Splat to show: the pad
+        // makes room under the wand for whatever is slotted.
+        if (group.splats.length) room.wand.appendChild(overlay);
+        else overlay.remove();
       } else {
         panel.refresh();
       }
+    };
+    panel.show = () => { shown = true; };
+    panel.unmount = () => {
+      shown = false;
+      shape = "";
+      overlay.remove();
     };
     return panel;
   },
   update(panel, caps) {
     panel.setLocalCount(caps.local_splats ?? 1);
+    panel.show();
     panel.sync();
+  },
+  hide(panel) {
+    panel.unmount();
   },
 });
 

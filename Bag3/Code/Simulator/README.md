@@ -44,11 +44,13 @@ ChatBroadcast's preview and example detail view do.
   `../BroadcastCode/ChatBroadcast/iconmaker/`, so serve `Bag3/Code/` (from
   `Simulator/` alone the panel falls back to plain squares and warns).
 
-- **Splats on this wand** and **friend wands:** shown below the wand for a
-  party game (`SPLATS_MIN`); see "Party games" below. The friend wands strip
-  is one line until opened. In advanced mode (the `advanced` attribute) the
-  Splats gain an "In reach" box and the friend wands their radio controls
-  and the `pw_` message log.
+- **Splats:** for a party game (`SPLATS_MIN`), the wand's Splats are drawn
+  under the wand in its pad, one per paired Splat (`WAND_SPLATS`; none,
+  none drawn); a
+  click on one presses it. See "Party games" below.
+- **Advanced mode only** (the `advanced` attribute): a "Splats on this wand"
+  card (count and "in reach" boxes) and the friend wands strip (peer wands,
+  their radio controls and the `pw_` message log), one line until opened.
 
 Not simulated: heap and fragmentation, compile size, radio timing, BLE
 pacing, and peers running real game code.
@@ -65,13 +67,15 @@ What stands in for what:
 
 - **BLE:** `py/shims/splat_hub.py` replaces `splat_hub.py`,
   `splat_link.py` and `ble_splat.py`. Its links are ready unless unplugged
-  (the panel's "In reach" box, advanced mode), so `splat_api.SplatGroup`, the pairing glow and
+  (the "in reach" boxes, advanced mode), so `splat_api.SplatGroup`, the pairing glow and
   `net`'s ready mask (`splat_lost` / `splat_back`) run unchanged. Writes
-  (color, sound, note, off) are drawn on the Splat tiles; pressing and
-  holding a tile is a button press on the Splat. A peer's Splats are small
-  tiles on its friend wand row.
-- **Pairing:** the wand holds 1 Splat by default (0–2 from the panel's
-  −/+; a change restarts the game). MACs are `5A:00:<wand's last two bytes>:00:<i>`.
+  (color, sound, note, off) are drawn on the Splats; a click on one is a
+  button press on the Splat, held at least 250 ms. A peer's Splats are on
+  its friend wand row.
+- **Pairing:** the wand holds as many Splats as the game's `WAND_SPLATS`
+  (0–2; 1 when not declared), set when a different game loads. The advanced
+  card's −/+ changes it until then (and restarts the game). The wand
+  firmware does not read `WAND_SPLATS`. MACs are `5A:00:<wand's last two bytes>:00:<i>`.
   There are no Splat cards, `/pairing.json`, `pw_who` claim checks or the
   30 s connect deadline.
 - **Other wands:** `js/peers.js` virtual peers on the room's bus, speaking
@@ -83,7 +87,7 @@ What stands in for what:
   host") run the game from the leader's side, so the wand plays as a
   follower. "Go quiet" silences a peer and stops its ACKs (`wand_lost`,
   `leader_lost`). The room starts with one follower holding one Splat; the
-  friend wands strip adds more and, in advanced mode, logs the `pw_`
+  friend wands strip (advanced mode) adds more and logs the `pw_`
   traffic.
 - **Game scripts:** where a game needs the other wands to act, a short
   script in `js/peers.js` (`GAME_SCRIPTS`) plays their part: `partytest`'s
