@@ -7,8 +7,9 @@ host has already lost (see known_issue.md). The only way to observe why the
 box reset is to write the cause to flash on this boot and read it back on
 the next one.
 
-Usage: call record() once, early in BboxServer.run(), before the boot grace
-so a fresh reset_cause() reading is captured before anything else can raise.
+Usage: main.py calls record() once, as its first statement, before any
+other import, so a fresh reset_cause() reading is captured before anything
+else can raise.
 """
 
 import os
@@ -21,7 +22,7 @@ MAX_LINES = 40
 
 # Global switch: leave the logging code in place, gate the writes.
 # Stats (stats_log.py) are a product feature and must NOT honor this flag.
-LOG_ENABLED = False
+LOG_ENABLED = True
 
 # Not every reset_cause() value machine exposes is meaningful here, and not
 # every port defines all of them (BROWNOUT_RESET in particular is a
@@ -75,7 +76,8 @@ def last_mode():
 def record(note=""):
     """Append one line for this boot's reset cause; never raises.
 
-    Format: '<ticks_ms> <cause> was:<mode> [note]', newest entry last.
+    Format: '<ticks_ms> <cause>(<raw reset_cause() number>) was:<mode> [note]',
+    newest entry last.
 
     The mode comes from note_mode()'s file, i.e. the mode the box was in
     before this reset -- NOT the current one, which at call time is still
@@ -94,8 +96,8 @@ def record(note=""):
     if not LOG_ENABLED:
         return
     try:
-        cause = cause_name(machine.reset_cause())
-        line = "%d %s was:%s" % (time.ticks_ms(), cause, last_mode())
+        raw = machine.reset_cause()
+        line = "%d %s(%s) was:%s" % (time.ticks_ms(), cause_name(raw), raw, last_mode())
         if note:
             line += " " + str(note)
         with open(PATH, 'a') as f:
