@@ -60,6 +60,7 @@ breaks the modal rule by design, so its drops add nothing.
 2. If it still drops on a full battery, run it from a wall charger or powered hub, then on
    battery only. The bench writes `/flash/bench_trace.txt` and `/flash/resetlog.txt`, so a
    run with USB unplugged can be read back afterward.
+
 ### Open before the Dial gate closes
 
 The Dial ran one transfer per condition. ESP-NOW replaces the SoftAP on the Box and Dial, so
