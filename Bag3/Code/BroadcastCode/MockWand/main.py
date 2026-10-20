@@ -304,7 +304,18 @@ leds     = Leds()
 # ── BOOT STEP 1: Power-status LED + boot indicator on immediately ──
 pled     = PowerLed()   # discrete power LED on Pin 2 (Bag3)
 pled.on()
-leds.boot_power()
+
+# /boot_ok is written after a boot with no warning or failure and removed by
+# any later one (and by tools/deploy.py). Without it, main() runs the debug
+# boot: boot-stage LEDs, memory probes and the held result bar.
+BOOT_OK_PATH = "/boot_ok"
+try:
+    os.stat(BOOT_OK_PATH)
+    DEBUG_BOOT = False
+except OSError:
+    DEBUG_BOOT = True
+if DEBUG_BOOT:
+    leds.boot_power()
 
 i2c      = machine.SoftI2C(sda=machine.Pin(I2C_SDA), scl=machine.Pin(I2C_SCL), freq=HUB_CONFIG["i2c_freq"])
 buz      = Buzzer(BUZZER_PIN)
@@ -968,137 +979,111 @@ def _boot_pairing(enow):
             pass        # nothing on flash to clear
         else:
             os.remove(_PAIRING_PATH)
-        leds.boot_stage_ok(0, row_colors=[OFF, OFF, AMBER, GREEN if enow.is_active else AMBER])
+        _boot_warn()
+        _stage("boot_stage_ok", 0, row_colors=[OFF, OFF, AMBER, GREEN if enow.is_active else AMBER])
 
 
 def _pair_card(cmd, enow):
     # A Splat card or the unpair card, idle loop only. An unpaired wand
-    # builds a controller without a hub; adding a pairing resets the wand,
-    # and that boot skips the boot-stage display (_QUICK_BOOT_PATH).
+    # builds a controller without a hub; adding a pairing resets the wand.
     global _pair_ctl
     import splatpair
     if _pair_ctl is None:
         _pair_ctl = splatpair.SplatPairing([], enow, leds, buz)
     if _pair_ctl.on_card(cmd) == "reset":
-        try:
-            with open(_QUICK_BOOT_PATH, "w") as f:
-                f.write("1")
-        except OSError:
-            pass                     # a full boot display is the only cost
         time.sleep_ms(300)           # let the confirm tone finish
         machine.reset()
 
 
-# Written just before a pairing reset; read and removed after enow.init().
-# That boot keeps the matrix dark through the boot stages and skips the
-# hold on the finished bar. Every check still runs and prints.
-_QUICK_BOOT_PATH = "/quick_boot"
-_BOOT_STAGE_CALLS = ("boot_stage_start", "boot_stage_ok", "boot_stage_warn", "boot_stage_fail")
+_boot_clean = True
 
 
-def _take_quick_boot():
+def _stage(name, *args, **kwargs):
+    # Boot-stage LED call, debug boot only.
+    if DEBUG_BOOT:
+        getattr(leds, name)(*args, **kwargs)
+
+
+def _boot_warn(stage=None):
+    global _boot_clean
+    _boot_clean = False
+    if stage is not None:
+        _stage("boot_stage_warn", stage)
+
+
+def _forget_boot_ok():
     try:
-        os.remove(_QUICK_BOOT_PATH)
+        os.remove(BOOT_OK_PATH)
     except OSError:
-        return False
-    for name in _BOOT_STAGE_CALLS:
-        setattr(leds, name, _no_stage)
-    leds.off()
-    print("  Quick boot after pairing: boot stages not shown")
-    return True
-
-
-def _no_stage(*args, **kwargs):
-    pass
-
-
-def _end_quick_boot():
-    for name in _BOOT_STAGE_CALLS:
-        try:
-            delattr(leds, name)
-        except AttributeError:
-            pass
+        pass
 
 
 # ─────────────────────────────────────────────
 # MAIN
 # ─────────────────────────────────────────────
-def main():
-    # Before anything else, and before ESP-NOW claims the radio.
-    if pull_flag.is_pending():
-        _run_pull_mode()
+def _boot():
+    """Bring up every device. Returns (enow, batt, nfc, accel, accel_ok,
+    last_soc); nfc is None after a fatal NFC failure.
 
-    _boot_grace()
-    memprobe.probe("main-entry")  # BENCH
+    DEBUG_BOOT adds the boot-stage LEDs, memory probes and a 1.5 s hold on
+    the result bar. Any warning or failure removes /boot_ok so the next boot
+    is a debug boot; a clean debug boot writes it."""
+    t0 = time.ticks_ms()
+    if DEBUG_BOOT:
+        memprobe.probe("main-entry")  # BENCH
     print("\n" + "=" * 50)
     print("  PlaygroundV5 -- Multi-Trigger Event Engine")
     print("  Hub type: %s" % HUB_TYPE)
+    print("  Boot: %s" % ("debug" if DEBUG_BOOT else "fast"))
     print("=" * 50)
 
-    # NOTE: leds.boot_power() was already called at module level — LED 0 is dim white.
-    # Turning it green here confirms that main() was reached and imports succeeded.
-    # If an import fails before main() runs, LED 0 stays dim white permanently.
-    leds.boot_stage_ok(0)
+    # LED 0 green: main() was reached and imports succeeded. If an import
+    # fails before main() runs, LED 0 stays dim white (debug boot only).
+    _stage("boot_stage_ok", 0)
 
-    # ── ESP-NOW init — deliberately radio-first, ahead of every other ──
-    # boot stage. esp_wifi_init()/esp_wifi_start() need tens of KB of
-    # *contiguous* internal IDF heap, and MicroPython's GC heap is carved
-    # out of that same IDF heap in splits that are NEVER returned. Every
-    # splits-triggering allocation made before this point (a sensor driver
-    # import, a compile) is a permanent, one-way loss against the
-    # contiguity WiFi needs -- so WiFi has to ask first, while the heap is
-    # least fragmented. This was measured directly: with enow.init() left
-    # at its old position (after Stage 3, before Stage 4) the wand hit
-    # "OSError: WiFi Out of Memory" with idf_free=12116; moved here it
-    # succeeds. See docs_and_design/old/2026-09-01-wifi-handoff-diagnosis.md.
-    #
-    # No stage number of its own: SHAPE_LEFT_COL has exactly five pixels
-    # (stages 0-4) and none to spare. It reports into stage 0's otherwise-
-    # unused data row instead (_BOOT_STAGE_DATA[0]) -- rightmost cell.
-    # ESP-NOW failing is non-fatal (NFC programming mode does not need the
-    # radio), unlike Stage 3's fatal NFC failure below.
+    # ── ESP-NOW init — radio-first, ahead of every other boot stage ──
+    # esp_wifi_init()/esp_wifi_start() need tens of KB of *contiguous*
+    # internal IDF heap, and MicroPython's GC heap is carved out of that same
+    # IDF heap in splits that are never returned, so WiFi asks first. See
+    # docs_and_design/old/2026-09-01-wifi-handoff-diagnosis.md.
+    # Reports into stage 0's data row (rightmost cell); non-fatal.
     enow = ESPNowManager()
-    memprobe.probe("pre-enow"); memprobe.frag("pre-enow")  # BENCH
+    if DEBUG_BOOT:
+        memprobe.probe("pre-enow"); memprobe.frag("pre-enow")  # BENCH
     try:
         enow.init()
-        leds.boot_stage_ok(0, row_colors=[OFF, OFF, OFF, GREEN])
+        _stage("boot_stage_ok", 0, row_colors=[OFF, OFF, OFF, GREEN])
     except Exception as e:
         print("  [WARN] ESP-NOW:"); sys.print_exception(e)
-        leds.boot_stage_ok(0, row_colors=[OFF, OFF, OFF, AMBER])
-    memprobe.probe("post-enow")  # BENCH
+        _boot_warn()
+        _stage("boot_stage_ok", 0, row_colors=[OFF, OFF, OFF, AMBER])
+    if DEBUG_BOOT:
+        memprobe.probe("post-enow")  # BENCH
 
-    # ── Splat pairing: BLE comes up only for a paired wand, here and not
-    # earlier: the radio has claimed its memory, and every later boot stage
-    # runs with BLE already holding its own. ──
+    # ── Splat pairing: BLE comes up only for a paired wand, after the radio
+    # has claimed its memory. ──
     _boot_pairing(enow)
-    memprobe.probe("post-ble")  # BENCH
-    quick_boot = _take_quick_boot()
+    if DEBUG_BOOT:
+        memprobe.probe("post-ble")  # BENCH
 
     # ── Stage 1: Brightness calibration (OPT3002) ──
-    leds.boot_stage_start(1)
+    # Fast boot starts the first conversion here and reads it after the
+    # other stages, instead of waiting 120 ms and taking three samples.
+    _stage("boot_stage_start", 1)
+    light = None
     try:
         from opt3002 import OPT3002
         light = OPT3002(i2c)
-        light.init()
-        m, lux = brightness.calibrate(light)
-        if lux is not None:
-            print("  Light: %.0f lux -> brightness x%.2f" % (lux, m))
-            # Build a 1-4 LED bar in WHITE_DIM representing ambient light level.
-            if lux < 200:    lit = 1   # very dim indoor
-            elif lux < 600:  lit = 2   # typical indoor
-            elif lux < 8000: lit = 3   # bright indoor / overcast outdoor
-            else:            lit = 4   # outdoor / direct light
-            row = [WHITE if i < lit else OFF for i in range(4)]
-            leds.boot_stage_ok(1, row_colors=row)
-        else:
-            print("  Light: sensor reads failed, brightness x%.2f" % m)
-            leds.boot_stage_warn(1)
+        light.init(wait=DEBUG_BOOT)
     except Exception as e:
         print("  [WARN] OPT3002: %s — brightness x1.00" % e)
-        leds.boot_stage_warn(1)
+        light = None
+        _boot_warn(1)
+    if DEBUG_BOOT and light is not None:
+        _calibrate_light(light, brightness.CAL_SAMPLES)
 
     # ── Stage 2: Battery gauge (MAX17048) ──
-    leds.boot_stage_start(2)
+    _stage("boot_stage_start", 2)
     batt = None
     last_soc = 100
     try:
@@ -1106,37 +1091,36 @@ def main():
         v, s = batt.read_all()
         last_soc = max(0, min(100, int(s)))
         print("  Battery: %.2fV, %.1f%%" % (v, s))
-        # Build a 1-4 LED bar in battery_color proportional to SOC.
+        # 1-4 LED bar in battery_color proportional to SOC.
         lit = max(1, round(last_soc / 100 * 4))
         batt_col = battery_color(last_soc)
         row = [batt_col if i < lit else OFF for i in range(4)]
-        leds.boot_stage_ok(2, row_colors=row, row_flash=5 if last_soc <= 10 else 0)
+        _stage("boot_stage_ok", 2, row_colors=row, row_flash=5 if last_soc <= 10 else 0)
     except Exception as e:
         print("  [WARN] Battery:"); sys.print_exception(e)
-        leds.boot_stage_warn(2)
+        _boot_warn(2)
 
-    # enow was init'd radio-first, above Stage 1 -- see that block. batt
-    # exists only from here on, so the status-provider hookup waits for it.
     if batt is not None:
         enow.set_status_provider(lambda b=batt: int(b.soc))
 
     # ── Stage 3: NFC init (fatal on failure) ──
-    leds.boot_stage_start(3)
+    _stage("boot_stage_start", 3)
     nfc = PN532(i2c, NFC_ADDR)
     try:
         ic, ver, rev = nfc.begin()
         print("  PN532 firmware %d.%d (IC 0x%02X) -- NFC ready" % (ver, rev, ic))
-        leds.boot_stage_ok(3)
+        _stage("boot_stage_ok", 3)
     except Exception as e:
         print("  [FAIL] NFC:"); sys.print_exception(e)
+        _forget_boot_ok()
+        if not DEBUG_BOOT:
+            # The debug boot shows which stage failed.
+            machine.reset()
         leds.boot_stage_fail(3)
-        return
-
-    reader = NfcReader(nfc, ALL_COMMANDS, prefixes=BROADCAST)
-    runner = ActionRunner(leds, buz)
+        return enow, batt, None, None, False, last_soc
 
     # ── Stage 4: Accelerometer ──
-    leds.boot_stage_start(4)
+    _stage("boot_stage_start", 4)
     accel = None
     accel_ok = False
     try:
@@ -1144,13 +1128,12 @@ def main():
         accel.init(fs_range=RANGE_4G)
         accel_ok = True
         print("  Accelerometer OK")
-        leds.boot_stage_ok(4)
+        _stage("boot_stage_ok", 4)
     except Exception as e:
         print("  [WARN] Accel:"); sys.print_exception(e)
-        leds.boot_stage_warn(4)
+        _boot_warn(4)
 
-    # Wake-up interrupt is a separate step — if it fails, sleep-on-movement
-    # is disabled. Downgrade stage 4 to amber to reflect the degraded state.
+    # Wake-up interrupt failing disables sleep-on-movement: stage 4 amber.
     if accel_ok:
         try:
             accel.enable_wake_int1(threshold=8)
@@ -1158,10 +1141,25 @@ def main():
         except Exception as e:
             print("  [WARN] Accel wake:"); sys.print_exception(e)
             accel_ok = False
-            leds.boot_stage_warn(4)
+            _boot_warn(4)
 
-    print("  Boot complete — all systems OK")
-    memprobe.probe("boot-complete")  # BENCH
+    if not DEBUG_BOOT and light is not None:
+        _calibrate_light(light, 1)
+
+    if _boot_clean:
+        print("  Boot complete — all systems OK (%d ms)" % time.ticks_diff(time.ticks_ms(), t0))
+        if DEBUG_BOOT:
+            try:
+                with open(BOOT_OK_PATH, "w") as f:
+                    f.write("1")
+            except OSError:
+                pass
+    else:
+        print("  Boot complete with warnings (%d ms); next boot is a debug boot"
+              % time.ticks_diff(time.ticks_ms(), t0))
+        _forget_boot_ok()
+    if DEBUG_BOOT:
+        memprobe.probe("boot-complete")  # BENCH
     # Volunteered once per boot, same rule as the Box's identity (bbox_server.py
     # _identity_payload docstring): a host that attaches later never sees it,
     # so `heartbeat` below is what actually proves the link is alive.
@@ -1169,14 +1167,45 @@ def main():
         "type": "identity", "device": "wand", "version": WAND_VERSION,
         "hub": HUB_TYPE, "games": sorted(list(GAME_MODULES.keys()) + game_store.slugs()),
     })
-    if quick_boot:
-        _end_quick_boot()
-    else:
+    if DEBUG_BOOT:
         time.sleep_ms(1500)  # hold boot bar so it can be read before idle takes over
+        leds.off()
+        time.sleep_ms(100)
+    else:
+        leds.off()
+    return enow, batt, nfc, accel, accel_ok, last_soc
 
-    # Transition to idle
-    leds.off()
-    time.sleep_ms(100)
+
+def _calibrate_light(light, samples):
+    m, lux = brightness.calibrate(light, samples, brightness.CAL_DELAY_MS if samples > 1 else 0)
+    if lux is None:
+        print("  Light: sensor reads failed, brightness x%.2f" % m)
+        _boot_warn(1)
+        return
+    print("  Light: %.0f lux -> brightness x%.2f" % (lux, m))
+    # 1-4 LED bar in WHITE for the ambient light level.
+    if lux < 200:    lit = 1   # very dim indoor
+    elif lux < 600:  lit = 2   # typical indoor
+    elif lux < 8000: lit = 3   # bright indoor / overcast outdoor
+    else:            lit = 4   # outdoor / direct light
+    _stage("boot_stage_ok", 1, row_colors=[WHITE if i < lit else OFF for i in range(4)])
+
+
+def main():
+    # Before anything else, and before ESP-NOW claims the radio.
+    if pull_flag.is_pending():
+        _run_pull_mode()
+
+    _boot_grace()
+    try:
+        enow, batt, nfc, accel, accel_ok, last_soc = _boot()
+    except Exception:
+        _forget_boot_ok()
+        raise
+    if nfc is None:
+        return
+    reader = NfcReader(nfc, ALL_COMMANDS, prefixes=BROADCAST)
+    runner = ActionRunner(leds, buz)
 
     # ── State ──
     rules = {}

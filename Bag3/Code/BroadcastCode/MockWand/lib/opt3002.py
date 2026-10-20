@@ -55,12 +55,13 @@ class OPT3002:
     def device_id(self):
         return self._read_reg16(_DEVICE_ID)
 
-    def init(self, mode=MODE_CONTINUOUS_100MS):
+    def init(self, mode=MODE_CONTINUOUS_100MS, wait=True):
         """
         Initialize the light sensor.
 
         Args:
             mode: Config register value. Defaults to continuous 100ms.
+            wait: False returns without waiting for the first conversion.
                   Use MODE_CONTINUOUS_800MS for higher accuracy.
                   Use MODE_SINGLE_800MS for one-shot reads.
         """
@@ -72,6 +73,8 @@ class OPT3002:
         self._mode = mode
 
         # Wait for first conversion
+        if not wait:
+            return
         if mode & 0x0600:  # check conversion time bits
             time.sleep_ms(120)
         else:

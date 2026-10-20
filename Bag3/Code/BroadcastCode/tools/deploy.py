@@ -341,6 +341,9 @@ def main():
         sys.exit(1)
 
     print("\n# all %d files verified" % len(files))
+    if dev_key == "wand":
+        # New code: the next boot is a debug boot (MockWand/main.py BOOT_OK_PATH).
+        mpremote(port, "fs", "rm", ":/boot_ok")
     if args.no_reset:
         print("# --no-reset: leaving the board as-is")
         return

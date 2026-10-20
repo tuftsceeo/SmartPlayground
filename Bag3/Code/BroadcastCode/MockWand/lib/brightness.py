@@ -72,7 +72,7 @@ def _lux_to_mult(lux):
     return MIN_MULT + t * (MAX_MULT - MIN_MULT)
 
 
-def calibrate(opt3002):
+def calibrate(opt3002, samples=CAL_SAMPLES, delay_ms=CAL_DELAY_MS):
     """
     Take a few lux readings from the OPT3002 and set MULTIPLIER from the median.
     Returns (multiplier, lux) on success, or (MULTIPLIER, None) if all reads failed.
@@ -83,12 +83,13 @@ def calibrate(opt3002):
     global MULTIPLIER, LAST_LUX
 
     readings = []
-    for _ in range(CAL_SAMPLES):
+    for _ in range(samples):
         try:
             readings.append(opt3002.lux)
         except Exception:
             pass
-        time.sleep_ms(CAL_DELAY_MS)
+        if delay_ms:
+            time.sleep_ms(delay_ms)
 
     if not readings:
         return MULTIPLIER, None
