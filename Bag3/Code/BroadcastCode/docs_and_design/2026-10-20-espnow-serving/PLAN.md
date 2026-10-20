@@ -83,6 +83,22 @@ Paths below are under `Bag3/Code/BroadcastCode/` unless stated.
 6. **`manifest.js`:** drop the removed files and add the new ones.
 7. **Offline checks:** `py_compile`, the `tools/devtests/wire_test_dial.py`/`wire_contract.py` updates, and the sender tests.
 
+### Phase 2 notes (2026-10-20)
+- **Done on the Dial:** steps 1, 2, 4, 5 (README), 6 and 7 (`tools/devtests/test_dial_code_link.py`), plus serving from the WRITE menus (`SHARE_IN_MENUS`): the radio is up whenever the reader field is off. Results in RESULTS.md.
+- **Step 3 needs a protocol extension (approved 2026-10-20).** `code_sender` sends one file per `code_req`, and the Icon Display needs `<slug>_icon.py` plus every file in `games/<slug>_icons/`. The design:
+  - The display sends `code_req` with `hub:"icon_display"`.
+  - The offer for `<slug>_icon.py` carries an `icons` list of file names.
+  - The display then sends one `code_req` per icon, with `slug:"<slug>"`, `hub:"icon_display"` and `file:"<name>"`.
+  - The sender resolves that to `games/<slug>_icons/<name>`. Names containing `/` or `..` are refused.
+  - A failed icon does not fail the game, as in `code_server`'s icon leg.
+- **Protocol references to update when step 3 lands.** Each holds a copy or description of the message set:
+  - `EspnowModem/host/code_sender.py` and the Dial copy
+  - `EspnowModem/MockWandEUM/lib/espnow_code.py` (PEER header)
+  - `BroadcastDial/README.md` "Serving over ESP-NOW"
+  - `EspnowModem/README.md`
+  - `HARDWARE_PROTOCOL.md` "Reserved Box/Dial staging suffixes", which cites `code_server.ROLE_FILES`
+  - `BroadcastCode/IconDisplay/README.md`
+
 ## Phase 3: Box firmware (same change)
 Repeat Phase 2 in `BBoxFirmware/`. The Box's `serve_guard` floor and `SOCK_REPLY_TIMEOUT_S` go with the AP code. Use `wire_test.py` for the offline check.
 
@@ -113,6 +129,15 @@ Repeat Phase 2 in `BBoxFirmware/`. The Box's `serve_guard` floor and `SOCK_REPLY
    - `code_server.py`, `serve_guard.py`, `serve_probe.py`, `code_puller.py`, `pull_flag.py` and `pull_probe.py`
    - the WiFi-only items in `../../known_issues/2026-09-30-known-issues.md`
    - the AP sections in the READMEs and `HARDWARE_PROTOCOL.md`
+   - SoftAP/`code_server` references found on 2026-10-20 (`grep -rlE "code_req|SP-FILEPUSH|SoftAP|code_puller" --include='*.md'`):
+     - `BroadcastBox/README.md`, `BroadcastCode/README.md`
+     - `MockWand/README.md`, `IconDisplay/README.md`, `EspnowModem/README.md`, `EspnowModem/MockWandEUM/README.md`
+     - `SplatCompanion/Companion/README.md` and `HARDWARE_TEST.md`
+     - `BDialFirmware/tools/BENCH_TEST_PLAN.md`
+     - `docs_and_design/DEVICE_ONBOARDING_SURFACES.md`, `PHASE6_HANDOFF.md`
+     - `Stations/NFC Station/docs/plan.md`
+     - `Bag3/AGENTS.md` (its `code_server.py`/`code_puller.py` memory rule now applies to `code_link.py`)
+     - ChatBroadcast `knowledge/` files
 
    The Splat Companion is retired and needs no receiver.
 
