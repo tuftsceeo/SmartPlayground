@@ -1,6 +1,25 @@
+---
+title: ChatBroadcast multi-role games, remixing and Dial load failures
+date: 2026-09-29
+status: open
+devices: [BroadcastDial, BroadcastBox, wands]
+components: [ChatBroadcast, raw-REPL file writer, example gallery, model context]
+code:
+  - Bag3/Code/BroadcastCode/ChatBroadcast/js/device/replController.js
+  - Bag3/Code/BroadcastCode/ChatBroadcast/js/device/serialLog.js
+  - Bag3/Code/BroadcastCode/ChatBroadcast/knowledge/game_patterns.md
+open:
+  - One wand file per device type; no per-role code
+  - Gallery examples too large to remix
+  - Remixed games fail on the Dial before transfer (suspected one-shot base64 writeFile)
+  - Serial errors not sent to the model
+keywords: [roles, caller, player, remix, writeFile, base64, raw REPL, serial log]
+aliases: [9-29-known_issues.md]
+---
+
 # Known issues — 2026-09-29
 
-Open items recorded on 2026-09-29. Older entries are in `9-4-known_issues.md`.
+Open items recorded on 2026-09-29. Older entries are in `2026-09-04-chatbroadcast.md`.
 
 
 Multi-role games get one wand file for every wand. Should roles get their own code?

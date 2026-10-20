@@ -232,7 +232,7 @@ there (`main.py` was rewritten to boot `IconServer`); it survives as
 
 ### 5.8 Cleanup
 
-- **`ChatBroadcast/bak/`** and **`9-4-known_issues.md`** — kept, per the
+- **`ChatBroadcast/bak/`** and **`9-4-known_issues.md`** (now `Bag3/Code/known_issues/2026-09-04-chatbroadcast.md`) — kept, per the
   user, with a header marking each clearly outdated.
 - **`Stations/Icon Display Station/icon_server.py`** — ported. It now
   carries `_drew()`/`owns_panel()`/`release_panel()` and the `start`/`step`/

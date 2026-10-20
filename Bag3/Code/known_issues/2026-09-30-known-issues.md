@@ -1,12 +1,36 @@
+---
+title: Broadcast WiFi code pull and serving
+date: 2026-09-30
+status: open (12 items); some superseded by ESP-NOW serving work
+devices: [BroadcastDial, BroadcastBox, MockWand, IconDisplay, SplatCompanion]
+components: [code_server.py, code_puller.py, serve_guard.py, ChatBroadcast send path]
+open:
+  - Game size limited by wand compile() check
+  - Compile rejection reported as transfer failure
+  - Pull time dominated by pre-transfer phase
+  - Dial largest free IDF block drops while serving
+  - Dial stopped with four wands pulling
+  - Arm-time WiFi Out of Memory on fresh Dial boot
+  - Ungated diagnostic print in Dial code_server.py
+  - Wand heap probes run before radio claims memory
+  - Dial detects client close only at deadline
+  - serve_guard floor measured on Dial only
+keywords: [WiFi pull, SoftAP, IDF heap, fragmentation, compile, serve_guard, stats.log]
+related:
+  - Bag3/Code/BroadcastCode/docs_and_design/2026-10-19-espnow-box-dial-plan.md
+  - Bag3/Code/BroadcastCode/docs_and_design/2026-10-20-espnow-serving/PLAN.md
+aliases: [docs_and_design/2026-09-30-known-issues.md]
+---
+
 # Known issues — Broadcast WiFi pull, 2026-09-30
 
 Scope: `code_server.py` (Dial, Box), `code_puller.py` (MockWand, IconDisplay, SplatCompanion), `serve_guard.py`, and ChatBroadcast's send path.
 
 Sources:
 
-- **pull-speed:** `2026-09-30-pull-speed-results.md`
+- **pull-speed:** `../BroadcastCode/docs_and_design/2026-09-30-pull-speed-results.md`
 - **test-records:** `2026-09-23-test-records/`
-- **handoff:** `2026-09-23-pull-failure-handoff.md`
+- **handoff:** `../BroadcastCode/docs_and_design/2026-09-23-pull-failure-handoff.md`
 
 ## Open
 

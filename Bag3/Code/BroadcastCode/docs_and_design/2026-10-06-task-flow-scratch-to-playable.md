@@ -245,7 +245,7 @@ Ordered by where a teacher is most likely to be stuck.
   pull flow; the wand that receives ChatBroadcast games is `MockWand/`, which reads NDEF text cards.
 - `BroadcastCode/README.md` is a stale plan ("not yet implemented"); several docs use
   `BroadcastBox/...` paths that are now `BroadcastCode/...`.
-- `docs_and_design/2026-09-30-known-issues.md` and `ChatBroadcast/9-4-known_issues.md` say ChatBroadcast
+- `Bag3/Code/known_issues/2026-09-30-known-issues.md` and `Bag3/Code/known_issues/2026-09-04-chatbroadcast.md` say ChatBroadcast
   has no size check; `upload.js` enforces 32,000 bytes for the wand file.
 - `IconDisplay/README.md` says a game may name only icons in `defaultIcons.js`; the check allows default,
   starter and this game's icons. `iconLibrary.js` comment says games are isolated on the device; that

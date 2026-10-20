@@ -7,7 +7,7 @@ SoftAP + TCP transfer. Talks to the ChatBroadcast web app over USB serial
 The box is **modal**: at most one of {WiFi AP, NFC RF field} is energized at
 any instant. Both were previously live from boot whenever a game was on
 flash, which is the load the box browned out under on a current-limited USB
-port (`known_issue.md`).
+port (`../../known_issues/2026-09-01-bbox-usb-reboots.md`).
 
 Hardware: M5Stack StickS3 (ESP32-S3) + M5Stack RFID 2 Unit (WS1850S).
 Bench tested over USB on 2026-09-02 -- see **Verified vs open** below.
@@ -457,5 +457,5 @@ Open:
   `crypto=False`, i.e. not the latch above -- a card drifting out of range.
   Costs a retry; a write aborts on the first miss rather than retrying.
 - The reader is still driven over `machine.SoftI2C` with no clock-stretch
-  timeout, the second hypothesis in `known_issue.md`.
+  timeout, the second hypothesis in `../../known_issues/2026-09-01-bbox-usb-reboots.md`.
 - Off-USB (battery) operation is untested for this build.
