@@ -60,8 +60,15 @@ breaks the modal rule by design, so its drops add nothing.
 2. If it still drops on a full battery, run it from a wall charger or powered hub, then on
    battery only. The bench writes `/flash/bench_trace.txt` and `/flash/resetlog.txt`, so a
    run with USB unplugged can be read back afterward.
-3. Control: run the shipped SERVE (SoftAP) for the same duration on the same battery state.
-   If it also resets, ESP-NOW is no worse than the shipped firmware on this power path.
+### Open before the Dial gate closes
+
+The Dial ran one transfer per condition. ESP-NOW replaces the SoftAP on the Box and Dial, so
+SERVE must start and stop in place with no reset; nothing has exercised that yet.
+
+1. Cycle `init`, a 36 KB transfer, `shutdown` ten times with no reset. Record `idf_largest`,
+   the result and the reset cause each cycle.
+2. Repeat step 4 five times, and explain or reproduce the 9.3 s.
+3. Run a transfer while the NFC reader polls and reads a card.
 
 ### Bench state left on the boards
 
