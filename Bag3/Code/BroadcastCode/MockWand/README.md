@@ -337,3 +337,5 @@ MicroPython) to `/wand_main.mpy` and writes a one-line `/main.py` that imports i
 `main.py` on the wand at boot can fragment the IDF block the radio needs (see
 `docs_and_design/2026-10-07-splat-pairing/RESULTS-PartB.md`). Copying the source `main.py` by
 hand still runs, without that protection.
+
+`--skip-lib` leaves `lib/` out (25 of the 54 files) when only top-level files changed.

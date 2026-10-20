@@ -274,6 +274,8 @@ def main():
                      help="skip the final reset; leave the board as-is")
     ap.add_argument("--code-only", action="store_true",
                      help="Icon Display only: skip icons/ (already on the device)")
+    ap.add_argument("--skip-lib", action="store_true",
+                     help="Mock Wand / Icon Display: skip lib/ (already on the device)")
     ap.add_argument("--wand-tree", default="MockWand",
                      help="Mock Wand only: tree to deploy, relative to BroadcastCode/ "
                           "(e.g. EspnowModem/MockWandEUM)")
@@ -301,6 +303,8 @@ def main():
     type_label = next(label for label, key in DEVICE_TYPES if key == dev_key)
 
     files, default_pause = _files_for(dev_key, args.code_only, args.wand_tree)
+    if args.skip_lib:
+        files = [f for f in files if not f[1].startswith("/lib/")]
     pause = args.pause if args.pause is not None else default_pause
 
     print("\n%s -> %s, %d files." % (type_label, port, len(files)))
