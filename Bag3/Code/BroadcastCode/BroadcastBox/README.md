@@ -1,16 +1,16 @@
 # Broadcast Box firmware (M5Stack StickS3, UIFlow2 MicroPython)
 
-Writes NFC cards for a game, then serves that game's code to wands over a
-SoftAP + TCP transfer. Talks to the ChatBroadcast web app over USB serial
+Writes NFC cards for a game, then serves that game's code to wands over
+ESP-NOW. Talks to the ChatBroadcast web app over USB serial
 (newline-delimited JSON).
 
-The box is **modal**: at most one of {WiFi AP, NFC RF field} is energized at
+The box is **modal**: at most one of {radio, NFC RF field} is energized at
 any instant. Both were previously live from boot whenever a game was on
 flash, which is the load the box browned out under on a current-limited USB
 port (`../../known_issues/2026-09-01-bbox-usb-reboots.md`).
 
 Hardware: M5Stack StickS3 (ESP32-S3) + M5Stack RFID 2 Unit (WS1850S).
-Bench tested over USB on 2026-09-02 -- see **Verified vs open** below.
+Bench tested over USB -- see **Verified vs open** below.
 
 ## Filesystem
 
@@ -33,48 +33,46 @@ but `buttons.py` reads them through `M5.BtnA`/`M5.BtnB` rather than raw
 *and* through `M5.BtnA` at the same time gave two debouncers fighting over
 one button; don't reintroduce that.
 
-## AP memory order — do not add prints ahead of `arm()`
+## Radio memory order -- nothing new ahead of `prewarm()`
 
-The SoftAP needs one large **contiguous** block of IDF DRAM and takes it early;
+The radio needs one large **contiguous** block of IDF DRAM and takes it early;
 nothing later in boot can un-fragment the heap enough to find it again.
-`gc.mem_free()` does not measure this, because MicroPython's GC heap comes out
-of the same DRAM — the failure mode is fragmentation, not exhaustion, and it
-reads as a healthy free-heap number next to `WiFi Out of Memory`.
+`gc.mem_free()` does not measure this: the failure is fragmentation, not
+exhaustion.
 
-``bbox_server.py`` is imported at module scope, so **anything added
-to `code_server.py` — a docstring, a format string, a function — is allocated
-before `prewarm_ap()` and long before `arm()`**. Diagnostic prints added there
-on 2026-09-23 left `idf_largest=7680` against `idf_free=12456` and both Dials
-unable to arm until they were power-cycled. Reverting them fixed it.
+`run()` calls `code_link.prewarm()` (ESP-NOW and STA up, then down) right after
+`M5.begin()`, before the UI and reader are built. `code_link.py` is imported at
+`bbox_server.py` module scope, so anything added to it is allocated before
+`prewarm()`. `code_sender.py` is imported inside `CodeLink.arm()`, after the
+radio is up.
 
-Rules, in order of how easy they are to break:
+Rules:
 
-1. No new module-scope content in `code_server.py` (or `code_puller.py` on the
-   clients). Import-time cost is paid whether or not the code runs.
-2. Nothing between `gc.collect()` and `_start_ap()` in `arm()` — the collect is
-   what makes the block findable.
-3. Diagnostics go in `serve_probe.py`, imported lazily at the end of `arm()`
-   behind `DEBUG_SERVE` (default off), so with the flag off it is never parsed.
-4. `prewarm_ap()` is required, not an experiment. `PREWARM_AP` exists to A/B it
-   deliberately; expect `False` to make `arm()` fail more often.
+1. No new module-scope content in `code_link.py`.
+2. Diagnostics go in a separate module imported after the radio is up.
+3. `prewarm()` stays directly after `M5.begin()`.
 
 Full note: [`docs_and_design/2026-09-23-ap-memory-order.md`](../docs_and_design/2026-09-23-ap-memory-order.md)
 
 ## Modes
 
-| Mode | AP | Reader | Entered when |
+At most one of {radio, NFC RF field} is energized at any instant.
+
+| Mode | ESP-NOW | Reader | Entered when |
 |---|---|---|---|
 | `IDLE` | down | off | No game on flash (`/flash/payload.py` absent or empty) |
-| `WRITE` | down | on only while scanning | Game on flash -- this is the boot state |
-| `SERVE` | **up** (`SP-FILEPUSH-<id>`) | off, and no I2C at all | Teacher selects `DONE` + BtnA |
+| `WRITE` | up while the field is off (`SHARE_IN_MENUS`) | on only while scanning | Game on flash -- this is the boot state |
+| `SERVE` | up | off, and no I2C at all | Teacher selects `DONE` + BtnA, or serial `arm` |
 
 `_set_mode()` in `bbox_server.py` is the only place modes change, and it
-de-energizes what it is leaving before energizing what it is entering. If
-`CodeServer.arm()` fails on the way into `SERVE` it paints an error and stays
-put rather than sitting on a dead AP.
+de-energizes what it is leaving before energizing what it is entering.
+`_nfc_field()` disarms the radio before the field comes up; `_menu_share()`
+re-arms it from the WRITE loop once the field is down. A failed arm is
+retried after `SHARE_RETRY_MS` (2000 ms). If `CodeLink.arm()` fails on the
+way into `SERVE` the Box paints an error and stays put.
 
-**The box does not serve code until a teacher selects `DONE` + BtnA.** A wand
-tapping `getcode` before that finds no AP, shows red wifi bars and gives up.
+With `SHARE_IN_MENUS = False`, WRITE keeps the radio down and only `SERVE`
+serves.
 
 ## WRITE mode
 
@@ -135,25 +133,44 @@ On detection the scan always ends, one of two ways:
 
 Leaving `SERVE` is the one remaining hold: **BtnA for `SERVE_EXIT_MS` (1000 ms)**.
 It is rare and should not fire from a stray bump. The hold is sampled inside
-`CodeServer.poll()` via `should_abort`, once per tick; every in-flight wand is
-dropped and sees a short read; that pull fails (the wand does not retry,
-`pull_flag.MAX_ATTEMPTS = 1`).
+`CodeLink.poll()` via `should_abort`, once per tick; every in-flight wand is
+dropped and its pull fails.
 
-### Serving several wands at once
+## Serving over ESP-NOW
 
-`CodeServer` serves up to `MAX_CLIENTS` (4) wands concurrently and never
-blocks the main loop: `poll()` accepts what is pending, advances each
-in-flight transfer one step (`select.select()` picks the ready sockets), and
-returns. `on_event` fires `'serving'` per accepted wand and `'ok'`/`'fail'`
-per finished one — a single tick can finish several — while `poll()` itself
-returns only `'abort'` or `None`. The SERVE screen shows the live count
-through `paint_receiving()`'s free-text slot (`"3 Wands"`).
+`code_link.CodeLink` serves; `code_sender.CodeSender` runs the protocol;
+`NativeManager` drives `espnow` directly. The wand drives the transfer:
 
-This file is a **PEER of `BroadcastDial/BDialFirmware/code_server.py`** — the
-same server, differing only in heap comments and the Dial-only
-`prewarm_ap()`. The design notes live in `BroadcastDial/README.md`'s "SERVE
-mode concurrency"; both copies are held to the same cases by
-`tools/devtests/wire_test.py` and `wire_test_dial.py`.
+| Direction | Message |
+|---|---|
+| wand -> broadcast | `{"type":"code_req","id":r,"slug":s,"hub":h[,"host":id]}` |
+| Box -> wand | `{"type":"code_offer","id":r,"name":n,"size":N,"sha":hex,"chunks":K,"chunk":245}`; `size` 0 is a refusal (`why`) |
+| wand -> Box | `{"type":"code_get","id":r,"from":i,"n":w}` (window of at most 16) |
+| Box -> wand | raw frames `CX` + id(1) + seq(2) + up to 245 B |
+| wand -> Box | `{"type":"code_done","id":r,"ok":b[,"why":...]}` |
+
+A `code_req` with `host` set to another device's `HOST_ID` is ignored: a card
+written for a Dial (`@004c`) does nothing on the Box. Up to `MAX_SESSIONS` (6)
+wands are served at once; more get a `busy` offer and retry. A session idle
+for `SESSION_IDLE_MS` (15 s) is dropped and reported as a failed pull. Files
+are `/flash/games/<slug>.py`; an empty slug means `/flash/active.txt`.
+
+`CodeLink.poll(on_event, should_abort)` handles one radio message per call.
+`on_event` fires `'serving'` when a wand is offered a file and `'ok'`/`'fail'`
+when it finishes; the finished transfer is in `last_result`, recorded to
+`stats_log`. The SERVE screen shows the live count (`serving_count`).
+
+### TX power
+
+`TX_POWER_DBM = 8` in `bbox_server.py`; `CodeLink(tx_power=TX_POWER_DBM)`
+passes it to `NativeManager`, which sets `sta.config(txpower=...)`. `None`
+leaves the driver default. At the default power the Box reset (PWRON) under
+transmit load on USB; at 8 dBm it did not. Wands are held next to the Box.
+
+### Power
+
+`bbox_ui.py` sets `DARK = True` (black page ground, brightened hues) and
+`SOUND = False` (no speaker) to reduce draw on a current-limited supply.
 
 ## Card text
 
@@ -182,57 +199,18 @@ config/password pages.
 
 ## Wire contract (frozen -- the wand depends on every row)
 
-SSID `SP-FILEPUSH-<id>` (`<id>` = `code_server.HOST_ID`), password `playground1`, port `8266`, AP channel `1` (an
-idle ESP-NOW radio sits here, so the wand never changes channel to join),
-`ap.config(pm=0)`. Chunk size `512`, yield `sleep_ms(20)`.
-
-The device speaks first. Two request frames. A v1 request opens with the
-slug's length, capped at 16 by the slug rule, so a first byte of `0xFF`
-cannot be one -- this lets the Box serve an un-updated wand and a
-hubtype-aware device from the same socket.
-
-```
-v1:  device -> box :  1 byte len | <len> bytes UTF-8 slug   (len 0 = "serve active")
-v2:  device -> box :  0xFF | len(1) | slug | len(1) | hubtype
-
-     box -> device :  size(4B BE) | sha256(32B) | name_len(1B) | name
-     box -> device :  file body, 512B chunks
-     device -> box :  2-byte ack, b'OK' or b'NO'
-```
-
-A `size` of 0 is an explicit refusal -- the Box has nothing for that slug and
-device kind. The device treats it as terminal, clears its flag, does not
-spend a retry.
-
-`ROLE_FILES` in `code_server.py` maps the hubtype to the file: `wand` gets
-`/flash/games/<slug>.py`, `icon_display` gets `/flash/games/<slug>_icon.py`,
-`splat_companion` gets `/flash/games/<slug>_splat.py`. A v1 request names no
-hubtype and always gets the wand file. A hubtype absent from the table is
-refused, not guessed. The role lives on the Box and in ChatBroadcast only --
-the destination name is always plain `<slug>.py`, so every device holds at
-most one module per slug.
+ESP-NOW, channel 1 (STA default, not connected). The wand drives the transfer;
+the messages are in "Serving over ESP-NOW" above. `getcode:<slug>@<id>` cards
+carry `<id>` = `code_link.HOST_ID` (cd64 on the bench Box); `_write_card()`
+appends it to `getcode` rows only. Frame chunk 245 B.
 
 `_icon` and `_splat` are reserved suffixes on the Box and the Dial (the full
 list is `Bag3/Code/HARDWARE_PROTOCOL.md`, "Reserved Box/Dial staging
 suffixes"): `_boot_scan_games()` skips any name ending in one of them when
-building the game menu, since that's how `ROLE_FILES` picks each non-wand
-device's file. A game slug may not end in a reserved suffix -- `spooky_icon`
-would be staged as `spooky_icon_icon.py` for the display and its wand file
-would vanish from the menu. `ChatBroadcast/js/gameName.js` refuses these
-slugs client-side; the device-side scan is the backstop for anything that
-reaches it another way.
-
-A role whose `ROLE_FILES` entry sets `icons` reads one more leg after its
-ack:
-
-```
-     box -> device :  1 byte icon count            (0 ends the session)
-     box -> device :  header + body + ack, per icon, same shape as above
-```
-
-Icons come from `/flash/games/<slug>_icons/`, land in `icons/<name>.py` on
-the device, are data not modules -- `icon_store` parses them as text, the
-device hashes but does not compile them. A wand is always sent a count of 0.
+building the game menu. A game slug may not end in a reserved suffix.
+`ChatBroadcast/js/gameName.js` refuses these slugs client-side; the
+device-side scan is the backstop for anything that reaches it another way.
+The icon-display role is not served over ESP-NOW yet.
 
 Alongside `/flash/games/<slug>.py`, ChatBroadcast pushes
 `/flash/games/<slug>.tags.json` -- a JSON array of the game's tag names --
@@ -246,15 +224,10 @@ asserts that derivation against every game source.
 `stop` and `battery` are always writable from the Box's `Utility Tags`
 group, whatever is loaded.
 
-Changing any row breaks the wand silently. The protocol is hand-duplicated
-in four files -- `BBoxFirmware/code_server.py`,
-`BroadcastDial/BDialFirmware/code_server.py`, `MockWand/code_puller.py`, and
-`IconDisplay/code_puller.py` -- no shared module. Each carries a `PEER:`
-comment. Change them in the same commit or a device breaks silently.
-
-The Dial serves games exactly as the Box does; its copy differs only in
-`prewarm_ap()` and an OOM-hardened `arm()`, both Dial-only, neither touching
-the wire.
+The protocol is hand-duplicated in `BBoxFirmware/code_sender.py`,
+`BroadcastDial/BDialFirmware/code_sender.py`, `EspnowModem/host/code_sender.py`
+and the wand's puller; no shared module. Each carries a `PEER:` comment.
+Change them together.
 
 ## Files
 
@@ -264,7 +237,9 @@ the wire.
 | `bbox_server.py` | Mode machine, WRITE sub-states, serial dispatch |
 | `bbox_ui.py` | LCD screens + speaker feedback |
 | `buttons.py` | BtnA/BtnB press edge and hold timing via `M5.BtnA`/`M5.BtnB` |
-| `code_server.py` | SoftAP + TCP file server (`CodeServer`), up to 4 wands at once — **PEER of Dial** |
+| `code_link.py` | `CodeLink`, `NativeManager`, `prewarm()`, `HOST_ID`; see "Serving over ESP-NOW" — **PEER of Dial** |
+| `code_sender.py` | ESP-NOW sender — **PEER of `EspnowModem/host/code_sender.py`** |
+| `stats_log.py` | Pull and tag-write counters |
 | `card_writer.py` | NDEF text read/write over the WS1850S |
 | `ws1850s.py` | WS1850S register driver (MFRC522-compatible) |
 | `json_link.py` | Non-blocking newline-delimited JSON over stdin/stdout |
@@ -272,8 +247,9 @@ the wire.
 | `manifest.js` | File list for ChatBroadcast's installer |
 | `boot.py` | M5Stack vendor UIFlow2 boot-option stub |
 | `pn532.py`, `nfc_reader.py`, `opcodes.py` | Not imported at runtime; kept for the opcode scheme and the superseded PN532 path |
+| `code_server.py`, `serve_probe.py`, `serve_guard.py` | Superseded SoftAP/TCP path; not in `BOX_FILES`, not imported |
 | `tools/probe_stick.py` | Bench probe: Phase 0 StickS3 checks |
-| `tools/probe_ap_cycle.py` | Bench probe: AP down/up over repeat cycles; side-key check |
+| `tools/probe_ap_cycle.py` | Bench probe for the superseded SoftAP path; not part of `BOX_FILES` |
 | `tools/box_menu_check.py` | Host-side (no hardware) check of the WRITE-menu logic |
 | `tools/widget_test.py` | Bench diagnostic: `Widgets` glyph coverage + a same-value-redraw theory, both raised by hardware bug reports on `bbox_ui.py` |
 
@@ -310,31 +286,32 @@ purpose:
 - `info` -> `info`: live runtime status. `mem`, `armed`, `linked`,
   `payload_ready`, `written`, `up`.
 - `mode` -> `mode`: which mode the Box is in (`WRITE`/`SERVE`/`IDLE`) plus
-  `games`, `active` and `ssid`. Emitted from `_set_mode()` on every transition,
+  `games` and `active`; `ssid` is always `null`. Emitted from `_set_mode()` on every transition,
   including exits, and once at boot.
 
 Do not add changing values to `identity`, and do not use it as a handshake --
 that conflation is what this split exists to prevent.
 
-`arm` means "go to `SERVE`" and `disarm` means "return to `WRITE`/`IDLE`".
+`arm` means "go to `SERVE`" (its reply and `armed` carry `ssid: null`) and `disarm` means "return to `WRITE`/`IDLE`".
 They are REPL/legacy entry points; the app does not call them after pushing
 code.
 
 `repl`, a soft `reboot`, or an uncaught exception all unwind through
-`run()`'s `finally`, which calls `_shutdown_radios()` to bring the AP down
-and the field off. Without it the AP stayed up with nothing serving it.
+`run()`'s `finally`, which calls `_shutdown_radios()` to bring the radio down
+and the field off.
 
 ## Payload flow
 
 1. App writes `/flash/payload.py` over the raw REPL and soft-resets.
-2. On that reboot the box sees a game on flash and starts in `WRITE`. **The AP
-   stays down.** There is no `RECEIVING` mode -- the push interrupts this
-   program, so an upload is never a state the firmware occupies.
-3. Teacher opens the game's group in the `WRITE` menu and writes its cards —
+2. On that reboot the box sees a game on flash and starts in `WRITE`. With
+   `SHARE_IN_MENUS` the radio is up whenever the reader field is off. There
+   is no `RECEIVING` mode -- the push interrupts this program, so an upload
+   is never a state the firmware occupies.
+3. Teacher opens the game's group in the `WRITE` menu and writes its cards --
    `getcode:<slug>`, `<slug>`, and whatever the game itself needs.
-4. Teacher selects `DONE` + BtnA. AP comes up; box is serving.
-5. Wand taps `getcode`, reboots, joins `SP-FILEPUSH-<id>` on a cold radio, pulls
-   `jumpin.py`, reboots into the game (`MockWand/code_puller.py`).
+4. Teacher taps the card on a wand (or selects `DONE` + BtnA for `SERVE`).
+5. The wand sends a `code_req`, pulls the file over ESP-NOW, and reboots into
+   the game (`MockWand/code_puller.py`).
 
 ## Serial logging
 
@@ -346,7 +323,7 @@ per-attempt re-select misses, auth-OK narration, per-font-selection lines.
 
 Never gated: card detected, read result, write attempt and
 outcome, verify result, every abort with its reason, any exception, and
-`shutdown: AP down`. A failure always prints.
+`shutdown: AP down` (the radio-down line). A failure always prints.
 
 Output is `print()` to USB serial and is not stored; only `reset_log` writes
 to flash.
@@ -380,7 +357,7 @@ Product data, never gated:
 ```
 
 `aggregate()` returns `{pulls:{slug:n}, writes:{label:n}, since:<ticks>}`.
-Written from `code_server.poll()` (every completed serve, attributed to the
+Written from `code_link._record()` (every completed serve, attributed to the
 requested slug) and from the card-write success branch in `bbox_server.py`.
 
 The Box/Dial screen reads this at boot via `_load_stats()`, then counts in
@@ -412,7 +389,9 @@ python3 -m mpremote connect $PORT resume \
   fs cp bbox_ui.py :/flash/bbox_ui.py + \
   fs cp buttons.py :/flash/buttons.py + \
   fs cp card_writer.py :/flash/card_writer.py + \
-  fs cp code_server.py :/flash/code_server.py + \
+  fs cp code_link.py :/flash/code_link.py + \
+  fs cp code_sender.py :/flash/code_sender.py + \
+  fs cp stats_log.py :/flash/stats_log.py + \
   fs cp ws1850s.py :/flash/ws1850s.py + \
   fs cp json_link.py :/flash/json_link.py + \
   fs cp reset_log.py :/flash/reset_log.py + \
@@ -434,28 +413,29 @@ without interrupting it, read the port passively instead.
 
 ## Verified vs open
 
-Confirmed on hardware 2026-09-02, over USB:
+Verified on hardware 2026-10-20 (`docs_and_design/2026-10-20-espnow-serving/RESULTS.md`),
+over USB at `TX_POWER_DBM = 8`:
 
-- Boots to the `WRITE` tag list; screens legible at 240×135.
+- 3/3 pulls to a wand.
+- Earlier runs at the default TX power reset the board (PWRON) mid-transfer.
+
+Verified on hardware 2026-09-02, over USB (mode machine, card writes):
+
+- Boots to the `WRITE` tag list.
 - BtnA/BtnB drive the menu, scan and splash states.
 - Repeated card reads and writes within one boot, across two cards, both
   directions (`getcode` <-> `jumpin`), each `verify OK`.
 - `WRITE` -> `SERVE` -> `WRITE` without a reboot.
-- `arm` then `repl` brings the AP down (`shutdown: AP down`).
-- 200+ s of steady heartbeats with free memory flat; no `BROWNOUT`, no `WDT`.
 
 Open:
 
-- **No wand round trip yet.** Nothing has pulled code from this build, so
-  step 5 of the payload flow is unproven end to end.
-- **In-place AP cycling is only lightly exercised.** `probe_ap_cycle.py`
-  exists for this (10 cycles, then leaves the AP up for a wand join) and has
-  not been run. If a repeat cycle within one boot proves unreliable,
-  `_set_mode()` is the single place that would switch to writing a mode flag
-  and resetting into the new mode.
+- Off-USB (battery) operation.
+- Readability of the black UI (`DARK`) in a classroom.
+- Several wands at once, and the icon-display role.
 - **Re-selects miss intermittently at the RF level.** Seen with
   `crypto=False`, i.e. not the latch above -- a card drifting out of range.
   Costs a retry; a write aborts on the first miss rather than retrying.
 - The reader is still driven over `machine.SoftI2C` with no clock-stretch
   timeout, the second hypothesis in `../../known_issues/2026-09-01-bbox-usb-reboots.md`.
-- Off-USB (battery) operation is untested for this build.
+
+Static check done off-device: `python3 -m py_compile` on every `.py`.

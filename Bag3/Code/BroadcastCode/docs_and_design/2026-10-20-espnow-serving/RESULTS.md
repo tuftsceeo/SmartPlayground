@@ -86,6 +86,19 @@ block 7680 to 27648 B at start) and the firmware's partial UI sits beside the be
   transfer on serial.
 - SERVE cycling over serial (`disarm`, `arm`), 20 of 20 armed in place, no radio error.
 
+### Box firmware serving over ESP-NOW (2026-10-20)
+
+`BBoxFirmware/code_link.py` + `code_sender.py`, deployed, plain reset, on USB, wand on
+MockWandEUM. `code_link.prewarm()` runs right after `M5.begin()`.
+
+- At the default TX power the Box reset (PWRON) mid-transfer.
+- With `TX_POWER_DBM = 8` (`CodeLink(tx_power=TX_POWER_DBM)`): 3 of 3 wand pulls pass on USB.
+- A card written for the Dial (`getcode:...@004c`) is ignored by the Box, which is pinned to
+  its own `HOST_ID` (cd64).
+- `bbox_ui.py` runs with `DARK = True` and `SOUND = False` to cut power draw.
+
+Not verified: battery operation, readability of the black UI.
+
 ### Open before the Dial gate closes
 
 1. Transfer with NFC reader polling between SERVE sessions (WRITE, scan, then SERVE, pull).
