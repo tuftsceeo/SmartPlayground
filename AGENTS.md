@@ -39,6 +39,10 @@ progress. Cross-generation compatibility is not a goal.
   lists `status`, `devices`, `code` paths, `open` items and `keywords`, so
   `grep -l <term> Bag3/Code/known_issues/*.md` finds the relevant one. Add new notes there with
   the same front matter and an index row.
+- **Don't re-verify known issues.** A documented, tested failure stands as recorded; don't spend
+  time or tokens re-testing it or re-implementing a pathway it records as broken.
+- **Confirm before working a known issue.** If asked to explore or fix one, first state the issue
+  in one sentence, cite its note, and get confirmation before attempting a resolution.
 
 - `Bag1/` is fielded and not under active development — ask before editing.
 - `Bag2/Code/Wand Module/` and `Bag3/Code/Wand Module/` are independent copies. Divergence is
