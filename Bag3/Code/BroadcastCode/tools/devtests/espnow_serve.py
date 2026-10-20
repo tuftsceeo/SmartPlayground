@@ -165,10 +165,10 @@ def install_manager_shim():
     """code_sender does `from espnow_manager import mac_str_to_bytes`. On an
     S3 there is no espnow_manager.py to import, so provide the one function."""
     if "espnow_manager" not in sys.modules:
-        import types
-        m = types.ModuleType("espnow_manager")
-        m.mac_str_to_bytes = mac_str_to_bytes
-        sys.modules["espnow_manager"] = m
+        class _Shim:
+            pass
+        _Shim.mac_str_to_bytes = staticmethod(mac_str_to_bytes)
+        sys.modules["espnow_manager"] = _Shim
 
 
 # ─── BENCH (device only) ─────────────────────
@@ -196,16 +196,21 @@ def _set_nfc_field(state):
 
 
 def _build_ui():
-    """Late bring-up: M5 and the board's UI exist before ESP-NOW starts."""
+    """Late bring-up: M5 and the board's UI exist before ESP-NOW starts.
+    The Dial draws with LVGL (DialUI); the Stick only has M5.Widgets (BboxUI,
+    constructed before M5.begin(), begin() after it)."""
     import M5
-    M5.begin()
     try:
         from dial_input import DialInput
         from dial_ui import DialUI
+        M5.begin()
         return DialUI(DialInput())
     except ImportError:
-        import bbox_ui
-        return bbox_ui.BoxUI()
+        from bbox_ui import BboxUI
+        ui = BboxUI()
+        M5.begin()
+        ui.begin()
+        return ui
 
 
 def _serve_once(mgr, sender, slug):
