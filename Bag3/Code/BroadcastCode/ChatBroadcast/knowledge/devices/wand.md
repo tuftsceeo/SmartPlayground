@@ -2,12 +2,15 @@
 
 ## What it is and who sees it
 
-A handheld wand each child holds: a 5×5 grid of colored lights on the front, a buzzer, a button, a
-vibration motor, an accelerometer (senses tilting, shaking and jumping), and an NFC reader that
-reads cards tapped against it. Board: Seeed XIAO ESP32-C6, MicroPython v1.27. Several wands can
+A handheld wand each child holds: a 5×5 grid of colored lights on the front, a piezo speaker, a
+button, a vibration motor, an accelerometer (senses tilting, shaking and jumping), and an NFC reader
+that reads cards tapped against it. Every wand has both the piezo speaker and the vibration motor.
+People call either one "the buzzer": in code, `buz` is the piezo speaker (sound) and the vibration
+motor is pin 21 (felt in the hand). Board: Seeed XIAO ESP32-C6, MicroPython v1.27. Several wands can
 play at once; each runs its own copy of the game.
 
-It has **no screen and no speaker for music** — only the light grid, simple beeps, and vibration.
+It has **no screen**. The piezo speaker plays tones, beeps and simple one-note-at-a-time tunes; it
+cannot play recorded music or speech.
 
 A wand game can work together with the **icon display** by sending it messages (see the game
 patterns section). The display's own game file is described in its device section. **Splats** are
@@ -29,7 +32,7 @@ Write all seven, even if the game uses only some. A shorter signature crashes at
 |---|---|---|
 | `nfc` | PN532 card reader, already started | Wrap it: `reader = NfcReader(nfc, COMMANDS)` |
 | `leds` | the 5×5 light grid (`Leds`) | Already built |
-| `buz` | the buzzer (`Buzzer`) | Already built |
+| `buz` | the piezo speaker (`Buzzer`): tones and beeps | Already built. Not the vibration motor |
 | `accel` | accelerometer (`LIS2DW12`, ±4 g, 100 Hz) | **May be `None`** — guard with `if accel:` |
 | `i2c` | the shared I2C bus | Rarely needed; never change its speed |
 | `enow` | ESP-NOW manager, already started | Never `None`; poll every loop |
@@ -188,7 +191,9 @@ the template) so a button held at start does not count as a press.
 - "Tilt left" is ambiguous. Pick one meaning (for example "left side down", `y < -0.5`) and say it
   in How to play.
 
-### Vibration
+### Vibration motor
+
+Some teachers call this the buzzer too; it is the part you feel, not hear.
 
 ```python
 motor = Pin(21, Pin.OUT, value=0)
@@ -219,7 +224,8 @@ Keep buzzes short; the motor draws a lot of power.
 | "hold it upright" / "turn it upside down" | `x < -0.5` / `x > 0.5` |
 | "lay it flat, lights up" | `z < -0.8` |
 | "tap a card" | `reader.read_command(...)` every `NFC_EVERY` loops |
-| "vibrate", "rumble" | motor on pin 21 |
+| "vibrate", "rumble", "buzz in your hand" | motor on pin 21 |
+| "buzz", "the buzzer" | ask whether it is heard or felt: a sound is `buz`, a feeling is the motor |
 | "show it on the display", "add a point on the big screen" | `enow.broadcast({"type": "<slug>", "from": "wand", "team": "green"})`; the display game draws it |
 | "start / freeze the music" | `enow.broadcast("FD_GO")` / `enow.broadcast("FD_FREEZE")` — plays on the speaker devices |
 
