@@ -35,6 +35,7 @@ STARTUP_MS = 2000
 
 BROADCAST_MAC = b"\xff\xff\xff\xff\xff\xff"
 SEND_RETRY_MS = 30
+ESPNOW_RXBUF = 4096          # driver default 526 B holds ~2 frames (EspnowModem uses 8192)
 
 
 def mac_str_to_bytes(mac_str):
@@ -66,6 +67,10 @@ class NativeManager:
         sta.active(True)
         sta.disconnect()
         self.enow = espnow.ESPNow()
+        try:
+            self.enow.config(rxbuf=ESPNOW_RXBUF)
+        except Exception:
+            pass
         self.enow.active(True)
         try:
             self.enow.add_peer(BROADCAST_MAC)
@@ -176,7 +181,9 @@ def install_manager_shim():
 def _idf_largest():
     try:
         import esp32
-        return max(r[2] for r in esp32.idf_heap_info(esp32.HEAP_DATA))
+        # PSRAM is one multi-MB region; the radio needs internal DRAM.
+        return max(r[2] for r in esp32.idf_heap_info(esp32.HEAP_DATA)
+                   if r[0] < 1024 * 1024)
     except Exception:
         return None
 
