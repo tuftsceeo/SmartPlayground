@@ -17,12 +17,13 @@ Paths below are under `Bag3/Code/BroadcastCode/` unless stated.
   - ChatBroadcast with party-game generation, the Icons view, NFC catalog push and display-only sends
   - the one-screen Simulator with Splats, virtual peers and headless runs
   - the Music Board Station and Relay Timer
-- **`october19demo` is retired.** Its unported fixes are listed in Phase 5.
+- **`october19demo` is retired.** Its unported fixes are listed in Phase 6.
 - **Box and Dial serve today over SoftAP + TCP.**
   - Box/Dial side: `BroadcastBox/BBoxFirmware/` and `BroadcastDial/BDialFirmware/`, files `bbox_server.py`/`bdial_server.py`, `code_server.py`, `serve_guard.py` and `serve_probe.py`. These are PEER copies: change each and say which.
   - Wand side: `MockWand/code_puller.py` and `pull_flag.py`.
   - The card format is `getcode:<slug>@<host>`.
-- **Goal:** the Box and Dial send game files to wands over their own ESP-NOW radio, with no modem. The SoftAP path is then removed. This plan supersedes the phase order of `docs_and_design/2026-10-19-espnow-box-dial-plan.md` (read it for detail; its content is folded in below).
+- **Goal:** ESP-NOW **replaces** SoftAP + TCP serving on both the Box and the Dial. They send game files to wands over their own ESP-NOW radio, with no modem.
+- **SoftAP and ESP-NOW never run together, in any build or mode.** Phases 2 and 3 remove the AP serving code from each firmware in the same change that adds ESP-NOW serving; no fallback, toggle or dual mode. Phase 5 only deletes the now-unused wand-side and leftover files and docs. This plan supersedes the phase order of `docs_and_design/2026-10-19-espnow-box-dial-plan.md` (read it for detail; its content is folded in below).
 - **What already exists:**
   - **Sender protocol:** `EspnowModem/host/code_sender.py`. Receiver-driven windows, sha256, busy/retry and peer cleanup. 11 tests in `EspnowModem/tests/test_code_xfer.py`.
   - **Wand receiver:** `EspnowModem/MockWandEUM/lib/espnow_code.py`, plus the `CODE_VIA_ESPNOW` path in `MockWandEUM/main.py`. It receives, checks, promotes and launches in one boot, without a reset.
