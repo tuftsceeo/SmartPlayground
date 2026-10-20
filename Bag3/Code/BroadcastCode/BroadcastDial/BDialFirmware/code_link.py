@@ -222,7 +222,8 @@ class CodeLink:
             return False
         if self.sender is None:
             from code_sender import CodeSender
-            self.sender = CodeSender(self.mgr, games_dir=GAMES_DIR)
+            self.sender = CodeSender(self.mgr, games_dir=GAMES_DIR,
+                                     host_id=HOST_ID)
         self.sender.mgr = self.mgr
         self._failed_seen = self.sender.failed
         self._sessions_seen = 0

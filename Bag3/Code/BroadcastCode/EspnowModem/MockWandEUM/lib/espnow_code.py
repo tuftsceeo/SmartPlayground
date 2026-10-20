@@ -7,7 +7,9 @@ reset. Runs on the ESPNowManager the wand already has up.
 The receiver drives the transfer, so it never asks for more than its ESP-NOW
 rxbuf and window buffer can hold:
 
-    wand -> broadcast  {"type":"code_req","id":r,"slug":s,"hub":h}
+    wand -> broadcast  {"type":"code_req","id":r,"slug":s,"hub":h[,"host":id]}
+                       "host" pins the request to one sender (the getcode
+                       card's "@<id>"); other senders do not answer
     host -> wand       {"type":"code_offer","id":r,"name":n,"size":N,
                         "sha":hex,"chunks":K,"chunk":C}
                        size 0 = refusal; why "busy" + retry_ms = ask again
@@ -142,8 +144,12 @@ def _progress(cb, got, total):
         print("[ENX] on_progress err: %s" % e)
 
 
-def receive(enow, slug=None, hubtype=None, on_progress=None, verbose=True):
+def receive(enow, slug=None, hubtype=None, on_progress=None, verbose=True,
+            host_id=None):
     """Fetch a game over ESP-NOW and promote it into /games.
+
+    host_id (the getcode card's "@<id>" suffix) restricts the request to
+    the sender with that id; None or "" takes the first sender to answer.
 
     Returns True on success, 'nohost' if no sender answered, 'norequest' if
     the sender has no such game, 'busy' if the sender stayed at capacity for
@@ -156,6 +162,8 @@ def receive(enow, slug=None, hubtype=None, on_progress=None, verbose=True):
     rid = _rid()
     req = {"type": "code_req", "id": rid, "slug": slug or "",
            "hub": hubtype or ""}
+    if host_id:
+        req["host"] = host_id
 
     offer = None
     sender = None
@@ -200,7 +208,8 @@ def receive(enow, slug=None, hubtype=None, on_progress=None, verbose=True):
     stats["busy_waits"] = busy_waits
     if offer is None:
         if verbose:
-            print("[ENX] no sender answered code_req for %r" % (slug or "<active>"))
+            print("[ENX] no sender answered code_req for %r (host %r)"
+                  % (slug or "<active>", host_id or "<any>"))
         return 'nohost'
 
     size = offer.get("size", 0)

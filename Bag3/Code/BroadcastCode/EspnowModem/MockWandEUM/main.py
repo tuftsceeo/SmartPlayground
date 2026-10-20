@@ -826,7 +826,8 @@ CODE_VIA_ESPNOW = True
 REMOTE_GETCODE = True
 
 
-def _espnow_pull_and_launch(enow, slug, nfc, accel, i2c, batt, via="espnow"):
+def _espnow_pull_and_launch(enow, slug, nfc, accel, i2c, batt, via="espnow",
+                            host_id=None):
     """Receive a game over ESP-NOW, then launch it. No reset either way.
 
     On failure the old copy of the game (if any) stays in place and the
@@ -852,7 +853,8 @@ def _espnow_pull_and_launch(enow, slug, nfc, accel, i2c, batt, via="espnow"):
         stats = nfc_dep_code.LAST_STATS or {}
     else:
         ok = espnow_code.receive(enow, slug=slug, hubtype=HUB_TYPE,
-                                 on_progress=_pull_progress, verbose=True)
+                                 on_progress=_pull_progress, verbose=True,
+                                 host_id=host_id)
         stats = espnow_code.LAST_STATS or {}
     memprobe.probe("enx:post")  # BENCH
     _emit({"type": "enx_result", "via": via, "slug": slug or "", "result": str(ok),
@@ -1240,7 +1242,8 @@ def main():
                 _clear_rules_state(enow)
                 rules = {}; editing = None; pending_combinator = None
                 buz.stop()
-                _espnow_pull_and_launch(enow, wanted, nfc, accel, i2c, batt)
+                _espnow_pull_and_launch(enow, wanted, nfc, accel, i2c, batt,
+                                        host_id=wanted_host)
                 last_activity_ms = time.ticks_ms()
                 idle_frame = 0
                 show_idle(last_soc, 0)

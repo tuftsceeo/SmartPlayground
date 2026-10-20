@@ -10,6 +10,10 @@ File lookup follows code_server.py: <games_dir>/<slug><suffix>.py, an empty
 slug meaning the slug in <fs_root>/active.txt, and an unknown hubtype refused
 with a zero-size offer.
 
+Host pinning: a code_req carrying "host" (the "@<id>" suffix of a getcode
+card) is answered only by the sender whose host_id matches; other senders
+stay silent. A sender built with host_id=None answers every request.
+
 PEER: MockWandEUM/lib/espnow_code.py holds a hand-kept copy of the message
 names and frame layout. Change both in the same commit.
 
@@ -86,8 +90,9 @@ class CodeSender:
     has a session (or for the one refusal reply), so the peer table never
     holds more than MAX_SESSIONS + 1 wands."""
 
-    def __init__(self, mgr, games_dir=GAMES_DIR, verbose=True):
+    def __init__(self, mgr, games_dir=GAMES_DIR, verbose=True, host_id=None):
         self.mgr = mgr
+        self.host_id = host_id
         self.games_dir = games_dir
         self.verbose = verbose
         self.sessions = {}       # mac_str -> _Session
@@ -98,6 +103,7 @@ class CodeSender:
         self.served = 0
         self.failed = 0
         self.busy_replies = 0
+        self.ignored = 0         # code_req pinned to another host
         # BENCH: answer "busy" to every request until this tick (see
         # code_host.BUSY_FOR_MS), to exercise the wand's retry path with
         # one wand.
@@ -157,6 +163,10 @@ class CodeSender:
         rid = data.get("id")
         slug = data.get("slug", "")
         hub = data.get("hub", "")
+        want_host = data.get("host", "")
+        if want_host and self.host_id is not None and want_host != self.host_id:
+            self.ignored += 1
+            return
         old = self.sessions.pop(mac_str, None)
         if old is not None:
             old.close()     # the wand restarted its request; peer is reused

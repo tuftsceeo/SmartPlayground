@@ -145,6 +145,19 @@ def test_idle_session_reports_fail(ctx):
     loop.t.join()
 
 
+def test_pinned_request_for_other_host_ignored(ctx):
+    tmp, air, link = ctx[:3]
+    loop = Loop(link)
+    wand = T.FakeMgr(air, T.WAND)
+    assert espnow_code.receive(wand, "tiny", "wand", verbose=False,
+                               host_id="ffff") == "nohost"
+    assert loop.events == [] and link.sender.ignored >= 1
+    assert espnow_code.receive(wand, "tiny", "wand", verbose=False,
+                               host_id="004c") is True
+    loop.stop = True
+    loop.t.join()
+
+
 def test_abort_disarms_and_radio_off(ctx):
     tmp, air, link, holder = ctx[:4]
     loop = Loop(link)
@@ -178,7 +191,8 @@ if __name__ == "__main__":
     ctx = setup()
     tests = [test_arm_refused_without_game, test_resolve_reads_active,
              test_serve_transfer_events_and_stats, test_refusal_is_not_a_pull,
-             test_idle_session_reports_fail, test_abort_disarms_and_radio_off,
+             test_idle_session_reports_fail,
+             test_pinned_request_for_other_host_ignored, test_abort_disarms_and_radio_off,
              test_rearm_cycles, test_prewarm_leaves_radio_off]
     for fn in tests:
         fn(ctx)
