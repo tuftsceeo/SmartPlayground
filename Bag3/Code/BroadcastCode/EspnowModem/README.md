@@ -143,11 +143,11 @@ If a request raises on the modem, the modem sends a **`T_ERROR` reply (type 0xFF
   - **Receiver:** any board with an `espnow_manager.py`. It writes the file to flash (`WRITE_FILE`) to match a real code pull.
   - **Receiver knobs:** `WRITE_BUF` batches flash writes into N-byte blocks. `RX_BUF` enlarges the ESP-NOW driver receive buffer on a built-in-manager receiver; the default is 526 B, about 2 frames. The result reports `write_ms`, the total time spent in flash writes.
   - **ACK ≠ delivery:** an ESP-NOW unicast ACK only means the receiver's radio got the frame. A frame can still be dropped afterwards when the driver's receive buffer is full, for example while the receiver is blocked on a flash write.
-- **WiFi comparison:** not run and out of scope for now (no Dial/Box on the bench). The WiFi path it would compare against is `BroadcastDial/BDialFirmware/code_server.py` with `MockWand/code_puller.py`.
+- **WiFi comparison:** not run and out of scope for now (no Dial/Box on the bench). The WiFi path it would compare against is the SoftAP `code_server.py` / `code_puller.py` pair, which the Box and Dial no longer run.
 
 ## ESP-NOW code transfer
 
-This replaces the WiFi `code_server.py` → `code_puller.py` pull with ESP-NOW. There is no radio switch and no reset.
+Game files move from a host to a wand over ESP-NOW. There is no radio switch and no reset. The Box and Dial serve with PEER copies of `host/code_sender.py` (`BBoxFirmware/code_sender.py`, `BDialFirmware/code_sender.py`) over their own radio; `MockWand/lib/espnow_code.py` is the wand receiver there.
 
 | Side | File | Role |
 |---|---|---|
@@ -163,6 +163,7 @@ This replaces the WiFi `code_server.py` → `code_puller.py` pull with ESP-NOW. 
 - **Before promotion:** the file is checked for size, SHA-256 and `compile()`. On failure the previous copy stays in place.
 - **Several wands:** the host serves up to `MAX_SESSIONS` (6) wands at once, interleaving their windows. They share the link's throughput.
   - **Busy:** a wand over the cap gets a `"busy"` offer with `retry_ms`. It waits that long plus up to as much again at random, then asks again, for at most 120 s. After that it shows the amber pull failure.
+  - **Host pinning:** a `code_req` with `"host":<id>` (from a `getcode:<slug>@<id>` card) is answered only by the sender whose `host_id` matches; a sender built with `host_id=None` answers every request.
   - **Collision avoidance:** each `code_req` waits a random 0–300 ms first, so wands tapped together don't collide.
   - **Peer table:** a wand is a host peer only while it has a session (or for its one refusal reply), so the ~20-entry ESP-NOW peer table never fills.
   - **Bench hook:** `code_host.BUSY_FOR_MS` makes the host answer busy for a while after each trigger, so the retry path can be tested with one wand.
@@ -185,7 +186,7 @@ Unknown types arrive as `("raw", decoded_json, mac)`, as they do with the built-
 - **Missing modem:** if no modem answers within 2 s, or the protocol version differs, `init()` raises `OSError`.
 - **Link loss after init:** calls return `False` or `(None, None, None)` and print; they do not raise. See Fault recovery.
 - **`shutdown()`:** it sends stop to peers, then `DEACTIVATE`. There is no host radio to release.
-- **`self.enow`:** it is always `None`. `code_puller.py` sets it to `None`, which is harmless here.
+- **`self.enow`:** it is always `None`.
 - **`link_stats()`:** new; it returns modem and host counters.
 
 ## Tests

@@ -4,11 +4,11 @@ Copy of `Bag3/Code/BroadcastCode/MockWand/` (taken 2026-09-26) for testing game
 transfer over ESP-NOW from an EUM host. The original MockWand tree is untouched;
 the two copies are expected to diverge. Differences from MockWand:
 
-- **`lib/espnow_code.py` (new):** receives a game over the ESP-NOW link that is already up, with no WiFi join and no reset. The wand drives the transfer in windows of `WINDOW` (8) chunks and re-requests from the first missing chunk. The file lands as `/games/<slug>.py.part` and is checked (size, SHA-256, `compile()`) before promotion, keeping `.bak`, as `code_puller` does.
+- **`lib/espnow_code.py` (new):** receives a game over the ESP-NOW link that is already up, with no WiFi join and no reset. The wand drives the transfer in windows of `WINDOW` (8) chunks and re-requests from the first missing chunk. The file lands as `/games/<slug>.py.part` and is checked (size, SHA-256, `compile()`) before promotion, keeping `.bak`.
 - **`lib/espnow_manager.py`:** sets `ESPNOW_RXBUF = 4096` before `active(True)`, at radio bring-up. The MicroPython default of 526 B holds about 2 frames.
 - **`main.py`:**
   - **`_load_play()`:** a game with no `GAME_ICON` entry (every pulled game) shows nothing while it loads, instead of the white music note.
-  - **`CODE_VIA_ESPNOW = True`:** a `getcode` tap calls `_espnow_pull_and_launch()`, which receives the game and launches it in place. `False` restores the original pull_flag / reset / `code_puller` path. The `@<host>` suffix on a card is ignored in ESP-NOW mode, and any sender in range may answer.
+  - **`CODE_VIA_ESPNOW = True`:** a `getcode` tap calls `_espnow_pull_and_launch()`, which receives the game and launches it in place. `False` restores the original pull_flag / reset / `code_puller` SoftAP path, which no Box or Dial serves any more. The card's `@<id>` suffix is sent as `"host"` in `code_req`, so only that sender answers; a card without it is answered by any sender in range.
   - **`REMOTE_GETCODE = True` (bench):** a broadcast `{"type":"getcode","slug":s}` acts as a tap, so transfers can be repeated without a card.
   - **Result line:** each transfer prints a JSON `enx_result` line with total/body ms, bytes and `min_gc_free`, plus the usual `memprobe` lines `enx:pre` / `enx:post`.
 
@@ -18,8 +18,8 @@ The sender is `EspnowModem/host/code_sender.py`, run by `host/code_host.py`. The
 
 # Mock Wand — Bag3 wand copy for Broadcast Box tap-to-pull
 
-Copy of `Bag3/Code/Wand Module/` plus `code_puller.py` for Phase 1 end-to-end
-testing. Same C6 hardware and pin map as the fielded Bag3 wand.
+Copy of `Bag3/Code/Wand Module/` plus `code_puller.py` (the SoftAP path
+used only when `CODE_VIA_ESPNOW` is `False`). Same C6 hardware and pin map as the fielded Bag3 wand.
 
 ## lib/ copies
 
@@ -32,13 +32,13 @@ either file, `diff` the two copies.
 
 ## getcode flow
 
-1. Box writes a `getcode` opcode card.
-2. Wand taps card in idle loop.
-3. `code_puller.pull()` shuts down ESP-NOW, joins `SP-FILEPUSH`, pulls
-   `jumpin.py`, verifies sha256, promotes atomically.
-4. `machine.reset()` — next boot runs the new game via `from jumpin import play`.
+1. Box or Dial writes a `getcode:<slug>@<id>` card.
+2. Wand taps the card in its idle loop.
+3. With `CODE_VIA_ESPNOW`, `espnow_code.receive()` pulls the game over the
+   ESP-NOW link already up, verifies sha256 and `compile()`, and promotes it.
+4. The wand launches the game in place, without a reset.
 
-On pull failure the existing `jumpin.py` on flash is untouched.
+On failure the existing file on flash is untouched.
 
 ## Boot grace
 

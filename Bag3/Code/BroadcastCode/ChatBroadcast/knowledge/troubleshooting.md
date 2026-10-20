@@ -42,8 +42,9 @@ Box**, the app says "Hold a card on the device to write it".
 |---|---|---|
 | **Red X flashes three times, with low beeps**, right after tapping a game card | The game could not start: the file has a mistake, or it is too big for the wand | Tell the assistant what happened. It will make a simpler or corrected version; send it again |
 | **Red X once**, after tapping the card that gets a new game | Getting the game failed | Tap the card again, closer to the Box |
-| **Red wifi bars** while getting a game | The Box is not sharing | On the Box, choose Share, then tap again |
-| **Orange wifi bars** while getting a game | The wand could not join, or the Box does not have that game | Check the right game was sent to the Box; tap again |
+| **Red wifi bars** while getting a game | No Box or Dial answered: it is not sharing, or out of range | On the Box or Dial, choose Share, then tap again, closer |
+| **Orange wifi bars** while getting a game | The Box or Dial answered but does not have that game | Check the right game was sent to it; tap again |
+| **Amber wifi bars** while getting a game | The Box or Dial is busy serving other wands | Wait a moment and tap again |
 | **Green check** | New game received | Tap the game's card to play |
 | **Game suddenly stops** with no X and no special sound | The game hit a mistake while running (the wand shows nothing for this) | Tell the assistant what the children were doing when it stopped |
 | **Low beep** after tapping a card | The wand does not know that card, or that game is not on this wand | Check the card; send the game to this wand |
@@ -72,7 +73,7 @@ On the Box, a red battery line means the battery is at 15% or below.
 | **Red X** for about a second | The game could not start — ask for a corrected version |
 | Amber "?" | The display does not know that card, or that game is not on it |
 | Green check | New game received |
-| Red / amber wifi bars | Same as on the wand: the Box is not sharing / could not join or no such game |
+| Red / orange / amber wifi bars | Same as on the wand: nobody answered / no such game / busy |
 
 ## When the assistant should say "I don't know"
 

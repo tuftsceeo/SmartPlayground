@@ -1,7 +1,7 @@
 # NFC Station — standalone NFC card reader/writer (M5 Dial 2)
 
 ## Context
-The Broadcast Dial (`Bag3/Code/BroadcastCode/BroadcastDial/BDialFirmware/`) writes NDEF-text game cards and also serves code over SoftAP. The goal here is a separate device that only reads and writes cards, with type readable from a short distance and a dial-based way to enter free text.
+The Broadcast Dial (`Bag3/Code/BroadcastCode/BroadcastDial/BDialFirmware/`) writes NDEF-text game cards and also serves code over its own ESP-NOW radio. The goal here is a separate device that only reads and writes cards, with type readable from a short distance and a dial-based way to enter free text.
 
 Decisions so far:
 - **Link:** USB serial only. There is no radio, so the AP memory-order constraint doesn't apply.

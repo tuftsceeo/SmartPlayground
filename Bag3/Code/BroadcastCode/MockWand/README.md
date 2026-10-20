@@ -1,7 +1,7 @@
-# Mock Wand — Bag3 wand copy for Broadcast Box tap-to-pull
+# Mock Wand — Bag3 wand copy for Broadcast Box/Dial tap-to-pull
 
-Copy of `Bag3/Code/Wand Module/` plus `code_puller.py` for Phase 1 end-to-end
-testing. Same C6 hardware and pin map as the fielded Bag3 wand.
+Copy of `Bag3/Code/Wand Module/` plus `lib/espnow_code.py` for end-to-end
+testing of game pulls from the Box and Dial. Same C6 hardware and pin map as the fielded Bag3 wand.
 
 ## lib/ copies
 
@@ -20,23 +20,29 @@ copy fixes only that copy; `tools/devtests/test_wand_copies.py` reports drift.
 
 ## getcode flow
 
-1. Box writes a `getcode` opcode card.
-2. Wand taps card in idle loop.
-3. `code_puller.pull()` shuts down ESP-NOW, joins `SP-FILEPUSH-<id>`, pulls
-   `jumpin.py`, verifies sha256, promotes atomically.
-4. `machine.reset()` — next boot runs the new game via `from jumpin import play`.
+1. The Box or Dial writes a `getcode:<slug>@<id>` card (`<id>` is the sender's
+   4-hex `HOST_ID`, shown on its SERVE screen).
+2. The wand taps the card in its idle loop.
+3. `lib/espnow_code.receive()` runs on the ESP-NOW link the wand already has
+   up: it broadcasts `code_req` (with `"host":<id>` when the card carries
+   one, so only that sender answers), then pulls the file in windows of
+   `WINDOW` (8) chunks, checks size, sha256 and `compile()`, and promotes it
+   atomically, keeping `.bak`. No WiFi join, no radio switch, no reset.
+4. The wand launches the new game.
 
-On pull failure the existing `jumpin.py` on flash is untouched.
+On failure the existing file on flash is untouched. The sender side is
+`BroadcastBox/BBoxFirmware/code_sender.py` and the Dial's copy; the message
+set is in `BroadcastDial/README.md`, "Serving over ESP-NOW".
 
 ## Boot grace
 
 Five-second countdown at the top of `main()` before NFC/ESP-NOW init. Ctrl-C
-during the window reaches the REPL — recovery if a pull loop wedges.
+during the window reaches the REPL.
 
 ## Driving the pull path without a person
 
-Set the flag the tap would have set, then reset:
-`pull_flag.set_pending('<slug>')`, then `machine.reset()`.
+`espnow_code.receive(enow, slug, hubtype="wand", host_id=None)` can be called
+from the REPL on a wand with ESP-NOW up while a Box or Dial is in SERVE.
 
 Tag-text parsing can be driven the same way: call
 `NfcReader._match_prefixed()` / `is_valid_slug()` on-device against
@@ -52,18 +58,14 @@ precedes `/games` on the path and would shadow the new copy with a stale one.
 
 Load-bearing, must survive any future edit:
 
-- The pull-flag check is `main()`'s first statement — a pull must happen
-  before `ESPNowManager` is constructed.
-- No ESP-NOW in the pull path — a WiFi join only succeeds on a radio
-  ESP-NOW has never touched this boot.
-- `machine.reset()` between radio modes — the tap queues the pull and
-  resets; the pull succeeds and resets again.
-- The attempt budget is spent before each attempt (`pull_flag.bump()`), so a
-  crash mid-pull cannot boot-loop.
+- The pull runs on the one ESP-NOW link `ESPNowManager` brought up at boot;
+  it never changes radio mode and never resets.
+- `ESPNowManager.init()` sets `ESPNOW_RXBUF` (4096 B) so a window of 8 frames
+  fits the driver buffer.
 - **Nothing allocates ahead of the radio.** See below — this one is easy to
   break by adding a print.
 
-## Radio memory order — do not add prints ahead of the join
+## Radio memory order — do not add prints ahead of the radio
 
 `esp_wifi_init()`/`esp_wifi_start()` need one large **contiguous** block of
 internal IDF heap, and the radio has to take it early: MicroPython's GC heap
@@ -77,27 +79,13 @@ reads as a comfortable free-heap number sitting next to
 Its `_idf_free()` returns total free **and largest free block** for that
 reason — the second number is the one that decides.
 
-Two places on this device claim the block, and both have a queue of imports
-ahead of them:
+`ESPNowManager.init()` claims the block. `main.py` imports roughly fifteen
+modules at module scope before `main()` runs, and every game module it pulls
+in costs heap before the radio gets its turn. A new built-in game is not
+free. `lib/espnow_code.py` is imported after bring-up.
 
-- **Normal boot** — `ESPNowManager.init()`. `main.py` imports roughly fifteen
-  modules at module scope before `main()` runs, and every game module it
-  pulls in costs heap before the radio gets its turn. A new built-in game is
-  not free.
-- **Pull mode** — `sta.active(True)` in `code_puller._reset_sta()`.
-  `main.py` imports `code_puller` inside `_run_pull_mode()`, *before* the
-  join, so anything at that module's scope — a docstring, a format string, a
-  function object — is allocated ahead of the block.
-
-So:
-
-1. No new module-scope content in `code_puller.py`. Import-time cost is paid
-   whether or not the code runs.
-2. Diagnostics go in `pull_probe.py`, imported lazily once
-   `sta.isconnected()` is true, behind `DEBUG_PULL` (default off). With the
-   flag off it is never parsed.
-3. Anything logged about the boot itself — `reset_cause()`, battery — prints
-   *after* the pull returns, not before it.
+So: anything logged about the boot itself — `reset_cause()`, battery — prints
+after `enow.init()`, not before it.
 
 The same constraint bit the Dial and Box on 2026-09-23, from the server side:
 [`docs_and_design/2026-09-23-ap-memory-order.md`](../docs_and_design/2026-09-23-ap-memory-order.md)
@@ -125,7 +113,7 @@ ChatBroadcast's connect overlay also takes a wand plugged straight into USB
 The Box is transport only; the payload is wand source
 (`def play(nfc, leds, buz, accel, i2c, enow)`), so this path writes the
 identical bytes directly to `/games/<slug>.py` over the raw REPL instead of
-routing through `/flash/games/<slug>.py` and an ESP-NOW pull.
+routing through `/flash/games/<slug>.py` and a getcode pull.
 
 ```
 raw REPL: verify hubtype.txt == "wand", os.mkdir('/games') if needed,
@@ -191,7 +179,7 @@ Cards are acted on in the idle loop only; a running game ignores them.
 
 ### Boot order
 
-`main()`: `pull_flag.is_pending()`, `_boot_grace()`, `enow.init()`, **`_boot_pairing()`**, then Stage 1 and the later
+`main()`: `_boot_grace()`, `enow.init()`, **`_boot_pairing()`**, then Stage 1 and the later
 stages unchanged. `_boot_pairing()` reads `/pairing.json` inline (clearing it on a power-on reset). Only if a Splat is
 paired does it import `ubluetooth`, call `BLE().active(True)`, and import `splatpair` (which imports `splat_hub`,
 `splat_link`, `ble_splat`, `splat_api`) and build one `SplatHub` and `SplatGroup`. An unpaired wand never imports

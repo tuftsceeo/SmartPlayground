@@ -3,6 +3,11 @@
 Scope: what must be written or changed to make a new playground device a target
 ChatBroadcast can generate code for and the Broadcast Box or Dial can serve.
 
+> The Box and Dial serve over ESP-NOW (`code_link.py` + `code_sender.py`). References below to
+> `ROLE_FILES` and `code_server.py` describe the SoftAP-era server, whose files are still on
+> disk; the ESP-NOW equivalent is `ROLE_SUFFIX` in `code_sender.py`, which holds only the wand
+> role so far.
+
 **The wand is the baseline.** `MockWand/` is the default case in every sense that
 matters here: it is what an undesignated game file is for, what `DEFAULT_ROLE`
 resolves to, what a request naming no hubtype gets, and the tree a new device is
@@ -24,7 +29,7 @@ device and carry measured reasons.
 
 | Concern | Files |
 |---|---|
-| Pull across a reset | `code_puller.py`, `pull_flag.py` |
+| Game pull | `lib/espnow_code.py` (wand). `code_puller.py` / `pull_flag.py` are the SoftAP pull across a reset, which the Box and Dial no longer serve |
 | Games on flash | `lib/game_store.py` |
 | Radio | `lib/espnow_manager.py` |
 | Device config | `lib/hubtype.py` |
@@ -34,6 +39,11 @@ device and carry measured reasons.
 All are PEER copies: a fix in one is not a fix in the others.
 
 ### Rules that come with them
+
+The Box and Dial serve over ESP-NOW. Rules 1-4 below describe the SoftAP pull in
+`code_puller.py` / `pull_flag.py`, which a device without an ESP-NOW receiver (the
+Icon Display today) still carries; a device that receives with
+`lib/espnow_code.py` pulls in place on the radio it already has up, with no reset.
 
 1. **`pull_flag.is_pending()` is `main()`'s first statement.** Nothing before it may
    import `espnow_manager` or any other radio-claiming module. A SoftAP join only
@@ -167,8 +177,8 @@ Box's copy and not the Dial's leaves the device working on one and refused on th
 
 | File | Symbol | Change |
 |---|---|---|
-| `BroadcastBox/BBoxFirmware/code_server.py:84` | `ROLE_FILES` | Add `'<hubtype>': {'suffix': '_xxx', 'icons': False}` |
-| `BroadcastDial/BDialFirmware/code_server.py:84` | `ROLE_FILES` | Identical entry |
+| `BroadcastBox/BBoxFirmware/code_sender.py` | `ROLE_SUFFIX` | Role-to-suffix map. It holds only the wand role: serving a non-wand role needs the sender protocol extended first (`docs_and_design/2026-10-20-espnow-serving/PLAN.md`, Phase 2 step 3) |
+| `BroadcastDial/BDialFirmware/code_sender.py` | `ROLE_SUFFIX` | Identical entry |
 | `BroadcastBox/BBoxFirmware/bbox_server.py:676` | `_boot_scan_games()` | Add the new designator to the skip list |
 | `BroadcastDial/BDialFirmware/bdial_server.py:668` | `_boot_scan_games()` | Identical change |
 
@@ -268,7 +278,7 @@ Comments for now; deduplication is a later refactor.
 
 | File | Copies |
 |---|---|
-| `code_server.py` | BroadcastBox, BroadcastDial |
+| `code_sender.py`, `code_link.py` | BroadcastBox, BroadcastDial (`code_sender.py` also `EspnowModem/host/`) |
 | `code_puller.py` | MockWand, IconDisplay |
 | `pull_flag.py` | MockWand, IconDisplay (byte-identical) |
 | `game_store.py` | MockWand/lib, IconDisplay/lib (byte-identical) |
@@ -292,10 +302,10 @@ Tag vocabulary is duplicated separately with nothing enforcing consistency:
 1. The wand is the baseline. A new device is described by how it deviates, and each
    deviation is declared in exactly one place.
 2. Each device gets its own tree and its own `lib/`. No shared device abstraction.
-3. hubtype string, `_CONFIGS` key and `ROLE_FILES` key are the same string.
+3. hubtype string, `_CONFIGS` key and `ROLE_SUFFIX` key are the same string.
 4. No designator is the wand's. Every other device declares its own, distinct one.
 5. Each designator becomes a reserved slug ending.
-6. Add the role to `ROLE_FILES` in **both** `code_server.py` copies in one commit.
+6. Add the role to `ROLE_SUFFIX` in **both** `code_sender.py` copies in one commit.
 7. Add the designator to **both** `_boot_scan_games()` copies in the same commit.
 8. `<slug><designator>.py` is a Box/Dial staging name only. On the device the file is
    always plain `<slug>.py`.

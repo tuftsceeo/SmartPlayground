@@ -70,7 +70,7 @@ This is the hub board of the two-board station; see `../README.md`.
 | `companion_probe.py` | Diagnostics, imported only when `DEBUG_PROBE = True` |
 | `jumpin.py` | Built-in test game: each press blinks the Splat and ring green (the neutral `jumpin` name every Bag3 device answers to) |
 | `splatwhack.py` | Built-in demo game |
-| `code_puller.py`, `pull_flag.py`, `pull_probe.py` | PEER copies of MockWand's (unchanged wire behaviour; `code_puller.py`'s docstring/PEER comment adapted; it selects the onboard antenna for a pull) |
+| `code_puller.py`, `pull_flag.py`, `pull_probe.py` | SoftAP pull path, selects the onboard antenna. The Box and Dial serve over ESP-NOW now and this station has no ESP-NOW receiver, so a `getcode` tap cannot fetch a game here; games reach it by USB |
 | `boot.py` | Selects the onboard antenna (GPIO3 = 0, GPIO14 = 0) before BLE starts; otherwise IconDisplay-style: outputs are built in `main.py`, after BLE |
 | `lib/game_store.py`, `lib/memprobe.py`, `lib/nfc_reader.py`, `lib/pn532.py`, `lib/max17048.py` | PEER copies of MockWand's / `Bag3/Code/lib`'s, unchanged |
 | `lib/hubtype.py` | This tree's own `splat_companion` entry -- **diverges from the other four copies**, see "Drift" |

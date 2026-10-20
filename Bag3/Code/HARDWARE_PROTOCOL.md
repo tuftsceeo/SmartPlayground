@@ -142,12 +142,13 @@ drowns the signal.
 
 ## Reserved Box/Dial staging suffixes
 
-A non-wand device's game is staged on the Box/Dial as `<slug><suffix>.py`
-(`ROLE_FILES` in `BroadcastCode/BroadcastBox/BBoxFirmware/code_server.py`
-and its Dial peer). A slug ending in one of these is refused client-side
+A non-wand device's game is staged on the Box/Dial as `<slug><suffix>.py`.
+A slug ending in one of these is refused client-side
 (`ChatBroadcast/js/gameName.js`, `RESERVED_SUFFIXES`) and skipped by the
 boot-time menu scan on-device (`STAGING_SUFFIXES` in `bbox_server.py` /
-`bdial_server.py`) — both lists must agree with `ROLE_FILES`.
+`bdial_server.py`) — both lists must agree. The Box/Dial `code_sender.py`
+(`ROLE_SUFFIX`) serves only the wand role today; the other roles are not
+served over ESP-NOW yet.
 
 | Suffix | Role | Device |
 |---|---|---|

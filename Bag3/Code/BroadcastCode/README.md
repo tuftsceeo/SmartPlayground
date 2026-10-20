@@ -15,7 +15,7 @@ The full task:
 4. When ready, teacher connects Chat Broadcast app to the  Broadcast Box prototype over usb serial.
 5. Teacher sends generated code(s) to the BBox
 6. Teacher taps blank nfc cards to BBox and uses the BBox to assign/write any additional NFC tags required for the game and a tag representing the game code to a nfc card. BBox now associates that generated game code with that card.
-7. Students tap that nfc with their wands can "pick up" (transfer and run that generated game code) to their wand via the BBox (the wand will broadcast a request for the new generated game over espnow which the BBox will pick up, perhaps the BBox could even specificy their mac address on the nfc card so the wand can direct the message appropriately and then the BBox and wand will use the SoftAP/TCP file transfer approach provided in the prototype)
+7. Students tap that nfc with their wands can "pick up" (transfer and run that generated game code) to their wand via the BBox (the wand broadcasts a `code_req` over ESP-NOW; the Box or Dial answers from its own ESP-NOW radio and sends the file in chunks the wand asks for. A `getcode:<slug>@<id>` card pins the request to the one Box or Dial whose host id is `<id>`)
 9. Teacher can also go around to any stations involved in the game and tap the nfc card on those to trigger a similar code uploading process for the station specific code.
 10. Optional (but a nice to have) would be if the Chat Broadcast app via the BBox tracks which modules/stations (via mac address) had received / picked up the code and which NFC cards have been written/skipped/still need to write. 
 
@@ -29,10 +29,7 @@ The CB/BB communication will use a web serial protocol likely similar to the  Ba
 
 The BroadcastBox will be write NFC cards and transmit python code to other Bag 3 playground components in order to run ChatBroadcast developed/modified games on the Smart Playground system. 
 
-Currently the Bag3/Code/BroadcastCode/BroadcastBox/BBoxPrototype contains proof of concept code where a S3 runs a SoftAP and a C6 connects directly to it to receive the python code.
-
-- **`s3_sender.py`**  (to become the BBox) runs on a ESP32-S3. It's a SoftAP + an unthreaded TCP server that accepts exactly one connection, sends one file, and closes.
-- **`c6_receiver.py`** (standing in for Wands and other components) runs on a ESP32-C6. It joins the S3's AP as a station and is the TCP client — it connects out, pulls the file, verifies it, and atomically promotes it into place. Having the receiver and server transition between SoftAP and ESPNow was previously tested but not currently in this code (8/29).
+The Box and Dial serve game files to wands over their own ESP-NOW radio (`code_link.py` + `code_sender.py` in each firmware; protocol in `BroadcastDial/README.md`, "Serving over ESP-NOW"). The wand receiver is `MockWand/lib/espnow_code.py`. The radio and the NFC reader field are never on together.
 
 Claude Design Wireframes of possible Screens for the BBox are shown in  Bag3/Code/BroadcastCode/BroadcastBox/design/Wand Coder + Broadcast Box Wireframe 2.dc.html
 

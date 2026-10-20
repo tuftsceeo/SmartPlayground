@@ -1,3 +1,9 @@
+> **Scope:** this plan covers the SoftAP + TCP `code_server.py`, which `bdial_server.py` and
+> `bbox_server.py` no longer import. The Dial and Box serve over ESP-NOW (`code_link.py` +
+> `code_sender.py`); their hardware checks are Phase 5 of
+> `docs_and_design/2026-10-20-espnow-serving/PLAN.md`, and the offline test is
+> `tools/devtests/test_dial_code_link.py`.
+
 # Multi-client SERVE — hardware bench test plan (Dial **and** Box)
 
 **For:** a Claude Code session with physical access to the Dial or Box + wand
