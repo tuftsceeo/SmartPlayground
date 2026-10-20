@@ -188,6 +188,53 @@ def _idf_largest():
         return None
 
 
+TRACE_PATH = "/flash/bench_trace.txt"
+TRACE_KEEP = 4000            # bytes of the previous run kept for the next one
+TRACE_EVERY_MS = 500
+
+
+def _supply():
+    """(vbus_mV, battery_mV) from M5.Power when this build has them, else None."""
+    out = []
+    for name in ("getVBUSVoltage", "getBatteryVoltage"):
+        try:
+            import M5
+            out.append(int(getattr(M5.Power, name)()))
+        except Exception:
+            out.append(None)
+    return tuple(out)
+
+
+def _trace(stage, **kw):
+    """Append one line and close, so it is on flash if the board drops after.
+    Never raises."""
+    try:
+        extra = " ".join("%s=%s" % (k, v) for k, v in kw.items())
+        with open(TRACE_PATH, "a") as f:
+            f.write("%d %s idf=%s supply=%s %s\n"
+                    % (time.ticks_ms(), stage, _idf_largest(), _supply(), extra))
+    except Exception as e:
+        print("BENCH trace failed: %r" % (e,))
+
+
+def _report_previous_run():
+    """Print what the last run left behind, then start a fresh trace file."""
+    import machine
+    print("BENCH reset_cause=%s (1=PWRON 2=HARD 3=WDT 4=DEEPSLEEP 5=SOFT)"
+          % machine.reset_cause())
+    try:
+        with open(TRACE_PATH) as f:
+            tail = f.read()[-TRACE_KEEP:]
+        print("BENCH previous trace tail:\n" + tail)
+    except OSError:
+        print("BENCH no previous trace")
+    try:
+        import os
+        os.remove(TRACE_PATH)
+    except OSError:
+        pass
+
+
 def _set_nfc_field(state):
     try:
         import dial_board
@@ -224,10 +271,19 @@ def _serve_once(mgr, sender, slug):
     sender.last_result = None
     mgr.broadcast({"type": "getcode", "slug": slug})
     t0 = time.ticks_ms()
+    last = t0
     while time.ticks_diff(time.ticks_ms(), t0) < RUN_TIMEOUT_MS:
         mt, data, mac = mgr.poll()
         if mt is not None:
             sender.handle(mt, data, mac)
+        now = time.ticks_ms()
+        if time.ticks_diff(now, last) >= TRACE_EVERY_MS:
+            last = now
+            sess = list(sender.sessions.values())
+            _trace("serve", t=time.ticks_diff(now, t0),
+                   gets=sess[0].gets if sess else None,
+                   frames=sess[0].frames if sess else None,
+                   fail=sess[0].send_fail if sess else None)
         r = sender.last_result
         if r is not None:
             return r["ok"], "%d B %d ms frames=%d send_fail=%d %s" % (
@@ -237,6 +293,21 @@ def _serve_once(mgr, sender, slug):
 
 
 def main():
+    _report_previous_run()
+    _trace("start", nfc_field=NFC_FIELD, preload_ui=PRELOAD_UI)
+    try:
+        _main()
+        _trace("done")
+    except BaseException as e:
+        _trace("EXCEPTION", err=repr(e))
+        try:
+            sys.print_exception(e)
+        except Exception:
+            pass
+        raise
+
+
+def _main():
     import gc
     print("BENCH start slug=%s nfc_field=%s preload_ui=%s"
           % (SLUG, NFC_FIELD, PRELOAD_UI))
@@ -244,11 +315,13 @@ def main():
     if NFC_FIELD:
         keep.append(_set_nfc_field(NFC_FIELD))
         print("BENCH nfc field", NFC_FIELD)
+        _trace("nfc_field_set", state=NFC_FIELD)
     before = _idf_largest()
     if PRELOAD_UI:
         keep.append(_build_ui())
         gc.collect()
     mid = _idf_largest()
+    _trace("ui_done")
     mgr = NativeManager()
     try:
         mgr.init()
@@ -260,6 +333,7 @@ def main():
     if IMPORT_ONLY:
         print("BENCH import_only ok")
         return
+    _trace("radio_up")
     install_manager_shim()
     from code_sender import CodeSender
     sender = CodeSender(mgr)
@@ -269,6 +343,7 @@ def main():
         time.sleep_ms(1500)
         ok, detail = _serve_once(mgr, sender, SLUG)
         print("BENCH result slug=%s run=%d ok=%s %s" % (SLUG, run, ok, detail))
+        _trace("result", ok=ok, detail=detail)
     try:
         import reset_log
         print("BENCH reset_log", reset_log.last(3))
