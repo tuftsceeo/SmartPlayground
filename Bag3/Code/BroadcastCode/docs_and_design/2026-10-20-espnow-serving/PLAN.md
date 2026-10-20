@@ -36,15 +36,17 @@ Paths below are under `Bag3/Code/BroadcastCode/` unless stated.
   - Device events: an `identity` object, and a `mode` value that includes SERVE.
 - **Display-only games** (only `<slug>_icon.py`) are not enrolled or served by the current firmware. Commit c354802 on `october19demo` fixed that for the SoftAP code and is not ported. The rule is rebuilt in the new sender.
 
-**Known power issues this work must not reintroduce (Box especially):**
-- **Radio and NFC field never on together.** WiFi and the NFC reader both drawing current at once browned out the Box on USB. That is why the Box is modal, writing cards **or** serving, never both (`BroadcastBox/design/box-ux-and-state-machine.md`, "The one rule", see 42dd9d4). The rule carries over unchanged to ESP-NOW serving on the Box and Dial.
-- **USB plugged in means the battery is charging, and that was the bad case.** With a USB port connected, the Box (StickS3) reset every ~1–19 s once the SoftAP was running, and was stable on battery alone. The USB device dropped with no traceback and no brownout message, which points to a power-rail collapse. The working hypothesis is PMIC charge current competing with WiFi TX current spikes. This was never root-caused (`docs_and_design/old/2026-09-01-wifi-handoff-diagnosis.md`, "Box USB-power instability").
-- **What to do:**
-  - Treat USB-connected (charging) as the worst case, not the easy case.
-  - Run Phase 1 steps 2–3 and Phase 5 both on USB with a partly discharged battery and on battery alone.
-  - After each run, read `reset_log.last()`.
-  - ESP-NOW TX is bursty like WiFi TX, so it is not assumed to fix this.
-  - Record whether the instability returns. If it does, investigate the M5 charge-current setting rather than working around it in serving code.
+**Power history: fixed by the modal rule, keep it fixed (Box especially):**
+- **The problem (2026-09-01).** The Box rebooted silently every ~30 s–2 min on USB (battery charging) and was stable on battery alone.
+  - In the firmware of that time, the SoftAP and the NFC reader's RF field were both live from boot whenever a game was on flash.
+  - Silent resets with the USB port dropping pointed to a brownout on a current-limited USB supply. A competing hypothesis was charge current against WiFi TX spikes.
+  - Sources: `known_issue.md` (deleted from the tree; see git history) and `docs_and_design/old/2026-09-01-wifi-handoff-diagnosis.md`.
+- **The fix (2026-09-02, a406712 / 42dd9d4).** The Box became modal: at most one of {radio, NFC RF field} is on at any instant. The field is up only on the scanning screen, and SERVE turns the reader off. The Dial follows the same rule.
+  - Verified on USB on 2026-09-02: 200+ s of steady heartbeats, no `BROWNOUT` (`BroadcastBox/README.md`, "Verified vs open").
+- **What this plan must keep:**
+  - ESP-NOW serving inherits the modal rule unchanged. SERVE does antenna-off, then radio. Leaving SERVE stops the radio, then turns the antenna on.
+  - Nothing in the new code may bring the reader field up while ESP-NOW is serving.
+  - Regression check only: Phase 1 step 3 and Phase 5 run on USB while charging, and read `reset_log.last()` afterwards.
 
 **Branch:** `chat_app_espnow`, created from `origin/Chat_to_Tap_Doggle`. All commits and pushes go there (`git push -u origin chat_app_espnow`).
 
@@ -64,7 +66,7 @@ Paths below are under `Bag3/Code/BroadcastCode/` unless stated.
 **Bench, run over `mpremote resume run`** with one Dial, one Box and one MockWandEUM wand. One 36 KB file, one run per condition:
 1. Does `import espnow` work on the Dial (StampS3A) and the Box, and does `ESPNow().active(True)` succeed?
 2. Antenna off, USB power: transfer runs.
-3. Antenna on, USB power with the battery charging: transfer runs, then read `reset_log.last()`. Repeat on battery alone.
+3. Regression check, USB connected (charging): transfer runs in SERVE, then read `reset_log.last()`. Expect no BROWNOUT, as with the modal SoftAP firmware.
 4. Late bring-up: start ESP-NOW after the full UI is up, and record whether it fails or the largest block shrinks.
 
 **Gate:** steps 2 and 4 pass on both boards with no BROWNOUT. Step 4 decides whether the radio is claimed at boot.
