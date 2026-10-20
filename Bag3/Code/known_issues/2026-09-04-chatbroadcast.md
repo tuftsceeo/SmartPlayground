@@ -1,3 +1,20 @@
+---
+title: ChatBroadcast example gallery and simulator sources
+date: 2026-09-04
+updated: 2026-09-26
+status: partly outdated; open items remain
+devices: [MockWand, XIAO ESP32-C6]
+components: [ChatBroadcast, Simulator, example gallery, game send path]
+code:
+  - Bag3/Code/BroadcastCode/ChatBroadcast/js/examples.js
+  - Bag3/Code/Simulator/tools/sync_sources.py
+open:
+  - Gallery exposes 7 of 13 vendored games
+  - No game file-size check before send (wand compile() limit between 33 KB and 57 KB)
+keywords: [vendorGame, sync_sources, game size limit, compile, contiguous heap, gallery]
+aliases: [9-4-known_issues.md]
+---
+
 **OUTDATED — dated 9/4, kept per the user's direction rather than deleted (see
 `../BroadcastCode/docs_and_design/PHASE6_HANDOFF.md` §5.8). Entries below may already be resolved or
 superseded by later work; check the current tree before acting on any of

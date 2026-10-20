@@ -1,3 +1,19 @@
+---
+title: BroadcastBox silent reboots on USB power
+date: 2026-09-01
+status: open
+devices: [BroadcastBox, ESP32-S3]
+components: [BBoxFirmware, NFC reader (PN532 -> WS1850S), SoftAP, power/charging]
+code:
+  - Bag3/Code/BroadcastCode/BroadcastBox/BBoxFirmware/bbox_server.py
+  - Bag3/Code/BroadcastCode/BroadcastBox/BBoxFirmware/card_writer.py
+  - Bag3/Code/BroadcastCode/BroadcastBox/BBoxFirmware/reset_log.py
+  - Bag3/Code/BroadcastCode/BroadcastDial/BDialFirmware/reset_log.py
+keywords: [brownout, watchdog, WDT_RESET, reset_cause, SoftI2C stall, USB CDC, auto-arm, NFC_TRIGGER_PIN]
+aliases: [known_issue.md]
+restored_from: fc25de7^:Bag3/Code/BroadcastBox/BBoxFirmware/known_issue.md
+---
+
 # Known issue: silent reboots while on USB
 
 Opened 2026-09-01. Unresolved. This is a hypothesis document for testing, not a
