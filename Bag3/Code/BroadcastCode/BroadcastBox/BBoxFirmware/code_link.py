@@ -283,12 +283,11 @@ class CodeLink:
     def _finished(self, r, on_event):
         self.last_result = r
         if r["path"]:
-            _record(r["path"], r["ok"])
+            _record(r.get("slug") or r["path"].rsplit("/", 1)[-1][:-3], r["ok"])
         _emit(on_event, 'ok' if r["ok"] else 'fail')
 
 
-def _record(path, ok):
-    slug = path.rsplit("/", 1)[-1][:-3]
+def _record(slug, ok):
     try:
         import stats_log
         stats_log.record_pull(slug, ok)

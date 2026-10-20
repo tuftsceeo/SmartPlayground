@@ -43,7 +43,9 @@ def run_xfer_suite():
              T.test_old_game_kept_as_bak, T.test_refusals, T.test_no_host,
              T.test_broken_file_rejected_old_kept, T.test_corruption_detected,
              T.test_active_slug, T.test_many_wands_concurrent_with_busy,
-             T.test_peer_table_never_fills, T.test_busy_gives_up_after_budget]
+             T.test_peer_table_never_fills, T.test_busy_gives_up_after_budget,
+             T.test_display_pull_with_icons, T.test_offer_icons_list_fits_frame,
+             T.test_icon_failure_keeps_game, T.test_icon_file_refusals]
     for fn in tests:
         fn(ctx)
         print("ok   xfer:", fn.__name__)

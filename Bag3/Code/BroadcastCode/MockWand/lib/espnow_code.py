@@ -17,6 +17,16 @@ rxbuf and window buffer can hold:
     host -> wand       b"CX" + id(1) + seq(u16 BE) + data      (w frames)
     wand -> host       {"type":"code_done","id":r,"ok":bool,"why":str}
 
+Icons (receive(..., icon_dir=...), hub "icon_display"): the game's offer also
+carries "icons" (names) and "icons_n" (total). Names past the ones that fit
+the offer frame are listed with
+    wand -> host       {"type":"code_req",...,"list_from":k}
+    host -> wand       {"type":"code_icons","id":r,"from":k,"n":N,"icons":[...]}
+then each icon is one code_req with "file":<name>, sent to the sender that
+served the game, received the same way into <icon_dir>/<name> (size and
+sha256 checked, not compiled). A failed icon is logged and skipped; it does
+not change the game's result.
+
 A window that is not complete within GET_WAIT_MS is requested again from
 its first missing chunk. The file lands as <dest>.part, is checked (size,
 sha256, compile()) and only then promoted, keeping <dest>.bak -- the same
@@ -58,6 +68,7 @@ BUSY_RETRY_MS = 2000
 BUSY_WAIT_MAX_MS = 120000
 GET_WAIT_MS = 400
 MAX_STALLS = 12              # consecutive windows with no progress
+MAX_ICONS = 64               # same cap as the sender
 
 # Timing and counters of the most recent receive(), for the caller to log.
 # (MicroPython functions do not take attributes, hence a module global.)
@@ -147,27 +158,18 @@ def _progress(cb, got, total):
         print("[ENX] on_progress err: %s" % e)
 
 
-def receive(enow, slug=None, hubtype=None, on_progress=None, verbose=True,
-            host_id=None):
-    """Fetch a game over ESP-NOW and promote it into /games.
+def _valid_icon_name(name):
+    return (isinstance(name, str) and name.endswith(".py") and 3 < len(name) <= 40
+            and "/" not in name and ".." not in name)
 
-    host_id (the getcode card's "@<id>" suffix) restricts the request to
-    the sender with that id; None or "" takes the first sender to answer.
 
-    Returns True on success, 'nohost' if no sender answered, 'norequest' if
-    the sender has no such game, 'busy' if the sender stayed at capacity for
-    BUSY_WAIT_MAX_MS, or False on a failed transfer (old game left in
-    place). Timing and counters go to LAST_STATS.
+def _request(enow, req, stats, verbose, to=None):
+    """Send req until a code_offer for it arrives, backing off on "busy".
+
+    to: unicast to that sender (already a peer) instead of broadcasting.
+    Returns (offer, sender_mac), or (None, 'nohost') / (None, 'busy').
     """
-    global LAST_STATS
-    stats = {"t_start": time.ticks_ms()}
-    LAST_STATS = stats
-    rid = _rid()
-    req = {"type": "code_req", "id": rid, "slug": slug or "",
-           "hub": hubtype or ""}
-    if host_id:
-        req["host"] = host_id
-
+    rid = req["id"]
     offer = None
     sender = None
     tries = 0
@@ -176,8 +178,12 @@ def receive(enow, slug=None, hubtype=None, on_progress=None, verbose=True,
     while tries < REQ_TRIES:
         _sleep_polling(enow, _jitter(REQ_JITTER_MS))
         tries += 1
-        if not enow.broadcast(req):
-            print("[ENX] code_req broadcast failed (attempt %d)" % tries)
+        if to is None:
+            sent = enow.broadcast(req)
+        else:
+            sent = enow.send_to(to, req)
+        if not sent:
+            print("[ENX] code_req send failed (attempt %d)" % tries)
         deadline = time.ticks_add(time.ticks_ms(), OFFER_WAIT_MS)
         while time.ticks_diff(deadline, time.ticks_ms()) > 0:
             mt, data, mac = enow.poll()
@@ -198,7 +204,7 @@ def receive(enow, slug=None, hubtype=None, on_progress=None, verbose=True,
             if verbose:
                 print("[ENX] sender still busy after %d s, giving up"
                       % (BUSY_WAIT_MAX_MS // 1000))
-            return 'busy'
+            return None, 'busy'
         retry = offer.get("retry_ms", BUSY_RETRY_MS)
         wait = retry + _jitter(retry)
         if verbose:
@@ -207,33 +213,22 @@ def receive(enow, slug=None, hubtype=None, on_progress=None, verbose=True,
         _sleep_polling(enow, wait)
         offer = None
         tries = 0
-    stats["t_offer"] = time.ticks_ms()
     stats["busy_waits"] = busy_waits
     if offer is None:
-        if verbose:
-            print("[ENX] no sender answered code_req for %r (host %r)"
-                  % (slug or "<active>", host_id or "<any>"))
-        return 'nohost'
+        return None, 'nohost'
+    return offer, sender
 
-    size = offer.get("size", 0)
-    if not size:
-        if verbose:
-            print("[ENX] sender has no game %r" % (slug or "<active>"))
-        return 'norequest'
-    name = offer.get("name", "")
+
+def _fetch(enow, sender, rid, offer, dest, stats, on_progress, verbose,
+           compile_check):
+    """Pull the offered file into dest.part, check it and promote it to
+    dest. compile_check: also compile() it and keep the old copy as
+    dest.bak (game files; icons are size and sha256 only). Sends code_done. Returns '' or the reason it
+    failed (the old dest is left in place)."""
+    size = offer["size"]
     chunks = offer["chunks"]
     chunk = offer["chunk"]
     want_sha = offer["sha"]
-    if not name.endswith(".py") or not is_valid_slug(name[:-3]):
-        print("[ENX] refusing offered name %r" % name)
-        return False
-    if chunks != (size + chunk - 1) // chunk or chunk + FRAME_HDR > 250:
-        print("[ENX] inconsistent offer %r" % offer)
-        return False
-
-    enow.add_peer(sender)
-    game_store.ensure_dir()
-    dest = game_store.GAMES_DIR + '/' + name
     tmp_path = dest + '.part'
     if verbose:
         print("[ENX] receiving %s from %s: %d bytes, %d chunks"
@@ -251,7 +246,6 @@ def receive(enow, slug=None, hubtype=None, on_progress=None, verbose=True,
     n_frames = 0
     n_dup = 0
     min_free = gc.mem_free()
-    ok = False
     why = ""
     _progress(on_progress, 0, size)
     stats["t_body"] = time.ticks_ms()
@@ -326,29 +320,160 @@ def receive(enow, slug=None, hubtype=None, on_progress=None, verbose=True,
             why = "size mismatch"
         elif got_sha != want_sha:
             why = "sha256 mismatch"
-        else:
+        elif compile_check:
             why = _compile_check(tmp_path, stats, verbose)
     if why:
         if verbose:
             print("[ENX] FAILED: %s: %s" % (dest, why))
         os.remove(tmp_path)
     else:
-        try:
-            os.rename(dest, dest + '.bak')
-        except OSError:
-            pass    # no previous copy of this game
+        if compile_check:
+            try:
+                os.rename(dest, dest + '.bak')
+            except OSError:
+                pass    # no previous copy of this game
         os.rename(tmp_path, dest)
-        ok = True
     stats["t_done"] = time.ticks_ms()
-    enow.send_to(sender, {"type": "code_done", "id": rid, "ok": ok,
+    enow.send_to(sender, {"type": "code_done", "id": rid, "ok": not why,
                           "why": why})
+    stats.update({"gets": n_gets, "frames": n_frames, "dup": n_dup,
+                  "min_gc_free": min_free})
+    return why
+
+
+def _offer_ok(offer):
+    chunk = offer.get("chunk", 0)
+    return (chunk > 0 and chunk + FRAME_HDR <= 250
+            and offer.get("chunks") == (offer["size"] + chunk - 1) // chunk)
+
+
+def _icon_names(enow, sender, offer, slug, hubtype, verbose):
+    """Every icon name for the game: the offer's, then list_from pages."""
+    names = list(offer.get("icons") or [])
+    total = offer.get("icons_n", len(names))
+    if not isinstance(total, int):
+        return names
+    total = min(total, MAX_ICONS)
+    while len(names) < total:
+        rid = _rid()
+        enow.send_to(sender, {"type": "code_req", "id": rid, "slug": slug,
+                              "hub": hubtype, "list_from": len(names)})
+        page = None
+        deadline = time.ticks_add(time.ticks_ms(), OFFER_WAIT_MS)
+        while time.ticks_diff(deadline, time.ticks_ms()) > 0:
+            mt, data, mac = enow.poll()
+            if (mt == "raw" and mac == sender and isinstance(data, dict)
+                    and data.get("type") == "code_icons"
+                    and data.get("id") == rid):
+                page = data
+                break
+            time.sleep_ms(1)
+        if page is None or page.get("from") != len(names) or not page.get("icons"):
+            if verbose:
+                print("[ENX] icon list stopped at %d/%d" % (len(names), total))
+            break
+        names.extend(page["icons"])
+    return names[:total]
+
+
+def _receive_icons(enow, sender, offer, slug, hubtype, icon_dir, verbose):
+    """Pull every icon the game's offer lists into icon_dir. Returns the
+    number promoted; a failed icon is skipped."""
+    try:
+        os.mkdir(icon_dir)
+    except OSError:
+        pass
+    names = _icon_names(enow, sender, offer, slug, hubtype, verbose)
+    if verbose and names:
+        print("[ENX] icon leg: %d file(s)" % len(names))
+    promoted = 0
+    for name in names:
+        if not _valid_icon_name(name):
+            print("[ENX] icon: refusing name %r" % (name,))
+            continue
+        st = {}
+        rid = _rid()
+        ioffer, isender = _request(enow, {"type": "code_req", "id": rid,
+                                          "slug": slug, "hub": hubtype,
+                                          "file": name}, st, False, to=sender)
+        if ioffer is None or not ioffer.get("size", 0):
+            print("[ENX] icon %s: not served (%s)"
+                  % (name, isender if ioffer is None else ioffer.get("why")))
+            continue
+        if ioffer.get("name") != name or not _offer_ok(ioffer):
+            print("[ENX] icon %s: bad offer %r" % (name, ioffer))
+            continue
+        why = _fetch(enow, sender, rid, ioffer, icon_dir + '/' + name, st,
+                     None, False, False)
+        if why:
+            print("[ENX] icon FAILED: %s: %s" % (name, why))
+        else:
+            promoted += 1
+    if verbose and names:
+        print("[ENX] %d/%d icon(s) promoted" % (promoted, len(names)))
+    return promoted
+
+
+def receive(enow, slug=None, hubtype=None, on_progress=None, verbose=True,
+            host_id=None, icon_dir=None):
+    """Fetch a game over ESP-NOW and promote it into /games.
+
+    host_id (the getcode card's "@<id>" suffix) restricts the request to
+    the sender with that id; None or "" takes the first sender to answer.
+    icon_dir: after the game file, fetch the icons its offer lists into
+    this directory (icon count in LAST_STATS["icons"]).
+
+    Returns True on success, 'nohost' if no sender answered, 'norequest' if
+    the sender has no such game, 'busy' if the sender stayed at capacity for
+    BUSY_WAIT_MAX_MS, or False on a failed transfer (old game left in
+    place). Icon failures do not change the result. Timing and counters go
+    to LAST_STATS.
+    """
+    global LAST_STATS
+    stats = {"t_start": time.ticks_ms()}
+    LAST_STATS = stats
+    rid = _rid()
+    req = {"type": "code_req", "id": rid, "slug": slug or "",
+           "hub": hubtype or ""}
+    if host_id:
+        req["host"] = host_id
+
+    offer, sender = _request(enow, req, stats, verbose)
+    stats["t_offer"] = time.ticks_ms()
+    if offer is None:
+        if verbose and sender == 'nohost':
+            print("[ENX] no sender answered code_req for %r (host %r)"
+                  % (slug or "<active>", host_id or "<any>"))
+        return sender
+
+    size = offer.get("size", 0)
+    if not size:
+        if verbose:
+            print("[ENX] sender has no game %r" % (slug or "<active>"))
+        return 'norequest'
+    name = offer.get("name", "")
+    if not name.endswith(".py") or not is_valid_slug(name[:-3]):
+        print("[ENX] refusing offered name %r" % name)
+        return False
+    if not _offer_ok(offer):
+        print("[ENX] inconsistent offer %r" % offer)
+        return False
+    chunks = offer["chunks"]
+
+    enow.add_peer(sender)
+    game_store.ensure_dir()
+    dest = game_store.GAMES_DIR + '/' + name
+    why = _fetch(enow, sender, rid, offer, dest, stats, on_progress, verbose,
+                 True)
+    ok = not why
+    if ok and icon_dir:
+        stats["icons"] = _receive_icons(enow, sender, offer, name[:-3],
+                                        hubtype or "", icon_dir, verbose)
 
     t0 = stats["t_start"]
     stats.update({
         "ok": ok, "why": why, "name": name[:-3], "bytes": size,
         "chunks": chunks,
-        "gets": n_gets, "frames": n_frames, "dup": n_dup,
-        "min_gc_free": min_free,
         "offer_ms": time.ticks_diff(stats["t_offer"], t0),
         "body_ms": time.ticks_diff(stats["t_body_end"], stats["t_body"]),
         "verify_ms": time.ticks_diff(stats["t_done"], stats["t_body_end"]),
@@ -360,5 +485,6 @@ def receive(enow, slug=None, hubtype=None, on_progress=None, verbose=True,
               % ("OK" if ok else "FAIL", name, size, stats["total_ms"],
                  stats["offer_ms"], stats["body_ms"], stats["verify_ms"],
                  size / 1024 / max(stats["body_ms"], 1) * 1000,
-                 n_gets, n_frames, n_dup, min_free))
-    return True if ok else False
+                 stats["gets"], stats["frames"], stats["dup"],
+                 stats["min_gc_free"]))
+    return ok

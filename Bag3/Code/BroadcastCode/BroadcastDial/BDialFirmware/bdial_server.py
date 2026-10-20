@@ -1138,8 +1138,8 @@ class BdialServer:
             return
         path = r["path"] or ""
         self.link.send({"type": "pull", "id": None,
-                        "slug": path.rsplit("/", 1)[-1][:-3] if path else None,
-                        "role": "wand", "wand": r["mac"], "ok": r["ok"],
+                        "slug": r.get("slug") or (path.rsplit("/", 1)[-1][:-3] if path else None),
+                        "role": r.get("hub") or "wand", "wand": r["mac"], "ok": r["ok"],
                         "ms": r["ms"], "why": r["why"] or None})
 
     def _repaint_serve(self):

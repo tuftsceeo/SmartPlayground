@@ -57,6 +57,10 @@ DEBUG = False
 # boot-looping is pull_flag's attempt budget, spent before each
 # attempt -- not this window.
 PULL_GRACE_S = 0
+# getcode pulls the game and its icons over the ESP-NOW link already up
+# (_espnow_pull), then resets into them. False restores the
+# pull_flag/reset/code_puller SoftAP path.
+CODE_VIA_ESPNOW = True
 NFC_POLL_FRAMES = 12      # idle frames between card reads -- a read is 200-500ms
 UID_REPEAT_MS = 1200      # ignore the same uid until it has been away this long
 IDLE_FRAME_MS = 80
@@ -368,6 +372,33 @@ def _pull_progress(panel, received, total):
     # redraws on its own.
 
 
+def _espnow_pull(panel, enow, slug, host_id, icon_dir):
+    """Receive this display's game file and its icons from the Box/Dial over
+    ESP-NOW (lib/espnow_code.py). Resets into the new game on success; on
+    failure the old copy stays and the display returns to idle."""
+    import shapes
+    import espnow_code
+    print("# getcode (slug=%r host=%r) via espnow" % (slug, host_id))
+    gc.collect()
+    panel.set_intensity(IDLE_INTENSITY)
+    fill(panel, BLUE)
+    ok = espnow_code.receive(enow, slug=slug, hubtype=HUB_TYPE,
+                             on_progress=lambda r, t: _pull_progress(panel, r, t),
+                             verbose=True, host_id=host_id, icon_dir=icon_dir)
+    if ok is True:
+        panel.set_intensity(ALERT_INTENSITY)
+        shapes.draw_shape(panel, shapes.SHAPE_CHECK, GREEN)
+        print("# pull OK -- resetting into the new game")
+        time.sleep_ms(600)
+        machine.reset()
+    if ok == 'nohost':
+        flash_glyph(panel, shapes.SHAPE_WIFI_2, RED)
+    elif ok in ('norequest', 'busy'):
+        flash_glyph(panel, shapes.SHAPE_WIFI_2, AMBER)
+    else:
+        flash_glyph(panel, shapes.SHAPE_X, RED)
+
+
 def _run_pull_mode(panel, icon_dir):
     """Join the Box's SoftAP and fetch this display's game file and icons.
 
@@ -659,6 +690,11 @@ def main():
                 server.release_panel()
 
             head, wanted, wanted_host = split_prefixed(cmd) if cmd else ("", "", "")
+            if head == "getcode" and CODE_VIA_ESPNOW and enow.is_active:
+                _espnow_pull(panel, enow, wanted, wanted_host, icon_store.DIR)
+                last_uid = None
+                frame = 0
+                continue
             if head == "getcode":
                 # Queue and reboot rather than pull here: ESP-NOW has owned
                 # the radio all boot, and a WiFi join from that state fails.

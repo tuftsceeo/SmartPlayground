@@ -94,6 +94,13 @@ class Air:
 
 
 PEER_LIMIT = 20   # ESP-NOW unencrypted peer table size
+MAX_PAYLOAD = 250  # ESP-NOW payload limit
+
+
+def _sized(msg):
+    b = msg.encode() if isinstance(msg, str) else msg
+    assert len(b) <= MAX_PAYLOAD, "payload %d B > %d" % (len(b), MAX_PAYLOAD)
+    return b
 
 
 class FakeMgr:
@@ -128,21 +135,19 @@ class FakeMgr:
 
     def broadcast(self, data):
         msg = json.dumps(data) if not isinstance(data, (str, bytes)) else data
-        self.air.deliver(self.me, "FF:FF:FF:FF:FF:FF",
-                         msg.encode() if isinstance(msg, str) else msg)
+        self.air.deliver(self.me, "FF:FF:FF:FF:FF:FF", _sized(msg))
         return True
 
     def send_to(self, mac_str, data):
         if mac_str not in self.peers:
             raise AssertionError("send_to %s without add_peer" % mac_str)
         msg = json.dumps(data) if not isinstance(data, (str, bytes)) else data
-        self.air.deliver(self.me, mac_str,
-                         msg.encode() if isinstance(msg, str) else msg)
+        self.air.deliver(self.me, mac_str, _sized(msg))
         return True
 
     def send_raw(self, mac_bytes, raw):
         mac_str = ":".join("%02X" % b for b in mac_bytes)
-        self.air.deliver(self.me, mac_str, raw)
+        self.air.deliver(self.me, mac_str, _sized(raw))
         return True
 
 
@@ -176,6 +181,18 @@ def setup():
         f.write("def play(*a):\n    return 1\n")
     with open(os.path.join(host_games, "broken.py"), "w") as f:
         f.write("def play(:\n")
+    # Display game: goalrace_icon.py plus more icons than one offer holds.
+    with open(os.path.join(host_games, "goalrace_icon.py"), "w") as f:
+        f.write("def play(*a):\n    return 2\n")
+    with open(os.path.join(host_games, "goalrace.py"), "w") as f:
+        f.write("def play(*a):\n    return 1\n")
+    icons = os.path.join(host_games, "goalrace_icons")
+    os.mkdir(icons)
+    for name in ICON_NAMES:
+        with open(os.path.join(icons, name + ".py"), "w") as f:
+            f.write("NAME = %r\nDATA = %r\n" % (name, bytes(range(256)) * 3))
+    with open(os.path.join(icons, "notes.txt"), "w") as f:
+        f.write("not an icon\n")
     game_store.GAMES_DIR = wand_games
     air = Air()
     wand = FakeMgr(air, WAND)
@@ -183,6 +200,9 @@ def setup():
     sender = code_sender.CodeSender(host, games_dir=host_games, verbose=False)
     ht = HostThread(host, sender)
     return tmp, air, wand, sender, ht, host_games, wand_games, host
+
+
+ICON_NAMES = ["icon_%02d_%s" % (i, "x" * (i % 7)) for i in range(23)]
 
 
 def host_result(sender, timeout=2.0):
@@ -337,6 +357,126 @@ def test_busy_gives_up_after_budget(ctx):
     assert not host.peers, host.peers
 
 
+def _icon_dir(tmp):
+    d = os.path.join(tmp, "icons_rx")
+    shutil.rmtree(d, ignore_errors=True)
+    return d
+
+
+def test_display_pull_with_icons(ctx):
+    """icon_display gets <slug>_icon.py as <slug>.py, then every icon,
+    paging the name list past the offer; counters stay on game files."""
+    tmp, air, wand, sender, ht, hg, wg, host = ctx
+    d = _icon_dir(tmp)
+    served, failed = sender.served, sender.failed
+    i_served = sender.icons_served
+    sender.last_result = None
+    assert espnow_code.receive(wand, "goalrace", "icon_display",
+                               verbose=False, icon_dir=d) is True
+    assert same(os.path.join(hg, "goalrace_icon.py"),
+                os.path.join(wg, "goalrace.py"))
+    got = sorted(os.listdir(d))
+    assert got == sorted(n + ".py" for n in ICON_NAMES), got
+    for n in got:
+        assert same(os.path.join(hg, "goalrace_icons", n), os.path.join(d, n))
+    assert espnow_code.LAST_STATS["icons"] == len(ICON_NAMES)
+    deadline = time.monotonic() + 2
+    while sender.icons_served - i_served < len(ICON_NAMES) and time.monotonic() < deadline:
+        time.sleep(0.01)
+    assert sender.icons_served - i_served == len(ICON_NAMES)
+    assert sender.served == served + 1 and sender.failed == failed
+    r = host_result(sender)
+    assert r["slug"] == "goalrace" and r["hub"] == "icon_display"
+    assert r["path"].endswith("goalrace_icon.py")
+    assert sender.last_result is None
+
+
+def test_offer_icons_list_fits_frame(ctx):
+    tmp, air, wand, sender, ht, hg, wg, host = ctx
+    names = sender._icon_names("goalrace")
+    assert names == sorted(n + ".py" for n in ICON_NAMES)
+    offer = {"type": "code_offer", "id": 255, "name": "goalrace.py",
+             "size": 99999, "sha": "f" * 64, "chunks": 409, "chunk": 245,
+             "icons_n": len(names)}
+    sender._fill_names(offer, names, 0)
+    assert 0 < len(offer["icons"]) < len(names)
+    assert offer["icons"] == names[:len(offer["icons"])]
+    assert len(json.dumps(offer)) <= MAX_PAYLOAD
+    # Wands get no icons fields.
+    assert sender._icon_names("tiny") == []
+
+
+def test_icon_failure_keeps_game(ctx):
+    """A corrupted icon is skipped; the game and other icons still land."""
+    tmp, air, wand, sender, ht, hg, wg, host = ctx
+    d = _icon_dir(tmp)
+    real = espnow_code._fetch
+    calls = {"n": 0}
+
+    def flaky(enow, snd, rid, offer, dest, *a):
+        calls["n"] += 1
+        if calls["n"] == 3:          # the second icon
+            air.corrupt_once = True
+        return real(enow, snd, rid, offer, dest, *a)
+
+    espnow_code._fetch = flaky
+    try:
+        assert espnow_code.receive(wand, "goalrace", "icon_display",
+                                   verbose=False, icon_dir=d) is True
+    finally:
+        espnow_code._fetch = real
+    assert espnow_code.LAST_STATS["icons"] == len(ICON_NAMES) - 1
+    assert len(os.listdir(d)) == len(ICON_NAMES) - 1
+    assert not any(n.endswith(".part") for n in os.listdir(d))
+
+
+def _ask(wand, req, timeout=1.0):
+    wand.add_peer(HOST)
+    wand.send_to(HOST, req)
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        mt, data, mac = wand.poll()
+        if isinstance(data, dict) and data.get("id") == req["id"]:
+            return data
+        time.sleep(0.002)
+    raise AssertionError("no answer to %r" % (req,))
+
+
+def test_icon_file_refusals(ctx):
+    tmp, air, wand, sender, ht, hg, wg, host = ctx
+    base = {"type": "code_req", "slug": "goalrace", "hub": "icon_display"}
+    for i, extra in enumerate([
+            {"file": "../goalrace.py"},
+            {"file": "sub/a.py"},
+            {"file": "notes.txt"},
+            {"file": "nosuch.py"},
+            {"file": ICON_NAMES[0] + ".py", "hub": "wand"},
+            {"file": ICON_NAMES[0] + ".py", "slug": ""}]):
+        req = dict(base, id=200 + i, **extra)
+        r = _ask(wand, req)
+        assert r["type"] == "code_offer" and r["size"] == 0, (extra, r)
+    r = _ask(wand, dict(base, id=210, file=ICON_NAMES[0] + ".py"))
+    assert r["size"] > 0 and r["name"] == ICON_NAMES[0] + ".py"
+    wand.send_to(HOST, {"type": "code_done", "id": 210, "ok": False,
+                        "why": "test"})
+    # Wand role: no icons in the offer; list_from pages report nothing.
+    r = _ask(wand, {"type": "code_req", "id": 211, "slug": "goalrace",
+                    "hub": "wand"})
+    assert "icons" not in r and "icons_n" not in r
+    wand.send_to(HOST, {"type": "code_done", "id": 211, "ok": True})
+    r = _ask(wand, {"type": "code_req", "id": 212, "slug": "goalrace",
+                    "hub": "wand", "list_from": 0})
+    assert r["type"] == "code_icons" and r["n"] == 0 and r["icons"] == []
+    time.sleep(0.05)
+    while wand.poll()[0] is not None:
+        pass
+    sender.last_result = None
+    deadline = time.monotonic() + 1
+    while host.peers and time.monotonic() < deadline:
+        time.sleep(0.01)
+    assert not host.peers, host.peers
+
+
 if __name__ == "__main__":
     espnow_code.GET_WAIT_MS = 60
     espnow_code.OFFER_WAIT_MS = 150
@@ -347,7 +487,9 @@ if __name__ == "__main__":
              test_refusals, test_no_host, test_broken_file_rejected_old_kept,
              test_corruption_detected, test_active_slug,
              test_many_wands_concurrent_with_busy, test_peer_table_never_fills,
-             test_busy_gives_up_after_budget]
+             test_busy_gives_up_after_budget, test_display_pull_with_icons,
+             test_offer_icons_list_fits_frame, test_icon_failure_keeps_game,
+             test_icon_file_refusals]
     for fn in tests:
         fn(ctx)
         print("ok  ", fn.__name__)
