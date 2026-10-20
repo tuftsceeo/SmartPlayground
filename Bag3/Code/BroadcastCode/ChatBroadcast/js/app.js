@@ -24,6 +24,7 @@ import { showView, showOverlay, hideOverlay, setConnectionBadge, toast, setSendP
 import { createDeviceLink, deviceShortName, deviceProductName } from './device/bboxDeviceLink.js';
 import { SerialAdapter } from './device/serialAdapter.js';
 import { NfcStationLink } from './device/nfcStationLink.js';
+import { formatPullEvent } from './device/pullEvent.js';
 import { createWandDeviceLink } from './device/wandDeviceLink.js';
 import { subscribe, getEntries, toText } from './device/serialLog.js';
 import { setWorkspaceHandler } from './markdown.js';
@@ -735,7 +736,6 @@ class App {
                 active,
                 activeName: pretty || active,
                 games: obj.games,
-                ssid: obj.ssid,
             };
             // Prefer mode==SERVE for silence threshold once mode events exist.
             this._silenceLimitMs = obj.mode === 'SERVE' ? SILENCE_SERVE_MS : SILENCE_LIMIT_MS;
@@ -753,6 +753,13 @@ class App {
             if (this.link.boxMode !== 'SERVE') {
                 this._silenceLimitMs = SILENCE_SERVE_MS;
             }
+        });
+        this.device.on('pull', (obj) => {
+            dbg('device', 'event: pull', obj);
+            this._noteMessage(obj);
+            const name = (this._boxGames || []).find((g) => g.slug === obj?.slug)?.name;
+            const { msg, isError } = formatPullEvent(obj, name);
+            toast(msg, isError);
         });
         this.device.on('card_present', (obj) => dbg('device', 'event: card_present', obj));
         this.device.on('card_written', (obj) => {

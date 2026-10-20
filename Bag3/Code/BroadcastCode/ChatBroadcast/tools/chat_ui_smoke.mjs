@@ -153,6 +153,10 @@ await test("page has no errors after load", () => {
     assert.deepEqual(pageErrors, []);
 });
 
+await test("header has no SoftAP network chip", async () => {
+    assert.equal(await page.$$eval("[data-ssid-chip], .ssid-chip", els => els.length), 0);
+});
+
 await shot("1-starter-chips");
 await test("starter chips: guided chip plus four ideas, one beyond the wand", async () => {
     const chips = await page.$$eval(".starter-chips .starter-chip", els => els.map(e => e.textContent.trim()));

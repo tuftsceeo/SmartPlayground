@@ -182,16 +182,6 @@ body.ui-advanced #app-shell {
     gap: 8px;
 }
 
-.ssid-chip {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    background: var(--write-bg);
-    color: var(--write-fg);
-    font: 700 11px ui-monospace, monospace;
-    padding: 5px 10px;
-    border-radius: 12px;
-}
 .mode-pill {
     border: none;
     background: var(--serve-bg);
