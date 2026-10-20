@@ -18,7 +18,7 @@ import { EXAMPLES } from "../js/examples.js";
 
 // Expected game-specific tags, from the plan's pinned table.
 const EXPECTED = {
-    melody: ["note_c","note_d","note_e","note_f","note_g","note_a","note_b","note_c_high","erase","melody","backspace"],
+    melody: ["note_c","note_d","note_e","note_f","note_g","note_a","note_b","note_c_high","erase","melody","backspace","rest","double_length","halve_length"],
     nfc_sound: ["note_c","note_d","note_e","note_f","note_g","note_a","note_b"],
     cooking: ["tomato","milk","cheese","flour","egg","butter","sugar","cooking"],
     gestures: ["red","green","blue","play"],
