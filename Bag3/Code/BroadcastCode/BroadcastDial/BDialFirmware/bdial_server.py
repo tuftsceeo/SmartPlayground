@@ -8,10 +8,11 @@ Box peer, or call out the divergence.
 
 Phase A mode machine. The invariant this file exists to hold:
 
-    at most one of {WiFi AP, NFC RF field} is energized at any instant.
+    at most one of {radio, NFC RF field} is energized at any instant.
 
-    WRITE  AP down.  Reader polled only while scanning.
-    SERVE  Reader antenna off, no I2C at all.  AP up, serving wand pulls.
+    WRITE  Radio off.  Reader polled only while scanning.
+    SERVE  Reader antenna off, no I2C at all.  ESP-NOW up, serving wand
+           pulls (code_link.py).
     IDLE   Neither.  No game on flash, so there is nothing to do.
 
 There is deliberately no RECEIVING mode: the app pushes code over the raw
@@ -31,8 +32,7 @@ import os
 import reset_log
 from dial_input import DialInput, NEXT, PREV, ACT, BACK, EXIT
 from json_link import JsonLink
-from code_server import (
-    CodeServer, DEFAULT_SRC, SSID, HOST_ID, GAMES_DIR, ACTIVE_PATH, prewarm_ap)
+from code_link import CodeLink, HOST_ID, GAMES_DIR, ACTIVE_PATH, prewarm
 from card_writer import existing_text, write_text
 from dial_ui import DialUI
 from dial_board import make_reader, SCREEN_W, SCREEN_H
@@ -53,7 +53,6 @@ GRACE_S = 0
 # freeze the others. See _on_serve_event()/_poll_serve().
 SERVE_ERROR_MS = 1000
 
-PAYLOAD_PATH = DEFAULT_SRC
 INDEX_PATH = GAMES_DIR + '/index.json'
 
 # Legacy single-game tags — replaced at boot by _rebuild_entries() from the
@@ -141,9 +140,7 @@ def _dbg(msg):
 
 def _card_text(label):
     """Card bytes for a menu row. getcode rows carry this host's id, so a
-    scanning wand or icon display can pin to this exact host instead of
-    whichever SP-FILEPUSH* AP its scan happened to see first (see
-    code_puller.py's _find_ap()). Only getcode rows: a bare "<slug>"/"stop"/
+    scanning wand or icon display can pin to this exact host. Only getcode rows: a bare "<slug>"/"stop"/
     "battery" card is not host-specific and must keep working on any host
     exactly as it read before this change. Called only where a card is
     actually written (_write_card()), never where the menu/group rows
@@ -173,7 +170,7 @@ class BdialServer:
         self._input = DialInput()
         self.ui = DialUI(self._input)
         self.link = JsonLink(self.dispatch, debug=debug)
-        self.code = CodeServer()
+        self.code = CodeLink()
         self.nfc = None
         self.running = True
         self.linked = True
@@ -201,7 +198,6 @@ class BdialServer:
         self._active = None
 
         self._reader_last_uid = None  # debounce for READ_ENTRY; see _scan_step()
-        self._guard = None  # serve_guard.Guard while in SERVE; see _set_mode()
 
         self.handlers = {
             "identify": self.do_identify,
@@ -274,10 +270,7 @@ class BdialServer:
 
         # --- leave ---
         if old == MODE_SERVE:
-            if self._guard is not None:
-                self._guard.stop()
-                self._guard = None
-            self.code.disarm()  # ap.active(False) + AP_SETTLE_MS
+            self.code.disarm()  # ESP-NOW and STA off
         if old == MODE_WRITE:
             self._nfc_field(False)
             self._clear_pending()
@@ -292,23 +285,17 @@ class BdialServer:
                 time.sleep_ms(1500)
                 self._repaint()
                 return
-            self._log_mem("before arm()")
             armed = self.code.arm()
-            self._log_mem("after arm() attempt")
             if not armed:
-                # No game on flash, or the socket would not bind. Say so and
-                # stay where we were rather than sitting on a dead AP.
-                print("# SERVE refused: CodeServer.arm() failed")
+                # No game on flash, or the radio would not start. Say so and
+                # stay where we were.
+                print("# SERVE refused: CodeLink.arm() failed")
                 self.ui.paint_error("No Game to Serve")
                 time.sleep_ms(1500)
                 self._mode = old
                 self._repaint()
                 return
-            self.link.send({"type": "armed", "id": None, "ssid": SSID})
-            # Imported here, after arm() has the AP up, never at module
-            # scope: nothing may allocate before the AP claims its memory.
-            import serve_guard
-            self._guard = serve_guard.Guard(self.code)
+            self.link.send({"type": "armed", "id": None, "ssid": None})
 
         self._mode = new_mode
         reset_log.note_mode(new_mode)
@@ -330,7 +317,7 @@ class BdialServer:
             "mode": self._mode,
             "games": len(self._index),
             "active": self._active,
-            "ssid": SSID if self._mode == MODE_SERVE else None,
+            "ssid": None,
         }
 
     def _emit_mode(self, rid=None):
@@ -347,7 +334,7 @@ class BdialServer:
             else:
                 self.ui.paint_tag_list(self._entries, self._cursor)
         elif self._mode == MODE_SERVE:
-            self.ui.paint_serve(SSID, self._pulls_total)
+            self.ui.paint_serve(HOST_ID, self._pulls_total)
         else:
             self.ui.paint_idle(self.linked)
 
@@ -400,10 +387,7 @@ class BdialServer:
             # Report what _init_nfc() actually did. Never hardcode True —
             # a failed init must surface as nfc:false so the app can say so.
             "w": SCREEN_W, "h": SCREEN_H, "nfc": self._nfc_ok,
-            # Fixed for the life of the boot (see code_server.HOST_ID), so
-            # it belongs here rather than in `mode`/`info` -- lets
-            # ChatBroadcast title this connected device without waiting
-            # for a SERVE-mode "armed"/"mode" event to carry the SSID.
+            # Fixed for the life of the boot (see code_link.HOST_ID).
             "host_id": HOST_ID,
         }
 
@@ -445,7 +429,7 @@ class BdialServer:
             self.code.set_game(self._active)
         self._set_mode(MODE_SERVE)
         if self._mode == MODE_SERVE:
-            self.link.send({"type": "ok", "id": rid, "cmd": "arm", "ssid": SSID})
+            self.link.send({"type": "ok", "id": rid, "cmd": "arm", "ssid": None})
         else:
             self.link.send({"type": "error", "id": rid, "code": "arm_failed"})
 
@@ -1095,6 +1079,8 @@ class BdialServer:
         once it finishes. Repaint after each so the screen's wand count
         and pickup total never lag more than one event behind reality.
         """
+        if event in ('ok', 'fail'):
+            self._emit_pull()
         if event == 'ok':
             # Mirrors the line stats_log just recorded, so the screen and
             # the log agree without re-reading flash on every repaint.
@@ -1102,6 +1088,16 @@ class BdialServer:
         elif event == 'fail':
             self._serve_error_until = time.ticks_add(time.ticks_ms(), SERVE_ERROR_MS)
         self._repaint_serve()
+
+    def _emit_pull(self):
+        r = self.code.last_result
+        if r is None:
+            return
+        path = r["path"] or ""
+        self.link.send({"type": "pull", "id": None,
+                        "slug": path.rsplit("/", 1)[-1][:-3] if path else None,
+                        "role": "wand", "wand": r["mac"], "ok": r["ok"],
+                        "ms": r["ms"], "why": r["why"] or None})
 
     def _repaint_serve(self):
         """Redraw the SERVE screen for the server's current state.
@@ -1141,8 +1137,6 @@ class BdialServer:
         if self._serve_error_until and time.ticks_diff(time.ticks_ms(), self._serve_error_until) >= 0:
             self._serve_error_until = 0
             self._repaint_serve()
-        if self._guard is not None:
-            self._guard.poll()  # may reset the board; see serve_guard.py
         # SERVE mode has nothing to do with NEXT/PREV/ACT; just drain them
         # so the queue doesn't grow unbounded.
         self._input.pop()
@@ -1160,21 +1154,13 @@ class BdialServer:
 
         import M5
         M5.begin()
-        self._log_mem("after M5.begin")
 
-        # WiFi's AP driver wants a big contiguous heap block (see
-        # dial_board.py H5 -- SoftAP OOM'd in Phase 0 probing, and for real
-        # in a live run). Grab it now, while the heap is still close to
-        # pristine, before the LVGL screens and NFC driver below fragment
-        # it with lots of small allocations. Unverified whether this
-        # actually reserves anything past .active(False) -- that's exactly
-        # what the surrounding _log_mem calls (and prewarm_ap()'s own) are
-        # here to check on a real retry.
+        # The radio's first allocation must precede the UI and NFC
+        # allocations (docs_and_design/2026-09-23-ap-memory-order.md).
         try:
-            prewarm_ap()
+            prewarm()
         except Exception as e:
-            print("# AP prewarm failed: %s" % str(e))
-        self._log_mem("after AP prewarm")
+            print("# radio prewarm failed: %s" % str(e))
 
         self._input.begin()
         self.ui.begin()  # calls m5ui.init(); builds LVGL screens once
@@ -1199,19 +1185,8 @@ class BdialServer:
         # Late-connecting apps learn the mode without asking.
         # Emit after scan so games/active are accurate; _set_mode may emit again.
         self._mode = MODE_IDLE
-        # A serve_guard reboot (its flag file exists) comes straight back
-        # into SERVE on the fresh heap. Path must match serve_guard.FLAG_PATH;
-        # serve_guard itself is not imported until after arm().
-        try:
-            os.stat('/flash/serve_guard.txt')
-            resume_serve = self._payload_ready()
-        except OSError:
-            resume_serve = False
-        if resume_serve:
-            self._set_mode(MODE_SERVE, announce=False)
-        else:
-            self._set_mode(MODE_WRITE if self._payload_ready() else MODE_IDLE,
-                           announce=False)
+        self._set_mode(MODE_WRITE if self._payload_ready() else MODE_IDLE,
+                       announce=False)
         if self._mode == MODE_IDLE:
             self._emit_mode()
         self._repaint()
@@ -1239,20 +1214,18 @@ class BdialServer:
     def _shutdown_radios(self):
         """De-energize both radios on the way out of run(), whatever the reason.
 
-        Without this the AP stays up after the program stops: `repl` and a
-        soft `reboot` both just clear self.running and return, and an
-        uncaught exception unwinds straight past to main.py. In every one of
-        those cases the SoftAP was left broadcasting with nothing serving it,
-        which breaks the one invariant this file exists to hold. Each half is
+        `repl` and a soft `reboot` both just clear self.running and return,
+        and an uncaught exception unwinds straight past to main.py; without
+        this the radio would stay up with nothing serving. Each half is
         guarded separately so a failure to put the reader down cannot stop
-        the AP coming down.
+        the radio coming down.
         """
         try:
             if self.code.armed:
                 self.code.disarm()
-                _log("shutdown: AP down")
+                _log("shutdown: radio down")
         except Exception as e:
-            print("# shutdown: AP disarm FAILED: %s" % str(e))
+            print("# shutdown: radio disarm FAILED: %s" % str(e))
         try:
             self._nfc_field(False)
         except Exception as e:

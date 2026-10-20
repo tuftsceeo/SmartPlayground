@@ -30,6 +30,9 @@ SLUG = "speed36"
 RUNS = 1
 NFC_FIELD = None             # None / "off" / "on": reader RF field, set first
 PRELOAD_UI = False           # build the board's UI before ESP-NOW starts
+RADIO_FIRST = False          # with PRELOAD_UI: start ESP-NOW, then build the UI
+UI_TICK = True               # with PRELOAD_UI: call M5.update() every loop
+SLOW_CALL_MS = 20            # trace any manager send/add_peer slower than this
 RUN_TIMEOUT_MS = 60000
 STARTUP_MS = 2000
 
@@ -133,20 +136,24 @@ class NativeManager:
         if mac is None:
             mac = mac_str_to_bytes(mac_str)
         msg = data if isinstance(data, (str, bytes)) else json.dumps(data)
-        try:
-            self.enow.send(mac, msg)
-            return True
-        except Exception:
-            return False
+        return self._send("send_to", mac, msg)
 
     def send_raw(self, mac_bytes, raw_bytes):
         if not self._active:
             return False
+        return self._send("send_raw", mac_bytes, raw_bytes)
+
+    def _send(self, name, mac, msg):
+        t0 = time.ticks_ms()
+        err = None
         try:
-            self.enow.send(mac_bytes, raw_bytes)
-            return True
-        except Exception:
-            return False
+            ok = bool(self.enow.send(mac, msg))
+        except Exception as e:
+            ok, err = False, e
+        ms = time.ticks_diff(time.ticks_ms(), t0)
+        if ms > SLOW_CALL_MS or err is not None:
+            _trace("slow_" + name, ms=ms, ok=ok, err=repr(err), n=len(msg))
+        return ok
 
     def poll(self, timeout_ms=0):
         """(msg_type, data, mac_str) or (None, None, None). Every message is
@@ -184,6 +191,23 @@ def _idf_largest():
         # PSRAM is one multi-MB region; the radio needs internal DRAM.
         return max(r[2] for r in esp32.idf_heap_info(esp32.HEAP_DATA)
                    if r[0] < 1024 * 1024)
+    except Exception:
+        return None
+
+
+def _idf_free():
+    try:
+        import esp32
+        return sum(r[1] for r in esp32.idf_heap_info(esp32.HEAP_DATA)
+                   if r[0] < 1024 * 1024)
+    except Exception:
+        return None
+
+
+def _enow_stats(mgr):
+    """(tx_pkts, tx_responses, tx_failures, rx_packets, rx_dropped)."""
+    try:
+        return mgr.enow.stats()
     except Exception:
         return None
 
@@ -249,16 +273,27 @@ def _set_nfc_field(state):
     return nfc
 
 
+_ui_tick = None
+
+
 def _build_ui():
     """Late bring-up: M5 and the board's UI exist before ESP-NOW starts.
     The Dial draws with LVGL (DialUI); the Stick only has M5.Widgets (BboxUI,
     constructed before M5.begin(), begin() after it)."""
+    global _ui_tick
     import M5
     try:
         from dial_input import DialInput
         from dial_ui import DialUI
+        inp = DialInput()
         M5.begin()
-        return DialUI(DialInput())
+        inp.begin()
+        ui = DialUI(inp)
+        ui.begin()
+        ui.paint_serve(None)
+        if UI_TICK:
+            _ui_tick = inp.update  # M5.update(): LVGL redraw + encoder
+        return ui
     except ImportError:
         from bbox_ui import BboxUI
         ui = BboxUI()
@@ -272,7 +307,12 @@ def _serve_once(mgr, sender, slug):
     mgr.broadcast({"type": "getcode", "slug": slug})
     t0 = time.ticks_ms()
     last = t0
+    ui_max = 0
     while time.ticks_diff(time.ticks_ms(), t0) < RUN_TIMEOUT_MS:
+        if _ui_tick is not None:
+            u0 = time.ticks_ms()
+            _ui_tick()
+            ui_max = max(ui_max, time.ticks_diff(time.ticks_ms(), u0))
         mt, data, mac = mgr.poll()
         if mt is not None:
             sender.handle(mt, data, mac)
@@ -283,7 +323,10 @@ def _serve_once(mgr, sender, slug):
             _trace("serve", t=time.ticks_diff(now, t0),
                    gets=sess[0].gets if sess else None,
                    frames=sess[0].frames if sess else None,
-                   fail=sess[0].send_fail if sess else None)
+                   fail=sess[0].send_fail if sess else None,
+                   ui_max=ui_max, enow=_enow_stats(mgr),
+                   idf_free=_idf_free())
+            ui_max = 0
         r = sender.last_result
         if r is not None:
             return r["ok"], "%d B %d ms frames=%d send_fail=%d %s" % (
@@ -294,7 +337,8 @@ def _serve_once(mgr, sender, slug):
 
 def main():
     _report_previous_run()
-    _trace("start", nfc_field=NFC_FIELD, preload_ui=PRELOAD_UI)
+    _trace("start", nfc_field=NFC_FIELD, preload_ui=PRELOAD_UI,
+           ui_tick=UI_TICK, idf_free=_idf_free())
     try:
         _main()
         _trace("done")
@@ -317,23 +361,26 @@ def _main():
         print("BENCH nfc field", NFC_FIELD)
         _trace("nfc_field_set", state=NFC_FIELD)
     before = _idf_largest()
-    if PRELOAD_UI:
+    mgr = NativeManager()
+    if PRELOAD_UI and not RADIO_FIRST:
         keep.append(_build_ui())
         gc.collect()
     mid = _idf_largest()
     _trace("ui_done")
-    mgr = NativeManager()
     try:
         mgr.init()
     except Exception as e:
         print("BENCH espnow init FAILED: %r  idf_largest=%s" % (e, mid))
         raise
+    if PRELOAD_UI and RADIO_FIRST:
+        keep.append(_build_ui())
+        gc.collect()
     print("BENCH BRINGUP idf_largest before_ui=%s before_radio=%s after_radio=%s"
-          % (before, mid, _idf_largest()))
+          " idf_free=%s" % (before, mid, _idf_largest(), _idf_free()))
     if IMPORT_ONLY:
         print("BENCH import_only ok")
         return
-    _trace("radio_up")
+    _trace("radio_up", idf_free=_idf_free())
     install_manager_shim()
     from code_sender import CodeSender
     sender = CodeSender(mgr)

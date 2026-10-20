@@ -6,16 +6,16 @@ Bench: `tools/devtests/espnow_serve.py` on the board, one MockWandEUM wand held 
 one 36 KB file (`speed36`), run with `mpremote resume run`. CPython tests:
 `EspnowModem/tests/test_espnow_serve.py` (9, passing).
 
-**Verdict:** the Dial passes the gate. The Box is unresolved: its failures match the known
+**Verdict:** the Dial passes with the radio claimed at boot; late bring-up (step 4) fails. The Box is unresolved: its failures match the known
 USB charge-current brownout and were all run with a depleted battery.
 
 | Board | 1. `import espnow`, `active(True)` | 2. Field off | Field on (not a plan condition) | 4. UI up first, then radio |
 |---|---|---|---|---|
-| Dial (StampS3A) | pass | pass, 4.1 s | pass, 5.4 s | pass, 9.3 s |
+| Dial (StampS3A) | pass | pass, 4.1 s | pass, 5.4 s | fails (`ESP_ERR_ESPNOW_NO_MEM`); see below |
 | Box (StickS3) | pass | pass, 3.3 s | USB dropped twice | 1 pass (4.0 s), 1 drop; repeat below |
 
-All Dial runs: 0 send failures, no BROWNOUT. Dial step 4 at 9.3 s against 4.1 s for step 2 is
-not explained and has not been repeated.
+All Dial runs: no BROWNOUT. The first Dial step 4 run (9.3 s) never called `ui.begin()`, so
+the UI was not up; it does not count.
 
 ### Box step 4 repeat (field off, UI built first, 5 runs)
 
@@ -62,15 +62,34 @@ what steps 2 and 4 already ran, so the field-on column does not count toward the
    battery only. The bench writes `/flash/bench_trace.txt` and `/flash/resetlog.txt`, so a
    run with USB unplugged can be read back afterward.
 
+### Dial step 4, UI built first (2026-10-20)
+
+With `ui.begin()` and `paint_serve()` called before the radio, transfers fail: each send
+blocks 2000 ms and raises `OSError(-12391, 'ESP_ERR_ESPNOW_NO_MEM')`. Internal free IDF heap
+after the radio was about 8.5 KB. One of three such runs passed, so the margin is at the edge,
+not reliably on either side. Bisect (one run each, hard reset first): no UI pass 3.4 s; UI
+without `M5.update()` fail; UI with it pass 3.8 s; radio first then UI fail.
+
+The bench cannot test boot order. It runs after a reset that `mpremote run` interrupts
+partway through the firmware's own `main.py`, so the heap it starts from varies (largest
+block 7680 to 27648 B at start) and the firmware's partial UI sits beside the bench's.
+
+**Decision:** the radio is claimed at boot, before the UI (`code_link.prewarm()` right after
+`M5.begin()`, where `prewarm_ap()` was), and tested in the firmware itself.
+
+### Dial firmware serving over ESP-NOW (2026-10-20)
+
+`BDialFirmware/code_link.py` + `code_sender.py`, deployed, plain reset, wand on MockWandEUM.
+
+- Real path: menu WRITE of `getcode:speed36`, DONE to SERVE, card tapped on the wand. 2 of 2
+  pass: 36864 B in 3844 ms and 3505 ms, 151 frames, 0 send failures. A `pull` event per
+  transfer on serial.
+- SERVE cycling over serial (`disarm`, `arm`), 20 of 20 armed in place, no radio error.
+
 ### Open before the Dial gate closes
 
-The Dial ran one transfer per condition. ESP-NOW replaces the SoftAP on the Box and Dial, so
-SERVE must start and stop in place with no reset; nothing has exercised that yet.
-
-1. Cycle `init`, a 36 KB transfer, `shutdown` ten times with no reset. Record `idf_largest`,
-   the result and the reset cause each cycle.
-2. Repeat step 4 five times, and explain or reproduce the 9.3 s.
-3. Run a transfer while the NFC reader polls and reads a card.
+1. Transfer with NFC reader polling between SERVE sessions (WRITE, scan, then SERVE, pull).
+2. Concurrency: 3 wands at once (Phase 5).
 
 ### Bench state left on the boards
 
