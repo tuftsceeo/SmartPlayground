@@ -96,7 +96,7 @@ The Box and Dial cannot drop the AP until these move, or they lose the ability t
 ## Phase 5: remove the WiFi path
 
 After phases 1–4 pass on hardware: delete `code_server.py`, `serve_guard.py`, `serve_probe.py`,
-`code_puller.py`, `pull_flag.py`, `pull_probe.py` from every tree; update `2026-09-30-known-issues.md`
+`code_puller.py`, `pull_flag.py`, `pull_probe.py` from every tree; update `../../known_issues/2026-09-30-known-issues.md`
 (items 1–12 that are WiFi-only close), the Box and Dial READMEs, and `HARDWARE_PROTOCOL.md` where it
 mentions SERVE/AP.
 

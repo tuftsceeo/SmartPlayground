@@ -4,9 +4,9 @@ Scope: `code_server.py` (Dial, Box), `code_puller.py` (MockWand, IconDisplay, Sp
 
 Sources:
 
-- **pull-speed:** `2026-09-30-pull-speed-results.md`
+- **pull-speed:** `../BroadcastCode/docs_and_design/2026-09-30-pull-speed-results.md`
 - **test-records:** `2026-09-23-test-records/`
-- **handoff:** `2026-09-23-pull-failure-handoff.md`
+- **handoff:** `../BroadcastCode/docs_and_design/2026-09-23-pull-failure-handoff.md`
 
 ## Open
 

@@ -470,7 +470,7 @@ person pressed through each 30 s phase, and a press turned the Splat red until r
 
 - `SC/Companion/main.py:4-5` still describes UART on GPIO0/1 with an M5StickS3 modem. The README and
   `hubtype.py` say GPIO16/17 with a C6 modem.
-- `docs_and_design/2026-09-30-known-issues.md:56` assumes the Splat Companion uses the external
+- `Bag3/Code/known_issues/2026-09-30-known-issues.md:56` assumes the Splat Companion uses the external
   antenna. `SC/Companion/boot.py` selects onboard.
 
 ## Source notes

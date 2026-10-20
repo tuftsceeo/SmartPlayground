@@ -40,7 +40,7 @@ Paths below are under `Bag3/Code/BroadcastCode/` unless stated.
 - **The problem (2026-09-01).** The Box rebooted silently every ~30 s–2 min on USB (battery charging) and was stable on battery alone.
   - In the firmware of that time, the SoftAP and the NFC reader's RF field were both live from boot whenever a game was on flash.
   - Silent resets with the USB port dropping pointed to a brownout on a current-limited USB supply. A competing hypothesis was charge current against WiFi TX spikes.
-  - Sources: `known_issue.md` (deleted from the tree; see git history) and `docs_and_design/old/2026-09-01-wifi-handoff-diagnosis.md`.
+  - Sources: `Bag3/Code/known_issues/2026-09-01-bbox-usb-reboots.md` and `docs_and_design/old/2026-09-01-wifi-handoff-diagnosis.md`.
 - **The fix (2026-09-02, a406712 / 42dd9d4).** The Box became modal: at most one of {radio, NFC RF field} is on at any instant. The field is up only on the scanning screen, and SERVE turns the reader off. The Dial follows the same rule.
   - Verified on USB on 2026-09-02: 200+ s of steady heartbeats, no `BROWNOUT` (`BroadcastBox/README.md`, "Verified vs open").
 - **What this plan must keep:**
@@ -111,7 +111,7 @@ Repeat Phase 2 in `BBoxFirmware/`. The Box's `serve_guard` floor and `SOCK_REPLY
    - Battery runs on the Box.
 2. **After it passes,** delete from every Bag3 tree:
    - `code_server.py`, `serve_guard.py`, `serve_probe.py`, `code_puller.py`, `pull_flag.py` and `pull_probe.py`
-   - the WiFi-only items in `2026-09-30-known-issues.md`
+   - the WiFi-only items in `../../known_issues/2026-09-30-known-issues.md`
    - the AP sections in the READMEs and `HARDWARE_PROTOCOL.md`
 
    The Splat Companion is retired and needs no receiver.

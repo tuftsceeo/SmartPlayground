@@ -1,5 +1,5 @@
 **OUTDATED — dated 9/4, kept per the user's direction rather than deleted (see
-`PHASE6_HANDOFF.md` §5.8). Entries below may already be resolved or
+`../BroadcastCode/docs_and_design/PHASE6_HANDOFF.md` §5.8). Entries below may already be resolved or
 superseded by later work; check the current tree before acting on any of
 them.**
 
@@ -60,7 +60,7 @@ XIAO ESP32-C6 (no PSRAM) that needs one contiguous block the heap does not
 always have. The limit has been hit on the WiFi pull path as well as the
 ESP-NOW one; it is a wand heap limit, not a transport limit. Measured on
 the MockWand, 2026-09-26 (see
-`../docs_and_design/2026-09-26-eum-bench-results.md`):
+`../BroadcastCode/docs_and_design/2026-09-26-eum-bench-results.md`):
 
 - 27,870 B (`gestures.py`) and 33,004 B compile, cold and warm.
 - 56,926 B fails: `compile()` asks for 41,216 B; the largest free internal

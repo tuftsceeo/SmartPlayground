@@ -1,6 +1,6 @@
 # Known issues — 2026-09-29
 
-Open items recorded on 2026-09-29. Older entries are in `9-4-known_issues.md`.
+Open items recorded on 2026-09-29. Older entries are in `2026-09-04-chatbroadcast.md`.
 
 
 Multi-role games get one wand file for every wand. Should roles get their own code?
