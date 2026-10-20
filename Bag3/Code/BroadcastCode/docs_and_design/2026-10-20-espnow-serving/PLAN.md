@@ -36,6 +36,16 @@ Paths below are under `Bag3/Code/BroadcastCode/` unless stated.
   - Device events: an `identity` object, and a `mode` value that includes SERVE.
 - **Display-only games** (only `<slug>_icon.py`) are not enrolled or served by the current firmware. Commit c354802 on `october19demo` fixed that for the SoftAP code and is not ported. The rule is rebuilt in the new sender.
 
+**Known power issues this work must not reintroduce (Box especially):**
+- **Radio and NFC field never on together.** WiFi and the NFC reader both drawing current at once browned out the Box on USB. That is why the Box is modal, writing cards **or** serving, never both (`BroadcastBox/design/box-ux-and-state-machine.md`, "The one rule", see 42dd9d4). The rule carries over unchanged to ESP-NOW serving on the Box and Dial.
+- **USB plugged in means the battery is charging, and that was the bad case.** With a USB port connected, the Box (StickS3) reset every ~1–19 s once the SoftAP was running, and was stable on battery alone. The USB device dropped with no traceback and no brownout message, which points to a power-rail collapse. The working hypothesis is PMIC charge current competing with WiFi TX current spikes. This was never root-caused (`docs_and_design/old/2026-09-01-wifi-handoff-diagnosis.md`, "Box USB-power instability").
+- **What to do:**
+  - Treat USB-connected (charging) as the worst case, not the easy case.
+  - Run Phase 1 steps 2–3 and Phase 5 both on USB with a partly discharged battery and on battery alone.
+  - After each run, read `reset_log.last()`.
+  - ESP-NOW TX is bursty like WiFi TX, so it is not assumed to fix this.
+  - Record whether the instability returns. If it does, investigate the M5 charge-current setting rather than working around it in serving code.
+
 **Branch:** `chat_app_espnow`, created from `origin/Chat_to_Tap_Doggle`. All commits and pushes go there (`git push -u origin chat_app_espnow`).
 
 ---
@@ -54,7 +64,7 @@ Paths below are under `Bag3/Code/BroadcastCode/` unless stated.
 **Bench, run over `mpremote resume run`** with one Dial, one Box and one MockWandEUM wand. One 36 KB file, one run per condition:
 1. Does `import espnow` work on the Dial (StampS3A) and the Box, and does `ESPNow().active(True)` succeed?
 2. Antenna off, USB power: transfer runs.
-3. Antenna on, USB power: transfer runs, then read `reset_log.last()`.
+3. Antenna on, USB power with the battery charging: transfer runs, then read `reset_log.last()`. Repeat on battery alone.
 4. Late bring-up: start ESP-NOW after the full UI is up, and record whether it fails or the largest block shrinks.
 
 **Gate:** steps 2 and 4 pass on both boards with no BROWNOUT. Step 4 decides whether the radio is claimed at boot.
