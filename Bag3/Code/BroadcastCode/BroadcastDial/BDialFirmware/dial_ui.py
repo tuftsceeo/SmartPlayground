@@ -577,10 +577,10 @@ class DialUI(object):
     # gets quiet fast on this buzzer -- so beeps are told apart mostly by
     # duration/direction, not big pitch jumps.
     def beep_scan(self):
-        self._tone(3000, 30)
+        self._tone(3000, 80)
 
     def beep_click(self):
-        self._tone(3400, 20)
+        self._tone(3400, 60)
 
     def beep_success(self):
         self._tone(2800, 100)
