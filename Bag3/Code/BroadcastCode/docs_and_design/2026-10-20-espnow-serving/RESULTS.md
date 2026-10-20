@@ -9,7 +9,7 @@ one 36 KB file (`speed36`), run with `mpremote resume run`. CPython tests:
 **Verdict:** the Dial passes the gate. The Box is unresolved: its failures match the known
 USB charge-current brownout and were all run with a depleted battery.
 
-| Board | 1. `import espnow`, `active(True)` | 2. Field off | 3. Field on | 4. UI up first, then radio |
+| Board | 1. `import espnow`, `active(True)` | 2. Field off | Field on (not a plan condition) | 4. UI up first, then radio |
 |---|---|---|---|---|
 | Dial (StampS3A) | pass | pass, 4.1 s | pass, 5.4 s | pass, 9.3 s |
 | Box (StickS3) | pass | pass, 3.3 s | USB dropped twice | 1 pass (4.0 s), 1 drop; repeat below |
@@ -50,8 +50,9 @@ reported.
 The step 4 bench was already modal: field off, no reader object built. Only the radio,
 display and speaker were on, the same load as SERVE. H1 says charge current is highest when
 the battery is depleted, and every run here started with a depleted battery. The Box result is
-therefore a depleted-battery result, not yet a ruling on ESP-NOW. Step 3 (field on plus radio)
-breaks the modal rule by design, so its drops add nothing.
+therefore a depleted-battery result, not yet a ruling on ESP-NOW. The plan's step 3 is now a regression check in SERVE on USB while charging, which is
+what steps 2 and 4 already ran, so the field-on column does not count toward the gate
+(it breaks the modal rule: ESP-NOW serving keeps the reader field off).
 
 ### Open before the Box gate closes
 
