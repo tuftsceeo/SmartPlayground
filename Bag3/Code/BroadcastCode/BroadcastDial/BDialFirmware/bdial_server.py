@@ -52,6 +52,11 @@ GRACE_S = 0
 # be a sleep_ms() any more -- a stalled transfer for one wand must not
 # freeze the others. See _on_serve_event()/_poll_serve().
 SERVE_ERROR_MS = 1000
+# WRITE mode serves over ESP-NOW whenever the reader field is off (menus,
+# group lists); the radio goes down only while scanning a card. False keeps
+# serving to SERVE mode alone.
+SHARE_IN_MENUS = True
+SHARE_RETRY_MS = 2000        # wait after a failed menu-share arm()
 
 INDEX_PATH = GAMES_DIR + '/index.json'
 
@@ -194,6 +199,7 @@ class BdialServer:
         self._written = {}
         self._pulls_total = 0  # cumulative games handed to wands, all boots
         self._serve_error_until = 0  # ticks_ms() deadline for the "Transfer Failed" banner, 0 = none pending
+        self._share_retry_at = 0
         self._index = {}  # slug -> {name, added}
         self._active = None
 
@@ -274,6 +280,8 @@ class BdialServer:
         if old == MODE_WRITE:
             self._nfc_field(False)
             self._clear_pending()
+            if new_mode != MODE_SERVE:
+                self.code.disarm()
 
         # --- enter ---
         if new_mode == MODE_SERVE:
@@ -298,6 +306,8 @@ class BdialServer:
             self.link.send({"type": "armed", "id": None, "ssid": None})
 
         self._mode = new_mode
+        if new_mode == MODE_WRITE:
+            self._menu_share()
         reset_log.note_mode(new_mode)
         # A gesture that caused the switch must not carry into the new mode:
         # the hold that left SERVE would otherwise immediately read as EXIT
@@ -809,17 +819,46 @@ class BdialServer:
 
     def _nfc_field(self, on):
         """Energize/de-energize the reader, tracking state to avoid redundant
-        I2C writes on every loop iteration."""
+        I2C writes on every loop iteration. The radio is stopped before the
+        field comes up; after the field goes down, WRITE resumes serving."""
         if self.nfc is None or on == self._nfc_field_on:
             return
+        if on and self.code.armed:
+            self.code.disarm()
         self._nfc_field_on = on
         try:
-            self.nfc.antenna_on() if on else self.nfc.antenna_off()
+            if on:
+                self.nfc.antenna_on()
+            else:
+                self.nfc.antenna_off()
+                # A MIFARE auth latches MFCrypto1On; clear it with the field.
+                self.nfc.stop_crypto1()
             _dbg("field -> %s (chip reports ant=%s crypto=%s)"
                  % ("ON" if on else "off", self.nfc.antenna_is_on(),
                     self.nfc.crypto_on()))
         except Exception as e:
             print("# NFC antenna %s FAILED: %s" % ("on" if on else "off", str(e)))
+
+    def _menu_share(self):
+        """WRITE with the field off: serve over ESP-NOW if there is a game."""
+        if (not SHARE_IN_MENUS or self._mode != MODE_WRITE
+                or self._nfc_field_on or self.code.armed
+                or time.ticks_diff(self._share_retry_at, time.ticks_ms()) > 0):
+            return
+        if self._active:
+            self.code.set_game(self._active)
+        elif self.code.resolve() is None:
+            return
+        if not self.code.arm():
+            print("# menu share: CodeLink.arm() failed")
+            self._share_retry_at = time.ticks_add(time.ticks_ms(), SHARE_RETRY_MS)
+
+    def _on_menu_share_event(self, event):
+        if event in ('ok', 'fail'):
+            self._emit_pull()
+        if event == 'ok':
+            self._pulls_total += 1
+            self.ui.beep_scan()
 
     def _clear_pending(self):
         self._reader_last_uid = None
@@ -878,6 +917,10 @@ class BdialServer:
 
     def _poll_write(self):
         """WRITE mode. Drain one intent per loop; scan runs when idle."""
+        if self.code.armed:
+            self.code.poll(on_event=self._on_menu_share_event)
+        elif self._write_state != W_SCAN:
+            self._menu_share()
         intent = self._input.pop()
         if intent:
             _dbg("intent %s in state=%s cursor=%d(%s)"
