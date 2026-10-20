@@ -91,6 +91,7 @@ Paths below are under `Bag3/Code/BroadcastCode/` unless stated.
   - The display then sends one `code_req` per icon, with `slug:"<slug>"`, `hub:"icon_display"` and `file:"<name>"`.
   - The sender resolves that to `games/<slug>_icons/<name>`. Names containing `/` or `..` are refused.
   - A failed icon does not fail the game, as in `code_server`'s icon leg.
+- **Step 3 implemented (offline tests pass, hardware not run).** `code_sender.ROLE_FILES` maps `icon_display` to `<slug>_icon.py` with icons, in the Box, Dial and host copies. Icon names are paged: a full list would not fit one 250 B ESP-NOW frame, so the offer carries `icons_n` plus a trimmed `icons` list, the receiver asks `list_from:k` for the rest, and the sender replies `code_icons`. Each icon is then one `code_req` with `file`.
 - **Protocol references to update when step 3 lands.** Each holds a copy or description of the message set:
   - `EspnowModem/host/code_sender.py` and the Dial copy
   - `EspnowModem/MockWandEUM/lib/espnow_code.py` (PEER header)
@@ -117,6 +118,7 @@ Repeat Phase 2 in `BBoxFirmware/`. The Box's `serve_guard` floor and `SOCK_REPLY
 3. **Icon Display receiver:**
    - Today `IconDisplay/code_puller.py` uses `ROLE_FILES` with an icons leg.
    - Add an ESP-NOW receiver with the icons leg, matching step 3 of Phase 2.
+   - Implemented (offline tests pass, hardware not run): `IconDisplay/lib/espnow_code.py` and `_espnow_pull` in `IconDisplay/main.py` (`CODE_VIA_ESPNOW`), with paged icon names as in the Phase 2 notes. The `pull` event carries the real slug and role.
 
 ## Phase 5: Hardware session (≤ 60 min) and SoftAP removal
 1. **Bench run, through the real menus:**

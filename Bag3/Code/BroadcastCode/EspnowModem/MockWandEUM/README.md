@@ -4,7 +4,7 @@ Copy of `Bag3/Code/BroadcastCode/MockWand/` (taken 2026-09-26) for testing game
 transfer over ESP-NOW from an EUM host. The original MockWand tree is untouched;
 the two copies are expected to diverge. Differences from MockWand:
 
-- **`lib/espnow_code.py` (new):** receives a game over the ESP-NOW link that is already up, with no WiFi join and no reset. The wand drives the transfer in windows of `WINDOW` (8) chunks and re-requests from the first missing chunk. The file lands as `/games/<slug>.py.part` and is checked (size, SHA-256, `compile()`) before promotion, keeping `.bak`.
+- **`lib/espnow_code.py` (new):** receives a game over the ESP-NOW link that is already up, with no WiFi join and no reset. The wand drives the transfer in windows of `WINDOW` (8) chunks and re-requests from the first missing chunk. The file lands as `/games/<slug>.py.part` and is checked (size, SHA-256, `compile()`) before promotion, keeping `.bak`. `receive(enow, slug, hubtype, ..., icon_dir=<dir>)` also fetches the game's icons (hub `icon_display`) into `<dir>`: the offer carries `icons_n` and a trimmed `icons` list, the receiver asks `{"type":"code_req",...,"list_from":k}` for the rest (reply `code_icons`), then one `code_req` with `"file":<name>` per icon. Icons are checked by size and SHA-256 only, not compiled; a failed icon is skipped and does not fail the game. The stock wand does not pass `icon_dir`.
 - **`lib/espnow_manager.py`:** sets `ESPNOW_RXBUF = 4096` before `active(True)`, at radio bring-up. The MicroPython default of 526 B holds about 2 frames.
 - **`main.py`:**
   - **`_load_play()`:** a game with no `GAME_ICON` entry (every pulled game) shows nothing while it loads, instead of the white music note.
@@ -12,7 +12,7 @@ the two copies are expected to diverge. Differences from MockWand:
   - **`REMOTE_GETCODE = True` (bench):** a broadcast `{"type":"getcode","slug":s}` acts as a tap, so transfers can be repeated without a card.
   - **Result line:** each transfer prints a JSON `enx_result` line with total/body ms, bytes and `min_gc_free`, plus the usual `memprobe` lines `enx:pre` / `enx:post`.
 
-The sender is `EspnowModem/host/code_sender.py`, run by `host/code_host.py`. The wire format is described in `lib/espnow_code.py`'s docstring.
+The sender is `EspnowModem/host/code_sender.py`, run by `host/code_host.py`. The wire format is described in `lib/espnow_code.py`'s docstring. `MockWand/lib/espnow_code.py` and `IconDisplay/lib/espnow_code.py` are hand-kept copies of this file.
 
 ---
 

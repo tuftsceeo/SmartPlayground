@@ -25,6 +25,11 @@ The other two rows above are missing `BroadcastCode/` — see `docs/KNOWN_ISSUES
 Same serial protocol and wire contract. ChatBroadcast accepts both. Do not silently
 reconcile PEER-copied modules between the two trees — fix one copy and say which.
 
+Two more hand-kept sets (under `Code/BroadcastCode/`; fix one copy and say which):
+
+- `espnow_code.py`: `MockWand/lib/`, `EspnowModem/MockWandEUM/lib/` and `IconDisplay/lib/`.
+- `code_sender.py`: `BroadcastBox/BBoxFirmware/`, `BroadcastDial/BDialFirmware/` and `EspnowModem/host/`.
+
 **Do not add module-scope content to `code_link.py` (Box and Dial).** `bdial_server.py` /
 `bbox_server.py` import it before `prewarm()` brings the radio up, and the radio needs one large
 contiguous DRAM block that nothing allocated earlier may fragment. A docstring or a format string

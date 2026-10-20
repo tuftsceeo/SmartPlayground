@@ -147,13 +147,13 @@ If a request raises on the modem, the modem sends a **`T_ERROR` reply (type 0xFF
 
 ## ESP-NOW code transfer
 
-Game files move from a host to a wand over ESP-NOW. There is no radio switch and no reset. The Box and Dial serve with PEER copies of `host/code_sender.py` (`BBoxFirmware/code_sender.py`, `BDialFirmware/code_sender.py`) over their own radio; `MockWand/lib/espnow_code.py` is the wand receiver there.
+Game files move from a host to a wand over ESP-NOW. There is no radio switch and no reset. The Box and Dial serve with PEER copies of `host/code_sender.py` (`BBoxFirmware/code_sender.py`, `BDialFirmware/code_sender.py`) over their own radio; `MockWand/lib/espnow_code.py` is the wand receiver there and `IconDisplay/lib/espnow_code.py` the Icon Display's (three hand-kept copies with `MockWandEUM/lib/espnow_code.py`).
 
 | Side | File | Role |
 |---|---|---|
 | Host | `host/code_sender.py` | `CodeSender`: answers `code_req`, sends the chunks each `code_get` asks for |
 | Host | `host/code_host.py` | Bench main: serves `/flash/games/`; optional repeated remote triggers |
-| Wand | `MockWandEUM/lib/espnow_code.py` | `receive()`: request, windowed fetch, verify, promote |
+| Wand | `MockWandEUM/lib/espnow_code.py` | `receive()`: request, windowed fetch, verify, promote; `receive(..., icon_dir=)` also fetches the game's icons |
 | Wand | `MockWandEUM/main.py` | `getcode` tap (or bench broadcast) runs `receive()`, then launches the game |
 
 **How the transfer runs:**
@@ -168,7 +168,18 @@ Game files move from a host to a wand over ESP-NOW. There is no radio switch and
   - **Peer table:** a wand is a host peer only while it has a session (or for its one refusal reply), so the ~20-entry ESP-NOW peer table never fills.
   - **Bench hook:** `code_host.BUSY_FOR_MS` makes the host answer busy for a while after each trigger, so the retry path can be tested with one wand.
 
-`tests/test_code_xfer.py` runs the real receiver against the real sender over a simulated link. It covers a clean transfer, 25 % loss with duplicates and reordering, refusals, no host, a file that fails to compile (old copy kept), in-transit corruption, the active-slug lookup, 8 concurrent wands against a cap of 3 (busy and retry), 25 wands in a row against the 20-peer limit, and giving up after the busy budget.
+**Messages** (`code_req` / `code_offer` / `code_get` / frames / `code_done` as in `BroadcastDial/README.md`, "Serving over ESP-NOW", plus the icon leg):
+
+| Direction | Message |
+|---|---|
+| host -> display | `code_offer` for `<slug>_icon.py` (hub `icon_display`) also carries `"icons_n"` and an `"icons"` list trimmed to fit 250 B |
+| display -> host | `{"type":"code_req","id":r,"slug":s,"hub":h,"list_from":k}` for the names past the offer's list |
+| host -> display | `{"type":"code_icons","id":r,"from":k,"n":total,"icons":[...]}` |
+| display -> host | `{"type":"code_req",...,"file":<name>}`, one per icon; offered under that name |
+
+**Icon leg:** `receive(enow, slug, hubtype, ..., icon_dir=<dir>)` fetches each icon into `<icon_dir>/<name>` after the game file, from the sender that served the game. Icons are checked by size and SHA-256 only (not compiled), at most 64 per game, `.py` names without `/` or `..`. A failed icon is logged and skipped; the game's result is unchanged. `LAST_STATS["icons"]` is the number promoted. The sender refuses a `file` request without an explicit slug or for a role without icons.
+
+`tests/test_code_xfer.py` runs the real receiver against the real sender over a simulated link. It covers a clean transfer, 25 % loss with duplicates and reordering, refusals, no host, a file that fails to compile (old copy kept), in-transit corruption, the active-slug lookup, 8 concurrent wands against a cap of 3 (busy and retry), 25 wands in a row against the 20-peer limit, and giving up after the busy budget, and the icon leg (paged name lists, refused names, a failed icon leaving the game promoted).
 
 ## Adding a message type
 

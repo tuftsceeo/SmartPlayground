@@ -147,8 +147,13 @@ A slug ending in one of these is refused client-side
 (`ChatBroadcast/js/gameName.js`, `RESERVED_SUFFIXES`) and skipped by the
 boot-time menu scan on-device (`STAGING_SUFFIXES` in `bbox_server.py` /
 `bdial_server.py`) — both lists must agree. The Box/Dial `code_sender.py`
-(`ROLE_SUFFIX`) serves only the wand role today; the other roles are not
-served over ESP-NOW yet.
+(`ROLE_FILES`: role -> file suffix, serves icons) serves `wand` (suffix `''`)
+and `icon_display` (`_icon`, with icons); `splat_companion` is not served
+over ESP-NOW yet.
+
+An `icon_display` game's icons are staged in `games/<slug>_icons/` and served
+by name with the game: `.py` files only, at most 64 per game, names without
+`/` or `..`. `<slug>_icons/` is a directory, not a staged game.
 
 | Suffix | Role | Device |
 |---|---|---|

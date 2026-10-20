@@ -133,6 +133,8 @@ Leaving `SERVE` is hold-to-`EXIT` **and** a CLOSE touch target — both emit
 |---|---|
 | wand → broadcast | `{"type":"code_req","id":r,"slug":s,"hub":h[,"host":id]}` |
 | Dial → wand | `{"type":"code_offer","id":r,"name":n,"size":N,"sha":hex,"chunks":K,"chunk":245}`; `size` 0 is a refusal (`why`) |
+| display → Dial | `{"type":"code_req","id":r,"slug":s,"hub":h,"file":<icon>}` (one icon) or `{...,"list_from":k}` (next page of icon names) |
+| Dial → display | `{"type":"code_icons","id":r,"from":k,"n":total,"icons":[...]}` |
 | wand → Dial | `{"type":"code_get","id":r,"from":i,"n":w}` (window of at most 16) |
 | Dial → wand | raw frames `CX` + id(1) + seq(2) + up to 245 B |
 | wand → Dial | `{"type":"code_done","id":r,"ok":b[,"why":...]}` |
@@ -141,7 +143,19 @@ A `code_req` with `host` set to another Dial's `HOST_ID` is ignored. Up to
 `MAX_SESSIONS` (6) wands are served at once; more get a `busy` offer and
 retry. A session idle for `SESSION_IDLE_MS` (15 s) is dropped and reported as
 a failed pull. Files are `/flash/games/<slug>.py`; an empty slug means
-`/flash/active.txt`. The icon-display role is not served yet.
+`/flash/active.txt`.
+
+Roles served (`code_sender.ROLE_FILES`): `wand` (and an empty `hub`) gets
+`/flash/games/<slug>.py`; `icon_display` gets `<slug>_icon.py`, offered as
+`<slug>.py`. The `icon_display` offer also carries `icons_n` (how many files
+are in `/flash/games/<slug>_icons/`, `.py` only, at most 64) and `icons`, the
+names that fit one 250 B ESP-NOW frame. The display asks for the rest with
+`list_from`, answered by `code_icons`, then sends one `code_req` with `file`
+per icon; the sender offers it under that name. A `file` request needs an
+explicit slug and a role with icons; names containing `/` or `..`, or not
+ending in `.py`, are refused with `why` `"no such icon"`. Icon transfers are
+counted in `icons_served` / `icons_failed` and do not touch `last_result` or
+`stats_log`.
 
 `CodeLink.poll(on_event, should_abort)` handles one radio message per call.
 `on_event` fires `'serving'` when a wand is offered a file and `'ok'`/`'fail'`
@@ -192,8 +206,10 @@ Same commands and events as the Box, with these differences:
 - `ssid` is always `null` in `armed`, `mode` and the `arm` reply.
 - `arm` enters SERVE and `disarm` leaves it.
 - Each finished transfer sends
-  `{"type":"pull","slug":s,"role":"wand","wand":"<mac>","ok":b,"ms":n,"why":w}`;
-  an idle-dropped session has `slug`, `wand` and `ms` null and `why` `"idle"`.
+  `{"type":"pull","slug":s,"role":r,"wand":"<mac>","ok":b,"ms":n,"why":w}`;
+  `slug` and `role` are the served game's slug and the requester's `hub`
+  (`wand` or `icon_display`). An idle-dropped session has `slug`, `wand` and
+  `ms` null and `why` `"idle"`.
 
 Identity payload:
 
@@ -257,7 +273,7 @@ Verified on hardware 2026-10-20 (`docs_and_design/2026-10-20-espnow-serving/RESU
 
 Open:
 
-- Several wands at once, and the icon-display role.
+- Several wands at once, and the icon-display role on hardware (offline tests only).
 - Off-USB (battery) speaker volume check for `SPEAKER_VOLUME` in `dial_board.py`.
 - The buzzer was reported as only clicking on 2026-10-20; not yet compared with the
   pre-ESP-NOW firmware.

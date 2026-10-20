@@ -145,6 +145,8 @@ dropped and its pull fails.
 |---|---|
 | wand -> broadcast | `{"type":"code_req","id":r,"slug":s,"hub":h[,"host":id]}` |
 | Box -> wand | `{"type":"code_offer","id":r,"name":n,"size":N,"sha":hex,"chunks":K,"chunk":245}`; `size` 0 is a refusal (`why`) |
+| display -> Box | `{"type":"code_req","id":r,"slug":s,"hub":h,"file":<icon>}` (one icon) or `{...,"list_from":k}` (next page of icon names) |
+| Box -> display | `{"type":"code_icons","id":r,"from":k,"n":total,"icons":[...]}` |
 | wand -> Box | `{"type":"code_get","id":r,"from":i,"n":w}` (window of at most 16) |
 | Box -> wand | raw frames `CX` + id(1) + seq(2) + up to 245 B |
 | wand -> Box | `{"type":"code_done","id":r,"ok":b[,"why":...]}` |
@@ -154,6 +156,19 @@ written for a Dial (`@004c`) does nothing on the Box. Up to `MAX_SESSIONS` (6)
 wands are served at once; more get a `busy` offer and retry. A session idle
 for `SESSION_IDLE_MS` (15 s) is dropped and reported as a failed pull. Files
 are `/flash/games/<slug>.py`; an empty slug means `/flash/active.txt`.
+
+Roles served (`code_sender.ROLE_FILES`): `wand` (and an empty `hub`) gets
+`<slug>.py`; `icon_display` gets `<slug>_icon.py`, offered as `<slug>.py`. The
+`icon_display` offer also carries `icons_n` (how many files are in
+`/flash/games/<slug>_icons/`, `.py` only, at most 64) and `icons`, the names
+that fit one 250 B ESP-NOW frame. The display asks for the rest with
+`list_from`, answered by `code_icons`, then sends one `code_req` with `file`
+per icon, offered under that name. A `file` request needs an explicit slug and
+a role with icons; names containing `/` or `..`, or not ending in `.py`, are
+refused with `why` `"no such icon"`. Icon transfers are counted in
+`icons_served` / `icons_failed` and do not touch `last_result` or `stats_log`.
+The `pull` serial event carries the served game's `slug` and the requester's
+`hub` as `role`.
 
 `CodeLink.poll(on_event, should_abort)` handles one radio message per call.
 `on_event` fires `'serving'` when a wand is offered a file and `'ok'`/`'fail'`
@@ -210,7 +225,6 @@ suffixes"): `_boot_scan_games()` skips any name ending in one of them when
 building the game menu. A game slug may not end in a reserved suffix.
 `ChatBroadcast/js/gameName.js` refuses these slugs client-side; the
 device-side scan is the backstop for anything that reaches it another way.
-The icon-display role is not served over ESP-NOW yet.
 
 Alongside `/flash/games/<slug>.py`, ChatBroadcast pushes
 `/flash/games/<slug>.tags.json` -- a JSON array of the game's tag names --
@@ -226,7 +240,7 @@ group, whatever is loaded.
 
 The protocol is hand-duplicated in `BBoxFirmware/code_sender.py`,
 `BroadcastDial/BDialFirmware/code_sender.py`, `EspnowModem/host/code_sender.py`
-and the wand's puller; no shared module. Each carries a `PEER:` comment.
+and the wand and display receivers (`espnow_code.py`); no shared module. Each carries a `PEER:` comment.
 Change them together.
 
 ## Files
@@ -431,7 +445,7 @@ Open:
 
 - Off-USB (battery) operation.
 - Readability of the black UI (`DARK`) in a classroom.
-- Several wands at once, and the icon-display role.
+- Several wands at once, and the icon-display role on hardware (offline tests only).
 - **Re-selects miss intermittently at the RF level.** Seen with
   `crypto=False`, i.e. not the latch above -- a card drifting out of range.
   Costs a retry; a write aborts on the first miss rather than retrying.

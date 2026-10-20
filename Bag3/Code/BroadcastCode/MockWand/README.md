@@ -30,7 +30,12 @@ copy fixes only that copy; `tools/devtests/test_wand_copies.py` reports drift.
    atomically, keeping `.bak`. No WiFi join, no radio switch, no reset.
 4. The wand launches the new game.
 
-On failure the existing file on flash is untouched. The sender side is
+On failure the existing file on flash is untouched.
+
+`lib/espnow_code.py` has three hand-kept copies: this one,
+`EspnowModem/MockWandEUM/lib/espnow_code.py` and
+`IconDisplay/lib/espnow_code.py`. This wand does not pass `icon_dir`, so the
+icon leg of `receive()` is unused here. The sender side is
 `BroadcastBox/BBoxFirmware/code_sender.py` and the Dial's copy; the message
 set is in `BroadcastDial/README.md`, "Serving over ESP-NOW".
 
