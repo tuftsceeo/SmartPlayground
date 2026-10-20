@@ -115,6 +115,27 @@ DANGER_BG = 0xFDECEA     # --danger-bg
 WARN_FG = 0xA8781E       # --warn
 WARN_BG = 0xFFF8E0       # --warn-bg
 
+# Power saving: black ground (less backlight-visible fill, same tokens'
+# hues brightened for contrast) and no speaker. The Box resets on a
+# current-limited USB supply under radio load (known_issues/2026-09-01).
+DARK = True
+SOUND = False
+if DARK:
+    PAGE_BG = 0x000000
+    CARD_BG = 0x15131C
+    INK = 0xF2F0F7
+    INK_2 = 0xD8D4E2
+    INK_3 = 0xA9A3B8
+    BORDER = 0x2E2A38
+    WRITE_FG = 0x9C84F0
+    WRITE_BG = 0x1E1638
+    SERVE_FG = 0x3CCBAE
+    SERVE_BG = 0x0C2620
+    DANGER_FG = 0xF0705F
+    DANGER_BG = 0x2E1210
+    WARN_FG = 0xE0B04A
+    WARN_BG = 0x2A2108
+
 # --led-blue -- not a status/semantic token (those are all already spoken
 # for: purple=write, teal=serve/share, pink=primary action, red=danger,
 # amber=warn), but still straight from the same tokens/colors.css palette.
@@ -461,6 +482,8 @@ class BboxUI(object):
     # ── audio (same tones as every prior version of this file) ─────
 
     def _tone(self, freq, ms):
+        if not SOUND:
+            return
         try:
             M5.Speaker.tone(freq, ms)
         except Exception as e:
