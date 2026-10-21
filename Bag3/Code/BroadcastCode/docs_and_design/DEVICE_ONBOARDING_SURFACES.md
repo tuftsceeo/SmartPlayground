@@ -3,10 +3,8 @@
 Scope: what must be written or changed to make a new playground device a target
 ChatBroadcast can generate code for and the Broadcast Box or Dial can serve.
 
-> The Box and Dial serve over ESP-NOW (`code_link.py` + `code_sender.py`). References below to
-> `ROLE_FILES` and `code_server.py` describe the SoftAP-era server, whose files are still on
-> disk; the ESP-NOW equivalent is `ROLE_SUFFIX` in `code_sender.py`, which holds only the wand
-> role so far.
+> The Box and Dial serve over ESP-NOW (`code_link.py` + `code_sender.py`). `ROLE_FILES` in
+> `code_sender.py` maps each role to its file suffix and whether it is sent icons.
 
 **The wand is the baseline.** `MockWand/` is the default case in every sense that
 matters here: it is what an undesignated game file is for, what `DEFAULT_ROLE`
@@ -29,7 +27,7 @@ device and carry measured reasons.
 
 | Concern | Files |
 |---|---|
-| Game pull | `lib/espnow_code.py` (wand). `code_puller.py` / `pull_flag.py` are the SoftAP pull across a reset, which the Box and Dial no longer serve |
+| Game pull | `lib/espnow_code.py` |
 | Games on flash | `lib/game_store.py` |
 | Radio | `lib/espnow_manager.py` |
 | Device config | `lib/hubtype.py` |
@@ -40,40 +38,26 @@ All are PEER copies: a fix in one is not a fix in the others.
 
 ### Rules that come with them
 
-The Box and Dial serve over ESP-NOW. Rules 1-4 below describe the SoftAP pull in
-`code_puller.py` / `pull_flag.py`, which a device without an ESP-NOW receiver (the
-Icon Display today) still carries; a device that receives with
-`lib/espnow_code.py` pulls in place on the radio it already has up, with no reset.
-
-1. **`pull_flag.is_pending()` is `main()`'s first statement.** Nothing before it may
-   import `espnow_manager` or any other radio-claiming module. A SoftAP join only
-   succeeds on a radio ESP-NOW has never touched this boot, and MicroPython exposes no
-   `esp_wifi_deinit()` to clear it from Python. `pull_flag.py`'s docstring records the
-   measurement: cold, transfers first try; warm, 3/3 real taps failed.
-2. **A `getcode:<slug>` tap queues and resets — it never pulls in place.**
-   `set_pending(slug)` then `machine.reset()`.
-3. **The attempt budget is spent before each attempt** (`pull_flag.bump()`), so a crash
-   mid-pull cannot boot-loop.
-4. **Only a broken transfer retries.** `noap`, `nojoin`, `norequest` and success all
-   clear the flag — a second boot would scan the same air, join the same AP and ask for
-   the same missing game.
-5. **Radio before any large allocation.** `esp_wifi_init()`/`esp_wifi_start()` need
+1. **`getcode` pulls in place.** `lib/espnow_code.py` receives the game over the ESP-NOW
+   link already up, with no reset. On failure the old copy stays and the device shows
+   the failure glyph (no host, no such game, busy, broken transfer).
+2. **Radio before any large allocation.** `esp_wifi_init()`/`esp_wifi_start()` need
    contiguous internal IDF heap that MicroPython's GC heap is carved out of. A device
    whose allocations are small may reorder, but must `memprobe.probe()` around each
    radio stage to confirm on the first bench run.
-6. **No boot grace periods.** All are zero; `kbd_intr()` is never disabled, so Ctrl-C
+3. **No boot grace periods.** All are zero; `kbd_intr()` is never disabled, so Ctrl-C
    always reaches the REPL.
-7. **Pulled games live in `/games/<slug>.py`, never the flash root.** `main.py` appends
+4. **Pulled games live in `/games/<slug>.py`, never the flash root.** `main.py` appends
    `/games` to `sys.path`; root precedes it, so a stale root copy would shadow a freshly
    pulled one.
-8. **Slugs are MicroPython module names** — lowercase, leading letter, `[a-z0-9_]`, ≤16
+5. **Slugs are MicroPython module names** — lowercase, leading letter, `[a-z0-9_]`, ≤16
    chars. Enforced in three places that must agree: `ChatBroadcast/js/gameName.js`
    (`slugify`/`isValidSlug` and its reserved list), `lib/nfc_reader.py`
    (`is_valid_slug`), `lib/game_store.py`.
-9. **Errors surface loudly.** No `try/except: pass`, no silent degradation. A missing
+6. **Errors surface loudly.** No `try/except: pass`, no silent degradation. A missing
    capability costs that capability and nothing else — a device with no card reader
    still boots, still pulls, still plays.
-10. **Games are optional skills.** A tag for a game this device lacks gives a warning,
+7. **Games are optional skills.** A tag for a game this device lacks gives a warning,
     never a load failure.
 
 ---
@@ -126,8 +110,7 @@ it imports nothing from the other trees.
 | `hubtype.txt` | one line, the hubtype string | — |
 | `boot.py` | must not drive any output device | `MockWand/boot.py` (PEER) |
 | `main.py` | new — see below | shape of `MockWand/main.py` |
-| `code_puller.py` | `REQ_V2`, `_write_request()`, `pull(...)` | `MockWand/code_puller.py` (PEER) |
-| `pull_flag.py` | `PATH`, `MAX_ATTEMPTS`, `set_pending`/`bump`/`budget_left`/`requested_slug`/`clear` | `MockWand/pull_flag.py` (PEER) |
+| `lib/espnow_code.py` | `receive(...)` | `MockWand/lib/espnow_code.py` (PEER) |
 | `lib/hubtype.py` | the `_CONFIGS` entry for this device | `MockWand/lib/hubtype.py` (PEER ×4, already divergent in content) |
 | `lib/espnow_manager.py` | `ESPNowManager` | `MockWand/lib/espnow_manager.py` (PEER) |
 | `lib/game_store.py` | `GAMES_DIR='/games'`, `is_valid_slug`, `slugs`, `exists`, `set_last_pulled`/`take_last_pulled` | `MockWand/lib/game_store.py` (PEER) |
@@ -164,7 +147,7 @@ All present in `MockWand/main.py`.
 | `_load_play()`, `_unload_game()`, `_launch_game()` | `:375`, `:394`, `:487` | Lazy import, force-switch chaining on an in-game `start_game` |
 | `_start_play()` | `:457` | Tolerates an older, shorter `play()`. Reads `__code__.co_argcount` and makes the right call first time; where the port does not expose it, the full call is tried and an arity `TypeError` falls back. A parameter added after games were written and pulled would otherwise make every earlier game dead on the device |
 | `_game_load_failed()` | `:416` | Loud: visible failure signal plus `sys.print_exception()` |
-| `_run_pull_mode()`, `_pull_status()`, `_pull_progress()`, `_pull_fail()` | `:705`, `:672`, `:691`, `:660` | The five terminal outcomes and the in-progress feedback |
+| `_espnow_pull_and_launch()`, `_pull_progress()`, `_pull_fail()` | — | Each pull outcome and the in-progress feedback |
 | `run_event_loop()` | `:569` | Poll `enow` every iteration; handle `start_game`, `stop`, game tags, `getcode:<slug>`. An unknown game over ESP-NOW is ignored, not an error |
 | `main()` | `:798` | Ordering per the inherited rules above |
 
@@ -177,8 +160,8 @@ Box's copy and not the Dial's leaves the device working on one and refused on th
 
 | File | Symbol | Change |
 |---|---|---|
-| `BroadcastBox/BBoxFirmware/code_sender.py` | `ROLE_SUFFIX` | Role-to-suffix map. It holds only the wand role: serving a non-wand role needs the sender protocol extended first (`docs_and_design/2026-10-20-espnow-serving/PLAN.md`, Phase 2 step 3) |
-| `BroadcastDial/BDialFirmware/code_sender.py` | `ROLE_SUFFIX` | Identical entry |
+| `BroadcastBox/BBoxFirmware/code_sender.py` | `ROLE_FILES` | Role -> (file suffix, sends icons) |
+| `BroadcastDial/BDialFirmware/code_sender.py` | `ROLE_FILES` | Identical entry |
 | `BroadcastBox/BBoxFirmware/bbox_server.py:676` | `_boot_scan_games()` | Add the new designator to the skip list |
 | `BroadcastDial/BDialFirmware/bdial_server.py:668` | `_boot_scan_games()` | Identical change |
 
@@ -242,9 +225,9 @@ device. It replaces the table that was here, which predated `roles.js`.
 | Test | Change for a new device |
 |---|---|
 | `compile_check.sh` | `py_compile` over `Bag3/Code`; picks the tree up automatically — confirm its glob reaches it |
-| `wire_contract.py` → `wire_test.py`, `wire_test_dial.py` | New role cases: a v2 request resolves `<slug><designator>.py`, and an unknown hubtype is still refused. Run against Box and Dial |
+| `test_dial_code_link.py`, `EspnowModem/tests/test_espnow_serve.py` | New role cases: a `code_req` with the new hub resolves `<slug><designator>.py`, and an unknown hubtype is still refused |
 | `game_menu_scan.py` | Assert the boot scan skips the new designator on both |
-| `boot_<device>.py` (new) | Nothing radio-claiming imported before `_run_pull_mode()`; boot order; dispatch and force-switch chain; each pull outcome's feedback; loud load failure |
+| `boot_<device>.py` (new) | Boot order; dispatch and force-switch chain; each pull outcome's feedback; loud load failure |
 | `chatbroadcast_flow.mjs` | Extend to an N-block reply; assert the exact file list and ordering `pushPayload` writes, one raw-REPL session, one soft reset, reset last |
 | `role_state.mjs` | Extend to an N-role cycle |
 | `stubs/` | Add a stub for any module the tree imports that does not exist off-device |
@@ -279,8 +262,7 @@ Comments for now; deduplication is a later refactor.
 | File | Copies |
 |---|---|
 | `code_sender.py`, `code_link.py` | BroadcastBox, BroadcastDial (`code_sender.py` also `EspnowModem/host/`) |
-| `code_puller.py` | MockWand, IconDisplay |
-| `pull_flag.py` | MockWand, IconDisplay (byte-identical) |
+| `espnow_code.py` | MockWand/lib, IconDisplay/lib, EspnowModem/MockWandEUM/lib |
 | `game_store.py` | MockWand/lib, IconDisplay/lib (byte-identical) |
 | `hubtype.py` | MockWand/lib, IconDisplay/lib, Bag3/Code/lib, Bag2/Code/lib — **divergent in content** |
 | `espnow_manager.py` | MockWand/lib, IconDisplay/lib, Bag2/Code/lib, Bag3/Code/lib, hubCode2, M5Paper Remote, StickS3 Narrator, Simulator |
@@ -302,28 +284,26 @@ Tag vocabulary is duplicated separately with nothing enforcing consistency:
 1. The wand is the baseline. A new device is described by how it deviates, and each
    deviation is declared in exactly one place.
 2. Each device gets its own tree and its own `lib/`. No shared device abstraction.
-3. hubtype string, `_CONFIGS` key and `ROLE_SUFFIX` key are the same string.
+3. hubtype string, `_CONFIGS` key and `ROLE_FILES` key are the same string.
 4. No designator is the wand's. Every other device declares its own, distinct one.
 5. Each designator becomes a reserved slug ending.
-6. Add the role to `ROLE_SUFFIX` in **both** `code_sender.py` copies in one commit.
+6. Add the role to `ROLE_FILES` in **all three** `code_sender.py` copies in one commit.
 7. Add the designator to **both** `_boot_scan_games()` copies in the same commit.
 8. `<slug><designator>.py` is a Box/Dial staging name only. On the device the file is
    always plain `<slug>.py`.
-9. `pull_flag.is_pending()` is `main()`'s first statement; nothing radio-claiming is
-   imported before it.
-10. A `getcode` tap queues a pull and resets; it never pulls in place.
-11. Radio comes up before any large allocation, unless `memprobe` proves otherwise on
+9. A `getcode` tap pulls in place over ESP-NOW; it never resets.
+10. Radio comes up before any large allocation, unless `memprobe` proves otherwise on
     hardware.
-12. Errors surface loudly. No `try/except: pass`, no silent degradation. A missing
+11. Errors surface loudly. No `try/except: pass`, no silent degradation. A missing
     capability costs that capability and nothing else.
-13. Games are optional skills. A tag for a game this device lacks gives a warning, not
+12. Games are optional skills. A tag for a game this device lacks gives a warning, not
     a load failure.
-14. Device code is MicroPython: `%` formatting, no f-strings, no type annotations, no
+13. Device code is MicroPython: `%` formatting, no f-strings, no type annotations, no
     `typing`/`dataclasses`/`pathlib`/`logging`. Any loop doing serial I/O sleeps `1 ms`
     unconditionally every iteration. (The repo-root `AGENTS.md` says the opposite —
     "f-strings are used throughout, don't fix them". Flagged, not reconciled: no device
     tree under `Bag3/Code/` or `Bag2/Code/Wand Module/` contains an f-string, and ChatBroadcast's
     `knowledge/platform.md` states that f-strings crash this MicroPython build.)
-15. One knowledge file per device type, `ChatBroadcast/knowledge/devices/<role>.md`,
+14. One knowledge file per device type, `ChatBroadcast/knowledge/devices/<role>.md`,
     following `devices/_TEMPLATE.md`.
-16. Fixing one PEER copy fixes only that copy. Say which tree was touched.
+15. Fixing one PEER copy fixes only that copy. Say which tree was touched.

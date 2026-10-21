@@ -84,9 +84,8 @@ the MockWand, 2026-09-26 (see
   block is 40,960 B, unchanged across every run.
 - The threshold lies between 33 KB and 57 KB and has not been narrowed.
 
-The WiFi pull (`code_puller._compiles()`) and the ESP-NOW receiver
-(`MockWandEUM/lib/espnow_code.py`) both reject an over-size file after the
-full transfer, leaving the previous copy in place. The teacher only sees the
+The wand's ESP-NOW receiver (`lib/espnow_code.py`) rejects an over-size
+file after the full transfer, leaving the previous copy in place. The teacher only sees the
 wand's failure display. A check in ChatBroadcast would refuse, or warn about,
 an over-size generated game before sending it, and could ask the model to
 shorten it. The threshold must be measured first, and it may differ per

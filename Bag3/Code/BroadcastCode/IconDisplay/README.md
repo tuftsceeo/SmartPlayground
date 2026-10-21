@@ -4,7 +4,7 @@ A 16×16 WS2812B panel (256 px) on a XIAO ESP32-C6 that loads, runs, switches
 and unloads single-file game modules, the way MockWand does.
 
 It gets those files from the Broadcast Box: tap a `getcode:<slug>` card, the
-display pulls over ESP-NOW (`CODE_VIA_ESPNOW = True` in `main.py`): it
+display pulls over ESP-NOW: it
 broadcasts a `code_req` with `hub:"icon_display"` (pinned to the card's `@<id>`
 host when present) and `lib/espnow_code.py` `receive(..., icon_dir=)` fetches
 `<slug>_icon.py` and then each icon the offer names (the offer's `icons` plus
@@ -12,10 +12,6 @@ host when present) and `lib/espnow_code.py` `receive(..., icon_dir=)` fetches
 On success the display resets into the new game; on failure the old copy
 stays and it returns to idle. Icons are checked by size and SHA-256 only, and
 a failed icon does not fail the game.
-
-With `CODE_VIA_ESPNOW = False` the tap queues a pull and reboots, and the next
-boot runs `code_puller.py` (SoftAP join, TCP pull). The Box and Dial no longer
-run a SoftAP, so that path has no server to join.
 
 This display's `lib/espnow_manager.py` does not set `ESPNOW_RXBUF`, so the
 ESP-NOW driver keeps its default receive buffer (526 B, about 2 frames).
@@ -55,9 +51,6 @@ icon_store.py      read/write icons/<name>.py as text
 icon_server.py     USB command set for the icon editor; PEER of the station's
 json_link.py       one JSON object per line, printable ASCII only
 espnow_code.py    ESP-NOW pull of the game and icons; copy of MockWand/lib/
-code_puller.py     SoftAP pull (CODE_VIA_ESPNOW = False); PEER of
-                   MockWand/code_puller.py (the Box/Dial no longer serve it)
-pull_flag.py       what a getcode tap leaves behind across the reboot
 goalrace.py        built-in game (the display half of the two-device pair)
 scoreboard.py      built-in game (running tally, the draw16/chart16 demo)
 icons/             named icons, referenced from a game by name
@@ -86,8 +79,8 @@ Nothing runs that check automatically.
 
 ### draw16 and chart16 are firmware-resident
 
-`code_puller.py` pulls a game its own file and its icons; the server's
-`ROLE_FILES` had no `lib` leg and the staging tree carries no `lib/`. A game that imports
+`lib/espnow_code.py` pulls a game its own file and its icons; the sender's
+`ROLE_FILES` has no `lib` leg and the staging tree carries no `lib/`. A game that imports
 `draw16` or `chart16` therefore raises ImportError on a display flashed
 before they were added. Flash the display before handing out games that use
 them.
@@ -167,10 +160,7 @@ equivalent to mirror.
   that same heap in splits that are never returned, and `Matrix()` takes a
   768-byte NeoPixel buffer, a 512-byte offset table, a 256-byte LUT and a
   768-byte frame. Building the panel first is what produced
-  `OSError: WiFi Out of Memory` on the wand. The same constraint applies to
-  `code_puller.py`, which `main.py` imports before the pull's own
-  `sta.active(True)`: keep diagnostics in `pull_probe.py`, imported lazily
-  after the join. See
+  `OSError: WiFi Out of Memory` on the wand. See
   [`docs_and_design/2026-09-23-ap-memory-order.md`](../docs_and_design/2026-09-23-ap-memory-order.md).
 - **`MAX_INTENSITY = 0.50`** is a measured supply ceiling, not a preference.
   See the station tree's `readme.md` for the voltage ramp behind it.

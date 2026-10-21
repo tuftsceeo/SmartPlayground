@@ -8,7 +8,7 @@ the two copies are expected to diverge. Differences from MockWand:
 - **`lib/espnow_manager.py`:** sets `ESPNOW_RXBUF = 4096` before `active(True)`, at radio bring-up. The MicroPython default of 526 B holds about 2 frames.
 - **`main.py`:**
   - **`_load_play()`:** a game with no `GAME_ICON` entry (every pulled game) shows nothing while it loads, instead of the white music note.
-  - **`CODE_VIA_ESPNOW = True`:** a `getcode` tap calls `_espnow_pull_and_launch()`, which receives the game and launches it in place. `False` restores the original pull_flag / reset / `code_puller` SoftAP path, which no Box or Dial serves any more. The card's `@<id>` suffix is sent as `"host"` in `code_req`, so only that sender answers; a card without it is answered by any sender in range.
+  - **`getcode`:** a tap calls `_espnow_pull_and_launch()`, which receives the game and launches it in place. The card's `@<id>` suffix is sent as `"host"` in `code_req`, so only that sender answers; a card without it is answered by any sender in range.
   - **`REMOTE_GETCODE = True` (bench):** a broadcast `{"type":"getcode","slug":s}` acts as a tap, so transfers can be repeated without a card.
   - **Result line:** each transfer prints a JSON `enx_result` line with total/body ms, bytes and `min_gc_free`, plus the usual `memprobe` lines `enx:pre` / `enx:post`.
 
@@ -18,8 +18,7 @@ The sender is `EspnowModem/host/code_sender.py`, run by `host/code_host.py`. The
 
 # Mock Wand — Bag3 wand copy for Broadcast Box tap-to-pull
 
-Copy of `Bag3/Code/Wand Module/` plus `code_puller.py` (the SoftAP path
-used only when `CODE_VIA_ESPNOW` is `False`). Same C6 hardware and pin map as the fielded Bag3 wand.
+Copy of `Bag3/Code/Wand Module/` plus the ESP-NOW code pull. Same C6 hardware and pin map as the fielded Bag3 wand.
 
 ## lib/ copies
 
@@ -34,7 +33,7 @@ either file, `diff` the two copies.
 
 1. Box or Dial writes a `getcode:<slug>@<id>` card.
 2. Wand taps the card in its idle loop.
-3. With `CODE_VIA_ESPNOW`, `espnow_code.receive()` pulls the game over the
+3. `espnow_code.receive()` pulls the game over the
    ESP-NOW link already up, verifies sha256 and `compile()`, and promotes it.
 4. The wand launches the game in place, without a reset.
 
@@ -42,15 +41,12 @@ On failure the existing file on flash is untouched.
 
 ## Boot grace
 
-Five-second countdown at the top of `main()` before NFC/ESP-NOW init. Ctrl-C
-during the window reaches the REPL — recovery if a pull loop wedges.
+`GRACE_S` seconds of countdown (0 by default) at the top of `main()` before
+NFC/ESP-NOW init. Ctrl-C during the window reaches the REPL.
 
-## Driving the pull path without a person
+## Driving tag parsing without a card
 
-Set the flag the tap would have set, then reset:
-`pull_flag.set_pending('<slug>')`, then `machine.reset()`.
-
-Tag-text parsing can be driven the same way: call
+Call
 `NfcReader._match_prefixed()` / `is_valid_slug()` on-device against
 synthetic strings. This does not exercise the NDEF decode path — a real
 card read is a separate check.
@@ -64,18 +60,10 @@ precedes `/games` on the path and would shadow the new copy with a stale one.
 
 Load-bearing, must survive any future edit:
 
-- The pull-flag check is `main()`'s first statement — a pull must happen
-  before `ESPNowManager` is constructed.
-- No ESP-NOW in the pull path — a WiFi join only succeeds on a radio
-  ESP-NOW has never touched this boot.
-- `machine.reset()` between radio modes — the tap queues the pull and
-  resets; the pull succeeds and resets again.
-- The attempt budget is spent before each attempt (`pull_flag.bump()`), so a
-  crash mid-pull cannot boot-loop.
 - **Nothing allocates ahead of the radio.** See below — this one is easy to
   break by adding a print.
 
-## Radio memory order — do not add prints ahead of the join
+## Radio memory order — do not add prints ahead of the radio
 
 `esp_wifi_init()`/`esp_wifi_start()` need one large **contiguous** block of
 internal IDF heap, and the radio has to take it early: MicroPython's GC heap
@@ -89,27 +77,10 @@ reads as a comfortable free-heap number sitting next to
 Its `_idf_free()` returns total free **and largest free block** for that
 reason — the second number is the one that decides.
 
-Two places on this device claim the block, and both have a queue of imports
-ahead of them:
-
-- **Normal boot** — `ESPNowManager.init()`. `main.py` imports roughly fifteen
-  modules at module scope before `main()` runs, and every game module it
-  pulls in costs heap before the radio gets its turn. A new built-in game is
-  not free.
-- **Pull mode** — `sta.active(True)` in `code_puller._reset_sta()`.
-  `main.py` imports `code_puller` inside `_run_pull_mode()`, *before* the
-  join, so anything at that module's scope — a docstring, a format string, a
-  function object — is allocated ahead of the block.
-
-So:
-
-1. No new module-scope content in `code_puller.py`. Import-time cost is paid
-   whether or not the code runs.
-2. Diagnostics go in `pull_probe.py`, imported lazily once
-   `sta.isconnected()` is true, behind `DEBUG_PULL` (default off). With the
-   flag off it is never parsed.
-3. Anything logged about the boot itself — `reset_cause()`, battery — prints
-   *after* the pull returns, not before it.
+`ESPNowManager.init()` claims the block. `main.py` imports roughly fifteen
+modules at module scope before `main()` runs, and every game module it pulls
+in costs heap before the radio gets its turn. A new built-in game is not
+free, and diagnostics go in a module imported lazily after bring-up.
 
 The same constraint bit the Dial and Box on 2026-09-23, from the server side:
 [`docs_and_design/2026-09-23-ap-memory-order.md`](../docs_and_design/2026-09-23-ap-memory-order.md)
@@ -145,9 +116,8 @@ raw REPL: verify hubtype.txt == "wand", os.mkdir('/games') if needed,
 exit raw REPL, Ctrl-D (soft reset)
 ```
 
-`set_last_pulled()` reuses the auto-launch path a real ESP-NOW pull uses
-(`MockWand/lib/game_store.py`, `MockWand/main.py`'s "Auto-launch a
-just-pulled game") — the wand plays the game on the next boot, no card
+`set_last_pulled()` marks the game for `MockWand/main.py`'s "Auto-launch a
+just-pushed game" block — the wand plays the game on the next boot, no card
 involved.
 
 The wand has no command listener. `MockWand/main.py` prints one JSON line

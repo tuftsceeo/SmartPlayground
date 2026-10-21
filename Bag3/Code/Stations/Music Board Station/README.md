@@ -41,7 +41,7 @@ Staff index = `col * 8 + (7 - row)`; row 0 = low C at the bottom.
 
 1. Copy the folder contents to the board root (`lib/` and `notes/` as folders).
 2. Boot once and read the serial line `Music Board ready: sticker text musicbox@<id>`. `<id>` is
-   the last two bytes of `machine.unique_id()` in hex, the same scheme as `code_server.HOST_ID`.
+   the last two bytes of `machine.unique_id()` in hex, the same scheme as `code_link.HOST_ID`.
 3. Write an NTAG sticker with NDEF text `musicbox@<id>` and fix it to the board face.
 
 ## Protocol

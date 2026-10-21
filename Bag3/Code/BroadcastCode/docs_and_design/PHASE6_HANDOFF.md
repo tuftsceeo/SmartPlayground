@@ -4,11 +4,10 @@ For an agent continuing this work **without hardware access**. Everything below
 is host-verifiable. Do not ask for a device test until the phase 6 implementation
 is complete and the checks in *Verification* pass.
 
-> The pull path described here (`code_server.py` SoftAP/TCP, `code_puller.py`, `ROLE_FILES`,
-> the Dial's SERVE-mode AP) is no longer what the Box and Dial run. They serve wands over
-> ESP-NOW (`BroadcastDial/README.md`, "Serving over ESP-NOW"), serving only the wand role. The
-> Icon Display still carries `code_puller.py` and has no ESP-NOW receiver, so steps 4 and the
-> `pull_flag` incantations below do not work for it today.
+> The SoftAP/TCP pull path described here (`code_server.py`, `code_puller.py`, `pull_flag.py`,
+> `wire_test*.py`) has been deleted. The Box and Dial serve wands and the Icon Display over
+> ESP-NOW (`BroadcastDial/README.md`, "Serving over ESP-NOW"); the receivers are
+> `lib/espnow_code.py`.
 
 Branch: `claude/document-review-plan-c0zf2i`.
 

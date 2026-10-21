@@ -255,9 +255,7 @@ Change them together.
 | `manifest.js` | File list for ChatBroadcast's installer |
 | `boot.py` | M5Stack vendor UIFlow2 boot-option stub |
 | `pn532.py`, `nfc_reader.py`, `opcodes.py` | Not imported at runtime; kept for the opcode scheme and the superseded PN532 path |
-| `code_server.py`, `serve_probe.py`, `serve_guard.py` | Superseded SoftAP/TCP path; not in `BOX_FILES`, not imported |
 | `tools/probe_stick.py` | Bench probe: Phase 0 StickS3 checks |
-| `tools/probe_ap_cycle.py` | Bench probe for the superseded SoftAP path; not part of `BOX_FILES` |
 | `tools/box_menu_check.py` | Host-side (no hardware) check of the WRITE-menu logic |
 | `tools/widget_test.py` | Bench diagnostic: `Widgets` glyph coverage + a same-value-redraw theory, both raised by hardware bug reports on `bbox_ui.py` |
 
@@ -322,8 +320,8 @@ and the field off.
 3. Teacher opens the game's group in the `WRITE` menu and writes its cards --
    `getcode:<slug>`, `<slug>`, and whatever the game itself needs.
 4. Teacher taps the card on a wand.
-5. The wand sends a `code_req`, pulls the file over ESP-NOW, and reboots into
-   the game (`MockWand/code_puller.py`).
+5. The wand sends a `code_req`, pulls the file over ESP-NOW and launches the
+   game (`MockWand/lib/espnow_code.py`).
 
 ## Serial logging
 

@@ -36,7 +36,7 @@ contiguous DRAM block that nothing allocated earlier may fragment. A docstring o
 added there is allocated at import, ahead of that block, and can make bring-up fail with
 `WiFi Out of Memory` at a healthy-looking `gc.mem_free()`. This has cost two sessions.
 `code_sender.py` is imported lazily in `CodeLink.arm()`, after the radio is up. Diagnostics belong
-in a separate module imported lazily after bring-up. The unused `code_server.py` / `code_puller.py` still on disk follow the same rule. See
+in a separate module imported lazily after bring-up. See
 [Code/BroadcastCode/docs_and_design/2026-09-23-ap-memory-order.md](Code/BroadcastCode/docs_and_design/2026-09-23-ap-memory-order.md).
 
 ## `Wand Module/readme.md` and `GAME_AUTHORING_GUIDE.md` are unmodified Bag2 copies

@@ -19,15 +19,15 @@ filenames). Search front matter with `grep -l '<term>' Bag3/Code/known_issues/*.
 | [2026-09-01-bbox-usb-reboots.md](2026-09-01-bbox-usb-reboots.md) | BroadcastBox firmware power/resets | open | `BBoxFirmware/known_issue.md` (restored from `fc25de7^`) |
 | [2026-09-04-chatbroadcast.md](2026-09-04-chatbroadcast.md) | ChatBroadcast gallery, simulator, game size | partly outdated | `ChatBroadcast/9-4-known_issues.md` |
 | [2026-09-29-chatbroadcast.md](2026-09-29-chatbroadcast.md) | ChatBroadcast roles, remix, Dial load | open | `ChatBroadcast/9-29-known_issues.md` |
-| [2026-09-30-known-issues.md](2026-09-30-known-issues.md) | WiFi code pull and serving | open | `docs_and_design/2026-09-30-known-issues.md` |
+| [2026-09-30-known-issues.md](2026-09-30-known-issues.md) | Code pull game size, `stats.log` | open | `docs_and_design/2026-09-30-known-issues.md` |
 
 ## By topic
 
 | Topic | Files |
 |---|---|
 | Game size / wand `compile()` heap limit | 2026-09-04, 2026-09-30 |
-| Heap fragmentation, IDF memory, radio bring-up | 2026-09-30, 2026-09-01 |
-| Resets, brownout, watchdog | 2026-09-01, 2026-09-30 |
+| Heap fragmentation, IDF memory, radio bring-up | 2026-09-01 |
+| Resets, brownout, watchdog | 2026-09-01 |
 | NFC reader (PN532, WS1850S) | 2026-09-01 |
 | Dial / Box code serving, wand pull | 2026-09-30, 2026-09-29 |
 | ChatBroadcast example gallery and remixing | 2026-09-04, 2026-09-29 |
@@ -41,7 +41,7 @@ filenames). Search front matter with `grep -l '<term>' Bag3/Code/known_issues/*.
 | BroadcastBox | 2026-09-01, 2026-09-29, 2026-09-30 |
 | BroadcastDial | 2026-09-29, 2026-09-30 |
 | Wands / MockWand (XIAO ESP32-C6) | 2026-09-04, 2026-09-29, 2026-09-30 |
-| IconDisplay, SplatCompanion | 2026-09-30 |
+| IconDisplay | 2026-09-30 |
 
 ## Firmware comments
 

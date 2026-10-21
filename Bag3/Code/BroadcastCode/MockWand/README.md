@@ -41,8 +41,8 @@ set is in `BroadcastDial/README.md`, "Serving over ESP-NOW".
 
 ## Boot grace
 
-Five-second countdown at the top of `main()` before NFC/ESP-NOW init. Ctrl-C
-during the window reaches the REPL.
+`GRACE_S` seconds of countdown (0 by default) at the top of `main()` before
+NFC/ESP-NOW init. Ctrl-C during the window reaches the REPL.
 
 ## Driving the pull path without a person
 
