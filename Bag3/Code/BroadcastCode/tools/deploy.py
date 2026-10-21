@@ -5,12 +5,12 @@ Broadcast device trees (Dial, Box, Mock Wand, Icon Display).
 Host-side tool. Not firmware; never upload this to a device.
 
 USE THIS ONLY FOR: a very stale device, or a board freshly re-flashed with
-blank firmware. For routine updates, copy the files the commits changed
-(`git diff --name-only <deployed>..HEAD`) in one `mpremote ... resume`
-invocation, then `reset` -- see HARDWARE_PROTOCOL.md "Routine updates".
-Each mpremote invocation against a running Dial took ~80 s on 2026-10-20,
-so per-file calls plus read-back (and --changed's per-file hashing) cost
-minutes for a handful of files.
+blank firmware. For routine updates: `mpremote reset`, then copy the files
+the commits changed (`git diff --name-only <deployed>..HEAD`) in ONE
+`mpremote ... resume` invocation, then `reset` -- see HARDWARE_PROTOCOL.md
+"Routine updates". On 2026-10-20 each mpremote call against the running
+Dial program took 75-85 s (breaking in, not transfer), so this script's
+per-file calls, hashing and read-back ran past 4 minutes for 8 files.
 
 Carries the same core technique BroadcastDial/BDialFirmware/tools/
 deploy_dial.py already proved on hardware: one `mpremote` invocation per

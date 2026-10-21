@@ -45,17 +45,28 @@ python3 -m mpremote connect $PORT resume \
 python3 -m mpremote connect $PORT reset
 ```
 
-### Routine updates: copy what the commits changed
+### Routine updates: reset, then copy what the commits changed
 
-List the changed device files with
-`git diff --name-only <deployed-commit>..HEAD -- <firmware dir>` and copy
-them in **one** `mpremote ... resume` invocation as above, then `reset`.
-Do not use `tools/deploy.py` for this: it is only for a very stale device
-or a board freshly re-flashed with blank firmware. Measured 2026-10-20 on
-the Dial: each `mpremote` invocation against the running program took
-80-85 s regardless of file size (6-32 KB), so `deploy.py --changed` (one
-invocation per file, hashing and read-back) ran over 4 minutes for 8 files
-without finishing; one invocation copying 3 files took 87 s.
+1. List the changed device files:
+   `git diff --name-only <deployed-commit>..HEAD -- <firmware dir>`.
+2. `mpremote connect $PORT reset` and run the copy immediately after it.
+3. Copy them all in **one** `mpremote ... resume` invocation as above.
+4. `reset` to start the new code.
+
+The cost is breaking into the running program, not the transfer. Measured
+2026-10-20 on the Dial:
+
+| Action | Time |
+|---|---|
+| `mpremote` call against the running program, one 6-32 KB file | 80-85 s |
+| `mpremote reset` against the running program | 74 s |
+| Copy 115 KB + `fs ls`, right after a fresh boot | 30 s |
+| `reset` against the freshly booted program | 1 s |
+| `tools/deploy.py --changed`, 8 files | over 4 min, stopped unfinished |
+
+Do not use `tools/deploy.py` for routine updates: it makes one invocation per
+file plus hashing and read-back. It is only for a very stale device or a
+board freshly re-flashed with blank firmware.
 
 `mpremote` is available as `python3 -m mpremote` (no `mpremote` binary on
 PATH here).

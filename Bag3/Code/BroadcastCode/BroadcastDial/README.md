@@ -259,7 +259,7 @@ python3 tools/deploy_dial.py $PORT
 It reads the file list from `manifest.js` itself, so it can't drift from
 what the batched command or the installer deploy.
 
-`tools/deploy.py` is only for a very stale device or freshly re-flashed blank firmware; for routine updates copy the changed files in one `mpremote` call (HARDWARE_PROTOCOL.md, "Routine updates"). `python3 tools/deploy.py --type dial --changed $PORT` does the same from the shared tool, copying only
+`tools/deploy.py` is only for a very stale device or freshly re-flashed blank firmware; for routine updates reset, then copy the changed files in one `mpremote` call (HARDWARE_PROTOCOL.md, "Routine updates"). `python3 tools/deploy.py --type dial --changed $PORT` does the same from the shared tool, copying only
 files whose on-device sha256 differs.
 
 ## Verified vs open
