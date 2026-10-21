@@ -162,13 +162,9 @@ def is_valid_slug(slug):
 # ─────────────────────────────────────────────
 # PER-HOST IDENTITY ("<prefix>[:<slug>]@<host_id>")
 # ─────────────────────────────────────────────
-# Several Broadcast hosts (Dial/Box) can be live in one room, each serving
-# different code from its own SP-FILEPUSH-<id> SoftAP. A getcode card can
-# name which one it means by appending "@<id>", where <id> is the writing
-# host's code_server.HOST_ID -- see card_writer callers in bdial_server.py /
-# bbox_server.py. A card with no "@<id>" (every one written before this)
-# still means "whatever SP-FILEPUSH* host answers strongest" -- see
-# code_puller.py's _find_ap().
+# Several Broadcast hosts (Dial/Box) can be live in one room. A getcode card
+# names one by appending "@<id>", the writing host's code_link.HOST_ID. A
+# card with no "@<id>" takes whichever host answers first.
 
 HOST_ID_MAX = 8
 
@@ -345,8 +341,7 @@ class NfcReader:
         module name of a pulled game (/games/<slug>.py, imported by name in
         main.py). The host id, when present, is validated the same way
         (see is_valid_host_id()) -- either rejecting anything else here
-        keeps a malformed card from ever reaching the filesystem, __import__,
-        or code_puller's SSID match.
+        keeps a malformed card from ever reaching the filesystem or __import__.
 
         A bare prefix with neither part ("getcode") is not matched here --
         read_command()'s direct membership check against self.commands

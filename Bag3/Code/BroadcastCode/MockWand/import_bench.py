@@ -110,8 +110,7 @@ def bench_sequential(unload=False):
 # ─────────────────────────────────────────────
 # Mode B -- isolated, one game per reboot
 # ─────────────────────────────────────────────
-# Reuses the pull_flag.py file-as-counter idiom verbatim (already proven
-# on this hardware) rather than inventing a second one.
+# A file on flash counts the reboots.
 def _read_index():
     try:
         with open(_COUNTER_PATH, "r") as f:

@@ -4,12 +4,11 @@
 """
 code_sender.py -- serve game files over ESP-NOW (host side)
 ============================================================
-ESP-NOW counterpart of BroadcastDial/BDialFirmware/code_server.py. Answers
-code_req from wands running MockWandEUM/lib/espnow_code.py. The wand drives
+Answers code_req from wands running MockWandEUM/lib/espnow_code.py. The wand drives
 the transfer (code_get windows); this side only reads and sends what it is
 asked for, so it holds one open file per in-flight wand and nothing else.
 
-File lookup follows code_server.py: <games_dir>/<slug><suffix>.py, an empty
+File lookup: <games_dir>/<slug><suffix>.py, an empty
 slug meaning the slug in <fs_root>/active.txt, and an unknown hubtype refused
 with a zero-size offer. The offer names the file <slug>.py whatever the
 suffix.
@@ -69,10 +68,10 @@ MAX_SESSIONS = 6
 SESSION_IDLE_MS = 15000
 BUSY_RETRY_MS = 2000
 
-# Same roles as code_server.ROLE_FILES: (file suffix, serves icons).
+# Role -> (file suffix, serves icons).
 ROLE_FILES = {"wand": ("", False), "": ("", False),
               "icon_display": ("_icon", True)}
-MAX_ICONS = 64               # same cap as code_server
+MAX_ICONS = 64
 MAX_MSG = 250                # ESP-NOW payload limit
 
 

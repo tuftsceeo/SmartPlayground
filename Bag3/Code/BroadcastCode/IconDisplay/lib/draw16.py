@@ -33,7 +33,7 @@ COORDINATES ARE (row, col) EVERYWHERE, top-left origin, matching
 icon_matrix.pixel_index()'s argument order-of-thought and the icon file
 layout. Every function in this module takes them in that order.
 
-THIS MODULE IS FIRMWARE-RESIDENT. code_server.py serves a pulled game its
+THIS MODULE IS FIRMWARE-RESIDENT. code_sender.py serves a pulled game its
 own file and its icons -- ROLE_FILES has no lib leg, and the staging tree
 carries no lib/ -- so a game that arrives over the wire can only import what
 was already flashed. A game written against draw16 fails on a display that

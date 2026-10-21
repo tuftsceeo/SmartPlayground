@@ -59,7 +59,7 @@ INDEX_PATH = GAMES_DIR + '/index.json'
 TAG_LIST = ("getcode", "jumpin")
 
 # PEER: BBoxFirmware/bbox_server.py, BDialFirmware/bdial_server.py.
-# Every non-wand ROLE_FILES suffix (in code_server.py) goes here too,
+# Every non-wand ROLE_FILES suffix (in code_sender.py) goes here too,
 # so _boot_scan_games() never enrols another device's staged file.
 STAGING_SUFFIXES = ('_icon.py', '_splat.py')
 BACK_ENTRY = "< back"
@@ -142,9 +142,8 @@ def _dbg(msg):
 
 def _card_text(label):
     """Card bytes for a menu row. getcode rows carry this host's id, so a
-    scanning wand or icon display can pin to this exact host instead of
-    whichever SP-FILEPUSH* AP its scan happened to see first (see
-    code_puller.py's _find_ap()). Only getcode rows: a bare "<slug>"/"stop"/
+    wand or icon display can pin to this exact host instead of whichever
+    host answers first. Only getcode rows: a bare "<slug>"/"stop"/
     "battery" card is not host-specific and must keep working on any host
     exactly as it read before this change. Called only where a card is
     actually written (_write_card()), never where the menu/group rows
@@ -627,7 +626,7 @@ class BboxServer:
 
         A name ending in a staging suffix (STAGING_SUFFIXES below) is another
         device's game, staged under the suffix ROLE_FILES uses to pick it
-        out for that device's pull (see code_server.py) -- it is never
+        out for that device's pull (see code_sender.py) -- it is never
         itself a playable game on this device, so it never enters the menu
         or becomes active.
         """

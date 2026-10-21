@@ -26,7 +26,7 @@ Entry point:
     panel — the icon_matrix.Matrix itself
     enow  — ESPNowManager; poll it every loop iteration
 
-Not served over the wire: draw16 is firmware-resident (code_server.py sends
+Not served over the wire: draw16 is firmware-resident (code_sender.py sends
 a pulled game its own file and icons, nothing from lib/), so this one ships
 in the tree rather than as a pullable slug.
 """

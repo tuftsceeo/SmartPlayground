@@ -3,7 +3,7 @@
  *
  * A role is a device type ChatBroadcast can generate code for. Adding one
  * means adding a row here (plus, on the firmware side, a ROLE_FILES entry
- * in code_server.py and a device tree -- see
+ * in code_sender.py and a device tree -- see
  * Bag3/Code/BroadcastCode/docs_and_design/DEVICE_ONBOARDING_SURFACES.md
  * Surface 3).
  *

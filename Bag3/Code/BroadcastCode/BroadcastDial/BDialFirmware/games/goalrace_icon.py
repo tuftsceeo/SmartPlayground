@@ -11,7 +11,7 @@ Nothing is shared between them but the ESP-NOW messages below.
 
 PEER: Bag3/Code/BroadcastCode/BroadcastBox/IconDisplay/goalrace.py is the device-tree copy
 of this file. This copy is staged here under the _icon suffix so the Box/Dial
-code_server.py can serve it to a device that identifies as icon_display (see
+code_sender.py can serve it to a device that identifies as icon_display (see
 ROLE_FILES); the device itself always saves it as plain goalrace.py. Keep the
 two in sync.
 

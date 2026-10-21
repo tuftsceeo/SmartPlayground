@@ -88,7 +88,7 @@ def set_last_pulled(slug):
     """Remember what the pull that is about to reset the chip fetched.
 
     Closed before returning: the caller resets moments later and an unflushed
-    buffer would lose it (same reasoning as pull_flag._write).
+    buffer would lose it.
     """
     try:
         ensure_dir()

@@ -1,8 +1,7 @@
 """
 espnow_code.py -- receive a game file over ESP-NOW (wand side)
 ===============================================================
-ESP-NOW counterpart of code_puller.py: no WiFi join, no radio switch, no
-reset. Runs on the ESPNowManager the wand already has up.
+No WiFi join, no radio switch, no reset. Runs on the ESPNowManager the wand already has up.
 
 The receiver drives the transfer, so it never asks for more than its ESP-NOW
 rxbuf and window buffer can hold:
@@ -29,8 +28,7 @@ not change the game's result.
 
 A window that is not complete within GET_WAIT_MS is requested again from
 its first missing chunk. The file lands as <dest>.part, is checked (size,
-sha256, compile()) and only then promoted, keeping <dest>.bak -- the same
-rules as code_puller.pull().
+sha256, compile()) and only then promoted, keeping <dest>.bak.
 
 PEER: EspnowModem/host/code_sender.py holds a hand-kept copy of the message
 names and frame layout. Change both in the same commit.
@@ -108,7 +106,7 @@ def _sleep_polling(enow, ms):
 
 
 def _compile_check(path, stats, verbose):
-    """'' if path parses, else the reason (same check as code_puller).
+    """'' if path parses, else the reason.
 
     Runs after every transfer buffer has been released, with a collect
     first, and records the heap it had to work with (pre_compile_* in

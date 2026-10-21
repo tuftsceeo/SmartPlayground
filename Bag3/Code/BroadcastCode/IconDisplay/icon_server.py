@@ -266,8 +266,7 @@ class IconServer:
         message does. There is no card reader fitted yet (see hubtype.py's
         has_nfc) and the display never pairs with a wand on its own, so this
         is the only way to start a display game on the bench short of the
-        REPL incantation in pull_flag.set_pending() -- not part of the wire
-        protocol in HARDWARE_PROTOCOL.md.
+        REPL -- not part of the wire protocol in HARDWARE_PROTOCOL.md.
 
         Refuses loudly rather than falling back to anything: an unknown
         or uninstalled slug is a mistake at the bench, not a spurious

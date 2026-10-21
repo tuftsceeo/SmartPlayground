@@ -258,7 +258,7 @@ def get_own_mac():
 
 class ESPNowManager:
     def __init__(self):
-        self.enow = None          # kept for code that clears it (code_puller)
+        self.enow = None          # kept for code that clears it
         self._link = None
         self._active = False
         self._peers = {}          # mac_str -> mac_bytes
