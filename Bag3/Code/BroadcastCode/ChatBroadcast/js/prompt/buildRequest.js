@@ -100,13 +100,20 @@ export function sessionText(icons, editorCode, customIcons = []) {
 /**
  * System blocks for one request.
  * @param {{knowledge:string, advanced:string, advancedMode:boolean,
- *          icons:string[], customIcons?:string[], editorCode:Object<string,string>}} o
+ *          icons:string[], customIcons?:string[], editorCode:Object<string,string>,
+ *          simNotes?:string}} o
+ *   simNotes: knowledge/simulator.md, sent once the chat has reported a
+ *   simulator problem.
  */
-export function buildSystemBlocks({ knowledge, advanced, advancedMode, icons, customIcons, editorCode }) {
+export function buildSystemBlocks({ knowledge, advanced, advancedMode, icons, customIcons, editorCode, simNotes }) {
     const blocks = [{ type: 'text', text: knowledge, cache_control: { type: 'ephemeral' } }];
     if (advancedMode) {
         if (typeof advanced !== 'string') throw new Error(`${ADVANCED_KNOWLEDGE} not loaded`);
         blocks.push({ type: 'text', text: advanced, cache_control: { type: 'ephemeral' } });
+    }
+    if (simNotes) {
+        blocks.push({ type: 'text', text: `<simulator_notes>\n${simNotes}\n</simulator_notes>`,
+            cache_control: { type: 'ephemeral' } });
     }
     blocks.push({ type: 'text', text: sessionText(icons, editorCode, customIcons) });
     return blocks;

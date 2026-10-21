@@ -266,6 +266,7 @@ class App {
             icons: listIcons(),
             customIcons: Object.keys(getGameIcons()),
             editorCode,
+            simNotes: this.simNotes,
         });
     }
 
@@ -1910,6 +1911,7 @@ class App {
         this.gameName = 'Your game';
         this.gameDesc = '';
         this.chatHistory = [];
+        this.simNotes = null;
         this.tagWrites = {};
         this.refreshHardware();
     }
@@ -1947,6 +1949,7 @@ class App {
         this.declaredTags = [...ex.tags];
         this.simSettings = null;
         this.chatHistory = [];
+        this.simNotes = null;
         this.refreshHardware();
 
         const code = await this.fetchExampleCode(ex);
@@ -2247,10 +2250,10 @@ class App {
 
     /** Ask the chat to fix the game the simulator could not run. The
      * editor's code already travels in the system blocks, so the message
-     * carries the phase and the simulator's error text. The first such
-     * message in a chat also carries knowledge/simulator.md, which then
-     * stays in the history; it is not part of the cached knowledge base.
-     * The chat bubble shows only the problem text. */
+     * carries the phase and the simulator's error text. From the first
+     * such message on, knowledge/simulator.md is a cached system block for
+     * the rest of the chat (getSystemBlocks), so it does not age out of
+     * the history window. */
     async sendSimProblemToChat() {
         const err = this._simLastError;
         if (!err || this.isGenerating) return;
@@ -2262,13 +2265,10 @@ class App {
         const ask = `The simulator failed while ${when}. Please find the problem in the current code and fix it.`;
         const details = `${err.message}${log}`;
         const msg = `${ask}\n\n<error>\n${details}\n</error>`;
-        const sent = this.chatHistory.some((m) => typeof m.content === 'string'
-            && m.content.includes('<simulator_notes>'));
-        let notes = '';
-        if (!sent) {
+        if (!this.simNotes) {
             try {
                 const resp = await fetch(SIM_KNOWLEDGE);
-                if (resp.ok) notes = `\n\n<simulator_notes>\n${await resp.text()}\n</simulator_notes>`;
+                if (resp.ok) this.simNotes = await resp.text();
             } catch (e) {
                 dbgWarn('chat', `could not read ${SIM_KNOWLEDGE}: ${e.message}`);
             }
@@ -2277,7 +2277,7 @@ class App {
         document.querySelectorAll('.choice-chips').forEach(el => el.remove());
         addMsg(ask, 'user').appendChild(buildCodeBlock('error', details, { collapsed: true, editor: false }));
         this.dirty = true;
-        await this.callClaude(msg + notes);
+        await this.callClaude(msg);
     }
 
     renderComponentList(targetId) {

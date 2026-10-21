@@ -1,4 +1,4 @@
-# Simulator notes (sent with the first simulator problem in a chat)
+# Simulator notes (sent for the rest of a chat once it reports a simulator problem)
 
 The practice window runs the game in Pyodide (CPython 3.12) in the browser, not MicroPython.
 
@@ -72,6 +72,7 @@ The simulator's text arrives inside an `<error>` block after the request.
 | Code over 32000 bytes | Refused at send time |
 | `play()` with the wrong parameters (the simulator retries without `batt`) | TypeError, or refused at send time |
 | Unknown tag text reaching the game | The reader returns `None` |
+| (fails in the simulator) A helper `def` called inside a `lambda` or generator expression, e.g. `sorted(x, key=lambda v: score(v))` or `any(f(i) for i in r)` | Works. In the simulator the helper returns a coroutine: `sorted` raises `TypeError: '<' not supported between instances of 'coroutine'…`, `any`/`all` are wrongly true. The game is fine on the wand; to make it run in both, compute the values in a plain `for` loop first |
 | Heavy work between sleeps | Slow or laggy |
 | BLE and radio timing | Real delays and dropped messages |
 
