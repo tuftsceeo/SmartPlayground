@@ -3,7 +3,7 @@ Check the Box's and the Dial's boot-time game-menu scan against the Box/Dial
 staging suffix.
 
 A display game is staged on the Box/Dial as <slug>_icon.py (see ROLE_FILES
-in code_server.py) so a wand pull and an icon_display pull for the same slug
+in code_sender.py) so a wand pull and an icon_display pull for the same slug
 can be served from two different files. That file is never itself a
 playable game on the device running this scan -- _boot_scan_games() must
 skip it, never enrol it in index.json, and never let it become the active
@@ -15,7 +15,7 @@ pair), so this drives both BboxServer and BdialServer the same way.
 import os, sys, tempfile, shutil
 
 _BB = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-CODE_ROOT = os.path.dirname(_BB)  # Bag3/Code/, parent of BroadcastBox/ and BroadcastDial/
+CODE_ROOT = _BB  # BroadcastCode/, parent of BroadcastBox/ and BroadcastDial/
 SCRATCH = os.path.dirname(os.path.abspath(__file__))
 
 import time as _time
@@ -51,7 +51,7 @@ def _run_one(label, fw_dir, server_module_name, server_class_name):
     # Fresh import per firmware: both define same-named globals (GAMES_DIR,
     # INDEX_PATH, ACTIVE_PATH, handlers...) and must not leak into each other.
     for mod in list(sys.modules):
-        if mod in (server_module_name, "code_server", "bbox_ui", "buttons",
+        if mod in (server_module_name, "code_link", "code_sender", "bbox_ui", "buttons",
                     "dial_ui", "dial_input", "dial_board", "card_writer",
                     "ws1850s", "json_link", "reset_log"):
             del sys.modules[mod]
@@ -63,7 +63,7 @@ def _run_one(label, fw_dir, server_module_name, server_class_name):
         sys.path.remove(fw_dir)
 
     # Point the module's own globals at the scratch tree -- these are bound
-    # by `from code_server import GAMES_DIR, ACTIVE_PATH` and a local
+    # by `from code_link import GAMES_DIR, ACTIVE_PATH` and a local
     # INDEX_PATH computed from GAMES_DIR at import time, so all three must
     # be patched directly on the imported module.
     server_mod.GAMES_DIR = games_dir

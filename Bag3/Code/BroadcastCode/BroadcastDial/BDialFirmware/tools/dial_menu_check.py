@@ -55,7 +55,7 @@ sys.modules["M5"].Lcd = _Any()
 sys.modules["M5"].Speaker = _Any()
 sys.modules["M5"].begin = _Any()
 sys.modules["M5"].update = _Any()
-# code_server.py reads machine.unique_id() at import time (HOST_ID) -- real
+# code_link.py reads machine.unique_id() at import time (HOST_ID) -- real
 # bytes, not an _Any(), since it gets sliced ([-2:]) and hexlify()'d.
 sys.modules["machine"].unique_id = lambda: b"\x01\x02\x03\x04\x05\x06"
 sys.modules["hardware"].Rotary = _Any()
