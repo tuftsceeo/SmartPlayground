@@ -35,19 +35,25 @@ The room re-dispatches `<wand-sim>`'s events and passes through its
 and `hideOverlay()`, so a host can use it in place of `<wand-sim>`;
 ChatBroadcast's preview and example detail view do. It also emits
 `room-radio` (`detail` is `{ text, type }`, one line per party `pw_*` frame
-on the bus), and the display panel's prints arrive as `display-print`
-(`detail.text`, composed, bubbling).
+on the bus), and each icon display's prints arrive as `display-print`
+(`detail` is `{ text, mac }`, composed, bubbling).
 
 The simulator draws no log, console, serial or radio text. Every such line
 leaves as an event (`sim-log`, `sim-error`, `display-print`, `room-radio`,
 `sim-enow-sent`) for the host to show; ChatBroadcast shows them in its
 Developer mode footer, and `index.html` in a `<pre>` under the room.
 
-- **Icon display:** shown when the game has a display file
-  (`vendor/display/games/<game>.py`, or the `displaySource` property). A
-  second Pyodide runs `py/icon_host.py`
-  (IconDisplay/main.py's idle loop, without `main()`), drawn with
-  iconmaker's `renderPreview`; the room unicasts `start_game` to it.
+- **Icon displays:** devices of their own beside the wand, each with its
+  own MAC (`02:00:00:00:0d:01` up), up to 4. One starts as a placeholder;
+  a click wakes it, and each boots its own Pyodide running
+  `py/icon_host.py` (IconDisplay/main.py's idle loop, without `main()`),
+  drawn with iconmaker's `renderPreview`. A game with a display file
+  (`vendor/display/games/<game>.py`, or the `displaySource` property)
+  wakes every display, adding one if there are none, and the room unicasts
+  `start_game` to each; a game without one takes away the display it added
+  and sends `stop` to the rest. Advanced mode adds and takes away displays,
+  and "See all wands" shows them too; simple mode shows them only while
+  the game uses them.
   `renderPreview` is imported from
   `../BroadcastCode/ChatBroadcast/iconmaker/`, so serve `Bag3/Code/` (from
   `Simulator/` alone the panel falls back to plain squares and warns).
@@ -206,8 +212,8 @@ python3 -m pytest
   the virtual peers against each other (`peers.test.mjs`).
 - `node tools/sim_run.mjs --game partytest` — a party game end to end,
   headless (see "Headless runs").
-- `node tools/room_smoke.mjs` — Playwright: goalrace in `<sim-room>`, the
-  display panel appears and reacts to `goal`. Serves `Bag3/Code/`; Pyodide
+- `node tools/room_smoke.mjs` — Playwright: goalrace in `<sim-room>`, an
+  icon display is added and reacts to `goal`. Serves `Bag3/Code/`; Pyodide
   is answered from a local copy of its npm package (see the script header).
 - `test_golden_frames.py` / `test_new_games.py` / `test_capabilities.py` —
   CPython asyncio harness that loads shims + devices + transformed games and

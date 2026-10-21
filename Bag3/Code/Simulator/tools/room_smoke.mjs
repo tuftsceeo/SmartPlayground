@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Browser smoke for <sim-room>: load goalrace with its display file, check
- * the display panel appears, shows the ready icon, and reacts to the wand's
+ * an icon display is added, shows the ready icon, and reacts to the wand's
  * `goal` broadcast (whale icon for blue, `winner` sent back over the bus).
  *
  * Run from anywhere:  node Bag3/Code/Simulator/tools/room_smoke.mjs
@@ -110,24 +110,24 @@ try {
 
   await page.goto(`${origin}/Simulator/index.html?game=goalrace`);
 
-  // 1. The display panel appears and draws the ready icon.
+  // 1. A display is added for the game and draws the ready icon.
   await page.waitForFunction(() => {
     const room = document.querySelector("sim-room");
-    const box = room?.shadowRoot.querySelector('[data-panel="display"]');
-    return box && !box.hidden && room.panel("display")?.ready;
+    const box = room?.shadowRoot.querySelector('[data-panel="displays"]');
+    return box && box.classList.contains("in-game") && room.panel("displays")?.displays[0]?.ready;
   }, null, { timeout: 120000 });
   const caps = await page.evaluate(() => document.querySelector("sim-room").capabilities);
   assert.equal(caps.has_display_file, true);
   assert.equal(caps.uses_display, true);
   assert.equal(caps.party, false);
   await page.waitForFunction((hex) =>
-    document.querySelector("sim-room").panel("display").lastFrameHex === hex, READY, { timeout: 30000 });
+    document.querySelector("sim-room").panel("displays").displays[0].lastFrameHex === hex, READY, { timeout: 30000 });
   const canvasShown = await page.evaluate(() => {
     const c = document.querySelector("sim-room").shadowRoot.querySelector('[data-el="display-canvas"]');
     return !c.hidden && c.width > 0;
   });
   assert.ok(canvasShown, "display canvas should be drawn");
-  console.log("ok  display panel shown with the ready icon");
+  console.log("ok  display added with the ready icon");
 
   // 2. Join blue and tap the goal on the wand.
   await page.evaluate(() => {
@@ -142,7 +142,7 @@ try {
 
   // 3. The display shows the whale and answers with `winner`.
   await page.waitForFunction((hex) =>
-    document.querySelector("sim-room").panel("display").lastFrameHex === hex, WHALE, { timeout: 30000 });
+    document.querySelector("sim-room").panel("displays").displays[0].lastFrameHex === hex, WHALE, { timeout: 30000 });
   console.log("ok  display reacted to goal (whale icon)");
   const log = await page.evaluate(() => {
     const room = document.querySelector("sim-room");

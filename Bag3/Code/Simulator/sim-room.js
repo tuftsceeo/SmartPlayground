@@ -6,7 +6,8 @@
  * `wants(capabilities)` says the loaded game uses them; capabilities are
  * py/runtime.py get_capabilities() (party, local_splats, splats_min,
  * splats_max, uses_display, has_display_file, ...). Built in here: the
- * display panel (js/panels/display.js), and for a party game the Splat
+ * icon displays (js/panels/display.js), which are devices of their own that
+ * a game with a display file wakes, and for a party game the Splat
  * panel (js/panels/splats.js), which draws the wand's own Splats from the
  * room's party host (js/party.js), and the other wands (js/panels/wands.js).
  * A game has no other wands unless its settings say it is for more than
@@ -24,6 +25,9 @@
  *                  merged over the vendored game's icons. Setting it rewrites
  *                  the icon files, which is how an icon edit reaches a
  *                  running display.
+ *
+ * Every icon display gets start_game for a game with a display file. Its
+ * prints leave as display-print events (detail: { text, mac }).
  *   bus, clock     the room's bus (js/bus.js) and clock (js/clock.js)
  *   party          the party host (js/party.js), once the wand has booted
  *   wand           the inner <wand-sim>
@@ -48,7 +52,7 @@ import "./wand-sim.js";
 import { createBus, BROADCAST } from "./js/bus.js";
 import { createClock } from "./js/clock.js";
 import { hexToBytes } from "./js/radio.js";
-import { createDisplayPanel, DISPLAY_STYLE } from "./js/panels/display.js";
+import { createDisplaysPanel, DISPLAY_STYLE, ROOM_MAC } from "./js/panels/display.js";
 import { createSplatPanel, SPLAT_STYLE } from "./js/panels/splats.js";
 import { createWandsPanel, WANDS_STYLE } from "./js/panels/wands.js";
 import { createPartyHost } from "./js/party.js";
@@ -56,9 +60,7 @@ import { WAND_RGB, identityName } from "./js/peers.js";
 import { attachWand } from "./js/pyboot.js";
 
 export const WAND_MAC = "02:00:00:00:0a:01";
-export const DISPLAY_MAC = "02:00:00:00:0d:01";
-/** The teacher/hub side: who tells the display to start the game. */
-export const ROOM_MAC = "02:00:00:00:00:fe";
+export { ROOM_MAC };
 
 const PASS_ATTRS = ["game", "autostart", "advanced"];
 
@@ -177,7 +179,7 @@ class SimRoom extends HTMLElement {
   get displayIcons() { return this._displayIcons; }
   set displayIcons(v) {
     this._displayIcons = v || null;
-    const d = this.panel("display");
+    const d = this.panel("displays");
     if (d && this._displaySlug && v) {
       d.setIcons(this._displaySlug, v).catch((err) => console.error("display icons", err));
     }
@@ -364,30 +366,6 @@ class SimRoom extends HTMLElement {
   get displayGame() { return this._display || null; }
 }
 
-SimRoom.registerPanel("display", {
-  title: "Icon display",
-  wants: (caps) => !!caps.has_display_file,
-  create: (room, box) => createDisplayPanel({
-    bus: room.bus, clock: room.clock, mac: DISPLAY_MAC, mount: box,
-  }),
-  async update(panel, caps, room) {
-    const game = room.displayGame;
-    if (!game) {
-      panel.setDisplayMode(false);
-      return;
-    }
-    await panel.setGame(game.slug, game.src, game.icons);
-    panel.setDisplayMode(true);
-    // What the Box/teacher does on device: tell the display which game to
-    // run. Unicast, so the wand does not take it as a force-switch.
-    room.bus.send(ROOM_MAC, DISPLAY_MAC,
-      new TextEncoder().encode(JSON.stringify({ type: "start_game", name: game.slug })));
-  },
-  hide(panel, room) {
-    room.bus.send(ROOM_MAC, DISPLAY_MAC, new TextEncoder().encode(JSON.stringify({ type: "stop" })));
-  },
-});
-
 /** The wand's own Splats as a Splat panel group. */
 function wandGroup(party) {
   return {
@@ -477,6 +455,23 @@ SimRoom.registerPanel("wands", {
   hide(panel) {
     panel.forWands = null;
     panel.clear();
+  },
+});
+
+// Icon displays stand in the wand's controls pane, under the gesture
+// buttons, each its own device on the bus; advanced mode adds a strip card
+// to add them. The panel is always there: displays come and go apart from
+// the game, and sync() wakes them for a game with a display file.
+// Registered last so a display booting does not hold up the other panels'
+// updates.
+SimRoom.registerPanel("displays", {
+  slot: "strip",
+  title: null,
+  wants: () => true,
+  create: (room, box) => createDisplaysPanel({ mount: box, room }),
+  update(panel, caps, room) {
+    const seq = room._loadSeq;
+    return panel.sync(room.displayGame, () => seq !== room._loadSeq);
   },
 });
 

@@ -350,6 +350,8 @@ export function createControls(container, handlers = {}) {
         </div>
       </div>
 
+      <slot name="ctrl"></slot>
+
       <div class="tag-wrap" data-el="tag-wrap" hidden>
         <button type="button" class="btn-wide" data-act="tag-menu"
                 title="Touch a tag to the wand">${icon("smartphone-nfc", 18)}Tap a tag</button>

@@ -19,7 +19,8 @@
  * "See all N wands" opens a near-full-screen <dialog> with every wand side
  * by side: the room's own wand is moved into it while it is open (a
  * <wand-sim> survives the move) and back when it closes. Live other wands
- * live in the dialog and keep running while it is closed.
+ * live in the dialog and keep running while it is closed. The room's icon
+ * displays (js/panels/display.js) move in after the wands the same way.
  *
  *   createWandsPanel({ mount, room })
  *     .setFor(n)         a game for n wands loaded: n - 1 placeholders
@@ -29,6 +30,7 @@
  *     .restart()         restart every live other wand
  *     .stop()            stop every live other wand
  *     .clear()           drop every other wand (a non-party game loaded)
+ *     .redraw()          recount (the room's displays changed)
  */
 
 import { icon } from "../icons.js";
@@ -122,6 +124,7 @@ export function createWandsPanel({ mount, room }) {
   dialog.innerHTML = `<div class="aw-head">
       <h2 data-el="title"></h2>
       <button type="button" class="wbtn" data-el="add">+ Add a wand</button>
+      <button type="button" class="wbtn" data-el="add-display">+ Add a display</button>
       <button type="button" class="wbtn sq" data-el="close" aria-label="Close">${icon("close", 18)}</button>
     </div>
     <div class="aw-grid" data-el="grid"></div>`;
@@ -142,14 +145,17 @@ export function createWandsPanel({ mount, room }) {
   let gameSplats = 1;
 
   for (const b of [$(bar, "add"), $(dialog, "add")]) b.addEventListener("click", () => add());
+  $(dialog, "add-display").addEventListener("click", () => room.panel("displays")?.add());
   $(bar, "open").addEventListener("click", () => open());
   $(dialog, "close").addEventListener("click", () => dialog.close());
   dialog.addEventListener("close", () => {
     room.placeWand(null);
+    room.panel("displays")?.placeIn(null);
   });
 
   function open() {
     room.placeWand(mine);
+    room.panel("displays")?.placeIn(grid);
     if (!dialog.open) dialog.showModal();
   }
 
@@ -160,10 +166,14 @@ export function createWandsPanel({ mount, room }) {
     const full = n + 1 >= MAX_WANDS;
     $(bar, "add").hidden = full;
     $(dialog, "add").hidden = full;
+    const displays = room.panel("displays");
+    const k = displays ? displays.displays.length : 0;
+    $(dialog, "add-display").hidden = !displays || displays.full;
+    const shown = k === 0 ? "" : k === 1 ? "1 display" : `${k} displays`;
     const openBtn = $(bar, "open");
     openBtn.hidden = n === 0;
-    openBtn.textContent = `See all ${n + 1} wands →`;
-    $(dialog, "title").textContent = `${n + 1} wands in this game`;
+    openBtn.textContent = `See all ${n + 1} wands${shown ? `, ${shown}` : ""} →`;
+    $(dialog, "title").textContent = `${n + 1} wands${shown ? ` and ${shown}` : ""} in this game`;
     if (n === 0 && dialog.open) dialog.close();
   }
 
@@ -333,5 +343,6 @@ export function createWandsPanel({ mount, room }) {
       for (const o of others) o.el?.stop();
     },
     clear,
+    redraw: draw,
   };
 }
