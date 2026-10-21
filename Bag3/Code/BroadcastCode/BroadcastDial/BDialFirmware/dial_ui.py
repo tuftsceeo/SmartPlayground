@@ -441,7 +441,6 @@ class DialUI(object):
         self._build_list()
         self._build_scan()
         self._build_status()
-        self._build_serve()
 
     def _build_list(self):
         pg = self._page("list")
@@ -542,21 +541,6 @@ class DialUI(object):
         tap.add_event_cb(self._cb(ACT), lv.EVENT.CLICKED, None)
         tap.remove_flag(lv.obj.FLAG.CLICKABLE)
         self._btns["st_tap"] = tap
-
-    def _build_serve(self):
-        pg = self._page("serve")
-        # The Box's full-width purple SERVE banner, reshaped for a round
-        # panel: an inset pill carrying the icon and the word together.
-        # paint_serve() re-sets this text with the host id appended -- see
-        # its docstring.
-        self._chip("srv_title", pg, IC["serve"] + " Sharing", 44, FONT16,
-                   WHITE, WRITE_FG, w=160, pad=8)
-        # The SoftAP SSID in full is deliberately NOT shown -- see paint_serve().
-        self._label("srv_pickups", pg, "", 0, 106, FONT16, INK, w=190)
-        self._label("srv_hint", pg, "Hold Button to Exit", 0, 142, FONT14,
-                    INK_3, w=190)
-        self._button("srv_close", pg, IC["fail"] + " CLOSE", 70, 180, 100, 42,
-                     PINK, EXIT, FONT14, glow=PINK_DARK)
 
     # ── audio (same four beeps as bbox_ui) ──────────────────────
 
@@ -717,22 +701,11 @@ class DialUI(object):
         self._status(IC["warn"], WARN_FG, "Pickup Off", "DONE to Share",
                      tap_dismiss=False)
 
-    def paint_tag_list(self, entries, cursor):
-        """Tier 1: games + Utility Tags + DONE.
-
-        The DONE sentinel is bdial_server's, used verbatim in `entries`/
-        `cursor` logic -- only its DISPLAYED text changes here, to
-        "Enable Share", led by the same WIFI glyph paint_serve()'s
-        "Sharing" chip uses -- one icon standing for the same concept
-        everywhere it appears, and the one row at this tier that isn't a
-        game/group name reads differently at a glance because of it.
-        """
-        # Positive mode label rather than a warning about what's disabled:
-        # WRITE mode always has the AP down, so the old "pickup off"
-        # breadcrumb read as an alarm about a normal, permanent state.
-        self._set_text("lst_crumb", "Tag Writer")
-        display_entries = [IC["serve"] + " Enable Share" if e == "DONE" else e
-                           for e in entries]
+    def paint_tag_list(self, entries, cursor, pulls=0):
+        """Tier 1: games + Utility Tags. `pulls` is how many wands have
+        pulled the active game since boot, shown in the breadcrumb."""
+        self._set_text("lst_crumb", "Pulled by %d" % pulls if pulls else "Tag Writer")
+        display_entries = entries
         self._roller_set([_fit(e) for e in display_entries])
         # This binding's set_selected() takes a plain bool for the anim
         # flag, not lv.ANIM.OFF -- that enum doesn't exist here (confirmed
@@ -741,10 +714,7 @@ class DialUI(object):
         self._roller.set_selected(cursor, False)
         cur = entries[cursor] if entries else ""
         btn = self._btns["lst_act"]
-        if cur == "DONE":
-            btn.set_btn_text(IC["serve"] + " SHARE")
-        else:
-            btn.set_btn_text(IC["open"] + " OPEN")
+        btn.set_btn_text(IC["open"] + " OPEN")
         # Back is hidden here, so re-centre the action button rather than
         # leaving it parked in its two-button position. align() rather than
         # set_pos(): align() is already exercised on m5ui wrappers elsewhere
@@ -786,19 +756,6 @@ class DialUI(object):
         btn.align(lv.ALIGN.TOP_LEFT, ACT_X_PAIR, BTN_Y)
         self._btns["lst_back"].remove_flag(lv.obj.FLAG.HIDDEN)
         self._show("list")
-
-    def paint_serve(self, ssid, pickups=0):
-        # The SoftAP name in full is still not shown -- a teacher does not
-        # need to read "SP-FILEPUSH-7a3f" off the dial. But with several
-        # hosts live in one room, which host this is now IS information
-        # they need (to match it against a getcode card's "@<id>" suffix),
-        # so the id -- the part of the SSID that actually varies -- goes on
-        # the title chip.
-        host_id = ssid.rsplit('-', 1)[-1] if ssid else ""
-        title = IC["serve"] + " Sharing " + host_id if host_id else IC["serve"] + " Sharing"
-        self._set_text("srv_title", title)
-        self._set_text("srv_pickups", "Pickups: %d Total" % pickups)
-        self._show("serve")
 
 
 def demo():

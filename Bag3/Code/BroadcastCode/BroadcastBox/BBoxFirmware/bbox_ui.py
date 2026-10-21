@@ -684,32 +684,15 @@ class BboxUI(object):
         self._srv_hint_rect.setColor(PINK, PINK)
         self._srv_hint.setText(text)
 
-    def paint_tag_list(self, entries, cursor):
-        """Tier 1: games + Utility Tags + DONE.
-
-        The DONE sentinel is bbox_server's, used verbatim in `entries`/
-        `cursor` logic -- only its DISPLAYED text changes here, to
-        "Enable Share".
-        """
+    def paint_tag_list(self, entries, cursor, pulls=0):
+        """Tier 1: games + Utility Tags. `pulls` is how many wands have
+        pulled the active game since boot, shown in the breadcrumb."""
         self._clear()
         self._redraw_list_chrome()
-        # Positive mode label rather than a negative warning about what's
-        # disabled -- WRITE mode always has the AP down, so "pickup off"
-        # read as an alarm about a normal, permanent state.
-        self._set_text(self._crumb, "Tag Writer")
+        self._set_text(self._crumb, "Pulled by %d" % pulls if pulls else "Tag Writer")
         self._crumb.setColor(INK_3, PAGE_BG)
-        display_entries = ["Enable Share" if e == "DONE" else e for e in entries]
-        # "Enable Share" is the one row here that leaves WRITE mode
-        # entirely -- teal, same as every other SERVE/share-mode accent
-        # in this file, so it stands out from the game/group rows above
-        # it even before it's scrolled to.
-        special = {}
-        for i, e in enumerate(entries):
-            if e == "DONE":
-                special[i] = SERVE_FG
-        self._paint_slots(display_entries, cursor, special)
-        cur = entries[cursor] if entries else ""
-        self._set_act_label("SHARE" if cur == "DONE" else "OPEN")
+        self._paint_slots(entries, cursor, {})
+        self._set_act_label("OPEN")
 
     def paint_tag_group(self, title, rows, cursor, written, read_only=False):
         """Tier 2: one group's tags + "< back".
@@ -833,9 +816,9 @@ def demo():
     screens = [
         lambda: ui.paint_idle(True),
         lambda: ui.paint_receiving("Melody"),
-        lambda: ui.paint_tag_list(["Melody", "Utility Tags", "DONE"], 0),
+        lambda: ui.paint_tag_list(["Melody", "Utility Tags"], 0, 3),
         lambda: ui.paint_tag_list(
-            ["Game %d" % i for i in range(1, 9)] + ["Utility Tags", "DONE"], 4),
+            ["Game %d" % i for i in range(1, 9)] + ["Utility Tags"], 4),
         lambda: ui.paint_tag_group(
             "Melody", ["getcode:my_melody", "my_melody", "note_c", "< back"],
             2, {"note_c": 3}),

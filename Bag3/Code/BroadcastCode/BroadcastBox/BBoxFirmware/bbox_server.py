@@ -1,17 +1,13 @@
 """
 bbox_server.py — JSON serial dispatcher + NFC card flow + TCP server poll.
 
-Phase A mode machine. The invariant this file exists to hold:
+One user-facing state: the tag menus. The invariant this file holds:
 
-    at most one of {WiFi AP, NFC RF field} is energized at any instant.
+    at most one of {radio, NFC RF field} is energized at any instant.
 
-Before Phase A, a game on flash meant both at once, indefinitely -- the AP
-came up at boot and the reader was polled continuously, which is the load
-the box browns out under on a current-limited USB port (see known_issue.md).
-Now the two live in separate modes and the teacher moves between them:
-
-    WRITE  AP down.  Reader polled only while B1 is held.
-    SERVE  Reader antenna off, no I2C at all.  AP up, serving wand pulls.
+    WRITE  The menus. ESP-NOW serves the active game to wands
+           (code_link.py) whenever the reader field is off; the radio goes
+           down only while a card is being scanned or written.
     IDLE   Neither.  No game on flash, so there is nothing to do.
 
 There is deliberately no RECEIVING mode: the app pushes code over the raw
@@ -66,7 +62,6 @@ TAG_LIST = ("getcode", "jumpin")
 # Every non-wand ROLE_FILES suffix (in code_server.py) goes here too,
 # so _boot_scan_games() never enrols another device's staged file.
 STAGING_SUFFIXES = ('_icon.py', '_splat.py')
-DONE_ENTRY = "DONE"
 BACK_ENTRY = "< back"
 
 # Writable no matter which games are loaded. "stop" exits any running game;
@@ -83,18 +78,8 @@ UTILITY_GROUP = "Utility Tags"
 # menu.
 READ_ENTRY = "Read Card"
 
-# BtnA hold that leaves SERVE and returns to WRITE. This is the only hold
-# gesture left in the firmware, kept deliberately: leaving SERVE is rare and
-# should not happen from a stray bump. Everything in WRITE is a plain press.
-SERVE_EXIT_MS = 1000
-
-# How long a "Transfer Failed" banner stays up after one wand's pull fails,
-# before the serve screen returns. poll() no longer blocks, so this can't
-# be a sleep_ms() any more -- a stalled transfer for one wand must not
-# freeze the others. See _on_serve_event()/_poll_serve().
-SERVE_ERROR_MS = 1000
-# WRITE mode serves over ESP-NOW whenever the reader field is off; the radio
-# goes down only while scanning a card. False keeps serving to SERVE alone.
+# WRITE serves over ESP-NOW whenever the reader field is off; the radio
+# goes down only while scanning a card.
 SHARE_IN_MENUS = True
 SHARE_RETRY_MS = 2000        # wait after a failed menu-share arm()
 # Radio TX power. Full power resets the Box on USB mid-transfer (PWRON);
@@ -103,7 +88,6 @@ TX_POWER_DBM = 8
 
 MODE_IDLE = "IDLE"
 MODE_WRITE = "WRITE"
-MODE_SERVE = "SERVE"
 
 # WRITE-mode sub-states. BtnA acts, BtnB scrolls or backs out; no holds.
 #   MENU      list of groups   A = open (or serve on DONE)  B = next
@@ -123,8 +107,7 @@ MODE_SERVE = "SERVE"
 # menu prompting on every write.
 #
 # The menu is two-level because a single game can contribute a dozen tags
-# (melody alone has eleven) and BtnB only moves forward: on one flat list,
-# DONE -- the only way into SERVE mode -- would be a dozen presses away.
+# (melody alone has eleven) and BtnB only moves forward.
 #
 # A write result (success/already/failure) is not its own sub-state -- the
 # result screen is painted, held on screen for a fixed delay below, and
@@ -207,14 +190,15 @@ class BboxServer:
         # rows are these titles plus DONE; _group_cursor indexes into the
         # open group's tags, which are followed by a "< back" row.
         self._groups = [(UTILITY_GROUP, list(UTILITY_TAGS) + [READ_ENTRY])]
-        self._entries = [UTILITY_GROUP, DONE_ENTRY]
+        self._entries = [UTILITY_GROUP]
         self._cursor = 0
         self._group_cursor = 0
         # entry label -> cumulative successful writes, seeded from
         # stats_log at boot by _load_stats() and incremented in memory.
         self._written = {}
-        self._pulls_total = 0  # cumulative games handed to wands, all boots
-        self._serve_error_until = 0  # ticks_ms() deadline for the "Transfer Failed" banner, 0 = none pending
+        # slug -> wands that pulled it since boot. A new game arrives by a
+        # reset (module docstring), so this restarts with each code update.
+        self._pulls = {}
         self._index = {}  # slug -> {name, added}
         self._active = None
 
@@ -272,58 +256,19 @@ class BboxServer:
     # ─────────────────────────────────────────────
 
     def _set_mode(self, new_mode, announce=True):
-        """Single point of truth for the radio/reader invariant.
-
-        Every transition leaves the mode it is leaving fully de-energized
-        before energizing anything for the mode it is entering. Keeping this
-        in one method is also what makes the reboot-into-mode variant a
-        contained change if T1's AP-cycle probe shows in-place AP down/up is
-        not reliable on this hardware: only this method would swap to writing
-        a mode flag and calling machine.reset().
-        """
+        """IDLE <-> WRITE. Leaving WRITE drops the field and the radio;
+        entering it starts sharing (_menu_share)."""
         if new_mode == self._mode:
             return
         old = self._mode
-        if announce:
-            self.ui.paint_mode_change(new_mode)
-
-        # --- leave ---
-        if old == MODE_SERVE:
-            self.code.disarm()  # ESP-NOW and STA off
         if old == MODE_WRITE:
             self._nfc_field(False)
             self._clear_reader()
-            if new_mode != MODE_SERVE:
-                self.code.disarm()
-
-        # --- enter ---
-        if new_mode == MODE_SERVE:
-            if self._active:
-                self.code.set_game(self._active)
-            elif self.code.resolve() is None:
-                print("# SERVE refused: no active game")
-                self.ui.paint_error("No Game to Serve")
-                time.sleep_ms(1500)
-                self._repaint()
-                return
-            if not self.code.arm():
-                # No game on flash, or the radio would not start.
-                print("# SERVE refused: CodeLink.arm() failed")
-                self.ui.paint_error("No Game to Serve")
-                time.sleep_ms(1500)
-                self._mode = old
-                self._repaint()
-                return
-            self.link.send({"type": "armed", "id": None, "ssid": None})
-
+            self.code.disarm()
         self._mode = new_mode
         if new_mode == MODE_WRITE:
             self._menu_share()
         reset_log.note_mode(new_mode)
-        # A gesture that caused the switch must not carry into the new mode:
-        # the B1 hold that left SERVE would otherwise immediately read as a
-        # hold in WRITE, and a B2 press made while B2 was unused would fire
-        # as a stale scroll.
         self._buttons.clear()
         self._b1_was_down = self._buttons.b1_down()
         self._write_state = W_MENU
@@ -355,9 +300,8 @@ class BboxServer:
                     self._group_cursor, self._written,
                     read_only=(self._current_entry() == READ_ENTRY))
             else:
-                self.ui.paint_tag_list(self._entries, self._cursor)
-        elif self._mode == MODE_SERVE:
-            self.ui.paint_serve(HOST_ID, self._pulls_total)
+                self.ui.paint_tag_list(self._entries, self._cursor,
+                                      self._pulls.get(self._active, 0))
         else:
             self.ui.paint_idle(self.linked)
 
@@ -438,26 +382,19 @@ class BboxServer:
         })
 
     def do_arm(self, cmd, rid):
-        """Legacy/REPL entry point -- now means "go to SERVE".
-
-        Arming used to mean AP up *and* card writing at once; that pairing is
-        exactly what Phase A separates. The box no longer does this at boot:
-        it starts in WRITE and a teacher chooses DONE + B1 to serve.
-        """
+        """Sharing follows the menus (_menu_share); this only reports it.
+        Kept for hosts that still send it."""
         if not self._payload_ready():
             self.link.send({"type": "error", "id": rid, "code": "no_payload",
                              "msg": "no game on device"})
             return
-        if self._active:
-            self.code.set_game(self._active)
-        self._set_mode(MODE_SERVE)
-        if self._mode == MODE_SERVE:
-            self.link.send({"type": "ok", "id": rid, "cmd": "arm", "ssid": None})
-        else:
-            self.link.send({"type": "error", "id": rid, "code": "arm_failed"})
+        self._menu_share()
+        self.link.send({"type": "ok", "id": rid, "cmd": "arm", "ssid": None,
+                        "armed": self.code.armed})
 
     def do_disarm(self, cmd, rid):
-        self._set_mode(MODE_WRITE if self._payload_ready() else MODE_IDLE)
+        """No-op kept for hosts that still send it: sharing is not
+        user-controlled."""
         self.link.send({"type": "ok", "id": rid, "cmd": "disarm"})
 
     def do_repl(self, cmd, rid):
@@ -483,21 +420,12 @@ class BboxServer:
                 "slug": slug,
                 "name": meta.get("name", slug),
                 "bytes": nbytes,
-                "pulls": 0,
+                "pulls": self._pulls.get(slug, 0),
                 # From <slug>.tags.json. The app shows this as the game's
                 # expected-card list, so a box holding a game the laptop
                 # never sent still reports the right tags.
                 "tags": meta.get("tags") or [],
             })
-        # Enrich pulls from stats if available.
-        try:
-            import stats_log
-            agg = stats_log.aggregate()
-            pulls = agg.get("pulls") or {}
-            for item in lst:
-                item["pulls"] = pulls.get(item["slug"], 0)
-        except Exception:
-            pass
         self.link.send({
             "type": "games", "id": rid,
             "list": lst, "active": self._active,
@@ -584,7 +512,7 @@ class BboxServer:
                              "msg": str(e)})
             return
         self._written = {}
-        self._pulls_total = 0
+        self._pulls = {}
         self._repaint()
         self.link.send({"type": "ok", "id": rid, "cmd": "stats.reset"})
 
@@ -686,14 +614,10 @@ class BboxServer:
             import stats_log
             agg = stats_log.aggregate()
             self._written = agg.get('writes', {})
-            self._pulls_total = 0
-            for n in agg.get('pulls', {}).values():
-                self._pulls_total += n
         except Exception as e:
             # Counters are cosmetic; a corrupt log must not stop the boot.
             print("# stats load failed: %s" % str(e))
             self._written = {}
-            self._pulls_total = 0
 
     def _boot_scan_games(self):
         """Merge /flash/games/*.py into index.json; pick active.
@@ -796,7 +720,7 @@ class BboxServer:
         groups.append((UTILITY_GROUP, list(UTILITY_TAGS) + [READ_ENTRY]))
 
         self._groups = groups
-        self._entries = [title for title, _ in groups] + [DONE_ENTRY]
+        self._entries = [title for title, _ in groups]
         self._cursor = 0
         self._group_cursor = 0
 
@@ -866,9 +790,12 @@ class BboxServer:
     def _on_menu_share_event(self, event):
         if event in ('ok', 'fail'):
             self._emit_pull()
-        if event == 'ok':
-            self._pulls_total += 1
-            self.ui.beep_scan()
+        r = self.code.last_result
+        if event == 'ok' and r is not None and r.get("hub", "wand") == "wand":
+            slug = r.get("slug")
+            self._pulls[slug] = self._pulls.get(slug, 0) + 1
+            if self._write_state == W_MENU and slug == self._active:
+                self._repaint()
 
     def _emit_pull(self):
         r = self.code.last_result
@@ -946,11 +873,8 @@ class BboxServer:
                 self._repaint()
             elif b1:
                 self.ui.beep_click()
-                if self._entries[self._cursor] == DONE_ENTRY:
-                    self._set_mode(MODE_SERVE)
-                else:
-                    self._group_cursor = 0
-                    self._to_group()
+                self._group_cursor = 0
+                self._to_group()
             return
 
         if self._write_state == W_GROUP:
@@ -1103,75 +1027,6 @@ class BboxServer:
             self._to_scan()
 
     # ─────────────────────────────────────────────
-    # SERVE MODE
-    # ─────────────────────────────────────────────
-
-    def _serve_abort_requested(self):
-        """should_abort hook for CodeServer.poll().
-
-        poll() no longer blocks -- it advances every in-flight wand a step
-        and returns the same tick. run()'s main loop already calls
-        self._buttons.update() once per iteration before _poll_serve(), so
-        the hold reading here is current; calling update() again would
-        double M5.update() per tick.
-        """
-        return self._buttons.b1_held_ms() >= SERVE_EXIT_MS
-
-    def _on_serve_event(self, event):
-        """CodeServer.poll() fires this per wand, possibly several times
-        per tick: 'serving' once a wand is accepted, then 'ok' or 'fail'
-        once it finishes. Repaint after each so the screen's wand count
-        and pickup total never lag more than one event behind reality.
-        """
-        if event in ('ok', 'fail'):
-            self._emit_pull()
-        if event == 'ok':
-            # Mirrors the line stats_log just recorded, so the screen and the
-            # log agree without re-reading flash on every repaint.
-            self._pulls_total += 1
-        elif event == 'fail':
-            self._serve_error_until = time.ticks_add(time.ticks_ms(), SERVE_ERROR_MS)
-        self._repaint_serve()
-
-    def _repaint_serve(self):
-        """Redraw the SERVE screen for the server's current state.
-
-        A transient "Transfer Failed" banner (one wand's own failure, not
-        an abort) takes priority for SERVE_ERROR_MS; otherwise show how
-        many wands are mid-pull right now, or fall back to the normal
-        serve/pickup-count screen once none are.
-        """
-        now = time.ticks_ms()
-        if self._serve_error_until and time.ticks_diff(self._serve_error_until, now) > 0:
-            self.ui.paint_error("Transfer Failed")
-            return
-        self._serve_error_until = 0
-        n = self.code.serving_count
-        if n > 1:
-            self.ui.paint_receiving("%d Wands" % n)
-        elif n == 1:
-            self.ui.paint_receiving()
-        else:
-            self._repaint()
-
-    def _poll_serve(self):
-        xfer = self.code.poll(on_event=self._on_serve_event,
-                              should_abort=self._serve_abort_requested)
-        if xfer == 'abort':
-            # The teacher held B1; that is the exit gesture, whether or not
-            # a wand was mid-transfer. Every in-flight wand sees a short
-            # read, drops its .part file and retries within its own budget.
-            # should_abort() above is sampled on every tick, so there is no
-            # second hold check after this -- poll() is what notices.
-            print("# serve aborted by B1 hold")
-            self._serve_error_until = 0
-            self._set_mode(MODE_WRITE if self._payload_ready() else MODE_IDLE)
-            return
-        if self._serve_error_until and time.ticks_diff(time.ticks_ms(), self._serve_error_until) >= 0:
-            self._serve_error_until = 0
-            self._repaint_serve()
-
-    # ─────────────────────────────────────────────
     # RUN
     # ─────────────────────────────────────────────
 
@@ -1215,9 +1070,7 @@ class BboxServer:
             while self.running:
                 self.link.pump(idle_ms=20, drain_ms=40)
                 self._buttons.update()
-                if self._mode == MODE_SERVE:
-                    self._poll_serve()
-                elif self._mode == MODE_WRITE:
+                if self._mode == MODE_WRITE:
                     # IDLE deliberately polls nothing: no game on flash means
                     # there is neither a tag to write nor code to serve.
                     self._poll_write()
