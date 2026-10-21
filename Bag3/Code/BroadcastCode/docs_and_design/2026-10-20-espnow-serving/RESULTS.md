@@ -133,3 +133,19 @@ Not covered: the card-tap path on the stock wand, the icon-display role (no `_ic
 
 - Icon-display role on hardware: a test `color_row_icon.py` plus 3 icons in `/flash/games/color_row_icons/` on the Dial (removed afterwards). The stock wand ran `receive(..., "icon_display", icon_dir=...)`: 3/3, 1.9–2.2 s, 3 icons each. A wand-role pull of the same slug after it: `True`.
 - Stock wand with fast boot (`2c6f88c`, light fix `a53a8a5`), deployed with `deploy.py --changed` (3 of 54 files sent): 10/10 pulls from the Dial in the WRITE menu, 2.4–4.0 s; `ffff` pin refused.
+
+## Plan status (2026-10-20, end of day)
+
+| Phase | State | Differs from PLAN.md |
+|---|---|---|
+| 1 · S3 radio check | Complete | Late bring-up (step 4) failed on the Dial (`ESPNOW_NO_MEM`); the radio is claimed at boot (`code_link.prewarm()` after `M5.begin()`). |
+| 2 · Dial firmware | Complete except display-only enrollment | Serves from the WRITE menus as well as SERVE (`SHARE_IN_MENUS`). Icon names are paged (`icons_n`, `list_from`, `code_icons`). A game with only `<slug>_icon.py` is not listed or served. |
+| 3 · Box firmware | Complete except display-only enrollment | `TX_POWER_DBM = 8`, `DARK`, `SOUND = False`. Serves from the WRITE menus too. |
+| 4.1 · Stock MockWand | Complete; card tap not run | `espnow_manager.py` sets `rxbuf=4096`. SoftAP fallback kept until 5.2. |
+| 4.2 · ChatBroadcast | Complete; `chat_ui_smoke.mjs` not run (no Playwright) | Display-only sends depend on the enrollment gap above. |
+| 4.3 · Icon Display receiver | Implemented; role verified with the wand board as receiver, not the Icon Display | `IconDisplay/lib/espnow_manager.py` sets no `rxbuf`. |
+| 5.1 · Hardware bench | Partial | Done: Dial SERVE and menu share with 1 wand; Box SERVE on USB. Left: 3 wands, real display pull, ChatBroadcast send → tap → play, Box on battery. |
+| 5.2 · SoftAP removal | Docs done; code not deleted | Doc checklist done before the bench (`0a42791`, `0b29da5`). |
+| 6 · Later work | Not started | — |
+
+Offline checks at end of day: `wire_test_dial.py`, `wire_test.py`, `compile_check.sh`, `test_code_xfer.py`, `test_espnow_serve.py`, `test_dial_code_link.py`, `test_wand_espnow_code.py` pass. `chatbroadcast_flow.mjs` and `role_state.mjs` fail, and failed the same way before this work (at `3311ced^`).
