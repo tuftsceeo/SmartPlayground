@@ -57,38 +57,22 @@ def play(nfc, panel, enow):
     icon_store.read_icon("ready", into=panel.src)
 \`\`\`
 
-[DEVICE: splat]
-\`\`\`python
-def play(splat, leds, enow, batt=None):
-    msg_type, data, mac = enow.poll()
-    if msg_type in ("stop", "start_game"):
-        return
-    ev = splat.poll()
-    if ev == "press":
-        splat.play(["turngreen"])
-        enow.broadcast({"type": "score", "hit": True})
-\`\`\`
-
 [NFC_CARDS: "teamgreen", "teamblue", "goal"]
 [GAME_NAME: Team Goal Race]`;
 
 const blocks = extractCodeBlocks(REPLY);
-check('three device blocks extracted', blocks.length === 3, `${blocks.length} blocks`);
-check('roles are wand, icon, then splat',
-    blocks.map(b => b.role).join(',') === 'wand,icon,splat', blocks.map(b => b.role).join(','));
+check('two device blocks extracted', blocks.length === 2, `${blocks.length} blocks`);
+check('roles are wand, then icon',
+    blocks.map(b => b.role).join(',') === 'wand,icon', blocks.map(b => b.role).join(','));
 check('device markers are stripped from the displayed text',
     !stripDeviceMarkers(REPLY).includes('[DEVICE:'));
 
-const wand = blocks[0].code, icon = blocks[1].code, splat = blocks[2].code;
+const wand = blocks[0].code, icon = blocks[1].code;
 check('wand file validates as wand', validateGameCode(wand, 'wand')[0] === true);
 check('icon file validates as icon', validateGameCode(icon, 'icon')[0] === true);
-check('splat file validates as splat', validateGameCode(splat, 'splat')[0] === true,
-    validateGameCode(splat, 'splat')[1]);
 check('wand file is REJECTED as an icon file', validateGameCode(wand, 'icon')[0] === false,
     validateGameCode(wand, 'icon')[1]);
 check('icon file is REJECTED as a wand file', validateGameCode(icon, 'wand')[0] === false);
-check('splat file is REJECTED as a wand file', validateGameCode(splat, 'wand')[0] === false);
-check('wand file is REJECTED as a splat file', validateGameCode(wand, 'splat')[0] === false);
 check('every role has a documented signature',
     ROLES.every(r => typeof signatureFor(r) === 'string'));
 
@@ -100,16 +84,13 @@ check('none of them are missing', lib.missingIconsIn(icon).length === 0);
 check('a game naming a nonexistent icon is caught',
     lib.missingIconsIn('icon_store.read_icon("dragon")').join(',') === 'dragon');
 
-// ── Splat action names the splat file uses (roles.js unknownNamesIn) ──
+// ── Splat action-name check (the splat role is retired; the checker stays) ──
 const { roleInfo } = await import(BB + '/ChatBroadcast/js/roles.js');
 const { unknownSplatActionsIn, listSplatActions } = await import(
     BB + '/ChatBroadcast/js/splat/splatActionCheck.js');
-check('the splat role carries the name check',
-    roleInfo('splat').unknownNamesIn === unknownSplatActionsIn);
+check('there is no splat role', roleInfo('splat') === undefined);
 check('wand and icon roles carry none',
     !roleInfo('wand').unknownNamesIn && !roleInfo('icon').unknownNamesIn);
-check('the splat file uses only known action names',
-    unknownSplatActionsIn(splat).length === 0, unknownSplatActionsIn(splat).join(','));
 check('a misspelled color is caught',
     unknownSplatActionsIn('splat.color("turnpurpel")').join(',') === 'turnpurpel');
 check('a name from the wrong category is caught',
@@ -132,7 +113,6 @@ const extraFiles = [{ path: `/flash/games/${slug}_icon.py`, content: icon }];
 for (const n of names) {
     extraFiles.push({ path: `/flash/games/${slug}_icons/${n}.py`, content: lib.iconFileText(n) });
 }
-extraFiles.push({ path: `/flash/games/${slug}_splat.py`, content: splat });
 
 // ── pushPayload against a fake REPL ──
 const written = [];
@@ -161,7 +141,6 @@ check('display file pushed', puts.includes('/flash/games/goalrace_icon.py'));
 for (const n of names) {
     check(`icon ${n} pushed`, puts.includes(`/flash/games/goalrace_icons/${n}.py`));
 }
-check('splat file pushed', puts.includes('/flash/games/goalrace_splat.py'));
 check('icons directory created before its files',
     written.indexOf('mkdir /flash/games/goalrace_icons') <
     written.indexOf('put /flash/games/goalrace_icons/ready.py'));
@@ -175,21 +154,13 @@ check('progress counted every file',
     progress[progress.length - 1].total === 1 + extraFiles.length,
     JSON.stringify(progress[progress.length - 1]));
 
-// ── The system prompt names every current icon (closes phase 6's §5.1) ──
-// app.js itself cannot be imported here (it and its own imports touch the
-// DOM and a CodeMirror CDN), so getSystemPrompt() is checked the same way
-// this file already checks the file list a send builds: read the source
-// and confirm the wiring, rather than duplicate its string-building logic
-// into a second copy that would drift from the real one.
-const appSrc = readFileSync(BB + '/ChatBroadcast/js/app.js', 'utf8');
-const startIdx = appSrc.indexOf('getSystemPrompt()');
-const endIdx = appSrc.indexOf('\n    }\n', startIdx);
-const promptMethod = startIdx >= 0 && endIdx >= 0 ? appSrc.slice(startIdx, endIdx) : '';
-check('getSystemPrompt() exists', promptMethod.length > 0);
-check('it builds the icon list from listIcons(), not a hardcoded copy',
-    /listIcons\(\)\.join/.test(promptMethod));
-check('the icon list is returned as part of the prompt, not just built',
-    /return[\s\S]*icons/.test(promptMethod));
+// ── The per-turn prompt block names every current icon ──
+const { sessionText } = await import(BB + '/ChatBroadcast/js/prompt/buildRequest.js');
+const turnText = sessionText(lib.listIcons(), { wand });
+check('sessionText lists every icon from listIcons()',
+    lib.listIcons().every(n => turnText.includes(n)));
+check('sessionText carries the wand code in the editor block',
+    turnText.includes('[DEVICE: wand]'));
 check('listIcons() currently returns at least one real name to inject',
     lib.listIcons().length > 0 && lib.listIcons().every(n => typeof n === 'string' && n.length > 0),
     lib.listIcons().join(','));
