@@ -338,4 +338,7 @@ MicroPython) to `/wand_main.mpy` and writes a one-line `/main.py` that imports i
 `docs_and_design/2026-10-07-splat-pairing/RESULTS-PartB.md`). Copying the source `main.py` by
 hand still runs, without that protection.
 
+`--changed` hashes every file on the wand in one call and copies only those that differ (including
+`/wand_main.mpy`); if the hash call fails it deploys everything.
+
 `--skip-lib` leaves `lib/` out (25 of the 54 files) when only top-level files changed.

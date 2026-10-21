@@ -38,6 +38,7 @@ Usage:
     python3 tools/deploy.py /dev/cu.usbmodemX --type wand --wand-tree EspnowModem/MockWandEUM
     python3 tools/deploy.py /dev/cu.usbmodemX --type icon --code-only
     python3 tools/deploy.py /dev/cu.usbmodemX --type dial --pause 8
+    python3 tools/deploy.py /dev/cu.usbmodemX --type wand --changed   # only differing files
 
 --pause default is 8s for the Dial (the value deploy_dial.py's own history
 found necessary on real hardware -- NOT a confirmed minimum) and 0 for
@@ -46,6 +47,7 @@ everything else; override either way with --pause.
 
 import argparse
 import glob
+import hashlib
 import os
 import re
 import subprocess
@@ -182,6 +184,52 @@ def copy_and_verify(port, local, remote, attempts, pause):
     return False
 
 
+def _local_sha256(path):
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(4096), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def _remote_hashes(port, remotes):
+    """{remote_path: sha256 hex or None if missing}, from one mpremote exec
+    (with resume, via mpremote()). None for the whole result if the call
+    fails or its output cannot be parsed."""
+    code = (
+        "import hashlib, binascii\n"
+        "for p in %r:\n"
+        "    try:\n"
+        "        h = hashlib.sha256()\n"
+        "        f = open(p, 'rb')\n"
+        "        while True:\n"
+        "            b = f.read(512)\n"
+        "            if not b:\n"
+        "                break\n"
+        "            h.update(b)\n"
+        "        f.close()\n"
+        "        print('H|' + p + '|' + binascii.hexlify(h.digest()).decode())\n"
+        "    except OSError:\n"
+        "        print('H|' + p + '|None')\n"
+    ) % (list(remotes),)
+    r = mpremote(port, "exec", code, timeout=120)
+    if r.returncode != 0:
+        return None
+    out = {}
+    for line in r.stdout.splitlines():
+        parts = line.strip().split("|")
+        if len(parts) == 3 and parts[0] == "H":
+            out[parts[1]] = None if parts[2] == "None" else parts[2]
+    if set(out) != set(remotes):
+        return None
+    return out
+
+
+def select_changed(files, remote_hashes, local_hash=_local_sha256):
+    """Files whose on-device hash differs from the local one (or is missing)."""
+    return [(l, r) for l, r in files if remote_hashes.get(r) != local_hash(l)]
+
+
 def _boot_main_first(files, extra_boot=None):
     """Move boot.py and main.py to the front of the write order.
 
@@ -276,6 +324,9 @@ def main():
                      help="Icon Display only: skip icons/ (already on the device)")
     ap.add_argument("--skip-lib", action="store_true",
                      help="Mock Wand / Icon Display: skip lib/ (already on the device)")
+    ap.add_argument("--changed", action="store_true",
+                     help="skip files whose on-device sha256 already matches (one exec call "
+                          "to hash them all); deploys everything if that call fails")
     ap.add_argument("--wand-tree", default="MockWand",
                      help="Mock Wand only: tree to deploy, relative to BroadcastCode/ "
                           "(e.g. EspnowModem/MockWandEUM)")
@@ -312,6 +363,18 @@ def main():
         if input("Go? [y/N] ").strip().lower() not in ("y", "yes"):
             print("aborted")
             return
+
+    if args.changed:
+        hashes = _remote_hashes(port, [r for _, r in files])
+        if hashes is None:
+            print("# --changed: remote hash call failed; deploying all files")
+        else:
+            total = len(files)
+            files = select_changed(files, hashes)
+            print("# --changed: %d of %d files differ" % (len(files), total))
+            if not files:
+                print("# nothing to deploy")
+                return
 
     # `fs cp` does not create parent directories. mkdir fails when the
     # directory already exists, so its result is ignored; a real failure
