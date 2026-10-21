@@ -50,6 +50,8 @@ import { gameIconEntries, startingIcon, drawIcon } from './ledicons/iconView.js'
 
 const SILENCE_LIMIT_MS = 15000;
 const SIM_IDLE_PAUSE_MS = 60000;
+const SIM_KNOWLEDGE = 'knowledge/simulator.md';
+const SIM_LOG_FOR_CHAT = 40;
 const SILENCE_GAME_MS = 45000;
 const REBOOT_LIMIT_MS = 20000;
 const WATCHDOG_TICK_MS = 2000;
@@ -2102,7 +2104,12 @@ class App {
                 });
                 this._setupSimIdlePause();
                 // The simulator draws no logs; its lines go to the footer.
-                this._sim.addEventListener('sim-log', (e) => this.appendLog('sim', `wand    ${e.detail.text}`));
+                this._simRecentLog = [];
+                this._sim.addEventListener('sim-log', (e) => {
+                    this.appendLog('sim', `wand    ${e.detail.text}`);
+                    this._simRecentLog.push(e.detail.text);
+                    if (this._simRecentLog.length > SIM_LOG_FOR_CHAT) this._simRecentLog.shift();
+                });
                 this._sim.addEventListener('display-print', (e) => this.appendLog('sim', `display ${e.detail.text}`));
                 this._sim.addEventListener('sim-error', (e) => {
                     this.appendLog('sim', `error   ${e.detail.phase}: ${e.detail.message}`);
@@ -2240,14 +2247,35 @@ class App {
 
     /** Ask the chat to fix the game the simulator could not run. The
      * editor's code already travels in the system blocks, so the message
-     * carries the phase and the simulator's error text. */
-    sendSimProblemToChat() {
+     * carries the phase and the simulator's error text. The first such
+     * message in a chat also carries knowledge/simulator.md, which then
+     * stays in the history; it is not part of the cached knowledge base.
+     * The chat bubble shows only the problem text. */
+    async sendSimProblemToChat() {
         const err = this._simLastError;
-        if (!err) return;
+        if (!err || this.isGenerating) return;
         const when = err.phase === 'load' ? 'loading the game' : 'running the game';
-        const inp = document.getElementById('user-input');
-        inp.value = `The simulator failed while ${when}. Please find the problem in the current code and fix it.\n\nSimulator error:\n${err.message}`;
-        this.onSend();
+        // A run-phase error carries only the traceback's last line; the
+        // full traceback is in the recent log.
+        const log = err.phase === 'run' && this._simRecentLog?.length
+            ? `\n\nRecent simulator log:\n${this._simRecentLog.join('\n')}` : '';
+        const msg = `The simulator failed while ${when}. Please find the problem in the current code and fix it.\n\nSimulator error:\n${err.message}${log}`;
+        const sent = this.chatHistory.some((m) => typeof m.content === 'string'
+            && m.content.includes('<simulator_notes>'));
+        let notes = '';
+        if (!sent) {
+            try {
+                const resp = await fetch(SIM_KNOWLEDGE);
+                if (resp.ok) notes = `\n\n<simulator_notes>\n${await resp.text()}\n</simulator_notes>`;
+            } catch (e) {
+                dbgWarn('chat', `could not read ${SIM_KNOWLEDGE}: ${e.message}`);
+            }
+        }
+        document.querySelector('.starter-chips')?.remove();
+        document.querySelectorAll('.choice-chips').forEach(el => el.remove());
+        addMsg(msg, 'user');
+        this.dirty = true;
+        await this.callClaude(msg + notes);
     }
 
     renderComponentList(targetId) {
