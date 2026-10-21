@@ -163,3 +163,9 @@ Change (`c566a21`): no SERVE mode, no `DONE`/`Enable Share` row, no hold-to-exit
 | `disarm` | `ok`; `info` still `armed: true` |
 
 Not run: the Box (hardware back 2026-10-21). PLAN.md phases 2 and 3 no longer include SERVE mode or display-only game enrollment (dropped by the user).
+
+## Status at stop (2026-10-20, night)
+
+- Dial runs the circular Station UI (branch `claude/dial-circular-ui-708f78`, `2b3b96a`; not merged into `chat_app_espnow`). Scripted wand pulls from it: 3/3, 3.6–4.4 s; `games.list` `speed36` pulls 3.
+- SoftAP removal (PLAN 5.2) committed `bfed8e2`..`fb907d2`. The final verification and grep did not run; run the offline tests before merging or pushing.
+- Not done: Box single-state deploy and Icon Display (2026-10-21), full-stack test, push and PR.
