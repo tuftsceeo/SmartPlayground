@@ -168,6 +168,18 @@ export function stripChoicesMarker(text) {
     return text.replace(/\[CHOICES:[^\]]+\]/g, "").trim();
 }
 
+/** Design brief between [GAME_BRIEF] and [/GAME_BRIEF] lines, or null. */
+export function parseGameBrief(text) {
+    const match = text.match(/\[GAME_BRIEF\]([\s\S]*?)\[\/GAME_BRIEF\]/);
+    if (!match) return null;
+    return match[1].trim() || null;
+}
+
+/** The reply with its brief block removed, for showing the text around it. */
+export function stripGameBrief(text) {
+    return text.replace(/\[GAME_BRIEF\][\s\S]*?(\[\/GAME_BRIEF\]|$)/g, "").trim();
+}
+
 /** Splats per wand the simulator can show, and how many wands it can hold a game for. */
 const SETTINGS_LIMITS = { wand_splats: [0, 2], wands: [1, 4] };
 
