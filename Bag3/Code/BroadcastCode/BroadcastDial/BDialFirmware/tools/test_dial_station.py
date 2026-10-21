@@ -317,6 +317,20 @@ class Writes(unittest.TestCase):
         idle(srv)
         self.assertEqual(srv.card.store["CC"], "ab")
 
+    def test_games_cleared_mid_scan(self):
+        srv = make(MELODY)
+        run(srv, NEXT, ACT, ACT, NEXT, NEXT, ACT)   # Play -> scan
+        srv._index = {}
+        srv._rebuild_entries()
+        self.assertEqual(srv.st.mode, station.GAMES)
+        run(srv, EXIT, ACT, ACT)                    # home (on Tags) -> Tags -> Utility
+        self.assertEqual(srv.ui.last("show_list")[2], ["stop", "battery"])
+
+    def test_copied_code_card_counts_as_code(self):
+        srv = make(MELODY)
+        srv.on_written("getcode:melody@" + BS.HOST_ID, "BB", True)
+        self.assertEqual(srv._written, {"getcode:melody": 1})
+
     def test_words_from_games(self):
         srv = make(MELODY)
         self.assertEqual(srv.words()[:4], ["melody", "note_c", "note_d", "stop"])

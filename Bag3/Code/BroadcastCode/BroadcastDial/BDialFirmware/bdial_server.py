@@ -660,6 +660,7 @@ class BdialServer:
     def on_written(self, label, uid, wrote):
         if not wrote:
             return
+        label = label.split('@', 1)[0]      # a copied getcode card
         self._written[label] = self._written.get(label, 0) + 1
         self.link.send({"type": "card_written", "label": label, "uid": uid})
         try:

@@ -107,11 +107,16 @@ class Station:
         return self.mode in SERVE_MODES and self._wait_until is None
 
     def reload(self):
-        """Games changed: rebuild the groups; repaint a list on screen."""
+        """Games changed: rebuild the groups. Anywhere inside a group
+        (its list, a scan from it, write-all, a held result) goes back to
+        the game list, since the group may be gone."""
         self.groups = self.host.tag_groups()
-        if self.mode in (GAMES, TAGS) and self._wait_until is None:
-            self.game_sel = 0
-            self.tag_sel = 0
+        self.game_sel = 0
+        self.tag_sel = 0
+        inside = self.mode in (GAMES, TAGS, ALLNEXT) or (
+            self.mode == SCAN and self.scan_return in (TAGS, ALLNEXT))
+        if inside:
+            self._wait_until = None
             self.go_games()
 
     # -- reader ------------------------------------------------------
