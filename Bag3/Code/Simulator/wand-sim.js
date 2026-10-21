@@ -70,6 +70,12 @@ const OVERLAYS = {
     title: "New code is ready", message: "play it to see the change",
     buttons: [{ action: "play-it", label: "Play it →", style: "pink" }],
   },
+  paused: {
+    banner: true,
+    icon: "sparkles", tintBg: "#e9fbf6", tintFg: "#12967f",
+    title: "Simulation paused", message: "play it to start again",
+    buttons: [{ action: "play-it", label: "Play it →", style: "pink" }],
+  },
 };
 
 const SHELL_STYLE = `
@@ -404,9 +410,9 @@ class WandSim extends HTMLElement {
   // ── Overlays ────────────────────────────────────────────────────────
 
   /**
-   * Show one of the four pop-ups over the whole panel.
+   * Show one of the pop-ups over the whole panel.
    *
-   * kind: "game-over" | "cant-simulate" | "welcome" | "new-code"
+   * kind: "game-over" | "cant-simulate" | "welcome" | "new-code" | "paused"
    * opts.title / opts.message override the built-in copy (the auto-shown
    *   "cant-simulate" uses this to say which phase failed).
    * opts.buttons overrides the button row, as
@@ -562,6 +568,12 @@ class WandSim extends HTMLElement {
         ? "the practice window isn't available right now — you can still send this game to your wand"
         // load = it wouldn't compile; run = it crashed mid-play. Same advice.
         : "this game is a bit too tricky for the practice window — send it to your wand to try it for real",
+      // A game that failed to compile or crashed can be handed back to the
+      // chat; a boot failure has no game error to report.
+      buttons: phase === "boot" ? undefined : [
+        ...OVERLAYS["cant-simulate"].buttons,
+        { action: "debug-in-chat", label: "Send problem to chat →", style: "pink" },
+      ],
     });
     this.dispatchEvent(new CustomEvent("sim-error", { detail: { message: String(err), phase } }));
   }

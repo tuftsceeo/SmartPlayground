@@ -49,6 +49,7 @@ import {
 import { gameIconEntries, startingIcon, drawIcon } from './ledicons/iconView.js';
 
 const SILENCE_LIMIT_MS = 15000;
+const SIM_IDLE_PAUSE_MS = 60000;
 const SILENCE_GAME_MS = 45000;
 const REBOOT_LIMIT_MS = 20000;
 const WATCHDOG_TICK_MS = 2000;
@@ -2093,11 +2094,13 @@ class App {
                 // swallowed.
                 this._sim.addEventListener('sim-error', (e) => {
                     const { message, phase } = e.detail || {};
+                    this._simLastError = { message, phase };
                     dbgError('sim', `sim-error (${phase}): ${message}`);
                 });
                 this._sim.addEventListener('sim-overlay-action', (e) => {
                     this.onSimOverlayAction(e.detail || {});
                 });
+                this._setupSimIdlePause();
                 // The simulator draws no logs; its lines go to the footer.
                 this._sim.addEventListener('sim-log', (e) => this.appendLog('sim', `wand    ${e.detail.text}`));
                 this._sim.addEventListener('display-print', (e) => this.appendLog('sim', `display ${e.detail.text}`));
@@ -2121,6 +2124,32 @@ class App {
                 dbgError('sim', 'failed to load sim-room module', err);
             });
         return this._simLoadPromise;
+    }
+
+    /** A running simulation pauses after SIM_IDLE_PAUSE_MS without input
+     * on the page, and at once when the tab is hidden: a game that sends
+     * radio frames continuously allocates faster than an idle tab collects.
+     * The paused banner's Play it restarts the game. */
+    _setupSimIdlePause() {
+        this._simPaused = false;
+        const pause = () => {
+            if (!this._sim || this._simPaused) return;
+            this._simPaused = true;
+            dbg('sim', 'paused (idle or hidden)');
+            Promise.resolve(this._sim.stop()).catch(() => {});
+            this._sim.showOverlay('paused');
+        };
+        const arm = () => {
+            clearTimeout(this._simIdleTimer);
+            this._simIdleTimer = setTimeout(pause, SIM_IDLE_PAUSE_MS);
+        };
+        for (const ev of ['pointerdown', 'pointermove', 'keydown', 'wheel']) {
+            document.addEventListener(ev, arm, { passive: true, capture: true });
+        }
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) pause(); else arm();
+        });
+        arm();
     }
 
     /**
@@ -2162,6 +2191,7 @@ class App {
         this._simLastDisplay = display;
         this._simLastSettings = settingsKey;
         this._sim.hideOverlay();
+        this._simPaused = false;
         this._sim.displayIcons = display ? this.simDisplayIcons(display) : null;
         this._sim.displaySource = display;
         // Workspace code is pushed as source — it may have been edited — so
@@ -2198,10 +2228,25 @@ class App {
     onSimOverlayAction({ kind, action }) {
         dbg('app', `sim overlay ${kind} -> ${action}`);
         if (action === 'play-it' || action === 'play-again') {
+            this._simPaused = false;
             this._sim?.restart();
         } else if (action === 'send-to-box') {
             this.startSendFlow();
+        } else if (action === 'debug-in-chat') {
+            this.sendSimProblemToChat();
         }
+    }
+
+    /** Ask the chat to fix the game the simulator could not run. The
+     * editor's code already travels in the system blocks, so the message
+     * carries the phase and the simulator's error text. */
+    sendSimProblemToChat() {
+        const err = this._simLastError;
+        if (!err) return;
+        const when = err.phase === 'load' ? 'loading the game' : 'running the game';
+        const inp = document.getElementById('user-input');
+        inp.value = `The simulator failed while ${when}. Please find the problem in the current code and fix it.\n\nSimulator error:\n${err.message}`;
+        this.onSend();
     }
 
     renderComponentList(targetId) {

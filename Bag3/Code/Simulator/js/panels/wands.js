@@ -27,6 +27,7 @@
  *     .pushSource()      the room's source or game changed; live wands reload
  *     .setGameSplats(n)  Splats each live wand starts the next load with
  *     .restart()         restart every live other wand
+ *     .stop()            stop every live other wand
  *     .clear()           drop every other wand (a non-party game loaded)
  */
 
@@ -327,6 +328,9 @@ export function createWandsPanel({ mount, room }) {
     },
     restart() {
       for (const o of others) o.el?.restart();
+    },
+    stop() {
+      for (const o of others) o.el?.stop();
     },
     clear,
   };

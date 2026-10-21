@@ -154,7 +154,10 @@ class SimRoom extends HTMLElement {
   get pyodide() { return this.wand ? this.wand.pyodide : null; }
 
   start() { return this.wand?.start(); }
-  stop() { return this.wand?.stop(); }
+  stop() {
+    this.panel("wands")?.stop();
+    return this.wand?.stop();
+  }
   showOverlay(kind, opts) { return this.wand?.showOverlay(kind, opts); }
   hideOverlay() { return this.wand?.hideOverlay(); }
 
