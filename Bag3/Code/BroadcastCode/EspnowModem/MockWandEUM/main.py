@@ -917,6 +917,20 @@ def main():
     HEARTBEAT_MS = 5000
     last_heartbeat_ms = time.ticks_ms()
 
+    # ── Auto-launch a just-pushed game ──
+    # ChatBroadcast's direct USB push (wandGameInstaller.js) writes the game,
+    # calls game_store.set_last_pulled() and soft-resets. take_last_pulled()
+    # clears the marker as it reads, so this fires once.
+    _just_pulled = game_store.take_last_pulled()
+    if _just_pulled:
+        print("  Launching just-pulled game: %s" % _just_pulled)
+        try:
+            _launch_game(_just_pulled, nfc, leds, buz, accel, i2c, enow, batt)
+        except Exception as e:
+            _game_load_failed(_just_pulled, e)
+        last_activity_ms = time.ticks_ms()
+        last_uid = None
+
     show_idle(last_soc, 0)
     print("\n  Tap a TRIGGER tag to start programming\n")
 
