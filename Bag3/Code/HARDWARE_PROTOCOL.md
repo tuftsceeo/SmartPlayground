@@ -45,6 +45,18 @@ python3 -m mpremote connect $PORT resume \
 python3 -m mpremote connect $PORT reset
 ```
 
+### Routine updates: copy what the commits changed
+
+List the changed device files with
+`git diff --name-only <deployed-commit>..HEAD -- <firmware dir>` and copy
+them in **one** `mpremote ... resume` invocation as above, then `reset`.
+Do not use `tools/deploy.py` for this: it is only for a very stale device
+or a board freshly re-flashed with blank firmware. Measured 2026-10-20 on
+the Dial: each `mpremote` invocation against the running program took
+80-85 s regardless of file size (6-32 KB), so `deploy.py --changed` (one
+invocation per file, hashing and read-back) ran over 4 minutes for 8 files
+without finishing; one invocation copying 3 files took 87 s.
+
 `mpremote` is available as `python3 -m mpremote` (no `mpremote` binary on
 PATH here).
 
