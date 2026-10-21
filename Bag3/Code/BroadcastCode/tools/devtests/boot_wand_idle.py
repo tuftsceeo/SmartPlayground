@@ -231,5 +231,39 @@ names = [n for _, n, _ in p.writes[n0:]]
 check("after any game: Splats are cleared and the idle glow restored",
       "allTasksOff" in names and "allLEDsOff" in names and names[-1] == "setLEDs", str(names))
 
+# ── fast boot reads the OPT3002 only after its first 100 ms conversion ──
+import types  # noqa: E402
+
+
+def fake_opt3002(b):
+    log = {}
+
+    class FakeLight:
+        def __init__(self, i2c=None, addr=0x44):
+            pass
+
+        def init(self, mode=None, wait=True):
+            log["init"] = time.ticks_ms()
+            log["wait"] = wait
+
+        @property
+        def lux(self):
+            log["read"] = time.ticks_ms()
+            return 500.0 if log["read"] - log["init"] >= 100 else 0.0
+
+    mod = types.ModuleType("opt3002")
+    mod.OPT3002 = FakeLight
+    sys.modules["opt3002"] = mod
+    b.light_log = log
+
+
+b = boot(fast=True, cards=NONE * 5, setup=fake_opt3002)
+lg = b.light_log
+check("fast boot: OPT3002 init does not wait", lg.get("wait") is False)
+check("fast boot: light read happens after the 100 ms conversion",
+      lg.get("read", 0) - lg.get("init", 0) >= 100, str(lg))
+check("fast boot: calibrated from the real reading", "Light: 500 lux" in b.out, b.out[-200:])
+sys.modules.pop("opt3002", None)
+
 shutil.rmtree(wandboot.TMP, ignore_errors=True)
 check.finish("wand idle pairing OK")

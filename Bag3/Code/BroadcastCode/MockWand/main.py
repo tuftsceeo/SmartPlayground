@@ -1074,10 +1074,12 @@ def _boot():
     # other stages, instead of waiting 120 ms and taking three samples.
     _stage("boot_stage_start", 1)
     light = None
+    light_t0 = 0
     try:
         from opt3002 import OPT3002
         light = OPT3002(i2c)
         light.init(wait=DEBUG_BOOT)
+        light_t0 = time.ticks_ms()
     except Exception as e:
         print("  [WARN] OPT3002: %s — brightness x1.00" % e)
         light = None
@@ -1147,6 +1149,11 @@ def _boot():
             _boot_warn(4)
 
     if not DEBUG_BOOT and light is not None:
+        # The first 100 ms conversion must have finished; before that the
+        # result register reads 0 lux.
+        left = 120 - time.ticks_diff(time.ticks_ms(), light_t0)
+        if left > 0:
+            time.sleep_ms(left)
         _calibrate_light(light, 1)
 
     if _boot_clean:
