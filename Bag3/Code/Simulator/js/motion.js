@@ -81,9 +81,9 @@ export function getPose() {
  * Free-form tilt pad: sets the latched base directly from a 2D pad
  * position (each axis -1..1) rather than a named pose.
  *
- * The mapping is fixed by the four edge labels the pad draws — Tip up at
- * the top, Tip down at the bottom, Left up at the left, Right up at the
- * right (see the "Wand Simulator v4" artboard) — read against POSES above:
+ * Each pad edge reads as a named pose — tip up at the top, tip down at
+ * the bottom, left up at the left, right up at the right — against POSES
+ * above:
  *
  *   ny = -1 (top)    -> tip_up    (x = -1)      so x =  ny
  *   ny = +1 (bottom) -> tip_down  (x = +1)
@@ -94,9 +94,6 @@ export function getPose() {
  * z carries whatever is left over once the two in-plane axes are spent, so
  * the pad's centre reads as a wand lying face up on the table and each edge
  * reads as that edge's named pose, with a continuous blend in between.
- *
- * This replaced an earlier mapping whose vertical axis drove face up/down
- * rather than tip up/down, which no pad label could describe.
  */
 export function setPadTilt(nx, ny) {
   const tx = clamp(Number(nx) || 0, -1, 1);

@@ -14,7 +14,7 @@
  * bus once clicked.
  *
  * Attributes passed through to the inner <wand-sim>: game, autostart,
- * advanced, show-console, log-lines.
+ * advanced.
  *
  * Properties:
  *   source         wand code instead of a vendored game (as <wand-sim>)
@@ -38,7 +38,8 @@
  * Methods passed to the inner <wand-sim>: start(), stop(), restart(),
  * showOverlay(), hideOverlay().
  *
- * Events: room-capabilities (detail: capabilities), and <wand-sim>'s own
+ * Events: room-capabilities (detail: capabilities), room-radio (detail:
+ * { text, type }: one line per pw_* party frame on the bus), and <wand-sim>'s own
  * events (FORWARDED below), re-dispatched from the room so a host page can
  * listen on the room itself.
  */
@@ -46,7 +47,7 @@
 import "./wand-sim.js";
 import { createBus, BROADCAST } from "./js/bus.js";
 import { createClock } from "./js/clock.js";
-import { hexToBytes, describePayload } from "./js/radio.js";
+import { hexToBytes } from "./js/radio.js";
 import { createDisplayPanel, DISPLAY_STYLE } from "./js/panels/display.js";
 import { createSplatPanel, SPLAT_STYLE } from "./js/panels/splats.js";
 import { createWandsPanel, WANDS_STYLE } from "./js/panels/wands.js";
@@ -59,11 +60,11 @@ export const DISPLAY_MAC = "02:00:00:00:0d:01";
 /** The teacher/hub side: who tells the display to start the game. */
 export const ROOM_MAC = "02:00:00:00:00:fe";
 
-const PASS_ATTRS = ["game", "autostart", "advanced", "show-console", "log-lines"];
+const PASS_ATTRS = ["game", "autostart", "advanced"];
 
 /** <wand-sim> events the room re-dispatches (they do not leave its shadow root). */
 const FORWARDED = ["sim-ready", "sim-loaded", "sim-frame", "sim-print", "sim-error",
-  "sim-stopped", "sim-overlay-action", "sim-enow-sent"];
+  "sim-stopped", "sim-overlay-action", "sim-enow-sent", "sim-log"];
 
 function simUrl(rel) {
   return new URL(rel, import.meta.url).href;
@@ -228,7 +229,6 @@ class SimRoom extends HTMLElement {
       this._refresh().catch((err) => console.error("sim-room refresh", err));
     });
     this._root.querySelector('[data-slot="wand"]').appendChild(wand);
-    this.bus.onLog((e) => this._onBusLog(e));
   }
 
   attributeChangedCallback(name, _old, value) {
@@ -266,19 +266,15 @@ class SimRoom extends HTMLElement {
         this.panel("splats")?.sync();
       });
     });
-    this.party.onPwLog((line, frame) => this.panel("wands")?.pushLog(line, frame));
+    this.party.onPwLog((text, frame) => {
+      this.dispatchEvent(new CustomEvent("room-radio", { detail: { text, type: frame.type } }));
+    });
   }
 
   /** Bus send from a Python device; returns the ACK count espnow.send uses. */
   _tx(src, dst, hex) {
     this.bus.send(src, dst, hexToBytes(hex));
     return dst === BROADCAST || this.bus.macs().includes(dst) ? 1 : 0;
-  }
-
-  _onBusLog(e) {
-    if (e.event !== "send" || e.src !== WAND_MAC) return;
-    const d = this.panel("display");
-    if (d) d.pushFeed(`${e.dst === BROADCAST ? "broadcast" : `to ${e.dst}`}: ${describePayload(e.payload)}`);
   }
 
   async _manifestFiles() {
@@ -367,14 +363,13 @@ class SimRoom extends HTMLElement {
 
 SimRoom.registerPanel("display", {
   title: "Icon display",
-  wants: (caps) => !!(caps.has_display_file || caps.uses_display),
+  wants: (caps) => !!caps.has_display_file,
   create: (room, box) => createDisplayPanel({
     bus: room.bus, clock: room.clock, mac: DISPLAY_MAC, mount: box,
   }),
   async update(panel, caps, room) {
-    panel.clearFeed();
     const game = room.displayGame;
-    if (!caps.has_display_file || !game) {
+    if (!game) {
       panel.setDisplayMode(false);
       return;
     }
@@ -455,18 +450,18 @@ SimRoom.registerPanel("splats", {
 });
 
 // Advanced mode: how many other wands are in the game, and the overlay
-// with all of them side by side.
+// with all of them side by side. Shown for a party game, and for any game
+// whose settings say it is for more than one wand.
 SimRoom.registerPanel("wands", {
   slot: "strip",
   title: null,
-  wants: (caps) => !!caps.party,
+  wants: (caps, room) => !!caps.party || room.gameWands > 1,
   create(room, box) {
     const panel = createWandsPanel({ mount: box, room });
     panel.setGameSplats(room.gameSplats);
     return panel;
   },
   update(panel, caps, room) {
-    panel.clearLog();
     panel.setGame(caps);
     // Settings for a different number of wands start over with that many
     // placeholders. New code for the same number keeps the wands as they

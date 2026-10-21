@@ -18,9 +18,12 @@ The app reads these marker lines out of your reply and hides them from the teach
   card value the game reacts to. Leave it out only when no file reads a card. The app uses it to
   tell the teacher which cards to write.
 - **`[GAME_SETTINGS: {"wand_splats": 1, "wands": 1}]`** exactly once for a Splat game (see the
-  Splat games section), as one line of JSON. Only the practice window reads it; the wand never
-  sees it. `wand_splats` is how many Splats each child's wand has paired (0, 1 or 2); `wands` is
-  how many wands the game is meant for (1 to 4), 1 for a game one child plays alone.
+  Splat games section), and **`[GAME_SETTINGS: {"wands": 2}]`** exactly once for any other game
+  played on more than one wand, as one line of JSON. Only the practice window reads it; the wand
+  never sees it. `wand_splats` is how many Splats each child's wand has paired (0, 1 or 2), and
+  appears only for a Splat game; `wands` is how many wands the game is meant for (1 to 4), 1 for
+  a game one child plays alone. The practice window shows that many wands, so a game that sends
+  messages between wands needs `wands` of at least 2.
 - **`[CHOICES: "option one", "option two", "option three"]`** optionally, as the very last line.
   Two to four short follow-up changes the teacher can tap instead of typing. Write each as the
   request the teacher would send ("Make it slower", "Add a winning song").

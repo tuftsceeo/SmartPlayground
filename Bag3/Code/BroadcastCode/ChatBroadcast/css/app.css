@@ -163,6 +163,16 @@ body.ui-advanced #app-shell {
 .more-item:hover { background: var(--border-soft); }
 .more-check { display: none; color: var(--teal); }
 .more-item.active .more-check { display: flex; }
+/* A sub-option of the item above it: indented under a soft rule. */
+.more-subitem {
+    width: calc(100% - 14px);
+    margin-left: 14px;
+    border-left: 2px solid var(--border);
+    border-radius: 0 10px 10px 0;
+    font-size: 12px;
+    color: var(--muted);
+}
+.more-subitem.active { color: var(--ink); }
 
 .app-tabs { display: flex; gap: 6px; margin-left: 10px; }
 .app-tab {
@@ -1452,6 +1462,7 @@ body.ui-advanced #app-shell {
 .advanced-only { display: none !important; }
 body.ui-advanced .advanced-only { display: revert !important; }
 body.ui-advanced .mybox-stats.advanced-only { display: block !important; }
+body.ui-advanced .more-item.advanced-only { display: flex !important; }
 .muted { color: var(--muted); font-size: 13px; }
 
 #toast {
@@ -1563,7 +1574,29 @@ body.ui-advanced .mybox-stats.advanced-only { display: block !important; }
     background: #3a3450;
     color: #e8e4f4;
 }
-#serial-log-text {
+.log-tabs { display: flex; gap: 4px; flex: none; }
+.serial-log-bar .log-tab {
+    border-radius: 20px;
+    border-color: transparent;
+    background: transparent;
+    color: #a9a3c4;
+}
+.serial-log-bar .log-tab:hover { color: #e8e4f4; }
+#serial-log-panel.open .log-tab.active {
+    background: #3a3450;
+    border-color: #4a4466;
+    color: #e8e4f4;
+}
+.log-preview {
+    flex: 1;
+    min-width: 0;
+    opacity: 0.7;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+#serial-log-panel:not([data-log="serial"]) #btn-copy-log { display: none; }
+.log-pane {
     margin: 0;
     padding: 8px 12px;
     flex: 1 1 auto;
@@ -1572,7 +1605,7 @@ body.ui-advanced .mybox-stats.advanced-only { display: block !important; }
     display: none;
     box-sizing: border-box;
 }
-#serial-log-panel.open #serial-log-text { display: block; }
+#serial-log-panel.open .log-pane.active { display: block; }
 
 .modal-error { color: #c0392b; font: 13px 'Nunito'; min-height: 1.2em; }
 

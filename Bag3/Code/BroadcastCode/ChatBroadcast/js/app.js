@@ -30,6 +30,7 @@ import { subscribe, getEntries, toText } from './device/serialLog.js';
 import { setWorkspaceHandler } from './markdown.js';
 import { dbg, dbgWarn, dbgError } from './debug.js';
 import { loadUiMode, toggleUiMode, getUiMode } from './uiMode.js';
+import { loadDevMode, toggleDevMode } from './devMode.js';
 import { loadSavedGames, saveGame, findSavedGame, renameSavedGame, deleteSavedGame } from './library.js';
 import { scanCapabilities } from './sim/codeCapabilities.js';
 import { buildComponentChecklist } from './checklist.js';
@@ -117,7 +118,7 @@ class App {
         this.tagWrites = {};        // live {tagLabel: count} from card_written events
         this.galleryFilter = 'all';
         this.galleryMode = 'examples'; // 'examples' | 'saved'
-        this.serialOpen = false; // serial log drawer — NOT the port
+        this.serialOpen = false; // log footer drawer — NOT the port
         this.dirty = false;
         this.pendingSendAfterConnect = false;
         this._sim = null;
@@ -195,6 +196,7 @@ class App {
         document.addEventListener('uimode:change', (e) => {
             this.applyUiMode(e.detail.mode);
         });
+        document.addEventListener('devmode:change', () => this.applyLogFooter());
 
         // An edited icon is unsaved work like any other.
         //
@@ -615,23 +617,11 @@ class App {
 
     applyUiMode(mode) {
         const advanced = mode === 'advanced';
-        const panel = document.getElementById('serial-log-panel');
         const gear = document.getElementById('btn-mode-gear');
 
         document.body.classList.toggle('ui-advanced', advanced);
 
-        if (panel) {
-            if (advanced) {
-                panel.classList.remove('hidden');
-                if (!this.serialOpen) panel.classList.remove('open');
-                this.reserveSerialPadding();
-            } else {
-                panel.classList.add('hidden');
-                panel.classList.remove('open');
-                this.serialOpen = false;
-                document.body.style.paddingBottom = '';
-            }
-        }
+        this.applyLogFooter();
         this.syncRoleRail();
         if (gear) {
             gear.title = advanced ? 'Switch to simple mode' : 'Switch to advanced mode';
@@ -643,6 +633,28 @@ class App {
         document.getElementById('wand-sim')?.toggleAttribute('advanced', advanced);
         this._detailSim?.toggleAttribute('advanced', advanced);
         dbg('app', `UI mode: ${mode}`);
+    }
+
+    /** The log footer shows only with advanced mode and Developer mode both on. */
+    applyLogFooter() {
+        const panel = document.getElementById('serial-log-panel');
+        const dev = document.getElementById('btn-dev-mode');
+        const on = loadDevMode();
+        if (dev) {
+            dev.classList.toggle('active', on);
+            dev.setAttribute('aria-pressed', String(on));
+        }
+        if (!panel) return;
+        if (getUiMode() === 'advanced' && on) {
+            panel.classList.remove('hidden');
+            if (!this.serialOpen) panel.classList.remove('open');
+            this.reserveSerialPadding();
+        } else {
+            panel.classList.add('hidden');
+            panel.classList.remove('open');
+            this.serialOpen = false;
+            document.body.style.paddingBottom = '';
+        }
     }
 
     reserveSerialPadding() {
@@ -660,30 +672,55 @@ class App {
         const panel = document.getElementById('serial-log-panel');
         const pre = document.getElementById('serial-log-text');
         const preview = document.getElementById('serial-log-preview');
-        // Start hidden — simple mode default; advanced reveals via applyUiMode
+        // Start hidden; applyLogFooter reveals it
         panel.classList.add('hidden');
+        panel.dataset.log = 'serial';
+        // Simulator and radio lines live here, not in the serial log store,
+        // so Copy still copies only the device log.
+        this._logLines = { serial: [], sim: [], radio: [] };
+        const showPreview = () => {
+            const lines = this._logLines[panel.dataset.log];
+            if (preview) preview.textContent = lines[lines.length - 1] || '';
+        };
+        this.appendLog = (section, text) => {
+            const lines = this._logLines[section];
+            lines.push(text);
+            if (lines.length > 200) lines.splice(0, lines.length - 200);
+            const out = document.getElementById(`${section}-log-text`);
+            out.textContent = lines.join('\n');
+            out.scrollTop = out.scrollHeight;
+            if (panel.dataset.log === section) showPreview();
+        };
 
         subscribe((entry) => {
-            if (entry === null) {
-                pre.textContent = '';
-                if (preview) preview.textContent = '';
-                return;
-            }
-            const lines = getEntries().slice(-80).map((e) => {
+            const lines = entry === null ? [] : getEntries().slice(-80).map((e) => {
                 const tag = e.dir.toUpperCase().padEnd(5);
                 return `${tag} ${e.text}`;
             });
+            this._logLines.serial = lines;
             pre.textContent = lines.join('\n');
             pre.scrollTop = pre.scrollHeight;
-            if (preview && lines.length) {
-                preview.textContent = lines[lines.length - 1];
-            }
+            if (panel.dataset.log === 'serial') showPreview();
         });
 
-        document.getElementById('btn-serial-toggle').addEventListener('click', () => {
-            this.serialOpen = !this.serialOpen;
-            panel.classList.toggle('open', this.serialOpen);
-            this.reserveSerialPadding();
+        // A section tab opens the drawer on that section; the open one's tab
+        // collapses it.
+        panel.querySelectorAll('.log-tab').forEach((tab) => {
+            tab.addEventListener('click', () => {
+                const section = tab.dataset.log;
+                this.serialOpen = !(this.serialOpen && panel.dataset.log === section);
+                panel.dataset.log = section;
+                panel.querySelectorAll('.log-tab').forEach((t) => {
+                    t.classList.toggle('active', t === tab);
+                    t.setAttribute('aria-selected', String(t === tab));
+                });
+                panel.querySelectorAll('.log-pane').forEach((p) => {
+                    p.classList.toggle('active', p.dataset.log === section);
+                });
+                panel.classList.toggle('open', this.serialOpen);
+                showPreview();
+                this.reserveSerialPadding();
+            });
         });
         initSerialSplit({
             onResize: () => this.reserveSerialPadding(),
@@ -1154,6 +1191,10 @@ class App {
 
         document.getElementById('btn-mode-gear').addEventListener('click', () => {
             toggleUiMode();
+            this.closeMoreMenu();
+        });
+        document.getElementById('btn-dev-mode').addEventListener('click', () => {
+            toggleDevMode();
             this.closeMoreMenu();
         });
         document.querySelectorAll('.device-tab').forEach((el) => {
@@ -2056,6 +2097,17 @@ class App {
                 });
                 this._sim.addEventListener('sim-overlay-action', (e) => {
                     this.onSimOverlayAction(e.detail || {});
+                });
+                // The simulator draws no logs; its lines go to the footer.
+                this._sim.addEventListener('sim-log', (e) => this.appendLog('sim', `wand    ${e.detail.text}`));
+                this._sim.addEventListener('display-print', (e) => this.appendLog('sim', `display ${e.detail.text}`));
+                this._sim.addEventListener('sim-error', (e) => {
+                    this.appendLog('sim', `error   ${e.detail.phase}: ${e.detail.message}`);
+                });
+                this._sim.addEventListener('room-radio', (e) => this.appendLog('radio', e.detail.text));
+                this._sim.addEventListener('sim-enow-sent', (e) => {
+                    const { kind, mac, data } = e.detail;
+                    this.appendLog('radio', `wand → ${mac || 'all'}: ${kind} ${data}`);
                 });
                 if (this._simPendingSource !== null) {
                     const pending = this._simPendingSource;

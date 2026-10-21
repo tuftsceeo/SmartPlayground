@@ -3,11 +3,12 @@
  * artboard (BroadcastBox/docs_and_design/simlution v4/Wand Simulator v4.dc.html).
  *
  * Two panes. The left one is the wand's home: a striped pad you move over
- * to tilt the wand and click to press its button, with the four named
- * orientations labelled at its edges, a live axis readout above (advanced
- * only) and a status line plus "Turn over" below. The right one holds the
- * toolbar (sound / advanced / start over), the one-shot gestures, the tag
- * popover, and the advanced block.
+ * to tilt the wand and click to press its button, a live axis readout above
+ * (advanced only) and a status line plus "Turn over" below. The right one
+ * holds the toolbar (sound / start over), the one-shot gestures, the tag
+ * popover, and the advanced block. Advanced mode is the host's `advanced`
+ * attribute. The panel draws no console, log or radio readout; wand-sim
+ * reports those as events for the host to show.
  *
  * Controls stay filtered by the loaded game's capabilities
  * (py/runtime.py:get_capabilities()) so only inputs the game actually reads
@@ -27,15 +28,6 @@ const POSE_LABELS = {
   face_down: "Face Down",
 };
 const POSE_ORDER = ["tip_up", "tip_down", "left_up", "right_up", "face_up", "face_down"];
-
-// The pad's own edge labels — shorter than POSE_LABELS, which read as
-// button text; these are corner hints on a small square.
-const PAD_LABELS = {
-  tip_up: "Tip up",
-  tip_down: "Tip down",
-  left_up: "Left<br>up",
-  right_up: "Right<br>up",
-};
 
 const MOVE_ORDER = ["jump", "shake", "flip"];
 // "Spin" rather than "Flip" in the UI, per the artboard: what the player
@@ -139,16 +131,7 @@ export const CONTROLS_STYLE = `
   border: 1.5px solid #e8e6f0; overflow: hidden; touch-action: none; cursor: pointer;
 }
 .pad.is-pressed { cursor: grabbing; }
-.pad-labels { position: absolute; inset: 0; pointer-events: none; }
-.pad-label {
-  position: absolute; font: 800 10px/1.35 'Nunito', system-ui, sans-serif;
-  letter-spacing: .06em; transition: color .15s; color: #c2b8d6;
-}
-.pad-label.is-on { color: #d13a7c; }
-.pad-label-top { top: 10px; left: 12px; }
-.pad-label-bottom { bottom: 10px; left: 12px; }
-.pad-label-left { top: 50%; left: 12px; transform: translateY(-50%); }
-.pad-label-right { top: 50%; right: 12px; transform: translateY(-50%); text-align: right; }
+.pad-guide { position: absolute; inset: 0; pointer-events: none; }
 .pad-ring {
   position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%);
   width: 118px; height: 118px; border-radius: 50%; border: 1.5px dashed #e8e6f0;
@@ -299,9 +282,7 @@ export const CONTROLS_STYLE = `
 .ctrl-btn:hover { border-color: #6c4cd1; color: #6c4cd1; }
 .adv-status { font: 700 11px ui-monospace, monospace; color: #8b859a; }
 
-/* ESP-NOW. There is no second wand in the simulator, so the radio is
-   two one-sided halves: buttons that fake what a caller would broadcast,
-   and a readout of what this wand transmitted. */
+/* ESP-NOW: buttons that fake what a caller would broadcast. */
 .radio-block { display: flex; flex-direction: column; gap: 4px; border-top: 1px solid #f4f2fa; padding-top: 7px; }
 .radio-label { font: 800 10px 'Nunito', system-ui, sans-serif; letter-spacing: .06em; color: #c2b8d6; }
 .radio-row { display: flex; flex-wrap: wrap; gap: 5px; }
@@ -311,11 +292,6 @@ export const CONTROLS_STYLE = `
   font: 700 10.5px ui-monospace, monospace; transition: all .15s;
 }
 .radio-btn:hover { border-color: #6c4cd1; background: #e9e2fb; }
-.radio-sent { font: 700 10.5px ui-monospace, monospace; color: #5b5468; }
-.radio-sent.is-idle { color: #c2b8d6; font-weight: 400; }
-.log { font: 400 10px/1.5 ui-monospace, monospace; color: #8b859a; overflow: hidden; }
-.log-line { display: flex; gap: 8px; }
-.log-line > span:first-child { color: #c2b8d6; flex: none; }
 
 input[type=range] { accent-color: #ef4d92; }
 
@@ -340,13 +316,7 @@ export function createControls(container, handlers = {}) {
       <div class="pad-hint" data-el="pad-hint">move to tilt · click to press</div>
       <div class="axis-row" data-el="axes" data-adv hidden></div>
       <div class="pad" data-el="pad" title="Move to tilt · click to press the button">
-        <div class="pad-labels" data-el="pad-labels" data-adv hidden>
-          ${POSE_ORDER.filter((n) => PAD_LABELS[n]).map((n) => {
-            const pos = { tip_up: "top", tip_down: "bottom", left_up: "left", right_up: "right" }[n];
-            return `<span class="pad-label pad-label-${pos}" data-pad-label="${n}">${PAD_LABELS[n]}</span>`;
-          }).join("")}
-          <span class="pad-ring"></span>
-        </div>
+        <div class="pad-guide" data-adv hidden><span class="pad-ring"></span></div>
         <div class="pad-wand" data-el="wand"></div>
         <div class="pad-extras"><slot name="pad" data-el="pad-slot"></slot></div>
       </div>
@@ -362,8 +332,6 @@ export function createControls(container, handlers = {}) {
     <div class="sim-pane-ctrl">
       <div class="ctrl-toolbar">
         <button type="button" class="icon-btn" data-act="mute" aria-pressed="false"></button>
-        <button type="button" class="icon-btn" data-act="advanced" aria-pressed="false"
-                title="Advanced — axes, custom tags, dials, log">${icon("code", 18)}</button>
         <button type="button" class="icon-btn" data-act="restart"
                 title="Start over">${icon("mop-sparkles", 18)}</button>
       </div>
@@ -423,13 +391,11 @@ export function createControls(container, handlers = {}) {
           <div class="radio-block">
             <div class="radio-label">Heard from the caller</div>
             <div class="radio-row" data-el="enow-recv"></div>
-            <div class="radio-label">Sent by this wand</div>
-            <div class="radio-sent" data-el="enow-sent">nothing yet</div>
           </div>
         </div>
 
         <button type="button" class="drawer-toggle" data-act="drawer-dials">
-          Hardware dials and log<span data-el="caret-dials">▼</span>
+          Hardware dials<span data-el="caret-dials">▼</span>
         </button>
         <div class="drawer-body" data-el="drawer-dials" hidden>
           <div class="dial-row">
@@ -437,13 +403,10 @@ export function createControls(container, handlers = {}) {
             <label>Ambient lux <input type="range" data-act="lux" min="10" max="20000" value="500"></label>
           </div>
           <div class="dial-row">
-            <button type="button" class="ctrl-btn" data-act="toggle-console" aria-pressed="false">Show console</button>
             <span class="adv-status">Buzzer: <span data-el="adv-buzzer">off</span></span>
             <span class="adv-status">Motor: <span data-el="adv-motor">off</span></span>
           </div>
         </div>
-
-        <div class="log" data-el="log"></div>
       </div>
     </div>
   `;
@@ -453,7 +416,6 @@ export function createControls(container, handlers = {}) {
     padHint: q('[data-el="pad-hint"]'),
     axes: q('[data-el="axes"]'),
     pad: q('[data-el="pad"]'),
-    padLabels: q('[data-el="pad-labels"]'),
     wand: q('[data-el="wand"]'),
     status: q('[data-el="status"]'),
     statusText: q('[data-el="status-text"]'),
@@ -465,22 +427,17 @@ export function createControls(container, handlers = {}) {
     tagList: q('[data-el="tag-list"]'),
     zeroState: q('[data-el="zero-state"]'),
     uses: q('[data-el="uses"]'),
-    log: q('[data-el="log"]'),
     enowRecv: q('[data-el="enow-recv"]'),
-    enowSent: q('[data-el="enow-sent"]'),
     advBuzzer: q('[data-el="adv-buzzer"]'),
     advMotor: q('[data-el="adv-motor"]'),
   };
   const muteBtn = q('[data-act="mute"]');
-  const advBtn = q('[data-act="advanced"]');
   const restartBtn = q('[data-act="restart"]');
-  const consoleBtn = q('[data-act="toggle-console"]');
   const shakeRange = q('[data-act="shake"]');
 
   const timers = {};
   let muted = false;
   let advanced = false;
-  let consoleShown = false;
   let faceDown = false;
   let pressed = false;
   let hovering = false;
@@ -489,7 +446,6 @@ export function createControls(container, handlers = {}) {
   let pose = "face_up";
   let runKind = "loading";
   let runText = "loading";
-  let logLines = 2;
 
   // ── Status line + pad hint ──────────────────────────────────────────
   function renderStatus() {
@@ -520,9 +476,6 @@ export function createControls(container, handlers = {}) {
 
   function setPoseDisplay(name) {
     pose = name;
-    for (const label of el.padLabels.querySelectorAll("[data-pad-label]")) {
-      label.classList.toggle("is-on", label.dataset.padLabel === name);
-    }
     renderStatus();
   }
 
@@ -621,15 +574,10 @@ export function createControls(container, handlers = {}) {
   }
   applyMuteVisual();
 
-  advBtn.addEventListener("click", () => handlers.onToggleAdvanced?.(!advanced));
-  /** Driven from the host's `advanced` attribute, not toggled locally, so
-   * the attribute stays the single source of truth. */
+  /** Driven from the host's `advanced` attribute. */
   function setAdvanced(v) {
     advanced = !!v;
-    advBtn.classList.toggle("is-active", advanced);
-    advBtn.setAttribute("aria-pressed", String(advanced));
     for (const node of root.querySelectorAll("[data-adv]")) node.hidden = !advanced;
-    if (advanced) renderLog();
   }
 
   // Restart always means the same thing (this game, from the top) whether
@@ -637,21 +585,6 @@ export function createControls(container, handlers = {}) {
   restartBtn.addEventListener("click", () => handlers.onRestart?.());
   function setRestartEnabled(v) { restartBtn.disabled = !v; }
   setRestartEnabled(false);
-
-  function applyConsoleVisual() {
-    consoleBtn.setAttribute("aria-pressed", String(consoleShown));
-    consoleBtn.textContent = consoleShown ? "Hide console" : "Show console";
-  }
-  consoleBtn.addEventListener("click", () => {
-    consoleShown = !consoleShown;
-    applyConsoleVisual();
-    handlers.onToggleConsole?.(consoleShown);
-  });
-  function setConsoleShown(v) {
-    consoleShown = !!v;
-    applyConsoleVisual();
-  }
-  applyConsoleVisual();
 
   // ── Turn over ───────────────────────────────────────────────────────
   const faceBtn = q('[data-act="face-flip"]');
@@ -768,29 +701,6 @@ export function createControls(container, handlers = {}) {
     }
   }
 
-  /** What this wand just transmitted — with no peer to receive it, showing
-   * it is the whole of a send's output. */
-  function setEnowSent(kind, data) {
-    const text = data ? `${kind} ${data}` : kind;
-    el.enowSent.textContent = text;
-    el.enowSent.classList.remove("is-idle");
-  }
-
-  // ── Log ─────────────────────────────────────────────────────────────
-  let log = [];
-  function renderLog() {
-    if (el.log.hidden || !advanced) return;
-    el.log.innerHTML = log.slice(0, logLines)
-      .map((l) => `<div class="log-line"><span>${l.t}</span><span>${l.s}</span></div>`)
-      .join("");
-  }
-  /** lines: newest-first [{ t, s }]. */
-  function setLog(lines, maxLines) {
-    log = lines || [];
-    if (maxLines) logLines = maxLines;
-    renderLog();
-  }
-
   // ── Capability-driven layout ────────────────────────────────────────
   function setCapabilities(caps) {
     const motion = new Set(caps?.motion || []);
@@ -807,11 +717,6 @@ export function createControls(container, handlers = {}) {
     el.uses.textContent = uses.length ? "Uses: " + uses.join(", ") : "";
     el.uses.hidden = uses.length === 0;
 
-    // Pad edge labels only for orientations this game reads, so the pad
-    // doesn't advertise a pose that does nothing.
-    for (const label of el.padLabels.querySelectorAll("[data-pad-label]")) {
-      label.hidden = !motion.has(label.dataset.padLabel);
-    }
     faceBtn.hidden = !(motion.has("face_up") || motion.has("face_down"));
 
     for (const b of root.querySelectorAll("[data-move]")) {
@@ -825,8 +730,6 @@ export function createControls(container, handlers = {}) {
     el.tagWrap.hidden = tags.length === 0;
 
     renderRadio(caps?.game);
-    el.enowSent.textContent = "nothing yet";
-    el.enowSent.classList.add("is-idle");
 
     el.zeroState.hidden = !(poseNames.length === 0 && moveNames.length === 0 &&
       buttonKind === "none" && tags.length === 0);
@@ -849,9 +752,8 @@ export function createControls(container, handlers = {}) {
   renderPadHint();
 
   return {
-    setCapabilities, setMuted, setConsoleShown, setRestartEnabled, resetPose,
-    setBuzzerStatus, setMotorStatus, setAdvanced, setRunState, setAxes, setLog,
-    setEnowSent,
+    setCapabilities, setMuted, setRestartEnabled, resetPose,
+    setBuzzerStatus, setMotorStatus, setAdvanced, setRunState, setAxes,
     dispose, wandHost: el.wand, root,
   };
 }

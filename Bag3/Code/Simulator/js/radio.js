@@ -49,9 +49,3 @@ export function decodePayload(bytes) {
   }
   return { text, json };
 }
-
-/** One-line readout for logs and the message feed. */
-export function describePayload(bytes) {
-  const { text } = decodePayload(bytes);
-  return text !== null ? text : `0x${bytesToHex(bytes)}`;
-}

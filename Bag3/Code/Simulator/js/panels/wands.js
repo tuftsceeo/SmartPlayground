@@ -1,7 +1,8 @@
 /**
- * Other wands for <sim-room>: the wands a party game is played with beside
- * the simulated one. Advanced mode only (sim-room's style hides it
- * otherwise); simple mode is the one wand.
+ * Other wands for <sim-room>: the wands a party game, or any game whose
+ * settings give `wands` > 1, is played with beside the simulated one.
+ * Advanced mode only (sim-room's style hides it otherwise); simple mode is
+ * the one wand.
  *
  * The room starts a party game with `wands - 1` other wands from its
  * settings (none by default), and "+ Add a wand" adds one, up to MAX_WANDS
@@ -18,8 +19,7 @@
  * "See all N wands" opens a near-full-screen <dialog> with every wand side
  * by side: the room's own wand is moved into it while it is open (a
  * <wand-sim> survives the move) and back when it closes. Live other wands
- * live in the dialog and keep running while it is closed. The radio
- * message log is at the bottom of the dialog.
+ * live in the dialog and keep running while it is closed.
  *
  *   createWandsPanel({ mount, room })
  *     .setFor(n)         a game for n wands loaded: n - 1 placeholders
@@ -28,7 +28,6 @@
  *     .setGameSplats(n)  Splats each live wand starts the next load with
  *     .restart()         restart every live other wand
  *     .clear()           drop every other wand (a non-party game loaded)
- *     .pushLog(line, frame) / .clearLog()
  */
 
 import { icon } from "../icons.js";
@@ -37,7 +36,6 @@ import { createPartyHost } from "../party.js";
 import { createSplatToy, CASE, BLOB } from "./splats.js";
 
 export const MAX_WANDS = 4;
-const LOG_LIMIT = 120;
 
 /** The other wands' MACs follow the room's wand (…:0a:01), so it leads a tie. */
 function otherMac(i) {
@@ -104,17 +102,6 @@ dialog.all-wands::backdrop { background: rgba(35,31,46,.35); }
 .ghost-wand .text b { font: 800 20px 'Nunito', system-ui, sans-serif; }
 .ghost-wand .text span { font: 700 13px/1.45 'Nunito', system-ui, sans-serif; color: #5b5468; }
 
-.aw-radio { border-top: 1px solid #f4f2fa; padding-top: 12px; display: flex; flex-direction: column; gap: 8px; }
-.aw-radio .radio-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
-  font: 700 11px 'Nunito', system-ui, sans-serif; color: #5b5468; }
-.aw-radio .radio-head > span { font: 800 10px 'Nunito', system-ui, sans-serif; letter-spacing: .06em; }
-.aw-radio .radio-head label { display: flex; align-items: center; gap: 6px; }
-.aw-radio .radio-head input { accent-color: #ef4d92; margin: 0; }
-.aw-radio .radio-head button { margin-left: auto; font: 700 11px 'Nunito', system-ui, sans-serif; padding: 6px 11px;
-  border-radius: 12px; border: 1.5px solid #e8e6f0; background: #fff; color: #5b5468; cursor: pointer; }
-.aw-radio .buslog { margin: 0; height: 72px; overflow-y: auto; background: #f7f7fb; border-radius: 10px; padding: 8px 10px;
-  font: 400 11px/1.5 ui-monospace, monospace; color: #3a3345; white-space: pre-wrap; word-break: break-all; }
-.aw-radio .buslog:empty::before { content: "no radio messages yet"; color: #5b5468; }
 `;
 
 export function createWandsPanel({ mount, room }) {
@@ -136,20 +123,11 @@ export function createWandsPanel({ mount, room }) {
       <button type="button" class="wbtn" data-el="add">+ Add a wand</button>
       <button type="button" class="wbtn sq" data-el="close" aria-label="Close">${icon("close", 18)}</button>
     </div>
-    <div class="aw-grid" data-el="grid"></div>
-    <div class="aw-radio">
-      <div class="radio-head"><span>RADIO MESSAGES</span>
-        <label><input type="checkbox" data-el="show-hb"> Show heartbeats and lobby beacons</label>
-        <button type="button" data-el="clear-log">Clear</button></div>
-      <pre class="buslog" data-el="buslog"></pre>
-    </div>`;
+    <div class="aw-grid" data-el="grid"></div>`;
   mount.appendChild(dialog);
 
   const $ = (root, el) => root.querySelector(`[data-el="${el}"]`);
   const grid = $(dialog, "grid");
-  const log = $(dialog, "buslog");
-  const showHb = $(dialog, "show-hb");
-  const lines = [];
 
   /** The room's own wand card; its <wand-sim> moves in while the dialog is open. */
   const mine = document.createElement("div");
@@ -168,8 +146,6 @@ export function createWandsPanel({ mount, room }) {
   dialog.addEventListener("close", () => {
     room.placeWand(null);
   });
-  $(dialog, "clear-log").addEventListener("click", () => clearLog());
-  showHb.addEventListener("change", () => drawLog());
 
   function open() {
     room.placeWand(mine);
@@ -238,7 +214,7 @@ export function createWandsPanel({ mount, room }) {
     ghost.innerHTML = `<span class="pad">
         <span class="body"><span class="led"></span><span class="nfc"></span>
           <span class="screen">?</span><span class="btn"></span></span>
-        <span class="splats">${SPLAT_OUTLINE.repeat(gameSplats)}</span>
+        <span class="splats">${caps?.party ? SPLAT_OUTLINE.repeat(gameSplats) : ""}</span>
       </span>
       <span class="text"><b>Click for simulation</b>
         <span>This starts another copy of the game, which can slow the page down.</span></span>`;
@@ -292,7 +268,9 @@ export function createWandsPanel({ mount, room }) {
   }
 
   function drawToys(o) {
-    const splats = o.party?.wandSplats || [];
+    // A redraw queued before the wand was taken away.
+    if (!o.el) return;
+    const splats = (o.party?.caps?.party && o.party.wandSplats) || [];
     const key = splats.map((s) => s.mac).join("+");
     if (key !== o.toysKey) {
       o.toysKey = key;
@@ -327,24 +305,6 @@ export function createWandsPanel({ mount, room }) {
     draw();
   }
 
-  function drawLog() {
-    log.textContent = lines.filter((l) => showHb.checked || !l.beacon).map((l) => l.text).join("\n");
-    log.scrollTop = log.scrollHeight;
-  }
-
-  function pushLog(text, frame) {
-    const beacon = ["pw_hb", "pw_lobby", "pw_find"].includes(frame?.type);
-    lines.push({ text, beacon });
-    if (lines.length > LOG_LIMIT) lines.shift();
-    if (beacon && !showHb.checked) return;
-    drawLog();
-  }
-
-  function clearLog() {
-    lines.length = 0;
-    drawLog();
-  }
-
   draw();
   return {
     setFor(n) {
@@ -369,7 +329,5 @@ export function createWandsPanel({ mount, room }) {
       for (const o of others) o.el?.restart();
     },
     clear,
-    pushLog,
-    clearLog,
   };
 }

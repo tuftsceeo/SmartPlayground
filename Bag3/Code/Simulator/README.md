@@ -33,14 +33,22 @@ Panels appear from the loaded game's capabilities (`get_capabilities()`:
 The room re-dispatches `<wand-sim>`'s events and passes through its
 `autostart`, `profile`, `start()`, `stop()`, `restart()`, `showOverlay()`
 and `hideOverlay()`, so a host can use it in place of `<wand-sim>`;
-ChatBroadcast's preview and example detail view do.
+ChatBroadcast's preview and example detail view do. It also emits
+`room-radio` (`detail` is `{ text, type }`, one line per party `pw_*` frame
+on the bus), and the display panel's prints arrive as `display-print`
+(`detail.text`, composed, bubbling).
+
+The simulator draws no log, console, serial or radio text. Every such line
+leaves as an event (`sim-log`, `sim-error`, `display-print`, `room-radio`,
+`sim-enow-sent`) for the host to show; ChatBroadcast shows them in its
+Developer mode footer, and `index.html` in a `<pre>` under the room.
 
 - **Icon display:** shown when the game has a display file
-  (`vendor/display/games/<game>.py`, or the `displaySource` property) or
-  broadcasts dicts. With a file, a second Pyodide runs `py/icon_host.py`
+  (`vendor/display/games/<game>.py`, or the `displaySource` property). A
+  second Pyodide runs `py/icon_host.py`
   (IconDisplay/main.py's idle loop, without `main()`), drawn with
-  iconmaker's `renderPreview`; the room unicasts `start_game` to it. It
-  always lists the wand's messages. `renderPreview` is imported from
+  iconmaker's `renderPreview`; the room unicasts `start_game` to it.
+  `renderPreview` is imported from
   `../BroadcastCode/ChatBroadcast/iconmaker/`, so serve `Bag3/Code/` (from
   `Simulator/` alone the panel falls back to plain squares and warns).
 
@@ -49,9 +57,10 @@ ChatBroadcast's preview and example detail view do.
   setting; none, none drawn); a click on one presses it. See "Party games"
   below.
 - **Advanced mode only** (the `advanced` attribute): a "Splats on this wand"
-  card (count and "in reach" boxes), and a bar saying how many other wands
-  are playing, with "+ Add a wand" and "See all N wands", which opens every
-  wand side by side with the `pw_` message log.
+  card (count and "in reach" boxes) for a party game, and, for a party game
+  or any game whose `wands` setting is more than 1, a bar saying how many
+  other wands are playing, with "+ Add a wand" and "See all N wands", which
+  opens every wand side by side.
 
 Not simulated: heap and fragmentation, compile size, radio timing and BLE
 pacing.
@@ -94,9 +103,11 @@ What stands in for what:
   radio. Clicking it starts another `<wand-sim>` running the same game, on
   the room's bus and clock with its own MAC (`02:00:00:00:0A:02` on) and
   Splats, so every wand runs the vendored `party.py` and the game's own
-  `play()`. Each boots its own Pyodide. New code reaches the running ones;
-  a game for a different number of wands, or one that is not a party game,
-  starts over.
+  `play()`. A game that is not a party game gets other wands only from
+  `wands`; they run its `play()` on the same bus, with no Splats. Each
+  boots its own Pyodide. New code reaches the running ones; a game for a
+  different number of wands, or one that neither is a party game nor sets
+  `wands` above 1, starts over.
 - **Protocol peers:** `js/peers.js` virtual peers speak `party.py`'s `pw_*`
   frames (find, lobby, join, start, heartbeat with the ready mask, pooled
   `pw_cmd`, `pw_evt`, `pw_msg`, leave, end, `q` dedupe) and run no game
@@ -238,8 +249,7 @@ both halves go over the room's bus.
 
 **Outgoing.** Every frame goes through `sim_state.radio_send()`, which
 reports it through `sim_state.emit_enow_sent()` (kind `broadcast` or
-`send`; the panel shows it under "Sent by this wand", the element re-emits
-it as `sim-enow-sent`) and, when a host set `sim_state.set_radio_tx()`,
+`send`; the element emits it as `sim-enow-sent`) and, when a host set `sim_state.set_radio_tx()`,
 hands it to the bus. Unicast needs the peer added first, as on the device.
 
 **Incoming.** The advanced block's "Heard from the caller" buttons call
@@ -304,16 +314,16 @@ the Bag trees, not here, and has been left alone.
 - The pad feeds free-form tilt (`js/motion.js`'s `setPadTilt`) while the
   pointer moves, then snaps to the named pose its position reads as once the
   pointer settles, so an orientation-reading game sees the exact gravity
-  vector from the `POSES` table rather than an in-between one. The pad's four
-  edge labels fix that mapping — see `setPadTilt`'s docstring.
+  vector from the `POSES` table rather than an in-between one. The mapping is
+  in `setPadTilt`'s docstring.
 - Gesture animations run for the duration `fireMove()` reports, not a fixed
   design value, so the wand stops moving when the accelerometer does.
-- `<wand-sim>` attributes: `game`, `autostart`, `show-console`, `controls`,
+- `<wand-sim>` attributes: `game`, `autostart`, `controls`,
   `source`, `muted`, `advanced` (shows the axis readout, the custom tag /
-  radio message drawer, the hardware dials and the log; off by default, so an
-  embedding host opts in explicitly), `log-lines` (default 2).
+  radio message drawer and the hardware dials; off by default, so an
+  embedding host opts in explicitly).
   Property `pyodide` (after `sim-ready`).
-  Events: `sim-ready`, `sim-loaded` (`detail.capabilities`), `sim-frame`, `sim-print`, `sim-error` (`detail.phase`
+  Events: `sim-ready`, `sim-loaded` (`detail.capabilities`), `sim-frame`, `sim-print`, `sim-log` (`detail.text`, one console line), `sim-error` (`detail.phase`
   is `"boot"`, `"load"`, or `"run"`), `sim-stopped`, `sim-overlay-action`
   (`detail` is `{ kind, action }`), `sim-enow-sent` (`detail` is
   `{ kind, data, mac }`).

@@ -6,10 +6,8 @@
  * runs the display game against a simulated Matrix. Frames come back as the
  * logical 768-byte src plus intensity and are drawn with iconmaker's
  * renderPreview(). The display sits on the room's bus with its own MAC, so
- * it hears the wand's broadcasts and its replies reach the wand.
- *
- * Without a display file it shows only the feed: every message the wand
- * transmits, decoded. The feed is shown in both modes.
+ * it hears the wand's broadcasts and its replies reach the wand. Its prints
+ * go out as display-print events.
  */
 
 import { PYODIDE_CDN } from "../../wand-sim.js";
@@ -17,7 +15,6 @@ import { hexToBytes, bytesToHex } from "../radio.js";
 import { loadPyodideNoJspi } from "../pyboot.js";
 
 const PREVIEW_URL = "../../../BroadcastCode/ChatBroadcast/iconmaker/js/pipeline/preview.js";
-const FEED_LIMIT = 60;
 const W = 16;
 
 /** Files the display's Pyodide needs, relative to the Simulator root. */
@@ -47,10 +44,6 @@ export const DISPLAY_STYLE = `
 .display-panel canvas { width: 192px; height: 192px; border-radius: 12px;
   background: #111; align-self: center; image-rendering: auto; }
 .display-panel .display-status { font-size: 0.8rem; color: #8b859a; text-align: center; }
-.display-panel .feed { font: 12px/1.35 ui-monospace, monospace; max-height: 160px;
-  overflow-y: auto; background: #f7f7fb; border-radius: 8px; padding: 6px 8px;
-  margin: 0; white-space: pre-wrap; word-break: break-all; }
-.display-panel .feed:empty::before { content: "no messages yet"; color: #8b859a; }
 `;
 
 let previewModule = null;
@@ -82,12 +75,10 @@ export function createDisplayPanel({ bus, clock, mac, mount }) {
   root.className = "display-panel";
   root.innerHTML = `
     <canvas data-el="display-canvas" hidden></canvas>
-    <div class="display-status" data-el="display-status"></div>
-    <pre class="feed" data-el="display-feed"></pre>`;
+    <div class="display-status" data-el="display-status"></div>`;
   mount.appendChild(root);
   const canvas = root.querySelector('[data-el="display-canvas"]');
   const statusEl = root.querySelector('[data-el="display-status"]');
-  const feedEl = root.querySelector('[data-el="display-feed"]');
 
   let py = null;
   let host = null;
@@ -217,21 +208,11 @@ _host.sim_state.set_radio_tx(_disp_tx)
       await py.runPythonAsync("_host.set_icons(_disp_slug, _disp_icons)");
     },
 
-    /** Show or hide the panel's drawn display (the feed always shows). */
+    /** Show or hide the panel's drawn display. */
     setDisplayMode(on) {
       canvas.hidden = !on || !this.ready;
-      if (!on) setStatus("no display file: showing the wand's messages");
+      if (!on) setStatus("no display file");
     },
-
-    pushFeed(line) {
-      const at = (clock.nowMs() / 1000).toFixed(1);
-      feedEl.textContent += `${at}s  ${line}\n`;
-      const lines = feedEl.textContent.split("\n");
-      if (lines.length > FEED_LIMIT + 1) feedEl.textContent = lines.slice(-FEED_LIMIT - 1).join("\n");
-      feedEl.scrollTop = feedEl.scrollHeight;
-    },
-
-    clearFeed() { feedEl.textContent = ""; },
 
     async destroy() {
       if (detach) detach();

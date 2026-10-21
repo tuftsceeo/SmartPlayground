@@ -141,6 +141,11 @@
                                     Advanced mode
                                     <span class="more-check" data-icon="check" data-icon-size="15"></span>
                                 </button>
+                                <button class="more-item more-subitem advanced-only" id="btn-dev-mode" type="button"
+                                        title="Show the device, simulator and radio logs" aria-pressed="false">
+                                    Developer mode
+                                    <span class="more-check" data-icon="check" data-icon-size="15"></span>
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -456,13 +461,19 @@
         </div>
 
         <div id="serial-log-panel" class="hidden">
-            <div class="serial-log-resizer" id="serial-log-resizer" role="separator" aria-orientation="horizontal" aria-label="Resize serial log" tabindex="0"></div>
+            <div class="serial-log-resizer" id="serial-log-resizer" role="separator" aria-orientation="horizontal" aria-label="Resize logs" tabindex="0"></div>
             <div class="serial-log-bar">
-                <button type="button" id="btn-serial-toggle">Serial log</button>
+                <div class="log-tabs" role="tablist" aria-label="Logs">
+                    <button type="button" class="log-tab active" role="tab" data-log="serial" aria-selected="true">Serial</button>
+                    <button type="button" class="log-tab" role="tab" data-log="sim" aria-selected="false">Simulator</button>
+                    <button type="button" class="log-tab" role="tab" data-log="radio" aria-selected="false">Radio</button>
+                </div>
+                <span id="serial-log-preview" class="log-preview"></span>
                 <button type="button" id="btn-copy-log">Copy</button>
-                <span id="serial-log-preview" style="opacity:0.7; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"></span>
             </div>
-            <pre id="serial-log-text"></pre>
+            <pre id="serial-log-text" class="log-pane active" data-log="serial"></pre>
+            <pre id="sim-log-text" class="log-pane" data-log="sim"></pre>
+            <pre id="radio-log-text" class="log-pane" data-log="radio"></pre>
         </div>
 
         <script type="module" src="js/app.js"></script>

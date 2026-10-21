@@ -1,4 +1,4 @@
-/** Vertical resize for the advanced-mode serial drawer (entire panel). */
+/** Vertical resize for the Developer mode log drawer (entire panel). */
 
 const KEY = 'wandcoder.serialDrawerHeight';
 const MIN_HEIGHT = 120;

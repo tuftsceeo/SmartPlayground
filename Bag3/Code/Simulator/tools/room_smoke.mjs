@@ -156,9 +156,6 @@ try {
   assert.deepEqual(JSON.parse(goal.text), { type: "goal", team: "blue" });
   assert.ok(winner, "bus log has the display's winner broadcast");
   assert.deepEqual(JSON.parse(winner.text), { type: "winner", team: "blue" });
-  const feed = await page.evaluate(() =>
-    document.querySelector("sim-room").shadowRoot.querySelector('[data-el="display-feed"]').textContent);
-  assert.match(feed, /"goal"/, "feed lists the wand's goal message");
   console.log("ok  bus log: goal from wand, winner from display");
 
   assert.ok(!consoleLines.some((l) => /renderPreview unavailable/.test(l)),

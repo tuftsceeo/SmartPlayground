@@ -54,6 +54,11 @@
     .overlay-row button { background: #fff; border-color: var(--border); color: var(--ink); }
     .overlay-row button:hover { background: #fff0f6; border-color: var(--pink); color: var(--pink-dark); }
     .row-label { font: 700 0.8rem 'Nunito'; color: var(--muted); margin-right: 4px; }
+    #log {
+      max-width: 900px; height: 180px; overflow: auto; margin: 16px 0 0;
+      padding: 10px 12px; border-radius: 12px; background: var(--ink); color: #c9c3e0;
+      font: 11px ui-monospace, monospace; white-space: pre-wrap;
+    }
   </style>
 </head>
 <body>
@@ -88,6 +93,7 @@
     <button type="button" id="btn-load-file">Load file…</button>
     <input type="file" id="file-input" accept=".py" hidden>
     <span id="loaded-file-name" class="loaded-file-name"></span>
+    <label><input type="checkbox" id="chk-advanced" checked> Advanced</label>
   </div>
 
   <sim-room id="sim" game="jump" autostart advanced></sim-room>
@@ -99,6 +105,8 @@
     <button type="button" data-overlay="game-over">Game over</button>
     <button type="button" data-overlay="cant-simulate">Can't simulate</button>
   </div>
+
+  <pre id="log"></pre>
 
   <script type="module">
     import "./sim-room.js";
@@ -152,6 +160,24 @@
     wand.addEventListener("sim-error", (e) => console.error("sim-error", e.detail));
     wand.addEventListener("sim-stopped", () => console.log("sim-stopped"));
     sim.addEventListener("room-capabilities", (e) => console.log("room-capabilities", e.detail));
+
+    document.getElementById("chk-advanced").addEventListener("change", (e) => {
+      sim.toggleAttribute("advanced", e.target.checked);
+    });
+
+    // The simulator draws no text of its own; its lines arrive as events.
+    const log = document.getElementById("log");
+    function logLine(tag, text) {
+      const lines = (log.textContent ? log.textContent.split("\n") : []).slice(-199);
+      lines.push(`${tag.padEnd(7)} ${text}`);
+      log.textContent = lines.join("\n");
+      log.scrollTop = log.scrollHeight;
+    }
+    sim.addEventListener("sim-log", (e) => logLine("wand", e.detail.text));
+    sim.addEventListener("sim-error", (e) => logLine("error", `${e.detail.phase}: ${e.detail.message}`));
+    sim.addEventListener("display-print", (e) => logLine("display", e.detail.text));
+    sim.addEventListener("room-radio", (e) => logLine("radio", e.detail.text));
+    sim.addEventListener("sim-enow-sent", (e) => logLine("enow", `${e.detail.kind} → ${e.detail.mac || "all"}: ${e.detail.data}`));
   </script>
 </body>
 </html>
