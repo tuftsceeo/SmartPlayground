@@ -25,34 +25,16 @@ Write all device files to **`/flash`**, not `/`.
 | Item | Value | Notes |
 |---|---|---|
 | Board | M5 Dial 2 (StampS3A) | UIFlow2 MicroPython; assume Dial family bring-up via `M5.begin()` + `m5ui.init()` (H1) |
-| Display | LVGL / `m5ui`, 240×240 round | 4 pages built once, re-textured and swapped with `screen_load()` (was 17 — consolidated to fix an out-of-memory failure) |
+| Display | LVGL / `m5ui`, 240×240 round | Home, list and status pages built at boot; the keyboard page on first use. Pages are re-textured and swapped with `screen_load()` |
 | NFC | WS1850S @ I2C `0x28`, external Grove unit preferred | `dial_board.py`'s `make_reader()` auto-detects: it tries an external Grove RFID2 unit on Port A first (`sda=13 scl=15`, confirmed live 2026-09-22 via `probe_dial.py` stage 4 and a real card test) and falls back to the built-in reader (`sda=11 scl=12`, shares the bus with touch @ `0x38` and RTC @ `0x51`) when nothing acks on Port A. Both are hardware `machine.I2C` (confirmed H2/H3). The built-in reader's read/write was markedly less reliable than the Box's external Grove RFID2 unit despite identical code (`card_writer.py`/`ws1850s.py` are PEER copies, same poll timeouts) -- antenna detuning from sharing the enclosure with the LCD, touch controller, RTC, encoder and speaker, not software, confirmed by wiring the external unit and re-testing |
-| Encoder | `hardware.Rotary` | CW/CCW → `NEXT`/`PREV`; magnitude honoured, capped |
-| Button | `M5.BtnA` (encoder press) | Short click → `ACT` |
+| Encoder | `hardware.Rotary` | CW/CCW → `NEXT`/`PREV`. Lists over 10 items and the keyboard move once the knob has been still 300 ms; shorter lists move per detent |
+| Button | `M5.BtnA` (encoder press) | Short click → `ACT`; hold 1 s → `EXIT` (back); a grey rim ring fills while held |
 | Touch | LVGL callbacks | Enqueue intents only; server drains from its own loop |
 | USB | native CDC | Port drops on every reset; `mpremote` resets the board |
 
-Colours come from `Live_Page/.design_system/Sept 2026/tokens/` — the same
-brand tokens `bbox_ui.py` carries, so the two devices read as one product.
-Pink is the one primary action per screen, purple (`--write-fg`/`--write-bg`)
-is the selection and anything write-mode, teal (`--serve-fg`) is success and
-share-mode. `dial_ui.py` and `bbox_ui.py` hand-duplicate the palette block
-because they are deliberately on **different rendering stacks** — M5's docs
-warn against mixing M5GFX/M5Widgets/M5UI, and the Box's StickS3 build has no
-`m5ui` at all — so they share tokens, never a renderer.
-
-Form reference (not a logic peer): `Bag2/Code/DialSpeaker/Dial_Music.py` —
-borderless buttons, generous radius, a large `montserrat_24` symbol, and soft
-drop shadows, all already proven on this display. The shadows here are
-coloured rather than grey, per the design system. The tag list is a
-`m5ui.M5Roller` (centre-selected wheel) rather than three bare labels, with a
-breadcrumb chip naming the current tier and a right-rim position track.
-
-Screen copy is **Title Case**, which deliberately diverges from the design
-system's "sentence case everywhere" rule: these screens are read at arm's
-length in a classroom, not in a browser. ALL-CAPS is reserved for button
-labels. See `dial_ui.py`'s module docstring for the full screen inventory and
-what in it is still unverified on hardware.
+The screens are the NFC Station's (`Bag3/Code/Stations/NFC Station/`):
+`station.py` (mode machine) and `station_ui.py` (painter), copied here.
+Colours come from `Live_Page/.design_system/Sept 2026/tokens/`.
 
 ## Radio memory order — nothing new ahead of `prewarm()`
 
@@ -79,43 +61,31 @@ Rules:
 
 Full note: [`docs_and_design/2026-09-23-ap-memory-order.md`](../docs_and_design/2026-09-23-ap-memory-order.md)
 
-## Modes
+## Screens and radio
 
 At most one of {radio, NFC RF field} is energized at any instant.
 
-| Mode | ESP-NOW | Reader | Entered when |
-|---|---|---|---|
-| `IDLE` | down | off | No game on flash |
-| `WRITE` | up while the field is off | on only while scanning | Game on flash — boot state |
+| Screen | Shows | Click | Hold | Radio |
+|---|---|---|---|---|
+| Home | ring: Read / Tags / Text | open | — | serves |
+| Tags | dot ring: loaded games, then Utility Tags ("No Game" title when none loaded) | open group | Home | serves |
+| Group | All, Code, Play, the game's tags (Utility: `stop`, `battery`) | write the tag (All: each in turn) | Tags | serves |
+| Read | each card's text | copy it to the next card | Home | off |
+| Scan / write-all / result | target, Hold Card, result ring | — | back | off |
+| Text | ring keyboard; word bank = loaded games' tags, then `/flash/words.json` | type | discard prompt / Home | off |
 
-There is no user-visible mode switch: the Dial serves the active game from
-the menus whenever the field is off. `_set_mode()` in `bdial_server.py` is the only place modes change.
-`_nfc_field()` is the only place the field changes: it disarms the radio before
-the field comes up, and after the field goes down it clears `MFCrypto1On`
-(`stop_crypto1()`); the WRITE loop then re-arms the radio. A failed arm is
-retried after `SHARE_RETRY_MS`. With `SHARE_IN_MENUS = False` the radio
-stays down.
+The radio serves only when a game is loaded (`WRITE` mode over serial;
+`IDLE` with no game). `bdial_server._serve()` arms and polls it on the
+serving screens and disarms it elsewhere; `station.py` calls
+`radio_off()` before the field comes up. A failed arm is retried after
+`SHARE_RETRY_MS`.
 
-## WRITE mode
+Code tags are written as `getcode:<slug>@<id>`. A card that already carries
+the target is reported, not rewritten. Success returns to the screen the
+scan came from; failure re-arms the same scan.
 
-Two-level menu (groups → tags), same shape as the Box including `W_GROUP`.
-
-| State | Screen | ACT | NEXT/PREV | BACK | EXIT |
-|---|---|---|---|---|---|
-| `menu` | group list (roller), focused entry centred | open group | scroll | — | — |
-| `group` | that group's tags (roller) | start scan (or menu on `< back`) | scroll | to menu | — |
-| `scan` | rim ring + label, field on | — | — | to group | — |
-| `splash` | result | to group | to group | to group | — |
-
-The utility group carries a third entry the Box has no equivalent for:
-`Read Card` (`READ_ENTRY`). It is a sentinel `_scan_step()` special-cases
-before the row is ever treated as NDEF text, so it is never written; the
-result lands on `paint_read_result()`.
-
-The Dial has **no `overwrite` state** — unlike the Box, it auto-overwrites
-and confirms only with `beep_success()`/`beep_fail()`. The antenna sits
-under the screen, so a card actually on the reader covers the same touch
-targets a confirm/cancel prompt would need.
+Sounds: clicks, turns and scans are silent; a finished read or write beeps
+twice at 4800 Hz, a failure three times at 3600 Hz.
 
 ## Serving over ESP-NOW
 
@@ -176,9 +146,11 @@ text; Classic writes never touch sector trailers; NTAG writes start at page
 | File | Role |
 |---|---|
 | `main.py` | Boot entry; prints a `fatal` JSON rather than a bare traceback |
-| `bdial_server.py` | Mode machine, WRITE sub-states, serial dispatch (`device=broadcast_dial`) |
-| `dial_ui.py` | 4 LVGL screens (brand palette, roller list) + speaker behind `bbox_ui`'s painter API |
-| `dial_input.py` | Encoder + button + touch → `NEXT`/`PREV`/`ACT`/`BACK`/`EXIT` |
+| `bdial_server.py` | Serial dispatch (`device=broadcast_dial`), games on flash, ESP-NOW serving; host for `station.py` |
+| `station.py` | Screens' mode machine — copy of the NFC Station's, Dial changes listed in its docstring |
+| `station_ui.py` | Round-screen painter — copy of the NFC Station's (keyboard built on first use, Dial beeps) |
+| `station_fonts.py`, `text_entry.py`, `kb_rings.json`, `kb_letters.bin` | Copies from the NFC Station (fonts, keyboard state machine, keyboard ring image) |
+| `dial_input.py` | Encoder + button + touch → `NEXT`/`PREV`/`ACT`/`EXIT`; identical to the NFC Station's copy |
 | `dial_board.py` | Screen size, speaker volume, I2C pins, `make_reader()` |
 | `code_link.py` | `CodeLink`, `NativeManager`, `prewarm()`, `HOST_ID`; see "Serving over ESP-NOW" |
 | `code_sender.py` | ESP-NOW sender — **PEER of `EspnowModem/host/code_sender.py`** (defines `mac_str_to_bytes()` itself) |
@@ -188,7 +160,7 @@ text; Classic writes never touch sector trailers; NTAG writes start at page
 | `manifest.js` | `DIAL_FILES` / `loadDialFiles()` for ChatBroadcast |
 | `boot.py` | M5Stack vendor UIFlow2 boot-option stub |
 | `tools/probe_dial.py` | Bench probe: Phase 0 hardware discovery, not part of `DIAL_FILES` |
-| `tools/dial_menu_check.py` | Host-side (no hardware) check of the WRITE-menu logic, `_fit()` and `_display_tag()` |
+| `tools/test_dial_station.py` | Host tests (no hardware): menus, radio on/off per screen, writes, read/copy, text |
 
 Copied peers differ from the Box originals only by a leading `# PEER: …`
 header. `opcodes.py` / `pn532.py` / `nfc_reader.py` are not carried over.
@@ -198,10 +170,8 @@ header. `opcodes.py` / `pn532.py` / `nfc_reader.py` are not carried over.
 Same commands and events as the Box, with these differences:
 
 - `ssid` is always `null` in `armed`, `mode` and the `arm` reply.
-- `arm` brings the radio up from the menus (error `no_payload` with no game);
-  `disarm` replies `ok` and changes nothing. `mode` is always `WRITE` or `IDLE`.
-- `games.list` `pulls` is the number of successful wand pulls of that game
-  since boot; the menu crumb shows it for the active game as `Pulled by N`.
+- `arm` and `disarm` are accepted and change nothing; serving follows the screens.
+- `games.list` `pulls` is the number of successful wand pulls of that game since boot.
 - Each finished transfer sends
   `{"type":"pull","slug":s,"role":r,"wand":"<mac>","ok":b,"ms":n,"why":w}`;
   `slug` and `role` are the served game's slug and the requester's `hub`
@@ -230,7 +200,12 @@ PORT=/dev/cu.usbmodemXXXX
 python3 -m mpremote connect $PORT resume \
   fs cp dial_board.py :/flash/dial_board.py + \
   fs cp dial_input.py :/flash/dial_input.py + \
-  fs cp dial_ui.py :/flash/dial_ui.py + \
+  fs cp station_fonts.py :/flash/station_fonts.py + \
+  fs cp text_entry.py :/flash/text_entry.py + \
+  fs cp station.py :/flash/station.py + \
+  fs cp station_ui.py :/flash/station_ui.py + \
+  fs cp kb_rings.json :/flash/kb_rings.json + \
+  fs cp kb_letters.bin :/flash/kb_letters.bin + \
   fs cp bdial_server.py :/flash/bdial_server.py + \
   fs cp card_writer.py :/flash/card_writer.py + \
   fs cp code_link.py :/flash/code_link.py + \
@@ -280,5 +255,4 @@ Open:
   pre-ESP-NOW firmware.
 
 Static checks done off-device: `python3 -m py_compile` on every `.py`;
-`python3 tools/dial_menu_check.py` (menu logic, row truncation, tag display)
-green; import graph from `main.py` matches `DIAL_FILES`.
+`python3 tools/test_dial_station.py` green; import graph from `main.py` matches `DIAL_FILES`.

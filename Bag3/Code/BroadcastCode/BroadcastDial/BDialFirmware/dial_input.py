@@ -19,9 +19,33 @@ import M5
 # Mirror bbox_server.SERVE_EXIT_MS — leaving SERVE must not fire from a bump.
 SERVE_EXIT_MS = 1000
 
-# A fast flick can produce a large delta; cap so one update cannot skip the
-# whole list. Dial_Music.py discarded magnitude entirely — we honour it.
-ENCODER_CAP = 8
+# Most detents one poll may report; guards against a glitched count only.
+# A slow redraw can leave 20+ real detents between polls, and the old cap
+# of 8 discarded the rest.
+ENCODER_CAP = 60
+
+# Turns are held until the knob has been still this long, then released as
+# one batch: a fast spin produces one jump, one repaint and one tick
+# instead of a repaint per detent.
+TURN_SETTLE_MS = 300
+
+# True: print a timestamp per encoder change ("# enc <ms> <delta>").
+ENC_LOG = False
+
+# Most time one poll gap may add to a hold (ms). A long gap means the loop
+# was blocked (LVGL redraws inside M5.update()), not that the button was
+# watched down for that long; counting it turned short clicks into holds.
+MAX_POLL_GAP_MS = 100
+
+# A press released after this long but before SERVE_EXIT_MS is a failed
+# hold and emits nothing (not ACT). The UI shows the hold ring from the
+# same point, so "ring visible" means "this will not be a click".
+HOLD_MAYBE_MS = 500
+
+# Screen taps within this long of a knob turn or button activity (before or
+# after) are dropped: a thumb on the button or knob brushes the touch panel.
+# Taps are held this long before they are accepted.
+TAP_GUARD_MS = 200
 
 NEXT = "next"
 PREV = "prev"
@@ -33,9 +57,17 @@ EXIT = "exit"
 class DialInput:
     def __init__(self):
         self._queue = []
+        self._taps = []             # (tap intent, ticks) awaiting TAP_GUARD_MS
+        self._turn = 0              # detents since the knob last settled
+        self._turn_at = 0
+        self.settle_ms = TURN_SETTLE_MS     # 0: release each detent at once
+        self._physical_at = -100000
         self._rotary = None
         self._last_rotary = 0
         self._btn_pressed_at = 0
+        self._held_ms = 0
+        self._pending_ms = 0
+        self._last_poll = 0
         self._btn_was_down = False
         self._exit_emitted = False
 
@@ -54,8 +86,16 @@ class DialInput:
             pass
 
     def enqueue(self, intent):
-        """LVGL callbacks post intents here; never mutate server state."""
-        if intent:
+        """LVGL callbacks post intents here; never mutate server state.
+
+        Screen taps ("tap:<i>") are held TAP_GUARD_MS and dropped if a knob
+        turn or button activity falls within TAP_GUARD_MS of them.
+        """
+        if not intent:
+            return
+        if intent.startswith("tap:"):
+            self._taps.append((intent, time.ticks_ms()))
+        else:
             self._queue.append(intent)
 
     def update(self):
@@ -63,25 +103,55 @@ class DialInput:
         M5.update()
         self._poll_encoder()
         self._poll_button()
+        self._release_taps()
+
+    def _mark_physical(self):
+        self._physical_at = time.ticks_ms()
+
+    def _release_taps(self):
+        if not self._taps:
+            return
+        now = time.ticks_ms()
+        keep = []
+        for intent, t in self._taps:
+            if abs(time.ticks_diff(t, self._physical_at)) <= TAP_GUARD_MS:
+                continue                    # brushed while turning/pressing
+            if time.ticks_diff(now, t) >= TAP_GUARD_MS:
+                self._queue.append(intent)
+            else:
+                keep.append((intent, t))
+        self._taps = keep
 
     def _poll_encoder(self):
         if self._rotary is None:
             return
         try:
-            if not self._rotary.get_rotary_status():
-                return
+            # Read the count every poll. No get_rotary_status() gate:
+            # tools/enc_probe.py counted every detent reading the value
+            # directly, even with 300 ms loop stalls, while the station's
+            # gated read lost detents.
             new_val = self._rotary.get_rotary_value()
         except Exception as e:
             print("# rotary err: %s" % str(e))
             return
         delta = new_val - self._last_rotary
         self._last_rotary = new_val
-        if delta == 0:
+        now = time.ticks_ms()
+        if delta != 0:
+            self._mark_physical()
+            if ENC_LOG:
+                print("# enc %d %+d" % (now, delta))
+            self._turn += delta
+            self._turn_at = now
             return
-        n = abs(delta)
+        if self._turn == 0 or time.ticks_diff(now, self._turn_at) < self.settle_ms:
+            return
+        # Knob still for settle_ms: release the whole spin at once.
+        n = abs(self._turn)
         if n > ENCODER_CAP:
             n = ENCODER_CAP
-        intent = NEXT if delta > 0 else PREV
+        intent = NEXT if self._turn > 0 else PREV
+        self._turn = 0
         for _ in range(n):
             self._queue.append(intent)
 
@@ -93,17 +163,33 @@ class DialInput:
         except Exception as e:
             raise RuntimeError("M5.BtnA unavailable: %s" % str(e))
         now = time.ticks_ms()
+        if down or self._btn_was_down:
+            self._mark_physical()       # pressed, held, or just released
         if down and not self._btn_was_down:
             self._btn_pressed_at = now
+            self._held_ms = 0
+            self._pending_ms = 0
             self._exit_emitted = False
+        elif down:
+            gap = time.ticks_diff(now, self._last_poll)
+            # Credit a long gap only once a later poll confirms the button
+            # is still down: right after a blocking call the sample can be
+            # stale (a click already released), but a real hold through a
+            # blocking NFC read must still reach SERVE_EXIT_MS.
+            self._held_ms += min(gap, MAX_POLL_GAP_MS) + self._pending_ms
+            self._pending_ms = max(gap - MAX_POLL_GAP_MS, 0)
+        else:
+            self._pending_ms = 0
+        self._last_poll = now
         if down:
-            held = time.ticks_diff(now, self._btn_pressed_at)
+            held = self._held_ms
             if held >= SERVE_EXIT_MS and not self._exit_emitted:
                 self._queue.append(EXIT)
                 self._exit_emitted = True
         elif self._btn_was_down:
-            # Release: short press is ACT unless a hold already emitted EXIT.
-            if not self._exit_emitted:
+            # Release: a short press is ACT. Nothing if a hold already
+            # emitted EXIT, or the press reached HOLD_MAYBE_MS (failed hold).
+            if not self._exit_emitted and self._held_ms < HOLD_MAYBE_MS:
                 self._queue.append(ACT)
         self._btn_was_down = down
 
@@ -112,19 +198,38 @@ class DialInput:
 
         Call on every mode change so a hold that caused the switch does not
         immediately read as a hold (or an ACT on release) in the new mode.
+        A press still held here is marked spent: its release, however long
+        after, emits nothing.
         """
         self._queue = []
+        self._taps = []
         self._btn_pressed_at = time.ticks_ms()
+        self._held_ms = 0
+        self._pending_ms = 0
+        self._last_poll = self._btn_pressed_at
         try:
             self._btn_was_down = M5.BtnA.isPressed()
         except Exception:
             self._btn_was_down = False
-        self._exit_emitted = False
+        self._exit_emitted = self._btn_was_down
 
     def pop(self):
         """Next intent, or None. Non-blocking."""
         if self._queue:
             return self._queue.pop(0)
+        return None
+
+    def hold_fraction(self):
+        """0.0-1.0 progress of the current press toward EXIT, or None when
+        the button is up or EXIT has already fired."""
+        if not self._btn_was_down or self._exit_emitted:
+            return None
+        return min(self._held_ms / SERVE_EXIT_MS, 1.0)
+
+    def peek(self):
+        """Next intent without removing it, or None."""
+        if self._queue:
+            return self._queue[0]
         return None
 
     def peek_exit(self):

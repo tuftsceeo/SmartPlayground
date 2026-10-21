@@ -57,8 +57,11 @@ reconciling.
 
 `Bag3/Code/Stations/NFC Station/` holds copies of `ws1850s.py`, `card_writer.py`,
 `dial_board.py`, `dial_input.py` and `json_link.py` from `BroadcastDial/BDialFirmware/`, and `game_tags.py` from
-`BroadcastCode/MockWand/lib/`. Its `dial_input.py` adds `hold_fraction()`, `peek()`, failed-hold and tap-guard handling, an ungated, settle-batched encoder read with a higher cap, and fixes `clear()` so a hold
-that changes screens does not click on release; that divergence is intended.
+`BroadcastCode/MockWand/lib/`. The Broadcast Dial runs the Station's screens: `BDialFirmware/`
+holds copies of `station.py`, `station_ui.py`, `station_fonts.py`, `text_entry.py`, `kb_rings.json`
+and `kb_letters.bin`. Its `station.py` drops the catalog and serial commands and takes games, card
+text and radio control from `bdial_server.py` (the host); its `station_ui.py` builds the keyboard
+on first use and uses the Dial's beeps. `dial_input.py` is identical in both trees.
 
 Game tags are consumed in four places, with nothing enforcing consistency: each Bag's
 `lib/game_tags.py`, `Live_Page/WebApp2/hubCode2/game_tags.py`,

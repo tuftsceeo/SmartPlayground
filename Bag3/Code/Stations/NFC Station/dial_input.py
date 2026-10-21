@@ -21,12 +21,12 @@ SERVE_EXIT_MS = 1000
 
 # Most detents one poll may report; guards against a glitched count only.
 # A slow redraw can leave 20+ real detents between polls, and the old cap
-# of 8 discarded the rest. NFC Station change (BroadcastDial uses 8).
+# of 8 discarded the rest.
 ENCODER_CAP = 60
 
 # Turns are held until the knob has been still this long, then released as
 # one batch: a fast spin produces one jump, one repaint and one tick
-# instead of a repaint per detent. NFC Station change.
+# instead of a repaint per detent.
 TURN_SETTLE_MS = 300
 
 # True: print a timestamp per encoder change ("# enc <ms> <delta>").
@@ -35,18 +35,16 @@ ENC_LOG = False
 # Most time one poll gap may add to a hold (ms). A long gap means the loop
 # was blocked (LVGL redraws inside M5.update()), not that the button was
 # watched down for that long; counting it turned short clicks into holds.
-# NFC Station addition.
 MAX_POLL_GAP_MS = 100
 
 # A press released after this long but before SERVE_EXIT_MS is a failed
-# hold and emits nothing (not ACT). station_ui shows the hold ring from
-# the same point, so "ring visible" means "this will not be a click".
-# NFC Station addition.
+# hold and emits nothing (not ACT). The UI shows the hold ring from the
+# same point, so "ring visible" means "this will not be a click".
 HOLD_MAYBE_MS = 500
 
 # Screen taps within this long of a knob turn or button activity (before or
 # after) are dropped: a thumb on the button or knob brushes the touch panel.
-# Taps are held this long before they are accepted. NFC Station addition.
+# Taps are held this long before they are accepted.
 TAP_GUARD_MS = 200
 
 NEXT = "next"
@@ -62,6 +60,7 @@ class DialInput:
         self._taps = []             # (tap intent, ticks) awaiting TAP_GUARD_MS
         self._turn = 0              # detents since the knob last settled
         self._turn_at = 0
+        self.settle_ms = TURN_SETTLE_MS     # 0: release each detent at once
         self._physical_at = -100000
         self._rotary = None
         self._last_rotary = 0
@@ -130,7 +129,7 @@ class DialInput:
             # Read the count every poll. No get_rotary_status() gate:
             # tools/enc_probe.py counted every detent reading the value
             # directly, even with 300 ms loop stalls, while the station's
-            # gated read lost detents. NFC Station change.
+            # gated read lost detents.
             new_val = self._rotary.get_rotary_value()
         except Exception as e:
             print("# rotary err: %s" % str(e))
@@ -145,9 +144,9 @@ class DialInput:
             self._turn += delta
             self._turn_at = now
             return
-        if self._turn == 0 or time.ticks_diff(now, self._turn_at) < TURN_SETTLE_MS:
+        if self._turn == 0 or time.ticks_diff(now, self._turn_at) < self.settle_ms:
             return
-        # Knob still for TURN_SETTLE_MS: release the whole spin at once.
+        # Knob still for settle_ms: release the whole spin at once.
         n = abs(self._turn)
         if n > ENCODER_CAP:
             n = ENCODER_CAP
@@ -200,9 +199,7 @@ class DialInput:
         Call on every mode change so a hold that caused the switch does not
         immediately read as a hold (or an ACT on release) in the new mode.
         A press still held here is marked spent: its release, however long
-        after, emits nothing. (NFC Station fix; BroadcastDial's copy resets
-        the flag to False, so the release of a hold that changed screens
-        reads as an ACT there.)
+        after, emits nothing.
         """
         self._queue = []
         self._taps = []
@@ -224,14 +221,13 @@ class DialInput:
 
     def hold_fraction(self):
         """0.0-1.0 progress of the current press toward EXIT, or None when
-        the button is up or EXIT has already fired. NFC Station addition;
-        not in BroadcastDial's copy."""
+        the button is up or EXIT has already fired."""
         if not self._btn_was_down or self._exit_emitted:
             return None
         return min(self._held_ms / SERVE_EXIT_MS, 1.0)
 
     def peek(self):
-        """Next intent without removing it, or None. NFC Station addition."""
+        """Next intent without removing it, or None."""
         if self._queue:
             return self._queue[0]
         return None

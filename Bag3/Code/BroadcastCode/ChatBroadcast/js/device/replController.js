@@ -102,16 +102,31 @@ export class ReplController {
    */
   async uploadFile(path, content) {
     const bytes = typeof content === "string" ? new TextEncoder().encode(content) : content;
-    let binary = "";
-    for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
-    const b64 = btoa(binary);
-    const code =
-      `import ubinascii\n` +
-      `with open('${path}', 'wb') as f:\n` +
-      ` f.write(ubinascii.a2b_base64('${b64}'))\n` +
-      `print('OK')\n`;
-    const timeoutMs = Math.max(5000, Math.floor(b64.length / 100)); // ~10KB/s floor, matches firmware_manager.py
-    const response = await this.execScript(code, { timeoutMs });
-    if (!response.includes("OK")) throw new Error(`upload of ${path} did not confirm OK: ${response}`);
+    // Chunked so a large binary (the Dial's 115 KB keyboard image) never
+    // needs the whole base64 string in device RAM at once. Chunks go to
+    // <path>.part, renamed over <path> by the last one, so a failed upload
+    // never leaves a truncated file at <path>.
+    const CHUNK = 6144;
+    const part = path + ".part";
+    let response = "";
+    for (let start = 0; start === 0 || start < bytes.length; start += CHUNK) {
+      const piece = bytes.subarray(start, start + CHUNK);
+      const last = start + CHUNK >= bytes.length;
+      let binary = "";
+      for (let i = 0; i < piece.length; i++) binary += String.fromCharCode(piece[i]);
+      const b64 = btoa(binary);
+      const code =
+        `import ubinascii, os\n` +
+        `with open('${part}', '${start === 0 ? "wb" : "ab"}') as f:\n` +
+        ` f.write(ubinascii.a2b_base64('${b64}'))\n` +
+        (last
+          ? `try:\n os.remove('${path}')\nexcept OSError:\n pass\n` +
+            `os.rename('${part}', '${path}')\n`
+          : "") +
+        `print('OK')\n`;
+      const timeoutMs = Math.max(5000, Math.floor(b64.length / 100)); // ~10KB/s floor, matches firmware_manager.py
+      response = await this.execScript(code, { timeoutMs });
+      if (!response.includes("OK")) throw new Error(`upload of ${path} did not confirm OK: ${response}`);
+    }
   }
 }
