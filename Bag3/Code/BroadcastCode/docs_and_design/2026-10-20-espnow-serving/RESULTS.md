@@ -128,3 +128,8 @@ the Dial was driven over serial (`arm`, `disarm`, `info`) and the wand ran
 | 1 pull, pinned `ffff` | WRITE menu | `nohost` |
 
 Not covered: the card-tap path on the stock wand, the icon-display role (no `_icon.py` game on the Dial), more than one wand.
+
+## Icon-display role and fast-boot wand (2026-10-20, evening)
+
+- Icon-display role on hardware: a test `color_row_icon.py` plus 3 icons in `/flash/games/color_row_icons/` on the Dial (removed afterwards). The stock wand ran `receive(..., "icon_display", icon_dir=...)`: 3/3, 1.9–2.2 s, 3 icons each. A wand-role pull of the same slug after it: `True`.
+- Stock wand with fast boot (`2c6f88c`, light fix `a53a8a5`), deployed with `deploy.py --changed` (3 of 54 files sent): 10/10 pulls from the Dial in the WRITE menu, 2.4–4.0 s; `ffff` pin refused.
