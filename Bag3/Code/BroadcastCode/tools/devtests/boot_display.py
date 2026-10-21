@@ -220,27 +220,22 @@ ran = open(CALLS).read()
 check("force-switch chained without returning to idle",
       "goalrace" in ran and "second" in ran, ran.replace("\n", " | "))
 
-# ── Pull mode: each outcome lights the glyph the phase 6 plan calls for ──
+# ── ESP-NOW pull: each outcome lights its glyph ──
 import machine
-import pull_flag
 import icon_store
 import types
 
 
 class _Reset(Exception):
-    """Stands in for machine.reset(): the pull-mode branches that end in a
-    reset never return, so the test needs a way to stop execution there
-    without actually rebooting the process."""
+    """Stands in for machine.reset(): a successful pull resets, which never
+    returns, so the test needs a way to stop execution there."""
 
 
 machine.reset = lambda: (_ for _ in ()).throw(_Reset())
 
 
-# noap/nojoin/norequest/budget-spent all go through flash_glyph(), which
-# draws, holds, then clears and restores idle intensity before returning --
-# so the glyph is gone by the time _run_pull_mode() itself returns. Spying
-# on shapes.draw_shape() (which flash_glyph and the success/retry branches
-# both call) records what was actually asked for, transient or not.
+# flash_glyph() draws, holds, then clears before returning, so spy on
+# shapes.draw_shape() to record what was asked for, transient or not.
 _draw_calls = []
 _orig_draw_shape = shapes.draw_shape
 def _spy_draw_shape(panel, shape, rgb):
@@ -249,83 +244,36 @@ def _spy_draw_shape(panel, shape, rgb):
 shapes.draw_shape = _spy_draw_shape
 
 
-def _run_pull_mode_with(outcome, on_status_calls=None, on_progress_calls=None):
-    """Drive one _run_pull_mode() call against a fake code_puller.pull()
-    that returns `outcome` and, if given, exercises the status/progress
-    callbacks main.py wires up. Clears _draw_calls first so each call's
-    result reflects only this run."""
+def _espnow_pull_with(outcome):
+    """Drive one _espnow_pull() against a fake espnow_code.receive() that
+    returns `outcome`."""
     del _draw_calls[:]
-    pull_flag.is_pending = lambda: True
-    pull_flag.budget_left = lambda: True
-    pull_flag.bump = lambda: 1
-    pull_flag.requested_slug = lambda: "goalrace"
-    pull_flag.clear = lambda: None
     p = icon_matrix.Matrix(pin=0, intensity=main.IDLE_INTENSITY)
-
-    fake_puller = types.ModuleType("code_puller")
-    fake_puller.SSID = "SP-FILEPUSH"
-
-    def fake_pull(**kw):
-        if on_status_calls is not None and kw.get("on_status"):
-            for phase, tick in on_status_calls:
-                kw["on_status"](phase, tick)
-        if on_progress_calls is not None and kw.get("on_progress"):
-            for received, total in on_progress_calls:
-                kw["on_progress"](received, total)
-        return outcome
-    fake_puller.pull = fake_pull
-    sys.modules["code_puller"] = fake_puller
-
+    fake = types.ModuleType("espnow_code")
+    fake.receive = lambda *a, **kw: outcome
+    sys.modules["espnow_code"] = fake
     try:
-        main._run_pull_mode(p, icon_store.DIR)
+        main._espnow_pull(p, None, "goalrace", "", icon_store.DIR)
     except _Reset:
         pass
     return p
 
 
-_run_pull_mode_with("noap")
-check("AP not up lights SHAPE_WIFI_2 in red",
+_espnow_pull_with("nohost")
+check("no host lights SHAPE_WIFI_2 in red",
       _draw_calls == [(shapes.SHAPE_WIFI_2, main.RED)], str(_draw_calls))
 
-_run_pull_mode_with("nojoin")
-check("join refused lights SHAPE_WIFI_2 in amber",
+_espnow_pull_with("norequest")
+check("no such game for this role lights SHAPE_WIFI_2 in amber",
       _draw_calls == [(shapes.SHAPE_WIFI_2, main.AMBER)], str(_draw_calls))
 
-_run_pull_mode_with("norequest")
-check("no such game for this role also lights SHAPE_WIFI_2 in amber",
-      _draw_calls == [(shapes.SHAPE_WIFI_2, main.AMBER)], str(_draw_calls))
-
-_run_pull_mode_with(True)
+_espnow_pull_with(True)
 check("success lights SHAPE_CHECK in green before resetting",
       _draw_calls == [(shapes.SHAPE_CHECK, main.GREEN)], str(_draw_calls))
 
-_run_pull_mode_with(False)
-check("a broken transfer lights SHAPE_X in red before retrying",
+_espnow_pull_with(False)
+check("a broken transfer lights SHAPE_X in red",
       _draw_calls == [(shapes.SHAPE_X, main.RED)], str(_draw_calls))
-
-# budget-spent path never calls code_puller.pull() at all
-del _draw_calls[:]
-panel = icon_matrix.Matrix(pin=0, intensity=main.IDLE_INTENSITY)
-pull_flag.budget_left = lambda: False
-pull_flag.clear = lambda: None
-main._run_pull_mode(panel, icon_store.DIR)
-check("attempt budget spent lights SHAPE_X in red",
-      _draw_calls == [(shapes.SHAPE_X, main.RED)], str(_draw_calls))
-
-# on_status/on_progress are actually wired up, not just accepted: a callback
-# that silently drew nothing would pass a bare "it did not raise" check.
-_run_pull_mode_with(
-    "noap",
-    on_status_calls=[("scan", 0), ("scan", 8)],
-    on_progress_calls=[(100, 400)],
-)
-_status_draws = _draw_calls[:2]
-check("on_status draws the wifi bars in blue",
-      len(_status_draws) == 2
-      and all(s in shapes.WIFI_FRAMES and c == main.BLUE for s, c in _status_draws),
-      str(_status_draws))
-check("...and a later tick is a different bar, so the bars actually cycle",
-      _status_draws[0][0] != _status_draws[1][0])
 
 # The progress bar fills by whole rows -- sixteenths of the panel -- and
 # repaints only when the row changes. The callback fires once per 512-byte

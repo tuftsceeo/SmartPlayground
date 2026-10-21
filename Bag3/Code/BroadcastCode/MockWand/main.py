@@ -44,7 +44,6 @@ from battery import show_battery
 from espnow_manager import ESPNowManager
 from game_tags import GAME_TAGS, CONTROL_TAGS, HIDDEN_TAGS
 import brightness
-import pull_flag
 import game_store
 import memprobe  # BENCH: see lib/memprobe.py docstring
 
@@ -244,9 +243,6 @@ COMBINATORS    = {"and", "then"}
 CONTROLS       = GAME_TAGS | CONTROL_TAGS
 UTILITY        = {"battery"}
 BROADCAST      = {"getcode"}
-# getcode pulls over ESP-NOW (_espnow_pull_and_launch). False restores the
-# pull_flag/reset/code_puller SoftAP path.
-CODE_VIA_ESPNOW = True
 BASE_COMMANDS  = FIXED_TRIGGERS | ACTIONS | ANIMAL_SOUNDS | COMBINATORS | CONTROLS | UTILITY | BROADCAST
 # Pulled games answer to their own slug as a tag. Computed once at import:
 # the wand resets after every successful pull, so this can never go stale.
@@ -461,7 +457,7 @@ def _game_load_failed(name, exc):
     has no stage number and must read from across a room, so it clears the
     whole matrix (show_shape does this) and repeats -- three flashes with a
     two-tone beep, distinct from the single-X-plus-descending-beeps used for
-    a *pull* failure in _run_pull_mode(), so field triage without a serial
+    a *pull* failure in _pull_fail(), so field triage without a serial
     cable can tell "pull failed" from "game wouldn't load".
     """
     print("  [FAIL] game load: %s (module %s)"
@@ -728,12 +724,6 @@ def run_event_loop(reader, rules, runner, accel_ref, enow=None, batt_ref=None):
 # to a few seconds on a test rig that does not -- a board whose REPL is hard
 # to catch is the only thing this is for.
 GRACE_S = 0
-# Same again for the boot that runs a queued pull. Zero: what stops a
-# crashing pull from boot-looping is pull_flag's attempt budget, spent
-# BEFORE each attempt (see pull_flag.py), not this window -- and every
-# second here is one the teacher waits between tapping the card and
-# playing the game.
-PULL_GRACE_S = 0
 
 
 def _boot_grace():
@@ -746,37 +736,18 @@ def _boot_grace():
 
 
 # ─────────────────────────────────────────────
-# PULL MODE — runs before ESP-NOW exists this boot
+# CODE PULL DISPLAY
 # ─────────────────────────────────────────────
 def _pull_fail(shape, color, sound="error"):
     """Show one failure glyph, play `sound`, and go dark.
 
-    red wifi bars = AP not up, orange wifi bars = AP up but pull refused
-    (join failure or no such game), red X = transfer itself broke.
+    red wifi bars = no host answered, orange = host has no such game,
+    amber = host busy, red X = transfer itself broke.
     """
     leds.show_shape(shape, color)
     buz.play(sound)
     time.sleep_ms(900)
     leds.off()
-
-
-def _pull_status(phase, tick):
-    """Cycle the wifi bars in blue while the radio scans and joins.
-
-    The two phases tick at wildly different rates and need different step
-    sizes, which is why this cares which phase it is:
-
-      scan  one call per scan, and a scan blocks for ~2.5s -- there is no
-            opportunity to animate *within* one. So each call advances a
-            bar, making the bars a countdown of the scan budget rather than
-            decoration: 0, 1, 2 bars means first, second, last look.
-      join  one call per 200ms poll, so a bar every 3 calls (~600ms) reads
-            as a smooth cycle.
-
-    A single fixed rate cannot serve both: the first version used one step
-    per 3 calls and sat on 0 bars for the whole 7.5s scan phase.
-    """
-    leds.wifi_animate(tick, BLUE, frames_per_step=1 if phase == 'scan' else 3)
 
 
 def _pull_progress(received, total):
@@ -829,105 +800,6 @@ def _espnow_pull_and_launch(enow, slug, host_id, nfc, accel, i2c, batt):
         name = stats.get("name") or slug
         _unload_game(name)
         _launch_game(name, nfc, leds, buz, accel, i2c, enow, batt)
-
-
-def _run_pull_mode():
-    """Pull new game code on a cold radio, then reboot into it.
-
-    Only reached when the previous boot tapped `getcode`, queued a pull and
-    reset. NOTHING HERE MAY TOUCH ESP-NOW -- the entire reason for the
-    reboot is that this join happens on a radio ESP-NOW has never
-    initialised, which is the only state that joins reliably (see
-    pull_flag.py for the measurements).
-
-    Returns only when the attempt budget is spent, so the caller falls
-    through to a normal boot. Success and retry both reset the chip.
-    """
-    if not pull_flag.budget_left():
-        print("# pull: attempt budget spent -- giving up, booting normally")
-        pull_flag.clear()
-        _pull_fail(SHAPE_X, RED)
-        return
-
-    memprobe.probe("pull-mode:entry")  # BENCH
-
-    n = pull_flag.bump()
-    wanted = pull_flag.requested_slug()
-    wanted_host = pull_flag.requested_host()
-    print("# pull mode: attempt %d/%d for %r on host %r"
-          % (n, pull_flag.MAX_ATTEMPTS, wanted or "<active>", wanted_host or "<any>"))
-    if PULL_GRACE_S > 0:
-        print("# Ctrl-C within %ds to stay at the REPL" % PULL_GRACE_S)
-        for remaining in range(PULL_GRACE_S, 0, -1):
-            print("# %d..." % remaining)
-            time.sleep_ms(1000)
-
-    leds.fill(BLUE_DIM)
-    buz.start()
-
-    import code_puller
-    # BENCH: code_puller.pull() has its own memprobe calls bracketing the
-    # radio join and the transfer body (pull:pre-wifi-join, post-wifi-join,
-    # pre-body, post-body, cleanup, etc.) -- these two just mark the whole
-    # call's outer boundary from main.py's side of the import.
-    memprobe.probe("pull-mode:pre-pull")  # BENCH
-    # enow is deliberately not passed: there is no ESP-NOW on this boot to
-    # shut down, and omitting it keeps _shutdown_espnow() out of the path.
-    ok = code_puller.pull(verbose=True, on_progress=_pull_progress,
-                          on_status=_pull_status, slug=wanted,
-                          host_id=wanted_host)
-    # After the pull, never before: reading reset_cause() is free but
-    # printing it is not, and nothing may allocate ahead of the radio's
-    # contiguous block. See pull_probe.reset_cause().
-    if code_puller.DEBUG_PULL:
-        import pull_probe
-        print("# DBG pull boot: reset_cause=%s"
-              % pull_probe.reset_cause(machine))
-    memprobe.probe("pull-mode:post-pull")  # BENCH
-
-    # Three of the four failures are certain: a second boot would scan the
-    # same air, join the same AP and ask for the same missing game. Spending
-    # the retry budget on them just makes the wand unresponsive for another
-    # ~10s, when the teacher's fix is to retap once the Box is ready. So
-    # clear the flag, show which one it was, and boot normally.
-    if ok == 'noap':
-        print("# pull: %r AP not up -- giving up" % code_puller.SSID)
-        pull_flag.clear()
-        _pull_fail(SHAPE_WIFI_2, RED)
-        return
-
-    if ok == 'nojoin':
-        print("# pull: AP visible but pairing failed -- giving up")
-        pull_flag.clear()
-        _pull_fail(SHAPE_WIFI_2, ORANGE)
-        return
-
-    if ok == 'norequest':
-        # The Box said it has no such game. Retrying cannot change that, so
-        # spend no more budget.
-        print("# pull: Box has no game %r -- giving up" % wanted)
-        pull_flag.clear()
-        _pull_fail(SHAPE_WIFI_2, ORANGE, sound="reject")
-        return
-
-    if ok:
-        pull_flag.clear()
-        leds.show_shape(SHAPE_CHECK, GREEN)
-        buz.success()
-        time.sleep_ms(600)
-        print("# pull OK -- resetting into the new game")
-        machine.reset()
-
-    # Failed. The flag stays set, so reset rather than falling through --
-    # the retry needs a cold radio too, and this boot's is no longer clean.
-    # Only a broken *transfer* gets here, and that is the one failure a
-    # fresh radio has a real chance of getting past -- so this one retries.
-    print("# pull failed mid-transfer -- resetting to retry (%d/%d spent)"
-          % (n, pull_flag.MAX_ATTEMPTS))
-    leds.show_shape(SHAPE_X, RED)
-    buz.warn()
-    time.sleep_ms(600)
-    machine.reset()
 
 
 # ─────────────────────────────────────────────
@@ -1202,10 +1074,6 @@ def _calibrate_light(light, samples):
 
 
 def main():
-    # Before anything else, and before ESP-NOW claims the radio.
-    if pull_flag.is_pending():
-        _run_pull_mode()
-
     _boot_grace()
     try:
         enow, batt, nfc, accel, accel_ok, last_soc = _boot()
@@ -1235,22 +1103,6 @@ def main():
     # and the app already models that with a longer silence limit.
     HEARTBEAT_MS = 5000
     last_heartbeat_ms = time.ticks_ms()
-
-    # ── Auto-launch a just-pulled game ──
-    # The pull runs in its own boot and ends in machine.reset(), so this is
-    # the first boot with the new file on flash. Launching it here is what
-    # makes the tap feel like "tap the card, play the game" instead of "tap
-    # the card, wait for two reboots, then tap a second card". take_last_pulled()
-    # clears the marker as it reads, so this fires exactly once.
-    _just_pulled = game_store.take_last_pulled()
-    if _just_pulled:
-        print("  Launching just-pulled game: %s" % _just_pulled)
-        try:
-            _launch_game(_just_pulled, nfc, leds, buz, accel, i2c, enow, batt)
-        except Exception as e:
-            _game_load_failed(_just_pulled, e)
-        last_activity_ms = time.ticks_ms()
-        last_uid = None
 
     show_idle(last_soc, 0)
     print("\n  Tap a TRIGGER tag to start programming\n")
@@ -1414,51 +1266,21 @@ def main():
                 show_idle(last_soc, 0); continue
 
             # ── BROADCAST BOX PULL ──
-            # CODE_VIA_ESPNOW: pull over the ESP-NOW link already up, no
-            # reset. Otherwise (SoftAP path) queue the pull and reboot: a
-            # WiFi join fails once ESP-NOW has owned the radio this boot, so
-            # the next boot runs it in _run_pull_mode() before
-            # ESPNowManager is constructed. See pull_flag.py.
+            # getcode:<slug>[@<host>] pulls over the ESP-NOW link already up.
             head, wanted, wanted_host = split_prefixed(cmd) if cmd else ("", "", "")
-            if head == "getcode" and CODE_VIA_ESPNOW and enow.is_active:
+            if head == "getcode":
                 _clear_rules_state(enow)
                 rules = {}; editing = None; pending_combinator = None
                 buz.stop()
-                _espnow_pull_and_launch(enow, wanted, wanted_host, nfc, accel, i2c, batt)
+                if enow.is_active:
+                    _espnow_pull_and_launch(enow, wanted, wanted_host, nfc, accel, i2c, batt)
+                else:
+                    _pull_fail(SHAPE_WIFI_2, RED)
                 last_activity_ms = time.ticks_ms()
                 idle_frame = 0
                 show_idle(last_soc, 0)
                 last_uid = None
                 continue
-            if head == "getcode":
-                # "getcode:<slug>" asks for that specific game; a bare
-                # "getcode" takes whatever the chosen host has active. A
-                # trailing "@<id>" (either form) pins the pull to that one
-                # host instead of whichever SP-FILEPUSH* AP answers
-                # strongest -- see code_puller.py's _find_ap(). nfc_reader
-                # has already validated the slug's and the id's shape.
-                print("# getcode tapped (slug=%r host=%r) -- queueing pull, rebooting"
-                      % (wanted, wanted_host))
-                leds.fill(BLUE_DIM)
-                buz.start()
-                try:
-                    pull_flag.set_pending(wanted, wanted_host)
-                except OSError as e:
-                    # Flag unwritable (full/corrupt fs). Rebooting now would
-                    # just come back to the idle loop having lost the tap, so
-                    # report it instead.
-                    print("# could not write pull flag: %s" % e)
-                    leds.show_shape(SHAPE_X, RED)
-                    buz.error()
-                    time.sleep_ms(800)
-                    leds.off()
-                    last_activity_ms = time.ticks_ms()
-                    idle_frame = 0
-                    show_idle(last_soc, 0)
-                    last_uid = None
-                    continue
-                time.sleep_ms(300)   # let the beeps finish before the reset
-                machine.reset()
 
             # ── UTILITY ──
             if cmd == "battery":

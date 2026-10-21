@@ -1,22 +1,18 @@
 """
-xfer_bench.py -- host-side driver for the three-way transfer bench.
+xfer_bench.py -- host-side driver for the wand-to-wand transfer bench.
 
 Host-side tool (CPython + pyserial). Never upload to a device.
 
 Every mode ends at the same point: wand B's {"type": "game_start"} line.
 All lines are stamped with host milliseconds since the phase started, so one
-clock times every mode, and the reboots of the WiFi path are inside it.
+clock times every mode.
 
-  wifi    Wand B runs stock MockWand firmware. Per run: Ctrl-C, then
-          pull_flag.set_pending(slug, host) and machine.reset() typed at the
-          REPL (the same flag a getcode tap writes). T0 = the reset line sent.
   espnow  Wand B runs MockWandEUM. Starts tools/devtests/xfer_host.py on wand
   nfc     A (`mpremote resume run`), with MODE patched in, and logs both
           wands until A prints "XFER all done". T0 = B's "# getcode via".
   report  Parse one or more phase logs into per-size tables.
 
 Usage (from BroadcastCode/):
-  python3 tools/devtests/xfer_bench.py wifi   --b PORT_B --host 5094 [--runs 5]
   python3 tools/devtests/xfer_bench.py espnow --a PORT_A --b PORT_B
   python3 tools/devtests/xfer_bench.py nfc    --a PORT_A --b PORT_B
   python3 tools/devtests/xfer_bench.py report tools/devtests/out/xfer/*.log
@@ -41,8 +37,6 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, "out", "xfer")
 SLUGS = ["speed05", "speed20", "speed28", "speed32", "speed36", "speed40"]
 BAUD = 115200
-WIFI_CAP_S = 60
-WIFI_PAUSE_S = 3
 
 
 class Log:
@@ -100,37 +94,6 @@ class Port:
     def close(self):
         if self.ser:
             self.ser.close()
-
-
-def run_wifi(args):
-    log = Log("wifi")
-    b = Port(args.b)
-    settle = re.compile(r'"type": "game_end"|attempt budget spent')
-    for slug in SLUGS:
-        for run in range(1, args.runs + 1):
-            b.write(b"\r\x03\x03")
-            time.sleep(0.3)
-            b.write(("import pull_flag; pull_flag.set_pending(%r, %r)\r"
-                     % (slug, args.host)).encode())
-            time.sleep(0.3)
-            while b.readline() is not None:
-                pass
-            log.write("H", "BENCH trigger mode=wifi slug=%s run=%d" % (slug, run))
-            b.write(b"import machine; machine.reset()\r")
-            start = time.monotonic()
-            while time.monotonic() - start < WIFI_CAP_S:
-                line = b.readline()
-                if line is None:
-                    continue
-                log.write("B", line)
-                if settle.search(line):
-                    break
-            else:
-                log.write("H", "BENCH timeout slug=%s run=%d" % (slug, run))
-            print("wifi %s run %d done" % (slug, run))
-            time.sleep(WIFI_PAUSE_S)
-    b.close()
-    print("log:", log.path)
 
 
 def run_wand_to_wand(args, mode):
@@ -287,17 +250,14 @@ def report(paths):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("mode", choices=["wifi", "espnow", "nfc", "report"])
+    ap.add_argument("mode", choices=["espnow", "nfc", "report"])
     ap.add_argument("logs", nargs="*")
     ap.add_argument("--a")
     ap.add_argument("--b")
-    ap.add_argument("--host", default="")
     ap.add_argument("--runs", type=int, default=5)
     args = ap.parse_args()
     if args.mode == "report":
         report(args.logs)
-    elif args.mode == "wifi":
-        run_wifi(args)
     else:
         run_wand_to_wand(args, args.mode)
 

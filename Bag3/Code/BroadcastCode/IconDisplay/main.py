@@ -34,13 +34,6 @@ import sys
 import time
 import machine
 
-# ─────────────────────────────────────────────
-# PULL MODE -- must be the first thing main() does
-# ─────────────────────────────────────────────
-# A getcode tap queues a pull and resets; the next boot runs it here, before
-# ESPNowManager is ever constructed. A WiFi join only succeeds on a radio
-# ESP-NOW has never touched this boot. See pull_flag.py.
-import pull_flag
 import game_store
 from display_tags import GAME_TAGS, CONTROL_TAGS
 import memprobe  # BENCH: see lib/memprobe.py docstring
@@ -52,15 +45,6 @@ from hubtype import HUB_TYPE, HUB_CONFIG
 
 DEBUG = False
 
-# Countdown before a queued pull starts, so a Ctrl-C can land. Zero:
-# Ctrl-C is never disabled here, and what stops a crashing pull from
-# boot-looping is pull_flag's attempt budget, spent before each
-# attempt -- not this window.
-PULL_GRACE_S = 0
-# getcode pulls the game and its icons over the ESP-NOW link already up
-# (_espnow_pull), then resets into them. False restores the
-# pull_flag/reset/code_puller SoftAP path.
-CODE_VIA_ESPNOW = True
 NFC_POLL_FRAMES = 12      # idle frames between card reads -- a read is 200-500ms
 UID_REPEAT_MS = 1200      # ignore the same uid until it has been away this long
 IDLE_FRAME_MS = 80
@@ -315,20 +299,8 @@ def _launch_game(name, nfc, panel, enow):
 
 
 # ─────────────────────────────────────────────
-# PULL MODE
+# CODE PULL DISPLAY
 # ─────────────────────────────────────────────
-def _pull_status(panel, phase, tick):
-    """Cycle the wifi bars in blue while the radio scans and joins.
-
-    Mirrors MockWand/main.py's _pull_status(): one bar per call during
-    `scan` (a scan blocks for ~2.5s, so each call is a countdown of the
-    scan budget), one bar every 3 calls during `join` (~200ms polls, so
-    ~600ms per step reads as a smooth cycle).
-    """
-    import shapes
-    shapes.wifi_animate(panel, tick, BLUE, frames_per_step=1 if phase == 'scan' else 3)
-
-
 PROGRESS_ROWS = 16        # the panel's own rows: one step per 1/16th of a file
 _progress_row = -1        # last row drawn, so an unchanged bar costs nothing
 
@@ -399,95 +371,6 @@ def _espnow_pull(panel, enow, slug, host_id, icon_dir):
         flash_glyph(panel, shapes.SHAPE_X, RED)
 
 
-def _run_pull_mode(panel, icon_dir):
-    """Join the Box's SoftAP and fetch this display's game file and icons.
-
-    Only reached when the previous boot tapped getcode, queued a pull and
-    reset. NOTHING HERE MAY TOUCH ESP-NOW -- the whole reason for the reboot
-    is that the join happens on a radio ESP-NOW has never initialised.
-
-    Returns only when the attempt budget is spent, so the caller falls
-    through to a normal boot. Success and retry both reset the chip.
-    """
-    import shapes
-
-    if not pull_flag.budget_left():
-        print("# pull: attempt budget spent -- giving up, booting normally")
-        pull_flag.clear()
-        flash_glyph(panel, shapes.SHAPE_X, RED)
-        return
-
-    n = pull_flag.bump()
-    wanted = pull_flag.requested_slug()
-    wanted_host = pull_flag.requested_host()
-    print("# pull mode: attempt %d/%d for %r on host %r"
-          % (n, pull_flag.MAX_ATTEMPTS, wanted or "<active>", wanted_host or "<any>"))
-    if PULL_GRACE_S > 0:
-        print("# Ctrl-C within %ds to stay at the REPL" % PULL_GRACE_S)
-        for remaining in range(PULL_GRACE_S, 0, -1):
-            print("# %d..." % remaining)
-            time.sleep_ms(1000)
-
-    panel.set_intensity(IDLE_INTENSITY)
-    fill(panel, BLUE)
-
-    import code_puller
-    # hubtype tells the Box which file this slug means for this device;
-    # icon_dir asks for the named-icon leg after it. enow is deliberately
-    # not passed: there is no ESP-NOW on this boot to shut down.
-    #
-    # on_progress/on_status wire this device into the same scan/join/
-    # transfer animation MockWand's pull mode shows -- see _pull_status()
-    # and _pull_progress() below, which mirror MockWand/main.py's functions
-    # of the same name.
-    ok = code_puller.pull(verbose=True, slug=wanted, host_id=wanted_host,
-                          hubtype=HUB_TYPE, icon_dir=icon_dir,
-                          on_progress=lambda r, t: _pull_progress(panel, r, t),
-                          on_status=lambda phase, tick: _pull_status(panel, phase, tick))
-    # After the pull, never before: reading reset_cause() is free but
-    # printing it is not, and nothing may allocate ahead of the radio's
-    # contiguous block. See pull_probe.reset_cause().
-    if code_puller.DEBUG_PULL:
-        import pull_probe
-        print("# DBG pull boot: reset_cause=%s"
-              % pull_probe.reset_cause(machine))
-
-    # Three of the four failures are certain -- a second boot would scan the
-    # same air, join the same AP and ask for the same missing game -- so they
-    # spend no more budget.
-    if ok == 'noap':
-        print("# pull: %r AP not up -- giving up" % code_puller.SSID)
-        pull_flag.clear()
-        flash_glyph(panel, shapes.SHAPE_WIFI_2, RED)
-        return
-    if ok == 'nojoin':
-        print("# pull: AP visible but pairing failed -- giving up")
-        pull_flag.clear()
-        flash_glyph(panel, shapes.SHAPE_WIFI_2, AMBER)
-        return
-    if ok == 'norequest':
-        print("# pull: Box has no %r for an icon display -- giving up" % wanted)
-        pull_flag.clear()
-        flash_glyph(panel, shapes.SHAPE_WIFI_2, AMBER)
-        return
-    if ok:
-        pull_flag.clear()
-        panel.set_intensity(ALERT_INTENSITY)
-        shapes.draw_shape(panel, shapes.SHAPE_CHECK, GREEN)
-        print("# pull OK -- resetting into the new game")
-        time.sleep_ms(600)
-        machine.reset()
-
-    # A broken transfer is the one failure a fresh radio has a real chance of
-    # getting past, so this one retries. The flag stays set.
-    print("# pull failed mid-transfer -- resetting to retry (%d/%d spent)"
-          % (n, pull_flag.MAX_ATTEMPTS))
-    panel.set_intensity(ALERT_INTENSITY)
-    shapes.draw_shape(panel, shapes.SHAPE_X, RED)
-    time.sleep_ms(600)
-    machine.reset()
-
-
 # ─────────────────────────────────────────────
 # MAIN
 # ─────────────────────────────────────────────
@@ -524,16 +407,10 @@ def main():
                       shapes.STAGE_OK if radio_ok else shapes.STAGE_WARN])
     boot.stage_ok(1)                      # the panel itself, self-evidently
 
-    # ── 3. A queued pull runs before the session proper ──
-    # It owns the panel while it runs, so the boot screen is repainted after.
-    if pull_flag.is_pending():
-        _run_pull_mode(panel, icon_store.DIR)
-        boot._paint()
-
     n_games = len(game_store.slugs())
     boot.stage_ok(2, [shapes.STAGE_OK if i < n_games else None for i in range(4)])
 
-    # ── 4. USB link for the icon editor web app ──
+    # ── 3. USB link for the icon editor web app ──
     # Given the panel main.py already built: two NeoPixel objects on one pin
     # fight. The link is simply live whenever this device is idle -- pump()
     # returns promptly on a quiet port, so there is no mode to switch and
@@ -545,7 +422,7 @@ def main():
     boot.stage_ok(3)
     memprobe.probe("post-server")  # BENCH
 
-    # ── 5. Card reader, when one is fitted ──
+    # ── 4. Card reader, when one is fitted ──
     nfc = None
     reader = None
     if HUB_CONFIG.get("has_nfc"):
@@ -589,17 +466,10 @@ def main():
     time.sleep_ms(BOOT_SCREEN_HOLD_MS)
     boot.clear()
 
-    # A game that just landed launches itself on this boot rather than
-    # waiting for a second tap.
-    pulled = game_store.take_last_pulled()
-    if pulled and is_game(pulled):
-        print("  launching just-pulled game %r" % pulled)
-        _launch_game(pulled, reader, panel, enow)
-
     print("  Icon display idle. %d built-in, %d pulled."
           % (len(GAME_MODULES), len(game_store.slugs())))
 
-    # ── 6. Idle loop ──
+    # ── 5. Idle loop ──
     frame = 0
     last_uid = None
     last_uid_ms = 0
@@ -690,32 +560,16 @@ def main():
                 server.release_panel()
 
             head, wanted, wanted_host = split_prefixed(cmd) if cmd else ("", "", "")
-            if head == "getcode" and CODE_VIA_ESPNOW and enow.is_active:
-                _espnow_pull(panel, enow, wanted, wanted_host, icon_store.DIR)
+            if head == "getcode":
+                if enow.is_active:
+                    _espnow_pull(panel, enow, wanted, wanted_host, icon_store.DIR)
+                else:
+                    import shapes
+                    flash_glyph(panel, shapes.SHAPE_WIFI_2, RED)
                 last_uid = None
                 frame = 0
                 continue
-            if head == "getcode":
-                # Queue and reboot rather than pull here: ESP-NOW has owned
-                # the radio all boot, and a WiFi join from that state fails.
-                # A trailing "@<id>" (either form) pins the pull to that one
-                # host instead of whichever SP-FILEPUSH* AP answers
-                # strongest -- see code_puller.py's _find_ap().
-                print("# getcode tapped (slug=%r host=%r) -- queueing pull, rebooting"
-                      % (wanted, wanted_host))
-                fill(panel, BLUE)
-                try:
-                    pull_flag.set_pending(wanted, wanted_host)
-                except OSError as e:
-                    # Flag unwritable. Rebooting now would lose the tap, so
-                    # say so instead of silently returning to idle.
-                    print("# could not write pull flag: %s" % e)
-                    import shapes
-                    flash_glyph(panel, shapes.SHAPE_X, RED)
-                    continue
-                time.sleep_ms(300)
-                machine.reset()
-            elif cmd == "stop":
+            if cmd == "stop":
                 panel.clear()
                 frame = 0
             elif cmd and is_game(cmd):
