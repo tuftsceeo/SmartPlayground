@@ -81,6 +81,11 @@ MODE_WRITE = "WRITE"
 # Bound in run() after the radio is up: dial_input and dial_ui are
 # imported there, not here (docs_and_design/2026-09-23-ap-memory-order.md).
 NEXT = PREV = ACT = EXIT = None
+dial_input = None
+
+# Lists longer than this move once the knob settles (dial_input.settle_ms);
+# shorter ones move per detent.
+SETTLE_OVER = 10
 
 # WRITE-mode sub-states. Dial intents: ACT (click) confirms, NEXT/PREV
 # (knob) scroll, EXIT (1 s hold) goes back.
@@ -289,6 +294,8 @@ class BdialServer:
 
     def _repaint(self):
         if self._mode == MODE_WRITE:
+            n = len(self._group_rows() if self._write_state == W_GROUP else self._entries)
+            self._input.settle_ms = dial_input.TURN_SETTLE_MS if n > SETTLE_OVER else 0
             if self._write_state == W_GROUP:
                 group = self._current_group()
                 self.ui.paint_tag_group(
@@ -1058,7 +1065,7 @@ class BdialServer:
         except Exception as e:
             print("# radio prewarm failed: %s" % str(e))
 
-        global NEXT, PREV, ACT, EXIT
+        global NEXT, PREV, ACT, EXIT, dial_input
         import dial_input
         from dial_ui import DialUI
         NEXT, PREV, ACT, EXIT = (dial_input.NEXT, dial_input.PREV,

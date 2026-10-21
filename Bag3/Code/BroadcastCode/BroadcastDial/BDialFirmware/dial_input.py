@@ -60,6 +60,7 @@ class DialInput:
         self._taps = []             # (tap intent, ticks) awaiting TAP_GUARD_MS
         self._turn = 0              # detents since the knob last settled
         self._turn_at = 0
+        self.settle_ms = TURN_SETTLE_MS     # 0: release each detent at once
         self._physical_at = -100000
         self._rotary = None
         self._last_rotary = 0
@@ -143,9 +144,9 @@ class DialInput:
             self._turn += delta
             self._turn_at = now
             return
-        if self._turn == 0 or time.ticks_diff(now, self._turn_at) < TURN_SETTLE_MS:
+        if self._turn == 0 or time.ticks_diff(now, self._turn_at) < self.settle_ms:
             return
-        # Knob still for TURN_SETTLE_MS: release the whole spin at once.
+        # Knob still for settle_ms: release the whole spin at once.
         n = abs(self._turn)
         if n > ENCODER_CAP:
             n = ENCODER_CAP
