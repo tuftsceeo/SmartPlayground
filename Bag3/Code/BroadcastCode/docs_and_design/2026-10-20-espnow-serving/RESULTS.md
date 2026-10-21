@@ -169,3 +169,16 @@ Not run: the Box (hardware back 2026-10-21). PLAN.md phases 2 and 3 no longer in
 - Dial runs the circular Station UI (branch `claude/dial-circular-ui-708f78`, `2b3b96a`; not merged into `chat_app_espnow`). Scripted wand pulls from it: 3/3, 3.6–4.4 s; `games.list` `speed36` pulls 3.
 - SoftAP removal (PLAN 5.2) committed `bfed8e2`..`fb907d2`. The final verification and grep did not run; run the offline tests before merging or pushing.
 - Not done: Box single-state deploy and Icon Display (2026-10-21), full-stack test, push and PR.
+
+## Box single state and real Icon Display (2026-10-21)
+
+Branch `chat_app_espnow` with the SoftAP removal and the Dial circular UI merged; offline tests pass (`compile_check.sh`, `test_dial_code_link.py`, `test_dial_station.py`, `game_menu_scan.py`, `test_code_xfer.py`, `test_espnow_serve.py`, `test_wand_espnow_code.py`, `chatbroadcast_flow.mjs`, `role_state.mjs`). `wire_test*.py` were TCP-only and are deleted.
+
+| Run | Result |
+|---|---|
+| Box: 4 changed files copied, reset first, one `mpremote` call | 13 s; SoftAP files removed from flash |
+| Box `mode` / `arm` | `WRITE`; `armed: true` |
+| Stale wand: `deploy.py --type wand` | 51 files, 113 s |
+| Box → wand, 3 pulls pinned `cd64`, USB | 3/3, 2.6–4.8 s; `games.list` pulls 3; no reset |
+| Icon Display: `deploy.py --type icon` | 107 files, 154 s |
+| Box → Icon Display, `icon_display` role, test `speed36_icon.py` + 3 icons | 3/3, 2.1–2.9 s, 3 icons each (test files removed afterwards) |
