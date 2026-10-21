@@ -35,7 +35,9 @@ Copies, not imports -- fixing one fixes only this copy:
 | `game_tags.py` | `Bag3/Code/BroadcastCode/MockWand/lib/` |
 
 `dial_input.py` and `station_fonts.py` are identical to the Broadcast Dial's
-copies; the Dial's `dial_ui.py` is a cut-down port of `station_ui.py`.
+copies. The Dial also runs copies of `station.py`, `station_ui.py`,
+`text_entry.py` and the keyboard ring files, adapted to its serial link and
+ESP-NOW serving (see the Dial's README).
 
 ## Controls
 

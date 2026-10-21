@@ -32,7 +32,6 @@ import os
 import reset_log
 from json_link import JsonLink
 from code_link import CodeLink, HOST_ID, GAMES_DIR, ACTIVE_PATH, prewarm
-from card_writer import existing_text, write_text
 from dial_board import make_reader, SCREEN_W, SCREEN_H
 
 VERSION = "0.1.0"
@@ -45,16 +44,10 @@ HEARTBEAT_MS = 5000
 # catch; that is the only thing it is for.
 GRACE_S = 0
 
-# WRITE serves over ESP-NOW whenever the reader field is off (menus, group
-# lists); the radio goes down only while scanning a card.
-SHARE_IN_MENUS = True
 SHARE_RETRY_MS = 2000        # wait after a failed menu-share arm()
 
 INDEX_PATH = GAMES_DIR + '/index.json'
 
-# Legacy single-game tags — replaced at boot by _rebuild_entries() from the
-# games index. Kept as a fallback if the index is empty.
-TAG_LIST = ("getcode", "jumpin")
 
 # PEER: BBoxFirmware/bbox_server.py, BDialFirmware/bdial_server.py.
 # Every non-wand ROLE_FILES suffix (in code_server.py) goes here too,
@@ -67,63 +60,13 @@ STAGING_SUFFIXES = ('_icon.py', '_splat.py')
 UTILITY_TAGS = ("stop", "battery")
 UTILITY_GROUP = "Utility Tags"
 
-# Not a write target -- a sentinel _scan_step() special-cases before it is
-# ever treated as NDEF text. Lets a teacher check what's already on a card
-# without writing anything to it, and read several cards back to back (see
-# the SCAN sub-state note above) rather than one-at-a-time. Lives in the
-# utility group alongside the real write tags so it shows up in the same
-# menu.
-READ_ENTRY = "Read Card"
 
 MODE_IDLE = "IDLE"
 MODE_WRITE = "WRITE"
 
-# Bound in run() after the radio is up: dial_input and dial_ui are
-# imported there, not here (docs_and_design/2026-09-23-ap-memory-order.md).
-NEXT = PREV = ACT = EXIT = None
-dial_input = None
-
-# Lists longer than this move once the knob settles (dial_input.settle_ms);
-# shorter ones move per detent.
-SETTLE_OVER = 10
-
-# WRITE-mode sub-states. Dial intents: ACT (click) confirms, NEXT/PREV
-# (knob) scroll, EXIT (1 s hold) goes back.
-#   MENU      list of groups   ACT = open                     NEXT/PREV
-#   GROUP     one group's tags ACT = scan, EXIT = menu        NEXT/PREV
-#   SCAN      RF field on      EXIT = group
-#
-# SCAN also covers the Utility Tags -> Read Card entry (READ_ENTRY below),
-# a read-only "NFC Reader" utility -- see _scan_step()'s READ_ENTRY branch
-# and dial_ui.paint_reader(). It never triggers a write result screen: each
-# card read just repaints the same SCAN screen in place, so a teacher can
-# read several cards back to back without re-entering the menu between
-# them. A hold exits it to GROUP like any other scan.
-#
-# The menu is two-level because a single game can contribute a dozen tags
-# (melody alone has eleven).
-#
-# Deliberately no OVERWRITE confirmation state (same as bbox_server.py,
-# the Box peer -- both dropped this): on the Dial the antenna is under the
-# screen, so a card that's actually on the reader covers the same touch
-# targets a confirm/cancel prompt would need. Any tag SCAN detects gets
-# written immediately; beep_success()/beep_fail() in _write_card() is the
-# only confirmation that's reachable.
-#
-# A write result (success/already/failure) is not its own sub-state -- the
-# result screen is painted, held on screen for a fixed delay below, and
-# then _write_card()/_scan_step() transition on their own (success/already
-# back to GROUP, failure back into a fresh SCAN of the same target). A
-# "tap to continue" SPLASH state used to sit between the result and that
-# transition; testing showed the extra tap was a nuisance given the
-# screen+beep already say what happened, so it was removed -- these are
-# the only holds left standing in for it.
-RESULT_HOLD_OK_MS = 1000
-RESULT_HOLD_FAIL_MS = 500
-W_MENU = "menu"
-W_GROUP = "group"
-W_SCAN = "scan"
-
+# The screens are station.py (the NFC Station's mode machine) painted by
+# station_ui.py. Both, and dial_input, are imported in run() after the
+# radio is up (docs_and_design/2026-09-23-ap-memory-order.md).
 
 # Chatty tracing (intents, state transitions, antenna toggles).
 # Off by default. Failures, card events and write outcomes are NOT gated by
@@ -142,16 +85,10 @@ def _dbg(msg):
 
 
 def _card_text(label):
-    """Card bytes for a menu row. getcode rows carry this host's id, so a
-    scanning wand or icon display can pin to this exact host. Only getcode rows: a bare "<slug>"/"stop"/
-    "battery" card is not host-specific and must keep working on any host
-    exactly as it read before this change. Called only where a card is
-    actually written (_write_card()), never where the menu/group rows
-    themselves are built (_rebuild_entries()), so the on-screen label a
-    teacher picks stays "getcode:<slug>" and only the written bytes gain
-    the suffix.
-    """
-    if label == 'getcode' or label.startswith('getcode:'):
+    """Card bytes for a tag. getcode tags carry this host's id, so a
+    scanning wand or icon display can pin to this host; other tags are
+    written as they are. Text already carrying an id is left alone."""
+    if (label == 'getcode' or label.startswith('getcode:')) and '@' not in label:
         return label + '@' + HOST_ID
     return label
 
@@ -159,7 +96,7 @@ def _card_text(label):
 def _boot_grace(ui):
     # The booting screen is painted either way -- it is what the teacher sees
     # while the rest of boot runs, not part of the countdown.
-    ui.paint_booting()
+    ui.show_result("busy", "Starting")
     if GRACE_S <= 0:
         return
     print("# booting -- Ctrl-C within %ds to stay at the REPL" % GRACE_S)
@@ -171,7 +108,8 @@ def _boot_grace(ui):
 class BdialServer:
     def __init__(self, debug=False):
         self._input = None      # DialInput, built in run()
-        self.ui = None          # DialUI, built in run()
+        self.ui = None          # StationUI, built in run()
+        self.st = None          # station.Station, built in run()
         self.link = JsonLink(self.dispatch, debug=debug)
         self.code = CodeLink()
         self.nfc = None
@@ -180,18 +118,8 @@ class BdialServer:
 
         self._mode = MODE_IDLE
         self._nfc_ok = False  # real _init_nfc() result -- reported in identity
-        self._nfc_field_on = False
-        self._nfc_fail_count = 0  # consecutive detect_tag errors -- see _scan_step
-        self._write_state = W_MENU  # WRITE sub-state; see W_* above
-
-        # (title, [tag, ...]) per game, then the utility group. Top-level
-        # rows are these titles; _group_cursor indexes into the
-        # open group's tags directly (a hold exits the group from any
-        # cursor position -- see _poll_write()'s W_GROUP handling).
-        self._groups = [(UTILITY_GROUP, list(UTILITY_TAGS) + [READ_ENTRY])]
-        self._entries = [UTILITY_GROUP]
-        self._cursor = 0
-        self._group_cursor = 0
+        # (name, [(label, tag), ...], all_ok) per game, then Utility.
+        self._groups = [(UTILITY_GROUP, [(t, t) for t in UTILITY_TAGS], False)]
         # entry label -> cumulative successful writes, seeded from
         # stats_log at boot by _load_stats() and incremented in memory.
         self._written = {}
@@ -202,7 +130,6 @@ class BdialServer:
         self._index = {}  # slug -> {name, added}
         self._active = None
 
-        self._reader_last_uid = None  # debounce for READ_ENTRY; see _scan_step()
 
         self.handlers = {
             "identify": self.do_identify,
@@ -245,38 +172,23 @@ class BdialServer:
 
     def _init_nfc(self):
         self.nfc = make_reader()
-        self._nfc_field_on = False
-
-    # ─────────────────────────────────────────────
-    # INPUT
-    # ─────────────────────────────────────────────
-    # Encoder / button / touch collapse into dial_input intents. No fallback
-    # path: a broken input must be a loud crash, not a silently-degraded mode.
 
     # ─────────────────────────────────────────────
     # MODES
     # ─────────────────────────────────────────────
 
     def _set_mode(self, new_mode, announce=True):
-        """IDLE <-> WRITE. Leaving WRITE drops the field and the radio;
-        entering it starts sharing (_menu_share)."""
+        """IDLE (no game on flash) <-> WRITE (a game to serve). Reported
+        over serial; the screens are the same in both."""
         if new_mode == self._mode:
             return
         old = self._mode
         if old == MODE_WRITE:
-            self._nfc_field(False)
-            self._clear_pending()
             self.code.disarm()
         self._mode = new_mode
-        if new_mode == MODE_WRITE:
-            self._menu_share()
         reset_log.note_mode(new_mode)
-        self._input.clear()
-        self._write_state = W_MENU
-        self._nfc_fail_count = 0
         print("# mode %s -> %s" % (old, new_mode))
         self._emit_mode()
-        self._repaint()
 
     def _mode_payload(self, rid=None):
         """JSON for mode event / cmd reply."""
@@ -292,37 +204,6 @@ class BdialServer:
     def _emit_mode(self, rid=None):
         self.link.send(self._mode_payload(rid))
 
-    def _repaint(self):
-        if self._mode == MODE_WRITE:
-            n = len(self._group_rows() if self._write_state == W_GROUP else self._entries)
-            self._input.settle_ms = dial_input.TURN_SETTLE_MS if n > SETTLE_OVER else 0
-            if self._write_state == W_GROUP:
-                group = self._current_group()
-                self.ui.paint_tag_group(
-                    group[0] if group else "", self._group_rows(),
-                    self._group_cursor, self._written)
-            else:
-                self.ui.paint_tag_list(self._entries, self._cursor)
-        else:
-            self.ui.paint_idle(self.linked)
-
-    def _current_entry(self):
-        """The label the write path acts on.
-
-        Every state except W_MENU is reached from inside a group, and they all
-        act on the selected tag -- _to_scan() paints it, _scan_step() compares
-        the card against it, _write_card() writes it -- so only the top-level
-        menu resolves to a group title.
-        """
-        if self._write_state != W_MENU:
-            rows = self._group_rows()
-            if self._group_cursor < len(rows):
-                return rows[self._group_cursor]
-            return ""  # defensive only -- NEXT/PREV wrap on len(rows), so
-            # _group_cursor should never actually reach here
-        return self._entries[self._cursor]
-
-    # ─────────────────────────────────────────────
     # JSON API
     # ─────────────────────────────────────────────
 
@@ -383,13 +264,14 @@ class BdialServer:
         })
 
     def do_arm(self, cmd, rid):
-        """Sharing follows the menus (_menu_share); this only reports it.
+        """Sharing follows the menus (_serve); this only reports it.
         Kept for hosts that still send it."""
         if not self._payload_ready():
             self.link.send({"type": "error", "id": rid, "code": "no_payload",
                              "msg": "no game on device"})
             return
-        self._menu_share()
+        if self.st is not None:
+            self._serve()
         self.link.send({"type": "ok", "id": rid, "cmd": "arm", "ssid": None,
                         "armed": self.code.armed})
 
@@ -514,7 +396,6 @@ class BdialServer:
             return
         self._written = {}
         self._pulls = {}
-        self._repaint()
         self.link.send({"type": "ok", "id": rid, "cmd": "stats.reset"})
 
     def _payload_ready(self):
@@ -701,82 +582,106 @@ class BdialServer:
             return
 
     def _rebuild_entries(self):
-        """Group the writable tags: one group per game, then the utilities.
-
-        A game's group is its two pickup tags -- getcode:<slug> pulls the code,
-        a bare <slug> plays the copy already on the wand -- followed by the
-        tags the game itself needs, as pushed alongside it in <slug>.tags.json.
-        The utility group is always present, so "stop" can be written even
-        with no games loaded. Top-level rows are the group titles plus DONE.
-        """
+        """One group per game -- Code (getcode:<slug>), Play (<slug>), then
+        the tags the game pushed in <slug>.tags.json, with All -- then
+        Utility (stop, battery)."""
         groups = []
         for slug in self._index:
-            tags = ["getcode:" + slug, slug]
+            rows = [("Code", "getcode:" + slug), ("Play", slug)]
             for t in (self._index[slug].get("tags") or ()):
-                if t and t not in tags:
-                    tags.append(t)
-            groups.append((self._index[slug].get("name") or slug, tags))
-        if not groups:
-            groups.append(("Games", list(TAG_LIST)))
-        groups.append((UTILITY_GROUP, list(UTILITY_TAGS) + [READ_ENTRY]))
-
+                if t and t not in ("getcode:" + slug, slug):
+                    rows.append((t, t))
+            groups.append((self._index[slug].get("name") or slug, rows, True))
+        groups.append((UTILITY_GROUP, [(t, t) for t in UTILITY_TAGS], False))
         self._groups = groups
-        self._entries = [title for title, _ in groups]
-        self._cursor = 0
-        self._group_cursor = 0
 
-        # Drop written counts for labels no longer on any group.
+        # Drop written counts for tags no longer on any group.
         live = set()
-        for _, tags in groups:
-            for t in tags:
+        for _, rows, _ in groups:
+            for _, t in rows:
                 live.add(t)
         keep = {}
         for k, v in self._written.items():
             if k in live:
                 keep[k] = v
         self._written = keep
-
-    def _current_group(self):
-        """(title, tags) of the group the cursor is on, or None on DONE."""
-        if self._cursor < len(self._groups):
-            return self._groups[self._cursor]
-        return None
-
-    def _group_rows(self):
-        """The open group's tags. A hold exits the group from any row."""
-        group = self._current_group()
-        return list(group[1]) if group else []
+        if self.st is not None:
+            self.st.reload()
 
     # ─────────────────────────────────────────────
-    # WRITE MODE
+    # STATION HOST (see station.py)
     # ─────────────────────────────────────────────
 
-    def _nfc_field(self, on):
-        """Energize/de-energize the reader, tracking state to avoid redundant
-        I2C writes on every loop iteration. The radio is stopped before the
-        field comes up; after the field goes down, WRITE resumes serving."""
-        if self.nfc is None or on == self._nfc_field_on:
-            return
-        if on and self.code.armed:
-            self.code.disarm()
-        self._nfc_field_on = on
+    def init_nfc(self):
+        self._init_nfc()
+
+    def tag_groups(self):
+        return self._groups
+
+    def has_games(self):
+        return bool(self._index)
+
+    def words(self):
+        """Keyboard word bank: the loaded games' tags, then
+        /flash/words.json if present. Read when the keyboard opens."""
+        out = []
+        for _, rows, _ in self._groups:
+            for _, t in rows:
+                if t not in out and not t.startswith("getcode:"):
+                    out.append(t)
         try:
-            if on:
-                self.nfc.antenna_on()
-            else:
-                self.nfc.antenna_off()
-                # A MIFARE auth latches MFCrypto1On; clear it with the field.
-                self.nfc.stop_crypto1()
-            _dbg("field -> %s (chip reports ant=%s crypto=%s)"
-                 % ("ON" if on else "off", self.nfc.antenna_is_on(),
-                    self.nfc.crypto_on()))
+            import json
+            with open("/flash/words.json") as f:
+                extra = json.loads(f.read() or "[]")
+        except OSError:
+            extra = []
         except Exception as e:
-            print("# NFC antenna %s FAILED: %s" % ("on" if on else "off", str(e)))
+            print("# words.json unreadable: %s" % str(e))
+            extra = []
+        if isinstance(extra, list):
+            for w in extra:
+                if isinstance(w, str) and w and w not in out:
+                    out.append(w.lower())
+        return out
 
-    def _menu_share(self):
-        """WRITE with the field off: serve over ESP-NOW if there is a game."""
-        if (not SHARE_IN_MENUS or self._mode != MODE_WRITE
-                or self._nfc_field_on or self.code.armed
+    def card_text(self, tag):
+        return _card_text(tag)
+
+    def radio_off(self):
+        if self.code.armed:
+            self.code.disarm()
+
+    def on_card(self, tag, existing):
+        _log("card uid=%s existing=%s" % (tag['uid_hex'], repr(existing)))
+        self.link.send({
+            "type": "card_present", "uid": tag['uid_hex'], "existing": existing,
+        })
+
+    def on_written(self, label, uid, wrote):
+        if not wrote:
+            return
+        self._written[label] = self._written.get(label, 0) + 1
+        self.link.send({"type": "card_written", "label": label, "uid": uid})
+        try:
+            import stats_log
+            stats_log.record_tag(label)
+        except Exception as e:
+            print("# stats tag failed: %s" % str(e))
+
+    # ─────────────────────────────────────────────
+    # RADIO
+    # ─────────────────────────────────────────────
+
+    def _serve(self):
+        """Serve the active game over ESP-NOW on the menu screens; the
+        radio is down everywhere else (Read, scans, results, keyboard)."""
+        if self.code.armed:
+            if self.st.serving():
+                self.code.poll(on_event=self._on_share_event)
+            else:
+                self.code.disarm()
+            return
+        if (self._mode != MODE_WRITE or not self.st.serving()
                 or time.ticks_diff(self._share_retry_at, time.ticks_ms()) > 0):
             return
         if self._active:
@@ -784,255 +689,16 @@ class BdialServer:
         elif self.code.resolve() is None:
             return
         if not self.code.arm():
-            print("# menu share: CodeLink.arm() failed")
+            print("# share: CodeLink.arm() failed")
             self._share_retry_at = time.ticks_add(time.ticks_ms(), SHARE_RETRY_MS)
 
-    def _on_menu_share_event(self, event):
+    def _on_share_event(self, event):
         if event in ('ok', 'fail'):
             self._emit_pull()
         r = self.code.last_result
         if event == 'ok' and r is not None and r.get("hub", "wand") == "wand":
             slug = r.get("slug")
             self._pulls[slug] = self._pulls.get(slug, 0) + 1
-
-    def _clear_pending(self):
-        self._reader_last_uid = None
-
-    # ─────────────────────────────────────────────
-    # WRITE MODE — sub-state machine
-    # ─────────────────────────────────────────────
-
-    def _to_menu(self):
-        _dbg("state %s -> menu" % self._write_state)
-        self._write_state = W_MENU
-        self._nfc_field(False)
-        self._clear_pending()
-        self._repaint()
-
-    def _to_group(self):
-        """Back to the open group's tag list.
-
-        Where a write lands when it finishes: a teacher writing eight note
-        cards should not have to re-enter the group between each one.
-        """
-        _dbg("state %s -> group" % self._write_state)
-        self._write_state = W_GROUP
-        self._nfc_field(False)
-        self._clear_pending()
-        self._repaint()
-
-    def _to_scan(self):
-        _dbg("state %s -> scan (target=%s)"
-             % (self._write_state, self._current_entry()))
-        self._write_state = W_SCAN
-        self._clear_pending()
-        # Never begin a scan in encrypted mode: a MIFARE auth from an
-        # earlier scan latches MFCrypto1On, and while it is set the reader
-        # cannot answer a plain REQA, so nothing is ever detected. Toggling
-        # the antenna does not clear it -- only this does (or a reboot,
-        # which is why the first scan after boot used to be the only one
-        # that worked).
-        if self.nfc is not None:
-            try:
-                self.nfc.stop_crypto1()
-            except Exception as e:
-                # Transient I2C glitch (e.g. ENODEV from bus contention) --
-                # same tolerance _scan_step()/_nfc_field() give every other
-                # reader call. Left uncrypto'd here just means the next
-                # detect_tag() may hit the same MFCrypto1On wedge that this
-                # call exists to clear; _scan_step()'s own error handling
-                # and reinit-after-N-failures will recover from that.
-                print("# NFC stop_crypto1 FAILED: %s" % str(e))
-        self._nfc_field(True)
-        entry = self._current_entry()
-        if entry == READ_ENTRY:
-            self.ui.paint_reader()  # "nothing scanned yet" state
-        else:
-            self.ui.paint_scanning(entry)
-
-    def _poll_write(self):
-        """WRITE mode. Drain one intent per loop; scan runs when idle."""
-        if self.code.armed:
-            self.code.poll(on_event=self._on_menu_share_event)
-        elif self._write_state != W_SCAN:
-            self._menu_share()
-        intent = self._input.pop()
-        if intent:
-            _dbg("intent %s in state=%s cursor=%d(%s)"
-                 % (intent, self._write_state,
-                    self._cursor, self._current_entry()))
-
-        if self._write_state == W_MENU:
-            if intent in (NEXT, PREV):
-                self._cursor = self._step(self._cursor, len(self._entries), intent)
-                self._repaint()
-            elif intent == ACT:
-                self.ui.beep_click()
-                self._group_cursor = 0
-                self._to_group()
-            return
-
-        if self._write_state == W_GROUP:
-            rows = self._group_rows()
-            if intent in (NEXT, PREV):
-                self._group_cursor = self._step(self._group_cursor, len(rows), intent)
-                self._repaint()
-            elif intent == ACT:
-                self.ui.beep_click()
-                self._to_scan()
-            elif intent == EXIT:
-                self.ui.beep_click()
-                self._to_menu()
-            return
-
-        if self._write_state == W_SCAN:
-            if intent == EXIT:
-                self.ui.beep_click()
-                self._to_group()
-                return
-            self._scan_step()
-            return
-
-    def _step(self, sel, n, intent):
-        """Move sel by this turn and any turns queued behind it, so a
-        settled spin repaints once."""
-        while True:
-            sel = (sel + (1 if intent == NEXT else -1)) % n
-            if self._input.peek() not in (NEXT, PREV):
-                return sel
-            intent = self._input.pop()
-
-    # Consecutive detect_tag() OSErrors before we assume the reader's
-    # internal state machine is wedged (not just one bad I2C beat) and
-    # try a fresh init() to recover it.
-    NFC_REINIT_AFTER = 15
-
-    def _scan_step(self):
-        """One polling pass while in W_SCAN. The field is already on.
-
-        Detection ends a write scan straight into SPLASH -- the write
-        happens immediately, no on-screen confirmation step -- so there is
-        no same-card debounce to keep for that case: nothing polls the
-        reader again until the teacher starts a new scan from the menu.
-
-        READ_ENTRY (the "NFC Reader" utility) is the exception: it never
-        reaches SPLASH, so without a debounce a card just resting on the
-        reader would re-trigger a beep/repaint on every ~80ms poll. Guarded
-        below by tracking the last UID reported and skipping repeats of it;
-        the guard clears the moment the card is lifted (tag is None), so
-        the *same* card placed back down still reads again.
-        """
-        if self.nfc is None:
-            return
-        entry = self._current_entry()
-        try:
-            tag = self.nfc.detect_tag(timeout=80)
-        except OSError as e:
-            # The reader over I2C occasionally times out (ETIMEDOUT) on a
-            # bad read -- transient, not fatal. Without this catch it took
-            # down the whole run() loop (uncaught OSError -> fatal event,
-            # server dead until reset).
-            self._nfc_fail_count += 1
-            # Only print every 5th repeat once we know it's a streak --
-            # otherwise a wedged/disconnected reader floods the log with an
-            # identical line on every poll forever.
-            if self._nfc_fail_count <= 3 or self._nfc_fail_count % 5 == 0:
-                print("# NFC detect_tag err (%d in a row): %s" % (self._nfc_fail_count, str(e)))
-            if self._nfc_fail_count >= self.NFC_REINIT_AFTER:
-                print("# NFC: %d consecutive errors -- attempting re-init" % self._nfc_fail_count)
-                self._nfc_fail_count = 0
-                try:
-                    self._init_nfc()
-                    print("# NFC re-init OK")
-                    # _init_nfc() leaves the antenna off; we are still in
-                    # W_SCAN, so put the field back up or the scan would
-                    # sit there polling a de-energized reader forever.
-                    self._nfc_field(True)
-                except Exception as e2:
-                    print("# NFC re-init failed: %s" % str(e2))
-                time.sleep_ms(200)  # let the bus settle either way
-            return
-        self._nfc_fail_count = 0
-        if tag is None:
-            if entry == READ_ENTRY:
-                self._reader_last_uid = None  # lifted -- arm for the next card
-            return  # nothing on the reader yet -- keep scanning
-        if entry == READ_ENTRY and tag['uid_hex'] == self._reader_last_uid:
-            return  # same card still resting -- already reported, stay quiet
-        self.ui.beep_scan()
-        _log("DETECTED uid=%s sak=0x%02X type=%s"
-             % (tag['uid_hex'], tag['sak'], tag['tag_type']))
-        existing = existing_text(self.nfc, tag)
-        _log("read result: existing=%s target=%s" % (repr(existing), repr(entry)))
-        self.link.send({
-            "type": "card_present", "uid": tag['uid_hex'], "existing": existing,
-        })
-        if entry == READ_ENTRY:
-            # Utility entry: report what's on the card, write nothing.
-            # Stays in W_SCAN afterwards (no splash/dismissal step) so the
-            # teacher can read several cards back to back -- see
-            # dial_ui.paint_reader() and the debounce above.
-            self._reader_last_uid = tag['uid_hex']
-            _log("READ: uid=%s existing=%s" % (tag['uid_hex'], repr(existing)))
-            self.ui.paint_reader(existing, scanned=True)
-            self.ui.flush()
-            self.ui.beep_success()
-            return
-        if existing == _card_text(entry):
-            # Already carries the bytes we would write (getcode rows compare
-            # against the @<id>-suffixed text, since that's what actually
-            # landed on the card -- see _card_text()) -- report, don't rewrite.
-            _log("card already carries %s -- no write" % repr(entry))
-            self.ui.paint_already(entry)
-            self.ui.flush()
-            self.ui.beep_success()
-            time.sleep_ms(RESULT_HOLD_OK_MS)
-            self._to_group()
-            return
-        if existing:
-            _log("card has %s, want %s -> auto-overwrite" % (repr(existing), repr(entry)))
-        self._write_card(tag, entry)
-
-    def _write_card(self, tag, entry):
-        """Write, then hold the result on screen briefly before moving on.
-
-        Success holds RESULT_HOLD_OK_MS and returns to the group's tag
-        list -- one write attempt done, ready for the next card. Failure
-        holds the shorter RESULT_HOLD_FAIL_MS and goes straight back into
-        a fresh scan on the *same* target, since the most likely next step
-        is just trying the tap again. Screen + beep already communicate
-        the result, so neither case waits on a button any more (that
-        "tap to continue" step was the original design but testing showed
-        it was just a nuisance -- see dial_ui.py's painters).
-        """
-        card_text = _card_text(entry)
-        _log("WRITE attempt: target=%s (card=%s) uid=%s"
-             % (repr(entry), repr(card_text), tag['uid_hex']))
-        self.ui.paint_writing(entry)
-        self.ui.flush()             # visible before the blocking write
-        ok = write_text(self.nfc, tag, card_text)
-        _log("WRITE result: %s" % ("OK" if ok else "FAILED"))
-        if ok:
-            self._written[entry] = self._written.get(entry, 0) + 1
-            self.ui.paint_written(entry, self._written[entry])
-            self.ui.flush()
-            self.ui.beep_success()
-            self.link.send({
-                "type": "card_written", "label": entry, "uid": tag['uid_hex'],
-            })
-            try:
-                import stats_log
-                stats_log.record_tag(entry)
-            except Exception as e:
-                print("# stats tag failed: %s" % str(e))
-            time.sleep_ms(RESULT_HOLD_OK_MS)
-            self._to_group()
-        else:
-            self.ui.paint_write_failed(entry)
-            self.ui.flush()
-            self.ui.beep_fail()
-            time.sleep_ms(RESULT_HOLD_FAIL_MS)
-            self._to_scan()
 
     def _emit_pull(self):
         r = self.code.last_result
@@ -1065,16 +731,15 @@ class BdialServer:
         except Exception as e:
             print("# radio prewarm failed: %s" % str(e))
 
-        global NEXT, PREV, ACT, EXIT, dial_input
-        import dial_input
-        from dial_ui import DialUI
-        NEXT, PREV, ACT, EXIT = (dial_input.NEXT, dial_input.PREV,
-                                 dial_input.ACT, dial_input.EXIT)
-        self._input = dial_input.DialInput()
-        self.ui = DialUI(self._input)
+        import card_writer
+        from dial_input import DialInput
+        from station import Station
+        from station_ui import StationUI
+        self._input = DialInput()
+        self.ui = StationUI(self._input)
         self._input.begin()
-        self.ui.begin()  # calls m5ui.init(); builds LVGL screens once
-        self._log_mem("after ui.begin (2 LVGL pages)")
+        self.ui.begin()  # calls m5ui.init(); builds the LVGL pages
+        self._log_mem("after ui.begin")
         _boot_grace(self.ui)
         try:
             self._init_nfc()
@@ -1084,41 +749,30 @@ class BdialServer:
             self._nfc_ok = False
         self._log_mem("after _init_nfc")
 
+        self.st = Station(self.ui, self._input, self, card_writer)
         self._load_stats()
         self._boot_scan_games()
-        # Unsolicited identity, once, purely informational: it lets an
-        # already-attached app fill in version/reader status without asking.
-        # It is deliberately NOT an introduction or a readiness signal -- an
-        # app that connects after this point never receives it and must be
-        # perfectly happy, learning liveness from `heartbeat` instead.
+        # Unsolicited identity, once, purely informational: an app that
+        # connects later learns liveness from `heartbeat` instead.
         self._send_identity()
-        # Late-connecting apps learn the mode without asking.
-        # Emit after scan so games/active are accurate; _set_mode may emit again.
         self._mode = MODE_IDLE
         self._set_mode(MODE_WRITE if self._payload_ready() else MODE_IDLE,
                        announce=False)
         if self._mode == MODE_IDLE:
             self._emit_mode()
-        self._repaint()
+        self.st.go_home()
 
         last_hb = time.ticks_ms()
         try:
             while self.running:
                 self.link.pump(idle_ms=20, drain_ms=40)
-                self._input.update()
-                self.ui.show_hold(
-                    self._input.hold_fraction()
-                    if self._mode == MODE_WRITE and self._write_state != W_MENU
-                    else None)
-                if self._mode == MODE_WRITE:
-                    # IDLE deliberately polls nothing: no game on flash means
-                    # there is neither a tag to write nor code to serve.
-                    self._poll_write()
+                self.st.step()
+                self.ui.tick()
+                self._serve()
                 now = time.ticks_ms()
                 if time.ticks_diff(now, last_hb) > HEARTBEAT_MS:
                     self.link.send({"type": "heartbeat", "up": now, "mem": gc.mem_free()})
                     last_hb = now
-                # Required by root AGENTS.md; Dial_Music.py is missing it.
                 time.sleep_ms(1)
         finally:
             self._shutdown_radios()
@@ -1139,6 +793,7 @@ class BdialServer:
         except Exception as e:
             print("# shutdown: radio disarm FAILED: %s" % str(e))
         try:
-            self._nfc_field(False)
+            if self.st is not None:
+                self.st.field_off()
         except Exception as e:
             print("# shutdown: NFC field off FAILED: %s" % str(e))
