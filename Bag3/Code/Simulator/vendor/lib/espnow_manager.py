@@ -39,6 +39,11 @@ SEND_RETRY_MS = 30
 EXTERNAL_ANTENNA = True
 # Settle time after releasing the radio, before anything else claims it.
 RADIO_SETTLE_MS = 300
+# ESP-NOW driver receive buffer. The MicroPython default (526 B) holds ~2
+# frames; espnow_code.receive() asks for WINDOW (8) frames at a time, so it
+# needs >= 8 x ~256 B. Allocated at active(True), i.e. at radio bring-up,
+# before the rest of boot fragments the heap.
+ESPNOW_RXBUF = 4096
 
 
 def _is_esp32c6():
@@ -66,9 +71,7 @@ def _configure_antenna(external=EXTERNAL_ANTENNA):
     Selects explicitly in both directions. _is_esp32c6() only tells us the
     chip has the GPIO3/14 switch, not that anything is wired to the u.FL
     connector, so unconditionally choosing external leaves a bare board
-    transmitting into an unconnected switch path. Keep EXTERNAL_ANTENNA in
-    sync with code_puller.EXTERNAL_ANTENNA -- there is one radio, and the
-    two modules take turns driving these same pins.
+    transmitting into an unconnected switch path.
 
     GPIO3 = RF switch enable (active low), GPIO14 = select (0 = onboard,
     1 = external).
@@ -124,6 +127,7 @@ class ESPNowManager:
         sta.active(True)
         sta.disconnect()
         self.enow = espnow.ESPNow()
+        self.enow.config(rxbuf=ESPNOW_RXBUF)
         self.enow.active(True)
         try:
             self.enow.add_peer(BROADCAST_MAC)
@@ -327,6 +331,12 @@ class ESPNowManager:
         a player taps the `color_quest_scan` NFC tag on a wand."""
         return self.broadcast({"type": "scan_request"})
 
+    def broadcast_song(self, host_id, notes, seq):
+        """Broadcast a melody to the Music Board whose sticker reads
+        "musicbox@<host_id>". notes is one character per note (c d e f g a b
+        C); the board unicasts {"type": "song_ack", "seq": seq, "len": n}."""
+        return self.broadcast({"type": "song", "to": host_id, "n": notes, "seq": seq})
+
     def send_stop_to(self, mac_str):
         return self.send_to(mac_str, {"type": "stop"})
 
@@ -385,7 +395,7 @@ class ESPNowManager:
 
         msg_type: "colors", "score", "splat_config", "stop",
                   "battery", "scan_request", "start_game", "status_poll",
-                  "status_report", "raw", or None
+                  "status_report", "song", "song_ack", "raw", or None
         """
         if not self._active:
             return None, None, None
@@ -443,6 +453,10 @@ class ESPNowManager:
                 return "status_poll", data, mac_str
             if mt == "status_report":
                 return "status_report", data, mac_str
+            if mt == "song":
+                return "song", data, mac_str
+            if mt == "song_ack":
+                return "song_ack", data, mac_str
             return "raw", data, mac_str
 
         return "raw", data, mac_str

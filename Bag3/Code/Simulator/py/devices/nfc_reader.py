@@ -24,9 +24,10 @@ def _decode_ndef_text(data):
 
 
 class NfcReader:
-    def __init__(self, nfc, commands):
+    def __init__(self, nfc, commands, prefixes=()):
         self.nfc = nfc
         self.commands = set(commands) if commands else set()
+        self.prefixes = prefixes
 
     def detect_tag(self, timeout=250):
         cmd, uid = sim_state.consume_nfc()
@@ -43,6 +44,17 @@ class NfcReader:
         if on_complete:
             on_complete()
         return cmd, uid
+
+
+# Same as MockWand/lib/nfc_reader.py split_prefixed (melody.py uses it).
+def split_prefixed(text):
+    if not text:
+        return "", "", ""
+    body, _, host_id = text.partition('@')
+    head, colon, slug = body.partition(':')
+    if not colon:
+        slug = ""
+    return head, slug, host_id
 
 
 # Same as MockWand/lib/nfc_reader.py parse_splat_card (party.py's lobby uses it).

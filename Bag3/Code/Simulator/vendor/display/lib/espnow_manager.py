@@ -65,9 +65,7 @@ def _configure_antenna(external=EXTERNAL_ANTENNA):
     Selects explicitly in both directions. _is_esp32c6() only tells us the
     chip has the GPIO3/14 switch, not that anything is wired to the u.FL
     connector, so unconditionally choosing external leaves a bare board
-    transmitting into an unconnected switch path. Keep EXTERNAL_ANTENNA in
-    sync with code_puller.EXTERNAL_ANTENNA -- there is one radio, and the
-    two modules take turns driving these same pins.
+    transmitting into an unconnected switch path.
 
     GPIO3 = RF switch enable (active low), GPIO14 = select (0 = onboard,
     1 = external).

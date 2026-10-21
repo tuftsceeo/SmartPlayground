@@ -22,6 +22,18 @@ CLAIM_WAIT_MS = 300        # how long a pairing tap waits for a pw_held answer
 UNIT_DRAIN = 8             # most SplatGroup events taken per poll()
 PAIRED_DETECT_MS = 100     # NFC detect timeout while paired (idle loop)
 PAIRED_IDLE_SLEEP_MS = 20  # idle-loop sleep while paired
+# A dropped Splat: normal retries for LOST_RETRY_MS, then the lost glyph and
+# retries spaced by LOST_GAPS_MS (each after a connect attempt of up to
+# splat_link.CONNECT_TIMEOUT_MS) until LOST_GIVE_UP_MS, then it is released.
+LOST_RETRY_MS = 30000
+LOST_GAPS_MS = (20000, 40000, 80000)
+LOST_GIVE_UP_MS = 150000
+# Written just before the reset that follows a Splat card tap; main.py keeps
+# the pairing only on that boot.
+PAIR_BOOT_PATH = "/pair_boot"
+# Splat lost: a dotted ring, shown in the wand's identity color. No other
+# wand screen uses it.
+SHAPE_SPLAT_LOST = (1, 3, 5, 9, 15, 19, 21, 23)
 GLOW_SCALE = 0.5           # idle glow brightness on a Splat
 GLOW_REFRESH_MS = 5000     # idle glow is rewritten this often (one-color code)
 GLOW_ALT_MS = 1000         # two-color code: the glow alternates this often
@@ -74,6 +86,14 @@ class SplatPairing:
             self.hub = SplatHub(count=len(self.macs), macs=self.macs)
             self.group = SplatGroup(self.hub)
             self._connects = [0] * len(self.macs)
+            self._base_gate = self.hub._may_scan
+            self._drops = [0] * len(self.macs)
+            self._lost_at = [None] * len(self.macs)
+            self._lost_step = [0] * len(self.macs)
+            self._next_try = [0] * len(self.macs)
+            self._slow = [False] * len(self.macs)
+            for link in self.hub.links:
+                link.scan_gate = self._gate
 
     @property
     def count(self):
@@ -111,7 +131,58 @@ class SplatPairing:
                 and time.ticks_diff(time.ticks_ms(), self._born) >= PAIR_CONNECT_MS):
             self._deadline_done = True
             self._drop_unconnected()
+        self._track_lost()
         return events
+
+    # ── dropped Splats ──
+
+    def _gate(self, link):
+        """scan_gate: the hub's gate, spaced out once a dropped Splat has been
+        lost for LOST_RETRY_MS."""
+        if not self._base_gate(link):
+            return False
+        i = self.hub.links.index(link)
+        if not self._slow[i]:
+            return True
+        now = time.ticks_ms()
+        if time.ticks_diff(now, self._next_try[i]) < 0:
+            return False
+        from splat_link import CONNECT_TIMEOUT_MS
+        step = self._lost_step[i]
+        gap = LOST_GAPS_MS[min(step, len(LOST_GAPS_MS) - 1)]
+        self._lost_step[i] = step + 1
+        self._next_try[i] = time.ticks_add(now, CONNECT_TIMEOUT_MS + gap)
+        return True
+
+    def _track_lost(self):
+        now = time.ticks_ms()
+        for i in range(len(self.macs) - 1, -1, -1):
+            link = self.hub.links[i]
+            if link.drops != self._drops[i]:
+                self._drops[i] = link.drops
+                if self._lost_at[i] is None:
+                    self._lost_at[i] = now
+                    self._lost_step[i] = 0
+                    self._slow[i] = False
+                    print("  Splat %s lost; retrying" % self.macs[i])
+            lost = self._lost_at[i]
+            if lost is None:
+                continue
+            if link.ready:
+                self._lost_at[i] = None
+                self._slow[i] = False
+                print("  Splat %s back" % self.macs[i])
+                continue
+            age = time.ticks_diff(now, lost)
+            if age >= LOST_GIVE_UP_MS:
+                print("  Splat %s not back after %d ms; releasing" % (self.macs[i], age))
+                self.release(i)
+                self.lost_feedback()
+            elif age >= LOST_RETRY_MS and not self._slow[i]:
+                self._slow[i] = True
+                self._next_try[i] = now
+                print("  Splat %s still lost; slower retries" % self.macs[i])
+                self.lost_feedback()
 
     def refresh_glow(self):
         """Rewrite the idle glow every GLOW_REFRESH_MS. Idle loop only: a game owns
@@ -154,17 +225,14 @@ class SplatPairing:
         if h.discovering:
             h.links[0]._stop_scan()
             h.discovering = False
-        gate = lambda link: link.direct and h._may_scan(link)
-        for link in h.links:
-            link.scan_gate = gate
+        self._base_gate = lambda link: link.direct and h._may_scan(link)
 
     def resume_search(self):
         """Let SplatHub scan and reconnect again (after a party game)."""
         h = self.hub
         if h is None:
             return
-        for link in h.links:
-            link.scan_gate = h._may_scan
+        self._base_gate = h._may_scan
 
     def glow(self, i=None):
         """Glow color on Splat i (every connected Splat if None): the identity
@@ -248,6 +316,11 @@ class SplatPairing:
             self.error_feedback()
             return None
         print("  Splat %s: paired, resetting to connect" % mac)
+        try:
+            with open(PAIR_BOOT_PATH, "w") as f:
+                f.write("1")
+        except OSError as e:
+            print("  [ERR] pair_boot write failed: %s" % e)
         self.ok_feedback()
         return "reset"
 
@@ -285,6 +358,12 @@ class SplatPairing:
             hub.links[0]._stop_scan()
             hub.discovering = False
         link = hub.links[i]
+        if self._drops:
+            del self._drops[i]
+            del self._lost_at[i]
+            del self._lost_step[i]
+            del self._next_try[i]
+            del self._slow[i]
         link.scan_gate = _never
         link.close()
         del hub.links[i]               # group.links is this same list
@@ -316,6 +395,16 @@ class SplatPairing:
         self.buz.reject()
         time.sleep_ms(300)
         self.leds.off()
+
+    def lost_feedback(self):
+        """Splat lost: the dotted ring in the identity color, blinked 3 times."""
+        c = WAND_RGB[self.identity]
+        for _ in range(3):
+            self.leds.show_shape(SHAPE_SPLAT_LOST, c)
+            time.sleep_ms(250)
+            self.leds.off()
+            time.sleep_ms(150)
+        self.buz.warn()
 
     def ok_feedback(self):
         self.leds.show_shape(SHAPE_CHECK, GREEN)

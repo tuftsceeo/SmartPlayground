@@ -11,7 +11,7 @@ Nothing is shared between them but the ESP-NOW messages below.
 
 PEER: Bag3/Code/BroadcastCode/BroadcastDial/BDialFirmware/games/goalrace_icon.py is the
 Box/Dial staging copy of this file, served to the display under the
-`icon_display` role suffix (see ROLE_FILES in code_server.py). The device
+`icon_display` role suffix (see ROLE_FILES in code_sender.py). The device
 tree here carries the device's own name -- goalrace.py, matching
 MockWand/goalrace.py -- while the staging tree keeps the _icon suffix that
 tells the Box which file to serve. Keep the two in sync.
