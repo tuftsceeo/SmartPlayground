@@ -112,3 +112,19 @@ Not verified: battery operation, readability of the black UI.
   stock tree.
 - `main.py` on the Box now logs the reset cause with its raw number to `/flash/resetlog.txt`
   first thing on every boot (`reset_log.LOG_ENABLED = True`).
+
+## Dial serving, scripted wand pulls (2026-10-20, evening)
+
+Dial firmware at `cb0f987` (icon protocol, 80/60 ms beeps); stock MockWand at `27e2fed`. No card taps:
+the Dial was driven over serial (`arm`, `disarm`, `info`) and the wand ran
+`espnow_code.receive(mgr, "speed36", "wand", host_id=...)` via `mpremote run`. Game: `speed36`, 36864 B.
+
+| Run | Dial state | Result |
+|---|---|---|
+| 5 pulls, pinned `004c` | SERVE (`arm`) | 5/5, 2.4–2.7 s each |
+| 20 pulls, pinned `004c` | SERVE | 20/20, 2.4–5.3 s; Dial emitted 20 `pull` events, all `ok` |
+| 1 pull, pinned `ffff` | SERVE | `nohost` (ignored by the Dial) |
+| 5 pulls, pinned `004c` | WRITE menu after `disarm` (`SHARE_IN_MENUS`, `info` reports `armed: true`) | 5/5, 2.5–2.9 s |
+| 1 pull, pinned `ffff` | WRITE menu | `nohost` |
+
+Not covered: the card-tap path on the stock wand, the icon-display role (no `_icon.py` game on the Dial), more than one wand.
