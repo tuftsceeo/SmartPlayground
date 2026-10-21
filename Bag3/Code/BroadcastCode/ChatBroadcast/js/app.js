@@ -48,7 +48,7 @@ import {
 import { gameIconEntries, startingIcon, drawIcon } from './ledicons/iconView.js';
 
 const SILENCE_LIMIT_MS = 15000;
-const SILENCE_SERVE_MS = 45000;
+const SILENCE_GAME_MS = 45000;
 const REBOOT_LIMIT_MS = 20000;
 const WATCHDOG_TICK_MS = 2000;
 /* Auto-reconnect (tryAutoReconnect()) is a convenience for the ordinary
@@ -737,8 +737,6 @@ class App {
                 activeName: pretty || active,
                 games: obj.games,
             };
-            // Prefer mode==SERVE for silence threshold once mode events exist.
-            this._silenceLimitMs = obj.mode === 'SERVE' ? SILENCE_SERVE_MS : SILENCE_LIMIT_MS;
             if (this.link.state === 'waiting' || this.link.state === 'rebooting'
                 || this.link.state === 'no-answer' || this.link.state === 'sending') {
                 this.setLinkState('live');
@@ -749,10 +747,6 @@ class App {
         this.device.on('armed', (obj) => {
             dbg('device', 'event: armed', obj);
             this._noteMessage(obj);
-            // Fallback until mode events are trusted: raise silence while serving.
-            if (this.link.boxMode !== 'SERVE') {
-                this._silenceLimitMs = SILENCE_SERVE_MS;
-            }
         });
         this.device.on('pull', (obj) => {
             dbg('device', 'event: pull', obj);
@@ -774,13 +768,12 @@ class App {
             toast(obj?.msg || `The ${this.deviceShort()} reported a serious error — check the cable.`, true);
         });
         // Wand-only (MockWand/main.py's _launch_game()): a running game blocks
-        // the wand's idle loop, same as the Box's SERVE mode blocks its main
-        // loop -- raise the silence limit the same way the 'mode'/'armed'
-        // handlers above do for SERVE. Never fires on a BboxDeviceLink.
+        // the wand's idle loop -- raise the silence limit while it runs.
+        // Never fires on a BboxDeviceLink.
         this.device.on('game_start', (obj) => {
             dbg('device', 'event: game_start', obj);
             this._noteMessage(obj);
-            this._silenceLimitMs = SILENCE_SERVE_MS;
+            this._silenceLimitMs = SILENCE_GAME_MS;
             if (this.link.state === 'waiting' || this.link.state === 'rebooting'
                 || this.link.state === 'no-answer') {
                 this.setLinkState('live');
@@ -910,7 +903,7 @@ class App {
         this.link.lastMsgAt = Date.now();
         if (obj?.type === 'identity') this.link.deviceInfo = obj;
         this._clearRebootTimer();
-        if (obj?.type && this.link.boxMode !== 'SERVE') {
+        if (obj?.type && obj.type !== 'game_start') {
             this._silenceLimitMs = SILENCE_LIMIT_MS;
         }
     }

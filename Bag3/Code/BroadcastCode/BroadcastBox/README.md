@@ -61,18 +61,17 @@ At most one of {radio, NFC RF field} is energized at any instant.
 | Mode | ESP-NOW | Reader | Entered when |
 |---|---|---|---|
 | `IDLE` | down | off | No game on flash (`/flash/payload.py` absent or empty) |
-| `WRITE` | up while the field is off (`SHARE_IN_MENUS`) | on only while scanning | Game on flash -- this is the boot state |
-| `SERVE` | up | off, and no I2C at all | Teacher selects `DONE` + BtnA, or serial `arm` |
+| `WRITE` | up while the field is off | on only while scanning | Game on flash -- this is the boot state |
+
+There is no user-visible mode switch: the Box serves the active game from
+the menus whenever the field is off.
 
 `_set_mode()` in `bbox_server.py` is the only place modes change, and it
 de-energizes what it is leaving before energizing what it is entering.
 `_nfc_field()` disarms the radio before the field comes up; `_menu_share()`
 re-arms it from the WRITE loop once the field is down. A failed arm is
-retried after `SHARE_RETRY_MS` (2000 ms). If `CodeLink.arm()` fails on the
-way into `SERVE` the Box paints an error and stays put.
-
-With `SHARE_IN_MENUS = False`, WRITE keeps the radio down and only `SERVE`
-serves.
+retried after `SHARE_RETRY_MS` (2000 ms). With `SHARE_IN_MENUS = False` the
+radio stays down.
 
 ## WRITE mode
 
@@ -80,7 +79,7 @@ A sub-state machine. No press-and-hold anywhere.
 
 | State | Screen | BtnA | BtnB |
 |---|---|---|---|
-| `menu` | group list, cursor row in the fixed SELECTED slot | open the group (or `SERVE` on the `DONE` row) | next row (wraps) |
+| `menu` | group list, cursor row in the fixed SELECTED slot | open the group | next row (wraps) |
 | `group` | that group's tags, cursor row in the fixed SELECTED slot | start scan (or back on `< back`) | next row (wraps) |
 | `scan` | title + hint on the shared status screen, field on | — | back to `group` |
 | `splash` | result of the last action | to `group` | to `group` |
@@ -101,8 +100,8 @@ has no touch, so `BtnA`/`BtnB` are always physical buttons read through
 are display-only.
 
 The menu is two levels. Top level is one row per game, then `Utility Tags`,
-then `DONE`; opening a game lists `getcode:<slug>`, `<slug>`, the tags the game
-declares, and `< back`. So the number of presses to reach `DONE` tracks the
+opening a game lists `getcode:<slug>`, `<slug>`, the tags the game
+declares, and `< back`. So the number of presses to reach a game tracks the
 number of games, not the number of tags — melody alone contributes eleven.
 
 A game's own tags come from `/flash/games/<slug>.tags.json`, written beside the
@@ -130,11 +129,6 @@ On detection the scan always ends, one of two ways:
 |---|---|
 | the target text | `Already "<tag>"` splash, no write |
 | anything else (nothing, or different text) | written immediately, then splash |
-
-Leaving `SERVE` is the one remaining hold: **BtnA for `SERVE_EXIT_MS` (1000 ms)**.
-It is rare and should not fire from a stray bump. The hold is sampled inside
-`CodeLink.poll()` via `should_abort`, once per tick; every in-flight wand is
-dropped and its pull fails.
 
 ## Serving over ESP-NOW
 
@@ -173,7 +167,7 @@ The `pull` serial event carries the served game's `slug` and the requester's
 `CodeLink.poll(on_event, should_abort)` handles one radio message per call.
 `on_event` fires `'serving'` when a wand is offered a file and `'ok'`/`'fail'`
 when it finishes; the finished transfer is in `last_result`, recorded to
-`stats_log`. The SERVE screen shows the live count (`serving_count`).
+`stats_log`.
 
 ### TX power
 
@@ -277,6 +271,9 @@ Commands: `identify`, `info`, `mode`, `arm`, `disarm`, `repl`, `reboot`,
 `stats.reset`
 
 `games.list` returns `slug`, `name`, `bytes`, `pulls` and `tags` per game.
+`pulls` is successful wand pulls of that game since boot (a new game arrives
+by reset, so it restarts with each code update); the menu crumb shows it for
+the active game as `Pulled by N`.
 `tags` is the game's own card list, read from `<slug>.tags.json`; it is what
 lets a host show the right expected-card list for a game that host never sent.
 Empty for a game pushed without a sidecar.
@@ -299,15 +296,16 @@ purpose:
   or a readiness signal, and a host that attaches later never sees it.
 - `info` -> `info`: live runtime status. `mem`, `armed`, `linked`,
   `payload_ready`, `written`, `up`.
-- `mode` -> `mode`: which mode the Box is in (`WRITE`/`SERVE`/`IDLE`) plus
+- `mode` -> `mode`: which mode the Box is in (`WRITE`/`IDLE`) plus
   `games` and `active`; `ssid` is always `null`. Emitted from `_set_mode()` on every transition,
   including exits, and once at boot.
 
 Do not add changing values to `identity`, and do not use it as a handshake --
 that conflation is what this split exists to prevent.
 
-`arm` means "go to `SERVE`" (its reply and `armed` carry `ssid: null`) and `disarm` means "return to `WRITE`/`IDLE`".
-They are REPL/legacy entry points; the app does not call them after pushing
+`arm` brings the radio up from the menus (its reply and `armed` carry
+`ssid: null`; error `no_payload` with no game); `disarm` replies `ok` and
+changes nothing. They are REPL/legacy entry points; the app does not call them after pushing
 code.
 
 `repl`, a soft `reboot`, or an uncaught exception all unwind through
@@ -323,7 +321,7 @@ and the field off.
    is never a state the firmware occupies.
 3. Teacher opens the game's group in the `WRITE` menu and writes its cards --
    `getcode:<slug>`, `<slug>`, and whatever the game itself needs.
-4. Teacher taps the card on a wand (or selects `DONE` + BtnA for `SERVE`).
+4. Teacher taps the card on a wand.
 5. The wand sends a `code_req`, pulls the file over ESP-NOW, and reboots into
    the game (`MockWand/code_puller.py`).
 
@@ -374,10 +372,9 @@ Product data, never gated:
 Written from `code_link._record()` (every completed serve, attributed to the
 requested slug) and from the card-write success branch in `bbox_server.py`.
 
-The Box/Dial screen reads this at boot via `_load_stats()`, then counts in
-memory -- WRITE tag list and SERVE "pickups" are cumulative totals across
-all boots, not a session tally. `stats.reset` zeroes both the log and the
-in-memory counters.
+The Box/Dial screen reads write counts at boot via `_load_stats()`; those are
+cumulative across boots. Pull counts on screen and in `games.list` are kept
+in memory since boot only. `stats.reset` zeroes the log and both counters.
 
 ## Deploy
 
@@ -443,6 +440,7 @@ Verified on hardware 2026-09-02, over USB (mode machine, card writes):
 
 Open:
 
+- Single-state firmware (`c566a21`, no SERVE mode) is not yet on the Box.
 - Off-USB (battery) operation.
 - Readability of the black UI (`DARK`) in a classroom.
 - Several wands at once, and the icon-display role on hardware (offline tests only).

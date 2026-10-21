@@ -28,7 +28,7 @@ Write all device files to **`/flash`**, not `/`.
 | Display | LVGL / `m5ui`, 240×240 round | 4 pages built once, re-textured and swapped with `screen_load()` (was 17 — consolidated to fix an out-of-memory failure) |
 | NFC | WS1850S @ I2C `0x28`, external Grove unit preferred | `dial_board.py`'s `make_reader()` auto-detects: it tries an external Grove RFID2 unit on Port A first (`sda=13 scl=15`, confirmed live 2026-09-22 via `probe_dial.py` stage 4 and a real card test) and falls back to the built-in reader (`sda=11 scl=12`, shares the bus with touch @ `0x38` and RTC @ `0x51`) when nothing acks on Port A. Both are hardware `machine.I2C` (confirmed H2/H3). The built-in reader's read/write was markedly less reliable than the Box's external Grove RFID2 unit despite identical code (`card_writer.py`/`ws1850s.py` are PEER copies, same poll timeouts) -- antenna detuning from sharing the enclosure with the LCD, touch controller, RTC, encoder and speaker, not software, confirmed by wiring the external unit and re-testing |
 | Encoder | `hardware.Rotary` | CW/CCW → `NEXT`/`PREV`; magnitude honoured, capped |
-| Button | `M5.BtnA` (encoder press) | Short click → `ACT`; hold `SERVE_EXIT_MS` (1000 ms) → `EXIT` |
+| Button | `M5.BtnA` (encoder press) | Short click → `ACT` |
 | Touch | LVGL callbacks | Enqueue intents only; server drains from its own loop |
 | USB | native CDC | Port drops on every reset; `mpremote` resets the board |
 
@@ -86,18 +86,15 @@ At most one of {radio, NFC RF field} is energized at any instant.
 | Mode | ESP-NOW | Reader | Entered when |
 |---|---|---|---|
 | `IDLE` | down | off | No game on flash |
-| `WRITE` | up while the field is off (`SHARE_IN_MENUS`) | on only while scanning | Game on flash — boot state |
-| `SERVE` | up | off, and no I2C at all | Teacher selects `DONE` + `ACT`, or serial `arm` |
+| `WRITE` | up while the field is off | on only while scanning | Game on flash — boot state |
 
-`_set_mode()` in `bdial_server.py` is the only place modes change.
+There is no user-visible mode switch: the Dial serves the active game from
+the menus whenever the field is off. `_set_mode()` in `bdial_server.py` is the only place modes change.
 `_nfc_field()` is the only place the field changes: it disarms the radio before
 the field comes up, and after the field goes down it clears `MFCrypto1On`
 (`stop_crypto1()`); the WRITE loop then re-arms the radio. A failed arm is
-retried after `SHARE_RETRY_MS`.
-
-With `SHARE_IN_MENUS = False`, WRITE keeps the radio down and only SERVE
-serves. The `DONE` row displays as `Enable Share`; the underlying sentinel is
-`DONE`.
+retried after `SHARE_RETRY_MS`. With `SHARE_IN_MENUS = False` the radio
+stays down.
 
 ## WRITE mode
 
@@ -105,7 +102,7 @@ Two-level menu (groups → tags), same shape as the Box including `W_GROUP`.
 
 | State | Screen | ACT | NEXT/PREV | BACK | EXIT |
 |---|---|---|---|---|---|
-| `menu` | group list (roller), focused entry centred | open group (or `SERVE` on `DONE`) | scroll | — | — |
+| `menu` | group list (roller), focused entry centred | open group | scroll | — | — |
 | `group` | that group's tags (roller) | start scan (or menu on `< back`) | scroll | to menu | — |
 | `scan` | rim ring + label, field on | — | — | to group | — |
 | `splash` | result | to group | to group | to group | — |
@@ -119,9 +116,6 @@ The Dial has **no `overwrite` state** — unlike the Box, it auto-overwrites
 and confirms only with `beep_success()`/`beep_fail()`. The antenna sits
 under the screen, so a card actually on the reader covers the same touch
 targets a confirm/cancel prompt would need.
-
-Leaving `SERVE` is hold-to-`EXIT` **and** a CLOSE touch target — both emit
-`EXIT`. Sampled inside `CodeLink.poll()` via `should_abort`.
 
 ## Serving over ESP-NOW
 
@@ -204,7 +198,10 @@ header. `opcodes.py` / `pn532.py` / `nfc_reader.py` are not carried over.
 Same commands and events as the Box, with these differences:
 
 - `ssid` is always `null` in `armed`, `mode` and the `arm` reply.
-- `arm` enters SERVE and `disarm` leaves it.
+- `arm` brings the radio up from the menus (error `no_payload` with no game);
+  `disarm` replies `ok` and changes nothing. `mode` is always `WRITE` or `IDLE`.
+- `games.list` `pulls` is the number of successful wand pulls of that game
+  since boot; the menu crumb shows it for the active game as `Pulled by N`.
 - Each finished transfer sends
   `{"type":"pull","slug":s,"role":r,"wand":"<mac>","ok":b,"ms":n,"why":w}`;
   `slug` and `role` are the served game's slug and the requester's `hub`
@@ -272,6 +269,7 @@ Verified on hardware 2026-10-20 (`docs_and_design/2026-10-20-espnow-serving/RESU
 
 - SERVE: 2/2 pulls; 2/2 with a host-pinned card (`@004c`).
 - WRITE menus (`SHARE_IN_MENUS`): 3/3 pulls, including one after an NFC card write.
+- Single state (`c566a21`): `mode` reports `WRITE`, `arm` replies `armed: true`, 3/3 pulls, `games.list` counts them for the active game only.
 - `arm`/`disarm` over serial, 20/20 cycles in place.
 
 Open:

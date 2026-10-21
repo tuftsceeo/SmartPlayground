@@ -149,3 +149,17 @@ Not covered: the card-tap path on the stock wand, the icon-display role (no `_ic
 | 6 · Later work | Not started | — |
 
 Offline checks at end of day: `wire_test_dial.py`, `wire_test.py`, `compile_check.sh`, `test_code_xfer.py`, `test_espnow_serve.py`, `test_dial_code_link.py`, `test_wand_espnow_code.py` pass. `chatbroadcast_flow.mjs` and `role_state.mjs` fail, and failed the same way before this work (at `3311ced^`).
+
+## Single state on the Dial and Box (2026-10-20, late)
+
+Change (`c566a21`): no SERVE mode, no `DONE`/`Enable Share` row, no hold-to-exit. The Dial and Box serve the active game from the menus whenever the NFC field is off. Serial `arm` brings the radio up (error `no_payload` with no game); `disarm` replies `ok` and does nothing. `games.list` `pulls` and the menu crumb (`Pulled by N`) count successful wand pulls per game since boot. Clicks and scans are silent; Dial success is two 4800 Hz beeps, failure three 3600 Hz (`fefbe29`). ChatBroadcast no longer keys its silence limit on `mode === 'SERVE'`.
+
+| Run | Result |
+|---|---|
+| Dial `mode` | `WRITE` |
+| Dial `arm` | `ok`, `armed: true` |
+| 3 wand pulls, pinned `004c` | 3/3 |
+| `games.list` after | active `speed36` pulls 3, `color_row` 0 |
+| `disarm` | `ok`; `info` still `armed: true` |
+
+Not run: the Box (hardware back 2026-10-21). PLAN.md phases 2 and 3 no longer include SERVE mode or display-only game enrollment (dropped by the user).
