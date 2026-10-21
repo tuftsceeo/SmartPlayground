@@ -8,7 +8,7 @@ import {
     knowledgeText, buildSystemBlocks, buildRequestBody, requestHeaders, ADVANCED_KNOWLEDGE,
 } from './prompt/buildRequest.js';
 import { readMessageStream } from './prompt/stream.js';
-import { renderMarkdown } from './markdown.js';
+import { renderMarkdown, buildCodeBlock } from './markdown.js';
 import { drawStarterIdeas, GUIDED_STEPS, guidedPrompt } from './starterIdeas.js';
 import {
     initEditor, getCode, setCode, saveVersion, updateVersionUI,
@@ -2259,7 +2259,9 @@ class App {
         // full traceback is in the recent log.
         const log = err.phase === 'run' && this._simRecentLog?.length
             ? `\n\nRecent simulator log:\n${this._simRecentLog.join('\n')}` : '';
-        const msg = `The simulator failed while ${when}. Please find the problem in the current code and fix it.\n\nSimulator error:\n${err.message}${log}`;
+        const ask = `The simulator failed while ${when}. Please find the problem in the current code and fix it.`;
+        const details = `${err.message}${log}`;
+        const msg = `${ask}\n\n<error>\n${details}\n</error>`;
         const sent = this.chatHistory.some((m) => typeof m.content === 'string'
             && m.content.includes('<simulator_notes>'));
         let notes = '';
@@ -2273,7 +2275,7 @@ class App {
         }
         document.querySelector('.starter-chips')?.remove();
         document.querySelectorAll('.choice-chips').forEach(el => el.remove());
-        addMsg(msg, 'user');
+        addMsg(ask, 'user').appendChild(buildCodeBlock('error', details, { collapsed: true, editor: false }));
         this.dirty = true;
         await this.callClaude(msg + notes);
     }

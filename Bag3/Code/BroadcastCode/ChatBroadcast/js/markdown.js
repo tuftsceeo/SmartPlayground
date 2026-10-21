@@ -6,6 +6,7 @@
  */
 
 import { dbg } from './debug.js';
+import { getUiMode } from './uiMode.js';
 
 let workspaceHandler = null;
 
@@ -28,13 +29,21 @@ export function renderMarkdown(el, text) {
     if (last < text.length) parts.push({ type: "text", val: text.slice(last) });
 
     for (const part of parts) {
-        el.appendChild(part.type === "code" ? buildCodeBlock(part.lang, part.val) : buildTextBlock(part.val));
+        el.appendChild(part.type === "code"
+            ? buildCodeBlock(part.lang, part.val, { collapsed: getUiMode() === "simple" })
+            : buildTextBlock(part.val));
     }
 }
 
-function buildCodeBlock(lang, code) {
+/**
+ * A fenced block with its bar. opts.collapsed starts it folded to the bar
+ * (simple mode does this for every reply); opts.editor = false leaves out
+ * "Send to editor".
+ */
+export function buildCodeBlock(lang, code, opts = {}) {
     const wrap = document.createElement("div");
     wrap.className = "code-block-wrap";
+    if (opts.collapsed) wrap.classList.add("is-collapsed");
     const trimmed = code.replace(/\n$/, "");
     const isPy = /^(py|python|micropython)?$/i.test((lang || "").trim());
 
@@ -47,6 +56,19 @@ function buildCodeBlock(lang, code) {
     const actions = document.createElement("div");
     actions.className = "code-block-actions";
 
+    const foldBtn = document.createElement("button");
+    foldBtn.type = "button";
+    foldBtn.className = "code-action-btn";
+    const foldLabel = () => {
+        foldBtn.textContent = wrap.classList.contains("is-collapsed") ? "Show" : "Hide";
+    };
+    foldLabel();
+    foldBtn.addEventListener("click", () => {
+        wrap.classList.toggle("is-collapsed");
+        foldLabel();
+    });
+    actions.appendChild(foldBtn);
+
     const copyBtn = document.createElement("button");
     copyBtn.type = "button";
     copyBtn.className = "code-action-btn";
@@ -54,7 +76,7 @@ function buildCodeBlock(lang, code) {
     copyBtn.addEventListener("click", () => copyCode(trimmed, copyBtn));
     actions.appendChild(copyBtn);
 
-    if (workspaceHandler) {
+    if (workspaceHandler && opts.editor !== false) {
         const sendBtn = document.createElement("button");
         sendBtn.type = "button";
         sendBtn.className = "code-action-btn";

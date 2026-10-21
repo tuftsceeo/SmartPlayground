@@ -53,6 +53,8 @@ The simulator does not have:
 
 ## The error you receive
 
+The simulator's text arrives inside an `<error>` block after the request.
+
 - **Load failure (syntax, import):** the full traceback. Ignore the wrapper frames
   (`_pyodide/_base.py eval_code_async`, `<exec>`, `runtime.py load_game`, `transform.py`) and
   read the `custom.py` lines.

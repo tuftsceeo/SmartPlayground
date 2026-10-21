@@ -734,6 +734,9 @@ body.ui-advanced #app-shell {
     color: var(--muted);
 }
 .code-block-actions { display: flex; gap: 6px; }
+.code-block-wrap.is-collapsed pre { display: none; }
+.code-block-wrap.is-collapsed .code-block-bar { border-bottom: none; }
+.msg.user .code-block-wrap { text-align: left; color: var(--ink); }
 .code-action-btn {
     background: #fff;
     border: 1.5px solid var(--border);
