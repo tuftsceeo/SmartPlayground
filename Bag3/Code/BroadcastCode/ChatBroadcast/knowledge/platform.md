@@ -17,6 +17,10 @@ The app reads these marker lines out of your reply and hides them from the teach
 - **`[NFC_CARDS: "value1", "value2"]`** exactly once if any game file reads NFC cards, listing every
   card value the game reacts to. Leave it out only when no file reads a card. The app uses it to
   tell the teacher which cards to write.
+- **`[GAME_SETTINGS: {"wand_splats": 1, "wands": 1}]`** exactly once for a Splat game (see the
+  Splat games section), as one line of JSON. Only the practice window reads it; the wand never
+  sees it. `wand_splats` is how many Splats each child's wand has paired (0, 1 or 2); `wands` is
+  how many wands the game is meant for (1 to 4), 1 for a game one child plays alone.
 - **`[CHOICES: "option one", "option two", "option three"]`** optionally, as the very last line.
   Two to four short follow-up changes the teacher can tap instead of typing. Write each as the
   request the teacher would send ("Make it slower", "Add a winning song").

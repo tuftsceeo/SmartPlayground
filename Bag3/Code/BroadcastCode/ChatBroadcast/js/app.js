@@ -1,7 +1,7 @@
 import { loadEncryptedKey, initAuthModal, getApiKey, hasEncryptedKey } from './auth.js';
 import {
     addMsg, addThinkingMsg, removeTyping, extractCodeBlocks,
-    parseNfcCards, parseGameName, parseChoices, stripAllMarkers,
+    parseNfcCards, parseGameName, parseChoices, parseGameSettings, stripAllMarkers,
     trimForHistory, loadKnowledgeBase, getKnowledgeFiles, getKnowledgeFileCount,
 } from './chat.js';
 import {
@@ -112,6 +112,7 @@ class App {
         this.gameName = 'Your game';
         this.gameDesc = '';
         this.declaredTags = null;   // tags the game itself declares ([NFC_CARDS:] / example)
+        this.simSettings = null;    // [GAME_SETTINGS:] for the practice window, or null
         this.hardware = buildHardwareReqs({});
         this.tagWrites = {};        // live {tagLabel: count} from card_written events
         this.galleryFilter = 'all';
@@ -125,6 +126,7 @@ class App {
         this._detailSimToken = 0;
         this._simLastSource = null;
         this._simLastDisplay = null;
+        this._simLastSettings = null;
         this._simPendingSource = null;
         this._simForcePlayPending = false;
         // One store for connection UI — badge and button share this.
@@ -1333,6 +1335,7 @@ class App {
         this._sim?.stop();
         this._simLastSource = null;
         this._simLastDisplay = null;
+        this._simLastSettings = null;
         this.updatePreview();
     }
 
@@ -1365,6 +1368,7 @@ class App {
             // Only what this game edited. Anything it merely uses still
             // resolves to the shipped icon when it is reopened.
             icons: getGameIcons(),
+            simSettings: this.simSettings,
         });
         this.dirty = false;
         toast(`Saved “${entry.name}”`);
@@ -1527,6 +1531,7 @@ class App {
         dbg('app', `openSavedGame(${id}): stored name=${JSON.stringify(g.name)} -> this.gameName=${JSON.stringify(this.gameName)}`);
         this.gameDesc = g.desc || '';
         this.declaredTags = g.hardware?.declaredTags || null;
+        this.simSettings = g.simSettings || null;
         this.hardware = g.hardware || buildHardwareReqs({ gameName: g.name });
         this.chatHistory = Array.isArray(g.chatHistory) ? g.chatHistory.slice() : [];
         // The pictures this game was saved with. A game saved before icons
@@ -1857,6 +1862,7 @@ class App {
         this.syncRoleRail();
         this.currentExample = null;
         this.declaredTags = null;
+        this.simSettings = null;
         this.gameName = 'Your game';
         this.gameDesc = '';
         this.chatHistory = [];
@@ -1895,6 +1901,7 @@ class App {
         this.gameName = remixName(ex.name);
         this.gameDesc = ex.description;
         this.declaredTags = [...ex.tags];
+        this.simSettings = null;
         this.chatHistory = [];
         this.refreshHardware();
 
@@ -1951,6 +1958,7 @@ class App {
         this.gameName = remixName(ex.name);
         this.gameDesc = ex.description;
         this.declaredTags = [...ex.tags];
+        this.simSettings = null;
         // A new game starts from the shipped pictures, not the last one's edits.
         setGameIcons({});
 
@@ -2091,12 +2099,16 @@ class App {
         }
         // The display half runs beside the wand when the game has one.
         const display = getCode('icon') || null;
-        if (code === this._simLastSource && display === this._simLastDisplay && !forcePlay) return;
+        const settings = this.simSettings || null;
+        const settingsKey = JSON.stringify(settings);
+        if (code === this._simLastSource && display === this._simLastDisplay
+            && settingsKey === this._simLastSettings && !forcePlay) return;
         // Only from the second push on: the first one *is* the game
         // appearing, which needs no announcement.
         const isUpdate = this._simLastSource != null;
         this._simLastSource = code;
         this._simLastDisplay = display;
+        this._simLastSettings = settingsKey;
         this._sim.hideOverlay();
         this._sim.displayIcons = display ? this.simDisplayIcons(display) : null;
         this._sim.displaySource = display;
@@ -2105,6 +2117,9 @@ class App {
         // everything". The example's own profile is what narrows that back
         // down; a game generated from scratch has none and shows the lot.
         this._sim.profile = this.currentExample?.simProfile || null;
+        // Before the source: the room hands the Splat count to the wand
+        // ahead of the game loading.
+        this._sim.settings = settings;
         this._sim.source = code;
         if (forcePlay) {
             this._sim.restart?.();
@@ -2976,7 +2991,8 @@ class App {
             const nfcCards = parseNfcCards(rawReply);
             const gameName = parseGameName(rawReply);
             const choices = parseChoices(rawReply);
-            dbg('chat', `reply received (${rawReply.length} chars)`, { nfcCards, gameName, choices });
+            const simSettings = parseGameSettings(rawReply);
+            dbg('chat', `reply received (${rawReply.length} chars)`, { nfcCards, gameName, choices, simSettings });
             this.chatHistory.push({ role: 'assistant', content: trimForHistory(reply) });
 
             // A reply may carry one file per device: the markers were read
@@ -3029,6 +3045,8 @@ class App {
                 // means this version reads no named tags, not "keep the old ones".
                 this.declaredTags = nfcCards?.length ? nfcCards : null;
                 dbg('chat', `declared tags from [NFC_CARDS]: [${(nfcCards || []).join(', ')}]`);
+                // The same for the simulator's settings: none means the defaults.
+                this.simSettings = simSettings;
                 this.gameDesc = userMsg;
                 this.dirty = true;
                 this.updatePreview();

@@ -45,15 +45,26 @@ ChatBroadcast's preview and example detail view do.
   `Simulator/` alone the panel falls back to plain squares and warns).
 
 - **Splats:** for a party game (`SPLATS_MIN`), the wand's Splats are drawn
-  under the wand in its pad, one per paired Splat (`WAND_SPLATS`; none,
-  none drawn); a
-  click on one presses it. See "Party games" below.
+  under the wand in its pad, one per paired Splat (the `wand_splats`
+  setting; none, none drawn); a click on one presses it. See "Party games"
+  below.
 - **Advanced mode only** (the `advanced` attribute): a "Splats on this wand"
-  card (count and "in reach" boxes) and the friend wands strip (peer wands,
-  their radio controls and the `pw_` message log), one line until opened.
+  card (count and "in reach" boxes), and a bar saying how many other wands
+  are playing, with "+ Add a wand" and "See all N wands", which opens every
+  wand side by side with the `pw_` message log.
 
-Not simulated: heap and fragmentation, compile size, radio timing, BLE
-pacing, and peers running real game code.
+Not simulated: heap and fragmentation, compile size, radio timing and BLE
+pacing.
+
+### Settings
+
+`<sim-room>`'s `settings` property carries what the game code does not:
+`{ wand_splats, wands }`. `wand_splats` (0–2, default 1) is how many Splats
+each wand starts a newly loaded game with; `wands` (1–4, default 1) is how
+many wands the game is for. ChatBroadcast reads them from the chat model's
+`[GAME_SETTINGS: {...}]` marker and hides it from the chat. Set them before
+`source`. The wand firmware reads neither; a game learns its Splats from
+`net.local.count`.
 
 ## Party games
 
@@ -70,30 +81,29 @@ What stands in for what:
   (the "in reach" boxes, advanced mode), so `splat_api.SplatGroup`, the pairing glow and
   `net`'s ready mask (`splat_lost` / `splat_back`) run unchanged. Writes
   (color, sound, note, off) are drawn on the Splats; a click on one is a
-  button press on the Splat, held at least 250 ms. A peer's Splats are on
-  its friend wand row.
-- **Pairing:** the wand holds as many Splats as the game's `WAND_SPLATS`
-  (0–2; 1 when not declared), set when a different game loads. The advanced
-  card's −/+ changes it until then (and restarts the game). The wand
-  firmware does not read `WAND_SPLATS`. MACs are `5A:00:<wand's last two bytes>:00:<i>`.
+  button press on the Splat, held at least 250 ms.
+- **Pairing:** the wand holds `wand_splats` Splats (`runtime.set_game_splats`),
+  set when a different game or setting loads. The advanced card's −/+
+  changes it until then (and restarts the game). MACs are
+  `5A:00:<wand's last two bytes>:00:<i>`.
   There are no Splat cards, `/pairing.json`, `pw_who` claim checks or the
   30 s connect deadline.
-- **Other wands:** `js/peers.js` virtual peers on the room's bus, speaking
-  `party.py`'s `pw_*` frames (find, lobby, join, start, heartbeat with the
-  ready mask, pooled `pw_cmd`, `pw_evt`, `pw_msg`, leave, end, `q`
-  dedupe). They run no game code. A follower peer keeps looking for a lobby
-  and joins whichever the wand opens; a leader peer opens one, and its
-  "Start game" / "End game" buttons (advanced mode; a leader is "+ Add a
-  host") run the game from the leader's side, so the wand plays as a
-  follower. "Go quiet" silences a peer and stops its ACKs (`wand_lost`,
-  `leader_lost`). The room starts with one follower holding one Splat; the
-  friend wands strip (advanced mode) adds more and logs the `pw_`
-  traffic.
-- **Game scripts:** where a game needs the other wands to act, a short
-  script in `js/peers.js` (`GAME_SCRIPTS`) plays their part: `partytest`'s
-  follower button and leader lighting, `relaycolor`'s token passing.
-  `splattag` needs none (followers only display). A generated game gets the
-  protocol and the Splats only.
+- **Other wands:** a game has none unless `wands` is more than 1 or
+  "+ Add a wand" adds one (advanced mode). Each starts as a placeholder (an
+  outline wand with "?" on its screen) that runs nothing and is not on the
+  radio. Clicking it starts another `<wand-sim>` running the same game, on
+  the room's bus and clock with its own MAC (`02:00:00:00:0A:02` on) and
+  Splats, so every wand runs the vendored `party.py` and the game's own
+  `play()`. Each boots its own Pyodide. New code reaches the running ones;
+  a game for a different number of wands, or one that is not a party game,
+  starts over.
+- **Protocol peers:** `js/peers.js` virtual peers speak `party.py`'s `pw_*`
+  frames (find, lobby, join, start, heartbeat with the ready mask, pooled
+  `pw_cmd`, `pw_evt`, `pw_msg`, leave, end, `q` dedupe) and run no game
+  code. `js/headless.js` and the tests use them; the room does not. Where a
+  game needs the other wands to act, a short script in `js/peers.js`
+  (`GAME_SCRIPTS`) plays their part: `partytest`'s follower button and
+  leader lighting, `relaycolor`'s token passing.
 
 In a room the wand's ticks mirror the room clock
 (`time_patch.set_clock_anchor`, re-synced every second by `js/pyboot.js`

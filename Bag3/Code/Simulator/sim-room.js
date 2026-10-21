@@ -7,10 +7,11 @@
  * py/runtime.py get_capabilities() (party, local_splats, splats_min,
  * splats_max, uses_display, has_display_file, ...). Built in here: the
  * display panel (js/panels/display.js), and for a party game the Splat
- * panel (js/panels/splats.js) and the peer strip (js/panels/peers.js),
- * which draw the room's party host (js/party.js): the wand's own Splats and
- * the virtual peer wands (js/peers.js). The room starts with one follower
- * peer holding one Splat.
+ * panel (js/panels/splats.js), which draws the wand's own Splats from the
+ * room's party host (js/party.js), and the other wands (js/panels/wands.js).
+ * A game has no other wands unless its settings say it is for more than
+ * one, or "+ Add a wand" adds one; each is a real <wand-sim> on the room's
+ * bus once clicked.
  *
  * Attributes passed through to the inner <wand-sim>: game, autostart,
  * advanced, show-console, log-lines.
@@ -28,6 +29,11 @@
  *   wand           the inner <wand-sim>
  *   capabilities   the last capabilities, or null
  *   autostart, profile   passed to the inner <wand-sim>
+ *   settings       the game's simulator settings, or null: { wand_splats
+ *                  (Splats each wand starts with, 0..2, default 1), wands
+ *                  (how many wands the game is for, 1..4, default 1) }.
+ *                  Set it before `source`: the Splat count reaches the wand
+ *                  ahead of the game loading.
  *
  * Methods passed to the inner <wand-sim>: start(), stop(), restart(),
  * showOverlay(), hideOverlay().
@@ -43,7 +49,7 @@ import { createClock } from "./js/clock.js";
 import { hexToBytes, describePayload } from "./js/radio.js";
 import { createDisplayPanel, DISPLAY_STYLE } from "./js/panels/display.js";
 import { createSplatPanel, SPLAT_STYLE } from "./js/panels/splats.js";
-import { createPeerStrip, PEERS_STYLE } from "./js/panels/peers.js";
+import { createWandsPanel, WANDS_STYLE } from "./js/panels/wands.js";
 import { createPartyHost } from "./js/party.js";
 import { WAND_RGB, identityName } from "./js/peers.js";
 import { attachWand } from "./js/pyboot.js";
@@ -103,6 +109,30 @@ class SimRoom extends HTMLElement {
     this.party = null;
     this._profile = null;
     this._autostart = null;
+    this._settings = null;
+  }
+
+  get settings() { return this._settings; }
+  set settings(v) {
+    this._settings = v || null;
+    this._applyGameSplats();
+  }
+
+  /** Splats each wand starts a newly loaded game with. */
+  get gameSplats() {
+    const n = this._settings?.wand_splats;
+    return Number.isInteger(n) && n >= 0 && n <= 2 ? n : 1;
+  }
+
+  /** Wands the loaded game is for, this one included. */
+  get gameWands() {
+    const n = this._settings?.wands;
+    return Number.isInteger(n) && n >= 1 ? n : 1;
+  }
+
+  _applyGameSplats() {
+    this.wand?.pyodide?.pyimport("runtime").set_game_splats(this.gameSplats);
+    this.panel("wands")?.setGameSplats(this.gameSplats);
   }
 
   get autostart() { return this.wand ? this.wand.autostart : !!this._autostart; }
@@ -131,6 +161,7 @@ class SimRoom extends HTMLElement {
   set source(v) {
     this._source = v;
     if (this.wand) this.wand.source = v;
+    this.panel("wands")?.pushSource();
   }
 
   get displaySource() { return this._displaySource; }
@@ -169,10 +200,10 @@ class SimRoom extends HTMLElement {
         .box-head h3 { font: 800 15px 'Nunito', system-ui, sans-serif; margin: 0; }
         ${DISPLAY_STYLE}
         ${SPLAT_STYLE}
-        ${PEERS_STYLE}
+        ${WANDS_STYLE}
         /* Simple mode is the wand alone; its Splats are drawn in its pad. */
         :host(:not([advanced])) .box[data-panel="splats"],
-        :host(:not([advanced])) .box[data-panel="peers"] { display: none; }
+        :host(:not([advanced])) .box[data-panel="wands"] { display: none; }
       </style>
       <div class="room">
         <div class="wand" data-slot="wand"></div>
@@ -204,19 +235,28 @@ class SimRoom extends HTMLElement {
     if (!this.wand) return;
     if (value === null) this.wand.removeAttribute(name);
     else this.wand.setAttribute(name, value);
+    if (name === "game") this.panel("wands")?.pushSource();
   }
 
   restart() {
     this.party?.retap();
+    this.panel("wands")?.restart();
     return this.wand?.restart();
+  }
+
+  /** Move the room's <wand-sim> into `card` (the all-wands overlay), or back with null. */
+  placeWand(card) {
+    const home = this._root.querySelector('[data-slot="wand"]');
+    const to = card || home;
+    if (this.wand.parentNode !== to) to.appendChild(this.wand);
   }
 
   /** Put the wand on the bus and the room clock (runs before its game loads). */
   _attachWand() {
     const py = this.wand.pyodide;
     attachWand(py, { bus: this.bus, clock: this.clock, mac: WAND_MAC, tx: (s, d, h) => this._tx(s, d, h) });
+    py.pyimport("runtime").set_game_splats(this.gameSplats);
     this.party = createPartyHost({ bus: this.bus, clock: this.clock, py, wandMac: WAND_MAC });
-    this.party.addPeer({ mode: "follower", splats: 1 });
     let queued = false;
     this.party.onChange(() => {
       if (queued) return;
@@ -224,10 +264,9 @@ class SimRoom extends HTMLElement {
       requestAnimationFrame(() => {
         queued = false;
         this.panel("splats")?.sync();
-        this.panel("peers")?.refresh();
       });
     });
-    this.party.onPwLog((line, frame) => this.panel("peers")?.pushLog(line, frame));
+    this.party.onPwLog((line, frame) => this.panel("wands")?.pushLog(line, frame));
   }
 
   /** Bus send from a Python device; returns the ACK count espnow.send uses. */
@@ -351,7 +390,7 @@ SimRoom.registerPanel("display", {
   },
 });
 
-/** The wand's own Splats as a Splat panel group; peers' are on the peer strip. */
+/** The wand's own Splats as a Splat panel group. */
 function wandGroup(party) {
   return {
     owner: party.wandMac, label: "this wand", rgb: WAND_RGB[identityName(party.wandMac)],
@@ -363,7 +402,7 @@ function wandGroup(party) {
 
 // The wand's Splats are drawn in its pad, below the drawn wand, in both
 // modes. In advanced mode a card below the wand adds their count and links,
-// and the friend wands strip follows it.
+// and the other wands bar (js/panels/wands.js) follows it.
 SimRoom.registerPanel("splats", {
   slot: "strip",
   title: "Splats on this wand",
@@ -415,14 +454,31 @@ SimRoom.registerPanel("splats", {
   },
 });
 
-SimRoom.registerPanel("peers", {
+// Advanced mode: how many other wands are in the game, and the overlay
+// with all of them side by side.
+SimRoom.registerPanel("wands", {
   slot: "strip",
   title: null,
   wants: (caps) => !!caps.party,
-  create: (room, box) => createPeerStrip({ mount: box, host: room.party, identOf: identityName }),
-  update(strip) {
-    strip.clearLog();
-    strip.refresh();
+  create(room, box) {
+    const panel = createWandsPanel({ mount: box, room });
+    panel.setGameSplats(room.gameSplats);
+    return panel;
+  },
+  update(panel, caps, room) {
+    panel.clearLog();
+    panel.setGame(caps);
+    // Settings for a different number of wands start over with that many
+    // placeholders. New code for the same number keeps the wands as they
+    // are; live ones have already been handed the new code.
+    if (room.gameWands !== panel.forWands) {
+      panel.forWands = room.gameWands;
+      panel.setFor(room.gameWands);
+    }
+  },
+  hide(panel) {
+    panel.forWands = null;
+    panel.clear();
   },
 });
 

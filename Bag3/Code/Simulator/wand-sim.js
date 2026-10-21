@@ -304,16 +304,24 @@ class WandSim extends HTMLElement {
   }
 
   connectedCallback() {
+    // A move to another parent (sim-room's all-wands overlay) reconnects
+    // within the same task: keep running rather than boot again.
+    if (this._live) return;
+    this._live = true;
     this._renderShell();
     this._boot();
   }
 
   disconnectedCallback() {
-    cancelAnimationFrame(this._raf);
-    this._audio?.dispose();
-    this._renderer?.dispose();
-    this._controls?.dispose();
-    this._runPython("await stop()").catch(() => {});
+    queueMicrotask(() => {
+      if (this.isConnected || !this._live) return;
+      this._live = false;
+      cancelAnimationFrame(this._raf);
+      this._audio?.dispose();
+      this._renderer?.dispose();
+      this._controls?.dispose();
+      this._runPython("await stop()").catch(() => {});
+    });
   }
 
   attributeChangedCallback(name) {

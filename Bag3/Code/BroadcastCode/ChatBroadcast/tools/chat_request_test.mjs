@@ -19,7 +19,7 @@ import {
     historyWindow, ADVANCED_KNOWLEDGE, CLAUDE_MODEL,
 } from "../js/prompt/buildRequest.js";
 import { readMessageStream } from "../js/prompt/stream.js";
-import { extractCodeBlocks, parseChoices, stripAllMarkers, parseNfcCards, parseGameName } from "../js/chat.js";
+import { extractCodeBlocks, parseChoices, stripAllMarkers, parseNfcCards, parseGameName, parseGameSettings } from "../js/chat.js";
 import { validateGameSignature, validateGameCode, MAX_WAND_GAME_BYTES } from "../js/upload.js";
 import { listSplatActions } from "../js/splat/splatActionCheck.js";
 import { drawStarterIdeas, STARTER_IDEAS, GUIDED_STEPS, guidedPrompt } from "../js/starterIdeas.js";
@@ -165,6 +165,31 @@ await test("markers parse and strip", () => {
     const blocks = extractCodeBlocks(reply);
     assert.equal(blocks.length, 1);
     assert.equal(blocks[0].role, "wand");
+});
+
+await test("[GAME_SETTINGS:] is read for the simulator and hidden from the chat", () => {
+    const reply = [
+        "Here it is.",
+        "[DEVICE: wand]",
+        "```python",
+        "SPLATS_MIN = 1",
+        "def play(nfc, leds, buz, accel, i2c, enow, batt=None, net=None):",
+        "    pass",
+        "```",
+        "[GAME_NAME: Light the Splat]",
+        '[GAME_SETTINGS: {"wand_splats": 2, "wands": 1}]',
+    ].join("\n");
+    assert.deepEqual(parseGameSettings(reply), { wand_splats: 2, wands: 1 });
+    const shown = stripAllMarkers(reply);
+    assert.ok(!shown.includes("GAME_SETTINGS"));
+    assert.equal(extractCodeBlocks(reply).length, 1);
+    // Out-of-range or non-integer fields are dropped; bad JSON is no settings.
+    assert.deepEqual(parseGameSettings('[GAME_SETTINGS: {"wand_splats": 3, "wands": 2}]'), { wands: 2 });
+    assert.equal(parseGameSettings('[GAME_SETTINGS: {"wand_splats": "two"}]'), null);
+    assert.equal(parseGameSettings("[GAME_SETTINGS: {wand_splats: 2}]"), null);
+    assert.equal(parseGameSettings("no marker"), null);
+    // Half-streamed: the line is hidden before its bracket arrives.
+    assert.equal(stripAllMarkers('Done.\n[GAME_SETTINGS: {"wand_spl'), "Done.");
 });
 
 await test("starter draws always include a non-wand idea; ideas name real roles", () => {

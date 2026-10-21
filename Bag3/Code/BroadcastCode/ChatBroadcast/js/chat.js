@@ -168,9 +168,46 @@ export function stripChoicesMarker(text) {
     return text.replace(/\[CHOICES:[^\]]+\]/g, "").trim();
 }
 
+/** Splats per wand the simulator can show, and how many wands it can hold a game for. */
+const SETTINGS_LIMITS = { wand_splats: [0, 2], wands: [1, 4] };
+
+/**
+ * Simulator settings from a [GAME_SETTINGS: {...}] marker, or null.
+ *
+ * The game code does not carry these; only the practice window reads them.
+ * `wand_splats` is how many Splats each wand starts with paired (0..2);
+ * `wands` is how many wands the game is meant for (1..4). A field that is
+ * missing, not a whole number or out of range is left out, and a marker
+ * whose JSON does not parse gives null.
+ */
+export function parseGameSettings(text) {
+    const match = text.match(/\[GAME_SETTINGS:\s*(\{[\s\S]*?\})\s*\]/);
+    if (!match) return null;
+    let raw;
+    try {
+        raw = JSON.parse(match[1]);
+    } catch {
+        return null;
+    }
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+    const out = {};
+    for (const [key, [lo, hi]] of Object.entries(SETTINGS_LIMITS)) {
+        const n = raw[key];
+        if (Number.isInteger(n) && n >= lo && n <= hi) out[key] = n;
+    }
+    return Object.keys(out).length ? out : null;
+}
+
+export function stripGameSettingsMarker(text) {
+    // The line as well as the JSON: a reply still streaming has no closing
+    // bracket yet.
+    return text.replace(/\[GAME_SETTINGS:\s*\{[\s\S]*?\}\s*\]/g, "")
+        .replace(/\[GAME_SETTINGS:[^\n]*/g, "").trim();
+}
+
 /** Every marker line removed, for showing a reply (complete or partial). */
 export function stripAllMarkers(text) {
-    return stripDeviceMarkers(stripChoicesMarker(stripGameNameMarker(stripNfcMarker(text))));
+    return stripDeviceMarkers(stripChoicesMarker(stripGameNameMarker(stripNfcMarker(stripGameSettingsMarker(text)))));
 }
 
 export function trimForHistory(text) {
