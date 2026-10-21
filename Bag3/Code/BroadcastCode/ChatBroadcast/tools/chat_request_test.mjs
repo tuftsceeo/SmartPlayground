@@ -85,6 +85,9 @@ await test("history window starts on a user turn", () => {
     const w = historyWindow(h, 10);
     assert.equal(w[0].role, "user");
     assert.equal(w.at(-1).content, "10");
+    assert.match(w[0].content, /^\[2 earlier messages in this chat are not shown\./);
+    assert.equal(h[1].content, "1");
+    assert.equal(historyWindow(h.slice(0, 3), 10)[0].content, "0");
     const body = buildRequestBody({ system: [], history: h });
     assert.equal(body.model, CLAUDE_MODEL);
     assert.equal(body.stream, true);

@@ -120,12 +120,22 @@ export function buildSystemBlocks({ knowledge, advanced, advancedMode, icons, cu
 }
 
 /**
- * The last HISTORY_WINDOW messages, starting on a user turn.
+ * The last HISTORY_WINDOW messages, starting on a user turn. When earlier
+ * messages are left out, the first one says how many, so the model does not
+ * take it for the start of the chat.
  * @param {{role:string, content:string}[]} history
  */
 export function historyWindow(history, n = HISTORY_WINDOW) {
     const recent = history.slice(-n);
     while (recent.length && recent[0].role !== 'user') recent.shift();
+    const dropped = history.length - recent.length;
+    if (dropped > 0 && recent.length) {
+        recent[0] = {
+            ...recent[0],
+            content: `[${dropped} earlier message${dropped === 1 ? '' : 's'} in this chat are not shown. `
+                + `This is not the first message.]\n\n${recent[0].content}`,
+        };
+    }
     return recent;
 }
 
