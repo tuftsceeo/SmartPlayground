@@ -490,10 +490,10 @@ class BboxUI(object):
             print("# speaker tone err: %s" % str(e))
 
     def beep_scan(self):
-        self._tone(1000, 80)
+        pass
 
     def beep_click(self):
-        self._tone(1800, 60)
+        pass
 
     def beep_success(self):
         self._tone(523, 100)

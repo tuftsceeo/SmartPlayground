@@ -569,30 +569,27 @@ class DialUI(object):
             # progress, and this fires on every single click/scan.
             print("# speaker tone err: %s" % str(e))
 
-    # Frequencies tuned for the Dial's piezo buzzer (cfg.buzzer=True on
-    # GPIO3), not a real speaker -- it is close to silent below ~2 kHz and
-    # peaks (its resonant frequency) around 3000 Hz, confirmed live with a
-    # 1-10 kHz sweep (2026-09-09). Clustered close to 3000 rather than
-    # spread across a wide range -- anything far from the resonant peak
-    # gets quiet fast on this buzzer -- so beeps are told apart mostly by
-    # duration/direction, not big pitch jumps.
+    # The Dial's piezo crackles below about 3 kHz. The encoder has
+    # tactile detents, so clicks and scans are silent; only a finished card
+    # write sounds: two 4800 Hz beeps for success, three 3600 Hz for failure.
     def beep_scan(self):
-        self._tone(3000, 80)
+        pass
 
     def beep_click(self):
-        self._tone(3400, 60)
+        pass
+
+    def _beeps(self, freq, ms, gap, n):
+        for i in range(n):
+            if i:
+                time.sleep_ms(gap)
+            self._tone(freq, ms)
+            time.sleep_ms(ms)
 
     def beep_success(self):
-        self._tone(2800, 100)
-        time.sleep_ms(50)
-        self._tone(3000, 100)
-        time.sleep_ms(50)
-        self._tone(3300, 200)
+        self._beeps(4800, 100, 80, 2)
 
     def beep_fail(self):
-        self._tone(3000, 200)
-        time.sleep_ms(50)
-        self._tone(2200, 400)
+        self._beeps(3600, 70, 60, 3)
 
     # ── status-screen helper ────────────────────────────────────
 
