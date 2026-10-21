@@ -82,12 +82,19 @@ await test("empty editor says so", () => {
 await test("history window starts on a user turn", () => {
     const h = [];
     for (let i = 0; i < 11; i++) h.push({ role: i % 2 ? "assistant" : "user", content: String(i) });
-    const w = historyWindow(h, 10);
+    const w = historyWindow(h, 10, 5);
     assert.equal(w[0].role, "user");
     assert.equal(w.at(-1).content, "10");
-    assert.match(w[0].content, /^\[2 earlier messages in this chat are not shown\./);
+    assert.match(w[0].content, /^\[6 earlier messages in this chat are not shown\./);
     assert.equal(h[1].content, "1");
-    assert.equal(historyWindow(h.slice(0, 3), 10)[0].content, "0");
+    assert.equal(historyWindow(h.slice(0, 3), 10, 5)[0].content, "0");
+    // The window's first message holds still while it grows.
+    const long = [];
+    for (let i = 0; i < 60; i++) long.push({ role: i % 2 ? "assistant" : "user", content: String(i) });
+    const firsts = [31, 35, 44].map((n) => historyWindow(long.slice(0, n), 30, 15)[0].content);
+    assert.deepEqual(firsts.map((c) => c.split("\n\n").at(-1)), ["16", "16", "16"]);
+    assert.equal(historyWindow(long.slice(0, 45), 30, 15).length, 15);
+    assert.equal(historyWindow(long.slice(0, 30), 30, 15).length, 30);
     const body = buildRequestBody({ system: [], history: h });
     assert.equal(body.model, CLAUDE_MODEL);
     assert.equal(body.stream, true);

@@ -17,8 +17,11 @@ export const CLAUDE_MODEL = 'claude-sonnet-5-5';
  * One of 'low' | 'medium' | 'high' | 'xhigh' | 'max'. */
 export const CLAUDE_EFFORT = 'low';
 export const MAX_TOKENS = 16384;
-/** Messages of chat history sent per request. */
-export const HISTORY_WINDOW = 10;
+/** Chat history sent per request: all of it up to HISTORY_MAX messages;
+ * past that, the window drops back to HISTORY_MIN and grows again, so its
+ * first message stays the same for HISTORY_MAX - HISTORY_MIN turns. */
+export const HISTORY_MAX = 30;
+export const HISTORY_MIN = 15;
 /** Beta header for server-side refusal fallback (`fallbacks: 'default'`). */
 export const ANTHROPIC_BETA = 'server-side-fallback-2026-07-01';
 
@@ -120,13 +123,16 @@ export function buildSystemBlocks({ knowledge, advanced, advancedMode, icons, cu
 }
 
 /**
- * The last HISTORY_WINDOW messages, starting on a user turn. When earlier
+ * The recent history (HISTORY_MAX / HISTORY_MIN), starting on a user turn. When earlier
  * messages are left out, the first one says how many, so the model does not
  * take it for the start of the chat.
  * @param {{role:string, content:string}[]} history
  */
-export function historyWindow(history, n = HISTORY_WINDOW) {
-    const recent = history.slice(-n);
+export function historyWindow(history, max = HISTORY_MAX, min = HISTORY_MIN) {
+    const step = max - min;
+    const start = history.length <= max ? 0
+        : Math.floor((history.length - min) / step) * step;
+    const recent = history.slice(start);
     while (recent.length && recent[0].role !== 'user') recent.shift();
     const dropped = history.length - recent.length;
     if (dropped > 0 && recent.length) {
