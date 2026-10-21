@@ -182,3 +182,8 @@ Branch `chat_app_espnow` with the SoftAP removal and the Dial circular UI merged
 | Box → wand, 3 pulls pinned `cd64`, USB | 3/3, 2.6–4.8 s; `games.list` pulls 3; no reset |
 | Icon Display: `deploy.py --type icon` | 107 files, 154 s |
 | Box → Icon Display, `icon_display` role, test `speed36_icon.py` + 3 icons | 3/3, 2.1–2.9 s, 3 icons each (test files removed afterwards) |
+
+## Dial on merged code and full stack (2026-10-21)
+
+- Dial: 2 changed files copied (reset first, one `mpremote` call, 5 s); `code_server.py`, `serve_guard.py`, `serve_probe.py`, `dial_ui.py` removed from flash. Scripted wand pulls pinned `004c`: 3/3, 2.2–2.5 s; `games.list` pulls 3.
+- Full stack, by hand: ChatBroadcast (localhost) sent a generated game to the Dial, a Code card was written on the Dial, and a tap on the wand pulled it: worked.
