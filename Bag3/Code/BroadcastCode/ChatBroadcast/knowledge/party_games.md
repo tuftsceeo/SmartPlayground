@@ -60,6 +60,18 @@ A Splat (from `net.splat(i)` or `net.local.unit(s)`) has `color(name)`, `note(na
 the "SPLAT ACTION NAMES" list; any other name is refused when the game is sent. Keep a Splat in a
 variable if it is used often: `pad = net.splat(0)`.
 
+The Splat shows only six colors. When the same thing (a team, an animal, a card) appears on a
+wand and a Splat, give it one of these so children can match them by eye:
+
+| Color | Wand (`leds`) | Splat `color()` |
+|---|---|---|
+| red | `RED` | `"turnred"` |
+| green | `GREEN` | `"turngreen"` |
+| blue | `BLUE` | `"turnblue"` |
+| yellow | `YELLOW` | `"turnyellow"` |
+| purple | `PURPLE` | `"turnpurple"` |
+| white | `WHITE` | `"turnwhite"` |
+
 Events from `net.poll()`:
 
 | Event | Who gets it | Meaning |
