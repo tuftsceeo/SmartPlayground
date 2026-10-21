@@ -2146,6 +2146,7 @@ class App {
         for (const ev of ['pointerdown', 'pointermove', 'keydown', 'wheel']) {
             document.addEventListener(ev, arm, { passive: true, capture: true });
         }
+        this._sim.addEventListener('sim-loaded', () => { this._simPaused = false; });
         document.addEventListener('visibilitychange', () => {
             if (document.hidden) pause(); else arm();
         });
