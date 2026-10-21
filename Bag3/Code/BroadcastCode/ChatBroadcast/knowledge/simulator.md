@@ -60,7 +60,7 @@ The simulator's text arrives inside an `<error>` block after the request.
   read the `custom.py` lines.
 - **Crash while running:** the last traceback line, followed by the recent simulator log, which
   holds the full traceback. Ignore its `runtime.py` frames (`_runner`, `_run_play`).
-- **A game whose `play()` returns:** this produces no error. The preview just goes quiet.
+- **A game whose `play()` returns:** no error. The preview shows a "Game ended" banner.
 
 ## Simulator passes, device fails
 
