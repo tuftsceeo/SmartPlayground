@@ -38,6 +38,20 @@ Usage:
     python3 tools/deploy.py /dev/cu.usbmodemX --type wand --wand-tree EspnowModem/MockWandEUM
     python3 tools/deploy.py /dev/cu.usbmodemX --type icon --code-only
     python3 tools/deploy.py /dev/cu.usbmodemX --type dial --pause 8
+    python3 tools/deploy.py /dev/cu.usbmodemX --type wand --batch 0 --verify none --no-mkdir
+
+Speed. Every mpremote call opens the port and enters the raw REPL, which
+dominates the time per file. By default the files go in batches of 10 per
+mpremote call (`fs cp a :a + fs cp b :b ...`), directories are created by one
+call, and the result is checked by one on-device sha256 pass over every file.
+Each step is optional:
+    --batch N           files per mpremote call; 0 = all in one call, 1 = one at a time
+    --verify MODE       hash (default): one sha256 pass on the device
+                        readback: copy each file back and compare (slowest)
+                        none: no verification
+    --no-mkdir          assume the target directories already exist
+Progress (chunk, files done, elapsed) prints before each mpremote call.
+A pause (--pause, default 8 for the Dial) defaults --batch to 1.
 
 --pause default is 8s for the Dial (the value deploy_dial.py's own history
 found necessary on real hardware -- NOT a confirmed minimum) and 0 for
@@ -46,11 +60,13 @@ everything else; override either way with --pause.
 
 import argparse
 import glob
+import hashlib
 import os
 import re
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))           # BroadcastCode/tools
@@ -152,6 +168,130 @@ def mpremote(port, *args, timeout=60):
         # erroring promptly -- surface this the same shape as a failed run so
         # the caller's retry logic handles both uniformly.
         return subprocess.CompletedProcess(cmd, 1, stdout="", stderr=str(e))
+
+
+def _run_streamed(port, args, timeout):
+    """mpremote with `resume`, echoing its output line by line.
+
+    Returns a CompletedProcess (stdout holds everything printed, stderr is
+    merged into it). A hung connection is killed at `timeout` seconds and
+    reported as returncode 1.
+    """
+    cmd = ["python3", "-m", "mpremote", "connect", port, "resume"] + list(args)
+    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                            text=True)
+    timed_out = []
+
+    def _kill():
+        timed_out.append(True)
+        proc.kill()
+
+    timer = threading.Timer(timeout, _kill)
+    timer.start()
+    lines = []
+    try:
+        for line in proc.stdout:
+            lines.append(line)
+            print("    " + line.rstrip())
+        proc.wait()
+    finally:
+        timer.cancel()
+    out = "".join(lines)
+    if timed_out:
+        out += "timed out after %ds" % timeout
+        return subprocess.CompletedProcess(cmd, 1, stdout=out, stderr="")
+    return subprocess.CompletedProcess(cmd, proc.returncode, stdout=out, stderr="")
+
+
+def _make_dirs(port, files):
+    """Create every parent directory of `files` in one mpremote call.
+
+    Only EEXIST (errno 17) is tolerated; any other OSError aborts the call.
+    """
+    dirs = []
+    for _, remote in files:
+        parts = remote.strip("/").split("/")[:-1]
+        for i in range(1, len(parts) + 1):
+            d = "/" + "/".join(parts[:i])
+            if d != "/flash" and d not in dirs:
+                dirs.append(d)
+    if not dirs:
+        return
+    script = ("import os\n"
+              "for d in %r:\n"
+              "    try:\n"
+              "        os.mkdir(d)\n"
+              "    except OSError as e:\n"
+              "        if e.args[0] != 17:\n"
+              "            raise\n") % (dirs,)
+    print("creating %d director%s ..." % (len(dirs), "y" if len(dirs) == 1 else "ies"))
+    r = _run_streamed(port, ["exec", script], 60)
+    if r.returncode != 0:
+        sys.exit("mkdir failed: %s" % r.stdout.strip())
+
+
+def _copy_batched(port, files, batch, attempts, pause, t0, total):
+    """Copy `files` in chunks of `batch` per mpremote call (0 = one call).
+
+    Returns the remote paths of chunks that still failed after `attempts`.
+    A chunk is retried whole; `fs cp` overwrites, so a retry is safe.
+    """
+    size = batch or len(files)
+    failed = []
+    done = total - len(files)
+    for start in range(0, len(files), size):
+        chunk = files[start:start + size]
+        args = []
+        for i, (local, remote) in enumerate(chunk):
+            if i:
+                args.append("+")
+            args += ["fs", "cp", local, ":" + remote]
+        for attempt in range(1, attempts + 1):
+            print("[%d-%d/%d] copying %d file(s), attempt %d/%d, %.0fs elapsed"
+                  % (done + start + 1, done + start + len(chunk), total,
+                     len(chunk), attempt, attempts, time.time() - t0))
+            r = _run_streamed(port, args, 60 + 10 * len(chunk))
+            if r.returncode == 0:
+                break
+            print("  chunk failed: %s" % (r.stdout.strip().splitlines() or ["no output"])[-1])
+            time.sleep(pause)
+        else:
+            failed += [remote for _, remote in chunk]
+    return failed
+
+
+def _verify_hashes(port, files):
+    """Remote paths whose on-device sha256 differs from the local file.
+
+    One mpremote call hashes every file on the device. A missing file makes
+    the on-device script raise, which is reported as every file failing.
+    """
+    script = ("import hashlib, binascii\n"
+              "for p in %r:\n"
+              "    h = hashlib.sha256()\n"
+              "    with open(p, 'rb') as f:\n"
+              "        while True:\n"
+              "            b = f.read(512)\n"
+              "            if not b:\n"
+              "                break\n"
+              "            h.update(b)\n"
+              "    print('SHA', p, binascii.hexlify(h.digest()).decode())\n"
+              ) % ([remote for _, remote in files],)
+    r = _run_streamed(port, ["exec", script], 60 + 5 * len(files))
+    remote_hash = {}
+    for line in r.stdout.splitlines():
+        parts = line.split()
+        if len(parts) == 3 and parts[0] == "SHA":
+            remote_hash[parts[1]] = parts[2]
+    bad = []
+    for local, remote in files:
+        with open(local, "rb") as f:
+            want = hashlib.sha256(f.read()).hexdigest()
+        if remote_hash.get(remote) != want:
+            bad.append(remote)
+    if r.returncode != 0 and not remote_hash:
+        print("  hash pass failed: %s" % (r.stdout.strip().splitlines() or ["no output"])[-1])
+    return bad
 
 
 def copy_and_verify(port, local, remote, attempts, pause):
@@ -269,7 +409,15 @@ def main():
                      help="seconds between files, and before a retry "
                           "(default: 8 for the Dial, 0 otherwise -- see module docstring)")
     ap.add_argument("--attempts", type=int, default=2,
-                     help="write+verify attempts per file before giving up on it")
+                     help="copy+verify attempts per file (or chunk) before giving up on it")
+    ap.add_argument("--batch", type=int, default=None,
+                     help="files per mpremote call; 0 = all in one call, 1 = one at a time "
+                          "(default: 10, or 1 when --pause is non-zero)")
+    ap.add_argument("--verify", choices=("hash", "readback", "none"), default="hash",
+                     help="hash: one on-device sha256 pass; readback: copy each file back "
+                          "and compare (one file at a time, slowest); none: skip")
+    ap.add_argument("--no-mkdir", action="store_true",
+                     help="skip creating target directories; assume they exist")
     ap.add_argument("--no-reset", action="store_true",
                      help="skip the final reset; leave the board as-is")
     ap.add_argument("--code-only", action="store_true",
@@ -309,34 +457,51 @@ def main():
             print("aborted")
             return
 
-    # `fs cp` does not create parent directories. mkdir fails when the
-    # directory already exists, so its result is ignored; a real failure
-    # shows up as the copy failing below.
-    made = set()
-    for _, remote in files:
-        parts = remote.strip("/").split("/")[:-1]
-        for i in range(1, len(parts) + 1):
-            d = "/" + "/".join(parts[:i])
-            if d not in made and d != "/flash":
-                made.add(d)
-                mpremote(port, "fs", "mkdir", ":" + d)
+    t0 = time.time()
+    total = len(files)
+    if not args.no_mkdir:
+        # `fs cp` does not create parent directories.
+        _make_dirs(port, files)
 
-    failed = []
-    for local, remote in files:
-        print("copying %s -> %s ..." % (os.path.relpath(local, BROADCASTCODE), remote))
-        if not copy_and_verify(port, local, remote, args.attempts, pause):
-            failed.append(remote)
-            print("  FAILED after %d attempt(s) -- continuing with the rest" % args.attempts)
-        if pause:
-            time.sleep(pause)
+    if args.verify == "readback":
+        # One file at a time: copy, copy back, compare.
+        failed = []
+        for n, (local, remote) in enumerate(files, 1):
+            print("[%d/%d] %s -> %s, %.0fs elapsed"
+                  % (n, total, os.path.relpath(local, BROADCASTCODE), remote,
+                     time.time() - t0))
+            if not copy_and_verify(port, local, remote, args.attempts, pause):
+                failed.append(remote)
+                print("  FAILED after %d attempt(s) -- continuing with the rest" % args.attempts)
+            if pause:
+                time.sleep(pause)
+    else:
+        batch = args.batch if args.batch is not None else (1 if pause else 10)
+        failed = _copy_batched(port, files, batch, args.attempts, pause, t0, total)
+        if args.verify == "hash":
+            pending = [(l, r) for l, r in files if r not in failed]
+            for attempt in range(1, args.attempts + 1):
+                print("verifying %d file(s) by sha256, %.0fs elapsed"
+                      % (len(pending), time.time() - t0))
+                bad = _verify_hashes(port, pending)
+                if not bad:
+                    pending = []
+                    break
+                print("  %d file(s) differ: %s" % (len(bad), ", ".join(bad)))
+                pending = [(l, r) for l, r in pending if r in bad]
+                if attempt == args.attempts:
+                    break
+                _copy_batched(port, pending, batch, 1, pause, t0, len(pending))
+            failed += [r for _, r in pending]
 
     if failed:
-        print("\n# %d file(s) failed verification: %s" % (len(failed), ", ".join(failed)))
+        print("\n# %d file(s) failed: %s" % (len(failed), ", ".join(failed)))
         print("# NOT resetting -- the board would boot a half-deployed image. "
               "Fix these and re-run before resetting.")
         sys.exit(1)
 
-    print("\n# all %d files verified" % len(files))
+    print("\n# all %d files copied%s in %.0fs"
+          % (total, "" if args.verify == "none" else " and verified", time.time() - t0))
     if args.no_reset:
         print("# --no-reset: leaving the board as-is")
         return

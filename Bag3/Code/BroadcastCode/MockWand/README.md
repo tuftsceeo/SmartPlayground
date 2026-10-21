@@ -344,3 +344,8 @@ MicroPython) to `/wand_main.mpy` and writes a one-line `/main.py` that imports i
 `main.py` on the wand at boot can fragment the IDF block the radio needs (see
 `docs_and_design/2026-10-07-splat-pairing/RESULTS-PartB.md`). Copying the source `main.py` by
 hand still runs, without that protection.
+
+Deploy speed: files are copied 10 per `mpremote` call, directories are created in one call, and the
+result is checked by one on-device sha256 pass. `--batch N` sets the files per call (`0` = all in one,
+`1` = one at a time), `--verify none|hash|readback` picks the check (`readback` copies each file back,
+one at a time), and `--no-mkdir` skips directory creation. Progress prints before each call.
