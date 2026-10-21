@@ -65,20 +65,24 @@ def types(b, typ):
 b = boot(cards=NONE * 2 + [CARD_A] + NONE * 3)
 check("unpaired tap, no answer: machine.reset() called", b.reset)
 check("...the MAC is in /pairing.json", pairing_file() == [A], str(pairing_file()))
-check("...and the quick-boot marker is written for the next boot", os.path.exists(wandboot.QUICK_BOOT))
+check("...and /pair_boot is written so the next boot keeps the pairing", os.path.exists(wandboot.PAIR_BOOT))
 who = types(b, "pw_who")
 check("...one pw_who for that MAC was broadcast",
       len(who) == 1 and who[0][3]["m"] == A and who[0][2] == "*", str(who))
 check("...an unpaired boot never imported ubluetooth", "ubluetooth" not in sys.modules)
 
-# ── The boot after a pairing reset is quick ──
-b = boot(macs=[A], in_range=[A], quick=True, ticks=20)
-check("quick boot: the marker is removed and the boot says so",
-      not os.path.exists(wandboot.QUICK_BOOT) and "Quick boot after pairing" in b.out)
+# ── Debug boot (no /boot_ok) and fast boot (/boot_ok) ──
+# The stub I2C has no sensors, so every sim boot ends with warnings.
+b = boot(macs=[A], in_range=[A], ticks=20)
+check("debug boot: says so and shows the boot stages",
+      "Boot: debug" in b.out and "stage1" in b.order and b.stage0, str(b.order[:6]))
+check("...the Splat connects", b.m._pair_ctl.hub.links[0].connects >= 1)
+b = boot(macs=[A], in_range=[A], ticks=20, fast=True)
+check("fast boot: says so, no boot-stage LEDs",
+      "Boot: fast" in b.out and "stage1" not in b.order and not b.stage0, str(b.order[:6]))
 check("...the Splat still connects", b.m._pair_ctl.hub.links[0].connects >= 1)
-check("...and the boot-stage methods are the Leds class's again", "boot_stage_ok" not in vars(b.m.leds))
-b = boot(macs=[A], in_range=[A], ticks=5)
-check("an ordinary boot is not a quick boot", "Quick boot" not in b.out)
+check("...a boot with warnings removes /boot_ok (next boot is a debug boot)",
+      not os.path.exists(wandboot.BOOT_OK) and "next boot is a debug boot" in b.out)
 
 # ── Another wand holds it: refuse, no reset ──
 b = boot(cards=NONE * 2 + [CARD_A] + NONE * 8, setup=lambda b: start_holder(b))

@@ -240,7 +240,7 @@ def paircard_setup(b):
 b = boot(games=GAMES, cards=NONE * 25 + ["pgame"] + NONE * 10, setup=paircard_setup)
 check("a Splat card in the lobby: no game, the wand pairs it and resets",
       not gamelog.calls and b.reset and wandboot.pairing_file() == [B], str(wandboot.pairing_file()))
-check("...and the reset is a quick boot", os.path.exists(wandboot.QUICK_BOOT))
+check("...and /pair_boot is written so the next boot keeps the pairing", os.path.exists(wandboot.PAIR_BOOT))
 
 # ── A party game whose play() has no net parameter still runs after its lobby ──
 reset_log()

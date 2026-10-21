@@ -936,21 +936,24 @@ def _run_pull_mode():
 # Both functions run from main() after enow.init(). Nothing here may be
 # called, and no pairing module imported, ahead of the radio claim.
 _PAIRING_PATH = "/pairing.json"   # same file as lib/pairing.py PATH
+_PAIR_BOOT_PATH = "/pair_boot"    # same file as lib/splatpair.py PAIR_BOOT_PATH
 _pair_ctl = None                  # splatpair.SplatPairing for a paired wand
 
 
 def _read_pairing():
     # Inline read: lib/pairing.py is not imported on an unpaired boot.
-    # A power-on reset ends every pairing (session-scoped).
+    # Only the reset that follows a Splat card tap keeps the pairing
+    # (splatpair.PAIR_BOOT_PATH); every other boot clears it, so BLE stays
+    # off until a Splat card is tapped.
     try:
         os.stat(_PAIRING_PATH)
     except OSError:
         return []
-    # UNVERIFIED on hardware: PWRON_RESET on the C6 after USB or battery
-    # power-up, and that machine.reset() / watchdog / crash resets differ.
-    if machine.reset_cause() == machine.PWRON_RESET:
+    try:
+        os.remove(_PAIR_BOOT_PATH)
+    except OSError:
         os.remove(_PAIRING_PATH)
-        print("  Pairing cleared (power-on reset)")
+        print("  Pairing cleared (no Splat card tap before this boot)")
         return []
     with open(_PAIRING_PATH) as f:
         items = json.load(f)["splats"]

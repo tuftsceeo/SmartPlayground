@@ -48,7 +48,8 @@ A = "AB:42:00:00:7E:B6"
 B = "AB:42:00:00:20:60"
 MY_MAC = "AA:00:00:00:00:07"
 PAIRING = os.path.join(FLASH, "pairing.json")
-QUICK_BOOT = os.path.join(FLASH, "quick_boot")
+PAIR_BOOT = os.path.join(FLASH, "pair_boot")     # main._PAIR_BOOT_PATH / splatpair.PAIR_BOOT_PATH
+BOOT_OK = os.path.join(FLASH, "boot_ok")         # main.BOOT_OK_PATH
 
 
 class _Reset(BaseException):
@@ -112,14 +113,17 @@ class _PairingPath(importlib.abc.MetaPathFinder):
     imported, so a test never imports it ahead of main()."""
 
     def find_spec(self, name, path, target=None):
-        if name != "pairing":
+        if name not in ("pairing", "splatpair"):
             return None
         spec = importlib.machinery.PathFinder.find_spec(name, path)
         real_exec = spec.loader.exec_module
 
         def exec_module(module):
             real_exec(module)
-            module.PATH = PAIRING
+            if name == "pairing":
+                module.PATH = PAIRING
+            else:
+                module.PAIR_BOOT_PATH = PAIR_BOOT
         spec.loader.exec_module = exec_module
         return spec
 
@@ -148,7 +152,8 @@ class FakeButton:
 
 
 def boot(cause=machine.SOFT_RESET, macs=None, in_range=(), ble_fail=None, ticks=10,
-         file_text=None, cards=None, setup=None, my_mac=MY_MAC, games=None, quick=False):
+         file_text=None, cards=None, setup=None, my_mac=MY_MAC, games=None, pair_boot=None,
+         fast=False, keep_files=False):
     """Boot main.main() once.
 
     cards: list of None / card text, one per NFC detect (see FakeReader); when
@@ -157,7 +162,15 @@ def boot(cause=machine.SOFT_RESET, macs=None, in_range=(), ble_fail=None, ticks=
       main() runs, to spawn other wands or schedule events.
     games: {slug: source} written to the pulled-games directory before main
       is loaded, so each slug is a card the idle loop plays.
+    pair_boot: write /pair_boot (the marker a Splat card tap leaves before its
+      reset), so main keeps /pairing.json. None: written when a pairing file
+      is given.
+    fast: write /boot_ok, so main runs the fast boot (no boot-stage LEDs).
+    keep_files: leave /pairing.json, /pair_boot and /boot_ok as the last boot
+      left them (macs, file_text, pair_boot and fast are ignored).
     """
+    if pair_boot is None:
+        pair_boot = macs is not None or file_text is not None
     _purge()
     import game_store as gs          # a fresh copy; keep its paths off the real root
     gs.GAMES_DIR = GAMES_DIR
@@ -167,18 +180,22 @@ def boot(cause=machine.SOFT_RESET, macs=None, in_range=(), ble_fail=None, ticks=
     for slug, text in (games or {}).items():
         with open(os.path.join(GAMES_DIR, slug + ".py"), "w") as f:
             f.write(text)
-    for f in (PAIRING, PAIRING + ".tmp", QUICK_BOOT):
+    for f in () if keep_files else (PAIRING, PAIRING + ".tmp", PAIR_BOOT, BOOT_OK):
         if os.path.exists(f):
             os.remove(f)
+    if keep_files:
+        macs = file_text = None
+        pair_boot = fast = False
     if macs is not None:
         with open(PAIRING, "w") as f:
             f.write(json.dumps({"splats": macs}))
     if file_text is not None:
         with open(PAIRING, "w") as f:
             f.write(file_text)
-    if quick:
-        with open(QUICK_BOOT, "w") as f:
-            f.write("1")
+    for path, on in ((PAIR_BOOT, pair_boot), (BOOT_OK, fast)):
+        if on:
+            with open(path, "w") as f:
+                f.write("1")
     machine._reset_cause = cause
     import network
     network.WLAN.mac = wandsim.mac_bytes(my_mac)   # what get_own_mac() reports
@@ -194,12 +211,15 @@ def boot(cause=machine.SOFT_RESET, macs=None, in_range=(), ble_fail=None, ticks=
     src = open(os.path.join(FLASH, "main.py")).read()
     assert src.rstrip().endswith("\nmain()"), "main.py no longer ends with main()"
     src = src.rstrip()[:-len("main()")]
+    # BOOT_OK_PATH is read at import, so it is pointed at the temp flash here.
+    assert src.count('BOOT_OK_PATH = "/boot_ok"') == 1
+    src = src.replace('BOOT_OK_PATH = "/boot_ok"', "BOOT_OK_PATH = %r" % BOOT_OK)
     m = type(sys)("main")
     m.__file__ = os.path.join(FLASH, "main.py")
     sys.modules["main"] = m
     exec(compile(src, m.__file__, "exec"), m.__dict__)
     m._PAIRING_PATH = PAIRING
-    m._QUICK_BOOT_PATH = QUICK_BOOT
+    m._PAIR_BOOT_PATH = PAIR_BOOT
     m.buz = wand.buz
     b_button = FakeButton()
     m.btn = b_button
