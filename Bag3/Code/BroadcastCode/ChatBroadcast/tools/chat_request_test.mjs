@@ -17,9 +17,11 @@ import assert from "node:assert/strict";
 import {
     knowledgePaths, knowledgeText, buildSystemBlocks, buildRequestBody,
     historyWindow, ADVANCED_KNOWLEDGE, CLAUDE_MODEL,
+    buildInterviewSystemBlocks, interviewMessages, interviewStatusText,
+    INTERVIEW_KNOWLEDGE, INTERVIEW_MAX_QUESTIONS, INTERVIEW_FIRST_QUESTION,
 } from "../js/prompt/buildRequest.js";
 import { readMessageStream } from "../js/prompt/stream.js";
-import { extractCodeBlocks, parseChoices, stripAllMarkers, parseNfcCards, parseGameName, parseGameSettings } from "../js/chat.js";
+import { extractCodeBlocks, parseChoices, parseGameBrief, stripGameBrief, stripAllMarkers, parseNfcCards, parseGameName, parseGameSettings } from "../js/chat.js";
 import { validateGameSignature, validateGameCode, MAX_WAND_GAME_BYTES } from "../js/upload.js";
 import { listSplatActions } from "../js/splat/splatActionCheck.js";
 import { drawStarterIdeas, STARTER_IDEAS, GUIDED_STEPS, guidedPrompt } from "../js/starterIdeas.js";
@@ -208,6 +210,38 @@ await test("starter draws always include a non-wand idea; ideas name real roles"
 await test("guided prompt uses every answer", () => {
     const p = guidedPrompt(GUIDED_STEPS.map(s => s.options[1]));
     for (const s of GUIDED_STEPS) assert.ok(p.includes(s.options[1].says));
+});
+
+await test("interview blocks: knowledge and interview cached, status last", () => {
+    const b = buildInterviewSystemBlocks({ knowledge, interview: files[INTERVIEW_KNOWLEDGE], asked: 3 });
+    assert.equal(b.length, 3);
+    assert.ok(b[0].cache_control && b[1].cache_control && !b[2].cache_control);
+    assert.ok(b[1].text.includes("[GAME_BRIEF]"));
+    assert.ok(b[2].text.includes(`3 of ${INTERVIEW_MAX_QUESTIONS}`));
+    assert.ok(!b[2].text.includes("last turn"));
+});
+
+await test("interview status forces the brief at the limit or on request", () => {
+    assert.ok(interviewStatusText(INTERVIEW_MAX_QUESTIONS).includes("last turn"));
+    assert.ok(interviewStatusText(2, true).includes("asked to stop"));
+});
+
+await test("interview messages open with the title question and are not windowed", () => {
+    const turns = [];
+    for (let i = 0; i < 19; i++) turns.push({ role: i % 2 ? "assistant" : "user", content: String(i) });
+    const m = interviewMessages(turns);
+    assert.equal(m[0].role, "user");
+    assert.equal(m[1].content, INTERVIEW_FIRST_QUESTION);
+    const body = buildRequestBody({ system: [], history: m, stream: false, windowed: false });
+    assert.equal(body.messages.length, 21);
+    assert.equal(body.stream, false);
+});
+
+await test("game brief parses and strips", () => {
+    const r = "I have what I need.\n[GAME_BRIEF]\n- Title: Frog Hop\n[/GAME_BRIEF]";
+    assert.equal(parseGameBrief(r), "- Title: Frog Hop");
+    assert.equal(stripGameBrief(r), "I have what I need.");
+    assert.equal(parseGameBrief("What do the frogs do?"), null);
 });
 
 console.log(`\n${passed} checks passed`);

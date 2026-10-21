@@ -8,6 +8,9 @@
  *   1. knowledge base + role summary + Splat action names   (cached)
  *   2. advanced.md, Advanced UI mode only                   (cached)
  *   3. per-turn state: icon names, current editor code      (not cached)
+ *
+ * Interview mode (buildInterviewSystemBlocks) keeps block 1, replaces block 2
+ * with interview.md, and sends the question count as block 3.
  */
 import { ROLES, signatureFor } from '../roles.js';
 
@@ -33,10 +36,18 @@ export const SHARED_KNOWLEDGE = [
 ];
 /** Addendum sent only in Advanced UI mode. */
 export const ADVANCED_KNOWLEDGE = 'knowledge/advanced.md';
+/** Addendum sent only in interview mode. */
+export const INTERVIEW_KNOWLEDGE = 'knowledge/interview.md';
+
+/** Questions an interview may ask, counting the fixed title question. */
+export const INTERVIEW_MAX_QUESTIONS = 10;
+/** The interview's first question, asked by the app without a model call. */
+export const INTERVIEW_FIRST_QUESTION = 'What is the title of your game?';
 
 /** Every knowledge file path the prompt needs, in order. */
 export function knowledgePaths() {
-    return [...SHARED_KNOWLEDGE, ...ROLES.map(r => r.knowledgeFile), ADVANCED_KNOWLEDGE];
+    return [...SHARED_KNOWLEDGE, ...ROLES.map(r => r.knowledgeFile), ADVANCED_KNOWLEDGE,
+        INTERVIEW_KNOWLEDGE];
 }
 
 /** One line per device role: its marker and required play() signature. */
@@ -113,6 +124,52 @@ export function buildSystemBlocks({ knowledge, advanced, advancedMode, icons, cu
 }
 
 /**
+ * The per-turn block for interview mode: how many questions have been asked,
+ * and whether this turn must be the summary.
+ * @param {number} asked  questions asked so far, including the title question
+ * @param {boolean} finish  true when the teacher asked to stop early
+ */
+export function interviewStatusText(asked, finish = false) {
+    const last = finish || asked >= INTERVIEW_MAX_QUESTIONS;
+    const status = `# Interview status\n\nQuestions asked so far: ${asked} of ` +
+        `${INTERVIEW_MAX_QUESTIONS}.`;
+    if (!last) return status;
+    const why = finish ? 'The teacher asked to stop the interview.' : 'No questions are left.';
+    return `${status} ${why} This is the last turn: do not ask a question. ` +
+        'Write the summary with the [GAME_BRIEF] block now, choosing sensible defaults for ' +
+        'anything still unknown.';
+}
+
+/**
+ * System blocks for one interview request.
+ * @param {{knowledge:string, interview:string, asked:number, finish?:boolean}} o
+ */
+export function buildInterviewSystemBlocks({ knowledge, interview, asked, finish = false }) {
+    if (typeof interview !== 'string') throw new Error(`${INTERVIEW_KNOWLEDGE} not loaded`);
+    return [
+        { type: 'text', text: knowledge, cache_control: { type: 'ephemeral' } },
+        { type: 'text', text: interview, cache_control: { type: 'ephemeral' } },
+        { type: 'text', text: interviewStatusText(asked, finish) },
+    ];
+}
+
+/**
+ * Messages for an interview request. The app asks the title question
+ * itself, so the transcript opens with a fixed user turn that starts the
+ * interview, followed by that question. Every turn is sent: a full
+ * interview is ~22 messages, past HISTORY_WINDOW.
+ * @param {{role:string, content:string}[]} turns  starting with the
+ *     teacher's answer to the title question
+ */
+export function interviewMessages(turns) {
+    return [
+        { role: 'user', content: 'Interview me to design a new game.' },
+        { role: 'assistant', content: INTERVIEW_FIRST_QUESTION },
+        ...turns,
+    ];
+}
+
+/**
  * The last HISTORY_WINDOW messages, starting on a user turn.
  * @param {{role:string, content:string}[]} history
  */
@@ -122,8 +179,12 @@ export function historyWindow(history, n = HISTORY_WINDOW) {
     return recent;
 }
 
-/** Request body for POST /v1/messages. */
-export function buildRequestBody({ system, history, stream = true }) {
+/**
+ * Request body for POST /v1/messages.
+ * @param {{system:object[], history:object[], stream?:boolean, windowed?:boolean}} o
+ *     windowed: false sends every message instead of historyWindow(history)
+ */
+export function buildRequestBody({ system, history, stream = true, windowed = true }) {
     return {
         model: CLAUDE_MODEL,
         max_tokens: MAX_TOKENS,
@@ -133,7 +194,7 @@ export function buildRequestBody({ system, history, stream = true }) {
         fallbacks: 'default',
         stream,
         system,
-        messages: historyWindow(history),
+        messages: windowed ? historyWindow(history) : history,
     };
 }
 

@@ -2,10 +2,13 @@ import { loadEncryptedKey, initAuthModal, getApiKey, hasEncryptedKey } from './a
 import {
     addMsg, addThinkingMsg, removeTyping, extractCodeBlocks,
     parseNfcCards, parseGameName, parseChoices, parseGameSettings, stripAllMarkers,
+    parseGameBrief, stripGameBrief,
     trimForHistory, loadKnowledgeBase, getKnowledgeFiles, getKnowledgeFileCount,
 } from './chat.js';
 import {
     knowledgeText, buildSystemBlocks, buildRequestBody, requestHeaders, ADVANCED_KNOWLEDGE,
+    buildInterviewSystemBlocks, interviewMessages, INTERVIEW_KNOWLEDGE,
+    INTERVIEW_MAX_QUESTIONS, INTERVIEW_FIRST_QUESTION,
 } from './prompt/buildRequest.js';
 import { readMessageStream } from './prompt/stream.js';
 import { renderMarkdown } from './markdown.js';
@@ -108,6 +111,8 @@ class App {
         // overlay, and re-runs setupDeviceListeners() -- see onConnect().
         this.device = createDeviceLink();
         this.chatHistory = [];
+        // Interview mode state, or null: {turns, asked} (startInterview).
+        this.interview = null;
         this.isGenerating = false;
         this.currentExample = null;
         this.gameName = 'Your game';
@@ -1107,6 +1112,7 @@ class App {
         document.getElementById('btn-use-as-is').addEventListener('click', () => this.useExampleAsIs());
         document.getElementById('btn-send').addEventListener('click', () => this.onSend());
         document.getElementById('btn-guided').addEventListener('click', () => this.startGuidedMode());
+        document.getElementById('btn-interview').addEventListener('click', () => this.startInterview());
         document.getElementById('btn-show-code').addEventListener('click', () => {
             document.getElementById('code-drawer').classList.remove('hidden');
         });
@@ -1851,6 +1857,146 @@ class App {
         showStep(0);
     }
 
+    /**
+     * Interview mode: the model asks one short question per turn, starting
+     * with INTERVIEW_FIRST_QUESTION (asked here, without a model call), until
+     * it replies with a [GAME_BRIEF] block or INTERVIEW_MAX_QUESTIONS have
+     * been asked. The brief is then offered as a normal game request.
+     * The interview transcript is kept apart from chatHistory.
+     */
+    startInterview() {
+        if (this.isGenerating) return;
+        const box = document.getElementById('chat-box');
+        box.querySelector('.starter-chips')?.remove();
+        box.querySelectorAll('.guided-card, .choice-chips').forEach(el => el.remove());
+        this.interview = { turns: [], asked: 1 };
+        dbg('chat', 'interview started');
+        addMsg(INTERVIEW_FIRST_QUESTION, 'bot');
+        document.getElementById('user-input').focus();
+    }
+
+    /** The teacher's answer to the current interview question. */
+    async answerInterview(answer, finish = false) {
+        this.interview.turns.push({ role: 'user', content: answer });
+        await this.callInterviewer(finish);
+    }
+
+    /** Ask the model for the next interview question, or for the brief. */
+    async callInterviewer(finish) {
+        const iv = this.interview;
+        const apiKey = this.resolveApiKey();
+        if (!apiKey) { iv.turns.pop(); return; }
+        const files = getKnowledgeFiles();
+        addThinkingMsg();
+        this.isGenerating = true;
+        try {
+            const body = JSON.stringify(buildRequestBody({
+                system: buildInterviewSystemBlocks({
+                    knowledge: knowledgeText(files, listSplatActions()),
+                    interview: files[INTERVIEW_KNOWLEDGE],
+                    asked: iv.asked,
+                    finish,
+                }),
+                history: interviewMessages(iv.turns),
+                stream: false,
+                windowed: false,
+            }));
+            dbg('chat', `interview POST — ${iv.asked} asked, finish=${finish}`);
+            const resp = await fetch('https://api.anthropic.com/v1/messages', {
+                method: 'POST',
+                headers: requestHeaders(apiKey),
+                body,
+            });
+            const data = await resp.json().catch(() => ({}));
+            removeTyping();
+            if (!resp.ok) {
+                const errMsg = data?.error?.message ?? `Could not reach the AI (${resp.status}). Check your network.`;
+                dbgError('chat', `interview API error (${resp.status}): ${errMsg}`, data);
+                addMsg(errMsg, 'system');
+                iv.turns.pop();
+                return;
+            }
+            if (data.stop_reason === 'refusal') {
+                dbgWarn('chat', 'interview refusal', data.stop_details);
+                addMsg('The AI declined to answer that. Try rewording it.', 'system');
+                iv.turns.pop();
+                return;
+            }
+            const raw = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
+            const brief = parseGameBrief(raw);
+            if (brief) {
+                this.interview = null;
+                dbg('chat', `interview finished after ${iv.asked} question(s)`, { brief });
+                const lead = stripAllMarkers(stripGameBrief(raw));
+                if (lead) addMsg(lead, 'bot');
+                addMsg(brief, 'bot');
+                this.renderBriefChips(brief);
+                return;
+            }
+            iv.turns.push({ role: 'assistant', content: raw });
+            if (finish || iv.asked >= INTERVIEW_MAX_QUESTIONS) {
+                // The status block told the model to write the brief.
+                dbgError('chat', 'interview: last turn returned no [GAME_BRIEF]', raw);
+                addMsg('The interviewer did not write a game summary. Tap “Make my game now” to try again.', 'system');
+                iv.turns.pop();
+                this.renderInterviewChips([]);
+                return;
+            }
+            iv.asked++;
+            addMsg(stripAllMarkers(raw), 'bot');
+            // The first two questions are answered in the teacher's own
+            // words (interview.md); choices start at question 3.
+            this.renderInterviewChips(iv.asked > 2 ? parseChoices(raw) || [] : []);
+        } catch (e) {
+            removeTyping();
+            dbgError('chat', `interview network/fetch error: ${e.message}`, e);
+            addMsg('Network error — check your connection and try again.', 'system');
+            iv.turns.pop();
+        } finally {
+            this.isGenerating = false;
+        }
+    }
+
+    /** Suggested answers, plus a chip that ends the interview early. */
+    renderInterviewChips(choices) {
+        this.renderChoiceChips(choices);
+        const wrap = document.querySelector('#chat-box .choice-chips:last-child');
+        const done = document.createElement('button');
+        done.type = 'button';
+        done.className = 'starter-chip starter-chip-guided';
+        done.textContent = 'Make my game now';
+        done.addEventListener('click', () => {
+            if (this.isGenerating || !this.interview) return;
+            wrap.remove();
+            addMsg('Make my game now', 'user');
+            this.answerInterview('That is all I want to say. Please write the summary now.', true);
+        });
+        wrap.appendChild(done);
+    }
+
+    /** After the brief: build the game from it, or interview again. */
+    renderBriefChips(brief) {
+        this.renderChoiceChips([]);
+        const wrap = document.querySelector('#chat-box .choice-chips:last-child');
+        const make = document.createElement('button');
+        make.type = 'button';
+        make.className = 'starter-chip starter-chip-guided';
+        make.textContent = 'Make this game';
+        make.addEventListener('click', () => {
+            if (this.isGenerating) return;
+            wrap.remove();
+            document.getElementById('user-input').value = `Make this game for my class.\n\n${brief}`;
+            this.onSend();
+        });
+        const again = document.createElement('button');
+        again.type = 'button';
+        again.className = 'starter-chip';
+        again.textContent = 'Start the interview over';
+        again.addEventListener('click', () => { wrap.remove(); this.startInterview(); });
+        wrap.append(make, again);
+        wrap.scrollIntoView({ block: 'end' });
+    }
+
     renderStarterChips() {
         const box = document.getElementById('chat-box');
         if (box.querySelector('.starter-chips')) return;
@@ -1862,8 +2008,15 @@ class App {
         // wrap.remove() left this line behind permanently.
         const intro = document.createElement('div');
         intro.className = 'msg system';
-        intro.textContent = 'Tap “Help me make a game” to choose step by step, or tap an idea to fill the box, then edit and send:';
+        intro.textContent = 'Tap “Interview me” to design a game by answering a few questions, '
+            + '“Help me make a game” to choose step by step, or tap an idea to fill the box, then edit and send:';
         wrap.appendChild(intro);
+        const interview = document.createElement('button');
+        interview.type = 'button';
+        interview.className = 'starter-chip starter-chip-guided';
+        interview.innerHTML = `${iconSvg('message-circle', { size: 14 })} <span>Interview me</span>`;
+        interview.addEventListener('click', () => this.startInterview());
+        wrap.appendChild(interview);
         const guided = document.createElement('button');
         guided.type = 'button';
         guided.className = 'starter-chip starter-chip-guided';
@@ -1907,6 +2060,7 @@ class App {
         this.gameName = 'Your game';
         this.gameDesc = '';
         this.chatHistory = [];
+        this.interview = null;
         this.tagWrites = {};
         this.refreshHardware();
     }
@@ -2922,11 +3076,19 @@ class App {
         document.querySelector('.starter-chips')?.remove();
         document.querySelectorAll('.choice-chips').forEach(el => el.remove());
         addMsg(msg, 'user');
+        if (this.interview) {
+            await this.answerInterview(msg);
+            return;
+        }
         this.dirty = true;
         await this.callClaude(msg);
     }
 
-    async callClaude(userMsg) {
+    /**
+     * The API key from the passphrase, or null after telling the teacher
+     * why (no passphrase, no key, wrong passphrase, knowledge not loaded).
+     */
+    resolveApiKey() {
         const modalPass = document.getElementById('modal-passphrase');
         const passphrase = modalPass?.value?.trim() || '';
         dbg('chat', `callClaude() — passphrase field length ${passphrase.length}, hasEncryptedKey=${hasEncryptedKey()}`);
@@ -2957,8 +3119,14 @@ class App {
             addMsg(`The assistant's knowledge files did not load, so it cannot help right now. `
                 + `Reload the page; if this keeps happening, contact the SmartPlayground team. `
                 + `(${this.knowledgeError})`, 'system');
-            return;
+            return null;
         }
+        return apiKey;
+    }
+
+    async callClaude(userMsg) {
+        const apiKey = this.resolveApiKey();
+        if (!apiKey) return;
 
         this.chatHistory.push({ role: 'user', content: userMsg });
         addThinkingMsg();
