@@ -730,6 +730,7 @@ class Runtime:
         async def _runner():
             try:
                 await self._run_play()
+                self.sim_state.emit_end()
             except asyncio.CancelledError:
                 raise
             except Exception:

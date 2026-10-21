@@ -12,7 +12,7 @@
  * line goes out as a sim-log event for the host to show.
  *
  * Events:
- *   sim-ready, sim-frame, sim-print, sim-stopped
+ *   sim-ready, sim-frame, sim-print, sim-stopped, sim-ended (play() returned)
  *   sim-log — detail.text: one console line (the game's prints, scanned
  *     tags, heard radio messages, library traces)
  *   sim-loaded — detail.capabilities is get_capabilities() for the game
@@ -530,6 +530,11 @@ class WandSim extends HTMLElement {
       // red status line behind is too quiet for something this final.
       cb.set_error_callback = (t) => {
         self._fail("run", String(t));
+      };
+      cb.set_end_callback = () => {
+        self._setStatus("stopped", "game ended");
+        self.showOverlay("game-over", { title: "Game ended", message: "the game finished" });
+        self.dispatchEvent(new CustomEvent("sim-ended"));
       };
       cb.set_enow_sent_callback = (kind, data, mac) => {
         self.dispatchEvent(new CustomEvent("sim-enow-sent", {

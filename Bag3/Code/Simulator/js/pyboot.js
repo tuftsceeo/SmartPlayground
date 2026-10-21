@@ -67,7 +67,7 @@ export const FILE_LIST = [
 export const CALLBACKS = [
   "set_led_callback", "set_pwm_callback", "set_motor_callback",
   "set_print_callback", "set_log_callback", "set_error_callback",
-  "set_enow_sent_callback",
+  "set_enow_sent_callback", "set_end_callback",
 ];
 
 /**

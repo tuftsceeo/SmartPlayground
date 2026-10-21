@@ -64,7 +64,7 @@ const PASS_ATTRS = ["game", "autostart", "advanced"];
 
 /** <wand-sim> events the room re-dispatches (they do not leave its shadow root). */
 const FORWARDED = ["sim-ready", "sim-loaded", "sim-frame", "sim-print", "sim-error",
-  "sim-stopped", "sim-overlay-action", "sim-enow-sent", "sim-log"];
+  "sim-stopped", "sim-ended", "sim-overlay-action", "sim-enow-sent", "sim-log"];
 
 function simUrl(rel) {
   return new URL(rel, import.meta.url).href;

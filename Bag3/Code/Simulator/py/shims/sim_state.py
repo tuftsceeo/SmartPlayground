@@ -38,6 +38,7 @@ _motor_cb = None
 _print_cb = None
 _log_cb = None
 _error_cb = None
+_end_cb = None
 _enow_sent_cb = None
 
 # Last-known outputs (handy for tests / polling)
@@ -307,6 +308,17 @@ def emit_error(msg):
     exception out of the running game."""
     if _error_cb:
         _error_cb(str(msg))
+
+
+def set_end_callback(cb):
+    global _end_cb
+    _end_cb = cb
+
+
+def emit_end():
+    """The game's play() returned without an error."""
+    if _end_cb:
+        _end_cb()
 
 
 def set_enow_sent_callback(cb):

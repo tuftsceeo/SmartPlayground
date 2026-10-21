@@ -44,6 +44,7 @@ export async function createHeadlessRoom({ pyodide, readText, scale = 4 }) {
       if (out.prints.length > PLAY_MAX_LINES) out.prints.shift();
     },
     set_error_callback: (t) => out.errors.push(String(t)),
+    set_end_callback: () => { out.ended = true; },
     set_log_callback: () => {},
     set_led_callback: () => {},
     set_pwm_callback: () => {},
