@@ -30,11 +30,9 @@ import machine
 import os
 
 import reset_log
-from dial_input import DialInput, NEXT, PREV, ACT, BACK
 from json_link import JsonLink
 from code_link import CodeLink, HOST_ID, GAMES_DIR, ACTIVE_PATH, prewarm
 from card_writer import existing_text, write_text
-from dial_ui import DialUI
 from dial_board import make_reader, SCREEN_W, SCREEN_H
 
 VERSION = "0.1.0"
@@ -80,18 +78,22 @@ READ_ENTRY = "Read Card"
 MODE_IDLE = "IDLE"
 MODE_WRITE = "WRITE"
 
-# WRITE-mode sub-states. Dial intents: ACT confirms, NEXT/PREV scroll,
-# BACK cancels.
+# Bound in run() after the radio is up: dial_input and dial_ui are
+# imported there, not here (docs_and_design/2026-09-23-ap-memory-order.md).
+NEXT = PREV = ACT = EXIT = None
+
+# WRITE-mode sub-states. Dial intents: ACT (click) confirms, NEXT/PREV
+# (knob) scroll, EXIT (1 s hold) goes back.
 #   MENU      list of groups   ACT = open                     NEXT/PREV
-#   GROUP     one group's tags ACT = scan                     NEXT/PREV
-#   SCAN      RF field on      BACK = group
+#   GROUP     one group's tags ACT = scan, EXIT = menu        NEXT/PREV
+#   SCAN      RF field on      EXIT = group
 #
 # SCAN also covers the Utility Tags -> Read Card entry (READ_ENTRY below),
 # a read-only "NFC Reader" utility -- see _scan_step()'s READ_ENTRY branch
 # and dial_ui.paint_reader(). It never triggers a write result screen: each
 # card read just repaints the same SCAN screen in place, so a teacher can
 # read several cards back to back without re-entering the menu between
-# them. BACK still exits it to GROUP like any other scan.
+# them. A hold exits it to GROUP like any other scan.
 #
 # The menu is two-level because a single game can contribute a dozen tags
 # (melody alone has eleven).
@@ -163,8 +165,8 @@ def _boot_grace(ui):
 
 class BdialServer:
     def __init__(self, debug=False):
-        self._input = DialInput()
-        self.ui = DialUI(self._input)
+        self._input = None      # DialInput, built in run()
+        self.ui = None          # DialUI, built in run()
         self.link = JsonLink(self.dispatch, debug=debug)
         self.code = CodeLink()
         self.nfc = None
@@ -179,7 +181,7 @@ class BdialServer:
 
         # (title, [tag, ...]) per game, then the utility group. Top-level
         # rows are these titles; _group_cursor indexes into the
-        # open group's tags directly (BACK exits the group from any
+        # open group's tags directly (a hold exits the group from any
         # cursor position -- see _poll_write()'s W_GROUP handling).
         self._groups = [(UTILITY_GROUP, list(UTILITY_TAGS) + [READ_ENTRY])]
         self._entries = [UTILITY_GROUP]
@@ -291,11 +293,9 @@ class BdialServer:
                 group = self._current_group()
                 self.ui.paint_tag_group(
                     group[0] if group else "", self._group_rows(),
-                    self._group_cursor, self._written,
-                    read_only=(self._current_entry() == READ_ENTRY))
+                    self._group_cursor, self._written)
             else:
-                self.ui.paint_tag_list(self._entries, self._cursor,
-                                      self._pulls.get(self._active, 0))
+                self.ui.paint_tag_list(self._entries, self._cursor)
         else:
             self.ui.paint_idle(self.linked)
 
@@ -736,11 +736,7 @@ class BdialServer:
         return None
 
     def _group_rows(self):
-        """The open group's tags. No trailing "< back" row -- BACK (the
-        on-screen button / touchscreen back gesture) already exits the
-        group from any cursor position (see _poll_write()'s W_GROUP
-        handling), so a selectable back row in the list was a second,
-        redundant way to do the same thing."""
+        """The open group's tags. A hold exits the group from any row."""
         group = self._current_group()
         return list(group[1]) if group else []
 
@@ -791,8 +787,6 @@ class BdialServer:
         if event == 'ok' and r is not None and r.get("hub", "wand") == "wand":
             slug = r.get("slug")
             self._pulls[slug] = self._pulls.get(slug, 0) + 1
-            if self._write_state == W_MENU and slug == self._active:
-                self._repaint()
 
     def _clear_pending(self):
         self._reader_last_uid = None
@@ -862,13 +856,8 @@ class BdialServer:
                     self._cursor, self._current_entry()))
 
         if self._write_state == W_MENU:
-            if intent == NEXT:
-                self.ui.beep_click()
-                self._cursor = (self._cursor + 1) % len(self._entries)
-                self._repaint()
-            elif intent == PREV:
-                self.ui.beep_click()
-                self._cursor = (self._cursor - 1) % len(self._entries)
+            if intent in (NEXT, PREV):
+                self._cursor = self._step(self._cursor, len(self._entries), intent)
                 self._repaint()
             elif intent == ACT:
                 self.ui.beep_click()
@@ -878,29 +867,33 @@ class BdialServer:
 
         if self._write_state == W_GROUP:
             rows = self._group_rows()
-            if intent == NEXT:
-                self.ui.beep_click()
-                self._group_cursor = (self._group_cursor + 1) % len(rows)
-                self._repaint()
-            elif intent == PREV:
-                self.ui.beep_click()
-                self._group_cursor = (self._group_cursor - 1) % len(rows)
+            if intent in (NEXT, PREV):
+                self._group_cursor = self._step(self._group_cursor, len(rows), intent)
                 self._repaint()
             elif intent == ACT:
                 self.ui.beep_click()
                 self._to_scan()
-            elif intent == BACK:
+            elif intent == EXIT:
                 self.ui.beep_click()
                 self._to_menu()
             return
 
         if self._write_state == W_SCAN:
-            if intent == BACK:
+            if intent == EXIT:
                 self.ui.beep_click()
                 self._to_group()
                 return
             self._scan_step()
             return
+
+    def _step(self, sel, n, intent):
+        """Move sel by this turn and any turns queued behind it, so a
+        settled spin repaints once."""
+        while True:
+            sel = (sel + (1 if intent == NEXT else -1)) % n
+            if self._input.peek() not in (NEXT, PREV):
+                return sel
+            intent = self._input.pop()
 
     # Consecutive detect_tag() OSErrors before we assume the reader's
     # internal state machine is wedged (not just one bad I2C beat) and
@@ -975,6 +968,7 @@ class BdialServer:
             self._reader_last_uid = tag['uid_hex']
             _log("READ: uid=%s existing=%s" % (tag['uid_hex'], repr(existing)))
             self.ui.paint_reader(existing, scanned=True)
+            self.ui.flush()
             self.ui.beep_success()
             return
         if existing == _card_text(entry):
@@ -983,6 +977,7 @@ class BdialServer:
             # landed on the card -- see _card_text()) -- report, don't rewrite.
             _log("card already carries %s -- no write" % repr(entry))
             self.ui.paint_already(entry)
+            self.ui.flush()
             self.ui.beep_success()
             time.sleep_ms(RESULT_HOLD_OK_MS)
             self._to_group()
@@ -1007,11 +1002,13 @@ class BdialServer:
         _log("WRITE attempt: target=%s (card=%s) uid=%s"
              % (repr(entry), repr(card_text), tag['uid_hex']))
         self.ui.paint_writing(entry)
+        self.ui.flush()             # visible before the blocking write
         ok = write_text(self.nfc, tag, card_text)
         _log("WRITE result: %s" % ("OK" if ok else "FAILED"))
         if ok:
             self._written[entry] = self._written.get(entry, 0) + 1
             self.ui.paint_written(entry, self._written[entry])
+            self.ui.flush()
             self.ui.beep_success()
             self.link.send({
                 "type": "card_written", "label": entry, "uid": tag['uid_hex'],
@@ -1025,6 +1022,7 @@ class BdialServer:
             self._to_group()
         else:
             self.ui.paint_write_failed(entry)
+            self.ui.flush()
             self.ui.beep_fail()
             time.sleep_ms(RESULT_HOLD_FAIL_MS)
             self._to_scan()
@@ -1060,9 +1058,16 @@ class BdialServer:
         except Exception as e:
             print("# radio prewarm failed: %s" % str(e))
 
+        global NEXT, PREV, ACT, EXIT
+        import dial_input
+        from dial_ui import DialUI
+        NEXT, PREV, ACT, EXIT = (dial_input.NEXT, dial_input.PREV,
+                                 dial_input.ACT, dial_input.EXIT)
+        self._input = dial_input.DialInput()
+        self.ui = DialUI(self._input)
         self._input.begin()
         self.ui.begin()  # calls m5ui.init(); builds LVGL screens once
-        self._log_mem("after ui.begin (4 LVGL screens)")
+        self._log_mem("after ui.begin (2 LVGL pages)")
         _boot_grace(self.ui)
         try:
             self._init_nfc()
@@ -1094,6 +1099,10 @@ class BdialServer:
             while self.running:
                 self.link.pump(idle_ms=20, drain_ms=40)
                 self._input.update()
+                self.ui.show_hold(
+                    self._input.hold_fraction()
+                    if self._mode == MODE_WRITE and self._write_state != W_MENU
+                    else None)
                 if self._mode == MODE_WRITE:
                     # IDLE deliberately polls nothing: no game on flash means
                     # there is neither a tag to write nor code to serve.

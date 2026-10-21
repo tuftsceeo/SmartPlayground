@@ -34,9 +34,8 @@ Copies, not imports -- fixing one fixes only this copy:
 | `dial_board.py`, `ws1850s.py`, `card_writer.py`, `dial_input.py`, `json_link.py` | `Bag3/Code/BroadcastCode/BroadcastDial/BDialFirmware/` |
 | `game_tags.py` | `Bag3/Code/BroadcastCode/MockWand/lib/` |
 
-`dial_input.py` has diverged on purpose: it adds `hold_fraction()` for the
-hold-progress ring, and `clear()` marks a still-held press as spent so its
-release after a hold does not register as a click.
+`dial_input.py` and `station_fonts.py` are identical to the Broadcast Dial's
+copies; the Dial's `dial_ui.py` is a cut-down port of `station_ui.py`.
 
 ## Controls
 

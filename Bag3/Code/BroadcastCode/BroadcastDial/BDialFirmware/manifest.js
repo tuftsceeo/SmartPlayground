@@ -15,6 +15,7 @@ export const DIAL_FILES = [
     { path: 'dial_board.py', remotePath: '/flash/dial_board.py' },
     { path: 'dial_input.py', remotePath: '/flash/dial_input.py' },
     { path: 'dial_ui.py', remotePath: '/flash/dial_ui.py' },
+    { path: 'station_fonts.py', remotePath: '/flash/station_fonts.py' },
     { path: 'bdial_server.py', remotePath: '/flash/bdial_server.py' },
     { path: 'main.py', remotePath: '/flash/main.py' },
 ];
