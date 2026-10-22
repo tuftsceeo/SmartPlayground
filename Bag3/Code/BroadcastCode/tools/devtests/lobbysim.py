@@ -1,5 +1,5 @@
-"""Scaffolding shared by test_party.py and test_party_games.py: simulated wands
-running party.enter() and a game in virtual-time threads (see wandsim.py).
+"""Scaffolding shared by test_lobby_game.py and test_lobby_games.py: simulated wands
+running lobby_game.enter() and a game in virtual-time threads (see wandsim.py).
 
 Importing this module patches nfc_reader's tag readers and machine.Pin for the
 simulation: a `stop` card appears on a wand's reader at FakeNfc.stop_at, and
@@ -13,7 +13,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import wandsim  # noqa: E402
 
 import nfc_reader  # noqa: E402  (MockWand/lib, via wandsim.setup_paths)
-import party  # noqa: E402
+import lobby_game  # noqa: E402
 import pwire  # noqa: E402
 import splatpair  # noqa: E402
 
@@ -56,17 +56,17 @@ class _FakePin:
 sys.modules["machine"].Pin = _FakePin
 
 NETS = []
-_RealNet = party.Net
+_RealNet = lobby_game.Net
 
 
 class RecNet(_RealNet):
-    """party.Net that records itself, so a test can look at a lobby in progress."""
+    """lobby_game.Net that records itself, so a test can look at a lobby in progress."""
     def __init__(self, *a, **k):
         super().__init__(*a, **k)
         NETS.append(self)
 
 
-party.Net = RecNet
+lobby_game.Net = RecNet
 
 
 def net_of(w):
@@ -105,7 +105,7 @@ class Sc:
         return w
 
     def tap(self, n, at_ms, game, smin=2, smax=None, slug=SLUG, wait_ready=True):
-        """Wand n taps the party game's card at at_ms and then runs game(net, w)."""
+        """Wand n taps the lobby game's card at at_ms and then runs game(net, w)."""
         w = self.wands[n]
 
         def run():
@@ -121,10 +121,10 @@ class Sc:
             if time.ticks_ms() < at_ms:
                 time.sleep_ms(at_ms - time.ticks_ms())
             w.tap_ms = time.ticks_ms()
-            net = party.enter(w.enow, slug, smin, smax, w.ctl, w.mac, w.nfc, w.leds, w.buz,
+            net = lobby_game.enter(w.enow, slug, smin, smax, w.ctl, w.mac, w.nfc, w.leds, w.buz,
                               lambda: w.button)
             w.net = net
-            w.last_end = party.last_end
+            w.last_end = lobby_game.last_end
             w.started_ms = time.ticks_ms() if net is not None else None
             if net is not None:
                 try:

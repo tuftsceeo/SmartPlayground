@@ -2,8 +2,8 @@
 //
 // Virtual peers (js/peers.js) against each other on a manual bus and clock:
 // a leader peer and follower peers through lobby, game and end, in the
-// frames MockWand/lib/party.py sends. The wand's own side of the protocol
-// is tests/test_party.py; tools/sim_run.mjs runs the two together.
+// frames MockWand/lib/lobby_game.py sends. The wand's own side of the protocol
+// is tests/test_lobby_game.py; tools/sim_run.mjs runs the two together.
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -41,7 +41,7 @@ function room(settings = {}) {
 }
 
 /** A lobby with a leader peer (1 Splat) and a follower (1 Splat), started. */
-function started(slug = "partytest") {
+function started(slug = "lobbytest") {
   const r = room();
   const leader = r.add({ mac: "02:00:00:00:01:01", mode: "leader", name: "leader" });
   const follower = r.add({ mac: "02:00:00:00:0b:02", name: "follower" });
@@ -72,8 +72,8 @@ test("splats.js action names match splat_api.py", () => {
   assert.deepEqual(COLOR_RGB.turnpurple, [160, 0, 200]);
 });
 
-test("party.py timing", () => {
-  const src = readFileSync(join(SIM, "vendor/lib/party.py"), "utf8");
+test("lobby_game.py timing", () => {
+  const src = readFileSync(join(SIM, "vendor/lib/lobby_game.py"), "utf8");
   const val = (name) => Number(new RegExp(`^${name} = (\\d+)`, "m").exec(src)[1]);
   assert.equal(PW.FIND_WAIT_MS, val("FIND_WAIT_MS"));
   assert.equal(PW.JOIN_WAIT_MS, val("JOIN_WAIT_MS"));
@@ -195,8 +195,8 @@ test("relaycolor script passes the token around", () => {
   assert.equal(leader.splats[0].color, "turnblue");
 });
 
-test("partytest script: a follower's button lights a pool Splat", () => {
-  const { leader, follower, run } = started("partytest");
+test("lobbytest script: a follower's button lights a pool Splat", () => {
+  const { leader, follower, run } = started("lobbytest");
   follower.button();
   run(20);
   // Pool Splat 0 is the leader's own; lit in the presser's identity color.

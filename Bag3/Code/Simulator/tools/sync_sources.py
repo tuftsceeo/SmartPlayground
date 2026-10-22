@@ -57,11 +57,11 @@ VERBATIM_LIBS = [
     "actions.py",
     "battery.py",
     "espnow_manager.py",
-    # Party games: pwire/party/splatpair run through the transform; pairing
+    # Lobby games: pwire/lobby_game/splatpair run through the transform; pairing
     # and splat_api run sync. Below splat_api, py/shims/splat_hub.py stands
     # in for splat_hub/splat_link/ble_splat (BLE).
     "pwire.py",
-    "party.py",
+    "lobby_game.py",
     "splatpair.py",
     "pairing.py",
     "splat_api.py",
@@ -104,7 +104,7 @@ GAMES = [
     "goalrace.py",
     "color_quest.py",
     "finddevice.py",
-    "partytest.py",
+    "lobbytest.py",
     "splattag.py",
     "relaycolor.py",
     "target.py",

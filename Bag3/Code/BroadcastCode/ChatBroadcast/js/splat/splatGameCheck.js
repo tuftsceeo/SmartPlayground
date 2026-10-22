@@ -1,6 +1,6 @@
 /**
  * Send-time checks for a wand game's Splat declarations and its use of
- * `net` (MockWand/lib/party.py; SPEC section 6).
+ * `net` (MockWand/lib/lobby_game.py; SPEC section 6).
  *
  * The device reads SPLATS_MIN / SPLATS_MAX with getattr()
  * and int() after the module loads, and passes `net` only to a play() that
@@ -61,8 +61,8 @@ export function splatGameProblems(code) {
     if (local !== undefined) {
         out.push('The wand has no solo Splat games (SPLATS_LOCAL); use SPLATS_MIN = 1 for a one-wand game.');
     }
-    // net.poll() reads the radio itself (MockWand/lib/party.py): an
-    // enow.poll() in a Splat game takes party frames away from it.
+    // net.poll() reads the radio itself (MockWand/lib/lobby_game.py): an
+    // enow.poll() in a Splat game takes lobby game frames away from it.
     if (min !== undefined && /(^|[^\w.])enow\s*\.\s*poll\s*\(/m.test(body)) {
         out.push('A Splat game must not call enow.poll(): net.poll() reads the radio and returns ("end",) on stop.');
     }

@@ -1,12 +1,12 @@
 /**
  * Headless room: the simulated wand (Pyodide, js/pyboot.js), its Splats and
- * virtual peers (js/party.js) on one bus and clock, with no DOM. Used by
+ * virtual peers (js/lobby_game.js) on one bus and clock, with no DOM. Used by
  * tools/sim_run.mjs; runs anywhere Pyodide does.
  *
  *   createHeadlessRoom({ pyodide, readText, scale })
  *     scale: virtual ms per real ms (the clock and time_patch share it)
  *
- *   simRunWith(room, { game | code, seconds, seed }) runs a party game
+ *   simRunWith(room, { game | code, seconds, seed }) runs a lobby game
  *   through the scenarios below and returns
  *     { ok, exceptions[], unhandled[], warnings[], scenarios[], prints[] }
  *
@@ -26,7 +26,7 @@ import { createBus, BROADCAST } from "./bus.js";
 import { createClock } from "./clock.js";
 import { hexToBytes } from "./radio.js";
 import { bootWand, wireCallbacks, attachWand } from "./pyboot.js";
-import { createPartyHost } from "./party.js";
+import { createLobbyGameHost } from "./lobby_game.js";
 import { PW } from "./peers.js";
 
 export const WAND_MAC = "02:00:00:00:0a:01";
@@ -58,13 +58,13 @@ export async function createHeadlessRoom({ pyodide, readText, scale = 4 }) {
       return dst === BROADCAST || bus.macs().includes(dst) ? 1 : 0;
     },
   });
-  const party = createPartyHost({ bus, clock, py: pyodide, wandMac: WAND_MAC });
+  const lobbyGame = createLobbyGameHost({ bus, clock, py: pyodide, wandMac: WAND_MAC });
   const rt = pyodide.pyimport("runtime").get_runtime();
   const simState = pyodide.pyimport("sim_state");
   const room = {
-    pyodide, clock, bus, party, out, rt,
+    pyodide, clock, bus, lobbyGame, out, rt,
     dispose() {
-      party.dispose();
+      lobbyGame.dispose();
       wandLink.detach();
     },
     /** Wait `ms` of virtual time. */
@@ -80,7 +80,7 @@ export async function createHeadlessRoom({ pyodide, readText, scale = 4 }) {
     start: () => pyodide.runPythonAsync("await start()"),
     stop: () => pyodide.runPythonAsync("await stop()"),
     running: () => rt.is_running(),
-    /** party.Net phase of the running game ("game", "ended", ...) or null. */
+    /** lobby_game.Net phase of the running game ("game", "ended", ...) or null. */
     netPhase() {
       const net = rt.net;
       if (net === undefined || net === null) return null;
@@ -119,11 +119,11 @@ async function until(room, test, ms, step = 50) {
 }
 
 /** Every Splat in the room: [{ press(down), label }]. */
-function allSplats(party) {
-  const list = party.wandSplats.map((s, i) => ({
-    label: `wand Splat ${i}`, press: (down) => party.wandSplatButton(i, down),
+function allSplats(lobbyGame) {
+  const list = lobbyGame.wandSplats.map((s, i) => ({
+    label: `wand Splat ${i}`, press: (down) => lobbyGame.wandSplatButton(i, down),
   }));
-  for (const { peer } of party.peers) {
+  for (const { peer } of lobbyGame.peers) {
     peer.splats.forEach((s, i) => list.push({
       label: `${peer.name} Splat ${i}`, press: (down) => peer.splatButton(i, down),
     }));
@@ -138,7 +138,7 @@ async function randomPlay(room, ms, rand, actions) {
     await room.wait(300 + rand() * 600);
     const r = rand();
     if (r < 0.6) {
-      const splats = allSplats(room.party);
+      const splats = allSplats(room.lobbyGame);
       if (!splats.length) continue;
       const s = splats[Math.floor(rand() * splats.length)];
       s.press(true);
@@ -148,22 +148,22 @@ async function randomPlay(room, ms, rand, actions) {
     } else if (r < 0.8) {
       await room.button();
       actions.push("wand button");
-    } else if (room.party.peers.length) {
-      const { peer } = room.party.peers[Math.floor(rand() * room.party.peers.length)];
+    } else if (room.lobbyGame.peers.length) {
+      const { peer } = room.lobbyGame.peers[Math.floor(rand() * room.lobbyGame.peers.length)];
       peer.button();
       actions.push(`${peer.name} button`);
     }
   }
 }
 
-function resetPeers(party) {
-  for (const { peer } of [...party.peers]) party.removePeer(peer);
+function resetPeers(lobbyGame) {
+  for (const { peer } of [...lobbyGame.peers]) lobbyGame.removePeer(peer);
 }
 
 /** Follower peers with one Splat each until the lobby (wand included) reaches `need`. */
-function addFollowers(party, have, need, max) {
+function addFollowers(lobbyGame, have, need, max) {
   while (have < need && (max === null || have < max)) {
-    party.addPeer({ mode: "follower", splats: 1 });
+    lobbyGame.addPeer({ mode: "follower", splats: 1 });
     have += 1;
   }
   return have;
@@ -177,17 +177,17 @@ function gone(room, res) {
 }
 
 async function scenarioLead(room, slug, caps, seconds, rand) {
-  const { party } = room;
+  const { lobbyGame } = room;
   const res = { name: "lead", problems: [], warnings: [], actions: [] };
-  resetPeers(party);
+  resetPeers(lobbyGame);
   const smin = caps.splats_min ?? 1;
   const smax = caps.splats_max ?? null;
-  // At least one peer, so there is a party to play with.
-  addFollowers(party, party.wandSplats.length, Math.max(smin, party.wandSplats.length + 1), smax);
-  party.setGame(slug, caps);
+  // At least one peer, so there is a lobby game to play with.
+  addFollowers(lobbyGame, lobbyGame.wandSplats.length, Math.max(smin, lobbyGame.wandSplats.length + 1), smax);
+  lobbyGame.setGame(slug, caps);
   await room.start();
   const joined = await until(room, () => {
-    const lobby = party.peers.every(({ peer }) => peer.state === "lobby" || peer.state === "game");
+    const lobby = lobbyGame.peers.every(({ peer }) => peer.state === "lobby" || peer.state === "game");
     return lobby || room.netPhase() === "game" || !room.running();
   }, 4000);
   if (!joined) {
@@ -214,17 +214,17 @@ async function scenarioLead(room, slug, caps, seconds, rand) {
 }
 
 async function scenarioFollow(room, slug, caps, seconds, rand, { lose }) {
-  const { party } = room;
+  const { lobbyGame } = room;
   const res = { name: lose ? "lost" : "follow", problems: [], warnings: [], actions: [] };
-  resetPeers(party);
+  resetPeers(lobbyGame);
   const smin = caps.splats_min ?? 1;
   const smax = caps.splats_max ?? null;
-  const leader = party.addPeer({ mode: "leader", splats: smin > party.wandSplats.length + 1 ? 2 : 1 });
-  addFollowers(party, party.wandSplats.length + leader.splats.length, smin, smax);
-  party.setGame(slug, caps);
+  const leader = lobbyGame.addPeer({ mode: "leader", splats: smin > lobbyGame.wandSplats.length + 1 ? 2 : 1 });
+  addFollowers(lobbyGame, lobbyGame.wandSplats.length + leader.splats.length, smin, smax);
+  lobbyGame.setGame(slug, caps);
   await room.wait(100);
   await room.start();
-  const all = party.peers.length + 1;
+  const all = lobbyGame.peers.length + 1;
   if (!await until(room, () => (leader.members.length >= all && leader.canStart()) || !room.running(), 4000)) {
     res.problems.push(`the wand did not join the leader's lobby (${leader.members.length} of ${all} wands)`);
     return res;
@@ -242,7 +242,7 @@ async function scenarioFollow(room, slug, caps, seconds, rand, { lose }) {
     return res;
   }
   if (lose) {
-    party.peerDropped(leader, true);
+    lobbyGame.peerDropped(leader, true);
     if (!await until(room, () => !room.running(), PW.WAND_LOST_MS + RETURN_MS)) {
       res.problems.push("leader_lost");
     }
@@ -254,7 +254,7 @@ async function scenarioFollow(room, slug, caps, seconds, rand, { lose }) {
 }
 
 /**
- * Run a party game through the lead, follow and lost scenarios. `game` is a
+ * Run a lobby game through the lead, follow and lost scenarios. `game` is a
  * vendored game's name, `code` a game's source; seconds is the lead
  * scenario's play time (follow plays half of it).
  */
@@ -268,8 +268,8 @@ export async function simRunWith(room, { game = null, code = null, seconds = 20,
     result.exceptions.push(`load: ${String(err.message || err).split("\n").filter(Boolean).pop()}`);
     return result;
   }
-  if (!caps.party) {
-    result.warnings.push("not a party game (no SPLATS_MIN); nothing to simulate");
+  if (!caps.lobby_game) {
+    result.warnings.push("not a lobby game (no SPLATS_MIN); nothing to simulate");
     result.ok = true;
     return result;
   }
@@ -289,7 +289,7 @@ export async function simRunWith(room, { game = null, code = null, seconds = 20,
       res = { name: "?", problems: [`harness: ${err.message || err}`], warnings: [], actions: [] };
     }
     await room.stop();
-    room.party.setGame(null, null);
+    room.lobbyGame.setGame(null, null);
     await room.wait(PW.WAND_LOST_MS);  // let the last game's peers time out
     for (const e of room.out.errors) result.exceptions.push(`${res.name}: ${e}`);
     for (const p of res.problems) {

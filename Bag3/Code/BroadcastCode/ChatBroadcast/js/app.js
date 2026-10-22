@@ -1744,7 +1744,7 @@ class App {
                 // don't mount a sim into a panel nobody is looking at.
                 if (token !== this._detailSimToken) return;
                 // <sim-room>: the wand plus whatever the game uses beside it
-                // (Splats and peer wands for a party game, the icon display
+                // (Splats and peer wands for a lobby game, the icon display
                 // for a two-device one).
                 const sim = document.createElement('sim-room');
                 sim.id = 'detail-sim';
@@ -2233,7 +2233,7 @@ class App {
      *
      * #wand-sim is a <sim-room>: the wand, plus the panels the game uses
      * (the icon display for a two-device game, Splats and virtual peer
-     * wands for a party game). It takes the same calls <wand-sim> did. */
+     * wands for a lobby game). It takes the same calls <wand-sim> did. */
     setupSim() {
         if (this._simLoadPromise) return this._simLoadPromise;
         dbg('app', 'setupSim() — loading sim-room module');

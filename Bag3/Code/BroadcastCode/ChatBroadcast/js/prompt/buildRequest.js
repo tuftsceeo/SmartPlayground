@@ -34,7 +34,7 @@ export const SHARED_KNOWLEDGE = [
     'knowledge/policy.md',
     'knowledge/platform.md',
     'knowledge/game_patterns.md',
-    'knowledge/party_games.md',
+    'knowledge/lobby_games.md',
     'knowledge/troubleshooting.md',
 ];
 /** Addendum sent only in Advanced UI mode. */

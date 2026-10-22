@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 /**
- * Run a party game headless: the simulated wand in Pyodide under Node, with
+ * Run a lobby game headless: the simulated wand in Pyodide under Node, with
  * virtual peer wands and Splats (js/headless.js). No browser.
  *
- *   node Bag3/Code/Simulator/tools/sim_run.mjs --game partytest [--seconds 20] [--seed 1] [--scale 4]
+ *   node Bag3/Code/Simulator/tools/sim_run.mjs --game lobbytest [--seconds 20] [--seed 1] [--scale 4]
  *   node Bag3/Code/Simulator/tools/sim_run.mjs --file my_game.py
  *   --verbose also prints everything the wand printed.
  *
@@ -51,7 +51,7 @@ async function bootPyodide() {
   return loadPyodide({ indexURL: dir + "/", stdout: () => {}, stderr: () => {} });
 }
 
-/** Run one party game headless; see js/headless.js simRunWith for the result. */
+/** Run one lobby game headless; see js/headless.js simRunWith for the result. */
 export async function simRun({ code = null, game = null, seconds = 20, seed = 1, scale = 4 } = {}) {
   const pyodide = await bootPyodide();
   const room = await createHeadlessRoom({
@@ -73,7 +73,7 @@ function arg(name, fallback) {
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const file = arg("file", null);
   const opts = {
-    game: file ? null : arg("game", "partytest"),
+    game: file ? null : arg("game", "lobbytest"),
     code: file ? readFileSync(file, "utf8") : null,
     seconds: Number(arg("seconds", 20)),
     seed: Number(arg("seed", 1)),

@@ -1,5 +1,5 @@
 /**
- * Party side of a room, without DOM: the simulated wand's own Splats, the
+ * Lobby game side of a room, without DOM: the simulated wand's own Splats, the
  * virtual peer wands (js/peers.js) and the pw_* traffic between them. Used
  * by <sim-room> (browser) and js/headless.js (Node).
  *
@@ -7,13 +7,13 @@
  * their writes arrive here and are drawn on js/splats.js models, and a
  * press here goes back as splat_hub.press(). Peers are plain JS on the bus.
  *
- *   createPartyHost({ bus, clock, py, wandMac })
+ *   createLobbyGameHost({ bus, clock, py, wandMac })
  *     .wandSplats              Splat models, in local order
  *     .peers                   [{ peer, link }]
  *     .setLocalSplats(n)       0..2; takes effect at the wand's next start
  *     .wandSplatButton(i, down) / .wandSplatReady(i, up)
  *     .addPeer({ mode, splats }) / .removePeer(peer)
- *     .setGame(slug, caps)     tap every peer into a party game, or untap
+ *     .setGame(slug, caps)     tap every peer into a lobby game, or untap
  *     .peerDropped(peer, on)
  *     .onChange(fn)            any model change (for redraws)
  *     .onPwLog(fn)             one line per pw_* frame sent on the bus
@@ -27,7 +27,7 @@ import { createPeer, attachPeer, decodePw, wandMac as upperMac } from "./peers.j
 const FOLLOWER_BASE = 0x0b;
 const LEADER_BASE = 0x01;
 
-export function createPartyHost({ bus, clock, py, wandMac }) {
+export function createLobbyGameHost({ bus, clock, py, wandMac }) {
   const listeners = new Set();
   const logListeners = new Set();
   const host = {
@@ -112,7 +112,7 @@ export function createPartyHost({ bus, clock, py, wandMac }) {
     names.set(peer.mac, peer.name);
     const link = attachPeer(bus, peer);
     host.peers.push({ peer, link });
-    if (host.caps?.party) tap(peer);
+    if (host.caps?.lobby_game) tap(peer);
     changed();
     return peer;
   };
@@ -135,13 +135,13 @@ export function createPartyHost({ bus, clock, py, wandMac }) {
     peer.tap(host.slug, { smin: host.caps.splats_min ?? 1, smax: host.caps.splats_max ?? null });
   }
 
-  /** A game was loaded: peers tap its card if it is a party game. */
+  /** A game was loaded: peers tap its card if it is a lobby game. */
   host.setGame = (slug, caps) => {
     host.slug = slug;
     host.caps = caps;
     syncWandSplats();
     for (const { peer } of host.peers) {
-      if (caps?.party) tap(peer);
+      if (caps?.lobby_game) tap(peer);
       else peer.untap();
     }
     changed();
@@ -149,7 +149,7 @@ export function createPartyHost({ bus, clock, py, wandMac }) {
 
   /** Re-tap every peer (the room restarted the game). */
   host.retap = () => {
-    if (!host.caps?.party) return;
+    if (!host.caps?.lobby_game) return;
     for (const { peer } of host.peers) tap(peer);
     changed();
   };

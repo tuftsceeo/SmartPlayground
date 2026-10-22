@@ -1,10 +1,10 @@
-"""Party games through main.py (A6): the lobby before play(), the 8-parameter
+"""Lobby games through main.py (A6): the lobby before play(), the 8-parameter
 play() contract, invalid SPLATS_* declarations, net.close() on every exit.
 
 The real main.py idle loop launches games from scripted cards; other wands on
-the fake bus run party.enter() as peers.
+the fake bus run lobby_game.enter() as peers.
 
-Run: python3 tools/devtests/boot_wand_party.py
+Run: python3 tools/devtests/boot_wand_lobby_game.py
 """
 import os
 import shutil
@@ -25,7 +25,7 @@ sys.modules["gamelog"] = gamelog
 PEER_MAC = "AA:00:00:00:00:21"
 NONE = [None]
 
-PARTY8 = '''
+LOBBY8 = '''
 import gamelog
 import time
 SPLATS_MIN = 2
@@ -33,7 +33,7 @@ SPLATS_MAX = None
 
 
 def play(nfc, leds, buz, accel, i2c, enow, batt=None, net=None):
-    gamelog.calls.append(("party8", net is not None and net.is_leader,
+    gamelog.calls.append(("lobby8", net is not None and net.is_leader,
                           net.splat_count, len(net.wands), net.me))
     end = time.ticks_ms() + gamelog.run_ms
     while time.ticks_ms() < end:
@@ -43,7 +43,7 @@ def play(nfc, leds, buz, accel, i2c, enow, batt=None, net=None):
         time.sleep_ms(1)
 '''
 GAMES = {
-    "pgame": PARTY8,
+    "pgame": LOBBY8,
     "plain8": '''
 import gamelog
 def play(nfc, leds, buz, accel, i2c, enow, batt=None, net=None):
@@ -59,9 +59,9 @@ import gamelog
 def play(nfc, leds, buz, accel, i2c, enow):
     gamelog.calls.append(("old6",))
 ''',
-    "badmin": PARTY8.replace("SPLATS_MIN = 2", "SPLATS_MIN = 0"),
-    "badmax": PARTY8.replace("SPLATS_MIN = 2", "SPLATS_MIN = 3").replace("SPLATS_MAX = None", "SPLATS_MAX = 2"),
-    "badtype": PARTY8.replace("SPLATS_MIN = 2", 'SPLATS_MIN = "2"'),
+    "badmin": LOBBY8.replace("SPLATS_MIN = 2", "SPLATS_MIN = 0"),
+    "badmax": LOBBY8.replace("SPLATS_MIN = 2", "SPLATS_MIN = 3").replace("SPLATS_MAX = None", "SPLATS_MAX = 2"),
+    "badtype": LOBBY8.replace("SPLATS_MIN = 2", 'SPLATS_MIN = "2"'),
     "boomy": '''
 import gamelog
 SPLATS_MIN = 2
@@ -97,7 +97,7 @@ def peer(b, mac=PEER_MAC, splats=(), at_ms=0, slug="pgame", smin=2, smax=None, g
     b.peer = w
 
     def run():
-        import party
+        import lobby_game
         import splatpair
         ctl = None
         if splats:
@@ -108,10 +108,10 @@ def peer(b, mac=PEER_MAC, splats=(), at_ms=0, slug="pgame", smin=2, smax=None, g
                 time.sleep_ms(5)
         if time.ticks_ms() < at_ms:
             time.sleep_ms(at_ms - time.ticks_ms())
-        net = party.enter(w.enow, slug, smin, smax, ctl, mac, w.nfc, w.leds, w.buz,
+        net = lobby_game.enter(w.enow, slug, smin, smax, ctl, mac, w.nfc, w.leds, w.buz,
                           lambda: w.button)
         w.net = net
-        w.last_end = party.last_end
+        w.last_end = lobby_game.last_end
         if net is not None:
             end = time.ticks_ms() + game_ms
             try:
@@ -142,10 +142,10 @@ def lead_setup(b):
 
 b = boot(macs=[A], in_range=[A], games=GAMES, cards=NONE * 25 + ["pgame"] + NONE * 40, setup=lead_setup)
 m = b.m
-check("the party game's module was unloaded after the game", "pgame" not in sys.modules)
-calls = [c for c in gamelog.calls if c[0] == "party8"]
-check("a party game is entered through a lobby and play() gets a Net: leader, 2 Splats, 2 wands, me=0",
-      calls == [("party8", True, 2, 2, 0)], str(gamelog.calls))
+check("the lobby game's module was unloaded after the game", "pgame" not in sys.modules)
+calls = [c for c in gamelog.calls if c[0] == "lobby8"]
+check("a lobby game is entered through a lobby and play() gets a Net: leader, 2 Splats, 2 wands, me=0",
+      calls == [("lobby8", True, 2, 2, 0)], str(gamelog.calls))
 check("the peer joined as follower", b.peer.net is not None and not b.peer.net.is_leader, str(b.peer.last_end))
 check("the leader's game ending ends the follower's ('end',)", ("end",) in b.peer.events, str(b.peer.events[-2:]))
 check("game_start was emitted after the lobby, game_end after play",
@@ -167,16 +167,16 @@ def follow_setup(b):
 
 
 b = boot(macs=[A], in_range=[A], games=GAMES, cards=NONE * 25 + ["pgame"] + NONE * 30, setup=follow_setup)
-calls = [c for c in gamelog.calls if c[0] == "party8"]
+calls = [c for c in gamelog.calls if c[0] == "lobby8"]
 check("a wand tapping an open lobby plays as a follower: not leader, 2 Splats, me=1",
-      calls == [("party8", False, 2, 2, 1)], str(gamelog.calls))
+      calls == [("lobby8", False, 2, 2, 1)], str(gamelog.calls))
 
 # ── Arity: 6, 7 and 8 parameter play() ──
 reset_log()
 b = boot(games=GAMES, cards=NONE * 2 + ["old6", "old7", "plain8"] + NONE * 5)
 check("an older six-parameter play() still runs", ("old6",) in gamelog.calls, str(gamelog.calls))
 check("a seven-parameter play() still runs, batt passed", any(c[0] == "old7" for c in gamelog.calls))
-check("an eight-parameter play() of a non-party game gets net=None", ("plain8", None) in gamelog.calls,
+check("an eight-parameter play() of a non-lobby game gets net=None", ("plain8", None) in gamelog.calls,
       str(gamelog.calls))
 
 # ── Invalid declarations are load failures, not crashes ──
@@ -242,7 +242,7 @@ check("a Splat card in the lobby: no game, the wand pairs it and resets",
       not gamelog.calls and b.reset and wandboot.pairing_file() == [B], str(wandboot.pairing_file()))
 check("...and /pair_boot is written so the next boot keeps the pairing", os.path.exists(wandboot.PAIR_BOOT))
 
-# ── A party game whose play() has no net parameter still runs after its lobby ──
+# ── A lobby game whose play() has no net parameter still runs after its lobby ──
 reset_log()
 
 
@@ -258,7 +258,7 @@ check("a SPLATS_MIN game whose play() takes seven parameters runs after its lobb
 
 # ── The shipped demo games are playable cards through main.py ──
 demo = {}
-for slug in ("partytest", "splattag", "relaycolor"):
+for slug in ("lobbytest", "splattag", "relaycolor"):
     with open(os.path.join(wandsim.WAND_DIR, "games", slug + ".py")) as f:
         demo[slug] = f.read()
 b = boot(games=demo, cards=NONE * 2)
@@ -268,9 +268,9 @@ for slug in demo:
     m._load_play(slug)
     limits[slug] = m._splat_limits(slug)
     sys.modules.pop(slug, None)
-check("partytest, splattag and relaycolor are cards a wand plays, declaring their SPLATS_MIN / MAX",
-      limits == {"partytest": (2, None), "splattag": (2, None), "relaycolor": (1, None)}
+check("lobbytest, splattag and relaycolor are cards a wand plays, declaring their SPLATS_MIN / MAX",
+      limits == {"lobbytest": (2, None), "splattag": (2, None), "relaycolor": (1, None)}
       and all(m.is_game(s) for s in demo), str(limits))
 
 shutil.rmtree(wandboot.TMP, ignore_errors=True)
-check.finish("wand party boot OK")
+check.finish("wand lobby game boot OK")

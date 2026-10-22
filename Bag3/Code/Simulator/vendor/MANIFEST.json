@@ -80,6 +80,11 @@
       "source": "Bag3/Code/BroadcastCode/MockWand/jumpin.py",
       "vendor_sha256": "119533f2d7174ea9de58c40dba2591de03e1931edf3c2c0c86c1082c0c23e979"
     },
+    "games/lobbytest.py": {
+      "sha256": "6af6cff40a69844fed0a97161c43154184f8a4b75242aee8cd4ce4e623c75fb1",
+      "source": "Bag3/Code/BroadcastCode/MockWand/games/lobbytest.py",
+      "vendor_sha256": "6af6cff40a69844fed0a97161c43154184f8a4b75242aee8cd4ce4e623c75fb1"
+    },
     "games/melody.py": {
       "sha256": "9301a1f461aa2d9e45cabbf016df430ea8339cf1402a92bbca2ff4d1244ffda9",
       "source": "Bag3/Code/BroadcastCode/MockWand/melody.py",
@@ -95,20 +100,15 @@
       "source": "Bag3/Code/BroadcastCode/MockWand/nfc_sound.py",
       "vendor_sha256": "6cb7858cc228f4f017f11f693c4a2a6837eadfe31e8b48bd58d8ab32b16eb24b"
     },
-    "games/partytest.py": {
-      "sha256": "d8cd72223b1cd6499a62281e04d0454293f50b85488aa21ec58a27d738785cd1",
-      "source": "Bag3/Code/BroadcastCode/MockWand/games/partytest.py",
-      "vendor_sha256": "d8cd72223b1cd6499a62281e04d0454293f50b85488aa21ec58a27d738785cd1"
-    },
     "games/rainbow.py": {
       "sha256": "e5e2d177579e824bc667159add8f5592b81291975f7416b5d8a3556057e13126",
       "source": "Bag3/Code/BroadcastCode/MockWand/rainbow.py",
       "vendor_sha256": "e5e2d177579e824bc667159add8f5592b81291975f7416b5d8a3556057e13126"
     },
     "games/relaycolor.py": {
-      "sha256": "2355185b923d9ed0c30427a9c40fe25a94ce8f05042671e2ae75ce80834ef9ab",
+      "sha256": "3e0126f7cb7a817e71d09c8385f2dce59cf1075216aeb6e7123e7edf0aedcc94",
       "source": "Bag3/Code/BroadcastCode/MockWand/games/relaycolor.py",
-      "vendor_sha256": "2355185b923d9ed0c30427a9c40fe25a94ce8f05042671e2ae75ce80834ef9ab"
+      "vendor_sha256": "3e0126f7cb7a817e71d09c8385f2dce59cf1075216aeb6e7123e7edf0aedcc94"
     },
     "games/shake.py": {
       "sha256": "42f6616dc367e0e99875f702526ec70f12e0ef3603cae7cff622cf22e25725eb",
@@ -131,9 +131,9 @@
       "vendor_sha256": "42852e2c90691a0453267346fb731d14ffb815d014230d88b244359c1460700a"
     },
     "games/splattag.py": {
-      "sha256": "8f8860c8214ef80ed38294b0d5fa1236fa77a0939dbd2ff150bacce5d01c100d",
+      "sha256": "50cace8e87e54c19976c313a3f493c95d5d54940a3145725db857eab91ad9ea4",
       "source": "Bag3/Code/BroadcastCode/MockWand/games/splattag.py",
-      "vendor_sha256": "8f8860c8214ef80ed38294b0d5fa1236fa77a0939dbd2ff150bacce5d01c100d"
+      "vendor_sha256": "50cace8e87e54c19976c313a3f493c95d5d54940a3145725db857eab91ad9ea4"
     },
     "games/target.py": {
       "sha256": "fcdcf809792b7d0cea85367511ab89a9b32c0707021ab87de9af972c475c5c36",
@@ -171,9 +171,9 @@
       "vendor_sha256": "ffaea0f4ad1154ee12782b444fabbe48833b2aff7ee7e2c6fec9126112848956"
     },
     "lib/game_tags.py": {
-      "sha256": "185196017bd649b61cefb8c6f1fc3079ea2ebfd35eb3490542853a1f8cd4b601",
+      "sha256": "638d9b4ee13b19278c9db08db39726f278581ed9c195d8e687ea5dc3a0087710",
       "source": "Bag3/Code/BroadcastCode/MockWand/lib/game_tags.py",
-      "vendor_sha256": "185196017bd649b61cefb8c6f1fc3079ea2ebfd35eb3490542853a1f8cd4b601"
+      "vendor_sha256": "638d9b4ee13b19278c9db08db39726f278581ed9c195d8e687ea5dc3a0087710"
     },
     "lib/hubtype.py": {
       "sha256": "bb3e1b1e32d298e1707e63dfea553e7018b77a2c0193046cfdbbe1fea73a22d1",
@@ -185,20 +185,20 @@
       "source": "Bag3/Code/BroadcastCode/MockWand/lib/leds.py",
       "vendor_sha256": "b71ea4907a7543902f24fcf2658450688817d83dfaca74f030aa4217b679eef6"
     },
+    "lib/lobby_game.py": {
+      "sha256": "8502d52d6563b5c857c4b7fe48a107cf23bd5606aaaa7fd3528417c7107fd07b",
+      "source": "Bag3/Code/BroadcastCode/MockWand/lib/lobby_game.py",
+      "vendor_sha256": "8502d52d6563b5c857c4b7fe48a107cf23bd5606aaaa7fd3528417c7107fd07b"
+    },
     "lib/pairing.py": {
       "sha256": "615e38339d682855d5c6227fa095b64a4ca858b66ebf2e7be54d9edd8a81bb60",
       "source": "Bag3/Code/BroadcastCode/MockWand/lib/pairing.py",
       "vendor_sha256": "615e38339d682855d5c6227fa095b64a4ca858b66ebf2e7be54d9edd8a81bb60"
     },
-    "lib/party.py": {
-      "sha256": "6b1ec502f20d1c064775a8abd4140c7a7ae11be80671189ffa968efa73bf1d1c",
-      "source": "Bag3/Code/BroadcastCode/MockWand/lib/party.py",
-      "vendor_sha256": "6b1ec502f20d1c064775a8abd4140c7a7ae11be80671189ffa968efa73bf1d1c"
-    },
     "lib/pwire.py": {
-      "sha256": "fd0b0417b93676a953ad4f8204977f772a8f5d978667a197fe1bde3fcffbf297",
+      "sha256": "14a58af47870364104eb17f927dcd7ca21661406fed512c7bbb0b671ace85281",
       "source": "Bag3/Code/BroadcastCode/MockWand/lib/pwire.py",
-      "vendor_sha256": "fd0b0417b93676a953ad4f8204977f772a8f5d978667a197fe1bde3fcffbf297"
+      "vendor_sha256": "14a58af47870364104eb17f927dcd7ca21661406fed512c7bbb0b671ace85281"
     },
     "lib/splat_api.py": {
       "sha256": "793638859231d52cca98560ae64d5212818811c58f7abe66e590419e4053b340",
@@ -206,9 +206,9 @@
       "vendor_sha256": "793638859231d52cca98560ae64d5212818811c58f7abe66e590419e4053b340"
     },
     "lib/splatpair.py": {
-      "sha256": "f5ebc32d055b16dd06eb7ef912981404d30c18499183926481ab487e7204f4e8",
+      "sha256": "8ed8f61d932e11a5810ba3d068efc3cf006471776fe63f4b49f0c4a9358b812c",
       "source": "Bag3/Code/BroadcastCode/MockWand/lib/splatpair.py",
-      "vendor_sha256": "f5ebc32d055b16dd06eb7ef912981404d30c18499183926481ab487e7204f4e8"
+      "vendor_sha256": "8ed8f61d932e11a5810ba3d068efc3cf006471776fe63f4b49f0c4a9358b812c"
     }
   },
   "version": 1

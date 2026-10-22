@@ -1,4 +1,4 @@
-"""Shared CPython harness for the MockWand pairing and party tests.
+"""Shared CPython harness for the MockWand pairing and lobby game tests.
 
 Virtual time, cooperative threads, a fake ESP-NOW bus and fake BLE Splats.
 Nothing here runs on a device.

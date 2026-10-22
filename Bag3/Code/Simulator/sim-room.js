@@ -4,12 +4,12 @@
  *
  * The wand is always shown. Panels come from a registry and appear only when
  * `wants(capabilities)` says the loaded game uses them; capabilities are
- * py/runtime.py get_capabilities() (party, local_splats, splats_min,
+ * py/runtime.py get_capabilities() (lobby_game, local_splats, splats_min,
  * splats_max, uses_display, has_display_file, ...). Built in here: the
  * icon displays (js/panels/display.js), which are devices of their own that
- * a game with a display file wakes, and for a party game the Splat
+ * a game with a display file wakes, and for a lobby game the Splat
  * panel (js/panels/splats.js), which draws the wand's own Splats from the
- * room's party host (js/party.js), and the other wands (js/panels/wands.js).
+ * room's lobby game host (js/lobby_game.js), and the other wands (js/panels/wands.js).
  * A game has no other wands unless its settings say it is for more than
  * one, or "+ Add a wand" adds one; each is a real <wand-sim> on the room's
  * bus once clicked.
@@ -29,7 +29,7 @@
  * Every icon display gets start_game for a game with a display file. Its
  * prints leave as display-print events (detail: { text, mac }).
  *   bus, clock     the room's bus (js/bus.js) and clock (js/clock.js)
- *   party          the party host (js/party.js), once the wand has booted
+ *   lobbyGame      the lobby game host (js/lobby_game.js), once the wand has booted
  *   wand           the inner <wand-sim>
  *   capabilities   the last capabilities, or null
  *   autostart, profile   passed to the inner <wand-sim>
@@ -43,7 +43,7 @@
  * showOverlay(), hideOverlay().
  *
  * Events: room-capabilities (detail: capabilities), room-radio (detail:
- * { text, type }: one line per pw_* party frame on the bus), and <wand-sim>'s own
+ * { text, type }: one line per pw_* lobby game frame on the bus), and <wand-sim>'s own
  * events (FORWARDED below), re-dispatched from the room so a host page can
  * listen on the room itself.
  */
@@ -55,7 +55,7 @@ import { hexToBytes } from "./js/radio.js";
 import { createDisplaysPanel, DISPLAY_STYLE, ROOM_MAC } from "./js/panels/display.js";
 import { createSplatPanel, SPLAT_STYLE } from "./js/panels/splats.js";
 import { createWandsPanel, WANDS_STYLE } from "./js/panels/wands.js";
-import { createPartyHost } from "./js/party.js";
+import { createLobbyGameHost } from "./js/lobby_game.js";
 import { WAND_RGB, identityName } from "./js/peers.js";
 import { attachWand } from "./js/pyboot.js";
 
@@ -109,7 +109,7 @@ class SimRoom extends HTMLElement {
     this._panels = new Map(); // id -> { spec, box, instance }
     this._manifest = null;
     this._loadSeq = 0;
-    this.party = null;
+    this.lobbyGame = null;
     this._profile = null;
     this._autostart = null;
     this._settings = null;
@@ -244,7 +244,7 @@ class SimRoom extends HTMLElement {
   }
 
   restart() {
-    this.party?.retap();
+    this.lobbyGame?.retap();
     this.panel("wands")?.restart();
     return this.wand?.restart();
   }
@@ -261,9 +261,9 @@ class SimRoom extends HTMLElement {
     const py = this.wand.pyodide;
     attachWand(py, { bus: this.bus, clock: this.clock, mac: WAND_MAC, tx: (s, d, h) => this._tx(s, d, h) });
     py.pyimport("runtime").set_game_splats(this.gameSplats);
-    this.party = createPartyHost({ bus: this.bus, clock: this.clock, py, wandMac: WAND_MAC });
+    this.lobbyGame = createLobbyGameHost({ bus: this.bus, clock: this.clock, py, wandMac: WAND_MAC });
     let queued = false;
-    this.party.onChange(() => {
+    this.lobbyGame.onChange(() => {
       if (queued) return;
       queued = true;
       requestAnimationFrame(() => {
@@ -271,7 +271,7 @@ class SimRoom extends HTMLElement {
         this.panel("splats")?.sync();
       });
     });
-    this.party.onPwLog((text, frame) => {
+    this.lobbyGame.onPwLog((text, frame) => {
       this.dispatchEvent(new CustomEvent("room-radio", { detail: { text, type: frame.type } }));
     });
   }
@@ -328,7 +328,7 @@ class SimRoom extends HTMLElement {
     this.capabilities = caps;
     this._display = display;
     this._displaySlug = display ? display.slug : null;
-    this.party?.setGame(this._source ? "custom" : this.wand.game.replace(/\.py$/, ""), caps);
+    this.lobbyGame?.setGame(this._source ? "custom" : this.wand.game.replace(/\.py$/, ""), caps);
     this.dispatchEvent(new CustomEvent("room-capabilities", { detail: caps }));
     // Show and hide every panel first: an update can take a while (the
     // display boots its own Pyodide), and a panel the new game does not use
@@ -367,12 +367,12 @@ class SimRoom extends HTMLElement {
 }
 
 /** The wand's own Splats as a Splat panel group. */
-function wandGroup(party) {
+function wandGroup(lobbyGame) {
   return {
-    owner: party.wandMac, label: "this wand", rgb: WAND_RGB[identityName(party.wandMac)],
-    splats: party.wandSplats,
-    onButton: (i, down) => party.wandSplatButton(i, down),
-    onReady: (i, up) => party.wandSplatReady(i, up),
+    owner: lobbyGame.wandMac, label: "this wand", rgb: WAND_RGB[identityName(lobbyGame.wandMac)],
+    splats: lobbyGame.wandSplats,
+    onButton: (i, down) => lobbyGame.wandSplatButton(i, down),
+    onReady: (i, up) => lobbyGame.wandSplatReady(i, up),
   };
 }
 
@@ -382,7 +382,7 @@ function wandGroup(party) {
 SimRoom.registerPanel("splats", {
   slot: "strip",
   title: "Splats on this wand",
-  wants: (caps) => !!caps.party,
+  wants: (caps) => !!caps.lobby_game,
   create(room, box) {
     const overlay = document.createElement("div");
     overlay.className = "pad-splats";
@@ -391,7 +391,7 @@ SimRoom.registerPanel("splats", {
       mount: box,
       overlay,
       onLocalCount: (n) => {
-        room.party.setLocalSplats(n);
+        room.lobbyGame.setLocalSplats(n);
         room.restart();
       },
     });
@@ -399,7 +399,7 @@ SimRoom.registerPanel("splats", {
     let shown = false;
     panel.sync = () => {
       if (!shown) return;
-      const group = wandGroup(room.party);
+      const group = wandGroup(room.lobbyGame);
       const key = group.splats.map((s) => s.mac).join("+");
       if (key !== shape) {
         shape = key;
@@ -431,12 +431,12 @@ SimRoom.registerPanel("splats", {
 });
 
 // Advanced mode: how many other wands are in the game, and the overlay
-// with all of them side by side. Shown for a party game, and for any game
+// with all of them side by side. Shown for a lobby game, and for any game
 // whose settings say it is for more than one wand.
 SimRoom.registerPanel("wands", {
   slot: "strip",
   title: null,
-  wants: (caps, room) => !!caps.party || room.gameWands > 1,
+  wants: (caps, room) => !!caps.lobby_game || room.gameWands > 1,
   create(room, box) {
     const panel = createWandsPanel({ mount: box, room });
     panel.setGameSplats(room.gameSplats);

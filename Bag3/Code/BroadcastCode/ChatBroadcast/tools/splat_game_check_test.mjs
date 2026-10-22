@@ -1,8 +1,8 @@
 /**
  * splat_game_check_test.mjs — send-time checks for wand Splat games
  * (js/splat/splatGameCheck.js, wired into upload.js validateGameCode).
- * Also runs every example in knowledge/party_games.md and the MockWand
- * party games through the full wand check.
+ * Also runs every example in knowledge/lobby_games.md and the MockWand
+ * lobby games through the full wand check.
  *
  * Usage, from ChatBroadcast/: node tools/splat_game_check_test.mjs
  */
@@ -46,7 +46,7 @@ t("ordinary game: no problems", () => assert.deepEqual(probs(SIG7 + "    network
 t("SPLATS_LOCAL is refused", () => one("SPLATS_LOCAL = 1\n" + SIG + "    net.splat(0).off()\n", /no solo Splat games/));
 t("enow.poll() in a Splat game is refused", () => one("SPLATS_MIN = 1\n" + SIG + "    t, d, m = enow.poll()\n", /enow.poll/));
 t("enow.poll() in an ordinary game is fine", () => assert.deepEqual(probs(SIG7 + "    t, d, m = enow.poll()\n"), []));
-t("party game: no problems", () => assert.deepEqual(probs("SPLATS_MIN = 2\nSPLATS_MAX = 4\n" + SIG + "    net.send(None, {})\n"), []));
+t("lobby game: no problems", () => assert.deepEqual(probs("SPLATS_MIN = 2\nSPLATS_MAX = 4\n" + SIG + "    net.send(None, {})\n"), []));
 t("SPLATS_MAX = None is allowed", () => assert.deepEqual(probs("SPLATS_MIN = 1\nSPLATS_MAX = None\n" + SIG), []));
 
 t("net used without the parameter", () => one(SIG7 + "    ev = net.poll()\n", /uses `net`/));
@@ -66,8 +66,8 @@ t("validateGameCode refuses a bad Splat game and a bad action name", () => {
   assert.match(err, /turnpurpel/);
 });
 
-t("knowledge/party_games.md examples pass the wand checks", () => {
-  const md = readFileSync(resolve(ROOT, "knowledge/party_games.md"), "utf8");
+t("knowledge/lobby_games.md examples pass the wand checks", () => {
+  const md = readFileSync(resolve(ROOT, "knowledge/lobby_games.md"), "utf8");
   const games = [...md.matchAll(/```python\n([\s\S]*?)```/g)].map(m => m[1]).filter(c => /^SPLATS_/m.test(c));
   assert.equal(games.length, 2);
   for (const g of games) {
@@ -76,8 +76,8 @@ t("knowledge/party_games.md examples pass the wand checks", () => {
   }
 });
 
-t("MockWand party games pass the wand checks", () => {
-  for (const f of ["partytest.py", "splattag.py", "relaycolor.py"]) {
+t("MockWand lobby games pass the wand checks", () => {
+  for (const f of ["lobbytest.py", "splattag.py", "relaycolor.py"]) {
     const [ok, err] = validateGameCode(readFileSync(resolve(ROOT, "../MockWand/games", f), "utf8"), "wand");
     assert.ok(ok, `${f}: ${err}`);
   }

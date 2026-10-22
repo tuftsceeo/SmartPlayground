@@ -1,7 +1,7 @@
-"""The demo party games (MockWand/games/partytest.py, splattag.py,
+"""The demo lobby games (MockWand/games/lobbytest.py, splattag.py,
 relaycolor.py) in a scripted session each, on the A6 simulation.
 
-Run: python3 tools/devtests/test_party_games.py
+Run: python3 tools/devtests/test_lobby_games.py
 """
 import os
 import random
@@ -10,11 +10,11 @@ import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import wandsim  # noqa: E402
-from partysim import Sc, W, S, net_of, press, evs, party, splatpair  # noqa: E402
+from lobbysim import Sc, W, S, net_of, press, evs, lobby_game, splatpair  # noqa: E402
 from wandsim import BB  # noqa: E402
 
 sys.path.insert(0, os.path.join(BB, "MockWand", "games"))
-import partytest  # noqa: E402
+import lobbytest  # noqa: E402
 import splattag  # noqa: E402
 import relaycolor  # noqa: E402
 
@@ -73,12 +73,12 @@ def ident_rgb(n):
     return splatpair.WAND_RGB[splatpair.identity_name(W[n])]
 
 
-# ── partytest ──
+# ── lobbytest ──
 sc = Sc()
 w1, w2, w3 = sc.wand(1, [1]), sc.wand(2, [2]), sc.wand(3)
-start(sc, [1, 2, 3], partytest, smin=2)
+start(sc, [1, 2, 3], lobbytest, smin=2)
 n1 = net_of(w1)
-check("partytest: the lobby started a game of 3 wands, 2 Splats", n1.phase == "game"
+check("lobbytest: the lobby started a game of 3 wands, 2 Splats", n1.phase == "game"
       and len(n1.wands) == 3 and n1.splat_count == 2)
 p1, p2 = w1.periph(S[1]), w2.periph(S[2])
 pulse(sc, w2)
@@ -107,7 +107,7 @@ check("a stop card on the leader ends the game for everyone",
 # a follower leaving does not end the game for the others
 sc = Sc()
 w1, w2 = sc.wand(1, [1]), sc.wand(2, [2])
-start(sc, [1, 2], partytest, smin=2)
+start(sc, [1, 2], lobbytest, smin=2)
 w2.nfc.stop_at = sc.sim.now + 5
 sc.run(1500)
 check("a stop card on a follower leaves only that wand", w2.result == "done" and w1.result is None)
@@ -179,7 +179,7 @@ sc = Sc()
 w1, w2, w3 = sc.wand(1, [1]), sc.wand(2, [2]), sc.wand(3, [3])
 start(sc, [1, 2, 3], splattag, smin=3)
 sc.bus.drop_frame = lambda src, dst, obj: src == W[3]
-sc.run(party.WAND_LOST_MS + 1500)
+sc.run(lobby_game.WAND_LOST_MS + 1500)
 check("(setup) the leader saw wand 3 go silent", net_of(w1)._members[2]["lost"])
 picked = []
 for rnd in range(6):
@@ -227,7 +227,7 @@ sc.run(400)
 check("a press on the leader's own Splat passes the token on, yellow", lit(p2) == YELLOW, str(lit(p2)))
 # the holder (wand 2) goes silent: the leader re-issues the token
 sc.bus.drop_frame = lambda src, dst, obj: src == W[2]
-sc.run(party.WAND_LOST_MS + 1500)
+sc.run(lobby_game.WAND_LOST_MS + 1500)
 check("the holder's wand lost: the leader hands the token to the next live wand",
       pixel0(w3) == relaycolor.AMBER, str(pixel0(w3)))
 sc.bus.drop_frame = None
@@ -240,7 +240,7 @@ check("the leader leaving ends the game and darkens the Splats",
 import re
 import types
 readme = open(os.path.join(BB, "MockWand", "README.md")).read()
-section = readme.split("### Writing a party game")[1].split("Rules:")[0]
+section = readme.split("### Writing a lobby game")[1].split("Rules:")[0]
 blocks = re.findall(r"```python\n(.*?)```", section, re.S)
 check("the README has a pooled and a messages example", len(blocks) == 2, str(len(blocks)))
 mods = []
@@ -274,4 +274,4 @@ sc.sim.at(sc.sim.now + 5, lambda: bystander.enow.broadcast(["stop"]))
 sc.run(800)
 check("...and both wands return on the end", w1.result == "done" and w2.result == "done")
 
-check.finish("party games OK")
+check.finish("lobby games OK")

@@ -1,18 +1,18 @@
-# Splat games (party)
+# Splat games (lobby games)
 
 A **Splat** is a pad children press; it lights up and plays sounds. Each wand pairs with up to
 **2** Splats (the children tap a Splat's card on the wand beforehand). A wand game drives Splats
 through one extra `play()` parameter, `net`. There is no separate Splat file and no
 `[DEVICE: splat]` block; everything below goes in the `[DEVICE: wand]` file.
 
-## Choosing: ordinary or party
+## Choosing: ordinary or lobby game
 
 | The game… | Declare at the top of the wand file | `net` is |
 |---|---|---|
 | uses no Splats | nothing | `None` (leave `net=None` off or unused) |
-| uses Splats | `SPLATS_MIN = n` (and optional `SPLATS_MAX = m`) | a party `net` |
+| uses Splats | `SPLATS_MIN = n` (and optional `SPLATS_MAX = m`) | a lobby game `net` |
 
-- Every Splat game is a party game. For one child on one wand, use `SPLATS_MIN = 1`: the wand
+- Every Splat game is a lobby game. For one child on one wand, use `SPLATS_MIN = 1`: the wand
   opens a lobby, nobody else needs to join, and the child presses the wand button to start.
 - Declare `SPLATS_MIN` as a plain whole number at the top level of the file. Do not declare
   `SPLATS_LOCAL`: the wand has no solo Splat path and the game is refused when it is sent.
@@ -30,7 +30,7 @@ def play(nfc, leds, buz, accel, i2c, enow, batt=None, net=None):
 
   The wand passes `net` only to an eight-parameter `play()`. Never use `net` without the parameter.
 
-## How a party game starts
+## How a lobby game starts
 
 **Every player taps the same game card** on their own wand. The first wand becomes the
 **leader** and opens a lobby; the others join it. The leader's lights count Splats joined against
@@ -99,7 +99,7 @@ Events from `net.poll()`:
   in step at the same instant. The leader should repeat important state rather than send it once.
 - Keep `data` dicts small: a few short keys.
 
-## Example: party, pooled (the leader drives every Splat)
+## Example: lobby game, pooled (the leader drives every Splat)
 
 The leader lights one Splat from the whole pool at a time; whoever presses it scores for their
 wand. Followers only keep `net.poll()` running (it carries out the leader's Splat commands) and
@@ -172,7 +172,7 @@ def play(nfc, leds, buz, accel, i2c, enow, batt=None, net=None):
         leds.off()
 ```
 
-## Example: party, messages (each wand drives its own Splat)
+## Example: lobby game, messages (each wand drives its own Splat)
 
 Turn-based: the leader says whose turn it is; that wand lights its own Splat; pressing it ends
 the turn and tells the leader, who picks the next wand. Only wands with a Splat take turns.

@@ -38,7 +38,7 @@ def runtime(tmp_path):
             "nfc_sound", "gestures", "simpleicecream", "melody", "cooking",
             "multiicecream", "freeze_dance", "goalrace", "color_quest",
             "finddevice", "target", "splat_hub", "pairing", "splat_api",
-            "pwire", "splatpair", "party", "partytest", "splattag",
+            "pwire", "splatpair", "lobby_game", "lobbytest", "splattag",
             "relaycolor", "custom",
         ) or name.startswith("vendor"):
             del sys.modules[name]

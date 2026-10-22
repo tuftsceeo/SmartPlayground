@@ -17,7 +17,7 @@ The practice window runs the game in Pyodide (CPython 3.12) in the browser, not 
 ## What is simulated
 
 - **Wand `play()` arguments:** nfc (a fake reader), leds, buz, accel, i2c, enow and batt. The real
-  library code for leds, the buzzer, actions, battery, espnow_manager, party, game_tags, pairing and
+  library code for leds, the buzzer, actions, battery, espnow_manager, lobby_game, game_tags, pairing and
   splat_api runs unchanged.
 - **Icon Display:** runs in its own Python, with display_tags, icon_store, shapes and
   espnow_manager, on a simulated 16x16 matrix. It is called as `play(None, panel, enow)`.
@@ -43,7 +43,7 @@ speed, so heavy work that is fine here may be slow on the wand.
 
 `[GAME_SETTINGS]` sets the number of wands (1–4) and of Splats per wand (0–2). Extra wands start as
 "?" and boot only when clicked. All wands and the Icon Display share one simulated ESP-NOW channel.
-Party games run the real leader/follower code.
+Lobby games run the real leader/follower code.
 
 The simulator does not have:
 - Splat cards;

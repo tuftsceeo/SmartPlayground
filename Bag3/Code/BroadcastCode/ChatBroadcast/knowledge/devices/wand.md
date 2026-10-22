@@ -26,7 +26,7 @@ def play(nfc, leds, buz, accel, i2c, enow, batt=None):
 
 Write all seven, even if the game uses only some. A shorter signature crashes at launch with
 `TypeError`. A Splat game adds an eighth, `net=None`, after `batt=None` (see "Splat games
-(party)"); write it only in a game that uses Splats. (The icon display has a different signature; never use it.)
+(lobby games)"); write it only in a game that uses Splats. (The icon display has a different signature; never use it.)
 
 | Argument | What it is | Notes |
 |---|---|---|
@@ -232,7 +232,7 @@ Keep buzzes short; the motor draws a lot of power.
 ## Splats
 
 A **Splat** is a pad children press, which lights up and plays sounds. Splats are paired to a wand
-and driven by that wand's game through the `net` parameter: see "Splat games (party)".
+and driven by that wand's game through the `net` parameter: see "Splat games (lobby games)".
 There is no separate Splat game file and no `[DEVICE: splat]` block. Never write a
 `def play(splat, ...)` function or code that creates Bluetooth (`ubluetooth`) itself.
 

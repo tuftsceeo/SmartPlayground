@@ -32,10 +32,10 @@ _TRANSFORM_LIBS = (
     "actions",
     "battery",
     "espnow_manager",
-    # Party games (in import order: each imports the ones before it).
+    # Lobby games (in import order: each imports the ones before it).
     "pwire",
     "splatpair",
-    "party",
+    "lobby_game",
 )
 
 # Transformed libs a game cannot run without: a failure raises instead of
@@ -51,7 +51,7 @@ _GAME_HELPERS = ("target",)
 _RAW_LIBS = (
     "hubtype",
     "game_tags",
-    # Party games. No sleeps; splat_api drives py/shims/splat_hub.py's links.
+    # Lobby games. No sleeps; splat_api drives py/shims/splat_hub.py's links.
     "pairing",
     "splat_api",
 )
@@ -187,8 +187,8 @@ class Runtime:
         self._game_splats = 1    # what a newly loaded game starts with (set_game_splats)
         self._splats_key = None  # (source, _game_splats) _local_splats was last set from
         self._pair_ctl = None    # splatpair.SplatPairing, kept across games
-        self.net = None          # the running party game's party.Net
-        self.party_end = None    # party.last_end when the lobby gave up
+        self.net = None          # the running lobby game's lobby_game.Net
+        self.lobby_end = None    # lobby_game.last_end when the lobby gave up
 
     # ── Bootstrap ───────────────────────────────────────────────────
 
@@ -479,7 +479,7 @@ class Runtime:
         smin = getattr(mod, "SPLATS_MIN", None)
         smax = getattr(mod, "SPLATS_MAX", None)
         return {
-            "party": smin is not None,
+            "lobby_game": smin is not None,
             "local_splats": self._local_splats,
             "splats_min": smin,
             "splats_max": smax,
@@ -498,7 +498,7 @@ class Runtime:
         """
         if not self._game_mod:
             return {"button": "tap", "motion": list(_ALL_MOTION), "nfcTags": [], "battery": False,
-                    "buzzer": True, "party": False, "local_splats": self._local_splats, "splats_min": None,
+                    "buzzer": True, "lobby_game": False, "local_splats": self._local_splats, "splats_min": None,
                     "splats_max": None, "uses_display": False, "has_display_file": False}
 
         mod = self._game_mod
@@ -603,7 +603,7 @@ class Runtime:
             sys.stdout = self._old_stdout
             self._old_stdout = None
 
-    # ── Party games (main.py _run_games / _enter_party) ─────────────
+    # ── Lobby games (main.py _run_games / _enter_lobby) ─────────────
 
     def set_local_splats(self, n):
         """Splats paired to the simulated wand (0..pairing.MAX_SPLATS). Takes
@@ -616,7 +616,7 @@ class Runtime:
             self._pair_ctl = None
 
     def _splat_limits(self):
-        """main.py _splat_limits: (SPLATS_MIN, SPLATS_MAX) for a party game,
+        """main.py _splat_limits: (SPLATS_MIN, SPLATS_MAX) for a lobby game,
         else None. ValueError for an invalid declaration."""
         mod = self._game_mod
         lo = getattr(mod, "SPLATS_MIN", None)
@@ -653,21 +653,21 @@ class Runtime:
             ctl.enow, ctl.leds, ctl.buz = hw["enow"], hw["leds"], hw["buz"]
         return ctl
 
-    async def _enter_party(self, limits, hw, ctl):
-        """main.py _enter_party: the lobby. A party.Net in its game phase, or
+    async def _enter_lobby(self, limits, hw, ctl):
+        """main.py _enter_lobby: the lobby. A lobby_game.Net in its game phase, or
         None (cancelled, left or lost) after the same feedback."""
-        import party
+        import lobby_game
         import sim_state
         from espnow_manager import get_own_mac
         from leds import SHAPE_X, RED
         leds, buz = hw["leds"], hw["buz"]
-        net = await party.enter(hw["enow"], self._game_name, limits[0], limits[1], ctl,
+        net = await lobby_game.enter(hw["enow"], self._game_name, limits[0], limits[1], ctl,
                                 await get_own_mac(), hw["nfc"], leds, buz,
                                 lambda: sim_state.button_pressed)
-        self.party_end = None if net is not None else party.last_end
+        self.lobby_end = None if net is not None else lobby_game.last_end
         if net is None:
-            print("  party: lobby ended (%s)" % party.last_end)
-            if party.last_end in ("left", "external"):
+            print("  lobby_game: lobby ended (%s)" % lobby_game.last_end)
+            if lobby_game.last_end in ("left", "external"):
                 await self._maybe_await(buz.stop())
             else:
                 await self._maybe_await(leds.show_shape(SHAPE_X, RED))
@@ -677,10 +677,10 @@ class Runtime:
             await self._maybe_await(leds.off())
         return net
 
-    async def _run_party(self, play, hw, limits):
+    async def _run_lobby(self, play, hw, limits):
         ctl = await self._pairing(hw)
         try:
-            net = await self._enter_party(limits, hw, ctl)
+            net = await self._enter_lobby(limits, hw, ctl)
             if net is None:
                 return
             self.net = net
@@ -702,13 +702,13 @@ class Runtime:
         hw = await self._build_hw()
         self._hw = hw
         self.net = None
-        self.party_end = None
+        self.lobby_end = None
         play = getattr(self._game_mod, "play", None)
         if play is None:
             raise RuntimeError("game module has no play()")
         limits = self._splat_limits()
         if limits is not None:
-            await self._run_party(play, hw, limits)
+            await self._run_lobby(play, hw, limits)
             return
         args = (hw["nfc"], hw["leds"], hw["buz"], hw["accel"], hw["i2c"], hw["enow"])
         try:

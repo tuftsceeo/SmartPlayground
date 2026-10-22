@@ -91,8 +91,8 @@ GAME_MODULES = {
     "goalrace":       "goalrace",
     # Two-device game: wand half; the Splat Companion runs its splatecho.py.
     "splatecho":      "splatecho",
-    # Party games (SPLATS_MIN): each wand taps the card and joins one lobby.
-    "partytest":      "partytest",
+    # Lobby games (SPLATS_MIN): each wand taps the card and joins one lobby.
+    "lobbytest":      "lobbytest",
     "splattag":       "splattag",
     "relaycolor":     "relaycolor",
     # Hidden (ESP-NOW only, never NFC): targeted identify animation.
@@ -211,7 +211,7 @@ GAME_ICON = {
     "gestures":       (SHAPE_POINTER,    INDIGO),
     "goalrace":       (SHAPE_FASTFORWARD, LIME),
     "splatecho":      (SHAPE_DIAMOND,    YELLOW),
-    "partytest":      (SHAPE_DIAMOND,    CYAN),
+    "lobbytest":      (SHAPE_DIAMOND,    CYAN),
     "splattag":       (SHAPE_BULLSEYE,   RED),
     "relaycolor":     (SHAPE_SPIRAL,     ORANGE),
     "finddevice":     (SHAPE_EXCLAIM,    WHITE),
@@ -262,7 +262,7 @@ ALL_COMMANDS   = BASE_COMMANDS | set(game_store.slugs())
 #      start_game is received (poll enow every loop). Parameters are
 #      passed positionally up to as many as play() declares (6, 7 or 8);
 #      `batt` is the MAX17048 fuel gauge and is None when the board has
-#      none. `net` is None unless the module declares SPLATS_MIN (a party
+#      none. `net` is None unless the module declares SPLATS_MIN (a lobby
 #      game, see README.md).
 #   2. Add the tag name `"yourgame"` to GAME_TAGS in lib/game_tags.py.
 #   3. Add `"yourgame": "yourgame"` to GAME_MODULES in this file --
@@ -413,7 +413,7 @@ def _load_play(name):
 
 
 def _splat_limits(name):
-    """(SPLATS_MIN, SPLATS_MAX) if the loaded game module declares a party
+    """(SPLATS_MIN, SPLATS_MAX) if the loaded game module declares a lobby
     game, else None. Raises ValueError for an invalid declaration."""
     mod = sys.modules[game_module(name)]
     lo = getattr(mod, "SPLATS_MIN", None)
@@ -495,11 +495,11 @@ def _start_play(play_func, name, nfc, leds, buz, accel, i2c, wrapper, batt_ref, 
     signatures.
 
     batt became a real seventh parameter long after games had been written
-    and pulled against six, and net an eighth for party games. Those games
+    and pulled against six, and net an eighth for lobby games. Those games
     are still on flash and still on the Box. Refusing to run them would make
     every game a teacher generated before the change dead on this wand, which
     is a worse outcome than calling them the way they were written. net is
-    None for a game that is not a party game.
+    None for a game that is not a lobby game.
 
     Where the port exposes __code__.co_argcount the arity is read outright
     and the right call is made first time. Where it does not, the eight-arg
@@ -521,20 +521,20 @@ def _start_play(play_func, name, nfc, leds, buz, accel, i2c, wrapper, batt_ref, 
             print("  %s does not take %d arguments; trying %d" % (name, k, k - 1))
 
 
-def _enter_party(name, limits, enow, nfc, leds, buz):
-    # Lobby for a party game. Returns a party.Net in its game phase, or None
+def _enter_lobby(name, limits, enow, nfc, leds, buz):
+    # Lobby for a lobby game. Returns a lobby_game.Net in its game phase, or None
     # (cancelled, left or lost), after giving feedback.
-    import party
+    import lobby_game
     from espnow_manager import get_own_mac
-    net = party.enter(enow, name, limits[0], limits[1], _pair_ctl, get_own_mac(),
+    net = lobby_game.enter(enow, name, limits[0], limits[1], _pair_ctl, get_own_mac(),
                       nfc, leds, buz, lambda: btn.value() == 0)
-    if net is None and party.pair_card:
-        card, party.pair_card = party.pair_card, None
+    if net is None and lobby_game.pair_card:
+        card, lobby_game.pair_card = lobby_game.pair_card, None
         leds.off()
         _pair_card(card, enow)       # resets after a new pairing
         return None
     if net is None:
-        if party.last_end in ("left", "external"):
+        if lobby_game.last_end in ("left", "external"):
             buz.stop()
         else:
             leds.show_shape(SHAPE_X, RED)
@@ -570,7 +570,7 @@ def _run_games(name, nfc, leds, buz, accel, i2c, enow, batt_ref):
             _game_load_failed(name, e)
             return
         if limits is not None:
-            net = _enter_party(name, limits, wrapper, nfc, leds, buz)
+            net = _enter_lobby(name, limits, wrapper, nfc, leds, buz)
         if limits is None or net is not None:
             _emit({"type": "game_start", "slug": name})
             try:

@@ -1,6 +1,6 @@
 /**
- * Virtual peers: JS wands that take part in a party game beside the
- * simulated wand, speaking MockWand/lib/party.py's pw_* frames over the
+ * Virtual peers: JS wands that take part in a lobby game beside the
+ * simulated wand, speaking MockWand/lib/lobby_game.py's pw_* frames over the
  * room's bus. A peer runs no game code.
  *
  * Follower peer (mode "follower"): after tap() it broadcasts pw_find and
@@ -22,7 +22,7 @@
  * repeated q from the same sender is dropped (pwire.Dedupe).
  *
  * Game scripts (GAME_SCRIPTS, by slug) stand in for the game's code where
- * the wand's play() needs the other wands to act: partytest's follower
+ * the wand's play() needs the other wands to act: lobbytest's follower
  * button, relaycolor's token passing. A game without a script gets the
  * protocol only.
  *
@@ -32,7 +32,7 @@
 import { BROADCAST, normalizeMac } from "./bus.js";
 import { createSplat, COLOR_RGB } from "./splats.js";
 
-/** party.py timing. */
+/** lobby_game.py timing. */
 export const PW = {
   FIND_WAIT_MS: 500,
   JOIN_WAIT_MS: 1000,
@@ -58,7 +58,7 @@ export function identityName(mac) {
   return PALETTE[parseInt(String(mac).slice(-2), 16) % PALETTE.length];
 }
 
-/** The MAC string party.py uses: upper-case, colon-separated. */
+/** The MAC string lobby_game.py uses: upper-case, colon-separated. */
 export function wandMac(mac) {
   return normalizeMac(mac).toUpperCase();
 }
@@ -119,9 +119,9 @@ export function createPeer(opts) {
     members: [],
     /** Leader in the game: [wand index, local index] per pool Splat. */
     pool: [],
-    /** Game events, oldest first, shaped like party.Net.poll()'s. */
+    /** Game events, oldest first, shaped like lobby_game.Net.poll()'s. */
     events: [],
-    /** What party.py would print, and what the scripts do. */
+    /** What lobby_game.py would print, and what the scripts do. */
     log: [],
     dropped: false,
     transport: null,
@@ -587,8 +587,8 @@ export function createPeer(opts) {
 
 // ── game scripts ──────────────────────────────
 
-/** partytest: a follower's button asks the leader to light the next Splat. */
-const partytest = {
+/** lobbytest: a follower's button asks the leader to light the next Splat. */
+const lobbytest = {
   onStart(p) {
     p.scriptState = { next: 0, prev: null };
   },
@@ -601,19 +601,19 @@ const partytest = {
     p.cmd(i, "color", p.wands[presser][1]);
     if (st.prev !== null && st.prev !== i) p.cmd(st.prev, "color", "turnoff");
     st.prev = i;
-    p.note(`partytest: wand ${presser} lit pool Splat ${i}`);
+    p.note(`lobbytest: wand ${presser} lit pool Splat ${i}`);
   },
   onButton(p) {
     if (p.state === "game") {
       p.send(0, { btn: 1 });
-      p.note("partytest: button -> leader");
+      p.note("lobbytest: button -> leader");
     } else if (p.state === "lead_game") {
-      partytest.lightNext(p, 0);
+      lobbytest.lightNext(p, 0);
     }
   },
   onEvent(p, ev) {
     if (p.state !== "lead_game") return;
-    if (ev[0] === "msg" && ev[2] && ev[2].btn === 1) partytest.lightNext(p, ev[1]);
+    if (ev[0] === "msg" && ev[2] && ev[2].btn === 1) lobbytest.lightNext(p, ev[1]);
     else if (ev[0] === "press") p.cmd(ev[1], "color", p.wands[p.owner(ev[1])][1]);
   },
 };
@@ -655,7 +655,7 @@ const relaycolor = {
   },
 };
 
-export const GAME_SCRIPTS = { partytest, relaycolor };
+export const GAME_SCRIPTS = { lobbytest, relaycolor };
 
 /**
  * Put a peer on a bus (js/bus.js): frames go out as JSON, and the bus

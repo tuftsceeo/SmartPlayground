@@ -1,5 +1,5 @@
 """
-pwire.py -- ESP-NOW helpers shared by splatpair.py and party.py
+pwire.py -- ESP-NOW helpers shared by splatpair.py and lobby_game.py
 ================================================================
 Unicast through the raw ESPNow object so the MAC-layer ACK is visible:
 espnow_manager.send_to() reports True whether or not the peer ACKed.

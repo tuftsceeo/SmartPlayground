@@ -13,7 +13,7 @@ design artboards in
 Games: `jump`, `shake`, `shake_rainbow`, `sound`, `rainbow`, `jumpin`,
 `nfc_sound`, `gestures`, `simpleicecream`, `melody`, `cooking`,
 `multiicecream`, `freeze_dance`, `goalrace`, `color_quest`, `finddevice`,
-and the party games `partytest`, `splattag` and `relaycolor`
+and the lobby games `lobbytest`, `splattag` and `relaycolor`
 (`target.py` is vendored beside them for `color_quest`).
 
 ## `<sim-room>`
@@ -26,7 +26,7 @@ classified as on the device; each device gets its own MAC through
 `network.WLAN().config('mac')`.
 
 Panels appear from the loaded game's capabilities (`get_capabilities()`:
-`party`, `local_splats`, `splats_min`, `splats_max`, `uses_display`,
+`lobby_game`, `local_splats`, `splats_min`, `splats_max`, `uses_display`,
 `has_display_file`). New panels register with `SimRoom.registerPanel(id,
 {slot, title, wants, create, update, hide})`.
 
@@ -34,7 +34,7 @@ The room re-dispatches `<wand-sim>`'s events and passes through its
 `autostart`, `profile`, `start()`, `stop()`, `restart()`, `showOverlay()`
 and `hideOverlay()`, so a host can use it in place of `<wand-sim>`;
 ChatBroadcast's preview and example detail view do. It also emits
-`room-radio` (`detail` is `{ text, type }`, one line per party `pw_*` frame
+`room-radio` (`detail` is `{ text, type }`, one line per lobby game `pw_*` frame
 on the bus), and each icon display's prints arrive as `display-print`
 (`detail` is `{ text, mac }`, composed, bubbling).
 
@@ -58,12 +58,12 @@ Developer mode footer, and `index.html` in a `<pre>` under the room.
   `../BroadcastCode/ChatBroadcast/iconmaker/`, so serve `Bag3/Code/` (from
   `Simulator/` alone the panel falls back to plain squares and warns).
 
-- **Splats:** for a party game (`SPLATS_MIN`), the wand's Splats are drawn
+- **Splats:** for a lobby game (`SPLATS_MIN`), the wand's Splats are drawn
   under the wand in its pad, one per paired Splat (the `wand_splats`
-  setting; none, none drawn); a click on one presses it. See "Party games"
+  setting; none, none drawn); a click on one presses it. See "Lobby games"
   below.
 - **Advanced mode only** (the `advanced` attribute): a "Splats on this wand"
-  card (count and "in reach" boxes) for a party game, and, for a party game
+  card (count and "in reach" boxes) for a lobby game, and, for a lobby game
   or any game whose `wands` setting is more than 1, a bar saying how many
   other wands are playing, with "+ Add a wand" and "See all N wands", which
   opens every wand side by side.
@@ -81,12 +81,12 @@ many wands the game is for. ChatBroadcast reads them from the chat model's
 `source`. The wand firmware reads neither; a game learns its Splats from
 `net.local.count`.
 
-## Party games
+## Lobby games
 
 A game that declares `SPLATS_MIN` runs as `MockWand/main.py` runs it: the
-wand builds its `splatpair.SplatPairing`, `party.enter()` finds a lobby or
-opens one, and `play()` gets the `party.Net` as its eighth argument
-(`runtime._run_party`). All of it is the vendored code: `party.py`,
+wand builds its `splatpair.SplatPairing`, `lobby_game.enter()` finds a lobby or
+opens one, and `play()` gets the `lobby_game.Net` as its eighth argument
+(`runtime._run_lobby`). All of it is the vendored code: `lobby_game.py`,
 `pwire.py`, `splatpair.py`, `pairing.py` and `splat_api.py`.
 
 What stands in for what:
@@ -108,18 +108,18 @@ What stands in for what:
   outline wand with "?" on its screen) that runs nothing and is not on the
   radio. Clicking it starts another `<wand-sim>` running the same game, on
   the room's bus and clock with its own MAC (`02:00:00:00:0A:02` on) and
-  Splats, so every wand runs the vendored `party.py` and the game's own
-  `play()`. A game that is not a party game gets other wands only from
+  Splats, so every wand runs the vendored `lobby_game.py` and the game's own
+  `play()`. A game that is not a lobby game gets other wands only from
   `wands`; they run its `play()` on the same bus, with no Splats. Each
   boots its own Pyodide. New code reaches the running ones; a game for a
-  different number of wands, or one that neither is a party game nor sets
+  different number of wands, or one that neither is a lobby game nor sets
   `wands` above 1, starts over.
-- **Protocol peers:** `js/peers.js` virtual peers speak `party.py`'s `pw_*`
+- **Protocol peers:** `js/peers.js` virtual peers speak `lobby_game.py`'s `pw_*`
   frames (find, lobby, join, start, heartbeat with the ready mask, pooled
   `pw_cmd`, `pw_evt`, `pw_msg`, leave, end, `q` dedupe) and run no game
   code. `js/headless.js` and the tests use them; the room does not. Where a
   game needs the other wands to act, a short script in `js/peers.js`
-  (`GAME_SCRIPTS`) plays their part: `partytest`'s follower button and
+  (`GAME_SCRIPTS`) plays their part: `lobbytest`'s follower button and
   leader lighting, `relaycolor`'s token passing.
 
 In a room the wand's ticks mirror the room clock
@@ -129,11 +129,11 @@ In a room the wand's ticks mirror the room clock
 Pyodide loads with WebAssembly's JSPI hidden (`js/pyboot.js`
 `loadPyodideNoJspi`), the path it takes under Node. With JSPI, Pyodide
 0.27.0 on Chrome 152 stops with a fatal "function signature mismatch" or
-"invalid address in funcref table" after about a minute of party play.
+"invalid address in funcref table" after about a minute of lobby game play.
 
 ## Headless runs
 
-`tools/sim_run.mjs` runs a party game in Pyodide under Node, with no
+`tools/sim_run.mjs` runs a lobby game in Pyodide under Node, with no
 browser (`js/headless.js`): the same wand, peers and Splats on a bus and a
 clock running 4x real time.
 
@@ -149,7 +149,7 @@ game with the wand in it, then ends it) and **lost** (the leader goes
 silent). It reports exceptions, and an unhandled `end` or `leader_lost` when
 `play()` does not return after the leader ends the game or goes silent;
 exit 1 on either. `ChatBroadcast/tools/prompt_eval.mjs` runs every generated
-party game through it (`simRun`), and `prompt_eval.mjs --self-test-sim`
+lobby game through it (`simRun`), and `prompt_eval.mjs --self-test-sim`
 checks that on a good and two broken games.
 
 Pyodide comes from its npm package: `PYODIDE_DIR`, or fetched once with
@@ -205,12 +205,12 @@ python3 -m pytest
 - `test_transform.py` — pure AST sync→async transform (no Pyodide).
 - `test_radio.py` / `test_icon_host.py` — the radio stack and capabilities,
   and the display host running IconDisplay's goalrace.
-- `test_party.py` — party games on the wand: lobby, start, pooled
+- `test_lobby_game.py` — lobby games on the wand: lobby, start, pooled
   commands, Splat presses and the ready mask, against hand-written peer
   frames.
 - `node --test tests/js/*.test.mjs` — bus, clock and payload helpers, and
   the virtual peers against each other (`peers.test.mjs`).
-- `node tools/sim_run.mjs --game partytest` — a party game end to end,
+- `node tools/sim_run.mjs --game lobbytest` — a lobby game end to end,
   headless (see "Headless runs").
 - `node tools/room_smoke.mjs` — Playwright: goalrace in `<sim-room>`, an
   icon display is added and reacts to `goal`. Serves `Bag3/Code/`; Pyodide

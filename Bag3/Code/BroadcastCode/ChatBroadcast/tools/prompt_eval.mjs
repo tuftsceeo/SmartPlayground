@@ -9,7 +9,7 @@
  * Usage, from ChatBroadcast/:
  *   node tools/prompt_eval.mjs --dry-run            build every request, no API calls
  *   node tools/prompt_eval.mjs --self-test          run the automatic checks on canned replies
- *   node tools/prompt_eval.mjs --self-test-sim      run the simulation check on a good and two broken party games
+ *   node tools/prompt_eval.mjs --self-test-sim      run the simulation check on a good and two broken lobby games
  *   ANTHROPIC_API_KEY=sk-ant-... node tools/prompt_eval.mjs [--out report.md] [--only id,id]
  *
  * Costs real API usage when not a dry run: about 20 requests, mostly cache
@@ -69,7 +69,7 @@ async function simulateSplatGame(code) {
             ...(r.unhandled || []).map(e => `simulator: unhandled ${e}`)];
 }
 
-/** True for a wand file that declares a Splat (party) game. */
+/** True for a wand file that declares a Splat (lobby) game. */
 function isSplatGame(code) {
     return /^SPLATS_MIN\s*=/m.test(code);
 }
@@ -115,7 +115,7 @@ const CASES = [
       expect: { noRoles: ["splat"] } },
     { id: "splat-one-wand", prompt: "One kid presses our Splat when it lights green; it plays a happy note if they're quick",
       expect: { code: true, roles: ["wand"], codeHas: { wand: /^SPLATS_MIN\s*=\s*1\b/m } } },
-    { id: "splat-party", prompt: "Every kid's wand joins one game: light a random Splat and whoever presses it first gets a point",
+    { id: "splat-lobby", prompt: "Every kid's wand joins one game: light a random Splat and whoever presses it first gets a point",
       expect: { code: true, roles: ["wand"], codeHas: { wand: /^SPLATS_MIN\s*=/m } } },
     { id: "roles", prompt: "Freeze dance where my wand is the caller and the kids' wands are players",
       expect: { code: true, roles: ["wand"] } },
@@ -209,10 +209,10 @@ function selfTest() {
 
 /** The simulation check on games with a known outcome. */
 async function selfTestSim() {
-    const PARTY = readFileSync(resolve(ROOT, "../MockWand/games/relaycolor.py"), "utf8");
+    const LOBBY_GAME = readFileSync(resolve(ROOT, "../MockWand/games/relaycolor.py"), "utf8");
     const HEAD = "import time\nSPLATS_MIN = 1\n\ndef play(nfc, leds, buz, accel, i2c, enow, batt=None, net=None):\n";
     const cases = [
-        ["relaycolor passes", PARTY, []],
+        ["relaycolor passes", LOBBY_GAME, []],
         ["a raise is an exception", HEAD + "    net.poll()\n    raise ValueError('boom')\n", [/exception.*boom/]],
         ["ignoring end is unhandled", HEAD + "    while True:\n        net.poll()\n        time.sleep_ms(1)\n",
             [/unhandled follow: end/, /unhandled lost: leader_lost/]],

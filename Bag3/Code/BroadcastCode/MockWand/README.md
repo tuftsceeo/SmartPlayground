@@ -188,7 +188,7 @@ Cards are acted on in the idle loop only; a running game ignores them.
 stages unchanged. `_boot_pairing()` reads `/pairing.json` inline (clearing it on a power-on reset). Only if a Splat is
 paired does it import `ubluetooth`, call `BLE().active(True)`, and import `splatpair` (which imports `splat_hub`,
 `splat_link`, `ble_splat`, `splat_api`) and build one `SplatHub` and `SplatGroup`. An unpaired wand never imports
-`ubluetooth` or the Splat modules. `pairing`, `party` and `pwire` are imported inside `main()` after the radio is up, never
+`ubluetooth` or the Splat modules. `pairing`, `lobby_game` and `pwire` are imported inside `main()` after the radio is up, never
 at module scope.
 
 If the pairing file, `BLE().active(True)`, the imports or the hub fail, the wand boots unpaired: the file is deleted,
@@ -198,9 +198,9 @@ stage 0's data row shows amber in its third cell (ESP-NOW has the fourth), the t
 Everything in `main.py` is compiled ahead of `enow.init()`, so the two boot functions and two module globals added for
 pairing are allocated before the radio's block; `memprobe` figures with them are in the UNVERIFIED list.
 
-## Party games
+## Lobby games
 
-A game module is a **party game** if it defines module-level `SPLATS_MIN` (int >= 1: the total Splats across all joined
+A game module is a **lobby game** if it defines module-level `SPLATS_MIN` (int >= 1: the total Splats across all joined
 wands) and optionally `SPLATS_MAX` (`None` or int >= `SPLATS_MIN`). `main.py` reads them after `_load_play()` imports
 the module; an invalid declaration is a load failure. A module without `SPLATS_MIN` runs as before.
 
@@ -211,13 +211,13 @@ def play(nfc, leds, buz, accel, i2c, enow, batt=None, net=None):
 ```
 
 `main.py` passes as many positional arguments as `play()` declares (6, 7 or 8). `net` is `None` for a game that is not a
-party game. Every wand in a party game, leader and followers, calls the same `play()`; `net.is_leader` picks the role.
-`play()` must return on `("end",)` and `("leader_lost",)`. A party game's `play()` that declares no `net` parameter still
+lobby game. Every wand in a lobby game, leader and followers, calls the same `play()`; `net.is_leader` picks the role.
+`play()` must return on `("end",)` and `("leader_lost",)`. A lobby game's `play()` that declares no `net` parameter still
 goes through the lobby and then runs without it.
 
 ### Joining
 
-Every wand taps the game's card. `party.enter()` broadcasts `pw_find` and listens `FIND_WAIT_MS` (500) for a `pw_lobby`
+Every wand taps the game's card. `lobby_game.enter()` broadcasts `pw_find` and listens `FIND_WAIT_MS` (500) for a `pw_lobby`
 from a leader with an open lobby; if one answers, the wand joins it (`pw_join` / `pw_joined`), otherwise it becomes the
 leader and broadcasts `pw_lobby` every second. Two leaders that hear each other: the lower MAC keeps its lobby, the other
 joins it and its followers look again. The lobby shows Splats joined against `SPLATS_MIN` on the leader's matrix (green
@@ -253,7 +253,7 @@ A follower's Splat presses go to the leader and are also delivered locally. Drop
 decides whether to pause, continue or return. Unicast frames are retried up to `pwire.SEND_TRIES` (3) times on a missing
 MAC ACK; the receiver drops a repeated per-sender sequence number `q`. Wire types are the `pw_` messages of SPEC section 8.
 
-### Writing a party game
+### Writing a lobby game
 
 Pooled model: the leader's code decides and drives every Splat; followers can run a bare event loop.
 
@@ -295,23 +295,23 @@ def play(nfc, leds, buz, accel, i2c, enow, batt=None, net=None):
 ```
 
 Rules: poll `net.poll()` every loop with a `time.sleep_ms(1)`; return on `end` and `leader_lost`; read the Splat colors
-from `net.wands` and `net.owner(i)` rather than assuming them. Built-in party games, in `games/`: `partytest.py` (button lights the next
+from `net.wands` and `net.owner(i)` rather than assuming them. Built-in lobby games, in `games/`: `lobbytest.py` (button lights the next
 pool Splat in the presser's identity color), `splattag.py` (pooled: the leader lights a random Splat, the first press
 scores for its owner), `relaycolor.py` (messages: a color passes from wand to wand). They are in `GAME_MODULES`
 and `game_tags.py` like any built-in game; each must be on every participating wand, and its card reads its tag
-(`partytest`, `splattag`, `relaycolor`).
+(`lobbytest`, `splattag`, `relaycolor`).
 
 ## Tests (off-device)
 
 From `Bag3/Code/BroadcastCode/`: `tools/devtests/compile_check.sh`, then
 `python3 tools/devtests/<name>.py` for `test_wand_copies`, `test_wand_cards`, `test_wand_pairing_store`,
-`boot_wand_pairing`, `boot_wand_idle`, `boot_wand_party`, `test_party`, `test_party_games`. `wandsim.py` is the shared
+`boot_wand_pairing`, `boot_wand_idle`, `boot_wand_lobby_game`, `test_lobby_game`, `test_lobby_games`. `wandsim.py` is the shared
 harness (virtual-time wand threads, fake ESP-NOW with loss / lost ACKs / duplicates, fake BLE Splats);
 `wandboot.py` boots the real `main.py` under the stubs. These do not exercise hardware.
 
 ## UNVERIFIED on hardware
 
-None of the Splat-pairing and party code has run on a board. Marked `UNVERIFIED on hardware` in the code where it lives,
+None of the Splat-pairing and lobby game code has run on a board. Marked `UNVERIFIED on hardware` in the code where it lives,
 and listed per step in `docs_and_design/2026-10-07-splat-pairing/PROGRESS-PartA.md`:
 
 - `machine.reset_cause()` values on the C6 (power-on from USB or battery, `machine.reset()`, watchdog, crash).
@@ -321,10 +321,10 @@ and listed per step in `docs_and_design/2026-10-07-splat-pairing/PROGRESS-PartA.
 - Claim-check latency against `CLAIM_WAIT_MS` with the paired idle loop (100 ms NFC timeout); the effect of the 100 ms
   timeout on card reads.
 - How the identity colors, flash, tones and idle glow look and sound on the matrix and a Splat; palette distinctness.
-- Whether a Splat stays connected through a non-party game, which does not poll the Splat links.
+- Whether a Splat stays connected through a non-lobby game, which does not poll the Splat links.
 - ESP-NOW latency and the slow-send board: `pw_cmd` round trips, lobby timing (`FIND_WAIT_MS`, `JOIN_WAIT_MS`),
   `WAND_LOST_MS` against real loss, peer table with many wands.
-- BLE and ESP-NOW coexistence on one C6 radio during a party game; Splat write pacing (50 ms) inside `net.poll()`.
+- BLE and ESP-NOW coexistence on one C6 radio during a lobby game; Splat write pacing (50 ms) inside `net.poll()`.
 - Lobby stop-card reads (every 8 loops, 40 ms timeout) and the games' stop-card reads (every 25 loops, 30 ms).
 - `os.rename` over an existing file and `os.remove` on the C6's littlefs for `/pairing.json`.
 

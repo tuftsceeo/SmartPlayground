@@ -119,7 +119,7 @@ try {
   const caps = await page.evaluate(() => document.querySelector("sim-room").capabilities);
   assert.equal(caps.has_display_file, true);
   assert.equal(caps.uses_display, true);
-  assert.equal(caps.party, false);
+  assert.equal(caps.lobby_game, false);
   await page.waitForFunction((hex) =>
     document.querySelector("sim-room").panel("displays").displays[0].lastFrameHex === hex, READY, { timeout: 30000 });
   const canvasShown = await page.evaluate(() => {

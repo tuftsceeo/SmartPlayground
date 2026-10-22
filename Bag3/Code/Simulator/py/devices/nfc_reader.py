@@ -57,7 +57,7 @@ def split_prefixed(text):
     return head, slug, host_id
 
 
-# Same as MockWand/lib/nfc_reader.py parse_splat_card (party.py's lobby uses it).
+# Same as MockWand/lib/nfc_reader.py parse_splat_card (lobby_game.py's lobby uses it).
 def parse_splat_card(text):
     if not text or len(text) != 18 or text[:6].lower() != "splat-":
         return None

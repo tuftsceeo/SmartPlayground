@@ -1,7 +1,7 @@
 """
-Relay Color -- message-passing party game
+Relay Color -- message-passing lobby game
 ==========================================
-Party game (SPLATS_MIN = 1). One wand at a time holds a color and shows it on
+Lobby game (SPLATS_MIN = 1). One wand at a time holds a color and shows it on
 its own matrix and on its own Splats. Pressing the wand's button, or any of
 its own Splats, passes the color to the next wand (a different color each
 time); the sender goes dark.
@@ -158,7 +158,7 @@ class _Relay:
 
 def play(nfc, leds, buz, accel, i2c, enow, batt=None, net=None):
     if net is None:
-        print("  relaycolor: needs a party (net is None)")
+        print("  relaycolor: needs a lobby (net is None)")
         return
     print("\n  === RELAY COLOR (%s, wand %d of %d) ===" % (
         "leader" if net.is_leader else "follower", net.me, len(net.wands)))

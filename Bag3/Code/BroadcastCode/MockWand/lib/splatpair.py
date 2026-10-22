@@ -214,9 +214,9 @@ class SplatPairing:
         self.glow(i)
 
     def pause_search(self):
-        """Stop SplatHub's discovery scan for the rest of a party game. It runs
+        """Stop SplatHub's discovery scan for the rest of a lobby game. It runs
         at 100% duty while no Splat is connected, and on the C6 that starved
-        ESP-NOW: a party wand whose Splat was asleep lost the leader's
+        ESP-NOW: a lobby game wand whose Splat was asleep lost the leader's
         heartbeats for 3 s. A Splat with a known address (link.direct) still
         reconnects; one never found waits for resume_search()."""
         h = self.hub
@@ -228,7 +228,7 @@ class SplatPairing:
         self._base_gate = lambda link: link.direct and h._may_scan(link)
 
     def resume_search(self):
-        """Let SplatHub scan and reconnect again (after a party game)."""
+        """Let SplatHub scan and reconnect again (after a lobby game)."""
         h = self.hub
         if h is None:
             return

@@ -1,5 +1,5 @@
 """
-Party games on the simulated wand: the vendored party.py, splatpair.py and
+Lobby games on the simulated wand: the vendored lobby_game.py, splatpair.py and
 splat_api.py over py/shims/splat_hub.py, with the other wand's side of the
 pw_* protocol played by hand-written frames.
 
@@ -91,11 +91,11 @@ async def _stop(rt, task):
     await asyncio.wait_for(task, 3.0)
 
 
-def test_capabilities_of_the_party_games(runtime):
-    for game, smin in (("partytest", 2), ("splattag", 2), ("relaycolor", 1)):
+def test_capabilities_of_the_lobby_games(runtime):
+    for game, smin in (("lobbytest", 2), ("splattag", 2), ("relaycolor", 1)):
         runtime.load_game(game)
         caps = runtime.get_capabilities()
-        assert caps["party"] is True and caps["splats_min"] == smin
+        assert caps["lobby_game"] is True and caps["splats_min"] == smin
         assert caps["local_splats"] == 1
 
 
@@ -128,9 +128,9 @@ def test_game_splats_set_by_the_host(runtime):
         runtime.set_game_splats(3)
 
 
-async def test_partytest_wand_leads(runtime, air, writes):
+async def test_lobbytest_wand_leads(runtime, air, writes):
     rt = runtime
-    task, gid, joined = await _lead_with_peer(rt, air, "partytest")
+    task, gid, joined = await _lead_with_peer(rt, air, "lobbytest")
     assert joined["first"] == 1
     assert [w[2] for w in joined["wands"]] == [1, 1]
 
@@ -163,11 +163,11 @@ async def test_partytest_wand_leads(runtime, air, writes):
 
 async def test_wand_follows_a_leader(runtime, air, writes):
     rt = runtime
-    rt.load_game("partytest")
+    rt.load_game("lobbytest")
     task = await rt.start()
     find = await air.wait_for("pw_find")
-    assert find["g"] == "partytest"
-    air.deliver({"type": "pw_lobby", "g": "partytest", "id": 77, "n": 1, "min": 2, "max": None})
+    assert find["g"] == "lobbytest"
+    air.deliver({"type": "pw_lobby", "g": "lobbytest", "id": 77, "n": 1, "min": 2, "max": None})
     join = await air.wait_for("pw_join", PEER)
     assert join == {"type": "pw_join", "id": 77, "splats": 1}
     air.deliver({"type": "pw_joined", "id": 77, "first": 1,
@@ -237,9 +237,9 @@ async def test_unplugged_splat_reports_in_the_heartbeat(runtime, air, writes):
 
 async def test_lobby_stop_card_cancels(runtime, air):
     rt = runtime
-    rt.load_game("partytest")
+    rt.load_game("lobbytest")
     task = await rt.start()
     await air.wait_for("pw_lobby")
     rt.sim_state.tap_nfc("stop")
     await asyncio.wait_for(task, 3.0)
-    assert rt.party_end == "left"
+    assert rt.lobby_end == "left"

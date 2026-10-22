@@ -1,10 +1,10 @@
-"""Party games (MockWand/lib/party.py, lib/splatpair.py, lib/pwire.py) on a
+"""Lobby games (MockWand/lib/lobby_game.py, lib/splatpair.py, lib/pwire.py) on a
 simulated ESP-NOW bus with fake BLE Splats. See wandsim.py for the harness.
 
-Each simulated wand runs party.enter() and then a scripted game in its own
+Each simulated wand runs lobby_game.enter() and then a scripted game in its own
 virtual-time thread, exactly the calls main.py makes.
 
-Run: python3 tools/devtests/test_party.py
+Run: python3 tools/devtests/test_lobby_game.py
 """
 import os
 import sys
@@ -12,9 +12,9 @@ import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import wandsim  # noqa: E402
-from partysim import *  # noqa: E402,F401,F403
-from partysim import (Sc, W, S, NETS, net_of, press, loop, evs, long_loop,  # noqa: E402,F401
-                      party, pwire, splatpair, nfc_reader)
+from lobbysim import *  # noqa: E402,F401,F403
+from lobbysim import (Sc, W, S, NETS, net_of, press, loop, evs, long_loop,  # noqa: E402,F401
+                      lobby_game, pwire, splatpair, nfc_reader)
 
 check = wandsim.Checker()
 
@@ -304,7 +304,7 @@ w1.events[:] = []
 w2.events[:] = []
 t_cut = sc.sim.now
 sc.bus.drop_frame = lambda src, dst, obj: src == W[2]
-sc.run(party.WAND_LOST_MS - 500)
+sc.run(lobby_game.WAND_LOST_MS - 500)
 check("a follower silent for less than WAND_LOST_MS is not lost", not evs(w1, "wand_lost"))
 sc.run(1500)
 check("a follower silent for WAND_LOST_MS is wand_lost on the leader",
@@ -316,7 +316,7 @@ check("...when it is heard again, wand_back", evs(w1, "wand_back") == [("wand_ba
 w1.events[:] = []
 w2.events[:] = []
 sc.bus.drop_frame = lambda src, dst, obj: src == W[1]
-sc.run(party.WAND_LOST_MS + 1500)
+sc.run(lobby_game.WAND_LOST_MS + 1500)
 check("a leader silent for WAND_LOST_MS is leader_lost on the follower, once",
       evs(w2, "leader_lost") == [("leader_lost",)], str(w2.events))
 sc.bus.drop_frame = None
@@ -494,4 +494,4 @@ check("a leader with 2 Splats and SPLATS_MIN 2 can start alone",
       w1.net is not None and w1.net.splat_count == 2 and w1.net.owner(1) == 0)
 check("...net.splat(i) is the local SplatAPI for its own Splats", w1.net.splat(1) is w1.ctl.group.unit(1))
 
-check.finish("party simulation OK")
+check.finish("lobby game simulation OK")

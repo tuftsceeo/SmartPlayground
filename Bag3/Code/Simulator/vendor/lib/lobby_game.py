@@ -1,5 +1,5 @@
 """
-party.py -- ad hoc party games over ESP-NOW: lobby, roster and the `net` object
+lobby_game.py -- ad hoc lobby games over ESP-NOW: lobby, roster and the `net` object
 ===============================================================================
 Imported by main.py only when a game declares SPLATS_MIN, after the radio is up.
 
@@ -349,7 +349,7 @@ class Net:
 
     def _on_join(self, sender, splats, now):
         if not isinstance(splats, int) or splats < 0:
-            print("  [WARN] party: bad pw_join from %s: splats=%r" % (sender, splats))
+            print("  [WARN] lobby: bad pw_join from %s: splats=%r" % (sender, splats))
             return
         have = self._seen(sender, now)
         total = self.lobby_splats() - (have["count"] if have else 0)
@@ -383,13 +383,13 @@ class Net:
     def _prune_lobby(self, now):
         for m in list(self._members[1:]):
             if time.ticks_diff(now, m["seen"]) >= WAND_LOST_MS:
-                print("  party: %s silent in the lobby; removed" % m["mac"])
+                print("  lobby: %s silent in the lobby; removed" % m["mac"])
                 self._drop_member(m["mac"])
 
     def start(self):
         """Leader: close the lobby and send pw_start to every follower."""
         if not self.can_start():
-            raise RuntimeError("party: not enough Splats to start (%d of %d)"
+            raise RuntimeError("lobby: not enough Splats to start (%d of %d)"
                                % (self.lobby_splats(), self.splats_min))
         now = time.ticks_ms()
         wands = [[m["mac"], m["ident"], m["count"]] for m in self._members]
@@ -402,7 +402,7 @@ class Net:
         wands = d.get("wands")
         if (not isinstance(wands, list) or not wands
                 or [w[0] for w in wands].count(self.my_mac) != 1):
-            print("  [ERR] party: pw_start without this wand in its roster: %r" % (wands,))
+            print("  [ERR] lobby: pw_start without this wand in its roster: %r" % (wands,))
             self._end_reason = "ended"
             return
         self._begin_game(wands, now)
@@ -515,7 +515,7 @@ class Net:
                 if isinstance(s, int) and 0 <= s < len(self._pool) and self._pool[s][0] == wi:
                     self._events.append(("press" if d.get("e") == 1 else "release", s))
                 else:
-                    print("  [WARN] party: pw_evt for pool Splat %r from wand %d" % (s, wi))
+                    print("  [WARN] lobby: pw_evt for pool Splat %r from wand %d" % (s, wi))
         elif t == "pw_msg":
             if self._dedupe.fresh(sender, d.get("q")):
                 self._events.append(("msg", wi, d.get("d")))
@@ -559,7 +559,7 @@ class Net:
         g = self.local
         s, op, v = d.get("s"), d.get("op"), d.get("v")
         if g is None or not isinstance(s, int) or not 0 <= s < g.count:
-            print("  [WARN] party: pw_cmd for local Splat %r; this wand holds %d"
+            print("  [WARN] lobby: pw_cmd for local Splat %r; this wand holds %d"
                   % (s, 0 if g is None else g.count))
             return
         u = g.unit(s)
@@ -574,12 +574,12 @@ class Net:
         elif op == "off":
             u.off()
         else:
-            print("  [WARN] party: unknown pw_cmd op %r" % (op,))
+            print("  [WARN] lobby: unknown pw_cmd op %r" % (op,))
 
     # ── end ──
 
     def close(self):
-        """Leave the party: the leader tells every follower the game is over, a
+        """Leave the lobby game: the leader tells every follower the game is over, a
         follower tells the leader it left unless the leader ended it or was
         lost; every peer this Net added is removed."""
         if self.phase == "closed":
@@ -669,7 +669,7 @@ def run_lobby(net, nfc, button_down, leds, buz):
 
 
 def enter(enow, slug, splats_min, splats_max, ctl, my_mac, nfc, leds, buz, button_down):
-    """A tap on a party game's card. Returns a Net in its game phase, or None
+    """A tap on a lobby game's card. Returns a Net in its game phase, or None
     when the lobby was cancelled, left or lost; last_end then says why:
     "left" (this wand's stop card), "external" (ESP-NOW stop or start_game),
     "ended" (the leader cancelled), "leader_lost", "full" (the lobby could not
@@ -691,7 +691,7 @@ def enter(enow, slug, splats_min, splats_max, ctl, my_mac, nfc, leds, buz, butto
                 last_end = "full"
                 net.close()
                 return None
-            print("  [WARN] party: no answer from the leader of %r" % slug)
+            print("  [WARN] lobby: no answer from the leader of %r" % slug)
             last_end = "no_answer"
             continue
         res = run_lobby(net, nfc, button_down, leds, buz)

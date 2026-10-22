@@ -1,10 +1,10 @@
 /**
- * Other wands for <sim-room>: the wands a party game, or any game whose
+ * Other wands for <sim-room>: the wands a lobby game, or any game whose
  * settings give `wands` > 1, is played with beside the simulated one.
  * Advanced mode only (sim-room's style hides it otherwise); simple mode is
  * the one wand.
  *
- * The room starts a party game with `wands - 1` other wands from its
+ * The room starts a lobby game with `wands - 1` other wands from its
  * settings (none by default), and "+ Add a wand" adds one, up to MAX_WANDS
  * in all. Wands have no names or colors here: the bar says only how many
  * more there are.
@@ -12,7 +12,7 @@
  * Another wand starts as a placeholder: an outline of a wand with "?" on
  * its screen that runs nothing and is not on the radio. Clicking it starts
  * a real <wand-sim> running the room's game, on the room's bus and clock
- * with its own MAC and Splats, so party.py on each wand plays the real
+ * with its own MAC and Splats, so lobby_game.py on each wand plays the real
  * protocol. Each one boots its own Pyodide, which is why they wait for a
  * click.
  *
@@ -24,18 +24,18 @@
  *
  *   createWandsPanel({ mount, room })
  *     .setFor(n)         a game for n wands loaded: n - 1 placeholders
- *     .setGame(caps)     the room loaded a party game (caps); live wands follow
+ *     .setGame(caps)     the room loaded a lobby game (caps); live wands follow
  *     .pushSource()      the room's source or game changed; live wands reload
  *     .setGameSplats(n)  Splats each live wand starts the next load with
  *     .restart()         restart every live other wand
  *     .stop()            stop every live other wand
- *     .clear()           drop every other wand (a non-party game loaded)
+ *     .clear()           drop every other wand (a non-lobby game loaded)
  *     .redraw()          recount (the room's displays changed)
  */
 
 import { icon } from "../icons.js";
 import { attachWand } from "../pyboot.js";
-import { createPartyHost } from "../party.js";
+import { createLobbyGameHost } from "../lobby_game.js";
 import { createSplatToy, CASE, BLOB } from "./splats.js";
 
 export const MAX_WANDS = 4;
@@ -139,7 +139,7 @@ export function createWandsPanel({ mount, room }) {
   mine.innerHTML = `<div class="chips"><span class="chip mine">This wand</span></div>`;
   grid.appendChild(mine);
 
-  /** [{ mac, card, el, link, party, pad, toys }] in order; el null = placeholder. */
+  /** [{ mac, card, el, link, lobbyGame, pad, toys }] in order; el null = placeholder. */
   let others = [];
   let caps = null;
   let gameSplats = 1;
@@ -225,7 +225,7 @@ export function createWandsPanel({ mount, room }) {
     ghost.innerHTML = `<span class="pad">
         <span class="body"><span class="led"></span><span class="nfc"></span>
           <span class="screen">?</span><span class="btn"></span></span>
-        <span class="splats">${caps?.party ? SPLAT_OUTLINE.repeat(gameSplats) : ""}</span>
+        <span class="splats">${caps?.lobby_game ? SPLAT_OUTLINE.repeat(gameSplats) : ""}</span>
       </span>
       <span class="text"><b>Click for simulation</b>
         <span>This starts another copy of the game, which can slow the page down.</span></span>`;
@@ -258,9 +258,9 @@ export function createWandsPanel({ mount, room }) {
       const py = w.pyodide;
       o.link = attachWand(py, { bus: room.bus, clock: room.clock, mac: o.mac, tx: (s, d, h) => room._tx(s, d, h) });
       py.pyimport("runtime").set_game_splats(gameSplats);
-      o.party = createPartyHost({ bus: room.bus, clock: room.clock, py, wandMac: o.mac });
+      o.lobbyGame = createLobbyGameHost({ bus: room.bus, clock: room.clock, py, wandMac: o.mac });
       let queued = false;
-      o.party.onChange(() => {
+      o.lobbyGame.onChange(() => {
         if (queued) return;
         queued = true;
         requestAnimationFrame(() => {
@@ -270,8 +270,8 @@ export function createWandsPanel({ mount, room }) {
       });
     });
     w.addEventListener("sim-loaded", (e) => {
-      if (o.el !== w || !o.party) return;
-      o.party.setGame(slug(), e.detail?.capabilities || caps);
+      if (o.el !== w || !o.lobbyGame) return;
+      o.lobbyGame.setGame(slug(), e.detail?.capabilities || caps);
       drawToys(o);
     });
     loadInto(w);
@@ -281,14 +281,14 @@ export function createWandsPanel({ mount, room }) {
   function drawToys(o) {
     // A redraw queued before the wand was taken away.
     if (!o.el) return;
-    const splats = (o.party?.caps?.party && o.party.wandSplats) || [];
+    const splats = (o.lobbyGame?.caps?.lobby_game && o.lobbyGame.wandSplats) || [];
     const key = splats.map((s) => s.mac).join("+");
     if (key !== o.toysKey) {
       o.toysKey = key;
       o.pad.textContent = "";
       o.toys = splats.map((s, i) => createSplatToy(s, {
         label: `Splat ${i + 1}`,
-        onButton: (down) => o.party.wandSplatButton(i, down),
+        onButton: (down) => o.lobbyGame.wandSplatButton(i, down),
       }));
       for (const t of o.toys) o.pad.appendChild(t.el);
       if (splats.length) o.el.appendChild(o.pad);
@@ -300,9 +300,9 @@ export function createWandsPanel({ mount, room }) {
   function stopLive(o) {
     if (!o.el) return;
     o.link?.detach();
-    o.party?.dispose();
+    o.lobbyGame?.dispose();
     o.el.remove();
-    o.el = o.link = o.party = o.pad = null;
+    o.el = o.link = o.lobbyGame = o.pad = null;
     o.toysKey = undefined;
   }
 

@@ -39,7 +39,7 @@ export const FILE_LIST = [
   "vendor/lib/splat_api.py",
   "vendor/lib/pwire.py",
   "vendor/lib/splatpair.py",
-  "vendor/lib/party.py",
+  "vendor/lib/lobby_game.py",
   "vendor/games/jump.py",
   "vendor/games/shake.py",
   "vendor/games/shake_rainbow.py",
@@ -56,7 +56,7 @@ export const FILE_LIST = [
   "vendor/games/goalrace.py",
   "vendor/games/color_quest.py",
   "vendor/games/finddevice.py",
-  "vendor/games/partytest.py",
+  "vendor/games/lobbytest.py",
   "vendor/games/splattag.py",
   "vendor/games/relaycolor.py",
   // Not a game: color_quest.py imports SCORE_MAC from it.
@@ -133,7 +133,7 @@ let jspiSaved = null;
  * loadPyodide(opts) with WebAssembly's stack-switching (JSPI) API hidden, so
  * Pyodide takes its non-JSPI path, as it does under Node. Pyodide 0.27.0
  * on Chrome 152's JSPI dies with a fatal "function signature mismatch" or
- * "invalid address in funcref table" after a minute or so of a party game's
+ * "invalid address in funcref table" after a minute or so of a lobby game's
  * Python/JS traffic; with JSPI hidden the same play runs on. Nothing here
  * uses what JSPI adds (run_sync, blocking on a JS promise). The API is put
  * back once every load in flight has finished.

@@ -1,7 +1,7 @@
 """
-Party Test -- hardware check of the party mechanics
+Lobby Test -- hardware check of the lobby game mechanics
 ====================================================
-Party game (SPLATS_MIN = 2). Every wand taps the same card; the first wand
+Lobby game (SPLATS_MIN = 2). Every wand taps the same card; the first wand
 leads, the others join, and the leader's button starts the game.
 
   wand button   lights the next pool Splat in the presser's identity color
@@ -28,7 +28,7 @@ from splatpair import WAND_RGB
 SPLATS_MIN = 2
 SPLATS_MAX = None
 
-_EXIT_TAGS = exit_tags_excluding("partytest")
+_EXIT_TAGS = exit_tags_excluding("lobbytest")
 
 NFC_EVERY = 25          # loops between stop-card reads
 NFC_MS = 30             # NFC detect timeout for those reads
@@ -57,13 +57,13 @@ class _Game:
         """Leader: light the next pool Splat in the presser's identity color."""
         net = self.net
         if net.splat_count == 0:
-            print("  partytest: no Splats in this party")
+            print("  lobbytest: no Splats in this lobby")
             return
         i = self.next % net.splat_count
         self.next += 1
         t0 = time.ticks_ms()
         ok = net.splat(i).color(self.ident(presser))
-        print("  partytest: wand %d lit pool Splat %d (wand %d's) %s in %d ms"
+        print("  lobbytest: wand %d lit pool Splat %d (wand %d's) %s in %d ms"
               % (presser, i, net.owner(i), "ok" if ok else "FAILED",
                  time.ticks_diff(time.ticks_ms(), t0)))
         if self.prev is not None and self.prev != i:
@@ -76,14 +76,14 @@ class _Game:
             self.light_next(self.net.me)
         else:
             ok = self.net.send(0, {"btn": 1})
-            print("  partytest: button -> leader %s" % ("ok" if ok else "FAILED"))
+            print("  lobbytest: button -> leader %s" % ("ok" if ok else "FAILED"))
 
     def event(self, ev):
         """One net.poll() event. Returns True when the game should end."""
         net = self.net
         kind = ev[0]
         if kind in ("end", "leader_lost"):
-            print("  partytest: %s" % kind)
+            print("  lobbytest: %s" % kind)
             return True
         if kind == "msg":
             if net.is_leader and isinstance(ev[2], dict) and ev[2].get("btn") == 1:
@@ -92,15 +92,15 @@ class _Game:
             if net.is_leader:
                 self.ev_splat(ev[1])
             else:
-                print("  partytest: local Splat %d pressed" % ev[1])
+                print("  lobbytest: local Splat %d pressed" % ev[1])
         elif kind in ("release", "splat_lost", "splat_back", "wand_lost", "wand_back"):
-            print("  partytest: %s %s" % (kind, ev[1:]))
+            print("  lobbytest: %s %s" % (kind, ev[1:]))
         return False
 
     def ev_splat(self, i):
         t0 = time.ticks_ms()
         ok = self.net.splat(i).color(self.ident(self.net.owner(i)))
-        print("  partytest: pool Splat %d pressed; lit for its owner %s in %d ms"
+        print("  lobbytest: pool Splat %d pressed; lit for its owner %s in %d ms"
               % (i, "ok" if ok else "FAILED", time.ticks_diff(time.ticks_ms(), t0)))
 
     def run(self):
@@ -120,7 +120,7 @@ class _Game:
             if frame % NFC_EVERY == 0:
                 text, _ = read_tag_command(self.nfc, timeout=NFC_MS)
                 if text in _EXIT_TAGS:
-                    print("  partytest: stop card")
+                    print("  lobbytest: stop card")
                     if net.is_leader:
                         for i in range(net.splat_count):
                             net.splat(i).off()
@@ -130,14 +130,14 @@ class _Game:
 
 def play(nfc, leds, buz, accel, i2c, enow, batt=None, net=None):
     if net is None:
-        print("  partytest: needs a party (net is None)")
+        print("  lobbytest: needs a lobby (net is None)")
         return
     buz.beep(523, 100)
-    print("\n  === PARTY TEST (%s, wand %d of %d, %d Splats) ==="
+    print("\n  === LOBBY TEST (%s, wand %d of %d, %d Splats) ==="
           % ("leader" if net.is_leader else "follower", net.me, len(net.wands),
              net.splat_count))
     try:
         _Game(nfc, leds, buz, net).run()
     finally:
         leds.off()
-        print("\n  === LEAVING PARTY TEST ===\n")
+        print("\n  === LEAVING LOBBY TEST ===\n")

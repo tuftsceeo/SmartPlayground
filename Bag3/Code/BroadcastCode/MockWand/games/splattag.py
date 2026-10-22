@@ -1,7 +1,7 @@
 """
-Splat Tag -- pooled party game
+Splat Tag -- pooled lobby game
 ===============================
-Party game (SPLATS_MIN = 2). The leader lights one random Splat from the whole
+Lobby game (SPLATS_MIN = 2). The leader lights one random Splat from the whole
 pool (every wand's Splats); the first press on it scores a point for the wand
 that owns that Splat. First to WIN_SCORE points wins.
 
@@ -176,7 +176,7 @@ class _Tag:
 
 def play(nfc, leds, buz, accel, i2c, enow, batt=None, net=None):
     if net is None:
-        print("  splattag: needs a party (net is None)")
+        print("  splattag: needs a lobby (net is None)")
         return
     print("\n  === SPLAT TAG (%s, %d Splats) ===" % ("leader" if net.is_leader else "follower",
                                                   net.splat_count))

@@ -4,7 +4,7 @@ Simulated Splats, in place of lib/splat_hub.py and the BLE stack under it
 
 The real splatpair.SplatPairing builds `SplatHub(count=n, macs=[...])` and
 the real splat_api.SplatGroup drives its links, so pairing feedback, the
-idle glow, party.py's ready mask and every game's Splat calls run the
+idle glow, lobby_game.py's ready mask and every game's Splat calls run the
 vendored code unchanged. Only the radio is missing: a link is ready unless
 the host unplugs it, and every write goes to the host.
 

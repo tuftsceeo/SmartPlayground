@@ -879,7 +879,7 @@ body.ui-advanced #app-shell {
     color: #c9a3bd;
 }
 /* Centred by the child's auto margins, not justify-content: a sim taller
-   than the stage (a party game's Splat and other wand panels) would
+   than the stage (a lobby game's Splat and other wand panels) would
    overflow above the scroll origin and its top could not be scrolled to. */
 #preview-panel {
     flex: 1;
