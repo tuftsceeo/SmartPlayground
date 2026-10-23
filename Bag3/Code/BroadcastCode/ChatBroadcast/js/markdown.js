@@ -1,7 +1,7 @@
 /**
  * markdown.js — lightweight chat markdown renderer, ported from the EDL
  * GoPiGo chat tool's renderMd/highlightPython. No external dependencies:
- * fenced code blocks (with Copy + Send to editor buttons and a small
+ * fenced code blocks (with Hide/Show + View code buttons and a small
  * Python highlighter), tables, headings, lists, and inline bold/italic/code.
  */
 
@@ -10,8 +10,8 @@ import { getUiMode } from './uiMode.js';
 
 let workspaceHandler = null;
 
-/** Wired once from app.js so a code block's "Send to editor" button can
- *  push straight into the CodeMirror editor. */
+/** Wired once from app.js so a code block's "View code" button opens it
+ *  in the code drawer. */
 export function setWorkspaceHandler(fn) {
     workspaceHandler = fn;
 }
@@ -38,7 +38,7 @@ export function renderMarkdown(el, text) {
 /**
  * A fenced block with its bar. opts.collapsed starts it folded to the bar
  * (simple mode does this for every reply); opts.editor = false leaves out
- * "Send to editor".
+ * "View code".
  */
 export function buildCodeBlock(lang, code, opts = {}) {
     const wrap = document.createElement("div");
@@ -69,20 +69,13 @@ export function buildCodeBlock(lang, code, opts = {}) {
     });
     actions.appendChild(foldBtn);
 
-    const copyBtn = document.createElement("button");
-    copyBtn.type = "button";
-    copyBtn.className = "code-action-btn";
-    copyBtn.textContent = "Copy";
-    copyBtn.addEventListener("click", () => copyCode(trimmed, copyBtn));
-    actions.appendChild(copyBtn);
-
     if (workspaceHandler && opts.editor !== false) {
         const sendBtn = document.createElement("button");
         sendBtn.type = "button";
         sendBtn.className = "code-action-btn";
-        sendBtn.textContent = "Send to editor";
+        sendBtn.textContent = "View code";
         sendBtn.addEventListener("click", () => {
-            dbg("markdown", `"Send to editor" clicked (${trimmed.length} chars)`);
+            dbg("markdown", `"View code" clicked (${trimmed.length} chars)`);
             workspaceHandler(trimmed);
         });
         actions.appendChild(sendBtn);
@@ -203,15 +196,4 @@ function highlightPython(code) {
     }
     out += escHtml(code.slice(last));
     return out;
-}
-
-async function copyCode(text, btn) {
-    const orig = btn.textContent;
-    try {
-        await navigator.clipboard.writeText(text);
-        btn.textContent = "Copied";
-    } catch {
-        btn.textContent = "Couldn't copy";
-    }
-    setTimeout(() => { btn.textContent = orig; }, 1500);
 }
