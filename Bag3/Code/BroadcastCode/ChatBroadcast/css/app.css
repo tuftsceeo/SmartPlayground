@@ -1367,6 +1367,32 @@ body.ui-advanced #app-shell {
 #send-progress-track { height: 8px; background: #eee; border-radius: 5px; overflow: hidden; }
 #send-progress-bar { height: 100%; width: 0; background: var(--teal); transition: width 0.2s; }
 
+/* Distribute code (js/distribute.js) */
+.overlay-card-distribute { max-width: 520px; max-height: 80vh; overflow: auto; }
+.dist-table { width: 100%; border-collapse: collapse; margin: 4px 0 12px; font: 13px 'Nunito'; text-align: left; }
+.dist-table th { font: 700 11px 'Nunito'; color: var(--muted); padding: 4px 6px; border-bottom: 1px solid var(--border); }
+.dist-table td { padding: 6px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.dist-name { display: block; font-weight: 800; color: var(--ink); }
+.dist-kind { display: block; font-size: 11px; color: var(--muted); }
+.dist-check { appearance: none; width: 18px; height: 18px; margin: 0; border: 2px solid var(--border); border-radius: 6px; background: #fff; cursor: pointer; display: grid; place-content: center; }
+.dist-check:checked { background: var(--purple); border-color: var(--purple); }
+.dist-check:checked::after { content: ''; width: 5px; height: 9px; border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg) translate(-1px, -1px); }
+.dist-check:disabled { opacity: 0.5; cursor: default; }
+.dist-sig { display: inline-flex; align-items: flex-end; gap: 2px; height: 14px; }
+.dist-sig i { width: 4px; background: var(--border); border-radius: 1px; }
+.dist-sig i:nth-child(1) { height: 5px; }
+.dist-sig i:nth-child(2) { height: 9px; }
+.dist-sig i:nth-child(3) { height: 13px; }
+.dist-sig-1 i:nth-child(-n+1), .dist-sig-2 i:nth-child(-n+2), .dist-sig-3 i { background: var(--teal-dark); }
+.dist-state { font-size: 12px; color: var(--muted); }
+.dist-pulling .dist-state { color: var(--purple); }
+.dist-done .dist-state { color: var(--teal-dark); font-weight: 700; }
+.dist-failed .dist-state { color: #c0392b; font-weight: 700; }
+.dist-actions { display: flex; gap: 8px; justify-content: flex-end; margin-bottom: 8px; }
+.dist-progress-track { height: 8px; background: #eee; border-radius: 5px; overflow: hidden; }
+#dist-progress-bar { height: 100%; width: 0; background: var(--teal); transition: width 0.2s; }
+#dist-progress-wrap { margin: 0 0 12px; }
+
 /* My Box */
 .mybox-top {
     display: flex;

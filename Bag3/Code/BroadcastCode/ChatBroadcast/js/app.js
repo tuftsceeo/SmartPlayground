@@ -28,6 +28,7 @@ import { createDeviceLink, deviceShortName, deviceProductName } from './device/b
 import { SerialAdapter } from './device/serialAdapter.js';
 import { NfcStationLink } from './device/nfcStationLink.js';
 import { formatPullEvent } from './device/pullEvent.js';
+import { DistributeOverlay } from './distribute.js';
 import { createWandDeviceLink } from './device/wandDeviceLink.js';
 import { subscribe, getEntries, toText } from './device/serialLog.js';
 import { setWorkspaceHandler } from './markdown.js';
@@ -1176,6 +1177,7 @@ class App {
         });
         document.getElementById('btn-send-done').addEventListener('click', () => this.finishSend());
         document.getElementById('btn-send-another-wand')?.addEventListener('click', () => this.installOnAnotherWand());
+        document.getElementById('btn-send-distribute')?.addEventListener('click', () => this.openDistribute());
         // Kill switch: unlike Cancel (hidden by setSendBusy(true) while a
         // send is in flight -- there is no safe abort mid-write, see
         // setSendBusy()'s docstring), this button is never hidden or
@@ -2666,8 +2668,24 @@ class App {
             `The ${this.deviceShort()} will restart now — give it a few seconds.`;
         // Direct USB install reaches one wand per send: offer the next one.
         document.getElementById('btn-send-another-wand')?.classList.toggle('hidden', this.device.kind !== 'wand');
+        // A Dial can push the new game to nearby wands and stations.
+        document.getElementById('btn-send-distribute')?.classList.toggle('hidden',
+            this.device.deviceInfo?.device !== 'broadcast_dial');
         clearTimeout(this._sendSuccessTimer);
         this._sendSuccessTimer = setTimeout(() => this.finishSend(), 5000);
+    }
+
+    /** "Distribute code" on the Dial send-success screen: close it as Done
+     * does, then open the distribute overlay for the game just sent. */
+    openDistribute() {
+        const slug = this._lastSentSlug;
+        const pretty = this.gameName;
+        this.finishSend();
+        if (!slug) return;
+        if (!this._distribute) {
+            this._distribute = new DistributeOverlay({ app: this, showOverlay, hideOverlay, toast });
+        }
+        this._distribute.open(slug, pretty);
     }
 
     /** Close the send-confirm overlay after a successful send (Done, its
@@ -2876,6 +2894,7 @@ class App {
         // the device is restarting" visible and unambiguous. A wand says
         // something different because it auto-launches what it was just sent
         // (see wandGameInstaller.js) rather than waiting for a card.
+        this._lastSentSlug = slug;
         this.showSendSuccess(check.pretty);
         if (isWand) toast('Sent! The wand is starting the game now.');
 
