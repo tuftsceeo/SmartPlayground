@@ -2668,11 +2668,16 @@ class App {
             `The ${this.deviceShort()} will restart now — give it a few seconds.`;
         // Direct USB install reaches one wand per send: offer the next one.
         document.getElementById('btn-send-another-wand')?.classList.toggle('hidden', this.device.kind !== 'wand');
-        // A Dial can push the new game to nearby wands and stations.
-        document.getElementById('btn-send-distribute')?.classList.toggle('hidden',
-            this.device.deviceInfo?.device !== 'broadcast_dial');
+        // A Dial can push the new game to nearby wands and stations. Shown
+        // for any Box/Dial link unless identity says Box: identity is not
+        // always in hand by now, and a Box answers fleet.scan with
+        // unknown_cmd, which the overlay reports.
+        const canDistribute = this.device.kind === 'box'
+            && this.device.deviceInfo?.device !== 'broadcast_box';
+        document.getElementById('btn-send-distribute')?.classList.toggle('hidden', !canDistribute);
         clearTimeout(this._sendSuccessTimer);
-        this._sendSuccessTimer = setTimeout(() => this.finishSend(), 5000);
+        // No auto-close while Distribute is offered: it would hide the button.
+        if (!canDistribute) this._sendSuccessTimer = setTimeout(() => this.finishSend(), 5000);
     }
 
     /** "Distribute code" on the Dial send-success screen: close it as Done
