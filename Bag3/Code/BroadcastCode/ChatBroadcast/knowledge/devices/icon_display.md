@@ -136,6 +136,10 @@ draw16.show(panel)
 - `draw16.number(src, value, row, col=None, color=..., spacing=1)` — `col=None` centers it, so a
   score going from 9 to 10 does not jump sideways.
 - Redraw only when something changed.
+- **Show different meanings with different colors**, not a bright and a dim version of one
+  color: at the usual 0.12–0.15 intensity a dim color looks switched off. Anything children need to
+  see should have at least one of red, green or blue around 120 or more. Dark greys are only for
+  background or empty slots.
 
 ### Countable pictures — `chart16`
 

@@ -76,6 +76,8 @@ DISPLAY_FILES = [
     ("icon_store.py", "display/lib/icon_store.py"),
     ("lib/display_tags.py", "display/lib/display_tags.py"),
     ("lib/shapes.py", "display/lib/shapes.py"),
+    ("lib/draw16.py", "display/lib/draw16.py"),
+    ("lib/chart16.py", "display/lib/chart16.py"),
     ("lib/espnow_manager.py", "display/lib/espnow_manager.py"),
     ("games/goalrace.py", "display/games/goalrace.py"),
 ]

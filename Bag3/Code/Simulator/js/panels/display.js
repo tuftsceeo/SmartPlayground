@@ -63,6 +63,8 @@ export const DISPLAY_FILES = [
   "vendor/display/lib/icon_store.py",
   "vendor/display/lib/display_tags.py",
   "vendor/display/lib/shapes.py",
+  "vendor/display/lib/draw16.py",
+  "vendor/display/lib/chart16.py",
   "vendor/display/lib/espnow_manager.py",
 ];
 

@@ -37,6 +37,13 @@ with a mode switch, and never import one device's game file from another's.
 Send only the files that changed. A reply that changes only the wand game contains only the wand
 block; the other devices keep their current code.
 
+A new game that needs files for more than one device is written over several replies, one device
+per reply: the wand file first, with the game's `[NFC_CARDS:]` and `[GAME_SETTINGS:]` markers,
+then end by saying which device comes next and offering it as a choice, for example
+`[CHOICES: "Now make the big screen part"]`. Each later reply sends just that device's file,
+written to match the files already in the editor. A change to a game that already has all its
+files may still send several blocks in one reply.
+
 ## MicroPython rules
 
 - **No f-strings.** They crash on this MicroPython build. Use `%` formatting:

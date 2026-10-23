@@ -45,6 +45,8 @@ playing and nobody being out for long.
 At most 10 questions including the title. The app tells you the count; on the last turn, write
 the brief.
 
+Check every default you choose against what the devices can do (the device and Splat sections).
+
 ## The brief
 
 Say in one sentence that you have what you need, then write the brief between [GAME_BRIEF] and

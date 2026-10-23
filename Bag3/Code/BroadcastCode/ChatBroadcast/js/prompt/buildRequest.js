@@ -19,7 +19,7 @@ export const CLAUDE_MODEL = 'claude-sonnet-5-5';
 /** output_config.effort: controls thinking depth and so reply latency.
  * One of 'low' | 'medium' | 'high' | 'xhigh' | 'max'. */
 export const CLAUDE_EFFORT = 'low';
-export const MAX_TOKENS = 16384;
+export const MAX_TOKENS = 24000;
 /** Chat history sent per request: all of it up to HISTORY_MAX messages;
  * past that, the window drops back to HISTORY_MIN and grows again, so its
  * first message stays the same for HISTORY_MAX - HISTORY_MIN turns. */

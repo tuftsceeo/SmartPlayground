@@ -1,6 +1,8 @@
 # Splat games (lobby games)
 
-A **Splat** is a pad children press; it lights up and plays sounds. Each wand pairs with up to
+A **Splat** is a pad children press; it lights up and plays sounds. A Splat cannot tell who
+pressed it: a press counts the same whoever made it. Teachers see the Splats as one shared set on
+the playground, not as belonging to a child. Each wand pairs with up to
 **2** Splats (the children tap a Splat's card on the wand beforehand). A wand game drives Splats
 through one extra `play()` parameter, `net`. There is no separate Splat file and no
 `[DEVICE: splat]` block; everything below goes in the `[DEVICE: wand]` file.
@@ -98,6 +100,11 @@ Events from `net.poll()`:
   a time, the leader keeps the score and decides who goes next) over designs that need every wand
   in step at the same instant. The leader should repeat important state rather than send it once.
 - Keep `data` dicts small: a few short keys.
+- **A Splat that stands for something stays lit.** When children tell Splats apart by color
+  (a color, a team, an answer), keep each one glowing in its color for the whole game; after a
+  press, flash or play a note, then go back to that color, not `off()`.
+- **Talk to the teacher about Splats as one shared set**, by how many the game uses in all
+  ("4 Splats"). Pairing Splats to wands comes up only in the how-to-play setup steps.
 
 ## Example: lobby game, pooled (the leader drives every Splat)
 

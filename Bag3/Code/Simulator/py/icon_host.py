@@ -39,7 +39,7 @@ _SHIM_MODULES = (
     "espnow",
     "micropython",
 )
-_RAW_LIBS = ("display_tags", "icon_store", "shapes")
+_RAW_LIBS = ("display_tags", "icon_store", "shapes", "draw16", "chart16")
 _TRANSFORM_LIBS = ("espnow_manager",)
 
 # Copied from IconDisplay/main.py.

@@ -3276,11 +3276,15 @@ class App {
 
             if (result.stopReason === 'max_tokens') {
                 // A truncated reply usually ends mid-code-block; extracting it
-                // would put broken code in the editor.
+                // would put broken code in the editor. The request and the
+                // reply's prose stay in history so a follow-up ("make it
+                // shorter") still knows what game it is about.
                 dbgWarn('chat', 'reply truncated at max_tokens');
                 addMsg('The reply was too long and got cut off, so your game was not changed. '
                     + 'Ask for a simpler or shorter version.', 'system');
-                this.chatHistory.pop();
+                const prose = reply.split('```')[0].trim();
+                this.chatHistory.push({ role: 'assistant', content: `${prose}\n\n`
+                    + '[This reply ran out of room partway through the code, so no code reached the editor.]' });
                 return;
             }
 
@@ -3318,6 +3322,11 @@ class App {
                     dbg('chat', `game name from marker: ${gameName}`);
                 }
                 const label = userMsg.length > 40 ? userMsg.slice(0, 40) + '…' : userMsg;
+                // A reply that leaves another device's file in place changes
+                // only part of the game: without markers, keep its cards and
+                // settings rather than clearing them.
+                const partial = ROLE_TABLE.some(r => !games.some(g => g.role === r.key)
+                    && getCode(r.key).trim());
                 const seen = [];
                 for (const { role, code } of games) {
                     dbg('chat', `[${role}] game file extracted (${code.length} chars)`);
@@ -3337,12 +3346,12 @@ class App {
                 addMsg(seen.length > 1
                     ? `Code updated for ${seen.join(' and ')} (v${getVersionCount()})`
                     : `Code updated (v${getVersionCount()})`, 'system');
-                // New code replaces the old tag declaration outright: no marker
-                // means this version reads no named tags, not "keep the old ones".
-                this.declaredTags = nfcCards?.length ? nfcCards : null;
+                // On a whole-game reply, no marker means this version reads no
+                // named tags, not "keep the old ones".
+                this.declaredTags = nfcCards?.length ? nfcCards : (partial ? this.declaredTags : null);
                 dbg('chat', `declared tags from [NFC_CARDS]: [${(nfcCards || []).join(', ')}]`);
                 // The same for the simulator's settings: none means the defaults.
-                this.simSettings = simSettings;
+                this.simSettings = simSettings || (partial ? this.simSettings : null);
                 this.gameDesc = userMsg;
                 this.dirty = true;
                 this.updatePreview();

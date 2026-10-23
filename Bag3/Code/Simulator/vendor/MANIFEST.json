@@ -20,10 +20,20 @@
       "source": "Bag3/Code/BroadcastCode/IconDisplay/icons/whale.py",
       "vendor_sha256": "0ecd173e4b5184ba817a0e319ba1f6e9ccd4a23173447f2f6230924781c2197d"
     },
+    "display/lib/chart16.py": {
+      "sha256": "e21ab8ccbcc1f28a42188bdbb2b87114b7278608eb9295ed47af29e293bc3004",
+      "source": "Bag3/Code/BroadcastCode/IconDisplay/lib/chart16.py",
+      "vendor_sha256": "e21ab8ccbcc1f28a42188bdbb2b87114b7278608eb9295ed47af29e293bc3004"
+    },
     "display/lib/display_tags.py": {
       "sha256": "070d665c0434f7a86edc1cca8c12d90c91c0d9a44a8601786f18d9a824b84fc6",
       "source": "Bag3/Code/BroadcastCode/IconDisplay/lib/display_tags.py",
       "vendor_sha256": "070d665c0434f7a86edc1cca8c12d90c91c0d9a44a8601786f18d9a824b84fc6"
+    },
+    "display/lib/draw16.py": {
+      "sha256": "cee883b35df103fa8a12105dea156e20ff435f1ea7e528db5331c3deef0ea961",
+      "source": "Bag3/Code/BroadcastCode/IconDisplay/lib/draw16.py",
+      "vendor_sha256": "cee883b35df103fa8a12105dea156e20ff435f1ea7e528db5331c3deef0ea961"
     },
     "display/lib/espnow_manager.py": {
       "sha256": "5728d6245f508c8fd975742c4e8050dc613824512574f9ee203ef3b0ac5f1008",
