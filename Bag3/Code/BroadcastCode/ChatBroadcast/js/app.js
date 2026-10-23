@@ -1213,6 +1213,7 @@ class App {
             el.addEventListener('click', () => this.selectRole(el.dataset.role));
         });
         document.getElementById('btn-save-game').addEventListener('click', () => this.onSaveGame());
+        document.getElementById('btn-open-game').addEventListener('click', () => this.openSavedFromWorkspace());
 
         // The brand replaced the Home tab on every screen that had one, so it
         // routes through onNavTab: that keeps the unsaved-work guard on the
@@ -1296,6 +1297,13 @@ class App {
         if (action === 'cancel') return;
         this._sim?.stop();
         showView('splash');
+    }
+
+    async openSavedFromWorkspace() {
+        const action = await this.confirmUnsavedWork();
+        if (action === 'cancel') return;
+        this._sim?.stop();
+        this.goSaved();
     }
 
     /** "New game": the button near Save, and the splash "Start from
