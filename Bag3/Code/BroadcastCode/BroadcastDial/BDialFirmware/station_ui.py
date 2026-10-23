@@ -98,6 +98,8 @@ RING_DIR = "/flash"     # kb_<ring>.bin and kb_rings.json location
 HOLD_SHOW = HOLD_MAYBE_MS / SERVE_EXIT_MS   # ring appears where a release stops being a click
 HOLD_STEP = 12          # degrees per hold-ring update (30 redraws per hold)
 HOLD_W = 10             # hold ring width, same as the result ring
+PROG_W = 8              # distribute progress ring width, inside the hold ring
+PROG_SIZE = (RIM_OUTER - HOLD_W - 2) * 2
 
 HOME_STYLE = {          # home item -> (glyph key, circle colour)
     "Read": ("read", SERVE_FG),
@@ -211,6 +213,13 @@ class StationUI:
         self._visible(self.hold_arc, False)
         self._hold_shown = False
         self._hold_deg = -1
+        # Distribute progress: teal ring inside the hold ring, plus a count.
+        self.prog_arc = self._arc(lv.layer_top(), SERVE_FG, PROG_W, PROG_SIZE)
+        self.prog_lbl = self._label(lv.layer_top(), self.f["body"], SERVE_FG, y=60)
+        self.prog_lbl.set_style_bg_color(lv.color_hex(CARD_BG), 0)
+        self.prog_lbl.set_style_bg_opa(255, 0)
+        self._visible(self.prog_arc, False)
+        self._visible(self.prog_lbl, False)
 
     # -- primitives --------------------------------------------------
 
@@ -754,6 +763,18 @@ class StationUI:
         if not self._hold_shown:
             self._visible(self.hold_arc, True)
             self._hold_shown = True
+
+    def show_progress(self, done, total):
+        """Distribute progress over any page: ring fills done/total and a
+        label reads "<done> of <total> updated". total 0 hides both."""
+        if not total:
+            self._visible(self.prog_arc, False)
+            self._visible(self.prog_lbl, False)
+            return
+        self._span(self.prog_arc, 0, max(360 * done // total, 1))
+        self.prog_lbl.set_text("%d of %d updated" % (done, total))
+        self._visible(self.prog_arc, True)
+        self._visible(self.prog_lbl, True)
 
     # -- sound -----------------------------------------------------
 

@@ -83,7 +83,7 @@ class FakeCode:
     def disarm(self):
         self.armed = False
 
-    def poll(self, on_event=None):
+    def poll(self, on_event=None, on_msg=None):
         if self.nfc.field:
             self.overlap = True
 

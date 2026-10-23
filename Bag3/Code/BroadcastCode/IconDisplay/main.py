@@ -385,6 +385,7 @@ def main():
     try:
         enow.init()
         radio_ok = True
+        enow.set_status_provider(lambda: None, kind=HUB_TYPE)
         print("  ESP-NOW ready")
     except Exception as e:
         print("  [WARN] ESP-NOW:")
@@ -539,6 +540,14 @@ def main():
             server.release_panel()
             panel.clear()
             frame = 0
+        elif msg_type == "code_push":
+            # Dial-initiated getcode: same path as a getcode card tap.
+            server.release_panel()
+            _espnow_pull(panel, enow, data.get("slug") or "",
+                         data.get("host") or "", icon_store.DIR)
+            last_uid = None
+            frame = 0
+            continue
 
         # Cards every NFC_POLL_FRAMES: a read is 200-500ms and would stall
         # the loop if it ran every frame.

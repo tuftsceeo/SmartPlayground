@@ -12,6 +12,7 @@ export const DIAL_FILES = [
     { path: 'card_writer.py', remotePath: '/flash/card_writer.py' },
     { path: 'code_link.py', remotePath: '/flash/code_link.py' },
     { path: 'code_sender.py', remotePath: '/flash/code_sender.py' },
+    { path: 'fleet.py', remotePath: '/flash/fleet.py' },
     { path: 'dial_board.py', remotePath: '/flash/dial_board.py' },
     { path: 'dial_input.py', remotePath: '/flash/dial_input.py' },
     { path: 'text_entry.py', remotePath: '/flash/text_entry.py' },

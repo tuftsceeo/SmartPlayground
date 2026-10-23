@@ -375,6 +375,9 @@ class _StartGameCapture:
         mt, data, mac = self._enow.poll(timeout_ms)
         if mt == "start_game":
             self.pending_name = data.get("name") if isinstance(data, dict) else None
+        elif mt == "code_push":
+            _queue_push(data)
+            return "stop", data, mac            # end the game; idle loop pulls
         elif mt == "raw" and _pair_ctl is not None and isinstance(data, dict):
             r = _pair_ctl.on_msg(data, mac)
             if r == "who":
@@ -630,6 +633,9 @@ def check_broadcast(enow, batt_ref, leds_ref, buz_ref):
         if is_game(name):
             return ("start_game", name)
         print("  ESP-NOW: ignoring unknown start_game name: %r" % name)
+    if msg_type == "code_push":
+        _queue_push(data)
+        return "stop"                           # idle loop runs the pull
     if msg_type == "raw" and _pair_ctl is not None and isinstance(data, dict):
         _pair_ctl.on_msg(data, mac_str)
     return None
@@ -810,6 +816,13 @@ def _espnow_pull_and_launch(enow, slug, host_id, nfc, accel, i2c, batt):
 _PAIRING_PATH = "/pairing.json"   # same file as lib/pairing.py PATH
 _PAIR_BOOT_PATH = "/pair_boot"    # same file as lib/splatpair.py PAIR_BOOT_PATH
 _pair_ctl = None                  # splatpair.SplatPairing for a paired wand
+_pending_push = None              # (slug, host) from a Dial code_push
+
+
+def _queue_push(data):
+    """Record a Dial code_push; the idle loop runs it as a getcode pull."""
+    global _pending_push
+    _pending_push = (data.get("slug") or "", data.get("host") or "")
 
 
 def _read_pairing():
@@ -978,7 +991,9 @@ def _boot():
         _boot_warn(2)
 
     if batt is not None:
-        enow.set_status_provider(lambda b=batt: int(b.soc))
+        enow.set_status_provider(lambda b=batt: int(b.soc), kind=HUB_TYPE)
+    else:
+        enow.set_status_provider(lambda: None, kind=HUB_TYPE)
 
     # ── Stage 3: NFC init (fatal on failure) ──
     _stage("boot_stage_start", 3)
@@ -1074,6 +1089,7 @@ def _calibrate_light(light, samples):
 
 
 def main():
+    global _pending_push
     _boot_grace()
     try:
         enow, batt, nfc, accel, accel_ok, last_soc = _boot()
@@ -1130,6 +1146,21 @@ def main():
             last_heartbeat_ms = time.ticks_ms()
             _emit({"type": "heartbeat", "up": last_heartbeat_ms})
         try:
+            # ── DIAL CODE PUSH ── same path as a getcode card tap.
+            if _pending_push is not None:
+                wanted, wanted_host = _pending_push
+                _pending_push = None
+                _clear_rules_state(enow)
+                rules = {}; editing = None; pending_combinator = None
+                buz.stop()
+                nfc_sleeping = False
+                _espnow_pull_and_launch(enow, wanted, wanted_host, nfc, accel, i2c, batt)
+                last_activity_ms = time.ticks_ms()
+                idle_frame = 0
+                show_idle(last_soc, 0)
+                last_uid = None
+                continue
+
             if _pair_ctl is not None:
                 for _i, _ev in _pair_ctl.poll():
                     if _ev == "press":

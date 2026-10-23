@@ -17,6 +17,7 @@ const FORWARDED_EVENTS = [
   "identity", "heartbeat", "fatal", "bye", "error", "repl",
   "armed", "card_present", "card_written", "info", "mode",
   "games", "stats", "ok", "booting",
+  "pull", "status_report", "status_done", "dist_progress", "dist_done",
 ];
 
 /** Must exceed GRACE_S (~1s) + NFC init; plan §3.1. Kept for callers that
