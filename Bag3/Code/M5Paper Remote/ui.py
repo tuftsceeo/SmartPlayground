@@ -57,6 +57,9 @@ from config import (
     save_enabled_ids,
 )
 
+# status_report "kind" (sender's HUB_TYPE) -> row label prefix.
+KIND_PREFIX = {"wand": "W-", "icon_display": "D-"}
+
 # DejaVu font sizes present on this firmware. Map a point size to its
 # M5.Lcd.FONTS attribute name. ONLY these objects are passed to setFont() --
 # never None, which hard-faults the chip.
@@ -542,11 +545,13 @@ class RemoteUI(object):
             FONT_SETTINGS_SMALL,
         )
 
-    def _wand_name(self, mac):
+    def _device_name(self, mac, kind):
+        """Row label: kind prefix (W wand, D icon display, ? other) + MAC tail."""
+        prefix = KIND_PREFIX.get(kind, "?-")
         clean = mac.replace(":", "").upper()
         if len(clean) >= 4:
-            return "W-" + clean[-4:]
-        return "W-" + clean
+            return prefix + clean[-4:]
+        return prefix + clean
 
     def _signal_level(self, rssi):
         """Map RSSI (dBm) to a 0..3 strength level, or -1 if unknown."""
@@ -710,7 +715,7 @@ class RemoteUI(object):
             self._draw_status_header()
             if not self._status_rows:
                 self._draw_text_centered(
-                    "Waiting for wands...",
+                    "Waiting for devices...",
                     SCREEN_W // 2,
                     SCREEN_H // 2,
                     BLACK,
@@ -751,7 +756,7 @@ class RemoteUI(object):
         self._status_page = 0
         self.paint_full()
 
-    def upsert_status_report(self, mac, battery, rssi):
+    def upsert_status_report(self, mac, battery, rssi, kind=None):
         if self.mode != "status":
             return
         now = time.ticks_ms()
@@ -761,17 +766,18 @@ class RemoteUI(object):
             if row["mac"] == mac:
                 row["battery"] = battery
                 row["rssi"] = rssi
+                row["name"] = self._device_name(mac, kind)
                 self._redraw_status_row(mac)
                 return
         was_empty = len(self._status_rows) == 0
         self._status_rows.append({
             "mac": mac,
-            "name": self._wand_name(mac),
+            "name": self._device_name(mac, kind),
             "battery": battery,
             "rssi": rssi,
         })
         if was_empty:
-            # Clears the "Waiting for wands..." text and draws the first row.
+            # Clears the "Waiting for devices..." text and draws the first row.
             self.paint_status()
             return
         self._build_status_layout()

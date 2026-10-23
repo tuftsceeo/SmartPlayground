@@ -385,6 +385,7 @@ def main():
     try:
         enow.init()
         radio_ok = True
+        enow.set_status_provider(lambda: None, kind=HUB_TYPE)
         print("  ESP-NOW ready")
     except Exception as e:
         print("  [WARN] ESP-NOW:")

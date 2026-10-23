@@ -978,7 +978,9 @@ def _boot():
         _boot_warn(2)
 
     if batt is not None:
-        enow.set_status_provider(lambda b=batt: int(b.soc))
+        enow.set_status_provider(lambda b=batt: int(b.soc), kind=HUB_TYPE)
+    else:
+        enow.set_status_provider(lambda: None, kind=HUB_TYPE)
 
     # ── Stage 3: NFC init (fatal on failure) ──
     _stage("boot_stage_start", 3)

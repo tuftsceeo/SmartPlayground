@@ -123,10 +123,12 @@ def _drain_status_reports(enow, ui):
             continue
         battery = None
         rssi = None
+        kind = None
         if isinstance(data, dict):
             battery = data.get("battery")
             rssi = data.get("rssi")
-        ui.upsert_status_report(mac, battery, rssi)
+            kind = data.get("kind")
+        ui.upsert_status_report(mac, battery, rssi, kind)
 
 
 def _dispatch(enow, btn):
