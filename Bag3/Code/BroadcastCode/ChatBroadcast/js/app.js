@@ -240,6 +240,14 @@ class App {
         };
 
         setWorkspaceHandler((code) => {
+            const drawer = document.getElementById('code-drawer');
+            // A block that is already some device's code just shows it.
+            const role = rolesWithCode().find((r) => getCode(r).trim() === code.trim());
+            if (role) {
+                if (role !== getActiveRole()) this.selectRole(role);
+                drawer.classList.remove('hidden');
+                return;
+            }
             dbg('app', `workspace handler: code block sent to editor (${code.length} chars)`);
             setCode(code);
             saveVersion(code, 'From chat (sent manually)');
@@ -334,8 +342,7 @@ class App {
         }
         view.classList.remove('hidden');
         document.querySelector('.preview-stage')?.classList.add('hidden');
-        document.getElementById('btn-icons-view')?.setAttribute('aria-pressed', 'true');
-        document.getElementById('btn-icons-view')?.classList.add('active');
+        this.syncPreviewTabs(true);
         this.renderIconsList();
         dbg('app', 'icons view opened');
     }
@@ -346,9 +353,24 @@ class App {
         this.closeIconMenu();
         view.classList.add('hidden');
         document.querySelector('.preview-stage')?.classList.remove('hidden');
-        document.getElementById('btn-icons-view')?.setAttribute('aria-pressed', 'false');
-        document.getElementById('btn-icons-view')?.classList.remove('active');
+        this.syncPreviewTabs(false);
         dbg('app', 'icons view closed');
+    }
+
+    syncPreviewTabs(iconsOpen) {
+        for (const [id, on] of [['btn-sim-view', !iconsOpen], ['btn-icons-view', iconsOpen]]) {
+            const tab = document.getElementById(id);
+            tab?.classList.toggle('active', on);
+            tab?.setAttribute('aria-selected', String(on));
+        }
+    }
+
+    /** The Simulation/Icons toggle shows only while the simulator is
+     * running icon-display code beside the wand. */
+    syncPreviewToolbar() {
+        const show = !!this._simLastDisplay;
+        document.querySelector('.preview-toolbar')?.classList.toggle('hidden', !show);
+        if (!show) this.closeIconsView();
     }
 
     iconsViewOpen() {
@@ -1116,11 +1138,6 @@ class App {
         document.getElementById('btn-remix').addEventListener('click', () => this.remixCurrentExample());
         document.getElementById('btn-use-as-is').addEventListener('click', () => this.useExampleAsIs());
         document.getElementById('btn-send').addEventListener('click', () => this.onSend());
-        document.getElementById('btn-guided').addEventListener('click', () => this.startGuidedMode());
-        document.getElementById('btn-interview').addEventListener('click', () => this.startInterview());
-        document.getElementById('btn-show-code').addEventListener('click', () => {
-            document.getElementById('code-drawer').classList.remove('hidden');
-        });
         document.getElementById('btn-close-code').addEventListener('click', () => {
             document.getElementById('code-drawer').classList.add('hidden');
         });
@@ -1238,10 +1255,8 @@ class App {
             if (e.key === 'Escape') this.closeMoreMenu();
         });
 
-        document.getElementById('btn-icons-view')?.addEventListener('click', () => {
-            if (this.iconsViewOpen()) this.closeIconsView();
-            else this.openIconsView();
-        });
+        document.getElementById('btn-icons-view')?.addEventListener('click', () => this.openIconsView());
+        document.getElementById('btn-sim-view')?.addEventListener('click', () => this.closeIconsView());
         this.bindIconToolbar();
 
         this.bindGameNameEditor();
@@ -1397,6 +1412,7 @@ class App {
         this._simLastSource = null;
         this._simLastDisplay = null;
         this._simLastSettings = null;
+        this.syncPreviewToolbar();
         this.updatePreview();
     }
 
@@ -2369,6 +2385,7 @@ class App {
         this._simPaused = false;
         this._sim.displayIcons = display ? this.simDisplayIcons(display) : null;
         this._sim.displaySource = display;
+        this.syncPreviewToolbar();
         // Workspace code is pushed as source — it may have been edited — so
         // _TEACHER_TABLE can't match it and capabilities fall back to "show
         // everything". The example's own profile is what narrows that back

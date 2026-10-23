@@ -174,17 +174,43 @@ body.ui-advanced #app-shell {
 }
 .more-subitem.active { color: var(--ink); }
 
-.app-tabs { display: flex; gap: 6px; margin-left: 10px; }
-.app-tab {
+/* Segmented control shared by the gallery tabs (.app-tabs) and the
+   preview tabs (.preview-toolbar): a tinted track, active tab raised. */
+.app-tabs,
+.preview-segment {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding: 3px;
+    background: #f1eef7;
+    border: 1px solid var(--border-soft);
+    border-radius: 12px;
+}
+.app-tabs { margin-left: 10px; }
+.app-tab,
+.preview-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
     border: none;
     background: transparent;
     color: var(--muted);
-    font: 700 12px 'Nunito';
-    padding: 6px 12px;
-    border-radius: 20px;
+    font: 800 13px 'Nunito', sans-serif;
+    padding: 7px 16px;
+    border-radius: 9px;
     cursor: pointer;
+    transition: background 0.15s, color 0.15s, box-shadow 0.15s;
 }
-.app-tab.active { background: var(--tab-active-bg); color: var(--tab-active-fg); }
+.app-tab:hover:not(.active),
+.preview-tab:hover:not(.active) { color: var(--ink); background: rgba(255, 255, 255, 0.6); }
+.app-tab.active,
+.preview-tab.active {
+    background: #fff;
+    color: var(--pink-dark);
+    box-shadow: 0 1px 3px rgba(40, 20, 70, 0.14), 0 0 0 1px rgba(40, 20, 70, 0.04);
+}
+.app-tab:focus-visible,
+.preview-tab:focus-visible { outline: 2px solid var(--pink); outline-offset: 1px; }
 .header-actions {
     margin-left: auto;
     display: flex;
@@ -575,16 +601,17 @@ body.ui-advanced #app-shell {
 
 .preview-toolbar {
     display: flex;
+    align-items: stretch;
     align-items: center;
-    gap: 8px;
-    padding: 10px 14px;
+    justify-content: flex-end;
+    padding: 0 14px;
     border-bottom: 1px solid var(--border-soft);
     flex: none;
     background: #fff;
     min-height: 51px;
     box-sizing: border-box;
 }
-.preview-toolbar-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+.preview-tab [data-icon] { display: flex; color: inherit; }
 .btn-quiet {
     display: inline-flex;
     align-items: center;
@@ -808,19 +835,6 @@ body.ui-advanced #app-shell {
     justify-content: center;
 }
 
-.btn-guided {
-    width: 38px;
-    height: 38px;
-    border-radius: 50%;
-    background: #fff;
-    color: var(--ink);
-    border: 1.5px solid var(--border);
-    cursor: pointer;
-    flex: none;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
 .starter-chip-guided {
     border-color: var(--pink);
 }
@@ -1099,7 +1113,6 @@ body.ui-advanced #app-shell {
 }
 .icons-view.hidden { display: none; }
 .preview-stage.hidden { display: none; }
-#btn-icons-view.active { border-color: var(--purple); color: var(--purple); }
 .icons-list-col {
     flex: none;
     width: 200px;

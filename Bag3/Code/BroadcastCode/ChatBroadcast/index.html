@@ -179,18 +179,20 @@
                      code drawer, not to the conversation. -->
                 <div class="ws-body">
                     <div class="preview-col">
-                        <div class="preview-toolbar">
-                            <div class="preview-toolbar-actions">
-                                <button class="btn-quiet" id="btn-icons-view" type="button" title="See and edit this game's display icons"
-                                        aria-pressed="false">
-                                    <span data-icon="palette" data-icon-size="14"></span>
-                                    Icons
-                                </button>
-                                <button class="btn-quiet" id="btn-show-code" type="button" title="Show code">
-                                    <span data-icon="code" data-icon-size="14"></span>
-                                    View code
-                                </button>
-                            </div>
+                        <!-- The code drawer opens from "View code" on a chat code block. -->
+                        <div class="preview-toolbar hidden">
+                          <div class="preview-segment" role="tablist" aria-label="Preview">
+                            <button class="preview-tab active" id="btn-sim-view" type="button" role="tab"
+                                    aria-selected="true" title="Play the game in the simulator">
+                                <span data-icon="wand" data-icon-size="14"></span>
+                                Simulation
+                            </button>
+                            <button class="preview-tab" id="btn-icons-view" type="button" role="tab"
+                                    aria-selected="false" title="See and edit this game's display icons">
+                                <span data-icon="palette" data-icon-size="14"></span>
+                                Icons
+                            </button>
+                          </div>
                         </div>
                         <div class="preview-stage">
                             <div id="preview-empty" class="preview-empty">
@@ -202,7 +204,7 @@
                             </div>
                         </div>
                         <!-- Icons view: a sibling of the preview stage, shown in
-                             its place by #btn-icons-view. The list is every
+                             its place by the Icons tab (#btn-icons-view). The list is every
                              icon the game uses; selecting one opens it in the
                              embedded Icon Maker beside it. -->
                         <div id="icons-view" class="icons-view hidden">
@@ -262,12 +264,6 @@
                     <div class="chat-col">
                         <div id="chat-box"></div>
                         <div class="chat-input-row">
-                            <button class="btn-guided" id="btn-interview" title="Interview me" type="button">
-                                <span data-icon="message-circle" data-icon-size="16"></span>
-                            </button>
-                            <button class="btn-guided" id="btn-guided" title="Help me make a game" type="button">
-                                <span data-icon="sparkles" data-icon-size="16"></span>
-                            </button>
                             <textarea id="user-input" rows="1" placeholder="type a request…"></textarea>
                             <button class="btn-send-round" id="btn-send" title="Send" type="button">
                                 <span data-icon="send" data-icon-size="16"></span>
