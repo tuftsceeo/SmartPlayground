@@ -127,6 +127,7 @@ class BdialServer:
         # reset (module docstring), so this restarts with each code update.
         self._pulls = {}
         self._share_retry_at = 0
+        self.fleet = None       # fleet.Fleet, built on the first fleet.* cmd
         self._index = {}  # slug -> {name, added}
         self._active = None
 
@@ -145,6 +146,10 @@ class BdialServer:
             "games.clear": self.do_games_clear,
             "stats.get": self.do_stats_get,
             "stats.reset": self.do_stats_reset,
+            "fleet.scan": self.do_fleet_scan,
+            "fleet.find": self.do_fleet_find,
+            "fleet.distribute": self.do_fleet_distribute,
+            "fleet.cancel": self.do_fleet_cancel,
         }
 
     # ─────────────────────────────────────────────
@@ -184,6 +189,7 @@ class BdialServer:
             return
         old = self._mode
         if old == MODE_WRITE:
+            self._fleet_cancel("radio_off")
             self.code.disarm()
         self._mode = new_mode
         reset_log.note_mode(new_mode)
@@ -649,6 +655,7 @@ class BdialServer:
 
     def radio_off(self):
         if self.code.armed:
+            self._fleet_cancel("radio_off")
             self.code.disarm()
 
     def on_card(self, tag, existing):
@@ -678,8 +685,12 @@ class BdialServer:
         radio is down everywhere else (Read, scans, results, keyboard)."""
         if self.code.armed:
             if self.st.serving():
-                self.code.poll(on_event=self._on_share_event)
+                self.code.poll(on_event=self._on_share_event,
+                               on_msg=self._on_fleet_msg)
+                if self.fleet is not None:
+                    self.fleet.step()
             else:
+                self._fleet_cancel("radio_off")
                 self.code.disarm()
             return
         if (self._mode != MODE_WRITE or not self.st.serving()
@@ -697,9 +708,76 @@ class BdialServer:
         if event in ('ok', 'fail'):
             self._emit_pull()
         r = self.code.last_result
+        if event in ('ok', 'fail') and r is not None and self.fleet is not None:
+            self.fleet.on_pull(r)
         if event == 'ok' and r is not None and r.get("hub", "wand") == "wand":
             slug = r.get("slug")
             self._pulls[slug] = self._pulls.get(slug, 0) + 1
+
+    # ─────────────────────────────────────────────
+    # FLEET (status scan, find, distribute) -- fleet.py
+    # ─────────────────────────────────────────────
+
+    def _on_fleet_msg(self, data, mac):
+        if self.fleet is not None:
+            self.fleet.on_msg(data, mac)
+
+    def _fleet_cancel(self, why):
+        if self.fleet is not None:
+            self.fleet.cancel(why)
+
+    def _fleet_ready(self, rid):
+        """The Fleet when the radio is up, else an error reply and None.
+        The radio is up on the menu screens in WRITE mode (_serve)."""
+        if not self.code.armed:
+            self.link.send({"type": "error", "id": rid, "code": "not_serving",
+                            "msg": "radio is off: Dial must be on a menu with a game loaded"})
+            return None
+        if self.fleet is None:
+            from fleet import Fleet
+            self.fleet = Fleet(self.link, self.ui)
+        return self.fleet
+
+    def do_fleet_scan(self, cmd, rid):
+        fl = self._fleet_ready(rid)
+        if fl is None:
+            return
+        fl.scan(self.code.mgr)
+        self.link.send({"type": "ok", "id": rid, "cmd": "fleet.scan"})
+
+    def do_fleet_find(self, cmd, rid):
+        mac = cmd.get("mac")
+        if not mac:
+            self.link.send({"type": "error", "id": rid, "code": "no_mac"})
+            return
+        fl = self._fleet_ready(rid)
+        if fl is None:
+            return
+        fl.find(self.code.mgr, mac)
+        self.link.send({"type": "ok", "id": rid, "cmd": "fleet.find", "mac": mac})
+
+    def do_fleet_distribute(self, cmd, rid):
+        slug = cmd.get("slug")
+        macs = cmd.get("macs")
+        if not slug or slug not in self._index:
+            self.link.send({"type": "error", "id": rid, "code": "unknown_slug"})
+            return
+        if not isinstance(macs, list) or not macs:
+            self.link.send({"type": "error", "id": rid, "code": "no_macs"})
+            return
+        fl = self._fleet_ready(rid)
+        if fl is None:
+            return
+        if fl.busy:
+            self.link.send({"type": "error", "id": rid, "code": "busy"})
+            return
+        fl.distribute(self.code.mgr, slug, macs)
+        self.link.send({"type": "ok", "id": rid, "cmd": "fleet.distribute",
+                        "slug": slug, "total": len(macs)})
+
+    def do_fleet_cancel(self, cmd, rid):
+        self._fleet_cancel("cancelled")
+        self.link.send({"type": "ok", "id": rid, "cmd": "fleet.cancel"})
 
     def _emit_pull(self):
         r = self.code.last_result

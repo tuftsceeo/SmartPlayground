@@ -450,6 +450,11 @@ class ESPNowManager:
                 if target is not None and not self._is_for_me(target):
                     return None, None, None   # for another device; ignore
                 return "start_game", {"name": "finddevice", "mac": target}, mac_str
+            if mt == "code_push":
+                # Dial-initiated getcode for one device; others ignore it.
+                if not self._is_for_me(data.get("mac")):
+                    return None, None, None
+                return "code_push", data, mac_str
             if mt == "status_poll":
                 if self._status_provider:
                     self._schedule_status_reply(mac_str)

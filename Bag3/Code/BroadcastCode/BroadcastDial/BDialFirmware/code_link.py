@@ -26,8 +26,8 @@ ACTIVE_PATH = "/flash/active.txt"
 
 BROADCAST_MAC = b"\xff\xff\xff\xff\xff\xff"
 SEND_RETRY_MS = 30
-# Inbound traffic is code_req/code_get only (under 100 B each). The rx buffer
-# comes out of internal DRAM, which the UI also draws on.
+# Inbound traffic is code_req/code_get/status_report (under 100 B each). The
+# rx buffer comes out of internal DRAM, which the UI also draws on.
 ESPNOW_RXBUF = 1024
 
 
@@ -246,10 +246,12 @@ class CodeLink:
         self._armed = False
         gc.collect()
 
-    def poll(self, on_event=None, should_abort=None):
+    def poll(self, on_event=None, should_abort=None, on_msg=None):
         """Handle at most one radio message. on_event('serving') per offered
         wand, 'ok'/'fail' per finished one; finished transfers also set
-        last_result. Returns 'abort' when should_abort() is true."""
+        last_result. on_msg(data, mac) gets JSON messages that are not code
+        transfer (status_report). Returns 'abort' when should_abort() is
+        true."""
         if not self._armed:
             return None
         if should_abort is not None and should_abort():
@@ -257,7 +259,9 @@ class CodeLink:
             return 'abort'
         mt, data, mac = self.mgr.poll()
         if mt is not None:
-            self.sender.handle(mt, data, mac)
+            if not self.sender.handle(mt, data, mac) and on_msg is not None \
+                    and isinstance(data, dict):
+                on_msg(data, mac)
         else:
             self.sender._expire()
         n = len(self.sender.sessions)

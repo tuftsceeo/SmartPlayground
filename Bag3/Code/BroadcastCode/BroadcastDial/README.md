@@ -153,6 +153,7 @@ text; Classic writes never touch sector trailers; NTAG writes start at page
 | `dial_input.py` | Encoder + button + touch → `NEXT`/`PREV`/`ACT`/`EXIT`; identical to the NFC Station's copy |
 | `dial_board.py` | Screen size, speaker volume, I2C pins, `make_reader()` |
 | `code_link.py` | `CodeLink`, `NativeManager`, `prewarm()`, `HOST_ID`; see "Serving over ESP-NOW" |
+| `fleet.py` | Status scan, find-device and staggered `code_push` distribution; imported on the first `fleet.*` command |
 | `code_sender.py` | ESP-NOW sender — **PEER of `EspnowModem/host/code_sender.py`** (defines `mac_str_to_bytes()` itself) |
 | `card_writer.py` | NDEF text read/write — **PEER of Box** |
 | `ws1850s.py` | WS1850S driver — **PEER of Box** (H2 PASS: 0x28, VersionReg 0x15) |
@@ -183,6 +184,23 @@ Identity payload:
 ```json
 {"type":"identity","device":"broadcast_dial","version":"0.1.0","w":240,"h":240,"nfc":true|false,"host_id":"004c"}
 ```
+
+Fleet commands (Dial only; need the radio up, i.e. a menu screen in WRITE,
+else `error` `not_serving`):
+
+- `fleet.scan`: broadcasts `status_poll` and, over 6 s, sends
+  `{"type":"status_report","mac","kind","battery","rssi"}` per reply, then
+  `{"type":"status_done","n"}`. `kind` is the device's `HUB_TYPE`.
+- `fleet.find {mac}`: broadcasts `find_device` for that MAC.
+- `fleet.distribute {slug, macs}`: unicasts
+  `{"type":"code_push","mac","slug","host"}` to one MAC every 2.5 s, at most
+  3 unfinished at once. The device runs its getcode pull and launches the
+  game. Each device sends `{"type":"dist_progress","done","total","mac","ok","why"}`
+  (`ok` null and `why` `"pushed"` when sent; then true/false from its
+  `pull`, `no_ack`, or `timeout` after 30 s), then `{"type":"dist_done"}`.
+  The Dial shows a teal ring and "N of M updated" until 3 s after the end.
+- `fleet.cancel`: fails every unfinished device with `why` `"cancelled"`.
+  Leaving the menus (scan, write, Read, keyboard) cancels with `"radio_off"`.
 
 **Liveness is `heartbeat`, nothing else.** Never gate the link on `identity`.
 
