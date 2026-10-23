@@ -1454,6 +1454,7 @@ body.ui-advanced #app-shell {
 .box-lib-radio.active { color: var(--pink); }
 .box-lib-name { flex: 1; color: var(--ink); }
 .box-lib-pulls { font: 11px 'Nunito'; color: var(--muted); }
+.overlay-card .box-lib-dist { margin-top: 0; flex: none; }
 .box-lib-del {
     border: none;
     background: none;

@@ -2682,10 +2682,10 @@ class App {
 
     /** "Distribute code" on the Dial send-success screen: close it as Done
      * does, then open the distribute overlay for the game just sent. */
-    openDistribute() {
-        const slug = this._lastSentSlug;
-        const pretty = this.gameName;
-        this.finishSend();
+    openDistribute(slug = this._lastSentSlug, pretty = this.gameName) {
+        if (document.getElementById('send-confirm-overlay')?.classList.contains('hidden') === false) {
+            this.finishSend();
+        }
         if (!slug) return;
         if (!this._distribute) {
             this._distribute = new DistributeOverlay({ app: this, showOverlay, hideOverlay, toast });
@@ -2975,6 +2975,19 @@ class App {
                 del.innerHTML = iconSvg('trash', { size: 15 });
                 del.addEventListener('click', () => this.askDeleteBoxGame(li, g));
 
+                // Dial only (see showSendSuccess): push this game to nearby
+                // wands and stations.
+                const dist = document.createElement('button');
+                dist.type = 'button';
+                dist.className = 'btn-secondary btn-compact box-lib-dist';
+                dist.textContent = 'Distribute';
+                dist.title = `Send "${g.name || g.slug}" to nearby wands and stations`;
+                dist.classList.toggle('hidden', this.device.deviceInfo?.device === 'broadcast_box');
+                dist.addEventListener('click', () => {
+                    hideOverlay('box-library-overlay');
+                    this.openDistribute(g.slug, g.name || g.slug);
+                });
+
                 // Written-tag checklist: the durable answer to "which cards have
                 // I made?", available whenever the Box is connected -- not only
                 // during the moments right after a send.
@@ -2994,6 +3007,7 @@ class App {
                 li.appendChild(radio);
                 li.appendChild(name);
                 li.appendChild(pulls);
+                li.appendChild(dist);
                 li.appendChild(expand);
                 li.appendChild(del);
                 li.appendChild(tagsWrap);
