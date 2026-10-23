@@ -196,9 +196,9 @@
       "vendor_sha256": "b71ea4907a7543902f24fcf2658450688817d83dfaca74f030aa4217b679eef6"
     },
     "lib/lobby_game.py": {
-      "sha256": "8502d52d6563b5c857c4b7fe48a107cf23bd5606aaaa7fd3528417c7107fd07b",
+      "sha256": "315aec1fb7f923c503df2a13656343973ed981bea19fa1b15f161f36c9ef5512",
       "source": "Bag3/Code/BroadcastCode/MockWand/lib/lobby_game.py",
-      "vendor_sha256": "8502d52d6563b5c857c4b7fe48a107cf23bd5606aaaa7fd3528417c7107fd07b"
+      "vendor_sha256": "315aec1fb7f923c503df2a13656343973ed981bea19fa1b15f161f36c9ef5512"
     },
     "lib/pairing.py": {
       "sha256": "615e38339d682855d5c6227fa095b64a4ca858b66ebf2e7be54d9edd8a81bb60",
@@ -211,9 +211,9 @@
       "vendor_sha256": "14a58af47870364104eb17f927dcd7ca21661406fed512c7bbb0b671ace85281"
     },
     "lib/splat_api.py": {
-      "sha256": "793638859231d52cca98560ae64d5212818811c58f7abe66e590419e4053b340",
+      "sha256": "3e10bcd9686652f22916ba420fee01fa98d4f0f38e357945a3f6b6ac717ff4e7",
       "source": "Bag3/Code/BroadcastCode/MockWand/lib/splat_api.py",
-      "vendor_sha256": "793638859231d52cca98560ae64d5212818811c58f7abe66e590419e4053b340"
+      "vendor_sha256": "3e10bcd9686652f22916ba420fee01fa98d4f0f38e357945a3f6b6ac717ff4e7"
     },
     "lib/splatpair.py": {
       "sha256": "8ed8f61d932e11a5810ba3d068efc3cf006471776fe63f4b49f0c4a9358b812c",

@@ -7,13 +7,17 @@
  * ChatBroadcast/js/splat/splatActions.js by tests/js/peers.test.mjs.
  *
  * Two ways in:
- *   applyAction(op, v)   the pw_cmd / splat_api level: op "color" | "sound" |
+ *   applyAction(op, v)   the pw_cmd / splat_api level: op "color" | "color_part" | "sound" |
  *                        "note" | "play" | "off", v a card name or name list
+ *                        ("color_part": v is [name, "inner" | "outer"])
  *   applyWrite(op, args) the BLE-write level py/shims/splat_hub.py reports
  *                        for the simulated wand's own Splats ("leds",
- *                        "sound", "noteOn", "noteOff", "tasksOff", "ledsOff")
+ *                        "sound", "noteOn", "noteOff", "tasksOff", "ledsOff",
+ *                        "ledsPart" [part, r, g, b])
  *
- * State: rgb [r,g,b], color (name or null), sound (name or null), note
+ * State: inner and outer [r,g,b] (the two LED rings: even LEDs inner, odd
+ * outer), rgb [r,g,b] (the inner ring's color, or the outer's when the inner
+ * is dark), color (name or null), sound (name or null), note
  * (name or null), ready (link up), pressed, and sounds (count of sounds and
  * notes started, so a view can tell a repeat from no change).
  * onChange(splat, what) fires after every change; what is "color" |
@@ -72,6 +76,8 @@ export function createSplat({ mac, owner = null, onChange = null } = {}) {
     mac,
     owner,
     rgb: [0, 0, 0],
+    inner: [0, 0, 0],
+    outer: [0, 0, 0],
     color: null,
     sound: null,
     note: null,
@@ -84,11 +90,22 @@ export function createSplat({ mac, owner = null, onChange = null } = {}) {
   };
   const changed = (what) => s.onChange?.(s, what);
 
-  function setColor(name) {
+  /** Set part ("inner", "outer", or null for both) to rgb. */
+  function setRgb(rgb, part) {
+    if (part !== null && part !== "inner" && part !== "outer") {
+      throw new Error(`unknown Splat part: ${part}`);
+    }
+    if (part !== "outer") s.inner = [...rgb];
+    if (part !== "inner") s.outer = [...rgb];
+    s.rgb = [...(s.inner.some(Boolean) ? s.inner : s.outer)];
+    s.color = colorName(s.rgb);
+  }
+
+  function setColor(name, part = null) {
     const rgb = COLOR_RGB[name];
     if (!rgb) throw new Error(`unknown Splat color: ${name}`);
-    s.rgb = [...rgb];
-    s.color = name;
+    setRgb(rgb, part);
+    if (part === null) s.color = name;
     changed("color");
   }
 
@@ -107,7 +124,7 @@ export function createSplat({ mac, owner = null, onChange = null } = {}) {
   }
 
   function off() {
-    s.rgb = [0, 0, 0];
+    setRgb([0, 0, 0], null);
     s.color = null;
     s.sound = null;
     s.note = null;
@@ -118,6 +135,7 @@ export function createSplat({ mac, owner = null, onChange = null } = {}) {
     s.history.push([op, v]);
     if (s.history.length > HISTORY_MAX) s.history.splice(0, s.history.length - HISTORY_MAX);
     if (op === "color") setColor(v);
+    else if (op === "color_part") setColor(v[0], v[1]);
     else if (op === "sound") setSound(v);
     else if (op === "note") setNote(v);
     else if (op === "off") off();
@@ -136,8 +154,10 @@ export function createSplat({ mac, owner = null, onChange = null } = {}) {
     s.history.push([op, args]);
     if (s.history.length > HISTORY_MAX) s.history.splice(0, s.history.length - HISTORY_MAX);
     if (op === "leds") {
-      s.rgb = [args[0] | 0, args[1] | 0, args[2] | 0];
-      s.color = colorName(s.rgb);
+      setRgb([args[0] | 0, args[1] | 0, args[2] | 0], null);
+      changed("color");
+    } else if (op === "ledsPart") {
+      setRgb([args[1] | 0, args[2] | 0, args[3] | 0], args[0]);
       changed("color");
     } else if (op === "sound") {
       s.sound = soundName(args[0]);
@@ -155,7 +175,7 @@ export function createSplat({ mac, owner = null, onChange = null } = {}) {
       s.note = null;
       changed("off");
     } else if (op === "ledsOff") {
-      s.rgb = [0, 0, 0];
+      setRgb([0, 0, 0], null);
       s.color = null;
       changed("off");
     } else throw new Error(`unknown Splat write: ${op}`);

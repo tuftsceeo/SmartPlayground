@@ -62,7 +62,21 @@ A Splat (from `net.splat(i)` or `net.local.unit(s)`) has `color(name)`, `note(na
 the "SPLAT ACTION NAMES" list; any other name is refused when the game is sent. Keep a Splat in a
 variable if it is used often: `pad = net.splat(0)`.
 
-The Splat shows only six colors. When the same thing (a team, an animal, a card) appears on a
+A Splat's 14 lights are two rings: an **inner** ring in the middle and **outer** points out in
+the arms. `color(name)` sets all of them; `color(name, "inner")` or `color(name, "outer")` sets
+only that ring and leaves the other as it is. So a Splat can show two colors at once, or light
+one ring and turn the other off:
+
+```python
+pad.color("turnred")                # all red
+pad.color("turnoff", "outer")       # outer off; inner stays red
+pad.color("turnblue", "outer")      # red inside, blue outside
+```
+
+`play([...])` and `off()` always act on the whole Splat. The only parts are `"inner"` and
+`"outer"`; any other part is refused when the game is sent.
+
+The Splat shows only six colors; each ring shows one at a time. When the same thing (a team, an animal, a card) appears on a
 wand and a Splat, give it one of these so children can match them by eye:
 
 | Color | Wand (`leds`) | Splat `color()` |

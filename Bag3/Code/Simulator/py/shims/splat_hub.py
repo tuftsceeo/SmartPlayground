@@ -12,7 +12,8 @@ Host side:
     set_write_callback(cb)   cb(mac, op, args_json) per link write; op is
                              "leds" [r, g, b], "sound" [idx], "noteOn"
                              [value, octave], "noteOff" [value, octave],
-                             "tasksOff" [] or "ledsOff" []
+                             "tasksOff" [], "ledsOff" [] or
+                             "ledsPart" [part, r, g, b]
     press(mac) / release(mac)  the Splat's button
     set_ready(mac, up)       unplug (False) or reconnect (True); a
                              reconnect counts as a new connect, as on BLE.
@@ -102,6 +103,11 @@ class SplatLink:
 
     def setLEDsON(self, rgb):
         return self._w("leds", rgb)
+
+    def setLEDs(self, leds, red, green, blue):
+        # splat_api only sends whole rings (LED_PARTS): even = inner, odd = outer.
+        part = "inner" if leds[0] % 2 == 0 else "outer"
+        return self._w("ledsPart", (part, red, green, blue))
 
     def playSound(self, idx, volume):
         return self._w("sound", (idx,))

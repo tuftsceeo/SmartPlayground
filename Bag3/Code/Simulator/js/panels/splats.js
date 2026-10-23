@@ -166,14 +166,19 @@ export function createSplatToy(splat, { onButton, label = "Splat", size = 56 }) 
   btn.addEventListener("animationend", () => btn.classList.remove("chirp"));
 
   function refresh() {
-    const lit = splat.ready && splat.rgb.some(Boolean);
     // An LED value is a brightness; lift it so a dim pairing glow still
     // reads as its color on screen.
-    const peak = Math.max(...splat.rgb, 1);
-    const c = lit ? splat.rgb.map((v) => Math.round((v / peak) * 255)) : null;
+    const ring = (rgb) => {
+      if (!splat.ready || !rgb.some(Boolean)) return null;
+      const peak = Math.max(...rgb, 1);
+      return rgb.map((v) => Math.round((v / peak) * 255));
+    };
+    const inner = ring(splat.inner);
+    const outer = ring(splat.outer);
     leds.forEach((el, i) => {
-      el.style.fill = lit ? rgbCss(LEDS[i][2] ? mix(c, 0.35) : c) : WINDOW_GRAY;
-      glows[i].style.fill = lit ? rgbCss(c, LEDS[i][2] ? 0.5 : 0.35) : "transparent";
+      const c = LEDS[i][2] ? inner : outer;
+      el.style.fill = c ? rgbCss(LEDS[i][2] ? mix(c, 0.35) : c) : WINDOW_GRAY;
+      glows[i].style.fill = c ? rgbCss(c, LEDS[i][2] ? 0.5 : 0.35) : "transparent";
     });
     btn.setAttribute("aria-label", `${label}, ${describe(splat)}`);
     btn.classList.toggle("down", splat.pressed);

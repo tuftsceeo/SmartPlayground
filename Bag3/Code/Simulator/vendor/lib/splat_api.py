@@ -38,6 +38,12 @@ COLOR_RGB = {
     "turnoff": (0, 0, 0),
 }
 
+# The 14 Splat LEDs: even indexes are the inner ring, odd the outer points.
+LED_PARTS = {
+    "inner": (0, 2, 4, 6, 8, 10, 12),
+    "outer": (1, 3, 5, 7, 9, 11, 13),
+}
+
 # name -> (note value, octave offset). Values from the Bag2 companion's
 # NOTE_MIDI; the Jan 2026 wand-side controller used different values
 # (see README "Drift").
@@ -105,15 +111,23 @@ class SplatAPI:
                   % (what, self.write_failures))
         return ok
 
-    def color(self, name):
-        """Set the Splat's LEDs to a card color name, e.g. "turnred"."""
+    def color(self, name, part=None):
+        """Set the Splat's LEDs to a card color name, e.g. "turnred".
+        part "inner" or "outer" sets only those LEDs (LED_PARTS) and leaves
+        the others as they are; None sets all 14."""
         if not self.link.ready:
             return False
         rgb = COLOR_RGB.get(name)
         if rgb is None:
             print("  [ERR] splat.color: unknown name %r" % name)
             return False
-        return self._check(self.link.setLEDsON(rgb), "color")
+        if part is None:
+            return self._check(self.link.setLEDsON(rgb), "color")
+        leds = LED_PARTS.get(part)
+        if leds is None:
+            print("  [ERR] splat.color: unknown part %r" % part)
+            return False
+        return self._check(self.link.setLEDs(leds, rgb[0], rgb[1], rgb[2]), "color")
 
     def sound(self, name):
         """Play an animal sound card name, e.g. "cat"."""
@@ -255,8 +269,8 @@ class SplatGroup:
                 ok = call(u) and ok
         return any_up and ok
 
-    def color(self, name):
-        return self._each(lambda u: u.color(name))
+    def color(self, name, part=None):
+        return self._each(lambda u: u.color(name, part))
 
     def sound(self, name):
         return self._each(lambda u: u.sound(name))

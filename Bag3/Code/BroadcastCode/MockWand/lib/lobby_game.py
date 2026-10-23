@@ -20,7 +20,7 @@ import time
 import pwire
 import splatpair
 from pwire import SEND_TRIES, Dedupe
-from splat_api import COLOR_RGB, NOTE_VALUES, ANIMAL_SOUNDS
+from splat_api import COLOR_RGB, NOTE_VALUES, ANIMAL_SOUNDS, LED_PARTS
 
 FIND_WAIT_MS = 500        # listen for a lobby after broadcasting pw_find
 JOIN_WAIT_MS = 1000       # wait for the leader's pw_joined
@@ -57,11 +57,16 @@ class _PoolSplat:
     def _cmd(self, op, v=None):
         return self._net._send_cmd(self._i, op, v)
 
-    def color(self, name):
+    def color(self, name, part=None):
         if name not in COLOR_RGB:
             print("  [ERR] splat.color: unknown name %r" % name)
             return False
-        return self._cmd("color", name)
+        if part is None:
+            return self._cmd("color", name)
+        if part not in LED_PARTS:
+            print("  [ERR] splat.color: unknown part %r" % part)
+            return False
+        return self._cmd("color_part", [name, part])
 
     def sound(self, name):
         if name not in ANIMAL_SOUNDS:
@@ -565,6 +570,8 @@ class Net:
         u = g.unit(s)
         if op == "color":
             u.color(v)
+        elif op == "color_part":
+            u.color(v[0], v[1])
         elif op == "sound":
             u.sound(v)
         elif op == "note":

@@ -42,7 +42,7 @@ export const PW = {
   DEDUPE_KEEP: 16,
 };
 
-export const OPS = ["color", "sound", "note", "play", "off"];
+export const OPS = ["color", "color_part", "sound", "note", "play", "off"];
 
 /** splatpair.PALETTE, and splatpair.WAND_RGB (the wand matrix's color for each). */
 export const PALETTE = ["turnred", "turngreen", "turnblue", "turnpurple", "turnyellow", "turnwhite"];
@@ -186,8 +186,7 @@ export function createPeer(opts) {
     const [r, g, b] = COLOR_RGB[ident];
     for (const s of p.splats) {
       s.applyAction("off");
-      s.rgb = [Math.trunc(r * GLOW_SCALE), Math.trunc(g * GLOW_SCALE), Math.trunc(b * GLOW_SCALE)];
-      s.onChange?.(s, "color");
+      s.applyWrite("leds", [Math.trunc(r * GLOW_SCALE), Math.trunc(g * GLOW_SCALE), Math.trunc(b * GLOW_SCALE)]);
     }
   }
   glow();
