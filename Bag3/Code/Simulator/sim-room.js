@@ -208,8 +208,7 @@ class SimRoom extends HTMLElement {
         ${SPLAT_STYLE}
         ${WANDS_STYLE}
         /* Simple mode is the wand alone; its Splats are drawn in its pad. */
-        :host(:not([advanced])) .box[data-panel="splats"],
-        :host(:not([advanced])) .box[data-panel="wands"] { display: none; }
+        :host(:not([advanced])) .box[data-panel="splats"] { display: none; }
       </style>
       <div class="room">
         <div class="wand" data-slot="wand"></div>
@@ -430,7 +429,7 @@ SimRoom.registerPanel("splats", {
   },
 });
 
-// Advanced mode: how many other wands are in the game, and the overlay
+// How many other wands are in the game, and the overlay
 // with all of them side by side. Shown for a lobby game, and for any game
 // whose settings say it is for more than one wand.
 SimRoom.registerPanel("wands", {
@@ -460,8 +459,8 @@ SimRoom.registerPanel("wands", {
 
 // Icon displays stand in the wand's controls pane, under the gesture
 // buttons, each its own device on the bus; advanced mode adds a strip card
-// to add them. The panel is always there: displays come and go apart from
-// the game, and sync() wakes them for a game with a display file.
+// counting them, and the all-wands overlay adds them. The panel is always
+// there: displays come and go apart from the game, and sync() wakes them for a game with a display file.
 // Registered last so a display booting does not hold up the other panels'
 // updates.
 SimRoom.registerPanel("displays", {

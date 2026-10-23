@@ -51,8 +51,8 @@ Developer mode footer, and `index.html` in a `<pre>` under the room.
   (`vendor/display/games/<game>.py`, or the `displaySource` property)
   wakes every display, adding one if there are none, and the room unicasts
   `start_game` to each; a game without one takes away the display it added
-  and sends `stop` to the rest. Advanced mode adds and takes away displays,
-  and "See all wands" shows them too; simple mode shows them only while
+  and sends `stop` to the rest. The all-wands overlay adds displays and
+  shows them; advanced mode takes them away; simple mode shows them only while
   the game uses them.
   `renderPreview` is imported from
   `../BroadcastCode/ChatBroadcast/iconmaker/`, so serve `Bag3/Code/` (from
@@ -63,10 +63,11 @@ Developer mode footer, and `index.html` in a `<pre>` under the room.
   setting; none, none drawn); a click on one presses it. See "Lobby games"
   below.
 - **Advanced mode only** (the `advanced` attribute): a "Splats on this wand"
-  card (count and "in reach" boxes) for a lobby game, and, for a lobby game
-  or any game whose `wands` setting is more than 1, a bar saying how many
-  other wands are playing, with "+ Add a wand" and "See all N wands", which
-  opens every wand side by side.
+  card (count and "in reach" boxes) for a lobby game.
+- **Other wands bar** (both modes): for a lobby game or any game whose
+  `wands` setting is more than 1, a bar saying how many other wands are
+  playing, with "See all N wands", which opens every wand side by side.
+  "+ Add a wand" and "+ Add a display" are in that overlay only.
 
 Not simulated: heap and fragmentation, compile size, radio timing and BLE
 pacing.
@@ -104,7 +105,7 @@ What stands in for what:
   There are no Splat cards, `/pairing.json`, `pw_who` claim checks or the
   30 s connect deadline.
 - **Other wands:** a game has none unless `wands` is more than 1 or
-  "+ Add a wand" adds one (advanced mode). Each starts as a placeholder (an
+  the overlay's "+ Add a wand" adds one. Each starts as a placeholder (an
   outline wand with "?" on its screen) that runs nothing and is not on the
   radio. Clicking it starts another `<wand-sim>` running the same game, on
   the room's bus and clock with its own MAC (`02:00:00:00:0A:02` on) and

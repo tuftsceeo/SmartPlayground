@@ -1,11 +1,11 @@
 /**
  * Other wands for <sim-room>: the wands a lobby game, or any game whose
  * settings give `wands` > 1, is played with beside the simulated one.
- * Advanced mode only (sim-room's style hides it otherwise); simple mode is
- * the one wand.
+ * Shown in simple and advanced mode. Adding wands and displays happens only
+ * in the overlay.
  *
  * The room starts a lobby game with `wands - 1` other wands from its
- * settings (none by default), and "+ Add a wand" adds one, up to MAX_WANDS
+ * settings (none by default), and the overlay's "+ Add a wand" adds one, up to MAX_WANDS
  * in all. Wands have no names or colors here: the bar says only how many
  * more there are.
  *
@@ -113,7 +113,6 @@ export function createWandsPanel({ mount, room }) {
   bar.innerHTML = `<span class="lead">${icon("wand", 18)}</span>
     <span class="count" data-el="count"></span>
     <span class="acts">
-      <button type="button" class="wbtn" data-el="add">+ Add a wand</button>
       <button type="button" class="wbtn primary" data-el="open"></button>
     </span>`;
   mount.appendChild(bar);
@@ -144,7 +143,7 @@ export function createWandsPanel({ mount, room }) {
   let caps = null;
   let gameSplats = 1;
 
-  for (const b of [$(bar, "add"), $(dialog, "add")]) b.addEventListener("click", () => add());
+  $(dialog, "add").addEventListener("click", () => add());
   $(dialog, "add-display").addEventListener("click", () => room.panel("displays")?.add());
   $(bar, "open").addEventListener("click", () => open());
   $(dialog, "close").addEventListener("click", () => dialog.close());
@@ -164,17 +163,15 @@ export function createWandsPanel({ mount, room }) {
     $(bar, "count").textContent = n === 0 ? "No other wands are playing."
       : n === 1 ? "1 more wand is also playing" : `${n} more wands are also playing`;
     const full = n + 1 >= MAX_WANDS;
-    $(bar, "add").hidden = full;
     $(dialog, "add").hidden = full;
     const displays = room.panel("displays");
     const k = displays ? displays.displays.length : 0;
     $(dialog, "add-display").hidden = !displays || displays.full;
     const shown = k === 0 ? "" : k === 1 ? "1 display" : `${k} displays`;
     const openBtn = $(bar, "open");
-    openBtn.hidden = n === 0;
-    openBtn.textContent = `See all ${n + 1} wands${shown ? `, ${shown}` : ""} →`;
+    openBtn.textContent = n === 0 && !shown ? "See all wands →"
+      : `See all ${n + 1} wands${shown ? `, ${shown}` : ""} →`;
     $(dialog, "title").textContent = `${n + 1} wands${shown ? ` and ${shown}` : ""} in this game`;
-    if (n === 0 && dialog.open) dialog.close();
   }
 
   function freeMac() {

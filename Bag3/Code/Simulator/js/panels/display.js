@@ -16,8 +16,8 @@
  * A game with a display file wakes every display, adding one if there are
  * none, and the room unicasts start_game to each. A game without one takes
  * away the displays it added and sends stop to the rest. Advanced mode adds
- * a strip card to add displays (up to MAX_DISPLAYS) and a button on each to
- * take it away; simple mode shows the displays only while the game uses
+ * a strip card counting them and a button on each to take it away; the
+ * all-wands overlay adds them (up to MAX_DISPLAYS); simple mode shows the displays only while the game uses
  * them.
  *
  *   createDisplaysPanel({ mount, room })
@@ -301,11 +301,8 @@ export function createDisplaysPanel({ mount, room }) {
   bar.className = "displays-bar";
   bar.innerHTML = `<span class="lead" aria-hidden="true"></span>
     <span class="count" data-el="count"></span>
-    <span class="note" data-el="note"></span>
-    <button type="button" class="wbtn" data-el="add">+ Add a display</button>`;
+    <span class="note" data-el="note"></span>`;
   mount.append(bar);
-  const addBtn = bar.querySelector('[data-el="add"]');
-  addBtn.addEventListener("click", () => add(false));
 
   /** [{ dev, auto, card }] in order; auto = added for the game, taken away after it. */
   let list = [];
@@ -330,7 +327,6 @@ export function createDisplaysPanel({ mount, room }) {
       : n === 1 ? "1 icon display" : `${n} icon displays`;
     bar.querySelector('[data-el="note"]').textContent = n && !game
       ? `This game has no display file: ${n === 1 ? "it shows" : "they show"} the ready icon.` : "";
-    addBtn.hidden = n >= MAX_DISPLAYS;
     room.panel("wands")?.redraw();
   }
 
