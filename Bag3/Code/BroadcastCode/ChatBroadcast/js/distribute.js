@@ -42,6 +42,34 @@ export function signalLevel(rssi) {
 
 const norm = (mac) => String(mac || "").replace(/:/g, "").toUpperCase();
 
+/** Nicknames are per browser: localStorage, keyed by normalized MAC. */
+const NICK_KEY = "chatbroadcast.deviceNicknames";
+
+function loadNicknames() {
+  try {
+    return JSON.parse(localStorage.getItem(NICK_KEY)) || {};
+  } catch {
+    return {};
+  }
+}
+
+export function getNickname(mac) {
+  return loadNicknames()[norm(mac)] || "";
+}
+
+/** Empty or whitespace-only clears the nickname. */
+export function setNickname(mac, name) {
+  const all = loadNicknames();
+  const clean = String(name || "").trim().slice(0, 40);
+  if (clean) all[norm(mac)] = clean;
+  else delete all[norm(mac)];
+  try {
+    localStorage.setItem(NICK_KEY, JSON.stringify(all));
+  } catch {}
+}
+
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+
 export class DistributeState {
   constructor() {
     this.rows = []; // {mac, kind, battery, rssi, selected, status, why}
@@ -268,10 +296,42 @@ export class DistributeOverlay {
     if (t.matches("input.dist-check")) {
       this.state.toggle(mac, t.checked);
       this.render();
+    } else if (t.closest(".dist-rename")) {
+      this._editName(t.closest("tr"), mac);
     } else if (t.closest(".dist-find")) {
       this.device.sendCmd({ cmd: "fleet.find", mac })
         .catch((err) => this.toast(`Find failed: ${err.message}`, true));
     }
+  }
+
+  /** Swap the name cell for a text input; Enter or blur saves, Escape cancels. */
+  _editName(tr, mac) {
+    const cell = tr.querySelector(".dist-name-cell");
+    if (!cell || cell.querySelector("input")) return;
+    const input = document.createElement("input");
+    input.type = "text";
+    input.className = "dist-nick-input";
+    input.maxLength = 40;
+    input.value = getNickname(mac);
+    input.placeholder = deviceLabel(mac, this.state._row(mac)?.kind);
+    let done = false;
+    this._editing = true;
+    const finish = (save) => {
+      if (done) return;
+      done = true;
+      this._editing = false;
+      if (save) setNickname(mac, input.value);
+      this.render();
+    };
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") finish(true);
+      else if (e.key === "Escape") finish(false);
+    });
+    input.addEventListener("blur", () => finish(true));
+    cell.textContent = "";
+    cell.appendChild(input);
+    input.focus();
+    input.select();
   }
 
   _setStatus(text) {
@@ -279,16 +339,21 @@ export class DistributeOverlay {
   }
 
   render() {
+    if (this._editing) return; // _editName re-renders when it finishes
     const s = this.state;
     const body = this.el("dist-rows");
     body.textContent = "";
     for (const r of s.rows) {
+      const label = deviceLabel(r.mac, r.kind);
+      const nick = getNickname(r.mac);
       const tr = document.createElement("tr");
       tr.dataset.mac = r.mac;
       tr.className = r.status ? `dist-${r.status}` : "";
       const cells = [
-        `<input type="checkbox" class="dist-check" ${r.selected ? "checked" : ""} ${s.running ? "disabled" : ""} aria-label="Select ${deviceLabel(r.mac, r.kind)}">`,
-        `<span class="dist-name" title="${r.mac}">${deviceLabel(r.mac, r.kind)}</span><span class="dist-kind">${kindName(r.kind)}</span>`,
+        `<input type="checkbox" class="dist-check" ${r.selected ? "checked" : ""} ${s.running ? "disabled" : ""} aria-label="Select ${esc(nick || label)}">`,
+        `<div class="dist-name-cell"><span class="dist-name" title="${r.mac}">${esc(nick || label)}</span>`
+          + `<button type="button" class="dist-rename" title="Rename (saved in this browser)" aria-label="Rename ${esc(nick || label)}">✎</button></div>`
+          + `<span class="dist-kind">${nick ? `${label} · ` : ""}${kindName(r.kind)}</span>`,
         r.battery == null ? "—" : `${r.battery}%`,
         `<span class="dist-sig dist-sig-${signalLevel(r.rssi)}" title="${r.rssi ?? "?"} dBm"><i></i><i></i><i></i></span>`,
         `<span class="dist-state" title="${r.why || ""}">${STATUS_TEXT[r.status] || ""}${r.why ? ` (${r.why})` : ""}</span>`,

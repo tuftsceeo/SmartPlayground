@@ -1372,7 +1372,11 @@ body.ui-advanced #app-shell {
 .dist-table { width: 100%; border-collapse: collapse; margin: 4px 0 12px; font: 13px 'Nunito'; text-align: left; }
 .dist-table th { font: 700 11px 'Nunito'; color: var(--muted); padding: 4px 6px; border-bottom: 1px solid var(--border); }
 .dist-table td { padding: 6px; border-bottom: 1px solid var(--border); vertical-align: middle; }
-.dist-name { display: block; font-weight: 800; color: var(--ink); }
+.dist-name-cell { display: flex; align-items: center; gap: 4px; }
+.dist-name { font-weight: 800; color: var(--ink); }
+.dist-rename { border: 0; background: none; padding: 0 2px; color: var(--muted); cursor: pointer; font-size: 13px; line-height: 1; }
+.dist-rename:hover { color: var(--purple); }
+.dist-nick-input { font: 800 13px 'Nunito'; width: 100%; max-width: 160px; padding: 2px 4px; border: 1px solid var(--purple); border-radius: 4px; }
 .dist-kind { display: block; font-size: 11px; color: var(--muted); }
 .dist-check { appearance: none; width: 18px; height: 18px; margin: 0; border: 2px solid var(--border); border-radius: 6px; background: #fff; cursor: pointer; display: grid; place-content: center; }
 .dist-check:checked { background: var(--purple); border-color: var(--purple); }
