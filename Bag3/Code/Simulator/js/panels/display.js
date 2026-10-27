@@ -77,11 +77,9 @@ export const DISPLAY_STYLE = `
 .display-shelf:empty { display: none; }
 .display-dev { display: flex; flex-direction: column; align-items: center; gap: 6px; }
 .display-dev .rm { align-self: flex-end; }
-.display-case { position: relative; width: 128px; height: 128px; box-sizing: border-box; padding: 10%;
-  border-radius: 3px; background: #3a3644; box-shadow: inset 0 0 0 2px #4d4858;
-  display: flex; align-items: center; justify-content: center; }
-.display-case canvas { display: block; width: 100%; height: 100%; border-radius: 0; background: #000;
-  box-shadow: 0 0 0 2px #15121b; }
+.display-case { position: relative; width: 128px; height: 128px; box-sizing: border-box; padding: 3px;
+  border-radius: 2px; background: #111; display: flex; align-items: center; justify-content: center; }
+.display-case canvas { display: block; width: 100%; height: 100%; border-radius: 0; background: #cfccc6; }
 .display-case canvas[hidden] { display: none; }
 button.display-case { flex-direction: column; gap: 8px; box-shadow: none; border: 3px solid #c2b8d6; background: #fff; cursor: pointer;
   padding: 0; font: 900 44px/1 'Nunito', system-ui, sans-serif; color: #8b859a; }
@@ -106,19 +104,28 @@ async function loadPreview() {
   return previewModule;
 }
 
-/** Plain-squares fallback when iconmaker is not served alongside. */
+/** 16x16 square cells on a grey diffuser; lit cells bleed softly into their cell. */
 function drawSquares(canvas, pixels, intensity) {
-  const cell = 12;
+  const cell = 16;
   canvas.width = W * cell;
   canvas.height = W * cell;
   const ctx = canvas.getContext("2d");
-  ctx.fillStyle = "#111";
+  ctx.fillStyle = "#b9b5ae";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   const k = Math.min(1, intensity / 0.5);
   pixels.forEach(([r, g, b], i) => {
-    if (!(r || g || b)) return;
-    ctx.fillStyle = `rgb(${Math.round(r * k)}, ${Math.round(g * k)}, ${Math.round(b * k)})`;
-    ctx.fillRect((i % W) * cell + 1, Math.floor(i / W) * cell + 1, cell - 2, cell - 2);
+    const x = (i % W) * cell + 1, y = Math.floor(i / W) * cell + 1, s = cell - 1;
+    if (!(r || g || b)) {
+      ctx.fillStyle = "#cfccc6";
+      ctx.fillRect(x, y, s, s);
+      return;
+    }
+    const c = [r, g, b].map((v) => Math.round(255 - (255 - v) * k * 0.9));
+    const glow = ctx.createRadialGradient(x + s / 2, y + s / 2, 0, x + s / 2, y + s / 2, s * 0.75);
+    glow.addColorStop(0, `rgb(${c.map((v) => Math.min(255, v + 60)).join(",")})`);
+    glow.addColorStop(1, `rgb(${[r, g, b].map((v) => Math.round(v * k * 0.8 + 207 * (1 - k * 0.8))).join(",")})`);
+    ctx.fillStyle = glow;
+    ctx.fillRect(x, y, s, s);
   });
 }
 
@@ -156,15 +163,7 @@ export function createDisplayDevice({ bus, clock, mac, onLive }) {
     const bytes = hexToBytes(srcHex);
     const pixels = [];
     for (let i = 0; i < bytes.length; i += 3) pixels.push([bytes[i], bytes[i + 1], bytes[i + 2]]);
-    if (!renderer) {
-      try {
-        const mod = await loadPreview();
-        renderer = (px, inten) => mod.renderPreview(px, inten, canvas);
-      } catch (err) {
-        console.warn("icon display: renderPreview unavailable, drawing plain squares", err);
-        renderer = (px, inten) => drawSquares(canvas, px, inten);
-      }
-    }
+    if (!renderer) renderer = (px, inten) => drawSquares(canvas, px, inten);
     // A later frame may have arrived while the renderer loaded.
     if (srcHex === lastFrameHex) {
       renderer(pixels, Number(intensity));
