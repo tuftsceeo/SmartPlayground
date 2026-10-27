@@ -1,7 +1,7 @@
 """
 Tests for Runtime.get_capabilities() (task 4): the button/motion table
-lookup, the live nfcTags/battery derivation, and the "no entry -> show
-everything" fallback a freshly generated jumpin.py depends on.
+lookup, the live nfcTags/battery derivation, and the motion default for a
+game with no table entry (every generated game).
 """
 
 from __future__ import annotations
@@ -70,12 +70,11 @@ def test_capabilities_known_games_have_button(runtime):
         assert caps["button"] in ("tap", "hold", "none")
 
 
-def test_capabilities_no_table_entry_shows_everything(runtime):
-    """The important path: a game name with no _TEACHER_TABLE entry (e.g. a
-    freshly generated jumpin.py before anyone hand-writes its copy) must
-    degrade to every pose/gesture rather than an empty panel. Loading via
-    raw source (as the sim's dev "custom source" path does) names the
-    module "custom", which is guaranteed absent from the table."""
+def test_capabilities_no_table_entry_without_accel_shows_no_motion(runtime):
+    """A game name with no _TEACHER_TABLE entry (every generated game) whose
+    code never reads the accelerometer gets no motion controls. Declaring
+    accel as a play() parameter does not count as reading it. Loading via
+    raw source names the module "custom", which is absent from the table."""
     rt = runtime
     rt.load_game(
         "from game_tags import exit_tags_excluding\n"
@@ -86,12 +85,24 @@ def test_capabilities_no_table_entry_shows_everything(runtime):
     )
     caps = rt.get_capabilities()
     assert caps["button"] == "tap"
+    assert caps["motion"] == []
+    # nfcTags is still live-derived even with no table entry.
+    assert caps["nfcTags"] == ["go_for_it"]
+
+
+def test_capabilities_no_table_entry_with_accel_shows_everything(runtime):
+    """A game with no table entry that reads the accelerometer gets every
+    pose/gesture."""
+    rt = runtime
+    rt.load_game(
+        "async def play(nfc, leds, buz, accel, i2c, enow):\n"
+        "    x, y, z = accel.read()\n"
+    )
+    caps = rt.get_capabilities()
     assert set(caps["motion"]) == {
         "tip_up", "tip_down", "left_up", "right_up", "face_up", "face_down",
         "jump", "shake", "flip",
     }
-    # nfcTags is still live-derived even with no table entry.
-    assert caps["nfcTags"] == ["go_for_it"]
 
 
 def test_capabilities_before_load_shows_everything(runtime):
@@ -99,3 +110,17 @@ def test_capabilities_before_load_shows_everything(runtime):
     caps = runtime.get_capabilities()
     assert caps["motion"]
     assert caps["nfcTags"] == []
+
+
+@pytest.mark.parametrize("body", [
+    "async def play(nfc, leds, buz, acc, i2c, enow):\n    x, y, z = acc.read()\n",
+    "async def play(*args):\n    pass\n",
+    "import hubtype\nasync def play(nfc, leds, buz, accel, i2c, enow):\n"
+    "    p = hubtype.HUB_CONFIG['accel_int1_pin']\n",
+    "from lis2dw12 import LIS2DW12\nasync def play(nfc, leds, buz, a, i2c, enow):\n    pass\n",
+])
+def test_capabilities_accel_reached_other_ways(runtime, body):
+    """A renamed fourth parameter, *args, the INT1 pin and the driver import
+    all count as reading the accelerometer."""
+    runtime.load_game(body)
+    assert runtime.get_capabilities()["motion"]

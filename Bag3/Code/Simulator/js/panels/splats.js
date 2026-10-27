@@ -30,13 +30,23 @@ export const LOCAL_MAX = 2;
 const MIN_PRESS_MS = 250;
 
 export const SPLAT_STYLE = `
-.pad-splats { display: flex; gap: 12px; pointer-events: auto; }
+.splat-shelf { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; margin-top: 12px; }
+.splat-shelf:empty { display: none; }
+/* Pressable: the toy sits on a darker base and sinks into it when stepped on. */
+.splat-toy { filter: drop-shadow(0 5px 0 #2a5f9e); }
+.splat-toy.down { filter: drop-shadow(0 1px 0 #2a5f9e); }
+/* Larger toys: tighter glows so the LEDs read as separate lights. */
+.splat-dev .splat-toy .glow circle { r: 16px; }
+.splat-dev .splat-toy .glow circle.in { r: 18px; }
+.wand-card .splat-dev { align-self: flex-start; margin-top: var(--wand-pad-top, 0); }
+.wand-card .splat-dev .splat-toy { width: var(--wand-pad, 220px) !important; height: var(--wand-pad, 220px) !important; }
+.wand-card .chip.splat { background: #e8f1fc; color: #2f76c8; }
 .splat-toy { display: block; padding: 0; border: 0; background: none; cursor: pointer;
   border-radius: 12px; touch-action: none; -webkit-tap-highlight-color: transparent;
   transition: transform .15s ease, opacity .15s ease; }
 .splat-toy svg { display: block; width: 100%; height: 100%; overflow: visible; }
 .splat-toy:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(233,78,155,.35); }
-.splat-toy.down { transform: scale(0.88); }
+.splat-toy.down { transform: translateY(4px) scale(0.96); }
 .splat-toy.lost { opacity: .4; }
 .splat-toy.chirp { animation: splat-chirp .3s ease; }
 @keyframes splat-chirp { 40% { transform: scale(1.12); } }
@@ -118,7 +128,7 @@ export function createSplatToy(splat, { onButton, label = "Splat", size = 56 }) 
       <clipPath id="${clip}"><path d="${BLOB}"/></clipPath>
       <path class="blob" d="${BLOB}"/>
       <g clip-path="url(#${clip})">
-        <g class="glow">${LEDS.map(([x, y, inner]) => `<circle cx="${x}" cy="${y}" r="${inner ? 26 : 20}"/>`).join("")}</g>
+        <g class="glow">${LEDS.map(([x, y, inner]) => `<circle${inner ? ' class="in"' : ""} cx="${x}" cy="${y}" r="${inner ? 26 : 20}"/>`).join("")}</g>
         <g class="leds">${LEDS.map(([x, y, inner]) => `<circle cx="${x}" cy="${y}" r="${inner ? 11 : 10}"/>`).join("")}</g>
       </g>
     </svg>`;
@@ -197,6 +207,23 @@ export function createSplatToy(splat, { onButton, label = "Splat", size = 56 }) 
   return { el: btn, refresh };
 }
 
+/** A Splat as a device on its own: the toy in a frame, like an icon display. */
+export function splatDev(toyEl) {
+  const dev = document.createElement("div");
+  dev.className = "splat-dev";
+  dev.appendChild(toyEl);
+  return dev;
+}
+
+/** An all-wands dialog card holding one Splat device. */
+export function splatCard(dev) {
+  const card = document.createElement("div");
+  card.className = "wand-card";
+  card.innerHTML = `<div class="chips"><span class="chip splat">Splat</span></div>`;
+  card.appendChild(dev);
+  return card;
+}
+
 export function createSplatPanel({ mount, overlay, onLocalCount = null }) {
   const root = document.createElement("div");
   root.className = "splat-card";
@@ -239,9 +266,10 @@ export function createSplatPanel({ mount, overlay, onLocalCount = null }) {
     splats = group ? group.splats : [];
     toys = splats.map((s, i) => createSplatToy(s, {
       label: `Splat ${i + 1}`,
+      size: 104,
       onButton: (down) => group.onButton(i, down),
     }));
-    for (const t of toys) overlay.appendChild(t.el);
+    for (const t of toys) overlay.appendChild(splatDev(t.el));
     reaches = splats.map((s, i) => {
       const lab = document.createElement("label");
       lab.className = "reach";

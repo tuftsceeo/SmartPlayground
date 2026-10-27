@@ -16,7 +16,7 @@
  * A game with a display file wakes every display, adding one if there are
  * none, and the room unicasts start_game to each. A game without one takes
  * away the displays it added and sends stop to the rest. Advanced mode adds
- * a strip card counting them and a button on each to take it away; the
+ * a button on each to take it away; the
  * all-wands overlay adds them (up to MAX_DISPLAYS); simple mode shows the displays only while the game uses
  * them.
  *
@@ -77,23 +77,21 @@ export const DISPLAY_STYLE = `
 .display-shelf:empty { display: none; }
 .display-dev { display: flex; flex-direction: column; align-items: center; gap: 6px; }
 .display-dev .rm { align-self: flex-end; }
-.display-case { position: relative; width: 128px; height: 128px; box-sizing: border-box; padding: 7px;
-  border-radius: 16px; background: #231f2e; display: flex; align-items: center; justify-content: center; }
-.display-case canvas { display: block; width: 114px; height: 114px; border-radius: 8px; background: #000; }
+.display-case { position: relative; width: 128px; height: 128px; box-sizing: border-box; padding: 10%;
+  border-radius: 3px; background: #3a3644; box-shadow: inset 0 0 0 2px #4d4858;
+  display: flex; align-items: center; justify-content: center; }
+.display-case canvas { display: block; width: 100%; height: 100%; border-radius: 0; background: #000;
+  box-shadow: 0 0 0 2px #15121b; }
 .display-case canvas[hidden] { display: none; }
-button.display-case { flex-direction: column; gap: 8px; border: 3px solid #c2b8d6; background: #fff; cursor: pointer;
+button.display-case { flex-direction: column; gap: 8px; box-shadow: none; border: 3px solid #c2b8d6; background: #fff; cursor: pointer;
   padding: 0; font: 900 44px/1 'Nunito', system-ui, sans-serif; color: #8b859a; }
 button.display-case b { font: 800 12px/1.2 'Nunito', system-ui, sans-serif; color: #231f2e; }
 button.display-case:hover { border-color: #6c4cd1; color: #6c4cd1; }
 button.display-case:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(108,76,209,.2); }
 .display-dev .display-status { min-height: 16px; font: 700 11px/1.4 'Nunito', system-ui, sans-serif; color: #5b5468; text-align: center; }
-.displays-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; min-height: 64px;
-  padding: 10px 12px 10px 16px; box-sizing: border-box; }
-.displays-bar .lead { width: 18px; height: 18px; box-sizing: border-box; border-radius: 5px; border: 2px solid #6c4cd1; }
-.displays-bar .count { font: 800 14px 'Nunito', system-ui, sans-serif; color: #231f2e; }
-.displays-bar .note { font: 700 12px 'Nunito', system-ui, sans-serif; color: #5b5468; }
-.displays-bar .wbtn { margin-left: auto; }
-.wand-card .display-dev { align-self: flex-start; }
+.wand-card .display-dev { align-self: stretch; align-items: flex-start; margin-top: var(--wand-pad-top, 0); }
+.wand-card .display-case { width: var(--wand-pad, 220px); height: auto; aspect-ratio: 1; }
+.wand-card .display-case canvas { width: 100%; height: 100%; }
 .wand-card .chip.display { background: #f2eefc; color: #6c4cd1; }
 :host(:not([advanced])) .box[data-panel="displays"],
 :host(:not([advanced])) .display-dev .rm { display: none; }
@@ -292,17 +290,11 @@ _host.sim_state.set_radio_tx(_disp_tx)
 
 export function createDisplaysPanel({ mount, room }) {
   // The displays stand in the wand's controls pane, under the gesture
-  // buttons (wand-sim's "ctrl" slot); the bar is an advanced strip card.
+  // buttons (wand-sim's "ctrl" slot).
   const shelf = document.createElement("div");
   shelf.className = "display-shelf";
   shelf.slot = "ctrl";
   room.wand.appendChild(shelf);
-  const bar = document.createElement("div");
-  bar.className = "displays-bar";
-  bar.innerHTML = `<span class="lead" aria-hidden="true"></span>
-    <span class="count" data-el="count"></span>
-    <span class="note" data-el="note"></span>`;
-  mount.append(bar);
 
   /** [{ dev, auto, card }] in order; auto = added for the game, taken away after it. */
   let list = [];
@@ -322,11 +314,6 @@ export function createDisplaysPanel({ mount, room }) {
   }
 
   function draw() {
-    const n = list.length;
-    bar.querySelector('[data-el="count"]').textContent = n === 0 ? "No icon displays."
-      : n === 1 ? "1 icon display" : `${n} icon displays`;
-    bar.querySelector('[data-el="note"]').textContent = n && !game
-      ? `This game has no display file: ${n === 1 ? "it shows" : "they show"} the ready icon.` : "";
     room.panel("wands")?.redraw();
   }
 
@@ -374,6 +361,9 @@ export function createDisplaysPanel({ mount, room }) {
       d.card = document.createElement("div");
       d.card.className = "wand-card";
       d.card.innerHTML = `<div class="chips"><span class="chip display">Icon display</span></div>`;
+      // The remove button joins the card's label row, as on a wand card.
+      const rm = d.dev.el.querySelector(":scope > .rm");
+      if (rm) d.card.firstElementChild.appendChild(rm);
       d.card.appendChild(d.dev.el);
       placedIn.appendChild(d.card);
     } else {
@@ -407,6 +397,8 @@ export function createDisplaysPanel({ mount, room }) {
     placeIn(el) {
       placedIn = el;
       for (const d of list) {
+        const rm = d.card?.querySelector(".chips .rm");
+        if (rm) d.dev.el.prepend(rm);
         d.card?.remove();
         d.card = null;
         place(d);

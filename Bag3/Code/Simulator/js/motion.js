@@ -79,28 +79,26 @@ export function getPose() {
 
 /**
  * Free-form tilt pad: sets the latched base directly from a 2D pad
- * position (each axis -1..1) rather than a named pose.
+ * position (each axis -1..1) rather than a named pose. Screen-up is up:
+ * the pad's centre is the wand standing upright, face toward the viewer,
+ * and each edge tips it toward that edge's named pose (POSES above):
  *
- * Each pad edge reads as a named pose — tip up at the top, tip down at
- * the bottom, left up at the left, right up at the right — against POSES
- * above:
+ *   centre            -> tip_up    (x = -1)
+ *   ny = -1 (top)     -> face_up   (z = -1)      so z =  ny
+ *   ny = +1 (bottom)  -> face_down (z = +1)
+ *   nx = +1 (right)   -> right_up  (y = -1)      so y = -nx
+ *   nx = -1 (left)    -> left_up   (y = +1)
  *
- *   ny = -1 (top)    -> tip_up    (x = -1)      so x =  ny
- *   ny = +1 (bottom) -> tip_down  (x = +1)
- *   nx = -1 (left)   -> left_up   (y = +1)      so y = -nx
- *   nx = +1 (right)  -> right_up  (y = -1)
- *   nx = ny = 0      -> face_up   (z = -1)
- *
- * z carries whatever is left over once the two in-plane axes are spent, so
- * the pad's centre reads as a wand lying face up on the table and each edge
- * reads as that edge's named pose, with a continuous blend in between.
+ * `inverted` is the wand turned over in the screen plane: the centre is
+ * tip_down, and left/right swap. Face up/down are unchanged.
  */
-export function setPadTilt(nx, ny) {
+export function setPadTilt(nx, ny, inverted) {
   const tx = clamp(Number(nx) || 0, -1, 1);
   const ty = clamp(Number(ny) || 0, -1, 1);
-  const x = ty;
-  const y = -tx;
-  const z = -(1 - Math.max(Math.abs(tx), Math.abs(ty)));
+  const s = inverted ? 1 : -1;
+  const x = s * (1 - Math.max(Math.abs(tx), Math.abs(ty)));
+  const y = s * tx;
+  const z = ty;
   base = normalize({ x, y, z });
 }
 

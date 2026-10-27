@@ -80,13 +80,11 @@ const OVERLAYS = {
 
 const SHELL_STYLE = `
 :host {
-  /* Flex column so .wrap can stretch and hand the pad a height to fill —
-     the pad is the panel's tallest element and has nothing else to size
-     against. min-height keeps the two-pane layout from collapsing when the
-     host gives the element no height of its own. */
+  /* The pad is a square sized by its width, so the element is as tall as
+     its content; --wand-min-height can set a floor. */
   display: flex;
   flex-direction: column;
-  min-height: var(--wand-min-height, 520px);
+  min-height: var(--wand-min-height, 0);
   container-type: inline-size;
   container-name: wand-sim;
   font-family: var(--wand-font, 'Nunito', ui-sans-serif, system-ui, sans-serif);
@@ -355,15 +353,14 @@ class WandSim extends HTMLElement {
         this._renderer.playGesture(kind, ms);
         this._pushAccel();
       },
-      onTilt: (x, y) => {
-        setPadTilt(x, y);
-        this._renderer.setTilt3d(x * 100, y * 100);
+      onTilt: (x, y, inverted, slow) => {
+        setPadTilt(x, y, inverted);
+        this._renderer.setTilt3d(x * 100, y * 100, slow);
         this._pushAccel();
       },
       onFaceFlip: (down, pose) => {
         setPose(pose);
         this._renderer.setFaceDown(down);
-        this._renderer.playGesture("faceflip", 620);
         this._pushAccel();
       },
       onMute: (m) => this._audio.setMuted(m),

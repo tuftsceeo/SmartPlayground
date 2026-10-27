@@ -85,20 +85,25 @@ function hashName(s) {
 }
 
 /**
- * Which named orientation a pad position reads as. Mirrors the artboard's
- * detect(): the dominant axis wins, and nothing within ±45 of centre counts
- * as tilted at all — that's a wand lying face up.
+ * Which named orientation a pad position reads as (see js/motion.js's
+ * setPadTilt). The dominant axis wins, and nothing within the threshold of
+ * centre counts as tilted: that's the wand upright, or upside down when
+ * turned over.
  */
-export function detectPose(ax, ay, faceDown) {
-  if (faceDown) return "face_down";
+export function detectPose(ax, ay, inverted) {
   if (Math.abs(ay) >= Math.abs(ax)) {
-    if (ay <= -PAD_THRESHOLD) return "tip_up";
-    if (ay >= PAD_THRESHOLD) return "tip_down";
+    if (ay <= -PAD_THRESHOLD) return "face_up";
+    if (ay >= PAD_THRESHOLD) return "face_down";
   } else {
-    if (ax <= -PAD_THRESHOLD) return "left_up";
-    if (ax >= PAD_THRESHOLD) return "right_up";
+    if (ax >= PAD_THRESHOLD) return inverted ? "left_up" : "right_up";
+    if (ax <= -PAD_THRESHOLD) return inverted ? "right_up" : "left_up";
   }
-  return "face_up";
+  return inverted ? "tip_down" : "tip_up";
+}
+
+/** The shake slider's word for its value. */
+function shakeLabel(v) {
+  return v < 35 ? "Gentle" : v < 70 ? "Strong" : "Intense";
 }
 
 export const CONTROLS_STYLE = `
@@ -110,11 +115,14 @@ export const CONTROLS_STYLE = `
 
 /* ── Left pane: the wand and its pad ─────────────────────────────────── */
 .sim-pane-wand {
-  flex: 0 0 clamp(200px, 48%, 280px); min-width: 0;
+  flex: 0 0 clamp(220px, 60%, 360px); min-width: 0;
   display: flex; flex-direction: column; gap: 6px;
   padding: 14px 0 14px 14px; box-sizing: border-box;
 }
-.pad-hint { font: 400 14px 'Patrick Hand', 'Nunito', system-ui, sans-serif; color: #8b859a; line-height: 1.2; }
+.pad-hint {
+  position: absolute; left: 12px; top: 10px; z-index: 1; pointer-events: none;
+  font: 400 14px 'Patrick Hand', 'Nunito', system-ui, sans-serif; color: #8b859a; line-height: 1.2;
+}
 .axis-row { display: flex; flex-wrap: wrap; gap: 6px 12px; }
 .axis { display: flex; align-items: center; gap: 5px; }
 .axis-name { font: 700 10px ui-monospace, monospace; color: #8b859a; }
@@ -122,13 +130,12 @@ export const CONTROLS_STYLE = `
 .axis-fill { position: absolute; top: 0; bottom: 0; background: #22c3a6; border-radius: 3px; transition: all .12s; }
 .axis-val { font: 700 10px ui-monospace, monospace; color: #5b5468; width: 30px; text-align: right; }
 
-/* min-height covers the wand (176px wide at 439/730 is ~293px tall) plus
-   .pad-wand's padding; in the two-pane layout the pad gets far more than
-   this from the shell's own height. */
+/* Square, with the status line right under it. */
 .pad {
-  position: relative; flex: 1; min-height: 340px; border-radius: 20px;
+  position: relative; flex: none; aspect-ratio: 1; border-radius: 20px;
+  container-type: inline-size;
   background: repeating-linear-gradient(45deg, #fbfaff 0 7px, #f4f2fa 7px 14px);
-  border: 1.5px solid #e8e6f0; overflow: hidden; touch-action: none; cursor: pointer;
+  border: 1.5px solid #e8e6f0; touch-action: none; cursor: pointer;
 }
 .pad.is-pressed { cursor: grabbing; }
 .pad-guide { position: absolute; inset: 0; pointer-events: none; }
@@ -136,10 +143,15 @@ export const CONTROLS_STYLE = `
   position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%);
   width: 118px; height: 118px; border-radius: 50%; border: 1.5px dashed #e8e6f0;
 }
-/* Padding rather than inset:0 — the BUZZ badge hangs below the case, and
-   the pad clips (it has to, for the striped fill and rounded corners). */
+/* The wand turns about its centre through every pose, so it stays inside
+   the pad at one fixed size only if its diagonal does: 439x730 has a
+   diagonal 1.94x its width, so 46% of the pad's width leaves a margin for
+   the case's edge and the face-up/down perspective. With Splats along the
+   bottom, the same rule applies to the space above them. */
+.pad .wand-case-main { width: 46cqi; }
+.pad.has-extras .wand-case-main { width: calc((100cqi - 72px) * .46); }
 .pad-wand {
-  position: absolute; inset: 0; padding: 6% 8% 10%;
+  position: absolute; inset: 0;
   display: flex; align-items: center; justify-content: center;
   pointer-events: none;
 }
@@ -166,7 +178,7 @@ export const CONTROLS_STYLE = `
 
 /* ── Right pane: the controls ────────────────────────────────────────── */
 .sim-pane-ctrl {
-  flex: 1; min-width: 190px;
+  flex: 1; min-width: 160px;
   display: flex; flex-direction: column; gap: 9px;
   padding: 14px 16px 14px 10px; box-sizing: border-box;
 }
@@ -198,17 +210,12 @@ export const CONTROLS_STYLE = `
    resizing. 74px fits "Turn over" on one line at 10.5px/800. */
 .pad-foot .btn-stack { flex: 0 0 74px; width: 74px; padding: 4px 0; }
 
-.move-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 7px; margin-top: 12px; }
-.move-grid > .btn-stack:only-child { grid-column: span 2; }
-/* Wraps: the artboard draws the button, label, slider and value on one
-   row at widths that together exceed the control pane at its own 500px
-   shell, so the strength group drops below the button when it has to. */
-.shake-row { display: flex; flex-flow: row wrap; gap: 9px; align-items: center; margin-top: 12px; }
-.shake-row .btn-stack { flex: none; width: 100px; }
-.shake-strength { flex: 1 1 150px; display: flex; align-items: center; gap: 8px; min-width: 0; }
-.shake-strength input[type=range] { flex: 1 1 auto; min-width: 56px; max-width: 84px; }
-.shake-strength > span:first-child { font: 700 11px 'Nunito', system-ui, sans-serif; color: #5b5468; flex: none; }
-.shake-val { font: 700 11px ui-monospace, monospace; color: #231f2e; width: 22px; text-align: right; flex: none; }
+.move-grid { display: flex; gap: 7px; margin-top: 12px; }
+.move-grid > .btn-stack { flex: 1 1 0; min-width: 0; }
+.shake-strength { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.shake-strength input[type=range] { flex: 1 1 auto; min-width: 40px; }
+.shake-strength > span:first-child { font: 700 11px 'Nunito', system-ui, sans-serif; color: #231f2e; flex: none; }
+.shake-val { font: 700 10px 'Nunito', system-ui, sans-serif; color: #5b5468; width: 38px; text-align: right; flex: none; }
 
 /* ── Tag popover ─────────────────────────────────────────────────────── */
 .tag-wrap { position: relative; margin-top: 8px; }
@@ -301,11 +308,6 @@ input[type=range] { accent-color: #ef4d92; }
   .sim-pane-wand { flex: 1 1 100%; padding: 14px 14px 0; }
   .sim-pane-ctrl { flex: 1 1 100%; padding: 9px 14px 14px; }
 }
-/* Narrower than the wand wants: shrink the wand rather than clip it. */
-@container wand-sim (max-width: 300px) {
-  .sim-pane-wand { --wand-art-width: 132px; }
-  .pad { min-height: 260px; }
-}
 `;
 
 export function createControls(container, handlers = {}) {
@@ -313,9 +315,9 @@ export function createControls(container, handlers = {}) {
   root.classList.add("wand-controls");
   root.innerHTML = `
     <div class="sim-pane-wand">
-      <div class="pad-hint" data-el="pad-hint">move to tilt · click to press</div>
       <div class="axis-row" data-el="axes" data-adv hidden></div>
       <div class="pad" data-el="pad" title="Move to tilt · click to press the button">
+        <div class="pad-hint" data-el="pad-hint">move to tilt · click to press</div>
         <div class="pad-guide" data-adv hidden><span class="pad-ring"></span></div>
         <div class="pad-wand" data-el="wand"></div>
         <div class="pad-extras"><slot name="pad" data-el="pad-slot"></slot></div>
@@ -325,7 +327,7 @@ export function createControls(container, handlers = {}) {
           <span class="status-dot"></span><span class="status-text" data-el="status-text"></span>
         </div>
         <button type="button" class="btn-stack" data-act="face-flip"
-                title="Turn the wand over">${icon("shakePhone", 18)}Turn over</button>
+                title="Turn the wand upside down">${icon("shakePhone", 18)}Turn over</button>
       </div>
     </div>
 
@@ -339,16 +341,14 @@ export function createControls(container, handlers = {}) {
       <div class="move-grid" data-el="move-grid" hidden>
         <button type="button" class="btn-stack" data-move="jump" title="Toss the wand up">${icon("arrow-up", 18)}Jump</button>
         <button type="button" class="btn-stack" data-move="flip" title="Spin it over once">${icon("shuffle", 18)}Spin</button>
+        <button type="button" class="btn-stack" data-move="shake" title="Shake it back and forth">${icon("vibrate", 18)}Shake</button>
       </div>
 
-      <div class="shake-row" data-el="shake-row" hidden>
-        <button type="button" class="btn-stack" data-move="shake" title="Shake it back and forth">${icon("vibrate", 18)}Shake</button>
-        <div class="shake-strength">
-          <span>How hard</span>
-          <input type="range" min="5" max="100" value="60" data-act="shake" title="Shake strength">
-          <span class="shake-val" data-el="shake-val">60</span>
-        </div>
-      </div>
+      <label class="shake-strength" data-el="shake-row" hidden>
+        <span>Shake</span>
+        <input type="range" min="5" max="100" value="60" data-act="shake" title="Shake strength">
+        <span class="shake-val" data-el="shake-val">Strong</span>
+      </label>
 
       <slot name="ctrl"></slot>
 
@@ -440,12 +440,14 @@ export function createControls(container, handlers = {}) {
   const timers = {};
   let muted = false;
   let advanced = false;
-  let faceDown = false;
+  let inverted = false;
   let pressed = false;
-  let hovering = false;
+  let touched = false;
+  // A game that never reads the accelerometer gets a wand that stays upright.
+  let locked = false;
   let padX = 0;
   let padY = 0;
-  let pose = "face_up";
+  let pose = "tip_up";
   let runKind = "loading";
   let runText = "loading";
 
@@ -459,12 +461,11 @@ export function createControls(container, handlers = {}) {
       : `${POSE_LABELS[pose] || pose} — ${runText}`;
     el.status.title = el.statusText.textContent;
   }
+  /** Shown until the pointer first enters the pad, then not again until a
+   * game loads. */
   function renderPadHint() {
-    el.padHint.textContent = pressed
-      ? "button down"
-      : hovering
-        ? "click to press"
-        : "move to tilt · click to press";
+    el.padHint.hidden = touched;
+    el.padHint.textContent = locked ? "click to press" : "move to tilt · click to press";
   }
 
   /** kind: loading | ready | loaded | running | stopped | error. `text`
@@ -490,7 +491,7 @@ export function createControls(container, handlers = {}) {
   // pad position reads as, which lands the exact gravity vector from
   // motion.js's POSES table.
   function snapToPose() {
-    const name = detectPose(padX, padY, faceDown);
+    const name = detectPose(padX, padY, inverted);
     setPoseDisplay(name);
     handlers.onPose?.(name);
   }
@@ -500,10 +501,9 @@ export function createControls(container, handlers = {}) {
     if (!r.width || !r.height) return;
     padX = Math.max(-100, Math.min(100, Math.round(((e.clientX - r.left) / r.width - 0.5) * PAD_RANGE)));
     padY = Math.max(-100, Math.min(100, Math.round(((e.clientY - r.top) / r.height - 0.5) * PAD_RANGE)));
-    hovering = true;
-    renderPadHint();
-    setPoseDisplay(detectPose(padX, padY, faceDown));
-    handlers.onTilt?.(padX / 100, padY / 100);
+    if (locked) return;
+    setPoseDisplay(detectPose(padX, padY, inverted));
+    handlers.onTilt?.(padX / 100, padY / 100, inverted);
     clearTimeout(timers.settle);
     timers.settle = setTimeout(snapToPose, SETTLE_MS);
   }
@@ -513,6 +513,10 @@ export function createControls(container, handlers = {}) {
     el.pad.classList.toggle("has-extras", el.padSlot.assignedElements().length > 0);
   });
 
+  el.pad.addEventListener("pointerenter", () => {
+    touched = true;
+    renderPadHint();
+  });
   el.pad.addEventListener("pointermove", padFromEvent);
   el.pad.addEventListener("pointerdown", (e) => {
     // The whole pad presses the button, the drawn wand included — but the
@@ -530,16 +534,19 @@ export function createControls(container, handlers = {}) {
     if (!pressed) return;
     pressed = false;
     el.pad.classList.remove("is-pressed");
-    renderPadHint();
     handlers.onButton?.(false);
   };
   el.pad.addEventListener("pointerup", padRelease);
   el.pad.addEventListener("pointercancel", padRelease);
+  // Letting go of the wand: it drifts back to upright (upside down when
+  // turned over).
   el.pad.addEventListener("pointerleave", () => {
-    hovering = false;
-    renderPadHint();
     padRelease();
     clearTimeout(timers.settle);
+    if (locked) return;
+    padX = 0;
+    padY = 0;
+    handlers.onTilt?.(0, 0, inverted, true);
     snapToPose();
   });
 
@@ -591,11 +598,11 @@ export function createControls(container, handlers = {}) {
   // ── Turn over ───────────────────────────────────────────────────────
   const faceBtn = q('[data-act="face-flip"]');
   faceBtn.addEventListener("click", () => {
-    faceDown = !faceDown;
-    faceBtn.classList.toggle("is-active", faceDown);
-    const name = detectPose(padX, padY, faceDown);
+    inverted = !inverted;
+    faceBtn.classList.toggle("is-active", inverted);
+    const name = detectPose(padX, padY, inverted);
     setPoseDisplay(name);
-    handlers.onFaceFlip?.(faceDown, name);
+    handlers.onFaceFlip?.(inverted, name);
   });
 
   // ── Moves ───────────────────────────────────────────────────────────
@@ -606,7 +613,7 @@ export function createControls(container, handlers = {}) {
       handlers.onMove?.(kind, opts);
     });
   }
-  shakeRange.addEventListener("input", () => { el.shakeVal.textContent = shakeRange.value; });
+  shakeRange.addEventListener("input", () => { el.shakeVal.textContent = shakeLabel(shakeRange.value); });
 
   // ── Tags ────────────────────────────────────────────────────────────
   const tagMenuBtn = q('[data-act="tag-menu"]');
@@ -719,13 +726,25 @@ export function createControls(container, handlers = {}) {
     el.uses.textContent = uses.length ? "Uses: " + uses.join(", ") : "";
     el.uses.hidden = uses.length === 0;
 
-    faceBtn.hidden = !(motion.has("face_up") || motion.has("face_down"));
+    faceBtn.hidden = !motion.has("tip_down");
 
-    for (const b of root.querySelectorAll("[data-move]")) {
-      if (b.dataset.move === "shake") continue;
-      b.hidden = !motion.has(b.dataset.move);
+    locked = poseNames.length === 0 && moveNames.length === 0;
+    renderPadHint();
+    if (locked) {
+      // Locked upright: drop any tilt or turn-over left from the last game.
+      padX = 0;
+      padY = 0;
+      if (inverted) {
+        inverted = false;
+        faceBtn.classList.remove("is-active");
+        handlers.onFaceFlip?.(false, "tip_up");
+      }
+      handlers.onTilt?.(0, 0, false, true);
+      snapToPose();
     }
-    el.moveGrid.hidden = !(motion.has("jump") || motion.has("flip"));
+
+    for (const b of root.querySelectorAll("[data-move]")) b.hidden = !motion.has(b.dataset.move);
+    el.moveGrid.hidden = moveNames.length === 0;
     el.shakeRow.hidden = !motion.has("shake");
 
     renderTags(tags);
@@ -737,9 +756,11 @@ export function createControls(container, handlers = {}) {
       buttonKind === "none" && tags.length === 0);
   }
 
-  /** A freshly-picked-up wand is upright and face up. */
+  /** A freshly-picked-up wand is upright. */
   function resetPose() {
-    faceDown = false;
+    touched = false;
+    renderPadHint();
+    inverted = false;
     faceBtn.classList.remove("is-active");
     padX = 0;
     padY = 0;

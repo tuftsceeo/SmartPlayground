@@ -58,16 +58,19 @@ Developer mode footer, and `index.html` in a `<pre>` under the room.
   `../BroadcastCode/ChatBroadcast/iconmaker/`, so serve `Bag3/Code/` (from
   `Simulator/` alone the panel falls back to plain squares and warns).
 
-- **Splats:** for a lobby game (`SPLATS_MIN`), the wand's Splats are drawn
-  under the wand in its pad, one per paired Splat (the `wand_splats`
+- **Splats:** for a lobby game (`SPLATS_MIN`), the wand's Splats stand
+  beside the wand like icon displays, one per paired Splat, and each gets
+  its own card in the Multiple Device view (the `wand_splats`
   setting; none, none drawn); a click on one presses it. See "Lobby games"
   below.
 - **Advanced mode only** (the `advanced` attribute): a "Splats on this wand"
   card (count and "in reach" boxes) for a lobby game.
-- **Other wands bar** (both modes): for a lobby game or any game whose
-  `wands` setting is more than 1, a bar saying how many other wands are
-  playing, with "See all N wands", which opens every wand side by side.
-  "+ Add a wand" and "+ Add a display" are in that overlay only.
+- **View Multiple Device Simulation** (both modes): one button, shown for a
+  game that sends on the radio (`enow.broadcast` / `send_to`), has a display
+  file, is a lobby game, or has a `wands` setting above 1. It opens every
+  wand and display side by side. "+ Add a wand" and "+ Add a display" are
+  in that overlay only. The main screen runs this one wand alone; opening
+  and closing the overlay restart the game.
 
 Not simulated: heap and fragmentation, compile size, radio timing and BLE
 pacing.
@@ -322,7 +325,18 @@ the Bag trees, not here, and has been left alone.
   pointer moves, then snaps to the named pose its position reads as once the
   pointer settles, so an orientation-reading game sees the exact gravity
   vector from the `POSES` table rather than an in-between one. The mapping is
-  in `setPadTilt`'s docstring.
+  in `setPadTilt`'s docstring: screen-up is up, the pad's centre is the
+  wand upright facing the viewer, top/bottom tip its face up/down, and the
+  wand rolls up to 90° toward the pointer's side: clockwise to Right Up on
+  the right, counterclockwise to Left Up on the left. "Turn over" turns
+  it upside down in the screen plane. When the pointer leaves the pad the
+  wand drifts back to upright. The wand keeps one size, chosen from the
+  pad's width so it stays inside the pad in every pose. A game that never
+  reads the accelerometer gets a wand locked upright: the pad only presses
+  the button. The pad's hint shows until the pointer first enters the pad,
+  and again when a game loads.
+- A game with no `_TEACHER_TABLE` entry (every generated game) shows the
+  motion controls only when its code reads the accelerometer.
 - Gesture animations run for the duration `fireMove()` reports, not a fixed
   design value, so the wand stops moving when the accelerometer does.
 - `<wand-sim>` attributes: `game`, `autostart`, `controls`,
@@ -342,8 +356,10 @@ the Bag trees, not here, and has been left alone.
   the element raises by itself, on a boot or load failure; the host triggers
   the others. `index.html` has a button per kind for exercising them.
 - The panel lays out in two panes above 420px of its own width and one below
-  it, and shrinks the wand below 300px (container queries in
-  `js/controls.js`). Its design width is 500px.
+  it (container queries in `js/controls.js`). Its design width is 500px. The left pane is the square
+  pad with the status line and Turn over under it; the right pane has Jump,
+  Spin and Shake in one row, the shake strength (Gentle, Strong, Intense)
+  under them, then whatever the host slots in (the icon display).
 - ChatBroadcast (`Bag3/Code/BroadcastCode/BroadcastBox/ChatBroadcast/`) embeds this
   element directly from `../../Simulator/wand-sim.js`, so both trees must be
   served from a common root (`Bag3/Code/`) rather than from ChatBroadcast's

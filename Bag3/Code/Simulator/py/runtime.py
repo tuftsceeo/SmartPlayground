@@ -76,10 +76,9 @@ _DEVICE_MODULES = (
     "nfc_reader",
 )
 
-# All named poses/gestures the motion controls can offer. Used verbatim as
-# the "show everything" fallback when a game has no _TEACHER_TABLE entry
-# (e.g. a freshly generated jumpin.py) — degrade to unfiltered rather than
-# guess at what the code needs.
+# All named poses/gestures the motion controls can offer. A game with no
+# _TEACHER_TABLE entry (e.g. a freshly generated jumpin.py) gets all of them
+# when its code reads the accelerometer, and none when it does not.
 _ALL_MOTION = [
     "tip_up", "tip_down", "left_up", "right_up", "face_up", "face_down",
     "jump", "shake", "flip",
@@ -88,8 +87,8 @@ _ALL_MOTION = [
 # Hand-written per-game copy: button *kind* and motion vocabulary aren't
 # reliably inferable from source (a busy-wait-until-release reads the same
 # as a tap; "hold" vs "tap" is a UX call, not a fact in the code). A game
-# name absent from this table gets the "show everything" default below
-# rather than an empty panel — see get_capabilities().
+# name absent from this table gets every motion control if it reads the
+# accelerometer and none if it does not — see get_capabilities().
 _TEACHER_TABLE = {
     "jump": {
         "button": "tap",
@@ -441,6 +440,51 @@ class Runtime:
             return False
         return False
 
+    def _game_reads_accel(self):
+        """True when the game's code can reach the accelerometer.
+
+        Counts any identifier, attribute or import containing "accel" or
+        "lis2dw" (accel.read(), LIS2DW12(i2c), HUB_CONFIG["accel_int1_pin"]),
+        and any use
+        of play()'s fourth parameter whatever it is named, since main.py
+        passes the accelerometer there positionally. A play() taking *args
+        counts. Declaring the parameter without using it does not:
+        parameters are ast.arg, not ast.Name.
+        """
+        if not self._game_src:
+            return True
+        import ast
+        try:
+            tree = ast.parse(self._game_src)
+        except SyntaxError:
+            return True
+
+        def accel_word(name):
+            n = (name or "").lower()
+            return "accel" in n or "lis2dw" in n
+
+        param = None
+        for node in tree.body:
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == "play":
+                if node.args.vararg is not None:
+                    return True
+                if len(node.args.args) >= 4:
+                    param = node.args.args[3].arg
+        for sub in ast.walk(tree):
+            if isinstance(sub, ast.Name) and isinstance(sub.ctx, ast.Load):
+                if sub.id == param or accel_word(sub.id):
+                    return True
+            elif isinstance(sub, ast.Attribute) and accel_word(sub.attr):
+                return True
+            elif (isinstance(sub, ast.Subscript) and isinstance(sub.slice, ast.Constant)
+                  and isinstance(sub.slice.value, str) and accel_word(sub.slice.value)):
+                return True
+            elif isinstance(sub, (ast.Import, ast.ImportFrom)):
+                mods = [a.name for a in sub.names] + [getattr(sub, "module", None) or ""]
+                if any(accel_word(m) for m in mods):
+                    return True
+        return False
+
     def set_display_source(self, src):
         """The display half of the loaded game, when the host has one (a
         generated game's _icon.py). None: only a vendored display file for
@@ -455,6 +499,23 @@ class Runtime:
         rel = "vendor/display/games/%s.py" % self._game_name
         return self._read_text(rel, os.path.join(_VENDOR, "display", "games",
                                                  self._game_name + ".py")) is not None
+
+    def _game_sends_radio(self):
+        """True when the game source sends anything over ESP-NOW
+        (enow.broadcast(...), enow.send_to(...)): it plays with other wands,
+        displays or Splats rather than only listening for the Box."""
+        if not self._game_src:
+            return False
+        import ast
+        try:
+            tree = ast.parse(self._game_src)
+        except SyntaxError:
+            return False
+        for node in ast.walk(tree):
+            if (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+                    and node.func.attr in ("broadcast", "send_to")):
+                return True
+        return False
 
     def _game_sends_dicts(self):
         """True when the game source passes a dict literal to an ESP-NOW send
@@ -484,6 +545,7 @@ class Runtime:
             "splats_min": smin,
             "splats_max": smax,
             "uses_display": self._game_sends_dicts(),
+            "uses_radio": self._game_sends_radio(),
             "has_display_file": self._has_display_file(),
         }
 
@@ -491,15 +553,15 @@ class Runtime:
         """Return what the loaded game actually uses, for filtering controls.
 
         nfcTags and battery are derived live from the loaded module; button
-        and motion come from _TEACHER_TABLE (see its comment for why), and
-        default to "show everything" when the game isn't in that table —
-        the important path, since a freshly generated jumpin.py never will
-        be.
+        and motion come from _TEACHER_TABLE (see its comment for why). A game
+        not in that table (every generated game) gets a tap button, and every
+        motion control only if its code reads the accelerometer.
         """
         if not self._game_mod:
             return {"button": "tap", "motion": list(_ALL_MOTION), "nfcTags": [], "battery": False,
                     "buzzer": True, "lobby_game": False, "local_splats": self._local_splats, "splats_min": None,
-                    "splats_max": None, "uses_display": False, "has_display_file": False}
+                    "splats_max": None, "uses_display": False, "uses_radio": False,
+                    "has_display_file": False}
 
         mod = self._game_mod
         import game_tags
@@ -521,9 +583,12 @@ class Runtime:
         battery = self._game_reads_battery()
 
         table = _TEACHER_TABLE.get(self._game_name, {})
+        motion = table.get("motion")
+        if motion is None:
+            motion = _ALL_MOTION if self._game_reads_accel() else []
         return {
             "button": table.get("button", "tap"),
-            "motion": list(table.get("motion", _ALL_MOTION)),
+            "motion": list(motion),
             "nfcTags": nfc_tags,
             "battery": battery,
             "buzzer": True,  # every wand game plays sound; not derived
@@ -767,6 +832,11 @@ class Runtime:
                 pass
         self._task = None
         self._restore_stdout()
+        # A game that doesn't turn its LEDs off on exit leaves its last frame
+        # showing; the next game starts dark, as it does after a reboot.
+        st = self.sim_state
+        if st is not None and st.led_frame and any(any(p) for p in st.led_frame):
+            st.emit_led_frame([(0, 0, 0)] * len(st.led_frame))
 
     def is_running(self):
         return self._task is not None and not self._task.done()

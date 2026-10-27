@@ -6,8 +6,7 @@
  *
  * The room starts a lobby game with `wands - 1` other wands from its
  * settings (none by default), and the overlay's "+ Add a wand" adds one, up to MAX_WANDS
- * in all. Wands have no names or colors here: the bar says only how many
- * more there are.
+ * in all, or the game's `wands` when that is more. Wands have no names or colors here.
  *
  * Another wand starts as a placeholder: an outline of a wand with "?" on
  * its screen that runs nothing and is not on the radio. Clicking it starts
@@ -16,10 +15,11 @@
  * protocol. Each one boots its own Pyodide, which is why they wait for a
  * click.
  *
- * "See all N wands" opens a near-full-screen <dialog> with every wand side
+ * "View Multiple Device Simulation" opens a near-full-screen <dialog> with every wand side
  * by side: the room's own wand is moved into it while it is open (a
  * <wand-sim> survives the move) and back when it closes. Live other wands
- * live in the dialog and keep running while it is closed. The room's icon
+ * live in the dialog and are stopped while it is closed; opening and
+ * closing it restart the game on every wand that is left running. The room's icon
  * displays (js/panels/display.js) move in after the wands the same way.
  *
  *   createWandsPanel({ mount, room })
@@ -36,7 +36,7 @@
 import { icon } from "../icons.js";
 import { attachWand } from "../pyboot.js";
 import { createLobbyGameHost } from "../lobby_game.js";
-import { createSplatToy, CASE, BLOB } from "./splats.js";
+import { createSplatToy, splatDev, splatCard, CASE, BLOB } from "./splats.js";
 
 export const MAX_WANDS = 4;
 
@@ -50,14 +50,11 @@ const SPLAT_OUTLINE = `<svg viewBox="-6 -6 268 267" width="44" height="44" aria-
   <path d="${CASE}"/><path d="${BLOB}"/></svg>`;
 
 export const WANDS_STYLE = `
-.wands-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; min-height: 64px;
-  padding: 10px 12px 10px 16px; box-sizing: border-box; }
-.wands-bar .lead { color: #6c4cd1; display: inline-flex; }
-.wands-bar .count { font: 800 14px 'Nunito', system-ui, sans-serif; }
-.wands-bar .acts { margin-left: auto; display: flex; flex-wrap: wrap; gap: 8px; }
 .wbtn { min-height: 44px; padding: 0 14px; border-radius: 12px; border: 1.5px solid #e8e6f0;
   background: #fff; color: #5b5468; font: 800 12px 'Nunito', system-ui, sans-serif; cursor: pointer; }
 .wbtn:hover { border-color: #6c4cd1; color: #6c4cd1; }
+.wbtn.go { border-color: #14806b; background: #14806b; color: #fff; }
+.wbtn.go:hover { border-color: #0f6655; background: #0f6655; color: #fff; }
 .wbtn.primary { border-color: #6c4cd1; background: #f2eefc; color: #6c4cd1; }
 .wbtn.sq { width: 44px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
 .wbtn.small { min-height: 36px; }
@@ -108,14 +105,9 @@ dialog.all-wands::backdrop { background: rgba(35,31,46,.35); }
 `;
 
 export function createWandsPanel({ mount, room }) {
-  const bar = document.createElement("div");
-  bar.className = "wands-bar";
-  bar.innerHTML = `<span class="lead">${icon("wand", 18)}</span>
-    <span class="count" data-el="count"></span>
-    <span class="acts">
-      <button type="button" class="wbtn primary" data-el="open"></button>
-    </span>`;
-  mount.appendChild(bar);
+  const bar = mount;
+  bar.insertAdjacentHTML("beforeend",
+    `<button type="button" class="wbtn go" data-el="open">View Multiple Device Simulation</button>`);
 
   const dialog = document.createElement("dialog");
   dialog.className = "all-wands";
@@ -147,31 +139,54 @@ export function createWandsPanel({ mount, room }) {
   $(dialog, "add-display").addEventListener("click", () => room.panel("displays")?.add());
   $(bar, "open").addEventListener("click", () => open());
   $(dialog, "close").addEventListener("click", () => dialog.close());
+  // Opening and closing the dialog each restart the game, so a lobby only
+  // ever counts the wands that are on screen.
   dialog.addEventListener("close", () => {
+    padSize.disconnect();
     room.placeWand(null);
     room.panel("displays")?.placeIn(null);
+    room.panel("splats")?.placeIn?.(null);
+    for (const o of others) o.el?.stop();
+    room.lobbyGame?.retap();
+    room.wand?.restart();
   });
+
+  // Icon displays and Splats in the dialog match the wand's square pad.
+  function sizeDisplays() {
+    const pad = room.wand?.shadowRoot?.querySelector(".pad");
+    if (!pad) return;
+    const box = pad.getBoundingClientRect();
+    grid.style.setProperty("--wand-pad", `${box.width}px`);
+    // Displays and Splats line up with the top of the wand's pad.
+    grid.style.setProperty("--wand-pad-top", `${box.top - room.wand.getBoundingClientRect().top}px`);
+  }
+  const padSize = new ResizeObserver(sizeDisplays);
 
   function open() {
     room.placeWand(mine);
+    room.panel("splats")?.placeIn?.(mine);
     room.panel("displays")?.placeIn(grid);
-    if (!dialog.open) dialog.showModal();
+    if (dialog.open) return;
+    dialog.showModal();
+    sizeDisplays();
+    if (room.wand) padSize.observe(room.wand);
+    room.restart();
   }
 
   function draw() {
     const n = others.length;
-    $(bar, "count").textContent = n === 0 ? "No other wands are playing."
-      : n === 1 ? "1 more wand is also playing" : `${n} more wands are also playing`;
-    const full = n + 1 >= MAX_WANDS;
+    const full = n + 1 >= maxWands();
     $(dialog, "add").hidden = full;
     const displays = room.panel("displays");
     const k = displays ? displays.displays.length : 0;
     $(dialog, "add-display").hidden = !displays || displays.full;
     const shown = k === 0 ? "" : k === 1 ? "1 display" : `${k} displays`;
-    const openBtn = $(bar, "open");
-    openBtn.textContent = n === 0 && !shown ? "See all wands →"
-      : `See all ${n + 1} wands${shown ? `, ${shown}` : ""} →`;
-    $(dialog, "title").textContent = `${n + 1} wands${shown ? ` and ${shown}` : ""} in this game`;
+    $(dialog, "title").textContent = `${n + 1} wand${n ? "s" : ""}${shown ? ` and ${shown}` : ""} in this game`;
+  }
+
+  /** MAX_WANDS, or more when the game's settings ask for more wands. */
+  function maxWands() {
+    return Math.max(MAX_WANDS, room.gameWands);
   }
 
   function freeMac() {
@@ -182,7 +197,7 @@ export function createWandsPanel({ mount, room }) {
   }
 
   function add() {
-    if (others.length + 1 >= MAX_WANDS) return;
+    if (others.length + 1 >= maxWands()) return;
     const o = { mac: freeMac(), card: document.createElement("div"), el: null };
     o.card.className = "wand-card";
     others.push(o);
@@ -244,11 +259,8 @@ export function createWandsPanel({ mount, room }) {
     const w = document.createElement("wand-sim");
     w.autostart = true;
     if (room.profile) w.profile = room.profile;
-    const pad = document.createElement("div");
-    pad.className = "pad-splats";
-    pad.slot = "pad";
     o.el = w;
-    o.pad = pad;
+    o.splatCards = [];
     o.toys = [];
     w.addEventListener("sim-ready", () => {
       if (o.el !== w) return;
@@ -282,14 +294,19 @@ export function createWandsPanel({ mount, room }) {
     const key = splats.map((s) => s.mac).join("+");
     if (key !== o.toysKey) {
       o.toysKey = key;
-      o.pad.textContent = "";
+      for (const c of o.splatCards) c.remove();
       o.toys = splats.map((s, i) => createSplatToy(s, {
         label: `Splat ${i + 1}`,
         onButton: (down) => o.lobbyGame.wandSplatButton(i, down),
       }));
-      for (const t of o.toys) o.pad.appendChild(t.el);
-      if (splats.length) o.el.appendChild(o.pad);
-      else o.pad.remove();
+      // Each Splat is a card of its own, right after its wand's card.
+      let at = o.card;
+      o.splatCards = o.toys.map((t) => {
+        const card = splatCard(splatDev(t.el));
+        at.after(card);
+        at = card;
+        return card;
+      });
     }
     for (const t of o.toys) t.refresh();
   }
@@ -299,7 +316,9 @@ export function createWandsPanel({ mount, room }) {
     o.link?.detach();
     o.lobbyGame?.dispose();
     o.el.remove();
-    o.el = o.link = o.lobbyGame = o.pad = null;
+    for (const c of o.splatCards || []) c.remove();
+    o.splatCards = [];
+    o.el = o.link = o.lobbyGame = null;
     o.toysKey = undefined;
   }
 
@@ -317,7 +336,7 @@ export function createWandsPanel({ mount, room }) {
   return {
     setFor(n) {
       clear();
-      for (let i = 1; i < Math.min(n, MAX_WANDS); i++) add();
+      for (let i = 1; i < n; i++) add();
     },
     setGame(c) {
       caps = c;

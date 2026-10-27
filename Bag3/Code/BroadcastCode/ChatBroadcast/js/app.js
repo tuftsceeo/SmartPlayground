@@ -1627,10 +1627,24 @@ class App {
         // like a blank chat despite the model still "remembering" it. Code
         // blocks in old assistant turns were already replaced with a
         // "[code: N lines, sent to editor]" placeholder when saved (see
-        // trimForHistory() in chat.js), which reads fine here too: the
-        // actual current code is loaded into the editor below regardless.
-        this.chatHistory.forEach((turn) => {
-            addMsg(turn.content, turn.role === 'assistant' ? 'bot' : 'user');
+        // trimForHistory() in chat.js). The last placeholder is shown as the
+        // saved code itself, so its View code button opens the drawer; the
+        // stored history keeps the placeholder.
+        const PLACEHOLDER = /\n?\[code: \d+ lines, sent to editor\]\n?/g;
+        let lastCodeTurn = -1;
+        this.chatHistory.forEach((turn, i) => {
+            if (turn.role === 'assistant' && PLACEHOLDER.test(turn.content)) lastCodeTurn = i;
+            PLACEHOLDER.lastIndex = 0;
+        });
+        this.chatHistory.forEach((turn, i) => {
+            let text = turn.content;
+            if (i === lastCodeTurn && g.code) {
+                const matches = [...text.matchAll(PLACEHOLDER)];
+                const m = matches[matches.length - 1];
+                text = text.slice(0, m.index) + '\n```python\n' + g.code.replace(/\n$/, '') + '\n```\n'
+                    + text.slice(m.index + m[0].length);
+            }
+            addMsg(text, turn.role === 'assistant' ? 'bot' : 'user');
         });
         if (g.code) {
             setCode(g.code, DEFAULT_ROLE);

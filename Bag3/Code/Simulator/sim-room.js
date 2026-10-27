@@ -53,7 +53,7 @@ import { createBus, BROADCAST } from "./js/bus.js";
 import { createClock } from "./js/clock.js";
 import { hexToBytes } from "./js/radio.js";
 import { createDisplaysPanel, DISPLAY_STYLE, ROOM_MAC } from "./js/panels/display.js";
-import { createSplatPanel, SPLAT_STYLE } from "./js/panels/splats.js";
+import { createSplatPanel, splatCard, SPLAT_STYLE } from "./js/panels/splats.js";
 import { createWandsPanel, WANDS_STYLE } from "./js/panels/wands.js";
 import { createLobbyGameHost } from "./js/lobby_game.js";
 import { WAND_RGB, identityName } from "./js/peers.js";
@@ -78,7 +78,8 @@ class SimRoom extends HTMLElement {
   /**
    * Register an output panel.
    *   id       unique name
-   *   slot     "panels" (beside the wand) or "strip" (below it)
+   *   slot     "panels" (beside the wand), "strip" (below it) or "top" (above it, right-aligned)
+ *   bare     no box border or background
    *   title    heading shown above the panel; null = none, and no padding
    *            (the panel draws its own header)
    *   wants    (capabilities, room) => bool: whether to show it
@@ -201,7 +202,10 @@ class SimRoom extends HTMLElement {
         .box { background: #fff; border: 1.5px solid #e8e6f0; border-radius: 16px; padding: 14px 16px;
           color: #231f2e; font-family: 'Nunito', system-ui, sans-serif; }
         .box.flush { padding: 0; }
-        .box[hidden] { display: none; }
+        .box[hidden], .box:empty { display: none; }
+        .top { display: flex; justify-content: flex-end; }
+        .top:not(:has(.box:not([hidden]))) { display: none; }
+        .box.bare { background: none; border: 0; border-radius: 0; padding: 0; margin-bottom: 12px; }
         .box-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; margin: 0 0 12px; }
         .box-head h3 { font: 800 15px 'Nunito', system-ui, sans-serif; margin: 0; }
         ${DISPLAY_STYLE}
@@ -210,6 +214,7 @@ class SimRoom extends HTMLElement {
         /* Simple mode is the wand alone; its Splats are drawn in its pad. */
         :host(:not([advanced])) .box[data-panel="splats"] { display: none; }
       </style>
+      <div class="top" data-slot="top"></div>
       <div class="room">
         <div class="wand" data-slot="wand"></div>
         <div class="panels" data-slot="panels"></div>
@@ -340,7 +345,9 @@ class SimRoom extends HTMLElement {
         const box = document.createElement("section");
         box.className = "box";
         box.dataset.panel = id;
-        if (spec.title) {
+        if (spec.bare) {
+          box.classList.add("bare");
+        } else if (spec.title) {
           box.innerHTML = `<div class="box-head"><h3></h3></div>`;
           box.querySelector("h3").textContent = spec.title;
         } else {
@@ -375,17 +382,19 @@ function wandGroup(lobbyGame) {
   };
 }
 
-// The wand's Splats are drawn in its pad, below the drawn wand, in both
-// modes. In advanced mode a card below the wand adds their count and links,
-// and the other wands bar (js/panels/wands.js) follows it.
+// The wand's Splats stand in the wand's controls pane like icon displays,
+// in both modes, and move into the all-wands dialog as cards of their own.
+// In advanced mode a card below the wand adds their count and links.
 SimRoom.registerPanel("splats", {
   slot: "strip",
   title: "Splats on this wand",
   wants: (caps) => !!caps.lobby_game,
   create(room, box) {
     const overlay = document.createElement("div");
-    overlay.className = "pad-splats";
-    overlay.slot = "pad";
+    overlay.className = "splat-shelf";
+    overlay.slot = "ctrl";
+    let placedAfter = null;
+    let cards = [];
     const panel = createSplatPanel({
       mount: box,
       overlay,
@@ -402,17 +411,39 @@ SimRoom.registerPanel("splats", {
       const key = group.splats.map((s) => s.mac).join("+");
       if (key !== shape) {
         shape = key;
+        // Cards hold the old toys; drop them before drawing new ones.
+        for (const c of cards) c.remove();
+        cards = [];
         panel.setGroups([group]);
-        // In the wand's pad only while there is a Splat to show: the pad
-        // makes room under the wand for whatever is slotted.
         if (group.splats.length) room.wand.appendChild(overlay);
         else overlay.remove();
+        if (placedAfter) panel.placeIn(placedAfter);
       } else {
         panel.refresh();
       }
     };
     panel.show = () => { shown = true; };
+    // Into the all-wands dialog as one card per Splat, after `after` (the
+    // wand's card), or back into the controls pane with null.
+    panel.placeIn = (after) => {
+      for (const c of cards) {
+        const dev = c.querySelector(".splat-dev");
+        if (dev) overlay.appendChild(dev);
+        c.remove();
+      }
+      cards = [];
+      placedAfter = after;
+      let at = after;
+      if (!at) return;
+      for (const dev of [...overlay.querySelectorAll(":scope > .splat-dev")]) {
+        const card = splatCard(dev);
+        at.after(card);
+        cards.push(card);
+        at = card;
+      }
+    };
     panel.unmount = () => {
+      panel.placeIn(null);
       shown = false;
       shape = "";
       overlay.remove();
@@ -429,13 +460,16 @@ SimRoom.registerPanel("splats", {
   },
 });
 
-// How many other wands are in the game, and the overlay
-// with all of them side by side. Shown for a lobby game, and for any game
-// whose settings say it is for more than one wand.
+// The one "View Multiple Device Simulation" button and its overlay with
+// every wand and display side by side. Shown for a game that sends on the
+// radio, has a display file, is a lobby game, or is set for more than one
+// wand.
 SimRoom.registerPanel("wands", {
-  slot: "strip",
+  slot: "top",
+  bare: true,
   title: null,
-  wants: (caps, room) => !!caps.lobby_game || room.gameWands > 1,
+  wants: (caps, room) => !!caps.lobby_game || !!caps.uses_radio || !!caps.uses_display
+    || !!caps.has_display_file || room.gameWands > 1,
   create(room, box) {
     const panel = createWandsPanel({ mount: box, room });
     panel.setGameSplats(room.gameSplats);
@@ -458,8 +492,8 @@ SimRoom.registerPanel("wands", {
 });
 
 // Icon displays stand in the wand's controls pane, under the gesture
-// buttons, each its own device on the bus; advanced mode adds a strip card
-// counting them, and the all-wands overlay adds them. The panel is always
+// buttons, each its own device on the bus; the all-wands overlay adds
+// them. The panel is always
 // there: displays come and go apart from the game, and sync() wakes them for a game with a display file.
 // Registered last so a display booting does not hold up the other panels'
 // updates.
