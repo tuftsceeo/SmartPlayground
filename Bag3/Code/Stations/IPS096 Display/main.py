@@ -1,13 +1,4 @@
-# Smoke test: radio first, then display, then poll buttons and ESP-NOW.
-import network
-import espnow
-
-wlan = network.WLAN(network.STA_IF)
-wlan.active(True)
-esp = espnow.ESPNow()
-esp.active(True)
-esp.add_peer(b"\xff" * 6)
-
+# Minimal demo UI: test pattern plus a counter driven by the two buttons.
 import time
 from machine import Pin
 
@@ -22,29 +13,33 @@ if DISPLAY_PATH == "lvgl":
     import display_lvgl
     display, th = display_lvgl.init()
     label = display_lvgl.test_pattern()
+
+    def show(count):
+        label.set_text(f"IPS096\nCount {count}")
 else:
     import display_st7789
+    import st7789py as st7789
+    import vga1_8x8 as font
     tft = display_st7789.init()
     display_st7789.test_pattern(tft)
-    label = None
 
-start = time.ticks_ms()
-last_tx = start
-rx_count = 0
-last_state = None
+    def show(count):
+        tft.fill_rect(4, 90, board.LCD_W - 8, 10, st7789.BLACK)
+        tft.text(font, f"Cnt {count}", 8, 90, st7789.WHITE)
+
+count = 0
+prev1 = prev2 = 1
+show(count)
 
 while True:
-    now = time.ticks_ms()
-    if time.ticks_diff(now, last_tx) >= 1000:
-        esp.send(b"\xff" * 6, f"ips096 {time.ticks_diff(now, start) // 1000}", False)
-        last_tx = now
-    host, msg = esp.irecv(0)
-    if msg:
-        rx_count += 1
-    state = (btn1.value() == 0, btn2.value() == 0, rx_count)
-    if state != last_state:
-        print(f"b1={state[0]} b2={state[1]} rx={rx_count}")
-        if label is not None:
-            label.set_text(f"B1 {int(state[0])} B2 {int(state[1])}\nRX {rx_count}")
-        last_state = state
+    v1, v2 = btn1.value(), btn2.value()
+    if prev1 == 1 and v1 == 0:
+        count += 1
+        show(count)
+        print(f"USR1 count={count}")
+    if prev2 == 1 and v2 == 0:
+        count = 0
+        show(count)
+        print("USR2 reset")
+    prev1, prev2 = v1, v2
     time.sleep_ms(1)

@@ -17,14 +17,13 @@ lvgl_micropython and st7789py_mpy APIs and haven't been run on this board.
 Fall back to B if any of these happens:
 - **The LVGL build fails** and can't be fixed.
 - **The panel can't be aligned or coloured correctly.**
-- **The radio fails** when LVGL is loaded after it.
 - **DRAM is too short** for the project's needs.
 
 ## Files
 
 - `board.py`: pin constants (no allocation, safe to import first).
 - `display_lvgl.py`, `display_st7789.py`: the display setup for each path.
-- `main.py`: smoke test. Brings up ESP-NOW first, then the display, then shows button state and the ESP-NOW receive count. Set `DISPLAY_PATH` to choose the path.
+- `main.py`: minimal demo. Test pattern plus a counter: USR1 increments, USR2 resets. Set `DISPLAY_PATH` to choose the path. No radio; playground integration is out of scope.
 - `firmware/BUILD.md`: build and flash steps, with a version record.
 
 ## Pins
@@ -58,9 +57,7 @@ garbage, the firmware has a REPL on UART0 and it needs to be disabled.
    - **Bars and border misaligned:** change `LCD_X_OFF`/`LCD_Y_OFF` in `board.py` (try 24/0 and 26/1).
    - **Colours swapped:** flip `LCD_BGR`.
    - **Colours look like a negative:** flip `LCD_INVERT`.
-3. **Press each button:** the label and the serial output change.
-4. **Check ESP-NOW:** a second device broadcasting makes RX count up.
-5. **Leave it running 10 minutes:** no reset.
+3. **Press each button:** USR1 increments the count, USR2 resets it, and serial prints each press.
 
 ## Results
 
