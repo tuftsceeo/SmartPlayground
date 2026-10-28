@@ -148,6 +148,16 @@ for its duration, same as Box `SERVE` mode. ChatBroadcast's
 `game_start`/`game_end` handlers raise and lower the silence watchdog the
 same way its Box `mode`/`armed` handlers do for `SERVE`.
 
+## Sleep, power LED and brightness
+
+After `NFC_SLEEP_MS` (30 s) idle, and only if the accelerometer came up, the wand sleeps: the PN532
+is powered down (`PN532.power_down()`), the matrix is off and the power LED blips every 4 s.
+Movement or the button wakes it; any sleep exit calls `_nfc_wake()`. The power LED is driven by
+`lib/power_led.py` (PWM, scaled from `brightness.MULTIPLIER`, patterns for ready, asleep, low and
+critical battery, game, pull and boot failure). The wand config's `"diffuser"` (`"black"` or
+`"white"`) sets the matrix brightness gain in `lib/brightness.py`. States, test evidence and
+remaining power work: `Bag3/Code/known_issues/2026-10-28-mockwand-idle-power.md`.
+
 ## Splat pairing
 
 A wand can pair with one or two Splats, identified by BLE MAC, and drives them over its own BLE radio.
