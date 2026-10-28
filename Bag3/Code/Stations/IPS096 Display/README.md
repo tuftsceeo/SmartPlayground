@@ -25,6 +25,7 @@ Fall back to B if any of these happens:
 - `display_lvgl.py`, `display_st7789.py`: the display setup for each path.
 - `main.py`: minimal demo. Test pattern plus a counter: USR1 increments, USR2 resets. Set `DISPLAY_PATH` to choose the path. No radio; playground integration is out of scope.
 - `firmware/BUILD.md`: build and flash steps, with a version record.
+- `firmware/flash.sh`: flashes the firmware and demo files to a board; see `firmware/BUILD.md`.
 
 ## Pins
 

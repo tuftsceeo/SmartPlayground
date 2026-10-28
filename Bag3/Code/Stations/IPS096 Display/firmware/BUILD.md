@@ -1,5 +1,27 @@
 # Firmware build
 
+## Flashing more boards
+
+`firmware/flash.sh` writes the Path A firmware to a board (erasing it first), checks it in the
+REPL, copies `board.py`, `display_lvgl.py` and `main.py`, and hard-resets it. It needs
+`esptool` and `mpremote` (`pip install esptool mpremote`) on `PATH`, and the merged `.bin`
+from the build below. The `.bin` is not in the repo.
+
+```sh
+cd "Bag3/Code/Stations/IPS096 Display"
+firmware/flash.sh path/to/lvgl_micropy_ESP32_GENERIC_S3-SPIRAM_OCT-16.bin
+```
+
+- **Port:** with one board plugged in, the script finds it. With several, pass the port as
+  the second argument, e.g. `firmware/flash.sh <bin> /dev/cu.usbmodem3101`.
+- **Demo files only:** `firmware/flash.sh --files-only [port]` skips the erase and flash and
+  copies the three files to a board that already has the firmware.
+- **Output:** the REPL check prints `mem_free` (about 8,300,000) and `lvgl 9 4`. When it
+  finishes, the board shows the test pattern; USR1 counts and USR2 resets.
+- **Board not detected:** hold BOOT while plugging it in, then run the script again.
+- **Erase and write in one call:** a separate `erase_flash` resets the board and the USB
+  port drops out before the write.
+
 ## Path A: lvgl_micropython
 
 Build host: Linux or macOS with git, Python 3, cmake and ninja. The build script downloads ESP-IDF.
