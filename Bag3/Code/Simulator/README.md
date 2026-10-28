@@ -47,16 +47,18 @@ Developer mode footer, and `index.html` in a `<pre>` under the room.
   own MAC (`02:00:00:00:0d:01` up), up to 4. One starts as a placeholder;
   a click wakes it, and each boots its own Pyodide running
   `py/icon_host.py` (IconDisplay/main.py's idle loop, without `main()`),
-  drawn with iconmaker's `renderPreview`. A game with a display file
+  drawn as a 16x16 grid of square cells. A game with a display file
   (`vendor/display/games/<game>.py`, or the `displaySource` property)
   wakes every display, adding one if there are none, and the room unicasts
   `start_game` to each; a game without one takes away the display it added
   and sends `stop` to the rest. The all-wands overlay adds displays and
   shows them; advanced mode takes them away; simple mode shows them only while
   the game uses them.
-  `renderPreview` is imported from
-  `../BroadcastCode/ChatBroadcast/iconmaker/`, so serve `Bag3/Code/` (from
-  `Simulator/` alone the panel falls back to plain squares and warns).
+  Lit cells use the icon editor's LED colour model (`ledSwatchHex` in
+  `Stations/Icon Display Station/webapp/js/pipeline/ledGamut.js`, copied
+  into `js/panels/display.js`): the colour the LED emits at full duty, not
+  dimmed by the game's intensity. Off cells are dark grey on a black
+  diffuser inside a charcoal case.
 
 - **Splats:** for a lobby game (`SPLATS_MIN`), the wand's Splats stand
   beside the wand like icon displays, one per paired Splat, and each gets

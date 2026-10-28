@@ -5,6 +5,11 @@ From the 2026-10-27 UI review (`Bag3/Code/Simulator/ui-review-2026-10-27.md`), t
 
 Paths below are relative to `Bag3/Code/`.
 
+## Status
+- Done: icon display look (square cells, editor colour model, cartoon case).
+- ChatBroadcast (§3, #11): in its own session.
+- Remaining here: #2 reset per game, equal compact cards, × side, labels, tag picker, §2.
+
 ## 1. Multiple Device view (Simulator)
 **#2 Reset per game** — `Simulator/sim-room.js` wands panel `update()` only calls `setFor()` when `gameWands` changes. Track a game identity (`room.game` or a source hash at load, not on code edits of the same game); when it changes, call `panel.setFor(room.gameWands)` and have the displays panel drop non-game displays (`js/panels/display.js` `sync()` – remove hand-added `auto:false` entries too on game change). No message at the cap.
 
@@ -20,11 +25,7 @@ Paths below are relative to `Bag3/Code/`.
 
 **#10 Tag picker** — `js/controls.js` `.tag-pop` (absolute under the button, inside shadow DOM, clipped by card). Change to `position: fixed`, positioned in `setTagMenu(true)` from the button's `getBoundingClientRect()` (open beside/above the button, clamp to viewport), `z-index` high; reposition on scroll/resize while open. Works in both main and overlay (dialog is top layer — render the popover inside the same shadow root so it stays above the dialog contents).
 
-**Icon display look (match the real device photo)** — in `js/panels/display.js`:
-- Pixels: a 16x16 grid of square cells filling the whole matrix edge to edge, separated by thin grid lines (no circles, no dark margin around a small dot grid).
-- Unlit cells: light grey diffuser (≈ `#cfccc6`) with slightly darker grid lines, not black; lit cells are bright and soft (light bleed into the cell, like the diffused glow in the photo).
-- Frame: thin black bezel around the diffuser (replace the wide grey bezel + inset black square from the last change); square corners.
-- Find the canvas painter that draws the circles (frame → canvas, and the idle/ready preview) and switch it to `fillRect` per cell; keep `.display-case` sizing from `--wand-pad`.
+**Icon display look** (done) — `js/panels/display.js` `drawSquares`: 16x16 rounded-square cells; lit cells coloured with the icon editor's `ledSwatchHex` model; off cells dark grey on a black (smoked) diffuser; rounded charcoal case with highlight and drop shadow, matching the wand and Splat style.
 
 ## 2. Simulator controls/layout
 **Remove status line** — `js/controls.js:326-327` markup + CSS ~170-176; keep `renderStatus` writing to the wand's `title`/aria only (errors still need surfacing: show error text in the existing failure overlay).

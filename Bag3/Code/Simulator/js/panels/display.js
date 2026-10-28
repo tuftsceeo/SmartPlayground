@@ -8,8 +8,8 @@
  * game with a display file, wakes it: it boots its own Pyodide running
  * py/icon_host.py, which copies IconDisplay/main.py's idle loop and runs the
  * display game against a simulated Matrix. Frames come back as the logical
- * 768-byte src plus intensity and are drawn with iconmaker's
- * renderPreview(). Each display has its own MAC, so it hears the wand's
+ * 768-byte src plus intensity and are drawn as 16x16 square cells.
+ * Each display has its own MAC, so it hears the wand's
  * broadcasts and its replies reach the wand. Its prints go out as
  * display-print events (detail: { text, mac }).
  *
@@ -36,7 +36,6 @@ import { hexToBytes, bytesToHex } from "../radio.js";
 import { loadPyodideNoJspi } from "../pyboot.js";
 import { icon } from "../icons.js";
 
-const PREVIEW_URL = "../../../BroadcastCode/ChatBroadcast/iconmaker/js/pipeline/preview.js";
 const W = 16;
 
 export const MAX_DISPLAYS = 4;
@@ -77,9 +76,14 @@ export const DISPLAY_STYLE = `
 .display-shelf:empty { display: none; }
 .display-dev { display: flex; flex-direction: column; align-items: center; gap: 6px; }
 .display-dev .rm { align-self: flex-end; }
-.display-case { position: relative; width: 128px; height: 128px; box-sizing: border-box; padding: 3px;
-  border-radius: 2px; background: #111; display: flex; align-items: center; justify-content: center; }
-.display-case canvas { display: block; width: 100%; height: 100%; border-radius: 0; background: #cfccc6; }
+.display-case { position: relative; width: 128px; height: 128px; box-sizing: border-box; padding: 7%;
+  border-radius: 10px; background: linear-gradient(160deg, #3b3a40, #232228);
+  box-shadow: inset 0 2px 0 rgba(255,255,255,.14), inset 0 -3px 0 rgba(0,0,0,.35), 0 5px 0 #15141a, 0 8px 14px rgba(30,20,50,.18);
+  display: flex; align-items: center; justify-content: center; }
+.display-case canvas { display: block; width: 100%; height: 100%; border-radius: 3px; background: #101012;
+  box-shadow: inset 0 0 0 1px #000, 0 0 0 2px #0c0c0e; }
+.display-case::after { content: ""; position: absolute; inset: 7%; border-radius: 3px; pointer-events: none;
+  background: linear-gradient(155deg, rgba(255,255,255,.10), rgba(255,255,255,0) 40%); }
 .display-case canvas[hidden] { display: none; }
 button.display-case { flex-direction: column; gap: 8px; box-shadow: none; border: 3px solid #c2b8d6; background: #fff; cursor: pointer;
   padding: 0; font: 900 44px/1 'Nunito', system-ui, sans-serif; color: #8b859a; }
@@ -96,36 +100,42 @@ button.display-case:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(10
 :host(:not([advanced])) .display-shelf:not(.in-game) { display: none; }
 `;
 
-let previewModule = null;
-async function loadPreview() {
-  if (!previewModule) {
-    previewModule = import(new URL(PREVIEW_URL, import.meta.url).href);
-  }
-  return previewModule;
+// LED duty -> screen colour, from Stations/Icon Display Station/webapp/js/pipeline/ledGamut.js
+// (ledSwatchHex): WS2812B primaries as XYZ, clipped to sRGB. Same colours as the icon editor.
+const LED_PRIM = [[0.7006, 0.2993, 400], [0.0743, 0.8338, 1150], [0.1241, 0.0578, 250]]
+  .map(([x, y, Iv]) => [(x / y) * Iv, Iv, ((1 - x - y) / y) * Iv]);
+const LED_Y = LED_PRIM.reduce((t, p) => t + p[1], 0);
+function ledScreenRgb(duty) {
+  const [X, Y, Z] = [0, 1, 2].map((i) => duty.reduce((t, c, j) => t + (c / 255) * LED_PRIM[j][i], 0) / LED_Y);
+  return [
+    3.2406 * X - 1.5372 * Y - 0.4986 * Z,
+    -0.9689 * X + 1.8758 * Y + 0.0415 * Z,
+    0.0557 * X - 0.204 * Y + 1.057 * Z,
+  ].map((c) => {
+    const v = Math.max(0, Math.min(1, c));
+    return Math.round((v <= 0.0031308 ? 12.92 * v : 1.055 * v ** (1 / 2.4) - 0.055) * 255);
+  });
 }
 
-/** 16x16 square cells on a grey diffuser; lit cells bleed softly into their cell. */
-function drawSquares(canvas, pixels, intensity) {
+/** 16x16 square cells behind the dark diffuser, coloured as the icon editor shows them. */
+function drawSquares(canvas, pixels) {
   const cell = 16;
   canvas.width = W * cell;
   canvas.height = W * cell;
   const ctx = canvas.getContext("2d");
-  ctx.fillStyle = "#b9b5ae";
+  ctx.fillStyle = "#0a0a0b";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
-  const k = Math.min(1, intensity / 0.5);
-  pixels.forEach(([r, g, b], i) => {
-    const x = (i % W) * cell + 1, y = Math.floor(i / W) * cell + 1, s = cell - 1;
-    if (!(r || g || b)) {
-      ctx.fillStyle = "#cfccc6";
-      ctx.fillRect(x, y, s, s);
-      return;
+  pixels.forEach((px, i) => {
+    const x = (i % W) * cell + 1, y = Math.floor(i / W) * cell + 1, s = cell - 2;
+    const lit = px.some(Boolean);
+    ctx.fillStyle = lit ? `rgb(${ledScreenRgb(px).join(",")})` : "#1d1d21";
+    ctx.beginPath();
+    ctx.roundRect(x, y, s, s, 2);
+    ctx.fill();
+    if (lit) {
+      ctx.fillStyle = "rgba(255,255,255,.22)";
+      ctx.fillRect(x + 2, y + 2, s - 4, 2);
     }
-    const c = [r, g, b].map((v) => Math.round(255 - (255 - v) * k * 0.9));
-    const glow = ctx.createRadialGradient(x + s / 2, y + s / 2, 0, x + s / 2, y + s / 2, s * 0.75);
-    glow.addColorStop(0, `rgb(${c.map((v) => Math.min(255, v + 60)).join(",")})`);
-    glow.addColorStop(1, `rgb(${[r, g, b].map((v) => Math.round(v * k * 0.8 + 207 * (1 - k * 0.8))).join(",")})`);
-    ctx.fillStyle = glow;
-    ctx.fillRect(x, y, s, s);
   });
 }
 
@@ -163,7 +173,7 @@ export function createDisplayDevice({ bus, clock, mac, onLive }) {
     const bytes = hexToBytes(srcHex);
     const pixels = [];
     for (let i = 0; i < bytes.length; i += 3) pixels.push([bytes[i], bytes[i + 1], bytes[i + 2]]);
-    if (!renderer) renderer = (px, inten) => drawSquares(canvas, px, inten);
+    if (!renderer) renderer = (px) => drawSquares(canvas, px);
     // A later frame may have arrived while the renderer loaded.
     if (srcHex === lastFrameHex) {
       renderer(pixels, Number(intensity));
