@@ -55,6 +55,7 @@ def test_pattern():
     border.set_style_border_color(lv.color_white(), 0)
     border.set_style_border_width(1, 0)
     border.set_style_radius(0, 0)
+    border.remove_flag(lv.obj.FLAG.SCROLLABLE)
 
     bar_w = (board.LCD_W - 4) // 3
     for i, hexval in enumerate((0xFF0000, 0x00FF00, 0x0000FF)):
@@ -64,6 +65,7 @@ def test_pattern():
         bar.set_style_bg_color(lv.color_hex(hexval), 0)
         bar.set_style_border_width(0, 0)
         bar.set_style_radius(0, 0)
+        bar.remove_flag(lv.obj.FLAG.SCROLLABLE)
 
     label = lv.label(scr)
     label.set_text("IPS096\nLVGL")

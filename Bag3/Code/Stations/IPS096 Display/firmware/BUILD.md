@@ -21,6 +21,8 @@ esptool.py --chip esp32s3 --port <PORT> write_flash 0x0 build/lvgl_micropy_ESP32
 
 The file name of the merged `.bin` is printed at the end of the build.
 
+The application partition has about 4 KB free with this build.
+
 Check in the REPL:
 
 ```python
@@ -31,9 +33,9 @@ import gc, lvgl; gc.collect(); print(gc.mem_free(), lvgl.version_major(), lvgl.v
 
 | Item | Value |
 |---|---|
-| lvgl_micropython commit | |
-| LVGL version | |
-| ESP-IDF version | |
+| lvgl_micropython commit | `d2d26467fa4cb9e99e569d899709043d086f7a6f` (MicroPython `78ff170`) |
+| LVGL version | 9.4.0 |
+| ESP-IDF version | v5.5.1 |
 
 ## Path B: stock MicroPython
 

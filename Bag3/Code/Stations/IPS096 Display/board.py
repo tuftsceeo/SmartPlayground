@@ -10,10 +10,10 @@ LCD_BL = 12     # D18, backlight PWM
 
 LCD_W = 80
 LCD_H = 160
-LCD_X_OFF = 26  # panel RAM offsets; tune on first test
-LCD_Y_OFF = 1
+LCD_X_OFF = 24  # panel RAM offsets; tune on first test
+LCD_Y_OFF = 0
 LCD_BGR = True
-LCD_INVERT = True
+LCD_INVERT = False
 LCD_SPI_HZ = 40_000_000
 
 BTN_USR1 = 43   # D6, active-low; UART0 TX

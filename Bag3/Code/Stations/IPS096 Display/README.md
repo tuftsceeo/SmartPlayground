@@ -8,8 +8,8 @@ Bench evaluation of the Seeed XIAO 0.96" IPS Display (ESP32-S3). It is not used 
 
 ## Status
 
-Untested. The code is a draft written before hardware arrived. The driver arguments follow the
-lvgl_micropython and st7789py_mpy APIs and haven't been run on this board.
+Path A works on the board: test pattern aligned, colours correct, both buttons work. Path B is
+untested.
 
 - **Path A (LVGL, `display_lvgl.py`):** primary.
 - **Path B (stock MicroPython + st7789py, `display_st7789.py`):** fallback.
@@ -63,3 +63,11 @@ garbage, the firmware has a REPL on UART0 and it needs to be disabled.
 
 | Check | Path | Result | Notes |
 |---|---|---|---|
+| Firmware | A | Pass | `mem_free` 8,320,496; `import lvgl` works, LVGL 9.4.0 |
+| `display_lvgl.py` | A | Pass | Driver arguments matched the source; bars set non-scrollable |
+| Alignment | A | Pass | `LCD_X_OFF = 24`, `LCD_Y_OFF = 0`; 26/1 clipped one long edge and left spare rows at the bottom |
+| Colours | A | Pass | `LCD_BGR = True`, `LCD_INVERT = False`; inversion on gave a negative |
+| Buttons | A | Pass | USR1 increments, USR2 resets, serial prints each; no UART0 REPL conflict |
+| Soft reboot | A | Fail | After Ctrl-D, `main.py` raises `TypeError` in `machine.SPI.Bus`; hard reset or power cycle runs it |
+
+Path A was used: the LVGL build and driver worked, so the fallback was not needed.
