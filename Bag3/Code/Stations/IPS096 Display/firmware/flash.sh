@@ -5,7 +5,7 @@
 set -euo pipefail
 
 HERE="$(cd "$(dirname "$0")/.." && pwd)"
-FILES=(board.py display_lvgl.py main.py)
+FILES=(board.py display_lvgl.py main.py ds_tokens.py gallery.py)
 
 FILES_ONLY=0
 if [[ "${1:-}" == "--files-only" ]]; then

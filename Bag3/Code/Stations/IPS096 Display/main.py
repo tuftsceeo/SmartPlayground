@@ -5,11 +5,20 @@ from machine import Pin
 import board
 
 DISPLAY_PATH = "lvgl"  # "lvgl" (Path A) or "st7789" (Path B)
+DEMO = "gallery"  # "gallery" (design-system pages, Path A only) or "test"
 
 btn1 = Pin(board.BTN_USR1, Pin.IN, Pin.PULL_UP)
 btn2 = Pin(board.BTN_USR2, Pin.IN, Pin.PULL_UP)
 
-if DISPLAY_PATH == "lvgl":
+if DISPLAY_PATH == "lvgl" and DEMO == "gallery":
+    import lvgl as lv
+    import display_lvgl
+    import gallery
+    display, th = display_lvgl.init(lv.DISPLAY_ROTATION._90)
+
+    def show(count):
+        print(f"page {gallery.show(count)}")
+elif DISPLAY_PATH == "lvgl":
     import display_lvgl
     display, th = display_lvgl.init()
     label = display_lvgl.test_pattern()

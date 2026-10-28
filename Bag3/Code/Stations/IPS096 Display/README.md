@@ -8,8 +8,9 @@ Bench evaluation of the Seeed XIAO 0.96" IPS Display (ESP32-S3). It is not used 
 
 ## Status
 
-Path A works on the board: test pattern aligned, colours correct, both buttons work. Path B is
-untested.
+Path A works on the board: test pattern aligned, saturated colours correct, both buttons work.
+Mid-tone colours need a per-channel lookup (`display_lvgl.color()`); see
+`Bag3/Code/known_issues/2026-10-28-ips096-colour-levels.md`. Path B is untested.
 
 - **Path A (LVGL, `display_lvgl.py`):** primary.
 - **Path B (stock MicroPython + st7789py, `display_st7789.py`):** fallback.
@@ -22,8 +23,11 @@ Fall back to B if any of these happens:
 ## Files
 
 - `board.py`: pin constants (no allocation, safe to import first).
-- `display_lvgl.py`, `display_st7789.py`: the display setup for each path.
-- `main.py`: minimal demo. Test pattern plus a counter: USR1 increments, USR2 resets. Set `DISPLAY_PATH` to choose the path. No radio; playground integration is out of scope.
+- `display_lvgl.py`, `display_st7789.py`: the display setup for each path. `display_lvgl.color()` maps a design colour to the panel through the measured lookup.
+- `main.py`: minimal demo. `DEMO = "gallery"` shows the design-system gallery (Path A only); `"test"` shows the test pattern plus a counter. USR1 advances, USR2 resets. Set `DISPLAY_PATH` to choose the path. No radio; playground integration is out of scope.
+- `ds_tokens.py`: Smart Playground design-system colours and radii as constants.
+- `gallery.py`: landscape 160x80 component pages (Ref, Levels, Button, Chip, Toast, Status, Field, Header, Palette). Ref and Levels draw raw levels, uncorrected, for calibrating the lookup; Ref adds dither references.
+- `colour_investigation.md`: observations, hypotheses and tests behind the colour lookup.
 - `firmware/BUILD.md`: build and flash steps, with a version record.
 - `firmware/flash.sh`: flashes the firmware and demo files to a board; see `firmware/BUILD.md`.
 
@@ -67,7 +71,9 @@ garbage, the firmware has a REPL on UART0 and it needs to be disabled.
 | Firmware | A | Pass | `mem_free` 8,320,496; `import lvgl` works, LVGL 9.4.0 |
 | `display_lvgl.py` | A | Pass | Driver arguments matched the source; bars set non-scrollable |
 | Alignment | A | Pass | `LCD_X_OFF = 24`, `LCD_Y_OFF = 0`; 26/1 clipped one long edge and left spare rows at the bottom |
-| Colours | A | Pass | `LCD_BGR = True`, `LCD_INVERT = False`; inversion on gave a negative |
+| Colours (saturated) | A | Pass | `LCD_BGR = True`, `LCD_INVERT = False`; inversion on gave a negative |
+| Colours (mid-tones) | A | Workaround | Brightness rises to level 13, dips through 14-21, rises to 31; `display_lvgl.color()` routes around the dip using light output calibrated on the Ref page; pink and teal confirmed by eye. Gamma, VCOM/VRH, SPI clock and mode had no effect |
+| Gallery | A | Pass | Landscape (`DISPLAY_ROTATION._90`, offsets swapped to 0/24); all pages fit, nothing clipped. Montserrat has no em dash; gradients replaced with flat fills |
 | Buttons | A | Pass | USR1 increments, USR2 resets, serial prints each; no UART0 REPL conflict |
 | Soft reboot | A | Fail | After Ctrl-D, `main.py` raises `TypeError` in `machine.SPI.Bus`; hard reset or power cycle runs it |
 

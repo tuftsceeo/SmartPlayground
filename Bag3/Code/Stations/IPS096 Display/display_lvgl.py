@@ -38,9 +38,36 @@ def init(rotation=0):
     display.init()
     display.set_color_inversion(board.LCD_INVERT)
     display.set_rotation(rotation)
+    if rotation in (lv.DISPLAY_ROTATION._90, lv.DISPLAY_ROTATION._270):
+        # The driver doesn't swap RAM offsets when rows and columns swap.
+        display.set_offset(board.LCD_Y_OFF, board.LCD_X_OFF)
     display.set_backlight(100)
     th = task_handler.TaskHandler()
     return display, th
+
+
+# Panel level to send for each intended 5-bit level (index = channel >> 3), per channel.
+# Light output per level was read against dithers of levels 0 and full on the gallery's Ref
+# page. It rises to level 13, dips through 14-21, then rises again; the table picks the level
+# closest to the sRGB-decoded target, skipping the dip.
+_LUT_R = b"\x00\x06\x07\x07\x08\x09\x0a\x0b\x0d\x16\x16\x16\x16\x17\x17\x17\x18\x18\x18\x18\x19\x19\x1e\x1e\x1e\x1e\x1e\x1e\x1f\x1f\x1f\x1f"
+_LUT_G = b"\x00\x00\x01\x03\x05\x06\x07\x07\x08\x09\x0a\x0b\x0c\x0d\x16\x16\x17\x17\x18\x18\x18\x18\x19\x19\x19\x1c\x1c\x1e\x1e\x1e\x1f\x1f"
+_LUT_B = b"\x00\x00\x01\x01\x02\x04\x05\x06\x07\x08\x08\x09\x0a\x0b\x0d\x0d\x17\x18\x18\x19\x19\x1a\x1d\x1e\x1e\x1e\x1e\x1e\x1f\x1f\x1f\x1f"
+
+
+def panel_hex(hexval):
+    """Map a design RGB int to the RGB int that renders closest to it on this panel."""
+    out = 0
+    for lut, shift in ((_LUT_R, 16), (_LUT_G, 8), (_LUT_B, 0)):
+        level = lut[(hexval >> (shift + 3)) & 31]
+        # +4 lands green on the odd 6-bit levels that were measured.
+        out |= (level * 8 + 4 if level else 0) << shift
+    return out
+
+
+def color(hexval):
+    """lv.color for a design RGB int, corrected for this panel."""
+    return lv.color_hex(panel_hex(hexval))
 
 
 def test_pattern():
