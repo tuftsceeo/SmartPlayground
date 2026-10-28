@@ -22,6 +22,7 @@ filenames). Search front matter with `grep -l '<term>' Bag3/Code/known_issues/*.
 | [2026-09-30-known-issues.md](2026-09-30-known-issues.md) | Code pull game size, `stats.log` | open | `docs_and_design/2026-09-30-known-issues.md` |
 | [2026-10-23-distribute-code.md](2026-10-23-distribute-code.md) | Status scan, Dial distribute code, per-device differences | open (untested on hardware) | — |
 | [2026-10-28-ips096-colour-levels.md](2026-10-28-ips096-colour-levels.md) | IPS096 Display mid-tone colours, panel lookup | workaround | — |
+| [2026-10-28-capsule-pn5180.md](2026-10-28-capsule-pn5180.md) | PN5180 on M5Capsule: corrupted replies, Splat tags | open | — |
 
 ## By topic
 
@@ -30,13 +31,13 @@ filenames). Search front matter with `grep -l '<term>' Bag3/Code/known_issues/*.
 | Game size / wand `compile()` heap limit | 2026-09-04, 2026-09-30 |
 | Heap fragmentation, IDF memory, radio bring-up | 2026-09-01 |
 | Resets, brownout, watchdog | 2026-09-01 |
-| NFC reader (PN532, WS1850S) | 2026-09-01 |
+| NFC reader (PN532, WS1850S, PN5180) | 2026-09-01, 2026-10-28 (PN5180) |
 | Dial / Box code serving, wand pull | 2026-09-30, 2026-09-29, 2026-10-23 |
 | ChatBroadcast example gallery and remixing | 2026-09-04, 2026-09-29 |
 | Simulator vendored game sources | 2026-09-04 |
 | Multi-role games | 2026-09-29, 2026-10-23 |
 | Status poll / `kind`, find device, distribute code | 2026-10-23 |
-| Display colour response, ST7789 mid-tones | 2026-10-28 |
+| Display colour response, ST7789 mid-tones | 2026-10-28 (ips096) |
 
 ## By device
 
@@ -47,7 +48,8 @@ filenames). Search front matter with `grep -l '<term>' Bag3/Code/known_issues/*.
 | Wands / MockWand (XIAO ESP32-C6) | 2026-09-04, 2026-09-29, 2026-09-30, 2026-10-23 |
 | IconDisplay | 2026-09-30, 2026-10-23 |
 | M5Paper Remote (Bag3) | 2026-10-23 |
-| IPS096 Display (bench) | 2026-10-28 |
+| IPS096 Display (bench) | 2026-10-28 (ips096) |
+| M5Capsule + PN5180 (bench) | 2026-10-28 (capsule-pn5180) |
 
 ## Firmware comments
 
