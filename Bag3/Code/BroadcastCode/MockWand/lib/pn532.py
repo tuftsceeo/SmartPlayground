@@ -34,6 +34,7 @@ _TFI_PN5322HOST = 0xD5
 # Commands
 CMD_GETFIRMWAREVERSION  = 0x02
 CMD_SAMCONFIGURATION    = 0x14
+CMD_POWERDOWN           = 0x16
 CMD_INLISTPASSIVETARGET = 0x4A
 CMD_INDATAEXCHANGE      = 0x40
 
@@ -132,6 +133,14 @@ class PN532:
         self.fw_version = (fw[0], fw[1], fw[2])
         self._send_command(CMD_SAMCONFIGURATION, b'\x01\x00\x00')
         return self.fw_version
+
+    def power_down(self):
+        # Abort any InListPassiveTarget still searching (its RF field stays on
+        # until a tag appears), then PowerDown with wake-up on I2C only.
+        # begin() wakes it; its first transfer may fail while it wakes.
+        self.i2c.writeto(self.addr, b'\x00\x00\xFF\x00\xFF\x00')
+        time.sleep_ms(5)
+        self._send_command(CMD_POWERDOWN, b'\x80')
 
     def read_passive_target(self, baud=0x00, timeout=500):
         """

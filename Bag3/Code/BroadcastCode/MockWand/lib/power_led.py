@@ -1,70 +1,113 @@
 """
-power_led.py — discrete power-status LED (Bag3)
-================================================
-Bag3 adds a single status LED wired to a GPIO (default Pin 2) that
-indicates the board is powered. It is independent of the 6×10 NeoPixel
-matrix.
+power_led.py — discrete power/status LED on GPIO 2 (Bag3 wand).
 
-Behavior:
-    • Solid ON whenever the board is running and the battery is healthy.
-    • ~1 Hz blink when the battery state-of-charge is low, so a dying
-      battery is obvious at a glance even when the matrix is off/asleep.
-
-Usage:
-    from power_led import PowerLed
-    pled = PowerLed()        # auto from hubtype (power_led_pin)
-    pled.on()                # solid at boot
-
-    # In the idle/event loop, once per frame:
-    pled.update(soc=last_soc, frame=idle_frame)
-
-If the configured hub has no power LED (has_power_led falsy / no pin),
-PowerLed becomes a no-op so the same code runs on every device.
+Plain digital pin until start(), which runs after radio bring-up and light
+calibration: it switches to PWM, scales to brightness.MULTIPLIER and steps
+patterns from a 100 ms timer. No-op when the hub has no power LED.
 """
 
 import machine
+import brightness
 from hubtype import HUB_CONFIG
 
-# SOC (%) at/below which the LED blinks instead of holding solid.
-LOW_SOC = 10
-# Loop frames per blink half-cycle. At a ~200ms idle loop this is ~1 Hz.
-_BLINK_FRAMES = 5
+# Full scale follows brightness.MULTIPLIER (diffuser gain removed): LED_FLOOR
+# at MIN_MULT (indoor) up to 1.0 at MAX_MULT (sunlight).
+LED_FLOOR = 0.03
+READY = 0.8
+DIM = 0.5
+LOW_SOC = 20
+CRITICAL_SOC = 10
+
+# Levels (fraction of full scale) per 100 ms step.
+_ON = (READY,)
+_OFF = (0,)
+_ASLEEP = (DIM,) + (0,) * 39                          # blip every 4 s
+_LOW = (READY, 0, READY) + (0,) * 17                  # double blip every 2 s
+_CRITICAL = (READY, READY, 0, 0)                      # 2.5 Hz
+_FAIL = (1, 1, 1, 1, 1, 0, 0, 1, 0, 0) + (0,) * 6     # long-short
 
 
 class PowerLed:
     def __init__(self, pin=None):
         if pin is None:
             pin = HUB_CONFIG.get("power_led_pin")
-        # Treat a missing pin (or has_power_led False) as "no LED present".
         self._enabled = pin is not None and HUB_CONFIG.get("has_power_led", False)
         self._pin = machine.Pin(pin, machine.Pin.OUT, value=0) if self._enabled else None
-        self._state = 0
-
-    def _set(self, value):
-        if self._pin is not None:
-            self._pin.value(value)
-            self._state = value
+        self._pwm = None
+        self._full = 65535
+        self._mult = None
+        self._pat = _ON
+        self._step = 0
 
     def on(self):
-        """Hold the LED solid on (board powered, battery healthy)."""
-        self._set(1)
+        if self._pin is not None and self._pwm is None:
+            self._pin.value(1)
+
+    def start(self):
+        if self._pin is None or self._pwm is not None:
+            return
+        self._pwm = machine.PWM(self._pin, freq=1000, duty_u16=0)
+        self._follow()
+        self._show(_ON)
+        machine.Timer(0).init(period=100, callback=self._tick)
+
+    def _follow(self):
+        # Re-scale when brightness.MULTIPLIER changed (boot or a game's calibrate).
+        m = brightness.MULTIPLIER
+        if m == self._mult:
+            return
+        self._mult = m
+        lo, hi = brightness.MIN_MULT, brightness.MAX_MULT
+        t = (m / brightness.GAIN - lo) / (hi - lo) if hi > lo else 1
+        t = 0 if t < 0 else (1 if t > 1 else t)
+        self._full = int(65535 * (LED_FLOOR + t * (1 - LED_FLOOR)))
+        if self._pat is not None:
+            self._write(self._pat[self._step])
+
+    def _show(self, pat):
+        if pat is not self._pat:
+            self._pat = pat
+            self._step = 0
+            self._write(pat[0])
+
+    def _write(self, level):
+        if self._pwm is not None:
+            self._pwm.duty_u16(int(self._full * level))
+
+    def _tick(self, _t):
+        pat = self._pat
+        if pat is not None and len(pat) > 1:
+            self._step = (self._step + 1) % len(pat)
+            self._write(pat[self._step])
+
+    def _battery(self, soc, normal):
+        if soc <= CRITICAL_SOC:
+            return _CRITICAL
+        if soc <= LOW_SOC:
+            return _LOW
+        return normal
+
+    def idle(self, soc=100):
+        self._follow()
+        self._show(self._battery(soc, _ON))
+
+    def asleep(self, soc=100):
+        self._follow()
+        self._show(self._battery(soc, _ASLEEP))
+
+    def game(self):
+        self._show(_OFF)
+
+    def boot_fail(self):
+        self._show(_FAIL)
+
+    def flicker(self):
+        # One step of radio-activity flicker; call repeatedly (e.g. per chunk).
+        self._pat = None
+        self._write(DIM if self._step else 0)
+        self._step ^= 1
 
     def off(self):
-        """Turn the LED off (e.g. on shutdown)."""
-        self._set(0)
-
-    def update(self, soc=100, frame=0):
-        """
-        Refresh the LED for one loop iteration.
-
-        soc:   latest battery state-of-charge percentage.
-        frame: a monotonically increasing loop counter (drives the blink).
-
-        Solid on when soc > LOW_SOC; blinks ~1 Hz at or below it.
-        """
-        if not self._enabled:
-            return
-        if soc > LOW_SOC:
-            self._set(1)
-        else:
-            self._set(1 if (frame // _BLINK_FRAMES) % 2 == 0 else 0)
+        self._show(_OFF)
+        if self._pwm is None and self._pin is not None:
+            self._pin.value(0)

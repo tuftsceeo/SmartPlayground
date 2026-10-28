@@ -291,6 +291,7 @@ ALL_COMMANDS   = BASE_COMMANDS | set(game_store.slugs())
 # NFC SLEEP TIMEOUT
 # ─────────────────────────────────────────────
 NFC_SLEEP_MS = 30_000  # 30 seconds of inactivity before NFC sleeps
+SOC_REFRESH_MS = 60_000  # battery gauge re-read while idle or asleep
 
 # ─────────────────────────────────────────────
 # HARDWARE (LEDs init FIRST for boot indicator)
@@ -550,6 +551,7 @@ def _enter_lobby(name, limits, enow, nfc, leds, buz):
 def _launch_game(name, nfc, leds, buz, accel, i2c, enow, batt_ref):
     """Run a game (and any chained force-switches), then give a paired
     wand's Splats their idle state back."""
+    pled.game()
     try:
         _run_games(name, nfc, leds, buz, accel, i2c, enow, batt_ref)
     finally:
@@ -646,8 +648,7 @@ def check_broadcast(enow, batt_ref, leds_ref, buz_ref):
 # ─────────────────────────────────────────────
 def show_idle(last_soc, idle_frame):
     """Show the correct idle display based on battery level."""
-    # Power LED: solid when healthy, ~1Hz blink when battery is low.
-    pled.update(last_soc, idle_frame)
+    pled.idle(last_soc)
     if last_soc <= 10:
         leds.idle_low_blink(idle_frame)
     else:
@@ -763,6 +764,7 @@ def _pull_progress(received, total):
     (0.05 indoors), so a raw dim tuple like (0, 20, 40) would arrive as
     (0, 1, 2) -- invisible.
     """
+    pled.flicker()
     pct = (received / total) if total else 0
     lit = max(1, int(pct * leds.num))
     for i in range(leds.num):
@@ -1042,6 +1044,11 @@ def _boot():
         if left > 0:
             time.sleep_ms(left)
         _calibrate_light(light, 1)
+    if light is not None:
+        try:
+            light.shutdown()
+        except Exception:
+            pass
 
     if _boot_clean:
         print("  Boot complete — all systems OK (%d ms)" % time.ticks_diff(time.ticks_ms(), t0))
@@ -1088,6 +1095,28 @@ def _calibrate_light(light, samples):
     _stage("boot_stage_ok", 1, row_colors=[WHITE if i < lit else OFF for i in range(4)])
 
 
+def _nfc_wake(nfc):
+    # The first transfer to a powered-down PN532 wakes it and may fail.
+    for _ in range(3):
+        try:
+            nfc.begin()
+            return
+        except Exception as ex:
+            err = ex
+            time.sleep_ms(20)
+    print("  NFC wake error: %s" % str(err))
+
+
+def _read_soc(batt, last_soc):
+    if batt:
+        try:
+            _, s = batt.read_all()
+            return max(0, min(100, int(s)))
+        except Exception:
+            pass
+    return last_soc
+
+
 def main():
     global _pending_push
     _boot_grace()
@@ -1096,7 +1125,9 @@ def main():
     except Exception:
         _forget_boot_ok()
         raise
+    pled.start()
     if nfc is None:
+        pled.boot_fail()
         return
     reader = NfcReader(nfc, ALL_COMMANDS, prefixes=BROADCAST)
     runner = ActionRunner(leds, buz)
@@ -1111,6 +1142,7 @@ def main():
     last_activity_ms = time.ticks_ms()
     nfc_sleeping = False
     idle_frame = 0
+    last_soc_ms = time.ticks_ms()
 
     # ── Heartbeat ──
     # Idle-loop only, same as the Box's SERVE-blocks-heartbeat behaviour
@@ -1153,6 +1185,8 @@ def main():
                 _clear_rules_state(enow)
                 rules = {}; editing = None; pending_combinator = None
                 buz.stop()
+                if nfc_sleeping:
+                    _nfc_wake(nfc)
                 nfc_sleeping = False
                 _espnow_pull_and_launch(enow, wanted, wanted_host, nfc, accel, i2c, batt)
                 last_activity_ms = time.ticks_ms()
@@ -1174,12 +1208,15 @@ def main():
             # NFC SLEEPING — minimal power mode
             # ─────────────────────────────────────
             if nfc_sleeping:
-                idle_frame += 1
-                pled.update(last_soc, idle_frame)  # keep power LED alive while asleep
-                leds.idle_sleep()  # static blue dot
+                if time.ticks_diff(time.ticks_ms(), last_soc_ms) > SOC_REFRESH_MS:
+                    last_soc_ms = time.ticks_ms()
+                    last_soc = _read_soc(batt, last_soc)
+                    pled.asleep(last_soc)
 
                 # Check ESP-NOW broadcasts while sleeping
                 result = check_broadcast(enow, batt, leds, buz)
+                if result is not None:
+                    _nfc_wake(nfc)
                 if result == "stop":
                     _clear_rules_state(enow)
                     rules = {}; editing = None; pending_combinator = None
@@ -1205,9 +1242,6 @@ def main():
                     last_activity_ms = time.ticks_ms()
                     nfc_sleeping = False
 
-                if nfc_sleeping:
-                    leds.idle_sleep()
-
                 # Check accelerometer or button for wake
                 wake = False
                 if btn.value() == 0:
@@ -1224,20 +1258,12 @@ def main():
 
                 if wake:
                     print("  Movement detected — waking NFC")
-                    try:
-                        nfc.begin()
-                    except Exception as ex:
-                        print("  NFC wake error: %s" % str(ex))
+                    _nfc_wake(nfc)
                     nfc_sleeping = False
                     last_activity_ms = time.ticks_ms()
                     idle_frame = 0
-                    # Refresh battery SOC on wake
-                    if batt:
-                        try:
-                            _, s = batt.read_all()
-                            last_soc = max(0, min(100, int(s)))
-                        except Exception:
-                            pass
+                    last_soc = _read_soc(batt, last_soc)
+                    last_soc_ms = time.ticks_ms()
                     show_idle(last_soc, 0)
 
                 time.sleep_ms(100)
@@ -1277,6 +1303,10 @@ def main():
                 elif result == "battery":
                     last_activity_ms = time.ticks_ms()
 
+                if time.ticks_diff(time.ticks_ms(), last_soc_ms) > SOC_REFRESH_MS:
+                    last_soc_ms = time.ticks_ms()
+                    last_soc = _read_soc(batt, last_soc)
+
                 # Idle display — battery-colored inner ring (static)
                 idle_frame += 1
                 show_idle(last_soc, idle_frame)
@@ -1285,6 +1315,12 @@ def main():
                 if accel_ok and time.ticks_diff(time.ticks_ms(), last_activity_ms) > NFC_SLEEP_MS:
                     nfc_sleeping = True
                     print("  NFC sleeping (30s idle) — move or press button to wake")
+                    try:
+                        nfc.power_down()
+                    except Exception as ex:
+                        print("  NFC power-down error: %s" % str(ex))
+                    leds.off()
+                    pled.asleep(last_soc)
 
                 time.sleep_ms(_pair_ctl.idle_sleep_ms if held else 200)
                 continue
