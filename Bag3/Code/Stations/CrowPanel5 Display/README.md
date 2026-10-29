@@ -12,9 +12,8 @@ used by teachers.
 
 ## Status
 
-Display and touch work. Colours are correct, the image is stable at 12 MHz, and the touch
-coordinates follow the finger. The Count button does not register taps; touch axis
-orientation is unchecked.
+Display and touch work. Colours are correct, the image is stable under touch load, touch
+coordinates follow the finger, and quick taps register.
 
 ## Files
 
@@ -23,6 +22,7 @@ orientation is unchecked.
 - `main.py`: test pattern; the label shows the touch point, the button counts taps.
 - `firmware/BUILD.md`: build and flash steps, with a version record.
 - `firmware/CROWPANEL_S3_5/`: MicroPython board definition used for the build.
+- `firmware/rgb_bus_bounce_buffer.patch`: lvgl_micropython RGB bus change (bounce buffer).
 
 ## Pins
 
@@ -65,6 +65,7 @@ Then reset the board with its RST button, or pulse RTS from the host.
 | I2C scan | Pass | 0x18 (PCA9557), 0x5D (GT911) |
 | GT911 | Pass | Product 911, firmware 0x1060, 800x480 |
 | Colours | Pass | R, G, B bars in order; border white |
-| Stability | Pass at 12 MHz | At 15 MHz the image drifts sideways, faster while touching |
+| Stability | Pass | 12 MHz, bounce buffer, restart in VSYNC. Without the bounce buffer the image drifts under touch load, at 12 MHz as well as 15 |
 | Touch tracking | Pass | Label coordinates follow the finger |
-| Button | Fail | Count stays 0 |
+| Button | Pass | 10 quick taps, 10 counts, with a 10 ms touch read period (33 ms missed quick taps) |
+| Idle shimmer | Observed once | Count button oscillated between its blue and a slightly darker blue with no touch, for some minutes after power-up, then stopped |

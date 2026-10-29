@@ -10,7 +10,7 @@ code:
   - Bag3/Code/Stations/CrowPanel5 Display/firmware/CROWPANEL_S3_5/
 open:
   - Touch bus dead after a software reset; root cause unknown
-  - Count button does not register taps; touch axis orientation unchecked
+  - Idle shimmer on the Count button after power-up, seen once
 keywords: [CrowPanel, Elecrow, GT911, PCA9557, I2C, GPIO19, GPIO20, USB-Serial-JTAG, RGB, drift, PCLK, soft reset]
 ---
 
@@ -35,10 +35,22 @@ state and `0xc02` after an EN reset; clearing bit 1 alone does not restore it.
 
 **Workaround:** reset through EN only.
 
-## Image drifts sideways at 15 MHz
+## Image drifts sideways under redraw load
 
-At Elecrow's 15 MHz pixel clock the image creeps sideways, faster while touching, and the
-frame shows a slant. At 12 MHz (ESPHome's value) it is stable. lvgl_micropython's RGB bus
-does not use ESP-IDF's bounce buffer.
+Without a bounce buffer the image creeps sideways while LVGL redraws, and a frame shows a
+slant. The RGB DMA reads the frame buffer from PSRAM, and lvgl_micropython's RGB bus copies the
+whole 768 KB frame PSRAM-to-PSRAM after every update. Lowering the pixel clock from 15 to
+12 MHz slows the drift but does not stop it.
 
-**Setting:** `LCD_PCLK_HZ = 12_000_000` in `board.py`.
+**Fix:** `firmware/rgb_bus_bounce_buffer.patch` (SRAM bounce buffers, 10 lines each) and
+`CONFIG_LCD_RGB_RESTART_IN_VSYNC=y`, at 12 MHz. Stable under continuous touch.
+
+## Quick taps missed
+
+With LVGL's default 33 ms touch read period, quick taps on a button register no event; held
+presses do. `display_lvgl.init()` sets the read period to 10 ms; 10 quick taps gave 10 clicks.
+
+## Idle shimmer after power-up
+
+Seen once: with no touch, the Count button oscillated smoothly between its blue and a slightly
+darker blue for some minutes after power-up, then stopped. Cause unknown.

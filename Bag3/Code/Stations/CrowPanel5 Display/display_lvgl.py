@@ -71,6 +71,8 @@ def init():
     touch_reset(i2c.I2C.Device(bus=i2c_bus, dev_id=board.PCA9557_ADDR, reg_bits=8))
     touch_dev = i2c.I2C.Device(bus=i2c_bus, dev_id=gt911.I2C_ADDR, reg_bits=gt911.BITS)
     touch = gt911.GT911(touch_dev)
+    # LVGL's default 33 ms read period misses quick taps.
+    touch._indev_drv.get_read_timer().set_period(10)
 
     th = task_handler.TaskHandler()
     return display, touch, th
