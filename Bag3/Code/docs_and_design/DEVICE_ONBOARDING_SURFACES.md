@@ -277,7 +277,7 @@ Comments for now; deduplication is a later refactor.
 | `boot.py` | Box, Dial |
 
 Tag vocabulary is duplicated separately with nothing enforcing consistency:
-`Bag2/Code/lib/game_tags.py`, `Bag3/Code/lib/game_tags.py`,
+`Bag2/Code/lib/game_tags.py`, `Bag3/Code/Experiments/Opcode Wand/lib/game_tags.py`,
 `MockWand/lib/game_tags.py`, `IconDisplay/lib/display_tags.py`,
 `Live_Page/WebApp2/hubCode2/game_tags.py`,
 `Live_Page/WebApp2/js/utils/commands.json`, `Live_Page/wand_icons.html`,

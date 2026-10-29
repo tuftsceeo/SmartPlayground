@@ -13,7 +13,7 @@ Decisions so far:
 
 ## Answer: tag case sensitivity
 - **NDEF-text readers are case-insensitive.** MockWand, SplatCompanion and IconDisplay all use `lib/nfc_reader.py`, which calls `.strip().lower()` on the decoded text (MockWand `lib/nfc_reader.py:421,428`).
-- **The Bag3 Wand Module doesn't read text at all.** `Bag3/Code/lib/nfc_reader.py` + `opcodes.py` read a 4-byte opcode at page 5. The Dial's `card_writer.py` writes NDEF text and states it does not use opcodes. Cards written by the Dial, or by this station, are therefore **not read by the Bag3 Wand Module**. That is a gap that already exists, not one this device introduces.
+- **The Bag3 Wand Module doesn't read text at all.** `Bag3/Code/Experiments/Opcode Wand/lib/nfc_reader.py` + `opcodes.py` read a 4-byte opcode at page 5. The Dial's `card_writer.py` writes NDEF text and states it does not use opcodes. Cards written by the Dial, or by this station, are therefore **not read by the Bag3 Wand Module**. That is a gap that already exists, not one this device introduces.
 - **Consequence:** the text-entry alphabet is lowercase `a–z 0–9 _ space`. Mixed case would be folded on read anyway, so offering it would only mislead.
 
 ## Files (new tree; copies, not imports)

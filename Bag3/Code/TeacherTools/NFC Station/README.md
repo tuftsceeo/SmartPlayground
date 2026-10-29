@@ -86,7 +86,7 @@ Writes are verified by reading back. A failed write re-arms the same scan.
 - **Lowercase only.** MockWand, SplatCompanion and IconDisplay
   `nfc_reader.py` lowercase card text, so the keyboard has no capitals and
   serial `write` lowercases.
-- The Bag3 Wand Module reads 4-byte opcodes (`Bag3/Code/lib/opcodes.py`)
+- The Bag3 Wand Module reads 4-byte opcodes (`Bag3/Code/Experiments/Opcode Wand/lib/opcodes.py`)
   and does not read these cards.
 - `getcode` tags are excluded: their written form needs a Broadcast
   Dial/Box host id.

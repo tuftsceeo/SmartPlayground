@@ -488,3 +488,10 @@ passed in) 3. `main()` for standalone testing (initializes hardware) 4. CRITICAL
 9. **Accelerometer sensitivity** — raw 16-bit values need `range/32768` factor, not datasheet mg/LSB values directly
 10. **NDEF on MIFARE Classic** — always skip sector 0 (manufacturer block), NDEF starts at sector 1
 11. **Fallback text search** — if NDEF decode fails, code brute-force scans raw bytes for command strings
+
+## Opcode files in this tree
+
+`lib/opcodes.py`, `lib/game_tags.py` and `lib/nfc_reader.py` read the 4-byte opcode card format
+and are used only by this tree. Deploy them to `/lib/` together with the shared `Bag3/Code/lib/`.
+`utilities/migrate_cards.py`, `utilities/readfromNFCcards.py` and `utilities/writetoNFCcards.py`
+are the bench scripts for writing and reading opcode cards.
