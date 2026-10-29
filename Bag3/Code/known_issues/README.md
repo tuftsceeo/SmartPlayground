@@ -24,6 +24,7 @@ filenames). Search front matter with `grep -l '<term>' Bag3/Code/known_issues/*.
 | [2026-10-28-ips096-colour-levels.md](2026-10-28-ips096-colour-levels.md) | IPS096 Display mid-tone colours, panel lookup | workaround | — |
 | [2026-10-28-capsule-pn5180.md](2026-10-28-capsule-pn5180.md) | PN5180 on M5Capsule: corrupted replies, Splat tags | open | — |
 | [2026-10-28-mockwand-idle-power.md](2026-10-28-mockwand-idle-power.md) | MockWand idle/sleep battery drain, power LED, diffuser | partly fixed | — |
+| [2026-10-28-crowpanel5-display.md](2026-10-28-crowpanel5-display.md) | CrowPanel5 Display touch I2C pins, soft-reset lockup, RGB drift | open (workarounds) | — |
 
 ## By topic
 
@@ -32,6 +33,7 @@ filenames). Search front matter with `grep -l '<term>' Bag3/Code/known_issues/*.
 | Game size / wand `compile()` heap limit | 2026-09-04, 2026-09-30 |
 | Heap fragmentation, IDF memory, radio bring-up | 2026-09-01 |
 | Resets, brownout, watchdog | 2026-09-01 |
+| RGB panels, touch, native USB pins | 2026-10-28 (CrowPanel5) |
 | NFC reader (PN532, WS1850S, PN5180) | 2026-09-01, 2026-10-28 (PN5180) |
 | Dial / Box code serving, wand pull | 2026-09-30, 2026-09-29, 2026-10-23 |
 | ChatBroadcast example gallery and remixing | 2026-09-04, 2026-09-29 |
