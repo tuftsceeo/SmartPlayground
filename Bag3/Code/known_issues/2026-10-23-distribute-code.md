@@ -14,7 +14,7 @@ code:
   - Bag3/Code/BroadcastCode/IconDisplay/main.py
   - Bag3/Code/BroadcastCode/IconDisplay/lib/espnow_manager.py
   - Bag3/Code/BroadcastCode/ChatBroadcast/js/distribute.js
-  - Bag3/Code/M5Paper Remote/
+  - Bag3/Code/TeacherTools/M5Paper Remote/
 open:
   - Nothing here has run on hardware
   - IconDisplay ignores code_push while a game runs

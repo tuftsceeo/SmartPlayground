@@ -1,3 +1,9 @@
+---
+status: historical
+note: >-
+  Old development note, kept as a record. Not current guidance: rules, paths and plans
+  here may be out of date. Check AGENTS.md and the code for current behavior.
+---
 # Music Board Station: plan
 
 Rebuild the February 2025 Music Control Board (`old_stuff/Music_Control_Board/`, see its README)
@@ -48,7 +54,7 @@ Proximity comes from the NFC tap, not RSSI. Two boards in a room are told apart 
 ## Board firmware (rewrite)
 
 Target: XIAO ESP32-C6, the existing pins (NeoPixel 21, I2S BCLK 20 / LRC 18 / DIN 19, buttons
-1 / 2 / 0). New folder: `Bag3/Code/Stations/Music Board Station/`.
+1 / 2 / 0). New folder: `Bag3/Code/Experiments/Music Board Station/`.
 
 ```
 boot.py            # minimal
@@ -111,7 +117,7 @@ is not touched unless asked.
 
 ## Decisions (2026-10-18)
 
-Implemented in `Bag3/Code/Stations/Music Board Station/` (see its README) and
+Implemented in `Bag3/Code/Experiments/Music Board Station/` (see its README) and
 `MockWand/melody.py`; this section overrides earlier sections where they differ.
 
 - **Standalone melody unchanged.** The wand only gains the `musicbox` sticker branch.

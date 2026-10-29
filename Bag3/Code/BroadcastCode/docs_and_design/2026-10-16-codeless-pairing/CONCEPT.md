@@ -355,7 +355,7 @@ manifests, so the choices change depending on what is placed.
 2. **Dial editor (NFC Station hardware).** An M5 Dial-style knob and round screen between the
    pads. Turning the dial picks the relationship from the catalog's pictures. Pressing selects.
    A second "page" sets the endpoints. The firmware pattern (icon rings, dial input with
-   hold/tap guard) already exists in `Stations/NFC Station/`.
+   hold/tap guard) already exists in `TeacherTools/NFC Station/`.
 3. **Live graph ring.** An LED ring or strip around the dial shows the input's current value as a
    moving dot and the output as a second dot. The relationship's shape is drawn as the path
    between them. It makes Smooth and Echo legible.

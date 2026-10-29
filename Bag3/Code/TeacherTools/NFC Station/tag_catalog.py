@@ -66,7 +66,7 @@ GAME_CARD_TAGS = {
 
 
 # Utilities group: wand control cards read outside games (MockWand main.py:
-# "start", "stop", "battery").
+# "start", "stop", "unpair", "battery").
 UTILITY_TAGS = sorted(CONTROL_TAGS) + ["battery"]
 
 

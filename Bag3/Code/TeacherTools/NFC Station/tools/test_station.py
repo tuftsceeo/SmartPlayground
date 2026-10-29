@@ -3,7 +3,7 @@
 Covers text_entry, tag_catalog and the station mode machine with fake UI,
 input, reader and card modules. No LVGL, no hardware.
 
-    cd "Bag3/Code/Stations/NFC Station" && python3 tools/test_station.py
+    cd "Bag3/Code/TeacherTools/NFC Station" && python3 tools/test_station.py
 """
 
 import math
@@ -636,7 +636,7 @@ class StationTests(unittest.TestCase):
     def test_utilities_has_no_all(self):
         self.st.game_sel = [n for n, _ in self.st.groups].index("Utilities")
         rows = self.st.tag_options()
-        self.assertEqual([r[1] for r in rows], ["start", "stop", "battery"])
+        self.assertEqual([r[1] for r in rows], ["start", "stop", "unpair", "battery"])
 
     def test_read_ignores_single_missed_poll(self):
         self.card.store["AA"] = "melody"

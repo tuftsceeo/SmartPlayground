@@ -12,11 +12,11 @@ them patched.
 git clone https://github.com/lvgl-micropython/lvgl_micropython lvgl_micropython_crowpanel
 cd lvgl_micropython_crowpanel
 git checkout d2d26467fa4cb9e99e569d899709043d086f7a6f
-cp -R "<repo>/Bag3/Code/Stations/CrowPanel5 Display/firmware/CROWPANEL_S3_5" \
+cp -R "<repo>/Bag3/Code/Experiments/CrowPanel5 Display/firmware/CROWPANEL_S3_5" \
     lib/micropython/ports/esp32/boards/
 cp lib/micropython/ports/esp32/boards/ESP32_GENERIC_S3/board.json \
     lib/micropython/ports/esp32/boards/CROWPANEL_S3_5/
-git apply "<repo>/Bag3/Code/Stations/CrowPanel5 Display/firmware/rgb_bus_bounce_buffer.patch"
+git apply "<repo>/Bag3/Code/Experiments/CrowPanel5 Display/firmware/rgb_bus_bounce_buffer.patch"
 python3 make.py esp32 BOARD=CROWPANEL_S3_5 BOARD_VARIANT=SPIRAM_OCT --flash-size=4 \
     DISPLAY=rgb_display INDEV=gt911
 ```

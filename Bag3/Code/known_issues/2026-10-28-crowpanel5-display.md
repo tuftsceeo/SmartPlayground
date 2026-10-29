@@ -5,9 +5,9 @@ status: open (workarounds in place)
 devices: [CrowPanel5 Display (Elecrow CrowPanel HMI 5.0in V3, ESP32-S3 N4R8)]
 components: [RGB panel 800x480, GT911, PCA9557, lvgl_micropython]
 code:
-  - Bag3/Code/Stations/CrowPanel5 Display/board.py
-  - Bag3/Code/Stations/CrowPanel5 Display/display_lvgl.py
-  - Bag3/Code/Stations/CrowPanel5 Display/firmware/CROWPANEL_S3_5/
+  - Bag3/Code/Experiments/CrowPanel5 Display/board.py
+  - Bag3/Code/Experiments/CrowPanel5 Display/display_lvgl.py
+  - Bag3/Code/Experiments/CrowPanel5 Display/firmware/CROWPANEL_S3_5/
 open:
   - Touch bus dead after a software reset; root cause unknown
 keywords: [CrowPanel, Elecrow, GT911, PCA9557, I2C, GPIO19, GPIO20, USB-Serial-JTAG, RGB, drift, PCLK, soft reset, backlight, PWM, flicker, shimmer]

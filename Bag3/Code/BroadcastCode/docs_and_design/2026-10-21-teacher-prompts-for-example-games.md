@@ -1,3 +1,9 @@
+---
+status: historical
+note: >-
+  Old development note, kept as a record. Not current guidance: rules, paths and plans
+  here may be out of date. Check AGENTS.md and the code for current behavior.
+---
 # Teacher prompts that rebuild the example games
 
 Each prompt describes a game in plain words, without naming the example it imitates. Game play

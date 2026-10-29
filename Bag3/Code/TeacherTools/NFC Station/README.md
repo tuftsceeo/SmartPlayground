@@ -137,7 +137,7 @@ Copying `main.py` replaces whatever `main.py` the Dial runs now
 (e.g. the Broadcast Dial firmware).
 
 ```
-cd "Bag3/Code/Stations/NFC Station"
+cd "Bag3/Code/TeacherTools/NFC Station"
 python3 -m mpremote connect PORT resume fs cp main.py station.py station_ui.py \
   station_fonts.py text_entry.py tag_catalog.py game_tags.py dial_board.py \
   dial_input.py card_writer.py ws1850s.py json_link.py :/flash/

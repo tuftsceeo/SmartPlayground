@@ -1,3 +1,9 @@
+---
+status: historical
+note: >-
+  Old development note, kept as a record. Not current guidance: rules, paths and plans
+  here may be out of date. Check AGENTS.md and the code for current behavior.
+---
 # Intermittent wand code pull — investigation handoff, 2026-09-23
 
 Branch `Chat_to_Tap_Doggle`, code state `7efa4ff`. Written to hand the

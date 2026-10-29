@@ -1,8 +1,11 @@
-# Broadcast demo — phase 6 handoff
+---
+status: historical
+note: >-
+  Old development note, kept as a record. Not current guidance: rules, paths and plans
+  here may be out of date. Check AGENTS.md and the code for current behavior.
+---
 
-For an agent continuing this work **without hardware access**. Everything below
-is host-verifiable. Do not ask for a device test until the phase 6 implementation
-is complete and the checks in *Verification* pass.
+# Broadcast demo — phase 6 handoff
 
 > The SoftAP/TCP pull path described here (`code_server.py`, `code_puller.py`, `pull_flag.py`,
 > `wire_test*.py`) has been deleted. The Box and Dial serve wands and the Icon Display over

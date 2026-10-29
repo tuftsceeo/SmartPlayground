@@ -5,9 +5,9 @@ status: workaround (calibrated lookup in display_lvgl.py; pink and teal confirme
 devices: [IPS096 Display (Seeed XIAO 0.96in IPS, ESP32-S3)]
 components: [ST7789 80x160 panel, lvgl_micropython]
 code:
-  - Bag3/Code/Stations/IPS096 Display/display_lvgl.py
-  - Bag3/Code/Stations/IPS096 Display/gallery.py
-  - Bag3/Code/Stations/IPS096 Display/colour_investigation.md
+  - Bag3/Code/Experiments/IPS096 Display/display_lvgl.py
+  - Bag3/Code/Experiments/IPS096 Display/gallery.py
+  - Bag3/Code/Experiments/IPS096 Display/colour_investigation.md
 open:
   - Lookup is built from one straight-on photo of one board; a second board is unmeasured
   - Anti-aliased text and rounded edges are blended by LVGL after the lookup, so edge pixels can land in the dip (slightly dark fringes)
@@ -25,7 +25,7 @@ channel sits in the dip), and LVGL gradients band.
 No driver setting changed this. Tested without effect: three gamma tables, Seeed's VCOM/VRH/LCMCTRL
 values, SPI at 20 MHz, SPI mode 3. Worse: SPI mode 1, and Seeed's full 80x160 init sequence.
 Viewing angle is ruled out (the panel is IPS and looks the same until extreme angles). Details
-and the hypothesis table are in `Stations/IPS096 Display/colour_investigation.md`.
+and the hypothesis table are in `Experiments/IPS096 Display/colour_investigation.md`.
 
 ## Workaround
 

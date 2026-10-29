@@ -55,7 +55,7 @@ separate per-tree copies rather than imported across directories. Fixing one fix
 If you find a copy that has diverged from its Bag's version, flag it rather than silently
 reconciling.
 
-`Bag3/Code/Stations/NFC Station/` holds copies of `ws1850s.py`, `card_writer.py`,
+`Bag3/Code/TeacherTools/NFC Station/` holds copies of `ws1850s.py`, `card_writer.py`,
 `dial_board.py`, `dial_input.py` and `json_link.py` from `BroadcastDial/BDialFirmware/`, and `game_tags.py` from
 `BroadcastCode/MockWand/lib/`. The Broadcast Dial runs the Station's screens: `BDialFirmware/`
 holds copies of `station.py`, `station_ui.py`, `station_fonts.py`, `text_entry.py`, `kb_rings.json`
@@ -93,10 +93,16 @@ playground component (`hubtype.txt` → `HUB_CONFIG`).
 
 ## "Station" is not one thing
 
-`Bag3/Code/Stations/` holds several unrelated bench prototypes (`NFC Station`, `Icon Display Station`,
-`Radar Station`), and the Broadcast Box and Dial are also called stations. All are beta or bench
-tests, not used by teachers. Always name the specific one; never write "the Station". `NFC Station`
-is a one-off NFC tag-writing tool, not live to teachers or the team.
+`Bag3/Code/Stations/` holds `Icon Display Station`, and the Broadcast Box and Dial are also called
+stations. All are beta or bench tests, not used by teachers. Always name the specific one; never
+write "the Station".
+
+`Bag3/Code/TeacherTools/` holds `NFC Station` (a one-off NFC tag-writing tool, not live to teachers
+or the team) and the Bag3 `M5Paper Remote`.
+
+`Bag3/Code/Experiments/` holds non-functioning hardware experiments (`Capsule PN5180`,
+`CrowPanel5 Display`, `IPS096 Display`, `Music Board Station`, `Radar Station`,
+`WirelessFileTransferBak`). Despite some names, none of these are stations.
 
 Likewise, `goalrace`, `splatecho`, and `jumpin1`–`jumpin5` (code-slot experiment) are bench-only
 games, not classroom games. Bag3 MockWand uses plain NDEF text tags; `opcodes.py` is not used there.

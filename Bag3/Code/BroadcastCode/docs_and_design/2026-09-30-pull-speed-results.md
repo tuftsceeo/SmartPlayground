@@ -1,3 +1,9 @@
+---
+status: historical
+note: >-
+  Old development note, kept as a record. Not current guidance: rules, paths and plans
+  here may be out of date. Check AGENTS.md and the code for current behavior.
+---
 # WiFi pull speed — 2026-09-30
 
 One Broadcast Dial serving one MockWand.

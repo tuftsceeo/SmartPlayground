@@ -1,3 +1,9 @@
+---
+status: historical
+note: >-
+  Old development note, kept as a record. Not current guidance: rules, paths and plans
+  here may be out of date. Check AGENTS.md and the code for current behavior.
+---
 # BLE + ESP-NOW on one controller: platform requirements and options
 
 2026-10-06 · research report, not committed

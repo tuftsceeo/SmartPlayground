@@ -1,3 +1,9 @@
+---
+status: historical
+note: >-
+  Old development note, kept as a record. Not current guidance: rules, paths and plans
+  here may be out of date. Check AGENTS.md and the code for current behavior.
+---
 # Splat Companion bring-up results, 2026-09-29
 
 Branch `claude/bag3-companion-onboarding-review-nrv66u`. Hub and modem are both XIAO ESP32-C6 on plain MicroPython, with one Splat (`AB:42:00:00:62:2F`) and one Bag3 MockWand. No repo code was edited. Only the user can confirm what LEDs and Splats did, so every visual result below is marked as user-reported.

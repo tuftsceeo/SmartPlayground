@@ -137,7 +137,7 @@ Repeat Phase 2 in `BBoxFirmware/`. The Box's `serve_guard` floor and `SOCK_REPLY
      - `SplatCompanion/Companion/README.md` and `HARDWARE_TEST.md`
      - `BDialFirmware/tools/BENCH_TEST_PLAN.md`
      - `docs_and_design/DEVICE_ONBOARDING_SURFACES.md`, `PHASE6_HANDOFF.md`
-     - `Stations/NFC Station/docs/plan.md`
+     - `TeacherTools/NFC Station/docs/plan.md`
      - `Bag3/AGENTS.md` (its `code_server.py`/`code_puller.py` memory rule now applies to `code_link.py`)
      - ChatBroadcast `knowledge/` files
 

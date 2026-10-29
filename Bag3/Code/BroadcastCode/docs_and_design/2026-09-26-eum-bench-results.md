@@ -1,3 +1,9 @@
+---
+status: historical
+note: >-
+  Old development note, kept as a record. Not current guidance: rules, paths and plans
+  here may be out of date. Check AGENTS.md and the code for current behavior.
+---
 # 2026-09-26 — ESP-NOW UART modem (EUM) bench results
 
 Hardware results for `EspnowModem/` on branch `claude/espnow-uart-modem-poc-3tx37r`.

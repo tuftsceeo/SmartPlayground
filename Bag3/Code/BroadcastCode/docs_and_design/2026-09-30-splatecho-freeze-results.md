@@ -1,3 +1,9 @@
+---
+status: historical
+note: >-
+  Old development note, kept as a record. Not current guidance: rules, paths and plans
+  here may be out of date. Check AGENTS.md and the code for current behavior.
+---
 # Splat Echo freeze investigation, 2026-09-30 and 2026-10-01
 
 Branch `claude/bag3-companion-onboarding-review-nrv66u`, starting from `bf37b81`. The hub was a XIAO ESP32-C6 on `usbmodem3101`, with its EUM modem and four Splats (`max_splats` 4 on the board). The wands were two Bag3 MockWands: `usbmodem101` (`A0:F2:62:87:B4:30`) and `usbmodem1101` (`A0:F2:62:87:92:CC`). The modem MAC is `A0:F2:62:85:A9:9C`. The captures are in [2026-09-30-splatecho-logs/](2026-09-30-splatecho-logs/), with GC and port-retry lines removed.

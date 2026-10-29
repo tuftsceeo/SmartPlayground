@@ -32,7 +32,7 @@ Write all device files to **`/flash`**, not `/`.
 | Touch | LVGL callbacks | Enqueue intents only; server drains from its own loop |
 | USB | native CDC | Port drops on every reset; `mpremote` resets the board |
 
-The screens are the NFC Station's (`Bag3/Code/Stations/NFC Station/`):
+The screens are the NFC Station's (`Bag3/Code/TeacherTools/NFC Station/`):
 `station.py` (mode machine) and `station_ui.py` (painter), copied here.
 Colours come from `Live_Page/.design_system/Sept 2026/tokens/`.
 

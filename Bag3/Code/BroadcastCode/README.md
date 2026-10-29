@@ -25,7 +25,7 @@ A Prototype flow logic document for that UI mockup is in Bag3/Code/BroadcastCode
 
 
 ## Rough Notes and Design Thoughts
-The CB/BB communication will use a web serial protocol likely similar to the  Bag3/Code/Stations/Icon Display Station and Bag3/Code/Stations/Radar Station. Critical web serial notes: Bag3/Code/Stations/serial_protocol_notes.md. 
+The CB/BB communication will use a web serial protocol likely similar to the  Bag3/Code/Stations/Icon Display Station and Bag3/Code/Experiments/Radar Station. Critical web serial notes: Bag3/Code/Stations/serial_protocol_notes.md. 
 
 The BroadcastBox will be write NFC cards and transmit python code to other Bag 3 playground components in order to run ChatBroadcast developed/modified games on the Smart Playground system. 
 

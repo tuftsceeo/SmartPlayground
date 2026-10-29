@@ -4,12 +4,12 @@ Source of truth: BroadcastCode/MockWand/lib/game_tags.py (GAME_TAGS,
 CONTROL_TAGS, HIDDEN_TAGS). Paths below are relative to Bag3/Code/.
 
 Copies checked:
-  Stations/NFC Station/game_tags.py
-      Sets must match the source. Allowed extra: "unpair" (a station/control
-      card, not a wand game), in any set.
+  TeacherTools/NFC Station/game_tags.py
+      Sets must match the source. Allowed missing: the bench-only test tags
+      "lobbytest", "relaycolor", "splatecho" and "splattag".
   BroadcastCode/EspnowModem/MockWandEUM/lib/game_tags.py
-      Sets must match the source. Allowed missing: "splatecho" (the EUM wand
-      has no direct-Splat game).
+      Sets must match the source. Allowed missing: the same bench-only test
+      tags, and "unpair" (MockWandEUM has no Splat pairing).
   BroadcastCode/ChatBroadcast/js/gameName.js  WAND_RESERVED
       Must contain every GAME_TAGS | CONTROL_TAGS | HIDDEN_TAGS name, so a
       generated game slug can never collide with a wand tag. Extra names are
@@ -23,21 +23,21 @@ Not covered: Bag3/Code/lib/, Live_Page/, Bag1/, Bag2/.
 Modes:
   (default)  print every difference; exit 0.
   --check    print every difference; exit 1 if any non-allowed one exists.
-  --write    overwrite the NFC Station copy with the source, only when the
-             station has no tags outside the source (an allowed extra such as
-             "unpair" would be lost, so the write is refused). Nothing else is
+  --write    overwrite the NFC Station copy with the source, minus the
+             bench-only test tags, only when the
+             station has no tags outside the source (they would be lost, so the
+             write is refused). Nothing else is
              ever written.
 """
 
 import ast
 import re
-import shutil
 import sys
 from pathlib import Path
 
 CODE = Path(__file__).resolve().parents[2]  # Bag3/Code
 SOURCE = CODE / "BroadcastCode/MockWand/lib/game_tags.py"
-STATION = CODE / "Stations/NFC Station/game_tags.py"
+STATION = CODE / "TeacherTools/NFC Station/game_tags.py"
 EUM = CODE / "BroadcastCode/EspnowModem/MockWandEUM/lib/game_tags.py"
 SIMULATOR = CODE / "Simulator/vendor/lib/game_tags.py"
 GAME_NAME_JS = CODE / "BroadcastCode/ChatBroadcast/js/gameName.js"
@@ -45,9 +45,11 @@ GAME_NAME_JS = CODE / "BroadcastCode/ChatBroadcast/js/gameName.js"
 SET_NAMES = ("GAME_TAGS", "CONTROL_TAGS", "HIDDEN_TAGS")
 
 # path -> (allowed extra names, allowed missing names)
+BENCH_TESTS = {"lobbytest", "relaycolor", "splatecho", "splattag"}
+
 PY_COPIES = {
-    STATION: ({"unpair"}, set()),
-    EUM: (set(), {"splatecho"}),
+    STATION: (set(), BENCH_TESTS),
+    EUM: (set(), BENCH_TESTS | {"unpair"}),
 }
 
 
@@ -133,8 +135,11 @@ def run(write=False, out=print):
             out(f"\n--write refused: {rel(STATION)} has tags not in the source "
                 f"({', '.join(extras)}); merge by hand.")
             return failures + 1
-        shutil.copyfile(SOURCE, STATION)
-        out(f"\nwrote {rel(STATION)} from source")
+        text = SOURCE.read_text(encoding="utf-8")
+        bench = "|".join(sorted(BENCH_TESTS))
+        text = re.sub(rf'^[ \t]*"({bench})",[ \t]*\n', "", text, flags=re.M)
+        STATION.write_text(text, encoding="utf-8")
+        out(f"\nwrote {rel(STATION)} from source, without the bench-only test tags")
 
     return failures
 

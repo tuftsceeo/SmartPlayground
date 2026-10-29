@@ -1,5 +1,11 @@
 # Adding a device to the broadcast ecosystem — surfaces to add and modify
 
+---
+status: historical
+note: >-
+  Old development note, kept as a record. Not current guidance: rules, paths and plans
+  here may be out of date. Check AGENTS.md and the code for current behavior.
+---
 Scope: what must be written or changed to make a new playground device a target
 ChatBroadcast can generate code for and the Broadcast Box or Dial can serve.
 

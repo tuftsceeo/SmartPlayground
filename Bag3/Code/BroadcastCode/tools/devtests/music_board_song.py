@@ -16,7 +16,7 @@ import time as _time
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _BC = os.path.dirname(os.path.dirname(_HERE))                  # BroadcastCode/
-STATION = os.path.join(os.path.dirname(_BC), "Stations", "Music Board Station")
+STATION = os.path.join(os.path.dirname(_BC), "Experiments", "Music Board Station")
 MELODY = os.path.join(_BC, "MockWand", "melody.py")
 
 _clock = [0]

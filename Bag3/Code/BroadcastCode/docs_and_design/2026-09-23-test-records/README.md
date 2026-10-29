@@ -1,5 +1,10 @@
 # 2026-09-23 test records
-
+---
+status: historical
+note: >-
+  Old development note, kept as a record. Not current guidance: rules, paths and plans
+  here may be out of date. Check AGENTS.md and the code for current behavior.
+---
 Raw serial captures backing `../2026-09-23-debug-handoff-multihost-pull.md`
 ("Update 6" section onward). Renamed `.log` -> `.txt` on copy so they are not
 swept by the repo's `*.log` gitignore rule.

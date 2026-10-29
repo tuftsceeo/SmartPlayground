@@ -1,3 +1,9 @@
+---
+status: historical
+note: >-
+  Old development note, kept as a record. Not current guidance: rules, paths and plans
+  here may be out of date. Check AGENTS.md and the code for current behavior.
+---
 # Plan: Status reports with `kind`, Bag3 M5Paper Remote, Dial "Distribute code"
 
 ## Context
@@ -21,7 +27,7 @@ Constraints from AGENTS.md:
 - **`code_push`** (new): `{"type":"code_push","mac":<target>,"slug":..., "host":<HOST_ID>}`, sent by the Dial. A receiver acts only when `_is_for_me(mac)`, the same filter `find_device` uses.
 
 ## Stage 1: Bag3 M5Paper Remote and device replies
-- **Copy** `Bag2/Code/M5Paper Remote/` to `Bag3/Code/M5Paper Remote/` unchanged (first commit). The copy keeps its own `espnow_manager.py`, identical to Bag3 `lib/` today.
+- **Copy** `Bag2/Code/M5Paper Remote/` to `Bag3/Code/M5Paper Remote/` (now `Bag3/Code/TeacherTools/M5Paper Remote/`) unchanged (first commit). The copy keeps its own `espnow_manager.py`, identical to Bag3 `lib/` today.
 - **Remote edits** (second commit):
   - `main.py` `_drain_status_reports`: pass `data.get("kind")`.
   - `ui.py` `upsert_status_report(mac, battery, rssi, kind=None)`: store `kind`.

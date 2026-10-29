@@ -1,3 +1,9 @@
+---
+status: historical
+note: >-
+  Old development note, kept as a record. Not current guidance: rules, paths and plans
+  here may be out of date. Check AGENTS.md and the code for current behavior.
+---
 # Plan: Box and Dial serve game code over ESP-NOW only
 
 Goal: the Broadcast Box and Broadcast Dial send game files to wands over ESP-NOW from their own

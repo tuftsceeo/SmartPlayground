@@ -1,3 +1,9 @@
+---
+status: historical
+note: >-
+  Old development note, kept as a record. Not current guidance: rules, paths and plans
+  here may be out of date. Check AGENTS.md and the code for current behavior.
+---
 # Task analysis: "Start from scratch" to a game playable on many wands, an icon display and game-specific NFC tags
 
 Scope: Bag3. A teacher authors a game in ChatBroadcast, sends it to a Broadcast Box or Dial, and the
@@ -252,7 +258,7 @@ Ordered by where a teacher is most likely to be stuck.
   holds on the Box only.
 - `MockWand/README.md` describes a 5 s boot grace and a 10 s pull budget; code and
   `DEVICE_ONBOARDING_SURFACES.md` say no grace.
-- `Stations/NFC Station/docs/plan.md` says ChatBroadcast can push a catalog to the Station; no such code exists.
+- `TeacherTools/NFC Station/docs/plan.md` says ChatBroadcast can push a catalog to the Station; no such code exists.
 - `Stations/Icon Display Station/readme.md` and `tools/sync_icons.py` refer to a `BroadcastBox/IconDisplay`
   path and "28 icons"; the source is `BroadcastCode/IconDisplay/icons/` with 85 icons. The Station tree
   holds 63 of them, byte-identical to the same names. `sync_icons.py --check` reports no drift for

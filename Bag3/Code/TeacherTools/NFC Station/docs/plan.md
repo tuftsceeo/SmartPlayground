@@ -6,7 +6,7 @@ The Broadcast Dial (`Bag3/Code/BroadcastCode/BroadcastDial/BDialFirmware/`) writ
 Decisions so far:
 - **Link:** USB serial only. There is no radio, so the AP memory-order constraint doesn't apply.
 - **Hardware:** M5 Dial 2. It prefers the external Grove RFID2 reader on Port A and falls back to the built-in reader.
-- **Location:** `Bag3/Code/Stations/NFC Station/`, which sits next to `Icon Display Station`.
+- **Location:** `Bag3/Code/TeacherTools/NFC Station/`.
 - **Screens:** Read, then a list of known tags grouped by game, then free text.
 - **Text entry:** a grouped two-step picker, a word/phrase bank, and touch keys on the rim.
 - **Font rule:** the smallest text on screen is 28 px, double the Dial's `montserrat_14`.

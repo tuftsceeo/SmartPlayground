@@ -1,6 +1,6 @@
 /**
  * nfcStationLink.js — JSON-line link to the NFC Station
- * (Bag3/Code/Stations/NFC Station/station.py). Same wire protocol as the
+ * (Bag3/Code/TeacherTools/NFC Station/station.py). Same wire protocol as the
  * Box, so it reuses BboxLink's framing and id correlation. Kept out of
  * bboxDeviceLink.js's EXPECTED_DEVICES so the station is never offered
  * Box firmware.

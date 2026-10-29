@@ -1,3 +1,9 @@
+---
+status: historical
+note: >-
+  Old development note, kept as a record. Not current guidance: rules, paths and plans
+  here may be out of date. Check AGENTS.md and the code for current behavior.
+---
 # Radio bring-up needs contiguous memory, claimed early — 2026-09-23
 
 The bench-findings note `docs_and_design/old/TODO-2026-09.md` asked for and

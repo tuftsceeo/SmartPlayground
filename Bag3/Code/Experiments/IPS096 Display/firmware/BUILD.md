@@ -8,7 +8,7 @@ REPL, copies `board.py`, `display_lvgl.py` and `main.py`, and hard-resets it. It
 from the build below. The `.bin` is not in the repo.
 
 ```sh
-cd "Bag3/Code/Stations/IPS096 Display"
+cd "Bag3/Code/Experiments/IPS096 Display"
 firmware/flash.sh path/to/lvgl_micropy_ESP32_GENERIC_S3-SPIRAM_OCT-16.bin
 ```
 
