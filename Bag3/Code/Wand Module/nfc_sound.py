@@ -28,7 +28,7 @@ BUZZER_PIN, BUTTON_PIN, PN532_ADDR = 19, 0, 0x24
 # ─── Game Config ───
 # Note cards use the shared underscore names ("note_c"…) so the SAME physical
 # card works in the melody game too. Buzzer keys strip the underscore.
-COMMANDS = {"note_c", "note_d", "note_e", "note_f", "note_g", "note_a", "note_b"} | _EXIT_TAGS
+COMMANDS = {"note_c", "note_d", "note_e", "note_f", "note_g", "note_a", "note_b", "note_c_high"} | _EXIT_TAGS
 NFC_POLL_INTERVAL = 5
 LOOP_DELAY_MS = 40
 BEEP_MS = 80
@@ -36,7 +36,7 @@ BEEP_MS = 80
 # Map NFC tag names to display note keys
 TAG_TO_NOTE = {
     "note_c": "C4", "note_d": "D4", "note_e": "E4", "note_f": "F4",
-    "note_g": "G4", "note_a": "A4", "note_b": "B4",
+    "note_g": "G4", "note_a": "A4", "note_b": "B4", "note_c_high": "C5",
 }
 
 NOTES = {
@@ -128,7 +128,7 @@ class NfcSoundGame:
             self._frame += 1
 
 
-def play(nfc, leds, buz, accel, i2c, enow):
+def play(nfc, leds, buz, accel, i2c, enow, batt=None):
     _play_sound(buz, 'start')
     print("\n  === NFC BELL CHOIR ===")
     try:

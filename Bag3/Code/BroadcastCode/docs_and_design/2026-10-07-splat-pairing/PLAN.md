@@ -1,6 +1,6 @@
 # Splat-paired wands — plan
 
-Implements [SPEC.md](SPEC.md) in `Bag3/Code/BroadcastCode/MockWand/` only.
+Implements [SPEC.md](SPEC.md) in `Bag3/Code/Wand Module/` only.
 
 Part A is software only and can be done without hardware access. Part B is one hardware
 session that verifies Part A; nothing in Part A waits on it. Part C is deferred work.

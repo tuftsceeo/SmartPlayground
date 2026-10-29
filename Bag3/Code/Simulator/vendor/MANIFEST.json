@@ -2,222 +2,222 @@
   "files": {
     "display/games/goalrace.py": {
       "sha256": "2399be6f3529ae6104d5781f8777515b9dc99f947be0f1197a321b0fe2e28ea7",
-      "source": "Bag3/Code/BroadcastCode/IconDisplay/games/goalrace.py",
+      "source": "Bag3/Code/Stations/IconDisplay/games/goalrace.py",
       "vendor_sha256": "2399be6f3529ae6104d5781f8777515b9dc99f947be0f1197a321b0fe2e28ea7"
     },
     "display/games/goalrace_icons/ready.py": {
       "sha256": "253bf13e3f19c743e70f01c7cb30529a36a92df90171a4f395773da0dc079136",
-      "source": "Bag3/Code/BroadcastCode/IconDisplay/icons/ready.py",
+      "source": "Bag3/Code/Stations/IconDisplay/icons/ready.py",
       "vendor_sha256": "253bf13e3f19c743e70f01c7cb30529a36a92df90171a4f395773da0dc079136"
     },
     "display/games/goalrace_icons/tree.py": {
       "sha256": "78cc2f9585fab929664477193e693d9c9b27333c29b7d55b66edb254f7ee75c2",
-      "source": "Bag3/Code/BroadcastCode/IconDisplay/icons/tree.py",
+      "source": "Bag3/Code/Stations/IconDisplay/icons/tree.py",
       "vendor_sha256": "78cc2f9585fab929664477193e693d9c9b27333c29b7d55b66edb254f7ee75c2"
     },
     "display/games/goalrace_icons/whale.py": {
       "sha256": "0ecd173e4b5184ba817a0e319ba1f6e9ccd4a23173447f2f6230924781c2197d",
-      "source": "Bag3/Code/BroadcastCode/IconDisplay/icons/whale.py",
+      "source": "Bag3/Code/Stations/IconDisplay/icons/whale.py",
       "vendor_sha256": "0ecd173e4b5184ba817a0e319ba1f6e9ccd4a23173447f2f6230924781c2197d"
     },
     "display/lib/chart16.py": {
       "sha256": "e21ab8ccbcc1f28a42188bdbb2b87114b7278608eb9295ed47af29e293bc3004",
-      "source": "Bag3/Code/BroadcastCode/IconDisplay/lib/chart16.py",
+      "source": "Bag3/Code/Stations/IconDisplay/lib/chart16.py",
       "vendor_sha256": "e21ab8ccbcc1f28a42188bdbb2b87114b7278608eb9295ed47af29e293bc3004"
     },
     "display/lib/display_tags.py": {
       "sha256": "070d665c0434f7a86edc1cca8c12d90c91c0d9a44a8601786f18d9a824b84fc6",
-      "source": "Bag3/Code/BroadcastCode/IconDisplay/lib/display_tags.py",
+      "source": "Bag3/Code/Stations/IconDisplay/lib/display_tags.py",
       "vendor_sha256": "070d665c0434f7a86edc1cca8c12d90c91c0d9a44a8601786f18d9a824b84fc6"
     },
     "display/lib/draw16.py": {
       "sha256": "cee883b35df103fa8a12105dea156e20ff435f1ea7e528db5331c3deef0ea961",
-      "source": "Bag3/Code/BroadcastCode/IconDisplay/lib/draw16.py",
+      "source": "Bag3/Code/Stations/IconDisplay/lib/draw16.py",
       "vendor_sha256": "cee883b35df103fa8a12105dea156e20ff435f1ea7e528db5331c3deef0ea961"
     },
     "display/lib/espnow_manager.py": {
       "sha256": "5728d6245f508c8fd975742c4e8050dc613824512574f9ee203ef3b0ac5f1008",
-      "source": "Bag3/Code/BroadcastCode/IconDisplay/lib/espnow_manager.py",
+      "source": "Bag3/Code/Stations/IconDisplay/lib/espnow_manager.py",
       "vendor_sha256": "5728d6245f508c8fd975742c4e8050dc613824512574f9ee203ef3b0ac5f1008"
     },
     "display/lib/icon_store.py": {
       "sha256": "ae4d4419f0a3822fbb1e6c8dddd1bf88bbe4b6f72af33e519e504bbb3d385fa2",
-      "source": "Bag3/Code/BroadcastCode/IconDisplay/icon_store.py",
+      "source": "Bag3/Code/Stations/IconDisplay/icon_store.py",
       "vendor_sha256": "ae4d4419f0a3822fbb1e6c8dddd1bf88bbe4b6f72af33e519e504bbb3d385fa2"
     },
     "display/lib/shapes.py": {
       "sha256": "b362615e2411091ca988c352d7bce981252d85a80058b039183c6e388c20c79c",
-      "source": "Bag3/Code/BroadcastCode/IconDisplay/lib/shapes.py",
+      "source": "Bag3/Code/Stations/IconDisplay/lib/shapes.py",
       "vendor_sha256": "b362615e2411091ca988c352d7bce981252d85a80058b039183c6e388c20c79c"
     },
     "games/color_quest.py": {
       "sha256": "f17d77040042eb355084b3e131732dfb5d18d27bd5e262af81618b18d1117416",
-      "source": "Bag3/Code/BroadcastCode/MockWand/color_quest.py",
+      "source": "Bag3/Code/Wand Module/color_quest.py",
       "vendor_sha256": "f17d77040042eb355084b3e131732dfb5d18d27bd5e262af81618b18d1117416"
     },
     "games/cooking.py": {
       "sha256": "930c1b7c6a78c2d8190650c1de0058c1c5620207fdadb381c0a3c63b1b2b1df6",
-      "source": "Bag3/Code/BroadcastCode/MockWand/cooking.py",
+      "source": "Bag3/Code/Wand Module/cooking.py",
       "vendor_sha256": "930c1b7c6a78c2d8190650c1de0058c1c5620207fdadb381c0a3c63b1b2b1df6"
     },
     "games/finddevice.py": {
       "sha256": "6d47c13e75ad026fe2a8305eb66318c1d114e370189adc0bef25bbe014923967",
-      "source": "Bag3/Code/BroadcastCode/MockWand/finddevice.py",
+      "source": "Bag3/Code/Wand Module/finddevice.py",
       "vendor_sha256": "6d47c13e75ad026fe2a8305eb66318c1d114e370189adc0bef25bbe014923967"
     },
     "games/freeze_dance.py": {
       "sha256": "827db8331b0aaaa322b0ed2acc9494d7d48ff8657272bfc02c5174c784c55671",
-      "source": "Bag3/Code/BroadcastCode/MockWand/freeze_dance.py",
+      "source": "Bag3/Code/Wand Module/freeze_dance.py",
       "vendor_sha256": "827db8331b0aaaa322b0ed2acc9494d7d48ff8657272bfc02c5174c784c55671"
     },
     "games/gestures.py": {
       "sha256": "294ab22856abb1674debf443dd468fe4ce4a8c7cf9f2744d4f73397e4c984825",
-      "source": "Bag3/Code/BroadcastCode/MockWand/gestures.py",
+      "source": "Bag3/Code/Wand Module/gestures.py",
       "vendor_sha256": "294ab22856abb1674debf443dd468fe4ce4a8c7cf9f2744d4f73397e4c984825"
     },
     "games/goalrace.py": {
       "sha256": "093694991a931de1cee2e03aab35fba74f4481b6e814668b6f4020f864145add",
-      "source": "Bag3/Code/BroadcastCode/MockWand/goalrace.py",
+      "source": "Bag3/Code/Wand Module/goalrace.py",
       "vendor_sha256": "093694991a931de1cee2e03aab35fba74f4481b6e814668b6f4020f864145add"
     },
     "games/jump.py": {
       "sha256": "6a88173105f8162747ebbceb5cf91069f785f0a2f5e05f165fa7ac4bbcfaf49c",
-      "source": "Bag3/Code/BroadcastCode/MockWand/jump.py",
+      "source": "Bag3/Code/Wand Module/jump.py",
       "vendor_sha256": "6a88173105f8162747ebbceb5cf91069f785f0a2f5e05f165fa7ac4bbcfaf49c"
     },
     "games/jumpin.py": {
       "sha256": "119533f2d7174ea9de58c40dba2591de03e1931edf3c2c0c86c1082c0c23e979",
-      "source": "Bag3/Code/BroadcastCode/MockWand/jumpin.py",
+      "source": "Bag3/Code/Wand Module/jumpin.py",
       "vendor_sha256": "119533f2d7174ea9de58c40dba2591de03e1931edf3c2c0c86c1082c0c23e979"
     },
     "games/lobbytest.py": {
       "sha256": "6af6cff40a69844fed0a97161c43154184f8a4b75242aee8cd4ce4e623c75fb1",
-      "source": "Bag3/Code/BroadcastCode/MockWand/games/lobbytest.py",
+      "source": "Bag3/Code/Wand Module/games/lobbytest.py",
       "vendor_sha256": "6af6cff40a69844fed0a97161c43154184f8a4b75242aee8cd4ce4e623c75fb1"
     },
     "games/melody.py": {
       "sha256": "9301a1f461aa2d9e45cabbf016df430ea8339cf1402a92bbca2ff4d1244ffda9",
-      "source": "Bag3/Code/BroadcastCode/MockWand/melody.py",
+      "source": "Bag3/Code/Wand Module/melody.py",
       "vendor_sha256": "9301a1f461aa2d9e45cabbf016df430ea8339cf1402a92bbca2ff4d1244ffda9"
     },
     "games/multiicecream.py": {
       "sha256": "338499fca22accbc16249a4ef9b8c5b62b9660e636cc68e6201f782185ff9ec0",
-      "source": "Bag3/Code/BroadcastCode/MockWand/multiicecream.py",
+      "source": "Bag3/Code/Wand Module/multiicecream.py",
       "vendor_sha256": "338499fca22accbc16249a4ef9b8c5b62b9660e636cc68e6201f782185ff9ec0"
     },
     "games/nfc_sound.py": {
       "sha256": "6cb7858cc228f4f017f11f693c4a2a6837eadfe31e8b48bd58d8ab32b16eb24b",
-      "source": "Bag3/Code/BroadcastCode/MockWand/nfc_sound.py",
+      "source": "Bag3/Code/Wand Module/nfc_sound.py",
       "vendor_sha256": "6cb7858cc228f4f017f11f693c4a2a6837eadfe31e8b48bd58d8ab32b16eb24b"
     },
     "games/rainbow.py": {
       "sha256": "e5e2d177579e824bc667159add8f5592b81291975f7416b5d8a3556057e13126",
-      "source": "Bag3/Code/BroadcastCode/MockWand/rainbow.py",
+      "source": "Bag3/Code/Wand Module/rainbow.py",
       "vendor_sha256": "e5e2d177579e824bc667159add8f5592b81291975f7416b5d8a3556057e13126"
     },
     "games/relaycolor.py": {
       "sha256": "3e0126f7cb7a817e71d09c8385f2dce59cf1075216aeb6e7123e7edf0aedcc94",
-      "source": "Bag3/Code/BroadcastCode/MockWand/games/relaycolor.py",
+      "source": "Bag3/Code/Wand Module/games/relaycolor.py",
       "vendor_sha256": "3e0126f7cb7a817e71d09c8385f2dce59cf1075216aeb6e7123e7edf0aedcc94"
     },
     "games/shake.py": {
       "sha256": "42f6616dc367e0e99875f702526ec70f12e0ef3603cae7cff622cf22e25725eb",
-      "source": "Bag3/Code/BroadcastCode/MockWand/shake.py",
+      "source": "Bag3/Code/Wand Module/shake.py",
       "vendor_sha256": "42f6616dc367e0e99875f702526ec70f12e0ef3603cae7cff622cf22e25725eb"
     },
     "games/shake_rainbow.py": {
       "sha256": "64b5fb77225cfab43a2606d7c71d50b042767f68acf6616a6101b37a99c7eb2d",
-      "source": "Bag3/Code/BroadcastCode/MockWand/shake_rainbow.py",
+      "source": "Bag3/Code/Wand Module/shake_rainbow.py",
       "vendor_sha256": "64b5fb77225cfab43a2606d7c71d50b042767f68acf6616a6101b37a99c7eb2d"
     },
     "games/simpleicecream.py": {
       "sha256": "15a9965bbecf9ecdcb4f021daaf0ebe261e4e0353b59c47467511e22494ba43e",
-      "source": "Bag3/Code/BroadcastCode/MockWand/simpleicecream.py",
+      "source": "Bag3/Code/Wand Module/simpleicecream.py",
       "vendor_sha256": "15a9965bbecf9ecdcb4f021daaf0ebe261e4e0353b59c47467511e22494ba43e"
     },
     "games/sound.py": {
       "sha256": "42852e2c90691a0453267346fb731d14ffb815d014230d88b244359c1460700a",
-      "source": "Bag3/Code/BroadcastCode/MockWand/sound.py",
+      "source": "Bag3/Code/Wand Module/sound.py",
       "vendor_sha256": "42852e2c90691a0453267346fb731d14ffb815d014230d88b244359c1460700a"
     },
     "games/splattag.py": {
       "sha256": "50cace8e87e54c19976c313a3f493c95d5d54940a3145725db857eab91ad9ea4",
-      "source": "Bag3/Code/BroadcastCode/MockWand/games/splattag.py",
+      "source": "Bag3/Code/Wand Module/games/splattag.py",
       "vendor_sha256": "50cace8e87e54c19976c313a3f493c95d5d54940a3145725db857eab91ad9ea4"
     },
     "games/target.py": {
       "sha256": "fcdcf809792b7d0cea85367511ab89a9b32c0707021ab87de9af972c475c5c36",
-      "source": "Bag3/Code/BroadcastCode/MockWand/target.py",
+      "source": "Bag3/Code/Wand Module/target.py",
       "vendor_sha256": "fcdcf809792b7d0cea85367511ab89a9b32c0707021ab87de9af972c475c5c36"
     },
     "hubtype.txt": {
       "sha256": "04224b1d2fb402314a8dfc9d03e00937aae352fd20d3070181209a66c5127fb2",
-      "source": "Bag3/Code/BroadcastCode/MockWand/hubtype.txt",
+      "source": "Bag3/Code/Wand Module/hubtype.txt",
       "vendor_sha256": "04224b1d2fb402314a8dfc9d03e00937aae352fd20d3070181209a66c5127fb2"
     },
     "lib/actions.py": {
       "sha256": "e73bbc3e07416eb420896663cf88045698790eccd7c4b8e02d05d3ac29a4a048",
-      "source": "Bag3/Code/BroadcastCode/MockWand/lib/actions.py",
+      "source": "Bag3/Code/Wand Module/lib/actions.py",
       "vendor_sha256": "e73bbc3e07416eb420896663cf88045698790eccd7c4b8e02d05d3ac29a4a048"
     },
     "lib/battery.py": {
       "sha256": "adde1eef9e23414d1842d91df91c272411b5989de4c8edd818dd391f968fe415",
-      "source": "Bag3/Code/BroadcastCode/MockWand/lib/battery.py",
+      "source": "Bag3/Code/Wand Module/lib/battery.py",
       "vendor_sha256": "adde1eef9e23414d1842d91df91c272411b5989de4c8edd818dd391f968fe415"
     },
     "lib/brightness.py": {
       "sha256": "8dd2ef848f366bd8aab360b6e2bd7aa5bf273cbe34cac4d5dde45fecd9638ac5",
-      "source": "Bag3/Code/BroadcastCode/MockWand/lib/brightness.py",
+      "source": "Bag3/Code/Wand Module/lib/brightness.py",
       "vendor_sha256": "8dd2ef848f366bd8aab360b6e2bd7aa5bf273cbe34cac4d5dde45fecd9638ac5"
     },
     "lib/buzzer.py": {
       "sha256": "ef86aab78ffdf1df1b265604988050f72b2fadb764d8ca7d26774943458830bb",
-      "source": "Bag3/Code/BroadcastCode/MockWand/lib/buzzer.py",
+      "source": "Bag3/Code/Wand Module/lib/buzzer.py",
       "vendor_sha256": "ef86aab78ffdf1df1b265604988050f72b2fadb764d8ca7d26774943458830bb"
     },
     "lib/espnow_manager.py": {
       "sha256": "ffaea0f4ad1154ee12782b444fabbe48833b2aff7ee7e2c6fec9126112848956",
-      "source": "Bag3/Code/BroadcastCode/MockWand/lib/espnow_manager.py",
+      "source": "Bag3/Code/Wand Module/lib/espnow_manager.py",
       "vendor_sha256": "ffaea0f4ad1154ee12782b444fabbe48833b2aff7ee7e2c6fec9126112848956"
     },
     "lib/game_tags.py": {
       "sha256": "638d9b4ee13b19278c9db08db39726f278581ed9c195d8e687ea5dc3a0087710",
-      "source": "Bag3/Code/BroadcastCode/MockWand/lib/game_tags.py",
+      "source": "Bag3/Code/Wand Module/lib/game_tags.py",
       "vendor_sha256": "638d9b4ee13b19278c9db08db39726f278581ed9c195d8e687ea5dc3a0087710"
     },
     "lib/hubtype.py": {
       "sha256": "bb3e1b1e32d298e1707e63dfea553e7018b77a2c0193046cfdbbe1fea73a22d1",
-      "source": "Bag3/Code/BroadcastCode/MockWand/lib/hubtype.py",
+      "source": "Bag3/Code/Wand Module/lib/hubtype.py",
       "vendor_sha256": "bb3e1b1e32d298e1707e63dfea553e7018b77a2c0193046cfdbbe1fea73a22d1"
     },
     "lib/leds.py": {
       "sha256": "b71ea4907a7543902f24fcf2658450688817d83dfaca74f030aa4217b679eef6",
-      "source": "Bag3/Code/BroadcastCode/MockWand/lib/leds.py",
+      "source": "Bag3/Code/Wand Module/lib/leds.py",
       "vendor_sha256": "b71ea4907a7543902f24fcf2658450688817d83dfaca74f030aa4217b679eef6"
     },
     "lib/lobby_game.py": {
       "sha256": "315aec1fb7f923c503df2a13656343973ed981bea19fa1b15f161f36c9ef5512",
-      "source": "Bag3/Code/BroadcastCode/MockWand/lib/lobby_game.py",
+      "source": "Bag3/Code/Wand Module/lib/lobby_game.py",
       "vendor_sha256": "315aec1fb7f923c503df2a13656343973ed981bea19fa1b15f161f36c9ef5512"
     },
     "lib/pairing.py": {
       "sha256": "615e38339d682855d5c6227fa095b64a4ca858b66ebf2e7be54d9edd8a81bb60",
-      "source": "Bag3/Code/BroadcastCode/MockWand/lib/pairing.py",
+      "source": "Bag3/Code/Wand Module/lib/pairing.py",
       "vendor_sha256": "615e38339d682855d5c6227fa095b64a4ca858b66ebf2e7be54d9edd8a81bb60"
     },
     "lib/pwire.py": {
       "sha256": "14a58af47870364104eb17f927dcd7ca21661406fed512c7bbb0b671ace85281",
-      "source": "Bag3/Code/BroadcastCode/MockWand/lib/pwire.py",
+      "source": "Bag3/Code/Wand Module/lib/pwire.py",
       "vendor_sha256": "14a58af47870364104eb17f927dcd7ca21661406fed512c7bbb0b671ace85281"
     },
     "lib/splat_api.py": {
       "sha256": "3e10bcd9686652f22916ba420fee01fa98d4f0f38e357945a3f6b6ac717ff4e7",
-      "source": "Bag3/Code/BroadcastCode/MockWand/lib/splat_api.py",
+      "source": "Bag3/Code/Wand Module/lib/splat_api.py",
       "vendor_sha256": "3e10bcd9686652f22916ba420fee01fa98d4f0f38e357945a3f6b6ac717ff4e7"
     },
     "lib/splatpair.py": {
       "sha256": "8ed8f61d932e11a5810ba3d068efc3cf006471776fe63f4b49f0c4a9358b812c",
-      "source": "Bag3/Code/BroadcastCode/MockWand/lib/splatpair.py",
+      "source": "Bag3/Code/Wand Module/lib/splatpair.py",
       "vendor_sha256": "8ed8f61d932e11a5810ba3d068efc3cf006471776fe63f4b49f0c4a9358b812c"
     }
   },

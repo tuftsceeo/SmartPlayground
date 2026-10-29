@@ -126,7 +126,7 @@ class ShakeGame:
             self._frame += 1
 
 
-def play(nfc, leds, buz, accel, i2c, enow):
+def play(nfc, leds, buz, accel, i2c, enow, batt=None):
     _play_sound(buz, 'start')
     print("\n  === SHAKE FILL ===")
     try:

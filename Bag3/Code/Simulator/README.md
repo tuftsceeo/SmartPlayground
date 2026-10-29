@@ -8,7 +8,7 @@ four pop-ups available over the whole panel.
 
 The panel follows the "Wand Simulator v4", "Wand v4" and "Wand Sim Overlays"
 design artboards in
-`Bag3/Code/BroadcastCode/BroadcastBox/docs_and_design/simlution v4/`.
+`Bag3/Code/TeacherTools/BroadcastBox/docs_and_design/simlution v4/`.
 
 Games: `jump`, `shake`, `shake_rainbow`, `sound`, `rainbow`, `jumpin`,
 `nfc_sound`, `gestures`, `simpleicecream`, `melody`, `cooking`,
@@ -185,7 +185,7 @@ testing a game under development without re-vendoring it.
 ## Sync vendored sources
 
 Games and verbatim libs are copied into `vendor/` from
-`Bag3/Code/BroadcastCode/MockWand` and its `lib/`, since Pyodide can't read
+`Bag3/Code/Wand Module` and its `lib/`, since Pyodide can't read
 the real filesystem live and `vendor/` is what it actually imports:
 
 ```bash
@@ -362,7 +362,7 @@ the Bag trees, not here, and has been left alone.
   pad with the status line and Turn over under it; the right pane has Jump,
   Spin and Shake in one row, the shake strength (Gentle, Strong, Intense)
   under them, then whatever the host slots in (the icon display).
-- ChatBroadcast (`Bag3/Code/BroadcastCode/BroadcastBox/ChatBroadcast/`) embeds this
+- ChatBroadcast (`Bag3/Code/TeacherTools/BroadcastBox/ChatBroadcast/`) embeds this
   element directly from `../../Simulator/wand-sim.js`, so both trees must be
   served from a common root (`Bag3/Code/`) rather than from ChatBroadcast's
   own directory.

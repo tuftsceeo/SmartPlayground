@@ -13,7 +13,7 @@ import wandsim  # noqa: E402
 from lobbysim import Sc, W, S, net_of, press, evs, lobby_game, splatpair  # noqa: E402
 from wandsim import BB  # noqa: E402
 
-sys.path.insert(0, os.path.join(BB, "MockWand", "games"))
+sys.path.insert(0, os.path.join(BB, "..", "Wand Module", "games"))
 import lobbytest  # noqa: E402
 import splattag  # noqa: E402
 import relaycolor  # noqa: E402
@@ -239,7 +239,7 @@ check("the leader leaving ends the game and darkens the Splats",
 # ── The README's two example games run ──
 import re
 import types
-readme = open(os.path.join(BB, "MockWand", "README.md")).read()
+readme = open(os.path.join(BB, "..", "Wand Module", "README.md")).read()
 section = readme.split("### Writing a lobby game")[1].split("Rules:")[0]
 blocks = re.findall(r"```python\n(.*?)```", section, re.S)
 check("the README has a pooled and a messages example", len(blocks) == 2, str(len(blocks)))

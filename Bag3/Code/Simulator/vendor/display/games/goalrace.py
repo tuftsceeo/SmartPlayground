@@ -9,7 +9,7 @@ This is the ICON DISPLAY half of a two-device game. MockWand runs its own
 goalrace.py -- a different program, with its own signature and its own loop.
 Nothing is shared between them but the ESP-NOW messages below.
 
-PEER: Bag3/Code/BroadcastCode/BroadcastDial/BDialFirmware/games/goalrace_icon.py is the
+PEER: Bag3/Code/TeacherTools/BroadcastDial/BDialFirmware/games/goalrace_icon.py is the
 Box/Dial staging copy of this file, served to the display under the
 `icon_display` role suffix (see ROLE_FILES in code_sender.py). The device
 tree here carries the device's own name -- goalrace.py, matching

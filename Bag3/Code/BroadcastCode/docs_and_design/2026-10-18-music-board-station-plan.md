@@ -60,7 +60,7 @@ Target: XIAO ESP32-C6, the existing pins (NeoPixel 21, I2S BCLK 20 / LRC 18 / DI
 boot.py            # minimal
 main.py            # ESPNowManager().init() FIRST, then everything else
 hubtype.txt        # music_board
-lib/espnow_manager.py   # copy from BroadcastCode/MockWand/lib (flag divergence, do not reconcile)
+lib/espnow_manager.py   # copy from Wand Module/lib (flag divergence, do not reconcile)
 music_board.py     # state machine: IDLE -> LOADED -> PLAYING
 grid.py            # 8x8 column-major mapping, button LEDs 64-66
 audio.py           # streamed WAV -> I2S, one preallocated buffer
@@ -91,7 +91,7 @@ at rest it shows the first 8 with the last column dimmed if more exist.
 
 ## Wand changes (MockWand only)
 
-`Bag3/Code/BroadcastCode/MockWand/melody.py` and `lib/espnow_manager.py`. `Bag3/Code/Wand Module/`
+`Bag3/Code/Wand Module/melody.py` and `lib/espnow_manager.py`. `Bag3/Code/Wand Module/`
 is not touched unless asked.
 
 1. Recognise `musicbox` as a prefixed card in `melody.py` (register the prefix with `NfcReader`).

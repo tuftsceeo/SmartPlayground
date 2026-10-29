@@ -1,7 +1,7 @@
 # NFC Station — standalone NFC card reader/writer (M5 Dial 2)
 
 ## Context
-The Broadcast Dial (`Bag3/Code/BroadcastCode/BroadcastDial/BDialFirmware/`) writes NDEF-text game cards and also serves code over its own ESP-NOW radio. The goal here is a separate device that only reads and writes cards, with type readable from a short distance and a dial-based way to enter free text.
+The Broadcast Dial (`Bag3/Code/TeacherTools/BroadcastDial/BDialFirmware/`) writes NDEF-text game cards and also serves code over its own ESP-NOW radio. The goal here is a separate device that only reads and writes cards, with type readable from a short distance and a dial-based way to enter free text.
 
 Decisions so far:
 - **Link:** USB serial only. There is no radio, so the AP memory-order constraint doesn't apply.
@@ -26,7 +26,7 @@ Copy unchanged from `BDialFirmware/`:
 - `reset_log.py`
 - `json_link.py`, for the USB serial protocol
 
-Copy `game_tags.py` from `Bag3/Code/BroadcastCode/MockWand/lib/` (text names).
+Copy `game_tags.py` from `Bag3/Code/Wand Module/lib/` (text names).
 
 New files:
 - **`station.py`:** the mode machine and main loop. Each loop iteration calls `time.sleep_ms(1)`. It is adapted from the non-serving parts of `bdial_server.py`, such as `_init_nfc`, `_set_mode` and `_card_text`.

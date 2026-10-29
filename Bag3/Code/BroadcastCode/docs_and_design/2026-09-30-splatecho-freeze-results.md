@@ -74,4 +74,4 @@ Neither the hub nor the modem board has a u.FL antenna fitted; the wands do.
 - **Hub ESP-NOW library** (`SplatCompanion/Companion/lib/espnow_manager.py`): `last_acked` records the peer ACK from the modem reply (`body[3]`).
 - **Antenna:** `SplatCompanion/ESPNowModem/main.py` and `EspnowModem/modem/main.py` set `MODEM_EXTERNAL_ANTENNA = False`; `Companion/boot.py` selects the onboard antenna before BLE starts; `Companion/code_puller.py` falls back to onboard.
 - **Splat command pacing:** 50 ms per Splat (`Companion/splat_link.py`).
-- **Game state outputs** (wand icons, Splat LED patterns, hub buzzer, timing): [SplatCompanion/SPLAT_GAME_AUTHORING_GUIDE.md](../SplatCompanion/SPLAT_GAME_AUTHORING_GUIDE.md), whose examples are this game.
+- **Game state outputs** (wand icons, Splat LED patterns, hub buzzer, timing): [SplatCompanion/SPLAT_GAME_AUTHORING_GUIDE.md](../../../Stations/SplatCompanion/SPLAT_GAME_AUTHORING_GUIDE.md), whose examples are this game.

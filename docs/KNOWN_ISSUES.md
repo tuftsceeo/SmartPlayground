@@ -143,8 +143,8 @@ mark them resolved.
 ## 2026-09-26 (Splat Companion EUM pass)
 
 Found while writing the Splat Companion bridge, then at
-`Bag3/Code/BroadcastCode/EspnowModem/SplatCompanionEUM/`, since moved to
-`Bag3/Code/BroadcastCode/SplatCompanion/` (2026-09-26, device-onboarding pass, below). None of
+`Bag3/Code/Experiments/EspnowModem/SplatCompanionEUM/`, since moved to
+`Bag3/Code/Stations/SplatCompanion/` (2026-09-26, device-onboarding pass, below). None of
 these were changed in the trees they are in; details in that directory's README, "Drift and
 findings".
 
@@ -178,7 +178,7 @@ findings".
 
 ## 2026-09-26 (Splat Companion device-onboarding pass)
 
-Found while turning the bridge above into a full `Bag3/Code/BroadcastCode/SplatCompanion/`
+Found while turning the bridge above into a full `Bag3/Code/Stations/SplatCompanion/`
 device tree per `Bag3/Code/BroadcastCode/docs_and_design/DEVICE_ONBOARDING_SURFACES.md`. Not
 fixed in the trees they're in unless noted.
 
@@ -264,7 +264,7 @@ still has every bug listed above; cross-generation compatibility is not a goal, 
 
 ### Path change (2026-09-29)
 
-`Bag3/Code/BroadcastCode/SplatCompanion/` is now the two-board station: the hub tree moved to
+`Bag3/Code/Stations/SplatCompanion/` is now the two-board station: the hub tree moved to
 `SplatCompanion/Companion/`, and the C6 modem firmware lives in `SplatCompanion/ESPNowModem/`.
 Earlier entries above name the old flat paths.
 
@@ -292,7 +292,7 @@ Results and logs:
   can deadlock on any loss. `splatecho` uses ACKed unicast; other two-device games that rely on
   single broadcasts have not been checked.
 - **`send_to()` does not report whether the peer ACKed.**
-  - `Bag3/Code/BroadcastCode/MockWand/lib/espnow_manager.py` discards the return value of
+  - `Bag3/Code/Wand Module/lib/espnow_manager.py` discards the return value of
     `ESPNow.send()` and returns `True`.
   - `SplatCompanion/Companion/lib/espnow_manager.py` returns the modem status (`ST_OK`) whether or
     not the peer ACKed. The hub copy now sets `last_acked`; the wand copy is unchanged.
@@ -369,7 +369,7 @@ Neither the hub nor the modem board has a u.FL antenna fitted. Measurements are 
 
 ### Open
 
-- **Proof-of-concept modem:** `Bag3/Code/BroadcastCode/EspnowModem/modem/main.py` now defaults
+- **Proof-of-concept modem:** `Bag3/Code/Experiments/EspnowModem/modem/main.py` now defaults
   to `MODEM_EXTERNAL_ANTENNA = False`. Boards already flashed with it keep the old value until
   reflashed. `EspnowModem/MockWandEUM/` is a wand build and keeps `EXTERNAL_ANTENNA = True`.
 - **Resolved: missing Splat lights and sounds** (user report, run 06). A Splat can drop a

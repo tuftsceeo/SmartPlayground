@@ -68,7 +68,7 @@ missing from every generated game.
    that is where the toolchain writes them and where the provenance lives.
 2. Copy the icon into the live device set, which is what games load by name:
 
-       cp icons/<name>.py ../../BroadcastCode/IconDisplay/icons/<name>.py
+       cp icons/<name>.py ../../Stations/IconDisplay/icons/<name>.py
 
 3. Regenerate the list the chat app sends to the model, from that device set:
 

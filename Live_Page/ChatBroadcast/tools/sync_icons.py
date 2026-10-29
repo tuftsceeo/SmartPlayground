@@ -7,7 +7,7 @@ Usage:
     python3 tools/sync_icons.py          # rewrite defaultIcons.js
     python3 tools/sync_icons.py --check  # exit 1 if defaultIcons.js drifts
 
-The device tree Bag3/Code/BroadcastCode/BroadcastBox/IconDisplay/icons/ is the source of
+The device tree Bag3/Code/TeacherTools/BroadcastBox/IconDisplay/icons/ is the source of
 truth; defaultIcons.js is the generated browser copy. Both sides hold the
 same linear PWM duty bytes, so this is a parse and a reshape -- device files
 are 16 rows of 16 "(r, g, b)" tuples, the browser file is one flat 768-value
@@ -44,7 +44,7 @@ DOCSTRING = """/**
  * Default 16x16 LED icons, as flat linear-PWM-duty RGB arrays (768 values,
  * row-major from top-left).
  *
- * Generated from Bag3/Code/BroadcastCode/BroadcastBox/IconDisplay/icons/ by
+ * Generated from Bag3/Code/TeacherTools/BroadcastBox/IconDisplay/icons/ by
  * ChatBroadcast/tools/sync_icons.py -- do not hand-edit. They are the
  * starting library a teacher edits and a generated display game refers to by
  * name. Duty, NOT sRGB -- convert at the boundary with ledColor.js before

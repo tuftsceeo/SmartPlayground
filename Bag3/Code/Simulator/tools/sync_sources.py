@@ -25,7 +25,7 @@ REPO = os.path.abspath(os.path.join(ROOT, "..", "..", ".."))  # Bag3/Code/Simula
 
 # Lib and games both come from the Bag3 MockWand tree. Its leds.py is the
 # 5x5 row-major (25 LED) matrix the renderer and golden frames assume.
-GAMES_SRC = os.path.join(REPO, "Bag3", "Code", "BroadcastCode", "MockWand")
+GAMES_SRC = os.path.join(REPO, "Bag3", "Code", "Wand Module")
 LIB_SRC = os.path.join(GAMES_SRC, "lib")
 HUBTYPE_SRC = os.path.join(GAMES_SRC, "hubtype.txt")
 
@@ -70,7 +70,7 @@ VERBATIM_LIBS = [
 # The icon display's half of two-device games, for the display panel
 # (py/icon_host.py). Its libs come from the IconDisplay tree, not MockWand:
 # the two espnow_manager.py copies differ (antenna setting).
-DISPLAY_SRC = os.path.join(REPO, "Bag3", "Code", "BroadcastCode", "IconDisplay")
+DISPLAY_SRC = os.path.join(REPO, "Bag3", "Code", "Stations", "IconDisplay")
 DISPLAY_FILES = [
     # (source relative to DISPLAY_SRC, vendor path relative to vendor/)
     ("icon_store.py", "display/lib/icon_store.py"),
@@ -87,7 +87,7 @@ DISPLAY_GAME_ICONS = {
     "goalrace": ["ready", "tree", "whale"],
 }
 
-# Game modules to bundle (from Bag3/Code/BroadcastCode/MockWand).
+# Game modules to bundle (from Bag3/Code/Wand Module).
 # target.py is not a game; color_quest.py imports SCORE_MAC from it.
 GAMES = [
     "jump.py",

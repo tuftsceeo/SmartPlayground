@@ -260,7 +260,7 @@ Ordered by where a teacher is most likely to be stuck.
   `DEVICE_ONBOARDING_SURFACES.md` say no grace.
 - `TeacherTools/NFC Station/docs/plan.md` says ChatBroadcast can push a catalog to the Station; no such code exists.
 - `Stations/Icon Display Station/readme.md` and `tools/sync_icons.py` refer to a `BroadcastBox/IconDisplay`
-  path and "28 icons"; the source is `BroadcastCode/IconDisplay/icons/` with 85 icons. The Station tree
+  path and "28 icons"; the source is `Stations/IconDisplay/icons/` with 85 icons. The Station tree
   holds 63 of them, byte-identical to the same names. `sync_icons.py --check` reports no drift for
   `defaultIcons.js`.
 - `Simulator/vendor/lib/game_tags.py` and the Bag3 `Wand Module/lib/game_tags.py` differ from

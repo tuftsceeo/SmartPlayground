@@ -29,8 +29,10 @@ COMMANDS = _EXIT_TAGS
 NFC_POLL_INTERVAL = 10
 LOOP_DELAY_MS = 40
 
-UPRIGHT_THRESHOLD = 0.7
-UPSIDEDOWN_THRESHOLD = -0.7
+# Bag 3 orientation: upright (tip up, handle down) reads x = -1.0 and
+# handle-up reads x = +1.0, so the upright gate is the NEGATIVE one.
+UPRIGHT_THRESHOLD = -0.7
+UPSIDEDOWN_THRESHOLD = 0.7
 
 NUM_SCOOPS = 3
 COUNT_BAR_LEN = 5
@@ -147,10 +149,10 @@ class MultiIceCreamGame:
         try:
             x, y, z = self.accel.read()
             if self.state == 'Upright':
-                if x < UPSIDEDOWN_THRESHOLD:
+                if x > UPSIDEDOWN_THRESHOLD:
                     self.state = 'Upside_down'
             elif self.state == 'Upside_down':
-                if x > UPRIGHT_THRESHOLD:
+                if x < UPRIGHT_THRESHOLD:
                     self.state = 'Upright'
                     if self.scoop_index < NUM_SCOOPS and self.counting_mode:
                         chosen = _color_from_count(self.button_count)
@@ -185,7 +187,7 @@ class MultiIceCreamGame:
             self._frame += 1
 
 
-def play(nfc, leds, buz, accel, i2c, enow):
+def play(nfc, leds, buz, accel, i2c, enow, batt=None):
     _play_sound(buz, 'start')
     print("\n  === MULTI ICE CREAM ===")
     try:

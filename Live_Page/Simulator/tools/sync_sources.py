@@ -61,7 +61,7 @@ VERBATIM_LIBS = [
     "battery.py",
 ]
 
-# Game modules to bundle (from Bag3/Code/BroadcastCode/BroadcastBox/MockWand).
+# Game modules to bundle (from Bag3/Code/TeacherTools/BroadcastBox/MockWand).
 GAMES = [
     "jump.py",
     "shake.py",

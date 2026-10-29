@@ -14,7 +14,7 @@ The Bag2 M5Paper Remote's Status screen only lists idle Bag2 wands. Replies carr
 Decisions confirmed by the user:
 - **After the pull:** the device pulls and launches, like a getcode card.
 - **Devices that reply:** MockWand and IconDisplay.
-- **Wand tree:** `Bag3/Code/BroadcastCode/MockWand` only. `Bag3/Code/Wand Module` is not touched.
+- **Wand tree:** `Bag3/Code/Wand Module` only. `Bag3/Code/Wand Module` is not touched.
 - **Bag2:** not touched.
 
 Constraints from AGENTS.md:

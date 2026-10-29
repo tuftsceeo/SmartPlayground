@@ -180,8 +180,8 @@ by name with the game: `.py` files only, at most 64 per game, names without
 
 | Suffix | Role | Device |
 |---|---|---|
-| `_icon` | `icon_display` | `BroadcastCode/IconDisplay/` |
-| `_splat` | `splat_companion` | `BroadcastCode/SplatCompanion/Companion/` (+ `ESPNowModem/`) |
+| `_icon` | `icon_display` | `Stations/IconDisplay/` |
+| `_splat` | `splat_companion` | `Stations/SplatCompanion/Companion/` (+ `ESPNowModem/`) |
 
 The wand's own suffix is `''`: no designator, since it is what a v1 request
 (no hubtype at all) resolves to.
@@ -197,7 +197,7 @@ conventions are code-tied and belong with the code, not here:
   direct-USB push.
 - `BroadcastDial/README.md` — Dial specifics; shares the Box's wire contract
   and card rules.
-- `BroadcastCode/SplatCompanion/README.md` and `Companion/README.md` — device layout, the `play()`
+- `Stations/SplatCompanion/README.md` and `Companion/README.md` — device layout, the `play()`
   contract, and its own Unverified section.
 
 ## A reasonable session shape

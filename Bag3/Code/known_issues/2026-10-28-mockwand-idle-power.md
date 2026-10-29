@@ -5,11 +5,11 @@ status: partly fixed (NFC power-down, matrix off, dimmed power LED); radio and C
 devices: [MockWand (XIAO ESP32-C6, Bag3)]
 components: [PN532, ESP-NOW, ESP32-C6 CPU, WS2812 matrix, power LED (GPIO 2), LIS2DW12, OPT3002, MAX17048]
 code:
-  - Bag3/Code/BroadcastCode/MockWand/main.py
-  - Bag3/Code/BroadcastCode/MockWand/lib/pn532.py
-  - Bag3/Code/BroadcastCode/MockWand/lib/power_led.py
-  - Bag3/Code/BroadcastCode/MockWand/lib/brightness.py
-  - Bag3/Code/BroadcastCode/MockWand/lib/hubtype.py
+  - Bag3/Code/Wand Module/main.py
+  - Bag3/Code/Wand Module/lib/pn532.py
+  - Bag3/Code/Wand Module/lib/power_led.py
+  - Bag3/Code/Wand Module/lib/brightness.py
+  - Bag3/Code/Wand Module/lib/hubtype.py
 open:
   - No current measurement before or after the changes
   - ESP-NOW receiver on continuously in idle and sleep

@@ -85,8 +85,8 @@ def _run_one(label, fw_dir, server_module_name, server_class_name):
     shutil.rmtree(tmp, ignore_errors=True)
 
 
-_run_one("Box", os.path.join(CODE_ROOT, "BroadcastBox", "BBoxFirmware"), "bbox_server", "BboxServer")
-_run_one("Dial", os.path.join(CODE_ROOT, "BroadcastDial", "BDialFirmware"), "bdial_server", "BdialServer")
+_run_one("Box", os.path.join(CODE_ROOT, "..", "TeacherTools", "BroadcastBox", "BBoxFirmware"), "bbox_server", "BboxServer")
+_run_one("Dial", os.path.join(CODE_ROOT, "..", "TeacherTools", "BroadcastDial", "BDialFirmware"), "bdial_server", "BdialServer")
 
 if fails:
     print("\nFAILED: %d" % len(fails))

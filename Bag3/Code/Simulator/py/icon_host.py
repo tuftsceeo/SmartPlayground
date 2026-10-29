@@ -2,7 +2,7 @@
 Icon display host for the simulator's display panel.
 
 Runs in its own Pyodide (or a CPython test), separate from the wand's. It
-does what BroadcastCode/IconDisplay/main.py does once booted -- the idle loop
+does what Stations/IconDisplay/main.py does once booted -- the idle loop
 that answers start_game / stop over ESP-NOW and launches a display game with
 play(nfc, panel, enow) -- without running main() itself: no pull mode, no
 USB icon server, no card reader (nfc is None, as on a display without one).

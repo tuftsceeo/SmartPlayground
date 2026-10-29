@@ -13,7 +13,7 @@ Usage:
 defaultIcons.js: every source icon is copied there byte-for-byte. Station
 icons with no source file are reported but never deleted.
 
-The device tree Bag3/Code/BroadcastCode/IconDisplay/icons/ is the source of
+The device tree Bag3/Code/Stations/IconDisplay/icons/ is the source of
 truth; defaultIcons.js is the generated browser copy. Both sides hold the
 same linear PWM duty bytes, so this is a parse and a reshape -- device files
 are 16 rows of 16 "(r, g, b)" tuples, the browser file is one flat 768-value
@@ -41,7 +41,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 CHATBROADCAST = os.path.dirname(HERE)
 BROADCASTBOX = os.path.dirname(CHATBROADCAST)
 
-ICONS_DIR = os.path.join(BROADCASTBOX, "IconDisplay", "icons")
+ICONS_DIR = os.path.join(BROADCASTBOX, "..", "Stations", "IconDisplay", "icons")
 OUT_PATH = os.path.join(CHATBROADCAST, "js", "ledicons", "defaultIcons.js")
 STATION_ICONS_DIR = os.path.join(os.path.dirname(BROADCASTBOX), "Stations",
                                  "Icon Display Station", "icons")
@@ -53,7 +53,7 @@ DOCSTRING = """/**
  * Default 16x16 LED icons, as flat linear-PWM-duty RGB arrays (768 values,
  * row-major from top-left).
  *
- * Generated from Bag3/Code/BroadcastCode/IconDisplay/icons/ by
+ * Generated from Bag3/Code/Stations/IconDisplay/icons/ by
  * ChatBroadcast/tools/sync_icons.py -- do not hand-edit. They are the
  * starting library a teacher edits and a generated display game refers to by
  * name. Duty, NOT sRGB -- convert at the boundary with ledColor.js before

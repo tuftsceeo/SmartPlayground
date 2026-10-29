@@ -5,7 +5,7 @@ those Splats over its own BLE radio (button in, color and sound out) alongside i
 inputs and outputs. Wands form ad hoc party games over ESP-NOW; a game declares how many
 Splats it needs in total, and wands join it by tapping its game card.
 
-Scope: `Bag3/Code/BroadcastCode/MockWand/` only. `Bag3/Code/Wand Module/` is not changed;
+Scope: `Bag3/Code/Wand Module/` only. `Bag3/Code/Wand Module/` is not changed;
 porting it is a separate, deliberate step. Splat Companions are not changed (see Known
 issues).
 

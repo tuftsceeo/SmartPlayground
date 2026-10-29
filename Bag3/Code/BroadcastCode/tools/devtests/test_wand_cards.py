@@ -7,7 +7,7 @@ import sys
 
 BB = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.join(BB, "tools", "devtests", "stubs"))
-sys.path.insert(0, os.path.join(BB, "MockWand", "lib"))
+sys.path.insert(0, os.path.join(BB, "..", "Wand Module", "lib"))
 
 import nfc_reader  # noqa: E402
 from game_tags import CONTROL_TAGS, EXIT_TAGS, GAME_TAGS  # noqa: E402

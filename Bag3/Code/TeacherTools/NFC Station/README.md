@@ -31,8 +31,8 @@ Copies, not imports -- fixing one fixes only this copy:
 
 | File | Source |
 |---|---|
-| `dial_board.py`, `ws1850s.py`, `card_writer.py`, `dial_input.py`, `json_link.py` | `Bag3/Code/BroadcastCode/BroadcastDial/BDialFirmware/` |
-| `game_tags.py` | `Bag3/Code/BroadcastCode/MockWand/lib/` |
+| `dial_board.py`, `ws1850s.py`, `card_writer.py`, `dial_input.py`, `json_link.py` | `Bag3/Code/TeacherTools/BroadcastDial/BDialFirmware/` |
+| `game_tags.py` | `Bag3/Code/Wand Module/lib/` |
 
 `dial_input.py` and `station_fonts.py` are identical to the Broadcast Dial's
 copies. The Dial also runs copies of `station.py`, `station_ui.py`,

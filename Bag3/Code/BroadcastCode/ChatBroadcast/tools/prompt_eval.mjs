@@ -209,7 +209,7 @@ function selfTest() {
 
 /** The simulation check on games with a known outcome. */
 async function selfTestSim() {
-    const LOBBY_GAME = readFileSync(resolve(ROOT, "../MockWand/games/relaycolor.py"), "utf8");
+    const LOBBY_GAME = readFileSync(resolve(ROOT, "../../Wand Module/games/relaycolor.py"), "utf8");
     const HEAD = "import time\nSPLATS_MIN = 1\n\ndef play(nfc, leds, buz, accel, i2c, enow, batt=None, net=None):\n";
     const cases = [
         ["relaycolor passes", LOBBY_GAME, []],

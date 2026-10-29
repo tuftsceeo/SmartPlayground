@@ -20,8 +20,8 @@ The full task:
 10. Optional (but a nice to have) would be if the Chat Broadcast app via the BBox tracks which modules/stations (via mac address) had received / picked up the code and which NFC cards have been written/skipped/still need to write. 
 
 
-A Claude Design  UI mockup for Chat Broadcast app is in Bag3/Code/BroadcastCode/BroadcastBox/design/Wand Coder App Mockups.dc.html
-A Prototype flow logic document for that UI mockup is in Bag3/Code/BroadcastCode/BroadcastBox/design/Prototype Flow Logic.md
+A Claude Design  UI mockup for Chat Broadcast app is in Bag3/Code/TeacherTools/BroadcastBox/design/Wand Coder App Mockups.dc.html
+A Prototype flow logic document for that UI mockup is in Bag3/Code/TeacherTools/BroadcastBox/design/Prototype Flow Logic.md
 
 
 ## Rough Notes and Design Thoughts
@@ -31,7 +31,7 @@ The BroadcastBox will be write NFC cards and transmit python code to other Bag 3
 
 The Box and Dial serve game files to wands over their own ESP-NOW radio (`code_link.py` + `code_sender.py` in each firmware; protocol in `BroadcastDial/README.md`, "Serving over ESP-NOW"). The wand receiver is `MockWand/lib/espnow_code.py`. The radio and the NFC reader field are never on together.
 
-Claude Design Wireframes of possible Screens for the BBox are shown in  Bag3/Code/BroadcastCode/BroadcastBox/design/Wand Coder + Broadcast Box Wireframe 2.dc.html
+Claude Design Wireframes of possible Screens for the BBox are shown in  Bag3/Code/TeacherTools/BroadcastBox/design/Wand Coder + Broadcast Box Wireframe 2.dc.html
 
 
 ## Notes from Claude Design
@@ -49,6 +49,6 @@ Borrowing from WebApp2 (the group-text remote): that app treats each device as a
 
 ### Additional Notes
 
-8/29: ChatBroadcast is currently a copy of ChatApp: Use this portal to program your Wand. To be adapted to incorperate the design features of  Bag3/Code/BroadcastCode/BroadcastBox/design/Wand Coder App Mockups.dc.html
+8/29: ChatBroadcast is currently a copy of ChatApp: Use this portal to program your Wand. To be adapted to incorperate the design features of  Bag3/Code/TeacherTools/BroadcastBox/design/Wand Coder App Mockups.dc.html
 
 9/3: ChatBroadcast's game preview panel now embeds the `Bag3/Code/Simulator` `<wand-sim>` element directly (`ChatBroadcast/js/app.js`'s `setupSim()` imports `../../Simulator/wand-sim.js`), so it must be served from a root that covers both trees: `cd Bag3/Code && python3 -m http.server`, then open `/BroadcastBox/ChatBroadcast/` — serving `ChatBroadcast/` alone 404s on that import.

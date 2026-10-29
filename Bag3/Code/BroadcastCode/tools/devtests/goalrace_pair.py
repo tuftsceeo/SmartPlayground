@@ -33,11 +33,11 @@ DISPLAY = os.path.join(TMP, "display")
 # The repo tree carries device names directly (goalrace.py, not
 # goalrace_icon.py -- that suffix lives only in the Box/Dial staging tree),
 # so flashing the tree verbatim is exactly what a real device has.
-shutil.copytree(os.path.join(ROOT, "IconDisplay"), DISPLAY)
+shutil.copytree(os.path.join(ROOT, "..", "Stations", "IconDisplay"), DISPLAY)
 os.chdir(DISPLAY)
 
 sys.path.insert(0, os.path.join(SCRATCH, "stubs"))
-sys.path.insert(0, os.path.join(ROOT, "MockWand", "lib"))
+sys.path.insert(0, os.path.join(ROOT, "..", "Wand Module", "lib"))
 sys.path.insert(0, os.path.join(DISPLAY, "lib"))
 sys.path.insert(0, DISPLAY)
 
@@ -147,8 +147,8 @@ check("display COMMANDS are all literal strings",
       all(isinstance(t, str) for t in display_game.COMMANDS))
 
 # ── The wand ──
-sys.path.insert(0, os.path.join(ROOT, "MockWand"))
-wand_game = load("wand_goalrace", os.path.join(ROOT, "MockWand", "goalrace.py"))
+sys.path.insert(0, os.path.join(ROOT, "..", "Wand Module"))
+wand_game = load("wand_goalrace", os.path.join(ROOT, "..", "Wand Module", "goalrace.py"))
 check("wand game has COMMANDS", hasattr(wand_game, "COMMANDS"))
 for tag in ("teamgreen", "teamblue", "goal"):
     check("wand declares the %r card" % tag, tag in wand_game.COMMANDS)

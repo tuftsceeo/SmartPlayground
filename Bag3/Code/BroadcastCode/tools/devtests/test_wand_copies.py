@@ -9,8 +9,8 @@ import os
 import sys
 
 BB = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-WAND_LIB = os.path.join(BB, "MockWand", "lib")
-COMP = os.path.join(BB, "SplatCompanion", "Companion")
+WAND_LIB = os.path.join(BB, "..", "Wand Module", "lib")
+COMP = os.path.join(BB, "..", "Stations", "SplatCompanion", "Companion")
 BAG3_LIB = os.path.join(BB, "..", "lib")
 
 PAIRS = (

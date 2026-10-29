@@ -15,12 +15,12 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 BC = os.path.join(HERE, "..", "..")
-sys.path.insert(0, os.path.join(BC, "EspnowModem", "tests"))
+sys.path.insert(0, os.path.join(BC, "..", "Experiments", "EspnowModem", "tests"))
 
 import test_code_xfer as T  # noqa: E402  (stubs, Air, FakeMgr, tests)
 
 spec = importlib.util.spec_from_file_location(
-    "espnow_code", os.path.join(BC, "MockWand", "lib", "espnow_code.py"))
+    "espnow_code", os.path.join(BC, "..", "Wand Module", "lib", "espnow_code.py"))
 wand_code = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(wand_code)
 assert "MockWand/lib" in wand_code.__file__.replace(os.sep, "/")

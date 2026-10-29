@@ -2,7 +2,7 @@
 5x5 glyph data for the Icon Display, and the two helpers that put it on the
 16x16 panel.
 
-PEER: Bag3/Code/BroadcastCode/BroadcastBox/MockWand/lib/leds.py holds the master copy of
+PEER: Bag3/Code/TeacherTools/BroadcastBox/MockWand/lib/leds.py holds the master copy of
 the SHAPE_* tuples below (its "5x5 GRID SHAPES" section) -- keep the two in
 sync. A slight drift here is tolerated for now; deduplicating the data is
 planned for after the MVP is proven, not before.

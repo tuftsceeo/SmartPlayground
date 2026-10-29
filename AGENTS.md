@@ -57,7 +57,7 @@ reconciling.
 
 `Bag3/Code/TeacherTools/NFC Station/` holds copies of `ws1850s.py`, `card_writer.py`,
 `dial_board.py`, `dial_input.py` and `json_link.py` from `BroadcastDial/BDialFirmware/`, and `game_tags.py` from
-`BroadcastCode/MockWand/lib/`. The Broadcast Dial runs the Station's screens: `BDialFirmware/`
+`Wand Module/lib/`. The Broadcast Dial runs the Station's screens: `BDialFirmware/`
 holds copies of `station.py`, `station_ui.py`, `station_fonts.py`, `text_entry.py`, `kb_rings.json`
 and `kb_letters.bin`. Its `station.py` drops the catalog and serial commands and takes games, card
 text and radio control from `bdial_server.py` (the host); its `station_ui.py` builds the keyboard
@@ -67,7 +67,7 @@ Game tags are consumed in four places, with nothing enforcing consistency: each 
 `lib/game_tags.py`, `Live_Page/WebApp2/hubCode2/game_tags.py`,
 `Live_Page/WebApp2/js/utils/commands.json`, and `Live_Page/wand_icons.html`.
 
-The 16x16 icon set is the same shape of problem. `BroadcastCode/IconDisplay/icons/` is the
+The 16x16 icon set is the same shape of problem. `Stations/IconDisplay/icons/` is the
 source of truth, and three things copy from it by hand or by script:
 `ChatBroadcast/js/ledicons/defaultIcons.js` (generated — run
 `ChatBroadcast/tools/sync_icons.py`, and `--check` to detect drift), the station's
@@ -93,16 +93,19 @@ playground component (`hubtype.txt` → `HUB_CONFIG`).
 
 ## "Station" is not one thing
 
-`Bag3/Code/Stations/` holds `Icon Display Station`, and the Broadcast Box and Dial are also called
-stations. All are beta or bench tests, not used by teachers. Always name the specific one; never
+`Bag3/Code/Stations/` holds `Icon Display Station`, `IconDisplay` (the Broadcast icon display) and
+`SplatCompanion` (historical), and the Broadcast Box and Dial are also called stations. All are beta or bench tests, not used by teachers. Always name the specific one; never
 write "the Station".
 
 `Bag3/Code/TeacherTools/` holds `NFC Station` (a one-off NFC tag-writing tool, not live to teachers
-or the team) and the Bag3 `M5Paper Remote`.
+or the team), the Bag3 `M5Paper Remote`, and the Broadcast Box and Dial (`BroadcastBox`,
+`BroadcastDial`). `Bag3/Code/BroadcastCode/` keeps the ChatBroadcast web app, `tools/` and
+`docs_and_design/`.
 
 `Bag3/Code/Experiments/` holds non-functioning hardware experiments (`Capsule PN5180`,
 `CrowPanel5 Display`, `IPS096 Display`, `Music Board Station`, `Radar Station`,
-`WirelessFileTransferBak`). Despite some names, none of these are stations.
+`WirelessFileTransferBak`, `EmulatedTagDial`, `EspnowModem`, `ProgrammableTag`, and the earlier Bag3
+`Wand Module`). Despite some names, none of these are stations.
 
 Likewise, `goalrace`, `splatecho`, and `jumpin1`–`jumpin5` (code-slot experiment) are bench-only
-games, not classroom games. Bag3 MockWand uses plain NDEF text tags; `opcodes.py` is not used there.
+games, not classroom games. The Bag3 wand (`Bag3/Code/Wand Module/`, the Mock Wand) uses plain NDEF text tags; `opcodes.py` is not used there.

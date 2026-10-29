@@ -28,7 +28,7 @@ const EXPECTED = {
     simpleicecream: [], multiicecream: [], sound: [],
 };
 
-const MW = resolve(HERE, "../../MockWand");
+const MW = resolve(HERE, "../../../Wand Module");
 
 // Game files are moving out of the MockWand root into MockWand/games/,
 // which is also where a pulled game lands on the device. Either location

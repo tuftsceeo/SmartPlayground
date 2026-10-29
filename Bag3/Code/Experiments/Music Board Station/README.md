@@ -16,7 +16,7 @@ display, and combining songs from several students.
 | `staff.py` | 8x8 staff timeline rendering and button LEDs |
 | `audio.py` | Streamed WAV to I2S, one 1 KB chunk per main-loop pass; rests written as silence |
 | `tools/synth_notes.py` | Renders `notes/` with FluidSynth; `--check` verifies all 72 files |
-| `lib/espnow_manager.py` | Copy of `BroadcastCode/MockWand/lib/espnow_manager.py` with `EXTERNAL_ANTENNA = False` |
+| `lib/espnow_manager.py` | Copy of `Wand Module/lib/espnow_manager.py` with `EXTERNAL_ANTENNA = False` |
 | `notes/{piano,guitar,violin}_{1-8}_{8,4,2}.wav` | 72 note files: voice, note (1 = C4 .. 8 = C5), length (eighth, quarter, half); 8 kHz 16-bit mono |
 | `hubtype.txt` | `music_board` |
 

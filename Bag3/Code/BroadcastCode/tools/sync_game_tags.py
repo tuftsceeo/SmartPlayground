@@ -1,13 +1,13 @@
 """Report drift between the Bag3 wand's game tags and the copies that use them.
 
-Source of truth: BroadcastCode/MockWand/lib/game_tags.py (GAME_TAGS,
+Source of truth: Wand Module/lib/game_tags.py (GAME_TAGS,
 CONTROL_TAGS, HIDDEN_TAGS). Paths below are relative to Bag3/Code/.
 
 Copies checked:
   TeacherTools/NFC Station/game_tags.py
       Sets must match the source. Allowed missing: the bench-only test tags
       "lobbytest", "relaycolor", "splatecho" and "splattag".
-  BroadcastCode/EspnowModem/MockWandEUM/lib/game_tags.py
+  Experiments/EspnowModem/MockWandEUM/lib/game_tags.py
       Sets must match the source. Allowed missing: the same bench-only test
       tags, and "unpair" (MockWandEUM has no Splat pairing).
   BroadcastCode/ChatBroadcast/js/gameName.js  WAND_RESERVED
@@ -36,9 +36,9 @@ import sys
 from pathlib import Path
 
 CODE = Path(__file__).resolve().parents[2]  # Bag3/Code
-SOURCE = CODE / "BroadcastCode/MockWand/lib/game_tags.py"
+SOURCE = CODE / "Wand Module/lib/game_tags.py"
 STATION = CODE / "TeacherTools/NFC Station/game_tags.py"
-EUM = CODE / "BroadcastCode/EspnowModem/MockWandEUM/lib/game_tags.py"
+EUM = CODE / "Experiments/EspnowModem/MockWandEUM/lib/game_tags.py"
 SIMULATOR = CODE / "Simulator/vendor/lib/game_tags.py"
 GAME_NAME_JS = CODE / "BroadcastCode/ChatBroadcast/js/gameName.js"
 

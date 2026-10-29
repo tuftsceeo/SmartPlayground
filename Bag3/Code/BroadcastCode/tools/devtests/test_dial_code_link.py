@@ -17,7 +17,7 @@ import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 BC = os.path.join(HERE, "..", "..")
-sys.path.insert(0, os.path.join(BC, "EspnowModem", "tests"))
+sys.path.insert(0, os.path.join(BC, "..", "Experiments", "EspnowModem", "tests"))
 
 import test_code_xfer as T  # noqa: E402  (time/machine stubs, Air)
 import test_espnow_serve as S  # noqa: E402  (fake espnow/network)
@@ -26,7 +26,7 @@ import game_store  # noqa: E402
 
 T.machine.unique_id = lambda: b"\x10\x51\xdb\x56\x00\x4c"
 sys.modules.pop("code_sender", None)
-sys.path.insert(0, os.path.join(BC, "BroadcastDial", "BDialFirmware"))
+sys.path.insert(0, os.path.join(BC, "..", "TeacherTools", "BroadcastDial", "BDialFirmware"))
 
 import code_link  # noqa: E402
 

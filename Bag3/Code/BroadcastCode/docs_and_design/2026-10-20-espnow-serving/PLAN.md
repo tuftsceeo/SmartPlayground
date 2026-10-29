@@ -98,7 +98,7 @@ Paths below are under `Bag3/Code/BroadcastCode/` unless stated.
   - `BroadcastDial/README.md` "Serving over ESP-NOW"
   - `EspnowModem/README.md`
   - `HARDWARE_PROTOCOL.md` "Reserved Box/Dial staging suffixes", which cites `code_server.ROLE_FILES`
-  - `BroadcastCode/IconDisplay/README.md`
+  - `Stations/IconDisplay/README.md`
 
 ## Phase 3: Box firmware (same change)
 Repeat Phase 2 in `BBoxFirmware/`. The Box's `serve_guard` floor and `SOCK_REPLY_TIMEOUT_S` go with the AP code. Use `wire_test.py` for the offline check.

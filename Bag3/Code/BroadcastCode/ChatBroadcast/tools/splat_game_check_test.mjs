@@ -32,7 +32,7 @@ const one = (code, re) => {
 };
 
 t("MAX_SPLATS matches MockWand/lib/pairing.py", () => {
-  const src = readFileSync(resolve(ROOT, "../MockWand/lib/pairing.py"), "utf8");
+  const src = readFileSync(resolve(ROOT, "../../Wand Module/lib/pairing.py"), "utf8");
   assert.equal(Number(src.match(/^MAX_SPLATS\s*=\s*(\d+)/m)[1]), MAX_SPLATS);
 });
 
@@ -78,7 +78,7 @@ t("knowledge/lobby_games.md examples pass the wand checks", () => {
 
 t("MockWand lobby games pass the wand checks", () => {
   for (const f of ["lobbytest.py", "splattag.py", "relaycolor.py"]) {
-    const [ok, err] = validateGameCode(readFileSync(resolve(ROOT, "../MockWand/games", f), "utf8"), "wand");
+    const [ok, err] = validateGameCode(readFileSync(resolve(ROOT, "../../Wand Module/games", f), "utf8"), "wand");
     assert.ok(ok, `${f}: ${err}`);
   }
 });

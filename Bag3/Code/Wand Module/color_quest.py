@@ -530,6 +530,10 @@ def run_game(nfc, buz, display, targets, enow, start_ticks=None):
             display.clear()
             return "stop"
 
+        # The entry tag is not in _EXIT_TAGS and is not an answer; ignore it.
+        if text == "colorquest":
+            continue
+
         expected = targets[found]
 
         if text == expected:
@@ -563,7 +567,7 @@ def run_game(nfc, buz, display, targets, enow, start_ticks=None):
     return _post_win_wait(enow, display, nfc, buz)
 
 
-def play(nfc, leds, buz, accel, i2c, enow):
+def play(nfc, leds, buz, accel, i2c, enow, batt=None):
     """Called from main.py when 'colorquest' tag is tapped."""
     np = leds.np
     display = GameDisplay(np)

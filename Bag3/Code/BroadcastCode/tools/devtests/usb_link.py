@@ -34,7 +34,7 @@ DEV = os.path.join(TMP, "display")
 # The repo tree now carries device names directly (goalrace.py, not
 # goalrace_icon.py -- that suffix lives only in the Box/Dial staging tree),
 # so flashing the tree verbatim is exactly what a real device has.
-shutil.copytree(os.path.join(ROOT, "IconDisplay"), DEV)
+shutil.copytree(os.path.join(ROOT, "..", "Stations", "IconDisplay"), DEV)
 os.chdir(DEV)
 sys.path.insert(0, os.path.join(SCRATCH, "stubs"))
 sys.path.insert(0, os.path.join(DEV, "lib"))

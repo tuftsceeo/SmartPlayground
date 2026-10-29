@@ -50,7 +50,7 @@ def _clean_tags(tags):
 
 
 # Cards each game reacts to while running, besides its own entry tag. From
-# the MockWand game modules (Bag3/Code/BroadcastCode/MockWand/*.py), which
+# the MockWand game modules (Bag3/Code/Wand Module/*.py), which
 # read lowercased NDEF text. Nothing keeps this in step with those files.
 GAME_CARD_TAGS = {
     "colorquest": ["color_quest_scan", "turnred", "turngreen", "turnblue",

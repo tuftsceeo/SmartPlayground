@@ -43,7 +43,7 @@ ask for you -- it only prompts for the choices it cannot make on its own
 Usage:
     python3 tools/deploy.py                    # fully interactive
     python3 tools/deploy.py /dev/cu.usbmodemX --type wand
-    python3 tools/deploy.py /dev/cu.usbmodemX --type wand --wand-tree EspnowModem/MockWandEUM
+    python3 tools/deploy.py /dev/cu.usbmodemX --type wand --wand-tree Experiments/EspnowModem/MockWandEUM
     python3 tools/deploy.py /dev/cu.usbmodemX --type icon --code-only
     python3 tools/deploy.py /dev/cu.usbmodemX --type dial --pause 8
     python3 tools/deploy.py /dev/cu.usbmodemX --type wand --changed   # only differing files
@@ -291,27 +291,27 @@ def _precompile_wand_main(files):
     return boot + [(mpy, "/" + WAND_APP + ".mpy"), (stub, "/main.py")] + rest
 
 
-def _files_for(dev_key, code_only, wand_tree="MockWand"):
+def _files_for(dev_key, code_only, wand_tree="Wand Module"):
     if dev_key == "dial":
-        firmware_dir = os.path.join(BROADCASTCODE, "BroadcastDial", "BDialFirmware")
+        firmware_dir = os.path.join(BROADCASTCODE, "..", "TeacherTools", "BroadcastDial", "BDialFirmware")
         boot_local = os.path.join(firmware_dir, "boot.py")
         extra_boot = (boot_local, "/flash/boot.py") if os.path.exists(boot_local) else None
         files = _manifest_files(firmware_dir, "manifest.js", "DIAL_FILES")
         return _boot_main_first(files, extra_boot), 8.0
     if dev_key == "box":
-        firmware_dir = os.path.join(BROADCASTCODE, "BroadcastBox", "BBoxFirmware")
+        firmware_dir = os.path.join(BROADCASTCODE, "..", "TeacherTools", "BroadcastBox", "BBoxFirmware")
         boot_local = os.path.join(firmware_dir, "boot.py")
         extra_boot = (boot_local, "/flash/boot.py") if os.path.exists(boot_local) else None
         files = _manifest_files(firmware_dir, "manifest.js", "BOX_FILES")
         return _boot_main_first(files, extra_boot), 0.0
     if dev_key == "wand":
-        files = _tree_files(os.path.join(BROADCASTCODE, wand_tree))
-        if wand_tree == "MockWand":
+        files = _tree_files(os.path.join(BROADCASTCODE, "..", wand_tree))
+        if wand_tree == "Wand Module":
             return _precompile_wand_main(files), 0.0
         return _boot_main_first(files), 0.0
     # icon
     skip = {"icons"} if code_only else ()
-    files = _tree_files(os.path.join(BROADCASTCODE, "IconDisplay"), skip_dirs=skip)
+    files = _tree_files(os.path.join(BROADCASTCODE, "..", "Stations", "IconDisplay"), skip_dirs=skip)
     return _boot_main_first(files), 0.0
 
 
@@ -335,9 +335,9 @@ def main():
     ap.add_argument("--changed", action="store_true",
                      help="skip files whose on-device sha256 already matches (one exec call "
                           "to hash them all); deploys everything if that call fails")
-    ap.add_argument("--wand-tree", default="MockWand",
-                     help="Mock Wand only: tree to deploy, relative to BroadcastCode/ "
-                          "(e.g. EspnowModem/MockWandEUM)")
+    ap.add_argument("--wand-tree", default="Wand Module",
+                     help="Mock Wand only: tree to deploy, relative to Bag3/Code/ "
+                          "(e.g. Experiments/EspnowModem/MockWandEUM)")
     ap.add_argument("-y", "--yes", action="store_true",
                      help="skip the confirmation prompt")
     args = ap.parse_args()

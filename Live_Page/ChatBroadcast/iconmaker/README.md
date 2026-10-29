@@ -11,7 +11,7 @@ downloads folder, which is what you want when authoring for a station over USB.
 
 What it does NOT do: the serial features (`js/device/`, the device bar, the
 serial monitor) talk to the **station** firmware's `icon_server.py`. The
-Broadcast icon display at `Bag3/Code/BroadcastCode/BroadcastBox/IconDisplay/` does not run
+Broadcast icon display at `Bag3/Code/TeacherTools/BroadcastBox/IconDisplay/` does not run
 that server -- it gets its icons from the Box by card tap -- so those controls
 do nothing for it. They are kept because they still work against a station unit.
 

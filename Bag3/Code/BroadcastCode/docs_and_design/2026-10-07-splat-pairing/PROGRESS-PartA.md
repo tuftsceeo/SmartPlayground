@@ -13,7 +13,7 @@ Run from `Bag3/Code/BroadcastCode/` (all pass): `tools/devtests/compile_check.sh
 `wire_test` and `host_id_check` still pass. `boot_display.py`, `game_menu_scan.py`, `wire_contract.py` and
 `SplatCompanion/Companion/test_splat_companion.py` fail or stop exactly as before this work (Baseline).
 
-Only `Bag3/Code/BroadcastCode/MockWand/`, `tools/devtests/` and this directory changed. `Wand Module/`, `Bag1/`, `Bag2/` and
+Only `Bag3/Code/Wand Module/`, `tools/devtests/` and this directory changed. `Wand Module/`, `Bag1/`, `Bag2/` and
 the SplatCompanion tree are untouched.
 
 Highest-priority items for Part B:

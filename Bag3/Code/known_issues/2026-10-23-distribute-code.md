@@ -5,14 +5,14 @@ status: open (untested on hardware)
 devices: [BroadcastDial, BroadcastBox, MockWand, IconDisplay, M5Paper Remote, Bag2 wands]
 components: [BDialFirmware/fleet.py, espnow_manager code_push/status_report, ChatBroadcast distribute overlay, Bag3 M5Paper Remote]
 code:
-  - Bag3/Code/BroadcastCode/BroadcastDial/BDialFirmware/fleet.py
-  - Bag3/Code/BroadcastCode/BroadcastDial/BDialFirmware/bdial_server.py
-  - Bag3/Code/BroadcastCode/BroadcastDial/BDialFirmware/code_link.py
-  - Bag3/Code/BroadcastCode/BroadcastDial/BDialFirmware/station_ui.py
-  - Bag3/Code/BroadcastCode/MockWand/main.py
-  - Bag3/Code/BroadcastCode/MockWand/lib/espnow_manager.py
-  - Bag3/Code/BroadcastCode/IconDisplay/main.py
-  - Bag3/Code/BroadcastCode/IconDisplay/lib/espnow_manager.py
+  - Bag3/Code/TeacherTools/BroadcastDial/BDialFirmware/fleet.py
+  - Bag3/Code/TeacherTools/BroadcastDial/BDialFirmware/bdial_server.py
+  - Bag3/Code/TeacherTools/BroadcastDial/BDialFirmware/code_link.py
+  - Bag3/Code/TeacherTools/BroadcastDial/BDialFirmware/station_ui.py
+  - Bag3/Code/Wand Module/main.py
+  - Bag3/Code/Wand Module/lib/espnow_manager.py
+  - Bag3/Code/Stations/IconDisplay/main.py
+  - Bag3/Code/Stations/IconDisplay/lib/espnow_manager.py
   - Bag3/Code/BroadcastCode/ChatBroadcast/js/distribute.js
   - Bag3/Code/TeacherTools/M5Paper Remote/
 open:
@@ -25,7 +25,7 @@ open:
 keywords: [code_push, status_poll, status_report, kind, fleet, distribute, find_device, finddevice, getcode, timeout, no_ack, not_serving, M5Paper]
 related:
   - Bag3/Code/BroadcastCode/docs_and_design/2026-10-23-distribute-code-plan.md
-  - Bag3/Code/BroadcastCode/BroadcastDial/README.md (Fleet commands)
+  - Bag3/Code/TeacherTools/BroadcastDial/README.md (Fleet commands)
 ---
 
 # Status scan and Dial "Distribute code", 2026-10-23

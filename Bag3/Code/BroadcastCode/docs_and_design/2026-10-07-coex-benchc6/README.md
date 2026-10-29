@@ -31,7 +31,7 @@ Per `Code/HARDWARE_PROTOCOL.md`: ask for the ports, and pass `resume` on every `
 HUB=/dev/cu.usbmodemXXXX ; PEER=/dev/cu.usbmodemYYYY
 # Hub: Splat libs into /coex (ble_splat comes from SplatCompanion/Companion/lib)
 python3 -m mpremote connect $HUB resume fs mkdir :/coex
-C=../../SplatCompanion/Companion
+C=../../../Stations/SplatCompanion/Companion
 python3 -m mpremote connect $HUB resume \
   fs cp $C/splat_link.py :/coex/splat_link.py + fs cp $C/splat_hub.py :/coex/splat_hub.py + \
   fs cp $C/splat_api.py :/coex/splat_api.py + fs cp $C/lib/ble_splat.py :/coex/ble_splat.py

@@ -1,7 +1,7 @@
 /**
  * Splat action names a wand's Splats accept (net.splat(i), net.local), by category.
  *
- * Generated from Bag3/Code/BroadcastCode/MockWand/lib/splat_api.py
+ * Generated from Bag3/Code/Wand Module/lib/splat_api.py
  * (COLOR_RGB, NOTE_VALUES, ANIMAL_SOUNDS) by
  * ChatBroadcast/tools/sync_splat_actions.py -- do not hand-edit. Read by
  * js/splat/splatActionCheck.js for the system prompt and the send-time

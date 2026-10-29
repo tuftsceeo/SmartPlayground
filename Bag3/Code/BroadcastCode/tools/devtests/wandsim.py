@@ -28,7 +28,7 @@ import time
 
 BB = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 STUBS = os.path.join(BB, "tools", "devtests", "stubs")
-WAND_DIR = os.path.join(BB, "MockWand")
+WAND_DIR = os.path.join(BB, "..", "Wand Module")
 WAND_LIB = os.path.join(WAND_DIR, "lib")
 
 BROADCAST = b"\xFF" * 6

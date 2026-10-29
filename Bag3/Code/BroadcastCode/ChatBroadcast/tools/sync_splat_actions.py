@@ -7,7 +7,7 @@ Usage:
     python3 tools/sync_splat_actions.py          # rewrite splatActions.js
     python3 tools/sync_splat_actions.py --check  # exit 1 if splatActions.js drifts
 
-Bag3/Code/BroadcastCode/MockWand/lib/splat_api.py is the source of truth:
+Bag3/Code/Wand Module/lib/splat_api.py is the source of truth:
 its module-level COLOR_RGB, NOTE_VALUES and ANIMAL_SOUNDS dicts are the
 names splat.color(), splat.note() and splat.sound() accept on the device.
 splatActions.js is the generated browser copy that ChatBroadcast puts in
@@ -28,7 +28,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 CHATBROADCAST = os.path.dirname(HERE)
 BROADCASTCODE = os.path.dirname(CHATBROADCAST)
 
-SOURCE = os.path.join(BROADCASTCODE, "MockWand", "lib", "splat_api.py")
+SOURCE = os.path.join(BROADCASTCODE, "..", "Wand Module", "lib", "splat_api.py")
 OUT_PATH = os.path.join(CHATBROADCAST, "js", "splat", "splatActions.js")
 
 # (table in splat_api.py, export name in splatActions.js)
@@ -41,7 +41,7 @@ TABLES = (
 DOCSTRING = """/**
  * Splat action names a wand's Splats accept (net.splat(i), net.local), by category.
  *
- * Generated from Bag3/Code/BroadcastCode/MockWand/lib/splat_api.py
+ * Generated from Bag3/Code/Wand Module/lib/splat_api.py
  * (COLOR_RGB, NOTE_VALUES, ANIMAL_SOUNDS) by
  * ChatBroadcast/tools/sync_splat_actions.py -- do not hand-edit. Read by
  * js/splat/splatActionCheck.js for the system prompt and the send-time

@@ -29,7 +29,7 @@ BEEP_MS = 60
 _RAINBOW = (RED, ORANGE, YELLOW, GREEN, CYAN, BLUE, PURPLE, MAGENTA)
 
 
-def play(nfc, leds, buz, accel, i2c, enow):
+def play(nfc, leds, buz, accel, i2c, enow, batt=None):
     print("\n  === FIND DEVICE (identify) ===")
     btn = Pin(BUTTON_PIN, Pin.IN, Pin.PULL_UP)
     btn_was_down = (btn.value() == 0)

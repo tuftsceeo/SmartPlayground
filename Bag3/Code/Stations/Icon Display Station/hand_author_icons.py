@@ -18,7 +18,7 @@ Add a new icon: write a draw_<name>(g) function using the primitives below,
 then add ("<name>", "<category>", draw_<name>) to RECIPES.
 
 Writing icons/ here is not the last step. To reach hardware an icon has to be
-copied into BroadcastCode/IconDisplay/icons/, and to be usable in a generated
+copied into Stations/IconDisplay/icons/, and to be usable in a generated
 game the chat app's list has to be regenerated from that device set:
 
     python3 ../../BroadcastCode/ChatBroadcast/tools/sync_icons.py --check

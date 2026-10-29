@@ -2,7 +2,7 @@
  * Default 16x16 LED icons, as flat linear-PWM-duty RGB arrays (768 values,
  * row-major from top-left).
  *
- * Generated from Bag3/Code/BroadcastCode/IconDisplay/icons/ by
+ * Generated from Bag3/Code/Stations/IconDisplay/icons/ by
  * ChatBroadcast/tools/sync_icons.py -- do not hand-edit. They are the
  * starting library a teacher edits and a generated display game refers to by
  * name. Duty, NOT sRGB -- convert at the boundary with ledColor.js before

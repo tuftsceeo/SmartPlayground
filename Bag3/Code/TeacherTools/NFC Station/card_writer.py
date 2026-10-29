@@ -1,4 +1,4 @@
-# PEER: Bag3/Code/BroadcastCode/BroadcastBox/BBoxFirmware/card_writer.py — keep in sync
+# PEER: Bag3/Code/TeacherTools/BroadcastBox/BBoxFirmware/card_writer.py — keep in sync
 """
 card_writer.py — plain NDEF text writer for Broadcast Box (WS1850S via I2C).
 

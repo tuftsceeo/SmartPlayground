@@ -17,63 +17,211 @@ import machine
 import time
 import sys
 import json
+import gc
+import os
 
 from hubtype import HUB_TYPE, HUB_CONFIG
 from pn532 import PN532
 from lis2dw12 import LIS2DW12, RANGE_4G
 from max17048 import MAX17048
 
-from leds import Leds, TRIGGER_ORDER, battery_color, WHITE, OFF
+from leds import (
+    Leds, TRIGGER_ORDER, battery_color, WHITE, OFF,
+    SHAPE_CHECK, SHAPE_X, RED, GREEN, AMBER, CYAN, BLUE_DIM,
+    # GAME_ICON palette/shapes (loading indicator, see below).
+    PURPLE, ORANGE, LIME, SKY, TEAL, MAGENTA, PINK, ROSE, INDIGO, YELLOW,
+    SHAPE_BULLSEYE, SHAPE_INNER_3x3, SHAPE_FLAME, SHAPE_MUSIC,
+    SHAPE_ARROW_UP, SHAPE_ROW3, SHAPE_SPIRAL, SHAPE_SLASH_L, SHAPE_WIFI,
+    SHAPE_WIFI_2, BLUE, ORANGE,
+    SHAPE_RAINDROP, SHAPE_DIAMOND, SHAPE_POINTER, SHAPE_EXCLAIM,
+    SHAPE_FASTFORWARD,
+)
 from power_led import PowerLed
 from buzzer import Buzzer
-from nfc_reader import NfcReader
+from nfc_reader import NfcReader, split_prefixed, parse_splat_card
 from actions import ActionRunner, ACTIONS, ANIMAL_SOUNDS, ACTION_RESOURCE, resolve_and_group, chain_to_str
 from battery import show_battery
 from espnow_manager import ESPNowManager
-from color_quest import play as play_color_quest
-from freeze_dance import play as play_freeze_dance
-from jumpin import play as play_jumpin
-from cooking import play as play_cooking
-from melody import play as play_melody
-from shake import play as play_shake
-from shake_rainbow import play as play_shake_rainbow
-from rainbow import play as play_rainbow
-from jump import play as play_jump
-from sound import play as play_sound
-from nfc_sound import play as play_nfc_sound
-from simpleicecream import play as play_simpleicecream
-from multiicecream import play as play_multiicecream
-from gestures import play as play_gestures
-from finddevice import play as play_finddevice
 from game_tags import GAME_TAGS, CONTROL_TAGS, HIDDEN_TAGS
 import brightness
+import game_store
+import memprobe  # BENCH: see lib/memprobe.py docstring
+
+# Games pulled from the Broadcast Box live in /games/<slug>.py. Putting that
+# directory on sys.path is what lets _load_play() import a pulled game with
+# the same bare __import__(name) it uses for a built-in -- no special loader,
+# no path juggling at launch time. Done here, before anything calls
+# game_store.slugs(), so ALL_COMMANDS below sees the library.
+game_store.ensure_dir()
+if game_store.GAMES_DIR not in sys.path:
+    sys.path.append(game_store.GAMES_DIR)
 
 # ─────────────────────────────────────────────
-# GAME DISPATCH
+# GAME MODULES (lazy import on tap -- see below)
 # ─────────────────────────────────────────────
-GAME_DISPATCH = {
-    "colorquest":     play_color_quest,
-    "freezedance":    play_freeze_dance,
-    "jumpin":         play_jumpin,
-    "cooking":        play_cooking,
-    "melody":         play_melody,
-    "shake":          play_shake,
-    "shakerainbow":   play_shake_rainbow,
-    "rainbow":        play_rainbow,
-    "jump":           play_jump,
-    "sound":          play_sound,
-    "nfcsound":       play_nfc_sound,
-    "simpleicecream": play_simpleicecream,
-    "multiicecream":  play_multiicecream,
-    "gestures":       play_gestures,
+# Each game used to be a top-level `from <game> import play` here: 15
+# imports, 4719 lines of game source compiled to RAM-resident bytecode on
+# EVERY boot, of which exactly one game ever runs in a given session. That
+# was the root cause of "OSError: WiFi Out of Memory" at enow.init() below
+# -- MicroPython's GC heap is carved out of the IDF heap in splits that
+# are never returned, and the eager-import baseline left too little
+# contiguous IDF heap for esp_wifi_init()/esp_wifi_start() to succeed.
+# See Bag3/Code/TeacherTools/BroadcastBox/docs_and_design/old/2026-09-01-wifi-handoff-diagnosis.md.
+#
+# GAME_MODULES maps tag name -> module basename (not a callable -- the
+# module is compiled only when its tag is actually tapped or ESP-NOW
+# start_game names it). _load_play() below does the import.
+GAME_MODULES = {
+    "colorquest":     "color_quest",
+    "freezedance":    "freeze_dance",
+    "jumpin":         "jumpin",
+    "cooking":        "cooking",
+    "melody":         "melody",
+    "shake":          "shake",
+    "shakerainbow":   "shake_rainbow",
+    "rainbow":        "rainbow",
+    "jump":           "jump",
+    "sound":          "sound",
+    "nfcsound":       "nfc_sound",
+    "simpleicecream": "simpleicecream",
+    "multiicecream":  "multiicecream",
+    "gestures":       "gestures",
+    # Two-device game: this is the wand half. The icon display runs its own
+    # goalrace.py, a different program that happens to play the same game.
+    "goalrace":       "goalrace",
+    # Two-device game: wand half; the Splat Companion runs its splatecho.py.
+    "splatecho":      "splatecho",
+    # Lobby games (SPLATS_MIN): each wand taps the card and joins one lobby.
+    "lobbytest":      "lobbytest",
+    "splattag":       "splattag",
+    "relaycolor":     "relaycolor",
     # Hidden (ESP-NOW only, never NFC): targeted identify animation.
-    "finddevice":     play_finddevice,
+    "finddevice":     "finddevice",
 }
 
-if set(GAME_DISPATCH.keys()) != (GAME_TAGS | HIDDEN_TAGS):
-    print("  [ERR] GAME_DISPATCH keys do not match GAME_TAGS|HIDDEN_TAGS in game_tags.py")
-    print("        dispatch: %s" % sorted(GAME_DISPATCH.keys()))
+if set(GAME_MODULES.keys()) != (GAME_TAGS | HIDDEN_TAGS):
+    print("  [ERR] GAME_MODULES keys do not match GAME_TAGS|HIDDEN_TAGS in game_tags.py")
+    print("        modules:  %s" % sorted(GAME_MODULES.keys()))
     print("        expected: %s" % sorted(GAME_TAGS | HIDDEN_TAGS))
+
+# GAME_MODULES above is the BUILT-IN table only, and the drift check is
+# deliberately scoped to it: games pulled from the Broadcast Box live in
+# /games/<slug>.py and are discovered at runtime, so they can never appear
+# in game_tags.py and must not trip that check.
+#
+# Everything downstream asks game_module()/is_game() instead of indexing
+# GAME_MODULES directly, so a pulled game loads, chains and unloads by
+# exactly the same path as a built-in.
+
+
+def _module_on_flash(mod):
+    """True if <mod>.py (or .mpy) is in the flash root.
+
+    Accepts .mpy so a future mpy-cross precompile pass needs no change here.
+    """
+    for ext in (".py", ".mpy"):
+        try:
+            os.stat(mod + ext)
+            return True
+        except OSError:
+            continue
+    return False
+
+
+def game_module(name):
+    """Module basename for a game tag, or None if this wand cannot play it.
+
+    Every game is optional on every device. A built-in is only playable if
+    its file is actually on flash, exactly as a pulled game is only playable
+    if /games holds it -- so a tag whose file was never installed or was
+    removed reads as "not a game here" and falls through to the ordinary
+    unknown-tag response, rather than a load failure.
+
+    Built-ins win over pulled games: a pulled file can never shadow one
+    (the app also refuses those slugs at name-entry time), but if one ever
+    lands on flash the built-in is still what runs.
+    """
+    if name in GAME_MODULES:
+        mod = GAME_MODULES[name]
+        if _module_on_flash(mod):
+            return mod
+        # Falls through rather than returning None: the built-in games are
+        # moving out of the flash root and into /games, alongside the pulled
+        # ones, and /games is on sys.path either way. Being in GAME_MODULES
+        # is a claim about the tag, not about where the file sits -- so a
+        # game found only in /games is still this wand's to play.
+    if game_store.exists(name):
+        return name          # /games is on sys.path; slug == module name
+    return None
+
+
+# ─────────────────────────────────────────────
+# JSON TELEMETRY (output-only)
+# ─────────────────────────────────────────────
+# The wand otherwise only prints prose, which ChatBroadcast's direct-USB-push
+# path cannot tell apart from any other MicroPython board, or wait on to know
+# a push landed. This is the wand-side mirror of BBoxFirmware/bbox_server.py's
+# `identity`/`heartbeat` lines -- same shapes, so ChatBroadcast's existing
+# NDJSON line reader (ChatBroadcast/js/device/bboxLink.js) parses it unchanged.
+#
+# Deliberately output-only: there is no command listener here. Polling
+# sys.stdin would add work to a timing-sensitive NFC/LED loop for a feature
+# the raw REPL already provides (ChatBroadcast drives file pushes and resets
+# from there, same as it does for the Box's firmware install).
+WAND_VERSION = "0.1.0"
+
+
+def _emit(obj):
+    """Print one JSON line. No try/except -- a bad payload here is a bug in
+    this file, not a runtime condition to hide (HARDWARE_PROTOCOL.md: "every
+    abort prints its reason ... zero silent failures")."""
+    print(json.dumps(obj))
+
+
+def is_game(name):
+    return game_module(name) is not None
+
+
+memprobe.probe("after-imports")  # BENCH: the number that proves the fix
+
+# ─────────────────────────────────────────────
+# GAME ICON (shown briefly while a game's module is being imported)
+# ─────────────────────────────────────────────
+# No such name -> icon table existed anywhere on the wand before this.
+# Colors are grounded where a brand color is already published to
+# teachers in Live_Page/wand_icons.html (colorquest, freezedance, cooking,
+# melody); the rest are chosen for maximum pairwise distinction. A
+# per-pixel RGB icon system is planned separately (Stations/Icon Display
+# Station/wand_icon.md) and may supersede this SHAPE_*-based table --
+# noted at decision time, kept anyway per request.
+GAME_ICON = {
+    "colorquest":     (SHAPE_BULLSEYE,   GREEN),
+    "freezedance":    (SHAPE_INNER_3x3,  PURPLE),
+    "cooking":        (SHAPE_FLAME,      ORANGE),
+    "melody":         (SHAPE_MUSIC,      CYAN),
+    "jumpin":         (SHAPE_ARROW_UP,   LIME),
+    "jump":           (SHAPE_ARROW_UP,   SKY),
+    "rainbow":        (SHAPE_ROW3,       TEAL),
+    "shakerainbow":   (SHAPE_SPIRAL,     MAGENTA),
+    "shake":          (SHAPE_SLASH_L,    AMBER),
+    "sound":          (SHAPE_MUSIC,      AMBER),
+    "nfcsound":       (SHAPE_WIFI,       AMBER),
+    "simpleicecream": (SHAPE_RAINDROP,   PINK),
+    "multiicecream":  (SHAPE_DIAMOND,    ROSE),
+    "gestures":       (SHAPE_POINTER,    INDIGO),
+    "goalrace":       (SHAPE_FASTFORWARD, LIME),
+    "splatecho":      (SHAPE_DIAMOND,    YELLOW),
+    "lobbytest":      (SHAPE_DIAMOND,    CYAN),
+    "splattag":       (SHAPE_BULLSEYE,   RED),
+    "relaycolor":     (SHAPE_SPIRAL,     ORANGE),
+    "finddevice":     (SHAPE_EXCLAIM,    WHITE),
+}
+
+if set(GAME_ICON.keys()) != set(GAME_MODULES.keys()):
+    print("  [ERR] GAME_ICON keys do not match GAME_MODULES")
+if len(set(GAME_ICON.values())) != len(GAME_ICON):
+    print("  [ERR] GAME_ICON has duplicate (shape, color) pairs -- "
+          "two games would look identical while loading")
 
 # ─────────────────────────────────────────────
 # PINS FROM HUBTYPE
@@ -94,27 +242,46 @@ FIXED_TRIGGERS = {"buttondown", "buttonup", "whenshake"}
 COMBINATORS    = {"and", "then"}
 CONTROLS       = GAME_TAGS | CONTROL_TAGS
 UTILITY        = {"battery"}
-ALL_COMMANDS   = FIXED_TRIGGERS | ACTIONS | ANIMAL_SOUNDS | COMBINATORS | CONTROLS | UTILITY
+BROADCAST      = {"getcode"}
+BASE_COMMANDS  = FIXED_TRIGGERS | ACTIONS | ANIMAL_SOUNDS | COMBINATORS | CONTROLS | UTILITY | BROADCAST
+# Pulled games answer to their own slug as a tag. Computed once at import:
+# the wand resets after every successful pull, so this can never go stale.
+ALL_COMMANDS   = BASE_COMMANDS | set(game_store.slugs())
 
 # ─────────────────────────────────────────────
 # ADDING A NEW GAME
 # ─────────────────────────────────────────────
 # Each game is a separate module in this folder that exposes a single
-# `play(...)` entry point. To add a new game named "yourgame":
+# `play(...)` entry point, imported lazily (on tap) rather than at boot --
+# see the GAME_MODULES comment above for why. To add a new game named
+# "yourgame":
 #
-#   1. Create `Wand Module/yourgame.py` exposing
-#      `def play(nfc, leds, buz, accel, i2c, enow): ...` returning when
-#      "stop" NFC tag, ESP-NOW stop, or ESP-NOW start_game is received
-#      (poll enow every loop).
-#   2. Add the line `from yourgame import play as play_yourgame` near
-#      the existing `play_jumpin` import at the top of this file.
-#   3. Add the tag name `"yourgame"` to GAME_TAGS in lib/game_tags.py.
-#   4. Add `"yourgame": play_yourgame` to GAME_DISPATCH in this file.
-#   5. In yourgame.py, union EXIT_TAGS into COMMANDS and exit when
+#   1. Create `yourgame.py` in this folder exposing
+#      `def play(nfc, leds, buz, accel, i2c, enow, batt=None, net=None): ...`
+#      returning when the "stop" NFC tag, ESP-NOW stop, or ESP-NOW
+#      start_game is received (poll enow every loop). Parameters are
+#      passed positionally up to as many as play() declares (6, 7 or 8);
+#      `batt` is the MAX17048 fuel gauge and is None when the board has
+#      none. `net` is None unless the module declares SPLATS_MIN (a lobby
+#      game, see README.md).
+#   2. Add the tag name `"yourgame"` to GAME_TAGS in lib/game_tags.py.
+#   3. Add `"yourgame": "yourgame"` to GAME_MODULES in this file --
+#      key is the tag name, value is the module's filename (no `.py`).
+#      They differ for a few games (e.g. "colorquest" -> "color_quest");
+#      match your actual filename.
+#   4. In yourgame.py, union EXIT_TAGS into COMMANDS and exit when
 #      `cmd in EXIT_TAGS` so kids can switch games via any game tag.
-#   6. The teacher prints an NFC tag whose NDEF text payload is
+#   5. The teacher prints an NFC tag whose NDEF text payload is
 #      `yourgame`. Tapping it from idle enters the game; tapping the
 #      `stop` tag or another game tag exits back to programming mode.
+#   6. Do NOT have yourgame.py register a persistent callback on enow,
+#      leds, nfc, or any Pin (e.g. enow.set_status_provider, Pin.irq), and
+#      do not stash a reference to any object play() was passed in a
+#      module-level or other long-lived name. A game is imported and
+#      unloaded on every play; a callback or stored reference into it
+#      keeps the whole module pinned in RAM even after unload, defeating
+#      the point of lazy loading and silently doubling the module's
+#      memory cost on the next tap.
 #
 # See `jumpin.py` for the simplest possible example and
 # `freeze_dance.py` for a more complete game (ESP-NOW messaging,
@@ -124,6 +291,7 @@ ALL_COMMANDS   = FIXED_TRIGGERS | ACTIONS | ANIMAL_SOUNDS | COMBINATORS | CONTRO
 # NFC SLEEP TIMEOUT
 # ─────────────────────────────────────────────
 NFC_SLEEP_MS = 30_000  # 30 seconds of inactivity before NFC sleeps
+SOC_REFRESH_MS = 60_000  # battery gauge re-read while idle or asleep
 
 # ─────────────────────────────────────────────
 # HARDWARE (LEDs init FIRST for boot indicator)
@@ -133,7 +301,18 @@ leds     = Leds()
 # ── BOOT STEP 1: Power-status LED + boot indicator on immediately ──
 pled     = PowerLed()   # discrete power LED on Pin 2 (Bag3)
 pled.on()
-leds.boot_power()
+
+# /boot_ok is written after a boot with no warning or failure and removed by
+# any later one (and by tools/deploy.py). Without it, main() runs the debug
+# boot: boot-stage LEDs, memory probes and the held result bar.
+BOOT_OK_PATH = "/boot_ok"
+try:
+    os.stat(BOOT_OK_PATH)
+    DEBUG_BOOT = False
+except OSError:
+    DEBUG_BOOT = True
+if DEBUG_BOOT:
+    leds.boot_power()
 
 i2c      = machine.SoftI2C(sda=machine.Pin(I2C_SDA), scl=machine.Pin(I2C_SCL), freq=HUB_CONFIG["i2c_freq"])
 buz      = Buzzer(BUZZER_PIN)
@@ -197,23 +376,235 @@ class _StartGameCapture:
         mt, data, mac = self._enow.poll(timeout_ms)
         if mt == "start_game":
             self.pending_name = data.get("name") if isinstance(data, dict) else None
+        elif mt == "code_push":
+            _queue_push(data)
+            return "stop", data, mac            # end the game; idle loop pulls
+        elif mt == "raw" and _pair_ctl is not None and isinstance(data, dict):
+            r = _pair_ctl.on_msg(data, mac)
+            if r == "who":
+                return None, None, None
+            if r == "release":
+                return "stop", data, mac     # pw_release_all ends the game
         return mt, data, mac
 
     def __getattr__(self, attr):
         return getattr(self._enow, attr)
 
 
-def _launch_game(name, nfc, leds, buz, accel, i2c, enow, batt_ref):
-    """Run a game and chain force-switches without returning to idle."""
-    while name in GAME_DISPATCH:
-        wrapper = _StartGameCapture(enow)
-        play_func = GAME_DISPATCH[name]
-        if name == "rainbow":
-            play_func(nfc, leds, buz, accel, i2c, wrapper, batt=batt_ref)
+def _load_play(name):
+    """Compile a game's module on demand and return its play(). Raises on
+    failure -- caller (_launch_game) turns that into the loud failure path.
+
+    Shows the game's GAME_ICON, if it has one (built-ins only), while the
+    (blocking) import/compile runs, so a tap gets an immediate response even
+    before the module's own entry fanfare. Pulled games show nothing. No
+    animation here by design -- Phase 3 measures per-game import time before
+    deciding whether one is warranted.
+    """
+    mod_name = game_module(name)
+    # Only built-ins have an icon. A pulled game used to get a white music
+    # note here, which testers read as the game itself; show nothing instead.
+    icon = GAME_ICON.get(name)
+    if icon is not None:
+        leds.show_shape(icon[0], icon[1])
+    else:
+        leds.off()
+    memprobe.probe("pre-import:%s" % name)   # BENCH
+    tok = memprobe.mark()                    # BENCH
+    mod = __import__(mod_name)
+    memprobe.span("import:%s" % name, tok)   # BENCH
+    return getattr(mod, "play")
+
+
+def _splat_limits(name):
+    """(SPLATS_MIN, SPLATS_MAX) if the loaded game module declares a lobby
+    game, else None. Raises ValueError for an invalid declaration."""
+    mod = sys.modules[game_module(name)]
+    lo = getattr(mod, "SPLATS_MIN", None)
+    if lo is None:
+        return None
+    hi = getattr(mod, "SPLATS_MAX", None)
+    if (not isinstance(lo, int) or isinstance(lo, bool) or lo < 1
+            or (hi is not None and (not isinstance(hi, int) or isinstance(hi, bool) or hi < lo))):
+        raise ValueError("%s: SPLATS_MIN=%r SPLATS_MAX=%r (need int >= 1, and None or >= SPLATS_MIN)"
+                         % (name, lo, hi))
+    return lo, hi
+
+
+def _unload_game(name):
+    """Drop a finished game's module so the next one starts from a
+    cleaner heap rather than stacking on top of it.
+
+    Reclaims the module's globals dict, its function objects/bytecode,
+    and its non-interned constants. Does NOT reclaim interned strings --
+    MicroPython interns every identifier and string literal into a qstr
+    pool that is never freed short of a reset, so each *distinct* game
+    loaded in one boot leaves a small permanent residual behind. See
+    import_bench.py's bench_unload_cycle() for the measured size of that
+    residual. Safe only because no game may hold a callback or retained
+    reference into itself -- see rule 6 in "ADDING A NEW GAME" above.
+    """
+    mod_name = game_module(name)
+    if mod_name and mod_name in sys.modules:
+        del sys.modules[mod_name]
+    gc.collect()
+
+
+UNLOAD_AFTER_GAME = True  # bench toggle -- see the post-unload probe
+
+
+def _game_load_failed(name, exc):
+    """Loud, unmissable, non-fatal. Wand returns to idle and stays usable.
+
+    Deliberately not boot_stage_fail(): that writes one pixel on the numbered
+    boot ladder and belongs to the boot sequence. A mid-session load failure
+    has no stage number and must read from across a room, so it clears the
+    whole matrix (show_shape does this) and repeats -- three flashes with a
+    two-tone beep, distinct from the single-X-plus-descending-beeps used for
+    a *pull* failure in _pull_fail(), so field triage without a serial
+    cable can tell "pull failed" from "game wouldn't load".
+    """
+    print("  [FAIL] game load: %s (module %s)"
+          % (name, game_module(name)))
+    sys.print_exception(exc)
+    _emit({"type": "error", "where": "game_load", "slug": name, "err": str(exc)})
+    memprobe.probe("load-fail:%s" % name)   # BENCH
+    memprobe.frag("load-fail:%s" % name)    # BENCH
+    for _ in range(3):
+        leds.show_shape(SHAPE_X, RED)
+        buz.beep(300, 180)
+        time.sleep_ms(80)
+        leds.off()
+        buz.beep(200, 180)
+        time.sleep_ms(80)
+    leds.show_shape(SHAPE_X, RED)
+    time.sleep_ms(700)
+    leds.off()
+    # A partial success (module compiled, no play()) can leave a stub
+    # entry in sys.modules; clear it so the next tap recompiles cleanly
+    # instead of reusing a module that will fail the same way silently.
+    _unload_game(name)
+
+
+def _is_arity_error(e):
+    """True if this TypeError is "wrong number of arguments", not a fault
+    from inside the game. MicroPython words it distinctively."""
+    msg = str(e)
+    return ("positional argument" in msg
+            or ("argument" in msg and "given" in msg))
+
+
+def _start_play(play_func, name, nfc, leds, buz, accel, i2c, wrapper, batt_ref, net=None):
+    """Call a game's play(), tolerating the older six- and seven-parameter
+    signatures.
+
+    batt became a real seventh parameter long after games had been written
+    and pulled against six, and net an eighth for lobby games. Those games
+    are still on flash and still on the Box. Refusing to run them would make
+    every game a teacher generated before the change dead on this wand, which
+    is a worse outcome than calling them the way they were written. net is
+    None for a game that is not a lobby game.
+
+    Where the port exposes __code__.co_argcount the arity is read outright
+    and the right call is made first time. Where it does not, the eight-arg
+    call is tried and an arity TypeError falls back to seven, then six -- the
+    game has not started at that point, because Python raises on arity before
+    entering the function.
+    """
+    args = (nfc, leds, buz, accel, i2c, wrapper, batt_ref, net)
+    code = getattr(play_func, "__code__", None)
+    n = getattr(code, "co_argcount", None) if code is not None else None
+    if n is not None:
+        return play_func(*args[:n]) if n < len(args) else play_func(*args)
+    for k in (8, 7, 6):
+        try:
+            return play_func(*args[:k])
+        except TypeError as e:
+            if not _is_arity_error(e) or k == 6:
+                raise
+            print("  %s does not take %d arguments; trying %d" % (name, k, k - 1))
+
+
+def _enter_lobby(name, limits, enow, nfc, leds, buz):
+    # Lobby for a lobby game. Returns a lobby_game.Net in its game phase, or None
+    # (cancelled, left or lost), after giving feedback.
+    import lobby_game
+    from espnow_manager import get_own_mac
+    net = lobby_game.enter(enow, name, limits[0], limits[1], _pair_ctl, get_own_mac(),
+                      nfc, leds, buz, lambda: btn.value() == 0)
+    if net is None and lobby_game.pair_card:
+        card, lobby_game.pair_card = lobby_game.pair_card, None
+        leds.off()
+        _pair_card(card, enow)       # resets after a new pairing
+        return None
+    if net is None:
+        if lobby_game.last_end in ("left", "external"):
+            buz.stop()
         else:
-            play_func(nfc, leds, buz, accel, i2c, wrapper)
+            leds.show_shape(SHAPE_X, RED)
+            buz.reject()
+            time.sleep_ms(500)
+        leds.off()
+    return net
+
+
+def _launch_game(name, nfc, leds, buz, accel, i2c, enow, batt_ref):
+    """Run a game (and any chained force-switches), then give a paired
+    wand's Splats their idle state back."""
+    pled.game()
+    try:
+        _run_games(name, nfc, leds, buz, accel, i2c, enow, batt_ref)
+    finally:
+        if _pair_ctl is not None:
+            _pair_ctl.after_game()
+
+
+def _run_games(name, nfc, leds, buz, accel, i2c, enow, batt_ref):
+    """Run a game and chain force-switches without returning to idle."""
+    while is_game(name):
+        try:
+            play_func = _load_play(name)
+        except Exception as e:
+            _game_load_failed(name, e)
+            return
+        wrapper = _StartGameCapture(enow)
+        net = None
+        try:
+            limits = _splat_limits(name)
+        except ValueError as e:
+            _game_load_failed(name, e)
+            return
+        if limits is not None:
+            net = _enter_lobby(name, limits, wrapper, nfc, leds, buz)
+        if limits is None or net is not None:
+            _emit({"type": "game_start", "slug": name})
+            try:
+                try:
+                    _start_play(play_func, name, nfc, leds, buz, accel, i2c,
+                                wrapper, batt_ref, net)
+                except TypeError as e:
+                    # A game that cannot even be CALLED is a load failure, not a
+                    # reason to take the main loop down with it. Anything raised
+                    # from inside a running game still propagates, as before.
+                    if not _is_arity_error(e):
+                        raise
+                    _game_load_failed(name, e)
+                    return
+            finally:
+                if net is not None:
+                    net.close()
+            _emit({"type": "game_end", "slug": name})
         next_name = wrapper.pending_name
-        if not next_name or next_name not in GAME_DISPATCH:
+        # Drop the reference before unloading -- play_func is what pins
+        # the module in this frame; a chained force-switch must not
+        # compile the next game on top of a still-referenced one.
+        play_func = None
+        wrapper = None
+        memprobe.probe("post-game:%s" % name)      # BENCH
+        if UNLOAD_AFTER_GAME:
+            _unload_game(name)
+        memprobe.probe("post-unload:%s" % name)    # BENCH
+        if not next_name or not is_game(next_name):
             break
         name = next_name
 
@@ -241,9 +632,14 @@ def check_broadcast(enow, batt_ref, leds_ref, buz_ref):
         return "battery"
     if msg_type == "start_game":
         name = data.get("name") if isinstance(data, dict) else None
-        if name in GAME_DISPATCH:
+        if is_game(name):
             return ("start_game", name)
         print("  ESP-NOW: ignoring unknown start_game name: %r" % name)
+    if msg_type == "code_push":
+        _queue_push(data)
+        return "stop"                           # idle loop runs the pull
+    if msg_type == "raw" and _pair_ctl is not None and isinstance(data, dict):
+        _pair_ctl.on_msg(data, mac_str)
     return None
 
 
@@ -252,12 +648,13 @@ def check_broadcast(enow, batt_ref, leds_ref, buz_ref):
 # ─────────────────────────────────────────────
 def show_idle(last_soc, idle_frame):
     """Show the correct idle display based on battery level."""
-    # Power LED: solid when healthy, ~1Hz blink when battery is low.
-    pled.update(last_soc, idle_frame)
+    pled.idle(last_soc)
     if last_soc <= 10:
         leds.idle_low_blink(idle_frame)
     else:
         leds.idle_default(last_soc)
+    if _pair_ctl is not None:
+        _pair_ctl.mark(leds)
 
 
 # ─────────────────────────────────────────────
@@ -328,45 +725,257 @@ def run_event_loop(reader, rules, runner, accel_ref, enow=None, batt_ref=None):
         time.sleep_ms(20)
 
 
+# Seconds of countdown before main() takes the board, so a Ctrl-C can land
+# and leave you at the REPL. ZERO by default: the wand should boot straight
+# into being a wand, and every board here answers Ctrl-C without help. Set it
+# to a few seconds on a test rig that does not -- a board whose REPL is hard
+# to catch is the only thing this is for.
+GRACE_S = 0
+
+
+def _boot_grace():
+    if GRACE_S <= 0:
+        return
+    print("# booting -- Ctrl-C within %ds to stay at the REPL" % GRACE_S)
+    for remaining in range(GRACE_S, 0, -1):
+        print("# %d..." % remaining)
+        time.sleep_ms(1000)
+
+
+# ─────────────────────────────────────────────
+# CODE PULL DISPLAY
+# ─────────────────────────────────────────────
+def _pull_fail(shape, color, sound="error"):
+    """Show one failure glyph, play `sound`, and go dark.
+
+    red wifi bars = no host answered, orange = host has no such game,
+    amber = host busy, red X = transfer itself broke.
+    """
+    leds.show_shape(shape, color)
+    buz.play(sound)
+    time.sleep_ms(900)
+    leds.off()
+
+
+def _pull_progress(received, total):
+    """Light the matrix left-to-right as bytes land.
+
+    Palette colors only: every write is scaled by brightness.MULTIPLIER
+    (0.05 indoors), so a raw dim tuple like (0, 20, 40) would arrive as
+    (0, 1, 2) -- invisible.
+    """
+    pled.flicker()
+    pct = (received / total) if total else 0
+    lit = max(1, int(pct * leds.num))
+    for i in range(leds.num):
+        leds.np[i] = CYAN if i < lit else BLUE_DIM
+    leds.np.write()
+
+
+# ─────────────────────────────────────────────
+# ESP-NOW CODE PULL — getcode over the radio already up, no reset
+# ─────────────────────────────────────────────
+def _espnow_pull_and_launch(enow, slug, host_id, nfc, accel, i2c, batt):
+    """Receive a game from the Box/Dial over ESP-NOW (lib/espnow_code.py),
+    then launch it. On failure the old copy stays and the wand returns to
+    idle with the pull-failure display."""
+    import espnow_code
+    print("# getcode (slug=%r host=%r) via espnow" % (slug, host_id))
+    if slug:
+        _unload_game(slug)
+    gc.collect()
+    leds.fill(BLUE_DIM)
+    buz.start()
+    ok = espnow_code.receive(enow, slug=slug, hubtype=HUB_TYPE,
+                             on_progress=_pull_progress, verbose=True,
+                             host_id=host_id)
+    stats = espnow_code.LAST_STATS or {}
+    _emit({"type": "pull", "slug": slug or "", "host": host_id or "",
+           "result": str(ok), "why": stats.get("why"),
+           "bytes": stats.get("bytes"), "total_ms": stats.get("total_ms")})
+    if ok == 'nohost':
+        _pull_fail(SHAPE_WIFI_2, RED)
+    elif ok == 'norequest':
+        _pull_fail(SHAPE_WIFI_2, ORANGE, sound="reject")
+    elif ok == 'busy':
+        _pull_fail(SHAPE_WIFI_2, AMBER)
+    elif ok is not True:
+        _pull_fail(SHAPE_X, RED)
+    else:
+        leds.show_shape(SHAPE_CHECK, GREEN)
+        buz.success()
+        time.sleep_ms(600)
+        name = stats.get("name") or slug
+        _unload_game(name)
+        _launch_game(name, nfc, leds, buz, accel, i2c, enow, batt)
+
+
+# ─────────────────────────────────────────────
+# SPLAT PAIRING (boot)
+# ─────────────────────────────────────────────
+# Both functions run from main() after enow.init(). Nothing here may be
+# called, and no pairing module imported, ahead of the radio claim.
+_PAIRING_PATH = "/pairing.json"   # same file as lib/pairing.py PATH
+_PAIR_BOOT_PATH = "/pair_boot"    # same file as lib/splatpair.py PAIR_BOOT_PATH
+_pair_ctl = None                  # splatpair.SplatPairing for a paired wand
+_pending_push = None              # (slug, host) from a Dial code_push
+
+
+def _queue_push(data):
+    """Record a Dial code_push; the idle loop runs it as a getcode pull."""
+    global _pending_push
+    _pending_push = (data.get("slug") or "", data.get("host") or "")
+
+
+def _read_pairing():
+    # Inline read: lib/pairing.py is not imported on an unpaired boot.
+    # Only the reset that follows a Splat card tap keeps the pairing
+    # (splatpair.PAIR_BOOT_PATH); every other boot clears it, so BLE stays
+    # off until a Splat card is tapped.
+    try:
+        os.stat(_PAIRING_PATH)
+    except OSError:
+        return []
+    try:
+        os.remove(_PAIR_BOOT_PATH)
+    except OSError:
+        os.remove(_PAIRING_PATH)
+        print("  Pairing cleared (no Splat card tap before this boot)")
+        return []
+    with open(_PAIRING_PATH) as f:
+        items = json.load(f)["splats"]
+    return [m for m in items if isinstance(m, str)]
+
+
+def _boot_pairing(enow):
+    global _pair_ctl
+    try:
+        macs = _read_pairing()
+        if not macs:
+            return
+        import ubluetooth
+        ubluetooth.BLE().active(True)
+        import splatpair
+        _pair_ctl = splatpair.SplatPairing(macs, enow, leds, buz)
+        print("  Splat pairing: %d Splat(s) %s" % (_pair_ctl.count, _pair_ctl.macs))
+    except Exception as e:
+        print("  [WARN] Splat pairing unavailable, booting unpaired:")
+        sys.print_exception(e)
+        _emit({"type": "error", "where": "pairing", "err": str(e)})
+        _pair_ctl = None
+        try:
+            os.stat(_PAIRING_PATH)
+        except OSError:
+            pass        # nothing on flash to clear
+        else:
+            os.remove(_PAIRING_PATH)
+        _boot_warn()
+        _stage("boot_stage_ok", 0, row_colors=[OFF, OFF, AMBER, GREEN if enow.is_active else AMBER])
+
+
+def _pair_card(cmd, enow):
+    # A Splat card or the unpair card, idle loop only. An unpaired wand
+    # builds a controller without a hub; adding a pairing resets the wand.
+    global _pair_ctl
+    import splatpair
+    if _pair_ctl is None:
+        _pair_ctl = splatpair.SplatPairing([], enow, leds, buz)
+    if _pair_ctl.on_card(cmd) == "reset":
+        time.sleep_ms(300)           # let the confirm tone finish
+        machine.reset()
+
+
+_boot_clean = True
+
+
+def _stage(name, *args, **kwargs):
+    # Boot-stage LED call, debug boot only.
+    if DEBUG_BOOT:
+        getattr(leds, name)(*args, **kwargs)
+
+
+def _boot_warn(stage=None):
+    global _boot_clean
+    _boot_clean = False
+    if stage is not None:
+        _stage("boot_stage_warn", stage)
+
+
+def _forget_boot_ok():
+    try:
+        os.remove(BOOT_OK_PATH)
+    except OSError:
+        pass
+
+
 # ─────────────────────────────────────────────
 # MAIN
 # ─────────────────────────────────────────────
-def main():
+def _boot():
+    """Bring up every device. Returns (enow, batt, nfc, accel, accel_ok,
+    last_soc); nfc is None after a fatal NFC failure.
+
+    DEBUG_BOOT adds the boot-stage LEDs, memory probes and a 1.5 s hold on
+    the result bar. Any warning or failure removes /boot_ok so the next boot
+    is a debug boot; a clean debug boot writes it."""
+    t0 = time.ticks_ms()
+    if DEBUG_BOOT:
+        memprobe.probe("main-entry")  # BENCH
     print("\n" + "=" * 50)
     print("  PlaygroundV5 -- Multi-Trigger Event Engine")
     print("  Hub type: %s" % HUB_TYPE)
+    print("  Boot: %s" % ("debug" if DEBUG_BOOT else "fast"))
     print("=" * 50)
 
-    # NOTE: leds.boot_power() was already called at module level — LED 0 is dim white.
-    # Turning it green here confirms that main() was reached and imports succeeded.
-    # If an import fails before main() runs, LED 0 stays dim white permanently.
-    leds.boot_stage_ok(0)
+    # LED 0 green: main() was reached and imports succeeded. If an import
+    # fails before main() runs, LED 0 stays dim white (debug boot only).
+    _stage("boot_stage_ok", 0)
+
+    # ── ESP-NOW init — radio-first, ahead of every other boot stage ──
+    # esp_wifi_init()/esp_wifi_start() need tens of KB of *contiguous*
+    # internal IDF heap, and MicroPython's GC heap is carved out of that same
+    # IDF heap in splits that are never returned, so WiFi asks first. See
+    # docs_and_design/old/2026-09-01-wifi-handoff-diagnosis.md.
+    # Reports into stage 0's data row (rightmost cell); non-fatal.
+    enow = ESPNowManager()
+    if DEBUG_BOOT:
+        memprobe.probe("pre-enow"); memprobe.frag("pre-enow")  # BENCH
+    try:
+        enow.init()
+        _stage("boot_stage_ok", 0, row_colors=[OFF, OFF, OFF, GREEN])
+    except Exception as e:
+        print("  [WARN] ESP-NOW:"); sys.print_exception(e)
+        _boot_warn()
+        _stage("boot_stage_ok", 0, row_colors=[OFF, OFF, OFF, AMBER])
+    if DEBUG_BOOT:
+        memprobe.probe("post-enow")  # BENCH
+
+    # ── Splat pairing: BLE comes up only for a paired wand, after the radio
+    # has claimed its memory. ──
+    _boot_pairing(enow)
+    if DEBUG_BOOT:
+        memprobe.probe("post-ble")  # BENCH
 
     # ── Stage 1: Brightness calibration (OPT3002) ──
-    leds.boot_stage_start(1)
+    # Fast boot starts the first conversion here and reads it after the
+    # other stages, instead of waiting 120 ms and taking three samples.
+    _stage("boot_stage_start", 1)
+    light = None
+    light_t0 = 0
     try:
         from opt3002 import OPT3002
         light = OPT3002(i2c)
-        light.init()
-        m, lux = brightness.calibrate(light)
-        if lux is not None:
-            print("  Light: %.0f lux -> brightness x%.2f" % (lux, m))
-            # Build a 1-4 LED bar in WHITE_DIM representing ambient light level.
-            if lux < 200:    lit = 1   # very dim indoor
-            elif lux < 600:  lit = 2   # typical indoor
-            elif lux < 8000: lit = 3   # bright indoor / overcast outdoor
-            else:            lit = 4   # outdoor / direct light
-            row = [WHITE if i < lit else OFF for i in range(4)]
-            leds.boot_stage_ok(1, row_colors=row)
-        else:
-            print("  Light: sensor reads failed, brightness x%.2f" % m)
-            leds.boot_stage_warn(1)
+        light.init(wait=DEBUG_BOOT)
+        light_t0 = time.ticks_ms()
     except Exception as e:
         print("  [WARN] OPT3002: %s — brightness x1.00" % e)
-        leds.boot_stage_warn(1)
+        light = None
+        _boot_warn(1)
+    if DEBUG_BOOT and light is not None:
+        _calibrate_light(light, brightness.CAL_SAMPLES)
 
     # ── Stage 2: Battery gauge (MAX17048) ──
-    leds.boot_stage_start(2)
+    _stage("boot_stage_start", 2)
     batt = None
     last_soc = 100
     try:
@@ -374,38 +983,38 @@ def main():
         v, s = batt.read_all()
         last_soc = max(0, min(100, int(s)))
         print("  Battery: %.2fV, %.1f%%" % (v, s))
-        # Build a 1-4 LED bar in battery_color proportional to SOC.
+        # 1-4 LED bar in battery_color proportional to SOC.
         lit = max(1, round(last_soc / 100 * 4))
         batt_col = battery_color(last_soc)
         row = [batt_col if i < lit else OFF for i in range(4)]
-        leds.boot_stage_ok(2, row_colors=row, row_flash=5 if last_soc <= 10 else 0)
+        _stage("boot_stage_ok", 2, row_colors=row, row_flash=5 if last_soc <= 10 else 0)
     except Exception as e:
         print("  [WARN] Battery:"); sys.print_exception(e)
-        leds.boot_stage_warn(2)
+        _boot_warn(2)
+
+    if batt is not None:
+        enow.set_status_provider(lambda b=batt: int(b.soc), kind=HUB_TYPE)
+    else:
+        enow.set_status_provider(lambda: None, kind=HUB_TYPE)
 
     # ── Stage 3: NFC init (fatal on failure) ──
-    leds.boot_stage_start(3)
+    _stage("boot_stage_start", 3)
     nfc = PN532(i2c, NFC_ADDR)
     try:
         ic, ver, rev = nfc.begin()
         print("  PN532 firmware %d.%d (IC 0x%02X) -- NFC ready" % (ver, rev, ic))
-        leds.boot_stage_ok(3)
+        _stage("boot_stage_ok", 3)
     except Exception as e:
         print("  [FAIL] NFC:"); sys.print_exception(e)
+        _forget_boot_ok()
+        if not DEBUG_BOOT:
+            # The debug boot shows which stage failed.
+            machine.reset()
         leds.boot_stage_fail(3)
-        return
-
-    reader = NfcReader(nfc, ALL_COMMANDS)
-    runner = ActionRunner(leds, buz)
-
-    # ESP-NOW init — no LED stage, not hardware on the wand itself
-    enow = ESPNowManager()
-    enow.init()
-    if batt is not None:
-        enow.set_status_provider(lambda b=batt: int(b.soc))
+        return enow, batt, None, None, False, last_soc
 
     # ── Stage 4: Accelerometer ──
-    leds.boot_stage_start(4)
+    _stage("boot_stage_start", 4)
     accel = None
     accel_ok = False
     try:
@@ -413,13 +1022,12 @@ def main():
         accel.init(fs_range=RANGE_4G)
         accel_ok = True
         print("  Accelerometer OK")
-        leds.boot_stage_ok(4)
+        _stage("boot_stage_ok", 4)
     except Exception as e:
         print("  [WARN] Accel:"); sys.print_exception(e)
-        leds.boot_stage_warn(4)
+        _boot_warn(4)
 
-    # Wake-up interrupt is a separate step — if it fails, sleep-on-movement
-    # is disabled. Downgrade stage 4 to amber to reflect the degraded state.
+    # Wake-up interrupt failing disables sleep-on-movement: stage 4 amber.
     if accel_ok:
         try:
             accel.enable_wake_int1(threshold=8)
@@ -427,14 +1035,102 @@ def main():
         except Exception as e:
             print("  [WARN] Accel wake:"); sys.print_exception(e)
             accel_ok = False
-            leds.boot_stage_warn(4)
+            _boot_warn(4)
 
-    print("  Boot complete — all systems OK")
-    time.sleep_ms(1500)  # hold boot bar so it can be read before idle takes over
+    if not DEBUG_BOOT and light is not None:
+        # The first 100 ms conversion must have finished; before that the
+        # result register reads 0 lux.
+        left = 120 - time.ticks_diff(time.ticks_ms(), light_t0)
+        if left > 0:
+            time.sleep_ms(left)
+        _calibrate_light(light, 1)
+    if light is not None:
+        try:
+            light.shutdown()
+        except Exception:
+            pass
 
-    # Transition to idle
-    leds.off()
-    time.sleep_ms(100)
+    if _boot_clean:
+        print("  Boot complete — all systems OK (%d ms)" % time.ticks_diff(time.ticks_ms(), t0))
+        if DEBUG_BOOT:
+            try:
+                with open(BOOT_OK_PATH, "w") as f:
+                    f.write("1")
+            except OSError:
+                pass
+    else:
+        print("  Boot complete with warnings (%d ms); next boot is a debug boot"
+              % time.ticks_diff(time.ticks_ms(), t0))
+        _forget_boot_ok()
+    if DEBUG_BOOT:
+        memprobe.probe("boot-complete")  # BENCH
+    # Volunteered once per boot, same rule as the Box's identity (bbox_server.py
+    # _identity_payload docstring): a host that attaches later never sees it,
+    # so `heartbeat` below is what actually proves the link is alive.
+    _emit({
+        "type": "identity", "device": "wand", "version": WAND_VERSION,
+        "hub": HUB_TYPE, "games": sorted(list(GAME_MODULES.keys()) + game_store.slugs()),
+    })
+    if DEBUG_BOOT:
+        time.sleep_ms(1500)  # hold boot bar so it can be read before idle takes over
+        leds.off()
+        time.sleep_ms(100)
+    else:
+        leds.off()
+    return enow, batt, nfc, accel, accel_ok, last_soc
+
+
+def _calibrate_light(light, samples):
+    m, lux = brightness.calibrate(light, samples, brightness.CAL_DELAY_MS if samples > 1 else 0)
+    if lux is None:
+        print("  Light: sensor reads failed, brightness x%.2f" % m)
+        _boot_warn(1)
+        return
+    print("  Light: %.0f lux -> brightness x%.2f" % (lux, m))
+    # 1-4 LED bar in WHITE for the ambient light level.
+    if lux < 200:    lit = 1   # very dim indoor
+    elif lux < 600:  lit = 2   # typical indoor
+    elif lux < 8000: lit = 3   # bright indoor / overcast outdoor
+    else:            lit = 4   # outdoor / direct light
+    _stage("boot_stage_ok", 1, row_colors=[WHITE if i < lit else OFF for i in range(4)])
+
+
+def _nfc_wake(nfc):
+    # The first transfer to a powered-down PN532 wakes it and may fail.
+    for _ in range(3):
+        try:
+            nfc.begin()
+            return
+        except Exception as ex:
+            err = ex
+            time.sleep_ms(20)
+    print("  NFC wake error: %s" % str(err))
+
+
+def _read_soc(batt, last_soc):
+    if batt:
+        try:
+            _, s = batt.read_all()
+            return max(0, min(100, int(s)))
+        except Exception:
+            pass
+    return last_soc
+
+
+def main():
+    global _pending_push
+    _boot_grace()
+    try:
+        enow, batt, nfc, accel, accel_ok, last_soc = _boot()
+    except Exception:
+        _forget_boot_ok()
+        raise
+    pled.start()
+    if nfc is None:
+        pled.boot_fail()
+        return
+    reader = NfcReader(nfc, ALL_COMMANDS, prefixes=BROADCAST)
+    runner = ActionRunner(leds, buz)
 
     # ── State ──
     rules = {}
@@ -446,22 +1142,81 @@ def main():
     last_activity_ms = time.ticks_ms()
     nfc_sleeping = False
     idle_frame = 0
+    last_soc_ms = time.ticks_ms()
+
+    # ── Heartbeat ──
+    # Idle-loop only, same as the Box's SERVE-blocks-heartbeat behaviour
+    # (bbox_server.py HEARTBEAT_MS) -- a running game blocks this loop for
+    # its whole duration, so silence here does not by itself mean "gone",
+    # and the app already models that with a longer silence limit.
+    HEARTBEAT_MS = 5000
+    last_heartbeat_ms = time.ticks_ms()
+
+    # ── Auto-launch a just-pushed game ──
+    # ChatBroadcast's direct USB push (wandGameInstaller.js) writes the game,
+    # calls game_store.set_last_pulled() and soft-resets. take_last_pulled()
+    # clears the marker as it reads, so this fires once.
+    _just_pulled = game_store.take_last_pulled()
+    if _just_pulled:
+        print("  Launching just-pulled game: %s" % _just_pulled)
+        try:
+            _launch_game(_just_pulled, nfc, leds, buz, accel, i2c, enow, batt)
+        except Exception as e:
+            _game_load_failed(_just_pulled, e)
+        last_activity_ms = time.ticks_ms()
+        last_uid = None
 
     show_idle(last_soc, 0)
     print("\n  Tap a TRIGGER tag to start programming\n")
 
     while True:
+        # Checked every iteration, ahead of the try block below, because
+        # several branches inside it `continue` past the loop's tail
+        # sleep_ms(1) -- a check placed there would miss them and stall
+        # the heartbeat for however long those branches keep recurring.
+        if time.ticks_diff(time.ticks_ms(), last_heartbeat_ms) >= HEARTBEAT_MS:
+            last_heartbeat_ms = time.ticks_ms()
+            _emit({"type": "heartbeat", "up": last_heartbeat_ms})
         try:
+            # ── DIAL CODE PUSH ── same path as a getcode card tap.
+            if _pending_push is not None:
+                wanted, wanted_host = _pending_push
+                _pending_push = None
+                _clear_rules_state(enow)
+                rules = {}; editing = None; pending_combinator = None
+                buz.stop()
+                if nfc_sleeping:
+                    _nfc_wake(nfc)
+                nfc_sleeping = False
+                _espnow_pull_and_launch(enow, wanted, wanted_host, nfc, accel, i2c, batt)
+                last_activity_ms = time.ticks_ms()
+                idle_frame = 0
+                show_idle(last_soc, 0)
+                last_uid = None
+                continue
+
+            if _pair_ctl is not None:
+                for _i, _ev in _pair_ctl.poll():
+                    if _ev == "press":
+                        _pair_ctl.on_press(_i)
+                        motor.value(1); time.sleep_ms(80); motor.value(0)
+                        if not nfc_sleeping:
+                            show_idle(last_soc, 0)
+                _pair_ctl.refresh_glow()
+
             # ─────────────────────────────────────
             # NFC SLEEPING — minimal power mode
             # ─────────────────────────────────────
             if nfc_sleeping:
-                idle_frame += 1
-                pled.update(last_soc, idle_frame)  # keep power LED alive while asleep
-                leds.idle_sleep()  # static blue dot
+                if time.ticks_diff(time.ticks_ms(), last_soc_ms) > SOC_REFRESH_MS:
+                    last_soc_ms = time.ticks_ms()
+                    last_soc = _read_soc(batt, last_soc)
+                    pled.asleep(last_soc)
 
                 # Check ESP-NOW broadcasts while sleeping
                 result = check_broadcast(enow, batt, leds, buz)
+                if result is not None:
+                    _nfc_wake(nfc)
                 if result == "stop":
                     _clear_rules_state(enow)
                     rules = {}; editing = None; pending_combinator = None
@@ -487,9 +1242,6 @@ def main():
                     last_activity_ms = time.ticks_ms()
                     nfc_sleeping = False
 
-                if nfc_sleeping:
-                    leds.idle_sleep()
-
                 # Check accelerometer or button for wake
                 wake = False
                 if btn.value() == 0:
@@ -506,20 +1258,12 @@ def main():
 
                 if wake:
                     print("  Movement detected — waking NFC")
-                    try:
-                        nfc.begin()
-                    except Exception as ex:
-                        print("  NFC wake error: %s" % str(ex))
+                    _nfc_wake(nfc)
                     nfc_sleeping = False
                     last_activity_ms = time.ticks_ms()
                     idle_frame = 0
-                    # Refresh battery SOC on wake
-                    if batt:
-                        try:
-                            _, s = batt.read_all()
-                            last_soc = max(0, min(100, int(s)))
-                        except Exception:
-                            pass
+                    last_soc = _read_soc(batt, last_soc)
+                    last_soc_ms = time.ticks_ms()
                     show_idle(last_soc, 0)
 
                 time.sleep_ms(100)
@@ -528,7 +1272,8 @@ def main():
             # ─────────────────────────────────────
             # NORMAL NFC POLLING
             # ─────────────────────────────────────
-            uid_peek, sak_peek = reader.detect_tag()
+            held = _pair_ctl is not None and _pair_ctl.count > 0
+            uid_peek, sak_peek = reader.detect_tag(_pair_ctl.detect_ms if held else 250)
 
             if uid_peek is None:
                 if last_uid is not None:
@@ -558,6 +1303,10 @@ def main():
                 elif result == "battery":
                     last_activity_ms = time.ticks_ms()
 
+                if time.ticks_diff(time.ticks_ms(), last_soc_ms) > SOC_REFRESH_MS:
+                    last_soc_ms = time.ticks_ms()
+                    last_soc = _read_soc(batt, last_soc)
+
                 # Idle display — battery-colored inner ring (static)
                 idle_frame += 1
                 show_idle(last_soc, idle_frame)
@@ -566,8 +1315,14 @@ def main():
                 if accel_ok and time.ticks_diff(time.ticks_ms(), last_activity_ms) > NFC_SLEEP_MS:
                     nfc_sleeping = True
                     print("  NFC sleeping (30s idle) — move or press button to wake")
+                    try:
+                        nfc.power_down()
+                    except Exception as ex:
+                        print("  NFC power-down error: %s" % str(ex))
+                    leds.off()
+                    pled.asleep(last_soc)
 
-                time.sleep_ms(200)
+                time.sleep_ms(_pair_ctl.idle_sleep_ms if held else 200)
                 continue
 
             # ─────────────────────────────────────
@@ -584,6 +1339,30 @@ def main():
             if cmd is None:
                 time.sleep_ms(200); continue
 
+            # ── SPLAT CARD / UNPAIR (idle loop only) ──
+            if cmd == "unpair" or parse_splat_card(cmd):
+                _pair_card(cmd, enow)
+                last_activity_ms = time.ticks_ms()
+                idle_frame = 0
+                show_idle(last_soc, 0); continue
+
+            # ── BROADCAST BOX PULL ──
+            # getcode:<slug>[@<host>] pulls over the ESP-NOW link already up.
+            head, wanted, wanted_host = split_prefixed(cmd) if cmd else ("", "", "")
+            if head == "getcode":
+                _clear_rules_state(enow)
+                rules = {}; editing = None; pending_combinator = None
+                buz.stop()
+                if enow.is_active:
+                    _espnow_pull_and_launch(enow, wanted, wanted_host, nfc, accel, i2c, batt)
+                else:
+                    _pull_fail(SHAPE_WIFI_2, RED)
+                last_activity_ms = time.ticks_ms()
+                idle_frame = 0
+                show_idle(last_soc, 0)
+                last_uid = None
+                continue
+
             # ── UTILITY ──
             if cmd == "battery":
                 show_battery(batt, leds, buz)
@@ -599,7 +1378,7 @@ def main():
                 show_idle(last_soc, 0); continue
 
             # ── GAME DISPATCH ──
-            if cmd in GAME_DISPATCH:
+            if is_game(cmd):
                 leds.off()
                 _launch_game(cmd, nfc, leds, buz, accel, i2c, enow, batt)
                 last_activity_ms = time.ticks_ms()
@@ -620,12 +1399,12 @@ def main():
             # ── START (run mode) ──
             if cmd == "start":
                 if not rules or all(len(v) == 0 for v in rules.values()):
-                    buz.beep(300, 200)
+                    buz.reject()
                     print("  Nothing to run")
                     show_idle(last_soc, 0); continue
                 print("  ── RUNNING ──")
                 leds.show_running(rules)
-                buz.beep(800, 60); time.sleep_ms(30); buz.beep(1200, 80)
+                buz.confirm()
                 start_game_name = run_event_loop(reader, rules, runner, accel, enow, batt)
                 print("  ── STOPPED ──")
                 rules = {}; editing = None; pending_combinator = None
@@ -643,12 +1422,12 @@ def main():
             # ── COMBINATOR ──
             if cmd in COMBINATORS:
                 if editing is None:
-                    buz.beep(300, 100)
+                    buz.reject()
                     print("  Combinator '%s' ignored — no active trigger" % cmd)
                 else:
                     pending_combinator = cmd
                     print("  Combinator: %s (next action will %s)" % (cmd, "add to group" if cmd == "and" else "start new step"))
-                    buz.beep(600, 40)
+                    buz.tick()
                 show_idle(last_soc, 0); continue
 
             # ── TRIGGER ──
@@ -695,7 +1474,11 @@ def main():
                 leds.show_programming(rules, editing)
                 print_rules(rules, editing); continue
 
+            # Also where a game tag lands when this wand does not have that
+            # game installed: game_module() returns None for it, so it is
+            # simply a tag this wand does not know.
             print("  Unknown command: %s" % cmd)
+            buz.reject()
             time.sleep_ms(200)
 
         except KeyboardInterrupt:
@@ -705,6 +1488,7 @@ def main():
         except Exception as e:
             print("  [ERR] Main loop:"); sys.print_exception(e)
             time.sleep_ms(500)
+        time.sleep_ms(1)
 
 
 main()

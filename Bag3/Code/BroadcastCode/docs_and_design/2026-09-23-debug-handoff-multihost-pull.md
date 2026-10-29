@@ -462,7 +462,7 @@ notes.
   `95898a1` ("Give each Broadcast host a per-device SSID identity for multi-host
   demos"). Full diff is available via `git show 95898a1` if useful.
 - Read `Bag3/Code/HARDWARE_PROTOCOL.md` and
-  `Bag3/Code/BroadcastCode/BroadcastDial/BDialFirmware/README.md` before touching
+  `Bag3/Code/TeacherTools/BroadcastDial/BDialFirmware/README.md` before touching
   any hardware — this task involves live ESP32 devices on serial ports, and both
   docs have hard rules about that (ask before opening a port, never guess which
   port is which device, `resume` on every `mpremote` call, etc).
