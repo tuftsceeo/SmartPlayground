@@ -21,7 +21,7 @@ import {
 import { uploadPayload, validateGameCode, validateGameSignature, codeBytes, MAX_WAND_GAME_BYTES } from './upload.js';
 import { ROLES as ROLE_TABLE, roleInfo, DEFAULT_ROLE } from './roles.js';
 import { listSplatActions } from './splat/splatActionCheck.js';
-import { updateTagChecklist } from './nfc.js';
+import { updateTagChecklist, setCardWriter } from './nfc.js';
 import { EXAMPLES, CATEGORIES, findExample, loadExampleCode } from './examples.js';
 import { showView, showOverlay, hideOverlay, setConnectionBadge, toast, setSendProgress, showConnectToast, syncNavTabs } from './router.js';
 import { createDeviceLink, deviceShortName, deviceProductName } from './device/bboxDeviceLink.js';
@@ -972,7 +972,12 @@ class App {
 
     _noteMessage(obj) {
         this.link.lastMsgAt = Date.now();
-        if (obj?.type === 'identity') this.link.deviceInfo = obj;
+        if (obj?.type === 'identity') {
+            this.link.deviceInfo = obj;
+            setCardWriter(obj.device === 'crowpanel'
+                ? (tag) => this.device.sendCmd({ cmd: 'card.write', text: tag, label: tag }).catch((e) => toast(e.message, true))
+                : null);
+        }
         this._clearRebootTimer();
         if (obj?.type && obj.type !== 'game_start') {
             this._silenceLimitMs = SILENCE_LIMIT_MS;

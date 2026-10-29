@@ -10,6 +10,12 @@
 import { iconSvg } from "./icons.js";
 
 let _live = null; // { tags, render } while the overlay is open
+let _cardWriter = null; // (tag) => Promise; set while a device that writes on request is linked
+
+/** Device that writes a card on request (CrowPanel `card.write`); null hides the Write buttons. */
+export function setCardWriter(fn) {
+    _cardWriter = fn;
+}
 
 export function showTagChecklist({ title, subtitle, tags, written }) {
     return new Promise((resolve) => {
@@ -46,6 +52,13 @@ export function showTagChecklist({ title, subtitle, tags, written }) {
                     `<span style="color:${iconColor};display:inline-flex">${iconSvg("nfcCard", { size: 16 })}</span>` +
                     `<span class="tag-name">${escapeHtml(tag)}</span>` +
                     statusHtml;
+                if (_cardWriter) {
+                    const btn = document.createElement("button");
+                    btn.className = "tag-write-btn";
+                    btn.textContent = "Write";
+                    btn.addEventListener("click", () => _cardWriter(tag));
+                    row.appendChild(btn);
+                }
                 list.appendChild(row);
             });
         }

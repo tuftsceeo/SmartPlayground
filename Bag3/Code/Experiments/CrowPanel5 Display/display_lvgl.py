@@ -15,6 +15,8 @@ import task_handler
 import board
 
 # PCA9557 registers
+BUS = None   # touch I2C bus, shared with the NFC reader
+
 _OUT = 0x01
 _CONFIG = 0x03  # 1 = input
 
@@ -67,14 +69,15 @@ def init():
     display.init()
     display.set_backlight(100)
 
-    i2c_bus = i2c.I2C.Bus(host=0, scl=board.I2C_SCL, sda=board.I2C_SDA, freq=400000)
+    global BUS
+    i2c_bus = BUS = i2c.I2C.Bus(host=0, scl=board.I2C_SCL, sda=board.I2C_SDA, freq=400000)
     touch_reset(i2c.I2C.Device(bus=i2c_bus, dev_id=board.PCA9557_ADDR, reg_bits=8))
     touch_dev = i2c.I2C.Device(bus=i2c_bus, dev_id=gt911.I2C_ADDR, reg_bits=gt911.BITS)
     touch = gt911.GT911(touch_dev)
     # LVGL's default 33 ms read period misses quick taps.
     touch._indev_drv.get_read_timer().set_period(10)
 
-    th = task_handler.TaskHandler()
+    th = task_handler.TaskHandler(duration=10)
     return display, touch, th
 
 

@@ -105,7 +105,12 @@ export async function pushPayload(repl, adapter, code, onProgress, meta = {}) {
   // thrown, and never turns a completed write into a reported failure.
   try {
     await repl.exitRawRepl();
-    await repl.softReset();
+    if (meta.resume) {
+      // CrowPanel: Ctrl-C stopped its loop at the REPL; resume it (it rescans its games).
+      await repl.adapter.write("import panel; panel.run()\r");
+    } else {
+      await repl.softReset();
+    }
   } catch (e) {
     console.warn(`pushPayload: reset step raised (expected on reboot): ${e.message}`);
   }

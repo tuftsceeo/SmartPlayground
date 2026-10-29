@@ -18,6 +18,7 @@ const FORWARDED_EVENTS = [
   "armed", "card_present", "card_written", "info", "mode",
   "games", "stats", "ok", "booting",
   "pull", "status_report", "status_done", "dist_progress", "dist_done",
+  "write_failed",
 ];
 
 /** Must exceed GRACE_S (~1s) + NFC init; plan §3.1. Kept for callers that
@@ -30,7 +31,7 @@ export const VALIDATE_LIMIT_MS = 8000;
 const NUDGE_TIMEOUT_MS = 2000;
 
 /** Box and Dial share ChatBroadcast; anything else is wrong_device. */
-const EXPECTED_DEVICES = new Set(["broadcast_box", "broadcast_dial"]);
+const EXPECTED_DEVICES = new Set(["broadcast_box", "broadcast_dial", "crowpanel"]);
 
 /**
  * Short label for UI copy: "Box", "Dial" or "Wand". Generic "Device" before
@@ -53,6 +54,7 @@ export function deviceShortName(infoOrDevice) {
   if (d === "wand") return "Wand";
   if (d === "broadcast_dial") return "Dial";
   if (d === "broadcast_box") return "Box";
+  if (d === "crowpanel") return "Panel";
   return "Device";
 }
 
@@ -65,6 +67,7 @@ export function deviceProductName(infoOrDevice) {
   if (d === "wand") return "Wand";
   if (d === "broadcast_dial") return "Broadcast Dial";
   if (d === "broadcast_box") return "Broadcast Box";
+  if (d === "crowpanel") return "CrowPanel";
   return "Broadcast Device";
 }
 
@@ -115,7 +118,7 @@ export class BboxDeviceLink {
       if (obj.device && !EXPECTED_DEVICES.has(obj.device)) {
         this.wrongDevice = true;
         this.running = false;
-        logWarn(`wrong device on identity: ${obj.device} (expected broadcast_box|broadcast_dial)`);
+        logWarn(`wrong device on identity: ${obj.device} (expected broadcast_box|broadcast_dial|crowpanel)`);
         this._emit("wrong_device", obj);
         return;
       }
@@ -302,7 +305,9 @@ export class BboxDeviceLink {
     this._detachJson();
     let pushResult;
     try {
-      pushResult = await pushPayload(this.repl, this.adapter, code, onProgress, meta);
+      // The CrowPanel keeps running after an install: no reset (it would kill its touch bus).
+      const resume = this.deviceInfo?.device === "crowpanel";
+      pushResult = await pushPayload(this.repl, this.adapter, code, onProgress, { ...meta, resume });
     } finally {
       this._attachJson();
     }
@@ -310,6 +315,9 @@ export class BboxDeviceLink {
   }
 
   async disconnect() {
+    if (this.json && this.deviceInfo?.device === "crowpanel") {
+      try { await this.json.send({ cmd: "unlink" }, { timeoutMs: 500 }); } catch (e) { /* best effort */ }
+    }
     this._detachJson();
     await this.adapter.disconnect();
   }
