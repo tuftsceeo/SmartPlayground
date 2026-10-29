@@ -1,0 +1,37 @@
+/* Semantic aliases — prefer these in components over raw hues. */
+:root {
+  --text-primary: var(--ink);
+  --text-secondary: var(--ink-3);
+  --text-muted: var(--muted);
+  --text-disabled: var(--muted-2);
+  --text-on-fill: #ffffff;
+  --text-accent: var(--pink-dark);
+  --text-link: var(--purple);
+  --text-link-hover: var(--pink-dark);
+
+  --surface-page: var(--bg);
+  --surface-card: var(--surface);
+  --surface-shell: var(--surface);
+  --surface-sunken-field: var(--surface-sunken);
+  --surface-quiet: var(--purple-100);
+  --surface-selected: var(--pink-50);
+  --surface-code: var(--code-bg);
+
+  --border-default: var(--border);
+  --border-quiet: var(--border-soft);
+  --border-focus: var(--pink);
+  --border-hover: var(--pink);
+
+  --action-primary: var(--grad-pink); /* @kind other */
+  --action-primary-solid: var(--pink);
+  --action-confirm: var(--grad-teal); /* @kind other */
+  --action-disabled: var(--disabled-fill);
+
+  --tab-active-bg: var(--pink-50);
+  --tab-active-fg: var(--pink-dark);
+
+  --icon-default: var(--icon-ink);
+  --icon-accent: var(--pink);
+  --icon-quiet: var(--purple-300);
+  --icon-stroke-width: 1.8; /* @kind other */
+}

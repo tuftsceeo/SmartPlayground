@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="_ds/smart-playground-design-system-dcb8c1aa-6efc-4692-9f59-5543224b4b04/tokens/fonts.css">
+  <link rel="stylesheet" href="_ds/smart-playground-design-system-dcb8c1aa-6efc-4692-9f59-5543224b4b04/tokens/colors.css">
+  <link rel="stylesheet" href="_ds/smart-playground-design-system-dcb8c1aa-6efc-4692-9f59-5543224b4b04/tokens/gradients.css">
+  <link rel="stylesheet" href="_ds/smart-playground-design-system-dcb8c1aa-6efc-4692-9f59-5543224b4b04/tokens/typography.css">
+  <link rel="stylesheet" href="_ds/smart-playground-design-system-dcb8c1aa-6efc-4692-9f59-5543224b4b04/tokens/spacing.css">
+  <link rel="stylesheet" href="_ds/smart-playground-design-system-dcb8c1aa-6efc-4692-9f59-5543224b4b04/tokens/radius.css">
+  <link rel="stylesheet" href="_ds/smart-playground-design-system-dcb8c1aa-6efc-4692-9f59-5543224b4b04/tokens/elevation.css">
+  <link rel="stylesheet" href="_ds/smart-playground-design-system-dcb8c1aa-6efc-4692-9f59-5543224b4b04/tokens/motion.css">
+  <link rel="stylesheet" href="_ds/smart-playground-design-system-dcb8c1aa-6efc-4692-9f59-5543224b4b04/tokens/semantic.css">
+  <link rel="stylesheet" href="_ds/smart-playground-design-system-dcb8c1aa-6efc-4692-9f59-5543224b4b04/styles.css">
+  <script src="_ds/smart-playground-design-system-dcb8c1aa-6efc-4692-9f59-5543224b4b04/_ds_bundle.js"></script>
+  <style>
+    body { margin: 0; }
+    a { color: var(--pink); }
+    a:hover { color: var(--pink-dark); }
+  </style>
+</helmet>
+
+<div style="min-height: 100vh; box-sizing: border-box; padding: 24px; display: flex; background: #f7f7fb; background-image: radial-gradient(circle at 0% 0%, rgba(255,210,63,0.14), transparent 40%), radial-gradient(circle at 100% 0%, rgba(239,77,146,0.12), transparent 40%), radial-gradient(circle at 0% 100%, rgba(34,195,166,0.12), transparent 40%), radial-gradient(circle at 100% 100%, rgba(108,76,209,0.12), transparent 40%); font-family: 'Nunito', sans-serif;">
+  <x-import component-from-global-scope="SmartPlaygroundDesignSystem_dcb8c1.ViewPanel" hint-size="100%,100%" style="box-shadow: 0 18px 40px rgba(108,76,209,.18); position: relative;">
+
+    <!-- App header -->
+    <header style="display:flex; align-items:center; gap:10px; padding:14px 20px; border-bottom:1px solid var(--border); flex:none;">
+      <button type="button" title="Back to home" onMouseEnter="{{ onBrandEnter }}" onMouseLeave="{{ onBrandLeave }}" style="display:flex; align-items:center; gap:10px; border:none; background:transparent; padding:2px; cursor:pointer;">
+        <span style="width:30px; height:30px; border-radius:9px; background:var(--grad-pink); color:#fff; display:flex; align-items:center; justify-content:center; font-size:15px; flex:none;">{{ brandGlyph }}</span>
+        <span style="font:800 14px 'Nunito'; color:var(--ink);">Wand &amp; Station Coder</span>
+      </button>
+      <div style="margin-left:auto; display:flex; align-items:center; gap:8px; position:relative;">
+        <x-import component-from-global-scope="SmartPlaygroundDesignSystem_dcb8c1.ModePill" tone="muted" icon="box" title="Games, health &amp; battery on the Box" hint-size="auto,32px">Box</x-import>
+        <button type="button" onClick="{{ openConnect }}" style="display:flex; align-items:center; gap:6px; padding:7px 14px; border-radius:14px; border:none; cursor:pointer; background:var(--grad-teal); color:#fff; font:800 12px 'Nunito';">
+          <x-import component-from-global-scope="SmartPlaygroundDesignSystem_dcb8c1.Icon" name="cable" size="14" hint-size="14px,14px"></x-import>
+          Connect
+        </button>
+        <button type="button" onClick="{{ toggleMore }}" title="More" style="border:1.5px solid var(--border); background:#fff; border-radius:14px; padding:8px 10px; cursor:pointer; color:var(--icon-ink); display:inline-flex; align-items:center; justify-content:center; font:800 14px 'Nunito'; letter-spacing:1px;">&#8942;</button>
+        <sc-if value="{{ moreOpen }}">
+          <div style="position:absolute; top:calc(100% + 8px); right:0; background:#fff; border:1.5px solid var(--border); border-radius:14px; box-shadow:0 24px 60px rgba(0,0,0,.14); padding:8px; width:200px; z-index:50;">
+            <button type="button" onClick="{{ toggleAdvanced }}" style="width:100%; box-sizing:border-box; display:flex; align-items:center; justify-content:space-between; gap:8px; border:none; background:transparent; padding:9px 10px; border-radius:10px; cursor:pointer; font:700 12.5px 'Nunito'; color:var(--ink);">
+              Advanced mode
+              <sc-if value="{{ advancedMode }}" hint-placeholder-val="{{ false }}">
+                <x-import component-from-global-scope="SmartPlaygroundDesignSystem_dcb8c1.Icon" name="check" size="15" color="var(--teal)" hint-size="15px,15px"></x-import>
+              </sc-if>
+            </button>
+          </div>
+        </sc-if>
+      </div>
+    </header>
+
+    <!-- Workspace title bar: content actions live here now, not buried in the footer -->
+    <div style="display:flex; align-items:center; gap:10px; padding:12px 20px; border-bottom:1px solid var(--border-soft); flex:none;">
+      <button type="button" title="Rename this game" style="display:flex; align-items:center; gap:7px; border:1.5px solid var(--border); background:#fff; border-radius:14px; padding:8px 12px; cursor:pointer; font:800 13px 'Nunito'; color:var(--ink); height:36px; box-sizing:border-box;">
+        Untitled game
+        <x-import component-from-global-scope="SmartPlaygroundDesignSystem_dcb8c1.Icon" name="pencil" size="13" color="var(--muted)" hint-size="13px,13px"></x-import>
+      </button>
+      <button type="button" title="New game (clears the chat and code)" style="border:1.5px solid var(--border); background:#fff; border-radius:14px; padding:8px 10px; cursor:pointer; color:var(--icon-ink); display:inline-flex; align-items:center; justify-content:center; font:800 15px 'Nunito'; line-height:1;">+</button>
+      <x-import component-from-global-scope="SmartPlaygroundDesignSystem_dcb8c1.IconButton" icon="save" title="Save (updates this game, no duplicate)" hint-size="36px,36px"></x-import>
+      <div style="margin-left:auto; display:flex; align-items:center; gap:8px;">
+        <x-import component-from-global-scope="SmartPlaygroundDesignSystem_dcb8c1.Button" variant="teal" size="compact" icon="box" title="Send this game to a Broadcast Box, Dial, or Wand" hint-size="auto,32px">Send to Box →</x-import>
+      </div>
+    </div>
+
+    <!-- Workspace body: one chat, no device rail -- a game can touch several devices at once -->
+    <div style="flex:1; min-height:0; display:flex;">
+      <div style="flex:1; min-width:220px; display:flex; flex-direction:column; min-height:0;">
+        <div style="display:flex; align-items:center; gap:8px; padding:10px 14px; border-bottom:1px solid var(--border-soft); flex:none;">
+          <sc-if value="{{ hasDisplay }}" hint-placeholder-val="{{ true }}">
+            <div style="display:flex; gap:4px; background:var(--purple-100); padding:3px; border-radius:12px;">
+              <button type="button" onClick="{{ selectWand }}" style="{{ wandTabStyle }}">
+                <x-import component-from-global-scope="SmartPlaygroundDesignSystem_dcb8c1.Icon" name="wand" size="14" hint-size="14px,14px"></x-import>
+                Wand
+              </button>
+              <button type="button" onClick="{{ selectDisplay }}" style="{{ displayTabStyle }}">
+                <x-import component-from-global-scope="SmartPlaygroundDesignSystem_dcb8c1.Icon" name="gamepad" size="14" hint-size="14px,14px"></x-import>
+                Display
+              </button>
+            </div>
+          </sc-if>
+          <label style="display:flex; align-items:center; gap:5px; font:700 11px 'Nunito'; color:var(--muted); cursor:pointer;">
+            <input type="checkbox" checked="{{ hasDisplay }}" onChange="{{ toggleHasDisplay }}" />
+            demo: has display icon
+          </label>
+          <div style="margin-left:auto; display:flex; gap:8px;">
+            <sc-if value="{{ isDisplay }}" hint-placeholder-val="{{ false }}">
+              <x-import component-from-global-scope="SmartPlaygroundDesignSystem_dcb8c1.Button" variant="secondary" size="compact" icon="palette" onClick="{{ openIconEditor }}" hint-size="auto,30px">Edit icons</x-import>
+            </sc-if>
+            <x-import component-from-global-scope="SmartPlaygroundDesignSystem_dcb8c1.Button" variant="secondary" size="compact" icon="code" onClick="{{ openCodeDrawer }}" hint-size="auto,30px">View code</x-import>
+          </div>
+        </div>
+
+        <div style="flex:1; min-height:0; position:relative; background: repeating-linear-gradient(45deg, #fbfaff, #fbfaff 14px, #f4f2fa 14px, #f4f2fa 28px); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px;">
+          <sc-if value="{{ showWandPreview }}" hint-placeholder-val="{{ true }}">
+            <x-import component-from-global-scope="SmartPlaygroundDesignSystem_dcb8c1.Icon" name="wand" size="46" stroke-width="1.3" color="#c9a3bd" hint-size="46px,46px"></x-import>
+            <div style="font:12px ui-monospace, monospace; color:#c9a3bd;">wand preview</div>
+          </sc-if>
+          <sc-if value="{{ showDisplayPreview }}" hint-placeholder-val="{{ false }}">
+            <x-import component-from-global-scope="SmartPlaygroundDesignSystem_dcb8c1.Icon" name="grid-3x3" size="46" stroke-width="1.3" color="#c9a3bd" hint-size="46px,46px"></x-import>
+            <div style="font:12px ui-monospace, monospace; color:#c9a3bd;">display preview</div>
+          </sc-if>
+        </div>
+      </div>
+
+      <div style="width:10px; flex:none; margin:0 -5px; position:relative; z-index:1; cursor:col-resize;">
+        <div style="position:absolute; top:0; bottom:0; left:4px; width:2px; background:var(--border); border-radius:2px;"></div>
+      </div>
+
+      <div style="width:380px; flex:none; display:flex; flex-direction:column; min-height:0; border-left:1px solid var(--border-soft);">
+        <div style="flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:10px;">
+          <x-import component-from-global-scope="SmartPlaygroundDesignSystem_dcb8c1.ChatMessage" role="user" hint-size="auto,auto">shake for rainbow colors, and give it a matching icon</x-import>
+          <x-import component-from-global-scope="SmartPlaygroundDesignSystem_dcb8c1.ChatMessage" role="bot" hint-size="auto,auto">Done — wand code and a rainbow icon are ready. Check both in the preview →</x-import>
+        </div>
+        <div style="display:flex; gap:8px; padding:12px 16px; border-top:1px solid var(--border-soft);">
+          <x-import component-from-global-scope="SmartPlaygroundDesignSystem_dcb8c1.ChatInput" placeholder="type a request…" hint-size="100%,38px"></x-import>
+          <x-import component-from-global-scope="SmartPlaygroundDesignSystem_dcb8c1.SendButton" hint-size="38px,38px"></x-import>
+        </div>
+      </div>
+    </div>
+
+    <!-- Code drawer: multi-device now, so it carries its own device tabs -->
+    <sc-if value="{{ codeDrawerOpen }}">
+      <div style="position:absolute; top:0; right:0; bottom:0; width:480px; max-width:90%; background:#fff; box-shadow:-18px 0 40px rgba(108,76,209,.18); display:flex; flex-direction:column; z-index:80;">
+        <div style="display:flex; align-items:center; gap:10px; padding:14px 16px; border-bottom:1px solid var(--border);">
+          <span style="font:800 14px 'Nunito'; color:var(--ink);">&lt;/&gt; generated code</span>
+          <div style="margin-left:auto; display:flex; align-items:center; gap:8px;">
+            <button type="button" title="Download" style="border:1.5px solid var(--border); background:#fff; border-radius:14px; padding:8px 10px; cursor:pointer; color:var(--icon-ink); display:inline-flex;">
+              <x-import component-from-global-scope="SmartPlaygroundDesignSystem_dcb8c1.Icon" name="download" size="15" hint-size="15px,15px"></x-import>
+            </button>
+            <button type="button" onClick="{{ closeCodeDrawer }}" title="Close" style="border:1.5px solid var(--border); background:#fff; border-radius:14px; padding:8px 10px; cursor:pointer; color:var(--icon-ink); display:inline-flex;">
+              <x-import component-from-global-scope="SmartPlaygroundDesignSystem_dcb8c1.Icon" name="close" size="18" hint-size="18px,18px"></x-import>
+            </button>
+          </div>
+        </div>
+        <sc-if value="{{ hasDisplay }}" hint-placeholder-val="{{ true }}">
+          <div style="display:flex; gap:4px; padding:12px 16px 0; flex:none;">
+            <button type="button" onClick="{{ selectCodeWand }}" style="{{ codeWandTabStyle }}">
+              <x-import component-from-global-scope="SmartPlaygroundDesignSystem_dcb8c1.Icon" name="wand" size="13" hint-size="13px,13px"></x-import>
+              Wand code
+            </button>
+            <button type="button" onClick="{{ selectCodeDisplay }}" style="{{ codeDisplayTabStyle }}">
+              <x-import component-from-global-scope="SmartPlaygroundDesignSystem_dcb8c1.Icon" name="gamepad" size="13" hint-size="13px,13px"></x-import>
+              Display code
+            </button>
+          </div>
+        </sc-if>
+        <div style="flex:1; min-height:0; overflow-y:auto; padding:16px;">
+          <sc-if value="{{ codeDrawerIsWand }}" hint-placeholder-val="{{ true }}">
+            <x-import component-from-global-scope="SmartPlaygroundDesignSystem_dcb8c1.CodeBlock" language="python" hint-size="100%,auto">from wand import leds, accel&#10;&#10;def on_shake():&#10;    leds.rainbow()&#10;&#10;accel.on_shake(on_shake)</x-import>
+          </sc-if>
+          <sc-if value="{{ codeDrawerIsDisplay }}" hint-placeholder-val="{{ false }}">
+            <x-import component-from-global-scope="SmartPlaygroundDesignSystem_dcb8c1.CodeBlock" language="python" hint-size="100%,auto">from display import icon&#10;&#10;icon.load("rainbow")&#10;icon.show()</x-import>
+          </sc-if>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- Icon editor: now an inline overlay, matching the code drawer pattern, instead of a separate tab -->
+    <sc-if value="{{ iconEditorOpen }}">
+      <div style="position:absolute; top:0; right:0; bottom:0; width:640px; max-width:92%; background:#fff; box-shadow:-18px 0 40px rgba(108,76,209,.18); display:flex; flex-direction:column; z-index:80;">
+        <div style="display:flex; align-items:center; gap:10px; padding:14px 16px; border-bottom:1px solid var(--border);">
+          <span style="font:800 14px 'Nunito'; color:var(--ink);">Edit display icons</span>
+          <button type="button" onClick="{{ closeIconEditor }}" title="Close" style="margin-left:auto; border:1.5px solid var(--border); background:#fff; border-radius:14px; padding:8px 10px; cursor:pointer; color:var(--icon-ink); display:inline-flex;">
+            <x-import component-from-global-scope="SmartPlaygroundDesignSystem_dcb8c1.Icon" name="close" size="18" hint-size="18px,18px"></x-import>
+          </button>
+        </div>
+
+        <!-- Toolbar: pick which game icon, then the verbs that matter here; everything else behind "..." -->
+        <div style="display:flex; align-items:center; gap:8px; padding:12px 16px; border-bottom:1px solid var(--border-soft); flex:none; position:relative;">
+          <select value="{{ iconName }}" onChange="{{ onIconNameChange }}" title="Choose which of this game's icons to edit" style="flex:1; min-width:0; border:1.5px solid var(--border); background:#fafafd; border-radius:12px; padding:8px 12px; font:800 13px 'Nunito'; color:var(--ink); box-sizing:border-box;">
+            <sc-for list="{{ gameIcons }}" as="ic" hint-placeholder-count="2">
+              <option value="{{ ic }}">{{ ic }}</option>
+            </sc-for>
+          </select>
+          <x-import component-from-global-scope="SmartPlaygroundDesignSystem_dcb8c1.Button" variant="secondary" size="compact" icon="folder-open" title="Import a different photo for this icon" hint-size="auto,36px">Load new image</x-import>
+          <button type="button" title="Undo" style="border:1.5px solid var(--border); background:#fff; border-radius:14px; width:36px; height:36px; cursor:pointer; color:var(--icon-ink); display:inline-flex; align-items:center; justify-content:center; flex:none;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>
+          </button>
+          <x-import component-from-global-scope="SmartPlaygroundDesignSystem_dcb8c1.Button" variant="secondary" size="compact" icon="save" onClick="{{ saveIcon }}" title="Save this icon into the game" hint-size="auto,36px">Save game icon</x-import>
+          <button type="button" onClick="{{ toggleIconMore }}" title="More" style="border:1.5px solid var(--border); background:#fff; border-radius:14px; padding:8px 10px; cursor:pointer; color:var(--icon-ink); display:inline-flex; align-items:center; justify-content:center; font:800 14px 'Nunito'; letter-spacing:1px; flex:none;">&#8942;</button>
+          <sc-if value="{{ iconMoreOpen }}">
+            <div style="position:absolute; top:calc(100% + 4px); right:16px; background:#fff; border:1.5px solid var(--border); border-radius:14px; box-shadow:0 24px 60px rgba(0,0,0,.14); padding:8px; width:220px; z-index:50;">
+              <button type="button" onClick="{{ toggleIconAdjust }}" style="width:100%; box-sizing:border-box; display:flex; align-items:center; justify-content:space-between; gap:8px; border:none; background:transparent; padding:9px 10px; border-radius:10px; cursor:pointer; font:700 12.5px 'Nunito'; color:var(--ink);">
+                <span style="display:flex; align-items:center; gap:8px;">
+                  <x-import component-from-global-scope="SmartPlaygroundDesignSystem_dcb8c1.Icon" name="wrench" size="15" color="var(--muted)" hint-size="15px,15px"></x-import>
+                  Pixelation &amp; segment colours
+                </span>
+                <sc-if value="{{ iconAdjustOn }}" hint-placeholder-val="{{ false }}">
+                  <x-import component-from-global-scope="SmartPlaygroundDesignSystem_dcb8c1.Icon" name="check" size="15" color="var(--teal)" hint-size="15px,15px"></x-import>
+                </sc-if>
+              </button>
+              <button type="button" style="width:100%; box-sizing:border-box; display:flex; align-items:center; gap:8px; border:none; background:transparent; padding:9px 10px; border-radius:10px; cursor:pointer; font:700 12.5px 'Nunito'; color:var(--ink);">
+                <x-import component-from-global-scope="SmartPlaygroundDesignSystem_dcb8c1.Icon" name="download" size="15" color="var(--muted)" hint-size="15px,15px"></x-import>
+                Export icon file
+              </button>
+              <button type="button" style="width:100%; box-sizing:border-box; display:flex; align-items:center; gap:8px; border:none; background:transparent; padding:9px 10px; border-radius:10px; cursor:pointer; font:700 12.5px 'Nunito'; color:var(--ink);">
+                <x-import component-from-global-scope="SmartPlaygroundDesignSystem_dcb8c1.Icon" name="sparkles" size="15" color="var(--muted)" hint-size="15px,15px"></x-import>
+                New from sample library
+              </button>
+            </div>
+          </sc-if>
+        </div>
+
+        <sc-if value="{{ iconAdjustOn }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:14px 16px; border-bottom:1px solid var(--border-soft); flex:none; display:flex; flex-direction:column; gap:10px; background:var(--yellow-50, #fff8e0);">
+            <div style="display:flex; align-items:center; justify-content:space-between; font:800 11px 'Nunito'; color:var(--muted); text-transform:uppercase; letter-spacing:.04em;">
+              Segments used
+              <span style="color:var(--ink); font:800 12px 'Nunito';">6 / 12</span>
+            </div>
+            <input type="range" min="0" max="1" step="0.01" value="0.7" style="width:100%;" />
+          </div>
+        </sc-if>
+
+        <div style="flex:1; min-height:0; display:flex; flex-direction:column; background: repeating-linear-gradient(45deg, #fbfaff, #fbfaff 14px, #f4f2fa 14px, #f4f2fa 28px);">
+          <div style="flex:1; min-height:0; display:flex; align-items:center; justify-content:center; gap:16px; padding:16px;">
+            <div style="display:flex; flex-direction:column; gap:8px; flex:none;">
+              <x-import component-from-global-scope="SmartPlaygroundDesignSystem_dcb8c1.IconButton" icon="wrench" title="Reset pixel to auto colour" active="{{ isRevertActive }}" onClick="{{ selectRevert }}" hint-size="40px,40px"></x-import>
+              <x-import component-from-global-scope="SmartPlaygroundDesignSystem_dcb8c1.IconButton" icon="close" title="Erase (set to off)" active="{{ isEraserActive }}" onClick="{{ selectEraser }}" hint-size="40px,40px"></x-import>
+              <x-import component-from-global-scope="SmartPlaygroundDesignSystem_dcb8c1.IconButton" icon="pencil" title="Draw" active="{{ isPencilActive }}" onClick="{{ selectPencil }}" hint-size="40px,40px"></x-import>
+              <div style="height:1px; background:var(--border); margin:2px 6px;"></div>
+              <div title="Current brush colour" style="width:40px; height:40px; border-radius:14px; border:1.5px solid var(--ink); box-sizing:border-box; background:{{ brushSwatchBg }};"></div>
+            </div>
+
+            <div style="width:224px; height:224px; flex:none; border-radius:16px; background:#1a1720; display:grid; grid-template-columns:repeat(16,1fr); gap:1px; padding:6px; box-sizing:border-box; box-shadow:0 18px 40px rgba(108,76,209,.18);">
+              <sc-for list="{{ pixelCells }}" as="cell" hint-placeholder-count="256">
+                <div onClick="{{ cell.onClick }}" style="border-radius:1px; cursor:pointer; background:{{ cell.color }};"></div>
+              </sc-for>
+            </div>
+
+            <div style="display:flex; flex-direction:column; gap:6px; flex:none; align-items:center;">
+              <span style="font:800 10px 'Nunito'; color:var(--muted); text-transform:uppercase; letter-spacing:.04em;">palette</span>
+              <sc-for list="{{ paletteSwatches }}" as="sw" hint-placeholder-count="6">
+                <button type="button" onClick="{{ sw.onClick }}" title="{{ sw.title }}" style="{{ sw.style }}"></button>
+              </sc-for>
+            </div>
+          </div>
+          <div style="text-align:center; padding:0 16px 14px; font:800 12px ui-monospace, monospace; color:#c9a3bd; flex:none;">16&times;16 &mdash; editing "{{ iconName }}"</div>
+        </div>
+
+        <sc-if value="{{ iconToastOpen }}">
+          <div style="position:absolute; left:50%; bottom:20px; transform:translateX(-50%); z-index:120;">
+            <x-import component-from-global-scope="SmartPlaygroundDesignSystem_dcb8c1.Toast" hint-size="auto,auto">icon updated</x-import>
+          </div>
+        </sc-if>
+      </div>
+    </sc-if>
+
+    <!-- Connect overlay: one requirement-row style everywhere, correct glyph per concept -->
+    <sc-if value="{{ connectOpen }}">
+      <div style="position:absolute; inset:0; background:var(--scrim); display:flex; align-items:center; justify-content:center; z-index:200; padding:16px;">
+        <x-import component-from-global-scope="SmartPlaygroundDesignSystem_dcb8c1.OverlayCard" width="380" hint-size="380px,auto">
+          <div style="position:relative;">
+            <button type="button" onClick="{{ closeConnect }}" title="Close" style="position:absolute; top:-8px; right:-8px; border:none; background:transparent; cursor:pointer; color:var(--muted); display:inline-flex;">
+              <x-import component-from-global-scope="SmartPlaygroundDesignSystem_dcb8c1.Icon" name="close" size="18" hint-size="18px,18px"></x-import>
+            </button>
+            <div style="display:flex; justify-content:center; color:var(--teal); margin-bottom:10px;">
+              <x-import component-from-global-scope="SmartPlaygroundDesignSystem_dcb8c1.Icon" name="cable" size="40" stroke-width="1.3" hint-size="40px,40px"></x-import>
+            </div>
+            <h2 style="font:800 18px 'Nunito'; margin:0 0 6px; color:var(--ink);">Connect over USB</h2>
+            <p style="font:14px 'Nunito'; color:var(--muted); margin:0 0 20px;">Plug in a Box, Dial, or Wand, then pick it from the browser's list.</p>
+            <div style="display:flex; flex-direction:column; gap:8px;">
+              <x-import component-from-global-scope="SmartPlaygroundDesignSystem_dcb8c1.Button" variant="teal" icon="cable" fullWidth="{{ true }}" hint-size="100%,44px">Connect via USB</x-import>
+              <x-import component-from-global-scope="SmartPlaygroundDesignSystem_dcb8c1.Button" variant="secondary" fullWidth="{{ true }}" onClick="{{ closeConnect }}" hint-size="100%,40px">Not yet</x-import>
+            </div>
+          </div>
+        </x-import>
+      </div>
+    </sc-if>
+
+  </x-import>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = {
+    deviceTab: 'wand',
+    codeDrawerOpen: false,
+    codeDrawerTab: 'wand',
+    iconEditorOpen: false,
+    connectOpen: false,
+    moreOpen: false,
+    advancedMode: false,
+    brandHover: false,
+    hasDisplay: true,
+    iconName: 'apple',
+    iconMoreOpen: false,
+    iconAdjustOn: false,
+    iconToastOpen: false,
+    activeTool: 'pencil',
+    brushColor: '#e21c3d',
+    pixels: null,
+  };
+
+  static PALETTE = [
+    { hex: 'transparent', label: 'off' },
+    { hex: '#e21c3d', label: 'red' },
+    { hex: '#c98a2b', label: 'gold' },
+    { hex: '#7fb62a', label: 'green' },
+    { hex: '#e63bd6', label: 'magenta' },
+    { hex: '#6c4cd1', label: 'purple' },
+  ];
+
+  static initialPixels() {
+    return Component.appleLeds.flatMap((row) => row.split(',').map((v) => Component.ledColors[v] || 'transparent'));
+  }
+
+  static appleLeds = [
+    "0,0,0,0,0,3,4,4,0,0,0,0,0,0,0,0","0,0,0,0,0,3,4,4,4,0,0,0,0,0,0,0","0,0,0,0,3,3,0,4,4,4,0,0,0,0,0,0",
+    "0,0,0,0,0,0,0,0,4,4,0,0,0,0,0,0","0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0","0,1,1,5,5,1,1,1,1,1,1,1,1,0,0,0",
+    "0,1,5,1,1,1,1,1,1,1,1,1,1,1,0,0","0,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0","0,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0",
+    "0,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0","0,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0","0,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0",
+    "0,0,1,1,1,1,1,1,1,1,1,1,1,0,0,0","0,0,1,1,1,1,1,1,1,1,1,1,1,0,0,0","0,0,0,1,1,1,1,1,1,1,1,1,0,0,0,0",
+    "0,0,0,0,1,1,1,1,1,1,1,0,0,0,0,0"
+  ];
+  static ledColors = { 0: 'transparent', 1: '#e21c3d', 3: '#c98a2b', 4: '#7fb62a', 5: '#e63bd6' };
+
+  paintPixel(i) {
+    this.setState((s) => {
+      const pixels = (s.pixels || Component.initialPixels()).slice();
+      if (s.activeTool === 'eraser') pixels[i] = 'transparent';
+      else if (s.activeTool === 'revert') pixels[i] = Component.initialPixels()[i];
+      else pixels[i] = s.brushColor;
+      return { pixels };
+    });
+  }
+
+  tabBtn(active) {
+    return `display:flex; align-items:center; gap:6px; border:none; padding:7px 12px; border-radius:10px; cursor:pointer; font:800 12px 'Nunito'; background:${active ? '#fff' : 'transparent'}; color:${active ? 'var(--pink-dark)' : 'var(--muted)'}; box-shadow:${active ? '0 2px 6px rgba(108,76,209,.12)' : 'none'};`;
+  }
+
+  renderVals() {
+    const { deviceTab, codeDrawerOpen, codeDrawerTab, iconEditorOpen, connectOpen, moreOpen, advancedMode, brandHover, hasDisplay } = this.state;
+    const effectiveDeviceTab = hasDisplay ? deviceTab : 'wand';
+    const effectiveCodeTab = hasDisplay ? codeDrawerTab : 'wand';
+    return {
+      brandGlyph: brandHover ? '◀' : '✦',
+      onBrandEnter: () => this.setState({ brandHover: true }),
+      onBrandLeave: () => this.setState({ brandHover: false }),
+
+      hasDisplay,
+      toggleHasDisplay: () => this.setState((s) => ({ hasDisplay: !s.hasDisplay, deviceTab: 'wand', codeDrawerTab: 'wand' })),
+
+      isDisplay: effectiveDeviceTab === 'display',
+      showWandPreview: effectiveDeviceTab === 'wand',
+      showDisplayPreview: effectiveDeviceTab === 'display',
+      wandTabStyle: this.tabBtn(effectiveDeviceTab === 'wand'),
+      displayTabStyle: this.tabBtn(effectiveDeviceTab === 'display'),
+      selectWand: () => this.setState({ deviceTab: 'wand' }),
+      selectDisplay: () => this.setState({ deviceTab: 'display' }),
+
+      codeDrawerOpen,
+      codeDrawerIsWand: effectiveCodeTab === 'wand',
+      codeDrawerIsDisplay: effectiveCodeTab === 'display',
+      codeWandTabStyle: this.tabBtn(effectiveCodeTab === 'wand'),
+      codeDisplayTabStyle: this.tabBtn(effectiveCodeTab === 'display'),
+      selectCodeWand: () => this.setState({ codeDrawerTab: 'wand' }),
+      selectCodeDisplay: () => this.setState({ codeDrawerTab: 'display' }),
+      openCodeDrawer: () => this.setState({ codeDrawerOpen: true, iconEditorOpen: false, codeDrawerTab: effectiveDeviceTab }),
+      closeCodeDrawer: () => this.setState({ codeDrawerOpen: false }),
+
+      iconEditorOpen,
+      openIconEditor: () => this.setState({ iconEditorOpen: true, codeDrawerOpen: false }),
+      closeIconEditor: () => this.setState({ iconEditorOpen: false }),
+
+      connectOpen,
+      openConnect: () => this.setState({ connectOpen: true }),
+      closeConnect: () => this.setState({ connectOpen: false }),
+
+      moreOpen,
+      toggleMore: () => this.setState({ moreOpen: !this.state.moreOpen }),
+      advancedMode,
+      toggleAdvanced: () => this.setState({ advancedMode: !this.state.advancedMode }),
+
+      iconName: this.state.iconName,
+      gameIcons: ['apple', 'sad'],
+      onIconNameChange: (e) => this.setState({ iconName: e.target.value, pixels: null }),
+      iconMoreOpen: this.state.iconMoreOpen,
+      toggleIconMore: () => this.setState((s) => ({ iconMoreOpen: !s.iconMoreOpen })),
+      iconAdjustOn: this.state.iconAdjustOn,
+      toggleIconAdjust: () => this.setState((s) => ({ iconAdjustOn: !s.iconAdjustOn })),
+      ledDots: Component.appleLeds.flatMap((row) => row.split(',').map((v) => ({ color: Component.ledColors[v] || 'transparent' }))),
+      iconToastOpen: this.state.iconToastOpen,
+      saveIcon: () => {
+        this.setState({ iconMoreOpen: false, iconToastOpen: true });
+        clearTimeout(this._toastTimer);
+        this._toastTimer = setTimeout(() => this.setState({ iconToastOpen: false }), 1800);
+      },
+    };
+  }
+}
+
+</script>
+</body>
+</html>

@@ -1,6 +1,13 @@
 """
 Opcode table — compact card encoding + single source of truth for tag names
 ============================================================================
+---
+status: historical
+note: >-
+  Previous wand development direction used "opcodes". Old development note, kept as a record. Not current guidance: comments
+  here may be out of date. Check AGENTS.md for current behavior.
+---
+
 Every wand card stores a fixed 4-byte "opcode" at page/block 5:
 
     byte 0 : 0x5A   MAGIC — "this is a SmartPlayground opcode card"
