@@ -10,8 +10,7 @@ code:
   - Bag3/Code/Stations/CrowPanel5 Display/firmware/CROWPANEL_S3_5/
 open:
   - Touch bus dead after a software reset; root cause unknown
-  - Idle shimmer on the Count button after power-up, seen once
-keywords: [CrowPanel, Elecrow, GT911, PCA9557, I2C, GPIO19, GPIO20, USB-Serial-JTAG, RGB, drift, PCLK, soft reset]
+keywords: [CrowPanel, Elecrow, GT911, PCA9557, I2C, GPIO19, GPIO20, USB-Serial-JTAG, RGB, drift, PCLK, soft reset, backlight, PWM, flicker, shimmer]
 ---
 
 # CrowPanel5 Display
@@ -50,7 +49,10 @@ whole 768 KB frame PSRAM-to-PSRAM after every update. Lowering the pixel clock f
 With LVGL's default 33 ms touch read period, quick taps on a button register no event; held
 presses do. `display_lvgl.init()` sets the read period to 10 ms; 10 quick taps gave 10 clicks.
 
-## Idle shimmer after power-up
+## Colour shimmer from backlight PWM
 
-Seen once: with no touch, the Count button oscillated smoothly between its blue and a slightly
-darker blue for some minutes after power-up, then stopped. Cause unknown.
+With the backlight on `STATE_PWM` (lvgl_micropython drives it at 38 kHz; `set_backlight(100)`
+is not fully on), coloured areas oscillate smoothly in brightness with no touch.
+
+**Fix:** `display_lvgl.init()` uses `STATE_HIGH`, so the backlight is on without PWM and cannot
+be dimmed. The shimmer stopped.

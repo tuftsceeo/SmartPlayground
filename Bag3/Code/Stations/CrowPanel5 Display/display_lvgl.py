@@ -61,7 +61,7 @@ def init():
         display_width=board.LCD_W,
         display_height=board.LCD_H,
         backlight_pin=board.LCD_BL,
-        backlight_on_state=rgb_display.STATE_PWM,
+        backlight_on_state=rgb_display.STATE_HIGH,  # 38 kHz PWM makes colours shimmer
         color_space=lv.COLOR_FORMAT.RGB565,
     )
     display.init()

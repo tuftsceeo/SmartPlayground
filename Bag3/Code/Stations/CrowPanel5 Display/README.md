@@ -19,7 +19,9 @@ coordinates follow the finger, and quick taps register.
 
 - `board.py`: pin and timing constants (no allocation, safe to import first).
 - `display_lvgl.py`: RGB bus, display, PCA9557 touch reset, GT911, task handler, test pattern.
-- `main.py`: test pattern; the label shows the touch point, the button counts taps.
+- `main.py`: starts the gallery.
+- `ds_tokens.py`: design-system colours and radii (copy of the IPS096 file, full-size radii).
+- `gallery.py`: design-system pages (Levels, Button, Chip, Toast, Status, Field, Header, Palette); Prev / Next buttons switch pages. Built-in Montserrat 12/14/16 only.
 - `firmware/BUILD.md`: build and flash steps, with a version record.
 - `firmware/CROWPANEL_S3_5/`: MicroPython board definition used for the build.
 - `firmware/rgb_bus_bounce_buffer.patch`: lvgl_micropython RGB bus change (bounce buffer).
@@ -52,7 +54,7 @@ Only a hardware reset (EN, power, or esptool's RTS reset) leaves GPIO19/20 usabl
 
 ```sh
 P=/dev/cu.usbserial-310
-python3 -m mpremote connect $P resume fs cp board.py :board.py + fs cp display_lvgl.py :display_lvgl.py + fs cp main.py :main.py
+python3 -m mpremote connect $P resume fs cp board.py :board.py + fs cp display_lvgl.py :display_lvgl.py + fs cp ds_tokens.py :ds_tokens.py + fs cp gallery.py :gallery.py + fs cp main.py :main.py
 ```
 
 Then reset the board with its RST button, or pulse RTS from the host.
@@ -68,4 +70,5 @@ Then reset the board with its RST button, or pulse RTS from the host.
 | Stability | Pass | 12 MHz, bounce buffer, restart in VSYNC. Without the bounce buffer the image drifts under touch load, at 12 MHz as well as 15 |
 | Touch tracking | Pass | Label coordinates follow the finger |
 | Button | Pass | 10 quick taps, 10 counts, with a 10 ms touch read period (33 ms missed quick taps) |
-| Idle shimmer | Observed once | Count button oscillated between its blue and a slightly darker blue with no touch, for some minutes after power-up, then stopped |
+| Shimmer | Pass | Backlight on without PWM (`STATE_HIGH`); with 38 kHz PWM, coloured areas oscillated in brightness |
+| Gallery | Pass | Design-system pages look right by eye; gradients on the Header page |
