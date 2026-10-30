@@ -202,7 +202,7 @@ class Panel:
         self.dirty = True
 
     def note_feed(self, s):
-        self.feed.append(s)
+        self.feed.append((time.ticks_ms(), s))
         del self.feed[:-6]
 
     # -- targets and chat log -------------------------------------------
@@ -509,6 +509,8 @@ def run():
     P.lib.scan()
     P.radio_up()
     P.dirty = True
+    if P.host is not None:
+        P.host.link()
     while True:
         P.step()
         time.sleep_ms(1)

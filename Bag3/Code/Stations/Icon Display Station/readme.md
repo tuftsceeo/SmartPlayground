@@ -156,6 +156,31 @@ find them.
 
 **Preview fidelity is honest, not complete:** the simulated render is reliable for cell-on/off, silhouette, thin-feature survival, and relative brightness ordering -- most of the failure modes that showed up on hardware, and the ones no one can eyeball from a table of RGB triples. It is *not* reliable for absolute hue -- WS2812 dies are narrowband and off-primary in a way no sRGB monitor simulation captures. Sign off on structure from the preview; sign off on hue only from the real matrix.
 
+### Drawing an icon by hand: `draw_icon.py`
+
+An icon can be drawn as a text grid instead of converted from a PNG. A spec is
+a JSON file: a `name`, a `key` of single characters to LED duty `[r, g, b]`,
+and 16 `rows` of 16 characters (`.` is off).
+
+```
+python3 draw_icon.py --export dog > dog.json   # existing icon -> editable spec
+python3 draw_icon.py dog.json                  # preview PNG beside the spec
+python3 draw_icon.py dog.json --install        # write and sync every copy
+```
+
+`--install` writes `../IconDisplay/icons/<name>.py`, `maps/<name>.json` (the
+whole design as a 256-cell overlay, mirrored to ChatBroadcast's
+`iconmaker/maps/` when that copy has the map) and `previews/<name>.png`, then
+runs `sync_icons.py` for `defaultIcons.js` and the station copy, and copies
+`defaultIcons.js` into `Live_Page/ChatBroadcast/`. A new name also needs a row
+in `gallery.html`. Previews use `iconlib/preview.py`: square cells coloured
+with the web editor's LED model at full duty. Neutrals need the warm ratio
+(white `[255, 171, 93]`); equal RGB shows as cyan.
+
+`hand_author_icons.py` still holds older recipes for some of these names, and
+`image_to_icon.py` raises channels below `CH_FLOOR` after applying the
+overlay, so rerunning either one changes icons drawn here.
+
 ### Open tuning questions (need the physical device)
 
 - `CH_FLOOR = 20` (`iconlib/emit.py`) -- does that survive the diffuser, or does the floor need to be higher?

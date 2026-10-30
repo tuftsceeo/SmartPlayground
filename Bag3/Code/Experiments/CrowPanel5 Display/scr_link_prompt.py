@@ -1,23 +1,25 @@
-"""Screen 7 - Plugged in: link to ChatBroadcast?"""
+"""Screen 7 - Plugged into a computer: shown from the first identify until ChatBroadcast links."""
 
 import lvgl as lv
 
 import ds_tokens as t
 import panel
 import ui_kit as k
-from ui_kit import F14, F16
+from ui_kit import F12, F14, F16
 
 
 def build():
     scr = k.new_screen()
-    card = k.box(scr, 150, 60, 500, 360, t.SURFACE, 24, t.BORDER)
-    k.icon(card, "computer_link_120", t.PURPLE, align=lv.ALIGN.TOP_MID, y=20)
-    k.text(card, "ChatBroadcast is asking to link", t.INK, F16, 0, 160, lv.ALIGN.TOP_MID)
-    k.text(card, "The computer takes over. Wands keep answering.", t.INK_3, F14, 0, 192, lv.ALIGN.TOP_MID)
-    ln = k.button(card, 40, 260, 64, "Link", t.SURFACE, "plug_22", font=F16, primary=True, w=200)
-    ch = k.button(card, 260, 260, 64, "Just charge", t.INK_3, font=F16, w=200)
-    k.on(ln, lambda: panel.P.act(panel.P.host.link))
-    k.on(ch, lambda: panel.P.act(panel.P.host.just_charge))
+    tile = k.box(scr, 56, 130, 220, 220, t.TEAL_50, 24)
+    k.icon(tile, "computer_link_120", t.TEAL_DARK, align=lv.ALIGN.CENTER)
+    x = 316
+    k.text(scr, "Plugged into a computer", t.TEAL_DARK, F14, x, 146)
+    k.text(scr, "Link to ChatBroadcast", t.INK, F16, x, 174)
+    k.slot(scr, x, 206, 428, t.INK_3, F14, "Send code or open this device in ChatBroadcast.")
+    k.box(scr, x, 242, 10, 10, t.TEAL, t.R_PILL)
+    k.text(scr, "Waiting...", t.INK_3, F12, x + 20, 240)
+    ch = k.button(scr, x, 278, 52, "Just charge", t.INK, font=F14, w=160)
+    k.on(ch, lambda: panel.P.act(panel.P.host.release))
     return scr
 
 

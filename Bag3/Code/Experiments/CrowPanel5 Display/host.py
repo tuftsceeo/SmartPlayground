@@ -1,7 +1,8 @@
 """ChatBroadcast host commands over json_link (the Dial's table plus card.write, games.rescan, unlink).
 
-Before the teacher taps Link on screen 7 only read-only commands are answered; after
-Just charge only identify is.
+Identify and other read-only commands show screen 7 (Plugged into a computer); any other
+command, or resuming after a code install, links the panel and opens screen 8. Just charge
+sends `released` so ChatBroadcast disconnects; unlink returns the panel to home.
 """
 
 import gc
@@ -11,16 +12,14 @@ import panel
 import ui_kit as k
 from code_link import HOST_ID
 
-READ_ONLY = ("identify", "info", "mode", "games.list", "stats.get", "arm", "disarm")
-
+PASSIVE = ("identify", "info", "mode", "arm", "disarm", "unlink")
 
 class Host:
     def __init__(self, P):
         self.P = P
         self.linked = False
-        self.ignored = False
-        self.prompted = False
         self.card = None        # {"text","label","state","msg"} for screen 9
+        self.last_card = None   # (label, ok) shown in screen 9's footer
         self.h = {
             "identify": self.identify, "info": self.info, "mode": self.mode,
             "arm": self.ok, "disarm": self.ok,
@@ -43,33 +42,27 @@ class Host:
         if fn is None:
             self.send({"type": "error", "id": rid, "code": "unknown_cmd", "cmd": name})
             return
-        if self.ignored and name != "identify":
-            return
         if not self.linked:
-            if not self.prompted:
-                self.prompted = True
+            if name not in PASSIVE:
+                self.link()
+            elif name != "unlink" and k.cur != "scr_link_prompt":
                 k.go("scr_link_prompt")
-            if name not in READ_ONLY:
-                self.send({"type": "error", "id": rid, "code": "not_linked",
-                           "msg": "tap Link on the panel"})
-                return
         fn(cmd, rid)
-
-    # -- screen 7 choices --------------------------------------------------
 
     def link(self):
         self.linked = True
         self.P.dirty = True
         k.go("scr_linked", push=False)
 
-    def just_charge(self):
-        self.ignored = True
+    def release(self):
+        """Just charge: ask ChatBroadcast to disconnect and go back to home."""
+        self.send({"type": "released"})
+        self.linked = False
         k.home()
 
     def unlink(self, cmd, rid):
         self.ok(cmd, rid)
         self.linked = False
-        self.prompted = False
         if self.card is not None:
             self.card_done("write_failed", None)
         k.home()
@@ -265,6 +258,8 @@ class Host:
         """Finish screen 9: report a failure if event is set, then back to 8."""
         c = self.card
         self.card = None
+        if c is not None:
+            self.last_card = (c["label"], event is None)
         if event and c is not None:
             self.send({"type": event, "uid": uid, "text": c["text"], "label": c["label"]})
         self.P.nfc_leave()

@@ -878,6 +878,12 @@ class App {
             this.setLinkState('rebooting');
             this._armRebootTimer();
         });
+        this.device.on('released', async () => {
+            dbg('device', 'event: released');
+            await this.device.disconnect();
+            this.setLinkState('idle');
+            toast('Panel set to charge only - disconnected.');
+        });
         this.device.on('booting', (obj) => {
             dbg('device', 'event: booting', obj);
             // Also from 'no-answer': a `# booting` line is proof the Box is

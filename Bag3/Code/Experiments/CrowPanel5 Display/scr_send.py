@@ -50,7 +50,7 @@ def refresh():
     k.st(_w["title"], f"Sending code - {d['name']}")
     k.st(_w["bubble"], f"Send code: {d['name']}")
     k.st(_w["count"], f"{has} of {len(st)} wands have it")
-    _w["bar"].set_value(100 * has // max(1, len(st)), lv.ANIM.OFF)
+    _w["bar"].set_value(100 * has // max(1, len(st)), 0)
     k.show_hide(_w["busy"], not d["done"])
     paused = P.fleet is not None and P.fleet.paused
     k.st(k.lbl(_w["pause"]), "Resume" if paused else "Pause")

@@ -209,7 +209,7 @@ def bar(parent, x, y, w, h, color=t.PINK):
     b.set_pos(x, y)
     b.set_size(w, h)
     b.set_range(0, 100)
-    b.set_value(0, lv.ANIM.OFF)
+    b.set_value(0, 0)
     b.set_style_bg_color(c(GREY), 0)
     b.set_style_bg_color(c(color), lv.PART.INDICATOR)
     b.set_style_radius(h // 2, 0)
