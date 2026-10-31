@@ -1,0 +1,581 @@
+{
+ "taco": {
+  "set": "heritage",
+  "key": {
+   "N": [
+    150,
+    45,
+    5
+   ],
+   "R": [
+    255,
+    0,
+    0
+   ],
+   "T": [
+    180,
+    60,
+    10
+   ],
+   "Y": [
+    255,
+    150,
+    0
+   ],
+   "g": [
+    20,
+    160,
+    0
+   ]
+  },
+  "rows": [
+   "................",
+   "...g..g...g..g..",
+   "..gRgNgRgNgRgNg.",
+   ".gNRNgNRNgNRgNRg",
+   "YYYYYYYYYYYYYYYY",
+   "YYYYYYYYYYYYYYYY",
+   "YYYTYYYYYYYYTYYY",
+   ".YYYYYYYYTYYYYY.",
+   "...YTYYYYYYYY...",
+   ".....YTYYYY.....",
+   "................",
+   "................",
+   "................",
+   "................",
+   "................",
+   "................"
+  ]
+ },
+ "elote": {
+  "set": "heritage",
+  "key": {
+   "C": [
+    255,
+    140,
+    60
+   ],
+   "N": [
+    150,
+    45,
+    5
+   ],
+   "Y": [
+    255,
+    150,
+    0
+   ],
+   "g": [
+    20,
+    160,
+    0
+   ]
+  },
+  "rows": [
+   "......CYCY......",
+   ".....CYCYCY.....",
+   ".....YCYCYC.....",
+   ".....CYCYCY.....",
+   ".....YCYCYC.....",
+   ".....CYCYCY.....",
+   ".....YCYCYC.....",
+   "..g..CYCYCY..g..",
+   "..gg.YCYCYC.gg..",
+   "...ggCYCYCYgg...",
+   "....gggYCggg....",
+   ".....gggggg.....",
+   ".......NN.......",
+   ".......NN.......",
+   ".......NN.......",
+   ".......NN......."
+  ]
+ },
+ "concha": {
+  "set": "heritage",
+  "key": {
+   "P": [
+    255,
+    94,
+    50
+   ],
+   "T": [
+    180,
+    60,
+    10
+   ]
+  },
+  "rows": [
+   "................",
+   "................",
+   "................",
+   "......PTTP......",
+   "....PPPTTPPP....",
+   "...PPPPTTPPPP...",
+   "..TTPPPTTPPPTT..",
+   ".PPTTPPTTPPTTPP.",
+   ".PPPTTPPPPTTPPP.",
+   "PPPPPTPPPPTPPPPP",
+   "PPPPPPPPPPPPPPPP",
+   "PTTTTTTTTTTTTTTP",
+   ".TTTTTTTTTTTTTT.",
+   "..TTTTTTTTTTTT..",
+   "................",
+   "................"
+  ]
+ },
+ "churro": {
+  "set": "heritage",
+  "key": {
+   "C": [
+    255,
+    140,
+    60
+   ],
+   "T": [
+    180,
+    60,
+    10
+   ],
+   "W": [
+    255,
+    171,
+    93
+   ]
+  },
+  "rows": [
+   "................",
+   ".............TC.",
+   "............TCTT",
+   "...........TWTTC",
+   "..........TCTTCT",
+   ".......W.TCTTCT.",
+   "........TCTTCT..",
+   ".......TCTTCT...",
+   "......TCTTCT....",
+   ".....TCTTCT.....",
+   "....TWTTCT......",
+   "...TCTTCT.......",
+   "..TCTTCT........",
+   ".TCTTCT.........",
+   "..TTCT..........",
+   "...CT..........."
+  ]
+ },
+ "paleta": {
+  "set": "heritage",
+  "key": {
+   "P": [
+    255,
+    94,
+    50
+   ],
+   "R": [
+    255,
+    0,
+    0
+   ],
+   "T": [
+    180,
+    60,
+    10
+   ]
+  },
+  "rows": [
+   "................",
+   ".....PPPPPP.....",
+   "....PRPPPPRP....",
+   "....PRPPPPRP....",
+   "....PRPPPPRP....",
+   "....PRPPPPRP....",
+   "....PRPPPPRP....",
+   "....PRPPPPRP....",
+   "....PRPPPPRP....",
+   "....PRPPPPRP....",
+   "....PRPPPPRP....",
+   "....PRPPPPRP....",
+   ".......TT.......",
+   ".......TT.......",
+   ".......TT.......",
+   ".......TT......."
+  ]
+ },
+ "pupusa": {
+  "set": "heritage",
+  "key": {
+   "C": [
+    255,
+    140,
+    60
+   ],
+   "N": [
+    150,
+    45,
+    5
+   ],
+   "O": [
+    255,
+    60,
+    0
+   ],
+   "T": [
+    180,
+    60,
+    10
+   ],
+   "g": [
+    20,
+    160,
+    0
+   ]
+  },
+  "rows": [
+   "................",
+   "....CCCCC.......",
+   "..CCCCCNCCC.....",
+   ".CCNNCCCCCCC....",
+   ".CCCCCCCNNCC....",
+   "CCCCCCCCCCCCC...",
+   "CCNCCCCCCCCCC...",
+   "CCCCCNNCCCNCC...",
+   ".CCCCCCCCCCC....",
+   ".CCCCCCCCCCC....",
+   "..TTTTTTTTT.....",
+   "..TTTTTTTTT.....",
+   "..........g.O.g.",
+   ".........gOgOgOg",
+   "........OgggOggO",
+   "........gOgOgggg"
+  ]
+ },
+ "agua_fresca": {
+  "set": "heritage",
+  "key": {
+   "L": [
+    180,
+    120,
+    65
+   ],
+   "R": [
+    255,
+    0,
+    0
+   ],
+   "W": [
+    255,
+    171,
+    93
+   ]
+  },
+  "rows": [
+   "...........W....",
+   "..........W.....",
+   ".........W......",
+   "..WWWWWWWWWWWW..",
+   "..RRRRRRWRRRRR..",
+   "..RLLRRRWRRRRR..",
+   "...RLLRRWRLLR...",
+   "...RRRRRWRLLR...",
+   "...RRRRRRRRRR...",
+   "....RRRRRRRR....",
+   "....RRRRRRRR....",
+   "....RRRRRRRR....",
+   ".....RRRRRR.....",
+   ".....RRRRRR.....",
+   "................",
+   "................"
+  ]
+ },
+ "hot_chocolate": {
+  "set": "heritage",
+  "key": {
+   "N": [
+    150,
+    45,
+    5
+   ],
+   "S": [
+    0,
+    60,
+    200
+   ],
+   "T": [
+    180,
+    60,
+    10
+   ],
+   "W": [
+    255,
+    171,
+    93
+   ]
+  },
+  "rows": [
+   "...W....W.......",
+   "....W....W......",
+   "...W....W...T...",
+   "....W....W.TT...",
+   "..........T.....",
+   ".SSSSSSSSTSS....",
+   ".SNNNNNNTNNS....",
+   ".SSSSSSSSSSSSS..",
+   ".SSSSSSSSSSS..S.",
+   ".SSWSSSSSSSS..S.",
+   ".SSSSSSSSSSS..S.",
+   ".SSSSSSSSSSSSS..",
+   ".SSSSSSSSSSS....",
+   "..SSSSSSSSS.....",
+   "................",
+   "................"
+  ]
+ },
+ "beans": {
+  "set": "heritage",
+  "key": {
+   "N": [
+    150,
+    45,
+    5
+   ],
+   "O": [
+    255,
+    60,
+    0
+   ],
+   "R": [
+    255,
+    0,
+    0
+   ],
+   "W": [
+    255,
+    171,
+    93
+   ],
+   "Y": [
+    255,
+    150,
+    0
+   ]
+  },
+  "rows": [
+   "................",
+   "....W....W......",
+   ".....W....W.....",
+   "....W....W......",
+   "................",
+   "......NN.NN.....",
+   "...NN.RR.NN.NN..",
+   "..RR.NN.NN.RR.N.",
+   ".NN.RR.NN.RR.NN.",
+   "OOOOOOOOOOOOOOOO",
+   ".OOOOOOOOOOOOOO.",
+   ".OOYOOYOOYOOYOO.",
+   "..OOOOOOOOOOOO..",
+   "...OOOOOOOOOO...",
+   ".....OOOOOO.....",
+   "................"
+  ]
+ },
+ "pinata": {
+  "set": "heritage",
+  "key": {
+   "O": [
+    255,
+    60,
+    0
+   ],
+   "P": [
+    255,
+    94,
+    50
+   ],
+   "R": [
+    255,
+    0,
+    0
+   ],
+   "S": [
+    0,
+    60,
+    200
+   ],
+   "U": [
+    100,
+    0,
+    255
+   ],
+   "Y": [
+    255,
+    150,
+    0
+   ],
+   "g": [
+    20,
+    160,
+    0
+   ]
+  },
+  "rows": [
+   ".......PP.......",
+   ".......PP.......",
+   "..RR..PPPP..gg..",
+   "..RRR.PPPP.ggg..",
+   "...RRRYYYYggg...",
+   "....RYYYYYYg....",
+   "....YYYYYYYY....",
+   "....YYYYYYYY....",
+   "....OYYYYYYS....",
+   "...OOOYYYYSSS...",
+   "..OOO.UUUU.SSS..",
+   "..OO..UUUU..SS..",
+   "..Yg...UU...gY..",
+   "..PS...UU...SP..",
+   "..Yg...gY...gY..",
+   "..PS...PS...SP.."
+  ]
+ },
+ "maracas": {
+  "set": "heritage",
+  "key": {
+   "N": [
+    150,
+    45,
+    5
+   ],
+   "R": [
+    255,
+    0,
+    0
+   ],
+   "Y": [
+    255,
+    150,
+    0
+   ],
+   "g": [
+    20,
+    160,
+    0
+   ]
+  },
+  "rows": [
+   "................",
+   "...RR......gg...",
+   ".RRRRRR..gggggg.",
+   ".RRRRRR..gggggg.",
+   ".YYYYYY..YYYYYY.",
+   ".RRRRRR..gggggg.",
+   ".RRRRRR..gggggg.",
+   "...RR......gg...",
+   "...NN......NN...",
+   "...NN......NN...",
+   "...NN......NN...",
+   "...NN......NN...",
+   "...NN......NN...",
+   "...NN......NN...",
+   "...NN......NN...",
+   "...NN......NN..."
+  ]
+ },
+ "torogoz": {
+  "set": "heritage",
+  "key": {
+   "K": [
+    30,
+    20,
+    10
+   ],
+   "N": [
+    150,
+    45,
+    5
+   ],
+   "O": [
+    255,
+    60,
+    0
+   ],
+   "S": [
+    0,
+    60,
+    200
+   ],
+   "W": [
+    255,
+    171,
+    93
+   ],
+   "Y": [
+    255,
+    150,
+    0
+   ],
+   "g": [
+    20,
+    160,
+    0
+   ]
+  },
+  "rows": [
+   "................",
+   "....SSSS........",
+   "...SggggS.......",
+   "..ggWKgggg......",
+   "YYggKKgggg......",
+   "..OggggggSS.....",
+   "...OOOggSSSS....",
+   "...OOOOgSSSS....",
+   "....OOOgSSSS....",
+   ".....OOgSSS.....",
+   "NNNNNNNNNSSNNNN.",
+   "..........S.....",
+   "...........S....",
+   "............S...",
+   ".............SS.",
+   ".............SS."
+  ]
+ },
+ "monarch": {
+  "set": "heritage",
+  "key": {
+   "O": [
+    255,
+    60,
+    0
+   ],
+   "W": [
+    255,
+    171,
+    93
+   ],
+   "Y": [
+    255,
+    150,
+    0
+   ],
+   "b": [
+    0,
+    9,
+    30
+   ]
+  },
+  "rows": [
+   "bbbbb.bbbb.bbbbb",
+   "....bb.bb.bb....",
+   "W.....b..b.....W",
+   ".OOOO......OOOO.",
+   ".OOOOOO..OOOOOO.",
+   "W.O.OOO..OOO.O.W",
+   ".OOO.OO..OO.OOO.",
+   "b.OOOOO..OOOOO.b",
+   "bb...OO..OO...bb",
+   "b.YYYYY..YYYYY.b",
+   ".YYY.YY..YY.YYY.",
+   "W.YYY.Y..Y.YYY.W",
+   ".YYYYY....YYYYY.",
+   "b.W...b..b...W.b",
+   "bbb...bbbb...bbb",
+   "bbbbbbbbbbbbbbbb"
+  ]
+ }
+}
