@@ -51,7 +51,7 @@ for i in range(13):
         for e in (0, 1):
             x, y = cx+d+e, cy+d
             if 0 <= x < 16 and 0 <= y < 16: g[y][x] = 'C' if (x+y) % 3 == 0 else 'T'
-for x,y in [(7,5),(12,3),(5,10)]: g[y][x] = 'W'
+for x,y in [(12,3),(5,10)]: g[y][x] = "W"
 H['churro'] = done(g)
 # tortillas: stack with top ellipse
 g = grid()
@@ -94,7 +94,7 @@ H['agua_fresca'] = pad(["...........W....", "..........W.....", ".........W.....
   "....RRRRRRRR....", ".....RRRRRR.....", ".....RRRRRR....."])
 # hot chocolate mug with steam and molinillo
 H['hot_chocolate'] = pad(["...W....W.......", "....W....W......", "...W....W...T...", "....W....W.TT...", "..........T.....",
-  ".SSSSSSSSTSS....", ".SNNNNNNTNNS....", ".SSSSSSSSSSSSS..", ".SSSSSSSSSSS..S.", ".SSWSSSSSSSS..S.", ".SSSSSSSSSSS..S.",
+  ".SSSSSSSSTSS....", ".SNNNNNNTNNS....", ".SSSSSSSSSSSSS..", ".SSSSSSSSSSS..S.", ".SSSSSSSSSSS..S.", ".SSSSSSSSSSS..S.",
   ".SSSSSSSSSSSSS..", ".SSSSSSSSSSS....", "..SSSSSSSSS.....", "................", "................"])
 # beans: individual beans in a clay bowl, with steam
 g = grid()
