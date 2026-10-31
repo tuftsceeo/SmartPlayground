@@ -51,6 +51,9 @@ Physical pixel wiring is **serpentine, row-major, starting top-left** -- `icon_t
 
 ## Image → icon conversion
 
+For designing icons by hand (style, colour table, child-recognisability review,
+animation), see [ICON_DESIGN.md](ICON_DESIGN.md) and `grid_to_icon.py`.
+
 Converting a PNG/JPEG to a recognizable 16×16 icon turned out to need more than a per-pixel nearest-color snap -- six earlier rounds of that approach each produced a *different* visible defect (an orange reading as a "round white peach", brown stems rendering as bright amber intruders, several distinct purples collapsing into one, a shadow appearing brighter than the body it's shading). All six traced back to one mechanical root cause, plus one hardware fact no color-space math fixes:
 
 **WS2812 bytes are linear PWM duty, not sRGB code values.** Treating an authored `(r,g,b)` byte tuple the same way a PNG pixel is treated -- comparing colors, or judging "is this bright enough" -- silently applies or skips a gamma step depending on which side of the comparison you're on. `iconlib/ledcolor.py`'s `predict_led_appearance()` runs a byte tuple through the real chain (`byte -> ×INTENSITY -> int() truncate -> /255 = LINEAR LIGHT -> sRGB-encode`) and is what the preview renders through, instead of showing the raw authored bytes as if they were already the right thing to look at.
