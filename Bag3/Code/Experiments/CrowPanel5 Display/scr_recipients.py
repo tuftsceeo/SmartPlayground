@@ -69,14 +69,15 @@ def _chat():
         return
     if len(P.picked) == 1:
         P.set_target("one", P.roster.name(P.picked[0]), list(P.picked))
-    else:
-        P.set_target("set", f"{len(P.picked)} picked", list(P.picked))
+        k.go("scr_device", push=False)
+        return
+    P.set_target("set", f"{len(P.picked)} picked", list(P.picked))
     k.home()
 
 
 def build():
     scr = k.new_screen()
-    k.header(scr, "Who gets it?", k.back)
+    _, _w["title"] = k.header(scr, "Who gets it?", k.back)
     x = 16
     _w["tabs"] = {}
     for f, label in (("all", "All"), ("wands", "Wands"), ("stations", "Stations")):
@@ -97,6 +98,10 @@ def build():
     k.on(rc, lambda: panel.P.act(panel.P.roll_call))
     sv = k.button(ft, 200, 8, 48, "Save group", t.PURPLE, "plus_16")
     k.on(sv, _save)
+    _w["save"] = sv
+    gs = k.button(ft, 560, 8, 48, "Save group", t.SURFACE, primary=True, w=224, font=F16)
+    k.on(gs, _save)
+    _w["gsave"] = gs
     ch = k.button(ft, 560, 8, 48, "Chat with 0", t.SURFACE, primary=True, w=224, font=F16)
     _w["chat_l"] = k.lbl(ch)
     k.on(ch, _chat)
@@ -128,6 +133,8 @@ def refresh():
         k.sty(d["batt"], "text", t.WARN[0] if P.roster.low(e) else t.INK_3)
         heard = e["heard"] or P.last_call is None
         k.st(d["sig"], f"{roster.signal_word(e['rssi'])} - {P.roster.age(e)}" if heard else "Not heard")
+        k.sty(d["sig"], "text", t.INK_3 if heard else t.DANGER[0])
+        d["box"].set_style_opa(lv.OPA.COVER if heard else 150, 0)
         on_ = mac in P.picked
         k.sty(d["box"], "border", t.PINK if on_ else t.BORDER)
         k.sty(d["box"], "bg", t.PINK_50 if on_ else t.SURFACE)
@@ -135,3 +142,10 @@ def refresh():
     n = len(P.picked)
     k.st(_w["picked"], f"{n} picked - page {_w['page'] + 1}/{pages}")
     k.st(_w["chat_l"], f"Chat with {n}")
+    k.set_enabled(_w["chat"], n > 0)
+    group = P.pick_mode == "group"
+    k.st(_w["title"], "New group" if group else "Who gets it?")
+    k.show_hide(_w["chat"], not group)
+    k.show_hide(_w["save"], not group)
+    k.show_hide(_w["gsave"], group)
+    k.set_enabled(_w["gsave"], n > 0)

@@ -74,7 +74,7 @@ def _header(scr):
     _w["title"] = k.slot(hd, 16, 12, 260, t.INK, F16)
     _w["sub"] = k.slot(hd, 16, 36, 260, t.INK_3, F12)
     x = MAIN_W - 16
-    for label, fg, ic, fn in (("Cards", t.PURPLE, "cards_18", lambda: k.go("scr_cards")),
+    for label, fg, ic, fn in (("NFC Tags", t.PURPLE, "cards_18", lambda: k.go("scr_cards")),
                               ("Roll call", t.TEAL_DARK, "roll_call_18", lambda: panel.P.act(panel.P.roll_call))):
         b = k.button(hd, 0, 10, 44, label, fg, ic)
         b.update_layout()
@@ -115,8 +115,9 @@ def _slot(area):
     s["c_ready"] = k.lbl(k.pill(chips, "", t.SERVE[0], t.SERVE[1]))
     s["c_low"] = k.lbl(k.pill(chips, "", t.WARN[0], t.WARN[1]))
     s["c_stn"] = k.lbl(k.pill(chips, "", t.INK_3, GREY))
-    see = k.text(rep, "See list >", t.PURPLE, F12)
+    see = k.button(rep, 0, 0, 44, "See list >", t.PURPLE, font=F12, w=140)
     k.on(see, lambda: _open_list("chat"))
+    s["chips"] = chips
     s["rep"] = rep
 
     mine = k.plain(lv.obj(k.line(area, lv.FLEX_ALIGN.END)))
@@ -132,7 +133,9 @@ def _slot(area):
     bub.set_style_pad_hor(14, 0)
     bub.set_style_pad_ver(10, 0)
     s["mine_ic"] = k.box(bub, 0, 0, 28, 28, 0xBF75C9, 8)
-    k.icon(s["mine_ic"], "music_note_16", t.SURFACE, align=lv.ALIGN.CENTER)
+    s["mine_note"] = k.icon(s["mine_ic"], "music_note_16", t.SURFACE, align=lv.ALIGN.CENTER)
+    s["mine_stop"] = k.icon(s["mine_ic"], "stop_20", t.SURFACE, align=lv.ALIGN.CENTER)
+    s["mine_bub"] = bub
     s["mine_t"] = k.text(bub, "", t.SURFACE, F16)
     s["mine_s"] = k.text(mine, "", t.TEAL_DARK, F12)
     s["mine"] = mine.get_parent()
@@ -212,13 +215,25 @@ def _fill(s, e):
         k.st(s["note_t"], e["text"])
         k.st(s["note_b"], e.get("b", ""))
     elif ty == "rep":
-        k.st(s["rep_t"], f"{e['n']} devices answered")
+        n = e["n"]
+        k.st(s["rep_t"], "No one answered - is the radio on and are wands awake?" if n == 0
+             else ("1 device answered" if n == 1 else f"{n} devices answered"))
+        k.show_hide(s["chips"], n > 0)
         k.st(s["c_ready"], f"{e['ready']} ready")
         k.st(s["c_low"], f"{e['low']} low battery")
         k.st(s["c_stn"], f"{e['stn']} stations")
     elif ty == "mine":
         k.st(s["mine_t"], e["text"])
         k.sty(s["mine_ic"], "bg", e.get("color", 0xBF75C9))
+        stop = e["text"] == "Stop"
+        k.show_hide(s["mine_note"], not stop)
+        k.show_hide(s["mine_stop"], stop)
+        if stop:
+            s["mine_bub"].set_style_bg_grad_dir(lv.GRAD_DIR.NONE, 0)
+            k.sty(s["mine_bub"], "bg", GREY)
+        else:
+            k.grad(s["mine_bub"])
+        k.sty(s["mine_t"], "text", t.INK if stop else t.SURFACE)
         k.st(s["mine_s"], e["sub"])
     else:
         k.st(s["err_t"], e["text"])
@@ -250,7 +265,7 @@ def refresh():
     if P.fleet is not None and P.fleet.scanning:
         k.st(_w["sub"], "Roll call - listening...")
     elif P.last_call:
-        k.st(_w["sub"], f"{P.last_call[1]} answered - {panel.ago(P.last_call[0])}")
+        k.st(_w["sub"], P.answered())
     else:
         k.st(_w["sub"], P.count_text())
     log = P.log()[-POOL:]

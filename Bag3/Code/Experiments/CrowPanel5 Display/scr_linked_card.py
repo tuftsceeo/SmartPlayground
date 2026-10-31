@@ -9,19 +9,14 @@ import ui_kit as k
 from ui_kit import F12, F14, F16
 
 _w = {}
-# card state -> (status text, text colour, slot colour, bars full)
-_SLOT = {"waiting": ("Ready", t.INK_3, k.GREY, False),
-         "writing": ("Writing...", t.PURPLE, t.PURPLE_50, True),
-         "done": ("Done", t.TEAL_DARK, t.TEAL_50, True),
-         "error": ("Lift and tap again", t.DANGER[0], t.DANGER[1], False)}
-_HINT = {"waiting": "Hold a blank card on the target. Wait for the beep.",
-         "writing": "Keep the card still until the beep."}
-
-
-def _cancel():
-    h = panel.P.host
-    if h.card is not None:
-        h.card_done("write_failed", None)
+# card state -> (status text, text colour, slot colour, bar percent, bar colour)
+_SLOT = {"waiting": ("Ready", t.INK_3, k.GREY, 0, t.PURPLE),
+         "writing": ("Writing...", t.PURPLE, t.PURPLE_50, 60, t.PURPLE),
+         "done": ("Done", t.TEAL_DARK, t.TEAL_50, 100, t.TEAL),
+         "error": ("Try again", t.DANGER[0], t.DANGER[1], 0, t.PURPLE)}
+_HINT = {"waiting": "Hold a blank tag on the target. Wait for the beep.",
+         "writing": "Keep the tag still until the beep.",
+         "done": "Waiting for the computer."}
 
 
 def build():
@@ -29,12 +24,10 @@ def build():
     hd = k.box(scr, 0, 0, k.W, 56, t.TEAL_50)
     k.box(scr, 0, 55, k.W, 1, t.BORDER)
     k.icon(hd, "plug_22", t.TEAL_DARK, 16, 17)
-    k.slot(hd, 48, 19, 300, t.TEAL_DARK, F16, "Linked to ChatBroadcast")
+    k.slot(hd, 48, 19, 300, t.TEAL_DARK, F16, "Connected")
     k.pill(hd, "Radio paused", t.PURPLE, t.PURPLE_50, F14, 12, 6, t.R_PILL).set_pos(510, 13)
-    cancel = k.button(hd, 664, 6, 44, "Cancel", t.INK_3, w=120)
-    k.on(cancel, lambda: panel.P.act(_cancel))
 
-    k.text(scr, "THE COMPUTER ASKS FOR A CARD", t.INK_3, F12, 40, 124)
+    k.text(scr, "THE COMPUTER ASKS FOR A TAG", t.INK_3, F12, 40, 124)
     _w["title"] = k.slot(scr, 40, 148, 440, t.INK, F16)
     _w["hint"] = k.slot(scr, 40, 180, 440, t.INK_3, F14)
     chip = k.box(scr, 40, 210, 440, 32, k.GREY, 8, t.BORDER, 1)
@@ -61,6 +54,9 @@ def refresh():
     P = panel.P
     c = P.host.card
     if c is None:
+        if P.host.shown is not None:
+            nfc_target.attach(k._scr["scr_linked_card"])
+            _show(P, P.host.shown)
         return
     nfc_target.attach(k._scr["scr_linked_card"])
     if not P.nfc_on:
@@ -76,18 +72,20 @@ def refresh():
 
 def _show(P, c):
     st = c["state"]
-    word, fg, bg, full = _SLOT[st]
-    k.st(_w["title"], f"Card: {c['label']}")
+    word, fg, bg, v, bc = _SLOT[st]
+    if st == "error" and c["msg"] and not P.nfc_on:
+        word = c["msg"]
+    k.st(_w["title"], f"Tag: {c['label']}")
     k.st(_w["hint"], _HINT.get(st, c["msg"]))
     k.st(_w["text"], c["text"])
     k.st(_w["status"], word)
     k.sty(_w["status"], "text", fg)
     k.sty(_w["slot"], "bg", bg)
-    v = 100 if full else 0
-    _w["sbar"].set_value(v, 0)
-    for b in (_w["left"], _w["bottom"]):
+    for b in (_w["sbar"], _w["left"], _w["bottom"]):
         b.set_value(v, 0)
-        k.sty(b, "bg", t.PURPLE_50 if full else t.BG)
+        b.set_style_bg_color(k.c(bc), lv.PART.INDICATOR)
+    for b in (_w["left"], _w["bottom"]):
+        k.sty(b, "bg", t.PURPLE_50 if v else t.BG)
     last = P.host.last_card
-    k.st(_w["last"], f"Last card: {last[0]} - {'written' if last[1] else 'not written'}" if last else "")
-    nfc_target.state(st, c["msg"])
+    k.st(_w["last"], f"Last tag: {last[0]} - {'written' if last[1] else 'not written'}" if last else "")
+    nfc_target.state(st, "" if st == "error" else c["msg"])

@@ -1,7 +1,9 @@
-"""Screen 5 - Write game cards: Game / Helper / My own / Read, with the NFC target.
+"""Screen 5 - Write game cards: Game / My own / Read, with the NFC target.
 
 The radio is paused while this screen is open (the reader field is on).
 """
+
+import time
 
 import lvgl as lv
 
@@ -13,6 +15,7 @@ from ui_kit import F12, F14, F16, R
 
 ROWS = 6
 _rows = []
+HOLD_MS = 1500
 _w = {"tab": "game", "gi": 0, "i": 0, "cards": [], "done": set(), "read": None, "custom": ""}
 
 
@@ -24,11 +27,11 @@ def _leave():
 
 def build():
     scr = k.new_screen()
-    hd, _w["title"] = k.header(scr, "Write game cards", _leave)
+    hd, _w["title"] = k.header(scr, "NFC Tags", _leave)
     _w["radio"] = k.slot(hd, 520, 24, 264, t.WARN[0], F12, "Radio paused while writing")
     x = 16
     _w["tabs"] = {}
-    for tab, label in (("game", "Game"), ("helper", "Helper"), ("own", "My own"), ("read", "Read")):
+    for tab, label in (("game", "Game"), ("own", "My own"), ("read", "Read")):
         b = k.button(scr, x, 72, 40, label, t.INK_3, w=116)
         k.on(b, lambda tab=tab: _tab(tab))
         _w["tabs"][tab] = b
@@ -48,17 +51,17 @@ def build():
     _w["now"] = k.slot(scr, 528, 76, 256, t.INK, F16)
     _w["hint"] = k.slot(scr, 528, 106, 256, t.INK_3, F14)
     _w["prog"] = k.slot(scr, 528, 340, 256, t.PURPLE, F14)
-    _w["edge_l"] = k.box(scr, 0, 64, 6, 0, t.PURPLE)
-    _w["edge_b"] = k.box(scr, 0, k.H - 6, 0, 6, t.PURPLE)
     ft = k.box(scr, 0, 416, k.W, 64, t.SURFACE)
     sk = k.button(ft, 16, 8, 48, "Skip", t.INK_3, w=120, font=F16)
     k.on(sk, _skip)
     _w["edit"] = k.button(ft, 148, 8, 48, "Type text", t.PURPLE, w=150, font=F16)
     k.on(_w["edit"], _type)
-    _w["copy"] = k.button(ft, 310, 8, 48, "Copy to card", t.PURPLE, w=180, font=F16)
+    _w["copy"] = k.button(ft, 310, 8, 48, "Copy to tag", t.PURPLE, w=180, font=F16)
     k.on(_w["copy"], _copy)
     dn = k.button(ft, 664, 8, 48, "Done", t.SURFACE, primary=True, w=120, font=F16)
     k.on(dn, _leave)
+    _w["edge_l"] = k.box(scr, 0, 64, 6, 0, t.PURPLE)
+    _w["edge_b"] = k.box(scr, 0, k.H - 6, 0, 6, t.PURPLE)
     nfc_target.attach(scr)
     return scr
 
@@ -80,14 +83,15 @@ def _load():
     if tab == "game":
         g = P.lib.games[_w["gi"]]
         _w["cards"] = P.lib.cards(g["slug"])
-    elif tab == "helper":
-        _w["cards"] = P.lib.helper_cards()
     elif tab == "own":
         _w["cards"] = [("My text", _w["custom"])] if _w["custom"] else []
     else:
         _w["cards"] = []
     _w["i"] = 0
     _w["done"] = set()
+    _w["hold"] = None
+    if P.nfc_on:
+        k.st(_w["prog"], "Ready")
     _arm()
 
 
@@ -99,14 +103,17 @@ def _arm():
         return
     if _w["tab"] == "read":
         P.card_job("read", None, "", _result)
-        nfc_target.state("waiting", "Tap a card to read")
+        nfc_target.state("waiting", "Tap a tag to read")
     elif _w["i"] < len(_w["cards"]):
         label, text = _w["cards"][_w["i"]]
         P.card_job("write", text, text, _result)
         nfc_target.state("waiting")
+    elif _w["cards"]:
+        P.job = None
+        nfc_target.state("done", "All done")
     else:
         P.job = None
-        nfc_target.state("done", "All done" if _w["cards"] else "")
+        nfc_target.state("idle", "Type text first")
     _show()
 
 
@@ -119,24 +126,33 @@ def _result(res, uid, text):
     _edges(0)
     if res == "read":
         _w["read"] = text
-        k.st(_w["prog"], f"Card says: {text}")
+        k.st(_w["prog"], f"Tag says: {text}")
         nfc_target.state("done", "Read")
         panel.P.card_job("read", None, "", _result)
+        _show()
         return
     if res == "empty":
-        k.st(_w["prog"], "No text on that card")
-        nfc_target.state("error", "Empty card")
+        k.st(_w["prog"], "No text on that tag")
+        nfc_target.state("error", "Empty tag")
         panel.P.card_job("read", None, "", _result)
         return
     if res == "failed":
         k.st(_w["prog"], "Write failed - lift and try again")
         nfc_target.state("error", "Try again")
-        _arm()
+        _hold()
         return
     k.st(_w["prog"], "Already set" if res == "already" else "Written")
+    nfc_target.state("done")
     _w["done"].add(_w["i"])
     _w["i"] += 1
-    _arm()
+    _show()
+    _hold()
+
+
+def _hold():
+    """Keep the result on screen for HOLD_MS, then queue the next card."""
+    panel.P.job = None
+    _w["hold"] = panel.P.wake = time.ticks_add(time.ticks_ms(), HOLD_MS)
 
 
 def _edges(pct):
@@ -157,12 +173,12 @@ def _type():
         _w["custom"] = s
         _w["tab"] = "own"
         _load()
-    kbd.open("Text for the card", _w["custom"], 54, ok)
+    kbd.open("Text for the tag", _w["custom"], 54, ok)
 
 
 def _copy():
     if not _w["read"]:
-        k.toast("Read a card first")
+        k.toast("Read a tag first")
         return
     _w["custom"] = _w["read"]
     _w["tab"] = "own"
@@ -181,9 +197,7 @@ def _show():
     elif tab == "own":
         k.st(_w["gname"], "Your own text (54 letters max)")
     elif tab == "read":
-        k.st(_w["gname"], "Read a card, then copy it")
-    else:
-        k.st(_w["gname"], "Helper cards")
+        k.st(_w["gname"], "Read a tag, then copy it")
     cards = _w["cards"]
     first = max(0, min(_w["i"] - 2, len(cards) - ROWS))
     for j, r in enumerate(_rows):
@@ -198,13 +212,13 @@ def _show():
         k.st(r["label"], f"{label}: {text}" if label != text else text)
         k.sty(r["row"], "bg", t.PINK_50 if mark == "now" else t.SURFACE)
     if tab == "read":
-        k.st(_w["now"], "Read a card")
-        k.st(_w["hint"], "Hold a card on the target")
+        k.st(_w["now"], "Read a tag")
+        k.st(_w["hint"], "Hold a tag on the target")
     elif _w["i"] < len(cards):
-        k.st(_w["now"], f"Card {_w['i'] + 1}: {cards[_w['i']][0]}")
-        k.st(_w["hint"], "Hold a blank card on the target")
+        k.st(_w["now"], f"Tag {_w['i'] + 1}: {cards[_w['i']][0]}")
+        k.st(_w["hint"], "Hold a blank tag on the target")
     else:
-        k.st(_w["now"], "No cards to write" if not cards else "All cards written")
+        k.st(_w["now"], "No tags to write" if not cards else "All tags written")
         k.st(_w["hint"], "Type text first" if tab == "own" and not cards else "")
     k.set_enabled(_w["copy"], bool(_w["read"]))
     k.show_hide(_w["radio"], P.nfc_on)
@@ -212,6 +226,11 @@ def _show():
 
 def refresh():
     P = panel.P
+    h = _w.get("hold")
+    if h is not None and time.ticks_diff(time.ticks_ms(), h) >= 0:
+        _w["hold"] = None
+        if _w.get("entered"):
+            _arm()
     if not _w.get("entered"):
         _w["entered"] = True
         nfc_target.attach(k._scr["scr_cards"])

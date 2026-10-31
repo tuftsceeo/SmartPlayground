@@ -133,7 +133,9 @@ def refresh():
     if _root is None:
         return
     P = panel.P
-    k.st(_w["to"], f"To: {P.target['name']} - {len(P.macs())} devices")
+    n = len(P.macs())
+    k.st(_w["to"], f"To: {P.target['name']}" if P.target["kind"] == "one"
+         else f"To: {P.target['name']} - {n} device{'' if n == 1 else 's'}")
     for tab, b in _w["tabs"].items():
         k.sty(b, "border", t.PINK if tab == _w["tab"] else t.BORDER)
     games = _games()
@@ -160,3 +162,4 @@ def refresh():
     else:
         k.st(_w["msg"], sel["name"])
     k.set_enabled(_w["code"], sel is not None and sel["flash"])
+    k.set_enabled(_w["start"], sel is not None and not (sel["flash"] and not P.sent.get(sel["slug"])))

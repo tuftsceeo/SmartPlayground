@@ -43,6 +43,7 @@ class Panel:
         self.host = None
         self.q = []
         self.dirty = True
+        self.wake = None        # ticks at which to refresh once (screens holding a result)
         self.target = {"kind": "all", "name": "Everyone", "macs": None}
         self.logs = {}
         self.sent = {}          # slug -> macs the panel pushed it to
@@ -80,7 +81,12 @@ class Panel:
                 k.toast("Something went wrong")
         self.radio_step()
         self.nfc_step()
+        if self.host is not None:
+            self.host.check()
         now = time.ticks_ms()
+        if self.wake is not None and time.ticks_diff(now, self.wake) >= 0:
+            self.wake = None
+            self.dirty = True
         if self.dirty or time.ticks_diff(now, self._last_refresh) > 10000:
             self.dirty = False
             self._last_refresh = now
@@ -221,6 +227,16 @@ class Panel:
             return "m:" + t["macs"][0]
         return "set"
 
+    def answered(self):
+        """Subtitle for the current chat after a roll call: its own count, or one device's age."""
+        r = self.roster
+        m = self.target["macs"]
+        if self.target["kind"] == "one":
+            return f"Heard {r.age(r.d[m[0]])}" if m[0] in r.d else ""
+        es = r.items() if m is None else [r.d[x] for x in m if x in r.d]
+        n = sum(1 for e in es if e["heard"])
+        return f"{n} of {len(es)} answered - {ago(self.last_call[0])}"
+
     def macs(self):
         m = self.target["macs"]
         return self.roster.macs() if m is None else list(m)
@@ -250,9 +266,10 @@ class Panel:
         for name, macs in self.store.groups.items():
             rows.append({"title": name, "sub": f"{len(macs)} wands", "glyph": name[:1].upper(),
                          "kind": "group", "name": name, "macs": macs, "warn": False})
-        for e in r.d.values():
+        scan = self.fleet is not None and self.fleet.scanning
+        for e in r.ranked():
             low = r.low(e)
-            miss = self.last_call is not None and not e["heard"]
+            miss = self.last_call is not None and not e["heard"] and not scan
             if e["mac"] in self.store.names or low or miss:
                 sub = "Battery low" if low else ("Not heard" if miss else ("Wand" if r.is_wand(e) else "Station"))
                 rows.append({"title": r.name(e["mac"]), "sub": sub, "glyph": roster.tag_of(e["mac"]),

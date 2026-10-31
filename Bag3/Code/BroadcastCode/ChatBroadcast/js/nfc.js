@@ -10,11 +10,20 @@
 import { iconSvg } from "./icons.js";
 
 let _live = null; // { tags, render } while the overlay is open
-let _cardWriter = null; // (tag) => Promise; set while a device that writes on request is linked
+let _cardWriter = null; // { write(tag) => Promise, cancel() }; set while a device that writes on request is linked
+let _writing = null; // tag the device is waiting to write; its row shows Cancel
 
 /** Device that writes a card on request (CrowPanel `card.write`); null hides the Write buttons. */
-export function setCardWriter(fn) {
-    _cardWriter = fn;
+export function setCardWriter(w) {
+    _cardWriter = w;
+    _writing = null;
+    _live?.rerender();
+}
+
+/** The device finished, failed or cancelled the requested write. */
+export function cardWriteEnded() {
+    _writing = null;
+    _live?.rerender();
 }
 
 export function showTagChecklist({ title, subtitle, tags, written }) {
@@ -28,7 +37,11 @@ export function showTagChecklist({ title, subtitle, tags, written }) {
         titleEl.textContent = title;
         subEl.textContent = subtitle || "";
 
+        let last = written || {};
+        let last = written || {};
         function render(counts) {
+            last = counts;
+            last = counts;
             const done = (t) => (counts && counts[t] > 0);
             const nextIdx = tags.findIndex((t) => !done(t));
             list.innerHTML = "";
@@ -55,8 +68,19 @@ export function showTagChecklist({ title, subtitle, tags, written }) {
                 if (_cardWriter) {
                     const btn = document.createElement("button");
                     btn.className = "tag-write-btn";
-                    btn.textContent = "Write";
-                    btn.addEventListener("click", () => _cardWriter(tag));
+                    const mine = _writing === tag;
+                    btn.textContent = mine ? "Cancel" : "Write";
+                    btn.disabled = _writing !== null && !mine;
+                    btn.addEventListener("click", () => {
+                        if (mine) {
+                            _cardWriter.cancel();
+                            cardWriteEnded();
+                            return;
+                        }
+                        _writing = tag;
+                        render(last);
+                        _cardWriter.write(tag).catch(cardWriteEnded);
+                    });
                     row.appendChild(btn);
                 }
                 list.appendChild(row);
@@ -64,7 +88,7 @@ export function showTagChecklist({ title, subtitle, tags, written }) {
         }
 
         render(written || {});
-        _live = { tags, render };
+        _live = { tags, render, rerender: () => render(last) };
         overlay.classList.remove("hidden");
 
         function cleanup() {

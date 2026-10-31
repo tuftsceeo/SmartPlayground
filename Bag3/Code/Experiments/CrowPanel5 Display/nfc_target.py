@@ -10,8 +10,8 @@ Y = 150
 W = 240
 H = 180
 
-_COLORS = {"waiting": t.PURPLE, "writing": t.YELLOW, "done": t.TEAL, "error": t.DANGER[0]}
-_CAPTION = {"waiting": "Tap a card here", "writing": "Keep holding...", "done": "Done", "error": ""}
+_COLORS = {"waiting": t.PINK, "writing": t.PURPLE, "done": t.TEAL, "error": t.DANGER[0], "idle": t.MUTED_2}
+_CAPTION = {"waiting": "Tap a tag here", "writing": "Writing...", "done": "Done", "error": "", "idle": ""}
 
 _box = None
 _waves = None

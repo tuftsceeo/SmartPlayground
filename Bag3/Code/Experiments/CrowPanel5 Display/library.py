@@ -7,7 +7,6 @@ from code_link import GAMES_DIR, ACTIVE_PATH, HOST_ID
 
 INDEX_PATH = GAMES_DIR + "/index.json"
 STAGING = ("_icon.py", "_splat.py")
-UTILITY = ("stop", "battery")
 
 # Built-in classroom games, from the wand's game_tags (bench-only games left out).
 BUILTIN = (
@@ -146,6 +145,3 @@ class Library:
             if tg not in (f"getcode:{slug}", slug):
                 out.append((tg, tg))
         return out
-
-    def helper_cards(self):
-        return [(x.capitalize(), x) for x in UTILITY]

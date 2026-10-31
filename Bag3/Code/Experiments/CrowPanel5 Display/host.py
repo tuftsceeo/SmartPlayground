@@ -2,24 +2,29 @@
 
 Identify and other read-only commands show screen 7 (Plugged into a computer); any other
 command, or resuming after a code install, links the panel and opens screen 8. Just charge
-sends `released` so ChatBroadcast disconnects; unlink returns the panel to home.
+sends `released` so ChatBroadcast disconnects. unlink, Just charge and LINK_TIMEOUT_MS of
+silence from the computer all return the panel to home through drop().
 """
 
 import gc
+import sys
 import time
 
 import panel
 import ui_kit as k
 from code_link import HOST_ID
 
-PASSIVE = ("identify", "info", "mode", "arm", "disarm", "unlink")
+PASSIVE = ("identify", "info", "mode", "arm", "disarm", "unlink", "ping")
+LINK_TIMEOUT_MS = 15000   # ChatBroadcast pings a CrowPanel every 5 s while connected
 
 class Host:
     def __init__(self, P):
         self.P = P
         self.linked = False
+        self.heard = None       # ticks of the last command; None once dropped
         self.card = None        # {"text","label","state","msg"} for screen 9
         self.last_card = None   # (label, ok) shown in screen 9's footer
+        self.shown = None       # the finished card screen 9 keeps showing until the next command
         self.h = {
             "identify": self.identify, "info": self.info, "mode": self.mode,
             "arm": self.ok, "disarm": self.ok,
@@ -29,7 +34,7 @@ class Host:
             "stats.get": self.stats_get, "stats.reset": self.stats_reset,
             "fleet.scan": self.fleet_scan, "fleet.find": self.fleet_find,
             "fleet.distribute": self.fleet_distribute, "fleet.cancel": self.fleet_cancel,
-            "card.write": self.card_write, "unlink": self.unlink,
+            "card.write": self.card_write, "card.cancel": self.card_cancel, "unlink": self.unlink, "ping": self.ok,
         }
 
     def send(self, d):
@@ -42,30 +47,63 @@ class Host:
         if fn is None:
             self.send({"type": "error", "id": rid, "code": "unknown_cmd", "cmd": name})
             return
+        self.heard = time.ticks_ms()
         if not self.linked:
             if name not in PASSIVE:
                 self.link()
-            elif name != "unlink" and k.cur != "scr_link_prompt":
+            elif name not in ("unlink", "ping") and k.cur != "scr_link_prompt":
+                self._leave_local()
                 k.go("scr_link_prompt")
+        if self.card is None and k.cur == "scr_linked_card" and name not in ("card.write", "ping"):
+            k.go("scr_linked", push=False)
         fn(cmd, rid)
 
+    def _leave_local(self):
+        """Close what the teacher had open on the panel before the computer takes the screen."""
+        kb = sys.modules.get("kbd")
+        if kb is not None:
+            kb.close()
+        sheet = sys.modules.get("scr_games")
+        if sheet is not None:
+            sheet.close()
+        if k.cur == "scr_cards":
+            sys.modules["scr_cards"]._w["entered"] = False
+        if self.card is None:
+            self.P.nfc_leave()
+
     def link(self):
+        self._leave_local()
         self.linked = True
+        self.heard = time.ticks_ms()
         self.P.dirty = True
         k.go("scr_linked", push=False)
+
+    def drop(self):
+        """Back to standalone: end any card request, radio back on, home screen."""
+        self.linked = False
+        self.heard = None
+        self.shown = None
+        if self.card is not None:
+            self.card_done("write_failed", None)
+        self.P.nfc_leave()
+        k.home()
+
+    def check(self):
+        """Called each loop: a computer that went quiet without unlink no longer holds the panel."""
+        if self.heard is None or not (self.linked or k.cur == "scr_link_prompt"):
+            return
+        if time.ticks_diff(time.ticks_ms(), self.heard) > LINK_TIMEOUT_MS:
+            self.drop()
+            k.toast("Computer disconnected")
 
     def release(self):
         """Just charge: ask ChatBroadcast to disconnect and go back to home."""
         self.send({"type": "released"})
-        self.linked = False
-        k.home()
+        self.drop()
 
     def unlink(self, cmd, rid):
         self.ok(cmd, rid)
-        self.linked = False
-        if self.card is not None:
-            self.card_done("write_failed", None)
-        k.home()
+        self.drop()
 
     # -- identity and state --------------------------------------------------
 
@@ -233,7 +271,8 @@ class Host:
             self.send({"type": "error", "id": rid, "code": "busy"})
             return
         self.ok(cmd, rid)
-        self.card = {"text": text, "label": label, "state": "waiting", "msg": "Tap a card here"}
+        self.shown = None
+        self.card = {"text": text, "label": label, "state": "waiting", "msg": "Tap a tag here"}
         k.go("scr_linked_card")
 
     def card_result(self, res, uid, text):
@@ -245,23 +284,37 @@ class Host:
             c["msg"] = "Keep holding..."
         elif res in ("written", "already"):
             self.send({"type": "card_written", "label": c["label"], "uid": uid, "text": c["text"]})
-            self.P.note_feed(f"Card written: {c['label']}")
+            self.P.note_feed(f"Tag written: {c['label']}")
             self.card_done(None, uid)
             return
         else:
             c["state"] = "error"
-            c["msg"] = "Write failed - lift and tap again"
+            c["msg"] = "Write failed. Lift the tag and tap again."
             self.P.card_job("write", c["text"], c["label"], self.card_result)
         self.P.dirty = True
 
-    def card_done(self, event, uid):
-        """Finish screen 9: report a failure if event is set, then back to 8."""
+    def card_cancel(self, cmd, rid):
+        """The computer cancels the card request; nothing is reported back."""
+        if self.card is not None:
+            self.card_done(None, None, ok=False)
+        self.ok(cmd, rid)
+
+    def card_done(self, event, uid, ok=None):
+        """Finish screen 9: report a failure if event is set. A written card stays on screen as
+        Done until the next command; anything else goes back to 8."""
         c = self.card
         self.card = None
+        if ok is None:
+            ok = event is None
         if c is not None:
-            self.last_card = (c["label"], event is None)
+            self.last_card = (c["label"], ok)
         if event and c is not None:
             self.send({"type": event, "uid": uid, "text": c["text"], "label": c["label"]})
         self.P.nfc_leave()
-        if k.cur == "scr_linked_card":
+        if ok and c is not None:
+            c["state"] = "done"
+            c["msg"] = "Done"
+            self.shown = c
+            self.P.dirty = True
+        elif k.cur == "scr_linked_card":
             k.go("scr_linked", push=False)

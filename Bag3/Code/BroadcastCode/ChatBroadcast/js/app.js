@@ -21,7 +21,7 @@ import {
 import { uploadPayload, validateGameCode, validateGameSignature, codeBytes, MAX_WAND_GAME_BYTES } from './upload.js';
 import { ROLES as ROLE_TABLE, roleInfo, DEFAULT_ROLE } from './roles.js';
 import { listSplatActions } from './splat/splatActionCheck.js';
-import { updateTagChecklist, setCardWriter } from './nfc.js';
+import { updateTagChecklist, setCardWriter, cardWriteEnded } from './nfc.js';
 import { EXAMPLES, CATEGORIES, findExample, loadExampleCode } from './examples.js';
 import { showView, showOverlay, hideOverlay, setConnectionBadge, toast, setSendProgress, showConnectToast, syncNavTabs } from './router.js';
 import { createDeviceLink, deviceShortName, deviceProductName } from './device/bboxDeviceLink.js';
@@ -59,6 +59,7 @@ const SIM_LOG_FOR_CHAT = 40;
 const SILENCE_GAME_MS = 45000;
 const REBOOT_LIMIT_MS = 20000;
 const WATCHDOG_TICK_MS = 2000;
+const PANEL_PING_MS = 5000;
 /* Auto-reconnect (tryAutoReconnect()) is a convenience for the ordinary
    post-send reboot, not a guarantee -- cap it so a device that genuinely
    isn't coming back (or one that keeps bouncing its USB) doesn't turn into
@@ -823,8 +824,7 @@ class App {
             dbg('device', 'event: pull', obj);
             this._noteMessage(obj);
             const name = (this._boxGames || []).find((g) => g.slug === obj?.slug)?.name;
-            const { msg, isError } = formatPullEvent(obj, name);
-            toast(msg, isError);
+            dbg('device', formatPullEvent(obj, name).msg);
         });
         this.device.on('card_present', (obj) => dbg('device', 'event: card_present', obj));
         this.device.on('card_written', (obj) => {
@@ -832,7 +832,12 @@ class App {
             const label = obj?.label || obj?.tag || obj?.card;
             if (!label) return;
             this.tagWrites[label] = (this.tagWrites[label] || 0) + 1;
+            cardWriteEnded();
             updateTagChecklist(this.tagWrites);
+        });
+        this.device.on('write_failed', (obj) => {
+            dbg('device', 'event: write_failed', obj);
+            cardWriteEnded();
         });
         this.device.on('fatal', (obj) => {
             dbgError('device', 'event: fatal', obj);
@@ -882,7 +887,7 @@ class App {
             dbg('device', 'event: released');
             await this.device.disconnect();
             this.setLinkState('idle');
-            toast('Panel set to charge only - disconnected.');
+            toast('Disconnected.');
         });
         this.device.on('booting', (obj) => {
             dbg('device', 'event: booting', obj);
@@ -981,7 +986,12 @@ class App {
         if (obj?.type === 'identity') {
             this.link.deviceInfo = obj;
             setCardWriter(obj.device === 'crowpanel'
-                ? (tag) => this.device.sendCmd({ cmd: 'card.write', text: tag, label: tag }).catch((e) => toast(e.message, true))
+                ? {
+                    write: (tag) => this.device.sendCmd({ cmd: 'card.write', text: tag, label: tag })
+                        .catch((e) => { dbg('device', `card.write: ${e.message}`); throw e; }),
+                    cancel: () => this.device.sendCmd({ cmd: 'card.cancel' })
+                        .catch((e) => dbg('device', `card.cancel: ${e.message}`)),
+                }
                 : null);
         }
         this._clearRebootTimer();
@@ -1074,6 +1084,13 @@ class App {
                 toast(`The ${this.deviceShort()} isn't answering. If it stays quiet, try Restart the ${this.deviceShort()}.`, true);
             }
             return;
+        }
+        // A CrowPanel cannot see the port close, so it drops the link after 15 s
+        // without a command; ping it while live.
+        if (s === 'live' && this.link.deviceInfo?.device === 'crowpanel'
+            && Date.now() - (this._lastPingAt || 0) >= PANEL_PING_MS) {
+            this._lastPingAt = Date.now();
+            this.device.sendCmd({ cmd: 'ping' }, { timeoutMs: 2000 }).catch(() => {});
         }
         if (!this.link.lastMsgAt) return;
         const age = Date.now() - this.link.lastMsgAt;

@@ -18,6 +18,7 @@ F14 = lv.font_montserrat_14
 F16 = lv.font_montserrat_16
 R = 14
 GREY = 0xF4F2FA
+OFF_BG = 0xD8D4E6
 
 _fs = None
 _scr = {}
@@ -27,6 +28,7 @@ cur = None
 _toast = None
 _toast_until = 0
 _labels = {}   # id(pill or button) -> its label; LVGL objects take no new attributes
+_fg = {}       # id(button) -> its label colour when enabled
 
 
 def fs_init():
@@ -183,13 +185,16 @@ def button(parent, x, y, h, label, fg, ic=None, icon_fg=None, font=F14, px=14, p
         b.set_style_border_width(2, 0)
         b.set_style_border_color(c(t.BORDER), 0)
     b.set_style_bg_color(c(t.BG if not primary else t.PINK_DARK), lv.STATE.PRESSED)
-    b.set_style_opa(90, lv.STATE.DISABLED)
+    b.set_style_bg_color(c(OFF_BG), lv.STATE.DISABLED)
+    b.set_style_bg_grad_dir(lv.GRAD_DIR.NONE, lv.STATE.DISABLED)
+    b.set_style_border_color(c(OFF_BG), lv.STATE.DISABLED)
     r = row(b)
     r.center()
     if ic:
         icon(r, ic, icon_fg or fg)
     if label:
         _labels[id(b)] = text(r, label, fg, font)
+        _fg[id(b)] = fg
     return b
 
 
@@ -262,10 +267,14 @@ def show_hide(o, on_):
 
 
 def set_enabled(o, ok):
-    if ok:
-        o.remove_state(lv.STATE.DISABLED)
-    else:
-        o.add_state(lv.STATE.DISABLED)
+    """Disabled buttons get the grey fill and muted label; skips when unchanged."""
+    if ok == o.has_state(lv.STATE.DISABLED):
+        if ok:
+            o.remove_state(lv.STATE.DISABLED)
+        else:
+            o.add_state(lv.STATE.DISABLED)
+    if id(o) in _fg:
+        sty(_labels[id(o)], "text", _fg[id(o)] if ok else t.MUTED)
 
 
 def new_screen():

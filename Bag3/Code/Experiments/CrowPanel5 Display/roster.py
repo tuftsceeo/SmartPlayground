@@ -76,6 +76,21 @@ class Roster:
 
     def summary(self):
         heard = [e for e in self.d.values() if e["heard"]]
-        low = sum(1 for e in heard if self.low(e))
-        stn = sum(1 for e in heard if not self.is_wand(e))
-        return len(heard), len(heard) - low, low, stn
+        wands = [e for e in heard if self.is_wand(e)]
+        low = sum(1 for e in wands if self.low(e))
+        return len(heard), len(wands) - low, low, len(heard) - len(wands)
+
+    def rank(self, e, playing=None):
+        """Sort key: not heard, low battery, playing, named, then the rest."""
+        if e["seen"] is None:
+            return 0
+        if self.low(e):
+            return 1
+        if playing and playing.get(e["mac"]):
+            return 2
+        return 3
+
+    def ranked(self, kind="all", playing=None):
+        out = self.items(kind)
+        out.sort(key=lambda e: self.rank(e, playing))
+        return out
