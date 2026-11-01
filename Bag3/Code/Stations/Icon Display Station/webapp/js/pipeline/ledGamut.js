@@ -31,7 +31,9 @@
  *   - Blue carries ~0.139 of white luminance here vs ~0.072 in sRGB, i.e.
  *     about twice the weight. Dim blues look far brighter than sRGB suggests.
  *   - Equal duty is NOT white: (255,255,255) lands at xy(0.224,0.256), a
- *     blue-cyan. Neutral D65 needs roughly duty (255,171,93).
+ *     blue-cyan. Neutral D65 needs roughly duty (255,171,93) by datasheet;
+ *     measured on the panel it reads pink -- (185,255,150) looked white
+ *     (2026-10-31, see Stations/IconDisplay/README.md "Measured white").
  *   - All three primaries are outside sRGB, so screen output clips to the
  *     gamut boundary. That is the honest best a monitor can do.
  *

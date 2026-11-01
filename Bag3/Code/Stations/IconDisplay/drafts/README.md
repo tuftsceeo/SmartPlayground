@@ -16,3 +16,11 @@ Designs target a black background in a dark room: flat or two-tone colours, no o
 
 To make one live, write its map for `Stations/Icon Display Station/hand_author_icons.py`, generate
 `../icons/<name>.py`, then run `BroadcastCode/ChatBroadcast/tools/sync_icons.py`.
+
+## Halloween bench game
+
+`export_halloween.py` packs jack_o_lantern, take_one_bold, bat, ghost and eyes into
+`../games/halloween_frames.bin` (21 frames x 768 bytes) for `../games/halloween.py`, which
+loops each animation for 10 s with a 10 s TAKE ONE after every second one. It swaps the old neutrals
+for the measured white (185,255,150); see "Measured white" in `../README.md`. Start it over
+USB with `{"cmd":"start_game","name":"halloween"}`; it is not in `GAME_TAGS`, so no card starts it.

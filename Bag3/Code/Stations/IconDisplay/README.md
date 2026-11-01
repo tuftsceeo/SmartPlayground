@@ -152,6 +152,26 @@ way off either, not byte-for-byte identical pixels. `show_idle()`'s breath
 and the transfer progress bar stay whole-panel colour; neither has a wand
 equivalent to mirror.
 
+## Measured white
+
+The datasheet white in `Icon Display Station/webapp/js/pipeline/ledGamut.js`,
+duty (255,171,93), reads pale pink on this panel behind its dark diffuser.
+Measured 2026-10-31 by eye: calibration grids of red/green/blue duty steps,
+photographed beside a laptop showing a white page, narrowed over three rounds
+(red 255 was pink at every green/blue; green 255 with red 185-200 was close).
+
+| | Duty |
+|---|---|
+| white | (185, 255, 150) |
+| light grey (x0.706) | (131, 180, 106) |
+| grey (x0.431) | (80, 110, 65) |
+| near black (x0.118) | (22, 30, 18) |
+
+Only `games/halloween_frames.bin` uses it so far (`drafts/export_halloween.py`
+swaps the four old neutrals). The editor, `icons/`, the simulator and
+ChatBroadcast still use (255,171,93). One photo against one laptop is a rough
+reading; recheck before changing `ledGamut.js` and re-mapping every icon.
+
 ## Two constraints that are not preferences
 
 - **Radio before the panel.** `main.py` calls `enow.init()` before
