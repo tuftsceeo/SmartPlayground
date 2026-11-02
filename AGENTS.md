@@ -82,6 +82,13 @@ Splat action names follow the same pattern: `SplatCompanion/Companion/splat_api.
 `ChatBroadcast/tools/sync_splat_actions.py` (`--check` for drift). A Splat game naming an action
 outside that list is refused at send time.
 
+## Naming
+
+New or renamed directories and files use no spaces (`CrowPanel5_Display`, not `CrowPanel5 Display`).
+Build tooling (the lvgl_micropython `make.py`/ESP-IDF scripts) runs unquoted `cd` and fails on a
+path with a space. Existing names with spaces (`Wand Module`, `NFC Station`) stay until someone
+renames them; quote their paths.
+
 ## Dead trees
 
 `old_stuff/` and `WebAppDocs/` are dead, and will dominate a naive grep.
@@ -103,9 +110,13 @@ or the team), the Bag3 `M5Paper Remote`, and the Broadcast Box and Dial (`Broadc
 `docs_and_design/`.
 
 `Bag3/Code/Experiments/` holds non-functioning hardware experiments (`Capsule PN5180`,
-`CrowPanel5 Display`, `IPS096 Display`, `Music Board Station`, `Radar Station`,
+`CrowPanel5_Display`, `IPS096 Display`, `Music Board Station`, `Radar Station`,
 `WirelessFileTransferBak`, `EmulatedTagDial`, `EspnowModem`, `ProgrammableTag`, and the earlier Bag3
 `Wand Module`). Despite some names, none of these are stations.
 
 Likewise, `goalrace`, `splatecho`, and `jumpin1`–`jumpin5` (code-slot experiment) are bench-only
 games, not classroom games. The Bag3 wand (`Bag3/Code/Wand Module/`, the Mock Wand) uses plain NDEF text tags; `opcodes.py` is not used there.
+
+## Hardware Testing Rules
+
+Read `Bag3/Code/HARDWARE_PROTOCOL.md` for rules and  instructions to follow when working with physical hardware prototypes on USB ports, includes caveats for using `mpremote`. 

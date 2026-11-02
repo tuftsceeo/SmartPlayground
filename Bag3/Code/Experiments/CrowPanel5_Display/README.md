@@ -1,4 +1,4 @@
-# CrowPanel5 Display (bench)
+# CrowPanel5_Display (bench)
 
 Bench evaluation of the Elecrow CrowPanel HMI 5.0" V3 (ESP32-S3) on lvgl_micropython. It is not
 used by teachers.

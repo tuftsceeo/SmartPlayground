@@ -2,7 +2,7 @@
 
 ## Context
 
-`Bag3/Code/Experiments/CrowPanel5 Display/` runs the design system gallery and screen 1 (home) of the
+`Bag3/Code/Experiments/CrowPanel5_Display/` runs the design system gallery and screen 1 (home) of the
 "CrowPanel Teacher Tool" design (https://claude.ai/artifact/LiR5xAGC7LecrJh7BFb3iQ) on the Elecrow
 CrowPanel 5.0" V3 with lvgl_micropython. This plan covers building every screen of that design with a
 working back end taken mostly from the Broadcast Dial firmware
@@ -13,7 +13,7 @@ The design has two pages. "Design 1" is the default layout. "Resized Design" bec
 from the Dial, the Mock Wand and WebApp2, and from the decisions below.
 
 **After approval, the only step is to copy this document to
-`Bag3/Code/Experiments/CrowPanel5 Display/IMPLEMENTATION_PLAN.md` for review.** No firmware or
+`Bag3/Code/Experiments/CrowPanel5_Display/IMPLEMENTATION_PLAN.md` for review.** No firmware or
 device files change in this session.
 
 ### Decisions (user, 2026-10-29)

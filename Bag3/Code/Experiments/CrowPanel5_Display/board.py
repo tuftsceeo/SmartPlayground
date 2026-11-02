@@ -11,7 +11,7 @@ LCD_DE = 40
 LCD_VSYNC = 41
 LCD_HSYNC = 39
 LCD_PCLK = 0
-LCD_PCLK_HZ = 12_000_000   # LGFX uses 15 MHz; at 15 the image drifts sideways
+LCD_PCLK_HZ = 12_000_000   # LGFX uses 15 MHz; at 15 the image drifts sideways. 10 MHz did not fix the row shift
 LCD_PCLK_ACTIVE_LOW = True   # LGFX pclk_active_neg = 1
 
 LCD_HSYNC_FRONT = 8

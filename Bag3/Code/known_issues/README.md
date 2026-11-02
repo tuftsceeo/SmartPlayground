@@ -24,7 +24,7 @@ filenames). Search front matter with `grep -l '<term>' Bag3/Code/known_issues/*.
 | [2026-10-28-ips096-colour-levels.md](2026-10-28-ips096-colour-levels.md) | IPS096 Display mid-tone colours, panel lookup | workaround | — |
 | [2026-10-28-capsule-pn5180.md](2026-10-28-capsule-pn5180.md) | PN5180 on M5Capsule: corrupted replies, Splat tags | open | — |
 | [2026-10-28-mockwand-idle-power.md](2026-10-28-mockwand-idle-power.md) | MockWand idle/sleep battery drain, power LED, diffuser | partly fixed | — |
-| [2026-10-28-crowpanel5-display.md](2026-10-28-crowpanel5-display.md) | CrowPanel5 Display touch I2C pins, soft-reset lockup, RGB drift | open (workarounds) | — |
+| [2026-10-28-crowpanel5-display.md](2026-10-28-crowpanel5-display.md) | CrowPanel5_Display touch I2C pins, soft-reset lockup, RGB drift, row shift | open (workarounds) | — |
 | [2026-10-29-live-page-stale-paths.md](2026-10-29-live-page-stale-paths.md) | Live_Page ChatBroadcast/Simulator copies point at nonexistent Bag3 paths | open | — |
 
 ## By topic

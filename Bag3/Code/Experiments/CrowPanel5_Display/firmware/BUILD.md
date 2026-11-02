@@ -12,11 +12,12 @@ them patched.
 git clone https://github.com/lvgl-micropython/lvgl_micropython lvgl_micropython_crowpanel
 cd lvgl_micropython_crowpanel
 git checkout d2d26467fa4cb9e99e569d899709043d086f7a6f
-cp -R "<repo>/Bag3/Code/Experiments/CrowPanel5 Display/firmware/CROWPANEL_S3_5" \
+cp -R "<repo>/Bag3/Code/Experiments/CrowPanel5_Display/firmware/CROWPANEL_S3_5" \
     lib/micropython/ports/esp32/boards/
 cp lib/micropython/ports/esp32/boards/ESP32_GENERIC_S3/board.json \
     lib/micropython/ports/esp32/boards/CROWPANEL_S3_5/
-git apply "<repo>/Bag3/Code/Experiments/CrowPanel5 Display/firmware/rgb_bus_bounce_buffer.patch"
+git apply "<repo>/Bag3/Code/Experiments/CrowPanel5_Display/firmware/rgb_bus_bounce_buffer.patch"
+git apply "<repo>/Bag3/Code/Experiments/CrowPanel5_Display/firmware/rgb_bus_dirty_rows_copy.patch"
 python3 make.py esp32 BOARD=CROWPANEL_S3_5 BOARD_VARIANT=SPIRAM_OCT --flash-size=4 \
     DISPLAY=rgb_display INDEV=gt911
 ```
@@ -65,4 +66,4 @@ import gc, lvgl; gc.collect(); print(gc.mem_free(), lvgl.version_major(), lvgl.v
 | lvgl_micropython commit | `d2d26467fa4cb9e99e569d899709043d086f7a6f` (MicroPython `78ff170`) |
 | LVGL version | 9.4.0 |
 | ESP-IDF version | v5.5.1 |
-| Firmware | `lvgl_micropy_CROWPANEL_S3_5-4.bin`, 2,963,840 bytes |
+| Firmware | `lvgl_micropy_CROWPANEL_S3_5-4.bin`, 2,964,256 bytes |

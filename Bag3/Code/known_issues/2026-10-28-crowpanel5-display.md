@@ -1,19 +1,19 @@
 ---
-title: CrowPanel5 Display touch bus and RGB stability
+title: CrowPanel5_Display touch bus and RGB stability
 date: 2026-10-28
 status: open (workarounds in place)
-devices: [CrowPanel5 Display (Elecrow CrowPanel HMI 5.0in V3, ESP32-S3 N4R8)]
+devices: [CrowPanel5_Display (Elecrow CrowPanel HMI 5.0in V3, ESP32-S3 N4R8)]
 components: [RGB panel 800x480, GT911, PCA9557, lvgl_micropython]
 code:
-  - Bag3/Code/Experiments/CrowPanel5 Display/board.py
-  - Bag3/Code/Experiments/CrowPanel5 Display/display_lvgl.py
-  - Bag3/Code/Experiments/CrowPanel5 Display/firmware/CROWPANEL_S3_5/
+  - Bag3/Code/Experiments/CrowPanel5_Display/board.py
+  - Bag3/Code/Experiments/CrowPanel5_Display/display_lvgl.py
+  - Bag3/Code/Experiments/CrowPanel5_Display/firmware/CROWPANEL_S3_5/
 open:
   - Touch bus dead after a software reset; root cause unknown
 keywords: [CrowPanel, Elecrow, GT911, PCA9557, I2C, GPIO19, GPIO20, USB-Serial-JTAG, RGB, drift, PCLK, soft reset, backlight, PWM, flicker, shimmer]
 ---
 
-# CrowPanel5 Display
+# CrowPanel5_Display
 
 ## Native USB holds the touch I2C pins
 
@@ -43,6 +43,16 @@ whole 768 KB frame PSRAM-to-PSRAM after every update. Lowering the pixel clock f
 
 **Fix:** `firmware/rgb_bus_bounce_buffer.patch` (SRAM bounce buffers, 10 lines each) and
 `CONFIG_LCD_RGB_RESTART_IN_VSYNC=y`, at 12 MHz. Stable under continuous touch.
+
+## Rows shifted at every bounce-buffer boundary
+
+With the bounce buffers, the first ~100 pixels of every tenth row were shifted sideways, with the
+radio running. A 10 MHz pixel clock did not change it. The copy task in
+`rgb_bus_rotation.c` re-synced the whole 768 KB frame PSRAM-to-PSRAM after every buffer swap,
+competing with the interrupt that refills the bounce buffers.
+
+**Fix:** `firmware/rgb_bus_dirty_rows_copy.patch` re-syncs only the rows updated since the last
+swap (every row when rotated). Fixed on the board; pixel clock back at 12 MHz.
 
 ## Quick taps missed
 

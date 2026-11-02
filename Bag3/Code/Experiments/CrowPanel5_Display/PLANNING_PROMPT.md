@@ -6,7 +6,7 @@ working back end based mostly on the Broadcast Dial firmware.
 
 ## Deliverable
 
-A plan document, `Bag3/Code/Experiments/CrowPanel5 Display/IMPLEMENTATION_PLAN.md`, reviewed
+A plan document, `Bag3/Code/Experiments/CrowPanel5_Display/IMPLEMENTATION_PLAN.md`, reviewed
 with the user before any code is written. It should contain:
 
 1. **Screen inventory:** every design screen. For each one: its purpose, how you get to it and
@@ -45,7 +45,7 @@ Read the following:
   shared-library copies.
 - **`Bag3/Code/HARDWARE_PROTOCOL.md`**
 - **`Bag3/Code/known_issues/README.md`**, and the CrowPanel and Dial notes it indexes.
-- **`Bag3/Code/Experiments/CrowPanel5 Display/`:**
+- **`Bag3/Code/Experiments/CrowPanel5_Display/`:**
   - `README.md`
   - `teacher_tool_features.md`: what each existing tool does today, by teacher task.
   - `home.py`: the design's screen 1, built and approved by eye.
