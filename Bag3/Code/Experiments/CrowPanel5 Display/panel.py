@@ -62,7 +62,7 @@ class Panel:
         self._last_hb = time.ticks_ms()
         self._last_refresh = 0
         self.code.resolve()
-        self.code.arm()
+        self.radio_up()
         self.reader.init()
 
     # -- loop ----------------------------------------------------------
@@ -107,51 +107,23 @@ class Panel:
         return self.code.mgr.is_active
 
     def radio_up(self):
-        """Radio on, and serving code whenever a game is on flash. Only nfc_enter turns it off."""
-        if not self.radio:
-            try:
-                self.mgr.init()
-            except Exception as e:
-                print(f"# radio up failed: {e}")
-                return False
-        self.serve()
+        """Radio on and serving code. Only nfc_enter turns it off. main.py starts the radio
+        before the panel exists; arm() adds the code server to a radio that is already on."""
+        if not self.code.armed:
+            self.code.arm()
         return self.radio
-
-    def serve(self):
-        """Arm the code server on the running radio: the active slug, else active.txt, else
-        the first game on flash. False when there is no game to serve."""
-        if self.code.armed:
-            return True
-        games = self.lib.flash_games()
-        if not games:
-            return False
-        if self.code.arm():
-            return True
-        self.code.set_game(games[0]["slug"])
-        return self.code.arm()
 
     def radio_down(self):
         if self.fleet is not None:
             self.fleet.cancel("radio_off")
-        if self.code.armed:
-            self.code.disarm()
-        else:
-            self.mgr.shutdown()
+        self.code.disarm()
         self._added = []
 
     def radio_step(self):
         if not self.radio:
             return
-        if self.code.armed:
-            for _ in range(4):
-                self.code.poll(on_event=self._share_event, on_msg=self.on_msg)
-        else:
-            for _ in range(4):
-                mt, data, mac = self.mgr.poll()
-                if mt is None:
-                    break
-                if isinstance(data, dict):
-                    self.on_msg(data, mac)
+        for _ in range(4):
+            self.code.poll(on_event=self._share_event, on_msg=self.on_msg)
         if self.fleet is not None:
             self.fleet.step()
 

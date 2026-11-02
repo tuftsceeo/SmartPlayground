@@ -216,9 +216,10 @@ class CodeLink:
     def arm(self):
         if self._armed:
             return True
+        # The panel serves whenever the radio is on, with or without a game on flash:
+        # a request for a missing game is refused by code_sender.
         if not (self.active_slug and self._exists(self.active_slug)):
-            if self.resolve() is None:
-                return False
+            self.resolve()
         gc.collect()
         try:
             self.mgr.init()
