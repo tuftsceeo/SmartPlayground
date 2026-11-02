@@ -310,3 +310,17 @@ class BootScreen:
     def clear(self):
         self.cells = {}
         self.panel.clear()
+
+
+# Answer to a find_device ping: the wand's exclaim glyph blinking in white
+# (MockWand's "finddevice" game), so a teacher reads the same thing from
+# either device. Blocks ~3.6 s; the CrowPanel5 repeats the ping, nothing
+# else waits on the loop.
+def find_blink(panel, intensity, blinks=6, on_ms=350, off_ms=250):
+    import time
+    panel.set_intensity(intensity)
+    for _ in range(blinks):
+        draw_shape(panel, SHAPE_EXCLAIM, (185, 255, 150))
+        time.sleep_ms(on_ms)
+        panel.clear()
+        time.sleep_ms(off_ms)

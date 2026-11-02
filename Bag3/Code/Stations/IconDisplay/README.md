@@ -167,10 +167,15 @@ photographed beside a laptop showing a white page, narrowed over three rounds
 | grey (x0.431) | (80, 110, 65) |
 | near black (x0.118) | (22, 30, 18) |
 
-Only `games/halloween_frames.bin` uses it so far (`drafts/export_halloween.py`
-swaps the four old neutrals). The editor, `icons/`, the simulator and
-ChatBroadcast still use (255,171,93). One photo against one laptop is a rough
-reading; recheck before changing `ledGamut.js` and re-mapping every icon.
+Applied 2026-11-01 to `icons/` and `Icon Display Station/icons/` (72 files)
+with `drafts/remap_white.py`, which rewrites any colour on the old neutral
+ratio to WHITE at the same brightness, then `sync_icons.py` for
+ChatBroadcast. `games/halloween_frames.bin` gets the same swap from
+`drafts/export_halloween.py`. Not yet changed: the editor (`ledGamut.js`
+still offers and previews the old white), `hand_author_icons.py`, the
+image pipeline and the simulator, so a newly authored or regenerated icon
+comes out pink again -- run `remap_white.py` on it. One photo against one
+laptop is a rough reading; recheck it on another panel.
 
 ## Two constraints that are not preferences
 

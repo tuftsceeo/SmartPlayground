@@ -272,6 +272,12 @@ def _game_load_failed(name, exc, panel):
 UNLOAD_AFTER_GAME = True
 
 
+def _find(panel):
+    import shapes
+    shapes.find_blink(panel, IDLE_INTENSITY)
+    panel.clear()
+
+
 def _launch_game(name, nfc, panel, enow):
     """Run a game and chain force-switches without returning to idle."""
     while is_game(name):
@@ -293,6 +299,9 @@ def _launch_game(name, nfc, panel, enow):
         if UNLOAD_AFTER_GAME:
             _unload_game(name)
         memprobe.probe("post-unload:%s" % name)    # BENCH
+        if next_name == "finddevice":
+            _find(panel)
+            break
         if not next_name or not is_game(next_name):
             break
         name = next_name
@@ -525,7 +534,11 @@ def main():
         msg_type, data, _mac = enow.poll()
         if msg_type == "start_game":
             name = data.get("name") if isinstance(data, dict) else None
-            if name and is_game(name):
+            if name == "finddevice":
+                server.release_panel()
+                _find(panel)
+                frame = 0
+            elif name and is_game(name):
                 server.release_panel()
                 panel.clear()
                 _launch_game(name, reader, panel, enow)
