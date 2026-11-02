@@ -26,6 +26,7 @@ filenames). Search front matter with `grep -l '<term>' Bag3/Code/known_issues/*.
 | [2026-10-28-mockwand-idle-power.md](2026-10-28-mockwand-idle-power.md) | MockWand idle/sleep battery drain, power LED, diffuser | partly fixed | — |
 | [2026-10-28-crowpanel5-display.md](2026-10-28-crowpanel5-display.md) | CrowPanel5_Display touch I2C pins, soft-reset lockup, RGB drift, row shift | open (workarounds) | — |
 | [2026-10-29-live-page-stale-paths.md](2026-10-29-live-page-stale-paths.md) | Live_Page ChatBroadcast/Simulator copies point at nonexistent Bag3 paths | open | — |
+| [2026-11-02-dial-box-arm-serving.md](2026-11-02-dial-box-arm-serving.md) | Dial and Box serving still gated by arm/disarm, radio off outside NFC | open (untested on hardware) | — |
 
 ## By topic
 
@@ -36,7 +37,7 @@ filenames). Search front matter with `grep -l '<term>' Bag3/Code/known_issues/*.
 | Resets, brownout, watchdog | 2026-09-01 |
 | RGB panels, touch, native USB pins | 2026-10-28 (CrowPanel5) |
 | NFC reader (PN532, WS1850S, PN5180) | 2026-09-01, 2026-10-28 (PN5180) |
-| Dial / Box code serving, wand pull | 2026-09-30, 2026-09-29, 2026-10-23 |
+| Dial / Box code serving, wand pull | 2026-09-30, 2026-09-29, 2026-10-23, 2026-11-02 |
 | ChatBroadcast example gallery and remixing | 2026-09-04, 2026-09-29 |
 | Simulator vendored game sources | 2026-09-04, 2026-10-29 (live-page-stale-paths) |
 | Multi-role games | 2026-09-29, 2026-10-23 |
@@ -48,8 +49,8 @@ filenames). Search front matter with `grep -l '<term>' Bag3/Code/known_issues/*.
 
 | Device | Files |
 |---|---|
-| BroadcastBox | 2026-09-01, 2026-09-29, 2026-09-30 |
-| BroadcastDial | 2026-09-29, 2026-09-30, 2026-10-23 |
+| BroadcastBox | 2026-09-01, 2026-09-29, 2026-09-30, 2026-11-02 |
+| BroadcastDial | 2026-09-29, 2026-09-30, 2026-10-23, 2026-11-02 |
 | Wands / MockWand (XIAO ESP32-C6) | 2026-09-04, 2026-09-29, 2026-09-30, 2026-10-23, 2026-10-28 (mockwand-idle-power) |
 | IconDisplay | 2026-09-30, 2026-10-23 |
 | M5Paper Remote (Bag3) | 2026-10-23 |
