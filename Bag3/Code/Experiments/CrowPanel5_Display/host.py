@@ -14,7 +14,7 @@ import panel
 import ui_kit as k
 from code_link import HOST_ID
 
-PASSIVE = ("identify", "info", "mode", "arm", "disarm", "unlink", "ping")
+PASSIVE = ("identify", "info", "mode", "unlink", "ping")
 LINK_TIMEOUT_MS = 15000   # ChatBroadcast pings a CrowPanel every 5 s while connected
 
 class Host:
@@ -27,7 +27,6 @@ class Host:
         self.shown = None       # the finished card screen 9 keeps showing until the next command
         self.h = {
             "identify": self.identify, "info": self.info, "mode": self.mode,
-            "arm": self.ok, "disarm": self.ok,
             "games.list": self.games_list, "games.select": self.games_select,
             "games.delete": self.games_delete, "games.clear": self.games_clear,
             "games.rescan": self.games_rescan,

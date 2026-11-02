@@ -856,10 +856,6 @@ class App {
                 this.paintLink();
             }
         });
-        this.device.on('armed', (obj) => {
-            dbg('device', 'event: armed', obj);
-            this._noteMessage(obj);
-        });
         this.device.on('pull', (obj) => {
             dbg('device', 'event: pull', obj);
             this._noteMessage(obj);

@@ -15,7 +15,7 @@ import { logInfo, logWarn, toText } from "./serialLog.js";
 
 const FORWARDED_EVENTS = [
   "identity", "heartbeat", "fatal", "bye", "error", "repl",
-  "armed", "card_present", "card_written", "info", "mode",
+  "card_present", "card_written", "info", "mode",
   "games", "stats", "ok", "booting",
   "pull", "status_report", "status_done", "dist_progress", "dist_done",
   "write_failed", "released",
@@ -337,14 +337,6 @@ export class BboxDeviceLink {
   _requireJson() {
     if (!this.json) throw new Error("not connected — call connect() first");
     return this.json;
-  }
-
-  arm() {
-    return this._requireJson().arm();
-  }
-
-  disarm() {
-    return this._requireJson().disarm();
   }
 
   sendCmd(cmd, opts) {
