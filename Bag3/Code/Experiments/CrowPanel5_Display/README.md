@@ -33,7 +33,7 @@ Teacher tool (boot order in `main.py`: radio first, then display, then everythin
 - `library.py`: built-in wand games plus `/flash/games/*.py` with `.tags.json`; card text per game.
 - `fleet.py`: roll call, find, staggered `code_push` with pause and retry (adapted from the Dial's).
 - `nfc.py`: PN532 on the touch bus behind the reader methods `card_writer.py` uses. Without a reader the card screens show the error.
-- Copies from `BDialFirmware/`: `code_link.py`, `code_sender.py`, `json_link.py`, `stats_log.py`, `card_writer.py` (WS1850S class removed).
+- Copies from `BDialFirmware/`: `code_link.py` (differs: no arm/disarm; `radio_on()` and `radio_off()`, and the radio serves code whenever it is on), `code_sender.py`, `json_link.py`, `stats_log.py`, `card_writer.py` (WS1850S class removed).
 - `pn532.py` (copy of `Wand Module/lib/pn532.py`), `pn532_bus.py` (field control, bounded detect).
 - `m0_main.py`, `m0_stress.py`, `m0_diag.py`: M0 coexistence test.
 

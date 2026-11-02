@@ -62,7 +62,7 @@ class Panel:
         self._last_hb = time.ticks_ms()
         self._last_refresh = 0
         self.code.resolve()
-        self.code.arm()
+        self.radio_up()
         self.reader.init()
 
     # -- loop ----------------------------------------------------------
@@ -107,38 +107,21 @@ class Panel:
         return self.code.mgr.is_active
 
     def radio_up(self):
-        if self.radio:
-            return True
-        if self.lib.flash_games() and self.code.resolve():
-            return self.code.arm()
-        try:
-            self.mgr.init()
-        except Exception as e:
-            print(f"# radio up failed: {e}")
+        """Radio on; it serves code whenever it is on. Only nfc_enter turns it off."""
+        self.code.radio_on()
         return self.radio
 
     def radio_down(self):
         if self.fleet is not None:
             self.fleet.cancel("radio_off")
-        if self.code.armed:
-            self.code.disarm()
-        else:
-            self.mgr.shutdown()
+        self.code.radio_off()
         self._added = []
 
     def radio_step(self):
         if not self.radio:
             return
-        if self.code.armed:
-            for _ in range(4):
-                self.code.poll(on_event=self._share_event, on_msg=self.on_msg)
-        else:
-            for _ in range(4):
-                mt, data, mac = self.mgr.poll()
-                if mt is None:
-                    break
-                if isinstance(data, dict):
-                    self.on_msg(data, mac)
+        for _ in range(4):
+            self.code.poll(on_event=self._share_event, on_msg=self.on_msg)
         if self.fleet is not None:
             self.fleet.step()
 

@@ -119,12 +119,12 @@ class Host:
     def info(self, cmd, rid):
         P = self.P
         self.send({"type": "info", "id": rid, "version": panel.VERSION, "mem": gc.mem_free(),
-                   "armed": P.radio, "linked": self.linked,
+                   "radio": P.radio, "linked": self.linked,
                    "payload_ready": bool(P.lib.flash_games()), "up": time.ticks_ms()})
 
     def mode(self, cmd, rid):
         self.send({"type": "mode", "id": rid, "mode": "WRITE" if self.P.lib.flash_games() else "IDLE",
-                   "armed": self.P.radio})
+                   "radio": self.P.radio})
 
     # -- games and stats ------------------------------------------------------
 

@@ -1,14 +1,15 @@
 """
-code_link.py -- serve game files to wands over the Dial's own ESP-NOW radio.
+code_link.py -- serve game files to wands over the panel's ESP-NOW radio.
 
-CodeLink has the slice of the old CodeServer interface bdial_server uses
-(armed, serving_count, set_game, resolve, arm, disarm, poll). The transfer
-protocol is code_sender.CodeSender; NativeManager is the radio under it.
+Panel copy of BDialFirmware/code_link.py. Serving is not a mode: whenever the
+radio is on, it answers code requests. CodeLink has radio_on, radio_off,
+serving_count, set_game, resolve and poll. The transfer protocol is
+code_sender.CodeSender; NativeManager is the radio under it.
 
 Memory order: prewarm() runs right after M5.begin(), before the UI and NFC
 reader allocate, so the WiFi driver's first allocation lands on a clean heap
 (docs_and_design/2026-09-23-ap-memory-order.md). code_sender is imported in
-arm(), after the radio is up.
+radio_on(), after the radio is up.
 """
 
 import gc
@@ -176,14 +177,9 @@ class CodeLink:
         self.mgr = NativeManager(tx_power)
         self.sender = None
         self.active_slug = None
-        self._armed = False
         self._failed_seen = 0
         self._sessions_seen = 0
         self.last_result = None
-
-    @property
-    def armed(self):
-        return self._armed
 
     @property
     def serving_count(self):
@@ -213,37 +209,38 @@ class CodeLink:
         self.active_slug = slug
         return slug
 
-    def arm(self):
-        if self._armed:
-            return True
+    def radio_on(self):
+        """Radio on and answering code requests. Safe to call when it is already on
+        (main.py starts the radio before the panel exists). A request for a game
+        that is not on flash is refused by code_sender."""
         if not (self.active_slug and self._exists(self.active_slug)):
-            if self.resolve() is None:
+            self.resolve()
+        if not self.mgr.is_active:
+            gc.collect()
+            try:
+                self.mgr.init()
+            except OSError as e:
+                print("# CodeLink.radio_on: radio start failed: %s" % str(e))
+                self.mgr.shutdown()
                 return False
-        gc.collect()
-        try:
-            self.mgr.init()
-        except OSError as e:
-            print("# CodeLink.arm: radio start failed: %s" % str(e))
-            self.mgr.shutdown()
-            return False
         if self.sender is None:
             from code_sender import CodeSender
             self.sender = CodeSender(self.mgr, games_dir=GAMES_DIR,
                                      host_id=HOST_ID)
+            self._failed_seen = self.sender.failed
+            self._sessions_seen = 0
         self.sender.mgr = self.mgr
-        self._failed_seen = self.sender.failed
-        self._sessions_seen = 0
-        self._armed = True
         return True
 
-    def disarm(self):
+    def radio_off(self):
+        """Radio off (NFC in use): open transfers are dropped."""
         if self.sender is not None:
             for s in self.sender.sessions.values():
                 s.close()
             self.sender.sessions.clear()
             self.sender.last_result = None
+        self._sessions_seen = 0
         self.mgr.shutdown()
-        self._armed = False
         gc.collect()
 
     def poll(self, on_event=None, should_abort=None, on_msg=None):
@@ -252,10 +249,10 @@ class CodeLink:
         last_result. on_msg(data, mac) gets JSON messages that are not code
         transfer (status_report). Returns 'abort' when should_abort() is
         true."""
-        if not self._armed:
+        if not self.mgr.is_active or self.sender is None:
             return None
         if should_abort is not None and should_abort():
-            self.disarm()
+            self.radio_off()
             return 'abort'
         mt, data, mac = self.mgr.poll()
         if mt is not None:
