@@ -119,12 +119,12 @@ class Host:
     def info(self, cmd, rid):
         P = self.P
         self.send({"type": "info", "id": rid, "version": panel.VERSION, "mem": gc.mem_free(),
-                   "armed": P.radio, "linked": self.linked,
+                   "armed": P.code.armed, "linked": self.linked,
                    "payload_ready": bool(P.lib.flash_games()), "up": time.ticks_ms()})
 
     def mode(self, cmd, rid):
         self.send({"type": "mode", "id": rid, "mode": "WRITE" if self.P.lib.flash_games() else "IDLE",
-                   "armed": self.P.radio})
+                   "armed": self.P.code.armed})
 
     # -- games and stats ------------------------------------------------------
 
@@ -238,6 +238,9 @@ class Host:
             return
         g = P.lib.get(slug)
         P.code.set_game(slug)
+        if not P.serve():
+            self.send({"type": "error", "id": rid, "code": "not_serving", "msg": "code server not armed"})
+            return
         P.dist = {"slug": slug, "name": g["name"], "macs": list(macs), "done": False,
                   "state": {m: "wait" for m in macs}}
         fl.distribute(P.mgr, slug, macs)

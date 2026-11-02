@@ -107,15 +107,28 @@ class Panel:
         return self.code.mgr.is_active
 
     def radio_up(self):
-        if self.radio:
-            return True
-        if self.lib.flash_games() and self.code.resolve():
-            return self.code.arm()
-        try:
-            self.mgr.init()
-        except Exception as e:
-            print(f"# radio up failed: {e}")
+        """Radio on, and serving code whenever a game is on flash. Only nfc_enter turns it off."""
+        if not self.radio:
+            try:
+                self.mgr.init()
+            except Exception as e:
+                print(f"# radio up failed: {e}")
+                return False
+        self.serve()
         return self.radio
+
+    def serve(self):
+        """Arm the code server on the running radio: the active slug, else active.txt, else
+        the first game on flash. False when there is no game to serve."""
+        if self.code.armed:
+            return True
+        games = self.lib.flash_games()
+        if not games:
+            return False
+        if self.code.arm():
+            return True
+        self.code.set_game(games[0]["slug"])
+        return self.code.arm()
 
     def radio_down(self):
         if self.fleet is not None:
