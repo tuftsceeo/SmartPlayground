@@ -382,6 +382,16 @@ body.ui-advanced #app-shell {
     background: #fff;
 }
 .example-card:hover { border-color: var(--pink); }
+/* Saved-game card: up to three small icons in a row. */
+.saved-thumb { gap: 10px; }
+.saved-thumb > span { display: inline-flex; }
+
+/* The NFC Station catalog is an advanced-mode tool. */
+body:not(.ui-advanced) #btn-station-catalog { display: none; }
+
+.example-card:focus-visible,
+.splash-card:focus-visible { outline: 2px solid var(--pink); outline-offset: 2px; }
+
 .example-thumb {
     height: 64px;
     border-radius: 10px;
@@ -1669,10 +1679,15 @@ body.ui-advanced .more-item.advanced-only { display: flex !important; }
         max-width: none;
         min-width: 0;
         flex: 1 1 auto;
+        min-height: 55vh;
         border-left: none;
         border-top: 1px solid var(--border);
     }
-    .preview-col { flex: 0 1 auto; }
+    /* Chat has priority; the preview is capped and the simulator drawn
+       smaller to fit the cap instead of scrolling inside it. */
+    .preview-col { flex: 0 1 auto; max-height: 40vh; min-width: 0; }
+    #preview-panel { padding: 6px; }
+    #preview-panel sim-room { zoom: 0.55; }
     .ws-resizer { display: none; }
     .ws-titlebar { flex-wrap: wrap; }
     .ws-titlebar-actions { margin-left: 0; width: 100%; }

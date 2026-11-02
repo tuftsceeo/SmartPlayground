@@ -160,13 +160,13 @@
                     </button>
                     <input type="text" class="ws-name-input hidden" id="ws-name-input" maxlength="48"
                            aria-label="Game name" />
-                    <button class="icon-btn" id="btn-new-game" type="button" title="New game (clears the chat and code)">
+                    <button class="icon-btn" id="btn-new-game" type="button" title="New game (clears the chat and code)" aria-label="New game (clears the chat and code)">
                         <span class="code-glyph">+</span>
                     </button>
-                    <button class="icon-btn" id="btn-save-game" type="button" title="Save (updates this game, no duplicate)">
+                    <button class="icon-btn" id="btn-save-game" type="button" title="Save (updates this game, no duplicate)" aria-label="Save (updates this game, no duplicate)">
                         <span data-icon="save" data-icon-size="15"></span>
                     </button>
-                    <button class="icon-btn" id="btn-open-game" type="button" title="Open a saved game">
+                    <button class="icon-btn" id="btn-open-game" type="button" title="Open a saved game" aria-label="Open a saved game">
                         <span data-icon="folder-open" data-icon-size="15"></span>
                     </button>
                     <div class="ws-titlebar-actions">
@@ -450,7 +450,7 @@
                     <span data-icon="close" data-icon-size="18"></span>
                 </button>
                 <h2>Unsaved changes</h2>
-                <p>This game hasn't been saved yet. What would you like to do?</p>
+                <p id="unsaved-text">This game hasn't been saved yet. What would you like to do?</p>
                 <button class="btn-primary" id="btn-unsaved-save" type="button">Save &amp; Continue</button>
                 <button class="btn-secondary" id="btn-unsaved-discard" type="button">Discard</button>
                 <button class="btn-secondary" id="btn-unsaved-cancel" type="button">Cancel</button>

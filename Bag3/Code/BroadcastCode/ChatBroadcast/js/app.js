@@ -109,6 +109,46 @@ function primaryRoleCode() {
     return null;
 }
 
+
+/** Leading words of the user turn remixCurrentExample() sends. */
+const REMIX_PREFIX = 'I would like to remix';
+
+/**
+ * Make a non-button element reachable by Tab and activated by Enter/Space,
+ * which dispatch the element's own click handler. Keys pressed inside a
+ * nested control (rename input, card buttons) are left to that control.
+ * @param {HTMLElement} el
+ */
+function makeActivatable(el) {
+    el.tabIndex = 0;
+    el.setAttribute('role', 'button');
+    el.addEventListener('keydown', (e) => {
+        if (e.target !== el || (e.key !== 'Enter' && e.key !== ' ')) return;
+        e.preventDefault();
+        el.click();
+    });
+}
+
+/**
+ * Up to three small icons for a saved game's card: one wand or several,
+ * Splats when the game uses them, an icon display when it has display code.
+ * @param {object} g saved-game entry from library.js
+ */
+function savedGameIcons(g) {
+    const code = g.code || '';
+    const settings = g.simSettings || {};
+    const lobby = /SPLATS_MIN|lobby_game|lobbyGame/.test(code);
+    const multi = lobby || (settings.wands || 1) > 1;
+    const splats = /SPLATS_MIN/.test(code) || (lobby && settings.wand_splats > 0);
+    const display = Boolean(g.roleCode?.icon || g.iconCode);
+    const opts = { size: 18, strokeWidth: 1.5 };
+    return [
+        `<span title="${multi ? 'Several wands' : 'One wand'}">${iconSvg(multi ? 'wands' : 'wand', opts)}</span>`,
+        splats ? `<span title="Splats">${iconSvg('splat', opts)}</span>` : '',
+        display ? `<span title="Icon display">${iconSvg('iconDisplay', opts)}</span>` : '',
+    ].join('');
+}
+
 class App {
     constructor() {
         // Default to a Box/Dial link; onConnect(kind) swaps this for a
@@ -1155,6 +1195,7 @@ class App {
     }
 
     bindEvents() {
+        document.querySelectorAll('.splash-card').forEach((el) => makeActivatable(el));
         document.getElementById('btn-scratch').addEventListener('click', () => this.startNewGame());
         document.getElementById('btn-new-game').addEventListener('click', () => this.startNewGame());
         document.getElementById('btn-gallery').addEventListener('click', () => this.goExamples());
@@ -1392,6 +1433,9 @@ class App {
             discardBtn.addEventListener('click', onDiscard);
             cancelBtn.addEventListener('click', onCancel);
             xBtn.addEventListener('click', onCancel);
+            const named = this.gameName && this.gameName !== 'Your game';
+            document.getElementById('unsaved-text').textContent =
+                `${named ? `“${this.gameName}”` : 'This game'} hasn't been saved yet. What would you like to do?`;
             showOverlay('unsaved-overlay');
         });
     }
@@ -1530,7 +1574,7 @@ class App {
                 card.dataset.id = g.id;
                 const when = relativeTime(g.updatedAt);
                 card.innerHTML =
-                    `<div class="example-thumb">${iconSvg('wand', { size: 26, strokeWidth: 1.5 })}</div>` +
+                    `<div class="example-thumb saved-thumb">${savedGameIcons(g)}</div>` +
                     `<div class="card-body" data-card-body>` +
                     `<h3>${escapeHtml(g.name)}</h3>` +
                     `<p>${escapeHtml(when)}</p>` +
@@ -1538,6 +1582,8 @@ class App {
                     `<button type="button" class="card-action-btn" data-rename title="Rename">${iconSvg('pencil', { size: 14 })}</button>` +
                     `<button type="button" class="card-action-btn" data-delete title="Delete">${iconSvg('trash', { size: 14 })}</button>` +
                     `</div></div>`;
+                card.setAttribute('aria-label', g.name);
+                makeActivatable(card);
                 card.addEventListener('click', (e) => {
                     if (e.target.closest('[data-rename],[data-delete],[data-confirm-del],[data-cancel-del],.card-rename-row')) return;
                     this.openSavedGame(g.id);
@@ -1570,6 +1616,8 @@ class App {
                 `<h3>${escapeHtml(ex.name)}</h3>` +
                 `<p>${escapeHtml(ex.description)}</p>` +
                 (ex.tagNote ? `<div class="tag-badge">${escapeHtml(ex.tagNote)}</div>` : '');
+            card.setAttribute('aria-label', ex.name);
+            makeActivatable(card);
             card.addEventListener('click', () => this.openDetail(ex.id));
             grid.appendChild(card);
         });
@@ -1665,6 +1713,10 @@ class App {
             PLACEHOLDER.lastIndex = 0;
         });
         this.chatHistory.forEach((turn, i) => {
+            // Remix requests (the example's code sent to the model) stay in
+            // chatHistory but are not shown; the prefix check covers games
+            // saved before turns were marked hidden.
+            if (turn.hidden || (turn.role === 'user' && turn.content.startsWith(REMIX_PREFIX))) return;
             let text = turn.content;
             if (i === lastCodeTurn && g.code) {
                 const matches = [...text.matchAll(PLACEHOLDER)];
@@ -2185,7 +2237,7 @@ class App {
         // that would replace fences with a placeholder and hide the example
         // from Claude). callClaude shows it and posts it as the first message.
         const userMsg = [
-            `I would like to remix the ${ex.name} example as a starting point. Here is the ${ex.name} code:`,
+            `${REMIX_PREFIX} the ${ex.name} example as a starting point. Here is the ${ex.name} code:`,
             '',
             '```python',
             code,
@@ -2194,7 +2246,7 @@ class App {
 
         this.openWorkspace();
         this.updatePreview({ forcePlay: true });
-        await this.callClaude(userMsg);
+        await this.callClaude(userMsg, { hidden: true });
     }
 
     /** The example's real Python, or null if it couldn't be read. A failure
@@ -3305,18 +3357,24 @@ class App {
         return apiKey;
     }
 
-    async callClaude(userMsg) {
+    /**
+     * @param {string} userMsg
+     * @param {{hidden?: boolean}} [opts] hidden: kept for the model, not
+     *     replayed when the saved game is reopened
+     */
+    async callClaude(userMsg, { hidden = false } = {}) {
         const apiKey = this.resolveApiKey();
         if (!apiKey) return;
 
-        this.chatHistory.push({ role: 'user', content: userMsg });
+        this.chatHistory.push(hidden ? { role: 'user', content: userMsg, hidden: true } : { role: 'user', content: userMsg });
         addThinkingMsg();
         this.isGenerating = true;
 
         try {
             const body = JSON.stringify(buildRequestBody({
                 system: this.getSystemBlocks(),
-                history: this.chatHistory,
+                // The API accepts only role and content per message.
+                history: this.chatHistory.map(({ role, content }) => ({ role, content })),
             }));
             dbg('chat', `POST /v1/messages (stream) — ${this.chatHistory.length} history message(s)`);
 
