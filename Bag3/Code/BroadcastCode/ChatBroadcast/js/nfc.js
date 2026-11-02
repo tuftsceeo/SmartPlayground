@@ -38,9 +38,7 @@ export function showTagChecklist({ title, subtitle, tags, written }) {
         subEl.textContent = subtitle || "";
 
         let last = written || {};
-        let last = written || {};
         function render(counts) {
-            last = counts;
             last = counts;
             const done = (t) => (counts && counts[t] > 0);
             const nextIdx = tags.findIndex((t) => !done(t));
