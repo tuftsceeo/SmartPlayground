@@ -107,16 +107,14 @@ class Panel:
         return self.code.mgr.is_active
 
     def radio_up(self):
-        """Radio on and serving code. Only nfc_enter turns it off. main.py starts the radio
-        before the panel exists; arm() adds the code server to a radio that is already on."""
-        if not self.code.armed:
-            self.code.arm()
+        """Radio on; it serves code whenever it is on. Only nfc_enter turns it off."""
+        self.code.radio_on()
         return self.radio
 
     def radio_down(self):
         if self.fleet is not None:
             self.fleet.cancel("radio_off")
-        self.code.disarm()
+        self.code.radio_off()
         self._added = []
 
     def radio_step(self):
