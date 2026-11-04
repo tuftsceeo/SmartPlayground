@@ -42,7 +42,8 @@ import { PalettePicker } from "./components/palettePicker.js";
 import { showToast } from "./components/toast.js";
 // Save/open against ChatBroadcast's named-icon library. See libraryBridge.js:
 // the rest of this app does not know it exists.
-import { attachLibraryBar, saveToLibrary, onLibraryBackendChange } from "./libraryBridge.js";
+import { attachLibraryBar, saveToLibrary, onLibraryBackendChange, flatToPixels } from "./libraryBridge.js";
+import { DEFAULT_ICONS } from "../../js/ledicons/defaultIcons.js";
 import { createIconMakerApi, attachMessageBridge } from "./api.js";
 import { OFF_DUTY } from "./pipeline/ledGamut.js";
 import { advancedLayoutHtml } from "./layouts/advancedLayout.js";
@@ -807,24 +808,14 @@ class App {
   }
 
   // ── load / resegment ────────────────────────────────────────────────
+  /** Open a saved device icon (defaultIcons.js, from IconDisplay/icons/).
+   *  The source photos in assets/ are never reconverted: they predate the
+   *  current designs and the measured white. */
   async loadFixture(name) {
-    setState({ loading: true, statusText: `loading ${name}…`, customPaletteColors: [] });
+    const flat = DEFAULT_ICONS[name];
+    if (!flat) throw new Error(`No saved icon named "${name}".`);
     releaseSource();
-    // This copy carries its own assets/ and maps/. The station's webapp sits
-    // one level deeper, where ../assets reached the station's real asset
-    // directory; here that resolved to ChatBroadcast/assets (wand artwork
-    // only) and every fixture 404'd.
-    const { imageData, source, transform } = await decodeUrlToWorking(`assets/${name}.png`);
-    doc.source = source;
-    doc.transform = transform;
-    let existingMap = null;
-    try {
-      const res = await fetch(`maps/${name}.json`);
-      if (res.ok) existingMap = await res.json();
-    } catch {
-      /* no map yet -- fine */
-    }
-    this.applyLoad(imageData, existingMap, existingMap?.max_segments, name, `assets/${name}.png`);
+    this.loadFromLibrary(name, flatToPixels(flat));
   }
 
   async loadFile(file) {

@@ -27,6 +27,12 @@ PURPLE_50 = 0xF2EEFC
 TEAL_50 = 0xE9FBF6
 YELLOW_50 = 0xFFF8E0
 
+# Design-board extras
+WARN_DOT = 0xE0B445     # paused bar, refused rows
+WAIT_DOT = 0xC2B8D6     # waiting dot, stopped bar
+IDLE_FG = 0xB9B4C6      # NFC target when not in use
+TILE_OFF = 0xFAFAFD     # tile of a device that didn't answer
+
 # Status (foreground, background)
 DANGER = (0xC0392B, 0xFDECEA)
 WARN = (0xA8781E, 0xFFF8E0)

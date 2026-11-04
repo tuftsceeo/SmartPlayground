@@ -1,4 +1,4 @@
-"""Screen 6 - One device: find, rename, start, stop or send code to this MAC alone."""
+"""Screen 6 - One device: chat with this MAC alone, plus an "About this wand" aside."""
 
 import lvgl as lv
 
@@ -6,9 +6,12 @@ import ds_tokens as t
 import panel
 import roster
 import ui_kit as k
-from ui_kit import F12, F14, F16, R, GREY
+from ui_kit import F12, GREY
 
 LOG = 5
+ASIDE_X = 552
+ASIDE_W = 248
+FOOT_Y = 402
 _w = {}
 
 
@@ -20,7 +23,7 @@ def _mac():
 def _rename():
     import kbd
     mac = _mac()
-    kbd.open("Rename this device", panel.P.store.names.get(mac, ""), 16,
+    kbd.open("", panel.P.store.names.get(mac, ""), 16,
              lambda s: panel.P.act(panel.P.rename, mac, s))
 
 
@@ -29,47 +32,69 @@ def _games(mode):
     scr_games.open(mode)
 
 
+def _tile(parent, x, y, w, h, label):
+    b = k.box(parent, x, y, w, h, t.SURFACE, 12, t.BORDER)
+    k.text(b, label, t.INK_3, F12, 12, 8)
+    return b, k.slot(b, 12, 28, w - 24, t.INK, k.F_HEAD)
+
+
 def build():
     scr = k.new_screen()
-    hd, _w["title"] = k.header(scr, "", k.back)
-    _w["tag"] = k.pill(hd, "", t.INK_3, GREY)
-    _w["tag"].set_pos(520, 20)
-    ren = k.button(hd, 660, 10, 44, "Rename", t.PURPLE, w=124)
-    k.on(ren, _rename)
+    hd, _w["title"], _w["sub"] = k.header(scr, "", k.back, "", 300)
+    _w["title"].set_x(120)
+    _w["sub"].set_x(120)
+    av = k.box(hd, 68, 12, 40, 40, GREY, t.R_PILL)
+    _w["av"] = av
+    _w["tag"] = k.text(av, "", t.INK_3, F12, align=lv.ALIGN.CENTER)
 
-    info = k.box(scr, 16, 76, 300, 240, t.SURFACE, R, t.BORDER)
-    _w["kind"] = k.slot(info, 16, 14, 268, t.INK, F16)
-    _w["heard"] = k.slot(info, 16, 44, 268, t.INK_3, F14)
-    _w["batt"] = k.slot(info, 16, 76, 268, t.INK_3, F14)
-    _w["sig"] = k.slot(info, 16, 104, 268, t.INK_3, F14)
-    _w["game"] = k.slot(info, 16, 132, 268, t.INK_3, F14)
-    f = k.button(info, 16, 172, 52, "Find it", t.TEAL_DARK, "find_18", w=268, font=F16)
+    area = k.plain(lv.obj(scr))
+    area.set_pos(0, 64)
+    area.set_size(ASIDE_X, FOOT_Y - 64)
+    area.set_style_bg_opa(lv.OPA.TRANSP, 0)
+    area.set_style_pad_hor(16, 0)
+    area.set_style_pad_ver(12, 0)
+    area.set_style_pad_row(10, 0)
+    area.set_flex_flow(lv.FLEX_FLOW.COLUMN)
+    area.set_flex_align(lv.FLEX_ALIGN.END, lv.FLEX_ALIGN.START, lv.FLEX_ALIGN.START)
+    _w["mine"] = []
+    _w["theirs"] = []
+    for _ in range(LOG):        # pairs, so the shown bubble of each keeps log order
+        _w["mine"].append(k.bubble(area, True))
+        _w["theirs"].append(k.bubble(area, False))
+
+    side = k.box(scr, ASIDE_X, 64, ASIDE_W, FOOT_Y - 64, t.BG)
+    k.box(scr, ASIDE_X, 64, 1, FOOT_Y - 64, t.BORDER)
+    _w["about"] = k.slot(side, 16, 12, ASIDE_W - 32, t.INK, k.F_HEAD)
+    nb, _w["nick"] = _tile(side, 16, 40, ASIDE_W - 32, 56, "Nickname")
+    k.on(nb, _rename)
+    _, _w["batt"] = _tile(side, 16, 104, 102, 56, "Battery")
+    sb, _w["sig"] = _tile(side, 130, 104, 102, 56, "Signal")
+    _w["sig"].set_width(50)
+    _w["bars"] = k.sig_bars(sb, 66, 32)
+    _w["last"] = k.slot(side, 16, 172, ASIDE_W - 32, t.INK_3, F12)
+    _w["groups"] = k.slot(side, 16, 194, ASIDE_W - 32, t.INK_3, F12)
+    _w["mac"] = k.slot(side, 16, 216, ASIDE_W - 32, t.MUTED, F12)
+    f = k.button(side, 16, 266, 52, "Find it again", t.SURFACE, "find_18", font=k.F_HEAD,
+                 primary="teal", w=ASIDE_W - 32)
     k.on(f, lambda: _mac() and panel.P.act(panel.P.find, _mac()))
-    _w["find"] = f
 
-    k.text(scr, "Chat", t.INK, F16, 336, 80)
-    _w["log"] = [k.slot(scr, 336, 112 + i * 36, 448, t.INK_3, F14) for i in range(LOG)]
-
-    ft = k.box(scr, 0, 402, k.W, 78, t.SURFACE)
-    k.box(scr, 0, 402, k.W, 1, t.BORDER)
-    s = k.button(ft, 16, 11, 56, "Start game", t.SURFACE, "play_20", font=F16, primary=True, w=200)
-    c = k.button(ft, 228, 11, 56, "Send code", t.PURPLE, "code_20", font=F16, w=180)
-    st = k.button(ft, 664, 11, 56, "Stop", t.INK, "stop_20", t.DANGER[0], F16, w=120)
+    ft = k.box(scr, 0, FOOT_Y, k.W, k.H - FOOT_Y, t.SURFACE)
+    k.box(scr, 0, FOOT_Y, k.W, 1, t.BORDER)
+    s = k.button(ft, 16, 11, 56, "Start game", t.SURFACE, "play_20", font=k.F_HEAD, primary=True, w=200)
+    st = k.button(ft, 228, 11, 56, "Stop", t.INK, "stop_20", t.DANGER[0], k.F_HEAD, w=120)
+    c = k.button(ft, 360, 11, 56, "Send code", t.PURPLE, "code_20", font=k.F_HEAD, w=180)
     k.on(s, lambda: _games("start"))
-    k.on(c, lambda: _games("code"))
     k.on(st, lambda: panel.P.act(panel.P.stop))
+    k.on(c, lambda: _games("code"))
     return scr
 
 
-def _line(e):
+def _theirs(e):
+    """(text, color) for a left bubble."""
     ty = e["t"]
-    if ty == "mine":
-        return f"{e['text']} - {e['sub']}"
-    if ty == "note":
-        return f"{e['text']} {e.get('b', '')}"
     if ty == "err":
-        return e["text"]
-    return f"Roll call - {e['n']} answered"
+        return e["text"], t.DANGER[0]
+    return e.get("b") and f"{e['text']} {e['b']}" or e["text"], t.WARN[0] if e.get("warn") else t.INK
 
 
 def refresh():
@@ -78,21 +103,45 @@ def refresh():
     if mac is None:
         return
     e = P.roster.d.get(mac)
+    wand = e is None or P.roster.is_wand(e)
     k.st(_w["title"], P.roster.name(mac))
-    k.st(k.lbl(_w["tag"]), roster.tag_of(mac))
-    if e is None:
-        k.st(_w["kind"], "Device")
-        for n in ("heard", "batt", "sig"):
-            k.st(_w[n], "")
+    k.st(_w["tag"], roster.tag_of(mac) if wand else "STN")
+    k.sty(_w["av"], "bg", GREY if wand else t.TEAL_50)
+    kind = "Wand" if wand else "Station"
+    k.st(_w["about"], f"About this {kind.lower()}")
+    if e is None or e["seen"] is None:
+        k.st(_w["sub"], kind)
     else:
-        k.st(_w["kind"], "Wand" if P.roster.is_wand(e) else f"Station - {e['kind']}")
-        k.st(_w["heard"], f"Heard {P.roster.age(e)}" if e["seen"] else "Not heard")
-        b = e["battery"]
-        k.st(_w["batt"], "Battery -" if b is None else f"Battery {b}%")
-        k.st(_w["sig"], f"Signal {roster.signal_word(e['rssi'])}")
-    g = P.playing.get(mac)
-    gg = P.lib.get(g) if g else None
-    k.st(_w["game"], f"Last game: {gg['name'] if gg else g}" if g else "")
-    log = [_line(x) for x in P.log()[-LOG:]]
-    for i, lb in enumerate(_w["log"]):
-        k.st(lb, log[i] if i < len(log) else "")
+        k.st(_w["sub"], f"{kind}{k.DOT}heard {P.roster.age(e)}")
+    k.st(_w["nick"], P.store.names.get(mac) or "")
+    b = None if e is None else e["battery"]
+    k.st(_w["batt"], "-" if b is None else f"{b}%")
+    k.sty(_w["batt"], "text", t.WARN[0] if e is not None and P.roster.low(e) else t.INK)
+    rssi = None if e is None else e["rssi"]
+    lvl = k.signal_level(rssi)
+    k.st(_w["sig"], "-" if rssi is None else roster.signal_word(rssi))
+    _w["bars"](lvl, t.TEAL_DARK)
+    # roll-call answers show in the header ("heard 1 min ago"); notes are Home's
+    log = [x for x in P.log() if x["t"] not in ("rep", "note")][-LOG:]
+    sent = [x for x in log if x["t"] == "mine"]
+    k.st(_w["last"], f"Last sent: {sent[-1]['text']}" if sent else "Last sent:")
+    groups = [g for g, macs in P.store.groups.items() if mac in macs]
+    k.st(_w["groups"], f"Groups: {', '.join(groups)}" if groups else "Groups:")
+    h = mac.replace(":", "")[-6:].upper()
+    k.st(_w["mac"], f"MAC ...:{h[0:2]}:{h[2:4]}:{h[4:6]}")
+    # bubbles in log order: a mine/theirs pair per slot, only one shown
+    for i in range(LOG):
+        x = log[i] if i < len(log) else None
+        mine = x is not None and x["t"] == "mine"
+        ln, lb, sub = _w["mine"][i]
+        k.show_hide(ln, mine)
+        if mine:
+            k.st(lb, x["text"])
+            k.st(sub, P.mine_sub(x))
+        ln, lb, sub = _w["theirs"][i]
+        k.show_hide(ln, x is not None and not mine)
+        if x is not None and not mine:
+            s, col = _theirs(x)
+            k.st(lb, s)
+            k.sty(lb, "text", col)
+            k.st(sub, "")

@@ -2,8 +2,9 @@
 
 Identify and other read-only commands show screen 7 (Plugged into a computer); any other
 command, or resuming after a code install, links the panel and opens screen 8. Just charge
-sends `released` so ChatBroadcast disconnects. unlink, Just charge and LINK_TIMEOUT_MS of
-silence from the computer all return the panel to home through drop().
+sends `released` so ChatBroadcast disconnects. unlink and Just charge return the panel to home
+through drop(). LINK_TIMEOUT_MS of silence while linked shows screen 8 as Disconnected (Stop all
+still works) until the teacher taps to go home or the computer talks again.
 """
 
 import gc
@@ -23,8 +24,8 @@ class Host:
         self.linked = False
         self.heard = None       # ticks of the last command; None once dropped
         self.card = None        # {"text","label","state","msg"} for screen 9
-        self.last_card = None   # (label, ok) shown in screen 9's footer
         self.shown = None       # the finished card screen 9 keeps showing until the next command
+        self.lost = False       # linked, but the computer went quiet
         self.h = {
             "identify": self.identify, "info": self.info, "mode": self.mode,
             "games.list": self.games_list, "games.select": self.games_select,
@@ -47,6 +48,9 @@ class Host:
             self.send({"type": "error", "id": rid, "code": "unknown_cmd", "cmd": name})
             return
         self.heard = time.ticks_ms()
+        if self.lost:
+            self.lost = False
+            self.P.dirty = True
         if not self.linked:
             if name not in PASSIVE:
                 self.link()
@@ -80,6 +84,7 @@ class Host:
     def drop(self):
         """Back to standalone: end any card request, radio back on, home screen."""
         self.linked = False
+        self.lost = False
         self.heard = None
         self.shown = None
         if self.card is not None:
@@ -89,11 +94,21 @@ class Host:
 
     def check(self):
         """Called each loop: a computer that went quiet without unlink no longer holds the panel."""
-        if self.heard is None or not (self.linked or k.cur == "scr_link_prompt"):
+        if self.heard is None or self.lost or not (self.linked or k.cur == "scr_link_prompt"):
             return
-        if time.ticks_diff(time.ticks_ms(), self.heard) > LINK_TIMEOUT_MS:
+        if time.ticks_diff(time.ticks_ms(), self.heard) <= LINK_TIMEOUT_MS:
+            return
+        if not self.linked:
             self.drop()
             k.toast("Computer disconnected")
+            return
+        self.lost = True
+        self.shown = None
+        if self.card is not None:
+            self.card_done("write_failed", None)
+        self.P.nfc_leave()
+        k.go("scr_linked", push=False)
+        self.P.dirty = True
 
     def release(self):
         """Just charge: ask ChatBroadcast to disconnect and go back to home."""
@@ -238,7 +253,7 @@ class Host:
         g = P.lib.get(slug)
         P.code.set_game(slug)
         P.dist = {"slug": slug, "name": g["name"], "macs": list(macs), "done": False,
-                  "state": {m: "wait" for m in macs}}
+                  "state": {m: "wait" for m in macs}, "ts": time.ticks_ms()}
         fl.distribute(P.mgr, slug, macs)
         P.happening = f"Send code - 0 of {len(macs)}"
         P.note_feed(f"Computer: send {g['name']}")
@@ -261,6 +276,9 @@ class Host:
     def card_write(self, cmd, rid):
         text = (cmd.get("text") or "").strip()
         label = cmd.get("label") or text
+        game = cmd.get("game")
+        index = cmd.get("index")
+        total = cmd.get("total")
         if (text == "getcode" or text.startswith("getcode:")) and "@" not in text:
             text = f"{text}@{HOST_ID}"
         if not text or len(text.encode()) > 54:
@@ -271,7 +289,10 @@ class Host:
             return
         self.ok(cmd, rid)
         self.shown = None
-        self.card = {"text": text, "label": label, "state": "waiting", "msg": "Tap a tag here"}
+        self.card = {"text": text, "label": label, "state": "waiting", "msg": "Tap a tag here",
+                     "game": game if isinstance(game, str) else None,
+                     "index": index if isinstance(index, int) else None,
+                     "total": total if isinstance(total, int) else None}
         k.go("scr_linked_card")
 
     def card_result(self, res, uid, text):
@@ -305,14 +326,13 @@ class Host:
         self.card = None
         if ok is None:
             ok = event is None
-        if c is not None:
-            self.last_card = (c["label"], ok)
         if event and c is not None:
             self.send({"type": event, "uid": uid, "text": c["text"], "label": c["label"]})
         self.P.nfc_leave()
         if ok and c is not None:
             c["state"] = "done"
-            c["msg"] = "Done"
+            n, m = c.get("index"), c.get("total")
+            c["set_done"] = bool(n and m and n == m)
             self.shown = c
             self.P.dirty = True
         elif k.cur == "scr_linked_card":

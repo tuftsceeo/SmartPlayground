@@ -1,59 +1,56 @@
-"""Screen 3 - Pick a game: bottom sheet on the top layer, over home or screen 6."""
+"""Screen 3 - Start a game: bottom sheet on the top layer, over home or screen 6."""
 
 import lvgl as lv
 
 import ds_tokens as t
 import panel
 import ui_kit as k
-from ui_kit import F12, F14, F16, R
+from ui_kit import F12, R
 
-SHEET_Y = 96
+SHEET_Y = 60
 COLS = 4
-TW = 180
-TH = 92
+TW = 181
+TH = 128
 _tiles = []
-_w = {"tab": "ready", "page": 0, "sel": None}
+_w = {"tab": "all", "page": 0, "sel": None, "mode": "start"}
 _root = None
 
 
 def _build():
     global _root
     _root = k.box(lv.layer_top(), 0, 0, k.W, k.H, t.INK)
-    _root.set_style_bg_opa(120, 0)
+    _root.set_style_bg_opa(89, 0)
     _root.add_flag(lv.obj.FLAG.CLICKABLE)
-    sh = k.box(_root, 0, SHEET_Y, k.W, k.H - SHEET_Y, t.SURFACE, 24)
+    sh = k.box(_root, 0, SHEET_Y, k.W, k.H - SHEET_Y + 20, t.SURFACE, 20)
     sh.add_flag(lv.obj.FLAG.CLICKABLE)
-    k.text(sh, "Pick a game", t.INK, F16, 16, 16)
-    _w["to"] = k.slot(sh, 16, 40, 300, t.INK_3, F12)
-    x = 400
-    _w["tabs"] = {}
-    for tab, label in (("ready", "Ready"), ("new", "New")):
-        b = k.button(sh, x, 12, 40, label, t.INK_3, w=100)
-        k.on(b, lambda tab=tab: _tab(tab))
-        _w["tabs"][tab] = b
-        x += 108
-    p = k.button(sh, 620, 12, 40, "<", t.INK, w=52)
-    n = k.button(sh, 680, 12, 40, ">", t.INK, w=52)
+    _w["head"] = k.slot(sh, 20, 14, 230, t.INK, k.F_HEAD)
+    _w["to"] = k.slot(sh, 20, 38, 230, t.INK_3, F12)
+    ny = k.button(sh, k.W - 20 - 110, 12, 44, "Not yet", t.INK_3, w=110)
+    k.on(ny, close)
+    _w["seg_tr"], _w["seg"], _ = k.seg(sh, k.W - 20 - 110 - 12 - 296, 10,
+                             (("ready", "On wands"), ("new", "New"), ("all", "All")), _tab, 96)
+    p = k.button(sh, 262, 12, 44, "<", t.INK, w=40)
+    n = k.button(sh, 310, 12, 44, ">", t.INK, w=40)
     k.on(p, lambda: _page(-1))
     k.on(n, lambda: _page(1))
+    _w["pager"] = (p, n)
     for i in range(COLS * 2):
-        x = 16 + (i % COLS) * (TW + 12)
-        y = 66 + (i // COLS) * (TH + 10)
+        x = 20 + (i % COLS) * (TW + 12)
+        y = 72 + (i // COLS) * (TH + 12)
         b = k.box(sh, x, y, TW, TH, t.SURFACE, R, t.BORDER)
-        sw = k.box(b, 12, 12, 28, 28, 0xBF75C9, 8)
-        k.icon(sw, "music_note_16", t.SURFACE, align=lv.ALIGN.CENTER)
-        nm = k.slot(b, 12, 46, TW - 24, t.INK, F14)
-        sub = k.slot(b, 12, 68, TW - 24, t.INK_3, F12)
+        sw = k.box(b, 14, 14, 40, 40, 0xBF75C9, 10)
+        nm = k.slot(b, 14, 66, TW - 28, t.INK, k.F_BODY)
+        sub = k.slot(b, 14, 92, TW - 28, t.INK_3, F12)
         d = {"box": b, "sw": sw, "name": nm, "sub": sub, "slug": None}
         k.on(b, lambda d=d: _select(d))
         _tiles.append(d)
-    _w["msg"] = k.slot(sh, 16, 284, 380, t.INK_3, F14)
-    st = k.button(sh, 410, 272, 52, "Start", t.SURFACE, "play_20", font=F16, primary=True, w=120)
-    sc = k.button(sh, 540, 272, 52, "Send code", t.PURPLE, "code_20", font=F16, w=140)
-    ny = k.button(sh, 690, 272, 52, "Not yet", t.INK_3, w=94)
+    _w["msg"] = k.slot(sh, 20, 368, 350, t.INK_3, k.F_BODY)
+    # one action per sheet: Start in start mode, Send code in code mode, same spot
+    sc = k.button(sh, 570, 352, 52, f"Send code{k.ARROW}", t.SURFACE, "code_20", font=k.F_HEAD,
+                  primary="purple", w=210)
+    st = k.button(sh, 570, 352, 52, f"Start{k.ARROW}", t.SURFACE, "play_20", font=k.F_HEAD, primary=True, w=210)
     k.on(st, lambda: _go("start"))
     k.on(sc, lambda: _go("code"))
-    k.on(ny, close)
     _w["start"] = st
     _w["code"] = sc
 
@@ -79,13 +76,8 @@ def _select(d):
 def _go(what):
     slug = _w["sel"]
     if slug is None:
-        k.toast("Pick a game first")
         return
     P = panel.P
-    g = P.lib.get(slug)
-    if what == "code" and not g["flash"]:
-        k.toast("Built-in game - wands already have it")
-        return
     close()
     P.act(P.start_game if what == "start" else P.send_code, slug)
 
@@ -94,7 +86,8 @@ def open(mode="start"):
     if _root is None:
         _build()
     _w["sel"] = None
-    _w["tab"] = "new" if mode == "code" else "ready"
+    _w["mode"] = mode
+    _w["tab"] = "all"
     _w["page"] = 0
     k.show_hide(_root, True)
     refresh()
@@ -105,43 +98,56 @@ def close():
         k.show_hide(_root, False)
 
 
+def _ready(g, macs):
+    return not g["flash"] or (macs and macs <= panel.P.sent.get(g["slug"], set()))
+
+
 def _games():
     P = panel.P
     macs = set(P.macs())
-    out = []
-    for g in P.lib.games:
-        sent = P.sent.get(g["slug"], set())
-        ready = not g["flash"] or (macs and macs <= sent)
-        if (_w["tab"] == "ready") == bool(ready):
-            out.append(g)
-    return out
+    if _w["mode"] == "code":
+        return P.lib.flash_games()      # built-in games are already on every wand
+    tab = _w["tab"]
+    return [g for g in P.lib.games if tab == "all" or (tab == "ready") == bool(_ready(g, macs))]
 
 
 def _sub(g):
+    """(meta text, color) for a game tile."""
     P = panel.P
     macs = P.macs()
-    playing = sum(1 for m in macs if P.playing.get(m) == g["slug"])
-    if macs and playing == len(macs):
-        return "Playing now"
-    if g["flash"]:
-        n = len(P.sent.get(g["slug"], set()) & set(macs))
-        return f"on {n} of {len(macs)}" if n else "New"
-    return "Built in"
+    m = len(macs)
+    playing = sum(1 for x in macs if P.playing.get(x) == g["slug"])
+    if macs and playing == m:
+        return "Playing now", t.TEAL_DARK
+    if not g["flash"]:
+        return (f"On all {m}" if m else "On all"), t.INK_3
+    n = len(P.sent.get(g["slug"], set()) & set(macs))
+    if n == 0:
+        return f"New{k.DOT}on 0 of {m}", t.PINK_DARK
+    if n < m:
+        return f"On {n} of {m}", t.WARN[0]
+    return f"On all {m}", t.INK_3
 
 
 def refresh():
     if _root is None:
         return
     P = panel.P
+    code = _w["mode"] == "code"
+    k.st(_w["head"], "Send code" if code else "Start a game")
+    k.show_hide(_w["seg_tr"], not code)
+    k.show_hide(_w["start"], not code)
+    k.show_hide(_w["code"], code)
     n = len(P.macs())
     k.st(_w["to"], f"To: {P.target['name']}" if P.target["kind"] == "one"
-         else f"To: {P.target['name']} - {n} device{'' if n == 1 else 's'}")
-    for tab, b in _w["tabs"].items():
-        k.sty(b, "border", t.PINK if tab == _w["tab"] else t.BORDER)
+         else f"To: {P.target['name']}{k.DOT}{n} device{'' if n == 1 else 's'}")
+    _w["seg"](_w["tab"])
     games = _games()
     per = COLS * 2
     pages = max(1, (len(games) + per - 1) // per)
     _w["page"] = min(_w["page"], pages - 1)
+    for b in _w["pager"]:
+        k.show_hide(b, pages > 1)
     games = games[_w["page"] * per:(_w["page"] + 1) * per]
     for i, d in enumerate(_tiles):
         g = games[i] if i < len(games) else None
@@ -151,15 +157,16 @@ def refresh():
             continue
         k.sty(d["sw"], "bg", g["color"])
         k.st(d["name"], g["name"])
-        k.st(d["sub"], _sub(g))
+        word, col = _sub(g)
         sel = g["slug"] == _w["sel"]
+        k.st(d["sub"], word)
+        k.sty(d["sub"], "text", t.PINK_DARK if sel else col)
         k.sty(d["box"], "border", t.PINK if sel else t.BORDER)
+        k.sty(d["box"], "bg", t.PINK_50 if sel else t.SURFACE)
     sel = P.lib.get(_w["sel"]) if _w["sel"] else None
-    if sel is None:
-        k.st(_w["msg"], "Tap a game." if games else "No games here.")
-    elif sel["flash"] and not P.sent.get(sel["slug"]):
-        k.st(_w["msg"], f"{sel['name']} needs its code first.")
-    else:
-        k.st(_w["msg"], sel["name"])
-    k.set_enabled(_w["code"], sel is not None and sel["flash"])
-    k.set_enabled(_w["start"], sel is not None and not (sel["flash"] and not P.sent.get(sel["slug"])))
+    # the design's only message: a game no wand is on yet
+    new = sel is not None and not code and _sub(sel)[0].startswith("New")
+    k.st(_w["msg"], f"{sel['name']} needs its code first." if new else "")
+    # Start is never held back: the panel's record of what each wand has is lost on restart
+    k.set_enabled(_w["code"], sel is not None)
+    k.set_enabled(_w["start"], sel is not None)

@@ -519,7 +519,6 @@ class App {
         moreBtn?.addEventListener('click', () => {
             const open = panel.classList.toggle('hidden') === false;
             moreBtn.setAttribute('aria-expanded', String(open));
-            if (!open) document.getElementById('icon-samples-list')?.classList.add('hidden');
         });
         document.addEventListener('click', (e) => {
             if (!e.target.closest('#icon-more-panel, #btn-icon-more')) this.closeIconMenu();
@@ -534,27 +533,38 @@ class App {
             this.closeIconMenu();
         }));
         document.getElementById('btn-icon-samples')?.addEventListener('click', () => {
-            const list = document.getElementById('icon-samples-list');
-            if (!list) return;
-            if (!list.dataset.filled) {
-                list.innerHTML = (api()?.source.listSamples() || [])
-                    .map((n) => `<button type="button" class="more-item" data-sample="${n}">${n}</button>`)
-                    .join('');
-                list.dataset.filled = '1';
-                list.querySelectorAll('[data-sample]').forEach((b) => {
-                    b.addEventListener('click', () => run(async () => {
-                        await api()?.source.loadSample(b.dataset.sample);
-                        this.closeIconMenu();
+            const grid = document.getElementById('icon-samples-grid');
+            if (!grid) return;
+            if (!grid.dataset.filled) {
+                for (const name of api()?.source.listSamples() || []) {
+                    const btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.className = 'samples-item';
+                    btn.title = name;
+                    const canvas = document.createElement('canvas');
+                    canvas.width = 64;
+                    canvas.height = 64;
+                    const label = document.createElement('span');
+                    label.textContent = name;
+                    btn.append(canvas, label);
+                    btn.addEventListener('click', () => run(async () => {
+                        await api()?.source.loadSample(name);
+                        hideOverlay('icon-samples-overlay');
                     }));
-                });
+                    // Only names with a saved icon: a stale Maker build can still
+                    // list photo-only samples, which would draw blank.
+                    if (drawIcon(canvas, name, 0.3).ok) grid.appendChild(btn);
+                }
+                grid.dataset.filled = '1';
             }
-            list.classList.toggle('hidden');
+            this.closeIconMenu();
+            showOverlay('icon-samples-overlay');
         });
+        document.getElementById('icon-samples-close-x')?.addEventListener('click', () => hideOverlay('icon-samples-overlay'));
     }
 
     closeIconMenu() {
         document.getElementById('icon-more-panel')?.classList.add('hidden');
-        document.getElementById('icon-samples-list')?.classList.add('hidden');
         document.getElementById('btn-icon-more')?.setAttribute('aria-expanded', 'false');
     }
 
@@ -1023,7 +1033,8 @@ class App {
             this.link.deviceInfo = obj;
             setCardWriter(obj.device === 'crowpanel'
                 ? {
-                    write: (tag) => this.device.sendCmd({ cmd: 'card.write', text: tag, label: tag })
+                    // ctx: { game, index, total } -- the panel shows "tag n of m"; older panels ignore it
+                    write: (tag, ctx = {}) => this.device.sendCmd({ cmd: 'card.write', text: tag, label: tag, ...ctx })
                         .catch((e) => { dbg('device', `card.write: ${e.message}`); throw e; }),
                     cancel: () => this.device.sendCmd({ cmd: 'card.cancel' })
                         .catch((e) => dbg('device', `card.cancel: ${e.message}`)),

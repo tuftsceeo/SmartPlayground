@@ -7,6 +7,7 @@ blocking radio and NFC work never stalls touch. Import after radio bring-up and 
 import gc
 import time
 
+import beep
 import card_writer
 import library
 import nfc
@@ -61,9 +62,11 @@ class Panel:
         self._next_card = 0
         self._last_hb = time.ticks_ms()
         self._last_refresh = 0
+        self._nfc_errs = 0
         self.code.resolve()
         self.radio_up()
         self.reader.init()
+        beep.init()
 
     # -- loop ----------------------------------------------------------
 
@@ -181,6 +184,7 @@ class Panel:
                 self.sent.setdefault(self.dist["slug"], set()).add(d["mac"])
             else:
                 self.dist["state"][d["mac"]] = "fail"
+                self.dist.setdefault("why", {})[d["mac"]] = d.get("why")
             self.happening = f"Send code - {d['done']} of {d['total']}"
         elif ty == "dist_done":
             self.happening = f"Send code done - {d['ok']} of {d['total']}"
@@ -218,7 +222,7 @@ class Panel:
             return f"Heard {r.age(r.d[m[0]])}" if m[0] in r.d else ""
         es = r.items() if m is None else [r.d[x] for x in m if x in r.d]
         n = sum(1 for e in es if e["heard"])
-        return f"{n} of {len(es)} answered - {ago(self.last_call[0])}"
+        return f"{n} answered{k.DOT}{ago(self.last_call[0])}"
 
     def macs(self):
         m = self.target["macs"]
@@ -244,7 +248,7 @@ class Panel:
         r = self.roster
         w = len(r.items("wands"))
         s = len(r.items("stations"))
-        rows = [{"title": "Everyone", "sub": f"{w} wands - {s} stations", "glyph": "@everyone_20",
+        rows = [{"title": "Everyone", "sub": f"{w} wands{k.DOT}{s} stations", "glyph": "@everyone_20",
                  "kind": "all", "name": "Everyone", "macs": None, "warn": False}]
         for name, macs in self.store.groups.items():
             rows.append({"title": name, "sub": f"{len(macs)} wands", "glyph": name[:1].upper(),
@@ -254,8 +258,11 @@ class Panel:
             low = r.low(e)
             miss = self.last_call is not None and not e["heard"] and not scan
             if e["mac"] in self.store.names or low or miss:
-                sub = "Battery low" if low else ("Not heard" if miss else ("Wand" if r.is_wand(e) else "Station"))
-                rows.append({"title": r.name(e["mac"]), "sub": sub, "glyph": roster.tag_of(e["mac"]),
+                wand = r.is_wand(e)
+                kind = "Wand" if wand else "Station"
+                sub = f"{kind}{k.DOT}battery low" if low else (f"{kind}{k.DOT}not heard" if miss else kind)
+                rows.append({"title": r.name(e["mac"]), "sub": sub,
+                             "glyph": roster.tag_of(e["mac"]) if wand else "@station_face_20",
                              "kind": "one", "name": r.name(e["mac"]), "macs": [e["mac"]], "warn": low or miss})
         return rows[:4]
 
@@ -276,6 +283,7 @@ class Panel:
             return
         self.roster.begin_roll_call()
         fl.scan(self.mgr)
+        self.add_log({"t": "mine", "text": "Roll call", "color": 0x22C3A6, "icon": "roll"})
         self.note_feed("Roll call started")
         self.dirty = True
 
@@ -284,6 +292,28 @@ class Panel:
             return
         self.get_fleet().find(self.mgr, mac)
         k.toast(f"Finding {self.roster.name(mac)}")
+        if self.target["kind"] == "one" and self.target["macs"][0] == mac:
+            self.add_log({"t": "mine", "text": "Find it", "color": 0x22C3A6, "icon": "find"})
+            self.add_log({"t": "reply", "text": "Blinking and buzzing"})
+            e = self.roster.d.get(mac)
+            if e is not None and e["battery"] is not None:
+                low = self.roster.low(e)
+                self.add_log({"t": "reply", "text": f"Battery {e['battery']}%" + (f"{k.DOT}charge soon" if low else ""),
+                              "warn": low})
+
+    def find_all(self):
+        """Find every device in the open chat (the home header's Find)."""
+        if not self.need_radio():
+            return
+        macs = self.macs()
+        if not macs:
+            k.toast("No devices yet - run a roll call")
+            return
+        fl = self.get_fleet()
+        for mac in macs:
+            fl.find(self.mgr, mac)
+        self.add_log({"t": "mine", "text": "Find it", "color": 0x22C3A6, "icon": "find"})
+        k.toast(f"Finding {len(macs)} device{'' if len(macs) == 1 else 's'}")
 
     def send_targets(self, msg, bmsg):
         """Returns (acked, total); total is None for a broadcast to everyone."""
@@ -304,14 +334,20 @@ class Panel:
 
     def retry_send(self, mac, msg):
         if self.unicast(mac, msg):
-            self.add_log({"t": "note", "text": f"{self.roster.name(mac)} answered", "b": ""})
+            self.add_log({"t": "reply", "text": f"{self.roster.name(mac)} answered"})
         else:
             k.toast(f"{self.roster.name(mac)} still not answering")
 
-    def _sub(self, ok, total):
-        if ok is None:
-            return f"Sent to everyone - {ago(time.ticks_ms())}"
-        return f"on {ok} of {total} - just now"
+    def mine_sub(self, e):
+        """Second line of a sent bubble, aged at each refresh."""
+        if e.get("sub"):
+            return e["sub"]
+        if e.get("icon") in ("roll", "find"):
+            a = ago(e["ts"])
+            return a[:1].upper() + a[1:]
+        if e.get("total") is None:
+            return f"Sent to everyone{k.DOT}{ago(e['ts'])}"
+        return f"{e.get('verb', 'Sent to')} {e['ok']} of {e['total']}{k.DOT}{ago(e['ts'])}"
 
     def start_game(self, slug):
         if not self.need_radio():
@@ -323,7 +359,7 @@ class Panel:
             self.playing[mac] = slug
         self.add_log({"t": "note", "text": "New game:", "b": name})
         self.add_log({"t": "mine", "text": f"Start {name}", "color": g["color"] if g else 0xBF75C9,
-                      "sub": self._sub(ok, total)})
+                      "ok": ok, "total": total, "verb": "Playing on"})
         self.note_feed(f"Start {name}")
 
     def stop(self):
@@ -332,7 +368,7 @@ class Panel:
         ok, total = self.send_targets({"type": "stop"}, ["stop"])
         for mac in self.macs():
             self.playing.pop(mac, None)
-        self.add_log({"t": "mine", "text": "Stop", "color": 0xC0392B, "sub": self._sub(ok, total)})
+        self.add_log({"t": "mine", "text": "Stop", "color": 0xC0392B, "ok": ok, "total": total, "verb": "Stopped on"})
         self.note_feed("Stop")
 
     def stop_all(self):
@@ -359,7 +395,7 @@ class Panel:
             return
         self.code.set_game(slug)
         self.dist = {"slug": slug, "name": g["name"], "macs": macs, "done": False,
-                     "state": {m: "wait" for m in macs}}
+                     "state": {m: "wait" for m in macs}, "ts": time.ticks_ms()}
         fl.distribute(self.mgr, slug, macs)
         self.happening = f"Send code - 0 of {len(macs)}"
         self.add_log({"t": "mine", "text": f"Send code: {g['name']}", "color": 0x6C4CD1,
@@ -377,6 +413,29 @@ class Panel:
             self.dist["done"] = False
             self.fleet.retry(mac)
             self.dirty = True
+
+    def retry_failed(self):
+        if self.dist:
+            for mac, s in list(self.dist["state"].items()):
+                if s == "fail":
+                    self.retry_code(mac)
+
+    def send_rest(self):
+        """After Stop: send again to the devices that don't have the code yet."""
+        d = self.dist
+        if not d or not self.need_radio():
+            return
+        rest = [m for m, s in d["state"].items() if s != "has"]
+        fl = self.get_fleet()
+        if not rest or fl.busy:
+            return
+        for m in rest:
+            d["state"][m] = "wait"
+        d["stopped"] = False
+        d["done"] = False
+        self.code.set_game(d["slug"])
+        fl.distribute(self.mgr, d["slug"], rest)
+        self.dirty = True
 
     def leave_send(self):
         if self.fleet is not None:
@@ -444,9 +503,9 @@ class Panel:
 
     def card_job(self, mode, text, label, cb):
         """Wait for a card, then write `text` (or read it). cb(result, uid, text) result:
-        written | already | failed | read | empty."""
+        written | already | failed | read | empty. A card still on the reader from the last
+        job is lifted first (need_lift), so the next tag is never written by accident."""
         self.job = {"mode": mode, "text": text, "label": label, "cb": cb}
-        self.need_lift = False
 
     def card_lift(self):
         self.need_lift = True
@@ -461,12 +520,20 @@ class Panel:
         rd = self.reader
         try:
             tag = rd.detect_tag(timeout=100)
+            self._nfc_errs = 0
         except Exception as e:
             print(f"# nfc detect: {e}")
+            self._nfc_errs += 1
+            if self._nfc_errs >= 15:
+                # as the Dial does: after a run of errors, start the reader again
+                self._nfc_errs = 0
+                if rd.init():
+                    rd.antenna_on()
             return
         if self.need_lift:
             if tag is None:
                 self.need_lift = False
+                self.dirty = True
             return
         if tag is None:
             return
@@ -493,6 +560,10 @@ class Panel:
             else:
                 res = "failed"
         self.need_lift = True
+        if res in ("written", "already", "read"):
+            beep.ok()
+        elif res in ("failed", "empty"):
+            beep.fail()
         job["cb"](res, uid, text)
 
     # -- host (ChatBroadcast) ------------------------------------------------------

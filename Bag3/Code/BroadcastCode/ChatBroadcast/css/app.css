@@ -1106,6 +1106,22 @@ body:not(.ui-advanced) #btn-station-catalog { display: none; }
 .icons-toolbar #btn-icon-import { margin-left: auto; }
 .more-item-label { display: flex; align-items: center; gap: 8px; }
 .more-item-label [data-icon] { display: flex; color: var(--muted); }
+.overlay-card-samples { max-width: 640px; max-height: 80vh; display: flex; flex-direction: column; }
+.samples-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+    gap: 8px;
+    overflow-y: auto;
+    min-height: 0;
+}
+.samples-item {
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    padding: 6px; border: 1px solid var(--border-soft); border-radius: 8px;
+    background: #fff; cursor: pointer; font: 12px 'Nunito';
+}
+.samples-item:hover { border-color: var(--muted); }
+.samples-item canvas { width: 64px; height: 64px; border-radius: 4px; }
+.samples-item span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .more-submenu {
     border-top: 1px solid var(--border-soft);
     margin-top: 6px;

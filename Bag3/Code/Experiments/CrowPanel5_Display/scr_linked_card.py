@@ -1,4 +1,4 @@
-"""Screen 9 - Linked: the computer asks for a card. Uses the shared NFC target and edge bars."""
+"""Screen 9 - Linked: the computer asks for a tag. Uses the shared NFC target and edge bars."""
 
 import lvgl as lv
 
@@ -6,17 +6,10 @@ import ds_tokens as t
 import nfc_target
 import panel
 import ui_kit as k
-from ui_kit import F12, F14, F16
+from ui_kit import F12
 
 _w = {}
-# card state -> (status text, text colour, slot colour, bar percent, bar colour)
-_SLOT = {"waiting": ("Ready", t.INK_3, k.GREY, 0, t.PURPLE),
-         "writing": ("Writing...", t.PURPLE, t.PURPLE_50, 60, t.PURPLE),
-         "done": ("Done", t.TEAL_DARK, t.TEAL_50, 100, t.TEAL),
-         "error": ("Try again", t.DANGER[0], t.DANGER[1], 0, t.PURPLE)}
-_HINT = {"waiting": "Hold a blank tag on the target. Wait for the beep.",
-         "writing": "Keep the tag still until the beep.",
-         "done": "Waiting for the computer."}
+_HINT = {"waiting": "Hold until the beep", "writing": "Hold until the beep", "error": "Hold until the beep"}
 
 
 def build():
@@ -24,29 +17,22 @@ def build():
     hd = k.box(scr, 0, 0, k.W, 56, t.TEAL_50)
     k.box(scr, 0, 55, k.W, 1, t.BORDER)
     k.icon(hd, "plug_22", t.TEAL_DARK, 16, 17)
-    k.slot(hd, 48, 19, 300, t.TEAL_DARK, F16, "Connected")
-    k.pill(hd, "Radio paused", t.PURPLE, t.PURPLE_50, F14, 12, 6, t.R_PILL).set_pos(510, 13)
+    k.slot(hd, 48, 19, 300, t.TEAL_DARK, k.F_HEAD, "Connected")
+    pill = k.box(hd, k.W - 16 - 44, 8, 44, 40, t.PURPLE_50, t.R_PILL)
+    k.icon(pill, "radio_off_20", t.PURPLE, align=lv.ALIGN.CENTER)
 
-    k.text(scr, "THE COMPUTER ASKS FOR A TAG", t.INK_3, F12, 40, 124)
-    _w["title"] = k.slot(scr, 40, 148, 440, t.INK, F16)
-    _w["hint"] = k.slot(scr, 40, 180, 440, t.INK_3, F14)
-    chip = k.box(scr, 40, 210, 440, 32, k.GREY, 8, t.BORDER, 1)
-    _w["text"] = k.slot(chip, 10, 8, 418, t.INK_2, F12)
-    _w["slot"] = k.box(scr, 40, 258, 440, 60, k.GREY, 12)
-    _w["status"] = k.slot(_w["slot"], 10, 8, 420, t.INK_3, F14)
-    _w["sbar"] = k.bar(_w["slot"], 10, 36, 420, 12, t.PURPLE)
-    _w["sbar"].set_style_bg_color(k.c(t.SURFACE), 0)
-
-    ft = k.box(scr, 0, 430, k.W, 40, t.SURFACE)
-    k.box(scr, 0, 430, k.W, 1, t.BORDER)
-    _w["last"] = k.slot(ft, 16, 13, 480, t.INK_3, F12)
+    _w["kicker"] = k.slot(scr, 40, 130, 440, t.PURPLE, F12)
+    title = k.text(scr, "", t.INK, k.F_TITLE, 40, 156)
+    title.set_width(440)
+    title.set_long_mode(lv.label.LONG_MODE.WRAP)
+    _w["title"] = title
+    hint = k.text(scr, "", t.INK_3, k.F_BODY, 40, 220)
+    hint.set_width(440)
+    hint.set_long_mode(lv.label.LONG_MODE.WRAP)
+    _w["hint"] = hint
 
     nfc_target.attach(scr)
-    _w["left"] = k.bar(scr, 0, 56, 10, 414, t.PURPLE)
-    _w["bottom"] = k.bar(scr, 0, 470, k.W, 10, t.PURPLE)
-    for b in (_w["left"], _w["bottom"]):
-        b.set_style_radius(0, 0)
-        b.set_style_radius(0, lv.PART.INDICATOR)
+    _w["edges"] = k.edges(scr, 56)
     return scr
 
 
@@ -72,20 +58,16 @@ def refresh():
 
 def _show(P, c):
     st = c["state"]
-    word, fg, bg, v, bc = _SLOT[st]
-    if st == "error" and c["msg"] and not P.nfc_on:
-        word = c["msg"]
-    k.st(_w["title"], f"Tag: {c['label']}")
-    k.st(_w["hint"], _HINT.get(st, c["msg"]))
-    k.st(_w["text"], c["text"])
-    k.st(_w["status"], word)
-    k.sty(_w["status"], "text", fg)
-    k.sty(_w["slot"], "bg", bg)
-    for b in (_w["sbar"], _w["left"], _w["bottom"]):
-        b.set_value(v, 0)
-        b.set_style_bg_color(k.c(bc), lv.PART.INDICATOR)
-    for b in (_w["left"], _w["bottom"]):
-        k.sty(b, "bg", t.PURPLE_50 if v else t.BG)
-    last = P.host.last_card
-    k.st(_w["last"], f"Last tag: {last[0]} - {'written' if last[1] else 'not written'}" if last else "")
-    nfc_target.state(st, "" if st == "error" else c["msg"])
+    n, m, game = c.get("index"), c.get("total"), c.get("game")
+    if c.get("set_done") and m:
+        k.st(_w["kicker"], f"{game}{k.DOT}{m} of {m}" if game else "")
+        k.st(_w["title"], f"All {m} written")
+        k.st(_w["hint"], "")
+        _w["edges"]("ready")
+        nfc_target.state("idle")
+        return
+    k.st(_w["kicker"], f"{game}{k.DOT}tag {n} of {m}" if game and n and m else "")
+    k.st(_w["title"], c["label"])
+    k.st(_w["hint"], _HINT.get(st, ""))
+    _w["edges"]("ready" if st == "waiting" else st)
+    nfc_target.state(st)

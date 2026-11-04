@@ -8,6 +8,9 @@ from code_link import GAMES_DIR, ACTIVE_PATH, HOST_ID
 INDEX_PATH = GAMES_DIR + "/index.json"
 STAGING = ("_icon.py", "_splat.py")
 
+UTILITY = "utility"
+UTILITY_TAGS = ("stop", "battery")
+
 # Built-in classroom games, from the wand's game_tags (bench-only games left out).
 BUILTIN = (
     ("colorquest", "Color Quest"), ("freezedance", "Freeze Dance"), ("jumpin", "Jump In"),
@@ -25,6 +28,17 @@ def _color(slug):
 
 def _pretty(slug):
     return " ".join(p[:1].upper() + p[1:] for p in slug.replace("_", "-").split("-") if p)
+
+
+def friendly(tag):
+    """Display name for a game's own tag: "treasure:clue1" -> "Clue 1". The tag text is unchanged."""
+    s = tag.split(":", 1)[-1]
+    i = len(s)
+    while i and s[i - 1].isdigit():
+        i -= 1
+    if not i or i == len(s):
+        return _pretty(s) or tag
+    return f"{_pretty(s[:i])} {s[i:]}"
 
 
 class Library:
@@ -133,7 +147,10 @@ class Library:
         self.scan()
 
     def cards(self, slug):
-        """(label, text) for each card of a game: Code, Play, then its own tags."""
+        """(label, text) for each card of a game: Code, Play, then its own tags.
+        UTILITY gives the stop and battery tags, as on the Broadcast Dial."""
+        if slug == UTILITY:
+            return [(_pretty(tg), tg) for tg in UTILITY_TAGS]
         g = self.get(slug)
         if g is None:
             return []
@@ -143,5 +160,5 @@ class Library:
         out.append(("Play", slug))
         for tg in g["tags"]:
             if tg not in (f"getcode:{slug}", slug):
-                out.append((tg, tg))
+                out.append((friendly(tg), tg))
         return out

@@ -252,7 +252,6 @@
                                                     New from sample library
                                                 </span>
                                             </button>
-                                            <div class="more-submenu hidden" id="icon-samples-list"></div>
                                         </div>
                                     </div>
                                 </div>
@@ -319,6 +318,18 @@
                 <div class="tag-bars" id="tag-checklist-bars"></div>
                 <div id="tag-checklist-list"></div>
                 <button class="btn-primary" id="tag-checklist-continue" type="button">Done</button>
+            </div>
+        </div>
+
+        <!-- Sample library: previews of the saved device icons -->
+        <div id="icon-samples-overlay" class="overlay-view hidden">
+            <div class="overlay-card overlay-card-samples left">
+                <button type="button" class="overlay-close-x" id="icon-samples-close-x" title="Close">
+                    <span data-icon="close" data-icon-size="18"></span>
+                </button>
+                <h2>Sample library</h2>
+                <p>Pick an icon to start from.</p>
+                <div class="samples-grid" id="icon-samples-grid"></div>
             </div>
         </div>
 

@@ -10,7 +10,7 @@
 import { iconSvg } from "./icons.js";
 
 let _live = null; // { tags, render } while the overlay is open
-let _cardWriter = null; // { write(tag) => Promise, cancel() }; set while a device that writes on request is linked
+let _cardWriter = null; // { write(tag, { game, index, total }) => Promise, cancel() }; set while a device that writes on request is linked
 let _writing = null; // tag the device is waiting to write; its row shows Cancel
 
 /** Device that writes a card on request (CrowPanel `card.write`); null hides the Write buttons. */
@@ -77,7 +77,7 @@ export function showTagChecklist({ title, subtitle, tags, written }) {
                         }
                         _writing = tag;
                         render(last);
-                        _cardWriter.write(tag).catch(cardWriteEnded);
+                        _cardWriter.write(tag, { game: title, index: i + 1, total: tags.length }).catch(cardWriteEnded);
                     });
                     row.appendChild(btn);
                 }

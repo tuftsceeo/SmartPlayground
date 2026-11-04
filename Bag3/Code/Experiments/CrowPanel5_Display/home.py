@@ -1,7 +1,6 @@
 """Home screen (1 - Playground chat) for the 800x480 CrowPanel.
 
-Layout follows the Design 1 home board; the radar and header Find buttons are left out
-(find is on screens 2 and 6). Content comes from panel.P.
+Layout follows the Main design board. Content comes from panel.P.
 """
 
 import lvgl as lv
@@ -26,10 +25,11 @@ def _chat_row(side, y):
     row.set_style_bg_color(k.c(t.BG), lv.STATE.PRESSED)
     av = k.box(row, 10, 10, 40, 40, t.PURPLE_50, t.R_PILL)
     ic = k.icon(av, "everyone_20", t.SURFACE, align=lv.ALIGN.CENTER)
+    stn = k.icon(av, "station_face_20", t.TEAL_DARK, align=lv.ALIGN.CENTER)
     gl = k.text(av, "", t.PURPLE, F14, align=lv.ALIGN.CENTER)
-    title = k.slot(row, 60, 11, SIDE_W - 92, t.INK, F16)
+    title = k.slot(row, 60, 11, SIDE_W - 92, t.INK, k.F_BODY)
     sub = k.slot(row, 60, 32, SIDE_W - 92, t.INK_3, F12)
-    r = {"row": row, "av": av, "ic": ic, "gl": gl, "title": title, "sub": sub, "data": None}
+    r = {"row": row, "av": av, "ic": ic, "stn": stn, "gl": gl, "title": title, "sub": sub, "data": None}
     k.on(row, lambda: _pick(r))
     _rows.append(r)
 
@@ -47,14 +47,16 @@ def _pick(r):
 def _sidebar(scr):
     side = k.box(scr, 0, 0, SIDE_W, H, t.SURFACE)
     k.box(scr, SIDE_W - 1, 0, 1, H, t.BORDER)
-    k.text(side, "Playground", t.INK, F16, 16, 24)
+    k.text(side, "Playground", t.INK, k.F_HEAD, 16, 22)
+    radar = k.button(side, SIDE_W - 60, 10, 44, "", t.PURPLE, "radar_20", px=12, w=44)
+    k.on(radar, lambda: panel.P.act(panel.P.roll_call))
     for i in range(4):
         _chat_row(side, 66 + 62 * i)
     new = k.box(side, 8, 318, SIDE_W - 16, 44, t.SURFACE, R, t.BORDER)
     r = k.row(new)
     r.center()
     k.icon(r, "plus_16", t.PURPLE)
-    k.text(r, "New group", t.PURPLE, F14)
+    k.text(r, "New group", t.PURPLE, F12)
     k.on(new, lambda: _open_list("group"))
 
     k.box(side, 0, H - 70, SIDE_W - 1, 1, GREY)
@@ -64,8 +66,8 @@ def _sidebar(scr):
     link.set_pos(12, H - 60)
     k.on(link, lambda: k.go("scr_linked"))
     _w["link"] = link
-    _w["radio"] = k.slot(side, 12, H - 24, 110, t.INK_3, F12, "Radio on")
-    _w["batt"] = k.text(side, "", t.INK_3, F12, -12, H - 24, lv.ALIGN.TOP_RIGHT)
+    _w["radio_ic"] = k.radio_icon(side, 12, H - 26)
+    _w["radio"] = k.slot(side, 38, H - 24, 150, t.INK_3, F12, "Radio on")
 
 
 def _header(scr):
@@ -74,7 +76,8 @@ def _header(scr):
     _w["title"] = k.slot(hd, 16, 12, 260, t.INK, F16)
     _w["sub"] = k.slot(hd, 16, 36, 260, t.INK_3, F12)
     x = MAIN_W - 16
-    for label, fg, ic, fn in (("NFC Tags", t.PURPLE, "cards_18", lambda: k.go("scr_cards")),
+    for label, fg, ic, fn in (("NFC Tags", t.PURPLE, "cards_18", lambda: k.go("scr_tags_home")),
+                              ("Find", t.INK_3, "find_18", lambda: panel.P.act(panel.P.find_all)),
                               ("Roll call", t.TEAL_DARK, "roll_call_18", lambda: panel.P.act(panel.P.roll_call))):
         b = k.button(hd, 0, 10, 44, label, fg, ic)
         b.update_layout()
@@ -110,13 +113,26 @@ def _slot(area):
     rep.set_style_pad_ver(10, 0)
     rep.set_style_pad_row(8, 0)
     rep.set_flex_flow(lv.FLEX_FLOW.COLUMN)
-    s["rep_t"] = k.text(rep, "", t.INK, F14)
+    top = k.row(rep, 8)
+    spin = lv.spinner(top)
+    spin.set_size(18, 18)
+    spin.set_anim_params(1000, 200)
+    spin.set_style_arc_width(3, 0)
+    spin.set_style_arc_width(3, lv.PART.INDICATOR)
+    spin.set_style_arc_color(k.c(t.BORDER), 0)
+    spin.set_style_arc_color(k.c(t.TEAL), lv.PART.INDICATOR)
+    s["spin"] = spin
+    s["rep_t"] = k.text(top, "", t.INK, F14)
     chips = k.row(rep, 6)
     s["c_ready"] = k.lbl(k.pill(chips, "", t.SERVE[0], t.SERVE[1]))
     s["c_low"] = k.lbl(k.pill(chips, "", t.WARN[0], t.WARN[1]))
     s["c_stn"] = k.lbl(k.pill(chips, "", t.INK_3, GREY))
-    see = k.button(rep, 0, 0, 44, "See list >", t.PURPLE, font=F12, w=140)
+    see = k.text(rep, f"See list{k.ARROW}", t.PURPLE, F12)
+    see.set_style_pad_ver(8, 0)
+    see.set_style_pad_right(24, 0)
+    see.set_ext_click_area(8)
     k.on(see, lambda: _open_list("chat"))
+    s["see"] = see
     s["chips"] = chips
     s["rep"] = rep
 
@@ -135,6 +151,8 @@ def _slot(area):
     s["mine_ic"] = k.box(bub, 0, 0, 28, 28, 0xBF75C9, 8)
     s["mine_note"] = k.icon(s["mine_ic"], "music_note_16", t.SURFACE, align=lv.ALIGN.CENTER)
     s["mine_stop"] = k.icon(s["mine_ic"], "stop_20", t.SURFACE, align=lv.ALIGN.CENTER)
+    s["mine_find"] = k.icon(s["mine_ic"], "find_18", t.SURFACE, align=lv.ALIGN.CENTER)
+    s["mine_roll"] = k.icon(s["mine_ic"], "roll_call_18", t.SURFACE, align=lv.ALIGN.CENTER)
     s["mine_bub"] = bub
     s["mine_t"] = k.text(bub, "", t.SURFACE, F16)
     s["mine_s"] = k.text(mine, "", t.TEAL_DARK, F12)
@@ -205,17 +223,27 @@ def build():
 
 
 def _fill(s, e):
+    # mine: what the teacher sent (right); rep and reply: what devices said (left)
+    ty = None if e is None else ("rep" if e["t"] == "reply" else e["t"])
     for name in ("note", "rep", "mine", "err"):
-        k.show_hide(s[name], e is not None and e["t"] == name)
+        k.show_hide(s[name], ty == name)
     s["entry"] = e
     if e is None:
         return
-    ty = e["t"]
     if ty == "note":
         k.st(s["note_t"], e["text"])
         k.st(s["note_b"], e.get("b", ""))
+    elif e["t"] == "reply":
+        k.st(s["rep_t"], e["text"])
+        k.sty(s["rep_t"], "text", t.WARN[0] if e.get("warn") else (t.INK_3 if e.get("busy") else t.INK))
+        k.show_hide(s["spin"], bool(e.get("busy")))
+        k.show_hide(s["chips"], False)
+        k.show_hide(s["see"], False)
     elif ty == "rep":
         n = e["n"]
+        k.sty(s["rep_t"], "text", t.INK)
+        k.show_hide(s["spin"], False)
+        k.show_hide(s["see"], True)
         k.st(s["rep_t"], "No one answered - is the radio on and are wands awake?" if n == 0
              else ("1 device answered" if n == 1 else f"{n} devices answered"))
         k.show_hide(s["chips"], n > 0)
@@ -226,15 +254,18 @@ def _fill(s, e):
         k.st(s["mine_t"], e["text"])
         k.sty(s["mine_ic"], "bg", e.get("color", 0xBF75C9))
         stop = e["text"] == "Stop"
-        k.show_hide(s["mine_note"], not stop)
+        ic = e.get("icon")
+        k.show_hide(s["mine_note"], not stop and ic is None)
         k.show_hide(s["mine_stop"], stop)
+        k.show_hide(s["mine_find"], ic == "find")
+        k.show_hide(s["mine_roll"], ic == "roll")
         if stop:
             s["mine_bub"].set_style_bg_grad_dir(lv.GRAD_DIR.NONE, 0)
             k.sty(s["mine_bub"], "bg", GREY)
         else:
             k.grad(s["mine_bub"])
         k.sty(s["mine_t"], "text", t.INK if stop else t.SURFACE)
-        k.st(s["mine_s"], e["sub"])
+        k.st(s["mine_s"], panel.P.mine_sub(e))
     else:
         k.st(s["err_t"], e["text"])
 
@@ -253,14 +284,17 @@ def refresh():
         k.st(r["title"], d["title"])
         k.st(r["sub"], d["sub"])
         k.sty(r["sub"], "text", t.WARN[0] if d["warn"] else t.INK_3)
-        isicon = d["glyph"].startswith("@")
-        k.show_hide(r["ic"], isicon)
-        k.st(r["gl"], "" if isicon else d["glyph"])
+        station = d["glyph"] == "@station_face_20"
+        k.show_hide(r["ic"], d["kind"] == "all")
+        k.show_hide(r["stn"], station)
+        k.st(r["gl"], "" if d["glyph"].startswith("@") else d["glyph"])
         if d["kind"] == "all":
             k.grad(r["av"])
         else:
             r["av"].set_style_bg_grad_dir(lv.GRAD_DIR.NONE, 0)
-            k.sty(r["av"], "bg", t.PURPLE_50 if d["kind"] == "group" else GREY)
+            group = d["kind"] == "group"
+            k.sty(r["av"], "bg", t.PURPLE_50 if group else (t.TEAL_50 if station else GREY))
+            k.sty(r["gl"], "text", t.PURPLE if group else t.INK_3)
     k.st(_w["title"], P.target["name"])
     if P.fleet is not None and P.fleet.scanning:
         k.st(_w["sub"], "Roll call - listening...")
@@ -268,10 +302,15 @@ def refresh():
         k.st(_w["sub"], P.answered())
     else:
         k.st(_w["sub"], P.count_text())
-    log = P.log()[-POOL:]
+    log = P.log()
+    if P.fleet is not None and P.fleet.scanning:
+        # roll call still listening: a busy bubble until the answers are in
+        log = log + [{"t": "reply", "text": "", "busy": True}]
+    log = log[-POOL:]
     off = POOL - len(log)
     for i, s in enumerate(_w["slots"]):
         _fill(s, log[i - off] if i >= off else None)
     k.show_hide(_w["empty"], not log)
     k.show_hide(_w["link"], P.host is not None and P.host.linked)
     k.st(_w["radio"], "Radio on" if P.radio else "Radio paused")
+    _w["radio_ic"](P.radio)

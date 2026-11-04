@@ -10,25 +10,37 @@ Y = 150
 W = 240
 H = 180
 
-_COLORS = {"waiting": t.PINK, "writing": t.PURPLE, "done": t.TEAL, "error": t.DANGER[0], "idle": t.MUTED_2}
-_CAPTION = {"waiting": "Tap a tag here", "writing": "Writing...", "done": "Done", "error": "", "idle": ""}
+# state -> (border, background, foreground, icon, caption)
+_LOOK = {
+    "waiting": (t.PINK, t.PINK_50, t.PINK_DARK, "waves", "Tap tag here"),
+    "writing": (t.PURPLE, t.PURPLE_50, t.PURPLE, "waves", "Writing..."),
+    "done": (t.TEAL, t.TEAL_50, t.TEAL_DARK, "tick", "Done"),
+    "error": (t.DANGER[0], t.DANGER[1], t.DANGER[0], "cross", "Try again"),
+    "idle": (t.BORDER, t.BG, t.IDLE_FG, "waves", "Not in use"),
+    "read_wait": (t.PURPLE, t.PURPLE_50, t.PURPLE, "waves", "Tap tag to read"),
+    "read": (t.TEAL, t.TEAL_50, t.TEAL_DARK, "tick", "Read"),
+}
 
 _box = None
-_waves = None
-_tick = None
+_icons = {}
 _cap = None
 
 
 def attach(parent):
     """Move the target onto `parent` (built on first use)."""
-    global _box, _waves, _tick, _cap
+    global _box, _cap
     if _box is None:
-        _box = k.box(parent, X, Y, W, H, t.SURFACE, 20, t.PURPLE, 4)
-        _waves = k.icon(_box, "nfc_waves_64", t.PURPLE, align=lv.ALIGN.CENTER, y=-20)
-        _tick = k.icon(_box, "check_56", t.TEAL, align=lv.ALIGN.CENTER, y=-20)
-        k.show_hide(_tick, False)
-        _cap = k.slot(_box, 12, H - 44, W - 32, t.INK_3, k.F14, "", lv.ALIGN.TOP_MID)
-        _cap.set_style_text_align(lv.TEXT_ALIGN.CENTER, 0)
+        _box = k.box(parent, X, Y, W, H, t.PINK_50, 16, t.PINK, 2)
+        grp = k.plain(lv.obj(_box))
+        grp.set_size(W - 16, lv.SIZE_CONTENT)
+        grp.set_style_bg_opa(lv.OPA.TRANSP, 0)
+        grp.set_flex_flow(lv.FLEX_FLOW.COLUMN)
+        grp.set_flex_align(lv.FLEX_ALIGN.CENTER, lv.FLEX_ALIGN.CENTER, lv.FLEX_ALIGN.CENTER)
+        grp.set_style_pad_row(8, 0)
+        grp.center()
+        for key, name in (("waves", "nfc_waves_56"), ("tick", "check_56"), ("cross", "cross_56")):
+            _icons[key] = k.icon(grp, name, t.PINK_DARK)
+        _cap = k.text(grp, "", t.PINK_DARK, k.F_BODY)
     else:
         _box.set_parent(parent)
         _box.set_pos(X, Y)
@@ -36,9 +48,12 @@ def attach(parent):
 
 
 def state(name, caption=None):
-    col = _COLORS[name]
-    k.sty(_box, "border", col)
-    _waves.set_style_image_recolor(k.c(col), 0)
-    k.show_hide(_waves, name != "done")
-    k.show_hide(_tick, name == "done")
-    k.st(_cap, caption if caption is not None else _CAPTION[name])
+    border, bg, fg, ic, cap = _LOOK[name]
+    k.sty(_box, "border", border)
+    k.sty(_box, "bg", bg)
+    for key, im in _icons.items():
+        k.show_hide(im, key == ic)
+        if key == ic:
+            im.set_style_image_recolor(k.c(fg), 0)
+    k.sty(_cap, "text", fg)
+    k.st(_cap, caption if caption is not None else cap)
