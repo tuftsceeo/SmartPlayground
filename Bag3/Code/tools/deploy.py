@@ -1,63 +1,44 @@
 """
-deploy.py — interactive, per-file, verified deploy for any of the four
-Broadcast device trees (Dial, Box, Mock Wand, Icon Display).
+deploy.py -- batched deploy for the Broadcast device trees (Dial, Box,
+Mock Wand, Icon Display), to one or many boards in a row.
 
 Host-side tool. Not firmware; never upload this to a device.
 
-USE THIS ONLY FOR: a very stale device, or a board freshly re-flashed with
-blank firmware. For routine updates: `mpremote reset`, then copy the files
-the commits changed (`git diff --name-only <deployed>..HEAD`) in ONE
-`mpremote ... resume` invocation, then `reset` -- see HARDWARE_PROTOCOL.md
-"Routine updates". On 2026-10-20 each mpremote call against the running
-Dial program took 75-85 s (breaking in, not transfer), so this script's
-per-file calls, hashing and read-back ran past 4 minutes for 8 files.
+Follows HARDWARE_PROTOCOL.md "Routine updates": per board, a plain
+`mpremote reset`, then ONE `mpremote ... resume` invocation that makes the
+directories and copies every file (chained with `+`), then a plain `reset`
+to start the new code. The cost of an mpremote call is breaking into the
+running program (75-85 s measured on the Dial), not the transfer, so this
+makes three calls per board instead of two per file.
 
-Carries the same core technique BroadcastDial/BDialFirmware/tools/
-deploy_dial.py already proved on hardware: one `mpremote` invocation per
-file, a full-content read-back to verify the write actually landed (not
-just a size check -- catches truncation AND corruption), and a retry if a
-file fails. Every `mpremote fs`/`exec` call passes `resume`, per
-HARDWARE_PROTOCOL.md -- without it, a Box/Dial/Stamp de-enumerates its USB
-CDC port on the very first such call. deploy_dial.py stays in place
-(BroadcastDial/README.md points at it by name); this script exists for the
-other three trees, and for deploying all four from one place.
+The old per-file, read-back-verified version is tools/deploy_bak.py; use
+it only if a batched copy is suspected of landing corrupt files.
 
-File lists, per device type:
-  - Dial, Box: read from that firmware's own manifest.js (DIAL_FILES /
-    BOX_FILES), not a hand-kept copy -- so this can't drift from what
-    ChatBroadcast's own installer deploys.
-  - Mock Wand (`Wand Module/`): its manifest.js (WAND_FILES), which leaves
-    out the test and bench-only games. Other --wand-tree trees walk as below.
-  - Icon Display (and other --wand-tree trees): no manifest, so this walks
-    the tree for every `.py` file plus `hubtype.txt`, preserving `lib/`,
-    `games/` and (Icon Display) `icons/`, and skipping `tools/` and
-    `README.md` (never deployed).
+Mock Wand: main.py is compiled to wand_main.mpy with mpy-cross ONCE per
+run on the host, then the same .mpy goes to every port listed -- the
+board itself never compiles main.py (see _precompile_wand_main).
 
-Destinations: `/flash/...` for the Dial and Box (the only path M5/UIFlow
-writes accept -- see HARDWARE_PROTOCOL.md), the flash root for Mock Wand
-and Icon Display (see MockWand/README.md's Deploy section).
+File selection:
+  - default: every file in the device's manifest / tree.
+  - --since COMMIT: only files that differ between COMMIT and the working
+    tree (`git diff --name-only COMMIT`, so uncommitted edits count too).
+    COMMIT is whatever the boards were last deployed from.
+
+No read-back verification: check the boot log (tools/serial_monitor.py).
 
 Follow HARDWARE_PROTOCOL.md before running this: ask which port is which,
-ask before opening it, and wait for an explicit go. This script does not
-ask for you -- it only prompts for the choices it cannot make on its own
-(which port, which device type, whether to proceed).
+ask before opening it, and wait for an explicit go.
 
 Usage:
-    python3 tools/deploy.py                    # fully interactive
-    python3 tools/deploy.py /dev/cu.usbmodemX --type wand
-    python3 tools/deploy.py /dev/cu.usbmodemX --type wand --wand-tree Experiments/EspnowModem/MockWandEUM
-    python3 tools/deploy.py /dev/cu.usbmodemX --type icon --code-only
-    python3 tools/deploy.py /dev/cu.usbmodemX --type dial --pause 8
-    python3 tools/deploy.py /dev/cu.usbmodemX --type wand --changed   # only differing files
-
---pause default is 8s for the Dial (the value deploy_dial.py's own history
-found necessary on real hardware -- NOT a confirmed minimum) and 0 for
-everything else; override either way with --pause.
+    python3 tools/deploy.py                                   # interactive
+    python3 tools/deploy.py /dev/cu.usbmodemA /dev/cu.usbmodemB --type wand
+    python3 tools/deploy.py PORT1 PORT2 PORT3 --type wand --since 2adb99b
+    python3 tools/deploy.py PORT --type icon --code-only
+    python3 tools/deploy.py PORT --type wand --dry-run        # print commands only
 """
 
 import argparse
 import glob
-import hashlib
 import os
 import re
 import subprocess
@@ -75,8 +56,18 @@ DEVICE_TYPES = [
     ("Icon Display", "icon"),
 ]
 
+# Source directory per device type, for --since (git diff scope).
+SOURCE_DIRS = {
+    "dial": os.path.join("TeacherTools", "BroadcastDial", "BDialFirmware"),
+    "box": os.path.join("TeacherTools", "BroadcastBox", "BBoxFirmware"),
+    "icon": os.path.join("Stations", "IconDisplay"),
+}
+
 SKIP_DIRS = {"tools", "__pycache__"}
 SKIP_NAMES = {"README.md"}
+
+# A call against a running program takes 75-85 s to break in; leave room.
+CALL_TIMEOUT = 600
 
 
 def _list_ports():
@@ -154,91 +145,6 @@ def _tree_files(root, skip_dirs=()):
     return out
 
 
-def mpremote(port, *args, timeout=60):
-    # `resume` on every call -- see module docstring / HARDWARE_PROTOCOL.md.
-    cmd = ["python3", "-m", "mpremote", "connect", port, "resume"] + list(args)
-    try:
-        return subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
-    except subprocess.TimeoutExpired as e:
-        # A board that reset mid-command can hang the connection rather than
-        # erroring promptly -- surface this the same shape as a failed run so
-        # the caller's retry logic handles both uniformly.
-        return subprocess.CompletedProcess(cmd, 1, stdout="", stderr=str(e))
-
-
-def copy_and_verify(port, local, remote, attempts, pause):
-    local_bytes = open(local, "rb").read()
-    for attempt in range(1, attempts + 1):
-        r = mpremote(port, "fs", "cp", local, ":" + remote)
-        if r.returncode != 0:
-            print("  attempt %d/%d: write failed: %s"
-                  % (attempt, attempts, r.stderr.strip() or r.stdout.strip()))
-            time.sleep(pause)
-            continue
-
-        tmp_fd, tmp_path = tempfile.mkstemp(prefix="deploy_verify_")
-        os.close(tmp_fd)
-        try:
-            rv = mpremote(port, "fs", "cp", ":" + remote, tmp_path)
-            if rv.returncode == 0 and open(tmp_path, "rb").read() == local_bytes:
-                print("  %s: OK (%d bytes, read back and verified)" % (remote, len(local_bytes)))
-                return True
-            print("  attempt %d/%d: verify failed (%s)"
-                  % (attempt, attempts, rv.stderr.strip() or "content mismatch on read-back"))
-        finally:
-            try:
-                os.unlink(tmp_path)
-            except OSError:
-                pass
-        time.sleep(pause)
-    return False
-
-
-def _local_sha256(path):
-    h = hashlib.sha256()
-    with open(path, "rb") as f:
-        for chunk in iter(lambda: f.read(4096), b""):
-            h.update(chunk)
-    return h.hexdigest()
-
-
-def _remote_hashes(port, remotes):
-    """{remote_path: sha256 hex or None if missing}, from one mpremote exec
-    (with resume, via mpremote()). None for the whole result if the call
-    fails or its output cannot be parsed."""
-    code = (
-        "import hashlib, binascii\n"
-        "for p in %r:\n"
-        "    try:\n"
-        "        h = hashlib.sha256()\n"
-        "        f = open(p, 'rb')\n"
-        "        while True:\n"
-        "            b = f.read(512)\n"
-        "            if not b:\n"
-        "                break\n"
-        "            h.update(b)\n"
-        "        f.close()\n"
-        "        print('H|' + p + '|' + binascii.hexlify(h.digest()).decode())\n"
-        "    except OSError:\n"
-        "        print('H|' + p + '|None')\n"
-    ) % (list(remotes),)
-    r = mpremote(port, "exec", code, timeout=120)
-    if r.returncode != 0:
-        return None
-    out = {}
-    for line in r.stdout.splitlines():
-        parts = line.strip().split("|")
-        if len(parts) == 3 and parts[0] == "H":
-            out[parts[1]] = None if parts[2] == "None" else parts[2]
-    if set(out) != set(remotes):
-        return None
-    return out
-
-
-def select_changed(files, remote_hashes, local_hash=_local_sha256):
-    """Files whose on-device hash differs from the local one (or is missing)."""
-    return [(l, r) for l, r in files if remote_hashes.get(r) != local_hash(l)]
-
 
 def _boot_main_first(files, extra_boot=None):
     """Move boot.py and main.py to the front of the write order.
@@ -293,55 +199,122 @@ def _precompile_wand_main(files):
     return boot + [(mpy, "/" + WAND_APP + ".mpy"), (stub, "/main.py")] + rest
 
 
-def _files_for(dev_key, code_only, wand_tree="Wand Module"):
-    if dev_key == "dial":
-        firmware_dir = os.path.join(CODE, "TeacherTools", "BroadcastDial", "BDialFirmware")
+def _files_for(dev_key, code_only, wand_tree="Wand Module", since=None):
+    """(local, remote) pairs to copy. With `since`, filtered to files git
+    reports changed BEFORE the wand precompile, so main.py -> wand_main.mpy
+    + stub only happens when main.py itself changed."""
+    def pick(files, source_dir):
+        return _select_since(files, since, source_dir) if since else files
+
+    if dev_key in ("dial", "box"):
+        firmware_dir = os.path.join(CODE, SOURCE_DIRS[dev_key])
         boot_local = os.path.join(firmware_dir, "boot.py")
         extra_boot = (boot_local, "/flash/boot.py") if os.path.exists(boot_local) else None
-        files = _manifest_files(firmware_dir, "manifest.js", "DIAL_FILES")
-        return _boot_main_first(files, extra_boot), 8.0
-    if dev_key == "box":
-        firmware_dir = os.path.join(CODE, "TeacherTools", "BroadcastBox", "BBoxFirmware")
-        boot_local = os.path.join(firmware_dir, "boot.py")
-        extra_boot = (boot_local, "/flash/boot.py") if os.path.exists(boot_local) else None
-        files = _manifest_files(firmware_dir, "manifest.js", "BOX_FILES")
-        return _boot_main_first(files, extra_boot), 0.0
+        export = "DIAL_FILES" if dev_key == "dial" else "BOX_FILES"
+        files = _boot_main_first(_manifest_files(firmware_dir, "manifest.js", export), extra_boot)
+        return pick(files, firmware_dir)
     if dev_key == "wand":
-        files = _tree_files(os.path.join(CODE, wand_tree))
+        root = os.path.join(CODE, wand_tree)
         if wand_tree == "Wand Module":
-            files = _manifest_files(os.path.join(CODE, wand_tree),
-                                    "manifest.js", "WAND_FILES")
-            return _precompile_wand_main(files), 0.0
-        return _boot_main_first(files), 0.0
+            files = pick(_manifest_files(root, "manifest.js", "WAND_FILES"), root)
+            return _precompile_wand_main(files)
+        return pick(_boot_main_first(_tree_files(root)), root)
     # icon
     skip = {"icons"} if code_only else ()
-    files = _tree_files(os.path.join(CODE, "Stations", "IconDisplay"), skip_dirs=skip)
-    return _boot_main_first(files), 0.0
+    root = os.path.join(CODE, SOURCE_DIRS["icon"])
+    return pick(_boot_main_first(_tree_files(root, skip_dirs=skip)), root)
+
+
+def _git_changed(since, source_dir):
+    """Absolute paths under source_dir that differ between `since` and the
+    working tree."""
+    top = subprocess.run(["git", "-C", CODE, "rev-parse", "--show-toplevel"],
+                         capture_output=True, text=True, check=True).stdout.strip()
+    r = subprocess.run(["git", "-C", top, "diff", "--name-only", since, "--", source_dir],
+                       capture_output=True, text=True)
+    if r.returncode != 0:
+        sys.exit("git diff failed: %s" % r.stderr.strip())
+    return {os.path.realpath(os.path.join(top, p)) for p in r.stdout.splitlines()}
+
+
+def _select_since(files, since, source_dir):
+    changed = _git_changed(since, source_dir)
+    return [(l, r) for l, r in files if os.path.realpath(l) in changed]
+
+
+def build_copy_cmd(port, files, dev_key):
+    """One mpremote invocation: an exec that makes directories (ignoring
+    ones that exist, which `fs mkdir` would abort the chain on) and, for the
+    wand, removes /boot_ok; then every `fs cp`, chained with `+`."""
+    dirs = []
+    for _, remote in files:
+        parts = remote.strip("/").split("/")[:-1]
+        for i in range(1, len(parts) + 1):
+            d = "/" + "/".join(parts[:i])
+            if d != "/flash" and d not in dirs:
+                dirs.append(d)
+    setup = "import os\nfor d in %r:\n    try:\n        os.mkdir(d)\n    except OSError:\n        pass\n" % (dirs,)
+    if dev_key == "wand":
+        # New code: the next boot is a debug boot (MockWand/main.py BOOT_OK_PATH).
+        setup += "try:\n    os.remove('/boot_ok')\nexcept OSError:\n    pass\n"
+    cmd = ["python3", "-m", "mpremote", "connect", port, "resume", "exec", setup]
+    for local, remote in files:
+        cmd += ["+", "fs", "cp", local, ":" + remote]
+    return cmd
+
+
+def _run(cmd, dry_run):
+    if dry_run:
+        print("  $ " + " ".join(repr(c) if (" " in c or "\n" in c) else c for c in cmd))
+        return 0
+    t0 = time.time()
+    try:
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=CALL_TIMEOUT)
+    except subprocess.TimeoutExpired:
+        print("  timed out after %d s" % CALL_TIMEOUT)
+        return 1
+    status = "ok" if r.returncode == 0 else (r.stderr.strip() or r.stdout.strip())
+    print("  %.0f s: %s" % (time.time() - t0, status))
+    return r.returncode
+
+
+def deploy_one(port, files, dev_key, no_reset, dry_run):
+    reset = ["python3", "-m", "mpremote", "connect", port, "reset"]
+    print("\n== %s ==" % port)
+    print("# reset (break in once, so the copy hits a freshly booted board)")
+    _run(reset, dry_run)  # a failure here is reported; the copy is the real test
+    print("# copy %d files in one invocation" % len(files))
+    if _run(build_copy_cmd(port, files, dev_key), dry_run) != 0:
+        print("# copy FAILED -- not resetting; board is at the REPL with a "
+              "possibly partial image. Re-run for this port.")
+        return False
+    if no_reset:
+        print("# --no-reset: leaving the board at the REPL")
+        return True
+    print("# reset to start the new code")
+    _run(reset, dry_run)
+    return True
 
 
 def main():
     ap = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("port", nargs="?", help="serial port; omitted to pick interactively")
+    ap.add_argument("ports", nargs="*", help="serial port(s); omitted to pick one interactively")
     ap.add_argument("--type", choices=[key for _, key in DEVICE_TYPES],
                      help="device type; omitted to pick interactively")
-    ap.add_argument("--pause", type=float, default=None,
-                     help="seconds between files, and before a retry "
-                          "(default: 8 for the Dial, 0 otherwise -- see module docstring)")
-    ap.add_argument("--attempts", type=int, default=2,
-                     help="write+verify attempts per file before giving up on it")
+    ap.add_argument("--since", metavar="COMMIT",
+                     help="only files changed between COMMIT and the working tree")
     ap.add_argument("--no-reset", action="store_true",
-                     help="skip the final reset; leave the board as-is")
+                     help="skip the final reset; leave the board at the REPL")
     ap.add_argument("--code-only", action="store_true",
                      help="Icon Display only: skip icons/ (already on the device)")
     ap.add_argument("--skip-lib", action="store_true",
-                     help="Mock Wand / Icon Display: skip lib/ (already on the device)")
-    ap.add_argument("--changed", action="store_true",
-                     help="skip files whose on-device sha256 already matches (one exec call "
-                          "to hash them all); deploys everything if that call fails")
+                     help="skip lib/ (already on the device)")
     ap.add_argument("--wand-tree", default="Wand Module",
                      help="Mock Wand only: tree to deploy, relative to Bag3/Code/ "
                           "(e.g. Experiments/EspnowModem/MockWandEUM)")
+    ap.add_argument("--dry-run", action="store_true",
+                     help="print the mpremote commands; touch no port")
     ap.add_argument("-y", "--yes", action="store_true",
                      help="skip the confirmation prompt")
     args = ap.parse_args()
@@ -349,15 +322,14 @@ def main():
     print("Follow HARDWARE_PROTOCOL.md: ask which board is on which port, and")
     print("wait for an explicit go before this touches a real serial port.\n")
 
-    port = args.port
-    if port is None:
+    ports = list(args.ports)
+    if not ports:
         print("Serial ports:")
-        ports = _list_ports()
-        if not ports:
-            port = input("No ports auto-detected. Enter one manually: ").strip()
+        found = _list_ports()
+        if not found:
+            ports = [input("No ports auto-detected. Enter one manually: ").strip()]
         else:
-            default_index = 0 if len(ports) == 1 else None
-            port = ports[_choose("Pick a port", ports, default_index)]
+            ports = [found[_choose("Pick a port", found, 0 if len(found) == 1 else None)]]
 
     dev_key = args.type
     if dev_key is None:
@@ -365,68 +337,26 @@ def main():
         dev_key = DEVICE_TYPES[idx][1]
     type_label = next(label for label, key in DEVICE_TYPES if key == dev_key)
 
-    files, default_pause = _files_for(dev_key, args.code_only, args.wand_tree)
+    files = _files_for(dev_key, args.code_only, args.wand_tree, args.since)
     if args.skip_lib:
-        files = [f for f in files if not f[1].startswith("/lib/")]
-    pause = args.pause if args.pause is not None else default_pause
+        files = [f for f in files if "/lib/" not in f[1]]
+    if not files:
+        print("# nothing to deploy")
+        return
 
-    print("\n%s -> %s, %d files." % (type_label, port, len(files)))
-    if not args.yes:
+    print("%s, %d file(s) -> %s" % (type_label, len(files), ", ".join(ports)))
+    for local, remote in files:
+        print("  %s" % remote)
+    if not (args.yes or args.dry_run):
         if input("Go? [y/N] ").strip().lower() not in ("y", "yes"):
             print("aborted")
             return
 
-    if args.changed:
-        hashes = _remote_hashes(port, [r for _, r in files])
-        if hashes is None:
-            print("# --changed: remote hash call failed; deploying all files")
-        else:
-            total = len(files)
-            files = select_changed(files, hashes)
-            print("# --changed: %d of %d files differ" % (len(files), total))
-            if not files:
-                print("# nothing to deploy")
-                return
-
-    # `fs cp` does not create parent directories. mkdir fails when the
-    # directory already exists, so its result is ignored; a real failure
-    # shows up as the copy failing below.
-    made = set()
-    for _, remote in files:
-        parts = remote.strip("/").split("/")[:-1]
-        for i in range(1, len(parts) + 1):
-            d = "/" + "/".join(parts[:i])
-            if d not in made and d != "/flash":
-                made.add(d)
-                mpremote(port, "fs", "mkdir", ":" + d)
-
-    failed = []
-    for local, remote in files:
-        print("copying %s -> %s ..." % (os.path.relpath(local, CODE), remote))
-        if not copy_and_verify(port, local, remote, args.attempts, pause):
-            failed.append(remote)
-            print("  FAILED after %d attempt(s) -- continuing with the rest" % args.attempts)
-        if pause:
-            time.sleep(pause)
-
+    failed = [p for p in ports if not deploy_one(p, files, dev_key, args.no_reset, args.dry_run)]
     if failed:
-        print("\n# %d file(s) failed verification: %s" % (len(failed), ", ".join(failed)))
-        print("# NOT resetting -- the board would boot a half-deployed image. "
-              "Fix these and re-run before resetting.")
+        print("\n# FAILED on: %s" % ", ".join(failed))
         sys.exit(1)
-
-    print("\n# all %d files verified" % len(files))
-    if dev_key == "wand":
-        # New code: the next boot is a debug boot (MockWand/main.py BOOT_OK_PATH).
-        mpremote(port, "fs", "rm", ":/boot_ok")
-    if args.no_reset:
-        print("# --no-reset: leaving the board as-is")
-        return
-    # Plain reset, no `resume` -- the write-side calls above only avoided
-    # the reboot; this is what brings the new code up (HARDWARE_PROTOCOL.md).
-    r = subprocess.run(["python3", "-m", "mpremote", "connect", port, "reset"],
-                        capture_output=True, text=True)
-    print("# reset:", "ok" if r.returncode == 0 else (r.stderr.strip() or r.stdout.strip()))
+    print("\n# done: %d board(s). Check a boot log to confirm." % len(ports))
 
 
 if __name__ == "__main__":

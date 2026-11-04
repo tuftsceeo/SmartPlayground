@@ -369,6 +369,10 @@ def _espnow_pull(panel, enow, slug, host_id, icon_dir):
     if ok is True:
         panel.set_intensity(ALERT_INTENSITY)
         shapes.draw_shape(panel, shapes.SHAPE_CHECK, GREEN)
+        # Name the game for the next boot: main() launches it once, after the
+        # reset has handed the heap back clean.
+        stats = espnow_code.LAST_STATS or {}
+        game_store.set_last_pulled(stats.get("name") or slug)
         print("# pull OK -- resetting into the new game")
         time.sleep_ms(600)
         machine.reset()
@@ -483,6 +487,16 @@ def main():
     frame = 0
     last_uid = None
     last_uid_ms = 0
+
+    # Auto-launch the game a pull just fetched. _espnow_pull() writes the
+    # marker and resets; take_last_pulled() clears it as it reads, so this
+    # fires once. A failed load returns to idle like any other.
+    just_pulled = game_store.take_last_pulled()
+    if just_pulled and is_game(just_pulled):
+        print("  Launching just-pulled game: %s" % just_pulled)
+        _launch_game(just_pulled, reader, panel, enow)
+    elif just_pulled:
+        print("  [WARN] just-pulled %r is not a game here" % just_pulled)
     while True:
         frame += 1
 
