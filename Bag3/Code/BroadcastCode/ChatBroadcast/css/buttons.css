@@ -1,0 +1,74 @@
+.btn {
+    padding: 6px 14px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+}
+
+.btn:hover { background: var(--bg); }
+
+.btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.btn:disabled:hover { background: var(--surface); }
+
+.connect-btn { background: var(--accent); border-color: var(--accent); font-weight: 600; color: #fff; }
+.connect-btn:hover { background: var(--accent-hover); }
+.connect-btn.on { background: var(--green); border-color: var(--green); }
+
+.send-btn {
+    background: var(--accent);
+    border-color: var(--accent);
+    font-weight: 600;
+    color: #fff;
+    font-size: 14px;
+    padding: 12px 20px;
+    align-self: flex-end;
+}
+.send-btn:hover { background: var(--accent-hover); }
+
+.stop-btn {
+    background: #e74c3c;
+    border-color: #e74c3c;
+    font-weight: 600;
+    color: #fff;
+    display: none;
+    font-size: 14px;
+    padding: 12px 20px;
+    align-self: flex-end;
+}
+
+.run-btn { background: var(--orange); border-color: var(--orange); font-weight: 600; color: #fff; }
+
+.upload-btn { background: var(--green); border-color: var(--green); font-weight: 600; color: #fff; }
+.upload-btn:hover { opacity: 0.85; }
+
+.help-btn {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    padding: 0;
+    font-size: 16px;
+    font-weight: 700;
+    text-align: center;
+    line-height: 28px;
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+    flex-shrink: 0;
+}
+.help-btn:hover { background: var(--accent-hover); }
+
+.tools-btn { font-size: 14px; padding: 4px 8px; }
+
+.nfc-btn { background: #8e44ad; border-color: #8e44ad; color: #fff; font-weight: 600; }
+.nfc-btn:hover { background: #9b59b6; }
+
+.hidden { display: none !important; }

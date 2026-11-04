@@ -1,0 +1,189 @@
+# ESP-NOW serving: results
+
+## Phase 1: S3 radio feasibility (2026-10-20)
+
+Bench: `tools/devtests/espnow_serve.py` on the board, one MockWandEUM wand held close,
+one 36 KB file (`speed36`), run with `mpremote resume run`. CPython tests:
+`EspnowModem/tests/test_espnow_serve.py` (9, passing).
+
+**Verdict:** the Dial passes with the radio claimed at boot; late bring-up (step 4) fails. The Box is unresolved: its failures match the known
+USB charge-current brownout and were all run with a depleted battery.
+
+| Board | 1. `import espnow`, `active(True)` | 2. Field off | Field on (not a plan condition) | 4. UI up first, then radio |
+|---|---|---|---|---|
+| Dial (StampS3A) | pass | pass, 4.1 s | pass, 5.4 s | fails (`ESP_ERR_ESPNOW_NO_MEM`); see below |
+| Box (StickS3) | pass | pass, 3.3 s | USB dropped twice | 1 pass (4.0 s), 1 drop; repeat below |
+
+All Dial runs: no BROWNOUT. The first Dial step 4 run (9.3 s) never called `ui.begin()`, so
+the UI was not up; it does not count.
+
+### Box step 4 repeat (field off, UI built first, 5 runs)
+
+| Run | Result | Reset cause logged |
+|---|---|---|
+| 1 | `host timeout`, wand silent (invalid run) | none |
+| 2 | stalled at chunk 86/151, board restarted | PWRON (1) |
+| 3 | pass, 4.2 s, 151 frames, 0 send failures | none |
+| 4 | stalled at chunk 21/151, board restarted | PWRON (1) |
+| 5 | restarted 2 s after `radio_up`, before any frame | PWRON (1) |
+
+- Every restart was PWRON (1). No WDT (3) or SOFT (5) was seen.
+- Run 5 restarted with the radio up and nothing transferring, so transfer load is not
+  required to trigger it.
+- VBUS read 5.1-5.4 V and the battery 3.4-3.7 V (about a quarter to a half charge) in every
+  run. The 500 ms samples cannot show a dip shorter than the interval.
+- Run 1's wand was silent. The loop waited 12 s after the wand reset; the wand's boot to
+  "Boot complete" took about 6 s plus its game-list print.
+- This build's `machine` has `PWRON_RESET`, `HARD_RESET`, `WDT_RESET`, `DEEPSLEEP_RESET` and
+  `SOFT_RESET` (1, 2, 3, 4, 5) and no `BROWNOUT_RESET`. The brownout signature is believed,
+  not verified, to read as PWRON.
+
+### Reading the Box result
+
+The Box's reset problem under radio load on USB is documented in
+`git show 42dd9d4:Bag3/Code/BroadcastBox/BBoxFirmware/known_issue.md` (H1: charge current
+for the battery stacked on the radio load, expected to read `BROWNOUT` or `PWRON`) and
+`docs_and_design/old/2026-09-01-wifi-handoff-diagnosis.md`. It was resolved by making the Box
+modal (the AP and the NFC RF field are never on together, `a406712`) with no further issues
+reported.
+
+The step 4 bench was already modal: field off, no reader object built. Only the radio,
+display and speaker were on, the same load as SERVE. H1 says charge current is highest when
+the battery is depleted, and every run here started with a depleted battery. The Box result is
+therefore a depleted-battery result, not yet a ruling on ESP-NOW. The plan's step 3 is now a regression check in SERVE on USB while charging, which is
+what steps 2 and 4 already ran, so the field-on column does not count toward the gate
+(it breaks the modal rule: ESP-NOW serving keeps the reader field off).
+
+### Open before the Box gate closes
+
+1. Charge the Box to about 4.1 V or more with the radio off, then repeat step 4 five times.
+   Pass criterion: 5 of 5 with no PWRON. Allow 20 s after the wand's reset before starting.
+2. If it still drops on a full battery, run it from a wall charger or powered hub, then on
+   battery only. The bench writes `/flash/bench_trace.txt` and `/flash/resetlog.txt`, so a
+   run with USB unplugged can be read back afterward.
+
+### Dial step 4, UI built first (2026-10-20)
+
+With `ui.begin()` and `paint_serve()` called before the radio, transfers fail: each send
+blocks 2000 ms and raises `OSError(-12391, 'ESP_ERR_ESPNOW_NO_MEM')`. Internal free IDF heap
+after the radio was about 8.5 KB. One of three such runs passed, so the margin is at the edge,
+not reliably on either side. Bisect (one run each, hard reset first): no UI pass 3.4 s; UI
+without `M5.update()` fail; UI with it pass 3.8 s; radio first then UI fail.
+
+The bench cannot test boot order. It runs after a reset that `mpremote run` interrupts
+partway through the firmware's own `main.py`, so the heap it starts from varies (largest
+block 7680 to 27648 B at start) and the firmware's partial UI sits beside the bench's.
+
+**Decision:** the radio is claimed at boot, before the UI (`code_link.prewarm()` right after
+`M5.begin()`, where `prewarm_ap()` was), and tested in the firmware itself.
+
+### Dial firmware serving over ESP-NOW (2026-10-20)
+
+`BDialFirmware/code_link.py` + `code_sender.py`, deployed, plain reset, wand on MockWandEUM.
+
+- Real path: menu WRITE of `getcode:speed36`, DONE to SERVE, card tapped on the wand. 2 of 2
+  pass: 36864 B in 3844 ms and 3505 ms, 151 frames, 0 send failures. A `pull` event per
+  transfer on serial.
+- SERVE cycling over serial (`disarm`, `arm`), 20 of 20 armed in place, no radio error.
+
+### Box firmware serving over ESP-NOW (2026-10-20)
+
+`BBoxFirmware/code_link.py` + `code_sender.py`, deployed, plain reset, on USB, wand on
+MockWandEUM. `code_link.prewarm()` runs right after `M5.begin()`.
+
+- At the default TX power the Box reset (PWRON) mid-transfer.
+- With `TX_POWER_DBM = 8` (`CodeLink(tx_power=TX_POWER_DBM)`): 3 of 3 wand pulls pass on USB.
+- A card written for the Dial (`getcode:...@004c`) is ignored by the Box, which is pinned to
+  its own `HOST_ID` (cd64).
+- `bbox_ui.py` runs with `DARK = True` and `SOUND = False` to cut power draw.
+
+Not verified: battery operation, readability of the black UI.
+
+### Open before the Dial gate closes
+
+1. Transfer with NFC reader polling between SERVE sessions (WRITE, scan, then SERVE, pull).
+2. Concurrency: 3 wands at once (Phase 5).
+
+### Bench state left on the boards
+
+- Dial (3101) and Box (1101) were last run by `mpremote run`, which stops the firmware; a
+  plain `reset` restores their screens.
+- The wand on 101 runs the MockWandEUM tree. `tools/deploy.py ... --type wand` restores the
+  stock tree.
+- `main.py` on the Box now logs the reset cause with its raw number to `/flash/resetlog.txt`
+  first thing on every boot (`reset_log.LOG_ENABLED = True`).
+
+## Dial serving, scripted wand pulls (2026-10-20, evening)
+
+Dial firmware at `cb0f987` (icon protocol, 80/60 ms beeps); stock MockWand at `27e2fed`. No card taps:
+the Dial was driven over serial (`arm`, `disarm`, `info`) and the wand ran
+`espnow_code.receive(mgr, "speed36", "wand", host_id=...)` via `mpremote run`. Game: `speed36`, 36864 B.
+
+| Run | Dial state | Result |
+|---|---|---|
+| 5 pulls, pinned `004c` | SERVE (`arm`) | 5/5, 2.4–2.7 s each |
+| 20 pulls, pinned `004c` | SERVE | 20/20, 2.4–5.3 s; Dial emitted 20 `pull` events, all `ok` |
+| 1 pull, pinned `ffff` | SERVE | `nohost` (ignored by the Dial) |
+| 5 pulls, pinned `004c` | WRITE menu after `disarm` (`SHARE_IN_MENUS`, `info` reports `armed: true`) | 5/5, 2.5–2.9 s |
+| 1 pull, pinned `ffff` | WRITE menu | `nohost` |
+
+Not covered: the card-tap path on the stock wand, the icon-display role (no `_icon.py` game on the Dial), more than one wand.
+
+## Icon-display role and fast-boot wand (2026-10-20, evening)
+
+- Icon-display role on hardware: a test `color_row_icon.py` plus 3 icons in `/flash/games/color_row_icons/` on the Dial (removed afterwards). The stock wand ran `receive(..., "icon_display", icon_dir=...)`: 3/3, 1.9–2.2 s, 3 icons each. A wand-role pull of the same slug after it: `True`.
+- Stock wand with fast boot (`2c6f88c`, light fix `a53a8a5`), deployed with `deploy.py --changed` (3 of 54 files sent): 10/10 pulls from the Dial in the WRITE menu, 2.4–4.0 s; `ffff` pin refused.
+
+## Plan status (2026-10-20, end of day)
+
+| Phase | State | Differs from PLAN.md |
+|---|---|---|
+| 1 · S3 radio check | Complete | Late bring-up (step 4) failed on the Dial (`ESPNOW_NO_MEM`); the radio is claimed at boot (`code_link.prewarm()` after `M5.begin()`). |
+| 2 · Dial firmware | Complete except display-only enrollment | Serves from the WRITE menus as well as SERVE (`SHARE_IN_MENUS`). Icon names are paged (`icons_n`, `list_from`, `code_icons`). A game with only `<slug>_icon.py` is not listed or served. |
+| 3 · Box firmware | Complete except display-only enrollment | `TX_POWER_DBM = 8`, `DARK`, `SOUND = False`. Serves from the WRITE menus too. |
+| 4.1 · Stock MockWand | Complete; card tap not run | `espnow_manager.py` sets `rxbuf=4096`. SoftAP fallback kept until 5.2. |
+| 4.2 · ChatBroadcast | Complete; `chat_ui_smoke.mjs` not run (no Playwright) | Display-only sends depend on the enrollment gap above. |
+| 4.3 · Icon Display receiver | Implemented; role verified with the wand board as receiver, not the Icon Display | `IconDisplay/lib/espnow_manager.py` sets no `rxbuf`. |
+| 5.1 · Hardware bench | Partial | Done: Dial SERVE and menu share with 1 wand; Box SERVE on USB. Left: 3 wands, real display pull, ChatBroadcast send → tap → play, Box on battery. |
+| 5.2 · SoftAP removal | Docs done; code not deleted | Doc checklist done before the bench (`0a42791`, `0b29da5`). |
+| 6 · Later work | Not started | — |
+
+Offline checks at end of day: `wire_test_dial.py`, `wire_test.py`, `compile_check.sh`, `test_code_xfer.py`, `test_espnow_serve.py`, `test_dial_code_link.py`, `test_wand_espnow_code.py` pass. `chatbroadcast_flow.mjs` and `role_state.mjs` fail, and failed the same way before this work (at `3311ced^`).
+
+## Single state on the Dial and Box (2026-10-20, late)
+
+Change (`c566a21`): no SERVE mode, no `DONE`/`Enable Share` row, no hold-to-exit. The Dial and Box serve the active game from the menus whenever the NFC field is off. Serial `arm` brings the radio up (error `no_payload` with no game); `disarm` replies `ok` and does nothing. `games.list` `pulls` and the menu crumb (`Pulled by N`) count successful wand pulls per game since boot. Clicks and scans are silent; Dial success is two 4800 Hz beeps, failure three 3600 Hz (`fefbe29`). ChatBroadcast no longer keys its silence limit on `mode === 'SERVE'`.
+
+| Run | Result |
+|---|---|
+| Dial `mode` | `WRITE` |
+| Dial `arm` | `ok`, `armed: true` |
+| 3 wand pulls, pinned `004c` | 3/3 |
+| `games.list` after | active `speed36` pulls 3, `color_row` 0 |
+| `disarm` | `ok`; `info` still `armed: true` |
+
+Not run: the Box (hardware back 2026-10-21). PLAN.md phases 2 and 3 no longer include SERVE mode or display-only game enrollment (dropped by the user).
+
+## Status at stop (2026-10-20, night)
+
+- Dial runs the circular Station UI (branch `claude/dial-circular-ui-708f78`, `2b3b96a`; not merged into `chat_app_espnow`). Scripted wand pulls from it: 3/3, 3.6–4.4 s; `games.list` `speed36` pulls 3.
+- SoftAP removal (PLAN 5.2) committed `bfed8e2`..`fb907d2`. The final verification and grep did not run; run the offline tests before merging or pushing.
+- Not done: Box single-state deploy and Icon Display (2026-10-21), full-stack test, push and PR.
+
+## Box single state and real Icon Display (2026-10-21)
+
+Branch `chat_app_espnow` with the SoftAP removal and the Dial circular UI merged; offline tests pass (`compile_check.sh`, `test_dial_code_link.py`, `test_dial_station.py`, `game_menu_scan.py`, `test_code_xfer.py`, `test_espnow_serve.py`, `test_wand_espnow_code.py`, `chatbroadcast_flow.mjs`, `role_state.mjs`). `wire_test*.py` were TCP-only and are deleted.
+
+| Run | Result |
+|---|---|
+| Box: 4 changed files copied, reset first, one `mpremote` call | 13 s; SoftAP files removed from flash |
+| Box `mode` / `arm` | `WRITE`; `armed: true` |
+| Stale wand: `deploy.py --type wand` | 51 files, 113 s |
+| Box → wand, 3 pulls pinned `cd64`, USB | 3/3, 2.6–4.8 s; `games.list` pulls 3; no reset |
+| Icon Display: `deploy.py --type icon` | 107 files, 154 s |
+| Box → Icon Display, `icon_display` role, test `speed36_icon.py` + 3 icons | 3/3, 2.1–2.9 s, 3 icons each (test files removed afterwards) |
+
+## Dial on merged code and full stack (2026-10-21)
+
+- Dial: 2 changed files copied (reset first, one `mpremote` call, 5 s); `code_server.py`, `serve_guard.py`, `serve_probe.py`, `dial_ui.py` removed from flash. Scripted wand pulls pinned `004c`: 3/3, 2.2–2.5 s; `games.list` pulls 3.
+- Full stack, by hand: ChatBroadcast (localhost) sent a generated game to the Dial, a Code card was written on the Dial, and a tap on the wand pulled it: worked.

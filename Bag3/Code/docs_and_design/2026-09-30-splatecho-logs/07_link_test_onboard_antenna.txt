@@ -1,0 +1,11 @@
+# 07 link test after MODEM_EXTERNAL_ANTENNA = False (2026-10-01); same scripts as 04
+## wand A0:F2:62:87:B4:30 (usbmodem101)
+RESULT a got 300 missing 0 rssi avg -27 min -28
+RESULT b got 300 missing 0 rssi avg -27 min -28
+RESULT c got 300 missing 0 rssi avg -27 min -28
+STATS before (0, 0, 0, 0, 0) after (0, 0, 0, 901, 0)
+## wand A0:F2:62:87:92:CC (usbmodem1101)
+RESULT a got 300 missing 0 rssi avg -22 min -24
+RESULT b got 300 missing 0 rssi avg -22 min -24
+RESULT c got 300 missing 0 rssi avg -22 min -24
+STATS before (0, 0, 0, 0, 0) after (0, 0, 0, 901, 0)

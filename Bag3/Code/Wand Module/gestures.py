@@ -39,7 +39,7 @@ I2C_SDA, I2C_SCL = 22, 23
 BUZZER_PIN, BUTTON_PIN, PN532_ADDR = 19, 0, 0x24
 
 # ─── Game Config ───
-NUM_LEDS = 60
+NUM_LEDS = 25
 NFC_POLL_INTERVAL = 10
 LOOP_DELAY_MS = 20
 DEBOUNCE_MS = 60
@@ -769,7 +769,7 @@ class GesturesGame:
 # ═══════════════════════════════════════════════
 # ENTRY POINTS
 # ═══════════════════════════════════════════════
-def play(nfc, leds, buz, accel, i2c, enow):
+def play(nfc, leds, buz, accel, i2c, enow, batt=None):
     """Called from main.py when the 'gestures' tag is tapped."""
     if accel is None:
         print("  Gestures requires accelerometer — not available")

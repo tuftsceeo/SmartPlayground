@@ -1,0 +1,180 @@
+import { fileURLToPath } from 'node:url';
+import { dirname, resolve } from 'node:path';
+import { readFileSync } from 'node:fs';
+// BroadcastBox/, two levels up from tools/devtests/.
+const BB = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
+/**
+ * Walk a three-device reply through ChatBroadcast's pipeline, host-side.
+ *
+ * editor.js and app.js import CodeMirror from a CDN and touch the DOM, so
+ * they cannot run here; this covers the parts that can -- block extraction,
+ * per-role validation, icon resolution, and the file list a send builds --
+ * plus pushPayload's ordering against a fake REPL.
+ */
+// Dynamic imports throughout: the module paths are built from this file's
+// own location, and a static import cannot take an expression.
+const { extractCodeBlocks, stripDeviceMarkers, ROLES } = await import(
+    BB + '/ChatBroadcast/js/chat.js');
+const { validateGameCode, signatureFor } = await import(
+    BB + '/ChatBroadcast/js/upload.js');
+
+globalThis.localStorage = {
+    _d: {}, getItem(k) { return this._d[k] || null; }, setItem(k, v) { this._d[k] = v; },
+};
+const lib = await import(
+    BB + '/ChatBroadcast/js/ledicons/iconLibrary.js');
+const { pushPayload } = await import(
+    BB + '/ChatBroadcast/js/device/boxFirmwareInstaller.js');
+
+const fails = [];
+const check = (label, ok, detail = '') => {
+    console.log(`${ok ? 'ok  ' : 'FAIL'} ${label}${detail ? ' -- ' + detail : ''}`);
+    if (!ok) fails.push(label);
+};
+
+// ── A reply the model would produce for the goalrace demo ──
+const REPLY = `Here is Team Goal Race. Two files, one per device.
+
+[DEVICE: wand]
+\`\`\`python
+from game_tags import exit_tags_excluding
+_EXIT_TAGS = exit_tags_excluding("goalrace")
+COMMANDS = {"teamgreen", "teamblue", "goal"} | _EXIT_TAGS
+def play(nfc, leds, buz, accel, i2c, enow, batt=None):
+    enow.broadcast({"type": "goal", "team": "green"})
+\`\`\`
+
+And the display half:
+
+[DEVICE: icon]
+\`\`\`python
+import icon_store
+from display_tags import exit_tags_excluding
+_EXIT_TAGS = exit_tags_excluding("goalrace")
+COMMANDS = _EXIT_TAGS
+TEAM_ICON = {"green": "tree", "blue": "whale"}
+def play(nfc, panel, enow):
+    icon_store.read_icon("ready", into=panel.src)
+\`\`\`
+
+[NFC_CARDS: "teamgreen", "teamblue", "goal"]
+[GAME_NAME: Team Goal Race]`;
+
+const blocks = extractCodeBlocks(REPLY);
+check('two device blocks extracted', blocks.length === 2, `${blocks.length} blocks`);
+check('roles are wand, then icon',
+    blocks.map(b => b.role).join(',') === 'wand,icon', blocks.map(b => b.role).join(','));
+check('device markers are stripped from the displayed text',
+    !stripDeviceMarkers(REPLY).includes('[DEVICE:'));
+
+const wand = blocks[0].code, icon = blocks[1].code;
+check('wand file validates as wand', validateGameCode(wand, 'wand')[0] === true);
+check('icon file validates as icon', validateGameCode(icon, 'icon')[0] === true);
+check('wand file is REJECTED as an icon file', validateGameCode(wand, 'icon')[0] === false,
+    validateGameCode(wand, 'icon')[1]);
+check('icon file is REJECTED as a wand file', validateGameCode(icon, 'wand')[0] === false);
+check('every role has a documented signature',
+    ROLES.every(r => typeof signatureFor(r) === 'string'));
+
+// ── Icons the display file needs ──
+const names = lib.iconNamesIn(icon);
+check('icons resolved from the display file',
+    JSON.stringify(names) === JSON.stringify(['ready', 'tree', 'whale']), names.join(','));
+check('none of them are missing', lib.missingIconsIn(icon).length === 0);
+check('a game naming a nonexistent icon is caught',
+    lib.missingIconsIn('icon_store.read_icon("dragon")').join(',') === 'dragon');
+
+// ── Splat action-name check (the splat role is retired; the checker stays) ──
+const { roleInfo } = await import(BB + '/ChatBroadcast/js/roles.js');
+const { unknownSplatActionsIn, listSplatActions } = await import(
+    BB + '/ChatBroadcast/js/splat/splatActionCheck.js');
+check('there is no splat role', roleInfo('splat') === undefined);
+check('wand and icon roles carry none',
+    !roleInfo('wand').unknownNamesIn && !roleInfo('icon').unknownNamesIn);
+check('a misspelled color is caught',
+    unknownSplatActionsIn('splat.color("turnpurpel")').join(',') === 'turnpurpel');
+check('a name from the wrong category is caught',
+    unknownSplatActionsIn('splat.sound("turnred")').join(',') === 'turnred');
+check('play() accepts a mix of categories',
+    unknownSplatActionsIn('splat.play(["cat", "note_c", "turnblue"])').length === 0);
+check('an unknown name inside play() is caught',
+    unknownSplatActionsIn("splat.play(['cat', 'lion'])").join(',') === 'lion');
+check('a call on one unit is checked too',
+    unknownSplatActionsIn('splat.unit(1).note("note_z")').join(',') === 'note_z');
+check('a name held in a variable is not guessed at',
+    unknownSplatActionsIn('c = COLORS[i]\nsplat.color(c)').length === 0);
+const sa = listSplatActions();
+check('the prompt list has all three categories',
+    sa.colors.includes('turnred') && sa.notes.includes('note_c') && sa.sounds.includes('cat'));
+
+// ── The file list a send builds (mirrors app.js confirmSend) ──
+const slug = 'goalrace';
+const extraFiles = [{ path: `/flash/games/${slug}_icon.py`, content: icon }];
+for (const n of names) {
+    extraFiles.push({ path: `/flash/games/${slug}_icons/${n}.py`, content: lib.iconFileText(n) });
+}
+
+// ── pushPayload against a fake REPL ──
+const written = [];
+const repl = {
+    async enterRepl() { written.push('enterRepl'); },
+    async enterRawRepl() { written.push('enterRawRepl'); },
+    async exitRawRepl() { written.push('exitRawRepl'); },
+    async softReset() { written.push('softReset'); },
+    async ensureDirectory(p) { written.push(`mkdir ${p}`); },
+    async uploadFile(p) { written.push(`put ${p}`); },
+};
+const adapter = { async readUntil() { return { found: true }; } };
+const progress = [];
+const res = await pushPayload(repl, adapter, wand, (p) => progress.push(p), {
+    destPath: `/flash/games/${slug}.py`,
+    destLabel: `${slug}.py`,
+    tags: ['getcode:goalrace', 'goalrace', 'teamgreen', 'teamblue', 'goal'],
+    extraFiles,
+});
+check('push reported ok', res.ok === true, JSON.stringify(res));
+
+const puts = written.filter(w => w.startsWith('put ')).map(w => w.slice(4));
+check('wand file pushed', puts.includes('/flash/games/goalrace.py'));
+check('tags sidecar pushed', puts.includes('/flash/games/goalrace.tags.json'));
+check('display file pushed', puts.includes('/flash/games/goalrace_icon.py'));
+for (const n of names) {
+    check(`icon ${n} pushed`, puts.includes(`/flash/games/goalrace_icons/${n}.py`));
+}
+check('icons directory created before its files',
+    written.indexOf('mkdir /flash/games/goalrace_icons') <
+    written.indexOf('put /flash/games/goalrace_icons/ready.py'));
+check('ONE raw-REPL session for the whole game',
+    written.filter(w => w === 'enterRawRepl').length === 1);
+check('ONE soft reset for the whole game',
+    written.filter(w => w === 'softReset').length === 1);
+check('the reset comes last',
+    written[written.length - 1] === 'softReset', written[written.length - 1]);
+check('progress counted every file',
+    progress[progress.length - 1].total === 1 + extraFiles.length,
+    JSON.stringify(progress[progress.length - 1]));
+
+// ── The per-turn prompt block names every current icon ──
+const { sessionText } = await import(BB + '/ChatBroadcast/js/prompt/buildRequest.js');
+const turnText = sessionText(lib.listIcons(), { wand });
+check('sessionText lists every icon from listIcons()',
+    lib.listIcons().every(n => turnText.includes(n)));
+check('sessionText carries the wand code in the editor block',
+    turnText.includes('[DEVICE: wand]'));
+check('listIcons() currently returns at least one real name to inject',
+    lib.listIcons().length > 0 && lib.listIcons().every(n => typeof n === 'string' && n.length > 0),
+    lib.listIcons().join(','));
+
+// ── A single-device reply, the way every reply looked before markers ──
+const legacy = 'Sure.\n```python\ndef play(nfc, leds, buz, accel, i2c, enow, batt=None):\n    pass\n```';
+const lb = extractCodeBlocks(legacy);
+check('an unmarked reply is still wand code',
+    lb.length === 1 && lb[0].role === 'wand', JSON.stringify(lb.map(b => b.role)));
+
+console.log();
+if (fails.length) {
+    console.log(`FAILED: ${fails.length}`);
+    for (const f of fails) console.log('  -', f);
+    process.exit(1);
+}
+console.log('ChatBroadcast three-device flow OK');

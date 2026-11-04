@@ -1,0 +1,565 @@
+[   0.0s] # monitor: port opened
+[   0.9s] {"mem": 57344, "up": 39804, "type": "heartbeat"}
+[   2.0s] # DBG serve: clients=0 stations=0 gc_free=56976 idf_free=29216 idf_largest=20480 polls=87
+[   4.0s] # DBG serve: clients=0 stations=0 gc_free=57424 idf_free=29216 idf_largest=20480 polls=87
+[   5.9s] {"mem": 58640, "up": 44820, "type": "heartbeat"}
+[   6.0s] # DBG serve: clients=0 stations=0 gc_free=57680 idf_free=29216 idf_largest=20480 polls=86
+[   8.0s] # DBG serve: clients=0 stations=0 gc_free=58384 idf_free=29216 idf_largest=20480 polls=87
+[  10.0s] # DBG serve: clients=0 stations=0 gc_free=58816 idf_free=29216 idf_largest=20480 polls=87
+[  11.0s] {"mem": 56144, "up": 49827, "type": "heartbeat"}
+[  12.1s] # DBG serve: clients=0 stations=0 gc_free=55648 idf_free=29216 idf_largest=20480 polls=87
+[  14.1s] # DBG serve: clients=0 stations=0 gc_free=56080 idf_free=29216 idf_largest=20480 polls=87
+[  16.0s] {"mem": 57312, "up": 54846, "type": "heartbeat"}
+[  16.1s] # DBG serve: clients=0 stations=0 gc_free=56208 idf_free=29216 idf_largest=20480 polls=87
+[  18.1s] # DBG serve: clients=0 stations=0 gc_free=56848 idf_free=29216 idf_largest=20480 polls=87
+[  20.1s] # DBG serve: clients=0 stations=0 gc_free=57296 idf_free=29216 idf_largest=20480 polls=87
+[  21.0s] {"mem": 58480, "up": 59852, "type": "heartbeat"}
+[  22.1s] # DBG serve: clients=0 stations=0 gc_free=57680 idf_free=29216 idf_largest=20480 polls=87
+[  24.1s] # DBG serve: clients=0 stations=1 gc_free=53504 idf_free=26648 idf_largest=16384 polls=87
+[  25.3s] # DBG accepted: clients=1 stations=1 gc_free=51328
+[  25.3s] # DEBUG client state=req sent=0/0 ms_to_deadline=5001
+[  26.0s] {"mem": 46768, "up": 64866, "type": "heartbeat"}
+[  26.2s] # DBG serve: clients=1 stations=1 gc_free=43808 idf_free=24540 idf_largest=12800 polls=67
+[  26.2s] # DBG   client state=body sent=5113/5113 ms_to_deadline=7956 sel=13 blocked=0
+[  26.7s] # DBG finish ok=True state=ack sent=5113/5113 age_ms=1440 sel=15 blocked=0 clients=0 stations=1
+[  28.2s] # DBG serve: clients=0 stations=0 gc_free=52576 idf_free=28604 idf_largest=16384 polls=31
+[  30.2s] # DBG serve: clients=0 stations=0 gc_free=52496 idf_free=28604 idf_largest=16384 polls=87
+[  31.0s] {"mem": 54400, "up": 69880, "type": "heartbeat"}
+[  32.2s] # DBG serve: clients=0 stations=0 gc_free=52912 idf_free=28604 idf_largest=16384 polls=87
+[  34.2s] # DBG serve: clients=0 stations=0 gc_free=53328 idf_free=28604 idf_largest=16384 polls=87
+[  36.0s] {"mem": 52016, "up": 74883, "type": "heartbeat"}
+[  36.2s] # DBG serve: clients=0 stations=0 gc_free=53760 idf_free=28604 idf_largest=16384 polls=87
+[  38.3s] # DBG serve: clients=0 stations=0 gc_free=54128 idf_free=28604 idf_largest=16384 polls=87
+[  40.3s] # DBG serve: clients=0 stations=0 gc_free=54544 idf_free=28604 idf_largest=16384 polls=87
+[  41.0s] {"mem": 53184, "up": 79891, "type": "heartbeat"}
+[  42.3s] # DBG serve: clients=0 stations=0 gc_free=51408 idf_free=28604 idf_largest=16384 polls=87
+[  44.3s] # DBG serve: clients=0 stations=0 gc_free=51840 idf_free=28604 idf_largest=16384 polls=87
+[  46.0s] {"mem": 54432, "up": 84895, "type": "heartbeat"}
+[  46.3s] # DBG serve: clients=0 stations=0 gc_free=52080 idf_free=28604 idf_largest=16384 polls=87
+[  48.3s] # DBG serve: clients=0 stations=1 gc_free=52032 idf_free=26644 idf_largest=16384 polls=86
+[  48.9s] # DBG accepted: clients=1 stations=1 gc_free=50768
+[  48.9s] # DEBUG client state=req sent=0/0 ms_to_deadline=5002
+[  50.3s] # DBG serve: clients=1 stations=1 gc_free=49648 idf_free=26112 idf_largest=15872 polls=65
+[  50.3s] # DBG   client state=ack sent=5113/5113 ms_to_deadline=7392 sel=14 blocked=0
+[  50.5s] # DBG finish ok=True state=ack sent=5113/5113 age_ms=1642 sel=15 blocked=0 clients=0 stations=1
+[  51.0s] {"mem": 54720, "up": 89904, "type": "heartbeat"}
+[  52.3s] # DBG serve: clients=0 stations=0 gc_free=52672 idf_free=28604 idf_largest=16384 polls=68
+[  54.3s] # DBG serve: clients=0 stations=0 gc_free=53104 idf_free=28604 idf_largest=16384 polls=87
+[  56.0s] {"mem": 52528, "up": 94906, "type": "heartbeat"}
+[  56.3s] # DBG serve: clients=0 stations=0 gc_free=53600 idf_free=28604 idf_largest=16384 polls=86
+[  58.4s] # DBG serve: clients=0 stations=0 gc_free=54048 idf_free=28604 idf_largest=16384 polls=87
+[  60.4s] # DBG serve: clients=0 stations=0 gc_free=54480 idf_free=28604 idf_largest=16384 polls=87
+[  61.1s] {"mem": 53696, "up": 99929, "type": "heartbeat"}
+[  62.4s] # DBG serve: clients=0 stations=0 gc_free=51312 idf_free=28604 idf_largest=16384 polls=87
+[  64.4s] # DBG serve: clients=0 stations=0 gc_free=51728 idf_free=28604 idf_largest=16384 polls=87
+[  66.1s] {"mem": 51456, "up": 104931, "type": "heartbeat"}
+[  66.4s] # DBG serve: clients=0 stations=0 gc_free=52144 idf_free=28604 idf_largest=16384 polls=87
+[  68.4s] # DBG serve: clients=0 stations=0 gc_free=52560 idf_free=28604 idf_largest=16384 polls=87
+[  70.5s] # DBG serve: clients=0 stations=0 gc_free=52976 idf_free=28604 idf_largest=16384 polls=87
+[  71.1s] {"mem": 52688, "up": 109938, "type": "heartbeat"}
+[  72.5s] # DBG serve: clients=0 stations=1 gc_free=52704 idf_free=26408 idf_largest=16384 polls=86
+[  73.0s] # DBG accepted: clients=1 stations=1 gc_free=51904
+[  73.1s] # DEBUG client state=req sent=0/0 ms_to_deadline=5002
+[  74.5s] # DBG serve: clients=1 stations=1 gc_free=51536 idf_free=25888 idf_largest=15872 polls=64
+[  74.5s] # DBG   client state=ack sent=5113/5113 ms_to_deadline=7242 sel=14 blocked=0
+[  74.6s] # DBG finish ok=True state=ack sent=5113/5113 age_ms=1601 sel=15 blocked=0 clients=0 stations=1
+[  76.1s] {"mem": 52816, "up": 114955, "type": "heartbeat"}
+[  76.5s] # DBG serve: clients=0 stations=0 gc_free=53184 idf_free=28392 idf_largest=15872 polls=67
+[  78.5s] # DBG serve: clients=0 stations=0 gc_free=53536 idf_free=28392 idf_largest=15872 polls=87
+[  80.5s] # DBG serve: clients=0 stations=0 gc_free=53968 idf_free=28392 idf_largest=15872 polls=87
+[  81.1s] {"mem": 53792, "up": 119974, "type": "heartbeat"}
+[  82.5s] # DBG serve: clients=0 stations=0 gc_free=50848 idf_free=28392 idf_largest=15872 polls=87
+[  84.5s] # DBG serve: clients=0 stations=0 gc_free=51264 idf_free=28392 idf_largest=15872 polls=87
+[  86.1s] {"mem": 51824, "up": 124979, "type": "heartbeat"}
+[  86.6s] # DBG serve: clients=0 stations=0 gc_free=52048 idf_free=28392 idf_largest=15872 polls=86
+[  88.6s] # DBG serve: clients=0 stations=0 gc_free=52416 idf_free=28392 idf_largest=15872 polls=87
+[  90.6s] # DBG serve: clients=0 stations=0 gc_free=52848 idf_free=28392 idf_largest=15872 polls=87
+[  91.1s] {"mem": 53056, "up": 129990, "type": "heartbeat"}
+[  92.6s] # DBG serve: clients=0 stations=0 gc_free=53392 idf_free=28392 idf_largest=15872 polls=86
+[  94.6s] # DBG serve: clients=0 stations=0 gc_free=53824 idf_free=28392 idf_largest=15872 polls=87
+[  96.1s] {"mem": 54256, "up": 135009, "type": "heartbeat"}
+[  96.5s] # DBG accepted: clients=1 stations=1 gc_free=50320
+[  96.5s] # DEBUG client state=req sent=0/0 ms_to_deadline=5002
+[  96.6s] # DBG serve: clients=1 stations=1 gc_free=53856 idf_free=24124 idf_largest=15872 polls=81
+[  96.6s] # DBG   client state=req sent=0/0 ms_to_deadline=4867 sel=1 blocked=0
+[  98.2s] # DBG finish ok=True state=ack sent=5113/5113 age_ms=1784 sel=15 blocked=0 clients=0 stations=1
+[  98.7s] # DBG serve: clients=0 stations=0 gc_free=31952 idf_free=28392 idf_largest=15872 polls=53
+[ 100.7s] # DBG serve: clients=0 stations=0 gc_free=53904 idf_free=28392 idf_largest=15872 polls=86
+[ 101.2s] {"mem": 50928, "up": 140017, "type": "heartbeat"}
+[ 102.7s] # DBG serve: clients=0 stations=0 gc_free=54240 idf_free=28392 idf_largest=15872 polls=87
+[ 104.7s] # DBG serve: clients=0 stations=0 gc_free=51104 idf_free=28052 idf_largest=15872 polls=87
+[ 106.2s] {"mem": 52240, "up": 145040, "type": "heartbeat"}
+[ 106.7s] # DBG serve: clients=0 stations=0 gc_free=51680 idf_free=28392 idf_largest=15872 polls=86
+[ 108.7s] # DBG serve: clients=0 stations=0 gc_free=52048 idf_free=28392 idf_largest=15872 polls=87
+[ 110.8s] # DBG serve: clients=0 stations=0 gc_free=52496 idf_free=28392 idf_largest=15872 polls=87
+[ 111.2s] {"mem": 53472, "up": 150049, "type": "heartbeat"}
+[ 112.8s] # DBG serve: clients=0 stations=0 gc_free=52880 idf_free=28392 idf_largest=15872 polls=87
+[ 114.8s] # DBG serve: clients=0 stations=0 gc_free=53312 idf_free=28392 idf_largest=15872 polls=87
+[ 116.2s] {"mem": 54576, "up": 155080, "type": "heartbeat"}
+[ 116.8s] # DBG serve: clients=0 stations=0 gc_free=53664 idf_free=28392 idf_largest=15872 polls=87
+[ 118.8s] # DBG serve: clients=0 stations=0 gc_free=54224 idf_free=27392 idf_largest=15872 polls=86
+[ 120.5s] # DBG accepted: clients=1 stations=1 gc_free=51136
+[ 120.5s] # DEBUG client state=req sent=0/0 ms_to_deadline=5002
+[ 120.8s] # DBG serve: clients=1 stations=1 gc_free=46432 idf_free=22544 idf_largest=12800 polls=77
+[ 120.8s] # DBG   client state=body sent=512/5113 ms_to_deadline=7955 sel=4 blocked=0
+[ 121.2s] {"mem": 48976, "up": 160120, "type": "heartbeat"}
+[ 122.5s] # DEBUG client state=ack sent=5113/5113 ms_to_deadline=6771
+[ 122.6s] # DBG finish ok=True state=ack sent=5113/5113 age_ms=2105 sel=15 blocked=0 clients=0 stations=1
+[ 123.1s] # DBG serve: clients=0 stations=0 gc_free=31632 idf_free=28180 idf_largest=15872 polls=60
+[ 125.1s] # DBG serve: clients=0 stations=0 gc_free=52720 idf_free=28180 idf_largest=15872 polls=87
+[ 126.3s] {"mem": 52224, "up": 165138, "type": "heartbeat"}
+[ 127.1s] # DBG serve: clients=0 stations=0 gc_free=53280 idf_free=28180 idf_largest=15872 polls=86
+[ 129.1s] # DBG serve: clients=0 stations=0 gc_free=53648 idf_free=28180 idf_largest=15872 polls=87
+[ 131.1s] # DBG serve: clients=0 stations=0 gc_free=54080 idf_free=28180 idf_largest=15872 polls=87
+[ 131.3s] {"mem": 53152, "up": 170159, "type": "heartbeat"}
+[ 133.2s] # DBG serve: clients=0 stations=0 gc_free=50928 idf_free=28180 idf_largest=15872 polls=87
+[ 135.2s] # DBG serve: clients=0 stations=0 gc_free=51376 idf_free=28180 idf_largest=15872 polls=87
+[ 136.3s] {"mem": 51152, "up": 175166, "type": "heartbeat"}
+[ 137.2s] # DBG serve: clients=0 stations=0 gc_free=51888 idf_free=28180 idf_largest=15872 polls=86
+[ 139.2s] # DBG serve: clients=0 stations=0 gc_free=52256 idf_free=28180 idf_largest=15872 polls=87
+[ 141.2s] # DBG serve: clients=0 stations=0 gc_free=52672 idf_free=28180 idf_largest=15872 polls=87
+[ 141.3s] {"mem": 52048, "up": 180187, "type": "heartbeat"}
+[ 143.2s] # DBG serve: clients=0 stations=0 gc_free=53072 idf_free=28180 idf_largest=15872 polls=87
+[ 145.2s] # DBG serve: clients=0 stations=1 gc_free=53216 idf_free=25984 idf_largest=15872 polls=86
+[ 146.1s] # DBG accepted: clients=1 stations=1 gc_free=52000
+[ 146.2s] # DEBUG client state=req sent=0/0 ms_to_deadline=5001
+[ 146.3s] {"mem": 51200, "up": 185198, "type": "heartbeat"}
+[ 147.3s] # DBG serve: clients=1 stations=1 gc_free=45888 idf_free=25472 idf_largest=15872 polls=66
+[ 147.3s] # DBG   client state=ack sent=5113/5113 ms_to_deadline=7685 sel=14 blocked=0
+[ 148.2s] # DEBUG client state=ack sent=5113/5113 ms_to_deadline=6787
+[ 148.5s] # DBG finish ok=True state=ack sent=5113/5113 age_ms=2309 sel=15 blocked=0 clients=0 stations=1
+[ 149.3s] # DBG serve: clients=0 stations=0 gc_free=39232 idf_free=27964 idf_largest=15872 polls=58
+[ 151.3s] # DBG serve: clients=0 stations=0 gc_free=52688 idf_free=27968 idf_largest=15872 polls=87
+[ 151.3s] {"mem": 52368, "up": 190219, "type": "heartbeat"}
+[ 153.3s] # DBG serve: clients=0 stations=0 gc_free=53072 idf_free=27968 idf_largest=15872 polls=87
+[ 155.3s] # DBG serve: clients=0 stations=0 gc_free=53456 idf_free=27968 idf_largest=15872 polls=87
+[ 156.3s] {"mem": 53904, "up": 195221, "type": "heartbeat"}
+[ 157.3s] # DBG serve: clients=0 stations=0 gc_free=53872 idf_free=27968 idf_largest=15872 polls=87
+[ 159.4s] # DBG serve: clients=0 stations=1 gc_free=54032 idf_free=25884 idf_largest=15872 polls=86
+[ 161.4s] # DBG serve: clients=0 stations=1 gc_free=53872 idf_free=25884 idf_largest=15872 polls=86
+[ 161.4s] {"mem": 53824, "up": 200241, "type": "heartbeat"}
+[ 163.4s] # DBG serve: clients=0 stations=1 gc_free=53872 idf_free=25676 idf_largest=15872 polls=85
+[ 165.4s] # DBG serve: clients=0 stations=1 gc_free=54016 idf_free=25676 idf_largest=15872 polls=85
+[ 166.4s] {"mem": 54176, "up": 205243, "type": "heartbeat"}
+[ 167.4s] # DBG serve: clients=0 stations=1 gc_free=53824 idf_free=25676 idf_largest=15872 polls=86
+[ 169.4s] # DBG serve: clients=0 stations=0 gc_free=53920 idf_free=27932 idf_largest=15872 polls=86
+[ 171.4s] {"mem": 54576, "up": 210255, "type": "heartbeat"}
+[ 171.4s] # DBG serve: clients=0 stations=1 gc_free=53888 idf_free=25956 idf_largest=15872 polls=87
+[ 172.3s] # DBG accepted: clients=1 stations=1 gc_free=48976
+[ 172.3s] # DEBUG client state=req sent=0/0 ms_to_deadline=5002
+[ 173.4s] # DBG serve: clients=1 stations=1 gc_free=46208 idf_free=25436 idf_largest=14848 polls=66
+[ 173.4s] # DBG   client state=ack sent=5113/5113 ms_to_deadline=7581 sel=14 blocked=0
+[ 174.3s] # DEBUG client state=ack sent=5113/5113 ms_to_deadline=6708
+[ 174.7s] # DBG finish ok=True state=ack sent=5113/5113 age_ms=2431 sel=15 blocked=0 clients=0 stations=1
+[ 175.5s] # DBG serve: clients=0 stations=0 gc_free=39728 idf_free=27932 idf_largest=15872 polls=58
+[ 176.4s] {"mem": 53648, "up": 215266, "type": "heartbeat"}
+[ 177.5s] # DBG serve: clients=0 stations=0 gc_free=53152 idf_free=27932 idf_largest=15872 polls=87
+[ 179.5s] # DBG serve: clients=0 stations=0 gc_free=53536 idf_free=27932 idf_largest=15872 polls=87
+[ 181.4s] {"mem": 51216, "up": 220267, "type": "heartbeat"}
+[ 181.5s] # DBG serve: clients=0 stations=0 gc_free=53920 idf_free=27932 idf_largest=15872 polls=87
+[ 183.5s] # DBG serve: clients=0 stations=0 gc_free=54432 idf_free=27932 idf_largest=15872 polls=87
+[ 185.5s] # DBG serve: clients=0 stations=0 gc_free=51184 idf_free=27932 idf_largest=15872 polls=87
+[ 186.4s] {"mem": 52416, "up": 225273, "type": "heartbeat"}
+[ 187.5s] # DBG serve: clients=0 stations=0 gc_free=51744 idf_free=27932 idf_largest=15872 polls=86
+[ 189.5s] # DBG serve: clients=0 stations=0 gc_free=52352 idf_free=27932 idf_largest=15872 polls=86
+[ 191.4s] {"mem": 53872, "up": 230275, "type": "heartbeat"}
+[ 191.5s] # DBG serve: clients=0 stations=0 gc_free=52768 idf_free=27932 idf_largest=15872 polls=86
+[ 193.5s] # DBG serve: clients=0 stations=0 gc_free=53296 idf_free=27932 idf_largest=15872 polls=87
+[ 195.5s] # DBG serve: clients=0 stations=0 gc_free=53664 idf_free=27932 idf_largest=15872 polls=87
+[ 196.4s] {"mem": 51536, "up": 235278, "type": "heartbeat"}
+[ 197.5s] # DBG serve: clients=0 stations=1 gc_free=53840 idf_free=25716 idf_largest=15872 polls=86
+[ 198.5s] # DBG accepted: clients=1 stations=1 gc_free=53888
+[ 198.5s] # DEBUG client state=req sent=0/0 ms_to_deadline=5002
+[ 199.5s] # DBG serve: clients=1 stations=1 gc_free=48464 idf_free=24864 idf_largest=15872 polls=66
+[ 199.5s] # DBG   client state=ack sent=5113/5113 ms_to_deadline=7705 sel=14 blocked=0
+[ 200.6s] # DEBUG client state=ack sent=5113/5113 ms_to_deadline=6689
+[ 201.4s] {"mem": 46992, "up": 240295, "type": "heartbeat"}
+[ 201.6s] # DBG serve: clients=1 stations=1 gc_free=53280 idf_free=25204 idf_largest=15872 polls=77
+[ 201.6s] # DBG   client state=ack sent=5113/5113 ms_to_deadline=5685 sel=14 blocked=0
+[ 202.6s] # DEBUG client state=ack sent=5113/5113 ms_to_deadline=4669
+[ 203.4s] # DBG finish ok=True state=ack sent=5113/5113 age_ms=4855 sel=15 blocked=0 clients=0 stations=1
+[ 203.9s] # DBG serve: clients=0 stations=0 gc_free=31648 idf_free=27720 idf_largest=15872 polls=70
+[ 205.9s] # DBG serve: clients=0 stations=0 gc_free=51600 idf_free=27720 idf_largest=15872 polls=87
+[ 206.4s] {"mem": 52112, "up": 245302, "type": "heartbeat"}
+[ 208.0s] # DBG serve: clients=0 stations=0 gc_free=52048 idf_free=27720 idf_largest=15872 polls=87
+[ 210.0s] # DBG serve: clients=0 stations=0 gc_free=52384 idf_free=27720 idf_largest=15872 polls=87
+[ 211.4s] {"mem": 53408, "up": 250306, "type": "heartbeat"}
+[ 212.0s] # DBG serve: clients=0 stations=0 gc_free=52944 idf_free=27720 idf_largest=15872 polls=86
+[ 214.0s] # DBG serve: clients=0 stations=0 gc_free=53360 idf_free=27720 idf_largest=15872 polls=87
+[ 216.0s] # DBG serve: clients=0 stations=0 gc_free=53776 idf_free=27720 idf_largest=15872 polls=87
+[ 216.4s] {"mem": 54608, "up": 255313, "type": "heartbeat"}
+[ 218.0s] # DBG serve: clients=0 stations=0 gc_free=54192 idf_free=27720 idf_largest=15872 polls=87
+[ 220.0s] # DBG serve: clients=0 stations=0 gc_free=51536 idf_free=27932 idf_largest=16384 polls=87
+[ 221.5s] {"mem": 52560, "up": 260334, "type": "heartbeat"}
+[ 222.0s] # DBG serve: clients=0 stations=0 gc_free=51952 idf_free=27932 idf_largest=16384 polls=87
+[ 224.0s] # DBG serve: clients=0 stations=0 gc_free=52304 idf_free=27932 idf_largest=16384 polls=87
+[ 225.9s] # DBG accepted: clients=1 stations=1 gc_free=53184
+[ 225.9s] # DEBUG client state=req sent=0/0 ms_to_deadline=4988
+[ 226.0s] # DBG serve: clients=1 stations=1 gc_free=54384 idf_free=25188 idf_largest=16384 polls=81
+[ 226.0s] # DBG   client state=req sent=0/0 ms_to_deadline=4941 sel=1 blocked=0
+[ 226.5s] {"mem": 48848, "up": 265386, "type": "heartbeat"}
+[ 227.5s] # DBG finish ok=True state=ack sent=5113/5113 age_ms=1655 sel=15 blocked=0 clients=0 stations=1
+[ 228.1s] # DBG serve: clients=0 stations=0 gc_free=27536 idf_free=27720 idf_largest=16384 polls=46
+[ 230.1s] # DBG serve: clients=0 stations=0 gc_free=53056 idf_free=27720 idf_largest=16384 polls=87
+[ 231.5s] {"mem": 54384, "up": 270388, "type": "heartbeat"}
+[ 232.1s] # DBG serve: clients=0 stations=0 gc_free=53472 idf_free=27720 idf_largest=16384 polls=87
+[ 234.1s] # DBG serve: clients=0 stations=0 gc_free=53872 idf_free=27720 idf_largest=16384 polls=87
+[ 236.1s] # DBG serve: clients=0 stations=0 gc_free=54288 idf_free=27720 idf_largest=16384 polls=87
+[ 236.5s] {"mem": 51792, "up": 275389, "type": "heartbeat"}
+[ 238.2s] # DBG serve: clients=0 stations=0 gc_free=54704 idf_free=27720 idf_largest=16384 polls=87
+[ 240.2s] # DBG serve: clients=0 stations=0 gc_free=51584 idf_free=27720 idf_largest=16384 polls=87
+[ 241.5s] {"mem": 53376, "up": 280395, "type": "heartbeat"}
+[ 242.2s] # DBG serve: clients=0 stations=0 gc_free=52096 idf_free=27720 idf_largest=16384 polls=86
+[ 244.2s] # DBG serve: clients=0 stations=0 gc_free=52512 idf_free=27932 idf_largest=16384 polls=87
+[ 246.2s] # DBG serve: clients=0 stations=0 gc_free=52880 idf_free=27932 idf_largest=16384 polls=87
+[ 246.5s] {"mem": 54496, "up": 285409, "type": "heartbeat"}
+[ 248.2s] # DBG serve: clients=0 stations=0 gc_free=53440 idf_free=27932 idf_largest=16384 polls=86
+[ 250.2s] # DBG serve: clients=0 stations=1 gc_free=53712 idf_free=25712 idf_largest=16384 polls=87
+[ 251.4s] # DBG accepted: clients=1 stations=1 gc_free=51344
+[ 251.5s] # DEBUG client state=req sent=0/0 ms_to_deadline=5002
+[ 251.6s] {"mem": 54272, "up": 290460, "type": "heartbeat"}
+[ 252.2s] # DBG serve: clients=1 stations=1 gc_free=45248 idf_free=22072 idf_largest=13312 polls=68
+[ 252.2s] # DBG   client state=body sent=5113/5113 ms_to_deadline=7955 sel=13 blocked=0
+[ 253.2s] # DBG finish ok=True state=ack sent=5113/5113 age_ms=1797 sel=15 blocked=0 clients=0 stations=1
+[ 254.2s] # DBG serve: clients=0 stations=0 gc_free=54560 idf_free=27716 idf_largest=16384 polls=57
+[ 256.3s] # DBG serve: clients=0 stations=0 gc_free=54752 idf_free=27716 idf_largest=16384 polls=88
+[ 256.6s] {"mem": 52560, "up": 295475, "type": "heartbeat"}
+[ 258.3s] # DBG serve: clients=0 stations=0 gc_free=51664 idf_free=27716 idf_largest=16384 polls=86
+[ 260.3s] # DBG serve: clients=0 stations=0 gc_free=52416 idf_free=27716 idf_largest=16384 polls=86
+[ 261.6s] {"mem": 54176, "up": 300487, "type": "heartbeat"}
+[ 262.3s] # DBG serve: clients=0 stations=0 gc_free=52832 idf_free=27716 idf_largest=16384 polls=87
+[ 264.3s] # DBG serve: clients=0 stations=0 gc_free=53200 idf_free=27716 idf_largest=16384 polls=87
+[ 266.3s] # DBG serve: clients=0 stations=0 gc_free=53648 idf_free=27716 idf_largest=16384 polls=87
+[ 266.6s] {"mem": 51616, "up": 305494, "type": "heartbeat"}
+[ 268.3s] # DBG serve: clients=0 stations=0 gc_free=53856 idf_free=27716 idf_largest=16384 polls=87
+[ 270.4s] # DBG serve: clients=0 stations=0 gc_free=54432 idf_free=27928 idf_largest=16384 polls=87
+[ 271.6s] {"mem": 53136, "up": 310498, "type": "heartbeat"}
+[ 272.4s] # DBG serve: clients=0 stations=0 gc_free=54768 idf_free=27928 idf_largest=16384 polls=87
+[ 274.4s] # DBG serve: clients=0 stations=0 gc_free=51696 idf_free=27928 idf_largest=16384 polls=87
+[ 276.4s] # DBG serve: clients=0 stations=1 gc_free=51888 idf_free=25720 idf_largest=16384 polls=86
+[ 276.6s] {"mem": 54096, "up": 315504, "type": "heartbeat"}
+[ 277.8s] # DBG accepted: clients=1 stations=1 gc_free=50544
+[ 277.8s] # DEBUG client state=req sent=0/0 ms_to_deadline=5002
+[ 278.4s] # DBG serve: clients=1 stations=1 gc_free=40432 idf_free=23616 idf_largest=11776 polls=69
+[ 278.4s] # DBG   client state=body sent=4096/5113 ms_to_deadline=7954 sel=11 blocked=0
+[ 279.5s] # DBG finish ok=True state=ack sent=5113/5113 age_ms=1795 sel=15 blocked=0 clients=0 stations=1
+[ 280.7s] # DBG serve: clients=0 stations=0 gc_free=54784 idf_free=27704 idf_largest=16384 polls=43
+[ 281.6s] {"mem": 51952, "up": 320517, "type": "heartbeat"}
+[ 282.7s] # DBG serve: clients=0 stations=0 gc_free=51648 idf_free=27704 idf_largest=16384 polls=87
+[ 284.7s] # DBG serve: clients=0 stations=0 gc_free=51920 idf_free=27704 idf_largest=16384 polls=87
+[ 286.7s] {"mem": 53296, "up": 325529, "type": "heartbeat"}
+[ 286.7s] # DBG serve: clients=0 stations=0 gc_free=52496 idf_free=27704 idf_largest=16384 polls=86
+[ 288.7s] # DBG serve: clients=0 stations=0 gc_free=53056 idf_free=27704 idf_largest=16384 polls=87
+[ 290.7s] # DBG serve: clients=0 stations=0 gc_free=53456 idf_free=27704 idf_largest=16384 polls=87
+[ 291.7s] {"mem": 54336, "up": 330549, "type": "heartbeat"}
+[ 292.7s] # DBG serve: clients=0 stations=0 gc_free=53840 idf_free=27704 idf_largest=16384 polls=87
+[ 294.8s] # DBG serve: clients=0 stations=0 gc_free=54272 idf_free=27704 idf_largest=16384 polls=87
+[ 296.7s] {"mem": 52144, "up": 335560, "type": "heartbeat"}
+[ 296.8s] # DBG serve: clients=0 stations=0 gc_free=54656 idf_free=27916 idf_largest=16384 polls=87
+[ 298.8s] # DBG serve: clients=0 stations=0 gc_free=51536 idf_free=27916 idf_largest=16384 polls=87
+[ 300.8s] # DBG serve: clients=0 stations=0 gc_free=51952 idf_free=27916 idf_largest=16384 polls=87
+[ 301.7s] {"mem": 53328, "up": 340564, "type": "heartbeat"}
+[ 302.8s] # DBG serve: clients=0 stations=1 gc_free=51472 idf_free=25708 idf_largest=16384 polls=87
+[ 303.8s] # DBG accepted: clients=1 stations=1 gc_free=50432
+[ 303.8s] # DEBUG client state=req sent=0/0 ms_to_deadline=5002
+[ 304.9s] # DBG serve: clients=1 stations=1 gc_free=51120 idf_free=25188 idf_largest=16384 polls=67
+[ 304.9s] # DBG   client state=ack sent=5113/5113 ms_to_deadline=7634 sel=14 blocked=0
+[ 305.7s] # DBG finish ok=True state=ack sent=5113/5113 age_ms=1970 sel=15 blocked=0 clients=0 stations=1
+[ 306.7s] {"mem": 53296, "up": 345567, "type": "heartbeat"}
+[ 306.9s] # DBG serve: clients=0 stations=0 gc_free=51712 idf_free=27704 idf_largest=16384 polls=64
+[ 308.9s] # DBG serve: clients=0 stations=0 gc_free=52272 idf_free=27704 idf_largest=16384 polls=87
+[ 310.9s] # DBG serve: clients=0 stations=0 gc_free=52496 idf_free=27704 idf_largest=16384 polls=87
+[ 311.7s] {"mem": 54464, "up": 350578, "type": "heartbeat"}
+[ 312.9s] # DBG serve: clients=0 stations=0 gc_free=53184 idf_free=27704 idf_largest=16384 polls=86
+[ 314.9s] # DBG serve: clients=0 stations=0 gc_free=53616 idf_free=27704 idf_largest=16384 polls=87
+[ 316.7s] {"mem": 52064, "up": 355595, "type": "heartbeat"}
+[ 316.9s] # DBG serve: clients=0 stations=0 gc_free=53984 idf_free=27704 idf_largest=16384 polls=87
+[ 318.9s] # DBG serve: clients=0 stations=0 gc_free=54400 idf_free=27704 idf_largest=16384 polls=87
+[ 320.9s] # DBG serve: clients=0 stations=0 gc_free=54768 idf_free=27704 idf_largest=16384 polls=87
+[ 321.7s] {"mem": 53232, "up": 360610, "type": "heartbeat"}
+[ 323.0s] # DBG serve: clients=0 stations=0 gc_free=51632 idf_free=27704 idf_largest=16384 polls=87
+[ 325.0s] # DBG serve: clients=0 stations=0 gc_free=52080 idf_free=27916 idf_largest=16384 polls=87
+[ 326.7s] {"mem": 54480, "up": 365617, "type": "heartbeat"}
+[ 327.0s] # DBG serve: clients=0 stations=0 gc_free=52448 idf_free=28128 idf_largest=16384 polls=86
+[ 329.0s] # DBG serve: clients=0 stations=1 gc_free=48928 idf_free=24688 idf_largest=12800 polls=86
+[ 330.4s] # DBG accepted: clients=1 stations=1 gc_free=51664
+[ 330.4s] # DEBUG client state=req sent=0/0 ms_to_deadline=5002
+[ 331.0s] # DBG serve: clients=1 stations=1 gc_free=41824 idf_free=23844 idf_largest=11776 polls=71
+[ 331.0s] # DBG   client state=body sent=4096/5113 ms_to_deadline=7955 sel=11 blocked=0
+[ 331.8s] {"mem": 46128, "up": 370631, "type": "heartbeat"}
+[ 332.4s] # DEBUG client state=ack sent=5113/5113 ms_to_deadline=6696
+[ 332.5s] # DBG finish ok=True state=ack sent=5113/5113 age_ms=2164 sel=15 blocked=0 clients=0 stations=1
+[ 333.0s] # DBG serve: clients=0 stations=0 gc_free=32224 idf_free=27916 idf_largest=16384 polls=58
+[ 335.0s] # DBG serve: clients=0 stations=0 gc_free=52272 idf_free=27916 idf_largest=16384 polls=86
+[ 336.8s] {"mem": 54800, "up": 375646, "type": "heartbeat"}
+[ 337.0s] # DBG serve: clients=0 stations=0 gc_free=52608 idf_free=27916 idf_largest=16384 polls=87
+[ 339.0s] # DBG serve: clients=0 stations=0 gc_free=53088 idf_free=27916 idf_largest=16384 polls=87
+[ 341.1s] # DBG serve: clients=0 stations=0 gc_free=53520 idf_free=27916 idf_largest=16384 polls=87
+[ 341.8s] {"mem": 52464, "up": 380653, "type": "heartbeat"}
+[ 343.1s] # DBG serve: clients=0 stations=0 gc_free=53920 idf_free=27576 idf_largest=16384 polls=87
+[ 345.1s] # DBG serve: clients=0 stations=0 gc_free=54304 idf_free=27916 idf_largest=16384 polls=87
+[ 346.8s] {"mem": 53712, "up": 385658, "type": "heartbeat"}
+[ 347.1s] # DBG serve: clients=0 stations=0 gc_free=54736 idf_free=27916 idf_largest=16384 polls=87
+[ 349.1s] # DBG serve: clients=0 stations=0 gc_free=51568 idf_free=28128 idf_largest=16384 polls=87
+[ 351.1s] # DBG serve: clients=0 stations=0 gc_free=52128 idf_free=28128 idf_largest=16384 polls=86
+[ 351.8s] {"mem": 55104, "up": 390661, "type": "heartbeat"}
+[ 353.1s] # DBG serve: clients=0 stations=0 gc_free=52496 idf_free=28128 idf_largest=16384 polls=87
+[ 355.2s] # DBG serve: clients=0 stations=0 gc_free=52928 idf_free=28128 idf_largest=16384 polls=87
+[ 356.8s] {"mem": 52848, "up": 395662, "type": "heartbeat"}
+[ 357.2s] # DBG serve: clients=0 stations=1 gc_free=51552 idf_free=24196 idf_largest=14848 polls=86
+[ 358.7s] # DBG accepted: clients=1 stations=1 gc_free=50928
+[ 358.7s] # DEBUG client state=req sent=0/0 ms_to_deadline=5002
+[ 359.2s] # DBG serve: clients=1 stations=1 gc_free=44496 idf_free=23844 idf_largest=14848 polls=76
+[ 359.2s] # DBG   client state=body sent=2048/5113 ms_to_deadline=7955 sel=7 blocked=0
+[ 360.7s] # DEBUG client state=ack sent=5113/5113 ms_to_deadline=6769
+[ 361.2s] # DBG serve: clients=1 stations=1 gc_free=52288 idf_free=23648 idf_largest=14848 polls=71
+[ 361.2s] # DBG   client state=ack sent=5113/5113 ms_to_deadline=6297 sel=14 blocked=0
+[ 361.2s] # DBG finish ok=True state=ack sent=5113/5113 age_ms=2503 sel=15 blocked=0 clients=0 stations=1
+[ 361.8s] {"mem": 41120, "up": 400685, "type": "heartbeat"}
+[ 363.2s] # DBG serve: clients=0 stations=0 gc_free=54736 idf_free=27916 idf_largest=16384 polls=68
+[ 365.2s] # DBG serve: clients=0 stations=0 gc_free=51616 idf_free=27916 idf_largest=16384 polls=87
+[ 366.8s] {"mem": 55168, "up": 405711, "type": "heartbeat"}
+[ 367.2s] # DBG serve: clients=0 stations=0 gc_free=51872 idf_free=27916 idf_largest=16384 polls=87
+[ 369.3s] # DBG serve: clients=0 stations=0 gc_free=52416 idf_free=27916 idf_largest=16384 polls=87
+[ 371.3s] # DBG serve: clients=0 stations=0 gc_free=52688 idf_free=27916 idf_largest=16384 polls=87
+[ 371.9s] {"mem": 52720, "up": 410730, "type": "heartbeat"}
+[ 373.3s] # DBG serve: clients=0 stations=0 gc_free=53200 idf_free=27916 idf_largest=16384 polls=87
+[ 375.3s] # DBG serve: clients=0 stations=0 gc_free=53680 idf_free=28120 idf_largest=16384 polls=87
+[ 376.9s] {"mem": 54032, "up": 415737, "type": "heartbeat"}
+[ 377.3s] # DBG serve: clients=0 stations=0 gc_free=54192 idf_free=28120 idf_largest=16384 polls=86
+[ 379.3s] # DBG serve: clients=0 stations=0 gc_free=54608 idf_free=28120 idf_largest=16384 polls=87
+[ 381.3s] # DBG serve: clients=0 stations=0 gc_free=51312 idf_free=28120 idf_largest=16384 polls=87
+[ 381.9s] {"mem": 55168, "up": 420746, "type": "heartbeat"}
+[ 383.3s] # DBG serve: clients=0 stations=0 gc_free=51856 idf_free=28120 idf_largest=16384 polls=87
+[ 385.4s] # DBG serve: clients=0 stations=1 gc_free=51248 idf_free=25908 idf_largest=16384 polls=86
+[ 385.6s] # DBG accepted: clients=1 stations=1 gc_free=51856
+[ 385.6s] # DEBUG client state=req sent=0/0 ms_to_deadline=5001
+[ 386.9s] {"mem": 49568, "up": 425750, "type": "heartbeat"}
+[ 387.4s] # DBG serve: clients=1 stations=1 gc_free=46240 idf_free=25388 idf_largest=16384 polls=63
+[ 387.4s] # DBG   client state=ack sent=5113/5113 ms_to_deadline=6945 sel=14 blocked=0
+[ 387.6s] # DEBUG client state=ack sent=5113/5113 ms_to_deadline=6700
+[ 387.7s] # DBG finish ok=True state=ack sent=5113/5113 age_ms=2123 sel=15 blocked=0 clients=0 stations=1
+[ 389.4s] # DBG serve: clients=0 stations=0 gc_free=52112 idf_free=27908 idf_largest=16384 polls=64
+[ 391.4s] # DBG serve: clients=0 stations=0 gc_free=52560 idf_free=27908 idf_largest=16384 polls=87
+[ 391.9s] {"mem": 52896, "up": 430771, "type": "heartbeat"}
+[ 393.4s] # DBG serve: clients=0 stations=0 gc_free=53040 idf_free=27908 idf_largest=16384 polls=86
+[ 395.4s] # DBG serve: clients=0 stations=0 gc_free=53504 idf_free=27908 idf_largest=16384 polls=87
+[ 396.9s] {"mem": 54176, "up": 435785, "type": "heartbeat"}
+[ 397.4s] # DBG serve: clients=0 stations=0 gc_free=54032 idf_free=27908 idf_largest=16384 polls=86
+[ 399.4s] # DBG serve: clients=0 stations=0 gc_free=54448 idf_free=27908 idf_largest=16384 polls=87
+[ 401.4s] # DBG serve: clients=0 stations=0 gc_free=54944 idf_free=28144 idf_largest=16384 polls=87
+[ 401.9s] {"mem": 51648, "up": 440802, "type": "heartbeat"}
+[ 403.4s] # DBG serve: clients=0 stations=0 gc_free=51856 idf_free=28144 idf_largest=16384 polls=86
+[ 405.4s] # DBG serve: clients=0 stations=0 gc_free=52416 idf_free=28144 idf_largest=16384 polls=86
+[ 406.9s] {"mem": 53232, "up": 445805, "type": "heartbeat"}
+[ 407.5s] # DBG serve: clients=0 stations=0 gc_free=52832 idf_free=27804 idf_largest=16384 polls=87
+[ 409.3s] # DBG accepted: clients=1 stations=1 gc_free=52464
+[ 409.3s] # DEBUG client state=req sent=0/0 ms_to_deadline=5002
+[ 409.5s] # DBG serve: clients=1 stations=1 gc_free=49888 idf_free=25440 idf_largest=16384 polls=80
+[ 409.5s] # DBG   client state=body sent=0/5113 ms_to_deadline=7947 sel=3 blocked=0
+[ 411.3s] # DEBUG client state=ack sent=5113/5113 ms_to_deadline=6714
+[ 411.5s] # DBG serve: clients=1 stations=1 gc_free=44240 idf_free=25440 idf_largest=16384 polls=68
+[ 411.5s] # DBG   client state=ack sent=5113/5113 ms_to_deadline=6482 sel=14 blocked=0
+[ 411.6s] # DBG finish ok=True state=ack sent=5113/5113 age_ms=2313 sel=15 blocked=0 clients=0 stations=1
+[ 412.1s] {"mem": 42144, "up": 450938, "type": "heartbeat"}
+[ 413.5s] # DBG serve: clients=0 stations=0 gc_free=50768 idf_free=27732 idf_largest=16384 polls=65
+[ 415.5s] # DBG serve: clients=0 stations=0 gc_free=51856 idf_free=27920 idf_largest=16384 polls=87
+[ 417.1s] {"mem": 52288, "up": 455958, "type": "heartbeat"}
+[ 417.5s] # DBG serve: clients=0 stations=0 gc_free=52304 idf_free=27920 idf_largest=16384 polls=87
+[ 419.6s] # DBG serve: clients=0 stations=0 gc_free=52704 idf_free=27920 idf_largest=16384 polls=87
+[ 421.6s] # DBG serve: clients=0 stations=0 gc_free=53136 idf_free=27920 idf_largest=16384 polls=87
+[ 422.1s] {"mem": 53344, "up": 460976, "type": "heartbeat"}
+[ 423.6s] # DBG serve: clients=0 stations=0 gc_free=53376 idf_free=27920 idf_largest=16384 polls=87
+[ 425.6s] # DBG serve: clients=0 stations=0 gc_free=53952 idf_free=27920 idf_largest=16384 polls=87
+[ 427.1s] {"mem": 54624, "up": 465979, "type": "heartbeat"}
+[ 427.6s] # DBG serve: clients=0 stations=0 gc_free=54336 idf_free=27920 idf_largest=16384 polls=87
+[ 429.6s] # DBG serve: clients=0 stations=0 gc_free=54736 idf_free=27920 idf_largest=16384 polls=87
+[ 431.6s] # DBG serve: clients=0 stations=0 gc_free=51616 idf_free=27920 idf_largest=16384 polls=87
+[ 432.1s] {"mem": 52128, "up": 470999, "type": "heartbeat"}
+[ 433.6s] # DBG serve: clients=0 stations=1 gc_free=51072 idf_free=25708 idf_largest=16384 polls=86
+[ 434.3s] # DBG accepted: clients=1 stations=1 gc_free=53904
+[ 434.4s] # DEBUG client state=req sent=0/0 ms_to_deadline=5002
+[ 435.6s] # DBG finish ok=True state=ack sent=5113/5113 age_ms=1270 sel=15 blocked=0 clients=0 stations=1
+[ 436.1s] # DBG serve: clients=0 stations=0 gc_free=32560 idf_free=27708 idf_largest=16384 polls=62
+[ 437.1s] {"mem": 55120, "up": 476002, "type": "heartbeat"}
+[ 438.1s] # DBG serve: clients=0 stations=0 gc_free=51504 idf_free=27708 idf_largest=16384 polls=87
+[ 440.1s] # DBG serve: clients=0 stations=0 gc_free=51968 idf_free=27708 idf_largest=16384 polls=87
+[ 442.1s] # DBG serve: clients=0 stations=0 gc_free=52384 idf_free=27708 idf_largest=16384 polls=87
+[ 442.1s] {"mem": 52384, "up": 481020, "type": "heartbeat"}
+[ 444.2s] # DBG serve: clients=0 stations=0 gc_free=52736 idf_free=27708 idf_largest=16384 polls=87
+[ 446.2s] # DBG serve: clients=0 stations=0 gc_free=53152 idf_free=27708 idf_largest=16384 polls=87
+[ 447.1s] {"mem": 53888, "up": 486029, "type": "heartbeat"}
+[ 448.2s] # DBG serve: clients=0 stations=0 gc_free=53536 idf_free=27708 idf_largest=16384 polls=87
+[ 450.2s] # DBG serve: clients=0 stations=0 gc_free=54144 idf_free=27708 idf_largest=16384 polls=86
+[ 452.2s] {"mem": 51696, "up": 491033, "type": "heartbeat"}
+[ 452.2s] # DBG serve: clients=0 stations=0 gc_free=54432 idf_free=27708 idf_largest=16384 polls=87
+[ 454.2s] # DBG serve: clients=0 stations=0 gc_free=51440 idf_free=27920 idf_largest=16384 polls=87
+[ 456.2s] # DBG serve: clients=0 stations=0 gc_free=51808 idf_free=27920 idf_largest=16384 polls=87
+[ 457.2s] {"mem": 52016, "up": 496051, "type": "heartbeat"}
+[ 457.7s] # DBG accepted: clients=1 stations=1 gc_free=51584
+[ 457.7s] # DEBUG client state=req sent=0/0 ms_to_deadline=4988
+[ 458.2s] # DBG serve: clients=1 stations=1 gc_free=47040 idf_free=22076 idf_largest=11264 polls=72
+[ 458.2s] # DBG   client state=body sent=2048/5113 ms_to_deadline=7955 sel=7 blocked=0
+[ 459.3s] # DBG finish ok=True state=ack sent=5113/5113 age_ms=1667 sel=15 blocked=0 clients=0 stations=1
+[ 460.2s] # DBG serve: clients=0 stations=0 gc_free=51264 idf_free=27708 idf_largest=14848 polls=53
+[ 462.2s] {"mem": 52672, "up": 501055, "type": "heartbeat"}
+[ 462.2s] # DBG serve: clients=0 stations=0 gc_free=51712 idf_free=27708 idf_largest=14848 polls=86
+[ 464.3s] # DBG serve: clients=0 stations=0 gc_free=52272 idf_free=27708 idf_largest=14848 polls=87
+[ 466.3s] # DBG serve: clients=0 stations=0 gc_free=52688 idf_free=27708 idf_largest=14848 polls=87
+[ 467.2s] {"mem": 50384, "up": 506056, "type": "heartbeat"}
+[ 468.3s] # DBG serve: clients=0 stations=0 gc_free=53056 idf_free=27708 idf_largest=14848 polls=87
+[ 470.3s] # DBG serve: clients=0 stations=0 gc_free=49936 idf_free=27708 idf_largest=14848 polls=87
+[ 472.2s] {"mem": 51520, "up": 511075, "type": "heartbeat"}
+[ 472.3s] # DBG serve: clients=0 stations=0 gc_free=50256 idf_free=27708 idf_largest=14848 polls=87
+[ 474.3s] # DBG serve: clients=0 stations=0 gc_free=50720 idf_free=27708 idf_largest=14848 polls=87
+[ 476.3s] # DBG serve: clients=0 stations=0 gc_free=51120 idf_free=27708 idf_largest=14848 polls=87
+[ 477.2s] {"mem": 52480, "up": 516088, "type": "heartbeat"}
+[ 478.3s] # DBG serve: clients=0 stations=0 gc_free=51504 idf_free=27708 idf_largest=14848 polls=87
+[ 480.3s] # DBG serve: clients=0 stations=1 gc_free=51680 idf_free=25508 idf_largest=14848 polls=86
+[ 481.4s] # DBG accepted: clients=1 stations=1 gc_free=48752
+[ 481.5s] # DEBUG client state=req sent=0/0 ms_to_deadline=5110
+[ 482.2s] {"mem": 50464, "up": 521107, "type": "heartbeat"}
+[ 482.4s] # DBG serve: clients=1 stations=1 gc_free=47040 idf_free=25216 idf_largest=16384 polls=66
+[ 482.4s] # DBG   client state=ack sent=5113/5113 ms_to_deadline=7817 sel=14 blocked=0
+[ 483.1s] # DBG finish ok=True state=ack sent=5113/5113 age_ms=1720 sel=15 blocked=0 clients=0 stations=1
+[ 484.4s] # DBG serve: clients=0 stations=0 gc_free=49872 idf_free=27708 idf_largest=14848 polls=59
+[ 486.4s] # DBG serve: clients=0 stations=0 gc_free=50272 idf_free=26348 idf_largest=14848 polls=87
+[ 487.2s] {"mem": 51840, "up": 526113, "type": "heartbeat"}
+[ 488.4s] # DBG serve: clients=0 stations=0 gc_free=50544 idf_free=27708 idf_largest=14848 polls=87
+[ 490.4s] # DBG serve: clients=0 stations=0 gc_free=51136 idf_free=27708 idf_largest=14848 polls=87
+[ 492.2s] {"mem": 53136, "up": 531124, "type": "heartbeat"}
+[ 492.4s] # DBG serve: clients=0 stations=0 gc_free=51408 idf_free=27708 idf_largest=14848 polls=87
+[ 494.4s] # DBG serve: clients=0 stations=0 gc_free=51952 idf_free=27708 idf_largest=14848 polls=87
+[ 496.5s] # DBG serve: clients=0 stations=0 gc_free=52368 idf_free=27708 idf_largest=14848 polls=87
+[ 497.2s] {"mem": 50800, "up": 536125, "type": "heartbeat"}
+[ 498.5s] # DBG serve: clients=0 stations=0 gc_free=52736 idf_free=27708 idf_largest=14848 polls=87
+[ 500.5s] # DBG serve: clients=0 stations=0 gc_free=53152 idf_free=27708 idf_largest=14848 polls=87
+[ 502.3s] {"mem": 51936, "up": 541144, "type": "heartbeat"}
+[ 502.5s] # DBG serve: clients=0 stations=0 gc_free=49904 idf_free=27708 idf_largest=14848 polls=87
+[ 504.5s] # DBG serve: clients=0 stations=1 gc_free=49424 idf_free=25516 idf_largest=14848 polls=87
+[ 505.6s] # DBG accepted: clients=1 stations=1 gc_free=51040
+[ 505.6s] # DEBUG client state=req sent=0/0 ms_to_deadline=5001
+[ 506.5s] # DBG serve: clients=1 stations=1 gc_free=52384 idf_free=24984 idf_largest=16384 polls=65
+[ 506.5s] # DBG   client state=ack sent=5113/5113 ms_to_deadline=7812 sel=14 blocked=0
+[ 507.3s] {"mem": 51136, "up": 546167, "type": "heartbeat"}
+[ 507.4s] # DBG finish ok=True state=ack sent=5113/5113 age_ms=1806 sel=15 blocked=0 clients=0 stations=1
+[ 508.5s] # DBG serve: clients=0 stations=0 gc_free=51184 idf_free=27708 idf_largest=14848 polls=58
+[ 510.5s] # DBG serve: clients=0 stations=0 gc_free=51600 idf_free=27704 idf_largest=14848 polls=87
+[ 512.3s] {"mem": 50592, "up": 551178, "type": "heartbeat"}
+[ 512.6s] # DBG serve: clients=0 stations=0 gc_free=51840 idf_free=27704 idf_largest=14848 polls=87
+[ 514.6s] # DBG serve: clients=0 stations=0 gc_free=52432 idf_free=27704 idf_largest=14848 polls=87
+[ 516.6s] # DBG serve: clients=0 stations=0 gc_free=52848 idf_free=27704 idf_largest=14848 polls=87
+[ 517.3s] {"mem": 51776, "up": 556190, "type": "heartbeat"}
+[ 518.6s] # DBG serve: clients=0 stations=0 gc_free=53200 idf_free=27704 idf_largest=14848 polls=87
+[ 520.6s] # DBG serve: clients=0 stations=0 gc_free=49920 idf_free=27704 idf_largest=14848 polls=88
+[ 522.3s] {"mem": 52880, "up": 561206, "type": "heartbeat"}
+[ 522.6s] # DBG serve: clients=0 stations=0 gc_free=50032 idf_free=27704 idf_largest=14848 polls=87
+[ 524.7s] # DBG serve: clients=0 stations=0 gc_free=50768 idf_free=27704 idf_largest=14848 polls=87
+[ 526.7s] # DBG serve: clients=0 stations=0 gc_free=51168 idf_free=27704 idf_largest=14848 polls=87
+[ 527.3s] {"mem": 50592, "up": 566216, "type": "heartbeat"}
+[ 528.7s] # DBG serve: clients=0 stations=0 gc_free=51536 idf_free=27704 idf_largest=14848 polls=87
+[ 530.7s] # DBG serve: clients=0 stations=0 gc_free=51984 idf_free=27704 idf_largest=14848 polls=87
+[ 532.4s] {"mem": 51728, "up": 571237, "type": "heartbeat"}
+[ 532.7s] # DBG serve: clients=0 stations=0 gc_free=52528 idf_free=27916 idf_largest=14848 polls=86
+[ 534.7s] # DBG serve: clients=0 stations=0 gc_free=52944 idf_free=27916 idf_largest=14848 polls=87
+[ 536.7s] # DBG serve: clients=0 stations=0 gc_free=53440 idf_free=27916 idf_largest=14848 polls=87
+[ 537.4s] {"mem": 52976, "up": 576256, "type": "heartbeat"}
+[ 538.7s] # DBG serve: clients=0 stations=0 gc_free=50400 idf_free=27916 idf_largest=14848 polls=86
+[ 540.7s] # DBG serve: clients=0 stations=0 gc_free=50960 idf_free=27916 idf_largest=14848 polls=86
+[ 542.4s] {"mem": 50688, "up": 581260, "type": "heartbeat"}
+[ 542.8s] # DBG serve: clients=0 stations=0 gc_free=51376 idf_free=27916 idf_largest=14848 polls=87
+[ 544.8s] # DBG serve: clients=0 stations=0 gc_free=51792 idf_free=27916 idf_largest=14848 polls=87
+[ 546.8s] # DBG serve: clients=0 stations=0 gc_free=52160 idf_free=27916 idf_largest=14848 polls=87
+[ 547.4s] {"mem": 51872, "up": 586263, "type": "heartbeat"}
+[ 548.8s] # DBG serve: clients=0 stations=0 gc_free=52528 idf_free=27916 idf_largest=14848 polls=87
+[ 550.8s] # DBG serve: clients=0 stations=0 gc_free=52944 idf_free=27916 idf_largest=14848 polls=87
+[ 552.4s] {"mem": 53152, "up": 591265, "type": "heartbeat"}
+[ 552.8s] # DBG serve: clients=0 stations=0 gc_free=53264 idf_free=27916 idf_largest=14848 polls=87
+[ 554.8s] # DBG serve: clients=0 stations=0 gc_free=50240 idf_free=27916 idf_largest=14848 polls=87
+[ 556.9s] # DBG serve: clients=0 stations=0 gc_free=50656 idf_free=28128 idf_largest=14848 polls=87
+[ 557.4s] {"mem": 50848, "up": 596272, "type": "heartbeat"}
+[ 558.9s] # DBG serve: clients=0 stations=0 gc_free=51072 idf_free=28128 idf_largest=14848 polls=87
+[ 560.9s] # DBG serve: clients=0 stations=0 gc_free=51488 idf_free=28128 idf_largest=14848 polls=87
+[ 562.4s] {"mem": 52032, "up": 601287, "type": "heartbeat"}
+[ 562.9s] # DBG serve: clients=0 stations=0 gc_free=51856 idf_free=28128 idf_largest=14848 polls=87
+[ 564.9s] # DBG serve: clients=0 stations=0 gc_free=52304 idf_free=28128 idf_largest=14848 polls=87
+[ 566.9s] # DBG serve: clients=0 stations=0 gc_free=52736 idf_free=28128 idf_largest=14848 polls=87
+[ 567.4s] {"mem": 53248, "up": 606301, "type": "heartbeat"}
+[ 568.9s] # DBG serve: clients=0 stations=0 gc_free=53104 idf_free=28128 idf_largest=14848 polls=87
+[ 571.0s] # DBG serve: clients=0 stations=0 gc_free=49984 idf_free=28128 idf_largest=14848 polls=87
+[ 572.4s] {"mem": 50800, "up": 611317, "type": "heartbeat"}
+[ 573.0s] # DBG serve: clients=0 stations=0 gc_free=50352 idf_free=28128 idf_largest=14848 polls=87
+[ 575.0s] # DBG serve: clients=0 stations=0 gc_free=50752 idf_free=28128 idf_largest=14848 polls=87
+[ 577.0s] # DBG serve: clients=0 stations=0 gc_free=51360 idf_free=28128 idf_largest=14848 polls=86
+[ 577.5s] {"mem": 52032, "up": 616339, "type": "heartbeat"}
+[ 579.0s] # DBG serve: clients=0 stations=0 gc_free=51696 idf_free=28128 idf_largest=14848 polls=87
+[ 581.0s] # DBG serve: clients=0 stations=0 gc_free=52160 idf_free=28340 idf_largest=14848 polls=87
+[ 582.5s] {"mem": 53136, "up": 621359, "type": "heartbeat"}
+[ 583.0s] # DBG serve: clients=0 stations=0 gc_free=52528 idf_free=28340 idf_largest=14848 polls=87
+[ 585.1s] # DBG serve: clients=0 stations=0 gc_free=52944 idf_free=28340 idf_largest=14848 polls=87
+[ 587.1s] # DBG serve: clients=0 stations=0 gc_free=53232 idf_free=28340 idf_largest=14848 polls=88
+[ 587.5s] {"mem": 50416, "up": 626375, "type": "heartbeat"}
+[ 589.1s] # DBG serve: clients=0 stations=0 gc_free=50032 idf_free=28340 idf_largest=14848 polls=87
+[ 591.1s] # DBG serve: clients=0 stations=0 gc_free=50448 idf_free=28340 idf_largest=14848 polls=87
+[ 592.5s] {"mem": 51904, "up": 631378, "type": "heartbeat"}
+[ 593.1s] # DBG serve: clients=0 stations=0 gc_free=50816 idf_free=28340 idf_largest=14848 polls=87
+[ 595.1s] # DBG serve: clients=0 stations=0 gc_free=51216 idf_free=28340 idf_largest=14848 polls=87
+[ 597.2s] # DBG serve: clients=0 stations=0 gc_free=51680 idf_free=28340 idf_largest=14848 polls=87
+[ 597.5s] {"mem": 53088, "up": 636396, "type": "heartbeat"}
+[ 599.2s] # DBG serve: clients=0 stations=0 gc_free=52016 idf_free=28340 idf_largest=14848 polls=87
+[ 601.2s] # DBG serve: clients=0 stations=0 gc_free=52480 idf_free=28340 idf_largest=14848 polls=87
+[ 602.5s] {"mem": 50848, "up": 641399, "type": "heartbeat"}
+[ 603.2s] # DBG serve: clients=0 stations=0 gc_free=52992 idf_free=28340 idf_largest=14848 polls=86
+[ 605.2s] # DBG serve: clients=0 stations=0 gc_free=49872 idf_free=28552 idf_largest=14848 polls=87
+[ 607.2s] # DBG serve: clients=0 stations=0 gc_free=50304 idf_free=28552 idf_largest=14848 polls=87
+[ 607.5s] {"mem": 52048, "up": 646417, "type": "heartbeat"}
+[ 609.2s] # DBG serve: clients=0 stations=0 gc_free=50704 idf_free=28552 idf_largest=14848 polls=87
+[ 611.2s] # DBG serve: clients=0 stations=0 gc_free=51120 idf_free=28552 idf_largest=14848 polls=87
+[ 612.5s] {"mem": 53248, "up": 651419, "type": "heartbeat"}
+[ 613.2s] # DBG serve: clients=0 stations=0 gc_free=51504 idf_free=28552 idf_largest=14848 polls=87
+[ 615.3s] # DBG serve: clients=0 stations=0 gc_free=51952 idf_free=28552 idf_largest=14848 polls=87
+[ 617.3s] # DBG serve: clients=0 stations=0 gc_free=52368 idf_free=28552 idf_largest=14848 polls=87
+[ 617.5s] {"mem": 50496, "up": 656429, "type": "heartbeat"}
+[ 619.3s] # DBG serve: clients=0 stations=0 gc_free=52768 idf_free=28552 idf_largest=14848 polls=87
+[ 621.3s] # DBG serve: clients=0 stations=0 gc_free=53200 idf_free=28552 idf_largest=14848 polls=87
+[ 622.6s] {"mem": 52064, "up": 661442, "type": "heartbeat"}
+[ 623.3s] # DBG serve: clients=0 stations=0 gc_free=50032 idf_free=28552 idf_largest=14848 polls=87
+[ 625.3s] # DBG serve: clients=0 stations=0 gc_free=50448 idf_free=28552 idf_largest=14848 polls=87
+[ 627.3s] # DBG serve: clients=0 stations=0 gc_free=50896 idf_free=28552 idf_largest=14848 polls=87
+[ 627.6s] {"mem": 53280, "up": 666446, "type": "heartbeat"}
+[ 629.3s] # DBG serve: clients=0 stations=0 gc_free=51376 idf_free=28796 idf_largest=14848 polls=86
+[ 631.4s] # DBG serve: clients=0 stations=0 gc_free=51856 idf_free=28796 idf_largest=14848 polls=87
+[ 632.6s] {"mem": 51056, "up": 671448, "type": "heartbeat"}
+[ 633.4s] # DBG serve: clients=0 stations=0 gc_free=52368 idf_free=28796 idf_largest=14848 polls=86
+[ 635.4s] # DBG serve: clients=0 stations=0 gc_free=52784 idf_free=28796 idf_largest=14848 polls=87
+[ 637.4s] # DBG serve: clients=0 stations=0 gc_free=53232 idf_free=28796 idf_largest=14848 polls=87
+[ 637.6s] {"mem": 51984, "up": 676450, "type": "heartbeat"}
+[ 639.4s] # DBG serve: clients=0 stations=0 gc_free=50064 idf_free=28796 idf_largest=14848 polls=87
+[ 641.4s] # DBG serve: clients=0 stations=0 gc_free=50496 idf_free=28796 idf_largest=14848 polls=87
+[ 642.6s] {"mem": 53344, "up": 681467, "type": "heartbeat"}
+[ 643.4s] # DBG serve: clients=0 stations=0 gc_free=50864 idf_free=28796 idf_largest=14848 polls=87
+[ 645.4s] # DBG serve: clients=0 stations=0 gc_free=51264 idf_free=28796 idf_largest=14848 polls=87
+[ 647.4s] # DBG serve: clients=0 stations=0 gc_free=51696 idf_free=28796 idf_largest=14848 polls=87
+[ 647.6s] {"mem": 50608, "up": 686483, "type": "heartbeat"}
+[ 649.5s] # DBG serve: clients=0 stations=0 gc_free=52112 idf_free=28796 idf_largest=14848 polls=87
+[ 651.5s] # DBG serve: clients=0 stations=0 gc_free=52528 idf_free=28796 idf_largest=14848 polls=87
+[ 652.6s] {"mem": 52176, "up": 691494, "type": "heartbeat"}
+[ 653.5s] # DBG serve: clients=0 stations=0 gc_free=52928 idf_free=28796 idf_largest=14848 polls=87
+[ 655.5s] # DBG serve: clients=0 stations=0 gc_free=53440 idf_free=28796 idf_largest=14848 polls=87
+[ 657.5s] # DBG serve: clients=0 stations=0 gc_free=50272 idf_free=28796 idf_largest=14848 polls=87
+[ 657.6s] {"mem": 53440, "up": 696501, "type": "heartbeat"}
+[ 659.5s] # DBG serve: clients=0 stations=0 gc_free=50608 idf_free=28796 idf_largest=14848 polls=87
+[ 661.5s] # DBG serve: clients=0 stations=0 gc_free=51072 idf_free=28796 idf_largest=14848 polls=87
+[ 662.6s] {"mem": 51056, "up": 701514, "type": "heartbeat"}
+[ 663.6s] # DBG serve: clients=0 stations=0 gc_free=51440 idf_free=28796 idf_largest=14848 polls=87
+[ 665.6s] # DBG serve: clients=0 stations=0 gc_free=51840 idf_free=28796 idf_largest=14848 polls=87
+[ 667.6s] # DBG serve: clients=0 stations=0 gc_free=52320 idf_free=28796 idf_largest=14848 polls=87
+[ 667.6s] {"mem": 52016, "up": 706529, "type": "heartbeat"}
+[ 669.6s] # DBG serve: clients=0 stations=0 gc_free=52736 idf_free=28796 idf_largest=14848 polls=87
+[ 671.6s] # DBG serve: clients=0 stations=0 gc_free=53136 idf_free=28796 idf_largest=14848 polls=87
+[ 672.7s] {"mem": 53600, "up": 711541, "type": "heartbeat"}
+[ 673.6s] # DBG serve: clients=0 stations=0 gc_free=49984 idf_free=28796 idf_largest=14848 polls=87
+[ 675.7s] # DBG serve: clients=0 stations=0 gc_free=50432 idf_free=28796 idf_largest=14848 polls=87
+[ 677.7s] {"mem": 51376, "up": 716545, "type": "heartbeat"}
+[ 677.7s] # DBG serve: clients=0 stations=0 gc_free=50736 idf_free=28796 idf_largest=14848 polls=87
+[ 679.7s] # DBG serve: clients=0 stations=0 gc_free=51232 idf_free=28796 idf_largest=14848 polls=87

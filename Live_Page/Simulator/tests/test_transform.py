@@ -414,16 +414,47 @@ def busy():
 def noop():
     return None
 """
-    import transform as T
-    old = T._TIMEOUT_S
-    old_every = T._YIELD_EVERY
-    T._TIMEOUT_S = 0.05
-    T._YIELD_EVERY = 8
+    ns = _run(src)
+    # Patch the module _aw actually reads. The runtime fixture deletes and
+    # re-imports `transform`, so `import transform` here can return a newer
+    # module than the one this file imported at collection; patching that
+    # left _aw on the 2s default, and any >=1ms hiccup in that window reset
+    # the busy timer, so the loop ran to completion without raising.
+    T = ns["_aw"].__globals__
+    old = T["_TIMEOUT_S"]
+    old_every = T["_YIELD_EVERY"]
+    T["_TIMEOUT_S"] = 0.05
+    T["_YIELD_EVERY"] = 8
     try:
-        ns = _run(src)
         reset_watchdog()
         with pytest.raises(SimTimeout):
             _run_async(ns["busy"]())
     finally:
-        T._TIMEOUT_S = old
-        T._YIELD_EVERY = old_every
+        T["_TIMEOUT_S"] = old
+        T["_YIELD_EVERY"] = old_every
+
+
+# ---------------------------------------------------------------------------
+# 16. Helpers called at import time stay sync
+# ---------------------------------------------------------------------------
+
+def test_import_time_helper_stays_sync():
+    """color_quest.py builds LED index lists at module level with a tiny
+    helper; asyncifying it filled those lists with coroutines."""
+    src = """
+def rc(row, col): return row * 5 + col
+TOP = [rc(0, c) for c in range(5)]
+
+def later(row):
+    return rc(row, 0)
+
+def sleeper():
+    time.sleep_ms(1)
+X = 1
+"""
+    ns = _run(src, extra={"time": None})
+    assert ns["TOP"] == [0, 1, 2, 3, 4]
+    assert not asyncio.iscoroutinefunction(ns["rc"])
+    assert asyncio.iscoroutinefunction(ns["later"])
+    assert asyncio.iscoroutinefunction(ns["sleeper"])
+    assert _run_async(ns["later"](2)) == 10

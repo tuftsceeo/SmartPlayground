@@ -1,0 +1,32 @@
+[   0.0s] # monitor: port opened
+[   0.1s] # DBG serve: clients=0 stations=0 gc_free=57520 idf_free=29228 idf_largest=20480 polls=87
+[   0.8s] # serve_guard: WARNING idf_free=29228 idf_largest=20480 below floor 33000 after 2 reboots -- serving anyway
+[   0.8s] {"mem": 59472, "up": 19151, "type": "heartbeat"}
+[   2.1s] # DBG serve: clients=0 stations=0 gc_free=57840 idf_free=29228 idf_largest=20480 polls=87
+[   4.1s] # DBG serve: clients=0 stations=0 gc_free=58256 idf_free=29228 idf_largest=20480 polls=87
+[   5.8s] # serve_guard: WARNING idf_free=29228 idf_largest=20480 below floor 33000 after 2 reboots -- serving anyway
+[   5.8s] {"mem": 57024, "up": 24159, "type": "heartbeat"}
+[   6.1s] # DBG serve: clients=0 stations=0 gc_free=58608 idf_free=29228 idf_largest=20480 polls=87
+[   8.1s] # DBG serve: clients=0 stations=0 gc_free=59040 idf_free=29228 idf_largest=20480 polls=87
+[  10.1s] # DBG serve: clients=0 stations=0 gc_free=59392 idf_free=29228 idf_largest=20480 polls=87
+[  10.8s] # serve_guard: WARNING idf_free=29228 idf_largest=20480 below floor 33000 after 2 reboots -- serving anyway
+[  10.8s] {"mem": 58160, "up": 29168, "type": "heartbeat"}
+[  12.2s] # DBG serve: clients=0 stations=0 gc_free=56272 idf_free=29228 idf_largest=20480 polls=87
+[  14.2s] # DBG serve: clients=0 stations=0 gc_free=56704 idf_free=29228 idf_largest=20480 polls=87
+[  15.9s] # serve_guard: WARNING idf_free=29228 idf_largest=20480 below floor 33000 after 2 reboots -- serving anyway
+[  15.9s] {"mem": 59312, "up": 34187, "type": "heartbeat"}
+[  16.2s] # DBG serve: clients=0 stations=0 gc_free=56640 idf_free=29228 idf_largest=20480 polls=87
+[  18.2s] # DBG serve: clients=0 stations=0 gc_free=57472 idf_free=29228 idf_largest=20480 polls=87
+[  20.2s] # DBG serve: clients=0 stations=0 gc_free=57888 idf_free=29228 idf_largest=20480 polls=87
+[  20.9s] # serve_guard: WARNING idf_free=29228 idf_largest=20480 below floor 33000 after 2 reboots -- serving anyway
+[  20.9s] {"mem": 56816, "up": 39196, "type": "heartbeat"}
+[  22.2s] # DBG serve: clients=0 stations=0 gc_free=58256 idf_free=29228 idf_largest=20480 polls=87
+[  24.2s] # DBG serve: clients=0 stations=0 gc_free=58624 idf_free=29228 idf_largest=20480 polls=87
+[  25.9s] # serve_guard: WARNING idf_free=29228 idf_largest=20480 below floor 33000 after 2 reboots -- serving anyway
+[  25.9s] {"mem": 57920, "up": 44214, "type": "heartbeat"}
+[  26.2s] # DBG serve: clients=0 stations=0 gc_free=59040 idf_free=29228 idf_largest=20480 polls=87
+[  28.2s] # DBG serve: clients=0 stations=0 gc_free=59392 idf_free=29228 idf_largest=20480 polls=87
+[  30.3s] # DBG serve: clients=0 stations=0 gc_free=56288 idf_free=29228 idf_largest=20480 polls=87
+[  30.9s] # serve_guard: WARNING idf_free=29228 idf_largest=20480 below floor 33000 after 2 reboots -- serving anyway
+[  30.9s] {"mem": 59088, "up": 49217, "type": "heartbeat"}
+[  32.3s] # DBG serve: clients=0 stations=0 gc_free=56640 idf_free=29228 idf_largest=20480 polls=87

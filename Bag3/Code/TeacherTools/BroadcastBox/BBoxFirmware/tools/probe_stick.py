@@ -1,0 +1,235 @@
+"""
+probe_stick.py — Phase 0 bench checks for M5Stack StickS3 (UIFlow2).
+
+Bench tool, not firmware -- not part of BOX_FILES / manifest.js. Lives in
+tools/ alongside this firmware's other test-only utilities; run the
+commands below from BBoxFirmware/, not from inside tools/.
+
+Deploy to /flash and run:
+  mpremote connect /dev/cu.usbmodem3101 fs cp tools/probe_stick.py :/flash/probe_stick.py
+  mpremote connect /dev/cu.usbmodem3101 exec "import probe_stick; probe_stick.run()"
+"""
+
+import time
+
+RESULTS = []
+
+
+def _result(key, value, ok=True):
+    line = "RESULT %s=%s ok=%s" % (key, value, "1" if ok else "0")
+    print(line)
+    RESULTS.append((key, value, ok))
+
+
+def _check_ap_socket():
+    import network
+    import socket
+    ok = True
+    ap = network.WLAN(network.AP_IF)
+    try:
+        ap.active(True)
+        try:
+            ap.config(essid='SP-PROBE', password='playground1', authmode=3)
+        except (ValueError, OSError):
+            ap.config(essid='SP-PROBE', password='playground1', security=3)
+        while not ap.active():
+            time.sleep_ms(100)
+        ip = ap.ifconfig()[0]
+        srv = socket.socket()
+        srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        srv.bind(('0.0.0.0', 8266))
+        srv.listen(1)
+        srv.close()
+        ap.active(False)
+        _result("ap_socket", ip, True)
+    except Exception as e:
+        ok = False
+        _result("ap_socket", str(e), False)
+        try:
+            ap.active(False)
+        except Exception:
+            pass
+    return ok
+
+
+def _check_lcd():
+    try:
+        import M5
+        M5.begin()
+        M5.Lcd.setRotation(1)
+        font = getattr(M5.Lcd.FONTS, "DejaVu18", None)
+        if font:
+            M5.Lcd.setFont(font)
+        M5.Lcd.fillScreen(0x111111)
+        M5.Lcd.setCursor(10, 60)
+        M5.Lcd.setTextColor(0xFFFFFF, 0x111111)
+        M5.Lcd.print("Probe OK 240px")
+        _result("lcd", "DejaVu18", True)
+        return True
+    except Exception as e:
+        _result("lcd", str(e), False)
+        return False
+
+
+def _check_button(wait_s=3):
+    try:
+        import M5
+        M5.begin()
+        M5.BtnA.isPressed()
+        _result("button_api", "BtnA", True)
+        print("# press BtnA within %ds (short); hold ~1s for long" % wait_s)
+        t0 = time.ticks_ms()
+        saw_short = False
+        saw_long = False
+        hold = 0
+        while time.ticks_diff(time.ticks_ms(), t0) < wait_s * 1000:
+            M5.update()
+            if M5.BtnA.wasPressed():
+                saw_short = True
+            if M5.BtnA.isPressed():
+                if hold == 0:
+                    hold = time.ticks_ms()
+                elif time.ticks_diff(time.ticks_ms(), hold) > 800:
+                    saw_long = True
+                    break
+            else:
+                hold = 0
+            time.sleep_ms(20)
+        _result("button_short", saw_short, saw_short)
+        _result("button_long", saw_long, saw_long)
+        return saw_short or saw_long
+    except Exception as e:
+        _result("button_api", str(e), False)
+        return False
+
+
+def _check_nfc():
+    # WS1850S (register-compatible with MFRC522), addr 0x28 -- replaces
+    # the PN532 (addr 0x24) that used to sit on these same sda=9/scl=10
+    # pins. See card_writer.py docstring for why.
+    import machine
+    from ws1850s import WS1850S
+    pins = [(9, 10), (10, 9), (4, 5), (5, 4), (22, 23)]
+    for sda, scl in pins:
+        try:
+            i2c = machine.SoftI2C(
+                sda=machine.Pin(sda), scl=machine.Pin(scl), freq=100_000)
+            nfc = WS1850S(i2c, WS1850S.DEFAULT_ADDR)
+            ver = nfc.version()
+            _result("nfc_pins", "sda=%d scl=%d" % (sda, scl), True)
+            _result("nfc_fw", "0x%02X" % ver, True)
+            found = nfc.read_uid_full()
+            if found:
+                uid, _sak = found
+                _result("nfc_uid", ':'.join('%02X' % b for b in uid), True)
+            else:
+                _result("nfc_uid", "none_tap_card", True)
+            return True
+        except Exception:
+            continue
+    _result("nfc_pins", "all_failed", False)
+    return False
+
+
+def _check_m5ui():
+    """Hardware gate for an LVGL/m5ui bbox_ui.py -- CONFIRMED FAILING on this
+    board's UIFlow2 build (2026-09-10): `ImportError: no module named
+    'm5ui'`, raised at import time in bbox_ui.py, not a heap/OOM failure.
+    bbox_ui.py has gone back to direct M5.Lcd/M5GFX drawing as a result --
+    see that file's module docstring. This check stays in the probe as a
+    tripwire in case a future UIFlow2 firmware update for this board adds
+    m5ui; if it ever reports True, dial_ui.py is the reference for the
+    roller-based UI to port onto this board instead of the M5GFX one.
+    Does NOT arm SoftAP itself -- that needs the full bbox_server stack.
+    """
+    import gc
+    try:
+        import M5
+        import m5ui
+        import lvgl as lv
+    except ImportError as e:
+        _result("m5ui_import", str(e), False)
+        return False
+
+    gc.collect()
+    _result("mem_before_begin", gc.mem_free(), True)
+    M5.begin()
+    gc.collect()
+    _result("mem_after_begin", gc.mem_free(), True)
+
+    try:
+        m5ui.init()
+        gc.collect()
+        _result("mem_after_m5ui_init", gc.mem_free(), True)
+
+        pg = m5ui.M5Page(bg_c=0xFFFFFF)
+        roller = m5ui.M5Roller(
+            x=6, y=18, w=200, h=78, options=[""],
+            mode=lv.roller.MODE.NORMAL, selected=0, visible_row_count=2,
+            font=lv.font_montserrat_14, parent=pg)
+        roller.set_options(["A", "B", "C"], lv.roller.MODE.NORMAL)
+        roller.set_selected(1, False)  # lv.ANIM.OFF doesn't exist on this binding
+        gc.collect()
+        _result("mem_after_page_and_roller", gc.mem_free(), True)
+        _result("m5ui_pass", True, True)
+        return True
+    except Exception as e:
+        _result("m5ui_pass", str(e), False)
+        return False
+
+
+def _check_widgets():
+    """Hardware gate for bbox_ui.py's current renderer: `Widgets`
+    (`M5.Widgets`, exposed via `from M5 import *`) -- the mid-tier
+    retained-mode shape/label library, distinct from the `m5ui`/lvgl
+    module checked above (that one is confirmed ABSENT on this board;
+    this one is expected present, since it's what UIFlow2's own
+    code generator produces for this exact board -- see bbox_ui.py's
+    module docstring). Confirms the four calls that file depends on:
+    Rectangle + Label + Triangle construction, and Label.setText()/
+    setColor(). Does NOT confirm setVisible() on Rectangle/Triangle
+    (bbox_ui.py's _show() assumes it; watch for an AttributeError there
+    on the first real screen switch) or any rounded-corner primitive.
+    """
+    try:
+        import M5
+        from M5 import Widgets
+    except ImportError as e:
+        _result("widgets_import", str(e), False)
+        return False
+
+    try:
+        M5.begin()
+        Widgets.setRotation(0)
+        Widgets.fillScreen(0xF7F7FB)
+        rect = Widgets.Rectangle(4, 28, 119, 32, 0xE8E6F0, 0xFFFFFF)
+        rect.setColor(0x6C4CD1, 0xF2EEFC)
+        label = Widgets.Label(
+            "probe", 10, 36, 1.0, 0x231F2E, 0xF2EEFC, Widgets.FONTS.Montserrat12)
+        label.setText("probe ok")
+        label.setColor(0x6C4CD1, 0xF2EEFC)
+        Widgets.Triangle(20, 60, 40, 60, 30, 75, 0x5B5468, 0x5B5468)
+        _result("widgets_pass", True, True)
+        return True
+    except Exception as e:
+        _result("widgets_pass", str(e), False)
+        return False
+
+
+def run():
+    print("# probe_stick start")
+    _check_lcd()
+    ap_ok = _check_ap_socket()
+    nfc_ok = _check_nfc()
+    _check_button(5)
+    m5ui_ok = _check_m5ui()
+    widgets_ok = _check_widgets()
+    all_ok = ap_ok and nfc_ok
+    _result("probe_pass", all_ok, all_ok)
+    if not m5ui_ok:
+        print("# m5ui/lvgl not available on this board (expected -- confirmed "
+              "2026-09-10). bbox_ui.py does not use it.")
+    if not widgets_ok:
+        print("# Widgets check FAILED -- bbox_ui.py's current renderer cannot "
+              "run on this board. See its module docstring for prior fallbacks.")
+    print("# probe_stick done — see RESULT lines above")

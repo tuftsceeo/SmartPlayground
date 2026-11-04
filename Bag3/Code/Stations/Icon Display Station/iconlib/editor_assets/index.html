@@ -1,0 +1,52 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Icon Editor</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header>
+    <h1 id="icon-name">Icon Editor</h1>
+    <div id="mode-badge" class="badge"></div>
+    <label>segments
+      <input type="range" id="segments-slider" min="1" max="12" value="12">
+      <span id="segments-value">12</span>
+    </label>
+    <button id="save-btn">Save map</button>
+    <button id="export-btn">Export icon</button>
+    <button id="push-btn">Push to device</button>
+    <span id="status"></span>
+  </header>
+
+  <main>
+    <section id="col-source">
+      <h2>Source</h2>
+      <img id="source-img" alt="source">
+      <h2>Segmented</h2>
+      <img id="segmented-img" alt="segmented">
+    </section>
+
+    <section id="col-segments">
+      <h2>Segments</h2>
+      <div id="segment-list"></div>
+    </section>
+
+    <section id="col-preview">
+      <h2>Live preview <span class="hint">(sim; hue is approximate -- see readme)</span></h2>
+      <canvas id="preview-canvas" width="384" height="384"></canvas>
+      <h3>16&times;16 grid <span class="hint">(click a cell to paint an override)</span></h3>
+      <canvas id="grid-canvas" width="256" height="256"></canvas>
+      <div>
+        <input type="color" id="brush-color" value="#ff0000">
+        <button id="brush-clear">Clear cell override</button>
+        <button id="undo-btn">Undo</button>
+      </div>
+      <h3>Problems</h3>
+      <ul id="problems"></ul>
+    </section>
+  </main>
+
+  <script src="/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,172 @@
+[   0.0s] # monitor: port opened
+[   0.1s] ESP-ROM:esp32c6-20220919
+[   0.1s] Build:Sep 19 2022
+[   0.1s] rst:0xc (SW_CPU),boot:0x1e (SPI_FAST_FLASH_BOOT)
+[   0.1s] Saved PC:0x4001975a
+[   0.1s] SPIWP:0xee
+[   0.1s] mode:DIO, clock div:2
+[   0.1s] load:0x40875730,len:0xdbc
+[   0.1s] load:0x4086b910,len:0xc34
+[   0.1s] load:0x4086e610,len:0x2e3c
+[   0.1s] entry 0x4086b910
+[   1.7s] [hubtype] wand (25 LEDs)
+[   5.0s] 
+[   5.0s] ==================================================
+[   5.0s]   PlaygroundV5 -- Multi-Trigger Event Engine
+[   5.0s]   Hub type: wand
+[   5.0s] ==================================================
+[   6.3s]   ESPNow: active (MAC: A0:F2:62:87:B4:30)
+[   7.0s]   Light: 276 lux -> brightness x0.05
+[   7.0s]   Battery: 4.20V, 101.8%
+[   7.1s]   PN532 firmware 1.6 (IC 0x32) -- NFC ready
+[   7.1s]   Accelerometer OK
+[   7.1s]   Accel wake-up (INT1) armed
+[   7.1s]   Boot complete — all systems OK
+[   7.5s] {"hub": "wand", "games": ["button_flash_blu", "colorquest", "cooking", "finddevice", "freezedance", "gestures", "goalrace", "jump", "jumpin", "melody", "multiicecream", "nfcsound", "rainbow", "shake", "shakerainbow", "simpleicecream", "sound", "speed05", "speed20", "speed28", "speed32", "speed36", "speed40", "splatecho", "splatecho"], "version": "0.1.0", "device": "wand", "type": "identity"}
+[   9.2s]   Launching just-pulled game: splatecho
+[   9.7s] {"slug": "splatecho", "type": "game_start"}
+[  10.2s]   [echo]     392 START espnow=(0, 0, 0, 0, 0)
+[  10.2s]   [echo]     401 STATE join
+[  10.2s]   [echo]     403 TX echo_hello #1 ok=True
+[  11.2s]   [echo]    1420 TX echo_hello #2 ok=True
+[  21.3s]   [echo]   11542 QUIET 10119 ms: state=join me=None last_rx=none rx={} last_q=None missed=0 adds=0 btn_down=0 tilt=None max_poll_gap=30 espnow=(11, 11, 0, 0, 0)
+[  41.4s]   [echo]   31555 QUIET 30132 ms: state=join me=None last_rx=none rx={} last_q=None missed=0 adds=0 btn_down=0 tilt=None max_poll_gap=31 espnow=(31, 31, 0, 0, 0)
+[  42.2s]   [echo]   32369 RX {'type': 'echo_hello'} (state=join)
+[  43.1s]   [echo]   33328 RX {'type': 'echo_hello'} (state=join)
+[  44.1s]   [echo]   34287 RX {'type': 'echo_hello'} (state=join)
+[  45.1s]   [echo]   35287 RX {'type': 'echo_hello'} (state=join)
+[  46.1s]   [echo]   36287 RX {'type': 'echo_hello'} (state=join)
+[  47.3s]   [echo]   37477 RX {'type': 'echo_hello'} (state=join)
+[  48.3s]   [echo]   38457 RX {'type': 'echo_hello'} (state=join)
+[  49.2s]   [echo]   39425 RX {'type': 'echo_hello'} (state=join)
+[  50.2s]   [echo]   40448 RX {'type': 'echo_hello'} (state=join)
+[  51.5s]   [echo]   41663 RX {'type': 'echo_hello'} (state=join)
+[  52.4s]   [echo]   42622 RX {'type': 'echo_hello'} (state=join)
+[  53.4s]   [echo]   43582 RX {'type': 'echo_hello'} (state=join)
+[  54.3s]   [echo]   44548 RX {'type': 'echo_hello'} (state=join)
+[  55.4s]   [echo]   45554 RX {'type': 'echo_hello'} (state=join)
+[  56.6s]   [echo]   46769 RX {'type': 'echo_hello'} (state=join)
+[  57.5s]   [echo]   47749 RX {'type': 'echo_hello'} (state=join)
+[  58.5s]   [echo]   48708 RX {'type': 'echo_hello'} (state=join)
+[  58.6s]   [echo]   48812 RX {'player': 0, 'type': 'echo_you'} (state=join)
+[  58.6s]   splatecho: I am player 0
+[  58.6s]   [echo]   48813 JOINED as player 0 after 47 hello(s)
+[  58.7s]   [echo]   48909 STATE waiting
+[  58.7s]   [echo]   48912 RX {'player': 0, 'type': 'echo_you'} (state=waiting)
+[  58.7s]   [echo]   48936 RX {'player': 0, 'type': 'echo_you'} (state=waiting)
+[  58.8s]   [echo]   48959 RX {'player': 0, 'type': 'echo_you'} (state=waiting)
+[  58.9s]   [echo]   49097 RX {'player': 0, 'type': 'echo_you'} (state=waiting)
+[  58.9s]   [echo]   49121 RX {'player': 0, 'type': 'echo_you'} (state=waiting)
+[  58.9s]   [echo]   49145 RX {'player': 0, 'type': 'echo_you'} (state=waiting)
+[  59.0s]   [echo]   49168 RX {'player': 0, 'type': 'echo_you'} (state=waiting)
+[  59.0s]   [echo]   49192 RX {'player': 0, 'type': 'echo_you'} (state=waiting)
+[  59.0s]   [echo]   49216 RX {'player': 0, 'type': 'echo_you'} (state=waiting)
+[  59.0s]   [echo]   49239 RX {'player': 0, 'type': 'echo_you'} (state=waiting)
+[  59.1s]   [echo]   49262 RX {'player': 0, 'type': 'echo_you'} (state=waiting)
+[  59.1s]   [echo]   49286 RX {'player': 0, 'type': 'echo_you'} (state=waiting)
+[  59.1s]   [echo]   49310 RX {'player': 0, 'type': 'echo_you'} (state=waiting)
+[  59.2s]   [echo]   49446 RX {'player': 0, 'type': 'echo_you'} (state=waiting)
+[  59.3s]   [echo]   49470 RX {'player': 0, 'type': 'echo_you'} (state=waiting)
+[  59.3s]   [echo]   49494 RX {'player': 0, 'type': 'echo_you'} (state=waiting)
+[  59.3s]   [echo]   49517 RX {'player': 0, 'type': 'echo_you'} (state=waiting)
+[  59.3s]   [echo]   49541 RX {'player': 0, 'type': 'echo_you'} (state=waiting)
+[  59.4s]   [echo]   49565 RX {'player': 0, 'type': 'echo_you'} (state=waiting)
+[  59.4s]   [echo]   49588 RX {'player': 0, 'type': 'echo_you'} (state=waiting)
+[  59.4s]   [echo]   49611 RX {'player': 0, 'type': 'echo_you'} (state=waiting)
+[  59.4s]   [echo]   49635 RX {'player': 0, 'type': 'echo_you'} (state=waiting)
+[  59.5s]   [echo]   49659 RX {'player': 0, 'type': 'echo_you'} (state=waiting)
+[  59.6s]   [echo]   49795 RX {'player': 0, 'type': 'echo_you'} (state=waiting)
+[  59.6s]   [echo]   49819 RX {'player': 0, 'type': 'echo_you'} (state=waiting)
+[  59.6s]   [echo]   49842 RX {'player': 0, 'type': 'echo_you'} (state=waiting)
+[  59.7s]   [echo]   49865 RX {'player': 0, 'type': 'echo_you'} (state=waiting)
+[  59.7s]   [echo]   49888 RX {'player': 0, 'type': 'echo_you'} (state=waiting)
+[  59.7s]   [echo]   49911 RX {'player': 0, 'type': 'echo_you'} (state=waiting)
+[  59.7s]   [echo]   49934 RX {'player': 0, 'type': 'echo_you'} (state=waiting)
+[  59.8s]   [echo]   49958 RX {'player': 0, 'type': 'echo_you'} (state=waiting)
+[  59.8s]   [echo]   49981 RX {'player': 0, 'type': 'echo_you'} (state=waiting)
+[  59.8s]   [echo]   50004 RX {'player': 0, 'type': 'echo_you'} (state=waiting)
+[  61.2s]   [echo]   51408 RX {'q': 1, 'type': 'echo_turn', 'player': 0, 'len': 0} (state=waiting)
+[  61.2s]   splatecho: my turn (length 0)
+[  61.2s]   [echo]   51410 STATE my turn len 0
+[  61.4s]   [echo]   51612 RX {'q': 2, 'type': 'echo_add_now', 'player': 0} (state=my turn len 0)
+[  61.4s]   splatecho: your turn to add a step
+[  61.4s]   [echo]   51613 STATE add
+[  71.4s]   [echo]   61622 QUIET 10006 ms: state=add me=0 last_rx=echo_add_now 10007 ms ago rx={'echo_you': 34, 'echo_hello': 17, 'echo_turn': 1, 'echo_add_now': 1} last_q=2 missed=0 adds=0 btn_down=0 tilt=None max_poll_gap=202 espnow=(47, 47, 0, 53, 13)
+[  86.2s]   splatecho: added Splat 3
+[  86.2s]   [echo]   76432 TX echo_add unit 3 #1 ok=True after 24812 ms
+[  86.4s]   [echo]   76592 STATE added, waiting
+[  91.5s]   [echo]   81729 RX {'idx': 0, 'type': 'echo_step', 'player': 1, 'q': 4} (state=added, waiting) MISSED 1 before this (total 1)
+[  91.9s]   [echo]   82050 RX {'len': 1, 'ok': True, 'player': 1, 'scores': [0, 0], 'q': 5, 'type': 'echo_result'} (state=added, waiting)
+[  91.9s]   [echo]   82051 STATE result
+[  92.5s]   splatecho: scores [0, 0] (me: player 0)
+[  92.5s]   [echo]   82696 RESULT shown ok=True, blocked 636 ms
+[  92.5s]   [echo]   82697 STATE waiting
+[  92.5s]   [echo]   82718 SLOW poll gap 668 ms (state=waiting)
+[  92.5s]   [echo]   82721 RX {'q': 6, 'type': 'echo_add_now', 'player': 1} (state=waiting)
+[  94.9s]   [echo]   85109 RX {'q': 1, 'type': 'echo_add', 'unit': 1} (state=waiting) MISSED -6 before this (total 1)
+[  95.5s]   [echo]   85725 RX {'q': 7, 'type': 'echo_turn', 'player': 0, 'len': 2} (state=waiting) MISSED 5 before this (total 6)
+[  95.5s]   splatecho: my turn (length 2)
+[  95.5s]   [echo]   85730 STATE my turn len 2
+[  98.0s]   [echo]   88234 RX {'len': 2, 'ok': False, 'player': 0, 'scores': [0, 1], 'q': 8, 'type': 'echo_result'} (state=my turn len 2)
+[  98.0s]   [echo]   88235 STATE result
+[  98.9s]   splatecho: scores [0, 1] (me: player 0)
+[ 101.0s]   [echo]   91163 RESULT shown ok=False, blocked 2922 ms
+[ 101.0s]   [echo]   91163 STATE waiting
+[ 101.0s]   [echo]   91184 SLOW poll gap 2951 ms (state=waiting)
+[ 101.0s]   [echo]   91188 RX {'q': 10, 'type': 'echo_add_now', 'player': 1} (state=waiting) MISSED 1 before this (total 7)
+[ 102.8s]   [echo]   92984 RX {'q': 2, 'type': 'echo_add', 'unit': 0} (state=waiting) MISSED -9 before this (total 7)
+[ 105.3s]   [echo]   95491 RX {'idx': 0, 'type': 'echo_step', 'player': 0, 'q': 12} (state=waiting) MISSED 9 before this (total 16)
+[ 105.7s]   [echo]   95863 RX {'len': 1, 'ok': True, 'player': 0, 'scores': [0, 1], 'q': 13, 'type': 'echo_result'} (state=waiting)
+[ 105.7s]   [echo]   95864 STATE result
+[ 106.3s]   splatecho: scores [0, 1] (me: player 0)
+[ 106.3s]   [echo]   96506 RESULT shown ok=True, blocked 636 ms
+[ 106.3s]   [echo]   96507 STATE waiting
+[ 106.3s]   [echo]   96528 SLOW poll gap 665 ms (state=waiting)
+[ 110.1s]   [echo]  100293 BUTTON pressed outside add (state=waiting)
+[ 110.5s]   [echo]  100712 BUTTON pressed outside add (state=waiting)
+[ 110.8s]   [echo]  100988 BUTTON pressed outside add (state=waiting)
+[ 120.6s]   [echo]  110781 BUTTON pressed outside add (state=waiting)
+[ 120.9s]   [echo]  111099 BUTTON pressed outside add (state=waiting)
+[ 121.7s]   [echo]  111853 BUTTON pressed outside add (state=waiting)
+[ 121.9s]   [echo]  112068 BUTTON pressed outside add (state=waiting)
+[ 122.5s]   [echo]  112680 BUTTON pressed outside add (state=waiting)
+[ 122.6s]   [echo]  112802 BUTTON pressed outside add (state=waiting)
+[ 123.1s]   [echo]  113313 BUTTON pressed outside add (state=waiting)
+[ 133.1s]   [echo]  123321 QUIET 10005 ms: state=waiting me=0 last_rx=echo_result 27455 ms ago rx={'echo_you': 34, 'echo_step': 2, 'echo_hello': 17, 'echo_add_now': 3, 'echo_result': 3, 'echo_add': 2, 'echo_turn': 2} last_q=13 missed=16 adds=1 btn_down=0 tilt=None max_poll_gap=2951 espnow=(48, 48, 0, 63, 13)
+[ 153.1s]   [echo]  143327 QUIET 30010 ms: state=waiting me=0 last_rx=echo_result 47461 ms ago rx={'echo_you': 34, 'echo_step': 2, 'echo_hello': 17, 'echo_add_now': 3, 'echo_result': 3, 'echo_add': 2, 'echo_turn': 2} last_q=13 missed=16 adds=1 btn_down=0 tilt=None max_poll_gap=2951 espnow=(48, 48, 0, 63, 13)
+[ 156.4s]   [echo]  146632 BUTTON pressed outside add (state=waiting)
+[ 156.7s]   [echo]  146891 BUTTON pressed outside add (state=waiting)
+[ 166.7s]   [echo]  156903 QUIET 10009 ms: state=waiting me=0 last_rx=echo_result 61037 ms ago rx={'echo_you': 34, 'echo_step': 2, 'echo_hello': 17, 'echo_add_now': 3, 'echo_result': 3, 'echo_add': 2, 'echo_turn': 2} last_q=13 missed=16 adds=1 btn_down=0 tilt=None max_poll_gap=2951 espnow=(48, 48, 0, 63, 13)
+[ 176.5s]   [echo]  166716 BUTTON pressed outside add (state=waiting)
+[ 176.8s]   [echo]  166993 BUTTON pressed outside add (state=waiting)
+[ 177.4s]   [echo]  167626 BUTTON pressed outside add (state=waiting)
+[ 178.1s]   [echo]  168258 BUTTON pressed outside add (state=waiting)
+[ 178.2s]   [echo]  168421 BUTTON pressed outside add (state=waiting)
+[ 178.5s]   [echo]  168676 BUTTON pressed outside add (state=waiting)
+[ 188.6s]   [echo]  178755 QUIET 10076 ms: state=waiting me=0 last_rx=echo_result 82889 ms ago rx={'echo_you': 34, 'echo_step': 2, 'echo_hello': 17, 'echo_add_now': 3, 'echo_result': 3, 'echo_add': 2, 'echo_turn': 2} last_q=13 missed=16 adds=1 btn_down=0 tilt=None max_poll_gap=2951 espnow=(48, 48, 0, 63, 13)
+[ 208.6s]   [echo]  198769 QUIET 30089 ms: state=waiting me=0 last_rx=echo_result 102902 ms ago rx={'echo_you': 34, 'echo_step': 2, 'echo_hello': 17, 'echo_add_now': 3, 'echo_result': 3, 'echo_add': 2, 'echo_turn': 2} last_q=13 missed=16 adds=1 btn_down=0 tilt=None max_poll_gap=2951 espnow=(48, 48, 0, 63, 13)
+[ 248.6s]   [echo]  238770 QUIET 70090 ms: state=waiting me=0 last_rx=echo_result 142903 ms ago rx={'echo_you': 34, 'echo_step': 2, 'echo_hello': 17, 'echo_add_now': 3, 'echo_result': 3, 'echo_add': 2, 'echo_turn': 2} last_q=13 missed=16 adds=1 btn_down=0 tilt=None max_poll_gap=2951 espnow=(48, 48, 0, 63, 13)
+[ 328.6s]   [echo]  318775 QUIET 150096 ms: state=waiting me=0 last_rx=echo_result 222909 ms ago rx={'echo_you': 34, 'echo_step': 2, 'echo_hello': 17, 'echo_add_now': 3, 'echo_result': 3, 'echo_add': 2, 'echo_turn': 2} last_q=13 missed=16 adds=1 btn_down=0 tilt=None max_poll_gap=2951 espnow=(48, 48, 0, 63, 13)
+[ 373.7s]   [echo]  363922 NFC exit tag stop (state=waiting)
+[ 373.7s]   [echo]  363927 END: state=waiting me=0 last_rx=echo_result 268060 ms ago rx={'echo_you': 34, 'echo_step': 2, 'echo_hello': 17, 'echo_add_now': 3, 'echo_result': 3, 'echo_add': 2, 'echo_turn': 2} last_q=13 missed=16 adds=1 btn_down=0 tilt=None max_poll_gap=2951 espnow=(48, 48, 0, 63, 13)
+[ 373.9s] {"slug": "splatecho", "type": "game_end"}
+[ 374.0s] 
+[ 374.0s]   Tap a TRIGGER tag to start programming
+[ 374.0s] 
+[ 374.0s] {"up": 373184, "type": "heartbeat"}
+[ 376.6s]   STOP — rules cleared
+[ 376.6s]   +---- Rules --------------------------------
+[ 376.6s]   | (empty -- tap a trigger tag)
+[ 376.6s]   +----------------------------------------
+[ 379.5s] {"up": 378646, "type": "heartbeat"}
+[ 384.7s] {"up": 383881, "type": "heartbeat"}
+[ 389.9s] {"up": 389117, "type": "heartbeat"}
+[ 395.2s] {"up": 394354, "type": "heartbeat"}
+[ 400.4s] {"up": 399602, "type": "heartbeat"}
+[ 405.6s] {"up": 404838, "type": "heartbeat"}
+[ 406.9s]   NFC sleeping (30s idle) — move or press button to wake
+[ 410.8s] {"up": 409951, "type": "heartbeat"}
+[ 415.8s] {"up": 415014, "type": "heartbeat"}
+[ 420.9s] {"up": 420066, "type": "heartbeat"}
+[ 425.9s] {"up": 425110, "type": "heartbeat"}
+[ 431.0s] {"up": 430165, "type": "heartbeat"}

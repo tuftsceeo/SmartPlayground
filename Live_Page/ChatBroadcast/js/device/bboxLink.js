@@ -130,14 +130,6 @@ export class BboxLink {
     return this.send({ cmd: "info" });
   }
 
-  arm() {
-    return this.send({ cmd: "arm" }, { timeoutMs: 15000 });
-  }
-
-  disarm() {
-    return this.send({ cmd: "disarm" });
-  }
-
   async enterRepl() {
     await this.send({ cmd: "repl" }, { timeoutMs: 2000 }).catch(() => {});
     this.stop();

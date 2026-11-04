@@ -1,0 +1,863 @@
+{
+ "jack_o_lantern": {
+  "key": {
+   "D": [
+    0,
+    100,
+    0
+   ],
+   "E": [
+    80,
+    20,
+    0
+   ],
+   "O": [
+    255,
+    60,
+    0
+   ],
+   "W": [
+    255,
+    171,
+    93
+   ],
+   "Y": [
+    255,
+    150,
+    0
+   ],
+   "j": [
+    178,
+    105,
+    0
+   ]
+  },
+  "fps": 6,
+  "frames": [
+   [
+    "........DD......",
+    ".......DD.......",
+    "...OOOOEEOOOO...",
+    "..OOOOOOOOOOOO..",
+    ".OOOOOOOOOOOOOO.",
+    ".OOOOOOOOOOOOOO.",
+    "OOOOYOOOOOOYOOOO",
+    "OOOYYYOOOOYYYOOO",
+    "OOYYYYYOOYYYYYOO",
+    "OOOOOOOYYOOOOOOO",
+    "OYYOOOOOOOOOOYYO",
+    "OOYYYYOYYOYYYYOO",
+    ".OOYYYYYYYYYYOO.",
+    ".OOOYYYOOYYYOOO.",
+    "..OOOOOOOOOOOO..",
+    "....OOOOOOOO...."
+   ],
+   [
+    "........DD......",
+    ".......DD.......",
+    "...OOOOEEOOOO...",
+    "..OOOOOOOOOOOO..",
+    ".OOOOOOOOOOOOOO.",
+    ".OOOOOOOOOOOOOO.",
+    "OOOOWOOOOOOWOOOO",
+    "OOOWWWOOOOWWWOOO",
+    "OOWWWWWOOWWWWWOO",
+    "OOOOOOOWWOOOOOOO",
+    "OWWOOOOOOOOOOWWO",
+    "OOWWWWOWWOWWWWOO",
+    ".OOWWWWWWWWWWOO.",
+    ".OOOWWWOOWWWOOO.",
+    "..OOOOOOOOOOOO..",
+    "....OOOOOOOO...."
+   ],
+   [
+    "........DD......",
+    ".......DD.......",
+    "...OOOOEEOOOO...",
+    "..OOOOOOOOOOOO..",
+    ".OOOOOOOOOOOOOO.",
+    ".OOOOOOOOOOOOOO.",
+    "OOOOjOOOOOOjOOOO",
+    "OOOjjjOOOOjjjOOO",
+    "OOjjjjjOOjjjjjOO",
+    "OOOOOOOjjOOOOOOO",
+    "OjjOOOOOOOOOOjjO",
+    "OOjjjjOjjOjjjjOO",
+    ".OOjjjjjjjjjjOO.",
+    ".OOOjjjOOjjjOOO.",
+    "..OOOOOOOOOOOO..",
+    "....OOOOOOOO...."
+   ],
+   [
+    "........DD......",
+    ".......DD.......",
+    "...OOOOEEOOOO...",
+    "..OOOOOOOOOOOO..",
+    ".OOOOOOOOOOOOOO.",
+    ".OOOOOOOOOOOOOO.",
+    "OOOOYOOOOOOYOOOO",
+    "OOOYYYOOOOYYYOOO",
+    "OOYYYYYOOYYYYYOO",
+    "OOOOOOOYYOOOOOOO",
+    "OYYOOOOOOOOOOYYO",
+    "OOYYYYOYYOYYYYOO",
+    ".OOYYYYYYYYYYOO.",
+    ".OOOYYYOOYYYOOO.",
+    "..OOOOOOOOOOOO..",
+    "....OOOOOOOO...."
+   ]
+  ]
+ },
+ "bat": {
+  "key": {
+   "C": [
+    255,
+    140,
+    60
+   ],
+   "K": [
+    30,
+    20,
+    10
+   ],
+   "W": [
+    255,
+    171,
+    93
+   ]
+  },
+  "fps": 6,
+  "frames": [
+   [
+    ".....CCCCCC.....",
+    "...CCCCCCCCCC...",
+    ".KCCCCCCCCCCCCK.",
+    ".KKCCCCCCCCCCKK.",
+    ".KKKCCCCCCCCKKK.",
+    "CKKKKKCCCCKKKKKC",
+    "CCKKKKKKKKKKKKCC",
+    "CCKCKKWKKWKKCKCC",
+    "CCCCCKKKKKKCCCCC",
+    "CCCCCCKKKKCCCCCC",
+    "CCCCCCKKKKCCCCCC",
+    ".CCCCCCKKCCCCCC.",
+    ".CCCCCCCCCCCCCC.",
+    "..CCCCCCCCCCCC..",
+    "...CCCCCCCCCC...",
+    ".....CCCCCC....."
+   ],
+   [
+    ".....CCCCCC.....",
+    "...CCCCCCCCCC...",
+    "..CCCCCCCCCCCC..",
+    ".CCCCCCCCCCCCCC.",
+    ".CCCCCCCCCCCCCC.",
+    "CCCCCKCCCCKCCCCC",
+    "CCKKCKKKKKKCKKCC",
+    "CKKKKKWKKWKKKKKC",
+    "KKKKKKKKKKKKKKKK",
+    "KKKKKKKKKKKKKKKK",
+    "KCKKCKKKKKKCKKCK",
+    ".CCCCCCKKCCCCCC.",
+    ".CCCCCCCCCCCCCC.",
+    "..CCCCCCCCCCCC..",
+    "...CCCCCCCCCC...",
+    ".....CCCCCC....."
+   ],
+   [
+    ".....CCCCCC.....",
+    "...CCCCCCCCCC...",
+    "..CCCCCCCCCCCC..",
+    ".CCCCCCCCCCCCCC.",
+    ".CCCCCCCCCCCCCC.",
+    "CCCCCKCCCCKCCCCC",
+    "CCCCCKKKKKKCCCCC",
+    "CCCCCKWKKWKCCCCC",
+    "CCCCKKKKKKKKCCCC",
+    "CCKKKKKKKKKKKKCC",
+    "CKKKKKKKKKKKKKKC",
+    ".KKKKCCKKCCKKKK.",
+    ".KKCKCCCCCCKCKK.",
+    ".KCCCCCCCCCCCCK.",
+    "...CCCCCCCCCC...",
+    ".....CCCCCC....."
+   ],
+   [
+    ".....CCCCCC.....",
+    "...CCCCCCCCCC...",
+    "..CCCCCCCCCCCC..",
+    ".CCCCCCCCCCCCCC.",
+    ".CCCCCCCCCCCCCC.",
+    "CCCCCKCCCCKCCCCC",
+    "CCKKCKKKKKKCKKCC",
+    "CKKKKKWKKWKKKKKC",
+    "KKKKKKKKKKKKKKKK",
+    "KKKKKKKKKKKKKKKK",
+    "KCKKCKKKKKKCKKCK",
+    ".CCCCCCKKCCCCCC.",
+    ".CCCCCCCCCCCCCC.",
+    "..CCCCCCCCCCCC..",
+    "...CCCCCCCCCC...",
+    ".....CCCCCC....."
+   ]
+  ]
+ },
+ "skull": {
+  "key": {
+   "K": [
+    30,
+    20,
+    10
+   ],
+   "W": [
+    255,
+    171,
+    93
+   ]
+  },
+  "rows": [
+   "................",
+   ".....WWWWWW.....",
+   "...WWWWWWWWWW...",
+   "..WWWWWWWWWWWW..",
+   ".WWWWWWWWWWWWWW.",
+   ".WWKKKWWWWKKKWW.",
+   ".WKKKKKWWKKKKKW.",
+   ".WKKKKKWWKKKKKW.",
+   ".WWKKKWWWWKKKWW.",
+   "..WWWWWKKWWWWW..",
+   "..WWWWKKKKWWWW..",
+   "...WWWWWWWWWW...",
+   "....WKWKWKWKW...",
+   "....WKWKWKWKW...",
+   ".....WWWWWWW....",
+   "................"
+  ]
+ },
+ "candy": {
+  "key": {
+   "R": [
+    255,
+    0,
+    0
+   ],
+   "W": [
+    255,
+    171,
+    93
+   ],
+   "Y": [
+    255,
+    150,
+    0
+   ]
+  },
+  "rows": [
+   "................",
+   "................",
+   "................",
+   "................",
+   "Y...RRRRRRRR...Y",
+   "YY.RRWWRRWWRR.YY",
+   "YYYRWWRRRRWWRYYY",
+   "YYYRRRRWWRRRRYYY",
+   "YYYRRRRWWRRRRYYY",
+   "YYYRWWRRRRWWRYYY",
+   "YY.RRWWRRWWRR.YY",
+   "Y...RRRRRRRR...Y",
+   "................",
+   "................",
+   "................",
+   "................"
+  ]
+ },
+ "ghost": {
+  "key": {
+   "K": [
+    30,
+    20,
+    10
+   ],
+   "W": [
+    255,
+    171,
+    93
+   ]
+  },
+  "fps": 3,
+  "frames": [
+   [
+    "................",
+    ".....WWWWWW.....",
+    "...WWWWWWWWWW...",
+    "..WWWWWWWWWWWW..",
+    "..WWWWWWWWWWWW..",
+    ".WWWKKWWWWKKWWW.",
+    ".WWWKKWWWWKKWWW.",
+    ".WWWKKWWWWKKWWW.",
+    ".WWWWWWWWWWWWWW.",
+    ".WWWWWWKKWWWWWW.",
+    ".WWWWWWKKWWWWWW.",
+    ".WWWWWWWWWWWWWW.",
+    ".WWWWWWWWWWWWWW.",
+    ".WWWWWWWWWWWWWW.",
+    ".WWW..WWWW..WWW.",
+    ".WW....WW....WW."
+   ],
+   [
+    ".....WWWWWW.....",
+    "...WWWWWWWWWW...",
+    "..WWWWWWWWWWWW..",
+    "..WWWWWWWWWWWW..",
+    ".WWWKKWWWWKKWWW.",
+    ".WWWKKWWWWKKWWW.",
+    ".WWWKKWWWWKKWWW.",
+    ".WWWWWWWWWWWWWW.",
+    ".WWWWWWKKWWWWWW.",
+    ".WWWWWWKKWWWWWW.",
+    ".WWWWWWWWWWWWWW.",
+    ".WWWWWWWWWWWWWW.",
+    ".WWWWWWWWWWWWWW.",
+    ".W..WWW..WWW..W.",
+    "................",
+    "................"
+   ]
+  ]
+ },
+ "witch_hat": {
+  "key": {
+   "K": [
+    30,
+    20,
+    10
+   ],
+   "O": [
+    255,
+    60,
+    0
+   ],
+   "U": [
+    100,
+    0,
+    255
+   ],
+   "Y": [
+    255,
+    150,
+    0
+   ]
+  },
+  "rows": [
+   "............UU..",
+   "..........UUU...",
+   "........UUUU....",
+   ".......UUU......",
+   "......UUUU......",
+   "......UUUU......",
+   ".....UUUUUU.....",
+   ".....UUUUUU.....",
+   "....UUUUUUUU....",
+   "....OOYYYYOO....",
+   "....OOYKKYOO....",
+   "....OOYYYYOO....",
+   ".UUUUUUUUUUUUUU.",
+   "UUUUUUUUUUUUUUUU",
+   "................",
+   "................"
+  ]
+ },
+ "spider": {
+  "key": {
+   "K": [
+    30,
+    20,
+    10
+   ],
+   "L": [
+    180,
+    120,
+    65
+   ],
+   "U": [
+    100,
+    0,
+    255
+   ],
+   "W": [
+    255,
+    171,
+    93
+   ]
+  },
+  "rows": [
+   ".......LL.......",
+   ".......LL.......",
+   ".......LL.......",
+   "......UUUU......",
+   ".U..UUUUUUUU..U.",
+   "U.U.UUUUUUUU.U.U",
+   "U..UUWKUUKWUU..U",
+   ".U.UUKKUUKKUU.U.",
+   ".UUUUUUUUUUUUUU.",
+   "U..UUUUUUUUUU..U",
+   "U.UUUKUUUUKUUU.U",
+   ".U.UUUKKKKUUU.U.",
+   ".U..UUUUUUUU..U.",
+   "U..U.UUUUUU.U..U",
+   "U.U..........U.U",
+   "................"
+  ]
+ },
+ "candy_corn": {
+  "key": {
+   "O": [
+    255,
+    60,
+    0
+   ],
+   "W": [
+    255,
+    171,
+    93
+   ],
+   "Y": [
+    255,
+    150,
+    0
+   ]
+  },
+  "rows": [
+   ".......WW.......",
+   "......WWWW......",
+   "......WWWW......",
+   ".....WWWWWW.....",
+   ".....OOOOOO.....",
+   "....OOOOOOOO....",
+   "....OOOOOOOO....",
+   "...OOOOOOOOOO...",
+   "...OOOOOOOOOO...",
+   "..YYYYYYYYYYYY..",
+   "..YYYYYYYYYYYY..",
+   ".YYYYYYYYYYYYYY.",
+   ".YYYYYYYYYYYYYY.",
+   ".YYYYYYYYYYYYYY.",
+   "..YYYYYYYYYYYY..",
+   "................"
+  ]
+ },
+ "cauldron": {
+  "key": {
+   "G": [
+    110,
+    74,
+    40
+   ],
+   "L": [
+    180,
+    120,
+    65
+   ],
+   "O": [
+    255,
+    60,
+    0
+   ],
+   "Y": [
+    255,
+    150,
+    0
+   ],
+   "g": [
+    20,
+    160,
+    0
+   ]
+  },
+  "fps": 3,
+  "frames": [
+   [
+    ".........g......",
+    "................",
+    ".....gg....g....",
+    "...gggggggggg...",
+    ".LLLLLLLLLLLLLL.",
+    "..GGGGGGGGGGGG..",
+    ".GGGGGGGGGGGGGG.",
+    ".GGGGGGGGGGGGGG.",
+    ".GGGGGGGGGGGGGG.",
+    ".GGGGGGGGGGGGGG.",
+    ".GGGGGGGGGGGGGG.",
+    "..GGGGGGGGGGGG..",
+    "...GGGGGGGGGG...",
+    "..O.GG.YY.GG.O..",
+    ".OYO.OYOOYO.OYO.",
+    "OYYYOYYYYYYOYYYO"
+   ],
+   [
+    "................",
+    ".....gg.........",
+    "........g.gg....",
+    "...gggggggggg...",
+    ".LLLLLLLLLLLLLL.",
+    "..GGGGGGGGGGGG..",
+    ".GGGGGGGGGGGGGG.",
+    ".GGGGGGGGGGGGGG.",
+    ".GGGGGGGGGGGGGG.",
+    ".GGGGGGGGGGGGGG.",
+    ".GGGGGGGGGGGGGG.",
+    "..GGGGGGGGGGGG..",
+    "...GGGGGGGGGG...",
+    "..O.GG.YY.GG.O..",
+    ".OYO.OYOOYO.OYO.",
+    "OYYYOYYYYYYOYYYO"
+   ],
+   [
+    "....g...........",
+    "..........gg....",
+    ".......gg.......",
+    "...gggggggggg...",
+    ".LLLLLLLLLLLLLL.",
+    "..GGGGGGGGGGGG..",
+    ".GGGGGGGGGGGGGG.",
+    ".GGGGGGGGGGGGGG.",
+    ".GGGGGGGGGGGGGG.",
+    ".GGGGGGGGGGGGGG.",
+    ".GGGGGGGGGGGGGG.",
+    "..GGGGGGGGGGGG..",
+    "...GGGGGGGGGG...",
+    "..O.GG.YY.GG.O..",
+    ".OYO.OYOOYO.OYO.",
+    "OYYYOYYYYYYOYYYO"
+   ]
+  ]
+ },
+ "monster": {
+  "key": {
+   "K": [
+    30,
+    20,
+    10
+   ],
+   "L": [
+    180,
+    120,
+    65
+   ],
+   "W": [
+    255,
+    171,
+    93
+   ],
+   "g": [
+    20,
+    160,
+    0
+   ]
+  },
+  "rows": [
+   "..KKKKKKKKKKKK..",
+   ".KKKKKKKKKKKKKK.",
+   ".KKKKKKKKKKKKKK.",
+   ".gggKgggggggKgg.",
+   ".gggggggggggggg.",
+   ".ggKKKggggKKKgg.",
+   "LggggggggggggggL",
+   "LggWWWggggWWWggL",
+   "LggWKWggggWKWggL",
+   ".gggggggggggggg.",
+   ".gggggggggggggg.",
+   ".ggKKKKKKKKKKgg.",
+   ".gggKggKggKgggg.",
+   ".gggggggggggggg.",
+   "..gggggggggggg..",
+   "................"
+  ]
+ },
+ "calavera": {
+  "key": {
+   "K": [
+    30,
+    20,
+    10
+   ],
+   "P": [
+    255,
+    94,
+    50
+   ],
+   "S": [
+    0,
+    60,
+    200
+   ],
+   "W": [
+    255,
+    171,
+    93
+   ],
+   "Y": [
+    255,
+    150,
+    0
+   ],
+   "g": [
+    20,
+    160,
+    0
+   ]
+  },
+  "rows": [
+   "....WWWWWWWW....",
+   "..WWWWWSSWWWWW..",
+   ".WWWWWSYYSWWWWW.",
+   ".WWWWWWSSWWWWWW.",
+   "WWPPPPWWWWPPPPWW",
+   "WWPKKPWWWWPKKPWW",
+   "WWPKKPWWWWPKKPWW",
+   "WWPPPPWWWWPPPPWW",
+   "WgWWWWWKKWWWWWgW",
+   "WWgWWWWKKWWWWgWW",
+   ".WWWWWWWWWWWWWW.",
+   "..WKKKKKKKKKKW..",
+   "..WWKWKWKWKWWW..",
+   "...WWWWWWWWWW...",
+   ".....WWWWWW.....",
+   "................"
+  ]
+ },
+ "marigold": {
+  "key": {
+   "D": [
+    0,
+    100,
+    0
+   ],
+   "O": [
+    255,
+    60,
+    0
+   ],
+   "Y": [
+    255,
+    150,
+    0
+   ],
+   "g": [
+    20,
+    160,
+    0
+   ]
+  },
+  "rows": [
+   ".....O.OO.O.....",
+   "...OOYOOYOOYO...",
+   "..OYOOYOOOYOOO..",
+   ".OOOYOOOYOOOYOO.",
+   "..OYOOYOYOYOOYO.",
+   ".OOOYOOYOOOYOOOO",
+   "..OYOOOYOYOOYOO.",
+   "...OOYOOOOYOOO..",
+   ".....OOYOOO.....",
+   ".......DD.......",
+   "...ggg.DD.......",
+   "..ggggDDD...ggg.",
+   "...gggDD...gggg.",
+   ".......DDggggg..",
+   ".......DD.ggg...",
+   ".......DD......."
+  ]
+ },
+ "papel_picado": {
+  "key": {
+   "L": [
+    180,
+    120,
+    65
+   ],
+   "P": [
+    255,
+    94,
+    50
+   ],
+   "U": [
+    100,
+    0,
+    255
+   ],
+   "g": [
+    20,
+    160,
+    0
+   ]
+  },
+  "rows": [
+   "................",
+   "................",
+   "LLLLLLLLLLLLLLLL",
+   ".PPPP.gggg.UUUU.",
+   ".PPPP.gggg.UUUU.",
+   ".P..P.g..g.U..U.",
+   ".PPPP.gggg.UUUU.",
+   "..PP...gg...UU..",
+   ".PPPP.gggg.UUUU.",
+   ".P..P.g..g.U..U.",
+   ".PPPP.gggg.UUUU.",
+   ".P.P..g.g..U.U..",
+   "................",
+   "................",
+   "................",
+   "................"
+  ]
+ },
+ "ofrenda_candle": {
+  "key": {
+   "E": [
+    80,
+    20,
+    0
+   ],
+   "L": [
+    180,
+    120,
+    65
+   ],
+   "N": [
+    150,
+    45,
+    5
+   ],
+   "O": [
+    255,
+    60,
+    0
+   ],
+   "W": [
+    255,
+    171,
+    93
+   ],
+   "Y": [
+    255,
+    150,
+    0
+   ]
+  },
+  "fps": 5,
+  "frames": [
+   [
+    ".......YY.......",
+    "......OYYO......",
+    "......OYYO......",
+    ".....OYWWYO.....",
+    ".....OYWWYO.....",
+    "......OYYO......",
+    ".......EE.......",
+    ".....WWWWWW.....",
+    ".....WWWWWWL....",
+    ".....WWWWWWL....",
+    ".....WWWWWLL....",
+    ".....WWWWWWL....",
+    ".....WWWWWWL....",
+    ".....WWWWWWL....",
+    "...NNNNNNNNNN...",
+    "..NNNNNNNNNNNN.."
+   ],
+   [
+    "......YY........",
+    ".....OYYO.......",
+    "......OYYO......",
+    ".....OYWWYO.....",
+    ".....OYWWYO.....",
+    "......OYYO......",
+    ".......EE.......",
+    ".....WWWWWW.....",
+    ".....WWWWWWL....",
+    ".....WWWWWWL....",
+    ".....WWWWWLL....",
+    ".....WWWWWWL....",
+    ".....WWWWWWL....",
+    ".....WWWWWWL....",
+    "...NNNNNNNNNN...",
+    "..NNNNNNNNNNNN.."
+   ],
+   [
+    ".......YY.......",
+    "......OYYO......",
+    "......OYYO......",
+    ".....OYWWYO.....",
+    ".....OYWWYO.....",
+    "......OYYO......",
+    ".......EE.......",
+    ".....WWWWWW.....",
+    ".....WWWWWWL....",
+    ".....WWWWWWL....",
+    ".....WWWWWLL....",
+    ".....WWWWWWL....",
+    ".....WWWWWWL....",
+    ".....WWWWWWL....",
+    "...NNNNNNNNNN...",
+    "..NNNNNNNNNNNN.."
+   ],
+   [
+    "........YY......",
+    ".......OYYO.....",
+    "......OYYO......",
+    ".....OYWWYO.....",
+    ".....OYWWYO.....",
+    "......OYYO......",
+    ".......EE.......",
+    ".....WWWWWW.....",
+    ".....WWWWWWL....",
+    ".....WWWWWWL....",
+    ".....WWWWWLL....",
+    ".....WWWWWWL....",
+    ".....WWWWWWL....",
+    ".....WWWWWWL....",
+    "...NNNNNNNNNN...",
+    "..NNNNNNNNNNNN.."
+   ]
+  ]
+ },
+ "pan_de_muerto": {
+  "key": {
+   "C": [
+    255,
+    140,
+    60
+   ],
+   "N": [
+    150,
+    45,
+    5
+   ],
+   "T": [
+    180,
+    60,
+    10
+   ],
+   "W": [
+    255,
+    171,
+    93
+   ]
+  },
+  "rows": [
+   "................",
+   "................",
+   ".......CC.......",
+   "......CCCC......",
+   ".....TTCCTT.....",
+   "...TTCTCCTCTT...",
+   "..TTCTTCCTTCTT..",
+   ".TTCCTTCCTTCCTT.",
+   ".TCTWTCCCCTWTCT.",
+   "TTCTTTTCCTTTTCTT",
+   "TCCTTTCCCCTTTCCT",
+   "TCTTTWTCCTWTTTCT",
+   "TTTTTTTTTTTTTTTT",
+   ".NNNNNNNNNNNNNN.",
+   "................",
+   "................"
+  ]
+ }
+}

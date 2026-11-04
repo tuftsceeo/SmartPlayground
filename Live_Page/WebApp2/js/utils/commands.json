@@ -27,6 +27,51 @@
     "beta": false
   },
   {
+    "id": "jumpin1",
+    "label": "Jump In 1",
+    "bgColor": "#93d5a8",
+    "icon": "zap",
+    "textColor": "white",
+    "description": "Runs jumpin1.py on the wand.",
+    "beta": false
+  },
+  {
+    "id": "jumpin2",
+    "label": "Jump In 2",
+    "bgColor": "#93d5a8",
+    "icon": "zap",
+    "textColor": "white",
+    "description": "Runs jumpin2.py on the wand.",
+    "beta": false
+  },
+  {
+    "id": "jumpin3",
+    "label": "Jump In 3",
+    "bgColor": "#93d5a8",
+    "icon": "zap",
+    "textColor": "white",
+    "description": "Runs jumpin3.py on the wand.",
+    "beta": false
+  },
+  {
+    "id": "jumpin4",
+    "label": "Jump In 4",
+    "bgColor": "#93d5a8",
+    "icon": "zap",
+    "textColor": "white",
+    "description": "Runs jumpin4.py on the wand.",
+    "beta": false
+  },
+  {
+    "id": "jumpin5",
+    "label": "Jump In 5",
+    "bgColor": "#93d5a8",
+    "icon": "zap",
+    "textColor": "white",
+    "description": "Runs jumpin5.py on the wand.",
+    "beta": false
+  },
+  {
     "id": "cooking",
     "label": "Cooking",
     "bgColor": "#eba76f",

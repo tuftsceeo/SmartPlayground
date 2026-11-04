@@ -18,22 +18,28 @@ function writeAll(list) {
 }
 
 /**
- * Store one game. `code` is the wand file; `iconCode` is the icon display's,
- * empty for a single-device game. Entries saved before the display existed
- * have no iconCode and load as wand-only.
+ * Store one game. `code` is the wand file; `roleCode` is every other role's
+ * code keyed by role (roles.js), empty/absent for a single-device game.
+ * `iconCode` is kept as a plain top-level field too -- mirroring
+ * `roleCode.icon` -- since it predates `roleCode` and other code may still
+ * read it directly. Entries saved before a role existed simply have no
+ * entry for it and load as if that role had no code.
  */
-export function saveGame({ name, desc, code, iconCode, requiredTags, hardware, chatHistory, icons }) {
+export function saveGame({ name, desc, code, roleCode, iconCode, requiredTags, hardware, chatHistory, icons, simSettings }) {
     const list = loadSavedGames();
     const id =
         typeof crypto !== "undefined" && crypto.randomUUID
             ? crypto.randomUUID()
             : String(Date.now());
+    const resolvedRoleCode = { ...(roleCode || {}) };
+    if (iconCode && !resolvedRoleCode.icon) resolvedRoleCode.icon = iconCode;
     const entry = {
         id,
         name: name || "Untitled game",
         desc: desc || "",
         code: code || "",
-        iconCode: iconCode || "",
+        iconCode: resolvedRoleCode.icon || "",
+        roleCode: resolvedRoleCode,
         requiredTags: requiredTags || [],
         hardware: hardware || null,
         chatHistory: chatHistory || [],
@@ -41,6 +47,8 @@ export function saveGame({ name, desc, code, iconCode, requiredTags, hardware, c
         // game so reopening it draws what it was saved with, whatever later
         // games did to an icon of the same name.
         icons: icons || {},
+        // [GAME_SETTINGS:] for the practice window, or null.
+        simSettings: simSettings || null,
         updatedAt: Date.now(),
     };
     list.unshift(entry);

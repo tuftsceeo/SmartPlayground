@@ -8,11 +8,158 @@ four pop-ups available over the whole panel.
 
 The panel follows the "Wand Simulator v4", "Wand v4" and "Wand Sim Overlays"
 design artboards in
-`Bag3/Code/BroadcastCode/BroadcastBox/docs_and_design/simlution v4/`.
+`Bag3/Code/TeacherTools/BroadcastBox/docs_and_design/simlution v4/`.
 
 Games: `jump`, `shake`, `shake_rainbow`, `sound`, `rainbow`, `jumpin`,
 `nfc_sound`, `gestures`, `simpleicecream`, `melody`, `cooking`,
-`multiicecream`, `freeze_dance`.
+`multiicecream`, `freeze_dance`, `goalrace`, `color_quest`, `finddevice`,
+and the lobby games `lobbytest`, `splattag` and `relaycolor`
+(`target.py` is vendored beside them for `color_quest`).
+
+## `<sim-room>`
+
+`sim-room.js` wraps `<wand-sim>` (unchanged) with output panels on one
+virtual ESP-NOW bus (`js/bus.js`) and clock (`js/clock.js`). `index.html`
+uses it. The wand runs the real `espnow_manager.py` over a bus-backed
+`espnow` shim (`py/shims/espnow.py`), so dicts go out as JSON and are
+classified as on the device; each device gets its own MAC through
+`network.WLAN().config('mac')`.
+
+Panels appear from the loaded game's capabilities (`get_capabilities()`:
+`lobby_game`, `local_splats`, `splats_min`, `splats_max`, `uses_display`,
+`has_display_file`). New panels register with `SimRoom.registerPanel(id,
+{slot, title, wants, create, update, hide})`.
+
+The room re-dispatches `<wand-sim>`'s events and passes through its
+`autostart`, `profile`, `start()`, `stop()`, `restart()`, `showOverlay()`
+and `hideOverlay()`, so a host can use it in place of `<wand-sim>`;
+ChatBroadcast's preview and example detail view do. It also emits
+`room-radio` (`detail` is `{ text, type }`, one line per lobby game `pw_*` frame
+on the bus), and each icon display's prints arrive as `display-print`
+(`detail` is `{ text, mac }`, composed, bubbling).
+
+The simulator draws no log, console, serial or radio text. Every such line
+leaves as an event (`sim-log`, `sim-error`, `display-print`, `room-radio`,
+`sim-enow-sent`) for the host to show; ChatBroadcast shows them in its
+Developer mode footer, and `index.html` in a `<pre>` under the room.
+
+- **Icon displays:** devices of their own beside the wand, each with its
+  own MAC (`02:00:00:00:0d:01` up), up to 4. One starts as a placeholder;
+  a click wakes it, and each boots its own Pyodide running
+  `py/icon_host.py` (IconDisplay/main.py's idle loop, without `main()`),
+  drawn as a 16x16 grid of square cells. A game with a display file
+  (`vendor/display/games/<game>.py`, or the `displaySource` property)
+  wakes every display, adding one if there are none, and the room unicasts
+  `start_game` to each; a game without one takes away the display it added
+  and sends `stop` to the rest. The all-wands overlay adds displays and
+  shows them; advanced mode takes them away; simple mode shows them only while
+  the game uses them.
+  Lit cells use the icon editor's LED colour model (`ledSwatchHex` in
+  `Stations/Icon Display Station/webapp/js/pipeline/ledGamut.js`, copied
+  into `js/panels/display.js`): the colour the LED emits at full duty, not
+  dimmed by the game's intensity. Off cells are dark grey on a black
+  diffuser inside a charcoal case.
+
+- **Splats:** for a lobby game (`SPLATS_MIN`), the wand's Splats stand
+  beside the wand like icon displays, one per paired Splat, and each gets
+  its own card in the Multiple Device view (the `wand_splats`
+  setting; none, none drawn); a click on one presses it. See "Lobby games"
+  below.
+- **Advanced mode only** (the `advanced` attribute): a "Splats on this wand"
+  card (count and "in reach" boxes) for a lobby game.
+- **View Multiple Device Simulation** (both modes): one button, shown for a
+  game that sends on the radio (`enow.broadcast` / `send_to`), has a display
+  file, is a lobby game, or has a `wands` setting above 1. It opens every
+  wand and display side by side. "+ Add a wand" and "+ Add a display" are
+  in that overlay only. The main screen runs this one wand alone; opening
+  and closing the overlay restart the game.
+
+Not simulated: heap and fragmentation, compile size, radio timing and BLE
+pacing.
+
+### Settings
+
+`<sim-room>`'s `settings` property carries what the game code does not:
+`{ wand_splats, wands }`. `wand_splats` (0–2, default 1) is how many Splats
+each wand starts a newly loaded game with; `wands` (1–4, default 1) is how
+many wands the game is for. ChatBroadcast reads them from the chat model's
+`[GAME_SETTINGS: {...}]` marker and hides it from the chat. Set them before
+`source`. The wand firmware reads neither; a game learns its Splats from
+`net.local.count`.
+
+## Lobby games
+
+A game that declares `SPLATS_MIN` runs as `MockWand/main.py` runs it: the
+wand builds its `splatpair.SplatPairing`, `lobby_game.enter()` finds a lobby or
+opens one, and `play()` gets the `lobby_game.Net` as its eighth argument
+(`runtime._run_lobby`). All of it is the vendored code: `lobby_game.py`,
+`pwire.py`, `splatpair.py`, `pairing.py` and `splat_api.py`.
+
+What stands in for what:
+
+- **BLE:** `py/shims/splat_hub.py` replaces `splat_hub.py`,
+  `splat_link.py` and `ble_splat.py`. Its links are ready unless unplugged
+  (the "in reach" boxes, advanced mode), so `splat_api.SplatGroup`, the pairing glow and
+  `net`'s ready mask (`splat_lost` / `splat_back`) run unchanged. Writes
+  (color, sound, note, off) are drawn on the Splats; a click on one is a
+  button press on the Splat, held at least 250 ms.
+- **Pairing:** the wand holds `wand_splats` Splats (`runtime.set_game_splats`),
+  set when a different game or setting loads. The advanced card's −/+
+  changes it until then (and restarts the game). MACs are
+  `5A:00:<wand's last two bytes>:00:<i>`.
+  There are no Splat cards, `/pairing.json`, `pw_who` claim checks or the
+  30 s connect deadline.
+- **Other wands:** a game has none unless `wands` is more than 1 or
+  the overlay's "+ Add a wand" adds one. Each starts as a placeholder (an
+  outline wand with "?" on its screen) that runs nothing and is not on the
+  radio. Clicking it starts another `<wand-sim>` running the same game, on
+  the room's bus and clock with its own MAC (`02:00:00:00:0A:02` on) and
+  Splats, so every wand runs the vendored `lobby_game.py` and the game's own
+  `play()`. A game that is not a lobby game gets other wands only from
+  `wands`; they run its `play()` on the same bus, with no Splats. Each
+  boots its own Pyodide. New code reaches the running ones; a game for a
+  different number of wands, or one that neither is a lobby game nor sets
+  `wands` above 1, starts over.
+- **Protocol peers:** `js/peers.js` virtual peers speak `lobby_game.py`'s `pw_*`
+  frames (find, lobby, join, start, heartbeat with the ready mask, pooled
+  `pw_cmd`, `pw_evt`, `pw_msg`, leave, end, `q` dedupe) and run no game
+  code. `js/headless.js` and the tests use them; the room does not. Where a
+  game needs the other wands to act, a short script in `js/peers.js`
+  (`GAME_SCRIPTS`) plays their part: `lobbytest`'s follower button and
+  leader lighting, `relaycolor`'s token passing.
+
+In a room the wand's ticks mirror the room clock
+(`time_patch.set_clock_anchor`, re-synced every second by `js/pyboot.js`
+`attachWand`) rather than calling into JS on every `ticks_ms()`.
+
+Pyodide loads with WebAssembly's JSPI hidden (`js/pyboot.js`
+`loadPyodideNoJspi`), the path it takes under Node. With JSPI, Pyodide
+0.27.0 on Chrome 152 stops with a fatal "function signature mismatch" or
+"invalid address in funcref table" after about a minute of lobby game play.
+
+## Headless runs
+
+`tools/sim_run.mjs` runs a lobby game in Pyodide under Node, with no
+browser (`js/headless.js`): the same wand, peers and Splats on a bus and a
+clock running 4x real time.
+
+```bash
+node Bag3/Code/Simulator/tools/sim_run.mjs --game splattag --seconds 20
+node Bag3/Code/Simulator/tools/sim_run.mjs --file my_game.py --verbose
+```
+
+Three scenarios: **lead** (the wand leads, follower peers fill the lobby to
+`SPLATS_MIN`, the wand's button starts it, random Splat and button presses
+for `--seconds`, then the stop card), **follow** (a leader peer runs the
+game with the wand in it, then ends it) and **lost** (the leader goes
+silent). It reports exceptions, and an unhandled `end` or `leader_lost` when
+`play()` does not return after the leader ends the game or goes silent;
+exit 1 on either. `ChatBroadcast/tools/prompt_eval.mjs` runs every generated
+lobby game through it (`simRun`), and `prompt_eval.mjs --self-test-sim`
+checks that on a good and two broken games.
+
+Pyodide comes from its npm package: `PYODIDE_DIR`, or fetched once with
+`npm pack` into the OS temp dir.
 
 ## Run locally
 
@@ -37,10 +184,9 @@ testing a game under development without re-vendoring it.
 
 ## Sync vendored sources
 
-Games and verbatim libs are copied into `vendor/` from `Bag2/Code/Wand
-Module` and `Bag2/Code/lib` — a different Bag than this tool now lives in,
-since Pyodide can't read the real filesystem live and `vendor/` is what it
-actually imports:
+Games and verbatim libs are copied into `vendor/` from
+`Bag3/Code/Wand Module` and its `lib/`, since Pyodide can't read
+the real filesystem live and `vendor/` is what it actually imports:
 
 ```bash
 python3 tools/sync_sources.py          # refresh vendor/ + MANIFEST.json
@@ -55,12 +201,6 @@ git config core.hooksPath Bag3/Code/Simulator/.githooks
 
 (or copy the hook into `.git/hooks`).
 
-`buzzer.py` is the one exception: it's hand-mirrored from
-`Bag3/BroadcastBox/MockWand/lib/buzzer.py`, not synced from Bag2, so it's
-not in `sync_sources.py`'s `VERBATIM_LIBS` and `--check` doesn't touch it.
-If MockWand's `buzzer.py` changes, copy it into `vendor/lib/buzzer.py` by
-hand and re-run `sync_sources.py`.
-
 ## Tests
 
 ```bash
@@ -69,6 +209,18 @@ python3 -m pytest
 ```
 
 - `test_transform.py` — pure AST sync→async transform (no Pyodide).
+- `test_radio.py` / `test_icon_host.py` — the radio stack and capabilities,
+  and the display host running IconDisplay's goalrace.
+- `test_lobby_game.py` — lobby games on the wand: lobby, start, pooled
+  commands, Splat presses and the ready mask, against hand-written peer
+  frames.
+- `node --test tests/js/*.test.mjs` — bus, clock and payload helpers, and
+  the virtual peers against each other (`peers.test.mjs`).
+- `node tools/sim_run.mjs --game lobbytest` — a lobby game end to end,
+  headless (see "Headless runs").
+- `node tools/room_smoke.mjs` — Playwright: goalrace in `<sim-room>`, an
+  icon display is added and reacts to `goal`. Serves `Bag3/Code/`; Pyodide
+  is answered from a local copy of its npm package (see the script header).
 - `test_golden_frames.py` / `test_new_games.py` / `test_capabilities.py` —
   CPython asyncio harness that loads shims + devices + transformed games and
   asserts LED frames, capabilities, and audio/motor output under scripted
@@ -100,24 +252,27 @@ gets it, but skips the beep if the loaded game already made its own sound in
 response within a short window (`melody.py`/`cooking.py`/`nfc_sound.py` all
 do) — see `_nfc_confirm_pulse()`'s docstring for the exact timing and why.
 
-## ESP-NOW is one-sided
+## ESP-NOW
 
-There is no second wand, so the radio is two halves that don't meet.
+The wand runs the vendored `vendor/lib/espnow_manager.py` (transformed like
+the other libs) over `py/shims/espnow.py`. Without a bus (plain
+`<wand-sim>`) the radio is two halves that don't meet; inside `<sim-room>`
+both halves go over the room's bus.
 
-**Outgoing.** `py/devices/espnow_manager.py` reports every send through
-`sim_state.emit_enow_sent()`, which the panel shows under "Sent by this
-wand" and the element re-emits as `sim-enow-sent`. Showing the message *is*
-the output — nothing receives it. `send_raw` is spelled out on the fake
-manager rather than left to its `__getattr__` no-op because
-`freeze_dance.py` drives the whole game through it.
+**Outgoing.** Every frame goes through `sim_state.radio_send()`, which
+reports it through `sim_state.emit_enow_sent()` (kind `broadcast` or
+`send`; the element emits it as `sim-enow-sent`) and, when a host set `sim_state.set_radio_tx()`,
+hands it to the bus. Unicast needs the peer added first, as on the device.
 
-**Incoming.** The advanced block's "Heard from the caller" buttons queue
-messages via `sim_state.enqueue_enow()` as if a peer had sent them. A game
-reading a raw payload needs real bytes (`freeze_dance.py` compares against
-`MSG_GO = b"FD_GO"`), so `wand-sim.js` builds a hex-escaped Python bytes
-literal rather than passing a JS string. The vocabulary per game is
-`RADIO_BY_GAME` in `js/controls.js`; every game also gets `stop` and
-`start_game`, the two the hub broadcasts.
+**Incoming.** The advanced block's "Heard from the caller" buttons call
+`sim_state.enqueue_enow()`, which encodes the message as the hub would send
+it (`sim_state.encode_panel_message()`: a word `w` becomes `{"type": w}`,
+`start_game` carries the loaded game's name, JSON text goes out as is, a
+`raw` message keeps its bytes) and delivers it from `PANEL_MAC`, over the
+bus when there is one. A game reading a raw payload needs real bytes
+(`freeze_dance.py` compares against `MSG_GO = b"FD_GO"`), so `wand-sim.js`
+builds a hex-escaped Python bytes literal rather than passing a JS string.
+The vocabulary per game is `RADIO_BY_GAME` in `js/controls.js`.
 
 `emit_log` and `emit_error` are deliberately separate channels. A send is
 routine traffic and must not reach the error channel — while they shared
@@ -138,13 +293,13 @@ the Bag trees, not here, and has been left alone.
 ## Design notes
 
 - **Verbatim**: `leds.py`, `brightness.py`, `hubtype.py`, `game_tags.py`,
-  `actions.py`, `battery.py` (AST-transformed sync→async), synced from
-  Bag2. `buzzer.py` is verbatim too, hand-mirrored from MockWand: see
-  "Sync vendored sources" above.
+  `actions.py`, `battery.py`, `buzzer.py` (AST-transformed sync→async),
+  synced from MockWand/lib.
+- **Verbatim, transformed**: `espnow_manager.py` (from MockWand/lib).
 - **Faked wholesale**: `lis2dw12`, `max17048`, `opt3002`, `pn532`,
-  `nfc_reader`, `espnow_manager`.
+  `nfc_reader`.
 - **Platform shims**: `machine`, `neopixel`, `time.sleep_ms` / `ticks_*`,
-  `_thread`, `network`, `ubluetooth`, `micropython`.
+  `_thread`, `network`, `espnow`, `ubluetooth`, `micropython`.
 - Stop = cancel the `play()` asyncio task; games' `try/finally: leds.off()`
   still runs.
 - LED colors: incoming bytes are the wand's actual NeoPixel duty cycle
@@ -171,15 +326,27 @@ the Bag trees, not here, and has been left alone.
 - The pad feeds free-form tilt (`js/motion.js`'s `setPadTilt`) while the
   pointer moves, then snaps to the named pose its position reads as once the
   pointer settles, so an orientation-reading game sees the exact gravity
-  vector from the `POSES` table rather than an in-between one. The pad's four
-  edge labels fix that mapping — see `setPadTilt`'s docstring.
+  vector from the `POSES` table rather than an in-between one. The mapping is
+  in `setPadTilt`'s docstring: screen-up is up, the pad's centre is the
+  wand upright facing the viewer, top/bottom tip its face up/down, and the
+  wand rolls up to 90° toward the pointer's side: clockwise to Right Up on
+  the right, counterclockwise to Left Up on the left. "Turn over" turns
+  it upside down in the screen plane. When the pointer leaves the pad the
+  wand drifts back to upright. The wand keeps one size, chosen from the
+  pad's width so it stays inside the pad in every pose. A game that never
+  reads the accelerometer gets a wand locked upright: the pad only presses
+  the button. The pad's hint shows until the pointer first enters the pad,
+  and again when a game loads.
+- A game with no `_TEACHER_TABLE` entry (every generated game) shows the
+  motion controls only when its code reads the accelerometer.
 - Gesture animations run for the duration `fireMove()` reports, not a fixed
   design value, so the wand stops moving when the accelerometer does.
-- `<wand-sim>` attributes: `game`, `autostart`, `show-console`, `controls`,
+- `<wand-sim>` attributes: `game`, `autostart`, `controls`,
   `source`, `muted`, `advanced` (shows the axis readout, the custom tag /
-  radio message drawer, the hardware dials and the log; off by default, so an
-  embedding host opts in explicitly), `log-lines` (default 2).
-  Events: `sim-ready`, `sim-frame`, `sim-print`, `sim-error` (`detail.phase`
+  radio message drawer and the hardware dials; off by default, so an
+  embedding host opts in explicitly).
+  Property `pyodide` (after `sim-ready`).
+  Events: `sim-ready`, `sim-loaded` (`detail.capabilities`), `sim-frame`, `sim-print`, `sim-log` (`detail.text`, one console line), `sim-error` (`detail.phase`
   is `"boot"`, `"load"`, or `"run"`), `sim-stopped`, `sim-overlay-action`
   (`detail` is `{ kind, action }`), `sim-enow-sent` (`detail` is
   `{ kind, data, mac }`).
@@ -191,9 +358,11 @@ the Bag trees, not here, and has been left alone.
   the element raises by itself, on a boot or load failure; the host triggers
   the others. `index.html` has a button per kind for exercising them.
 - The panel lays out in two panes above 420px of its own width and one below
-  it, and shrinks the wand below 300px (container queries in
-  `js/controls.js`). Its design width is 500px.
-- ChatBroadcast (`Bag3/Code/BroadcastCode/BroadcastBox/ChatBroadcast/`) embeds this
+  it (container queries in `js/controls.js`). Its design width is 500px. The left pane is the square
+  pad with the status line and Turn over under it; the right pane has Jump,
+  Spin and Shake in one row, the shake strength (Gentle, Strong, Intense)
+  under them, then whatever the host slots in (the icon display).
+- ChatBroadcast (`Bag3/Code/TeacherTools/BroadcastBox/ChatBroadcast/`) embeds this
   element directly from `../../Simulator/wand-sim.js`, so both trees must be
   served from a common root (`Bag3/Code/`) rather than from ChatBroadcast's
   own directory.

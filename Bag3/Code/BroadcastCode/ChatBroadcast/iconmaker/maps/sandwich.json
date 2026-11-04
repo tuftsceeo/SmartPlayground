@@ -1,0 +1,95 @@
+{
+  "source": "assets/sandwich.png",
+  "max_segments": 5,
+  "intensity": 0.3,
+  "fills": [
+    {
+      "rgb": [
+        1,
+        0,
+        0
+      ],
+      "count": 25439,
+      "frac": 0.60533
+    },
+    {
+      "rgb": [
+        229,
+        142,
+        39
+      ],
+      "count": 7184,
+      "frac": 0.17095
+    },
+    {
+      "rgb": [
+        254,
+        216,
+        157
+      ],
+      "count": 7108,
+      "frac": 0.16914
+    },
+    {
+      "rgb": [
+        22,
+        156,
+        11
+      ],
+      "count": 1531,
+      "frac": 0.03643
+    },
+    {
+      "rgb": [
+        234,
+        11,
+        2
+      ],
+      "count": 763,
+      "frac": 0.01816
+    }
+  ],
+  "decisions": {
+    "1,0,0": {
+      "role": "off",
+      "priority": 1.0
+    },
+    "229,142,39": {
+      "role": "color",
+      "priority": 1.0,
+      "color": [
+        177,
+        104,
+        23
+      ]
+    },
+    "254,216,157": {
+      "role": "color",
+      "priority": 1.0,
+      "color": [
+        220,
+        147,
+        32
+      ]
+    },
+    "22,156,11": {
+      "role": "color",
+      "priority": 1.0,
+      "color": [
+        20,
+        148,
+        0
+      ]
+    },
+    "234,11,2": {
+      "role": "color",
+      "priority": 2.5,
+      "color": [
+        144,
+        0,
+        0
+      ]
+    }
+  },
+  "overlay": {}
+}

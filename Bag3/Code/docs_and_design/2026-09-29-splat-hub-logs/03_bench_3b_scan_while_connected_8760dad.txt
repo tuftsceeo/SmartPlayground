@@ -1,0 +1,6 @@
+  SplatLink: ready, Splat AB:42:00:00:62:2F (connects=1)
+connected to AB:42:00:00:62:2F
+no scan: 0 drop(s) in 15 s, state ready
+scan started (100000, 20000)
+with scan: 0 drop(s) in 15 s, state ready
+RESULT: no-scan drops 0, with-scan drops 0 -> scan did not drop the link

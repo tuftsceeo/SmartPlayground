@@ -1,0 +1,95 @@
+{
+  "source": "assets/slide.png",
+  "max_segments": 5,
+  "intensity": 0.3,
+  "fills": [
+    {
+      "rgb": [
+        0,
+        0,
+        0
+      ],
+      "count": 37476,
+      "frac": 0.89175
+    },
+    {
+      "rgb": [
+        243,
+        4,
+        3
+      ],
+      "count": 1655,
+      "frac": 0.03938
+    },
+    {
+      "rgb": [
+        71,
+        215,
+        8
+      ],
+      "count": 1340,
+      "frac": 0.03189
+    },
+    {
+      "rgb": [
+        243,
+        165,
+        12
+      ],
+      "count": 827,
+      "frac": 0.01968
+    },
+    {
+      "rgb": [
+        150,
+        231,
+        9
+      ],
+      "count": 727,
+      "frac": 0.0173
+    }
+  ],
+  "decisions": {
+    "0,0,0": {
+      "role": "off",
+      "priority": 1.0
+    },
+    "243,4,3": {
+      "role": "color",
+      "priority": 0.6,
+      "color": [
+        158,
+        0,
+        0
+      ]
+    },
+    "71,215,8": {
+      "role": "color",
+      "priority": 0.6,
+      "color": [
+        62,
+        202,
+        0
+      ]
+    },
+    "243,165,12": {
+      "role": "color",
+      "priority": 2.5,
+      "color": [
+        203,
+        136,
+        0
+      ]
+    },
+    "150,231,9": {
+      "role": "color",
+      "priority": 2.5,
+      "color": [
+        139,
+        220,
+        0
+      ]
+    }
+  },
+  "overlay": {}
+}

@@ -1,32 +1,14 @@
 /**
- * Source images this copy of the Icon Maker ships in assets/.
+ * Icons the Maker offers to open: the saved device icons in defaultIcons.js
+ * (generated from Stations/IconDisplay/icons/ by tools/sync_icons.py).
  *
- * Listed names reopen through loadFixture(); anything else goes through the
- * file picker. A name with a matching maps/<name>.json reopens with its
- * segment decisions intact, so it comes back exactly as it was converted.
+ * This used to list the source photos in assets/, reconverted on open. Those
+ * conversions predate the current designs and the measured white, so they are
+ * no longer offered; assets/ and maps/ stay on disk for reference only.
  *
- * NOT listed: the icons drawn procedurally by the station's
- * hand_author_icons.py (ball, cat, dog, heart, star and the rest of that
- * set). They have maps but no source image -- there is nothing for
- * loadFixture() to decode -- so they are edited by re-running that script,
- * or painted here from a blank grid.
- *
- * One list, two readers: main.js's loadFixture() and the top bar's picker.
+ * One list, three readers: main.js's loadFixture(), the top bar's picker and
+ * the ChatBroadcast sample library.
  */
-export const FIXTURES = [
-    // In the icon library
-    "airplane", "apple", "astronaut", "balloon", "blocks", "camel", "car",
-    "cherries", "cloud", "deer", "dino", "doctor", "dolphin", "dove",
-    "firefighter", "goldfish", "grapes", "hedgehog", "hospital", "leaf",
-    "lemon", "lightning", "milk", "orange", "parrot", "pig", "police",
-    "rain_cloud", "school", "ship", "snowflake", "strawberry", "teddy_bear",
-    "train", "trex", "watermelon",
+import { DEFAULT_ICONS } from "../../js/ledicons/defaultIcons.js";
 
-    // Converted but not promoted -- see the station's drafts/README.md
-    "bicycle", "fire_truck", "goat", "grass", "griffin", "helicopter",
-    "mail_carrier", "monkey", "mouse", "sandwich", "shark", "slide",
-    "sparkles",
-
-    // Ships as an image only, with no segment map
-    "snake",
-];
+export const FIXTURES = Object.keys(DEFAULT_ICONS).sort();

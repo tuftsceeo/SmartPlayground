@@ -1,0 +1,485 @@
+[   0.0s] # monitor: port opened
+[   0.1s] ESP-ROM:esp32c6-20220919
+[   0.1s] Build:Sep 19 2022
+[   0.1s] rst:0xc (SW_CPU),boot:0x1e (SPI_FAST_FLASH_BOOT)
+[   0.1s] Saved PC:0x4001975a
+[   0.1s] SPIWP:0xee
+[   0.1s] mode:DIO, clock div:2
+[   0.1s] load:0x40875730,len:0xdbc
+[   0.1s] load:0x4086b910,len:0xc34
+[   0.1s] load:0x4086e610,len:0x2e3c
+[   0.1s] entry 0x4086b910
+[   1.6s] [hubtype] wand (25 LEDs)
+[   4.5s] 
+[   4.5s] ==================================================
+[   4.5s]   PlaygroundV5 -- Multi-Trigger Event Engine
+[   4.5s]   Hub type: wand
+[   4.5s] ==================================================
+[   5.8s]   ESPNow: active (MAC: A0:F2:62:87:B4:30)
+[   6.4s]   Light: 551 lux -> brightness x0.06
+[   6.5s]   Battery: 4.20V, 101.6%
+[   6.5s]   PN532 firmware 1.6 (IC 0x32) -- NFC ready
+[   6.5s]   Accelerometer OK
+[   6.6s]   Accel wake-up (INT1) armed
+[   6.6s]   Boot complete — all systems OK
+[   7.0s] {"hub": "wand", "games": ["button_flash_blu", "colorquest", "cooking", "finddevice", "freezedance", "gestures", "goalrace", "jump", "jumpin", "melody", "multiicecream", "nfcsound", "rainbow", "shake", "shakerainbow", "simpleicecream", "sound", "speed05", "speed20", "speed28", "speed32", "speed36", "speed40", "splatecho", "splatecho"], "version": "0.1.0", "device": "wand", "type": "identity"}
+[   8.6s]   Launching just-pulled game: splatecho
+[   9.2s] {"slug": "splatecho", "type": "game_start"}
+[   9.5s]   [echo]     214 START espnow=(0, 0, 0, 0, 0)
+[   9.5s]   [echo]     221 STATE join
+[   9.5s]   [echo]     224 TX echo_hello #1 ok=True
+[  10.5s]   [echo]    1241 TX echo_hello #2 ok=True
+[  19.4s]   [echo]   10091 RX {'type': 'echo_hello'} (state=join)
+[  20.3s]   [echo]   11052 RX {'type': 'echo_hello'} (state=join)
+[  21.3s]   [echo]   12017 RX {'type': 'echo_hello'} (state=join)
+[  22.3s]   [echo]   13038 RX {'type': 'echo_hello'} (state=join)
+[  23.5s]   [echo]   14255 RX {'type': 'echo_hello'} (state=join)
+[  24.5s]   [echo]   15215 RX {'type': 'echo_hello'} (state=join)
+[  25.4s]   [echo]   16175 RX {'type': 'echo_hello'} (state=join)
+[  26.4s]   [echo]   17135 RX {'type': 'echo_hello'} (state=join)
+[  27.4s]   [echo]   18155 RX {'type': 'echo_hello'} (state=join)
+[  28.1s]   [echo]   18793 RX {'player': 0, 'type': 'echo_you'} (state=join)
+[  28.1s]   ESPNow: added peer A0:F2:62:85:A9:9C
+[  28.1s]   [echo]   18797 HUB A0:F2:62:85:A9:9C
+[  28.1s]   splatecho: I am player 0
+[  28.1s]   [echo]   18802 JOINED as player 0 after 18 hello(s)
+[  28.2s]   [echo]   18901 STATE waiting
+[  28.2s]   [echo]   18906 RX {'player': 0, 'type': 'echo_you'} (state=waiting)
+[  28.2s]   [echo]   18931 RX {'player': 0, 'type': 'echo_you'} (state=waiting)
+[  28.2s]   [echo]   18955 RX {'player': 0, 'type': 'echo_you'} (state=waiting)
+[  28.2s]   [echo]   18980 RX {'player': 0, 'type': 'echo_you'} (state=waiting)
+[  28.3s]   [echo]   19004 RX {'player': 0, 'type': 'echo_you'} (state=waiting)
+[  28.4s]   [echo]   19142 RX {'player': 0, 'type': 'echo_you'} (state=waiting)
+[  28.4s]   [echo]   19167 RX {'player': 0, 'type': 'echo_you'} (state=waiting)
+[  28.5s]   [echo]   19191 RX {'player': 0, 'type': 'echo_you'} (state=waiting)
+[  28.5s]   [echo]   19215 RX {'player': 0, 'type': 'echo_you'} (state=waiting)
+[  28.5s]   [echo]   19240 RX {'player': 0, 'type': 'echo_you'} (state=waiting)
+[  28.5s]   [echo]   19264 RX {'player': 0, 'type': 'echo_you'} (state=waiting)
+[  28.6s]   [echo]   19288 RX {'player': 0, 'type': 'echo_you'} (state=waiting)
+[  28.6s]   [echo]   19313 RX {'player': 0, 'type': 'echo_you'} (state=waiting)
+[  28.6s]   [echo]   19337 RX {'player': 0, 'type': 'echo_you'} (state=waiting)
+[  28.6s]   [echo]   19361 RX {'player': 0, 'type': 'echo_you'} (state=waiting)
+[  28.8s]   [echo]   19498 RX {'player': 0, 'type': 'echo_you'} (state=waiting)
+[  30.5s]   [echo]   21208 RX {'q': 1, 'type': 'echo_turn', 'player': 0, 'len': 0} (state=waiting)
+[  30.5s]   splatecho: my turn (length 0)
+[  30.5s]   [echo]   21209 STATE my turn len 0
+[  30.7s]   [echo]   21405 RX {'q': 2, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=my turn len 0)
+[  30.7s]   splatecho: your turn to add a step
+[  30.7s]   [echo]   21412 STATE add
+[  40.8s]   [echo]   31538 QUIET 10123 ms: state=add me=0 last_rx=echo_add_now 989 ms ago rx={'echo_you': 17, 'echo_hello': 9, 'echo_turn': 1, 'echo_add_now': 10} last_q=11 missed=0 adds=0 btn_down=0 tilt=None max_poll_gap=194 espnow=(18, 18, 0, 37, 0)
+[  60.8s]   [echo]   51546 QUIET 30131 ms: state=add me=0 last_rx=echo_add_now 152 ms ago rx={'echo_you': 17, 'echo_hello': 9, 'echo_turn': 1, 'echo_add_now': 30} last_q=31 missed=0 adds=0 btn_down=0 tilt=None max_poll_gap=194 espnow=(18, 18, 0, 57, 0)
+[ 100.8s]   [echo]   91564 QUIET 70149 ms: state=add me=0 last_rx=echo_add_now 22 ms ago rx={'echo_you': 17, 'echo_hello': 9, 'echo_turn': 1, 'echo_add_now': 69} last_q=70 missed=0 adds=0 btn_down=0 tilt=None max_poll_gap=194 espnow=(18, 18, 0, 96, 0)
+[ 179.0s]   [echo]  169741 BUTTON in add with wand flat -- no step
+[ 181.5s]   splatecho: added Splat 0
+[ 181.5s]   [echo]  172263 TX echo_add unit 0 len 0 tries=1 after 150850 ms
+[ 181.7s]   [echo]  172422 STATE added, waiting
+[ 182.0s]   [echo]  172763 RX {'q': 149, 'type': 'echo_turn', 'player': 1, 'len': 1} (state=added, waiting)
+[ 182.0s]   [echo]  172764 STATE other's turn
+[ 187.5s]   [echo]  178188 RX {'len': 1, 'ok': False, 'player': 1, 'scores': [1, 0], 'q': 150, 'type': 'echo_result'} (state=other's turn)
+[ 187.5s]   [echo]  178189 STATE result
+[ 188.4s]   splatecho: scores [1, 0] (me: player 0)
+[ 190.4s]   [echo]  181115 RESULT shown ok=False, blocked 2922 ms
+[ 190.4s]   [echo]  181115 STATE waiting
+[ 190.4s]   [echo]  181136 SLOW poll gap 2949 ms (state=waiting)
+[ 190.4s]   [echo]  181140 RX {'q': 151, 'type': 'echo_turn', 'player': 0, 'len': 0} (state=waiting)
+[ 190.4s]   splatecho: my turn (length 0)
+[ 190.4s]   [echo]  181142 STATE my turn len 0
+[ 190.6s]   [echo]  181345 RX {'q': 152, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=my turn len 0)
+[ 190.7s]   [echo]  181383 RESEND echo_add unit 0 len 0 tries=1
+[ 190.7s]   [echo]  181407 RX {'q': 153, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=my turn len 0)
+[ 190.7s]   [echo]  181432 RESEND echo_add unit 0 len 0 tries=1
+[ 191.3s]   [echo]  181987 RX {'q': 154, 'type': 'echo_turn', 'player': 1, 'len': 1} (state=my turn len 0)
+[ 191.3s]   [echo]  181988 STATE other's turn
+[ 196.6s]   [echo]  187371 RX {'len': 1, 'ok': False, 'player': 1, 'scores': [2, 0], 'q': 155, 'type': 'echo_result'} (state=other's turn)
+[ 196.6s]   [echo]  187372 STATE result
+[ 197.6s]   splatecho: scores [2, 0] (me: player 0)
+[ 199.6s]   [echo]  190305 RESULT shown ok=False, blocked 2922 ms
+[ 199.6s]   [echo]  190306 STATE waiting
+[ 199.6s]   [echo]  190326 SLOW poll gap 2956 ms (state=waiting)
+[ 199.6s]   [echo]  190330 RX {'q': 156, 'type': 'echo_turn', 'player': 0, 'len': 0} (state=waiting)
+[ 199.6s]   splatecho: my turn (length 0)
+[ 199.6s]   [echo]  190332 STATE my turn len 0
+[ 199.8s]   [echo]  190536 RX {'q': 157, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=my turn len 0)
+[ 199.8s]   [echo]  190544 RESEND echo_add unit 0 len 0 tries=1
+[ 199.8s]   [echo]  190568 RX {'q': 158, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=my turn len 0)
+[ 199.9s]   [echo]  190592 RESEND echo_add unit 0 len 0 tries=1
+[ 200.1s]   [echo]  190848 BUTTON pressed outside add (state=my turn len 0)
+[ 200.4s]   [echo]  191168 RX {'q': 159, 'type': 'echo_turn', 'player': 1, 'len': 1} (state=my turn len 0)
+[ 200.4s]   [echo]  191169 STATE other's turn
+[ 200.8s]   [echo]  191493 BUTTON pressed outside add (state=other's turn)
+[ 201.8s]   [echo]  192521 BUTTON pressed outside add (state=other's turn)
+[ 202.2s]   [echo]  192939 BUTTON pressed outside add (state=other's turn)
+[ 202.7s]   [echo]  193389 BUTTON pressed outside add (state=other's turn)
+[ 203.0s]   [echo]  193726 BUTTON pressed outside add (state=other's turn)
+[ 203.6s]   [echo]  194337 BUTTON pressed outside add (state=other's turn)
+[ 204.2s]   [echo]  194969 BUTTON pressed outside add (state=other's turn)
+[ 204.6s]   [echo]  195286 BUTTON pressed outside add (state=other's turn)
+[ 204.9s]   [echo]  195602 BUTTON pressed outside add (state=other's turn)
+[ 205.7s]   [echo]  196420 RX {'len': 1, 'ok': False, 'player': 1, 'scores': [3, 0], 'q': 160, 'type': 'echo_result'} (state=other's turn)
+[ 205.7s]   [echo]  196421 STATE result
+[ 206.6s]   splatecho: scores [3, 0] (me: player 0)
+[ 208.6s]   [echo]  199355 RESULT shown ok=False, blocked 2922 ms
+[ 208.6s]   [echo]  199355 STATE waiting
+[ 208.6s]   [echo]  199376 SLOW poll gap 2957 ms (state=waiting)
+[ 208.8s]   [echo]  199493 RX {'q': 161, 'type': 'echo_turn', 'player': 0, 'len': 0} (state=waiting)
+[ 208.8s]   splatecho: my turn (length 0)
+[ 208.8s]   [echo]  199494 STATE my turn len 0
+[ 209.0s]   [echo]  199694 RX {'q': 162, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=my turn len 0)
+[ 209.0s]   [echo]  199695 BUTTON pressed outside add (state=my turn len 0)
+[ 209.0s]   [echo]  199709 RESEND echo_add unit 0 len 0 tries=1
+[ 209.0s]   [echo]  199733 RX {'q': 163, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=my turn len 0)
+[ 209.0s]   [echo]  199762 RESEND echo_add unit 0 len 0 tries=1
+[ 209.5s]   [echo]  200224 RX {'q': 164, 'type': 'echo_turn', 'player': 1, 'len': 1} (state=my turn len 0)
+[ 209.5s]   [echo]  200225 STATE other's turn
+[ 212.0s]   [echo]  202777 RX {'len': 1, 'ok': False, 'player': 1, 'scores': [4, 0], 'q': 165, 'type': 'echo_result'} (state=other's turn)
+[ 212.0s]   [echo]  202778 STATE result
+[ 213.0s]   splatecho: scores [4, 0] (me: player 0)
+[ 215.0s]   [echo]  205705 RESULT shown ok=False, blocked 2923 ms
+[ 215.0s]   [echo]  205706 STATE waiting
+[ 215.0s]   [echo]  205727 SLOW poll gap 2951 ms (state=waiting)
+[ 215.1s]   [echo]  205844 RX {'q': 166, 'type': 'echo_turn', 'player': 0, 'len': 0} (state=waiting)
+[ 215.1s]   splatecho: my turn (length 0)
+[ 215.1s]   [echo]  205845 STATE my turn len 0
+[ 215.3s]   [echo]  206045 RX {'q': 167, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=my turn len 0)
+[ 215.3s]   [echo]  206056 RESEND echo_add unit 0 len 0 tries=1
+[ 215.3s]   [echo]  206080 RX {'q': 168, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=my turn len 0)
+[ 215.4s]   [echo]  206112 RESEND echo_add unit 0 len 0 tries=1
+[ 215.7s]   [echo]  206389 BUTTON pressed outside add (state=my turn len 0)
+[ 216.0s]   [echo]  206729 RX {'q': 169, 'type': 'echo_turn', 'player': 1, 'len': 1} (state=my turn len 0)
+[ 216.0s]   [echo]  206730 STATE other's turn
+[ 217.7s]   [echo]  208442 RX {'len': 1, 'ok': False, 'player': 1, 'scores': [5, 0], 'q': 170, 'type': 'echo_result'} (state=other's turn)
+[ 217.7s]   [echo]  208444 STATE result
+[ 218.6s]   splatecho: scores [5, 0] (me: player 0)
+[ 220.6s]   [echo]  211375 RESULT shown ok=False, blocked 2923 ms
+[ 220.6s]   [echo]  211376 STATE waiting
+[ 220.7s]   [echo]  211397 SLOW poll gap 2955 ms (state=waiting)
+[ 220.7s]   [echo]  211400 RX {'q': 171, 'type': 'echo_turn', 'player': 0, 'len': 0} (state=waiting)
+[ 220.7s]   splatecho: my turn (length 0)
+[ 220.7s]   [echo]  211402 STATE my turn len 0
+[ 220.9s]   [echo]  211604 RX {'q': 172, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=my turn len 0)
+[ 220.9s]   [echo]  211652 RESEND echo_add unit 0 len 0 tries=1
+[ 221.1s]   [echo]  211789 RX {'q': 173, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=my turn len 0)
+[ 221.1s]   [echo]  211800 RESEND echo_add unit 0 len 0 tries=1
+[ 221.1s]   [echo]  211821 BUTTON pressed outside add (state=my turn len 0)
+[ 221.4s]   [echo]  212161 RX {'q': 174, 'type': 'echo_turn', 'player': 1, 'len': 1} (state=my turn len 0)
+[ 221.4s]   [echo]  212162 STATE other's turn
+[ 222.8s]   [echo]  213534 BUTTON pressed outside add (state=other's turn)
+[ 224.7s]   [echo]  215431 BUTTON pressed outside add (state=other's turn)
+[ 225.6s]   [echo]  216298 BUTTON pressed outside add (state=other's turn)
+[ 225.8s]   [echo]  216574 BUTTON pressed outside add (state=other's turn)
+[ 226.2s]   [echo]  216890 BUTTON pressed outside add (state=other's turn)
+[ 226.8s]   [echo]  217546 RX {'len': 1, 'ok': False, 'player': 1, 'scores': [6, 0], 'q': 175, 'type': 'echo_result'} (state=other's turn)
+[ 226.8s]   [echo]  217547 STATE result
+[ 227.7s]   splatecho: scores [6, 0] (me: player 0)
+[ 229.7s]   [echo]  220474 RESULT shown ok=False, blocked 2922 ms
+[ 229.7s]   [echo]  220475 STATE waiting
+[ 229.8s]   [echo]  220496 SLOW poll gap 2951 ms (state=waiting)
+[ 229.8s]   [echo]  220500 RX {'q': 176, 'type': 'echo_turn', 'player': 0, 'len': 0} (state=waiting)
+[ 229.8s]   splatecho: my turn (length 0)
+[ 229.8s]   [echo]  220502 STATE my turn len 0
+[ 230.0s]   [echo]  220704 RX {'q': 177, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=my turn len 0)
+[ 230.0s]   [echo]  220709 RESEND echo_add unit 0 len 0 tries=1
+[ 230.0s]   [echo]  220733 RX {'q': 178, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=my turn len 0)
+[ 230.0s]   [echo]  220752 RESEND echo_add unit 0 len 0 tries=1
+[ 230.6s]   [echo]  221327 RX {'q': 179, 'type': 'echo_turn', 'player': 1, 'len': 1} (state=my turn len 0)
+[ 230.6s]   [echo]  221328 STATE other's turn
+[ 231.9s]   [echo]  222619 BUTTON pressed outside add (state=other's turn)
+[ 236.0s]   [echo]  226708 RX {'len': 1, 'ok': False, 'player': 1, 'scores': [7, 0], 'q': 180, 'type': 'echo_result'} (state=other's turn)
+[ 236.0s]   [echo]  226709 STATE result
+[ 236.9s]   splatecho: scores [7, 0] (me: player 0)
+[ 238.9s]   [echo]  229635 RESULT shown ok=False, blocked 2922 ms
+[ 238.9s]   [echo]  229636 STATE waiting
+[ 238.9s]   [echo]  229656 SLOW poll gap 2949 ms (state=waiting)
+[ 238.9s]   [echo]  229660 RX {'q': 181, 'type': 'echo_turn', 'player': 0, 'len': 0} (state=waiting)
+[ 238.9s]   splatecho: my turn (length 0)
+[ 238.9s]   [echo]  229662 STATE my turn len 0
+[ 239.1s]   [echo]  229864 RX {'q': 182, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=my turn len 0)
+[ 239.2s]   [echo]  229922 RESEND echo_add unit 0 len 0 tries=1
+[ 239.2s]   [echo]  229946 RX {'q': 183, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=my turn len 0)
+[ 239.3s]   [echo]  230012 RESEND echo_add unit 0 len 0 tries=1
+[ 239.7s]   [echo]  230433 RX {'q': 184, 'type': 'echo_turn', 'player': 1, 'len': 1} (state=my turn len 0)
+[ 239.7s]   [echo]  230434 STATE other's turn
+[ 245.1s]   [echo]  235800 RX {'len': 1, 'ok': False, 'player': 1, 'scores': [8, 0], 'q': 185, 'type': 'echo_result'} (state=other's turn)
+[ 245.1s]   [echo]  235801 STATE result
+[ 246.0s]   splatecho: scores [8, 0] (me: player 0)
+[ 248.0s]   [echo]  238741 RESULT shown ok=False, blocked 2928 ms
+[ 248.0s]   [echo]  238742 STATE waiting
+[ 248.0s]   [echo]  238762 SLOW poll gap 2963 ms (state=waiting)
+[ 248.0s]   [echo]  238766 RX {'q': 186, 'type': 'echo_turn', 'player': 0, 'len': 0} (state=waiting)
+[ 248.0s]   splatecho: my turn (length 0)
+[ 248.0s]   [echo]  238772 STATE my turn len 0
+[ 248.3s]   [echo]  239078 RX {'q': 187, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=my turn len 0)
+[ 248.4s]   [echo]  239112 RESEND echo_add unit 0 len 0 tries=1
+[ 248.4s]   [echo]  239136 RX {'q': 188, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=my turn len 0)
+[ 248.4s]   [echo]  239142 RESEND echo_add unit 0 len 0 tries=1
+[ 248.9s]   [echo]  239624 RX {'q': 189, 'type': 'echo_turn', 'player': 1, 'len': 1} (state=my turn len 0)
+[ 248.9s]   [echo]  239626 STATE other's turn
+[ 254.2s]   [echo]  244919 RX {'idx': 0, 'type': 'echo_step', 'player': 1, 'q': 190} (state=other's turn)
+[ 254.5s]   [echo]  245244 RX {'len': 1, 'ok': True, 'player': 1, 'scores': [8, 0], 'q': 191, 'type': 'echo_result'} (state=other's turn)
+[ 254.5s]   [echo]  245245 STATE result
+[ 255.1s]   splatecho: scores [8, 0] (me: player 0)
+[ 255.2s]   [echo]  245888 RESULT shown ok=True, blocked 636 ms
+[ 255.2s]   [echo]  245889 STATE waiting
+[ 255.2s]   [echo]  245910 SLOW poll gap 667 ms (state=waiting)
+[ 255.2s]   [echo]  245914 RX {'q': 192, 'type': 'echo_add_now', 'player': 1, 'len': 1} (state=waiting)
+[ 256.2s]   [echo]  246905 RX {'q': 193, 'type': 'echo_add_now', 'player': 1, 'len': 1} (state=waiting)
+[ 257.1s]   [echo]  247834 BUTTON pressed outside add (state=waiting)
+[ 257.3s]   [echo]  248052 RX {'q': 194, 'type': 'echo_add_now', 'player': 1, 'len': 1} (state=waiting)
+[ 257.9s]   [echo]  248665 BUTTON pressed outside add (state=waiting)
+[ 258.3s]   [echo]  249005 RX {'q': 195, 'type': 'echo_add_now', 'player': 1, 'len': 1} (state=waiting)
+[ 259.3s]   [echo]  250077 RX {'q': 196, 'type': 'echo_add_now', 'player': 1, 'len': 1} (state=waiting)
+[ 260.6s]   [echo]  251325 RX {'q': 197, 'type': 'echo_turn', 'player': 0, 'len': 2} (state=waiting)
+[ 260.6s]   splatecho: my turn (length 2)
+[ 260.6s]   [echo]  251326 STATE my turn len 2
+[ 262.9s]   [echo]  253613 RX {'len': 2, 'ok': False, 'player': 0, 'scores': [8, 1], 'q': 198, 'type': 'echo_result'} (state=my turn len 2)
+[ 262.9s]   [echo]  253622 STATE result
+[ 263.8s]   splatecho: scores [8, 1] (me: player 0)
+[ 265.8s]   [echo]  256546 RESULT shown ok=False, blocked 2922 ms
+[ 265.8s]   [echo]  256547 STATE waiting
+[ 265.8s]   [echo]  256567 SLOW poll gap 2955 ms (state=waiting)
+[ 265.8s]   [echo]  256571 RX {'q': 199, 'type': 'echo_turn', 'player': 1, 'len': 0} (state=waiting)
+[ 265.8s]   [echo]  256572 STATE other's turn
+[ 265.9s]   [echo]  256612 RX {'q': 200, 'type': 'echo_add_now', 'player': 1, 'len': 0} (state=other's turn)
+[ 265.9s]   [echo]  256635 RX {'q': 201, 'type': 'echo_add_now', 'player': 1, 'len': 0} (state=other's turn)
+[ 266.5s]   [echo]  257230 RX {'q': 202, 'type': 'echo_add_now', 'player': 1, 'len': 0} (state=other's turn)
+[ 267.7s]   [echo]  258478 RX {'q': 203, 'type': 'echo_turn', 'player': 0, 'len': 1} (state=other's turn)
+[ 267.7s]   splatecho: my turn (length 1)
+[ 267.7s]   [echo]  258479 STATE my turn len 1
+[ 272.3s]   [echo]  263065 RX {'idx': 0, 'type': 'echo_step', 'player': 0, 'q': 204} (state=my turn len 1)
+[ 272.6s]   [echo]  263283 RX {'len': 1, 'ok': True, 'player': 0, 'scores': [8, 1], 'q': 205, 'type': 'echo_result'} (state=my turn len 1)
+[ 272.6s]   [echo]  263284 STATE result
+[ 273.2s]   splatecho: scores [8, 1] (me: player 0)
+[ 273.2s]   [echo]  263945 RESULT shown ok=True, blocked 652 ms
+[ 273.2s]   [echo]  263946 STATE waiting
+[ 273.2s]   [echo]  263966 SLOW poll gap 684 ms (state=waiting)
+[ 273.2s]   [echo]  263970 RX {'q': 206, 'type': 'echo_add_now', 'player': 0, 'len': 1} (state=waiting)
+[ 273.2s]   splatecho: your turn to add a step
+[ 273.2s]   [echo]  263972 STATE add
+[ 276.7s]   splatecho: added Splat 0
+[ 276.7s]   [echo]  267443 TX echo_add unit 0 len 1 tries=1 after 3460 ms
+[ 276.9s]   [echo]  267602 STATE added, waiting
+[ 277.2s]   [echo]  267967 RX {'q': 210, 'type': 'echo_turn', 'player': 1, 'len': 2} (state=added, waiting)
+[ 277.2s]   [echo]  267968 STATE other's turn
+[ 280.7s]   [echo]  271412 RX {'idx': 0, 'type': 'echo_step', 'player': 1, 'q': 211} (state=other's turn)
+[ 281.3s]   [echo]  272068 RX {'idx': 1, 'type': 'echo_step', 'player': 1, 'q': 212} (state=other's turn)
+[ 281.7s]   [echo]  272389 RX {'len': 2, 'ok': True, 'player': 1, 'scores': [8, 1], 'q': 213, 'type': 'echo_result'} (state=other's turn)
+[ 281.7s]   [echo]  272391 STATE result
+[ 282.3s]   splatecho: scores [8, 1] (me: player 0)
+[ 282.3s]   [echo]  273038 RESULT shown ok=True, blocked 636 ms
+[ 282.3s]   [echo]  273039 STATE waiting
+[ 282.3s]   [echo]  273060 SLOW poll gap 671 ms (state=waiting)
+[ 282.3s]   [echo]  273064 RX {'q': 214, 'type': 'echo_add_now', 'player': 1, 'len': 2} (state=waiting)
+[ 282.7s]   [echo]  273421 BUTTON pressed outside add (state=waiting)
+[ 283.0s]   [echo]  273718 BUTTON pressed outside add (state=waiting)
+[ 283.3s]   [echo]  273997 RX {'q': 215, 'type': 'echo_add_now', 'player': 1, 'len': 2} (state=waiting)
+[ 284.3s]   [echo]  275030 RX {'q': 216, 'type': 'echo_add_now', 'player': 1, 'len': 2} (state=waiting)
+[ 285.5s]   [echo]  276237 RX {'q': 217, 'type': 'echo_turn', 'player': 0, 'len': 3} (state=waiting)
+[ 285.5s]   splatecho: my turn (length 3)
+[ 285.5s]   [echo]  276238 STATE my turn len 3
+[ 290.4s]   [echo]  281111 RX {'len': 3, 'ok': False, 'player': 0, 'scores': [8, 2], 'q': 218, 'type': 'echo_result'} (state=my turn len 3)
+[ 290.4s]   [echo]  281112 STATE result
+[ 291.3s]   splatecho: scores [8, 2] (me: player 0)
+[ 293.3s]   [echo]  284045 RESULT shown ok=False, blocked 2922 ms
+[ 293.3s]   [echo]  284046 STATE waiting
+[ 293.3s]   [echo]  284066 SLOW poll gap 2956 ms (state=waiting)
+[ 293.3s]   [echo]  284070 RX {'q': 219, 'type': 'echo_turn', 'player': 1, 'len': 0} (state=waiting)
+[ 293.3s]   [echo]  284071 STATE other's turn
+[ 293.4s]   [echo]  284118 RX {'q': 220, 'type': 'echo_add_now', 'player': 1, 'len': 0} (state=other's turn)
+[ 293.4s]   [echo]  284142 RX {'q': 221, 'type': 'echo_add_now', 'player': 1, 'len': 0} (state=other's turn)
+[ 294.0s]   [echo]  284718 RX {'q': 222, 'type': 'echo_add_now', 'player': 1, 'len': 0} (state=other's turn)
+[ 295.0s]   [echo]  285695 RX {'q': 223, 'type': 'echo_turn', 'player': 0, 'len': 1} (state=other's turn)
+[ 295.0s]   splatecho: my turn (length 1)
+[ 295.0s]   [echo]  285696 STATE my turn len 1
+[ 298.6s]   [echo]  289353 RX {'idx': 0, 'type': 'echo_step', 'player': 0, 'q': 224} (state=my turn len 1)
+[ 299.0s]   [echo]  289726 RX {'len': 1, 'ok': True, 'player': 0, 'scores': [8, 2], 'q': 225, 'type': 'echo_result'} (state=my turn len 1)
+[ 299.0s]   [echo]  289727 STATE result
+[ 299.6s]   splatecho: scores [8, 2] (me: player 0)
+[ 299.6s]   [echo]  290368 RESULT shown ok=True, blocked 635 ms
+[ 299.6s]   [echo]  290369 STATE waiting
+[ 299.7s]   [echo]  290389 SLOW poll gap 664 ms (state=waiting)
+[ 299.7s]   [echo]  290393 RX {'q': 226, 'type': 'echo_add_now', 'player': 0, 'len': 1} (state=waiting)
+[ 299.7s]   [echo]  290412 RESEND echo_add unit 0 len 1 tries=1
+[ 300.3s]   [echo]  291027 RX {'q': 227, 'type': 'echo_turn', 'player': 1, 'len': 2} (state=waiting)
+[ 300.3s]   [echo]  291028 STATE other's turn
+[ 306.4s]   [echo]  297122 RX {'len': 2, 'ok': False, 'player': 1, 'scores': [9, 2], 'q': 228, 'type': 'echo_result'} (state=other's turn)
+[ 306.4s]   [echo]  297124 STATE result
+[ 307.3s]   splatecho: scores [9, 2] (me: player 0)
+[ 309.3s]   [echo]  300055 RESULT shown ok=False, blocked 2922 ms
+[ 309.3s]   [echo]  300056 STATE waiting
+[ 309.3s]   [echo]  300076 SLOW poll gap 2954 ms (state=waiting)
+[ 309.3s]   [echo]  300080 RX {'q': 229, 'type': 'echo_turn', 'player': 0, 'len': 0} (state=waiting)
+[ 309.3s]   splatecho: my turn (length 0)
+[ 309.4s]   [echo]  300082 STATE my turn len 0
+[ 309.6s]   [echo]  300284 RX {'q': 230, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=my turn len 0)
+[ 309.6s]   splatecho: your turn to add a step
+[ 309.6s]   [echo]  300292 STATE add
+[ 314.0s]   splatecho: added Splat 0
+[ 314.0s]   [echo]  304763 TX echo_add unit 0 len 0 tries=1 after 4470 ms
+[ 314.2s]   [echo]  304922 STATE added, waiting
+[ 314.6s]   [echo]  305283 RX {'q': 236, 'type': 'echo_turn', 'player': 1, 'len': 1} (state=added, waiting)
+[ 314.6s]   [echo]  305284 STATE other's turn
+[ 316.0s]   [echo]  306689 BUTTON pressed outside add (state=other's turn)
+[ 317.3s]   [echo]  308034 BUTTON pressed outside add (state=other's turn)
+[ 320.1s]   [echo]  310807 RX {'len': 1, 'ok': False, 'player': 1, 'scores': [10, 2], 'q': 237, 'type': 'echo_result'} (state=other's turn)
+[ 320.1s]   [echo]  310812 STATE result
+[ 321.0s]   splatecho: scores [10, 2] (me: player 0)
+[ 323.0s]   [echo]  313737 RESULT shown ok=False, blocked 2923 ms
+[ 323.0s]   [echo]  313737 STATE waiting
+[ 323.0s]   [echo]  313758 SLOW poll gap 2951 ms (state=waiting)
+[ 323.0s]   [echo]  313762 RX {'q': 238, 'type': 'echo_turn', 'player': 0, 'len': 0} (state=waiting)
+[ 323.0s]   splatecho: my turn (length 0)
+[ 323.0s]   [echo]  313772 STATE my turn len 0
+[ 323.2s]   [echo]  313965 RX {'q': 239, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=my turn len 0)
+[ 323.3s]   [echo]  314002 RESEND echo_add unit 0 len 0 tries=1
+[ 323.3s]   [echo]  314026 RX {'q': 240, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=my turn len 0)
+[ 323.3s]   [echo]  314052 RESEND echo_add unit 0 len 0 tries=1
+[ 323.9s]   [echo]  314647 RX {'q': 241, 'type': 'echo_turn', 'player': 1, 'len': 1} (state=my turn len 0)
+[ 323.9s]   [echo]  314648 STATE other's turn
+[ 325.3s]   [echo]  316023 RX {'len': 1, 'ok': False, 'player': 1, 'scores': [11, 2], 'q': 242, 'type': 'echo_result'} (state=other's turn)
+[ 325.3s]   [echo]  316032 STATE result
+[ 326.2s]   splatecho: scores [11, 2] (me: player 0)
+[ 328.2s]   [echo]  318956 RESULT shown ok=False, blocked 2922 ms
+[ 328.2s]   [echo]  318956 STATE waiting
+[ 328.2s]   [echo]  318977 SLOW poll gap 2955 ms (state=waiting)
+[ 328.2s]   [echo]  318981 RX {'q': 243, 'type': 'echo_turn', 'player': 0, 'len': 0} (state=waiting)
+[ 328.3s]   splatecho: my turn (length 0)
+[ 328.3s]   [echo]  318992 STATE my turn len 0
+[ 328.5s]   [echo]  319185 RX {'q': 244, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=my turn len 0)
+[ 328.5s]   [echo]  319232 RESEND echo_add unit 0 len 0 tries=1
+[ 328.5s]   [echo]  319256 RX {'q': 245, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=my turn len 0)
+[ 328.6s]   [echo]  319352 RESEND echo_add unit 0 len 0 tries=1
+[ 329.1s]   [echo]  319826 RX {'q': 246, 'type': 'echo_turn', 'player': 1, 'len': 1} (state=my turn len 0)
+[ 329.1s]   [echo]  319827 STATE other's turn
+[ 332.6s]   [echo]  323311 RX {'idx': 0, 'type': 'echo_step', 'player': 1, 'q': 247} (state=other's turn)
+[ 332.9s]   [echo]  323632 RX {'len': 1, 'ok': True, 'player': 1, 'scores': [11, 2], 'q': 248, 'type': 'echo_result'} (state=other's turn)
+[ 332.9s]   [echo]  323633 STATE result
+[ 333.5s]   splatecho: scores [11, 2] (me: player 0)
+[ 333.5s]   [echo]  324278 RESULT shown ok=True, blocked 636 ms
+[ 333.5s]   [echo]  324279 STATE waiting
+[ 333.6s]   [echo]  324300 SLOW poll gap 668 ms (state=waiting)
+[ 333.6s]   [echo]  324303 RX {'q': 249, 'type': 'echo_add_now', 'player': 1, 'len': 1} (state=waiting)
+[ 334.8s]   [echo]  325529 RX {'q': 250, 'type': 'echo_add_now', 'player': 1, 'len': 1} (state=waiting)
+[ 335.8s]   [echo]  326501 RX {'q': 251, 'type': 'echo_add_now', 'player': 1, 'len': 1} (state=waiting)
+[ 336.4s]   [echo]  327137 RX {'q': 252, 'type': 'echo_turn', 'player': 0, 'len': 2} (state=waiting)
+[ 336.4s]   splatecho: my turn (length 2)
+[ 336.4s]   [echo]  327138 STATE my turn len 2
+[ 339.7s]   [echo]  330477 RX {'idx': 0, 'type': 'echo_step', 'player': 0, 'q': 253} (state=my turn len 2)
+[ 340.7s]   [echo]  331461 RX {'idx': 1, 'type': 'echo_step', 'player': 0, 'q': 254} (state=my turn len 2)
+[ 340.9s]   [echo]  331660 RX {'len': 2, 'ok': True, 'player': 0, 'scores': [11, 2], 'q': 255, 'type': 'echo_result'} (state=my turn len 2)
+[ 340.9s]   [echo]  331662 STATE result
+[ 341.6s]   splatecho: scores [11, 2] (me: player 0)
+[ 341.6s]   [echo]  332310 RESULT shown ok=True, blocked 637 ms
+[ 341.6s]   [echo]  332311 STATE waiting
+[ 341.6s]   [echo]  332332 SLOW poll gap 672 ms (state=waiting)
+[ 341.6s]   [echo]  332335 RX {'q': 256, 'type': 'echo_add_now', 'player': 0, 'len': 2} (state=waiting)
+[ 341.6s]   splatecho: your turn to add a step
+[ 341.6s]   [echo]  332342 STATE add
+[ 343.8s]   splatecho: added Splat 0
+[ 343.8s]   [echo]  334562 TX echo_add unit 0 len 2 tries=1 after 2218 ms
+[ 344.0s]   [echo]  334721 STATE added, waiting
+[ 344.4s]   [echo]  335087 RX {'q': 259, 'type': 'echo_turn', 'player': 1, 'len': 3} (state=added, waiting)
+[ 344.4s]   [echo]  335088 STATE other's turn
+[ 348.1s]   [echo]  338826 BUTTON pressed outside add (state=other's turn)
+[ 348.4s]   [echo]  339166 RX {'idx': 0, 'type': 'echo_step', 'player': 1, 'q': 260} (state=other's turn)
+[ 348.7s]   [echo]  339463 BUTTON pressed outside add (state=other's turn)
+[ 349.4s]   [echo]  340098 RX {'idx': 1, 'type': 'echo_step', 'player': 1, 'q': 261} (state=other's turn)
+[ 350.1s]   [echo]  340833 BUTTON pressed outside add (state=other's turn)
+[ 350.3s]   [echo]  341071 RX {'idx': 2, 'type': 'echo_step', 'player': 1, 'q': 262} (state=other's turn)
+[ 350.7s]   [echo]  341391 RX {'len': 3, 'ok': True, 'player': 1, 'scores': [11, 2], 'q': 263, 'type': 'echo_result'} (state=other's turn)
+[ 350.7s]   [echo]  341393 STATE result
+[ 351.3s]   splatecho: scores [11, 2] (me: player 0)
+[ 351.3s]   [echo]  342038 RESULT shown ok=True, blocked 635 ms
+[ 351.3s]   [echo]  342039 STATE waiting
+[ 351.3s]   [echo]  342059 SLOW poll gap 668 ms (state=waiting)
+[ 351.3s]   [echo]  342063 RX {'q': 264, 'type': 'echo_add_now', 'player': 1, 'len': 3} (state=waiting)
+[ 351.4s]   [echo]  342105 BUTTON pressed outside add (state=waiting)
+[ 352.3s]   [echo]  342995 RX {'q': 265, 'type': 'echo_add_now', 'player': 1, 'len': 3} (state=waiting)
+[ 353.2s]   [echo]  343923 BUTTON pressed outside add (state=waiting)
+[ 353.3s]   [echo]  344069 RX {'q': 266, 'type': 'echo_add_now', 'player': 1, 'len': 3} (state=waiting)
+[ 354.5s]   [echo]  345214 RX {'q': 267, 'type': 'echo_add_now', 'player': 1, 'len': 3} (state=waiting)
+[ 355.4s]   [echo]  346165 RX {'q': 268, 'type': 'echo_add_now', 'player': 1, 'len': 3} (state=waiting)
+[ 355.9s]   [echo]  346647 RX {'q': 269, 'type': 'echo_turn', 'player': 0, 'len': 4} (state=waiting)
+[ 355.9s]   splatecho: my turn (length 4)
+[ 355.9s]   [echo]  346649 STATE my turn len 4
+[ 360.8s]   [echo]  351488 RX {'idx': 0, 'type': 'echo_step', 'player': 0, 'q': 270} (state=my turn len 4)
+[ 361.7s]   [echo]  352412 RX {'idx': 1, 'type': 'echo_step', 'player': 0, 'q': 271} (state=my turn len 4)
+[ 362.7s]   [echo]  353415 RX {'idx': 2, 'type': 'echo_step', 'player': 0, 'q': 272} (state=my turn len 4)
+[ 363.8s]   [echo]  354540 RX {'idx': 3, 'type': 'echo_step', 'player': 0, 'q': 273} (state=my turn len 4)
+[ 364.1s]   [echo]  354871 RX {'len': 4, 'ok': True, 'player': 0, 'scores': [11, 2], 'q': 274, 'type': 'echo_result'} (state=my turn len 4)
+[ 364.1s]   [echo]  354882 STATE result
+[ 364.8s]   splatecho: scores [11, 2] (me: player 0)
+[ 364.8s]   [echo]  355519 RESULT shown ok=True, blocked 636 ms
+[ 364.8s]   [echo]  355520 STATE waiting
+[ 364.8s]   [echo]  355541 SLOW poll gap 671 ms (state=waiting)
+[ 364.8s]   [echo]  355545 RX {'q': 275, 'type': 'echo_add_now', 'player': 0, 'len': 4} (state=waiting)
+[ 364.8s]   splatecho: your turn to add a step
+[ 364.8s]   [echo]  355552 STATE add
+[ 366.8s]   splatecho: added Splat 3
+[ 366.8s]   [echo]  357543 TX echo_add unit 3 len 4 tries=1 after 1990 ms
+[ 367.0s]   [echo]  357702 STATE added, waiting
+[ 367.0s]   [echo]  357727 RX {'q': 277, 'type': 'echo_add_now', 'player': 0, 'len': 4} (state=added, waiting)
+[ 367.0s]   [echo]  357739 RESEND echo_add unit 3 len 4 tries=1
+[ 367.3s]   [echo]  358079 RX {'q': 278, 'type': 'echo_turn', 'player': 1, 'len': 5} (state=added, waiting)
+[ 367.3s]   [echo]  358080 STATE other's turn
+[ 373.0s]   [echo]  363697 RX {'idx': 0, 'type': 'echo_step', 'player': 1, 'q': 279} (state=other's turn)
+[ 373.9s]   [echo]  364651 RX {'idx': 1, 'type': 'echo_step', 'player': 1, 'q': 280} (state=other's turn)
+[ 374.9s]   [echo]  365606 RX {'idx': 2, 'type': 'echo_step', 'player': 1, 'q': 281} (state=other's turn)
+[ 375.8s]   [echo]  366561 RX {'idx': 3, 'type': 'echo_step', 'player': 1, 'q': 282} (state=other's turn)
+[ 379.3s]   [echo]  370054 RX {'idx': 4, 'type': 'echo_step', 'player': 1, 'q': 283} (state=other's turn)
+[ 379.6s]   [echo]  370376 RX {'len': 5, 'ok': True, 'player': 1, 'scores': [11, 2], 'q': 284, 'type': 'echo_result'} (state=other's turn)
+[ 379.6s]   [echo]  370377 STATE result
+[ 380.3s]   splatecho: scores [11, 2] (me: player 0)
+[ 380.3s]   [echo]  371035 RESULT shown ok=True, blocked 653 ms
+[ 380.3s]   [echo]  371036 STATE waiting
+[ 380.3s]   [echo]  371057 SLOW poll gap 682 ms (state=waiting)
+[ 380.3s]   [echo]  371061 RX {'q': 285, 'type': 'echo_add_now', 'player': 1, 'len': 5} (state=waiting)
+[ 381.3s]   [echo]  372033 RX {'q': 286, 'type': 'echo_add_now', 'player': 1, 'len': 5} (state=waiting)
+[ 382.2s]   [echo]  372926 RX {'q': 287, 'type': 'echo_turn', 'player': 0, 'len': 6} (state=waiting)
+[ 382.2s]   splatecho: my turn (length 6)
+[ 382.2s]   [echo]  372928 STATE my turn len 6
+[ 388.1s]   [echo]  378816 RX {'idx': 0, 'type': 'echo_step', 'player': 0, 'q': 288} (state=my turn len 6)
+[ 389.1s]   [echo]  379820 RX {'idx': 1, 'type': 'echo_step', 'player': 0, 'q': 289} (state=my turn len 6)
+[ 390.1s]   [echo]  380825 RX {'idx': 2, 'type': 'echo_step', 'player': 0, 'q': 290} (state=my turn len 6)
+[ 391.1s]   [echo]  381849 RX {'idx': 3, 'type': 'echo_step', 'player': 0, 'q': 291} (state=my turn len 6)
+[ 392.1s]   [echo]  382831 RX {'idx': 4, 'type': 'echo_step', 'player': 0, 'q': 292} (state=my turn len 6)
+[ 393.2s]   [echo]  383956 RX {'idx': 5, 'type': 'echo_step', 'player': 0, 'q': 293} (state=my turn len 6)
+[ 393.6s]   [echo]  384287 RX {'len': 6, 'ok': True, 'player': 0, 'scores': [11, 2], 'q': 294, 'type': 'echo_result'} (state=my turn len 6)
+[ 393.6s]   [echo]  384292 STATE result
+[ 394.2s]   splatecho: scores [11, 2] (me: player 0)
+[ 394.2s]   [echo]  384929 RESULT shown ok=True, blocked 635 ms
+[ 394.2s]   [echo]  384930 STATE waiting
+[ 394.2s]   [echo]  384950 SLOW poll gap 664 ms (state=waiting)
+[ 394.2s]   [echo]  384954 RX {'q': 295, 'type': 'echo_add_now', 'player': 0, 'len': 6} (state=waiting)
+[ 394.2s]   splatecho: your turn to add a step
+[ 394.2s]   [echo]  384962 STATE add
+[ 396.8s]   splatecho: added Splat 0
+[ 396.8s]   [echo]  387502 TX echo_add unit 0 len 6 tries=1 after 2539 ms
+[ 396.9s]   [echo]  387661 STATE added, waiting
+[ 397.3s]   [echo]  388044 RX {'q': 298, 'type': 'echo_turn', 'player': 1, 'len': 7} (state=added, waiting)
+[ 397.3s]   [echo]  388046 STATE other's turn
+[ 399.3s]   [echo]  390049 BUTTON pressed outside add (state=other's turn)
+[ 400.8s]   [echo]  391568 BUTTON pressed outside add (state=other's turn)
+[ 405.8s]   [echo]  396574 RX {'idx': 0, 'type': 'echo_step', 'player': 1, 'q': 299} (state=other's turn)
+[ 406.5s]   [echo]  397254 RX {'idx': 1, 'type': 'echo_step', 'player': 1, 'q': 300} (state=other's turn)
+[ 407.4s]   [echo]  398166 BUTTON pressed outside add (state=other's turn)
+[ 407.7s]   [echo]  398464 BUTTON pressed outside add (state=other's turn)
+[ 408.5s]   [echo]  399200 RX {'idx': 2, 'type': 'echo_step', 'player': 1, 'q': 301} (state=other's turn)
+[ 409.0s]   [echo]  399773 BUTTON pressed outside add (state=other's turn)
+[ 409.4s]   [echo]  400092 RX {'idx': 3, 'type': 'echo_step', 'player': 1, 'q': 302} (state=other's turn)
+[ 410.3s]   [echo]  401043 RX {'idx': 4, 'type': 'echo_step', 'player': 1, 'q': 303} (state=other's turn)
+[ 414.8s]   [echo]  405512 RX {'len': 7, 'ok': False, 'player': 1, 'scores': [12, 2], 'q': 304, 'type': 'echo_result'} (state=other's turn)
+[ 414.8s]   [echo]  405522 STATE result
+[ 415.7s]   splatecho: scores [12, 2] (me: player 0)
+[ 417.7s]   [echo]  408446 RESULT shown ok=False, blocked 2923 ms
+[ 417.7s]   [echo]  408447 STATE waiting
+[ 417.7s]   [echo]  408468 SLOW poll gap 2957 ms (state=waiting)
+[ 417.7s]   [echo]  408471 RX {'q': 305, 'type': 'echo_turn', 'player': 0, 'len': 0} (state=waiting)
+[ 417.7s]   splatecho: my turn (length 0)
+[ 417.7s]   [echo]  408482 STATE my turn len 0
+[ 417.9s]   [echo]  408675 RX {'q': 306, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=my turn len 0)
+[ 417.9s]   splatecho: your turn to add a step
+[ 417.9s]   [echo]  408682 STATE add
+[ 428.0s]   [echo]  418693 QUIET 10008 ms: state=add me=0 last_rx=echo_add_now 2416 ms ago rx={'echo_you': 17, 'echo_step': 31, 'echo_turn': 39, 'echo_hello': 9, 'echo_add_now': 221, 'echo_result': 24} last_q=315 missed=0 adds=6 btn_down=0 tilt=0 max_poll_gap=2963 espnow=(46, 46, 0, 341, 0)
+[ 448.0s]   [echo]  438696 QUIET 30011 ms: state=add me=0 last_rx=echo_add_now 725 ms ago rx={'echo_you': 17, 'echo_step': 31, 'echo_turn': 39, 'echo_hello': 9, 'echo_add_now': 240, 'echo_result': 24} last_q=334 missed=0 adds=6 btn_down=0 tilt=0 max_poll_gap=2963 espnow=(46, 46, 0, 360, 0)
+[ 488.0s]   [echo]  478703 QUIET 70018 ms: state=add me=0 last_rx=echo_add_now 131 ms ago rx={'echo_you': 17, 'echo_step': 31, 'echo_turn': 39, 'echo_hello': 9, 'echo_add_now': 279, 'echo_result': 24} last_q=373 missed=0 adds=6 btn_down=0 tilt=0 max_poll_gap=2963 espnow=(46, 46, 0, 399, 0)
+[ 568.0s]   [echo]  558713 QUIET 150028 ms: state=add me=0 last_rx=echo_add_now 417 ms ago rx={'echo_you': 17, 'echo_step': 31, 'echo_turn': 39, 'echo_hello': 9, 'echo_add_now': 356, 'echo_result': 24} last_q=450 missed=0 adds=6 btn_down=0 tilt=0 max_poll_gap=2963 espnow=(46, 46, 0, 476, 0)

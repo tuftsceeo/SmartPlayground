@@ -1,32 +1,38 @@
 import { renderMarkdown } from './markdown.js';
+import { ROLES as ROLE_TABLE, DEFAULT_ROLE } from './roles.js';
+import { knowledgePaths } from './prompt/buildRequest.js';
 
-// One file per device type. Each documents that device's own play()
-// signature and hardware; there is no shared game API to document.
-const KNOWLEDGE_FILES = [
-    "knowledge/knowledge.py",          // wand
-    "knowledge/icon_display.py",       // icon display
-];
-let knowledgeText = "";
+// path -> text for every knowledge file (knowledgePaths()); empty until
+// loadKnowledgeBase() succeeds.
+let knowledgeFiles = {};
 
+/**
+ * Fetch every knowledge file. All of them are required: a chat without its
+ * knowledge base answers from general memory, which is how it ends up
+ * inventing device behavior. Throws naming every file that failed.
+ * @returns {Promise<Object<string,string>>} path -> text
+ */
 export async function loadKnowledgeBase() {
-    knowledgeText = "";
-    for (const filepath of KNOWLEDGE_FILES) {
+    knowledgeFiles = {};
+    const paths = knowledgePaths();
+    const failed = [];
+    const loaded = {};
+    await Promise.all(paths.map(async (path) => {
         try {
-            const resp = await fetch(filepath);
-            if (resp.ok) {
-                const text = await resp.text();
-                knowledgeText += `\n\n--- FILE: ${filepath} ---\n${text}`;
-                console.log("Loaded knowledge: " + filepath);
-            }
+            const resp = await fetch(path, { cache: "no-cache" });
+            if (!resp.ok) { failed.push(`${path} (HTTP ${resp.status})`); return; }
+            loaded[path] = await resp.text();
         } catch (e) {
-            console.log("Could not load " + filepath + ": " + e);
+            failed.push(`${path} (${e.message})`);
         }
-    }
-    return knowledgeText;
+    }));
+    if (failed.length) throw new Error(`Could not load knowledge files: ${failed.join(", ")}`);
+    knowledgeFiles = loaded;
+    return knowledgeFiles;
 }
 
-export function getKnowledgeText() { return knowledgeText; }
-export function getKnowledgeFileCount() { return KNOWLEDGE_FILES.length; }
+export function getKnowledgeFiles() { return knowledgeFiles; }
+export function getKnowledgeFileCount() { return Object.keys(knowledgeFiles).length; }
 
 export function addMsg(text, cls = "bot") {
     const box = document.getElementById("chat-box");
@@ -59,8 +65,8 @@ export function removeTyping() {
     });
 }
 
-/** Device roles a reply may carry code for, in tab order. */
-export const ROLES = ["wand", "icon"];
+/** Device roles a reply may carry code for, in tab order (roles.js). */
+export const ROLES = ROLE_TABLE.map(r => r.key);
 
 const LANG_LINES = ["python", "py", "micropython", ""];
 
@@ -84,8 +90,7 @@ function blockCode(block) {
 function roleBefore(prose) {
     const matches = [...prose.matchAll(/\[DEVICE:\s*([a-z_]+)\s*\]/gi)];
     if (!matches.length) return null;
-    const role = matches[matches.length - 1][1].toLowerCase();
-    return ROLES.includes(role) ? role : null;
+    return matches[matches.length - 1][1].toLowerCase();
 }
 
 /**
@@ -94,6 +99,8 @@ function roleBefore(prose) {
  * A multi-device game is several files -- one per device type -- so a reply
  * can carry more than one block. Each is preceded by a [DEVICE: wand] or
  * [DEVICE: icon] marker; blocks with no marker before them are wand code.
+ * A block under a marker naming no current role (e.g. the retired `splat`)
+ * is left out, so it never lands in another role's editor.
  *
  * @returns {{role: string, code: string}[]} in the order they appeared
  */
@@ -101,7 +108,7 @@ export function extractCodeBlocks(text) {
     if (!text || !text.includes("```")) return [];
     const parts = text.split("```");
     const out = [];
-    let role = "wand";
+    let role = DEFAULT_ROLE;
     for (let i = 0; i < parts.length; i++) {
         if (i % 2 === 0) {
             // Prose. A marker here names the role of the block that follows.
@@ -110,7 +117,7 @@ export function extractCodeBlocks(text) {
             continue;
         }
         const code = blockCode(parts[i]);
-        if (code) out.push({ role, code });
+        if (code && ROLES.includes(role)) out.push({ role, code });
     }
     return out;
 }
@@ -146,6 +153,73 @@ export function parseGameName(text) {
 
 export function stripGameNameMarker(text) {
     return text.replace(/\[GAME_NAME:[^\]]+\]/g, "").trim();
+}
+
+/** Follow-up options from a [CHOICES: "a", "b"] marker, or null. */
+export function parseChoices(text) {
+    const match = text.match(/\[CHOICES:\s*([^\]]+)\]/);
+    if (!match) return null;
+    const quoted = [...match[1].matchAll(/["“]([^"”]+)["”]/g)].map(m => m[1].trim());
+    const list = quoted.length ? quoted : match[1].split(",").map(s => s.trim());
+    return list.filter(Boolean).slice(0, 4);
+}
+
+export function stripChoicesMarker(text) {
+    return text.replace(/\[CHOICES:[^\]]+\]/g, "").trim();
+}
+
+/** Design brief between [GAME_BRIEF] and [/GAME_BRIEF] lines, or null. */
+export function parseGameBrief(text) {
+    const match = text.match(/\[GAME_BRIEF\]([\s\S]*?)\[\/GAME_BRIEF\]/);
+    if (!match) return null;
+    return match[1].trim() || null;
+}
+
+/** The reply with its brief block removed, for showing the text around it. */
+export function stripGameBrief(text) {
+    return text.replace(/\[GAME_BRIEF\][\s\S]*?(\[\/GAME_BRIEF\]|$)/g, "").trim();
+}
+
+/** Splats per wand the simulator can show, and how many wands it can hold a game for. */
+const SETTINGS_LIMITS = { wand_splats: [0, 2], wands: [1, 4] };
+
+/**
+ * Simulator settings from a [GAME_SETTINGS: {...}] marker, or null.
+ *
+ * The game code does not carry these; only the practice window reads them.
+ * `wand_splats` is how many Splats each wand starts with paired (0..2);
+ * `wands` is how many wands the game is meant for (1..4). A field that is
+ * missing, not a whole number or out of range is left out, and a marker
+ * whose JSON does not parse gives null.
+ */
+export function parseGameSettings(text) {
+    const match = text.match(/\[GAME_SETTINGS:\s*(\{[\s\S]*?\})\s*\]/);
+    if (!match) return null;
+    let raw;
+    try {
+        raw = JSON.parse(match[1]);
+    } catch {
+        return null;
+    }
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+    const out = {};
+    for (const [key, [lo, hi]] of Object.entries(SETTINGS_LIMITS)) {
+        const n = raw[key];
+        if (Number.isInteger(n) && n >= lo && n <= hi) out[key] = n;
+    }
+    return Object.keys(out).length ? out : null;
+}
+
+export function stripGameSettingsMarker(text) {
+    // The line as well as the JSON: a reply still streaming has no closing
+    // bracket yet.
+    return text.replace(/\[GAME_SETTINGS:\s*\{[\s\S]*?\}\s*\]/g, "")
+        .replace(/\[GAME_SETTINGS:[^\n]*/g, "").trim();
+}
+
+/** Every marker line removed, for showing a reply (complete or partial). */
+export function stripAllMarkers(text) {
+    return stripDeviceMarkers(stripChoicesMarker(stripGameNameMarker(stripNfcMarker(stripGameSettingsMarker(text)))));
 }
 
 export function trimForHistory(text) {

@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Patrick+Hand&family=Patrick+Hand+SC&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  body{margin:0;background:#f0eee9;font-family:'Patrick Hand',cursive}
+  .dv-turn{padding:40px 44px 60px;scroll-margin-top:16px}
+  .dv-thd{display:flex;align-items:baseline;gap:12px;margin:0 0 6px}
+  .dv-tid{font:700 13px 'Patrick Hand SC',cursive;padding:4px 9px;background:#1a1a1a;color:#fff;border-radius:5px;text-decoration:none}
+  .dv-tname{font:400 20px 'Patrick Hand',cursive;color:#1a1a1a}
+  .dv-sub{font:400 15px 'Patrick Hand',cursive;color:rgba(0,0,0,.55);margin:0 0 24px}
+  .dv-grouplabel{font:400 17px 'Patrick Hand',cursive;color:#6397b5;margin:26px 0 14px;display:flex;align-items:center;gap:8px}
+  .dv-grouplabel::before{content:'';width:22px;height:2px;background:#6397b5}
+  .dv-opts{display:flex;flex-wrap:wrap;gap:30px;align-items:flex-start}
+  .dv-opt{flex:none;display:flex;flex-direction:column;gap:9px;scroll-margin-top:16px}
+  .dv-oid{font:700 13px 'Patrick Hand SC',cursive;padding:3px 8px;background:rgba(0,0,0,.08);color:#1a1a1a;border-radius:6px;text-decoration:none}
+  .dv-olabel{display:flex;align-items:baseline;gap:8px;font:400 15px 'Patrick Hand',cursive;color:rgba(0,0,0,.6)}
+  .dv-card{background:#fffdf8;border:2.5px solid #1a1a1a;border-radius:9px 11px 8px 12px;box-shadow:3px 4px 0 rgba(0,0,0,.12);overflow:hidden;position:relative}
+  .dv-opt:target .dv-oid{background:#6397b5;color:#fff}
+  .dv-next{margin:28px 0 0;font:15px/1.6 'Patrick Hand',cursive;color:rgba(0,0,0,.55)}
+  .wf{width:420px;padding:14px;box-sizing:border-box;display:flex;flex-direction:column;gap:8px;font-size:12.5px}
+  .box{border:2px solid #1a1a1a;border-radius:6px 8px 5px 9px;padding:6px 8px;background:#fff;display:flex;align-items:center;justify-content:center;text-align:center;gap:6px}
+  .dash{border-style:dashed}
+  .row{display:flex;gap:8px}
+  .col{display:flex;flex-direction:column;gap:8px}
+  .lbl{font-size:11px;color:#555}
+  .pill{border-radius:999px;font-weight:400;padding:8px 10px}
+  .teal{background:#c9ede8;border-color:#3e8b7f}
+  .purple{background:#f0d9f4;border-color:#8a4a92}
+  .coral{background:#fbdad6;border-color:#b95d52}
+  .green{background:#dff3e3;border-color:#4c9463}
+  .blue{background:#dbe8f7;border-color:#3f6ea8}
+  .yellow{background:#fdf0c8;border-color:#a9871f}
+  .swatchrow{display:flex;gap:5px;justify-content:center;flex-wrap:wrap}
+  .sw{width:16px;height:16px;border:1.5px solid #1a1a1a;border-radius:4px}
+  .tag{position:absolute;top:6px;right:8px;font-size:10px;background:#1a1a1a;color:#fff;border-radius:4px;padding:1px 5px}
+  .icon{font-size:14px}
+  .tiny{font-size:10px;color:#777}
+  .canvas-big{aspect-ratio:1;background:repeating-conic-gradient(#eee 0% 25%, #fff 0% 50%) 50%/16px 16px;border:2px solid #1a1a1a;border-radius:6px 9px 5px 8px;flex:1;display:flex;align-items:center;justify-content:center;color:#999}
+  .accordionrow{display:flex;align-items:center;justify-content:space-between;padding:5px 8px;border:1.5px solid #999;border-radius:5px}
+  .wf-land{width:640px;aspect-ratio:16/9;padding:14px;box-sizing:border-box;display:flex;flex-direction:column;gap:8px;font-size:12.5px;background:#fdfcf7}
+  .crayon{width:26px;height:60px;border:2px solid #1a1a1a;border-radius:3px 3px 10px 10px;position:relative}
+  .crayon:nth-child(odd){transform:rotate(-4deg)}
+  .crayon:nth-child(even){transform:rotate(3deg)}
+  .crayon::after{content:'';position:absolute;left:-2px;right:-2px;top:14px;height:9px;background:#fdfcf7;border-top:2px solid #1a1a1a;border-bottom:2px solid #1a1a1a}
+  .crayon.dashed{background:#fff;border-style:dashed;display:flex;align-items:center;justify-content:center;font-size:14px;color:#999}
+  .dab{width:34px;height:28px;border:2px solid #1a1a1a;border-radius:60% 40% 55% 45%/50% 60% 40% 50%}
+  .dab.dashed{background:#fff;border-style:dashed;display:flex;align-items:center;justify-content:center;font-size:14px;color:#999}
+  .wheel{width:110px;height:110px;border:2px dashed #999;border-radius:50%;position:relative;margin:8px 0}
+  .peg{position:absolute;top:50%;left:50%;width:20px;height:20px;border:2px solid #1a1a1a;border-radius:50%;margin:-10px}
+  .peg.dashed{background:#fff;border-style:dashed;display:flex;align-items:center;justify-content:center;font-size:11px;color:#999}
+  .sticker{width:30px;height:30px;border:2px solid #1a1a1a;border-radius:7px 7px 2px 7px;box-shadow:2px 3px 0 rgba(0,0,0,.15)}
+  .sticker.dashed{background:#fff;border-style:dashed;display:flex;align-items:center;justify-content:center;font-size:14px;color:#999;box-shadow:none}
+</style>
+</helmet>
+
+<section class="dv-turn" id="t4">
+<div class="dv-thd"><a class="dv-tid" href="#t4">4</a><span class="dv-tname">Hi-fi mockups &mdash; 2a/2b/2c built out with the crayon-box picker</span></div>
+<p class="dv-sub">Real typography (Nunito) and colour applied to <a class="dv-oid" href="#2a">2a</a>'s entry chooser, <a class="dv-oid" href="#2b">2b</a>'s Simple overlay and <a class="dv-oid" href="#2c">2c</a>'s Advanced docked rail, all using the <a class="dv-oid" href="#3a">3a</a> crayon box for every colour picker (main palette, overlay rows, docked segment rows). Canvas shows the real apple.py pixel data so the icon reads correctly.</p>
+<div class="dv-opts">
+
+<div class="dv-opt" id="4a">
+<div class="dv-olabel"><a class="dv-oid" href="#4a">4a</a>Entry chooser</div>
+<div class="dv-card" style="border:none;box-shadow:0 18px 44px rgba(40,30,10,.16);border-radius:20px">
+<div style="width:1160px;background:#fbf8f1;border-radius:20px;font-family:'Nunito',sans-serif;overflow:hidden;color:#2b2320">
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:22px 34px;border-bottom:2px solid #efe8d8">
+    <div style="font:800 22px 'Nunito';display:flex;align-items:center;gap:10px"><span style="font-size:22px">&#127823;</span>Icon Display Station</div>
+    <div style="width:38px;height:38px;border-radius:11px;background:#f2ecdd;display:flex;align-items:center;justify-content:center;font-size:17px;color:#8a7f68">&#9881;</div>
+  </div>
+  <div style="display:flex;gap:22px;padding:40px 34px 10px">
+    <div style="flex:1;background:#fff;border:2.5px dashed #cfd8e6;border-radius:18px;padding:30px 22px;display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center">
+      <div style="width:56px;height:56px;border-radius:50%;background:#dbe8f7;display:flex;align-items:center;justify-content:center;font-size:24px;color:#3f6ea8">&#8613;</div>
+      <div style="font:700 18px 'Nunito'">Import new image</div>
+      <div style="font:600 13.5px 'Nunito';color:#8a7f68;line-height:1.5">Drop in a PNG or JPEG and we'll turn it into a 16&times;16 icon</div>
+    </div>
+    <div style="flex:1;background:#eaf7f2;border:2.5px solid #bfe6d8;border-radius:18px;padding:30px 22px;display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center">
+      <div style="width:56px;height:56px;border-radius:50%;background:#c9ede8;display:flex;align-items:center;justify-content:center;font-size:24px;color:#2f7a6c">&#127823;</div>
+      <div style="font:700 18px 'Nunito';color:#2f6b5c">Load example</div>
+      <div style="font:600 13.5px 'Nunito';color:#4a8f7d;line-height:1.5">Six pre-segmented fruit icons, ready to draw on</div>
+    </div>
+    <div style="flex:1;background:#fff;border:2.5px dashed #e3cde9;border-radius:18px;padding:30px 22px;display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center">
+      <div style="width:56px;height:56px;border-radius:50%;background:#f0d9f4;display:flex;align-items:center;justify-content:center;font-size:24px;color:#8a4a92">&#128268;</div>
+      <div style="font:700 18px 'Nunito'">Load from device</div>
+      <div style="font:600 13.5px 'Nunito';color:#8a7f68;line-height:1.5">Connects to the LED matrix, then lists icons saved on it</div>
+    </div>
+  </div>
+  <div style="display:flex;align-items:center;gap:16px;padding:22px 34px 30px">
+    <span style="font:700 13px 'Nunito';color:#8a7f68;text-transform:uppercase;letter-spacing:.04em">Recently edited</span>
+    <sc-for list="{{ recentIcons }}" as="ic" hint-placeholder-count="3">
+      <div style="display:flex;align-items:center;gap:9px;background:#fff;border:2px solid #efe8d8;border-radius:12px;padding:6px 12px 6px 6px">
+        <div style="width:34px;height:34px;border-radius:7px;overflow:hidden;background:repeating-conic-gradient(#eee 0% 25%,#fff 0% 50%) 50%/8px 8px;display:grid;grid-template-columns:repeat(16,1fr)">
+          <sc-for list="{{ appleCells }}" as="c" hint-placeholder-count="256"><div style="width:2.1px;height:2.1px;background:{{ c }}"></div></sc-for>
+        </div>
+        <span style="font:700 13.5px 'Nunito'">{{ ic.name }}</span>
+      </div>
+    </sc-for>
+  </div>
+</div>
+</div>
+<div class="tiny" style="max-width:1160px">Coral removed here since nothing is downloaded/connected yet &mdash; "load example" gets the one solid-filled card to read as the fast/safe default; the other two stay dashed/outline (they need a file or a device before anything happens).</div>
+</div>
+
+<div class="dv-opt" id="4b">
+<div class="dv-olabel"><a class="dv-oid" href="#4b">4b</a>Simple editor, overlay open, crayon box picker</div>
+<div class="dv-card" style="border:none;box-shadow:0 18px 44px rgba(40,30,10,.16);border-radius:20px">
+<div style="width:1160px;height:660px;background:#fbf8f1;border-radius:20px;font-family:'Nunito',sans-serif;overflow:hidden;color:#2b2320;position:relative;box-sizing:border-box">
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 26px;border-bottom:2px solid #efe8d8">
+    <div style="display:flex;align-items:center;gap:8px;font:700 17px 'Nunito'">&#9998; apple</div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <div style="background:#fff9e8;border:2px solid #a9871f;color:#8a6d15;border-radius:999px;padding:8px 16px;font:700 13.5px 'Nunito';display:flex;align-items:center;gap:6px">&#127912; Adjust colors</div>
+      <div style="width:34px;height:34px;border-radius:9px;background:#f2ecdd;display:flex;align-items:center;justify-content:center;color:#8a7f68">&#9881;</div>
+      <div style="background:#fbdad6;border:2px solid #b95d52;color:#8a3a30;border-radius:999px;padding:8px 16px;font:700 13.5px 'Nunito'">Download</div>
+      <div style="background:#f0d9f4;border:2px solid #8a4a92;color:#6b3572;border-radius:999px;padding:8px 16px;font:700 13.5px 'Nunito'">Connect</div>
+      <div style="background:#dff3e3;border:2px solid #4c9463;color:#356b47;border-radius:999px;padding:8px 16px;font:700 13.5px 'Nunito'">Show on device</div>
+    </div>
+  </div>
+  <div style="display:flex;gap:20px;padding:22px 26px;height:calc(100% - 138px)">
+    <div style="width:64px;display:flex;flex-direction:column;gap:10px">
+      <div style="background:#c9ede8;border:2.5px solid #3e8b7f;border-radius:13px;height:56px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font:700 10.5px 'Nunito';color:#2f6b5c"><span style="font-size:18px">&#9998;</span>draw</div>
+      <div style="background:#fff;border:2.5px solid #e3ddc9;border-radius:13px;height:56px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font:700 10.5px 'Nunito';color:#8a7f68"><span style="font-size:18px">&#9099;</span>erase</div>
+      <div style="background:#fff;border:2.5px solid #e3ddc9;border-radius:13px;height:56px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font:700 10.5px 'Nunito';color:#8a7f68"><span style="font-size:18px">&#8634;</span>reset</div>
+      <div style="background:#fff;border:2.5px solid #e3ddc9;border-radius:13px;height:56px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font:700 10.5px 'Nunito';color:#8a7f68"><span style="font-size:18px">&#8630;</span>undo</div>
+    </div>
+    <div style="flex:1;display:flex;align-items:center;justify-content:center">
+      <div style="width:352px;height:352px;border-radius:14px;overflow:hidden;box-shadow:0 6px 0 rgba(0,0,0,.08);background:repeating-conic-gradient(#eee 0% 25%,#fff 0% 50%) 50%/16px 16px;display:grid;grid-template-columns:repeat(16,1fr)">
+        <sc-for list="{{ appleCells }}" as="c" hint-placeholder-count="256"><div style="width:22px;height:22px;background:{{ c }}"></div></sc-for>
+      </div>
+    </div>
+    <div style="width:190px;display:flex;flex-direction:column;gap:14px">
+      <div style="background:#fff;border:2px solid #efe8d8;border-radius:14px;padding:14px 12px;display:flex;flex-direction:column;gap:10px">
+        <span style="font:700 12px 'Nunito';color:#8a7f68;text-transform:uppercase;letter-spacing:.03em">Palette</span>
+        <div style="display:flex;flex-wrap:wrap;gap:9px;justify-content:center">
+          <div style="width:26px;height:60px;border:2px solid #2b2320;border-radius:3px 3px 9px 9px;position:relative;background:#7e0000;transform:rotate(-4deg)"></div>
+          <div style="width:26px;height:60px;border:2px solid #2b2320;border-radius:3px 3px 9px 9px;position:relative;background:#418b00;transform:rotate(3deg)"></div>
+          <div style="width:26px;height:60px;border:2px solid #2b2320;border-radius:3px 3px 9px 9px;position:relative;background:#782800;transform:rotate(-4deg)"></div>
+          <div style="width:26px;height:60px;border:2px solid #2b2320;border-radius:3px 3px 9px 9px;position:relative;background:#ff0095;transform:rotate(3deg)"></div>
+          <div style="width:26px;height:60px;border:2.5px dashed #b8ab8e;border-radius:3px 3px 9px 9px;display:flex;align-items:center;justify-content:center;font:700 15px 'Nunito';color:#b8ab8e;transform:rotate(-3deg)">+</div>
+        </div>
+      </div>
+      <div style="background:#fff;border:2px dashed #e3ddc9;border-radius:14px;flex:1;display:flex;align-items:center;justify-content:center;font:600 12.5px 'Nunito';color:#b8ab8e;text-align:center;padding:10px">reference photo<br>(collapsed)</div>
+    </div>
+  </div>
+  <div style="position:absolute;top:76px;right:0;bottom:0;width:320px;background:#fffdf6;border-left:2px solid #efe8d8;box-shadow:-14px 0 30px rgba(40,30,10,.08);padding:22px 22px 0;display:flex;flex-direction:column;gap:16px;z-index:2">
+    <div style="display:flex;align-items:center;justify-content:space-between"><span style="font:800 15px 'Nunito'">Adjust colors</span><span style="color:#b8ab8e;font-size:15px">&times;</span></div>
+    <div style="background:#f2ecdd;border-radius:11px;padding:10px 14px;font:700 13px 'Nunito';color:#6b6250">&#9986; Crop &amp; scale&hellip;</div>
+    <div style="display:flex;flex-direction:column;gap:6px">
+      <span style="font:700 12.5px 'Nunito';color:#6b6250">Detail</span>
+      <div style="display:flex;align-items:center;gap:8px;font:600 11.5px 'Nunito';color:#b8ab8e"><span>fewer</span><div style="flex:1;height:5px;border-radius:99px;background:#e3ddc9;position:relative"><div style="position:absolute;left:38%;top:50%;width:15px;height:15px;border-radius:50%;background:#3e8b7f;transform:translate(-50%,-50%)"></div></div><span>more</span></div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <div style="display:flex;align-items:center;gap:10px;border:2px solid #efe8d8;border-radius:11px;padding:8px 10px">
+        <div style="width:18px;height:38px;border:1.5px solid #2b2320;border-radius:2px 2px 7px 7px;background:#7e0000"></div>
+        <span style="font:700 13px 'Nunito';flex:1">Cherry red</span>
+        <div style="width:32px;height:18px;border-radius:99px;background:#3e8b7f;position:relative"><div style="position:absolute;right:2px;top:2px;width:14px;height:14px;border-radius:50%;background:#fff"></div></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;border:2px solid #efe8d8;border-radius:11px;padding:8px 10px">
+        <div style="width:18px;height:38px;border:1.5px solid #2b2320;border-radius:2px 2px 7px 7px;background:#418b00"></div>
+        <span style="font:700 13px 'Nunito';flex:1">Leaf green</span>
+        <div style="width:32px;height:18px;border-radius:99px;background:#3e8b7f;position:relative"><div style="position:absolute;right:2px;top:2px;width:14px;height:14px;border-radius:50%;background:#fff"></div></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;border:2.5px dashed #cfc6ac;border-radius:11px;padding:8px 10px;position:relative">
+        <span style="font:700 13px 'Nunito';color:#8a7f68">+ add custom colour</span>
+      </div>
+      <div style="position:absolute;left:14px;bottom:16px;width:260px;background:#fbf6e9;border:2.5px solid #2b2320;border-radius:14px;box-shadow:4px 6px 0 rgba(0,0,0,.14);padding:14px;display:flex;flex-direction:column;gap:10px;z-index:3">
+        <div style="display:flex;justify-content:space-between;align-items:center"><span style="font:700 12.5px 'Nunito';color:#6b6250">pick a colour</span><span style="color:#b8ab8e">&times;</span></div>
+        <div style="display:flex;gap:7px;justify-content:center">
+          <div style="width:22px;height:50px;border:2px solid #2b2320;border-radius:3px 3px 8px 8px;background:#c14971;transform:rotate(-5deg)"></div>
+          <div style="width:22px;height:50px;border:2px solid #2b2320;border-radius:3px 3px 8px 8px;background:#3f6ea8;transform:rotate(4deg)"></div>
+          <div style="width:22px;height:50px;border:2px solid #2b2320;border-radius:3px 3px 8px 8px;background:#a9871f;transform:rotate(-4deg)"></div>
+          <div style="width:22px;height:50px;border:2px solid #2b2320;border-radius:3px 3px 8px 8px;background:#4c9463;transform:rotate(5deg)"></div>
+          <div style="width:22px;height:50px;border:2.5px dashed #b8ab8e;border-radius:3px 3px 8px 8px;display:flex;align-items:center;justify-content:center;font:700 13px 'Nunito';color:#b8ab8e">&#127912;</div>
+        </div>
+        <span style="font:600 10.5px 'Nunito';color:#b8ab8e;text-align:center">tilted wrapper labels name each crayon; last one opens the full colour dial</span>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+<div class="tiny" style="max-width:1160px">"Adjust colors" opens the sheet from <a class="dv-oid" href="#2b">2b</a>; its own "+ add custom colour" row pops the <a class="dv-oid" href="#3a">3a</a> crayon box (shown open here) rather than jumping straight to an OS colour dial. The docked palette card behind the sheet uses the same crayon shape, so the vocabulary is identical whether you're picking from the segmentation's colours or adding a new one.</div>
+</div>
+
+<div class="dv-opt" id="4c">
+<div class="dv-olabel"><a class="dv-oid" href="#4c">4c</a>Advanced editor, docked rail</div>
+<div class="dv-card" style="border:none;box-shadow:0 18px 44px rgba(40,30,10,.16);border-radius:20px">
+<div style="width:1160px;height:660px;background:#fbf8f1;border-radius:20px;font-family:'Nunito',sans-serif;overflow:hidden;color:#2b2320;display:flex;flex-direction:column;box-sizing:border-box">
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 26px;border-bottom:2px solid #efe8d8">
+    <div style="font:700 16px 'Nunito';color:#6b6250">apple &middot; exact &middot; 5 segments</div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <div style="background:#fff;border:2px solid #e3ddc9;border-radius:11px;padding:8px 14px;font:700 13px 'Nunito';display:flex;align-items:center;gap:6px">Icon Matrix 16&times;16 <span style="font-size:10px">&#9662;</span></div>
+      <div style="width:34px;height:34px;border-radius:9px;background:#f2ecdd;display:flex;align-items:center;justify-content:center;color:#8a7f68">&#9881;</div>
+    </div>
+  </div>
+  <div style="display:flex;gap:20px;padding:20px 26px;flex:1;min-height:0">
+    <div style="width:200px;display:flex;flex-direction:column;gap:8px;overflow:auto">
+      <div style="background:#fff;border:2px dashed #e3ddc9;border-radius:11px;padding:9px 12px;font:700 12.5px 'Nunito';color:#8a7f68">Import &middot; Crop &amp; scale</div>
+      <div style="background:#fff;border:2px solid #e3ddc9;border-radius:11px;padding:9px 12px;display:flex;flex-direction:column;gap:5px">
+        <span style="font:700 12px 'Nunito';color:#6b6250">Detail</span>
+        <div style="display:flex;align-items:center;gap:6px;font:600 10.5px 'Nunito';color:#b8ab8e"><span>fewer</span><div style="flex:1;height:5px;border-radius:99px;background:#e3ddc9;position:relative"><div style="position:absolute;left:60%;top:50%;width:13px;height:13px;border-radius:50%;background:#3e8b7f;transform:translate(-50%,-50%)"></div></div><span>more</span></div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px;flex:1">
+        <div style="display:flex;align-items:center;gap:8px;border:2px solid #efe8d8;border-radius:10px;padding:6px 9px">
+          <div style="width:14px;height:30px;border:1.5px solid #2b2320;border-radius:2px 2px 6px 6px;background:#7e0000;flex:none"></div>
+          <div style="display:flex;flex-direction:column;flex:1;min-width:0"><span style="font:700 11.5px 'Nunito'">Cherry red</span><span style="font:600 9.5px 'Nunito';color:#b8ab8e">89% &middot; priority 0.5</span></div>
+          <div style="width:26px;height:15px;border-radius:99px;background:#3e8b7f;position:relative;flex:none"><div style="position:absolute;right:2px;top:2px;width:11px;height:11px;border-radius:50%;background:#fff"></div></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;border:2px solid #efe8d8;border-radius:10px;padding:6px 9px">
+          <div style="width:14px;height:30px;border:1.5px solid #2b2320;border-radius:2px 2px 6px 6px;background:#418b00;flex:none"></div>
+          <div style="display:flex;flex-direction:column;flex:1;min-width:0"><span style="font:700 11.5px 'Nunito'">Leaf green</span><span style="font:600 9.5px 'Nunito';color:#b8ab8e">6% &middot; priority 0.6</span></div>
+          <div style="width:26px;height:15px;border-radius:99px;background:#3e8b7f;position:relative;flex:none"><div style="position:absolute;right:2px;top:2px;width:11px;height:11px;border-radius:50%;background:#fff"></div></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;border:2px solid #efe8d8;border-radius:10px;padding:6px 9px">
+          <div style="width:14px;height:30px;border:1.5px solid #2b2320;border-radius:2px 2px 6px 6px;background:#782800;flex:none"></div>
+          <div style="display:flex;flex-direction:column;flex:1;min-width:0"><span style="font:700 11.5px 'Nunito'">Bark brown</span><span style="font:600 9.5px 'Nunito';color:#b8ab8e">1.8% &middot; priority 1.1</span></div>
+          <div style="width:26px;height:15px;border-radius:99px;background:#3e8b7f;position:relative;flex:none"><div style="position:absolute;right:2px;top:2px;width:11px;height:11px;border-radius:50%;background:#fff"></div></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;border:2.5px dashed #cfc6ac;border-radius:10px;padding:8px 9px;justify-content:center">
+          <span style="font:700 12px 'Nunito';color:#8a7f68">+ add custom colour</span>
+        </div>
+      </div>
+    </div>
+    <div style="flex:1;display:flex;flex-direction:column;gap:12px;min-width:0">
+      <div style="flex:1;display:flex;align-items:center;justify-content:center;min-height:0">
+        <div style="width:min(352px,100%);aspect-ratio:1;border-radius:14px;overflow:hidden;box-shadow:0 6px 0 rgba(0,0,0,.08);background:repeating-conic-gradient(#eee 0% 25%,#fff 0% 50%) 50%/16px 16px;display:grid;grid-template-columns:repeat(16,1fr)">
+          <sc-for list="{{ appleCells }}" as="c" hint-placeholder-count="256"><div style="background:{{ c }}"></div></sc-for>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <div style="flex:1;background:#c9ede8;border:2.5px solid #3e8b7f;border-radius:11px;padding:9px;text-align:center;font:700 12.5px 'Nunito';color:#2f6b5c">&#9998; draw</div>
+        <div style="flex:1;background:#fff;border:2.5px solid #e3ddc9;border-radius:11px;padding:9px;text-align:center;font:700 12.5px 'Nunito';color:#8a7f68">&#9099; erase</div>
+        <div style="flex:1;background:#fff;border:2.5px solid #e3ddc9;border-radius:11px;padding:9px;text-align:center;font:700 12.5px 'Nunito';color:#8a7f68">&#8634; reset</div>
+        <div style="flex:1;background:#fff;border:2.5px solid #e3ddc9;border-radius:11px;padding:9px;text-align:center;font:700 12.5px 'Nunito';color:#8a7f68">&#8630; undo</div>
+      </div>
+    </div>
+    <div style="width:130px;display:flex;flex-direction:column;gap:10px">
+      <div style="background:#fff;border:2px dashed #e3ddc9;border-radius:11px;flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:8px">
+        <span style="font:600 11px 'Nunito';color:#b8ab8e">preview</span>
+        <div style="width:64px;height:64px;border-radius:8px;overflow:hidden;background:repeating-conic-gradient(#eee 0% 25%,#fff 0% 50%) 50%/8px 8px;display:grid;grid-template-columns:repeat(16,1fr)">
+          <sc-for list="{{ appleCells }}" as="c" hint-placeholder-count="256"><div style="width:4px;height:4px;background:{{ c }}"></div></sc-for>
+        </div>
+        <span style="font:600 10px 'Nunito';color:#b8ab8e">+ brightness</span>
+      </div>
+      <div style="background:#fbdad6;border:2px solid #b95d52;color:#8a3a30;border-radius:999px;padding:9px;text-align:center;font:700 12.5px 'Nunito'">Download</div>
+      <div style="background:#f0d9f4;border:2px solid #8a4a92;color:#6b3572;border-radius:999px;padding:9px;text-align:center;font:700 12.5px 'Nunito'">Connect</div>
+      <div style="background:#dff3e3;border:2px solid #4c9463;color:#356b47;border-radius:999px;padding:9px;text-align:center;font:700 12.5px 'Nunito'">Show on device</div>
+    </div>
+  </div>
+  <div style="display:flex;align-items:center;justify-content:space-between;background:#fdf0c8;border-top:2px solid #a9871f;padding:10px 26px;font:700 12.5px 'Nunito';color:#8a6d15">
+    <span>&#9654; Hardware &amp; serial debug</span>
+    <span style="font:600 11.5px 'Nunito';color:#a9871f">firmware &middot; power injection &middot; probe</span>
+  </div>
+</div>
+</div>
+<div class="tiny" style="max-width:1160px">Segment rows keep the crayon shape but flatten it into the row (small crayon "stub" + name + coverage/priority + toggle) so five rows still fit without scrolling &mdash; the full tilted crayon box from <a class="dv-oid" href="#3a">3a</a> only appears in the "+ add custom colour" popover, same as in <a class="dv-oid" href="#4b">4b</a>.</div>
+</div>
+
+</div>
+<p class="dv-next">Try next: "swap in the sticker sheet (<a class="dv-oid" href="#3d">3d</a>) picker instead" &middot; "show the custom-colour dial that opens from the crayon box's + slot" &middot; "add a fourth mockup for phone/tablet width"</p>
+</section>
+<section class="dv-turn" id="t3">
+<div class="dv-thd"><a class="dv-tid" href="#t3">3</a><span class="dv-tname">Color picker concepts &mdash; restricted, playful palettes</span></div>
+<p class="dv-sub">Pickers for choosing among the segmentation's own colours plus custom additions (used wherever <a class="dv-oid" href="#2b">2b</a>/<a class="dv-oid" href="#2c">2c</a> show a palette or "+ add custom colour"). Each is a small popover, ~220px, not a full page.</p>
+<div class="dv-opts">
+
+<div class="dv-opt" id="3a">
+<div class="dv-olabel"><a class="dv-oid" href="#3a">3a</a>Crayon box</div>
+<div class="dv-card">
+<div class="wf" style="width:230px;background:#fbf6e9">
+  <div class="box" style="justify-content:space-between;border:none;padding:2px 2px"><span class="tiny">pick a colour</span><span class="tiny">&times;</span></div>
+  <div class="row" style="flex-wrap:wrap;gap:6px;justify-content:center">
+    <div class="crayon" style="background:#e33"></div><div class="crayon" style="background:#3a8"></div>
+    <div class="crayon" style="background:#e94"></div><div class="crayon" style="background:#e5c"></div>
+    <div class="crayon" style="background:#39c"></div><div class="crayon dashed">+</div>
+  </div>
+  <div class="tiny" style="text-align:center">tilted, hand-drawn wrapper labels: "cherry red", "leaf green"&hellip;</div>
+</div>
+</div>
+<div class="tiny" style="max-width:420px">Each swatch drawn like a crayon (rounded tip, paper wrapper band), gently alternating tilt so they read as "in a box," not a grid. Segmentation colours get friendly names instead of hex. Dashed crayon at the end = add a custom one via the OS colour picker.</div>
+</div>
+
+<div class="dv-opt" id="3b">
+<div class="dv-olabel"><a class="dv-oid" href="#3b">3b</a>Paint-tray dabs</div>
+<div class="dv-card">
+<div class="wf" style="width:230px;background:#f3ecdf">
+  <div class="box" style="border:none;justify-content:center"><span class="tiny">colours in this icon</span></div>
+  <div class="row" style="flex-wrap:wrap;gap:10px;justify-content:center;padding:4px">
+    <div class="dab" style="background:#e33"></div><div class="dab" style="background:#3a8"></div>
+    <div class="dab" style="background:#e94"></div><div class="dab" style="background:#e5c"></div>
+    <div class="dab dashed">+</div>
+  </div>
+  <div class="box dash" style="border-style:dashed"><span class="tiny">tap a dab, then paint</span></div>
+</div>
+</div>
+<div class="tiny" style="max-width:420px">Irregular blob shapes on a wooden-palette background, like dabs of paint already squeezed out. Reads as "these are the paints you mixed for this picture," reinforcing that the palette is drawn from the icon, not generic.</div>
+</div>
+
+<div class="dv-opt" id="3c">
+<div class="dv-olabel"><a class="dv-oid" href="#3c">3c</a>Spinner wheel</div>
+<div class="dv-card">
+<div class="wf" style="width:230px;background:#fdfcf7;align-items:center">
+  <div class="box" style="border:none;justify-content:center"><span class="tiny">spin to pick</span></div>
+  <div class="wheel">
+    <div class="peg" style="background:#e33;transform:rotate(0deg) translate(46px) rotate(0deg)"></div>
+    <div class="peg" style="background:#3a8;transform:rotate(72deg) translate(46px) rotate(-72deg)"></div>
+    <div class="peg" style="background:#e94;transform:rotate(144deg) translate(46px) rotate(-144deg)"></div>
+    <div class="peg" style="background:#e5c;transform:rotate(216deg) translate(46px) rotate(-216deg)"></div>
+    <div class="peg dashed" style="transform:rotate(288deg) translate(46px) rotate(-288deg)">+</div>
+  </div>
+  <div class="tiny">centre shows current pick</div>
+</div>
+</div>
+<div class="tiny" style="max-width:420px">A dial with one peg per colour, current selection highlighted in the hub. Novel/fun but slower to operate than a grid &mdash; better as a fun secondary entry point than the primary picker.</div>
+</div>
+
+<div class="dv-opt" id="3d">
+<div class="dv-olabel"><a class="dv-oid" href="#3d">3d</a>Sticker sheet</div>
+<div class="dv-card">
+<div class="wf" style="width:230px;background:#eef6f7">
+  <div class="box" style="border:none;justify-content:center"><span class="tiny">pick a sticker</span></div>
+  <div class="row" style="flex-wrap:wrap;gap:8px;justify-content:center">
+    <div class="sticker" style="background:#e33"></div><div class="sticker" style="background:#3a8"></div>
+    <div class="sticker" style="background:#e94"></div><div class="sticker" style="background:#e5c"></div>
+    <div class="sticker" style="background:#39c"></div><div class="sticker dashed">+</div>
+  </div>
+  <div class="tiny" style="text-align:center">peeled corner + drop shadow per chip</div>
+</div>
+</div>
+<div class="tiny" style="max-width:420px">Rounded square chips with a lifted-corner/shadow treatment, laid out slightly offset like stickers on a sheet. Closest to a plain swatch grid in speed of use, with just enough personality via the peel detail and loose grid.</div>
+</div>
+
+</div>
+<p class="dv-next">Try next: "use <a class="dv-oid" href="#3a">3a</a> crayon box inside the <a class="dv-oid" href="#2b">2b</a> overlay" &middot; "name the crayon colours" &middot; "show the custom-colour picker that opens from the + slot"</p>
+</section>
+<section class="dv-turn" id="t2">
+<div class="dv-thd"><a class="dv-tid" href="#t2">2</a><span class="dv-tname">Landscape, segmentation access, custom palette, clearer tools</span></div>
+<p class="dv-sub">Reworked for a landscape browser window (portrait as a rare fallback, not the design target). Three things solved here: (1) where posterization/detail &amp; per-segment colour controls live now that they're not always on screen &mdash; a docked panel in Advanced, a slide-over overlay in Simple; (2) palettes now offer <b>+ custom colour</b> alongside the segmentation's own colours, everywhere a palette appears; (3) the tool dock is 4 explicit, separately-labelled actions &mdash; draw / erase (off) / reset (back to segmentation) / undo &mdash; instead of the ambiguous pencil+backarrow pairing from the old screenshots. Also added the missing front door: the app needs a way to choose <i>import new</i> vs <i>load example</i> vs <i>load from device</i> before the editor even opens.</p>
+
+<div class="dv-grouplabel">Entry point &mdash; before the editor opens</div>
+<div class="dv-opts">
+<div class="dv-opt" id="2a">
+<div class="dv-olabel"><a class="dv-oid" href="#2a">2a</a>Open chooser</div>
+<div class="dv-card">
+<div class="wf-land">
+  <div class="box" style="justify-content:center;font-size:14px">Icon Display Station</div>
+  <div class="row" style="flex:1;gap:12px">
+    <div class="box dash col" style="flex:1;flex-direction:column;gap:6px"><span class="icon">&#8613;</span><span>Import new image</span><span class="tiny">from a PNG/JPEG on your computer</span></div>
+    <div class="box dash col teal" style="flex:1;flex-direction:column;gap:6px"><span class="icon">&#127817;</span><span>Load example</span><span class="tiny">pre-segmented fruit icons</span></div>
+    <div class="box dash col purple" style="flex:1;flex-direction:column;gap:6px"><span class="icon">&#128268;</span><span>Load from device</span><span class="tiny">connect, then pick a saved icon</span></div>
+  </div>
+  <div class="box dash" style="justify-content:flex-start;gap:8px"><span class="tiny">recent:</span><div class="sw" style="background:#e33"></div><div class="sw" style="background:#3a8"></div><div class="sw" style="background:#e94"></div></div>
+</div>
+</div>
+<div class="tiny" style="max-width:660px">One landing screen, three equal doors. "Load from device" prompts Connect first if not already paired. All three paths converge on the same editor below &mdash; only how the canvas gets its first pixels differs.</div>
+</div>
+</div>
+
+<div class="dv-grouplabel">Simple editor, landscape &mdash; segmentation as a slide-over</div>
+<div class="dv-opts">
+<div class="dv-opt" id="2b">
+<div class="dv-olabel"><a class="dv-oid" href="#2b">2b</a>Overlay panel for detail &amp; colours</div>
+<div class="dv-card">
+<div class="wf-land" style="position:relative">
+  <div class="box" style="justify-content:space-between"><span>&#9998; apple</span><div class="row" style="gap:6px"><span class="box dash" style="padding:4px 8px">&#127912; Adjust colors</span><span class="icon">&#9881;</span><span class="box coral pill" style="padding:4px 10px">Download</span><span class="box purple pill" style="padding:4px 10px">Connect</span><span class="box green pill" style="padding:4px 10px">Show on device</span></div></div>
+  <div class="row" style="flex:1;gap:10px">
+    <div class="col" style="width:56px;gap:6px">
+      <div class="box teal col" style="height:44px;flex-direction:column;font-size:10px">&#9998;<span>draw</span></div>
+      <div class="box col" style="height:44px;flex-direction:column;font-size:10px">&#9099;<span>erase</span></div>
+      <div class="box col" style="height:44px;flex-direction:column;font-size:10px">&#8634;<span>reset</span></div>
+      <div class="box col" style="height:44px;flex-direction:column;font-size:10px">&#8630;<span>undo</span></div>
+    </div>
+    <div class="canvas-big" style="flex:2">16&times;16 canvas</div>
+    <div class="col" style="width:130px;gap:6px">
+      <div class="box" style="flex-direction:column;gap:5px">
+        <span class="tiny">palette</span>
+        <div class="swatchrow"><div class="sw" style="background:#e33"></div><div class="sw" style="background:#3a8"></div><div class="sw" style="background:#e94"></div><div class="sw" style="background:#e5c"></div><div class="sw dash" style="border-style:dashed;display:flex;align-items:center;justify-content:center;font-size:10px">+</div></div>
+      </div>
+      <div class="box dash" style="flex:1"><span class="tiny">reference thumbs<br>(collapsed)</span></div>
+    </div>
+  </div>
+  <div class="box" style="position:absolute;right:8px;top:34px;bottom:8px;width:180px;background:#fff9e8;border-color:#a9871f;flex-direction:column;align-items:flex-start;gap:6px;padding:10px;z-index:2">
+    <span class="tag" style="position:static;background:#a9871f">overlay</span>
+    <span class="tiny">Crop &amp; scale&hellip;</span>
+    <span class="tiny">Detail: fewer &#8596; more</span>
+    <div class="accordionrow" style="width:100%"><div class="sw" style="background:#e33"></div><span class="tiny">rgb / on</span></div>
+    <div class="accordionrow" style="width:100%"><div class="sw" style="background:#3a8"></div><span class="tiny">rgb / on</span></div>
+    <div class="accordionrow" style="width:100%;border-style:dashed"><span class="tiny">+ add custom colour</span></div>
+  </div>
+</div>
+</div>
+<div class="tiny" style="max-width:660px">"Adjust colors" opens a right-side sheet over the canvas: crop/scale, the detail (segment-count) slider, and each colour with an on/off + swatch &mdash; plus a "+ add custom colour" row so a colour outside the auto-segmentation is available too. Closing it returns to the plain draw view. Same sheet reopens for examples and device-loaded icons.</div>
+</div>
+</div>
+
+<div class="dv-grouplabel">Advanced editor, landscape &mdash; segmentation stays docked</div>
+<div class="dv-opts">
+<div class="dv-opt" id="2c">
+<div class="dv-olabel"><a class="dv-oid" href="#2c">2c</a>Persistent left rail + hardware tab</div>
+<div class="dv-card">
+<div class="wf-land">
+  <div class="box" style="justify-content:space-between"><span>apple &middot; exact &middot; 5 segments</span><div class="row" style="gap:6px"><span>Icon Matrix 16&times;16 &#9662;</span><span class="icon">&#9881;</span></div></div>
+  <div class="row" style="flex:1;gap:10px">
+    <div class="col" style="width:150px;gap:5px">
+      <div class="box dash">Import / Crop &amp; scale</div>
+      <div class="box dash">Detail: fewer&#8596;more</div>
+      <div class="box dash" style="flex:1;flex-direction:column;gap:4px;align-items:stretch">
+        <div class="accordionrow"><div class="sw" style="background:#e33"></div><span class="tiny">89% &middot; pri 0.5 &middot; on</span></div>
+        <div class="accordionrow"><div class="sw" style="background:#3a8"></div><span class="tiny">6% &middot; pri 0.6 &middot; on</span></div>
+        <div class="accordionrow" style="border-style:dashed"><span class="tiny">+ add custom colour</span></div>
+      </div>
+    </div>
+    <div class="col" style="flex:1;gap:6px">
+      <div class="canvas-big" style="flex:1">canvas</div>
+      <div class="row" style="gap:6px">
+        <div class="box teal" style="flex:1;font-size:10px">&#9998; draw</div><div class="box" style="flex:1;font-size:10px">&#9099; erase</div><div class="box" style="flex:1;font-size:10px">&#8634; reset</div><div class="box" style="flex:1;font-size:10px">&#8630; undo</div>
+      </div>
+    </div>
+    <div class="col" style="width:110px;gap:6px">
+      <div class="box dash" style="flex:1"><span class="tiny">preview<br>+ brightness</span></div>
+      <div class="box coral pill">Download</div>
+      <div class="box purple pill">Connect</div>
+      <div class="box green pill">Show on device</div>
+    </div>
+  </div>
+  <div class="accordionrow yellow"><span>&#9654; Hardware &amp; serial debug</span><span class="tiny">firmware &middot; power injection &middot; probe</span></div>
+</div>
+</div>
+<div class="tiny" style="max-width:660px">Power users tune colours constantly, so the segment list + detail slider stay docked left (never hidden in an overlay) &mdash; each row now also carries a "+ add custom colour" option. The 4-tool row is explicit here too, for consistency with Simple. Hardware/serial is the one thing still tucked into a closed drawer.</div>
+</div>
+</div>
+
+<p class="dv-next">Try next: "use <a class="dv-oid" href="#2a">2a</a> as the real landing screen" &middot; "make the <a class="dv-oid" href="#2b">2b</a> overlay a bottom sheet instead of a right panel" &middot; "show the custom colour picker itself"</p>
+</section>
+<section class="dv-turn" id="t1">
+<div class="dv-thd"><a class="dv-tid" href="#t1">1</a><span class="dv-tname">Icon Display Station &mdash; layout options</span></div>
+<p class="dv-sub">Kid-Pix/MS-Paint best practices applied: canvas is the hero (biggest, centered), tools live in a persistent dock next to it (not scattered), palette &amp; actions are big and colorful, jargon-y numbers are hidden. Playful pastel accents borrowed from WebApp2 (teal/purple/coral, pill buttons, rounded cards) instead of the current dark hacker-console look.</p>
+
+<div class="dv-grouplabel">Simple mode &mdash; for the teacher drawing an icon</div>
+<div class="dv-opts">
+
+<div class="dv-opt" id="1a">
+<div class="dv-olabel"><a class="dv-oid" href="#1a">1a</a>Big canvas, side dock</div>
+<div class="dv-card">
+<div class="wf" style="background:#fdfcf7">
+  <div class="box" style="justify-content:space-between"><span>&#9998; icon name</span><span class="icon">&#9881;</span></div>
+  <div class="row" style="flex:1">
+    <div class="col" style="width:46px">
+      <div class="box teal" style="height:40px">&#9998;</div>
+      <div class="box" style="height:40px">&#9099;</div>
+      <div class="box" style="height:40px">&#8634;</div>
+      <div class="box dash" style="height:40px;flex:1"><span class="tiny">detail<br>slider</span></div>
+    </div>
+    <div class="canvas-big">16&times;16 canvas<br><span class="tiny">(hero element)</span></div>
+    <div class="col" style="width:78px">
+      <div class="box dash" style="height:70px"><span class="tiny">source<br>thumb</span></div>
+      <div class="box dash" style="height:70px"><span class="tiny">preview<br>thumb</span></div>
+      <div class="box" style="flex:1;flex-direction:column"><span class="tiny">palette</span>
+        <div class="swatchrow"><div class="sw" style="background:#e94; "></div><div class="sw" style="background:#3a8;"></div><div class="sw" style="background:#e5c;"></div><div class="sw" style="background:#39c;"></div></div>
+      </div>
+    </div>
+  </div>
+  <div class="row">
+    <div class="box coral pill" style="flex:1">&#8681; Download</div>
+    <div class="box purple pill" style="flex:1">&#128268; Connect</div>
+    <div class="box green pill" style="flex:1">&#128161; Show on device</div>
+  </div>
+</div>
+</div>
+<div class="tiny" style="max-width:420px">Canvas dominates the screen; pencil/eraser/undo are a fixed vertical dock (thumb-reachable on a touchscreen). Reference thumbnails shrink to a side stack instead of two full-height columns. The 3 primary actions get equal-weight colored pills across the bottom &mdash; always visible, never scrolled past.</div>
+</div>
+
+<div class="dv-opt" id="1b">
+<div class="dv-olabel"><a class="dv-oid" href="#1b">1b</a>Three-panel, palette front &amp; center</div>
+<div class="dv-card">
+<div class="wf" style="background:#fdfcf7">
+  <div class="box" style="justify-content:space-between"><span>&#9998; icon name</span><span>file list &#9662;</span><span class="icon">&#9881;</span></div>
+  <div class="row" style="flex:1">
+    <div class="col" style="width:100px">
+      <div class="box dash">&#8613; import image</div>
+      <div class="box dash" style="height:60px"><span class="tiny">source</span></div>
+      <div class="box dash" style="height:60px"><span class="tiny">segmented</span></div>
+      <div class="box dash" style="flex:1"><span class="tiny">detail: fewer&#8594;more</span></div>
+    </div>
+    <div class="canvas-big">canvas</div>
+  </div>
+  <div class="box" style="flex-direction:column;gap:4px">
+    <span class="tiny">colours in this icon</span>
+    <div class="swatchrow"><div class="sw" style="background:#e33;"></div><div class="sw" style="background:#3a8;"></div><div class="sw" style="background:#e94;"></div><div class="sw" style="background:#e5c;"></div></div>
+    <div class="row"><div class="box teal" style="flex:1">&#9998;</div><div class="box" style="flex:1">&#9099;</div><div class="box" style="flex:1">&#8634; revert</div><div class="box" style="flex:1">undo</div></div>
+  </div>
+  <div class="row">
+    <div class="box coral pill" style="flex:1">Download</div>
+    <div class="box purple pill" style="flex:1">Connect</div>
+    <div class="box green pill" style="flex:1">Show on device</div>
+  </div>
+</div>
+</div>
+<div class="tiny" style="max-width:420px">Tool row sits directly under the canvas (matches where the hand already is), with the document's own colour swatches promoted just above it so re-picking a used colour is one tap. References move fully to a slim left column since they're read-only reminders, not working panels.</div>
+</div>
+
+<div class="dv-opt" id="1c">
+<div class="dv-olabel"><a class="dv-oid" href="#1c">1c</a>Single-column, tablet/touch stack</div>
+<div class="dv-card">
+<div class="wf" style="background:#fdfcf7;width:280px">
+  <div class="box" style="justify-content:space-between"><span>&#9998; icon name</span><span class="icon">&#9881;</span></div>
+  <div class="canvas-big" style="min-height:180px">canvas</div>
+  <div class="box swatchrow" style="flex-wrap:wrap"><div class="sw" style="background:#e33;"></div><div class="sw" style="background:#3a8;"></div><div class="sw" style="background:#e94;"></div><div class="sw" style="background:#e5c;"></div><div class="sw" style="background:#39c;"></div></div>
+  <div class="row"><div class="box teal" style="flex:1">&#9998;</div><div class="box" style="flex:1">&#9099;</div><div class="box" style="flex:1">&#8634;</div></div>
+  <div class="box dash" style="justify-content:space-between"><span class="tiny">&#9660; reference images</span></div>
+  <div class="box coral pill">&#8681; Download</div>
+  <div class="box purple pill">&#128268; Connect</div>
+  <div class="box green pill">&#128161; Show on device</div>
+</div>
+</div>
+<div class="tiny" style="max-width:420px">One column, phone/tablet-first &mdash; closest to WebApp2's own shape. Reference images collapse under a disclosure row since a teacher checks them occasionally, not constantly. Best if the panel is ever used on an iPad next to the LED matrix.</div>
+</div>
+
+</div>
+
+<div class="dv-grouplabel">Advanced mode &mdash; for hardware tuning &amp; debugging</div>
+<div class="dv-opts">
+
+<div class="dv-opt" id="1d">
+<div class="dv-olabel"><a class="dv-oid" href="#1d">1d</a>Tabbed dashboard</div>
+<div class="dv-card">
+<div class="wf" style="background:#fdfcf7">
+  <div class="box" style="justify-content:space-between"><span>apple &middot; exact &middot; 5 segments</span><span class="icon">&#9881;</span></div>
+  <div class="row"><div class="box teal pill" style="flex:1">Draw</div><div class="box dash" style="flex:1">Tune colors</div><div class="box dash" style="flex:1">Hardware</div></div>
+  <div class="box dash" style="flex:1;flex-direction:column;gap:4px">
+    <span class="tiny">[Draw tab active &mdash; same layout as Simple 1b]</span>
+    <div class="canvas-big" style="width:100%">canvas + tools</div>
+  </div>
+</div>
+</div>
+<div class="tiny" style="max-width:420px">Advanced = Simple's layout plus two extra tabs. "Tune colors" holds the seg rgb/coverage/priority rows; "Hardware" holds serial monitor + firmware + power injection. Nothing is deleted, but only one dense panel is ever on screen at once.</div>
+</div>
+
+<div class="dv-opt" id="1e">
+<div class="dv-olabel"><a class="dv-oid" href="#1e">1e</a>Three-pane, debug drawer collapsed</div>
+<div class="dv-card">
+<div class="wf" style="background:#fdfcf7">
+  <div class="box" style="justify-content:space-between"><span>apple &middot; exact &middot; 5 segments</span><span class="icon">&#9881;</span></div>
+  <div class="row" style="flex:1">
+    <div class="col" style="width:110px">
+      <div class="box dash">import</div>
+      <div class="box dash" style="flex:1"><span class="tiny">seg list<br>rgb / % / priority</span></div>
+    </div>
+    <div class="canvas-big">canvas + tools + brightness</div>
+  </div>
+  <div class="accordionrow yellow"><span>&#9654; Hardware &amp; debug</span><span class="tiny">serial &middot; firmware &middot; power</span></div>
+</div>
+</div>
+<div class="tiny" style="max-width:420px">Everything from today's advanced view stays, just re-sorted: drawing controls keep the same prominence as Simple, and the serial monitor / firmware / power-injection block collapses into one closed drawer at the bottom instead of sitting open by default.</div>
+</div>
+
+<div class="dv-opt" id="1f">
+<div class="dv-olabel"><a class="dv-oid" href="#1f">1f</a>One layout, per-row disclosure</div>
+<div class="dv-card">
+<div class="wf" style="background:#fdfcf7">
+  <div class="box" style="justify-content:space-between"><span>&#9998; icon name</span><span class="icon">&#9881; advanced</span></div>
+  <div class="canvas-big" style="min-height:90px">canvas</div>
+  <div class="accordionrow"><span>&#9660; red &middot; &#9998; on</span><span class="tiny">rgb(209,56,52) &middot; 89% &middot; priority 0.5</span></div>
+  <div class="accordionrow"><span>&#9654; green &middot; &#9998; on</span><span class="tiny">&hellip;</span></div>
+  <div class="accordionrow yellow"><span>&#9654; hardware &amp; serial</span><span class="tiny">&hellip;</span></div>
+</div>
+</div>
+<div class="tiny" style="max-width:420px">Same shell as Simple; every control that Simple hides gets a tiny chevron that expands it inline (rgb/coverage/priority under each colour row, a hardware row at the bottom). One codebase, one layout &mdash; "advanced" is a state, not a second screen. Riskier to build (per plan_simple_ui.md's hybrid strategy already calls out simpler branch points instead) but avoids ever duplicating markup.</div>
+</div>
+
+</div>
+
+<p class="dv-next">Try next: "combine <a class="dv-oid" href="#1b">1b</a>'s tool row with <a class="dv-oid" href="#1c">1c</a>'s single column for a phone-width Simple mode" &middot; "build out <a class="dv-oid" href="#1e">1e</a> as the real Advanced mode" &middot; "show me the WebApp2-style colours applied to <a class="dv-oid" href="#1a">1a</a>"</p>
+</section>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  renderVals() {
+    const T = 'repeating-conic-gradient(#e8e4da 0% 25%,#fdfcf7 0% 50%) 50%/6px 6px';
+    const C = { r: '#7e0000', g: '#418b00', b: '#782800', p: '#ff0095' };
+    const rows = [
+      [0,0,0,0,0,0,0,0,0,'g','g',0,0,0,0,0],
+      [0,0,0,0,0,0,0,0,'g','g','g',0,0,0,0,0],
+      [0,0,0,0,0,0,'b','b','g','g','g',0,0,0,0,0],
+      [0,0,0,0,0,0,0,'b','g',0,0,0,0,0,0,0],
+      [0,0,0,'r','r','r','r','b',0,'r','r','r','r',0,0,0],
+      [0,0,'r','r','p','p','r','r','r','r','r','r','r','r',0,0],
+      [0,0,'r','p','r','r','r','r','r','r','r','r','r','r',0,0],
+      [0,0,'r','r','r','r','r','r','r','r','r','r','r','r',0,0],
+      [0,'r','r','r','r','r','r','r','r','r','r','r','r','r','r',0],
+      [0,'r','r','r','r','r','r','r','r','r','r','r','r','r','r',0],
+      [0,'r','r','r','r','r','r','r','r','r','r','r','r','r','r',0],
+      [0,0,'r','r','r','r','r','r','r','r','r','r','r','r',0,0],
+      [0,0,'r','r','r','r','r','r','r','r','r','r','r','r',0,0],
+      [0,0,0,'r','r','r','r','r','r','r','r','r','r',0,0,0],
+      [0,0,0,'r','r','r','r','r','r','r','r','r','r',0,0,0],
+      [0,0,0,0,0,'r','r','r','r','r','r',0,0,0,0,0],
+    ];
+    const appleCells = rows.flat().map(t => t === 0 ? T : C[t]);
+    return {
+      appleCells,
+      recentIcons: [{ name: 'apple' }, { name: 'cherries' }, { name: 'grapes' }],
+    };
+  }
+}
+</script>
+</body>
+</html>

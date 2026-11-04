@@ -1,0 +1,18 @@
+/* Gradients. Every filled action in the product is a 135deg two-stop gradient
+   between a hue and its dark partner. The page ground is four soft radial pastels. */
+:root {
+  --grad-pink: linear-gradient(135deg, #ef4d92, #d13a7c); /* @kind other */
+  --grad-gem: linear-gradient(135deg, #ef4d92, #6c4cd1); /* @kind other */
+  --grad-teal: linear-gradient(135deg, #22c3a6, #1c9a82); /* @kind other */
+  --grad-muted: linear-gradient(135deg, #8b859a, #6b6478); /* @kind other */
+
+  /* Pastel playground ground — the body background of every app view */
+  --grad-playground:
+    radial-gradient(circle at 6% 10%, #ffd23f22, transparent 40%),
+    radial-gradient(circle at 94% 6%, #ef4d9218, transparent 38%),
+    radial-gradient(circle at 90% 94%, #22c3a61c, transparent 42%),
+    radial-gradient(circle at 8% 92%, #6c4cd11a, transparent 40%); /* @kind other */
+
+  /* Diagonal candy-stripe used behind empty preview panels */
+  --pattern-stripe: repeating-linear-gradient(45deg, #fbfaff, #fbfaff 14px, #f4f2fa 14px, #f4f2fa 28px); /* @kind other */
+}

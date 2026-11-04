@@ -1,0 +1,42 @@
+:root {
+  --bg: #14161a; --panel: #1d2027; --border: #2c313c; --text: #e6e8ec;
+  --dim: #8b93a3; --accent: #5aa9ff; --bad: #ff6b6b; --good: #57d787;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.4 system-ui, sans-serif; }
+header {
+  display: flex; align-items: center; gap: 14px; padding: 10px 16px;
+  background: var(--panel); border-bottom: 1px solid var(--border);
+}
+header h1 { font-size: 16px; margin: 0; margin-right: 8px; }
+.badge { padding: 2px 8px; border-radius: 10px; background: #333; font-size: 12px; color: var(--dim); }
+button {
+  background: #2a2f3a; color: var(--text); border: 1px solid var(--border);
+  border-radius: 6px; padding: 6px 12px; cursor: pointer; font-size: 13px;
+}
+button:hover { background: #333a48; }
+#status { color: var(--dim); font-size: 12px; margin-left: auto; }
+main { display: grid; grid-template-columns: 1fr 1.3fr 1fr; gap: 16px; padding: 16px; align-items: start; }
+section { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 12px; }
+h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--dim); margin: 0 0 8px; }
+h3 { font-size: 12px; color: var(--dim); margin: 14px 0 6px; }
+.hint { text-transform: none; letter-spacing: 0; font-weight: normal; }
+#source-img, #segmented-img { width: 100%; image-rendering: pixelated; border-radius: 4px; background: #000; margin-bottom: 8px; }
+#preview-canvas, #grid-canvas { width: 100%; aspect-ratio: 1; background: #000; border-radius: 4px; cursor: crosshair; }
+.seg-row {
+  display: grid; grid-template-columns: 28px 1fr auto; gap: 6px 8px; align-items: center;
+  padding: 8px 0; border-bottom: 1px solid var(--border);
+}
+.seg-row:last-child { border-bottom: none; }
+.seg-swatch { width: 24px; height: 24px; border-radius: 4px; border: 1px solid var(--border); }
+.seg-meta { font-size: 11px; color: var(--dim); }
+.seg-meta .warn { color: var(--bad); }
+.seg-controls { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; grid-column: 1 / -1; }
+.seg-controls select, .seg-controls input[type=range] { max-width: 90px; }
+.palette-swatches { display: flex; gap: 3px; flex-wrap: wrap; }
+.palette-swatches button {
+  width: 18px; height: 18px; padding: 0; border-radius: 3px; border: 1px solid var(--border);
+}
+#problems { margin: 0; padding-left: 18px; }
+#problems li { color: var(--bad); font-size: 12px; margin-bottom: 4px; }
+#problems:empty::after { content: "none"; color: var(--good); font-size: 12px; }

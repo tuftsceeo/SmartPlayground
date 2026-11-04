@@ -1,0 +1,22 @@
+/* Corner radii. Everything is round; nothing in the product is square.
+   Bubbles use an asymmetric tail: 14px 14px 3px 14px. */
+:root {
+  --radius-xs: 3px;
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 12px;
+  --radius-xl: 14px;
+  --radius-2xl: 16px;
+  --radius-3xl: 20px;
+  --radius-4xl: 24px;
+  --radius-gem: 9px;
+  --radius-splash-logo: 28px;
+  --radius-pill: 20px;
+  --radius-round: 50%;
+
+  --bubble-user: 14px 14px 3px 14px; /* @kind radius */
+  --bubble-bot: 14px 14px 14px 3px; /* @kind radius */
+
+  --border-width: 1px;      /* dividers */
+  --border-width-control: 1.5px;  /* buttons, inputs, cards */
+}

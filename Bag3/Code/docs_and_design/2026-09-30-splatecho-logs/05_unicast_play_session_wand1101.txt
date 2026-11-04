@@ -1,0 +1,785 @@
+[   0.0s] # monitor: port opened
+[   0.1s] ESP-ROM:esp32c6-20220919
+[   0.1s] Build:Sep 19 2022
+[   0.1s] rst:0xc (SW_CPU),boot:0x1e (SPI_FAST_FLASH_BOOT)
+[   0.1s] Saved PC:0x4001975a
+[   0.1s] SPIWP:0xee
+[   0.1s] mode:DIO, clock div:2
+[   0.1s] load:0x40875730,len:0xdbc
+[   0.1s] load:0x4086b910,len:0xc34
+[   0.1s] load:0x4086e610,len:0x2e3c
+[   0.1s] entry 0x4086b910
+[   1.9s] [hubtype] wand (25 LEDs)
+[   7.3s] 
+[   7.3s] ==================================================
+[   7.4s]   PlaygroundV5 -- Multi-Trigger Event Engine
+[   7.4s]   Hub type: wand
+[   7.4s] ==================================================
+[   8.7s]   ESPNow: active (MAC: A0:F2:62:87:92:CC)
+[   9.5s]   Light: 546 lux -> brightness x0.06
+[   9.5s]   Battery: 4.20V, 101.1%
+[   9.6s]   PN532 firmware 1.6 (IC 0x32) -- NFC ready
+[   9.6s]   Accelerometer OK
+[   9.6s]   Accel wake-up (INT1) armed
+[   9.6s]   Boot complete — all systems OK
+[  12.2s] {"hub": "wand", "games": ["apple_button", "apple_flip", "blue_flash_butto", "button_blink", "button_flash", "button_flash_blu", "colorquest", "cooking", "directioncolor", "explore", "finddevice", "freefall", "freezedance", "gestures", "goalrace", "goalrace_icon", "jump", "jumpin", "melody", "melody_double_no", "multiicecream", "nfcsound", "orientation_note", "orientation_wand", "rainbow", "shake", "shakerainbow", "simpleicecream", "sound", "speed05", "speed20", "speed28", "speed32", "speed36", "speed40", "splatecho", "splatecho", "testbutton", "tilt_icons", "tilt_tones", "tones"], "version": "0.1.0", "device": "wand", "type": "identity"}
+[  13.9s]   Launching just-pulled game: splatecho
+[  14.6s] {"slug": "splatecho", "type": "game_start"}
+[  15.3s]   [echo]     583 START espnow=(0, 0, 0, 7, 0)
+[  15.3s]   [echo]     593 STATE join
+[  15.3s]   [echo]     596 RX {'type': 'echo_hello'} (state=join)
+[  15.3s]   [echo]     598 TX echo_hello #1 ok=True
+[  15.4s]   [echo]     629 RX {'type': 'echo_hello'} (state=join)
+[  15.4s]   [echo]     652 RX {'type': 'echo_hello'} (state=join)
+[  15.4s]   [echo]     675 RX {'type': 'echo_hello'} (state=join)
+[  15.4s]   [echo]     698 RX {'type': 'echo_hello'} (state=join)
+[  15.5s]   [echo]     721 RX {'type': 'echo_hello'} (state=join)
+[  15.5s]   [echo]     744 RX {'type': 'echo_hello'} (state=join)
+[  16.0s]   [echo]    1257 RX {'type': 'echo_hello'} (state=join)
+[  16.4s]   [echo]    1616 TX echo_hello #2 ok=True
+[  17.1s]   [echo]    2340 RX {'type': 'echo_hello'} (state=join)
+[  18.2s]   [echo]    3472 RX {'type': 'echo_hello'} (state=join)
+[  19.2s]   [echo]    4451 RX {'type': 'echo_hello'} (state=join)
+[  20.2s]   [echo]    5410 RX {'type': 'echo_hello'} (state=join)
+[  21.1s]   [echo]    6370 RX {'type': 'echo_hello'} (state=join)
+[  22.2s]   [echo]    7451 RX {'type': 'echo_hello'} (state=join)
+[  23.3s]   [echo]    8600 RX {'type': 'echo_hello'} (state=join)
+[  24.4s]   [echo]    9643 RX {'player': 1, 'type': 'echo_you'} (state=join)
+[  24.4s]   ESPNow: added peer A0:F2:62:85:A9:9C
+[  24.4s]   [echo]    9647 HUB A0:F2:62:85:A9:9C
+[  24.4s]   splatecho: I am player 1
+[  24.4s]   [echo]    9651 JOINED as player 1 after 9 hello(s)
+[  24.5s]   [echo]    9756 STATE waiting
+[  24.5s]   [echo]    9760 RX {'player': 1, 'type': 'echo_you'} (state=waiting)
+[  24.5s]   [echo]    9784 RX {'player': 1, 'type': 'echo_you'} (state=waiting)
+[  24.5s]   [echo]    9808 RX {'player': 1, 'type': 'echo_you'} (state=waiting)
+[  24.6s]   [echo]    9833 RX {'player': 1, 'type': 'echo_you'} (state=waiting)
+[  24.6s]   [echo]    9857 RX {'player': 1, 'type': 'echo_you'} (state=waiting)
+[  24.7s]   [echo]    9995 RX {'player': 1, 'type': 'echo_you'} (state=waiting)
+[  24.8s]   [echo]   10019 RX {'player': 1, 'type': 'echo_you'} (state=waiting)
+[  24.8s]   [echo]   10043 RX {'player': 1, 'type': 'echo_you'} (state=waiting)
+[  26.7s]   [echo]   11926 RX {'q': 1, 'type': 'echo_turn', 'player': 0, 'len': 0} (state=waiting)
+[  26.7s]   [echo]   11928 STATE other's turn
+[  26.7s]   [echo]   11958 RX {'q': 2, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[  27.7s]   [echo]   12930 RX {'q': 3, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[  28.7s]   [echo]   14003 RX {'q': 4, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[  29.9s]   [echo]   15118 RX {'q': 5, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[  30.8s]   [echo]   16084 RX {'q': 6, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[  31.9s]   [echo]   17113 RX {'q': 7, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[  32.9s]   [echo]   18122 RX {'q': 8, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[  33.9s]   [echo]   19150 RX {'q': 9, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[  35.0s]   [echo]   20270 RX {'q': 10, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[  36.0s]   [echo]   21237 RX {'q': 11, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[  37.1s]   [echo]   22328 RX {'q': 12, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[  38.1s]   [echo]   23336 RX {'q': 13, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[  39.2s]   [echo]   24456 RX {'q': 14, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[  40.2s]   [echo]   25423 RX {'q': 15, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[  41.2s]   [echo]   26430 RX {'q': 16, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[  42.2s]   [echo]   27459 RX {'q': 17, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[  43.2s]   [echo]   28487 RX {'q': 18, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[  44.3s]   [echo]   29608 RX {'q': 19, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[  45.3s]   [echo]   30574 RX {'q': 20, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[  46.4s]   [echo]   31624 RX {'q': 21, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[  47.4s]   [echo]   32674 RX {'q': 22, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[  48.5s]   [echo]   33794 RX {'q': 23, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[  49.5s]   [echo]   34760 RX {'q': 24, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[  50.5s]   [echo]   35777 RX {'q': 25, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[  51.6s]   [echo]   36812 RX {'q': 26, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[  52.7s]   [echo]   37941 RX {'q': 27, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[  53.7s]   [echo]   38918 RX {'q': 28, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[  54.6s]   [echo]   39874 RX {'q': 29, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[  55.7s]   [echo]   40933 RX {'q': 30, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[  56.8s]   [echo]   42104 RX {'q': 31, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[  57.8s]   [echo]   43059 RX {'q': 32, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[  58.8s]   [echo]   44035 RX {'q': 33, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[  59.8s]   [echo]   45054 RX {'q': 34, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[  61.0s]   [echo]   46230 RX {'q': 35, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[  62.0s]   [echo]   47210 RX {'q': 36, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[  62.9s]   [echo]   48170 RX {'q': 37, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[  63.9s]   [echo]   49171 RX {'q': 38, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[  65.0s]   [echo]   50234 RX {'q': 39, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[  66.1s]   [echo]   51369 RX {'q': 40, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[  67.1s]   [echo]   52329 RX {'q': 41, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[  68.1s]   [echo]   53310 RX {'q': 42, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[  69.1s]   [echo]   54332 RX {'q': 43, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[  70.1s]   [echo]   55354 RX {'q': 44, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[  71.2s]   [echo]   56489 RX {'q': 45, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[  72.2s]   [echo]   57449 RX {'q': 46, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[  73.2s]   [echo]   58491 RX {'q': 47, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[  74.4s]   [echo]   59667 RX {'q': 48, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[  75.4s]   [echo]   60647 RX {'q': 49, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[  76.3s]   [echo]   61607 RX {'q': 50, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[  77.3s]   [echo]   62608 RX {'q': 51, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[  78.4s]   [echo]   63630 RX {'q': 52, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[  79.4s]   [echo]   64652 RX {'q': 53, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[  80.5s]   [echo]   65780 RX {'q': 54, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[  81.5s]   [echo]   66732 RX {'q': 55, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[  82.5s]   [echo]   67748 RX {'q': 56, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[  83.5s]   [echo]   68765 RX {'q': 57, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[  84.7s]   [echo]   69915 RX {'q': 58, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[  85.6s]   [echo]   70871 RX {'q': 59, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[  86.6s]   [echo]   71848 RX {'q': 60, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[  87.6s]   [echo]   72886 RX {'q': 61, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[  88.8s]   [echo]   74056 RX {'q': 62, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[  89.8s]   [echo]   75014 RX {'q': 63, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[  90.8s]   [echo]   76077 RX {'q': 64, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[  91.8s]   [echo]   77078 RX {'q': 65, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[  93.0s]   [echo]   78213 RX {'q': 66, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[  93.9s]   [echo]   79173 RX {'q': 67, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[  94.9s]   [echo]   80154 RX {'q': 68, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[  95.9s]   [echo]   81176 RX {'q': 69, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[  96.9s]   [echo]   82198 RX {'q': 70, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[  98.1s]   [echo]   83332 RX {'q': 71, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[  99.0s]   [echo]   84293 RX {'q': 72, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 100.0s]   [echo]   85273 RX {'q': 73, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 101.1s]   [echo]   86336 RX {'q': 74, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 102.2s]   [echo]   87491 RX {'q': 75, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 103.2s]   [echo]   88452 RX {'q': 76, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 104.2s]   [echo]   89432 RX {'q': 77, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 105.2s]   [echo]   90454 RX {'q': 78, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 106.2s]   [echo]   91476 RX {'q': 79, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 107.4s]   [echo]   92610 RX {'q': 80, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 108.3s]   [echo]   93571 RX {'q': 81, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 109.3s]   [echo]   94588 RX {'q': 82, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 110.3s]   [echo]   95602 RX {'q': 83, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 111.4s]   [echo]   96618 RX {'q': 84, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 112.5s]   [echo]   97728 RX {'q': 85, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 113.5s]   [echo]   98724 RX {'q': 86, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 114.5s]   [echo]   99782 RX {'q': 87, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 115.7s]   [echo]  100913 RX {'q': 88, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 116.6s]   [echo]  101869 RX {'q': 89, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 117.6s]   [echo]  102865 RX {'q': 90, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 118.6s]   [echo]  103904 RX {'q': 91, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 119.8s]   [echo]  105039 RX {'q': 92, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 120.8s]   [echo]  106020 RX {'q': 93, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 121.7s]   [echo]  106980 RX {'q': 94, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 122.7s]   [echo]  108002 RX {'q': 95, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 123.8s]   [echo]  109024 RX {'q': 96, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 124.9s]   [echo]  110159 RX {'q': 97, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 125.9s]   [echo]  111140 RX {'q': 98, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 126.8s]   [echo]  112100 RX {'q': 99, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 127.8s]   [echo]  113102 RX {'q': 100, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 128.9s]   [echo]  114123 RX {'q': 101, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 129.9s]   [echo]  115145 RX {'q': 102, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 131.0s]   [echo]  116260 RX {'q': 103, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 132.0s]   [echo]  117220 RX {'q': 104, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 132.9s]   [echo]  118201 RX {'q': 105, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 134.0s]   [echo]  119243 RX {'q': 106, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 135.1s]   [echo]  120399 RX {'q': 107, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 136.1s]   [echo]  121380 RX {'q': 108, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 137.1s]   [echo]  122340 RX {'q': 109, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 138.1s]   [echo]  123357 RX {'q': 110, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 139.2s]   [echo]  124413 RX {'q': 111, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 140.3s]   [echo]  125542 RX {'q': 112, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 141.3s]   [echo]  126539 RX {'q': 113, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 142.4s]   [echo]  127618 RX {'q': 114, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 143.5s]   [echo]  128728 RX {'q': 115, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 144.4s]   [echo]  129685 RX {'q': 116, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 145.4s]   [echo]  130702 RX {'q': 117, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 146.5s]   [echo]  131739 RX {'q': 118, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 147.6s]   [echo]  132872 RX {'q': 119, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 148.6s]   [echo]  133833 RX {'q': 120, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 149.5s]   [echo]  134793 RX {'q': 121, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 150.6s]   [echo]  135815 RX {'q': 122, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 151.6s]   [echo]  136837 RX {'q': 123, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 152.7s]   [echo]  137993 RX {'q': 124, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 153.7s]   [echo]  138954 RX {'q': 125, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 154.7s]   [echo]  139934 RX {'q': 126, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 155.7s]   [echo]  140956 RX {'q': 127, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 156.7s]   [echo]  141957 RX {'q': 128, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 157.8s]   [echo]  143092 RX {'q': 129, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 158.8s]   [echo]  144073 RX {'q': 130, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 159.8s]   [echo]  145096 RX {'q': 131, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 160.9s]   [echo]  146159 RX {'q': 132, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 162.0s]   [echo]  147273 RX {'q': 133, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 163.0s]   [echo]  148233 RX {'q': 134, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 164.0s]   [echo]  149255 RX {'q': 135, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 165.0s]   [echo]  150297 RX {'q': 136, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 166.2s]   [echo]  151436 RX {'q': 137, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 167.1s]   [echo]  152390 RX {'q': 138, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 168.1s]   [echo]  153365 RX {'q': 139, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 169.2s]   [echo]  154424 RX {'q': 140, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 170.3s]   [echo]  155575 RX {'q': 141, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 171.3s]   [echo]  156531 RX {'q': 142, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 172.3s]   [echo]  157528 RX {'q': 143, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 173.3s]   [echo]  158566 RX {'q': 144, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 174.4s]   [echo]  159697 RX {'q': 145, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 175.4s]   [echo]  160677 RX {'q': 146, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 176.4s]   [echo]  161637 RX {'q': 147, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 177.4s]   [echo]  162638 RX {'q': 148, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 178.1s]   [echo]  163403 RX {'q': 149, 'type': 'echo_turn', 'player': 1, 'len': 1} (state=other's turn)
+[ 178.1s]   splatecho: my turn (length 1)
+[ 178.1s]   [echo]  163404 STATE my turn len 1
+[ 183.5s]   [echo]  168790 RX {'len': 1, 'ok': False, 'player': 1, 'scores': [1, 0], 'q': 150, 'type': 'echo_result'} (state=my turn len 1)
+[ 183.5s]   [echo]  168801 STATE result
+[ 184.5s]   splatecho: scores [1, 0] (me: player 1)
+[ 186.5s]   [echo]  171725 RESULT shown ok=False, blocked 2922 ms
+[ 186.5s]   [echo]  171726 STATE waiting
+[ 186.5s]   [echo]  171747 SLOW poll gap 2957 ms (state=waiting)
+[ 186.5s]   [echo]  171750 RX {'q': 151, 'type': 'echo_turn', 'player': 0, 'len': 0} (state=waiting)
+[ 186.5s]   [echo]  171751 STATE other's turn
+[ 186.5s]   [echo]  171791 RX {'q': 152, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 186.6s]   [echo]  171814 RX {'q': 153, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 187.3s]   [echo]  172511 RX {'q': 154, 'type': 'echo_turn', 'player': 1, 'len': 1} (state=other's turn)
+[ 187.3s]   splatecho: my turn (length 1)
+[ 187.3s]   [echo]  172512 STATE my turn len 1
+[ 192.7s]   [echo]  177940 RX {'len': 1, 'ok': False, 'player': 1, 'scores': [2, 0], 'q': 155, 'type': 'echo_result'} (state=my turn len 1)
+[ 192.7s]   [echo]  177951 STATE result
+[ 193.6s]   splatecho: scores [2, 0] (me: player 1)
+[ 195.6s]   [echo]  180875 RESULT shown ok=False, blocked 2922 ms
+[ 195.6s]   [echo]  180876 STATE waiting
+[ 195.6s]   [echo]  180896 SLOW poll gap 2956 ms (state=waiting)
+[ 195.6s]   [echo]  180900 RX {'q': 156, 'type': 'echo_turn', 'player': 0, 'len': 0} (state=waiting)
+[ 195.6s]   [echo]  180901 STATE other's turn
+[ 195.7s]   [echo]  180958 RX {'q': 157, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 195.7s]   [echo]  180982 RX {'q': 158, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 196.5s]   [echo]  181720 RX {'q': 159, 'type': 'echo_turn', 'player': 1, 'len': 1} (state=other's turn)
+[ 196.5s]   splatecho: my turn (length 1)
+[ 196.5s]   [echo]  181721 STATE my turn len 1
+[ 201.6s]   [echo]  186857 BUTTON pressed outside add (state=my turn len 1)
+[ 201.9s]   [echo]  187137 RX {'len': 1, 'ok': False, 'player': 1, 'scores': [3, 0], 'q': 160, 'type': 'echo_result'} (state=my turn len 1)
+[ 201.9s]   [echo]  187141 STATE result
+[ 202.8s]   splatecho: scores [3, 0] (me: player 1)
+[ 204.8s]   [echo]  190064 RESULT shown ok=False, blocked 2922 ms
+[ 204.8s]   [echo]  190065 STATE waiting
+[ 204.8s]   [echo]  190086 SLOW poll gap 2950 ms (state=waiting)
+[ 204.8s]   [echo]  190090 RX {'q': 161, 'type': 'echo_turn', 'player': 0, 'len': 0} (state=waiting)
+[ 204.8s]   [echo]  190091 STATE other's turn
+[ 204.9s]   [echo]  190131 RX {'q': 162, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 204.9s]   [echo]  190154 RX {'q': 163, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 205.6s]   [echo]  190879 RX {'q': 164, 'type': 'echo_turn', 'player': 1, 'len': 1} (state=other's turn)
+[ 205.6s]   splatecho: my turn (length 1)
+[ 205.6s]   [echo]  190881 STATE my turn len 1
+[ 208.2s]   [echo]  193447 RX {'len': 1, 'ok': False, 'player': 1, 'scores': [4, 0], 'q': 165, 'type': 'echo_result'} (state=my turn len 1)
+[ 208.2s]   [echo]  193451 STATE result
+[ 209.1s]   splatecho: scores [4, 0] (me: player 1)
+[ 211.1s]   [echo]  196375 RESULT shown ok=False, blocked 2922 ms
+[ 211.1s]   [echo]  196376 STATE waiting
+[ 211.1s]   [echo]  196397 SLOW poll gap 2950 ms (state=waiting)
+[ 211.1s]   [echo]  196400 RX {'q': 166, 'type': 'echo_turn', 'player': 0, 'len': 0} (state=waiting)
+[ 211.1s]   [echo]  196401 BUTTON pressed outside add (state=waiting)
+[ 211.2s]   [echo]  196411 STATE other's turn
+[ 211.2s]   [echo]  196441 RX {'q': 167, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 211.2s]   [echo]  196465 RX {'q': 168, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 212.1s]   [echo]  197356 RX {'q': 169, 'type': 'echo_turn', 'player': 1, 'len': 1} (state=other's turn)
+[ 212.1s]   splatecho: my turn (length 1)
+[ 212.1s]   [echo]  197358 STATE my turn len 1
+[ 213.9s]   [echo]  199112 RX {'len': 1, 'ok': False, 'player': 1, 'scores': [5, 0], 'q': 170, 'type': 'echo_result'} (state=my turn len 1)
+[ 213.9s]   [echo]  199121 STATE result
+[ 214.8s]   splatecho: scores [5, 0] (me: player 1)
+[ 216.8s]   [echo]  202045 RESULT shown ok=False, blocked 2922 ms
+[ 216.8s]   [echo]  202045 STATE waiting
+[ 216.8s]   [echo]  202066 SLOW poll gap 2955 ms (state=waiting)
+[ 216.8s]   [echo]  202070 RX {'q': 171, 'type': 'echo_turn', 'player': 0, 'len': 0} (state=waiting)
+[ 216.8s]   [echo]  202071 STATE other's turn
+[ 216.9s]   [echo]  202111 RX {'q': 172, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 216.9s]   [echo]  202134 RX {'q': 173, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 217.6s]   [echo]  202810 RX {'q': 174, 'type': 'echo_turn', 'player': 1, 'len': 1} (state=other's turn)
+[ 217.6s]   splatecho: my turn (length 1)
+[ 217.6s]   [echo]  202812 STATE my turn len 1
+[ 217.9s]   [echo]  203185 BUTTON pressed outside add (state=my turn len 1)
+[ 219.4s]   [echo]  204632 BUTTON pressed outside add (state=my turn len 1)
+[ 223.0s]   [echo]  208262 RX {'len': 1, 'ok': False, 'player': 1, 'scores': [6, 0], 'q': 175, 'type': 'echo_result'} (state=my turn len 1)
+[ 223.0s]   [echo]  208271 STATE result
+[ 223.9s]   splatecho: scores [6, 0] (me: player 1)
+[ 225.9s]   [echo]  211195 RESULT shown ok=False, blocked 2922 ms
+[ 225.9s]   [echo]  211195 STATE waiting
+[ 226.0s]   [echo]  211216 SLOW poll gap 2955 ms (state=waiting)
+[ 226.0s]   [echo]  211220 RX {'q': 176, 'type': 'echo_turn', 'player': 0, 'len': 0} (state=waiting)
+[ 226.0s]   [echo]  211221 STATE other's turn
+[ 226.0s]   [echo]  211277 RX {'q': 177, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 226.0s]   [echo]  211301 RX {'q': 178, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 226.3s]   [echo]  211538 BUTTON pressed outside add (state=other's turn)
+[ 226.5s]   [echo]  211722 BUTTON pressed outside add (state=other's turn)
+[ 226.6s]   [echo]  211879 RX {'q': 179, 'type': 'echo_turn', 'player': 1, 'len': 1} (state=other's turn)
+[ 226.6s]   splatecho: my turn (length 1)
+[ 226.6s]   [echo]  211881 STATE my turn len 1
+[ 232.0s]   [echo]  217245 RX {'len': 1, 'ok': False, 'player': 1, 'scores': [7, 0], 'q': 180, 'type': 'echo_result'} (state=my turn len 1)
+[ 232.0s]   [echo]  217251 STATE result
+[ 232.9s]   splatecho: scores [7, 0] (me: player 1)
+[ 234.9s]   [echo]  220175 RESULT shown ok=False, blocked 2922 ms
+[ 234.9s]   [echo]  220176 STATE waiting
+[ 234.9s]   [echo]  220196 SLOW poll gap 2952 ms (state=waiting)
+[ 234.9s]   [echo]  220200 RX {'q': 181, 'type': 'echo_turn', 'player': 0, 'len': 0} (state=waiting)
+[ 234.9s]   [echo]  220201 STATE other's turn
+[ 235.0s]   [echo]  220241 RX {'q': 182, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 235.0s]   [echo]  220264 RX {'q': 183, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 235.8s]   [echo]  221079 RX {'q': 184, 'type': 'echo_turn', 'player': 1, 'len': 1} (state=other's turn)
+[ 235.8s]   splatecho: my turn (length 1)
+[ 235.8s]   [echo]  221081 STATE my turn len 1
+[ 241.2s]   [echo]  226460 RX {'len': 1, 'ok': False, 'player': 1, 'scores': [8, 0], 'q': 185, 'type': 'echo_result'} (state=my turn len 1)
+[ 241.2s]   [echo]  226461 STATE result
+[ 242.1s]   splatecho: scores [8, 0] (me: player 1)
+[ 244.1s]   [echo]  229394 RESULT shown ok=False, blocked 2922 ms
+[ 244.1s]   [echo]  229395 STATE waiting
+[ 244.2s]   [echo]  229416 SLOW poll gap 2956 ms (state=waiting)
+[ 244.3s]   [echo]  229532 RX {'q': 186, 'type': 'echo_turn', 'player': 0, 'len': 0} (state=waiting)
+[ 244.3s]   [echo]  229533 STATE other's turn
+[ 244.3s]   [echo]  229564 RX {'q': 187, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 244.3s]   [echo]  229588 RX {'q': 188, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 245.0s]   [echo]  230284 RX {'q': 189, 'type': 'echo_turn', 'player': 1, 'len': 1} (state=other's turn)
+[ 245.0s]   splatecho: my turn (length 1)
+[ 245.0s]   [echo]  230285 STATE my turn len 1
+[ 250.3s]   [echo]  235556 RX {'idx': 0, 'type': 'echo_step', 'player': 1, 'q': 190} (state=my turn len 1)
+[ 250.7s]   [echo]  235909 RX {'len': 1, 'ok': True, 'player': 1, 'scores': [8, 0], 'q': 191, 'type': 'echo_result'} (state=my turn len 1)
+[ 250.7s]   [echo]  235910 STATE result
+[ 251.3s]   splatecho: scores [8, 0] (me: player 1)
+[ 251.3s]   [echo]  236557 RESULT shown ok=True, blocked 635 ms
+[ 251.3s]   [echo]  236558 STATE waiting
+[ 251.3s]   [echo]  236578 SLOW poll gap 670 ms (state=waiting)
+[ 251.3s]   [echo]  236582 RX {'q': 192, 'type': 'echo_add_now', 'player': 1, 'len': 1} (state=waiting)
+[ 251.3s]   splatecho: your turn to add a step
+[ 251.3s]   [echo]  236591 STATE add
+[ 256.2s]   splatecho: added Splat 1
+[ 256.2s]   [echo]  241472 TX echo_add unit 1 len 1 tries=1 after 4880 ms
+[ 256.4s]   [echo]  241631 STATE added, waiting
+[ 256.7s]   [echo]  241991 RX {'q': 197, 'type': 'echo_turn', 'player': 0, 'len': 2} (state=added, waiting)
+[ 256.7s]   [echo]  241993 STATE other's turn
+[ 259.0s]   [echo]  244254 RX {'len': 2, 'ok': False, 'player': 0, 'scores': [8, 1], 'q': 198, 'type': 'echo_result'} (state=other's turn)
+[ 259.0s]   [echo]  244255 STATE result
+[ 259.9s]   splatecho: scores [8, 1] (me: player 1)
+[ 261.9s]   [echo]  247184 RESULT shown ok=False, blocked 2922 ms
+[ 261.9s]   [echo]  247185 STATE waiting
+[ 261.9s]   [echo]  247205 SLOW poll gap 2952 ms (state=waiting)
+[ 261.9s]   [echo]  247209 RX {'q': 199, 'type': 'echo_turn', 'player': 1, 'len': 0} (state=waiting)
+[ 262.0s]   splatecho: my turn (length 0)
+[ 262.0s]   [echo]  247211 STATE my turn len 0
+[ 262.2s]   [echo]  247413 RX {'q': 200, 'type': 'echo_add_now', 'player': 1, 'len': 0} (state=my turn len 0)
+[ 262.2s]   splatecho: your turn to add a step
+[ 262.2s]   [echo]  247421 STATE add
+[ 263.3s]   splatecho: added Splat 1
+[ 263.3s]   [echo]  248512 TX echo_add unit 1 len 0 tries=1 after 1090 ms
+[ 263.4s]   [echo]  248671 STATE added, waiting
+[ 263.9s]   [echo]  249146 RX {'q': 203, 'type': 'echo_turn', 'player': 0, 'len': 1} (state=added, waiting)
+[ 263.9s]   [echo]  249147 STATE other's turn
+[ 264.5s]   [echo]  249766 BUTTON pressed outside add (state=other's turn)
+[ 265.6s]   [echo]  250815 BUTTON pressed outside add (state=other's turn)
+[ 266.1s]   [echo]  251346 BUTTON pressed outside add (state=other's turn)
+[ 266.4s]   [echo]  251663 BUTTON pressed outside add (state=other's turn)
+[ 267.0s]   [echo]  252295 BUTTON pressed outside add (state=other's turn)
+[ 268.3s]   [echo]  253601 RX {'idx': 0, 'type': 'echo_step', 'player': 0, 'q': 204} (state=other's turn)
+[ 268.7s]   [echo]  253942 RX {'len': 1, 'ok': True, 'player': 0, 'scores': [8, 1], 'q': 205, 'type': 'echo_result'} (state=other's turn)
+[ 268.7s]   [echo]  253943 STATE result
+[ 269.3s]   splatecho: scores [8, 1] (me: player 1)
+[ 269.3s]   [echo]  254604 RESULT shown ok=True, blocked 652 ms
+[ 269.3s]   [echo]  254605 STATE waiting
+[ 269.4s]   [echo]  254625 SLOW poll gap 684 ms (state=waiting)
+[ 269.4s]   [echo]  254629 RX {'q': 206, 'type': 'echo_add_now', 'player': 0, 'len': 1} (state=waiting)
+[ 270.3s]   [echo]  255601 RX {'q': 207, 'type': 'echo_add_now', 'player': 0, 'len': 1} (state=waiting)
+[ 270.9s]   [echo]  256134 BUTTON pressed outside add (state=waiting)
+[ 271.2s]   [echo]  256451 BUTTON pressed outside add (state=waiting)
+[ 271.4s]   [echo]  256617 RX {'q': 208, 'type': 'echo_add_now', 'player': 0, 'len': 1} (state=waiting)
+[ 272.5s]   [echo]  257751 RX {'q': 209, 'type': 'echo_add_now', 'player': 0, 'len': 1} (state=waiting)
+[ 273.5s]   [echo]  258710 RX {'q': 210, 'type': 'echo_turn', 'player': 1, 'len': 2} (state=waiting)
+[ 273.5s]   splatecho: my turn (length 2)
+[ 273.5s]   [echo]  258712 STATE my turn len 2
+[ 276.8s]   [echo]  262053 RX {'idx': 0, 'type': 'echo_step', 'player': 1, 'q': 211} (state=my turn len 2)
+[ 277.5s]   [echo]  262740 RX {'idx': 1, 'type': 'echo_step', 'player': 1, 'q': 212} (state=my turn len 2)
+[ 277.9s]   [echo]  263112 RX {'len': 2, 'ok': True, 'player': 1, 'scores': [8, 1], 'q': 213, 'type': 'echo_result'} (state=my turn len 2)
+[ 277.9s]   [echo]  263114 STATE result
+[ 278.5s]   splatecho: scores [8, 1] (me: player 1)
+[ 278.5s]   [echo]  263757 RESULT shown ok=True, blocked 635 ms
+[ 278.5s]   [echo]  263758 STATE waiting
+[ 278.5s]   [echo]  263779 SLOW poll gap 668 ms (state=waiting)
+[ 278.5s]   [echo]  263783 RX {'q': 214, 'type': 'echo_add_now', 'player': 1, 'len': 2} (state=waiting)
+[ 278.5s]   splatecho: your turn to add a step
+[ 278.5s]   [echo]  263791 STATE add
+[ 281.1s]   splatecho: added Splat 2
+[ 281.1s]   [echo]  266312 TX echo_add unit 2 len 2 tries=1 after 2520 ms
+[ 281.2s]   [echo]  266471 STATE added, waiting
+[ 281.7s]   [echo]  266988 RX {'q': 217, 'type': 'echo_turn', 'player': 0, 'len': 3} (state=added, waiting)
+[ 281.7s]   [echo]  266989 STATE other's turn
+[ 286.5s]   [echo]  271738 RX {'len': 3, 'ok': False, 'player': 0, 'scores': [8, 2], 'q': 218, 'type': 'echo_result'} (state=other's turn)
+[ 286.5s]   [echo]  271739 STATE result
+[ 287.4s]   splatecho: scores [8, 2] (me: player 1)
+[ 289.4s]   [echo]  274674 RESULT shown ok=False, blocked 2922 ms
+[ 289.4s]   [echo]  274675 STATE waiting
+[ 289.4s]   [echo]  274695 SLOW poll gap 2958 ms (state=waiting)
+[ 289.4s]   [echo]  274699 RX {'q': 219, 'type': 'echo_turn', 'player': 1, 'len': 0} (state=waiting)
+[ 289.4s]   splatecho: my turn (length 0)
+[ 289.4s]   [echo]  274701 STATE my turn len 0
+[ 289.6s]   [echo]  274903 RX {'q': 220, 'type': 'echo_add_now', 'player': 1, 'len': 0} (state=my turn len 0)
+[ 289.6s]   splatecho: your turn to add a step
+[ 289.7s]   [echo]  274911 STATE add
+[ 290.5s]   splatecho: added Splat 0
+[ 290.5s]   [echo]  275752 TX echo_add unit 0 len 0 tries=1 after 840 ms
+[ 290.7s]   [echo]  275911 STATE added, waiting
+[ 291.1s]   [echo]  276385 RX {'q': 223, 'type': 'echo_turn', 'player': 0, 'len': 1} (state=added, waiting)
+[ 291.1s]   [echo]  276386 STATE other's turn
+[ 294.7s]   [echo]  279955 RX {'idx': 0, 'type': 'echo_step', 'player': 0, 'q': 224} (state=other's turn)
+[ 295.0s]   [echo]  280296 RX {'len': 1, 'ok': True, 'player': 0, 'scores': [8, 2], 'q': 225, 'type': 'echo_result'} (state=other's turn)
+[ 295.0s]   [echo]  280297 STATE result
+[ 295.7s]   splatecho: scores [8, 2] (me: player 1)
+[ 295.7s]   [echo]  280944 RESULT shown ok=True, blocked 642 ms
+[ 295.7s]   [echo]  280945 STATE waiting
+[ 295.7s]   [echo]  280966 SLOW poll gap 670 ms (state=waiting)
+[ 295.7s]   [echo]  280969 RX {'q': 226, 'type': 'echo_add_now', 'player': 0, 'len': 1} (state=waiting)
+[ 296.3s]   [echo]  281584 RX {'q': 227, 'type': 'echo_turn', 'player': 1, 'len': 2} (state=waiting)
+[ 296.3s]   splatecho: my turn (length 2)
+[ 296.3s]   [echo]  281586 STATE my turn len 2
+[ 302.4s]   [echo]  287685 RX {'len': 2, 'ok': False, 'player': 1, 'scores': [9, 2], 'q': 228, 'type': 'echo_result'} (state=my turn len 2)
+[ 302.4s]   [echo]  287691 STATE result
+[ 303.3s]   splatecho: scores [9, 2] (me: player 1)
+[ 305.4s]   [echo]  290615 RESULT shown ok=False, blocked 2923 ms
+[ 305.4s]   [echo]  290616 STATE waiting
+[ 305.4s]   [echo]  290637 SLOW poll gap 2952 ms (state=waiting)
+[ 305.4s]   [echo]  290640 RX {'q': 229, 'type': 'echo_turn', 'player': 0, 'len': 0} (state=waiting)
+[ 305.4s]   [echo]  290641 STATE other's turn
+[ 305.4s]   [echo]  290681 RX {'q': 230, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 305.4s]   [echo]  290705 RX {'q': 231, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 306.0s]   [echo]  291279 RX {'q': 232, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 307.0s]   [echo]  292309 BUTTON pressed outside add (state=other's turn)
+[ 307.1s]   [echo]  292354 RX {'q': 233, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 307.9s]   [echo]  293161 BUTTON pressed outside add (state=other's turn)
+[ 308.2s]   [echo]  293477 BUTTON pressed outside add (state=other's turn)
+[ 308.2s]   [echo]  293501 RX {'q': 234, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 309.2s]   [echo]  294452 RX {'q': 235, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 310.8s]   [echo]  296035 RX {'q': 236, 'type': 'echo_turn', 'player': 1, 'len': 1} (state=other's turn)
+[ 310.8s]   splatecho: my turn (length 1)
+[ 310.8s]   [echo]  296036 STATE my turn len 1
+[ 316.1s]   [echo]  301362 RX {'len': 1, 'ok': False, 'player': 1, 'scores': [10, 2], 'q': 237, 'type': 'echo_result'} (state=my turn len 1)
+[ 316.1s]   [echo]  301371 STATE result
+[ 317.0s]   splatecho: scores [10, 2] (me: player 1)
+[ 319.0s]   [echo]  304295 RESULT shown ok=False, blocked 2923 ms
+[ 319.0s]   [echo]  304296 STATE waiting
+[ 319.1s]   [echo]  304317 SLOW poll gap 2956 ms (state=waiting)
+[ 319.1s]   [echo]  304321 RX {'q': 238, 'type': 'echo_turn', 'player': 0, 'len': 0} (state=waiting)
+[ 319.1s]   [echo]  304322 STATE other's turn
+[ 319.1s]   [echo]  304353 RX {'q': 239, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 319.1s]   [echo]  304377 RX {'q': 240, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 319.6s]   [echo]  304851 BUTTON pressed outside add (state=other's turn)
+[ 319.9s]   [echo]  305191 RX {'q': 241, 'type': 'echo_turn', 'player': 1, 'len': 1} (state=other's turn)
+[ 319.9s]   splatecho: my turn (length 1)
+[ 319.9s]   [echo]  305192 STATE my turn len 1
+[ 321.4s]   [echo]  306677 RX {'len': 1, 'ok': False, 'player': 1, 'scores': [11, 2], 'q': 242, 'type': 'echo_result'} (state=my turn len 1)
+[ 321.4s]   [echo]  306681 STATE result
+[ 322.3s]   splatecho: scores [11, 2] (me: player 1)
+[ 324.3s]   [echo]  309605 RESULT shown ok=False, blocked 2922 ms
+[ 324.3s]   [echo]  309606 STATE waiting
+[ 324.4s]   [echo]  309627 SLOW poll gap 2950 ms (state=waiting)
+[ 324.4s]   [echo]  309630 RX {'q': 243, 'type': 'echo_turn', 'player': 0, 'len': 0} (state=waiting)
+[ 324.4s]   [echo]  309631 STATE other's turn
+[ 324.4s]   [echo]  309671 RX {'q': 244, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 324.4s]   [echo]  309695 RX {'q': 245, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 325.1s]   [echo]  310391 RX {'q': 246, 'type': 'echo_turn', 'player': 1, 'len': 1} (state=other's turn)
+[ 325.1s]   splatecho: my turn (length 1)
+[ 325.1s]   [echo]  310392 STATE my turn len 1
+[ 328.0s]   [echo]  313271 BUTTON pressed outside add (state=my turn len 1)
+[ 328.7s]   [echo]  313927 RX {'idx': 0, 'type': 'echo_step', 'player': 1, 'q': 247} (state=my turn len 1)
+[ 329.0s]   [echo]  314299 RX {'len': 1, 'ok': True, 'player': 1, 'scores': [11, 2], 'q': 248, 'type': 'echo_result'} (state=my turn len 1)
+[ 329.0s]   [echo]  314301 STATE result
+[ 329.7s]   splatecho: scores [11, 2] (me: player 1)
+[ 329.7s]   [echo]  314947 RESULT shown ok=True, blocked 635 ms
+[ 329.7s]   [echo]  314947 STATE waiting
+[ 329.7s]   [echo]  314968 SLOW poll gap 670 ms (state=waiting)
+[ 330.8s]   [echo]  316061 RX {'q': 250, 'type': 'echo_add_now', 'player': 1, 'len': 1} (state=waiting) MISSED 1 before this (total 1)
+[ 330.8s]   splatecho: your turn to add a step
+[ 330.8s]   [echo]  316071 STATE add
+[ 331.9s]   splatecho: added Splat 2
+[ 331.9s]   [echo]  317188 TX echo_add unit 2 len 1 tries=1 after 1116 ms
+[ 332.1s]   [echo]  317347 STATE added, waiting
+[ 332.1s]   [echo]  317371 RX {'q': 251, 'type': 'echo_add_now', 'player': 1, 'len': 1} (state=added, waiting)
+[ 332.1s]   [echo]  317381 RESEND echo_add unit 2 len 1 tries=1
+[ 332.5s]   [echo]  317720 RX {'q': 252, 'type': 'echo_turn', 'player': 0, 'len': 2} (state=added, waiting)
+[ 332.5s]   [echo]  317722 STATE other's turn
+[ 335.9s]   [echo]  321185 RX {'idx': 0, 'type': 'echo_step', 'player': 0, 'q': 253} (state=other's turn)
+[ 336.9s]   [echo]  322118 RX {'idx': 1, 'type': 'echo_step', 'player': 0, 'q': 254} (state=other's turn)
+[ 337.2s]   [echo]  322438 RX {'len': 2, 'ok': True, 'player': 0, 'scores': [11, 2], 'q': 255, 'type': 'echo_result'} (state=other's turn)
+[ 337.2s]   [echo]  322439 STATE result
+[ 337.8s]   splatecho: scores [11, 2] (me: player 1)
+[ 337.8s]   [echo]  323087 RESULT shown ok=True, blocked 636 ms
+[ 337.8s]   [echo]  323088 STATE waiting
+[ 337.8s]   [echo]  323109 SLOW poll gap 671 ms (state=waiting)
+[ 337.9s]   [echo]  323112 RX {'q': 256, 'type': 'echo_add_now', 'player': 0, 'len': 2} (state=waiting)
+[ 338.8s]   [echo]  324064 RX {'q': 257, 'type': 'echo_add_now', 'player': 0, 'len': 2} (state=waiting)
+[ 339.8s]   [echo]  325015 RX {'q': 258, 'type': 'echo_add_now', 'player': 0, 'len': 2} (state=waiting)
+[ 340.5s]   [echo]  325732 RX {'q': 259, 'type': 'echo_turn', 'player': 1, 'len': 3} (state=waiting)
+[ 340.5s]   splatecho: my turn (length 3)
+[ 340.5s]   [echo]  325733 STATE my turn len 3
+[ 344.5s]   [echo]  329767 RX {'idx': 0, 'type': 'echo_step', 'player': 1, 'q': 260} (state=my turn len 3)
+[ 345.4s]   [echo]  330649 RX {'idx': 1, 'type': 'echo_step', 'player': 1, 'q': 261} (state=my turn len 3)
+[ 346.4s]   [echo]  331652 RX {'idx': 2, 'type': 'echo_step', 'player': 1, 'q': 262} (state=my turn len 3)
+[ 346.8s]   [echo]  332025 RX {'len': 3, 'ok': True, 'player': 1, 'scores': [11, 2], 'q': 263, 'type': 'echo_result'} (state=my turn len 3)
+[ 346.8s]   [echo]  332031 STATE result
+[ 347.4s]   splatecho: scores [11, 2] (me: player 1)
+[ 347.4s]   [echo]  332668 RESULT shown ok=True, blocked 635 ms
+[ 347.4s]   [echo]  332669 STATE waiting
+[ 347.4s]   [echo]  332689 SLOW poll gap 665 ms (state=waiting)
+[ 347.4s]   [echo]  332693 RX {'q': 264, 'type': 'echo_add_now', 'player': 1, 'len': 3} (state=waiting)
+[ 347.4s]   splatecho: your turn to add a step
+[ 347.4s]   [echo]  332701 STATE add
+[ 351.5s]   splatecho: added Splat 3
+[ 351.5s]   [echo]  336782 TX echo_add unit 3 len 3 tries=1 after 4080 ms
+[ 351.7s]   [echo]  336941 STATE added, waiting
+[ 351.7s]   [echo]  336966 RX {'q': 268, 'type': 'echo_add_now', 'player': 1, 'len': 3} (state=added, waiting)
+[ 351.7s]   [echo]  336982 RESEND echo_add unit 3 len 3 tries=1
+[ 352.0s]   [echo]  337301 RX {'q': 269, 'type': 'echo_turn', 'player': 0, 'len': 4} (state=added, waiting)
+[ 352.0s]   [echo]  337302 STATE other's turn
+[ 357.0s]   [echo]  342245 RX {'idx': 0, 'type': 'echo_step', 'player': 0, 'q': 270} (state=other's turn)
+[ 357.8s]   [echo]  343045 RX {'idx': 1, 'type': 'echo_step', 'player': 0, 'q': 271} (state=other's turn)
+[ 358.7s]   [echo]  343963 RX {'idx': 2, 'type': 'echo_step', 'player': 0, 'q': 272} (state=other's turn)
+[ 359.9s]   [echo]  345192 RX {'idx': 3, 'type': 'echo_step', 'player': 0, 'q': 273} (state=other's turn)
+[ 360.3s]   [echo]  345533 RX {'len': 4, 'ok': True, 'player': 0, 'scores': [11, 2], 'q': 274, 'type': 'echo_result'} (state=other's turn)
+[ 360.3s]   [echo]  345534 STATE result
+[ 360.9s]   splatecho: scores [11, 2] (me: player 1)
+[ 360.9s]   [echo]  346182 RESULT shown ok=True, blocked 641 ms
+[ 360.9s]   [echo]  346183 STATE waiting
+[ 360.9s]   [echo]  346204 SLOW poll gap 672 ms (state=waiting)
+[ 360.9s]   [echo]  346208 RX {'q': 275, 'type': 'echo_add_now', 'player': 0, 'len': 4} (state=waiting)
+[ 361.9s]   [echo]  347199 RX {'q': 276, 'type': 'echo_add_now', 'player': 0, 'len': 4} (state=waiting)
+[ 363.1s]   [echo]  348325 RX {'q': 277, 'type': 'echo_add_now', 'player': 0, 'len': 4} (state=waiting)
+[ 363.5s]   [echo]  348727 RX {'q': 278, 'type': 'echo_turn', 'player': 1, 'len': 5} (state=waiting)
+[ 363.5s]   splatecho: my turn (length 5)
+[ 363.5s]   [echo]  348729 STATE my turn len 5
+[ 369.0s]   [echo]  354259 RX {'idx': 0, 'type': 'echo_step', 'player': 1, 'q': 279} (state=my turn len 5)
+[ 369.2s]   [echo]  354415 BUTTON pressed outside add (state=my turn len 5)
+[ 370.0s]   [echo]  355224 RX {'idx': 1, 'type': 'echo_step', 'player': 1, 'q': 280} (state=my turn len 5)
+[ 371.0s]   [echo]  356227 RX {'idx': 2, 'type': 'echo_step', 'player': 1, 'q': 281} (state=my turn len 5)
+[ 372.0s]   [echo]  357229 RX {'idx': 3, 'type': 'echo_step', 'player': 1, 'q': 282} (state=my turn len 5)
+[ 373.6s]   [echo]  358840 BUTTON pressed outside add (state=my turn len 5)
+[ 375.5s]   [echo]  360735 BUTTON pressed outside add (state=my turn len 5)
+[ 375.5s]   [echo]  360759 RX {'idx': 4, 'type': 'echo_step', 'player': 1, 'q': 283} (state=my turn len 5)
+[ 375.9s]   [echo]  361130 RX {'len': 5, 'ok': True, 'player': 1, 'scores': [11, 2], 'q': 284, 'type': 'echo_result'} (state=my turn len 5)
+[ 375.9s]   [echo]  361141 STATE result
+[ 376.5s]   splatecho: scores [11, 2] (me: player 1)
+[ 376.5s]   [echo]  361778 RESULT shown ok=True, blocked 635 ms
+[ 376.5s]   [echo]  361779 STATE waiting
+[ 376.5s]   [echo]  361799 SLOW poll gap 669 ms (state=waiting)
+[ 376.5s]   [echo]  361803 RX {'q': 285, 'type': 'echo_add_now', 'player': 1, 'len': 5} (state=waiting)
+[ 376.5s]   splatecho: your turn to add a step
+[ 376.6s]   [echo]  361811 STATE add
+[ 377.7s]   splatecho: added Splat 1
+[ 377.7s]   [echo]  362952 TX echo_add unit 1 len 5 tries=1 after 1140 ms
+[ 377.9s]   [echo]  363111 STATE added, waiting
+[ 378.3s]   [echo]  363586 RX {'q': 287, 'type': 'echo_turn', 'player': 0, 'len': 6} (state=added, waiting)
+[ 378.3s]   [echo]  363587 STATE other's turn
+[ 384.2s]   [echo]  369460 RX {'idx': 0, 'type': 'echo_step', 'player': 0, 'q': 288} (state=other's turn)
+[ 385.2s]   [echo]  370413 RX {'idx': 1, 'type': 'echo_step', 'player': 0, 'q': 289} (state=other's turn)
+[ 386.3s]   [echo]  371543 RX {'idx': 2, 'type': 'echo_step', 'player': 0, 'q': 290} (state=other's turn)
+[ 387.2s]   [echo]  372498 RX {'idx': 3, 'type': 'echo_step', 'player': 0, 'q': 291} (state=other's turn)
+[ 388.2s]   [echo]  373495 RX {'idx': 4, 'type': 'echo_step', 'player': 0, 'q': 292} (state=other's turn)
+[ 389.5s]   [echo]  374727 RX {'idx': 5, 'type': 'echo_step', 'player': 0, 'q': 293} (state=other's turn)
+[ 389.8s]   [echo]  375049 RX {'len': 6, 'ok': True, 'player': 0, 'scores': [11, 2], 'q': 294, 'type': 'echo_result'} (state=other's turn)
+[ 389.8s]   [echo]  375050 STATE result
+[ 390.4s]   splatecho: scores [11, 2] (me: player 1)
+[ 390.4s]   [echo]  375698 RESULT shown ok=True, blocked 636 ms
+[ 390.4s]   [echo]  375699 STATE waiting
+[ 390.5s]   [echo]  375719 SLOW poll gap 671 ms (state=waiting)
+[ 390.5s]   [echo]  375723 RX {'q': 295, 'type': 'echo_add_now', 'player': 0, 'len': 6} (state=waiting)
+[ 391.4s]   [echo]  376653 RX {'q': 296, 'type': 'echo_add_now', 'player': 0, 'len': 6} (state=waiting)
+[ 392.4s]   [echo]  377626 RX {'q': 297, 'type': 'echo_add_now', 'player': 0, 'len': 6} (state=waiting)
+[ 393.5s]   [echo]  378717 RX {'q': 298, 'type': 'echo_turn', 'player': 1, 'len': 7} (state=waiting)
+[ 393.5s]   splatecho: my turn (length 7)
+[ 393.5s]   [echo]  378719 STATE my turn len 7
+[ 399.8s]   [echo]  385088 BUTTON pressed outside add (state=my turn len 7)
+[ 401.2s]   [echo]  386433 BUTTON pressed outside add (state=my turn len 7)
+[ 401.8s]   [echo]  387109 RX {'idx': 0, 'type': 'echo_step', 'player': 1, 'q': 299} (state=my turn len 7)
+[ 402.7s]   [echo]  387970 RX {'idx': 1, 'type': 'echo_step', 'player': 1, 'q': 300} (state=my turn len 7)
+[ 404.7s]   [echo]  389918 RX {'idx': 2, 'type': 'echo_step', 'player': 1, 'q': 301} (state=my turn len 7)
+[ 405.5s]   [echo]  390747 RX {'idx': 3, 'type': 'echo_step', 'player': 1, 'q': 302} (state=my turn len 7)
+[ 406.4s]   [echo]  391689 RX {'idx': 4, 'type': 'echo_step', 'player': 1, 'q': 303} (state=my turn len 7)
+[ 410.8s]   [echo]  396085 RX {'len': 7, 'ok': False, 'player': 1, 'scores': [12, 2], 'q': 304, 'type': 'echo_result'} (state=my turn len 7)
+[ 410.8s]   [echo]  396091 STATE result
+[ 411.7s]   splatecho: scores [12, 2] (me: player 1)
+[ 413.8s]   [echo]  399015 RESULT shown ok=False, blocked 2922 ms
+[ 413.8s]   [echo]  399016 STATE waiting
+[ 413.8s]   [echo]  399036 SLOW poll gap 2952 ms (state=waiting)
+[ 413.8s]   [echo]  399040 RX {'q': 305, 'type': 'echo_turn', 'player': 0, 'len': 0} (state=waiting)
+[ 413.8s]   [echo]  399041 STATE other's turn
+[ 413.8s]   [echo]  399097 RX {'q': 306, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 413.9s]   [echo]  399121 RX {'q': 307, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 414.4s]   [echo]  399697 RX {'q': 308, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 415.5s]   [echo]  400732 RX {'q': 309, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 416.5s]   [echo]  401749 RX {'q': 310, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 417.6s]   [echo]  402879 RX {'q': 311, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 418.6s]   [echo]  403835 RX {'q': 312, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 419.6s]   [echo]  404893 RX {'q': 313, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 420.6s]   [echo]  405910 RX {'q': 314, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 421.8s]   [echo]  407019 RX {'q': 315, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 424.6s]   [echo]  409885 RX {'q': 316, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 425.6s]   [echo]  410907 RX {'q': 317, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 426.7s]   [echo]  411949 RX {'q': 318, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 427.8s]   [echo]  413083 RX {'q': 319, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 428.8s]   [echo]  414043 RX {'q': 320, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 429.8s]   [echo]  415023 RX {'q': 321, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 430.8s]   [echo]  416086 RX {'q': 322, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 432.0s]   [echo]  417240 RX {'q': 323, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 432.9s]   [echo]  418200 RX {'q': 324, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 434.0s]   [echo]  419222 RX {'q': 325, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 435.0s]   [echo]  420243 RX {'q': 326, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 436.1s]   [echo]  421378 RX {'q': 327, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 437.1s]   [echo]  422358 RX {'q': 328, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 438.1s]   [echo]  423359 RX {'q': 329, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 439.1s]   [echo]  424381 RX {'q': 330, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 440.1s]   [echo]  425402 RX {'q': 331, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 441.3s]   [echo]  426515 RX {'q': 332, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 442.2s]   [echo]  427491 RX {'q': 333, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 443.3s]   [echo]  428546 RX {'q': 334, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 444.5s]   [echo]  429715 RX {'q': 335, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 445.4s]   [echo]  430671 RX {'q': 336, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 446.5s]   [echo]  431729 RX {'q': 337, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 447.6s]   [echo]  432900 RX {'q': 338, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 448.6s]   [echo]  433855 RX {'q': 339, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 449.6s]   [echo]  434893 RX {'q': 340, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 450.7s]   [echo]  435930 RX {'q': 341, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 451.8s]   [echo]  437043 RX {'q': 342, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 452.7s]   [echo]  438003 RX {'q': 343, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 453.8s]   [echo]  439025 RX {'q': 344, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 454.8s]   [echo]  440088 RX {'q': 345, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 455.9s]   [echo]  441201 RX {'q': 346, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 456.9s]   [echo]  442161 RX {'q': 347, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 457.9s]   [echo]  443183 RX {'q': 348, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 458.9s]   [echo]  444205 RX {'q': 349, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 460.1s]   [echo]  445360 RX {'q': 350, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 461.1s]   [echo]  446340 RX {'q': 351, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 462.1s]   [echo]  447382 RX {'q': 352, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 463.1s]   [echo]  448403 RX {'q': 353, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 464.3s]   [echo]  449517 RX {'q': 354, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 465.2s]   [echo]  450477 RX {'q': 355, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 466.2s]   [echo]  451457 RX {'q': 356, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 467.2s]   [echo]  452499 RX {'q': 357, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 468.2s]   [echo]  453500 RX {'q': 358, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 469.4s]   [echo]  454634 RX {'q': 359, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 470.4s]   [echo]  455610 RX {'q': 360, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 471.3s]   [echo]  456604 RX {'q': 361, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 472.4s]   [echo]  457681 RX {'q': 362, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 473.5s]   [echo]  458791 RX {'q': 363, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 474.5s]   [echo]  459787 RX {'q': 364, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 475.6s]   [echo]  460865 RX {'q': 365, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 476.7s]   [echo]  461975 RX {'q': 366, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 477.7s]   [echo]  462931 RX {'q': 367, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 478.7s]   [echo]  463968 RX {'q': 368, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 479.7s]   [echo]  464989 RX {'q': 369, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 480.9s]   [echo]  466124 RX {'q': 370, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 481.8s]   [echo]  467084 RX {'q': 371, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 482.8s]   [echo]  468085 RX {'q': 372, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 483.8s]   [echo]  469107 RX {'q': 373, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 484.9s]   [echo]  470128 RX {'q': 374, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 486.0s]   [echo]  471242 RX {'q': 375, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 486.9s]   [echo]  472202 RX {'q': 376, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 488.0s]   [echo]  473223 RX {'q': 377, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 489.0s]   [echo]  474285 RX {'q': 378, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 490.1s]   [echo]  475399 RX {'q': 379, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 491.1s]   [echo]  476400 RX {'q': 380, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 492.2s]   [echo]  477463 RX {'q': 381, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 493.3s]   [echo]  478597 RX {'q': 382, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 494.3s]   [echo]  479557 RX {'q': 383, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 495.3s]   [echo]  480578 RX {'q': 384, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 496.3s]   [echo]  481599 RX {'q': 385, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 497.5s]   [echo]  482734 RX {'q': 386, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 498.5s]   [echo]  483728 RX {'q': 387, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 499.4s]   [echo]  484681 RX {'q': 388, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 500.4s]   [echo]  485698 RX {'q': 389, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 501.5s]   [echo]  486715 RX {'q': 390, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 502.6s]   [echo]  487845 RX {'q': 391, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 503.6s]   [echo]  488822 RX {'q': 392, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 504.6s]   [echo]  489838 RX {'q': 393, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 505.6s]   [echo]  490896 RX {'q': 394, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 506.7s]   [echo]  492006 RX {'q': 395, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 507.7s]   [echo]  492966 RX {'q': 396, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 508.7s]   [echo]  494008 RX {'q': 397, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 509.8s]   [echo]  495029 RX {'q': 398, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 510.9s]   [echo]  496164 RX {'q': 399, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 511.9s]   [echo]  497124 RX {'q': 400, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 512.9s]   [echo]  498125 RX {'q': 401, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 513.9s]   [echo]  499188 RX {'q': 402, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 515.1s]   [echo]  500322 RX {'q': 403, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 516.0s]   [echo]  501302 RX {'q': 404, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 517.1s]   [echo]  502365 RX {'q': 405, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 518.3s]   [echo]  503520 RX {'q': 406, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 519.2s]   [echo]  504479 RX {'q': 407, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 520.2s]   [echo]  505460 RX {'q': 408, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 521.2s]   [echo]  506481 RX {'q': 409, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 522.4s]   [echo]  507657 RX {'q': 410, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 523.4s]   [echo]  508637 RX {'q': 411, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 524.3s]   [echo]  509597 RX {'q': 412, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 525.3s]   [echo]  510598 RX {'q': 413, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 526.4s]   [echo]  511631 RX {'q': 414, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 527.4s]   [echo]  512645 RX {'q': 415, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 528.5s]   [echo]  513755 RX {'q': 416, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 529.5s]   [echo]  514732 RX {'q': 417, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 530.5s]   [echo]  515749 RX {'q': 418, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 531.5s]   [echo]  516766 RX {'q': 419, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 532.6s]   [echo]  517896 RX {'q': 420, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 533.6s]   [echo]  518851 RX {'q': 421, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 534.6s]   [echo]  519869 RX {'q': 422, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 535.6s]   [echo]  520890 RX {'q': 423, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 536.8s]   [echo]  522025 RX {'q': 424, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 537.7s]   [echo]  523006 RX {'q': 425, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 538.8s]   [echo]  524027 RX {'q': 426, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 539.8s]   [echo]  525049 RX {'q': 427, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 540.9s]   [echo]  526183 RX {'q': 428, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 541.9s]   [echo]  527163 RX {'q': 429, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 542.9s]   [echo]  528123 RX {'q': 430, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 543.9s]   [echo]  529145 RX {'q': 431, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 544.9s]   [echo]  530166 RX {'q': 432, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 546.1s]   [echo]  531321 RX {'q': 433, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 547.0s]   [echo]  532302 RX {'q': 434, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 548.1s]   [echo]  533344 RX {'q': 435, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 549.1s]   [echo]  534365 RX {'q': 436, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 550.2s]   [echo]  535479 RX {'q': 437, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 551.2s]   [echo]  536439 RX {'q': 438, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 552.2s]   [echo]  537461 RX {'q': 439, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 553.3s]   [echo]  538524 RX {'q': 440, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 554.4s]   [echo]  539647 RX {'q': 441, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 555.4s]   [echo]  540642 RX {'q': 442, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 556.4s]   [echo]  541699 RX {'q': 443, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 557.6s]   [echo]  542830 RX {'q': 444, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 558.5s]   [echo]  543786 RX {'q': 445, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 559.5s]   [echo]  544762 RX {'q': 446, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 560.6s]   [echo]  545819 RX {'q': 447, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 561.7s]   [echo]  546970 RX {'q': 448, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 562.7s]   [echo]  547948 RX {'q': 449, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 563.7s]   [echo]  548949 RX {'q': 450, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 564.7s]   [echo]  549971 RX {'q': 451, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 565.8s]   [echo]  551105 RX {'q': 452, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 566.8s]   [echo]  552086 RX {'q': 453, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 567.8s]   [echo]  553066 RX {'q': 454, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 568.8s]   [echo]  554088 RX {'q': 455, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 569.8s]   [echo]  555109 RX {'q': 456, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 571.0s]   [echo]  556244 RX {'q': 457, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 571.9s]   [echo]  557204 RX {'q': 458, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 572.9s]   [echo]  558164 RX {'q': 459, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 573.9s]   [echo]  559185 RX {'q': 460, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 574.9s]   [echo]  560207 RX {'q': 461, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 576.1s]   [echo]  561342 RX {'q': 462, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 577.1s]   [echo]  562322 RX {'q': 463, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 578.1s]   [echo]  563344 RX {'q': 464, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 579.1s]   [echo]  564365 RX {'q': 465, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 580.2s]   [echo]  565500 RX {'q': 466, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 581.2s]   [echo]  566484 RX {'q': 467, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 582.2s]   [echo]  567436 RX {'q': 468, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 583.2s]   [echo]  568453 RX {'q': 469, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 584.2s]   [echo]  569470 RX {'q': 470, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 585.4s]   [echo]  570620 RX {'q': 471, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 586.3s]   [echo]  571596 RX {'q': 472, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 587.4s]   [echo]  572654 RX {'q': 473, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 588.5s]   [echo]  573784 RX {'q': 474, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 589.5s]   [echo]  574760 RX {'q': 475, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 590.5s]   [echo]  575720 RX {'q': 476, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 591.5s]   [echo]  576783 RX {'q': 477, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 592.7s]   [echo]  577959 RX {'q': 478, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 593.7s]   [echo]  578919 RX {'q': 479, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 594.7s]   [echo]  579961 RX {'q': 480, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 595.7s]   [echo]  580982 RX {'q': 481, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 596.9s]   [echo]  582117 RX {'q': 482, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 597.8s]   [echo]  583077 RX {'q': 483, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 598.8s]   [echo]  584098 RX {'q': 484, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 599.9s]   [echo]  585161 RX {'q': 485, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 601.0s]   [echo]  586274 RX {'q': 486, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 602.0s]   [echo]  587275 RX {'q': 487, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 603.1s]   [echo]  588338 RX {'q': 488, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 604.2s]   [echo]  589473 RX {'q': 489, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 605.2s]   [echo]  590432 RX {'q': 490, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 606.2s]   [echo]  591433 RX {'q': 491, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 607.2s]   [echo]  592455 RX {'q': 492, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 608.4s]   [echo]  593647 RX {'q': 493, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 609.3s]   [echo]  594600 RX {'q': 494, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 610.3s]   [echo]  595554 RX {'q': 495, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 611.3s]   [echo]  596571 RX {'q': 496, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 612.4s]   [echo]  597629 RX {'q': 497, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 613.5s]   [echo]  598739 RX {'q': 498, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 614.4s]   [echo]  599694 RX {'q': 499, 'type': 'echo_add_now', 'player': 0, 'len': 0} (state=other's turn)
+[ 624.5s]   [echo]  609701 QUIET 10003 ms: state=other's turn me=1 last_rx=echo_add_now 10003 ms ago rx={'echo_you': 9, 'echo_step': 31, 'echo_turn': 39, 'echo_hello': 15, 'echo_add_now': 404, 'echo_result': 24} last_q=499 missed=1 adds=7 btn_down=0 tilt=None max_poll_gap=2958 espnow=(18, 18, 0, 522, 0)
+[ 644.5s]   [echo]  629703 QUIET 30006 ms: state=other's turn me=1 last_rx=echo_add_now 30006 ms ago rx={'echo_you': 9, 'echo_step': 31, 'echo_turn': 39, 'echo_hello': 15, 'echo_add_now': 404, 'echo_result': 24} last_q=499 missed=1 adds=7 btn_down=0 tilt=None max_poll_gap=2958 espnow=(18, 18, 0, 522, 0)
+[ 684.5s]   [echo]  669712 QUIET 70015 ms: state=other's turn me=1 last_rx=echo_add_now 70015 ms ago rx={'echo_you': 9, 'echo_step': 31, 'echo_turn': 39, 'echo_hello': 15, 'echo_add_now': 404, 'echo_result': 24} last_q=499 missed=1 adds=7 btn_down=0 tilt=None max_poll_gap=2958 espnow=(18, 18, 0, 522, 0)

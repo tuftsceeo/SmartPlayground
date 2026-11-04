@@ -1,0 +1,95 @@
+{
+  "source": "assets/sparkles.png",
+  "max_segments": 5,
+  "intensity": 0.3,
+  "fills": [
+    {
+      "rgb": [
+        0,
+        1,
+        0
+      ],
+      "count": 38411,
+      "frac": 0.914
+    },
+    {
+      "rgb": [
+        252,
+        233,
+        24
+      ],
+      "count": 1750,
+      "frac": 0.04164
+    },
+    {
+      "rgb": [
+        246,
+        234,
+        107
+      ],
+      "count": 681,
+      "frac": 0.0162
+    },
+    {
+      "rgb": [
+        248,
+        237,
+        144
+      ],
+      "count": 643,
+      "frac": 0.0153
+    },
+    {
+      "rgb": [
+        147,
+        136,
+        224
+      ],
+      "count": 540,
+      "frac": 0.01285
+    }
+  ],
+  "decisions": {
+    "0,1,0": {
+      "role": "off",
+      "priority": 1.0
+    },
+    "252,233,24": {
+      "role": "color",
+      "priority": 1.0,
+      "color": [
+        217,
+        198,
+        0
+      ]
+    },
+    "246,234,107": {
+      "role": "color",
+      "priority": 2.5,
+      "color": [
+        217,
+        198,
+        0
+      ]
+    },
+    "248,237,144": {
+      "role": "color",
+      "priority": 2.5,
+      "color": [
+        217,
+        198,
+        0
+      ]
+    },
+    "147,136,224": {
+      "role": "color",
+      "priority": 2.5,
+      "color": [
+        20,
+        0,
+        158
+      ]
+    }
+  },
+  "overlay": {}
+}

@@ -1,0 +1,95 @@
+{
+  "source": "assets/bicycle.png",
+  "max_segments": 5,
+  "intensity": 0.3,
+  "fills": [
+    {
+      "rgb": [
+        1,
+        1,
+        1
+      ],
+      "count": 35505,
+      "frac": 0.849
+    },
+    {
+      "rgb": [
+        243,
+        5,
+        5
+      ],
+      "count": 3089,
+      "frac": 0.07386
+    },
+    {
+      "rgb": [
+        46,
+        60,
+        133
+      ],
+      "count": 1374,
+      "frac": 0.03286
+    },
+    {
+      "rgb": [
+        40,
+        49,
+        102
+      ],
+      "count": 988,
+      "frac": 0.02363
+    },
+    {
+      "rgb": [
+        49,
+        65,
+        136
+      ],
+      "count": 864,
+      "frac": 0.02066
+    }
+  ],
+  "decisions": {
+    "1,1,1": {
+      "role": "off",
+      "priority": 1.0
+    },
+    "243,5,5": {
+      "role": "color",
+      "priority": 0.6,
+      "color": [
+        220,
+        0,
+        0
+      ]
+    },
+    "46,60,133": {
+      "role": "color",
+      "priority": 1.0,
+      "color": [
+        0,
+        26,
+        141
+      ]
+    },
+    "40,49,102": {
+      "role": "color",
+      "priority": 2.5,
+      "color": [
+        0,
+        26,
+        141
+      ]
+    },
+    "49,65,136": {
+      "role": "color",
+      "priority": 2.5,
+      "color": [
+        0,
+        26,
+        141
+      ]
+    }
+  },
+  "overlay": {}
+}

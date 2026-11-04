@@ -2,7 +2,11 @@
 Jump In — Button Press LED Blink
 ================================
 Tap the "jumpin" NFC tag to enter this mode.
-Press the button to blink all LEDs green.
+Press the button to blink all LEDs green. Each press also broadcasts
+{"type": "jumpin", "from": "wand"}; a {"type": "jumpin", "from": "splat"}
+from the Splat Companion's jumpin sets this wand's LEDs to its "rgb" and
+keeps them there ([0, 0, 0] is dark), and beeps its "tone" if present:
+the wand shows the latest Splat still held down.
 Tap "stop" tag to exit back to programming mode.
 
 Colors from leds.py — auto-scale with ambient brightness.
@@ -27,8 +31,8 @@ import machine
 import time
 from machine import Pin
 
-from pn532 import PN532, MIFARE_AUTH_A, MIFARE_AUTH_B
-from nfc_reader import _decode_ndef_text, COMMON_KEYS
+from pn532 import PN532
+from nfc_reader import read_tag_command
 from game_tags import exit_tags_excluding
 
 _EXIT_TAGS = exit_tags_excluding("jumpin")
@@ -39,7 +43,7 @@ from leds import GREEN, OFF
 # ─────────────────────────────────────────────
 I2C_SDA, I2C_SCL = 22, 23
 NEOPIXEL_PIN = 20
-NUM_LEDS = 60
+NUM_LEDS = 25
 BUZZER_PIN = 19
 BUTTON_PIN = 0
 PN532_ADDR = 0x24
@@ -57,36 +61,8 @@ BLINK_OFF_MS = 200
 # NFC Helper
 # ─────────────────────────────────────────────
 def _read_tag_text(nfc):
-    """Quick NDEF text read. Returns (text, uid_hex) or (None, None)."""
-    tag = nfc.read_passive_target(timeout=200)
-    if tag is None:
-        return None, None
-    if tag['sak'] not in (0x08, 0x18):
-        return None, tag['uid_hex']
-    
-    ndef_data = bytearray()
-    for sector in (1, 2):
-        first_block = sector * 4
-        authed = False
-        for key in COMMON_KEYS:
-            for key_type in (MIFARE_AUTH_A, MIFARE_AUTH_B):
-                resel = nfc.read_passive_target(timeout=150)
-                if resel is None:
-                    continue
-                if nfc.mifare_auth_block(resel['uid'], first_block, key, key_type):
-                    for blk in range(first_block, first_block + 3):
-                        try:
-                            ndef_data.extend(nfc.mifare_read_block(blk))
-                        except Exception:
-                            ndef_data.extend(b'\x00' * 16)
-                    authed = True
-                    break
-            if authed:
-                break
-        if not authed:
-            ndef_data.extend(b'\x00' * 48)
-    
-    return _decode_ndef_text(ndef_data), tag['uid_hex']
+    """Quick opcode read. Returns (command, uid_hex) or (None, None)."""
+    return read_tag_command(nfc, timeout=200)
 
 
 # ─────────────────────────────────────────────
@@ -103,13 +79,26 @@ class JumpInGame:
         self.np = leds.np
         self.btn = Pin(BUTTON_PIN, Pin.IN, Pin.PULL_UP)
         self._frame = 0
+        self._splat_rgb = OFF     # latest held Splat's color, from the hub
     
     def _check_stop(self):
-        """Check ESP-NOW and NFC for stop. Returns True if stop detected."""
+        """Check ESP-NOW and NFC for stop. Returns True if stop detected.
+        A Splat Companion jumpin press blinks this wand."""
         if self.enow:
-            msg_type, _, _ = self.enow.poll()
+            msg_type, data, _ = self.enow.poll()
             if msg_type in ("stop", "start_game"):
                 return True
+            if (isinstance(data, dict) and data.get("type") == "jumpin"
+                    and data.get("from") == "splat"):
+                rgb = data.get("rgb")
+                tone = data.get("tone")
+                print("  Splat %s %s rgb=%s tone=%s"
+                      % (data.get("unit"), data.get("event"), rgb, tone))
+                if tone:
+                    self.buz.beep(int(tone), 120)
+                if rgb is not None:
+                    self._splat_rgb = tuple(rgb)
+                    self._fill(self._splat_rgb)
         if self._frame % NFC_POLL_INTERVAL != 0:
             return False
         try:
@@ -118,10 +107,20 @@ class JumpInGame:
         except Exception:
             return False
     
-    def _blink_green(self):
-        """Blink all LEDs green once."""
+    def _fill(self, color):
         for i in range(NUM_LEDS):
-            self.np[i] = GREEN
+            self.np[i] = color
+        self.np.write()
+
+    def _blink_green(self):
+        """Blink all LEDs green once, then restore the Splat color shown."""
+        self._blink(GREEN)
+        self._fill(self._splat_rgb)
+
+    def _blink(self, color):
+        """Blink all LEDs in color once."""
+        for i in range(NUM_LEDS):
+            self.np[i] = color
         self.np.write()
         time.sleep_ms(BLINK_ON_MS)
         
@@ -144,6 +143,8 @@ class JumpInGame:
             # ── GAME LOGIC ──
             if self.btn.value() == 0:
                 print("  Button pressed!")
+                if self.enow:
+                    self.enow.broadcast({"type": "jumpin", "from": "wand"})
                 self._blink_green()
             
             time.sleep_ms(LOOP_DELAY_MS)
@@ -153,7 +154,7 @@ class JumpInGame:
 # ─────────────────────────────────────────────
 # Entry Point: Wand Integration
 # ─────────────────────────────────────────────
-def play(nfc, leds, buz, accel, i2c, enow):
+def play(nfc, leds, buz, accel, i2c, enow, batt=None):
     """
     Called from main.py when the "jumpin" tag is tapped.
     Hardware is already initialized by the caller.

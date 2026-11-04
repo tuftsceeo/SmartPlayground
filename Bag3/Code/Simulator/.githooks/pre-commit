@@ -1,0 +1,4 @@
+#!/bin/sh
+# Check Bag3/Code/Simulator/vendor/ hasn't drifted from Bag2 sources.
+ROOT="$(git rev-parse --show-toplevel)"
+python3 "$ROOT/Bag3/Code/Simulator/tools/sync_sources.py" --check

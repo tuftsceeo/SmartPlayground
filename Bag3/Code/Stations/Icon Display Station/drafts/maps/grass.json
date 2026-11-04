@@ -1,0 +1,95 @@
+{
+  "source": "assets/grass.png",
+  "max_segments": 5,
+  "intensity": 0.3,
+  "fills": [
+    {
+      "rgb": [
+        0,
+        2,
+        0
+      ],
+      "count": 27195,
+      "frac": 0.64711
+    },
+    {
+      "rgb": [
+        80,
+        218,
+        6
+      ],
+      "count": 7526,
+      "frac": 0.17908
+    },
+    {
+      "rgb": [
+        6,
+        163,
+        17
+      ],
+      "count": 5878,
+      "frac": 0.13987
+    },
+    {
+      "rgb": [
+        52,
+        204,
+        7
+      ],
+      "count": 759,
+      "frac": 0.01806
+    },
+    {
+      "rgb": [
+        22,
+        92,
+        18
+      ],
+      "count": 667,
+      "frac": 0.01587
+    }
+  ],
+  "decisions": {
+    "0,2,0": {
+      "role": "off",
+      "priority": 1.0
+    },
+    "80,218,6": {
+      "role": "color",
+      "priority": 1.0,
+      "color": [
+        77,
+        220,
+        0
+      ]
+    },
+    "6,163,17": {
+      "role": "color",
+      "priority": 1.0,
+      "color": [
+        20,
+        175,
+        26
+      ]
+    },
+    "52,204,7": {
+      "role": "color",
+      "priority": 2.5,
+      "color": [
+        47,
+        207,
+        0
+      ]
+    },
+    "22,92,18": {
+      "role": "color",
+      "priority": 2.5,
+      "color": [
+        0,
+        118,
+        0
+      ]
+    }
+  },
+  "overlay": {}
+}

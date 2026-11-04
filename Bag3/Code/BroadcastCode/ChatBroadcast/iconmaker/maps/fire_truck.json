@@ -1,0 +1,95 @@
+{
+  "source": "assets/fire_truck.png",
+  "max_segments": 5,
+  "intensity": 0.3,
+  "fills": [
+    {
+      "rgb": [
+        1,
+        1,
+        1
+      ],
+      "count": 27780,
+      "frac": 0.66428
+    },
+    {
+      "rgb": [
+        245,
+        7,
+        5
+      ],
+      "count": 6072,
+      "frac": 0.14519
+    },
+    {
+      "rgb": [
+        159,
+        161,
+        167
+      ],
+      "count": 4580,
+      "frac": 0.10952
+    },
+    {
+      "rgb": [
+        204,
+        201,
+        205
+      ],
+      "count": 2221,
+      "frac": 0.05311
+    },
+    {
+      "rgb": [
+        42,
+        57,
+        104
+      ],
+      "count": 1167,
+      "frac": 0.02791
+    }
+  ],
+  "decisions": {
+    "1,1,1": {
+      "role": "off",
+      "priority": 1.0
+    },
+    "245,7,5": {
+      "role": "color",
+      "priority": 1.0,
+      "color": [
+        159,
+        0,
+        0
+      ]
+    },
+    "159,161,167": {
+      "role": "color",
+      "priority": 1.0,
+      "color": [
+        174,
+        186,
+        186
+      ]
+    },
+    "204,201,205": {
+      "role": "color",
+      "priority": 0.6,
+      "color": [
+        206,
+        220,
+        220
+      ]
+    },
+    "42,57,104": {
+      "role": "color",
+      "priority": 2.5,
+      "color": [
+        20,
+        27,
+        94
+      ]
+    }
+  },
+  "overlay": {}
+}

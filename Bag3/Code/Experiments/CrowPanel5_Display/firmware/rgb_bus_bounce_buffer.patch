@@ -1,0 +1,13 @@
+diff --git a/ext_mod/lcd_bus/esp32_src/rgb_bus.c b/ext_mod/lcd_bus/esp32_src/rgb_bus.c
+index 03c0732..3bb205b 100644
+--- a/ext_mod/lcd_bus/esp32_src/rgb_bus.c
++++ b/ext_mod/lcd_bus/esp32_src/rgb_bus.c
+@@ -386,6 +386,8 @@
+ 
+         self->panel_io_config.flags.fb_in_psram = 1;
+         self->panel_io_config.flags.double_fb = 1;
++        // DMA reads SRAM bounce buffers refilled from PSRAM, so PSRAM contention does not shift the image.
++        self->panel_io_config.bounce_buffer_size_px = (size_t)width * 10;
+ 
+         rgb_bus_lock_init(&self->copy_lock);
+         rgb_bus_lock_init(&self->tx_color_lock);

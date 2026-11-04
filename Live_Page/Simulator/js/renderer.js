@@ -55,7 +55,6 @@ const GESTURE_ANIM = {
   jump: ["wandJump", "cubic-bezier(.3,.7,.4,1)"],
   shake: ["wandShake", "ease-in-out"],
   flip: ["wandFlip", "cubic-bezier(.4,.05,.3,1)"],
-  faceflip: ["wandFlip", "cubic-bezier(.4,.1,.3,1)"],
 };
 
 // Front-face markup, reused verbatim for the full-size face and the small
@@ -113,11 +112,9 @@ export const WAND_STYLE = `
     inset 0 1.5px 0 rgba(255,255,255,.6),
     inset 0 -2px 0 rgba(83,60,102,.35);
 }
-/* Width-driven, with height following from aspect-ratio. The pad it sits
-   in is sized to suit (see .pad's min-height and the container queries in
-   js/controls.js), rather than the wand trying to fit an unknown height --
-   its wrappers carry no height of their own for a percentage to resolve
-   against. --wand-art-width is the knob a host or a container query turns. */
+/* Width-driven, with height following from aspect-ratio. Inside the pad,
+   js/controls.js sets the width from the pad's own size; elsewhere
+   --wand-art-width is the knob a host turns. */
 .wand-case-main { width: var(--wand-art-width, 176px); }
 .wand-case-mini { width: 66px; }
 
@@ -300,9 +297,6 @@ export function createRenderer(container, opts = {}) {
   const gestureEl = root.querySelector('[data-el="gesture"]');
   const tiltEl = root.querySelector('[data-el="tilt"]');
   const bodyEl = root.querySelector('[data-el="body"]');
-  const frontEl = root.querySelector(".wand-face");
-  const backEl = root.querySelector('[data-el="back"]');
-  const miniEl = root.querySelector('[data-el="mini"]');
   const buzzEl = root.querySelector('[data-el="buzz"]');
   const btnEl = root.querySelector("[data-main-btn]");
 
@@ -392,23 +386,39 @@ export function createRenderer(container, opts = {}) {
   }
 
   /** 3D tilt from the pad's -100..100 coordinates. */
-  function setTilt3d(ax, ay) {
+  // Screen-up is up (see js/motion.js's setPadTilt): left/right on the pad
+  // rolls the wand up to 90deg in the screen plane toward the pointer,
+  // clockwise toward Right Up and counterclockwise toward Left Up, and up/down tips its face toward
+  // the top or bottom of the screen. Pitch stops short of 90deg so the face
+  // stays in view. The wand keeps one size throughout; the pad sizes it to
+  // fit every pose (js/controls.js).
+  let roll = 0;
+  let pitch = 0;
+  let inverted = false;
+  function applyTilt() {
     tiltEl.style.transform =
-      `perspective(950px) rotateY(${ax * 0.42}deg) rotateX(${-ay * 0.42}deg)`;
+      `perspective(950px) rotateZ(${roll}deg) rotateX(${pitch}deg) rotateZ(${inverted ? 180 : 0}deg)`;
   }
 
-  /**
-   * Turn the wand over. The face swap lands partway through the flip
-   * animation, so the case is edge-on when the front becomes the back
-   * rather than cutting between them face-on.
-   */
-  function setFaceDown(down) {
+  /** `slow`: drift there, as when the pointer lets go of the wand. */
+  function setTilt3d(ax, ay, slow) {
+    roll = ax * 0.9;
+    pitch = -ay * 0.7;
+    if (slow) easeNext();
+    applyTilt();
+  }
+
+  function easeNext() {
     clearTimeout(timers.face);
-    timers.face = setTimeout(() => {
-      frontEl.hidden = !!down;
-      backEl.hidden = !down;
-      miniEl.hidden = !down;
-    }, 300);
+    tiltEl.style.transition = "transform .6s cubic-bezier(.4,.1,.3,1)";
+    timers.face = setTimeout(() => { tiltEl.style.transition = ""; }, 650);
+  }
+
+  /** Turn the wand upside down: a half turn in the screen plane. */
+  function setFaceDown(down) {
+    inverted = !!down;
+    easeNext();
+    applyTilt();
   }
 
   /**

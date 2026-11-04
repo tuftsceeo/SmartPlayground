@@ -1,0 +1,82 @@
+{
+  "source": "assets/monkey.png",
+  "max_segments": 12,
+  "intensity": 0.3,
+  "fills": [
+    {
+      "rgb": [
+        68,
+        36,
+        52
+      ],
+      "count": 53404,
+      "frac": 0.38537
+    },
+    {
+      "rgb": [
+        78,
+        74,
+        78
+      ],
+      "count": 29744,
+      "frac": 0.21463
+    },
+    {
+      "rgb": [
+        168,
+        158,
+        154
+      ],
+      "count": 29068,
+      "frac": 0.20976
+    },
+    {
+      "rgb": [
+        241,
+        168,
+        162
+      ],
+      "count": 26364,
+      "frac": 0.19024
+    }
+  ],
+  "decisions": {
+    "68,36,52": {
+      "role": "color",
+      "priority": 1.0,
+      "color": [
+        110,
+        40,
+        30
+      ]
+    },
+    "78,74,78": {
+      "role": "color",
+      "priority": 1.0,
+      "color": [
+        105,
+        100,
+        110
+      ]
+    },
+    "168,158,154": {
+      "role": "color",
+      "priority": 1.0,
+      "color": [
+        200,
+        205,
+        205
+      ]
+    },
+    "241,168,162": {
+      "role": "color",
+      "priority": 1.0,
+      "color": [
+        200,
+        80,
+        120
+      ]
+    }
+  },
+  "overlay": {}
+}

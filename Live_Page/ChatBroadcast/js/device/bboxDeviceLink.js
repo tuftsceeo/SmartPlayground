@@ -15,8 +15,10 @@ import { logInfo, logWarn, toText } from "./serialLog.js";
 
 const FORWARDED_EVENTS = [
   "identity", "heartbeat", "fatal", "bye", "error", "repl",
-  "armed", "card_present", "card_written", "info", "mode",
+  "card_present", "card_written", "info", "mode",
   "games", "stats", "ok", "booting",
+  "pull", "status_report", "status_done", "dist_progress", "dist_done",
+  "write_failed", "released",
 ];
 
 /** Must exceed GRACE_S (~1s) + NFC init; plan §3.1. Kept for callers that
@@ -29,7 +31,7 @@ export const VALIDATE_LIMIT_MS = 8000;
 const NUDGE_TIMEOUT_MS = 2000;
 
 /** Box and Dial share ChatBroadcast; anything else is wrong_device. */
-const EXPECTED_DEVICES = new Set(["broadcast_box", "broadcast_dial"]);
+const EXPECTED_DEVICES = new Set(["broadcast_box", "broadcast_dial", "crowpanel"]);
 
 /**
  * Short label for UI copy: "Box", "Dial" or "Wand". Generic "Device" before
@@ -52,6 +54,7 @@ export function deviceShortName(infoOrDevice) {
   if (d === "wand") return "Wand";
   if (d === "broadcast_dial") return "Dial";
   if (d === "broadcast_box") return "Box";
+  if (d === "crowpanel") return "Panel";
   return "Device";
 }
 
@@ -64,6 +67,7 @@ export function deviceProductName(infoOrDevice) {
   if (d === "wand") return "Wand";
   if (d === "broadcast_dial") return "Broadcast Dial";
   if (d === "broadcast_box") return "Broadcast Box";
+  if (d === "crowpanel") return "CrowPanel";
   return "Broadcast Device";
 }
 
@@ -114,7 +118,7 @@ export class BboxDeviceLink {
       if (obj.device && !EXPECTED_DEVICES.has(obj.device)) {
         this.wrongDevice = true;
         this.running = false;
-        logWarn(`wrong device on identity: ${obj.device} (expected broadcast_box|broadcast_dial)`);
+        logWarn(`wrong device on identity: ${obj.device} (expected broadcast_box|broadcast_dial|crowpanel)`);
         this._emit("wrong_device", obj);
         return;
       }
@@ -245,12 +249,20 @@ export class BboxDeviceLink {
   }
 
   async restartFirmware({ timeoutMs = 12000 } = {}) {
-    logInfo("=== restartFirmware: Ctrl-C then Ctrl-D ===");
     this._autoRecoverArmed = false;
     if (!this.json) this._attachJson();
-    await this.adapter.write("\x03");
-    await sleep(200);
-    await this.adapter.write("\x04");
+    if (this.deviceInfo?.device === "crowpanel") {
+      // A soft reset panics the CrowPanel and leaves touch dead; pulse EN through RTS instead.
+      logInfo("=== restartFirmware: EN pulse (RTS) ===");
+      await this.adapter.setSignals({ dataTerminalReady: false, requestToSend: true });
+      await sleep(150);
+      await this.adapter.setSignals({ dataTerminalReady: false, requestToSend: false });
+    } else {
+      logInfo("=== restartFirmware: Ctrl-C then Ctrl-D ===");
+      await this.adapter.write("\x03");
+      await sleep(200);
+      await this.adapter.write("\x04");
+    }
     const state = await this.waitForRunning(timeoutMs);
     logInfo(state === "running" ? "restartFirmware: firmware is up" : `restartFirmware: ${state}`);
     return state;
@@ -281,12 +293,13 @@ export class BboxDeviceLink {
   }
 
   async installFirmware(onProgress) {
+    const device = this.deviceInfo?.device;
     this._detachJson();
     try {
       // Prefer the identity we already saw; default Box when none yet
       // (serial_protocol_notes: never gate on an awaited handshake).
       await installBoxFirmware(
-        this.repl, this.adapter, onProgress, this.deviceInfo?.device);
+        this.repl, this.adapter, onProgress, device);
       return true;
     } finally {
       this._attachJson();
@@ -298,17 +311,25 @@ export class BboxDeviceLink {
    * @param {{ destPath?: string, destLabel?: string }} [meta]
    */
   async sendGame(code, meta = {}, onProgress) {
+    // The CrowPanel keeps running after an install: no reset (it would kill its touch bus).
+    // Read before _detachJson(), which clears deviceInfo.
+    const info = this.deviceInfo;
+    const resume = info?.device === "crowpanel";
     this._detachJson();
     let pushResult;
     try {
-      pushResult = await pushPayload(this.repl, this.adapter, code, onProgress, meta);
+      pushResult = await pushPayload(this.repl, this.adapter, code, onProgress, { ...meta, resume });
     } finally {
       this._attachJson();
+      this.deviceInfo = info;
     }
     return pushResult;
   }
 
   async disconnect() {
+    if (this.json && this.deviceInfo?.device === "crowpanel") {
+      try { await this.json.send({ cmd: "unlink" }, { timeoutMs: 500 }); } catch (e) { /* best effort */ }
+    }
     this._detachJson();
     await this.adapter.disconnect();
   }
@@ -316,14 +337,6 @@ export class BboxDeviceLink {
   _requireJson() {
     if (!this.json) throw new Error("not connected — call connect() first");
     return this.json;
-  }
-
-  arm() {
-    return this._requireJson().arm();
-  }
-
-  disarm() {
-    return this._requireJson().disarm();
   }
 
   sendCmd(cmd, opts) {

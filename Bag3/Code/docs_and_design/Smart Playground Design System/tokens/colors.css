@@ -1,0 +1,73 @@
+/* Base palette — lifted verbatim from ChatBroadcast/css/app.css :root */
+:root {
+  /* Brand hues */
+  --pink: #ef4d92;
+  --pink-dark: #d13a7c;
+  --purple: #6c4cd1;
+  --teal: #22c3a6;
+  --teal-dark: #1c9a82;
+  --yellow: #ffd23f;
+
+  /* Pastel tints — the playground surface family, from the app's tinted states */
+  --pink-50: #fff0f6;
+  --pink-100: #ffe3f0;
+  --pink-200: #e9a9c6;
+  --pink-300: #c9a3bd;
+  --purple-50: #f2eefc;
+  --purple-75: #fbfaff;
+  --purple-100: #f4f2fa;
+  --purple-200: #e8e6f0;
+  --purple-300: #c2b8d6;
+  --teal-50: #e9fbf6;
+  --teal-100: #f7fefb;
+  --yellow-50: #fff8e0;
+  --yellow-100: #fff6e5;
+
+  /* Ink & neutrals */
+  --ink: #231f2e;
+  --ink-2: #3a3345;
+  --ink-3: #5b5468;
+  --muted: #8b859a;
+  --muted-2: #a8a4b5;
+  --icon-ink: #5b5468;
+  --border: #e8e6f0;
+  --border-soft: #f4f2fa;
+  --bg: #f7f7fb;
+  --surface: #ffffff;
+  --surface-sunken: #fafafd;
+  --disabled-fill: #d8d4e6;
+
+  /* Status */
+  --danger: #c0392b;
+  --danger-bg: #fdecea;
+  --warn: #a8781e;
+  --warn-bg: #fff8e0;
+  --pending: #b36b00;
+  --pending-bg: #fff6e5;
+  --serve-bg: #e9fbf6;
+  --serve-fg: #1c9a82;
+  --write-bg: #f2eefc;
+  --write-fg: #6c4cd1;
+
+  /* Scrim */
+  --scrim: rgba(35, 31, 46, 0.35);
+
+  /* Wand LED colors — the six the firmware picks from (leds.py PICK) */
+  --led-red: #ff3b30;
+  --led-green: #34c759;
+  --led-blue: #2f6bff;
+  --led-yellow: #ffd23f;
+  --led-purple: #a55cff;
+  --led-pink: #ff4fa3;
+
+  /* Code editor theme (GitHub-light, as shipped) */
+  --code-bg: #f6f8fa;
+  --code-border: #d0d7de;
+  --code-text: #24292e;
+  --code-keyword: #cf222e;
+  --code-string: #0a3069;
+  --code-comment: #6e7781;
+  --code-number: #0550ae;
+  --code-function: #8250df;
+  --code-literal: #953800;
+}

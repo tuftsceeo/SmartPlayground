@@ -1,0 +1,70 @@
+3c: firmware 1.29.0 | Seeed XIAO ESP32C6 with ESP32-C6
+3c: gc_free 262432
+3c: ble_splat from /lib/ble_splat.py (21215 bytes)
+3c: splat_link from splat_link.py (10549 bytes)
+3c: splat_hub from splat_hub.py (9313 bytes)
+3c: splat_api from splat_api.py (9589 bytes)
+[  0.14] === variant default: interval=None direct_ms=10000 gap_ms=0
+  SplatHub: discovering (2 Splat(s) wanted)
+  SplatHub: unit 0 -> AB:42:00:00:62:2F
+  SplatHub: unit 1 -> AB:42:00:00:80:B4
+[  0.23] INITIATE unit 1 -> AB:42:00:00:80:B4 timeout=10000 ms interval=None
+[  0.43] IRQ connect      handle=0 AB:42:00:00:80:B4
+  SplatLink: ready, Splat AB:42:00:00:80:B4 (connects=1)
+[  1.04] READY unit 1 handle=0
+[  1.04] INITIATE unit 0 -> AB:42:00:00:62:2F timeout=10000 ms interval=None
+[  1.19] IRQ connect      handle=1 AB:42:00:00:62:2F
+  SplatLink: ready, Splat AB:42:00:00:62:2F (connects=1)
+[  1.80] READY unit 0 handle=1
+[  1.80] BOTH READY
+SUMMARY default: connects=[1, 1] drops=[0, 0] initiates=2 both_ready_at=1.8 ready_at_end=2 conn_updates=0 notifies={0: 63, 1: 60} misrouted=0
+[ 12.15] RESET unit 0 while connected (handle=1, last IRQ 18@12.14)
+  SplatHub: unit 0 closed (disconnected)
+[ 12.15] RESET unit 1 while connected (handle=0, last IRQ 18@12.14)
+  SplatHub: unit 1 closed (disconnected)
+[ 12.18] IRQ disconnect   handle=0 AB:42:00:00:80:B4 (unit None)
+[ 12.19] IRQ disconnect   handle=1 AB:42:00:00:62:2F (unit None)
+[ 14.16] === variant long-interval: interval=(100000, 200000) direct_ms=10000 gap_ms=0
+  SplatHub: discovering (2 Splat(s) wanted)
+  SplatHub: unit 0 -> AB:42:00:00:80:B4
+  SplatHub: unit 1 -> AB:42:00:00:62:2F
+[ 14.20] INITIATE unit 1 -> AB:42:00:00:62:2F timeout=10000 ms interval=(100000, 200000)
+[ 14.70] IRQ connect      handle=0 AB:42:00:00:62:2F
+  SplatLink: ready, Splat AB:42:00:00:62:2F (connects=1)
+[ 16.51] READY unit 1 handle=0
+[ 16.51] INITIATE unit 0 -> AB:42:00:00:80:B4 timeout=10000 ms interval=(100000, 200000)
+[ 17.00] IRQ connect      handle=1 AB:42:00:00:80:B4
+  SplatLink: ready, Splat AB:42:00:00:80:B4 (connects=1)
+[ 18.83] READY unit 0 handle=1
+[ 18.83] BOTH READY
+SUMMARY long-interval: connects=[1, 1] drops=[0, 0] initiates=2 both_ready_at=18.826 ready_at_end=2 conn_updates=0 notifies={0: 46, 1: 33} misrouted=0
+[ 26.16] RESET unit 0 while connected (handle=1, last IRQ 18@26.11)
+  SplatHub: unit 0 closed (disconnected)
+[ 26.16] RESET unit 1 while connected (handle=0, last IRQ 18@26.11)
+  SplatHub: unit 1 closed (disconnected)
+[ 26.20] IRQ disconnect   handle=1 AB:42:00:00:80:B4 (unit None)
+[ 26.30] IRQ disconnect   handle=0 AB:42:00:00:62:2F (unit None)
+[ 28.17] === variant short-bursts: interval=None direct_ms=400 gap_ms=600
+  SplatHub: discovering (2 Splat(s) wanted)
+  SplatHub: unit 0 -> AB:42:00:00:62:2F
+  SplatHub: unit 1 -> AB:42:00:00:80:B4
+[ 28.21] INITIATE unit 1 -> AB:42:00:00:80:B4 timeout=400 ms interval=None
+[ 28.74] IRQ connect      handle=0 AB:42:00:00:80:B4
+  SplatLink: ready, Splat AB:42:00:00:80:B4 (connects=1)
+[ 29.34] READY unit 1 handle=0
+[ 29.34] INITIATE unit 0 -> AB:42:00:00:62:2F timeout=400 ms interval=None
+[ 29.64] IRQ connect      handle=1 AB:42:00:00:62:2F
+  SplatLink: ready, Splat AB:42:00:00:62:2F (connects=1)
+[ 30.24] READY unit 0 handle=1
+[ 30.25] BOTH READY
+SUMMARY short-bursts: connects=[1, 1] drops=[0, 0] initiates=2 both_ready_at=30.245 ready_at_end=2 conn_updates=0 notifies={0: 72, 1: 66} misrouted=0
+[ 40.17] RESET unit 0 while connected (handle=1, last IRQ 18@40.14)
+  SplatHub: unit 0 closed (disconnected)
+[ 40.17] RESET unit 1 while connected (handle=0, last IRQ 18@40.14)
+  SplatHub: unit 1 closed (disconnected)
+[ 40.19] IRQ disconnect   handle=0 AB:42:00:00:80:B4 (unit None)
+[ 40.19] IRQ disconnect   handle=1 AB:42:00:00:62:2F (unit None)
+VERDICT default: no losses (both held=True)
+VERDICT long-interval: no losses (both held=True)
+VERDICT short-bursts: no losses (both held=True)
+DONE

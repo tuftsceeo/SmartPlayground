@@ -1,0 +1,97 @@
+[   0.0s] # monitor: port opened
+[   0.1s] ESP-ROM:esp32c6-20220919
+[   0.1s] Build:Sep 19 2022
+[   0.1s] rst:0xc (SW_CPU),boot:0x1e (SPI_FAST_FLASH_BOOT)
+[   0.1s] Saved PC:0x4001975a
+[   0.1s] SPIWP:0xee
+[   0.1s] mode:DIO, clock div:2
+[   0.1s] load:0x40875730,len:0xdbc
+[   0.1s] load:0x4086b910,len:0xc50
+[   0.1s] load:0x4086e610,len:0x2e3c
+[   0.1s] entry 0x4086b910
+[   1.6s] [hubtype] splat_companion (12 LEDs)
+[   2.2s] 
+[   2.2s] ==================================================
+[   2.2s]   Splat Companion
+[   2.2s]   Hub type: splat_companion
+[   2.2s] ==================================================
+[   5.1s]   Splats configured: 4
+[   5.1s] EUM: 3116 messages dropped (modem ring full)
+[   5.1s]   ESPNow(EUM): active (MAC: A0:F2:62:85:A9:9C)
+[   5.2s]   [WARN] Battery:
+[   5.2s] Traceback (most recent call last):
+[   5.2s]   File "main.py", line 504, in main
+[   5.2s]   File "/lib/max17048.py", line 91, in read_all
+[   5.2s]   File "/lib/max17048.py", line 50, in voltage
+[   5.2s]   File "/lib/max17048.py", line 40, in _read_reg16
+[   5.2s] OSError: [Errno 19] ENODEV
+[   5.3s]   PN532 firmware 1.6 (IC 0x32) -- NFC ready
+[   5.3s]   Boot complete
+[   5.3s] 
+[   5.5s] {"hub": "splat_companion", "games": ["jumpin", "splatecho", "splatecho", "splatwhack"], "version": "0.1.0", "device": "splat_companion", "type": "identity"}
+[   5.6s]   Launching just-pulled game: splatecho
+[   6.5s] {"slug": "splatecho", "type": "game_start"}
+[   6.9s]   splatecho: 4 Splat(s); waiting for wands
+[   6.9s]   [echo]     335 START BLE_GAP_MS=100
+[   6.9s]   [echo]     338 START 4 Splat(s); splats: u0:idle p=0/0/0 drops=0 evdrop=0 wfail=0 | u1:idle p=0/0/0 drops=0 evdrop=0 wfail=0 | u2:idle p=0/0/0 drops=0 evdrop=0 wfail=0 | u3:idle p=0/0/0 drops=0 evdrop=0 wfail=0
+[   6.9s]   [echo]     339 PHASE intro
+[   6.9s]   ESPNow: added peer A0:F2:62:87:B4:30
+[   6.9s]   splatecho: player 0 joined (A0:F2:62:87:B4:30)
+[   6.9s]   [echo]     356 JOIN player 0 = A0:F2:62:87:B4:30 add_peer=None
+[   6.9s]   [echo]     366 TX echo_you #1 to A0:F2:62:87:B4:30 ok=True
+[   6.9s]   SplatHub: discovering (4 Splat(s) wanted)
+[   6.9s]   [echo]     384 TX echo_you #2 to A0:F2:62:87:B4:30 ok=True
+[   7.0s]   ESPNow: added peer A0:F2:62:87:92:CC
+[   7.0s]   splatecho: player 1 joined (A0:F2:62:87:92:CC)
+[   7.0s]   [echo]     471 JOIN player 1 = A0:F2:62:87:92:CC add_peer=None
+[   7.0s]   [echo]     480 TX echo_you #1 to A0:F2:62:87:92:CC ok=True
+[   7.0s]   [echo]     514 TX echo_you #2 to A0:F2:62:87:92:CC ok=True
+[   7.9s]   SplatHub: unit 0 -> AB:42:00:00:62:2F
+[   7.9s]   SplatHub: unit 1 -> AB:42:00:00:64:3F
+[   7.9s]   SplatHub: unit 2 -> AB:42:00:00:80:B4
+[   7.9s]   SplatHub: unit 3 -> AB:42:00:00:B2:16
+[   8.7s]   SplatLink: ready, Splat AB:42:00:00:64:3F (connects=1)
+[   9.3s]   [echo]    2752 PHASE lobby
+[   9.3s]   [echo]    2753 PHASE turn p0 len 0
+[   9.4s]   [echo]    2887   held 98 ms after BLE write
+[   9.4s]   [echo]    2894 TX {'q': 1, 'type': 'echo_turn', 'player': 0, 'len': 0} ok=True
+[   9.4s]   splatecho: player 0's turn, length 0
+[   9.4s]   [echo]    2895 PHASE add p0 (len 0)
+[   9.4s]   [echo]    2902 TX {'q': 2, 'type': 'echo_add_now', 'player': 0} ok=True
+[   9.7s]   SplatLink: ready, Splat AB:42:00:00:80:B4 (connects=1)
+[  11.0s]   SplatLink: ready, Splat AB:42:00:00:B2:16 (connects=1)
+[  11.9s]   SplatLink: ready, Splat AB:42:00:00:62:2F (connects=1)
+[  19.5s]   [echo]   12955 QUIET 10044 ms: phase=add p0 (len 0) pattern=[] players=['A0:F2:62:87:B4:30', 'A0:F2:62:87:92:CC'] last_rx=echo_hello from A0:F2:62:87:B4:30 12252 ms ago rx={'echo_hello': 23} ignored_presses=0 q=2 modem[rx=3332 rx_overflow=3116 tx_fail=62 host_timeouts=0] splats[u0:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u1:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u2:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u3:ready p=0/0/0 drops=0 evdrop=0 wfail=0]
+[  39.5s]   [echo]   32958 QUIET 30047 ms: phase=add p0 (len 0) pattern=[] players=['A0:F2:62:87:B4:30', 'A0:F2:62:87:92:CC'] last_rx=echo_hello from A0:F2:62:87:B4:30 32255 ms ago rx={'echo_hello': 23} ignored_presses=0 q=2 modem[rx=3332 rx_overflow=3116 tx_fail=62 host_timeouts=0] splats[u0:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u1:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u2:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u3:ready p=0/0/0 drops=0 evdrop=0 wfail=0]
+[  79.5s]   [echo]   72991 QUIET 70080 ms: phase=add p0 (len 0) pattern=[] players=['A0:F2:62:87:B4:30', 'A0:F2:62:87:92:CC'] last_rx=echo_hello from A0:F2:62:87:B4:30 72288 ms ago rx={'echo_hello': 23} ignored_presses=0 q=2 modem[rx=3332 rx_overflow=3116 tx_fail=62 host_timeouts=0] splats[u0:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u1:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u2:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u3:ready p=0/0/0 drops=0 evdrop=0 wfail=0]
+[ 122.9s]   [echo]  116320 SPLAT press on 1 IGNORED (phase=add p0 (len 0), ignored=1)
+[ 122.9s]   [echo]  116342 SPLAT press on 3 IGNORED (phase=add p0 (len 0), ignored=2)
+[ 132.9s]   [echo]  126361 QUIET 10007 ms: phase=add p0 (len 0) pattern=[] players=['A0:F2:62:87:B4:30', 'A0:F2:62:87:92:CC'] last_rx=echo_hello from A0:F2:62:87:B4:30 125655 ms ago rx={'echo_hello': 23} ignored_presses=2 q=2 modem[rx=3332 rx_overflow=3116 tx_fail=62 host_timeouts=0] splats[u0:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u1:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u2:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u3:ready p=0/0/0 drops=0 evdrop=0 wfail=0]
+[ 152.9s]   [echo]  146360 QUIET 30009 ms: phase=add p0 (len 0) pattern=[] players=['A0:F2:62:87:B4:30', 'A0:F2:62:87:92:CC'] last_rx=echo_hello from A0:F2:62:87:B4:30 145657 ms ago rx={'echo_hello': 23} ignored_presses=2 q=2 modem[rx=3332 rx_overflow=3116 tx_fail=62 host_timeouts=0] splats[u0:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u1:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u2:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u3:ready p=0/0/0 drops=0 evdrop=0 wfail=0]
+[ 192.9s]   [echo]  186360 QUIET 70010 ms: phase=add p0 (len 0) pattern=[] players=['A0:F2:62:87:B4:30', 'A0:F2:62:87:92:CC'] last_rx=echo_hello from A0:F2:62:87:B4:30 185658 ms ago rx={'echo_hello': 23} ignored_presses=2 q=2 modem[rx=3332 rx_overflow=3116 tx_fail=62 host_timeouts=0] splats[u0:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u1:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u2:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u3:ready p=0/0/0 drops=0 evdrop=0 wfail=0]
+[ 272.9s]   [echo]  266397 QUIET 150045 ms: phase=add p0 (len 0) pattern=[] players=['A0:F2:62:87:B4:30', 'A0:F2:62:87:92:CC'] last_rx=echo_hello from A0:F2:62:87:B4:30 265693 ms ago rx={'echo_hello': 23} ignored_presses=2 q=2 modem[rx=3332 rx_overflow=3116 tx_fail=62 host_timeouts=0] splats[u0:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u1:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u2:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u3:ready p=0/0/0 drops=0 evdrop=0 wfail=0]
+[ 299.4s]   STOP tag during splatecho
+[ 299.4s]   [echo]  292885 RX stop from None: {} -- exiting
+[ 299.4s]   [echo]  292898 END phase=add p0 (len 0): phase=add p0 (len 0) pattern=[] players=['A0:F2:62:87:B4:30', 'A0:F2:62:87:92:CC'] last_rx=stop from None 2 ms ago rx={'stop': 1, 'echo_hello': 23} ignored_presses=2 q=2 modem[rx=3332 rx_overflow=3116 tx_fail=62 host_timeouts=0] splats[u0:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u1:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u2:ready p=0/0/0 drops=0 evdrop=0 wfail=0 | u3:ready p=0/0/0 drops=0 evdrop=0 wfail=0]
+[ 299.7s] {"slug": "splatecho", "type": "game_end"}
+[ 300.0s]   Companion: Splat 0 (AB:42:00:00:62:2F) ready
+[ 300.0s]   Companion: Splat 1 (AB:42:00:00:64:3F) ready
+[ 300.0s]   Companion: Splat 2 (AB:42:00:00:80:B4) ready
+[ 300.0s]   Companion: Splat 3 (AB:42:00:00:B2:16) ready
+[ 300.5s]   STOP tag
+[ 305.3s] {"up": 304270, "type": "heartbeat"}
+[ 310.3s] {"up": 309334, "type": "heartbeat"}
+[ 315.4s] {"up": 314371, "type": "heartbeat"}
+[ 320.4s] {"up": 319434, "type": "heartbeat"}
+[ 325.5s] {"up": 324462, "type": "heartbeat"}
+[ 330.5s] {"up": 329528, "type": "heartbeat"}
+[ 335.6s] {"up": 334585, "type": "heartbeat"}
+[ 340.7s] {"up": 339681, "type": "heartbeat"}
+[ 345.8s] {"up": 344761, "type": "heartbeat"}
+[ 350.8s] {"up": 349791, "type": "heartbeat"}
+[ 355.9s] {"up": 354862, "type": "heartbeat"}
+[ 360.9s] {"up": 359929, "type": "heartbeat"}
+[ 366.0s] {"up": 364987, "type": "heartbeat"}
+[ 371.0s] {"up": 370036, "type": "heartbeat"}
+[ 376.1s] {"up": 375097, "type": "heartbeat"}
+[ 381.1s] {"up": 380129, "type": "heartbeat"}

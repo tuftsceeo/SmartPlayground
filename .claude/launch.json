@@ -7,6 +7,13 @@
       "runtimeArgs": ["serve", "Live_Page/Flasher", "--no-clipboard"],
       "port": 8766,
       "autoPort": true
+    },
+    {
+      "name": "chatbroadcast",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["serve", "Bag3/Code", "--no-clipboard"],
+      "port": 8767,
+      "autoPort": true
     }
   ]
 }

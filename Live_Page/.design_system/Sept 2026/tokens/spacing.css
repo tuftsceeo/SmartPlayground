@@ -1,0 +1,33 @@
+/* Spacing. The product runs on a loose 2px-resolution set, not a strict 8pt grid —
+   1.5px borders, 9px paddings and 14px gaps are real values, keep them. */
+:root {
+  --space-1: 2px;
+  --space-2: 4px;
+  --space-3: 6px;
+  --space-4: 8px;
+  --space-5: 10px;
+  --space-6: 12px;
+  --space-7: 14px;
+  --space-8: 16px;
+  --space-9: 20px;
+  --space-10: 24px;
+  --space-12: 28px;
+  --space-14: 40px;
+
+  --gap-inline: 8px;      /* icon + label */
+  --gap-stack: 12px;      /* chat bubbles, form rows */
+  --gap-grid: 14px;       /* gallery cards */
+
+  --pad-card: 14px;
+  --pad-overlay: 24px;
+  --pad-header: 14px 20px;
+  --pad-btn: 12px;
+  --pad-btn-sm: 7px 12px;
+  --pad-chip: 7px 16px;
+
+  --shell-max: 1100px;
+  --shell-max-advanced: 1280px;
+  --rail-width: 88px;
+  --chat-col-width: 340px;
+  --drawer-width: 480px;
+}

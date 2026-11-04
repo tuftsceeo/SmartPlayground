@@ -1,0 +1,20 @@
+/* Radar Station Viewer -- minimal styling beyond Tailwind utility classes. */
+
+#plan-canvas {
+  background: #0a0a0a;
+  border: 1px solid #262626;
+  border-radius: 0.5rem;
+}
+
+#serial-monitor {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.log-tx, .log-out { color: #7dd3fc; }
+.log-rx, .log-in { color: #86efac; }
+.log-drop { color: #525252; }
+.log-info { color: #a3a3a3; }
+.log-warn { color: #fbbf24; }
+.log-error { color: #f87171; }

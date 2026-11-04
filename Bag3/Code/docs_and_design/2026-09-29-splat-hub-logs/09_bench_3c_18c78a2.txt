@@ -1,0 +1,387 @@
+3c: firmware 1.29.0 | Seeed XIAO ESP32C6 with ESP32-C6
+3c: gc_free 263216
+3c: ble_splat from /lib/ble_splat.py (20532 bytes)
+3c: splat_link from splat_link.py (10413 bytes)
+3c: splat_hub from splat_hub.py (9313 bytes)
+3c: splat_api from splat_api.py (9589 bytes)
+[  0.31] === variant default: interval=None direct_ms=10000 gap_ms=0
+  SplatHub: discovering (2 Splat(s) wanted)
+  SplatHub: unit 0 -> AB:42:00:00:62:2F
+  SplatHub: unit 1 -> AB:42:00:00:80:B4
+[  0.41] IRQ event 29 (2, 0, None)
+[  0.41] IRQ event 29 (10, 0, <memoryview>)
+[  0.42] IRQ event 30 (10, <memoryview>, <memoryview>)
+[  0.42] INITIATE unit 1 -> AB:42:00:00:80:B4 timeout=10000 ms interval=None
+[  0.60] IRQ connect      handle=0 AB:42:00:00:80:B4
+  SplatLink: ready, Splat AB:42:00:00:80:B4 (connects=1)
+[  1.25] READY unit 1 handle=0
+[  1.30] IRQ disconnect   handle=0 AB:42:00:00:80:B4 (unit 1)
+[  1.30] RESET unit 1 while connected (handle=0, last IRQ 8@1.30)
+[  1.32] IRQ event 29 (2, 0, None)
+[  1.32] IRQ event 29 (10, 0, <memoryview>)
+[  1.32] IRQ event 30 (10, <memoryview>, <memoryview>)
+[  1.33] INITIATE unit 0 -> AB:42:00:00:62:2F timeout=10000 ms interval=None
+  SplatLink: connection to AB:42:00:00:80:B4 lost (drops=1)
+[  1.33] LOSS unit 1: irq_disconnect=True since_other_initiate=0.0040000676 since_other_connect=None probe=write failed errno -128
+[  1.52] IRQ connect      handle=0 AB:42:00:00:62:2F
+  SplatLink: ready, Splat AB:42:00:00:62:2F (connects=1)
+[  2.17] IRQ disconnect   handle=0 AB:42:00:00:62:2F (unit 0)
+[  2.17] RESET unit 0 while connected (handle=0, last IRQ 8@2.17)
+[  2.19] IRQ event 29 (2, 0, None)
+[  2.19] IRQ event 29 (10, 0, <memoryview>)
+[  2.20] IRQ event 30 (10, <memoryview>, <memoryview>)
+[  2.20] INITIATE unit 1 -> AB:42:00:00:80:B4 timeout=10000 ms interval=None
+[  2.20] READY unit 0 handle=None
+  SplatLink: connection to AB:42:00:00:62:2F lost (drops=1)
+[  2.20] LOSS unit 0: irq_disconnect=False since_other_initiate=0.006000042 since_other_connect=1.6079999 probe=n.a.
+[  2.36] IRQ connect      handle=0 AB:42:00:00:80:B4
+  SplatLink: ready, Splat AB:42:00:00:80:B4 (connects=2)
+[  3.04] READY unit 1 handle=0
+[  3.11] IRQ disconnect   handle=0 AB:42:00:00:80:B4 (unit 1)
+[  3.12] RESET unit 1 while connected (handle=0, last IRQ 8@3.11)
+[  3.14] IRQ event 29 (2, 0, None)
+[  3.14] IRQ event 29 (10, 0, <memoryview>)
+[  3.14] IRQ event 30 (10, <memoryview>, <memoryview>)
+[  3.14] INITIATE unit 0 -> AB:42:00:00:62:2F timeout=10000 ms interval=None
+  SplatLink: connection to AB:42:00:00:80:B4 lost (drops=2)
+[  3.15] LOSS unit 1: irq_disconnect=True since_other_initiate=0.0039999484 since_other_connect=1.6279999 probe=write failed errno -128
+[  3.32] IRQ connect      handle=0 AB:42:00:00:62:2F
+  SplatLink: ready, Splat AB:42:00:00:62:2F (connects=2)
+[  3.97] IRQ disconnect   handle=0 AB:42:00:00:62:2F (unit 0)
+[  3.97] RESET unit 0 while connected (handle=0, last IRQ 8@3.97)
+[  3.99] IRQ event 29 (2, 0, None)
+[  4.00] IRQ event 29 (10, 0, <memoryview>)
+[  4.00] IRQ event 30 (10, <memoryview>, <memoryview>)
+[  4.00] INITIATE unit 1 -> AB:42:00:00:80:B4 timeout=10000 ms interval=None
+[  4.01] READY unit 0 handle=None
+  SplatLink: connection to AB:42:00:00:62:2F lost (drops=2)
+[  4.01] LOSS unit 0: irq_disconnect=False since_other_initiate=0.006000042 since_other_connect=1.6480002 probe=n.a.
+[  4.16] IRQ connect      handle=0 AB:42:00:00:80:B4
+  SplatLink: ready, Splat AB:42:00:00:80:B4 (connects=3)
+[  4.81] READY unit 1 handle=0
+[  4.86] IRQ disconnect   handle=0 AB:42:00:00:80:B4 (unit 1)
+[  4.86] RESET unit 1 while connected (handle=0, last IRQ 8@4.86)
+[  4.88] IRQ event 29 (2, 0, None)
+[  4.88] IRQ event 29 (10, 0, <memoryview>)
+[  4.88] IRQ event 30 (10, <memoryview>, <memoryview>)
+[  4.89] INITIATE unit 0 -> AB:42:00:00:62:2F timeout=10000 ms interval=None
+  SplatLink: connection to AB:42:00:00:80:B4 lost (drops=3)
+[  4.89] LOSS unit 1: irq_disconnect=True since_other_initiate=0.00399971 since_other_connect=1.5679998 probe=write failed errno -128
+[  5.02] IRQ connect      handle=0 AB:42:00:00:62:2F
+  SplatLink: ready, Splat AB:42:00:00:62:2F (connects=3)
+[  5.67] IRQ disconnect   handle=0 AB:42:00:00:62:2F (unit 0)
+[  5.67] RESET unit 0 while connected (handle=0, last IRQ 8@5.67)
+[  5.69] IRQ event 29 (2, 0, None)
+[  5.69] IRQ event 29 (10, 0, <memoryview>)
+[  5.69] IRQ event 30 (10, <memoryview>, <memoryview>)
+[  5.70] INITIATE unit 1 -> AB:42:00:00:80:B4 timeout=10000 ms interval=None
+[  5.70] READY unit 0 handle=None
+  SplatLink: connection to AB:42:00:00:62:2F lost (drops=3)
+[  5.70] LOSS unit 0: irq_disconnect=False since_other_initiate=0.006000042 since_other_connect=1.546 probe=n.a.
+[  5.82] IRQ connect      handle=0 AB:42:00:00:80:B4
+  SplatLink: ready, Splat AB:42:00:00:80:B4 (connects=4)
+[  6.44] READY unit 1 handle=0
+[  6.47] IRQ disconnect   handle=0 AB:42:00:00:80:B4 (unit 1)
+[  6.47] RESET unit 1 while connected (handle=0, last IRQ 8@6.47)
+[  6.49] IRQ event 29 (2, 0, None)
+[  6.49] IRQ event 29 (10, 0, <memoryview>)
+[  6.49] IRQ event 30 (10, <memoryview>, <memoryview>)
+[  6.50] INITIATE unit 0 -> AB:42:00:00:62:2F timeout=10000 ms interval=None
+  SplatLink: connection to AB:42:00:00:80:B4 lost (drops=4)
+[  6.50] LOSS unit 1: irq_disconnect=True since_other_initiate=0.004000187 since_other_connect=1.4830003 probe=write OK (link alive at controller)
+[  6.60] IRQ connect      handle=0 AB:42:00:00:62:2F
+  SplatLink: ready, Splat AB:42:00:00:62:2F (connects=4)
+[  7.25] IRQ disconnect   handle=0 AB:42:00:00:62:2F (unit 0)
+[  7.26] RESET unit 0 while connected (handle=0, last IRQ 8@7.25)
+[  7.28] IRQ event 29 (2, 0, None)
+[  7.28] IRQ event 29 (10, 0, <memoryview>)
+[  7.28] IRQ event 30 (10, <memoryview>, <memoryview>)
+[  7.28] INITIATE unit 1 -> AB:42:00:00:80:B4 timeout=10000 ms interval=None
+[  7.29] READY unit 0 handle=None
+  SplatLink: connection to AB:42:00:00:62:2F lost (drops=4)
+[  7.29] LOSS unit 0: irq_disconnect=False since_other_initiate=0.0069999692 since_other_connect=1.4769998 probe=n.a.
+[  7.42] IRQ connect      handle=0 AB:42:00:00:80:B4
+  SplatLink: ready, Splat AB:42:00:00:80:B4 (connects=5)
+[  8.07] READY unit 1 handle=0
+[  8.12] IRQ disconnect   handle=0 AB:42:00:00:80:B4 (unit 1)
+[  8.12] RESET unit 1 while connected (handle=0, last IRQ 8@8.12)
+[  8.14] IRQ event 29 (2, 0, None)
+[  8.14] IRQ event 29 (10, 0, <memoryview>)
+[  8.15] IRQ event 30 (10, <memoryview>, <memoryview>)
+[  8.16] INITIATE unit 0 -> AB:42:00:00:62:2F timeout=10000 ms interval=None
+  SplatLink: connection to AB:42:00:00:80:B4 lost (drops=5)
+[  8.16] LOSS unit 1: irq_disconnect=True since_other_initiate=0.0040006636 since_other_connect=1.5560002 probe=write failed errno -128
+[  8.30] IRQ connect      handle=0 AB:42:00:00:62:2F
+  SplatLink: ready, Splat AB:42:00:00:62:2F (connects=5)
+[  9.00] IRQ disconnect   handle=0 AB:42:00:00:62:2F (unit 0)
+[  9.01] RESET unit 0 while connected (handle=0, last IRQ 8@9.00)
+[  9.03] IRQ event 29 (2, 0, None)
+[  9.03] IRQ event 29 (10, 0, <memoryview>)
+[  9.03] IRQ event 30 (10, <memoryview>, <memoryview>)
+[  9.04] INITIATE unit 1 -> AB:42:00:00:80:B4 timeout=10000 ms interval=None
+[  9.04] READY unit 0 handle=None
+  SplatLink: connection to AB:42:00:00:62:2F lost (drops=5)
+[  9.04] LOSS unit 0: irq_disconnect=False since_other_initiate=0.006000519 since_other_connect=1.6210003 probe=n.a.
+[  9.18] IRQ connect      handle=0 AB:42:00:00:80:B4
+  SplatLink: ready, Splat AB:42:00:00:80:B4 (connects=6)
+[  9.95] READY unit 1 handle=0
+[ 10.28] IRQ disconnect   handle=0 AB:42:00:00:80:B4 (unit 1)
+[ 10.28] RESET unit 1 while connected (handle=0, last IRQ 8@10.28)
+[ 10.30] IRQ event 29 (2, 0, None)
+[ 10.30] IRQ event 29 (10, 0, <memoryview>)
+[ 10.30] IRQ event 30 (10, <memoryview>, <memoryview>)
+[ 10.31] INITIATE unit 0 -> AB:42:00:00:62:2F timeout=10000 ms interval=None
+  SplatLink: connection to AB:42:00:00:80:B4 lost (drops=6)
+[ 10.32] LOSS unit 1: irq_disconnect=True since_other_initiate=0.0040006636 since_other_connect=2.0150004 probe=write failed errno -128
+[ 10.47] IRQ connect      handle=0 AB:42:00:00:62:2F
+  SplatLink: ready, Splat AB:42:00:00:62:2F (connects=6)
+[ 11.12] IRQ disconnect   handle=0 AB:42:00:00:62:2F (unit 0)
+[ 11.12] RESET unit 0 while connected (handle=0, last IRQ 8@11.12)
+[ 11.14] IRQ event 29 (2, 0, None)
+[ 11.14] IRQ event 29 (10, 0, <memoryview>)
+[ 11.14] IRQ event 30 (10, <memoryview>, <memoryview>)
+[ 11.16] INITIATE unit 1 -> AB:42:00:00:80:B4 timeout=10000 ms interval=None
+[ 11.16] READY unit 0 handle=None
+  SplatLink: connection to AB:42:00:00:62:2F lost (drops=6)
+[ 11.16] LOSS unit 0: irq_disconnect=False since_other_initiate=0.006000519 since_other_connect=1.9829998 probe=n.a.
+[ 11.27] IRQ connect      handle=0 AB:42:00:00:80:B4
+  SplatLink: ready, Splat AB:42:00:00:80:B4 (connects=7)
+[ 11.88] READY unit 1 handle=0
+[ 11.93] IRQ disconnect   handle=0 AB:42:00:00:80:B4 (unit 1)
+[ 11.93] RESET unit 1 while connected (handle=0, last IRQ 8@11.93)
+[ 11.95] IRQ event 29 (2, 0, None)
+[ 11.95] IRQ event 29 (10, 0, <memoryview>)
+[ 11.95] IRQ event 30 (10, <memoryview>, <memoryview>)
+[ 11.96] INITIATE unit 0 -> AB:42:00:00:62:2F timeout=10000 ms interval=None
+  SplatLink: connection to AB:42:00:00:80:B4 lost (drops=7)
+[ 11.96] LOSS unit 1: irq_disconnect=True since_other_initiate=0.00399971 since_other_connect=1.493 probe=write failed errno -128
+[ 12.16] IRQ connect      handle=0 AB:42:00:00:62:2F
+SUMMARY default: connects=[6, 7] drops=[6, 7] initiates=14 both_ready_at=None ready_at_end=0 conn_updates=0 notifies={0: 10} misrouted=8
+[ 12.32] RESET unit 0 while connected (handle=0, last IRQ 9@12.26)
+  SplatHub: unit 0 closed (disconnected)
+  SplatHub: unit 1 closed (was not connected)
+[ 12.36] IRQ disconnect   handle=0 AB:42:00:00:62:2F (unit None)
+[ 14.34] IRQ event 29 (2, 0, None)
+[ 14.34] IRQ event 29 (10, 0, <memoryview>)
+[ 14.34] IRQ event 30 (10, <memoryview>, <memoryview>)
+[ 14.38] === variant long-interval: interval=(100000, 200000) direct_ms=10000 gap_ms=0
+  SplatHub: discovering (2 Splat(s) wanted)
+  SplatHub: unit 0 -> AB:42:00:00:62:2F
+  SplatHub: unit 1 -> AB:42:00:00:80:B4
+[ 14.49] IRQ event 29 (2, 0, None)
+[ 14.49] IRQ event 29 (10, 0, <memoryview>)
+[ 14.50] IRQ event 30 (10, <memoryview>, <memoryview>)
+[ 14.50] INITIATE unit 1 -> AB:42:00:00:80:B4 timeout=10000 ms interval=(100000, 200000)
+[ 16.24] IRQ connect      handle=0 AB:42:00:00:80:B4
+  SplatLink: ready, Splat AB:42:00:00:80:B4 (connects=1)
+[ 18.06] READY unit 1 handle=0
+[ 18.24] IRQ disconnect   handle=0 AB:42:00:00:80:B4 (unit 1)
+[ 18.24] RESET unit 1 while connected (handle=0, last IRQ 8@18.24)
+[ 18.26] IRQ event 29 (2, 0, None)
+[ 18.26] IRQ event 29 (10, 0, <memoryview>)
+[ 18.26] IRQ event 30 (10, <memoryview>, <memoryview>)
+[ 18.27] INITIATE unit 0 -> AB:42:00:00:62:2F timeout=10000 ms interval=(100000, 200000)
+  SplatLink: connection to AB:42:00:00:80:B4 lost (drops=1)
+[ 18.28] LOSS unit 1: irq_disconnect=True since_other_initiate=0.00399971 since_other_connect=None probe=write failed errno -128
+[ 18.74] IRQ connect      handle=0 AB:42:00:00:62:2F
+  SplatLink: ready, Splat AB:42:00:00:62:2F (connects=1)
+[ 20.94] IRQ disconnect   handle=0 AB:42:00:00:62:2F (unit 0)
+[ 20.94] RESET unit 0 while connected (handle=0, last IRQ 8@20.94)
+[ 20.96] IRQ event 29 (2, 0, None)
+[ 20.96] IRQ event 29 (10, 0, <memoryview>)
+[ 20.96] IRQ event 30 (10, <memoryview>, <memoryview>)
+[ 20.98] INITIATE unit 1 -> AB:42:00:00:80:B4 timeout=10000 ms interval=(100000, 200000)
+[ 20.98] READY unit 0 handle=None
+  SplatLink: connection to AB:42:00:00:62:2F lost (drops=1)
+[ 20.98] LOSS unit 0: irq_disconnect=False since_other_initiate=0.006000519 since_other_connect=4.7440016 probe=n.a.
+[ 21.57] IRQ connect      handle=0 AB:42:00:00:80:B4
+  SplatLink: ready, Splat AB:42:00:00:80:B4 (connects=2)
+[ 23.60] READY unit 1 handle=0
+[ 23.77] IRQ disconnect   handle=0 AB:42:00:00:80:B4 (unit 1)
+[ 23.78] RESET unit 1 while connected (handle=0, last IRQ 8@23.77)
+[ 23.80] IRQ event 29 (2, 0, None)
+[ 23.80] IRQ event 29 (10, 0, <memoryview>)
+[ 23.80] IRQ event 30 (10, <memoryview>, <memoryview>)
+[ 23.81] INITIATE unit 0 -> AB:42:00:00:62:2F timeout=10000 ms interval=(100000, 200000)
+  SplatLink: connection to AB:42:00:00:80:B4 lost (drops=2)
+[ 23.82] LOSS unit 1: irq_disconnect=True since_other_initiate=0.010000229 since_other_connect=5.0790004 probe=write failed errno -128
+[ 24.28] IRQ connect      handle=0 AB:42:00:00:62:2F
+  SplatLink: ready, Splat AB:42:00:00:62:2F (connects=2)
+[ 26.28] IRQ disconnect   handle=0 AB:42:00:00:62:2F (unit 0)
+[ 26.28] RESET unit 0 while connected (handle=0, last IRQ 8@26.28)
+[ 26.30] IRQ event 29 (2, 0, None)
+[ 26.30] IRQ event 29 (10, 0, <memoryview>)
+[ 26.31] IRQ event 30 (10, <memoryview>, <memoryview>)
+[ 26.32] INITIATE unit 1 -> AB:42:00:00:80:B4 timeout=10000 ms interval=(100000, 200000)
+[ 26.32] READY unit 0 handle=None
+  SplatLink: connection to AB:42:00:00:62:2F lost (drops=2)
+[ 26.32] LOSS unit 0: irq_disconnect=False since_other_initiate=0.0059986116 since_other_connect=4.7469996 probe=n.a.
+SUMMARY long-interval: connects=[2, 2] drops=[2, 2] initiates=5 both_ready_at=None ready_at_end=0 conn_updates=0 notifies={} misrouted=0
+  SplatHub: unit 0 closed (was not connected)
+[ 26.38] IRQ disconnect   handle=65535 00:00:00:00:00:00 (unit None)
+  SplatHub: unit 1 closed (was not connected)
+[ 28.41] IRQ event 29 (2, 0, None)
+[ 28.41] IRQ event 29 (10, 0, <memoryview>)
+[ 28.41] IRQ event 30 (10, <memoryview>, <memoryview>)
+[ 28.45] === variant short-bursts: interval=None direct_ms=400 gap_ms=600
+  SplatHub: discovering (2 Splat(s) wanted)
+  SplatHub: unit 0 -> AB:42:00:00:80:B4
+  SplatHub: unit 1 -> AB:42:00:00:62:2F
+[ 28.51] IRQ event 29 (2, 0, None)
+[ 28.52] IRQ event 29 (10, 0, <memoryview>)
+[ 28.52] IRQ event 30 (10, <memoryview>, <memoryview>)
+[ 28.52] INITIATE unit 1 -> AB:42:00:00:62:2F timeout=400 ms interval=None
+[ 28.70] IRQ connect      handle=0 AB:42:00:00:62:2F
+  SplatLink: ready, Splat AB:42:00:00:62:2F (connects=1)
+[ 29.30] READY unit 1 handle=0
+[ 29.35] IRQ disconnect   handle=0 AB:42:00:00:62:2F (unit 1)
+[ 29.35] RESET unit 1 while connected (handle=0, last IRQ 8@29.35)
+[ 29.37] IRQ event 29 (2, 0, None)
+[ 29.37] IRQ event 29 (10, 0, <memoryview>)
+[ 29.38] IRQ event 30 (10, <memoryview>, <memoryview>)
+[ 29.39] INITIATE unit 0 -> AB:42:00:00:80:B4 timeout=400 ms interval=None
+  SplatLink: connection to AB:42:00:00:62:2F lost (drops=1)
+[ 29.39] LOSS unit 1: irq_disconnect=True since_other_initiate=0.00399971 since_other_connect=None probe=write failed errno -128
+[ 29.53] IRQ connect      handle=0 AB:42:00:00:80:B4
+  SplatLink: ready, Splat AB:42:00:00:80:B4 (connects=1)
+[ 30.18] IRQ disconnect   handle=0 AB:42:00:00:80:B4 (unit 0)
+[ 30.18] RESET unit 0 while connected (handle=0, last IRQ 8@30.18)
+[ 30.20] IRQ event 29 (2, 0, None)
+[ 30.20] IRQ event 29 (10, 0, <memoryview>)
+[ 30.21] IRQ event 30 (10, <memoryview>, <memoryview>)
+[ 30.22] INITIATE unit 1 -> AB:42:00:00:62:2F timeout=400 ms interval=None
+[ 30.22] READY unit 0 handle=None
+  SplatLink: connection to AB:42:00:00:80:B4 lost (drops=1)
+[ 30.22] LOSS unit 0: irq_disconnect=False since_other_initiate=0.006000519 since_other_connect=1.5220013 probe=n.a.
+[ 30.42] IRQ connect      handle=0 AB:42:00:00:62:2F
+  SplatLink: ready, Splat AB:42:00:00:62:2F (connects=2)
+[ 31.09] READY unit 1 handle=0
+[ 31.12] IRQ disconnect   handle=0 AB:42:00:00:62:2F (unit 1)
+[ 31.12] RESET unit 1 while connected (handle=0, last IRQ 8@31.12)
+[ 31.14] IRQ event 29 (2, 0, None)
+[ 31.14] IRQ event 29 (10, 0, <memoryview>)
+[ 31.14] IRQ event 30 (10, <memoryview>, <memoryview>)
+[ 31.15] INITIATE unit 0 -> AB:42:00:00:80:B4 timeout=400 ms interval=None
+  SplatLink: connection to AB:42:00:00:62:2F lost (drops=2)
+[ 31.15] LOSS unit 1: irq_disconnect=True since_other_initiate=0.00399971 since_other_connect=1.618 probe=write failed errno -128
+[ 31.39] IRQ connect      handle=0 AB:42:00:00:80:B4
+  SplatLink: ready, Splat AB:42:00:00:80:B4 (connects=2)
+[ 32.09] IRQ disconnect   handle=0 AB:42:00:00:80:B4 (unit 0)
+[ 32.09] RESET unit 0 while connected (handle=0, last IRQ 8@32.09)
+[ 32.11] IRQ event 29 (2, 0, None)
+[ 32.11] IRQ event 29 (10, 0, <memoryview>)
+[ 32.11] IRQ event 30 (10, <memoryview>, <memoryview>)
+[ 32.13] INITIATE unit 1 -> AB:42:00:00:62:2F timeout=400 ms interval=None
+[ 32.13] READY unit 0 handle=None
+  SplatLink: connection to AB:42:00:00:80:B4 lost (drops=2)
+[ 32.13] LOSS unit 0: irq_disconnect=False since_other_initiate=0.006000519 since_other_connect=1.7159996 probe=n.a.
+[ 32.28] IRQ connect      handle=0 AB:42:00:00:62:2F
+  SplatLink: ready, Splat AB:42:00:00:62:2F (connects=3)
+[ 32.88] READY unit 1 handle=0
+[ 32.93] IRQ disconnect   handle=0 AB:42:00:00:62:2F (unit 1)
+[ 32.93] RESET unit 1 while connected (handle=0, last IRQ 8@32.93)
+[ 32.95] IRQ event 29 (2, 0, None)
+[ 32.95] IRQ event 29 (10, 0, <memoryview>)
+[ 32.95] IRQ event 30 (10, <memoryview>, <memoryview>)
+[ 32.96] INITIATE unit 0 -> AB:42:00:00:80:B4 timeout=400 ms interval=None
+  SplatLink: connection to AB:42:00:00:62:2F lost (drops=3)
+[ 32.96] LOSS unit 1: irq_disconnect=True since_other_initiate=0.0039978028 since_other_connect=1.573 probe=write failed errno -128
+[ 33.20] IRQ connect      handle=0 AB:42:00:00:80:B4
+  SplatLink: ready, Splat AB:42:00:00:80:B4 (connects=3)
+[ 33.85] IRQ disconnect   handle=0 AB:42:00:00:80:B4 (unit 0)
+[ 33.85] RESET unit 0 while connected (handle=0, last IRQ 8@33.85)
+[ 33.87] IRQ event 29 (2, 0, None)
+[ 33.87] IRQ event 29 (10, 0, <memoryview>)
+[ 33.87] IRQ event 30 (10, <memoryview>, <memoryview>)
+[ 33.88] INITIATE unit 1 -> AB:42:00:00:62:2F timeout=400 ms interval=None
+[ 33.88] READY unit 0 handle=None
+  SplatLink: connection to AB:42:00:00:80:B4 lost (drops=3)
+[ 33.88] LOSS unit 0: irq_disconnect=False since_other_initiate=0.006000519 since_other_connect=1.605999 probe=n.a.
+[ 34.07] IRQ connect      handle=0 AB:42:00:00:62:2F
+  SplatLink: ready, Splat AB:42:00:00:62:2F (connects=4)
+[ 34.70] READY unit 1 handle=0
+[ 34.72] IRQ disconnect   handle=0 AB:42:00:00:62:2F (unit 1)
+[ 34.73] RESET unit 1 while connected (handle=0, last IRQ 8@34.72)
+[ 34.75] IRQ event 29 (2, 0, None)
+[ 34.75] IRQ event 29 (10, 0, <memoryview>)
+[ 34.75] IRQ event 30 (10, <memoryview>, <memoryview>)
+[ 34.76] INITIATE unit 0 -> AB:42:00:00:80:B4 timeout=400 ms interval=None
+  SplatLink: connection to AB:42:00:00:62:2F lost (drops=4)
+[ 34.76] LOSS unit 1: irq_disconnect=True since_other_initiate=0.0039978028 since_other_connect=1.5639992 probe=write failed errno -128
+[ 34.92] IRQ connect      handle=0 AB:42:00:00:80:B4
+  SplatLink: ready, Splat AB:42:00:00:80:B4 (connects=4)
+[ 35.57] IRQ disconnect   handle=0 AB:42:00:00:80:B4 (unit 0)
+[ 35.57] RESET unit 0 while connected (handle=0, last IRQ 8@35.57)
+[ 35.59] IRQ event 29 (2, 0, None)
+[ 35.59] IRQ event 29 (10, 0, <memoryview>)
+[ 35.60] IRQ event 30 (10, <memoryview>, <memoryview>)
+[ 35.60] INITIATE unit 1 -> AB:42:00:00:62:2F timeout=400 ms interval=None
+[ 35.61] READY unit 0 handle=None
+  SplatLink: connection to AB:42:00:00:80:B4 lost (drops=4)
+[ 35.61] LOSS unit 0: irq_disconnect=False since_other_initiate=0.0069999692 since_other_connect=1.5379982 probe=n.a.
+[ 35.88] IRQ connect      handle=0 AB:42:00:00:62:2F
+  SplatLink: ready, Splat AB:42:00:00:62:2F (connects=5)
+[ 36.48] READY unit 1 handle=0
+[ 36.53] IRQ disconnect   handle=0 AB:42:00:00:62:2F (unit 1)
+[ 36.53] RESET unit 1 while connected (handle=0, last IRQ 8@36.53)
+[ 36.55] IRQ event 29 (2, 0, None)
+[ 36.55] IRQ event 29 (10, 0, <memoryview>)
+[ 36.55] IRQ event 30 (10, <memoryview>, <memoryview>)
+[ 36.56] INITIATE unit 0 -> AB:42:00:00:80:B4 timeout=400 ms interval=None
+  SplatLink: connection to AB:42:00:00:62:2F lost (drops=5)
+[ 36.56] LOSS unit 1: irq_disconnect=True since_other_initiate=0.0039978028 since_other_connect=1.6399994 probe=write failed errno -128
+[ 36.72] IRQ connect      handle=0 AB:42:00:00:80:B4
+  SplatLink: ready, Splat AB:42:00:00:80:B4 (connects=5)
+[ 37.37] IRQ disconnect   handle=0 AB:42:00:00:80:B4 (unit 0)
+[ 37.37] RESET unit 0 while connected (handle=0, last IRQ 8@37.37)
+[ 37.39] IRQ event 29 (2, 0, None)
+[ 37.39] IRQ event 29 (10, 0, <memoryview>)
+[ 37.40] IRQ event 30 (10, <memoryview>, <memoryview>)
+[ 37.40] INITIATE unit 1 -> AB:42:00:00:62:2F timeout=400 ms interval=None
+[ 37.41] READY unit 0 handle=None
+  SplatLink: connection to AB:42:00:00:80:B4 lost (drops=5)
+[ 37.41] LOSS unit 0: irq_disconnect=False since_other_initiate=0.006000519 since_other_connect=1.5359993 probe=n.a.
+[ 37.59] IRQ connect      handle=0 AB:42:00:00:62:2F
+  SplatLink: ready, Splat AB:42:00:00:62:2F (connects=6)
+[ 38.22] READY unit 1 handle=0
+[ 38.24] IRQ disconnect   handle=0 AB:42:00:00:62:2F (unit 1)
+[ 38.24] RESET unit 1 while connected (handle=0, last IRQ 8@38.24)
+[ 38.26] IRQ event 29 (2, 0, None)
+[ 38.27] IRQ event 29 (10, 0, <memoryview>)
+[ 38.27] IRQ event 30 (10, <memoryview>, <memoryview>)
+[ 38.28] INITIATE unit 0 -> AB:42:00:00:80:B4 timeout=400 ms interval=None
+  SplatLink: connection to AB:42:00:00:62:2F lost (drops=6)
+[ 38.28] LOSS unit 1: irq_disconnect=True since_other_initiate=0.0039978028 since_other_connect=1.5599976 probe=write failed errno -128
+[ 38.44] IRQ connect      handle=0 AB:42:00:00:80:B4
+  SplatLink: ready, Splat AB:42:00:00:80:B4 (connects=6)
+[ 39.09] IRQ disconnect   handle=0 AB:42:00:00:80:B4 (unit 0)
+[ 39.09] RESET unit 0 while connected (handle=0, last IRQ 8@39.09)
+[ 39.11] IRQ event 29 (2, 0, None)
+[ 39.11] IRQ event 29 (10, 0, <memoryview>)
+[ 39.11] IRQ event 30 (10, <memoryview>, <memoryview>)
+[ 39.12] INITIATE unit 1 -> AB:42:00:00:62:2F timeout=400 ms interval=None
+[ 39.12] READY unit 0 handle=None
+  SplatLink: connection to AB:42:00:00:80:B4 lost (drops=6)
+[ 39.12] LOSS unit 0: irq_disconnect=False since_other_initiate=0.005996704 since_other_connect=1.5299988 probe=n.a.
+[ 39.29] IRQ connect      handle=0 AB:42:00:00:62:2F
+  SplatLink: ready, Splat AB:42:00:00:62:2F (connects=7)
+[ 39.90] READY unit 1 handle=0
+[ 39.95] IRQ disconnect   handle=0 AB:42:00:00:62:2F (unit 1)
+[ 39.95] RESET unit 1 while connected (handle=0, last IRQ 8@39.95)
+[ 39.97] IRQ event 29 (2, 0, None)
+[ 39.97] IRQ event 29 (10, 0, <memoryview>)
+[ 39.97] IRQ event 30 (10, <memoryview>, <memoryview>)
+[ 39.97] INITIATE unit 0 -> AB:42:00:00:80:B4 timeout=400 ms interval=None
+  SplatLink: connection to AB:42:00:00:62:2F lost (drops=7)
+[ 39.98] LOSS unit 1: irq_disconnect=True since_other_initiate=0.0040016176 since_other_connect=1.5429993 probe=write failed errno -128
+[ 40.15] IRQ connect      handle=0 AB:42:00:00:80:B4
+SUMMARY short-bursts: connects=[6, 7] drops=[6, 7] initiates=14 both_ready_at=None ready_at_end=0 conn_updates=0 notifies={0: 8} misrouted=8
+[ 40.46] IRQ disconnect   handle=0 AB:42:00:00:80:B4 (unit 0)
+[ 40.46] RESET unit 0 while connected (handle=0, last IRQ 8@40.46)
+[ 40.45] RESET unit 0 while connected (handle=0, last IRQ 10@40.35)
+  SplatHub: unit 0 closed (disconnected)
+  SplatHub: unit 1 closed (was not connected)
+VERDICT default: 13 losses | 7 with IRQ disconnect | 1 probe-alive | 13 within 1.5 s of other INITIATE before its connect | 0 within 0.5 s after other CONNECT | supervision ms seen none | leans H3 (hub state reset without radio disconnect) + H1 (initiation starves live link)
+VERDICT long-interval: 4 losses | 2 with IRQ disconnect | 0 probe-alive | 4 within 1.5 s of other INITIATE before its connect | 0 within 0.5 s after other CONNECT | supervision ms seen none | leans H3 (hub state reset without radio disconnect) + H1 (initiation starves live link)
+VERDICT short-bursts: 13 losses | 7 with IRQ disconnect | 0 probe-alive | 13 within 1.5 s of other INITIATE before its connect | 0 within 0.5 s after other CONNECT | supervision ms seen none | leans H3 (hub state reset without radio disconnect) + H1 (initiation starves live link)
+DONE

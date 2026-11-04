@@ -10,22 +10,20 @@ programming_station, or score_board.
 Usage:
     from hubtype import HUB_TYPE, HUB_CONFIG
 
-Bag3 differences vs Bag2 (wand):
-    • LED matrix is 6×10 (60 LEDs) instead of 5×5 (25 LEDs).
-    • NFC reader is an M5Stack RFID2 / WS1850S at I2C 0x28
-      (the PN532 was at 0x24). The lib/pn532.py shim remaps the old
-      0x24 address to 0x28 automatically, so nfc_addr is informational.
+Bag3 wand hardware:
+    • LED matrix is 5×5 (25 LEDs), row-major (index = row*5 + col).
+    • NFC reader is the original PN532 at I2C 0x24 (lib/pn532.py).
     • A discrete power-status LED is wired to GPIO 2 (power_led_pin).
 """
 
 _CONFIGS = {
     "wand": {
-        "num_leds":       60,       # 6×10 matrix on Bag3 (was 25 on Bag2)
+        "num_leds":       25,       # 5×5 matrix
         "led_pin":        20,
-        "matrix_cols":    6,        # 6 columns laid left→right
-        "matrix_rows":    10,       # 10 rows; row-major, index = row*6 + col
+        "matrix_cols":    5,        # 5 columns laid left→right
+        "matrix_rows":    5,        # 5 rows; row-major, index = row*5 + col
         "has_nfc":        True,
-        "nfc_addr":       0x28,     # WS1850S default (PN532 was 0x24)
+        "nfc_addr":       0x24,     # PN532 I2C address
         "has_accel":      True,
         "has_battery":    True,
         "has_buzzer":     True,

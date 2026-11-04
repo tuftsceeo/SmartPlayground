@@ -1,0 +1,70 @@
+.code-header {
+    padding: 8px 14px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-dim);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+}
+
+.version-controls { display: flex; align-items: center; gap: 4px; }
+
+.version-btn { padding: 3px 8px; font-size: 10px; min-width: 28px; }
+.version-btn:disabled { opacity: 0.3; cursor: default; }
+
+.version-label {
+    font-size: 11px;
+    color: var(--text-dim);
+    min-width: 40px;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+}
+
+.code-container {
+    flex: 1;
+    overflow: auto;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+/* CodeMirror fills container */
+.code-container .cm-editor {
+    height: 100%;
+    font-size: 13px;
+}
+
+.code-container .cm-scroller { overflow: auto; }
+
+.repl-bar {
+    padding: 6px 14px;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.repl-bar label {
+    font-size: 12px;
+    color: var(--text-dim);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.repl-bar-spacer { flex: 1; }
+
+.repl-container {
+    height: 150px;
+    border-top: 1px solid var(--border);
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+.repl-container .repl-box { width: 100%; height: 100%; }
