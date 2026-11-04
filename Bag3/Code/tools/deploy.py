@@ -26,7 +26,9 @@ File lists, per device type:
   - Dial, Box: read from that firmware's own manifest.js (DIAL_FILES /
     BOX_FILES), not a hand-kept copy -- so this can't drift from what
     ChatBroadcast's own installer deploys.
-  - Mock Wand, Icon Display: no manifest exists for either, so this walks
+  - Mock Wand (`Wand Module/`): its manifest.js (WAND_FILES), which leaves
+    out the test and bench-only games. Other --wand-tree trees walk as below.
+  - Icon Display (and other --wand-tree trees): no manifest, so this walks
     the tree for every `.py` file plus `hubtype.txt`, preserving `lib/`,
     `games/` and (Icon Display) `icons/`, and skipping `tools/` and
     `README.md` (never deployed).
@@ -63,8 +65,8 @@ import sys
 import tempfile
 import time
 
-HERE = os.path.dirname(os.path.abspath(__file__))           # BroadcastCode/tools
-BROADCASTCODE = os.path.dirname(HERE)
+HERE = os.path.dirname(os.path.abspath(__file__))           # Bag3/Code/tools
+CODE = os.path.dirname(HERE)                                # Bag3/Code
 
 DEVICE_TYPES = [
     ("Broadcast Dial", "dial"),
@@ -293,25 +295,27 @@ def _precompile_wand_main(files):
 
 def _files_for(dev_key, code_only, wand_tree="Wand Module"):
     if dev_key == "dial":
-        firmware_dir = os.path.join(BROADCASTCODE, "..", "TeacherTools", "BroadcastDial", "BDialFirmware")
+        firmware_dir = os.path.join(CODE, "TeacherTools", "BroadcastDial", "BDialFirmware")
         boot_local = os.path.join(firmware_dir, "boot.py")
         extra_boot = (boot_local, "/flash/boot.py") if os.path.exists(boot_local) else None
         files = _manifest_files(firmware_dir, "manifest.js", "DIAL_FILES")
         return _boot_main_first(files, extra_boot), 8.0
     if dev_key == "box":
-        firmware_dir = os.path.join(BROADCASTCODE, "..", "TeacherTools", "BroadcastBox", "BBoxFirmware")
+        firmware_dir = os.path.join(CODE, "TeacherTools", "BroadcastBox", "BBoxFirmware")
         boot_local = os.path.join(firmware_dir, "boot.py")
         extra_boot = (boot_local, "/flash/boot.py") if os.path.exists(boot_local) else None
         files = _manifest_files(firmware_dir, "manifest.js", "BOX_FILES")
         return _boot_main_first(files, extra_boot), 0.0
     if dev_key == "wand":
-        files = _tree_files(os.path.join(BROADCASTCODE, "..", wand_tree))
+        files = _tree_files(os.path.join(CODE, wand_tree))
         if wand_tree == "Wand Module":
+            files = _manifest_files(os.path.join(CODE, wand_tree),
+                                    "manifest.js", "WAND_FILES")
             return _precompile_wand_main(files), 0.0
         return _boot_main_first(files), 0.0
     # icon
     skip = {"icons"} if code_only else ()
-    files = _tree_files(os.path.join(BROADCASTCODE, "..", "Stations", "IconDisplay"), skip_dirs=skip)
+    files = _tree_files(os.path.join(CODE, "Stations", "IconDisplay"), skip_dirs=skip)
     return _boot_main_first(files), 0.0
 
 
@@ -398,7 +402,7 @@ def main():
 
     failed = []
     for local, remote in files:
-        print("copying %s -> %s ..." % (os.path.relpath(local, BROADCASTCODE), remote))
+        print("copying %s -> %s ..." % (os.path.relpath(local, CODE), remote))
         if not copy_and_verify(port, local, remote, args.attempts, pause):
             failed.append(remote)
             print("  FAILED after %d attempt(s) -- continuing with the rest" % args.attempts)
