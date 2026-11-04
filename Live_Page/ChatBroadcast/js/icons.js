@@ -42,6 +42,13 @@ const PATHS = {
         '<rect x="7" y="2" width="10" height="20" rx="3"/><path d="M7 7h10M7 17h10"/>',
     spinner:
         '<circle cx="12" cy="12" r="8" stroke-dasharray="38" stroke-dashoffset="12"/>',
+    // Saved-game card icons: two crossed wands, a Splat (pad), a 16x16 display.
+    wands:
+        '<path d="M4 20 16 4"/><path d="M20 20 8 4"/><path d="M14 2l1 2 2 1-2 1-1 2"/><path d="M10 2l-1 2-2 1 2 1 1 2"/>',
+    splat:
+        '<circle cx="12" cy="12" r="5"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M5.6 18.4 7 17M17 7l1.4-1.4"/>',
+    iconDisplay:
+        '<rect x="4" y="4" width="16" height="16"/><path d="M4 9.3h16M4 14.6h16M9.3 4v16M14.6 4v16"/>',
     code:
         '<path d="M8 6l-5 6 5 6"/><path d="M16 6l5 6-5 6"/>',
 

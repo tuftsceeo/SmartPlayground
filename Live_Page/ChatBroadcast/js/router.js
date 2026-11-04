@@ -78,9 +78,7 @@ export function setConnectionBadge(link) {
 
     const mode = link?.boxMode;
     const name = link?.detail?.activeName || link?.detail?.active || null;
-    const ssid = link?.detail?.ssid || null;
     const isLive = state === "live";
-    const isServing = isLive && mode === "SERVE";
     // `link.kind` (set by app.js's paintLink() from the active device link)
     // is known the instant "Wand" is picked on the connect overlay, before
     // its own `identity` has arrived -- deviceShortName() alone would still
@@ -88,17 +86,6 @@ export function setConnectionBadge(link) {
     // class and are told apart only by deviceInfo, once it arrives.
     const short = link?.kind === "wand" ? "Wand" : deviceShortName(link?.deviceInfo);
     const product = link?.kind === "wand" ? "Wand" : deviceProductName(link?.deviceInfo);
-
-    // SSID chip — only while serving
-    all(".ssid-chip").forEach((chip) => {
-        if (isServing && ssid) {
-            chip.classList.remove("hidden");
-            chip.innerHTML = `${iconSvg("wifi", { size: 14 })} ${escapeHtml(ssid)}`;
-        } else {
-            chip.classList.add("hidden");
-            chip.textContent = "";
-        }
-    });
 
     // Mode pill -- opens the library overlay (games/health/tag status), it
     // does NOT change the device's mode (that's the device's own controls

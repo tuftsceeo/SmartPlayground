@@ -6,19 +6,22 @@
  * holding the wand on its tilt/press pad at the left and the controls at
  * the right, with four pop-ups available over the whole shell.
  *
- * Attributes/props: game, autostart, show-console, controls, source, muted,
- * advanced (shows the axis readout, the custom tag / radio message drawer,
- * the hardware dials and the log; off by default), log-lines (how many log
- * lines the advanced block shows, default 2)
+ * Attributes/props: game, autostart, controls, source, muted, advanced
+ * (shows the axis readout, the custom tag / radio message drawer and the
+ * hardware dials; off by default). The panel draws no console or log: every
+ * line goes out as a sim-log event for the host to show.
  *
  * Events:
- *   sim-ready, sim-frame, sim-print, sim-stopped
+ *   sim-ready, sim-frame, sim-print, sim-stopped, sim-ended (play() returned)
+ *   sim-log — detail.text: one console line (the game's prints, scanned
+ *     tags, heard radio messages, library traces)
+ *   sim-loaded — detail.capabilities is get_capabilities() for the game
+ *     just loaded; fired before autostart starts it
  *   sim-error — detail.phase is one of "boot" / "load" / "run"
  *   sim-overlay-action — detail is { kind, action }, fired when a button on
  *     one of the overlays is pressed (see showOverlay below)
  *   sim-enow-sent — detail is { kind, data, mac }, fired when the running
- *     game transmits over ESP-NOW. The simulator has no second wand, so
- *     this (and the panel's radio readout) is a send's only output.
+ *     game transmits over ESP-NOW.
  */
 
 import { createRenderer, dutyRgbToCss, WAND_STYLE } from "./js/renderer.js";
@@ -26,6 +29,7 @@ import { getAccel, setPadTilt, setPose, fireMove, cancelMove } from "./js/motion
 import { createAudio } from "./js/audio.js";
 import { createControls, CONTROLS_STYLE } from "./js/controls.js";
 import { icon } from "./js/icons.js";
+import { bootWand, wireCallbacks, loadPyodideNoJspi } from "./js/pyboot.js";
 
 const PYODIDE_VERSION = "0.27.0";
 const PYODIDE_CDN = `https://cdn.jsdelivr.net/pyodide/v${PYODIDE_VERSION}/full/`;
@@ -66,17 +70,21 @@ const OVERLAYS = {
     title: "New code is ready", message: "play it to see the change",
     buttons: [{ action: "play-it", label: "Play it →", style: "pink" }],
   },
+  paused: {
+    banner: true,
+    icon: "sparkles", tintBg: "#e9fbf6", tintFg: "#12967f",
+    title: "Simulation paused", message: "play it to start again",
+    buttons: [{ action: "play-it", label: "Play it →", style: "pink" }],
+  },
 };
 
 const SHELL_STYLE = `
 :host {
-  /* Flex column so .wrap can stretch and hand the pad a height to fill —
-     the pad is the panel's tallest element and has nothing else to size
-     against. min-height keeps the two-pane layout from collapsing when the
-     host gives the element no height of its own. */
+  /* The pad is a square sized by its width, so the element is as tall as
+     its content; --wand-min-height can set a floor. */
   display: flex;
   flex-direction: column;
-  min-height: var(--wand-min-height, 520px);
+  min-height: var(--wand-min-height, 0);
   container-type: inline-size;
   container-name: wand-sim;
   font-family: var(--wand-font, 'Nunito', ui-sans-serif, system-ui, sans-serif);
@@ -95,11 +103,6 @@ const SHELL_STYLE = `
 *, *::before, *::after { box-sizing: border-box; }
 
 .wrap { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
-.console {
-  font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
-  background: #1f2430; color: #d7d7e0; border-radius: 12px; padding: 10px;
-  margin: 0 16px 14px; max-height: 160px; overflow: auto; white-space: pre-wrap;
-}
 
 /* ── Overlays ────────────────────────────────────────────────────────── */
 .ov-scrim {
@@ -175,7 +178,7 @@ function assetUrl(rel) {
 }
 
 /**
- * The ~38 Python files below are one unit with this file: the bootstrap
+ * The Python files in js/pyboot.js FILE_LIST are one unit with this file: the bootstrap
  * calls sim_state functions by name, so a stale copy of any of them breaks
  * boot outright (an old sim_state.py against a new wand-sim.js raises
  * `no attribute 'set_error_callback'`). A plain static server sends no
@@ -225,50 +228,10 @@ function speakerColorForFreq(freq) {
 // 60Hz is just churn.
 const AXIS_REFRESH_MS = 100;
 
-const FILE_LIST = [
-  "py/transform.py",
-  "py/runtime.py",
-  "py/shims/sim_state.py",
-  "py/shims/machine.py",
-  "py/shims/neopixel.py",
-  "py/shims/_thread.py",
-  "py/shims/network.py",
-  "py/shims/espnow.py",
-  "py/shims/ubluetooth.py",
-  "py/shims/micropython.py",
-  "py/shims/time_patch.py",
-  "py/devices/lis2dw12.py",
-  "py/devices/max17048.py",
-  "py/devices/opt3002.py",
-  "py/devices/pn532.py",
-  "py/devices/nfc_reader.py",
-  "py/devices/espnow_manager.py",
-  "vendor/hubtype.txt",
-  "vendor/lib/brightness.py",
-  "vendor/lib/hubtype.py",
-  "vendor/lib/leds.py",
-  "vendor/lib/buzzer.py",
-  "vendor/lib/game_tags.py",
-  "vendor/lib/actions.py",
-  "vendor/lib/battery.py",
-  "vendor/games/jump.py",
-  "vendor/games/shake.py",
-  "vendor/games/shake_rainbow.py",
-  "vendor/games/sound.py",
-  "vendor/games/rainbow.py",
-  "vendor/games/jumpin.py",
-  "vendor/games/nfc_sound.py",
-  "vendor/games/gestures.py",
-  "vendor/games/simpleicecream.py",
-  "vendor/games/melody.py",
-  "vendor/games/cooking.py",
-  "vendor/games/multiicecream.py",
-  "vendor/games/freeze_dance.py",
-];
 
 class WandSim extends HTMLElement {
   static get observedAttributes() {
-    return ["game", "autostart", "show-console", "controls", "advanced", "log-lines"];
+    return ["game", "autostart", "controls", "advanced"];
   }
 
   constructor() {
@@ -281,7 +244,6 @@ class WandSim extends HTMLElement {
     this._audio = null;
     this._renderer = null;
     this._controls = null;
-    this._log = [];
     this._lastAxisPush = 0;
     this._openOverlay = null;
   }
@@ -292,23 +254,11 @@ class WandSim extends HTMLElement {
   get autostart() { return this.hasAttribute("autostart"); }
   set autostart(v) { v ? this.setAttribute("autostart", "") : this.removeAttribute("autostart"); }
 
-  // Gates the axis readout, the custom tag / radio message drawer, the
-  // hardware dials and the log — off by default so a teacher-facing embed
+  // Gates the axis readout, the custom tag / radio message drawer and the
+  // hardware dials — off by default so a teacher-facing embed
   // doesn't show technical dials unless the host app opts in.
   get advanced() { return this.hasAttribute("advanced"); }
   set advanced(v) { v ? this.setAttribute("advanced", "") : this.removeAttribute("advanced"); }
-
-  get logLines() {
-    const n = parseInt(this.getAttribute("log-lines"), 10);
-    return n > 0 ? n : 2;
-  }
-  set logLines(v) { this.setAttribute("log-lines", String(v)); }
-
-  // Hidden by default — a teacher-facing panel shouldn't open on a wall of
-  // Python traceback text. The advanced block's "Show console" toggle
-  // flips this.
-  get showConsole() { return this.getAttribute("show-console") === "true"; }
-  set showConsole(v) { this.setAttribute("show-console", v ? "true" : "false"); }
 
   get muted() { return this._audio ? this._audio.isMuted() : false; }
   set muted(v) {
@@ -330,6 +280,10 @@ class WandSim extends HTMLElement {
     if (this._ready) this._applyCapabilities();
   }
 
+  /** The wand's Pyodide, once sim-ready has fired (null before). Hosts
+   * such as <sim-room> use it to attach the radio to a bus. */
+  get pyodide() { return this._ready ? this._pyodide : null; }
+
   get source() { return this._source; }
   set source(v) {
     this._source = v;
@@ -337,25 +291,28 @@ class WandSim extends HTMLElement {
   }
 
   connectedCallback() {
+    // A move to another parent (sim-room's all-wands overlay) reconnects
+    // within the same task: keep running rather than boot again.
+    if (this._live) return;
+    this._live = true;
     this._renderShell();
     this._boot();
   }
 
   disconnectedCallback() {
-    cancelAnimationFrame(this._raf);
-    this._audio?.dispose();
-    this._renderer?.dispose();
-    this._controls?.dispose();
-    this._runPython("await stop()").catch(() => {});
+    queueMicrotask(() => {
+      if (this.isConnected || !this._live) return;
+      this._live = false;
+      cancelAnimationFrame(this._raf);
+      this._audio?.dispose();
+      this._renderer?.dispose();
+      this._controls?.dispose();
+      this._runPython("await stop()").catch(() => {});
+    });
   }
 
   attributeChangedCallback(name) {
-    if (name === "show-console") {
-      if (this._consoleEl) this._consoleEl.style.display = this.showConsole ? "block" : "none";
-      this._controls?.setConsoleShown(this.showConsole);
-    }
     if (name === "advanced") this._controls?.setAdvanced(this.advanced);
-    if (name === "log-lines") this._controls?.setLog(this._log, this.logLines);
     if (!this._ready) return;
     if (name === "game") this._loadAndMaybeStart();
   }
@@ -370,12 +327,9 @@ class WandSim extends HTMLElement {
     wrap.className = "wrap";
     wrap.innerHTML = `
       <div data-el="controls"></div>
-      <div class="console" data-el="console"></div>
     `;
     this._root.appendChild(wrap);
 
-    this._consoleEl = wrap.querySelector('[data-el="console"]');
-    this._consoleEl.style.display = this.showConsole ? "block" : "none";
 
     this._audio = createAudio({
       // Fires well after boot (only once a real PWM/motor write happens),
@@ -399,21 +353,18 @@ class WandSim extends HTMLElement {
         this._renderer.playGesture(kind, ms);
         this._pushAccel();
       },
-      onTilt: (x, y) => {
-        setPadTilt(x, y);
-        this._renderer.setTilt3d(x * 100, y * 100);
+      onTilt: (x, y, inverted, slow) => {
+        setPadTilt(x, y, inverted);
+        this._renderer.setTilt3d(x * 100, y * 100, slow);
         this._pushAccel();
       },
       onFaceFlip: (down, pose) => {
         setPose(pose);
         this._renderer.setFaceDown(down);
-        this._renderer.playGesture("faceflip", 620);
         this._pushAccel();
       },
       onMute: (m) => this._audio.setMuted(m),
       onRestart: () => this.restart(),
-      onToggleAdvanced: (on) => { this.advanced = on; },
-      onToggleConsole: (shown) => { this.showConsole = shown; },
       onBattery: (soc) => this._runPython(`sim_state.set_battery(soc=${soc})`),
       onLux: (lux) => this._runPython(`sim_state.set_ambient_lux(${lux})`),
       onNfc: (cmd) => {
@@ -435,9 +386,7 @@ class WandSim extends HTMLElement {
       onButtonTap: (down) => this._setButton(down),
     });
 
-    this._controls.setConsoleShown(this.showConsole);
     this._controls.setAdvanced(this.advanced);
-    this._controls.setLog(this._log, this.logLines);
     this._setStatus("loading", "loading…");
   }
 
@@ -451,19 +400,16 @@ class WandSim extends HTMLElement {
     this._controls?.setRunState(kind, text);
   }
 
-  /** Newest-first, capped — the advanced block shows the top `logLines`. */
-  _logLine(s) {
-    const t = new Date().toTimeString().slice(0, 8);
-    this._log = [{ t, s }].concat(this._log).slice(0, 30);
-    this._controls?.setLog(this._log, this.logLines);
+  _logLine(text) {
+    this.dispatchEvent(new CustomEvent("sim-log", { detail: { text } }));
   }
 
   // ── Overlays ────────────────────────────────────────────────────────
 
   /**
-   * Show one of the four pop-ups over the whole panel.
+   * Show one of the pop-ups over the whole panel.
    *
-   * kind: "game-over" | "cant-simulate" | "welcome" | "new-code"
+   * kind: "game-over" | "cant-simulate" | "welcome" | "new-code" | "paused"
    * opts.title / opts.message override the built-in copy (the auto-shown
    *   "cant-simulate" uses this to say which phase failed).
    * opts.buttons overrides the button row, as
@@ -540,41 +486,12 @@ class WandSim extends HTMLElement {
   async _boot() {
     try {
       await this._loadPyodide();
-      const contents = {};
-      await Promise.all(FILE_LIST.map(async (rel) => {
-        contents[rel] = await fetchText(rel);
-      }));
-
-      // Write sources into Pyodide FS and bootstrap runtime.
-      this._pyodide.FS.mkdirTree("/sim");
-      for (const [rel, text] of Object.entries(contents)) {
-        const path = "/sim/" + rel;
-        const dir = path.slice(0, path.lastIndexOf("/"));
-        this._pyodide.FS.mkdirTree(dir);
-        this._pyodide.FS.writeFile(path, text);
-      }
-
-      await this._pyodide.runPythonAsync(`
-import sys
-sys.path.insert(0, "/sim/py")
-sys.path.insert(0, "/sim/py/shims")
-sys.path.insert(0, "/sim/py/devices")
-from runtime import get_runtime, load_game, start, stop, get_commands, get_capabilities
-import os
-contents = {}
-for root, dirs, files in os.walk("/sim"):
-    for f in files:
-        p = os.path.join(root, f)
-        rel = p[len("/sim/"):]
-        with open(p) as fh:
-            contents[rel] = fh.read()
-rt = get_runtime()
-rt.bootstrap(file_contents=contents, workdir="/sim/vendor")
-`);
+      await bootWand(this._pyodide, fetchText);
 
       // Wire JS callbacks into sim_state
       const self = this;
-      this._pyodide.globals.set("_js_led", (pixels) => {
+      const cb = {};
+      cb.set_led_callback = (pixels) => {
         const arr = pixels.toJs ? pixels.toJs() : pixels;
         const flat = Array.from(arr).map((p) => {
           const t = p.toJs ? p.toJs() : p;
@@ -582,8 +499,8 @@ rt.bootstrap(file_contents=contents, workdir="/sim/vendor")
         });
         self._renderer.applyFrame(flat);
         self.dispatchEvent(new CustomEvent("sim-frame", { detail: { pixels: flat } }));
-      });
-      this._pyodide.globals.set("_js_pwm", (f, d) => {
+      };
+      cb.set_pwm_callback = (f, d) => {
         self._audio.setPwm(f, d);
         const freq = Number(f) || 0;
         const on = freq > 20 && (Number(d) || 0) > 0;
@@ -592,55 +509,36 @@ rt.bootstrap(file_contents=contents, workdir="/sim/vendor")
         // One expanding ring per note, in that note's own color — the
         // visible counterpart of a beep for anyone with sound off.
         if (on) self._renderer.ping(color);
-      });
-      this._pyodide.globals.set("_js_motor", (on) => self._audio.setMotor(!!on));
-      this._pyodide.globals.set("_js_print", (t) => {
+      };
+      cb.set_motor_callback = (on) => self._audio.setMotor(!!on);
+      cb.set_print_callback = (t) => {
         const line = String(t);
-        self._consoleEl.textContent += line + "\n";
-        self._consoleEl.scrollTop = self._consoleEl.scrollHeight;
         self._logLine(line);
         self.dispatchEvent(new CustomEvent("sim-print", { detail: { text: line } }));
-      });
+      };
       // Diagnostic trace, not a failure — a library that wouldn't load, a
       // radio message going out. This used to be wired to sim-error, which
       // meant every ESP-NOW broadcast read as a crash to the host.
-      this._pyodide.globals.set("_js_log", (t) => {
+      cb.set_log_callback = (t) => {
         self._logLine(String(t));
-      });
+      };
       // A traceback out of the running game goes through the same path as a
       // boot/load failure: the game is dead either way, and leaving only a
       // red status line behind is too quiet for something this final.
-      this._pyodide.globals.set("_js_error", (t) => {
+      cb.set_error_callback = (t) => {
         self._fail("run", String(t));
-      });
-      this._pyodide.globals.set("_js_enow_sent", (kind, data, mac) => {
-        self._controls?.setEnowSent(String(kind), String(data || ""));
+      };
+      cb.set_end_callback = () => {
+        self._setStatus("stopped", "game ended");
+        self.showOverlay("game-over", { title: "Game ended", message: "the game finished" });
+        self.dispatchEvent(new CustomEvent("sim-ended"));
+      };
+      cb.set_enow_sent_callback = (kind, data, mac) => {
         self.dispatchEvent(new CustomEvent("sim-enow-sent", {
           detail: { kind: String(kind), data: String(data || ""), mac: String(mac || "") },
         }));
-      });
-
-      await this._pyodide.runPythonAsync(`
-import sim_state
-_missing = [n for n in (
-    "set_led_callback", "set_pwm_callback", "set_motor_callback",
-    "set_print_callback", "set_log_callback", "set_error_callback",
-    "set_enow_sent_callback",
-) if not hasattr(sim_state, n)]
-if _missing:
-    raise RuntimeError(
-        "sim_state.py is out of date with wand-sim.js (missing %s) — "
-        "a cached copy is being served; reload without cache"
-        % ", ".join(_missing)
-    )
-sim_state.set_led_callback(_js_led)
-sim_state.set_pwm_callback(_js_pwm)
-sim_state.set_motor_callback(_js_motor)
-sim_state.set_print_callback(_js_print)
-sim_state.set_log_callback(_js_log)
-sim_state.set_error_callback(_js_error)
-sim_state.set_enow_sent_callback(_js_enow_sent)
-`);
+      };
+      await wireCallbacks(this._pyodide, cb);
       // Held once so per-frame accel/button pushes call methods directly
       // instead of recompiling a Python source string every tick.
       this._sim = this._pyodide.pyimport("sim_state");
@@ -672,6 +570,12 @@ sim_state.set_enow_sent_callback(_js_enow_sent)
         ? "the practice window isn't available right now — you can still send this game to your wand"
         // load = it wouldn't compile; run = it crashed mid-play. Same advice.
         : "this game is a bit too tricky for the practice window — send it to your wand to try it for real",
+      // A game that failed to compile or crashed can be handed back to the
+      // chat; a boot failure has no game error to report.
+      buttons: phase === "boot" ? undefined : [
+        ...OVERLAYS["cant-simulate"].buttons,
+        { action: "debug-in-chat", label: "Send problem to chat →", style: "pink" },
+      ],
     });
     this.dispatchEvent(new CustomEvent("sim-error", { detail: { message: String(err), phase } }));
   }
@@ -686,7 +590,7 @@ sim_state.set_enow_sent_callback(_js_enow_sent)
         document.head.appendChild(s);
       });
     }
-    this._pyodide = await window.loadPyodide({ indexURL: PYODIDE_CDN });
+    this._pyodide = await loadPyodideNoJspi(window.loadPyodide, { indexURL: PYODIDE_CDN });
   }
 
   async _runPython(code) {
@@ -759,6 +663,7 @@ sim_state.set_enow_sent_callback(_js_enow_sent)
       this._applyCapabilities();
       this._setStatus("loaded", `loaded ${this._source ? "custom" : this.game}`);
       this._controls.setRestartEnabled(true);
+      this.dispatchEvent(new CustomEvent("sim-loaded", { detail: { capabilities: this._caps } }));
       if (this.autostart) {
         await this.start();
       }
@@ -775,9 +680,6 @@ sim_state.set_enow_sent_callback(_js_enow_sent)
   async start() {
     if (!this._ready) return;
     this._setStatus("running", "running");
-    this._consoleEl.textContent = "";
-    this._log = [];
-    this._controls.setLog(this._log, this.logLines);
     await this._runPython("await start()");
   }
 
@@ -804,4 +706,4 @@ sim_state.set_enow_sent_callback(_js_enow_sent)
 }
 
 customElements.define("wand-sim", WandSim);
-export { WandSim, OVERLAYS };
+export { WandSim, OVERLAYS, PYODIDE_CDN };

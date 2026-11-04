@@ -31,12 +31,29 @@ _TRANSFORM_LIBS = (
     "buzzer",
     "actions",
     "battery",
+    "espnow_manager",
+    # Lobby games (in import order: each imports the ones before it).
+    "pwire",
+    "splatpair",
+    "lobby_game",
 )
+
+# Transformed libs a game cannot run without: a failure raises instead of
+# being logged and skipped.
+_REQUIRED_LIBS = ("espnow_manager",)
+
+# Non-game modules shipped beside the games that a game imports by name
+# (color_quest.py: `from target import SCORE_MAC`). Constants only, so
+# loaded verbatim.
+_GAME_HELPERS = ("target",)
 
 # Libs with module-level calls / no sleeps — load verbatim (sync).
 _RAW_LIBS = (
     "hubtype",
     "game_tags",
+    # Lobby games. No sleeps; splat_api drives py/shims/splat_hub.py's links.
+    "pairing",
+    "splat_api",
 )
 
 _SHIM_MODULES = (
@@ -48,6 +65,7 @@ _SHIM_MODULES = (
     "espnow",
     "ubluetooth",
     "micropython",
+    "splat_hub",
 )
 
 _DEVICE_MODULES = (
@@ -56,13 +74,11 @@ _DEVICE_MODULES = (
     "opt3002",
     "pn532",
     "nfc_reader",
-    "espnow_manager",
 )
 
-# All named poses/gestures the motion controls can offer. Used verbatim as
-# the "show everything" fallback when a game has no _TEACHER_TABLE entry
-# (e.g. a freshly generated jumpin.py) — degrade to unfiltered rather than
-# guess at what the code needs.
+# All named poses/gestures the motion controls can offer. A game with no
+# _TEACHER_TABLE entry (e.g. a freshly generated jumpin.py) gets all of them
+# when its code reads the accelerometer, and none when it does not.
 _ALL_MOTION = [
     "tip_up", "tip_down", "left_up", "right_up", "face_up", "face_down",
     "jump", "shake", "flip",
@@ -71,8 +87,8 @@ _ALL_MOTION = [
 # Hand-written per-game copy: button *kind* and motion vocabulary aren't
 # reliably inferable from source (a busy-wait-until-release reads the same
 # as a tap; "hold" vs "tap" is a UX call, not a fact in the code). A game
-# name absent from this table gets the "show everything" default below
-# rather than an empty panel — see get_capabilities().
+# name absent from this table gets every motion control if it reads the
+# accelerometer and none if it does not — see get_capabilities().
 _TEACHER_TABLE = {
     "jump": {
         "button": "tap",
@@ -158,6 +174,7 @@ class Runtime:
         self._bootstrapped = False
         self._sources = {}  # optional in-memory file map: relpath -> text
         self._game_src = None  # last loaded game's source, for _game_reads_battery
+        self._display_source = None  # host-supplied display (_icon.py) code
         self._game_mod = None
         self._game_name = None
         self._task = None
@@ -165,6 +182,12 @@ class Runtime:
         self._old_stdout = None
         self._loop = None
         self.sim_state = None
+        self._local_splats = 1   # Splats paired to the simulated wand
+        self._game_splats = 1    # what a newly loaded game starts with (set_game_splats)
+        self._splats_key = None  # (source, _game_splats) _local_splats was last set from
+        self._pair_ctl = None    # splatpair.SplatPairing, kept across games
+        self.net = None          # the running lobby game's lobby_game.Net
+        self.lobby_end = None    # lobby_game.last_end when the lobby gave up
 
     # ── Bootstrap ───────────────────────────────────────────────────
 
@@ -211,6 +234,8 @@ class Runtime:
             self._load_raw_lib(name)
         for name in _TRANSFORM_LIBS:
             self._load_transformed_lib(name)
+        for name in _GAME_HELPERS:
+            self._load_game_helper(name)
 
         self._bootstrapped = True
         return self
@@ -293,6 +318,8 @@ class Runtime:
         try:
             code = transform_and_compile(src, filename=name + ".py")
         except Exception as e:
+            if name in _REQUIRED_LIBS:
+                raise
             # Optional libs shouldn't abort bootstrap.
             import sim_state
             sim_state.emit_log("skip lib %s: %s" % (name, e))
@@ -306,9 +333,22 @@ class Runtime:
             exec(code, mod.__dict__)
         except Exception as e:
             del sys.modules[name]
+            if name in _REQUIRED_LIBS:
+                raise
             import sim_state
             sim_state.emit_log("exec lib %s failed: %s" % (name, e))
             return None
+        return mod
+
+    def _load_game_helper(self, name):
+        fs_path = os.path.join(_VENDOR_GAMES, name + ".py")
+        src = self._read_text("vendor/games/%s.py" % name, fs_path)
+        if src is None:
+            raise FileNotFoundError("missing game helper module: vendor/games/%s.py" % name)
+        mod = types.ModuleType(name)
+        mod.__file__ = fs_path
+        sys.modules[name] = mod
+        exec(compile(src, fs_path, "exec"), mod.__dict__)
         return mod
 
     # ── Game loading ────────────────────────────────────────────────
@@ -344,8 +384,29 @@ class Runtime:
         exec(code, mod.__dict__)
         self._game_mod = mod
         self._game_name = name
+        self._display_source = None
         self._game_src = src
+        self._apply_game_splats(src)
         return mod
+
+    def set_game_splats(self, n):
+        """How many Splats the wand holds when the next game loads (0..2).
+        The host page sets it from the game's settings before pushing the
+        source; the game code does not carry it."""
+        n = int(n)
+        if n < 0 or n > 2:
+            raise ValueError("a wand holds 0..2 Splats, not %d" % n)
+        self._game_splats = n
+
+    def _apply_game_splats(self, src):
+        """A newly loaded game starts with set_game_splats()'s count.
+        Reloading the same source with the same setting (a restart) keeps
+        the count, so set_local_splats() holds until either changes."""
+        key = (src, self._game_splats)
+        if key == self._splats_key:
+            return
+        self._splats_key = key
+        self.set_local_splats(self._game_splats)
 
     def get_commands(self):
         if not self._game_mod:
@@ -379,18 +440,128 @@ class Runtime:
             return False
         return False
 
+    def _game_reads_accel(self):
+        """True when the game's code can reach the accelerometer.
+
+        Counts any identifier, attribute or import containing "accel" or
+        "lis2dw" (accel.read(), LIS2DW12(i2c), HUB_CONFIG["accel_int1_pin"]),
+        and any use
+        of play()'s fourth parameter whatever it is named, since main.py
+        passes the accelerometer there positionally. A play() taking *args
+        counts. Declaring the parameter without using it does not:
+        parameters are ast.arg, not ast.Name.
+        """
+        if not self._game_src:
+            return True
+        import ast
+        try:
+            tree = ast.parse(self._game_src)
+        except SyntaxError:
+            return True
+
+        def accel_word(name):
+            n = (name or "").lower()
+            return "accel" in n or "lis2dw" in n
+
+        param = None
+        for node in tree.body:
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == "play":
+                if node.args.vararg is not None:
+                    return True
+                if len(node.args.args) >= 4:
+                    param = node.args.args[3].arg
+        for sub in ast.walk(tree):
+            if isinstance(sub, ast.Name) and isinstance(sub.ctx, ast.Load):
+                if sub.id == param or accel_word(sub.id):
+                    return True
+            elif isinstance(sub, ast.Attribute) and accel_word(sub.attr):
+                return True
+            elif (isinstance(sub, ast.Subscript) and isinstance(sub.slice, ast.Constant)
+                  and isinstance(sub.slice.value, str) and accel_word(sub.slice.value)):
+                return True
+            elif isinstance(sub, (ast.Import, ast.ImportFrom)):
+                mods = [a.name for a in sub.names] + [getattr(sub, "module", None) or ""]
+                if any(accel_word(m) for m in mods):
+                    return True
+        return False
+
+    def set_display_source(self, src):
+        """The display half of the loaded game, when the host has one (a
+        generated game's _icon.py). None: only a vendored display file for
+        the game's name counts."""
+        self._display_source = src or None
+
+    def _has_display_file(self):
+        if self._display_source:
+            return True
+        if not self._game_name or self._game_name == "custom":
+            return False
+        rel = "vendor/display/games/%s.py" % self._game_name
+        return self._read_text(rel, os.path.join(_VENDOR, "display", "games",
+                                                 self._game_name + ".py")) is not None
+
+    def _game_sends_radio(self):
+        """True when the game source sends anything over ESP-NOW
+        (enow.broadcast(...), enow.send_to(...)): it plays with other wands,
+        displays or Splats rather than only listening for the Box."""
+        if not self._game_src:
+            return False
+        import ast
+        try:
+            tree = ast.parse(self._game_src)
+        except SyntaxError:
+            return False
+        for node in ast.walk(tree):
+            if (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+                    and node.func.attr in ("broadcast", "send_to")):
+                return True
+        return False
+
+    def _game_sends_dicts(self):
+        """True when the game source passes a dict literal to an ESP-NOW send
+        (enow.broadcast({...}), enow.send_to(mac, {...})) -- the messages a
+        display or another device reads."""
+        if not self._game_src:
+            return False
+        import ast
+        try:
+            tree = ast.parse(self._game_src)
+        except SyntaxError:
+            return False
+        for node in ast.walk(tree):
+            if (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+                    and node.func.attr in ("broadcast", "send_to")
+                    and any(isinstance(a, ast.Dict) for a in node.args)):
+                return True
+        return False
+
+    def _splat_fields(self):
+        mod = self._game_mod
+        smin = getattr(mod, "SPLATS_MIN", None)
+        smax = getattr(mod, "SPLATS_MAX", None)
+        return {
+            "lobby_game": smin is not None,
+            "local_splats": self._local_splats,
+            "splats_min": smin,
+            "splats_max": smax,
+            "uses_display": self._game_sends_dicts(),
+            "uses_radio": self._game_sends_radio(),
+            "has_display_file": self._has_display_file(),
+        }
+
     def get_capabilities(self):
         """Return what the loaded game actually uses, for filtering controls.
 
         nfcTags and battery are derived live from the loaded module; button
-        and motion come from _TEACHER_TABLE (see its comment for why), and
-        default to "show everything" when the game isn't in that table —
-        the important path, since a freshly generated jumpin.py never will
-        be.
+        and motion come from _TEACHER_TABLE (see its comment for why). A game
+        not in that table (every generated game) gets a tap button, and every
+        motion control only if its code reads the accelerometer.
         """
         if not self._game_mod:
             return {"button": "tap", "motion": list(_ALL_MOTION), "nfcTags": [], "battery": False,
-                    "buzzer": True}
+                    "buzzer": True, "lobby_game": False, "local_splats": self._local_splats, "splats_min": None,
+                    "splats_max": None, "uses_display": False, "uses_radio": False,
+                    "has_display_file": False}
 
         mod = self._game_mod
         import game_tags
@@ -412,12 +583,16 @@ class Runtime:
         battery = self._game_reads_battery()
 
         table = _TEACHER_TABLE.get(self._game_name, {})
+        motion = table.get("motion")
+        if motion is None:
+            motion = _ALL_MOTION if self._game_reads_accel() else []
         return {
             "button": table.get("button", "tap"),
-            "motion": list(table.get("motion", _ALL_MOTION)),
+            "motion": list(motion),
             "nfcTags": nfc_tags,
             "battery": battery,
             "buzzer": True,  # every wand game plays sound; not derived
+            **self._splat_fields(),
         }
 
     # ── Hardware + run ──────────────────────────────────────────────
@@ -461,8 +636,8 @@ class Runtime:
 
         leds = await self._maybe_await(Leds())
         buz = await self._maybe_await(Buzzer(19))
-        enow = ESPNowManager()
-        enow.init()
+        enow = await self._maybe_await(ESPNowManager())
+        await self._maybe_await(enow.init())
 
         return {
             "nfc": nfc,
@@ -493,14 +668,113 @@ class Runtime:
             sys.stdout = self._old_stdout
             self._old_stdout = None
 
+    # ── Lobby games (main.py _run_games / _enter_lobby) ─────────────
+
+    def set_local_splats(self, n):
+        """Splats paired to the simulated wand (0..pairing.MAX_SPLATS). Takes
+        effect at the next start, as a new pairing does after a reset."""
+        n = int(n)
+        if n < 0 or n > 2:
+            raise ValueError("a wand holds 0..2 Splats, not %d" % n)
+        if n != self._local_splats:
+            self._local_splats = n
+            self._pair_ctl = None
+
+    def _splat_limits(self):
+        """main.py _splat_limits: (SPLATS_MIN, SPLATS_MAX) for a lobby game,
+        else None. ValueError for an invalid declaration."""
+        mod = self._game_mod
+        lo = getattr(mod, "SPLATS_MIN", None)
+        if lo is None:
+            return None
+        hi = getattr(mod, "SPLATS_MAX", None)
+        if (not isinstance(lo, int) or isinstance(lo, bool) or lo < 1
+                or (hi is not None and (not isinstance(hi, int) or isinstance(hi, bool) or hi < lo))):
+            raise ValueError("%s: SPLATS_MIN=%r SPLATS_MAX=%r (need int >= 1, and None or >= SPLATS_MIN)"
+                             % (self._game_name, lo, hi))
+        return lo, hi
+
+    def local_splat_macs(self):
+        """The simulated wand's Splat MACs: 5A:00:<wand's last two bytes>:00:<i>."""
+        own = self.sim_state.mac_to_str(self.sim_state.own_mac).upper()
+        return ["5A:00:%s:00:%02X" % (own[-5:], i) for i in range(self._local_splats)]
+
+    async def _pairing(self, hw):
+        """main.py _boot_pairing: a SplatPairing over the simulated Splats,
+        built once (a boot) and kept across games. None with no Splats."""
+        macs = self.local_splat_macs()
+        if not macs:
+            self._pair_ctl = None
+            return None
+        ctl = self._pair_ctl
+        if ctl is None or ctl.macs != macs:
+            import splatpair
+            from espnow_manager import get_own_mac
+            ctl = await splatpair.SplatPairing(list(macs), hw["enow"], hw["leds"], hw["buz"],
+                                               await get_own_mac())
+            await ctl.poll()            # the boot connect: flash, tone, glow
+            self._pair_ctl = ctl
+        else:
+            ctl.enow, ctl.leds, ctl.buz = hw["enow"], hw["leds"], hw["buz"]
+        return ctl
+
+    async def _enter_lobby(self, limits, hw, ctl):
+        """main.py _enter_lobby: the lobby. A lobby_game.Net in its game phase, or
+        None (cancelled, left or lost) after the same feedback."""
+        import lobby_game
+        import sim_state
+        from espnow_manager import get_own_mac
+        from leds import SHAPE_X, RED
+        leds, buz = hw["leds"], hw["buz"]
+        net = await lobby_game.enter(hw["enow"], self._game_name, limits[0], limits[1], ctl,
+                                await get_own_mac(), hw["nfc"], leds, buz,
+                                lambda: sim_state.button_pressed)
+        self.lobby_end = None if net is not None else lobby_game.last_end
+        if net is None:
+            print("  lobby_game: lobby ended (%s)" % lobby_game.last_end)
+            if lobby_game.last_end in ("left", "external"):
+                await self._maybe_await(buz.stop())
+            else:
+                await self._maybe_await(leds.show_shape(SHAPE_X, RED))
+                await self._maybe_await(buz.reject())
+                import time
+                await time.sleep_ms(500)
+            await self._maybe_await(leds.off())
+        return net
+
+    async def _run_lobby(self, play, hw, limits):
+        ctl = await self._pairing(hw)
+        try:
+            net = await self._enter_lobby(limits, hw, ctl)
+            if net is None:
+                return
+            self.net = net
+            try:
+                # main.py _start_play: the arity picks how many of these the game takes.
+                args = (hw["nfc"], hw["leds"], hw["buz"], hw["accel"], hw["i2c"], hw["enow"],
+                        hw["batt"], net)
+                n = play.__code__.co_argcount
+                await self._maybe_await(play(*args[:n]))
+            finally:
+                await net.close()
+        finally:
+            if ctl is not None:
+                await ctl.after_game()
+
     async def _run_play(self):
         from transform import reset_watchdog
         reset_watchdog()
         hw = await self._build_hw()
         self._hw = hw
+        self.net = None
+        self.lobby_end = None
         play = getattr(self._game_mod, "play", None)
         if play is None:
             raise RuntimeError("game module has no play()")
+        limits = self._splat_limits()
+        if limits is not None:
+            await self._run_lobby(play, hw, limits)
+            return
         args = (hw["nfc"], hw["leds"], hw["buz"], hw["accel"], hw["i2c"], hw["enow"])
         try:
             result = play(*args, batt=hw["batt"])
@@ -521,6 +795,7 @@ class Runtime:
         async def _runner():
             try:
                 await self._run_play()
+                self.sim_state.emit_end()
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -557,6 +832,11 @@ class Runtime:
                 pass
         self._task = None
         self._restore_stdout()
+        # A game that doesn't turn its LEDs off on exit leaves its last frame
+        # showing; the next game starts dark, as it does after a reboot.
+        st = self.sim_state
+        if st is not None and st.led_frame and any(any(p) for p in st.led_frame):
+            st.emit_led_frame([(0, 0, 0)] * len(st.led_frame))
 
     def is_running(self):
         return self._task is not None and not self._task.done()
@@ -601,3 +881,15 @@ def get_commands():
 
 def get_capabilities():
     return get_runtime().get_capabilities()
+
+
+def set_local_splats(n):
+    get_runtime().set_local_splats(n)
+
+
+def set_game_splats(n):
+    get_runtime().set_game_splats(n)
+
+
+def set_display_source(src):
+    get_runtime().set_display_source(src)

@@ -151,7 +151,6 @@ export function findExample(id) {
 export async function loadExampleCode(ex) {
     const name = ex && ex.vendorGame;
     if (!name) throw new Error(`example "${ex && ex.id}" has no vendorGame`);
-    // Sibling of ChatBroadcast under Live_Page/ (GitHub Pages root).
     const url = new URL(`../../Simulator/vendor/games/${name}.py`, import.meta.url);
     // Same reason as wand-sim.js's fetchText: a static server sends no
     // Cache-Control, and a stale game file here would silently show the

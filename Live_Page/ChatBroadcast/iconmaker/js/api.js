@@ -26,9 +26,9 @@
 
 import { state, setState, onStateChange } from "./state/store.js";
 import { doc } from "./state/doc.js";
-import { FIXTURES } from "./fixtures.js";
 import { listProfiles } from "./pipeline/profiles.js";
 import { isValidIconName } from "../../js/ledicons/iconLibrary.js";
+import { DEFAULT_ICONS } from "../../js/ledicons/defaultIcons.js";
 import { flatToPixels, library, setLibraryBackend } from "./libraryBridge.js";
 
 /** The API version. Bump the major when a verb changes shape or disappears. */
@@ -139,8 +139,10 @@ export function createIconMakerApi(app, { embedded = false } = {}) {
 
         // ── getting a picture in ─────────────────────────────────────────
         source: {
-            /** Sample images this build ships. */
-            listSamples: () => FIXTURES.slice(),
+            /** The saved device icons (defaultIcons.js, from IconDisplay/icons/).
+             *  Source photos are never reconverted here: they predate the
+             *  current designs and the measured white. */
+            listSamples: () => Object.keys(DEFAULT_ICONS).sort(),
             loadSample: (name) => app.loadFixture(name),
             /**
              * Import a File/Blob. Skipped by the postMessage bridge — pass the

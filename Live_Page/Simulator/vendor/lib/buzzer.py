@@ -1,5 +1,3 @@
-# Hand-mirrored from Bag3/BroadcastBox/MockWand/lib/buzzer.py, not synced
-# from Bag2/Code/lib/buzzer.py.
 """
 Buzzer Helpers — PWM piezo sound control
 ==========================================

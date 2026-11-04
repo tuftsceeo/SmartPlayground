@@ -23,6 +23,26 @@ function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
+/** Release a port's locks and close it, ignoring errors (it may already be gone). */
+async function closeQuietly(port, reader, writer) {
+  try { await reader?.cancel(); } catch { /* gone */ }
+  try { reader?.releaseLock(); } catch { /* released */ }
+  try { writer?.releaseLock(); } catch { /* released */ }
+  try { await port?.close(); } catch { /* closed */ }
+}
+
+/** open(), closing first if this page still holds the port open from an earlier session. */
+async function openPort(port, baudRate) {
+  try {
+    await port.open({ baudRate });
+  } catch (e) {
+    if (e.name !== "InvalidStateError") throw e;
+    logWarn("port already open from an earlier session -- closing and reopening");
+    await closeQuietly(port, null, null);
+    await port.open({ baudRate });
+  }
+}
+
 export class SerialAdapter {
   constructor() {
     this.port = null;
@@ -34,6 +54,7 @@ export class SerialAdapter {
     this.onClose = null; // optional: (reason:string) => void, fired once when the read loop dies
     this.readLoopActive = false;
     this._readLoopPromise = null;
+    this._staleClose = null;
     this._rxBytes = 0;
     this._txBytes = 0;
     this._closeFired = false;
@@ -94,7 +115,8 @@ export class SerialAdapter {
     logInfo("port selected", describePort(port));
 
     const baudRate = opts.baudRate ?? 115200;
-    await port.open({ baudRate });
+    await this._staleClose;
+    await openPort(port, baudRate);
     logInfo(`port.open({ baudRate: ${baudRate} }) OK`, {
       readable: !!port.readable,
       writable: !!port.writable,
@@ -145,7 +167,8 @@ export class SerialAdapter {
     }
     try {
       const baudRate = opts.baudRate ?? 115200;
-      await match.open({ baudRate });
+      await this._staleClose;
+      await openPort(match, baudRate);
     } catch (e) {
       logWarn(`reopenLastPort: open() failed: ${e.message}`);
       return false;
@@ -297,6 +320,9 @@ export class SerialAdapter {
     if (this._closeFired) return;
     this._closeFired = true;
     this.readLoopActive = false;
+    // Release and close the dead port too: a port left open with its locks held
+    // makes every later open() of it fail, so the device could never re-pair.
+    this._staleClose = closeQuietly(this.port, this.reader, this.writer);
     this.port = null;
     this.reader = null;
     this.writer = null;

@@ -1,25 +1,40 @@
 import { loadEncryptedKey, initAuthModal, getApiKey, hasEncryptedKey } from './auth.js';
 import {
     addMsg, addThinkingMsg, removeTyping, extractCodeBlocks,
-    parseNfcCards, stripNfcMarker, stripDeviceMarkers,
-    parseGameName, stripGameNameMarker,
-    trimForHistory, loadKnowledgeBase, getKnowledgeText, getKnowledgeFileCount,
+    parseNfcCards, parseGameName, parseChoices, parseGameSettings, stripAllMarkers,
+    parseGameBrief, stripGameBrief,
+    trimForHistory, loadKnowledgeBase, getKnowledgeFiles, getKnowledgeFileCount,
 } from './chat.js';
+import {
+    knowledgeText, buildSystemBlocks, buildRequestBody, requestHeaders, ADVANCED_KNOWLEDGE,
+    buildInterviewSystemBlocks, interviewMessages, INTERVIEW_KNOWLEDGE,
+    INTERVIEW_MAX_QUESTIONS, INTERVIEW_FIRST_QUESTION,
+} from './prompt/buildRequest.js';
+import { readMessageStream } from './prompt/stream.js';
+import { renderMarkdown, buildCodeBlock } from './markdown.js';
+import { drawStarterIdeas, GUIDED_STEPS, guidedPrompt } from './starterIdeas.js';
 import {
     initEditor, getCode, setCode, saveVersion, updateVersionUI,
     onPrevVersion, onNextVersion, getVersionCount, onDownload, resetEditor,
     setActiveRole, getActiveRole, rolesWithCode, clearAllRoles,
 } from './editor.js';
-import { uploadPayload, validateGameCode } from './upload.js';
-import { updateTagChecklist } from './nfc.js';
+import { uploadPayload, validateGameCode, validateGameSignature, codeBytes, MAX_WAND_GAME_BYTES } from './upload.js';
+import { ROLES as ROLE_TABLE, roleInfo, DEFAULT_ROLE } from './roles.js';
+import { listSplatActions } from './splat/splatActionCheck.js';
+import { updateTagChecklist, setCardWriter, cardWriteEnded } from './nfc.js';
 import { EXAMPLES, CATEGORIES, findExample, loadExampleCode } from './examples.js';
 import { showView, showOverlay, hideOverlay, setConnectionBadge, toast, setSendProgress, showConnectToast, syncNavTabs } from './router.js';
 import { createDeviceLink, deviceShortName, deviceProductName } from './device/bboxDeviceLink.js';
+import { SerialAdapter } from './device/serialAdapter.js';
+import { NfcStationLink } from './device/nfcStationLink.js';
+import { formatPullEvent } from './device/pullEvent.js';
+import { DistributeOverlay } from './distribute.js';
 import { createWandDeviceLink } from './device/wandDeviceLink.js';
 import { subscribe, getEntries, toText } from './device/serialLog.js';
 import { setWorkspaceHandler } from './markdown.js';
 import { dbg, dbgWarn, dbgError } from './debug.js';
-import { loadUiMode, toggleUiMode } from './uiMode.js';
+import { loadUiMode, toggleUiMode, getUiMode } from './uiMode.js';
+import { loadDevMode, toggleDevMode } from './devMode.js';
 import { loadSavedGames, saveGame, findSavedGame, renameSavedGame, deleteSavedGame } from './library.js';
 import { scanCapabilities } from './sim/codeCapabilities.js';
 import { buildComponentChecklist } from './checklist.js';
@@ -35,12 +50,16 @@ import {
     getIcon, saveIcon, revertIcon, isCustom,
     setGameIcons, getGameIcons, onIconsChange,
 } from './ledicons/iconLibrary.js';
-import { mountIconPanel, startingIcon } from './ledicons/iconPanel.js';
+import { gameIconEntries, startingIcon, drawIcon } from './ledicons/iconView.js';
 
 const SILENCE_LIMIT_MS = 15000;
-const SILENCE_SERVE_MS = 45000;
+const SIM_IDLE_PAUSE_MS = 60000;
+const SIM_KNOWLEDGE = 'knowledge/simulator.md';
+const SIM_LOG_FOR_CHAT = 40;
+const SILENCE_GAME_MS = 45000;
 const REBOOT_LIMIT_MS = 20000;
 const WATCHDOG_TICK_MS = 2000;
+const PANEL_PING_MS = 5000;
 /* Auto-reconnect (tryAutoReconnect()) is a convenience for the ordinary
    post-send reboot, not a guarantee -- cap it so a device that genuinely
    isn't coming back (or one that keeps bouncing its USB) doesn't turn into
@@ -67,45 +86,67 @@ const WAITING_LIMIT_WAND_MS = 25000;
    within 5s regardless. */
 const IDENTIFY_NUDGE_MS = 2500;
 
-const SYSTEM_PROMPT_BASE = `You are an AI assistant helping teachers write MicroPython games for the PlaygroundV5 wand.
-
-RULES:
-- All board details, APIs, and hardware specs are in the KNOWLEDGE BASE below. Reference it.
-- A wand game MUST use def play(nfc, leds, buz, accel, i2c, enow, batt=None)
-- An icon display game MUST use def play(nfc, panel, enow)
-- Put all code inside a fenced code block: \`\`\`python ... \`\`\`
-- Precede EVERY code block with a device marker on its own line: [DEVICE: wand] or [DEVICE: icon]
-- A game that uses both devices is TWO files, one per device, each in its own marked block. They are separate programs that happen to play the same game — never one file with a mode switch.
-- Do NOT use f-strings — they crash on this MicroPython build. Use % formatting only.
-- Keep explanations concise — the code block is auto-extracted to the editor
-- If the user sends serial output (prefixed with [HW]:), help debug it
-- Always include try/finally cleanup and periodic NFC stop-tag polling
-- Default to simple, working examples over complex ones
-- If the game reads NFC tags at all, include exactly one line formatted as [NFC_CARDS: "value1", "value2"] listing every tag value the game reads. Omit the line only when the game never touches a tag.
-- After the code block, include exactly one line naming the game: [GAME_NAME: Short Pretty Name]`;
-
-/**
- * Starter chips shown above the first chat message. Deliberately simpler
- * and shorter than the gallery EXAMPLES (melody, freeze dance, etc.) --
- * a teacher who wants those already knows to open the Examples page. These
- * exist to get a first-time, novice user typing at all: one or two of the
- * smallest possible game asks, plus a couple of plain questions about what
- * the wand can even do, since "what are my options" is often the real
- * first question, not a game idea yet.
- */
-const CHAT_STARTER_PROMPTS = [
-    { icon: 'palette', text: 'Flash the lights blue five times when the button is pressed' },
-    { icon: 'shakePhone', text: 'Play notes based on the orientation of the wand' },
-    { icon: 'message-circle', text: 'Tell me what sorts of outputs are available' },
-    { icon: 'grid-3x3', text: 'What can I show on the LED screen?' },
-    { icon: 'message-circle', text: 'Tell me what sorts of sensors and inputs are available' },
-];
+/** Minimum interval between redraws of a streaming chat reply. */
+const STREAM_RENDER_MS = 80;
 
 /** Same placeholder-and-play() check the editor's code drawer uses to
  * decide there's real code worth doing anything with. */
 function isRunnableCode(code) {
     const trimmed = (code || '').trim();
     return !!trimmed && !trimmed.startsWith('# AI-generated') && /def\s+play\s*\(/.test(trimmed);
+}
+
+/**
+ * The game's primary file: the first role (ROLE_TABLE order, wand first)
+ * with runnable code. A display-only game's primary role is `icon`.
+ * @returns {{role: string, info: object, code: string}|null}
+ */
+function primaryRoleCode() {
+    for (const info of ROLE_TABLE) {
+        const code = getCode(info.key);
+        if (isRunnableCode(code)) return { role: info.key, info, code };
+    }
+    return null;
+}
+
+
+/** Leading words of the user turn remixCurrentExample() sends. */
+const REMIX_PREFIX = 'I would like to remix';
+
+/**
+ * Make a non-button element reachable by Tab and activated by Enter/Space,
+ * which dispatch the element's own click handler. Keys pressed inside a
+ * nested control (rename input, card buttons) are left to that control.
+ * @param {HTMLElement} el
+ */
+function makeActivatable(el) {
+    el.tabIndex = 0;
+    el.setAttribute('role', 'button');
+    el.addEventListener('keydown', (e) => {
+        if (e.target !== el || (e.key !== 'Enter' && e.key !== ' ')) return;
+        e.preventDefault();
+        el.click();
+    });
+}
+
+/**
+ * Up to three small icons for a saved game's card: one wand or several,
+ * Splats when the game uses them, an icon display when it has display code.
+ * @param {object} g saved-game entry from library.js
+ */
+function savedGameIcons(g) {
+    const code = g.code || '';
+    const settings = g.simSettings || {};
+    const lobby = /SPLATS_MIN|lobby_game|lobbyGame/.test(code);
+    const multi = lobby || (settings.wands || 1) > 1;
+    const splats = /SPLATS_MIN/.test(code) || (lobby && settings.wand_splats > 0);
+    const display = Boolean(g.roleCode?.icon || g.iconCode);
+    const opts = { size: 18, strokeWidth: 1.5 };
+    return [
+        `<span title="${multi ? 'Several wands' : 'One wand'}">${iconSvg(multi ? 'wands' : 'wand', opts)}</span>`,
+        splats ? `<span title="Splats">${iconSvg('splat', opts)}</span>` : '',
+        display ? `<span title="Icon display">${iconSvg('iconDisplay', opts)}</span>` : '',
+    ].join('');
 }
 
 class App {
@@ -115,16 +156,19 @@ class App {
         // overlay, and re-runs setupDeviceListeners() -- see onConnect().
         this.device = createDeviceLink();
         this.chatHistory = [];
+        // Interview mode state, or null: {turns, asked} (startInterview).
+        this.interview = null;
         this.isGenerating = false;
         this.currentExample = null;
         this.gameName = 'Your game';
         this.gameDesc = '';
         this.declaredTags = null;   // tags the game itself declares ([NFC_CARDS:] / example)
+        this.simSettings = null;    // [GAME_SETTINGS:] for the practice window, or null
         this.hardware = buildHardwareReqs({});
         this.tagWrites = {};        // live {tagLabel: count} from card_written events
         this.galleryFilter = 'all';
         this.galleryMode = 'examples'; // 'examples' | 'saved'
-        this.serialOpen = false; // serial log drawer — NOT the port
+        this.serialOpen = false; // log footer drawer — NOT the port
         this.dirty = false;
         this.pendingSendAfterConnect = false;
         this._sim = null;
@@ -132,6 +176,8 @@ class App {
         this._detailSim = null;
         this._detailSimToken = 0;
         this._simLastSource = null;
+        this._simLastDisplay = null;
+        this._simLastSettings = null;
         this._simPendingSource = null;
         this._simForcePlayPending = false;
         // One store for connection UI — badge and button share this.
@@ -200,19 +246,32 @@ class App {
         document.addEventListener('uimode:change', (e) => {
             this.applyUiMode(e.detail.mode);
         });
+        document.addEventListener('devmode:change', () => this.applyLogFooter());
 
-        // An edited icon is unsaved work like any other, and the display
-        // preview is drawing the old picture until it repaints.
+        // An edited icon is unsaved work like any other.
+        //
+        // EVENT `game-icons-changed` on document, detail {icons}: the open
+        // game's own icons ({name: duty[768]}, getGameIcons()) after any
+        // change to them -- an Icons view save or revert, or a game being
+        // opened or cleared. Built-in icons are not in detail.icons; read
+        // them through listIcons()/getIcon(). The Simulator's display panel
+        // listens for it to reload the game's icons.
         onIconsChange(() => {
             this.dirty = true;
+            document.dispatchEvent(new CustomEvent('game-icons-changed', {
+                detail: { icons: getGameIcons() },
+            }));
             this.updatePreview();
         });
 
-        const knowledge = await loadKnowledgeBase();
-        if (knowledge) {
+        // No knowledge, no chat: callClaude() refuses while this is set.
+        this.knowledgeError = null;
+        try {
+            await loadKnowledgeBase();
             dbg('app', `knowledge base loaded (${getKnowledgeFileCount()} file(s))`);
-        } else {
-            dbgWarn('app', 'knowledge base did not load — chat will run without project context');
+        } catch (e) {
+            this.knowledgeError = e.message;
+            dbgError('app', e.message);
         }
 
         window.onUploadProgress = (p) => {
@@ -222,6 +281,14 @@ class App {
         };
 
         setWorkspaceHandler((code) => {
+            const drawer = document.getElementById('code-drawer');
+            // A block that is already some device's code just shows it.
+            const role = rolesWithCode().find((r) => getCode(r).trim() === code.trim());
+            if (role) {
+                if (role !== getActiveRole()) this.selectRole(role);
+                drawer.classList.remove('hidden');
+                return;
+            }
             dbg('app', `workspace handler: code block sent to editor (${code.length} chars)`);
             setCode(code);
             saveVersion(code, 'From chat (sent manually)');
@@ -235,26 +302,32 @@ class App {
         dbg('app', 'init() complete');
     }
 
-    getSystemPrompt() {
-        const knowledge = getKnowledgeText();
-        // The icon library is per-teacher and changes as they edit it, so the
-        // names live here rather than in the knowledge file. A display game
-        // that asks for a name outside this list is refused at send time,
-        // which is a worse way to find out.
-        const icons = `\n\nICONS CURRENTLY AVAILABLE ON THE ICON DISPLAY:\n` +
-            listIcons().join(', ') +
-            `\nRefer to icons by these names only. If a game needs a picture that is ` +
-            `not in this list, say so and suggest the closest one rather than ` +
-            `inventing a name.`;
-        return knowledge
-            ? SYSTEM_PROMPT_BASE + icons + '\n\nPROJECT KNOWLEDGE BASE:\n' + knowledge
-            : SYSTEM_PROMPT_BASE + icons;
+    /**
+     * System blocks for the next request (js/prompt/buildRequest.js):
+     * the cached knowledge base, the Advanced-mode addendum when that mode
+     * is on, then this turn's icon names and editor code.
+     */
+    getSystemBlocks() {
+        const files = getKnowledgeFiles();
+        // The editor's placeholder comment is not code; send it as empty.
+        const editorCode = Object.fromEntries(ROLE_TABLE.map((r) => {
+            const code = getCode(r.key);
+            return [r.key, code.trim().startsWith('# AI-generated') ? '' : code];
+        }));
+        return buildSystemBlocks({
+            knowledge: knowledgeText(files, listSplatActions()),
+            advanced: files[ADVANCED_KNOWLEDGE],
+            advancedMode: getUiMode() === 'advanced',
+            icons: listIcons(),
+            customIcons: Object.keys(getGameIcons()),
+            editorCode,
+            simNotes: this.simNotes,
+        });
     }
 
     /**
-     * Reflect the roles the current game has onto both device-tab groups —
-     * the one over the preview and the one in the code drawer. They are two
-     * views of the same editor role, so they always move together.
+     * Reflect the roles the current game has onto the code drawer's device
+     * tabs (wand and display).
      *
      * A tab is enabled once that role holds code, and marked active when it
      * is the one the editor is showing. The wand tab always stays enabled:
@@ -265,23 +338,22 @@ class App {
     syncRoleRail() {
         const have = new Set(rolesWithCode());
         const active = getActiveRole();
-        const hasDisplay = have.has('icon');
+        // The rail is worth showing once ANY non-wand role has code -- the
+        // wand tab is otherwise the only one ever enabled, so a single-role
+        // (wand-only) game keeps the rail hidden exactly as before.
+        const hasOther = [...have].some(r => r !== DEFAULT_ROLE);
 
         document.querySelectorAll('.device-tab').forEach((el) => {
             const role = el.dataset.role;
-            if (!role) return;
-            const enabled = role === 'wand' || have.has(role);
+            const info = role && roleInfo(role);
+            if (!info) return;
+            const enabled = role === DEFAULT_ROLE || have.has(role);
             el.classList.toggle('disabled', !enabled);
             el.classList.toggle('active', enabled && role === active);
             el.disabled = !enabled;
-            if (!enabled) el.title = 'No display code in this game yet';
-            else el.title = role === 'wand' ? 'Wands' : 'Icon display';
+            el.title = enabled ? info.label : `No ${info.label.toLowerCase()} code in this game yet`;
         });
-        document.getElementById('device-tabs')?.classList.toggle('hidden', !hasDisplay);
-        document.getElementById('code-device-tabs')?.classList.toggle('hidden', !hasDisplay);
-        // Editing icons only means something while the display is on screen.
-        document.getElementById('btn-icon-maker')
-            ?.classList.toggle('hidden', !(hasDisplay && active === 'icon'));
+        document.getElementById('code-device-tabs')?.classList.toggle('hidden', !hasOther);
     }
 
     closeMoreMenu() {
@@ -289,13 +361,15 @@ class App {
         document.getElementById('btn-more')?.setAttribute('aria-expanded', 'false');
     }
 
-    /** The Icon Maker, in a drawer instead of its own browser tab. Its src is
-     * set on first open so the iframe (Tailwind, Lucide, Cropper) is not
-     * downloaded by teachers who never edit an icon. */
-    openIconDrawer() {
-        const drawer = document.getElementById('icon-drawer');
-        const frame = document.getElementById('icon-drawer-frame');
-        if (!drawer || !frame) return;
+    /**
+     * The Icons view: shown in place of the preview stage. The Maker
+     * iframe's src is set on first open so it (Tailwind, Lucide, Cropper) is
+     * not downloaded by teachers who never edit an icon.
+     */
+    openIconsView() {
+        const view = document.getElementById('icons-view');
+        const frame = document.getElementById('icon-maker-frame');
+        if (!view || !frame) return;
         // ?embed=1 tells the Maker it is a panel inside this app rather than
         // its own page -- see iconmaker/js/api.js. Its capabilities are
         // reachable as frame.contentWindow.iconMaker.
@@ -307,14 +381,112 @@ class App {
             // changed since it was last used.
             this.wireIconMaker(frame);
         }
-        document.getElementById('code-drawer')?.classList.add('hidden');
-        drawer.classList.remove('hidden');
-        dbg('app', 'icon drawer opened');
+        view.classList.remove('hidden');
+        document.querySelector('.preview-stage')?.classList.add('hidden');
+        this.syncPreviewTabs(true);
+        this.renderIconsList();
+        dbg('app', 'icons view opened');
+    }
+
+    closeIconsView() {
+        const view = document.getElementById('icons-view');
+        if (!view || view.classList.contains('hidden')) return;
+        this.closeIconMenu();
+        view.classList.add('hidden');
+        document.querySelector('.preview-stage')?.classList.remove('hidden');
+        this.syncPreviewTabs(false);
+        dbg('app', 'icons view closed');
+    }
+
+    syncPreviewTabs(iconsOpen) {
+        for (const [id, on] of [['btn-sim-view', !iconsOpen], ['btn-icons-view', iconsOpen]]) {
+            const tab = document.getElementById(id);
+            tab?.classList.toggle('active', on);
+            tab?.setAttribute('aria-selected', String(on));
+        }
+    }
+
+    /** The Simulation/Icons toggle shows only while the simulator is
+     * running icon-display code beside the wand. */
+    syncPreviewToolbar() {
+        const show = !!this._simLastDisplay;
+        document.querySelector('.preview-toolbar')?.classList.toggle('hidden', !show);
+        if (!show) this.closeIconsView();
+    }
+
+    iconsViewOpen() {
+        return !document.getElementById('icons-view')?.classList.contains('hidden');
+    }
+
+    /**
+     * Fill the Icons view's list: every icon the wand and display code use
+     * plus this game's own, each marked built-in, custom or missing, with a
+     * thumbnail drawn as the panel shows it. Selecting one opens it in the
+     * Maker; a missing one opens as a new icon under that name.
+     */
+    renderIconsList() {
+        const list = document.getElementById('icons-list');
+        const note = document.getElementById('icons-list-note');
+        if (!list) return;
+        const entries = gameIconEntries([getCode('wand'), getCode('icon')]);
+        const openName = this.iconApi()?.getState().name;
+        list.innerHTML = '';
+        for (const { name, status } of entries) {
+            const li = document.createElement('li');
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = `icons-item ${status}` + (name === openName ? ' active' : '');
+            btn.dataset.name = name;
+            const canvas = document.createElement('canvas');
+            canvas.className = 'icons-thumb';
+            canvas.width = 48;
+            canvas.height = 48;
+            const label = document.createElement('span');
+            label.className = 'icons-name';
+            label.textContent = name;
+            const badge = document.createElement('span');
+            badge.className = `icons-badge ${status}`;
+            badge.textContent = status;
+            btn.append(canvas, label, badge);
+            btn.addEventListener('click', () => this.openIconInMaker(name, status));
+            li.appendChild(btn);
+            list.appendChild(li);
+            if (status !== 'missing') drawIcon(canvas, name, 0.3);
+        }
+        const missing = entries.filter((e) => e.status === 'missing').map((e) => e.name);
+        if (note) {
+            note.textContent = !entries.length
+                ? 'This game uses no icons yet.'
+                : missing.length
+                    ? `Missing icons stop the game being sent: ${missing.join(', ')}. Select one to draw it.`
+                    : '';
+        }
+        const editing = document.getElementById('icons-editing');
+        if (editing) editing.textContent = openName ? `Editing “${openName}”` : 'Select an icon';
+    }
+
+    /** Open one listed icon in the Maker. A missing name has no pixels to
+     * open, so the Maker's current picture is kept and renamed to it; Save
+     * then creates it. */
+    async openIconInMaker(name, status) {
+        const api = this.iconApi();
+        if (!api) {
+            toast('The icon editor is still loading.', true);
+            return;
+        }
+        try {
+            if (status === 'missing') api.doc.rename(name);
+            else await api.library.open(name);
+        } catch (e) {
+            toast(String(e?.message || e), true);
+            return;
+        }
+        this.renderIconsList();
     }
 
     /** The embedded editor's API, or null before the drawer has loaded. */
     iconApi() {
-        return document.getElementById('icon-drawer-frame')?.contentWindow?.iconMaker || null;
+        return document.getElementById('icon-maker-frame')?.contentWindow?.iconMaker || null;
     }
 
     /**
@@ -327,10 +499,6 @@ class App {
         const fail = (e) => toast(String(e?.message || e), true);
         const run = async (fn) => { try { await fn(); } catch (e) { fail(e); } };
 
-        document.getElementById('icon-pick')?.addEventListener('change', (e) => {
-            run(() => api()?.library.open(e.target.value));
-        });
-
         const fileInput = document.getElementById('icon-file-input');
         document.getElementById('btn-icon-import')?.addEventListener('click', () => fileInput?.click());
         fileInput?.addEventListener('change', (e) => {
@@ -342,7 +510,7 @@ class App {
         document.getElementById('btn-icon-undo')?.addEventListener('click', () => run(() => api()?.doc.undo()));
         document.getElementById('btn-icon-save')?.addEventListener('click', () => run(async () => {
             const saved = await api()?.library.save();
-            this.syncIconToolbar();
+            this.renderIconsList();
             toast(`Saved “${saved}” into this game`);
         }));
 
@@ -351,7 +519,6 @@ class App {
         moreBtn?.addEventListener('click', () => {
             const open = panel.classList.toggle('hidden') === false;
             moreBtn.setAttribute('aria-expanded', String(open));
-            if (!open) document.getElementById('icon-samples-list')?.classList.add('hidden');
         });
         document.addEventListener('click', (e) => {
             if (!e.target.closest('#icon-more-panel, #btn-icon-more')) this.closeIconMenu();
@@ -366,56 +533,51 @@ class App {
             this.closeIconMenu();
         }));
         document.getElementById('btn-icon-samples')?.addEventListener('click', () => {
-            const list = document.getElementById('icon-samples-list');
-            if (!list) return;
-            if (!list.dataset.filled) {
-                list.innerHTML = (api()?.source.listSamples() || [])
-                    .map((n) => `<button type="button" class="more-item" data-sample="${n}">${n}</button>`)
-                    .join('');
-                list.dataset.filled = '1';
-                list.querySelectorAll('[data-sample]').forEach((b) => {
-                    b.addEventListener('click', () => run(async () => {
-                        await api()?.source.loadSample(b.dataset.sample);
-                        this.closeIconMenu();
+            const grid = document.getElementById('icon-samples-grid');
+            if (!grid) return;
+            if (!grid.dataset.filled) {
+                for (const name of api()?.source.listSamples() || []) {
+                    const btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.className = 'samples-item';
+                    btn.title = name;
+                    const canvas = document.createElement('canvas');
+                    canvas.width = 64;
+                    canvas.height = 64;
+                    const label = document.createElement('span');
+                    label.textContent = name;
+                    btn.append(canvas, label);
+                    btn.addEventListener('click', () => run(async () => {
+                        await api()?.source.loadSample(name);
+                        hideOverlay('icon-samples-overlay');
                     }));
-                });
+                    // Only names with a saved icon: a stale Maker build can still
+                    // list photo-only samples, which would draw blank.
+                    if (drawIcon(canvas, name, 0.3).ok) grid.appendChild(btn);
+                }
+                grid.dataset.filled = '1';
             }
-            list.classList.toggle('hidden');
+            this.closeIconMenu();
+            showOverlay('icon-samples-overlay');
         });
+        document.getElementById('icon-samples-close-x')?.addEventListener('click', () => hideOverlay('icon-samples-overlay'));
     }
 
     closeIconMenu() {
         document.getElementById('icon-more-panel')?.classList.add('hidden');
-        document.getElementById('icon-samples-list')?.classList.add('hidden');
         document.getElementById('btn-icon-more')?.setAttribute('aria-expanded', 'false');
     }
 
-    /** Fill the picker with this game's icons and select the open one. */
-    syncIconToolbar() {
-        const pick = document.getElementById('icon-pick');
-        const api = this.iconApi();
-        if (!pick || !api) return;
-        const names = this.gameIconNames();
-        pick.innerHTML = names.map((n) => `<option value="${n}">${n}</option>`).join('');
-        const open = api.getState().name;
-        if (open && names.includes(open)) pick.value = open;
-        pick.disabled = names.length === 0;
-    }
-
     /**
-     * The icons in the open game: the ones its display code names, same set
-     * the preview picker shows, plus anything authored here that the code
-     * does not mention yet -- without that second half an icon would vanish
-     * from the list the moment it was saved.
-     *
-     * Note the two differ in consequence: only a NAMED icon is uploaded by
-     * the send flow. An authored-but-unnamed one is kept with the game and
-     * waits for the code to ask for it.
+     * The names the Maker's library lists: every icon the game uses (see
+     * gameIconEntries) that exists. Only an icon the display code names is
+     * uploaded by the send flow; one authored but not yet named is kept with
+     * the game until the code asks for it.
      */
     gameIconNames() {
-        const named = iconNamesIn(getCode('icon'));
-        const authored = Object.keys(getGameIcons());
-        return [...new Set([...named, ...authored])].sort();
+        return gameIconEntries([getCode('wand'), getCode('icon')])
+            .filter((e) => e.status !== 'missing')
+            .map((e) => e.name);
     }
 
     /**
@@ -428,7 +590,7 @@ class App {
     wireIconMaker(frame) {
         const api = frame.contentWindow?.iconMaker;
         if (!api) {
-            dbgWarn('app', 'icon drawer: iconMaker API not present — is iconmaker/js/api.js loaded?');
+            dbgWarn('app', 'icons view: iconMaker API not present — is iconmaker/js/api.js loaded?');
             return;
         }
         api.library.setBackend({
@@ -438,33 +600,35 @@ class App {
             revert: (name) => revertIcon(name),
             isCustom: (name) => isCustom(name),
         });
-        api.on('change', () => this.syncIconToolbar());
-        this.syncIconToolbar();
-        this.openPreviewedIcon(api);
-        dbg('app', 'icon drawer wired to the open game’s icon store');
+        if (!this._makerChangeHooked) {
+            api.on('change', () => this.renderIconsList());
+            this._makerChangeHooked = true;
+        }
+        this.renderIconsList();
+        this.openStartingIcon(api);
+        dbg('app', 'icon maker wired to the open game’s icon store');
     }
 
     /**
-     * Start the editor on the icon the display preview is showing, rather
-     * than on the Maker's own apple sample.
+     * Start the editor on the display game's starting icon, rather than on
+     * the Maker's own apple sample.
      *
      * The Maker boots by loading that sample asynchronously, so opening
      * immediately would be overwritten when the sample lands. Waiting for the
      * first state with an icon in it is the reliable point to take over.
      */
-    openPreviewedIcon(api) {
-        const wanted = document.querySelector('.icon-sim-pick')?.value
-            || startingIcon(getCode('icon'))
+    openStartingIcon(api) {
+        const wanted = startingIcon(getCode('icon'))
             || this.gameIconNames()[0];
         if (!wanted) return;
 
         const open = () => {
             try {
                 api.library.open(wanted);
-                this.syncIconToolbar();
-                dbg('app', `icon drawer opened on "${wanted}" (the previewed icon)`);
+                this.renderIconsList();
+                dbg('app', `icon maker opened on "${wanted}" (the starting icon)`);
             } catch (e) {
-                dbgWarn('app', `icon drawer: could not open "${wanted}" — ${e.message}`);
+                dbgWarn('app', `icon maker: could not open "${wanted}" — ${e.message}`);
             }
         };
 
@@ -474,17 +638,6 @@ class App {
             off();
             open();
         });
-    }
-
-    /** Closing is when this window picks up whatever the Maker saved: the two
-     * share only localStorage, with no change notification either way. */
-    closeIconDrawer() {
-        const drawer = document.getElementById('icon-drawer');
-        if (!drawer || drawer.classList.contains('hidden')) return;
-        this.closeIconMenu();
-        drawer.classList.add('hidden');
-        this.updatePreview();
-        dbg('app', 'icon drawer closed — saved into the game and preview refreshed');
     }
 
     /** Rename in place from the title bar. The name still gets its real
@@ -538,7 +691,7 @@ class App {
 
     /** Show a role's file in the editor, if that role has one. */
     selectRole(role) {
-        if (role !== 'wand' && !rolesWithCode().includes(role)) return;
+        if (role !== DEFAULT_ROLE && !rolesWithCode().includes(role)) return;
         setActiveRole(role);
         this.syncRoleRail();
         this.updatePreview();
@@ -547,23 +700,11 @@ class App {
 
     applyUiMode(mode) {
         const advanced = mode === 'advanced';
-        const panel = document.getElementById('serial-log-panel');
         const gear = document.getElementById('btn-mode-gear');
 
         document.body.classList.toggle('ui-advanced', advanced);
 
-        if (panel) {
-            if (advanced) {
-                panel.classList.remove('hidden');
-                if (!this.serialOpen) panel.classList.remove('open');
-                this.reserveSerialPadding();
-            } else {
-                panel.classList.add('hidden');
-                panel.classList.remove('open');
-                this.serialOpen = false;
-                document.body.style.paddingBottom = '';
-            }
-        }
+        this.applyLogFooter();
         this.syncRoleRail();
         if (gear) {
             gear.title = advanced ? 'Switch to simple mode' : 'Switch to advanced mode';
@@ -575,6 +716,28 @@ class App {
         document.getElementById('wand-sim')?.toggleAttribute('advanced', advanced);
         this._detailSim?.toggleAttribute('advanced', advanced);
         dbg('app', `UI mode: ${mode}`);
+    }
+
+    /** The log footer shows only with advanced mode and Developer mode both on. */
+    applyLogFooter() {
+        const panel = document.getElementById('serial-log-panel');
+        const dev = document.getElementById('btn-dev-mode');
+        const on = loadDevMode();
+        if (dev) {
+            dev.classList.toggle('active', on);
+            dev.setAttribute('aria-pressed', String(on));
+        }
+        if (!panel) return;
+        if (getUiMode() === 'advanced' && on) {
+            panel.classList.remove('hidden');
+            if (!this.serialOpen) panel.classList.remove('open');
+            this.reserveSerialPadding();
+        } else {
+            panel.classList.add('hidden');
+            panel.classList.remove('open');
+            this.serialOpen = false;
+            document.body.style.paddingBottom = '';
+        }
     }
 
     reserveSerialPadding() {
@@ -592,30 +755,55 @@ class App {
         const panel = document.getElementById('serial-log-panel');
         const pre = document.getElementById('serial-log-text');
         const preview = document.getElementById('serial-log-preview');
-        // Start hidden — simple mode default; advanced reveals via applyUiMode
+        // Start hidden; applyLogFooter reveals it
         panel.classList.add('hidden');
+        panel.dataset.log = 'serial';
+        // Simulator and radio lines live here, not in the serial log store,
+        // so Copy still copies only the device log.
+        this._logLines = { serial: [], sim: [], radio: [] };
+        const showPreview = () => {
+            const lines = this._logLines[panel.dataset.log];
+            if (preview) preview.textContent = lines[lines.length - 1] || '';
+        };
+        this.appendLog = (section, text) => {
+            const lines = this._logLines[section];
+            lines.push(text);
+            if (lines.length > 200) lines.splice(0, lines.length - 200);
+            const out = document.getElementById(`${section}-log-text`);
+            out.textContent = lines.join('\n');
+            out.scrollTop = out.scrollHeight;
+            if (panel.dataset.log === section) showPreview();
+        };
 
         subscribe((entry) => {
-            if (entry === null) {
-                pre.textContent = '';
-                if (preview) preview.textContent = '';
-                return;
-            }
-            const lines = getEntries().slice(-80).map((e) => {
+            const lines = entry === null ? [] : getEntries().slice(-80).map((e) => {
                 const tag = e.dir.toUpperCase().padEnd(5);
                 return `${tag} ${e.text}`;
             });
+            this._logLines.serial = lines;
             pre.textContent = lines.join('\n');
             pre.scrollTop = pre.scrollHeight;
-            if (preview && lines.length) {
-                preview.textContent = lines[lines.length - 1];
-            }
+            if (panel.dataset.log === 'serial') showPreview();
         });
 
-        document.getElementById('btn-serial-toggle').addEventListener('click', () => {
-            this.serialOpen = !this.serialOpen;
-            panel.classList.toggle('open', this.serialOpen);
-            this.reserveSerialPadding();
+        // A section tab opens the drawer on that section; the open one's tab
+        // collapses it.
+        panel.querySelectorAll('.log-tab').forEach((tab) => {
+            tab.addEventListener('click', () => {
+                const section = tab.dataset.log;
+                this.serialOpen = !(this.serialOpen && panel.dataset.log === section);
+                panel.dataset.log = section;
+                panel.querySelectorAll('.log-tab').forEach((t) => {
+                    t.classList.toggle('active', t === tab);
+                    t.setAttribute('aria-selected', String(t === tab));
+                });
+                panel.querySelectorAll('.log-pane').forEach((p) => {
+                    p.classList.toggle('active', p.dataset.log === section);
+                });
+                panel.classList.toggle('open', this.serialOpen);
+                showPreview();
+                this.reserveSerialPadding();
+            });
         });
         initSerialSplit({
             onResize: () => this.reserveSerialPadding(),
@@ -670,10 +858,7 @@ class App {
                 active,
                 activeName: pretty || active,
                 games: obj.games,
-                ssid: obj.ssid,
             };
-            // Prefer mode==SERVE for silence threshold once mode events exist.
-            this._silenceLimitMs = obj.mode === 'SERVE' ? SILENCE_SERVE_MS : SILENCE_LIMIT_MS;
             if (this.link.state === 'waiting' || this.link.state === 'rebooting'
                 || this.link.state === 'no-answer' || this.link.state === 'sending') {
                 this.setLinkState('live');
@@ -681,13 +866,11 @@ class App {
                 this.paintLink();
             }
         });
-        this.device.on('armed', (obj) => {
-            dbg('device', 'event: armed', obj);
+        this.device.on('pull', (obj) => {
+            dbg('device', 'event: pull', obj);
             this._noteMessage(obj);
-            // Fallback until mode events are trusted: raise silence while serving.
-            if (this.link.boxMode !== 'SERVE') {
-                this._silenceLimitMs = SILENCE_SERVE_MS;
-            }
+            const name = (this._boxGames || []).find((g) => g.slug === obj?.slug)?.name;
+            dbg('device', formatPullEvent(obj, name).msg);
         });
         this.device.on('card_present', (obj) => dbg('device', 'event: card_present', obj));
         this.device.on('card_written', (obj) => {
@@ -695,20 +878,24 @@ class App {
             const label = obj?.label || obj?.tag || obj?.card;
             if (!label) return;
             this.tagWrites[label] = (this.tagWrites[label] || 0) + 1;
+            cardWriteEnded();
             updateTagChecklist(this.tagWrites);
+        });
+        this.device.on('write_failed', (obj) => {
+            dbg('device', 'event: write_failed', obj);
+            cardWriteEnded();
         });
         this.device.on('fatal', (obj) => {
             dbgError('device', 'event: fatal', obj);
             toast(obj?.msg || `The ${this.deviceShort()} reported a serious error — check the cable.`, true);
         });
         // Wand-only (MockWand/main.py's _launch_game()): a running game blocks
-        // the wand's idle loop, same as the Box's SERVE mode blocks its main
-        // loop -- raise the silence limit the same way the 'mode'/'armed'
-        // handlers above do for SERVE. Never fires on a BboxDeviceLink.
+        // the wand's idle loop -- raise the silence limit while it runs.
+        // Never fires on a BboxDeviceLink.
         this.device.on('game_start', (obj) => {
             dbg('device', 'event: game_start', obj);
             this._noteMessage(obj);
-            this._silenceLimitMs = SILENCE_SERVE_MS;
+            this._silenceLimitMs = SILENCE_GAME_MS;
             if (this.link.state === 'waiting' || this.link.state === 'rebooting'
                 || this.link.state === 'no-answer') {
                 this.setLinkState('live');
@@ -741,6 +928,12 @@ class App {
             dbg('device', 'event: bye', obj);
             this.setLinkState('rebooting');
             this._armRebootTimer();
+        });
+        this.device.on('released', async () => {
+            dbg('device', 'event: released');
+            await this.device.disconnect();
+            this.setLinkState('idle');
+            toast('Disconnected.');
         });
         this.device.on('booting', (obj) => {
             dbg('device', 'event: booting', obj);
@@ -836,9 +1029,20 @@ class App {
 
     _noteMessage(obj) {
         this.link.lastMsgAt = Date.now();
-        if (obj?.type === 'identity') this.link.deviceInfo = obj;
+        if (obj?.type === 'identity') {
+            this.link.deviceInfo = obj;
+            setCardWriter(obj.device === 'crowpanel'
+                ? {
+                    // ctx: { game, index, total } -- the panel shows "tag n of m"; older panels ignore it
+                    write: (tag, ctx = {}) => this.device.sendCmd({ cmd: 'card.write', text: tag, label: tag, ...ctx })
+                        .catch((e) => { dbg('device', `card.write: ${e.message}`); throw e; }),
+                    cancel: () => this.device.sendCmd({ cmd: 'card.cancel' })
+                        .catch((e) => dbg('device', `card.cancel: ${e.message}`)),
+                }
+                : null);
+        }
         this._clearRebootTimer();
-        if (obj?.type && this.link.boxMode !== 'SERVE') {
+        if (obj?.type && obj.type !== 'game_start') {
             this._silenceLimitMs = SILENCE_LIMIT_MS;
         }
     }
@@ -928,6 +1132,13 @@ class App {
             }
             return;
         }
+        // A CrowPanel cannot see the port close, so it drops the link after 15 s
+        // without a command; ping it while live.
+        if (s === 'live' && this.link.deviceInfo?.device === 'crowpanel'
+            && Date.now() - (this._lastPingAt || 0) >= PANEL_PING_MS) {
+            this._lastPingAt = Date.now();
+            this.device.sendCmd({ cmd: 'ping' }, { timeoutMs: 2000 }).catch(() => {});
+        }
         if (!this.link.lastMsgAt) return;
         const age = Date.now() - this.link.lastMsgAt;
         if (s === 'live' || s === 'stuck') {
@@ -991,20 +1202,18 @@ class App {
     }
 
     bindEvents() {
+        document.querySelectorAll('.splash-card').forEach((el) => makeActivatable(el));
         document.getElementById('btn-scratch').addEventListener('click', () => this.startNewGame());
         document.getElementById('btn-new-game').addEventListener('click', () => this.startNewGame());
         document.getElementById('btn-gallery').addEventListener('click', () => this.goExamples());
         document.getElementById('btn-saved').addEventListener('click', () => this.goSaved());
         document.getElementById('gallery-search').addEventListener('input', () => this.renderGallery());
+        document.getElementById('btn-station-catalog')
+            .addEventListener('click', () => this.sendCatalogToStation());
         document.getElementById('btn-detail-back').addEventListener('click', () => this.goExamples());
         document.getElementById('btn-remix').addEventListener('click', () => this.remixCurrentExample());
         document.getElementById('btn-use-as-is').addEventListener('click', () => this.useExampleAsIs());
         document.getElementById('btn-send').addEventListener('click', () => this.onSend());
-        document.getElementById('btn-show-code').addEventListener('click', () => {
-            // Both drawers own the same right edge, so opening one closes the other.
-            this.closeIconDrawer();
-            document.getElementById('code-drawer').classList.remove('hidden');
-        });
         document.getElementById('btn-close-code').addEventListener('click', () => {
             document.getElementById('code-drawer').classList.add('hidden');
         });
@@ -1060,6 +1269,8 @@ class App {
             if (errEl) errEl.textContent = '';
         });
         document.getElementById('btn-send-done').addEventListener('click', () => this.finishSend());
+        document.getElementById('btn-send-another-wand')?.addEventListener('click', () => this.installOnAnotherWand());
+        document.getElementById('btn-send-distribute')?.addEventListener('click', () => this.openDistribute());
         // Kill switch: unlike Cancel (hidden by setSendBusy(true) while a
         // send is in flight -- there is no safe abort mid-write, see
         // setSendBusy()'s docstring), this button is never hidden or
@@ -1087,10 +1298,15 @@ class App {
             toggleUiMode();
             this.closeMoreMenu();
         });
+        document.getElementById('btn-dev-mode').addEventListener('click', () => {
+            toggleDevMode();
+            this.closeMoreMenu();
+        });
         document.querySelectorAll('.device-tab').forEach((el) => {
             el.addEventListener('click', () => this.selectRole(el.dataset.role));
         });
         document.getElementById('btn-save-game').addEventListener('click', () => this.onSaveGame());
+        document.getElementById('btn-open-game').addEventListener('click', () => this.openSavedFromWorkspace());
 
         // The brand replaced the Home tab on every screen that had one, so it
         // routes through onNavTab: that keeps the unsaved-work guard on the
@@ -1115,8 +1331,8 @@ class App {
             if (e.key === 'Escape') this.closeMoreMenu();
         });
 
-        document.getElementById('btn-icon-maker')?.addEventListener('click', () => this.openIconDrawer());
-        document.getElementById('btn-close-icons')?.addEventListener('click', () => this.closeIconDrawer());
+        document.getElementById('btn-icons-view')?.addEventListener('click', () => this.openIconsView());
+        document.getElementById('btn-sim-view')?.addEventListener('click', () => this.closeIconsView());
         this.bindIconToolbar();
 
         this.bindGameNameEditor();
@@ -1174,6 +1390,13 @@ class App {
         showView('splash');
     }
 
+    async openSavedFromWorkspace() {
+        const action = await this.confirmUnsavedWork();
+        if (action === 'cancel') return;
+        this._sim?.stop();
+        this.goSaved();
+    }
+
     /** "New game": the button near Save, and the splash "Start from
      * scratch" tile -- both routed through the same unsaved-work check and
      * the same clearWorkspace(), so there's exactly one way this happens
@@ -1217,6 +1440,9 @@ class App {
             discardBtn.addEventListener('click', onDiscard);
             cancelBtn.addEventListener('click', onCancel);
             xBtn.addEventListener('click', onCancel);
+            const named = this.gameName && this.gameName !== 'Your game';
+            document.getElementById('unsaved-text').textContent =
+                `${named ? `“${this.gameName}”` : 'This game'} hasn't been saved yet. What would you like to do?`;
             showOverlay('unsaved-overlay');
         });
     }
@@ -1258,31 +1484,47 @@ class App {
         document.getElementById('chat-box').innerHTML = '';
         document.getElementById('user-input').value = '';
         resetEditor();
+        this.retiredRoleCode = {};
         this.syncRoleRail();
         this.dirty = false;
         this._sim?.stop();
         this._simLastSource = null;
+        this._simLastDisplay = null;
+        this._simLastSettings = null;
+        this.syncPreviewToolbar();
         this.updatePreview();
     }
 
     onSaveGame() {
-        const code = getCode('wand');
-        const iconCode = getCode('icon');
-        if (!code.trim() || code.trim().startsWith('# AI-generated')) {
+        // `code` stays the wand file (library.js shape); a display-only game
+        // saves an empty one and its display code under roleCode.icon.
+        const wand = getCode(DEFAULT_ROLE);
+        const code = isRunnableCode(wand) ? wand : '';
+        if (!primaryRoleCode()) {
             toast('Nothing to save yet — generate or load some code first.', true);
             return;
+        }
+        const roleCode = {};
+        for (const info of ROLE_TABLE) {
+            if (info.key === DEFAULT_ROLE) continue;
+            const c = getCode(info.key).trim();
+            if (c) roleCode[info.key] = c;
+        }
+        for (const [key, c] of Object.entries(this.retiredRoleCode || {})) {
+            if (!(key in roleCode)) roleCode[key] = c;
         }
         const entry = saveGame({
             name: this.gameName,
             desc: this.gameDesc,
             code,
-            iconCode,
+            roleCode,
             requiredTags: this.requiredTags,
             hardware: this.hardware,
             chatHistory: this.chatHistory.slice(),
             // Only what this game edited. Anything it merely uses still
             // resolves to the shipped icon when it is reopened.
             icons: getGameIcons(),
+            simSettings: this.simSettings,
         });
         this.dirty = false;
         toast(`Saved “${entry.name}”`);
@@ -1315,6 +1557,10 @@ class App {
         document.body.dataset.galleryMode = this.galleryMode;
         syncNavTabs('gallery');
 
+        document.getElementById('btn-station-catalog')
+            .classList.toggle('hidden', this.galleryMode !== 'saved');
+        document.getElementById('station-catalog-status')
+            .classList.toggle('hidden', this.galleryMode !== 'saved');
         if (this.galleryMode === 'saved') {
             title.textContent = 'My saved games';
             chips.classList.add('hidden');
@@ -1335,7 +1581,7 @@ class App {
                 card.dataset.id = g.id;
                 const when = relativeTime(g.updatedAt);
                 card.innerHTML =
-                    `<div class="example-thumb">${iconSvg('wand', { size: 26, strokeWidth: 1.5 })}</div>` +
+                    `<div class="example-thumb saved-thumb">${savedGameIcons(g)}</div>` +
                     `<div class="card-body" data-card-body>` +
                     `<h3>${escapeHtml(g.name)}</h3>` +
                     `<p>${escapeHtml(when)}</p>` +
@@ -1343,6 +1589,8 @@ class App {
                     `<button type="button" class="card-action-btn" data-rename title="Rename">${iconSvg('pencil', { size: 14 })}</button>` +
                     `<button type="button" class="card-action-btn" data-delete title="Delete">${iconSvg('trash', { size: 14 })}</button>` +
                     `</div></div>`;
+                card.setAttribute('aria-label', g.name);
+                makeActivatable(card);
                 card.addEventListener('click', (e) => {
                     if (e.target.closest('[data-rename],[data-delete],[data-confirm-del],[data-cancel-del],.card-rename-row')) return;
                     this.openSavedGame(g.id);
@@ -1375,6 +1623,8 @@ class App {
                 `<h3>${escapeHtml(ex.name)}</h3>` +
                 `<p>${escapeHtml(ex.description)}</p>` +
                 (ex.tagNote ? `<div class="tag-badge">${escapeHtml(ex.tagNote)}</div>` : '');
+            card.setAttribute('aria-label', ex.name);
+            makeActivatable(card);
             card.addEventListener('click', () => this.openDetail(ex.id));
             grid.appendChild(card);
         });
@@ -1441,6 +1691,7 @@ class App {
         dbg('app', `openSavedGame(${id}): stored name=${JSON.stringify(g.name)} -> this.gameName=${JSON.stringify(this.gameName)}`);
         this.gameDesc = g.desc || '';
         this.declaredTags = g.hardware?.declaredTags || null;
+        this.simSettings = g.simSettings || null;
         this.hardware = g.hardware || buildHardwareReqs({ gameName: g.name });
         this.chatHistory = Array.isArray(g.chatHistory) ? g.chatHistory.slice() : [];
         // The pictures this game was saved with. A game saved before icons
@@ -1459,22 +1710,121 @@ class App {
         // like a blank chat despite the model still "remembering" it. Code
         // blocks in old assistant turns were already replaced with a
         // "[code: N lines, sent to editor]" placeholder when saved (see
-        // trimForHistory() in chat.js), which reads fine here too: the
-        // actual current code is loaded into the editor below regardless.
-        this.chatHistory.forEach((turn) => {
-            addMsg(turn.content, turn.role === 'assistant' ? 'bot' : 'user');
+        // trimForHistory() in chat.js). The last placeholder is shown as the
+        // saved code itself, so its View code button opens the drawer; the
+        // stored history keeps the placeholder.
+        const PLACEHOLDER = /\n?\[code: \d+ lines, sent to editor\]\n?/g;
+        let lastCodeTurn = -1;
+        this.chatHistory.forEach((turn, i) => {
+            if (turn.role === 'assistant' && PLACEHOLDER.test(turn.content)) lastCodeTurn = i;
+            PLACEHOLDER.lastIndex = 0;
+        });
+        this.chatHistory.forEach((turn, i) => {
+            // Remix requests (the example's code sent to the model) stay in
+            // chatHistory but are not shown; the prefix check covers games
+            // saved before turns were marked hidden.
+            if (turn.hidden || (turn.role === 'user' && turn.content.startsWith(REMIX_PREFIX))) return;
+            let text = turn.content;
+            if (i === lastCodeTurn && g.code) {
+                const matches = [...text.matchAll(PLACEHOLDER)];
+                const m = matches[matches.length - 1];
+                text = text.slice(0, m.index) + '\n```python\n' + g.code.replace(/\n$/, '') + '\n```\n'
+                    + text.slice(m.index + m[0].length);
+            }
+            addMsg(text, turn.role === 'assistant' ? 'bot' : 'user');
         });
         if (g.code) {
-            setCode(g.code, 'wand');
-            saveVersion(g.code, 'Loaded from library', 'wand');
+            setCode(g.code, DEFAULT_ROLE);
+            saveVersion(g.code, 'Loaded from library', DEFAULT_ROLE);
         }
-        if (g.iconCode) {
-            setCode(g.iconCode, 'icon');
-            saveVersion(g.iconCode, 'Loaded from library', 'icon');
+        // g.iconCode predates roleCode and is read as roleCode.icon's
+        // fallback (see saveGame() in library.js); either way it ends up
+        // set on roleCode by the time an entry reaches here.
+        const roleCode = { ...(g.roleCode || {}) };
+        if (g.iconCode && !roleCode.icon) roleCode.icon = g.iconCode;
+        for (const info of ROLE_TABLE) {
+            if (info.key === DEFAULT_ROLE) continue;
+            const code = roleCode[info.key];
+            if (!code) continue;
+            setCode(code, info.key);
+            saveVersion(code, 'Loaded from library', info.key);
         }
+        this.retainRetiredRoleCode(g.name, roleCode);
         this.syncRoleRail();
         this.dirty = false;
         this.updatePreview({ forcePlay: true });
+    }
+
+    /**
+     * A saved game can carry code for a role that no longer exists (the
+     * retired Splat Companion role, `roleCode.splat`). That code is kept
+     * read-only: shown in the chat, never sent, and written back unchanged
+     * by onSaveGame so it is not dropped.
+     */
+    retainRetiredRoleCode(gameName, roleCode) {
+        this.retiredRoleCode = {};
+        const known = new Set(ROLE_TABLE.map((r) => r.key));
+        for (const [key, code] of Object.entries(roleCode)) {
+            if (known.has(key) || !code) continue;
+            this.retiredRoleCode[key] = code;
+            const label = key === 'splat' ? 'Splat Companion' : key;
+            const div = addMsg(`“${gameName}” has ${label} code. That device is retired, so this code `
+                + `will not be sent; it is kept read-only with the saved game. `
+                + `Splats are now driven from the wand game.`, 'system');
+            div.classList.add('retired-role-warning');
+            const det = document.createElement('details');
+            const sum = document.createElement('summary');
+            sum.textContent = `${label} code (read-only)`;
+            const pre = document.createElement('pre');
+            pre.textContent = code;
+            det.append(sum, pre);
+            div.appendChild(det);
+            dbgWarn('app', `saved game "${gameName}" has retired role code: ${key}`);
+        }
+    }
+
+    /**
+     * Connect the NFC Station on its own serial port (the Box/Dial link, if
+     * any, is left alone), push the saved-games catalog, then close the port.
+     */
+    async sendCatalogToStation() {
+        const btn = document.getElementById('btn-station-catalog');
+        const status = document.getElementById('station-catalog-status');
+        const show = (text) => { status.textContent = text; status.classList.remove('hidden'); };
+        const games = loadSavedGames();
+        if (!games.length) {
+            show('No saved games to send yet.');
+            return;
+        }
+        const adapter = new SerialAdapter();
+        let link = null;
+        btn.disabled = true;
+        try {
+            show('Pick the NFC Station in the port list…');
+            await adapter.connect();
+            link = new NfcStationLink(adapter);
+            link.start();
+            show(`Sending ${games.length} game${games.length === 1 ? '' : 's'}…`);
+            const r = await link.pushCatalog(games);
+            if (r.ok) {
+                show(`NFC Station has the games list (${r.groups ?? games.length} groups).`);
+                toast('Games sent to the NFC Station.');
+            } else {
+                show(`NFC Station refused the list: ${r.code}${r.msg ? ` (${r.msg})` : ''}`);
+                toast('The NFC Station refused the games list.', true);
+            }
+            dbg('app', 'catalog.set result', r);
+        } catch (e) {
+            dbgError('app', `NFC Station catalog push failed: ${e.message}`, e);
+            show(`Could not send to the NFC Station: ${e.message}`);
+            toast('Could not send to the NFC Station.', true);
+        } finally {
+            link?.stop();
+            if (adapter.isConnected()) {
+                await adapter.disconnect().catch((e) => dbgWarn('app', `station disconnect: ${e.message}`));
+            }
+            btn.disabled = false;
+        }
     }
 
     openDetail(id) {
@@ -1500,7 +1850,7 @@ class App {
     }
 
     /** Show the selected example actually running, in place of the old
-     * static "preview animation" placeholder. A fresh <wand-sim> is built
+     * static "preview animation" placeholder. A fresh <sim-room> is built
      * per visit and torn down on the way out (see watchDetailView) rather
      * than kept alive hidden — each instance boots its own Pyodide, and a
      * gallery browse would otherwise leave one running per example opened. */
@@ -1514,13 +1864,16 @@ class App {
             empty.classList.remove('hidden');
         }
         const token = ++this._detailSimToken;
-        dbg('app', `mountDetailSim("${ex.id}") — loading wand-sim module`);
-        import('../../Simulator/wand-sim.js')
+        dbg('app', `mountDetailSim("${ex.id}") — loading sim-room module`);
+        import('../../Simulator/sim-room.js')
             .then(() => {
                 // The teacher moved on while Pyodide's module was loading —
                 // don't mount a sim into a panel nobody is looking at.
                 if (token !== this._detailSimToken) return;
-                const sim = document.createElement('wand-sim');
+                // <sim-room>: the wand plus whatever the game uses beside it
+                // (Splats and peer wands for a lobby game, the icon display
+                // for a two-device one).
+                const sim = document.createElement('sim-room');
                 sim.id = 'detail-sim';
                 sim.toggleAttribute('advanced', loadUiMode() === 'advanced');
                 // Look-what-it-does preview — already playing when the
@@ -1540,7 +1893,7 @@ class App {
                 if (empty) empty.classList.add('hidden');
             })
             .catch((err) => {
-                dbgError('sim', 'failed to load wand-sim module for the detail preview', err);
+                dbgError('sim', 'failed to load sim-room module for the detail preview', err);
                 if (token !== this._detailSimToken || !empty) return;
                 empty.textContent = "The practice window isn't available right now — you can still remix or send this game.";
             });
@@ -1566,6 +1919,215 @@ class App {
         }).observe(panel, { attributes: true, attributeFilter: ['class'] });
     }
 
+    /**
+     * One-tap follow-ups from a reply's [CHOICES: ...] marker. Tapping one
+     * sends it as the teacher's next message.
+     */
+    renderChoiceChips(choices) {
+        const box = document.getElementById('chat-box');
+        box.querySelectorAll('.choice-chips').forEach(el => el.remove());
+        const wrap = document.createElement('div');
+        wrap.className = 'choice-chips';
+        for (const text of choices) {
+            const chip = document.createElement('button');
+            chip.type = 'button';
+            chip.className = 'starter-chip';
+            chip.textContent = text;
+            chip.addEventListener('click', () => {
+                if (this.isGenerating) return;
+                wrap.remove();
+                document.getElementById('user-input').value = text;
+                this.onSend();
+            });
+            wrap.appendChild(chip);
+        }
+        box.appendChild(wrap);
+        box.scrollTop = box.scrollHeight;
+    }
+
+    /**
+     * Guided mode: the GUIDED_STEPS questions as tap-to-answer cards in the
+     * chat, answered instantly in the app; the answers are then sent as one
+     * request (starterIdeas.js guidedPrompt).
+     */
+    startGuidedMode() {
+        if (this.isGenerating) return;
+        const box = document.getElementById('chat-box');
+        box.querySelector('.starter-chips')?.remove();
+        box.querySelectorAll('.guided-card, .choice-chips').forEach(el => el.remove());
+        const answers = [];
+        const card = document.createElement('div');
+        card.className = 'guided-card';
+        box.appendChild(card);
+        const showStep = (i) => {
+            if (i === GUIDED_STEPS.length) {
+                card.remove();
+                document.getElementById('user-input').value = guidedPrompt(answers);
+                this.onSend();
+                return;
+            }
+            const step = GUIDED_STEPS[i];
+            card.innerHTML = '';
+            const q = document.createElement('div');
+            q.className = 'msg system';
+            q.textContent = `${step.question} (${i + 1} of ${GUIDED_STEPS.length})`;
+            card.appendChild(q);
+            const row = document.createElement('div');
+            row.className = 'choice-chips';
+            for (const opt of step.options) {
+                const chip = document.createElement('button');
+                chip.type = 'button';
+                chip.className = 'starter-chip';
+                chip.textContent = opt.label;
+                chip.addEventListener('click', () => { answers[i] = opt; showStep(i + 1); });
+                row.appendChild(chip);
+            }
+            card.appendChild(row);
+            box.scrollTop = box.scrollHeight;
+        };
+        showStep(0);
+    }
+
+    /**
+     * Interview mode: the model asks one short question per turn, starting
+     * with INTERVIEW_FIRST_QUESTION (asked here, without a model call), until
+     * it replies with a [GAME_BRIEF] block or INTERVIEW_MAX_QUESTIONS have
+     * been asked. The brief is then offered as a normal game request.
+     * The interview transcript is kept apart from chatHistory.
+     */
+    startInterview() {
+        if (this.isGenerating) return;
+        const box = document.getElementById('chat-box');
+        box.querySelector('.starter-chips')?.remove();
+        box.querySelectorAll('.guided-card, .choice-chips').forEach(el => el.remove());
+        this.interview = { turns: [], asked: 1 };
+        dbg('chat', 'interview started');
+        addMsg(INTERVIEW_FIRST_QUESTION, 'bot');
+        document.getElementById('user-input').focus();
+    }
+
+    /** The teacher's answer to the current interview question. */
+    async answerInterview(answer, finish = false) {
+        this.interview.turns.push({ role: 'user', content: answer });
+        await this.callInterviewer(finish);
+    }
+
+    /** Ask the model for the next interview question, or for the brief. */
+    async callInterviewer(finish) {
+        const iv = this.interview;
+        const apiKey = this.resolveApiKey();
+        if (!apiKey) { iv.turns.pop(); return; }
+        const files = getKnowledgeFiles();
+        addThinkingMsg();
+        this.isGenerating = true;
+        try {
+            const body = JSON.stringify(buildRequestBody({
+                system: buildInterviewSystemBlocks({
+                    knowledge: knowledgeText(files, listSplatActions()),
+                    interview: files[INTERVIEW_KNOWLEDGE],
+                    asked: iv.asked,
+                    finish,
+                }),
+                history: interviewMessages(iv.turns),
+                stream: false,
+                windowed: false,
+            }));
+            dbg('chat', `interview POST — ${iv.asked} asked, finish=${finish}`);
+            const resp = await fetch('https://api.anthropic.com/v1/messages', {
+                method: 'POST',
+                headers: requestHeaders(apiKey),
+                body,
+            });
+            const data = await resp.json().catch(() => ({}));
+            removeTyping();
+            if (!resp.ok) {
+                const errMsg = data?.error?.message ?? `Could not reach the AI (${resp.status}). Check your network.`;
+                dbgError('chat', `interview API error (${resp.status}): ${errMsg}`, data);
+                addMsg(errMsg, 'system');
+                iv.turns.pop();
+                return;
+            }
+            if (data.stop_reason === 'refusal') {
+                dbgWarn('chat', 'interview refusal', data.stop_details);
+                addMsg('The AI declined to answer that. Try rewording it.', 'system');
+                iv.turns.pop();
+                return;
+            }
+            const raw = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
+            const brief = parseGameBrief(raw);
+            if (brief) {
+                this.interview = null;
+                dbg('chat', `interview finished after ${iv.asked} question(s)`, { brief });
+                const lead = stripAllMarkers(stripGameBrief(raw));
+                if (lead) addMsg(lead, 'bot');
+                addMsg(brief, 'bot');
+                this.renderBriefChips(brief);
+                return;
+            }
+            iv.turns.push({ role: 'assistant', content: raw });
+            if (finish || iv.asked >= INTERVIEW_MAX_QUESTIONS) {
+                // The status block told the model to write the brief.
+                dbgError('chat', 'interview: last turn returned no [GAME_BRIEF]', raw);
+                addMsg('The interviewer did not write a game summary. Tap “Make my game now” to try again.', 'system');
+                iv.turns.pop();
+                this.renderInterviewChips([]);
+                return;
+            }
+            iv.asked++;
+            addMsg(stripAllMarkers(raw), 'bot');
+            // The first two questions are answered in the teacher's own
+            // words (interview.md); choices start at question 3.
+            this.renderInterviewChips(iv.asked > 2 ? parseChoices(raw) || [] : []);
+        } catch (e) {
+            removeTyping();
+            dbgError('chat', `interview network/fetch error: ${e.message}`, e);
+            addMsg('Network error — check your connection and try again.', 'system');
+            iv.turns.pop();
+        } finally {
+            this.isGenerating = false;
+        }
+    }
+
+    /** Suggested answers, plus a chip that ends the interview early. */
+    renderInterviewChips(choices) {
+        this.renderChoiceChips(choices);
+        const wrap = document.querySelector('#chat-box .choice-chips:last-child');
+        const done = document.createElement('button');
+        done.type = 'button';
+        done.className = 'starter-chip starter-chip-guided';
+        done.textContent = 'Make my game now';
+        done.addEventListener('click', () => {
+            if (this.isGenerating || !this.interview) return;
+            wrap.remove();
+            addMsg('Make my game now', 'user');
+            this.answerInterview('That is all I want to say. Please write the summary now.', true);
+        });
+        wrap.appendChild(done);
+    }
+
+    /** After the brief: build the game from it, or interview again. */
+    renderBriefChips(brief) {
+        this.renderChoiceChips([]);
+        const wrap = document.querySelector('#chat-box .choice-chips:last-child');
+        const make = document.createElement('button');
+        make.type = 'button';
+        make.className = 'starter-chip starter-chip-guided';
+        make.textContent = 'Make this game';
+        make.addEventListener('click', () => {
+            if (this.isGenerating) return;
+            wrap.remove();
+            document.getElementById('user-input').value = `Make this game for my class.\n\n${brief}`;
+            this.onSend();
+        });
+        const again = document.createElement('button');
+        again.type = 'button';
+        again.className = 'starter-chip';
+        again.textContent = 'Start the interview over';
+        again.addEventListener('click', () => { wrap.remove(); this.startInterview(); });
+        wrap.append(make, again);
+        wrap.scrollIntoView({ block: 'end' });
+    }
+
     renderStarterChips() {
         const box = document.getElementById('chat-box');
         if (box.querySelector('.starter-chips')) return;
@@ -1577,9 +2139,22 @@ class App {
         // wrap.remove() left this line behind permanently.
         const intro = document.createElement('div');
         intro.className = 'msg system';
-        intro.textContent = 'Try one of these ideas — tap a chip to fill the box, then edit and send:';
+        intro.textContent = 'Tap “Interview me” to design a game by answering a few questions, '
+            + '“Help me make a game” to choose step by step, or tap an idea to fill the box, then edit and send:';
         wrap.appendChild(intro);
-        CHAT_STARTER_PROMPTS.forEach((sp) => {
+        const interview = document.createElement('button');
+        interview.type = 'button';
+        interview.className = 'starter-chip starter-chip-guided';
+        interview.innerHTML = `${iconSvg('message-circle', { size: 14 })} <span>Interview me</span>`;
+        interview.addEventListener('click', () => this.startInterview());
+        wrap.appendChild(interview);
+        const guided = document.createElement('button');
+        guided.type = 'button';
+        guided.className = 'starter-chip starter-chip-guided';
+        guided.innerHTML = `${iconSvg('sparkles', { size: 14 })} <span>Help me make a game</span>`;
+        guided.addEventListener('click', () => this.startGuidedMode());
+        wrap.appendChild(guided);
+        drawStarterIdeas(4).forEach((sp) => {
             const chip = document.createElement('button');
             chip.type = 'button';
             chip.className = 'starter-chip';
@@ -1612,9 +2187,12 @@ class App {
         this.syncRoleRail();
         this.currentExample = null;
         this.declaredTags = null;
+        this.simSettings = null;
         this.gameName = 'Your game';
         this.gameDesc = '';
         this.chatHistory = [];
+        this.simNotes = null;
+        this.interview = null;
         this.tagWrites = {};
         this.refreshHardware();
     }
@@ -1650,7 +2228,9 @@ class App {
         this.gameName = remixName(ex.name);
         this.gameDesc = ex.description;
         this.declaredTags = [...ex.tags];
+        this.simSettings = null;
         this.chatHistory = [];
+        this.simNotes = null;
         this.refreshHardware();
 
         const code = await this.fetchExampleCode(ex);
@@ -1664,7 +2244,7 @@ class App {
         // that would replace fences with a placeholder and hide the example
         // from Claude). callClaude shows it and posts it as the first message.
         const userMsg = [
-            `I would like to remix the ${ex.name} example as a starting point. Here is the ${ex.name} code:`,
+            `${REMIX_PREFIX} the ${ex.name} example as a starting point. Here is the ${ex.name} code:`,
             '',
             '```python',
             code,
@@ -1673,7 +2253,7 @@ class App {
 
         this.openWorkspace();
         this.updatePreview({ forcePlay: true });
-        await this.callClaude(userMsg);
+        await this.callClaude(userMsg, { hidden: true });
     }
 
     /** The example's real Python, or null if it couldn't be read. A failure
@@ -1706,6 +2286,7 @@ class App {
         this.gameName = remixName(ex.name);
         this.gameDesc = ex.description;
         this.declaredTags = [...ex.tags];
+        this.simSettings = null;
         // A new game starts from the shipped pictures, not the last one's edits.
         setGameIcons({});
 
@@ -1729,17 +2310,16 @@ class App {
      * an incidental chat/version-navigation refresh -- see pushSimSource(). */
     updatePreview(opts = {}) {
         const wandCode = getCode('wand');
-        const iconCode = getCode('icon');
 
-        this.refreshHardware(wandCode);
+        const primary = primaryRoleCode();
+        this.refreshHardware(primary?.code ?? wandCode);
 
-        // Which simulator is on screen follows the device tab: the wand's
-        // Pyodide sim for wand code, the panel preview for display code.
-        const showingIcon = getActiveRole() === 'icon' && isRunnableCode(iconCode);
-        const runnable = showingIcon ? true : isRunnableCode(wandCode);
+        // The preview shows the wand simulator whenever there is wand code,
+        // whichever role the code drawer is editing. A display-only game
+        // falls to the placeholder; its icons are in the Icons view.
+        const runnable = isRunnableCode(wandCode);
 
-        document.getElementById('preview-panel').classList.toggle('hidden', !runnable || showingIcon);
-        document.getElementById('icon-sim-panel')?.classList.toggle('hidden', !showingIcon);
+        document.getElementById('preview-panel').classList.toggle('hidden', !runnable);
         document.querySelector('.ws-body')?.classList.toggle('no-sim', !runnable);
 
         this.syncGameName();
@@ -1748,53 +2328,50 @@ class App {
         // Send is gated on having something to send as well as somewhere to
         // send it; setConnectionBadge() owns the button and reads this back,
         // because it runs on link changes and this runs on code changes.
-        const sendable = !!wandCode.trim() && !wandCode.trim().startsWith('# AI-generated');
+        const sendable = !!primary;
         document.body.dataset.wsHasCode = sendable ? '1' : '';
         this.paintLink();
 
-        if (showingIcon) {
-            this.updateIconSim(iconCode);
-        } else if (runnable) {
+        if (this.iconsViewOpen()) this.renderIconsList();
+        if (runnable) {
             this.setupSim();
             this.pushSimSource(wandCode, opts);
         }
     }
 
-    /** The placeholder behind an empty stage names whichever device tab is
-     * selected, so the two never disagree. */
+    /** The placeholder behind an empty stage names the game's primary
+     * device (the wand for a new game). */
     syncPreviewEmpty() {
         const empty = document.getElementById('preview-empty');
         if (!empty) return;
-        const isIcon = getActiveRole() === 'icon';
+        const info = roleInfo(primaryRoleCode()?.role) || roleInfo(DEFAULT_ROLE);
         const host = empty.querySelector('.preview-empty-icon');
         const caption = empty.querySelector('.preview-empty-caption');
         // Built here rather than left to the load-time [data-icon] pass, which
         // runs once and would keep whichever glyph the markup started with.
-        if (host) host.innerHTML = iconSvg(isIcon ? 'grid-3x3' : 'wand', { size: 46, strokeWidth: 1.3 });
-        if (caption) caption.textContent = isIcon ? 'display preview' : 'wand preview';
+        if (host) host.innerHTML = iconSvg(info.previewGlyph, { size: 46, strokeWidth: 1.3 });
+        if (caption) caption.textContent = info.previewCaption;
     }
 
-    /** Show what the 16x16 panel would draw for the current display file. */
-    updateIconSim(code) {
-        const mount = document.getElementById('icon-sim-panel');
-        if (!mount) return;
-        if (!this._iconSim) {
-            this._iconSim = mountIconPanel(mount);
-            dbg('app', 'icon display simulator mounted');
-        }
-        this._iconSim.update(code);
-    }
-
-    /** Lazily load the <wand-sim> module the first time it's needed —
-     * Pyodide plus its ~37 game/shim files is a real download, and booting
+    /** Lazily load the <sim-room> module the first time it's needed —
+     * Pyodide plus its game/shim files is a real download, and booting
      * it while the teacher is still typing their first chat message would
-     * only add to that wait. Safe to call repeatedly; the import runs once. */
+     * only add to that wait. Safe to call repeatedly; the import runs once.
+     *
+     * #wand-sim is a <sim-room>: the wand, plus the panels the game uses
+     * (the icon display for a two-device game, Splats and virtual peer
+     * wands for a lobby game). It takes the same calls <wand-sim> did. */
     setupSim() {
         if (this._simLoadPromise) return this._simLoadPromise;
-        dbg('app', 'setupSim() — loading wand-sim module');
-        this._simLoadPromise = import('../../Simulator/wand-sim.js')
+        dbg('app', 'setupSim() — loading sim-room module');
+        this._simLoadPromise = import('../../Simulator/sim-room.js')
             .then(() => {
                 this._sim = document.getElementById('wand-sim');
+                // An icon edit reaches the running display: the room rewrites
+                // the display game's icon files.
+                document.addEventListener('game-icons-changed', () => {
+                    if (this._sim && this._simLastDisplay) this._sim.displayIcons = this.simDisplayIcons(this._simLastDisplay);
+                });
                 // Every push of new code reloads the game; start it right away.
                 this._sim.autostart = true;
                 // <wand-sim> shows its own "Can't simulate" pop-up on a
@@ -1803,10 +2380,28 @@ class App {
                 // swallowed.
                 this._sim.addEventListener('sim-error', (e) => {
                     const { message, phase } = e.detail || {};
+                    this._simLastError = { message, phase };
                     dbgError('sim', `sim-error (${phase}): ${message}`);
                 });
                 this._sim.addEventListener('sim-overlay-action', (e) => {
                     this.onSimOverlayAction(e.detail || {});
+                });
+                this._setupSimIdlePause();
+                // The simulator draws no logs; its lines go to the footer.
+                this._simRecentLog = [];
+                this._sim.addEventListener('sim-log', (e) => {
+                    this.appendLog('sim', `wand    ${e.detail.text}`);
+                    this._simRecentLog.push(e.detail.text);
+                    if (this._simRecentLog.length > SIM_LOG_FOR_CHAT) this._simRecentLog.shift();
+                });
+                this._sim.addEventListener('display-print', (e) => this.appendLog('sim', `display ${e.detail.text}`));
+                this._sim.addEventListener('sim-error', (e) => {
+                    this.appendLog('sim', `error   ${e.detail.phase}: ${e.detail.message}`);
+                });
+                this._sim.addEventListener('room-radio', (e) => this.appendLog('radio', e.detail.text));
+                this._sim.addEventListener('sim-enow-sent', (e) => {
+                    const { kind, mac, data } = e.detail;
+                    this.appendLog('radio', `wand → ${mac || 'all'}: ${kind} ${data}`);
                 });
                 if (this._simPendingSource !== null) {
                     const pending = this._simPendingSource;
@@ -1817,9 +2412,36 @@ class App {
                 }
             })
             .catch((err) => {
-                dbgError('sim', 'failed to load wand-sim module', err);
+                dbgError('sim', 'failed to load sim-room module', err);
             });
         return this._simLoadPromise;
+    }
+
+    /** A running simulation pauses after SIM_IDLE_PAUSE_MS without input
+     * on the page, and at once when the tab is hidden: a game that sends
+     * radio frames continuously allocates faster than an idle tab collects.
+     * The paused banner's Play it restarts the game. */
+    _setupSimIdlePause() {
+        this._simPaused = false;
+        const pause = () => {
+            if (!this._sim || this._simPaused) return;
+            this._simPaused = true;
+            dbg('sim', 'paused (idle or hidden)');
+            Promise.resolve(this._sim.stop()).catch(() => {});
+            this._sim.showOverlay('paused');
+        };
+        const arm = () => {
+            clearTimeout(this._simIdleTimer);
+            this._simIdleTimer = setTimeout(pause, SIM_IDLE_PAUSE_MS);
+        };
+        for (const ev of ['pointerdown', 'pointermove', 'keydown', 'wheel']) {
+            document.addEventListener(ev, arm, { passive: true, capture: true });
+        }
+        this._sim.addEventListener('sim-loaded', () => { this._simPaused = false; });
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) pause(); else arm();
+        });
+        arm();
     }
 
     /**
@@ -1848,23 +2470,48 @@ class App {
             this._simForcePlayPending = forcePlay;
             return;
         }
-        if (code === this._simLastSource && !forcePlay) return;
+        // The display half runs beside the wand when the game has one.
+        const display = getCode('icon') || null;
+        const settings = this.simSettings || null;
+        const settingsKey = JSON.stringify(settings);
+        if (code === this._simLastSource && display === this._simLastDisplay
+            && settingsKey === this._simLastSettings && !forcePlay) return;
         // Only from the second push on: the first one *is* the game
         // appearing, which needs no announcement.
         const isUpdate = this._simLastSource != null;
         this._simLastSource = code;
+        this._simLastDisplay = display;
+        this._simLastSettings = settingsKey;
         this._sim.hideOverlay();
+        this._simPaused = false;
+        this._sim.displayIcons = display ? this.simDisplayIcons(display) : null;
+        this._sim.displaySource = display;
+        this.syncPreviewToolbar();
         // Workspace code is pushed as source — it may have been edited — so
         // _TEACHER_TABLE can't match it and capabilities fall back to "show
         // everything". The example's own profile is what narrows that back
         // down; a game generated from scratch has none and shows the lot.
         this._sim.profile = this.currentExample?.simProfile || null;
+        // Before the source: the room hands the Splat count to the wand
+        // ahead of the game loading.
+        this._sim.settings = settings;
         this._sim.source = code;
         if (forcePlay) {
             this._sim.restart?.();
         } else if (isUpdate) {
             this._sim.showOverlay('new-code');
         }
+    }
+
+    /** {name: duty[768]} for every icon the display code names, this
+     * game's own version where it has one (getIcon's order). */
+    simDisplayIcons(displayCode) {
+        const out = {};
+        for (const name of iconNamesIn(displayCode)) {
+            const duty = getIcon(name);
+            if (duty) out[name] = duty;
+        }
+        return out;
     }
 
     /**
@@ -1874,10 +2521,45 @@ class App {
     onSimOverlayAction({ kind, action }) {
         dbg('app', `sim overlay ${kind} -> ${action}`);
         if (action === 'play-it' || action === 'play-again') {
+            this._simPaused = false;
             this._sim?.restart();
         } else if (action === 'send-to-box') {
             this.startSendFlow();
+        } else if (action === 'debug-in-chat') {
+            this.sendSimProblemToChat();
         }
+    }
+
+    /** Ask the chat to fix the game the simulator could not run. The
+     * editor's code already travels in the system blocks, so the message
+     * carries the phase and the simulator's error text. From the first
+     * such message on, knowledge/simulator.md is a cached system block for
+     * the rest of the chat (getSystemBlocks), so it does not age out of
+     * the history window. */
+    async sendSimProblemToChat() {
+        const err = this._simLastError;
+        if (!err || this.isGenerating) return;
+        const when = err.phase === 'load' ? 'loading the game' : 'running the game';
+        // A run-phase error carries only the traceback's last line; the
+        // full traceback is in the recent log.
+        const log = err.phase === 'run' && this._simRecentLog?.length
+            ? `\n\nRecent simulator log:\n${this._simRecentLog.join('\n')}` : '';
+        const ask = `The simulator failed while ${when}. Please find the problem in the current code and fix it.`;
+        const details = `${err.message}${log}`;
+        const msg = `${ask}\n\n<error>\n${details}\n</error>`;
+        if (!this.simNotes) {
+            try {
+                const resp = await fetch(SIM_KNOWLEDGE);
+                if (resp.ok) this.simNotes = await resp.text();
+            } catch (e) {
+                dbgWarn('chat', `could not read ${SIM_KNOWLEDGE}: ${e.message}`);
+            }
+        }
+        document.querySelector('.starter-chips')?.remove();
+        document.querySelectorAll('.choice-chips').forEach(el => el.remove());
+        addMsg(ask, 'user').appendChild(buildCodeBlock('error', details, { collapsed: true, editor: false }));
+        this.dirty = true;
+        await this.callClaude(msg);
     }
 
     renderComponentList(targetId) {
@@ -1991,13 +2673,13 @@ class App {
 
     async startSendFlow() {
         dbg('app', 'startSendFlow() — "Send to Broadcast Box" clicked');
-        const code = getCode('wand');
-        if (!code.trim() || code.trim().startsWith('# AI-generated')) {
+        const primary = primaryRoleCode();
+        if (!primary) {
             dbgWarn('app', 'startSendFlow() aborted: no code in editor');
             toast('Generate some code first — describe your game in chat.', true);
             return;
         }
-        this.refreshHardware(code);
+        this.refreshHardware(primary.code);
         dbg('app', `required tags: [${this.requiredTags.join(', ')}]`);
         // Confirm is the FIRST screen: name the game and see what it needs.
         // Connecting and the tag to-do list both happen on the far side of Send.
@@ -2007,9 +2689,14 @@ class App {
     /** Recompute the hardware requirements from the current code + declared tags. */
     refreshHardware(code) {
         this.hardware = buildHardwareReqs({
-            code: code !== undefined ? code : getCode('wand'),
+            code: code !== undefined ? code : getCode(DEFAULT_ROLE),
             gameName: this.gameName,
             declared: this.declaredTags,
+            // Every non-wand role with no simulator is a physical station
+            // the game needs, named for the send-confirm overlay.
+            stations: ROLE_TABLE
+                .filter(r => r.key !== DEFAULT_ROLE && !r.hasPreview && getCode(r.key).trim())
+                .map(r => r.label),
         });
         return this.hardware;
     }
@@ -2050,7 +2737,7 @@ class App {
             dbg('app', `showSendConfirm(): populated name field from gameName=${JSON.stringify(this.gameName)} -> input.value=${JSON.stringify(nameInput.value)}`);
         }
         this._pendingReplaceSlug = null;
-        this.refreshHardware();
+        this.refreshHardware(primaryRoleCode()?.code);
         this.renderSendRequirements();
         this.setSendBusy(false);
         document.getElementById('send-progress-wrap').classList.add('hidden');
@@ -2105,8 +2792,31 @@ class App {
         document.getElementById('send-success-title').textContent = `"${prettyName}" is on the ${this.deviceShort()}!`;
         document.getElementById('send-success-note').textContent =
             `The ${this.deviceShort()} will restart now — give it a few seconds.`;
+        // Direct USB install reaches one wand per send: offer the next one.
+        document.getElementById('btn-send-another-wand')?.classList.toggle('hidden', this.device.kind !== 'wand');
+        // A Dial can push the new game to nearby wands and stations. Shown
+        // for any Box/Dial link unless identity says Box: identity is not
+        // always in hand by now, and a Box answers fleet.scan with
+        // unknown_cmd, which the overlay reports.
+        const canDistribute = this.device.kind === 'box'
+            && this.device.deviceInfo?.device !== 'broadcast_box';
+        document.getElementById('btn-send-distribute')?.classList.toggle('hidden', !canDistribute);
         clearTimeout(this._sendSuccessTimer);
-        this._sendSuccessTimer = setTimeout(() => this.finishSend(), 5000);
+        // No auto-close while Distribute is offered: it would hide the button.
+        if (!canDistribute) this._sendSuccessTimer = setTimeout(() => this.finishSend(), 5000);
+    }
+
+    /** "Distribute code" on the Dial send-success screen: close it as Done
+     * does, then open the distribute overlay for the game just sent. */
+    openDistribute(slug = this._lastSentSlug, pretty = this.gameName) {
+        if (document.getElementById('send-confirm-overlay')?.classList.contains('hidden') === false) {
+            this.finishSend();
+        }
+        if (!slug) return;
+        if (!this._distribute) {
+            this._distribute = new DistributeOverlay({ app: this, showOverlay, hideOverlay, toast });
+        }
+        this._distribute.open(slug, pretty);
     }
 
     /** Close the send-confirm overlay after a successful send (Done, its
@@ -2128,9 +2838,43 @@ class App {
         }
     }
 
+    /** "Install on another wand" on the success screen of a direct wand
+     * install: release this wand's port and reopen the connect overlay with
+     * the send armed, so connecting the next wand returns to the send
+     * confirm with the same game and name. */
+    async installOnAnotherWand() {
+        clearTimeout(this._sendSuccessTimer);
+        hideOverlay('send-confirm-overlay');
+        this._pendingReplaceSlug = null;
+        this._clearRebootTimer();
+        try {
+            await this.device.disconnect();
+        } catch (e) {
+            dbgWarn('app', `disconnect before next wand: ${e.message}`);
+        }
+        this.setLinkState('idle');
+        this.pendingSendAfterConnect = true;
+        this.renderComponentList('connect-components');
+        showOverlay('connect-overlay');
+        toast('Plug in the next wand, then choose Wand.');
+    }
+
     async confirmSend() {
         dbg('app', 'confirmSend() — "Send" clicked on confirm overlay');
-        const code = getCode('wand');
+        const primary = primaryRoleCode();
+        const errEl0 = document.getElementById('send-name-error');
+        if (!primary) {
+            toast('Generate some code first — describe your game in chat.', true);
+            return;
+        }
+        const { role: primaryRole, info: primaryInfo, code } = primary;
+        if (this.device.kind === 'wand' && primaryRole !== DEFAULT_ROLE) {
+            // wandGameInstaller.js installs only <slug>.py on the wand.
+            const msg = `This game has no wand code, so it cannot be installed on a wand. Send it to a Box or Dial instead.`;
+            if (errEl0) errEl0.textContent = msg;
+            toast(msg, true);
+            return;
+        }
         const nameInput = document.getElementById('send-game-name');
         const errEl = document.getElementById('send-name-error');
         const pretty = (nameInput?.value || this.gameName || '').trim();
@@ -2185,7 +2929,8 @@ class App {
             deviceLabel: this.deviceShort(),
         };
         if (!isWand) {
-            meta.destPath = `/flash/games/${slug}.py`;
+            meta.destPath = `/flash/games/${slug}${primaryInfo.designator}.py`;
+            meta.destLabel = `${slug}${primaryInfo.designator}.py`;
             // Recompute against the slug actually being written: the name can
             // change on this overlay, and the device keys its menu off the slug.
             meta.tags = buildHardwareReqs({
@@ -2194,36 +2939,56 @@ class App {
         }
 
         // A multi-device game ships as several files in one raw-REPL session:
-        // the wand's <slug>.py, the display's <slug>_icon.py, and every icon
-        // that display game names, under <slug>_icons/. The Box then serves
-        // each device whichever file its hubtype asks for.
-        const iconCode = getCode('icon').trim();
+        // the wand's <slug>.py, and one <slug><designator>.py per other role
+        // that has code (plus, for icon, every icon that game names, under
+        // <slug>_icons/). The Box then serves each device whichever file its
+        // hubtype asks for.
         const extraFiles = [];
-        if (iconCode) {
-            // The wand file is checked inside uploadPayload; the display's
-            // has a different signature, so it is checked here.
-            const [iconOk, iconErr] = validateGameCode(iconCode, 'icon');
-            if (!iconOk) {
-                if (errEl) errEl.textContent = iconErr;
-                toast(iconErr, true);
+        for (const info of ROLE_TABLE) {
+            if (info.key === DEFAULT_ROLE) continue;
+            const roleCode = getCode(info.key).trim();
+            if (!roleCode) continue;
+            // Every non-wand role is checked here, the primary one too (its
+            // icon leg is queued below); uploadPayload checks the primary
+            // file again and sends it as meta.destPath.
+            const [ok, err] = validateGameCode(roleCode, info.key);
+            if (!ok) {
+                if (errEl) errEl.textContent = err;
+                toast(err, true);
                 return;
             }
-            const missing = missingIconsIn(iconCode);
-            if (missing.length) {
-                // Sending blanks would leave a dark panel and no explanation.
-                const msg = `The display game asks for icons that do not exist: ${missing.join(', ')}.`;
-                if (errEl) errEl.textContent = msg;
-                toast(msg, true);
-                return;
+            if (info.unknownNamesIn) {
+                const unknown = info.unknownNamesIn(roleCode);
+                if (unknown.length) {
+                    // The device would print [ERR] and do nothing for each.
+                    const msg = `The ${info.label} game uses names the device does not have: ${unknown.join(', ')}.`;
+                    if (errEl) errEl.textContent = msg;
+                    toast(msg, true);
+                    return;
+                }
             }
-            extraFiles.push({ path: `/flash/games/${slug}_icon.py`, content: iconCode });
-            for (const name of iconNamesIn(iconCode)) {
-                extraFiles.push({
-                    path: `/flash/games/${slug}_icons/${name}.py`,
-                    content: iconFileText(name),
-                });
+            if (info.hasIconLeg) {
+                const missing = missingIconsIn(roleCode);
+                if (missing.length) {
+                    // Sending blanks would leave a dark panel and no explanation.
+                    const msg = `The display game asks for icons that do not exist: ${missing.join(', ')}.`;
+                    if (errEl) errEl.textContent = msg;
+                    toast(msg, true);
+                    return;
+                }
             }
-            dbg('app', `display file plus ${extraFiles.length - 1} icon(s) queued`);
+            if (info.key !== primaryRole) {
+                extraFiles.push({ path: `/flash/games/${slug}${info.designator}.py`, content: roleCode });
+            }
+            if (info.hasIconLeg) {
+                for (const name of iconNamesIn(roleCode)) {
+                    extraFiles.push({
+                        path: `/flash/games/${slug}_icons/${name}.py`,
+                        content: iconFileText(name),
+                    });
+                }
+            }
+            dbg('app', `${info.label} file plus its extras queued (${extraFiles.length} so far)`);
         }
         if (!isWand && extraFiles.length) {
             meta.extraFiles = extraFiles;
@@ -2238,6 +3003,7 @@ class App {
             linkState: 'sending',
             deviceProduct: this.deviceProduct(),
             deviceShort: this.deviceShort(),
+            role: primaryRole,
             meta,
         });
         dbg('app', 'uploadPayload() result', result);
@@ -2259,6 +3025,7 @@ class App {
         // the device is restarting" visible and unambiguous. A wand says
         // something different because it auto-launches what it was just sent
         // (see wandGameInstaller.js) rather than waiting for a card.
+        this._lastSentSlug = slug;
         this.showSendSuccess(check.pretty);
         if (isWand) toast('Sent! The wand is starting the game now.');
 
@@ -2334,6 +3101,19 @@ class App {
                 del.innerHTML = iconSvg('trash', { size: 15 });
                 del.addEventListener('click', () => this.askDeleteBoxGame(li, g));
 
+                // Dial only (see showSendSuccess): push this game to nearby
+                // wands and stations.
+                const dist = document.createElement('button');
+                dist.type = 'button';
+                dist.className = 'btn-secondary btn-compact box-lib-dist';
+                dist.textContent = 'Distribute';
+                dist.title = `Send "${g.name || g.slug}" to nearby wands and stations`;
+                dist.classList.toggle('hidden', this.device.deviceInfo?.device === 'broadcast_box');
+                dist.addEventListener('click', () => {
+                    hideOverlay('box-library-overlay');
+                    this.openDistribute(g.slug, g.name || g.slug);
+                });
+
                 // Written-tag checklist: the durable answer to "which cards have
                 // I made?", available whenever the Box is connected -- not only
                 // during the moments right after a send.
@@ -2353,6 +3133,7 @@ class App {
                 li.appendChild(radio);
                 li.appendChild(name);
                 li.appendChild(pulls);
+                li.appendChild(dist);
                 li.appendChild(expand);
                 li.appendChild(del);
                 li.appendChild(tagsWrap);
@@ -2533,12 +3314,21 @@ class App {
         inp.value = '';
         // Remove starter chips once conversation starts
         document.querySelector('.starter-chips')?.remove();
+        document.querySelectorAll('.choice-chips').forEach(el => el.remove());
         addMsg(msg, 'user');
+        if (this.interview) {
+            await this.answerInterview(msg);
+            return;
+        }
         this.dirty = true;
         await this.callClaude(msg);
     }
 
-    async callClaude(userMsg) {
+    /**
+     * The API key from the passphrase, or null after telling the teacher
+     * why (no passphrase, no key, wrong passphrase, knowledge not loaded).
+     */
+    resolveApiKey() {
         const modalPass = document.getElementById('modal-passphrase');
         const passphrase = modalPass?.value?.trim() || '';
         dbg('chat', `callClaude() — passphrase field length ${passphrase.length}, hasEncryptedKey=${hasEncryptedKey()}`);
@@ -2563,34 +3353,47 @@ class App {
         }
         dbg('chat', 'passphrase accepted — API key derived, calling Claude');
 
-        this.chatHistory.push({ role: 'user', content: userMsg });
+        if (this.knowledgeError) {
+            // Without the knowledge base the model answers from general
+            // memory and invents device behavior. Refuse instead.
+            addMsg(`The assistant's knowledge files did not load, so it cannot help right now. `
+                + `Reload the page; if this keeps happening, contact the SmartPlayground team. `
+                + `(${this.knowledgeError})`, 'system');
+            return null;
+        }
+        return apiKey;
+    }
+
+    /**
+     * @param {string} userMsg
+     * @param {{hidden?: boolean}} [opts] hidden: kept for the model, not
+     *     replayed when the saved game is reopened
+     */
+    async callClaude(userMsg, { hidden = false } = {}) {
+        const apiKey = this.resolveApiKey();
+        if (!apiKey) return;
+
+        this.chatHistory.push(hidden ? { role: 'user', content: userMsg, hidden: true } : { role: 'user', content: userMsg });
         addThinkingMsg();
         this.isGenerating = true;
 
         try {
-            const body = JSON.stringify({
-                model: 'claude-sonnet-4-6',
-                max_tokens: 16384,
-                system: [{ type: 'text', text: this.getSystemPrompt(), cache_control: { type: 'ephemeral' } }],
-                messages: this.chatHistory.slice(-10),
-            });
-            dbg('chat', `POST /v1/messages — ${this.chatHistory.length} history message(s)`);
+            const body = JSON.stringify(buildRequestBody({
+                system: this.getSystemBlocks(),
+                // The API accepts only role and content per message.
+                history: this.chatHistory.map(({ role, content }) => ({ role, content })),
+            }));
+            dbg('chat', `POST /v1/messages (stream) — ${this.chatHistory.length} history message(s)`);
 
             const resp = await fetch('https://api.anthropic.com/v1/messages', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'x-api-key': apiKey,
-                    'anthropic-version': '2023-06-01',
-                    'anthropic-dangerous-direct-browser-access': 'true',
-                },
+                headers: requestHeaders(apiKey),
                 body,
             });
             dbg('chat', `response status: ${resp.status}`);
 
-            removeTyping();
-
             if (!resp.ok) {
+                removeTyping();
                 const errData = await resp.json().catch(() => ({}));
                 const errMsg = errData?.error?.message ?? `Could not reach the AI (${resp.status}). Check your network.`;
                 dbgError('chat', `API error (${resp.status}): ${errMsg}`, errData);
@@ -2600,30 +3403,108 @@ class App {
                 return;
             }
 
-            const data = await resp.json();
-            const rawReply = data.content.filter((b) => b.type === 'text').map((b) => b.text).join('');
-            const nfcCards = parseNfcCards(rawReply);
-            const gameName = parseGameName(rawReply);
-            const reply = stripDeviceMarkers(stripGameNameMarker(stripNfcMarker(rawReply)));
-            dbg('chat', `reply received (${rawReply.length} chars)`, { nfcCards, gameName });
-
+            // Stream the reply into one bot message, redrawn at most every
+            // STREAM_RENDER_MS so long code blocks do not re-render per token.
+            let botDiv = null;
+            let pending = null;
+            let renderTimer = null;
+            const draw = () => {
+                renderTimer = null;
+                if (pending === null) return;
+                if (!botDiv) { removeTyping(); botDiv = addMsg('', 'bot'); }
+                renderMarkdown(botDiv, stripAllMarkers(pending));
+                const box = document.getElementById('chat-box');
+                box.scrollTop = box.scrollHeight;
+            };
+            const result = await readMessageStream(resp, (text) => {
+                pending = text;
+                if (!renderTimer) renderTimer = setTimeout(draw, STREAM_RENDER_MS);
+            });
+            if (renderTimer) { clearTimeout(renderTimer); }
             removeTyping();
-            this.chatHistory.push({ role: 'assistant', content: trimForHistory(reply) });
-            addMsg(reply, 'bot');
+            dbg('chat', `stream done: stop_reason=${result.stopReason}, first text ${result.firstTextMs} ms`, result.usage);
 
-            if (gameName) {
-                this.gameName = gameName;
-                dbg('chat', `game name from marker: ${gameName}`);
+            if (result.error) {
+                const msg = `The AI stopped with an error: ${result.error.message || result.error.type}. Try again.`;
+                dbgError('chat', 'stream error event', result.error);
+                if (botDiv) botDiv.remove();
+                addMsg(msg, 'system');
+                this.chatHistory.pop();
+                return;
+            }
+            if (result.stopReason === 'refusal') {
+                dbgWarn('chat', 'refusal', result.stopDetails);
+                if (botDiv) botDiv.remove();
+                addMsg('The AI declined to answer that request. Try rewording it.', 'system');
+                this.chatHistory.pop();
+                return;
+            }
+            const rawReply = result.text;
+            const reply = stripAllMarkers(rawReply);
+            if (!botDiv) botDiv = addMsg('', 'bot');
+            renderMarkdown(botDiv, reply);
+
+            if (result.stopReason === 'max_tokens') {
+                // A truncated reply usually ends mid-code-block; extracting it
+                // would put broken code in the editor. The request and the
+                // reply's prose stay in history so a follow-up ("make it
+                // shorter") still knows what game it is about.
+                dbgWarn('chat', 'reply truncated at max_tokens');
+                addMsg('The reply was too long and got cut off, so your game was not changed. '
+                    + 'Ask for a simpler or shorter version.', 'system');
+                const prose = reply.split('```')[0].trim();
+                this.chatHistory.push({ role: 'assistant', content: `${prose}\n\n`
+                    + '[This reply ran out of room partway through the code, so no code reached the editor.]' });
+                return;
             }
 
+            const nfcCards = parseNfcCards(rawReply);
+            const gameName = parseGameName(rawReply);
+            const choices = parseChoices(rawReply);
+            const simSettings = parseGameSettings(rawReply);
+            dbg('chat', `reply received (${rawReply.length} chars)`, { nfcCards, gameName, choices, simSettings });
+            this.chatHistory.push({ role: 'assistant', content: trimForHistory(reply) });
+
             // A reply may carry one file per device: the markers were read
-            // off rawReply before they were stripped for display.
+            // off rawReply before they were stripped for display. Only a
+            // complete game file for its device replaces the editor; a
+            // snippet stays in the chat.
             const blocks = extractCodeBlocks(rawReply);
-            if (blocks.length) {
+            const games = [];
+            const snippets = [];
+            for (const blk of blocks) {
+                // Signature only: an over-size wand file is still a complete
+                // game, kept in the editor with a warning below.
+                const [ok, err] = validateGameSignature(blk.code, blk.role);
+                if (ok) {
+                    games.push(blk);
+                } else {
+                    snippets.push(blk);
+                    dbg('chat', `[${blk.role}] block is not a complete game, editor unchanged: ${err}`);
+                }
+            }
+            if (snippets.length && !games.length) {
+                addMsg('This is a code snippet — your game was not changed.', 'system');
+            }
+            if (games.length) {
+                if (gameName) {
+                    this.gameName = gameName;
+                    dbg('chat', `game name from marker: ${gameName}`);
+                }
                 const label = userMsg.length > 40 ? userMsg.slice(0, 40) + '…' : userMsg;
+                // A reply that leaves another device's file in place changes
+                // only part of the game: without markers, keep its cards and
+                // settings rather than clearing them.
+                const partial = ROLE_TABLE.some(r => !games.some(g => g.role === r.key)
+                    && getCode(r.key).trim());
                 const seen = [];
-                for (const { role, code } of blocks) {
-                    dbg('chat', `[${role}] code block extracted (${code.length} chars)`);
+                for (const { role, code } of games) {
+                    dbg('chat', `[${role}] game file extracted (${code.length} chars)`);
+                    if (role === 'wand' && codeBytes(code) > MAX_WAND_GAME_BYTES) {
+                        addMsg(`This wand game is ${Math.round(codeBytes(code) / 1000)} KB, over the `
+                            + `${MAX_WAND_GAME_BYTES / 1000} KB the wand can load. Ask for a shorter version before sending it.`,
+                            'system');
+                    }
                     setCode(code, role);
                     saveVersion(code, label, role);
                     seen.push(role);
@@ -2635,16 +3516,19 @@ class App {
                 addMsg(seen.length > 1
                     ? `Code updated for ${seen.join(' and ')} (v${getVersionCount()})`
                     : `Code updated (v${getVersionCount()})`, 'system');
-                // New code replaces the old tag declaration outright: no marker
-                // means this version reads no named tags, not "keep the old ones".
-                this.declaredTags = nfcCards?.length ? nfcCards : null;
+                // On a whole-game reply, no marker means this version reads no
+                // named tags, not "keep the old ones".
+                this.declaredTags = nfcCards?.length ? nfcCards : (partial ? this.declaredTags : null);
                 dbg('chat', `declared tags from [NFC_CARDS]: [${(nfcCards || []).join(', ')}]`);
+                // The same for the simulator's settings: none means the defaults.
+                this.simSettings = simSettings || (partial ? this.simSettings : null);
                 this.gameDesc = userMsg;
                 this.dirty = true;
                 this.updatePreview();
-            } else {
+            } else if (!blocks.length) {
                 dbg('chat', 'no code block found in reply — editor unchanged');
             }
+            if (choices?.length) this.renderChoiceChips(choices);
         } catch (e) {
             removeTyping();
             dbgError('chat', `network/fetch error: ${e.message}`, e);

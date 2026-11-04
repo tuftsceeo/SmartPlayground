@@ -14,6 +14,7 @@ from __future__ import annotations
 import ast
 import asyncio
 import inspect
+import sys
 import time as _time
 
 
@@ -40,12 +41,18 @@ def reset_watchdog():
     _busy_start = None
 
 
+def _sleep_count():
+    tp = sys.modules.get("time_patch")
+    return getattr(tp, "sleeps", 0) if tp is not None else 0
+
+
 async def _aw(value):
     """Await *value* if it is awaitable; otherwise pass it through.
 
     Forces an event-loop yield every N calls so the UI stays responsive,
     and raises SimTimeout if wall-clock time spent without a meaningful
-    sleep (await that takes >=1ms) exceeds _TIMEOUT_S.
+    sleep (a time_patch sleep, or an await that takes >=1ms) exceeds
+    _TIMEOUT_S.
     """
     global _aw_calls, _last_yield, _busy_start
 
@@ -60,11 +67,14 @@ async def _aw(value):
 
     if inspect.isawaitable(value):
         t0 = _time.monotonic()
+        slept = _sleep_count()
         result = await value
         elapsed = _time.monotonic() - t0
         # Only real sleeps / blocking awaits reset the busy timer.
-        # Instant async functions (transformed no-ops) do not.
-        if elapsed >= 0.001:
+        # Instant async functions (transformed no-ops) do not. A sleep
+        # counts however short it was: with time_patch's scale above 1, a
+        # game's sleep_ms(1) waits well under 1ms of real time.
+        if elapsed >= 0.001 or _sleep_count() != slept:
             now = _time.monotonic()
             _busy_start = now
             _last_yield = now
@@ -193,6 +203,34 @@ def _has_yield_in_body(node):
     return f.found
 
 
+def _makes_no_calls(node):
+    """True if the function body (nested defs included) calls nothing but
+    known-sync builtins/stdlib."""
+    for stmt in node.body:
+        for child in ast.walk(stmt):
+            if isinstance(child, ast.Call) and not _callee_is_known_sync(child):
+                return False
+            if isinstance(child, (ast.Await, ast.AsyncFor, ast.AsyncWith)):
+                return False
+    return True
+
+
+def _import_time_calls(tree):
+    """Names called directly by module-level statements (not inside a def)."""
+    names = set()
+
+    def walk(n):
+        for child in ast.iter_child_nodes(n):
+            if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
+                continue
+            if isinstance(child, ast.Call) and isinstance(child.func, ast.Name):
+                names.add(child.func.id)
+            walk(child)
+
+    walk(tree)
+    return names
+
+
 def _is_exception_base(base):
     """Heuristic: does this ClassDef base look like an Exception subclass?"""
     if isinstance(base, ast.Name):
@@ -219,7 +257,8 @@ def _callee_is_known_sync(call_node):
 class _Asyncify(ast.NodeTransformer):
     """Convert sync functions to async and wrap calls in await _aw(...)."""
 
-    def __init__(self):
+    def __init__(self, import_time_calls=()):
+        self._import_time_calls = frozenset(import_time_calls)
         self._async_depth = 0
         self._skip_wrap = 0  # >0 inside lambda / comprehension / defaults
         self._classes_needing_meta = set()  # class names that got async __init__
@@ -233,6 +272,12 @@ class _Asyncify(ast.NodeTransformer):
         if _is_property_decorator(node):
             return True
         if _has_yield_in_body(node):
+            return True
+        if name in self._import_time_calls and _makes_no_calls(node):
+            # Called while the module is being imported (color_quest.py's
+            # `TOP_ROW_LEDS = [rc(0, c) for c in range(5)]`), where nothing
+            # awaits it; it calls nothing that could sleep, so it stays
+            # sync. Callers' `await _aw(...)` passes the value through.
             return True
         return False
 
@@ -313,23 +358,25 @@ class _Asyncify(ast.NodeTransformer):
         self._skip_wrap -= 1
         return node
 
-    def visit_ListComp(self, node):
+    def _visit_comp(self, node):
+        # Inside an async function a list/set/dict comprehension may await,
+        # so its calls are wrapped like any other (splattag.py's
+        # `[i for i in ... if self.alive[net.owner(i)]]`). Elsewhere (module or class level, a lambda) they are not.
+        if self._async_depth > 0 and self._skip_wrap == 0:
+            return self.generic_visit(node)
         self._skip_wrap += 1
         node = self.generic_visit(node)
         self._skip_wrap -= 1
         return node
+
+    def visit_ListComp(self, node):
+        return self._visit_comp(node)
 
     def visit_SetComp(self, node):
-        self._skip_wrap += 1
-        node = self.generic_visit(node)
-        self._skip_wrap -= 1
-        return node
+        return self._visit_comp(node)
 
     def visit_DictComp(self, node):
-        self._skip_wrap += 1
-        node = self.generic_visit(node)
-        self._skip_wrap -= 1
-        return node
+        return self._visit_comp(node)
 
     def visit_GeneratorExp(self, node):
         self._skip_wrap += 1
@@ -390,7 +437,7 @@ def transform_source(source, filename="<game>"):
     Returns (transformed_source: str, tree: ast.Module).
     """
     tree = ast.parse(source, filename=filename)
-    transformer = _Asyncify()
+    transformer = _Asyncify(_import_time_calls(tree))
     new_tree = transformer.visit(tree)
     ast.fix_missing_locations(new_tree)
     # Python 3.8+: type_ignores

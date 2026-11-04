@@ -18,7 +18,7 @@ import { EXAMPLES } from "../js/examples.js";
 
 // Expected game-specific tags, from the plan's pinned table.
 const EXPECTED = {
-    melody: ["note_c","note_d","note_e","note_f","note_g","note_a","note_b","note_c_high","erase","melody","backspace"],
+    melody: ["note_c","note_d","note_e","note_f","note_g","note_a","note_b","note_c_high","erase","melody","backspace","rest","double_length","halve_length"],
     nfc_sound: ["note_c","note_d","note_e","note_f","note_g","note_a","note_b"],
     cooking: ["tomato","milk","cheese","flour","egg","butter","sugar","cooking"],
     gestures: ["red","green","blue","play"],
@@ -28,7 +28,7 @@ const EXPECTED = {
     simpleicecream: [], multiicecream: [], sound: [],
 };
 
-const MW = resolve(HERE, "../../MockWand");
+const MW = resolve(HERE, "../../../Wand Module");
 
 // Game files are moving out of the MockWand root into MockWand/games/,
 // which is also where a pulled game lands on the device. Either location
@@ -62,7 +62,7 @@ for (const [name, want] of Object.entries(EXPECTED)) {
 }
 
 console.log("\n== example gallery (code now loads from Simulator/vendor/games) ==");
-const VENDOR = resolve(HERE, "../../Simulator/vendor/games");
+const VENDOR = resolve(HERE, "../../../Simulator/vendor/games");
 for (const ex of EXAMPLES) {
     const src = readFileSync(`${VENDOR}/${ex.vendorGame}.py`, "utf8");
     const { declared, tags, unresolved } = extractGameTags(src);
