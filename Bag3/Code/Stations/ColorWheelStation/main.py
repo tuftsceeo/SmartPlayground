@@ -163,13 +163,18 @@ def run_last(enow):
         line = _poll_line(uart, buf)
         if line is not None:
             out = _append(line, _scan_colour(reader))
+            # Broadcast a bare list of colour names. espnow_manager.poll()
+            # classifies a JSON list as msg_type "colors", which is what the
+            # color_quest wand game listens for (_colors_from_data filters
+            # each entry against its known colours, so a NO_TAG "?" is simply
+            # dropped on the wand side).
             colours = out.split(DELIM)
             if enow is not None:
                 try:
-                    enow.broadcast({"type": "color_wheel", "colors": colours})
+                    enow.broadcast(colours)
                 except Exception as e:
                     print("  [cw] broadcast err: %s" % e)
-            print("  [cw] broadcast: %s" % out)
+            print("  [cw] broadcast colors: %s" % colours)
         time.sleep_ms(1)
 
 

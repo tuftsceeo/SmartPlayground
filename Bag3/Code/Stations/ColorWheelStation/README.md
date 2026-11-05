@@ -52,8 +52,11 @@ Same files on all four boards; set `ROLE` at the top of `main.py` per board:
 Tunables in `main.py`: `SCAN_TIMEOUT_MS`, `NO_TAG` (placeholder when a station
 has no readable tag), `DELIM`, `UART_BAUD`.
 
-The last node broadcasts `{"type": "color_wheel", "colors": [...]}` over
-ESP-NOW. Adjust the shape in `run_last()` to match whatever listens for it.
+The last node broadcasts a bare list of colour names, e.g.
+`["green", "blue", "red", "yellow"]`. `espnow_manager.poll()` classifies a
+JSON list as msg_type `"colors"`, which is what the `color_quest` wand game
+(`Bag3/Code/Wand Module/color_quest.py`) listens for; it filters each entry
+against its known colours, so a `NO_TAG` `"?"` is dropped wand-side.
 
 ## Files
 
