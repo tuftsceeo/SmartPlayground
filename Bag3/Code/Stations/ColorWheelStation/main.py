@@ -1,203 +1,141 @@
 """
-Color Wheel Station -- daisy-chained NFC colour reader (Bag3)
-============================================================
-Four XIAO ESP32-C6 boards in a line, each with an M5Stack WS1850S RFID
-reader on I2C (SDA=D4/GPIO22, SCL=D5/GPIO23, 0x28). The boards are linked
-by soft UART, one direction only:
+Color Wheel Station -- single-ESP, 4-reader NFC colour reader (Bag3)
+===================================================================
+One XIAO ESP32-C6 with four M5Stack WS1850S RFID readers, each on its own
+bit-banged SoftI2C bus (the readers are all at I2C address 0x28, so they
+cannot share a bus). A button triggers a scan of all four readers at once;
+each reader's NDEF text -- a colour like "turngreen" -- is collected into a
+list and broadcast over ESP-NOW.
 
-    [first] --UART--> [middle] --UART--> [middle] --UART--> [last] ==ESP-NOW==>
+The broadcast is a bare list of colour names, which espnow_manager.poll()
+classifies as msg_type "colors" -- the shape the color_quest wand game
+(Bag3/Code/Wand Module/color_quest.py) listens for. Its valid colours are
+the turn-prefixed action names (turnred, turngreen, turnblue, turnpurple,
+turnpink, turnyellow, turnwhite, turnoff); the tags must carry those.
 
-  * first  (ESP1): a button on D2 triggers a scan. Reads its own tag's NDEF
-                   text ("green", "blue", ...) and sends it down the chain.
-  * middle (ESP2, ESP3): waits for an upstream line, scans its own tag,
-                   appends the colour, forwards the longer line downstream.
-  * last   (ESP4): waits for an upstream line, scans its own tag, appends,
-                   then broadcasts the full chain over ESP-NOW.
+Pins are fixed by the breakout board (silk D-number -> GPIO):
 
-UART wiring is crossed by the cable: each board's D0 (TX) -> next board's
-D7 (RX). So every board uses the SAME single-UART setting below
-(tx=D0/GPIO0, rx=D7/GPIO17); the first uses only TX, the last only RX.
+    reader 1  SCL D5/GPIO23  SDA D4/GPIO22
+    reader 2  SCL D2/GPIO2   SDA D3/GPIO21
+    reader 3  SCL D7/GPIO17  SDA D6/GPIO16   <- the C6's UART0 console pins;
+                                                verified working here
+    reader 4  SCL D0/GPIO0   SDA D1/GPIO1
+    button    D8/GPIO19
+    NeoPixel  (add later; D3 is now reader 2 -- use a free pin, e.g. D9/D10)
 
-Memory order (see Bag3/AGENTS.md): only the "last" node uses the radio, and
-it brings ESP-NOW up BEFORE importing the NFC modules, so the radio claims
-its contiguous DRAM block before anything else fragments the heap. The other
-three never import espnow_manager at all.
-
-Flash the same files to all four boards; set ROLE per board.
+Memory order (Bag3/AGENTS.md): ESP-NOW is brought up FIRST, before the NFC
+modules import, so the radio claims its contiguous DRAM block before anything
+else fragments the heap. Onboard antenna (espnow_manager EXTERNAL_ANTENNA
+= False).
 """
 
 import time
-from machine import Pin, SoftI2C, UART
+from machine import Pin, SoftI2C
 
-# ============================================================
-# PER-BOARD CONFIG -- set ROLE on each of the four boards
-#   "first"  -> ESP1 (button)
-#   "middle" -> ESP2, ESP3
-#   "last"   -> ESP4 (ESP-NOW broadcast)
-# ============================================================
-ROLE = "first"
-
-# --- XIAO ESP32-C6 pin positions -> GPIO --------------------
-PIN_BUTTON = 2       # D2  -- first node only; button wired to GND
-I2C_SDA = 22         # D4
-I2C_SCL = 23         # D5
+# --- reader buses: (scl_gpio, sda_gpio), in output order -----
+READER_PINS = (
+    (23, 22),   # reader 1  -- D5 / D4
+    (2, 21),    # reader 2  -- D2 / D3
+    (17, 16),   # reader 3  -- D7 / D6  (C6 UART0 console pins; works in test)
+    (0, 1),     # reader 4  -- D0 / D1
+)
 I2C_FREQ = 100000
-UART_ID = 1
-UART_TX = 0          # D0 -> next board's D7 (RX)
-UART_RX = 17         # D7 <- previous board's D0 (TX)
-UART_BAUD = 115200
 
-# --- behaviour ----------------------------------------------
-SCAN_TIMEOUT_MS = 1000   # how long a node waits for its own tag per trigger
-NO_TAG = "?"             # placeholder sent when no readable tag is present
-DELIM = ","              # separates colours in the chain message
-EOL = "\n"               # line terminator on the UART wire
+# --- button (D8 / GPIO19) -----------------------------------
+PIN_BUTTON = 19
+# Bench board was active-high (wired to 3V3 + external pull-down). Set False
+# for a button wired to GND (internal pull-up, reads LOW when pressed).
+BUTTON_ACTIVE_HIGH = True
 DEBOUNCE_MS = 40
 
-# The first node's button. On the bench board it reads HIGH when pressed
-# (wired to 3V3, with an external pull-down holding GPIO2 low at rest), so
-# active-high. Set False for a button wired to GND (uses the internal
-# pull-up, reads LOW when pressed).
-BUTTON_ACTIVE_HIGH = True
+# --- NeoPixel status strip (optional, add later) ------------
+# D3/GPIO21 is now reader 2's SDA; a free pin like D9/GPIO20 or D10/GPIO18.
+# NEOPIXEL_PIN = 20
+
+# --- behaviour ----------------------------------------------
+SCAN_TIMEOUT_MS = 1000   # how long each reader waits for its tag
+NO_TAG = "?"             # placeholder when a reader has no readable tag
 
 
-def _build_reader():
-    """Bring up the WS1850S on this board's I2C bus. Returns the reader, or
-    None if the bus/reader could not be reached (a wiring fault)."""
+def _build_readers():
+    """Bring up a SoftI2C WS1850S on each pin pair. Returns a list aligned
+    with READER_PINS; a failed reader is None (so one dead bus doesn't take
+    the whole station down)."""
     from nfc_ws1850s import Ws1850sReader
-    i2c = SoftI2C(sda=Pin(I2C_SDA), scl=Pin(I2C_SCL), freq=I2C_FREQ)
-    try:
-        found = i2c.scan()
-        print("  [cw] I2C devices: %s" % [hex(a) for a in found])
-    except Exception as e:
-        print("  [cw] I2C scan failed: %s" % e)
-    reader = Ws1850sReader(i2c)
-    try:
-        ver = reader.begin()
-        print("  [cw] WS1850S version: 0x%02X" % ver)
-    except Exception as e:
-        print("  [cw] reader begin failed: %s" % e)
-    return reader
+    readers = []
+    for i, (scl, sda) in enumerate(READER_PINS):
+        try:
+            bus = SoftI2C(scl=Pin(scl), sda=Pin(sda), freq=I2C_FREQ)
+            found = bus.scan()
+            reader = Ws1850sReader(bus)
+            ver = reader.begin()
+            print("  [cw] reader %d (scl=%d sda=%d): addrs=%s ver=0x%02X"
+                  % (i + 1, scl, sda, [hex(a) for a in found], ver))
+            readers.append(reader)
+        except Exception as e:
+            print("  [cw] reader %d (scl=%d sda=%d) FAILED: %s"
+                  % (i + 1, scl, sda, e))
+            readers.append(None)
+    return readers
 
 
 def _scan_colour(reader):
-    """Read this node's tag text. Returns the colour string, or NO_TAG if no
-    tag is present / no readable NDEF text was found within SCAN_TIMEOUT_MS."""
+    """Read one reader's tag text. Returns the colour string, or NO_TAG if no
+    tag / no readable NDEF text within SCAN_TIMEOUT_MS, or the bus is dead."""
+    if reader is None:
+        return NO_TAG
     from nfc_reader import read_ndef_text
     try:
         text, _uid = read_ndef_text(reader, timeout=SCAN_TIMEOUT_MS)
     except Exception as e:
         print("  [cw] scan error: %s" % e)
         return NO_TAG
-    if text:
-        return text
-    return NO_TAG
+    return text if text else NO_TAG
 
 
-def _poll_line(uart, buf):
-    """Accumulate UART bytes into buf. Return the next complete line (decoded,
-    EOL stripped) when one is available, else None. Non-blocking."""
-    data = uart.read()
-    if data:
-        buf.extend(data)
-    idx = bytes(buf).find(b'\n')
-    if idx < 0:
-        return None
-    line = bytes(buf[:idx])
-    del buf[:idx + 1]
+def _scan_all(readers):
+    return [_scan_colour(r) for r in readers]
+
+
+def main():
+    # ── 1. Radio first (memory order; see module docstring). ──
+    from espnow_manager import ESPNowManager
+    enow = ESPNowManager()
     try:
-        return line.decode('utf-8').strip()
-    except Exception:
-        return ""
+        enow.init()
+        print("  [cw] ESP-NOW ready")
+    except Exception as e:
+        enow = None
+        print("  [cw] ESP-NOW init failed:")
+        import sys
+        sys.print_exception(e)
 
+    # ── 2. Readers (after the radio has its memory). ──
+    readers = _build_readers()
 
-def _append(line, colour):
-    """Append this node's colour to the upstream line."""
-    if line:
-        return line + DELIM + colour
-    return colour
-
-
-def run_first():
-    reader = _build_reader()
-    uart = UART(UART_ID, baudrate=UART_BAUD, tx=Pin(UART_TX), rx=Pin(UART_RX))
+    # ── 3. Button. ──
     if BUTTON_ACTIVE_HIGH:
         button = Pin(PIN_BUTTON, Pin.IN, Pin.PULL_DOWN)
         pressed = 1
     else:
         button = Pin(PIN_BUTTON, Pin.IN, Pin.PULL_UP)
         pressed = 0
-    print("  [cw] first node ready -- press button to start a scan")
+
+    print("  [cw] ready -- press button to scan the 4 readers")
     while True:
         if button.value() == pressed:
             time.sleep_ms(DEBOUNCE_MS)
             if button.value() == pressed:
-                colour = _scan_colour(reader)
-                uart.write((colour + EOL).encode('utf-8'))
-                print("  [cw] started chain: %s" % colour)
+                colours = _scan_all(readers)
+                if enow is not None:
+                    try:
+                        enow.broadcast(colours)
+                    except Exception as e:
+                        print("  [cw] broadcast err: %s" % e)
+                print("  [cw] broadcast colors: %s" % colours)
                 while button.value() == pressed:   # one press = one scan
                     time.sleep_ms(5)
         time.sleep_ms(1)
-
-
-def run_middle():
-    reader = _build_reader()
-    uart = UART(UART_ID, baudrate=UART_BAUD, tx=Pin(UART_TX), rx=Pin(UART_RX))
-    buf = bytearray()
-    print("  [cw] middle node ready -- waiting for upstream")
-    while True:
-        line = _poll_line(uart, buf)
-        if line is not None:
-            out = _append(line, _scan_colour(reader))
-            uart.write((out + EOL).encode('utf-8'))
-            print("  [cw] forwarded: %s" % out)
-        time.sleep_ms(1)
-
-
-def run_last(enow):
-    reader = _build_reader()
-    uart = UART(UART_ID, baudrate=UART_BAUD, tx=Pin(UART_TX), rx=Pin(UART_RX))
-    buf = bytearray()
-    print("  [cw] last node ready -- waiting for upstream")
-    while True:
-        line = _poll_line(uart, buf)
-        if line is not None:
-            out = _append(line, _scan_colour(reader))
-            # Broadcast a bare list of colour names. espnow_manager.poll()
-            # classifies a JSON list as msg_type "colors", which is what the
-            # color_quest wand game listens for (_colors_from_data filters
-            # each entry against its known colours, so a NO_TAG "?" is simply
-            # dropped on the wand side).
-            colours = out.split(DELIM)
-            if enow is not None:
-                try:
-                    enow.broadcast(colours)
-                except Exception as e:
-                    print("  [cw] broadcast err: %s" % e)
-            print("  [cw] broadcast colors: %s" % colours)
-        time.sleep_ms(1)
-
-
-def main():
-    if ROLE == "last":
-        # Radio FIRST. Import and bring ESP-NOW up before the NFC modules
-        # allocate, so it claims its contiguous DRAM block. See the module
-        # docstring and Bag3/AGENTS.md.
-        from espnow_manager import ESPNowManager
-        enow = ESPNowManager()
-        try:
-            enow.init()
-            print("  [cw] ESP-NOW ready")
-        except Exception as e:
-            enow = None
-            print("  [cw] ESP-NOW init failed:")
-            import sys
-            sys.print_exception(e)
-        run_last(enow)
-    elif ROLE == "middle":
-        run_middle()
-    else:
-        run_first()
 
 
 main()
