@@ -54,6 +54,12 @@ DELIM = ","              # separates colours in the chain message
 EOL = "\n"               # line terminator on the UART wire
 DEBOUNCE_MS = 40
 
+# The first node's button. On the bench board it reads HIGH when pressed
+# (wired to 3V3, with an external pull-down holding GPIO2 low at rest), so
+# active-high. Set False for a button wired to GND (uses the internal
+# pull-up, reads LOW when pressed).
+BUTTON_ACTIVE_HIGH = True
+
 
 def _build_reader():
     """Bring up the WS1850S on this board's I2C bus. Returns the reader, or
@@ -115,16 +121,21 @@ def _append(line, colour):
 def run_first():
     reader = _build_reader()
     uart = UART(UART_ID, baudrate=UART_BAUD, tx=Pin(UART_TX), rx=Pin(UART_RX))
-    button = Pin(PIN_BUTTON, Pin.IN, Pin.PULL_UP)
+    if BUTTON_ACTIVE_HIGH:
+        button = Pin(PIN_BUTTON, Pin.IN, Pin.PULL_DOWN)
+        pressed = 1
+    else:
+        button = Pin(PIN_BUTTON, Pin.IN, Pin.PULL_UP)
+        pressed = 0
     print("  [cw] first node ready -- press button to start a scan")
     while True:
-        if button.value() == 0:                 # active-low: pressed
+        if button.value() == pressed:
             time.sleep_ms(DEBOUNCE_MS)
-            if button.value() == 0:
+            if button.value() == pressed:
                 colour = _scan_colour(reader)
                 uart.write((colour + EOL).encode('utf-8'))
                 print("  [cw] started chain: %s" % colour)
-                while button.value() == 0:      # one press = one scan
+                while button.value() == pressed:   # one press = one scan
                     time.sleep_ms(5)
         time.sleep_ms(1)
 

@@ -20,7 +20,7 @@ Pin *positions* are the silkscreen D-numbers; GPIOs are what the code uses.
 
 | Function | Position | GPIO | Notes |
 |---|---|---|---|
-| Button | D2 | 2 | first node only; other side to GND (internal pull-up) |
+| Button | D2 | 2 | first node only; bench board is active-high (to 3V3 + external pull-down). Set `BUTTON_ACTIVE_HIGH` in main.py |
 | RFID SDA | D4 | 22 | I2C, WS1850S @ 0x28, 100 kHz |
 | RFID SCL | D5 | 23 | |
 | UART TX out | D0 | 0 | -> next board's D7 (RX) |
