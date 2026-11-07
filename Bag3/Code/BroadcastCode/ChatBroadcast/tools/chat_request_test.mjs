@@ -63,12 +63,12 @@ await test("missing knowledge file throws", () => {
 });
 
 await test("system blocks: simple mode has 2 blocks, advanced 3; only stable ones cached", () => {
-    const base = { knowledge, advanced: files[ADVANCED_KNOWLEDGE], icons: ["whale", "ready"],
+    const base = { knowledge, advanced: files[ADVANCED_KNOWLEDGE], icons: ["orca", "ready"],
                    editorCode: { wand: "def play(nfc, leds, buz, accel, i2c, enow, batt=None):\n    pass", icon: "" } };
     const simple = buildSystemBlocks({ ...base, advancedMode: false });
     assert.equal(simple.length, 2);
     assert.ok(simple[0].cache_control && !simple[1].cache_control);
-    assert.ok(simple[1].text.includes("whale, ready"));
+    assert.ok(simple[1].text.includes("orca, ready"));
     assert.ok(simple[1].text.includes("[DEVICE: wand]"));
     assert.ok(!simple[1].text.includes("[DEVICE: icon]"), "empty roles are not sent");
     const adv = buildSystemBlocks({ ...base, advancedMode: true });

@@ -2,7 +2,7 @@
 Team Goal Race — the shared display
 ====================================
 Shows a ready mark while a round is open, then the winning team's icon: a
-tree for green, a whale for blue. The first goal message of a round wins;
+tree for green, an orca for blue. The first goal message of a round wins;
 later ones are ignored until a stop clears it.
 
 This is the ICON DISPLAY half of a two-device game. MockWand runs its own
@@ -48,7 +48,7 @@ COMMANDS = _EXIT_TAGS
 ICON_READY = "ready"
 TEAM_ICON = {
     "green": "tree",
-    "blue": "whale",
+    "blue": "orca",
 }
 
 # Below MAX_INTENSITY (0.50), which is a measured supply ceiling rather than

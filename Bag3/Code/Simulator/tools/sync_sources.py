@@ -84,7 +84,7 @@ DISPLAY_FILES = [
 # Icons each display game reads, from IconDisplay/icons/, vendored as
 # display/games/<game>_icons/<name>.py (the layout a pulled game has).
 DISPLAY_GAME_ICONS = {
-    "goalrace": ["ready", "tree", "whale"],
+    "goalrace": ["orca", "ready", "tree"],
 }
 
 # Game modules to bundle (from Bag3/Code/Wand Module).

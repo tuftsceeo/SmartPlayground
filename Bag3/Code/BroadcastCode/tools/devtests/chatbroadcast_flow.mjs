@@ -52,7 +52,7 @@ import icon_store
 from display_tags import exit_tags_excluding
 _EXIT_TAGS = exit_tags_excluding("goalrace")
 COMMANDS = _EXIT_TAGS
-TEAM_ICON = {"green": "tree", "blue": "whale"}
+TEAM_ICON = {"green": "tree", "blue": "orca"}
 def play(nfc, panel, enow):
     icon_store.read_icon("ready", into=panel.src)
 \`\`\`
@@ -79,7 +79,7 @@ check('every role has a documented signature',
 // ── Icons the display file needs ──
 const names = lib.iconNamesIn(icon);
 check('icons resolved from the display file',
-    JSON.stringify(names) === JSON.stringify(['ready', 'tree', 'whale']), names.join(','));
+    JSON.stringify(names) === JSON.stringify(['orca', 'ready', 'tree']), names.join(','));
 check('none of them are missing', lib.missingIconsIn(icon).length === 0);
 check('a game naming a nonexistent icon is caught',
     lib.missingIconsIn('icon_store.read_icon("dragon")').join(',') === 'dragon');

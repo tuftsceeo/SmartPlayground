@@ -67,7 +67,7 @@ def play(nfc, panel, enow):
                 return
             if msg_type == "raw" and isinstance(data, dict):
                 if data.get("type") == "yourmsg":
-                    _show(panel, "whale", ACTIVE_INTENSITY)
+                    _show(panel, "orca", ACTIVE_INTENSITY)
 
             if nfc is not None and frame % NFC_EVERY == 0:
                 cmd, _uid = nfc.read_command(timeout=100)
@@ -79,7 +79,7 @@ def play(nfc, panel, enow):
         panel.clear()
 ```
 
-Replace `"your_game"` with the game's slug, and `"ready"` / `"whale"` with icon names from the list
+Replace `"your_game"` with the game's slug, and `"ready"` / `"orca"` with icon names from the list
 sent with the request.
 
 ## API
@@ -107,7 +107,7 @@ game.
 
 ```python
 import icon_store
-icon_store.read_icon("whale", into=panel.src)
+icon_store.read_icon("orca", into=panel.src)
 panel.draw_bytes(panel.src)
 ```
 
@@ -166,7 +166,7 @@ outlines ("we need two more").
 
 | The teacher says | Use |
 |---|---|
-| "show a picture of a whale" | named icon `"whale"` (if in the list) |
+| "show a picture of an orca" | named icon `"orca"` (if in the list) |
 | "show the score" | `draw16.number(...)` |
 | "show how many points each team has" | `chart16.blocks(...)` |
 | "show 5 stars" | `chart16.count_glyphs(src, 5, shapes.SHAPE_STAR, color)` |

@@ -77,7 +77,7 @@ def _send(h, payload):
 async def test_goal_shows_team_icon_and_announces_winner(host):
     h = host
     ready = _icon_bytes(os.path.join(h.game_dir, "goalrace_icons", "ready.py"))
-    whale = _icon_bytes(os.path.join(h.game_dir, "goalrace_icons", "whale.py"))
+    orca = _icon_bytes(os.path.join(h.game_dir, "goalrace_icons", "orca.py"))
     await h.start()
     try:
         assert await _until(lambda: h.panel is not None)
@@ -85,7 +85,7 @@ async def test_goal_shows_team_icon_and_announces_winner(host):
         assert await _until(lambda: any(f == ready for f, _ in h.frames))
         assert h.running_game == "goalrace"
         _send(h, {"type": "goal", "team": "blue"})
-        assert await _until(lambda: any(f == whale for f, _ in h.frames))
+        assert await _until(lambda: any(f == orca for f, _ in h.frames))
         assert h.frames[-1][1] == pytest.approx(0.15)
         assert await _until(lambda: any(b'"winner"' in p for _, _, p in h.sent))
         winner = [json.loads(p) for s, d, p in h.sent if b'"winner"' in p]
@@ -114,9 +114,9 @@ async def test_icons_written_where_icon_store_reads(host):
     from icon_host import icon_text
     h = host
     duty = [7] * 768
-    h.set_icons("goalrace", {"whale": duty})
-    assert os.path.isfile("goalrace_icons/whale.py")
-    assert bytes(icon_store.read_icon("whale")) == bytes(duty)
+    h.set_icons("goalrace", {"orca": duty})
+    assert os.path.isfile("goalrace_icons/orca.py")
+    assert bytes(icon_store.read_icon("orca")) == bytes(duty)
     assert icon_text(duty).startswith("SIZE = (16, 16)")
 
 
