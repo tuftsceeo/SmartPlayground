@@ -161,7 +161,6 @@
  },
  "owl": {
   "rows": [
-   "................",
    "...N........N...",
    "...NNNNNNNNNN...",
    "..NNNNNNNNNNNN..",
@@ -169,14 +168,15 @@
    ".NCCCCNNNNCCCCN.",
    ".NCCKCCNNCCKCCN.",
    ".NCCKCCYYCCKCCN.",
-   ".ENCCCCYYCCCCNE.",
-   ".ENNCCCCCCCCNNE.",
-   ".EENWWWWWWWWNEE.",
-   ".EENWWWWWWWWNEE.",
-   "..EENWWWWWWNEE..",
-   "...EELLLLLLEE...",
-   ".....YY..YY.....",
-   "................"
+   "TXCCCCCYYCCCCCXT",
+   "TNXCCCCCCCCCCXNT",
+   "NNXWWWWWWWWWWXNN",
+   "NNXWWWWWWWWWWXNN",
+   "ENNXWWWWWWWWXNNE",
+   ".ENXWWWWWWWWXNE.",
+   "..EEXLLLLLLXEE..",
+   "....YYY..YYY....",
+   "GGGGYGYGGYGYGGGG"
   ]
  },
  "lion": {
