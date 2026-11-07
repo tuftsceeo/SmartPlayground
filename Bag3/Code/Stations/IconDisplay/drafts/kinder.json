@@ -482,21 +482,21 @@
  "parrot": {
   "rows": [
    "................",
-   "......OOOO......",
-   ".....ORRRRR.....",
-   "....WKWRRRRR....",
-   "...YYWWRRRRR....",
-   "....rWRRRRRR....",
-   "......RRRRRRRR..",
-   "......RRRYYYRR..",
-   "......RRYYYBBR..",
-   "......RRYBBBBr..",
-   ".......RRBBBBr..",
-   "gggggggrRRBBrggg",
-   ".........RBBr...",
-   ".........RBB....",
-   "..........BB....",
-   "..........B....."
+   "........ORRO....",
+   ".......ORRRRR...",
+   ".......RRWWKRY..",
+   "......RRRWWRYY..",
+   "......RRRRRRrY..",
+   ".....RRRRRRR....",
+   "....RYYYRRRR....",
+   "....YYYYRRRR....",
+   "...BBYYYRRRr....",
+   "...BBBBYRRRr....",
+   "..BBBBBRRRr.....",
+   "..BBBB.RRR......",
+   ".BBB..gggrgrggg.",
+   ".BB.............",
+   "B..............."
   ]
  }
 }
