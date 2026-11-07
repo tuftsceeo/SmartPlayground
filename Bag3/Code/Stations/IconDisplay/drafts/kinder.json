@@ -478,5 +478,25 @@
    "EEEEEEEEEEEEEEEE",
    "................"
   ]
+ },
+ "parrot": {
+  "rows": [
+   "................",
+   "......OOOO......",
+   ".....ORRRRR.....",
+   "....WKWRRRRR....",
+   "..YYYWWRRRRR....",
+   "..YrYrRRRRRRR...",
+   "...Yr.RRRRRRRR..",
+   "......RRRYYYRR..",
+   "......RRYYYBBR..",
+   "......RRYBBBBr..",
+   ".......RRBBBBr..",
+   "gggggggrRRBBrggg",
+   ".........RBBr...",
+   ".........RBB....",
+   "..........BB....",
+   "..........B....."
+  ]
  }
 }
