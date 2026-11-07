@@ -141,22 +141,22 @@
  },
  "frog": {
   "rows": [
-   "..WWW......WWW..",
-   ".WKKKW....WKKKW.",
-   ".WKKKWVVVVWKKKW.",
-   ".VWWWVVVVVVWWWV.",
-   ".gggggggggggggg.",
-   ".gKggggggggggKg.",
-   ".ggKKKKKKKKKKgg.",
-   ".ggZYYYYYYYYZgg.",
-   "gggZYYYYYYYYZggg",
-   "gggZYYYYYYYYZggg",
-   "gggggYYYYYYggggg",
-   "ggZggYYYYYYggZgg",
-   "gZZggOOOOOOggZZg",
-   ".ZggZggggggZggZ.",
-   "ggggZ......Zgggg",
-   "................"
+   ".....WW...WW....",
+   "....W..W.W..W...",
+   "....W..WbW..W...",
+   "....bWWbbbWWb...",
+   "...bbbbbbbbbbb..",
+   "...bb.bbbbb.bb..",
+   "...bbv.....vbb..",
+   "....bvvvvvvvb...",
+   "....bvvvvvvvb...",
+   ".bbzbzvvvvvzbzbb",
+   ".bbzbzvvvvvzbzbb",
+   "..bzbbzvvvzbbzb.",
+   "...bzbbzvzbbzb..",
+   "..bbbzbbzbbzbbb.",
+   "tnnnzzzzzzzzznnt",
+   "ttnnnnnnnnnnnntt"
   ]
  },
  "owl": {
