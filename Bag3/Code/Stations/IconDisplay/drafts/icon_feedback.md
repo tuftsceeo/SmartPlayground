@@ -106,6 +106,7 @@ User's verdicts on the full animal sheet. Standard: children's-cartoon caricatur
 
 All icons should aim for the cartoon level of `dolphin`. How the dolphin does it:
 
+- **Light comes from above (the rule):** light tone on top surfaces, darker tone on undersides, bellies and legs in shadow.
 - **Three tones per subject:** a mid body colour (110,80,70), a darker tone (60,50,60) and a light/white (measured white) for the belly and highlights.
 - **Dark tone as a partial rim, not a full outline:** it sits only on the shadow side and along the back and fin edges. The lit side has no outline.
 - **Light tone marks the belly and one or two highlights**, which is what makes the body read as rounded.
