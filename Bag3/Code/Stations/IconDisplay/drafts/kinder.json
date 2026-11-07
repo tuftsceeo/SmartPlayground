@@ -539,5 +539,45 @@
    "......ccc.......",
    "................"
   ]
+ },
+ "orca": {
+  "rows": [
+   "SSSSSSSSSSSSSSSS",
+   "SSSSSSSKSSSSSSSS",
+   "SSSSSSKKSSSSSSSS",
+   "SSSSSKKKSSSSSSSS",
+   "SSSSKKKKKKKKKSSS",
+   "KSSKKKKKKKKKKKSS",
+   "KSKKKKKKKKKWWKKS",
+   "KKKKKKKKKKKKKKKS",
+   "SKKKKKKKKKKKKKKS",
+   "SSKKKWWKKKKWWWWS",
+   "SSSKWWWWKKWWWWSS",
+   "SSSSSSSKKSSSSSSS",
+   "SSSSSSSSKSSSSSSS",
+   "SSSSSSSSSSSSSSSS",
+   "SSSSSSSSSSSSSSSS",
+   "SSSSSSSSSSSSSSSS"
+  ]
+ },
+ "humpback": {
+  "rows": [
+   "............cc..",
+   "...........cBBW.",
+   "..........cBKBWW",
+   ".........cBBBWmW",
+   "........cBBBWmW.",
+   "...WW..cBBBWmW..",
+   "....WWWBBBWmW...",
+   "......BBBBWW....",
+   ".....BBBBWW.....",
+   "....BBBBW.......",
+   "...BBBB.........",
+   "..BBB...........",
+   "BBBB............",
+   "B..B............",
+   "................",
+   "................"
+  ]
  }
 }
