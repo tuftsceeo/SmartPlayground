@@ -161,22 +161,22 @@
  },
  "owl": {
   "rows": [
-   "...U........U...",
-   "...PPPPPPPPPP...",
-   "..UUUUUUUUUUUU..",
-   ".UYYUUUUUUUUYYU.",
-   ".UYYYYUUUUYYYYU.",
-   ".UYYKYYUUYYKYYU.",
-   ".UYYKYYOOYYKYYU.",
-   "PBYYYYYOOYYYYYBP",
-   "PUBYYYYYYYYYYBUP",
-   "UUBWWWWWWWWWWBUU",
-   "UUBWWWWWWWWWWBUU",
-   "BUUBWWWWWWWWBUUB",
-   ".BUBWWWWWWWWBUB.",
-   "..BBBCCCCCCBBB..",
-   "....OOO..OOO....",
-   "ggggOgOggOgOgggg"
+   "...O........O...",
+   "...YYYYYYYYYY...",
+   "..OOOOOOOOOOOO..",
+   ".OWWOOOOOOOOWWO.",
+   ".OWWWWOOOOWWWWO.",
+   ".OWWKWWOOWWKWWO.",
+   ".OWWKWWYYWWKWWO.",
+   "ORWWWWWYYWWWWWRO",
+   "OORWWWWWWWWWWROO",
+   "OORYYYYYYYYYYROO",
+   "OORYYYYYYYYYYROO",
+   "ROORYYYYYYYYROOR",
+   ".RORYYYYYYYYROR.",
+   "..RRROOOOOORRR..",
+   "....YYY..YYY....",
+   "ggggYgYggYgYgggg"
   ]
  },
  "lion": {
