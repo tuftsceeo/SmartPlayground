@@ -142,11 +142,9 @@
  "frog": {
   "rows": [
    "................",
-   "..ggg......ggg..",
-   ".gWWWg....gWWWg.",
-   ".gWKKggggggKKWg.",
-   ".gWKKggggggKKWg.",
-   ".gggggggggggggg.",
+   "................",
+   "..gWWg....gWWg..",
+   ".ggKKggggggKKgg.",
    ".gKggggggggggKg.",
    ".ggKKKKKKKKKKgg.",
    ".ggQQQQQQQQQQgg.",
@@ -154,8 +152,10 @@
    ".g.gQQQQQQQQg.g.",
    "gg.g.QQQQQQ.g.gg",
    "gH.Hg.QQQQ.gH.Hg",
-   "HH.HH.gQQg.HH.HH",
-   "HHH.HH.gg.HH.HHH",
+   "gH.Hg.gQQg.gH.Hg",
+   "HH.HH..gg..HH.HH",
+   "HHH.HH....HH.HHH",
+   "................",
    "................"
   ]
  },
