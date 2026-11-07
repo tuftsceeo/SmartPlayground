@@ -519,5 +519,25 @@
    "................"
   ],
   "set": "halloween"
+ },
+ "whale": {
+  "rows": [
+   ".........c.c....",
+   "..........c.....",
+   "..........c.....",
+   "................",
+   "B.B....cccccc...",
+   "BBB..cBBBBBBBc..",
+   ".B..cBBBBBBBBBB.",
+   ".BBBBBBBBBBKBBBB",
+   "..BBBBBBBBBBBBBB",
+   "...BBBBBBBBBBBBB",
+   "....BmmmmmmmmmmB",
+   ".....mWWWWWWWWWm",
+   "......mWWWWWWWm.",
+   "........mmmmmm..",
+   "................",
+   "................"
+  ]
  }
 }
