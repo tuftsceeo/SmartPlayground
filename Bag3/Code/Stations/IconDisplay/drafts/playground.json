@@ -41,22 +41,22 @@
  },
  "splat": {
   "rows": [
-   "......WW........",
-   ".....WWWW....WW.",
-   ".....WWWW...WWWW",
-   "......WW....WWWW",
-   ".......WW..WWW..",
-   ".WW...WWWWWWW...",
-   "WWWWWWWWWWWW....",
-   ".WW.WWWWWWWW..W.",
-   "....WWWWWWWWWWWW",
-   "...WWWWWWWW...W.",
-   "..WWW.WWWWW.....",
-   ".WWWW..W..WWW...",
-   "..WW..WWW...WWW.",
-   ".....WWWWW..WWWW",
-   "......WWW....WW.",
-   "................"
+   "SSSSSSSSSSSSSSSS",
+   "SSSSSSWWSSSSSSSS",
+   "SSSSSSWWSSSSSWWS",
+   "SSSSSSWWSSSSWWWS",
+   "SSSSSSSWWSSWWSSS",
+   "SSWWSSWWWWWWWSSS",
+   "SSWWWWWWWWWWSSSS",
+   "SSSSWWWWWWWWSWWS",
+   "SSSSWWWWWWWWWWWS",
+   "SSSWWWWWWWWSSSSS",
+   "SSWWSSWWWWWSSSSS",
+   "SSWWSSSWSSWWWSSS",
+   "SSSSSSWWSSSSWWSS",
+   "SSSSSSWWSSSSWWSS",
+   "SSSSSSSSSSSSSSSS",
+   "SSSSSSSSSSSSSSSS"
   ]
  },
  "seesaw": {
