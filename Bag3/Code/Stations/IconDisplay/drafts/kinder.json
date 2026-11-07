@@ -162,21 +162,21 @@
  "owl": {
   "rows": [
    "................",
-   "..T..........T..",
-   "..TN........NT..",
-   "..TTTTTTTTTTTT..",
+   "..N..........N..",
+   "..NC........CN..",
+   "..CCCCCCCCCCCC..",
    ".NWWWWNNNNWWWWN.",
    ".NWKKWNYYNWKKWN.",
    ".NWKKWNOONWKKWN.",
    ".NWWWWNNNNWWWWN.",
-   ".NEETCCCCCCTEEN.",
-   ".NEECCTCCTCCEEN.",
-   ".NEECCCCCCCCEEN.",
-   ".NEECTCCTCCTEEN.",
-   "..NEECCCCCCEEN..",
-   "...EETCCCCTEE...",
+   ".EEENCCCCCCNEEE.",
+   ".EEENCCCCCCNEEE.",
+   ".EEENCCCCCCNEEE.",
+   ".EEENCCCCCCNEEE.",
+   "..EEENCCCCNEEE..",
+   "...EEETTTTEEE...",
    ".....OO..OO.....",
-   "EEEEEEEEEEEEEEEE"
+   "NNNNNNNNNNNNNNNN"
   ]
  },
  "lion": {
