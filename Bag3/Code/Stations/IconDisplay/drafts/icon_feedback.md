@@ -101,3 +101,14 @@ User's verdicts on the full animal sheet. Standard: children's-cartoon caricatur
 | worm | fix | Why is it flying above the grass? |
 | griffin | fix | Better, but stumpy legs with no joints; fourth leg detached. |
 | caterpillar | redraw | Kids expect the "hungry caterpillar": stacked round segments. |
+
+## Target standard: the dolphin (user, 2026-11-06)
+
+All icons should aim for the cartoon level of `dolphin`. How the dolphin does it:
+
+- **Three tones per subject:** a mid body colour (110,80,70), a darker tone (60,50,60) and a light/white (measured white) for the belly and highlights.
+- **Dark tone as a partial rim, not a full outline:** it sits only on the shadow side and along the back and fin edges. The lit side has no outline.
+- **Light tone marks the belly and one or two highlights**, which is what makes the body read as rounded.
+- **Every distinctive part is its own readable shape:** both flippers, the tail flukes, the snout and the head bump.
+
+Check every icon for **body part locations**: legs attached with joints, the right number of limbs, ears and eyes where the animal has them, the subject standing on the ground rather than floating.
