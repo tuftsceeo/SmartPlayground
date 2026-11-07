@@ -70,3 +70,34 @@ Collected one at a time, 2026-11-06. No drawing changes until all feedback is in
 - Draw inspiration from common emoji; must read at ~10pt.
 | (goldfish addendum) | note | User sent a screenshot of the current goldfish icon (/private/tmp/claude-505/-Users-jcross04-Documents-GitHub-SmartPlayground/83baee18-60a2-4157-9d63-542e9c73ac54/images/5.png): pink/salmon, shrimp-like, noisy. Intended as an example of a bad png-to-icon conversion, to guide the conversion approach for dolphin, shark, griffin, etc. |
 | (goldfish correction) | relabel | The icon named goldfish IS a shrimp (images/5.png is that icon): mislabeled, needs relabeling as shrimp. It is not a bad drawing of a fish. If a goldfish or other fish is wanted, draw it from scratch. Supersedes the earlier goldfish "redraw" row and addendum. |
+
+## Animal sheet review, round 2 (2026-11-06, after rev 11)
+
+User's verdicts on the full animal sheet. Standard: children's-cartoon caricature of distinctive features, not biological accuracy.
+
+| name | verdict | notes |
+|---|---|---|
+| dog | good | Cartoon caricature: ears, nose, tongue. |
+| deer | good | Elk/moose silhouette, four legs, antlers. |
+| dolphin | great | Shading, flippers, belly, tail, bottlenose head. |
+| dove | great | Olive branch helps. |
+| elephant, elephant2 | great | |
+| shrimp | great | |
+| lion | good | Mane, muzzle colouring, ears. |
+| monarch, torogoz | great | Colouring. |
+| pig, swan | great | |
+| shark | great | Rev 9. |
+| fish, hedgehog, sheep, snake, turtle, teddy_bear, mouse | fine | |
+| trex, octopus | ok | |
+| goat | fix | Weird shape, missing limbs/detail. |
+| frog | fix | Weird shape, missing limbs/detail. |
+| monkey | fix (minor) | Head somewhat huge; ears and tail good. |
+| owl | fix | Weird body shape, pupils too small, needs visible wings. |
+| parrot | fix | Use best-known colouring (macaw). |
+| penguin | fix | Eyes copied from the human style; use animal eyes. |
+| polar_bear | redraw | Worst of the set; head shape very wrong. |
+| spider | fix | Reads as smile emoji with squiggles and a white square on top. |
+| whale | fix | Iffy; whale2 better, neither as good as dolphin. |
+| worm | fix | Why is it flying above the grass? |
+| griffin | fix | Better, but stumpy legs with no joints; fourth leg detached. |
+| caterpillar | redraw | Kids expect the "hungry caterpillar": stacked round segments. |
