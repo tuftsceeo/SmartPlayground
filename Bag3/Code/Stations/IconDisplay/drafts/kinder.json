@@ -122,20 +122,20 @@
  "penguin": {
   "rows": [
    "................",
-   ".....SSSSSS.....",
-   "....SSSSSSSS....",
+   "......BBBB......",
+   ".....BBBBBB.....",
    "....BWWBBWWB....",
    "....BWKBBKWB....",
    "....BBBOOBBB....",
-   "...BBWWWWWWBB...",
+   "...BBWWOOWWBB...",
    "..BmBWWWWWWBmB..",
    ".BBmWWWWWWWWmBB.",
    ".BBmWWWWWWWWmBB.",
+   ".BBmWWWWWWWWmBB.",
    "..BmWWWWWWWWmB..",
-   "...BSWWWWWWSB...",
-   "....BSSSSSSB....",
-   "...OOO....OOO...",
-   "................",
+   "...BmWWWWWWmB...",
+   "....BBmmmmBB....",
+   "....OOO..OOO....",
    "................"
   ]
  },
