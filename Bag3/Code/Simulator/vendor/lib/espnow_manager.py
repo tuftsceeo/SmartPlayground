@@ -112,7 +112,6 @@ class ESPNowManager:
         self._active = False
         self._peers = {}  # mac_str -> mac_bytes
         self._status_provider = None
-        self._status_kind = None
         self._pending_report_due = None
         self._pending_report_mac = None
         self._pending_report_second_due = None
@@ -202,11 +201,9 @@ class ESPNowManager:
     def get_peer_macs(self):
         return list(self._peers.keys())
 
-    def set_status_provider(self, fn, kind=None):
-        """Register fn() -> battery SOC int or None, and the device kind
-        (HUB_TYPE) sent in status_report. Registering enables replies."""
+    def set_status_provider(self, fn):
+        """Register fn() -> battery SOC int or None. Wands only."""
         self._status_provider = fn
-        self._status_kind = kind
 
     def get_rssi(self, mac_str):
         try:
@@ -237,7 +234,7 @@ class ESPNowManager:
             if batt is None:
                 return None
             return int(batt)
-        except (TypeError, ValueError, OSError):
+        except (TypeError, ValueError):
             return None
 
     def _maybe_send_pending_report(self):
@@ -371,7 +368,6 @@ class ESPNowManager:
             "type": "status_report",
             "battery": battery,
             "rssi": rssi,
-            "kind": self._status_kind,
         })
 
     def send_score(self, mac_bytes, colors, elapsed_ms):
@@ -450,11 +446,6 @@ class ESPNowManager:
                 if target is not None and not self._is_for_me(target):
                     return None, None, None   # for another device; ignore
                 return "start_game", {"name": "finddevice", "mac": target}, mac_str
-            if mt == "code_push":
-                # Dial-initiated getcode for one device; others ignore it.
-                if not self._is_for_me(data.get("mac")):
-                    return None, None, None
-                return "code_push", data, mac_str
             if mt == "status_poll":
                 if self._status_provider:
                     self._schedule_status_reply(mac_str)

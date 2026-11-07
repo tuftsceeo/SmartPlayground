@@ -88,10 +88,10 @@ check("step() is non-blocking and keeps running", srv.step() is True)
 srv.dispatch({"cmd": "list", "id": 1})
 icons = [m for m in srv.link.sent if m.get("type") == "icons"][-1]
 names = sorted(e["name"] for e in icons["list"])
-check("list returns the icons on this device", "orca" in names and "tree" in names,
+check("list returns the icons on this device", "whale" in names and "tree" in names,
       ",".join(names))
 
-srv.dispatch({"cmd": "show", "name": "orca", "id": 2})
+srv.dispatch({"cmd": "show", "name": "whale", "id": 2})
 check("show draws a stored icon",
       any(m.get("type") == "shown" for m in srv.link.sent))
 lit = sum(1 for i in range(0, len(panel.src), 3) if any(panel.src[i:i+3]))
@@ -116,7 +116,7 @@ srv.dispatch({"cmd": "delete", "name": "testicon", "id": 6})
 check("delete removes it", not os.path.exists("icons/testicon.py"))
 
 # ── panel sharing with the idle loop ──
-srv.dispatch({"cmd": "show", "name": "orca", "id": 20})
+srv.dispatch({"cmd": "show", "name": "whale", "id": 20})
 check("editor owns the panel just after a draw",
       srv.owns_panel(_time.ticks_ms(), 300000) is True)
 for _ in range(200):   # 10s of stub clock, no further drawing
@@ -165,7 +165,7 @@ check("game dispatch is unaffected", main.is_game("goalrace") is True)
 # ── the start_game bench command ──
 srv4 = IconServer(icon_matrix.Matrix(pin=0, intensity=0.12), debug=False,
                    is_game=main.is_game)
-srv4.dispatch({"cmd": "show", "name": "orca", "id": 30})  # engage the latch first
+srv4.dispatch({"cmd": "show", "name": "whale", "id": 30})  # engage the latch first
 srv4.dispatch({"cmd": "start_game", "name": "goalrace", "id": 31})
 ok_reply = [m for m in srv4.link.sent if m.get("id") == 31][-1]
 check("a known game queues", ok_reply == {"type": "ok", "id": 31, "cmd": "start_game", "name": "goalrace"})

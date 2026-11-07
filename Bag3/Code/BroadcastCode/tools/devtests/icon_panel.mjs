@@ -51,7 +51,7 @@ const check = (l, ok, d = '') => {
 const GAME = `
 import icon_store
 IDLE_ICON = "ready"
-TEAM_ICON = {"green": "tree", "blue": "orca"}
+TEAM_ICON = {"green": "tree", "blue": "whale"}
 def play(nfc, panel, enow):
     icon_store.read_icon(IDLE_ICON, into=panel.src)
 `;
@@ -62,7 +62,7 @@ check('a game naming no icon has no starting icon',
     panel.startingIcon('def play(nfc, panel, enow): pass') === null);
 
 const c = fakeCanvas();
-check('a known icon draws', panel.drawIcon(c, 'orca', 0.3).ok === true);
+check('a known icon draws', panel.drawIcon(c, 'whale', 0.3).ok === true);
 const bad = panel.drawIcon(c, 'dragon', 0.3);
 check('an unknown icon reports rather than drawing the last one',
     bad.ok === false && bad.error.includes('dragon'), bad.error);
@@ -138,7 +138,7 @@ check(`every icon's file text reproduces icons/<name>.py (${deviceNames.length} 
     roundTripFail === null, roundTripFail || '');
 
 // ── Maker bridge conversions ──
-const flat = lib.getIcon('orca');
+const flat = lib.getIcon('whale');
 const triples = bridge.flatToPixels(flat);
 check('flat -> 256 triples', triples.length === 256 && triples[0].length === 3);
 check('round-trips back to the same bytes',
@@ -147,11 +147,11 @@ check('round-trips back to the same bytes',
 // ── Saving through the bridge makes an icon referable by name ──
 const edited = flat.slice();
 edited[0] = 200; edited[1] = 10; edited[2] = 10;
-lib.saveIcon('orca', edited);
-check('an edited default shadows the shipped one', lib.getIcon('orca')[0] === 200);
-check('it is marked as a teacher edit', lib.isCustom('orca') === true);
-lib.revertIcon('orca');
-check('reverting brings the shipped icon back', lib.getIcon('orca')[0] === flat[0]);
+lib.saveIcon('whale', edited);
+check('an edited default shadows the shipped one', lib.getIcon('whale')[0] === 200);
+check('it is marked as a teacher edit', lib.isCustom('whale') === true);
+lib.revertIcon('whale');
+check('reverting brings the shipped icon back', lib.getIcon('whale')[0] === flat[0]);
 
 lib.saveIcon('dragon', edited);
 check('a brand new icon joins the library', lib.listIcons().includes('dragon'));
