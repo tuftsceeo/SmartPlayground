@@ -105,8 +105,11 @@ button.display-case:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(10
 const LED_PRIM = [[0.7006, 0.2993, 400], [0.0743, 0.8338, 1150], [0.1241, 0.0578, 250]]
   .map(([x, y, Iv]) => [(x / y) * Iv, Iv, ((1 - x - y) / y) * Iv]);
 const LED_Y = LED_PRIM.reduce((t, p) => t + p[1], 0);
+// White-balanced like ledSwatchHex: the measured white (185,255,150) lands on the
+// datasheet neutral (255,171,93). See Stations/IconDisplay/README.md "Measured white".
+const LED_BALANCE = [255 / 185, 171 / 255, 93 / 150];
 function ledScreenRgb(duty) {
-  const [X, Y, Z] = [0, 1, 2].map((i) => duty.reduce((t, c, j) => t + (c / 255) * LED_PRIM[j][i], 0) / LED_Y);
+  const [X, Y, Z] = [0, 1, 2].map((i) => duty.reduce((t, c, j) => t + (c * LED_BALANCE[j] / 255) * LED_PRIM[j][i], 0) / LED_Y);
   return [
     3.2406 * X - 1.5372 * Y - 0.4986 * Z,
     -0.9689 * X + 1.8758 * Y + 0.0415 * Z,
