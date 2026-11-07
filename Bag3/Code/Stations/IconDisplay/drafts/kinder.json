@@ -182,21 +182,21 @@
  "lion": {
   "rows": [
    "................",
-   ".....YY.........",
-   "...OOYTOOO......",
-   "..YYYYYOOOO.....",
-   ".YYKYYYYOOO.....",
-   "NYYYYYYYOOO.....",
-   ".TTYYYYOOOYYYYY.",
-   ".TYYYYOOOYYYYYYT",
-   "..TTTOOOYYYYYYY.",
-   ".....OOYYYYYYYY.",
-   ".....TYYYYTTYYY.",
-   ".....YY.YY..YY.Y",
-   ".....YY.YY..YY.Y",
-   ".....YY.YY..YY..",
-   "................",
-   "................"
+   ".....EEEEEE.....",
+   "...EEEEEEEEEE...",
+   "..EEYYEEEEYYEE..",
+   "..EEYLYYYYLYEE..",
+   ".EEYYYYYYYYYYEE.",
+   ".EEYYKYYYYKYYEE.",
+   ".EEYYKYYYYKYYEE.",
+   ".EEYYYWPPWYYYEE.",
+   ".EEYYWWWWWWYYEE.",
+   ".EEEYLWWWWLYEEE.",
+   ".EEEELLLLLLEEEE.",
+   "..EEEEEEEEEEEE..",
+   "...EEEEEEEEEE...",
+   ".....EEEEEE.....",
+   "......EEEE......"
   ]
  },
  "octopus": {
