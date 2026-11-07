@@ -222,22 +222,22 @@
  },
  "shark": {
   "rows": [
-   "................",
-   "................",
-   "........B.......",
-   "........BB......",
-   "B.......BBB.....",
-   "BB.....BBBB.....",
-   ".BB..BBBBBBBBB..",
-   "..BBBSSSSSSSSSB.",
-   "..BSSSSSSSSSWKSB",
-   "..BBSSSSSWWWWWB.",
-   ".B...WWWWWWWW...",
-   "........BS......",
-   ".........B......",
-   "................",
-   "................",
-   "................"
+   "............GGGG",
+   "...GGGLLLLGGGGG.",
+   ".GGGKGGGLLLGGGG.",
+   "GLWWWLGGGGLLGG..",
+   "LWWWRRLLGGGLLG..",
+   ".LLRRWWWLGGGGGG.",
+   "....LLWWWGGGGGG.",
+   "......GLLWGLGGGG",
+   "......GG.LWWLGGG",
+   ".LLL..G...LWWLGG",
+   "..LLL.....LWWLGG",
+   "...LLL...LWWWLG.",
+   "....LLLLLWWWLG..",
+   ".....LLLLLLL....",
+   ".....LL.........",
+   "....LL.........."
   ]
  }
 }
