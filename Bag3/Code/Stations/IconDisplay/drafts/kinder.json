@@ -162,21 +162,21 @@
  "owl": {
   "rows": [
    "................",
-   "....YYYYYYYY....",
-   "..YYYYYYYYYYYY..",
-   ".TYWWWWYYWWWWYT.",
-   ".TWWWWWWWWWWWWT.",
-   ".TWWKKWWWWKKWWT.",
-   ".TWWKKWWWWKKWWT.",
-   ".TNWWWWPPWWWWNT.",
-   ".TTNWWWPPWWWNTT.",
-   ".NTTNNWWWWNNTTN.",
-   ".NTTCCCCCCCCTTN.",
-   ".NTTCCCCCCCCTTN.",
-   "..NTTCCCCCCTTN..",
-   "...NNCCCCCCNN...",
-   ".....OO..OO.....",
-   "EEEEEEEEEEEEEEEE"
+   ".NN.NNNNNNNN.NN.",
+   ".NNNNNNNNNNNNNN.",
+   ".NWWWWNNNNWWWWN.",
+   ".NWKKWNNNNWKKWN.",
+   ".NWKKWNNNNWKKWN.",
+   ".NWWWWNYYNWWWWN.",
+   ".ENNNCCYYCCNNNE.",
+   ".EENCCCCCCCCNEE.",
+   ".EENCCCCCCCCNEE.",
+   ".EEENCCCCCCNEEE.",
+   ".EEENCCCCCCNEEE.",
+   "..EEENCCCCNEEE..",
+   "...EEENNNNEEE...",
+   ".....YY..YY.....",
+   "GGGGGGGGGGGGGGGG"
   ]
  },
  "lion": {
