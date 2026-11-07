@@ -484,19 +484,19 @@
    "................",
    "........ORRO....",
    ".......ORRWWR...",
-   ".......RRWWKWY..",
+   ".......RRWW.WY..",
    "......RRRWWWYY..",
    "......RRRRRRrY..",
-   ".....RRRRRRR....",
-   "....RYYYRRRR....",
-   "....YYYYRRRR....",
-   "...BBYYYRRRr....",
-   "...BBBBYRRRr....",
-   "..BBBBBRRRr.....",
-   "..BBBB.RRR......",
-   ".BBB.gggrgrg....",
-   ".BB.........ggg.",
-   "B.............gg"
+   ".....RRRRRRR...f",
+   "....RYYYRRRR..ff",
+   "....YYYYRRRR..ff",
+   "...BBYYYRRRr.kk.",
+   "...BBBBYRRRr.k..",
+   "..BBBBBRRRrkkkkk",
+   "..BBBB.RRRyk..ff",
+   ".BBB...kyk.....f",
+   ".BB...kk........",
+   "B...kkk........."
   ]
  }
 }
