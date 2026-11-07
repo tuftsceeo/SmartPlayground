@@ -113,3 +113,11 @@ All icons should aim for the cartoon level of `dolphin`. How the dolphin does it
 - **Every distinctive part is its own readable shape:** both flippers, the tail flukes, the snout and the head bump.
 
 Check every icon for **body part locations**: legs attached with joints, the right number of limbs, ears and eyes where the animal has them, the subject standing on the ground rather than floating.
+
+## LED colour lessons (user, 2026-11-06, owl revs 30 to 39)
+
+- **Value contrast is the strongest tool.** Lit against nearly off gives the biggest step. Use a near-off dark (X=(30,8,0)) for the outlines between parts; a dim line is the point, not a fault.
+- **Hue steps must be big.** At the same value and saturation, neighbouring hues (brown, tan, orange) all read as dim orange. Pick distant hues: orange vs yellow vs white vs green.
+- **Avoid steps in saturation alone.** White balance is unpredictable, so pastels and creams read as "weird white".
+- **Saturated cartoon colours beat biological accuracy.** Brown animals and close greens look muddy. Vary each animal's main hue across the set; there are already many purple animals.
+- **Big shapes and three-tone shading come before texture.** Spots and bars read as blur.
