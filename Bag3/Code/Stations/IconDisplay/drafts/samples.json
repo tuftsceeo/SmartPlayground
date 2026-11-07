@@ -1,0 +1,263 @@
+{
+ "_key": "W white(185,255,150) L lightgrey G grey Y yellow O orange R red g green D darkgreen B blue S sky U purple N brown E darkbrown P pink T tan C cream K eye-dark(0,0,0) .=off; values in samples.py PAL",
+ "bicycle": {
+  "rows": [
+   "................",
+   "................",
+   "................",
+   "................",
+   "...NNN....GGG...",
+   ".....R.....R....",
+   ".....RRRRRRR....",
+   ".....R....RR....",
+   ".....R...R.R....",
+   "..LLL.R..R.LRL..",
+   ".L...LR.R.L.R.L.",
+   "L.....LRRL..R..L",
+   "L..YRRRRRRRRY..L",
+   "L.....L..L.....L",
+   ".L...L....L...L.",
+   "..LLL......LLL.."
+  ]
+ },
+ "fire_truck": {
+  "rows": [
+   "................",
+   "................",
+   "................",
+   "WWWWWWWWWWW.....",
+   "W.W.W.W.W.W.YY..",
+   "WWWWWWWWWWWRRRR.",
+   "RRRRRRRRRRRRSSSR",
+   "RRRRRRRRRRRRSSSR",
+   "RRRRRRRRRRRRSSSR",
+   "RWWWWWWWWWRRRRRR",
+   "RRRRRRRRRRRRRRRR",
+   "RRRRRRRRRRRRRRRR",
+   "RLLLLRRRRRLLLLRR",
+   ".LLLL.....LLLL..",
+   ".LLLL.....LLLL..",
+   "..LL.......LL..."
+  ]
+ },
+ "goat": {
+  "rows": [
+   "...TTTT.........",
+   "..TT..TT........",
+   "..WW...T........",
+   ".WWWWWWW........",
+   "WWWKWW..........",
+   "WKKKWW........W.",
+   "PWWWW........WW.",
+   ".WWWWWWWWWWWWW..",
+   ".LWWWWWWWWWWWWW.",
+   ".LLWWWWWWWWWWWW.",
+   ".LLWWWWWWWWWWWW.",
+   "....WWWWWWWWWW..",
+   "....W.W....W.W..",
+   "....W.W....W.W..",
+   "....N.N....N.N..",
+   "................"
+  ]
+ },
+ "grass": {
+  "rows": [
+   "................",
+   "................",
+   "................",
+   "...........R....",
+   "....g.....RYR...",
+   "....g......R....",
+   ".g..g..g...D....",
+   ".g..gg.g...D..g.",
+   ".gg.gg.gg..D.gg.",
+   "..g.gg.gg..D.g..",
+   "..gggg.gggDD.g..",
+   "..gggggggggDgg..",
+   "...gggggggggg...",
+   "....gggggggg....",
+   "................",
+   "................"
+  ]
+ },
+ "griffin": {
+  "rows": [
+   ".........NN.....",
+   "........NNN.....",
+   "..WWW..NNNN.....",
+   ".WWWWWNNNNN.....",
+   "OWWKWNNNN.......",
+   "OOKKWNNNN......N",
+   "..WWWNNNYYYYY.NN",
+   "...WYYYYYYYYYYN.",
+   "...YYYYYYYYYYY..",
+   "...YYYYYYYYYYY..",
+   "...YYYYYYYYYYY..",
+   "...YY.YY..YY.YY.",
+   "...YY.YY..YY.YY.",
+   "...OO.OO..YY.YY.",
+   "................",
+   "................"
+  ]
+ },
+ "helicopter": {
+  "rows": [
+   "................",
+   "................",
+   "................",
+   "LLLLLLLLLLLLLL..",
+   "......LL........",
+   "....YYYYYY.....L",
+   "..SSSYYYYYY....L",
+   ".SSSSYYYYYYYYYYL",
+   ".SSSSYYYYYYY...L",
+   ".YYYYYYYYYYY....",
+   "..YYYYYYYYY.....",
+   "....L....L......",
+   ".LLLLLLLLLLL....",
+   "................",
+   "................",
+   "................"
+  ]
+ },
+ "mail_carrier": {
+  "rows": [
+   "................",
+   "....SSSSS.......",
+   "...SSSSSSS......",
+   "..BBBBBBBBB.....",
+   "....CCCCC.......",
+   "...CWKCWKC......",
+   "...CCCCCCC......",
+   "....CRRRC.......",
+   ".....CCC........",
+   "..SSSSSSS.LWWWWL",
+   ".SSNNSSSSCWLWWLW",
+   ".SSSNNSSSCWWLLWW",
+   ".SSNNNNNS.WWWWWW",
+   ".SNNNNNNN.......",
+   "..NNNNNN........",
+   "...BB..BB......."
+  ]
+ },
+ "monkey": {
+  "rows": [
+   "................",
+   ".....NNNNNN.....",
+   "....NNNNNNNN....",
+   ".NN.NNNNNNNN.NN.",
+   "NCCNNCCNNCCNNCCN",
+   "NCCNCWKCCWKCNCCN",
+   "NCCNCKKCCKKCNCCN",
+   ".NN.CCCCCCCC.NN.",
+   "....CCCCCCCC....",
+   ".....CNNNNC.....",
+   "......CCCC..NN..",
+   ".....NNNNNNN..N.",
+   "....NNNCCNNN..N.",
+   "....NNCCCCNN..N.",
+   "....NNCCCCNNNNN.",
+   ".....NN..NN....."
+  ]
+ },
+ "mouse": {
+  "rows": [
+   "................",
+   "................",
+   "................",
+   "....PPP.........",
+   "...PPPPP........",
+   "...PPPPPLLLL....",
+   "...LPPPLLLLLLL..",
+   "..LLLLLLLLLLLLL.",
+   ".LWKLLLLLLLLLLL.",
+   ".LKKLLLLLLLLLLL.",
+   "PLLLLLLLLLLLLLLP",
+   "..LLLLLLLLLLLL.P",
+   "....PP...PP...P.",
+   ".............P..",
+   "...PPPPPPPPPPP..",
+   "................"
+  ]
+ },
+ "sandwich": {
+  "rows": [
+   "................",
+   "................",
+   "................",
+   "TTTTTTTTTTTTTTTT",
+   "TCCCCCCCCCCCCCCT",
+   "TTTTTTTTTTTTTTTT",
+   "gggggggggggggggg",
+   ".g.gg.gg.gg.gg.g",
+   "RRRRRRRRRRRRRRRR",
+   "YYYYYYYYYYYYYYYY",
+   ".YY....YY....YY.",
+   "TTTTTTTTTTTTTTTT",
+   "TCCCCCCCCCCCCCCT",
+   "TTTTTTTTTTTTTTTT",
+   "................",
+   "................"
+  ]
+ },
+ "shark": {
+  "rows": [
+   "................",
+   "................",
+   ".......L........",
+   "......LL......LL",
+   ".....LLL.....LL.",
+   "...LLLLLLLL.LLL.",
+   ".LLWKLLLLLLLLL..",
+   "LLLKKLLLLLLLLL..",
+   "WRWRWRLLLLLLLL..",
+   "RRRRRRLLLLLLLL..",
+   "RWRWRWLLLLLLL...",
+   ".LLLLLLLLLL.LL..",
+   "......LL.....LL.",
+   ".......L......LL",
+   "................",
+   "................"
+  ]
+ },
+ "slide": {
+  "rows": [
+   "................",
+   ".L...L..........",
+   ".LBBBL..........",
+   ".L...LYY........",
+   ".LLLLLOYY.......",
+   ".L...L.OYY......",
+   ".L...L..OYY.....",
+   ".LLLLL...OYY....",
+   ".L...L....OYY...",
+   ".L...L.....OYY..",
+   ".LLLLL......OYY.",
+   ".L...L.......OYY",
+   ".L...L........OY",
+   ".LLLLL..........",
+   ".L...L..........",
+   ".L...L.........."
+  ]
+ },
+ "sparkles": {
+  "rows": [
+   "............W...",
+   "............W...",
+   "...........WWW..",
+   ".........WWWYWWW",
+   ".....Y.....WWW..",
+   ".....Y......W...",
+   ".....Y......W...",
+   "....YYY.........",
+   ".YYYYWYYYY......",
+   "....YYY.........",
+   ".....Y..........",
+   ".....Y......Y...",
+   ".....Y.....YYY..",
+   "............Y...",
+   "................",
+   "................"
+  ]
+ }
+}

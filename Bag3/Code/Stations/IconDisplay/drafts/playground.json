@@ -1,0 +1,162 @@
+{
+ "swings": {
+  "rows": [
+   "................",
+   ".BBBBBBBBBBBBBB.",
+   ".B..L..L.L..L.B.",
+   ".B..L..L.L..L.B.",
+   ".B..L..L.L..L.B.",
+   ".B..L..L.L..L.B.",
+   ".B..L..L.L..L.B.",
+   ".B..L..L.L..L.B.",
+   ".B..L..L.L..L.B.",
+   ".B..L..L.L..L.B.",
+   ".B.RRRRRRYYYYYB.",
+   ".B............B.",
+   ".B............B.",
+   ".B............B.",
+   "BB............BB",
+   "B..............B"
+  ]
+ },
+ "tricycle": {
+  "rows": [
+   "................",
+   "................",
+   "................",
+   "................",
+   "..........GGG...",
+   "...........R....",
+   "...........R....",
+   "...NNN.....R....",
+   ".....R....LRLL..",
+   ".....R...L.R..L.",
+   ".....R..L..R...L",
+   ".LLL.RRRRRRYY..L",
+   "L..RL...L..YY..L",
+   "L.YRL...L......L",
+   "L...L....L....L.",
+   ".LLL......LLLL.."
+  ]
+ },
+ "splat": {
+  "rows": [
+   ".SSSSSSSSSSSSSS.",
+   "SSSSSSSSSSSSSSSS",
+   "SS..SSSWSSSSSWSS",
+   "SS..SSWWSSSSWWSS",
+   "SSSSSSWWWSSWWSSS",
+   "SSWWSSWWWWWWWSSS",
+   "SSSWWWWRRWWWSSSS",
+   "SSSSWWWRRWWWWWWS",
+   "SSSSWWWWWWWWWWSS",
+   "SSSWWWWWWWWSSSSS",
+   "SSWWSSWWWWWWSSSS",
+   "SSSSSSWWSSWWWSSS",
+   "SSSSSSWWSSSWWWSS",
+   "SSSSSSWSSSSSWWSS",
+   "SSSSSSSSSSSSSSSS",
+   ".SSSSSSSSSSSSSS."
+  ]
+ },
+ "seesaw": {
+  "rows": [
+   "................",
+   "................",
+   ".BB.............",
+   ".BB.............",
+   "YYY.............",
+   "YYYYY...........",
+   "...YYYYY........",
+   ".....YYYYY...BB.",
+   "........YYYYYBB.",
+   ".......RR.YYYYYY",
+   ".......RR....YYY",
+   "......RRRR......",
+   "......RRRR......",
+   ".....RRRRRR.....",
+   ".....RRRRRR.....",
+   ".gggggggggggggg."
+  ]
+ },
+ "monkey_bars": {
+  "rows": [
+   "................",
+   "................",
+   "...Y.Y.Y.Y.Y....",
+   ".BBBBBBBBBBBBBB.",
+   ".B....C..C....B.",
+   ".B....C..C....B.",
+   ".B....CCCC....B.",
+   ".B....CCCC....B.",
+   ".B....CCCC....B.",
+   ".B....RRRR....B.",
+   ".B....RRRR....B.",
+   ".B....RRRR....B.",
+   ".B....RRRR....B.",
+   ".B....U..U....B.",
+   ".B....U..U....B.",
+   "gggggggggggggggg"
+  ]
+ },
+ "sandbox": {
+  "rows": [
+   "................",
+   "................",
+   "....WWWW........",
+   "...W....W..TTT..",
+   "...W....W...T...",
+   "..RRRRRRRR..T...",
+   "..RRRRRRRR..T...",
+   "...RRRRRR...T...",
+   "...RRRRRR..BBB..",
+   "....RRRR...BBB..",
+   "NYYYRRRRYYYBBBYN",
+   "NYYYYYYYYYYYYYYN",
+   "NNNNNNNNNNNNNNNN",
+   "NNNNNNNNNNNNNNNN",
+   "................",
+   "................"
+  ]
+ },
+ "bubbles": {
+  "rows": [
+   "................",
+   "..........UUUU..",
+   ".........U.W..U.",
+   ".........UW...U.",
+   "........U......U",
+   ".........U....U.",
+   "...SSSSS.U....U.",
+   "..S.W...S.UUUU..",
+   ".S.W.....S......",
+   ".S.W.....S......",
+   ".S.......S......",
+   ".S.......S.SSSS.",
+   ".S.......S.SW.S.",
+   "..S.....S..S..S.",
+   "...SSSSS...SSSS.",
+   "................"
+  ]
+ },
+ "jump_rope": {
+  "rows": [
+   "....WWWWWWWW....",
+   "...W........W...",
+   "..W..NNNN....W..",
+   "..W.NCCCCN...W..",
+   "..W.CWKWKC...W..",
+   "..W.CCCCCC...W..",
+   "..W..CRRC....W..",
+   "..W..RRRR....W..",
+   "..YCCRRRRCCY.W..",
+   "..Y..RRRR..Y.W..",
+   "..W..RRRR..WW...",
+   "...W.BBBB.W.....",
+   "....WB..BW......",
+   "....WB..BW......",
+   ".....WWWW.......",
+   "................"
+  ]
+ }
+}

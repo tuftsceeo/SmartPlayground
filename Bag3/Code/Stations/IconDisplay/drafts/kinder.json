@@ -1,0 +1,422 @@
+{
+ "ocean": {
+  "rows": [
+   "................",
+   "............YY..",
+   "...........YYYY.",
+   "...........YYYY.",
+   "............YY..",
+   "................",
+   "..WW......WW....",
+   ".SSSS....SSSS...",
+   "SSSSSSSSSSSSSSSS",
+   "BBBBBBBBBBBBBBBB",
+   "BBBSSSBBBBBBSSSB",
+   "BBBBBBBBBBBBBBBB",
+   "BBBBBBBSSSSBBBBB",
+   "BBBBBBBBBBBBBBBB",
+   "BBSSSBBBBBBBBSSB",
+   "BBBBBBBBBBBBBBBB"
+  ]
+ },
+ "forest": {
+  "rows": [
+   "................",
+   "........g.......",
+   ".......ggg......",
+   ".......ggg......",
+   "......ggggg..D..",
+   "..D...ggggg.DDD.",
+   ".DDD..ggggg.DDD.",
+   ".DDD..gggggDDDDD",
+   "DDDDD.gggggDDDDD",
+   "DDDDD.gggggDDDDD",
+   "DDDDD.gggggDDDDD",
+   "DDDDD.gggggDDDDD",
+   "DDDDD.gggggDDDDD",
+   "..N.....N....N..",
+   "..N.....N....N..",
+   "NNNNNNNNNNNNNNNN"
+  ]
+ },
+ "desert": {
+  "rows": [
+   "................",
+   "..YY............",
+   ".YYYY.......gg..",
+   ".YYYY.......gg..",
+   "..YY........gg.g",
+   "............gg.g",
+   "..........g.gggg",
+   "..........g.gg..",
+   "..........gggg..",
+   "............gg..",
+   "......CCCCCCggCC",
+   "...CCCCCCCCCCCCC",
+   "CCCCCCCCCCCCCCCC",
+   "TTTTCCCCCCCCCTTT",
+   "TTTTTTTCCCCTTTTT",
+   "TTTTTTTTTTTTTTTT"
+  ]
+ },
+ "igloo": {
+  "rows": [
+   "................",
+   "..W.......W.....",
+   "......W......W..",
+   "................",
+   ".....WWWWWW.....",
+   "...WWWWWWWWWW...",
+   "..WWWWWWWWWWWW..",
+   "..LLLLLLLLLLLL..",
+   ".WWWLWWWWWLWWWW.",
+   ".WWWLWW..WWLWWW.",
+   ".LLLLL....LLLLL.",
+   "WWWWWW....WWWWWW",
+   "SSSSSSSSSSSSSSSS",
+   "SSSSSSSSSSSSSSSS",
+   "................",
+   "................"
+  ]
+ },
+ "pond": {
+  "rows": [
+   "................",
+   "................",
+   "................",
+   ".N..............",
+   ".N.N............",
+   ".N.N............",
+   ".g.N............",
+   ".g.g............",
+   ".g.g......P.....",
+   ".g.g.....PYP....",
+   ".g.SSSSSggggSS..",
+   ".gSSSSSSSggSSSS.",
+   "SSBBBSSSSSSSBBSS",
+   "SSSSSSSBBBSSSSSS",
+   ".SSSSSSSSSSSSSS.",
+   "..SSSSSSSSSSSS.."
+  ]
+ },
+ "polar_bear": {
+  "rows": [
+   "................",
+   "................",
+   "................",
+   "................",
+   "..W.W...........",
+   ".WWWWWWWWWWWW...",
+   "WWWKWWWWWWWWWWW.",
+   "WWKKWWWWWWWWWWWW",
+   "KWWWWWWWWWWWWWWW",
+   ".WWWWWWWWWWWWWWW",
+   "...WWWWWWWWWWWW.",
+   "...WW..WW..WW.WW",
+   "...WW..WW..WW.WW",
+   "...WW..WW..WW.WW",
+   "SSSSSSSSSSSSSSSS",
+   "SSSSSSSSSSSSSSSS"
+  ]
+ },
+ "penguin": {
+  "rows": [
+   "................",
+   ".....BBBBBB.....",
+   "....BBBBBBBB....",
+   "....BWKBBWKB....",
+   "....BKKBBKKB....",
+   "....BBBOOBBB....",
+   "...BBBWOOWBBB...",
+   "..BBBWWWWWWBBB..",
+   "..BBWWWWWWWWBB..",
+   "..BBWWWWWWWWBB..",
+   "..B.WWWWWWWW.B..",
+   "...BWWWWWWWWB...",
+   "...BBWWWWWWBB...",
+   "....BBBBBBBB....",
+   "...OOO....OOO...",
+   "................"
+  ]
+ },
+ "frog": {
+  "rows": [
+   "................",
+   "................",
+   "..gggg....gggg..",
+   "..gWKg....gWKg..",
+   "..gKKg....gKKg..",
+   "..gggg....gggg..",
+   ".gggggggggggggg.",
+   "gggggggggggggggg",
+   "ggRggggggggggRgg",
+   "gggRRRRRRRRRRggg",
+   ".gggggggggggggg.",
+   "..gggggggggggg..",
+   ".gg.gggggggg.gg.",
+   "gg..gg....gg..gg",
+   "................",
+   "................"
+  ]
+ },
+ "owl": {
+  "rows": [
+   "................",
+   "..NN........NN..",
+   "..NNNNNNNNNNNN..",
+   ".NWWWWNNNNWWWWN.",
+   ".NWWWKNNNNWWWKN.",
+   ".NWWKKNOONWWKKN.",
+   ".NWWWWNOONWWWWN.",
+   ".NNNNNNOONNNNNN.",
+   ".NNNCCCCCCCCNNN.",
+   ".NNCCCCCCCCCCNN.",
+   ".NNCCCCCCCCCCNN.",
+   "..NNCCCCCCCCNN..",
+   "...NNNNNNNNNN...",
+   "....OO....OO....",
+   "................",
+   "................"
+  ]
+ },
+ "lion": {
+  "rows": [
+   "................",
+   "....OOOOOOOO....",
+   "..OOOOOOOOOOOO..",
+   ".OOOYYYYYYYYOOO.",
+   ".OOYYYYYYYYYYOO.",
+   "OOYYWKYYYYWKYYOO",
+   "OOYYKKYYYYKKYYOO",
+   "OOYYYYYYYYYYYYOO",
+   "OOYYYYYNNYYYYYOO",
+   "OOYYYYNYYNYYYYOO",
+   ".OOYYYYYYYYYYOO.",
+   ".OOOYYYYYYYYOOO.",
+   "..OOOOOOOOOOOO..",
+   "....OOOOOOOO....",
+   "................",
+   "................"
+  ]
+ },
+ "octopus": {
+  "rows": [
+   "................",
+   ".....UUUUUU.....",
+   "....UUUUUUUU....",
+   "...UUUUUUUUUU...",
+   "...UUUUUUUUUU...",
+   "...UWKUUUUWKU...",
+   "...UKKUUUUKKU...",
+   "...UUUUUUUUUU...",
+   "..UUUUUUUUUUUU..",
+   ".UUUUUUUUUUUUUU.",
+   "UU..UU.UU.UU..UU",
+   "U...U..UU..U...U",
+   "UU..UU.UU.UU..UU",
+   ".U...U....U...U.",
+   "................",
+   "................"
+  ]
+ },
+ "bee": {
+  "rows": [
+   "................",
+   "................",
+   "................",
+   "......WW.WW.....",
+   ".....WWWWWWW....",
+   "..N..WWW.WWW....",
+   "..NYYNNYYNNYY...",
+   "..YYYNNYYNNYYY..",
+   ".YWKYNNYYNNYYYNN",
+   ".YKKYNNYYNNYYY..",
+   "..YYYNNYYNNYYY..",
+   "...YYNNYYNNYY...",
+   "................",
+   "................",
+   "................",
+   "................"
+  ]
+ },
+ "worm": {
+  "rows": [
+   "................",
+   "................",
+   "................",
+   "................",
+   "................",
+   ".......PP.......",
+   ".PP...PPPP....P.",
+   ".P...PP..P....P.",
+   ".PP..P....P..P..",
+   "..PPP.....PPPP..",
+   "...PP......PP...",
+   "................",
+   "..g...g...g..g..",
+   "NNNNNNNNNNNNNNNN",
+   "NNNNNNNNNNNNNNNN",
+   "NNNNNNNNNNNNNNNN"
+  ]
+ },
+ "mail": {
+  "rows": [
+   "................",
+   "................",
+   "................",
+   ".SWWWWWWWWWWWWS.",
+   ".WSWWWWWWWWRRSW.",
+   ".WWSWWWWWWWRRWW.",
+   ".WWWSWWWWWWSWWW.",
+   ".WWWWSWWWWSWWWW.",
+   ".WWWWWSWWSWWWWW.",
+   ".WWWWWWSSWWWWWW.",
+   ".WWWWWWWWWWWWWW.",
+   ".WWWWWWWWWWWWWW.",
+   ".WWWWWWWWWWWWWW.",
+   "................",
+   "................",
+   "................"
+  ]
+ },
+ "book": {
+  "rows": [
+   "................",
+   "................",
+   "................",
+   "..WWWWW..WWWWW..",
+   ".WWWWWWLLWWWWWW.",
+   ".WLLLLWLLWLLLLW.",
+   ".WWWWWWLLWWWWWW.",
+   ".WLLLLWLLWLLLLW.",
+   ".WWWWWWLLWWWWWW.",
+   ".WLLLWWLLWLLLLW.",
+   ".WWWWWWLLWWWWWW.",
+   "RWWWWWWLLWWWWWWR",
+   "RRRRRRRRRRRRRRRR",
+   "................",
+   "................",
+   "................"
+  ]
+ },
+ "shopping_cart": {
+  "rows": [
+   "................",
+   "................",
+   "RRR.....g.......",
+   "..L...RRgYY.....",
+   "..LLLLLLLLLLLLLL",
+   "...L..L..L..L..L",
+   "...LLLLLLLLLLLL.",
+   "....L..L..L..LL.",
+   "....LLLLLLLLLL..",
+   ".....L..........",
+   ".....LLLLLLLLLL.",
+   "................",
+   "......BB....BB..",
+   "......BB....BB..",
+   "................",
+   "................"
+  ]
+ },
+ "ambulance": {
+  "rows": [
+   "................",
+   "....BB..........",
+   "WWWWWWWWWWW.....",
+   "WWWWRRWWWWW.....",
+   "WWWWRRWWWWW.....",
+   "WWRRRRRRWWW.....",
+   "WWRRRRRRWWWWWW..",
+   "WWWWRRWWWWWSSSW.",
+   "WWWWRRWWWWWSSSWW",
+   "WWWWWWWWWWWWWWWW",
+   "WWWWWWWWWWWWWWWW",
+   "..GGG......GGG..",
+   "..GGG......GGG..",
+   "................",
+   "................",
+   "................"
+  ]
+ },
+ "dump_truck": {
+  "rows": [
+   "................",
+   "................",
+   "OO..............",
+   "OOOO............",
+   "OOOOOO..........",
+   ".OOOOOOOO.......",
+   "..OOOOOOOO.YYY..",
+   "...OOOOOOO.YSSY.",
+   "....OOOOOO.YSSYY",
+   ".....OOOOO.YYYYY",
+   "LLLLLLLLLLLYYYYY",
+   "..GGG.....GGG...",
+   "..GGG.....GGG...",
+   "................",
+   "................",
+   "................"
+  ]
+ },
+ "tooth": {
+  "rows": [
+   ".............Y..",
+   "............YYY.",
+   ".............Y..",
+   "...WWWW..WWWW...",
+   "..WWWWWWWWWWWW..",
+   "..WWWWWWWWWWWW..",
+   "..WWWWWWWWWWWW..",
+   "..WWWWWWWWWWWW..",
+   "..WWWWWWWWWWWW..",
+   "..WWWWWWWWWWWW..",
+   "...WWWWWWWWWW...",
+   "...WWWW..WWWW...",
+   "...WWW....WWW...",
+   "....WW....WW....",
+   "................",
+   "................"
+  ]
+ },
+ "sprout": {
+  "rows": [
+   "................",
+   "................",
+   "................",
+   "................",
+   "........gggg....",
+   "..ggg..ggggg....",
+   ".ggggg.gggg.....",
+   "..gggggg........",
+   ".......g........",
+   ".......g........",
+   ".......g........",
+   "....NNNgNNN.....",
+   "..NNNNNNNNNNN...",
+   ".NNNNNNNNNNNNN..",
+   "NNNNNNNNNNNNNNNN",
+   "................"
+  ]
+ },
+ "hand": {
+  "rows": [
+   "................",
+   "......CC.CC.....",
+   "...CC.CC.CC.....",
+   "...CC.CC.CC.CC..",
+   "...CC.CC.CC.CC..",
+   "...CC.CC.CC.CC..",
+   "...CCCCCCCCCCC..",
+   "CC.CCCCCCCCCCC..",
+   ".CCCCCCCCCCCCC..",
+   "..CCCCCCCCCCCC..",
+   "...CCCCCCCCCC...",
+   "....CCCCCCCC....",
+   "....CCCCCCCC....",
+   "....SSSSSSSS....",
+   "....SSSSSSSS....",
+   "................"
+  ]
+ }
+}

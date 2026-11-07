@@ -548,6 +548,7 @@ class App {
   setUiMode(next) {
     if (next === state.uiMode) return;
     if (this.crop.el) return;
+    if (EMBED) return; // ChatBroadcast's editor stays in simple mode
     localStorage.setItem("iconmaker.uiMode", next);
     state.uiMode = next;
     state.devicePanelOpen = false;
