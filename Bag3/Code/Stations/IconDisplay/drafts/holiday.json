@@ -367,49 +367,6 @@
    "................"
   ]
  },
- "spider": {
-  "set": "halloween",
-  "key": {
-   "K": [
-    30,
-    20,
-    10
-   ],
-   "U": [
-    100,
-    0,
-    255
-   ],
-   "V": [
-    180,
-    30,
-    255
-   ],
-   "W": [
-    255,
-    171,
-    93
-   ]
-  },
-  "rows": [
-   ".......WW.......",
-   ".......WW.......",
-   ".......WW.......",
-   "......UUUU......",
-   ".V..UUUUUUUU..V.",
-   "V.V.UUUUUUUU.V.V",
-   "V..VUWKUUKWUV..V",
-   ".V.VUKKUUKKUV.V.",
-   ".VVVUUUUUUUUVVV.",
-   "V..VUUUUUUUUV..V",
-   "V.VVUKUUUUKUVV.V",
-   ".V.VUUKKKKUUV.V.",
-   ".V..UUUUUUUU..V.",
-   "V..V.UUUUUU.V..V",
-   "V.V..........V.V",
-   "................"
-  ]
- },
  "candy_corn": {
   "set": "halloween",
   "key": {

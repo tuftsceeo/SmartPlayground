@@ -6,7 +6,8 @@ ROOT = os.path.dirname(OUT)
 DESTS = [os.path.join(ROOT, 'icons'), os.path.join(os.path.dirname(ROOT), 'Icon Display Station', 'icons')]
 PAL = dict(W=(185,255,150), L=(131,180,106), G=(80,110,65), Y=(255,150,0), O=(255,60,0), R=(255,0,0),
   g=(20,160,0), D=(0,100,0), B=(0,0,255), S=(0,60,200), U=(100,0,255), N=(150,45,5), E=(80,20,0),
-  P=(255,94,50), T=(180,60,10), C=(255,140,60), K=(0,0,0))
+  P=(255,94,50), T=(180,60,10), C=(255,140,60), K=(0,0,0),
+  A=(53,73,43), V=(180,200,0), H=(0,35,0), Q=(255,230,30), j=(100,230,0), o=(150,60,0), X=(30,8,0), Z=(0,15,0), z=(0,23,0), v=(140,247,50), b=(0,136,0), n=(0,69,21), t=(0,100,143), m=(0,0,40), r=(60,0,0), k=(31,69,0), f=(64,143,0), y=(255,247,50), c=(0,180,240))  # A = bus tire dark grey (icons/bus.py); V lime, H deep green, Q pale belly, j light green, o ochre belly shadow
 # LED->screen model (copied from build.py, port of display.js ledScreenRgb)
 PRIM = [(0.7006,0.2993,400),(0.0743,0.8338,1150),(0.1241,0.0578,250)]
 PRIM = [((x/y)*Iv, Iv, ((1-x-y)/y)*Iv) for x,y,Iv in PRIM]
