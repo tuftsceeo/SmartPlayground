@@ -520,26 +520,6 @@
   ],
   "set": "halloween"
  },
- "whale": {
-  "rows": [
-   "................",
-   "......c..c..c...",
-   "................",
-   ".......c.c.c....",
-   ".........c......",
-   "....ccccccccc...",
-   "B..cBBBBBBBBBc..",
-   "BB.BBBBBBBBBKBB.",
-   ".BBBBBBBBBBBBBBB",
-   "..BBBBBBBBBBBBB.",
-   "...BWWWWWWWWWWB.",
-   "....mmmmmmmmmm..",
-   ".....WWWWWWWWW..",
-   "......mmmmmmm...",
-   "................",
-   "................"
-  ]
- },
  "orca": {
   "rows": [
    "SSSSSSSSSSSSSSSS",

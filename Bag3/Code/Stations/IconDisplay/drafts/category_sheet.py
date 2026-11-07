@@ -5,7 +5,7 @@ from PIL import Image, ImageDraw, ImageFont
 HERE = os.path.dirname(os.path.abspath(__file__))
 ICONS = os.path.join(HERE, "..", "icons")
 CATS = [
- ("Animals", "bat bee bird bunny butterfly camel cat chicken deer dog dolphin dove duck elephant elephant2 fish frog goat shrimp hedgehog lion monarch monkey mouse octopus owl parrot penguin pig polar_bear shark sheep snake spider swan teddy_bear torogoz trex turtle whale orca humpback worm griffin"),
+ ("Animals", "bat bee bird bunny butterfly camel cat chicken deer dog dolphin dove duck elephant elephant2 fish frog goat shrimp hedgehog lion monarch monkey mouse octopus owl parrot penguin pig polar_bear shark sheep snake spider swan teddy_bear torogoz trex turtle orca humpback worm griffin"),
  ("Faces and feelings", "happy sad mad laugh love embarrassed silly sleepy surprised ready"),
  ("Food", "apple banana cherries grapes lemon orange strawberry watermelon pizza cookie icecream milk sandwich candy candy_corn agua_fresca beans churro concha elote hot_chocolate paleta pupusa taco pan_de_muerto"),
  ("Nature, weather, places", "sun moon cloud rain_cloud lightning rainbow snowflake star sparkles leaf tree flower sunflower cactus mushroom grass sprout marigold ocean forest desert pond igloo"),
