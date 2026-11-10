@@ -88,8 +88,16 @@ export function xyzToSrgb(X, Y, Z) {
  * stay legible when the panel is running at 5%. The live-brightness
  * appearance is the preview canvas's job, not the palette's.
  */
+// Measured on the panel (2026-10-31, Stations/IconDisplay/README.md "Measured
+// white"): duty (185,255,150) looks white, not the datasheet's (255,171,93).
+// Screen colours are white-balanced so the measured white lands on the
+// datasheet neutral; the XYZ/OKLab distance maths above stay unbalanced.
+export const MEASURED_WHITE = [185, 255, 150];
+const DATASHEET_WHITE = [255, 171, 93];
+const BALANCE = MEASURED_WHITE.map((m, i) => DATASHEET_WHITE[i] / m);
+
 export function ledSwatchHex(duty) {
-  const [r, g, b] = xyzToSrgb(...authoredToXYZ(duty, 1));
+  const [r, g, b] = xyzToSrgb(...authoredToXYZ(duty.map((c, i) => c * BALANCE[i]), 1));
   const h = (n) => n.toString(16).padStart(2, "0");
   return `#${h(r)}${h(g)}${h(b)}`;
 }

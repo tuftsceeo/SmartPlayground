@@ -1487,6 +1487,7 @@ def main():
             return
         except Exception as e:
             print("  [ERR] Main loop:"); sys.print_exception(e)
+            _forget_boot_ok()   # next boot runs the full boot animation
             time.sleep_ms(500)
         time.sleep_ms(1)
 

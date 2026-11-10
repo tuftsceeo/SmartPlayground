@@ -237,7 +237,7 @@ class ESPNowManager:
             if batt is None:
                 return None
             return int(batt)
-        except (TypeError, ValueError):
+        except (TypeError, ValueError, OSError):
             return None
 
     def _maybe_send_pending_report(self):

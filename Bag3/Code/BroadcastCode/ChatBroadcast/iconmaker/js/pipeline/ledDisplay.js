@@ -26,16 +26,18 @@
  * preview.js's bloom canvas, which uses predictLedAppearance().
  */
 
-import { srgbToLinear, linearToSrgb } from "./ledcolor.js";
+import { srgbToLinear, linearToSrgb, MEASURED_WHITE } from "./ledcolor.js";
 
 /** Authored linear duty byte tuple -> sRGB byte tuple for display. */
 export function authoredToDisplay(rgb) {
-  return rgb.map((c) => Math.round(linearToSrgb(Math.max(0, Math.min(255, c)) / 255) * 255));
+  // White-balanced: MEASURED_WHITE shows as screen white.
+  return rgb.map((c, i) => Math.round(linearToSrgb(Math.max(0, Math.min(MEASURED_WHITE[i], c)) / MEASURED_WHITE[i]) * 255));
 }
 
 /** sRGB byte tuple (from a colour picker) -> authored linear duty bytes. */
 export function displayToAuthored(rgb) {
-  return rgb.map((c) => Math.round(srgbToLinear(Math.max(0, Math.min(255, c))) * 255));
+  // Inverse of authoredToDisplay: screen white picks MEASURED_WHITE.
+  return rgb.map((c, i) => Math.round(srgbToLinear(Math.max(0, Math.min(255, c))) * MEASURED_WHITE[i]));
 }
 
 const hex2 = (n) => n.toString(16).padStart(2, "0");
