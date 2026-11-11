@@ -166,7 +166,7 @@ counts using the same `SHAPE_*` pictures as the wand.
 
 ```python
 import chart16, shapes
-chart16.blocks(panel.src, [green, blue], [(0, 200, 60), (40, 120, 200)], empty=(45, 45, 45))
+chart16.blocks(panel.src, [green, blue], [(0, 200, 60), (40, 120, 200)], empty=(80, 110, 65))
 draw16.show(panel)
 ```
 

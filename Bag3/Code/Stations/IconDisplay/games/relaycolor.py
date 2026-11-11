@@ -34,11 +34,11 @@ COMMANDS = _EXIT_TAGS
 COLOR_RGB = {
     "turnred": (255, 0, 0), "turngreen": (0, 255, 0),
     "turnblue": (0, 0, 255), "turnpurple": (160, 0, 200),
-    "turnyellow": (255, 180, 0), "turnwhite": (200, 200, 200),
+    "turnyellow": (255, 180, 0), "turnwhite": (185, 255, 150),
 }
-UNKNOWN_RGB = (200, 200, 200)
-WHITE = (200, 200, 200)
-DIM = (60, 60, 60)
+UNKNOWN_RGB = (185, 255, 150)
+WHITE = (185, 255, 150)  # panel white; equal RGB shows pink
+DIM = (40, 55, 32)
 
 INTENSITY = 0.15
 

@@ -230,7 +230,7 @@ def width(s, spacing=1):
     return len(s) * GLYPH_W + (len(s) - 1) * spacing
 
 
-def number(src, value, row, col=None, color=(190, 190, 190), spacing=1):
+def number(src, value, row, col=None, color=(185, 255, 150), spacing=1):
     """An integer, centred horizontally when col is None. Centring is the
     default because a score that grows from 9 to 10 otherwise appears to
     lurch sideways."""
