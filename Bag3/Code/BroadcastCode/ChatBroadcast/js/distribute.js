@@ -205,7 +205,7 @@ export class DistributeOverlay {
     this.slug = slug;
     this.el("dist-title").textContent = prettyName ? `Distribute "${prettyName}"` : "Distribute code";
     this.state = new DistributeState();
-    this._setStatus("Waiting for the Dial to restart…");
+    this._setStatus("Reconnecting…");
     this.render();
     this.showOverlay("distribute-overlay");
     if (!(await this._waitLive())) {
@@ -357,7 +357,7 @@ export class DistributeOverlay {
         r.battery == null ? "—" : `${r.battery}%`,
         `<span class="dist-sig dist-sig-${signalLevel(r.rssi)}" title="${r.rssi ?? "?"} dBm"><i></i><i></i><i></i></span>`,
         `<span class="dist-state" title="${r.why || ""}">${STATUS_TEXT[r.status] || ""}${r.why ? ` (${r.why})` : ""}</span>`,
-        `<button type="button" class="btn-secondary btn-compact dist-find">Find</button>`,
+        `<button type="button" class="btn-secondary btn-compact dist-find">Find Me</button>`,
       ];
       tr.innerHTML = cells.map((c) => `<td>${c}</td>`).join("");
       body.appendChild(tr);

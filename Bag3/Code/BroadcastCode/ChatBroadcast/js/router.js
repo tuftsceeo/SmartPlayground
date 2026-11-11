@@ -204,7 +204,7 @@ export function setConnectionBadge(link) {
             chipClass = "sending";
             break;
         case "rebooting":
-            chipText = "restarting…";
+            chipText = "Reconnecting…";
             chipClass = "sending";
             break;
         case "lost":
