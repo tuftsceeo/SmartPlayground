@@ -6,6 +6,8 @@ job waits until the card is lifted (panel.need_lift), as on the Broadcast Dial. 
 written in any order: tapping a row arms that tag, tapping a written row writes another copy.
 """
 
+import sys
+
 import lvgl as lv
 
 import ds_tokens as t
@@ -129,6 +131,9 @@ def _items():
 # -- actions -------------------------------------------------------------------
 
 def _mode(mode):
+    kb = sys.modules.get("kbd")
+    if kb:
+        kb.close()
     _w["mode"] = mode
     _w["view"] = "pick"
     _w["page"] = 0

@@ -1,6 +1,7 @@
 """Left column shared by home (1), the group chat (1B) and the NFC screens (5).
 
-Messages / Tags toggle on top. Messages: Roll call, wand and station counts, chat rows, New group.
+Messages / Tags toggle on top. Messages: the menu (1F: Roll call, Manage groups, History / Undo,
+Shutdown), wand and station counts, chat rows, New group.
 Tags: the NFC screen's list (scr_cards fills it). Each screen builds its own column with
 build(scr, mode) and redraws it with refresh(s) or fill(s, items); the row pool is fixed.
 """
@@ -45,8 +46,10 @@ def build(scr, mode, pick=None, toggle=None):
                            toggle or switch, 80, 44)
     s["seg"](mode)
     if mode == "msg":
-        rc = k.button(side, W - 10 - 44, 16, 44, "", t.TEAL_DARK, "roll_call_18", px=12, w=44)
-        k.on(rc, lambda: panel.P.act(panel.P.roll_call))
+        mb = k.button(side, W - 10 - 44, 16, 44, "", t.INK, px=0, w=44)     # hamburger
+        for dy in (-6, 0, 6):
+            k.box(mb, 0, 0, 20, 2, t.INK, 1).align(lv.ALIGN.CENTER, 0, dy)
+        k.on(mb, _menu)
         k.icon(side, "wand_18", t.TEAL_DARK, 16, 70)
         s["nw"] = k.text(side, "", t.TEAL_DARK, k.F_BODY, 38, 70)
         k.icon(side, "station_face_20", t.INK_3, 84, 69)
@@ -59,7 +62,7 @@ def build(scr, mode, pick=None, toggle=None):
         r.center()
         k.icon(r, "plus_16", t.PURPLE)
         k.text(r, "New group", t.PURPLE, F12)
-        k.on(new, _new_group)
+        k.on(new, new_group)
         s["new"] = new
     return s
 
@@ -72,7 +75,22 @@ def switch(key):
         k.go("scr_cards")
 
 
-def _new_group():
+def _menu():
+    import menu
+    menu.open()
+
+
+def roll_everyone():
+    """The menu's Roll call is Everyone's: it opens that chat, where 1C shows it running."""
+    P = panel.P
+    if P.target["kind"] != "all":
+        P.set_target("all", "Everyone")
+    if k.cur != "home":
+        k.home()
+    P.act(P.roll_call)
+
+
+def new_group():
     P = panel.P
     P.pick_mode = "group"
     P.picked = []

@@ -2,6 +2,8 @@
 its feed and the Start / Send code / Stop footer. Content comes from panel.P.
 """
 
+import lvgl as lv
+
 import ds_tokens as t
 import feed
 import panel
@@ -32,9 +34,20 @@ def footer(scr):
     stop = k.button(ft, 0, 11, 56, "Stop", t.INK, "stop_20", t.DANGER[0], F16, px=20)
     stop.update_layout()
     stop.set_x(MAIN_W - 16 - stop.get_width())
+    for b in (start, code):     # dimmed, not greyed, while a roll call runs (1C)
+        b.set_style_bg_color(k.c(t.PINK if b is start else t.SURFACE), lv.STATE.DISABLED)
+        b.set_style_bg_grad_dir(lv.GRAD_DIR.HOR if b is start else lv.GRAD_DIR.NONE, lv.STATE.DISABLED)
+        b.set_style_border_color(k.c(t.BORDER), lv.STATE.DISABLED)
     k.on(start, lambda: _games("start"))
     k.on(code, lambda: _games("code"))
     k.on(stop, lambda: panel.P.act(panel.P.stop))
+    return (start, code)
+
+
+def dim_footer(ft):
+    busy = panel.P.rolling()
+    for b in ft:
+        k.dim(b, busy)
 
 
 def build():
@@ -44,7 +57,7 @@ def build():
     k.box(scr, SIDE_W, HEAD_H - 1, MAIN_W, 1, t.BORDER)
     _w["title"] = k.slot(hd, 16, 22, MAIN_W - 32, t.INK, F16)
     _w["slots"] = feed.build(scr, SIDE_W, HEAD_H, MAIN_W, H - HEAD_H - FOOT_H)
-    footer(scr)
+    _w["foot"] = footer(scr)
     return scr
 
 
@@ -53,3 +66,4 @@ def refresh():
     side.refresh(_w["side"])
     k.st(_w["title"], P.target["name"])
     feed.fill(_w["slots"], P.log())
+    dim_footer(_w["foot"])

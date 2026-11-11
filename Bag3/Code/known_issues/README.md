@@ -20,7 +20,7 @@ filenames). Search front matter with `grep -l '<term>' Bag3/Code/known_issues/*.
 | [2026-09-04-chatbroadcast.md](2026-09-04-chatbroadcast.md) | ChatBroadcast gallery, simulator, game size | partly outdated | `ChatBroadcast/9-4-known_issues.md` |
 | [2026-09-29-chatbroadcast.md](2026-09-29-chatbroadcast.md) | ChatBroadcast roles, remix, Dial load | open | `ChatBroadcast/9-29-known_issues.md` |
 | [2026-09-30-known-issues.md](2026-09-30-known-issues.md) | Code pull game size, `stats.log` | open | `docs_and_design/2026-09-30-known-issues.md` |
-| [2026-10-23-distribute-code.md](2026-10-23-distribute-code.md) | Status scan, Dial distribute code, per-device differences | open (untested on hardware) | — |
+| [2026-10-23-distribute-code.md](2026-10-23-distribute-code.md) | Status scan, Dial distribute code, per-device differences (SplatCompanion reports no kind) | open (untested on hardware) | — |
 | [2026-10-28-ips096-colour-levels.md](2026-10-28-ips096-colour-levels.md) | IPS096 Display mid-tone colours, panel lookup | workaround | — |
 | [2026-10-28-capsule-pn5180.md](2026-10-28-capsule-pn5180.md) | PN5180 on M5Capsule: corrupted replies, Splat tags | open | — |
 | [2026-10-28-mockwand-idle-power.md](2026-10-28-mockwand-idle-power.md) | MockWand idle/sleep battery drain, power LED, diffuser | partly fixed | — |

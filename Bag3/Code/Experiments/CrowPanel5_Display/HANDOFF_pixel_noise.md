@@ -92,6 +92,6 @@ buffer is refilled late and its first part is displayed shifted.
 - Test ESP-NOW on the board. The wand reported a failed code pull from the panel after the
   2026-11-02 flash; this is unresolved and may or may not be related.
 
-## Resolution (2026-11-10)
+## Update (2026-11-10)
 
-The 310 panel was running an unpatched build. Flashing the patched app image (0x10000, no erase) cleared the row shift. The 110 panel already ran the patched build. See the known-issues note.
+Not resolved; see the known-issues note (2026-11-10 entry). The pre-flash firmware on 310 is unknown.

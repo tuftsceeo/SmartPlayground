@@ -3,6 +3,9 @@
 import time
 
 STALE_MS = 60000
+# HUB_TYPE values that are stations (screen 2's Stations section); any other non-wand kind is Unknown / Other
+STATION_KINDS = ("icon_display", "splat_companion", "programming_station", "score_board",
+                 "broadcast_box", "broadcast_dial")
 
 
 def tag_of(mac):
@@ -41,12 +44,19 @@ class Roster:
     def is_wand(self, e):
         return e["kind"] in ("wand", None)
 
+    def section(self, e):
+        """'wands', 'stations' or 'other' (screen 2)."""
+        if self.is_wand(e):
+            return "wands"
+        return "stations" if e["kind"] in STATION_KINDS else "other"
+
     def name(self, mac):
         n = self.names.get(mac)
         if n:
             return n
         e = self.d.get(mac)
-        return ("W-" if e is None or self.is_wand(e) else "S-") + tag_of(mac)
+        sec = "wands" if e is None else self.section(e)
+        return {"wands": "W-", "stations": "S-"}.get(sec, "?-") + tag_of(mac)
 
     def low(self, e):
         return e["battery"] is not None and e["battery"] < 20
@@ -65,7 +75,7 @@ class Roster:
         for mac, e in self.d.items():
             if kind == "wands" and not self.is_wand(e):
                 continue
-            if kind == "stations" and self.is_wand(e):
+            if kind == "stations" and self.section(e) != "stations":
                 continue
             out.append(e)
         return out

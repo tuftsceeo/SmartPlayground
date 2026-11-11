@@ -22,7 +22,8 @@ open:
   - IconDisplay is marked updated before its icons arrive
   - No back-hold cancel on the Dial during a distribution
   - Devices that ACK code_push but cannot act on it report "timeout", not a clear error
-keywords: [code_push, status_poll, status_report, kind, fleet, distribute, find_device, finddevice, getcode, timeout, no_ack, not_serving, M5Paper]
+  - SplatCompanion answers status_poll without kind, so pollers list it as a wand (added 2026-11-10)
+keywords: [code_push, status_poll, status_report, kind, fleet, distribute, find_device, finddevice, getcode, timeout, no_ack, not_serving, M5Paper, SplatCompanion, splat_companion, CrowPanel]
 related:
   - Bag3/Code/BroadcastCode/docs_and_design/2026-10-23-distribute-code-plan.md
   - Bag3/Code/TeacherTools/BroadcastDial/README.md (Fleet commands)
@@ -101,8 +102,16 @@ Every item below is expected from reading the code, not observed.
   - the `Simulator/vendor/` copies, which now differ from MockWand and IconDisplay
 - **Bag2 devices on the same channel.** They answer `status_poll` without `kind`, and appear as `?-xxxx`
   with kind "Unknown". If one is selected, it ACKs `code_push`, ignores it, and times out.
-- **No reply at all.** Devices with no status provider (Music Board, SplatCompanion) never appear in
-  the list.
+- **No reply at all.** Devices with no status provider (Music Board) never appear in the list.
+- **SplatCompanion answers as a wand** (2026-11-10, read from the code, not tested on hardware).
+  `Stations/SplatCompanion/Companion/main.py:506` registers `mgr.set_status_provider(lambda b=batt:
+  int(b.soc))` with no `kind`, and only when the board has a battery gauge (`has_battery`). Its
+  `status_report` therefore has no `kind`, and every poller that treats a missing kind as a wand
+  lists it as one: the CrowPanel shows it under Wands on screen 2 (`roster.is_wand`) and counts it
+  as a wand in the 1D "N Wands / M Stations" reply, where the design puts it under Stations
+  ("Splat pad"). A Companion without a gauge never replies. Fix (not done): pass
+  `kind=HUB_TYPE` (`"splat_companion"`), as `Stations/IconDisplay/main.py:401` does, and register
+  `lambda: None` when there is no gauge.
 
 ### BroadcastDial
 - **Radio must be up.** `fleet.*` needs the radio up: WRITE mode (a game on flash) on a menu screen.

@@ -1,9 +1,10 @@
 """Screen 4 - Sending code to wands.
 
 The list shows only wands that are receiving the code or have it: "N have it - M receiving",
-no total and no progress bar. Code is pushed one wand after another (unicast, fleet.py). For
+no total and no progress bar. Each wand starts the game as soon as it has it, so there is no
+Start button; when the send is complete the panel goes back to the chat (panel._send_check, 4.5). Code is pushed one wand after another (unicast, fleet.py). For
 Everyone a scan runs alongside and each wand that answers joins the queue (dist "scan").
-4.2, 4.3 and 4.6 (paused, stopped, retry) are not redrawn yet.
+4.2, 4.3 and 4.6 (paused, retry, stopped) are not redrawn yet; their Start anyway buttons are gone.
 """
 
 import lvgl as lv
@@ -45,10 +46,11 @@ def build():
     _w["rail"] = k.rail(cd, CARD_W - 16 - 52, 60, CARD_H - 72, lambda: _page(-1), lambda: _page(1))
     ft = k.box(scr, 0, 406, k.W, 74, t.SURFACE)
     k.box(scr, 0, 406, k.W, 1, t.BORDER)
-    _w["left"] = k.button(ft, k.W - 16 - 230 - 10 - 170, 11, 52, "Stop sending", t.DANGER[0], font=k.F_BODY, w=170)
-    k.on(_w["left"], lambda: panel.P.act(_left))
-    _w["right"] = k.button(ft, k.W - 16 - 230, 11, 52, "Start", t.SURFACE, primary=True, w=230, font=k.F_BODY)
+    _w["right"] = k.button(ft, k.W - 16 - 230, 11, 52, "Send to the rest", t.SURFACE, primary="purple", w=230,
+                           font=k.F_BODY)
     k.on(_w["right"], lambda: panel.P.act(_right))
+    _w["left"] = k.button(ft, k.W - 16 - 170, 11, 52, "Stop sending", t.DANGER[0], font=k.F_BODY, w=170)
+    k.on(_w["left"], lambda: panel.P.act(_left))
     return scr
 
 
@@ -102,8 +104,6 @@ def _right():
     mode, _ = _mode(P)
     if mode == "stopped":
         P.send_rest()
-    elif mode in ("sending", "paused", "failed", "done"):
-        P.start_sent()
 
 
 def refresh():
@@ -148,7 +148,7 @@ def refresh():
         k.sty(r["st"], "text", c)
         k.sty(r["dot"], "bg", dot)
     left, right = _w["left"], _w["right"]
-    k.st(k.lbl(right), f"Start {d['name']}{k.ARROW}")
+    rest = len(st) - has
     if mode in ("sending", "paused"):
         k.st(k.lbl(left), "Stop sending")
         k.sty(k.lbl(left), "text", t.DANGER[0])
@@ -159,7 +159,10 @@ def refresh():
     elif mode == "stopped":
         k.st(k.lbl(left), "Back to chat")
         k.sty(k.lbl(left), "text", t.INK)
-        k.st(k.lbl(right), "Send to the rest")
+        k.st(k.lbl(right), f"Send to the other {rest}")
     k.show_hide(left, mode != "done")
-    rest = len(st) - has
-    k.set_enabled(right, (mode != "stopped" and has > 0) or (mode == "stopped" and rest > 0))
+    k.show_hide(right, mode == "stopped" and rest > 0)
+    x = k.W - 16 - 170 - (240 if mode == "stopped" and rest > 0 else 0)
+    if _w.get("lx") != x:
+        _w["lx"] = x
+        left.set_x(x)

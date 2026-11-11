@@ -15,7 +15,7 @@ import panel
 import ui_kit as k
 from code_link import HOST_ID
 
-PASSIVE = ("identify", "info", "mode", "unlink", "ping")
+PASSIVE = ("identify", "info", "mode", "unlink", "ping", "panel.restart")
 LINK_TIMEOUT_MS = 15000   # ChatBroadcast pings a CrowPanel every 5 s while connected
 
 class Host:
@@ -36,6 +36,7 @@ class Host:
             "fleet.scan": self.fleet_scan, "fleet.find": self.fleet_find,
             "fleet.distribute": self.fleet_distribute, "fleet.cancel": self.fleet_cancel,
             "card.write": self.card_write, "card.cancel": self.card_cancel, "unlink": self.unlink, "ping": self.ok,
+            "panel.restart": self.panel_restart,
         }
 
     def send(self, d):
@@ -58,10 +59,10 @@ class Host:
         if not self.linked:
             if name not in PASSIVE:
                 self.link()
-            elif name not in ("unlink", "ping") and k.cur != "scr_link_prompt":
+            elif name not in ("unlink", "ping", "panel.restart") and k.cur != "scr_link_prompt":
                 self._leave_local()
                 k.go("scr_link_prompt")
-        if self.card is None and k.cur == "scr_linked_card" and name not in ("card.write", "ping"):
+        if self.card is None and k.cur == "scr_linked_card" and name not in ("card.write", "ping", "panel.restart"):
             k.go("scr_linked", push=False)
         fn(cmd, rid)
 
@@ -136,6 +137,13 @@ class Host:
         self.send({"type": "identity", "id": rid, "device": "crowpanel", "version": panel.VERSION,
                    "proto": panel.PROTO, "w": k.W, "h": k.H, "nfc": self.P.reader.ok, "host_id": HOST_ID})
         self.P.dirty = True
+
+    def panel_restart(self, cmd, rid):
+        """Bench test: re-sync the RGB panel DMA (row shift at bounce-buffer edges)."""
+        import display_lvgl
+        b = display_lvgl.RGB
+        fn = getattr(b, "restart", None)
+        self.ok(cmd, rid, done=bool(fn()) if fn else None)
 
     def ok(self, cmd, rid, **extra):
         d = {"type": "ok", "id": rid, "cmd": cmd.get("cmd")}

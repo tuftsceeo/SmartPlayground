@@ -16,6 +16,7 @@ import board
 
 # PCA9557 registers
 BUS = None   # touch I2C bus, shared with the NFC reader
+RGB = None   # the RGB panel bus; host's panel.restart calls RGB.restart()
 
 _OUT = 0x01
 _CONFIG = 0x03  # 1 = input
@@ -69,7 +70,8 @@ def init():
     display.init()
     display.set_backlight(100)
 
-    global BUS
+    global BUS, RGB
+    RGB = bus
     i2c_bus = BUS = i2c.I2C.Bus(host=0, scl=board.I2C_SCL, sda=board.I2C_SDA, freq=400000)
     touch_reset(i2c.I2C.Device(bus=i2c_bus, dev_id=board.PCA9557_ADDR, reg_bits=8))
     touch_dev = i2c.I2C.Device(bus=i2c_bus, dev_id=gt911.I2C_ADDR, reg_bits=gt911.BITS)

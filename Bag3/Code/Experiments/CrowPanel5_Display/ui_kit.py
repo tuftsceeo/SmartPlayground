@@ -255,25 +255,6 @@ def on(o, fn):
     o.add_event_cb(safe(fn), lv.EVENT.CLICKED, None)
 
 
-def on_tile(o, tap, hold):
-    """Tap and long-press on one object; a long press does not also tap."""
-    held = [False]
-    o.add_flag(lv.obj.FLAG.CLICKABLE)
-
-    def long_(e):
-        held[0] = True
-        hold()
-
-    def click(e):
-        if held[0]:
-            held[0] = False
-        else:
-            tap()
-
-    o.add_event_cb(safe(lambda: long_(None)), lv.EVENT.LONG_PRESSED, None)
-    o.add_event_cb(safe(lambda: click(None)), lv.EVENT.CLICKED, None)
-
-
 def show_hide(o, on_):
     """Change HIDDEN only when it differs: setting a flag invalidates the object."""
     if on_ == o.has_flag(lv.obj.FLAG.HIDDEN):
@@ -292,6 +273,34 @@ def set_enabled(o, ok):
             o.add_state(lv.STATE.DISABLED)
     if id(o) in _fg:
         sty(_labels[id(o)], "text", _fg[id(o)] if ok or id(o) in _prim else t.MUTED)
+
+
+def busy(b, on):
+    """A Roll call button while its roll call runs (1C): teal border and fill, the icon turning a
+    step at each refresh. Changes only when on, or when it turns off."""
+    key = ("busy", id(b))
+    if _sty.get(key) != on:
+        _sty[key] = on
+        b.set_style_border_color(c(t.TEAL if on else t.BORDER), 0)
+        b.set_style_bg_color(c(t.TEAL_50 if on else t.SURFACE), 0)
+    im = b.get_child(0).get_child(0)
+    a = (time.ticks_ms() // 400 % 8) * 450 if on else 0
+    if _sty.get(("rot", id(b))) != a:
+        _sty[("rot", id(b))] = a
+        hw = (im.get_width() or 18) // 2
+        im.set_pivot(hw, hw)
+        im.set_rotation(a)
+
+
+def dim(b, off):
+    """Start a game / Send code while the radio is busy (1C): the same button at 40% opacity."""
+    if off != b.has_state(lv.STATE.DISABLED):
+        if off:
+            b.add_state(lv.STATE.DISABLED)
+            b.set_style_opa(102, 0)
+        else:
+            b.remove_state(lv.STATE.DISABLED)
+            b.set_style_opa(lv.OPA.COVER, 0)
 
 
 def new_screen():
@@ -448,6 +457,12 @@ def bubble(parent, mine=False):
 def go(name, push=True):
     """Show the screen module `name` (module.build() -> screen, module.refresh())."""
     global cur
+    kb = sys.modules.get("kbd")
+    if kb:
+        kb.close()                  # the keyboard sheet belongs to the screen being left
+    mn = sys.modules.get("menu")
+    if mn:
+        mn.close()
     m = _mods.get(name)
     if m is None:
         m = _mods[name] = __import__(name)
@@ -490,6 +505,7 @@ def toast(msg, ms=3000):
         _toast.align(lv.ALIGN.BOTTOM_MID, 0, -96)
         _toast.remove_flag(lv.obj.FLAG.CLICKABLE)
     st(lbl(_toast), msg)
+    _toast.move_foreground()        # above the keyboard sheet and the game sheet
     _toast.remove_flag(lv.obj.FLAG.HIDDEN)
     _toast_until = time.ticks_add(time.ticks_ms(), ms)
 
