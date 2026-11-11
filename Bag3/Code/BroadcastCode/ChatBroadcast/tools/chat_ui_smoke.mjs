@@ -187,10 +187,12 @@ await test("header has no SoftAP network chip", async () => {
 });
 
 await shot("1-starter-chips");
-await test("starter chips: interview chip plus three ideas, at the bottom of the chat", async () => {
+await test("starter chips: interview, one question, two game ideas, at the bottom of the chat", async () => {
     const chips = await page.$$eval(".starter-chips .starter-chip", els => els.map(e => e.textContent.trim()));
     assert.equal(chips.length, 4);
     assert.equal(chips[0], "Interview me");
+    assert.ok(chips[1].endsWith("?"), `second chip is a question: ${chips[1]}`);
+    assert.ok(!chips[2].endsWith("?") && !chips[3].endsWith("?"), "then two game ideas");
     assert.equal(await page.$(".starter-chips .msg"), null, "no intro text");
     const gap = await page.evaluate(() => {
         const box = document.getElementById("chat-box").getBoundingClientRect();

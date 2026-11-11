@@ -2148,7 +2148,7 @@ class App {
         interview.innerHTML = `${iconSvg('message-circle', { size: 14 })} <span>Interview me</span>`;
         interview.addEventListener('click', () => this.startInterview());
         wrap.appendChild(interview);
-        drawStarterIdeas(3).forEach((sp) => {
+        drawStarterIdeas().forEach((sp) => {
             const chip = document.createElement('button');
             chip.type = 'button';
             chip.className = 'starter-chip';
