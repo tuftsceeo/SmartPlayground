@@ -671,8 +671,8 @@ body:not(.ui-advanced) #btn-station-catalog { display: none; }
     margin-top: auto;
 }
 .msg {
-    border-radius: 14px;
-    padding: 9px 13px;
+    border-radius: 20px;
+    padding: 10px 15px;
     font: 13px/1.45 'Nunito';
     max-width: 88%;
 }
@@ -681,23 +681,45 @@ body:not(.ui-advanced) #btn-station-catalog { display: none; }
     background: linear-gradient(135deg, #fff0f6, #ffe3f0);
     color: #a8265c;
     white-space: pre-wrap;
-    border-radius: 14px 14px 3px 14px;
+    max-width: 78%;
+    border-radius: 20px 20px 6px 20px;
 }
 .msg.system {
     align-self: flex-start;
     background: #f4f2fa;
     color: #5b5468;
     white-space: pre-wrap;
-    border-radius: 14px 14px 14px 3px;
+    border-radius: 20px 20px 20px 6px;
     font-size: 12px;
 }
 .msg.bot {
     align-self: flex-start;
     background: #fff;
     color: #3a3345;
-    max-width: 95%;
+    max-width: 85%;
     border: 1px solid var(--border);
-    border-radius: 14px 14px 14px 3px;
+    border-radius: 20px 20px 20px 6px;
+}
+/* Coder reply: round avatar beside the bubble, aligned to its bottom. */
+.msg-row.bot {
+    align-self: flex-start;
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+    max-width: 100%;
+    min-width: 0;
+}
+.msg-row.bot > .msg.bot { max-width: calc(100% - 36px); min-width: 0; }
+.msg-avatar {
+    flex: 0 0 28px;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    background: linear-gradient(135deg, var(--pink), var(--purple));
 }
 .starter-chips,
 .choice-chips {

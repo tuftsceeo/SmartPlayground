@@ -1,6 +1,7 @@
 import { renderMarkdown } from './markdown.js';
 import { ROLES as ROLE_TABLE, DEFAULT_ROLE } from './roles.js';
 import { knowledgePaths } from './prompt/buildRequest.js';
+import { iconSvg } from './icons.js';
 
 // path -> text for every knowledge file (knowledgePaths()); empty until
 // loadKnowledgeBase() succeeds.
@@ -43,7 +44,21 @@ export function addMsg(text, cls = "bot") {
     } else {
         div.textContent = text;
     }
-    box.appendChild(div);
+    if (cls === "bot") {
+        // Coder replies sit beside a round avatar. Callers hold the inner
+        // .msg, so removing it also removes its row.
+        const row = document.createElement("div");
+        row.className = "msg-row bot";
+        const avatar = document.createElement("span");
+        avatar.className = "msg-avatar";
+        avatar.setAttribute("aria-hidden", "true");
+        avatar.innerHTML = iconSvg("sparkles", { size: 16, strokeWidth: 2 });
+        row.append(avatar, div);
+        div.remove = () => row.remove();
+        box.appendChild(row);
+    } else {
+        box.appendChild(div);
+    }
     box.scrollTop = box.scrollHeight;
     return div;
 }
