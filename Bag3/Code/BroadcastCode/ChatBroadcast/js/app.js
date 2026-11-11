@@ -2142,28 +2142,13 @@ class App {
         if (box.querySelector('.starter-chips')) return;
         const wrap = document.createElement('div');
         wrap.className = 'starter-chips';
-        // Intro lives INSIDE wrap (not a sibling) so removing '.starter-chips'
-        // on the first sent message takes both with it in one go -- it used
-        // to be a sibling appended straight to `box`, which meant onSend()'s
-        // wrap.remove() left this line behind permanently.
-        const intro = document.createElement('div');
-        intro.className = 'msg system';
-        intro.textContent = 'Tap “Interview me” to design a game by answering a few questions, '
-            + '“Help me make a game” to choose step by step, or tap an idea to fill the box, then edit and send:';
-        wrap.appendChild(intro);
         const interview = document.createElement('button');
         interview.type = 'button';
         interview.className = 'starter-chip starter-chip-guided';
         interview.innerHTML = `${iconSvg('message-circle', { size: 14 })} <span>Interview me</span>`;
         interview.addEventListener('click', () => this.startInterview());
         wrap.appendChild(interview);
-        const guided = document.createElement('button');
-        guided.type = 'button';
-        guided.className = 'starter-chip starter-chip-guided';
-        guided.innerHTML = `${iconSvg('sparkles', { size: 14 })} <span>Help me make a game</span>`;
-        guided.addEventListener('click', () => this.startGuidedMode());
-        wrap.appendChild(guided);
-        drawStarterIdeas(4).forEach((sp) => {
+        drawStarterIdeas(3).forEach((sp) => {
             const chip = document.createElement('button');
             chip.type = 'button';
             chip.className = 'starter-chip';

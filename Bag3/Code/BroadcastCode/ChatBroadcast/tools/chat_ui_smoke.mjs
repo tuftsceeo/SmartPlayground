@@ -8,7 +8,8 @@
  * the editor with its markers hidden and its choice chips shown; the next
  * request carries that code in the uncached session block; a snippet reply
  * leaves the editor unchanged; Advanced mode adds the addendum block;
- * guided mode; interview mode from title question to brief to game request.
+ * the starter chips sit at the bottom of an empty chat; interview mode from
+ * title question to brief to game request.
  *
  * Needs Playwright (global install is fine) and Chromium. From
  * ChatBroadcast/:   NODE_PATH=$(npm root -g) node tools/chat_ui_smoke.mjs [--screenshot DIR]
@@ -109,7 +110,6 @@ const REPLIES = [
     `**Every wand glows red.**\n\n### How to play\n1. Tap the game card.\n\n[DEVICE: wand]\n\`\`\`python\n${GAME}\n\`\`\`\n[GAME_NAME: Red Flash]\n[CHOICES: "Make it blink", "Add a sound"]`,
     `Change the color line to \`leds.fill(BLUE)\`:\n\n\`\`\`python\nleds.fill(BLUE)\n\`\`\``,
     `Advanced reply.`,
-    `**A guided game.**`,
     `**Frog Hop.**`,
 ];
 
@@ -187,10 +187,17 @@ await test("header has no SoftAP network chip", async () => {
 });
 
 await shot("1-starter-chips");
-await test("starter chips: interview and guided chips plus four ideas", async () => {
+await test("starter chips: interview chip plus three ideas, at the bottom of the chat", async () => {
     const chips = await page.$$eval(".starter-chips .starter-chip", els => els.map(e => e.textContent.trim()));
-    assert.equal(chips.length, 6);
-    assert.deepEqual(chips.slice(0, 2), ["Interview me", "Help me make a game"]);
+    assert.equal(chips.length, 4);
+    assert.equal(chips[0], "Interview me");
+    assert.equal(await page.$(".starter-chips .msg"), null, "no intro text");
+    const gap = await page.evaluate(() => {
+        const box = document.getElementById("chat-box").getBoundingClientRect();
+        const wrap = document.querySelector(".starter-chips").getBoundingClientRect();
+        return box.bottom - wrap.bottom;
+    });
+    assert.ok(gap < 30, `starter chips end ${gap}px above the bottom of the chat`);
 });
 
 await test("first reply: complete game lands in the editor, markers hidden, chips shown", async () => {
@@ -229,22 +236,6 @@ await test("Advanced mode adds the addendum block", async () => {
     const r = requests[2];
     assert.equal(r.body.system.length, 3);
     assert.ok(r.body.system[1].text.includes("# Advanced mode"));
-});
-
-await test("guided mode: three instant steps, then one composed request", async () => {
-    const before = requests.length;
-    await freshWorkspace();
-    await page.click('.starter-chips .starter-chip:has-text("Help me make a game")');
-    await shot("3-guided-step");
-    for (const label of ["Wands and the big display", "Tap a card", "Lights and colors"]) {
-        assert.equal(requests.length, before, "no model call during the steps");
-        await page.click(`.guided-card .starter-chip:text-is("${label}")`);
-    }
-    await page.waitForTimeout(600);
-    assert.equal(requests.length, before + 1);
-    const last = requests.at(-1).body.messages.at(-1).content;
-    assert.ok(last.startsWith("Make a simple game for my kindergarten class using wands and the icon display."), last);
-    assert.equal(await page.$(".guided-card"), null, "card removed after the last step");
 });
 
 await test("interview: title asked locally, no choices before question 3, brief becomes a game request", async () => {

@@ -665,6 +665,11 @@ body:not(.ui-advanced) #btn-station-catalog { display: none; }
     flex-direction: column;
     gap: 8px;
 }
+/* Fill from the bottom up; auto margin rather than justify-content: flex-end,
+   which would put overflowing messages out of scroll reach. */
+#chat-box > :first-child {
+    margin-top: auto;
+}
 .msg {
     border-radius: 14px;
     padding: 9px 13px;
