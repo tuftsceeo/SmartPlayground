@@ -218,6 +218,22 @@ export function stripGameSettingsMarker(text) {
 }
 
 /**
+ * A finished reply with any unclosed code block cut off, for display. Such
+ * a block (a reply cut off at max_tokens) has no closing fence, so it would
+ * stay on screen as raw unformatted text; show a placeholder instead.
+ * Not used while streaming: raw code arriving as it is written is wanted
+ * on screen. Only a complete message must not show incomplete code.
+ * @param {string} text
+ * @param {string} [placeholder]  shown where the unfinished block was
+ */
+export function hideOpenCode(text, placeholder = "*The code was cut off.*") {
+    const fences = (text.match(/```/g) || []).length;
+    if (fences % 2 === 0) return text;
+    const cut = text.lastIndexOf("```");
+    return `${text.slice(0, cut).trimEnd()}\n\n${placeholder}`.trim();
+}
+
+/**
  * The device whose file still has to be written, from a [NEXT_DEVICE: icon]
  * marker, or null. A multi-device game is written one device per reply; this
  * marker lets the app ask for the next file itself instead of waiting for

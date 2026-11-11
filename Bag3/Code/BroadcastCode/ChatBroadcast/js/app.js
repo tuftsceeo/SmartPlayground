@@ -2,6 +2,7 @@ import { loadEncryptedKey, initAuthModal, getApiKey, hasEncryptedKey } from './a
 import {
     addMsg, addThinkingMsg, removeTyping, extractCodeBlocks,
     parseNfcCards, parseGameName, parseChoices, parseGameSettings, parseNextDevice, stripAllMarkers,
+    hideOpenCode,
     parseGameBrief, stripGameBrief,
     trimForHistory, loadKnowledgeBase, getKnowledgeFiles, getKnowledgeFileCount,
 } from './chat.js';
@@ -3368,10 +3369,13 @@ class App {
      * @param {{hidden?: boolean, chain?: number}} [opts]
      *   chain: how many automatic next-device requests led to this one
      *   (0 for a teacher's message). Bounds the [NEXT_DEVICE] follow-ups.
+     *   retried: true for the automatic re-ask after a cut-off reply.
      */
-    async callClaude(userMsg, { hidden = false, chain = 0 } = {}) {
+    async callClaude(userMsg, { hidden = false, chain = 0, retried = false } = {}) {
         const apiKey = this.resolveApiKey();
         if (!apiKey) return;
+        // Set when this reply was cut off and gets one automatic re-ask.
+        let retryCut = false;
         // Set when this reply wrote a game file and named another device
         // whose file is still to come; requested once this call has finished.
         let nextRole = null;
@@ -3408,6 +3412,8 @@ class App {
 
             // Stream the reply into one bot message, redrawn at most every
             // STREAM_RENDER_MS so long code blocks do not re-render per token.
+            // Code is shown raw as it arrives, by design; only the finished
+            // reply has its unclosed code block removed (hideOpenCode).
             let botDiv = null;
             let pending = null;
             let renderTimer = null;
@@ -3445,19 +3451,27 @@ class App {
             const rawReply = result.text;
             const reply = stripAllMarkers(rawReply);
             if (!botDiv) botDiv = addMsg('', 'bot');
-            renderMarkdown(botDiv, reply);
+            renderMarkdown(botDiv, hideOpenCode(reply));
 
             if (result.stopReason === 'max_tokens') {
                 // A truncated reply usually ends mid-code-block; extracting it
-                // would put broken code in the editor. The request and the
-                // reply's prose stay in history so a follow-up ("make it
-                // shorter") still knows what game it is about.
-                dbgWarn('chat', 'reply truncated at max_tokens');
-                addMsg('The reply was too long and got cut off, so your game was not changed. '
-                    + 'Ask for a simpler or shorter version.', 'system');
+                // would put broken code in the editor. The message keeps only
+                // the prose before the code, and history records that the code
+                // was cut off. The first cut-off is re-asked automatically
+                // (retryCut, after the finally block) for a shorter file; the
+                // teacher is told only when the re-ask is cut off as well.
+                dbgWarn('chat', `reply truncated at max_tokens${retried ? ' (after retry)' : ''}`);
                 const prose = reply.split('```')[0].trim();
+                // Never leave half a code block on screen: keep the prose only.
+                if (prose) renderMarkdown(botDiv, prose); else botDiv.remove();
                 this.chatHistory.push({ role: 'assistant', content: `${prose}\n\n`
                     + '[This reply ran out of room partway through the code, so no code reached the editor.]' });
+                if (retried) {
+                    addMsg('The reply was too long and got cut off, so your game was not changed. '
+                        + 'Ask for a simpler or shorter version.', 'system');
+                } else {
+                    retryCut = true;
+                }
                 return;
             }
 
@@ -3526,7 +3540,7 @@ class App {
                 // The same for the simulator's settings: none means the defaults.
                 this.simSettings = simSettings || (partial ? this.simSettings : null);
                 // An automatic next-device request is not the teacher's description.
-                if (!chain) this.gameDesc = userMsg;
+                if (!chain && !retried) this.gameDesc = userMsg;
                 this.dirty = true;
                 this.updatePreview();
 
@@ -3557,6 +3571,15 @@ class App {
             dbg('chat', 'callClaude() finished');
         }
 
+        if (retryCut) {
+            addMsg('That reply was too long — asking for a shorter version…', 'system');
+            dbg('chat', 'auto-retrying cut-off reply');
+            await this.callClaude('Your last reply was cut off before the code finished, so nothing '
+                + 'reached the editor. Send it again in full, but shorter: one device file only, '
+                + 'the same game, fewer comments, no repeated code, and the least text around it.',
+                { hidden: true, chain, retried: true });
+            return;
+        }
         if (nextRole) {
             const label = roleInfo(nextRole).label;
             addMsg(`Now writing the ${label.toLowerCase()} part…`, 'system');
