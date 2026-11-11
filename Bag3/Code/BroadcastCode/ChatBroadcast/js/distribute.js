@@ -17,6 +17,9 @@ const KINDS = {
   icon_display: { prefix: "D", name: "Icon display" },
 };
 
+/** Battery % at or below which a wand is "Critical" and starts unchecked. */
+export const LOW_BATTERY = 10;
+
 const LIVE_WAIT_MS = 30000;
 const LIVE_POLL_MS = 500;
 
@@ -70,6 +73,11 @@ export function setNickname(mac, name) {
 
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
+/** True when a reported battery % is at or below LOW_BATTERY. */
+export function isCritical(battery) {
+  return typeof battery === "number" && battery <= LOW_BATTERY;
+}
+
 export class DistributeState {
   constructor() {
     this.rows = []; // {mac, kind, battery, rssi, selected, status, why}
@@ -100,7 +108,7 @@ export class DistributeState {
     }
     this.rows.push({
       mac: obj.mac, kind: obj.kind ?? null, battery: obj.battery ?? null,
-      rssi: obj.rssi ?? null, selected: true, status: "", why: null,
+      rssi: obj.rssi ?? null, selected: !isCritical(obj.battery), status: "", why: null,
     });
   }
 
@@ -151,6 +159,13 @@ export class DistributeState {
     this.running = false;
   }
 
+  /** True once a run has started and every queued row is done or failed. */
+  allFinished() {
+    const sent = this.rows.filter((r) => r.status);
+    return !this.running && sent.length > 0
+      && sent.every((r) => r.status === "done" || r.status === "failed");
+  }
+
   /** The Dial refused or the link failed: unfinished rows fail with why. */
   abort(why) {
     for (const r of this.rows) {
@@ -187,12 +202,10 @@ export class DistributeOverlay {
     this.el = (id) => document.getElementById(id);
     this.el("btn-dist-close-x").addEventListener("click", () => this.close());
     this.el("btn-dist-rescan").addEventListener("click", () => this.scan());
-    this.el("btn-dist-all").addEventListener("click", () => {
-      const all = this.state.rows.every((r) => r.selected);
-      this.state.setAll(!all);
-      this.render();
+        this.el("btn-dist-send").addEventListener("click", () => {
+      if (this.state.allFinished()) this.close();
+      else this.distribute();
     });
-    this.el("btn-dist-send").addEventListener("click", () => this.distribute());
     this.el("dist-table").addEventListener("click", (e) => this._onTableClick(e));
   }
 
@@ -203,13 +216,13 @@ export class DistributeOverlay {
   /** Open for `slug`; waits for the Dial to be back from its reboot, then scans. */
   async open(slug, prettyName) {
     this.slug = slug;
-    this.el("dist-title").textContent = prettyName ? `Distribute "${prettyName}"` : "Distribute code";
+    this.el("dist-title").textContent = prettyName ? `Send "${prettyName}"` : "Send to wands";
     this.state = new DistributeState();
     this._setStatus("Reconnecting…");
     this.render();
     this.showOverlay("distribute-overlay");
     if (!(await this._waitLive())) {
-      this._setStatus("The Dial did not come back. Reconnect it, then press Rescan.");
+      this._setStatus("Not connected.");
       return;
     }
     await this.scan();
@@ -241,15 +254,13 @@ export class DistributeOverlay {
       d.on("status_report", (o) => { this.state.upsertReport(o); this.render(); }),
       d.on("status_done", () => {
         this.state.endScan();
-        this._setStatus(this.state.rows.length
-          ? "Pick the devices to update."
-          : "No devices answered. Check they are on, then Rescan.");
+        this._setStatus(this.state.rows.length ? "Tap a wand to choose it." : "No wands found.");
         this.render();
       }),
       d.on("dist_progress", (o) => { this.state.applyProgress(o); this.render(); }),
       d.on("dist_done", (o) => {
         this.state.finish(o);
-        this._setStatus(`${o?.ok ?? 0} of ${o?.total ?? this.state.total} devices updated.`);
+        this._setStatus("");
         this.render();
       }),
     ];
@@ -263,13 +274,14 @@ export class DistributeOverlay {
       this._listening = this.device;
     }
     this.state.startScan();
-    this._setStatus("Looking for wands and stations…");
+    this._setStatus("Looking…");
     this.render();
     try {
       await this.device.sendCmd({ cmd: "fleet.scan" });
     } catch (e) {
       this.state.endScan();
-      this._setStatus(`Scan failed: ${e.message}`);
+      this._setStatus("Scan failed.");
+      this.toast(`Scan failed: ${e.message}`, true);
       this.render();
     }
   }
@@ -277,13 +289,13 @@ export class DistributeOverlay {
   async distribute() {
     const macs = this.state.startDistribute();
     if (!macs.length) return;
-    this._setStatus("Sending code…");
+    this._setStatus("");
     this.render();
     try {
       await this.device.sendCmd({ cmd: "fleet.distribute", slug: this.slug, macs });
     } catch (e) {
       this.state.abort(e.message);
-      this._setStatus(`Distribute failed: ${e.message}`);
+      this._setStatus("Failed.");
       this.toast(`Distribute failed: ${e.message}`, true);
       this.render();
     }
@@ -296,11 +308,15 @@ export class DistributeOverlay {
     if (t.matches("input.dist-check")) {
       this.state.toggle(mac, t.checked);
       this.render();
-    } else if (t.closest(".dist-rename")) {
-      this._editName(t.closest("tr"), mac);
     } else if (t.closest(".dist-find")) {
       this.device.sendCmd({ cmd: "fleet.find", mac })
         .catch((err) => this.toast(`Find failed: ${err.message}`, true));
+    } else if (t.closest(".dist-rename")) {
+      this._editName(t.closest("tr"), mac);
+    } else if (!t.closest("button, input")) {
+      const row = this.state._row(mac);
+      this.state.toggle(mac, !row?.selected);
+      this.render();
     }
   }
 
@@ -354,26 +370,26 @@ export class DistributeOverlay {
         `<div class="dist-name-cell"><span class="dist-name" title="${r.mac}">${esc(nick || label)}</span>`
           + `<button type="button" class="dist-rename" title="Rename (saved in this browser)" aria-label="Rename ${esc(nick || label)}">✎</button></div>`
           + `<span class="dist-kind">${nick ? `${label} · ` : ""}${kindName(r.kind)}</span>`,
-        r.battery == null ? "—" : `${r.battery}%`,
+        r.battery == null ? "—"
+          : isCritical(r.battery) ? `<span class="dist-critical">Critical</span>` : `${r.battery}%`,
         `<span class="dist-sig dist-sig-${signalLevel(r.rssi)}" title="${r.rssi ?? "?"} dBm"><i></i><i></i><i></i></span>`,
         `<span class="dist-state" title="${r.why || ""}">${STATUS_TEXT[r.status] || ""}${r.why ? ` (${r.why})` : ""}</span>`,
-        `<button type="button" class="btn-secondary btn-compact dist-find">Find Me</button>`,
+        `<button type="button" class="btn-secondary btn-compact dist-find" title="Find Me" aria-label="Find Me ${esc(nick || label)}">Find Me</button>`,
       ];
       tr.innerHTML = cells.map((c) => `<td>${c}</td>`).join("");
       body.appendChild(tr);
     }
     const nSel = s.selectedMacs().length;
     this.el("dist-table").classList.toggle("hidden", s.rows.length === 0);
-    this.el("btn-dist-all").classList.toggle("hidden", s.rows.length === 0 || s.running);
     this.el("btn-dist-rescan").disabled = s.scanning || s.running;
     const send = this.el("btn-dist-send");
-    send.classList.toggle("hidden", nSel === 0 || s.scanning || s.running);
-    send.textContent = `Distribute to ${nSel} device${nSel === 1 ? "" : "s"}`;
-    const showProg = s.total > 0;
-    this.el("dist-progress-wrap").classList.toggle("hidden", !showProg);
-    if (showProg) {
+    const finished = s.allFinished();
+    send.classList.toggle("hidden", !s.running && !finished && (nSel === 0 || s.scanning));
+    send.disabled = s.running;
+    send.textContent = s.running ? "Sending…" : finished ? "Done" : "Send";
+    this.el("dist-progress-wrap").classList.toggle("hidden", s.total === 0);
+    if (s.total > 0) {
       this.el("dist-progress-bar").style.width = `${Math.round((100 * s.done) / s.total)}%`;
-      this.el("dist-progress-label").textContent = `${s.done} of ${s.total} devices finished`;
     }
   }
 }

@@ -4,7 +4,7 @@
  *   node tools/distribute_test.mjs
  */
 import assert from "node:assert/strict";
-import { DistributeState, deviceLabel, signalLevel } from "../js/distribute.js";
+import { DistributeState, deviceLabel, signalLevel, isCritical, LOW_BATTERY } from "../js/distribute.js";
 
 let failed = 0;
 function t(name, fn) {
@@ -63,6 +63,27 @@ t("abort fails unfinished rows only", () => {
   s.abort("not_serving");
   assert.deepEqual(s.rows.map((r) => r.status), ["done", "failed"]);
   assert.equal(s.rows[1].why, "not_serving");
+});
+t("critical battery starts unchecked", () => {
+  const s = new DistributeState();
+  s.startScan();
+  s.upsertReport({ mac: A, kind: "wand", battery: LOW_BATTERY });
+  s.upsertReport({ mac: B, kind: "wand", battery: LOW_BATTERY + 1 });
+  s.upsertReport({ mac: C, kind: "icon_display", battery: null });
+  assert.deepEqual(s.selectedMacs(), [B, C]);
+  assert.equal(isCritical(null), false);
+});
+t("allFinished once every sent row is done or failed", () => {
+  const s = new DistributeState();
+  s.startScan();
+  for (const m of [A, B]) s.upsertReport({ mac: m, kind: "wand", battery: 80 });
+  assert.equal(s.allFinished(), false);
+  s.startDistribute();
+  s.applyProgress({ mac: A, ok: true, done: 1, total: 2 });
+  assert.equal(s.allFinished(), false);
+  s.applyProgress({ mac: B, ok: false, why: "x", done: 2, total: 2 });
+  s.finish({ done: 2 });
+  assert.equal(s.allFinished(), true);
 });
 
 if (failed) { console.log(`\n${failed} failed`); process.exit(1); }

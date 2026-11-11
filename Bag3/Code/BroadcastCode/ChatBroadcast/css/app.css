@@ -1436,7 +1436,12 @@ body:not(.ui-advanced) #btn-station-catalog { display: none; }
 .dist-pulling .dist-state { color: var(--purple); }
 .dist-done .dist-state { color: var(--teal-dark); font-weight: 700; }
 .dist-failed .dist-state { color: #c0392b; font-weight: 700; }
-.dist-actions { display: flex; gap: 8px; justify-content: flex-end; margin-bottom: 8px; }
+.dist-top { position: absolute; top: 10px; right: 10px; display: flex; gap: 2px; }
+.dist-top .dist-icon-btn { position: static; }
+.dist-icon-btn:disabled { opacity: 0.4; cursor: default; }
+.dist-critical { color: #c0392b; font-weight: 800; }
+.dist-table tbody tr { cursor: pointer; }
+#btn-dist-send:disabled { background: #d8d4e0; color: #7a7388; cursor: default; box-shadow: none; }
 .dist-progress-track { height: 8px; background: #eee; border-radius: 5px; overflow: hidden; }
 #dist-progress-bar { height: 100%; width: 0; background: var(--teal); transition: width 0.2s; }
 #dist-progress-wrap { margin: 0 0 12px; }

@@ -391,10 +391,15 @@
              js/distribute.js -->
         <div id="distribute-overlay" class="overlay-view hidden">
             <div class="overlay-card overlay-card-distribute">
-                <button type="button" class="overlay-close-x" id="btn-dist-close-x" title="Close">
-                    <span data-icon="close" data-icon-size="18"></span>
-                </button>
-                <h2 id="dist-title">Distribute code</h2>
+                <div class="dist-top">
+                    <button type="button" class="overlay-close-x dist-icon-btn" id="btn-dist-rescan" title="Refresh" aria-label="Refresh">
+                        <span data-icon="refresh" data-icon-size="18"></span>
+                    </button>
+                    <button type="button" class="overlay-close-x dist-icon-btn" id="btn-dist-close-x" title="Close" aria-label="Close">
+                        <span data-icon="close" data-icon-size="18"></span>
+                    </button>
+                </div>
+                <h2 id="dist-title">Send to wands</h2>
                 <p id="dist-status"></p>
                 <table id="dist-table" class="dist-table hidden">
                     <thead><tr><th></th><th>Device</th><th>Battery</th><th>Signal</th><th>Status</th><th></th></tr></thead>
@@ -402,11 +407,6 @@
                 </table>
                 <div id="dist-progress-wrap" class="hidden">
                     <div class="dist-progress-track"><div id="dist-progress-bar"></div></div>
-                    <p id="dist-progress-label"></p>
-                </div>
-                <div class="dist-actions">
-                    <button class="btn-secondary btn-compact hidden" id="btn-dist-all" type="button">Select all / none</button>
-                    <button class="btn-secondary btn-compact" id="btn-dist-rescan" type="button">Rescan</button>
                 </div>
                 <button class="btn-primary hidden" id="btn-dist-send" type="button">Distribute</button>
             </div>
