@@ -1,7 +1,7 @@
 import { loadEncryptedKey, initAuthModal, getApiKey, hasEncryptedKey } from './auth.js';
 import {
     addMsg, addThinkingMsg, removeTyping, extractCodeBlocks,
-    parseNfcCards, parseGameName, parseChoices, parseGameSettings, stripAllMarkers,
+    parseNfcCards, parseGameName, parseChoices, parseGameSettings, parseNextDevice, stripAllMarkers,
     parseGameBrief, stripGameBrief,
     trimForHistory, loadKnowledgeBase, getKnowledgeFiles, getKnowledgeFileCount,
 } from './chat.js';
@@ -3363,9 +3363,18 @@ class App {
      * @param {{hidden?: boolean}} [opts] hidden: kept for the model, not
      *     replayed when the saved game is reopened
      */
-    async callClaude(userMsg, { hidden = false } = {}) {
+    /**
+     * @param {string} userMsg
+     * @param {{hidden?: boolean, chain?: number}} [opts]
+     *   chain: how many automatic next-device requests led to this one
+     *   (0 for a teacher's message). Bounds the [NEXT_DEVICE] follow-ups.
+     */
+    async callClaude(userMsg, { hidden = false, chain = 0 } = {}) {
         const apiKey = this.resolveApiKey();
         if (!apiKey) return;
+        // Set when this reply wrote a game file and named another device
+        // whose file is still to come; requested once this call has finished.
+        let nextRole = null;
 
         this.chatHistory.push(hidden ? { role: 'user', content: userMsg, hidden: true } : { role: 'user', content: userMsg });
         addThinkingMsg();
@@ -3516,13 +3525,27 @@ class App {
                 dbg('chat', `declared tags from [NFC_CARDS]: [${(nfcCards || []).join(', ')}]`);
                 // The same for the simulator's settings: none means the defaults.
                 this.simSettings = simSettings || (partial ? this.simSettings : null);
-                this.gameDesc = userMsg;
+                // An automatic next-device request is not the teacher's description.
+                if (!chain) this.gameDesc = userMsg;
                 this.dirty = true;
                 this.updatePreview();
+
+                // A multi-device game is written one device per reply. When
+                // this reply names the device that comes next, ask for it now
+                // rather than leaving the teacher to. Only a real role this
+                // reply did not write, and at most one request per other role,
+                // so a model that keeps naming devices cannot loop.
+                const next = parseNextDevice(rawReply);
+                if (next && roleInfo(next) && !seen.includes(next) && chain < ROLE_TABLE.length - 1) {
+                    nextRole = next;
+                } else if (next) {
+                    dbgWarn('chat', `[NEXT_DEVICE: ${next}] ignored (chain ${chain}, wrote ${seen.join(', ')})`);
+                }
             } else if (!blocks.length) {
                 dbg('chat', 'no code block found in reply — editor unchanged');
             }
-            if (choices?.length) this.renderChoiceChips(choices);
+            // Chips would offer the step the app is about to take itself.
+            if (choices?.length && !nextRole) this.renderChoiceChips(choices);
         } catch (e) {
             removeTyping();
             dbgError('chat', `network/fetch error: ${e.message}`, e);
@@ -3532,6 +3555,15 @@ class App {
         } finally {
             this.isGenerating = false;
             dbg('chat', 'callClaude() finished');
+        }
+
+        if (nextRole) {
+            const label = roleInfo(nextRole).label;
+            addMsg(`Now writing the ${label.toLowerCase()} part…`, 'system');
+            dbg('chat', `auto-requesting [DEVICE: ${nextRole}] (chain ${chain + 1})`);
+            await this.callClaude(`Now write the ${label.toLowerCase()} file `
+                + `([DEVICE: ${nextRole}]) for this game, matching the files already in the editor.`,
+                { hidden: true, chain: chain + 1 });
         }
     }
 }

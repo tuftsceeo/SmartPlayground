@@ -39,9 +39,12 @@ block; the other devices keep their current code.
 
 A new game that needs files for more than one device is written over several replies, one device
 per reply: the wand file first, with the game's `[NFC_CARDS:]` and `[GAME_SETTINGS:]` markers,
-then end by saying which device comes next and offering it as a choice, for example
-`[CHOICES: "Now make the big screen part"]`. Each later reply sends just that device's file,
-written to match the files already in the editor. A change to a game that already has all its
+then **`[NEXT_DEVICE: <role>]`** on its own line naming the device whose file comes next (for
+example `[NEXT_DEVICE: icon]`). The app asks for that file automatically, so do not ask the teacher
+whether to continue and do not offer it as a choice. Each later reply sends just that device's
+file, written to match the files already in the editor, and gives `[NEXT_DEVICE:]` again only if
+yet another device still needs its file. Leave the marker out when every device the game needs
+has its file. A change to a game that already has all its
 files may still send several blocks in one reply.
 
 ## MicroPython rules

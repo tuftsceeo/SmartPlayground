@@ -217,9 +217,25 @@ export function stripGameSettingsMarker(text) {
         .replace(/\[GAME_SETTINGS:[^\n]*/g, "").trim();
 }
 
+/**
+ * The device whose file still has to be written, from a [NEXT_DEVICE: icon]
+ * marker, or null. A multi-device game is written one device per reply; this
+ * marker lets the app ask for the next file itself instead of waiting for
+ * the teacher to.
+ */
+export function parseNextDevice(text) {
+    const match = text.match(/\[NEXT_DEVICE:\s*([a-z_]+)\s*\]/i);
+    return match ? match[1].toLowerCase() : null;
+}
+
+export function stripNextDeviceMarker(text) {
+    return text.replace(/\[NEXT_DEVICE:[^\]\n]*\]?/g, "").trim();
+}
+
 /** Every marker line removed, for showing a reply (complete or partial). */
 export function stripAllMarkers(text) {
-    return stripDeviceMarkers(stripChoicesMarker(stripGameNameMarker(stripNfcMarker(stripGameSettingsMarker(text)))));
+    return stripDeviceMarkers(stripChoicesMarker(stripGameNameMarker(stripNfcMarker(
+        stripGameSettingsMarker(stripNextDeviceMarker(text))))));
 }
 
 export function trimForHistory(text) {
