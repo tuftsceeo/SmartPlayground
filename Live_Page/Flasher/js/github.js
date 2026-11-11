@@ -7,7 +7,7 @@ const CACHE_NAME = "flasher-gh-v1";
 const memCache = new Map();
 const memCacheBytes = new Map();
 
-const BINARY_EXTENSIONS = new Set([".png", ".bmp", ".jpg", ".jpeg", ".gif", ".ico", ".bin"]);
+const BINARY_EXTENSIONS = new Set([".png", ".bmp", ".jpg", ".jpeg", ".gif", ".ico", ".bin", ".mpy"]);
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -327,6 +327,48 @@ async function fetchManifestFilesFallback(repo, ref, manifest, { log, onProgress
 }
 
 /** @deprecated use fetchManifestFiles */
+/**
+ * Fetch a pre-built file-list manifest (JSON) that lives in the repo, e.g.
+ * Bag3/Code/Wand Module/flash_bundle/flash_manifest.json (made by
+ * Bag3/Code/tools/build_wand_bundle.py). Upload order is the JSON's order.
+ * Returns { files: { [devicePath]: content } (insertion-ordered), removeBeforeUpload }.
+ *
+ * localBase: when set (page opened with ?source=local, server run from the repo
+ * root), files come from that local server instead of GitHub — for testing
+ * uncommitted changes.
+ */
+export async function fetchListManifestFiles(repo, ref, manifestPath, { log, onProgress, localBase } = {}) {
+  let urlFor;
+  if (localBase) {
+    log?.(`📂 Local source: ${localBase}`, "warn");
+    urlFor = (p) => localBase + p.split("/").map(encodeURIComponent).join("/");
+  } else {
+    const { commitSha } = await resolveRef(repo, ref);
+    log?.(`📌 ${ref} @ ${commitSha.slice(0, 7)}`, "dim");
+    urlFor = (p) => rawFileUrl(repo.owner, repo.repo, commitSha, p);
+  }
+  const getText = (u) => (localBase ? fetch(u, { cache: "no-store" }).then(okText) : cachedText(u));
+  const getBytes = (u) => (localBase ? fetch(u, { cache: "no-store" }).then(okBytes) : cachedBytes(u));
+
+  const manifest = JSON.parse(await getText(urlFor(manifestPath)));
+  const files = {};
+  for (const { repo: src, device } of manifest.files) {
+    onProgress?.(device);
+    log?.(`  📄 ${src} → ${device}`, "dim");
+    files[device] = isBinaryPath(src) ? await getBytes(urlFor(src)) : await getText(urlFor(src));
+  }
+  return { files, removeBeforeUpload: manifest.remove_before_upload || [] };
+}
+
+async function okText(r) {
+  if (!r.ok) throw new Error(`${r.status} for ${r.url}`);
+  return r.text();
+}
+async function okBytes(r) {
+  if (!r.ok) throw new Error(`${r.status} for ${r.url}`);
+  return new Uint8Array(await r.arrayBuffer());
+}
+
 export const fetchSourcesForDevice = (repo, ref, sources, opts) =>
   fetchManifestFiles(repo, ref, { sources, excludeExt: [".md", ".js"] }, opts);
 

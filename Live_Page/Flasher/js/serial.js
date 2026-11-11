@@ -383,9 +383,22 @@ export class SerialEngine {
     this.log("── Starting upload (WebApp2-style, no wipe) ──");
     await this.enterRawRepl();
 
-    const relPaths = Object.keys(fetchedFiles).sort((a, b) =>
-      uploadSortKey(a).localeCompare(uploadSortKey(b))
-    );
+    // keepOrder: the manifest already lists files in a safe order (Bag3 wand:
+    // boot.py, wand_main.mpy, then the main.py stub that imports it).
+    const relPaths = device.keepOrder
+      ? Object.keys(fetchedFiles)
+      : Object.keys(fetchedFiles).sort((a, b) =>
+          uploadSortKey(a).localeCompare(uploadSortKey(b))
+        );
+
+    for (const rm of device.removeBeforeUpload || []) {
+      const absRm = deviceFilePath(device.devicePathRoot, rm);
+      await this.execScript(
+        `import os\ntry:\n os.remove(${JSON.stringify(absRm)})\nexcept OSError:\n pass\nprint('OK')\n`,
+        3000
+      );
+      this.log(`  🗑 removed '${absRm}' (if present)`, "dim");
+    }
 
     const dirs = this.getDirsToCreate(relPaths);
     if (dirs.length) {

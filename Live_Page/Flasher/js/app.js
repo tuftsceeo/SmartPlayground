@@ -1,5 +1,5 @@
 import { VERSIONS, REPO, DEVICES, getDeviceByHubType } from "./devices.js";
-import { fetchManifestFiles, listBranchesAndTags } from "./github.js";
+import { fetchManifestFiles, fetchListManifestFiles, listBranchesAndTags } from "./github.js";
 import { loadManifest } from "./manifest.js";
 import { SerialEngine } from "./serial.js";
 import {
@@ -118,7 +118,7 @@ function updateDetectionUI() {
 
   if (detectedHubType) {
     const detected = getDeviceByHubType(detectedHubType);
-    if (detected && device && detected.id !== device.id) {
+    if (detected && device && detected.id !== device.id && device.hubTypeAlias !== detectedHubType) {
       detectWarn.textContent = `Device reports hubType "${detectedHubType}" but you selected ${device.label}. Upload will use your selection.`;
       detectWarn.classList.remove("hidden");
     }
@@ -299,7 +299,7 @@ async function handleDisconnect() {
 
 // ─── Upload ──────────────────────────────────────────────────────────────────
 async function handleUpload() {
-  const device = getSelectedDevice();
+  let device = getSelectedDevice();
   const ref = getActiveRef();
   if (!device || !ref || !serial.isConnected()) return;
 
@@ -307,17 +307,33 @@ async function handleUpload() {
   fetchedFiles = {};
   setProgress(0);
   refreshFileList();
+  const t0 = performance.now();
 
   try {
-    setStatus("upload-status", "⏳ Loading manifest…", "info");
-    const manifest = await loadManifest(device.manifest);
-    log(`── Manifest ${device.manifest}: ${manifest.sources.map((s) => s.repoPath).join(" + ")} ──`);
+    if (device.repoManifest) {
+      // Pre-built list manifest committed in the repo (fetched at the same ref).
+      log(`── Manifest ${device.repoManifest} ──`);
+      setStatus("upload-status", "⏳ Fetching files…", "info");
+      const params = new URLSearchParams(location.search);
+      const localBase = params.get("source") === "local" ? "/" : null;
+      const listed = await fetchListManifestFiles(REPO, ref, device.repoManifest, {
+        log,
+        localBase,
+        onProgress: (f) => setStatus("upload-status", `⏳ Fetching ${f}…`, "info"),
+      });
+      fetchedFiles = listed.files;
+      device = { ...device, removeBeforeUpload: listed.removeBeforeUpload };
+    } else {
+      setStatus("upload-status", "⏳ Loading manifest…", "info");
+      const manifest = await loadManifest(device.manifest);
+      log(`── Manifest ${device.manifest}: ${manifest.sources.map((s) => s.repoPath).join(" + ")} ──`);
 
-    setStatus("upload-status", "⏳ Fetching files from GitHub…", "info");
-    fetchedFiles = await fetchManifestFiles(REPO, ref, manifest, {
-      log,
-      onProgress: (f) => setStatus("upload-status", `⏳ Fetching ${f}…`, "info"),
-    });
+      setStatus("upload-status", "⏳ Fetching files from GitHub…", "info");
+      fetchedFiles = await fetchManifestFiles(REPO, ref, manifest, {
+        log,
+        onProgress: (f) => setStatus("upload-status", `⏳ Fetching ${f}…`, "info"),
+      });
+    }
 
     if (device.hubConfig && fetchedFiles["main.py"]) {
       const hasExternalAntenna =
@@ -357,7 +373,7 @@ async function handleUpload() {
 
     setStatus(
       "upload-status",
-      `✅ ${result.total} file(s) uploaded to ${device.label} and running!`,
+      `✅ ${result.total} file(s) uploaded to ${device.label} in ${((performance.now() - t0) / 1000).toFixed(0)} s — rebooted`,
       "success"
     );
     setTimeout(() => setProgress(null), 1000);

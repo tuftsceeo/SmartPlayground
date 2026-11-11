@@ -2,7 +2,7 @@
 
 Browser-based MicroPython uploader for Smart Playground hardware. Fetches files from a GitHub branch per **device manifest** and uploads over **Web Serial** using the same text-write + chunked-serial strategy as WebApp2's `firmware_manager.py`.
 
-**Supported devices (v1):** Wand, Hub (USB bridge), M5Paper Remote.
+**Supported devices:** Wand (Bag2), Bag3 Wand, Hub (USB bridge), M5Paper Remote.
 
 ## Requirements
 
@@ -52,6 +52,21 @@ sources:
 | `include_ext` | Whitelist only these extensions (e.g. hub `.py` only) |
 
 **Wand bundle:** everything in `Bag2/Code/lib` + everything in `Bag2/Code/Wand Module` except `.md` and `.js` (includes `hubtype.txt`, `boot.py`, `main.py`, game modules).
+
+## Bag3 Wand (pre-built bundle)
+
+The Bag3 wand's `main.py` must be precompiled to `wand_main.mpy` (compiling it on the
+board fragments the memory the radio needs), so it can't use a `.yml` folder list.
+Instead `devices.js` points `repoManifest` at a JSON file list committed in the repo:
+
+- `Bag3/Code/Wand Module/flash_bundle/` — `wand_main.mpy`, stub `main.py`, `flash_manifest.json`
+- Built by `python3 Bag3/Code/tools/build_wand_bundle.py` (needs `mpy-cross==1.28.0.post2`);
+  `--check` reports a stale bundle. **Rebuild and commit after any Wand Module change.**
+- Upload order is the JSON's order (boot.py, wand_main.mpy, then main.py); `/boot_ok` is
+  removed first so the next boot is a debug boot.
+
+To test uncommitted changes, serve the **repo root** and open
+`http://localhost:8000/Live_Page/Flasher/?source=local` — files then come from disk, not GitHub.
 
 ## Adding a version
 

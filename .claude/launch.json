@@ -9,6 +9,12 @@
       "autoPort": true
     },
     {
+      "name": "repo-root",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "http.server", "8768"],
+      "port": 8768
+    },
+    {
       "name": "chatbroadcast",
       "runtimeExecutable": "npx",
       "runtimeArgs": ["serve", "Bag3/Code", "--no-clipboard"],
