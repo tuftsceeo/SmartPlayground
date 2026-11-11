@@ -1376,6 +1376,17 @@ body:not(.ui-advanced) #btn-station-catalog { display: none; }
     color: var(--ink);
 }
 .send-req-icon { display: inline-flex; color: var(--pink); flex: none; }
+.send-requirements.send-pills { flex-direction: row; flex-wrap: wrap; justify-content: center; }
+.send-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    background: #fff0f6;
+    font: 800 12.5px 'Nunito';
+    color: var(--ink);
+}
 #modal-passphrase {
     width: 100%;
     padding: 10px 12px;

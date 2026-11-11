@@ -31,8 +31,10 @@ export function baselineTags(slug) {
  *                                 that names no COMMANDS set of its own
  * @param {number}   opts.minWands    override; defaults to 1
  * @param {string[]} opts.stations    station names; empty until stations are implemented
+ * @param {number}   opts.displays    icon displays the game needs; defaults to 0
+ * @param {number}   opts.splats      Splats the game needs; defaults to 0
  */
-export function buildHardwareReqs({ code, gameName, declared, minWands, stations } = {}) {
+export function buildHardwareReqs({ code, gameName, declared, minWands, stations, displays, splats } = {}) {
     const slug = slugify(gameName || "") || "game";
 
     // The code's own COMMANDS set outranks everything: it is what the wand
@@ -54,7 +56,10 @@ export function buildHardwareReqs({ code, gameName, declared, minWands, stations
         if (t && !tags.includes(t)) tags.push(t);
     }
     return {
+        slug,
         minWands: minWands || 1,
+        displays: displays || 0,
+        splats: splats || 0,
         stations: stations || [],
         tags,
         declaredTags: declared && declared.length ? [...declared] : null,
@@ -91,6 +96,32 @@ function sniffTags(code) {
     const notes = (code || "").match(/note_[a-g](?:_high)?/gi);
     if (!notes || notes.length < 2) return [];
     return [...new Set(notes.map((t) => t.toLowerCase()))];
+}
+
+/**
+ * Requirement pills for simple mode: [{icon, label}].
+ *
+ * Wands show only at 2 or more (there is always at least one). Icon displays,
+ * NFC tags and Splats show only at 1 or more. The NFC count leaves out the
+ * baseline `getcode:<slug>` and `<slug>` tags every game has.
+ */
+export function requirementPills(reqs) {
+    if (!reqs) return [];
+    const pills = [];
+    const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+    if ((reqs.minWands || 1) >= 2) {
+        pills.push({ icon: "wand", label: plural(reqs.minWands, "wand", "wands") });
+    }
+    if ((reqs.displays || 0) >= 1) {
+        pills.push({ icon: "iconDisplay", label: plural(reqs.displays, "icon display", "icon displays") });
+    }
+    const baseline = baselineTags(reqs.slug);
+    const nfc = (reqs.tags || []).filter((t) => !baseline.includes(t)).length;
+    if (nfc >= 1) pills.push({ icon: "nfcCard", label: plural(nfc, "NFC tag", "NFC tags") });
+    if ((reqs.splats || 0) >= 1) {
+        pills.push({ icon: "splat", label: plural(reqs.splats, "Splat", "Splats") });
+    }
+    return pills;
 }
 
 /** Plain-language rows for the send-confirm overlay. */

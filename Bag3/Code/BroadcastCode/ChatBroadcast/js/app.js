@@ -40,7 +40,7 @@ import { loadSavedGames, saveGame, findSavedGame, renameSavedGame, deleteSavedGa
 import { scanCapabilities } from './sim/codeCapabilities.js';
 import { buildComponentChecklist } from './checklist.js';
 import { validateGameName, slugify, remixName } from './gameName.js';
-import { buildHardwareReqs, formatHardwareReqs, baselineTags } from './hardware.js';
+import { buildHardwareReqs, formatHardwareReqs, requirementPills, baselineTags } from './hardware.js';
 import { initPaneSplit } from './paneSplit.js';
 import { initSerialSplit } from './serialSplit.js';
 import { initCodeDrawerSplit } from './codeDrawerSplit.js';
@@ -1053,6 +1053,11 @@ class App {
         const prev = this.link.state;
         dbg('device', `link state ${prev} → ${state}`);
         this.link.state = state;
+        if (state === 'live' && this._reconnectNote) {
+            this._reconnectNote = false;
+            const note = document.getElementById('send-success-note');
+            if (note) note.textContent = '';
+        }
         // Only `waiting` re-asks the Box to identify itself; every other state
         // either already has an answer or has given up, so stop nudging.
         if (state === 'waiting') {
@@ -2693,6 +2698,9 @@ class App {
             code: code !== undefined ? code : getCode(DEFAULT_ROLE),
             gameName: this.gameName,
             declared: this.declaredTags,
+            minWands: this.simSettings?.wands,
+            displays: getCode('icon').trim() ? 1 : 0,
+            splats: (this.simSettings?.wand_splats || 0) * (this.simSettings?.wands || 1),
             // Every non-wand role with no simulator is a physical station
             // the game needs, named for the send-confirm overlay.
             stations: ROLE_TABLE
@@ -2711,9 +2719,16 @@ class App {
         const el = document.getElementById('send-requirements');
         if (!el) return;
         el.innerHTML = '';
-        formatHardwareReqs(this.hardware).forEach((row) => {
+        // Simple mode shows pills; advanced mode keeps the sentence rows.
+        const simple = getUiMode() === 'simple';
+        el.classList.toggle('send-pills', simple);
+        const rows = simple
+            ? [...requirementPills(this.hardware),
+               ...formatHardwareReqs(this.hardware).filter((r) => r.label.startsWith('tag list may be short'))]
+            : formatHardwareReqs(this.hardware);
+        rows.forEach((row) => {
             const li = document.createElement('li');
-            li.className = 'send-req-row';
+            li.className = simple && !row.label.startsWith('tag list') ? 'send-pill' : 'send-req-row';
             li.innerHTML =
                 `<span class="send-req-icon">${iconSvg(row.icon, { size: 17, strokeWidth: 1.7 })}</span>` +
                 `<span class="send-req-label"></span>`;
@@ -2802,6 +2817,17 @@ class App {
         const canDistribute = this.device.kind === 'box'
             && this.device.deviceInfo?.device !== 'broadcast_box';
         document.getElementById('btn-send-distribute')?.classList.toggle('hidden', !canDistribute);
+        // Dial: the next step is a question, with "Reconnecting…" until the
+        // Dial is back from its restart.
+        const distBtn = document.getElementById('btn-send-distribute');
+        const doneBtn = document.getElementById('btn-send-done');
+        if (distBtn) distBtn.textContent = canDistribute ? 'Send to wands' : 'Distribute code';
+        if (doneBtn) doneBtn.textContent = canDistribute ? 'Not now' : 'Done';
+        this._reconnectNote = canDistribute && this.link.state !== 'live';
+        if (canDistribute) {
+            document.getElementById('send-success-title').textContent = 'Send it to the wands now?';
+            document.getElementById('send-success-note').textContent = this._reconnectNote ? 'Reconnecting…' : '';
+        }
         clearTimeout(this._sendSuccessTimer);
         // No auto-close while Distribute is offered: it would hide the button.
         if (!canDistribute) this._sendSuccessTimer = setTimeout(() => this.finishSend(), 5000);
