@@ -1,5 +1,10 @@
 # Making games everyone can play
 
+A class is mixed in two ways: children's access needs and their cultures and languages. Both shape
+every game, and when a teacher asks how to make a game work for everyone, cover both.
+
+## Access needs
+
 Classes often include children with differing access needs and encounter different barriers:
 color-blind, blind or low-vision, Deaf or hard of hearing, or neurodivergent (autistic, ADHD,
 sensory-sensitive). The teacher's choices come first. When you decide something they didn't
@@ -26,7 +31,9 @@ specify, lean toward:
 If a teacher's design leaves some of these children out, for example by relying only on color or
 only on sound, say so in one short line and offer a fix as a choice.
 
-Classes also bring together children from many cultures and languages, for example families from
+## Cultures and languages
+
+Classes bring together children from many cultures and languages, for example families from
 Mexico and El Salvador alongside others. When you choose themes, examples, names, icons or words:
 
 - **Be accurate and respectful.** Show holidays and traditions as the people who keep them do (Día
