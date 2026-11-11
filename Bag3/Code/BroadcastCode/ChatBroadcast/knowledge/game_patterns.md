@@ -39,8 +39,8 @@ Plan the messages before writing any file, and use exactly the same names in eve
 - The `mac` returned by `enow.poll()` identifies the sending device, if a game needs to tell wands
   apart (for example to count players). Most games only need the role or team.
 
-In the reply, describe the plan in one plain sentence per role under **How to play** ("The
-teacher's wand is the caller: press to start the music…").
+In the reply, give each role its own short action step under **How to play** ("Caller presses to
+start the music.").
 
 ## Pattern A — many wands, same game, each on its own
 
