@@ -28,6 +28,7 @@ filenames). Search front matter with `grep -l '<term>' Bag3/Code/known_issues/*.
 | [2026-10-29-live-page-stale-paths.md](2026-10-29-live-page-stale-paths.md) | Live_Page ChatBroadcast/Simulator copies point at nonexistent Bag3 paths | open | — |
 | [2026-11-10-crowpanel-teacher-tool-ui.md](2026-11-10-crowpanel-teacher-tool-ui.md) | CrowPanel Teacher Tool screens vs revised canvas designs (toasts, 1B, game picker, send list, NFC layout, 7.3) | open | — |
 | [2026-11-02-dial-box-arm-serving.md](2026-11-02-dial-box-arm-serving.md) | Dial and Box serving still gated by arm/disarm, radio off outside NFC | open (untested on hardware) | — |
+| [2026-11-11-game-start-signature.md](2026-11-11-game-start-signature.md) | Game start signature (GAME_ICON): app display, wand pull icon, example games | open | — |
 
 ## By topic
 
@@ -40,6 +41,7 @@ filenames). Search front matter with `grep -l '<term>' Bag3/Code/known_issues/*.
 | NFC reader (PN532, WS1850S, PN5180) | 2026-09-01, 2026-10-28 (PN5180) |
 | Dial / Box code serving, wand pull | 2026-09-30, 2026-09-29, 2026-10-23, 2026-11-02 |
 | ChatBroadcast example gallery and remixing | 2026-09-04, 2026-09-29 |
+| Game start signature (GAME_ICON) | 2026-11-11 |
 | Simulator vendored game sources | 2026-09-04, 2026-10-29 (live-page-stale-paths) |
 | Multi-role games | 2026-09-29, 2026-10-23 |
 | Status poll / `kind`, find device, distribute code | 2026-10-23 |

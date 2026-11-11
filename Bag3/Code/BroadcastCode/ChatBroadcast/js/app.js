@@ -1,7 +1,7 @@
 import { loadEncryptedKey, initAuthModal, getApiKey, hasEncryptedKey } from './auth.js';
 import {
     addMsg, addThinkingMsg, removeTyping, extractCodeBlocks,
-    parseNfcCards, parseGameName, parseChoices, parseGameSettings, parseNextDevice, stripAllMarkers,
+    parseNfcCards, parseGameName, parseChoices, parseGameSettings, parseGameIcon, parseNextDevice, stripAllMarkers,
     hideOpenCode,
     parseGameBrief, stripGameBrief,
     trimForHistory, loadKnowledgeBase, getKnowledgeFiles, getKnowledgeFileCount,
@@ -165,6 +165,7 @@ class App {
         this.gameDesc = '';
         this.declaredTags = null;   // tags the game itself declares ([NFC_CARDS:] / example)
         this.simSettings = null;    // [GAME_SETTINGS:] for the practice window, or null
+        this.gameIcon = null;       // [GAME_ICON:] start signature {shape, color}, or null
         this.hardware = buildHardwareReqs({});
         this.tagWrites = {};        // live {tagLabel: count} from card_written events
         this.galleryFilter = 'all';
@@ -1526,6 +1527,7 @@ class App {
             // resolves to the shipped icon when it is reopened.
             icons: getGameIcons(),
             simSettings: this.simSettings,
+            gameIcon: this.gameIcon,
         });
         this.dirty = false;
         toast(`Saved “${entry.name}”`);
@@ -1693,6 +1695,7 @@ class App {
         this.gameDesc = g.desc || '';
         this.declaredTags = g.hardware?.declaredTags || null;
         this.simSettings = g.simSettings || null;
+        this.gameIcon = g.gameIcon || null;
         this.hardware = g.hardware || buildHardwareReqs({ gameName: g.name });
         this.chatHistory = Array.isArray(g.chatHistory) ? g.chatHistory.slice() : [];
         // The pictures this game was saved with. A game saved before icons
@@ -2183,6 +2186,7 @@ class App {
         this.currentExample = null;
         this.declaredTags = null;
         this.simSettings = null;
+        this.gameIcon = null;
         this.gameName = 'Your game';
         this.gameDesc = '';
         this.chatHistory = [];
@@ -2224,6 +2228,7 @@ class App {
         this.gameDesc = ex.description;
         this.declaredTags = [...ex.tags];
         this.simSettings = null;
+        this.gameIcon = null;
         this.chatHistory = [];
         this.simNotes = null;
         this.refreshHardware();
@@ -2282,6 +2287,7 @@ class App {
         this.gameDesc = ex.description;
         this.declaredTags = [...ex.tags];
         this.simSettings = null;
+        this.gameIcon = null;
         // A new game starts from the shipped pictures, not the last one's edits.
         setGameIcons({});
 
@@ -3479,7 +3485,8 @@ class App {
             const gameName = parseGameName(rawReply);
             const choices = parseChoices(rawReply);
             const simSettings = parseGameSettings(rawReply);
-            dbg('chat', `reply received (${rawReply.length} chars)`, { nfcCards, gameName, choices, simSettings });
+            const gameIcon = parseGameIcon(rawReply);
+            dbg('chat', `reply received (${rawReply.length} chars)`, { nfcCards, gameName, choices, simSettings, gameIcon });
             this.chatHistory.push({ role: 'assistant', content: trimForHistory(reply) });
 
             // A reply may carry one file per device: the markers were read
@@ -3539,6 +3546,14 @@ class App {
                 dbg('chat', `declared tags from [NFC_CARDS]: [${(nfcCards || []).join(', ')}]`);
                 // The same for the simulator's settings: none means the defaults.
                 this.simSettings = simSettings || (partial ? this.simSettings : null);
+                // The start signature stays the same across versions; the
+                // model changes it only when the teacher asks.
+                if (gameIcon) {
+                    if (this.gameIcon && (gameIcon.shape !== this.gameIcon.shape || gameIcon.color !== this.gameIcon.color)) {
+                        dbg('chat', `[GAME_ICON] changed from ${this.gameIcon.shape}, ${this.gameIcon.color}`);
+                    }
+                    this.gameIcon = gameIcon;
+                }
                 // An automatic next-device request is not the teacher's description.
                 if (!chain && !retried) this.gameDesc = userMsg;
                 this.dirty = true;

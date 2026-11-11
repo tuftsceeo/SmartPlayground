@@ -43,7 +43,8 @@ Never create another `ESPNowManager`, `Leds`, `Buzzer`, `PN532` or I2C bus insid
 ## Canonical template
 
 Start every new wand game from this shape. Replace `"your_game"` with the game's slug: the
-`[GAME_NAME:]` in snake_case (see platform rules). Replace the entry sound with one that differs
+`[GAME_NAME:]` in snake_case (see platform rules). Choose the game's start signature (platform rules):
+set `GAME_ICON` to an unused shape and color, and replace the entry sound with one that differs
 from the built-in games.
 
 ```python
@@ -56,7 +57,9 @@ from machine import Pin
 
 from nfc_reader import NfcReader
 from game_tags import exit_tags_excluding
-from leds import OFF, RED, GREEN, BLUE, YELLOW, SHAPE_HEART
+from leds import OFF, RED, GREEN, BLUE, YELLOW, SHAPE_HEART, SHAPE_STAR, MINT
+
+GAME_ICON = (SHAPE_STAR, MINT)   # start signature: unique shape + color for this game
 
 _EXIT_TAGS = exit_tags_excluding("your_game")
 COMMANDS = _EXIT_TAGS            # add this game's own cards: _EXIT_TAGS | {"red", "blue"}
@@ -71,8 +74,11 @@ def play(nfc, leds, buz, accel, i2c, enow, batt=None):
     btn_was_down = (btn.value() == 0)
     frame = 0
 
+    leds.show_shape(GAME_ICON[0], GAME_ICON[1])          # start signature, ~1 s
     for freq, ms in ((523, 80), (659, 80), (784, 120)):   # entry sound
         buz.beep(freq, ms)
+    time.sleep_ms(700)
+    leds.off()
     try:
         while True:
             # 1. Stop when the teacher switches games

@@ -21,6 +21,7 @@ Code comes early so a long reply is less likely to be cut off before the code en
 |---|---|---|
 | `[DEVICE: wand\|icon]` | `extractCodeBlocks` | Assigns the next code block to that role's editor. Unmarked blocks are wand code. |
 | `[GAME_NAME: …]` | `parseGameName` | Game name; slugified for storage and baseline tags. |
+| `[GAME_ICON: SHAPE_X, COLOR]` | `parseGameIcon` | Start signature; stored with the game (`gameIcon` in state and the saved entry). The same in every version; a new pair (only when the teacher asks for one) replaces it. |
 | `[NFC_CARDS: "a", "b"]` | `parseNfcCards` | Declared tags; used for the tag list only when the code has no `COMMANDS` set. |
 | `[GAME_SETTINGS: {…}]` | `parseGameSettings` | Simulator wand count (1–4) and Splats per wand (0–2). Not used for hardware requirements. |
 | `[NEXT_DEVICE: <role>]` | `parseNextDevice` | Another device still needs its file; the app requests it automatically. |

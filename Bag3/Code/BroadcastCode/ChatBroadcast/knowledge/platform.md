@@ -14,6 +14,9 @@ The app reads these marker lines out of your reply and hides them from the teach
   no file extension. The app turns it into the game's stored name (its *slug*): lowercase, with
   runs of anything that is not a letter or digit replaced by one underscore. "Jumping Frogs" →
   `jumping_frogs`.
+- **`[GAME_ICON: SHAPE_FLAME, ORANGE]`** exactly once in any reply that writes or changes a game:
+  the game's start signature, the same pair as the `GAME_ICON` line in its code (see "Start
+  signature" below).
 - **`[NFC_CARDS: "value1", "value2"]`** exactly once if any game file reads NFC cards, listing every
   card value the game reacts to. Leave it out only when no file reads a card. The app uses it to
   tell the teacher which cards to write.
@@ -121,3 +124,21 @@ Every game must stop promptly when told to, so the teacher can switch games at a
 
 A game may react to its own cards (for example `"red"`, `"blue"`, `"go"`). Card values are short,
 lowercase, plain words. List every one in the `[NFC_CARDS: ...]` marker.
+
+## Start signature
+
+Every game starts with its own signature: one 5×5 shape in one color, plus a short entry sound,
+so children can tell which game just began.
+
+- The wand file declares it at module level, with names imported from `leds`:
+  `GAME_ICON = (SHAPE_FLAME, ORANGE)`. Its `play()` opens by showing that shape in that color for
+  about 1 second while a short entry sound plays, then clears the lights.
+- The icon display file, if there is one, opens with the same shape and color (see its device
+  notes).
+- Pick a pair that fits the game's theme (a flame for cooking, a star for a night game).
+- Don't use the wand's status pictures: `SHAPE_CHECK`, `SHAPE_X`, the `SHAPE_WIFI*` bars or the
+  battery shapes. Don't use `OFF`, `BLACK` or a `*_DIM` color.
+- The entry sound differs from the built-in games' and from the template's.
+- The signature stays the same: every later version of the same game keeps the same `GAME_ICON`
+  shape and color and writes the same marker. Change it only when the teacher asks; the teacher
+  decides. A remix of an example is a new game and gets a new pair.

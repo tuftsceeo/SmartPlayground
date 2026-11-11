@@ -155,6 +155,19 @@ export function stripGameNameMarker(text) {
     return text.replace(/\[GAME_NAME:[^\]]+\]/g, "").trim();
 }
 
+/**
+ * The start signature from a [GAME_ICON: SHAPE_FLAME, ORANGE] marker:
+ * {shape, color}, or null when there is no marker.
+ */
+export function parseGameIcon(text) {
+    const match = text.match(/\[GAME_ICON:\s*\(?\s*([A-Za-z0-9_]+)\s*,\s*([A-Za-z]+)\s*\)?\s*\]/);
+    return match ? { shape: match[1], color: match[2].toUpperCase() } : null;
+}
+
+export function stripGameIconMarker(text) {
+    return text.replace(/\[GAME_ICON:[^\]\n]*\]?/g, "").trim();
+}
+
 /** Follow-up options from a [CHOICES: "a", "b"] marker, or null. */
 export function parseChoices(text) {
     const match = text.match(/\[CHOICES:\s*([^\]]+)\]/);
@@ -251,7 +264,7 @@ export function stripNextDeviceMarker(text) {
 /** Every marker line removed, for showing a reply (complete or partial). */
 export function stripAllMarkers(text) {
     return stripDeviceMarkers(stripChoicesMarker(stripGameNameMarker(stripNfcMarker(
-        stripGameSettingsMarker(stripNextDeviceMarker(text))))));
+        stripGameSettingsMarker(stripNextDeviceMarker(stripGameIconMarker(text)))))));
 }
 
 export function trimForHistory(text) {

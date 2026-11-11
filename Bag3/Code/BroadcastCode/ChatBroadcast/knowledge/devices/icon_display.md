@@ -38,7 +38,10 @@ import time
 
 from display_tags import exit_tags_excluding
 import icon_store
+import shapes
 
+# Start signature: the wand file's GAME_ICON, color as that leds color's RGB.
+GAME_ICON = (shapes.SHAPE_STAR, (30, 190, 50))   # SHAPE_STAR, MINT
 _EXIT_TAGS = exit_tags_excluding("your_game")
 COMMANDS = _EXIT_TAGS
 
@@ -58,6 +61,9 @@ def _show(panel, name, intensity):
 def play(nfc, panel, enow):
     frame = 0
     try:
+        panel.set_intensity(ACTIVE_INTENSITY)
+        shapes.draw_shape(panel, GAME_ICON[0], GAME_ICON[1])   # start signature, ~1 s
+        time.sleep_ms(1000)
         _show(panel, IDLE_ICON, IDLE_INTENSITY)
         while True:
             frame += 1
@@ -79,7 +85,8 @@ def play(nfc, panel, enow):
         panel.clear()
 ```
 
-Replace `"your_game"` with the game's slug, and `"ready"` / `"whale"` with icon names from the list
+Set `GAME_ICON` to the same shape and color as the wand file's, writing the color as its RGB
+from the wand's `leds` palette (for example `ORANGE` is `(120, 40, 0)`). Replace `"your_game"` with the game's slug, and `"ready"` / `"whale"` with icon names from the list
 sent with the request.
 
 ## API
