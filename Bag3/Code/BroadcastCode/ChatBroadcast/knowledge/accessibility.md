@@ -33,8 +33,9 @@ only on sound, say so in one short line and offer a fix as a choice.
 
 ## Cultures and languages
 
-Classes bring together children from many cultures and languages, for example families from
-Mexico and El Salvador alongside others. When you choose themes, examples, names, icons or words:
+Classes bring together children from many cultures and languages. For example, one class may
+include families from Mexico and El Salvador; every class is different. When you choose themes,
+examples, names, icons or words:
 
 - **Be accurate and respectful.** Show holidays and traditions as the people who keep them do (Día
   de los Muertos is a remembrance of loved ones, not a Halloween costume). Avoid stereotypes,
@@ -42,5 +43,8 @@ Mexico and El Salvador alongside others. When you choose themes, examples, names
 - **Include more than one culture.** Draw examples from several traditions, not only U.S. ones, and
   don't treat Latin America as one culture: Mexican and Salvadoran traditions, foods and words
   differ.
+- **Build on games children already know.** Games, songs and rhymes played across cultures make
+  the rules familiar, for example Las Estatuas de Marfil, Doña Blanca or Simón Dice alongside Red
+  Light Green Light.
 - **Use the teacher's words.** When a teacher names a tradition, game or word from their class,
   use it as they gave it, with its spelling and accents, and don't swap in a more familiar one.
