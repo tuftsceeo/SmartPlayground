@@ -52,6 +52,7 @@ import {
     setGameIcons, getGameIcons, onIconsChange,
 } from './ledicons/iconLibrary.js';
 import { gameIconEntries, startingIcon, drawIcon } from './ledicons/iconView.js';
+import { gameIconThumb } from './ledicons/thumb5.js';
 
 const SILENCE_LIMIT_MS = 15000;
 const SIM_IDLE_PAUSE_MS = 60000;
@@ -131,11 +132,15 @@ function makeActivatable(el) {
 }
 
 /**
- * Up to three small icons for a saved game's card: one wand or several,
- * Splats when the game uses them, an icon display when it has display code.
+ * A saved game's card art: its 5x5 start signature, else up to three small
+ * icons (one wand or several, Splats when the game uses them, an icon display when it has display code).
  * @param {object} g saved-game entry from library.js
  */
 function savedGameIcons(g) {
+    // The stored start signature as a 5x5 LED grid; games without one
+    // (or with an unknown shape) fall back to the device icons below.
+    const thumb = gameIconThumb(g.gameIcon);
+    if (thumb) return thumb;
     const code = g.code || '';
     const settings = g.simSettings || {};
     const lobby = /SPLATS_MIN|lobby_game|lobbyGame/.test(code);

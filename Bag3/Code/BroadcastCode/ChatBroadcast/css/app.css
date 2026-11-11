@@ -385,6 +385,8 @@ body.ui-advanced #app-shell {
 /* Saved-game card: up to three small icons in a row. */
 .saved-thumb { gap: 10px; }
 .saved-thumb > span { display: inline-flex; }
+.saved-thumb > .thumb5 { display: grid; grid-template-columns: repeat(5, 9px); grid-auto-rows: 9px; gap: 2px; }
+.thumb5 i { border-radius: 2px; background: #f0d4e2; }
 
 /* The NFC Station catalog is an advanced-mode tool. */
 body:not(.ui-advanced) #btn-station-catalog { display: none; }
