@@ -40,7 +40,7 @@ export const ADVANCED_KNOWLEDGE = 'knowledge/advanced.md';
 export const INTERVIEW_KNOWLEDGE = 'knowledge/interview.md';
 
 /** Questions an interview may ask, counting the fixed title question. */
-export const INTERVIEW_MAX_QUESTIONS = 10;
+export const INTERVIEW_MAX_QUESTIONS = 6;
 /** The interview's first question, asked by the app without a model call. */
 export const INTERVIEW_FIRST_QUESTION = 'What is the title of your game?';
 
@@ -136,8 +136,56 @@ export function interviewStatusText(asked, finish = false) {
     if (!last) return status;
     const why = finish ? 'The teacher asked to stop the interview.' : 'No questions are left.';
     return `${status} ${why} This is the last turn: do not ask a question. ` +
-        'Write the summary with the [GAME_BRIEF] block now, choosing sensible defaults for ' +
-        'anything still unknown.';
+        'Write the brief now in the JSON response format, choosing sensible defaults for ' +
+        'anything still unknown and naming them in `defaults`. Use an empty string for a ' +
+        'field that does not apply.';
+}
+
+/** Brief fields in display order: JSON key -> label (interview.md "The brief"). */
+export const BRIEF_FIELDS = [
+    ['title', 'Title'],
+    ['wands', 'Wands'],
+    ['play', 'Play'],
+    ['extras', 'Extras'],
+    ['how_to_play', 'How to play'],
+    ['what_happens', 'What happens'],
+    ['start_and_end', 'Start and end'],
+    ['cards', 'Cards'],
+    ['defaults', 'Defaults I chose'],
+];
+
+/**
+ * output_config.format for the last interview turn. The schema makes the
+ * reply a brief: on that turn a free-text reply could be another question
+ * or a full game instead.
+ */
+export function briefFormat() {
+    const props = { message: { type: 'string' } };
+    for (const [key] of BRIEF_FIELDS) props[key] = { type: 'string' };
+    return {
+        type: 'json_schema',
+        schema: {
+            type: 'object',
+            properties: props,
+            required: Object.keys(props),
+            additionalProperties: false,
+        },
+    };
+}
+
+/**
+ * The bulleted brief from a briefFormat() reply, and its lead sentence.
+ * Throws if the text is not JSON or has no title.
+ * @param {string} text
+ * @returns {{message: string, brief: string}}
+ */
+export function briefFromJson(text) {
+    const obj = JSON.parse(text);
+    if (!obj.title?.trim()) throw new Error('brief has no title');
+    const lines = BRIEF_FIELDS
+        .filter(([key]) => (obj[key] || '').trim())
+        .map(([key, label]) => `- ${label}: ${obj[key].trim()}`);
+    return { message: (obj.message || '').trim(), brief: lines.join('\n') };
 }
 
 /**
@@ -181,14 +229,16 @@ export function historyWindow(history, n = HISTORY_WINDOW) {
 
 /**
  * Request body for POST /v1/messages.
- * @param {{system:object[], history:object[], stream?:boolean, windowed?:boolean}} o
- *     windowed: false sends every message instead of historyWindow(history)
+ * @param {{system:object[], history:object[], stream?:boolean, windowed?:boolean,
+ *          format?:object}} o
+ *     windowed: false sends every message instead of historyWindow(history);
+ *     format: output_config.format, e.g. briefFormat()
  */
-export function buildRequestBody({ system, history, stream = true, windowed = true }) {
+export function buildRequestBody({ system, history, stream = true, windowed = true, format = null }) {
     return {
         model: CLAUDE_MODEL,
         max_tokens: MAX_TOKENS,
-        output_config: { effort: CLAUDE_EFFORT },
+        output_config: format ? { effort: CLAUDE_EFFORT, format } : { effort: CLAUDE_EFFORT },
         // A safety-classifier decline is re-run server-side on the model
         // Anthropic recommends for that decline category.
         fallbacks: 'default',

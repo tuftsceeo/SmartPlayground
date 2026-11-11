@@ -8,7 +8,7 @@ import {
 import {
     knowledgeText, buildSystemBlocks, buildRequestBody, requestHeaders, ADVANCED_KNOWLEDGE,
     buildInterviewSystemBlocks, interviewMessages, INTERVIEW_KNOWLEDGE,
-    INTERVIEW_MAX_QUESTIONS, INTERVIEW_FIRST_QUESTION,
+    INTERVIEW_MAX_QUESTIONS, INTERVIEW_FIRST_QUESTION, briefFormat, briefFromJson,
 } from './prompt/buildRequest.js';
 import { readMessageStream } from './prompt/stream.js';
 import { renderMarkdown } from './markdown.js';
@@ -1887,6 +1887,8 @@ class App {
         const apiKey = this.resolveApiKey();
         if (!apiKey) { iv.turns.pop(); return; }
         const files = getKnowledgeFiles();
+        // The last turn is constrained to a brief (briefFormat).
+        const last = finish || iv.asked >= INTERVIEW_MAX_QUESTIONS;
         addThinkingMsg();
         this.isGenerating = true;
         try {
@@ -1900,8 +1902,9 @@ class App {
                 history: interviewMessages(iv.turns),
                 stream: false,
                 windowed: false,
+                format: last ? briefFormat() : null,
             }));
-            dbg('chat', `interview POST — ${iv.asked} asked, finish=${finish}`);
+            dbg('chat', `interview POST — ${iv.asked} asked, last=${last}`);
             const resp = await fetch('https://api.anthropic.com/v1/messages', {
                 method: 'POST',
                 headers: requestHeaders(apiKey),
@@ -1923,25 +1926,30 @@ class App {
                 return;
             }
             const raw = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
-            const brief = parseGameBrief(raw);
+            if (data.stop_reason === 'max_tokens') {
+                dbgError('chat', 'interview reply truncated at max_tokens', raw);
+                addMsg('The reply was cut off. Try again.', 'system');
+                iv.turns.pop();
+                if (last) this.renderInterviewChips([]);
+                return;
+            }
+            let lead;
+            let brief;
+            if (last) {
+                ({ message: lead, brief } = briefFromJson(raw));
+            } else {
+                brief = parseGameBrief(raw);
+                lead = brief ? stripAllMarkers(stripGameBrief(raw)) : '';
+            }
             if (brief) {
                 this.interview = null;
                 dbg('chat', `interview finished after ${iv.asked} question(s)`, { brief });
-                const lead = stripAllMarkers(stripGameBrief(raw));
                 if (lead) addMsg(lead, 'bot');
                 addMsg(brief, 'bot');
                 this.renderBriefChips(brief);
                 return;
             }
             iv.turns.push({ role: 'assistant', content: raw });
-            if (finish || iv.asked >= INTERVIEW_MAX_QUESTIONS) {
-                // The status block told the model to write the brief.
-                dbgError('chat', 'interview: last turn returned no [GAME_BRIEF]', raw);
-                addMsg('The interviewer did not write a game summary. Tap “Make my game now” to try again.', 'system');
-                iv.turns.pop();
-                this.renderInterviewChips([]);
-                return;
-            }
             iv.asked++;
             addMsg(stripAllMarkers(raw), 'bot');
             // The first two questions are answered in the teacher's own
@@ -1949,9 +1957,10 @@ class App {
             this.renderInterviewChips(iv.asked > 2 ? parseChoices(raw) || [] : []);
         } catch (e) {
             removeTyping();
-            dbgError('chat', `interview network/fetch error: ${e.message}`, e);
-            addMsg('Network error — check your connection and try again.', 'system');
+            dbgError('chat', `interview error: ${e.message}`, e);
+            addMsg(`Something went wrong (${e.message}). Try again.`, 'system');
             iv.turns.pop();
+            if (last) this.renderInterviewChips([]);
         } finally {
             this.isGenerating = false;
         }

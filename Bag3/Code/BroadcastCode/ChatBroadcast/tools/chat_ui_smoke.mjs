@@ -118,6 +118,10 @@ const INTERVIEW_REPLIES = [
     `Frogs — fun! Tell me about your game. What do the children do?\n[CHOICES: "Hop", "Swim"]`,
     `How do the children play together?\n[CHOICES: "Each on their own, like Simon Says", "As a team, like Doña Blanca"]`,
     `I have what I need.\n[GAME_BRIEF]\n- Title: Frog Hop\n- Wands: 1–4\n[/GAME_BRIEF]`,
+    // A second interview ended with "Make my game now": JSON-format reply.
+    `What do the children do?`,
+    JSON.stringify({ message: "Here is your game.", title: "Bee Buzz", wands: "2-4", play: "", extras: "",
+        how_to_play: "", what_happens: "", start_and_end: "", cards: "", defaults: "Yellow lights" }),
 ];
 
 const requests = [];
@@ -243,7 +247,8 @@ await test("interview: title asked locally, no choices before question 3, brief 
     assert.equal(r.stream, false);
     assert.equal(r.system.length, 3);
     assert.ok(r.system[1].text.startsWith("# Interview mode"));
-    assert.ok(r.system[2].text.includes("1 of 10"));
+    assert.ok(r.system[2].text.includes("1 of 6"));
+    assert.equal(r.output_config.format, undefined, "only the last turn is constrained");
     assert.equal(r.messages[1].content, "What is the title of your game?");
     let chips = await page.$$eval(".choice-chips .starter-chip", els => els.map(e => e.textContent));
     assert.deepEqual(chips, ["Make my game now"], "question 2 shows no answer choices");
@@ -266,6 +271,25 @@ await test("interview: title asked locally, no choices before question 3, brief 
     const game = requests.at(-1).body;
     assert.equal(game.stream, true, "the brief goes to the normal game chat");
     assert.ok(game.messages.at(-1).content.includes("- Title: Frog Hop"));
+});
+
+await test("interview: Make my game now gets a JSON brief on the first try", async () => {
+    await page.click("#btn-interview");
+    await send("Bee Buzz");
+    const n = requests.length;
+    await page.click('.choice-chips .starter-chip:text-is("Make my game now")');
+    await page.waitForTimeout(600);
+    assert.equal(requests.length, n + 1);
+    const r = requests.at(-1).body;
+    assert.equal(r.output_config.format.type, "json_schema");
+    assert.ok(r.system[2].text.includes("asked to stop"));
+    const roles = r.messages.map(m => m.role).join(",");
+    assert.ok(!roles.includes("user,user"), `no back-to-back user turns: ${roles}`);
+    const chat = await page.textContent("#chat-box");
+    assert.ok(chat.includes("Title: Bee Buzz") && chat.includes("Defaults I chose: Yellow lights"));
+    assert.ok(!chat.includes("did not write"));
+    const chips = await page.$$eval(".choice-chips .starter-chip", els => els.map(e => e.textContent));
+    assert.deepEqual(chips, ["Make this game", "Start the interview over"]);
 });
 
 await test("no page errors during the run", () => {
