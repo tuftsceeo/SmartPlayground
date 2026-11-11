@@ -199,7 +199,8 @@ Some teachers call this the buzzer too; it is the part you feel, not hear.
 motor = Pin(21, Pin.OUT, value=0)
 motor.value(1); time.sleep_ms(200); motor.value(0)
 ```
-Keep buzzes short; the motor draws a lot of power.
+Use it to confirm a tap or success, or as a gentle "not now" for a mistake (like pressing out of
+turn). Keep a vibration under about 4 seconds; long and short buzzes are easy to tell apart.
 
 ### Battery
 

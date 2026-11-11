@@ -32,6 +32,7 @@ export const ANTHROPIC_BETA = 'server-side-fallback-2026-07-01';
  * per-device files named by roles.js. */
 export const SHARED_KNOWLEDGE = [
     'knowledge/policy.md',
+    'knowledge/accessibility.md',
     'knowledge/platform.md',
     'knowledge/game_patterns.md',
     'knowledge/lobby_games.md',
