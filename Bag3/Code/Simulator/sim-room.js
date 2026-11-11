@@ -199,7 +199,7 @@ class SimRoom extends HTMLElement {
         .wand wand-sim { width: 100%; }
         .panels { display: flex; flex-direction: column; gap: 16px; flex: 1 1 240px; min-width: 0; }
         .strip { display: flex; flex-direction: column; gap: 12px; margin-top: 16px; }
-        .box { background: #fff; border: 1.5px solid #e8e6f0; border-radius: 16px; padding: 14px 16px;
+        .box { padding: 14px 0;
           color: #231f2e; font-family: 'Nunito', system-ui, sans-serif; }
         .box.flush { padding: 0; }
         .box[hidden], .box:empty { display: none; }

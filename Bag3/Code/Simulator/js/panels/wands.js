@@ -34,6 +34,7 @@
  */
 
 import { icon } from "../icons.js";
+import { addMinimize, setMinimized } from "./minimize.js";
 import { attachWand } from "../pyboot.js";
 import { createLobbyGameHost } from "../lobby_game.js";
 import { createSplatToy, splatDev, splatCard, CASE, BLOB } from "./splats.js";
@@ -79,14 +80,21 @@ dialog.all-wands::backdrop { background: rgba(35,31,46,.35); }
 .wand-card .chip.mine { background: #fff0f6; color: #b3326b; }
 .wand-card .chip.playing { background: #e9fbf6; color: #14806b; }
 .wand-card .chips .wbtn { margin-left: auto; }
-.wand-card wand-sim { display: block; width: 100%; }
+.wand-card .chips .min-btn ~ .wbtn { margin-left: 0; }
+.wand-card .min-name { display: none; font: 800 13px 'Nunito', system-ui, sans-serif; color: #231f2e; }
+.wand-card.min .min-name { display: inline; }
+.wand-card.min .chip, .wand-card.min .chips .wbtn:not(.min-btn),
+.wand-card.min .ghost-wand .text, .wand-card.min .display-status { display: none; }
+.wand-card.min .ghost-wand { min-height: 0; }
+.wand-card.min .chips { min-height: 0; }
+.wand-card wand-sim { display: block; width: 100%; --wand-bg: transparent; --wand-shadow: none; }
 
 .ghost-wand { position: relative; display: flex; align-items: center; gap: 20px; width: 100%; min-height: 320px;
-  padding: 20px; box-sizing: border-box; border-radius: 24px; border: 2px solid #d8d4e6; background: #fff;
+  padding: 20px; box-sizing: border-box; border: 0; background: none;
   font-family: 'Nunito', system-ui, sans-serif; color: #231f2e; text-align: left; cursor: pointer; }
 .ghost-wand:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(108,76,209,.2); }
 .ghost-wand .pad { flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; gap: 14px;
-  padding: 18px 22px; border-radius: 20px; border: 2px solid #e8e6f0; }
+  padding: 18px 22px; }
 .ghost-wand .body { position: relative; width: 120px; height: 190px; box-sizing: border-box; border-radius: 22px;
   border: 3px solid #c2b8d6; display: flex; flex-direction: column; align-items: center; padding-top: 36px; gap: 16px; }
 .ghost-wand .body .led { position: absolute; top: 10px; left: 12px; width: 8px; height: 8px; box-sizing: border-box;
@@ -128,6 +136,7 @@ export function createWandsPanel({ mount, room }) {
   const mine = document.createElement("div");
   mine.className = "wand-card";
   mine.innerHTML = `<div class="chips"><span class="chip mine">This wand</span></div>`;
+  addMinimize(mine, mine.firstElementChild, "This wand");
   grid.appendChild(mine);
 
   /** [{ mac, card, el, link, lobbyGame, pad, toys }] in order; el null = placeholder. */
@@ -164,6 +173,7 @@ export function createWandsPanel({ mount, room }) {
 
   function open() {
     room.placeWand(mine);
+    setMinimized(mine, mine.classList.contains("min"));
     room.panel("splats")?.placeIn?.(mine);
     room.panel("displays")?.placeIn(grid);
     if (dialog.open) return;
@@ -226,8 +236,10 @@ export function createWandsPanel({ mount, room }) {
     rm.addEventListener("click", () => remove(o));
     chips.appendChild(rm);
     o.card.appendChild(chips);
+    addMinimize(o.card, chips, `Wand ${others.indexOf(o) + 2}`);
     if (o.el) {
       o.card.appendChild(o.el);
+      setMinimized(o.card, o.card.classList.contains("min"));
       return;
     }
     const ghost = document.createElement("button");

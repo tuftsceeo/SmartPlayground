@@ -35,6 +35,7 @@ import { PYODIDE_CDN } from "../../wand-sim.js";
 import { hexToBytes, bytesToHex } from "../radio.js";
 import { loadPyodideNoJspi } from "../pyboot.js";
 import { icon } from "../icons.js";
+import { addMinimize } from "./minimize.js";
 
 const W = 16;
 
@@ -377,6 +378,9 @@ export function createDisplaysPanel({ mount, room }) {
       const rm = d.dev.el.querySelector(":scope > .rm");
       if (rm) d.card.firstElementChild.appendChild(rm);
       d.card.appendChild(d.dev.el);
+      d.card.classList.toggle("min", !!d.min);
+      addMinimize(d.card, d.card.firstElementChild, "Icon display");
+      d.card.querySelector(".min-btn")?.addEventListener("click", () => { d.min = d.card.classList.contains("min"); });
       placedIn.appendChild(d.card);
     } else {
       shelf.appendChild(d.dev.el);

@@ -308,6 +308,11 @@ input[type=range] { accent-color: #ef4d92; }
   .sim-pane-wand { flex: 1 1 100%; padding: 14px 14px 0; }
   .sim-pane-ctrl { flex: 1 1 100%; padding: 9px 14px 14px; }
 }
+
+/* Minimized: the wand illustration only. */
+:host([minimized]) .sim-pane-ctrl,
+:host([minimized]) .pad-hint,
+:host([minimized]) .pad-foot { display: none !important; }
 `;
 
 export function createControls(container, handlers = {}) {
