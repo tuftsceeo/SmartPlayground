@@ -205,15 +205,16 @@ await test("[GAME_SETTINGS:] is read for the simulator and hidden from the chat"
     assert.equal(stripAllMarkers('Done.\n[GAME_SETTINGS: {"wand_spl'), "Done.");
 });
 
-await test("starter draws always include a non-wand idea; ideas name real roles", () => {
+await test("starter draws: one question then two games, one beyond the wand; ideas name real roles", () => {
     const keys = new Set(ROLES.map(r => r.key));
     for (const idea of STARTER_IDEAS) for (const r of idea.roles) assert.ok(keys.has(r), `${idea.text}: ${r}`);
     let seed = 1;
     const rand = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
     for (let i = 0; i < 500; i++) {
-        const d = drawStarterIdeas(4, rand);
-        assert.equal(d.length, 4);
-        assert.equal(new Set(d).size, 4);
+        const d = drawStarterIdeas(rand);
+        assert.equal(d.length, 3);
+        assert.equal(new Set(d).size, 3);
+        assert.deepEqual(d.map(x => !!x.question), [true, false, false]);
         assert.ok(d.some(x => x.roles.some(r => r !== "wand")));
     }
 });

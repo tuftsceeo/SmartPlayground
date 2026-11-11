@@ -2,12 +2,13 @@
  * Starter ideas for the chat, and the guided "Help me make a game" steps.
  *
  * Ideas are tagged with the device roles they need (roles.js keys). Each
- * new chat draws a few, always including at least one that uses a device
- * other than the wand, so teachers see what the display can do.
+ * new chat draws one question about the devices and two game ideas, at least
+ * one of the three using a device other than the wand, so teachers see what
+ * the display can do. Questions carry `question: true`.
  * A device added to roles.js gets ideas here (knowledge/ADDING_A_DEVICE.md).
  */
 
-/** @type {{text: string, icon: string, roles: string[]}[]} */
+/** @type {{text: string, icon: string, roles: string[], question?: boolean}[]} */
 export const STARTER_IDEAS = [
     // Wand only
     { text: 'Every wand glows a different color when the button is pressed', icon: 'palette', roles: ['wand'] },
@@ -27,27 +28,35 @@ export const STARTER_IDEAS = [
     { text: 'The display shows an animal and children find the matching card', icon: 'grid-3x3', roles: ['wand', 'icon'] },
     { text: 'A countdown on the display, then every wand lights up', icon: 'grid-3x3', roles: ['wand', 'icon'] },
     // Questions
-    { text: 'What can the wand show on its lights?', icon: 'message-circle', roles: ['wand'] },
-    { text: 'What can the big display do?', icon: 'message-circle', roles: ['icon'] },
+    { text: 'What can the wand show on its lights?', icon: 'message-circle', roles: ['wand'], question: true },
+    { text: 'What can the big display do?', icon: 'message-circle', roles: ['icon'], question: true },
 ];
 
+/** Fisher-Yates shuffle of a copy of `list`. */
+function shuffled(list, rand) {
+    const out = list.slice();
+    for (let i = out.length - 1; i > 0; i--) {
+        const j = Math.floor(rand() * (i + 1));
+        [out[i], out[j]] = [out[j], out[i]];
+    }
+    return out;
+}
+
+const usesOtherDevice = x => x.roles.some(r => r !== 'wand');
+
 /**
- * Pick `n` ideas at random, at least one of which uses a non-wand device.
- * @param {number} n
+ * One question and two game ideas, question first. At least one of the
+ * three uses a non-wand device.
  * @param {() => number} [rand]  0..1 random source, for tests
  */
-export function drawStarterIdeas(n = 4, rand = Math.random) {
-    const pool = STARTER_IDEAS.slice();
-    for (let i = pool.length - 1; i > 0; i--) {
-        const j = Math.floor(rand() * (i + 1));
-        [pool[i], pool[j]] = [pool[j], pool[i]];
+export function drawStarterIdeas(rand = Math.random) {
+    const [question] = shuffled(STARTER_IDEAS.filter(x => x.question), rand);
+    const games = shuffled(STARTER_IDEAS.filter(x => !x.question), rand);
+    const picked = games.slice(0, 2);
+    if (!usesOtherDevice(question) && !picked.some(usesOtherDevice)) {
+        picked[1] = games.find(usesOtherDevice);
     }
-    const picked = pool.slice(0, n);
-    if (!picked.some(x => x.roles.some(r => r !== 'wand'))) {
-        const other = pool.find(x => x.roles.some(r => r !== 'wand'));
-        picked[picked.length - 1] = other;
-    }
-    return picked;
+    return [question, ...picked];
 }
 
 /**
