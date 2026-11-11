@@ -19,6 +19,7 @@ from json_link import JsonLink
 
 P = None
 VERSION = "0.1.0"
+PROTO = 1           # link protocol; ChatBroadcast's identify carries its own (host.identify)
 HEARTBEAT_MS = 5000
 CARD_POLL_MS = 150
 
@@ -28,6 +29,12 @@ def ago(ts):
         return ""
     s = time.ticks_diff(time.ticks_ms(), ts) // 1000
     return "just now" if s < 60 else f"{s // 60} min ago"
+
+
+def short_ago(ts):
+    """Roll-call age under a group's name: "now", "1m", "12m"."""
+    s = time.ticks_diff(time.ticks_ms(), ts) // 1000
+    return "now" if s < 60 else f"{s // 60}m"
 
 
 class Panel:
@@ -51,6 +58,8 @@ class Panel:
         self.playing = {}       # mac -> slug started from the panel
         self.dist = None        # {"slug","macs","state":{mac: wait|send|has|fail},"done"}
         self.last_call = None   # (ticks, answered)
+        self.calls = {}         # chat key -> (ticks, wands, stations) from its last roll call
+        self._call = None       # (chat key, macs or None) of the roll call listening now
         self.happening = ""
         self.feed = []
         self.picked = []        # screen 2 selection
@@ -145,6 +154,7 @@ class Panel:
             if self.fleet is not None and self.fleet.scanning:
                 e["heard"] = True
                 self.fleet.on_msg(data, mac)
+                self._scan_push(mac, e)
                 self.link.send({"type": "status_report", "mac": mac, "kind": data.get("kind"),
                                 "battery": data.get("battery"), "rssi": data.get("rssi")})
             self.dirty = True
@@ -162,6 +172,17 @@ class Panel:
         self.mgr.add_peer(mac)
         return self.mgr.send_to(mac, msg)
 
+    def _scan_push(self, mac, e):
+        """Send code to Everyone: each wand that answers the scan is pushed the code (unicast)."""
+        d = self.dist
+        if (d is None or not d.get("scan") or d.get("stopped") or mac in d["state"]
+                or not self.roster.is_wand(e)):
+            return
+        d["state"][mac] = "wait"
+        d["macs"].append(mac)
+        d["done"] = False
+        self.fleet.retry(mac)
+
     def get_fleet(self):
         if self.fleet is None:
             from fleet import Fleet
@@ -172,13 +193,21 @@ class Panel:
         """Fleet events: update the models, then pass them on to the host."""
         ty = d.get("type")
         if ty == "status_done":
-            n, ready, low, stn = self.roster.summary()
-            self.last_call = (time.ticks_ms(), n)
-            self.add_log({"t": "rep", "n": n, "ready": ready, "low": low, "stn": stn})
+            n = self.roster.summary()[0]
+            now = time.ticks_ms()
+            self.last_call = (now, n)
+            if self._call is not None:
+                key, macs = self._call
+                self._call = None
+                es = [e for e in self.roster.items() if e["heard"] and (macs is None or e["mac"] in macs)]
+                nw = sum(1 for e in es if self.roster.is_wand(e))
+                self.calls[key] = (now, nw, len(es) - nw)
             self.note_feed(f"Roll call - {n} answered")
+            if self.dist:
+                self.dist["scan"] = False
         elif ty == "dist_progress" and self.dist:
             if d["ok"] is None:
-                self.dist["state"][d["mac"]] = "send"
+                self.dist["state"][d["mac"]] = "recv"
             elif d["ok"]:
                 self.dist["state"][d["mac"]] = "has"
                 self.sent.setdefault(self.dist["slug"], set()).add(d["mac"])
@@ -244,27 +273,22 @@ class Panel:
         return self.logs.get(self.key(), [])
 
     def chat_rows(self):
-        """Sidebar rows (at most 4): Everyone, saved groups, then devices with a nickname or a warning."""
+        """Left-column rows (at most 5): Everyone, saved groups, then devices you have chatted
+        with, named, or with a low battery. A low battery shows as an amber avatar, not text."""
         r = self.roster
-        w = len(r.items("wands"))
-        s = len(r.items("stations"))
-        rows = [{"title": "Everyone", "sub": f"{w} wands{k.DOT}{s} stations", "glyph": "@everyone_20",
+        rows = [{"title": "Everyone", "glyph": "@everyone_20",
                  "kind": "all", "name": "Everyone", "macs": None, "warn": False}]
         for name, macs in self.store.groups.items():
-            rows.append({"title": name, "sub": f"{len(macs)} wands", "glyph": name[:1].upper(),
+            rows.append({"title": name, "glyph": name[:1].upper(),
                          "kind": "group", "name": name, "macs": macs, "warn": False})
-        scan = self.fleet is not None and self.fleet.scanning
         for e in r.ranked():
             low = r.low(e)
-            miss = self.last_call is not None and not e["heard"] and not scan
-            if e["mac"] in self.store.names or low or miss:
+            if e["mac"] in self.store.names or low or ("m:" + e["mac"]) in self.logs:
                 wand = r.is_wand(e)
-                kind = "Wand" if wand else "Station"
-                sub = f"{kind}{k.DOT}battery low" if low else (f"{kind}{k.DOT}not heard" if miss else kind)
-                rows.append({"title": r.name(e["mac"]), "sub": sub,
-                             "glyph": roster.tag_of(e["mac"]) if wand else "@station_face_20",
-                             "kind": "one", "name": r.name(e["mac"]), "macs": [e["mac"]], "warn": low or miss})
-        return rows[:4]
+                rows.append({"title": r.name(e["mac"]),
+                             "glyph": "@wand_20" if wand else "@station_face_20",
+                             "kind": "one", "name": r.name(e["mac"]), "macs": [e["mac"]], "warn": low})
+        return rows[:5]
 
     # -- actions: roll call, find, start, stop ------------------------------
 
@@ -274,7 +298,8 @@ class Panel:
             return False
         return True
 
-    def roll_call(self):
+    def roll_call(self, macs=None):
+        """Ask every device to answer; the counts are kept for the open chat (macs: its devices)."""
         if not self.need_radio():
             return
         fl = self.get_fleet()
@@ -282,6 +307,7 @@ class Panel:
             k.toast("Busy - try again in a moment")
             return
         self.roster.begin_roll_call()
+        self._call = (self.key(), macs)
         fl.scan(self.mgr)
         self.add_log({"t": "mine", "text": "Roll call", "color": 0x22C3A6, "icon": "roll"})
         self.note_feed("Roll call started")
@@ -291,7 +317,6 @@ class Panel:
         if not self.need_radio():
             return
         self.get_fleet().find(self.mgr, mac)
-        k.toast(f"Finding {self.roster.name(mac)}")
         if self.target["kind"] == "one" and self.target["macs"][0] == mac:
             self.add_log({"t": "mine", "text": "Find it", "color": 0x22C3A6, "icon": "find"})
             self.add_log({"t": "reply", "text": "Blinking and buzzing"})
@@ -301,19 +326,16 @@ class Panel:
                 self.add_log({"t": "reply", "text": f"Battery {e['battery']}%" + (f"{k.DOT}charge soon" if low else ""),
                               "warn": low})
 
-    def find_all(self):
-        """Find every device in the open chat (the home header's Find)."""
-        if not self.need_radio():
+    def open_group(self):
+        """Opening a group (1B): a roll call for its devices, then Find on each one."""
+        if self.target["kind"] != "group" or not self.need_radio():
             return
-        macs = self.macs()
-        if not macs:
-            k.toast("No devices yet - run a roll call")
-            return
+        macs = list(self.target["macs"] or [])
         fl = self.get_fleet()
+        if not fl.scanning:
+            self.roll_call(macs)
         for mac in macs:
             fl.find(self.mgr, mac)
-        self.add_log({"t": "mine", "text": "Find it", "color": 0x22C3A6, "icon": "find"})
-        k.toast(f"Finding {len(macs)} device{'' if len(macs) == 1 else 's'}")
 
     def send_targets(self, msg, bmsg):
         """Returns (acked, total); total is None for a broadcast to everyone."""
@@ -327,16 +349,7 @@ class Panel:
         for mac in macs:
             if self.unicast(mac, msg):
                 ok += 1
-            else:
-                self.add_log({"t": "err", "text": f"{self.roster.name(mac)} didn't answer",
-                              "retry": (self.retry_send, mac, msg)})
         return ok, len(macs)
-
-    def retry_send(self, mac, msg):
-        if self.unicast(mac, msg):
-            self.add_log({"t": "reply", "text": f"{self.roster.name(mac)} answered"})
-        else:
-            k.toast(f"{self.roster.name(mac)} still not answering")
 
     def mine_sub(self, e):
         """Second line of a sent bubble, aged at each refresh."""
@@ -378,23 +391,41 @@ class Panel:
     # -- code distribution ---------------------------------------------------
 
     def send_code(self, slug):
-        """Start pushing a flash game's code to the current targets and show screen 4."""
+        """Send a flash game's code and show screen 4, pushed one wand after another (unicast).
+        Everyone: no standing roll call is needed - a scan runs now and each wand that answers is
+        queued, so the list is whoever is on and in range at this moment."""
         if not self.need_radio():
             return
         g = self.lib.get(slug)
         if g is None or not g["flash"]:
-            k.toast("Only games from the computer have code to send")
+            return      # 3b lists only games from the computer
+        fl = self.get_fleet()
+        if fl.distributing:
+            k.toast("Busy - try again in a moment")
+            return
+        if self.target["macs"] is None:
+            self.code.set_game(slug)
+            self.dist = {"mode": "push", "scan": True, "all": True, "slug": slug, "name": g["name"], "macs": [],
+                         "done": False, "state": {}, "ts": time.ticks_ms()}
+            fl.distribute(self.mgr, slug, [])
+            if fl.scanning:
+                # a roll call already running: queue the wands it has heard, the rest as they answer
+                for e in self.roster.items():
+                    if e["heard"]:
+                        self._scan_push(e["mac"], e)
+            else:
+                self.roster.begin_roll_call()
+                self._call = (self.key(), None)
+                fl.scan(self.mgr)
+            self.add_log({"t": "mine", "text": f"Send code: {g['name']}", "color": 0x6C4CD1})
+            k.go("scr_send")
             return
         macs = self.macs()
         if not macs:
             k.toast("No devices yet - run a roll call")
             return
-        fl = self.get_fleet()
-        if fl.busy:
-            k.toast("Busy - try again in a moment")
-            return
         self.code.set_game(slug)
-        self.dist = {"slug": slug, "name": g["name"], "macs": macs, "done": False,
+        self.dist = {"mode": "push", "slug": slug, "name": g["name"], "macs": macs, "done": False,
                      "state": {m: "wait" for m in macs}, "ts": time.ticks_ms()}
         fl.distribute(self.mgr, slug, macs)
         self.happening = f"Send code - 0 of {len(macs)}"
@@ -438,18 +469,27 @@ class Panel:
         self.dirty = True
 
     def leave_send(self):
+        d = self.dist
+        if d is not None:
+            d["stopped"] = True     # wands still answering the scan are not queued
         if self.fleet is not None:
             self.fleet.cancel("cancelled")
         k.back()
 
     def start_sent(self):
-        """Start the pushed game on the devices that have it."""
+        """Start the sent game: a broadcast after a send to Everyone, else on the devices that
+        have it."""
         d = self.dist
         if not d:
             return
         macs = [m for m, s in d["state"].items() if s == "has"]
         if not macs:
-            k.toast("No wand has it yet")
+            return
+        if d.get("all"):
+            d["stopped"] = True
+            self.set_target("all", "Everyone")
+            self.start_game(d["slug"])
+            k.home()
             return
         keep = self.target
         self.set_target("set", "Have it", macs)
@@ -464,8 +504,9 @@ class Panel:
             return
         self.store.add_group(name, self.picked)
         self.set_target("group", name, list(self.picked))
-        k.toast(f"Saved {name}")
         k.home()
+        k.go("scr_group")
+        self.open_group()
 
     def rename(self, mac, name):
         self.store.rename(mac, name.strip())

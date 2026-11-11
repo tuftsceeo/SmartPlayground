@@ -54,6 +54,13 @@ competing with the interrupt that refills the bounce buffers.
 **Fix:** `firmware/rgb_bus_dirty_rows_copy.patch` re-syncs only the rows updated since the last
 swap (every row when rotated). Fixed on the board; pixel clock back at 12 MHz.
 
+2026-11-10: the shift was reported back, but the panel on `usbserial-310` was not running the
+patched build. A read-back of the panel on `usbserial-110` matched the patched build and showed
+less noise. Writing the patched app image alone to 310 (`write_flash 0x10000 micropython.bin`,
+no erase, `/flash` kept) cleared it. **Check the firmware before re-opening this issue:** read
+the app image back with esptool and compare its sha256 with the build. `mpremote` cannot reach
+the REPL while the app runs, and the boot output has no build string.
+
 ## Quick taps missed
 
 With LVGL's default 33 ms touch read period, quick taps on a button register no event; held

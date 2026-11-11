@@ -26,6 +26,7 @@ filenames). Search front matter with `grep -l '<term>' Bag3/Code/known_issues/*.
 | [2026-10-28-mockwand-idle-power.md](2026-10-28-mockwand-idle-power.md) | MockWand idle/sleep battery drain, power LED, diffuser | partly fixed | — |
 | [2026-10-28-crowpanel5-display.md](2026-10-28-crowpanel5-display.md) | CrowPanel5_Display touch I2C pins, soft-reset lockup, RGB drift, row shift | open (workarounds) | — |
 | [2026-10-29-live-page-stale-paths.md](2026-10-29-live-page-stale-paths.md) | Live_Page ChatBroadcast/Simulator copies point at nonexistent Bag3 paths | open | — |
+| [2026-11-10-crowpanel-teacher-tool-ui.md](2026-11-10-crowpanel-teacher-tool-ui.md) | CrowPanel Teacher Tool screens vs revised canvas designs (toasts, 1B, game picker, send list, NFC layout, 7.3) | open | — |
 | [2026-11-02-dial-box-arm-serving.md](2026-11-02-dial-box-arm-serving.md) | Dial and Box serving still gated by arm/disarm, radio off outside NFC | open (untested on hardware) | — |
 
 ## By topic

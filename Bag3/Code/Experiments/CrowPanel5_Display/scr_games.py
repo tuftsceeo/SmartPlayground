@@ -1,18 +1,30 @@
-"""Screen 3 - Start a game: bottom sheet on the top layer, over home or screen 6."""
+"""Screens 3 and 3b - Start a game / Send code: bottom sheet on the top layer.
+
+Start shows Custom (games from the computer) and Examples (built into every wand), each under a
+header that opens and closes it. Send code shows Custom only, with no header. Tapping a game
+starts it (or sends it) at once. Grid = 6 columns of 84 px tiles, list = 3 columns of 52 px rows;
+both use the same tile pool. The rail pages the list; there is no free scrolling.
+"""
 
 import lvgl as lv
 
 import ds_tokens as t
+import library
 import panel
 import ui_kit as k
 from ui_kit import F12, R
 
-SHEET_Y = 60
-COLS = 4
-TW = 181
-TH = 128
+SHEET_Y = 40
+AREA_X = 20
+AREA_Y = 64
+AREA_W = k.W - AREA_X - 12 - 52 - 12
+AREA_H = 440 - AREA_Y - 76
+GAP = 8
+POOL = 18
+_VIEW = {"grid": (6, 84), "list": (3, 52)}
 _tiles = []
-_w = {"tab": "all", "page": 0, "sel": None, "mode": "start"}
+_heads = []
+_w = {"mode": "start", "view": "grid", "page": 0, "open": {"custom": True, "examples": True}}
 _root = None
 
 
@@ -23,42 +35,40 @@ def _build():
     _root.add_flag(lv.obj.FLAG.CLICKABLE)
     sh = k.box(_root, 0, SHEET_Y, k.W, k.H - SHEET_Y + 20, t.SURFACE, 20)
     sh.add_flag(lv.obj.FLAG.CLICKABLE)
-    _w["head"] = k.slot(sh, 20, 14, 230, t.INK, k.F_HEAD)
-    _w["to"] = k.slot(sh, 20, 38, 230, t.INK_3, F12)
-    ny = k.button(sh, k.W - 20 - 110, 12, 44, "Not yet", t.INK_3, w=110)
-    k.on(ny, close)
-    _w["seg_tr"], _w["seg"], _ = k.seg(sh, k.W - 20 - 110 - 12 - 296, 10,
-                             (("ready", "On wands"), ("new", "New"), ("all", "All")), _tab, 96)
-    p = k.button(sh, 262, 12, 44, "<", t.INK, w=40)
-    n = k.button(sh, 310, 12, 44, ">", t.INK, w=40)
-    k.on(p, lambda: _page(-1))
-    k.on(n, lambda: _page(1))
-    _w["pager"] = (p, n)
-    for i in range(COLS * 2):
-        x = 20 + (i % COLS) * (TW + 12)
-        y = 72 + (i // COLS) * (TH + 12)
-        b = k.box(sh, x, y, TW, TH, t.SURFACE, R, t.BORDER)
-        sw = k.box(b, 14, 14, 40, 40, 0xBF75C9, 10)
-        nm = k.slot(b, 14, 66, TW - 28, t.INK, k.F_BODY)
-        sub = k.slot(b, 14, 92, TW - 28, t.INK_3, F12)
-        d = {"box": b, "sw": sw, "name": nm, "sub": sub, "slug": None}
-        k.on(b, lambda d=d: _select(d))
+    _w["head"] = k.slot(sh, 20, 12, 400, t.INK, k.F_HEAD)
+    _w["to"] = k.slot(sh, 20, 36, 400, t.PINK_DARK, F12)
+    _, _w["seg"], _ = k.seg(sh, k.W - 20 - 104, 8, (("grid", "Grid"), ("list", lv.SYMBOL.LIST)), _view, 48)
+    for _ in range(2):
+        b = k.box(sh, AREA_X, 0, AREA_W, 56, t.BG, 12)
+        chev = k.box(b, 4, 4, 48, 48, t.SURFACE, 12, t.BORDER, 2)
+        mark = k.text(chev, lv.SYMBOL.DOWN, t.INK_3, k.F16, align=lv.ALIGN.CENTER)
+        title = k.text(b, "", t.INK, k.F16, 62, 18)
+        n = k.text(b, "", t.INK_3, F12, -12, 0, lv.ALIGN.RIGHT_MID)
+        h = {"box": b, "mark": mark, "title": title, "n": n, "key": None, "y": None}
+        k.on(b, lambda h=h: h["key"] and _fold(h["key"]))
+        _heads.append(h)
+    for _ in range(POOL):
+        b = k.box(sh, 0, 0, 10, 10, t.SURFACE, R, t.BORDER, 2)
+        b.set_style_bg_color(k.c(t.PINK_50), lv.STATE.PRESSED)
+        sw = k.box(b, 8, 8, 36, 36, 0xBF75C9, 10)
+        nm = k.slot(b, 8, 56, 90, t.INK, F12)
+        d = {"box": b, "sw": sw, "name": nm, "slug": None, "geo": None}
+        k.on(b, lambda d=d: d["slug"] and _tap(d["slug"]))
         _tiles.append(d)
-    _w["msg"] = k.slot(sh, 20, 368, 350, t.INK_3, k.F_BODY)
-    # one action per sheet: Start in start mode, Send code in code mode, same spot
-    sc = k.button(sh, 570, 352, 52, f"Send code{k.ARROW}", t.SURFACE, "code_20", font=k.F_HEAD,
-                  primary="purple", w=210)
-    st = k.button(sh, 570, 352, 52, f"Start{k.ARROW}", t.SURFACE, "play_20", font=k.F_HEAD, primary=True, w=210)
-    k.on(st, lambda: _go("start"))
-    k.on(sc, lambda: _go("code"))
-    _w["start"] = st
-    _w["code"] = sc
+    _w["rail"] = k.rail(sh, k.W - 12 - 52, AREA_Y + 4, AREA_H - 8, lambda: _page(-1), lambda: _page(1))
+    k.box(sh, 0, 440 - 76, k.W, 1, k.GREY)
+    cancel = k.button(sh, k.W - 20 - 130, 440 - 66, 52, "Cancel", t.INK_3, font=k.F_BODY, w=130)
+    k.on(cancel, close)
 
 
-def _tab(tab):
-    _w["tab"] = tab
+def _view(v):
+    _w["view"] = v
     _w["page"] = 0
-    _w["sel"] = None
+    refresh()
+
+
+def _fold(key):
+    _w["open"][key] = not _w["open"][key]
     refresh()
 
 
@@ -67,27 +77,16 @@ def _page(n):
     refresh()
 
 
-def _select(d):
-    if d["slug"]:
-        _w["sel"] = d["slug"]
-        refresh()
-
-
-def _go(what):
-    slug = _w["sel"]
-    if slug is None:
-        return
+def _tap(slug):
     P = panel.P
     close()
-    P.act(P.start_game if what == "start" else P.send_code, slug)
+    P.act(P.start_game if _w["mode"] == "start" else P.send_code, slug)
 
 
 def open(mode="start"):
     if _root is None:
         _build()
-    _w["sel"] = None
     _w["mode"] = mode
-    _w["tab"] = "all"
     _w["page"] = 0
     k.show_hide(_root, True)
     refresh()
@@ -98,35 +97,47 @@ def close():
         k.show_hide(_root, False)
 
 
-def _ready(g, macs):
-    return not g["flash"] or (macs and macs <= panel.P.sent.get(g["slug"], set()))
-
-
-def _games():
+def _lines():
+    """The sheet as lines: ("h", key, title, count) headers and ("g", [games]) tile rows."""
     P = panel.P
-    macs = set(P.macs())
-    if _w["mode"] == "code":
-        return P.lib.flash_games()      # built-in games are already on every wand
-    tab = _w["tab"]
-    return [g for g in P.lib.games if tab == "all" or (tab == "ready") == bool(_ready(g, macs))]
+    cols = _VIEW[_w["view"]][0]
+    sections = [("custom", "Custom", P.lib.flash_games())]
+    if _w["mode"] == "start":
+        sections.append(("examples", "Examples", [g for g in P.lib.games if g["slug"] in _BUILTIN]))
+    out = []
+    for key, title, games in sections:
+        if _w["mode"] == "start":
+            out.append(("h", key, title, len(games)))
+            if not _w["open"][key]:
+                continue
+        for i in range(0, len(games), cols):
+            out.append(("g", games[i:i + cols]))
+    return out
 
 
-def _sub(g):
-    """(meta text, color) for a game tile."""
-    P = panel.P
-    macs = P.macs()
-    m = len(macs)
-    playing = sum(1 for x in macs if P.playing.get(x) == g["slug"])
-    if macs and playing == m:
-        return "Playing now", t.TEAL_DARK
-    if not g["flash"]:
-        return (f"On all {m}" if m else "On all"), t.INK_3
-    n = len(P.sent.get(g["slug"], set()) & set(macs))
-    if n == 0:
-        return f"New{k.DOT}on 0 of {m}", t.PINK_DARK
-    if n < m:
-        return f"On {n} of {m}", t.WARN[0]
-    return f"On all {m}", t.INK_3
+_BUILTIN = set(s for s, _ in library.BUILTIN)
+
+
+def _pages(lines):
+    """Start index of each page: as many lines as fit in the area."""
+    th = _VIEW[_w["view"]][1]
+    starts = [0]
+    y = 0
+    for i, ln in enumerate(lines):
+        h = 56 if ln[0] == "h" else th
+        if y and y + h > AREA_H:
+            starts.append(i)
+            y = 0
+        y += h + GAP
+    return starts
+
+
+def _place(o, cache, key, x, y, w=None, h=None):
+    if cache.get(key) != (x, y, w, h):
+        cache[key] = (x, y, w, h)
+        o.set_pos(x, AREA_Y + y)
+        if w is not None:
+            o.set_size(w, h)
 
 
 def refresh():
@@ -135,38 +146,49 @@ def refresh():
     P = panel.P
     code = _w["mode"] == "code"
     k.st(_w["head"], "Send code" if code else "Start a game")
-    k.show_hide(_w["seg_tr"], not code)
-    k.show_hide(_w["start"], not code)
-    k.show_hide(_w["code"], code)
-    n = len(P.macs())
-    k.st(_w["to"], f"To: {P.target['name']}" if P.target["kind"] == "one"
-         else f"To: {P.target['name']}{k.DOT}{n} device{'' if n == 1 else 's'}")
-    _w["seg"](_w["tab"])
-    games = _games()
-    per = COLS * 2
-    pages = max(1, (len(games) + per - 1) // per)
-    _w["page"] = min(_w["page"], pages - 1)
-    for b in _w["pager"]:
-        k.show_hide(b, pages > 1)
-    games = games[_w["page"] * per:(_w["page"] + 1) * per]
-    for i, d in enumerate(_tiles):
-        g = games[i] if i < len(games) else None
-        k.show_hide(d["box"], g is not None)
-        d["slug"] = g["slug"] if g else None
-        if g is None:
+    k.st(_w["to"], f"To: {P.target['name']}")
+    _w["seg"](_w["view"])
+    cols, th = _VIEW[_w["view"]]
+    tw = (AREA_W - (cols - 1) * GAP) // cols
+    lines = _lines()
+    starts = _pages(lines)
+    _w["page"] = min(_w["page"], len(starts) - 1)
+    first = starts[_w["page"]]
+    last = starts[_w["page"] + 1] if _w["page"] + 1 < len(starts) else len(lines)
+    _w["rail"](_w["page"], len(starts))
+    y = 0
+    hi = ti = 0
+    for ln in lines[first:last]:
+        if ln[0] == "h":
+            h = _heads[hi]
+            hi += 1
+            h["key"] = ln[1]
+            k.show_hide(h["box"], True)
+            _place(h["box"], h, "geo", AREA_X, y)
+            k.st(h["title"], ln[2])
+            k.st(h["n"], str(ln[3]))
+            k.st(h["mark"], lv.SYMBOL.DOWN if _w["open"][ln[1]] else lv.SYMBOL.RIGHT)
+            y += 56 + GAP
             continue
-        k.sty(d["sw"], "bg", g["color"])
-        k.st(d["name"], g["name"])
-        word, col = _sub(g)
-        sel = g["slug"] == _w["sel"]
-        k.st(d["sub"], word)
-        k.sty(d["sub"], "text", t.PINK_DARK if sel else col)
-        k.sty(d["box"], "border", t.PINK if sel else t.BORDER)
-        k.sty(d["box"], "bg", t.PINK_50 if sel else t.SURFACE)
-    sel = P.lib.get(_w["sel"]) if _w["sel"] else None
-    # the design's only message: a game no wand is on yet
-    new = sel is not None and not code and _sub(sel)[0].startswith("New")
-    k.st(_w["msg"], f"{sel['name']} needs its code first." if new else "")
-    # Start is never held back: the panel's record of what each wand has is lost on restart
-    k.set_enabled(_w["code"], sel is not None)
-    k.set_enabled(_w["start"], sel is not None)
+        for c, g in enumerate(ln[1]):
+            if ti >= POOL:
+                break
+            d = _tiles[ti]
+            ti += 1
+            d["slug"] = g["slug"]
+            k.show_hide(d["box"], True)
+            _place(d["box"], d, "geo", AREA_X + c * (tw + GAP), y, tw, th)
+            geo = (8, 56, tw - 16) if _w["view"] == "grid" else (52, 17, tw - 60)
+            if d.get("ngeo") != geo:
+                d["ngeo"] = geo
+                d["name"].set_pos(geo[0], geo[1])
+                d["name"].set_width(geo[2])
+            k.sty(d["sw"], "bg", g["color"])
+            k.st(d["name"], g["name"])
+        y += th + GAP
+    for h in _heads[hi:]:
+        h["key"] = None
+        k.show_hide(h["box"], False)
+    for d in _tiles[ti:]:
+        d["slug"] = None
+        k.show_hide(d["box"], False)

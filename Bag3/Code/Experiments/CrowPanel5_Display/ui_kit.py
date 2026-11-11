@@ -26,6 +26,7 @@ DOT = " - "
 ARROW = " >"
 R = 14
 GREY = 0xF4F2FA
+INK3 = t.INK_3
 OFF_BG = 0xD8D4E6
 
 _fs = None
@@ -315,13 +316,13 @@ def header(scr, title, back_fn=None, sub=None, w=420):
     return hd, lb, slot(hd, x, 36, w, t.INK_3, F_SMALL, sub)
 
 
-def seg(parent, x, y, items, pick, iw=100):
+def seg(parent, x, y, items, pick, iw=100, ih=40):
     """Segmented switch: grey track, the active item white with pink text.
     items = ((key, label), ...); pick(key) on tap. Returns (track, set_active(key), {key: label})."""
-    tr = box(parent, x, y, len(items) * iw + 8, 48, GREY, 20)
+    tr = box(parent, x, y, len(items) * iw + 8, ih + 8, GREY, 20)
     parts = {}
     for i, (key, label) in enumerate(items):
-        b = box(tr, 4 + i * iw, 4, iw, 40, GREY, 16)
+        b = box(tr, 4 + i * iw, 4, iw, ih, GREY, 16)
         lb = text(b, label, t.INK_3, F14, align=lv.ALIGN.CENTER)
         on(b, lambda key=key: pick(key))
         parts[key] = (b, lb)
@@ -331,6 +332,32 @@ def seg(parent, x, y, items, pick, iw=100):
             sty(b, "bg", t.SURFACE if kk == key else GREY)
             sty(lb, "text", t.PINK_DARK if kk == key else t.INK_3)
     return tr, set_active, {kk: v[1] for kk, v in parts.items()}
+
+
+def rail(parent, x, y, h, on_up, on_down):
+    """52 px paging rail: up and down arrows with a track between (no free scrolling).
+    Returns set(page, pages); the rail hides when there is one page."""
+    up = button(parent, x, y, 52, lv.SYMBOL.UP, INK3, px=0, w=52)
+    dn = button(parent, x, y + h - 52, 52, lv.SYMBOL.DOWN, INK3, px=0, w=52)
+    tr = box(parent, x + 19, y + 60, 14, h - 120, GREY, 7)
+    th = box(tr, 0, 0, 14, h - 120, t.WAIT_DOT, 7)
+    on(up, on_up)
+    on(dn, on_down)
+    last = [None]
+
+    def set_page(page, pages):
+        many = pages > 1
+        for o in (up, dn, tr):
+            show_hide(o, many)
+        if not many or last[0] == (page, pages):
+            return
+        last[0] = (page, pages)
+        full = h - 120
+        th.set_height(max(20, full // pages))
+        th.set_y(full * page // pages)
+        set_enabled(up, page > 0)
+        set_enabled(dn, page < pages - 1)
+    return set_page
 
 
 # edge state -> (fill color, track color or None, percent)

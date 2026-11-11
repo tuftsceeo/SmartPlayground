@@ -18,7 +18,7 @@ CARD_W = 504
 AX = 536
 AW = 250
 _w = {"stopped": False}
-_DOTS = {"has": t.TEAL, "send": t.PINK, "wait": t.WAIT_DOT, "fail": t.DANGER[0]}
+_DOTS = {"has": t.TEAL, "recv": t.PINK, "wait": t.WAIT_DOT, "fail": t.DANGER[0]}
 
 
 def _stop_all():
@@ -79,7 +79,7 @@ def _status(P):
     d = P.dist
     if d:
         has = sum(1 for s in d["state"].values() if s == "has")
-        busy = any(s in ("send", "wait") for s in d["state"].values())
+        busy = any(s in ("recv", "wait") for s in d["state"].values())
         if busy:
             _w["stopped"] = False
             pct = 100 * has // max(1, len(d["state"]))
