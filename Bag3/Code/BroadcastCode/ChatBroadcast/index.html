@@ -8,6 +8,7 @@
         <link rel="stylesheet" href="css/editor.css" />
     </head>
     <body>
+        <div class="no-serial-banner" role="status">This browser can't send games to wands. Use Chrome or Edge on a computer.</div>
         <div id="app-shell">
             <!-- Screen 1: Splash -->
             <div id="view-splash" class="view-panel">
@@ -485,8 +486,15 @@
         <!-- Passphrase modal -->
         <div class="overlay-view" id="modal-overlay" data-persistent="true">
             <div class="overlay-card overlay-card-send">
-                <h2>Welcome!</h2>
-                <p>Enter the magic code to get started.</p>
+                <div id="no-serial-note" class="no-serial-note hidden" role="alert">
+                    <span data-icon="warning" data-icon-size="26"></span>
+                    <div>
+                        <strong>This browser can't send games to wands</strong>
+                        <span>Use Chrome or Edge on a computer. You can still make and try games here.</span>
+                    </div>
+                </div>
+                <h2 id="modal-title">Welcome!</h2>
+                <p id="modal-sub">Enter the magic code to get started.</p>
                 <input type="password" id="modal-passphrase" placeholder="Magic code…" />
                 <div id="modal-error" class="modal-error"></div>
                 <button class="btn-primary" id="btn-modal-unlock" type="button">Unlock</button>

@@ -1389,6 +1389,32 @@ body:not(.ui-advanced) #btn-station-catalog { display: none; }
     font: 800 12.5px 'Nunito';
     color: var(--ink);
 }
+.no-serial-note {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    text-align: left;
+    background: #fff6e0;
+    color: #5b5468;
+    border-radius: 16px;
+    padding: 14px 16px;
+    margin-bottom: 16px;
+    font: 14px 'Nunito';
+}
+.no-serial-note [data-icon] { color: #b36b00; flex: none; display: inline-flex; }
+.no-serial-note strong { display: block; font: 900 15px 'Nunito'; color: #7a4a00; margin-bottom: 2px; }
+.no-serial-banner {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 5;
+    text-align: center;
+    background: #fff6e0;
+    color: #7a4a00;
+    font: 800 13px 'Nunito';
+    padding: 4px 12px;
+}
+body.no-serial .no-serial-banner { display: block; }
 #modal-passphrase {
     width: 100%;
     padding: 10px 12px;

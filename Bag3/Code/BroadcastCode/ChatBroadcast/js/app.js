@@ -243,6 +243,7 @@ class App {
 
         dbg('app', 'loading encrypted key…');
         await loadEncryptedKey();
+        this.showSerialWarning();
         initAuthModal();
         dbg('app', 'auth modal initialized — waiting for app:unlocked');
 
@@ -989,8 +990,6 @@ class App {
                 dbg('device', 'navigator.serial connect event fired');
                 this.tryAutoReconnect();
             });
-        } else if (!navigator.serial) {
-            dbgWarn('device', 'Web Serial API not available in this browser (need Chrome/Edge)');
         }
     }
 
@@ -1051,6 +1050,19 @@ class App {
         this._clearRebootTimer();
         if (obj?.type && obj.type !== 'game_start') {
             this._silenceLimitMs = SILENCE_LIMIT_MS;
+        }
+    }
+
+    /** Without Web Serial the app can't reach a device: say so before the magic code. */
+    showSerialWarning() {
+        if ('serial' in navigator) return;
+        dbgWarn('device', 'Web Serial API not available in this browser (need Chrome/Edge)');
+        document.getElementById('no-serial-note')?.classList.remove('hidden');
+        document.body.classList.add('no-serial');
+        if (loadUiMode() === 'simple') {
+            document.getElementById('modal-title').textContent = 'Enter the magic code';
+            document.getElementById('modal-sub').classList.add('hidden');
+            document.getElementById('btn-modal-unlock').textContent = 'Start';
         }
     }
 
