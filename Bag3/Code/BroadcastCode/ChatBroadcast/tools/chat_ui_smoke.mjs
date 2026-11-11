@@ -160,6 +160,16 @@ await page.fill("#modal-passphrase", PASS);
 await page.click("#btn-modal-unlock");
 await page.click("#btn-scratch");
 
+/** Reload into an empty workspace, so the starter chips show again. */
+async function freshWorkspace() {
+    await page.reload({ waitUntil: "load" });
+    await page.waitForFunction(() => document.getElementById("modal-passphrase"));
+    await page.fill("#modal-passphrase", PASS);
+    await page.click("#btn-modal-unlock");
+    await page.click("#btn-scratch");
+    await page.waitForSelector(".starter-chips");
+}
+
 async function send(text) {
     const before = requests.length;
     await page.fill("#user-input", text);
@@ -223,7 +233,8 @@ await test("Advanced mode adds the addendum block", async () => {
 
 await test("guided mode: three instant steps, then one composed request", async () => {
     const before = requests.length;
-    await page.click("#btn-guided");
+    await freshWorkspace();
+    await page.click('.starter-chips .starter-chip:has-text("Help me make a game")');
     await shot("3-guided-step");
     for (const label of ["Wands and the big display", "Tap a card", "Lights and colors"]) {
         assert.equal(requests.length, before, "no model call during the steps");
@@ -238,7 +249,8 @@ await test("guided mode: three instant steps, then one composed request", async 
 
 await test("interview: title asked locally, no choices before question 3, brief becomes a game request", async () => {
     const before = requests.length;
-    await page.click("#btn-interview");
+    await freshWorkspace();
+    await page.click('.starter-chips .starter-chip:has-text("Interview me")');
     assert.equal(requests.length, before, "title question needs no model call");
     assert.ok((await page.textContent("#chat-box")).includes("What is the title of your game?"));
 
@@ -274,7 +286,8 @@ await test("interview: title asked locally, no choices before question 3, brief 
 });
 
 await test("interview: Make my game now gets a JSON brief on the first try", async () => {
-    await page.click("#btn-interview");
+    await freshWorkspace();
+    await page.click('.starter-chips .starter-chip:has-text("Interview me")');
     await send("Bee Buzz");
     const n = requests.length;
     await page.click('.choice-chips .starter-chip:text-is("Make my game now")');
