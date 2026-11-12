@@ -24,7 +24,6 @@ open:
   - Splat zones (inside/outside, left/right) are not drawn as fills
   - Simulator device art is hand-drawn, not the design-system icons
   - Structured game card (parseable reply format and renderer) does not exist
-  - Simulator has no game-state captions, role names or legends
   - Saved games do not store versions, so no "N versions" label
   - "Teacher hub" wording exists only in simple mode
 keywords: [simple mode, design corrections, minimum devices, fixed, open-ended, Splat group, Splat zones, device art, game card, versions, teacher hub]
@@ -83,23 +82,12 @@ question. Needs a card renderer and prompt changes in `knowledge/policy.md` (:52
 format is either conditional on `advancedMode` (`buildRequest.js` :124) or accepted in both. Reply
 markers are parsed at `js/chat.js` (:138–265).
 
-## 7. Game-state captions and roles in the Simulator
-
-Role names ("Player X / O", "Codebreaker"), a dimmed waiting wand, status lines ("2 of 4 colors
-picked") and legends beside the icon display. No data source exists; it needs a new marker or the
-Simulator reading the game at runtime.
-
-## 8. Version count on saved games
+## 7. Version count on saved games
 
 "N versions" needs versions stored with the game; `js/library.js` (:28) saves only the current
 code.
 
-## 9. "Teacher hub" naming outside simple mode
+## 8. "Teacher hub" naming outside simple mode
 
 Simple mode says "teacher hub"; advanced and dev keep "Box" and "Dial". Extending it is a naming
 decision across both.
-
-## Not built, by decision
-
-The turn banner ("X's turn…") was removed in review and is not built, though the Main board still
-shows one.
