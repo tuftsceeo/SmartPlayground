@@ -37,8 +37,6 @@ import { dbg, dbgWarn, dbgError } from './debug.js';
 import { loadUiMode, toggleUiMode, getUiMode } from './uiMode.js';
 import { loadDevMode, toggleDevMode } from './devMode.js';
 import { loadSavedGames, saveGame, findSavedGame, renameSavedGame, deleteSavedGame } from './library.js';
-import { scanCapabilities } from './sim/codeCapabilities.js';
-import { buildComponentChecklist } from './checklist.js';
 import { validateGameName, slugify, remixName } from './gameName.js';
 import { buildHardwareReqs, formatHardwareReqs, requirementPills, baselineTags } from './hardware.js';
 import { initPaneSplit } from './paneSplit.js';
@@ -2655,23 +2653,6 @@ class App {
         await this.callClaude(msg);
     }
 
-    renderComponentList(targetId) {
-        const code = getCode('wand');
-        const caps = scanCapabilities(code);
-        const items = buildComponentChecklist(caps, this.requiredTags);
-        const el = document.getElementById(targetId);
-        if (!el) return;
-        el.innerHTML = '';
-        el.classList.add('send-icons-row');
-        items.forEach((item) => {
-            const div = document.createElement('div');
-            div.className = `send-icon-item ${item.kind || 'other'}`;
-            div.title = item.label;
-            div.innerHTML = iconSvg(item.icon, { size: 20, strokeWidth: 1.6 });
-            el.appendChild(div);
-        });
-    }
-
     /**
      * @param {'box'|'wand'} kind — which link implementation to open the
      *   port with. Chosen on the connect overlay (Broadcast Box/Dial share
@@ -2686,7 +2667,6 @@ class App {
             this._boxGames = []; // stale Box/Dial library from a previous session must not leak in
             this.setupDeviceListeners();
         }
-        this.renderComponentList('connect-components');
         const errEl = document.getElementById('connect-error');
         if (errEl) errEl.textContent = '';
         this.setLinkState('opening');
@@ -2740,7 +2720,6 @@ class App {
         // kind; each of its buttons calls onConnect(kind) directly (needed
         // for requestPort()'s user-gesture requirement anyway).
         this.pendingSendAfterConnect = false;
-        this.renderComponentList('connect-components');
         showOverlay('connect-overlay');
     }
 
@@ -3009,8 +2988,7 @@ class App {
             dbg('app', 'confirmSend() — not live; connecting first');
             hideOverlay('send-confirm-overlay');
             this.pendingSendAfterConnect = true;
-            this.renderComponentList('connect-components');
-            showOverlay('connect-overlay');
+                showOverlay('connect-overlay');
             return;
         }
         const isWand = this.device.kind === 'wand';

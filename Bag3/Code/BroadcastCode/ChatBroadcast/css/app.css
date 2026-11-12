@@ -1431,30 +1431,6 @@ body.no-serial .no-serial-banner { display: block; }
     margin: 12px 0;
 }
 
-.send-icons-row {
-    display: flex;
-    justify-content: center;
-    flex-wrap: wrap;
-    gap: 14px;
-    margin-bottom: 18px;
-    list-style: none;
-    padding: 0;
-}
-.send-icons-row li,
-.send-icon-item {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 4px;
-    font: 700 11px 'Nunito', ui-rounded, system-ui, sans-serif;
-    color: var(--muted);
-}
-.send-icon-item svg { flex: none; }
-.send-icon-item.wand { color: var(--purple); }
-.send-icon-item.nfc { color: var(--pink); }
-.send-icon-item.shake { color: var(--teal); }
-.send-icon-item.other { color: var(--icon-ink); }
-
 .tag-bars { display: flex; gap: 6px; margin-bottom: 18px; }
 .tag-bar { flex: 1; height: 8px; border-radius: 5px; background: #eee; }
 .tag-bar.done, .tag-bar.next { background: var(--pink); }
@@ -1858,8 +1834,7 @@ body:not(.ui-advanced) .adv-only { display: none !important; }
 
 /* ---- Connect: USB title row and two tiles ---- */
 #connect-overlay .overlay-card { max-width: 640px; padding: 36px 40px; }
-.connect-head { display: flex; align-items: center; justify-content: center; gap: 12px; color: var(--teal-dark); }
-.connect-head h2 { margin: 0; color: var(--ink); }
+#connect-overlay .connect-title { text-align: center; margin: 0; }
 #connect-overlay .connect-sub { text-align: center; margin: 6px 0 0; }
 .connect-tiles {
     display: grid;
@@ -1884,9 +1859,8 @@ body:not(.ui-advanced) .adv-only { display: none !important; }
 }
 .connect-tiles .connect-tile:hover,
 .connect-tiles .connect-tile:focus-visible { border-color: #6c4cd1; background: #f7f5ff; outline: none; }
-#btn-connect-wand .tile-icon { color: #6c4cd1; }
-#btn-connect-box .tile-icon { color: #1c9a82; }
-.tile-icon { display: flex; height: 116px; align-items: center; justify-content: center; }
+/* Both tiles are equal choices: one icon color, no device color. */
+.tile-icon { color: var(--purple); display: flex; height: 116px; align-items: center; justify-content: center; }
 #btn-connect-cancel { width: 100%; }
 
 /* ---- Send game ---- */
