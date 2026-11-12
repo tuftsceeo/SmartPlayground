@@ -63,6 +63,47 @@ export function addMsg(text, cls = "bot") {
     return div;
 }
 
+/**
+ * Simple mode: fold everything before the latest teacher message into one
+ * row, "Earlier: <Game> made · N changes", that opens on tap. Does nothing
+ * until an earlier reply has carried code.
+ * @param {string} gameName
+ */
+export function collapseEarlier(gameName) {
+    const box = document.getElementById("chat-box");
+    if (!box) return;
+    const kids = [...box.children];
+    let last = -1;
+    kids.forEach((k, i) => { if (k.matches?.(".msg.user")) last = i; });
+    if (last <= 0) return;
+    let group = box.querySelector(":scope > .earlier");
+    const fresh = kids.slice(0, last).filter((k) => k !== group);
+    if (!fresh.length) return;
+    if (!group) {
+        group = document.createElement("div");
+        group.className = "earlier";
+        const toggle = document.createElement("button");
+        toggle.type = "button";
+        toggle.className = "earlier-toggle";
+        toggle.setAttribute("aria-expanded", "false");
+        toggle.addEventListener("click", () => {
+            const open = group.classList.toggle("open");
+            toggle.setAttribute("aria-expanded", String(open));
+        });
+        const body = document.createElement("div");
+        body.className = "earlier-body";
+        group.append(toggle, body);
+        box.insertBefore(group, box.firstChild);
+    }
+    const body = group.querySelector(".earlier-body");
+    // Only fold once a game has been made; an interview is left in view.
+    if (!body.querySelector(".see-code") && !fresh.some((k) => k.querySelector?.(".see-code"))) return;
+    fresh.forEach((k) => body.appendChild(k));
+    const changes = Math.max(0, body.querySelectorAll(".see-code").length - 1);
+    group.querySelector(".earlier-toggle").textContent =
+        `Earlier: ${gameName || "Your game"} made${changes ? ` · ${changes} change${changes === 1 ? "" : "s"}` : ""}`;
+}
+
 export function addThinkingMsg() {
     const box = document.getElementById("chat-box");
     const div = document.createElement("div");

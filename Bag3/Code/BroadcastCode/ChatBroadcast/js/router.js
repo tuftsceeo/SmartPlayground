@@ -1,6 +1,7 @@
 import { dbg, dbgWarn } from "./debug.js";
 import { iconSvg } from "./icons.js";
 import { deviceShortName, deviceProductName } from "./device/bboxDeviceLink.js";
+import { getUiMode } from "./uiMode.js";
 
 const VIEWS = ["splash", "gallery", "detail", "workspace"];
 
@@ -253,13 +254,17 @@ export function setConnectionBadge(link) {
         const isLinkReady = state === "live";
         const hasCode = document.body.dataset.wsHasCode === "1";
         sendBtn.disabled = !(isLinkReady && hasCode);
-        sendBtn.textContent = `Send to ${short} →`;
+        // Simple mode names a Box or Dial the "teacher hub" on this button
+        // only; the header keeps the Box / Dial names.
+        const sendName = getUiMode() === "simple" && link?.kind !== "wand" && link?.deviceInfo?.device !== "crowpanel"
+            ? "teacher hub" : short;
+        sendBtn.textContent = `Send to ${sendName} →`;
         if (!hasCode) {
             sendBtn.title = "Describe your game in chat first — there is no code to send yet";
         } else if (!isLinkReady) {
-            sendBtn.title = `Connect to the ${short} first`;
+            sendBtn.title = `Connect to the ${sendName} first`;
         } else {
-            sendBtn.title = `Send to ${product}`;
+            sendBtn.title = `Send to ${sendName === "teacher hub" ? "the teacher hub" : product}`;
         }
     }
 

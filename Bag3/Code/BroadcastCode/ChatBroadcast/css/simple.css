@@ -229,3 +229,191 @@ body:not(.ui-advanced) #btn-send-done {
     padding: 14px;
     width: 100%;
 }
+
+/* ======================================================================
+   Game screen (design boards "game ready" and "Mastermind")
+   The header is not styled here: it is the same in every mode.
+   ====================================================================== */
+
+/* ---- Title bar: white full-width row; the send button sits above the chat ---- */
+body:not(.ui-advanced) .ws-titlebar {
+    gap: 12px;
+    padding: 0 0 0 28px;
+    min-height: 68px;
+    background: #fff;
+    border-bottom: 1px solid #e8e6f0;
+}
+body:not(.ui-advanced) .ws-name {
+    height: auto;
+    max-width: 360px;
+    gap: 10px;
+    border-radius: 18px;
+    padding: 10px 18px;
+    font: 900 22px 'Nunito';
+}
+body:not(.ui-advanced) .ws-name-input { font: 900 22px 'Nunito'; }
+body:not(.ui-advanced) .ws-titlebar > .icon-btn {
+    width: 44px;
+    height: 44px;
+    border-radius: 14px;
+}
+body:not(.ui-advanced) .ws-titlebar .preview-toolbar {
+    margin-left: auto;
+    margin-right: 28px;
+    padding: 0;
+    min-height: 0;
+    border: 0;
+    background: none;
+}
+body:not(.ui-advanced) .ws-titlebar .preview-toolbar.hidden { display: none; }
+body:not(.ui-advanced) .ws-titlebar .preview-segment { border-radius: 16px; padding: 4px; }
+body:not(.ui-advanced) .ws-titlebar .preview-tab { font: 800 15px 'Nunito'; padding: 8px 14px; border-radius: 12px; }
+body:not(.ui-advanced) .ws-titlebar-actions {
+    margin-left: auto;
+    flex: none;
+    width: 560px;
+    box-sizing: border-box;
+    align-self: stretch;
+    justify-content: flex-end;
+    padding: 12px 24px;
+    border-left: 1px solid #e8e6f0;
+}
+body:not(.ui-advanced) .ws-titlebar .preview-toolbar:not(.hidden) + .ws-titlebar-actions { margin-left: 0; }
+body:not(.ui-advanced) .btn-send-box { font: 800 16px 'Nunito'; padding: 11px 16px; border-radius: 14px; }
+
+/* ---- Chat pane: fixed 560px, 19px text ---- */
+body:not(.ui-advanced) .ws-resizer { display: none; }
+body:not(.ui-advanced) .chat-col { width: 560px !important; min-width: 560px; max-width: 560px; }
+body:not(.ui-advanced) #chat-box { padding: 20px 24px; gap: 16px; }
+body:not(.ui-advanced) .msg { font: 19px/1.4 'Nunito'; padding: 14px 22px; }
+body:not(.ui-advanced) .msg.system { font-size: 18px; }
+body:not(.ui-advanced) .msg.user {
+    margin-left: 56px;
+    max-width: 78%;
+    border-radius: 26px 26px 8px 26px;
+}
+body:not(.ui-advanced) .msg.bot { border-radius: 28px 28px 28px 8px; border-width: 1.5px; }
+body:not(.ui-advanced) .msg-row.bot { margin-right: 56px; gap: 10px; }
+body:not(.ui-advanced) .msg-row.bot > .msg.bot { max-width: none; flex: 1 1 auto; }
+body:not(.ui-advanced) .msg-avatar { flex-basis: 36px; width: 36px; height: 36px; }
+body:not(.ui-advanced) .msg-avatar svg { width: 18px; height: 18px; }
+body:not(.ui-advanced) .chat-input-row { padding: 16px 20px; gap: 10px; align-items: center; }
+body:not(.ui-advanced) #user-input {
+    font: 19px 'Nunito';
+    border-radius: 24px;
+    padding: 14px 20px;
+    height: 56px;
+    box-sizing: border-box;
+}
+body:not(.ui-advanced) .btn-send-round { width: 54px; height: 54px; }
+body:not(.ui-advanced) .btn-send-round svg { width: 24px; height: 24px; }
+
+/* "See the code" link under a reply */
+.see-code {
+    display: inline-block;
+    margin-top: 8px;
+    padding: 0;
+    border: 0;
+    background: none;
+    font: 700 15px 'Nunito';
+    color: #6b6578;
+    cursor: pointer;
+}
+.see-code:hover { color: #a8265c; text-decoration: underline; }
+
+/* Follow-up chips */
+body:not(.ui-advanced) .choice-chips { gap: 10px; padding: 0 0 4px; }
+body:not(.ui-advanced) .choice-chips .starter-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font: 800 17px 'Nunito';
+    padding: 12px 18px;
+    border-radius: 18px;
+    border: 2px solid #e8e6f0;
+    background: #fff;
+    color: #231f2e;
+}
+body:not(.ui-advanced) .choice-chips .starter-chip svg { color: #d13a7c; flex: none; }
+
+/* Earlier turns folded into one row */
+.earlier { align-self: stretch; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.earlier-toggle {
+    border: 0;
+    border-radius: 12px;
+    background: #f4f2fa;
+    color: #6b6578;
+    font: 700 14px 'Nunito';
+    padding: 6px 14px;
+    cursor: pointer;
+}
+.earlier-toggle:hover { background: #ece8f7; }
+.earlier-body { display: none; flex-direction: column; gap: 16px; align-self: stretch; }
+.earlier.open .earlier-body { display: flex; }
+
+/* ======================================================================
+   New game: chat alone, centered, on the pink radial background
+   ====================================================================== */
+body.chat-fresh:not(.ui-advanced) .ws-body {
+    background: radial-gradient(circle at 50% 30%, #fff0f6, #fff 60%);
+}
+body.chat-fresh:not(.ui-advanced) .preview-col,
+body.chat-fresh:not(.ui-advanced) .ws-titlebar { display: none; }
+body.chat-fresh:not(.ui-advanced) .chat-col {
+    width: 760px !important;
+    min-width: 0;
+    max-width: 100%;
+    margin: 0 auto;
+    border-left: 0;
+}
+body.chat-fresh:not(.ui-advanced) #chat-box { justify-content: flex-start; padding: 28px 24px; }
+body.chat-fresh:not(.ui-advanced) #chat-box > :first-child { margin-top: 0; }
+body.chat-fresh:not(.ui-advanced) .chat-input-row { border-top: 0; padding: 16px 24px 32px; }
+body:not(.ui-advanced):not(.chat-fresh) .preview-col { animation: sim-in 0.35s ease-out; }
+@keyframes sim-in { from { opacity: 0; transform: translateX(-24px); } to { opacity: 1; transform: none; } }
+
+.new-game { display: flex; flex-direction: column; gap: 18px; flex-wrap: nowrap; padding: 0; margin: auto 0; }
+.ng-head { display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; }
+.ng-head h1 { margin: 0; font: 900 40px 'Nunito'; color: #231f2e; }
+.ng-head p { margin: 0; font: 18px 'Nunito'; color: #5b5468; }
+.ng-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.new-game .ng-card {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    text-align: left;
+    padding: 18px;
+    border-radius: 20px;
+    border: 2.5px solid #ef4d92;
+    background: #fff0f6;
+    color: #a8265c;
+    font: 900 20px 'Nunito';
+}
+.new-game .ng-choose { border-color: #6c4cd1; background: #f2eefc; color: #6c4cd1; }
+.new-game .ng-card span { font: 700 15px 'Nunito'; color: #5b5468; }
+.ng-label { font: 800 15px 'Nunito'; color: #6b6578; text-transform: uppercase; letter-spacing: 0.06em; }
+.ng-ideas { display: flex; flex-direction: column; gap: 10px; }
+.new-game .ng-idea {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    text-align: left;
+    padding: 12px 16px;
+    border-radius: 18px;
+    border: 2px solid #e8e6f0;
+    background: #fff;
+    color: #231f2e;
+    font: 800 18px 'Nunito';
+}
+.ng-tile { width: 48px; height: 48px; flex: none; border-radius: 12px; display: flex; align-items: center; justify-content: center; }
+.new-game .ng-question {
+    align-self: flex-start;
+    border: 0;
+    background: none;
+    padding: 0;
+    font: 700 16px 'Nunito';
+    color: #6b6578;
+    cursor: pointer;
+}
+.new-game .ng-question:hover { color: #a8265c; text-decoration: underline; }

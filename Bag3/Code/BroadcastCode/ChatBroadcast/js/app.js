@@ -1,6 +1,6 @@
 import { loadEncryptedKey, initAuthModal, getApiKey, hasEncryptedKey } from './auth.js';
 import {
-    addMsg, addThinkingMsg, removeTyping, extractCodeBlocks,
+    addMsg, addThinkingMsg, removeTyping, extractCodeBlocks, collapseEarlier,
     parseNfcCards, parseGameName, parseChoices, parseGameSettings, parseGameIcon, parseNextDevice, stripAllMarkers,
     hideOpenCode,
     parseGameBrief, stripGameBrief,
@@ -13,7 +13,7 @@ import {
 } from './prompt/buildRequest.js';
 import { readMessageStream } from './prompt/stream.js';
 import { renderMarkdown, buildCodeBlock } from './markdown.js';
-import { drawStarterIdeas, GUIDED_STEPS, guidedPrompt } from './starterIdeas.js';
+import { drawStarterIdeas, drawNewGameIdeas, GUIDED_STEPS, guidedPrompt } from './starterIdeas.js';
 import {
     initEditor, getCode, setCode, saveVersion, updateVersionUI,
     onPrevVersion, onNextVersion, getVersionCount, onDownload, resetEditor,
@@ -315,7 +315,7 @@ class App {
             setCode(code);
             saveVersion(code, 'From chat (sent manually)');
             this.dirty = true;
-            addMsg(`Code sent to editor (v${getVersionCount()})`, 'system');
+            addProcessMsg(`Code sent to editor (v${getVersionCount()})`);
             document.getElementById('code-drawer').classList.remove('hidden');
             this.updatePreview();
         });
@@ -720,6 +720,36 @@ class App {
         dbg('app', `editor showing role: ${role}`);
     }
 
+    /**
+     * Simple mode puts the Simulation/Icons tabs in the title bar, at the
+     * right end of the simulator side; advanced mode keeps them at the top
+     * of the preview column.
+     */
+    placePreviewTabs(inTitleBar) {
+        const tabs = document.querySelector('.preview-toolbar');
+        const bar = document.querySelector('.ws-titlebar');
+        const col = document.querySelector('.preview-col');
+        if (!tabs || !bar || !col) return;
+        if (inTitleBar) bar.insertBefore(tabs, bar.querySelector('.ws-titlebar-actions'));
+        else col.insertBefore(tabs, col.firstChild);
+    }
+
+    /**
+     * Simple mode, no game yet: the chat is shown alone and centered, and the
+     * input says "Or say your own idea…". Once the editor holds code the
+     * simulator column appears and the input asks what to change.
+     */
+    syncFreshChat() {
+        const simple = getUiMode() === 'simple';
+        const fresh = simple && document.body.dataset.wsHasCode !== '1';
+        document.body.classList.toggle('chat-fresh', fresh);
+        const input = document.getElementById('user-input');
+        if (input) {
+            input.placeholder = !simple ? 'type a request…'
+                : fresh ? 'Or say your own idea…' : 'Tell me what to change…';
+        }
+    }
+
     applyUiMode(mode) {
         const advanced = mode === 'advanced';
         const gear = document.getElementById('btn-mode-gear');
@@ -732,6 +762,9 @@ class App {
             document.getElementById('btn-modal-unlock').textContent = advanced ? 'Unlock' : 'Start';
         }
 
+        this.placePreviewTabs(!advanced);
+        this.syncFreshChat();
+        this.paintLink();
         this.applyLogFooter();
         this.syncRoleRail();
         if (gear) {
@@ -1167,7 +1200,7 @@ class App {
                 // (SOCK_REPLY_TIMEOUT_S), which looks identical from here.
                 // The state is not terminal — any inbound message promotes
                 // straight back to live — so the copy suggests, not accuses.
-                toast(`The ${this.deviceShort()} isn't answering. If it stays quiet, try Restart the ${this.deviceShort()}.`, true);
+                toast(`The ${this.deviceShort()} isn't answering. If it stays quiet, try Restart the ${deviceShortName(this.link.deviceInfo)}.`, true);
             }
             return;
         }
@@ -1791,6 +1824,7 @@ class App {
             saveVersion(code, 'Loaded from library', info.key);
         }
         this.retainRetiredRoleCode(g.name, roleCode);
+        if (getUiMode() === 'simple') collapseEarlier(g.name);
         this.syncRoleRail();
         this.dirty = false;
         this.updatePreview({ forcePlay: true });
@@ -1969,11 +2003,17 @@ class App {
         box.querySelectorAll('.choice-chips').forEach(el => el.remove());
         const wrap = document.createElement('div');
         wrap.className = 'choice-chips';
-        for (const text of choices) {
+        const simple = getUiMode() === 'simple';
+        // Simple mode: at most two follow-ups, each with an icon.
+        for (const text of simple ? choices.slice(0, 2) : choices) {
             const chip = document.createElement('button');
             chip.type = 'button';
             chip.className = 'starter-chip';
-            chip.textContent = text;
+            if (simple) {
+                chip.innerHTML = `${iconSvg(choiceIcon(text), { size: 18, strokeWidth: 2 })} <span>${escapeHtml(text)}</span>`;
+            } else {
+                chip.textContent = text;
+            }
             chip.addEventListener('click', () => {
                 if (this.isGenerating) return;
                 wrap.remove();
@@ -2178,9 +2218,53 @@ class App {
         wrap.scrollIntoView({ block: 'end' });
     }
 
+    /** Simple mode's New game screen (design board "New game"). */
+    renderNewGameScreen() {
+        const box = document.getElementById('chat-box');
+        const { question, ideas } = drawNewGameIdeas();
+        const tints = [['#fff0f6', '#d13a7c'], ['#e9fbf6', '#1c9a82'], ['#fff8dc', '#a87a00']];
+        const wrap = document.createElement('div');
+        wrap.className = 'starter-chips new-game';
+        wrap.innerHTML =
+            `<div class="ng-head"><h1>What game shall we make?</h1><p>Pick a way to start.</p></div>`
+            + `<div class="ng-options">`
+            + `<button type="button" class="starter-chip starter-chip-guided ng-card ng-interview" data-ng="interview">`
+            + `${iconSvg('message-circle', { size: 28, strokeWidth: 2 })}<b>Interview me</b><span>Answer a few questions</span></button>`
+            + `<button type="button" class="starter-chip ng-card ng-choose" data-ng="choose">`
+            + `${iconSvg('sparkles', { size: 28, strokeWidth: 2 })}<b>Help me choose</b><span>Pick step by step</span></button>`
+            + `</div><div class="ng-label">Or try an idea</div><div class="ng-ideas"></div>`;
+        const list = wrap.querySelector('.ng-ideas');
+        const fill = (text) => {
+            const inp = document.getElementById('user-input');
+            inp.value = text;
+            inp.focus();
+            inp.style.height = 'auto';
+            inp.style.height = Math.min(inp.scrollHeight, 120) + 'px';
+        };
+        ideas.forEach((sp, i) => {
+            const [bg, fg] = tints[i % tints.length];
+            const b = document.createElement('button');
+            b.type = 'button';
+            b.className = 'starter-chip ng-idea';
+            b.innerHTML = `<span class="ng-tile" style="background:${bg};color:${fg}">${iconSvg(sp.icon, { size: 26, strokeWidth: 2 })}</span><span>${escapeHtml(sp.short)}</span>`;
+            b.addEventListener('click', () => fill(sp.text));
+            list.appendChild(b);
+        });
+        const q = document.createElement('button');
+        q.type = 'button';
+        q.className = 'starter-chip ng-question';
+        q.textContent = question.short;
+        q.addEventListener('click', () => fill(question.text));
+        wrap.appendChild(q);
+        wrap.querySelector('[data-ng="interview"]').addEventListener('click', () => this.startInterview());
+        wrap.querySelector('[data-ng="choose"]').addEventListener('click', () => this.startGuidedMode());
+        box.appendChild(wrap);
+    }
+
     renderStarterChips() {
         const box = document.getElementById('chat-box');
         if (box.querySelector('.starter-chips')) return;
+        if (getUiMode() === 'simple') { this.renderNewGameScreen(); return; }
         const wrap = document.createElement('div');
         wrap.className = 'starter-chips';
         const interview = document.createElement('button');
@@ -2368,6 +2452,7 @@ class App {
         // because it runs on link changes and this runs on code changes.
         const sendable = !!primary;
         document.body.dataset.wsHasCode = sendable ? '1' : '';
+        this.syncFreshChat();
         this.paintLink();
 
         if (this.iconsViewOpen()) this.renderIconsList();
@@ -3404,6 +3489,7 @@ class App {
         document.querySelector('.starter-chips')?.remove();
         document.querySelectorAll('.choice-chips').forEach(el => el.remove());
         addMsg(msg, 'user');
+        if (getUiMode() === 'simple') collapseEarlier(this.gameName);
         if (this.interview) {
             await this.answerInterview(msg);
             return;
@@ -3595,7 +3681,7 @@ class App {
                 }
             }
             if (snippets.length && !games.length) {
-                addMsg('This is a code snippet — your game was not changed.', 'system');
+                addProcessMsg('This is a code snippet — your game was not changed.');
             }
             if (games.length) {
                 if (gameName) {
@@ -3624,9 +3710,9 @@ class App {
                 // looking at something the teacher just asked for.
                 setActiveRole(seen[0]);
                 this.syncRoleRail();
-                addMsg(seen.length > 1
+                addProcessMsg(seen.length > 1
                     ? `Code updated for ${seen.join(' and ')} (v${getVersionCount()})`
-                    : `Code updated (v${getVersionCount()})`, 'system');
+                    : `Code updated (v${getVersionCount()})`);
                 // On a whole-game reply, no marker means this version reads no
                 // named tags, not "keep the old ones".
                 this.declaredTags = nfcCards?.length ? nfcCards : (partial ? this.declaredTags : null);
@@ -3674,7 +3760,7 @@ class App {
         }
 
         if (retryCut) {
-            addMsg('That reply was too long — asking for a shorter version…', 'system');
+            addProcessMsg('That reply was too long — asking for a shorter version…');
             dbg('chat', 'auto-retrying cut-off reply');
             await this.callClaude('Your last reply was cut off before the code finished, so nothing '
                 + 'reached the editor. Send it again in full, but shorter: one device file only, '
@@ -3684,13 +3770,43 @@ class App {
         }
         if (nextRole) {
             const label = roleInfo(nextRole).label;
-            addMsg(`Now writing the ${label.toLowerCase()} part…`, 'system');
+            addProcessMsg(`Now writing the ${label.toLowerCase()} part…`);
             dbg('chat', `auto-requesting [DEVICE: ${nextRole}] (chain ${chain + 1})`);
             await this.callClaude(`Now write the ${label.toLowerCase()} file `
                 + `([DEVICE: ${nextRole}]) for this game, matching the files already in the editor.`,
                 { hidden: true, chain: chain + 1 });
         }
     }
+}
+
+/** An icon for a follow-up chip, picked by keyword in its text. */
+function choiceIcon(text) {
+    const t = text.toLowerCase();
+    const rules = [
+        [/sound|music|note|beep|song|loud|quiet/, 'music'],
+        [/rainbow/, 'rainbow'],
+        [/color|colour|light|glow|bright|dim|red|blue|green|yellow|purple/, 'palette'],
+        [/freeze|still|stop/, 'snowflake'],
+        [/jump|shake|tilt|move|up\b/, 'arrow-up'],
+        [/turn|team|player|score|point|win|lose|race/, 'gamepad'],
+        [/undo|back|reset|restart|again/, 'undo'],
+        [/tag|card|nfc/, 'nfcCard'],
+        [/slow|fast|speed|blink|flash|count|celebrate|star/, 'sparkles'],
+    ];
+    for (const [re, icon] of rules) if (re.test(t)) return icon;
+    return 'sparkles';
+}
+
+/**
+ * A status line about what the app is doing. Simple mode keeps these out of
+ * the chat; the debug log still has them.
+ */
+function addProcessMsg(text) {
+    if (getUiMode() === 'simple') {
+        dbg('chat', `(hidden in simple mode) ${text}`);
+        return null;
+    }
+    return addMsg(text, 'system');
 }
 
 /** Capitalize the first letter, for a name that starts a sentence. */

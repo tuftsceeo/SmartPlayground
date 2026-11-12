@@ -28,11 +28,34 @@ export function renderMarkdown(el, text) {
     }
     if (last < text.length) parts.push({ type: "text", val: text.slice(last) });
 
+    const simple = getUiMode() === "simple" && !!workspaceHandler;
+    let seeCodeAdded = false;
     for (const part of parts) {
+        if (part.type === "code" && simple) {
+            // Simple mode: one "See the code" link per reply, no inline block.
+            if (!seeCodeAdded) {
+                el.appendChild(buildSeeCodeLink(part.val));
+                seeCodeAdded = true;
+            }
+            continue;
+        }
         el.appendChild(part.type === "code"
             ? buildCodeBlock(part.lang, part.val, { collapsed: getUiMode() === "simple" })
             : buildTextBlock(part.val));
     }
+}
+
+/** The simple-mode stand-in for a code block: a link that opens the code drawer. */
+function buildSeeCodeLink(code) {
+    const link = document.createElement("button");
+    link.type = "button";
+    link.className = "see-code";
+    link.textContent = "See the code";
+    link.addEventListener("click", () => {
+        dbg("markdown", `"See the code" clicked (${code.length} chars)`);
+        workspaceHandler(code.replace(/\n$/, ""));
+    });
+    return link;
 }
 
 /**
