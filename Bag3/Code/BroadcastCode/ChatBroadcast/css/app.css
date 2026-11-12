@@ -2014,7 +2014,9 @@ body:not(.ui-advanced) .ws-titlebar {
 body:not(.ui-advanced) .ws-titlebar-actions {
     margin-left: auto;
     flex: none;
-    width: calc(var(--chat-w, 340px) + 6px);
+    /* The divider handle (.ws-resizer) takes no width, so this border
+       lines up with the chat column's left border. */
+    width: var(--chat-w, 340px);
     box-sizing: border-box;
     align-self: stretch;
     justify-content: flex-end;
