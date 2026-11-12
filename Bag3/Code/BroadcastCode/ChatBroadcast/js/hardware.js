@@ -99,10 +99,10 @@ function sniffTags(code) {
 }
 
 /**
- * Requirement pills for simple mode: [{icon, label}].
+ * Requirement pills for the send overlay: [{icon, label}].
  *
  * Wands show only at 2 or more (there is always at least one). Icon displays,
- * NFC tags and Splats show only at 1 or more. The NFC count leaves out the
+ * stations, NFC tags and Splats show only at 1 or more. The NFC count leaves out the
  * baseline `getcode:<slug>` and `<slug>` tags every game has.
  */
 export function requirementPills(reqs) {
@@ -115,6 +115,8 @@ export function requirementPills(reqs) {
     if ((reqs.displays || 0) >= 1) {
         pills.push({ icon: "iconDisplay", label: plural(reqs.displays, "icon display", "icon displays") });
     }
+    const stations = (reqs.stations || []).length;
+    if (stations >= 1) pills.push({ icon: "station", label: plural(stations, "station", "stations") });
     const baseline = baselineTags(reqs.slug);
     const nfc = (reqs.tags || []).filter((t) => !baseline.includes(t)).length;
     if (nfc >= 1) pills.push({ icon: "nfcCard", label: plural(nfc, "NFC tag", "NFC tags") });
@@ -122,36 +124,6 @@ export function requirementPills(reqs) {
         pills.push({ icon: "splat", label: plural(reqs.splats, "Splat", "Splats") });
     }
     return pills;
-}
-
-/** Tag names shown as a colored tile. */
-export const TAG_COLORS = {
-    red: { fill: "#ff3b3b", edge: "#ff3b3b", ink: "#fff" },
-    orange: { fill: "#ff8a1f", edge: "#ff8a1f", ink: "#fff" },
-    yellow: { fill: "#ffd23f", edge: "#e0a800", ink: "#231f2e" },
-    green: { fill: "#22c35a", edge: "#22c35a", ink: "#fff" },
-    blue: { fill: "#3b5bff", edge: "#3b5bff", ink: "#fff" },
-    purple: { fill: "#c03bff", edge: "#c03bff", ink: "#fff" },
-    pink: { fill: "#ff7ab8", edge: "#ff7ab8", ink: "#231f2e" },
-    white: { fill: "#ffffff", edge: "#8b859a", ink: "#231f2e" },
-};
-const CONTROL_TAGS = /^(restart|reset|start|stop|exit|next|undo|again|new)$/;
-const ROLE_TAGS = /^(code(maker|breaker)|player\w*|team\w*|x|o)$/;
-
-/**
- * Sort tags into Roles, Colors and Controls, in that order; anything else
- * goes under Tags. PEER: Simulator/sim-room.js groupTags() holds a copy of
- * the same rules.
- * @param {string[]} tags
- * @returns {{name: string, tags: string[]}[]}
- */
-export function groupTags(tags) {
-    const buckets = { Roles: [], Colors: [], Controls: [], Tags: [] };
-    for (const t of tags) {
-        const key = ROLE_TAGS.test(t) ? "Roles" : t in TAG_COLORS ? "Colors" : CONTROL_TAGS.test(t) ? "Controls" : "Tags";
-        buckets[key].push(t);
-    }
-    return Object.entries(buckets).filter(([, v]) => v.length).map(([name, list]) => ({ name, tags: list }));
 }
 
 /** Plain-language rows for the send-confirm overlay. */

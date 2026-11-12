@@ -36,7 +36,7 @@ const PYODIDE_CDN = `https://cdn.jsdelivr.net/pyodide/v${PYODIDE_VERSION}/full/`
 
 /**
  * The four pop-ups from the "Wand Sim Overlays" artboard. `banner` ones sit
- * at the bottom of the shell with no scrim; the rest are centred cards over
+ * at the bottom of the shell with no scrim; the rest are centered cards over
  * a scrim. Copy is the artboard's, verbatim.
  */
 const OVERLAYS = {
@@ -53,7 +53,7 @@ const OVERLAYS = {
     title: "Can't simulate", message: "it needs two wands talking — try it on the wand",
     buttons: [
       { action: "close", label: "Got it", style: "ghost" },
-      { action: "send-to-box", label: "Send to Box →", style: "teal" },
+      { action: "send-to-box", label: "Send to teacher hub →", style: "teal" },
     ],
   },
   welcome: {
@@ -248,7 +248,7 @@ class WandSim extends HTMLElement {
     this._openOverlay = null;
   }
 
-  /** Touch an NFC tag to the wand, as its own "Tap a tag" control does. */
+  /** Touch an NFC tag to the wand, as a tag chip under the wand does. */
   tapTag(cmd) {
     this._logLine(`tag "${cmd}"`);
     this._runPython(`sim_state.tap_nfc(${JSON.stringify(cmd)})`);

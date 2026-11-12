@@ -1,7 +1,6 @@
 import { dbg, dbgWarn } from "./debug.js";
 import { iconSvg } from "./icons.js";
-import { deviceShortName, deviceProductName } from "./device/bboxDeviceLink.js";
-import { getUiMode } from "./uiMode.js";
+import { deviceShortName } from "./device/bboxDeviceLink.js";
 
 const VIEWS = ["splash", "gallery", "detail", "workspace"];
 
@@ -86,7 +85,6 @@ export function setConnectionBadge(link) {
     // say the generic "Device" at that point. Box vs. Dial share one link
     // class and are told apart only by deviceInfo, once it arrives.
     const short = link?.kind === "wand" ? "Wand" : deviceShortName(link?.deviceInfo);
-    const product = link?.kind === "wand" ? "Wand" : deviceProductName(link?.deviceInfo);
 
     // Mode pill -- opens the library overlay (games/health/tag status), it
     // does NOT change the device's mode (that's the device's own controls
@@ -110,7 +108,7 @@ export function setConnectionBadge(link) {
             pill.title = isWandLink ? "No game library on a wand" : `Connect to the ${short} first`;
         } else {
             pill.disabled = false;
-            if (label) label.textContent = `${short} ready`;
+            if (label) label.textContent = `${short[0].toUpperCase()}${short.slice(1)} ready`;
             pill.title = `Games, health & battery on the ${short}`;
         }
     });
@@ -254,17 +252,13 @@ export function setConnectionBadge(link) {
         const isLinkReady = state === "live";
         const hasCode = document.body.dataset.wsHasCode === "1";
         sendBtn.disabled = !(isLinkReady && hasCode);
-        // Simple mode names a Box or Dial the "teacher hub" on this button
-        // only; the header keeps the Box / Dial names.
-        const sendName = getUiMode() === "simple" && link?.kind !== "wand" && link?.deviceInfo?.device !== "crowpanel"
-            ? "teacher hub" : short;
-        sendBtn.textContent = `Send to ${sendName} →`;
+        sendBtn.textContent = `Send to ${short} →`;
         if (!hasCode) {
             sendBtn.title = "Describe your game in chat first — there is no code to send yet";
         } else if (!isLinkReady) {
-            sendBtn.title = `Connect to the ${sendName} first`;
+            sendBtn.title = `Connect to the ${short} first`;
         } else {
-            sendBtn.title = `Send to ${sendName === "teacher hub" ? "the teacher hub" : product}`;
+            sendBtn.title = `Send to the ${short}`;
         }
     }
 
@@ -295,9 +289,10 @@ export function showConnectToast(show) {
     el.classList.toggle("hidden", !show);
 }
 
+/** The "Sending…" screen's bar, and the file being written under it. */
 export function setSendProgress(pct, label) {
-    const bar = document.getElementById("send-progress-bar");
-    const txt = document.getElementById("send-progress-label");
+    const bar = document.getElementById("sending-bar");
+    const txt = document.getElementById("sending-label");
     if (bar) bar.style.width = `${pct}%`;
     if (txt) txt.textContent = label || "";
 }

@@ -64,9 +64,10 @@ export function addMsg(text, cls = "bot") {
 }
 
 /**
- * Simple mode: fold everything before the latest teacher message into one
- * row, "Earlier: <Game> made · N changes", that opens on tap. Does nothing
- * until an earlier reply has carried code.
+ * Fold everything before the latest teacher message into one row,
+ * "Earlier: <Game> made · N changes", that opens on tap. Does nothing until
+ * an earlier reply has carried code (a "See the code" link or a code block).
+ * Called on every send in simple mode and when a saved game opens in any mode.
  * @param {string} gameName
  */
 export function collapseEarlier(gameName) {
@@ -97,9 +98,12 @@ export function collapseEarlier(gameName) {
     }
     const body = group.querySelector(".earlier-body");
     // Only fold once a game has been made; an interview is left in view.
-    if (!body.querySelector(".see-code") && !fresh.some((k) => k.querySelector?.(".see-code"))) return;
+    const CODE = ".see-code, .code-block-wrap";
+    if (!body.querySelector(CODE) && !fresh.some((k) => k.querySelector?.(CODE))) return;
     fresh.forEach((k) => body.appendChild(k));
-    const changes = Math.max(0, body.querySelectorAll(".see-code").length - 1);
+    // One change per reply that carried code, after the first.
+    const withCode = [...body.children].filter((k) => k.querySelector?.(CODE)).length;
+    const changes = Math.max(0, withCode - 1);
     group.querySelector(".earlier-toggle").textContent =
         `Earlier: ${gameName || "Your game"} made${changes ? ` · ${changes} change${changes === 1 ? "" : "s"}` : ""}`;
 }

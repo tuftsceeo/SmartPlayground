@@ -89,12 +89,12 @@ dialog.all-wands::backdrop { background: rgba(35,31,46,.35); }
 .wand-card.min .chips { min-height: 0; }
 .wand-card wand-sim { display: block; width: 100%; --wand-bg: transparent; --wand-shadow: none; }
 
-.ghost-wand { position: relative; display: flex; align-items: center; gap: 20px; width: 100%; min-height: 320px;
-  padding: 20px; box-sizing: border-box; border: 0; background: none;
+.ghost-wand { position: relative; display: flex; align-items: center; gap: 20px; width: fit-content; max-width: 100%; min-height: 320px;
+  padding: 20px; box-sizing: border-box; border-radius: 24px; border: 2px solid #d8d4e6; background: #fff;
   font-family: 'Nunito', system-ui, sans-serif; color: #231f2e; text-align: left; cursor: pointer; }
 .ghost-wand:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(108,76,209,.2); }
 .ghost-wand .pad { flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; gap: 14px;
-  padding: 18px 22px; }
+  padding: 18px 22px; border-radius: 20px; border: 2px solid #e8e6f0; }
 .ghost-wand .body { position: relative; width: 120px; height: 190px; box-sizing: border-box; border-radius: 22px;
   border: 3px solid #c2b8d6; display: flex; flex-direction: column; align-items: center; padding-top: 36px; gap: 16px; }
 .ghost-wand .body .led { position: absolute; top: 10px; left: 12px; width: 8px; height: 8px; box-sizing: border-box;

@@ -4,7 +4,7 @@
  *   node tools/distribute_test.mjs
  */
 import assert from "node:assert/strict";
-import { DistributeState, deviceLabel, signalLevel, isCritical, LOW_BATTERY } from "../js/distribute.js";
+import { DistributeState, deviceLabel, signalLevel, deviceNoun } from "../js/distribute.js";
 
 let failed = 0;
 function t(name, fn) {
@@ -64,14 +64,20 @@ t("abort fails unfinished rows only", () => {
   assert.deepEqual(s.rows.map((r) => r.status), ["done", "failed"]);
   assert.equal(s.rows[1].why, "not_serving");
 });
-t("critical battery starts unchecked", () => {
+t("every reported device starts selected", () => {
   const s = new DistributeState();
   s.startScan();
-  s.upsertReport({ mac: A, kind: "wand", battery: LOW_BATTERY });
-  s.upsertReport({ mac: B, kind: "wand", battery: LOW_BATTERY + 1 });
+  s.upsertReport({ mac: A, kind: "wand", battery: 5 });
+  s.upsertReport({ mac: B, kind: "wand", battery: 80 });
   s.upsertReport({ mac: C, kind: "icon_display", battery: null });
-  assert.deepEqual(s.selectedMacs(), [B, C]);
-  assert.equal(isCritical(null), false);
+  assert.deepEqual(s.selectedMacs(), [A, B, C]);
+});
+t("deviceNoun: wands, stations, else devices", () => {
+  assert.equal(deviceNoun([]), "devices");
+  assert.equal(deviceNoun([{ kind: "wand" }, { kind: "wand" }]), "wands");
+  assert.equal(deviceNoun([{ kind: "icon_display" }]), "stations");
+  assert.equal(deviceNoun([{ kind: "wand" }, { kind: "icon_display" }]), "devices");
+  assert.equal(deviceNoun([{ kind: null }]), "devices");
 });
 t("allFinished once every sent row is done or failed", () => {
   const s = new DistributeState();

@@ -80,16 +80,16 @@ export function getPose() {
 /**
  * Free-form tilt pad: sets the latched base directly from a 2D pad
  * position (each axis -1..1) rather than a named pose. Screen-up is up:
- * the pad's centre is the wand standing upright, face toward the viewer,
+ * the pad's center is the wand standing upright, face toward the viewer,
  * and each edge tips it toward that edge's named pose (POSES above):
  *
- *   centre            -> tip_up    (x = -1)
+ *   center            -> tip_up    (x = -1)
  *   ny = -1 (top)     -> face_up   (z = -1)      so z =  ny
  *   ny = +1 (bottom)  -> face_down (z = +1)
  *   nx = +1 (right)   -> right_up  (y = -1)      so y = -nx
  *   nx = -1 (left)    -> left_up   (y = +1)
  *
- * `inverted` is the wand turned over in the screen plane: the centre is
+ * `inverted` is the wand turned over in the screen plane: the center is
  * tip_down, and left/right swap. Face up/down are unchanged.
  */
 export function setPadTilt(nx, ny, inverted) {

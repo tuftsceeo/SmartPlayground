@@ -25,7 +25,6 @@ open:
   - Simulator device art is hand-drawn, not the design-system icons
   - Structured game card (parseable reply format and renderer) does not exist
   - Saved games do not store versions, so no "N versions" label
-  - "Teacher hub" wording exists only in simple mode
 keywords: [simple mode, design corrections, minimum devices, fixed, open-ended, Splat group, Splat zones, device art, game card, versions, teacher hub]
 aliases: []
 ---
@@ -36,7 +35,7 @@ The design canvas is https://claude.ai/artifact/WjCoDBJYxUKwinww3s8y2E. The corr
 are in `BroadcastCode/docs_and_design/2026-11-11-simple-mode-design-corrections.md`; the sorting
 into quick, medium and large is in `2026-11-11-simple-mode-implementation-scope.md` (same folder).
 Quick and medium changes are on branch `simple-mode-corrections`. These are the large ones, each
-cross-cutting enough to need a decision first. Line numbers are as of branch `Chat_to_Tap_Doggle`
+cross-cutting enough to need a decision first. They record future design intent, not defects. Line numbers are as of branch `Chat_to_Tap_Doggle`
 and drift.
 
 ## 1. Device minimums from the agent
@@ -89,5 +88,5 @@ code.
 
 ## 8. "Teacher hub" naming outside simple mode
 
-Simple mode says "teacher hub"; advanced and dev keep "Box" and "Dial". Extending it is a naming
-decision across both.
+Built: every mode says "teacher hub" for a Box or Dial (`js/device/bboxDeviceLink.js`
+`deviceShortName()` / `deviceProductName()`).

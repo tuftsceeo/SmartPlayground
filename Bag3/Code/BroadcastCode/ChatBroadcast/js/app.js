@@ -40,7 +40,7 @@ import { loadSavedGames, saveGame, findSavedGame, renameSavedGame, deleteSavedGa
 import { scanCapabilities } from './sim/codeCapabilities.js';
 import { buildComponentChecklist } from './checklist.js';
 import { validateGameName, slugify, remixName } from './gameName.js';
-import { buildHardwareReqs, formatHardwareReqs, requirementPills, baselineTags, groupTags, TAG_COLORS } from './hardware.js';
+import { buildHardwareReqs, formatHardwareReqs, requirementPills, baselineTags } from './hardware.js';
 import { initPaneSplit } from './paneSplit.js';
 import { initSerialSplit } from './serialSplit.js';
 import { initCodeDrawerSplit } from './codeDrawerSplit.js';
@@ -221,7 +221,7 @@ class App {
         this._pendingReplaceSlug = null;
     }
 
-    /** Short UI name for the linked device ("Box", "Dial" or "Wand").
+    /** Short UI name for the linked device ("teacher hub" or "Wand").
      *  `this.device.kind` is known the instant a WandDeviceLink is picked on
      *  the connect overlay -- checked first so labels read right before the
      *  wand's own `identity` has even arrived (link.deviceInfo is still
@@ -229,19 +229,12 @@ class App {
      *  link class and are told apart only by that identity. */
     deviceShort() {
         if (this.device.kind === 'wand') return 'Wand';
-        if (this.usesHubWording()) return 'teacher hub';
         return deviceShortName(this.link.deviceInfo);
     }
 
-    /** Simple mode calls a Box or Dial the "teacher hub". */
-    usesHubWording() {
-        return getUiMode() === 'simple' && this.link.deviceInfo?.device !== 'crowpanel';
-    }
-
-    /** Product UI name ("Broadcast Box", "Broadcast Dial" or "Wand"). */
+    /** Product UI name ("Teacher hub" or "Wand"). */
     deviceProduct() {
         if (this.device.kind === 'wand') return 'Wand';
-        if (this.usesHubWording()) return 'Teacher hub';
         return deviceProductName(this.link.deviceInfo);
     }
 
@@ -260,8 +253,8 @@ class App {
         this.setupDeviceListeners();
         this.setupSerialLog();
         this.applyUiMode(loadUiMode());
-        this.showHome();
-        dbg('app', 'initial view (modal-overlay is persistent — showView must not touch it)');
+        showView('splash');
+        dbg('app', 'initial view: splash (modal-overlay is persistent — showView must not touch it)');
 
         dbg('app', 'loading encrypted key…');
         await loadEncryptedKey();
@@ -308,13 +301,6 @@ class App {
             const pct = p.total ? Math.round((p.current / p.total) * 100) : 0;
             dbg('upload', `${p.status} ${p.file} (${p.current}/${p.total}, ${pct}%)`);
             setSendProgress(pct, `${p.status}: ${p.file}`);
-            // The wand file goes first; later files are the icon display's.
-            const steps = this._sendSteps || [];
-            if (steps.length) {
-                const finished = p.status === 'uploaded' || p.status === 'done';
-                const idx = finished ? steps.length - 1 : (p.current > 1 && steps.length > 2 ? 1 : 0);
-                this.paintSendStep(idx, pct);
-            }
         };
 
         setWorkspaceHandler((code) => {
@@ -735,34 +721,25 @@ class App {
         dbg('app', `editor showing role: ${role}`);
     }
 
-    /**
-     * Simple mode puts the Simulation/Icons tabs in the title bar, at the
-     * right end of the simulator side; advanced mode keeps them at the top
-     * of the preview column.
-     */
-    placePreviewTabs(inTitleBar) {
+    /** The Simulation/Icons tabs sit in the title bar, at the right end of
+     *  the simulator side. */
+    placePreviewTabs() {
         const tabs = document.querySelector('.preview-toolbar');
         const bar = document.querySelector('.ws-titlebar');
-        const col = document.querySelector('.preview-col');
-        if (!tabs || !bar || !col) return;
-        if (inTitleBar) bar.insertBefore(tabs, bar.querySelector('.ws-titlebar-actions'));
-        else col.insertBefore(tabs, col.firstChild);
+        if (!tabs || !bar || tabs.parentElement === bar) return;
+        bar.insertBefore(tabs, bar.querySelector('.ws-titlebar-actions'));
     }
 
     /**
-     * Simple mode, no game yet: the chat is shown alone and centered, and the
-     * input says "Or say your own idea…". Once the editor holds code the
-     * simulator column appears and the input asks what to change.
+     * No game yet: the chat is shown alone and centered, and the input says
+     * "Or say your own idea…". Once the editor holds code the simulator
+     * column appears and the input asks what to change.
      */
     syncFreshChat() {
-        const simple = getUiMode() === 'simple';
-        const fresh = simple && document.body.dataset.wsHasCode !== '1';
+        const fresh = document.body.dataset.wsHasCode !== '1';
         document.body.classList.toggle('chat-fresh', fresh);
         const input = document.getElementById('user-input');
-        if (input) {
-            input.placeholder = !simple ? 'type a request…'
-                : fresh ? 'Or say your own idea…' : 'Tell me what to change…';
-        }
+        if (input) input.placeholder = fresh ? 'Or say your own idea…' : 'Tell me what to change…';
     }
 
     applyUiMode(mode) {
@@ -770,14 +747,7 @@ class App {
         const gear = document.getElementById('btn-mode-gear');
 
         document.body.classList.toggle('ui-advanced', advanced);
-        const modalTitle = document.getElementById('modal-title');
-        if (modalTitle) {
-            modalTitle.textContent = advanced ? 'Welcome!' : 'Enter the magic code';
-            document.getElementById('modal-sub')?.classList.toggle('hidden', !advanced);
-            document.getElementById('btn-modal-unlock').textContent = advanced ? 'Unlock' : 'Start';
-        }
-
-        this.placePreviewTabs(!advanced);
+        this.placePreviewTabs();
         this.syncFreshChat();
         this.paintLink();
         this.applyLogFooter();
@@ -1215,7 +1185,7 @@ class App {
                 // (SOCK_REPLY_TIMEOUT_S), which looks identical from here.
                 // The state is not terminal — any inbound message promotes
                 // straight back to live — so the copy suggests, not accuses.
-                toast(`The ${this.deviceShort()} isn't answering. If it stays quiet, try Restart the ${deviceShortName(this.link.deviceInfo)}.`, true);
+                toast(`The ${this.deviceShort()} isn't answering. If it stays quiet, try Restart the ${this.deviceShort()}.`, true);
             }
             return;
         }
@@ -1360,7 +1330,6 @@ class App {
             if (errEl) errEl.textContent = '';
         });
         document.getElementById('btn-send-done').addEventListener('click', () => this.finishSend());
-        document.getElementById('btn-send-another-wand')?.addEventListener('click', () => this.installOnAnotherWand());
         document.getElementById('btn-send-distribute')?.addEventListener('click', () => this.openDistribute());
         // Kill switch: unlike Cancel (hidden by setSendBusy(true) while a
         // send is in flight -- there is no safe abort mid-write, see
@@ -1377,7 +1346,6 @@ class App {
                 return;
             }
             this.setSendBusy(false);
-            document.getElementById('send-progress-wrap').classList.add('hidden');
             hideOverlay('send-confirm-overlay');
         });
         document.getElementById('btn-box-lib-close')?.addEventListener('click', () => hideOverlay('box-library-overlay'));
@@ -1450,17 +1418,12 @@ class App {
             if (ws && !ws.classList.contains('hidden')) {
                 this.goHome();
             } else {
-                this.showHome();
+                showView('splash');
             }
             return;
         }
         if (nav === 'saved') this.goSaved();
         else if (nav === 'examples') this.goExamples();
-    }
-
-    /** The first screen: the splash, in every mode. */
-    showHome() {
-        showView('splash');
     }
 
     goSaved() {
@@ -1483,7 +1446,7 @@ class App {
         const action = await this.confirmUnsavedWork();
         if (action === 'cancel') return;
         this._sim?.stop();
-        this.showHome();
+        showView('splash');
     }
 
     async openSavedFromWorkspace() {
@@ -1659,9 +1622,8 @@ class App {
         document.getElementById('station-catalog-status')
             .classList.toggle('hidden', this.galleryMode !== 'saved');
         if (this.galleryMode === 'saved') {
-            const simple = getUiMode() === 'simple';
-            title.textContent = simple ? 'My games' : 'My saved games';
-            document.getElementById('gallery-search').placeholder = simple ? 'Find a game…' : 'search games…';
+            title.textContent = 'My games';
+            document.getElementById('gallery-search').placeholder = 'Find a game…';
             chips.classList.add('hidden');
             const saved = loadSavedGames().filter((g) => {
                 if (!q) return true;
@@ -1679,45 +1641,32 @@ class App {
                 card.className = 'example-card saved-card';
                 card.dataset.id = g.id;
                 const when = relativeTime(g.updatedAt);
-                if (getUiMode() === 'simple') {
-                    // Design board "Saved games": tinted thumbnail, device line,
-                    // time, a full-width Open button and a ⋯ menu.
-                    card.classList.add('saved-card-simple');
-                    card.innerHTML =
-                        `<div class="example-thumb saved-thumb" style="background:${gameTint(g.gameIcon)}">${savedGameIcons(g)}</div>` +
-                        `<div class="card-body" data-card-body>` +
-                        `<h3>${escapeHtml(g.name)}</h3>` +
-                        `<p class="card-devices">${escapeHtml(savedGameDevices(g))}</p>` +
-                        `<p>${escapeHtml(when)}</p></div>` +
-                        `<div class="card-actions">` +
-                        `<button type="button" class="card-open" data-open>Open</button>` +
-                        `<button type="button" class="card-more" data-more aria-label="More options for ${escapeHtml(g.name)}" aria-haspopup="true">${iconSvg('more', { size: 18 })}</button>` +
-                        `<div class="card-menu hidden">` +
-                        `<button type="button" data-rename>${iconSvg('pencil', { size: 16 })}Rename</button>` +
-                        `<button type="button" data-delete>${iconSvg('trash', { size: 16 })}Delete</button>` +
-                        `</div></div>`;
-                    card.querySelector('[data-open]').addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        this.openSavedGame(g.id);
-                    });
-                    card.querySelector('[data-more]').addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        const menu = card.querySelector('.card-menu');
-                        const open = menu.classList.contains('hidden');
-                        document.querySelectorAll('.card-menu').forEach((m) => m.classList.add('hidden'));
-                        menu.classList.toggle('hidden', !open);
-                    });
-                } else {
+                // Design board "Saved games": tinted thumbnail, device line,
+                // time, a full-width Open button and a ⋯ menu.
                 card.innerHTML =
-                    `<div class="example-thumb saved-thumb">${savedGameIcons(g)}</div>` +
+                    `<div class="example-thumb saved-thumb" style="background:${gameTint(g.gameIcon)}">${savedGameIcons(g)}</div>` +
                     `<div class="card-body" data-card-body>` +
                     `<h3>${escapeHtml(g.name)}</h3>` +
-                    `<p>${escapeHtml(when)}</p>` +
+                    `<p class="card-devices">${escapeHtml(savedGameDevices(g))}</p>` +
+                    `<p>${escapeHtml(when)}</p></div>` +
                     `<div class="card-actions">` +
-                    `<button type="button" class="card-action-btn" data-rename title="Rename">${iconSvg('pencil', { size: 14 })}</button>` +
-                    `<button type="button" class="card-action-btn" data-delete title="Delete">${iconSvg('trash', { size: 14 })}</button>` +
+                    `<button type="button" class="card-open" data-open>Open</button>` +
+                    `<button type="button" class="card-more" data-more aria-label="More options for ${escapeHtml(g.name)}" aria-haspopup="true">${iconSvg('more', { size: 18 })}</button>` +
+                    `<div class="card-menu hidden">` +
+                    `<button type="button" data-rename>${iconSvg('pencil', { size: 16 })}Rename</button>` +
+                    `<button type="button" data-delete>${iconSvg('trash', { size: 16 })}Delete</button>` +
                     `</div></div>`;
-                }
+                card.querySelector('[data-open]').addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.openSavedGame(g.id);
+                });
+                card.querySelector('[data-more]').addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const menu = card.querySelector('.card-menu');
+                    const open = menu.classList.contains('hidden');
+                    document.querySelectorAll('.card-menu').forEach((m) => m.classList.add('hidden'));
+                    menu.classList.toggle('hidden', !open);
+                });
                 card.setAttribute('aria-label', g.name);
                 makeActivatable(card);
                 card.addEventListener('click', (e) => {
@@ -1738,7 +1687,7 @@ class App {
         }
 
         title.textContent = 'Example games';
-        document.getElementById('gallery-search').placeholder = getUiMode() === 'simple' ? 'Find a game…' : 'search games…';
+        document.getElementById('gallery-search').placeholder = 'Find a game…';
         chips.classList.remove('hidden');
         EXAMPLES.filter((ex) => {
             if (this.galleryFilter !== 'all' && ex.category !== this.galleryFilter) return false;
@@ -1881,7 +1830,7 @@ class App {
             saveVersion(code, 'Loaded from library', info.key);
         }
         this.retainRetiredRoleCode(g.name, roleCode);
-        if (getUiMode() === 'simple') collapseEarlier(g.name);
+        collapseEarlier(g.name);
         this.syncRoleRail();
         this.dirty = false;
         this.updatePreview({ forcePlay: true });
@@ -2060,17 +2009,15 @@ class App {
         box.querySelectorAll('.choice-chips').forEach(el => el.remove());
         const wrap = document.createElement('div');
         wrap.className = 'choice-chips';
-        const simple = getUiMode() === 'simple';
-        // Simple mode: at most two follow-ups, each with an icon.
-        for (const text of simple ? choices.slice(0, 2) : choices) {
+        // Every follow-up gets a chip; an icon only when its words match one.
+        for (const text of choices) {
             const chip = document.createElement('button');
             chip.type = 'button';
             chip.className = 'starter-chip';
-            if (simple) {
-                chip.innerHTML = `${iconSvg(choiceIcon(text), { size: 18, strokeWidth: 2 })} <span>${escapeHtml(text)}</span>`;
-            } else {
-                chip.textContent = text;
-            }
+            const icon = choiceIcon(text);
+            chip.innerHTML = icon
+                ? `${iconSvg(icon, { size: 18, strokeWidth: 2 })} <span>${escapeHtml(text)}</span>`
+                : `<span>${escapeHtml(text)}</span>`;
             chip.addEventListener('click', () => {
                 if (this.isGenerating) return;
                 wrap.remove();
@@ -2275,7 +2222,7 @@ class App {
         wrap.scrollIntoView({ block: 'end' });
     }
 
-    /** Simple mode's New game screen (design board "New game"). */
+    /** The New game screen (design board "New game"). */
     renderNewGameScreen() {
         const box = document.getElementById('chat-box');
         const tints = [['#fff0f6', '#d13a7c'], ['#e9fbf6', '#1c9a82'], ['#fff8dc', '#a87a00']];
@@ -2311,30 +2258,7 @@ class App {
     renderStarterChips() {
         const box = document.getElementById('chat-box');
         if (box.querySelector('.starter-chips')) return;
-        if (getUiMode() === 'simple') { this.renderNewGameScreen(); return; }
-        const wrap = document.createElement('div');
-        wrap.className = 'starter-chips';
-        const interview = document.createElement('button');
-        interview.type = 'button';
-        interview.className = 'starter-chip starter-chip-guided';
-        interview.innerHTML = `${iconSvg('message-circle', { size: 14 })} <span>Interview me</span>`;
-        interview.addEventListener('click', () => this.startInterview());
-        wrap.appendChild(interview);
-        drawStarterIdeas().forEach((sp) => {
-            const chip = document.createElement('button');
-            chip.type = 'button';
-            chip.className = 'starter-chip';
-            chip.innerHTML = `${iconSvg(sp.icon, { size: 14 })} <span>${escapeHtml(sp.text)}</span>`;
-            chip.addEventListener('click', () => {
-                const inp = document.getElementById('user-input');
-                inp.value = sp.text;
-                inp.focus();
-                inp.style.height = 'auto';
-                inp.style.height = Math.min(inp.scrollHeight, 120) + 'px';
-            });
-            wrap.appendChild(chip);
-        });
-        box.appendChild(wrap);
+        this.renderNewGameScreen();
     }
 
     /**
@@ -2803,7 +2727,7 @@ class App {
             this._clearRebootTimer();
             await this.device.disconnect();
             this.setLinkState('idle');
-            toast('Cancelled.');
+            toast('Canceled.');
             return;
         }
         if (s === 'live' || s === 'stuck' || s === 'wrong' || s === 'no-answer') {
@@ -2883,53 +2807,21 @@ class App {
         const el = document.getElementById('send-requirements');
         if (!el) return;
         el.innerHTML = '';
-        // Simple mode shows pills; advanced mode keeps the sentence rows.
-        const simple = getUiMode() === 'simple';
-        el.classList.toggle('send-pills', simple);
-        const rows = simple
-            ? [...requirementPills(this.hardware),
-               ...formatHardwareReqs(this.hardware).filter((r) => r.label.startsWith('tag list may be short'))]
-            : formatHardwareReqs(this.hardware);
-        this.renderSendTags(simple);
+        // Pills, plus the "tag list may be short" warning as a sentence row.
+        el.classList.add('send-pills');
+        const rows = [...requirementPills(this.hardware),
+            ...formatHardwareReqs(this.hardware).filter((r) => r.label.startsWith('tag list may be short'))];
         const need = document.getElementById('send-need-label');
-        if (need) need.hidden = !(simple && rows.length);
+        if (need) need.hidden = rows.length === 0;
         rows.forEach((row) => {
             const li = document.createElement('li');
-            li.className = simple && !row.label.startsWith('tag list') ? 'send-pill' : 'send-req-row';
+            li.className = row.label.startsWith('tag list') ? 'send-req-row' : 'send-pill';
             li.innerHTML =
                 `<span class="send-req-icon">${iconSvg(row.icon, { size: 17, strokeWidth: 1.7 })}</span>` +
                 `<span class="send-req-label"></span>`;
             li.querySelector('.send-req-label').textContent = row.label;
             el.appendChild(li);
         });
-    }
-
-    /** Simple mode: the game's NFC tags as tiles, grouped Roles, Colors, Controls. */
-    renderSendTags(simple) {
-        const box = document.getElementById('send-tags');
-        if (!box) return;
-        box.textContent = '';
-        const base = baselineTags(this.hardware?.slug);
-        const tags = (this.hardware?.tags || []).filter((t) => !base.includes(t));
-        box.hidden = !(simple && tags.length);
-        if (box.hidden) return;
-        for (const group of groupTags(tags)) {
-            const row = document.createElement('div');
-            row.className = 'tag-group';
-            row.innerHTML = `<div class="tag-group-name">${escapeHtml(group.name)}</div>`;
-            const tiles = document.createElement('div');
-            tiles.className = 'tag-tiles';
-            for (const t of group.tags) {
-                const c = TAG_COLORS[t];
-                const tile = document.createElement('span');
-                tile.className = 'tag-tile';
-                if (c) tile.style.cssText = `background:${c.fill};border-color:${c.edge};color:${c.ink}`;
-                tile.innerHTML = `${iconSvg('nfcCard', { size: 18, strokeWidth: 1.8 })}<span>${escapeHtml(t)}</span>`;
-                tiles.appendChild(tile);
-            }
-            row.appendChild(tiles);
-            box.appendChild(row);
-        }
     }
 
     async showSendConfirm() {
@@ -2951,7 +2843,6 @@ class App {
         this.refreshHardware(primaryRoleCode()?.code);
         this.renderSendRequirements();
         this.setSendBusy(false);
-        document.getElementById('send-progress-wrap').classList.add('hidden');
         // Always reopen on the name/requirements form, never mid-way
         // through a previous send's success screen.
         document.getElementById('send-confirm-form').classList.remove('hidden');
@@ -2971,7 +2862,7 @@ class App {
         showOverlay('send-confirm-overlay');
     }
 
-    /** Simple mode: swap the send form for the "Sending…" screen. */
+    /** Swap the send form for the "Sending…" screen, or back. */
     paintSending(busy) {
         const panel = document.getElementById('send-sending');
         if (!panel) return;
@@ -2982,19 +2873,6 @@ class App {
         document.getElementById('sending-title').textContent = `Sending ${name}…`;
         document.getElementById('sending-tile').innerHTML =
             iconSvg(this.device.kind === 'wand' ? 'wand' : 'teacherHub', { size: 48, strokeWidth: 1.8 });
-        this._sendSteps = ['Wand part', ...(getCode('icon').trim() ? ['Icon display part'] : []), 'Restart'];
-        this.paintSendStep(0, 0);
-    }
-
-    /** Step labels: done steps read "<part> sent", the current one "<part>…". */
-    paintSendStep(index, pct) {
-        const steps = this._sendSteps || [];
-        document.getElementById('sending-bar').style.width = `${pct}%`;
-        document.getElementById('sending-steps').innerHTML = steps.map((label, i) => {
-            const state = i < index ? 'done' : i === index ? 'now' : 'todo';
-            const text = label === 'Restart' ? label : state === 'done' ? `${label} sent` : state === 'now' ? `${label}…` : label;
-            return `<span class="${state}">${escapeHtml(text)}</span>`;
-        }).join('');
     }
 
     /**
@@ -3007,13 +2885,11 @@ class App {
         const btn = document.getElementById('btn-send-confirm');
         const cancel = document.getElementById('btn-send-cancel');
         const nameInput = document.getElementById('send-game-name');
-        const simple = getUiMode() === 'simple';
         if (btn) {
             btn.disabled = busy;
-            btn.textContent = busy ? (simple ? 'Please wait' : 'Sending…')
-                : (simple ? (this.device.kind === 'wand' ? 'Send to the wand' : 'Send to the teacher hub') : 'Send');
+            btn.textContent = busy ? 'Please wait…' : 'Send';
         }
-        if (simple) this.paintSending(busy);
+        this.paintSending(busy);
         if (cancel) cancel.classList.toggle('hidden', busy);
         if (nameInput) nameInput.disabled = busy;
     }
@@ -3029,15 +2905,9 @@ class App {
     showSendSuccess(prettyName) {
         document.getElementById('send-confirm-form').classList.add('hidden');
         document.getElementById('send-confirm-success').classList.remove('hidden');
-        const simple = getUiMode() === 'simple';
-        document.getElementById('send-success-title').textContent = simple
-            ? `${prettyName} is on the ${this.deviceShort()}!`
-            : `"${prettyName}" is on the ${this.deviceShort()}!`;
-        document.getElementById('send-success-note').textContent = simple
-            ? (this.link.state === 'live' ? '' : 'Reconnecting…')
-            : `The ${this.deviceShort()} will restart now — give it a few seconds.`;
-        // Direct USB install reaches one wand per send: offer the next one.
-        document.getElementById('btn-send-another-wand')?.classList.toggle('hidden', this.device.kind !== 'wand');
+        document.getElementById('send-success-title').textContent = `${prettyName} is on the ${this.deviceShort()}!`;
+        // "Reconnecting…" until the device is back from its restart.
+        document.getElementById('send-success-note').textContent = this.link.state === 'live' ? '' : 'Reconnecting…';
         // A Dial can push the new game to nearby wands and stations. Shown
         // for any Box/Dial link unless identity says Box: identity is not
         // always in hand by now, and a Box answers fleet.scan with
@@ -3045,11 +2915,10 @@ class App {
         const canDistribute = this.device.kind === 'box'
             && this.device.deviceInfo?.device !== 'broadcast_box';
         document.getElementById('btn-send-distribute')?.classList.toggle('hidden', !canDistribute);
-        // Simple mode: the question card holds the button; the subtitle says
-        // "Reconnecting…" until the hub is back from its restart.
+        // The question card holds the Distribute button.
         const nextCard = document.getElementById('send-next');
-        if (nextCard) nextCard.hidden = simple ? !canDistribute : false;
-        this._reconnectNote = simple && this.link.state !== 'live';
+        if (nextCard) nextCard.hidden = !canDistribute;
+        this._reconnectNote = this.link.state !== 'live';
         clearTimeout(this._sendSuccessTimer);
         // No auto-close while Distribute is offered: it would hide the button.
         if (!canDistribute) this._sendSuccessTimer = setTimeout(() => this.finishSend(), 5000);
@@ -3085,27 +2954,6 @@ class App {
             this.setLinkState('rebooting');
             this._armRebootTimer();
         }
-    }
-
-    /** "Install on another wand" on the success screen of a direct wand
-     * install: release this wand's port and reopen the connect overlay with
-     * the send armed, so connecting the next wand returns to the send
-     * confirm with the same game and name. */
-    async installOnAnotherWand() {
-        clearTimeout(this._sendSuccessTimer);
-        hideOverlay('send-confirm-overlay');
-        this._pendingReplaceSlug = null;
-        this._clearRebootTimer();
-        try {
-            await this.device.disconnect();
-        } catch (e) {
-            dbgWarn('app', `disconnect before next wand: ${e.message}`);
-        }
-        this.setLinkState('idle');
-        this.pendingSendAfterConnect = true;
-        this.renderComponentList('connect-components');
-        showOverlay('connect-overlay');
-        toast('Plug in the next wand, then choose Wand.');
     }
 
     async confirmSend() {
@@ -3243,7 +3091,6 @@ class App {
             meta.extraFiles = extraFiles;
         }
 
-        document.getElementById('send-progress-wrap').classList.remove('hidden');
         setSendProgress(0, 'Starting…');
         this.setSendBusy(true);
 
@@ -3261,7 +3108,6 @@ class App {
 
         if (!result.ok) {
             // Stay on the overlay so the teacher can fix the name and retry.
-            document.getElementById('send-progress-wrap').classList.add('hidden');
             dbgError('app', `send failed: ${result.error}`);
             toast(result.error || 'Send failed — try again.', true);
             this.setLinkState(this.device.isConnected() ? 'live' : 'lost');
@@ -3855,13 +3701,13 @@ class App {
     }
 }
 
-/** An icon for a follow-up chip, picked by keyword in its text. */
+/** An icon for a follow-up chip, picked by keyword in its text; null when none matches. */
 function choiceIcon(text) {
     const t = text.toLowerCase();
     const rules = [
         [/sound|music|note|beep|song|loud|quiet/, 'music'],
         [/rainbow/, 'rainbow'],
-        [/color|colour|light|glow|bright|dim|red|blue|green|yellow|purple/, 'palette'],
+        [/color|color|light|glow|bright|dim|red|blue|green|yellow|purple/, 'palette'],
         [/freeze|still|stop/, 'snowflake'],
         [/jump|shake|tilt|move|up\b/, 'arrow-up'],
         [/turn|team|player|score|point|win|lose|race/, 'gamepad'],
@@ -3870,7 +3716,7 @@ function choiceIcon(text) {
         [/slow|fast|speed|blink|flash|count|celebrate|star/, 'sparkles'],
     ];
     for (const [re, icon] of rules) if (re.test(t)) return icon;
-    return 'sparkles';
+    return null;
 }
 
 /**

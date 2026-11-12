@@ -93,17 +93,18 @@ button.display-case:hover { border-color: #6c4cd1; color: #6c4cd1; }
 button.display-case:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(108,76,209,.2); }
 .display-dev .display-status { min-height: 16px; font: 700 11px/1.4 'Nunito', system-ui, sans-serif; color: #5b5468; text-align: center; }
 .wand-card .display-dev { align-self: stretch; align-items: flex-start; margin-top: var(--wand-pad-top, 0); }
-:host(:not([advanced])) .display-shelf { margin-top: 0; }
-:host(:not([advanced])) .display-shelf, :host(:not([advanced])) .display-dev { width: 100%; }
-/* Simple mode, as the design draws it: about 1.2x the drawn wand's height,
-   a pale mint ring, a white outline, a dark bezel and an inset screen. */
-:host(:not([advanced])) .display-case { width: min(calc(var(--wand-h, 280px) * 1.2), calc(100% - 16px)); height: auto; aspect-ratio: 1;
+.display-shelf { margin-top: 0; }
+.display-shelf, .display-shelf .display-dev { width: 100%; }
+/* About 1.2x the drawn wand's height, a pale mint ring, a white outline,
+   a dark bezel and an inset screen. */
+.display-shelf .display-case { width: min(calc(var(--wand-h, 280px) * 1.2), calc(100% - 16px)); height: auto; aspect-ratio: 1;
   margin: 8px; padding: 5.5%; border-radius: 26px; background: #2b2a30;
   box-shadow: 0 0 0 4px #fff, 0 0 0 9px #dff5ec, 0 14px 28px rgba(30,20,50,.16); }
-:host(:not([advanced])) .display-case canvas { border-radius: 12px; box-shadow: none; }
-:host(:not([advanced])) .display-case::after { display: none; }
+.display-shelf .display-case canvas { border-radius: 12px; box-shadow: none; }
+.display-shelf .display-case::after { display: none; }
+.display-shelf button.display-case { background: #fff; box-shadow: none; }
 .display-label { display: none; }
-:host(:not([advanced])) .display-shelf .display-label { display: flex; align-items: center; gap: 6px;
+.display-shelf .display-label { display: flex; align-items: center; gap: 6px;
   font: 800 17px 'Nunito', system-ui, sans-serif; color: #5b5468; }
 .wand-card .display-case { width: var(--wand-pad, 220px); height: auto; aspect-ratio: 1; }
 .wand-card .display-case canvas { width: 100%; height: 100%; }
@@ -113,8 +114,8 @@ button.display-case:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(10
 :host(:not([advanced])) .display-shelf:not(.in-game) { display: none; }
 `;
 
-// LED duty -> screen colour, from Stations/Icon Display Station/webapp/js/pipeline/ledGamut.js
-// (ledSwatchHex): WS2812B primaries as XYZ, clipped to sRGB. Same colours as the icon editor.
+// LED duty -> screen color, from Stations/Icon Display Station/webapp/js/pipeline/ledGamut.js
+// (ledSwatchHex): WS2812B primaries as XYZ, clipped to sRGB. Same colors as the icon editor.
 const LED_PRIM = [[0.7006, 0.2993, 400], [0.0743, 0.8338, 1150], [0.1241, 0.0578, 250]]
   .map(([x, y, Iv]) => [(x / y) * Iv, Iv, ((1 - x - y) / y) * Iv]);
 const LED_Y = LED_PRIM.reduce((t, p) => t + p[1], 0);
@@ -133,8 +134,8 @@ function ledScreenRgb(duty) {
   });
 }
 
-/** 16x16 flat square cells with gaps on an inset black screen, coloured as
- * the icon editor shows them; unlit cells stay visible as dark grey. */
+/** 16x16 flat square cells with gaps on an inset black screen, colored as
+ * the icon editor shows them; unlit cells stay visible as dark gray. */
 function drawSquares(canvas, pixels) {
   const cell = 16, gap = 3, margin = 8;
   canvas.width = W * cell + 2 * margin;
@@ -336,12 +337,19 @@ export function createDisplaysPanel({ mount, room }) {
   async function startOn(d, g, stale) {
     await d.dev.setGame(g.slug, g.src, g.icons);
     if (stale?.() || !list.includes(d)) return;
-    d.started = true;
     send(d.dev.mac, { type: "start_game", name: g.slug });
   }
 
   function draw() {
     room.panel("wands")?.redraw();
+    markPaired();
+  }
+
+  /** The wand shows its "Wand" label while a display stands beside it. */
+  function markPaired() {
+    const shown = !placedIn && list.length > 0
+      && (room.hasAttribute("advanced") || shelf.classList.contains("in-game"));
+    room.wand.toggleAttribute("paired", shown);
   }
 
   function freeMac() {
@@ -426,6 +434,7 @@ export function createDisplaysPanel({ mount, room }) {
 
     placeIn(el) {
       placedIn = el;
+      markPaired();
       for (const d of list) {
         const rm = d.card?.querySelector(".chips .rm");
         if (rm) d.dev.el.prepend(rm);

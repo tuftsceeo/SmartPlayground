@@ -7,7 +7,7 @@ This file covers the **assistant's knowledge and the ChatBroadcast app**. For th
 the Broadcast Box / Dial serving side, host devtests and repository docs, follow
 [`../../docs_and_design/DEVICE_ONBOARDING_SURFACES.md`](../../docs_and_design/DEVICE_ONBOARDING_SURFACES.md).
 
-## How the knowledge is organised
+## How the knowledge is organized
 
 | File | Holds | Sent to the model |
 |---|---|---|

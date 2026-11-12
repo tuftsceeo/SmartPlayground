@@ -14,10 +14,10 @@ below.
 
 | UI action | Both modes (art SVG, `toolArt.js`) |
 |-----------|-------------------------------------|
-| Reset pixel / revert (top) | `rotated_pencil_eraser.svg`, fixed colours |
-| Eraser (paint off) | `rotated_color_pencil.svg`, MainColor = dark grey |
-| Pencil / draw | `rotated_color_pencil.svg`, MainColor = brush colour |
-| Palette swatch | `Crayon.svg`, MainColor = swatch colour, upright, side by side (simple); CSS `.swatch-crayon` rectangle (advanced) |
+| Reset pixel / revert (top) | `rotated_pencil_eraser.svg`, fixed colors |
+| Eraser (paint off) | `rotated_color_pencil.svg`, MainColor = dark gray |
+| Pencil / draw | `rotated_color_pencil.svg`, MainColor = brush color |
+| Palette swatch | `Crayon.svg`, MainColor = swatch color, upright, side by side (simple); CSS `.swatch-crayon` rectangle (advanced) |
 | Undo | `undo-2` (top bar, next to Rename) | `undo-2` (top bar, next to Rename) |
 | New file | `file-plus` |
 | Open | `folder-open` |
@@ -30,7 +30,7 @@ below.
 | Close × | `x` |
 | Crop scissors | `scissors` |
 | Brightness sun | `sun` |
-| Add colour + | `plus` |
+| Add color + | `plus` |
 | HW drawer closed | `chevron-right` |
 | HW drawer open | `chevron-down` |
 | Delete | `trash-2` |

@@ -54,10 +54,10 @@ Developer mode footer, and `index.html` in a `<pre>` under the room.
   and sends `stop` to the rest. The all-wands overlay adds displays and
   shows them; advanced mode takes them away; simple mode shows them only while
   the game uses them.
-  Lit cells use the icon editor's LED colour model (`ledSwatchHex` in
+  Lit cells use the icon editor's LED color model (`ledSwatchHex` in
   `Stations/Icon Display Station/webapp/js/pipeline/ledGamut.js`, copied
-  into `js/panels/display.js`): the colour the LED emits at full duty, not
-  dimmed by the game's intensity. Off cells are dark grey on a black
+  into `js/panels/display.js`): the color the LED emits at full duty, not
+  dimmed by the game's intensity. Off cells are dark gray on a black
   diffuser inside a charcoal case.
 
 - **Splats:** for a lobby game (`SPLATS_MIN`), the wand's Splats stand
@@ -283,7 +283,7 @@ as a crash (and, once the panel grew pop-ups, as "Can't simulate").
 ## Freeze Dance roles
 
 `freeze_dance.py` picks its role from the `caller` and `player` NFC tags, so
-they appear in the tag popover like any other tag — no special affordance.
+they appear among the tag chips like any other tag — no special affordance.
 It is the one vendored game that names its tag set `GAME_COMMANDS` rather
 than the `COMMANDS` that `Wand Module/main.py` documents;
 `get_capabilities()` reads either, or the game would offer no tags at all
@@ -327,7 +327,7 @@ the Bag trees, not here, and has been left alone.
   pointer moves, then snaps to the named pose its position reads as once the
   pointer settles, so an orientation-reading game sees the exact gravity
   vector from the `POSES` table rather than an in-between one. The mapping is
-  in `setPadTilt`'s docstring: screen-up is up, the pad's centre is the
+  in `setPadTilt`'s docstring: screen-up is up, the pad's center is the
   wand upright facing the viewer, top/bottom tip its face up/down, and the
   wand rolls up to 90° toward the pointer's side: clockwise to Right Up on
   the right, counterclockwise to Left Up on the left. "Turn over" turns
@@ -352,16 +352,23 @@ the Bag trees, not here, and has been left alone.
   `{ kind, data, mac }`).
 - Pop-ups: `showOverlay(kind, opts)` / `hideOverlay()`, where `kind` is
   `"game-over"`, `"cant-simulate"`, `"welcome"` or `"new-code"` (a
-  bottom-anchored banner; the rest are centred cards over a scrim). `opts`
+  bottom-anchored banner; the rest are centered cards over a scrim). `opts`
   can override `title`, `message` and `buttons`. Every button dispatches
   `sim-overlay-action` and closes the pop-up. `"cant-simulate"` is the one
   the element raises by itself, on a boot or load failure; the host triggers
   the others. `index.html` has a button per kind for exercising them.
 - The panel lays out in two panes above 420px of its own width and one below
-  it (container queries in `js/controls.js`). Its design width is 500px. The left pane is the square
-  pad with the status line and Turn over under it; the right pane has Jump,
-  Spin and Shake in one row, the shake strength (Gentle, Strong, Intense)
-  under them, then whatever the host slots in (the icon display).
+  it (container queries in `js/controls.js`). Its design width is 500px. The left pane is the
+  pad (the drawn wand, no box) and the game's NFC tags as chips under it,
+  grouped Roles, Colors, Controls, then the rest; tapping a chip touches that
+  tag to the wand. In advanced mode the status line and Turn over sit under
+  the pad, and the right pane has the toolbar, Jump, Spin and Shake in one
+  row, the shake strength (Gentle, Strong, Intense), then whatever the host
+  slots in (the icon display). In simple mode Turn over and Motion sit under
+  the wand (Motion opens Jump and Shake), and the right pane holds only the
+  icon display, sized to the wand's height and centered beside it; below
+  420px the display moves under the wand. A "Wand" label shows above the
+  wand while a display stands beside it.
 - ChatBroadcast (`Bag3/Code/TeacherTools/BroadcastBox/ChatBroadcast/`) embeds this
   element directly from `../../Simulator/wand-sim.js`, so both trees must be
   served from a common root (`Bag3/Code/`) rather than from ChatBroadcast's

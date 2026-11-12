@@ -1,4 +1,10 @@
 /**
+ * STALE (2026-11-12): written against the earlier simple-mode New game
+ * screen ("Help me choose", three ideas, a question link, a 760px chat
+ * column that was fixed at 440px elsewhere). The New game screen, chips and
+ * workspace now differ in every mode, so the assertions from the "New game
+ * screen" test on do not match the app. Update before relying on it.
+ *
  * chat_ui_smoke.mjs — drive the real chat UI in headless Chromium against
  * scripted Claude replies. No API key and no network: the encrypted key,
  * the CodeMirror CDN modules and api.anthropic.com are all served by

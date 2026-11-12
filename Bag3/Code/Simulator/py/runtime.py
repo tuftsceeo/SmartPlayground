@@ -720,7 +720,7 @@ class Runtime:
 
     async def _enter_lobby(self, limits, hw, ctl):
         """main.py _enter_lobby: the lobby. A lobby_game.Net in its game phase, or
-        None (cancelled, left or lost) after the same feedback."""
+        None (canceled, left or lost) after the same feedback."""
         import lobby_game
         import sim_state
         from espnow_manager import get_own_mac

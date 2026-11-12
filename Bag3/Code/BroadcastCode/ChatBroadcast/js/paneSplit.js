@@ -1,7 +1,9 @@
 /** Draggable divider between the chat column and the simulator preview.
  * .chat-col gets a fixed pixel width (not a flex-basis) so dragging can set
  * it directly; .preview-col is flex:1 and just takes whatever's left. The
- * chosen width is persisted in localStorage, same pattern as uiMode.js. */
+ * chosen width is persisted in localStorage, same pattern as uiMode.js.
+ * The width is also published as --chat-w on <body>, so the title bar's
+ * send area can line up over the chat column. */
 
 const KEY = "wandcoder.chatWidth";
 const MIN_WIDTH = 260;
@@ -33,13 +35,19 @@ function currentMaxWidth(wsBody, resizer) {
     return Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, available - MIN_PREVIEW_WIDTH));
 }
 
+/** Set the chat column's width and publish it as --chat-w. */
+function applyWidth(chatCol, px) {
+    chatCol.style.width = `${px}px`;
+    document.body.style.setProperty('--chat-w', `${px}px`);
+}
+
 export function initPaneSplit() {
     const resizer = document.getElementById('ws-resizer');
     const chatCol = document.querySelector('.chat-col');
     const wsBody = document.querySelector('.ws-body');
     if (!resizer || !chatCol || !wsBody) return;
 
-    chatCol.style.width = `${loadWidth()}px`;
+    applyWidth(chatCol, loadWidth());
 
     let dragging = false;
     let startX = 0;
@@ -53,7 +61,7 @@ export function initPaneSplit() {
         // The chat column sits to the RIGHT of the divider, so dragging left
         // is what grows it.
         const next = Math.min(maxWidth, Math.max(MIN_WIDTH, startWidth + (startX - clientXOf(e))));
-        chatCol.style.width = `${next}px`;
+        applyWidth(chatCol, next);
         e.preventDefault();
     };
 
@@ -93,7 +101,7 @@ export function initPaneSplit() {
         const maxWidth = currentMaxWidth(wsBody, resizer);
         const delta = e.key === 'ArrowLeft' ? KEYBOARD_STEP : -KEYBOARD_STEP;
         const next = Math.min(maxWidth, Math.max(MIN_WIDTH, chatCol.getBoundingClientRect().width + delta));
-        chatCol.style.width = `${next}px`;
+        applyWidth(chatCol, next);
         saveWidth(next);
         e.preventDefault();
     });
