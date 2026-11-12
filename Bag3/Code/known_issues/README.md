@@ -29,7 +29,7 @@ filenames). Search front matter with `grep -l '<term>' Bag3/Code/known_issues/*.
 | [2026-11-10-crowpanel-teacher-tool-ui.md](2026-11-10-crowpanel-teacher-tool-ui.md) | CrowPanel Teacher Tool screens vs revised canvas designs (toasts, 1B, game picker, send list, NFC layout, 7.3) | open | — |
 | [2026-11-02-dial-box-arm-serving.md](2026-11-02-dial-box-arm-serving.md) | Dial and Box serving still gated by arm/disarm, radio off outside NFC | open (untested on hardware) | — |
 | [2026-11-11-game-start-signature.md](2026-11-11-game-start-signature.md) | Game start signature (GAME_ICON): app display, wand pull icon, example games | open | — |
-| [2026-11-11-simple-mode-large-changes.md](2026-11-11-simple-mode-large-changes.md) | Simple mode design: device minimums, Simulator minimum/Splat group or companion wand/zones/art, game card, versions | open | — |
+| [2026-11-11-simple-mode-large-changes.md](2026-11-11-simple-mode-large-changes.md) | Simple mode design: device minimums, Simulator minimum/Splat host role (built, hardware untested)/zones/art, game card, versions | open | — |
 
 ## By topic
 

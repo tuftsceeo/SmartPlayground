@@ -35,7 +35,9 @@
  *   autostart, profile   passed to the inner <wand-sim>
  *   settings       the game's simulator settings, or null: { wand_splats
  *                  (Splats each wand starts with, 0..2, default 1), wands
- *                  (how many wands the game is for, 1..4, default 1) }.
+ *                  (how many wands the game is for, 1..4, default 1),
+ *                  splat_host (Splats on the game's Splat host, 0..4; a
+ *                  Splat host game's wands then default to 0 Splats) }.
  *                  Set it before `source`: the Splat count reaches the wand
  *                  ahead of the game loading.
  *
@@ -125,7 +127,14 @@ class SimRoom extends HTMLElement {
   /** Splats each wand starts a newly loaded game with. */
   get gameSplats() {
     const n = this._settings?.wand_splats;
-    return Number.isInteger(n) && n >= 0 && n <= 2 ? n : 1;
+    if (Number.isInteger(n) && n >= 0 && n <= 2) return n;
+    return this.hostSplats === null ? 1 : 0;
+  }
+
+  /** Splats on the game's Splat host (settings splat_host, 0..4), or null. */
+  get hostSplats() {
+    const n = this._settings?.splat_host;
+    return Number.isInteger(n) && n >= 0 && n <= 4 ? n : null;
   }
 
   /** Wands the loaded game is for, this one included. */
@@ -494,6 +503,9 @@ SimRoom.registerPanel("wands", {
   },
   update(panel, caps, room) {
     panel.setGame(caps);
+    // A Splat host game: a Splat host wand, with the settings' Splats (or
+    // the game's SPLATS_MIN) paired.
+    if (caps.splat_host) panel.ensureHost(room.hostSplats ?? Math.min(4, caps.splats_min || 1));
     // Settings for a different number of wands start over with that many
     // wand slots. New code for the same number keeps the wands as they
     // are; live ones have already been handed the new code.

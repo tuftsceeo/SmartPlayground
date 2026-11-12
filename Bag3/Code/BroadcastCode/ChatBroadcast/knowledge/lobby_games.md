@@ -7,12 +7,34 @@ the playground, not as belonging to a child. Each wand pairs with up to
 through one extra `play()` parameter, `net`. There is no separate Splat file and no
 `[DEVICE: splat]` block; everything below goes in the `[DEVICE: wand]` file.
 
-## Choosing: ordinary or lobby game
+## Choosing: ordinary, Splat host or lobby game
 
 | The game… | Declare at the top of the wand file | `net` is |
 |---|---|---|
 | uses no Splats | nothing | `None` (leave `net=None` off or unused) |
-| uses Splats | `SPLATS_MIN = n` (and optional `SPLATS_MAX = m`) | a lobby game `net` |
+| uses Splats (**default**) | `SPLAT_HOST = True`, `SPLATS_MIN = n`, `SPLATS_MAX = m` (up to 4), `PLAYERS_MIN = p` | a Splat host game `net` |
+| uses Splats paired to the children's own wands (only when the teacher asks) | `SPLATS_MIN = n` (and optional `SPLATS_MAX = m`) | a lobby game `net` |
+
+## Splat host games (the default for Splats)
+
+A **Splat host** is one extra wand the teacher sets up beforehand: it holds **all** the game's
+Splats (up to **4**), plays no game of its own, and leads the lobby. The children's wands hold no
+Splats. Write a Splat game this way unless the teacher asks for Splats on the children's wands.
+
+- Declare `SPLAT_HOST = True`, `SPLATS_MIN` (1..4), `SPLATS_MAX` (at most 4) and `PLAYERS_MIN`
+  (how many children's wands must join before it can start, at least 1) at the top level.
+- The host and the children's wands all run the same `play()`. Branch on `net.is_host`: the host
+  drives every Splat with `net.splat(i)` and decides everything; a player wand only shows what the
+  host sends it and sends its own input with `net.send(0, {...})`.
+- `net.players` lists the children's wands' indexes in `net.wands` (the host, index 0, is not in
+  it). Use it, not `net.wands`, to count players or pick one. `net.wands[p][1]` is player `p`'s
+  identity color.
+- Splat `("press", i)` events reach the host only. The rest of `net` and its events are as below.
+- How it starts: the teacher taps the game card on the host (or sends it), then each child taps the
+  same card. The host's lights show how many children have joined, as a numeral; the teacher
+  presses the host's button to start. Say this in the game's description.
+- `[GAME_SETTINGS:]` gives `splat_host` (how many Splats the host holds, 1..4) and `wands` (how many
+  children's wands, not counting the host); leave `wand_splats` out.
 
 - Every Splat game is a lobby game. For one child on one wand, use `SPLATS_MIN = 1`: the wand
   opens a lobby, nobody else needs to join, and the child presses the wand button to start.
@@ -48,6 +70,8 @@ on `net.is_leader`.
 | Member | Meaning |
 |---|---|
 | `net.is_leader` | `True` on the leader |
+| `net.is_host` | `True` on a Splat host (it is also the leader) |
+| `net.players` | indexes in `net.wands` of the children's wands: every wand but a Splat host |
 | `net.me` | this wand's index in `net.wands` (leader is 0) |
 | `net.wands` | list of `(mac, identity_color, splat_count)`, leader first |
 | `net.local` | this wand's own Splats, or `None` if it has none: `net.local.count`, `net.local.unit(s)` |

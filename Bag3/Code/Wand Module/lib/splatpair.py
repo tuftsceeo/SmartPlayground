@@ -72,7 +72,7 @@ class SplatPairing:
         self.identity = identity_name(my_mac)
         self.second = second_name(my_mac)
         self._phase = 0                # 0: identity, 1: second (two-color glow)
-        self.macs = [m for m in macs if pairing.valid(m)][:pairing.MAX_SPLATS]
+        self.macs = [m for m in macs if pairing.valid(m)][:pairing.max_splats()]
         self.hub = None
         self.group = None
         self.dropped = []              # MACs released since boot, oldest first
@@ -301,8 +301,9 @@ class SplatPairing:
             self.release(self.macs.index(mac))
             self.ok_feedback()
             return None
-        if self.count >= pairing.MAX_SPLATS:
-            print("  Splat %s: this wand already holds %d" % (mac, pairing.MAX_SPLATS))
+        cap = pairing.max_splats()
+        if self.count >= cap:
+            print("  Splat %s: this wand already holds %d" % (mac, cap))
             self.error_feedback()
             return None
         if self.claimed_elsewhere(mac):

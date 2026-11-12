@@ -253,15 +253,17 @@ export function stripGameBrief(text) {
     return text.replace(/\[GAME_BRIEF\][\s\S]*?(\[\/GAME_BRIEF\]|$)/g, "").trim();
 }
 
-/** Splats per wand the simulator can show, and how many wands it can hold a game for. */
-const SETTINGS_LIMITS = { wand_splats: [0, 2], wands: [1, 4] };
+/** Splats per wand and on a Splat host the simulator can show, and how many wands it can hold a game for. */
+const SETTINGS_LIMITS = { wand_splats: [0, 2], wands: [1, 4], splat_host: [0, 4] };
 
 /**
  * Simulator settings from a [GAME_SETTINGS: {...}] marker, or null.
  *
  * The game code does not carry these; only the practice window reads them.
  * `wand_splats` is how many Splats each wand starts with paired (0..2);
- * `wands` is how many wands the game is meant for (1..4). A field that is
+ * `wands` is how many wands the game is meant for (1..4), not counting a
+ * Splat host; `splat_host` is how many Splats a Splat host game's host
+ * wand holds (0..4). A field that is
  * missing, not a whole number or out of range is left out, and a marker
  * whose JSON does not parse gives null.
  */

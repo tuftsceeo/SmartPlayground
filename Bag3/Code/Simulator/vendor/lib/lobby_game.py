@@ -9,6 +9,12 @@ cancelled or left). Every wand in the game then calls the same play() with
 that Net; net.is_leader selects the role. main.py calls net.close() when
 play() returns.
 
+Splat host games (the module sets SPLAT_HOST = True): a wand in the Splat host
+role (lib/splat_host.py) always leads and holds the Splats; game wands only
+join. A game wand never leads a host game: it looks for a host lobby for up to
+HOST_FIND_TRIES finds. A host never yields its lobby. In the game,
+net.is_host is True on the host and net.players lists the game wands' indexes.
+
 Wire format: JSON dicts whose "type" starts with "pw_", through
 espnow_manager (they arrive as "raw"). In-game frames carry "id", the game id.
 See docs_and_design/2026-10-07-splat-pairing/SPEC.md section 8.
@@ -33,6 +39,7 @@ MSG_MAX_BYTES = 200       # largest JSON body net.send() accepts
 MSGS_PER_POLL = 6         # ESP-NOW messages handled per Net.poll()
 LOBBY_NFC_EVERY = 8       # lobby loops between stop-card reads
 LOBBY_NFC_MS = 40         # NFC detect timeout for those reads
+HOST_FIND_TRIES = 20      # finds a game wand makes for a host lobby (~10 s)
 
 _counter = 0              # 1-byte game id counter, per boot
 last_end = None           # why the last enter() returned None
@@ -92,13 +99,18 @@ class _PoolSplat:
 
 
 class Net:
-    def __init__(self, enow, my_mac, ctl, slug, splats_min, splats_max):
+    def __init__(self, enow, my_mac, ctl, slug, splats_min, splats_max,
+                 host_game=False, is_host=False, players_min=1):
         self.enow = enow
         self.my_mac = my_mac
         self.ctl = ctl                  # splatpair.SplatPairing or None
         self.slug = slug
         self.splats_min = splats_min
         self.splats_max = splats_max
+        self.host_game = host_game      # the game declares SPLAT_HOST
+        self.is_host = is_host          # this wand is the Splat host
+        self.has_host = is_host         # wand 0 of this game is a Splat host
+        self.players_min = players_min
         self.ident = splatpair.identity_name(my_mac)
         self.phase = "new"              # new, lobby, game, ended, closed
         self.is_leader = False
@@ -137,6 +149,15 @@ class Net:
     @property
     def local_count(self):
         return self.ctl.count if self.ctl is not None else 0
+
+    @property
+    def players(self):
+        """Wand indexes of the game's players: every wand except a Splat host."""
+        return list(range(1 if self.has_host else 0, len(self.wands)))
+
+    def lobby_players(self):
+        """Players in the lobby, the Splat host not counted."""
+        return len(self._members) - (1 if self.has_host else 0)
 
     def owner(self, i):
         return self._pool[i][0]
@@ -195,9 +216,12 @@ class Net:
 
     def _send_lobby(self, now):
         self._lobby_at = now
-        self.enow.broadcast({"type": "pw_lobby", "g": self.slug, "id": self.id,
-                             "n": self.lobby_splats(), "min": self.splats_min,
-                             "max": self.splats_max})
+        d = {"type": "pw_lobby", "g": self.slug, "id": self.id,
+             "n": self.lobby_splats(), "min": self.splats_min, "max": self.splats_max}
+        if self.is_host:
+            d["h"] = 1
+            d["p"] = self.lobby_players()
+        self.enow.broadcast(d)
 
     # ── find, lead, join ──
 
@@ -209,7 +233,9 @@ class Net:
         while time.ticks_diff(end, time.ticks_ms()) > 0:
             mt, data, sender = self.enow.poll()
             if (mt == "raw" and isinstance(data, dict) and data.get("type") == "pw_lobby"
-                    and data.get("g") == self.slug and sender != self.my_mac):
+                    and data.get("g") == self.slug and sender != self.my_mac
+                    and (data.get("h") or not self.host_game)):
+                self.has_host = bool(data.get("h"))
                 return sender, data.get("id")
             time.sleep_ms(1)
         return None
@@ -273,7 +299,9 @@ class Net:
         return sum(m["count"] for m in self._members)
 
     def can_start(self):
-        return self.is_leader and self.phase == "lobby" and self.lobby_splats() >= self.splats_min
+        if not (self.is_leader and self.phase == "lobby" and self.lobby_splats() >= self.splats_min):
+            return False
+        return not self.is_host or self.lobby_players() >= self.players_min
 
     def lobby_step(self):
         """One lobby iteration. Returns None while waiting, "start" (the game
@@ -285,6 +313,14 @@ class Net:
             mt, data, sender = self.enow.poll()
             if mt is None:
                 break
+            if (mt == "start_game" and self.has_host and isinstance(data, dict)
+                    and data.get("name") == self.slug):
+                # The teacher's start_game for this game: wands already in a
+                # host lobby stay, and the host takes it as its start.
+                if self.can_start():
+                    self.start()
+                    return "start"
+                continue
             if mt in ("stop", "start_game"):
                 self._end_reason = "external"
                 return "cancel"
@@ -307,8 +343,8 @@ class Net:
             if time.ticks_diff(now, self._lobby_at) >= LOBBY_MS:
                 self._send_lobby(now)
             self._prune_lobby(now)
-            if (self.splats_max is not None and self.lobby_splats() >= self.splats_max
-                    and self.can_start()):
+            if (not self.is_host and self.splats_max is not None
+                    and self.lobby_splats() >= self.splats_max and self.can_start()):
                 self.start()
                 return "start"
         elif time.ticks_diff(now, self._seen_leader) >= WAND_LOST_MS:
@@ -324,7 +360,11 @@ class Net:
                     self._lobby_reply_at = now
                     self._send_lobby(now)
             elif t == "pw_lobby":
-                if (d.get("g") == self.slug and d.get("id") != self.id and sender < self.my_mac):
+                # A host never yields; any other leader yields to a host, or
+                # else to the lower MAC.
+                if (not self.is_host and d.get("g") == self.slug and d.get("id") != self.id
+                        and (d.get("h") or sender < self.my_mac)):
+                    self.has_host = bool(d.get("h"))
                     self._yield_to = (sender, d.get("id"))
             elif d.get("id") == self.id:
                 if t == "pw_join":
@@ -401,7 +441,7 @@ class Net:
         self._begin_game(wands, now)
         for m in self._members[1:]:
             self._unicast(m["mac"], {"type": "pw_start", "id": self.id, "wands": wands,
-                                     "pool": self.splat_count})
+                                     "pool": self.splat_count, "h": 1 if self.is_host else 0})
 
     def _on_start(self, d, now):
         wands = d.get("wands")
@@ -410,6 +450,7 @@ class Net:
             print("  [ERR] lobby: pw_start without this wand in its roster: %r" % (wands,))
             self._end_reason = "ended"
             return
+        self.has_host = bool(d.get("h"))
         self._begin_game(wands, now)
 
     def _begin_game(self, wands, now):
@@ -619,6 +660,16 @@ _LEADER_ENDED = ("ended", "yield", "full", "leader_lost", "external")
 def _draw_lobby(leds, net, last):
     from leds import OFF, GREEN, BLUE_DIM
     rgb = splatpair.WAND_RGB[net.ident]
+    if net.is_host:
+        # The player count as a numeral (the host is not counted): green once
+        # the game can start, else the host's identity color.
+        p = net.lobby_players()
+        view = ("host", p, net.can_start())
+        if view == last:
+            return last
+        import leds as L
+        leds.show_shape(getattr(L, "SHAPE_%d" % min(p, 9)), GREEN if view[2] else rgb)
+        return view
     if net.is_leader:
         joined, need = net.lobby_splats(), net.splats_min
         view = (joined, need)
@@ -675,22 +726,51 @@ def run_lobby(net, nfc, button_down, leds, buz):
         time.sleep_ms(1)
 
 
-def enter(enow, slug, splats_min, splats_max, ctl, my_mac, nfc, leds, buz, button_down):
+def _wait_for_host(net, nfc, leds):
+    """A game wand in a host game: find a host lobby, spinning, up to
+    HOST_FIND_TRIES times. Returns (MAC, id), or None (no host, or stop card)."""
+    from nfc_reader import read_ndef_text
+    from leds import BLUE_DIM
+    for k in range(HOST_FIND_TRIES):
+        leds.animate_spin(k, BLUE_DIM, frames_per_step=1)
+        found = net.find()
+        if found is not None:
+            return found
+        text, _ = read_ndef_text(nfc, timeout=LOBBY_NFC_MS)
+        if text == "stop":
+            net._end_reason = "left"
+            return None
+    print("  lobby: no Splat host lobby for %r" % net.slug)
+    net._end_reason = "no_host"
+    return None
+
+
+def enter(enow, slug, splats_min, splats_max, ctl, my_mac, nfc, leds, buz, button_down,
+          host_game=False, is_host=False, players_min=1):
     """A tap on a lobby game's card. Returns a Net in its game phase, or None
     when the lobby was cancelled, left or lost; last_end then says why:
     "left" (this wand's stop card), "external" (ESP-NOW stop or start_game),
     "ended" (the leader cancelled), "leader_lost", "full" (the lobby could not
     take this wand's Splats) or "no_answer" (every join attempt went
-    unanswered). A join that fails, or a leader that yields its lobby, makes
+    unanswered). In a host game: "no_host" (no host lobby found). A join that fails, or a leader that yields its lobby, makes
     the wand look again, up to REFIND_MAX more times."""
     global last_end, pair_card
     pair_card = None
     last_end = None
-    net = Net(enow, my_mac, ctl, slug, splats_min, splats_max)
+    net = Net(enow, my_mac, ctl, slug, splats_min, splats_max, host_game, is_host, players_min)
     for attempt in range(1 + REFIND_MAX):
         net._end_reason = None
         net.phase = "new"
-        found = net.find()
+        if is_host:
+            found = None
+        elif host_game:
+            found = _wait_for_host(net, nfc, leds)
+            if found is None:
+                last_end = net._end_reason
+                net.close()
+                return None
+        else:
+            found = net.find()
         if found is None:
             net.lead()
         elif not net.join(found[0], found[1]):

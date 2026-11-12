@@ -455,6 +455,11 @@ class ESPNowManager:
                 if not self._is_for_me(data.get("mac")):
                     return None, None, None
                 return "code_push", data, mac_str
+            if mt == "set_role":
+                # Teacher-controller role for one wand (lib/splat_host.py).
+                if not self._is_for_me(data.get("mac")):
+                    return None, None, None
+                return "set_role", data, mac_str
             if mt == "status_poll":
                 if self._status_provider:
                     self._schedule_status_reply(mac_str)

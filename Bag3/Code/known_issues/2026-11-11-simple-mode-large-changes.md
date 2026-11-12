@@ -21,12 +21,12 @@ code:
 open:
   - Agent does not state minimum devices or a fixed vs open-ended flag
   - Simulator does not open with the minimum number of wands
-  - Splats belong to a wand, not to a shared group or a dedicated Splat companion wand
+  - Splat host role built (wand-splat-update); >2 BLE Splats per wand untested on hardware; flash_bundle stale
   - Splat zones (inside/outside, left/right) are not drawn as fills
   - Simulator device art is hand-drawn, not the design-system icons
   - Structured game card (parseable reply format and renderer) does not exist
   - Saved games do not store versions, so no "N versions" label
-keywords: [simple mode, design corrections, minimum devices, fixed, open-ended, Splat group, Splat zones, device art, game card, versions, teacher hub, Splat companion, Splat controller]
+keywords: [simple mode, design corrections, minimum devices, fixed, open-ended, Splat group, Splat zones, device art, game card, versions, teacher hub, Splat companion, Splat controller, Splat host, splathost, set_role, PLAYERS_MIN]
 aliases: []
 ---
 
@@ -59,27 +59,35 @@ and show them. Needs item 1's flag, plus `Simulator/sim-room.js` (:36–39, :132
 Splats are owned by a wand (`lobbyGame.wandSplats`, attached to `room.wand`). Showing them as one
 group not tied to a wand changes `sim-room.js` (:375–455), `js/lobby_game.js` and `js/splats.js`.
 
-Direction under consideration (2026-11-12): a dedicated **Splat companion** wand, in the spirit of
-the historical Splat Companion. It is not a game wand. It is assigned its role during send, or by
-tapping a card that puts it into Splat pairing mode. From then on its only jobs are reading Splat
-NFC tags, pairing with 1 to 4 Splats (maximum not decided), and running the Splat side of the game.
+Built on branch `wand-splat-update` (2026-11-12, uncommitted at time of writing), Bag3 only: a
+**Splat host** wand role.
 
-In the all-wands dialog it would be a full-size Splat controller card (a wand card's size) with:
+- Role: an NFC card `splathost` (back with `player`), or a targeted ESP-NOW
+  `{"type":"set_role","mac":M,"role":"splat_host"|"player"}` from a teacher controller. Stored in
+  `/role.txt`, read in `main.py` `_boot` after `enow.init()`. `lib/splat_host.py` (imported after
+  radio bring-up) runs the host's idle loop.
+- Slots: `pairing.HOST_MAX_SPLATS = 4` on a host, 2 otherwise. The host keeps its pairing across
+  reboots.
+- Games declare `SPLAT_HOST = True`, `SPLATS_MIN`/`SPLATS_MAX` (up to 4) and `PLAYERS_MIN`. In
+  `lib/lobby_game.py` the host always leads (a host lobby carries `h:1` and the player count), never
+  yields, and starts on its button or `start_game`; `net.is_host` and `net.players` (wands without
+  the host) are new. Its 5x5 shows the player count as a numeral (up to 9), not counting the host.
+  Without a host the old first-tap lobby is unchanged. Ported games: `games/host_lobbytest.py`,
+  `host_splattag.py`, `host_relaycolor.py`.
+- Simulator: "+ Add a Splat host" adds a live host wand with four pairing slots
+  (`js/panels/splatController.js`, `js/panels/wands.js`, `py/runtime.py` `set_role`); settings
+  `splat_host` add one automatically.
+- ChatBroadcast: `[GAME_SETTINGS:]` takes `splat_host` (0–4); Splat host games are the default in
+  `knowledge/lobby_games.md`; `splatGameCheck.js` checks `SPLAT_HOST`, `PLAYERS_MIN` and the 4 cap.
 
-- a 5x5 display showing the companion's own state;
-- a button for resets, or another role the game assigns;
-- an NFC reader;
-- four quarter-size Splat cards in a 2x2 grid as pairing slots, each filled by clicking it
-  (standing in for pairing).
+Open:
 
-A mock-up of that card is in `Simulator/js/panels/splatController.js`, added by the dialog's
-"+ Add a Splat controller". It is layout and interaction only: it runs no Python, is not on the
-radio bus and reaches no game. Pairing a slot lights that corner of the 5x5 display; the button
-flashes the display. Splat cards for game wands stay independent of their wand when cards are
-reordered.
-
-Not decided or built: the firmware companion mode, how send or a card assigns the role, the
-pairing protocol, the slot maximum, and how the chat agent writes games for a companion.
+- **Hardware:** whether one wand holds more than 2 BLE Splats reliably is untested. Test one host
+  with 3–4 Splats under `HARDWARE_PROTOCOL.md`.
+- `main.py` gained pre-radio code (role read, `UTILITY` entries); not yet tested on hardware
+  against the radio-first memory rule.
+- `flash_bundle` (`wand_main.mpy`) is not regenerated.
+- In the Simulator a short click on the host's button does not start the game; a held press does.
 
 ## 4. Splat zone rendering
 
