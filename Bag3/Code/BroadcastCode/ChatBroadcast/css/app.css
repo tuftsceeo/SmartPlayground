@@ -239,7 +239,10 @@ body.ui-advanced #app-shell {
 }
 .mode-pill:disabled { opacity: 0.85; cursor: not-allowed; }
 
-.btn-connect-header {
+/* Header action buttons: Connect (teal) and the gallery's New game (pink)
+   share one shape; only the color differs. */
+.btn-connect-header,
+.btn-new-game {
     border: none;
     background: linear-gradient(135deg, var(--teal), var(--teal-dark));
     color: #fff;
@@ -2150,19 +2153,7 @@ body:not(.chat-fresh) .preview-col { animation: sim-in 0.35s ease-out; }
 /* ======================================================================
    My games (design board "Saved games"): the gallery view's own header
    ====================================================================== */
-/* "+ New game": the same size as the workspace header's Connect button. */
-.btn-new-game {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    border: 0;
-    border-radius: 14px;
-    padding: 7px 14px;
-    background: linear-gradient(135deg, var(--pink), var(--pink-dark));
-    color: #fff;
-    font: 800 12px 'Nunito', ui-rounded, system-ui, sans-serif;
-    cursor: pointer;
-}
+.btn-new-game { background: linear-gradient(135deg, var(--pink), var(--pink-dark)); }
 #view-gallery .gallery-toolbar { padding: 24px 28px; }
 #gallery-search {
     width: 340px;
