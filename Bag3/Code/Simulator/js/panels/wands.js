@@ -255,6 +255,7 @@ export function createWandsPanel({ mount, room }) {
     draw();
   }
 
+  /** Draw a started wand's card (o.el set); slots are drawn by goLive. */
   function drawCard(o) {
     o.card.textContent = "";
     const chips = document.createElement("div");
@@ -379,9 +380,10 @@ export function createWandsPanel({ mount, room }) {
         loadInto(o.el);
       }
     },
+    // Started wands pick n up on their next load (goLive, pushSource);
+    // slots not yet started have no card to redraw.
     setGameSplats(n) {
       gameSplats = n;
-      for (const o of others) if (!o.el) drawCard(o);
     },
     restart() {
       for (const o of others) o.el?.restart();
