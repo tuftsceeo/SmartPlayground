@@ -5,7 +5,8 @@
  * as small toys in the wand's pad, below the drawn wand (wand-sim's "pad"
  * slot), with no labels: the toy's blue case and splatter window, lit as
  * solid color zones: inside vs outside, and left vs right. Zones blend only
- * where two meet; a zone that is off is the window's gray. A click on one is a press on
+ * where two meet, adding as light does (mixLight); a zone that is off is
+ * the window's gray. A click on one is a press on
  * its button (held at least MIN_PRESS_MS, so a quick click registers with a
  * game that polls). There are as many as the game pairs (0-2); none = the
  * row is not there. Sounds and notes play a short tone and pulse the toy.
@@ -86,9 +87,73 @@ const SIDE_BLEND = [0.38, 0.62];
 
 /** The window's diffuser: an unlit LED is the same gray, so an off Splat
  * reads as one solid shape and a white LED reads as lit against it. */
-const WINDOW_GRAY = "#d4d7de";
 
-const rgbCss = (c, a = 1) => `rgba(${c[0]},${c[1]},${c[2]},${a})`;
+const GRAY_RGB = [0xd4, 0xd7, 0xde];
+
+/**
+ * How an LED duty looks lit, as a screen color. The LEDs are uncalibrated:
+ * green is far brighter than red or blue, so firmware turns it down (Splat
+ * yellow is sent as 255,180,0) where a calibrated screen needs no help.
+ * This is the WS2812 datasheet model from Stations/Icon Display Station/
+ * webapp/js/pipeline/ledGamut.js (primaries' xy and mcd -> XYZ -> sRGB),
+ * copied rather than imported across trees. Unlike that palette, the result
+ * is lifted to full brightness: a Splat zone always reads as lit, and a dim
+ * pairing glow still shows its color. Nominal model, not a measurement.
+ * Splat LEDs differ slightly from the icon display's: equal duty on all
+ * three (turnwhite, 200,200,200) looks white on a Splat, so it shows white
+ * here, where the model would make it sky blue.
+ */
+const LED_PRIMARIES = [
+  { x: 0.7006, y: 0.2993, Iv: 400.0 }, // R, 625nm
+  { x: 0.0743, y: 0.8338, Iv: 1150.0 }, // G, 520nm
+  { x: 0.1241, y: 0.0578, Iv: 250.0 }, // B, 470nm
+];
+const LED_XYZ = LED_PRIMARIES.map(({ x, y, Iv }) => [(x / y) * Iv, Iv, ((1 - x - y) / y) * Iv]);
+const XYZ_TO_LINEAR_SRGB = [
+  [3.2406, -1.5372, -0.4986],
+  [-0.9689, 1.8758, 0.0415],
+  [0.0557, -0.204, 1.057],
+];
+const encodeSrgb = (v) => (v <= 0.0031308 ? 12.92 * v : 1.055 * v ** (1 / 2.4) - 0.055);
+
+function screenRgb(duty) {
+  if (duty[0] === duty[1] && duty[1] === duty[2]) return [255, 255, 255];
+  const xyz = [0, 1, 2].map((i) => duty.reduce((acc, d, c) => acc + (d / 255) * LED_XYZ[c][i], 0));
+  const lin = XYZ_TO_LINEAR_SRGB.map((row) => Math.max(0, row[0] * xyz[0] + row[1] * xyz[1] + row[2] * xyz[2]));
+  const peak = Math.max(...lin) || 1;
+  return lin.map((v) => Math.round(encodeSrgb(Math.min(1, v / peak)) * 255));
+}
+
+/**
+ * Where two zones meet, `t` 0..1 from a to b (rgb, or null when unlit).
+ * LEDs add as light: both are at full strength in the middle, and the sum
+ * is scaled back to full brightness, so red into green passes through
+ * orange and yellow, and magenta into green through white. Only toward an
+ * unlit zone does the color fade, into the window's gray.
+ */
+function mixLight(a, b, t) {
+  if (!a && !b) return GRAY_RGB;
+  const wa = a ? Math.min(1, 2 * (1 - t)) : 0;
+  const wb = b ? Math.min(1, 2 * t) : 0;
+  const lit = Math.max(wa, wb);
+  if (!lit) return GRAY_RGB;
+  const sum = [0, 1, 2].map((k) => (a ? a[k] * wa : 0) + (b ? b[k] * wb : 0));
+  const peak = Math.max(...sum) || 1;
+  return sum.map((v, k) => Math.round(GRAY_RGB[k] + ((v / peak) * 255 - GRAY_RGB[k]) * lit));
+}
+
+/** Points across a blend band; SVG fills in between in plain RGB. */
+const BLEND_STEPS = [0, 0.25, 0.5, 0.75, 1];
+
+/** Gradient stops for zone a solid to band[0], blending into b by band[1]. */
+function blendStops([from, to], a, b) {
+  const css = (c) => `rgb(${c.join(",")})`;
+  return [`<stop offset="0" stop-color="${css(mixLight(a, b, 0))}"/>`]
+    .concat(BLEND_STEPS.map((t) => `<stop offset="${from + (to - from) * t}" stop-color="${css(mixLight(a, b, t))}"/>`))
+    .concat([`<stop offset="1" stop-color="${css(mixLight(a, b, 1))}"/>`]).join("");
+}
+
+const same = (a, b) => String(a) === String(b);
 
 let audio = null;
 let toyCount = 0;
@@ -132,27 +197,28 @@ export function createSplatToy(splat, { onButton, label = "Splat", size = 56 }) 
       <path class="case" fill-rule="evenodd" d="${CASE}"/>
       <clipPath id="${clip}"><path d="${BLOB}"/></clipPath>
       <path class="blob" d="${BLOB}"/>
-      <g clip-path="url(#${clip})">
       <defs>
-        ${["left", "right"].map((h) => `<radialGradient id="${clip}-${h}" cx="50%" cy="48%" r="50%">
-          <stop offset="0" class="${h} in"/><stop offset="${RING_BLEND[0]}" class="${h} in"/>
-          <stop offset="${RING_BLEND[1]}" class="${h} out"/><stop offset="1" class="${h} out"/>
-        </radialGradient>`).join("")}
-        <linearGradient id="${clip}-side" x1="0" x2="1" y1="0" y2="0">
-          <stop offset="0" stop-color="#000"/><stop offset="${SIDE_BLEND[0]}" stop-color="#000"/>
-          <stop offset="${SIDE_BLEND[1]}" stop-color="#fff"/><stop offset="1" stop-color="#fff"/>
+        <radialGradient id="${clip}-left" cx="50%" cy="48%" r="50%"></radialGradient>
+        <radialGradient id="${clip}-right" cx="50%" cy="48%" r="50%"></radialGradient>
+        <linearGradient id="${clip}-side" x1="0" x2="1" y1="0" y2="0"></linearGradient>
+        <linearGradient id="${clip}-fade" x1="0" x2="1" y1="0" y2="0">
+          <stop offset="${SIDE_BLEND[0]}" stop-color="#000"/><stop offset="${SIDE_BLEND[1]}" stop-color="#fff"/>
         </linearGradient>
-        <mask id="${clip}-mask"><rect width="256" height="254.7" fill="url(#${clip}-side)"/></mask>
+        <mask id="${clip}-mask"><rect width="256" height="254.7" fill="url(#${clip}-fade)"/></mask>
       </defs>
       <g clip-path="url(#${clip})">
-        <path class="zone" d="${BLOB}" fill="url(#${clip}-left)"/>
-        <path class="zone" d="${BLOB}" fill="url(#${clip}-right)" mask="url(#${clip}-mask)"/>
+        <path class="zone ring" d="${BLOB}" fill="url(#${clip}-left)"/>
+        <path class="zone ring" d="${BLOB}" fill="url(#${clip}-right)" mask="url(#${clip}-mask)"/>
+        <path class="zone side" d="${BLOB}" fill="url(#${clip}-side)"/>
       </g>
     </svg>`;
-  const stops = {
-    left: { in: [...btn.querySelectorAll("stop.left.in")], out: [...btn.querySelectorAll("stop.left.out")] },
-    right: { in: [...btn.querySelectorAll("stop.right.in")], out: [...btn.querySelectorAll("stop.right.out")] },
+  const grad = {
+    left: btn.querySelector(`#${clip}-left`),
+    right: btn.querySelector(`#${clip}-right`),
+    side: btn.querySelector(`#${clip}-side`),
   };
+  const sideLayer = btn.querySelector(".zone.side");
+  let lastKey = null;
   let heard = splat.sounds;
   let releaseAt = 0;
   let held = false;
@@ -199,15 +265,20 @@ export function createSplatToy(splat, { onButton, label = "Splat", size = 56 }) 
     // reads as its color on screen. A zone with no lit LED is the gray.
     const zone = (idx) => {
       const rgb = splat.ready && idx.map((i) => splat.leds[i]).find((c) => c.some(Boolean));
-      if (!rgb) return WINDOW_GRAY;
-      const peak = Math.max(...rgb, 1);
-      return rgbCss(rgb.map((v) => Math.round((v / peak) * 255)));
+      return rgb ? screenRgb(rgb) : null;
     };
-    for (const [h, z] of Object.entries(HALVES)) {
-      const inC = zone(z.inner);
-      const outC = zone(z.outer);
-      for (const el of stops[h].in) el.setAttribute("stop-color", inC);
-      for (const el of stops[h].out) el.setAttribute("stop-color", outC);
+    const z = {};
+    for (const [h, ids] of Object.entries(HALVES)) z[h] = { inner: zone(ids.inner), outer: zone(ids.outer) };
+    const key = JSON.stringify(z);
+    if (key !== lastKey) {
+      lastKey = key;
+      // Each half blends inside into outside. When neither half has a ring
+      // split, one left/right gradient covers both, so that blend mixes as
+      // light too; with both splits at once the halves crossfade plainly.
+      for (const h of ["left", "right"]) grad[h].innerHTML = blendStops(RING_BLEND, z[h].inner, z[h].outer);
+      const sideOnly = same(z.left.inner, z.left.outer) && same(z.right.inner, z.right.outer);
+      grad.side.innerHTML = blendStops(SIDE_BLEND, z.left.inner, z.right.inner);
+      sideLayer.style.display = sideOnly ? "" : "none";
     }
     btn.setAttribute("aria-label", `${label}, ${describe(splat)}`);
     btn.classList.toggle("down", splat.pressed);
