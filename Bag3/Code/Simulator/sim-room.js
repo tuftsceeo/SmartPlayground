@@ -74,6 +74,36 @@ function simUrl(rel) {
 
 const PANELS = new Map();
 
+/** Tag names drawn as a colored dot. */
+const TAG_COLORS = {
+  red: { fill: "#ff3b3b", edge: "#c42020" },
+  orange: { fill: "#ff8a1f", edge: "#c26200" },
+  yellow: { fill: "#ffd23f", edge: "#c29a00" },
+  green: { fill: "#22c35a", edge: "#168a3f" },
+  blue: { fill: "#3b5bff", edge: "#2338b8" },
+  purple: { fill: "#c03bff", edge: "#8a1fc0" },
+  pink: { fill: "#ff7ab8", edge: "#c2427f" },
+  white: { fill: "#ffffff", edge: "#8b859a" },
+};
+const CONTROL_TAGS = /^(restart|reset|start|stop|exit|next|undo|again|new)$/;
+const ROLE_TAGS = /^(code(maker|breaker)|player\w*|team\w*|x|o)$/;
+
+/**
+ * Sort tags into Roles, Colors and Controls (in that order); anything else
+ * goes under Tags. PEER: ChatBroadcast/js/hardware.js groupTags() holds a
+ * copy of the same rules.
+ * @param {string[]} tags
+ * @returns {{name: string, tags: string[]}[]}
+ */
+export function groupTags(tags) {
+  const buckets = { Roles: [], Colors: [], Controls: [], Tags: [] };
+  for (const t of tags) {
+    const key = ROLE_TAGS.test(t) ? "Roles" : t in TAG_COLORS ? "Colors" : CONTROL_TAGS.test(t) ? "Controls" : "Tags";
+    buckets[key].push(t);
+  }
+  return Object.entries(buckets).filter(([, v]) => v.length).map(([name, list]) => ({ name, tags: list }));
+}
+
 class SimRoom extends HTMLElement {
   /**
    * Register an output panel.
@@ -208,6 +238,16 @@ class SimRoom extends HTMLElement {
         .box.bare { background: none; border: 0; border-radius: 0; padding: 0; margin-bottom: 12px; }
         .box-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; margin: 0 0 12px; }
         .box-head h3 { font: 800 15px 'Nunito', system-ui, sans-serif; margin: 0; }
+        .tray { display: none; align-items: center; flex-wrap: wrap; gap: 10px 12px; margin-top: 16px; padding: 14px 20px;
+          border: 1.5px solid #e8e6f0; border-radius: 20px; background: #fff; color: #231f2e; font-family: 'Nunito', system-ui, sans-serif; }
+        :host(:not([advanced])) .tray:not([hidden]) { display: flex; }
+        .tray-title { flex: 1 1 auto; font: 800 18px 'Nunito', system-ui, sans-serif; }
+        .tray-sep { width: 1px; height: 48px; background: #e8e6f0; }
+        .tag-tile { display: inline-flex; align-items: center; gap: 8px; border: 2px solid #e8e6f0; background: #fff; color: #231f2e;
+          border-radius: 14px; padding: 8px 14px; font: 800 18px 'Nunito', system-ui, sans-serif; cursor: pointer; }
+        .tag-tile:hover { border-color: #ef4d92; }
+        .tag-tile svg { color: #d13a7c; flex: none; }
+        .tag-tile .swatch { width: 18px; height: 18px; border-radius: 50%; border: 2px solid; flex: none; }
         ${DISPLAY_STYLE}
         ${SPLAT_STYLE}
         ${WANDS_STYLE}
@@ -219,7 +259,8 @@ class SimRoom extends HTMLElement {
         <div class="wand" data-slot="wand"></div>
         <div class="panels" data-slot="panels"></div>
       </div>
-      <div class="strip" data-slot="strip"></div>`;
+      <div class="strip" data-slot="strip"></div>
+      <div class="tray" data-slot="tray" hidden></div>`;
     const wand = document.createElement("wand-sim");
     for (const a of PASS_ATTRS) {
       if (this.hasAttribute(a)) wand.setAttribute(a, this.getAttribute(a));
@@ -227,6 +268,7 @@ class SimRoom extends HTMLElement {
     if (this._source) wand.source = this._source;
     if (this._profile) wand.profile = this._profile;
     if (this._autostart !== null) wand.autostart = this._autostart;
+    wand.setAttribute("tray", "");
     this.wand = wand;
     for (const type of FORWARDED) {
       wand.addEventListener(type, (e) => {
@@ -318,6 +360,41 @@ class SimRoom extends HTMLElement {
     return { slug, src: await fetchText(rel), icons: { ...icons, ...(this._displayIcons || {}) } };
   }
 
+  /**
+   * The NFC tag tray under the room: one big tile per tag the game reads,
+   * grouped Roles, Colors, Controls, then the rest. Tapping a tile touches
+   * that tag to the wand. Simple mode only (CSS).
+   */
+  _renderTray(tags) {
+    const tray = this._root.querySelector('[data-slot="tray"]');
+    tray.textContent = "";
+    tray.hidden = tags.length === 0;
+    if (!tags.length) return;
+    const title = document.createElement("div");
+    title.className = "tray-title";
+    title.textContent = "Tap an NFC tag on a wand";
+    tray.appendChild(title);
+    groupTags(tags).forEach((group, i) => {
+      if (i > 0) {
+        const sep = document.createElement("div");
+        sep.className = "tray-sep";
+        tray.appendChild(sep);
+      }
+      for (const tag of group.tags) {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.className = "tag-tile";
+        const color = TAG_COLORS[tag];
+        b.innerHTML = color
+          ? `<span class="swatch" style="background:${color.fill};border-color:${color.edge}"></span>`
+          : `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="3"/><circle cx="12" cy="12" r="2.5"/></svg>`;
+        b.append(tag);
+        b.addEventListener("click", () => this.wand?.tapTag(tag));
+        tray.appendChild(b);
+      }
+    });
+  }
+
   /** Re-read capabilities for the loaded game and show/hide panels. */
   async _refresh() {
     const seq = ++this._loadSeq;
@@ -330,6 +407,7 @@ class SimRoom extends HTMLElement {
     const caps = capsProxy.toJs({ dict_converter: Object.fromEntries });
     capsProxy.destroy();
     this.capabilities = caps;
+    this._renderTray(caps.nfcTags || []);
     this._display = display;
     this._displaySlug = display ? display.slug : null;
     this.lobbyGame?.setGame(this._source ? "custom" : this.wand.game.replace(/\.py$/, ""), caps);

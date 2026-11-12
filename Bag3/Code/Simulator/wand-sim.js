@@ -248,6 +248,12 @@ class WandSim extends HTMLElement {
     this._openOverlay = null;
   }
 
+  /** Touch an NFC tag to the wand, as its own "Tap a tag" control does. */
+  tapTag(cmd) {
+    this._logLine(`tag "${cmd}"`);
+    this._runPython(`sim_state.tap_nfc(${JSON.stringify(cmd)})`);
+  }
+
   get game() { return this.getAttribute("game") || "jump"; }
   set game(v) { this.setAttribute("game", v); }
 
@@ -367,10 +373,7 @@ class WandSim extends HTMLElement {
       onRestart: () => this.restart(),
       onBattery: (soc) => this._runPython(`sim_state.set_battery(soc=${soc})`),
       onLux: (lux) => this._runPython(`sim_state.set_ambient_lux(${lux})`),
-      onNfc: (cmd) => {
-        this._logLine(`tag "${cmd}"`);
-        this._runPython(`sim_state.tap_nfc(${JSON.stringify(cmd)})`);
-      },
+      onNfc: (cmd) => this.tapTag(cmd),
       onEnow: (msgType, data) => {
         this._logLine(data ? `heard ${msgType} "${data}"` : `heard "${msgType}"`);
         const args = data == null

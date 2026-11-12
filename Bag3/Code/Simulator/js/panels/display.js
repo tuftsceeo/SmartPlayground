@@ -96,6 +96,10 @@ button.display-case:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(10
 .wand-card .display-case { width: var(--wand-pad, 220px); height: auto; aspect-ratio: 1; }
 .wand-card .display-case canvas { width: 100%; height: 100%; }
 .wand-card .chip.display { background: #f2eefc; color: #6c4cd1; }
+.display-updated { align-self: center; font: 700 14px 'Nunito', system-ui, sans-serif; color: #1c9a82; background: #e9fbf6;
+  padding: 6px 12px; border-radius: 12px; margin-top: 6px; }
+.display-updated[hidden] { display: none; }
+:host([advanced]) .display-updated { display: none; }
 :host(:not([advanced])) .box[data-panel="displays"],
 :host(:not([advanced])) .display-dev .rm { display: none; }
 :host(:not([advanced])) .display-shelf:not(.in-game) { display: none; }
@@ -323,6 +327,9 @@ export function createDisplaysPanel({ mount, room }) {
   async function startOn(d, g, stale) {
     await d.dev.setGame(g.slug, g.src, g.icons);
     if (stale?.() || !list.includes(d)) return;
+    // A second load on the same display is a code change: say so for a moment.
+    if (d.started) flashUpdated(d);
+    d.started = true;
     send(d.dev.mac, { type: "start_game", name: g.slug });
   }
 
@@ -335,6 +342,20 @@ export function createDisplaysPanel({ mount, room }) {
       const mac = displayMac(i);
       if (!list.some((d) => d.dev.mac === mac)) return mac;
     }
+  }
+
+  /** "Just updated", under the display, for a few seconds. */
+  function flashUpdated(d) {
+    let badge = d.dev.el.querySelector(":scope > .display-updated");
+    if (!badge) {
+      badge = document.createElement("div");
+      badge.className = "display-updated";
+      badge.textContent = "Just updated";
+      d.dev.el.appendChild(badge);
+    }
+    badge.hidden = false;
+    clearTimeout(d.badgeTimer);
+    d.badgeTimer = setTimeout(() => { badge.hidden = true; }, 6000);
   }
 
   function wrap(d) {

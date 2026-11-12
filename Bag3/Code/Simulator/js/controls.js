@@ -309,6 +309,16 @@ input[type=range] { accent-color: #ef4d92; }
   .sim-pane-ctrl { flex: 1 1 100%; padding: 9px 14px 14px; }
 }
 
+/* Simple mode: Tilt / Shake / More sit under the wand; the rest of the
+   moves open with More. */
+.wand-actions { display: none; gap: 8px; margin-top: 10px; justify-content: center; }
+.wand-actions > .btn-stack { flex: 1 1 0; min-width: 0; }
+.simple .wand-actions { display: flex; }
+.simple:not(.more-open) .move-grid,
+.simple:not(.more-open) .shake-strength,
+.simple:not(.more-open) [data-act="face-flip"] { display: none !important; }
+:host([tray]:not([advanced])) .tag-wrap { display: none !important; }
+
 /* Minimized: the wand illustration only. */
 :host([minimized]) .sim-pane-ctrl,
 :host([minimized]) .pad-hint,
@@ -326,6 +336,11 @@ export function createControls(container, handlers = {}) {
         <div class="pad-guide" data-adv hidden><span class="pad-ring"></span></div>
         <div class="pad-wand" data-el="wand"></div>
         <div class="pad-extras"><slot name="pad" data-el="pad-slot"></slot></div>
+      </div>
+      <div class="wand-actions" data-el="wand-actions">
+        <button type="button" class="btn-stack" data-act="tilt" title="Tip the wand">${icon("shakePhone", 18)}Tilt</button>
+        <button type="button" class="btn-stack" data-act="shake-now" title="Shake it back and forth">${icon("vibrate", 18)}Shake</button>
+        <button type="button" class="btn-stack" data-act="more" aria-expanded="false" title="More ways to move the wand">${icon("more", 18)}More</button>
       </div>
       <div class="pad-foot">
         <div class="status" data-el="status">
@@ -591,6 +606,7 @@ export function createControls(container, handlers = {}) {
   /** Driven from the host's `advanced` attribute. */
   function setAdvanced(v) {
     advanced = !!v;
+    root.classList.toggle("simple", !advanced);
     for (const node of root.querySelectorAll("[data-adv]")) node.hidden = !advanced;
   }
 
@@ -608,6 +624,33 @@ export function createControls(container, handlers = {}) {
     const name = detectPose(padX, padY, inverted);
     setPoseDisplay(name);
     handlers.onFaceFlip?.(inverted, name);
+  });
+
+  // ── Tilt / Shake / More (simple mode) ───────────────────────────────
+  const tiltBtn = q('[data-act="tilt"]');
+  const shakeNowBtn = q('[data-act="shake-now"]');
+  const moreBtn = q('[data-act="more"]');
+  const TILT_POSES = { left_up: [-100, 0], right_up: [100, 0], face_up: [0, -100], face_down: [0, 100] };
+  let tiltPoses = [];
+  let tiltStep = 0;
+  tiltBtn.addEventListener("click", () => {
+    if (locked || !tiltPoses.length) return;
+    // Each press tips the wand to the next pose it can read, then upright.
+    tiltStep = (tiltStep + 1) % (tiltPoses.length + 1);
+    const [x, y] = tiltStep === 0 ? [0, 0] : TILT_POSES[tiltPoses[tiltStep - 1]];
+    padX = x;
+    padY = y;
+    setPoseDisplay(detectPose(padX, padY, inverted));
+    handlers.onTilt?.(padX / 100, padY / 100, inverted);
+    clearTimeout(timers.settle);
+    timers.settle = setTimeout(snapToPose, SETTLE_MS);
+  });
+  shakeNowBtn.addEventListener("click", () => {
+    handlers.onMove?.("shake", { intensity: Number(shakeRange.value) / 100 });
+  });
+  moreBtn.addEventListener("click", () => {
+    const open = root.classList.toggle("more-open");
+    moreBtn.setAttribute("aria-expanded", String(open));
   });
 
   // ── Moves ───────────────────────────────────────────────────────────
@@ -751,6 +794,12 @@ export function createControls(container, handlers = {}) {
     for (const b of root.querySelectorAll("[data-move]")) b.hidden = !motion.has(b.dataset.move);
     el.moveGrid.hidden = moveNames.length === 0;
     el.shakeRow.hidden = !motion.has("shake");
+
+    tiltPoses = poseNames.filter((n) => n in TILT_POSES);
+    tiltStep = 0;
+    tiltBtn.hidden = tiltPoses.length === 0;
+    shakeNowBtn.hidden = !motion.has("shake");
+    moreBtn.hidden = !(moveNames.length || motion.has("tip_down"));
 
     renderTags(tags);
     el.tagWrap.hidden = tags.length === 0;

@@ -135,8 +135,8 @@ export function createWandsPanel({ mount, room }) {
   /** The room's own wand card; its <wand-sim> moves in while the dialog is open. */
   const mine = document.createElement("div");
   mine.className = "wand-card";
-  mine.innerHTML = `<div class="chips"><span class="chip mine">This wand</span></div>`;
-  addMinimize(mine, mine.firstElementChild, "This wand");
+  mine.innerHTML = `<div class="chips"><span class="chip mine">Wand 1</span></div>`;
+  addMinimize(mine, mine.firstElementChild, "Wand 1");
   grid.appendChild(mine);
 
   /** [{ mac, card, el, link, lobbyGame, pad, toys }] in order; el null = placeholder. */
