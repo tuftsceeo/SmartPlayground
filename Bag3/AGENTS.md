@@ -14,10 +14,10 @@ A 5×5 + PN532 @ 0x24 variant was explored on `origin/claude/pn532-5x5` and not 
 
 ## Broadcast devices (ChatBroadcast)
 
-| Tree | Device identity | Hardware |
-|---|---|---|
-| `Code/TeacherTools/BroadcastBox/BBoxFirmware/` | `broadcast_box` | M5 StickS3 + Grove RFID 2 (WS1850S) — fielded prototype |
-| `Code/TeacherTools/BroadcastDial/BDialFirmware/` | `broadcast_dial` | M5 Dial 2 (StampS3A) — sibling port; Phase 0 pins still open |
+| Tree                                                                                   | Device identity   | Hardware                                                                                                                                                                                   |
+| -------------------------------------------------------------------------------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `Code/TeacherTools/BroadcastBox/BBoxFirmware/`                                         | `broadcast_box`   | M5 StickS3 + Grove RFID 2 (WS1850S) — fielded prototype                                                                                                                                    |
+| `Code/TeacherTools/BroadcastDial/BDialFirmware/`                                       | `broadcast_dial`  | M5 Dial 2 (StampS3A) — sibling port; Phase 0 pins still open                                                                                                                               |
 | `Code/Stations/SplatCompanion/` (`Companion/` hub + `ESPNowModem/` modem, two XIAO C6) | `splat_companion` | XIAO ESP32-C6 + PN532 (wand wiring) + MAX17048; BLE to a stock Splat toy, ESP-NOW via a paired EUM modem board over UART (`Code/Experiments/EspnowModem/`); runs on hardware with 4 Splats |
 
 Same serial protocol and wire contract. ChatBroadcast accepts both. Do not silently
@@ -44,3 +44,7 @@ pulls from the Broadcast Box and Dial. The earlier Bag3 wand tree is in
 `Code/Experiments/Wand Module/`. Built-in games are flat files in `Wand Module/`; a game pulled from
 the Box or Dial lands in `/games/<slug>.py` and is discovered at runtime. `utilities/` is
 bench-only and never deployed to the device.
+
+## Experimental Work, Scratchpad and Tests
+
+Store all test development prototype firmware, test scripts and results in `Bag3\Code\Experiments`. Doing so leaves developer team breadcrumbs for tracing and building on your work. Avoid working in local "App Data", scratch pad, or other locations outside the repo. Failed scripts, firmware, and results may be overwritten or not pushed to origin.

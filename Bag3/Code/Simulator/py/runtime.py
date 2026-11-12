@@ -35,6 +35,7 @@ _TRANSFORM_LIBS = (
     # Lobby games (in import order: each imports the ones before it).
     "pwire",
     "splatpair",
+    "splat_host",
     "lobby_game",
 )
 

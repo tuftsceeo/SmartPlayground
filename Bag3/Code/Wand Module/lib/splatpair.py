@@ -60,6 +60,20 @@ def second_name(mac_str):
     return PALETTE[int(mac_str[-5:-3], 16) % len(PALETTE)]
 
 
+def pick_pair(mac_str, used=()):
+    """A Splat host's color pair (A, B) for a Splat MAC: identity_name and
+    second_name of the Splat's MAC. B is bumped through the palette until it
+    differs from A and (A, B) is not in used. Provisional palette (6 names)."""
+    a = identity_name(mac_str)
+    k = PALETTE.index(second_name(mac_str))
+    for _ in range(len(PALETTE)):
+        b = PALETTE[k]
+        if b != a and (a, b) not in used:
+            return a, b
+        k = (k + 1) % len(PALETTE)
+    return a, b
+
+
 class SplatPairing:
     def __init__(self, macs, enow, leds, buz, my_mac=None):
         self.enow = enow
@@ -76,6 +90,9 @@ class SplatPairing:
         self.hub = None
         self.group = None
         self.dropped = []              # MACs released since boot, oldest first
+        self.host = pairing.is_host()
+        self.pulse_mac = None          # host: last identified Splat and when
+        self.pulse_at = 0
         self._connects = []            # per unit: link.connects already handled
         self._born = time.ticks_ms()
         self._deadline_done = False
@@ -184,10 +201,18 @@ class SplatPairing:
                 print("  Splat %s still lost; slower retries" % self.macs[i])
                 self.lost_feedback()
 
+    def pair_of(self, mac):
+        """Host: the (A, B) pair stored for mac, or None."""
+        k = pairing.slot_of(pairing.load_slots(), mac)
+        if k is None:
+            return None
+        e = pairing.load_slots()[k]
+        return e[1], e[2]
+
     def refresh_glow(self):
         """Rewrite the idle glow every GLOW_REFRESH_MS. Idle loop only: a game owns
         the Splat colors while it runs."""
-        two = self.second != self.identity
+        two = self.second != self.identity and not self.host
         if time.ticks_diff(time.ticks_ms(), self._last_glow) >= (GLOW_ALT_MS if two else GLOW_REFRESH_MS):
             if two:
                 self._phase ^= 1
@@ -244,10 +269,21 @@ class SplatPairing:
             return
         if i is None:
             self._last_glow = time.ticks_ms()
-        units = self.group.units if i is None else [self.group.unit(i)]
-        for u in units:
-            if u.connected:
+        idx = range(len(self.group.units)) if i is None else [i]
+        for j in idx:
+            u = self.group.unit(j)
+            if not u.connected:
+                continue
+            pair = self.pair_of(self.macs[j]) if self.host else None
+            if pair is None:
                 u._check(u.link.setLEDsON(rgb), "glow")
+                continue
+            # Host: left half A, right half B (splat_api.LED_PARTS).
+            from splat_api import LED_PARTS
+            for part, name in (("left", pair[0]), ("right", pair[1])):
+                r, g, b = COLOR_RGB[name]
+                u._check(u.link.setLEDs(LED_PARTS[part], int(r * GLOW_SCALE),
+                                        int(g * GLOW_SCALE), int(b * GLOW_SCALE)), "glow")
 
     def after_game(self):
         """A game may leave any Splat state behind: clear it and restore the glow."""
@@ -296,13 +332,25 @@ class SplatPairing:
         mac = parse_splat_card(text)
         if mac is None:
             raise ValueError("not a Splat card: %r" % text)
+        if mac in self.macs and self.host:
+            # Host: a re-tap identifies the Splat (its corner and the Splat pulse).
+            print("  Splat %s: identify" % mac)
+            self.pulse_mac = mac
+            self.pulse_at = time.ticks_ms()
+            j = self.macs.index(mac)
+            if self.group is not None and self.group.unit(j).connected:
+                self.group.unit(j).link.setLEDsON((255, 255, 255))
+                self._last_glow = time.ticks_ms() - GLOW_REFRESH_MS + 400
+            self.buz.confirm()
+            return None
         if mac in self.macs:
             print("  Splat %s: unpairing" % mac)
             self.release(self.macs.index(mac))
             self.ok_feedback()
             return None
         cap = pairing.max_splats()
-        if self.count >= cap:
+        if self.count >= cap or (self.host and pairing.choose_slot(
+                pairing.load_slots(), self.macs, mac) is None):
             print("  Splat %s: this wand already holds %d" % (mac, cap))
             self.error_feedback()
             return None
@@ -311,7 +359,7 @@ class SplatPairing:
             self.error_feedback()
             return None
         try:
-            pairing.add(mac)
+            pairing.add(mac, pick_pair)
         except OSError as e:
             print("  [ERR] pairing file write failed: %s" % e)
             self.error_feedback()
@@ -409,6 +457,8 @@ class SplatPairing:
 
     def ok_feedback(self):
         self.leds.show_shape(SHAPE_CHECK, GREEN)
+        if self.host:
+            self.buz.success()     # rising chirp
         self.buz.confirm()
         time.sleep_ms(300)
         self.leds.off()

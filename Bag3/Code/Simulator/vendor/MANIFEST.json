@@ -191,9 +191,9 @@
       "vendor_sha256": "77634b6d149201e1a504bf49de95758d7046c1274dbb5dc6208cad5ead0f1f51"
     },
     "lib/espnow_manager.py": {
-      "sha256": "d2eac2f6129e1f628b8cef31216f79898964069e231ea5578f649b91937235d6",
+      "sha256": "cd4077159988be7cf577ea76e1348df442eda1115aab0501ccc536497f37bf64",
       "source": "Bag3/Code/Wand Module/lib/espnow_manager.py",
-      "vendor_sha256": "d2eac2f6129e1f628b8cef31216f79898964069e231ea5578f649b91937235d6"
+      "vendor_sha256": "cd4077159988be7cf577ea76e1348df442eda1115aab0501ccc536497f37bf64"
     },
     "lib/game_tags.py": {
       "sha256": "c1f6f79e8a443e29a49328a85885589c1d890c9f71d75f476ad0cee838446ed6",
@@ -211,14 +211,14 @@
       "vendor_sha256": "b3eaac3bf78331b348d5e035c6d0ae4f34363313392983ed687ff0b70c6efbb5"
     },
     "lib/lobby_game.py": {
-      "sha256": "6c906ecae3adffd7f2bcdb9afb6486ad9c15414a3379ec467e02f5a378ff0de7",
+      "sha256": "8abbfd1587815928577ed49fb7b7bfff08058f34ba77a6ed7db4cc4037e5f3af",
       "source": "Bag3/Code/Wand Module/lib/lobby_game.py",
-      "vendor_sha256": "6c906ecae3adffd7f2bcdb9afb6486ad9c15414a3379ec467e02f5a378ff0de7"
+      "vendor_sha256": "8abbfd1587815928577ed49fb7b7bfff08058f34ba77a6ed7db4cc4037e5f3af"
     },
     "lib/pairing.py": {
-      "sha256": "2f199e7f9234025c27a76dfa342477838f6faae7f8ee792dda9d9494f16b2ece",
+      "sha256": "35108d764bb9890db84603505d109fa41c792e4cfdfc1c53757ac15a16033001",
       "source": "Bag3/Code/Wand Module/lib/pairing.py",
-      "vendor_sha256": "2f199e7f9234025c27a76dfa342477838f6faae7f8ee792dda9d9494f16b2ece"
+      "vendor_sha256": "35108d764bb9890db84603505d109fa41c792e4cfdfc1c53757ac15a16033001"
     },
     "lib/pwire.py": {
       "sha256": "f751534f624cc3668020b682f08fc67516a532404f7b156e1dca4ab32848e112",
@@ -230,10 +230,15 @@
       "source": "Bag3/Code/Wand Module/lib/splat_api.py",
       "vendor_sha256": "ddf1853417e1c6ee102ce6ce198ce98acddbf88c7d69320edfa848ad752e91cd"
     },
+    "lib/splat_host.py": {
+      "sha256": "98e1b70fd236533ea04052df25b2b47a4fdc4222f4c2c11e69af36a572fcf794",
+      "source": "Bag3/Code/Wand Module/lib/splat_host.py",
+      "vendor_sha256": "98e1b70fd236533ea04052df25b2b47a4fdc4222f4c2c11e69af36a572fcf794"
+    },
     "lib/splatpair.py": {
-      "sha256": "49d6cb0baf046fa78e7b1ba32d31451c6eb857a4c19c071e8e6b4a6ba4a2cdfc",
+      "sha256": "12344e94a6f4d65fcc5d3e602a75c5bd8d07b16a6474869e8aee25d68c8478b4",
       "source": "Bag3/Code/Wand Module/lib/splatpair.py",
-      "vendor_sha256": "49d6cb0baf046fa78e7b1ba32d31451c6eb857a4c19c071e8e6b4a6ba4a2cdfc"
+      "vendor_sha256": "12344e94a6f4d65fcc5d3e602a75c5bd8d07b16a6474869e8aee25d68c8478b4"
     }
   },
   "version": 1

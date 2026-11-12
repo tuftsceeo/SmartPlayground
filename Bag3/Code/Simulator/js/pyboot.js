@@ -39,6 +39,7 @@ export const FILE_LIST = [
   "vendor/lib/splat_api.py",
   "vendor/lib/pwire.py",
   "vendor/lib/splatpair.py",
+  "vendor/lib/splat_host.py",
   "vendor/lib/lobby_game.py",
   "vendor/games/jump.py",
   "vendor/games/shake.py",

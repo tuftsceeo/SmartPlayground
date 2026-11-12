@@ -63,6 +63,7 @@ VERBATIM_LIBS = [
     "pwire.py",
     "lobby_game.py",
     "splatpair.py",
+    "splat_host.py",
     "pairing.py",
     "splat_api.py",
 ]

@@ -31,6 +31,15 @@ try:
     del _e
 except Exception as _err:
     print("  [WARN] radio prewarm failed; ESPNowManager.init() will retry:", _err)
+# A Splat host (/role.txt) brings BLE up next, before other imports: started
+# after them, its 3rd and 4th Splat connects fail with -519 (bench 2026-11-12).
+try:
+    import os
+    os.stat("/role.txt")
+    import ubluetooth
+    ubluetooth.BLE().active(True)
+except Exception:
+    pass
 
 import machine
 import time
@@ -1213,7 +1222,7 @@ def main():
                        lambda t: _pair_card(t, enow),
                        lambda n: _launch_game(n, nfc, leds, buz, accel, i2c, enow, batt),
                        lambda sl, h: _espnow_pull_and_launch(enow, sl, h, nfc, accel, i2c, batt),
-                       is_game)
+                       is_game, lambda: btn.value() == 0)
 
     show_idle(last_soc, 0)
     print("\n  Tap a TRIGGER tag to start programming\n")

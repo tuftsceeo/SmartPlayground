@@ -6,6 +6,11 @@ most max_splats() entries: MAX_SPLATS for a game wand, HOST_MAX_SPLATS for a
 Splat host (ROLE_PATH holds "splat_host"; see lib/splat_host.py). Tap order is the local Splat order (SplatGroup
 unit 0, unit 1).
 
+A host also keeps "slots": HOST_MAX_SPLATS entries, each null or [MAC, A, B],
+A and B its color pair (splatpair.pick_pair). A slot whose MAC is not in
+"splats" is missing: it keeps its place and pair, and the next new Splat takes
+it before any empty slot. clear() forgets every slot.
+
 main.py clears the file on a power-on reset and reads it inline at boot,
 before this module is imported (nothing may allocate ahead of the radio).
 This module serves the idle loop: pairing, unpairing and claim checks.
@@ -89,11 +94,53 @@ def _drop_tmp(tmp):
         print("  [WARN] pairing: could not remove %s: %s" % (tmp, e))
 
 
-def _write(macs):
+def load_slots():
+    """Host slots: HOST_MAX_SPLATS entries, each None or [MAC, A, B]."""
+    out = [None] * HOST_MAX_SPLATS
+    try:
+        with open(PATH, "r") as f:
+            items = json.loads(f.read()).get("slots") or []
+    except (OSError, ValueError, AttributeError):
+        return out
+    for k in range(min(len(items), HOST_MAX_SPLATS)):
+        e = items[k]
+        if isinstance(e, list) and len(e) == 3 and valid(e[0]):
+            out[k] = e
+    return out
+
+
+def slot_of(slots, mac):
+    for k in range(len(slots)):
+        if slots[k] is not None and slots[k][0] == mac:
+            return k
+    return None
+
+
+def choose_slot(slots, macs, mac):
+    """Slot index for mac on a host: its own slot, else the first missing
+    slot, else the first empty one; None when all are held."""
+    k = slot_of(slots, mac)
+    if k is not None:
+        return k
+    for k in range(len(slots)):
+        if slots[k] is not None and slots[k][0] not in macs:
+            return k
+    for k in range(len(slots)):
+        if slots[k] is None:
+            return k
+    return None
+
+
+def _write(macs, slots=None):
+    if slots is None and is_host():
+        slots = load_slots()
+    d = {"splats": macs}
+    if slots is not None:
+        d["slots"] = slots
     tmp = _tmp()
     try:
         with open(tmp, "w") as f:
-            f.write(json.dumps({"splats": macs}))
+            f.write(json.dumps(d))
         os.rename(tmp, PATH)
     except OSError:
         _drop_tmp(tmp)
@@ -104,9 +151,11 @@ def holds(mac):
     return mac in load()
 
 
-def add(mac):
+def add(mac, pick=None):
     """Append mac and write the file. Returns the new list. A MAC already
-    held leaves the file alone; ValueError for a malformed MAC or a full list."""
+    held leaves the file alone; ValueError for a malformed MAC or a full list.
+    On a host, pick(mac, used_pairs) -> (A, B) gives a new slot's pair; a
+    missing slot keeps its own pair."""
     if not valid(mac):
         raise ValueError("bad MAC %r" % (mac,))
     macs = load()
@@ -116,7 +165,19 @@ def add(mac):
     if len(macs) >= cap:
         raise ValueError("already holding %d Splats" % cap)
     macs.append(mac)
-    _write(macs)
+    slots = None
+    if is_host():
+        slots = load_slots()
+        k = choose_slot(slots, macs, mac)
+        if k is None:
+            raise ValueError("no free slot")
+        if slots[k] is None:
+            used = [(e[1], e[2]) for e in slots if e is not None]
+            a, b = pick(mac, used) if pick is not None else ("turnwhite", "turnblue")
+            slots[k] = [mac, a, b]
+        else:
+            slots[k] = [mac, slots[k][1], slots[k][2]]
+    _write(macs, slots)
     return macs
 
 
@@ -127,7 +188,9 @@ def remove(mac):
     if mac not in macs:
         return macs
     macs.remove(mac)
-    if macs:
+    if is_host():
+        _write(macs)            # the slot stays, as missing
+    elif macs:
         _write(macs)
     else:
         clear()

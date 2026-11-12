@@ -14,6 +14,7 @@ import wandsim  # noqa: E402
 from lobbysim import Sc, W, S, net_of, press, lobby_game, splatpair  # noqa: E402
 from wandsim import BB  # noqa: E402
 import pairing  # noqa: E402
+import splat_host  # noqa: E402
 
 sys.path.insert(0, os.path.join(BB, "..", "Wand Module", "games"))
 import host_lobbytest  # noqa: E402
@@ -101,6 +102,90 @@ def setup(mod, players, host_first=True):
     return sc, h, ps
 
 
+def hold_start(sc, h):
+    press(sc, h, sc.sim.now + 10, splat_host.START_HOLD_MS + 100)
+    sc.run(splat_host.START_HOLD_MS + 700)
+
+
+# ── host screen and slots (no radio) ──
+R, G, B = (100, 0, 0), (0, 100, 0), (0, 0, 100)
+px = splat_host.frame([(R, G), None, None, None], [True, False, False, False], "idle", 0)
+check("corner TL shows the pair: left column A, right column B",
+      px[0] == px[5] == splat_host._scale(R, splat_host.PAIR_SCALE)
+      and px[1] == px[6] == splat_host._scale(G, splat_host.PAIR_SCALE))
+check("the corner blocks are (0,1,5,6) (3,4,8,9) (15,16,20,21) (18,19,23,24)",
+      splat_host.CORNERS == ((0, 1, 5, 6), (3, 4, 8, 9), (15, 16, 20, 21), (18, 19, 23, 24)))
+check("idle: the cross is off", all(px[i] == (0, 0, 0) for i in splat_host.CROSS_FILL + (12,)))
+check("only the next empty slot breathes",
+      px[3] != splat_host.EMPTY_RGB and px[15] == px[18] == splat_host.EMPTY_RGB, str((px[3], px[15])))
+on = splat_host.frame([(R, G)] * 4, [False] * 4, "idle", 0)
+off = splat_host.frame([(R, G)] * 4, [False] * 4, "idle", splat_host.MISSING_FLASH_MS)
+check("a missing Splat flashes", on[0] != (0, 0, 0) and off[0] == (0, 0, 0))
+check("...but shows solid during boot",
+      splat_host.frame([(R, G)] * 4, [False] * 4, "idle", splat_host.MISSING_FLASH_MS, boot=True)[0] != (0, 0, 0))
+lob = splat_host.frame([None] * 4, [False] * 4, "lobby", 1000, hold=0.5, lobby_rgb=B)
+check("lobby: center pixel is the lobby color; a half hold lights half the cross",
+      lob[12] == B and [lob[i] for i in splat_host.CROSS_FILL].count(splat_host.HOLD_RGB) == 4)
+check("forget hold: corners go out from the last",
+      splat_host.frame([(R, G)] * 4, [True] * 4, "idle", 0, gone=1)[18] == (0, 0, 0))
+
+wandsim.new_sim()            # patches time.ticks_*
+hs = splat_host.HostScreen(born=0)
+a, _, _ = hs.button(True, "lobby", 0)
+a, _, _ = hs.button(False, "lobby", splat_host.SHORT_PRESS_MS - 50)
+check("a short press is a peek", a == "peek" and hs.peeking(splat_host.SHORT_PRESS_MS))
+check("the peek ends after PEEK_MS", not hs.peeking(splat_host.SHORT_PRESS_MS + splat_host.PEEK_MS))
+hs.button(True, "lobby", 10000)
+a, hold, _ = hs.button(True, "lobby", 10000 + splat_host.START_HOLD_MS - 1)
+check("a hold just under START_HOLD_MS does not start", a is None and 0 < hold < 1)
+a, _, _ = hs.button(True, "lobby", 10000 + splat_host.START_HOLD_MS, can_start=False)
+check("a full hold with no players is refused", a == "refuse")
+hs.button(False, "lobby", 20000)
+hs.button(True, "playing", 30000)
+a1, _, _ = hs.button(True, "playing", 30000 + splat_host.START_HOLD_MS)
+a2, _, _ = hs.button(True, "playing", 30000 + splat_host.END_HOLD_MS)
+check("ending needs the longer hold", a1 is None and a2 == "end"
+      and splat_host.END_HOLD_MS > splat_host.START_HOLD_MS)
+hs.button(False, "playing", 40000)
+hs.button(True, "idle", 50000)
+_, _, g2 = hs.button(True, "idle", 52000)
+a, _, _ = hs.button(True, "idle", 50000 + splat_host.FORGET_HOLD_MS)
+check("idle hold: a corner goes out per second, then forget", g2 == 2 and a == "forget")
+
+used = []
+for m in ("AB:42:00:00:00:00", "AB:42:00:00:06:06", "AB:42:00:00:0C:0C"):
+    used.append(splatpair.pick_pair(m, used))
+check("pairs differ in their halves and never repeat on a host",
+      all(a != b for a, b in used) and len(set(used)) == 3, str(used))
+
+import tempfile
+_path = pairing.PATH
+pairing.PATH = os.path.join(tempfile.mkdtemp(), "pairing.json")
+pairing.os.rename = os.replace     # MicroPython rename overwrites; Windows does not
+_is_host = pairing.is_host
+pairing.is_host = lambda: True
+pairing.clear()
+for m in ("AB:42:00:00:00:01", "AB:42:00:00:00:02", "AB:42:00:00:00:03", "AB:42:00:00:00:04"):
+    pairing.add(m, splatpair.pick_pair)
+sl = pairing.load_slots()
+check("four Splats fill the four slots in order", [e[0][-2:] for e in sl] == ["01", "02", "03", "04"])
+try:
+    pairing.add("AB:42:00:00:00:05", splatpair.pick_pair)
+    check("a fifth Splat is refused", False)
+except ValueError:
+    check("a fifth Splat is refused", True)
+pairing.remove("AB:42:00:00:00:02")
+check("a removed Splat leaves its slot missing", pairing.load_slots()[1] == sl[1]
+      and "AB:42:00:00:00:02" not in pairing.load())
+pairing.add("AB:42:00:00:00:09", splatpair.pick_pair)
+s2 = pairing.load_slots()[1]
+check("a new Splat fills the missing slot and takes its pair",
+      s2[0] == "AB:42:00:00:00:09" and s2[1:] == sl[1][1:], str(s2))
+pairing.clear()
+pairing.is_host = _is_host
+pairing.PATH = _path
+
+
 # ── lobby: the host leads, players join, count shown, nobody else leads ──
 sc, h, (p2, p3) = setup(host_lobbytest, [2, 3])
 nh = net_of(h)
@@ -108,11 +193,15 @@ check("the host leads its lobby", nh.is_leader and nh.is_host)
 check("the host counts 2 players, not itself", nh.lobby_players() == 2, str(nh.lobby_players()))
 check("players joined, none leads", not net_of(p2).is_leader and not net_of(p3).is_leader)
 import leds as _L  # noqa: E402
-shapes = [c for c in h.leds.calls if c[0] == "show_shape"]
-check("the host shows the numeral 2, in green once it can start",
-      shapes and shapes[-1][1] == tuple(_L.SHAPE_2) and shapes[-1][2] == _L.GREEN, str(shapes[-1:]))
+check("the host's lobby screen has no numeral until a short press",
+      not [c for c in h.leds.calls if c[0] == "show_shape"])
 press(sc, h, sc.sim.now + 10)
-sc.run(600)
+sc.run(200)
+shapes = [c for c in h.leds.calls if c[0] == "show_shape"]
+check("a short press peeks the player count as the numeral 2",
+      shapes and shapes[-1][1] == tuple(_L.SHAPE_2), str(shapes[-1:]))
+check("...and does not start the game", nh.phase == "lobby")
+hold_start(sc, h)
 check("the host's button starts the game for all three", all(
     net_of(w).phase == "game" for w in (h, p2, p3)))
 check("net.players excludes the host on every wand",
@@ -156,8 +245,7 @@ check("with no host, a player never leads and ends with no_host",
 # ── host_splattag ──
 random.seed(5)
 sc, h, (p2, p3) = setup(host_splattag, [2, 3])
-press(sc, h, sc.sim.now + 10)
-sc.run(600)
+hold_start(sc, h)
 macs = [S[1], S[2], S[3], S[4]]
 scores = {2: 0, 3: 0}
 for _ in range(host_splattag.WIN_SCORE * 3):
@@ -178,8 +266,8 @@ check("...and every wand leaves after the win", h.result == p2.result == p3.resu
 
 # ── host_relaycolor ──
 sc, h, (p2, p3) = setup(host_relaycolor, [2, 3])
-press(sc, h, sc.sim.now + 10)
-sc.run(800)
+hold_start(sc, h)
+sc.run(200)
 check("host_relaycolor: the first player holds the token; every Splat in their color",
       all(lit(h.periph(m)) == ident_rgb(2) for m in macs))
 pulse(sc, p2)
