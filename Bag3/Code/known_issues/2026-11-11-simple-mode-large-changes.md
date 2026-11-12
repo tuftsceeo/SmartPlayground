@@ -64,12 +64,13 @@ the historical Splat Companion. It is not a game wand. It is assigned its role d
 tapping a card that puts it into Splat pairing mode. From then on its only jobs are reading Splat
 NFC tags, pairing with 1 to 4 Splats (maximum not decided), and running the Splat side of the game.
 
-In the all-wands dialog it would be a Splat controller card a quarter of a wand card's size:
+In the all-wands dialog it would be a full-size Splat controller card (a wand card's size) with:
 
 - a 5x5 display showing the companion's own state;
 - a button for resets, or another role the game assigns;
 - an NFC reader;
-- four Splat slots, each filled by clicking it (standing in for pairing).
+- four quarter-size Splat cards in a 2x2 grid as pairing slots, each filled by clicking it
+  (standing in for pairing).
 
 A mock-up of that card is in `Simulator/js/panels/splatController.js`, added by the dialog's
 "+ Add a Splat controller". It is layout and interaction only: it runs no Python, is not on the
