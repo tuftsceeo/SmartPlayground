@@ -38,10 +38,13 @@ COLOR_RGB = {
     "turnoff": (0, 0, 0),
 }
 
-# The 14 Splat LEDs: even indexes are the inner ring, odd the outer points.
+# The 14 Splat LEDs: even indexes are the inner ring, odd the outer points;
+# 0-6 the left half, 7-13 the right (left/right not yet checked on a Splat).
 LED_PARTS = {
     "inner": (0, 2, 4, 6, 8, 10, 12),
     "outer": (1, 3, 5, 7, 9, 11, 13),
+    "left": (0, 1, 2, 3, 4, 5, 6),
+    "right": (7, 8, 9, 10, 11, 12, 13),
 }
 
 # name -> (note value, octave offset). Values from the Bag2 companion's
@@ -113,7 +116,7 @@ class SplatAPI:
 
     def color(self, name, part=None):
         """Set the Splat's LEDs to a card color name, e.g. "turnred".
-        part "inner" or "outer" sets only those LEDs (LED_PARTS) and leaves
+        part "inner", "outer", "left" or "right" sets only those LEDs (LED_PARTS) and leaves
         the others as they are; None sets all 14."""
         if not self.link.ready:
             return False

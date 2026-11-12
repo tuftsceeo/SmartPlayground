@@ -3,8 +3,9 @@
  *
  * The Splats are part of the wand's tangible interface, so they are drawn
  * as small toys in the wand's pad, below the drawn wand (wand-sim's "pad"
- * slot), with no labels: the toy's blue case and splatter window, lit LEDs
- * in the middle and out in the arms. A click on one is a press on
+ * slot), with no labels: the toy's blue case and splatter window, lit as
+ * solid color zones: inside vs outside, and left vs right. Zones blend only
+ * where two meet; a zone that is off is the window's gray. A click on one is a press on
  * its button (held at least MIN_PRESS_MS, so a quick click registers with a
  * game that polls). There are as many as the game pairs (0-2); none = the
  * row is not there. Sounds and notes play a short tone and pulse the toy.
@@ -35,9 +36,6 @@ export const SPLAT_STYLE = `
 /* Pressable: the toy sits on a darker base and sinks into it when stepped on. */
 .splat-toy { filter: drop-shadow(0 5px 0 #2a5f9e); }
 .splat-toy.down { filter: drop-shadow(0 1px 0 #2a5f9e); }
-/* Larger toys: tighter glows so the LEDs read as separate lights. */
-.splat-dev .splat-toy .glow circle { r: 16px; }
-.splat-dev .splat-toy .glow circle.in { r: 18px; }
 .wand-card .splat-dev { align-self: flex-start; margin-top: var(--wand-pad-top, 0); }
 .wand-card .splat-dev .splat-toy { width: var(--wand-pad, 220px) !important; height: var(--wand-pad, 220px) !important; }
 .wand-card .chip.splat-name { background: #e8f1fc; color: #2f76c8; }
@@ -69,21 +67,28 @@ export const SPLAT_STYLE = `
 `;
 
 /** The Splat's outline (a 256 x 254.7 drawing of the toy): the case with
- * its lanyard hole, the splatter window, and the window's LEDs as
- * [x, y, inner], inner ones in the middle and outer ones out in the arms. */
+ * its lanyard hole and the splatter window. */
 export const CASE = "M238.5,0H17.5C7.8,0,0,7.8,0,17.5v219.7c0,9.7,7.8,17.5,17.5,17.5h221c9.7,0,17.5-7.8,17.5-17.5V17.5c0-9.7-7.8-17.5-17.5-17.5ZM45.6,67.4c-12.4,0-22.5-10.1-22.5-22.5s10.1-22.5,22.5-22.5,22.5,10.1,22.5,22.5-10.1,22.5-22.5,22.5Z";
 export const BLOB = "M232.2,111.7c-9.1-12.7-26.6-1.9-39.2-5.2-4-1.2-7.3-4.5-9.8-7.8-14.6-19.5,32.1-29.9,38.2-48.4,1.2-3.5-.1-7.6-2.6-10.4-7.5-8.5-20-5.4-28.2,2.4-2.9,2.7-5.5,5.8-8.5,8.4-6.6,5.8-14.5,10.3-21.3,14.3-7,4.6-13.5,7.7-21.8,4.1-11.2-5.3-14.5-18.9-18.4-29.8-1.5-4.4-3.1-9.2-6.3-12.7-5.5-6.3-15.2-8-22.6-5.2-9,3.1-12.2,12-10.2,20.8,2,13.1,16.8,25,12.4,37.8-8.8,14.7-31.9-10.1-40.2,5.7-2.5,5-1.9,11.3,3.2,14.4,4.7,2.9,10,5.4,14.1,9.5,15.1,14.7-25.5,19.9-34.8,36-1.3,3.4-.4,7.5,1,10.7,2.6,5.7,7.3,7,13.1,6.2,7.8-1.2,16.8-6.1,24.3-9.7,5.7-2.3,11.4-6.9,17.6-4.5,12.1,5.9,6.6,23.5,6.7,35,.1,4.7-.8,9.4-1.4,14.1-.7,7.1.2,12.5,7.3,13.7,5.4.6,12.7-.6,17.5-3.7,10.1-7.9,6.6-22.9,9.6-33.9,4.1-15.1,12.5-15,22.7-2.8,6,7,11.8,17,15.8,25,1.6,3.3,3.2,6.9,5.6,9.9,15.7,18.5,47.4-13.8,25.9-29.5-4.4-3.7-10.1-6.9-13.4-11.5-2.8-4-3.9-10.1-2.7-14.7,5.3-21.2,59-12.3,46.3-38.2v-.2Z";
-const LEDS = [
-  [125, 118, 1], [148, 104, 1], [105, 108, 1], [128, 142, 1],
-  [107, 35, 0], [206, 49, 0], [212, 113, 0], [190, 196, 0], [118, 205, 0], [48, 158, 0], [46, 89, 0],
-];
+
+/** The zones each half of the window shows, as LED indexes (js/splats.js
+ * PARTS): a half's inside is its inner-ring LEDs, its outside its points. */
+const HALVES = {
+  left: { inner: [0, 2, 4, 6], outer: [1, 3, 5] },
+  right: { inner: [8, 10, 12], outer: [7, 9, 11, 13] },
+};
+
+/** Where zones meet (the design's "Wands and Splats" artboard): inside is
+ * solid to 30% of the window's radius and blends into outside by 60%; left
+ * is solid to 38% of its width and blends into right by 62%. */
+const RING_BLEND = [0.3, 0.6];
+const SIDE_BLEND = [0.38, 0.62];
 
 /** The window's diffuser: an unlit LED is the same gray, so an off Splat
  * reads as one solid shape and a white LED reads as lit against it. */
 const WINDOW_GRAY = "#d4d7de";
 
 const rgbCss = (c, a = 1) => `rgba(${c[0]},${c[1]},${c[2]},${a})`;
-const mix = (c, k) => c.map((v) => Math.round(v + (255 - v) * k));
 
 let audio = null;
 let toyCount = 0;
@@ -128,12 +133,26 @@ export function createSplatToy(splat, { onButton, label = "Splat", size = 56 }) 
       <clipPath id="${clip}"><path d="${BLOB}"/></clipPath>
       <path class="blob" d="${BLOB}"/>
       <g clip-path="url(#${clip})">
-        <g class="glow">${LEDS.map(([x, y, inner]) => `<circle${inner ? ' class="in"' : ""} cx="${x}" cy="${y}" r="${inner ? 26 : 20}"/>`).join("")}</g>
-        <g class="leds">${LEDS.map(([x, y, inner]) => `<circle cx="${x}" cy="${y}" r="${inner ? 11 : 10}"/>`).join("")}</g>
+      <defs>
+        ${["left", "right"].map((h) => `<radialGradient id="${clip}-${h}" cx="50%" cy="48%" r="50%">
+          <stop offset="0" class="${h} in"/><stop offset="${RING_BLEND[0]}" class="${h} in"/>
+          <stop offset="${RING_BLEND[1]}" class="${h} out"/><stop offset="1" class="${h} out"/>
+        </radialGradient>`).join("")}
+        <linearGradient id="${clip}-side" x1="0" x2="1" y1="0" y2="0">
+          <stop offset="0" stop-color="#000"/><stop offset="${SIDE_BLEND[0]}" stop-color="#000"/>
+          <stop offset="${SIDE_BLEND[1]}" stop-color="#fff"/><stop offset="1" stop-color="#fff"/>
+        </linearGradient>
+        <mask id="${clip}-mask"><rect width="256" height="254.7" fill="url(#${clip}-side)"/></mask>
+      </defs>
+      <g clip-path="url(#${clip})">
+        <path class="zone" d="${BLOB}" fill="url(#${clip}-left)"/>
+        <path class="zone" d="${BLOB}" fill="url(#${clip}-right)" mask="url(#${clip}-mask)"/>
       </g>
     </svg>`;
-  const glows = [...btn.querySelectorAll(".glow circle")];
-  const leds = [...btn.querySelectorAll(".leds circle")];
+  const stops = {
+    left: { in: [...btn.querySelectorAll("stop.left.in")], out: [...btn.querySelectorAll("stop.left.out")] },
+    right: { in: [...btn.querySelectorAll("stop.right.in")], out: [...btn.querySelectorAll("stop.right.out")] },
+  };
   let heard = splat.sounds;
   let releaseAt = 0;
   let held = false;
@@ -177,19 +196,19 @@ export function createSplatToy(splat, { onButton, label = "Splat", size = 56 }) 
 
   function refresh() {
     // An LED value is a brightness; lift it so a dim pairing glow still
-    // reads as its color on screen.
-    const ring = (rgb) => {
-      if (!splat.ready || !rgb.some(Boolean)) return null;
+    // reads as its color on screen. A zone with no lit LED is the gray.
+    const zone = (idx) => {
+      const rgb = splat.ready && idx.map((i) => splat.leds[i]).find((c) => c.some(Boolean));
+      if (!rgb) return WINDOW_GRAY;
       const peak = Math.max(...rgb, 1);
-      return rgb.map((v) => Math.round((v / peak) * 255));
+      return rgbCss(rgb.map((v) => Math.round((v / peak) * 255)));
     };
-    const inner = ring(splat.inner);
-    const outer = ring(splat.outer);
-    leds.forEach((el, i) => {
-      const c = LEDS[i][2] ? inner : outer;
-      el.style.fill = c ? rgbCss(LEDS[i][2] ? mix(c, 0.35) : c) : WINDOW_GRAY;
-      glows[i].style.fill = c ? rgbCss(c, LEDS[i][2] ? 0.5 : 0.35) : "transparent";
-    });
+    for (const [h, z] of Object.entries(HALVES)) {
+      const inC = zone(z.inner);
+      const outC = zone(z.outer);
+      for (const el of stops[h].in) el.setAttribute("stop-color", inC);
+      for (const el of stops[h].out) el.setAttribute("stop-color", outC);
+    }
     btn.setAttribute("aria-label", `${label}, ${describe(splat)}`);
     btn.classList.toggle("down", splat.pressed);
     btn.classList.toggle("lost", !splat.ready);

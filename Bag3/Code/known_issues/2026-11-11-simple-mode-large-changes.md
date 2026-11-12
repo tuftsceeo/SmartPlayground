@@ -22,7 +22,7 @@ open:
   - Agent does not state minimum devices or a fixed vs open-ended flag
   - Simulator does not open with the minimum number of wands
   - Splat host role built (wand-splat-update); >2 BLE Splats per wand untested on hardware; flash_bundle stale
-  - Splat zones (inside/outside, left/right) are not drawn as fills
+  - Splat left/right LED mapping (0-6 left, 7-13 right) not checked on a Splat
   - Simulator device art is hand-drawn, not the design-system icons
   - Structured game card (parseable reply format and renderer) does not exist
   - Saved games do not store versions, so no "N versions" label
@@ -91,11 +91,17 @@ Open:
 
 ## 4. Splat zone rendering
 
-Inside vs outside is modeled per LED (`js/panels/splats.js` :76–78, :131–132, :179–191), so two
-fills are the smaller part. Left vs right needs new LED addressing, kept in step with
-`SplatCompanion/Companion/splat_api.py` and the generated `splatActions.js`
-(`tools/sync_splat_actions.py --check`). Each zone is a solid color with a gradient only where two
-zones meet, or into gray when one is off.
+Built (2026-11-12), not checked in the browser or on a Splat. `LED_PARTS` in `splat_api.py`
+(SplatCompanion, `Wand Module/lib`, `Simulator/vendor/lib`; identical) adds `"left"` (LEDs 0–6)
+and `"right"` (7–13) to `"inner"` (even) and `"outer"` (odd). The left/right mapping is
+unconfirmed on hardware. `tools/sync_splat_actions.py` now also generates `PARTS` into
+`splatActions.js`; `splatActionCheck.js` checks the part against it.
+
+The Simulator keeps all 14 LEDs (`js/splats.js` `leds`, `PARTS`); `py/shims/splat_hub.py` reports
+a part write as `"ledsIdx"` with the LED indexes. `js/panels/splats.js` draws each half of the
+window as an inside zone and an outside zone: a radial blend from 30% to 60% of the radius, and
+the right half over the left through a mask from 38% to 62% of the width (the "Wands and Splats"
+artboard's stops). A zone with no lit LED is the window gray.
 
 ## 5. Simulator device art
 

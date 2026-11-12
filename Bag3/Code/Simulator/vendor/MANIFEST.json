@@ -226,9 +226,9 @@
       "vendor_sha256": "f751534f624cc3668020b682f08fc67516a532404f7b156e1dca4ab32848e112"
     },
     "lib/splat_api.py": {
-      "sha256": "bdf5ce3a6e47dccbab9e57a7c1060eb066006a3411b59dbddd4a613f85f91fe9",
+      "sha256": "ddf1853417e1c6ee102ce6ce198ce98acddbf88c7d69320edfa848ad752e91cd",
       "source": "Bag3/Code/Wand Module/lib/splat_api.py",
-      "vendor_sha256": "bdf5ce3a6e47dccbab9e57a7c1060eb066006a3411b59dbddd4a613f85f91fe9"
+      "vendor_sha256": "ddf1853417e1c6ee102ce6ce198ce98acddbf88c7d69320edfa848ad752e91cd"
     },
     "lib/splatpair.py": {
       "sha256": "49d6cb0baf046fa78e7b1ba32d31451c6eb857a4c19c071e8e6b4a6ba4a2cdfc",

@@ -75,7 +75,8 @@ export function knowledgeText(files, splatActions) {
         'For a Splat from net.splat(i) (leader) or net.local.unit(s) ' +
         '(this wand\'s own Splat, any game role):\n\n' +
         `- colors (.color): ${splatActions.colors.join(', ')}; ` +
-        '.color(name, "inner") or .color(name, "outer") sets only that ring\n' +
+        '.color(name, part) sets only that part: "inner" (middle ring), "outer" (points in the arms), ' +
+        '"left" or "right" (that half); the other lights keep their color\n' +
         `- notes (.note): ${splatActions.notes.join(', ')}\n` +
         `- sounds (.sound): ${splatActions.sounds.join(', ')}\n\n` +
         '.play([...]) takes any mix of these. Use these names only.';
