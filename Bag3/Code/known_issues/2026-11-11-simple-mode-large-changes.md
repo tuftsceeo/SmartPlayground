@@ -82,8 +82,29 @@ Built on branch `wand-splat-update` (2026-11-12, uncommitted at time of writing)
 
 Open:
 
-- **Hardware:** whether one wand holds more than 2 BLE Splats reliably is untested. Test one host
-  with 3–4 Splats under `HARDWARE_PROTOCOL.md`.
+- **Hardware (bench 2026-11-12, `Wand Module/utilities/bench_host_pairs.py`):** a wand on stock
+  MicroPython v1.29.0 `ESP32_GENERIC_C6` holds **2** BLE Splats. With 4 Splats advertising and
+  `SplatHub(count=4)`, two connect and every `connect_direct` to the others fails with `-519`
+  (HCI 0x07, Memory Capacity Exceeded). Two runs connected different pairs of Splats, so the limit
+  is the count, not particular Splats. `splat_hub.BLE_MAX_CONNECTIONS` (4) is not the cap. The
+  Splat Companion's 4-Splat result came from a build not recorded here. Those two runs started
+  after a soft reset that followed the wand's running `main.py`, imported the hub libraries as
+  `.py`, and built `Leds()` before BLE.
+  **Same wand, same firmware, 4 of 4 connected** (`utilities/bench_ble_conns.py` variant `em`):
+  hard reset, ESP-NOW (`espnow_manager.init()`) then BLE, hub libraries precompiled with mpy-cross
+  1.28.0.post2. Largest IDF block 208896 at start, 163840 after ESP-NOW, 135168 after BLE,
+  124928 with 4 Splats ready. So the limit came from the heap state left by the earlier start,
+  not the firmware. Not separated: the soft reset versus on-device compiling versus `Leds()`
+  first. The Splat host boot must keep ESP-NOW, then BLE, before other allocations, with
+  precompiled libraries.
+- **Bench, same run:** `left` (LEDs 0–6) and `right` (7–13) show as the Splat's left and right
+  halves. All 30 ordered pairs of the six `splatpair.PALETTE` colors, at the idle glow
+  (`GLOW_SCALE` 0.5), were read as distinct.
+- 2026-11-12: `main.py` now starts ESP-NOW on its first lines, before any other import (the
+  wand's `prewarm_ap()`); `espnow_manager.init()` keeps an ESP-NOW already active. On the bench
+  wand (v1.29.0): boot OK, largest IDF block 163840 after the imports (208896 before this change,
+  163840 after ESP-NOW), and a Dial code push worked. A paired or host boot with Splats is not
+  yet run on it.
 - `main.py` gained pre-radio code (role read, `UTILITY` entries); not yet tested on hardware
   against the radio-first memory rule.
 - `flash_bundle` (`wand_main.mpy`) is not regenerated.

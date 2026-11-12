@@ -13,6 +13,25 @@ Controls: start, stop, plus game tags (see lib/game_tags.py);
 Utility: battery (LED flash; status_poll is auto-answered by espnow_manager)
 """
 
+# Radio prewarm, before any other import (the wand's prewarm_ap(); AGENTS.md:
+# nothing may allocate before the radio claims its memory). ESPNowManager.init()
+# in _boot() finds ESP-NOW active and keeps it. Same antenna and rxbuf as
+# lib/espnow_manager.py (EXTERNAL_ANTENNA, ESPNOW_RXBUF).
+try:
+    import network, espnow
+    from machine import Pin
+    Pin(3, Pin.OUT).value(0)
+    import time
+    time.sleep_ms(100)
+    Pin(14, Pin.OUT).value(1)
+    network.WLAN(network.STA_IF).active(True)
+    _e = espnow.ESPNow()
+    _e.config(rxbuf=4096)
+    _e.active(True)
+    del _e
+except Exception as _err:
+    print("  [WARN] radio prewarm failed; ESPNowManager.init() will retry:", _err)
+
 import machine
 import time
 import sys

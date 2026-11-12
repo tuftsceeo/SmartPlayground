@@ -128,8 +128,9 @@ class ESPNowManager:
         sta.active(True)
         sta.disconnect()
         self.enow = espnow.ESPNow()
-        self.enow.config(rxbuf=ESPNOW_RXBUF)
-        self.enow.active(True)
+        if not self.enow.active():     # main.py's prewarm may have started it
+            self.enow.config(rxbuf=ESPNOW_RXBUF)
+            self.enow.active(True)
         try:
             self.enow.add_peer(BROADCAST_MAC)
         except Exception:
