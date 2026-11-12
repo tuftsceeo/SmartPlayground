@@ -7,6 +7,8 @@ One-line: the only icon primitive — inline stroke SVGs at 1.8 weight, copied f
 
 Names: wifi, box, plug, floppy, wand, sparkles, pencil-sparkles, mop-sparkles, nfcCard, close, trash, pencil, radio, radioOn, check, warning, modeServe, shakePhone, spinner, code, wrench, message-circle, library, folder-open, shuffle, send, download, cable, unplug, gamepad, square-arrow-out-up-right, vibrate, circle, chevronDown, volume-2, grid-3x3, music, palette, tag, snowflake, rainbow, arrow-up, chef-hat, circle-check, save, home, brain-circuit.
 
-The **sparkles family** carries the magic in this product: `wand` (Lucide *wand-sparkles*) for the wand itself and anything wand-related, `pencil-sparkles` for creating/authoring a game, `sparkles` for new or exciting, `mop-sparkles` for clearing or resetting.
+Retired, do not reintroduce: the two-path wand (a line and a star) and `smartphone-nfc`.
+
+The **sparkles family** carries the magic in this product: `wand` (Lucide *wand-sparkles*, the only wand drawing) for the wand itself and anything wand-related, `pencil-sparkles` for creating/authoring a game, `sparkles` for new or exciting, `mop-sparkles` for clearing or resetting.
 
 Sizes in product: 12 (inline status), 15 (default, footer/icon buttons), 16–18 (nav, send), 40–46 (hero / empty state, strokeWidth 1.3).
