@@ -95,20 +95,24 @@ button.display-case:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(10
 .wand-card .display-dev { align-self: stretch; align-items: flex-start; margin-top: var(--wand-pad-top, 0); }
 .display-shelf { margin-top: 0; }
 .display-shelf, .display-shelf .display-dev { width: 100%; }
-/* About 1.2x the drawn wand's height, a pale mint ring, a white outline,
-   a dark bezel and an inset screen. */
-.display-shelf .display-case { width: min(calc(var(--wand-h, 280px) * 1.2), calc(100% - 16px)); height: auto; aspect-ratio: 1;
+/* A pale mint ring, a white outline, a dark bezel and an inset screen,
+   beside the wand and in the all-wands dialog. Beside the wand it is about
+   1.2x the drawn wand's height. */
+.display-dev .display-case { height: auto; aspect-ratio: 1;
   margin: 8px; padding: 5.5%; border-radius: 26px; background: #2b2a30;
   box-shadow: 0 0 0 4px #fff, 0 0 0 9px #dff5ec, 0 14px 28px rgba(30,20,50,.16); }
-.display-shelf .display-case canvas { border-radius: 12px; box-shadow: none; }
-.display-shelf .display-case::after { display: none; }
-.display-shelf button.display-case { background: #fff; box-shadow: none; }
+.display-dev .display-case canvas { border-radius: 12px; box-shadow: none; }
+.display-dev .display-case::after { display: none; }
+.display-dev button.display-case { background: #fff; box-shadow: none; }
+.display-shelf .display-case { width: min(calc(var(--wand-h, 280px) * 1.2), calc(100% - 16px)); }
 .display-label { display: none; }
 .display-shelf .display-label { display: flex; align-items: center; gap: 6px;
-  font: 800 17px 'Nunito', system-ui, sans-serif; color: #5b5468; }
-.wand-card .display-case { width: var(--wand-pad, 220px); height: auto; aspect-ratio: 1; }
+  font: 800 17px 'Nunito', system-ui, sans-serif; color: #231f2e; }
+/* The all-wands dialog's display card: its own card, as wide as the display. */
+.wand-card.display-card { width: fit-content; max-width: 100%; justify-self: start; }
+.wand-card .display-case { width: var(--wand-pad, 220px); }
 .wand-card .display-case canvas { width: 100%; height: 100%; }
-.wand-card .chip.display { background: #f2eefc; color: #6c4cd1; }
+.wand-card .chip.display { background: #f1f0f4; color: #231f2e; }
 :host(:not([advanced])) .box[data-panel="displays"],
 :host(:not([advanced])) .display-dev .rm { display: none; }
 :host(:not([advanced])) .display-shelf:not(.in-game) { display: none; }
@@ -394,7 +398,7 @@ export function createDisplaysPanel({ mount, room }) {
   function place(d) {
     if (placedIn) {
       d.card = document.createElement("div");
-      d.card.className = "wand-card";
+      d.card.className = "wand-card display-card";
       d.card.innerHTML = `<div class="chips"><span class="chip display">Icon display</span></div>`;
       // The remove button joins the card's label row, as on a wand card.
       const rm = d.dev.el.querySelector(":scope > .rm");

@@ -1,5 +1,5 @@
 /**
- * 5x5 LED thumbnail for a saved game's [GAME_ICON:] start signature.
+ * 5x5 LED thumbnail for a game card's [GAME_ICON:] start signature.
  */
 import { SHAPES5, LED_COLORS } from "./shapes5.js";
 
@@ -22,15 +22,15 @@ export function gameTint(gameIcon) {
 }
 
 /**
- * @param {{shape: string, color: string}|null} gameIcon  stored start signature
- * @returns {string} HTML for a 5x5 grid, or "" when the shape or color is unknown
+ * @param {{shape: string, color: string}|null} gameIcon  start signature
+ * @returns {string} HTML for a 5x5 grid; every cell unlit when the shape or
+ *   color is missing or unknown
  */
 export function gameIconThumb(gameIcon) {
     const lit = SHAPES5[gameIcon?.shape];
     const duty = LED_COLORS[gameIcon?.color];
-    if (!lit || !duty) return "";
-    const on = new Set(lit);
-    const color = `rgb(${screenRgb(duty).join(",")})`;
+    const on = new Set(lit && duty ? lit : []);
+    const color = duty ? `rgb(${screenRgb(duty).join(",")})` : "";
     let cells = "";
     for (let i = 0; i < 25; i++) {
         cells += on.has(i) ? `<i style="background:${color}"></i>` : "<i></i>";

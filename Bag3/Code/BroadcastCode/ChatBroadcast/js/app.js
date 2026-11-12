@@ -38,11 +38,11 @@ import { loadUiMode, toggleUiMode, getUiMode } from './uiMode.js';
 import { loadDevMode, toggleDevMode } from './devMode.js';
 import { loadSavedGames, saveGame, findSavedGame, renameSavedGame, deleteSavedGame } from './library.js';
 import { validateGameName, slugify, remixName } from './gameName.js';
-import { buildHardwareReqs, formatHardwareReqs, requirementPills, baselineTags } from './hardware.js';
+import { buildHardwareReqs, formatHardwareReqs, requirementPills, baselineTags, deviceNeeds, deviceLine, isLobbyGame } from './hardware.js';
 import { initPaneSplit } from './paneSplit.js';
 import { initSerialSplit } from './serialSplit.js';
 import { initCodeDrawerSplit } from './codeDrawerSplit.js';
-import { iconSvg, exampleIcon } from './icons.js';
+import { iconSvg } from './icons.js';
 // LED icons for the display panel -- unrelated to icons.js, which is UI chrome.
 import {
     iconNamesIn, missingIconsIn, iconFileText, listIcons,
@@ -51,6 +51,7 @@ import {
 } from './ledicons/iconLibrary.js';
 import { gameIconEntries, startingIcon, drawIcon } from './ledicons/iconView.js';
 import { gameIconThumb, gameTint } from './ledicons/thumb5.js';
+import { GAME_ICONS } from './ledicons/shapes5.js';
 
 const SILENCE_LIMIT_MS = 15000;
 const SIM_IDLE_PAUSE_MS = 60000;
@@ -130,42 +131,61 @@ function makeActivatable(el) {
 }
 
 /**
- * "2 wands · icon display": the devices a saved game uses.
+ * "2 wands · icon display · 3 NFC tags": the devices a saved game needs
+ * (hardware.js deviceNeeds, as the send overlay's pills).
  * @param {object} g saved-game entry from library.js
  */
 function savedGameDevices(g) {
     const code = g.code || '';
     const settings = g.simSettings || {};
-    const lobby = /SPLATS_MIN|lobby_game|lobbyGame/.test(code);
-    const n = settings.wands || 0;
-    const parts = [n >= 2 ? `${n} wands` : lobby ? 'Wands' : 'Wand'];
-    if (/SPLATS_MIN/.test(code) || (lobby && settings.wand_splats > 0)) parts.push('Splat');
-    if (g.roleCode?.icon || g.iconCode) parts.push('icon display');
-    return parts.join(' · ');
+    const wands = settings.wands || 1;
+    const lobby = isLobbyGame(code);
+    const splats = /SPLATS_MIN/.test(code) || (lobby && settings.wand_splats > 0)
+        ? Math.max(1, (settings.wand_splats || 1) * wands) : 0;
+    const base = baselineTags(g.hardware?.slug || slugify(g.name || ''));
+    return deviceLine(deviceNeeds({
+        wands,
+        open: lobby,
+        displays: g.roleCode?.icon || g.iconCode ? 1 : 0,
+        splats,
+        nfcTags: (g.requiredTags || []).filter((t) => !base.includes(t)).length,
+    }));
+}
+
+/** "Wand · 8 NFC tags": the devices an example game needs. */
+function exampleDevices(ex) {
+    const base = baselineTags(ex.id);
+    return deviceLine(deviceNeeds({ nfcTags: (ex.tags || []).filter((t) => !base.includes(t)).length }));
 }
 
 /**
- * A saved game's card art: its 5x5 start signature, else up to three small
- * icons (one wand or several, Splats when the game uses them, an icon display when it has display code).
- * @param {object} g saved-game entry from library.js
+ * One game card, the same for My games and Example games: a tinted 5x5
+ * start signature (unlit when there is none), the name, the devices it
+ * needs, one more line, and an Open button.
+ * @param {{name: string, gameIcon: object|null, devices: string, note: string, menu: boolean}} c
+ * @returns {HTMLElement}
  */
-function savedGameIcons(g) {
-    // The stored start signature as a 5x5 LED grid; games without one
-    // (or with an unknown shape) fall back to the device icons below.
-    const thumb = gameIconThumb(g.gameIcon);
-    if (thumb) return thumb;
-    const code = g.code || '';
-    const settings = g.simSettings || {};
-    const lobby = /SPLATS_MIN|lobby_game|lobbyGame/.test(code);
-    const multi = lobby || (settings.wands || 1) > 1;
-    const splats = /SPLATS_MIN/.test(code) || (lobby && settings.wand_splats > 0);
-    const display = Boolean(g.roleCode?.icon || g.iconCode);
-    const opts = { size: 18, strokeWidth: 1.5 };
-    return [
-        `<span title="${multi ? 'Several wands' : 'One wand'}">${iconSvg(multi ? 'wands' : 'wand', opts)}</span>`,
-        splats ? `<span title="Splats">${iconSvg('splat', opts)}</span>` : '',
-        display ? `<span title="Icon display">${iconSvg('iconDisplay', opts)}</span>` : '',
-    ].join('');
+function gameCard({ name, gameIcon, devices, note, menu }) {
+    const card = document.createElement('div');
+    card.className = 'example-card game-card';
+    card.innerHTML =
+        `<div class="example-thumb game-thumb" style="background:${gameTint(gameIcon)}">${gameIconThumb(gameIcon)}</div>` +
+        `<div class="card-body" data-card-body>` +
+        `<h3>${escapeHtml(name)}</h3>` +
+        `<p class="card-devices">${escapeHtml(devices)}</p>` +
+        `<p class="card-note">${escapeHtml(note)}</p></div>` +
+        `<div class="card-actions">` +
+        `<button type="button" class="card-open" data-open>Open</button>` +
+        (menu
+            ? `<button type="button" class="card-more" data-more aria-label="More options for ${escapeHtml(name)}" aria-haspopup="true">${iconSvg('more', { size: 18 })}</button>` +
+              `<div class="card-menu hidden">` +
+              `<button type="button" data-rename>${iconSvg('pencil', { size: 16 })}Rename</button>` +
+              `<button type="button" data-delete>${iconSvg('trash', { size: 16 })}Delete</button>` +
+              `</div>`
+            : '') +
+        `</div>`;
+    card.setAttribute('aria-label', name);
+    return card;
 }
 
 class App {
@@ -1633,25 +1653,12 @@ class App {
                 return;
             }
             saved.forEach((g) => {
-                const card = document.createElement('div');
-                card.className = 'example-card saved-card';
+                // Last line: when it was saved.
+                const card = gameCard({
+                    name: g.name, gameIcon: g.gameIcon, devices: savedGameDevices(g),
+                    note: relativeTime(g.updatedAt), menu: true,
+                });
                 card.dataset.id = g.id;
-                const when = relativeTime(g.updatedAt);
-                // Design board "Saved games": tinted thumbnail, device line,
-                // time, a full-width Open button and a ⋯ menu.
-                card.innerHTML =
-                    `<div class="example-thumb saved-thumb" style="background:${gameTint(g.gameIcon)}">${savedGameIcons(g)}</div>` +
-                    `<div class="card-body" data-card-body>` +
-                    `<h3>${escapeHtml(g.name)}</h3>` +
-                    `<p class="card-devices">${escapeHtml(savedGameDevices(g))}</p>` +
-                    `<p>${escapeHtml(when)}</p></div>` +
-                    `<div class="card-actions">` +
-                    `<button type="button" class="card-open" data-open>Open</button>` +
-                    `<button type="button" class="card-more" data-more aria-label="More options for ${escapeHtml(g.name)}" aria-haspopup="true">${iconSvg('more', { size: 18 })}</button>` +
-                    `<div class="card-menu hidden">` +
-                    `<button type="button" data-rename>${iconSvg('pencil', { size: 16 })}Rename</button>` +
-                    `<button type="button" data-delete>${iconSvg('trash', { size: 16 })}Delete</button>` +
-                    `</div></div>`;
                 card.querySelector('[data-open]').addEventListener('click', (e) => {
                     e.stopPropagation();
                     this.openSavedGame(g.id);
@@ -1663,7 +1670,6 @@ class App {
                     document.querySelectorAll('.card-menu').forEach((m) => m.classList.add('hidden'));
                     menu.classList.toggle('hidden', !open);
                 });
-                card.setAttribute('aria-label', g.name);
                 makeActivatable(card);
                 card.addEventListener('click', (e) => {
                     if (e.target.closest('[data-rename],[data-delete],[data-confirm-del],[data-cancel-del],.card-rename-row,.card-more,.card-menu')) return;
@@ -1690,15 +1696,13 @@ class App {
             if (q && !ex.name.toLowerCase().includes(q)) return false;
             return true;
         }).forEach((ex) => {
-            const card = document.createElement('div');
-            card.className = 'example-card';
+            // Start signature from the Mock Wand's GAME_ICON table; last
+            // line: the short description.
+            const card = gameCard({
+                name: ex.name, gameIcon: GAME_ICONS[ex.id] || null, devices: exampleDevices(ex),
+                note: ex.description, menu: false,
+            });
             card.dataset.id = ex.id;
-            card.innerHTML =
-                `<div class="example-thumb">${iconSvg(exampleIcon(ex), { size: 26, strokeWidth: 1.5 })}</div>` +
-                `<h3>${escapeHtml(ex.name)}</h3>` +
-                `<p>${escapeHtml(ex.description)}</p>` +
-                (ex.tagNote ? `<div class="tag-badge">${escapeHtml(ex.tagNote)}</div>` : '');
-            card.setAttribute('aria-label', ex.name);
             makeActivatable(card);
             card.addEventListener('click', () => this.openDetail(ex.id));
             grid.appendChild(card);
@@ -2567,9 +2571,6 @@ class App {
         const settingsKey = JSON.stringify(settings);
         if (code === this._simLastSource && display === this._simLastDisplay
             && settingsKey === this._simLastSettings && !forcePlay) return;
-        // Only from the second push on: the first one *is* the game
-        // appearing, which needs no announcement.
-        const isUpdate = this._simLastSource != null;
         this._simLastSource = code;
         this._simLastDisplay = display;
         this._simLastSettings = settingsKey;
@@ -2587,11 +2588,7 @@ class App {
         // ahead of the game loading.
         this._sim.settings = settings;
         this._sim.source = code;
-        if (forcePlay) {
-            this._sim.restart?.();
-        } else if (isUpdate) {
-            this._sim.showOverlay('new-code');
-        }
+        if (forcePlay) this._sim.restart?.();
     }
 
     /** {name: duty[768]} for every icon the display code names, this
@@ -2849,8 +2846,8 @@ class App {
         if (!busy) return;
         const name = document.getElementById('send-game-name')?.value.trim() || this.gameName;
         document.getElementById('sending-title').textContent = `Sending ${name}…`;
-        document.getElementById('sending-tile').innerHTML =
-            iconSvg(this.device.kind === 'wand' ? 'wand' : 'teacherHub', { size: 48, strokeWidth: 1.8 });
+        // The computer is what sends, to either device.
+        document.getElementById('sending-tile').innerHTML = iconSvg('laptop', { size: 48, strokeWidth: 1.8 });
     }
 
     /**

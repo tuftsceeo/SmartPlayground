@@ -58,6 +58,7 @@ export function buildHardwareReqs({ code, gameName, declared, minWands, stations
     return {
         slug,
         minWands: minWands || 1,
+        open: isLobbyGame(code),
         displays: displays || 0,
         splats: splats || 0,
         stations: stations || [],
@@ -98,32 +99,54 @@ function sniffTags(code) {
     return [...new Set(notes.map((t) => t.toLowerCase()))];
 }
 
+/** True when the code is a lobby game: any number of wands can join. */
+export function isLobbyGame(code) {
+    return /SPLATS_MIN|lobby_game|lobbyGame/.test(code || "");
+}
+
+const DEVICE_ICONS = { wand: "wand", display: "iconDisplay", station: "station", splat: "splat", nfc: "nfcCard" };
+
 /**
- * Requirement pills for the send overlay: [{icon, label}].
+ * The devices a game needs, in words: [{kind, label}], in the order wands,
+ * icon displays, stations, Splats, NFC tags. One device is named without a
+ * number ("wand", "icon display"); two or more are counted ("3 wands").
+ * Wands are always listed; a lobby game with no set count says "wands".
+ * The rest are listed only at 1 or more.
  *
- * Wands show only at 2 or more (there is always at least one). Icon displays,
- * stations, NFC tags and Splats show only at 1 or more. The NFC count leaves out the
- * baseline `getcode:<slug>` and `<slug>` tags every game has.
+ * Shared by the send overlay's pills and the My games / Example games
+ * cards, so both say the same thing.
+ * @param {{wands?: number, open?: boolean, displays?: number, stations?: number, splats?: number, nfcTags?: number}} n
  */
+export function deviceNeeds({ wands = 1, open = false, displays = 0, stations = 0, splats = 0, nfcTags = 0 } = {}) {
+    const say = (count, one, many) => (count === 1 ? one : `${count} ${many}`);
+    const out = [];
+    out.push({ kind: "wand", label: wands >= 2 ? `${wands} wands` : open ? "wands" : "wand" });
+    if (displays >= 1) out.push({ kind: "display", label: say(displays, "icon display", "icon displays") });
+    if (stations >= 1) out.push({ kind: "station", label: say(stations, "station", "stations") });
+    if (splats >= 1) out.push({ kind: "splat", label: say(splats, "Splat", "Splats") });
+    if (nfcTags >= 1) out.push({ kind: "nfc", label: say(nfcTags, "NFC tag", "NFC tags") });
+    return out;
+}
+
+/** "2 wands · icon display · 3 NFC tags", first letter capitalized. */
+export function deviceLine(needs) {
+    const text = needs.map((n) => n.label).join(" · ");
+    return text ? text[0].toUpperCase() + text.slice(1) : "";
+}
+
+/** Requirement pills for the send overlay: [{icon, label}], from deviceNeeds. */
 export function requirementPills(reqs) {
     if (!reqs) return [];
-    const pills = [];
-    const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
-    if ((reqs.minWands || 1) >= 2) {
-        pills.push({ icon: "wand", label: plural(reqs.minWands, "wand", "wands") });
-    }
-    if ((reqs.displays || 0) >= 1) {
-        pills.push({ icon: "iconDisplay", label: plural(reqs.displays, "icon display", "icon displays") });
-    }
-    const stations = (reqs.stations || []).length;
-    if (stations >= 1) pills.push({ icon: "station", label: plural(stations, "station", "stations") });
     const baseline = baselineTags(reqs.slug);
-    const nfc = (reqs.tags || []).filter((t) => !baseline.includes(t)).length;
-    if (nfc >= 1) pills.push({ icon: "nfcCard", label: plural(nfc, "NFC tag", "NFC tags") });
-    if ((reqs.splats || 0) >= 1) {
-        pills.push({ icon: "splat", label: plural(reqs.splats, "Splat", "Splats") });
-    }
-    return pills;
+    const needs = deviceNeeds({
+        wands: reqs.minWands || 1,
+        open: reqs.open,
+        displays: reqs.displays || 0,
+        stations: (reqs.stations || []).length,
+        splats: reqs.splats || 0,
+        nfcTags: (reqs.tags || []).filter((t) => !baseline.includes(t)).length,
+    });
+    return needs.map((n) => ({ icon: DEVICE_ICONS[n.kind], label: n.label[0].toUpperCase() + n.label.slice(1) }));
 }
 
 /** Plain-language rows for the send-confirm overlay. */

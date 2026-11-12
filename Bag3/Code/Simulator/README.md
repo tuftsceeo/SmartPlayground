@@ -351,7 +351,7 @@ the Bag trees, not here, and has been left alone.
   (`detail` is `{ kind, action }`), `sim-enow-sent` (`detail` is
   `{ kind, data, mac }`).
 - Pop-ups: `showOverlay(kind, opts)` / `hideOverlay()`, where `kind` is
-  `"game-over"`, `"cant-simulate"`, `"welcome"` or `"new-code"` (a
+  `"game-over"`, `"cant-simulate"`, `"welcome"` or `"paused"` (a
   bottom-anchored banner; the rest are centered cards over a scrim). `opts`
   can override `title`, `message` and `buttons`. Every button dispatches
   `sim-overlay-action` and closes the pop-up. `"cant-simulate"` is the one
@@ -364,10 +364,11 @@ the Bag trees, not here, and has been left alone.
   tag to the wand. In advanced mode the status line and Turn over sit under
   the pad, and the right pane has the toolbar, Jump, Spin and Shake in one
   row, the shake strength (Gentle, Strong, Intense), then whatever the host
-  slots in (the icon display). In simple mode Turn over and Motion sit under
-  the wand (Motion opens Jump and Shake), and the right pane holds only the
-  icon display, sized to the wand's height and centered beside it; below
-  420px the display moves under the wand. A "Wand" label shows above the
+  slots in (the icon display). In simple mode Flip (Turn over), Jump and
+  Shake sit under the wand, each only when the game reads it, and the right
+  pane holds only the icon display, sized to the wand's height and centered
+  beside it; with no display it is not drawn. Below 420px the display moves
+  under the wand. A "Wand" label shows above the
   wand while a display stands beside it.
 - ChatBroadcast (`Bag3/Code/TeacherTools/BroadcastBox/ChatBroadcast/`) embeds this
   element directly from `../../Simulator/wand-sim.js`, so both trees must be

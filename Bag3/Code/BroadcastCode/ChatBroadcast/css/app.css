@@ -386,11 +386,7 @@ body.ui-advanced #app-shell {
     background: #fff;
 }
 .example-card:hover { border-color: var(--pink); }
-/* Saved-game card: up to three small icons in a row. */
-.saved-thumb { gap: 10px; }
-.saved-thumb > span { display: inline-flex; }
-.saved-thumb > .thumb5 { display: grid; grid-template-columns: repeat(5, 9px); grid-auto-rows: 9px; gap: 2px; }
-.thumb5 i { border-radius: 2px; background: #f0d4e2; }
+.thumb5 { display: grid; }
 
 /* The NFC Station catalog is an advanced-mode tool. */
 body:not(.ui-advanced) #btn-station-catalog { display: none; }
@@ -2134,10 +2130,13 @@ body:not(.chat-fresh) .preview-col { animation: sim-in 0.35s ease-out; }
 .ng-tile { width: 48px; height: 48px; flex: none; border-radius: 12px; display: flex; align-items: center; justify-content: center; }
 
 /* ======================================================================
-   My games (design board "Saved games"): the gallery view's own header
+   My games and Example games (design board "Saved games"): the gallery
+   view's own header and the one game card both lists use
    ====================================================================== */
 .btn-new-game { background: linear-gradient(135deg, var(--pink), var(--pink-dark)); }
 #view-gallery .gallery-toolbar { padding: 24px 28px; }
+/* Category chips line up with the cards and keep a gap above them. */
+#gallery-chips { padding: 0 28px 18px; }
 #gallery-search {
     width: 340px;
     border: 1.5px solid #e8e6f0;
@@ -2149,7 +2148,7 @@ body:not(.chat-fresh) .preview-col { animation: sim-in 0.35s ease-out; }
     gap: 20px;
     padding: 0 28px 28px;
 }
-.saved-card {
+.game-card {
     padding: 0;
     border-radius: 22px;
     overflow: visible;
@@ -2158,14 +2157,14 @@ body:not(.chat-fresh) .preview-col { animation: sim-in 0.35s ease-out; }
     cursor: default;
     position: relative;
 }
-.saved-card .saved-thumb {
+.game-card .game-thumb {
     height: 132px;
     margin: 0;
     border-radius: 22px 22px 0 0;
     align-items: center;
     justify-content: center;
 }
-.saved-card .thumb5 {
+.game-card .thumb5 {
     grid-template-columns: repeat(5, 15px);
     grid-auto-rows: 15px;
     gap: 3px;
@@ -2173,13 +2172,22 @@ body:not(.chat-fresh) .preview-col { animation: sim-in 0.35s ease-out; }
     padding: 8px;
     border-radius: 10px;
 }
-.saved-card .thumb5 i { border-radius: 3px; background: #26222e; }
-.saved-card .card-body { padding: 14px 16px 6px; display: flex; flex-direction: column; gap: 4px; }
-.saved-card h3 { margin: 0; }
-.saved-card p { margin: 0; color: #6b6578; }
-.saved-card .card-devices { color: #5b5468; }
-.saved-card .card-actions { position: relative; padding: 8px 16px 14px; display: flex; gap: 8px; align-items: center; }
-.saved-card .card-open {
+.game-card .thumb5 i { border-radius: 3px; background: #26222e; }
+.game-card .card-body { padding: 14px 16px 6px; display: flex; flex-direction: column; gap: 4px; }
+.game-card h3 { margin: 0; }
+.game-card p { margin: 0; color: #6b6578; }
+.game-card .card-devices { color: #5b5468; }
+/* Two lines at most, and always two lines tall, so cards line up. */
+.game-card .card-note {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    line-height: 1.4;
+    min-height: 2.8em;
+}
+.game-card .card-actions { position: relative; padding: 8px 16px 14px; display: flex; gap: 8px; align-items: center; }
+.game-card .card-open {
     flex: 1;
     border: 0;
     border-radius: 14px;
@@ -2188,7 +2196,7 @@ body:not(.chat-fresh) .preview-col { animation: sim-in 0.35s ease-out; }
     color: #6c4cd1;
     cursor: pointer;
 }
-.saved-card .card-more {
+.game-card .card-more {
     width: 44px;
     height: 44px;
     flex: none;
@@ -2231,9 +2239,9 @@ body:not(.chat-fresh) .preview-col { animation: sim-in 0.35s ease-out; }
 .card-menu button:hover { background: #f4f2fa; }
 
 /* ---- Type sizes for the elements above, matched to the app's scale ---- */
-.new-game button, .dcard button, .saved-card button, .connect-tile,
+.new-game button, .dcard button, .game-card button, .connect-tile,
 .ng-idea, .dstatus, .ng-label { font: 700 13px 'Nunito', ui-rounded, system-ui, sans-serif; }
 .ng-head h1, #send-sending h2 { font: 800 18px 'Nunito', ui-rounded, system-ui, sans-serif; }
-.ng-head p, .dcard .dname span, .saved-card p, .saved-card .card-devices, .send-next-head div span { font: 12px 'Nunito', ui-rounded, system-ui, sans-serif; }
-.new-game .ng-card b, .dcard .dname b, .saved-card h3, .send-next-head b { font: 800 14px 'Nunito', ui-rounded, system-ui, sans-serif; }
+.ng-head p, .dcard .dname span, .game-card p, .game-card .card-devices, .send-next-head div span { font: 12px 'Nunito', ui-rounded, system-ui, sans-serif; }
+.new-game .ng-card b, .dcard .dname b, .game-card h3, .send-next-head b { font: 800 14px 'Nunito', ui-rounded, system-ui, sans-serif; }
 .new-game .ng-card span { font: 12px 'Nunito', ui-rounded, system-ui, sans-serif; }

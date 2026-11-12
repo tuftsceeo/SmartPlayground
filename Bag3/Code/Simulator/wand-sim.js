@@ -49,7 +49,7 @@ const OVERLAYS = {
     ],
   },
   "cant-simulate": {
-    icon: "smartphone-nfc", tintBg: "#f2eefc", tintFg: "#6c4cd1",
+    icon: "message-circle-exclamation", tintBg: "#f2eefc", tintFg: "#6c4cd1",
     title: "Can't simulate", message: "it needs two wands talking — try it on the wand",
     buttons: [
       { action: "close", label: "Got it", style: "ghost" },
@@ -63,12 +63,6 @@ const OVERLAYS = {
       { action: "load-saved", label: "Load saved code", style: "ghost" },
       { action: "start-chat", label: "Start a chat →", style: "pink" },
     ],
-  },
-  "new-code": {
-    banner: true,
-    icon: "sparkles", tintBg: "#e9fbf6", tintFg: "#12967f",
-    title: "New code is ready", message: "play it to see the change",
-    buttons: [{ action: "play-it", label: "Play it →", style: "pink" }],
   },
   paused: {
     banner: true,
@@ -412,7 +406,7 @@ class WandSim extends HTMLElement {
   /**
    * Show one of the pop-ups over the whole panel.
    *
-   * kind: "game-over" | "cant-simulate" | "welcome" | "new-code" | "paused"
+   * kind: "game-over" | "cant-simulate" | "welcome" | "paused"
    * opts.title / opts.message override the built-in copy (the auto-shown
    *   "cant-simulate" uses this to say which phase failed).
    * opts.buttons overrides the button row, as

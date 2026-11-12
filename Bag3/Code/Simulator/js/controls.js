@@ -5,7 +5,7 @@
  * Two panes. The left one is the wand's home: a pad you move over to tilt
  * the wand and click to press its button, a live axis readout above
  * (advanced only), a status line plus "Turn over" below (advanced) or
- * "Turn over" and "Motion" (simple), and the NFC tag chips. The right one
+ * Flip, Jump and Shake (simple), and the NFC tag chips. The right one
  * holds the toolbar (sound / start over), the one-shot gestures, the icon
  * displays (sim-room's "ctrl" slot) and the advanced block. Advanced mode is the host's `advanced`
  * attribute. The panel draws no console, log or radio readout; wand-sim
@@ -311,26 +311,28 @@ input[type=range] { accent-color: #ef4d92; }
    the drawn wand (76.5cqi tall: 46cqi wide at 439x730) while an icon
    display is shown beside it (host attribute "paired"). */
 .pad { background: none; border: 0; }
+/* Device label colors, shared with the icon display's and the all-wands
+   dialog's: wand purple, icon display ink, Splat blue. */
 .wand-label {
   display: none; position: absolute; left: 0; right: 0; top: calc(50% - 38.25cqi - 28px);
-  text-align: center; pointer-events: none; font: 800 17px 'Nunito', system-ui, sans-serif; color: #6c4cd1;
+  align-items: center; justify-content: center; gap: 6px;
+  pointer-events: none; font: 800 17px 'Nunito', system-ui, sans-serif; color: #6c4cd1;
 }
-:host([paired]) .wand-label { display: block; }
+:host([paired]) .wand-label { display: flex; }
 /* The label takes the hint's place. */
 :host([paired]) .pad-hint { display: none !important; }
 .pad.has-extras .wand-label { display: none !important; }
 
-/* Simple mode: "Turn over" and "Motion" sit under the wand; Motion opens
-   Jump and Shake. The right pane holds only the icon display, and the
-   wand and the display are centered as a pair about 50px apart. The pad's
-   side margin is 0.27 of its width = 0.353 of the wand's height (--wand-h,
-   from sim-room). */
+/* Simple mode: Flip, Jump and Shake sit under the wand, each shown only
+   when the game reads it. The right pane holds only the icon display, and
+   is not drawn without one; with one, the wand and the display are
+   centered as a pair about 50px apart. The pad's side margin is 0.27 of its
+   width = 0.353 of the wand's height (--wand-h, from sim-room). */
 .wand-actions { display: none; gap: 8px; margin-top: 10px; justify-content: center; }
-.wand-actions > .btn-stack { flex: 0 1 110px; min-width: 0; }
-.motion-menu { display: none; gap: 8px; margin-top: 8px; justify-content: center; }
-.motion-menu > .btn-stack { flex: 0 1 110px; min-width: 0; }
+.wand-actions > .btn-stack { flex: 0 1 96px; min-width: 0; }
 .simple .wand-actions { display: flex; }
-.simple.motion-open .motion-menu { display: flex; }
+:host(:not([paired])) .simple .sim-pane-ctrl { display: none; }
+:host(:not([paired])) .simple .sim-pane-wand { flex: 0 1 360px; padding-right: 14px; }
 .simple .move-grid,
 .simple .shake-strength,
 .simple .pad-foot { display: none !important; }
@@ -361,16 +363,13 @@ export function createControls(container, handlers = {}) {
       <div class="axis-row" data-el="axes" data-adv hidden></div>
       <div class="pad" data-el="pad" title="Move to tilt · click to press the button">
         <div class="pad-hint" data-el="pad-hint">move to tilt · click to press</div>
-        <div class="wand-label">Wand</div>
+        <div class="wand-label">${icon("wand", 18)}Wand</div>
         <div class="pad-guide" data-adv hidden><span class="pad-ring"></span></div>
         <div class="pad-wand" data-el="wand"></div>
         <div class="pad-extras"><slot name="pad" data-el="pad-slot"></slot></div>
       </div>
       <div class="wand-actions" data-el="wand-actions">
-        <button type="button" class="btn-stack" data-act="turn-over" title="Turn the wand upside down">${icon("shakePhone", 18)}Turn over</button>
-        <button type="button" class="btn-stack" data-act="motion" aria-expanded="false" title="Jump or shake the wand">${icon("vibrate", 18)}Motion</button>
-      </div>
-      <div class="motion-menu" data-el="motion-menu">
+        <button type="button" class="btn-stack" data-act="turn-over" title="Turn the wand upside down">${icon("shakePhone", 18)}Flip</button>
         <button type="button" class="btn-stack" data-move="jump" title="Toss the wand up">${icon("arrow-up", 18)}Jump</button>
         <button type="button" class="btn-stack" data-move="shake" title="Shake it back and forth">${icon("vibrate", 18)}Shake</button>
       </div>
@@ -639,17 +638,11 @@ export function createControls(container, handlers = {}) {
     handlers.onFaceFlip?.(inverted, name);
   });
 
-  // ── Turn over / Motion (simple mode) ────────────────────────────────
+  // ── Flip (simple mode): the same as Turn over ───────────────────────
   const turnBtn = q('[data-act="turn-over"]');
-  const motionBtn = q('[data-act="motion"]');
   turnBtn.addEventListener("click", () => {
     faceBtn.click();
     turnBtn.classList.toggle("is-active", inverted);
-  });
-  motionBtn.addEventListener("click", () => {
-    const open = root.classList.toggle("motion-open");
-    motionBtn.setAttribute("aria-expanded", String(open));
-    motionBtn.classList.toggle("is-active", open);
   });
 
   // ── Moves ───────────────────────────────────────────────────────────
@@ -796,12 +789,6 @@ export function createControls(container, handlers = {}) {
     el.shakeRow.hidden = !motion.has("shake");
 
     turnBtn.hidden = faceBtn.hidden;
-    motionBtn.hidden = !(motion.has("jump") || motion.has("shake"));
-    if (motionBtn.hidden) {
-      root.classList.remove("motion-open");
-      motionBtn.classList.remove("is-active");
-      motionBtn.setAttribute("aria-expanded", "false");
-    }
 
     renderTags(tags);
 

@@ -74,10 +74,12 @@ dialog.all-wands::backdrop { background: rgba(35,31,46,.35); }
 .aw-head .wbtn:first-of-type { margin-left: auto; }
 .aw-grid { flex: 1 1 auto; min-height: 0; overflow-y: auto; display: grid;
   grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 24px; align-content: start; }
+/* Simple mode: a wand card is as wide as the drawn wand needs. */
+:host(:not([advanced])) .aw-grid { grid-template-columns: repeat(auto-fill, 300px); justify-content: start; }
 .wand-card { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 .wand-card .chips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-height: 36px; }
 .wand-card .chip { font: 800 11px 'Nunito', system-ui, sans-serif; padding: 3px 9px; border-radius: 20px; }
-.wand-card .chip.mine { background: #fff0f6; color: #b3326b; }
+.wand-card .chip.wand { background: #f2eefc; color: #6c4cd1; }
 .wand-card .chip.playing { background: #e9fbf6; color: #14806b; }
 .wand-card .chips .wbtn { margin-left: auto; }
 .wand-card .chips .min-btn ~ .wbtn { margin-left: 0; }
@@ -135,7 +137,7 @@ export function createWandsPanel({ mount, room }) {
   /** The room's own wand card; its <wand-sim> moves in while the dialog is open. */
   const mine = document.createElement("div");
   mine.className = "wand-card";
-  mine.innerHTML = `<div class="chips"><span class="chip mine">Wand 1</span></div>`;
+  mine.innerHTML = `<div class="chips"><span class="chip wand">Wand 1</span></div>`;
   addMinimize(mine, mine.firstElementChild, "Wand 1");
   grid.appendChild(mine);
 
@@ -227,7 +229,10 @@ export function createWandsPanel({ mount, room }) {
     o.card.textContent = "";
     const chips = document.createElement("div");
     chips.className = "chips";
-    if (o.el) chips.innerHTML = `<span class="chip playing">Playing</span>`;
+    // Every wand card is named, as Wand 1 is; "Playing" once it runs.
+    const name = `Wand ${others.indexOf(o) + 2}`;
+    chips.innerHTML = `<span class="chip wand">${name}</span>`
+      + (o.el ? `<span class="chip playing">Playing</span>` : "");
     const rm = document.createElement("button");
     rm.type = "button";
     rm.className = "wbtn small sq";
@@ -236,7 +241,7 @@ export function createWandsPanel({ mount, room }) {
     rm.addEventListener("click", () => remove(o));
     chips.appendChild(rm);
     o.card.appendChild(chips);
-    addMinimize(o.card, chips, `Wand ${others.indexOf(o) + 2}`);
+    addMinimize(o.card, chips, name);
     if (o.el) {
       o.card.appendChild(o.el);
       setMinimized(o.card, o.card.classList.contains("min"));
