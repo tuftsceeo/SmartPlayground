@@ -2583,20 +2583,17 @@ class App {
     }
 
     /**
-     * Push code into the sim. Normally only when it actually changed — the
-     * element's source setter reloads (and would restart the running game)
-     * unconditionally, and updatePreview() runs on every keystroke-adjacent
-     * chat/version event, not just real code changes -- an organic chat
-     * edit gets a passive "new code is ready, play it" banner rather than
-     * yanking control from someone mid-test.
+     * Push code into the sim. Normally only when it actually changed: the
+     * element's source setter reloads and, with autostart on, starts the
+     * game (wand-sim _loadAndMaybeStart: stop, load, start), and
+     * updatePreview() runs on chat and version events, not just real code
+     * changes.
      *
-     * `forcePlay` is for the opposite case: an explicit "load this game"
-     * action (a saved game, remix, use-as-is), where the teacher clicked
-     * something specifically to see THIS game, not incidentally touched
-     * code that happens to match what's already loaded (bypassing the
-     * equality check too -- reopening the same saved game twice in a row
-     * should still visibly restart it) -- and restart()s it immediately
-     * instead of leaving it to the passive banner.
+     * `forcePlay` is an explicit "load this game" action (a saved game,
+     * remix, use-as-is): it bypasses the equality check, so reopening the
+     * same saved game still reloads and restarts it. No separate restart()
+     * follows the source: run alongside the reload it could start the old
+     * game before the new one loaded, leaving the old game running.
      *
      * Only marks the code as "sent" (_simLastSource) once it's actually
      * reached the element -- setupSim() is still loading, this just queues
@@ -2631,7 +2628,6 @@ class App {
         // ahead of the game loading.
         this._sim.settings = settings;
         this._sim.source = code;
-        if (forcePlay) this._sim.restart?.();
     }
 
     /** {name: duty[768]} for every icon the display code names, this
