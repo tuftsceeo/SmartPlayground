@@ -4,7 +4,8 @@
  *
  * Firmware manifest is loaded lazily so the chat UI can boot when BBoxFirmware
  * is not on the static server path (e.g. serving ChatBroadcast alone).
- * Dial vs Box is chosen from the link's stored identity; defaults to Box.
+ * Dial, Emulated Tag Dial or Box is chosen from the link's stored identity;
+ * defaults to Box.
  */
 
 async function loadFirmwareFiles(device) {
@@ -18,6 +19,13 @@ async function loadFirmwareFiles(device) {
     );
     return loadDialFiles("../../TeacherTools/BroadcastDial/BDialFirmware/");
   }
+  if (device === "emulated_tag_dial") {
+    // EmulatedTagDial/ sits in Bag3/Code/, beside BroadcastCode/ and TeacherTools/.
+    const { loadDialFiles } = await import(
+      "../../../../EmulatedTagDial/ETDialFirmware/manifest.js"
+    );
+    return loadDialFiles("../../EmulatedTagDial/ETDialFirmware/");
+  }
   const { loadBoxFiles } = await import("../../../../TeacherTools/BroadcastBox/BBoxFirmware/manifest.js");
   return loadBoxFiles("../../TeacherTools/BroadcastBox/BBoxFirmware/");
 }
@@ -27,7 +35,9 @@ export async function installBoxFirmware(repl, adapter, onProgress, device = nul
   // Only the file manifest needs a hard default (something has to be
   // flashed) -- the display label stays generic when the device type
   // genuinely isn't known yet, rather than guessing "Box".
-  const label = device === "broadcast_dial" ? "Dial" : device === "broadcast_box" ? "Box" : "device";
+  const label = device === "broadcast_dial" ? "Dial"
+    : device === "emulated_tag_dial" ? "ET Dial"
+    : device === "broadcast_box" ? "Box" : "device";
 
   await repl.enterRepl();
   await repl.enterRawRepl();

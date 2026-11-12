@@ -30,8 +30,8 @@ export const VALIDATE_LIMIT_MS = 8000;
  *  rather than overlapping the next one. */
 const NUDGE_TIMEOUT_MS = 2000;
 
-/** Box and Dial share ChatBroadcast; anything else is wrong_device. */
-const EXPECTED_DEVICES = new Set(["broadcast_box", "broadcast_dial", "crowpanel"]);
+/** Box, Dial, Emulated Tag Dial and CrowPanel share ChatBroadcast; anything else is wrong_device. */
+const EXPECTED_DEVICES = new Set(["broadcast_box", "broadcast_dial", "crowpanel", "emulated_tag_dial"]);
 
 /**
  * Short label for UI copy: "Box", "Dial" or "Wand". Generic "Device" before
@@ -53,6 +53,7 @@ export function deviceShortName(infoOrDevice) {
     : infoOrDevice?.device;
   if (d === "wand") return "Wand";
   if (d === "broadcast_dial") return "Dial";
+  if (d === "emulated_tag_dial") return "ET Dial";
   if (d === "broadcast_box") return "Box";
   if (d === "crowpanel") return "Panel";
   return "Device";
@@ -66,6 +67,7 @@ export function deviceProductName(infoOrDevice) {
     : infoOrDevice?.device;
   if (d === "wand") return "Wand";
   if (d === "broadcast_dial") return "Broadcast Dial";
+  if (d === "emulated_tag_dial") return "Emulated Tag Dial";
   if (d === "broadcast_box") return "Broadcast Box";
   if (d === "crowpanel") return "CrowPanel";
   return "Broadcast Device";
@@ -118,7 +120,7 @@ export class BboxDeviceLink {
       if (obj.device && !EXPECTED_DEVICES.has(obj.device)) {
         this.wrongDevice = true;
         this.running = false;
-        logWarn(`wrong device on identity: ${obj.device} (expected broadcast_box|broadcast_dial|crowpanel)`);
+        logWarn(`wrong device on identity: ${obj.device} (expected broadcast_box|broadcast_dial|crowpanel|emulated_tag_dial)`);
         this._emit("wrong_device", obj);
         return;
       }
