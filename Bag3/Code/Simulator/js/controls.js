@@ -325,22 +325,23 @@ input[type=range] { accent-color: #ef4d92; }
 
 /* Simple mode: Flip, Jump and Shake sit under the wand, each shown only
    when the game reads it. The right pane holds only the icon display, and
-   is not drawn without one. The two panes keep their sizes and wrap: side
-   by side, centered, 16px apart when both fit, otherwise the display goes
-   under the wand (the host scrolls to it). The display pane is as wide as
-   the display, 1.2x the drawn wand's height (--wand-h, from sim-room). */
+   is not drawn without one. Sizes match the all-wands dialog: the wand
+   pane is 300px (narrower only when the panel is), and the display is as
+   wide as the wand's square pad (--wand-pad, from sim-room). The panes keep
+   those sizes and wrap: side by side when both fit, with any spare width
+   shared evenly around and between them; otherwise the display goes under
+   the wand (the host scrolls to it). */
 .wand-actions { display: none; gap: 8px; margin-top: 10px; justify-content: center; }
 .wand-actions > .btn-stack { flex: 0 1 96px; min-width: 0; }
 .simple .wand-actions { display: flex; }
 :host(:not([paired])) .simple .sim-pane-ctrl { display: none; }
-:host(:not([paired])) .simple .sim-pane-wand { flex: 0 1 360px; padding-right: 14px; }
 .simple .move-grid,
 .simple .shake-strength,
 .simple .pad-foot { display: none !important; }
 :host(:not([advanced])) .ctrl-toolbar { display: none !important; }
-.simple.wand-controls { justify-content: center; align-items: center; flex-wrap: wrap; gap: 16px; }
-.simple .sim-pane-wand { padding: 14px; }
-.simple .sim-pane-ctrl { flex: 0 0 auto; width: calc(var(--wand-h, 280px) * 1.2 + 16px); max-width: 100%;
+.simple.wand-controls { justify-content: space-evenly; align-items: center; flex-wrap: wrap; gap: 16px; }
+.simple .sim-pane-wand { flex: 0 1 300px; min-width: 0; padding: 14px; }
+.simple .sim-pane-ctrl { flex: 0 0 auto; width: calc(var(--wand-pad, 272px) + 16px); max-width: 100%;
   padding: 14px 0; }
 
 
