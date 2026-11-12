@@ -2129,9 +2129,9 @@ body:not(.chat-fresh) .preview-col { animation: sim-in 0.35s ease-out; }
     padding: 16px 20px;
     border-radius: 20px;
     border: 0;
-    background: linear-gradient(135deg, #1fb89a, #14806c);
+    background: linear-gradient(135deg, var(--pink), var(--pink-dark));
     color: #fff;
-    box-shadow: 0 6px 18px rgba(20, 128, 108, 0.3);
+    box-shadow: 0 6px 18px rgba(239, 77, 146, 0.3);
 }
 .new-game .ng-card:hover { filter: brightness(1.05); }
 .new-game .ng-card span { color: rgba(255, 255, 255, 0.88); margin-left: auto; }
