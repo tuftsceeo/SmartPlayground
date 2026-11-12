@@ -241,7 +241,7 @@ NFC_ADDR     = HUB_CONFIG.get("nfc_addr", 0x24)
 FIXED_TRIGGERS = {"buttondown", "buttonup", "whenshake"}
 COMBINATORS    = {"and", "then"}
 CONTROLS       = GAME_TAGS | CONTROL_TAGS
-UTILITY        = {"battery"}
+UTILITY        = {"battery", "splathost", "player"}
 BROADCAST      = {"getcode"}
 BASE_COMMANDS  = FIXED_TRIGGERS | ACTIONS | ANIMAL_SOUNDS | COMBINATORS | CONTROLS | UTILITY | BROADCAST
 # Pulled games answer to their own slug as a tag. Computed once at import:
@@ -417,8 +417,9 @@ def _load_play(name):
 
 
 def _splat_limits(name):
-    """(SPLATS_MIN, SPLATS_MAX) if the loaded game module declares a lobby
-    game, else None. Raises ValueError for an invalid declaration."""
+    """(SPLATS_MIN, SPLATS_MAX, SPLAT_HOST, PLAYERS_MIN) if the loaded game
+    module declares a lobby game, else None. Raises ValueError for an
+    invalid declaration."""
     mod = sys.modules[game_module(name)]
     lo = getattr(mod, "SPLATS_MIN", None)
     if lo is None:
@@ -428,7 +429,7 @@ def _splat_limits(name):
             or (hi is not None and (not isinstance(hi, int) or isinstance(hi, bool) or hi < lo))):
         raise ValueError("%s: SPLATS_MIN=%r SPLATS_MAX=%r (need int >= 1, and None or >= SPLATS_MIN)"
                          % (name, lo, hi))
-    return lo, hi
+    return lo, hi, getattr(mod, "SPLAT_HOST", False) is True, getattr(mod, "PLAYERS_MIN", 1)
 
 
 def _unload_game(name):
@@ -531,7 +532,8 @@ def _enter_lobby(name, limits, enow, nfc, leds, buz):
     import lobby_game
     from espnow_manager import get_own_mac
     net = lobby_game.enter(enow, name, limits[0], limits[1], _pair_ctl, get_own_mac(),
-                      nfc, leds, buz, lambda: btn.value() == 0)
+                      nfc, leds, buz, lambda: btn.value() == 0,
+                      limits[2], limits[2] and _ROLE == "splat_host", limits[3])
     if net is None and lobby_game.pair_card:
         card, lobby_game.pair_card = lobby_game.pair_card, None
         leds.off()
@@ -574,6 +576,12 @@ def _run_games(name, nfc, leds, buz, accel, i2c, enow, batt_ref):
         except ValueError as e:
             _game_load_failed(name, e)
             return
+        if _ROLE == "splat_host" and (limits is None or not limits[2]):
+            print("  Splat host: %s is not a Splat host game" % name)
+            buz.reject()
+            play_func = None
+            _unload_game(name)
+            break
         if limits is not None:
             net = _enter_lobby(name, limits, wrapper, nfc, leds, buz)
         if limits is None or net is not None:
@@ -638,6 +646,9 @@ def check_broadcast(enow, batt_ref, leds_ref, buz_ref):
     if msg_type == "code_push":
         _queue_push(data)
         return "stop"                           # idle loop runs the pull
+    if msg_type == "set_role" and isinstance(data, dict):
+        import splat_host
+        splat_host.set_role(data.get("role"))   # resets on a change
     if msg_type == "raw" and _pair_ctl is not None and isinstance(data, dict):
         _pair_ctl.on_msg(data, mac_str)
     return None
@@ -818,6 +829,8 @@ def _espnow_pull_and_launch(enow, slug, host_id, nfc, accel, i2c, batt):
 _PAIRING_PATH = "/pairing.json"   # same file as lib/pairing.py PATH
 _PAIR_BOOT_PATH = "/pair_boot"    # same file as lib/splatpair.py PAIR_BOOT_PATH
 _pair_ctl = None                  # splatpair.SplatPairing for a paired wand
+_ROLE_PATH = "/role.txt"          # same file as lib/pairing.py ROLE_PATH
+_ROLE = ""                        # "splat_host" or "" (read after the radio is up)
 _pending_push = None              # (slug, host) from a Dial code_push
 
 
@@ -839,6 +852,9 @@ def _read_pairing():
     try:
         os.remove(_PAIR_BOOT_PATH)
     except OSError:
+        if _ROLE == "splat_host":
+            with open(_PAIRING_PATH) as f:     # a Splat host keeps its Splats
+                return [m for m in json.load(f)["splats"] if isinstance(m, str)]
         os.remove(_PAIRING_PATH)
         print("  Pairing cleared (no Splat card tap before this boot)")
         return []
@@ -950,8 +966,14 @@ def _boot():
     if DEBUG_BOOT:
         memprobe.probe("post-enow")  # BENCH
 
-    # ── Splat pairing: BLE comes up only for a paired wand, after the radio
-    # has claimed its memory. ──
+    # ── Role, then Splat pairing: BLE comes up only for a paired wand, after
+    # the radio has claimed its memory. ──
+    global _ROLE
+    try:
+        with open(_ROLE_PATH) as f:
+            _ROLE = f.read().strip()
+    except OSError:
+        _ROLE = ""
     _boot_pairing(enow)
     if DEBUG_BOOT:
         memprobe.probe("post-ble")  # BENCH
@@ -1166,6 +1188,14 @@ def main():
         last_activity_ms = time.ticks_ms()
         last_uid = None
 
+    if _ROLE == "splat_host":
+        import splat_host
+        splat_host.run(enow, nfc, leds, buz, lambda: _pair_ctl,
+                       lambda t: _pair_card(t, enow),
+                       lambda n: _launch_game(n, nfc, leds, buz, accel, i2c, enow, batt),
+                       lambda sl, h: _espnow_pull_and_launch(enow, sl, h, nfc, accel, i2c, batt),
+                       is_game)
+
     show_idle(last_soc, 0)
     print("\n  Tap a TRIGGER tag to start programming\n")
 
@@ -1364,6 +1394,10 @@ def main():
                 continue
 
             # ── UTILITY ──
+            if cmd in ("splathost", "player"):
+                import splat_host
+                splat_host.set_role("splat_host" if cmd == "splathost" else "player")
+                show_idle(last_soc, 0); continue
             if cmd == "battery":
                 show_battery(batt, leds, buz)
                 # Refresh SOC after battery display

@@ -4,26 +4,26 @@
  * Shown in simple and advanced mode. Adding wands and displays happens only
  * in the overlay.
  *
- * The room starts a lobby game with `wands - 1` other wands from its
+ * The room sets a lobby game up with `wands - 1` other wands from its
  * settings (none by default), and the overlay's "+ Add a wand" adds one, up to MAX_WANDS
- * in all, or the game's `wands` when that is more. Wands have no names or colors here.
+ * in all, or the game's `wands` when that is more. Each card is named
+ * Wand 1, Wand 2, ... on a purple bar.
  *
- * Another wand starts as a placeholder: an outline of a wand with "?" on
- * its screen that runs nothing and is not on the radio. Clicking it starts
- * a real <wand-sim> running the room's game, on the room's bus and clock
- * with its own MAC and Splats, so lobby_game.py on each wand plays the real
- * protocol. Each one boots its own Pyodide, which is why they wait for a
- * click.
+ * Each other wand is a real <wand-sim> running the room's game, on the
+ * room's bus and clock with its own MAC and Splats, so lobby_game.py on each
+ * wand plays the real protocol. Each one boots its own Pyodide, so the
+ * wands the settings call for wait as slots until the dialog opens, and
+ * then all start; "+ Add a wand" starts one at once.
  *
  * "View Multiple Device Simulation" opens a near-full-screen <dialog> with every wand side
- * by side: the room's own wand is moved into it while it is open (a
+ * by side (drag a card by its name bar to reorder them): the room's own wand is moved into it while it is open (a
  * <wand-sim> survives the move) and back when it closes. Live other wands
  * live in the dialog and are stopped while it is closed; opening and
  * closing it restart the game on every wand that is left running. The room's icon
  * displays (js/panels/display.js) move in after the wands the same way.
  *
  *   createWandsPanel({ mount, room })
- *     .setFor(n)         a game for n wands loaded: n - 1 placeholders
+ *     .setFor(n)         a game for n wands loaded: n - 1 slots, started when the dialog opens
  *     .setGame(caps)     the room loaded a lobby game (caps); live wands follow
  *     .pushSource()      the room's source or game changed; live wands reload
  *     .setGameSplats(n)  Splats each live wand starts the next load with
@@ -31,12 +31,19 @@
  *     .stop()            stop every live other wand
  *     .clear()           drop every other wand (a non-lobby game loaded)
  *     .redraw()          recount (the room's displays changed)
+ *
+ * "+ Add a Splat host" adds a wand in the Splat host role: a live <wand-sim>
+ * on the bus with up to four Splats in pairing slots
+ * (js/panels/splatController.js). It leads Splat host games
+ * (SPLAT_HOST = True) and does not count as a player or toward MAX_WANDS.
  */
 
 import { icon } from "../icons.js";
+import { addMinimize, setMinimized } from "./minimize.js";
 import { attachWand } from "../pyboot.js";
 import { createLobbyGameHost } from "../lobby_game.js";
-import { createSplatToy, splatDev, splatCard, CASE, BLOB } from "./splats.js";
+import { createSplatToy, splatDev, splatCard } from "./splats.js";
+import { createHostSlots, SLOTS as HOST_SLOTS, SPLAT_CONTROLLER_STYLE } from "./splatController.js";
 
 export const MAX_WANDS = 4;
 
@@ -45,9 +52,11 @@ function otherMac(i) {
   return `02:00:00:00:0a:${(i + 2).toString(16).padStart(2, "0")}`;
 }
 
-/** A Splat drawn in outline only, for a placeholder wand. */
-const SPLAT_OUTLINE = `<svg viewBox="-6 -6 268 267" width="44" height="44" aria-hidden="true">
-  <path d="${CASE}"/><path d="${BLOB}"/></svg>`;
+/** Splat host wands: …:0c:nn. */
+function hostMac(i) {
+  return `02:00:00:00:0c:${(i + 1).toString(16).padStart(2, "0")}`;
+}
+
 
 export const WANDS_STYLE = `
 .wbtn { min-height: 44px; padding: 0 14px; border-radius: 12px; border: 1.5px solid #e8e6f0;
@@ -73,35 +82,31 @@ dialog.all-wands::backdrop { background: rgba(35,31,46,.35); }
 .aw-head .wbtn:first-of-type { margin-left: auto; }
 .aw-grid { flex: 1 1 auto; min-height: 0; overflow-y: auto; display: grid;
   grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 24px; align-content: start; }
+/* Simple mode: a wand card is as wide as the drawn wand needs. */
+:host(:not([advanced])) .aw-grid { grid-template-columns: repeat(auto-fill, 300px); justify-content: start; }
 .wand-card { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 .wand-card .chips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-height: 36px; }
 .wand-card .chip { font: 800 11px 'Nunito', system-ui, sans-serif; padding: 3px 9px; border-radius: 20px; }
-.wand-card .chip.mine { background: #fff0f6; color: #b3326b; }
+/* A card's device name: a full-width bar in the device's color (wand
+   purple, icon display ink, Splat blue), so each column reads as one
+   device; the card's buttons wrap under it. */
+.wand-card .chip.device-name { flex: 1 1 100%; box-sizing: border-box;
+  cursor: grab; touch-action: none; user-select: none; }
+/* Lets the card under the pointer be found while this one is dragged. */
+.aw-grid > .dragging { opacity: .5; pointer-events: none; }
+.wand-card .chip.wand-name { background: #f2eefc; color: #6c4cd1; }
 .wand-card .chip.playing { background: #e9fbf6; color: #14806b; }
 .wand-card .chips .wbtn { margin-left: auto; }
-.wand-card wand-sim { display: block; width: 100%; }
+.wand-card .chips .min-btn ~ .wbtn { margin-left: 0; }
+.wand-card .min-name { display: none; font: 800 13px 'Nunito', system-ui, sans-serif; color: #231f2e; }
+.wand-card.min .min-name { display: inline; }
+.wand-card.min .chip, .wand-card.min .chips .wbtn:not(.min-btn),
+.wand-card.min .display-status { display: none; }
+.wand-card.min .chips { min-height: 0; }
+.wand-card wand-sim { display: block; width: 100%; --wand-bg: transparent; --wand-shadow: none; }
 
-.ghost-wand { position: relative; display: flex; align-items: center; gap: 20px; width: 100%; min-height: 320px;
-  padding: 20px; box-sizing: border-box; border-radius: 24px; border: 2px solid #d8d4e6; background: #fff;
-  font-family: 'Nunito', system-ui, sans-serif; color: #231f2e; text-align: left; cursor: pointer; }
-.ghost-wand:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(108,76,209,.2); }
-.ghost-wand .pad { flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; gap: 14px;
-  padding: 18px 22px; border-radius: 20px; border: 2px solid #e8e6f0; }
-.ghost-wand .body { position: relative; width: 120px; height: 190px; box-sizing: border-box; border-radius: 22px;
-  border: 3px solid #c2b8d6; display: flex; flex-direction: column; align-items: center; padding-top: 36px; gap: 16px; }
-.ghost-wand .body .led { position: absolute; top: 10px; left: 12px; width: 8px; height: 8px; box-sizing: border-box;
-  border-radius: 50%; border: 2px solid #c2b8d6; }
-.ghost-wand .body .nfc { position: absolute; top: 8px; right: 9px; width: 24px; height: 24px; box-sizing: border-box;
-  border-radius: 50%; border: 2px solid #c2b8d6; }
-.ghost-wand .screen { width: 82px; height: 82px; box-sizing: border-box; border-radius: 10px; border: 2px solid #c2b8d6;
-  display: flex; align-items: center; justify-content: center; font: 900 44px/1 'Nunito', system-ui, sans-serif; color: #8b859a; }
-.ghost-wand .btn { width: 48px; height: 48px; box-sizing: border-box; border-radius: 50%; border: 3px solid #c2b8d6; }
-.ghost-wand .splats { display: flex; gap: 10px; }
-.ghost-wand .splats svg { display: block; fill: none; stroke: #c2b8d6; stroke-width: 8; }
-.ghost-wand .text { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
-.ghost-wand .text b { font: 800 20px 'Nunito', system-ui, sans-serif; }
-.ghost-wand .text span { font: 700 13px/1.45 'Nunito', system-ui, sans-serif; color: #5b5468; }
 
+${SPLAT_CONTROLLER_STYLE}
 `;
 
 export function createWandsPanel({ mount, room }) {
@@ -116,6 +121,7 @@ export function createWandsPanel({ mount, room }) {
       <h2 data-el="title"></h2>
       <button type="button" class="wbtn" data-el="add">+ Add a wand</button>
       <button type="button" class="wbtn" data-el="add-display">+ Add a display</button>
+      <button type="button" class="wbtn" data-el="add-controller" title="A wand in the Splat host role: holds up to four Splats for Splat host games">+ Add a Splat host</button>
       <button type="button" class="wbtn sq" data-el="close" aria-label="Close">${icon("close", 18)}</button>
     </div>
     <div class="aw-grid" data-el="grid"></div>`;
@@ -127,18 +133,52 @@ export function createWandsPanel({ mount, room }) {
   /** The room's own wand card; its <wand-sim> moves in while the dialog is open. */
   const mine = document.createElement("div");
   mine.className = "wand-card";
-  mine.innerHTML = `<div class="chips"><span class="chip mine">This wand</span></div>`;
+  mine.innerHTML = `<div class="chips"><span class="chip device-name wand-name">Wand 1</span></div>`;
+  addMinimize(mine, mine.firstElementChild, "Wand 1");
   grid.appendChild(mine);
 
-  /** [{ mac, card, el, link, lobbyGame, pad, toys }] in order; el null = placeholder. */
+  /** [{ mac, card, el, link, lobbyGame, pad, toys }] in order; el null = a slot not yet started. */
   let others = [];
+  /** Splat host wands, shaped like `others` plus { host: true, splats, slots }. */
+  let hosts = [];
   let caps = null;
   let gameSplats = 1;
 
   $(dialog, "add").addEventListener("click", () => add());
   $(dialog, "add-display").addEventListener("click", () => room.panel("displays")?.add());
+  $(dialog, "add-controller").addEventListener("click", () => addHost(true));
   $(bar, "open").addEventListener("click", () => open());
   $(dialog, "close").addEventListener("click", () => dialog.close());
+
+  // Drag a card by its name bar to move it elsewhere in the grid. The card
+  // goes before or after the card under the pointer, by which half of it
+  // the pointer is over. Only the dragged card moves.
+  grid.addEventListener("pointerdown", (e) => {
+    const bar = e.target.closest(".device-name");
+    const card = bar && [...grid.children].find((c) => c.contains(bar));
+    if (!card || e.button !== 0) return;
+    e.preventDefault();
+    bar.setPointerCapture(e.pointerId);
+    card.classList.add("dragging");
+    const root = grid.getRootNode();
+    const move = (ev) => {
+      const under = root.elementFromPoint(ev.clientX, ev.clientY);
+      const hit = under && [...grid.children].find((c) => c !== card && c.contains(under));
+      if (!hit) return;
+      const r = hit.getBoundingClientRect();
+      if (ev.clientX > r.left + r.width / 2) hit.after(card);
+      else hit.before(card);
+    };
+    const end = () => {
+      card.classList.remove("dragging");
+      bar.removeEventListener("pointermove", move);
+      bar.removeEventListener("pointerup", end);
+      bar.removeEventListener("pointercancel", end);
+    };
+    bar.addEventListener("pointermove", move);
+    bar.addEventListener("pointerup", end);
+    bar.addEventListener("pointercancel", end);
+  });
   // Opening and closing the dialog each restart the game, so a lobby only
   // ever counts the wands that are on screen.
   dialog.addEventListener("close", () => {
@@ -146,7 +186,7 @@ export function createWandsPanel({ mount, room }) {
     room.placeWand(null);
     room.panel("displays")?.placeIn(null);
     room.panel("splats")?.placeIn?.(null);
-    for (const o of others) o.el?.stop();
+    for (const o of [...others, ...hosts]) o.el?.stop();
     room.lobbyGame?.retap();
     room.wand?.restart();
   });
@@ -164,9 +204,16 @@ export function createWandsPanel({ mount, room }) {
 
   function open() {
     room.placeWand(mine);
+    setMinimized(mine, mine.classList.contains("min"));
     room.panel("splats")?.placeIn?.(mine);
     room.panel("displays")?.placeIn(grid);
     if (dialog.open) return;
+    // The wands the game is set for start with the dialog.
+    for (const o of others) if (!o.el) goLive(o);
+    for (const o of hosts) {
+      if (!o.el) goLive(o);
+      else o.el.restart();
+    }
     dialog.showModal();
     sizeDisplays();
     if (room.wand) padSize.observe(room.wand);
@@ -196,13 +243,58 @@ export function createWandsPanel({ mount, room }) {
     }
   }
 
-  function add() {
+  /**
+   * Another wand. `live`: start it now ("+ Add a wand", or opening the
+   * dialog); otherwise it is a slot that starts when the dialog opens, so a
+   * game loading with the dialog closed boots no extra Pyodide.
+   */
+  function add(live = true) {
     if (others.length + 1 >= maxWands()) return;
     const o = { mac: freeMac(), card: document.createElement("div"), el: null };
     o.card.className = "wand-card";
     others.push(o);
     grid.appendChild(o.card);
-    drawCard(o);
+    if (live) goLive(o);
+    draw();
+  }
+
+  /**
+   * A Splat host wand with `splats` paired. `live`: start it now ("+ Add a
+   * Splat host"); otherwise it waits, like a wand slot, for the dialog.
+   */
+  function addHost(live = true, splats = 0) {
+    const o = { mac: null, card: document.createElement("div"), el: null, host: true, splats };
+    for (let i = 0; ; i++) {
+      if (!hosts.some((h) => h.mac === hostMac(i))) { o.mac = hostMac(i); break; }
+    }
+    o.card.className = "wand-card splat-controller";
+    o.slots = createHostSlots({
+      onPair: () => setHostSplats(o, o.splats + 1),
+      onUnpair: () => setHostSplats(o, o.splats - 1),
+    });
+    hosts.push(o);
+    grid.appendChild(o.card);
+    if (live) goLive(o);
+    else drawCard(o);
+    draw();
+  }
+
+  /** Pair or unpair on a host: the wand restarts, as after a pairing reset. */
+  function setHostSplats(o, n) {
+    n = Math.max(0, Math.min(HOST_SLOTS, n));
+    if (n === o.splats || !o.lobbyGame) return;
+    o.splats = n;
+    o.el.pyodide.pyimport("runtime").set_game_splats(n);
+    o.lobbyGame.setLocalSplats(n);
+    drawToys(o);
+    // The host's lobby closes with the restart, so every wand looks again.
+    room.restart();
+  }
+
+  function removeHost(o) {
+    stopLive(o);
+    o.card.remove();
+    hosts = hosts.filter((x) => x !== o);
     draw();
   }
 
@@ -213,36 +305,33 @@ export function createWandsPanel({ mount, room }) {
     draw();
   }
 
+  /** Draw a started wand's card (o.el set); slots are drawn by goLive. */
   function drawCard(o) {
     o.card.textContent = "";
     const chips = document.createElement("div");
     chips.className = "chips";
-    if (o.el) chips.innerHTML = `<span class="chip playing">Playing</span>`;
+    // Every wand card is named, as Wand 1 is; "Playing" once it runs.
+    const name = o.host ? `Splat host ${hosts.indexOf(o) + 1}` : `Wand ${others.indexOf(o) + 2}`;
+    chips.innerHTML = `<span class="chip device-name ${o.host ? "splat-name" : "wand-name"}">${name}</span>`
+      + (o.el && !o.host ? `<span class="chip playing">Playing</span>` : "");
     const rm = document.createElement("button");
     rm.type = "button";
     rm.className = "wbtn small sq";
-    rm.setAttribute("aria-label", "Take this wand away");
+    rm.setAttribute("aria-label", o.host ? "Take this Splat host away" : "Take this wand away");
     rm.innerHTML = icon("close", 15);
-    rm.addEventListener("click", () => remove(o));
+    rm.addEventListener("click", () => (o.host ? removeHost(o) : remove(o)));
     chips.appendChild(rm);
     o.card.appendChild(chips);
-    if (o.el) {
-      o.card.appendChild(o.el);
-      return;
+    addMinimize(o.card, chips, name);
+    if (o.el) o.card.appendChild(o.el);
+    if (o.host) {
+      o.card.appendChild(o.slots.el);
+      const note = document.createElement("div");
+      note.className = "sc-note";
+      note.textContent = "Runs only Splat host games. Its display shows the player count in the lobby.";
+      o.card.appendChild(note);
     }
-    const ghost = document.createElement("button");
-    ghost.type = "button";
-    ghost.className = "ghost-wand";
-    ghost.setAttribute("aria-label", "Another wand. Click for simulation.");
-    ghost.innerHTML = `<span class="pad">
-        <span class="body"><span class="led"></span><span class="nfc"></span>
-          <span class="screen">?</span><span class="btn"></span></span>
-        <span class="splats">${caps?.lobby_game ? SPLAT_OUTLINE.repeat(gameSplats) : ""}</span>
-      </span>
-      <span class="text"><b>Click for simulation</b>
-        <span>This starts another copy of the game, which can slow the page down.</span></span>`;
-    ghost.addEventListener("click", () => goLive(o));
-    o.card.appendChild(ghost);
+    setMinimized(o.card, o.card.classList.contains("min"));
   }
 
   function slug() {
@@ -266,7 +355,9 @@ export function createWandsPanel({ mount, room }) {
       if (o.el !== w) return;
       const py = w.pyodide;
       o.link = attachWand(py, { bus: room.bus, clock: room.clock, mac: o.mac, tx: (s, d, h) => room._tx(s, d, h) });
-      py.pyimport("runtime").set_game_splats(gameSplats);
+      const rt = py.pyimport("runtime");
+      if (o.host) rt.set_role("splat_host");
+      rt.set_game_splats(o.host ? o.splats : gameSplats);
       o.lobbyGame = createLobbyGameHost({ bus: room.bus, clock: room.clock, py, wandMac: o.mac });
       let queued = false;
       o.lobbyGame.onChange(() => {
@@ -290,7 +381,8 @@ export function createWandsPanel({ mount, room }) {
   function drawToys(o) {
     // A redraw queued before the wand was taken away.
     if (!o.el) return;
-    const splats = (o.lobbyGame?.caps?.lobby_game && o.lobbyGame.wandSplats) || [];
+    const splats = o.host ? (o.lobbyGame?.wandSplats || [])
+      : (o.lobbyGame?.caps?.lobby_game && o.lobbyGame.wandSplats) || [];
     const key = splats.map((s) => s.mac).join("+");
     if (key !== o.toysKey) {
       o.toysKey = key;
@@ -299,6 +391,12 @@ export function createWandsPanel({ mount, room }) {
         label: `Splat ${i + 1}`,
         onButton: (down) => o.lobbyGame.wandSplatButton(i, down),
       }));
+      if (o.host) {
+        // A host's Splats sit in its own pairing slots.
+        o.slots.render(o.toys);
+        for (const t of o.toys) t.refresh();
+        return;
+      }
       // Each Splat is a card of its own, right after its wand's card.
       let at = o.card;
       o.splatCards = o.toys.map((t) => {
@@ -328,6 +426,7 @@ export function createWandsPanel({ mount, room }) {
       o.card.remove();
     }
     others = [];
+    for (const o of hosts) o.el?.stop();
     if (dialog.open) dialog.close();
     draw();
   }
@@ -336,10 +435,14 @@ export function createWandsPanel({ mount, room }) {
   return {
     setFor(n) {
       clear();
-      for (let i = 1; i < n; i++) add();
+      for (let i = 1; i < n; i++) add(false);
     },
     setGame(c) {
       caps = c;
+    },
+    /** A Splat host game loaded: one Splat host with `splats` paired, unless one exists. */
+    ensureHost(splats) {
+      if (!hosts.length) addHost(dialog.open, splats);
     },
     pushSource() {
       for (const o of others) {
@@ -347,16 +450,22 @@ export function createWandsPanel({ mount, room }) {
         if (o.el.pyodide) o.el.pyodide.pyimport("runtime").set_game_splats(gameSplats);
         loadInto(o.el);
       }
+      for (const o of hosts) {
+        if (!o.el) continue;
+        if (o.el.pyodide) o.el.pyodide.pyimport("runtime").set_game_splats(o.splats);
+        loadInto(o.el);
+      }
     },
+    // Started wands pick n up on their next load (goLive, pushSource);
+    // slots not yet started have no card to redraw.
     setGameSplats(n) {
       gameSplats = n;
-      for (const o of others) if (!o.el) drawCard(o);
     },
     restart() {
-      for (const o of others) o.el?.restart();
+      for (const o of [...others, ...hosts]) o.el?.restart();
     },
     stop() {
-      for (const o of others) o.el?.stop();
+      for (const o of [...others, ...hosts]) o.el?.stop();
     },
     clear,
     redraw: draw,

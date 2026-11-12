@@ -1,6 +1,7 @@
 import { renderMarkdown } from './markdown.js';
 import { ROLES as ROLE_TABLE, DEFAULT_ROLE } from './roles.js';
 import { knowledgePaths } from './prompt/buildRequest.js';
+import { iconSvg } from './icons.js';
 
 // path -> text for every knowledge file (knowledgePaths()); empty until
 // loadKnowledgeBase() succeeds.
@@ -43,9 +44,68 @@ export function addMsg(text, cls = "bot") {
     } else {
         div.textContent = text;
     }
-    box.appendChild(div);
+    if (cls === "bot") {
+        // Coder replies sit beside a round avatar. Callers hold the inner
+        // .msg, so removing it also removes its row.
+        const row = document.createElement("div");
+        row.className = "msg-row bot";
+        const avatar = document.createElement("span");
+        avatar.className = "msg-avatar";
+        avatar.setAttribute("aria-hidden", "true");
+        avatar.innerHTML = iconSvg("sparkles", { size: 16, strokeWidth: 2 });
+        row.append(avatar, div);
+        div.remove = () => row.remove();
+        box.appendChild(row);
+    } else {
+        box.appendChild(div);
+    }
     box.scrollTop = box.scrollHeight;
     return div;
+}
+
+/**
+ * Fold everything before the latest teacher message into one row,
+ * "Earlier: <Game> made · N changes", that opens on tap. Does nothing until
+ * an earlier reply has carried code (a "See the code" link or a code block).
+ * Called on every send in simple mode and when a saved game opens in any mode.
+ * @param {string} gameName
+ */
+export function collapseEarlier(gameName) {
+    const box = document.getElementById("chat-box");
+    if (!box) return;
+    const kids = [...box.children];
+    let last = -1;
+    kids.forEach((k, i) => { if (k.matches?.(".msg.user")) last = i; });
+    if (last <= 0) return;
+    let group = box.querySelector(":scope > .earlier");
+    const fresh = kids.slice(0, last).filter((k) => k !== group);
+    if (!fresh.length) return;
+    if (!group) {
+        group = document.createElement("div");
+        group.className = "earlier";
+        const toggle = document.createElement("button");
+        toggle.type = "button";
+        toggle.className = "earlier-toggle";
+        toggle.setAttribute("aria-expanded", "false");
+        toggle.addEventListener("click", () => {
+            const open = group.classList.toggle("open");
+            toggle.setAttribute("aria-expanded", String(open));
+        });
+        const body = document.createElement("div");
+        body.className = "earlier-body";
+        group.append(toggle, body);
+        box.insertBefore(group, box.firstChild);
+    }
+    const body = group.querySelector(".earlier-body");
+    // Only fold once a game has been made; an interview is left in view.
+    const CODE = ".see-code, .code-block-wrap";
+    if (!body.querySelector(CODE) && !fresh.some((k) => k.querySelector?.(CODE))) return;
+    fresh.forEach((k) => body.appendChild(k));
+    // One change per reply that carried code, after the first.
+    const withCode = [...body.children].filter((k) => k.querySelector?.(CODE)).length;
+    const changes = Math.max(0, withCode - 1);
+    group.querySelector(".earlier-toggle").textContent =
+        `Earlier: ${gameName || "Your game"} made${changes ? ` · ${changes} change${changes === 1 ? "" : "s"}` : ""}`;
 }
 
 export function addThinkingMsg() {
@@ -193,15 +253,17 @@ export function stripGameBrief(text) {
     return text.replace(/\[GAME_BRIEF\][\s\S]*?(\[\/GAME_BRIEF\]|$)/g, "").trim();
 }
 
-/** Splats per wand the simulator can show, and how many wands it can hold a game for. */
-const SETTINGS_LIMITS = { wand_splats: [0, 2], wands: [1, 4] };
+/** Splats per wand and on a Splat host the simulator can show, and how many wands it can hold a game for. */
+const SETTINGS_LIMITS = { wand_splats: [0, 2], wands: [1, 4], splat_host: [0, 4] };
 
 /**
  * Simulator settings from a [GAME_SETTINGS: {...}] marker, or null.
  *
  * The game code does not carry these; only the practice window reads them.
  * `wand_splats` is how many Splats each wand starts with paired (0..2);
- * `wands` is how many wands the game is meant for (1..4). A field that is
+ * `wands` is how many wands the game is meant for (1..4), not counting a
+ * Splat host; `splat_host` is how many Splats a Splat host game's host
+ * wand holds (0..4). A field that is
  * missing, not a whole number or out of range is left out, and a marker
  * whose JSON does not parse gives null.
  */

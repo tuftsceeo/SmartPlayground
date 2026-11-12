@@ -68,8 +68,6 @@ export const ICON_PATHS = {
         '<line x1="6" x2="10" y1="12" y2="12"/><line x1="8" x2="8" y1="10" y2="14"/><line x1="15" x2="15.01" y1="13" y2="13"/><line x1="18" x2="18.01" y1="11" y2="11"/><rect width="20" height="12" x="2" y="6" rx="2"/>',
     "square-arrow-out-up-right":
         '<path d="M21 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h6"/><path d="M21 3l-9 9"/><path d="M15 3h6v6"/>',
-    "smartphone-nfc":
-        '<rect width="7" height="12" x="2" y="6" rx="1"/><path d="M13 8.32a7.43 7.43 0 0 1 0 7.36"/><path d="M16.46 6.21a11.76 11.76 0 0 1 0 11.58"/><path d="M19.91 4.1a15.91 15.91 0 0 1 .01 15.8"/>',
     vibrate:
         '<path d="M2 8a2 2 0 0 1 2-2h2v12H4a2 2 0 0 1-2-2Z"/><path d="M18 6h2a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2"/><rect width="8" height="16" x="8" y="4" rx="1"/><path d="m5.5 2.5-.5-.5"/><path d="m5.5 21.5-.5.5"/><path d="m18.5 2.5.5-.5"/><path d="m18.5 21.5.5.5"/>',
     circle: '<circle cx="12" cy="12" r="10"/>',

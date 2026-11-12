@@ -147,14 +147,14 @@ draw16.show(panel)
   color: at the usual 0.12–0.15 intensity a dim color looks switched off. Anything children need to
   see should have at least one of red, green or blue around 120 or more. Dark greys are only for
   background or empty slots.
-- **Equal red, green and blue is NOT white or grey on these lights** — `(200, 200, 200)` shows
+- **Equal red, green and blue is NOT white or gray on these lights** — `(200, 200, 200)` shows
   pink, and `(45, 45, 45)` a dim maroon. Use these values (LED duty, measured on the panel):
 
   | Want | Use |
   |---|---|
   | White | `(185, 255, 150)` |
-  | Light grey | `(131, 180, 106)` |
-  | Grey (empty slot) | `(80, 110, 65)` |
+  | Light gray | `(131, 180, 106)` |
+  | Gray (empty slot) | `(80, 110, 65)` |
   | Red | `(255, 0, 0)` |
   | Orange | `(255, 60, 0)` |
   | Yellow | `(255, 150, 0)` |
@@ -164,7 +164,7 @@ draw16.show(panel)
   | Purple | `(100, 0, 255)` |
   | Pink | `(255, 94, 50)` |
 
-  Pick colours far apart in hue; pastels and creams all read as an odd off-white.
+  Pick colors far apart in hue; pastels and creams all read as an odd off-white.
 
 ### Countable pictures — `chart16`
 

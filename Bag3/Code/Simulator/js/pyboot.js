@@ -58,6 +58,9 @@ export const FILE_LIST = [
   "vendor/games/finddevice.py",
   "vendor/games/lobbytest.py",
   "vendor/games/splattag.py",
+  "vendor/games/host_lobbytest.py",
+  "vendor/games/host_splattag.py",
+  "vendor/games/host_relaycolor.py",
   "vendor/games/relaycolor.py",
   // Not a game: color_quest.py imports SCORE_MAC from it.
   "vendor/games/target.py",

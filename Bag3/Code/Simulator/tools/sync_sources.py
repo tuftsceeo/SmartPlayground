@@ -109,6 +109,10 @@ GAMES = [
     "lobbytest.py",
     "splattag.py",
     "relaycolor.py",
+    # Splat host games (SPLAT_HOST = True): run on a wand in the host role.
+    "host_lobbytest.py",
+    "host_splattag.py",
+    "host_relaycolor.py",
     "target.py",
 ]
 

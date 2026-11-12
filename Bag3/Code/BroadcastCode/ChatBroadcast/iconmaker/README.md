@@ -25,7 +25,7 @@ matrix.
 ## Status
 
 Editor works end-to-end: import (PNG/JPEG/WebP/SVG) with a crop/scale tool, per-segment
-role/colour/priority editing, 16x16 grid painting with undo, lint, and download of
+role/color/priority editing, 16x16 grid painting with undo, lint, and download of
 `.py` / `.json` / `.png`.
 
 Device side is **verified on real hardware** (XIAO ESP32-C6): firmware flashed, `hello`
@@ -48,10 +48,10 @@ mirror -- a mirrored solid row is still a solid row; use an asymmetric shape.
 
 `js/pipeline/` converts a source image into the 16x16 `ICON` tuple:
 
-- **exact-fill path** -- when an image is genuinely flat (a handful of solid colours covering
-  >=90% of it), each colour becomes a segment directly.
+- **exact-fill path** -- when an image is genuinely flat (a handful of solid colors covering
+  >=90% of it), each color becomes a segment directly.
 - **quantize path** (`quantize.js`) -- everything else. Median cut over a 5:5:5 histogram,
-  splitting by colour spread rather than pure population, then merging representatives that are
+  splitting by color spread rather than pure population, then merging representatives that are
   within an OKLab JND. Splitting by population alone spends the whole budget subdividing the
   dominant region (whose spread is just resampling noise) and starves small distinct features.
 
@@ -61,15 +61,15 @@ inflate, PNG scanline defilter) rather than through a canvas. Reason: both
 **still round-trip semi-transparent pixels through premultiplied alpha internally**, regardless of
 the API-level hint (confirmed empirically -- a flat fill with alpha-only AA edges comes back with
 RGB drifting as alpha rises, exactly the premultiply/unpremultiply rounding signature). That drift
-invents spurious near-duplicate colours at every AA edge, which needlessly pushes flat artwork off
+invents spurious near-duplicate colors at every AA edge, which needlessly pushes flat artwork off
 the exact-fill path. Anything outside that PNG shape falls back to the canvas decode in `decode.js`.
 
-## Colour spaces -- the one thing to get right
+## Color spaces -- the one thing to get right
 
 Authored/stored values (`PALETTE`, `maps/*.json` `color`, `icons/*.py`, `doc.pixels`) are
 **linear PWM duty**. Anything on screen or from an `<input type="color">` is **sRGB**. Convert at
 the boundary with `ledcolor.js`'s `authoredToDisplay()` / `displayToAuthored()`, never in the
-middle. Painting duty straight into a CSS colour renders it far too dark -- `PALETTE.RED` is
+middle. Painting duty straight into a CSS color renders it far too dark -- `PALETTE.RED` is
 `[130,0,0]`, which shown raw is `#820000` (dark maroon) while the LED it describes is a vivid red.
 
 Truncation (`Math.trunc(c * intensity)`), not rounding, is the canonical device brightness model

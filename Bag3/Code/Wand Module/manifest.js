@@ -3,7 +3,7 @@
  * Same shape as the Box/Dial manifest.js. Only what is listed here ships.
  *
  * Not shipped (tests / bench only): games/lobbytest.py, games/relaycolor.py,
- * games/splattag.py, goalrace.py, splatecho.py, jumpin.py, import_bench.py,
+ * games/splattag.py, games/host_*.py, goalrace.py, splatecho.py, jumpin.py, import_bench.py,
  * utilities/. Add a new example game here or it will not reach the wands.
  * main.py is compiled by deploy.py to /wand_main.mpy plus a stub /main.py.
  */
@@ -54,5 +54,6 @@ export const WAND_FILES = [
     { path: 'lib/splat_api.py', remotePath: '/lib/splat_api.py' },  // The splat object games receive (SplatGroup)
     { path: 'lib/splat_hub.py', remotePath: '/lib/splat_hub.py' },  // BLE links to one or more Splats on one radio
     { path: 'lib/splat_link.py', remotePath: '/lib/splat_link.py' },  // Non-blocking BLE link to one Splat
+    { path: 'lib/splat_host.py', remotePath: '/lib/splat_host.py' },  // Splat host role: a wand that holds up to 4 Splats for host games
     { path: 'lib/splatpair.py', remotePath: '/lib/splatpair.py' },  // This wand's BLE links to its paired Splats
 ];

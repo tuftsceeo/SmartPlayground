@@ -52,23 +52,23 @@ export function deviceShortName(infoOrDevice) {
     ? infoOrDevice
     : infoOrDevice?.device;
   if (d === "wand") return "Wand";
-  if (d === "broadcast_dial") return "Dial";
+  // The UI calls a Box or a Dial the "teacher hub"; the debug log keeps
+  // the device field.
+  if (d === "broadcast_dial" || d === "broadcast_box") return "teacher hub";
   if (d === "emulated_tag_dial") return "ET Dial";
-  if (d === "broadcast_box") return "Box";
   if (d === "crowpanel") return "Panel";
   return "Device";
 }
 
-/** Product name for UI copy: "Broadcast Box", "Broadcast Dial" or "Wand".
+/** Product name for UI copy: "Teacher hub" (Box or Dial) or "Wand".
  *  Same generic-until-known rule as deviceShortName() above. */
 export function deviceProductName(infoOrDevice) {
   const d = typeof infoOrDevice === "string"
     ? infoOrDevice
     : infoOrDevice?.device;
   if (d === "wand") return "Wand";
-  if (d === "broadcast_dial") return "Broadcast Dial";
+  if (d === "broadcast_dial" || d === "broadcast_box") return "Teacher hub";
   if (d === "emulated_tag_dial") return "Emulated Tag Dial";
-  if (d === "broadcast_box") return "Broadcast Box";
   if (d === "crowpanel") return "CrowPanel";
   return "Broadcast Device";
 }

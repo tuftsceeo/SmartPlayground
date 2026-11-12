@@ -36,7 +36,7 @@ const PYODIDE_CDN = `https://cdn.jsdelivr.net/pyodide/v${PYODIDE_VERSION}/full/`
 
 /**
  * The four pop-ups from the "Wand Sim Overlays" artboard. `banner` ones sit
- * at the bottom of the shell with no scrim; the rest are centred cards over
+ * at the bottom of the shell with no scrim; the rest are centered cards over
  * a scrim. Copy is the artboard's, verbatim.
  */
 const OVERLAYS = {
@@ -49,11 +49,11 @@ const OVERLAYS = {
     ],
   },
   "cant-simulate": {
-    icon: "smartphone-nfc", tintBg: "#f2eefc", tintFg: "#6c4cd1",
+    icon: "message-circle-exclamation", tintBg: "#f2eefc", tintFg: "#6c4cd1",
     title: "Can't simulate", message: "it needs two wands talking — try it on the wand",
     buttons: [
       { action: "close", label: "Got it", style: "ghost" },
-      { action: "send-to-box", label: "Send to Box →", style: "teal" },
+      { action: "send-to-box", label: "Send to teacher hub →", style: "teal" },
     ],
   },
   welcome: {
@@ -63,12 +63,6 @@ const OVERLAYS = {
       { action: "load-saved", label: "Load saved code", style: "ghost" },
       { action: "start-chat", label: "Start a chat →", style: "pink" },
     ],
-  },
-  "new-code": {
-    banner: true,
-    icon: "sparkles", tintBg: "#e9fbf6", tintFg: "#12967f",
-    title: "New code is ready", message: "play it to see the change",
-    buttons: [{ action: "play-it", label: "Play it →", style: "pink" }],
   },
   paused: {
     banner: true,
@@ -248,6 +242,12 @@ class WandSim extends HTMLElement {
     this._openOverlay = null;
   }
 
+  /** Touch an NFC tag to the wand, as a tag chip under the wand does. */
+  tapTag(cmd) {
+    this._logLine(`tag "${cmd}"`);
+    this._runPython(`sim_state.tap_nfc(${JSON.stringify(cmd)})`);
+  }
+
   get game() { return this.getAttribute("game") || "jump"; }
   set game(v) { this.setAttribute("game", v); }
 
@@ -367,10 +367,7 @@ class WandSim extends HTMLElement {
       onRestart: () => this.restart(),
       onBattery: (soc) => this._runPython(`sim_state.set_battery(soc=${soc})`),
       onLux: (lux) => this._runPython(`sim_state.set_ambient_lux(${lux})`),
-      onNfc: (cmd) => {
-        this._logLine(`tag "${cmd}"`);
-        this._runPython(`sim_state.tap_nfc(${JSON.stringify(cmd)})`);
-      },
+      onNfc: (cmd) => this.tapTag(cmd),
       onEnow: (msgType, data) => {
         this._logLine(data ? `heard ${msgType} "${data}"` : `heard "${msgType}"`);
         const args = data == null
@@ -409,7 +406,7 @@ class WandSim extends HTMLElement {
   /**
    * Show one of the pop-ups over the whole panel.
    *
-   * kind: "game-over" | "cant-simulate" | "welcome" | "new-code" | "paused"
+   * kind: "game-over" | "cant-simulate" | "welcome" | "paused"
    * opts.title / opts.message override the built-in copy (the auto-shown
    *   "cant-simulate" uses this to say which phase failed).
    * opts.buttons overrides the button row, as
