@@ -325,9 +325,9 @@ input[type=range] { accent-color: #ef4d92; }
 
 /* Simple mode: Flip, Jump and Shake sit under the wand, each shown only
    when the game reads it. The right pane holds only the icon display, and
-   is not drawn without one; with one, the wand and the display are
-   centered as a pair about 50px apart. The pad's side margin is 0.27 of its
-   width = 0.353 of the wand's height (--wand-h, from sim-room). */
+   is not drawn without one; with one, the wand pane and the display pane
+   sit side by side, centered, 16px apart, and never overlap: the wand
+   pane also holds the buttons and NFC tags under the wand. */
 .wand-actions { display: none; gap: 8px; margin-top: 10px; justify-content: center; }
 .wand-actions > .btn-stack { flex: 0 1 96px; min-width: 0; }
 .simple .wand-actions { display: flex; }
@@ -337,16 +337,15 @@ input[type=range] { accent-color: #ef4d92; }
 .simple .shake-strength,
 .simple .pad-foot { display: none !important; }
 :host(:not([advanced])) .ctrl-toolbar { display: none !important; }
-.simple.wand-controls { justify-content: center; align-items: center; flex-wrap: nowrap; }
+.simple.wand-controls { justify-content: center; align-items: center; flex-wrap: nowrap; gap: 16px; }
 .simple .sim-pane-wand { padding-right: 0; }
-.simple .sim-pane-ctrl { flex: 0 1 calc(var(--wand-h, 280px) * 1.2 + 16px); min-width: 0; padding-left: 0;
-  margin-left: calc(50px - var(--wand-h, 280px) * .353); }
+.simple .sim-pane-ctrl { flex: 0 1 calc(var(--wand-h, 280px) * 1.2 + 16px); min-width: 0; padding-left: 0; }
 
 /* Narrow: the wand, then the icon display under it. */
 @container wand-sim (max-width: 420px) {
   .simple.wand-controls { flex-wrap: wrap; }
   .simple .sim-pane-wand { padding-right: 14px; }
-  .simple .sim-pane-ctrl { flex: 1 1 100%; margin-left: 0; padding-left: 14px; }
+  .simple .sim-pane-ctrl { flex: 1 1 100%; padding-left: 14px; }
 }
 
 /* Minimized: the wand illustration only. */
