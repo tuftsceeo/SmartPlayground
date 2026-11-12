@@ -124,6 +124,36 @@ export function requirementPills(reqs) {
     return pills;
 }
 
+/** Tag names shown as a colored tile. */
+export const TAG_COLORS = {
+    red: { fill: "#ff3b3b", edge: "#ff3b3b", ink: "#fff" },
+    orange: { fill: "#ff8a1f", edge: "#ff8a1f", ink: "#fff" },
+    yellow: { fill: "#ffd23f", edge: "#e0a800", ink: "#231f2e" },
+    green: { fill: "#22c35a", edge: "#22c35a", ink: "#fff" },
+    blue: { fill: "#3b5bff", edge: "#3b5bff", ink: "#fff" },
+    purple: { fill: "#c03bff", edge: "#c03bff", ink: "#fff" },
+    pink: { fill: "#ff7ab8", edge: "#ff7ab8", ink: "#231f2e" },
+    white: { fill: "#ffffff", edge: "#8b859a", ink: "#231f2e" },
+};
+const CONTROL_TAGS = /^(restart|reset|start|stop|exit|next|undo|again|new)$/;
+const ROLE_TAGS = /^(code(maker|breaker)|player\w*|team\w*|x|o)$/;
+
+/**
+ * Sort tags into Roles, Colors and Controls, in that order; anything else
+ * goes under Tags. PEER: Simulator/sim-room.js groupTags() holds a copy of
+ * the same rules.
+ * @param {string[]} tags
+ * @returns {{name: string, tags: string[]}[]}
+ */
+export function groupTags(tags) {
+    const buckets = { Roles: [], Colors: [], Controls: [], Tags: [] };
+    for (const t of tags) {
+        const key = ROLE_TAGS.test(t) ? "Roles" : t in TAG_COLORS ? "Colors" : CONTROL_TAGS.test(t) ? "Controls" : "Tags";
+        buckets[key].push(t);
+    }
+    return Object.entries(buckets).filter(([, v]) => v.length).map(([name, list]) => ({ name, tags: list }));
+}
+
 /** Plain-language rows for the send-confirm overlay. */
 export function formatHardwareReqs(reqs) {
     if (!reqs) return [];

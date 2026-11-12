@@ -271,7 +271,7 @@ body:not(.ui-advanced) .ws-titlebar .preview-tab { font: 800 15px 'Nunito'; padd
 body:not(.ui-advanced) .ws-titlebar-actions {
     margin-left: auto;
     flex: none;
-    width: 560px;
+    width: var(--chat-w);
     box-sizing: border-box;
     align-self: stretch;
     justify-content: flex-end;
@@ -283,7 +283,7 @@ body:not(.ui-advanced) .btn-send-box { font: 800 16px 'Nunito'; padding: 11px 16
 
 /* ---- Chat pane: fixed 560px, 19px text ---- */
 body:not(.ui-advanced) .ws-resizer { display: none; }
-body:not(.ui-advanced) .chat-col { width: 560px !important; min-width: 560px; max-width: 560px; }
+body:not(.ui-advanced) .chat-col { width: var(--chat-w) !important; min-width: var(--chat-w); max-width: var(--chat-w); }
 body:not(.ui-advanced) #chat-box { padding: 20px 24px; gap: 16px; }
 body:not(.ui-advanced) .msg { font: 19px/1.4 'Nunito'; padding: 14px 22px; }
 body:not(.ui-advanced) .msg.system { font-size: 18px; }
@@ -552,3 +552,25 @@ body:not(.ui-advanced) .gallery-grid {
     text-align: left;
 }
 .card-menu button:hover { background: #f4f2fa; }
+
+/* ---- Send game: NFC tags as tiles ---- */
+body:not(.ui-advanced) .send-tags { display: flex !important; flex-direction: column; gap: 12px; margin: 0 0 18px; }
+body:not(.ui-advanced) .send-tags[hidden] { display: none !important; }
+.tag-group-name { font: 800 14px 'Nunito'; color: #6b6578; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; }
+.tag-tiles { display: flex; flex-wrap: wrap; gap: 8px; }
+.tag-tile {
+    display: inline-flex; align-items: center; gap: 8px; border: 2px solid #c9c4dc; background: #fff; color: #231f2e;
+    border-radius: 14px; padding: 8px 14px; font: 800 18px 'Nunito';
+}
+.tag-tile svg { flex: none; }
+
+/* ---- App shell: the smart-board size from the boards (about 1400 x 880) ---- */
+body:not(.ui-advanced) { --chat-w: 560px; }
+body:not(.ui-advanced) #app-shell {
+    max-width: 1440px;
+    height: min(920px, calc(100vh - 0px));
+    padding: 20px;
+}
+@media (max-width: 1180px) {
+    body:not(.ui-advanced) { --chat-w: max(340px, 46vw); }
+}

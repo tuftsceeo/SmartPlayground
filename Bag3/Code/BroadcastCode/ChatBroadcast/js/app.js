@@ -40,7 +40,7 @@ import { loadSavedGames, saveGame, findSavedGame, renameSavedGame, deleteSavedGa
 import { scanCapabilities } from './sim/codeCapabilities.js';
 import { buildComponentChecklist } from './checklist.js';
 import { validateGameName, slugify, remixName } from './gameName.js';
-import { buildHardwareReqs, formatHardwareReqs, requirementPills, baselineTags } from './hardware.js';
+import { buildHardwareReqs, formatHardwareReqs, requirementPills, baselineTags, groupTags, TAG_COLORS } from './hardware.js';
 import { initPaneSplit } from './paneSplit.js';
 import { initSerialSplit } from './serialSplit.js';
 import { initCodeDrawerSplit } from './codeDrawerSplit.js';
@@ -2905,6 +2905,7 @@ class App {
             ? [...requirementPills(this.hardware),
                ...formatHardwareReqs(this.hardware).filter((r) => r.label.startsWith('tag list may be short'))]
             : formatHardwareReqs(this.hardware);
+        this.renderSendTags(simple);
         const need = document.getElementById('send-need-label');
         if (need) need.hidden = !(simple && rows.length);
         rows.forEach((row) => {
@@ -2916,6 +2917,34 @@ class App {
             li.querySelector('.send-req-label').textContent = row.label;
             el.appendChild(li);
         });
+    }
+
+    /** Simple mode: the game's NFC tags as tiles, grouped Roles, Colors, Controls. */
+    renderSendTags(simple) {
+        const box = document.getElementById('send-tags');
+        if (!box) return;
+        box.textContent = '';
+        const base = baselineTags(this.hardware?.slug);
+        const tags = (this.hardware?.tags || []).filter((t) => !base.includes(t));
+        box.hidden = !(simple && tags.length);
+        if (box.hidden) return;
+        for (const group of groupTags(tags)) {
+            const row = document.createElement('div');
+            row.className = 'tag-group';
+            row.innerHTML = `<div class="tag-group-name">${escapeHtml(group.name)}</div>`;
+            const tiles = document.createElement('div');
+            tiles.className = 'tag-tiles';
+            for (const t of group.tags) {
+                const c = TAG_COLORS[t];
+                const tile = document.createElement('span');
+                tile.className = 'tag-tile';
+                if (c) tile.style.cssText = `background:${c.fill};border-color:${c.edge};color:${c.ink}`;
+                tile.innerHTML = `${iconSvg('nfcCard', { size: 18, strokeWidth: 1.8 })}<span>${escapeHtml(t)}</span>`;
+                tiles.appendChild(tile);
+            }
+            row.appendChild(tiles);
+            box.appendChild(row);
+        }
     }
 
     async showSendConfirm() {
