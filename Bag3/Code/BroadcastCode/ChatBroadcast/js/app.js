@@ -13,7 +13,7 @@ import {
 } from './prompt/buildRequest.js';
 import { readMessageStream } from './prompt/stream.js';
 import { renderMarkdown, buildCodeBlock } from './markdown.js';
-import { drawStarterIdeas, drawNewGameIdeas, GUIDED_STEPS, guidedPrompt } from './starterIdeas.js';
+import { drawStarterIdeas, GUIDED_STEPS, guidedPrompt } from './starterIdeas.js';
 import {
     initEditor, getCode, setCode, saveVersion, updateVersionUI,
     onPrevVersion, onNextVersion, getVersionCount, onDownload, resetEditor,
@@ -1458,14 +1458,9 @@ class App {
         else if (nav === 'examples') this.goExamples();
     }
 
-    /**
-     * The first screen. Advanced mode keeps the splash; simple mode opens
-     * My games when there are saved games, otherwise a new game.
-     */
+    /** The first screen: the splash, in every mode. */
     showHome() {
-        if (getUiMode() !== 'simple') { showView('splash'); return; }
-        if (loadSavedGames().length) this.goSaved();
-        else this.startNewGame();
+        showView('splash');
     }
 
     goSaved() {
@@ -2283,7 +2278,6 @@ class App {
     /** Simple mode's New game screen (design board "New game"). */
     renderNewGameScreen() {
         const box = document.getElementById('chat-box');
-        const { question, ideas } = drawNewGameIdeas();
         const tints = [['#fff0f6', '#d13a7c'], ['#e9fbf6', '#1c9a82'], ['#fff8dc', '#a87a00']];
         const wrap = document.createElement('div');
         wrap.className = 'starter-chips new-game';
@@ -2292,34 +2286,25 @@ class App {
             + `<div class="ng-options">`
             + `<button type="button" class="starter-chip starter-chip-guided ng-card ng-interview" data-ng="interview">`
             + `${iconSvg('message-circle', { size: 28, strokeWidth: 2 })}<b>Interview me</b><span>Answer a few questions</span></button>`
-            + `<button type="button" class="starter-chip ng-card ng-choose" data-ng="choose">`
-            + `${iconSvg('sparkles', { size: 28, strokeWidth: 2 })}<b>Help me choose</b><span>Pick step by step</span></button>`
             + `</div><div class="ng-label">Or try an idea</div><div class="ng-ideas"></div>`;
         const list = wrap.querySelector('.ng-ideas');
-        const fill = (text) => {
-            const inp = document.getElementById('user-input');
-            inp.value = text;
-            inp.focus();
-            inp.style.height = 'auto';
-            inp.style.height = Math.min(inp.scrollHeight, 120) + 'px';
-        };
-        ideas.forEach((sp, i) => {
+        // One question and two game ideas (starterIdeas.js drawStarterIdeas).
+        drawStarterIdeas().forEach((sp, i) => {
             const [bg, fg] = tints[i % tints.length];
             const b = document.createElement('button');
             b.type = 'button';
             b.className = 'starter-chip ng-idea';
-            b.innerHTML = `<span class="ng-tile" style="background:${bg};color:${fg}">${iconSvg(sp.icon, { size: 26, strokeWidth: 2 })}</span><span>${escapeHtml(sp.short)}</span>`;
-            b.addEventListener('click', () => fill(sp.text));
+            b.innerHTML = `<span class="ng-tile" style="background:${bg};color:${fg}">${iconSvg(sp.icon, { size: 26, strokeWidth: 2 })}</span><span>${escapeHtml(sp.text)}</span>`;
+            b.addEventListener('click', () => {
+                const inp = document.getElementById('user-input');
+                inp.value = sp.text;
+                inp.focus();
+                inp.style.height = 'auto';
+                inp.style.height = Math.min(inp.scrollHeight, 120) + 'px';
+            });
             list.appendChild(b);
         });
-        const q = document.createElement('button');
-        q.type = 'button';
-        q.className = 'starter-chip ng-question';
-        q.textContent = question.short;
-        q.addEventListener('click', () => fill(question.text));
-        wrap.appendChild(q);
         wrap.querySelector('[data-ng="interview"]').addEventListener('click', () => this.startInterview());
-        wrap.querySelector('[data-ng="choose"]').addEventListener('click', () => this.startGuidedMode());
         box.appendChild(wrap);
     }
 

@@ -16,15 +16,12 @@ body:not(.ui-advanced) .overlay-card {
     border-radius: 32px;
     box-shadow: 0 24px 60px rgba(0, 0, 0, 0.22);
 }
-body:not(.ui-advanced) .overlay-card h2 { font: 900 32px 'Nunito'; margin: 0 0 6px; }
-body:not(.ui-advanced) .overlay-card p { font: 19px 'Nunito'; }
+body:not(.ui-advanced) .overlay-card h2 {margin: 0 0 6px; }
 body:not(.ui-advanced) .overlay-card .btn-primary {
-    font: 900 22px 'Nunito';
     border-radius: 20px;
     padding: 18px;
 }
 body:not(.ui-advanced) .overlay-card .btn-secondary {
-    font: 800 18px 'Nunito';
     border: 2px solid #e8e6f0;
     border-radius: 18px;
     padding: 14px;
@@ -42,15 +39,12 @@ body:not(.ui-advanced) .overlay-close-x {
 
 /* ---- Magic code ---- */
 body:not(.ui-advanced) #modal-overlay .overlay-card { max-width: 600px; padding: 36px; text-align: left; }
-body:not(.ui-advanced) #modal-overlay h2 { font: 900 28px 'Nunito'; }
 body:not(.ui-advanced) #modal-passphrase {
-    font: 19px 'Nunito';
     border: 2px solid #e8e6f0;
     border-radius: 18px;
     padding: 16px 18px;
 }
 body:not(.ui-advanced) #btn-modal-unlock {
-    font: 900 21px 'Nunito';
     border-radius: 18px;
     padding: 16px;
 }
@@ -68,7 +62,6 @@ body:not(.ui-advanced) .connect-tiles {
 }
 body:not(.ui-advanced) .connect-tiles .btn-teal {
     order: 0;
-    font: 900 24px 'Nunito';
     color: #231f2e;
     background: #e9fbf6;
     border: 3px solid #22c3a6;
@@ -91,13 +84,11 @@ body:not(.ui-advanced) #btn-connect-cancel { width: 100%; }
 body:not(.ui-advanced) .overlay-card-send { max-width: 640px; padding: 36px 40px; text-align: left; }
 body:not(.ui-advanced) .send-name-label,
 body:not(.ui-advanced) .send-need-label {
-    font: 800 15px 'Nunito';
     color: #6b6578;
     text-transform: uppercase;
     letter-spacing: 0.06em;
 }
 body:not(.ui-advanced) .send-name-field input {
-    font: 900 30px 'Nunito';
     border: 2px solid #e8e6f0;
     border-radius: 18px;
     padding: 14px 20px;
@@ -110,7 +101,7 @@ body:not(.ui-advanced) .send-pill {
     padding: 10px 14px;
     border-radius: 14px;
     background: #f7f7fb;
-    font: 800 18px 'Nunito';
+
 }
 body:not(.ui-advanced) #btn-send-confirm { box-shadow: 0 8px 18px rgba(239, 77, 146, 0.3); }
 body:not(.ui-advanced) #btn-send-confirm:disabled { background: #f4f2fa; color: #6b6578; box-shadow: none; }
@@ -132,11 +123,11 @@ body:not(.ui-advanced) #send-sending[hidden] { display: none !important; }
     width: 84px; height: 84px; border-radius: 22px; background: #1c9a82; color: #fff;
     display: flex; align-items: center; justify-content: center;
 }
-#send-sending h2 { margin: 0; font: 900 30px 'Nunito'; }
+#send-sending h2 { margin: 0;}
 #send-sending p { margin: 0; }
 .sending-track { align-self: stretch; height: 18px; border-radius: 9px; background: #f4f2fa; overflow: hidden; }
 #sending-bar { width: 0; height: 100%; background: #22c3a6; border-radius: 9px; transition: width 0.2s; }
-.sending-steps { align-self: stretch; display: flex; justify-content: space-between; font: 700 16px 'Nunito'; }
+.sending-steps { align-self: stretch; display: flex; justify-content: space-between;}
 .sending-steps .done { color: #1c9a82; }
 .sending-steps .now { color: #6c4cd1; }
 .sending-steps .todo { color: #8b859a; }
@@ -148,7 +139,6 @@ body:not(.ui-advanced) .send-success-icon {
     width: 96px; height: 96px; border-radius: 50%; background: #e9fbf6; color: #1c9a82;
     margin: 0 auto 22px; display: flex; align-items: center; justify-content: center;
 }
-body:not(.ui-advanced) #send-success-title { font: 900 32px 'Nunito'; }
 body:not(.ui-advanced) #send-success-note:empty { display: none; }
 .send-next { display: contents; }
 body:not(.ui-advanced) .send-next {
@@ -164,16 +154,16 @@ body:not(.ui-advanced) .send-next {
 body:not(.ui-advanced) .send-next[hidden] { display: none; }
 .send-next-head { align-items: center; gap: 14px; color: #6c4cd1; }
 body:not(.ui-advanced) .send-next-head { display: flex !important; }
-.send-next-head b { display: block; font: 900 21px 'Nunito'; color: #231f2e; }
-.send-next-head div span { font: 16px 'Nunito'; color: #5b5468; }
+.send-next-head b { display: block;color: #231f2e; }
+.send-next-head div span {color: #5b5468; }
 body:not(.ui-advanced) #btn-send-distribute {
-    font: 900 21px 'Nunito'; border-radius: 18px; padding: 16px; background: #22c3a6; color: #fff; border: 0;
+border-radius: 18px; padding: 16px; background: #22c3a6; color: #fff; border: 0;
 }
 
 /* ---- Distribute ---- */
 body:not(.ui-advanced) .overlay-card-distribute { max-width: 680px; padding: 32px 36px; text-align: left; }
-body:not(.ui-advanced) .overlay-card-distribute h2 { font: 900 30px 'Nunito'; margin: 0 0 4px; }
-body:not(.ui-advanced) #dist-status { font: 18px 'Nunito'; margin: 0 0 18px; }
+body:not(.ui-advanced) .overlay-card-distribute h2 {margin: 0 0 4px; }
+body:not(.ui-advanced) #dist-status {margin: 0 0 18px; }
 body:not(.ui-advanced) #dist-status:empty { display: none; }
 .dist-cards { flex-direction: column; gap: 10px; margin-bottom: 18px; }
 body:not(.ui-advanced) .dist-cards { display: flex !important; }
@@ -187,15 +177,14 @@ body:not(.ui-advanced) .dist-cards { display: flex !important; }
 .dcard .dist-check { width: 26px; height: 26px; flex: none; }
 .dcard .dicon { display: inline-flex; flex: none; }
 .dcard .dname { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
-.dcard .dname b { font: 900 21px 'Nunito'; }
-.dcard .dname span { font: 15px 'Nunito'; color: #6b6578; }
+.dcard .dname span {color: #6b6578; }
 .dbatt {
-    display: flex; align-items: center; gap: 6px; font: 800 16px 'Nunito';
+    display: flex; align-items: center; gap: 6px;
     color: #1c9a82; background: #e9fbf6; border-radius: 12px; padding: 6px 10px;
 }
 .dbatt.crit { color: #b0281c; background: #ffe9e6; }
 .dcard .dist-find {
-    display: flex; align-items: center; gap: 6px; font: 800 16px 'Nunito'; color: #231f2e;
+    display: flex; align-items: center; gap: 6px;color: #231f2e;
     border: 2px solid #e8e6f0; background: #fff; border-radius: 14px; padding: 10px 14px; cursor: pointer;
 }
 .dcard .dist-find svg { color: #6c4cd1; }
@@ -205,7 +194,7 @@ body:not(.ui-advanced) .dist-cards { display: flex !important; }
 .dbar-done { width: 100%; background: #22c3a6; }
 .dbar-failed { width: 100%; background: #b0281c; }
 @keyframes dbar-slide { 0%, 100% { margin-left: 0; } 50% { margin-left: 55%; } }
-.dstatus { width: 150px; display: flex; align-items: center; justify-content: flex-end; gap: 8px; font: 800 17px 'Nunito'; }
+.dstatus { width: 150px; display: flex; align-items: center; justify-content: flex-end; gap: 8px;}
 .dstatus-queued { color: #8b859a; }
 .dstatus-pulling { color: #6c4cd1; }
 .dstatus-done { color: #1c9a82; }
@@ -213,7 +202,6 @@ body:not(.ui-advanced) .dist-cards { display: flex !important; }
 
 /* ---- Overrides for ID rules in app.css ---- */
 body:not(.ui-advanced) #send-game-name {
-    font: 900 30px 'Nunito';
     text-align: left;
     padding: 14px 20px;
     border-radius: 18px;
@@ -224,7 +212,6 @@ body:not(.ui-advanced) #btn-send-done {
     color: #5b5468;
     border: 2px solid #e8e6f0;
     box-shadow: none;
-    font: 800 18px 'Nunito';
     border-radius: 18px;
     padding: 14px;
     width: 100%;
@@ -238,24 +225,10 @@ body:not(.ui-advanced) #btn-send-done {
 /* ---- Title bar: white full-width row; the send button sits above the chat ---- */
 body:not(.ui-advanced) .ws-titlebar {
     gap: 12px;
-    padding: 0 0 0 28px;
-    min-height: 68px;
+    padding: 0 0 0 20px;
+    min-height: 52px;
     background: #fff;
     border-bottom: 1px solid #e8e6f0;
-}
-body:not(.ui-advanced) .ws-name {
-    height: auto;
-    max-width: 360px;
-    gap: 10px;
-    border-radius: 18px;
-    padding: 10px 18px;
-    font: 900 22px 'Nunito';
-}
-body:not(.ui-advanced) .ws-name-input { font: 900 22px 'Nunito'; }
-body:not(.ui-advanced) .ws-titlebar > .icon-btn {
-    width: 44px;
-    height: 44px;
-    border-radius: 14px;
 }
 body:not(.ui-advanced) .ws-titlebar .preview-toolbar {
     margin-left: auto;
@@ -267,7 +240,7 @@ body:not(.ui-advanced) .ws-titlebar .preview-toolbar {
 }
 body:not(.ui-advanced) .ws-titlebar .preview-toolbar.hidden { display: none; }
 body:not(.ui-advanced) .ws-titlebar .preview-segment { border-radius: 16px; padding: 4px; }
-body:not(.ui-advanced) .ws-titlebar .preview-tab { font: 800 15px 'Nunito'; padding: 8px 14px; border-radius: 12px; }
+body:not(.ui-advanced) .ws-titlebar .preview-tab { border-radius: 10px; }
 body:not(.ui-advanced) .ws-titlebar-actions {
     margin-left: auto;
     flex: none;
@@ -279,14 +252,13 @@ body:not(.ui-advanced) .ws-titlebar-actions {
     border-left: 1px solid #e8e6f0;
 }
 body:not(.ui-advanced) .ws-titlebar .preview-toolbar:not(.hidden) + .ws-titlebar-actions { margin-left: 0; }
-body:not(.ui-advanced) .btn-send-box { font: 800 16px 'Nunito'; padding: 11px 16px; border-radius: 14px; }
+body:not(.ui-advanced) .btn-send-box {padding: 11px 16px; border-radius: 14px; }
 
 /* ---- Chat pane: fixed 560px, 19px text ---- */
 body:not(.ui-advanced) .ws-resizer { display: none; }
 body:not(.ui-advanced) .chat-col { width: var(--chat-w) !important; min-width: var(--chat-w); max-width: var(--chat-w); }
 body:not(.ui-advanced) #chat-box { padding: 20px 24px; gap: 16px; }
-body:not(.ui-advanced) .msg { font: 19px/1.4 'Nunito'; padding: 14px 22px; }
-body:not(.ui-advanced) .msg.system { font-size: 18px; }
+body:not(.ui-advanced) .msg {padding: 14px 22px; }
 body:not(.ui-advanced) .msg.user {
     margin-left: 56px;
     max-width: 78%;
@@ -299,7 +271,6 @@ body:not(.ui-advanced) .msg-avatar { flex-basis: 36px; width: 36px; height: 36px
 body:not(.ui-advanced) .msg-avatar svg { width: 18px; height: 18px; }
 body:not(.ui-advanced) .chat-input-row { padding: 16px 20px; gap: 10px; align-items: center; }
 body:not(.ui-advanced) #user-input {
-    font: 19px 'Nunito';
     border-radius: 24px;
     padding: 14px 20px;
     height: 56px;
@@ -315,7 +286,6 @@ body:not(.ui-advanced) .btn-send-round svg { width: 24px; height: 24px; }
     padding: 0;
     border: 0;
     background: none;
-    font: 700 15px 'Nunito';
     color: #6b6578;
     cursor: pointer;
 }
@@ -327,7 +297,6 @@ body:not(.ui-advanced) .choice-chips .starter-chip {
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    font: 800 17px 'Nunito';
     padding: 12px 18px;
     border-radius: 18px;
     border: 2px solid #e8e6f0;
@@ -343,7 +312,6 @@ body:not(.ui-advanced) .choice-chips .starter-chip svg { color: #d13a7c; flex: n
     border-radius: 12px;
     background: #f4f2fa;
     color: #6b6578;
-    font: 700 14px 'Nunito';
     padding: 6px 14px;
     cursor: pointer;
 }
@@ -374,9 +342,9 @@ body:not(.ui-advanced):not(.chat-fresh) .preview-col { animation: sim-in 0.35s e
 
 .new-game { display: flex; flex-direction: column; gap: 18px; flex-wrap: nowrap; padding: 0; margin: auto 0; }
 .ng-head { display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; }
-.ng-head h1 { margin: 0; font: 900 40px 'Nunito'; color: #231f2e; }
-.ng-head p { margin: 0; font: 18px 'Nunito'; color: #5b5468; }
-.ng-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.ng-head h1 { margin: 0;color: #231f2e; }
+.ng-head p { margin: 0;color: #5b5468; }
+.ng-options { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
 .new-game .ng-card {
     display: flex;
     flex-direction: column;
@@ -388,11 +356,10 @@ body:not(.ui-advanced):not(.chat-fresh) .preview-col { animation: sim-in 0.35s e
     border: 2.5px solid #ef4d92;
     background: #fff0f6;
     color: #a8265c;
-    font: 900 20px 'Nunito';
+
 }
-.new-game .ng-choose { border-color: #6c4cd1; background: #f2eefc; color: #6c4cd1; }
-.new-game .ng-card span { font: 700 15px 'Nunito'; color: #5b5468; }
-.ng-label { font: 800 15px 'Nunito'; color: #6b6578; text-transform: uppercase; letter-spacing: 0.06em; }
+.new-game .ng-card span {color: #5b5468; }
+.ng-label {color: #6b6578; text-transform: uppercase; letter-spacing: 0.06em; }
 .ng-ideas { display: flex; flex-direction: column; gap: 10px; }
 .new-game .ng-idea {
     display: flex;
@@ -404,7 +371,7 @@ body:not(.ui-advanced):not(.chat-fresh) .preview-col { animation: sim-in 0.35s e
     border: 2px solid #e8e6f0;
     background: #fff;
     color: #231f2e;
-    font: 800 18px 'Nunito';
+
 }
 .ng-tile { width: 48px; height: 48px; flex: none; border-radius: 12px; display: flex; align-items: center; justify-content: center; }
 .new-game .ng-question {
@@ -412,7 +379,6 @@ body:not(.ui-advanced):not(.chat-fresh) .preview-col { animation: sim-in 0.35s e
     border: 0;
     background: none;
     padding: 0;
-    font: 700 16px 'Nunito';
     color: #6b6578;
     cursor: pointer;
 }
@@ -431,7 +397,6 @@ body:not(.ui-advanced) #view-gallery .app-tabs {
     gap: 0;
 }
 body:not(.ui-advanced) #view-gallery .app-tab {
-    font: 700 17px 'Nunito';
     padding: 10px 22px;
     border-radius: 14px;
     color: #5b5468;
@@ -440,7 +405,6 @@ body:not(.ui-advanced) #view-gallery .app-tab {
 body:not(.ui-advanced) #view-gallery .app-tab.active {
     background: #fff;
     color: #d13a7c;
-    font-weight: 800;
     box-shadow: none;
 }
 .btn-new-game {
@@ -452,15 +416,12 @@ body:not(.ui-advanced) #view-gallery .app-tab.active {
     padding: 12px 22px;
     background: #ef4d92;
     color: #fff;
-    font: 900 18px 'Nunito';
     cursor: pointer;
 }
 body:not(.ui-advanced) .btn-new-game { display: inline-flex !important; }
 body:not(.ui-advanced) #view-gallery .gallery-toolbar { padding: 24px 28px; }
-body:not(.ui-advanced) #gallery-title { font: 900 28px 'Nunito'; }
 body:not(.ui-advanced) #gallery-search {
     width: 340px;
-    font: 18px 'Nunito';
     border: 1.5px solid #e8e6f0;
     border-radius: 20px;
     padding: 12px 18px;
@@ -496,9 +457,9 @@ body:not(.ui-advanced) .gallery-grid {
 }
 .saved-card-simple .thumb5 i { border-radius: 3px; background: #26222e; }
 .saved-card-simple .card-body { padding: 14px 16px 6px; display: flex; flex-direction: column; gap: 4px; }
-.saved-card-simple h3 { font: 900 20px 'Nunito'; margin: 0; }
-.saved-card-simple p { margin: 0; font: 14px 'Nunito'; color: #6b6578; }
-.saved-card-simple .card-devices { font: 700 15px 'Nunito'; color: #5b5468; }
+.saved-card-simple h3 {margin: 0; }
+.saved-card-simple p { margin: 0;color: #6b6578; }
+.saved-card-simple .card-devices {color: #5b5468; }
 .saved-card-simple .card-actions { position: relative; padding: 8px 16px 14px; display: flex; gap: 8px; align-items: center; }
 .saved-card-simple .card-open {
     flex: 1;
@@ -507,7 +468,6 @@ body:not(.ui-advanced) .gallery-grid {
     padding: 11px;
     background: #f2eefc;
     color: #6c4cd1;
-    font: 800 16px 'Nunito';
     cursor: pointer;
 }
 .saved-card-simple .card-more {
@@ -546,7 +506,6 @@ body:not(.ui-advanced) .gallery-grid {
     background: none;
     border-radius: 10px;
     padding: 10px 12px;
-    font: 800 16px 'Nunito';
     color: #231f2e;
     cursor: pointer;
     text-align: left;
@@ -556,21 +515,34 @@ body:not(.ui-advanced) .gallery-grid {
 /* ---- Send game: NFC tags as tiles ---- */
 body:not(.ui-advanced) .send-tags { display: flex !important; flex-direction: column; gap: 12px; margin: 0 0 18px; }
 body:not(.ui-advanced) .send-tags[hidden] { display: none !important; }
-.tag-group-name { font: 800 14px 'Nunito'; color: #6b6578; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; }
+.tag-group-name {color: #6b6578; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; }
 .tag-tiles { display: flex; flex-wrap: wrap; gap: 8px; }
 .tag-tile {
     display: inline-flex; align-items: center; gap: 8px; border: 2px solid #c9c4dc; background: #fff; color: #231f2e;
-    border-radius: 14px; padding: 8px 14px; font: 800 18px 'Nunito';
+    border-radius: 14px; padding: 8px 14px;
 }
 .tag-tile svg { flex: none; }
 
-/* ---- App shell: the smart-board size from the boards (about 1400 x 880) ---- */
-body:not(.ui-advanced) { --chat-w: 560px; }
-body:not(.ui-advanced) #app-shell {
-    max-width: 1440px;
-    height: min(920px, calc(100vh - 0px));
-    padding: 20px;
-}
+/* ---- App shell: the default size (1100 x 760), so the gradient shows around it ---- */
+body:not(.ui-advanced) { --chat-w: 440px; }
 @media (max-width: 1180px) {
     body:not(.ui-advanced) { --chat-w: max(340px, 46vw); }
 }
+
+/* ---- Fonts: simple mode uses the app's own sizes (app.css). Only the
+   elements simple mode adds get sizes here, matched to that scale. ---- */
+.new-game button, .dcard button, .saved-card-simple button, .tag-tile, .sending-steps,
+.ng-idea, .ng-question, .dstatus, .tag-group-name, .ng-label { font: 700 13px 'Nunito'; }
+.ng-head h1, #send-sending h2 { font: 800 18px 'Nunito'; }
+.ng-head p, .dcard .dname span, .saved-card-simple p, .saved-card-simple .card-devices, .send-next-head div span { font: 12px 'Nunito'; }
+.new-game .ng-card b, .dcard .dname b, .saved-card-simple h3, .send-next-head b { font: 800 14px 'Nunito'; }
+.new-game .ng-card span { font: 12px 'Nunito'; }
+
+/* ---- New game: Interview me is the main action ---- */
+body:not(.ui-advanced) .new-game .ng-interview {
+    flex-direction: row; align-items: center; gap: 14px; padding: 16px 20px; border: 0;
+    background: linear-gradient(135deg, #1fb89a, #14806c); color: #fff;
+    box-shadow: 0 6px 18px rgba(20, 128, 108, 0.3);
+}
+body:not(.ui-advanced) .new-game .ng-interview:hover { filter: brightness(1.05); }
+body:not(.ui-advanced) .new-game .ng-interview span { color: rgba(255, 255, 255, 0.88); margin-left: auto; }

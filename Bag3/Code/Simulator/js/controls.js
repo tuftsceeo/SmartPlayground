@@ -318,6 +318,25 @@ input[type=range] { accent-color: #ef4d92; }
 .simple:not(.more-open) .shake-strength,
 .simple:not(.more-open) [data-act="face-flip"] { display: none !important; }
 :host([tray]:not([advanced])) .tag-wrap { display: none !important; }
+:host(:not([advanced])) .ctrl-toolbar,
+:host(:not([advanced])) .pad-foot .status { display: none !important; }
+
+/* Simple mode: no pad box or hint, a "Wand" label just above the drawn
+   wand (76.5cqi tall: 46cqi wide at 439x730), and the wand and the icon
+   display centered as a pair about 50px apart. The pad's side margin is
+   0.27 of its width = 0.353 of the wand's height (--wand-h, from sim-room). */
+.wand-label { display: none; }
+.simple .wand-label {
+  display: block; position: absolute; left: 0; right: 0; top: calc(50% - 38.25cqi - 28px);
+  text-align: center; pointer-events: none; font: 800 17px 'Nunito', system-ui, sans-serif; color: #6c4cd1;
+}
+.simple .pad.has-extras .wand-label { display: none; }
+.simple .pad { background: none; border: 0; }
+.simple .pad-hint { display: none !important; }
+.simple.wand-controls { justify-content: center; align-items: center; flex-wrap: nowrap; }
+.simple .sim-pane-wand { padding-right: 0; }
+.simple .sim-pane-ctrl { flex: 0 1 calc(var(--wand-h, 280px) * 1.2 + 16px); min-width: 0; padding-left: 0;
+  margin-left: calc(50px - var(--wand-h, 280px) * .353); }
 
 /* Minimized: the wand illustration only. */
 :host([minimized]) .sim-pane-ctrl,
@@ -333,6 +352,7 @@ export function createControls(container, handlers = {}) {
       <div class="axis-row" data-el="axes" data-adv hidden></div>
       <div class="pad" data-el="pad" title="Move to tilt · click to press the button">
         <div class="pad-hint" data-el="pad-hint">move to tilt · click to press</div>
+        <div class="wand-label">Wand</div>
         <div class="pad-guide" data-adv hidden><span class="pad-ring"></span></div>
         <div class="pad-wand" data-el="wand"></div>
         <div class="pad-extras"><slot name="pad" data-el="pad-slot"></slot></div>

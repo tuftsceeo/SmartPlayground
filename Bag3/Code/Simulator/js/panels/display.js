@@ -93,13 +93,21 @@ button.display-case:hover { border-color: #6c4cd1; color: #6c4cd1; }
 button.display-case:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(108,76,209,.2); }
 .display-dev .display-status { min-height: 16px; font: 700 11px/1.4 'Nunito', system-ui, sans-serif; color: #5b5468; text-align: center; }
 .wand-card .display-dev { align-self: stretch; align-items: flex-start; margin-top: var(--wand-pad-top, 0); }
+:host(:not([advanced])) .display-shelf { margin-top: 0; }
+:host(:not([advanced])) .display-shelf, :host(:not([advanced])) .display-dev { width: 100%; }
+/* Simple mode, as the design draws it: about 1.2x the drawn wand's height,
+   a pale mint ring, a white outline, a dark bezel and an inset screen. */
+:host(:not([advanced])) .display-case { width: min(calc(var(--wand-h, 280px) * 1.2), calc(100% - 16px)); height: auto; aspect-ratio: 1;
+  margin: 8px; padding: 5.5%; border-radius: 26px; background: #2b2a30;
+  box-shadow: 0 0 0 4px #fff, 0 0 0 9px #dff5ec, 0 14px 28px rgba(30,20,50,.16); }
+:host(:not([advanced])) .display-case canvas { border-radius: 12px; box-shadow: none; }
+:host(:not([advanced])) .display-case::after { display: none; }
+.display-label { display: none; }
+:host(:not([advanced])) .display-shelf .display-label { display: flex; align-items: center; gap: 6px;
+  font: 800 17px 'Nunito', system-ui, sans-serif; color: #5b5468; }
 .wand-card .display-case { width: var(--wand-pad, 220px); height: auto; aspect-ratio: 1; }
 .wand-card .display-case canvas { width: 100%; height: 100%; }
 .wand-card .chip.display { background: #f2eefc; color: #6c4cd1; }
-.display-updated { align-self: center; font: 700 14px 'Nunito', system-ui, sans-serif; color: #1c9a82; background: #e9fbf6;
-  padding: 6px 12px; border-radius: 12px; margin-top: 6px; }
-.display-updated[hidden] { display: none; }
-:host([advanced]) .display-updated { display: none; }
 :host(:not([advanced])) .box[data-panel="displays"],
 :host(:not([advanced])) .display-dev .rm { display: none; }
 :host(:not([advanced])) .display-shelf:not(.in-game) { display: none; }
@@ -125,25 +133,23 @@ function ledScreenRgb(duty) {
   });
 }
 
-/** 16x16 square cells behind the dark diffuser, coloured as the icon editor shows them. */
+/** 16x16 flat square cells with gaps on an inset black screen, coloured as
+ * the icon editor shows them; unlit cells stay visible as dark grey. */
 function drawSquares(canvas, pixels) {
-  const cell = 16;
-  canvas.width = W * cell;
-  canvas.height = W * cell;
+  const cell = 16, gap = 3, margin = 8;
+  canvas.width = W * cell + 2 * margin;
+  canvas.height = W * cell + 2 * margin;
   const ctx = canvas.getContext("2d");
-  ctx.fillStyle = "#0a0a0b";
+  ctx.fillStyle = "#121214";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   pixels.forEach((px, i) => {
-    const x = (i % W) * cell + 1, y = Math.floor(i / W) * cell + 1, s = cell - 2;
+    const s = cell - gap;
+    const x = margin + (i % W) * cell + gap / 2, y = margin + Math.floor(i / W) * cell + gap / 2;
     const lit = px.some(Boolean);
-    ctx.fillStyle = lit ? `rgb(${ledScreenRgb(px).join(",")})` : "#1d1d21";
+    ctx.fillStyle = lit ? `rgb(${ledScreenRgb(px).join(",")})` : "#2a2a30";
     ctx.beginPath();
-    ctx.roundRect(x, y, s, s, 2);
+    ctx.roundRect(x, y, s, s, 3);
     ctx.fill();
-    if (lit) {
-      ctx.fillStyle = "rgba(255,255,255,.22)";
-      ctx.fillRect(x + 2, y + 2, s - 4, 2);
-    }
   });
 }
 
@@ -156,10 +162,13 @@ export function createDisplayDevice({ bus, clock, mac, onLive }) {
   ghost.className = "display-case";
   ghost.innerHTML = `?<b>Click to Add Display</b>`;
   ghost.addEventListener("click", () => { wake().catch(() => {}); });
+  const label = document.createElement("div");
+  label.className = "display-label";
+  label.innerHTML = `${icon("grid-3x3", 18)}Icon display`;
   const statusEl = document.createElement("div");
   statusEl.className = "display-status";
   statusEl.setAttribute("aria-live", "polite");
-  el.append(ghost, statusEl);
+  el.append(label, ghost, statusEl);
 
   let face = null;
   let canvas = null;
@@ -327,8 +336,6 @@ export function createDisplaysPanel({ mount, room }) {
   async function startOn(d, g, stale) {
     await d.dev.setGame(g.slug, g.src, g.icons);
     if (stale?.() || !list.includes(d)) return;
-    // A second load on the same display is a code change: say so for a moment.
-    if (d.started) flashUpdated(d);
     d.started = true;
     send(d.dev.mac, { type: "start_game", name: g.slug });
   }
@@ -342,20 +349,6 @@ export function createDisplaysPanel({ mount, room }) {
       const mac = displayMac(i);
       if (!list.some((d) => d.dev.mac === mac)) return mac;
     }
-  }
-
-  /** "Just updated", under the display, for a few seconds. */
-  function flashUpdated(d) {
-    let badge = d.dev.el.querySelector(":scope > .display-updated");
-    if (!badge) {
-      badge = document.createElement("div");
-      badge.className = "display-updated";
-      badge.textContent = "Just updated";
-      d.dev.el.appendChild(badge);
-    }
-    badge.hidden = false;
-    clearTimeout(d.badgeTimer);
-    d.badgeTimer = setTimeout(() => { badge.hidden = true; }, 6000);
   }
 
   function wrap(d) {

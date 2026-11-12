@@ -108,7 +108,7 @@ class SimRoom extends HTMLElement {
   /**
    * Register an output panel.
    *   id       unique name
-   *   slot     "panels" (beside the wand), "strip" (below it) or "top" (above it, right-aligned)
+   *   slot     "panels" (beside the wand), "strip" (below it) or "top" (above it, right-aligned; centered in simple mode)
  *   bare     no box border or background
    *   title    heading shown above the panel; null = none, and no padding
    *            (the panel draws its own header)
@@ -227,6 +227,8 @@ class SimRoom extends HTMLElement {
         .room { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; }
         .wand { flex: 0 1 500px; min-width: 0; }
         .wand wand-sim { width: 100%; }
+        /* Simple mode: the icon display sits beside the wand inside wand-sim, so give it the row. */
+        :host(:not([advanced])) .wand { flex: 1 1 100%; }
         .panels { display: flex; flex-direction: column; gap: 16px; flex: 1 1 240px; min-width: 0; }
         .strip { display: flex; flex-direction: column; gap: 12px; margin-top: 16px; }
         .box { padding: 14px 0;
@@ -235,19 +237,20 @@ class SimRoom extends HTMLElement {
         .box[hidden], .box:empty { display: none; }
         .top { display: flex; justify-content: flex-end; }
         .top:not(:has(.box:not([hidden]))) { display: none; }
+        :host(:not([advanced])) .top { justify-content: center; }
         .box.bare { background: none; border: 0; border-radius: 0; padding: 0; margin-bottom: 12px; }
         .box-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; margin: 0 0 12px; }
         .box-head h3 { font: 800 15px 'Nunito', system-ui, sans-serif; margin: 0; }
-        .tray { display: none; align-items: center; flex-wrap: wrap; gap: 10px 12px; margin-top: 16px; padding: 14px 20px;
-          border: 1.5px solid #e8e6f0; border-radius: 20px; background: #fff; color: #231f2e; font-family: 'Nunito', system-ui, sans-serif; }
+        .tray { display: none; align-items: center; flex-wrap: wrap; gap: 6px; margin-top: 10px; padding: 8px 10px;
+          border: 1.5px solid #e8e6f0; border-radius: 12px; background: #fff; color: #231f2e; font-family: 'Nunito', system-ui, sans-serif; }
         :host(:not([advanced])) .tray:not([hidden]) { display: flex; }
-        .tray-title { flex: 1 1 auto; font: 800 18px 'Nunito', system-ui, sans-serif; }
-        .tray-sep { width: 1px; height: 48px; background: #e8e6f0; }
-        .tag-tile { display: inline-flex; align-items: center; gap: 8px; border: 2px solid #e8e6f0; background: #fff; color: #231f2e;
-          border-radius: 14px; padding: 8px 14px; font: 800 18px 'Nunito', system-ui, sans-serif; cursor: pointer; }
+        .tray-label { font: 800 11px 'Nunito', system-ui, sans-serif; color: #6b6578; text-transform: uppercase; letter-spacing: 0.06em; margin-right: 4px; }
+        .tray-sep { width: 1px; height: 18px; background: #e8e6f0; }
+        .tag-tile { display: inline-flex; align-items: center; gap: 5px; border: 1.5px solid #e8e6f0; background: #fff; color: #231f2e;
+          border-radius: 8px; padding: 3px 7px; font: 700 12px 'Nunito', system-ui, sans-serif; cursor: pointer; }
         .tag-tile:hover { border-color: #ef4d92; }
         .tag-tile svg { color: #d13a7c; flex: none; }
-        .tag-tile .swatch { width: 18px; height: 18px; border-radius: 50%; border: 2px solid; flex: none; }
+        .tag-tile .swatch { width: 12px; height: 12px; border-radius: 50%; border: 2px solid; flex: none; }
         ${DISPLAY_STYLE}
         ${SPLAT_STYLE}
         ${WANDS_STYLE}
@@ -276,6 +279,16 @@ class SimRoom extends HTMLElement {
       });
     }
     wand.addEventListener("sim-ready", () => this._attachWand());
+    // Simple mode: the icon display is as tall as the drawn wand
+    // (46% of the pad's width at the wand art's 439x730 proportions).
+    wand.addEventListener("sim-ready", () => {
+      const pad = wand.shadowRoot?.querySelector(".pad");
+      if (!pad) return;
+      new ResizeObserver(() => {
+        const h = Math.round(pad.getBoundingClientRect().width * 0.46 * 730 / 439);
+        if (h > 0) this.style.setProperty("--wand-h", `${h}px`);
+      }).observe(pad);
+    }, { once: true });
     wand.addEventListener("sim-loaded", () => {
       this._refresh().catch((err) => console.error("sim-room refresh", err));
     });
@@ -361,7 +374,7 @@ class SimRoom extends HTMLElement {
   }
 
   /**
-   * The NFC tag tray under the room: one big tile per tag the game reads,
+   * The NFC tag tray under the room: one small chip per tag the game reads; tap one to touch it to the wand (no drag),
    * grouped Roles, Colors, Controls, then the rest. Tapping a tile touches
    * that tag to the wand. Simple mode only (CSS).
    */
@@ -370,10 +383,10 @@ class SimRoom extends HTMLElement {
     tray.textContent = "";
     tray.hidden = tags.length === 0;
     if (!tags.length) return;
-    const title = document.createElement("div");
-    title.className = "tray-title";
-    title.textContent = "Tap an NFC tag on a wand";
-    tray.appendChild(title);
+    const label = document.createElement("div");
+    label.className = "tray-label";
+    label.textContent = "NFC tags";
+    tray.appendChild(label);
     groupTags(tags).forEach((group, i) => {
       if (i > 0) {
         const sep = document.createElement("div");
@@ -387,7 +400,7 @@ class SimRoom extends HTMLElement {
         const color = TAG_COLORS[tag];
         b.innerHTML = color
           ? `<span class="swatch" style="background:${color.fill};border-color:${color.edge}"></span>`
-          : `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="3"/><circle cx="12" cy="12" r="2.5"/></svg>`;
+          : `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="3"/><circle cx="12" cy="12" r="2.5"/></svg>`;
         b.append(tag);
         b.addEventListener("click", () => this.wand?.tapTag(tag));
         tray.appendChild(b);
