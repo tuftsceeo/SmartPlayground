@@ -3,19 +3,22 @@
  * it directly; .preview-col is flex:1 and just takes whatever's left. The
  * chosen width is persisted in localStorage, same pattern as uiMode.js.
  * The width is also published as --chat-w on <body>, so the title bar's
- * send area can line up over the chat column. */
+ * send area can line up over the chat column.
+ *
+ * The chat can grow until the simulator column is MIN_PREVIEW_WIDTH: one
+ * 300px wand card plus the preview's padding. Narrower than the wand and
+ * icon display side by side, the simulator stacks them and scrolls. */
 
 const KEY = "wandcoder.chatWidth";
 const MIN_WIDTH = 260;
-const MAX_WIDTH = 480;
-const MIN_PREVIEW_WIDTH = 180;
+const MIN_PREVIEW_WIDTH = 332;
 const DEFAULT_WIDTH = 340;
 const KEYBOARD_STEP = 24;
 
 function loadWidth() {
     try {
         const stored = Number(localStorage.getItem(KEY));
-        if (Number.isFinite(stored) && stored >= MIN_WIDTH && stored <= MAX_WIDTH) return stored;
+        if (Number.isFinite(stored) && stored >= MIN_WIDTH) return stored;
     } catch (_) {}
     return DEFAULT_WIDTH;
 }
@@ -26,13 +29,13 @@ function saveWidth(px) {
     } catch (_) {}
 }
 
-/** How wide .chat-col is allowed to get right now — bounded by MAX_WIDTH
- * and by leaving at least MIN_PREVIEW_WIDTH for the sim panel, so dragging
- * can never push the preview off-screen on a narrow browser window. */
+/** How wide .chat-col is allowed to get right now: whatever leaves at
+ * least MIN_PREVIEW_WIDTH for the sim panel, so dragging can never push the
+ * preview off-screen. */
 function currentMaxWidth(wsBody, resizer) {
     const resizerWidth = resizer.getBoundingClientRect().width;
     const available = wsBody.getBoundingClientRect().width - resizerWidth;
-    return Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, available - MIN_PREVIEW_WIDTH));
+    return Math.max(MIN_WIDTH, available - MIN_PREVIEW_WIDTH);
 }
 
 /** Set the chat column's width and publish it as --chat-w. */
@@ -48,6 +51,14 @@ export function initPaneSplit() {
     if (!resizer || !chatCol || !wsBody) return;
 
     applyWidth(chatCol, loadWidth());
+    // A narrower window (or a stored width from a wider one) must still leave
+    // the simulator its minimum; the stored choice is kept for wider windows.
+    new ResizeObserver(() => {
+        if (!wsBody.getClientRects().length || !wsBody.getBoundingClientRect().width) return;
+        const max = currentMaxWidth(wsBody, resizer);
+        const want = Math.max(MIN_WIDTH, Math.min(loadWidth(), max));
+        if (Math.round(chatCol.getBoundingClientRect().width) !== Math.round(want)) applyWidth(chatCol, want);
+    }).observe(wsBody);
 
     let dragging = false;
     let startX = 0;

@@ -54,6 +54,9 @@ import { gameIconThumb, gameTint } from './ledicons/thumb5.js';
 import { GAME_ICONS } from './ledicons/shapes5.js';
 
 const SILENCE_LIMIT_MS = 15000;
+// White space kept between the title bar's game buttons and the
+// Simulation/Icons tabs; with less, the tabs move under the title bar.
+const TABS_CLEAR_PX = 40;
 const SIM_IDLE_PAUSE_MS = 60000;
 const SIM_KNOWLEDGE = 'knowledge/simulator.md';
 const SIM_LOG_FOR_CHAT = 40;
@@ -453,6 +456,8 @@ class App {
         const show = !!this._simLastDisplay;
         document.querySelector('.preview-toolbar')?.classList.toggle('hidden', !show);
         if (!show) this.closeIconsView();
+        // Shown: now it has a width, so check where it fits.
+        else this.fitPreviewTabs();
     }
 
     iconsViewOpen() {
@@ -739,13 +744,51 @@ class App {
         dbg('app', `editor showing role: ${role}`);
     }
 
-    /** The Simulation/Icons tabs sit in the title bar, at the right end of
-     *  the simulator side. */
+    /** Keep the Simulation/Icons tabs placed as the simulator column's
+     *  width and the game name change (fitPreviewTabs). */
     placePreviewTabs() {
+        const col = document.querySelector('.preview-col');
+        const name = document.getElementById('btn-game-name');
+        if (!col || this._tabsObserver) {
+            this.fitPreviewTabs();
+            return;
+        }
+        this._tabsObserver = new ResizeObserver(() => this.fitPreviewTabs());
+        this._tabsObserver.observe(col);
+        if (name) this._tabsObserver.observe(name);
+        this.fitPreviewTabs();
+    }
+
+    /**
+     * The Simulation/Icons tabs go in the title bar, at the right end of the
+     * simulator side, when they fit there with TABS_CLEAR_PX of white space
+     * after the game's buttons; otherwise they get their own row at the top
+     * of the simulator column.
+     */
+    fitPreviewTabs() {
         const tabs = document.querySelector('.preview-toolbar');
         const bar = document.querySelector('.ws-titlebar');
-        if (!tabs || !bar || tabs.parentElement === bar) return;
-        bar.insertBefore(tabs, bar.querySelector('.ws-titlebar-actions'));
+        const col = document.querySelector('.preview-col');
+        const actions = bar?.querySelector('.ws-titlebar-actions');
+        if (!tabs || !bar || !col || !actions) return;
+        // Hidden (another view, or the empty New game screen): nothing to measure.
+        if (!bar.getClientRects().length || !col.getClientRects().length) return;
+        // Width and right margin are read while the tabs are in the title bar
+        // (the margin is a title-bar rule) and kept for when they are not.
+        if (tabs.parentElement === bar && tabs.offsetWidth) {
+            this._tabsWidth = tabs.offsetWidth;
+            this._tabsGap = parseFloat(getComputedStyle(tabs).marginRight) || 0;
+        }
+        const tabsWidth = this._tabsWidth || 160;
+        const tabsGap = this._tabsGap ?? 28;
+        const barLeft = bar.getBoundingClientRect().left;
+        const leftEnd = Math.max(0, ...[...bar.children]
+            .filter((el) => el !== tabs && el !== actions && el.getClientRects().length)
+            .map((el) => el.getBoundingClientRect().right - barLeft));
+        const room = actions.getBoundingClientRect().left - barLeft;
+        const fits = leftEnd + TABS_CLEAR_PX + tabsWidth + tabsGap <= room;
+        if (fits && tabs.parentElement !== bar) bar.insertBefore(tabs, actions);
+        else if (!fits && tabs.parentElement !== col) col.insertBefore(tabs, col.firstChild);
     }
 
     /**

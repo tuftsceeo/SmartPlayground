@@ -652,7 +652,8 @@ body:not(.ui-advanced) #btn-station-catalog { display: none; }
     flex: 0 0 auto;
     width: 340px;
     min-width: 260px;
-    max-width: 480px;
+    /* No max-width: paneSplit.js lets the chat grow until the simulator
+       column is at its minimum (one wand card). */
     display: flex;
     flex-direction: column;
     min-height: 0;
@@ -1996,6 +1997,9 @@ body:not(.ui-advanced) .adv-only { display: none !important; }
 .ws-titlebar .preview-segment { border-radius: 16px; padding: 4px; }
 .ws-titlebar .preview-tab { border-radius: 10px; }
 .ws-titlebar .preview-toolbar:not(.hidden) + .ws-titlebar-actions { margin-left: 0; }
+/* Too narrow for the title bar (app.js fitPreviewTabs): their own row at
+   the top of the simulator column. */
+.preview-col > .preview-toolbar { justify-content: center; }
 
 /* Simple mode title bar: a white row; the send button sits over the chat
    column (--chat-w, set by paneSplit.js). */
