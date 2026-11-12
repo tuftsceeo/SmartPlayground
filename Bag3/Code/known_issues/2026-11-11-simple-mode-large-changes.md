@@ -16,16 +16,17 @@ code:
   - Bag3/Code/Simulator/js/panels/splats.js
   - Bag3/Code/Simulator/js/lobby_game.js
   - Bag3/Code/Simulator/js/splats.js
+  - Bag3/Code/Simulator/js/panels/splatController.js
   - Bag3/Code/Simulator/README.md
 open:
   - Agent does not state minimum devices or a fixed vs open-ended flag
   - Simulator does not open with the minimum number of wands
-  - Splats belong to a wand, not to a shared group
+  - Splats belong to a wand, not to a shared group or a dedicated Splat companion wand
   - Splat zones (inside/outside, left/right) are not drawn as fills
   - Simulator device art is hand-drawn, not the design-system icons
   - Structured game card (parseable reply format and renderer) does not exist
   - Saved games do not store versions, so no "N versions" label
-keywords: [simple mode, design corrections, minimum devices, fixed, open-ended, Splat group, Splat zones, device art, game card, versions, teacher hub]
+keywords: [simple mode, design corrections, minimum devices, fixed, open-ended, Splat group, Splat zones, device art, game card, versions, teacher hub, Splat companion, Splat controller]
 aliases: []
 ---
 
@@ -53,10 +54,31 @@ Fixed-count games start every wand and hide the add tiles; open-ended games star
 and show them. Needs item 1's flag, plus `Simulator/sim-room.js` (:36–39, :132, :472, :483–485),
 `js/panels/wands.js` (:117–118, :179–189) and `Simulator/README.md` (:83–122).
 
-## 3. Splats as a shared group
+## 3. Splats as a shared group, or a Splat companion wand
 
 Splats are owned by a wand (`lobbyGame.wandSplats`, attached to `room.wand`). Showing them as one
 group not tied to a wand changes `sim-room.js` (:375–455), `js/lobby_game.js` and `js/splats.js`.
+
+Direction under consideration (2026-11-12): a dedicated **Splat companion** wand, in the spirit of
+the historical Splat Companion. It is not a game wand. It is assigned its role during send, or by
+tapping a card that puts it into Splat pairing mode. From then on its only jobs are reading Splat
+NFC tags, pairing with 1 to 4 Splats (maximum not decided), and running the Splat side of the game.
+
+In the all-wands dialog it would be a Splat controller card a quarter of a wand card's size:
+
+- a 5x5 display showing the companion's own state;
+- a button for resets, or another role the game assigns;
+- an NFC reader;
+- four Splat slots, each filled by clicking it (standing in for pairing).
+
+A mock-up of that card is in `Simulator/js/panels/splatController.js`, added by the dialog's
+"+ Add a Splat controller". It is layout and interaction only: it runs no Python, is not on the
+radio bus and reaches no game. Pairing a slot lights that corner of the 5x5 display; the button
+flashes the display. Splat cards for game wands stay independent of their wand when cards are
+reordered.
+
+Not decided or built: the firmware companion mode, how send or a card assigns the role, the
+pairing protocol, the slot maximum, and how the chat agent writes games for a companion.
 
 ## 4. Splat zone rendering
 

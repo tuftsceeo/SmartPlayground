@@ -31,6 +31,9 @@
  *     .stop()            stop every live other wand
  *     .clear()           drop every other wand (a non-lobby game loaded)
  *     .redraw()          recount (the room's displays changed)
+ *
+ * "+ Add a Splat controller" adds a mock-up card of a dedicated Splat
+ * companion wand (js/panels/splatController.js); it runs nothing.
  */
 
 import { icon } from "../icons.js";
@@ -38,6 +41,7 @@ import { addMinimize, setMinimized } from "./minimize.js";
 import { attachWand } from "../pyboot.js";
 import { createLobbyGameHost } from "../lobby_game.js";
 import { createSplatToy, splatDev, splatCard } from "./splats.js";
+import { createSplatController, SPLAT_CONTROLLER_STYLE } from "./splatController.js";
 
 export const MAX_WANDS = 4;
 
@@ -95,6 +99,7 @@ dialog.all-wands::backdrop { background: rgba(35,31,46,.35); }
 .wand-card wand-sim { display: block; width: 100%; --wand-bg: transparent; --wand-shadow: none; }
 
 
+${SPLAT_CONTROLLER_STYLE}
 `;
 
 export function createWandsPanel({ mount, room }) {
@@ -109,6 +114,7 @@ export function createWandsPanel({ mount, room }) {
       <h2 data-el="title"></h2>
       <button type="button" class="wbtn" data-el="add">+ Add a wand</button>
       <button type="button" class="wbtn" data-el="add-display">+ Add a display</button>
+      <button type="button" class="wbtn" data-el="add-controller" title="Mock-up of a dedicated Splat companion wand">+ Add a Splat controller</button>
       <button type="button" class="wbtn sq" data-el="close" aria-label="Close">${icon("close", 18)}</button>
     </div>
     <div class="aw-grid" data-el="grid"></div>`;
@@ -131,6 +137,10 @@ export function createWandsPanel({ mount, room }) {
 
   $(dialog, "add").addEventListener("click", () => add());
   $(dialog, "add-display").addEventListener("click", () => room.panel("displays")?.add());
+  // Mock-up only (js/panels/splatController.js): not counted, not on the bus.
+  $(dialog, "add-controller").addEventListener("click", () => {
+    grid.appendChild(createSplatController({ onRemove: (card) => card.remove() }).card);
+  });
   $(bar, "open").addEventListener("click", () => open());
   $(dialog, "close").addEventListener("click", () => dialog.close());
 
