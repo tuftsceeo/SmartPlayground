@@ -1998,8 +1998,9 @@ body:not(.ui-advanced) .adv-only { display: none !important; }
 .ws-titlebar .preview-tab { border-radius: 10px; }
 .ws-titlebar .preview-toolbar:not(.hidden) + .ws-titlebar-actions { margin-left: 0; }
 /* Too narrow for the title bar (app.js fitPreviewTabs): their own row at
-   the top of the simulator column. */
-.preview-col > .preview-toolbar { justify-content: center; }
+   the top of the simulator column, right-aligned as in the title bar (the
+   base .preview-toolbar rule's flex-end), 28px in from the edge. */
+.preview-col > .preview-toolbar { padding-right: 28px; }
 
 /* Simple mode title bar: a white row; the send button sits over the chat
    column (--chat-w, set by paneSplit.js). */
