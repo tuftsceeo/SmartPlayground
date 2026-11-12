@@ -1404,10 +1404,7 @@ class App {
                 this.onSend();
             }
         });
-        userInput.addEventListener('input', () => {
-            userInput.style.height = 'auto';
-            userInput.style.height = Math.min(userInput.scrollHeight, 120) + 'px';
-        });
+        userInput.addEventListener('input', () => fitUserInput());
     }
 
     onNavTab(nav) {
@@ -1542,6 +1539,7 @@ class App {
     clearWorkspace() {
         document.getElementById('chat-box').innerHTML = '';
         document.getElementById('user-input').value = '';
+        fitUserInput();
         resetEditor();
         this.retiredRoleCode = {};
         this.syncRoleRail();
@@ -2246,8 +2244,7 @@ class App {
                 const inp = document.getElementById('user-input');
                 inp.value = sp.text;
                 inp.focus();
-                inp.style.height = 'auto';
-                inp.style.height = Math.min(inp.scrollHeight, 120) + 'px';
+                fitUserInput();
             });
             list.appendChild(b);
         });
@@ -2297,6 +2294,7 @@ class App {
         }
         if (starterMsg) {
             document.getElementById('user-input').value = starterMsg;
+            fitUserInput();
         }
         this.updatePreview();
     }
@@ -3407,6 +3405,7 @@ class App {
         }
         dbg('chat', `onSend(): "${msg}"`);
         inp.value = '';
+        fitUserInput();
         // Remove starter chips once conversation starts
         document.querySelector('.starter-chips')?.remove();
         document.querySelectorAll('.choice-chips').forEach(el => el.remove());
@@ -3729,6 +3728,22 @@ function addProcessMsg(text) {
         return null;
     }
     return addMsg(text, 'system');
+}
+
+/**
+ * Size the chat input to its text: CSS min-height (two lines) up to
+ * max-height (four lines); past that it scrolls.
+ */
+function fitUserInput() {
+    const el = document.getElementById('user-input');
+    if (!el) return;
+    el.style.height = 'auto';
+    // scrollHeight leaves out the border; box-sizing is border-box.
+    const border = el.offsetHeight - el.clientHeight;
+    const max = parseFloat(getComputedStyle(el).maxHeight);
+    const want = el.scrollHeight + border;
+    el.style.height = `${Math.min(want, max)}px`;
+    el.style.overflowY = want > max ? 'auto' : 'hidden';
 }
 
 /** Capitalize the first letter, for a name that starts a sentence. */

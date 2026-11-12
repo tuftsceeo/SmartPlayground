@@ -855,14 +855,21 @@ body:not(.ui-advanced) #btn-station-catalog { display: none; }
     padding: 12px 14px;
     border-top: 1px solid var(--border);
 }
+/* Chat input: two lines tall when empty, grows with its text up to four
+   lines, then scrolls (app.js fitUserInput sets the height and overflow). */
 #user-input {
+    --input-line: 18px;
+    --input-pad-y: 8px;
     flex: 1;
     border: 1.5px solid var(--border);
     border-radius: 20px;
-    padding: 8px 14px;
-    font: 13px 'Nunito', ui-rounded, system-ui, sans-serif;
+    padding: var(--input-pad-y) 14px;
+    font: 13px/var(--input-line) 'Nunito', ui-rounded, system-ui, sans-serif;
     resize: none;
-    height: 38px;
+    overflow-y: hidden;
+    min-height: calc(2 * var(--input-line) + 2 * var(--input-pad-y) + 3px);
+    max-height: calc(4 * var(--input-line) + 2 * var(--input-pad-y) + 3px);
+    height: calc(2 * var(--input-line) + 2 * var(--input-pad-y) + 3px);
 }
 .btn-send-round {
     width: 38px;
@@ -2049,10 +2056,9 @@ body:not(.ui-advanced) .msg-avatar { flex-basis: 36px; width: 36px; height: 36px
 body:not(.ui-advanced) .msg-avatar svg { width: 18px; height: 18px; }
 body:not(.ui-advanced) .chat-input-row { padding: 16px 20px; gap: 10px; align-items: center; }
 body:not(.ui-advanced) #user-input {
+    --input-pad-y: 10px;
     border-radius: 24px;
-    padding: 14px 20px;
-    height: 56px;
-    box-sizing: border-box;
+    padding: var(--input-pad-y) 20px;
 }
 body:not(.ui-advanced) .btn-send-round { width: 54px; height: 54px; }
 body:not(.ui-advanced) .btn-send-round svg { width: 24px; height: 24px; }
