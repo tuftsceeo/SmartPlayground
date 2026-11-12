@@ -40,7 +40,7 @@ export const SPLAT_STYLE = `
 .splat-dev .splat-toy .glow circle.in { r: 18px; }
 .wand-card .splat-dev { align-self: flex-start; margin-top: var(--wand-pad-top, 0); }
 .wand-card .splat-dev .splat-toy { width: var(--wand-pad, 220px) !important; height: var(--wand-pad, 220px) !important; }
-.wand-card .chip.splat { background: #e8f1fc; color: #2f76c8; }
+.wand-card .chip.splat-name { background: #e8f1fc; color: #2f76c8; }
 .splat-toy { display: block; padding: 0; border: 0; background: none; cursor: pointer;
   border-radius: 12px; touch-action: none; -webkit-tap-highlight-color: transparent;
   transition: transform .15s ease, opacity .15s ease; }
@@ -219,7 +219,7 @@ export function splatDev(toyEl) {
 export function splatCard(dev) {
   const card = document.createElement("div");
   card.className = "wand-card";
-  card.innerHTML = `<div class="chips"><span class="chip splat">Splat</span></div>`;
+  card.innerHTML = `<div class="chips"><span class="chip device-name splat-name">Splat</span></div>`;
   card.appendChild(dev);
   return card;
 }

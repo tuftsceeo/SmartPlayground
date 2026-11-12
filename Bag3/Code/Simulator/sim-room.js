@@ -491,7 +491,7 @@ SimRoom.registerPanel("wands", {
   update(panel, caps, room) {
     panel.setGame(caps);
     // Settings for a different number of wands start over with that many
-    // placeholders. New code for the same number keeps the wands as they
+    // wand slots. New code for the same number keeps the wands as they
     // are; live ones have already been handed the new code.
     if (room.gameWands !== panel.forWands) {
       panel.forWands = room.gameWands;

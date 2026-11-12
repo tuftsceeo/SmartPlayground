@@ -4,8 +4,8 @@
  * buttons (wand-sim's "ctrl" slot), each its own device on the room's bus.
  *
  * A display starts as a placeholder: the outline of a display with "?" and
- * "Click to Add Display" that runs nothing and is not on the radio. Clicking it, or loading a
- * game with a display file, wakes it: it boots its own Pyodide running
+ * "Click to Add Display" that runs nothing and is not on the radio. Clicking it, "+ Add a
+ * display", or loading a game with a display file, wakes it: it boots its own Pyodide running
  * py/icon_host.py, which copies IconDisplay/main.py's idle loop and runs the
  * display game against a simulated Matrix. Frames come back as the logical
  * 768-byte src plus intensity and are drawn as 16x16 square cells.
@@ -24,7 +24,7 @@
  *     .sync(game, stale)   the room loaded a game; game = room.displayGame
  *     .setIcons(slug, icons)
  *     .placeIn(el)         move the displays into el (the all-wands dialog), or back with null
- *     .add()               add a placeholder display
+ *     .add()               add a display and start it
  *     .displays, .full     the devices, in order; whether there are MAX_DISPLAYS
  *
  *   createDisplayDevice({ bus, clock, mac, onLive })
@@ -112,7 +112,7 @@ button.display-case:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(10
 .wand-card.display-card { width: fit-content; max-width: 100%; justify-self: start; }
 .wand-card .display-case { width: var(--wand-pad, 220px); }
 .wand-card .display-case canvas { width: 100%; height: 100%; }
-.wand-card .chip.display { background: #f1f0f4; color: #231f2e; }
+.wand-card .chip.display-name { background: #f1f0f4; color: #231f2e; }
 :host(:not([advanced])) .box[data-panel="displays"],
 :host(:not([advanced])) .display-dev .rm { display: none; }
 :host(:not([advanced])) .display-shelf:not(.in-game) { display: none; }
@@ -399,7 +399,7 @@ export function createDisplaysPanel({ mount, room }) {
     if (placedIn) {
       d.card = document.createElement("div");
       d.card.className = "wand-card display-card";
-      d.card.innerHTML = `<div class="chips"><span class="chip display">Icon display</span></div>`;
+      d.card.innerHTML = `<div class="chips"><span class="chip device-name display-name">Icon display</span></div>`;
       // The remove button joins the card's label row, as on a wand card.
       const rm = d.dev.el.querySelector(":scope > .rm");
       if (rm) d.card.firstElementChild.appendChild(rm);
@@ -417,7 +417,11 @@ export function createDisplaysPanel({ mount, room }) {
   return {
     get displays() { return list.map((d) => d.dev); },
     get full() { return list.length >= MAX_DISPLAYS; },
-    add: () => { add(false); },
+    /** "+ Add a display": a display that starts at once. */
+    add: () => {
+      const d = add(false);
+      d?.dev.wake().catch((err) => console.error("icon display start", err));
+    },
 
     async sync(g, stale) {
       game = g;

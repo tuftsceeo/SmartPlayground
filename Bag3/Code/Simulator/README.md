@@ -44,8 +44,8 @@ leaves as an event (`sim-log`, `sim-error`, `display-print`, `room-radio`,
 Developer mode footer, and `index.html` in a `<pre>` under the room.
 
 - **Icon displays:** devices of their own beside the wand, each with its
-  own MAC (`02:00:00:00:0d:01` up), up to 4. One starts as a placeholder;
-  a click wakes it, and each boots its own Pyodide running
+  own MAC (`02:00:00:00:0d:01` up), up to 4. A game with a display file
+  starts one; "+ Add a display" starts another at once. Each boots its own Pyodide running
   `py/icon_host.py` (IconDisplay/main.py's idle loop, without `main()`),
   drawn as a 16x16 grid of square cells. A game with a display file
   (`vendor/display/games/<game>.py`, or the `displaySource` property)
@@ -110,9 +110,10 @@ What stands in for what:
   There are no Splat cards, `/pairing.json`, `pw_who` claim checks or the
   30 s connect deadline.
 - **Other wands:** a game has none unless `wands` is more than 1 or
-  the overlay's "+ Add a wand" adds one. Each starts as a placeholder (an
-  outline wand with "?" on its screen) that runs nothing and is not on the
-  radio. Clicking it starts another `<wand-sim>` running the same game, on
+  the overlay's "+ Add a wand" adds one. The wands `wands` calls for wait
+  as slots, running nothing, until the overlay opens; then each starts
+  another `<wand-sim>` running the same game, and "+ Add a wand" starts one
+  at once. Each runs on
   the room's bus and clock with its own MAC (`02:00:00:00:0A:02` on) and
   Splats, so every wand runs the vendored `lobby_game.py` and the game's own
   `play()`. A game that is not a lobby game gets other wands only from
