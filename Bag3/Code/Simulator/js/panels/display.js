@@ -23,6 +23,7 @@
  *   createDisplaysPanel({ mount, room })
  *     .sync(game, stale)   the room loaded a game; game = room.displayGame
  *     .setIcons(slug, icons)
+ *     .stop() / .restart()  the room paused / restarted: stop or start the display game
  *     .placeIn(el)         move the displays into el (the all-wands dialog), or back with null
  *     .add()               add a display and start it
  *     .displays, .full     the devices, in order; whether there are MAX_DISPLAYS
@@ -438,6 +439,19 @@ export function createDisplaysPanel({ mount, room }) {
 
     async setIcons(slug, icons) {
       await Promise.all(list.map((d) => d.dev.setIcons(slug, icons)));
+    },
+
+    /** The room paused (room.stop): every running display stops its game. */
+    stop() {
+      for (const d of list) if (d.dev.ready) send(d.dev.mac, { type: "stop" });
+    },
+
+    /** The room restarted: every display starts the loaded display game again. */
+    restart() {
+      if (!game) return;
+      for (const d of list) {
+        if (d.dev.ready) send(d.dev.mac, { type: "start_game", name: game.slug });
+      }
     },
 
     placeIn(el) {

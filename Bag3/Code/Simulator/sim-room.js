@@ -157,8 +157,11 @@ class SimRoom extends HTMLElement {
   get pyodide() { return this.wand ? this.wand.pyodide : null; }
 
   start() { return this.wand?.start(); }
+  /** Stop every device: this wand, the other wands and the icon displays
+   * (the host's idle pause calls this). */
   stop() {
     this.panel("wands")?.stop();
+    this.panel("displays")?.stop?.();
     return this.wand?.stop();
   }
   showOverlay(kind, opts) { return this.wand?.showOverlay(kind, opts); }
@@ -263,6 +266,7 @@ class SimRoom extends HTMLElement {
   restart() {
     this.lobbyGame?.retap();
     this.panel("wands")?.restart();
+    this.panel("displays")?.restart?.();
     return this.wand?.restart();
   }
 
