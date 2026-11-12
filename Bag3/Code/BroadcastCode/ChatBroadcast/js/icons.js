@@ -24,6 +24,10 @@ const PATHS = {
         '<rect x="3" y="5" width="18" height="14" rx="3"/><circle cx="12" cy="12" r="2.5"/>',
     close:
         '<path d="M6 6l12 12M18 6L6 18"/>',
+    plus:
+        '<path d="M12 5v14M5 12h14"/>',
+    more:
+        '<circle cx="5" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="19" cy="12" r="1.6" fill="currentColor"/>',
     refresh:
         '<path d="M3 12a9 9 0 0 1 15.5-6.2L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15.5 6.2L3 16"/><path d="M3 21v-5h5"/>',
     trash:

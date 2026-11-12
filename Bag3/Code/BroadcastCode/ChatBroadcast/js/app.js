@@ -52,7 +52,7 @@ import {
     setGameIcons, getGameIcons, onIconsChange,
 } from './ledicons/iconLibrary.js';
 import { gameIconEntries, startingIcon, drawIcon } from './ledicons/iconView.js';
-import { gameIconThumb } from './ledicons/thumb5.js';
+import { gameIconThumb, gameTint } from './ledicons/thumb5.js';
 
 const SILENCE_LIMIT_MS = 15000;
 const SIM_IDLE_PAUSE_MS = 60000;
@@ -129,6 +129,21 @@ function makeActivatable(el) {
         e.preventDefault();
         el.click();
     });
+}
+
+/**
+ * "2 wands · icon display": the devices a saved game uses.
+ * @param {object} g saved-game entry from library.js
+ */
+function savedGameDevices(g) {
+    const code = g.code || '';
+    const settings = g.simSettings || {};
+    const lobby = /SPLATS_MIN|lobby_game|lobbyGame/.test(code);
+    const n = settings.wands || 0;
+    const parts = [n >= 2 ? `${n} wands` : lobby ? 'Wands' : 'Wand'];
+    if (/SPLATS_MIN/.test(code) || (lobby && settings.wand_splats > 0)) parts.push('Splat');
+    if (g.roleCode?.icon || g.iconCode) parts.push('icon display');
+    return parts.join(' · ');
 }
 
 /**
@@ -245,8 +260,8 @@ class App {
         this.setupDeviceListeners();
         this.setupSerialLog();
         this.applyUiMode(loadUiMode());
-        showView('splash');
-        dbg('app', 'initial view: splash (modal-overlay is persistent — showView must not touch it)');
+        this.showHome();
+        dbg('app', 'initial view (modal-overlay is persistent — showView must not touch it)');
 
         dbg('app', 'loading encrypted key…');
         await loadEncryptedKey();
@@ -1277,6 +1292,10 @@ class App {
         document.querySelectorAll('.splash-card').forEach((el) => makeActivatable(el));
         document.getElementById('btn-scratch').addEventListener('click', () => this.startNewGame());
         document.getElementById('btn-new-game').addEventListener('click', () => this.startNewGame());
+        document.getElementById('btn-gallery-new').addEventListener('click', () => this.startNewGame());
+        document.addEventListener('click', () => {
+            document.querySelectorAll('.card-menu').forEach((m) => m.classList.add('hidden'));
+        });
         document.getElementById('btn-gallery').addEventListener('click', () => this.goExamples());
         document.getElementById('btn-saved').addEventListener('click', () => this.goSaved());
         document.getElementById('gallery-search').addEventListener('input', () => this.renderGallery());
@@ -1431,12 +1450,22 @@ class App {
             if (ws && !ws.classList.contains('hidden')) {
                 this.goHome();
             } else {
-                showView('splash');
+                this.showHome();
             }
             return;
         }
         if (nav === 'saved') this.goSaved();
         else if (nav === 'examples') this.goExamples();
+    }
+
+    /**
+     * The first screen. Advanced mode keeps the splash; simple mode opens
+     * My games when there are saved games, otherwise a new game.
+     */
+    showHome() {
+        if (getUiMode() !== 'simple') { showView('splash'); return; }
+        if (loadSavedGames().length) this.goSaved();
+        else this.startNewGame();
     }
 
     goSaved() {
@@ -1459,7 +1488,7 @@ class App {
         const action = await this.confirmUnsavedWork();
         if (action === 'cancel') return;
         this._sim?.stop();
-        showView('splash');
+        this.showHome();
     }
 
     async openSavedFromWorkspace() {
@@ -1635,7 +1664,9 @@ class App {
         document.getElementById('station-catalog-status')
             .classList.toggle('hidden', this.galleryMode !== 'saved');
         if (this.galleryMode === 'saved') {
-            title.textContent = 'My saved games';
+            const simple = getUiMode() === 'simple';
+            title.textContent = simple ? 'My games' : 'My saved games';
+            document.getElementById('gallery-search').placeholder = simple ? 'Find a game…' : 'search games…';
             chips.classList.add('hidden');
             const saved = loadSavedGames().filter((g) => {
                 if (!q) return true;
@@ -1653,6 +1684,35 @@ class App {
                 card.className = 'example-card saved-card';
                 card.dataset.id = g.id;
                 const when = relativeTime(g.updatedAt);
+                if (getUiMode() === 'simple') {
+                    // Design board "Saved games": tinted thumbnail, device line,
+                    // time, a full-width Open button and a ⋯ menu.
+                    card.classList.add('saved-card-simple');
+                    card.innerHTML =
+                        `<div class="example-thumb saved-thumb" style="background:${gameTint(g.gameIcon)}">${savedGameIcons(g)}</div>` +
+                        `<div class="card-body" data-card-body>` +
+                        `<h3>${escapeHtml(g.name)}</h3>` +
+                        `<p class="card-devices">${escapeHtml(savedGameDevices(g))}</p>` +
+                        `<p>${escapeHtml(when)}</p></div>` +
+                        `<div class="card-actions">` +
+                        `<button type="button" class="card-open" data-open>Open</button>` +
+                        `<button type="button" class="card-more" data-more aria-label="More options for ${escapeHtml(g.name)}" aria-haspopup="true">${iconSvg('more', { size: 18 })}</button>` +
+                        `<div class="card-menu hidden">` +
+                        `<button type="button" data-rename>${iconSvg('pencil', { size: 16 })}Rename</button>` +
+                        `<button type="button" data-delete>${iconSvg('trash', { size: 16 })}Delete</button>` +
+                        `</div></div>`;
+                    card.querySelector('[data-open]').addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        this.openSavedGame(g.id);
+                    });
+                    card.querySelector('[data-more]').addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        const menu = card.querySelector('.card-menu');
+                        const open = menu.classList.contains('hidden');
+                        document.querySelectorAll('.card-menu').forEach((m) => m.classList.add('hidden'));
+                        menu.classList.toggle('hidden', !open);
+                    });
+                } else {
                 card.innerHTML =
                     `<div class="example-thumb saved-thumb">${savedGameIcons(g)}</div>` +
                     `<div class="card-body" data-card-body>` +
@@ -1662,10 +1722,11 @@ class App {
                     `<button type="button" class="card-action-btn" data-rename title="Rename">${iconSvg('pencil', { size: 14 })}</button>` +
                     `<button type="button" class="card-action-btn" data-delete title="Delete">${iconSvg('trash', { size: 14 })}</button>` +
                     `</div></div>`;
+                }
                 card.setAttribute('aria-label', g.name);
                 makeActivatable(card);
                 card.addEventListener('click', (e) => {
-                    if (e.target.closest('[data-rename],[data-delete],[data-confirm-del],[data-cancel-del],.card-rename-row')) return;
+                    if (e.target.closest('[data-rename],[data-delete],[data-confirm-del],[data-cancel-del],.card-rename-row,.card-more,.card-menu')) return;
                     this.openSavedGame(g.id);
                 });
                 card.querySelector('[data-rename]')?.addEventListener('click', (e) => {
@@ -1682,6 +1743,7 @@ class App {
         }
 
         title.textContent = 'Example games';
+        document.getElementById('gallery-search').placeholder = getUiMode() === 'simple' ? 'Find a game…' : 'search games…';
         chips.classList.remove('hidden');
         EXAMPLES.filter((ex) => {
             if (this.galleryFilter !== 'all' && ex.category !== this.galleryFilter) return false;

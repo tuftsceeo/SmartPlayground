@@ -417,3 +417,138 @@ body:not(.ui-advanced):not(.chat-fresh) .preview-col { animation: sim-in 0.35s e
     cursor: pointer;
 }
 .new-game .ng-question:hover { color: #a8265c; text-decoration: underline; }
+
+/* ======================================================================
+   My games (design board "Saved games"). Applies to the gallery view's own
+   header; the workspace header is not touched.
+   ====================================================================== */
+body:not(.ui-advanced) #view-gallery .app-tabs {
+    display: flex;
+    background: #f4f2fa;
+    border-radius: 18px;
+    padding: 4px;
+    margin-left: 12px;
+    gap: 0;
+}
+body:not(.ui-advanced) #view-gallery .app-tab {
+    font: 700 17px 'Nunito';
+    padding: 10px 22px;
+    border-radius: 14px;
+    color: #5b5468;
+    background: transparent;
+}
+body:not(.ui-advanced) #view-gallery .app-tab.active {
+    background: #fff;
+    color: #d13a7c;
+    font-weight: 800;
+    box-shadow: none;
+}
+.btn-new-game {
+    display: none;
+    align-items: center;
+    gap: 8px;
+    border: 0;
+    border-radius: 16px;
+    padding: 12px 22px;
+    background: #ef4d92;
+    color: #fff;
+    font: 900 18px 'Nunito';
+    cursor: pointer;
+}
+body:not(.ui-advanced) .btn-new-game { display: inline-flex !important; }
+body:not(.ui-advanced) #view-gallery .gallery-toolbar { padding: 24px 28px; }
+body:not(.ui-advanced) #gallery-title { font: 900 28px 'Nunito'; }
+body:not(.ui-advanced) #gallery-search {
+    width: 340px;
+    font: 18px 'Nunito';
+    border: 1.5px solid #e8e6f0;
+    border-radius: 20px;
+    padding: 12px 18px;
+}
+body:not(.ui-advanced) .gallery-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 20px;
+    padding: 0 28px 28px;
+}
+.saved-card-simple {
+    padding: 0;
+    border-radius: 22px;
+    overflow: visible;
+    display: flex;
+    flex-direction: column;
+    cursor: default;
+    position: relative;
+}
+.saved-card-simple .saved-thumb {
+    height: 132px;
+    margin: 0;
+    border-radius: 22px 22px 0 0;
+    align-items: center;
+    justify-content: center;
+}
+.saved-card-simple .thumb5 {
+    grid-template-columns: repeat(5, 15px);
+    grid-auto-rows: 15px;
+    gap: 3px;
+    background: #14121a;
+    padding: 8px;
+    border-radius: 10px;
+}
+.saved-card-simple .thumb5 i { border-radius: 3px; background: #26222e; }
+.saved-card-simple .card-body { padding: 14px 16px 6px; display: flex; flex-direction: column; gap: 4px; }
+.saved-card-simple h3 { font: 900 20px 'Nunito'; margin: 0; }
+.saved-card-simple p { margin: 0; font: 14px 'Nunito'; color: #6b6578; }
+.saved-card-simple .card-devices { font: 700 15px 'Nunito'; color: #5b5468; }
+.saved-card-simple .card-actions { position: relative; padding: 8px 16px 14px; display: flex; gap: 8px; align-items: center; }
+.saved-card-simple .card-open {
+    flex: 1;
+    border: 0;
+    border-radius: 14px;
+    padding: 11px;
+    background: #f2eefc;
+    color: #6c4cd1;
+    font: 800 16px 'Nunito';
+    cursor: pointer;
+}
+.saved-card-simple .card-more {
+    width: 44px;
+    height: 44px;
+    flex: none;
+    border-radius: 14px;
+    border: 1.5px solid #e8e6f0;
+    background: #fff;
+    color: #5b5468;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+.card-menu {
+    position: absolute;
+    right: 16px;
+    bottom: 64px;
+    z-index: 5;
+    min-width: 150px;
+    background: #fff;
+    border: 1.5px solid #e8e6f0;
+    border-radius: 14px;
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.16);
+    padding: 6px;
+    display: flex;
+    flex-direction: column;
+}
+.card-menu.hidden { display: none; }
+.card-menu button {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border: 0;
+    background: none;
+    border-radius: 10px;
+    padding: 10px 12px;
+    font: 800 16px 'Nunito';
+    color: #231f2e;
+    cursor: pointer;
+    text-align: left;
+}
+.card-menu button:hover { background: #f4f2fa; }

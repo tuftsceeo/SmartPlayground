@@ -10,6 +10,18 @@ function screenRgb(duty) {
 }
 
 /**
+ * A pale background tinted with the game's LED color, for its saved-game card.
+ * @param {{color: string}|null} gameIcon
+ * @returns {string} a CSS color
+ */
+export function gameTint(gameIcon) {
+    const duty = LED_COLORS[gameIcon?.color];
+    if (!duty) return "#f7f7fb";
+    const mix = screenRgb(duty).map((c) => Math.round(255 - (255 - c) * 0.1));
+    return `rgb(${mix.join(",")})`;
+}
+
+/**
  * @param {{shape: string, color: string}|null} gameIcon  stored start signature
  * @returns {string} HTML for a 5x5 grid, or "" when the shape or color is unknown
  */

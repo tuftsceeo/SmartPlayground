@@ -158,15 +158,21 @@ await page.goto(ORIGIN + PAGE, { waitUntil: "load" });
 await page.waitForFunction(() => document.getElementById("modal-passphrase"));
 await page.fill("#modal-passphrase", PASS);
 await page.click("#btn-modal-unlock");
-await page.click("#btn-scratch");
+await openNewGame();
 
 /** Reload into an empty workspace, so the starter chips show again. */
+/** Simple mode opens a new game directly; advanced mode shows the splash tiles. */
+async function openNewGame() {
+    if (await page.isVisible("#btn-scratch")) await page.click("#btn-scratch");
+    await page.waitForSelector("#view-workspace:not(.hidden)");
+}
+
 async function freshWorkspace() {
     await page.reload({ waitUntil: "load" });
     await page.waitForFunction(() => document.getElementById("modal-passphrase"));
     await page.fill("#modal-passphrase", PASS);
     await page.click("#btn-modal-unlock");
-    await page.click("#btn-scratch");
+    await openNewGame();
     await page.waitForSelector(".starter-chips");
 }
 
@@ -187,19 +193,25 @@ await test("header has no SoftAP network chip", async () => {
 });
 
 await shot("1-starter-chips");
-await test("starter chips: interview, one question, two game ideas, at the bottom of the chat", async () => {
-    const chips = await page.$$eval(".starter-chips .starter-chip", els => els.map(e => e.textContent.trim()));
-    assert.equal(chips.length, 4);
-    assert.equal(chips[0], "Interview me");
-    assert.ok(chips[1].endsWith("?"), `second chip is a question: ${chips[1]}`);
-    assert.ok(!chips[2].endsWith("?") && !chips[3].endsWith("?"), "then two game ideas");
-    assert.equal(await page.$(".starter-chips .msg"), null, "no intro text");
-    const gap = await page.evaluate(() => {
-        const box = document.getElementById("chat-box").getBoundingClientRect();
-        const wrap = document.querySelector(".starter-chips").getBoundingClientRect();
-        return box.bottom - wrap.bottom;
-    });
-    assert.ok(gap < 30, `starter chips end ${gap}px above the bottom of the chat`);
+await test("New game screen: two ways to start, three ideas, a question link, chat alone", async () => {
+    const cards = await page.$$eval(".new-game .ng-card b", els => els.map(e => e.textContent.trim()));
+    assert.deepEqual(cards, ["Interview me", "Help me choose"]);
+    const ideas = await page.$$eval(".new-game .ng-idea", els => els.map(e => e.textContent.trim()));
+    assert.equal(ideas.length, 3);
+    assert.ok(ideas.every(t => t.length > 0 && t.length < 50), `short labels: ${ideas}`);
+    const q = await page.$eval(".new-game .ng-question", e => e.textContent.trim());
+    assert.ok(q.endsWith("?"), `question link: ${q}`);
+    assert.equal(await page.$(".new-game .msg"), null, "no intro text");
+    const st = await page.evaluate(() => ({
+        fresh: document.body.classList.contains("chat-fresh"),
+        sim: getComputedStyle(document.querySelector(".preview-col")).display,
+        ph: document.getElementById("user-input").placeholder,
+        w: Math.round(document.querySelector(".chat-col").getBoundingClientRect().width),
+    }));
+    assert.equal(st.fresh, true);
+    assert.equal(st.sim, "none");
+    assert.equal(st.ph, "Or say your own idea…");
+    assert.equal(st.w, 760);
 });
 
 await test("first reply: complete game lands in the editor, markers hidden, chips shown", async () => {
@@ -214,8 +226,10 @@ await test("first reply: complete game lands in the editor, markers hidden, chip
     const chat = await page.textContent("#chat-box");
     assert.ok(chat.includes("Every wand glows red"));
     assert.ok(!/\[(DEVICE|GAME_NAME|CHOICES):/.test(chat), "markers must be hidden");
-    assert.ok(chat.includes("Code updated"));
-    const chips = await page.$$eval(".choice-chips .starter-chip", els => els.map(e => e.textContent));
+    assert.ok(!chat.includes("Code updated"), "process messages are hidden in simple mode");
+    assert.equal(await page.$$eval(".see-code", e => e.length), 1, "code sits behind a See the code link");
+    assert.equal(await page.$$eval(".code-block-wrap", e => e.length), 0);
+    const chips = await page.$$eval(".choice-chips .starter-chip", els => els.map(e => e.textContent.trim()));
     assert.deepEqual(chips, ["Make it blink", "Add a sound"]);
 });
 
@@ -227,7 +241,8 @@ await test("second request carries the editor code; snippet leaves the editor un
     assert.ok(!r.body.system[1].cache_control, "session block is not cached");
     assert.equal(r.body.messages[0].role, "user");
     const chat = await page.textContent("#chat-box");
-    assert.ok(chat.includes("This is a code snippet — your game was not changed."));
+    assert.ok(!chat.includes("This is a code snippet"), "snippet notice is hidden in simple mode");
+    assert.equal(await page.$$eval(".earlier-toggle", e => e.map(x => x.textContent.trim())).then(a => a[0]), "Earlier: Red Flash made");
     const editorCode = await page.evaluate(async () => (await import("./js/editor.js")).getCode("wand"));
     assert.ok(editorCode.includes("leds.fill(RED)"), "editor still holds the full game");
 });
@@ -255,12 +270,12 @@ await test("interview: title asked locally, no choices before question 3, brief 
     assert.ok(r.system[2].text.includes("1 of 6"));
     assert.equal(r.output_config.format, undefined, "only the last turn is constrained");
     assert.equal(r.messages[1].content, "What is the title of your game?");
-    let chips = await page.$$eval(".choice-chips .starter-chip", els => els.map(e => e.textContent));
+    let chips = await page.$$eval(".choice-chips .starter-chip", els => els.map(e => e.textContent.trim()));
     assert.deepEqual(chips, ["Make my game now"], "question 2 shows no answer choices");
     await shot("4-interview-q2");
 
     await send("They hop between lily pad cards");
-    chips = await page.$$eval(".choice-chips .starter-chip", els => els.map(e => e.textContent));
+    chips = await page.$$eval(".choice-chips .starter-chip", els => els.map(e => e.textContent.trim()));
     assert.deepEqual(chips, ["Each on their own, like Simon Says", "As a team, like Doña Blanca", "Make my game now"]);
 
     await page.click('.choice-chips .starter-chip:text-is("Each on their own, like Simon Says")');
@@ -294,7 +309,7 @@ await test("interview: Make my game now gets a JSON brief on the first try", asy
     const chat = await page.textContent("#chat-box");
     assert.ok(chat.includes("Title: Bee Buzz") && chat.includes("Defaults I chose: Yellow lights"));
     assert.ok(!chat.includes("did not write"));
-    const chips = await page.$$eval(".choice-chips .starter-chip", els => els.map(e => e.textContent));
+    const chips = await page.$$eval(".choice-chips .starter-chip", els => els.map(e => e.textContent.trim()));
     assert.deepEqual(chips, ["Make this game", "Start the interview over"]);
 });
 
