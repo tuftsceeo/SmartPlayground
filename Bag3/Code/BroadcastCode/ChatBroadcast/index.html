@@ -46,14 +46,14 @@
                         </span>
                         <span class="brand-title">Wand &amp; Station Coder</span>
                     </button>
-                    <nav class="app-tabs" aria-label="Main">
-                        <button type="button" class="app-tab" data-nav="saved" title="My games">My games</button>
-                        <button type="button" class="app-tab" data-nav="examples" title="Example games">Examples</button>
-                    </nav>
                     <!-- No device controls while browsing games. Connecting,
                          the link status and the Box library all belong where
                          code is made; here they were either inert or noise. -->
                     <div class="header-actions">
+                        <nav class="app-tabs" aria-label="Main">
+                            <button type="button" class="app-tab" data-nav="saved" title="My games">My games</button>
+                            <button type="button" class="app-tab" data-nav="examples" title="Example games">Examples</button>
+                        </nav>
                         <button type="button" class="btn-new-game" id="btn-gallery-new">
                             <span data-icon="plus" data-icon-size="14" data-icon-stroke="2.5"></span>New game
                         </button>
@@ -85,12 +85,13 @@
                         </span>
                         <span class="brand-title">Wand &amp; Station Coder</span>
                     </button>
-                    <nav class="app-tabs" aria-label="Main">
-                        <button type="button" class="app-tab" data-nav="saved" title="My games">My games</button>
-                        <button type="button" class="app-tab active" data-nav="examples" title="Example games">Examples</button>
-                    </nav>
                     <!-- No device controls here either -- see the gallery header. -->
-                    <div class="header-actions"></div>
+                    <div class="header-actions">
+                        <nav class="app-tabs" aria-label="Main">
+                            <button type="button" class="app-tab" data-nav="saved" title="My games">My games</button>
+                            <button type="button" class="app-tab active" data-nav="examples" title="Example games">Examples</button>
+                        </nav>
+                    </div>
                 </header>
                 <div class="detail-toolbar">
                     <button class="back-link" id="btn-detail-back" type="button" title="Back">←</button>

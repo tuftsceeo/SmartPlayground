@@ -187,6 +187,7 @@ body.ui-advanced #app-shell {
     border-radius: 12px;
 }
 .app-tabs { margin-left: 10px; }
+.header-actions .app-tabs { margin-left: 0; }
 .app-tab,
 .preview-tab {
     display: inline-flex;
