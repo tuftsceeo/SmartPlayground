@@ -2149,34 +2149,17 @@ body:not(.chat-fresh) .preview-col { animation: sim-in 0.35s ease-out; }
 /* ======================================================================
    My games (design board "Saved games"): the gallery view's own header
    ====================================================================== */
-#view-gallery .app-tabs {
-    display: flex;
-    background: #f4f2fa;
-    border-radius: 18px;
-    padding: 4px;
-    margin-left: 12px;
-    gap: 0;
-}
-#view-gallery .app-tab {
-    padding: 10px 22px;
-    border-radius: 14px;
-    color: #5b5468;
-    background: transparent;
-}
-#view-gallery .app-tab.active {
-    background: #fff;
-    color: #d13a7c;
-    box-shadow: none;
-}
+/* "+ New game": the same size as the workspace header's Connect button. */
 .btn-new-game {
     display: inline-flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
     border: 0;
-    border-radius: 16px;
-    padding: 12px 22px;
-    background: #ef4d92;
+    border-radius: 14px;
+    padding: 7px 14px;
+    background: linear-gradient(135deg, var(--pink), var(--pink-dark));
     color: #fff;
+    font: 800 12px 'Nunito';
     cursor: pointer;
 }
 #view-gallery .gallery-toolbar { padding: 24px 28px; }
