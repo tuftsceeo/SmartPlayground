@@ -2288,6 +2288,7 @@ class App {
     openWorkspace(starterMsg = null) {
         dbg('app', `openWorkspace(${starterMsg ? JSON.stringify(starterMsg) : 'no starter message'})`);
         showView('workspace');
+        fitUserInput();
         const box = document.getElementById('chat-box');
         if (box.children.length === 0) {
             this.renderStarterChips();
@@ -3731,12 +3732,13 @@ function addProcessMsg(text) {
 }
 
 /**
- * Size the chat input to its text: CSS min-height (two lines) up to
+ * Size the chat input to its text: CSS min-height (one line) up to
  * max-height (four lines); past that it scrolls.
  */
 function fitUserInput() {
     const el = document.getElementById('user-input');
-    if (!el) return;
+    // Hidden (another view is showing): nothing to measure; openWorkspace refits.
+    if (!el || !el.getClientRects().length) return;
     el.style.height = 'auto';
     // scrollHeight leaves out the border; box-sizing is border-box.
     const border = el.offsetHeight - el.clientHeight;
