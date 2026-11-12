@@ -2097,8 +2097,8 @@ body:not(.ui-advanced) .btn-send-round svg { width: 24px; height: 24px; }
 .earlier-body { display: none; flex-direction: column; gap: 16px; align-self: stretch; }
 .earlier.open .earlier-body { display: flex; }
 
-/* ---- New game: chat alone, centered, on the pink radial background ---- */
-body.chat-fresh .ws-body { background: radial-gradient(circle at 50% 30%, #fff0f6, #fff 60%); }
+/* ---- New game: chat alone, centered, on white ---- */
+body.chat-fresh .ws-body { background: #fff; }
 body.chat-fresh .preview-col,
 body.chat-fresh .ws-titlebar,
 body.chat-fresh .ws-resizer { display: none; }
