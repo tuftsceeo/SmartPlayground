@@ -6,6 +6,7 @@
         <title>Wand &amp; Station Coder</title>
         <link rel="stylesheet" href="css/app.css" />
         <link rel="stylesheet" href="css/editor.css" />
+        <link rel="stylesheet" href="css/simple.css" />
     </head>
     <body>
         <div class="no-serial-banner" role="status">This browser can't send games to wands. Use Chrome or Edge on a computer.</div>
@@ -340,14 +341,22 @@
                 <button type="button" class="overlay-close-x" id="btn-connect-close-x" title="Close">
                     <span data-icon="close" data-icon-size="18"></span>
                 </button>
-                <div class="connect-hero" data-icon="cable" data-icon-size="40"></div>
-                <h2>Connect over USB</h2>
-                <p>Plug it in, then pick it from the browser's list</p>
-                <div class="send-icons-row" id="connect-components"></div>
-                <p>What's plugged in?</p>
-                <button class="btn-teal" id="btn-connect-box" type="button">Broadcast Box / Dial</button>
-                <button class="btn-teal" id="btn-connect-wand" type="button">Wand</button>
-                <button class="btn-secondary" id="btn-connect-cancel" type="button">Cancel</button>
+                <div class="connect-hero adv-only" data-icon="cable" data-icon-size="40"></div>
+                <h2><span class="adv-only">Connect over USB</span><span class="simple-only">What did you plug in?</span></h2>
+                <p><span class="adv-only">Plug it in, then pick it from the browser's list</span><span class="simple-only">Then pick it from the browser’s list.</span></p>
+                <div class="send-icons-row adv-only" id="connect-components"></div>
+                <p class="adv-only">What's plugged in?</p>
+                <div class="connect-tiles">
+                    <button class="btn-teal" id="btn-connect-box" type="button">
+                        <span class="tile-icon simple-only" data-icon="teacherHub" data-icon-size="96" data-icon-stroke="1.3"></span>
+                        <span class="adv-only">Broadcast Box / Dial</span><span class="simple-only">Teacher hub</span>
+                    </button>
+                    <button class="btn-teal" id="btn-connect-wand" type="button">
+                        <span class="tile-icon simple-only" data-icon="wand" data-icon-size="96" data-icon-stroke="1.3"></span>
+                        Wand
+                    </button>
+                </div>
+                <button class="btn-secondary" id="btn-connect-cancel" type="button"><span class="adv-only">Cancel</span><span class="simple-only">Not now</span></button>
                 <p id="connect-error" class="modal-error"></p>
             </div>
         </div>
@@ -359,12 +368,13 @@
                     <span data-icon="close" data-icon-size="18"></span>
                 </button>
                 <div id="send-confirm-form">
-                    <label class="send-name-label" for="send-game-name">Name this game</label>
+                    <label class="send-name-label" for="send-game-name"><span class="adv-only">Name this game</span><span class="simple-only">Game name</span></label>
                     <div class="send-name-field">
                         <input type="text" id="send-game-name" maxlength="48" placeholder="Game name" />
                         <span class="send-name-pencil" data-icon="pencil" data-icon-size="15" aria-hidden="true"></span>
                     </div>
                     <p id="send-name-error" class="modal-error"></p>
+                    <div class="send-need-label simple-only" id="send-need-label" hidden>To play you need</div>
                     <ul class="send-requirements" id="send-requirements"></ul>
                     <div id="send-progress-wrap" class="hidden">
                         <div id="send-progress-track"><div id="send-progress-bar"></div></div>
@@ -372,6 +382,18 @@
                     </div>
                     <button class="btn-primary" id="btn-send-confirm" type="button">Send</button>
                     <button class="btn-secondary" id="btn-send-cancel" type="button">Not yet</button>
+                </div>
+                <!-- Simple mode: the form is swapped for this while sending. -->
+                <div id="send-sending" class="simple-only" hidden>
+                    <div class="sending-hero">
+                        <div class="sending-dots"><i></i><i></i><i></i></div>
+                        <div class="sending-tile" id="sending-tile"></div>
+                    </div>
+                    <h2 id="sending-title">Sending…</h2>
+                    <p>Keep the cable plugged in.</p>
+                    <div class="sending-track"><div id="sending-bar"></div></div>
+                    <div class="sending-steps" id="sending-steps"></div>
+                    <button class="btn-secondary" type="button" disabled>Please wait</button>
                 </div>
                 <!-- Shown once the device has confirmed the file write (the
                      real point of success -- see boxFirmwareInstaller.js).
@@ -381,9 +403,15 @@
                     <div class="send-success-icon" data-icon="circle-check" data-icon-size="40"></div>
                     <h2 id="send-success-title">Sent!</h2>
                     <p id="send-success-note"></p>
-                    <button class="btn-secondary hidden" id="btn-send-another-wand" type="button">Install on another wand</button>
-                    <button class="btn-teal hidden" id="btn-send-distribute" type="button">Distribute code</button>
-                    <button class="btn-primary" id="btn-send-done" type="button">Done</button>
+                    <div class="send-next" id="send-next">
+                        <div class="send-next-head simple-only">
+                            <span data-icon="wand" data-icon-size="44" data-icon-stroke="1.3"></span>
+                            <div><b>Send it to the wands now?</b><span>The hub shares the game with every wand nearby.</span></div>
+                        </div>
+                        <button class="btn-teal hidden" id="btn-send-distribute" type="button"><span class="adv-only">Distribute code</span><span class="simple-only">Choose wands</span></button>
+                    </div>
+                    <button class="btn-secondary hidden adv-only" id="btn-send-another-wand" type="button">Install on another wand</button>
+                    <button class="btn-primary" id="btn-send-done" type="button"><span class="adv-only">Done</span><span class="simple-only">Done for now</span></button>
                 </div>
             </div>
         </div>
@@ -402,7 +430,8 @@
                 </div>
                 <h2 id="dist-title">Send to wands</h2>
                 <p id="dist-status"></p>
-                <table id="dist-table" class="dist-table hidden">
+                <div id="dist-cards" class="dist-cards simple-only"></div>
+                <table id="dist-table" class="dist-table adv-only hidden">
                     <thead><tr><th></th><th>Device</th><th>Battery</th><th>Signal</th><th>Status</th><th></th></tr></thead>
                     <tbody id="dist-rows"></tbody>
                 </table>

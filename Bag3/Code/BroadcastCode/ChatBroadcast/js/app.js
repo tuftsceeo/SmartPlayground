@@ -214,12 +214,19 @@ class App {
      *  link class and are told apart only by that identity. */
     deviceShort() {
         if (this.device.kind === 'wand') return 'Wand';
+        if (this.usesHubWording()) return 'teacher hub';
         return deviceShortName(this.link.deviceInfo);
+    }
+
+    /** Simple mode calls a Box or Dial the "teacher hub". */
+    usesHubWording() {
+        return getUiMode() === 'simple' && this.link.deviceInfo?.device !== 'crowpanel';
     }
 
     /** Product UI name ("Broadcast Box", "Broadcast Dial" or "Wand"). */
     deviceProduct() {
         if (this.device.kind === 'wand') return 'Wand';
+        if (this.usesHubWording()) return 'Teacher hub';
         return deviceProductName(this.link.deviceInfo);
     }
 
@@ -286,6 +293,13 @@ class App {
             const pct = p.total ? Math.round((p.current / p.total) * 100) : 0;
             dbg('upload', `${p.status} ${p.file} (${p.current}/${p.total}, ${pct}%)`);
             setSendProgress(pct, `${p.status}: ${p.file}`);
+            // The wand file goes first; later files are the icon display's.
+            const steps = this._sendSteps || [];
+            if (steps.length) {
+                const finished = p.status === 'uploaded' || p.status === 'done';
+                const idx = finished ? steps.length - 1 : (p.current > 1 && steps.length > 2 ? 1 : 0);
+                this.paintSendStep(idx, pct);
+            }
         };
 
         setWorkspaceHandler((code) => {
@@ -711,6 +725,12 @@ class App {
         const gear = document.getElementById('btn-mode-gear');
 
         document.body.classList.toggle('ui-advanced', advanced);
+        const modalTitle = document.getElementById('modal-title');
+        if (modalTitle) {
+            modalTitle.textContent = advanced ? 'Welcome!' : 'Enter the magic code';
+            document.getElementById('modal-sub')?.classList.toggle('hidden', !advanced);
+            document.getElementById('btn-modal-unlock').textContent = advanced ? 'Unlock' : 'Start';
+        }
 
         this.applyLogFooter();
         this.syncRoleRail();
@@ -1059,11 +1079,6 @@ class App {
         dbgWarn('device', 'Web Serial API not available in this browser (need Chrome/Edge)');
         document.getElementById('no-serial-note')?.classList.remove('hidden');
         document.body.classList.add('no-serial');
-        if (loadUiMode() === 'simple') {
-            document.getElementById('modal-title').textContent = 'Enter the magic code';
-            document.getElementById('modal-sub').classList.add('hidden');
-            document.getElementById('btn-modal-unlock').textContent = 'Start';
-        }
     }
 
     setLinkState(state) {
@@ -2683,7 +2698,7 @@ class App {
             const state = await this.device.restartFirmware();
             if (state === 'running') {
                 this.setLinkState('live');
-                toast(`${this.deviceShort()} is back.`);
+                toast(`${cap(this.deviceShort())} is back.`);
             } else {
                 toast(`Still waiting for the ${this.deviceShort()}…`, true);
             }
@@ -2743,6 +2758,8 @@ class App {
             ? [...requirementPills(this.hardware),
                ...formatHardwareReqs(this.hardware).filter((r) => r.label.startsWith('tag list may be short'))]
             : formatHardwareReqs(this.hardware);
+        const need = document.getElementById('send-need-label');
+        if (need) need.hidden = !(simple && rows.length);
         rows.forEach((row) => {
             const li = document.createElement('li');
             li.className = simple && !row.label.startsWith('tag list') ? 'send-pill' : 'send-req-row';
@@ -2793,6 +2810,32 @@ class App {
         showOverlay('send-confirm-overlay');
     }
 
+    /** Simple mode: swap the send form for the "Sending…" screen. */
+    paintSending(busy) {
+        const panel = document.getElementById('send-sending');
+        if (!panel) return;
+        document.getElementById('send-confirm-form').classList.toggle('hidden', busy);
+        panel.hidden = !busy;
+        if (!busy) return;
+        const name = document.getElementById('send-game-name')?.value.trim() || this.gameName;
+        document.getElementById('sending-title').textContent = `Sending ${name}…`;
+        document.getElementById('sending-tile').innerHTML =
+            iconSvg(this.device.kind === 'wand' ? 'wand' : 'teacherHub', { size: 48, strokeWidth: 1.8 });
+        this._sendSteps = ['Wand part', ...(getCode('icon').trim() ? ['Icon display part'] : []), 'Restart'];
+        this.paintSendStep(0, 0);
+    }
+
+    /** Step labels: done steps read "<part> sent", the current one "<part>…". */
+    paintSendStep(index, pct) {
+        const steps = this._sendSteps || [];
+        document.getElementById('sending-bar').style.width = `${pct}%`;
+        document.getElementById('sending-steps').innerHTML = steps.map((label, i) => {
+            const state = i < index ? 'done' : i === index ? 'now' : 'todo';
+            const text = label === 'Restart' ? label : state === 'done' ? `${label} sent` : state === 'now' ? `${label}…` : label;
+            return `<span class="${state}">${escapeHtml(text)}</span>`;
+        }).join('');
+    }
+
     /**
      * Lock the confirm overlay while the file is streaming.
      * There is no abort: sendGame() writes the .py over the raw REPL, so
@@ -2803,10 +2846,13 @@ class App {
         const btn = document.getElementById('btn-send-confirm');
         const cancel = document.getElementById('btn-send-cancel');
         const nameInput = document.getElementById('send-game-name');
+        const simple = getUiMode() === 'simple';
         if (btn) {
             btn.disabled = busy;
-            btn.textContent = busy ? 'Sending…' : 'Send';
+            btn.textContent = busy ? (simple ? 'Please wait' : 'Sending…')
+                : (simple ? (this.device.kind === 'wand' ? 'Send to the wand' : 'Send to the teacher hub') : 'Send');
         }
+        if (simple) this.paintSending(busy);
         if (cancel) cancel.classList.toggle('hidden', busy);
         if (nameInput) nameInput.disabled = busy;
     }
@@ -2822,9 +2868,13 @@ class App {
     showSendSuccess(prettyName) {
         document.getElementById('send-confirm-form').classList.add('hidden');
         document.getElementById('send-confirm-success').classList.remove('hidden');
-        document.getElementById('send-success-title').textContent = `"${prettyName}" is on the ${this.deviceShort()}!`;
-        document.getElementById('send-success-note').textContent =
-            `The ${this.deviceShort()} will restart now — give it a few seconds.`;
+        const simple = getUiMode() === 'simple';
+        document.getElementById('send-success-title').textContent = simple
+            ? `${prettyName} is on the ${this.deviceShort()}!`
+            : `"${prettyName}" is on the ${this.deviceShort()}!`;
+        document.getElementById('send-success-note').textContent = simple
+            ? (this.link.state === 'live' ? '' : 'Reconnecting…')
+            : `The ${this.deviceShort()} will restart now — give it a few seconds.`;
         // Direct USB install reaches one wand per send: offer the next one.
         document.getElementById('btn-send-another-wand')?.classList.toggle('hidden', this.device.kind !== 'wand');
         // A Dial can push the new game to nearby wands and stations. Shown
@@ -2834,17 +2884,11 @@ class App {
         const canDistribute = this.device.kind === 'box'
             && this.device.deviceInfo?.device !== 'broadcast_box';
         document.getElementById('btn-send-distribute')?.classList.toggle('hidden', !canDistribute);
-        // Dial: the next step is a question, with "Reconnecting…" until the
-        // Dial is back from its restart.
-        const distBtn = document.getElementById('btn-send-distribute');
-        const doneBtn = document.getElementById('btn-send-done');
-        if (distBtn) distBtn.textContent = canDistribute ? 'Send to wands' : 'Distribute code';
-        if (doneBtn) doneBtn.textContent = canDistribute ? 'Not now' : 'Done';
-        this._reconnectNote = canDistribute && this.link.state !== 'live';
-        if (canDistribute) {
-            document.getElementById('send-success-title').textContent = 'Send it to the wands now?';
-            document.getElementById('send-success-note').textContent = this._reconnectNote ? 'Reconnecting…' : '';
-        }
+        // Simple mode: the question card holds the button; the subtitle says
+        // "Reconnecting…" until the hub is back from its restart.
+        const nextCard = document.getElementById('send-next');
+        if (nextCard) nextCard.hidden = simple ? !canDistribute : false;
+        this._reconnectNote = simple && this.link.state !== 'live';
         clearTimeout(this._sendSuccessTimer);
         // No auto-close while Distribute is offered: it would hide the button.
         if (!canDistribute) this._sendSuccessTimer = setTimeout(() => this.finishSend(), 5000);
@@ -3246,7 +3290,7 @@ class App {
         // reflected something this overlay controls.
         if (chip && label) {
             chip.classList.remove('write');
-            label.textContent = this.link.state === 'live' ? `${this.deviceShort()} ready` : this.deviceShort();
+            label.textContent = this.link.state === 'live' ? `${cap(this.deviceShort())} ready` : cap(this.deviceShort());
             chip.title = this.link.state === 'live'
                 ? `Games, health & battery on the ${this.deviceShort()}.`
                 : `Connect to see ${this.deviceShort()} status.`;
@@ -3647,6 +3691,11 @@ class App {
                 { hidden: true, chain: chain + 1 });
         }
     }
+}
+
+/** Capitalize the first letter, for a name that starts a sentence. */
+function cap(s) {
+    return s ? s[0].toUpperCase() + s.slice(1) : s;
 }
 
 function escapeHtml(s) {

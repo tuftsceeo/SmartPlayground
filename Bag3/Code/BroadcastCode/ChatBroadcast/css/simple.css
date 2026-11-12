@@ -1,0 +1,231 @@
+/*
+ * simple.css -- styles that apply in simple mode only (body without
+ * .ui-advanced). Matches the design canvas boards. Advanced and dev mode
+ * keep the rules in app.css.
+ *
+ * .simple-only / .adv-only mark markup that exists for one mode.
+ */
+
+.simple-only { display: none !important; }
+body:not(.ui-advanced) .simple-only { display: revert !important; }
+body:not(.ui-advanced) .simple-only[hidden] { display: none !important; }
+body:not(.ui-advanced) .adv-only { display: none !important; }
+
+/* ---- Dialog cards: 32px corners, larger type ---- */
+body:not(.ui-advanced) .overlay-card {
+    border-radius: 32px;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.22);
+}
+body:not(.ui-advanced) .overlay-card h2 { font: 900 32px 'Nunito'; margin: 0 0 6px; }
+body:not(.ui-advanced) .overlay-card p { font: 19px 'Nunito'; }
+body:not(.ui-advanced) .overlay-card .btn-primary {
+    font: 900 22px 'Nunito';
+    border-radius: 20px;
+    padding: 18px;
+}
+body:not(.ui-advanced) .overlay-card .btn-secondary {
+    font: 800 18px 'Nunito';
+    border: 2px solid #e8e6f0;
+    border-radius: 18px;
+    padding: 14px;
+}
+body:not(.ui-advanced) .overlay-close-x {
+    width: 44px;
+    height: 44px;
+    top: 20px;
+    right: 20px;
+    border-radius: 14px;
+    background: #f4f2fa;
+    align-items: center;
+    justify-content: center;
+}
+
+/* ---- Magic code ---- */
+body:not(.ui-advanced) #modal-overlay .overlay-card { max-width: 600px; padding: 36px; text-align: left; }
+body:not(.ui-advanced) #modal-overlay h2 { font: 900 28px 'Nunito'; }
+body:not(.ui-advanced) #modal-passphrase {
+    font: 19px 'Nunito';
+    border: 2px solid #e8e6f0;
+    border-radius: 18px;
+    padding: 16px 18px;
+}
+body:not(.ui-advanced) #btn-modal-unlock {
+    font: 900 21px 'Nunito';
+    border-radius: 18px;
+    padding: 16px;
+}
+
+/* ---- Connect: two large tiles ---- */
+body:not(.ui-advanced) #connect-overlay .overlay-card { max-width: 640px; padding: 36px 40px; }
+body:not(.ui-advanced) #connect-overlay h2,
+body:not(.ui-advanced) #connect-overlay p { text-align: center; }
+.connect-tiles { display: contents; }
+body:not(.ui-advanced) .connect-tiles {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+    margin: 24px 0;
+}
+body:not(.ui-advanced) .connect-tiles .btn-teal {
+    order: 0;
+    font: 900 24px 'Nunito';
+    color: #231f2e;
+    background: #e9fbf6;
+    border: 3px solid #22c3a6;
+    border-radius: 24px;
+    padding: 28px 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    margin: 0;
+    box-shadow: none;
+}
+body:not(.ui-advanced) #btn-connect-wand { order: -1; }
+body:not(.ui-advanced) #btn-connect-wand .tile-icon { color: #6c4cd1; }
+body:not(.ui-advanced) #btn-connect-box .tile-icon { color: #1c9a82; }
+body:not(.ui-advanced) .tile-icon { height: 116px; align-items: center; justify-content: center; }
+body:not(.ui-advanced) #btn-connect-cancel { width: 100%; }
+
+/* ---- Send game ---- */
+body:not(.ui-advanced) .overlay-card-send { max-width: 640px; padding: 36px 40px; text-align: left; }
+body:not(.ui-advanced) .send-name-label,
+body:not(.ui-advanced) .send-need-label {
+    font: 800 15px 'Nunito';
+    color: #6b6578;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+body:not(.ui-advanced) .send-name-field input {
+    font: 900 30px 'Nunito';
+    border: 2px solid #e8e6f0;
+    border-radius: 18px;
+    padding: 14px 20px;
+    background: #f7f7fb;
+}
+body:not(.ui-advanced) .send-need-label { margin: 18px 0 10px; }
+body:not(.ui-advanced) .send-requirements.send-pills { justify-content: flex-start; }
+body:not(.ui-advanced) .send-pill {
+    gap: 10px;
+    padding: 10px 14px;
+    border-radius: 14px;
+    background: #f7f7fb;
+    font: 800 18px 'Nunito';
+}
+body:not(.ui-advanced) #btn-send-confirm { box-shadow: 0 8px 18px rgba(239, 77, 146, 0.3); }
+body:not(.ui-advanced) #btn-send-confirm:disabled { background: #f4f2fa; color: #6b6578; box-shadow: none; }
+
+/* ---- Sending ---- */
+#send-sending { text-align: center; }
+body:not(.ui-advanced) #send-sending { display: flex !important; flex-direction: column; align-items: center; gap: 22px; }
+body:not(.ui-advanced) #send-sending[hidden] { display: none !important; }
+.sending-hero { display: flex; align-items: center; gap: 22px; }
+.sending-dots { display: flex; gap: 8px; }
+.sending-dots i {
+    width: 14px; height: 14px; border-radius: 50%; background: #ef4d92;
+    animation: sending-dot 1.2s infinite ease-in-out;
+}
+.sending-dots i:nth-child(2) { animation-delay: 0.2s; }
+.sending-dots i:nth-child(3) { animation-delay: 0.4s; }
+@keyframes sending-dot { 0%, 100% { opacity: 0.25; } 40% { opacity: 1; } }
+.sending-tile {
+    width: 84px; height: 84px; border-radius: 22px; background: #1c9a82; color: #fff;
+    display: flex; align-items: center; justify-content: center;
+}
+#send-sending h2 { margin: 0; font: 900 30px 'Nunito'; }
+#send-sending p { margin: 0; }
+.sending-track { align-self: stretch; height: 18px; border-radius: 9px; background: #f4f2fa; overflow: hidden; }
+#sending-bar { width: 0; height: 100%; background: #22c3a6; border-radius: 9px; transition: width 0.2s; }
+.sending-steps { align-self: stretch; display: flex; justify-content: space-between; font: 700 16px 'Nunito'; }
+.sending-steps .done { color: #1c9a82; }
+.sending-steps .now { color: #6c4cd1; }
+.sending-steps .todo { color: #8b859a; }
+#send-sending .btn-secondary { align-self: stretch; color: #6b6578; }
+
+/* ---- Sent ---- */
+body:not(.ui-advanced) #send-confirm-success { text-align: center; }
+body:not(.ui-advanced) .send-success-icon {
+    width: 96px; height: 96px; border-radius: 50%; background: #e9fbf6; color: #1c9a82;
+    margin: 0 auto 22px; display: flex; align-items: center; justify-content: center;
+}
+body:not(.ui-advanced) #send-success-title { font: 900 32px 'Nunito'; }
+body:not(.ui-advanced) #send-success-note:empty { display: none; }
+.send-next { display: contents; }
+body:not(.ui-advanced) .send-next {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    text-align: left;
+    border: 2px solid #e8e6f0;
+    border-radius: 22px;
+    padding: 20px;
+    margin: 22px 0 14px;
+}
+body:not(.ui-advanced) .send-next[hidden] { display: none; }
+.send-next-head { align-items: center; gap: 14px; color: #6c4cd1; }
+body:not(.ui-advanced) .send-next-head { display: flex !important; }
+.send-next-head b { display: block; font: 900 21px 'Nunito'; color: #231f2e; }
+.send-next-head div span { font: 16px 'Nunito'; color: #5b5468; }
+body:not(.ui-advanced) #btn-send-distribute {
+    font: 900 21px 'Nunito'; border-radius: 18px; padding: 16px; background: #22c3a6; color: #fff; border: 0;
+}
+
+/* ---- Distribute ---- */
+body:not(.ui-advanced) .overlay-card-distribute { max-width: 680px; padding: 32px 36px; text-align: left; }
+body:not(.ui-advanced) .overlay-card-distribute h2 { font: 900 30px 'Nunito'; margin: 0 0 4px; }
+body:not(.ui-advanced) #dist-status { font: 18px 'Nunito'; margin: 0 0 18px; }
+body:not(.ui-advanced) #dist-status:empty { display: none; }
+.dist-cards { flex-direction: column; gap: 10px; margin-bottom: 18px; }
+body:not(.ui-advanced) .dist-cards { display: flex !important; }
+.dcard {
+    display: flex; align-items: center; gap: 14px; cursor: pointer;
+    border: 2.5px solid #e8e6f0; background: #fff; border-radius: 20px; padding: 14px 16px;
+}
+.dcard.sel { border-color: #6c4cd1; background: #f7f5ff; }
+.dcard.dist-done { border-width: 2px; background: #f3fdfa; cursor: default; }
+.dcard.dist-queued, .dcard.dist-pulling, .dcard.dist-failed { border-width: 2px; cursor: default; }
+.dcard .dist-check { width: 26px; height: 26px; flex: none; }
+.dcard .dicon { display: inline-flex; flex: none; }
+.dcard .dname { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.dcard .dname b { font: 900 21px 'Nunito'; }
+.dcard .dname span { font: 15px 'Nunito'; color: #6b6578; }
+.dbatt {
+    display: flex; align-items: center; gap: 6px; font: 800 16px 'Nunito';
+    color: #1c9a82; background: #e9fbf6; border-radius: 12px; padding: 6px 10px;
+}
+.dbatt.crit { color: #b0281c; background: #ffe9e6; }
+.dcard .dist-find {
+    display: flex; align-items: center; gap: 6px; font: 800 16px 'Nunito'; color: #231f2e;
+    border: 2px solid #e8e6f0; background: #fff; border-radius: 14px; padding: 10px 14px; cursor: pointer;
+}
+.dcard .dist-find svg { color: #6c4cd1; }
+.dbar { height: 10px; border-radius: 5px; background: #f4f2fa; overflow: hidden; }
+.dbar-fill { height: 100%; border-radius: 5px; width: 0; }
+.dbar-pulling { width: 45%; background: #6c4cd1; animation: dbar-slide 1.2s infinite ease-in-out; }
+.dbar-done { width: 100%; background: #22c3a6; }
+.dbar-failed { width: 100%; background: #b0281c; }
+@keyframes dbar-slide { 0%, 100% { margin-left: 0; } 50% { margin-left: 55%; } }
+.dstatus { width: 150px; display: flex; align-items: center; justify-content: flex-end; gap: 8px; font: 800 17px 'Nunito'; }
+.dstatus-queued { color: #8b859a; }
+.dstatus-pulling { color: #6c4cd1; }
+.dstatus-done { color: #1c9a82; }
+.dstatus-failed { color: #b0281c; }
+
+/* ---- Overrides for ID rules in app.css ---- */
+body:not(.ui-advanced) #send-game-name {
+    font: 900 30px 'Nunito';
+    text-align: left;
+    padding: 14px 20px;
+    border-radius: 18px;
+}
+body:not(.ui-advanced) .send-name-field { margin-bottom: 0; }
+body:not(.ui-advanced) #btn-send-done {
+    background: #fff;
+    color: #5b5468;
+    border: 2px solid #e8e6f0;
+    box-shadow: none;
+    font: 800 18px 'Nunito';
+    border-radius: 18px;
+    padding: 14px;
+    width: 100%;
+}

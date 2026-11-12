@@ -12,6 +12,11 @@
  */
 
 /** status_report `kind` (sender's HUB_TYPE) → label prefix and name. */
+import { iconSvg } from "./icons.js";
+
+/** Simple mode is every mode but advanced; the body class is set by app.js. */
+const isSimple = () => !document.body.classList.contains("ui-advanced");
+
 const KINDS = {
   wand: { prefix: "W", name: "Wand" },
   icon_display: { prefix: "D", name: "Icon display" },
@@ -207,6 +212,7 @@ export class DistributeOverlay {
       else this.distribute();
     });
     this.el("dist-table").addEventListener("click", (e) => this._onTableClick(e));
+    this.el("dist-cards").addEventListener("click", (e) => this._onTableClick(e));
   }
 
   get device() {
@@ -216,7 +222,10 @@ export class DistributeOverlay {
   /** Open for `slug`; waits for the Dial to be back from its reboot, then scans. */
   async open(slug, prettyName) {
     this.slug = slug;
-    this.el("dist-title").textContent = prettyName ? `Send "${prettyName}"` : "Send to wands";
+    this.pretty = prettyName || "";
+    this.el("dist-title").textContent = isSimple()
+      ? `Send ${this.pretty || "it"} to wands`
+      : prettyName ? `Send "${prettyName}"` : "Send to wands";
     this.state = new DistributeState();
     this._setStatus("Reconnecting…");
     this.render();
@@ -303,7 +312,7 @@ export class DistributeOverlay {
 
   _onTableClick(e) {
     const t = e.target;
-    const mac = t.closest("tr")?.dataset.mac;
+    const mac = t.closest("tr, .dcard")?.dataset.mac;
     if (!mac) return;
     if (t.matches("input.dist-check")) {
       this.state.toggle(mac, t.checked);
@@ -354,9 +363,59 @@ export class DistributeOverlay {
     this.el("dist-status").textContent = text;
   }
 
+  /** Simple mode: one card per wand; only the chosen wands while sending. */
+  _renderCards() {
+    const s = this.state;
+    const wrap = this.el("dist-cards");
+    wrap.textContent = "";
+    const rows = s.running || s.allFinished() ? s.rows.filter((r) => r.status) : s.rows;
+    for (const r of rows) {
+      const label = deviceLabel(r.mac, r.kind);
+      const nick = getNickname(r.mac);
+      const crit = isCritical(r.battery);
+      const sub = [nick ? label : kindName(r.kind), crit ? "charge it first" : ""].filter(Boolean).join(" · ");
+      const card = document.createElement("div");
+      card.className = `dcard${r.selected && !r.status ? " sel" : ""}${r.status ? ` dist-${r.status}` : ""}`;
+      card.dataset.mac = r.mac;
+      const color = r.status === "failed" ? "#b0281c" : r.status === "done" ? "#1c9a82" : r.status ? "#6c4cd1" : r.selected ? "#231f2e" : "#c9c4dc";
+      let tail;
+      if (r.status) {
+        const text = { queued: "Waiting", pulling: "Getting it", done: "Ready", failed: "Failed" }[r.status];
+        const glyph = { queued: "spinner", pulling: "download", done: "check", failed: "warning" }[r.status];
+        tail = `<span class="dstatus dstatus-${r.status}" title="${esc(r.why || "")}">${iconSvg(glyph, { size: 22, strokeWidth: 2.5 })}${text}</span>`;
+      } else {
+        const batt = r.battery == null ? "" : `<span class="dbatt${crit ? " crit" : ""}">${iconSvg("battery", { size: 20, strokeWidth: 2 })}${crit ? "Critical" : `${r.battery}%`}</span>`;
+        tail = `${batt}<button type="button" class="dist-find" title="Find Me" aria-label="Find Me ${esc(nick || label)}">${iconSvg("locate", { size: 18, strokeWidth: 2 })}Find Me</button>`;
+      }
+      const bar = r.status
+        ? `<div class="dbar"><div class="dbar-fill dbar-${r.status}"></div></div>`
+        : "";
+      card.innerHTML =
+        `<input type="checkbox" class="dist-check" ${r.selected ? "checked" : ""} ${r.status ? "hidden" : ""} aria-label="Send to ${esc(nick || label)}">`
+        + `<span class="dicon" style="color:${color}">${iconSvg(r.kind === "icon_display" ? "iconDisplay" : "wand", { size: 36, strokeWidth: 2 })}</span>`
+        + `<div class="dname"><b>${esc(nick || label)}</b>${bar || `<span>${esc(sub)}</span>`}</div>${tail}`;
+      wrap.appendChild(card);
+    }
+  }
+
   render() {
     if (this._editing) return; // _editName re-renders when it finishes
     const s = this.state;
+    if (isSimple()) {
+      this._renderCards();
+      this.el("dist-title").textContent = s.running
+        ? "Sending to wands…"
+        : `Send ${this.pretty || "it"} to wands`;
+      this.el("btn-dist-rescan").disabled = s.scanning || s.running;
+      const nSel = s.selectedMacs().length;
+      const send = this.el("btn-dist-send");
+      const finished = s.allFinished();
+      send.classList.toggle("hidden", !s.running && !finished && (nSel === 0 || s.scanning));
+      send.disabled = s.running;
+      send.textContent = s.running ? "Sending…" : finished ? "Done" : `Send to ${nSel} wand${nSel === 1 ? "" : "s"}`;
+      this.el("dist-progress-wrap").classList.add("hidden");
+      return;
+    }
     const body = this.el("dist-rows");
     body.textContent = "";
     for (const r of s.rows) {
