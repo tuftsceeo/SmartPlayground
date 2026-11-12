@@ -240,14 +240,14 @@ class SimRoom extends HTMLElement {
       });
     }
     wand.addEventListener("sim-ready", () => this._attachWand());
-    // The icon display is as tall as the drawn wand
-    // (46% of the pad's width at the wand art's 439x730 proportions).
+    // The wand's square pad width (--wand-pad) sizes the icon display beside
+    // it, as in the all-wands dialog.
     wand.addEventListener("sim-ready", () => {
       const pad = wand.shadowRoot?.querySelector(".pad");
       if (!pad) return;
       new ResizeObserver(() => {
-        const h = Math.round(pad.getBoundingClientRect().width * 0.46 * 730 / 439);
-        if (h > 0) this.style.setProperty("--wand-h", `${h}px`);
+        const w = pad.getBoundingClientRect().width;
+        if (w > 0) this.style.setProperty("--wand-pad", `${Math.round(w)}px`);
       }).observe(pad);
     }, { once: true });
     wand.addEventListener("sim-loaded", () => {

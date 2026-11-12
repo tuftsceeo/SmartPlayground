@@ -97,15 +97,15 @@ button.display-case:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(10
 .display-shelf { margin-top: 0; }
 .display-shelf, .display-shelf .display-dev { width: 100%; }
 /* A pale mint ring, a white outline, a dark bezel and an inset screen,
-   beside the wand and in the all-wands dialog. Beside the wand it is about
-   1.2x the drawn wand's height. */
+   beside the wand and in the all-wands dialog. In both it is as wide as
+   the wand's square pad (--wand-pad). */
 .display-dev .display-case { height: auto; aspect-ratio: 1;
   margin: 8px; padding: 5.5%; border-radius: 26px; background: #2b2a30;
   box-shadow: 0 0 0 4px #fff, 0 0 0 9px #dff5ec, 0 14px 28px rgba(30,20,50,.16); }
 .display-dev .display-case canvas { border-radius: 12px; box-shadow: none; }
 .display-dev .display-case::after { display: none; }
 .display-dev button.display-case { background: #fff; box-shadow: none; }
-.display-shelf .display-case { width: min(calc(var(--wand-h, 280px) * 1.2), calc(100% - 16px)); }
+.display-shelf .display-case { width: min(var(--wand-pad, 272px), calc(100% - 16px)); }
 .display-label { display: none; }
 .display-shelf .display-label { display: flex; align-items: center; gap: 6px;
   font: 800 17px 'Nunito', system-ui, sans-serif; color: #231f2e; }
