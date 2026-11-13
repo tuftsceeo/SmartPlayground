@@ -32,6 +32,14 @@ Each icon:
   trademarked characters or recognizable products.
 - Avoid using pure black inside the icon (it disappears into the background); use dark gray
   or a dark color instead.
+- No background tile, rounded square, scene or texture behind a subject: the subject alone
+  on black. Landscapes (jungle, sky, farm, cave) are one or two big objects, not a filled scene.
+- Motion marks (spin rings, impact lines, sparkles, rain streaks) are one or two thick shapes,
+  at least 1/8 of the cell wide, or left out.
+- Faces: eyes and mouth large and high-contrast, each at least 1/6 of the face wide, so
+  feelings stay distinct at 16 x 16.
+- People and hands: a single non-realistic color (the set's yellow-orange), not skin tones.
+- No sheet labels, numbers, marks or symbols outside the icons.
 
 Consistent style across all cells: same line weight, same level of simplicity, same palette
 family, as if from one icon set.
@@ -52,14 +60,15 @@ Cells, in order:
 6. cross: a thick X mark, neutral orange (not red).
 7. hand: an open hand, palm facing forward, fingers spread (waving).
 8. snowflake: a six-arm snowflake, thick arms, light blue.
-9. spiral: a thick spiral, two and a half turns.
+9. spiral: one thick line curling inward, two turns, with an open end (not concentric rings;
+   it must not look like a target).
 10. chest: a closed treasure chest, brown wood with gold bands.
 11. question: a thick question mark.
 12. hourglass: an hourglass with sand, gold frame.
-13. arrow_up: a thick arrow pointing up.
-14. arrow_down: a thick arrow pointing down.
-15. arrow_left: a thick arrow pointing left.
-16. arrow_right: a thick arrow pointing right.
+13. arrow_up: a thick arrow pointing up, white (all four arrows the same color).
+14. arrow_down: a thick arrow pointing down, white (all four arrows the same color).
+15. arrow_left: a thick arrow pointing left, white (all four arrows the same color).
+16. arrow_right: a thick arrow pointing right, white (all four arrows the same color).
 ```
 
 ### Sheet 2: cooking ingredients and dishes (P2)
@@ -133,7 +142,8 @@ Cells, in order:
 6. crouch: the figure crouching low.
 7. jump: the figure jumping, arms up, feet off the ground.
 8. freeze: the figure standing still, with a small snowflake beside it.
-9. wand: a short handheld wand with a small square grid of colored dots on its head.
+9. wand: a short handheld stick with a square head showing a 5 x 5 grid of glowing dots (not
+   round; it must not look like a lollipop or maraca).
 10. card: a small rounded rectangle card with a wave symbol, as if tapped.
 11. ear: an ear (for "listen").
 12. rest: a figure sitting, relaxed.
@@ -178,6 +188,27 @@ Cells, in order:
 12. dog_small: a dog face, very simplified, for a 5x5 grid.
 For cells 9-12: a solid one-color silhouette, as few shapes as possible.
 ```
+
+## Draft 1 review (2026-11-13)
+
+Checked by downsampling each icon to 16 x 16 (`tools/icon_sheet_preview.py`, box filter,
+6-color quantize; harsher than the display's real pipeline).
+
+- **Read well at 16x16:** circle, triangle, square, star, check, cross, hand, snowflake, chest,
+  question, arrows, coin, key, lock, gem, trophy, crown, flags, loop, target, play, pause, diamond,
+  plus, exclaim, raindrop, seed, pot, drum, bell, wind, storm, tomato, cheese, egg, fried egg,
+  pancakes, sugar, flame, cupcake, rice, frog, bunny, cat, dog, card, run, reach, crouch, rest.
+- **Redo:** jungle, sky, farm (scene tiles, against the rule); fairy, robot, marimba, pasta, corn,
+  pie (detail turns to noise); scared, calm, proud, neutral (become one face; scared has a
+  gradient; proud reads as smirking); spiral (drawn as a target); wand (reads as a lollipop);
+  flour (wheat mark lost: reads as a plain sack); spin, clap, stomp, jump, freeze (motion marks
+  vanish; thin limbs).
+- **Missing:** sheet 3 (tamal, masa, tortilla, bread, soup, carrot) was not generated.
+- **Style:** consistent, close to a common emoji style. Hand and ear used skin tones; people
+  should use the set's yellow-orange. The four arrows used four colors; make them one.
+- **Artifacts:** stray marks and digits in sheet corners; crop or regenerate.
+
+The style block above includes these fixes.
 
 ## Notes for the requester
 
