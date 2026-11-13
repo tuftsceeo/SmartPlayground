@@ -1,0 +1,37 @@
+STEP 1
+MEM start          t=   103 gcf=201200 12116/4/0 12136/10380/10240 371216/138996/131072
+  ESPNow: active (MAC: A0:F2:62:85:CB:FC)
+MEM espnow         t=   304 gcf=200976 12116/4/0 12136/10380/10240 371216/138996/131072
+MEM ble            t=   337 gcf=201040 12116/4/0 12136/10380/10240 371216/138976/131072
+[hubtype] wand (25 LEDs)
+MEM imports        t=  4945 gcf=127072 12116/4/0 12136/10380/10240 371216/7932/6400
+MEM hub mods       t=  4966 gcf=127072 12116/4/0 12136/10380/10240 371216/7932/6400
+MEM hub built      t=  4999 gcf=127136 12116/4/0 12136/10380/10240 371216/7932/6400
+  SplatHub: unit 0 -> AB:42:00:00:64:3F
+  SplatHub: unit 1 -> AB:42:00:00:62:2F
+  SplatHub: unit 2 -> AB:42:00:00:80:B4
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "C:\Users\Jennifer\AppData\Local\Programs\Python\Python312\Lib\site-packages\mpremote\__main__.py", line 6, in <module>
+    sys.exit(main.main())
+             ^^^^^^^^^^^
+  File "C:\Users\Jennifer\AppData\Local\Programs\Python\Python312\Lib\site-packages\mpremote\main.py", line 622, in main
+    handler_func(state, args)
+  File "C:\Users\Jennifer\AppData\Local\Programs\Python\Python312\Lib\site-packages\mpremote\commands.py", line 515, in do_run
+    _do_execbuffer(state, buf, args.follow)
+  File "C:\Users\Jennifer\AppData\Local\Programs\Python\Python312\Lib\site-packages\mpremote\commands.py", line 489, in _do_execbuffer
+    ret, ret_err = state.transport.follow(timeout=None, data_consumer=stdout_write_bytes)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Jennifer\AppData\Local\Programs\Python\Python312\Lib\site-packages\mpremote\transport_serial.py", line 220, in follow
+    data = self.read_until(1, b"\x04", timeout=timeout, data_consumer=data_consumer)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Jennifer\AppData\Local\Programs\Python\Python312\Lib\site-packages\mpremote\transport_serial.py", line 158, in read_until
+    if self.is_pty or self.serial.inWaiting() > 0:
+                      ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Jennifer\AppData\Local\Programs\Python\Python312\Lib\site-packages\serial\serialutil.py", line 594, in inWaiting
+    return self.in_waiting
+           ^^^^^^^^^^^^^^^
+  File "C:\Users\Jennifer\AppData\Local\Programs\Python\Python312\Lib\site-packages\serial\serialwin32.py", line 259, in in_waiting
+    raise SerialException("ClearCommError failed ({!r})".format(ctypes.WinError()))
+serial.serialutil.SerialException: ClearCommError failed (PermissionError(13, 'The device does not recognize the command.', None, 22))

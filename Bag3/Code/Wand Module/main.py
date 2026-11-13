@@ -31,8 +31,7 @@ try:
     del _e
 except Exception as _err:
     print("  [WARN] radio prewarm failed; ESPNowManager.init() will retry:", _err)
-# A Splat host (/role.txt) brings BLE up next, before other imports: started
-# after them, its 3rd and 4th Splat connects fail with -519 (bench 2026-11-12).
+# Splat host: BLE up before other imports (see known_issues 2026-11-12).
 try:
     import os
     os.stat("/role.txt")
@@ -769,7 +768,7 @@ def run_event_loop(reader, rules, runner, accel_ref, enow=None, batt_ref=None):
 # into being a wand, and every board here answers Ctrl-C without help. Set it
 # to a few seconds on a test rig that does not -- a board whose REPL is hard
 # to catch is the only thing this is for.
-GRACE_S = 0
+GRACE_S = 30
 
 
 def _boot_grace():

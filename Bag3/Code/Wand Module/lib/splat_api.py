@@ -110,8 +110,8 @@ class SplatAPI:
     def _check(self, ok, what):
         if not ok:
             self.write_failures += 1
-            print("  [ERR] splat.%s write failed (failures=%d)"
-                  % (what, self.write_failures))
+            if self.write_failures == 1:
+                print("  [ERR] splat.%s write failed" % what)
         return ok
 
     def color(self, name, part=None):

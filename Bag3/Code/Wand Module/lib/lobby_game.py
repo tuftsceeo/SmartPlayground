@@ -514,7 +514,7 @@ class Net:
         return None
 
     def _host_tick(self, now):
-        """Host, while playing: the cyan heartbeat screen; a long hold ends the game."""
+        """Host screen while playing; a long hold ends the game."""
         down = self.button_down() if self.button_down is not None else False
         act, hold, _ = self.screen.button(down, "playing", now)
         if act == "end":
@@ -699,8 +699,7 @@ def _draw_lobby(leds, net, last):
         leds.np.write()
         return view
     if net.lobby_c is not None:
-        # A player in a host lobby: one dot per joined player, and the lobby
-        # color in the center pixel (the host's center pixel).
+        # Host lobby: a dot per player, lobby color in the center.
         view = ("dots", net.lobby_p, net.lobby_c)
         if view == last:
             return last

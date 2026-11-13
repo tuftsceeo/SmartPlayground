@@ -117,8 +117,7 @@ def slot_of(slots, mac):
 
 
 def choose_slot(slots, macs, mac):
-    """Slot index for mac on a host: its own slot, else the first missing
-    slot, else the first empty one; None when all are held."""
+    """Own slot, else first missing, else first empty, else None."""
     k = slot_of(slots, mac)
     if k is not None:
         return k
@@ -154,8 +153,7 @@ def holds(mac):
 def add(mac, pick=None):
     """Append mac and write the file. Returns the new list. A MAC already
     held leaves the file alone; ValueError for a malformed MAC or a full list.
-    On a host, pick(mac, used_pairs) -> (A, B) gives a new slot's pair; a
-    missing slot keeps its own pair."""
+    Host: pick(mac, used) -> (A, B) for a new slot."""
     if not valid(mac):
         raise ValueError("bad MAC %r" % (mac,))
     macs = load()

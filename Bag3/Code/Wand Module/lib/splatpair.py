@@ -61,9 +61,7 @@ def second_name(mac_str):
 
 
 def pick_pair(mac_str, used=()):
-    """A Splat host's color pair (A, B) for a Splat MAC: identity_name and
-    second_name of the Splat's MAC. B is bumped through the palette until it
-    differs from A and (A, B) is not in used. Provisional palette (6 names)."""
+    """Host color pair (A, B) for a MAC, unique among used."""
     a = identity_name(mac_str)
     k = PALETTE.index(second_name(mac_str))
     for _ in range(len(PALETTE)):
@@ -101,6 +99,7 @@ class SplatPairing:
             from splat_hub import SplatHub
             from splat_api import SplatGroup
             self.hub = SplatHub(count=len(self.macs), macs=self.macs)
+            self.hub.rediscover = self.host
             self.group = SplatGroup(self.hub)
             self._connects = [0] * len(self.macs)
             self._base_gate = self.hub._may_scan
@@ -144,7 +143,7 @@ class SplatPairing:
                 first = self._connects[i] == 0
                 self._connects[i] = link.connects
                 self._on_ready(i, first)
-        if (not self._deadline_done
+        if (not self._deadline_done and not self.host
                 and time.ticks_diff(time.ticks_ms(), self._born) >= PAIR_CONNECT_MS):
             self._deadline_done = True
             self._drop_unconnected()
@@ -191,7 +190,7 @@ class SplatPairing:
                 print("  Splat %s back" % self.macs[i])
                 continue
             age = time.ticks_diff(now, lost)
-            if age >= LOST_GIVE_UP_MS:
+            if age >= LOST_GIVE_UP_MS and not self.host:
                 print("  Splat %s not back after %d ms; releasing" % (self.macs[i], age))
                 self.release(i)
                 self.lost_feedback()

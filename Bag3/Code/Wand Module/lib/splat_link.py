@@ -217,7 +217,8 @@ class SplatLink(OpenSplat):
         try:
             self.connect_direct(DIRECT_CONNECT_MS, CONN_INTERVAL_US)
         except OSError as e:
-            print("  SplatLink: connect to %s failed: %s" % (self.mac_address, e))
+            if self.failed_attempts == 0:
+                print("  SplatLink: connect to %s failed: %s" % (self.mac_address, e))
             self._give_up(now)
 
     def _scan(self, now):
@@ -238,9 +239,6 @@ class SplatLink(OpenSplat):
         self.failed_attempts += 1
         if not self.pinned and not self.direct:
             self.mac_address = None
-        print("  SplatLink: attempt %d not ready after %d ms (failed=%d), "
-              "retry in %d ms" % (self.attempts, time.ticks_diff(now, self._t),
-                                  self.failed_attempts, RETRY_BACKOFF_MS))
         self._teardown()
         self.state = ST_BACKOFF
         self._t = now

@@ -115,3 +115,17 @@ def frag(tag):
     print("MEMFRAG tag=%s" % tag)
     micropython.mem_info(1)
     print("MEMFRAG-END tag=%s" % tag)
+
+
+def idf_regions(tag):
+    """One line per IDF HEAP_DATA region."""
+    if not ENABLED or esp32 is None:
+        return
+    gc.collect()
+    print("MEMIDF tag=%s gcf=%d" % (tag, gc.mem_free()))
+    try:
+        for r in esp32.idf_heap_info(esp32.HEAP_DATA):
+            print("MEMIDF  total=%d free=%d largest=%d minfree=%d" % (r[0], r[1], r[2], r[3]))
+    except Exception as e:
+        print("MEMIDF  unavailable: %s" % e)
+    print("MEMIDF-END tag=%s" % tag)

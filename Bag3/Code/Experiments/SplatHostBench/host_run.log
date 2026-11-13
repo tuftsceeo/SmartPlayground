@@ -1,0 +1,61 @@
+[   0.0s] # monitor: port opened
+[   0.0s] load:0x40875730,len:0xdbc
+[   0.0s] load:0x4086b910,len:0xc50
+[   0.0s] load:0x4086e610,len:0x2e3c
+[   0.0s] entry 0x4086b910
+[   0.9s] MEM tag=boot gct=334336 gcu=8496 gcf=325840 idf=294444 idfmax=270336
+[   1.4s] [hubtype] wand (25 LEDs)
+[   4.1s] MEM tag=after-imports gct=291776 gcu=103952 gcf=187824 idf=177880 idfmax=163840
+[   5.0s] 
+[   5.0s] ==================================================
+[   5.0s]   PlaygroundV5 -- Multi-Trigger Event Engine
+[   5.0s]   Hub type: wand
+[   5.0s]   Boot: fast
+[   5.0s] ==================================================
+[   5.2s]   ESPNow: active (MAC: A0:F2:62:85:CB:FC)
+[   7.8s]   Splat pairing: 4 Splat(s) ['AB:42:00:00:64:3F', 'AB:42:00:00:62:2F', 'AB:42:00:00:80:B4', 'AB:42:00:00:B2:16']
+[   8.1s]   Battery: 3.58V, 2.1%
+[   8.1s]   PN532 firmware 1.6 (IC 0x32) -- NFC ready
+[   8.2s]   Accelerometer OK
+[   8.2s]   Accel wake-up (INT1) armed
+[   8.2s]   Light: 32 lux -> brightness x0.06
+[   8.2s]   Boot complete — all systems OK (3205 ms)
+[   9.4s] {"hub": "wand", "games": ["addition_game", "ai_lesson_2", "animal_parade", "apple_button", "button_flash_blu", "color_catch", "colorquest", "cooking", "finddevice", "freezedance", "gestures", "goalrace", "hot_potato", "jump", "jumpin", "light_the_splatt", "lobbytest", "lobbytest", "melody", "multi_ice_cream", "multiicecream", "nfcsound", "partytest", "pass_the_star", "rainbow", "relaycolor", "relaycolor", "shake", "shakerainbow", "simpleicecream", "sound", "speed_run", "splatecho", "splattag", "splattag", "tic_tac_toe"], "version": "0.1.0", "device": "wand", "type": "identity"}
+[   9.8s]   Splat host: up to 4 Splats; tap 'player' to leave this role
+[   9.9s]   SplatHub: discovering (4 Splat(s) wanted)
+[  13.3s]   SplatHub: unit 0 -> AB:42:00:00:64:3F
+[  13.3s]   SplatHub: unit 1 -> AB:42:00:00:62:2F
+[  13.3s]   SplatHub: unit 2 -> AB:42:00:00:80:B4
+[  13.3s]   SplatHub: unit 3 -> AB:42:00:00:B2:16
+[  21.0s]   SplatLink: ready, Splat AB:42:00:00:62:2F (connects=1)
+[  22.5s]   SplatLink: ready, Splat AB:42:00:00:80:B4 (connects=1)
+[  22.6s]   SplatLink: connect to AB:42:00:00:B2:16 failed: -519
+[  22.6s]   SplatLink: attempt 1 not ready after 0 ms (failed=1), retry in 2000 ms
+[  23.7s]   SplatLink: connect to AB:42:00:00:64:3F failed: -519
+[  23.7s]   SplatLink: attempt 1 not ready after 0 ms (failed=1), retry in 2000 ms
+[  24.6s]   SplatLink: connect to AB:42:00:00:B2:16 failed: -519
+[  24.6s]   SplatLink: attempt 2 not ready after 0 ms (failed=2), retry in 2000 ms
+[  25.8s]   SplatLink: connect to AB:42:00:00:64:3F failed: -519
+[  25.8s]   SplatLink: attempt 2 not ready after 0 ms (failed=2), retry in 2000 ms
+[  26.7s]   SplatLink: connect to AB:42:00:00:B2:16 failed: -519
+[  26.7s]   SplatLink: attempt 3 not ready after 0 ms (failed=3), retry in 2000 ms
+[  27.8s]   SplatLink: connect to AB:42:00:00:64:3F failed: -519
+[  27.8s]   SplatLink: attempt 3 not ready after 0 ms (failed=3), retry in 2000 ms
+[  28.7s]   SplatLink: connect to AB:42:00:00:B2:16 failed: -519
+[  28.7s]   SplatLink: attempt 4 not ready after 0 ms (failed=4), retry in 2000 ms
+[  29.9s]   SplatLink: connect to AB:42:00:00:64:3F failed: -519
+[  29.9s]   SplatLink: attempt 4 not ready after 0 ms (failed=4), retry in 2000 ms
+[  30.8s]   SplatLink: connect to AB:42:00:00:B2:16 failed: -519
+[  30.8s]   SplatLink: attempt 5 not ready after 0 ms (failed=5), retry in 2000 ms
+[  32.0s]   SplatLink: connect to AB:42:00:00:64:3F failed: -519
+[  32.0s]   SplatLink: attempt 5 not ready after 0 ms (failed=5), retry in 2000 ms
+[  32.9s]   SplatLink: connect to AB:42:00:00:B2:16 failed: -519
+[  32.9s]   SplatLink: attempt 6 not ready after 0 ms (failed=6), retry in 2000 ms
+[  34.0s]   SplatLink: connect to AB:42:00:00:64:3F failed: -519
+[  34.0s]   SplatLink: attempt 6 not ready after 0 ms (failed=6), retry in 2000 ms
+[  34.9s]   SplatLink: connect to AB:42:00:00:B2:16 failed: -519
+[  34.9s]   SplatLink: attempt 7 not ready after 0 ms (failed=7), retry in 2000 ms
+[  36.1s]   SplatLink: connect to AB:42:00:00:64:3F failed: -519
+[  36.1s]   SplatLink: attempt 7 not ready after 0 ms (failed=7), retry in 2000 ms
+[  36.3s]   [WARN] Splat AB:42:00:00:B2:16 not ready after 30000 ms; dropping its pairing
+[  37.1s]   [WARN] Splat AB:42:00:00:64:3F not ready after 30000 ms; dropping its pairing

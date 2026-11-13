@@ -31,6 +31,7 @@ from splat_link import SplatLink, ST_CONNECTING, ST_SETTLING, ST_READY
 
 BLE_MAX_CONNECTIONS = 4
 
+REDISCOVER_MS = 5000
 DISCOVER_MS = 8000             # one discovery scan's longest run
 DISCOVER_SCAN = (30000, 30000) # (interval_us, window_us): no link is up
 
@@ -73,6 +74,7 @@ class SplatHub:
         self.misrouted = 0
         self.discovering = False
         self._disc_until = 0
+        self.rediscover = False
         self._found = []             # [(addr_str, addr_type, addr_bytes)]
         self.discoveries = 0
         # Registered last: each OpenSplat.__init__ above set its own.
@@ -119,6 +121,15 @@ class SplatHub:
             self._check_discovery()
         elif not self._any_up():
             self._start_discovery()
+        elif self.rediscover and not self._any_connecting() and time.ticks_diff(
+                time.ticks_ms(), self._disc_until) >= REDISCOVER_MS:
+            self._start_discovery()
+        return False
+
+    def _any_connecting(self):
+        for link in self.links:
+            if link.state in (ST_CONNECTING, ST_SETTLING):
+                return True
         return False
 
     def _start_discovery(self):
@@ -131,7 +142,6 @@ class SplatHub:
         self.discovering = True
         self.discoveries += 1
         self._disc_until = time.ticks_add(time.ticks_ms(), DISCOVER_MS)
-        print("  SplatHub: discovering (%d Splat(s) wanted)" % self._wanted())
 
     def _wanted(self):
         return sum(1 for link in self.links if not link.direct)
@@ -152,9 +162,6 @@ class SplatHub:
                     pick = f
                     break
             if pick is None:
-                print("  [WARN] SplatHub: no Splat found for unit %d%s; "
-                      "discovery runs again when no Splat is connected"
-                      % (i, "" if self.pinned[i] is None else " (" + self.pinned[i] + ")"))
                 continue
             found.remove(pick)
             link.mac_address, link._addr_type, link.addr = pick
