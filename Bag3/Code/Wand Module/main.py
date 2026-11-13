@@ -118,10 +118,6 @@ GAME_MODULES = {
     "goalrace":       "goalrace",
     # Two-device game: wand half; the Splat Companion runs its splatecho.py.
     "splatecho":      "splatecho",
-    # Lobby games (SPLATS_MIN): each wand taps the card and joins one lobby.
-    "lobbytest":      "lobbytest",
-    "splattag":       "splattag",
-    "relaycolor":     "relaycolor",
     # Hidden (ESP-NOW only, never NFC): targeted identify animation.
     "finddevice":     "finddevice",
 }
@@ -238,9 +234,6 @@ GAME_ICON = {
     "gestures":       (SHAPE_POINTER,    INDIGO),
     "goalrace":       (SHAPE_FASTFORWARD, LIME),
     "splatecho":      (SHAPE_DIAMOND,    YELLOW),
-    "lobbytest":      (SHAPE_DIAMOND,    CYAN),
-    "splattag":       (SHAPE_BULLSEYE,   RED),
-    "relaycolor":     (SHAPE_SPIRAL,     ORANGE),
     "finddevice":     (SHAPE_EXCLAIM,    WHITE),
 }
 
@@ -447,16 +440,44 @@ def _splat_limits(name):
     """(SPLATS_MIN, SPLATS_MAX, SPLAT_HOST, PLAYERS_MIN) if the loaded game
     module declares a lobby game, else None. Raises ValueError for an
     invalid declaration."""
+    # A lobby with Splats is a Splat host game: SPLAT_HOST = True and
+    # SPLATS_MIN 1..4 (pairing.HOST_MAX_SPLATS). A lobby without Splats
+    # declares PLAYERS_MIN alone: (None, None, False, PLAYERS_MIN).
     mod = sys.modules[game_module(name)]
     lo = getattr(mod, "SPLATS_MIN", None)
-    if lo is None:
-        return None
     hi = getattr(mod, "SPLATS_MAX", None)
-    if (not isinstance(lo, int) or isinstance(lo, bool) or lo < 1
-            or (hi is not None and (not isinstance(hi, int) or isinstance(hi, bool) or hi < lo))):
-        raise ValueError("%s: SPLATS_MIN=%r SPLATS_MAX=%r (need int >= 1, and None or >= SPLATS_MIN)"
-                         % (name, lo, hi))
-    return lo, hi, getattr(mod, "SPLAT_HOST", False) is True, getattr(mod, "PLAYERS_MIN", 1)
+    host = getattr(mod, "SPLAT_HOST", False) is True
+    pmin = getattr(mod, "PLAYERS_MIN", None)
+    if pmin is not None and (not isinstance(pmin, int) or isinstance(pmin, bool) or pmin < 1):
+        raise ValueError("%s: PLAYERS_MIN=%r (need int >= 1)" % (name, pmin))
+    if not host:
+        if lo is not None or hi is not None:
+            raise ValueError("%s: SPLATS_MIN/SPLATS_MAX need SPLAT_HOST = True" % name)
+        if pmin is None:
+            return None
+        return None, None, False, pmin
+    if (not isinstance(lo, int) or isinstance(lo, bool) or lo < 1 or lo > 4
+            or (hi is not None and (not isinstance(hi, int) or isinstance(hi, bool)
+                                    or hi < lo or hi > 4))):
+        raise ValueError("%s: SPLATS_MIN=%r SPLATS_MAX=%r (int 1..4)" % (name, lo, hi))
+    return lo, hi, True, 1 if pmin is None else pmin
+
+
+def _splats_local(name):
+    """SPLATS_LOCAL (1 or 2) if the loaded game drives its own paired Splats
+    without a lobby, else None. Raises ValueError for an invalid value or a
+    mix with SPLATS_MIN / SPLAT_HOST."""
+    mod = sys.modules[game_module(name)]
+    n = getattr(mod, "SPLATS_LOCAL", None)
+    if n is None:
+        return None
+    if (not isinstance(n, int) or isinstance(n, bool) or n < 1 or n > 2
+            or getattr(mod, "SPLATS_MIN", None) is not None
+            or getattr(mod, "PLAYERS_MIN", None) is not None
+            or getattr(mod, "SPLAT_HOST", False) is True):
+        raise ValueError("%s: SPLATS_LOCAL=%r (int 1..2, alone)"
+                         % (name, n))
+    return n
 
 
 def _unload_game(name):
@@ -598,8 +619,10 @@ def _run_games(name, nfc, leds, buz, accel, i2c, enow, batt_ref):
             return
         wrapper = _StartGameCapture(enow)
         net = None
+        splats = None
         try:
             limits = _splat_limits(name)
+            local = _splats_local(name)
         except ValueError as e:
             _game_load_failed(name, e)
             return
@@ -611,12 +634,21 @@ def _run_games(name, nfc, leds, buz, accel, i2c, enow, batt_ref):
             break
         if limits is not None:
             net = _enter_lobby(name, limits, wrapper, nfc, leds, buz)
+        elif local is not None:
+            splats = _pair_ctl.game_handle() if _pair_ctl is not None else None
+            have = splats.count if splats is not None else 0
+            if have < local:
+                if splats is not None:
+                    splats.close()
+                _game_load_failed(name, ValueError(
+                    "%s needs %d Splat(s), %d connected" % (name, local, have)))
+                return
         if limits is None or net is not None:
             _emit({"type": "game_start", "slug": name})
             try:
                 try:
                     _start_play(play_func, name, nfc, leds, buz, accel, i2c,
-                                wrapper, batt_ref, net)
+                                wrapper, batt_ref, net if net is not None else splats)
                 except TypeError as e:
                     # A game that cannot even be CALLED is a load failure, not a
                     # reason to take the main loop down with it. Anything raised
@@ -628,6 +660,8 @@ def _run_games(name, nfc, leds, buz, accel, i2c, enow, batt_ref):
             finally:
                 if net is not None:
                     net.close()
+                if splats is not None:
+                    splats.close()
             _emit({"type": "game_end", "slug": name})
         next_name = wrapper.pending_name
         # Drop the reference before unloading -- play_func is what pins

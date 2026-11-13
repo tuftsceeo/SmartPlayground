@@ -21,7 +21,7 @@
  *   - icon display games name only existing icons; no file for the retired splat role
  *   - no f-strings; no reserved ESP-NOW message types used as game messages
  *   - the case's own expectations: code expected or not, phrases required or forbidden
- *   - a wand game declaring SPLATS_MIN runs in the Simulator's headless
+ *   - a wand game declaring SPLATS_MIN (a Splat host or plain lobby game) runs in the Simulator's headless
  *     mode (Simulator/tools/sim_run.mjs, simulateSplatGame below) with
  *     virtual peer wands and Splats: no exception, and play() returns when
  *     the leader ends the game or goes silent
@@ -69,7 +69,7 @@ async function simulateSplatGame(code) {
             ...(r.unhandled || []).map(e => `simulator: unhandled ${e}`)];
 }
 
-/** True for a wand file that declares a Splat (lobby) game. */
+/** True for a wand file that declares a Splat host or lobby game (SPLATS_MIN); SPLATS_LOCAL games have no lobby. */
 function isSplatGame(code) {
     return /^SPLATS_MIN\s*=/m.test(code);
 }
@@ -114,9 +114,9 @@ const CASES = [
     { id: "splat-retired", prompt: "When a kid jumps on the splat it turns green and barks",
       expect: { noRoles: ["splat"] } },
     { id: "splat-one-wand", prompt: "One kid presses our Splat when it lights green; it plays a happy note if they're quick",
-      expect: { code: true, roles: ["wand"], codeHas: { wand: /^SPLATS_MIN\s*=\s*1\b/m } } },
-    { id: "splat-lobby", prompt: "Every kid's wand joins one game: light a random Splat and whoever presses it first gets a point",
-      expect: { code: true, roles: ["wand"], codeHas: { wand: /^SPLATS_MIN\s*=/m } } },
+      expect: { code: true, roles: ["wand"], codeHas: { wand: /^SPLATS_LOCAL\s*=\s*[12]\b/m } } },
+    { id: "splat-host", prompt: "A group game at a Splat host with four Splats: light a random Splat and whoever presses it first gets a point",
+      expect: { code: true, roles: ["wand"], codeHas: { wand: /^SPLAT_HOST\s*=\s*True/m } } },
     { id: "roles", prompt: "Freeze dance where my wand is the caller and the kids' wands are players",
       expect: { code: true, roles: ["wand"] } },
     { id: "teams-display", prompt: "Two teams race to tap the goal card, and the display shows which team got there first",
@@ -209,10 +209,10 @@ function selfTest() {
 
 /** The simulation check on games with a known outcome. */
 async function selfTestSim() {
-    const LOBBY_GAME = readFileSync(resolve(ROOT, "../../Wand Module/games/relaycolor.py"), "utf8");
-    const HEAD = "import time\nSPLATS_MIN = 1\n\ndef play(nfc, leds, buz, accel, i2c, enow, batt=None, net=None):\n";
+    const LOBBY_GAME = readFileSync(resolve(ROOT, "../../Wand Module/games/host_relaycolor.py"), "utf8");
+    const HEAD = "import time\nSPLAT_HOST = True\nSPLATS_MIN = 1\n\ndef play(nfc, leds, buz, accel, i2c, enow, batt=None, net=None):\n";
     const cases = [
-        ["relaycolor passes", LOBBY_GAME, []],
+        ["host_relaycolor passes", LOBBY_GAME, []],
         ["a raise is an exception", HEAD + "    net.poll()\n    raise ValueError('boom')\n", [/exception.*boom/]],
         ["ignoring end is unhandled", HEAD + "    while True:\n        net.poll()\n        time.sleep_ms(1)\n",
             [/unhandled follow: end/, /unhandled lost: leader_lost/]],

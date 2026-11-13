@@ -284,6 +284,12 @@ class SplatPairing:
                 u._check(u.link.setLEDs(LED_PARTS[part], int(r * GLOW_SCALE),
                                         int(g * GLOW_SCALE), int(b * GLOW_SCALE)), "glow")
 
+    def game_handle(self):
+        """The 'splats' game argument, or None when no Splat is paired."""
+        if self.group is None or self.count == 0:
+            return None
+        return GameSplats(self)
+
     def after_game(self):
         """A game may leave any Splat state behind: clear it and restore the glow."""
         if self.group is None:
@@ -461,6 +467,38 @@ class SplatPairing:
         self.buz.confirm()
         time.sleep_ms(300)
         self.leds.off()
+
+
+class GameSplats:
+    """A solo game's own Splats: the 'splats' play() argument (SPLATS_LOCAL).
+
+    count    Splats paired to this wand (1-2)
+    unit(i)  Splat i: color / note / sound / play / off (splat_api.SplatAPI)
+    poll()   ("press", i), ("release", i) or None; call every loop
+    """
+
+    def __init__(self, ctl):
+        self._ctl = ctl
+        self._pending = []
+        ctl.pause_search()
+
+    @property
+    def count(self):
+        return self._ctl.count
+
+    def unit(self, i):
+        return self._ctl.group.unit(i)
+
+    def poll(self):
+        if not self._pending:
+            for i, ev in self._ctl.poll():
+                self._pending.append((ev, i))
+        if self._pending:
+            return self._pending.pop(0)
+        return None
+
+    def close(self):
+        self._ctl.resume_search()
 
 
 def _never(link):

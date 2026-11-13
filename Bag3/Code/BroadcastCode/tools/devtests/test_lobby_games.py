@@ -1,5 +1,6 @@
-"""The demo lobby games (MockWand/games/lobbytest.py, splattag.py,
-relaycolor.py) in a scripted session each, on the A6 simulation.
+"""The Splat host demo games (Wand Module/games/host_lobbytest.py, host_splattag.py,
+host_relaycolor.py) in one scripted session each, on the A6 simulation: the host
+wand holds the Splats, players join and hold none. Turning the Splats off afterwards is main.py's job, not the games'.
 
 Run: python3 tools/devtests/test_lobby_games.py
 """
@@ -10,18 +11,22 @@ import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import wandsim  # noqa: E402
-from lobbysim import Sc, W, S, net_of, press, evs, lobby_game, splatpair  # noqa: E402
+from lobbysim import Sc, W, S, net_of, press, lobby_game, splatpair  # noqa: E402
 from wandsim import BB  # noqa: E402
+import pairing  # noqa: E402
+import splat_host  # noqa: E402
+from splat_api import COLOR_RGB  # noqa: E402
 
 sys.path.insert(0, os.path.join(BB, "..", "Wand Module", "games"))
-import lobbytest  # noqa: E402
-import splattag  # noqa: E402
-import relaycolor  # noqa: E402
+import host_lobbytest  # noqa: E402
+import host_splattag  # noqa: E402
+import host_relaycolor  # noqa: E402
 
 check = wandsim.Checker()
+pairing.max_splats = lambda: pairing.HOST_MAX_SPLATS      # every sim wand may hold 4
 
-GREEN, BLUE, PURPLE, RED, YELLOW = (0, 255, 0), (0, 0, 255), (160, 0, 200), (255, 0, 0), (255, 180, 0)
 OFFC = (0, 0, 0)
+MACS = [S[1], S[2], S[3], S[4]]
 
 
 def lit(p):
@@ -35,19 +40,51 @@ def lit(p):
     return c
 
 
-def player(mod):
-    def run(net, w):
-        mod.play(w.nfc, w.leds, w.buz, None, None, w.enow, None, net)
-    return run
+def ident(n):
+    return tuple(COLOR_RGB[splatpair.identity_name(W[n])])
 
 
-def pixel0(w):
-    return w.leds.pixels.get(0)
+def session(mod, players):
+    """Host wand 1 (4 Splats) and the player wands tap mod's lobby; the host's long hold
+    starts the game. Returns (sc, host, players)."""
+    sc = Sc()
+    h = sc.wand(1, [1, 2, 3, 4])
+    ps = [sc.wand(n) for n in players]
+    for n, at, host in [(1, 0, True)] + [(n, 1500 + 500 * k, False) for k, n in enumerate(players)]:
+        w = sc.wands[n]
+
+        def run(w=w, at=at, host=host):
+            if w.splat_macs:
+                w.ctl = splatpair.SplatPairing(list(w.splat_macs), w.enow, w.leds, w.buz,
+                                               my_mac=w.mac)
+                t0 = time.ticks_ms()
+                while not all(l.ready for l in w.ctl.hub.links) and time.ticks_ms() - t0 < 5000:
+                    w.ctl.poll()
+                    time.sleep_ms(5)
+            if time.ticks_ms() < at:
+                time.sleep_ms(at - time.ticks_ms())
+            net = lobby_game.enter(w.enow, mod.__name__, mod.SPLATS_MIN, mod.SPLATS_MAX, w.ctl,
+                                   w.mac, w.nfc, w.leds, w.buz, lambda: w.button,
+                                   True, host, mod.PLAYERS_MIN)
+            w.net = net
+            if net is not None:
+                try:
+                    mod.play(w.nfc, w.leds, w.buz, None, None, w.enow, None, net)
+                finally:
+                    net.close()
+            w.result = "done"
+
+        sc.sim.spawn("wand%d" % n, run, w)
+    sc.sim.run_until(lambda: net_of(h) is not None and net_of(h).phase == "lobby"
+                     and net_of(h).lobby_players() == len(players), 20000, 10)
+    press(sc, h, sc.sim.now + 10, splat_host.START_HOLD_MS + 100)
+    sc.run(splat_host.START_HOLD_MS + 1500)     # players show the game icon for 700 ms first
+    return sc, h, ps
 
 
-def pulse(sc, w, ms=0):
-    press(sc, w, sc.sim.now + 5 + ms)
-    sc.run(150 + ms)
+def pulse(sc, w):
+    press(sc, w, sc.sim.now + 5, 200)           # longer than one 100 ms exit-card read
+    sc.run(450)
 
 
 def splat_press(sc, w, mac):
@@ -57,221 +94,77 @@ def splat_press(sc, w, mac):
     sc.run(200)
 
 
-def start(sc, wands, mod, smin, leader=1, gap=2500):
-    """Wand 1 taps first and leads; the others join; the leader's button starts."""
-    for k, n in enumerate(wands):
-        sc.tap(n, k * gap, player(mod), smin=smin)
-    lw = sc.wands[leader]
-    sc.sim.run_until(lambda: (net_of(lw) is not None and net_of(lw).phase == "lobby"
-                              and len(net_of(lw)._members) == len(wands)
-                              and net_of(lw).can_start()), 20000, 10)
-    press(sc, lw, sc.sim.now + 10)
-    sc.run(400)
+def stop(sc, w, wands):
+    w.nfc.stop_at = sc.sim.now + 5
+    sc.run(4500)
+    return all(x.result == "done" for x in wands)
 
 
-def ident_rgb(n):
-    return splatpair.WAND_RGB[splatpair.identity_name(W[n])]
+# ── host_lobbytest ──
+sc, h, (p2, p3) = session(host_lobbytest, [2, 3])
+nh = net_of(h)
+check("lobbytest: the host holds all 4 Splats, the players none",
+      nh.phase == "game" and nh.splat_count == 4 and net_of(p2).splat_count == 4
+      and [w[2] for w in nh.wands] == [4, 0, 0], str(nh.wands))
+pulse(sc, p2)
+check("a player's button lights Splat 0 in that player's identity color",
+      lit(h.periph(S[1])) == ident(2), str(lit(h.periph(S[1]))))
+pulse(sc, p3)
+check("the next press lights Splat 1 and turns Splat 0 off",
+      lit(h.periph(S[2])) == ident(3) and lit(h.periph(S[1])) == OFFC)
+splat_press(sc, h, S[4])
+check("a Splat press lights that Splat white", lit(h.periph(S[4])) == COLOR_RGB["turnwhite"],
+      str(lit(h.periph(S[4]))))
+check("a stop card on the host ends the game for all",
+      stop(sc, h, (h, p2, p3)))
 
-
-# ── lobbytest ──
-sc = Sc()
-w1, w2, w3 = sc.wand(1, [1]), sc.wand(2, [2]), sc.wand(3)
-start(sc, [1, 2, 3], lobbytest, smin=2)
-n1 = net_of(w1)
-check("lobbytest: the lobby started a game of 3 wands, 2 Splats", n1.phase == "game"
-      and len(n1.wands) == 3 and n1.splat_count == 2)
-p1, p2 = w1.periph(S[1]), w2.periph(S[2])
-pulse(sc, w2)
-sc.run(300)
-check("a follower's button lights pool Splat 0 in the follower's identity color",
-      lit(p1) == BLUE, "%s (wand 2 identity %s)" % (lit(p1), splatpair.identity_name(W[2])))
-pulse(sc, w1)
-sc.run(300)
-check("the leader's button lights the next pool Splat (a follower's) in its own identity color",
-      lit(p2) == GREEN, str(lit(p2)))
-check("...and turns the previous one off", lit(p1) == OFFC, str(lit(p1)))
-pulse(sc, w3)
-sc.run(300)
-check("a plain wand's button works: pool Splat 0 again, in its identity color",
-      lit(p1) == PURPLE, str(lit(p1)))
-splat_press(sc, w2, S[2])
-check("a Splat press lights that Splat in its owner's identity color", lit(p2) == BLUE, str(lit(p2)))
-check("each wand showed its identity color on the matrix",
-      all(pixel0(w) is not None for w in (w1, w2, w3)))
-w1.nfc.stop_at = sc.sim.now + 5
-sc.run(1500)
-check("a stop card on the leader ends the game for everyone",
-      w1.result == "done" and w2.result == "done" and w3.result == "done"
-      and lit(p1) == OFFC and lit(p2) == OFFC, "%s %s %s" % (w1.result, w2.result, w3.result))
-
-# a follower leaving does not end the game for the others
-sc = Sc()
-w1, w2 = sc.wand(1, [1]), sc.wand(2, [2])
-start(sc, [1, 2], lobbytest, smin=2)
-w2.nfc.stop_at = sc.sim.now + 5
-sc.run(1500)
-check("a stop card on a follower leaves only that wand", w2.result == "done" and w1.result is None)
-
-# ── splattag ──
-random.seed(3)
-sc = Sc()
-w1, w2, w3 = sc.wand(1, [1, 2]), sc.wand(2, [3]), sc.wand(3, [4])
-start(sc, [1, 2, 3], splattag, smin=4)
-n1 = net_of(w1)
-check("splattag: 3 wands, 4 Splats in the pool", n1.phase == "game" and n1.splat_count == 4)
-owners = {0: (w1, S[1]), 1: (w1, S[2]), 2: (w2, S[3]), 3: (w3, S[4])}
-expected = [0, 0, 0]
-for rnd in range(splattag.WIN_SCORE * 2):
-    ok = sc.sim.run_until(lambda: any(lit(w.periph(m)) == GREEN for w, m in owners.values()), 4000, 5)
-    if not ok:
-        break
-    idx = [i for i, (w, m) in owners.items() if lit(w.periph(m)) == GREEN]
-    if len(idx) != 1:
-        check("exactly one Splat is the target", False, str(idx))
-        break
-    w, m = owners[idx[0]]
-    expected[w.n - 1] += 1
-    splat_press(sc, w, m)
-    sc.run(splattag.PAUSE_MS)
-    if max(expected) >= splattag.WIN_SCORE:
-        break
-check("one target at a time, and a press on it scored for the Splat's owner",
-      max(expected) == splattag.WIN_SCORE, str(expected))
-msgs = [x[3]["d"] for x in sc.bus.sent(typ="pw_msg") if x[2] == W[2] or x[2] == "*"]
-last_scores = [d["s"] for d in msgs if "s" in d][-1]
-check("the leader's score messages match the presses", last_scores == expected, "%s vs %s" % (last_scores, expected))
-check("the winner was announced to the followers", any("win" in d for d in msgs), str(msgs[-3:]))
-sc.run(splattag.OVER_MS + 1500)
-check("after the result the leader leaves and everyone's play() returns",
-      all(w.result == "done" for w in (w1, w2, w3)), str([w.result for w in (w1, w2, w3)]))
-check("every Splat was left dark", all(lit(w.periph(m)) == OFFC for w, m in owners.values()),
-      str([lit(w.periph(m)) for w, m in owners.values()]))
-
-# a wrong Splat press does not score
+# ── host_splattag ──
 random.seed(5)
-sc = Sc()
-w1, w2 = sc.wand(1, [1]), sc.wand(2, [2])
-start(sc, [1, 2], splattag, smin=2)
-sc.sim.run_until(lambda: lit(w1.periph(S[1])) == GREEN or lit(w2.periph(S[2])) == GREEN, 3000, 5)
-target = (w1, S[1]) if lit(w1.periph(S[1])) == GREEN else (w2, S[2])
-other = (w2, S[2]) if target[0] is w1 else (w1, S[1])
-n_before = len(sc.bus.sent(typ="pw_msg"))
-splat_press(sc, *other)
-check("a press on a Splat that is not the target scores nothing",
-      lit(target[0].periph(target[1])) == GREEN and len(sc.bus.sent(typ="pw_msg")) == n_before)
-
-# target Splat drops: another target is picked, never the dropped one
-random.seed(11)
-sc = Sc()
-w1, w2 = sc.wand(1, [1]), sc.wand(2, [2])
-start(sc, [1, 2], splattag, smin=2)
-sc.sim.run_until(lambda: lit(w1.periph(S[1])) == GREEN or lit(w2.periph(S[2])) == GREEN, 3000, 5)
-tw, tm = (w1, S[1]) if lit(w1.periph(S[1])) == GREEN else (w2, S[2])
-ow, om = (w2, S[2]) if tw is w1 else (w1, S[1])
-tw.ble.periph(tm).available = False
-tw.ble.drop(tm)
-ok = sc.sim.run_until(lambda: lit(ow.periph(om)) == GREEN, 4000, 5)
-check("the target Splat dropping makes the leader pick another", ok)
-
-# a wand that goes silent is skipped when picking targets
-random.seed(2)
-sc = Sc()
-w1, w2, w3 = sc.wand(1, [1]), sc.wand(2, [2]), sc.wand(3, [3])
-start(sc, [1, 2, 3], splattag, smin=3)
-sc.bus.drop_frame = lambda src, dst, obj: src == W[3]
-sc.run(lobby_game.WAND_LOST_MS + 1500)
-check("(setup) the leader saw wand 3 go silent", net_of(w1)._members[2]["lost"])
-picked = []
-for rnd in range(6):
-    ok = sc.sim.run_until(lambda: any(lit(w.periph(m)) == GREEN for w, m in ((w1, S[1]), (w2, S[2]), (w3, S[3]))),
-                          splattag.ROUND_MS + 2000, 5)
-    if not ok:
+sc, h, (p2, p3) = session(host_splattag, [2, 3])
+cols = (ident(2), ident(3))
+scores = {2: 0, 3: 0}
+wrong_done = False
+for _ in range(host_splattag.WIN_SCORE * 3):
+    if not sc.sim.run_until(lambda: any(lit(h.periph(m)) in cols for m in MACS), 9000, 5):
         break
-    for w, m in ((w1, S[1]), (w2, S[2]), (w3, S[3])):
-        if lit(w.periph(m)) == GREEN:
-            picked.append(w.n)
-            if w is not w3:
-                splat_press(sc, w, m)
-    sc.run(splattag.PAUSE_MS)
-check("a silent wand's Splats are never the target while it is lost",
-      len(picked) >= 4 and 3 not in picked, str(picked))
-sc.bus.drop_frame = None
+    m = [m for m in MACS if lit(h.periph(m)) in cols][0]
+    if not wrong_done:
+        other = [x for x in MACS if x != m][0]
+        splat_press(sc, h, other)
+        wrong_done = lit(h.periph(m)) in cols
+        check("a press on a Splat that is not the target scores nothing", wrong_done)
+    scores[2 if lit(h.periph(m)) == cols[0] else 3] += 1
+    splat_press(sc, h, m)
+    sc.run(host_splattag.PAUSE_MS)
+    if max(scores.values()) >= host_splattag.WIN_SCORE:
+        break
+check("splattag: presses on the target score for the player it was lit for until a win",
+      max(scores.values()) == host_splattag.WIN_SCORE, str(scores))
+sent = [x[3]["d"] for x in sc.bus.sent(typ="pw_msg") if x[1] == W[1]]
+check("the host sent the scores, then the winner", any(d.get("s") for d in sent if "s" in d)
+      and any("win" in d for d in sent), str(sent[-2:]))
+sc.run(4500)
+check("every wand's play() returns after the win", h.result == p2.result == p3.result == "done")
 
-# ── relaycolor ──
-sc = Sc()
-w1, w2, w3 = sc.wand(1, [1]), sc.wand(2, [2]), sc.wand(3)
-start(sc, [1, 2, 3], relaycolor, smin=1)
-p1, p2 = w1.periph(S[1]), w2.periph(S[2])
-sc.run(500)
-check("relaycolor: the leader starts holding red on its matrix and Splat",
-      lit(p1) == RED and pixel0(w1) == relaycolor.RED, "%s %s" % (lit(p1), pixel0(w1)))
-check("...the others are dark", lit(p2) == OFFC)
-pulse(sc, w1)
-sc.run(400)
-check("the holder's button passes the color to the next wand, green",
-      lit(p2) == GREEN and pixel0(w2) == relaycolor.GREEN, "%s %s" % (lit(p2), pixel0(w2)))
-check("...and the sender goes dark", lit(p1) == OFFC)
-splat_press(sc, w2, S[2])
-sc.run(400)
-check("a press on the holder's own Splat passes it on; a wand with no Splats shows it on the matrix",
-      pixel0(w3) == relaycolor.BLUE and lit(p2) == OFFC, "%s %s" % (pixel0(w3), lit(p2)))
-pulse(sc, w3)
-sc.run(400)
-check("the last wand passes back to the first, purple", lit(p1) == PURPLE, str(lit(p1)))
-splat_press(sc, w2, S[2])
-sc.run(300)
-check("the leader holding the token ignores a press on another wand's Splat",
-      lit(p1) == PURPLE and lit(p2) == OFFC)
-splat_press(sc, w1, S[1])
-sc.run(400)
-check("a press on the leader's own Splat passes the token on, yellow", lit(p2) == YELLOW, str(lit(p2)))
-# the holder (wand 2) goes silent: the leader re-issues the token
+# ── host_relaycolor ──
+sc, h, (p2, p3) = session(host_relaycolor, [2, 3])
+sc.run(200)
+check("relaycolor: the first player holds the token; every Splat in their color",
+      all(lit(h.periph(m)) == ident(2) for m in MACS))
+pulse(sc, p3)
+check("a button on a wand that does not hold the token is ignored",
+      all(lit(h.periph(m)) == ident(2) for m in MACS))
+pulse(sc, p2)
+check("the holder's button passes the token to the next player; Splats follow",
+      all(lit(h.periph(m)) == ident(3) for m in MACS))
+pulse(sc, p3)
+check("the last player passes back to the first",
+      all(lit(h.periph(m)) == ident(2) for m in MACS))
 sc.bus.drop_frame = lambda src, dst, obj: src == W[2]
 sc.run(lobby_game.WAND_LOST_MS + 1500)
-check("the holder's wand lost: the leader hands the token to the next live wand",
-      pixel0(w3) == relaycolor.AMBER, str(pixel0(w3)))
+check("the holder's wand lost: the host hands the token to the next live player",
+      all(lit(h.periph(m)) == ident(3) for m in MACS))
 sc.bus.drop_frame = None
-w1.nfc.stop_at = sc.sim.now + 5
-sc.run(1500)
-check("the leader leaving ends the game and darkens the Splats",
-      all(w.result == "done" for w in (w1, w2, w3)) and lit(p1) == OFFC and lit(p2) == OFFC)
-
-# ── The README's two example games run ──
-import re
-import types
-readme = open(os.path.join(BB, "..", "Wand Module", "README.md")).read()
-section = readme.split("### Writing a lobby game")[1].split("Rules:")[0]
-blocks = re.findall(r"```python\n(.*?)```", section, re.S)
-check("the README has a pooled and a messages example", len(blocks) == 2, str(len(blocks)))
-mods = []
-for i, src in enumerate(blocks):
-    m = types.ModuleType("readme_game%d" % i)
-    exec(compile(src, "README block %d" % i, "exec"), m.__dict__)
-    mods.append(m)
-check("...declaring SPLATS_MIN", [m.SPLATS_MIN for m in mods] == [2, 1])
-
-sc = Sc()
-w1, w2 = sc.wand(1, [1]), sc.wand(2, [2])
-bystander = sc.wand(5)              # sends the ESP-NOW stop; a broadcast never reaches its sender
-start(sc, [1, 2], mods[0], smin=2)
-splat_press(sc, w2, S[2])
-sc.run(500)
-check("pooled example: the leader lights a pressed pool Splat in its owner's identity color",
-      lit(w2.periph(S[2])) == BLUE, str(lit(w2.periph(S[2]))))
-sc.sim.at(sc.sim.now + 5, lambda: bystander.enow.broadcast(["stop"]))
-sc.run(800)
-check("...and both wands return on the end", w1.result == "done" and w2.result == "done")
-
-sc = Sc()
-w1, w2 = sc.wand(1, [1]), sc.wand(2, [2])
-bystander = sc.wand(5)
-start(sc, [1, 2], mods[1], smin=1)
-splat_press(sc, w2, S[2])
-sc.run(600)
-check("messages example: a follower's press is sent to the next wand, which colors its own Splat",
-      lit(w1.periph(S[1])) == GREEN, str(lit(w1.periph(S[1]))))
-sc.sim.at(sc.sim.now + 5, lambda: bystander.enow.broadcast(["stop"]))
-sc.run(800)
-check("...and both wands return on the end", w1.result == "done" and w2.result == "done")
+check("a stop card on the host ends the game", stop(sc, h, (h, p2, p3)))
 
 check.finish("lobby games OK")

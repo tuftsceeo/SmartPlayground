@@ -208,114 +208,103 @@ stage 0's data row shows amber in its third cell (ESP-NOW has the fourth), the t
 Everything in `main.py` is compiled ahead of `enow.init()`, so the two boot functions and two module globals added for
 pairing are allocated before the radio's block; `memprobe` figures with them are in the UNVERIFIED list.
 
-## Lobby games
+## Splat games
 
-A game module is a **lobby game** if it defines module-level `SPLATS_MIN` (int >= 1: the total Splats across all joined
-wands) and optionally `SPLATS_MAX` (`None` or int >= `SPLATS_MIN`). `main.py` reads them after `_load_play()` imports
-the module; an invalid declaration is a load failure. A module without `SPLATS_MIN` runs as before.
+Three kinds of game use paired Splats. `main.py` reads the module-level declarations after `_load_play()` imports the
+module; an invalid declaration is a load failure.
 
-### `play()` contract
+### Type 2: solo game (`SPLATS_LOCAL`)
+
+A game module with `SPLATS_LOCAL = 1` or `2` drives its own paired Splats. There is no lobby.
 
 ```python
-def play(nfc, leds, buz, accel, i2c, enow, batt=None, net=None):
+def play(nfc, leds, buz, accel, i2c, enow, batt=None, splats=None):
 ```
-
-`main.py` passes as many positional arguments as `play()` declares (6, 7 or 8). `net` is `None` for a game that is not a
-lobby game. Every wand in a lobby game, leader and followers, calls the same `play()`; `net.is_leader` picks the role.
-`play()` must return on `("end",)` and `("leader_lost",)`. A lobby game's `play()` that declares no `net` parameter still
-goes through the lobby and then runs without it.
-
-### Joining
-
-Every wand taps the game's card. `lobby_game.enter()` broadcasts `pw_find` and listens `FIND_WAIT_MS` (500) for a `pw_lobby`
-from a leader with an open lobby; if one answers, the wand joins it (`pw_join` / `pw_joined`), otherwise it becomes the
-leader and broadcasts `pw_lobby` every second. Two leaders that hear each other: the lower MAC keeps its lobby, the other
-joins it and its followers look again. The lobby shows Splats joined against `SPLATS_MIN` on the leader's matrix (green
-once met) and an hourglass in the wand's identity color on followers. When the total reaches `SPLATS_MIN` the leader's
-button starts the game; reaching `SPLATS_MAX` starts it at once. A `stop` card on the leader cancels the lobby for
-everyone, on a follower it leaves. Wands with no Splats may join and count 0. Separate groups can play the same game at
-once (different game ids).
-
-### `net`
 
 | Member | Meaning |
 |---|---|
-| `is_leader`, `me` | role, and this wand's index in `wands` |
-| `wands` | `[(mac, identity color name, splat count), ...]` in join order, leader first |
-| `local` | this wand's `SplatGroup`, or `None` if it holds no Splats. Direct BLE |
-| `splat_count`, `owner(i)` | pool size; index in `wands` of the wand holding pool Splat `i` |
-| `splat(i)` | leader only: pool Splat `i` with `color(name)`, `sound(name)`, `note(name)`, `play([names])`, `off()` (names as in `splat_api`); each returns True once done (remote: once ACKed) |
-| `send(to, data)` | game message to wand index `to` (`None`: every other wand); `data` is a small dict (at most 200 bytes of JSON); True if every addressed wand ACKed |
-| `poll()` | call every loop: services local Splats, runs proxied commands, sends heartbeats; returns one event or `None` |
+| `splats.count` | Splats paired to this wand (1-2) |
+| `splats.unit(i)` | Splat `i` with `color(name)`, `note(name)`, `sound(name)`, `play([names])`, `off()` (names as in `splat_api`) |
+| `splats.poll()` | call every loop: `("press", i)`, `("release", i)` or `None` |
 
-Pool Splats are numbered by join order, each wand's contiguous in its local order; the leader's come first.
+The loop is the ordinary wand loop, including `enow.poll()`. The wand refuses to start a `SPLATS_LOCAL = n` game unless at
+least `n` Splats are connected (the same wand feedback as other load refusals), so inside `play()` `splats` is never `None`
+and `splats.count >= n`. The wand turns the Splats off after the game. `SPLATS_LOCAL` cannot be combined with `SPLATS_MIN`
+or `SPLAT_HOST`.
+
+### Type 9: Splat host group game (`SPLAT_HOST`)
+
+A game module with `SPLAT_HOST = True` is played by a wand in the Splat host role (`lib/splat_host.py`, which holds the
+Splats and always leads) and the player wands, which only join. It declares:
+
+| Name | Meaning |
+|---|---|
+| `SPLAT_HOST = True` | marks the game |
+| `SPLATS_MIN`, `SPLATS_MAX` | Splats the host must hold; `SPLATS_MAX` is at most 4 |
+| `PLAYERS_MIN` | player wands needed before the host can start (default 1) |
+| `GAME_ICON` | `(shape, color)` shown while loading |
+
+```python
+def play(nfc, leds, buz, accel, i2c, enow, batt=None, net=None):
+```
+
+`main.py` passes as many positional arguments as `play()` declares. Rules:
+
+- Call `net.poll()` first in every loop with a `time.sleep_ms(1)`; never call `enow.poll()` (`net` owns ESP-NOW).
+- Return on `("end",)` and `("leader_lost",)`.
+- Only the host wand (`net.is_host`) drives Splats with `net.splat(i)` (`color`, `sound`, `note`, `play([names])`, `off()`,
+  each True once done). Player wands show state on their matrix and send with `net.send(0, {...})`.
+- A player wand's identity name (`net.wands[i][1]`) is a Splat color name (`turnred`, `turngreen`, ...).
+- A game wand never leads a host game: it looks for the host's lobby for up to `HOST_FIND_TRIES` finds. The host never
+  yields its lobby.
+
+Joining: every wand taps the game's card. `lobby_game.enter()` broadcasts `pw_find` and listens `FIND_WAIT_MS` (500) for
+a `pw_lobby`; a player joins (`pw_join` / `pw_joined`) the host's lobby. A hold on the host's button starts the game once
+`SPLATS_MIN` Splats are connected and `PLAYERS_MIN` players have joined. A `stop` card on the host cancels the lobby for
+everyone, on a player it leaves.
+
+`net` members: `is_host`, `me`, `wands` (`[(mac, identity color name, splat count), ...]`, host first), `players` (wand
+indexes of the player wands), `splat(i)` (host only), `send(to, data)` (`to` an index, or `None` for every other wand;
+`data` a dict of at most 200 bytes of JSON; True if every addressed wand ACKed) and `poll()`.
 
 | Event | To | Meaning |
 |---|---|---|
-| `("press", i)`, `("release", i)` | leader: pool index. follower: local index | Splat button |
+| `("press", i)`, `("release", i)` | host | Splat `i` button |
 | `("msg", from_idx, data)` | addressed wand | a `net.send()` payload |
-| `("splat_lost", i)`, `("splat_back", i)` | leader | a pool Splat's BLE link dropped, returned (a follower's, from its heartbeat) |
-| `("wand_lost", idx)`, `("wand_back", idx)` | leader | no heartbeat for `WAND_LOST_MS` (3000), or the wand left; heard again |
-| `("leader_lost",)` | followers | leader silent for `WAND_LOST_MS` |
-| `("end",)` | everyone | the leader ended the game; also an ESP-NOW `stop` / `start_game` or a `pw_release_all`. Repeats once returned |
+| `("splat_lost", i)`, `("splat_back", i)` | host | a Splat's BLE link dropped, returned |
+| `("wand_lost", idx)`, `("wand_back", idx)` | host | no heartbeat for `WAND_LOST_MS` (3000), or the wand left; heard again |
+| `("leader_lost",)` | players | host silent for `WAND_LOST_MS` |
+| `("end",)` | everyone | the host ended the game; also an ESP-NOW `stop` / `start_game`. Repeats once returned |
 
-A follower's Splat presses go to the leader and are also delivered locally. Dropouts are reported, not handled: the game
-decides whether to pause, continue or return. Unicast frames are retried up to `pwire.SEND_TRIES` (3) times on a missing
-MAC ACK; the receiver drops a repeated per-sender sequence number `q`. Wire types are the `pw_` messages of SPEC section 8.
+Dropouts are reported, not handled: the game decides whether to pause, continue or return. Unicast frames are retried up to
+`pwire.SEND_TRIES` (3) times on a missing MAC ACK; the receiver drops a repeated per-sender sequence number `q`. Wire types
+are the `pw_` messages of SPEC section 8.
 
-### Writing a lobby game
+Built-in host games, in `games/`: `host_splattag.py` (the host lights a random Splat in a player's color, the first press
+scores for that player; the template shape), `host_relaycolor.py` (a color passes from wand to wand) and
+`host_lobbytest.py` (a press lights the next Splat in the presser's identity color). They are in `GAME_MODULES` and
+`game_tags.py` like any built-in game; each must be on every participating wand, and its card reads its tag
+(`host_splattag`, `host_relaycolor`, `host_lobbytest`).
 
-Pooled model: the leader's code decides and drives every Splat; followers can run a bare event loop.
+### Type 7: plain wand lobby (`PLAYERS_MIN` alone)
 
-```python
-import time
+A module with `PLAYERS_MIN` and no `SPLAT_HOST` / `SPLATS_*` runs a lobby among ordinary wands with no Splats (a lobby
+with Splats is always a type 9 Splat host game; `SPLATS_MIN` without `SPLAT_HOST` is refused). The first wand to tap
+leads (the lower MAC wins a tie) and counts as a player; a press on the leader starts once `PLAYERS_MIN` wands are in.
+`net.is_leader` picks the role; `net.splat()` raises. `play()` takes `net` and returns on `("end",)` and `("leader_lost",)`.
 
-SPLATS_MIN = 2
-
-def play(nfc, leds, buz, accel, i2c, enow, batt=None, net=None):
-    while True:
-        ev = net.poll()
-        if ev in (("end",), ("leader_lost",)):
-            return
-        if net.is_leader and ev is not None and ev[0] == "press":
-            owner = net.owner(ev[1])
-            net.splat(ev[1]).color(net.wands[owner][1])   # light it in its owner's color
-        time.sleep_ms(1)
-```
-
-Messages model: each wand drives its own Splats and the wands talk through `send()`.
-
-```python
-import time
-
-SPLATS_MIN = 1
-
-def play(nfc, leds, buz, accel, i2c, enow, batt=None, net=None):
-    while True:
-        ev = net.poll()
-        if ev is None:
-            time.sleep_ms(1)
-            continue
-        if ev in (("end",), ("leader_lost",)):
-            return
-        if ev[0] == "press" and net.local is not None:      # follower: local index
-            net.send((net.me + 1) % len(net.wands), {"go": ev[1]})
-        elif ev[0] == "msg" and net.local is not None:
-            net.local.unit(0).color("turngreen")
-```
-
-Rules: poll `net.poll()` every loop with a `time.sleep_ms(1)`; return on `end` and `leader_lost`; read the Splat colors
-from `net.wands` and `net.owner(i)` rather than assuming them. Built-in lobby games, in `games/`: `lobbytest.py` (button lights the next
-pool Splat in the presser's identity color), `splattag.py` (pooled: the leader lights a random Splat, the first press
-scores for its owner), `relaycolor.py` (messages: a color passes from wand to wand). They are in `GAME_MODULES`
-and `game_tags.py` like any built-in game; each must be on every participating wand, and its card reads its tag
-(`lobbytest`, `splattag`, `relaycolor`).
+Splat station mode (an idle host obeying `{"type":"splat",...}`) is not in this tree yet; see the SplatAuthoringRows
+experiment.
 
 ## Tests (off-device)
 
+STALE: the devtests predate the game-mode split and slot policy and are not maintained during the prototype
+(see `BroadcastCode/docs_and_design/2026-11-13-splat-host-completion-plan.md`, "Stale tests"). Check syntax with
+`python -m py_compile`.
+
 From `Bag3/Code/BroadcastCode/`: `tools/devtests/compile_check.sh`, then
 `python3 tools/devtests/<name>.py` for `test_wand_copies`, `test_wand_cards`, `test_wand_pairing_store`,
-`boot_wand_pairing`, `boot_wand_idle`, `boot_wand_lobby_game`, `test_lobby_game`, `test_lobby_games`. `wandsim.py` is the shared
+`boot_wand_pairing`, `boot_wand_idle`, `boot_wand_lobby_game`, `test_lobby_game`, `test_lobby_games`. These target the Wand Module and `BroadcastCode/tools/devtests`. The experiment's own tests, from the experiment root, are `python3 -m unittest discover -s tests` and `node js/splat_game_check_test.mjs`. `wandsim.py` is the shared
 harness (virtual-time wand threads, fake ESP-NOW with loss / lost ACKs / duplicates, fake BLE Splats);
 `wandboot.py` boots the real `main.py` under the stubs. These do not exercise hardware.
 
@@ -332,7 +321,7 @@ and listed per step in `docs_and_design/2026-10-07-splat-pairing/PROGRESS-PartA.
   timeout on card reads.
 - How the identity colors, flash, tones and idle glow look and sound on the matrix and a Splat; palette distinctness.
 - Whether a Splat stays connected through a non-lobby game, which does not poll the Splat links.
-- ESP-NOW latency and the slow-send board: `pw_cmd` round trips, lobby timing (`FIND_WAIT_MS`, `JOIN_WAIT_MS`),
+- ESP-NOW latency and the slow-send board: lobby timing (`FIND_WAIT_MS`, `JOIN_WAIT_MS`),
   `WAND_LOST_MS` against real loss, peer table with many wands.
 - BLE and ESP-NOW coexistence on one C6 radio during a lobby game; Splat write pacing (50 ms) inside `net.poll()`.
 - Lobby stop-card reads (every 8 loops, 40 ms timeout) and the games' stop-card reads (every 25 loops, 30 ms).

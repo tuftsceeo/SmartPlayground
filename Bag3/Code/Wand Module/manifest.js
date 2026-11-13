@@ -2,8 +2,7 @@
  * manifest.js — Bag3 wand (Mock Wand) file list for tools/deploy.py --type wand.
  * Same shape as the Box/Dial manifest.js. Only what is listed here ships.
  *
- * Not shipped (tests / bench only): games/lobbytest.py, games/relaycolor.py,
- * games/splattag.py, games/host_*.py, goalrace.py, splatecho.py, jumpin.py, import_bench.py,
+ * Not shipped (tests / bench only): games/host_*.py, games/colorpads.py, goalrace.py, splatecho.py, jumpin.py, import_bench.py,
  * utilities/. Add a new example game here or it will not reach the wands.
  * main.py is compiled by deploy.py to /wand_main.mpy plus a stub /main.py.
  */

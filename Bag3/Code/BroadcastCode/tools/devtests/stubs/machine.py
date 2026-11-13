@@ -41,6 +41,21 @@ class PWM:
         pass
 
 
+class Timer:
+    """Never fires: power_led's blink timer has no effect off-device."""
+    PERIODIC = 1
+    ONE_SHOT = 0
+
+    def __init__(self, *a, **k):
+        pass
+
+    def init(self, *a, **k):
+        pass
+
+    def deinit(self):
+        pass
+
+
 class RESET:
     pass
 

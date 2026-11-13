@@ -34,8 +34,9 @@ export const SHARED_KNOWLEDGE = [
     'knowledge/policy.md',
     'knowledge/accessibility.md',
     'knowledge/platform.md',
+    'knowledge/game_types.md',
     'knowledge/game_patterns.md',
-    'knowledge/lobby_games.md',
+    'knowledge/splat_host_games.md',
     'knowledge/troubleshooting.md',
 ];
 /** Addendum sent only in Advanced UI mode. */
@@ -72,8 +73,8 @@ export function knowledgeText(files, splatActions) {
     const missing = paths.filter(p => typeof files[p] !== 'string');
     if (missing.length) throw new Error(`knowledge files not loaded: ${missing.join(', ')}`);
     const splat = '# SPLAT ACTION NAMES\n\n' +
-        'For a Splat from net.splat(i) (leader) or net.local.unit(s) ' +
-        '(this wand\'s own Splat, any game role):\n\n' +
+        'For a Splat from splats.unit(i) (a solo wand) or net.splat(i) ' +
+        '(a Splat host game, host only):\n\n' +
         `- colors (.color): ${splatActions.colors.join(', ')}; ` +
         '.color(name, part) sets only that part: "inner" (middle ring), "outer" (points in the arms), ' +
         '"left" or "right" (that half); the other lights keep their color\n' +

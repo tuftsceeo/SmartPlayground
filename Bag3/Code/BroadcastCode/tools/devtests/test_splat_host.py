@@ -11,7 +11,7 @@ import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import wandsim  # noqa: E402
-from lobbysim import Sc, W, S, net_of, press, lobby_game, splatpair  # noqa: E402
+from lobbysim import Sc, W, S, NETS, net_of, press, lobby_game, splatpair  # noqa: E402
 from wandsim import BB  # noqa: E402
 import pairing  # noqa: E402
 import splat_host  # noqa: E402
@@ -75,8 +75,9 @@ def splat_press(sc, w, mac):
 
 
 def pulse(sc, w):
-    press(sc, w, sc.sim.now + 5)
-    sc.run(300)
+    # held longer than one 100 ms exit-card read: the host games poll the button between reads
+    press(sc, w, sc.sim.now + 5, 200)
+    sc.run(450)
 
 
 def ident_rgb(n):
@@ -105,6 +106,7 @@ def setup(mod, players, host_first=True):
 def hold_start(sc, h):
     press(sc, h, sc.sim.now + 10, splat_host.START_HOLD_MS + 100)
     sc.run(splat_host.START_HOLD_MS + 700)
+    sc.run(800)         # a player's wand shows the game icon for 700 ms before it reads the button
 
 
 # ── host screen and slots (no radio) ──
@@ -242,6 +244,72 @@ sc.run(lobby_game.HOST_FIND_TRIES * 700 + 2000)
 check("with no host, a player never leads and ends with no_host",
       p2.result == "done" and p2.net is None and p2.last_end == "no_host", str(p2.last_end))
 
+# ── a player wand's own paired Splats stay out of a host game ──
+class _Passive:
+    """A host game that only records net events, per wand."""
+    __name__ = "host_passive"
+    SPLATS_MIN = 1
+    SPLATS_MAX = None
+    PLAYERS_MIN = 1
+    EVENTS = {}
+
+    @staticmethod
+    def play(nfc, leds, buz, accel, i2c, enow, batt=None, net=None):
+        evs_ = _Passive.EVENTS.setdefault(net.my_mac, [])
+        end = time.ticks_ms() + 30000
+        while time.ticks_ms() < end:
+            ev = net.poll()
+            if ev is not None:
+                evs_.append(ev)
+                if ev in (("end",), ("leader_lost",)):
+                    return
+            time.sleep_ms(1)
+
+
+NETS[:] = []
+sc = Sc()
+h = sc.wand(1, [1, 2, 3, 4])
+p2 = sc.wand(2, [5])
+tap(sc, 1, 0, _Passive, host=True)
+tap(sc, 2, 1500, _Passive)
+sc.sim.run_until(lambda: net_of(h) is not None and net_of(h).phase == "lobby"
+                 and net_of(h).lobby_players() == 1, 20000, 10)
+check("a player wand with its own Splat joins the host lobby with 0 Splats",
+      net_of(h).lobby_splats() == 4, str(net_of(h).lobby_splats()))
+hold_start(sc, h)
+nh, np2 = net_of(h), net_of(p2)
+check("...the roster gives the player 0 Splats and the pool is the host's 4",
+      nh.wands[1][2] == 0 and nh.splat_count == 4 and np2.splat_count == 4, str(nh.wands))
+for _v in _Passive.EVENTS.values():
+    _v[:] = []
+p2.ble.button(S[5], True)
+sc.run(200)
+p2.ble.button(S[5], False)
+sc.run(300)
+check("...and its own Splat's press is a game event on no wand",
+      not any(e[0] in ("press", "release") for evl in _Passive.EVENTS.values() for e in evl),
+      str(_Passive.EVENTS))
+try:
+    np2.splat(0)
+    check("net.splat() is refused on a player wand", False)
+except RuntimeError:
+    check("net.splat() is refused on a player wand", True)
+
+# the host's own Splat dropping: splat_lost / splat_back on the host
+for _v in _Passive.EVENTS.values():
+    _v[:] = []
+h.ble.periph(S[2]).available = False
+h.ble.drop(S[2])
+sc.run(500)
+hev = _Passive.EVENTS.get(W[1], [])
+check("a host Splat dropping is splat_lost on the host", ("splat_lost", 1) in hev, str(hev))
+h.ble.periph(S[2]).available = True
+sc.run(14000)
+hev = _Passive.EVENTS.get(W[1], [])
+check("...and splat_back after the reconnect", ("splat_back", 1) in hev, str(hev))
+h.nfc.stop_at = sc.sim.now + 5
+sc.run(1500)
+
 # ── host_splattag ──
 random.seed(5)
 sc, h, (p2, p3) = setup(host_splattag, [2, 3])
@@ -261,7 +329,7 @@ for _ in range(host_splattag.WIN_SCORE * 3):
         break
 check("host_splattag: targets in player colors; presses score to that player until a win",
       max(scores.values()) == host_splattag.WIN_SCORE, str(scores))
-sc.run(host_splattag.OVER_MS + 1500)
+sc.run(4500)        # the players show the winner for 3 s
 check("...and every wand leaves after the win", h.result == p2.result == p3.result == "done")
 
 # ── host_relaycolor ──

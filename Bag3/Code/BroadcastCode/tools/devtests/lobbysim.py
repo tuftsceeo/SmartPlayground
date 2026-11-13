@@ -35,8 +35,14 @@ def _fake_read(nfc, timeout=500, resel_timeout=150):
     return None, None
 
 
+def _fake_read_command(self, timeout=250, **kw):
+    """NfcReader.read_command (games' own exit-card reads) on the fake reader."""
+    return _fake_read(self.nfc, timeout)
+
+
 nfc_reader.read_ndef_text = _fake_read
 nfc_reader.read_tag_command = _fake_read
+nfc_reader.NfcReader.read_command = _fake_read_command
 
 
 class _FakePin:
@@ -104,8 +110,10 @@ class Sc:
         self.wands[n] = w
         return w
 
-    def tap(self, n, at_ms, game, smin=2, smax=None, slug=SLUG, wait_ready=True):
-        """Wand n taps the lobby game's card at at_ms and then runs game(net, w)."""
+    def tap(self, n, at_ms, game, pmin=2, slug=SLUG, wait_ready=True):
+        """Wand n taps a plain lobby game's card (PLAYERS_MIN = pmin, no Splats)
+        at at_ms and then runs game(net, w). A wand's own paired Splats stay
+        out of a plain lobby; Splat host lobbies are in test_splat_host.py."""
         w = self.wands[n]
 
         def run():
@@ -121,8 +129,8 @@ class Sc:
             if time.ticks_ms() < at_ms:
                 time.sleep_ms(at_ms - time.ticks_ms())
             w.tap_ms = time.ticks_ms()
-            net = lobby_game.enter(w.enow, slug, smin, smax, w.ctl, w.mac, w.nfc, w.leds, w.buz,
-                              lambda: w.button)
+            net = lobby_game.enter(w.enow, slug, None, None, w.ctl, w.mac, w.nfc, w.leds, w.buz,
+                                   lambda: w.button, False, False, pmin)
             w.net = net
             w.last_end = lobby_game.last_end
             w.started_ms = time.ticks_ms() if net is not None else None

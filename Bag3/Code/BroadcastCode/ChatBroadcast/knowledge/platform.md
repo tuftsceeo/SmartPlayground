@@ -21,11 +21,11 @@ The app reads these marker lines out of your reply and hides them from the teach
   card value the game reacts to. Leave it out only when no file reads a card. The app uses it to
   tell the teacher which cards to write.
 - **`[GAME_SETTINGS: {"splat_host": 4, "wands": 2}]`** exactly once for a Splat host game,
-  **`[GAME_SETTINGS: {"wand_splats": 1, "wands": 1}]`** for a Splat game on the children's own
-  wands (see the Splat games section), and **`[GAME_SETTINGS: {"wands": 2}]`** exactly once for any other game
+  **`[GAME_SETTINGS: {"splats": 2, "wands": 1}]`** for a solo Splat game (type 2, one wand with
+  its own 1-2 Splats), and **`[GAME_SETTINGS: {"wands": 2}]`** exactly once for any other game
   played on more than one wand, as one line of JSON. Only the practice window reads it; the wand
-  never sees it. `wand_splats` is how many Splats each child's wand has paired (0, 1 or 2), and
-  appears only for a Splat game without a host; `splat_host` is how many Splats the Splat host
+  never sees it. `splats` is how many Splats the solo wand drives (1 or 2), only for a type 2
+  game; `splat_host` is how many Splats the Splat host
   holds (1 to 4), only for a Splat host game; `wands` is how many children's wands the game is
   meant for (1 to 4, never counting a Splat host), 1 for
   a game one child plays alone. The practice window shows that many wands, so a game that sends

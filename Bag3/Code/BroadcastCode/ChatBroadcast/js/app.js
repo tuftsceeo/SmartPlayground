@@ -145,9 +145,9 @@ function savedGameDevices(g) {
     const lobby = isLobbyGame(code);
     // A Splat host game's Splats are all on its host (settings.splat_host).
     const host = /^SPLAT_HOST\s*=\s*True/m.test(code);
+    const local = /^SPLATS_LOCAL\s*=/m.test(code);
     const splats = host ? Math.max(1, settings.splat_host || 1)
-        : /SPLATS_MIN/.test(code) || (lobby && settings.wand_splats > 0)
-            ? Math.max(1, (settings.wand_splats || 1) * wands) : 0;
+        : local ? Math.max(1, settings.splats || 1) : 0;
     const base = baselineTags(g.hardware?.slug || slugify(g.name || ''));
     return deviceLine(deviceNeeds({
         wands,
@@ -2805,8 +2805,7 @@ class App {
             declared: this.declaredTags,
             minWands: this.simSettings?.wands,
             displays: getCode('icon').trim() ? 1 : 0,
-            splats: (this.simSettings?.splat_host || 0)
-                + (this.simSettings?.wand_splats || 0) * (this.simSettings?.wands || 1),
+            splats: (this.simSettings?.splat_host || 0) + (this.simSettings?.splats || 0),
             // Every non-wand role with no simulator is a physical station
             // the game needs, named for the send-confirm overlay.
             stations: ROLE_TABLE

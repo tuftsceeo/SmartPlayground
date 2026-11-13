@@ -190,16 +190,16 @@ await test("[GAME_SETTINGS:] is read for the simulator and hidden from the chat"
         "    pass",
         "```",
         "[GAME_NAME: Light the Splat]",
-        '[GAME_SETTINGS: {"wand_splats": 2, "wands": 1}]',
+        '[GAME_SETTINGS: {"splats": 2, "wands": 1}]',
     ].join("\n");
-    assert.deepEqual(parseGameSettings(reply), { wand_splats: 2, wands: 1 });
+    assert.deepEqual(parseGameSettings(reply), { splats: 2, wands: 1 });
     const shown = stripAllMarkers(reply);
     assert.ok(!shown.includes("GAME_SETTINGS"));
     assert.equal(extractCodeBlocks(reply).length, 1);
     // Out-of-range or non-integer fields are dropped; bad JSON is no settings.
-    assert.deepEqual(parseGameSettings('[GAME_SETTINGS: {"wand_splats": 3, "wands": 2}]'), { wands: 2 });
-    assert.equal(parseGameSettings('[GAME_SETTINGS: {"wand_splats": "two"}]'), null);
-    assert.equal(parseGameSettings("[GAME_SETTINGS: {wand_splats: 2}]"), null);
+    assert.deepEqual(parseGameSettings('[GAME_SETTINGS: {"splats": 3, "wands": 2}]'), { wands: 2 });
+    assert.equal(parseGameSettings('[GAME_SETTINGS: {"splats": "two"}]'), null);
+    assert.equal(parseGameSettings("[GAME_SETTINGS: {splats: 2}]"), null);
     assert.equal(parseGameSettings("no marker"), null);
     // Half-streamed: the line is hidden before its bracket arrives.
     assert.equal(stripAllMarkers('Done.\n[GAME_SETTINGS: {"wand_spl'), "Done.");

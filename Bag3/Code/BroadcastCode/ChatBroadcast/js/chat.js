@@ -254,13 +254,13 @@ export function stripGameBrief(text) {
 }
 
 /** Splats per wand and on a Splat host the simulator can show, and how many wands it can hold a game for. */
-const SETTINGS_LIMITS = { wand_splats: [0, 2], wands: [1, 4], splat_host: [0, 4] };
+const SETTINGS_LIMITS = { splats: [0, 2], wands: [1, 4], splat_host: [0, 4] };
 
 /**
  * Simulator settings from a [GAME_SETTINGS: {...}] marker, or null.
  *
  * The game code does not carry these; only the practice window reads them.
- * `wand_splats` is how many Splats each wand starts with paired (0..2);
+ * `splats` is how many Splats a solo wand game uses (0..2);
  * `wands` is how many wands the game is meant for (1..4), not counting a
  * Splat host; `splat_host` is how many Splats a Splat host game's host
  * wand holds (0..4). A field that is

@@ -21,7 +21,7 @@ Read this whenever a game involves more than one wand, or a wand plus the icon d
 - **Every file exits** on `"stop"` / `"start_game"`, whatever its role.
 - **Say how many wands it is for.** A game played on more than one wand writes
   `[GAME_SETTINGS: {"wands": N}]` after the code (platform rules), N from 2 to 4, so the practice
-  window starts with that many wands. A Splat game also gives `splat_host` (or `wand_splats` without a host; Splat games section).
+  window starts with that many wands. A Splat host game also gives `splat_host`; a solo Splat game gives `splats` (1-2) and `"wands": 1`.
 
 ## Designing the messages
 
