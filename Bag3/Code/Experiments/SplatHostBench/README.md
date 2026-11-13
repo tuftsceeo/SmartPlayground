@@ -95,7 +95,22 @@ reset before each run. Logs: `step*_com8.log`. IDF main region given as free / l
   Differences not separated: its battery read 3.3-4.0 %; its `/lib` held stale `.py` copies;
   some of its boots were soft reboots.
 
+## Firmware (2026-11-12)
+
+| Wand | MicroPython | STEP 0 | Normal boot (`wand_main`, host) |
+|---|---|---|---|
+| COM8 | v1.28.0 (2026-04-06) | 4 of 4 | 4 of 4 (`com8_wand_boot.log`) |
+| COM11 | v1.29.0 (2026-08-24) | 4 of 4 (`step0_com11.log`) | 2 of 4; then `-521`, `-519`, write failures (`com11_wand_boot.log`) |
+| COM7 | v1.29.0 (2026-08-24) | not run | 2 of 4 (battery 3-4 %) |
+| COM7, reflashed | v1.28.0 (2026-04-06), Seeed XIAO build | not run | 4 of 4, seen on the wand screen with the other wands off (battery 3.4 %); no log. First run with COM8 on: 1 found (`com7_v128_boot.log`) |
+
+Same `.mpy` libraries (mpy-cross 1.28.0.post2), same `pairing.json` and `role.txt`. COM7 failed on v1.29.0 and connected 4 of 4 after reflashing to v1.28.0, at the same low
+battery.
+
 ## Open
+
+- What in v1.29.0 breaks 4 Splats in the full boot (STEP 0 still gets 4 of 4 on v1.29.0).
+- Flash COM11 to v1.28.0.
 
 - COM7 wand: rerun STEP 4 after a full charge, to separate the battery from stale `/lib` files
   and soft reboots.

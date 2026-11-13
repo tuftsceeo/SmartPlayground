@@ -30,6 +30,7 @@ filenames). Search front matter with `grep -l '<term>' Bag3/Code/known_issues/*.
 | [2026-11-02-dial-box-arm-serving.md](2026-11-02-dial-box-arm-serving.md) | Dial and Box serving still gated by arm/disarm, radio off outside NFC | open (untested on hardware) | — |
 | [2026-11-11-game-start-signature.md](2026-11-11-game-start-signature.md) | Game start signature (GAME_ICON): app display, wand pull icon, example games | open | — |
 | [2026-11-12-wand-mpremote-copy-fails.md](2026-11-12-wand-mpremote-copy-fails.md) | Wand deploy: mpremote cannot break into the Splat host | open | — |
+| [2026-11-12-splat-host-v129-firmware.md](2026-11-12-splat-host-v129-firmware.md) | Splat host wand holds 2 Splats on MicroPython v1.29.0, 4 on v1.28.0 | open | — |
 | [2026-11-11-simple-mode-large-changes.md](2026-11-11-simple-mode-large-changes.md) | Simple mode design: device minimums, Simulator minimum/Splat host role (built, hardware untested)/zones (built, left/right unconfirmed)/art, game card, versions | open | — |
 
 ## By topic
