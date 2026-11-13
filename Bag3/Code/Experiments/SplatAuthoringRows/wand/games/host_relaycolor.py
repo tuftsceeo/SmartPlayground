@@ -24,10 +24,11 @@ WAND_COLOR = {"turnred": RED, "turngreen": GREEN, "turnblue": BLUE,
               "turnyellow": YELLOW, "turnpurple": PURPLE, "turnwhite": WHITE}
 
 
-def _give(net, p):
-    """Host: every Splat takes player p's color; tell the players."""
+def _give(net, p, dead):
+    """Host: every connected Splat takes player p's color; tell the players."""
     for i in range(net.splat_count):
-        net.splat(i).color(net.wands[p][1])
+        if i not in dead:
+            net.splat(i).color(net.wands[p][1])
     net.send(None, {"h": p})
 
 
@@ -40,6 +41,7 @@ def play(nfc, leds, buz, accel, i2c, enow, batt=None, net=None):
     frame = 0
     holder = None
     lost_wands = set()
+    lost_splats = set()
     if not net.is_host:
         leds.show_shape(GAME_ICON[0], GAME_ICON[1])
         buz.beep(784, 100)
@@ -48,7 +50,7 @@ def play(nfc, leds, buz, accel, i2c, enow, batt=None, net=None):
     try:
         if net.is_host:
             holder = net.players[0]
-            _give(net, holder)
+            _give(net, holder, lost_splats)
         while True:
             if frame % NFC_EVERY == 0:
                 cmd, _uid = reader.read_command(timeout=100)
@@ -59,7 +61,12 @@ def play(nfc, leds, buz, accel, i2c, enow, batt=None, net=None):
                 return
             if net.is_host:
                 # ── host: owns the token ──
-                if ev and ev[0] == "wand_lost":
+                if ev and ev[0] == "splat_lost":
+                    lost_splats.add(ev[1])
+                elif ev and ev[0] == "splat_back":
+                    lost_splats.discard(ev[1])
+                    net.splat(ev[1]).color(net.wands[holder][1])
+                elif ev and ev[0] == "wand_lost":
                     lost_wands.add(ev[1])
                 elif ev and ev[0] == "wand_back":
                     lost_wands.discard(ev[1])
@@ -69,7 +76,7 @@ def play(nfc, leds, buz, accel, i2c, enow, batt=None, net=None):
                     if live:
                         later = [p for p in live if p > holder]
                         holder = later[0] if later else live[0]
-                        _give(net, holder)
+                        _give(net, holder, lost_splats)
             else:
                 # ── player: shows the token, passes with the button ──
                 if ev and ev[0] == "msg" and "h" in ev[2]:

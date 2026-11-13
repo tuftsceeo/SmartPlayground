@@ -51,6 +51,11 @@ function usesName(body, name) {
     return new RegExp(`(^|[^\\w.])${name}\\b`, 'm').test(body);
 }
 
+/** The code with whole-line and trailing comments removed; string literals are kept. */
+function withoutComments(code) {
+    return code.replace(/^[ \t]*#.*$/gm, '').replace(/[ \t]#[^\n"']*$/gm, '');
+}
+
 /** `def play(..., splats=None)` as the 8th and last parameter. */
 const SPLATS_LAST = /^def\s+play\s*\([^)]*\bsplats\s*=\s*None\s*\)/m;
 
@@ -142,6 +147,14 @@ export function splatGameProblems(code) {
         }
         if (!RETURNS_ON_END.test(code)) {
             out.push('A Splat host game must return when net.poll() reports ("end",).');
+        }
+        // The host must react to a dropped Splat or wand (net.poll() events),
+        // as a quoted event name outside comments.
+        const live = withoutComments(code);
+        for (const ev of ['splat_lost', 'wand_lost']) {
+            if (!new RegExp(`["']${ev}["']`).test(live)) {
+                out.push(`A Splat host game must handle the ("${ev}", ...) event from net.poll(): pause, skip or carry on, but not ignore it.`);
+            }
         }
         if (usesNetSplat && !code.includes('is_host')) {
             out.push('net.splat() is used but the game never checks is_host; only the host wand may drive the Splats.');

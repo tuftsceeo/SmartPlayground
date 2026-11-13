@@ -38,6 +38,8 @@ def play(nfc, leds, buz, accel, i2c, enow, batt=None, net=None):
         buz.beep(523, 100)
         time.sleep_ms(700)
         leds.fill(WAND_COLOR[net.wands[net.me][1]])
+    dead = set()
+    quiet = set()
     try:
         while True:
             if frame % NFC_EVERY == 0:
@@ -49,8 +51,18 @@ def play(nfc, leds, buz, accel, i2c, enow, batt=None, net=None):
                 return
             if net.is_host:
                 # ── host: lights Splats ──
-                if ev and ev[0] == "msg" and ev[2].get("btn") and net.splat_count:
-                    i = nxt % net.splat_count
+                if ev and ev[0] == "splat_lost":
+                    dead.add(ev[1])
+                elif ev and ev[0] == "splat_back":
+                    dead.discard(ev[1])
+                elif ev and ev[0] == "wand_lost":
+                    quiet.add(ev[1])
+                elif ev and ev[0] == "wand_back":
+                    quiet.discard(ev[1])
+                elif (ev and ev[0] == "msg" and ev[2].get("btn") and ev[1] not in quiet
+                        and len(dead) < net.splat_count):
+                    live = [k for k in range(net.splat_count) if k not in dead]
+                    i = live[nxt % len(live)]
                     nxt += 1
                     if lit is not None and lit != i:
                         net.splat(lit).off()
