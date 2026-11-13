@@ -37,3 +37,33 @@ unchanged.
 3. Re-run `Simulator/tools/sync_sources.py`; drop pooled cases from `Simulator/tests/test_lobby_game.py`.
 4. Move the drafts into ChatBroadcast `knowledge/` and `js/splat/`.
 5. Update `known_issues/2026-11-11-simple-mode-large-changes.md` (host role is hardware-tested).
+
+## Prompting notes for `claude-sonnet-5-5`
+
+Source: the Claude API skill, "Migrating to Claude Sonnet 5.5". Checked against
+`ChatBroadcast/js/prompt/buildRequest.js` (unchanged).
+
+Already compatible, no change needed:
+
+- Model id `claude-sonnet-5-5`; no `thinking`, `tool_choice`, `temperature` or prefill is sent.
+- `output_config.format` is used for the interview turn.
+- Three `cache_control` breakpoints, with the session text after the last one.
+
+Rules for the draft knowledge files:
+
+- **Order for caching.** Put stable content first: `game_types.md`, then the type files, then per-device
+  files. Session data stays after the last breakpoint. A byte change early in the prompt invalidates
+  everything after it. The minimum cacheable prefix is 512 tokens.
+- **One canonical template per row.** The model copies the shape it is given; examples are the strongest
+  signal. Mark the editable region and keep the rest identical across examples.
+- **State rules positively, with the reason.** "Call `net.poll()` first: it reads the radio" works better
+  than a bare NEVER. Avoid shouting, "do not be lazy" and similar workarounds.
+- **Do not tell the model to think less.** Lower `CLAUDE_EFFORT` instead.
+- **Effort.** Start at `low` for chat and generation from a template (current setting). Sweep `medium`
+  on the eval for type 9 games, where host/player logic has more branches. Changing top-level effort
+  invalidates the cache.
+- **Row first.** The "state the row in one line" step doubles as a plan; keep it before any code.
+- **Verification.** At `low` the model may report done without a check. The send-time check
+  (`splatGameCheck.js`) is the verification, not the prompt.
+
+Not applicable here: forced tool use, computer use, advisor, and task budgets.
