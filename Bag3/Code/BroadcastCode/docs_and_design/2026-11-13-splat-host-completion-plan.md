@@ -41,6 +41,7 @@ Only `Bag3/Code/Wand Module/` changes on the wand side. No Bag1 or Bag2 edits.
 3. **Feedback.** Pass the motor into `SplatPairing`.
    - On pair: success tune plus a buzz.
    - On refuse: falling tone plus a double buzz. The 0-player start refusal gets the same.
+   - A new pair still resets the wand (no corner pulse); the reset is the feedback.
 4. **v1.29 flag.** At host start, if not v1.28, print one `[WARN]` line from a lazily imported module and show an error pattern. Note it in `known_issues/2026-11-12-splat-host-v129-firmware.md`.
 5. **Small fixes.** Cache `pair_of`. Make `_on_ready` show the pair glow, not the identity color.
 6. Run the syntax check and commit.

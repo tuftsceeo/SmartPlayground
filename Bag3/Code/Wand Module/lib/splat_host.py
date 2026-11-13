@@ -193,6 +193,27 @@ class HostScreen:
         leds.np.write()
 
 
+HOST_FIRMWARE = (1, 28)      # Splat hosts are tested on MicroPython v1.28.0 only
+
+
+def _check_firmware(leds, buz):
+    # Flag (not block) a host on other firmware: v1.29 fails to hold 4 Splats
+    # (known_issues/2026-11-12-splat-host-v129-firmware.md).
+    import sys
+    v = sys.implementation.version
+    if tuple(v[:2]) == HOST_FIRMWARE:
+        return
+    print("  [WARN] Splat host needs MicroPython v%d.%d; this is v%d.%d.%d"
+          % (HOST_FIRMWARE + tuple(v[:3])))
+    from leds import SHAPE_X, RED
+    for _ in range(3):
+        leds.show_shape(SHAPE_X, RED)
+        time.sleep_ms(300)
+        leds.off()
+        time.sleep_ms(200)
+    buz.error()
+
+
 def run(enow, nfc, leds, buz, get_ctl, pair_card, launch, pull, is_game, button_down=None):
     """The host's idle loop; never returns (a role change resets the wand).
 
@@ -206,6 +227,7 @@ def run(enow, nfc, leds, buz, get_ctl, pair_card, launch, pull, is_game, button_
     from nfc_reader import read_ndef_text, parse_splat_card, split_prefixed
     print("  Splat host: up to %d Splats; tap 'player' to leave this role"
           % pairing.HOST_MAX_SPLATS)
+    _check_firmware(leds, buz)
     try:
         _loop(enow, nfc, leds, buz, get_ctl, pair_card, launch, pull, is_game,
               button_down, read_ndef_text, parse_splat_card, split_prefixed)

@@ -116,16 +116,17 @@ def slot_of(slots, mac):
     return None
 
 
-def choose_slot(slots, macs, mac):
-    """Own slot, else first missing, else first empty, else None."""
+def choose_slot(slots, connected, mac):
+    """Own slot, else first empty, else first missing (its Splat not in
+    `connected`, the MACs linked now), else None (all connected: refuse)."""
     k = slot_of(slots, mac)
     if k is not None:
         return k
     for k in range(len(slots)):
-        if slots[k] is not None and slots[k][0] not in macs:
+        if slots[k] is None:
             return k
     for k in range(len(slots)):
-        if slots[k] is None:
+        if slots[k][0] not in connected:
             return k
     return None
 
@@ -150,23 +151,21 @@ def holds(mac):
     return mac in load()
 
 
-def add(mac, pick=None):
+def add(mac, pick=None, connected=()):
     """Append mac and write the file. Returns the new list. A MAC already
     held leaves the file alone; ValueError for a malformed MAC or a full list.
-    Host: pick(mac, used) -> (A, B) for a new slot."""
+    Host: pick(mac, used) -> (A, B) for a new slot; with no empty slot, mac
+    replaces the first slot whose Splat is not in `connected` and keeps that
+    slot's colors (the old MAC leaves the file)."""
     if not valid(mac):
         raise ValueError("bad MAC %r" % (mac,))
     macs = load()
     if mac in macs:
         return macs
-    cap = max_splats()
-    if len(macs) >= cap:
-        raise ValueError("already holding %d Splats" % cap)
-    macs.append(mac)
     slots = None
     if is_host():
         slots = load_slots()
-        k = choose_slot(slots, macs, mac)
+        k = choose_slot(slots, connected, mac)
         if k is None:
             raise ValueError("no free slot")
         if slots[k] is None:
@@ -174,7 +173,16 @@ def add(mac, pick=None):
             a, b = pick(mac, used) if pick is not None else ("turnwhite", "turnblue")
             slots[k] = [mac, a, b]
         else:
+            old = slots[k][0]
+            if old in macs:
+                macs.remove(old)
             slots[k] = [mac, slots[k][1], slots[k][2]]
+        macs.append(mac)
+    else:
+        cap = max_splats()
+        if len(macs) >= cap:
+            raise ValueError("already holding %d Splats" % cap)
+        macs.append(mac)
     _write(macs, slots)
     return macs
 

@@ -933,7 +933,7 @@ def _boot_pairing(enow):
         import ubluetooth
         ubluetooth.BLE().active(True)
         import splatpair
-        _pair_ctl = splatpair.SplatPairing(macs, enow, leds, buz)
+        _pair_ctl = splatpair.SplatPairing(macs, enow, leds, buz, motor=motor)
         print("  Splat pairing: %d Splat(s) %s" % (_pair_ctl.count, _pair_ctl.macs))
     except Exception as e:
         print("  [WARN] Splat pairing unavailable, booting unpaired:")
@@ -956,7 +956,7 @@ def _pair_card(cmd, enow):
     global _pair_ctl
     import splatpair
     if _pair_ctl is None:
-        _pair_ctl = splatpair.SplatPairing([], enow, leds, buz)
+        _pair_ctl = splatpair.SplatPairing([], enow, leds, buz, motor=motor)
     if _pair_ctl.on_card(cmd) == "reset":
         time.sleep_ms(300)           # let the confirm tone finish
         machine.reset()

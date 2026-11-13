@@ -656,7 +656,9 @@ def run_lobby(net, nfc, button_down, leds, buz):
                 return "start"
             if act == "refuse":
                 print("  Splat host: no players yet; not starting")
-                buz.reject()
+                buz.error()
+                if net.ctl is not None:
+                    net.ctl.buzz(2)
             net.screen.draw(leds, net.ctl, "lobby", now, hold, count=net.lobby_players(),
                             lobby_rgb=splatpair.WAND_RGB[net.ident])
             time.sleep_ms(1)

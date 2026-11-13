@@ -21,6 +21,7 @@ M5Stack) plus static web tools. Small team, weekly iteration.
   at import, whether or not the code runs) to a module imported ahead of the radio has taken devices
   down twice. Diagnostics go in a separate module, imported lazily after bring-up. See
   [Bag3/Code/BroadcastCode/docs_and_design/2026-09-23-ap-memory-order.md](Bag3/Code/BroadcastCode/docs_and_design/2026-09-23-ap-memory-order.md).
+  Exception: the wand's `boot.py` may light the NeoPixel for power-on feedback; nothing else.
 
 ## Branches
 

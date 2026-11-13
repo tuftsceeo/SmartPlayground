@@ -11,6 +11,7 @@ code:
 open:
   - What in v1.29.0 breaks 4 Splats in the full wand_main boot (bench_diff.py STEP 0 gets 4 of 4 on v1.29.0).
   - Flash COM11 to v1.28.0.
+  - Decision 2026-11-13: Splat hosts require v1.28.0; fixing v1.29 is out of scope. `lib/splat_host.py` `_check_firmware` flags a host on any other version ([WARN] line, red X x3, falling tone) and keeps running.
   - 2026-11-11-simple-mode-large-changes.md records the 4-of-4 bench wand as v1.29.0; not re-checked.
 keywords: [v1.29.0, v1.28.0, firmware, -519, -521, BLE, Splat host, 4 Splats, ENOMEM]
 ---
