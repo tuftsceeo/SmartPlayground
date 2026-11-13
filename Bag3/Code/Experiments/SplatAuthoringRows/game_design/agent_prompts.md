@@ -1,7 +1,8 @@
 # Agent prompts: known issues and built-in games
 
 Prompts for fresh agents. Each is self-contained; paste one per session. All work starts from
-branch `ccr-e1ed35ff-24apiv`, which holds the spec this file refers to.
+branch `ccr-e1ed35ff-24apiv`, which holds the spec this file refers to. Run prompt 0 first and
+merge its branch; the game prompts (1-7) build on it.
 
 Source documents (in this folder):
 
@@ -12,41 +13,52 @@ Source documents (in this folder):
 
 ---
 
-## Prompt 0: record firmware gaps and game ideas as known issues
+## Prompt 0: fill the system gaps the built-in games need
+
+Run this first; the game prompts come after it is merged into the branch.
 
 ```
 Repo: SmartPlayground. Start from branch ccr-e1ed35ff-24apiv; commit on your session's branch and
-push there. Read AGENTS.md, then Bag3/Code/known_issues/README.md and one existing note for the
-front matter format.
+push there. No PR.
 
-Task: record, do not implement. Turn the system asks in
-Bag3/Code/Experiments/SplatAuthoringRows/game_design/builtin_games_spec.md ("New system asks")
-and playground_game_examples.md ("System asks") into known-issue notes, plus one note for game
-ideas.
+Read first: AGENTS.md; Bag3/Code/known_issues/README.md;
+Bag3/Code/known_issues/2026-11-13-game-system-gaps.md (the gap list, with IDs and evidence);
+Bag3/Code/Experiments/SplatAuthoringRows/README.md; and in
+Bag3/Code/Experiments/SplatAuthoringRows/game_design/builtin_games_spec.md the sections
+"3. Move Mixer" and "New system asks".
 
-1. Group the asks into a few notes by component, not one per ask:
-   - Icon display: D1 (card-order/set game logic), D2 (`dance` message), D3 (display station mode),
-     M1 (display host/peripheral roles).
-   - Splat host: M2 (host federation for 8-12 Splats), A1 (who stomped a Splat).
-   - Wand: A2 (stillness check), A3 (team totals via a leader wand), A4 (peer token pass),
-     A5 (rhythm relay latency), A6 (wand proximity; not supported), K2 (vibration motor or buzzer
-     only).
-   - Speaker station: S1 (card reader or wand control), S2 (layered sounds).
-   - Cross-cutting: M3 (targeted messages), which conflicts with the decision that icon displays
-     and Splat station mode never filter by sender or target. Record it as a decision needed.
-   - Knowledge: K1 (mobility guidance missing from ChatBroadcast knowledge/accessibility.md).
-2. For each ask give: one-sentence need, the games that need it, current status (verified,
-   unverified, not supported), and the code paths involved. Before writing a status as verified,
-   check the code with grep; otherwise write "unverified".
-3. One more note, "game ideas", listing the games in playground_game_examples.md not chosen as
-   built-ins, each with the ask that blocks it (or "design only"), and the bonus games B1 Habitat
-   Hop and B2 Stepping Song.
-4. Use the front matter of existing notes (title, date, status, devices, components, code, open,
-   keywords). Add one index row per note to known_issues/README.md.
-5. Do not re-test or fix anything. Do not edit device code.
+Fill only these gaps, which the seven built-in games need:
+1. D3, icon display station mode. With no game running, the display obeys from any wand:
+   {"type": "show", "icon": <name>}, {"type": "show", "px": [[row, col, [r, g, b]], ...]},
+   {"type": "show", "text": <short string>}. No sender or target filtering. Unknown icon names
+   print [ERR] and are ignored, not silently dropped. Model it on the Splat station mode in
+   Experiments/SplatAuthoringRows/wand/lib/splat_host.py (_station_cmd) and use
+   Stations/IconDisplay/lib/draw16.py and icon_store for drawing.
+2. D2, the `dance` message: {"type": "dance", "s": [move names]}. The display loops the dance one
+   step every 2 s, holds each for at least 2 full loops, and lets the newest waiting dance replace
+   older waiting ones. No sender data. Build it on D3 if that keeps it simple; otherwise as a
+   display game (play(nfc, panel, enow), as games/scoreboard.py).
+3. K1 and K2, knowledge drafts: a mobility section for ChatBroadcast knowledge/accessibility.md,
+   and a fix to its vibration advice (wands have a buzzer and lights, no vibration). Write them as
+   a patch file in the experiment's knowledge/ folder; do not edit the live file.
 
-Report under 150 words: notes created, asks you marked verified (with the evidence), and any ask
-that duplicates an existing known issue.
+Where: copy the files you change from Stations/IconDisplay/ into
+Experiments/SplatAuthoringRows/display/ (same layout) and edit the copies. Do not edit
+Stations/IconDisplay/, Wand Module/ or ChatBroadcast. Record the copy-back as a promotion step in
+the experiment README.
+
+Do not work on M1, M2, M3, S1, S2, A1-A6: they are recorded but out of scope. M3 needs the
+user's decision.
+
+Device rules (AGENTS.md): no allocation ahead of radio bring-up, so lazy-import anything new
+after bring-up; py_compile is the only off-device check; no hardware, do not open serial ports.
+Add unit tests in the experiment's tests/ with the display stubbed, as tests/test_wiring.py does.
+
+When done, update the gap note's status rows for D2, D3, K1, K2 to "built in experiment, hardware
+untested", with file paths.
+
+Report under 150 words: files changed, test results, and any part of D2/D3 you could not do as
+specified, with the reason.
 ```
 
 ---
@@ -62,7 +74,8 @@ push there. No PR.
 Read first:
 - AGENTS.md (device rules: no allocation before radio bring-up, py_compile is the only off-device
   check, f-strings fine, no type annotations, time.sleep_ms(1) in serial loops).
-- Bag3/Code/known_issues/README.md, and any note whose keywords match your game.
+- Bag3/Code/known_issues/README.md, 2026-11-13-game-system-gaps.md, and any note whose keywords
+  match your game.
 - Bag3/Code/Experiments/SplatAuthoringRows/README.md (the experiment and its rules).
 - Bag3/Code/Experiments/SplatAuthoringRows/game_design/builtin_games_spec.md: "Scope and rules",
   "Shared access rules", the shared signal set, the color/shape/note table, your game's section,
@@ -126,13 +139,11 @@ Build "2. Simon Stomp" from builtin_games_spec.md as wand/games/simonstomp.py.
 ```
 [shared brief]
 
-Build "3. Move Mixer" from builtin_games_spec.md: the wand game as wand/games/movemixer.py and a
-display listener as display/games/movemixer.py.
+Build "3. Move Mixer" from builtin_games_spec.md as wand/games/movemixer.py.
 - Wand: no motion checks; build, preview, change and share as the spec says. The share message is
   {"type": "dance", "s": [...]} and carries no sender data.
-- Display: play(nfc, panel, enow), as Bag3/Code/Stations/IconDisplay/games/scoreboard.py; read it
-  and lib/draw16.py first. Hold each dance for two full loops; the newest waiting dance replaces
-  older waiting ones.
+- Display: use the `dance` support built by prompt 0 (gap D2, in the experiment's display/). Do
+  not write a second display listener.
 - Check the six card names (move_jump, move_spin, move_wave, move_freeze, move_twice, share)
   against every game and control tag in wand/lib/game_tags.py; rename on a clash and update the
   spec.
