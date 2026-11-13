@@ -73,16 +73,15 @@ Cells, in order:
 4. egg: a whole white egg, upright.
 5. butter: a yellow stick of butter, partly unwrapped.
 6. sugar: a small pile of white sugar cubes (three cubes).
-7. milk: a milk carton.
-8. fried_egg: a fried egg seen from above, white with a yellow yolk.
-9. pancakes: a stack of three pancakes with butter on top.
-10. pasta: a bowl of spaghetti with red sauce.
-11. cupcake: a cupcake with pink frosting.
-12. pizza: a slice of pizza with red pepperoni circles.
-13. flame: a cooking flame, orange and yellow.
-14. pie: a whole round pie with a lattice top, seen from slightly above.
-15. rice: a bowl of white rice.
-16. corn: an ear of yellow corn with green husks.
+7. fried_egg: a fried egg seen from above, white with a yellow yolk.
+8. pancakes: a stack of three pancakes with butter on top.
+9. pasta: a bowl of spaghetti with red sauce.
+10. cupcake: a cupcake with pink frosting.
+11. flame: a cooking flame, orange and yellow.
+12. pie: a whole round pie with a lattice top, seen from slightly above.
+13. rice: a bowl of white rice.
+14. corn: an ear of yellow corn with green husks.
+Match the style of the existing milk and pizza icons in the set: same simplicity and palette.
 ```
 
 ### Sheet 3: foods from several cultures (P2)
@@ -91,16 +90,10 @@ Cells, in order:
 Cells, in order:
 1. tamal: a Mexican/Central American tamal in an open corn husk, the yellow masa visible.
 2. masa: a round ball of yellow corn dough.
-3. pupusa: a round, thick, golden Salvadoran pupusa, lightly browned spots.
-4. tortilla: a stack of corn tortillas.
-5. beans: a small bowl of brown beans.
-6. apple: a red apple with a leaf.
-7. bread: a loaf of bread.
-8. soup: a bowl of soup with steam (steam as two thick wavy shapes).
-9. banana: a yellow banana.
-10. orange: an orange with a leaf.
-11. carrot: an orange carrot with green top.
-12. watermelon: a watermelon slice.
+3. tortilla: a stack of corn tortillas.
+4. bread: a loaf of bread.
+5. soup: a bowl of soup with steam (steam as two thick wavy shapes).
+6. carrot: an orange carrot with green top.
 Show foods as the people who make them do; no caricature.
 ```
 
@@ -165,7 +158,6 @@ Cells, in order:
 13. play: a thick play triangle (pointing right) in a circle.
 14. pause: two thick pause bars in a circle.
 15. diamond: a solid diamond shape (rhombus).
-16. cloud: a single white cloud.
 ```
 
 ### Sheet 7: habitats and story (P3)
