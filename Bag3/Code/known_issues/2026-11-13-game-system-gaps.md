@@ -18,7 +18,9 @@ open:
   - M1 display roles and M2 Splat host federation (needed by bonus games only).
   - S1/S2 speaker station does not exist as a working device.
   - K1 mobility guidance missing from accessibility.md.
-keywords: [game design, built-in games, icon display, station mode, Splat host, federation, speaker,
+  - H1/H2 the icon display has no buzzer or button (hardware asks).
+  - R1-R3 radio range, congestion and host audio vs BLE are unverified.
+keywords: [game design, buzzer, button, range, congestion, drops, built-in games, icon display, station mode, Splat host, federation, speaker,
   accessibility, mobility, vibration, team totals, targeted messages, dance, Move Mixer]
 ---
 
@@ -40,6 +42,9 @@ Status words: **verified** (checked in code, evidence given), **unverified** (no
 | D3 | Display station mode: with no game running, obey `show` messages (named icon, a few pixels, short text) from any wand | Move Mixer, Melody (with a speaker) | Not built. Mirrors the experiment's Splat station mode. Drawing primitives exist (`lib/draw16.py`); `start_game` over ESP-NOW is handled (`IconDisplay/main.py:549`). |
 | M1 | Display roles: a host display runs a game, peripheral displays show what it sends | Habitat Hop (bonus) | Not built. Depends on M3. |
 | — | No buzzer and no accelerometer on the display | All display games | Verified (`IconDisplay/main.py:19`). Every display event is silent; sound must come from wands. |
+| H1 | A buzzer or small speaker on the icon display | Every display game; Code Breakers and Picture Moves access (blind and low-vision children get nothing from a silent display) | Hardware ask. None fitted: `IconDisplay/main.py:19`; no audio code in the tree. |
+| H2 | One or more buttons on the icon display | Turn-taking and confirm/next at a display without a card (Code Breakers "submit", Picture Moves "next") | Hardware ask. None fitted: the only pins used are the NeoPixel data pin and I2C for the NFC reader. |
+| C1 | Icons the games name but the set lacks: square, circle, triangle, chest, flour | Shape Scramble, Code Breakers, Recipe Mix-Up | Verified missing from `Stations/IconDisplay/icons/`. Content, not firmware: add the icon and run `sync_icons.py`. |
 
 ## Splat host
 
@@ -58,6 +63,16 @@ Status words: **verified** (checked in code, evidence given), **unverified** (no
 | A5 | A leader's shake rhythm reaches all wands fast enough to feel in time | Wizard Beat | Unverified; ESP-NOW broadcast delay not measured for this use. |
 | A6 | Wand-to-wand proximity | Little Train, Pass the Secret (dropped) | Not supported as a game API. `espnow_manager.get_rssi()` exists; accuracy as a distance is unverified. |
 | K2 | Vibration for touch feedback | Echo Beat, Magic Freeze, Hot Potato | Not supported: no vibration or haptic code in `Wand Module/lib` or `main.py`. Buzzer and lights only. `accessibility.md` assumes vibration. |
+
+## Radio and hardware robustness
+
+| ID | Need | Games | Status |
+|---|---|---|---|
+| R1 | ESP-NOW range across a playground, outdoors and through children | Move Mixer, Habitat Hop, Color Says | Unverified. |
+| R2 | ESP-NOW with a full class (about 25 wands) broadcasting | Move Mixer sharing, team totals, Wizard Beat | Unverified. |
+| R3 | A Splat host playing buzzer music while holding 4 Splat BLE links | Splat Chairs | Unverified: melody playback may delay or drop links. |
+| — | Splats under stomping and jumping | All Splat games | Designed for it (user, 2026-11-13). |
+| — | Wands under running and big shakes | All wand games | Verified (user, 2026-11-13). Drops: most survive; not all. |
 
 ## Speaker station
 
