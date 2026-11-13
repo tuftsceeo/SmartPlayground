@@ -44,7 +44,7 @@ Status words: **verified** (checked in code, evidence given), **unverified** (no
 | — | No buzzer and no accelerometer on the display | All display games | Verified (`IconDisplay/main.py:19`). Every display event is silent; sound must come from wands. |
 | H1 | A buzzer or small speaker on the icon display | Every display game; Code Breakers and Picture Moves access (blind and low-vision children get nothing from a silent display) | Hardware ask. None fitted: `IconDisplay/main.py:19`; no audio code in the tree. |
 | H2 | One or more buttons on the icon display | Turn-taking and confirm/next at a display without a card (Code Breakers "submit", Picture Moves "next") | Hardware ask. None fitted: the only pins used are the NeoPixel data pin and I2C for the NFC reader. |
-| C1 | Icons the games name but the set lacks: square, circle, triangle, chest, flour | Shape Scramble, Code Breakers, Recipe Mix-Up | Verified missing from `Stations/IconDisplay/icons/`. Content, not firmware: add the icon and run `sync_icons.py`. |
+| C1 | Icons games need but the sets lack, 5x5 and 16x16, including 16x16 versions of the cooking ingredients and dishes | Built-in games (P1), cooking, backlog and future games | Verified missing; full list and priorities in `Experiments/SplatAuthoringRows/game_design/icon_needs.md`. Content, not firmware: add the icon, then run `sync_icons.py` (16x16) or edit `leds.py` and `shapes5.js` (5x5). |
 
 ## Splat host
 
