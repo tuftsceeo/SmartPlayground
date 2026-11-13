@@ -57,11 +57,15 @@ port), `knowledge/` (drafts for ChatBroadcast), `js/` (draft send-time check), `
 - Hardware proof on MicroPython v1.28.0 (type 2 with 2 Splats; host tag game with 4 Splats; station mode
   with two hosts). The v1.29.0 firmware issue is open (`known_issues/2026-11-12-splat-host-v129-firmware.md`).
 - Prompt eval (above).
-- Draft wiring: `ChatBroadcast/js/app.js` and `chat.js` read `wand_splats`, which becomes `splats`;
-  `buildRequest.js` knowledge paths gain `game_types.md` and `splat_host_games.md`.
-- `knowledge/splat_host_games.md` is over its 120-line target.
-- ChatBroadcast `lobby_games.md` examples (Splat Race, Pass the Glow) use lobby `net.splat` and would be
-  refused by the new check; replace them with type 2 or type 9 examples on promotion.
+- Draft wiring: `js/wiring/wiring.patch` (apply with `patch -p1` from `ChatBroadcast/`) changes
+  `app.js`, `chat.js`, `buildRequest.js` and `tools/chat_request_test.mjs`: `wand_splats` becomes `splats`,
+  `SHARED_KNOWLEDGE` gains `game_types.md` and swaps `lobby_games.md` for `splat_host_games.md`. Checked on a
+  scratch copy with the draft knowledge files: `chat_request_test.mjs` passes (20 checks). Not patched, still
+  naming `lobby_games`/pooled calls: `tools/splat_game_check_test.mjs`, `tools/prompt_eval.mjs`,
+  `tools/devtests/lobbysim.py`, `tools/devtests/test_lobby_games.py`, `js/hardware.js` `isLobbyGame`.
+- `knowledge/splat_host_games.md` is 163 lines (was 178); the Splat Tag example is about 85 of them.
+- Deleting `lobby_games.md` at promotion replaces its refused examples (Splat Race, Pass the Glow) with
+  Color Pads (`wand_type2.md`, type 2) and Splat Tag (`splat_host_games.md`, type 9).
 - A player wand in a host game still reports its paired-Splat count at join; the lobby accepts it and
   no game path uses it.
 - A game slug `splat` could collide with the new `splat` message type; reserve both names in `platform.md`.
