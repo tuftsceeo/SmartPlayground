@@ -49,8 +49,25 @@ Only `Bag3/Code/Wand Module/` changes on the wand side. No Bag1 or Bag2 edits.
 ### W2: SplatCompanion to Experiments
 Move it with `git mv` and add a README. Update the AGENTS.md references. Drop the Companion comparisons from `test_wand_copies.py`.
 
-### W3: Flash bundle
+### W3: Flash bundle (done, `65728616`)
 Regenerate `flash_bundle/` from the current Wand Module. It must include `lib/splat_host.py` and the new `boot.py`.
+
+### W3b: Simulator and practice window for the new modes
+The Simulator was not changed in W1. Its checks are syntax plus a browser run; the old pytest suite stays stale.
+1. **Resync the vendor copies.** Run `Simulator/tools/sync_sources.py`, then `--check`. Five files have drifted: `lobby_game`, `pairing`, `splat_api`, `splat_host` and `splatpair`. Remove the deleted `games/lobbytest.py`, `relaycolor.py` and `splattag.py` from its manifest.
+2. **Port the declaration rules to `py/runtime.py`.** Copy `_splat_limits` / `_splats_local` from `Wand Module/main.py`, and make `_splat_fields` report a plain lobby by `PLAYERS_MIN`, not `SPLATS_MIN`.
+3. **Run solo games.** For a `SPLATS_LOCAL` game, pass `splats=ctl.game_handle()` to `play()`. Refuse to start when fewer than `SPLATS_LOCAL` Splats are connected, as `main.py` does.
+4. **Switch the settings key.** `sim-room.js` and `js/panels/wands.js` still read `wand_splats`; ChatBroadcast now sends `splats` (1–2, solo). Give a solo game's wand that many Splats.
+5. **Update headless mode (`js/headless.js`).** It needs to cover the solo and plain-lobby shapes, not only `SPLATS_MIN` lobby games. `ChatBroadcast/tools/prompt_eval.mjs` depends on it.
+6. **Host screen.** Show pair colors, missing slots and the new slot policy, and read `caps.splat_host`.
+7. **Browser check.**
+   - `colorpads` (solo, 2 Splats).
+   - A plain `PLAYERS_MIN` lobby with 2 wands.
+   - `host_splattag` with a host holding 4 Splats: take one offline, tap a new Splat (replaces the missing one), then a fifth with all four connected (refused).
+
+### W3c: ChatBroadcast follow-ups
+- Rewrite the 13 stale cases in `tools/splat_game_check_test.mjs` to the new rules. The knowledge-example case should read `knowledge/splat_host_games.md`.
+- `js/gameName.js` keeps `lobbytest` / `splattag` / `relaycolor` as reserved names. That is harmless; drop them only if the list is tidied.
 
 ### W4: Hardware bench (the user runs it, or an agent does with the user's OK under `HARDWARE_PROTOCOL.md`)
 - Host boot with 4 Splats.
@@ -62,7 +79,6 @@ Regenerate `flash_bundle/` from the current Wand Module. It must include `lib/sp
 Debug what turns up, then record the v1.28 numbers in the known-issue note.
 
 ### Later (after a working draft)
-- Simulator vendor resync and UI.
 - A test suite built on the instrumented prototype.
 - Station mode.
 - The SplatAuthoringRows game-design handoff (`game_design/HANDOFF.md`).
@@ -73,7 +89,7 @@ Open design questions there go to the user.
 - `devtests/boot_wand_lobby_game.py`: the `lead` scenario hangs in the lobby (`SimError` at 60 s). It hangs the same way at HEAD.
 - `devtests/boot_wand_idle.py` and `boot_wand_pairing.py`: they test the old drop/unpair behaviour.
 - `devtests/test_wand_copies.py`: it compares against the SplatCompanion copies.
-- `ChatBroadcast/tools/splat_game_check_test.mjs`: 15 cases fail. They expect the fork's old rule that SPLATS_MIN alone means a plain lobby; the checker now requires PLAYERS_MIN alone. Their knowledge-example case needs updating too.
+- `ChatBroadcast/tools/splat_game_check_test.mjs`: 13 cases fail (W3c). They expect the fork's old rule that SPLATS_MIN alone means a plain lobby; the checker now requires PLAYERS_MIN alone. Their knowledge-example case needs updating too.
 - Simulator pytest: 6 failures, and 5 vendor files have drifted.
 - `check_tags.mjs` fails on `nfc_sound`, and `sync_icons --station` reports `ready.py` drift. Both are outside this work.
 
