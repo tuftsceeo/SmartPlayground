@@ -9,7 +9,9 @@ game must not also start something on the display.
 
   GAME_TAGS    -- names of display game tags (no "stop", no "getcode").
   CONTROL_TAGS -- idle-mode controls the display answers to.
-  EXIT_TAGS    -- every tag that exits a running game (GAME_TAGS | {"stop"}).
+  EXAMPLE_TAGS -- built-in example games in games/ (copied to /games/<slug>.py,
+                  found at runtime, so not in main.py's GAME_MODULES).
+  EXIT_TAGS    -- every tag that exits a running game (GAME_TAGS | EXAMPLE_TAGS | {"stop"}).
   exit_tags_excluding(tag) -- EXIT_TAGS without one game's own entry tag.
 
 main.py checks GAME_TAGS against its own GAME_MODULES at boot and prints a
@@ -23,7 +25,12 @@ GAME_TAGS = {
 
 CONTROL_TAGS = {"stop", "getcode"}
 
-EXIT_TAGS = GAME_TAGS | {"stop"}
+EXAMPLE_TAGS = {
+    "picturemoves",
+    "codebreakers",
+}
+
+EXIT_TAGS = GAME_TAGS | EXAMPLE_TAGS | {"stop"}
 
 
 def exit_tags_excluding(game_tag):

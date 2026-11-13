@@ -2,7 +2,7 @@
  * manifest.js — Bag3 wand (Mock Wand) file list for tools/deploy.py --type wand.
  * Same shape as the Box/Dial manifest.js. Only what is listed here ships.
  *
- * Not shipped (tests / bench only): games/host_*.py, games/colorpads.py, goalrace.py, splatecho.py, jumpin.py, import_bench.py,
+ * Not shipped (tests / bench only): games/host_lobbytest.py, host_relaycolor.py, host_splattag.py, games/colorpads.py, goalrace.py, splatecho.py, jumpin.py, import_bench.py,
  * utilities/. Add a new example game here or it will not reach the wands.
  * main.py is compiled by deploy.py to /wand_main.mpy plus a stub /main.py.
  */
@@ -27,7 +27,14 @@ export const WAND_FILES = [
     { path: 'shake_rainbow.py', remotePath: '/shake_rainbow.py' },  // Shake Rainbow: shake to climb through rainbow colors
     { path: 'simpleicecream.py', remotePath: '/simpleicecream.py' },  // Simple Ice Cream: count scoops with the button while upright
     { path: 'sound.py', remotePath: '/sound.py' },  // Bell Choir: random note per wand, hold the button to ring it
-    { path: 'target.py', remotePath: '/target.py' },  // Stores the MAC of the scoreboard/hub that receives this wand's ESP-NOW results
+    { path: 'target.py', remotePath: '/target.py' },
+    // Built-in examples (game_design/builtin_games_spec.md): found in /games at runtime, tags in lib/game_tags.py EXAMPLE_TAGS
+    { path: 'games/echobeat.py', remotePath: '/games/echobeat.py' },  // Echo Beat: shake back a buzzed rhythm of short and long beats
+    { path: 'games/simonstomp.py', remotePath: '/games/simonstomp.py' },  // Simon Stomp: solo wand + 2 Splats, stomp the growing pattern
+    { path: 'games/movemixer.py', remotePath: '/games/movemixer.py' },  // Move Mixer: build a dance from move cards, share it to the icon display
+    { path: 'games/colorsays.py', remotePath: '/games/colorsays.py' },  // Color Says: the caller wand's color card shows on every wand
+    { path: 'games/picturemoves.py', remotePath: '/games/picturemoves.py' },  // Picture Moves (wand half): chime when the display's animal changes
+    { path: 'games/host_patternstomp.py', remotePath: '/games/host_patternstomp.py' },  // Pattern Stomp: Splat host + 4 Splats, group stomps the pattern  // Stores the MAC of the scoreboard/hub that receives this wand's ESP-NOW results
     // lib (espnow_code + game_store = Box/Dial game pull)
     { path: 'lib/actions.py', remotePath: '/lib/actions.py' },  // Action definitions, resource mapping and action-chain execution
     { path: 'lib/battery.py', remotePath: '/lib/battery.py' },  // Shows battery level on the LEDs
@@ -48,7 +55,8 @@ export const WAND_FILES = [
     { path: 'lib/opt3002.py', remotePath: '/lib/opt3002.py' },  // OPT3002 ambient light sensor driver
     { path: 'lib/pairing.py', remotePath: '/lib/pairing.py' },  // Paired-Splat list stored in /pairing.json
     { path: 'lib/pn532.py', remotePath: '/lib/pn532.py' },  // PN532 NFC reader/writer driver (I2C 0x24)
-    { path: 'lib/power_led.py', remotePath: '/lib/power_led.py' },  // Power/status LED on GPIO 2
+    { path: 'lib/power_led.py', remotePath: '/lib/power_led.py' },
+    { path: 'lib/signals.py', remotePath: '/lib/signals.py' },  // Shared turn/right/wrong/level-up/win cues for the built-in examples  // Power/status LED on GPIO 2
     { path: 'lib/pwire.py', remotePath: '/lib/pwire.py' },  // ESP-NOW unicast helpers shared by splatpair and lobby_game
     { path: 'lib/splat_api.py', remotePath: '/lib/splat_api.py' },  // The splat object games receive (SplatGroup)
     { path: 'lib/splat_hub.py', remotePath: '/lib/splat_hub.py' },  // BLE links to one or more Splats on one radio

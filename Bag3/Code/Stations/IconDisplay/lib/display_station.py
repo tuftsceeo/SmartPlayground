@@ -83,6 +83,8 @@ class Station:
         self._step_at = 0
         self._beat = -1
         self._waiting = None     # newest dance not yet shown
+        self._moves = None       # move names of the dance showing
+        self._waiting_moves = None
         self._last_share = 0
 
     # ── messages ──
@@ -134,6 +136,8 @@ class Station:
         self._mode = "show"
         self._dance = None
         self._waiting = None
+        self._moves = None
+        self._waiting_moves = None
         self._since = time.ticks_ms()
         panel.set_intensity(INTENSITY)
         draw16.show(panel)
@@ -144,6 +148,11 @@ class Station:
         if not isinstance(moves, list) or not moves:
             print("  [ERR] station dance: s must be a non-empty list of moves")
             return False
+        # A wand sends each share a few times (broadcasts are not acked):
+        # a dance identical to the one showing or waiting is a repeat.
+        if (self._mode == "dance" and moves == self._moves) or moves == self._waiting_moves:
+            self._last_share = time.ticks_ms()
+            return True
         steps = []
         cache = {}
         full = bytearray(768)
@@ -161,6 +170,7 @@ class Station:
         if not steps:
             return False
         self._waiting = steps
+        self._waiting_moves = moves
         self._last_share = time.ticks_ms()
         if self._mode != "dance":
             self._start_waiting()
@@ -168,7 +178,9 @@ class Station:
 
     def _start_waiting(self):
         self._dance = self._waiting
+        self._moves = self._waiting_moves
         self._waiting = None
+        self._waiting_moves = None
         self._dance_n = len(self._dance)
         self._mode = "dance"
         self._step = 0

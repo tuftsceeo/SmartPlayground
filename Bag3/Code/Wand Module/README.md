@@ -282,9 +282,28 @@ are the `pw_` messages of SPEC section 8.
 
 Built-in host games, in `games/`: `host_splattag.py` (the host lights a random Splat in a player's color, the first press
 scores for that player; the template shape), `host_relaycolor.py` (a color passes from wand to wand) and
-`host_lobbytest.py` (a press lights the next Splat in the presser's identity color). They are in `GAME_MODULES` and
-`game_tags.py` like any built-in game; each must be on every participating wand, and its card reads its tag
-(`host_splattag`, `host_relaycolor`, `host_lobbytest`).
+`host_lobbytest.py` (a press lights the next Splat in the presser's identity color). Like everything in `games/`, they
+are copied to `/games/<slug>.py` and found at runtime the way a pulled game is (not in `GAME_MODULES`); each must be on
+every participating wand, and its card reads its file name (`host_splattag`, `host_relaycolor`, `host_lobbytest`).
+
+### Built-in examples (`games/`)
+
+The seven built-in example games (`Experiments/SplatAuthoringRows/game_design/builtin_games_spec.md`), shipped by
+`manifest.js` to `/games/<slug>.py`. Their tags are `EXAMPLE_TAGS` in `lib/game_tags.py` (part of `EXIT_TAGS`), not
+`GAME_TAGS`, so `main.py` (compiled before the radio prewarm runs) needs no new entries. All use `lib/signals.py`, the
+shared cue set: white pulse + `info()` = your turn, green tick + `confirm()` = right, dim amber + one soft low beep =
+wrong, sparkle + `success()` = level up, rainbow + `celebrate()` = win.
+
+| Card / file | Type | Game |
+|---|---|---|
+| `echobeat` | 1 | Shake back a buzzed rhythm of short and long beats (2-6) |
+| `simonstomp` | 2 (`SPLATS_LOCAL = 2`) | Stomp the wand's growing pattern on 2 Splats (to 8) |
+| `movemixer` | 3 | Build a dance from `move_*` cards, preview on the button, `share` to the icon display (station mode `dance`) |
+| `colorsays` | 4 | The `caller` wand taps `turnblue`/`turnyellow`/`turnpurple`/`turnwhite`; every wand shows color, shape and note |
+| `picturemoves` | 5 | Wand half: chime and shape when the icon display's animal changes (`IconDisplay/games/picturemoves.py`) |
+| `host_patternstomp` | 9 (`SPLAT_HOST`, 4 Splats) | The host lights a pattern across 4 Splats; the group stomps it back (to 10) |
+
+Code Breakers (type 8) is display-only: `Stations/IconDisplay/games/codebreakers.py`.
 
 ### Type 7: plain wand lobby (`PLAYERS_MIN` alone)
 

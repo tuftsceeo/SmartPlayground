@@ -171,6 +171,69 @@
     "beta": false
   },
   {
+    "id": "echobeat",
+    "label": "Echo Beat",
+    "bgColor": "#5fa8c9",
+    "icon": "bell",
+    "textColor": "white",
+    "description": "The wand buzzes a rhythm of short and long beats; shake it back the same way. Right adds a beat (2 to 6).",
+    "beta": true
+  },
+  {
+    "id": "simonstomp",
+    "label": "Simon Stomp",
+    "bgColor": "#6397b5",
+    "icon": "zap",
+    "textColor": "white",
+    "description": "Solo wand with 2 paired Splats: stomp the Splats in the order the wand shows. The pattern grows by one each time (up to 8).",
+    "beta": true
+  },
+  {
+    "id": "movemixer",
+    "label": "Move Mixer",
+    "bgColor": "#bf75c9",
+    "icon": "music",
+    "textColor": "white",
+    "description": "Tap move cards (move_jump, move_spin, move_wave, move_freeze, move_twice) to build a dance; press the button to preview; tap share to loop it on the icon display.",
+    "beta": true
+  },
+  {
+    "id": "colorsays",
+    "label": "Color Says",
+    "bgColor": "#93d5a8",
+    "icon": "palette",
+    "textColor": "white",
+    "description": "Simon Says with colors: the teacher's wand (caller card) taps a color card and every wand shows that color, its shape and its note. Purple square means freeze.",
+    "beta": true
+  },
+  {
+    "id": "picturemoves",
+    "label": "Picture Moves",
+    "bgColor": "#eba76f",
+    "icon": "sparkles",
+    "textColor": "white",
+    "description": "The icon display shows an animal every 15 s; everyone moves like it. Wands chime on each change. Tap the card on the display and on the wands.",
+    "beta": true
+  },
+  {
+    "id": "codebreakers",
+    "label": "Code Breakers",
+    "bgColor": "#6b9bd1",
+    "icon": "square",
+    "textColor": "white",
+    "description": "Icon display only: a group taps three animal cards in the right order. Bright dots mean right place, dim dots mean right animal, wrong place.",
+    "beta": true
+  },
+  {
+    "id": "host_patternstomp",
+    "label": "Pattern Stomp",
+    "bgColor": "#bf75c9",
+    "icon": "arrow-up",
+    "textColor": "white",
+    "description": "Splat host with 4 Splats: the host lights a pattern across the Splats and the group stomps it back in order. Each round adds a step.",
+    "beta": true
+  },
+  {
     "id": "stop",
     "label": "Stop",
     "bgColor": "#eba76f",

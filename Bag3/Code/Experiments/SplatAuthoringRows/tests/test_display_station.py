@@ -112,6 +112,15 @@ class StationTest(unittest.TestCase):
         _now[0] += display_station.DANCE_MAX_MS
         self.assertFalse(st.tick(p))
 
+    def test_repeat_share_ignored(self):
+        st, p = self.st, self.panel
+        for _ in range(3):
+            st.handle({"type": "dance", "s": ["jump", "spin"]}, p)
+        self.assertIsNone(st._waiting)
+        st.handle({"type": "dance", "s": ["wave"]}, p)
+        st.handle({"type": "dance", "s": ["wave"]}, p)
+        self.assertEqual(len(st._waiting), 1)
+
     def test_bad_dance(self):
         self.assertFalse(self.st.handle({"type": "dance", "s": []}, self.panel))
         self.assertFalse(self.st.handle({"type": "dance", "s": ["bogus"]}, self.panel))

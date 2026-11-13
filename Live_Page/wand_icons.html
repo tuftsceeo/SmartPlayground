@@ -21,6 +21,7 @@
     --cooking: #f97316;
     --melody: #0ea5e9;
     --colorquest: #16a34a;
+    --builtin: #0f766e;
     --led-off: #d9dee3;
     --led-case: #edf2f5;
     --font-ui: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -120,6 +121,7 @@
   .jump-card.cooking { border-top: 7px solid var(--cooking); }
   .jump-card.melody { border-top: 7px solid var(--melody); }
   .jump-card.colorquest { border-top: 7px solid var(--colorquest); }
+  .jump-card.builtin { border-top: 7px solid var(--builtin); }
 
   .game-section { padding: 0; margin: 0 0 30px; overflow: hidden; }
   .game-header {
@@ -133,6 +135,7 @@
   .cooking .game-header { background: linear-gradient(135deg, #c2410c, #f97316); }
   .melody .game-header { background: linear-gradient(135deg, #0369a1, #0ea5e9); }
   .colorquest .game-header { background: linear-gradient(135deg, #15803d, #22c55e); }
+  .builtin .game-header { background: linear-gradient(135deg, #0f766e, #14b8a6); }
   .game-header h2 { font-family: var(--font-display); font-size: clamp(1.8rem, 3vw, 3.1rem); line-height: 1; letter-spacing: -.035em; margin-bottom: 8px; }
   .game-header p { margin: 0; max-width: 76ch; color: rgba(255,255,255,.92); font-size: 1.02rem; }
   .game-label { align-self: start; border: 1px solid rgba(255,255,255,.55); border-radius: 999px; padding: 8px 12px; font-size: .78rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; white-space: nowrap; background: rgba(255,255,255,.14); }
@@ -152,6 +155,7 @@
   .cooking .group-title { color: var(--cooking); }
   .melody .group-title { color: var(--melody); }
   .colorquest .group-title { color: var(--colorquest); }
+  .builtin .group-title { color: var(--builtin); }
 
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(205px, 1fr)); gap: 14px; }
   .card { background: white; border: 1px solid #e6e0d5; border-radius: 22px; padding: 16px; box-shadow: 0 8px 18px rgba(35,27,13,.06); display: flex; flex-direction: column; gap: 12px; min-height: 238px; }
@@ -222,6 +226,7 @@
     <a class="jump-card cooking" href="#cooking"><strong>Cooking Recipes</strong><span>Scan ingredients, then press the button to cook.</span></a>
     <a class="jump-card melody" href="#melody"><strong>Music Maker</strong><span>Scan notes, then press the button to play back.</span></a>
     <a class="jump-card colorquest" href="#color-course"><strong>Color Course</strong><span>Beta: follow the landmark color sequence.</span></a>
+    <a class="jump-card builtin" href="#echo-beat"><strong>Bag3 built-in examples</strong><span>Beta: Echo Beat, Simon Stomp, Move Mixer, Color Says, Picture Moves, Code Breakers, Pattern Stomp.</span></a>
   </nav>
 
   <main id="root"></main>
@@ -291,6 +296,19 @@ const S = {
   COL4:      [3,8,13,18,23],
   RIGHT_COL: [4,9,14,19,24],
   X:         [0,4,6,8,12,16,18,20,24],
+  CHECK:     [9,13,15,17,21],
+  CIRCLE:    [1,2,3,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,21,22,23],
+  TRIANGLE:  [7,11,12,13,15,16,17,18,19],
+  BORDER:    [0,1,2,3,4,5,9,10,14,15,19,20,21,22,23,24],
+  HAND:      [0,2,4,5,7,9,10,11,12,13,14,15,16,17,18,19,21,22,23],
+  SNOWFLAKE: [0,2,4,6,7,8,10,11,12,13,14,16,17,18,20,22,24],
+  ARROW_UP:  [2,6,7,8,10,11,12,13,14,17,22],
+  SPIRAL:    [0,1,2,3,5,8,12,16,19,21,22,23,24],
+  DOUBLE:    [2,6,8,13,17,21,22,23,24],
+  FISH:      [2,6,7,9,10,12,13,14,16,17,19,22],
+  BIRD:      [5,6,8,9,11,12,13,17],
+  N2:        [2,3,6,9,13,17,21,22,23,24],
+  N3:        [1,2,3,4,9,12,13,14,19,21,22,23,24],
 };
 
 function rgb(c) { return `rgb(${c[0]},${c[1]},${c[2]})`; }
@@ -489,6 +507,136 @@ const GAMES = [
         { title: "Green Smile", meaning: "Green landmark completed.", frames: [shapeFrame(S.HAPPY_FACE, C.GREEN)] },
         { title: "Blue Smile", meaning: "Blue landmark completed.", frames: [shapeFrame(S.HAPPY_FACE, C.BLUE)] },
         { title: "Dark Red Frown", meaning: "Wrong landmark or wrong order. Try the current landmark again.", frames: [shapeFrame(S.SAD_FACE, C.RED_DIM)] },
+      ]},
+    ],
+  },
+  // Bag3 built-in examples (Bag3/Code/Wand Module/games/, IconDisplay/games/).
+  // Shared signals in every one: white pulse = your turn, green tick = right,
+  // dim amber = try again, sparkle = level up, rainbow = win.
+  {
+    id: "echo-beat",
+    className: "builtin",
+    title: "Echo Beat",
+    label: "beta",
+    summary: "The wand buzzes a rhythm of short and long beats. Shake it back the same way. Get it right and the next rhythm is one beat longer.",
+    how: [
+      "Tap the Echo Beat card. The wand shows the number of beats, then plays the rhythm: a short beat lights the center, a long beat lights the whole wand.",
+      "When the wand pulses white, shake the rhythm back. Each counted shake lights the wand."
+    ],
+    groups: [
+      { heading: "Play", items: [
+        { title: "Cyan Number", meaning: "How many beats in this rhythm (2 to 6).", frames: [shapeFrame(S.N2, C.CYAN), shapeFrame(S.N3, C.CYAN)] },
+        { title: "White Beats", meaning: "Listen and watch: center = short beat, whole wand = long beat.", frames: [shapeFrame(S.INNER_3x3, C.WHITE), allOn(C.WHITE)] },
+        { title: "Green Tick", meaning: "Right! The next rhythm has one more beat.", frames: [shapeFrame(S.CHECK, C.GREEN)] },
+        { title: "Dim Amber", meaning: "Not quite. The same rhythm plays again.", frames: [allOn(C.AMBER_DIM)] },
+      ]},
+    ],
+  },
+  {
+    id: "simon-stomp",
+    className: "builtin",
+    title: "Simon Stomp",
+    label: "beta",
+    summary: "One child, one wand, two Splats. The wand shows a pattern of colors; stomp the Splats in that order. The pattern grows by one each time, up to 8.",
+    how: [
+      "Pair two Splats to the wand first, then tap the Simon Stomp card. The blue Splat is the circle; the yellow Splat is the triangle.",
+      "Watch the pattern, then stomp it back when the wand pulses white. Splats can also be pressed by hand."
+    ],
+    groups: [
+      { heading: "Play", items: [
+        { title: "Blue Circle", meaning: "The blue Splat (low C).", frames: [shapeFrame(S.CIRCLE, C.BLUE)] },
+        { title: "Yellow Triangle", meaning: "The yellow Splat (E).", frames: [shapeFrame(S.TRIANGLE, C.YELLOW)] },
+        { title: "Green Tick", meaning: "Right! One more step is added.", frames: [shapeFrame(S.CHECK, C.GREEN)] },
+        { title: "Dim Amber", meaning: "Try again: the pattern plays again.", frames: [allOn(C.AMBER_DIM)] },
+      ]},
+    ],
+  },
+  {
+    id: "move-mixer",
+    className: "builtin",
+    title: "Move Mixer",
+    label: "beta",
+    summary: "Collect move cards to build a dance (up to 6 moves). Press the button to preview it. Tap Share to loop your dance on the icon display for everyone.",
+    how: [
+      "Cards: move_jump, move_spin, move_wave, move_freeze, move_twice (repeat the last move) and share. Spread them far apart.",
+      "Short press previews the dance, one move every 2 seconds; tap a move card during a preview to change that step. Hold the button to clear. Nobody is graded and the display never shows who shared."
+    ],
+    groups: [
+      { heading: "Move icons", items: [
+        { title: "Up Arrow", meaning: "Jump.", frames: [shapeFrame(S.ARROW_UP, C.WHITE)] },
+        { title: "Spiral", meaning: "Spin around.", frames: [shapeFrame(S.SPIRAL, C.WHITE)] },
+        { title: "Hand", meaning: "Wave your arms.", frames: [shapeFrame(S.HAND, C.WHITE)] },
+        { title: "Snowflake", meaning: "Freeze.", frames: [shapeFrame(S.SNOWFLAKE, C.WHITE)] },
+        { title: "Double", meaning: "Do the last move twice.", frames: [shapeFrame(S.DOUBLE, C.WHITE)] },
+        { title: "Cyan Number", meaning: "How many moves are in your dance.", frames: [shapeFrame(S.N3, C.CYAN)] },
+      ]},
+    ],
+  },
+  {
+    id: "color-says",
+    className: "builtin",
+    title: "Color Says",
+    label: "beta",
+    summary: "Simón Dice / Simon Says with colors. The teacher's wand taps a color card and every wand shows that color, its shape and its note.",
+    how: [
+      "Everyone taps the Color Says card. The teacher also taps the Caller card, then taps color cards: turnblue, turnyellow, turnpurple, turnwhite.",
+      "The default rule card: blue circle = wiggle, yellow triangle = jump, purple square = freeze, white star = spin. A soft amber after freeze is a reminder, not a score."
+    ],
+    groups: [
+      { heading: "Colors", items: [
+        { title: "Blue Circle", meaning: "Wiggle (default rule card).", frames: [shapeFrame(S.CIRCLE, C.BLUE)] },
+        { title: "Yellow Triangle", meaning: "Jump (default rule card).", frames: [shapeFrame(S.TRIANGLE, C.YELLOW)] },
+        { title: "Purple Square", meaning: "Freeze for 3 seconds.", frames: [shapeFrame(S.BORDER, C.PURPLE)] },
+        { title: "White Star", meaning: "Spin (default rule card).", frames: [shapeFrame(S.STAR, C.WHITE)] },
+        { title: "Soft Amber", meaning: "You moved during freeze. Just a reminder.", frames: [allOn(C.AMBER_DIM)] },
+      ]},
+    ],
+  },
+  {
+    id: "picture-moves",
+    className: "builtin",
+    title: "Picture Moves",
+    label: "beta",
+    summary: "The icon display shows an animal. Everyone moves like that animal until the next one appears, every 15 seconds, 8 animals in all. The wand chimes on each change.",
+    how: [
+      "Tap the Picture Moves card on the display and on each wand.",
+      "There is no wrong move. A partner can name the animal for a child who cannot see the display."
+    ],
+    groups: [
+      { heading: "Wand", items: [
+        { title: "White Dancer (breathing)", meaning: "Waiting for the display.", frames: [shapeFrame(S.DANCER1, C.WHITE)] },
+        { title: "Teal Animal or Dancer", meaning: "A new animal is up: move like it.", frames: [shapeFrame(S.FISH, C.TEAL), shapeFrame(S.BIRD, C.TEAL), shapeFrame(S.DANCER2, C.TEAL)] },
+      ]},
+    ],
+  },
+  {
+    id: "code-breakers",
+    className: "builtin",
+    title: "Code Breakers",
+    label: "beta",
+    summary: "Icon display only. A small group taps three animal cards (frog, cat, fish, bird, bunny) on the display, in order, to open the treasure.",
+    how: [
+      "After three cards, bright dots mean an animal in the right place; dim dots mean the right animal in the wrong place. The last try stays on top; the try count is at the bottom.",
+      "The display has no sound: feedback is visual only. Add raised marks to the cards for blind children and pair them with a partner."
+    ],
+    groups: [],
+  },
+  {
+    id: "pattern-stomp",
+    className: "builtin",
+    title: "Pattern Stomp",
+    label: "beta",
+    summary: "Up to four children with a Splat host wand and 4 Splats. The host lights a pattern across the Splats; the group stomps it back in order. Each round adds a step, up to 10.",
+    how: [
+      "Set up the Splat host with its 4 Splats, then every wand taps the Pattern Stomp card. Anyone may stomp; the group plays as one team.",
+      "If a Splat drops out, the game pauses until it comes back."
+    ],
+    groups: [
+      { heading: "Player wand", items: [
+        { title: "Cyan Number", meaning: "The round you are on.", frames: [shapeFrame(S.N2, C.CYAN)] },
+        { title: "White Pulse", meaning: "Watch the Splats, or your turn to stomp.", frames: [allOn(C.WHITE)] },
+        { title: "Green Tick", meaning: "The group got it right.", frames: [shapeFrame(S.CHECK, C.GREEN)] },
+        { title: "Dim Amber", meaning: "Try again: the pattern plays again.", frames: [allOn(C.AMBER_DIM)] },
       ]},
     ],
   },
