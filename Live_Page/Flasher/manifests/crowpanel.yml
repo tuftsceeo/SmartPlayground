@@ -1,0 +1,26 @@
+# CrowPanel 5.0in teacher tool (Bag3/Code/Experiments/CrowPanel5_Display) — bench only.
+# Needs the CROWPANEL_S3_5 lvgl_micropython firmware on the board first
+# (see firmware/BUILD.md there); this uploads the app files only.
+
+# Top-level lists go before sources:
+exclude_ext:
+  - .md
+  - .png
+
+# Firmware build files and bench tools that the app never imports.
+exclude_dirs:
+  - firmware
+
+exclude_files:
+  - gallery.py
+  - m0_main.py
+  - m0_stress.py
+  - m0_diag.py
+  - perf_probe.py
+  - shot.py
+  - shot_host.py
+  - make_icons.py
+
+sources:
+  - repo: Bag3/Code/Experiments/CrowPanel5_Display
+    prefix: ""

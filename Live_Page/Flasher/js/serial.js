@@ -368,6 +368,22 @@ export class SerialEngine {
     this.log("✅ Running main.py");
   }
 
+  /**
+   * EN reset by pulsing RTS, the way esptool resets a board through a USB-serial
+   * bridge's auto-reset circuit (DTR held low so the chip boots normally).
+   * Used where a soft reset (Ctrl-D) is unsafe, e.g. CrowPanel: Ctrl-D re-runs
+   * main.py over a live display, and only an EN reset frees its touch bus pins.
+   */
+  async hardReset() {
+    this.log("🔄 Hardware reset (RTS pulse) …");
+    await this.exitRawRepl();
+    this.flushBuf();
+    await this.serialPort.setSignals({ dataTerminalReady: false, requestToSend: true });
+    await this.sleep(100);
+    await this.serialPort.setSignals({ requestToSend: false });
+    this.log("✅ Reset sent — main.py runs on boot");
+  }
+
   getDirsToCreate(relPaths) {
     const dirs = new Set();
     for (const p of relPaths) {
@@ -422,7 +438,8 @@ export class SerialEngine {
       }
     }
 
-    await this.softReset();
+    if (device.reset === "rts") await this.hardReset();
+    else await this.softReset();
     this.log(`✅ ${relPaths.length} file(s) uploaded.`);
     return { success: true, total: relPaths.length };
   }

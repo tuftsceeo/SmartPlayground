@@ -65,6 +65,67 @@ export const DEVICES = [
     preserveFiles: ["settings.json"],
     hubConfig: false,
   },
+  {
+    id: "box",
+    label: "Broadcast Box",
+    icon: "box",
+    blurb: "M5Stack StickS3 + RFID 2 (UIFlow2)",
+    // File list is the firmware's own manifest.js, shared with ChatBroadcast's installer.
+    jsManifest: "Bag3/Code/TeacherTools/BroadcastBox/BBoxFirmware/manifest.js",
+    hubTypeValue: null,
+    devicePathRoot: "/flash/",
+    baudRate: 115200,
+    writeHubType: false,
+    keepOrder: true, // manifest order: main.py last
+    preserveFiles: [],
+    hubConfig: false,
+    afterUploadNote: "The USB port drops while it reboots (>20 s); that is expected.",
+  },
+  {
+    id: "dial",
+    label: "Broadcast Dial",
+    icon: "circle-dot",
+    blurb: "M5 Dial (StampS3A, UIFlow2)",
+    jsManifest: "Bag3/Code/TeacherTools/BroadcastDial/BDialFirmware/manifest.js",
+    hubTypeValue: null,
+    devicePathRoot: "/flash/",
+    baudRate: 115200,
+    writeHubType: false,
+    keepOrder: true, // manifest order: main.py last
+    preserveFiles: [],
+    hubConfig: false,
+    afterUploadNote: "The USB port drops while it reboots; that is expected.",
+  },
+  {
+    id: "icon_display",
+    label: "Icon Display",
+    icon: "grid-3x3",
+    blurb: "16x16 LED panel (XIAO ESP32-C6)",
+    manifest: "icon_display.yml",
+    hubTypeValue: "icon_display", // hubtype.txt ships in the folder
+    devicePathRoot: "/",
+    baudRate: 115200,
+    writeHubType: false,
+    preserveFiles: [],
+    hubConfig: false,
+  },
+  {
+    id: "crowpanel",
+    label: "CrowPanel (bench)",
+    icon: "monitor",
+    blurb: "CrowPanel 5in teacher tool; needs its lvgl_micropython firmware first",
+    manifest: "crowpanel.yml",
+    hubTypeValue: null,
+    devicePathRoot: "/",
+    baudRate: 115200,
+    writeHubType: false,
+    preserveFiles: [],
+    hubConfig: false,
+    // Ctrl-D re-runs main.py over a live display, and only an EN reset frees
+    // the touch bus (Bag3/Code/known_issues/2026-10-28-crowpanel5-display.md).
+    reset: "rts",
+    afterUploadNote: "If the screen or touch does not come back, press the RST button.",
+  },
 ];
 
 export function getDeviceById(id) {
