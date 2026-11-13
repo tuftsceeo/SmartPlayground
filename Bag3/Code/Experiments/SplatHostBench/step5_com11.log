@@ -1,0 +1,11 @@
+MEM start          t=   113 gcf=139104 12116/4/0 12136/10380/10240 371216/6432/3328
+MEM ble            t=   380 gcf=138960 12116/4/0 12136/10380/10240 371216/6392/6144
+MEM up 62:2F       t=  6435 gcf=138272 12116/4/0 12136/10380/10240 371216/284/244
+  [ERR] splat.readSwitches write failed
+OSError: [Errno 12] ENOMEM
+  SplatLink: connect to AB:42:00:00:B2:16 failed: -521
+  SplatLink: connect to AB:42:00:00:64:3F failed: -521
+CONNECTED 1 of 4
+MEM imports        t= 30418 gcf=138544 12116/4/0 12136/10380/10240 371216/424/228
+  SplatLink: cancel connect failed: [Errno 120] EALREADY
+MemoryError: memory allocation failed, allocating 110000 bytes
