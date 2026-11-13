@@ -1,32 +1,12 @@
-# accessibility.md changes (gaps K1, K2)
+# accessibility.md changes (gap K1)
 
 DRAFT. Applies to `BroadcastCode/ChatBroadcast/knowledge/accessibility.md`. Run
 `ChatBroadcast/tools/prompt_eval.mjs` before applying (it needs an API key).
 
-## K2: no game vibration
+## K2: no change
 
-Wands have a vibration motor, but `play()` gets no handle to it (only `main.py` uses it, for
-Splat feedback). Until games get one, the knowledge must not suggest vibration.
-
-In "Blind and low-vision children", replace:
-
-> give each kind of event its own sound (a turn, a reward, a direction), and confirm actions with
-> a short wand vibration, so the game can be followed by ear and touch.
-
-with:
-
-> give each kind of event its own sound (a turn, a reward, a direction), and confirm each action
-> with a short sound, so the game can be followed by ear. Wands cannot vibrate in a game.
-
-In "Neurodivergent and sensory-sensitive children", replace:
-
-> - Make mistakes gentle: a soft sound or a short vibration, not a scolding. Keep vibrations under
->   about 4 seconds; long and short buzzes are easy to tell apart.
-
-with:
-
-> - Make mistakes gentle: one soft, low beep and a dim light, not a scolding or flashing. Keep
->   every sound under about 4 seconds; long and short beeps are easy to tell apart.
+The wand has a vibration motor that games drive with `Pin(21)` (`knowledge/devices/wand.md`,
+"Vibration motor"), so the existing vibration advice stands.
 
 ## K1: mobility (new bullet, after "Deaf and hard-of-hearing children")
 

@@ -93,7 +93,7 @@ def play(nfc, leds, buz, accel, i2c, enow, batt=None, net=None):
             # ── host: decides everything ──
             if ev and ev[0] in ("wand_lost", "wand_back"):
                 # The group plays as one team: carry on with whoever is there.
-                print(f"  pattern stomp: {ev[0]} {ev[1]}, carrying on")
+                print("  pattern stomp: %s %s, carrying on" % (ev[0], ev[1]))
             elif ev and ev[0] == "splat_lost":
                 lost.add(ev[1])
                 state = "paused"

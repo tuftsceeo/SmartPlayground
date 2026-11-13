@@ -9,6 +9,21 @@ score, whose turn it is, a picture that matches a card.
 It has **no buzzer, no motion sensor and no button**. It may have a card reader, used only to leave
 a game.
 
+## Without a display game: station mode
+
+With no game running, every display obeys these messages from any wand game, so a wand game can
+use the display without writing a display file:
+
+| Wand game sends | Display shows |
+|---|---|
+| `enow.broadcast({"type": "show", "icon": "frog"})` | that icon (a name from the icon list), for up to 60 s |
+| `enow.broadcast({"type": "show", "text": "12"})` | up to 4 characters: digits, space, `-`, `:`, `.` |
+| `enow.broadcast({"type": "show", "px": [[row, col, [r, g, b]], ...]})` | up to 64 pixels on a dark panel |
+| `enow.broadcast({"type": "dance", "s": ["jump", "spin", "wave", "freeze"]})` | loops the dance, one move every 2 s |
+
+Never use `"show"` or `"dance"` as a game's own message type. Nothing says which wand sent a
+message. A stop, a card tap or a game on the display ends what station mode shows.
+
 ## The `play()` contract
 
 The display calls a game with exactly three arguments:

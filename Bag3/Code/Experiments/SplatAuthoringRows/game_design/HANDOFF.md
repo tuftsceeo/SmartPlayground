@@ -1,5 +1,14 @@
 # Handoff: game design, built-in games, gaps and icons
 
+> **Status 2026-11-13 (W6 session, branch `wand-splat-update`):** Prompt 0, the P1 icons and the
+> seven games are built (py_compile only, hardware untested). The games live in the main trees,
+> not the experiment: `Wand Module/games/` (+ `lib/signals.py`) and `Stations/IconDisplay/games/`.
+> `IconDisplay/main.py` now mirrors the wand's structure and game contract, and station mode is
+> `IconDisplay/lib/display_station.py`. M3 is decided (optional `"to": <mac>`; see the gap note).
+> Knowledge edits (accessibility mobility bullet, Simon Stomp example, shared signals, display
+> station mode) are committed but **`tools/prompt_eval.mjs` has not run** (no API key in the
+> session); run it before merging. Sections below describe the plan as it stood before.
+
 State as of 2026-11-13, branch `ccr-e1ed35ff-24apiv`. This line of work produced designs, notes,
 prompts and a draft icon set; **no game code and no gap fixes are built yet**, and nothing has
 been tested on hardware.

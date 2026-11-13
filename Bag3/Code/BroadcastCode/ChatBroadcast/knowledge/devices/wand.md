@@ -130,7 +130,9 @@ message from another device may be used as it arrives: `leds.fill(tuple(data["rg
     SHAPE_QUESTION SHAPE_EXCLAIM SHAPE_PLUS SHAPE_HOUSE SHAPE_TREE SHAPE_FLAME SHAPE_MOON
     SHAPE_RAINDROP SHAPE_FISH SHAPE_BIRD SHAPE_PACMAN SHAPE_INVADER SHAPE_GHOST SHAPE_CHECKERS
     SHAPE_SPIRAL SHAPE_HOURGLASS SHAPE_BULLSEYE SHAPE_PLAY SHAPE_PAUSE SHAPE_POINTER SHAPE_POWER
-    SHAPE_RECTANGLE SHAPE_FASTFORWARD SHAPE_REWIND`
+    SHAPE_RECTANGLE SHAPE_FASTFORWARD SHAPE_REWIND SHAPE_BORDER SHAPE_HAND SHAPE_SNOWFLAKE`
+  - Color-table shapes (differ in outline, not only color): `SHAPE_CIRCLE` (filled), `SHAPE_TRIANGLE`,
+    `SHAPE_BORDER` (a hollow square), `SHAPE_STAR`
   - Faces: `SHAPE_HAPPY_FACE SHAPE_SAD_FACE SHAPE_ANGRY_FACE SHAPE_NEUTRAL_FACE SHAPE_SL_FACE
     SHAPE_SLEEPY_FACE`
   - Arrows: `SHAPE_ARROW_UP SHAPE_ARROW_DN SHAPE_ARROW_L SHAPE_ARROW_R SHAPE_DIAG_L SHAPE_DIAG_R`
@@ -166,6 +168,19 @@ Animations — call every loop with the frame count; bigger `frames_per_step` is
 | `buz.start()` / `buz.stop()` | Entering / leaving a mode |
 | `buz.reject()` / `buz.warn()` / `buz.error()` | Wrong / warning / error |
 | `buz.tick()` / `buz.info()` / `buz.question()` | Small feedback sounds |
+
+### Shared signals — `import signals`
+
+The built-in games give the same light and sound for the same event, so children learn them once.
+Use these for those events instead of inventing new ones. Each pauses the game for under a second.
+
+| Call | Light + sound | Use for |
+|---|---|---|
+| `signals.turn(leds, buz)` | white pulse + `buz.info()` | your turn / watch |
+| `signals.right(leds, buz)` | green tick + `buz.confirm()` | a right answer |
+| `signals.wrong(leds, buz)` | dim amber, one soft low beep | a mistake (gentle) |
+| `signals.level_up(leds, buz)` | brief sparkle + `buz.success()` | next level |
+| `signals.win(leds, buz)` | rainbow + `buz.celebrate()` | the end or a win |
 
 ### Cards — `NfcReader`
 
@@ -286,59 +301,114 @@ part. Use one split at a time. `play()` and `off()` act on the whole Splat.
 A Splat that stands for something stays lit in its color; after a press, flash or play a note,
 then return to the color. The wand turns the Splats off itself after the game; do not.
 
-### Example: Color Pads (press the Splat that matches the wand)
+### Example: Simon Stomp (stomp the pattern the wand shows)
+
+Each color also has a shape and a note, so color is never the only signal, and the cues come from
+`signals` (see "Shared signals").
 
 ```python
 """
-Color Pads -- press the Splat that glows the same color as the wand
+Simon Stomp -- stomp your two Splats in the order the wand shows; the pattern grows by one
 """
-import time
 import random
+import time
 
 from nfc_reader import NfcReader
 from game_tags import exit_tags_excluding
-from leds import RED, BLUE, SHAPE_STAR, MINT
+from leds import BLUE, YELLOW, SHAPE_CIRCLE, SHAPE_TRIANGLE
+import signals
 
-GAME_ICON = (SHAPE_STAR, MINT)
+GAME_ICON = (SHAPE_TRIANGLE, YELLOW)
 SPLATS_LOCAL = 2
-_EXIT_TAGS = exit_tags_excluding("color_pads")
+_EXIT_TAGS = exit_tags_excluding("simonstomp")
 COMMANDS = _EXIT_TAGS
 NFC_EVERY = 10
 LOOP_MS = 20
-CHOICES = (("turnred", RED), ("turnblue", BLUE))
+
+# Shared color table: Splat i -> (Splat color, wand color, wand shape, Splat
+# note, wand buzzer Hz). Every step shows a shape and plays a note as well
+# as lighting a color.
+TABLE = (
+    ("turnblue", BLUE, SHAPE_CIRCLE, "note_c", 523),
+    ("turnyellow", YELLOW, SHAPE_TRIANGLE, "note_e", 659),
+)
+START_LEN = 2
+MAX_LEN = 8
+STEP_MS = 600
+STEP_GAP_MS = 250
+ANSWER_MS = 8000          # per press; then the pattern is shown again
+
+
+def _show_step(leds, buz, splats, i):
+    color, rgb, shape, note, hz = TABLE[i]
+    leds.show_shape(shape, rgb)
+    splats.unit(i).play([color, note])
+    buz.beep(hz, 200)
+    time.sleep_ms(STEP_MS - 200)
+    leds.off()
+
+
+def _idle_colors(splats):
+    for i in range(SPLATS_LOCAL):
+        splats.unit(i).color(TABLE[i][0])
+
+
+def _show_pattern(leds, buz, splats, pattern):
+    for i in range(SPLATS_LOCAL):
+        splats.unit(i).off()
+    time.sleep_ms(300)
+    for i in pattern:
+        _show_step(leds, buz, splats, i)
+        splats.unit(i).off()
+        time.sleep_ms(STEP_GAP_MS)
+    _idle_colors(splats)
+    signals.turn(leds, buz)
 
 
 def play(nfc, leds, buz, accel, i2c, enow, batt=None, splats=None):
     reader = NfcReader(nfc, COMMANDS)
-    n = SPLATS_LOCAL
+    pattern = [random.randrange(SPLATS_LOCAL) for _ in range(START_LEN)]
+    pos = 0
     frame = 0
-    score = 0
     try:
-        for i in range(n):
-            splats.unit(i).color(CHOICES[i][0])
-        want = random.randrange(n)
-        leds.fill(CHOICES[want][1])
+        _show_pattern(leds, buz, splats, pattern)
+        at = time.ticks_ms()
         while True:
-            msg_type, data, _mac = enow.poll()
+            msg_type, _data, _mac = enow.poll()
             if msg_type in ("stop", "start_game"):
                 return
             if frame % NFC_EVERY == 0:
                 cmd, _uid = reader.read_command(timeout=100)
                 if cmd in _EXIT_TAGS:
                     return
+            frame += 1
             ev = splats.poll()
             if ev and ev[0] == "press":
-                if ev[1] == want:
-                    score += 1
-                    splats.unit(ev[1]).play(["turnwhite", "note_c"])
-                    time.sleep_ms(200)
-                    splats.unit(ev[1]).color(CHOICES[ev[1]][0])
-                    want = random.randrange(n)
-                    leds.fill(CHOICES[want][1])
+                i = ev[1]
+                _show_step(leds, buz, splats, i)
+                splats.unit(i).color(TABLE[i][0])
+                if i == pattern[pos]:
+                    pos += 1
+                    if pos == len(pattern):
+                        signals.right(leds, buz)
+                        if len(pattern) == MAX_LEN:
+                            signals.win(leds, buz)
+                            pattern = [random.randrange(SPLATS_LOCAL) for _ in range(START_LEN)]
+                        else:
+                            pattern.append(random.randrange(SPLATS_LOCAL))
+                        pos = 0
+                        time.sleep_ms(400)
+                        _show_pattern(leds, buz, splats, pattern)
                 else:
-                    buz.beep(200, 150)
+                    signals.wrong(leds, buz)
+                    pos = 0
+                    _show_pattern(leds, buz, splats, pattern)
+                at = time.ticks_ms()
+            elif time.ticks_diff(time.ticks_ms(), at) > ANSWER_MS:
+                pos = 0
+                _show_pattern(leds, buz, splats, pattern)
+                at = time.ticks_ms()
             time.sleep_ms(LOOP_MS)
-            frame += 1
     finally:
         leds.off()
 ```

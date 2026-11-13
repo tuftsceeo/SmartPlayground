@@ -15,7 +15,6 @@ code:
   - Bag3/Code/BroadcastCode/ChatBroadcast/knowledge/accessibility.md
 open:
   - D2 dance message and D3 display station mode: built, hardware untested.
-  - K2 the wand has a motor but games get no handle to it.
   - M1 display roles and M2 Splat host federation (needed by bonus games only).
   - S1/S2 speaker station does not exist as a working device.
   - K1 mobility guidance missing from accessibility.md.
@@ -63,7 +62,7 @@ Status words: **verified** (checked in code, evidence given), **unverified** (no
 | A4 | Pass a token to a random wand in a group | Hot Potato, Secret Agents | Unverified. The type 7 wand lobby exists; random pass is not built. |
 | A5 | A leader's shake rhythm reaches all wands fast enough to feel in time | Wizard Beat | Unverified; ESP-NOW broadcast delay not measured for this use. |
 | A6 | Wand-to-wand proximity | Little Train, Pass the Secret (dropped) | Not supported as a game API. `espnow_manager.get_rssi()` exists; accuracy as a distance is unverified. |
-| K2 | Vibration for touch feedback | Echo Beat, Magic Freeze, Hot Potato | Motor fitted (`has_motor`, pin 21) and used by `main.py` for Splat feedback, but not passed to games: games have buzzer and lights only. `accessibility.md` assumes vibration. |
+| K2 | Vibration for touch feedback | Echo Beat, Magic Freeze, Hot Potato | **Available:** motor on pin 21 (`hubtype` `has_motor`); games drive it directly (`knowledge/devices/wand.md`, "Vibration motor"). The earlier "not supported" finding was wrong. |
 
 ## Radio and hardware robustness
 
@@ -93,4 +92,4 @@ Status words: **verified** (checked in code, evidence given), **unverified** (no
 | ID | Need | Status |
 |---|---|---|
 | K1 | Mobility guidance in ChatBroadcast `knowledge/accessibility.md` (press Splats by hand, zones instead of running, partner roles, seated moves) | Not present: no "mobility" or "wheelchair" in `ChatBroadcast/knowledge/*.md`. |
-| K2 | `accessibility.md` recommends "a short wand vibration" | **Corrected 2026-11-13:** the wand has a motor (`hubtype` `has_motor`, pin 21); `main.py` pulses it on Splat presses and pairing, but `play()` gets no handle to it, so a game cannot vibrate. Either pass the motor to games or make the knowledge text say buzzer and lights. |
+| K2 | `accessibility.md` recommends "a short wand vibration" | **Not a gap (corrected 2026-11-13):** the wand has a motor (`hubtype` `has_motor`, pin 21), and `knowledge/devices/wand.md` ("Vibration motor") has games drive it with `Pin(21)`. The advice stands. |
