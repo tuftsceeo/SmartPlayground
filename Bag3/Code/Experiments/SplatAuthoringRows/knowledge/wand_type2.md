@@ -17,12 +17,13 @@ return on `"stop"` / `"start_game"`, cards every `NFC_EVERY`, `time.sleep_ms(...
 
 | Member | Meaning |
 |---|---|
-| `splats.count` | Splats connected now (may be less than declared) |
+| `splats.count` | Splats connected now (at least `SPLATS_LOCAL`) |
 | `splats.unit(i)` | Splat `i`: `color(name)`, `note(name)`, `sound(name)`, `play([name, ...])`, `off()` |
 | `splats.poll()` | call every loop: `("press", i)`, `("release", i)` or `None` |
 
-`splats` may be `None`, and `count` may be below `SPLATS_LOCAL`. The game must still run: guard
-with `if splats and i < splats.count`. Use only names from the SPLAT ACTION NAMES list.
+The wand starts the game only if at least `SPLATS_LOCAL` Splats are connected, so inside `play()`
+`splats` is never `None` and `splats.count >= SPLATS_LOCAL`. No guard is needed. Use only names from
+the SPLAT ACTION NAMES list.
 
 A Splat's lights split as **inner/outer** or **left/right**: `color(name, part)` sets only that
 part. Use one split at a time. `play()` and `off()` act on the whole Splat.
@@ -63,9 +64,7 @@ CHOICES = (("turnred", RED), ("turnblue", BLUE))
 
 def play(nfc, leds, buz, accel, i2c, enow, batt=None, splats=None):
     reader = NfcReader(nfc, COMMANDS)
-    n = splats.count if splats else 0
-    if n == 0:
-        return
+    n = SPLATS_LOCAL
     frame = 0
     score = 0
     try:

@@ -1,7 +1,7 @@
 # Game authoring by row: game types, axes, and the Splat authoring plan
 
-Status: proposal, 2026-11-13. Nothing here is built. Sources read: `Wand Module/` on branch
-`wand-splat-update` (`3cb1c884`), `ChatBroadcast/knowledge/`, `ChatBroadcast/js/splat/splatGameCheck.js`.
+Status: proposal, 2026-11-13. Implemented as an unproven experiment in `Bag3/Code/Experiments/SplatAuthoringRows/` (not on hardware; Wand Module unchanged).
+Sources read: `Wand Module/` on branch `wand-splat-update` (`3cb1c884`), `ChatBroadcast/knowledge/`, `ChatBroadcast/js/splat/splatGameCheck.js`.
 
 ## Priorities
 

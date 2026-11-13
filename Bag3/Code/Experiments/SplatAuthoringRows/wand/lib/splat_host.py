@@ -213,6 +213,19 @@ def _station_cmd(ctl, data):
             u.play(names)
 
 
+PRESS_GAP_MS = 250
+
+
+def _press_due(last, i, now):
+    """True if Splat i's press may be broadcast; records the time. A held or
+    bouncing pad sends at most one splat_press per PRESS_GAP_MS."""
+    prev = last.get(i)
+    if prev is not None and time.ticks_diff(now, prev) < PRESS_GAP_MS:
+        return False
+    last[i] = now
+    return True
+
+
 def run(enow, nfc, leds, buz, get_ctl, pair_card, launch, pull, is_game, button_down=None):
     """The host's idle loop; never returns (a role change resets the wand).
 
@@ -251,6 +264,7 @@ def _loop(enow, nfc, leds, buz, get_ctl, pair_card, launch, pull, is_game,
           button_down, read_ndef_text, parse_splat_card, split_prefixed):
     screen = HostScreen()
     last_text = None
+    last_press = {}
     while True:
         now = time.ticks_ms()
         ctl = get_ctl()
@@ -258,7 +272,8 @@ def _loop(enow, nfc, leds, buz, get_ctl, pair_card, launch, pull, is_game,
             for i, ev in ctl.poll():
                 if ev == "press":
                     ctl.on_press(i)
-                    enow.broadcast({"type": "splat_press", "s": i, "c": ctl.identity})
+                    if _press_due(last_press, i, now):
+                        enow.broadcast({"type": "splat_press", "s": i, "c": ctl.identity})
             ctl.refresh_glow()
 
         mt, data, sender = enow.poll()

@@ -1,5 +1,5 @@
 /**
- * Splat action names a wand's Splats accept (net.splat(i), net.local), by category.
+ * Splat action names a wand's Splats accept (splats.unit(i), net.splat(i)), by category.
  *
  * Generated from Bag3/Code/Wand Module/lib/splat_api.py
  * (COLOR_RGB, NOTE_VALUES, ANIMAL_SOUNDS, LED_PARTS) by

@@ -1,6 +1,6 @@
 # Pattern: drive an idle Splat host (station mode)
 
-DRAFT, for game_patterns.md. Any wand game (types 1, 3-6) can drive a Splat host that is
+DRAFT, the station example for game_patterns.md (see `game_patterns_patch.md`). Any wand game (types 1, 3-6) can drive a Splat host that is
 **idle** (not running a group game). It is open and last-write-wins, like the icon display;
 every host in range obeys.
 
@@ -16,7 +16,7 @@ SPLAT ACTION NAMES list.
 The host answers a press with:
 
 ```python
-enow.broadcast({"type": "splat_press", "s": i, "c": "turnred"})   # c = host color name
+enow.broadcast({"type": "splat_press", "s": i, "c": "turnred"})   # c = the host's identity color name
 ```
 
 React to it in the ordinary loop: `msg_type, data, _mac = enow.poll()`, then
@@ -37,12 +37,7 @@ if frozen_changed:
 
 Repeat the current state about once a second so a Splat that missed it catches up.
 
-## Platform changes
+Every host in range obeys a `"splat"` message, as icon displays do; `"c"` in `splat_press` only
+says which host the press came from. A host running a type 9 group game ignores `"splat"` messages:
+the group game owns its Splats.
 
-- Reserved message types gain `"splat"` and `"splat_press"` (platform.md).
-- `[GAME_SETTINGS:]`: drop `wand_splats`. A type 2 game gives `splats` (1-2):
-  `{"splats": 2, "wands": 1}`. Keep `splat_host` for type 9: `{"splat_host": 4, "wands": 2}`.
-  Any other game: `{"wands": 2}`.
-
-Open question: when several hosts are in range, should a broadcast target one (host color in
-the message) or all?

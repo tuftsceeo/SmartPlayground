@@ -622,8 +622,15 @@ def _run_games(name, nfc, leds, buz, accel, i2c, enow, batt_ref):
             break
         if limits is not None:
             net = _enter_lobby(name, limits, wrapper, nfc, leds, buz)
-        elif local is not None and _pair_ctl is not None:
-            splats = _pair_ctl.game_handle()
+        elif local is not None:
+            splats = _pair_ctl.game_handle() if _pair_ctl is not None else None
+            have = splats.count if splats is not None else 0
+            if have < local:
+                if splats is not None:
+                    splats.close()
+                _game_load_failed(name, ValueError(
+                    "%s needs %d Splat(s), %d connected" % (name, local, have)))
+                return
         if limits is None or net is not None:
             _emit({"type": "game_start", "slug": name})
             try:

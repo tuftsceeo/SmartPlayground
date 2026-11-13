@@ -215,3 +215,14 @@ Phases 0-5 and 6 (lightweight) are done in the experiment; see `README.md` for t
 Remaining: prompt eval (needs an API key and a knowledge-path option in `prompt_eval.mjs`), replace the two
 refused lobby examples, trim `splat_host_games.md`, draft the `app.js`/`chat.js`/`buildRequest.js`
 wiring, link the experiment from the design doc, hardware check on MicroPython v1.28.0.
+
+## Status update (2026-11-13, later)
+
+- `knowledge/platform_patch.md` and `knowledge/game_patterns_patch.md` exist; the `wand_splats` to
+  `splats` settings change is in `platform_patch.md`, not `station_mode.md`.
+- `deploy.py` exists: it stages the manifest files and prints `mpremote` commands; it opens no port.
+- **Option A chosen:** a type 2 game is refused at load unless at least `SPLATS_LOCAL` Splats are
+  connected, so `splats` is never `None` in `play()`.
+- `splat_press` is limited to one per Splat per 250 ms; a host running a type 9 game ignores `splat`
+  messages.
+- Tests: `tests/test_wiring.py` covers `_run_games` and the host loop. Current status: `README.md`.
