@@ -214,7 +214,9 @@ the template) so a button held at start does not count as a press.
 
 ### Vibration motor
 
-Some teachers call this the buzzer too; it is the part you feel, not hear.
+Every Bag3 wand has a vibration motor on GPIO 21, driven as a plain pin (on/off; there is no
+driver class and no play() argument for it). It is felt, not heard, and it is **not** `buz`, the
+piezo speaker on GPIO 19 — even when a teacher calls the motor "the buzzer".
 
 ```python
 motor = Pin(21, Pin.OUT, value=0)
@@ -326,7 +328,7 @@ NFC_EVERY = 10
 LOOP_MS = 20
 
 # Shared color table: Splat i -> (Splat color, wand color, wand shape, Splat
-# note, wand buzzer Hz). Every step shows a shape and plays a note as well
+# note, wand speaker Hz). Every step shows a shape and plays a note as well
 # as lighting a color.
 TABLE = (
     ("turnblue", BLUE, SHAPE_CIRCLE, "note_c", 523),

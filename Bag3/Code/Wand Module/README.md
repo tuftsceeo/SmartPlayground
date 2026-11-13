@@ -296,7 +296,7 @@ wrong, sparkle + `success()` = level up, rainbow + `celebrate()` = win.
 
 | Card / file | Type | Game |
 |---|---|---|
-| `echobeat` | 1 | Shake back a buzzed rhythm of short and long beats (2-6) |
+| `echobeat` | 1 | Shake back a beeped rhythm of short and long beats (2-6) |
 | `simonstomp` | 2 (`SPLATS_LOCAL = 2`) | Stomp the wand's growing pattern on 2 Splats (to 8) |
 | `movemixer` | 3 | Build a dance from `move_*` cards, preview on the button, `share` to the icon display (station mode `dance`) |
 | `colorsays` | 4 | The `caller` wand taps `turnblue`/`turnyellow`/`turnpurple`/`turnwhite`; every wand shows color, shape and note |

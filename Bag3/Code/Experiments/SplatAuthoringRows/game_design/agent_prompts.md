@@ -39,7 +39,8 @@ Fill only these gaps, which the seven built-in games need:
    older waiting ones. No sender data. Build it on D3 if that keeps it simple; otherwise as a
    display game (play(nfc, panel, enow), as games/scoreboard.py).
 3. K1 and K2, knowledge drafts: a mobility section for ChatBroadcast knowledge/accessibility.md,
-   and a fix to its vibration advice (wands have a buzzer and lights, no vibration). Write them as
+   and a check of its vibration advice (every Bag3 wand has a vibration motor on GPIO 21 as well as
+   the piezo speaker; the advice stands). Write them as
    a patch file in the experiment's knowledge/ folder; do not edit the live file.
 
 Where: copy the files you change from Stations/IconDisplay/ into
@@ -117,7 +118,7 @@ Build "1. Echo Beat" from builtin_games_spec.md as wand/games/echobeat.py.
   start_game for another game, like the canonical wand template.
 - Reuse the shake detection in wand/shake.py; do not write a new detector.
 - Rhythms come from a fixed list per length (2-6 beats), defined at the top of the file.
-- Each buzzed beat flashes the matrix at the same time (the DHH rule).
+- Each beeped beat flashes the matrix at the same time (the DHH rule).
 ```
 
 ## Prompt 2: Simon Stomp (type 2, wand + 2 Splats)

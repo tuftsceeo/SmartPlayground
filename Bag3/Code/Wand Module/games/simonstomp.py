@@ -17,7 +17,7 @@ NFC_EVERY = 10
 LOOP_MS = 20
 
 # Shared color table: Splat i -> (Splat color, wand color, wand shape, Splat
-# note, wand buzzer Hz). Every step shows a shape and plays a note as well
+# note, wand speaker Hz). Every step shows a shape and plays a note as well
 # as lighting a color.
 TABLE = (
     ("turnblue", BLUE, SHAPE_CIRCLE, "note_c", 523),

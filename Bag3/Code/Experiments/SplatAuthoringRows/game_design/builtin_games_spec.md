@@ -24,9 +24,9 @@ Generated games copy these closely, so each one is also the canonical example of
 |---|---|
 | Color is never the only signal | Each color also has a wand matrix shape (`leds.show_shape`) and, on Splats, its own note. |
 | Color-blind-safe pairs | Prefer blue/yellow. Avoid red/green as a pair that must be told apart. |
-| Every key sound is also visible | Each buzzer cue has a matching light change. |
-| Every key light is also audible | Each light cue has a buzzer cue. Distinct sounds per event kind: turn, right, wrong, win. |
-| Gentle mistakes | A soft low beep, never a long or loud one. Buzzer cues stay under 4 s. |
+| Every key sound is also visible | Each speaker (`buz`) cue has a matching light change. |
+| Every key light is also audible | Each light cue has a speaker cue. Distinct sounds per event kind: turn, right, wrong, win. |
+| Gentle mistakes | A soft low beep, never a long or loud one. Sound and vibration cues stay under 4 s. |
 | Predictable | The same signal always means the same thing, across all seven games. |
 | Progress shown | Rounds, pattern length or score shown on the matrix or display. |
 | Mobility | Splats can be pressed by hand; no game requires running. |
@@ -60,14 +60,14 @@ the red/green pair. Shapes are 5x5 matrix index lists, defined once per game.
 
 ## 1. Echo Beat (type 1: one child, wand only)
 
-> "Your wand buzzes a little rhythm of short and long beats. Shake it back the same way. Get it
+> "Your wand beeps a little rhythm of short and long beats. Shake it back the same way. Get it
 > right and the next rhythm is one beat longer."
 
 - **CT:** pattern recognition (strong); decomposition (a long rhythm as short pieces).
 - **Access target:** 10/10.
 
 **Play**
-1. Show round 1 on the matrix. Buzz a rhythm of 2 beats, each beat short (150 ms) or long (450 ms),
+1. Show round 1 on the matrix. Beep a rhythm of 2 beats (piezo speaker), each beat short (150 ms) or long (450 ms),
    and flash the matrix in time with each beat.
 2. Show "your turn" and record shakes for up to 5 s after the first shake.
 3. Compare shake count and gaps. A gap is "long" if it is over the short/long midpoint. Allow

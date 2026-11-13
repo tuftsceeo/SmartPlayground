@@ -176,7 +176,7 @@
     "bgColor": "#5fa8c9",
     "icon": "bell",
     "textColor": "white",
-    "description": "The wand buzzes a rhythm of short and long beats; shake it back the same way. Right adds a beat (2 to 6).",
+    "description": "The wand beeps a rhythm of short and long beats; shake it back the same way. Right adds a beat (2 to 6).",
     "beta": true
   },
   {

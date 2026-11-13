@@ -368,7 +368,7 @@ not checked against the device code.
 | **A6** | Wand-to-wand proximity (signal strength) | Little Train, Pass the Secret (dropped) | Not supported; dropped from the list |
 | **D1** | Display: a puzzle state and a card sequence or set check | Giant Puzzle, Code Breakers, Recipe Mix-Up | Card reader confirmed; game logic unverified |
 | **K1** | Accessibility knowledge: mobility guidance (press Splats by hand, zones instead of running, partner roles) | Most running and stomping games | Missing from `accessibility.md` |
-| **K2** | Accessibility knowledge: a vibration motor, if wands have one; `accessibility.md` assumes wand vibration for BLV confirmations | Echo Beat, Magic Freeze, Hot Potato | Unverified |
+| **K2** | Accessibility knowledge: wand vibration for BLV confirmations | Echo Beat, Magic Freeze, Hot Potato | Not a gap: every Bag3 wand has a vibration motor (GPIO 21, raw pin) |
 
 ## Brainstorm prompt additions
 
