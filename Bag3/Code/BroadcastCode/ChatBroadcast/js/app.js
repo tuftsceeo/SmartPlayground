@@ -1992,7 +1992,7 @@ class App {
         }
         const token = ++this._detailSimToken;
         dbg('app', `mountDetailSim("${ex.id}") — loading sim-room module`);
-        import('../../../Simulator/sim-room.js')
+        import('../../Simulator/sim-room.js')
             .then(() => {
                 // The teacher moved on while Pyodide's module was loading —
                 // don't mount a sim into a panel nobody is looking at.
@@ -2505,7 +2505,7 @@ class App {
     setupSim() {
         if (this._simLoadPromise) return this._simLoadPromise;
         dbg('app', 'setupSim() — loading sim-room module');
-        this._simLoadPromise = import('../../../Simulator/sim-room.js')
+        this._simLoadPromise = import('../../Simulator/sim-room.js')
             .then(() => {
                 this._sim = document.getElementById('wand-sim');
                 // An icon edit reaches the running display: the room rewrites

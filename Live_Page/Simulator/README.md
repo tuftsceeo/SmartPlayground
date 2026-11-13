@@ -145,8 +145,8 @@ browser (`js/headless.js`): the same wand, peers and Splats on a bus and a
 clock running 4x real time.
 
 ```bash
-node Bag3/Code/Simulator/tools/sim_run.mjs --game splattag --seconds 20
-node Bag3/Code/Simulator/tools/sim_run.mjs --file my_game.py --verbose
+node Bag3/Code/BroadcastCode/Simulator/tools/sim_run.mjs --game splattag --seconds 20
+node Bag3/Code/BroadcastCode/Simulator/tools/sim_run.mjs --file my_game.py --verbose
 ```
 
 Three scenarios: **lead** (the wand leads, follower peers fill the lobby to
@@ -167,7 +167,7 @@ Pyodide comes from its npm package: `PYODIDE_DIR`, or fetched once with
 From the repo root:
 
 ```bash
-cd Bag3/Code/Simulator
+cd Bag3/Code/BroadcastCode/Simulator
 python3 -m http.server 8000
 ```
 
@@ -197,7 +197,7 @@ python3 tools/sync_sources.py --check  # exit 1 if vendor drifted
 A pre-commit hook at `.githooks/pre-commit` runs `--check`. Enable with:
 
 ```bash
-git config core.hooksPath Bag3/Code/Simulator/.githooks
+git config core.hooksPath Bag3/Code/BroadcastCode/Simulator/.githooks
 ```
 
 (or copy the hook into `.git/hooks`).
@@ -205,7 +205,7 @@ git config core.hooksPath Bag3/Code/Simulator/.githooks
 ## Tests
 
 ```bash
-cd Bag3/Code/Simulator
+cd Bag3/Code/BroadcastCode/Simulator
 python3 -m pytest
 ```
 

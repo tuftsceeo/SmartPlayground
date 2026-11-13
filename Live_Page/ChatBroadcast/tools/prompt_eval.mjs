@@ -53,7 +53,7 @@ const onlyArg = args.indexOf("--only");
 const ONLY = onlyArg >= 0 ? new Set(args[onlyArg + 1].split(",")) : null;
 
 /** Simulator headless runner. */
-const SIM_RUN = resolve(ROOT, "../../Simulator/tools/sim_run.mjs");
+const SIM_RUN = resolve(ROOT, "../Simulator/tools/sim_run.mjs");
 const SIM_SECONDS = 30;
 
 /**

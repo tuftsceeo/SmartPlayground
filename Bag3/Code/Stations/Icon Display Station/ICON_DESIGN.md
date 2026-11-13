@@ -130,7 +130,7 @@ Rules that follow from the model:
    that names it is refused.
 
 To check an icon on the simulated display, open the Simulator
-(`Bag3/Code/Simulator/`, served from `Bag3/Code/`) with a game that uses the
+(`Bag3/Code/BroadcastCode/Simulator/`, served from `Bag3/Code/`) with a game that uses the
 display.
 
 ## Animation

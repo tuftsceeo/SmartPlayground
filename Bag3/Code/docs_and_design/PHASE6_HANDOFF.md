@@ -342,7 +342,7 @@ node    Bag3/Code/TeacherTools/BroadcastBox/tools/devtests/chatbroadcast_flow.mj
 node    Bag3/Code/TeacherTools/BroadcastBox/tools/devtests/icon_panel.mjs
 node    Bag3/Code/TeacherTools/BroadcastBox/tools/devtests/role_state.mjs     # per-role editor state, a full authoring cycle
 python3 Bag3/Code/TeacherTools/BroadcastBox/ChatBroadcast/tools/sync_icons.py --check  # defaultIcons.js matches IconDisplay/icons/
-cd Bag3/Code/Simulator && python3 -m pytest && python3 tools/sync_sources.py --check
+cd Bag3/Code/BroadcastCode/Simulator && python3 -m pytest && python3 tools/sync_sources.py --check
 cd Bag3/Code/TeacherTools/BroadcastBox/ChatBroadcast && node tools/check_tags.mjs
 ```
 

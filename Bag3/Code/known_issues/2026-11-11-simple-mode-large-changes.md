@@ -11,13 +11,13 @@ code:
   - Bag3/Code/BroadcastCode/ChatBroadcast/js/chat.js
   - Bag3/Code/BroadcastCode/ChatBroadcast/js/hardware.js
   - Bag3/Code/BroadcastCode/ChatBroadcast/js/library.js
-  - Bag3/Code/Simulator/sim-room.js
-  - Bag3/Code/Simulator/js/panels/wands.js
-  - Bag3/Code/Simulator/js/panels/splats.js
-  - Bag3/Code/Simulator/js/lobby_game.js
-  - Bag3/Code/Simulator/js/splats.js
-  - Bag3/Code/Simulator/js/panels/splatController.js
-  - Bag3/Code/Simulator/README.md
+  - Bag3/Code/BroadcastCode/Simulator/sim-room.js
+  - Bag3/Code/BroadcastCode/Simulator/js/panels/wands.js
+  - Bag3/Code/BroadcastCode/Simulator/js/panels/splats.js
+  - Bag3/Code/BroadcastCode/Simulator/js/lobby_game.js
+  - Bag3/Code/BroadcastCode/Simulator/js/splats.js
+  - Bag3/Code/BroadcastCode/Simulator/js/panels/splatController.js
+  - Bag3/Code/BroadcastCode/Simulator/README.md
 open:
   - Agent does not state minimum devices or a fixed vs open-ended flag
   - Simulator does not open with the minimum number of wands

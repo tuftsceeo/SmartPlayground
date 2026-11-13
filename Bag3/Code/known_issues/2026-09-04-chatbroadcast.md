@@ -7,7 +7,7 @@ devices: [MockWand, XIAO ESP32-C6]
 components: [ChatBroadcast, Simulator, example gallery, game send path]
 code:
   - Bag3/Code/BroadcastCode/ChatBroadcast/js/examples.js
-  - Bag3/Code/Simulator/tools/sync_sources.py
+  - Bag3/Code/BroadcastCode/Simulator/tools/sync_sources.py
 open:
   - Gallery exposes 7 of 13 vendored games
   - No game file-size check before send (wand compile() limit between 33 KB and 57 KB)

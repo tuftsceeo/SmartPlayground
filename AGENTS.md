@@ -106,7 +106,7 @@ write "the Station".
 
 `Bag3/Code/TeacherTools/` holds `NFC Station` (a one-off NFC tag-writing tool, not live to teachers
 or the team), the Bag3 `M5Paper Remote`, and the Broadcast Box and Dial (`BroadcastBox`,
-`BroadcastDial`). `Bag3/Code/BroadcastCode/` keeps the ChatBroadcast web app, `tools/` and
+`BroadcastDial`). `Bag3/Code/BroadcastCode/` keeps the ChatBroadcast web app, its `Simulator/`, `tools/` and
 `docs_and_design/`.
 
 `Bag3/Code/Experiments/` holds non-functioning hardware experiments (`Capsule PN5180`,

@@ -151,7 +151,7 @@ export function findExample(id) {
 export async function loadExampleCode(ex) {
     const name = ex && ex.vendorGame;
     if (!name) throw new Error(`example "${ex && ex.id}" has no vendorGame`);
-    const url = new URL(`../../../Simulator/vendor/games/${name}.py`, import.meta.url);
+    const url = new URL(`../../Simulator/vendor/games/${name}.py`, import.meta.url);
     // Same reason as wand-sim.js's fetchText: a static server sends no
     // Cache-Control, and a stale game file here would silently show the
     // teacher last week's code.

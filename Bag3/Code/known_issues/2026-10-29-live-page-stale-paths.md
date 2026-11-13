@@ -38,4 +38,10 @@ Current Bag3 locations:
 Effects: the Live_Page `sync_icons.py`, `check_tags.mjs` and Simulator `sync_sources.py` cannot
 find their sources, and the Live_Page firmware installer's Dial manifest import resolves to a
 missing folder. The working copies are under `Bag3/Code/BroadcastCode/ChatBroadcast/` and
-`Bag3/Code/Simulator/`.
+`Bag3/Code/BroadcastCode/Simulator/`.
+
+2026-11-13: `Simulator/` moved to `Bag3/Code/BroadcastCode/Simulator/`, beside `ChatBroadcast/`, so
+the two sit as they do in `Live_Page/`. ChatBroadcast's Simulator imports (`sim-room.js`,
+`vendor/games/`) now resolve the same in both trees and the copy needs no edits. Still open in
+the Live_Page copy: the `tools/` scripts and the firmware installer, which reach other Bag3
+folders.

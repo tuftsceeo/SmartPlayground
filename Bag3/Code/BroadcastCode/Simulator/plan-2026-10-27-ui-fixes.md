@@ -1,7 +1,7 @@
 # Remaining simulator + ChatBroadcast fixes
 
 ## Context
-From the 2026-10-27 UI review (`Bag3/Code/Simulator/ui-review-2026-10-27.md`), the user confirmed a fix list. Done already: Splats as their own devices (main screen + overlay cards), square framed icon displays, overlay alignment, saved-game code block with View code, LED clear on stop, one green "View Multiple Device Simulation" button. This plan covers the rest. Rules from the user: no added text, tooltips only for labels, code keeps streaming into chat, nothing muted on Splats, commit only when asked.
+From the 2026-10-27 UI review (`Bag3/Code/BroadcastCode/Simulator/ui-review-2026-10-27.md`), the user confirmed a fix list. Done already: Splats as their own devices (main screen + overlay cards), square framed icon displays, overlay alignment, saved-game code block with View code, LED clear on stop, one green "View Multiple Device Simulation" button. This plan covers the rest. Rules from the user: no added text, tooltips only for labels, code keeps streaming into chat, nothing muted on Splats, commit only when asked.
 
 Paths below are relative to `Bag3/Code/`.
 
