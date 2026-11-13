@@ -1,62 +1,54 @@
 """
-main.py -- Broadcast icon display.
+Icon Display — Broadcast 16x16 icon display
+============================================
+Board: Seeed XIAO ESP32-C6
+Requires hubtype.txt containing: icon_display
 
-Boots, idles, and loads/runs/switches/unloads single-file game modules the
-way MockWand does. The pattern is copied from MockWand/main.py rather than
-shared with it: the two devices have nothing in common below the loop shape,
-and a game you can read on its own is worth more than one loop that serves
-both.
+Laid out like the wand's main.py (Wand Module/main.py) -- same sections, same
+function names, same boot order and the same game contract -- so a fix or a
+game moves between the two without translation. What differs is hardware:
+a 16x16 panel instead of the 5x5 matrix, a WS1850S reader, no buzzer, button,
+accelerometer or battery, and a USB link for the icon editor.
 
-Game entry point:
-
-    def play(nfc, panel, enow):
-
-    nfc   -- NfcReader, or None until the card reader is fitted (has_nfc)
-    panel -- the icon_matrix.Matrix itself: set_pixels, draw_bytes, clear,
-             set_intensity, redraw, and .src as a scratch frame
-    enow  -- ESPNowManager (already initialized; poll every loop iteration)
-
-This device has no buzzer and no accelerometer, so everything it says it
-says on the panel or over serial.
-
-BOOT ORDER IS LOAD-BEARING. The radio is claimed before icon_matrix is even
-imported. esp_wifi_init()/esp_wifi_start() need tens of KB of contiguous
-internal IDF heap, MicroPython's GC heap is carved out of that same heap in
-splits that are never returned, and Matrix() takes a 768-byte NeoPixel
-buffer, a 512-byte offset table, a 256-byte LUT and a 768-byte frame before
-a single pixel lights. Building the panel first is the same mistake that
-produced "OSError: WiFi Out of Memory" on the wand.
+Controls: stop, getcode:<slug>[@<host>], plus game tags (lib/display_tags.py);
+          start_game may also be received over ESP-NOW
+Station mode (lib/display_station.py): with no game running, obeys `show` and
+          `dance` messages from any wand
 """
 
+# Radio prewarm, before any other import (AGENTS.md: nothing may allocate
+# before the radio claims its memory). ESPNowManager.init() in _boot() finds
+# the radio active and keeps it. Same antenna as lib/espnow_manager.py
+# (EXTERNAL_ANTENNA = False: onboard, GPIO14 = 0).
+try:
+    import network, espnow
+    from machine import Pin
+    Pin(3, Pin.OUT).value(0)
+    import time
+    time.sleep_ms(100)
+    Pin(14, Pin.OUT).value(0)
+    network.WLAN(network.STA_IF).active(True)
+    _e = espnow.ESPNow()
+    _e.active(True)
+    del _e
+except Exception as _err:
+    print("  [WARN] radio prewarm failed; ESPNowManager.init() will retry:", _err)
+
+import machine
+import time
+import sys
 import gc
 import os
-import sys
-import time
-import machine
 
-import game_store
+from hubtype import HUB_TYPE, HUB_CONFIG
+from espnow_manager import ESPNowManager
+from nfc_reader import NfcReader, split_prefixed
 from display_tags import GAME_TAGS, CONTROL_TAGS
+import game_store
 import memprobe  # BENCH: see lib/memprobe.py docstring
 
-# Safe this early: hubtype.py imports nothing and touches no pins, it only
-# reads /hubtype.txt. icon_matrix and icon_store are NOT -- importing
-# icon_store pulls in icon_matrix, and that is what must wait for the radio.
-from hubtype import HUB_TYPE, HUB_CONFIG
-
-DEBUG = False
-
-NFC_POLL_FRAMES = 12      # idle frames between card reads -- a read is 200-500ms
-UID_REPEAT_MS = 1200      # ignore the same uid until it has been away this long
-IDLE_FRAME_MS = 80
-# How long a silent USB link may stay silent before the idle breath takes
-# the panel back. The hold normally ends because something took the panel
-# -- a card tap, a game, a stop -- not because this elapsed: the link has
-# no disconnect event, so this is the only stand-in for "browser gone".
-USB_QUIET_MS = 300000     # 5 minutes
-
-# Pulled games live in /games/<slug>.py. Putting that directory on sys.path
-# is what lets _load_play() import a pulled game with the same bare
-# __import__(name) it uses for a built-in.
+# Pulled games live in /games/<slug>.py, on sys.path so _load_play() imports
+# them with the same bare __import__(name) as a built-in.
 game_store.ensure_dir()
 if game_store.GAMES_DIR not in sys.path:
     sys.path.append(game_store.GAMES_DIR)
@@ -64,9 +56,9 @@ if game_store.GAMES_DIR not in sys.path:
 # ─────────────────────────────────────────────
 # GAME MODULES (lazy import on tap)
 # ─────────────────────────────────────────────
-# tag name -> module basename. NOT a callable: the module is compiled only
-# when its tag is actually tapped or an ESP-NOW start_game names it. Every
-# game held resident at boot is heap the radio cannot have.
+# tag name -> module basename, compiled only when its tag is tapped or an
+# ESP-NOW start_game names it. A game held resident at boot is heap the radio
+# cannot have.
 GAME_MODULES = {
     "goalrace": "goalrace",
     "scoreboard": "scoreboard",
@@ -76,10 +68,6 @@ if set(GAME_MODULES.keys()) != GAME_TAGS:
     print("  [ERR] GAME_MODULES keys do not match GAME_TAGS in display_tags.py")
     print("        modules:  %s" % sorted(GAME_MODULES.keys()))
     print("        expected: %s" % sorted(GAME_TAGS))
-
-# Every tag the reader should recognise: built-ins, whatever has been pulled,
-# and the controls. Rebuilt after a pull-driven reset, not during a session.
-ALL_COMMANDS = set(GAME_MODULES.keys()) | set(game_store.slugs()) | CONTROL_TAGS
 
 
 def _module_on_flash(mod):
@@ -96,25 +84,14 @@ def _module_on_flash(mod):
 def game_module(name):
     """Module basename for a game tag, or None if this display cannot play it.
 
-    Every game is optional on every device. A built-in is only playable if
-    its file is actually on flash, exactly as a pulled game is only playable
-    if /games holds it -- so a tag naming a game this display does not have
-    reads as "not a game here" rather than a load failure.
-
-    Built-ins win over pulled games: a pulled file can never shadow one.
+    A built-in is playable only if its file is on flash; otherwise the name
+    falls through to /games, so a missing built-in never hides a pulled game
+    of the same name (goalrace is both). Built-ins win over pulled games.
     """
     if name in GAME_MODULES:
         mod = GAME_MODULES[name]
         if _module_on_flash(mod):
             return mod
-        # Falls through instead of returning None: on this device a name can
-        # be BOTH a built-in and a pulled game -- goalrace is the demo pair's
-        # display half, shipped in the tree and also served by the Box -- and
-        # the built-in file is only on flash if someone copied it to the root.
-        # Being in the table is a claim about the tag, not about what is
-        # installed, so a missing built-in must not hide /games/<slug>.py.
-        # (MockWand has the same lookup and never hits this: none of its
-        # built-in names are pullable slugs.)
     if game_store.exists(name):
         return name          # /games is on sys.path; slug == module name
     return None
@@ -124,38 +101,78 @@ def is_game(name):
     return game_module(name) is not None
 
 
+memprobe.probe("after-imports")  # BENCH
+
 # ─────────────────────────────────────────────
-# PANEL FEEDBACK
+# PINS FROM HUBTYPE
 # ─────────────────────────────────────────────
-# No buzzer here, so status is the panel alone. lib/shapes.py gives this
-# device the same 5x5 glyph vocabulary MockWand shows on its matrix -- a
-# child should read the same meaning off either, not a bit-exact copy.
-# Whole-panel colour remains only for the idle breath (show_idle()) and the
-# transfer progress bar, which have no wand equivalent to mirror. Nothing in
-# this file draws above IDLE_INTENSITY (equal to ALERT_INTENSITY for now --
-# a conservative single value while glyph current draw is uncharacterized on
-# the bench, see Stations/Icon Display Station/readme.md's voltage ramp):
-# MAX_INTENSITY is a measured supply ceiling, not a preference, and a panel
-# that sits lit continuously should run well under it.
+LED_PIN  = HUB_CONFIG["led_pin"]
+I2C_SDA  = HUB_CONFIG["i2c_sda"]
+I2C_SCL  = HUB_CONFIG["i2c_scl"]
+NFC_ADDR = HUB_CONFIG["nfc_addr"]
+
+# ─────────────────────────────────────────────
+# TAG COMMANDS
+# ─────────────────────────────────────────────
+CONTROLS      = GAME_TAGS | CONTROL_TAGS
+BROADCAST     = {"getcode"}
+# Pulled games answer to their own slug. Computed once: the display resets
+# after every successful pull, so this cannot go stale.
+ALL_COMMANDS  = CONTROLS | set(game_store.slugs())
+
+# ─────────────────────────────────────────────
+# ADDING A NEW GAME
+# ─────────────────────────────────────────────
+# Same contract as the wand (Wand Module/main.py, "ADDING A NEW GAME"):
+#
+#   def play(nfc, leds, buz, accel, i2c, enow, batt=None, net=None):
+#
+#   nfc   -- the raw reader (Ws1850sReader, PN532-compatible), or None when no
+#            reader answered; build NfcReader(nfc, COMMANDS) as a wand game does
+#   leds  -- the panel (icon_matrix.Matrix): set_pixels, draw_bytes, clear,
+#            set_intensity, redraw, and .src as a scratch frame
+#   buz, accel, batt -- None: this device has no buzzer, accelerometer or battery
+#   i2c   -- the reader's bus
+#   enow  -- ESPNowManager; poll it every loop, return on "stop"/"start_game"
+#   net   -- None (no lobby games here yet)
+#
+# play() takes as many leading parameters as it declares. The older
+# play(nfc, panel, enow) shape (exactly 3 parameters) is still called the old
+# way, with a ready-built NfcReader. Same rules as the wand: no persistent
+# callbacks, no references kept past return.
+#
+# A built-in goes in GAME_MODULES here and GAME_TAGS in lib/display_tags.py;
+# a game copied to /games/<slug>.py needs neither.
+
+# ─────────────────────────────────────────────
+# HARDWARE
+# ─────────────────────────────────────────────
+# The panel and the reader's bus are built in _boot(), after the radio:
+# Matrix() takes about 2.3 KB of buffers before a pixel lights.
+panel = None
+leds = None     # the panel, under the wand's name for it
+i2c = None
+
 IDLE_INTENSITY = 0.15
 ALERT_INTENSITY = 0.15
+IDLE_FRAME_MS = 80
+NFC_POLL_FRAMES = 12      # idle frames between card reads (a read is 200-500 ms)
+UID_REPEAT_MS = 1200      # ignore the same uid until it has been away this long
+IDLE_REPAINT_FRAMES = 12  # ~1 s at IDLE_FRAME_MS
+BOOT_SCREEN_HOLD_MS = 1200
+# How long a silent USB link may hold the panel before idle takes it back.
+USB_QUIET_MS = 300000     # 5 minutes
 
-# The waiting square is static, so it only needs repainting often enough to
-# come back promptly after something else has owned the panel.
-IDLE_REPAINT_FRAMES = 12      # ~1s at IDLE_FRAME_MS
-BOOT_SCREEN_HOLD_MS = 1200    # long enough to read the stage column
-IDLE_GREEN = (0, 120, 0)
-
-BLACK = (0, 0, 0)
 RED = (120, 0, 0)
 GREEN = (0, 120, 0)
 BLUE = (0, 20, 160)
 AMBER = (120, 60, 0)
 CYAN = (0, 180, 240)
 BLUE_DIM = (0, 20, 127)
+IDLE_GREEN = (0, 120, 0)
 
 
-def fill(panel, rgb):
+def fill(rgb):
     r, g, b = rgb
     src = panel.src
     for i in range(0, len(src), 3):
@@ -165,39 +182,15 @@ def fill(panel, rgb):
     panel.draw_bytes(src)
 
 
-def show_idle(panel, frame):
-    """The wand's waiting display: a static green square, centred.
-
-    MockWand lights its inner 3x3 in battery-charge colour while it waits
-    (leds.idle_default()). This device has no battery, so the square is
-    plain green -- powered, idle, nothing wrong -- and means the same thing
-    at a glance on either device.
-
-    Repainted on a slow cadence rather than every frame: it is static, and
-    the icon editor shares these 256 pixels, so an idle animation would be a
-    second writer competing for them every 80ms.
-    """
-    if frame % IDLE_REPAINT_FRAMES:
-        return
-    import shapes
-    panel.set_intensity(IDLE_INTENSITY)
-    shapes.idle_default(panel, IDLE_GREEN)
-
-
-def flash_glyph(panel, shape, rgb, hold_ms=900):
-    """Show one glyph at alert intensity, hold it, then go dark.
-
-    Mirrors MockWand's _pull_fail() -- same glyph, same colour meaning,
-    minus the buzzer this device does not have.
-    """
+def flash_glyph(shape, rgb, hold_ms=900):
+    """One 5x5 glyph (lib/shapes.py, the wand's SHAPE_* set) held, then dark.
+    The display's stand-in for the wand's shape-plus-sound feedback."""
     import shapes
     panel.set_intensity(ALERT_INTENSITY)
     shapes.draw_shape(panel, shape, rgb)
     time.sleep_ms(hold_ms)
     panel.clear()
     panel.set_intensity(IDLE_INTENSITY)
-
-
 
 
 # ─────────────────────────────────────────────
@@ -214,18 +207,21 @@ class _StartGameCapture:
         mt, data, mac = self._enow.poll(timeout_ms)
         if mt == "start_game":
             self.pending_name = data.get("name") if isinstance(data, dict) else None
+        elif mt == "code_push":
+            _queue_push(data)
+            return "stop", data, mac            # end the game; idle loop pulls
         return mt, data, mac
 
     def __getattr__(self, attr):
         return getattr(self._enow, attr)
 
 
-def _load_play(name, panel):
+def _load_play(name):
     """Compile a game's module on demand and return its play(). Raises on
     failure -- the caller turns that into the loud failure path."""
     mod_name = game_module(name)
     panel.set_intensity(IDLE_INTENSITY)
-    fill(panel, GREEN)
+    fill(GREEN)
     memprobe.probe("pre-import:%s" % name)   # BENCH
     tok = memprobe.mark()                    # BENCH
     mod = __import__(mod_name)
@@ -235,63 +231,81 @@ def _load_play(name, panel):
 
 def _unload_game(name):
     """Drop a finished game's module so the next one starts from a cleaner
-    heap rather than stacking on top of it.
-
-    Reclaims the module's globals dict, its function objects and bytecode,
-    and its non-interned constants. Does NOT reclaim interned strings, so
-    each distinct game loaded in one boot leaves a small permanent residual.
-    Safe only because no game may hold a callback or a retained reference
-    into itself.
-    """
+    heap. Interned strings stay; safe only because no game keeps a callback
+    or reference into itself."""
     mod_name = game_module(name)
     if mod_name and mod_name in sys.modules:
         del sys.modules[mod_name]
     gc.collect()
 
 
-def _game_load_failed(name, exc, panel):
-    """Loud, unmissable, non-fatal. The display returns to idle and stays
-    usable.
+UNLOAD_AFTER_GAME = True
 
-    A pulled game is code an LLM just wrote, so a module that will not
-    import or has no play() is expected input, not a device fault. With no
-    buzzer here, a red X glyph is the attention-getter -- readable across a
-    room, which is the point.
-    """
+
+def _game_load_failed(name, exc):
+    """Loud, unmissable, non-fatal: a red X, then back to idle. A pulled game
+    is code an LLM just wrote, so a module that will not load is expected
+    input, not a device fault."""
     print("  [FAIL] game load: %s (module %s)" % (name, game_module(name)))
     sys.print_exception(exc)
     memprobe.probe("load-fail:%s" % name)   # BENCH
     import shapes
-    flash_glyph(panel, shapes.SHAPE_X, RED)
-    # A partial success (module compiled, no play()) can leave a stub entry
-    # in sys.modules; clear it so the next tap recompiles cleanly instead of
-    # reusing a module that will fail the same way silently.
+    flash_glyph(shapes.SHAPE_X, RED)
     _unload_game(name)
 
 
-UNLOAD_AFTER_GAME = True
+def _is_arity_error(e):
+    """True if this TypeError is "wrong number of arguments", not a fault
+    from inside the game. MicroPython words it distinctively."""
+    msg = str(e)
+    return ("positional argument" in msg
+            or ("argument" in msg and "given" in msg))
 
 
-def _find(panel):
-    import shapes
-    shapes.find_blink(panel, IDLE_INTENSITY)
-    panel.clear()
+def _start_play(play_func, name, nfc, reader, wrapper):
+    """Call play() with the wand's arguments, as many as it declares. A
+    3-parameter play() is the older display shape (nfc, panel, enow) and gets
+    a ready-built NfcReader. Without co_argcount: try 8, then 3."""
+    args = (nfc, leds, None, None, i2c, wrapper, None, None)
+    code = getattr(play_func, "__code__", None)
+    n = getattr(code, "co_argcount", None) if code is not None else None
+    if n == 3:
+        return play_func(reader, panel, wrapper)
+    if n is not None:
+        return play_func(*args[:n])
+    try:
+        return play_func(*args)
+    except TypeError as e:
+        if not _is_arity_error(e):
+            raise
+        print("  %s does not take 8 arguments; trying the 3-argument display call" % name)
+        return play_func(reader, panel, wrapper)
 
 
-def _launch_game(name, nfc, panel, enow):
+def _launch_game(name, nfc, reader, enow):
+    _run_games(name, nfc, reader, enow)
+
+
+def _run_games(name, nfc, reader, enow):
     """Run a game and chain force-switches without returning to idle."""
     while is_game(name):
         try:
-            play_func = _load_play(name, panel)
+            play_func = _load_play(name)
         except Exception as e:
-            _game_load_failed(name, e, panel)
+            _game_load_failed(name, e)
             return
         wrapper = _StartGameCapture(enow)
-        play_func(nfc, panel, wrapper)
+        try:
+            _start_play(play_func, name, nfc, reader, wrapper)
+        except TypeError as e:
+            # A game that cannot even be called is a load failure; anything
+            # raised from inside a running game still propagates.
+            if not _is_arity_error(e):
+                raise
+            _game_load_failed(name, e)
+            return
         next_name = wrapper.pending_name
-        # Drop the reference before unloading -- play_func is what pins the
-        # module in this frame; a chained force-switch must not compile the
-        # next game on top of a still-referenced one.
+        # Drop the reference before unloading: play_func pins the module.
         play_func = None
         wrapper = None
         panel.clear()
@@ -300,7 +314,7 @@ def _launch_game(name, nfc, panel, enow):
             _unload_game(name)
         memprobe.probe("post-unload:%s" % name)    # BENCH
         if next_name == "finddevice":
-            _find(panel)
+            _find()
             break
         if not next_name or not is_game(next_name):
             break
@@ -308,39 +322,93 @@ def _launch_game(name, nfc, panel, enow):
 
 
 # ─────────────────────────────────────────────
+# CHECK BROADCAST
+# ─────────────────────────────────────────────
+_station = None                   # display_station.Station, made on the first "raw" message
+
+
+def check_broadcast(enow):
+    """
+    Poll ESP-NOW. Returns "stop", ("start_game", name), "station", or None.
+    Same shape as the wand's check_broadcast(); a "raw" payload goes to
+    station mode, imported on first use (after the radio is up).
+    """
+    global _station
+    msg_type, data, _mac = enow.poll()
+    if msg_type == "stop":
+        return "stop"
+    if msg_type == "start_game":
+        name = data.get("name") if isinstance(data, dict) else None
+        if name == "finddevice" or is_game(name):
+            return ("start_game", name)
+        print("  no game %r on this display" % name)
+    if msg_type == "code_push":
+        _queue_push(data)
+        return "stop"                           # idle loop runs the pull
+    if msg_type == "raw":
+        if _station is None:
+            from display_station import Station
+            _station = Station(enow)
+        if _station.handle(data, panel):
+            return "station"
+    return None
+
+
+# ─────────────────────────────────────────────
+# IDLE DISPLAY HELPER
+# ─────────────────────────────────────────────
+def show_idle(idle_frame):
+    """Station mode while it shows something, else the wand's waiting
+    display: a static green square (no battery here, so always green),
+    repainted every IDLE_REPAINT_FRAMES."""
+    if _station is not None and _station.tick(panel):
+        return
+    if idle_frame % IDLE_REPAINT_FRAMES:
+        return
+    import shapes
+    panel.set_intensity(IDLE_INTENSITY)
+    shapes.idle_default(panel, IDLE_GREEN)
+
+
+def _end_station():
+    """A stop, a tap, a pull or a game ends whatever station mode shows."""
+    global _station
+    _station = None
+
+
+def _find():
+    import shapes
+    shapes.find_blink(panel, IDLE_INTENSITY)
+    panel.clear()
+
+
+# ─────────────────────────────────────────────
 # CODE PULL DISPLAY
 # ─────────────────────────────────────────────
-PROGRESS_ROWS = 16        # the panel's own rows: one step per 1/16th of a file
-_progress_row = -1        # last row drawn, so an unchanged bar costs nothing
+PROGRESS_ROWS = 16        # one panel row per sixteenth of a file
+_progress_row = -1
 
 
-def _pull_progress(panel, received, total):
-    """Fill the panel a row at a time as bytes land, in sixteenths.
+def _pull_fail(shape, color):
+    """red wifi bars = no host answered, amber = host has no such game or is
+    busy, red X = transfer itself broke."""
+    flash_glyph(shape, color)
 
-    Mirrors MockWand/main.py's _pull_progress() on the 25-pixel matrix, but
-    quantized to whole rows rather than pixels: the callback fires once per
-    512-byte chunk, and repainting 256 pixels per chunk puts a full frame
-    write inside the transfer loop for a bar that mostly does not move. A
-    16x16 panel has 16 rows, so a row IS a sixteenth -- the bar advances at
-    most 16 times per file and redraws only when it actually changes.
 
-    Palette colours only, matching that module's note: every write is
-    scaled by the panel's intensity LUT, so a raw dim tuple could round to
-    invisible.
-    """
+def _pull_progress(received, total):
+    """Fill the panel a row at a time as bytes land. Redraws only when the
+    row changes: the callback fires per 512-byte chunk."""
     global _progress_row
     pct = (received / total) if total else 0
     row = int(pct * PROGRESS_ROWS)
     if row > PROGRESS_ROWS:
         row = PROGRESS_ROWS
     if row == _progress_row:
-        return                     # same sixteenth -- nothing to repaint
+        return
     _progress_row = row
-
     src = panel.src
     n = len(src) // 3
-    per_row = n // PROGRESS_ROWS
-    lit = row * per_row
+    lit = row * (n // PROGRESS_ROWS)
     for i in range(n):
         o = i * 3
         if i < lit:
@@ -348,49 +416,63 @@ def _pull_progress(panel, received, total):
         else:
             src[o], src[o + 1], src[o + 2] = BLUE_DIM
     panel.draw_bytes(src)
-    # No reset between the files of one pull session: a finished file ends
-    # on row 16 and the next one's first callback is row 0, so the change
-    # redraws on its own.
 
 
-def _espnow_pull(panel, enow, slug, host_id, icon_dir):
+def _espnow_pull_and_launch(enow, slug, host_id):
     """Receive this display's game file and its icons from the Box/Dial over
-    ESP-NOW (lib/espnow_code.py). Resets into the new game on success; on
-    failure the old copy stays and the display returns to idle."""
+    ESP-NOW (lib/espnow_code.py). Unlike the wand, success resets and main()
+    launches the game after the reset has handed the heap back clean."""
+    global _progress_row
     import shapes
     import espnow_code
+    import icon_store
     print("# getcode (slug=%r host=%r) via espnow" % (slug, host_id))
     gc.collect()
+    _progress_row = -1
     panel.set_intensity(IDLE_INTENSITY)
-    fill(panel, BLUE)
+    fill(BLUE)
     ok = espnow_code.receive(enow, slug=slug, hubtype=HUB_TYPE,
-                             on_progress=lambda r, t: _pull_progress(panel, r, t),
-                             verbose=True, host_id=host_id, icon_dir=icon_dir)
+                             on_progress=_pull_progress,
+                             verbose=True, host_id=host_id, icon_dir=icon_store.DIR)
     if ok is True:
         panel.set_intensity(ALERT_INTENSITY)
         shapes.draw_shape(panel, shapes.SHAPE_CHECK, GREEN)
-        # Name the game for the next boot: main() launches it once, after the
-        # reset has handed the heap back clean.
         stats = espnow_code.LAST_STATS or {}
         game_store.set_last_pulled(stats.get("name") or slug)
         print("# pull OK -- resetting into the new game")
         time.sleep_ms(600)
         machine.reset()
     if ok == 'nohost':
-        flash_glyph(panel, shapes.SHAPE_WIFI_2, RED)
+        _pull_fail(shapes.SHAPE_WIFI_2, RED)
     elif ok in ('norequest', 'busy'):
-        flash_glyph(panel, shapes.SHAPE_WIFI_2, AMBER)
+        _pull_fail(shapes.SHAPE_WIFI_2, AMBER)
     else:
-        flash_glyph(panel, shapes.SHAPE_X, RED)
+        _pull_fail(shapes.SHAPE_X, RED)
+
+
+_pending_push = None              # (slug, host) from a Dial code_push
+
+
+def _queue_push(data):
+    """Record a Dial code_push; the idle loop runs it as a getcode pull."""
+    global _pending_push
+    _pending_push = (data.get("slug") or "", data.get("host") or "")
 
 
 # ─────────────────────────────────────────────
 # MAIN
 # ─────────────────────────────────────────────
-def main():
-    # ── 1. Radio first ── see the module docstring. Nothing above this line
-    # imports icon_matrix, and nothing below it may be moved above.
-    from espnow_manager import ESPNowManager
+def _boot():
+    """Bring up every device. Returns (enow, nfc, reader, server); nfc and
+    reader are None when no reader answered. Radio first, then the panel
+    (stage 1), the game library (2), the USB editor link (3), NFC (4)."""
+    global panel, leds, i2c
+    print("\n" + "=" * 50)
+    print("  Icon display")
+    print("  Hub type: %s" % HUB_TYPE)
+    print("=" * 50)
+
+    # ── ESP-NOW init — radio-first, ahead of every other boot stage ──
     enow = ESPNowManager()
     memprobe.probe("pre-enow")   # BENCH
     memprobe.frag("pre-enow")    # BENCH
@@ -399,228 +481,214 @@ def main():
         enow.init()
         radio_ok = True
         enow.set_status_provider(lambda: None, kind=HUB_TYPE)
-        print("  ESP-NOW ready")
     except Exception as e:
         print("  [WARN] ESP-NOW:")
         sys.print_exception(e)
 
-    # ── 2. Panel ──
+    # ── Stage 1: panel ── the boot screen can only start once it exists.
     import icon_matrix
     import icon_store
     icon_store.ensure_dir()
-    panel = icon_matrix.Matrix(pin=HUB_CONFIG["led_pin"], intensity=IDLE_INTENSITY)
+    panel = icon_matrix.Matrix(pin=LED_PIN, intensity=IDLE_INTENSITY)
+    leds = panel
     memprobe.probe("post-panel")  # BENCH
-
-    # The boot screen can only start here: the radio comes up before the
-    # panel exists (see the module docstring), so stage 0's result is held
-    # and painted as soon as there is something to paint it on.
     import shapes
     boot = shapes.BootScreen(panel)
     panel.set_intensity(IDLE_INTENSITY)
     boot.stage_ok(0, [None, None, None,
                       shapes.STAGE_OK if radio_ok else shapes.STAGE_WARN])
-    boot.stage_ok(1)                      # the panel itself, self-evidently
+    boot.stage_ok(1)
 
+    # ── Stage 2: game library ──
     n_games = len(game_store.slugs())
     boot.stage_ok(2, [shapes.STAGE_OK if i < n_games else None for i in range(4)])
 
-    # ── 3. USB link for the icon editor web app ──
-    # Given the panel main.py already built: two NeoPixel objects on one pin
-    # fight. The link is simply live whenever this device is idle -- pump()
-    # returns promptly on a quiet port, so there is no mode to switch and
-    # nothing to trigger. start() announces this device, which is what the
-    # browser's connect flow listens for.
+    # ── Stage 3: USB link for the icon editor web app ──
+    # Given the panel already built: two NeoPixel objects on one pin fight.
     from icon_server import IconServer
-    server = IconServer(panel, debug=DEBUG, is_game=is_game)
+    server = IconServer(panel, debug=False, is_game=is_game)
     server.start()
     boot.stage_ok(3)
     memprobe.probe("post-server")  # BENCH
 
-    # ── 4. Card reader, when one is fitted ──
+    # ── Stage 4: NFC (WS1850S), when one is fitted ──
     nfc = None
     reader = None
+    i2c = machine.SoftI2C(sda=machine.Pin(I2C_SDA), scl=machine.Pin(I2C_SCL),
+                          freq=HUB_CONFIG["i2c_freq"])
     if HUB_CONFIG.get("has_nfc"):
-        from machine import Pin, SoftI2C
         from nfc_ws1850s import Ws1850sReader
-        from nfc_reader import NfcReader, split_prefixed
-        addr = HUB_CONFIG["nfc_addr"]
-        i2c = SoftI2C(sda=Pin(HUB_CONFIG["i2c_sda"]),
-                      scl=Pin(HUB_CONFIG["i2c_scl"]),
-                      freq=HUB_CONFIG["i2c_freq"])
-        # Scan before constructing: a reader on the wrong address, or a bus
-        # that is not wired, otherwise shows up as a display that simply
-        # never reads a card -- the hardest kind of nothing to diagnose.
-        # Every device address found is printed, so the fix is visible from
-        # the boot log alone.
+        # Scan first: a reader on the wrong address otherwise looks like a
+        # display that never reads a card.
         try:
             found = i2c.scan()
         except Exception as e:
             found = []
-            print("  [ERR] I2C scan failed on sda=%d scl=%d: %s"
-                  % (HUB_CONFIG["i2c_sda"], HUB_CONFIG["i2c_scl"], e))
-        if addr not in found:
+            print("  [ERR] I2C scan failed on sda=%d scl=%d: %s" % (I2C_SDA, I2C_SCL, e))
+        if NFC_ADDR not in found:
             print("  [ERR] no reader at 0x%02X -- I2C holds %s"
-                  % (addr, [hex(a) for a in found] or "nothing"))
-            print("        card taps will not work this boot; everything"
-                  " else still runs")
+                  % (NFC_ADDR, [hex(a) for a in found] or "nothing"))
+            print("        card taps will not work this boot; everything else still runs")
             boot.stage_warn(4)
         else:
-            nfc = Ws1850sReader(i2c, addr=addr)
+            nfc = Ws1850sReader(i2c, addr=NFC_ADDR)
             version = nfc.begin()
-            reader = NfcReader(nfc, ALL_COMMANDS, prefixes={"getcode"})
+            reader = NfcReader(nfc, ALL_COMMANDS, prefixes=BROADCAST)
             print("  NFC reader ready at 0x%02X (WS1850S ver 0x%02X, %d commands)"
-                  % (addr, version, len(ALL_COMMANDS)))
+                  % (NFC_ADDR, version, len(ALL_COMMANDS)))
             boot.stage_ok(4)
     else:
         print("  No card reader fitted (hubtype has_nfc is False)")
         boot.stage_warn(4)
 
-    # Hold the finished boot screen long enough to read, then clear it --
-    # the wand does the same before its idle display takes over.
     time.sleep_ms(BOOT_SCREEN_HOLD_MS)
     boot.clear()
+    print("  Icon display idle. %d built-in, %d pulled." % (len(GAME_MODULES), n_games))
+    return enow, nfc, reader, server
 
-    print("  Icon display idle. %d built-in, %d pulled."
-          % (len(GAME_MODULES), len(game_store.slugs())))
 
-    # ── 5. Idle loop ──
-    frame = 0
+def main():
+    global _pending_push
+    enow, nfc, reader, server = _boot()
+
+    # No JSON identity/heartbeat lines here, unlike the wand: this USB port
+    # carries the icon editor's own JSON protocol (icon_server.py).
+
+    # ── State ──
+    idle_frame = 0
     last_uid = None
     last_uid_ms = 0
 
-    # Auto-launch the game a pull just fetched. _espnow_pull() writes the
-    # marker and resets; take_last_pulled() clears it as it reads, so this
-    # fires once. A failed load returns to idle like any other.
+    # ── Auto-launch a just-pulled game ── (_espnow_pull_and_launch resets)
     just_pulled = game_store.take_last_pulled()
     if just_pulled and is_game(just_pulled):
         print("  Launching just-pulled game: %s" % just_pulled)
-        _launch_game(just_pulled, reader, panel, enow)
+        _launch_game(just_pulled, nfc, reader, enow)
     elif just_pulled:
         print("  [WARN] just-pulled %r is not a game here" % just_pulled)
-    while True:
-        frame += 1
 
-        # USB first: a browser waiting on a frame should not sit behind a
-        # card read. A game, when one runs, owns the loop instead -- so
-        # authoring pauses for its duration, by design.
-        if not server.step():
-            if server.exit_reason == "repl":
-                # Asked to get out of the way. Leave the panel dark and drop
-                # to the REPL rather than resetting, which would take the
-                # port the browser is holding with it.
-                print("  USB asked for the REPL -- exiting main()")
+    while True:
+        try:
+            idle_frame += 1
+
+            # ── USB editor link ── a running game owns the loop instead, so
+            # authoring pauses while one runs.
+            if not server.step():
+                # "repl": get out of the way without resetting (the browser
+                # holds the port); "reboot": finish() resets.
+                print("  USB asked for %s -- exiting main()" % server.exit_reason)
                 server.finish()
                 return
-            # A reboot command; finish() does the reset itself.
-            print("  USB asked for a reboot")
-            server.finish()
-            return
 
-        # Yield the panel to the editor once it has drawn on it: the breath
-        # and a browser frame are the same 256 pixels, and an authored icon
-        # stays up until a tap, a game or a long silence takes it back.
-        if not server.owns_panel(time.ticks_ms(), USB_QUIET_MS):
-            show_idle(panel, frame)
-
-        # A bench start_game over USB, queued by icon_server.do_start_game.
-        # Already validated at request time; re-checked here for the same
-        # reason the ESP-NOW branch below re-checks its own name.
-        if server.pending_start_game:
-            name = server.pending_start_game
-            server.pending_start_game = None
-            if is_game(name):
-                panel.clear()
-                _launch_game(name, reader, panel, enow)
-                last_uid = None
-                frame = 0
-            else:
-                # do_start_game already validated this name, so reaching
-                # here means the game went away between the request and
-                # now. Say so: a bench command that quietly does nothing is
-                # the hardest kind of nothing to debug.
-                import shapes
-                print("  [WARN] bench start_game %r is no longer a game here"
-                      % (name,))
-                flash_glyph(panel, shapes.SHAPE_QUESTION, AMBER, hold_ms=400)
-
-        # ESP-NOW every pass: a wand starting a game must not wait on a
-        # card read.
-        msg_type, data, _mac = enow.poll()
-        if msg_type == "start_game":
-            name = data.get("name") if isinstance(data, dict) else None
-            if name == "finddevice":
+            # ── DIAL CODE PUSH ── same path as a getcode card tap.
+            if _pending_push is not None:
+                wanted, wanted_host = _pending_push
+                _pending_push = None
                 server.release_panel()
-                _find(panel)
-                frame = 0
-            elif name and is_game(name):
-                server.release_panel()
-                panel.clear()
-                _launch_game(name, reader, panel, enow)
+                _end_station()
+                _espnow_pull_and_launch(enow, wanted, wanted_host)
+                idle_frame = 0
                 last_uid = None
-                frame = 0
-            elif name:
-                # Either a game that does not exist, or one this display does
-                # not have installed. Every game is optional; say so and stay
-                # idle rather than treating it as a fault.
-                print("  no game %r on this display" % name)
-        elif msg_type == "stop":
-            server.release_panel()
-            panel.clear()
-            frame = 0
-        elif msg_type == "code_push":
-            # Dial-initiated getcode: same path as a getcode card tap.
-            server.release_panel()
-            _espnow_pull(panel, enow, data.get("slug") or "",
-                         data.get("host") or "", icon_store.DIR)
-            last_uid = None
-            frame = 0
-            continue
+                continue
 
-        # Cards every NFC_POLL_FRAMES: a read is 200-500ms and would stall
-        # the loop if it ran every frame.
-        if reader is not None and frame % NFC_POLL_FRAMES == 0:
+            # ── Bench start_game over USB (icon_server.do_start_game) ──
+            if server.pending_start_game:
+                name = server.pending_start_game
+                server.pending_start_game = None
+                if is_game(name):
+                    _end_station()
+                    panel.clear()
+                    _launch_game(name, nfc, reader, enow)
+                    last_uid = None
+                    idle_frame = 0
+                else:
+                    import shapes
+                    print("  [WARN] bench start_game %r is no longer a game here" % (name,))
+                    flash_glyph(shapes.SHAPE_QUESTION, AMBER, hold_ms=400)
+
+            # ── Check broadcast ── every pass: a wand starting a game must
+            # not wait on a card read.
+            result = check_broadcast(enow)
+            if result == "stop":
+                server.release_panel()
+                _end_station()
+                panel.clear()
+                idle_frame = 0
+            elif isinstance(result, tuple) and result[0] == "start_game":
+                server.release_panel()
+                _end_station()
+                if result[1] == "finddevice":
+                    _find()
+                else:
+                    panel.clear()
+                    _launch_game(result[1], nfc, reader, enow)
+                last_uid = None
+                idle_frame = 0
+            elif result == "station":
+                server.release_panel()
+
+            # ── Idle display ── yields to the editor once it has drawn.
+            if not server.owns_panel(time.ticks_ms(), USB_QUIET_MS):
+                show_idle(idle_frame)
+
+            # ── NFC every NFC_POLL_FRAMES ── a read is 200-500 ms.
+            if reader is None or idle_frame % NFC_POLL_FRAMES:
+                time.sleep_ms(IDLE_FRAME_MS)
+                continue
             cmd, uid = reader.read_command()
             now = time.ticks_ms()
             if uid is not None and uid == last_uid and \
                     time.ticks_diff(now, last_uid_ms) < UID_REPEAT_MS:
-                # Same card still sitting on the reader -- it reads over and
-                # over otherwise, and the game looks like it restarts itself.
-                cmd = None
+                cmd = None             # same card still on the reader
             if uid is not None:
                 last_uid = uid
                 last_uid_ms = now
-            if cmd:
-                # Any recognised tap is the display being told to do
-                # something else, so the editor stops owning the panel --
-                # including the unknown-game case below, which flashes.
-                server.release_panel()
+            if cmd is None:
+                time.sleep_ms(IDLE_FRAME_MS)
+                continue
+            server.release_panel()
+            _end_station()
 
-            head, wanted, wanted_host = split_prefixed(cmd) if cmd else ("", "", "")
+            # ── BROADCAST BOX PULL ──
+            head, wanted, wanted_host = split_prefixed(cmd)
             if head == "getcode":
                 if enow.is_active:
-                    _espnow_pull(panel, enow, wanted, wanted_host, icon_store.DIR)
+                    _espnow_pull_and_launch(enow, wanted, wanted_host)
                 else:
                     import shapes
-                    flash_glyph(panel, shapes.SHAPE_WIFI_2, RED)
+                    _pull_fail(shapes.SHAPE_WIFI_2, RED)
                 last_uid = None
-                frame = 0
+                idle_frame = 0
                 continue
+
+            # ── GAME DISPATCH ──
+            if is_game(cmd):
+                panel.clear()
+                _launch_game(cmd, nfc, reader, enow)
+                last_uid = None
+                idle_frame = 0
+                continue
+
+            # ── STOP ──
             if cmd == "stop":
                 panel.clear()
-                frame = 0
-            elif cmd and is_game(cmd):
-                panel.clear()
-                _launch_game(cmd, reader, panel, enow)
-                last_uid = None
-                frame = 0
-            elif cmd:
-                # Also where a game tag lands when this display does not have
-                # that game installed -- game_module() returns None for it.
-                print("  no game %r on this display" % cmd)
-                import shapes
-                flash_glyph(panel, shapes.SHAPE_QUESTION, AMBER, hold_ms=400)
+                idle_frame = 0
+                continue
 
-        time.sleep_ms(IDLE_FRAME_MS)
+            # Also where a game tag lands when this display does not have it.
+            print("  Unknown command: %s" % cmd)
+            import shapes
+            flash_glyph(shapes.SHAPE_QUESTION, AMBER, hold_ms=400)
+
+        except KeyboardInterrupt:
+            panel.clear()
+            print("\n  Exiting.")
+            return
+        except Exception as e:
+            print("  [ERR] Main loop:")
+            sys.print_exception(e)
+            time.sleep_ms(500)
+        time.sleep_ms(1)
 
 
 if __name__ == "__main__":

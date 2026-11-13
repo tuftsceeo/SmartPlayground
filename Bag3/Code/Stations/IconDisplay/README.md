@@ -1,7 +1,8 @@
 # Broadcast icon display
 
 A 16×16 WS2812B panel (256 px) on a XIAO ESP32-C6 that loads, runs, switches
-and unloads single-file game modules, the way MockWand does.
+and unloads single-file game modules with the same `main.py` structure and game contract as
+the wand (`Wand Module/main.py`).
 
 It gets those files from the Broadcast Box: tap a `getcode:<slug>` card, the
 display pulls over ESP-NOW: it
@@ -56,8 +57,27 @@ scoreboard.py      built-in game (running tally, the draw16/chart16 demo)
 icons/             named icons, referenced from a game by name
 lib/               espnow_manager, game_store, hubtype, display_tags,
                    nfc_reader, ws1850s, nfc_ws1850s, memprobe, shapes,
-                   draw16, chart16
+                   draw16, chart16, display_station
+games/             picturemoves.py, codebreakers.py: copied to /games/<slug>.py
+                   (found at runtime like a pulled game; no main.py entry)
 ```
+
+### Station mode (`lib/display_station.py`)
+
+With no game running, the display obeys any wand. Nothing filters by sender.
+
+| Message | Effect |
+|---|---|
+| `{"type": "show", "icon": "<name>"}` | that icon, held 60 s; an unknown name prints `[ERR]` and is ignored |
+| `{"type": "show", "px": [[row, col, [r, g, b]], ...]}` | up to 64 pixels on a dark panel |
+| `{"type": "show", "text": "12:3"}` | up to 4 characters of draw16's font (`0-9 -:.`) |
+| `{"type": "dance", "s": ["jump", "spin", "wave", "freeze"]}` | Move Mixer: loops the dance, one step every 2 s, beat bar and step dots; each dance plays at least 2 loops, the newest waiting dance replaces older waiting ones; ends after 10 min with no new dance |
+
+Any of these may carry `"to": "<mac>"`: then only that display obeys. Without `to`, every
+display obeys (the M3 rule; see `known_issues/2026-11-13-game-system-gaps.md`).
+
+`main.py` imports the module on the first `"raw"` ESP-NOW message while idle, after the
+radio is up, and drops it on a stop, a card tap, a pull or a game start.
 
 A built-in game is looked up by `main.py`'s `_module_on_flash()`, which
 checks the **flash root** -- the `games/` directory in this repo is where the
@@ -87,18 +107,26 @@ them.
 
 ## Writing a game
 
+`main.py` is laid out like the wand's (`Wand Module/main.py`): radio prewarm at the top,
+the same section names, `_load_play` / `_run_games` / `_start_play` / `check_broadcast` /
+`show_idle` / `_espnow_pull_and_launch`, and the wand's game contract:
+
 ```python
-def play(nfc, panel, enow):
+def play(nfc, leds, buz, accel, i2c, enow, batt=None, net=None):
 ```
 
-- `nfc` — an `NfcReader`, already built, or `None` while no reader is fitted.
-  A wand game is handed the raw PN532 instead and builds its own; this one is
-  not.
-- `panel` — the `Matrix` itself: `set_pixels`, `draw_bytes`, `clear`,
-  `set_intensity`, `redraw`, and `.src` as a scratch frame.
-- `enow` — `ESPNowManager`, already initialized. Poll it every loop iteration
-  and return when `msg_type` is `"stop"` or `"start_game"`, or the game cannot
-  be switched out of.
+- `nfc` — the raw reader (`Ws1850sReader`, PN532-compatible), or `None` when no reader
+  answered. Build `NfcReader(nfc, COMMANDS)` as a wand game does.
+- `leds` — the panel (`Matrix`): `set_pixels`, `draw_bytes`, `clear`, `set_intensity`,
+  `redraw`, and `.src` as a scratch frame.
+- `buz`, `accel`, `batt` — `None`: no buzzer, accelerometer or battery here.
+- `i2c` — the reader's bus. `net` — `None`.
+- `enow` — `ESPNowManager`, already initialized. Poll it every loop iteration and return
+  when `msg_type` is `"stop"` or `"start_game"`.
+
+A game takes as many leading parameters as it needs. The older `play(nfc, panel, enow)`
+(exactly three parameters, `nfc` a ready-built `NfcReader`) is still called that way, so
+existing display games and generated ones keep working.
 
 Declare the cards a game reads as string literals in a module-level
 `COMMANDS` set, unioned with `exit_tags_excluding("<yourgame>")` from
