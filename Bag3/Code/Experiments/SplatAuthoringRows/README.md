@@ -67,3 +67,19 @@ Rules for the draft knowledge files:
   (`splatGameCheck.js`) is the verification, not the prompt.
 
 Not applicable here: forced tool use, computer use, advisor, and task budgets.
+
+## Tests
+
+- `python3 -m unittest discover -s tests`: `GameSplats` (type 2 handle) and station mode
+  `_station_cmd`, with radio and display modules stubbed. No pytest or Simulator needed.
+- `node js/splat_game_check_test.mjs`: the send-time check, including the shipped host games.
+- Not covered: `main._run_games` wiring, the host `_loop`, and any hardware behavior. The Simulator
+  shims were not used; loading the experiment through them needs Simulator wiring.
+- Prompt eval: not run. `ChatBroadcast/tools/prompt_eval.mjs` needs `ANTHROPIC_API_KEY` and reads the
+  live knowledge files, so it needs a knowledge-path option to test the drafts.
+
+## Station mode messages
+
+- `{"type": "splat", "s": i, "a": [names]}`: any wand broadcasts; every Splat host in range obeys.
+- `{"type": "splat_press", "s": i, "c": <host identity name>}`: broadcast by a host on a press. `c`
+  tells a listener which host the press came from; it does not target anything.
