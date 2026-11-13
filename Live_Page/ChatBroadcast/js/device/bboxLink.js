@@ -123,7 +123,8 @@ export class BboxLink {
   /** Ask the Box who and what it is. Not a status query (see info()) and
    *  not a connection handshake -- liveness comes from `heartbeat`. */
   identify({ timeoutMs = 4000 } = {}) {
-    return this.send({ cmd: "identify" }, { timeoutMs });
+    // proto: link protocol; a CrowPanel on another protocol shows "Update needed" (7.3)
+    return this.send({ cmd: "identify", proto: 1 }, { timeoutMs });
   }
 
   info() {

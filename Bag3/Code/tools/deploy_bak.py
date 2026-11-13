@@ -48,6 +48,7 @@ Usage:
     python3 tools/deploy.py /dev/cu.usbmodemX --type wand --wand-tree Experiments/EspnowModem/MockWandEUM
     python3 tools/deploy.py /dev/cu.usbmodemX --type icon --code-only
     python3 tools/deploy.py /dev/cu.usbmodemX --type dial --pause 8
+    python3 tools/deploy.py /dev/cu.usbmodemX --type etdial    # EmulatedTagDial/ETDialFirmware
     python3 tools/deploy.py /dev/cu.usbmodemX --type wand --changed   # only differing files
 
 --pause default is 8s for the Dial (the value deploy_dial.py's own history
@@ -70,6 +71,7 @@ CODE = os.path.dirname(HERE)                                # Bag3/Code
 
 DEVICE_TYPES = [
     ("Broadcast Dial", "dial"),
+    ("Emulated Tag Dial", "etdial"),
     ("Broadcast Box", "box"),
     ("Mock Wand", "wand"),
     ("Icon Display", "icon"),
@@ -294,8 +296,11 @@ def _precompile_wand_main(files):
 
 
 def _files_for(dev_key, code_only, wand_tree="Wand Module"):
-    if dev_key == "dial":
-        firmware_dir = os.path.join(CODE, "TeacherTools", "BroadcastDial", "BDialFirmware")
+    if dev_key in ("dial", "etdial"):
+        if dev_key == "dial":
+            firmware_dir = os.path.join(CODE, "TeacherTools", "BroadcastDial", "BDialFirmware")
+        else:
+            firmware_dir = os.path.join(CODE, "EmulatedTagDial", "ETDialFirmware")
         boot_local = os.path.join(firmware_dir, "boot.py")
         extra_boot = (boot_local, "/flash/boot.py") if os.path.exists(boot_local) else None
         files = _manifest_files(firmware_dir, "manifest.js", "DIAL_FILES")

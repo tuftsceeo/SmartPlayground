@@ -368,6 +368,22 @@ export class SerialEngine {
     this.log("✅ Running main.py");
   }
 
+  /**
+   * EN reset by pulsing RTS, the way esptool resets a board through a USB-serial
+   * bridge's auto-reset circuit (DTR held low so the chip boots normally).
+   * Used where a soft reset (Ctrl-D) is unsafe, e.g. CrowPanel: Ctrl-D re-runs
+   * main.py over a live display, and only an EN reset frees its touch bus pins.
+   */
+  async hardReset() {
+    this.log("🔄 Hardware reset (RTS pulse) …");
+    await this.exitRawRepl();
+    this.flushBuf();
+    await this.serialPort.setSignals({ dataTerminalReady: false, requestToSend: true });
+    await this.sleep(100);
+    await this.serialPort.setSignals({ requestToSend: false });
+    this.log("✅ Reset sent — main.py runs on boot");
+  }
+
   getDirsToCreate(relPaths) {
     const dirs = new Set();
     for (const p of relPaths) {
@@ -383,9 +399,22 @@ export class SerialEngine {
     this.log("── Starting upload (WebApp2-style, no wipe) ──");
     await this.enterRawRepl();
 
-    const relPaths = Object.keys(fetchedFiles).sort((a, b) =>
-      uploadSortKey(a).localeCompare(uploadSortKey(b))
-    );
+    // keepOrder: the manifest already lists files in a safe order (Bag3 wand:
+    // boot.py, wand_main.mpy, then the main.py stub that imports it).
+    const relPaths = device.keepOrder
+      ? Object.keys(fetchedFiles)
+      : Object.keys(fetchedFiles).sort((a, b) =>
+          uploadSortKey(a).localeCompare(uploadSortKey(b))
+        );
+
+    for (const rm of device.removeBeforeUpload || []) {
+      const absRm = deviceFilePath(device.devicePathRoot, rm);
+      await this.execScript(
+        `import os\ntry:\n os.remove(${JSON.stringify(absRm)})\nexcept OSError:\n pass\nprint('OK')\n`,
+        3000
+      );
+      this.log(`  🗑 removed '${absRm}' (if present)`, "dim");
+    }
 
     const dirs = this.getDirsToCreate(relPaths);
     if (dirs.length) {
@@ -409,7 +438,8 @@ export class SerialEngine {
       }
     }
 
-    await this.softReset();
+    if (device.reset === "rts") await this.hardReset();
+    else await this.softReset();
     this.log(`✅ ${relPaths.length} file(s) uploaded.`);
     return { success: true, total: relPaths.length };
   }

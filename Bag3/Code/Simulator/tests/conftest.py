@@ -39,7 +39,7 @@ def runtime(tmp_path):
             "multiicecream", "freeze_dance", "goalrace", "color_quest",
             "finddevice", "target", "splat_hub", "pairing", "splat_api",
             "pwire", "splatpair", "lobby_game", "lobbytest", "splattag",
-            "relaycolor", "custom",
+            "relaycolor", "host_lobbytest", "host_splattag", "host_relaycolor", "custom",
         ) or name.startswith("vendor"):
             del sys.modules[name]
 

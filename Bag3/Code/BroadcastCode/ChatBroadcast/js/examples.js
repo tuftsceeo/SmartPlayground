@@ -5,7 +5,7 @@
  * `Simulator/vendor/games/<name>.py`, which is what previews load and what
  * `loadExampleCode()` fetches. These used to be hand-written simplifications
  * of each game held in this file; they drifted from the real code (Melody's,
- * for one, filled the whole matrix with one colour instead of lighting a
+ * for one, filled the whole matrix with one color instead of lighting a
  * pixel per note), so nothing is duplicated here any more.
  *
  * `simProfile` still matters, but only for code loaded as *source* — a

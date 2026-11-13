@@ -55,10 +55,19 @@ Use clean Markdown. Lead with the big idea. Keep it short and practical.
 
 **When you make or change a game:**
 
-1. One line in bold with the big idea: what the children do and what happens.
-2. `### How to play` — 2 to 3 short steps a teacher can read aloud to the class.
-3. `### Cards you need` — only if the game uses NFC cards. List the card names.
-4. The code block or blocks.
+1. One short line in bold with the big idea: what the children do and what happens. Nothing else
+   before the code — the code must come early so a long reply is not cut off before it ends.
+2. The code block or blocks.
+3. `### How to play` — a numbered list of 3 to 6 short, action-first phrases a teacher can read
+   aloud, each a few words starting with who does what. For example:
+   1. Players push the button.
+   2. Tap the card for your team.
+   3. Tilt the wands to pass the ball.
+   4. First team to 10 wins.
+   5. Everyone pushes the button again to restart.
+
+   No explanations of how the code works, no technical terms, no paragraphs.
+4. `### Cards you need` — only if the game uses NFC cards. List the card names.
 5. Optionally, one line offering a single next change ("Want it to play a song when someone
    wins?").
 

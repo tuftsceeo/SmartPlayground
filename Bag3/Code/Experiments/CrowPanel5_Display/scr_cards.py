@@ -1,8 +1,12 @@
-"""Screen 5 - NFC tag modes: Games / Write / Read, with the NFC target.
+"""Screen 5 - NFC tags on the chat layout: the shared left column in Tags mode holds the list,
+Games / Write / Read is the switch in the heading, and the NFC target sits at its fixed spot.
 
-The radio is paused while this screen is open (the reader field is on). After each tag the
-next job waits until the card is lifted (panel.need_lift), as on the Broadcast Dial.
+The radio is off while this screen is open (the reader field is on). After each tag the next
+job waits until the card is lifted (panel.need_lift), as on the Broadcast Dial. Game tags can be
+written in any order: tapping a row arms that tag, tapping a written row writes another copy.
 """
+
+import sys
 
 import lvgl as lv
 
@@ -10,19 +14,20 @@ import ds_tokens as t
 import library
 import nfc_target
 import panel
+import side
 import ui_kit as k
-from ui_kit import F12
 
-ROWS = 6
-LIST_W = 290
-MID_X = 322
-MID_W = 192
+ROWS = side.ROWS
+MAIN_X = side.W
+MAIN_W = k.W - MAIN_X
+CARD_X = MAIN_X + 16
+TEXT_W = 248
 MAX_TEXT = 54
-_rows = []
+READS = 6
 _w = {"mode": "games", "view": "pick", "gsel": None, "slug": None, "cards": [], "done": set(),
-      "err": set(), "i": None, "run": None, "complete": False, "text": "", "wrote": False,
+      "err": set(), "i": None, "complete": False, "text": "", "wrote": False,
       "read": None, "blank": False, "held": False, "page": 0, "entered": False, "last": None,
-      "busy": False, "counts": {}}
+      "busy": False, "counts": {}, "reads": []}
 
 
 def start(mode):
@@ -32,16 +37,15 @@ def start(mode):
     _w["page"] = 0
 
 
-def opened():
-    """After k.go("scr_cards"): Write with no text starts at the keyboard."""
-    if _w["mode"] == "write" and not _w["text"]:
-        _type()
-
-
 def _leave():
     _w["entered"] = False
     panel.P.nfc_leave()
-    k.back()
+    k.home()
+
+
+def _toggle(key):
+    if key == "msg":
+        _leave()
 
 
 def _wrap(parent, x, y, w, color, font):
@@ -53,36 +57,32 @@ def _wrap(parent, x, y, w, color, font):
 
 def build():
     scr = k.new_screen()
-    hd, _w["head"] = k.header(scr, "", _leave, w=230)
-    tr, _w["seg"], _ = k.seg(hd, 0, 8, (("games", "Games"), ("write", "Write"), ("read", "Read")), _mode, 96)
-    tr.set_x(k.W - 16 - 296)
-    _w["lhead"] = k.slot(scr, 16, 74, LIST_W, t.INK_3, F12)
-    for i in range(ROWS):
-        r = k.box(scr, 16, 96 + i * 46, LIST_W, 42, t.SURFACE, 10, t.BORDER)
-        mk = k.box(r, 9, 8, 22, 22, k.GREY, 11)
-        ml = k.text(mk, "", t.SURFACE, F12, align=lv.ALIGN.CENTER)
-        nm = k.slot(r, 40, 10, 170, t.INK, k.F_BODY)
-        sd = k.slot(r, 214, 12, 64, t.INK_3, F12)
-        d = {"row": r, "mk": mk, "ml": ml, "name": nm, "side": sd, "key": None}
-        k.on(r, lambda d=d: d["key"] is not None and _tap(d["key"]))
-        _rows.append(d)
-    _w["kicker"] = k.slot(scr, MID_X, 84, MID_W, t.PURPLE, F12)
-    _w["title"] = _wrap(scr, MID_X, 106, MID_W, t.INK, k.F_TITLE)
-    _w["hint"] = _wrap(scr, MID_X, 200, MID_W, t.INK_3, k.F_BODY)
-    _w["radio"] = k.radio_icon(scr, MID_X, 372)
-    _w["edges"] = k.edges(scr, 64)
-    ft = k.box(scr, 0, 416, k.W, 64, t.SURFACE)
-    k.box(scr, 0, 416, k.W, 1, t.BORDER)
-    prev = k.button(ft, 16, 10, 44, "<", t.INK, w=44)
-    nxt = k.button(ft, 68, 10, 44, ">", t.INK, w=44)
+    _w["side"] = side.build(scr, "tags", pick=_tap, toggle=_toggle)
+    hd = k.box(scr, MAIN_X, 0, MAIN_W, 64, t.SURFACE)
+    k.box(scr, MAIN_X, 63, MAIN_W, 1, t.BORDER)
+    _w["head"] = k.slot(hd, 16, 22, MAIN_W - 16 - 240, t.INK, k.F_HEAD)
+    tr, _w["seg"], _ = k.seg(hd, MAIN_W - 16 - 224, 8, (("games", "Games"), ("write", "Write"), ("read", "Read")),
+                             _mode, 72)
+    k.box(scr, CARD_X, 78, MAIN_W - 32, 314, t.SURFACE, 16, t.BORDER, 2)
+    _w["kicker"] = k.slot(scr, CARD_X + 16, 120, TEXT_W, t.INK_3, k.F12)
+    _w["title"] = _wrap(scr, CARD_X + 16, 142, TEXT_W, t.INK, k.F_TITLE)
+    _w["hint"] = _wrap(scr, CARD_X + 16, 210, TEXT_W, t.INK_3, k.F_BODY)
+    pill = k.box(scr, CARD_X + 16, 336, 44, 32, t.WARN[1], t.R_PILL)
+    k.icon(pill, "radio_off_20", t.WARN[0], align=lv.ALIGN.CENTER)
+    _w["radio"] = pill
+    ft = k.box(scr, MAIN_X, 406, MAIN_W, 74, t.SURFACE)
+    k.box(scr, MAIN_X, 406, MAIN_W, 1, t.BORDER)
+    prev = k.button(ft, 16, 15, 44, lv.SYMBOL.UP, t.INK_3, px=0, w=44)
+    nxt = k.button(ft, 68, 15, 44, lv.SYMBOL.DOWN, t.INK_3, px=0, w=44)
     k.on(prev, lambda: _page(-1))
     k.on(nxt, lambda: _page(1))
     _w["pager"] = (prev, nxt)
     # labels are set by _show; a button made with "" has no label to set
-    _w["sec"] = k.button(ft, k.W - 16 - 170 - 12 - 150, 8, 48, " ", t.INK, font=k.F_HEAD, w=150)
-    _w["pri"] = k.button(ft, k.W - 16 - 170, 8, 48, " ", t.SURFACE, font=k.F_HEAD, primary="teal", w=170)
+    _w["sec"] = k.button(ft, MAIN_W - 16 - 170 - 10 - 150, 11, 52, " ", t.INK_3, font=k.F_BODY, w=150)
+    _w["pri"] = k.button(ft, MAIN_W - 16 - 170, 11, 52, " ", t.SURFACE, font=k.F_HEAD, primary="teal", w=170)
     k.on(_w["sec"], lambda: _foot("sec"))
     k.on(_w["pri"], lambda: _foot("pri"))
+    _w["edges"] = k.edges(scr, 0)
     nfc_target.attach(scr)
     return scr
 
@@ -91,42 +91,49 @@ def build():
 
 def _pick_items():
     P = panel.P
-    items = [(g["slug"], g["name"], len(P.lib.cards(g["slug"])), g["color"]) for g in P.lib.games]
-    items.append((library.UTILITY, "Utility", len(library.UTILITY_TAGS), t.INK_3))
+    items = [(g["slug"], g["name"], len(P.lib.cards(g["slug"]))) for g in P.lib.games]
+    items.append((library.UTILITY, "Utility", len(library.UTILITY_TAGS)))
     return items
 
 
+def _tags(n):
+    return f"{n} tag{'' if n == 1 else 's'}"
+
+
 def _items():
-    """[(key, name, side, mark, mark color)] for the list. mark: ok / now / err / dot / ''."""
+    """[(key, name, note, mark, row bg)] for the left column. mark: ok / now / err / ''."""
     mode = _w["mode"]
     out = []
     if mode == "games" and _w["view"] == "pick":
-        for slug, name, n, col in _pick_items():
-            out.append((slug, name, f"{n} tag{'' if n == 1 else 's'}", "now" if slug == _w["gsel"] else "", col))
+        for slug, name, n in _pick_items():
+            sel = slug == _w["gsel"]
+            out.append((slug, name, _tags(n), "now" if sel else "", t.PINK_50 if sel else None))
     elif mode == "games":
-        cards = _w["cards"]
-        all_done = len(_w["done"]) == len(cards)
-        out.append(("all", "All", "",
-                    "ok" if all_done else ("now" if _w["run"] == "all" else ""), t.TEAL))
-        for n, (label, _) in enumerate(cards):
-            if n == _w["i"]:
+        for n, (label, _) in enumerate(_w["cards"]):
+            now = n == _w["i"] and not _w["complete"]
+            if now:
                 mk = "err" if n in _w["err"] else "now"
             else:
                 mk = "ok" if n in _w["done"] else ("err" if n in _w["err"] else "")
-            out.append((n, label, "", mk, t.TEAL))
+            out.append((n, label, "", mk, t.PINK_50 if now else None))
     elif mode == "write":
         for s in panel.P.store.history:
             n = _w["counts"].get(s, 0)
-            out.append((s, s, f"{n} tag{'' if n == 1 else 's'}" if n else "", "ok", t.PURPLE))
+            out.append((s, s, _tags(n) if n else "", "ok", t.PINK_50 if s == _w["text"] else None))
+    else:
+        for j, s in enumerate(_w["reads"]):
+            title = "Blank" if s is None else " ".join(x for x in _says(s) if x)
+            out.append(("r%d" % j, title, "", "ok" if s is not None else "",
+                        t.PINK_50 if j == 0 and (_w["read"] or _w["blank"]) else None))
     return out
-
-
-_MARK = {"ok": (lv.SYMBOL.OK, t.TEAL), "now": (lv.SYMBOL.RIGHT, t.PINK), "err": ("!", t.DANGER[0])}
 
 
 # -- actions -------------------------------------------------------------------
 
 def _mode(mode):
+    kb = sys.modules.get("kbd")
+    if kb:
+        kb.close()
     _w["mode"] = mode
     _w["view"] = "pick"
     _w["page"] = 0
@@ -142,6 +149,7 @@ def _page(n):
 
 
 def _next_todo(after=-1):
+    """The next tag not written yet after `after`, wrapping round; None when all are written."""
     cards = _w["cards"]
     for n in list(range(after + 1, len(cards))) + list(range(0, after + 1)):
         if n not in _w["done"]:
@@ -149,24 +157,16 @@ def _next_todo(after=-1):
     return None
 
 
-def _run_all(fresh=False):
-    if fresh:
-        _w["done"] = set()
-        _w["err"] = set()
-    _w["run"] = "all"
-    _w["i"] = _next_todo()
-    _w["complete"] = _w["i"] is None
-    if _w["complete"]:
-        _w["run"] = None
-    _arm()
-
-
 def _open_set(slug):
     _w["slug"] = slug
     _w["cards"] = panel.P.lib.cards(slug)
     _w["view"] = "set"
     _w["page"] = 0
-    _run_all(fresh=True)
+    _w["done"] = set()
+    _w["err"] = set()
+    _w["i"] = _next_todo()
+    _w["complete"] = _w["i"] is None
+    _arm()
 
 
 def _tap(key):
@@ -175,19 +175,17 @@ def _tap(key):
         _w["gsel"] = key
         _show()
     elif mode == "games":
-        if key == "all":
-            _run_all(fresh=len(_w["done"]) == len(_w["cards"]))
-        else:
-            _w["run"] = "one"
-            _w["i"] = key
-            _w["complete"] = False
-            _arm()
+        _w["i"] = key               # any order; a written tag gets another copy
+        _w["complete"] = False
+        _arm()
     elif mode == "write":
         _w["text"] = key
         _w["wrote"] = False
         _arm()
     else:
-        _use_text(key)
+        s = _w["reads"][int(key[1:])]
+        if s is not None:
+            _use_text(s)
 
 
 def _use_text(s):
@@ -205,19 +203,19 @@ def _type():
 
 def _foot(which):
     mode = _w["mode"]
-    if which == "pri" and _buttons()[1] == "Done":
+    if which == "pri" and _buttons()[1] in ("Done", "Exit"):
         _leave()
     elif mode == "games" and _w["view"] == "pick":
         if _w["gsel"] is not None:
             _open_set(_w["gsel"])
     elif mode == "games":
         if _w["complete"]:
-            _run_all(fresh=True)        # Write another set
-        elif _w["run"] == "one":
-            _run_all()                  # Back to the set
+            _open_set(_w["slug"])       # Write another set
         else:
-            _w["done"].add(_w["i"])     # Skip
-            _run_all()
+            nxt = _next_todo(_w["i"])   # Skip
+            if nxt is not None and nxt != _w["i"]:
+                _w["i"] = nxt
+                _arm()
     elif mode == "write":
         if which == "sec":
             _type()                     # Edit text / New text
@@ -287,6 +285,10 @@ def _result(res, uid, text):
     if mode == "read":
         _w["blank"] = res == "empty"
         _w["read"] = text if ok else None
+        if ok or res == "empty":
+            _w["reads"].insert(0, text if ok else None)
+            del _w["reads"][READS:]
+            _w["page"] = 0
         if res == "empty":
             nfc_target.state("read", f"Read{k.DOT}blank")
         else:
@@ -311,26 +313,26 @@ def _result(res, uid, text):
         _arm()
         return
     i = _w["i"]
-    _w["last"] = _w["cards"][i][0]
+    label, tag = _w["cards"][i]
+    _w["last"] = label
+    _w["counts"][tag] = _w["counts"].get(tag, 0) + 1
     _w["done"].add(i)
     _w["err"].discard(i)
-    if _w["run"] == "all":
-        _w["i"] = _next_todo(i)
-        if _w["i"] is None:
-            _w["complete"] = True
-            _w["run"] = None
+    _w["i"] = _next_todo(i)
+    if _w["i"] is None:
+        _w["complete"] = True
     _arm()
 
 
 # -- drawing -------------------------------------------------------------------
 
 def _set_hint(slug):
-    """Pick view: what a game's set holds, as "All, Code, Play, then its 4 game tags"."""
+    """Pick view: what a game's set holds, as "Code, Play, then its 4 game tags"."""
     cards = panel.P.lib.cards(slug)
-    base = ["All"] + [lb for lb, _ in cards if lb in ("Code", "Play")]
-    n = len(cards) - len(base) + 1
     if slug == library.UTILITY:
-        return ", ".join(["All"] + [lb for lb, _ in cards])
+        return ", ".join(lb for lb, _ in cards)
+    base = [lb for lb, _ in cards if lb in ("Code", "Play")]
+    n = len(cards) - len(base)
     return ", ".join(base) + (f", then its {n} game tag{'' if n == 1 else 's'}" if n else "")
 
 
@@ -348,39 +350,38 @@ def _says(text):
 
 
 def _words():
-    """(header, list head, kicker, title, hint): the design boards' copy, nothing more."""
+    """(header, kicker, title, hint): the design boards' copy, nothing more."""
     P = panel.P
     mode = _w["mode"]
     if mode == "games" and _w["view"] == "pick":
         g = P.lib.get(_w["gsel"]) if _w["gsel"] else None
         name = "Utility" if _w["gsel"] == library.UTILITY else (g["name"] if g else "")
-        return "Games", "Pick a Game", "GAME" if name else "", name, _set_hint(_w["gsel"]) if name else ""
+        return "Games", "GAME" if name else "", name, _set_hint(_w["gsel"]) if name else ""
     if mode == "games":
         cards = _w["cards"]
         g = P.lib.get(_w["slug"])
         head = g["name"] if g else "Utility"
         if _w["complete"]:
-            return head, "Tags in this Game", "SET COMPLETE", f"All {len(cards)} written", ""
+            return head, "SET COMPLETE", f"All {len(cards)} written", ""
         i = _w["i"]
         label = cards[i][0] if i is not None else ""
-        kick = "REWRITE ONE TAG" if _w["run"] == "one" else "NOW WRITING"
         if _w["busy"]:
-            return head, "Tags in this Game", kick, label, "Hold still"
-        if _w["held"] and P.need_lift and _w["last"] and i not in _w["err"] and _w["run"] != "one":
-            return head, "Tags in this Game", kick, _w["last"], f"Next: {label}"
-        return head, "Tags in this Game", kick, label, "Hold until the beep"
+            return head, "NOW WRITING", label, "Hold still"
+        if _w["held"] and P.need_lift and _w["last"] and i not in _w["err"]:
+            return head, "NOW WRITING", _w["last"], f"Next: {label}"
+        return head, "NOW WRITING", label, "Hold until the beep"
     if mode == "write":
         if _w["wrote"]:
-            return "Write a tag", "Write History", "DONE", _w["text"], "Write another tag with the same text?"
+            return "Write a tag", "DONE", _w["text"], "Write another tag with the same text?"
         kick = "NOW WRITING" if _w["text"] else ""
-        return "Write a tag", "Write History", kick, _w["text"], ("Hold still" if _w["busy"] else
-                                                                 "Hold until the beep") if _w["text"] else ""
+        return "Write a tag", kick, _w["text"], ("Hold still" if _w["busy"] else
+                                                 "Hold until the beep") if _w["text"] else ""
     if _w["blank"]:
-        return "Read a tag", "", "THIS TAG SAYS", "Blank Tag", ""
+        return "Read a tag", "THIS TAG SAYS", "Blank Tag", ""
     if _w["read"]:
         title, hint = _says(_w["read"])
-        return "Read a tag", "", "THIS TAG SAYS", title, hint
-    return "Read a tag", "", "READ", "Tap a tag", ""
+        return "Read a tag", "THIS TAG SAYS", title, hint
+    return "Read a tag", "READ", "Tap a tag", ""
 
 
 def _buttons():
@@ -390,10 +391,8 @@ def _buttons():
         return None, "Open", _w["gsel"] is not None
     if mode == "games":
         if _w["complete"]:
-            return "Write another set", "Done", True
-        if _w["run"] == "one":
-            return "Back to the set", "Done", True
-        return "Skip", "Done", True
+            return "Write another set", "Exit", True
+        return "Skip", "Exit", True
     if mode == "write":
         if _w["wrote"]:
             return "New text", "Same again", True
@@ -409,37 +408,17 @@ def _show():
     items = _items()
     pages = max(1, (len(items) + ROWS - 1) // ROWS)
     if _w["mode"] == "games" and _w["view"] == "set" and _w["i"] is not None:
-        _w["page"] = (_w["i"] + 1) // ROWS
+        _w["page"] = _w["i"] // ROWS
     _w["page"] = min(_w["page"], pages - 1)
-    items = items[_w["page"] * ROWS:(_w["page"] + 1) * ROWS]
-    for j, d in enumerate(_rows):
-        it = items[j] if j < len(items) else None
-        k.show_hide(d["row"], it is not None)
-        d["key"] = it[0] if it else None
-        if it is None:
-            continue
-        key, name, side, mark, col = it
-        k.st(d["name"], name)
-        k.st(d["side"], side)
-        if mark:
-            sym, mc = _MARK[mark]
-            k.sty(d["mk"], "bg", mc)
-            k.st(d["ml"], sym)
-        else:
-            k.sty(d["mk"], "bg", k.GREY)
-            k.st(d["ml"], "")
-        on_ = mark == "now" or (_w["mode"] == "write" and key == _w["text"])
-        k.sty(d["row"], "border", t.PINK if on_ else t.BORDER)
-        k.sty(d["row"], "bg", t.PINK_50 if on_ else t.SURFACE)
+    side.fill(_w["side"], items[_w["page"] * ROWS:(_w["page"] + 1) * ROWS])
     for b in _w["pager"]:
         k.show_hide(b, pages > 1)
-    head, lhead, kick, title, hint = _words()
+    head, kick, title, hint = _words()
     k.st(_w["head"], head)
-    k.st(_w["lhead"], lhead)
     k.st(_w["kicker"], kick)
     k.st(_w["title"], title)
     k.st(_w["hint"], hint)
-    _w["radio"](not P.nfc_on)
+    k.show_hide(_w["radio"], P.nfc_on)
     sec, pri, en = _buttons()
     k.show_hide(_w["sec"], sec is not None)
     k.show_hide(_w["pri"], pri is not None)
@@ -458,6 +437,8 @@ def refresh():
         _w["held"] = False
         P.nfc_enter()
         _arm()
+        if _w["mode"] == "write" and not _w["text"]:
+            _type()
         return
     if _w["held"] and not P.need_lift:
         _w["held"] = False

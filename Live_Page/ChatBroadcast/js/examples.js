@@ -5,7 +5,7 @@
  * `Simulator/vendor/games/<name>.py`, which is what previews load and what
  * `loadExampleCode()` fetches. These used to be hand-written simplifications
  * of each game held in this file; they drifted from the real code (Melody's,
- * for one, filled the whole matrix with one colour instead of lighting a
+ * for one, filled the whole matrix with one color instead of lighting a
  * pixel per note), so nothing is duplicated here any more.
  *
  * `simProfile` still matters, but only for code loaded as *source* — a
@@ -142,7 +142,7 @@ export function findExample(id) {
  * copy. Resolved against this module's own URL, the same way
  * Simulator/wand-sim.js resolves its assets, so it works from whatever path
  * the app is served at — both trees still have to be served from a common
- * `Live_Page/` root (or `Bag3/Code/` when developing under BroadcastCode).
+ * `Bag3/Code/` root.
  *
  * Previews don't need this: they set `<wand-sim>.game = vendorGame` and let
  * Pyodide read the file it already has. This is for the paths that need the
@@ -151,7 +151,7 @@ export function findExample(id) {
 export async function loadExampleCode(ex) {
     const name = ex && ex.vendorGame;
     if (!name) throw new Error(`example "${ex && ex.id}" has no vendorGame`);
-    const url = new URL(`../../Simulator/vendor/games/${name}.py`, import.meta.url);
+    const url = new URL(`../../../Simulator/vendor/games/${name}.py`, import.meta.url);
     // Same reason as wand-sim.js's fetchText: a static server sends no
     // Cache-Control, and a stale game file here would silently show the
     // teacher last week's code.

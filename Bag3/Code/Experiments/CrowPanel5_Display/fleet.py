@@ -40,6 +40,10 @@ class Fleet:
         return self._scan_until is not None or self._total > 0
 
     @property
+    def distributing(self):
+        return self._total > 0
+
+    @property
     def scanning(self):
         return self._scan_until is not None
 

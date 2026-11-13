@@ -19,7 +19,7 @@ export const CLAUDE_MODEL = 'claude-sonnet-5-5';
 /** output_config.effort: controls thinking depth and so reply latency.
  * One of 'low' | 'medium' | 'high' | 'xhigh' | 'max'. */
 export const CLAUDE_EFFORT = 'low';
-export const MAX_TOKENS = 24000;
+export const MAX_TOKENS = 32000;
 /** Chat history sent per request: all of it up to HISTORY_MAX messages;
  * past that, the window drops back to HISTORY_MIN and grows again, so its
  * first message stays the same for HISTORY_MAX - HISTORY_MIN turns. */
@@ -32,6 +32,7 @@ export const ANTHROPIC_BETA = 'server-side-fallback-2026-07-01';
  * per-device files named by roles.js. */
 export const SHARED_KNOWLEDGE = [
     'knowledge/policy.md',
+    'knowledge/accessibility.md',
     'knowledge/platform.md',
     'knowledge/game_patterns.md',
     'knowledge/lobby_games.md',
@@ -43,7 +44,7 @@ export const ADVANCED_KNOWLEDGE = 'knowledge/advanced.md';
 export const INTERVIEW_KNOWLEDGE = 'knowledge/interview.md';
 
 /** Questions an interview may ask, counting the fixed title question. */
-export const INTERVIEW_MAX_QUESTIONS = 10;
+export const INTERVIEW_MAX_QUESTIONS = 6;
 /** The interview's first question, asked by the app without a model call. */
 export const INTERVIEW_FIRST_QUESTION = 'What is the title of your game?';
 
@@ -74,7 +75,8 @@ export function knowledgeText(files, splatActions) {
         'For a Splat from net.splat(i) (leader) or net.local.unit(s) ' +
         '(this wand\'s own Splat, any game role):\n\n' +
         `- colors (.color): ${splatActions.colors.join(', ')}; ` +
-        '.color(name, "inner") or .color(name, "outer") sets only that ring\n' +
+        '.color(name, part) sets only that part: "inner" (middle ring), "outer" (points in the arms), ' +
+        '"left" or "right" (that half); the other lights keep their color\n' +
         `- notes (.note): ${splatActions.notes.join(', ')}\n` +
         `- sounds (.sound): ${splatActions.sounds.join(', ')}\n\n` +
         '.play([...]) takes any mix of these. Use these names only.';
@@ -147,8 +149,56 @@ export function interviewStatusText(asked, finish = false) {
     if (!last) return status;
     const why = finish ? 'The teacher asked to stop the interview.' : 'No questions are left.';
     return `${status} ${why} This is the last turn: do not ask a question. ` +
-        'Write the summary with the [GAME_BRIEF] block now, choosing sensible defaults for ' +
-        'anything still unknown.';
+        'Write the brief now in the JSON response format, choosing sensible defaults for ' +
+        'anything still unknown and naming them in `defaults`. Use an empty string for a ' +
+        'field that does not apply.';
+}
+
+/** Brief fields in display order: JSON key -> label (interview.md "The brief"). */
+export const BRIEF_FIELDS = [
+    ['title', 'Title'],
+    ['wands', 'Wands'],
+    ['play', 'Play'],
+    ['extras', 'Extras'],
+    ['how_to_play', 'How to play'],
+    ['what_happens', 'What happens'],
+    ['start_and_end', 'Start and end'],
+    ['cards', 'Cards'],
+    ['defaults', 'Defaults I chose'],
+];
+
+/**
+ * output_config.format for the last interview turn. The schema makes the
+ * reply a brief: on that turn a free-text reply could be another question
+ * or a full game instead.
+ */
+export function briefFormat() {
+    const props = { message: { type: 'string' } };
+    for (const [key] of BRIEF_FIELDS) props[key] = { type: 'string' };
+    return {
+        type: 'json_schema',
+        schema: {
+            type: 'object',
+            properties: props,
+            required: Object.keys(props),
+            additionalProperties: false,
+        },
+    };
+}
+
+/**
+ * The bulleted brief from a briefFormat() reply, and its lead sentence.
+ * Throws if the text is not JSON or has no title.
+ * @param {string} text
+ * @returns {{message: string, brief: string}}
+ */
+export function briefFromJson(text) {
+    const obj = JSON.parse(text);
+    if (!obj.title?.trim()) throw new Error('brief has no title');
+    const lines = BRIEF_FIELDS
+        .filter(([key]) => (obj[key] || '').trim())
+        .map(([key, label]) => `- ${label}: ${obj[key].trim()}`);
+    return { message: (obj.message || '').trim(), brief: lines.join('\n') };
 }
 
 /**
@@ -205,14 +255,16 @@ export function historyWindow(history, max = HISTORY_MAX, min = HISTORY_MIN) {
 
 /**
  * Request body for POST /v1/messages.
- * @param {{system:object[], history:object[], stream?:boolean, windowed?:boolean}} o
- *     windowed: false sends every message instead of historyWindow(history)
+ * @param {{system:object[], history:object[], stream?:boolean, windowed?:boolean,
+ *          format?:object}} o
+ *     windowed: false sends every message instead of historyWindow(history);
+ *     format: output_config.format, e.g. briefFormat()
  */
-export function buildRequestBody({ system, history, stream = true, windowed = true }) {
+export function buildRequestBody({ system, history, stream = true, windowed = true, format = null }) {
     return {
         model: CLAUDE_MODEL,
         max_tokens: MAX_TOKENS,
-        output_config: { effort: CLAUDE_EFFORT },
+        output_config: format ? { effort: CLAUDE_EFFORT, format } : { effort: CLAUDE_EFFORT },
         // A safety-classifier decline is re-run server-side on the model
         // Anthropic recommends for that decline category.
         fallbacks: 'default',

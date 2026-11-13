@@ -255,7 +255,7 @@ STAGE_ROWS = (
     (21, 22, 23, 24),    # stage 4: card reader
 )
 
-WHITE_DIM = (40, 40, 40)
+WHITE_DIM = (28, 38, 22)
 STAGE_OK = (0, 120, 0)
 STAGE_WARN = (120, 60, 0)
 STAGE_FAIL = (120, 0, 0)

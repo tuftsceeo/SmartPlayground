@@ -32,6 +32,7 @@ _CONFIGS = {
         "has_ble":        True,
         "has_power_led":  True,     # Bag3 only: discrete power-status LED
         "power_led_pin":  2,
+        "diffuser":       "black",  # matrix diffuser: "black" or "white" (older builds)
         "uses_ble":       False,  # not actively connecting to Splats (yet)
         "buzzer_pin":     19,
         "motor_pin":      21,

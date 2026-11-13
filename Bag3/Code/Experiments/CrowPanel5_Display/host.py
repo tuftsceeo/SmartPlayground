@@ -15,7 +15,7 @@ import panel
 import ui_kit as k
 from code_link import HOST_ID
 
-PASSIVE = ("identify", "info", "mode", "unlink", "ping")
+PASSIVE = ("identify", "info", "mode", "unlink", "ping", "panel.restart")
 LINK_TIMEOUT_MS = 15000   # ChatBroadcast pings a CrowPanel every 5 s while connected
 
 class Host:
@@ -26,6 +26,7 @@ class Host:
         self.card = None        # {"text","label","state","msg"} for screen 9
         self.shown = None       # the finished card screen 9 keeps showing until the next command
         self.lost = False       # linked, but the computer went quiet
+        self.mismatch = False   # ChatBroadcast speaks another link protocol: 7.3, never links
         self.h = {
             "identify": self.identify, "info": self.info, "mode": self.mode,
             "games.list": self.games_list, "games.select": self.games_select,
@@ -35,6 +36,7 @@ class Host:
             "fleet.scan": self.fleet_scan, "fleet.find": self.fleet_find,
             "fleet.distribute": self.fleet_distribute, "fleet.cancel": self.fleet_cancel,
             "card.write": self.card_write, "card.cancel": self.card_cancel, "unlink": self.unlink, "ping": self.ok,
+            "panel.restart": self.panel_restart,
         }
 
     def send(self, d):
@@ -51,13 +53,16 @@ class Host:
         if self.lost:
             self.lost = False
             self.P.dirty = True
+        if self.mismatch and name not in PASSIVE:
+            self.send({"type": "error", "id": rid, "code": "proto", "proto": panel.PROTO})
+            return
         if not self.linked:
             if name not in PASSIVE:
                 self.link()
-            elif name not in ("unlink", "ping") and k.cur != "scr_link_prompt":
+            elif name not in ("unlink", "ping", "panel.restart") and k.cur != "scr_link_prompt":
                 self._leave_local()
                 k.go("scr_link_prompt")
-        if self.card is None and k.cur == "scr_linked_card" and name not in ("card.write", "ping"):
+        if self.card is None and k.cur == "scr_linked_card" and name not in ("card.write", "ping", "panel.restart"):
             k.go("scr_linked", push=False)
         fn(cmd, rid)
 
@@ -99,8 +104,7 @@ class Host:
         if time.ticks_diff(time.ticks_ms(), self.heard) <= LINK_TIMEOUT_MS:
             return
         if not self.linked:
-            self.drop()
-            k.toast("Computer disconnected")
+            self.drop()     # never linked: back to home, nothing to show
             return
         self.lost = True
         self.shown = None
@@ -115,6 +119,11 @@ class Host:
         self.send({"type": "released"})
         self.drop()
 
+    def retry(self):
+        """7.3 Try again: wait for ChatBroadcast to identify again (it may have been updated)."""
+        self.mismatch = False
+        self.P.dirty = True
+
     def unlink(self, cmd, rid):
         self.ok(cmd, rid)
         self.drop()
@@ -122,8 +131,19 @@ class Host:
     # -- identity and state --------------------------------------------------
 
     def identify(self, cmd, rid):
+        # an older ChatBroadcast sends no proto and is taken as compatible
+        proto = cmd.get("proto")
+        self.mismatch = proto is not None and proto != panel.PROTO
         self.send({"type": "identity", "id": rid, "device": "crowpanel", "version": panel.VERSION,
-                   "w": k.W, "h": k.H, "nfc": self.P.reader.ok, "host_id": HOST_ID})
+                   "proto": panel.PROTO, "w": k.W, "h": k.H, "nfc": self.P.reader.ok, "host_id": HOST_ID})
+        self.P.dirty = True
+
+    def panel_restart(self, cmd, rid):
+        """Bench test: re-sync the RGB panel DMA (row shift at bounce-buffer edges)."""
+        import display_lvgl
+        b = display_lvgl.RGB
+        fn = getattr(b, "restart", None)
+        self.ok(cmd, rid, done=bool(fn()) if fn else None)
 
     def ok(self, cmd, rid, **extra):
         d = {"type": "ok", "id": rid, "cmd": cmd.get("cmd")}
@@ -252,7 +272,7 @@ class Host:
             return
         g = P.lib.get(slug)
         P.code.set_game(slug)
-        P.dist = {"slug": slug, "name": g["name"], "macs": list(macs), "done": False,
+        P.dist = {"mode": "push", "slug": slug, "name": g["name"], "macs": list(macs), "done": False,
                   "state": {m: "wait" for m in macs}, "ts": time.ticks_ms()}
         fl.distribute(P.mgr, slug, macs)
         P.happening = f"Send code - 0 of {len(macs)}"

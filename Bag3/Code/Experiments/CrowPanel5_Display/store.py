@@ -38,6 +38,13 @@ class Store:
         self.groups[name] = list(macs)
         self.save()
 
+    def remove_group(self, name):
+        """Drop a group; returns its devices, or None if there was no such group."""
+        macs = self.groups.pop(name, None)
+        if macs is not None:
+            self.save()
+        return macs
+
     def remember(self, text):
         """Put text at the top of the Write History."""
         if text in self.history:

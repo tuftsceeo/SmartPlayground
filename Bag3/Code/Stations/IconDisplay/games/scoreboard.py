@@ -47,7 +47,7 @@ TEAM_COLOR = {
     "green": (0, 200, 60),
     "blue": (40, 120, 200),
 }
-DIVIDER = (60, 60, 60)
+DIVIDER = (40, 55, 32)
 
 # Static content sits lit for a whole session, so it stays at the low end of
 # the range -- see main.py's IDLE_INTENSITY and the readme's voltage ramp.

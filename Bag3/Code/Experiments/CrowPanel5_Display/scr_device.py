@@ -1,4 +1,6 @@
-"""Screen 6 - One device: chat with this MAC alone, plus an "About this wand" aside."""
+"""Screen 6 - One device: chat with this MAC alone, plus an aside with its nickname and Find.
+
+Battery and signal show only as replies to Find (bubbles), not as tiles that don't update."""
 
 import lvgl as lv
 
@@ -67,14 +69,7 @@ def build():
     _w["about"] = k.slot(side, 16, 12, ASIDE_W - 32, t.INK, k.F_HEAD)
     nb, _w["nick"] = _tile(side, 16, 40, ASIDE_W - 32, 56, "Nickname")
     k.on(nb, _rename)
-    _, _w["batt"] = _tile(side, 16, 104, 102, 56, "Battery")
-    sb, _w["sig"] = _tile(side, 130, 104, 102, 56, "Signal")
-    _w["sig"].set_width(50)
-    _w["bars"] = k.sig_bars(sb, 66, 32)
-    _w["last"] = k.slot(side, 16, 172, ASIDE_W - 32, t.INK_3, F12)
-    _w["groups"] = k.slot(side, 16, 194, ASIDE_W - 32, t.INK_3, F12)
-    _w["mac"] = k.slot(side, 16, 216, ASIDE_W - 32, t.MUTED, F12)
-    f = k.button(side, 16, 266, 52, "Find it again", t.SURFACE, "find_18", font=k.F_HEAD,
+    f = k.button(side, 16, 112, 52, "Find it again", t.SURFACE, "find_18", font=k.F_HEAD,
                  primary="teal", w=ASIDE_W - 32)
     k.on(f, lambda: _mac() and panel.P.act(panel.P.find, _mac()))
 
@@ -114,21 +109,8 @@ def refresh():
     else:
         k.st(_w["sub"], f"{kind}{k.DOT}heard {P.roster.age(e)}")
     k.st(_w["nick"], P.store.names.get(mac) or "")
-    b = None if e is None else e["battery"]
-    k.st(_w["batt"], "-" if b is None else f"{b}%")
-    k.sty(_w["batt"], "text", t.WARN[0] if e is not None and P.roster.low(e) else t.INK)
-    rssi = None if e is None else e["rssi"]
-    lvl = k.signal_level(rssi)
-    k.st(_w["sig"], "-" if rssi is None else roster.signal_word(rssi))
-    _w["bars"](lvl, t.TEAL_DARK)
     # roll-call answers show in the header ("heard 1 min ago"); notes are Home's
     log = [x for x in P.log() if x["t"] not in ("rep", "note")][-LOG:]
-    sent = [x for x in log if x["t"] == "mine"]
-    k.st(_w["last"], f"Last sent: {sent[-1]['text']}" if sent else "Last sent:")
-    groups = [g for g, macs in P.store.groups.items() if mac in macs]
-    k.st(_w["groups"], f"Groups: {', '.join(groups)}" if groups else "Groups:")
-    h = mac.replace(":", "")[-6:].upper()
-    k.st(_w["mac"], f"MAC ...:{h[0:2]}:{h[2:4]}:{h[4:6]}")
     # bubbles in log order: a mine/theirs pair per slot, only one shown
     for i in range(LOG):
         x = log[i] if i < len(log) else None

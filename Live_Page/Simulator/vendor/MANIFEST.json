@@ -1,154 +1,169 @@
 {
   "files": {
     "display/games/goalrace.py": {
-      "sha256": "2399be6f3529ae6104d5781f8777515b9dc99f947be0f1197a321b0fe2e28ea7",
+      "sha256": "d0f77c9ea81d0b7b1cc5ae792af574e2d0d584c97a6179155361968323f04f93",
       "source": "Bag3/Code/Stations/IconDisplay/games/goalrace.py",
-      "vendor_sha256": "2399be6f3529ae6104d5781f8777515b9dc99f947be0f1197a321b0fe2e28ea7"
+      "vendor_sha256": "d0f77c9ea81d0b7b1cc5ae792af574e2d0d584c97a6179155361968323f04f93"
     },
     "display/games/goalrace_icons/ready.py": {
-      "sha256": "253bf13e3f19c743e70f01c7cb30529a36a92df90171a4f395773da0dc079136",
+      "sha256": "e639254752dac1a766cebff7c5dd3f6d61b6ec4dcaaaef5e19eb6fff7a956c25",
       "source": "Bag3/Code/Stations/IconDisplay/icons/ready.py",
-      "vendor_sha256": "253bf13e3f19c743e70f01c7cb30529a36a92df90171a4f395773da0dc079136"
+      "vendor_sha256": "e639254752dac1a766cebff7c5dd3f6d61b6ec4dcaaaef5e19eb6fff7a956c25"
     },
     "display/games/goalrace_icons/tree.py": {
-      "sha256": "78cc2f9585fab929664477193e693d9c9b27333c29b7d55b66edb254f7ee75c2",
+      "sha256": "782020c2271fe49790cdb34c6d6e702f8dfc3b02a785b788a95fc5ce1de2603c",
       "source": "Bag3/Code/Stations/IconDisplay/icons/tree.py",
-      "vendor_sha256": "78cc2f9585fab929664477193e693d9c9b27333c29b7d55b66edb254f7ee75c2"
+      "vendor_sha256": "782020c2271fe49790cdb34c6d6e702f8dfc3b02a785b788a95fc5ce1de2603c"
     },
     "display/games/goalrace_icons/whale.py": {
-      "sha256": "0ecd173e4b5184ba817a0e319ba1f6e9ccd4a23173447f2f6230924781c2197d",
+      "sha256": "86af6f6aaffdb345dc2afcb1a89883c47c961dc63a535e61d0ebabd84bceeaa0",
       "source": "Bag3/Code/Stations/IconDisplay/icons/whale.py",
-      "vendor_sha256": "0ecd173e4b5184ba817a0e319ba1f6e9ccd4a23173447f2f6230924781c2197d"
+      "vendor_sha256": "86af6f6aaffdb345dc2afcb1a89883c47c961dc63a535e61d0ebabd84bceeaa0"
     },
     "display/lib/chart16.py": {
-      "sha256": "e21ab8ccbcc1f28a42188bdbb2b87114b7278608eb9295ed47af29e293bc3004",
+      "sha256": "db73621376968e4b4568efeb44e5b627b1a83c67aa027bd97c0f2eefebf30ff1",
       "source": "Bag3/Code/Stations/IconDisplay/lib/chart16.py",
-      "vendor_sha256": "e21ab8ccbcc1f28a42188bdbb2b87114b7278608eb9295ed47af29e293bc3004"
+      "vendor_sha256": "db73621376968e4b4568efeb44e5b627b1a83c67aa027bd97c0f2eefebf30ff1"
     },
     "display/lib/display_tags.py": {
-      "sha256": "070d665c0434f7a86edc1cca8c12d90c91c0d9a44a8601786f18d9a824b84fc6",
+      "sha256": "cdeaf059bd6f2271b3624448677ed151b0d6698967a922d0aebd822bded3bf18",
       "source": "Bag3/Code/Stations/IconDisplay/lib/display_tags.py",
-      "vendor_sha256": "070d665c0434f7a86edc1cca8c12d90c91c0d9a44a8601786f18d9a824b84fc6"
+      "vendor_sha256": "cdeaf059bd6f2271b3624448677ed151b0d6698967a922d0aebd822bded3bf18"
     },
     "display/lib/draw16.py": {
-      "sha256": "cee883b35df103fa8a12105dea156e20ff435f1ea7e528db5331c3deef0ea961",
+      "sha256": "1ceec75bf5f9864bfccef87be4ba12d78d4e084f74effc9f18539fef16ff452b",
       "source": "Bag3/Code/Stations/IconDisplay/lib/draw16.py",
-      "vendor_sha256": "cee883b35df103fa8a12105dea156e20ff435f1ea7e528db5331c3deef0ea961"
+      "vendor_sha256": "1ceec75bf5f9864bfccef87be4ba12d78d4e084f74effc9f18539fef16ff452b"
     },
     "display/lib/espnow_manager.py": {
-      "sha256": "5728d6245f508c8fd975742c4e8050dc613824512574f9ee203ef3b0ac5f1008",
+      "sha256": "139dfbb3e864b2da570355231a4ca4cd4b54657dceecbd1aa4b3217d6702c94b",
       "source": "Bag3/Code/Stations/IconDisplay/lib/espnow_manager.py",
-      "vendor_sha256": "5728d6245f508c8fd975742c4e8050dc613824512574f9ee203ef3b0ac5f1008"
+      "vendor_sha256": "139dfbb3e864b2da570355231a4ca4cd4b54657dceecbd1aa4b3217d6702c94b"
     },
     "display/lib/icon_store.py": {
-      "sha256": "ae4d4419f0a3822fbb1e6c8dddd1bf88bbe4b6f72af33e519e504bbb3d385fa2",
+      "sha256": "43ea3185afd338d966e862d9c5191948920c36bbeaeaf13ff71cbebca073f92d",
       "source": "Bag3/Code/Stations/IconDisplay/icon_store.py",
-      "vendor_sha256": "ae4d4419f0a3822fbb1e6c8dddd1bf88bbe4b6f72af33e519e504bbb3d385fa2"
+      "vendor_sha256": "43ea3185afd338d966e862d9c5191948920c36bbeaeaf13ff71cbebca073f92d"
     },
     "display/lib/shapes.py": {
-      "sha256": "b362615e2411091ca988c352d7bce981252d85a80058b039183c6e388c20c79c",
+      "sha256": "3f1157714bd9f9e5ceeebbad7a0c675f816a6638f978a4b43596d71ac31f6f9b",
       "source": "Bag3/Code/Stations/IconDisplay/lib/shapes.py",
-      "vendor_sha256": "b362615e2411091ca988c352d7bce981252d85a80058b039183c6e388c20c79c"
+      "vendor_sha256": "3f1157714bd9f9e5ceeebbad7a0c675f816a6638f978a4b43596d71ac31f6f9b"
     },
     "games/color_quest.py": {
-      "sha256": "f17d77040042eb355084b3e131732dfb5d18d27bd5e262af81618b18d1117416",
+      "sha256": "f087f0758b30aa61253119fd6119c8d42fe55171af6edd269aa4166bdea95351",
       "source": "Bag3/Code/Wand Module/color_quest.py",
-      "vendor_sha256": "f17d77040042eb355084b3e131732dfb5d18d27bd5e262af81618b18d1117416"
+      "vendor_sha256": "f087f0758b30aa61253119fd6119c8d42fe55171af6edd269aa4166bdea95351"
     },
     "games/cooking.py": {
-      "sha256": "930c1b7c6a78c2d8190650c1de0058c1c5620207fdadb381c0a3c63b1b2b1df6",
+      "sha256": "8ef654cd5d8475fcd02c6af80a1a01d66a8ebe72e70fa3c042e43253626f2b63",
       "source": "Bag3/Code/Wand Module/cooking.py",
-      "vendor_sha256": "930c1b7c6a78c2d8190650c1de0058c1c5620207fdadb381c0a3c63b1b2b1df6"
+      "vendor_sha256": "8ef654cd5d8475fcd02c6af80a1a01d66a8ebe72e70fa3c042e43253626f2b63"
     },
     "games/finddevice.py": {
-      "sha256": "6d47c13e75ad026fe2a8305eb66318c1d114e370189adc0bef25bbe014923967",
+      "sha256": "db3e08ea6fa741b8fbf6f22bb5d36fa41e7222044f860ae8b4b1acce9992cb40",
       "source": "Bag3/Code/Wand Module/finddevice.py",
-      "vendor_sha256": "6d47c13e75ad026fe2a8305eb66318c1d114e370189adc0bef25bbe014923967"
+      "vendor_sha256": "db3e08ea6fa741b8fbf6f22bb5d36fa41e7222044f860ae8b4b1acce9992cb40"
     },
     "games/freeze_dance.py": {
-      "sha256": "827db8331b0aaaa322b0ed2acc9494d7d48ff8657272bfc02c5174c784c55671",
+      "sha256": "d28906b7c5c2e3d640925f43ed4c0d236025dafd6900e27bfda0d6474f2312f1",
       "source": "Bag3/Code/Wand Module/freeze_dance.py",
-      "vendor_sha256": "827db8331b0aaaa322b0ed2acc9494d7d48ff8657272bfc02c5174c784c55671"
+      "vendor_sha256": "d28906b7c5c2e3d640925f43ed4c0d236025dafd6900e27bfda0d6474f2312f1"
     },
     "games/gestures.py": {
-      "sha256": "294ab22856abb1674debf443dd468fe4ce4a8c7cf9f2744d4f73397e4c984825",
+      "sha256": "a0ea3ab8915c834badb62e989ba548e629cf8075f35caaaa98b8dc3ab4f69492",
       "source": "Bag3/Code/Wand Module/gestures.py",
-      "vendor_sha256": "294ab22856abb1674debf443dd468fe4ce4a8c7cf9f2744d4f73397e4c984825"
+      "vendor_sha256": "a0ea3ab8915c834badb62e989ba548e629cf8075f35caaaa98b8dc3ab4f69492"
     },
     "games/goalrace.py": {
-      "sha256": "093694991a931de1cee2e03aab35fba74f4481b6e814668b6f4020f864145add",
+      "sha256": "41a5c6944114806a5801267ce27b03c7362d6e8aab0b285f6d0ceeac45fabb45",
       "source": "Bag3/Code/Wand Module/goalrace.py",
-      "vendor_sha256": "093694991a931de1cee2e03aab35fba74f4481b6e814668b6f4020f864145add"
+      "vendor_sha256": "41a5c6944114806a5801267ce27b03c7362d6e8aab0b285f6d0ceeac45fabb45"
+    },
+    "games/host_lobbytest.py": {
+      "sha256": "6bee95561c22d65450ced1df66609a48f3a90d027e9412bd642c16917b22ca95",
+      "source": "Bag3/Code/Wand Module/games/host_lobbytest.py",
+      "vendor_sha256": "6bee95561c22d65450ced1df66609a48f3a90d027e9412bd642c16917b22ca95"
+    },
+    "games/host_relaycolor.py": {
+      "sha256": "822d22186828eee0e6aa160df39a6a5e56760e5d7c975c2176dfe88356205d74",
+      "source": "Bag3/Code/Wand Module/games/host_relaycolor.py",
+      "vendor_sha256": "822d22186828eee0e6aa160df39a6a5e56760e5d7c975c2176dfe88356205d74"
+    },
+    "games/host_splattag.py": {
+      "sha256": "40cb0c23be3ca96c1444f702a5d6f8dd03629e1482c59c9b72561baf64951afa",
+      "source": "Bag3/Code/Wand Module/games/host_splattag.py",
+      "vendor_sha256": "40cb0c23be3ca96c1444f702a5d6f8dd03629e1482c59c9b72561baf64951afa"
     },
     "games/jump.py": {
-      "sha256": "6a88173105f8162747ebbceb5cf91069f785f0a2f5e05f165fa7ac4bbcfaf49c",
+      "sha256": "e61e28afc2e59d3d3ff6be1e32ccd950208d1b5332acc2ea9f489fbc3b1d8506",
       "source": "Bag3/Code/Wand Module/jump.py",
-      "vendor_sha256": "6a88173105f8162747ebbceb5cf91069f785f0a2f5e05f165fa7ac4bbcfaf49c"
+      "vendor_sha256": "e61e28afc2e59d3d3ff6be1e32ccd950208d1b5332acc2ea9f489fbc3b1d8506"
     },
     "games/jumpin.py": {
-      "sha256": "119533f2d7174ea9de58c40dba2591de03e1931edf3c2c0c86c1082c0c23e979",
+      "sha256": "b97ca2fd4ff361bcd067345fda9295cc3f5db5a8551e0183cf6da8f9c68c273e",
       "source": "Bag3/Code/Wand Module/jumpin.py",
-      "vendor_sha256": "119533f2d7174ea9de58c40dba2591de03e1931edf3c2c0c86c1082c0c23e979"
+      "vendor_sha256": "b97ca2fd4ff361bcd067345fda9295cc3f5db5a8551e0183cf6da8f9c68c273e"
     },
     "games/lobbytest.py": {
-      "sha256": "6af6cff40a69844fed0a97161c43154184f8a4b75242aee8cd4ce4e623c75fb1",
+      "sha256": "bbfd4fa49603219ebeb1ec0a0e8c12afcfbc48817a6f101af0f052bd0575057f",
       "source": "Bag3/Code/Wand Module/games/lobbytest.py",
-      "vendor_sha256": "6af6cff40a69844fed0a97161c43154184f8a4b75242aee8cd4ce4e623c75fb1"
+      "vendor_sha256": "bbfd4fa49603219ebeb1ec0a0e8c12afcfbc48817a6f101af0f052bd0575057f"
     },
     "games/melody.py": {
-      "sha256": "9301a1f461aa2d9e45cabbf016df430ea8339cf1402a92bbca2ff4d1244ffda9",
+      "sha256": "80506b3d00c85f5447d7f2a7d887b19766acdd66ccf728fa27261fc8ea037966",
       "source": "Bag3/Code/Wand Module/melody.py",
-      "vendor_sha256": "9301a1f461aa2d9e45cabbf016df430ea8339cf1402a92bbca2ff4d1244ffda9"
+      "vendor_sha256": "80506b3d00c85f5447d7f2a7d887b19766acdd66ccf728fa27261fc8ea037966"
     },
     "games/multiicecream.py": {
-      "sha256": "338499fca22accbc16249a4ef9b8c5b62b9660e636cc68e6201f782185ff9ec0",
+      "sha256": "1f60d4e75fd8c26c372eeb6eaa1ebf1ade3735045bb6c89ba7488e0cac47df7f",
       "source": "Bag3/Code/Wand Module/multiicecream.py",
-      "vendor_sha256": "338499fca22accbc16249a4ef9b8c5b62b9660e636cc68e6201f782185ff9ec0"
+      "vendor_sha256": "1f60d4e75fd8c26c372eeb6eaa1ebf1ade3735045bb6c89ba7488e0cac47df7f"
     },
     "games/nfc_sound.py": {
-      "sha256": "6cb7858cc228f4f017f11f693c4a2a6837eadfe31e8b48bd58d8ab32b16eb24b",
+      "sha256": "231522780ff920e54d3650f100bc3f874b5f692e1a161e66c64871fd434ad1d1",
       "source": "Bag3/Code/Wand Module/nfc_sound.py",
-      "vendor_sha256": "6cb7858cc228f4f017f11f693c4a2a6837eadfe31e8b48bd58d8ab32b16eb24b"
+      "vendor_sha256": "231522780ff920e54d3650f100bc3f874b5f692e1a161e66c64871fd434ad1d1"
     },
     "games/rainbow.py": {
-      "sha256": "e5e2d177579e824bc667159add8f5592b81291975f7416b5d8a3556057e13126",
+      "sha256": "8e5ba26da1aa1a0022ea5c202041437cc7023aba8dc5c581067e1c67254a0a19",
       "source": "Bag3/Code/Wand Module/rainbow.py",
-      "vendor_sha256": "e5e2d177579e824bc667159add8f5592b81291975f7416b5d8a3556057e13126"
+      "vendor_sha256": "8e5ba26da1aa1a0022ea5c202041437cc7023aba8dc5c581067e1c67254a0a19"
     },
     "games/relaycolor.py": {
-      "sha256": "3e0126f7cb7a817e71d09c8385f2dce59cf1075216aeb6e7123e7edf0aedcc94",
+      "sha256": "46e1aa873b59e010143a3201eb1c27d8a2eab45decc009c5ad4d3d8ff94f18e9",
       "source": "Bag3/Code/Wand Module/games/relaycolor.py",
-      "vendor_sha256": "3e0126f7cb7a817e71d09c8385f2dce59cf1075216aeb6e7123e7edf0aedcc94"
+      "vendor_sha256": "46e1aa873b59e010143a3201eb1c27d8a2eab45decc009c5ad4d3d8ff94f18e9"
     },
     "games/shake.py": {
-      "sha256": "42f6616dc367e0e99875f702526ec70f12e0ef3603cae7cff622cf22e25725eb",
+      "sha256": "148ea0155b4465badb9002b7e81f30b6773073cd80d53fc3808f5b38faea56ba",
       "source": "Bag3/Code/Wand Module/shake.py",
-      "vendor_sha256": "42f6616dc367e0e99875f702526ec70f12e0ef3603cae7cff622cf22e25725eb"
+      "vendor_sha256": "148ea0155b4465badb9002b7e81f30b6773073cd80d53fc3808f5b38faea56ba"
     },
     "games/shake_rainbow.py": {
-      "sha256": "64b5fb77225cfab43a2606d7c71d50b042767f68acf6616a6101b37a99c7eb2d",
+      "sha256": "9e4ffe38492e7a80a5572fab157779ba6dd2f7f6fba13b61e4f0f991a235ef7c",
       "source": "Bag3/Code/Wand Module/shake_rainbow.py",
-      "vendor_sha256": "64b5fb77225cfab43a2606d7c71d50b042767f68acf6616a6101b37a99c7eb2d"
+      "vendor_sha256": "9e4ffe38492e7a80a5572fab157779ba6dd2f7f6fba13b61e4f0f991a235ef7c"
     },
     "games/simpleicecream.py": {
-      "sha256": "15a9965bbecf9ecdcb4f021daaf0ebe261e4e0353b59c47467511e22494ba43e",
+      "sha256": "53bf2fce91c66fc628adf521c4b9eb0e11fe3972171e8fd6888a0e530cd65390",
       "source": "Bag3/Code/Wand Module/simpleicecream.py",
-      "vendor_sha256": "15a9965bbecf9ecdcb4f021daaf0ebe261e4e0353b59c47467511e22494ba43e"
+      "vendor_sha256": "53bf2fce91c66fc628adf521c4b9eb0e11fe3972171e8fd6888a0e530cd65390"
     },
     "games/sound.py": {
-      "sha256": "42852e2c90691a0453267346fb731d14ffb815d014230d88b244359c1460700a",
+      "sha256": "92dfa1570c80602c531decbbc0057b64e8dbbb2637622eb2e8e3d0738390890f",
       "source": "Bag3/Code/Wand Module/sound.py",
-      "vendor_sha256": "42852e2c90691a0453267346fb731d14ffb815d014230d88b244359c1460700a"
+      "vendor_sha256": "92dfa1570c80602c531decbbc0057b64e8dbbb2637622eb2e8e3d0738390890f"
     },
     "games/splattag.py": {
-      "sha256": "50cace8e87e54c19976c313a3f493c95d5d54940a3145725db857eab91ad9ea4",
+      "sha256": "7017b3cbfc05b7db3805937b6c386cf5a028287e7b30f6137635cc2ad3b1984c",
       "source": "Bag3/Code/Wand Module/games/splattag.py",
-      "vendor_sha256": "50cace8e87e54c19976c313a3f493c95d5d54940a3145725db857eab91ad9ea4"
+      "vendor_sha256": "7017b3cbfc05b7db3805937b6c386cf5a028287e7b30f6137635cc2ad3b1984c"
     },
     "games/target.py": {
-      "sha256": "fcdcf809792b7d0cea85367511ab89a9b32c0707021ab87de9af972c475c5c36",
+      "sha256": "8b334964a207e66aec9636caf1de9e1c059b8834d0d670955cf2a9b4bd9a3e5c",
       "source": "Bag3/Code/Wand Module/target.py",
-      "vendor_sha256": "fcdcf809792b7d0cea85367511ab89a9b32c0707021ab87de9af972c475c5c36"
+      "vendor_sha256": "8b334964a207e66aec9636caf1de9e1c059b8834d0d670955cf2a9b4bd9a3e5c"
     },
     "hubtype.txt": {
       "sha256": "04224b1d2fb402314a8dfc9d03e00937aae352fd20d3070181209a66c5127fb2",
@@ -156,69 +171,69 @@
       "vendor_sha256": "04224b1d2fb402314a8dfc9d03e00937aae352fd20d3070181209a66c5127fb2"
     },
     "lib/actions.py": {
-      "sha256": "e73bbc3e07416eb420896663cf88045698790eccd7c4b8e02d05d3ac29a4a048",
+      "sha256": "9185d62a3d3dbdb3591e9b407835506b3b5e31173b0a59aabef9b80983548316",
       "source": "Bag3/Code/Wand Module/lib/actions.py",
-      "vendor_sha256": "e73bbc3e07416eb420896663cf88045698790eccd7c4b8e02d05d3ac29a4a048"
+      "vendor_sha256": "9185d62a3d3dbdb3591e9b407835506b3b5e31173b0a59aabef9b80983548316"
     },
     "lib/battery.py": {
-      "sha256": "adde1eef9e23414d1842d91df91c272411b5989de4c8edd818dd391f968fe415",
+      "sha256": "502927fab6092383e7cefaad2f5c4b5d71123b67134b658a19bfc273bf1fabb1",
       "source": "Bag3/Code/Wand Module/lib/battery.py",
-      "vendor_sha256": "adde1eef9e23414d1842d91df91c272411b5989de4c8edd818dd391f968fe415"
+      "vendor_sha256": "502927fab6092383e7cefaad2f5c4b5d71123b67134b658a19bfc273bf1fabb1"
     },
     "lib/brightness.py": {
-      "sha256": "8dd2ef848f366bd8aab360b6e2bd7aa5bf273cbe34cac4d5dde45fecd9638ac5",
+      "sha256": "c8e70bcc80558e48a62f24d56e932112218f069e35c6403e48a863531903af1b",
       "source": "Bag3/Code/Wand Module/lib/brightness.py",
-      "vendor_sha256": "8dd2ef848f366bd8aab360b6e2bd7aa5bf273cbe34cac4d5dde45fecd9638ac5"
+      "vendor_sha256": "c8e70bcc80558e48a62f24d56e932112218f069e35c6403e48a863531903af1b"
     },
     "lib/buzzer.py": {
-      "sha256": "ef86aab78ffdf1df1b265604988050f72b2fadb764d8ca7d26774943458830bb",
+      "sha256": "77634b6d149201e1a504bf49de95758d7046c1274dbb5dc6208cad5ead0f1f51",
       "source": "Bag3/Code/Wand Module/lib/buzzer.py",
-      "vendor_sha256": "ef86aab78ffdf1df1b265604988050f72b2fadb764d8ca7d26774943458830bb"
+      "vendor_sha256": "77634b6d149201e1a504bf49de95758d7046c1274dbb5dc6208cad5ead0f1f51"
     },
     "lib/espnow_manager.py": {
-      "sha256": "ffaea0f4ad1154ee12782b444fabbe48833b2aff7ee7e2c6fec9126112848956",
+      "sha256": "d2eac2f6129e1f628b8cef31216f79898964069e231ea5578f649b91937235d6",
       "source": "Bag3/Code/Wand Module/lib/espnow_manager.py",
-      "vendor_sha256": "ffaea0f4ad1154ee12782b444fabbe48833b2aff7ee7e2c6fec9126112848956"
+      "vendor_sha256": "d2eac2f6129e1f628b8cef31216f79898964069e231ea5578f649b91937235d6"
     },
     "lib/game_tags.py": {
-      "sha256": "638d9b4ee13b19278c9db08db39726f278581ed9c195d8e687ea5dc3a0087710",
+      "sha256": "c1f6f79e8a443e29a49328a85885589c1d890c9f71d75f476ad0cee838446ed6",
       "source": "Bag3/Code/Wand Module/lib/game_tags.py",
-      "vendor_sha256": "638d9b4ee13b19278c9db08db39726f278581ed9c195d8e687ea5dc3a0087710"
+      "vendor_sha256": "c1f6f79e8a443e29a49328a85885589c1d890c9f71d75f476ad0cee838446ed6"
     },
     "lib/hubtype.py": {
-      "sha256": "bb3e1b1e32d298e1707e63dfea553e7018b77a2c0193046cfdbbe1fea73a22d1",
+      "sha256": "b9ddc29e072cf9f5aabd5bf53f9b37a5269e905c81760316673b2fdb4bbc931b",
       "source": "Bag3/Code/Wand Module/lib/hubtype.py",
-      "vendor_sha256": "bb3e1b1e32d298e1707e63dfea553e7018b77a2c0193046cfdbbe1fea73a22d1"
+      "vendor_sha256": "b9ddc29e072cf9f5aabd5bf53f9b37a5269e905c81760316673b2fdb4bbc931b"
     },
     "lib/leds.py": {
-      "sha256": "b71ea4907a7543902f24fcf2658450688817d83dfaca74f030aa4217b679eef6",
+      "sha256": "b3eaac3bf78331b348d5e035c6d0ae4f34363313392983ed687ff0b70c6efbb5",
       "source": "Bag3/Code/Wand Module/lib/leds.py",
-      "vendor_sha256": "b71ea4907a7543902f24fcf2658450688817d83dfaca74f030aa4217b679eef6"
+      "vendor_sha256": "b3eaac3bf78331b348d5e035c6d0ae4f34363313392983ed687ff0b70c6efbb5"
     },
     "lib/lobby_game.py": {
-      "sha256": "315aec1fb7f923c503df2a13656343973ed981bea19fa1b15f161f36c9ef5512",
+      "sha256": "6c906ecae3adffd7f2bcdb9afb6486ad9c15414a3379ec467e02f5a378ff0de7",
       "source": "Bag3/Code/Wand Module/lib/lobby_game.py",
-      "vendor_sha256": "315aec1fb7f923c503df2a13656343973ed981bea19fa1b15f161f36c9ef5512"
+      "vendor_sha256": "6c906ecae3adffd7f2bcdb9afb6486ad9c15414a3379ec467e02f5a378ff0de7"
     },
     "lib/pairing.py": {
-      "sha256": "615e38339d682855d5c6227fa095b64a4ca858b66ebf2e7be54d9edd8a81bb60",
+      "sha256": "2f199e7f9234025c27a76dfa342477838f6faae7f8ee792dda9d9494f16b2ece",
       "source": "Bag3/Code/Wand Module/lib/pairing.py",
-      "vendor_sha256": "615e38339d682855d5c6227fa095b64a4ca858b66ebf2e7be54d9edd8a81bb60"
+      "vendor_sha256": "2f199e7f9234025c27a76dfa342477838f6faae7f8ee792dda9d9494f16b2ece"
     },
     "lib/pwire.py": {
-      "sha256": "14a58af47870364104eb17f927dcd7ca21661406fed512c7bbb0b671ace85281",
+      "sha256": "f751534f624cc3668020b682f08fc67516a532404f7b156e1dca4ab32848e112",
       "source": "Bag3/Code/Wand Module/lib/pwire.py",
-      "vendor_sha256": "14a58af47870364104eb17f927dcd7ca21661406fed512c7bbb0b671ace85281"
+      "vendor_sha256": "f751534f624cc3668020b682f08fc67516a532404f7b156e1dca4ab32848e112"
     },
     "lib/splat_api.py": {
-      "sha256": "3e10bcd9686652f22916ba420fee01fa98d4f0f38e357945a3f6b6ac717ff4e7",
+      "sha256": "ddf1853417e1c6ee102ce6ce198ce98acddbf88c7d69320edfa848ad752e91cd",
       "source": "Bag3/Code/Wand Module/lib/splat_api.py",
-      "vendor_sha256": "3e10bcd9686652f22916ba420fee01fa98d4f0f38e357945a3f6b6ac717ff4e7"
+      "vendor_sha256": "ddf1853417e1c6ee102ce6ce198ce98acddbf88c7d69320edfa848ad752e91cd"
     },
     "lib/splatpair.py": {
-      "sha256": "8ed8f61d932e11a5810ba3d068efc3cf006471776fe63f4b49f0c4a9358b812c",
+      "sha256": "49d6cb0baf046fa78e7b1ba32d31451c6eb857a4c19c071e8e6b4a6ba4a2cdfc",
       "source": "Bag3/Code/Wand Module/lib/splatpair.py",
-      "vendor_sha256": "8ed8f61d932e11a5810ba3d068efc3cf006471776fe63f4b49f0c4a9358b812c"
+      "vendor_sha256": "49d6cb0baf046fa78e7b1ba32d31451c6eb857a4c19c071e8e6b4a6ba4a2cdfc"
     }
   },
   "version": 1

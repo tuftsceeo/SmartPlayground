@@ -1,4 +1,4 @@
-import { shouldIncludeFile } from "./manifest.js";
+import { shouldIncludeFile, isExcludedPath } from "./manifest.js";
 
 const GH_HEADERS = { Accept: "application/vnd.github+json" };
 const CACHE_NAME = "flasher-gh-v1";
@@ -7,7 +7,7 @@ const CACHE_NAME = "flasher-gh-v1";
 const memCache = new Map();
 const memCacheBytes = new Map();
 
-const BINARY_EXTENSIONS = new Set([".png", ".bmp", ".jpg", ".jpeg", ".gif", ".ico", ".bin"]);
+const BINARY_EXTENSIONS = new Set([".png", ".bmp", ".jpg", ".jpeg", ".gif", ".ico", ".bin", ".mpy", ".a8"]);
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -185,7 +185,8 @@ async function fetchFolderRecursive(
   source,
   manifest,
   fetchedFiles,
-  { log, onProgress }
+  { log, onProgress },
+  relBase = ""
 ) {
   const resp = await fetchWithRetry(apiUrl, { headers: GH_HEADERS });
   if (!resp.ok) {
@@ -199,6 +200,11 @@ async function fetchFolderRecursive(
   for (const item of items) {
     const relInFolder = item.name;
     const deviceRel = joinDevicePath(devicePrefix, relInFolder);
+    const relInSource = joinDevicePath(relBase, item.name);
+    if (isExcludedPath(relInSource, manifest)) {
+      log?.(`  ⊘ skipping ${relInSource}`, "dim");
+      continue;
+    }
     if (item.type === "file") {
       if (!shouldIncludeFile(item.name, source, manifest)) {
         log?.(`  ⊘ skipping ${deviceRel}`, "dim");
@@ -224,7 +230,8 @@ async function fetchFolderRecursive(
         subSource,
         manifest,
         fetchedFiles,
-        { log, onProgress }
+        { log, onProgress },
+        relInSource
       );
     }
   }
@@ -255,11 +262,11 @@ export async function fetchManifestFiles(repo, ref, manifest, { log, onProgress 
       for (const src of sources) {
         if (item.path !== src.repoPath && !item.path.startsWith(src.repoPath + "/")) continue;
         const fileName = item.path.split("/").pop();
-        if (!shouldIncludeFile(fileName, src, manifest)) {
+        const relInRepo = item.path.slice(src.repoPath.length).replace(/^\//, "");
+        if (isExcludedPath(relInRepo, manifest) || !shouldIncludeFile(fileName, src, manifest)) {
           log?.(`  ⊘ skipping ${item.path}`, "dim");
           break;
         }
-        const relInRepo = item.path.slice(src.repoPath.length).replace(/^\//, "");
         const deviceRel = joinDevicePath(src.devicePrefix, relInRepo);
         onProgress?.(deviceRel);
         log?.(`  📄 ${item.path} → ${deviceRel}`, "dim");
@@ -298,6 +305,7 @@ async function fetchManifestFilesFallback(repo, ref, manifest, { log, onProgress
     if (!Array.isArray(items)) throw new Error(`Unexpected response for ${src.repoPath}`);
 
     for (const item of items) {
+      if (isExcludedPath(item.name, manifest)) continue;
       if (item.type === "file") {
         if (!shouldIncludeFile(item.name, src, manifest)) continue;
         const deviceRel = joinDevicePath(prefix, item.name);
@@ -314,7 +322,8 @@ async function fetchManifestFilesFallback(repo, ref, manifest, { log, onProgress
           { ...src, devicePrefix: subPrefix },
           manifest,
           fetchedFiles,
-          { log, onProgress }
+          { log, onProgress },
+          item.name
         );
       }
     }
@@ -327,6 +336,97 @@ async function fetchManifestFilesFallback(repo, ref, manifest, { log, onProgress
 }
 
 /** @deprecated use fetchManifestFiles */
+/**
+ * Fetch a pre-built file-list manifest (JSON) that lives in the repo, e.g.
+ * Bag3/Code/Wand Module/flash_bundle/flash_manifest.json (made by
+ * Bag3/Code/tools/build_wand_bundle.py). Upload order is the JSON's order.
+ * Returns { files: { [devicePath]: content } (insertion-ordered), removeBeforeUpload }.
+ *
+ * localBase: when set (page opened with ?source=local, server run from the repo
+ * root), files come from that local server instead of GitHub — for testing
+ * uncommitted changes.
+ */
+export async function fetchListManifestFiles(repo, ref, manifestPath, { log, onProgress, localBase } = {}) {
+  const { urlFor, getText, getBytes } = await repoFileSource(repo, ref, { log, localBase });
+  const manifest = JSON.parse(await getText(urlFor(manifestPath)));
+  const files = {};
+  for (const { repo: src, device } of manifest.files) {
+    onProgress?.(device);
+    log?.(`  📄 ${src} → ${device}`, "dim");
+    files[device] = isBinaryPath(src) ? await getBytes(urlFor(src)) : await getText(urlFor(src));
+  }
+  return { files, removeBeforeUpload: manifest.remove_before_upload || [] };
+}
+
+/**
+ * URL builder and fetchers for repo files at one ref: SHA-pinned GitHub raw
+ * URLs, or a local server when localBase is set (?source=local).
+ */
+async function repoFileSource(repo, ref, { log, localBase } = {}) {
+  let urlFor;
+  if (localBase) {
+    log?.(`📂 Local source: ${localBase}`, "warn");
+    urlFor = (p) => localBase + p.split("/").map(encodeURIComponent).join("/");
+  } else {
+    const { commitSha } = await resolveRef(repo, ref);
+    log?.(`📌 ${ref} @ ${commitSha.slice(0, 7)}`, "dim");
+    urlFor = (p) => rawFileUrl(repo.owner, repo.repo, commitSha, p);
+  }
+  const getText = (u) => (localBase ? fetch(u, { cache: "no-store" }).then(okText) : cachedText(u));
+  const getBytes = (u) => (localBase ? fetch(u, { cache: "no-store" }).then(okBytes) : cachedBytes(u));
+  return { urlFor, getText, getBytes };
+}
+
+/**
+ * Parse the file list out of a firmware manifest.js (the BBoxFirmware /
+ * BDialFirmware format ChatBroadcast's installer imports): every
+ * `{ path: '<file>', remotePath: '<root>/<file>' }` entry, in order.
+ * The module is read as text, not imported: raw.githubusercontent.com serves
+ * it as text/plain, which browsers refuse to run as a module.
+ */
+export function parseJsManifest(text, devicePathRoot) {
+  const root = devicePathRoot.replace(/\/$/, "");
+  const re = /\{\s*path:\s*['"]([^'"]+)['"]\s*,\s*remotePath:\s*['"]([^'"]+)['"]\s*\}/g;
+  const entries = [];
+  for (const m of text.matchAll(re)) {
+    const [, path, remotePath] = m;
+    if (!remotePath.startsWith(root + "/")) {
+      throw new Error(`manifest entry ${remotePath} is outside ${root}/`);
+    }
+    entries.push({ path, device: remotePath.slice(root.length + 1) });
+  }
+  if (!entries.length) throw new Error("no { path, remotePath } entries found in manifest.js");
+  return entries;
+}
+
+/**
+ * Fetch the files a firmware manifest.js lists. Paths in it are relative to
+ * the manifest's own folder. Upload order is the manifest's order.
+ * Returns { files: { [devicePath]: content }, removeBeforeUpload: [] }.
+ */
+export async function fetchJsManifestFiles(repo, ref, manifestPath, devicePathRoot, { log, onProgress, localBase } = {}) {
+  const { urlFor, getText, getBytes } = await repoFileSource(repo, ref, { log, localBase });
+  const entries = parseJsManifest(await getText(urlFor(manifestPath)), devicePathRoot);
+  const dir = manifestPath.slice(0, manifestPath.lastIndexOf("/") + 1);
+  const files = {};
+  for (const { path, device } of entries) {
+    const src = dir + path;
+    onProgress?.(device);
+    log?.(`  📄 ${src} → ${device}`, "dim");
+    files[device] = isBinaryPath(src) ? await getBytes(urlFor(src)) : await getText(urlFor(src));
+  }
+  return { files, removeBeforeUpload: [] };
+}
+
+async function okText(r) {
+  if (!r.ok) throw new Error(`${r.status} for ${r.url}`);
+  return r.text();
+}
+async function okBytes(r) {
+  if (!r.ok) throw new Error(`${r.status} for ${r.url}`);
+  return new Uint8Array(await r.arrayBuffer());
+}
+
 export const fetchSourcesForDevice = (repo, ref, sources, opts) =>
   fetchManifestFiles(repo, ref, { sources, excludeExt: [".md", ".js"] }, opts);
 

@@ -13,7 +13,7 @@
 const MAX_ENTRIES = 3000;
 const PAYLOAD_PREVIEW = 400;
 
-/** Directions/kinds, used for colour-coding and filtering in the monitor UI. */
+/** Directions/kinds, used for color-coding and filtering in the monitor UI. */
 export const DIR = {
   TX: "tx", // bytes written to the device
   RX: "rx", // bytes read from the device

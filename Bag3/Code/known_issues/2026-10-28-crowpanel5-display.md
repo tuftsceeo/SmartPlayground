@@ -54,6 +54,15 @@ competing with the interrupt that refills the bounce buffers.
 **Fix:** `firmware/rgb_bus_dirty_rows_copy.patch` re-syncs only the rows updated since the last
 swap (every row when rotated). Fixed on the board; pixel clock back at 12 MHz.
 
+2026-11-10: the shift was reported back. The firmware on the panel (`usbserial-310`) could not be
+read back first, so whether it ran the patched build is unknown. It was re-flashed with the patched
+app image only (`write_flash 0x10000 micropython.bin`, no erase, `/flash` kept). The shift returned
+a few minutes after boot, untouched, and stayed with the radio off until an EN reset. Around the
+same time the panel slows: one LVGL refresh took 3.3 s, followed by ~110 ms stalls every few
+seconds (timing added to the heartbeat in `panel.py`). A second panel (`usbserial-110`, not
+available for later tests) read back the patched build byte for byte and showed less noise.
+Still open.
+
 ## Quick taps missed
 
 With LVGL's default 33 ms touch read period, quick taps on a button register no event; held

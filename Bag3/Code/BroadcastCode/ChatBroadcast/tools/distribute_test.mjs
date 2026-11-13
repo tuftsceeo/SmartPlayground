@@ -4,7 +4,7 @@
  *   node tools/distribute_test.mjs
  */
 import assert from "node:assert/strict";
-import { DistributeState, deviceLabel, signalLevel } from "../js/distribute.js";
+import { DistributeState, deviceLabel, signalLevel, deviceNoun } from "../js/distribute.js";
 
 let failed = 0;
 function t(name, fn) {
@@ -63,6 +63,33 @@ t("abort fails unfinished rows only", () => {
   s.abort("not_serving");
   assert.deepEqual(s.rows.map((r) => r.status), ["done", "failed"]);
   assert.equal(s.rows[1].why, "not_serving");
+});
+t("every reported device starts selected", () => {
+  const s = new DistributeState();
+  s.startScan();
+  s.upsertReport({ mac: A, kind: "wand", battery: 5 });
+  s.upsertReport({ mac: B, kind: "wand", battery: 80 });
+  s.upsertReport({ mac: C, kind: "icon_display", battery: null });
+  assert.deepEqual(s.selectedMacs(), [A, B, C]);
+});
+t("deviceNoun: wands, stations, else devices", () => {
+  assert.equal(deviceNoun([]), "devices");
+  assert.equal(deviceNoun([{ kind: "wand" }, { kind: "wand" }]), "wands");
+  assert.equal(deviceNoun([{ kind: "icon_display" }]), "stations");
+  assert.equal(deviceNoun([{ kind: "wand" }, { kind: "icon_display" }]), "devices");
+  assert.equal(deviceNoun([{ kind: null }]), "devices");
+});
+t("allFinished once every sent row is done or failed", () => {
+  const s = new DistributeState();
+  s.startScan();
+  for (const m of [A, B]) s.upsertReport({ mac: m, kind: "wand", battery: 80 });
+  assert.equal(s.allFinished(), false);
+  s.startDistribute();
+  s.applyProgress({ mac: A, ok: true, done: 1, total: 2 });
+  assert.equal(s.allFinished(), false);
+  s.applyProgress({ mac: B, ok: false, why: "x", done: 2, total: 2 });
+  s.finish({ done: 2 });
+  assert.equal(s.allFinished(), true);
 });
 
 if (failed) { console.log(`\n${failed} failed`); process.exit(1); }

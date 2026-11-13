@@ -67,7 +67,7 @@ t("validateGameCode refuses a bad Splat game and a bad action name", () => {
 });
 
 t("knowledge/lobby_games.md examples pass the wand checks", () => {
-  const md = readFileSync(resolve(ROOT, "knowledge/lobby_games.md"), "utf8");
+  const md = readFileSync(resolve(ROOT, "knowledge/lobby_games.md"), "utf8").replace(/\r\n/g, "\n");
   const games = [...md.matchAll(/```python\n([\s\S]*?)```/g)].map(m => m[1]).filter(c => /^SPLATS_/m.test(c));
   assert.equal(games.length, 2);
   for (const g of games) {
@@ -77,10 +77,22 @@ t("knowledge/lobby_games.md examples pass the wand checks", () => {
 });
 
 t("MockWand lobby games pass the wand checks", () => {
-  for (const f of ["lobbytest.py", "splattag.py", "relaycolor.py"]) {
+  for (const f of ["lobbytest.py", "splattag.py", "relaycolor.py",
+                   "host_lobbytest.py", "host_splattag.py", "host_relaycolor.py"]) {
     const [ok, err] = validateGameCode(readFileSync(resolve(ROOT, "../../Wand Module/games", f), "utf8"), "wand");
     assert.ok(ok, `${f}: ${err}`);
   }
+});
+
+
+t("Splat host games: up to 4 Splats, PLAYERS_MIN only with SPLAT_HOST", () => {
+  const play = "def play(nfc, leds, buz, accel, i2c, enow, batt=None, net=None):\n    pass\n";
+  const host = "SPLAT_HOST = True\nSPLATS_MIN = 2\nSPLATS_MAX = 4\nPLAYERS_MIN = 1\n" + play;
+  assert.deepEqual(splatGameProblems(host), []);
+  assert.equal(splatGameProblems(host.replace("SPLATS_MAX = 4", "SPLATS_MAX = 5")).length, 1);
+  assert.equal(splatGameProblems("SPLATS_MIN = 1\nPLAYERS_MIN = 1\n" + play).length, 1);
+  assert.equal(splatGameProblems("SPLAT_HOST = True\n" + play).length, 1);
+  assert.equal(splatGameProblems(host.replace("PLAYERS_MIN = 1", "PLAYERS_MIN = x")).length, 1);
 });
 
 console.log(failed ? `${failed} failed` : "all passed");

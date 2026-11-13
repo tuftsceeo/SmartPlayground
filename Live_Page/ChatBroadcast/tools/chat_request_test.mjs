@@ -19,6 +19,7 @@ import {
     historyWindow, ADVANCED_KNOWLEDGE, CLAUDE_MODEL,
     buildInterviewSystemBlocks, interviewMessages, interviewStatusText,
     INTERVIEW_KNOWLEDGE, INTERVIEW_MAX_QUESTIONS, INTERVIEW_FIRST_QUESTION,
+    briefFormat, briefFromJson,
 } from "../js/prompt/buildRequest.js";
 import { readMessageStream } from "../js/prompt/stream.js";
 import { extractCodeBlocks, parseChoices, parseGameBrief, stripGameBrief, stripAllMarkers, parseNfcCards, parseGameName, parseGameSettings } from "../js/chat.js";
@@ -204,15 +205,16 @@ await test("[GAME_SETTINGS:] is read for the simulator and hidden from the chat"
     assert.equal(stripAllMarkers('Done.\n[GAME_SETTINGS: {"wand_spl'), "Done.");
 });
 
-await test("starter draws always include a non-wand idea; ideas name real roles", () => {
+await test("starter draws: one question then two games, one beyond the wand; ideas name real roles", () => {
     const keys = new Set(ROLES.map(r => r.key));
     for (const idea of STARTER_IDEAS) for (const r of idea.roles) assert.ok(keys.has(r), `${idea.text}: ${r}`);
     let seed = 1;
     const rand = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
     for (let i = 0; i < 500; i++) {
-        const d = drawStarterIdeas(4, rand);
-        assert.equal(d.length, 4);
-        assert.equal(new Set(d).size, 4);
+        const d = drawStarterIdeas(rand);
+        assert.equal(d.length, 3);
+        assert.equal(new Set(d).size, 3);
+        assert.deepEqual(d.map(x => !!x.question), [true, false, false]);
         assert.ok(d.some(x => x.roles.some(r => r !== "wand")));
     }
 });
@@ -245,6 +247,27 @@ await test("interview messages open with the title question and are not windowed
     const body = buildRequestBody({ system: [], history: m, stream: false, windowed: false });
     assert.equal(body.messages.length, 21);
     assert.equal(body.stream, false);
+});
+
+await test("last interview turn is constrained to the brief schema", () => {
+    const body = buildRequestBody({ system: [], history: [], stream: false, windowed: false, format: briefFormat() });
+    assert.equal(body.output_config.effort, "low");
+    assert.equal(body.output_config.format.type, "json_schema");
+    const s = body.output_config.format.schema;
+    assert.equal(s.additionalProperties, false);
+    assert.deepEqual(s.required, Object.keys(s.properties));
+    assert.equal(buildRequestBody({ system: [], history: [] }).output_config.format, undefined);
+});
+
+await test("brief JSON becomes a bulleted brief; empty fields are left out", () => {
+    const { message, brief } = briefFromJson(JSON.stringify({
+        message: "I have what I need.", title: "Frog Hop", wands: "1-4", play: "", extras: "",
+        how_to_play: "Hop to a card", what_happens: "", start_and_end: "", cards: "", defaults: "Green lights",
+    }));
+    assert.equal(message, "I have what I need.");
+    assert.equal(brief, "- Title: Frog Hop\n- Wands: 1-4\n- How to play: Hop to a card\n- Defaults I chose: Green lights");
+    assert.throws(() => briefFromJson("What do the frogs do?"));
+    assert.throws(() => briefFromJson(JSON.stringify({ title: " " })), /no title/);
 });
 
 await test("game brief parses and strips", () => {

@@ -2,11 +2,12 @@
  * Simulator control panel, laid out per the "Wand Simulator v4" design
  * artboard (BroadcastBox/docs_and_design/simlution v4/Wand Simulator v4.dc.html).
  *
- * Two panes. The left one is the wand's home: a striped pad you move over
- * to tilt the wand and click to press its button, a live axis readout above
- * (advanced only) and a status line plus "Turn over" below. The right one
- * holds the toolbar (sound / start over), the one-shot gestures, the tag
- * popover, and the advanced block. Advanced mode is the host's `advanced`
+ * Two panes. The left one is the wand's home: a pad you move over to tilt
+ * the wand and click to press its button, a live axis readout above
+ * (advanced only), a status line plus "Turn over" below (advanced) or
+ * Flip, Jump and Shake (simple), and the NFC tag chips. The right one
+ * holds the toolbar (sound / start over), the one-shot gestures, the icon
+ * displays (sim-room's "ctrl" slot) and the advanced block. Advanced mode is the host's `advanced`
  * attribute. The panel draws no console, log or radio readout; wand-sim
  * reports those as events for the host to show.
  *
@@ -57,16 +58,41 @@ const RADIO_BY_GAME = {
   ],
 };
 
-// Pale violet-leaning pastels — the tint scale the design system uses for
-// all state work. Assigned per tag name so a given tag keeps its color.
-const PASTELS = ["#fff0f6", "#f2eefc", "#e9fbf6", "#fff8e0"];
+/** Tag names drawn as a colored dot. */
+const TAG_COLORS = {
+  red: { fill: "#ff3b3b", edge: "#c42020" },
+  orange: { fill: "#ff8a1f", edge: "#c26200" },
+  yellow: { fill: "#ffd23f", edge: "#c29a00" },
+  green: { fill: "#22c35a", edge: "#168a3f" },
+  blue: { fill: "#3b5bff", edge: "#2338b8" },
+  purple: { fill: "#c03bff", edge: "#8a1fc0" },
+  pink: { fill: "#ff7ab8", edge: "#c2427f" },
+  white: { fill: "#ffffff", edge: "#8b859a" },
+};
+const CONTROL_TAGS = /^(restart|reset|start|stop|exit|next|undo|again|new)$/;
+const ROLE_TAGS = /^(code(maker|breaker)|player\w*|team\w*|x|o)$/;
+
+/**
+ * Sort tags into Roles, Colors and Controls (in that order); anything else
+ * goes under Tags.
+ * @param {string[]} tags
+ * @returns {{name: string, tags: string[]}[]}
+ */
+export function groupTags(tags) {
+  const buckets = { Roles: [], Colors: [], Controls: [], Tags: [] };
+  for (const t of tags) {
+    const key = ROLE_TAGS.test(t) ? "Roles" : t in TAG_COLORS ? "Colors" : CONTROL_TAGS.test(t) ? "Controls" : "Tags";
+    buckets[key].push(t);
+  }
+  return Object.entries(buckets).filter(([, v]) => v.length).map(([name, list]) => ({ name, tags: list }));
+}
 
 // Pad coordinates run -100..100 on both axes; ±45 is where the artboard
 // calls an orientation, matching the dashed circle it draws.
 const PAD_RANGE = 230;
 const PAD_THRESHOLD = 45;
 // How long the pointer has to stop moving before the free-form tilt is
-// quantised to the nearest named pose (see snapToPose).
+// quantized to the nearest named pose (see snapToPose).
 const SETTLE_MS = 140;
 
 const STATE_LABELS = {
@@ -78,16 +104,10 @@ const STATE_LABELS = {
   error: "error",
 };
 
-function hashName(s) {
-  let h = 7;
-  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
-  return Math.abs(h);
-}
-
 /**
  * Which named orientation a pad position reads as (see js/motion.js's
  * setPadTilt). The dominant axis wins, and nothing within the threshold of
- * centre counts as tilted: that's the wand upright, or upside down when
+ * center counts as tilted: that's the wand upright, or upside down when
  * turned over.
  */
 export function detectPose(ax, ay, inverted) {
@@ -143,7 +163,7 @@ export const CONTROLS_STYLE = `
   position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%);
   width: 118px; height: 118px; border-radius: 50%; border: 1.5px dashed #e8e6f0;
 }
-/* The wand turns about its centre through every pose, so it stays inside
+/* The wand turns about its center through every pose, so it stays inside
    the pad at one fixed size only if its diagonal does: 439x730 has a
    diagonal 1.94x its width, so 46% of the pad's width leaves a margin for
    the case's edge and the face-up/down perspective. With Splats along the
@@ -217,39 +237,6 @@ export const CONTROLS_STYLE = `
 .shake-strength > span:first-child { font: 700 11px 'Nunito', system-ui, sans-serif; color: #231f2e; flex: none; }
 .shake-val { font: 700 10px 'Nunito', system-ui, sans-serif; color: #5b5468; width: 38px; text-align: right; flex: none; }
 
-/* ── Tag popover ─────────────────────────────────────────────────────── */
-.tag-wrap { position: relative; margin-top: 8px; }
-.btn-wide {
-  width: 100%; display: flex; align-items: center; justify-content: center;
-  gap: 7px; padding: 9px 0; border-radius: 14px; cursor: pointer;
-  transition: all .15s; font: 800 11px 'Nunito', system-ui, sans-serif;
-  border: 1.5px solid #e8e6f0; background: #fff; color: #5b5468;
-}
-.btn-wide:hover { border-color: #ef4d92; color: #d13a7c; background: #fff0f6; }
-.btn-wide.is-active { border-color: #ef4d92; background: #fff0f6; color: #d13a7c; }
-.tag-scrim { position: absolute; inset: -2000px; z-index: 5; cursor: default; }
-.tag-pop {
-  position: absolute; right: 0; top: calc(100% + 8px); z-index: 6; width: 212px;
-  box-sizing: border-box; background: #fff; border: 1.5px solid #e8e6f0;
-  border-radius: 20px; box-shadow: 0 24px 60px rgba(0,0,0,.22); padding: 12px;
-  display: flex; flex-direction: column; gap: 9px;
-}
-/* Just the close button, right-aligned: the popover's tag chips say what
-   it is, so it carries no caption. */
-.tag-pop-head { display: flex; align-items: center; justify-content: flex-end; }
-.btn-bare {
-  display: flex; align-items: center; justify-content: center; background: none;
-  border: 0; padding: 0; color: #8b859a; cursor: pointer; flex: none;
-}
-.btn-bare:hover { color: #6c4cd1; }
-.tag-list { display: flex; flex-wrap: wrap; gap: 6px; max-height: 132px; overflow-y: auto; }
-.tag-chip {
-  flex: none; display: flex; align-items: center; gap: 5px; padding: 6px 11px;
-  border-radius: 20px; border: 1.5px solid #e8e6f0;
-  font: 700 11px 'Nunito', system-ui, sans-serif; color: #3a3345;
-  cursor: pointer; transition: all .15s;
-}
-.tag-chip:hover { border-color: #ef4d92; color: #d13a7c; }
 .field-row { display: flex; gap: 6px; }
 .field-row.divided { border-top: 1px solid #f4f2fa; padding-top: 9px; }
 .field {
@@ -308,6 +295,60 @@ input[type=range] { accent-color: #ef4d92; }
   .sim-pane-wand { flex: 1 1 100%; padding: 14px 14px 0; }
   .sim-pane-ctrl { flex: 1 1 100%; padding: 9px 14px 14px; }
 }
+
+/* NFC tags: one chip per tag the game reads, under the wand, grouped
+   Roles, Colors, Controls, then the rest. Tapping one touches it to the wand. */
+.tag-tray { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.tray-label { font: 800 11px 'Nunito', system-ui, sans-serif; color: #6b6578; text-transform: uppercase; letter-spacing: .06em; margin-right: 4px; }
+.tray-sep { width: 1px; height: 18px; background: #e8e6f0; }
+.tag-tile { display: inline-flex; align-items: center; gap: 5px; border: 1.5px solid #e8e6f0; background: #fff; color: #231f2e;
+  border-radius: 8px; padding: 3px 7px; font: 700 12px 'Nunito', system-ui, sans-serif; cursor: pointer; }
+.tag-tile:hover { border-color: #ef4d92; }
+.tag-tile svg { color: #d13a7c; flex: none; }
+.tag-tile .swatch { width: 12px; height: 12px; border-radius: 50%; border: 2px solid; flex: none; box-sizing: border-box; }
+
+/* The wand is drawn without the pad's box. A "Wand" label sits just above
+   the drawn wand (76.5cqi tall: 46cqi wide at 439x730) while an icon
+   display is shown beside it (host attribute "paired"). */
+.pad { background: none; border: 0; }
+/* Device label colors, shared with the icon display's and the all-wands
+   dialog's: wand purple, icon display ink, Splat blue. */
+.wand-label {
+  display: none; position: absolute; left: 0; right: 0; top: calc(50% - 38.25cqi - 28px);
+  align-items: center; justify-content: center; gap: 6px;
+  pointer-events: none; font: 800 17px 'Nunito', system-ui, sans-serif; color: #6c4cd1;
+}
+:host([paired]) .wand-label { display: flex; }
+/* The label takes the hint's place. */
+:host([paired]) .pad-hint { display: none !important; }
+.pad.has-extras .wand-label { display: none !important; }
+
+/* Simple mode: Flip, Jump and Shake sit under the wand, each shown only
+   when the game reads it. The right pane holds only the icon display, and
+   is not drawn without one. Sizes match the all-wands dialog: the wand
+   pane is 300px (narrower only when the panel is), and the display is as
+   wide as the wand's square pad (--wand-pad, from sim-room). The panes keep
+   those sizes and wrap: side by side when both fit, with any spare width
+   shared evenly around and between them; otherwise the display goes under
+   the wand (the host scrolls to it). */
+.wand-actions { display: none; gap: 8px; margin-top: 10px; justify-content: center; }
+.wand-actions > .btn-stack { flex: 0 1 96px; min-width: 0; }
+.simple .wand-actions { display: flex; }
+:host(:not([paired])) .simple .sim-pane-ctrl { display: none; }
+.simple .move-grid,
+.simple .shake-strength,
+.simple .pad-foot { display: none !important; }
+:host(:not([advanced])) .ctrl-toolbar { display: none !important; }
+.simple.wand-controls { justify-content: space-evenly; align-items: center; flex-wrap: wrap; gap: 16px; }
+.simple .sim-pane-wand { flex: 0 1 300px; min-width: 0; padding: 14px; }
+.simple .sim-pane-ctrl { flex: 0 0 auto; width: calc(var(--wand-pad, 272px) + 16px); max-width: 100%;
+  padding: 14px 0; }
+
+
+/* Minimized: the wand illustration only. */
+:host([minimized]) .sim-pane-ctrl,
+:host([minimized]) .pad-hint,
+:host([minimized]) .pad-foot { display: none !important; }
 `;
 
 export function createControls(container, handlers = {}) {
@@ -318,10 +359,17 @@ export function createControls(container, handlers = {}) {
       <div class="axis-row" data-el="axes" data-adv hidden></div>
       <div class="pad" data-el="pad" title="Move to tilt · click to press the button">
         <div class="pad-hint" data-el="pad-hint">move to tilt · click to press</div>
+        <div class="wand-label">${icon("wand", 18)}Wand</div>
         <div class="pad-guide" data-adv hidden><span class="pad-ring"></span></div>
         <div class="pad-wand" data-el="wand"></div>
         <div class="pad-extras"><slot name="pad" data-el="pad-slot"></slot></div>
       </div>
+      <div class="wand-actions" data-el="wand-actions">
+        <button type="button" class="btn-stack" data-act="turn-over" title="Turn the wand upside down">${icon("shakePhone", 18)}Flip</button>
+        <button type="button" class="btn-stack" data-move="jump" title="Toss the wand up">${icon("arrow-up", 18)}Jump</button>
+        <button type="button" class="btn-stack" data-move="shake" title="Shake it back and forth">${icon("vibrate", 18)}Shake</button>
+      </div>
+      <div class="tag-tray" data-el="tag-tray" hidden></div>
       <div class="pad-foot">
         <div class="status" data-el="status">
           <span class="status-dot"></span><span class="status-text" data-el="status-text"></span>
@@ -351,24 +399,6 @@ export function createControls(container, handlers = {}) {
       </label>
 
       <slot name="ctrl"></slot>
-
-      <div class="tag-wrap" data-el="tag-wrap" hidden>
-        <button type="button" class="btn-wide" data-act="tag-menu"
-                title="Touch a tag to the wand">${icon("smartphone-nfc", 18)}Tap a tag</button>
-        <div data-el="tag-pop" hidden>
-          <div class="tag-scrim" data-act="tag-close" title="Close"></div>
-          <div class="tag-pop">
-            <div class="tag-pop-head">
-              <button type="button" class="btn-bare" data-act="tag-close" title="Close">${icon("close", 14)}</button>
-            </div>
-            <div class="tag-list" data-el="tag-list"></div>
-            <div class="field-row divided">
-              <input class="field" data-act="free-tag-input" placeholder="type any tag word">
-              <button type="button" class="btn-pink" data-act="free-tag-send">Scan</button>
-            </div>
-          </div>
-        </div>
-      </div>
 
       <div class="zero-state" data-el="zero-state" hidden>
         this game has no player controls — just watch it play
@@ -424,9 +454,7 @@ export function createControls(container, handlers = {}) {
     moveGrid: q('[data-el="move-grid"]'),
     shakeRow: q('[data-el="shake-row"]'),
     shakeVal: q('[data-el="shake-val"]'),
-    tagWrap: q('[data-el="tag-wrap"]'),
-    tagPop: q('[data-el="tag-pop"]'),
-    tagList: q('[data-el="tag-list"]'),
+    tagTray: q('[data-el="tag-tray"]'),
     zeroState: q('[data-el="zero-state"]'),
     uses: q('[data-el="uses"]'),
     enowRecv: q('[data-el="enow-recv"]'),
@@ -487,7 +515,7 @@ export function createControls(container, handlers = {}) {
   // The free-form tilt gives the wand something continuous to follow, but
   // a normalized in-between vector sits under the thresholds an
   // orientation-reading game tests (simpleicecream.py's scoop, say). So
-  // once the pointer stops, the tilt is quantised to whichever pose the
+  // once the pointer stops, the tilt is quantized to whichever pose the
   // pad position reads as, which lands the exact gravity vector from
   // motion.js's POSES table.
   function snapToPose() {
@@ -586,6 +614,7 @@ export function createControls(container, handlers = {}) {
   /** Driven from the host's `advanced` attribute. */
   function setAdvanced(v) {
     advanced = !!v;
+    root.classList.toggle("simple", !advanced);
     for (const node of root.querySelectorAll("[data-adv]")) node.hidden = !advanced;
   }
 
@@ -605,6 +634,13 @@ export function createControls(container, handlers = {}) {
     handlers.onFaceFlip?.(inverted, name);
   });
 
+  // ── Flip (simple mode): the same as Turn over ───────────────────────
+  const turnBtn = q('[data-act="turn-over"]');
+  turnBtn.addEventListener("click", () => {
+    faceBtn.click();
+    turnBtn.classList.toggle("is-active", inverted);
+  });
+
   // ── Moves ───────────────────────────────────────────────────────────
   for (const b of root.querySelectorAll("[data-move]")) {
     b.addEventListener("click", () => {
@@ -616,46 +652,46 @@ export function createControls(container, handlers = {}) {
   shakeRange.addEventListener("input", () => { el.shakeVal.textContent = shakeLabel(shakeRange.value); });
 
   // ── Tags ────────────────────────────────────────────────────────────
-  const tagMenuBtn = q('[data-act="tag-menu"]');
-  function setTagMenu(open) {
-    el.tagPop.hidden = !open;
-    tagMenuBtn.classList.toggle("is-active", open);
-  }
-  tagMenuBtn.addEventListener("click", () => setTagMenu(el.tagPop.hidden));
-  for (const b of root.querySelectorAll('[data-act="tag-close"]')) {
-    b.addEventListener("click", () => setTagMenu(false));
-  }
-
   function renderTags(tags) {
-    el.tagList.innerHTML = "";
-    for (const cmd of tags) {
-      const b = document.createElement("button");
-      b.type = "button";
-      b.className = "tag-chip";
-      b.title = "Touch this tag to the wand";
-      b.style.background = PASTELS[hashName(cmd) % PASTELS.length];
-      b.innerHTML = `${icon("nfcCard", 13)}${cmd}`;
-      b.addEventListener("click", () => {
-        handlers.onNfc?.(cmd);
-        setTagMenu(false);
-      });
-      el.tagList.appendChild(b);
-    }
+    const tray = el.tagTray;
+    tray.textContent = "";
+    tray.hidden = tags.length === 0;
+    if (!tags.length) return;
+    const label = document.createElement("div");
+    label.className = "tray-label";
+    label.textContent = "NFC tags";
+    tray.appendChild(label);
+    groupTags(tags).forEach((group, i) => {
+      if (i > 0) {
+        const sep = document.createElement("div");
+        sep.className = "tray-sep";
+        tray.appendChild(sep);
+      }
+      for (const cmd of group.tags) {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.className = "tag-tile";
+        b.title = "Touch this tag to the wand";
+        const color = TAG_COLORS[cmd];
+        b.innerHTML = color
+          ? `<span class="swatch" style="background:${color.fill};border-color:${color.edge}"></span>`
+          : icon("nfcCard", 14);
+        b.append(cmd);
+        b.addEventListener("click", () => handlers.onNfc?.(cmd));
+        tray.appendChild(b);
+      }
+    });
   }
 
-  // Both free-tag fields (popover + advanced drawer) do the same thing.
-  for (const [inputSel, sendSel] of [
-    ['[data-act="free-tag-input"]', '[data-act="free-tag-send"]'],
-    ['[data-act="free-tag-input2"]', '[data-act="free-tag-send2"]'],
-  ]) {
-    const input = q(inputSel);
+  // Any tag word, from the advanced drawer.
+  {
+    const input = q('[data-act="free-tag-input2"]');
     const send = () => {
       const cmd = input.value.trim().toLowerCase();
       if (!cmd) return;
       handlers.onNfc?.(cmd);
-      setTagMenu(false);
     };
-    q(sendSel).addEventListener("click", send);
+    q('[data-act="free-tag-send2"]').addEventListener("click", send);
     input.addEventListener("keydown", (e) => { if (e.key === "Enter") send(); });
   }
 
@@ -737,6 +773,7 @@ export function createControls(container, handlers = {}) {
       if (inverted) {
         inverted = false;
         faceBtn.classList.remove("is-active");
+        turnBtn.classList.remove("is-active");
         handlers.onFaceFlip?.(false, "tip_up");
       }
       handlers.onTilt?.(0, 0, false, true);
@@ -747,8 +784,9 @@ export function createControls(container, handlers = {}) {
     el.moveGrid.hidden = moveNames.length === 0;
     el.shakeRow.hidden = !motion.has("shake");
 
+    turnBtn.hidden = faceBtn.hidden;
+
     renderTags(tags);
-    el.tagWrap.hidden = tags.length === 0;
 
     renderRadio(caps?.game);
 
@@ -762,6 +800,7 @@ export function createControls(container, handlers = {}) {
     renderPadHint();
     inverted = false;
     faceBtn.classList.remove("is-active");
+    turnBtn.classList.remove("is-active");
     padX = 0;
     padY = 0;
     setPoseDisplay("tip_up");

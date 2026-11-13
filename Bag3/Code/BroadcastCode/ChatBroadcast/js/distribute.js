@@ -11,6 +11,11 @@
  * DistributeOverlay paints it into #distribute-overlay.
  */
 
+import { iconSvg } from "./icons.js";
+
+/** Simple mode is every mode but advanced; the body class is set by app.js. */
+const isSimple = () => !document.body.classList.contains("ui-advanced");
+
 /** status_report `kind` (sender's HUB_TYPE) → label prefix and name. */
 const KINDS = {
   wand: { prefix: "W", name: "Wand" },
@@ -70,6 +75,18 @@ export function setNickname(mac, name) {
 
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
+/**
+ * What to call a set of rows: "wands" when every kind is wand, "stations"
+ * when every kind is known and not a wand, otherwise "devices".
+ * @param {{kind: string|null}[]} rows
+ */
+export function deviceNoun(rows) {
+  if (!rows.length) return "devices";
+  if (rows.every((r) => r.kind === "wand")) return "wands";
+  if (rows.every((r) => r.kind && r.kind !== "wand")) return "stations";
+  return "devices";
+}
+
 export class DistributeState {
   constructor() {
     this.rows = []; // {mac, kind, battery, rssi, selected, status, why}
@@ -113,11 +130,6 @@ export class DistributeState {
     if (row && !this.running) row.selected = on;
   }
 
-  setAll(on) {
-    if (this.running) return;
-    for (const r of this.rows) r.selected = on;
-  }
-
   selectedMacs() {
     return this.rows.filter((r) => r.selected).map((r) => r.mac);
   }
@@ -151,6 +163,13 @@ export class DistributeState {
     this.running = false;
   }
 
+  /** True once a run has started and every queued row is done or failed. */
+  allFinished() {
+    const sent = this.rows.filter((r) => r.status);
+    return !this.running && sent.length > 0
+      && sent.every((r) => r.status === "done" || r.status === "failed");
+  }
+
   /** The Dial refused or the link failed: unfinished rows fail with why. */
   abort(why) {
     for (const r of this.rows) {
@@ -164,16 +183,24 @@ export class DistributeState {
 }
 
 const STATUS_TEXT = {
-  "": "",
   queued: "Waiting",
-  pulling: "Getting code…",
-  done: "Updated",
+  pulling: "Getting it",
+  done: "Ready",
   failed: "Failed",
 };
+const STATUS_GLYPH = { queued: "spinner", pulling: "download", done: "check", failed: "warning" };
+
+/** Card icon for a status_report kind. */
+function kindIcon(kind) {
+  if (kind === "wand") return "wand";
+  if (kind === "icon_display") return "iconDisplay";
+  return "station";
+}
 
 /**
  * DOM controller. `app` supplies `device` (the BboxDeviceLink) and
- * `link.state`; `toast` reports errors.
+ * `link.state`; `toast` reports errors. Status lines are short in simple
+ * mode and full sentences in advanced mode.
  */
 export class DistributeOverlay {
   constructor({ app, showOverlay, hideOverlay, toast }) {
@@ -183,33 +210,33 @@ export class DistributeOverlay {
     this.toast = toast;
     this.state = new DistributeState();
     this.slug = null;
+    this.pretty = "";
     this._unsub = [];
     this.el = (id) => document.getElementById(id);
     this.el("btn-dist-close-x").addEventListener("click", () => this.close());
     this.el("btn-dist-rescan").addEventListener("click", () => this.scan());
-    this.el("btn-dist-all").addEventListener("click", () => {
-      const all = this.state.rows.every((r) => r.selected);
-      this.state.setAll(!all);
-      this.render();
+    this.el("btn-dist-send").addEventListener("click", () => {
+      if (this.state.allFinished()) this.close();
+      else this.distribute();
     });
-    this.el("btn-dist-send").addEventListener("click", () => this.distribute());
-    this.el("dist-table").addEventListener("click", (e) => this._onTableClick(e));
+    this.el("dist-cards").addEventListener("click", (e) => this._onCardClick(e));
   }
 
   get device() {
     return this.app.device;
   }
 
-  /** Open for `slug`; waits for the Dial to be back from its reboot, then scans. */
+  /** Open for `slug`; waits for the teacher hub to be back from its reboot, then scans. */
   async open(slug, prettyName) {
     this.slug = slug;
-    this.el("dist-title").textContent = prettyName ? `Distribute "${prettyName}"` : "Distribute code";
+    this.pretty = prettyName || "";
     this.state = new DistributeState();
-    this._setStatus("Waiting for the Dial to restart…");
+    this._setStatus(isSimple() ? "Reconnecting…" : "Waiting for the teacher hub to restart…");
     this.render();
     this.showOverlay("distribute-overlay");
     if (!(await this._waitLive())) {
-      this._setStatus("The Dial did not come back. Reconnect it, then press Rescan.");
+      this._setStatus(isSimple() ? "Not connected."
+        : "The teacher hub did not come back. Reconnect it, then press Refresh.");
       return;
     }
     await this.scan();
@@ -241,15 +268,21 @@ export class DistributeOverlay {
       d.on("status_report", (o) => { this.state.upsertReport(o); this.render(); }),
       d.on("status_done", () => {
         this.state.endScan();
-        this._setStatus(this.state.rows.length
-          ? "Pick the devices to update."
-          : "No devices answered. Check they are on, then Rescan.");
+        const rows = this.state.rows;
+        const one = deviceNoun(rows).replace(/s$/, "");
+        if (isSimple()) {
+          this._setStatus(rows.length ? `Tap a ${one} to choose it.` : "No devices found.");
+        } else {
+          this._setStatus(rows.length ? `Pick the ${deviceNoun(rows)} to update.`
+            : "No devices answered. Check they are on, then press Refresh.");
+        }
         this.render();
       }),
       d.on("dist_progress", (o) => { this.state.applyProgress(o); this.render(); }),
       d.on("dist_done", (o) => {
         this.state.finish(o);
-        this._setStatus(`${o?.ok ?? 0} of ${o?.total ?? this.state.total} devices updated.`);
+        this._setStatus(isSimple() ? ""
+          : `${o?.ok ?? 0} of ${o?.total ?? this.state.total} ${deviceNoun(this._sentRows())} updated.`);
         this.render();
       }),
     ];
@@ -263,13 +296,14 @@ export class DistributeOverlay {
       this._listening = this.device;
     }
     this.state.startScan();
-    this._setStatus("Looking for wands and stations…");
+    this._setStatus(isSimple() ? "Looking…" : "Looking for wands and stations…");
     this.render();
     try {
       await this.device.sendCmd({ cmd: "fleet.scan" });
     } catch (e) {
       this.state.endScan();
-      this._setStatus(`Scan failed: ${e.message}`);
+      this._setStatus(isSimple() ? "Scan failed." : `Scan failed: ${e.message}`);
+      this.toast(`Scan failed: ${e.message}`, true);
       this.render();
     }
   }
@@ -277,36 +311,46 @@ export class DistributeOverlay {
   async distribute() {
     const macs = this.state.startDistribute();
     if (!macs.length) return;
-    this._setStatus("Sending code…");
+    this._setStatus(isSimple() ? "" : "Sending code…");
     this.render();
     try {
       await this.device.sendCmd({ cmd: "fleet.distribute", slug: this.slug, macs });
     } catch (e) {
       this.state.abort(e.message);
-      this._setStatus(`Distribute failed: ${e.message}`);
+      this._setStatus(isSimple() ? "Failed." : `Distribute failed: ${e.message}`);
       this.toast(`Distribute failed: ${e.message}`, true);
       this.render();
     }
   }
 
-  _onTableClick(e) {
+  /** Rows in the current or last run. */
+  _sentRows() {
+    return this.state.rows.filter((r) => r.status);
+  }
+
+  _onCardClick(e) {
     const t = e.target;
-    const mac = t.closest("tr")?.dataset.mac;
+    const card = t.closest(".dcard");
+    const mac = card?.dataset.mac;
     if (!mac) return;
     if (t.matches("input.dist-check")) {
       this.state.toggle(mac, t.checked);
       this.render();
-    } else if (t.closest(".dist-rename")) {
-      this._editName(t.closest("tr"), mac);
     } else if (t.closest(".dist-find")) {
       this.device.sendCmd({ cmd: "fleet.find", mac })
         .catch((err) => this.toast(`Find failed: ${err.message}`, true));
+    } else if (t.closest(".dist-rename")) {
+      this._editName(card, mac);
+    } else if (!t.closest("button, input")) {
+      const row = this.state._row(mac);
+      this.state.toggle(mac, !row?.selected);
+      this.render();
     }
   }
 
-  /** Swap the name cell for a text input; Enter or blur saves, Escape cancels. */
-  _editName(tr, mac) {
-    const cell = tr.querySelector(".dist-name-cell");
+  /** Swap the card's name for a text input; Enter or blur saves, Escape cancels. */
+  _editName(card, mac) {
+    const cell = card.querySelector(".dname-row");
     if (!cell || cell.querySelector("input")) return;
     const input = document.createElement("input");
     input.type = "text";
@@ -338,42 +382,59 @@ export class DistributeOverlay {
     this.el("dist-status").textContent = text;
   }
 
+  /** One card per device; only the chosen ones while sending and after. */
+  _renderCards() {
+    const s = this.state;
+    const wrap = this.el("dist-cards");
+    wrap.textContent = "";
+    const rows = s.running || s.allFinished() ? this._sentRows() : s.rows;
+    for (const r of rows) {
+      const label = deviceLabel(r.mac, r.kind);
+      const nick = getNickname(r.mac);
+      const name = nick || label;
+      const sub = nick ? `${label} · ${kindName(r.kind)}` : kindName(r.kind);
+      const card = document.createElement("div");
+      card.className = `dcard${r.selected && !r.status ? " sel" : ""}${r.status ? ` dist-${r.status}` : ""}`;
+      card.dataset.mac = r.mac;
+      const color = r.status === "failed" ? "#b0281c" : r.status === "done" ? "#1c9a82"
+        : r.status ? "#6c4cd1" : r.selected ? "#231f2e" : "#c9c4dc";
+      let tail;
+      if (r.status) {
+        tail = `<span class="dstatus dstatus-${r.status}" title="${esc(r.why || "")}">`
+          + `${iconSvg(STATUS_GLYPH[r.status], { size: 22, strokeWidth: 2.5 })}${STATUS_TEXT[r.status]}</span>`;
+      } else {
+        const batt = r.battery == null ? ""
+          : `<span class="dbatt">${iconSvg("battery", { size: 20, strokeWidth: 2 })}${r.battery}%</span>`;
+        tail = `${batt}<button type="button" class="dist-find" title="Find Me" aria-label="Find Me ${esc(name)}">`
+          + `${iconSvg("locate", { size: 18, strokeWidth: 2 })}Find Me</button>`;
+      }
+      const detail = r.status
+        ? `<div class="dbar"><div class="dbar-fill dbar-${r.status}"></div></div>`
+        : `<span>${esc(sub)} <span class="dist-sig dist-sig-${signalLevel(r.rssi)}" title="${r.rssi ?? "?"} dBm"><i></i><i></i><i></i></span></span>`;
+      card.innerHTML =
+        `<input type="checkbox" class="dist-check" ${r.selected ? "checked" : ""} ${r.status ? "hidden" : ""} aria-label="Send to ${esc(name)}">`
+        + `<span class="dicon" style="color:${color}">${iconSvg(kindIcon(r.kind), { size: 36, strokeWidth: 2 })}</span>`
+        + `<div class="dname"><div class="dname-row"><b title="${esc(r.mac)}">${esc(name)}</b>`
+        + (r.status ? "" : `<button type="button" class="dist-rename" title="Rename (saved in this browser)" aria-label="Rename ${esc(name)}">✎</button>`)
+        + `</div>${detail}</div>${tail}`;
+      wrap.appendChild(card);
+    }
+  }
+
   render() {
     if (this._editing) return; // _editName re-renders when it finishes
     const s = this.state;
-    const body = this.el("dist-rows");
-    body.textContent = "";
-    for (const r of s.rows) {
-      const label = deviceLabel(r.mac, r.kind);
-      const nick = getNickname(r.mac);
-      const tr = document.createElement("tr");
-      tr.dataset.mac = r.mac;
-      tr.className = r.status ? `dist-${r.status}` : "";
-      const cells = [
-        `<input type="checkbox" class="dist-check" ${r.selected ? "checked" : ""} ${s.running ? "disabled" : ""} aria-label="Select ${esc(nick || label)}">`,
-        `<div class="dist-name-cell"><span class="dist-name" title="${r.mac}">${esc(nick || label)}</span>`
-          + `<button type="button" class="dist-rename" title="Rename (saved in this browser)" aria-label="Rename ${esc(nick || label)}">✎</button></div>`
-          + `<span class="dist-kind">${nick ? `${label} · ` : ""}${kindName(r.kind)}</span>`,
-        r.battery == null ? "—" : `${r.battery}%`,
-        `<span class="dist-sig dist-sig-${signalLevel(r.rssi)}" title="${r.rssi ?? "?"} dBm"><i></i><i></i><i></i></span>`,
-        `<span class="dist-state" title="${r.why || ""}">${STATUS_TEXT[r.status] || ""}${r.why ? ` (${r.why})` : ""}</span>`,
-        `<button type="button" class="btn-secondary btn-compact dist-find">Find</button>`,
-      ];
-      tr.innerHTML = cells.map((c) => `<td>${c}</td>`).join("");
-      body.appendChild(tr);
-    }
-    const nSel = s.selectedMacs().length;
-    this.el("dist-table").classList.toggle("hidden", s.rows.length === 0);
-    this.el("btn-dist-all").classList.toggle("hidden", s.rows.length === 0 || s.running);
+    this._renderCards();
+    const finished = s.allFinished();
+    const noun = deviceNoun(s.running || finished ? this._sentRows() : s.rows);
+    this.el("dist-title").textContent = s.running
+      ? `Sending to ${noun}…`
+      : `Send ${this.pretty || "the game"} to ${noun}`;
     this.el("btn-dist-rescan").disabled = s.scanning || s.running;
+    const selNoun = deviceNoun(s.rows.filter((r) => r.selected));
     const send = this.el("btn-dist-send");
-    send.classList.toggle("hidden", nSel === 0 || s.scanning || s.running);
-    send.textContent = `Distribute to ${nSel} device${nSel === 1 ? "" : "s"}`;
-    const showProg = s.total > 0;
-    this.el("dist-progress-wrap").classList.toggle("hidden", !showProg);
-    if (showProg) {
-      this.el("dist-progress-bar").style.width = `${Math.round((100 * s.done) / s.total)}%`;
-      this.el("dist-progress-label").textContent = `${s.done} of ${s.total} devices finished`;
-    }
+    send.classList.toggle("hidden", !s.running && !finished && (s.selectedMacs().length === 0 || s.scanning));
+    send.disabled = s.running;
+    send.textContent = s.running ? "Sending…" : finished ? "Done" : `Send to ${selNoun}`;
   }
 }

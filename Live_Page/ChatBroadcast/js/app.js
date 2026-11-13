@@ -1,14 +1,15 @@
 import { loadEncryptedKey, initAuthModal, getApiKey, hasEncryptedKey } from './auth.js';
 import {
-    addMsg, addThinkingMsg, removeTyping, extractCodeBlocks,
-    parseNfcCards, parseGameName, parseChoices, parseGameSettings, stripAllMarkers,
+    addMsg, addThinkingMsg, removeTyping, extractCodeBlocks, collapseEarlier,
+    parseNfcCards, parseGameName, parseChoices, parseGameSettings, parseGameIcon, parseNextDevice, stripAllMarkers,
+    hideOpenCode,
     parseGameBrief, stripGameBrief,
     trimForHistory, loadKnowledgeBase, getKnowledgeFiles, getKnowledgeFileCount,
 } from './chat.js';
 import {
     knowledgeText, buildSystemBlocks, buildRequestBody, requestHeaders, ADVANCED_KNOWLEDGE,
     buildInterviewSystemBlocks, interviewMessages, INTERVIEW_KNOWLEDGE,
-    INTERVIEW_MAX_QUESTIONS, INTERVIEW_FIRST_QUESTION,
+    INTERVIEW_MAX_QUESTIONS, INTERVIEW_FIRST_QUESTION, briefFormat, briefFromJson,
 } from './prompt/buildRequest.js';
 import { readMessageStream } from './prompt/stream.js';
 import { renderMarkdown, buildCodeBlock } from './markdown.js';
@@ -36,14 +37,12 @@ import { dbg, dbgWarn, dbgError } from './debug.js';
 import { loadUiMode, toggleUiMode, getUiMode } from './uiMode.js';
 import { loadDevMode, toggleDevMode } from './devMode.js';
 import { loadSavedGames, saveGame, findSavedGame, renameSavedGame, deleteSavedGame } from './library.js';
-import { scanCapabilities } from './sim/codeCapabilities.js';
-import { buildComponentChecklist } from './checklist.js';
 import { validateGameName, slugify, remixName } from './gameName.js';
-import { buildHardwareReqs, formatHardwareReqs, baselineTags } from './hardware.js';
+import { buildHardwareReqs, formatHardwareReqs, requirementPills, baselineTags, deviceNeeds, deviceLine, isLobbyGame } from './hardware.js';
 import { initPaneSplit } from './paneSplit.js';
 import { initSerialSplit } from './serialSplit.js';
 import { initCodeDrawerSplit } from './codeDrawerSplit.js';
-import { iconSvg, exampleIcon } from './icons.js';
+import { iconSvg } from './icons.js';
 // LED icons for the display panel -- unrelated to icons.js, which is UI chrome.
 import {
     iconNamesIn, missingIconsIn, iconFileText, listIcons,
@@ -51,8 +50,13 @@ import {
     setGameIcons, getGameIcons, onIconsChange,
 } from './ledicons/iconLibrary.js';
 import { gameIconEntries, startingIcon, drawIcon } from './ledicons/iconView.js';
+import { gameIconThumb, gameTint } from './ledicons/thumb5.js';
+import { GAME_ICONS } from './ledicons/shapes5.js';
 
 const SILENCE_LIMIT_MS = 15000;
+// White space kept between the title bar's game buttons and the
+// Simulation/Icons tabs; with less, the tabs move under the title bar.
+const TABS_CLEAR_PX = 40;
 const SIM_IDLE_PAUSE_MS = 60000;
 const SIM_KNOWLEDGE = 'knowledge/simulator.md';
 const SIM_LOG_FOR_CHAT = 40;
@@ -130,23 +134,64 @@ function makeActivatable(el) {
 }
 
 /**
- * Up to three small icons for a saved game's card: one wand or several,
- * Splats when the game uses them, an icon display when it has display code.
+ * "2 wands · icon display · 3 NFC tags": the devices a saved game needs
+ * (hardware.js deviceNeeds, as the send overlay's pills).
  * @param {object} g saved-game entry from library.js
  */
-function savedGameIcons(g) {
+function savedGameDevices(g) {
     const code = g.code || '';
     const settings = g.simSettings || {};
-    const lobby = /SPLATS_MIN|lobby_game|lobbyGame/.test(code);
-    const multi = lobby || (settings.wands || 1) > 1;
-    const splats = /SPLATS_MIN/.test(code) || (lobby && settings.wand_splats > 0);
-    const display = Boolean(g.roleCode?.icon || g.iconCode);
-    const opts = { size: 18, strokeWidth: 1.5 };
-    return [
-        `<span title="${multi ? 'Several wands' : 'One wand'}">${iconSvg(multi ? 'wands' : 'wand', opts)}</span>`,
-        splats ? `<span title="Splats">${iconSvg('splat', opts)}</span>` : '',
-        display ? `<span title="Icon display">${iconSvg('iconDisplay', opts)}</span>` : '',
-    ].join('');
+    const wands = settings.wands || 1;
+    const lobby = isLobbyGame(code);
+    // A Splat host game's Splats are all on its host (settings.splat_host).
+    const host = /^SPLAT_HOST\s*=\s*True/m.test(code);
+    const splats = host ? Math.max(1, settings.splat_host || 1)
+        : /SPLATS_MIN/.test(code) || (lobby && settings.wand_splats > 0)
+            ? Math.max(1, (settings.wand_splats || 1) * wands) : 0;
+    const base = baselineTags(g.hardware?.slug || slugify(g.name || ''));
+    return deviceLine(deviceNeeds({
+        wands,
+        open: lobby,
+        displays: g.roleCode?.icon || g.iconCode ? 1 : 0,
+        splats,
+        nfcTags: (g.requiredTags || []).filter((t) => !base.includes(t)).length,
+    }));
+}
+
+/** "Wand · 8 NFC tags": the devices an example game needs. */
+function exampleDevices(ex) {
+    const base = baselineTags(ex.id);
+    return deviceLine(deviceNeeds({ nfcTags: (ex.tags || []).filter((t) => !base.includes(t)).length }));
+}
+
+/**
+ * One game card, the same for My games and Example games: a tinted 5x5
+ * start signature (unlit when there is none), the name, the devices it
+ * needs, one more line, and an Open button.
+ * @param {{name: string, gameIcon: object|null, devices: string, note: string, menu: boolean}} c
+ * @returns {HTMLElement}
+ */
+function gameCard({ name, gameIcon, devices, note, menu }) {
+    const card = document.createElement('div');
+    card.className = 'example-card game-card';
+    card.innerHTML =
+        `<div class="example-thumb game-thumb" style="background:${gameTint(gameIcon)}">${gameIconThumb(gameIcon)}</div>` +
+        `<div class="card-body" data-card-body>` +
+        `<h3>${escapeHtml(name)}</h3>` +
+        `<p class="card-devices">${escapeHtml(devices)}</p>` +
+        `<p class="card-note">${escapeHtml(note)}</p></div>` +
+        `<div class="card-actions">` +
+        `<button type="button" class="card-open" data-open>Open</button>` +
+        (menu
+            ? `<button type="button" class="card-more" data-more aria-label="More options for ${escapeHtml(name)}" aria-haspopup="true">${iconSvg('more', { size: 18 })}</button>` +
+              `<div class="card-menu hidden">` +
+              `<button type="button" data-rename>${iconSvg('pencil', { size: 16 })}Rename</button>` +
+              `<button type="button" data-delete>${iconSvg('trash', { size: 16 })}Delete</button>` +
+              `</div>`
+            : '') +
+        `</div>`;
+    card.setAttribute('aria-label', name);
+    return card;
 }
 
 class App {
@@ -164,6 +209,7 @@ class App {
         this.gameDesc = '';
         this.declaredTags = null;   // tags the game itself declares ([NFC_CARDS:] / example)
         this.simSettings = null;    // [GAME_SETTINGS:] for the practice window, or null
+        this.gameIcon = null;       // [GAME_ICON:] start signature {shape, color}, or null
         this.hardware = buildHardwareReqs({});
         this.tagWrites = {};        // live {tagLabel: count} from card_written events
         this.galleryFilter = 'all';
@@ -199,7 +245,7 @@ class App {
         this._pendingReplaceSlug = null;
     }
 
-    /** Short UI name for the linked device ("Box", "Dial" or "Wand").
+    /** Short UI name for the linked device ("teacher hub" or "Wand").
      *  `this.device.kind` is known the instant a WandDeviceLink is picked on
      *  the connect overlay -- checked first so labels read right before the
      *  wand's own `identity` has even arrived (link.deviceInfo is still
@@ -210,7 +256,7 @@ class App {
         return deviceShortName(this.link.deviceInfo);
     }
 
-    /** Product UI name ("Broadcast Box", "Broadcast Dial" or "Wand"). */
+    /** Product UI name ("Teacher hub" or "Wand"). */
     deviceProduct() {
         if (this.device.kind === 'wand') return 'Wand';
         return deviceProductName(this.link.deviceInfo);
@@ -236,6 +282,7 @@ class App {
 
         dbg('app', 'loading encrypted key…');
         await loadEncryptedKey();
+        this.showSerialWarning();
         initAuthModal();
         dbg('app', 'auth modal initialized — waiting for app:unlocked');
 
@@ -293,7 +340,7 @@ class App {
             setCode(code);
             saveVersion(code, 'From chat (sent manually)');
             this.dirty = true;
-            addMsg(`Code sent to editor (v${getVersionCount()})`, 'system');
+            addProcessMsg(`Code sent to editor (v${getVersionCount()})`);
             document.getElementById('code-drawer').classList.remove('hidden');
             this.updatePreview();
         });
@@ -412,6 +459,8 @@ class App {
         const show = !!this._simLastDisplay;
         document.querySelector('.preview-toolbar')?.classList.toggle('hidden', !show);
         if (!show) this.closeIconsView();
+        // Shown: now it has a width, so check where it fits.
+        else this.fitPreviewTabs();
     }
 
     iconsViewOpen() {
@@ -698,12 +747,73 @@ class App {
         dbg('app', `editor showing role: ${role}`);
     }
 
+    /** Keep the Simulation/Icons tabs placed as the simulator column's
+     *  width and the game name change (fitPreviewTabs). */
+    placePreviewTabs() {
+        const col = document.querySelector('.preview-col');
+        const name = document.getElementById('btn-game-name');
+        if (!col || this._tabsObserver) {
+            this.fitPreviewTabs();
+            return;
+        }
+        this._tabsObserver = new ResizeObserver(() => this.fitPreviewTabs());
+        this._tabsObserver.observe(col);
+        if (name) this._tabsObserver.observe(name);
+        this.fitPreviewTabs();
+    }
+
+    /**
+     * The Simulation/Icons tabs go in the title bar, at the right end of the
+     * simulator side, when they fit there with TABS_CLEAR_PX of white space
+     * after the game's buttons; otherwise they get their own row at the top
+     * of the simulator column.
+     */
+    fitPreviewTabs() {
+        const tabs = document.querySelector('.preview-toolbar');
+        const bar = document.querySelector('.ws-titlebar');
+        const col = document.querySelector('.preview-col');
+        const actions = bar?.querySelector('.ws-titlebar-actions');
+        if (!tabs || !bar || !col || !actions) return;
+        // Hidden (another view, or the empty New game screen): nothing to measure.
+        if (!bar.getClientRects().length || !col.getClientRects().length) return;
+        // Width and right margin are read while the tabs are in the title bar
+        // (the margin is a title-bar rule) and kept for when they are not.
+        if (tabs.parentElement === bar && tabs.offsetWidth) {
+            this._tabsWidth = tabs.offsetWidth;
+            this._tabsGap = parseFloat(getComputedStyle(tabs).marginRight) || 0;
+        }
+        const tabsWidth = this._tabsWidth || 160;
+        const tabsGap = this._tabsGap ?? 28;
+        const barLeft = bar.getBoundingClientRect().left;
+        const leftEnd = Math.max(0, ...[...bar.children]
+            .filter((el) => el !== tabs && el !== actions && el.getClientRects().length)
+            .map((el) => el.getBoundingClientRect().right - barLeft));
+        const room = actions.getBoundingClientRect().left - barLeft;
+        const fits = leftEnd + TABS_CLEAR_PX + tabsWidth + tabsGap <= room;
+        if (fits && tabs.parentElement !== bar) bar.insertBefore(tabs, actions);
+        else if (!fits && tabs.parentElement !== col) col.insertBefore(tabs, col.firstChild);
+    }
+
+    /**
+     * No game yet: the chat is shown alone and centered, and the input says
+     * "Or say your own idea…". Once the editor holds code the simulator
+     * column appears and the input asks what to change.
+     */
+    syncFreshChat() {
+        const fresh = document.body.dataset.wsHasCode !== '1';
+        document.body.classList.toggle('chat-fresh', fresh);
+        const input = document.getElementById('user-input');
+        if (input) input.placeholder = fresh ? 'Or say your own idea…' : 'Tell me what to change…';
+    }
+
     applyUiMode(mode) {
         const advanced = mode === 'advanced';
         const gear = document.getElementById('btn-mode-gear');
 
         document.body.classList.toggle('ui-advanced', advanced);
-
+        this.placePreviewTabs();
+        this.syncFreshChat();
+        this.paintLink();
         this.applyLogFooter();
         this.syncRoleRail();
         if (gear) {
@@ -982,8 +1092,6 @@ class App {
                 dbg('device', 'navigator.serial connect event fired');
                 this.tryAutoReconnect();
             });
-        } else if (!navigator.serial) {
-            dbgWarn('device', 'Web Serial API not available in this browser (need Chrome/Edge)');
         }
     }
 
@@ -1047,10 +1155,23 @@ class App {
         }
     }
 
+    /** Without Web Serial the app can't reach a device: say so before the magic code. */
+    showSerialWarning() {
+        if ('serial' in navigator) return;
+        dbgWarn('device', 'Web Serial API not available in this browser (need Chrome/Edge)');
+        document.getElementById('no-serial-note')?.classList.remove('hidden');
+        document.body.classList.add('no-serial');
+    }
+
     setLinkState(state) {
         const prev = this.link.state;
         dbg('device', `link state ${prev} → ${state}`);
         this.link.state = state;
+        if (state === 'live' && this._reconnectNote) {
+            this._reconnectNote = false;
+            const note = document.getElementById('send-success-note');
+            if (note) note.textContent = '';
+        }
         // Only `waiting` re-asks the Box to identify itself; every other state
         // either already has an answer or has given up, so stop nudging.
         if (state === 'waiting') {
@@ -1205,6 +1326,10 @@ class App {
         document.querySelectorAll('.splash-card').forEach((el) => makeActivatable(el));
         document.getElementById('btn-scratch').addEventListener('click', () => this.startNewGame());
         document.getElementById('btn-new-game').addEventListener('click', () => this.startNewGame());
+        document.getElementById('btn-gallery-new').addEventListener('click', () => this.startNewGame());
+        document.addEventListener('click', () => {
+            document.querySelectorAll('.card-menu').forEach((m) => m.classList.add('hidden'));
+        });
         document.getElementById('btn-gallery').addEventListener('click', () => this.goExamples());
         document.getElementById('btn-saved').addEventListener('click', () => this.goSaved());
         document.getElementById('gallery-search').addEventListener('input', () => this.renderGallery());
@@ -1269,7 +1394,6 @@ class App {
             if (errEl) errEl.textContent = '';
         });
         document.getElementById('btn-send-done').addEventListener('click', () => this.finishSend());
-        document.getElementById('btn-send-another-wand')?.addEventListener('click', () => this.installOnAnotherWand());
         document.getElementById('btn-send-distribute')?.addEventListener('click', () => this.openDistribute());
         // Kill switch: unlike Cancel (hidden by setSendBusy(true) while a
         // send is in flight -- there is no safe abort mid-write, see
@@ -1286,7 +1410,6 @@ class App {
                 return;
             }
             this.setSendBusy(false);
-            document.getElementById('send-progress-wrap').classList.add('hidden');
             hideOverlay('send-confirm-overlay');
         });
         document.getElementById('btn-box-lib-close')?.addEventListener('click', () => hideOverlay('box-library-overlay'));
@@ -1345,10 +1468,7 @@ class App {
                 this.onSend();
             }
         });
-        userInput.addEventListener('input', () => {
-            userInput.style.height = 'auto';
-            userInput.style.height = Math.min(userInput.scrollHeight, 120) + 'px';
-        });
+        userInput.addEventListener('input', () => fitUserInput());
     }
 
     onNavTab(nav) {
@@ -1483,6 +1603,7 @@ class App {
     clearWorkspace() {
         document.getElementById('chat-box').innerHTML = '';
         document.getElementById('user-input').value = '';
+        fitUserInput();
         resetEditor();
         this.retiredRoleCode = {};
         this.syncRoleRail();
@@ -1525,6 +1646,7 @@ class App {
             // resolves to the shipped icon when it is reopened.
             icons: getGameIcons(),
             simSettings: this.simSettings,
+            gameIcon: this.gameIcon,
         });
         this.dirty = false;
         toast(`Saved “${entry.name}”`);
@@ -1562,7 +1684,8 @@ class App {
         document.getElementById('station-catalog-status')
             .classList.toggle('hidden', this.galleryMode !== 'saved');
         if (this.galleryMode === 'saved') {
-            title.textContent = 'My saved games';
+            title.textContent = 'My games';
+            document.getElementById('gallery-search').placeholder = 'Find a game…';
             chips.classList.add('hidden');
             const saved = loadSavedGames().filter((g) => {
                 if (!q) return true;
@@ -1576,23 +1699,26 @@ class App {
                 return;
             }
             saved.forEach((g) => {
-                const card = document.createElement('div');
-                card.className = 'example-card saved-card';
+                // Last line: when it was saved.
+                const card = gameCard({
+                    name: g.name, gameIcon: g.gameIcon, devices: savedGameDevices(g),
+                    note: relativeTime(g.updatedAt), menu: true,
+                });
                 card.dataset.id = g.id;
-                const when = relativeTime(g.updatedAt);
-                card.innerHTML =
-                    `<div class="example-thumb saved-thumb">${savedGameIcons(g)}</div>` +
-                    `<div class="card-body" data-card-body>` +
-                    `<h3>${escapeHtml(g.name)}</h3>` +
-                    `<p>${escapeHtml(when)}</p>` +
-                    `<div class="card-actions">` +
-                    `<button type="button" class="card-action-btn" data-rename title="Rename">${iconSvg('pencil', { size: 14 })}</button>` +
-                    `<button type="button" class="card-action-btn" data-delete title="Delete">${iconSvg('trash', { size: 14 })}</button>` +
-                    `</div></div>`;
-                card.setAttribute('aria-label', g.name);
+                card.querySelector('[data-open]').addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.openSavedGame(g.id);
+                });
+                card.querySelector('[data-more]').addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const menu = card.querySelector('.card-menu');
+                    const open = menu.classList.contains('hidden');
+                    document.querySelectorAll('.card-menu').forEach((m) => m.classList.add('hidden'));
+                    menu.classList.toggle('hidden', !open);
+                });
                 makeActivatable(card);
                 card.addEventListener('click', (e) => {
-                    if (e.target.closest('[data-rename],[data-delete],[data-confirm-del],[data-cancel-del],.card-rename-row')) return;
+                    if (e.target.closest('[data-rename],[data-delete],[data-confirm-del],[data-cancel-del],.card-rename-row,.card-more,.card-menu')) return;
                     this.openSavedGame(g.id);
                 });
                 card.querySelector('[data-rename]')?.addEventListener('click', (e) => {
@@ -1609,21 +1735,20 @@ class App {
         }
 
         title.textContent = 'Example games';
+        document.getElementById('gallery-search').placeholder = 'Find a game…';
         chips.classList.remove('hidden');
         EXAMPLES.filter((ex) => {
             if (this.galleryFilter !== 'all' && ex.category !== this.galleryFilter) return false;
             if (q && !ex.name.toLowerCase().includes(q)) return false;
             return true;
         }).forEach((ex) => {
-            const card = document.createElement('div');
-            card.className = 'example-card';
+            // Start signature from the Mock Wand's GAME_ICON table; last
+            // line: the short description.
+            const card = gameCard({
+                name: ex.name, gameIcon: GAME_ICONS[ex.id] || null, devices: exampleDevices(ex),
+                note: ex.description, menu: false,
+            });
             card.dataset.id = ex.id;
-            card.innerHTML =
-                `<div class="example-thumb">${iconSvg(exampleIcon(ex), { size: 26, strokeWidth: 1.5 })}</div>` +
-                `<h3>${escapeHtml(ex.name)}</h3>` +
-                `<p>${escapeHtml(ex.description)}</p>` +
-                (ex.tagNote ? `<div class="tag-badge">${escapeHtml(ex.tagNote)}</div>` : '');
-            card.setAttribute('aria-label', ex.name);
             makeActivatable(card);
             card.addEventListener('click', () => this.openDetail(ex.id));
             grid.appendChild(card);
@@ -1692,6 +1817,7 @@ class App {
         this.gameDesc = g.desc || '';
         this.declaredTags = g.hardware?.declaredTags || null;
         this.simSettings = g.simSettings || null;
+        this.gameIcon = g.gameIcon || null;
         this.hardware = g.hardware || buildHardwareReqs({ gameName: g.name });
         this.chatHistory = Array.isArray(g.chatHistory) ? g.chatHistory.slice() : [];
         // The pictures this game was saved with. A game saved before icons
@@ -1750,6 +1876,7 @@ class App {
             saveVersion(code, 'Loaded from library', info.key);
         }
         this.retainRetiredRoleCode(g.name, roleCode);
+        collapseEarlier(g.name);
         this.syncRoleRail();
         this.dirty = false;
         this.updatePreview({ forcePlay: true });
@@ -1865,7 +1992,7 @@ class App {
         }
         const token = ++this._detailSimToken;
         dbg('app', `mountDetailSim("${ex.id}") — loading sim-room module`);
-        import('../../Simulator/sim-room.js')
+        import('../../../Simulator/sim-room.js')
             .then(() => {
                 // The teacher moved on while Pyodide's module was loading —
                 // don't mount a sim into a panel nobody is looking at.
@@ -1928,11 +2055,15 @@ class App {
         box.querySelectorAll('.choice-chips').forEach(el => el.remove());
         const wrap = document.createElement('div');
         wrap.className = 'choice-chips';
+        // Every follow-up gets a chip; an icon only when its words match one.
         for (const text of choices) {
             const chip = document.createElement('button');
             chip.type = 'button';
             chip.className = 'starter-chip';
-            chip.textContent = text;
+            const icon = choiceIcon(text);
+            chip.innerHTML = icon
+                ? `${iconSvg(icon, { size: 18, strokeWidth: 2 })} <span>${escapeHtml(text)}</span>`
+                : `<span>${escapeHtml(text)}</span>`;
             chip.addEventListener('click', () => {
                 if (this.isGenerating) return;
                 wrap.remove();
@@ -2018,6 +2149,8 @@ class App {
         const apiKey = this.resolveApiKey();
         if (!apiKey) { iv.turns.pop(); return; }
         const files = getKnowledgeFiles();
+        // The last turn is constrained to a brief (briefFormat).
+        const last = finish || iv.asked >= INTERVIEW_MAX_QUESTIONS;
         addThinkingMsg();
         this.isGenerating = true;
         try {
@@ -2031,8 +2164,9 @@ class App {
                 history: interviewMessages(iv.turns),
                 stream: false,
                 windowed: false,
+                format: last ? briefFormat() : null,
             }));
-            dbg('chat', `interview POST — ${iv.asked} asked, finish=${finish}`);
+            dbg('chat', `interview POST — ${iv.asked} asked, last=${last}`);
             const resp = await fetch('https://api.anthropic.com/v1/messages', {
                 method: 'POST',
                 headers: requestHeaders(apiKey),
@@ -2054,25 +2188,30 @@ class App {
                 return;
             }
             const raw = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
-            const brief = parseGameBrief(raw);
+            if (data.stop_reason === 'max_tokens') {
+                dbgError('chat', 'interview reply truncated at max_tokens', raw);
+                addMsg('The reply was cut off. Try again.', 'system');
+                iv.turns.pop();
+                if (last) this.renderInterviewChips([]);
+                return;
+            }
+            let lead;
+            let brief;
+            if (last) {
+                ({ message: lead, brief } = briefFromJson(raw));
+            } else {
+                brief = parseGameBrief(raw);
+                lead = brief ? stripAllMarkers(stripGameBrief(raw)) : '';
+            }
             if (brief) {
                 this.interview = null;
                 dbg('chat', `interview finished after ${iv.asked} question(s)`, { brief });
-                const lead = stripAllMarkers(stripGameBrief(raw));
                 if (lead) addMsg(lead, 'bot');
                 addMsg(brief, 'bot');
                 this.renderBriefChips(brief);
                 return;
             }
             iv.turns.push({ role: 'assistant', content: raw });
-            if (finish || iv.asked >= INTERVIEW_MAX_QUESTIONS) {
-                // The status block told the model to write the brief.
-                dbgError('chat', 'interview: last turn returned no [GAME_BRIEF]', raw);
-                addMsg('The interviewer did not write a game summary. Tap “Make my game now” to try again.', 'system');
-                iv.turns.pop();
-                this.renderInterviewChips([]);
-                return;
-            }
             iv.asked++;
             addMsg(stripAllMarkers(raw), 'bot');
             // The first two questions are answered in the teacher's own
@@ -2080,9 +2219,10 @@ class App {
             this.renderInterviewChips(iv.asked > 2 ? parseChoices(raw) || [] : []);
         } catch (e) {
             removeTyping();
-            dbgError('chat', `interview network/fetch error: ${e.message}`, e);
-            addMsg('Network error — check your connection and try again.', 'system');
+            dbgError('chat', `interview error: ${e.message}`, e);
+            addMsg(`Something went wrong (${e.message}). Try again.`, 'system');
             iv.turns.pop();
+            if (last) this.renderInterviewChips([]);
         } finally {
             this.isGenerating = false;
         }
@@ -2128,47 +2268,42 @@ class App {
         wrap.scrollIntoView({ block: 'end' });
     }
 
-    renderStarterChips() {
+    /** The New game screen (design board "New game"). */
+    renderNewGameScreen() {
         const box = document.getElementById('chat-box');
-        if (box.querySelector('.starter-chips')) return;
+        const tints = [['#fff0f6', '#d13a7c'], ['#e9fbf6', '#1c9a82'], ['#fff8dc', '#a87a00']];
         const wrap = document.createElement('div');
-        wrap.className = 'starter-chips';
-        // Intro lives INSIDE wrap (not a sibling) so removing '.starter-chips'
-        // on the first sent message takes both with it in one go -- it used
-        // to be a sibling appended straight to `box`, which meant onSend()'s
-        // wrap.remove() left this line behind permanently.
-        const intro = document.createElement('div');
-        intro.className = 'msg system';
-        intro.textContent = 'Tap “Interview me” to design a game by answering a few questions, '
-            + '“Help me make a game” to choose step by step, or tap an idea to fill the box, then edit and send:';
-        wrap.appendChild(intro);
-        const interview = document.createElement('button');
-        interview.type = 'button';
-        interview.className = 'starter-chip starter-chip-guided';
-        interview.innerHTML = `${iconSvg('message-circle', { size: 14 })} <span>Interview me</span>`;
-        interview.addEventListener('click', () => this.startInterview());
-        wrap.appendChild(interview);
-        const guided = document.createElement('button');
-        guided.type = 'button';
-        guided.className = 'starter-chip starter-chip-guided';
-        guided.innerHTML = `${iconSvg('sparkles', { size: 14 })} <span>Help me make a game</span>`;
-        guided.addEventListener('click', () => this.startGuidedMode());
-        wrap.appendChild(guided);
-        drawStarterIdeas(4).forEach((sp) => {
-            const chip = document.createElement('button');
-            chip.type = 'button';
-            chip.className = 'starter-chip';
-            chip.innerHTML = `${iconSvg(sp.icon, { size: 14 })} <span>${escapeHtml(sp.text)}</span>`;
-            chip.addEventListener('click', () => {
+        wrap.className = 'starter-chips new-game';
+        wrap.innerHTML =
+            `<div class="ng-head"><h1>What game shall we make?</h1><p>Pick a way to start.</p></div>`
+            + `<div class="ng-options">`
+            + `<button type="button" class="starter-chip starter-chip-guided ng-card ng-interview" data-ng="interview">`
+            + `${iconSvg('message-circle', { size: 28, strokeWidth: 2 })}<b>Interview me</b><span>Answer a few questions</span></button>`
+            + `</div><div class="ng-label">Or try an idea</div><div class="ng-ideas"></div>`;
+        const list = wrap.querySelector('.ng-ideas');
+        // One question and two game ideas (starterIdeas.js drawStarterIdeas).
+        drawStarterIdeas().forEach((sp, i) => {
+            const [bg, fg] = tints[i % tints.length];
+            const b = document.createElement('button');
+            b.type = 'button';
+            b.className = 'starter-chip ng-idea';
+            b.innerHTML = `<span class="ng-tile" style="background:${bg};color:${fg}">${iconSvg(sp.icon, { size: 26, strokeWidth: 2 })}</span><span>${escapeHtml(sp.text)}</span>`;
+            b.addEventListener('click', () => {
                 const inp = document.getElementById('user-input');
                 inp.value = sp.text;
                 inp.focus();
-                inp.style.height = 'auto';
-                inp.style.height = Math.min(inp.scrollHeight, 120) + 'px';
+                fitUserInput();
             });
-            wrap.appendChild(chip);
+            list.appendChild(b);
         });
+        wrap.querySelector('[data-ng="interview"]').addEventListener('click', () => this.startInterview());
         box.appendChild(wrap);
+    }
+
+    renderStarterChips() {
+        const box = document.getElementById('chat-box');
+        if (box.querySelector('.starter-chips')) return;
+        this.renderNewGameScreen();
     }
 
     /**
@@ -2188,6 +2323,7 @@ class App {
         this.currentExample = null;
         this.declaredTags = null;
         this.simSettings = null;
+        this.gameIcon = null;
         this.gameName = 'Your game';
         this.gameDesc = '';
         this.chatHistory = [];
@@ -2200,12 +2336,14 @@ class App {
     openWorkspace(starterMsg = null) {
         dbg('app', `openWorkspace(${starterMsg ? JSON.stringify(starterMsg) : 'no starter message'})`);
         showView('workspace');
+        fitUserInput();
         const box = document.getElementById('chat-box');
         if (box.children.length === 0) {
             this.renderStarterChips();
         }
         if (starterMsg) {
             document.getElementById('user-input').value = starterMsg;
+            fitUserInput();
         }
         this.updatePreview();
     }
@@ -2229,6 +2367,7 @@ class App {
         this.gameDesc = ex.description;
         this.declaredTags = [...ex.tags];
         this.simSettings = null;
+        this.gameIcon = null;
         this.chatHistory = [];
         this.simNotes = null;
         this.refreshHardware();
@@ -2287,6 +2426,7 @@ class App {
         this.gameDesc = ex.description;
         this.declaredTags = [...ex.tags];
         this.simSettings = null;
+        this.gameIcon = null;
         // A new game starts from the shipped pictures, not the last one's edits.
         setGameIcons({});
 
@@ -2330,6 +2470,7 @@ class App {
         // because it runs on link changes and this runs on code changes.
         const sendable = !!primary;
         document.body.dataset.wsHasCode = sendable ? '1' : '';
+        this.syncFreshChat();
         this.paintLink();
 
         if (this.iconsViewOpen()) this.renderIconsList();
@@ -2364,7 +2505,7 @@ class App {
     setupSim() {
         if (this._simLoadPromise) return this._simLoadPromise;
         dbg('app', 'setupSim() — loading sim-room module');
-        this._simLoadPromise = import('../../Simulator/sim-room.js')
+        this._simLoadPromise = import('../../../Simulator/sim-room.js')
             .then(() => {
                 this._sim = document.getElementById('wand-sim');
                 // An icon edit reaches the running display: the room rewrites
@@ -2445,20 +2586,17 @@ class App {
     }
 
     /**
-     * Push code into the sim. Normally only when it actually changed — the
-     * element's source setter reloads (and would restart the running game)
-     * unconditionally, and updatePreview() runs on every keystroke-adjacent
-     * chat/version event, not just real code changes -- an organic chat
-     * edit gets a passive "new code is ready, play it" banner rather than
-     * yanking control from someone mid-test.
+     * Push code into the sim. Normally only when it actually changed: the
+     * element's source setter reloads and, with autostart on, starts the
+     * game (wand-sim _loadAndMaybeStart: stop, load, start), and
+     * updatePreview() runs on chat and version events, not just real code
+     * changes.
      *
-     * `forcePlay` is for the opposite case: an explicit "load this game"
-     * action (a saved game, remix, use-as-is), where the teacher clicked
-     * something specifically to see THIS game, not incidentally touched
-     * code that happens to match what's already loaded (bypassing the
-     * equality check too -- reopening the same saved game twice in a row
-     * should still visibly restart it) -- and restart()s it immediately
-     * instead of leaving it to the passive banner.
+     * `forcePlay` is an explicit "load this game" action (a saved game,
+     * remix, use-as-is): it bypasses the equality check, so reopening the
+     * same saved game still reloads and restarts it. No separate restart()
+     * follows the source: run alongside the reload it could start the old
+     * game before the new one loaded, leaving the old game running.
      *
      * Only marks the code as "sent" (_simLastSource) once it's actually
      * reached the element -- setupSim() is still loading, this just queues
@@ -2476,9 +2614,6 @@ class App {
         const settingsKey = JSON.stringify(settings);
         if (code === this._simLastSource && display === this._simLastDisplay
             && settingsKey === this._simLastSettings && !forcePlay) return;
-        // Only from the second push on: the first one *is* the game
-        // appearing, which needs no announcement.
-        const isUpdate = this._simLastSource != null;
         this._simLastSource = code;
         this._simLastDisplay = display;
         this._simLastSettings = settingsKey;
@@ -2496,11 +2631,6 @@ class App {
         // ahead of the game loading.
         this._sim.settings = settings;
         this._sim.source = code;
-        if (forcePlay) {
-            this._sim.restart?.();
-        } else if (isUpdate) {
-            this._sim.showOverlay('new-code');
-        }
     }
 
     /** {name: duty[768]} for every icon the display code names, this
@@ -2562,23 +2692,6 @@ class App {
         await this.callClaude(msg);
     }
 
-    renderComponentList(targetId) {
-        const code = getCode('wand');
-        const caps = scanCapabilities(code);
-        const items = buildComponentChecklist(caps, this.requiredTags);
-        const el = document.getElementById(targetId);
-        if (!el) return;
-        el.innerHTML = '';
-        el.classList.add('send-icons-row');
-        items.forEach((item) => {
-            const div = document.createElement('div');
-            div.className = `send-icon-item ${item.kind || 'other'}`;
-            div.title = item.label;
-            div.innerHTML = iconSvg(item.icon, { size: 20, strokeWidth: 1.6 });
-            el.appendChild(div);
-        });
-    }
-
     /**
      * @param {'box'|'wand'} kind — which link implementation to open the
      *   port with. Chosen on the connect overlay (Broadcast Box/Dial share
@@ -2593,7 +2706,6 @@ class App {
             this._boxGames = []; // stale Box/Dial library from a previous session must not leak in
             this.setupDeviceListeners();
         }
-        this.renderComponentList('connect-components');
         const errEl = document.getElementById('connect-error');
         if (errEl) errEl.textContent = '';
         this.setLinkState('opening');
@@ -2633,7 +2745,7 @@ class App {
             this._clearRebootTimer();
             await this.device.disconnect();
             this.setLinkState('idle');
-            toast('Cancelled.');
+            toast('Canceled.');
             return;
         }
         if (s === 'live' || s === 'stuck' || s === 'wrong' || s === 'no-answer') {
@@ -2647,7 +2759,6 @@ class App {
         // kind; each of its buttons calls onConnect(kind) directly (needed
         // for requestPort()'s user-gesture requirement anyway).
         this.pendingSendAfterConnect = false;
-        this.renderComponentList('connect-components');
         showOverlay('connect-overlay');
     }
 
@@ -2660,7 +2771,7 @@ class App {
             const state = await this.device.restartFirmware();
             if (state === 'running') {
                 this.setLinkState('live');
-                toast(`${this.deviceShort()} is back.`);
+                toast(`${cap(this.deviceShort())} is back.`);
             } else {
                 toast(`Still waiting for the ${this.deviceShort()}…`, true);
             }
@@ -2692,6 +2803,10 @@ class App {
             code: code !== undefined ? code : getCode(DEFAULT_ROLE),
             gameName: this.gameName,
             declared: this.declaredTags,
+            minWands: this.simSettings?.wands,
+            displays: getCode('icon').trim() ? 1 : 0,
+            splats: (this.simSettings?.splat_host || 0)
+                + (this.simSettings?.wand_splats || 0) * (this.simSettings?.wands || 1),
             // Every non-wand role with no simulator is a physical station
             // the game needs, named for the send-confirm overlay.
             stations: ROLE_TABLE
@@ -2710,9 +2825,15 @@ class App {
         const el = document.getElementById('send-requirements');
         if (!el) return;
         el.innerHTML = '';
-        formatHardwareReqs(this.hardware).forEach((row) => {
+        // Pills, plus the "tag list may be short" warning as a sentence row.
+        el.classList.add('send-pills');
+        const rows = [...requirementPills(this.hardware),
+            ...formatHardwareReqs(this.hardware).filter((r) => r.label.startsWith('tag list may be short'))];
+        const need = document.getElementById('send-need-label');
+        if (need) need.hidden = rows.length === 0;
+        rows.forEach((row) => {
             const li = document.createElement('li');
-            li.className = 'send-req-row';
+            li.className = row.label.startsWith('tag list') ? 'send-req-row' : 'send-pill';
             li.innerHTML =
                 `<span class="send-req-icon">${iconSvg(row.icon, { size: 17, strokeWidth: 1.7 })}</span>` +
                 `<span class="send-req-label"></span>`;
@@ -2740,7 +2861,6 @@ class App {
         this.refreshHardware(primaryRoleCode()?.code);
         this.renderSendRequirements();
         this.setSendBusy(false);
-        document.getElementById('send-progress-wrap').classList.add('hidden');
         // Always reopen on the name/requirements form, never mid-way
         // through a previous send's success screen.
         document.getElementById('send-confirm-form').classList.remove('hidden');
@@ -2760,6 +2880,19 @@ class App {
         showOverlay('send-confirm-overlay');
     }
 
+    /** Swap the send form for the "Sending…" screen, or back. */
+    paintSending(busy) {
+        const panel = document.getElementById('send-sending');
+        if (!panel) return;
+        document.getElementById('send-confirm-form').classList.toggle('hidden', busy);
+        panel.hidden = !busy;
+        if (!busy) return;
+        const name = document.getElementById('send-game-name')?.value.trim() || this.gameName;
+        document.getElementById('sending-title').textContent = `Sending ${name}…`;
+        // The computer is what sends, to either device.
+        document.getElementById('sending-tile').innerHTML = iconSvg('laptop', { size: 48, strokeWidth: 1.8 });
+    }
+
     /**
      * Lock the confirm overlay while the file is streaming.
      * There is no abort: sendGame() writes the .py over the raw REPL, so
@@ -2772,8 +2905,9 @@ class App {
         const nameInput = document.getElementById('send-game-name');
         if (btn) {
             btn.disabled = busy;
-            btn.textContent = busy ? 'Sending…' : 'Send';
+            btn.textContent = busy ? 'Please wait…' : 'Send';
         }
+        this.paintSending(busy);
         if (cancel) cancel.classList.toggle('hidden', busy);
         if (nameInput) nameInput.disabled = busy;
     }
@@ -2789,11 +2923,9 @@ class App {
     showSendSuccess(prettyName) {
         document.getElementById('send-confirm-form').classList.add('hidden');
         document.getElementById('send-confirm-success').classList.remove('hidden');
-        document.getElementById('send-success-title').textContent = `"${prettyName}" is on the ${this.deviceShort()}!`;
-        document.getElementById('send-success-note').textContent =
-            `The ${this.deviceShort()} will restart now — give it a few seconds.`;
-        // Direct USB install reaches one wand per send: offer the next one.
-        document.getElementById('btn-send-another-wand')?.classList.toggle('hidden', this.device.kind !== 'wand');
+        document.getElementById('send-success-title').textContent = `${prettyName} is on the ${this.deviceShort()}!`;
+        // "Reconnecting…" until the device is back from its restart.
+        document.getElementById('send-success-note').textContent = this.link.state === 'live' ? '' : 'Reconnecting…';
         // A Dial can push the new game to nearby wands and stations. Shown
         // for any Box/Dial link unless identity says Box: identity is not
         // always in hand by now, and a Box answers fleet.scan with
@@ -2801,6 +2933,10 @@ class App {
         const canDistribute = this.device.kind === 'box'
             && this.device.deviceInfo?.device !== 'broadcast_box';
         document.getElementById('btn-send-distribute')?.classList.toggle('hidden', !canDistribute);
+        // The question card holds the Distribute button.
+        const nextCard = document.getElementById('send-next');
+        if (nextCard) nextCard.hidden = !canDistribute;
+        this._reconnectNote = this.link.state !== 'live';
         clearTimeout(this._sendSuccessTimer);
         // No auto-close while Distribute is offered: it would hide the button.
         if (!canDistribute) this._sendSuccessTimer = setTimeout(() => this.finishSend(), 5000);
@@ -2836,27 +2972,6 @@ class App {
             this.setLinkState('rebooting');
             this._armRebootTimer();
         }
-    }
-
-    /** "Install on another wand" on the success screen of a direct wand
-     * install: release this wand's port and reopen the connect overlay with
-     * the send armed, so connecting the next wand returns to the send
-     * confirm with the same game and name. */
-    async installOnAnotherWand() {
-        clearTimeout(this._sendSuccessTimer);
-        hideOverlay('send-confirm-overlay');
-        this._pendingReplaceSlug = null;
-        this._clearRebootTimer();
-        try {
-            await this.device.disconnect();
-        } catch (e) {
-            dbgWarn('app', `disconnect before next wand: ${e.message}`);
-        }
-        this.setLinkState('idle');
-        this.pendingSendAfterConnect = true;
-        this.renderComponentList('connect-components');
-        showOverlay('connect-overlay');
-        toast('Plug in the next wand, then choose Wand.');
     }
 
     async confirmSend() {
@@ -2913,8 +3028,7 @@ class App {
             dbg('app', 'confirmSend() — not live; connecting first');
             hideOverlay('send-confirm-overlay');
             this.pendingSendAfterConnect = true;
-            this.renderComponentList('connect-components');
-            showOverlay('connect-overlay');
+                showOverlay('connect-overlay');
             return;
         }
         const isWand = this.device.kind === 'wand';
@@ -2994,7 +3108,6 @@ class App {
             meta.extraFiles = extraFiles;
         }
 
-        document.getElementById('send-progress-wrap').classList.remove('hidden');
         setSendProgress(0, 'Starting…');
         this.setSendBusy(true);
 
@@ -3012,7 +3125,6 @@ class App {
 
         if (!result.ok) {
             // Stay on the overlay so the teacher can fix the name and retry.
-            document.getElementById('send-progress-wrap').classList.add('hidden');
             dbgError('app', `send failed: ${result.error}`);
             toast(result.error || 'Send failed — try again.', true);
             this.setLinkState(this.device.isConnected() ? 'live' : 'lost');
@@ -3202,7 +3314,7 @@ class App {
         // reflected something this overlay controls.
         if (chip && label) {
             chip.classList.remove('write');
-            label.textContent = this.link.state === 'live' ? `${this.deviceShort()} ready` : this.deviceShort();
+            label.textContent = this.link.state === 'live' ? `${cap(this.deviceShort())} ready` : cap(this.deviceShort());
             chip.title = this.link.state === 'live'
                 ? `Games, health & battery on the ${this.deviceShort()}.`
                 : `Connect to see ${this.deviceShort()} status.`;
@@ -3312,10 +3424,12 @@ class App {
         }
         dbg('chat', `onSend(): "${msg}"`);
         inp.value = '';
+        fitUserInput();
         // Remove starter chips once conversation starts
         document.querySelector('.starter-chips')?.remove();
         document.querySelectorAll('.choice-chips').forEach(el => el.remove());
         addMsg(msg, 'user');
+        if (getUiMode() === 'simple') collapseEarlier(this.gameName);
         if (this.interview) {
             await this.answerInterview(msg);
             return;
@@ -3369,9 +3483,21 @@ class App {
      * @param {{hidden?: boolean}} [opts] hidden: kept for the model, not
      *     replayed when the saved game is reopened
      */
-    async callClaude(userMsg, { hidden = false } = {}) {
+    /**
+     * @param {string} userMsg
+     * @param {{hidden?: boolean, chain?: number}} [opts]
+     *   chain: how many automatic next-device requests led to this one
+     *   (0 for a teacher's message). Bounds the [NEXT_DEVICE] follow-ups.
+     *   retried: true for the automatic re-ask after a cut-off reply.
+     */
+    async callClaude(userMsg, { hidden = false, chain = 0, retried = false } = {}) {
         const apiKey = this.resolveApiKey();
         if (!apiKey) return;
+        // Set when this reply was cut off and gets one automatic re-ask.
+        let retryCut = false;
+        // Set when this reply wrote a game file and named another device
+        // whose file is still to come; requested once this call has finished.
+        let nextRole = null;
 
         this.chatHistory.push(hidden ? { role: 'user', content: userMsg, hidden: true } : { role: 'user', content: userMsg });
         addThinkingMsg();
@@ -3405,6 +3531,8 @@ class App {
 
             // Stream the reply into one bot message, redrawn at most every
             // STREAM_RENDER_MS so long code blocks do not re-render per token.
+            // Code is shown raw as it arrives, by design; only the finished
+            // reply has its unclosed code block removed (hideOpenCode).
             let botDiv = null;
             let pending = null;
             let renderTimer = null;
@@ -3442,19 +3570,27 @@ class App {
             const rawReply = result.text;
             const reply = stripAllMarkers(rawReply);
             if (!botDiv) botDiv = addMsg('', 'bot');
-            renderMarkdown(botDiv, reply);
+            renderMarkdown(botDiv, hideOpenCode(reply));
 
             if (result.stopReason === 'max_tokens') {
                 // A truncated reply usually ends mid-code-block; extracting it
-                // would put broken code in the editor. The request and the
-                // reply's prose stay in history so a follow-up ("make it
-                // shorter") still knows what game it is about.
-                dbgWarn('chat', 'reply truncated at max_tokens');
-                addMsg('The reply was too long and got cut off, so your game was not changed. '
-                    + 'Ask for a simpler or shorter version.', 'system');
+                // would put broken code in the editor. The message keeps only
+                // the prose before the code, and history records that the code
+                // was cut off. The first cut-off is re-asked automatically
+                // (retryCut, after the finally block) for a shorter file; the
+                // teacher is told only when the re-ask is cut off as well.
+                dbgWarn('chat', `reply truncated at max_tokens${retried ? ' (after retry)' : ''}`);
                 const prose = reply.split('```')[0].trim();
+                // Never leave half a code block on screen: keep the prose only.
+                if (prose) renderMarkdown(botDiv, prose); else botDiv.remove();
                 this.chatHistory.push({ role: 'assistant', content: `${prose}\n\n`
                     + '[This reply ran out of room partway through the code, so no code reached the editor.]' });
+                if (retried) {
+                    addMsg('The reply was too long and got cut off, so your game was not changed. '
+                        + 'Ask for a simpler or shorter version.', 'system');
+                } else {
+                    retryCut = true;
+                }
                 return;
             }
 
@@ -3462,7 +3598,8 @@ class App {
             const gameName = parseGameName(rawReply);
             const choices = parseChoices(rawReply);
             const simSettings = parseGameSettings(rawReply);
-            dbg('chat', `reply received (${rawReply.length} chars)`, { nfcCards, gameName, choices, simSettings });
+            const gameIcon = parseGameIcon(rawReply);
+            dbg('chat', `reply received (${rawReply.length} chars)`, { nfcCards, gameName, choices, simSettings, gameIcon });
             this.chatHistory.push({ role: 'assistant', content: trimForHistory(reply) });
 
             // A reply may carry one file per device: the markers were read
@@ -3484,7 +3621,7 @@ class App {
                 }
             }
             if (snippets.length && !games.length) {
-                addMsg('This is a code snippet — your game was not changed.', 'system');
+                addProcessMsg('This is a code snippet — your game was not changed.');
             }
             if (games.length) {
                 if (gameName) {
@@ -3513,22 +3650,44 @@ class App {
                 // looking at something the teacher just asked for.
                 setActiveRole(seen[0]);
                 this.syncRoleRail();
-                addMsg(seen.length > 1
+                addProcessMsg(seen.length > 1
                     ? `Code updated for ${seen.join(' and ')} (v${getVersionCount()})`
-                    : `Code updated (v${getVersionCount()})`, 'system');
+                    : `Code updated (v${getVersionCount()})`);
                 // On a whole-game reply, no marker means this version reads no
                 // named tags, not "keep the old ones".
                 this.declaredTags = nfcCards?.length ? nfcCards : (partial ? this.declaredTags : null);
                 dbg('chat', `declared tags from [NFC_CARDS]: [${(nfcCards || []).join(', ')}]`);
                 // The same for the simulator's settings: none means the defaults.
                 this.simSettings = simSettings || (partial ? this.simSettings : null);
-                this.gameDesc = userMsg;
+                // The start signature stays the same across versions; the
+                // model changes it only when the teacher asks.
+                if (gameIcon) {
+                    if (this.gameIcon && (gameIcon.shape !== this.gameIcon.shape || gameIcon.color !== this.gameIcon.color)) {
+                        dbg('chat', `[GAME_ICON] changed from ${this.gameIcon.shape}, ${this.gameIcon.color}`);
+                    }
+                    this.gameIcon = gameIcon;
+                }
+                // An automatic next-device request is not the teacher's description.
+                if (!chain && !retried) this.gameDesc = userMsg;
                 this.dirty = true;
                 this.updatePreview();
+
+                // A multi-device game is written one device per reply. When
+                // this reply names the device that comes next, ask for it now
+                // rather than leaving the teacher to. Only a real role this
+                // reply did not write, and at most one request per other role,
+                // so a model that keeps naming devices cannot loop.
+                const next = parseNextDevice(rawReply);
+                if (next && roleInfo(next) && !seen.includes(next) && chain < ROLE_TABLE.length - 1) {
+                    nextRole = next;
+                } else if (next) {
+                    dbgWarn('chat', `[NEXT_DEVICE: ${next}] ignored (chain ${chain}, wrote ${seen.join(', ')})`);
+                }
             } else if (!blocks.length) {
                 dbg('chat', 'no code block found in reply — editor unchanged');
             }
-            if (choices?.length) this.renderChoiceChips(choices);
+            // Chips would offer the step the app is about to take itself.
+            if (choices?.length && !nextRole) this.renderChoiceChips(choices);
         } catch (e) {
             removeTyping();
             dbgError('chat', `network/fetch error: ${e.message}`, e);
@@ -3539,7 +3698,77 @@ class App {
             this.isGenerating = false;
             dbg('chat', 'callClaude() finished');
         }
+
+        if (retryCut) {
+            addProcessMsg('That reply was too long — asking for a shorter version…');
+            dbg('chat', 'auto-retrying cut-off reply');
+            await this.callClaude('Your last reply was cut off before the code finished, so nothing '
+                + 'reached the editor. Send it again in full, but shorter: one device file only, '
+                + 'the same game, fewer comments, no repeated code, and the least text around it.',
+                { hidden: true, chain, retried: true });
+            return;
+        }
+        if (nextRole) {
+            const label = roleInfo(nextRole).label;
+            addProcessMsg(`Now writing the ${label.toLowerCase()} part…`);
+            dbg('chat', `auto-requesting [DEVICE: ${nextRole}] (chain ${chain + 1})`);
+            await this.callClaude(`Now write the ${label.toLowerCase()} file `
+                + `([DEVICE: ${nextRole}]) for this game, matching the files already in the editor.`,
+                { hidden: true, chain: chain + 1 });
+        }
     }
+}
+
+/** An icon for a follow-up chip, picked by keyword in its text; null when none matches. */
+function choiceIcon(text) {
+    const t = text.toLowerCase();
+    const rules = [
+        [/sound|music|note|beep|song|loud|quiet/, 'music'],
+        [/rainbow/, 'rainbow'],
+        [/color|color|light|glow|bright|dim|red|blue|green|yellow|purple/, 'palette'],
+        [/freeze|still|stop/, 'snowflake'],
+        [/jump|shake|tilt|move|up\b/, 'arrow-up'],
+        [/turn|team|player|score|point|win|lose|race/, 'gamepad'],
+        [/undo|back|reset|restart|again/, 'undo'],
+        [/tag|card|nfc/, 'nfcCard'],
+        [/slow|fast|speed|blink|flash|count|celebrate|star/, 'sparkles'],
+    ];
+    for (const [re, icon] of rules) if (re.test(t)) return icon;
+    return null;
+}
+
+/**
+ * A status line about what the app is doing. Simple mode keeps these out of
+ * the chat; the debug log still has them.
+ */
+function addProcessMsg(text) {
+    if (getUiMode() === 'simple') {
+        dbg('chat', `(hidden in simple mode) ${text}`);
+        return null;
+    }
+    return addMsg(text, 'system');
+}
+
+/**
+ * Size the chat input to its text: CSS min-height (one line) up to
+ * max-height (four lines); past that it scrolls.
+ */
+function fitUserInput() {
+    const el = document.getElementById('user-input');
+    // Hidden (another view is showing): nothing to measure; openWorkspace refits.
+    if (!el || !el.getClientRects().length) return;
+    el.style.height = 'auto';
+    // scrollHeight leaves out the border; box-sizing is border-box.
+    const border = el.offsetHeight - el.clientHeight;
+    const max = parseFloat(getComputedStyle(el).maxHeight);
+    const want = el.scrollHeight + border;
+    el.style.height = `${Math.min(want, max)}px`;
+    el.style.overflowY = want > max ? 'auto' : 'hidden';
+}
+
+/** Capitalize the first letter, for a name that starts a sentence. */
+function cap(s) {
+    return s ? s[0].toUpperCase() + s.slice(1) : s;
 }
 
 function escapeHtml(s) {

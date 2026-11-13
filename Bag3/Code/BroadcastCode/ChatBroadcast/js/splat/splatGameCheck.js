@@ -12,6 +12,9 @@
 /** Pairing slots per wand: MockWand/lib/pairing.py MAX_SPLATS. */
 export const MAX_SPLATS = 2;
 
+/** Pairing slots on a Splat host wand: Wand Module/lib/pairing.py HOST_MAX_SPLATS. */
+export const HOST_MAX_SPLATS = 4;
+
 /** Top-level `NAME = value` (comment stripped), or undefined. */
 function constant(code, name) {
     const m = code.match(new RegExp(`^${name}\\s*=\\s*([^#\\n]*?)\\s*(?:#.*)?$`, 'm'));
@@ -44,6 +47,8 @@ export function splatGameProblems(code) {
     const local = constant(code, 'SPLATS_LOCAL');
     const min = constant(code, 'SPLATS_MIN');
     const max = constant(code, 'SPLATS_MAX');
+    const host = constant(code, 'SPLAT_HOST');
+    const playersMin = constant(code, 'PLAYERS_MIN');
     // The name `net` anywhere outside play()'s def line, comments and
     // string literals; this covers aliases such as `n = net`.
     const body = code.replace(/^def\s+play\s*\([^)]*\)/m, '')
@@ -65,6 +70,30 @@ export function splatGameProblems(code) {
     // enow.poll() in a Splat game takes lobby game frames away from it.
     if (min !== undefined && /(^|[^\w.])enow\s*\.\s*poll\s*\(/m.test(body)) {
         out.push('A Splat game must not call enow.poll(): net.poll() reads the radio and returns ("end",) on stop.');
+    }
+    // Splat host games (Wand Module/lib/splat_host.py): the host holds
+    // every Splat, up to HOST_MAX_SPLATS.
+    if (host !== undefined && host !== 'True' && host !== 'False') {
+        out.push(`SPLAT_HOST must be True or False; it is ${host || 'empty'}.`);
+    }
+    const isHost = host === 'True';
+    if (isHost && min === undefined) {
+        out.push('A Splat host game (SPLAT_HOST = True) needs SPLATS_MIN.');
+    }
+    if (playersMin !== undefined) {
+        if (!isHost) {
+            out.push('PLAYERS_MIN is only read in a Splat host game (SPLAT_HOST = True).');
+        } else if (intLiteral(playersMin) === null) {
+            out.push(`PLAYERS_MIN must be a whole number; it is ${playersMin || 'empty'}.`);
+        }
+    }
+    if (isHost) {
+        for (const [name, v] of [['SPLATS_MIN', min], ['SPLATS_MAX', max]]) {
+            const n = v === undefined ? null : intLiteral(v);
+            if (n !== null && n > HOST_MAX_SPLATS) {
+                out.push(`${name} (${n}) is more than a Splat host holds (${HOST_MAX_SPLATS}).`);
+            }
+        }
     }
     if (max !== undefined && min === undefined) {
         out.push('SPLATS_MAX is set without SPLATS_MIN.');

@@ -30,8 +30,8 @@ export const VALIDATE_LIMIT_MS = 8000;
  *  rather than overlapping the next one. */
 const NUDGE_TIMEOUT_MS = 2000;
 
-/** Box and Dial share ChatBroadcast; anything else is wrong_device. */
-const EXPECTED_DEVICES = new Set(["broadcast_box", "broadcast_dial", "crowpanel"]);
+/** Box, Dial, Emulated Tag Dial and CrowPanel share ChatBroadcast; anything else is wrong_device. */
+const EXPECTED_DEVICES = new Set(["broadcast_box", "broadcast_dial", "crowpanel", "emulated_tag_dial"]);
 
 /**
  * Short label for UI copy: "Box", "Dial" or "Wand". Generic "Device" before
@@ -52,21 +52,23 @@ export function deviceShortName(infoOrDevice) {
     ? infoOrDevice
     : infoOrDevice?.device;
   if (d === "wand") return "Wand";
-  if (d === "broadcast_dial") return "Dial";
-  if (d === "broadcast_box") return "Box";
+  // The UI calls a Box or a Dial the "teacher hub"; the debug log keeps
+  // the device field.
+  if (d === "broadcast_dial" || d === "broadcast_box") return "teacher hub";
+  if (d === "emulated_tag_dial") return "ET Dial";
   if (d === "crowpanel") return "Panel";
   return "Device";
 }
 
-/** Product name for UI copy: "Broadcast Box", "Broadcast Dial" or "Wand".
+/** Product name for UI copy: "Teacher hub" (Box or Dial) or "Wand".
  *  Same generic-until-known rule as deviceShortName() above. */
 export function deviceProductName(infoOrDevice) {
   const d = typeof infoOrDevice === "string"
     ? infoOrDevice
     : infoOrDevice?.device;
   if (d === "wand") return "Wand";
-  if (d === "broadcast_dial") return "Broadcast Dial";
-  if (d === "broadcast_box") return "Broadcast Box";
+  if (d === "broadcast_dial" || d === "broadcast_box") return "Teacher hub";
+  if (d === "emulated_tag_dial") return "Emulated Tag Dial";
   if (d === "crowpanel") return "CrowPanel";
   return "Broadcast Device";
 }
@@ -118,7 +120,7 @@ export class BboxDeviceLink {
       if (obj.device && !EXPECTED_DEVICES.has(obj.device)) {
         this.wrongDevice = true;
         this.running = false;
-        logWarn(`wrong device on identity: ${obj.device} (expected broadcast_box|broadcast_dial|crowpanel)`);
+        logWarn(`wrong device on identity: ${obj.device} (expected broadcast_box|broadcast_dial|crowpanel|emulated_tag_dial)`);
         this._emit("wrong_device", obj);
         return;
       }

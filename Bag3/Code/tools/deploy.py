@@ -186,7 +186,8 @@ def _precompile_wand_main(files):
     staged = os.path.join(tmp, WAND_APP + ".py")
     with open(src, "rb") as f_in, open(staged, "wb") as f_out:
         f_out.write(f_in.read())
-    r = subprocess.run([sys.executable, "-m", "mpy_cross", staged, "-o", mpy],
+    r = subprocess.run([sys.executable, "-m", "mpy_cross", staged, "-o", mpy,
+                        "-s", WAND_APP + ".py"],
                        capture_output=True, text=True)
     if r.returncode != 0:
         sys.exit("mpy-cross failed (pip install --user mpy-cross==1.28.0.post2): %s"

@@ -13,11 +13,15 @@ const cache = new Map();
  *       prefix: lib | ""
  *       include_ext: [.py]   # optional — whitelist
  *       exclude_ext: [.md]    # optional — extra per-source excludes
+ *   exclude_dirs: [drafts]    # folders skipped, relative to each source root
+ *   exclude_files: [x.py]     # exact file names skipped, in any folder
  */
 export function parseManifestYaml(text) {
-  const manifest = { excludeExt: [], sources: [] };
+  const manifest = { excludeExt: [], excludeDirs: [], excludeFiles: [], sources: [] };
   let current = null;
-  let listTarget = null; // "manifest.excludeExt" | "source.excludeExt" | "source.includeExt"
+  // "manifest.excludeExt" | "manifest.excludeDirs" | "manifest.excludeFiles"
+  // | "source.excludeExt" | "source.includeExt"
+  let listTarget = null;
 
   for (const rawLine of text.split("\n")) {
     const line = rawLine.trimEnd();
@@ -28,6 +32,14 @@ export function parseManifestYaml(text) {
       listTarget = "manifest.excludeExt";
       continue;
     }
+    if (t === "exclude_dirs:" && !line.startsWith(" ")) {
+      listTarget = "manifest.excludeDirs";
+      continue;
+    }
+    if (t === "exclude_files:" && !line.startsWith(" ")) {
+      listTarget = "manifest.excludeFiles";
+      continue;
+    }
     if (t === "sources:") {
       listTarget = null;
       continue;
@@ -35,6 +47,8 @@ export function parseManifestYaml(text) {
     if (t.startsWith("- ") && listTarget) {
       const val = t.slice(2).trim().replace(/^["']|["']$/g, "");
       if (listTarget === "manifest.excludeExt") manifest.excludeExt.push(val);
+      else if (listTarget === "manifest.excludeDirs") manifest.excludeDirs.push(val.replace(/\/$/, ""));
+      else if (listTarget === "manifest.excludeFiles") manifest.excludeFiles.push(val);
       else if (listTarget === "source.excludeExt") current.excludeExt.push(val);
       else if (listTarget === "source.includeExt") {
         if (!current.includeExt) current.includeExt = [];
@@ -93,6 +107,18 @@ export function shouldIncludeFile(fileName, source, manifest) {
     return false;
   }
   return true;
+}
+
+/**
+ * True when a source-relative path falls in an exclude_dirs folder or its file
+ * name is listed in exclude_files.
+ */
+export function isExcludedPath(relInSource, manifest) {
+  const name = relInSource.split("/").pop();
+  if ((manifest.excludeFiles || []).includes(name)) return true;
+  return (manifest.excludeDirs || []).some(
+    (d) => relInSource === d || relInSource.startsWith(d + "/")
+  );
 }
 
 export async function loadManifest(fileName) {

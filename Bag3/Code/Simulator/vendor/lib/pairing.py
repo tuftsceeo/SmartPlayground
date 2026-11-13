@@ -2,7 +2,8 @@
 pairing.py -- the wand's paired-Splat list on flash
 ====================================================
 /pairing.json holds {"splats": ["AB:42:00:00:7E:B6", ...]} in tap order, at
-most MAX_SPLATS entries. Tap order is the local Splat order (SplatGroup
+most max_splats() entries: MAX_SPLATS for a game wand, HOST_MAX_SPLATS for a
+Splat host (ROLE_PATH holds "splat_host"; see lib/splat_host.py). Tap order is the local Splat order (SplatGroup
 unit 0, unit 1).
 
 main.py clears the file on a power-on reset and reads it inline at boot,
@@ -19,7 +20,21 @@ import json
 import os
 
 PATH = "/pairing.json"
-MAX_SPLATS = 2
+MAX_SPLATS = 2             # a game wand: tested
+HOST_MAX_SPLATS = 4        # a Splat host: more than 2 per wand is not yet tested on hardware
+ROLE_PATH = "/role.txt"    # same file as main.py _ROLE_PATH
+
+
+def is_host():
+    try:
+        with open(ROLE_PATH) as f:
+            return f.read().strip() == "splat_host"
+    except OSError:
+        return False
+
+
+def max_splats():
+    return HOST_MAX_SPLATS if is_host() else MAX_SPLATS
 
 
 def _tmp():
@@ -60,7 +75,7 @@ def load():
     for m in items:
         if valid(m) and m not in out:
             out.append(m)
-    return out[:MAX_SPLATS]
+    return out[:max_splats()]
 
 
 def _drop_tmp(tmp):
@@ -97,8 +112,9 @@ def add(mac):
     macs = load()
     if mac in macs:
         return macs
-    if len(macs) >= MAX_SPLATS:
-        raise ValueError("already holding %d Splats" % MAX_SPLATS)
+    cap = max_splats()
+    if len(macs) >= cap:
+        raise ValueError("already holding %d Splats" % cap)
     macs.append(mac)
     _write(macs)
     return macs

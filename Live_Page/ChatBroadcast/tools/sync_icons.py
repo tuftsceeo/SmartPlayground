@@ -17,7 +17,7 @@ The device tree Bag3/Code/Stations/IconDisplay/icons/ is the source of
 truth; defaultIcons.js is the generated browser copy. Both sides hold the
 same linear PWM duty bytes, so this is a parse and a reshape -- device files
 are 16 rows of 16 "(r, g, b)" tuples, the browser file is one flat 768-value
-row-major array per icon. There is no colour conversion anywhere in here;
+row-major array per icon. There is no color conversion anywhere in here;
 duty -> sRGB happens in the browser at render time, in ledColor.js.
 
 Any icon file that will not parse, is not 16x16, or does not yield 768 bytes

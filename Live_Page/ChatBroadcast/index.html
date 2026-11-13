@@ -8,6 +8,7 @@
         <link rel="stylesheet" href="css/editor.css" />
     </head>
     <body>
+        <div class="no-serial-banner" role="status">This browser can't send games to wands. Use Chrome or Edge on a computer.</div>
         <div id="app-shell">
             <!-- Screen 1: Splash -->
             <div id="view-splash" class="view-panel">
@@ -45,14 +46,19 @@
                         </span>
                         <span class="brand-title">Wand &amp; Station Coder</span>
                     </button>
-                    <nav class="app-tabs" aria-label="Main">
-                        <button type="button" class="app-tab" data-nav="saved" title="My saved games">Saved</button>
-                        <button type="button" class="app-tab" data-nav="examples" title="Example games">Examples</button>
-                    </nav>
                     <!-- No device controls while browsing games. Connecting,
                          the link status and the Box library all belong where
                          code is made; here they were either inert or noise. -->
-                    <div class="header-actions"></div>
+                    <div class="header-actions">
+                        <nav class="app-tabs" aria-label="Main">
+                            <button type="button" class="app-tab" data-nav="saved" title="My games">My games</button>
+                            <button type="button" class="app-tab" data-nav="examples" title="Example games">Examples</button>
+                        </nav>
+                        <button type="button" class="btn-new-game" id="btn-gallery-new" title="Start a new game">
+                            <span data-icon="plus"></span>
+                            <span>New game</span>
+                        </button>
+                    </div>
                 </header>
                 <div class="gallery-toolbar">
                     <h1 id="gallery-title">Example games</h1>
@@ -80,12 +86,13 @@
                         </span>
                         <span class="brand-title">Wand &amp; Station Coder</span>
                     </button>
-                    <nav class="app-tabs" aria-label="Main">
-                        <button type="button" class="app-tab" data-nav="saved" title="My saved games">Saved</button>
-                        <button type="button" class="app-tab active" data-nav="examples" title="Example games">Examples</button>
-                    </nav>
                     <!-- No device controls here either -- see the gallery header. -->
-                    <div class="header-actions"></div>
+                    <div class="header-actions">
+                        <nav class="app-tabs" aria-label="Main">
+                            <button type="button" class="app-tab" data-nav="saved" title="My games">My games</button>
+                            <button type="button" class="app-tab active" data-nav="examples" title="Example games">Examples</button>
+                        </nav>
+                    </div>
                 </header>
                 <div class="detail-toolbar">
                     <button class="back-link" id="btn-detail-back" type="button" title="Back">←</button>
@@ -184,12 +191,10 @@
                           <div class="preview-segment" role="tablist" aria-label="Preview">
                             <button class="preview-tab active" id="btn-sim-view" type="button" role="tab"
                                     aria-selected="true" title="Play the game in the simulator">
-                                <span data-icon="wand" data-icon-size="14"></span>
                                 Simulation
                             </button>
                             <button class="preview-tab" id="btn-icons-view" type="button" role="tab"
                                     aria-selected="false" title="See and edit this game's display icons">
-                                <span data-icon="palette" data-icon-size="14"></span>
                                 Icons
                             </button>
                           </div>
@@ -236,7 +241,7 @@
                                             <button class="more-item" id="btn-icon-adjust" type="button">
                                                 <span class="more-item-label">
                                                     <span data-icon="wrench" data-icon-size="15"></span>
-                                                    Pixelation &amp; segment colours
+                                                    Pixelation &amp; segment colors
                                                 </span>
                                                 <span class="more-check" data-icon="check" data-icon-size="15"></span>
                                             </button>
@@ -339,14 +344,19 @@
                 <button type="button" class="overlay-close-x" id="btn-connect-close-x" title="Close">
                     <span data-icon="close" data-icon-size="18"></span>
                 </button>
-                <div class="connect-hero" data-icon="cable" data-icon-size="40"></div>
-                <h2>Connect over USB</h2>
-                <p>Plug it in, then pick it from the browser's list</p>
-                <div class="send-icons-row" id="connect-components"></div>
-                <p>What's plugged in?</p>
-                <button class="btn-teal" id="btn-connect-box" type="button">Broadcast Box / Dial</button>
-                <button class="btn-teal" id="btn-connect-wand" type="button">Wand</button>
-                <button class="btn-secondary" id="btn-connect-cancel" type="button">Cancel</button>
+                <h2 class="connect-title">What did you plug in?</h2>
+                <p class="connect-sub">Connect over USB, then pick it from the browser’s list.</p>
+                <div class="connect-tiles">
+                    <button class="connect-tile" id="btn-connect-wand" type="button">
+                        <span class="tile-icon" data-icon="wand" data-icon-size="96" data-icon-stroke="1.3"></span>
+                        Wand
+                    </button>
+                    <button class="connect-tile" id="btn-connect-box" type="button">
+                        <span class="tile-icon" data-icon="teacherHub" data-icon-size="96" data-icon-stroke="1.3"></span>
+                        Teacher hub
+                    </button>
+                </div>
+                <button class="btn-secondary" id="btn-connect-cancel" type="button">Not now</button>
                 <p id="connect-error" class="modal-error"></p>
             </div>
         </div>
@@ -358,19 +368,28 @@
                     <span data-icon="close" data-icon-size="18"></span>
                 </button>
                 <div id="send-confirm-form">
-                    <label class="send-name-label" for="send-game-name">Name this game</label>
+                    <label class="send-name-label" for="send-game-name">Game name</label>
                     <div class="send-name-field">
                         <input type="text" id="send-game-name" maxlength="48" placeholder="Game name" />
                         <span class="send-name-pencil" data-icon="pencil" data-icon-size="15" aria-hidden="true"></span>
                     </div>
                     <p id="send-name-error" class="modal-error"></p>
+                    <div class="send-need-label" id="send-need-label" hidden>To play you need</div>
                     <ul class="send-requirements" id="send-requirements"></ul>
-                    <div id="send-progress-wrap" class="hidden">
-                        <div id="send-progress-track"><div id="send-progress-bar"></div></div>
-                        <p id="send-progress-label"></p>
-                    </div>
                     <button class="btn-primary" id="btn-send-confirm" type="button">Send</button>
                     <button class="btn-secondary" id="btn-send-cancel" type="button">Not yet</button>
+                </div>
+                <!-- The form is swapped for this while sending (app.js paintSending). -->
+                <div id="send-sending" hidden>
+                    <div class="sending-hero">
+                        <div class="sending-dots"><i></i><i></i><i></i></div>
+                        <div class="sending-tile" id="sending-tile"></div>
+                    </div>
+                    <h2 id="sending-title">Sending…</h2>
+                    <p>Keep the cable plugged in.</p>
+                    <div class="sending-track"><div id="sending-bar"></div></div>
+                    <div id="sending-label"></div>
+                    <button class="btn-secondary" type="button" disabled>Please wait…</button>
                 </div>
                 <!-- Shown once the device has confirmed the file write (the
                      real point of success -- see boxFirmwareInstaller.js).
@@ -380,9 +399,14 @@
                     <div class="send-success-icon" data-icon="circle-check" data-icon-size="40"></div>
                     <h2 id="send-success-title">Sent!</h2>
                     <p id="send-success-note"></p>
-                    <button class="btn-secondary hidden" id="btn-send-another-wand" type="button">Install on another wand</button>
-                    <button class="btn-teal hidden" id="btn-send-distribute" type="button">Distribute code</button>
-                    <button class="btn-primary" id="btn-send-done" type="button">Done</button>
+                    <div class="send-next" id="send-next">
+                        <div class="send-next-head">
+                            <span data-icon="station" data-icon-size="44" data-icon-stroke="1.3"></span>
+                            <div><b>Send it to devices now?</b><span>The teacher hub shares the game with wands and stations nearby.</span></div>
+                        </div>
+                        <button class="btn-teal hidden" id="btn-send-distribute" type="button">Choose devices</button>
+                    </div>
+                    <button class="btn-primary" id="btn-send-done" type="button">Done for now</button>
                 </div>
             </div>
         </div>
@@ -391,24 +415,18 @@
              js/distribute.js -->
         <div id="distribute-overlay" class="overlay-view hidden">
             <div class="overlay-card overlay-card-distribute">
-                <button type="button" class="overlay-close-x" id="btn-dist-close-x" title="Close">
-                    <span data-icon="close" data-icon-size="18"></span>
-                </button>
-                <h2 id="dist-title">Distribute code</h2>
+                <div class="dist-top">
+                    <button type="button" class="overlay-close-x dist-icon-btn" id="btn-dist-rescan" title="Refresh" aria-label="Refresh">
+                        <span data-icon="refresh" data-icon-size="18"></span>
+                    </button>
+                    <button type="button" class="overlay-close-x dist-icon-btn" id="btn-dist-close-x" title="Close" aria-label="Close">
+                        <span data-icon="close" data-icon-size="18"></span>
+                    </button>
+                </div>
+                <h2 id="dist-title">Send to devices</h2>
                 <p id="dist-status"></p>
-                <table id="dist-table" class="dist-table hidden">
-                    <thead><tr><th></th><th>Device</th><th>Battery</th><th>Signal</th><th>Status</th><th></th></tr></thead>
-                    <tbody id="dist-rows"></tbody>
-                </table>
-                <div id="dist-progress-wrap" class="hidden">
-                    <div class="dist-progress-track"><div id="dist-progress-bar"></div></div>
-                    <p id="dist-progress-label"></p>
-                </div>
-                <div class="dist-actions">
-                    <button class="btn-secondary btn-compact hidden" id="btn-dist-all" type="button">Select all / none</button>
-                    <button class="btn-secondary btn-compact" id="btn-dist-rescan" type="button">Rescan</button>
-                </div>
-                <button class="btn-primary hidden" id="btn-dist-send" type="button">Distribute</button>
+                <div id="dist-cards" class="dist-cards"></div>
+                <button class="btn-primary hidden" id="btn-dist-send" type="button">Send</button>
             </div>
         </div>
 
@@ -485,8 +503,15 @@
         <!-- Passphrase modal -->
         <div class="overlay-view" id="modal-overlay" data-persistent="true">
             <div class="overlay-card overlay-card-send">
-                <h2>Welcome!</h2>
-                <p>Enter the magic code to get started.</p>
+                <div id="no-serial-note" class="no-serial-note hidden" role="alert">
+                    <span data-icon="warning" data-icon-size="26"></span>
+                    <div>
+                        <strong>This browser can't send games to wands</strong>
+                        <span>Use Chrome or Edge on a computer. You can still make and try games here.</span>
+                    </div>
+                </div>
+                <h2 id="modal-title">Welcome!</h2>
+                <p id="modal-sub">Enter the magic code to get started.</p>
                 <input type="password" id="modal-passphrase" placeholder="Magic code…" />
                 <div id="modal-error" class="modal-error"></div>
                 <button class="btn-primary" id="btn-modal-unlock" type="button">Unlock</button>

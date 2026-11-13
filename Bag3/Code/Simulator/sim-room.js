@@ -35,7 +35,9 @@
  *   autostart, profile   passed to the inner <wand-sim>
  *   settings       the game's simulator settings, or null: { wand_splats
  *                  (Splats each wand starts with, 0..2, default 1), wands
- *                  (how many wands the game is for, 1..4, default 1) }.
+ *                  (how many wands the game is for, 1..4, default 1),
+ *                  splat_host (Splats on the game's Splat host, 0..4; a
+ *                  Splat host game's wands then default to 0 Splats) }.
  *                  Set it before `source`: the Splat count reaches the wand
  *                  ahead of the game loading.
  *
@@ -78,7 +80,7 @@ class SimRoom extends HTMLElement {
   /**
    * Register an output panel.
    *   id       unique name
-   *   slot     "panels" (beside the wand), "strip" (below it) or "top" (above it, right-aligned)
+   *   slot     "panels" (beside the wand), "strip" (below it) or "top" (above it, right-aligned; centered in simple mode)
  *   bare     no box border or background
    *   title    heading shown above the panel; null = none, and no padding
    *            (the panel draws its own header)
@@ -125,7 +127,14 @@ class SimRoom extends HTMLElement {
   /** Splats each wand starts a newly loaded game with. */
   get gameSplats() {
     const n = this._settings?.wand_splats;
-    return Number.isInteger(n) && n >= 0 && n <= 2 ? n : 1;
+    if (Number.isInteger(n) && n >= 0 && n <= 2) return n;
+    return this.hostSplats === null ? 1 : 0;
+  }
+
+  /** Splats on the game's Splat host (settings splat_host, 0..4), or null. */
+  get hostSplats() {
+    const n = this._settings?.splat_host;
+    return Number.isInteger(n) && n >= 0 && n <= 4 ? n : null;
   }
 
   /** Wands the loaded game is for, this one included. */
@@ -157,8 +166,11 @@ class SimRoom extends HTMLElement {
   get pyodide() { return this.wand ? this.wand.pyodide : null; }
 
   start() { return this.wand?.start(); }
+  /** Stop every device: this wand, the other wands and the icon displays
+   * (the host's idle pause calls this). */
   stop() {
     this.panel("wands")?.stop();
+    this.panel("displays")?.stop?.();
     return this.wand?.stop();
   }
   showOverlay(kind, opts) { return this.wand?.showOverlay(kind, opts); }
@@ -197,6 +209,8 @@ class SimRoom extends HTMLElement {
         .room { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; }
         .wand { flex: 0 1 500px; min-width: 0; }
         .wand wand-sim { width: 100%; }
+        /* Simple mode: the icon display sits beside the wand inside wand-sim, so give it the row. */
+        :host(:not([advanced])) .wand { flex: 1 1 100%; }
         .panels { display: flex; flex-direction: column; gap: 16px; flex: 1 1 240px; min-width: 0; }
         .strip { display: flex; flex-direction: column; gap: 12px; margin-top: 16px; }
         .box { background: #fff; border: 1.5px solid #e8e6f0; border-radius: 16px; padding: 14px 16px;
@@ -205,6 +219,7 @@ class SimRoom extends HTMLElement {
         .box[hidden], .box:empty { display: none; }
         .top { display: flex; justify-content: flex-end; }
         .top:not(:has(.box:not([hidden]))) { display: none; }
+        :host(:not([advanced])) .top { justify-content: center; }
         .box.bare { background: none; border: 0; border-radius: 0; padding: 0; margin-bottom: 12px; }
         .box-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; margin: 0 0 12px; }
         .box-head h3 { font: 800 15px 'Nunito', system-ui, sans-serif; margin: 0; }
@@ -234,6 +249,16 @@ class SimRoom extends HTMLElement {
       });
     }
     wand.addEventListener("sim-ready", () => this._attachWand());
+    // The wand's square pad width (--wand-pad) sizes the icon display beside
+    // it, as in the all-wands dialog.
+    wand.addEventListener("sim-ready", () => {
+      const pad = wand.shadowRoot?.querySelector(".pad");
+      if (!pad) return;
+      new ResizeObserver(() => {
+        const w = pad.getBoundingClientRect().width;
+        if (w > 0) this.style.setProperty("--wand-pad", `${Math.round(w)}px`);
+      }).observe(pad);
+    }, { once: true });
     wand.addEventListener("sim-loaded", () => {
       this._refresh().catch((err) => console.error("sim-room refresh", err));
     });
@@ -250,6 +275,7 @@ class SimRoom extends HTMLElement {
   restart() {
     this.lobbyGame?.retap();
     this.panel("wands")?.restart();
+    this.panel("displays")?.restart?.();
     return this.wand?.restart();
   }
 
@@ -477,8 +503,11 @@ SimRoom.registerPanel("wands", {
   },
   update(panel, caps, room) {
     panel.setGame(caps);
+    // A Splat host game: a Splat host wand, with the settings' Splats (or
+    // the game's SPLATS_MIN) paired.
+    if (caps.splat_host) panel.ensureHost(room.hostSplats ?? Math.min(4, caps.splats_min || 1));
     // Settings for a different number of wands start over with that many
-    // placeholders. New code for the same number keeps the wands as they
+    // wand slots. New code for the same number keeps the wands as they
     // are; live ones have already been handed the new code.
     if (room.gameWands !== panel.forWands) {
       panel.forWands = room.gameWands;

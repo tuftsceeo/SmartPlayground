@@ -40,6 +40,7 @@ Tuning lives in this file — see MIN_MULT / MAX_MULT / LOG_LUX_* below.
 
 import math
 import time
+from hubtype import HUB_CONFIG
 
 # ── Public state ──────────────────────────────────────────
 MULTIPLIER = 1.0    # default = no scaling. Devices without a light sensor stay here.
@@ -48,6 +49,11 @@ LAST_LUX   = None   # last lux reading from calibrate(); None if never calibrate
 # ── Tuning ────────────────────────────────────────────────
 MIN_MULT = 0.05     # floor — any indoor light lands here (~10/255 for a source-200 color)
 MAX_MULT = 0.50     # ceiling — direct sunlight (~100/255 for a source-200 color)
+
+# A black diffuser absorbs more light than the older white one, so both
+# MIN_MULT and MAX_MULT are scaled by GAIN. Set per device in hubtype.py.
+DIFFUSER_GAIN = {"black": 1.2, "white": 1.0}
+GAIN = DIFFUSER_GAIN.get(HUB_CONFIG.get("diffuser", "white"), 1.0)
 
 # Log-scale lux endpoints. Below LOG_LUX_MIN clamps to MIN_MULT,
 # above LOG_LUX_MAX clamps to MAX_MULT, linear-in-log between.
@@ -62,14 +68,14 @@ CAL_DELAY_MS  = 120
 def _lux_to_mult(lux):
     """Map a lux reading to a multiplier in [MIN_MULT, MAX_MULT]."""
     if lux <= 0:
-        return MIN_MULT
+        return MIN_MULT * GAIN
     log_lux = math.log10(lux)
     if log_lux <= LOG_LUX_MIN:
-        return MIN_MULT
+        return MIN_MULT * GAIN
     if log_lux >= LOG_LUX_MAX:
-        return MAX_MULT
+        return min(1.0, MAX_MULT * GAIN)
     t = (log_lux - LOG_LUX_MIN) / (LOG_LUX_MAX - LOG_LUX_MIN)
-    return MIN_MULT + t * (MAX_MULT - MIN_MULT)
+    return min(1.0, (MIN_MULT + t * (MAX_MULT - MIN_MULT)) * GAIN)
 
 
 def calibrate(opt3002, samples=CAL_SAMPLES, delay_ms=CAL_DELAY_MS):

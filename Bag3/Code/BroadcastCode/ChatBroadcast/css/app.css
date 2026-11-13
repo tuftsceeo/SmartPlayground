@@ -45,7 +45,7 @@
 
 body {
     margin: 0;
-    font-family: 'Nunito', sans-serif;
+    font-family: 'Nunito', ui-rounded, system-ui, sans-serif;
     background:
         radial-gradient(circle at 6% 10%, #ffd23f22, transparent 40%),
         radial-gradient(circle at 94% 6%, #ef4d9218, transparent 38%),
@@ -110,7 +110,7 @@ body.ui-advanced #app-shell {
     color: #fff;
     flex: none;
 }
-.brand-title { font: 800 14px 'Nunito'; color: var(--ink); }
+.brand-title { font: 800 14px 'Nunito', ui-rounded, system-ui, sans-serif; color: var(--ink); }
 /* On the workspace the brand is the way back to home, so it is a button and
    its gem flips to a back arrow on hover to say so. */
 .brand-home {
@@ -128,7 +128,7 @@ body.ui-advanced #app-shell {
 
 .more-menu { position: relative; display: flex; }
 .btn-more {
-    font: 800 14px 'Nunito';
+    font: 800 14px 'Nunito', ui-rounded, system-ui, sans-serif;
     letter-spacing: 1px;
     line-height: 1;
 }
@@ -156,8 +156,8 @@ body.ui-advanced #app-shell {
     padding: 9px 10px;
     border-radius: 10px;
     cursor: pointer;
-    font: 700 12.5px 'Nunito';
-    font-family: 'Nunito', sans-serif;
+    font: 700 12.5px 'Nunito', ui-rounded, system-ui, sans-serif;
+    font-family: 'Nunito', ui-rounded, system-ui, sans-serif;
     color: var(--ink);
 }
 .more-item:hover { background: var(--border-soft); }
@@ -187,6 +187,7 @@ body.ui-advanced #app-shell {
     border-radius: 12px;
 }
 .app-tabs { margin-left: 10px; }
+.header-actions .app-tabs { margin-left: 0; }
 .app-tab,
 .preview-tab {
     display: inline-flex;
@@ -222,7 +223,7 @@ body.ui-advanced #app-shell {
     border: none;
     background: var(--serve-bg);
     color: var(--serve-fg);
-    font: 800 12px 'Nunito';
+    font: 800 12px 'Nunito', ui-rounded, system-ui, sans-serif;
     padding: 7px 12px;
     border-radius: 14px;
     cursor: pointer;
@@ -238,11 +239,14 @@ body.ui-advanced #app-shell {
 }
 .mode-pill:disabled { opacity: 0.85; cursor: not-allowed; }
 
-.btn-connect-header {
+/* Header action buttons: Connect (teal) and the gallery's New game (pink)
+   share one shape; only the color differs. */
+.btn-connect-header,
+.btn-new-game {
     border: none;
     background: linear-gradient(135deg, var(--teal), var(--teal-dark));
     color: #fff;
-    font: 800 12px 'Nunito';
+    font: 800 12px 'Nunito', ui-rounded, system-ui, sans-serif;
     padding: 7px 14px;
     border-radius: 14px;
     cursor: pointer;
@@ -256,7 +260,7 @@ body.ui-advanced #app-shell {
 .btn-connect-header:disabled { opacity: 0.7; cursor: not-allowed; }
 
 .conn-chip {
-    font: 700 11px 'Nunito';
+    font: 700 11px 'Nunito', ui-rounded, system-ui, sans-serif;
     color: #c0392b;
     background: #fdecea;
     border-radius: 12px;
@@ -279,7 +283,7 @@ body.ui-advanced #app-shell {
 .btn-restart-box {
     padding: 6px 12px;
     border-radius: 10px;
-    font: 800 12px 'Nunito';
+    font: 800 12px 'Nunito', ui-rounded, system-ui, sans-serif;
 }
 
 /* ── Splash ── */
@@ -304,7 +308,7 @@ body.ui-advanced #app-shell {
     color: #fff;
     box-shadow: 0 10px 24px rgba(239, 77, 146, 0.35);
 }
-.splash-title { font: 900 34px 'Nunito'; margin-top: 22px; }
+.splash-title { font: 900 34px 'Nunito', ui-rounded, system-ui, sans-serif; margin-top: 22px; }
 .splash-tagline { font: 20px 'Patrick Hand'; color: #5b5468; margin-top: 6px; }
 .splash-actions { display: flex; gap: 16px; margin-top: 40px; flex-wrap: wrap; justify-content: center; }
 .splash-card {
@@ -330,8 +334,8 @@ body.ui-advanced #app-shell {
 .splash-card-icon svg { width: 26px; height: 26px; }
 .splash-card.primary .splash-card-icon { color: #fff; }
 .splash-card:not(.primary) .splash-card-icon { color: var(--pink); }
-.splash-card h3 { font: 800 15px 'Nunito'; margin: 8px 0 2px; }
-.splash-card p { font: 12px 'Nunito'; margin: 0; opacity: 0.85; }
+.splash-card h3 { font: 800 15px 'Nunito', ui-rounded, system-ui, sans-serif; margin: 8px 0 2px; }
+.splash-card p { font: 12px 'Nunito', ui-rounded, system-ui, sans-serif; margin: 0; opacity: 0.85; }
 
 /* ── Gallery ── */
 .gallery-toolbar {
@@ -340,18 +344,18 @@ body.ui-advanced #app-shell {
     gap: 12px;
     padding: 12px 20px 0;
 }
-.gallery-toolbar h1 { font: 800 16px 'Nunito'; margin: 0; }
+.gallery-toolbar h1 { font: 800 16px 'Nunito', ui-rounded, system-ui, sans-serif; margin: 0; }
 .gallery-toolbar input {
     margin-left: auto;
     border: 1.5px solid var(--border);
     border-radius: 10px;
     padding: 9px 14px;
-    font: 14px 'Nunito';
+    font: 14px 'Nunito', ui-rounded, system-ui, sans-serif;
     width: 220px;
 }
 .chips { display: flex; gap: 8px; padding: 12px 20px 4px; flex-wrap: wrap; }
 .chip {
-    font: 700 13px 'Nunito';
+    font: 700 13px 'Nunito', ui-rounded, system-ui, sans-serif;
     padding: 7px 16px;
     border-radius: 20px;
     cursor: pointer;
@@ -382,9 +386,7 @@ body.ui-advanced #app-shell {
     background: #fff;
 }
 .example-card:hover { border-color: var(--pink); }
-/* Saved-game card: up to three small icons in a row. */
-.saved-thumb { gap: 10px; }
-.saved-thumb > span { display: inline-flex; }
+.thumb5 { display: grid; }
 
 /* The NFC Station catalog is an advanced-mode tool. */
 body:not(.ui-advanced) #btn-station-catalog { display: none; }
@@ -402,8 +404,8 @@ body:not(.ui-advanced) #btn-station-catalog { display: none; }
     color: #e9a9c6;
     margin-bottom: 10px;
 }
-.example-card h3 { font: 800 13px 'Nunito'; margin: 0 0 2px; color: var(--ink); }
-.example-card p { font: 11px 'Nunito'; color: var(--muted); margin: 0 0 10px; }
+.example-card h3 { font: 800 13px 'Nunito', ui-rounded, system-ui, sans-serif; margin: 0 0 2px; color: var(--ink); }
+.example-card p { font: 11px 'Nunito', ui-rounded, system-ui, sans-serif; color: var(--muted); margin: 0 0 10px; }
 .card-actions { display: flex; gap: 6px; }
 .card-action-btn {
     border: 1.5px solid var(--border);
@@ -419,7 +421,7 @@ body:not(.ui-advanced) #btn-station-catalog { display: none; }
     border: none;
     background: #fdecea;
     color: #c0392b;
-    font: 700 11px 'Nunito';
+    font: 700 11px 'Nunito', ui-rounded, system-ui, sans-serif;
 }
 .card-rename-row { display: flex; gap: 6px; align-items: center; }
 .card-rename-row input {
@@ -428,12 +430,12 @@ body:not(.ui-advanced) #btn-station-catalog { display: none; }
     border: 1.5px solid var(--purple);
     border-radius: 8px;
     padding: 5px 8px;
-    font: 700 13px 'Nunito';
+    font: 700 13px 'Nunito', ui-rounded, system-ui, sans-serif;
 }
 .card-rename-ok { border: none; background: none; color: var(--serve-fg); cursor: pointer; padding: 2px; }
 .card-rename-cancel { border: none; background: none; color: #c0392b; cursor: pointer; padding: 2px; }
 .tag-badge {
-    font: 700 11px 'Nunito';
+    font: 700 11px 'Nunito', ui-rounded, system-ui, sans-serif;
     color: #a8781e;
     background: #fff8e0;
     border-radius: 8px;
@@ -449,7 +451,7 @@ body:not(.ui-advanced) #btn-station-catalog { display: none; }
     gap: 10px;
     padding: 10px 20px 0;
 }
-.detail-toolbar h1 { font: 800 16px 'Nunito'; margin: 0; }
+.detail-toolbar h1 { font: 800 16px 'Nunito', ui-rounded, system-ui, sans-serif; margin: 0; }
 .detail-body { flex: 1; display: flex; gap: 28px; padding: 16px 20px 20px; min-height: 0; }
 .detail-preview {
     flex: 1;
@@ -479,9 +481,9 @@ body:not(.ui-advanced) #btn-station-catalog { display: none; }
     color: #c9a3bd;
 }
 .detail-side { width: 280px; display: flex; flex-direction: column; gap: 14px; flex: none; }
-.detail-desc { font: 14px/1.5 'Nunito'; color: #5b5468; }
+.detail-desc { font: 14px/1.5 'Nunito', ui-rounded, system-ui, sans-serif; color: #5b5468; }
 .back-link {
-    font: 16px 'Nunito';
+    font: 16px 'Nunito', ui-rounded, system-ui, sans-serif;
     color: var(--muted);
     cursor: pointer;
     border: none;
@@ -495,7 +497,7 @@ body:not(.ui-advanced) #btn-station-catalog { display: none; }
     background: linear-gradient(135deg, var(--pink), var(--pink-dark));
     color: #fff;
     text-align: center;
-    font: 800 14px 'Nunito';
+    font: 800 14px 'Nunito', ui-rounded, system-ui, sans-serif;
     border: none;
     cursor: pointer;
     width: 100%;
@@ -511,7 +513,7 @@ body:not(.ui-advanced) #btn-station-catalog { display: none; }
     border-radius: 14px;
     border: 1.5px solid var(--border);
     background: #fff;
-    font: 700 13px 'Nunito';
+    font: 700 13px 'Nunito', ui-rounded, system-ui, sans-serif;
     cursor: pointer;
     text-align: center;
     color: var(--icon-ink);
@@ -526,14 +528,14 @@ body:not(.ui-advanced) #btn-station-catalog { display: none; }
     width: auto;
     padding: 7px 12px;
     border-radius: 12px;
-    font: 700 11px 'Nunito';
+    font: 700 11px 'Nunito', ui-rounded, system-ui, sans-serif;
 }
 .btn-teal {
     padding: 12px;
     border-radius: 14px;
     background: linear-gradient(135deg, var(--teal), var(--teal-dark));
     color: #fff;
-    font: 800 14px 'Nunito';
+    font: 800 14px 'Nunito', ui-rounded, system-ui, sans-serif;
     border: none;
     cursor: pointer;
     width: 100%;
@@ -561,7 +563,7 @@ body:not(.ui-advanced) #btn-station-catalog { display: none; }
     border-radius: 14px;
     padding: 8px 12px;
     cursor: pointer;
-    font: 800 13px 'Nunito';
+    font: 800 13px 'Nunito', ui-rounded, system-ui, sans-serif;
     color: var(--ink);
     height: 36px;
     box-sizing: border-box;
@@ -578,7 +580,7 @@ body:not(.ui-advanced) #btn-station-catalog { display: none; }
     border: 1.5px solid var(--pink);
     border-radius: 14px;
     padding: 8px 12px;
-    font: 800 13px 'Nunito';
+    font: 800 13px 'Nunito', ui-rounded, system-ui, sans-serif;
     color: var(--ink);
     height: 36px;
     box-sizing: border-box;
@@ -595,8 +597,8 @@ body:not(.ui-advanced) #btn-station-catalog { display: none; }
     padding: 7px 12px;
     border-radius: 10px;
     cursor: pointer;
-    font: 800 12px 'Nunito';
-    font-family: 'Nunito', sans-serif;
+    font: 800 12px 'Nunito', ui-rounded, system-ui, sans-serif;
+    font-family: 'Nunito', ui-rounded, system-ui, sans-serif;
     background: transparent;
     color: var(--muted);
 }
@@ -631,8 +633,8 @@ body:not(.ui-advanced) #btn-station-catalog { display: none; }
     border-radius: 12px;
     padding: 7px 12px;
     cursor: pointer;
-    font: 800 12px 'Nunito';
-    font-family: 'Nunito', sans-serif;
+    font: 800 12px 'Nunito', ui-rounded, system-ui, sans-serif;
+    font-family: 'Nunito', ui-rounded, system-ui, sans-serif;
     color: var(--icon-ink);
 }
 .btn-quiet:hover { border-color: var(--purple); color: var(--purple); }
@@ -650,7 +652,8 @@ body:not(.ui-advanced) #btn-station-catalog { display: none; }
     flex: 0 0 auto;
     width: 340px;
     min-width: 260px;
-    max-width: 480px;
+    /* No max-width: paneSplit.js lets the chat grow until the simulator
+       column is at its minimum (one wand card). */
     display: flex;
     flex-direction: column;
     min-height: 0;
@@ -665,10 +668,15 @@ body:not(.ui-advanced) #btn-station-catalog { display: none; }
     flex-direction: column;
     gap: 8px;
 }
+/* Fill from the bottom up; auto margin rather than justify-content: flex-end,
+   which would put overflowing messages out of scroll reach. */
+#chat-box > :first-child {
+    margin-top: auto;
+}
 .msg {
-    border-radius: 14px;
-    padding: 9px 13px;
-    font: 13px/1.45 'Nunito';
+    border-radius: 20px;
+    padding: 10px 15px;
+    font: 13px/1.45 'Nunito', ui-rounded, system-ui, sans-serif;
     max-width: 88%;
 }
 .msg.user {
@@ -676,23 +684,45 @@ body:not(.ui-advanced) #btn-station-catalog { display: none; }
     background: linear-gradient(135deg, #fff0f6, #ffe3f0);
     color: #a8265c;
     white-space: pre-wrap;
-    border-radius: 14px 14px 3px 14px;
+    max-width: 78%;
+    border-radius: 20px 20px 3px 20px;
 }
 .msg.system {
     align-self: flex-start;
     background: #f4f2fa;
     color: #5b5468;
     white-space: pre-wrap;
-    border-radius: 14px 14px 14px 3px;
+    border-radius: 20px 20px 20px 3px;
     font-size: 12px;
 }
 .msg.bot {
     align-self: flex-start;
     background: #fff;
     color: #3a3345;
-    max-width: 95%;
+    max-width: 85%;
     border: 1px solid var(--border);
-    border-radius: 14px 14px 14px 3px;
+    border-radius: 20px 20px 20px 3px;
+}
+/* Coder reply: round avatar beside the bubble, aligned to its bottom. */
+.msg-row.bot {
+    align-self: flex-start;
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+    max-width: 100%;
+    min-width: 0;
+}
+.msg-row.bot > .msg.bot { max-width: calc(100% - 36px); min-width: 0; }
+.msg-avatar {
+    flex: 0 0 28px;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    background: linear-gradient(135deg, var(--pink), var(--purple));
 }
 .starter-chips,
 .choice-chips {
@@ -702,7 +732,7 @@ body:not(.ui-advanced) #btn-station-catalog { display: none; }
     padding: 4px 0 8px;
 }
 .starter-chip {
-    font: 700 12px 'Nunito';
+    font: 700 12px 'Nunito', ui-rounded, system-ui, sans-serif;
     padding: 8px 12px;
     border-radius: 14px;
     border: 1.5px solid var(--border);
@@ -780,7 +810,7 @@ body:not(.ui-advanced) #btn-station-catalog { display: none; }
     color: var(--ink);
     padding: 3px 9px;
     border-radius: 8px;
-    font: 700 11px 'Nunito';
+    font: 700 11px 'Nunito', ui-rounded, system-ui, sans-serif;
     cursor: pointer;
 }
 .code-action-btn:hover { border-color: var(--pink); color: var(--pink-dark); }
@@ -822,14 +852,21 @@ body:not(.ui-advanced) #btn-station-catalog { display: none; }
     padding: 12px 14px;
     border-top: 1px solid var(--border);
 }
+/* Chat input: one line tall, grows with its text up to four lines, then
+   scrolls (app.js fitUserInput sets the height and overflow). */
 #user-input {
+    --input-line: 18px;
+    --input-pad-y: 8px;
     flex: 1;
     border: 1.5px solid var(--border);
     border-radius: 20px;
-    padding: 8px 14px;
-    font: 13px 'Nunito';
+    padding: var(--input-pad-y) 14px;
+    font: 13px/var(--input-line) 'Nunito', ui-rounded, system-ui, sans-serif;
     resize: none;
-    height: 38px;
+    overflow-y: hidden;
+    min-height: calc(var(--input-line) + 2 * var(--input-pad-y) + 3px);
+    max-height: calc(4 * var(--input-line) + 2 * var(--input-pad-y) + 3px);
+    height: calc(var(--input-line) + 2 * var(--input-pad-y) + 3px);
 }
 .btn-send-round {
     width: 38px;
@@ -844,6 +881,9 @@ body:not(.ui-advanced) #btn-station-catalog { display: none; }
     align-items: center;
     justify-content: center;
 }
+/* The icon's wrapper is a flex box, so no text baseline gap pushes the
+   glyph off center. */
+.btn-send-round > span { display: flex; }
 
 .starter-chip-guided {
     border-color: var(--pink);
@@ -902,7 +942,7 @@ body:not(.ui-advanced) #btn-station-catalog { display: none; }
     font: 12px ui-monospace, monospace;
     color: #c9a3bd;
 }
-/* Centred by the child's auto margins, not justify-content: a sim taller
+/* Centered by the child's auto margins, not justify-content: a sim taller
    than the stage (a lobby game's Splat and other wand panels) would
    overflow above the scroll origin and its top could not be scrolled to. */
 #preview-panel {
@@ -964,7 +1004,7 @@ body:not(.ui-advanced) #btn-station-catalog { display: none; }
 }
 
 .btn-send-box {
-    font: 800 13px 'Nunito';
+    font: 800 13px 'Nunito', ui-rounded, system-ui, sans-serif;
     color: #fff;
     background: linear-gradient(135deg, var(--pink), var(--pink-dark));
     border-radius: 16px;
@@ -981,7 +1021,7 @@ body:not(.ui-advanced) #btn-station-catalog { display: none; }
 }
 
 .version-pill {
-    font: 700 12px 'Nunito';
+    font: 700 12px 'Nunito', ui-rounded, system-ui, sans-serif;
     color: #5b5468;
     background: #f4f2fa;
     border-radius: 14px;
@@ -1043,7 +1083,7 @@ body:not(.ui-advanced) #btn-station-catalog { display: none; }
     color: var(--ink);
     background: #fff;
 }
-.drawer-title { font: 800 14px 'Nunito'; }
+.drawer-title { font: 800 14px 'Nunito', ui-rounded, system-ui, sans-serif; }
 .drawer-tools {
     margin-left: auto;
     display: flex;
@@ -1051,7 +1091,7 @@ body:not(.ui-advanced) #btn-station-catalog { display: none; }
     gap: 8px;
 }
 #version-label {
-    font: 700 12px 'Nunito';
+    font: 700 12px 'Nunito', ui-rounded, system-ui, sans-serif;
     color: var(--muted);
     min-width: 40px;
     text-align: center;
@@ -1117,7 +1157,7 @@ body:not(.ui-advanced) #btn-station-catalog { display: none; }
 .samples-item {
     display: flex; flex-direction: column; align-items: center; gap: 4px;
     padding: 6px; border: 1px solid var(--border-soft); border-radius: 8px;
-    background: #fff; cursor: pointer; font: 12px 'Nunito';
+    background: #fff; cursor: pointer; font: 12px 'Nunito', ui-rounded, system-ui, sans-serif;
 }
 .samples-item:hover { border-color: var(--muted); }
 .samples-item canvas { width: 64px; height: 64px; border-radius: 4px; }
@@ -1148,7 +1188,7 @@ body:not(.ui-advanced) #btn-station-catalog { display: none; }
     min-height: 0;
 }
 .icons-list-head {
-    font: 800 12px 'Nunito';
+    font: 800 12px 'Nunito', ui-rounded, system-ui, sans-serif;
     color: var(--muted);
     padding: 14px 14px 8px;
 }
@@ -1170,7 +1210,7 @@ body:not(.ui-advanced) #btn-station-catalog { display: none; }
     border-radius: 10px;
     padding: 4px 6px;
     cursor: pointer;
-    font: 700 13px 'Nunito';
+    font: 700 13px 'Nunito', ui-rounded, system-ui, sans-serif;
     color: var(--ink);
     text-align: left;
 }
@@ -1186,7 +1226,7 @@ body:not(.ui-advanced) #btn-station-catalog { display: none; }
 .icons-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .icons-badge {
     flex: none;
-    font: 800 10px 'Nunito';
+    font: 800 10px 'Nunito', ui-rounded, system-ui, sans-serif;
     padding: 2px 6px;
     border-radius: 6px;
     background: var(--surface-sunken, #f4f2fa);
@@ -1197,7 +1237,7 @@ body:not(.ui-advanced) #btn-station-catalog { display: none; }
 .icons-list-note {
     margin: 0;
     padding: 8px 14px 14px;
-    font: 600 12px 'Nunito';
+    font: 600 12px 'Nunito', ui-rounded, system-ui, sans-serif;
     color: var(--muted);
 }
 .icons-editor-col {
@@ -1207,7 +1247,7 @@ body:not(.ui-advanced) #btn-station-catalog { display: none; }
     flex-direction: column;
 }
 .icons-editing {
-    font: 800 13px 'Nunito';
+    font: 800 13px 'Nunito', ui-rounded, system-ui, sans-serif;
     color: var(--ink);
     overflow: hidden;
     text-overflow: ellipsis;
@@ -1259,8 +1299,8 @@ body:not(.ui-advanced) #btn-station-catalog { display: none; }
 }
 .overlay-close-x:hover { background: var(--hover, rgba(0,0,0,0.05)); }
 .overlay-card.left { text-align: left; }
-.overlay-card h2 { font: 800 18px 'Nunito'; margin: 0 0 8px; }
-.overlay-card p { font: 14px 'Nunito'; color: var(--muted); margin: 0 0 12px; }
+.overlay-card h2 { font: 800 18px 'Nunito', ui-rounded, system-ui, sans-serif; margin: 0 0 8px; }
+.overlay-card p { font: 14px 'Nunito', ui-rounded, system-ui, sans-serif; color: var(--muted); margin: 0 0 12px; }
 .overlay-card-send { max-width: 380px; }
 .overlay-card-tags { max-width: 400px; }
 .overlay-card-mybox {
@@ -1274,13 +1314,6 @@ body:not(.ui-advanced) #btn-station-catalog { display: none; }
 .overlay-card .btn-teal { margin-top: 8px; }
 .overlay-card .btn-primary:first-of-type { margin-top: 0; }
 
-.connect-hero {
-    display: flex;
-    justify-content: center;
-    color: var(--teal);
-    margin-bottom: 12px;
-}
-
 .send-success-icon {
     display: flex;
     justify-content: center;
@@ -1292,7 +1325,7 @@ body:not(.ui-advanced) #btn-station-catalog { display: none; }
 /* Send-confirm name: it IS editable, so make it look like a field. */
 .send-name-label {
     display: block;
-    font: 700 11px 'Nunito';
+    font: 700 11px 'Nunito', ui-rounded, system-ui, sans-serif;
     letter-spacing: .04em;
     text-transform: uppercase;
     color: var(--muted);
@@ -1309,7 +1342,7 @@ body:not(.ui-advanced) #btn-station-catalog { display: none; }
     border: 1.5px solid var(--border);
     border-radius: 10px;
     background: #fafafd;
-    font: 700 15px 'Nunito';
+    font: 700 15px 'Nunito', ui-rounded, system-ui, sans-serif;
     text-align: center;
 }
 #send-game-name:focus {
@@ -1345,42 +1378,55 @@ body:not(.ui-advanced) #btn-station-catalog { display: none; }
     padding: 8px 11px;
     border-radius: 10px;
     background: #fafafd;
-    font: 700 12.5px 'Nunito';
+    font: 700 12.5px 'Nunito', ui-rounded, system-ui, sans-serif;
     color: var(--ink);
 }
 .send-req-icon { display: inline-flex; color: var(--pink); flex: none; }
+.send-requirements.send-pills { flex-direction: row; flex-wrap: wrap; justify-content: center; }
+.send-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    background: #fff0f6;
+    font: 800 12.5px 'Nunito', ui-rounded, system-ui, sans-serif;
+    color: var(--ink);
+}
+.no-serial-note {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    text-align: left;
+    background: #fff6e0;
+    color: #5b5468;
+    border-radius: 16px;
+    padding: 14px 16px;
+    margin-bottom: 16px;
+    font: 14px 'Nunito', ui-rounded, system-ui, sans-serif;
+}
+.no-serial-note [data-icon] { color: #b36b00; flex: none; display: inline-flex; }
+.no-serial-note strong { display: block; font: 900 15px 'Nunito', ui-rounded, system-ui, sans-serif; color: #7a4a00; margin-bottom: 2px; }
+.no-serial-banner {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 5;
+    text-align: center;
+    background: #fff6e0;
+    color: #7a4a00;
+    font: 800 13px 'Nunito', ui-rounded, system-ui, sans-serif;
+    padding: 4px 12px;
+}
+body.no-serial .no-serial-banner { display: block; }
 #modal-passphrase {
     width: 100%;
     padding: 10px 12px;
     border: 1.5px solid var(--border);
     border-radius: 10px;
-    font: 14px 'Nunito';
+    font: 14px 'Nunito', ui-rounded, system-ui, sans-serif;
     margin: 12px 0;
 }
-
-.send-icons-row {
-    display: flex;
-    justify-content: center;
-    flex-wrap: wrap;
-    gap: 14px;
-    margin-bottom: 18px;
-    list-style: none;
-    padding: 0;
-}
-.send-icons-row li,
-.send-icon-item {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 4px;
-    font: 700 11px 'Nunito';
-    color: var(--muted);
-}
-.send-icon-item svg { flex: none; }
-.send-icon-item.wand { color: var(--purple); }
-.send-icon-item.nfc { color: var(--pink); }
-.send-icon-item.shake { color: var(--teal); }
-.send-icon-item.other { color: var(--icon-ink); }
 
 .tag-bars { display: flex; gap: 6px; margin-bottom: 18px; }
 .tag-bar { flex: 1; height: 8px; border-radius: 5px; background: #eee; }
@@ -1393,30 +1439,21 @@ body:not(.ui-advanced) #btn-station-catalog { display: none; }
     border-radius: 12px;
     background: #fafafd;
     margin-bottom: 8px;
-    font: 700 13px 'Nunito';
+    font: 700 13px 'Nunito', ui-rounded, system-ui, sans-serif;
     color: var(--ink);
 }
 .tag-row.next { background: #fff8e0; }
 .tag-row.done { background: #f7fefb; }
 .tag-row .tag-name { flex: 1; }
-.tag-row .tag-status { color: var(--muted); font: 700 11px 'Nunito'; }
+.tag-row .tag-status { color: var(--muted); font: 700 11px 'Nunito', ui-rounded, system-ui, sans-serif; }
 .tag-row.done .tag-status { color: var(--teal); }
 
-#send-progress-wrap { margin: 12px 0; }
-#send-progress-track { height: 8px; background: #eee; border-radius: 5px; overflow: hidden; }
-#send-progress-bar { height: 100%; width: 0; background: var(--teal); transition: width 0.2s; }
 
 /* Distribute code (js/distribute.js) */
-.overlay-card-distribute { max-width: 520px; max-height: 80vh; overflow: auto; }
-.dist-table { width: 100%; border-collapse: collapse; margin: 4px 0 12px; font: 13px 'Nunito'; text-align: left; }
-.dist-table th { font: 700 11px 'Nunito'; color: var(--muted); padding: 4px 6px; border-bottom: 1px solid var(--border); }
-.dist-table td { padding: 6px; border-bottom: 1px solid var(--border); vertical-align: middle; }
-.dist-name-cell { display: flex; align-items: center; gap: 4px; }
-.dist-name { font-weight: 800; color: var(--ink); }
+.overlay-card-distribute { max-height: 80vh; overflow: auto; }
 .dist-rename { border: 0; background: none; padding: 0 2px; color: var(--muted); cursor: pointer; font-size: 13px; line-height: 1; }
 .dist-rename:hover { color: var(--purple); }
-.dist-nick-input { font: 800 13px 'Nunito'; width: 100%; max-width: 160px; padding: 2px 4px; border: 1px solid var(--purple); border-radius: 4px; }
-.dist-kind { display: block; font-size: 11px; color: var(--muted); }
+.dist-nick-input { font: 800 13px 'Nunito', ui-rounded, system-ui, sans-serif; width: 100%; max-width: 160px; padding: 2px 4px; border: 1px solid var(--purple); border-radius: 4px; }
 .dist-check { appearance: none; width: 18px; height: 18px; margin: 0; border: 2px solid var(--border); border-radius: 6px; background: #fff; cursor: pointer; display: grid; place-content: center; }
 .dist-check:checked { background: var(--purple); border-color: var(--purple); }
 .dist-check:checked::after { content: ''; width: 5px; height: 9px; border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg) translate(-1px, -1px); }
@@ -1427,14 +1464,10 @@ body:not(.ui-advanced) #btn-station-catalog { display: none; }
 .dist-sig i:nth-child(2) { height: 9px; }
 .dist-sig i:nth-child(3) { height: 13px; }
 .dist-sig-1 i:nth-child(-n+1), .dist-sig-2 i:nth-child(-n+2), .dist-sig-3 i { background: var(--teal-dark); }
-.dist-state { font-size: 12px; color: var(--muted); }
-.dist-pulling .dist-state { color: var(--purple); }
-.dist-done .dist-state { color: var(--teal-dark); font-weight: 700; }
-.dist-failed .dist-state { color: #c0392b; font-weight: 700; }
-.dist-actions { display: flex; gap: 8px; justify-content: flex-end; margin-bottom: 8px; }
-.dist-progress-track { height: 8px; background: #eee; border-radius: 5px; overflow: hidden; }
-#dist-progress-bar { height: 100%; width: 0; background: var(--teal); transition: width 0.2s; }
-#dist-progress-wrap { margin: 0 0 12px; }
+.dist-top { position: absolute; top: 10px; right: 10px; display: flex; gap: 2px; }
+.dist-top .dist-icon-btn { position: static; }
+.dist-icon-btn:disabled { opacity: 0.4; cursor: default; }
+#btn-dist-send:disabled { background: #d8d4e0; color: #7a7388; cursor: default; box-shadow: none; }
 
 /* My Box */
 .mybox-top {
@@ -1450,7 +1483,7 @@ body:not(.ui-advanced) #btn-station-catalog { display: none; }
     gap: 7px;
     background: var(--serve-bg);
     color: var(--serve-fg);
-    font: 800 12px 'Nunito';
+    font: 800 12px 'Nunito', ui-rounded, system-ui, sans-serif;
     padding: 7px 13px;
     border-radius: 14px;
 }
@@ -1484,7 +1517,7 @@ body:not(.ui-advanced) #btn-station-catalog { display: none; }
     gap: 9px;
     padding: 9px 0;
     border-bottom: 1px solid #f4f2fa;
-    font: 700 13px 'Nunito';
+    font: 700 13px 'Nunito', ui-rounded, system-ui, sans-serif;
 }
 .box-lib-radio {
     border: none;
@@ -1496,7 +1529,7 @@ body:not(.ui-advanced) #btn-station-catalog { display: none; }
 }
 .box-lib-radio.active { color: var(--pink); }
 .box-lib-name { flex: 1; color: var(--ink); }
-.box-lib-pulls { font: 11px 'Nunito'; color: var(--muted); }
+.box-lib-pulls { font: 11px 'Nunito', ui-rounded, system-ui, sans-serif; color: var(--muted); }
 .overlay-card .box-lib-dist { margin-top: 0; flex: none; }
 .box-lib-del {
     border: none;
@@ -1513,7 +1546,7 @@ body:not(.ui-advanced) #btn-station-catalog { display: none; }
     border-radius: 8px;
     padding: 5px 8px;
     cursor: pointer;
-    font: 700 11px 'Nunito';
+    font: 700 11px 'Nunito', ui-rounded, system-ui, sans-serif;
 }
 .mybox-footer {
     display: flex;
@@ -1522,7 +1555,7 @@ body:not(.ui-advanced) #btn-station-catalog { display: none; }
     margin-top: 14px;
 }
 .mybox-stats { margin-top: 16px; }
-.mybox-stats h3 { font: 800 13px 'Nunito'; margin: 0 0 8px; }
+.mybox-stats h3 { font: 800 13px 'Nunito', ui-rounded, system-ui, sans-serif; margin: 0 0 8px; }
 .box-stats-text {
     text-align: left;
     background: #f7f6fb;
@@ -1547,7 +1580,7 @@ body.ui-advanced .more-item.advanced-only { display: flex !important; }
     color: #fff;
     padding: 12px 20px;
     border-radius: 12px;
-    font: 700 13px 'Nunito';
+    font: 700 13px 'Nunito', ui-rounded, system-ui, sans-serif;
     z-index: 300;
     max-width: 90vw;
 }
@@ -1559,7 +1592,7 @@ body.ui-advanced .more-item.advanced-only { display: flex !important; }
     right: 20px;
     background: var(--ink);
     color: #fff;
-    font: 700 12px 'Nunito';
+    font: 700 12px 'Nunito', ui-rounded, system-ui, sans-serif;
     padding: 9px 16px;
     border-radius: 12px;
     display: flex;
@@ -1579,7 +1612,7 @@ body.ui-advanced .more-item.advanced-only { display: flex !important; }
     color: #fff;
     padding: 12px 20px;
     border-radius: 14px;
-    font: 800 14px 'Nunito';
+    font: 800 14px 'Nunito', ui-rounded, system-ui, sans-serif;
     z-index: 250;
     display: flex;
     align-items: center;
@@ -1639,7 +1672,7 @@ body.ui-advanced .more-item.advanced-only { display: flex !important; }
     flex-shrink: 0;
 }
 .serial-log-bar button {
-    font: 700 11px 'Nunito';
+    font: 700 11px 'Nunito', ui-rounded, system-ui, sans-serif;
     padding: 4px 10px;
     cursor: pointer;
     border-radius: 8px;
@@ -1680,7 +1713,7 @@ body.ui-advanced .more-item.advanced-only { display: flex !important; }
 }
 #serial-log-panel.open .log-pane.active { display: block; }
 
-.modal-error { color: #c0392b; font: 13px 'Nunito'; min-height: 1.2em; }
+.modal-error { color: #c0392b; font: 13px 'Nunito', ui-rounded, system-ui, sans-serif; min-height: 1.2em; }
 
 @media (max-width: 768px) {
     #app-shell {
@@ -1735,15 +1768,15 @@ body.ui-advanced .more-item.advanced-only { display: flex !important; }
     align-items: center;
     gap: 8px;
     padding: 5px 0;
-    font: 600 12px 'Nunito';
+    font: 600 12px 'Nunito', ui-rounded, system-ui, sans-serif;
     color: var(--muted);
 }
 .box-tag-row.done { color: var(--ink); }
 .box-tag-icon { display: inline-flex; flex: none; color: #c2b8d6; }
 .box-tag-row.done .box-tag-icon { color: var(--teal); }
 .box-tag-name { flex: 1; }
-.box-tag-count { font: 700 11px 'Nunito'; }
-.box-tag-note { font: 11px 'Nunito'; color: var(--muted); margin: 4px 0 0; }
+.box-tag-count { font: 700 11px 'Nunito', ui-rounded, system-ui, sans-serif; }
+.box-tag-note { font: 11px 'Nunito', ui-rounded, system-ui, sans-serif; color: var(--muted); margin: 4px 0 0; }
 
 /* Sending: no abort is possible mid-write, so the button locks rather than
    inviting a second click. */
@@ -1754,3 +1787,468 @@ body.ui-advanced .more-item.advanced-only { display: flex !important; }
 }
 #send-game-name:disabled { color: var(--muted); cursor: not-allowed; }
 
+
+/* ======================================================================
+   Design-canvas boards (2026-11-11 simple-mode corrections). Rules here
+   apply in every mode unless scoped to body:not(.ui-advanced), which is
+   simple mode. Simple mode differs only in the game workspace: the chat
+   pane's sizes and the title bar.
+
+   .simple-only / .adv-only mark markup that exists for one mode.
+   ====================================================================== */
+.simple-only { display: none !important; }
+body:not(.ui-advanced) .simple-only { display: revert !important; }
+body:not(.ui-advanced) .simple-only[hidden] { display: none !important; }
+body:not(.ui-advanced) .adv-only { display: none !important; }
+
+/* ---- Dialog cards: 32px corners ---- */
+.overlay-card {
+    border-radius: 32px;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.22);
+}
+.overlay-card h2 { margin: 0 0 6px; }
+#connect-overlay .btn-secondary,
+#send-confirm-overlay .btn-secondary,
+#send-confirm-overlay .btn-primary,
+#distribute-overlay .btn-primary {
+    border-radius: 18px;
+    padding: 14px;
+}
+#connect-overlay .btn-secondary,
+#send-confirm-overlay .btn-secondary { border: 2px solid #e8e6f0; }
+#connect-overlay .overlay-close-x,
+#send-confirm-overlay .overlay-close-x,
+#distribute-overlay .overlay-close-x {
+    width: 44px;
+    height: 44px;
+    top: 20px;
+    right: 20px;
+    border-radius: 14px;
+    background: #f4f2fa;
+    align-items: center;
+    justify-content: center;
+}
+
+/* ---- Connect: USB title row and two tiles ---- */
+#connect-overlay .overlay-card { max-width: 640px; padding: 36px 40px; }
+#connect-overlay .connect-title { text-align: center; margin: 0; }
+#connect-overlay .connect-sub { text-align: center; margin: 6px 0 0; }
+.connect-tiles {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+    margin: 24px 0;
+}
+.connect-tiles .connect-tile {
+    color: #231f2e;
+    background: #fff;
+    border: 2px solid #e8e6f0;
+    border-radius: 24px;
+    padding: 28px 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    margin: 0;
+    font: 800 15px 'Nunito', ui-rounded, system-ui, sans-serif;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+}
+.connect-tiles .connect-tile:hover,
+.connect-tiles .connect-tile:focus-visible { border-color: #6c4cd1; background: #f7f5ff; outline: none; }
+/* Both tiles are equal choices: one icon color, no device color. */
+.tile-icon { color: var(--purple); display: flex; height: 116px; align-items: center; justify-content: center; }
+#btn-connect-cancel { width: 100%; }
+
+/* ---- Send game ---- */
+#send-confirm-overlay .overlay-card-send { max-width: 640px; padding: 36px 40px; text-align: left; }
+.send-name-label,
+.send-need-label {
+    color: #6b6578;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+.send-need-label { margin: 18px 0 10px; }
+.send-requirements.send-pills { justify-content: flex-start; }
+.send-pill {
+    gap: 10px;
+    padding: 10px 14px;
+    border-radius: 14px;
+    background: #f7f7fb;
+}
+#send-game-name {
+    text-align: left;
+    padding: 14px 20px;
+    border: 2px solid #e8e6f0;
+    border-radius: 18px;
+    background: #f7f7fb;
+}
+.send-name-field { margin-bottom: 0; }
+#btn-send-confirm { box-shadow: 0 8px 18px rgba(239, 77, 146, 0.3); }
+#btn-send-confirm:disabled { background: #f4f2fa; color: #6b6578; box-shadow: none; }
+
+/* ---- Sending: the form is swapped for this while the file is written ---- */
+#send-sending { display: flex; flex-direction: column; align-items: center; gap: 22px; text-align: center; }
+#send-sending[hidden] { display: none; }
+.sending-hero { display: flex; align-items: center; gap: 22px; }
+.sending-dots { display: flex; gap: 8px; }
+.sending-dots i {
+    width: 14px; height: 14px; border-radius: 50%; background: #ef4d92;
+    animation: sending-dot 1.2s infinite ease-in-out;
+}
+.sending-dots i:nth-child(2) { animation-delay: 0.2s; }
+.sending-dots i:nth-child(3) { animation-delay: 0.4s; }
+@keyframes sending-dot { 0%, 100% { opacity: 0.25; } 40% { opacity: 1; } }
+.sending-tile {
+    width: 84px; height: 84px; border-radius: 22px; background: #1c9a82; color: #fff;
+    display: flex; align-items: center; justify-content: center;
+}
+#send-sending h2, #send-sending p { margin: 0; }
+.sending-track { align-self: stretch; height: 18px; border-radius: 9px; background: #f4f2fa; overflow: hidden; }
+#sending-bar { width: 0; height: 100%; background: #22c3a6; border-radius: 9px; transition: width 0.2s; }
+#sending-label { align-self: stretch; font: 12px 'Nunito', ui-rounded, system-ui, sans-serif; color: #6b6578; min-height: 1.4em; }
+#send-sending .btn-secondary { align-self: stretch; color: #6b6578; }
+
+/* ---- Sent ---- */
+#send-confirm-success { text-align: center; }
+#send-confirm-success .send-success-icon {
+    width: 96px; height: 96px; border-radius: 50%; background: #e9fbf6; color: #1c9a82;
+    margin: 0 auto 22px; display: flex; align-items: center; justify-content: center;
+}
+#send-success-note:empty { display: none; }
+.send-next {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    text-align: left;
+    border: 2px solid #e8e6f0;
+    border-radius: 22px;
+    padding: 20px;
+    margin: 22px 0 14px;
+}
+.send-next[hidden] { display: none; }
+.send-next-head { display: flex; align-items: center; gap: 14px; color: #6c4cd1; }
+.send-next-head b { display: block; color: #231f2e; }
+.send-next-head div span { color: #5b5468; }
+#btn-send-distribute { border-radius: 18px; padding: 16px; background: #22c3a6; color: #fff; border: 0; }
+#btn-send-done {
+    background: #fff;
+    color: #5b5468;
+    border: 2px solid #e8e6f0;
+    box-shadow: none;
+    border-radius: 18px;
+    padding: 14px;
+    width: 100%;
+}
+
+/* ---- Distribute: one card per device ---- */
+.overlay-card-distribute { max-width: 680px; padding: 32px 36px; text-align: left; }
+.overlay-card-distribute h2 { margin: 0 0 4px; }
+#dist-status { margin: 0 0 18px; }
+#dist-status:empty { display: none; }
+.dist-cards { display: flex; flex-direction: column; gap: 10px; margin-bottom: 18px; }
+.dcard {
+    display: flex; align-items: center; gap: 14px; cursor: pointer;
+    border: 2.5px solid #e8e6f0; background: #fff; border-radius: 20px; padding: 14px 16px;
+}
+.dcard.sel { border-color: #6c4cd1; background: #f7f5ff; }
+.dcard.dist-done { border-width: 2px; background: #f3fdfa; cursor: default; }
+.dcard.dist-queued, .dcard.dist-pulling, .dcard.dist-failed { border-width: 2px; cursor: default; }
+.dcard .dist-check { width: 26px; height: 26px; flex: none; }
+.dcard .dicon { display: inline-flex; flex: none; }
+.dcard .dname { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.dcard .dname span { color: #6b6578; }
+.dcard .dname-row { display: flex; align-items: center; gap: 6px; }
+.dbatt {
+    display: flex; align-items: center; gap: 6px;
+    color: #1c9a82; background: #e9fbf6; border-radius: 12px; padding: 6px 10px;
+}
+.dcard .dist-find {
+    display: flex; align-items: center; gap: 6px; color: #231f2e;
+    border: 2px solid #e8e6f0; background: #fff; border-radius: 14px; padding: 10px 14px; cursor: pointer;
+}
+.dcard .dist-find svg { color: #6c4cd1; }
+.dbar { height: 10px; border-radius: 5px; background: #f4f2fa; overflow: hidden; }
+.dbar-fill { height: 100%; border-radius: 5px; width: 0; }
+.dbar-pulling { width: 45%; background: #6c4cd1; animation: dbar-slide 1.2s infinite ease-in-out; }
+.dbar-done { width: 100%; background: #22c3a6; }
+.dbar-failed { width: 100%; background: #b0281c; }
+@keyframes dbar-slide { 0%, 100% { margin-left: 0; } 50% { margin-left: 55%; } }
+.dstatus { width: 150px; display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+.dstatus-queued { color: #8b859a; }
+.dstatus-pulling { color: #6c4cd1; }
+.dstatus-done { color: #1c9a82; }
+.dstatus-failed { color: #b0281c; }
+
+/* ======================================================================
+   Game workspace
+   ====================================================================== */
+
+/* Simulation/Icons tabs sit in the title bar (app.js placePreviewTabs). */
+.ws-titlebar .preview-toolbar {
+    margin-left: auto;
+    margin-right: 28px;
+    padding: 0;
+    min-height: 0;
+    border: 0;
+    background: none;
+}
+.ws-titlebar .preview-toolbar.hidden { display: none; }
+.ws-titlebar .preview-segment { border-radius: 16px; padding: 4px; }
+.ws-titlebar .preview-tab { border-radius: 10px; }
+.ws-titlebar .preview-toolbar:not(.hidden) + .ws-titlebar-actions { margin-left: 0; }
+/* Too narrow for the title bar (app.js fitPreviewTabs): their own row at
+   the top of the simulator column, right-aligned as in the title bar (the
+   base .preview-toolbar rule's flex-end), 28px in from the edge. */
+.preview-col > .preview-toolbar { padding-right: 28px; }
+
+/* Simple mode title bar: a white row; the send button sits over the chat
+   column (--chat-w, set by paneSplit.js). */
+body:not(.ui-advanced) .ws-titlebar {
+    gap: 12px;
+    padding: 0 0 0 20px;
+    min-height: 52px;
+    background: #fff;
+    border-bottom: 1px solid #e8e6f0;
+}
+body:not(.ui-advanced) .ws-titlebar-actions {
+    margin-left: auto;
+    flex: none;
+    /* The divider handle (.ws-resizer) takes no width, so this border
+       lines up with the chat column's left border. */
+    width: var(--chat-w, 340px);
+    box-sizing: border-box;
+    align-self: stretch;
+    justify-content: flex-end;
+    padding: 12px 24px;
+    border-left: 1px solid #e8e6f0;
+}
+body:not(.ui-advanced) .btn-send-box { padding: 11px 16px; border-radius: 14px; }
+
+/* Simple mode chat pane: larger bubbles, input and avatar. */
+body:not(.ui-advanced) #chat-box { padding: 20px 24px; gap: 16px; }
+body:not(.ui-advanced) .msg { padding: 14px 22px; }
+body:not(.ui-advanced) .msg.user { margin-left: 56px; }
+body:not(.ui-advanced) .msg.bot { border-width: 1.5px; }
+body:not(.ui-advanced) .msg-row.bot { margin-right: 56px; gap: 10px; }
+body:not(.ui-advanced) .msg-row.bot > .msg.bot { max-width: none; flex: 1 1 auto; }
+body:not(.ui-advanced) .msg-avatar { flex-basis: 36px; width: 36px; height: 36px; }
+body:not(.ui-advanced) .msg-avatar svg { width: 18px; height: 18px; }
+body:not(.ui-advanced) .chat-input-row { padding: 16px 20px; gap: 10px; align-items: center; }
+body:not(.ui-advanced) #user-input {
+    --input-pad-y: 16px;
+    border-radius: 24px;
+    padding: var(--input-pad-y) 20px;
+}
+body:not(.ui-advanced) .btn-send-round { width: 54px; height: 54px; }
+body:not(.ui-advanced) .btn-send-round svg { width: 24px; height: 24px; }
+
+/* "See the code" link under a reply (simple mode, markdown.js) */
+.see-code {
+    display: inline-block;
+    margin-top: 8px;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: #6b6578;
+    cursor: pointer;
+}
+.see-code:hover { color: #a8265c; text-decoration: underline; }
+
+/* Follow-up chips */
+.choice-chips { gap: 10px; padding: 0 0 4px; }
+.choice-chips .starter-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 18px;
+    border-radius: 18px;
+    border: 2px solid #e8e6f0;
+    background: #fff;
+    color: #231f2e;
+}
+.choice-chips .starter-chip svg { color: #d13a7c; flex: none; }
+
+/* Earlier turns folded into one row (simple mode, chat.js collapseEarlier) */
+.earlier { align-self: stretch; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.earlier-toggle {
+    border: 0;
+    border-radius: 12px;
+    background: #f4f2fa;
+    color: #6b6578;
+    padding: 6px 14px;
+    cursor: pointer;
+}
+.earlier-toggle:hover { background: #ece8f7; }
+.earlier-body { display: none; flex-direction: column; gap: 16px; align-self: stretch; }
+.earlier.open .earlier-body { display: flex; }
+
+/* ---- New game: chat alone, centered, on white ---- */
+body.chat-fresh .ws-body { background: #fff; }
+body.chat-fresh .preview-col,
+body.chat-fresh .ws-titlebar,
+body.chat-fresh .ws-resizer { display: none; }
+body.chat-fresh .chat-col {
+    width: 760px !important;
+    min-width: 0;
+    max-width: 100%;
+    margin: 0 auto;
+    border-left: 0;
+}
+body.chat-fresh #chat-box { justify-content: flex-start; padding: 28px 24px; }
+body.chat-fresh #chat-box > :first-child { margin-top: 0; }
+body.chat-fresh .chat-input-row { border-top: 0; padding: 16px 24px 32px; }
+body:not(.chat-fresh) .preview-col { animation: sim-in 0.35s ease-out; }
+@keyframes sim-in { from { opacity: 0; transform: translateX(-24px); } to { opacity: 1; transform: none; } }
+
+.new-game { display: flex; flex-direction: column; gap: 18px; flex-wrap: nowrap; padding: 0; margin: auto 0; }
+.ng-head { display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; }
+.ng-head h1 { margin: 0; color: #231f2e; }
+.ng-head p { margin: 0; color: #5b5468; }
+.ng-options { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+.new-game .ng-card {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 14px;
+    text-align: left;
+    padding: 16px 20px;
+    border-radius: 20px;
+    border: 0;
+    background: linear-gradient(135deg, var(--pink), var(--pink-dark));
+    color: #fff;
+    box-shadow: 0 6px 18px rgba(239, 77, 146, 0.3);
+}
+.new-game .ng-card:hover { filter: brightness(1.05); }
+.new-game .ng-card span { color: rgba(255, 255, 255, 0.88); margin-left: auto; }
+.ng-label { color: #6b6578; text-transform: uppercase; letter-spacing: 0.06em; }
+.ng-ideas { display: flex; flex-direction: column; gap: 10px; }
+.new-game .ng-idea {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    text-align: left;
+    padding: 12px 16px;
+    border-radius: 18px;
+    border: 2px solid #e8e6f0;
+    background: #fff;
+    color: #231f2e;
+}
+.ng-tile { width: 48px; height: 48px; flex: none; border-radius: 12px; display: flex; align-items: center; justify-content: center; }
+
+/* ======================================================================
+   My games and Example games (design board "Saved games"): the gallery
+   view's own header and the one game card both lists use
+   ====================================================================== */
+.btn-new-game { background: linear-gradient(135deg, var(--pink), var(--pink-dark)); }
+#view-gallery .gallery-toolbar { padding: 24px 28px; }
+/* Category chips line up with the cards and keep a gap above them. */
+#gallery-chips { padding: 0 28px 18px; }
+#gallery-search {
+    width: 340px;
+    border: 1.5px solid #e8e6f0;
+    border-radius: 20px;
+    padding: 12px 18px;
+}
+.gallery-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 20px;
+    padding: 0 28px 28px;
+}
+.game-card {
+    padding: 0;
+    border-radius: 22px;
+    overflow: visible;
+    display: flex;
+    flex-direction: column;
+    cursor: default;
+    position: relative;
+}
+.game-card .game-thumb {
+    height: 132px;
+    margin: 0;
+    border-radius: 22px 22px 0 0;
+    align-items: center;
+    justify-content: center;
+}
+.game-card .thumb5 {
+    grid-template-columns: repeat(5, 15px);
+    grid-auto-rows: 15px;
+    gap: 3px;
+    background: #14121a;
+    padding: 8px;
+    border-radius: 10px;
+}
+.game-card .thumb5 i { border-radius: 3px; background: #26222e; }
+.game-card .card-body { padding: 14px 16px 6px; display: flex; flex-direction: column; gap: 4px; }
+.game-card h3 { margin: 0; }
+.game-card p { margin: 0; color: #6b6578; }
+.game-card .card-devices { color: #5b5468; }
+/* Two lines at most, and always two lines tall, so cards line up. */
+.game-card .card-note {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    line-height: 1.4;
+    min-height: 2.8em;
+}
+.game-card .card-actions { position: relative; padding: 8px 16px 14px; display: flex; gap: 8px; align-items: center; }
+.game-card .card-open {
+    flex: 1;
+    border: 0;
+    border-radius: 14px;
+    padding: 11px;
+    background: #f2eefc;
+    color: #6c4cd1;
+    cursor: pointer;
+}
+.game-card .card-more {
+    width: 44px;
+    height: 44px;
+    flex: none;
+    border-radius: 14px;
+    border: 1.5px solid #e8e6f0;
+    background: #fff;
+    color: #5b5468;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+.card-menu {
+    position: absolute;
+    right: 16px;
+    bottom: 64px;
+    z-index: 5;
+    min-width: 150px;
+    background: #fff;
+    border: 1.5px solid #e8e6f0;
+    border-radius: 14px;
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.16);
+    padding: 6px;
+    display: flex;
+    flex-direction: column;
+}
+.card-menu.hidden { display: none; }
+.card-menu button {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border: 0;
+    background: none;
+    border-radius: 10px;
+    padding: 10px 12px;
+    color: #231f2e;
+    cursor: pointer;
+    text-align: left;
+}
+.card-menu button:hover { background: #f4f2fa; }
+
+/* ---- Type sizes for the elements above, matched to the app's scale ---- */
+.new-game button, .dcard button, .game-card button, .connect-tile,
+.ng-idea, .dstatus, .ng-label { font: 700 13px 'Nunito', ui-rounded, system-ui, sans-serif; }
+.ng-head h1, #send-sending h2 { font: 800 18px 'Nunito', ui-rounded, system-ui, sans-serif; }
+.ng-head p, .dcard .dname span, .game-card p, .game-card .card-devices, .send-next-head div span { font: 12px 'Nunito', ui-rounded, system-ui, sans-serif; }
+.new-game .ng-card b, .dcard .dname b, .game-card h3, .send-next-head b { font: 800 14px 'Nunito', ui-rounded, system-ui, sans-serif; }
+.new-game .ng-card span { font: 12px 'Nunito', ui-rounded, system-ui, sans-serif; }
