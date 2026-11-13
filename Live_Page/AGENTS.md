@@ -18,6 +18,14 @@ tree for the wand preview and example games. Both are copies from
 `Bag3/Code/BroadcastCode/ChatBroadcast` and `Bag3/Code/Simulator` — edit the Bag3 trees for
 day-to-day work, then re-copy into Live_Page when promoting a build to Pages.
 
+After re-copying, fix the paths that cross into `Simulator/`: ChatBroadcast sits one level
+shallower here (`Live_Page/ChatBroadcast/` vs `Bag3/Code/BroadcastCode/ChatBroadcast/`), so
+`../../../Simulator/` becomes `../../Simulator/` in `js/app.js` (two `sim-room.js` imports) and
+`js/examples.js` (`vendor/games/`). Left as copied, the Simulator fails to load on Pages
+("Failed to fetch dynamically imported module …/Simulator/sim-room.js"). The firmware paths in
+`js/device/boxFirmwareInstaller.js` don't resolve here either; nothing calls that installer, and
+Flasher flashes the Box and Dial.
+
 `WebApp/` is the Bag1 legacy controller, `Code_Upload/` is Flasher's dead predecessor pinned to a
 stale branch, `If_Splats/` is an unrelated Web Bluetooth demo, and `wand_icons.html` is a static
 reference, not an app. Don't pattern-match off those four.
