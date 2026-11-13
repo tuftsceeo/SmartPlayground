@@ -28,7 +28,8 @@ const EXPERIMENT = resolve(HERE, "..");
 const SIG7 = "def play(nfc, leds, buz, accel, i2c, enow, batt=None):\n";
 const SIG_NET = "def play(nfc, leds, buz, accel, i2c, enow, batt=None, net=None):\n";
 const SIG_SPLATS = "def play(nfc, leds, buz, accel, i2c, enow, batt=None, splats=None):\n";
-const HOST_END = "    while True:\n        ev = net.poll()\n        if ev == (\"end\",):\n            return\n";
+const LOST = "    lost = (\"splat_lost\", \"wand_lost\")\n    if ev == (\"splat_lost\", 0) or ev == (\"wand_lost\", 0):\n        lost = None\n";
+const HOST_END = "    while True:\n        ev = net.poll()\n        if ev == (\"end\",):\n            return\n" + LOST;
 
 let failed = 0;
 function t(name, fn) {
@@ -103,11 +104,22 @@ t("host game: needs SPLATS_MIN", () => one("SPLAT_HOST = True\n" + SIG_NET + HOS
 t("host game: needs net=None", () => has("SPLAT_HOST = True\nSPLATS_MIN = 1\n" + SIG7 + HOST_END, /needs `net=None`/));
 t("host game: takes net, not splats", () => has("SPLAT_HOST = True\nSPLATS_MIN = 1\n" + SIG_SPLATS + HOST_END, /takes `net`, not `splats`/));
 t("host game: must not call enow.poll()", () => one(HOST + SIG_NET + "    t, d, m = enow.poll()\n" + HOST_END, /enow\.poll/));
-t("host game: must return on (\"end\",)", () => one(HOST + SIG_NET + "    ev = net.poll()\n", /must return when net.poll\(\) reports/));
+t("host game: must return on (\"end\",)", () => one(HOST + SIG_NET + "    ev = net.poll()\n" + LOST, /must return when net.poll\(\) reports/));
 t("host game: a return up to two lines below (\"end\",) is accepted", () =>
-  clean(HOST + SIG_NET + "    ev = net.poll()\n    if ev == (\"end\",) or ev == (\"leader_lost\",):\n        led = 0\n        return\n"));
+  clean(HOST + SIG_NET + "    ev = net.poll()\n    if ev == (\"end\",) or ev == (\"leader_lost\",):\n        led = 0\n        return\n" + LOST));
 t("host game: net.splat() without an is_host check is refused", () =>
   one(HOST + SIG_NET + "    net.splat(0).off()\n" + HOST_END, /never checks is_host/));
+const NOEND = HOST + SIG_NET + "    while True:\n        ev = net.poll()\n        if ev == (\"end\",):\n            return\n";
+t("host game: ignoring splat_lost and wand_lost is refused", () => {
+  const p = probs(NOEND);
+  assert.equal(p.length, 2, p.join(" | "));
+  assert.match(p[0], /splat_lost/); assert.match(p[1], /wand_lost/);
+});
+t("host game: only wand_lost missing is named", () => one(NOEND + "    if ev == (\"splat_lost\", 0):\n        pass\n", /wand_lost/));
+t("host game: an event name in a comment does not count", () => {
+  const p = probs(NOEND + "    # handle splat_lost and wand_lost later\n");
+  assert.equal(p.length, 2, p.join(" | "));
+});
 t("host game: PLAYERS_MIN 0 is refused", () => one(HOST.replace("PLAYERS_MIN = 1", "PLAYERS_MIN = 0") + SIG_NET + HOST_END, /at least 1/));
 t("host game: PLAYERS_MIN not a number is refused", () => one(HOST.replace("PLAYERS_MIN = 1", "PLAYERS_MIN = x") + SIG_NET + HOST_END, /at least 1/));
 t("host game: SPLAT_HOST with SPLATS_LOCAL is refused", () => has("SPLAT_HOST = True\nSPLATS_LOCAL = 1\n" + SIG_SPLATS, /must not declare SPLAT_HOST/));

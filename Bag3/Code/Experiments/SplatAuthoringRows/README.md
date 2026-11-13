@@ -60,10 +60,22 @@ port), `knowledge/` (drafts for ChatBroadcast), `js/` (draft send-time check), `
 - Draft wiring: `js/wiring/wiring.patch` (apply with `patch -p1` from `ChatBroadcast/`) changes
   `app.js`, `chat.js`, `buildRequest.js` and `tools/chat_request_test.mjs`: `wand_splats` becomes `splats`,
   `SHARED_KNOWLEDGE` gains `game_types.md` and swaps `lobby_games.md` for `splat_host_games.md`. Checked on a
-  scratch copy with the draft knowledge files: `chat_request_test.mjs` passes (20 checks). Not patched, still
-  naming `lobby_games`/pooled calls: `tools/splat_game_check_test.mjs`, `tools/prompt_eval.mjs`,
-  `tools/devtests/lobbysim.py`, `tools/devtests/test_lobby_games.py`, `js/hardware.js` `isLobbyGame`.
-- `knowledge/splat_host_games.md` is 163 lines (was 178); the Splat Tag example is about 85 of them.
+  scratch copy with the draft knowledge files: `chat_request_test.mjs` passes (20 checks).
+- Readers: `js/wiring/readers.patch` (applies after `wiring.patch`; `patch -p1` from `ChatBroadcast/`) covers
+  `hardware.js` `isLobbyGame`, `prompt_eval.mjs` and `splat_game_check_test.mjs`. `js/wiring/devtests.patch`
+  (root `BroadcastCode/tools/devtests/`) ports `lobbysim.py`, `test_lobby_game.py`, `test_lobby_games.py` and
+  `test_splat_host.py`; in a scratch copy 57, 15 and 39 checks pass. Not re-applied to a fresh copy; generic
+  lobby cases there still gate on non-host `SPLATS_MIN` with Splat counts, which `main.py` now refuses.
+  `prompt_eval.mjs --self-test-sim` is not run (Simulator unsynced).
+- Send check: a type 9 game must name `splat_lost` and `wand_lost` outside comments. It is the only
+  automatic test of generated games until an eval and hardware run exist.
+- `knowledge/splat_host_games.md` is 120 lines. Its Splat Tag example is reduced (no score digits) and differs
+  from `wand/games/host_splattag.py`, which the devtests script.
+- `wand/games/colorpads.py` is the type 2 example as a bench game (`deploy.py --colorpads`);
+  `BENCH_CHECKLIST.md` lists the hardware tests and what to report.
+- `roles.js` signature check is unchanged (`net` optional, `splats` passes) while the prompt `roleSummary`
+  still shows `net=None`.
+- `Stations/IconDisplay/games/relaycolor.py` is orphaned (it listens for `relay_pass`).
 - Deleting `lobby_games.md` at promotion replaces its refused examples (Splat Race, Pass the Glow) with
   Color Pads (`wand_type2.md`, type 2) and Splat Tag (`splat_host_games.md`, type 9).
 - A player wand in a host game still reports its paired-Splat count at join; the lobby accepts it and
