@@ -28,11 +28,34 @@ export function renderMarkdown(el, text) {
     }
     if (last < text.length) parts.push({ type: "text", val: text.slice(last) });
 
+    const simple = getUiMode() === "simple" && !!workspaceHandler;
+    let seeCodeAdded = false;
     for (const part of parts) {
+        if (part.type === "code" && simple) {
+            // Simple mode: one "See the code" link per reply, no inline block.
+            if (!seeCodeAdded) {
+                el.appendChild(buildSeeCodeLink(part.val));
+                seeCodeAdded = true;
+            }
+            continue;
+        }
         el.appendChild(part.type === "code"
             ? buildCodeBlock(part.lang, part.val, { collapsed: getUiMode() === "simple" })
             : buildTextBlock(part.val));
     }
+}
+
+/** The simple-mode stand-in for a code block: a link that opens the code drawer. */
+function buildSeeCodeLink(code) {
+    const link = document.createElement("button");
+    link.type = "button";
+    link.className = "see-code";
+    link.textContent = "See the code";
+    link.addEventListener("click", () => {
+        dbg("markdown", `"See the code" clicked (${code.length} chars)`);
+        workspaceHandler(code.replace(/\n$/, ""));
+    });
+    return link;
 }
 
 /**
@@ -103,6 +126,38 @@ function splitRow(line) {
     return t.split("|").map((c) => c.trim());
 }
 
+const LIST_ITEM = /^\s*([-*]|\d+\.)\s/;
+function indentOf(line) { return line.match(/^\s*/)[0].replace(/\t/g, "    ").length; }
+
+/** A list starting at lines[i], nesting items indented deeper than `indent`
+ *  under the item above them. Returns [element, index after the list]. */
+function buildList(lines, i, indent) {
+    const ordered = /^\s*\d+\.\s/.test(lines[i]);
+    const list = document.createElement(ordered ? "ol" : "ul");
+    let li = null;
+    while (i < lines.length) {
+        const line = lines[i];
+        if (!line.trim()) {
+            const nxt = lines.slice(i + 1).find((l) => l.trim());
+            if (nxt && LIST_ITEM.test(nxt) && indentOf(nxt) >= indent) { i++; continue; }
+            break;
+        }
+        if (!LIST_ITEM.test(line)) break;
+        const d = indentOf(line);
+        if (d < indent) break;
+        if (d > indent && li) {
+            const [sub, next] = buildList(lines, i, d);
+            li.appendChild(sub);
+            i = next; continue;
+        }
+        if (/^\s*\d+\.\s/.test(line) !== ordered) break;
+        li = document.createElement("li");
+        li.innerHTML = inlineMd(line.replace(LIST_ITEM, ""));
+        list.appendChild(li); i++;
+    }
+    return [list, i];
+}
+
 function buildTextBlock(text) {
     const frag = document.createDocumentFragment();
     const lines = text.split("\n");
@@ -140,24 +195,10 @@ function buildTextBlock(text) {
             continue;
         }
 
-        if (/^[-*]\s/.test(line)) {
-            const ul = document.createElement("ul");
-            while (i < lines.length && /^[-*]\s/.test(lines[i])) {
-                const li = document.createElement("li");
-                li.innerHTML = inlineMd(lines[i].replace(/^[-*]\s/, ""));
-                ul.appendChild(li); i++;
-            }
-            frag.appendChild(ul); continue;
-        }
-
-        if (/^\d+\.\s/.test(line)) {
-            const ol = document.createElement("ol");
-            while (i < lines.length && /^\d+\.\s/.test(lines[i])) {
-                const li = document.createElement("li");
-                li.innerHTML = inlineMd(lines[i].replace(/^\d+\.\s/, ""));
-                ol.appendChild(li); i++;
-            }
-            frag.appendChild(ol); continue;
+        if (LIST_ITEM.test(line)) {
+            const [list, next] = buildList(lines, i, indentOf(line));
+            frag.appendChild(list);
+            i = next; continue;
         }
 
         const p = document.createElement("p");

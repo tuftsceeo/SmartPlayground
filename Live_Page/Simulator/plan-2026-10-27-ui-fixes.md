@@ -6,7 +6,7 @@ From the 2026-10-27 UI review (`Bag3/Code/Simulator/ui-review-2026-10-27.md`), t
 Paths below are relative to `Bag3/Code/`.
 
 ## Status
-- Done: icon display look (square cells, editor colour model, cartoon case).
+- Done: icon display look (square cells, editor color model, cartoon case).
 - ChatBroadcast (§3, #11): in its own session.
 - Remaining here: #2 reset per game, equal compact cards, × side, labels, tag picker, §2.
 
@@ -25,7 +25,7 @@ Paths below are relative to `Bag3/Code/`.
 
 **#10 Tag picker** — `js/controls.js` `.tag-pop` (absolute under the button, inside shadow DOM, clipped by card). Change to `position: fixed`, positioned in `setTagMenu(true)` from the button's `getBoundingClientRect()` (open beside/above the button, clamp to viewport), `z-index` high; reposition on scroll/resize while open. Works in both main and overlay (dialog is top layer — render the popover inside the same shadow root so it stays above the dialog contents).
 
-**Icon display look** (done) — `js/panels/display.js` `drawSquares`: 16x16 rounded-square cells; lit cells coloured with the icon editor's `ledSwatchHex` model; off cells dark grey on a black (smoked) diffuser; rounded charcoal case with highlight and drop shadow, matching the wand and Splat style.
+**Icon display look** (done) — `js/panels/display.js` `drawSquares`: 16x16 rounded-square cells; lit cells colored with the icon editor's `ledSwatchHex` model; off cells dark gray on a black (smoked) diffuser; rounded charcoal case with highlight and drop shadow, matching the wand and Splat style.
 
 ## 2. Simulator controls/layout
 **Remove status line** — `js/controls.js:326-327` markup + CSS ~170-176; keep `renderStatus` writing to the wand's `title`/aria only (errors still need surfacing: show error text in the existing failure overlay).

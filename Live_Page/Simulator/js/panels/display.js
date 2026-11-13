@@ -4,8 +4,8 @@
  * buttons (wand-sim's "ctrl" slot), each its own device on the room's bus.
  *
  * A display starts as a placeholder: the outline of a display with "?" and
- * "Click to Add Display" that runs nothing and is not on the radio. Clicking it, or loading a
- * game with a display file, wakes it: it boots its own Pyodide running
+ * "Click to Add Display" that runs nothing and is not on the radio. Clicking it, "+ Add a
+ * display", or loading a game with a display file, wakes it: it boots its own Pyodide running
  * py/icon_host.py, which copies IconDisplay/main.py's idle loop and runs the
  * display game against a simulated Matrix. Frames come back as the logical
  * 768-byte src plus intensity and are drawn as 16x16 square cells.
@@ -23,8 +23,9 @@
  *   createDisplaysPanel({ mount, room })
  *     .sync(game, stale)   the room loaded a game; game = room.displayGame
  *     .setIcons(slug, icons)
+ *     .stop() / .restart()  the room paused / restarted: stop or start the display game
  *     .placeIn(el)         move the displays into el (the all-wands dialog), or back with null
- *     .add()               add a placeholder display
+ *     .add()               add a display and start it
  *     .displays, .full     the devices, in order; whether there are MAX_DISPLAYS
  *
  *   createDisplayDevice({ bus, clock, mac, onLive })
@@ -35,6 +36,7 @@ import { PYODIDE_CDN } from "../../wand-sim.js";
 import { hexToBytes, bytesToHex } from "../radio.js";
 import { loadPyodideNoJspi } from "../pyboot.js";
 import { icon } from "../icons.js";
+import { addMinimize } from "./minimize.js";
 
 const W = 16;
 
@@ -92,16 +94,33 @@ button.display-case:hover { border-color: #6c4cd1; color: #6c4cd1; }
 button.display-case:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(108,76,209,.2); }
 .display-dev .display-status { min-height: 16px; font: 700 11px/1.4 'Nunito', system-ui, sans-serif; color: #5b5468; text-align: center; }
 .wand-card .display-dev { align-self: stretch; align-items: flex-start; margin-top: var(--wand-pad-top, 0); }
-.wand-card .display-case { width: var(--wand-pad, 220px); height: auto; aspect-ratio: 1; }
+.display-shelf { margin-top: 0; }
+.display-shelf, .display-shelf .display-dev { width: 100%; }
+/* A pale mint ring, a white outline, a dark bezel and an inset screen,
+   beside the wand and in the all-wands dialog. In both it is as wide as
+   the wand's square pad (--wand-pad). */
+.display-dev .display-case { height: auto; aspect-ratio: 1;
+  margin: 8px; padding: 5.5%; border-radius: 26px; background: #2b2a30;
+  box-shadow: 0 0 0 4px #fff, 0 0 0 9px #dff5ec, 0 14px 28px rgba(30,20,50,.16); }
+.display-dev .display-case canvas { border-radius: 12px; box-shadow: none; }
+.display-dev .display-case::after { display: none; }
+.display-dev button.display-case { background: #fff; box-shadow: none; }
+.display-shelf .display-case { width: min(var(--wand-pad, 272px), calc(100% - 16px)); }
+.display-label { display: none; }
+.display-shelf .display-label { display: flex; align-items: center; gap: 6px;
+  font: 800 17px 'Nunito', system-ui, sans-serif; color: #231f2e; }
+/* The all-wands dialog's display card: its own card, as wide as the display. */
+.wand-card.display-card { width: fit-content; max-width: 100%; justify-self: start; }
+.wand-card .display-case { width: var(--wand-pad, 220px); }
 .wand-card .display-case canvas { width: 100%; height: 100%; }
-.wand-card .chip.display { background: #f2eefc; color: #6c4cd1; }
+.wand-card .chip.display-name { background: #f1f0f4; color: #231f2e; }
 :host(:not([advanced])) .box[data-panel="displays"],
 :host(:not([advanced])) .display-dev .rm { display: none; }
 :host(:not([advanced])) .display-shelf:not(.in-game) { display: none; }
 `;
 
-// LED duty -> screen colour, from Stations/Icon Display Station/webapp/js/pipeline/ledGamut.js
-// (ledSwatchHex): WS2812B primaries as XYZ, clipped to sRGB. Same colours as the icon editor.
+// LED duty -> screen color, from Stations/Icon Display Station/webapp/js/pipeline/ledGamut.js
+// (ledSwatchHex): WS2812B primaries as XYZ, clipped to sRGB. Same colors as the icon editor.
 const LED_PRIM = [[0.7006, 0.2993, 400], [0.0743, 0.8338, 1150], [0.1241, 0.0578, 250]]
   .map(([x, y, Iv]) => [(x / y) * Iv, Iv, ((1 - x - y) / y) * Iv]);
 const LED_Y = LED_PRIM.reduce((t, p) => t + p[1], 0);
@@ -120,25 +139,23 @@ function ledScreenRgb(duty) {
   });
 }
 
-/** 16x16 square cells behind the dark diffuser, coloured as the icon editor shows them. */
+/** 16x16 flat square cells with gaps on an inset black screen, colored as
+ * the icon editor shows them; unlit cells stay visible as dark gray. */
 function drawSquares(canvas, pixels) {
-  const cell = 16;
-  canvas.width = W * cell;
-  canvas.height = W * cell;
+  const cell = 16, gap = 3, margin = 8;
+  canvas.width = W * cell + 2 * margin;
+  canvas.height = W * cell + 2 * margin;
   const ctx = canvas.getContext("2d");
-  ctx.fillStyle = "#0a0a0b";
+  ctx.fillStyle = "#121214";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   pixels.forEach((px, i) => {
-    const x = (i % W) * cell + 1, y = Math.floor(i / W) * cell + 1, s = cell - 2;
+    const s = cell - gap;
+    const x = margin + (i % W) * cell + gap / 2, y = margin + Math.floor(i / W) * cell + gap / 2;
     const lit = px.some(Boolean);
-    ctx.fillStyle = lit ? `rgb(${ledScreenRgb(px).join(",")})` : "#1d1d21";
+    ctx.fillStyle = lit ? `rgb(${ledScreenRgb(px).join(",")})` : "#2a2a30";
     ctx.beginPath();
-    ctx.roundRect(x, y, s, s, 2);
+    ctx.roundRect(x, y, s, s, 3);
     ctx.fill();
-    if (lit) {
-      ctx.fillStyle = "rgba(255,255,255,.22)";
-      ctx.fillRect(x + 2, y + 2, s - 4, 2);
-    }
   });
 }
 
@@ -151,10 +168,13 @@ export function createDisplayDevice({ bus, clock, mac, onLive }) {
   ghost.className = "display-case";
   ghost.innerHTML = `?<b>Click to Add Display</b>`;
   ghost.addEventListener("click", () => { wake().catch(() => {}); });
+  const label = document.createElement("div");
+  label.className = "display-label";
+  label.innerHTML = `${icon("grid-3x3", 18)}Icon display`;
   const statusEl = document.createElement("div");
   statusEl.className = "display-status";
   statusEl.setAttribute("aria-live", "polite");
-  el.append(ghost, statusEl);
+  el.append(label, ghost, statusEl);
 
   let face = null;
   let canvas = null;
@@ -319,14 +339,31 @@ export function createDisplaysPanel({ mount, room }) {
 
   /** What the Box/teacher does on device: tell the display which game to
    * run. Unicast, so the wand does not take it as a force-switch. */
+  /** Install the display game and start it. `d.starting` marks a start
+   * in progress, so the display's own wake-up (onLive) does not send a
+   * second start_game: the display game treats any start_game while it
+   * runs as a stop and restarts. */
   async function startOn(d, g, stale) {
-    await d.dev.setGame(g.slug, g.src, g.icons);
+    d.starting = true;
+    try {
+      await d.dev.setGame(g.slug, g.src, g.icons);
+    } finally {
+      d.starting = false;
+    }
     if (stale?.() || !list.includes(d)) return;
     send(d.dev.mac, { type: "start_game", name: g.slug });
   }
 
   function draw() {
     room.panel("wands")?.redraw();
+    markPaired();
+  }
+
+  /** The wand shows its "Wand" label while a display stands beside it. */
+  function markPaired() {
+    const shown = !placedIn && list.length > 0
+      && (room.hasAttribute("advanced") || shelf.classList.contains("in-game"));
+    room.wand.toggleAttribute("paired", shown);
   }
 
   function freeMac() {
@@ -352,7 +389,10 @@ export function createDisplaysPanel({ mount, room }) {
     d.dev = createDisplayDevice({
       bus: room.bus, clock: room.clock, mac: freeMac(),
       // Woken by a click while a display game is loaded: it joins that game.
-      onLive: () => { if (game && list.includes(d)) startOn(d, game).catch((err) => console.error("icon display", err)); },
+      // A wake started by startOn is left to startOn.
+      onLive: () => {
+        if (game && list.includes(d) && !d.starting) startOn(d, game).catch((err) => console.error("icon display", err));
+      },
     });
     wrap(d);
     list.push(d);
@@ -371,12 +411,15 @@ export function createDisplaysPanel({ mount, room }) {
   function place(d) {
     if (placedIn) {
       d.card = document.createElement("div");
-      d.card.className = "wand-card";
-      d.card.innerHTML = `<div class="chips"><span class="chip display">Icon display</span></div>`;
+      d.card.className = "wand-card display-card";
+      d.card.innerHTML = `<div class="chips"><span class="chip device-name display-name">Icon display</span></div>`;
       // The remove button joins the card's label row, as on a wand card.
       const rm = d.dev.el.querySelector(":scope > .rm");
       if (rm) d.card.firstElementChild.appendChild(rm);
       d.card.appendChild(d.dev.el);
+      d.card.classList.toggle("min", !!d.min);
+      addMinimize(d.card, d.card.firstElementChild, "Icon display");
+      d.card.querySelector(".min-btn")?.addEventListener("click", () => { d.min = d.card.classList.contains("min"); });
       placedIn.appendChild(d.card);
     } else {
       shelf.appendChild(d.dev.el);
@@ -387,7 +430,11 @@ export function createDisplaysPanel({ mount, room }) {
   return {
     get displays() { return list.map((d) => d.dev); },
     get full() { return list.length >= MAX_DISPLAYS; },
-    add: () => { add(false); },
+    /** "+ Add a display": a display that starts at once. */
+    add: () => {
+      const d = add(false);
+      d?.dev.wake().catch((err) => console.error("icon display start", err));
+    },
 
     async sync(g, stale) {
       game = g;
@@ -406,8 +453,22 @@ export function createDisplaysPanel({ mount, room }) {
       await Promise.all(list.map((d) => d.dev.setIcons(slug, icons)));
     },
 
+    /** The room paused (room.stop): every running display stops its game. */
+    stop() {
+      for (const d of list) if (d.dev.ready) send(d.dev.mac, { type: "stop" });
+    },
+
+    /** The room restarted: every display starts the loaded display game again. */
+    restart() {
+      if (!game) return;
+      for (const d of list) {
+        if (d.dev.ready) send(d.dev.mac, { type: "start_game", name: game.slug });
+      }
+    },
+
     placeIn(el) {
       placedIn = el;
+      markPaired();
       for (const d of list) {
         const rm = d.card?.querySelector(".chips .rm");
         if (rm) d.dev.el.prepend(rm);

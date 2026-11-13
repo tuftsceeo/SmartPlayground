@@ -21,7 +21,7 @@ Read this whenever a game involves more than one wand, or a wand plus the icon d
 - **Every file exits** on `"stop"` / `"start_game"`, whatever its role.
 - **Say how many wands it is for.** A game played on more than one wand writes
   `[GAME_SETTINGS: {"wands": N}]` after the code (platform rules), N from 2 to 4, so the practice
-  window starts with that many wands. A Splat game also gives `wand_splats` (Splat games section).
+  window starts with that many wands. A Splat game also gives `splat_host` (or `wand_splats` without a host; Splat games section).
 
 ## Designing the messages
 
@@ -39,8 +39,8 @@ Plan the messages before writing any file, and use exactly the same names in eve
 - The `mac` returned by `enow.poll()` identifies the sending device, if a game needs to tell wands
   apart (for example to count players). Most games only need the role or team.
 
-In the reply, describe the plan in one plain sentence per role under **How to play** ("The
-teacher's wand is the caller: press to start the music…").
+In the reply, give each role its own short action step under **How to play** ("Caller presses to
+start the music.").
 
 ## Pattern A — many wands, same game, each on its own
 

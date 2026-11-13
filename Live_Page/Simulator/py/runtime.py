@@ -182,6 +182,7 @@ class Runtime:
         self._old_stdout = None
         self._loop = None
         self.sim_state = None
+        self._role = ""          # "splat_host" (lib/splat_host.py) or "" (a game wand)
         self._local_splats = 1   # Splats paired to the simulated wand
         self._game_splats = 1    # what a newly loaded game starts with (set_game_splats)
         self._splats_key = None  # (source, _game_splats) _local_splats was last set from
@@ -390,13 +391,30 @@ class Runtime:
         return mod
 
     def set_game_splats(self, n):
-        """How many Splats the wand holds when the next game loads (0..2).
-        The host page sets it from the game's settings before pushing the
-        source; the game code does not carry it."""
+        """How many Splats the wand holds when the next game loads (0..2, or
+        0..4 for a Splat host). The host page sets it from the game's
+        settings before pushing the source; the game code does not carry it."""
         n = int(n)
-        if n < 0 or n > 2:
-            raise ValueError("a wand holds 0..2 Splats, not %d" % n)
+        cap = self._max_splats()
+        if n < 0 or n > cap:
+            raise ValueError("a wand holds 0..%d Splats, not %d" % (cap, n))
         self._game_splats = n
+
+    def _max_splats(self):
+        import pairing
+        return pairing.HOST_MAX_SPLATS if self._role == "splat_host" else pairing.MAX_SPLATS
+
+    def set_role(self, role):
+        """main.py _ROLE: "splat_host" or "" (a game wand). pairing.is_host()
+        is pointed at it instead of /role.txt, so pairing.max_splats() agrees
+        without touching the file system. Takes effect at the next start."""
+        import pairing
+        role = "splat_host" if role == "splat_host" else ""
+        self._role = role
+        pairing.is_host = lambda: self._role == "splat_host"
+        self._pair_ctl = None
+        if self._local_splats > self._max_splats():
+            self._local_splats = self._max_splats()
 
     def _apply_game_splats(self, src):
         """A newly loaded game starts with set_game_splats()'s count.
@@ -541,6 +559,8 @@ class Runtime:
         smax = getattr(mod, "SPLATS_MAX", None)
         return {
             "lobby_game": smin is not None,
+            "splat_host": getattr(mod, "SPLAT_HOST", False) is True,
+            "role": self._role,
             "local_splats": self._local_splats,
             "splats_min": smin,
             "splats_max": smax,
@@ -671,18 +691,20 @@ class Runtime:
     # ── Lobby games (main.py _run_games / _enter_lobby) ─────────────
 
     def set_local_splats(self, n):
-        """Splats paired to the simulated wand (0..pairing.MAX_SPLATS). Takes
+        """Splats paired to the simulated wand (0..pairing.max_splats()). Takes
         effect at the next start, as a new pairing does after a reset."""
         n = int(n)
-        if n < 0 or n > 2:
-            raise ValueError("a wand holds 0..2 Splats, not %d" % n)
+        cap = self._max_splats()
+        if n < 0 or n > cap:
+            raise ValueError("a wand holds 0..%d Splats, not %d" % (cap, n))
         if n != self._local_splats:
             self._local_splats = n
             self._pair_ctl = None
 
     def _splat_limits(self):
-        """main.py _splat_limits: (SPLATS_MIN, SPLATS_MAX) for a lobby game,
-        else None. ValueError for an invalid declaration."""
+        """main.py _splat_limits: (SPLATS_MIN, SPLATS_MAX, SPLAT_HOST,
+        PLAYERS_MIN) for a lobby game, else None. ValueError for an invalid
+        declaration."""
         mod = self._game_mod
         lo = getattr(mod, "SPLATS_MIN", None)
         if lo is None:
@@ -692,7 +714,7 @@ class Runtime:
                 or (hi is not None and (not isinstance(hi, int) or isinstance(hi, bool) or hi < lo))):
             raise ValueError("%s: SPLATS_MIN=%r SPLATS_MAX=%r (need int >= 1, and None or >= SPLATS_MIN)"
                              % (self._game_name, lo, hi))
-        return lo, hi
+        return lo, hi, getattr(mod, "SPLAT_HOST", False) is True, getattr(mod, "PLAYERS_MIN", 1)
 
     def local_splat_macs(self):
         """The simulated wand's Splat MACs: 5A:00:<wand's last two bytes>:00:<i>."""
@@ -720,7 +742,7 @@ class Runtime:
 
     async def _enter_lobby(self, limits, hw, ctl):
         """main.py _enter_lobby: the lobby. A lobby_game.Net in its game phase, or
-        None (cancelled, left or lost) after the same feedback."""
+        None (canceled, left or lost) after the same feedback."""
         import lobby_game
         import sim_state
         from espnow_manager import get_own_mac
@@ -728,7 +750,8 @@ class Runtime:
         leds, buz = hw["leds"], hw["buz"]
         net = await lobby_game.enter(hw["enow"], self._game_name, limits[0], limits[1], ctl,
                                 await get_own_mac(), hw["nfc"], leds, buz,
-                                lambda: sim_state.button_pressed)
+                                lambda: sim_state.button_pressed,
+                                limits[2], limits[2] and self._role == "splat_host", limits[3])
         self.lobby_end = None if net is not None else lobby_game.last_end
         if net is None:
             print("  lobby_game: lobby ended (%s)" % lobby_game.last_end)
@@ -743,6 +766,9 @@ class Runtime:
         return net
 
     async def _run_lobby(self, play, hw, limits):
+        if self._role == "splat_host" and not limits[2]:
+            print("  Splat host: %s is not a Splat host game" % self._game_name)
+            return
         ctl = await self._pairing(hw)
         try:
             net = await self._enter_lobby(limits, hw, ctl)
@@ -774,6 +800,9 @@ class Runtime:
         limits = self._splat_limits()
         if limits is not None:
             await self._run_lobby(play, hw, limits)
+            return
+        if self._role == "splat_host":
+            print("  Splat host: %s is not a Splat host game" % self._game_name)
             return
         args = (hw["nfc"], hw["leds"], hw["buz"], hw["accel"], hw["i2c"], hw["enow"])
         try:
@@ -889,6 +918,10 @@ def set_local_splats(n):
 
 def set_game_splats(n):
     get_runtime().set_game_splats(n)
+
+
+def set_role(role):
+    get_runtime().set_role(role)
 
 
 def set_display_source(src):

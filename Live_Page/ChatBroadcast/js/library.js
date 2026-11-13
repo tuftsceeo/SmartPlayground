@@ -25,7 +25,7 @@ function writeAll(list) {
  * read it directly. Entries saved before a role existed simply have no
  * entry for it and load as if that role had no code.
  */
-export function saveGame({ name, desc, code, roleCode, iconCode, requiredTags, hardware, chatHistory, icons, simSettings }) {
+export function saveGame({ name, desc, code, roleCode, iconCode, requiredTags, hardware, chatHistory, icons, simSettings, gameIcon }) {
     const list = loadSavedGames();
     const id =
         typeof crypto !== "undefined" && crypto.randomUUID
@@ -49,6 +49,8 @@ export function saveGame({ name, desc, code, roleCode, iconCode, requiredTags, h
         icons: icons || {},
         // [GAME_SETTINGS:] for the practice window, or null.
         simSettings: simSettings || null,
+        // [GAME_ICON:] start signature {shape, color}, or null.
+        gameIcon: gameIcon || null,
         updatedAt: Date.now(),
     };
     list.unshift(entry);

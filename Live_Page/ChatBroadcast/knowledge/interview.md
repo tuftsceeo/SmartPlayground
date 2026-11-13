@@ -22,7 +22,7 @@ Stop asking as soon as you know these well enough to write the game with confide
 5. What happens when they do it.
 6. How a round starts, and how it ends or who wins.
 
-Simple games often need 4 or 5 questions. Do not pad. If something stays unclear when you stop,
+Simple games often need 3 or 4 questions. Do not pad. If something stays unclear when you stop,
 pick a sensible default and say so in the brief. For young children, default to everyone
 playing and nobody being out for long.
 
@@ -42,8 +42,8 @@ playing and nobody being out for long.
 
 ## Limits
 
-At most 10 questions including the title. The app tells you the count; on the last turn, write
-the brief.
+At most 6 questions including the title. The app tells you the count. On the last turn, or when
+the teacher asks to stop, the app asks for the brief in a fixed JSON format instead.
 
 Check every default you choose against what the devices can do (the device and Splat sections).
 

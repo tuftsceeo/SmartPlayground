@@ -24,6 +24,12 @@ const PATHS = {
         '<rect x="3" y="5" width="18" height="14" rx="3"/><circle cx="12" cy="12" r="2.5"/>',
     close:
         '<path d="M6 6l12 12M18 6L6 18"/>',
+    plus:
+        '<path d="M12 5v14M5 12h14"/>',
+    more:
+        '<circle cx="5" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="19" cy="12" r="1.6" fill="currentColor"/>',
+    refresh:
+        '<path d="M3 12a9 9 0 0 1 15.5-6.2L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15.5 6.2L3 16"/><path d="M3 21v-5h5"/>',
     trash:
         '<path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M6 7l1 13h10l1-13"/>',
     pencil:
@@ -43,12 +49,22 @@ const PATHS = {
     spinner:
         '<circle cx="12" cy="12" r="8" stroke-dasharray="38" stroke-dashoffset="12"/>',
     // Saved-game card icons: two crossed wands, a Splat (pad), a 16x16 display.
-    wands:
-        '<path d="M4 20 16 4"/><path d="M20 20 8 4"/><path d="M14 2l1 2 2 1-2 1-1 2"/><path d="M10 2l-1 2-2 1 2 1 1 2"/>',
     splat:
-        '<circle cx="12" cy="12" r="5"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M5.6 18.4 7 17M17 7l1.4-1.4"/>',
+        '<g transform="translate(1.5 1.55) scale(0.082)" stroke-width="21.95"><rect x="0" y="0" width="256" height="254.7" rx="17.5"/><circle cx="45.6" cy="44.9" r="22.5"/><path d="M232.2,111.7c-9.1-12.7-26.6-1.9-39.2-5.2-4-1.2-7.3-4.5-9.8-7.8-14.6-19.5,32.1-29.9,38.2-48.4,1.2-3.5-.1-7.6-2.6-10.4-7.5-8.5-20-5.4-28.2,2.4-2.9,2.7-5.5,5.8-8.5,8.4-6.6,5.8-14.5,10.3-21.3,14.3-7,4.6-13.5,7.7-21.8,4.1-11.2-5.3-14.5-18.9-18.4-29.8-1.5-4.4-3.1-9.2-6.3-12.7-5.5-6.3-15.2-8-22.6-5.2-9,3.1-12.2,12-10.2,20.8,2,13.1,16.8,25,12.4,37.8-8.8,14.7-31.9-10.1-40.2,5.7-2.5,5-1.9,11.3,3.2,14.4,4.7,2.9,10,5.4,14.1,9.5,15.1,14.7-25.5,19.9-34.8,36-1.3,3.4-.4,7.5,1,10.7,2.6,5.7,7.3,7,13.1,6.2,7.8-1.2,16.8-6.1,24.3-9.7,5.7-2.3,11.4-6.9,17.6-4.5,12.1,5.9,6.6,23.5,6.7,35,.1,4.7-.8,9.4-1.4,14.1-.7,7.1.2,12.5,7.3,13.7,5.4.6,12.7-.6,17.5-3.7,10.1-7.9,6.6-22.9,9.6-33.9,4.1-15.1,12.5-15,22.7-2.8,6,7,11.8,17,15.8,25,1.6,3.3,3.2,6.9,5.6,9.9,15.7,18.5,47.4-13.8,25.9-29.5-4.4-3.7-10.1-6.9-13.4-11.5-2.8-4-3.9-10.1-2.7-14.7,5.3-21.2,59-12.3,46.3-38.2v-.2Z"/></g>',
     iconDisplay:
-        '<rect x="4" y="4" width="16" height="16"/><path d="M4 9.3h16M4 14.6h16M9.3 4v16M14.6 4v16"/>',
+        '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/><path d="M9 3v18"/><path d="M15 3v18"/>',
+    battery:
+        '<rect x="2" y="7" width="17" height="10" rx="2"/><path d="M22 11v2"/>',
+    locate:
+        '<path d="M12 3v3M12 18v3M3 12h3M18 12h3"/><circle cx="12" cy="12" r="4"/>',
+    download:
+        '<path d="M12 4v10M7 10l5 5 5-5M5 20h14"/>',
+    laptop:
+        '<path d="M18 5a2 2 0 0 1 2 2v8.526a2 2 0 0 0 .212.897l1.068 2.127a1 1 0 0 1-.9 1.45H3.62a1 1 0 0 1-.9-1.45l1.068-2.127A2 2 0 0 0 4 15.526V7a2 2 0 0 1 2-2z"/><path d="M20.054 15.987H3.946"/>',
+    teacherHub:
+        '<path d="M2 8V6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-6"/><path d="M2 12a9 9 0 0 1 8 8"/><path d="M2 16a5 5 0 0 1 4 4"/><line x1="2" x2="2.01" y1="20" y2="20"/>',
+    station:
+        '<path d="M11 15H7"/><path d="M15.41 2.49a.6.6 0 011.18 0l.63 3.334a1.2 1.2 0 00.956.955l3.334.631a.6.6 0 010 1.18l-3.334.63a1.2 1.2 0 00-.955.956l-.631 3.334a.6.6 0 01-1.18 0l-.63-3.334a1.2 1.2 0 00-.956-.955L10.49 8.59a.6.6 0 010-1.18l3.334-.63a1.2 1.2 0 00.955-.956z"/><path d="M21 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h6"/><path d="M9 13v4"/>',
     code:
         '<path d="M8 6l-5 6 5 6"/><path d="M16 6l5 6-5 6"/>',
 
@@ -75,8 +91,6 @@ const PATHS = {
         '<line x1="6" x2="10" y1="12" y2="12"/><line x1="8" x2="8" y1="10" y2="14"/><line x1="15" x2="15.01" y1="13" y2="13"/><line x1="18" x2="18.01" y1="11" y2="11"/><rect width="20" height="12" x="2" y="6" rx="2"/>',
     "square-arrow-out-up-right":
         '<path d="M21 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h6"/><path d="M21 3l-9 9"/><path d="M15 3h6v6"/>',
-    "smartphone-nfc":
-        '<rect width="7" height="12" x="2" y="6" rx="1"/><path d="M13 8.32a7.43 7.43 0 0 1 0 7.36"/><path d="M16.46 6.21a11.76 11.76 0 0 1 0 11.58"/><path d="M19.91 4.1a15.91 15.91 0 0 1 .01 15.8"/>',
     vibrate:
         '<path d="M2 8a2 2 0 0 1 2-2h2v12H4a2 2 0 0 1-2-2Z"/><path d="M18 6h2a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2"/><rect width="8" height="16" x="8" y="4" rx="1"/><path d="m5.5 2.5-.5-.5"/><path d="m5.5 21.5-.5.5"/><path d="m18.5 2.5.5-.5"/><path d="m18.5 21.5.5.5"/>',
     circle: '<circle cx="12" cy="12" r="10"/>',
@@ -139,26 +153,6 @@ export function iconEl(name, opts = {}) {
     return wrap.firstElementChild || wrap;
 }
 
-export function categoryIcon(category) {
-    if (category === "sound") return "music";
-    if (category === "color") return "palette";
-    if (category === "multi") return "tag";
-    return "wand";
-}
-
-export function exampleIcon(ex) {
-    if (ex?.icon) return ex.icon;
-    const map = {
-        melody: "music",
-        freezedance: "snowflake",
-        rainbow: "rainbow",
-        shakerainbow: "rainbow",
-        jump: "arrow-up",
-        cooking: "chef-hat",
-        jumpin: "brain-circuit",
-    };
-    return map[ex?.id] || categoryIcon(ex?.category) || "wand";
-}
 
 function escapeAttr(s) {
     return String(s).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");

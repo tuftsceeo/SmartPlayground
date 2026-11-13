@@ -20,7 +20,7 @@ export function setCardWriter(w) {
     _live?.rerender();
 }
 
-/** The device finished, failed or cancelled the requested write. */
+/** The device finished, failed or canceled the requested write. */
 export function cardWriteEnded() {
     _writing = null;
     _live?.rerender();

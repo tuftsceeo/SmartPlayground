@@ -31,8 +31,10 @@ export function baselineTags(slug) {
  *                                 that names no COMMANDS set of its own
  * @param {number}   opts.minWands    override; defaults to 1
  * @param {string[]} opts.stations    station names; empty until stations are implemented
+ * @param {number}   opts.displays    icon displays the game needs; defaults to 0
+ * @param {number}   opts.splats      Splats the game needs; defaults to 0
  */
-export function buildHardwareReqs({ code, gameName, declared, minWands, stations } = {}) {
+export function buildHardwareReqs({ code, gameName, declared, minWands, stations, displays, splats } = {}) {
     const slug = slugify(gameName || "") || "game";
 
     // The code's own COMMANDS set outranks everything: it is what the wand
@@ -54,7 +56,11 @@ export function buildHardwareReqs({ code, gameName, declared, minWands, stations
         if (t && !tags.includes(t)) tags.push(t);
     }
     return {
+        slug,
         minWands: minWands || 1,
+        open: isLobbyGame(code),
+        displays: displays || 0,
+        splats: splats || 0,
         stations: stations || [],
         tags,
         declaredTags: declared && declared.length ? [...declared] : null,
@@ -91,6 +97,56 @@ function sniffTags(code) {
     const notes = (code || "").match(/note_[a-g](?:_high)?/gi);
     if (!notes || notes.length < 2) return [];
     return [...new Set(notes.map((t) => t.toLowerCase()))];
+}
+
+/** True when the code is a lobby game: any number of wands can join. */
+export function isLobbyGame(code) {
+    return /SPLATS_MIN|lobby_game|lobbyGame/.test(code || "");
+}
+
+const DEVICE_ICONS = { wand: "wand", display: "iconDisplay", station: "station", splat: "splat", nfc: "nfcCard" };
+
+/**
+ * The devices a game needs, in words: [{kind, label}], in the order wands,
+ * icon displays, stations, Splats, NFC tags. One device is named without a
+ * number ("wand", "icon display"); two or more are counted ("3 wands").
+ * Wands are always listed; a lobby game with no set count says "wands".
+ * The rest are listed only at 1 or more.
+ *
+ * Shared by the send overlay's pills and the My games / Example games
+ * cards, so both say the same thing.
+ * @param {{wands?: number, open?: boolean, displays?: number, stations?: number, splats?: number, nfcTags?: number}} n
+ */
+export function deviceNeeds({ wands = 1, open = false, displays = 0, stations = 0, splats = 0, nfcTags = 0 } = {}) {
+    const say = (count, one, many) => (count === 1 ? one : `${count} ${many}`);
+    const out = [];
+    out.push({ kind: "wand", label: wands >= 2 ? `${wands} wands` : open ? "wands" : "wand" });
+    if (displays >= 1) out.push({ kind: "display", label: say(displays, "icon display", "icon displays") });
+    if (stations >= 1) out.push({ kind: "station", label: say(stations, "station", "stations") });
+    if (splats >= 1) out.push({ kind: "splat", label: say(splats, "Splat", "Splats") });
+    if (nfcTags >= 1) out.push({ kind: "nfc", label: say(nfcTags, "NFC tag", "NFC tags") });
+    return out;
+}
+
+/** "2 wands · icon display · 3 NFC tags", first letter capitalized. */
+export function deviceLine(needs) {
+    const text = needs.map((n) => n.label).join(" · ");
+    return text ? text[0].toUpperCase() + text.slice(1) : "";
+}
+
+/** Requirement pills for the send overlay: [{icon, label}], from deviceNeeds. */
+export function requirementPills(reqs) {
+    if (!reqs) return [];
+    const baseline = baselineTags(reqs.slug);
+    const needs = deviceNeeds({
+        wands: reqs.minWands || 1,
+        open: reqs.open,
+        displays: reqs.displays || 0,
+        stations: (reqs.stations || []).length,
+        splats: reqs.splats || 0,
+        nfcTags: (reqs.tags || []).filter((t) => !baseline.includes(t)).length,
+    });
+    return needs.map((n) => ({ icon: DEVICE_ICONS[n.kind], label: n.label[0].toUpperCase() + n.label.slice(1) }));
 }
 
 /** Plain-language rows for the send-confirm overlay. */
