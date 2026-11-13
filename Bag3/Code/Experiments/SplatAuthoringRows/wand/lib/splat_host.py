@@ -193,6 +193,26 @@ class HostScreen:
         leds.np.write()
 
 
+def _station_cmd(ctl, data):
+    """Station mode: {"type": "splat", "s": i, "a": [names]} from any wand
+    plays the names on Splat i, or on every Splat if "s" is absent."""
+    from splat_api import COLOR_RGB, NOTE_VALUES, ANIMAL_SOUNDS
+    names = data.get("a")
+    idx = data.get("s")
+    if (not isinstance(names, list) or ctl is None or ctl.group is None
+            or not (idx is None or (isinstance(idx, int) and 0 <= idx < ctl.group.count))):
+        print("  [ERR] splat station: bad command %r" % (data,))
+        return
+    for n in names:
+        if n not in COLOR_RGB and n not in NOTE_VALUES and n not in ANIMAL_SOUNDS:
+            print("  [ERR] splat station: unknown action %r" % (n,))
+            return
+    units = ctl.group.units if idx is None else [ctl.group.unit(idx)]
+    for u in units:
+        if u.connected:
+            u.play(names)
+
+
 def run(enow, nfc, leds, buz, get_ctl, pair_card, launch, pull, is_game, button_down=None):
     """The host's idle loop; never returns (a role change resets the wand).
 
@@ -238,6 +258,7 @@ def _loop(enow, nfc, leds, buz, get_ctl, pair_card, launch, pull, is_game,
             for i, ev in ctl.poll():
                 if ev == "press":
                     ctl.on_press(i)
+                    enow.broadcast({"type": "splat_press", "s": i, "c": ctl.identity})
             ctl.refresh_glow()
 
         mt, data, sender = enow.poll()
@@ -250,7 +271,10 @@ def _loop(enow, nfc, leds, buz, get_ctl, pair_card, launch, pull, is_game,
         elif mt == "code_push" and isinstance(data, dict):
             pull(data.get("slug") or "", data.get("host") or "")
         elif mt == "raw" and ctl is not None and isinstance(data, dict):
-            ctl.on_msg(data, sender)
+            if data.get("type") == "splat":
+                _station_cmd(ctl, data)
+            else:
+                ctl.on_msg(data, sender)
 
         text, _ = read_ndef_text(nfc, timeout=HOST_NFC_MS)
         if text != last_text:
