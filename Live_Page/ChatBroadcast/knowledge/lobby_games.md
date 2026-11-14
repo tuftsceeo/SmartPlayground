@@ -7,12 +7,34 @@ the playground, not as belonging to a child. Each wand pairs with up to
 through one extra `play()` parameter, `net`. There is no separate Splat file and no
 `[DEVICE: splat]` block; everything below goes in the `[DEVICE: wand]` file.
 
-## Choosing: ordinary or lobby game
+## Choosing: ordinary, Splat host or lobby game
 
 | The game… | Declare at the top of the wand file | `net` is |
 |---|---|---|
 | uses no Splats | nothing | `None` (leave `net=None` off or unused) |
-| uses Splats | `SPLATS_MIN = n` (and optional `SPLATS_MAX = m`) | a lobby game `net` |
+| uses Splats (**default**) | `SPLAT_HOST = True`, `SPLATS_MIN = n`, `SPLATS_MAX = m` (up to 4), `PLAYERS_MIN = p` | a Splat host game `net` |
+| uses Splats paired to the children's own wands (only when the teacher asks) | `SPLATS_MIN = n` (and optional `SPLATS_MAX = m`) | a lobby game `net` |
+
+## Splat host games (the default for Splats)
+
+A **Splat host** is one extra wand the teacher sets up beforehand: it holds **all** the game's
+Splats (up to **4**), plays no game of its own, and leads the lobby. The children's wands hold no
+Splats. Write a Splat game this way unless the teacher asks for Splats on the children's wands.
+
+- Declare `SPLAT_HOST = True`, `SPLATS_MIN` (1..4), `SPLATS_MAX` (at most 4) and `PLAYERS_MIN`
+  (how many children's wands must join before it can start, at least 1) at the top level.
+- The host and the children's wands all run the same `play()`. Branch on `net.is_host`: the host
+  drives every Splat with `net.splat(i)` and decides everything; a player wand only shows what the
+  host sends it and sends its own input with `net.send(0, {...})`.
+- `net.players` lists the children's wands' indexes in `net.wands` (the host, index 0, is not in
+  it). Use it, not `net.wands`, to count players or pick one. `net.wands[p][1]` is player `p`'s
+  identity color.
+- Splat `("press", i)` events reach the host only. The rest of `net` and its events are as below.
+- How it starts: the teacher taps the game card on the host (or sends it), then each child taps the
+  same card. The host's lights show how many children have joined, as a numeral; the teacher
+  presses the host's button to start. Say this in the game's description.
+- `[GAME_SETTINGS:]` gives `splat_host` (how many Splats the host holds, 1..4) and `wands` (how many
+  children's wands, not counting the host); leave `wand_splats` out.
 
 - Every Splat game is a lobby game. For one child on one wand, use `SPLATS_MIN = 1`: the wand
   opens a lobby, nobody else needs to join, and the child presses the wand button to start.
@@ -48,6 +70,8 @@ on `net.is_leader`.
 | Member | Meaning |
 |---|---|
 | `net.is_leader` | `True` on the leader |
+| `net.is_host` | `True` on a Splat host (it is also the leader) |
+| `net.players` | indexes in `net.wands` of the children's wands: every wand but a Splat host |
 | `net.me` | this wand's index in `net.wands` (leader is 0) |
 | `net.wands` | list of `(mac, identity_color, splat_count)`, leader first |
 | `net.local` | this wand's own Splats, or `None` if it has none: `net.local.count`, `net.local.unit(s)` |
@@ -62,19 +86,24 @@ A Splat (from `net.splat(i)` or `net.local.unit(s)`) has `color(name)`, `note(na
 the "SPLAT ACTION NAMES" list; any other name is refused when the game is sent. Keep a Splat in a
 variable if it is used often: `pad = net.splat(0)`.
 
-A Splat's 14 lights are two rings: an **inner** ring in the middle and **outer** points out in
-the arms. `color(name)` sets all of them; `color(name, "inner")` or `color(name, "outer")` sets
-only that ring and leaves the other as it is. So a Splat can show two colors at once, or light
-one ring and turn the other off:
+A Splat's 14 lights split two ways: an **inner** ring in the middle and **outer** points out in
+the arms, or a **left** half and a **right** half. `color(name)` sets all of them;
+`color(name, part)` with part `"inner"`, `"outer"`, `"left"` or `"right"` sets only those lights
+and leaves the rest as they are. So a Splat can show two colors at once, or light one part and
+turn the other off:
 
 ```python
 pad.color("turnred")                # all red
 pad.color("turnoff", "outer")       # outer off; inner stays red
 pad.color("turnblue", "outer")      # red inside, blue outside
+pad.color("turngreen", "right")     # whole right half green; left half unchanged
 ```
 
-`play([...])` and `off()` always act on the whole Splat. The only parts are `"inner"` and
-`"outer"`; any other part is refused when the game is sent.
+Use one split at a time (inner/outer or left/right). Mixing them lights quarters, which reads as
+neither.
+
+`play([...])` and `off()` always act on the whole Splat. The only parts are `"inner"`,
+`"outer"`, `"left"` and `"right"`; any other part is refused when the game is sent.
 
 The Splat shows only six colors; each ring shows one at a time. When the same thing (a team, an animal, a card) appears on a
 wand and a Splat, give it one of these so children can match them by eye:

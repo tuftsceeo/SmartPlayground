@@ -107,7 +107,7 @@ write "the Station".
 
 `Bag3/Code/TeacherTools/` holds `NFC Station` (a one-off NFC tag-writing tool, not live to teachers
 or the team), the Bag3 `M5Paper Remote`, and the Broadcast Box and Dial (`BroadcastBox`,
-`BroadcastDial`). The ChatBroadcast web app is `Bag3/Code/ChatBroadcast/`; Bag3's shared `tools/` and
+`BroadcastDial`). The ChatBroadcast web app is `Bag3/Code/ChatBroadcast/`, beside its `Simulator/`; Bag3's shared `tools/` and
 `docs_and_design/` sit beside it in `Bag3/Code/`. (`BroadcastCode/`, their former parent, was removed
 2026-11-14.)
 

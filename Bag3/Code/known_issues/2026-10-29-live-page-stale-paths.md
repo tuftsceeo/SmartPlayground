@@ -39,3 +39,9 @@ Effects: the Live_Page `sync_icons.py`, `check_tags.mjs` and Simulator `sync_sou
 find their sources, and the Live_Page firmware installer's Dial manifest import resolves to a
 missing folder. The working copies are under `Bag3/Code/ChatBroadcast/` and
 `Bag3/Code/Simulator/`.
+
+2026-11-13 and 2026-11-14: `ChatBroadcast/` and `Simulator/` now sit side by side in `Bag3/Code/`
+(first by moving `Simulator/` into `BroadcastCode/`, then by removing `BroadcastCode/`), as they do
+in `Live_Page/`. ChatBroadcast's Simulator imports (`sim-room.js`, `vendor/games/`) resolve the
+same in both trees and the copy needs no edits. Still open in the Live_Page copy: the `tools/`
+scripts and the firmware installer, which reach other Bag3 folders.

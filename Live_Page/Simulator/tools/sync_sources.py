@@ -21,7 +21,7 @@ import shutil
 import sys
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-REPO = os.path.abspath(os.path.join(ROOT, "..", "..", ".."))  # Bag3/Code/Simulator -> repo root
+REPO = os.path.abspath(os.path.join(ROOT, "..", "..", "..", ".."))  # Bag3/Code/BroadcastCode/Simulator -> repo root
 
 # Lib and games both come from the Bag3 MockWand tree. Its leds.py is the
 # 5x5 row-major (25 LED) matrix the renderer and golden frames assume.
@@ -109,6 +109,10 @@ GAMES = [
     "lobbytest.py",
     "splattag.py",
     "relaycolor.py",
+    # Splat host games (SPLAT_HOST = True): run on a wand in the host role.
+    "host_lobbytest.py",
+    "host_splattag.py",
+    "host_relaycolor.py",
     "target.py",
 ]
 

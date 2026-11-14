@@ -62,7 +62,7 @@ for (const [name, want] of Object.entries(EXPECTED)) {
 }
 
 console.log("\n== example gallery (code now loads from Simulator/vendor/games) ==");
-const VENDOR = resolve(HERE, "../../../Simulator/vendor/games");
+const VENDOR = resolve(HERE, "../../Simulator/vendor/games");
 for (const ex of EXAMPLES) {
     const src = readFileSync(`${VENDOR}/${ex.vendorGame}.py`, "utf8");
     const { declared, tags, unresolved } = extractGameTags(src);

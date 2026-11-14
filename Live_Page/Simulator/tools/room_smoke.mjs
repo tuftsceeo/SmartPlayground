@@ -4,7 +4,7 @@
  * an icon display is added, shows the ready icon, and reacts to the wand's
  * `goal` broadcast (whale icon for blue, `winner` sent back over the bus).
  *
- * Run from anywhere:  node Bag3/Code/Simulator/tools/room_smoke.mjs
+ * Run from anywhere:  node Bag3/Code/BroadcastCode/Simulator/tools/room_smoke.mjs
  *
  * Serves Bag3/Code with `python3 -m http.server`. Pyodide normally loads from
  * cdn.jsdelivr.net; this script answers those requests from a local copy of

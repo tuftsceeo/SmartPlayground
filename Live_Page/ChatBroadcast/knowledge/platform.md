@@ -14,14 +14,20 @@ The app reads these marker lines out of your reply and hides them from the teach
   no file extension. The app turns it into the game's stored name (its *slug*): lowercase, with
   runs of anything that is not a letter or digit replaced by one underscore. "Jumping Frogs" →
   `jumping_frogs`.
+- **`[GAME_ICON: SHAPE_FLAME, ORANGE]`** exactly once in any reply that writes or changes a game:
+  the game's start signature, the same pair as the `GAME_ICON` line in its code (see "Start
+  signature" below).
 - **`[NFC_CARDS: "value1", "value2"]`** exactly once if any game file reads NFC cards, listing every
   card value the game reacts to. Leave it out only when no file reads a card. The app uses it to
   tell the teacher which cards to write.
-- **`[GAME_SETTINGS: {"wand_splats": 1, "wands": 1}]`** exactly once for a Splat game (see the
-  Splat games section), and **`[GAME_SETTINGS: {"wands": 2}]`** exactly once for any other game
+- **`[GAME_SETTINGS: {"splat_host": 4, "wands": 2}]`** exactly once for a Splat host game,
+  **`[GAME_SETTINGS: {"wand_splats": 1, "wands": 1}]`** for a Splat game on the children's own
+  wands (see the Splat games section), and **`[GAME_SETTINGS: {"wands": 2}]`** exactly once for any other game
   played on more than one wand, as one line of JSON. Only the practice window reads it; the wand
   never sees it. `wand_splats` is how many Splats each child's wand has paired (0, 1 or 2), and
-  appears only for a Splat game; `wands` is how many wands the game is meant for (1 to 4), 1 for
+  appears only for a Splat game without a host; `splat_host` is how many Splats the Splat host
+  holds (1 to 4), only for a Splat host game; `wands` is how many children's wands the game is
+  meant for (1 to 4, never counting a Splat host), 1 for
   a game one child plays alone. The practice window shows that many wands, so a game that sends
   messages between wands needs `wands` of at least 2.
 - **`[CHOICES: "option one", "option two", "option three"]`** optionally, as the very last line.
@@ -39,9 +45,12 @@ block; the other devices keep their current code.
 
 A new game that needs files for more than one device is written over several replies, one device
 per reply: the wand file first, with the game's `[NFC_CARDS:]` and `[GAME_SETTINGS:]` markers,
-then end by saying which device comes next and offering it as a choice, for example
-`[CHOICES: "Now make the big screen part"]`. Each later reply sends just that device's file,
-written to match the files already in the editor. A change to a game that already has all its
+then **`[NEXT_DEVICE: <role>]`** on its own line naming the device whose file comes next (for
+example `[NEXT_DEVICE: icon]`). The app asks for that file automatically, so do not ask the teacher
+whether to continue and do not offer it as a choice. Each later reply sends just that device's
+file, written to match the files already in the editor, and gives `[NEXT_DEVICE:]` again only if
+yet another device still needs its file. Leave the marker out when every device the game needs
+has its file. A change to a game that already has all its
 files may still send several blocks in one reply.
 
 ## MicroPython rules
@@ -118,3 +127,21 @@ Every game must stop promptly when told to, so the teacher can switch games at a
 
 A game may react to its own cards (for example `"red"`, `"blue"`, `"go"`). Card values are short,
 lowercase, plain words. List every one in the `[NFC_CARDS: ...]` marker.
+
+## Start signature
+
+Every game starts with its own signature: one 5×5 shape in one color, plus a short entry sound,
+so children can tell which game just began.
+
+- The wand file declares it at module level, with names imported from `leds`:
+  `GAME_ICON = (SHAPE_FLAME, ORANGE)`. Its `play()` opens by showing that shape in that color for
+  about 1 second while a short entry sound plays, then clears the lights.
+- The icon display file, if there is one, opens with the same shape and color (see its device
+  notes).
+- Pick a pair that fits the game's theme (a flame for cooking, a star for a night game).
+- Don't use the wand's status pictures: `SHAPE_CHECK`, `SHAPE_X`, the `SHAPE_WIFI*` bars or the
+  battery shapes. Don't use `OFF`, `BLACK` or a `*_DIM` color.
+- The entry sound differs from the built-in games' and from the template's.
+- The signature stays the same: every later version of the same game keeps the same `GAME_ICON`
+  shape and color and writes the same marker. Change it only when the teacher asks; the teacher
+  decides. A remix of an example is a new game and gets a new pair.

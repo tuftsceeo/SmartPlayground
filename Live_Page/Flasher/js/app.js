@@ -1,5 +1,5 @@
 import { VERSIONS, REPO, DEVICES, getDeviceByHubType } from "./devices.js";
-import { fetchManifestFiles, fetchListManifestFiles, listBranchesAndTags } from "./github.js";
+import { fetchManifestFiles, fetchListManifestFiles, fetchJsManifestFiles, listBranchesAndTags } from "./github.js";
 import { loadManifest } from "./manifest.js";
 import { SerialEngine } from "./serial.js";
 import {
@@ -310,12 +310,22 @@ async function handleUpload() {
   const t0 = performance.now();
 
   try {
-    if (device.repoManifest) {
+    const localBase = new URLSearchParams(location.search).get("source") === "local" ? "/" : null;
+    if (device.jsManifest) {
+      // Firmware manifest.js committed beside the firmware (Box, Dial) — the
+      // same file list ChatBroadcast's installer uses, fetched at this ref.
+      log(`── Manifest ${device.jsManifest} ──`);
+      setStatus("upload-status", "⏳ Fetching files…", "info");
+      const listed = await fetchJsManifestFiles(REPO, ref, device.jsManifest, device.devicePathRoot, {
+        log,
+        localBase,
+        onProgress: (f) => setStatus("upload-status", `⏳ Fetching ${f}…`, "info"),
+      });
+      fetchedFiles = listed.files;
+    } else if (device.repoManifest) {
       // Pre-built list manifest committed in the repo (fetched at the same ref).
       log(`── Manifest ${device.repoManifest} ──`);
       setStatus("upload-status", "⏳ Fetching files…", "info");
-      const params = new URLSearchParams(location.search);
-      const localBase = params.get("source") === "local" ? "/" : null;
       const listed = await fetchListManifestFiles(REPO, ref, device.repoManifest, {
         log,
         localBase,
@@ -373,7 +383,8 @@ async function handleUpload() {
 
     setStatus(
       "upload-status",
-      `✅ ${result.total} file(s) uploaded to ${device.label} in ${((performance.now() - t0) / 1000).toFixed(0)} s — rebooted`,
+      `✅ ${result.total} file(s) uploaded to ${device.label} in ${((performance.now() - t0) / 1000).toFixed(0)} s — rebooted` +
+        (device.afterUploadNote ? `. ${device.afterUploadNote}` : ""),
       "success"
     );
     setTimeout(() => setProgress(null), 1000);

@@ -42,6 +42,29 @@ and its former `tools/` and `docs_and_design/` are merged into `Bag3/Code/tools/
 with `Bag3/`. The review behind this plan is
 `Bag3/Code/docs_and_design/2026-11-14-advisor-review.md`.
 
+## Merged from `Chat_to_Tap_Doggle` on 2026-11-14, and what it changes here
+
+- **Simulator location.** That branch had moved `Simulator/` into `BroadcastCode/`. After the
+  merge it stays at `Bag3/Code/Simulator/`, beside `Bag3/Code/ChatBroadcast/`, which gives the
+  same sibling layout as `Live_Page/`. No step changes.
+- **Simulator display fix** (`Simulator/js/panels/display.js`): a display got `start_game` twice
+  on load. Merged; S6 does not touch that file.
+- **`Live_Page/` copies of ChatBroadcast and Simulator** were refreshed from that branch, so they
+  predate the W1-W6 game modes (no `splat_host_games.md`, older `splatGameCheck.js`). The hosted
+  site deploys from `September_2026`. **Decision for the user:** volunteers use ChatBroadcast
+  served locally from `Bag3/Code/`, or the hosted copy is re-copied and deployed after S6 and S7.
+- **Flasher** (`Live_Page/Flasher/`) now lists the Broadcast Box, Dial, Icon Display and
+  CrowPanel, and reads the wand from `Wand Module/flash_bundle/flash_manifest.json` at a chosen
+  branch. S0's regenerated bundle is therefore what the Flasher installs. For H7, adding the
+  frozen branch to `Flasher/js/devices.js` (`REFS`) and serving the Flasher locally would let
+  wands be flashed from the browser instead of by `mpremote`; S0 should check this and report.
+- **`tools/wandtest.py`** (user's bench script, 60 LEDs in 5 rows) and
+  **`Experiments/Waveshare19_Controller/`** (display and backlight probes) are new. Neither is
+  part of the test firmware. A Waveshare table, if there is one, runs like a Box table: cards
+  only, no distribute.
+- **Unchanged failures:** `Simulator/tools/room_smoke.mjs` fails on both branches; the other
+  failing checks are the ones already listed in this plan.
+
 ## Slot design for this test (minimal diff)
 
 Games stay as `/games/<slug>.py` because the wand imports by slug (`lib/game_store.py`). No slot

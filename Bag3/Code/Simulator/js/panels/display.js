@@ -339,8 +339,17 @@ export function createDisplaysPanel({ mount, room }) {
 
   /** What the Box/teacher does on device: tell the display which game to
    * run. Unicast, so the wand does not take it as a force-switch. */
+  /** Install the display game and start it. `d.starting` marks a start
+   * in progress, so the display's own wake-up (onLive) does not send a
+   * second start_game: the display game treats any start_game while it
+   * runs as a stop and restarts. */
   async function startOn(d, g, stale) {
-    await d.dev.setGame(g.slug, g.src, g.icons);
+    d.starting = true;
+    try {
+      await d.dev.setGame(g.slug, g.src, g.icons);
+    } finally {
+      d.starting = false;
+    }
     if (stale?.() || !list.includes(d)) return;
     send(d.dev.mac, { type: "start_game", name: g.slug });
   }
@@ -380,7 +389,10 @@ export function createDisplaysPanel({ mount, room }) {
     d.dev = createDisplayDevice({
       bus: room.bus, clock: room.clock, mac: freeMac(),
       // Woken by a click while a display game is loaded: it joins that game.
-      onLive: () => { if (game && list.includes(d)) startOn(d, game).catch((err) => console.error("icon display", err)); },
+      // A wake started by startOn is left to startOn.
+      onLive: () => {
+        if (game && list.includes(d) && !d.starting) startOn(d, game).catch((err) => console.error("icon display", err));
+      },
     });
     wrap(d);
     list.push(d);

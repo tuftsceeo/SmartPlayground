@@ -375,7 +375,7 @@ export class SerialAdapter {
           console.error("serialAdapter: read loop error", e);
           closeReason = `${e.name}: ${e.message}`;
         } else {
-          logInfo(`read loop cancelled: ${e.name}`);
+          logInfo(`read loop canceled: ${e.name}`);
         }
       }
       // Intentional disconnect() sets readLoopActive=false before cancel —

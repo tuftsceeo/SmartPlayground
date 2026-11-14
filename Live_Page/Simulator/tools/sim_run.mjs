@@ -3,8 +3,8 @@
  * Run a lobby game headless: the simulated wand in Pyodide under Node, with
  * virtual peer wands and Splats (js/headless.js). No browser.
  *
- *   node Bag3/Code/Simulator/tools/sim_run.mjs --game lobbytest [--seconds 20] [--seed 1] [--scale 4]
- *   node Bag3/Code/Simulator/tools/sim_run.mjs --file my_game.py
+ *   node Bag3/Code/BroadcastCode/Simulator/tools/sim_run.mjs --game lobbytest [--seconds 20] [--seed 1] [--scale 4]
+ *   node Bag3/Code/BroadcastCode/Simulator/tools/sim_run.mjs --file my_game.py
  *   --verbose also prints everything the wand printed.
  *
  * Prints a JSON report and exits 1 when the game raised, or when play() did

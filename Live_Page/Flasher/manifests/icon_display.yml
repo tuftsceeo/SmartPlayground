@@ -1,0 +1,14 @@
+# Icon Display — 16x16 LED panel on a XIAO ESP32-C6 (Bag3/Code/Stations/IconDisplay)
+# lib/hubtype.py sets led_pin per unit (0 = A0 on the bench unit); a unit wired
+# to D5 needs led_pin 23 set by hand after flashing.
+
+# Top-level lists go before sources:
+exclude_ext:
+  - .md
+
+exclude_dirs:
+  - drafts
+
+sources:
+  - repo: Bag3/Code/Stations/IconDisplay
+    prefix: ""

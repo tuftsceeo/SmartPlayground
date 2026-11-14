@@ -44,8 +44,8 @@ leaves as an event (`sim-log`, `sim-error`, `display-print`, `room-radio`,
 Developer mode footer, and `index.html` in a `<pre>` under the room.
 
 - **Icon displays:** devices of their own beside the wand, each with its
-  own MAC (`02:00:00:00:0d:01` up), up to 4. One starts as a placeholder;
-  a click wakes it, and each boots its own Pyodide running
+  own MAC (`02:00:00:00:0d:01` up), up to 4. A game with a display file
+  starts one; "+ Add a display" starts another at once. Each boots its own Pyodide running
   `py/icon_host.py` (IconDisplay/main.py's idle loop, without `main()`),
   drawn as a 16x16 grid of square cells. A game with a display file
   (`vendor/display/games/<game>.py`, or the `displaySource` property)
@@ -54,10 +54,10 @@ Developer mode footer, and `index.html` in a `<pre>` under the room.
   and sends `stop` to the rest. The all-wands overlay adds displays and
   shows them; advanced mode takes them away; simple mode shows them only while
   the game uses them.
-  Lit cells use the icon editor's LED colour model (`ledSwatchHex` in
+  Lit cells use the icon editor's LED color model (`ledSwatchHex` in
   `Stations/Icon Display Station/webapp/js/pipeline/ledGamut.js`, copied
-  into `js/panels/display.js`): the colour the LED emits at full duty, not
-  dimmed by the game's intensity. Off cells are dark grey on a black
+  into `js/panels/display.js`): the color the LED emits at full duty, not
+  dimmed by the game's intensity. Off cells are dark gray on a black
   diffuser inside a charcoal case.
 
 - **Splats:** for a lobby game (`SPLATS_MIN`), the wand's Splats stand
@@ -110,9 +110,10 @@ What stands in for what:
   There are no Splat cards, `/pairing.json`, `pw_who` claim checks or the
   30 s connect deadline.
 - **Other wands:** a game has none unless `wands` is more than 1 or
-  the overlay's "+ Add a wand" adds one. Each starts as a placeholder (an
-  outline wand with "?" on its screen) that runs nothing and is not on the
-  radio. Clicking it starts another `<wand-sim>` running the same game, on
+  the overlay's "+ Add a wand" adds one. The wands `wands` calls for wait
+  as slots, running nothing, until the overlay opens; then each starts
+  another `<wand-sim>` running the same game, and "+ Add a wand" starts one
+  at once. Each runs on
   the room's bus and clock with its own MAC (`02:00:00:00:0A:02` on) and
   Splats, so every wand runs the vendored `lobby_game.py` and the game's own
   `play()`. A game that is not a lobby game gets other wands only from
@@ -144,8 +145,8 @@ browser (`js/headless.js`): the same wand, peers and Splats on a bus and a
 clock running 4x real time.
 
 ```bash
-node Bag3/Code/Simulator/tools/sim_run.mjs --game splattag --seconds 20
-node Bag3/Code/Simulator/tools/sim_run.mjs --file my_game.py --verbose
+node Bag3/Code/BroadcastCode/Simulator/tools/sim_run.mjs --game splattag --seconds 20
+node Bag3/Code/BroadcastCode/Simulator/tools/sim_run.mjs --file my_game.py --verbose
 ```
 
 Three scenarios: **lead** (the wand leads, follower peers fill the lobby to
@@ -166,7 +167,7 @@ Pyodide comes from its npm package: `PYODIDE_DIR`, or fetched once with
 From the repo root:
 
 ```bash
-cd Bag3/Code/Simulator
+cd Bag3/Code/BroadcastCode/Simulator
 python3 -m http.server 8000
 ```
 
@@ -196,7 +197,7 @@ python3 tools/sync_sources.py --check  # exit 1 if vendor drifted
 A pre-commit hook at `.githooks/pre-commit` runs `--check`. Enable with:
 
 ```bash
-git config core.hooksPath Bag3/Code/Simulator/.githooks
+git config core.hooksPath Bag3/Code/BroadcastCode/Simulator/.githooks
 ```
 
 (or copy the hook into `.git/hooks`).
@@ -204,7 +205,7 @@ git config core.hooksPath Bag3/Code/Simulator/.githooks
 ## Tests
 
 ```bash
-cd Bag3/Code/Simulator
+cd Bag3/Code/BroadcastCode/Simulator
 python3 -m pytest
 ```
 
@@ -283,7 +284,7 @@ as a crash (and, once the panel grew pop-ups, as "Can't simulate").
 ## Freeze Dance roles
 
 `freeze_dance.py` picks its role from the `caller` and `player` NFC tags, so
-they appear in the tag popover like any other tag — no special affordance.
+they appear among the tag chips like any other tag — no special affordance.
 It is the one vendored game that names its tag set `GAME_COMMANDS` rather
 than the `COMMANDS` that `Wand Module/main.py` documents;
 `get_capabilities()` reads either, or the game would offer no tags at all
@@ -327,7 +328,7 @@ the Bag trees, not here, and has been left alone.
   pointer moves, then snaps to the named pose its position reads as once the
   pointer settles, so an orientation-reading game sees the exact gravity
   vector from the `POSES` table rather than an in-between one. The mapping is
-  in `setPadTilt`'s docstring: screen-up is up, the pad's centre is the
+  in `setPadTilt`'s docstring: screen-up is up, the pad's center is the
   wand upright facing the viewer, top/bottom tip its face up/down, and the
   wand rolls up to 90° toward the pointer's side: clockwise to Right Up on
   the right, counterclockwise to Left Up on the left. "Turn over" turns
@@ -351,17 +352,25 @@ the Bag trees, not here, and has been left alone.
   (`detail` is `{ kind, action }`), `sim-enow-sent` (`detail` is
   `{ kind, data, mac }`).
 - Pop-ups: `showOverlay(kind, opts)` / `hideOverlay()`, where `kind` is
-  `"game-over"`, `"cant-simulate"`, `"welcome"` or `"new-code"` (a
-  bottom-anchored banner; the rest are centred cards over a scrim). `opts`
+  `"game-over"`, `"cant-simulate"`, `"welcome"` or `"paused"` (a
+  bottom-anchored banner; the rest are centered cards over a scrim). `opts`
   can override `title`, `message` and `buttons`. Every button dispatches
   `sim-overlay-action` and closes the pop-up. `"cant-simulate"` is the one
   the element raises by itself, on a boot or load failure; the host triggers
   the others. `index.html` has a button per kind for exercising them.
 - The panel lays out in two panes above 420px of its own width and one below
-  it (container queries in `js/controls.js`). Its design width is 500px. The left pane is the square
-  pad with the status line and Turn over under it; the right pane has Jump,
-  Spin and Shake in one row, the shake strength (Gentle, Strong, Intense)
-  under them, then whatever the host slots in (the icon display).
+  it (container queries in `js/controls.js`). Its design width is 500px. The left pane is the
+  pad (the drawn wand, no box) and the game's NFC tags as chips under it,
+  grouped Roles, Colors, Controls, then the rest; tapping a chip touches that
+  tag to the wand. In advanced mode the status line and Turn over sit under
+  the pad, and the right pane has the toolbar, Jump, Spin and Shake in one
+  row, the shake strength (Gentle, Strong, Intense), then whatever the host
+  slots in (the icon display). In simple mode Flip (Turn over), Jump and
+  Shake sit under the wand, each only when the game reads it, and the right
+  pane holds only the icon display, sized to the wand's height and centered
+  beside it; with no display it is not drawn. Below 420px the display moves
+  under the wand. A "Wand" label shows above the
+  wand while a display stands beside it.
 - ChatBroadcast (`Bag3/Code/TeacherTools/BroadcastBox/ChatBroadcast/`) embeds this
   element directly from `../../Simulator/wand-sim.js`, so both trees must be
   served from a common root (`Bag3/Code/`) rather than from ChatBroadcast's

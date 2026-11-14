@@ -9,7 +9,8 @@ Usage:
 
 Bag3/Code/Wand Module/lib/splat_api.py is the source of truth:
 its module-level COLOR_RGB, NOTE_VALUES and ANIMAL_SOUNDS dicts are the
-names splat.color(), splat.note() and splat.sound() accept on the device.
+names splat.color(), splat.note() and splat.sound() accept on the device,
+and LED_PARTS the parts splat.color(name, part) accepts.
 splatActions.js is the generated browser copy that ChatBroadcast puts in
 the system prompt and checks a Splat game against before sending.
 
@@ -36,13 +37,14 @@ TABLES = (
     ("COLOR_RGB", "COLORS"),
     ("NOTE_VALUES", "NOTES"),
     ("ANIMAL_SOUNDS", "SOUNDS"),
+    ("LED_PARTS", "PARTS"),
 )
 
 DOCSTRING = """/**
  * Splat action names a wand's Splats accept (net.splat(i), net.local), by category.
  *
  * Generated from Bag3/Code/Wand Module/lib/splat_api.py
- * (COLOR_RGB, NOTE_VALUES, ANIMAL_SOUNDS) by
+ * (COLOR_RGB, NOTE_VALUES, ANIMAL_SOUNDS, LED_PARTS) by
  * ChatBroadcast/tools/sync_splat_actions.py -- do not hand-edit. Read by
  * js/splat/splatActionCheck.js for the system prompt and the send-time
  * check.

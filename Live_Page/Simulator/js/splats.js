@@ -9,14 +9,15 @@
  * Two ways in:
  *   applyAction(op, v)   the pw_cmd / splat_api level: op "color" | "color_part" | "sound" |
  *                        "note" | "play" | "off", v a card name or name list
- *                        ("color_part": v is [name, "inner" | "outer"])
+ *                        ("color_part": v is [name, part], part a PARTS key)
  *   applyWrite(op, args) the BLE-write level py/shims/splat_hub.py reports
  *                        for the simulated wand's own Splats ("leds",
  *                        "sound", "noteOn", "noteOff", "tasksOff", "ledsOff",
- *                        "ledsPart" [part, r, g, b])
+ *                        "ledsPart" [part, r, g, b], "ledsIdx" [[i...], r, g, b])
  *
- * State: inner and outer [r,g,b] (the two LED rings: even LEDs inner, odd
- * outer), rgb [r,g,b] (the inner ring's color, or the outer's when the inner
+ * State: leds, the 14 LEDs' [r,g,b]; inner, outer, left and right, each
+ * part's [r,g,b] (its first lit LED, else dark; PARTS says which LEDs);
+ * rgb [r,g,b] (the inner ring's color, or the outer's when the inner
  * is dark), color (name or null), sound (name or null), note
  * (name or null), ready (link up), pressed, and sounds (count of sounds and
  * notes started, so a view can tell a repeat from no change).
@@ -37,6 +38,16 @@ export const NOTE_VALUES = {
 
 export const ANIMAL_SOUNDS = {
   cat: 19, chicken: 20, cow: 21, dog: 22, pig: 23, duck: 24, elephant: 25, horse: 26, goat: 28,
+};
+
+/** splat_api.LED_PARTS: even LEDs the inner ring, odd the outer points;
+ * 0-6 the left half, 7-13 the right. */
+export const LED_COUNT = 14;
+export const PARTS = {
+  inner: [0, 2, 4, 6, 8, 10, 12],
+  outer: [1, 3, 5, 7, 9, 11, 13],
+  left: [0, 1, 2, 3, 4, 5, 6],
+  right: [7, 8, 9, 10, 11, 12, 13],
 };
 
 /** splat_api.NOTE_OCTAVE */
@@ -76,8 +87,11 @@ export function createSplat({ mac, owner = null, onChange = null } = {}) {
     mac,
     owner,
     rgb: [0, 0, 0],
+    leds: Array.from({ length: LED_COUNT }, () => [0, 0, 0]),
     inner: [0, 0, 0],
     outer: [0, 0, 0],
+    left: [0, 0, 0],
+    right: [0, 0, 0],
     color: null,
     sound: null,
     note: null,
@@ -90,15 +104,26 @@ export function createSplat({ mac, owner = null, onChange = null } = {}) {
   };
   const changed = (what) => s.onChange?.(s, what);
 
-  /** Set part ("inner", "outer", or null for both) to rgb. */
-  function setRgb(rgb, part) {
-    if (part !== null && part !== "inner" && part !== "outer") {
-      throw new Error(`unknown Splat part: ${part}`);
+  /** Set the LEDs at idx to rgb, then each part's color. */
+  function setLeds(idx, rgb) {
+    for (const i of idx) {
+      if (!(i >= 0 && i < LED_COUNT)) throw new Error(`no Splat LED ${i}`);
+      s.leds[i] = [...rgb];
     }
-    if (part !== "outer") s.inner = [...rgb];
-    if (part !== "inner") s.outer = [...rgb];
+    for (const [name, ids] of Object.entries(PARTS)) {
+      const lit = ids.map((i) => s.leds[i]).find((c) => c.some(Boolean));
+      s[name] = [...(lit || [0, 0, 0])];
+    }
     s.rgb = [...(s.inner.some(Boolean) ? s.inner : s.outer)];
     s.color = colorName(s.rgb);
+  }
+
+  /** Set part (a PARTS key, or null for all 14 LEDs) to rgb. */
+  function setRgb(rgb, part) {
+    if (part !== null && !(part in PARTS)) {
+      throw new Error(`unknown Splat part: ${part}`);
+    }
+    setLeds(part === null ? PARTS.inner.concat(PARTS.outer) : PARTS[part], rgb);
   }
 
   function setColor(name, part = null) {
@@ -158,6 +183,9 @@ export function createSplat({ mac, owner = null, onChange = null } = {}) {
       changed("color");
     } else if (op === "ledsPart") {
       setRgb([args[1] | 0, args[2] | 0, args[3] | 0], args[0]);
+      changed("color");
+    } else if (op === "ledsIdx") {
+      setLeds(args[0], [args[1] | 0, args[2] | 0, args[3] | 0]);
       changed("color");
     } else if (op === "sound") {
       s.sound = soundName(args[0]);

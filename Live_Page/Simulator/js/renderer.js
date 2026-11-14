@@ -201,7 +201,7 @@ export const WAND_STYLE = `
 /* Not interactive at this size — the full-size button is the control. */
 .wand-mini .wand-btn { cursor: default; pointer-events: none; }
 /* Reads against the back face's purple, not the pad's near-white, so it
-   takes the darker ink rather than the muted grey used elsewhere. */
+   takes the darker ink rather than the muted gray used elsewhere. */
 .wand-mini-caption {
   font: 400 13px 'Patrick Hand', 'Nunito', system-ui, sans-serif; color: #5b5468;
   line-height: 1; white-space: nowrap;
