@@ -34,6 +34,7 @@ filenames). Search front matter with `grep -l '<term>' Bag3/Code/known_issues/*.
 | [2026-11-13-game-system-gaps.md](2026-11-13-game-system-gaps.md) | Game design gaps: display station mode, Splat host federation, targeted messages (decision), speaker station, vibration, mobility knowledge | open | — |
 | [2026-11-13-game-ideas-backlog.md](2026-11-13-game-ideas-backlog.md) | Game ideas not chosen as built-ins, and the gap blocking each | open | — |
 | [2026-11-11-simple-mode-large-changes.md](2026-11-11-simple-mode-large-changes.md) | Simple mode design: device minimums, Simulator minimum/Splat host role (built, hardware untested)/zones (built, left/right unconfirmed)/art, game card, versions | open | — |
+| [2026-11-14-hold-interactions-ux.md](2026-11-14-hold-interactions-ux.md) | UX: hold-to-act (Splat host start/end) needs clear progress; game text says only "hold the button" | open (concern) | — |
 
 ## By topic
 
