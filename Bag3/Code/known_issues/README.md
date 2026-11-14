@@ -39,6 +39,7 @@ filenames). Search front matter with `grep -l '<term>' Bag3/Code/known_issues/*.
 | [2026-11-14-send-check-errors-ux.md](2026-11-14-send-check-errors-ux.md) | UX: send-time check errors (splat_lost) are technical toasts, run after the Simulator, no fix path; Simple mode should auto-send to chat | open (concern) | — |
 | [2026-11-14-games-must-repeat.md](2026-11-14-games-must-repeat.md) | Knowledge: generated games end after a win; all games must celebrate then start a new round, forever | open | — |
 | [2026-11-14-dial-keyboard-send-stall.md](2026-11-14-dial-keyboard-send-stall.md) | Dial: distribute fails just after the keyboard is built ("schedule queue full"); TypeError lines after a soft reset | open (draft, S11 pending) | — |
+| [2026-11-14-dial-upload-during-pull.md](2026-11-14-dial-upload-during-pull.md) | Dial JSON-link upload can replace a game file mid-pull | open (low; pre-classroom test) | — |
 | [2026-11-14-start-tag-in-tray.md](2026-11-14-start-tag-in-tray.md) | Simulator tray offers the game's own start tag; start tag should not be a play card | open | — |
 
 ## By topic
