@@ -240,7 +240,7 @@ sc.run(1500)
 sc = Sc()
 p2 = sc.wand(2)
 tap(sc, 2, 0, host_lobbytest)
-sc.run(lobby_game.HOST_FIND_TRIES * 700 + 2000)
+sc.run(lobby_game.HOST_WAIT_MS + 2000)
 check("with no host, a player never leads and ends with no_host",
       p2.result == "done" and p2.net is None and p2.last_end == "no_host", str(p2.last_end))
 

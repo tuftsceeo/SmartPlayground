@@ -11,8 +11,8 @@ play() returns.
 
 Splat host games (the module sets SPLAT_HOST = True): a wand in the Splat host
 role (lib/splat_host.py) always leads and holds the Splats; game wands only
-join. A game wand never leads a host game: it looks for a host lobby for up to
-HOST_FIND_TRIES finds. A host never yields its lobby. In the game,
+join. A game wand never leads a host game: it keeps looking for a host lobby
+until one opens, a stop card or ESP-NOW stop/start_game, or HOST_WAIT_MS. A host never yields its lobby. In the game,
 net.is_host is True on the host and net.players lists the game wands' indexes.
 
 Wire format: JSON dicts whose "type" starts with "pw_", through
@@ -38,7 +38,7 @@ MSG_MAX_BYTES = 200       # largest JSON body net.send() accepts
 MSGS_PER_POLL = 6         # ESP-NOW messages handled per Net.poll()
 LOBBY_NFC_EVERY = 8       # lobby loops between stop-card reads
 LOBBY_NFC_MS = 40         # NFC detect timeout for those reads
-HOST_FIND_TRIES = 20      # finds a game wand makes for a host lobby (~10 s)
+HOST_WAIT_MS = 180000     # longest a game wand looks for a host lobby (3 min)
 
 _counter = 0              # 1-byte game id counter, per boot
 last_end = None           # why the last enter() returned None
@@ -177,13 +177,17 @@ class Net:
 
     # ── find, lead, join ──
 
-    def find(self):
+    def find(self, ctl_ends=False):
         """Broadcast pw_find and listen FIND_WAIT_MS. Returns (leader MAC,
-        game id) from the first matching pw_lobby, else None."""
+        game id) from the first matching pw_lobby, else None. With ctl_ends,
+        an ESP-NOW stop or start_game sets _end_reason "external" and returns None."""
         self.enow.broadcast({"type": "pw_find", "g": self.slug})
         end = time.ticks_add(time.ticks_ms(), FIND_WAIT_MS)
         while time.ticks_diff(end, time.ticks_ms()) > 0:
             mt, data, sender = self.enow.poll()
+            if ctl_ends and mt in ("stop", "start_game"):
+                self._end_reason = "external"
+                return None
             if (mt == "raw" and isinstance(data, dict) and data.get("type") == "pw_lobby"
                     and data.get("g") == self.slug and sender != self.my_mac
                     and (data.get("h") or not self.host_game)):
@@ -672,19 +676,26 @@ def run_lobby(net, nfc, button_down, leds, buz):
 
 
 def _wait_for_host(net, nfc, leds):
-    """A game wand in a host game: find a host lobby, spinning, up to
-    HOST_FIND_TRIES times. Returns (MAC, id), or None (no host, or stop card)."""
+    """A game wand in a host game: find a host lobby, spinning, until one
+    answers, a stop card, an ESP-NOW stop or start_game, or HOST_WAIT_MS.
+    Returns (MAC, id), or None with _end_reason "left", "external" or "no_host"."""
     from nfc_reader import read_ndef_text
     from leds import BLUE_DIM
-    for k in range(HOST_FIND_TRIES):
+    start = time.ticks_ms()
+    k = 0
+    while time.ticks_diff(time.ticks_ms(), start) < HOST_WAIT_MS:
         leds.animate_spin(k, BLUE_DIM, frames_per_step=1)
-        found = net.find()
+        k += 1
+        found = net.find(ctl_ends=True)
         if found is not None:
             return found
+        if net._end_reason is not None:
+            return None
         text, _ = read_ndef_text(nfc, timeout=LOBBY_NFC_MS)
         if text == "stop":
             net._end_reason = "left"
             return None
+        time.sleep_ms(1)
     print("  lobby: no Splat host lobby for %r" % net.slug)
     net._end_reason = "no_host"
     return None
