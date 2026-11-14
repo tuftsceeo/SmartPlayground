@@ -21,7 +21,7 @@ Writing icons/ here is not the last step. To reach hardware an icon has to be
 copied into Stations/IconDisplay/icons/, and to be usable in a generated
 game the chat app's list has to be regenerated from that device set:
 
-    python3 ../../ChatBroadcast/tools/sync_icons.py --check
+    python3 ../ChatBroadcast/tools/sync_icons.py --check
 
 An icon that skips it works on the device and is silently absent from
 ChatBroadcast -- a game naming it is refused at send time. The full promote

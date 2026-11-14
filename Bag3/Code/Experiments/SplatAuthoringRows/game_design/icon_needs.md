@@ -107,7 +107,7 @@ versions, and consider renaming or redrawing the 5x5 shapes.
 ## Adding icons
 
 - **16x16:** add to `Stations/IconDisplay/icons/`, then run `ChatBroadcast/tools/sync_icons.py`
-  (`--check` for drift). Also copy by hand to `Stations/Icon Display Station/icons/` and
+  (`--check` for drift). Also copy by hand to `IconEditor/icons/` and
   `ChatBroadcast/iconmaker/`, per AGENTS.md. Until then, a generated game naming the icon is
   refused at send time.
 - **5x5:** add to `Wand Module/lib/leds.py` and, by hand, to `ChatBroadcast/js/ledicons/shapes5.js`.

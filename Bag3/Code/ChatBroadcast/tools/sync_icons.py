@@ -9,7 +9,7 @@ Usage:
     python3 tools/sync_icons.py --station          # copy icons into the station
     python3 tools/sync_icons.py --station --check  # exit 1 if the station drifts
 
---station works on Bag3/Code/Stations/Icon Display Station/icons/ instead of
+--station works on Bag3/Code/IconEditor/icons/ instead of
 defaultIcons.js: every source icon is copied there byte-for-byte. Station
 icons with no source file are reported but never deleted.
 
@@ -43,8 +43,7 @@ BROADCASTBOX = os.path.dirname(CHATBROADCAST)
 
 ICONS_DIR = os.path.join(BROADCASTBOX, "Stations", "IconDisplay", "icons")
 OUT_PATH = os.path.join(CHATBROADCAST, "js", "ledicons", "defaultIcons.js")
-STATION_ICONS_DIR = os.path.join(BROADCASTBOX, "Stations",
-                                 "Icon Display Station", "icons")
+STATION_ICONS_DIR = os.path.join(BROADCASTBOX, "IconEditor", "icons")
 
 TUPLE_RE = re.compile(r"\(\s*(-?\d+)\s*,\s*(-?\d+)\s*,\s*(-?\d+)\s*\)")
 SIZE_RE = re.compile(r"^SIZE\s*=\s*\(\s*(\d+)\s*,\s*(\d+)\s*\)\s*$")
@@ -262,7 +261,7 @@ def main():
     ap.add_argument("--check", action="store_true",
                     help="verify instead of writing; exit 1 on drift")
     ap.add_argument("--station", action="store_true",
-                    help="copy (or with --check, verify) the Icon Display Station's icons/")
+                    help="copy (or with --check, verify) IconEditor/icons/")
     args = ap.parse_args()
 
     try:

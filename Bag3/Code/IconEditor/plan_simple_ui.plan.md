@@ -286,7 +286,7 @@ in simple.
 ## Verification
 
 ```bash
-cd "Bag3/Code/Stations/Icon Display Station" && python3 serve.py
+cd Bag3/Code/IconEditor && python3 serve.py
 ```
 
 After step 2, before anything else: advanced mode must look and behave exactly
