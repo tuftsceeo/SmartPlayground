@@ -229,6 +229,15 @@ reopens the port without the visible state following.
 3. Make the smallest fix: one place owns the link state, and both the manual button and the
    auto-reconnect go through it.
 Report the cause as the log shows it, the fix, and the steps for the user to confirm.
+4. (Added 2026-11-14, after step 3.) Send games without a reset. Today Send to device drops the
+   Dial and the Box into the raw REPL, writes the files and soft-resets
+   (js/device/boxFirmwareInstaller.js pushPayload), which drops USB and goes through the same
+   reconnect path every time; it also clears the Dial's pull counts. Add a chunked game-upload
+   command on the JSON link (bdial_server.py and bbox_server.py): write to /flash/games, then
+   rescan the game list, with the program and radio left running. Switch ChatBroadcast to it for
+   the Dial and Box and keep the raw-REPL path as a fallback for older firmware. Do not restart
+   the program in place after a REPL session (the CrowPanel's meta.resume): the radio needs its
+   memory claimed at boot (AGENTS.md).
 ```
 
 ### S6. Simulator matches the wand's game modes
