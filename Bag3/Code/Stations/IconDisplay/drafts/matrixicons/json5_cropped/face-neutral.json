@@ -1,0 +1,23 @@
+{
+ "rows": [
+  ".ABC.",
+  "BBDCE",
+  "BFGFH",
+  "CFIIF",
+  ".JKL."
+ ],
+ "pal": {
+  "A": "#fbca05",
+  "B": "#fdcb04",
+  "C": "#fccb04",
+  "D": "#fccb03",
+  "E": "#fdcd02",
+  "F": "#fdcc05",
+  "G": "#feca04",
+  "H": "#fdcb03",
+  "I": "#fdcb05",
+  "J": "#f8cb17",
+  "K": "#fcca03",
+  "L": "#eec41a"
+ }
+}

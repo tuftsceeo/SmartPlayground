@@ -1,0 +1,23 @@
+{
+ "rows": [
+  ".ABC.",
+  ".DEF.",
+  ".GHI.",
+  "JGEE.",
+  "KGGGL"
+ ],
+ "pal": {
+  "A": "#fefefd",
+  "B": "#ffffff",
+  "C": "#fefdfe",
+  "D": "#ebecee",
+  "E": "#ebedee",
+  "F": "#ebecef",
+  "G": "#ebebed",
+  "H": "#edd9ac",
+  "I": "#ececef",
+  "J": "#b6b9ba",
+  "K": "#ececee",
+  "L": "#c9ccd2"
+ }
+}

@@ -1,0 +1,14 @@
+{
+ "rows": [
+  "..A..",
+  "AAAAA",
+  "AABAA",
+  "CAAAA",
+  ".AAA."
+ ],
+ "pal": {
+  "A": "#ffffff",
+  "B": "#fec305",
+  "C": "#e1e1e0"
+ }
+}

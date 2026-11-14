@@ -1,0 +1,17 @@
+{
+ "rows": [
+  ".AB..",
+  ".CBD.",
+  "BDDD.",
+  ".DDD.",
+  ".DEF."
+ ],
+ "pal": {
+  "A": "#ededed",
+  "B": "#eaeaec",
+  "C": "#fefefe",
+  "D": "#e9e9eb",
+  "E": "#cbd0d2",
+  "F": "#ccced3"
+ }
+}

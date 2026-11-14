@@ -1,0 +1,27 @@
+{
+ "rows": [
+  "ABCDE",
+  "FGHIJ",
+  "KLMNO",
+  "P....",
+  "....."
+ ],
+ "pal": {
+  "A": "#efeeec",
+  "B": "#eeeeeb",
+  "C": "#efedec",
+  "D": "#919094",
+  "E": "#5a585e",
+  "F": "#825632",
+  "G": "#c9c9c9",
+  "H": "#c6c6c7",
+  "I": "#efefef",
+  "J": "#f0eeed",
+  "K": "#845731",
+  "L": "#efefee",
+  "M": "#f0eeee",
+  "N": "#efefed",
+  "O": "#edeeed",
+  "P": "#815531"
+ }
+}

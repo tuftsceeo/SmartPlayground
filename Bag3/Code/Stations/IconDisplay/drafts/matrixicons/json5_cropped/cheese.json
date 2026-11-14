@@ -1,0 +1,22 @@
+{
+ "rows": [
+  "..AB.",
+  ".CDEF",
+  "GHHHH",
+  "GHHFI",
+  "JK..."
+ ],
+ "pal": {
+  "A": "#fddb6e",
+  "B": "#fedb6c",
+  "C": "#ffdb69",
+  "D": "#fedb6f",
+  "E": "#fed862",
+  "F": "#fec130",
+  "G": "#fec230",
+  "H": "#fdc12f",
+  "I": "#fdc030",
+  "J": "#fdbf2e",
+  "K": "#fac031"
+ }
+}

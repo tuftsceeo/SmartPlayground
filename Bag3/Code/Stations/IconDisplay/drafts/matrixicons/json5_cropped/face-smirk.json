@@ -1,0 +1,28 @@
+{
+ "rows": [
+  ".ABC.",
+  "DEFGH",
+  "IJKLM",
+  "INOND",
+  ".PIQ."
+ ],
+ "pal": {
+  "A": "#fdcb04",
+  "B": "#fcca05",
+  "C": "#fdca00",
+  "D": "#ffcc06",
+  "E": "#542e09",
+  "F": "#fecb04",
+  "G": "#522d0b",
+  "H": "#fecb03",
+  "I": "#fccb04",
+  "J": "#fccc04",
+  "K": "#fdca03",
+  "L": "#ffcc02",
+  "M": "#fdcb05",
+  "N": "#fdc902",
+  "O": "#fdcc04",
+  "P": "#967818",
+  "Q": "#fac90d"
+ }
+}

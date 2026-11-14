@@ -1,0 +1,30 @@
+{
+ "rows": [
+  ".ABC.",
+  "DEFGA",
+  "HIJKL",
+  "MINOP",
+  ".QRS."
+ ],
+ "pal": {
+  "A": "#ffcb06",
+  "B": "#ea8902",
+  "C": "#fecb02",
+  "D": "#caa51c",
+  "E": "#feb00a",
+  "F": "#ffb00a",
+  "G": "#ffb20c",
+  "H": "#ffca06",
+  "I": "#feb10b",
+  "J": "#e98604",
+  "K": "#ffaf0c",
+  "L": "#feca04",
+  "M": "#d0aa1b",
+  "N": "#feaf0b",
+  "O": "#feaf0d",
+  "P": "#fecc04",
+  "Q": "#ffcb04",
+  "R": "#f6c920",
+  "S": "#fecb05"
+ }
+}
