@@ -1,7 +1,7 @@
 ---
 title: Broadcast Dial and Box still gate code serving behind arm/disarm
 date: 2026-11-02
-status: open (from code reading, untested on hardware)
+status: Dial fixed 2026-11-14 (off-device tests only, untested on hardware); Box open
 devices: [BroadcastDial, BroadcastBox]
 components: [BDialFirmware/bdial_server.py, BDialFirmware/code_link.py, BBoxFirmware/bbox_server.py, BBoxFirmware/code_link.py, BBoxFirmware/bbox_ui.py]
 code:
@@ -22,6 +22,15 @@ related:
 ---
 
 # Broadcast Dial and Box: arm/disarm serving, 2026-11-02
+
+## Update 2026-11-14 (stress-test prep S4)
+**Dial fixed in code, not yet on hardware.** `BDialFirmware/code_link.py` has `is_on`,
+`radio_on()` and `radio_off()` in place of `armed`/`arm()`/`disarm()`, as in the CrowPanel copy.
+`bdial_server._serve()` brings the radio up whenever the reader field is off, in WRITE and IDLE,
+with or without a game, and on the keyboard and result screens. `arm`/`disarm` remain as accepted
+no-ops, and `info`/`arm` still report `"armed"` (the radio state) for older apps.
+`tools/test_dial_station.py` covers it (16 pass). **The Box is unchanged**; the items below still
+apply to it.
 
 **Intended behaviour:** the ESP-NOW radio and the code server are on by default. They pause only
 while an NFC card is being read or written, then resume. Serving is not a mode, and nothing arms or

@@ -10,10 +10,8 @@ One user-facing state: the tag menus. The invariant this file holds:
 
     at most one of {radio, NFC RF field} is energized at any instant.
 
-    WRITE  The menus. ESP-NOW serves the active game to wands
-           (code_link.py) whenever the reader field is off; the radio goes
-           down only while a card is being scanned or written.
-    IDLE   Neither.  No game on flash, so there is nothing to do.
+    WRITE  A game on flash.  IDLE  None.  In both, ESP-NOW serves
+           whenever the reader field is off.
 
 There is deliberately no RECEIVING mode: the app pushes code over the raw
 REPL, which interrupts this program and soft-resets the board
@@ -44,7 +42,7 @@ HEARTBEAT_MS = 5000
 # catch; that is the only thing it is for.
 GRACE_S = 0
 
-SHARE_RETRY_MS = 2000        # wait after a failed menu-share arm()
+SHARE_RETRY_MS = 2000        # wait after a failed CodeLink.radio_on()
 
 INDEX_PATH = GAMES_DIR + '/index.json'
 
@@ -188,9 +186,6 @@ class BdialServer:
         if new_mode == self._mode:
             return
         old = self._mode
-        if old == MODE_WRITE:
-            self._fleet_cancel("radio_off")
-            self.code.disarm()
         self._mode = new_mode
         reset_log.note_mode(new_mode)
         print("# mode %s -> %s" % (old, new_mode))
@@ -264,22 +259,15 @@ class BdialServer:
         self.link.send({
             "type": "info", "id": rid,
             "version": VERSION, "mem": gc.mem_free(),
-            "armed": self.code.armed, "linked": self.linked,
+            "armed": self.code.is_on, "linked": self.linked,
             "payload_ready": self._payload_ready(),
             "written": sum(self._written.values()), "up": time.ticks_ms(),
         })
 
     def do_arm(self, cmd, rid):
-        """Sharing follows the menus (_serve); this only reports it.
-        Kept for hosts that still send it."""
-        if not self._payload_ready():
-            self.link.send({"type": "error", "id": rid, "code": "no_payload",
-                             "msg": "no game on device"})
-            return
-        if self.st is not None:
-            self._serve()
+        """No-op kept for older hosts."""
         self.link.send({"type": "ok", "id": rid, "cmd": "arm", "ssid": None,
-                        "armed": self.code.armed})
+                        "armed": self.code.is_on})
 
     def do_disarm(self, cmd, rid):
         """No-op kept for hosts that still send it: sharing is not
@@ -654,9 +642,9 @@ class BdialServer:
         return _card_text(tag)
 
     def radio_off(self):
-        if self.code.armed:
+        if self.code.is_on:
             self._fleet_cancel("radio_off")
-            self.code.disarm()
+            self.code.radio_off()
 
     def on_card(self, tag, existing):
         _log("card uid=%s existing=%s" % (tag['uid_hex'], repr(existing)))
@@ -681,27 +669,20 @@ class BdialServer:
     # ─────────────────────────────────────────────
 
     def _serve(self):
-        """Serve the active game over ESP-NOW on the menu screens; the
-        radio is down everywhere else (Read, scans, results, keyboard)."""
-        if self.code.armed:
-            if self.st.serving():
-                self.code.poll(on_event=self._on_share_event,
-                               on_msg=self._on_fleet_msg)
-                if self.fleet is not None:
-                    self.fleet.step()
-            else:
-                self._fleet_cancel("radio_off")
-                self.code.disarm()
+        """Radio up whenever the reader field is off."""
+        if self.code.is_on:
+            self.code.poll(on_event=self._on_share_event,
+                           on_msg=self._on_fleet_msg)
+            if self.fleet is not None:
+                self.fleet.step()
             return
-        if (self._mode != MODE_WRITE or not self.st.serving()
+        if (self.st._field
                 or time.ticks_diff(self._share_retry_at, time.ticks_ms()) > 0):
             return
         if self._active:
             self.code.set_game(self._active)
-        elif self.code.resolve() is None:
-            return
-        if not self.code.arm():
-            print("# share: CodeLink.arm() failed")
+        if not self.code.radio_on():
+            print("# share: CodeLink.radio_on() failed")
             self._share_retry_at = time.ticks_add(time.ticks_ms(), SHARE_RETRY_MS)
 
     def _on_share_event(self, event):
@@ -728,10 +709,10 @@ class BdialServer:
 
     def _fleet_ready(self, rid):
         """The Fleet when the radio is up, else an error reply and None.
-        The radio is up on the menu screens in WRITE mode (_serve)."""
-        if not self.code.armed:
+        The radio is up whenever the reader field is off (_serve)."""
+        if not self.code.is_on:
             self.link.send({"type": "error", "id": rid, "code": "not_serving",
-                            "msg": "radio is off: Dial must be on a menu with a game loaded"})
+                            "msg": "radio is off: the Dial is reading or writing a card"})
             return None
         if self.fleet is None:
             from fleet import Fleet
@@ -868,8 +849,8 @@ class BdialServer:
         the radio coming down.
         """
         try:
-            if self.code.armed:
-                self.code.disarm()
+            if self.code.is_on:
+                self.code.radio_off()
                 _log("shutdown: radio down")
         except Exception as e:
             print("# shutdown: radio disarm FAILED: %s" % str(e))

@@ -72,16 +72,16 @@ class FakeCode:
     """Radio: records when it was up while the field was on."""
     def __init__(self, nfc):
         self.nfc = nfc
-        self.armed = False
+        self.is_on = False
         self.overlap = False
         self.last_result = None
 
-    def arm(self):
-        self.armed = True
+    def radio_on(self):
+        self.is_on = True
         return True
 
-    def disarm(self):
-        self.armed = False
+    def radio_off(self):
+        self.is_on = False
 
     def poll(self, on_event=None, on_msg=None):
         if self.nfc.field:
@@ -105,7 +105,7 @@ class FakeNfc:
         return self.cards.pop(0) if self.cards else None
 
     def antenna_on(self):
-        if self.code is not None and self.code.armed:
+        if self.code is not None and self.code.is_on:
             self.overlap = True
         self.field = True
 
@@ -187,7 +187,7 @@ class Menus(unittest.TestCase):
         srv = make()
         run(srv, NEXT, ACT)                         # Tags
         self.assertEqual(srv.ui.last("show_list")[1:], ("No Game", ["Utility Tags"], 0))
-        self.assertFalse(srv.code.armed)
+        self.assertTrue(srv.code.is_on)             # serves with no game (S4)
 
     def test_game_rows(self):
         srv = make(MELODY)
@@ -218,41 +218,44 @@ class Menus(unittest.TestCase):
 
 
 class Radio(unittest.TestCase):
-    def test_serves_on_menus_only(self):
+    def test_off_only_while_field_on(self):
         srv = make(MELODY)
         idle(srv)
-        self.assertTrue(srv.code.armed)             # home
+        self.assertTrue(srv.code.is_on)             # home
         run(srv, NEXT, ACT)
-        self.assertTrue(srv.code.armed)             # games
+        self.assertTrue(srv.code.is_on)             # games
         run(srv, ACT)
-        self.assertTrue(srv.code.armed)             # tags
+        self.assertTrue(srv.code.is_on)             # tags
         run(srv, NEXT, ACT)                         # Code -> scan
         self.assertEqual(srv.st.mode, station.SCAN)
-        self.assertFalse(srv.code.armed)
+        self.assertFalse(srv.code.is_on)
         run(srv, EXIT)
-        self.assertTrue(srv.code.armed)
+        self.assertTrue(srv.code.is_on)
         run(srv, EXIT, EXIT, NEXT, ACT)             # home (on Tags) -> Text
         self.assertEqual(srv.st.mode, station.TEXT)
-        self.assertFalse(srv.code.armed)
+        idle(srv)
+        self.assertTrue(srv.code.is_on)             # keyboard: no field, radio back
         self.assertFalse(srv.nfc.overlap or srv.code.overlap)
 
-    def test_off_during_result_hold(self):
+    def test_off_during_result_hold_back_after(self):
         srv = make(MELODY)
         run(srv, NEXT, ACT, ACT, NEXT, NEXT, ACT)   # Play -> scan
         srv.nfc.cards.append(tag("AA"))
         idle(srv)
         self.assertEqual(srv.st.mode, station.SCAN)  # result held
-        self.assertFalse(srv.code.armed)
+        self.assertTrue(srv.nfc.field)               # field stays on in the hold
+        self.assertFalse(srv.code.is_on)
         finish_wait(srv)
         self.assertEqual(srv.st.mode, station.TAGS)
-        self.assertTrue(srv.code.armed)
+        self.assertTrue(srv.code.is_on)
+        self.assertFalse(srv.nfc.overlap or srv.code.overlap)
 
     def test_read_is_off(self):
         srv = make(MELODY)
         idle(srv)
         run(srv, ACT)
         self.assertEqual(srv.st.mode, station.READ)
-        self.assertFalse(srv.code.armed)
+        self.assertFalse(srv.code.is_on)
         self.assertFalse(srv.nfc.overlap)
 
 

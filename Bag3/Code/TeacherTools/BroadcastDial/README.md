@@ -46,7 +46,7 @@ exhaustion.
 `run()` calls `code_link.prewarm()` (ESP-NOW and STA up, then down) right after
 `M5.begin()`, before the UI and reader are built. `code_link.py` is imported at
 `bdial_server.py` module scope, so anything added to it is allocated before
-`prewarm()`. `code_sender.py` is imported inside `CodeLink.arm()`, after the
+`prewarm()`. `code_sender.py` is imported inside `CodeLink.radio_on()`, after the
 radio is up.
 
 With the UI built before the radio, transfers fail: each send blocks 2 s and
@@ -71,14 +71,14 @@ At most one of {radio, NFC RF field} is energized at any instant.
 | Tags | dot ring: loaded games, then Utility Tags ("No Game" title when none loaded) | open group | Home | serves |
 | Group | All, Code, Play, the game's tags (Utility: `stop`, `battery`) | write the tag (All: each in turn) | Tags | serves |
 | Read | each card's text | copy it to the next card | Home | off |
-| Scan / write-all / result | target, Hold Card, result ring | — | back | off |
-| Text | ring keyboard; word bank = loaded games' tags, then `/flash/words.json` | type | discard prompt / Home | off |
+| Scan / write-all / result | target, Hold Card, result ring | — | back | off while the field is on |
+| Text | ring keyboard; word bank = loaded games' tags, then `/flash/words.json` | type | discard prompt / Home | serves |
 
-The radio serves only when a game is loaded (`WRITE` mode over serial;
-`IDLE` with no game). `bdial_server._serve()` arms and polls it on the
-serving screens and disarms it elsewhere; `station.py` calls
-`radio_off()` before the field comes up. A failed arm is retried after
-`SHARE_RETRY_MS`.
+The radio serves whenever the reader field is off, with or without a game
+loaded (S4, 2026-11-14; a request for a missing game is refused).
+`station.py` calls `radio_off()` before the field comes up, and
+`bdial_server._serve()` turns the radio back on (`CodeLink.radio_on()`) once
+the field is off. A failed start is retried after `SHARE_RETRY_MS`.
 
 Code tags are written as `getcode:<slug>@<id>`. A card that already carries
 the target is reported, not rewritten. Success returns to the screen the
@@ -171,7 +171,7 @@ header. `opcodes.py` / `pn532.py` / `nfc_reader.py` are not carried over.
 Same commands and events as the Box, with these differences:
 
 - `ssid` is always `null` in `armed`, `mode` and the `arm` reply.
-- `arm` and `disarm` are accepted and change nothing; serving follows the screens.
+- `arm` and `disarm` are accepted and change nothing; `armed` reports whether the radio is on.
 - `games.list` `pulls` is the number of successful wand pulls of that game since boot.
 - Each finished transfer sends
   `{"type":"pull","slug":s,"role":r,"wand":"<mac>","ok":b,"ms":n,"why":w}`;
@@ -185,8 +185,8 @@ Identity payload:
 {"type":"identity","device":"broadcast_dial","version":"0.1.0","w":240,"h":240,"nfc":true|false,"host_id":"004c"}
 ```
 
-Fleet commands (Dial only; need the radio up, i.e. a menu screen in WRITE,
-else `error` `not_serving`):
+Fleet commands (Dial only; need the radio up, i.e. no card being read or
+written, else `error` `not_serving`):
 
 - `fleet.scan`: broadcasts `status_poll` and, over 6 s, sends
   `{"type":"status_report","mac","kind","battery","rssi"}` per reply, then
