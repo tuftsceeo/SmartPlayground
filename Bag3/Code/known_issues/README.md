@@ -37,6 +37,7 @@ filenames). Search front matter with `grep -l '<term>' Bag3/Code/known_issues/*.
 | [2026-11-14-hold-interactions-ux.md](2026-11-14-hold-interactions-ux.md) | UX: hold-to-act (Splat host start/end) needs clear progress; game text says only "hold the button" | open (concern) | — |
 | [2026-11-14-splat-host-wand-count.md](2026-11-14-splat-host-wand-count.md) | ChatBroadcast device line and brief leave out the Splat host wand (shows 2 wands, needs 3) | open | — |
 | [2026-11-14-send-check-errors-ux.md](2026-11-14-send-check-errors-ux.md) | UX: send-time check errors (splat_lost) are technical toasts, run after the Simulator, no fix path; Simple mode should auto-send to chat | open (concern) | — |
+| [2026-11-14-games-must-repeat.md](2026-11-14-games-must-repeat.md) | Knowledge: generated games end after a win; all games must celebrate then start a new round, forever | open | — |
 
 ## By topic
 
