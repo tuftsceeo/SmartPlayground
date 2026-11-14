@@ -40,3 +40,11 @@ is recorded. Nothing below has been fixed unless it says so.
 2. Whether U1, with automatic fixes in Simple mode, is in scope before the stress test.
 3. Whether to repro D2 before the stress test. The keyboard is what a teacher uses to write NFC card text.
 4. When to do S5 step 4 (D1). Doing it would remove the most common trigger of the reconnect bug.
+
+## S11 step 1: what can stall the Dial's main loop (code reading only, no hardware)
+- **Main loop** (`bdial_server.run`): `link.pump` (up to about 20 ms idle plus 40 ms drain), `st.step`, `ui.tick`, `_serve`, then `sleep_ms(1)`.
+- **`ui.tick`** only plays tones and blinks the caret. Light.
+- **`_serve` → `code.poll`** takes **one** ESP-NOW message per loop from a 1024-byte receive buffer, then `fleet.step` (light). A slow loop therefore delays every wand request, and a full buffer drops them.
+- **Keyboard**: `show_keyboard` builds the page on first use (`_build_keyboard`: 30 labels, tint arcs, an image ring; free memory 53 KB → 27 KB). The rim labels are rotated and drawn through an LVGL layer, so a full repaint is slow (`station_ui.py` comment at `show_keyboard`). `station.py` calls `show_keyboard` on each dial detent and text change.
+- **Screen timer**: m5ui's timer callback schedules the LVGL handler with `micropython.schedule`. When the handler takes longer than the timer period, the schedule queue fills: `RuntimeError: schedule queue full`.
+- **Best guess for D2** (unconfirmed): just after the build, LVGL is still rendering the new page in scheduled handlers. These run between bytecodes and hold up the main loop, so wand `code_req` messages queue up one per loop and some are lost; with low free memory, GC pauses add to it. Steps 2 and 3 test this.
