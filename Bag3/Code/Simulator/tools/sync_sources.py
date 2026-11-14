@@ -107,9 +107,8 @@ GAMES = [
     "goalrace.py",
     "color_quest.py",
     "finddevice.py",
-    "lobbytest.py",
-    "splattag.py",
-    "relaycolor.py",
+    # Solo Splat game (SPLATS_LOCAL): a bench game, not shipped to wands.
+    "colorpads.py",
     # Splat host games (SPLAT_HOST = True): run on a wand in the host role.
     "host_lobbytest.py",
     "host_splattag.py",

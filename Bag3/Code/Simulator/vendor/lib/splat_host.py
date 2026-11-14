@@ -1,37 +1,5 @@
-"""
-splat_host.py -- the Splat host role: a wand that holds Splats for a game
-=========================================================================
-A wand in this role is not a game controller. It pairs with up to
-pairing.HOST_MAX_SPLATS Splats, keeps them across reboots, and runs the Splat
-side of Splat host games (game modules that set SPLAT_HOST = True): it always
-leads the game's lobby, and game wands join it (lib/lobby_game.py).
-
-Imported by main.py only after the radio is up (AGENTS.md: nothing may allocate
-before the radio claims its memory).
-
-The role is the text "splat_host" in /role.txt (pairing.ROLE_PATH). It is set
-or cleared by:
-  - NFC card "splathost" (any wand) or "player" (a host);
-  - ESP-NOW unicast {"type": "set_role", "mac": <wand MAC>, "role":
-    "splat_host" | "player"} from a teacher controller.
-Each change resets the wand. A wand becoming host keeps its current Splats.
-
-Host screen (HostScreen, frame): four 2x2 corner blocks, one per Splat slot
-(TL, TR, BL, BR). A paired slot shows its pair, left column A and right
-column B; a missing Splat flashes; an empty slot is dim and the next one to
-fill breathes; a re-tapped Splat pulses its corner. The center cross is off at
-idle, breathes yellow-green in a lobby and beats cyan in a game, and fills
-during a hold. The center pixel shows the lobby color (the host's identity).
-
-Button: a short press peeks the count as a numeral for PEEK_MS (Splats at idle,
-players in a lobby or game). A hold starts the game in a lobby (START_HOLD_MS;
-refused with no players), ends it while playing (END_HOLD_MS), and at idle
-forgets every Splat (FORGET_HOLD_MS; a corner goes out each second, releasing
-early keeps them).
-
-The host reads Splat cards, "unpair", "player", "stop", game cards and
-getcode cards.
-"""
+"""Splat host role: a wand that holds up to pairing.HOST_MAX_SPLATS Splats
+and leads Splat host game lobbies. See Experiments/SplatHostBench/README.md."""
 
 import os
 import time
@@ -39,6 +7,7 @@ import time
 import pairing
 
 HOST_NFC_MS = 100          # NFC detect timeout per host-loop pass
+HOST_IDLE_SLEEP_MS = 20    # host-loop sleep, as splatpair.PAIRED_IDLE_SLEEP_MS
 CORNERS = ((0, 1, 5, 6), (3, 4, 8, 9), (15, 16, 20, 21), (18, 19, 23, 24))
 CROSS_FILL = (7, 11, 13, 17, 2, 10, 14, 22)   # the cross, center outward
 CENTER_PIXEL = 12
@@ -72,7 +41,6 @@ def set_role(role):
         with open(pairing.ROLE_PATH, "w") as f:
             f.write("splat_host")
         if pairing.exists():
-            # Keep this wand's Splats through the reset (main.py _read_pairing).
             with open("/pair_boot", "w") as f:
                 f.write("1")
     else:
@@ -98,10 +66,7 @@ def _beat(now, period=1200):
 
 def frame(slots, present, mode, now, hold=0.0, gone=0, pulse=None, lobby_rgb=None,
           boot=False):
-    """The host screen as 25 RGB tuples. slots: per slot None or (rgb A, rgb B);
-    present: per slot True when that Splat is connected; mode "idle", "lobby" or
-    "playing"; hold 0..1 fills the cross; gone corners from the last are out
-    (forget hold); pulse a slot index shown bright; boot shows pairs solid."""
+    """25 RGB tuples for the host screen."""
     px = [(0, 0, 0)] * 25
     nxt = None
     for k in range(len(CORNERS)):
@@ -137,8 +102,7 @@ def frame(slots, present, mode, now, hold=0.0, gone=0, pulse=None, lobby_rgb=Non
 
 
 class HostScreen:
-    """The host's screen and button, shared by the idle loop (run), the lobby
-    (lobby_game.run_lobby) and a running game (lobby_game.Net.poll)."""
+    """Host screen and button: idle loop, lobby and game."""
 
     def __init__(self, born=None):
         self.born = time.ticks_ms() if born is None else born
@@ -153,8 +117,7 @@ class HostScreen:
         self.slots = pairing.load_slots()
 
     def button(self, down, mode, now, can_start=True):
-        """Advance the button state. Returns (action, hold, gone): action None,
-        "peek", "start", "refuse", "end" or "forget"."""
+        """Returns (action, hold, gone)."""
         act, hold, gone = None, 0.0, 0
         if down and self._down_at is None:
             self._down_at = now
@@ -230,6 +193,27 @@ class HostScreen:
         leds.np.write()
 
 
+HOST_FIRMWARE = (1, 28)      # Splat hosts are tested on MicroPython v1.28.0 only
+
+
+def _check_firmware(leds, buz):
+    # Flag (not block) a host on other firmware: v1.29 fails to hold 4 Splats
+    # (known_issues/2026-11-12-splat-host-v129-firmware.md).
+    import sys
+    v = sys.implementation.version
+    if tuple(v[:2]) == HOST_FIRMWARE:
+        return
+    print("  [WARN] Splat host needs MicroPython v%d.%d; this is v%d.%d.%d"
+          % (HOST_FIRMWARE + tuple(v[:3])))
+    from leds import SHAPE_X, RED
+    for _ in range(3):
+        leds.show_shape(SHAPE_X, RED)
+        time.sleep_ms(300)
+        leds.off()
+        time.sleep_ms(200)
+    buz.error()
+
+
 def run(enow, nfc, leds, buz, get_ctl, pair_card, launch, pull, is_game, button_down=None):
     """The host's idle loop; never returns (a role change resets the wand).
 
@@ -243,6 +227,30 @@ def run(enow, nfc, leds, buz, get_ctl, pair_card, launch, pull, is_game, button_
     from nfc_reader import read_ndef_text, parse_splat_card, split_prefixed
     print("  Splat host: up to %d Splats; tap 'player' to leave this role"
           % pairing.HOST_MAX_SPLATS)
+    _check_firmware(leds, buz)
+    try:
+        _loop(enow, nfc, leds, buz, get_ctl, pair_card, launch, pull, is_game,
+              button_down, read_ndef_text, parse_splat_card, split_prefixed)
+    except KeyboardInterrupt:
+        print("\n  Splat host: interrupted; radios off")
+        try:
+            import ubluetooth
+            ubluetooth.BLE().active(False)
+        except Exception:
+            pass
+        try:
+            enow.shutdown()
+        except Exception:
+            pass
+        try:
+            leds.off()
+        except Exception:
+            pass
+        raise
+
+
+def _loop(enow, nfc, leds, buz, get_ctl, pair_card, launch, pull, is_game,
+          button_down, read_ndef_text, parse_splat_card, split_prefixed):
     screen = HostScreen()
     last_text = None
     while True:
@@ -293,4 +301,4 @@ def run(enow, nfc, leds, buz, get_ctl, pair_card, launch, pull, is_game, button_
             buz.confirm()
             screen.reload()
         screen.draw(leds, ctl, "idle", now, hold, gone, ctl.count if ctl is not None else 0)
-        time.sleep_ms(1)
+        time.sleep_ms(HOST_IDLE_SLEEP_MS)    # leaves time for USB serial (raw REPL)
