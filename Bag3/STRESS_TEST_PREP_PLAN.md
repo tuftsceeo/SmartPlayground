@@ -126,6 +126,7 @@ Hardware (only if this task needs it):
 ## Prep steps, each as a prompt
 
 Order: S0 first. S1, S2, S4, S6, S7 can run in parallel sessions. S3 follows S2. S5 needs a Dial.
+S10 and S11 came from the 2026-11-14 hands-on findings; S10 runs before S9, S11 needs a Dial.
 S9 runs last, before phase H6, and again if anything in ChatBroadcast or the Simulator changes after it.
 
 ### S0. Bundle and baseline (no hardware)
@@ -229,7 +230,9 @@ reopens the port without the visible state following.
 3. Make the smallest fix: one place owns the link state, and both the manual button and the
    auto-reconnect go through it.
 Report the cause as the log shows it, the fix, and the steps for the user to confirm.
-4. (Added 2026-11-14, after step 3.) Send games without a reset. Today Send to device drops the
+4. (Added 2026-11-14, after step 3. Planning decision 4: do this for the Dial before the test,
+   in its own session, with the raw-REPL path kept as the fallback; the Box only if time
+   allows. If it is not bench-proven by the end of day 2, ship the fallback.) Send games without a reset. Today Send to device drops the
    Dial and the Box into the raw REPL, writes the files and soft-resets
    (js/device/boxFirmwareInstaller.js pushPayload), which drops USB and goes through the same
    reconnect path every time; it also clears the Dial's pull counts. Add a chunked game-upload
@@ -298,6 +301,65 @@ Task: write three short documents in Bag3/Code/docs_and_design/, dated today.
 Plain language, no jargon the volunteers have not been taught. Ask the user to review.
 ```
 
+### S10. Generated-game fixes from the 2026-11-14 hands-on test (before S9)
+
+Source: `Bag3/STRESS_TEST_FINDINGS_2026-11-14.md`, items K1-K4, U1 and U3. Planning decisions
+1 and 2 are answered here.
+
+```
+Task: six small changes so a generated game is right the first time and its faults reach the
+chat. Read Bag3/STRESS_TEST_FINDINGS_2026-11-14.md and the four known-issue notes it cites
+(games-must-repeat, send-check-errors-ux, splat-host-wand-count, start-tag-in-tray). These are
+known issues: state each in one sentence and get the user's confirmation before changing code.
+1. K1, games repeat. In ChatBroadcast/knowledge/ (game_patterns.md, platform.md and
+   interview.md) say that every game celebrates a win and then starts a new round, forever,
+   until a stop message. Change the interview question from how the game "ends" to what a win
+   looks like. Check the knowledge examples follow the rule.
+2. U1, checks run early. ChatBroadcast/js/upload.js:122 runs splatGameProblems() only at Send.
+   Run it when a game is generated or edited as well. Show failures through the same "fix it"
+   path the Simulator failure uses (js/app.js about line 2677), with the problem sentences as
+   the request to the chat. In Simple mode send that request automatically, once per generated
+   game; if the second version still fails, show the problems and stop. Keep the Send-time
+   check as it is.
+3. K2 needs no separate change: it is one of the problems step 2 now reports.
+4. K3, wand count. savedGameDevices() in js/app.js (about line 140) adds one wand for the host
+   when the game has SPLAT_HOST = True, and the brief format in the knowledge says to count
+   the host wand.
+5. K4, start card. The Simulator's card tray leaves out the game's own start tag.
+6. U3, brief in Simple mode. Show Simple-mode users a short summary of the brief (name, what
+   players do, devices needed), not the full text. If this needs more than a small change,
+   stop and report instead.
+Check: node tools/chat_request_test.mjs, tools/hardware_pills_test.mjs and
+tools/splat_game_check_test.mjs (13 cases there already fail; do not fix them), then one
+browser run with Playwright: generate or paste a host game that ignores splat_lost and confirm
+the fix request appears. Report each item in one line, with a screenshot for item 2.
+```
+
+### S11. Dial keyboard and distribute stall (finding D2; needs a Dial)
+
+Planning decision 3: reproduce before the test, in one hands-on block. A teacher uses the
+keyboard to write card text, so this is on the main path.
+
+```
+Task: find out why a distribute failed with the Dial's keyboard open. Read finding D2 and D3 in
+Bag3/STRESS_TEST_FINDINGS_2026-11-14.md. The Dial printed "RuntimeError: schedule queue full"
+from its screen timer, free memory fell from 53 KB to 27 KB when the keyboard was built
+(BDialFirmware/station_ui.py builds it on first use), and neither wand's request arrived.
+1. Without hardware: read station_ui.py, text_entry.py, bdial_server.py's main loop and
+   fleet.py, and write down what blocks the main loop while the keyboard is built or shown,
+   and what the screen timer schedules.
+2. One hands-on block with a Dial and two wands, serial capture running in the background.
+   Three sends, in this order: restart the Dial, open the keyboard and send at once; send
+   while the user turns the dial; send two minutes later. Record free memory and any
+   "schedule queue full" line for each.
+3. If the first send fails and the others pass, make the smallest fix: hold a distribute until
+   the keyboard build has finished, or do not schedule a screen update while one is pending.
+   If memory is the cause, report the numbers and stop; do not restructure the keyboard.
+4. D3: in the same capture, save the lines printed right after a soft reset and report where
+   the "object isn't callable" errors come from if the log shows it. Do not chase it further.
+Add a known-issue note for D2 and D3 with the capture results.
+```
+
 ### S9. Promote ChatBroadcast and the Simulator to Live_Page (after S3, S5, S6, S7)
 
 ```
@@ -331,7 +393,7 @@ flashes and sets up before the block. Splats connect over BLE and do not use a U
 | H2b Palette | with H2, 10 min | host wand | H2 | Look at 12 to 18 candidate colors on a Splat and say which are clear | User's list of clear colors |
 | H3 Icon display | Day 2 morning | display, wand, Dial | H1 | Play Move Mixer and share a dance; pull a display game; play Picture Moves | Display shows the dance; display game runs |
 | H4 Slots and distribute | Day 2 midday | Dial, host wand, 1 player wand (others on battery) | S1, S2, S3 | Distribute a host game with the host last; send a fourth game and pick what to replace | No red X while waiting; the chosen game is replaced; scan shows slots |
-| H5 Controllers | Day 2 afternoon | Dial, CrowPanel, Box | S4, S5 | Unplug and replug the Dial mid-send; pull by card from each controller without arming | App state follows the cable; all three serve |
+| H5 Controllers | Day 2 afternoon | Dial, CrowPanel, Box | S4, S5, S11 | Unplug and replug the Dial mid-send; pull by card from each controller without arming | App state follows the cable; all three serve |
 | H6 Dry run | Day 3 morning | one controller, host wand, 1 wand (logs only) | all, S9 | Run one whole table as a volunteer would, from a fresh prompt to play, using the `Live_Page/` copy | A generated solo game and a generated host game both play |
 | H7 Flash and freeze | Day 3 afternoon | 3 wands at a time | H6 fixes | Swap wands through three cables; then push the frozen build to the deploy branch | Every wand and display on the frozen build; hosted site serves the same build |
 
