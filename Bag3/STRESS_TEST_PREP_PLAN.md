@@ -126,6 +126,7 @@ Hardware (only if this task needs it):
 ## Prep steps, each as a prompt
 
 Order: S0 first. S1, S2, S4, S6, S7 can run in parallel sessions. S3 follows S2. S5 needs a Dial.
+S8 is dropped. S12 (Box) and S13 (Waveshare mockup) were added 2026-11-14; S13 is independent of the test.
 S10 and S11 came from the 2026-11-14 hands-on findings; S10 runs before S9, S11 needs a Dial.
 S9 runs last, before phase H6, and again if anything in ChatBroadcast or the Simulator changes after it.
 
@@ -284,80 +285,64 @@ Task: five small changes. Keep each to a few lines.
 Check: py_compile; node tools/chat_request_test.mjs. Report each change in one line.
 ```
 
-### S8. Test-day kit (no code)
+### S8. Test-day kit: dropped
+
+Dropped by the user on 2026-11-14. Not needed at this time.
+
+### S12. Bring the Broadcast Box level with the Dial (needs a Box)
+
+Decided by the user on 2026-11-14: update the Box before the test.
 
 ```
-Task: write three short documents in Bag3/Code/docs_and_design/, dated today.
-1. A one-page volunteer sheet: how to start a Splat host game (host first, then players), what
-   each failure light means (take these from Wand Module/main.py and lib/lobby_game.py), how to
-   stop, and what to write down when something breaks. One version each for Dial or CrowPanel
-   tables and for Box tables (cards only, no distribute).
-2. Tester questions: three slots or one on wands and displays; fill empty or pick what to
-   overwrite; whether the paper remote should stay a fixed launcher or sync games from the
-   controller; what they could not tell about Splat and host status.
-3. A logging checklist for the user: one serial capture per controller and one host wand per
-   table using tools/serial_monitor.py, where the files go, and a reminder that every prompt
-   and generated game should be saved, including failures.
-Plain language, no jargon the volunteers have not been taught. Ask the user to review.
+Task: the Broadcast Box (TeacherTools/BroadcastBox/BBoxFirmware/) is behind the Dial. Bring
+over the Dial changes that apply, smallest first. Read known_issues/2026-11-02-dial-box-arm-
+serving.md and known_issues/2026-09-01-bbox-usb-reboots.md first; state each in one sentence
+and get the user's confirmation before changing code. The Box has reset under memory pressure
+before, so keep every change small and do not add imports or prints ahead of the radio.
+1. Serve without arming. Port commit cb19272 (S4, Dial) to the Box's code_link.py,
+   bbox_server.py and bbox_ui.py: radio and code server on by default, paused only during an
+   NFC read or write. Keep arm and disarm as accepted no-ops. The Box differs from the Dial in
+   one case the note records: with no game on flash it has no radio at all. Decide how that
+   case behaves and say so.
+2. List what else the Dial got that the Box lacks (git log for BDialFirmware since
+   2026-10-20 is a start) and report it as a table: change, would it fit the Box, size. Do
+   not port fleet scan or distribute; the Box has no screen room for the slot picker, and a
+   wand that pulls by card drops its oldest game on its own (S2).
+3. Only if S5 step 4 is already bench-proven on the Dial: port its JSON-link game upload so a
+   send does not restart the Box. Otherwise leave it and say so.
+Check: py_compile, and tools/devtests/game_menu_scan.py. Then one hands-on block: flash the
+Box, pull a game by card onto one wand without arming, send a second game from ChatBroadcast,
+pull again. Capture the Box's serial log in the background for the whole block and report the
+reset reason lines. Update the known-issue note.
 ```
 
-### S10. Generated-game fixes from the 2026-11-14 hands-on test (before S9)
+### S13. Waveshare 1.9 "bigger box": early mockup (not part of the stress test firmware)
 
-Source: `Bag3/STRESS_TEST_FINDINGS_2026-11-14.md`, items K1-K4, U1 and U3. Planning decisions
-1 and 2 are answered here.
-
-```
-Task: six small changes so a generated game is right the first time and its faults reach the
-chat. Read Bag3/STRESS_TEST_FINDINGS_2026-11-14.md and the four known-issue notes it cites
-(games-must-repeat, send-check-errors-ux, splat-host-wand-count, start-tag-in-tray). These are
-known issues: state each in one sentence and get the user's confirmation before changing code.
-1. K1, games repeat. In ChatBroadcast/knowledge/ (game_patterns.md, platform.md and
-   interview.md) say that every game celebrates a win and then starts a new round, forever,
-   until a stop message. Change the interview question from how the game "ends" to what a win
-   looks like. Check the knowledge examples follow the rule.
-2. U1, checks run early. ChatBroadcast/js/upload.js:122 runs splatGameProblems() only at Send.
-   Run it when a game is generated or edited as well. Show failures through the same "fix it"
-   path the Simulator failure uses (js/app.js about line 2677), with the problem sentences as
-   the request to the chat. In Simple mode send that request automatically, once per generated
-   game; if the second version still fails, show the problems and stop. Keep the Send-time
-   check as it is.
-3. K2 needs no separate change: it is one of the problems step 2 now reports.
-4. K3, wand count. savedGameDevices() in js/app.js (about line 140) adds one wand for the host
-   when the game has SPLAT_HOST = True, and the brief format in the knowledge says to count
-   the host wand.
-5. K4, start card. The Simulator's card tray leaves out the game's own start tag.
-6. U3, brief in Simple mode. Show Simple-mode users a short summary of the brief (name, what
-   players do, devices needed), not the full text. If this needs more than a small change,
-   stop and report instead.
-Check: node tools/chat_request_test.mjs, tools/hardware_pills_test.mjs and
-tools/splat_game_check_test.mjs (13 cases there already fail; do not fix them), then one
-browser run with Playwright: generate or paste a host game that ignores splat_lost and confirm
-the fix request appears. Report each item in one line, with a screenshot for item 2.
-```
-
-### S11. Dial keyboard and distribute stall (finding D2; needs a Dial)
-
-Planning decision 3: reproduce before the test, in one hands-on block. A teacher uses the
-keyboard to write card text, so this is on the main path.
+Asked for by the user on 2026-11-14. The board work started 2026-11-13 and so far is bench
+probes only (`Experiments/Waveshare19_Controller/`: display, backlight, colour, touch).
 
 ```
-Task: find out why a distribute failed with the Dial's keyboard open. Read finding D2 and D3 in
-Bag3/STRESS_TEST_FINDINGS_2026-11-14.md. The Dial printed "RuntimeError: schedule queue full"
-from its screen timer, free memory fell from 53 KB to 27 KB when the keyboard was built
-(BDialFirmware/station_ui.py builds it on first use), and neither wand's request arrived.
-1. Without hardware: read station_ui.py, text_entry.py, bdial_server.py's main loop and
-   fleet.py, and write down what blocks the main loop while the keyboard is built or shown,
-   and what the screen timer schedules.
-2. One hands-on block with a Dial and two wands, serial capture running in the background.
-   Three sends, in this order: restart the Dial, open the keyboard and send at once; send
-   while the user turns the dial; send two minutes later. Record free memory and any
-   "schedule queue full" line for each.
-3. If the first send fails and the others pass, make the smallest fix: hold a distribute until
-   the keyboard build has finished, or do not schedule a screen update while one is pending.
-   If memory is the cause, report the numbers and stop; do not restructure the keyboard.
-4. D3: in the same capture, save the lines printed right after a soft reset and report where
-   the "object isn't callable" errors come from if the log shows it. Do not chase it further.
-Add a known-issue note for D2 and D3 with the capture results.
+Task: mock up a first version of the Waveshare ESP32-S3-Touch-LCD-1.9 as a larger Broadcast
+Box: 170x320 portrait touch screen, LVGL (lvgl_micropython, as on the CrowPanel), no buttons.
+This is an early mockup for the user to react to, not finished firmware. Work only in
+Bag3/Code/Experiments/Waveshare19_Controller/. Read its board.py and display_test.py, the
+Box's screens (TeacherTools/BroadcastBox/BBoxFirmware/bbox_ui.py), the CrowPanel app for LVGL
+patterns and the design tokens (Experiments/CrowPanel5_Display/panel.py, home.py,
+ds_tokens.py), and known_issues/2026-11-10-crowpanel-teacher-tool-ui.md for what the user
+already corrected in that design.
+1. Screen list first, as a short table for the user: what the Box shows today, and what the
+   larger touch screen lets each screen add (game list with names, write-card flow, serving
+   status, pull counts, battery). Ask the user to confirm or cut before building.
+2. An HTML mockup of those screens at 170x320, one file, no build step, using the design
+   tokens. Publish nothing; put it in the experiment folder and send the file to the user.
+3. After the user has seen it: the same screens on the device in LVGL with made-up data, no
+   radio, no NFC and no file transfer. One module per screen and a main.py that starts the
+   mockup. Keep display_test.py and the other probes working.
+4. List what the board lacks to be a real controller, from board.py: it has no NFC reader
+   (which free pins could take one), the SD card is SDMMC 1-bit, and whether the firmware
+   build has ESP-NOW. Report; do not build these.
+Hardware: one short hands-on block for step 3, to flash and look at the screens. The agent
+cannot see the display, so it asks the user for a photo or a description of each screen.
 ```
 
 ### S9. Promote ChatBroadcast and the Simulator to Live_Page (after S3, S5, S6, S7)
@@ -393,7 +378,7 @@ flashes and sets up before the block. Splats connect over BLE and do not use a U
 | H2b Palette | with H2, 10 min | host wand | H2 | Look at 12 to 18 candidate colors on a Splat and say which are clear | User's list of clear colors |
 | H3 Icon display | Day 2 morning | display, wand, Dial | H1 | Play Move Mixer and share a dance; pull a display game; play Picture Moves | Display shows the dance; display game runs |
 | H4 Slots and distribute | Day 2 midday | Dial, host wand, 1 player wand (others on battery) | S1, S2, S3 | Distribute a host game with the host last; send a fourth game and pick what to replace | No red X while waiting; the chosen game is replaced; scan shows slots |
-| H5 Controllers | Day 2 afternoon | Dial, CrowPanel, Box | S4, S5, S11 | Unplug and replug the Dial mid-send; pull by card from each controller without arming | App state follows the cable; all three serve |
+| H5 Controllers | Day 2 afternoon | Dial, CrowPanel, Box | S4, S5, S11, S12 | Unplug and replug the Dial mid-send; pull by card from each controller without arming | App state follows the cable; all three serve |
 | H6 Dry run | Day 3 morning | one controller, host wand, 1 wand (logs only) | all, S9 | Run one whole table as a volunteer would, from a fresh prompt to play, using the `Live_Page/` copy | A generated solo game and a generated host game both play |
 | H7 Flash and freeze | Day 3 afternoon | 3 wands at a time | H6 fixes | Swap wands through three cables; then push the frozen build to the deploy branch | Every wand and display on the frozen build; hosted site serves the same build |
 
