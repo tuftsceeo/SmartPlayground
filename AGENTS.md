@@ -101,7 +101,9 @@ playground component (`hubtype.txt` → `HUB_CONFIG`).
 
 ## "Station" is not one thing
 
-`Bag3/Code/Stations/` holds `Icon Display Station`, `IconDisplay` (the Broadcast icon display) and
+`Bag3/Code/Stations/` holds `IconDisplay` (the Broadcast icon display, the current firmware),
+`Icon Display Station` (its old USB-serial predecessor, no radio; kept for the icon authoring tools and
+a hand-synced `icons/` copy — don't change its firmware, and don't flash it) and
 `SplatCompanion` (historical), and the Broadcast Box and Dial are also called stations. All are beta or bench tests, not used by teachers. Always name the specific one; never
 write "the Station".
 
