@@ -847,7 +847,7 @@ def _pull_progress(received, total):
 # ─────────────────────────────────────────────
 # ESP-NOW CODE PULL — getcode over the radio already up, no reset
 # ─────────────────────────────────────────────
-def _espnow_pull_and_launch(enow, slug, host_id, nfc, accel, i2c, batt):
+def _espnow_pull_and_launch(enow, slug, host_id, nfc, accel, i2c, batt, replace=""):
     """Receive a game from the Box/Dial over ESP-NOW (lib/espnow_code.py),
     then launch it. On failure the old copy stays and the wand returns to
     idle with the pull-failure display."""
@@ -878,6 +878,9 @@ def _espnow_pull_and_launch(enow, slug, host_id, nfc, accel, i2c, batt):
         buz.success()
         time.sleep_ms(600)
         name = stats.get("name") or slug
+        import game_slots
+        for old in game_slots.record(name, replace):
+            _unload_game(old)
         _unload_game(name)
         _launch_game(name, nfc, leds, buz, accel, i2c, enow, batt)
 
@@ -892,13 +895,14 @@ _PAIR_BOOT_PATH = "/pair_boot"    # same file as lib/splatpair.py PAIR_BOOT_PATH
 _pair_ctl = None                  # splatpair.SplatPairing for a paired wand
 _ROLE_PATH = "/role.txt"          # same file as lib/pairing.py ROLE_PATH
 _ROLE = ""                        # "splat_host" or "" (read after the radio is up)
-_pending_push = None              # (slug, host) from a Dial code_push
+_pending_push = None              # (slug, host, replace) from a Dial code_push
 
 
 def _queue_push(data):
     """Record a Dial code_push; the idle loop runs it as a getcode pull."""
     global _pending_push
-    _pending_push = (data.get("slug") or "", data.get("host") or "")
+    _pending_push = (data.get("slug") or "", data.get("host") or "",
+                     data.get("replace") or "")
 
 
 def _read_pairing():
@@ -1035,6 +1039,8 @@ def _boot():
             _ROLE = f.read().strip()
     except OSError:
         _ROLE = ""
+    import game_slots    # after the radio claim; adds role and slots to status_report
+    enow.status_extra = lambda: game_slots.report(_ROLE)
     _boot_pairing(enow)
     if DEBUG_BOOT:
         memprobe.probe("post-ble")  # BENCH
@@ -1254,7 +1260,7 @@ def main():
         splat_host.run(enow, nfc, leds, buz, lambda: _pair_ctl,
                        lambda t: _pair_card(t, enow),
                        lambda n: _launch_game(n, nfc, leds, buz, accel, i2c, enow, batt),
-                       lambda sl, h: _espnow_pull_and_launch(enow, sl, h, nfc, accel, i2c, batt),
+                       lambda sl, h, r="": _espnow_pull_and_launch(enow, sl, h, nfc, accel, i2c, batt, r),
                        is_game, lambda: btn.value() == 0)
 
     show_idle(last_soc, 0)
@@ -1271,7 +1277,7 @@ def main():
         try:
             # ── DIAL CODE PUSH ── same path as a getcode card tap.
             if _pending_push is not None:
-                wanted, wanted_host = _pending_push
+                wanted, wanted_host, wanted_replace = _pending_push
                 _pending_push = None
                 _clear_rules_state(enow)
                 rules = {}; editing = None; pending_combinator = None
@@ -1279,7 +1285,8 @@ def main():
                 if nfc_sleeping:
                     _nfc_wake(nfc)
                 nfc_sleeping = False
-                _espnow_pull_and_launch(enow, wanted, wanted_host, nfc, accel, i2c, batt)
+                _espnow_pull_and_launch(enow, wanted, wanted_host, nfc, accel, i2c, batt,
+                                        wanted_replace)
                 last_activity_ms = time.ticks_ms()
                 idle_frame = 0
                 show_idle(last_soc, 0)

@@ -44,6 +44,7 @@ export const WAND_FILES = [
     { path: 'lib/espnow_code.py', remotePath: '/lib/espnow_code.py' },  // Game pull: receives a game file from the Broadcast Box/Dial over ESP-NOW
     { path: 'lib/espnow_manager.py', remotePath: '/lib/espnow_manager.py' },  // ESP-NOW init, send, receive and peer management
     { path: 'lib/game_store.py', remotePath: '/lib/game_store.py' },  // Pulled-game library in /games/<slug>.py on flash
+    { path: 'lib/game_slots.py', remotePath: '/lib/game_slots.py' },  // At most 3 pulled games; slots in status_report
     { path: 'lib/game_tags.py', remotePath: '/lib/game_tags.py' },  // Game and control tag names (the NFC card wire format)
     { path: 'lib/hubtype.py', remotePath: '/lib/hubtype.py' },  // Device type detection and per-device pin/LED/I2C config
     { path: 'lib/leds.py', remotePath: '/lib/leds.py' },  // NeoPixel helpers for the 5x5 matrix and status display

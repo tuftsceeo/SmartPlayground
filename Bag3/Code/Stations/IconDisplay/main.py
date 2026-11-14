@@ -418,7 +418,7 @@ def _pull_progress(received, total):
     panel.draw_bytes(src)
 
 
-def _espnow_pull_and_launch(enow, slug, host_id):
+def _espnow_pull_and_launch(enow, slug, host_id, replace=""):
     """Receive this display's game file and its icons from the Box/Dial over
     ESP-NOW (lib/espnow_code.py). Unlike the wand, success resets and main()
     launches the game after the reset has handed the heap back clean."""
@@ -439,6 +439,8 @@ def _espnow_pull_and_launch(enow, slug, host_id):
         shapes.draw_shape(panel, shapes.SHAPE_CHECK, GREEN)
         stats = espnow_code.LAST_STATS or {}
         game_store.set_last_pulled(stats.get("name") or slug)
+        import game_slots
+        game_slots.record(stats.get("name") or slug, replace)
         print("# pull OK -- resetting into the new game")
         time.sleep_ms(600)
         machine.reset()
@@ -450,13 +452,14 @@ def _espnow_pull_and_launch(enow, slug, host_id):
         _pull_fail(shapes.SHAPE_X, RED)
 
 
-_pending_push = None              # (slug, host) from a Dial code_push
+_pending_push = None              # (slug, host, replace) from a Dial code_push
 
 
 def _queue_push(data):
     """Record a Dial code_push; the idle loop runs it as a getcode pull."""
     global _pending_push
-    _pending_push = (data.get("slug") or "", data.get("host") or "")
+    _pending_push = (data.get("slug") or "", data.get("host") or "",
+                     data.get("replace") or "")
 
 
 # ─────────────────────────────────────────────
@@ -481,6 +484,8 @@ def _boot():
         enow.init()
         radio_ok = True
         enow.set_status_provider(lambda: None, kind=HUB_TYPE)
+        import game_slots    # after the radio claim; adds slots to status_report
+        enow.status_extra = lambda: game_slots.report(HUB_TYPE)
     except Exception as e:
         print("  [WARN] ESP-NOW:")
         sys.print_exception(e)
@@ -582,11 +587,11 @@ def main():
 
             # ── DIAL CODE PUSH ── same path as a getcode card tap.
             if _pending_push is not None:
-                wanted, wanted_host = _pending_push
+                wanted, wanted_host, wanted_replace = _pending_push
                 _pending_push = None
                 server.release_panel()
                 _end_station()
-                _espnow_pull_and_launch(enow, wanted, wanted_host)
+                _espnow_pull_and_launch(enow, wanted, wanted_host, wanted_replace)
                 idle_frame = 0
                 last_uid = None
                 continue

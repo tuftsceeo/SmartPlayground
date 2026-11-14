@@ -56,7 +56,7 @@ espnow_code.py    ESP-NOW pull of the game and icons; copy of MockWand/lib/
 goalrace.py        built-in game (the display half of the two-device pair)
 scoreboard.py      built-in game (running tally, the draw16/chart16 demo)
 icons/             named icons, referenced from a game by name
-lib/               espnow_manager, game_store, hubtype, display_tags,
+lib/               espnow_manager, game_store, game_slots, hubtype, display_tags,
                    nfc_reader, ws1850s, nfc_ws1850s, memprobe, shapes,
                    draw16, chart16, display_station
 games/             picturemoves.py, codebreakers.py: copied to /games/<slug>.py

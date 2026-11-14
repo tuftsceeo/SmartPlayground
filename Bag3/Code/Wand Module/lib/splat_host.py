@@ -220,7 +220,7 @@ def run(enow, nfc, leds, buz, get_ctl, pair_card, launch, pull, is_game, button_
     get_ctl() -> the current splatpair.SplatPairing or None
     pair_card(text) -> handle a Splat or unpair card (may reset)
     launch(name) -> run a game through main.py's game path
-    pull(slug, host) -> getcode pull and launch
+    pull(slug, host, replace="") -> getcode pull and launch
     is_game(name) -> True for a known game slug
     button_down() -> True while the button is pressed
     """
@@ -270,7 +270,8 @@ def _loop(enow, nfc, leds, buz, get_ctl, pair_card, launch, pull, is_game,
             if is_game(name):
                 launch(name)
         elif mt == "code_push" and isinstance(data, dict):
-            pull(data.get("slug") or "", data.get("host") or "")
+            pull(data.get("slug") or "", data.get("host") or "",
+                 data.get("replace") or "")
         elif mt == "raw" and ctl is not None and isinstance(data, dict):
             ctl.on_msg(data, sender)
 
