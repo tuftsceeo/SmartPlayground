@@ -190,15 +190,21 @@ else `error` `not_serving`):
 
 - `fleet.scan`: broadcasts `status_poll` and, over 6 s, sends
   `{"type":"status_report","mac","kind","battery","rssi"}` per reply, then
-  `{"type":"status_done","n"}`. `kind` is the device's `HUB_TYPE`.
+  `{"type":"status_done","n"}`. `kind` is the device's `HUB_TYPE`. Wands and
+  icon displays with `lib/game_slots.py` also send `"role"` (`player`,
+  `splat_host`, `icon_display`) and `"g"`: their custom games, oldest first,
+  as `[[slug, mode], ...]` (mode `s` solo, `h` Splat host game, `l` plain
+  lobby, `o` ordinary, `x` will not load); the Dial passes both through.
 - `fleet.find {mac}`: broadcasts `find_device` for that MAC.
-- `fleet.distribute {slug, macs}`: unicasts
-  `{"type":"code_push","mac","slug","host"}` to one MAC every 2.5 s, at most
+- `fleet.distribute {slug, macs[, replace]}`: unicasts
+  `{"type":"code_push","mac","slug","host"[,"replace"]}` to one MAC every 2.5 s, at most
   3 unfinished at once. The device runs its getcode pull and launches the
   game. Each device sends `{"type":"dist_progress","done","total","mac","ok","why"}`
   (`ok` null and `why` `"pushed"` when sent; then true/false from its
   `pull`, `no_ack`, or `timeout` after 30 s), then `{"type":"dist_done"}`.
   The Dial shows a teal ring and "N of M updated" until 3 s after the end.
+  A device holding three custom games drops `replace` if it has it, else its
+  oldest, after the new game arrives.
 - `fleet.cancel`: fails every unfinished device with `why` `"cancelled"`.
   Leaving the menus (scan, write, Read, keyboard) cancels with `"radio_off"`.
 

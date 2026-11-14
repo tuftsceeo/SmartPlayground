@@ -771,7 +771,9 @@ class BdialServer:
         if fl.busy:
             self.link.send({"type": "error", "id": rid, "code": "busy"})
             return
-        fl.distribute(self.code.mgr, slug, macs)
+        replace = cmd.get("replace")
+        fl.distribute(self.code.mgr, slug, macs,
+                      replace if isinstance(replace, str) and replace else None)
         self.link.send({"type": "ok", "id": rid, "cmd": "fleet.distribute",
                         "slug": slug, "total": len(macs)})
 

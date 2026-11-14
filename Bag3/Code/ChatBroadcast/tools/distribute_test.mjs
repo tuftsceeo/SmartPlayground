@@ -4,7 +4,7 @@
  *   node tools/distribute_test.mjs
  */
 import assert from "node:assert/strict";
-import { DistributeState, deviceLabel, signalLevel, deviceNoun } from "../js/distribute.js";
+import { DistributeState, deviceLabel, signalLevel, deviceNoun, slotsText } from "../js/distribute.js";
 
 let failed = 0;
 function t(name, fn) {
@@ -90,6 +90,39 @@ t("allFinished once every sent row is done or failed", () => {
   s.applyProgress({ mac: B, ok: false, why: "x", done: 2, total: 2 });
   s.finish({ done: 2 });
   assert.equal(s.allFinished(), true);
+});
+
+t("slots: role and g kept from status_report", () => {
+  const s = new DistributeState();
+  s.upsertReport({ mac: A, kind: "wand", role: "splat_host", g: [["hostgame", "h"]] });
+  s.upsertReport({ mac: A, kind: "wand", battery: 50 });       // older report shape
+  assert.equal(s.rows[0].role, "splat_host");
+  assert.deepEqual(s.rows[0].games, [["hostgame", "h"]]);
+});
+t("slots: replace needed only for full selected devices lacking the game", () => {
+  const s = new DistributeState();
+  s.upsertReport({ mac: A, kind: "wand", g: [["a", "o"], ["b", "s"], ["c", "h"]] });
+  s.upsertReport({ mac: B, kind: "wand", g: [["b", "s"], ["d", "o"], ["e", "o"]] });
+  s.upsertReport({ mac: C, kind: "wand", g: [["new", "o"], ["b", "s"], ["c", "h"]] });
+  assert.deepEqual(s.fullRows("new").map((r) => r.mac), [A, B]);
+  const opts = s.replaceOptions("new");
+  assert.equal(opts[0].slug, "b");            // held by both full devices
+  assert.equal(opts[0].n, 2);
+  assert.deepEqual(opts.map((o) => o.slug), ["b", "a", "c", "d", "e"]);
+  s.toggle(A, false); s.toggle(B, false);
+  assert.deepEqual(s.replaceOptions("new"), []);
+});
+t("slots: no g (old firmware) or not full never asks", () => {
+  const s = new DistributeState();
+  s.upsertReport({ mac: A, kind: "wand" });
+  s.upsertReport({ mac: B, kind: "icon_display", g: [["a", "o"]] });
+  assert.deepEqual(s.replaceOptions("new"), []);
+});
+t("slots: card text", () => {
+  assert.equal(slotsText(null, "x"), "");
+  assert.equal(slotsText([], "x"), "Games 0 of 3");
+  assert.equal(slotsText([["a", "h"], ["x", "o"], ["b", "x"]], "x"),
+    "Games 3 of 3: a (host game), x ✓, b (won't load)");
 });
 
 if (failed) { console.log(`\n${failed} failed`); process.exit(1); }

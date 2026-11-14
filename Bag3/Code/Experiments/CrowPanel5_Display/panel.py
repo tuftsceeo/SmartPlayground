@@ -194,8 +194,12 @@ class Panel:
                 e["heard"] = True
                 self.fleet.on_msg(data, mac)
                 self._scan_push(mac, e)
-                self.link.send({"type": "status_report", "mac": mac, "kind": data.get("kind"),
-                                "battery": data.get("battery"), "rssi": data.get("rssi")})
+                out = {"type": "status_report", "mac": mac, "kind": data.get("kind"),
+                       "battery": data.get("battery"), "rssi": data.get("rssi")}
+                for k in ("role", "g"):
+                    if k in data:
+                        out[k] = data[k]
+                self.link.send(out)
             self.dirty = True
         elif mac in self.roster.d:
             self.roster.touch(mac)

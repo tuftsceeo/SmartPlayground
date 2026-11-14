@@ -7,6 +7,12 @@
  * Per-device results arrive as `dist_progress`, then `dist_done`.
  * Wire contract: BroadcastDial/README.md "Fleet commands".
  *
+ * Wands and icon displays hold at most three custom games (lib/game_slots.py)
+ * and report them as status_report `g`: [[slug, mode], ...], with `role`.
+ * If a selected device is full and lacks this game, the teacher picks one
+ * game to replace; fleet.distribute carries it as `replace`. Devices that do
+ * not hold that game drop their oldest.
+ *
  * DistributeState holds the rows and is DOM-free (tools/distribute_test.mjs);
  * DistributeOverlay paints it into #distribute-overlay.
  */
@@ -21,6 +27,14 @@ const KINDS = {
   wand: { prefix: "W", name: "Wand" },
   icon_display: { prefix: "D", name: "Icon display" },
 };
+
+/** Custom games a wand or icon display keeps (lib/game_slots.py MAX). */
+export const SLOT_MAX = 3;
+/** Above this many games on the controller, suggest a clean-up. */
+export const CONTROLLER_GAMES_NOTE = 10;
+
+/** status_report `g` mode letter → short label ("" for an ordinary game). */
+export const MODE_LABEL = { s: "solo", h: "host game", l: "lobby", o: "", x: "won't load" };
 
 const LIVE_WAIT_MS = 30000;
 const LIVE_POLL_MS = 500;
@@ -112,13 +126,40 @@ export class DistributeState {
     if (!obj?.mac) return;
     const row = this._row(obj.mac);
     if (row) {
-      Object.assign(row, { kind: obj.kind ?? row.kind, battery: obj.battery, rssi: obj.rssi });
+      Object.assign(row, {
+        kind: obj.kind ?? row.kind, battery: obj.battery, rssi: obj.rssi,
+        role: obj.role ?? row.role, games: Array.isArray(obj.g) ? obj.g : row.games,
+      });
       return;
     }
     this.rows.push({
       mac: obj.mac, kind: obj.kind ?? null, battery: obj.battery ?? null,
-      rssi: obj.rssi ?? null, selected: true, status: "", why: null,
+      rssi: obj.rssi ?? null, role: obj.role ?? null,
+      games: Array.isArray(obj.g) ? obj.g : null,
+      selected: true, status: "", why: null,
     });
+  }
+
+  /** Selected rows whose slots are full and do not already hold `slug`. */
+  fullRows(slug) {
+    return this.rows.filter((r) => r.selected && Array.isArray(r.games)
+      && r.games.length >= SLOT_MAX && !r.games.some((e) => e[0] === slug));
+  }
+
+  /**
+   * Games the teacher can choose to replace: every game on the full rows,
+   * the most widely held first. Empty when no selected device is full.
+   */
+  replaceOptions(slug) {
+    const count = new Map();
+    for (const r of this.fullRows(slug)) {
+      for (const [g, mode] of r.games) {
+        const c = count.get(g) || { slug: g, mode, n: 0 };
+        c.n += 1;
+        count.set(g, c);
+      }
+    }
+    return [...count.values()].sort((a, b) => b.n - a.n || a.slug.localeCompare(b.slug));
   }
 
   endScan() {
@@ -190,6 +231,19 @@ const STATUS_TEXT = {
 };
 const STATUS_GLYPH = { queued: "spinner", pulling: "download", done: "check", failed: "warning" };
 
+/** "Games 2 of 3: a (host game), b" for a card; "" if the device does not report slots. */
+export function slotsText(games, slug) {
+  if (!Array.isArray(games)) return "";
+  const names = games.map(([g, m]) => (MODE_LABEL[m] ? `${g} (${MODE_LABEL[m]})` : g)
+    + (g === slug ? " ✓" : ""));
+  return `Games ${games.length} of ${SLOT_MAX}${names.length ? ": " + names.join(", ") : ""}`;
+}
+
+function slotsLine(r, slug) {
+  const t = slotsText(r.games, slug);
+  return t ? `<span class="dist-slots${r.games.length >= SLOT_MAX ? " full" : ""}">${esc(t)}</span>` : "";
+}
+
 /** Card icon for a status_report kind. */
 function kindIcon(kind) {
   if (kind === "wand") return "wand";
@@ -211,6 +265,7 @@ export class DistributeOverlay {
     this.state = new DistributeState();
     this.slug = null;
     this.pretty = "";
+    this.picking = false; // the replace picker is showing
     this._unsub = [];
     this.el = (id) => document.getElementById(id);
     this.el("btn-dist-close-x").addEventListener("click", () => this.close());
@@ -220,6 +275,13 @@ export class DistributeOverlay {
       else this.distribute();
     });
     this.el("dist-cards").addEventListener("click", (e) => this._onCardClick(e));
+    this.el("dist-replace").addEventListener("click", (e) => {
+      const b = e.target.closest("button");
+      if (!b) return;
+      this.picking = false;
+      if (b.dataset.slug) this.distribute(b.dataset.slug);
+      else this.render();
+    });
   }
 
   get device() {
@@ -231,6 +293,14 @@ export class DistributeOverlay {
     this.slug = slug;
     this.pretty = prettyName || "";
     this.state = new DistributeState();
+    this.picking = false;
+    // _boxGames is the list fetched before this send; count the new game too.
+    const held = (this.app._boxGames || []).map((g) => g.slug);
+    const n = held.length + (held.includes(slug) ? 0 : 1);
+    const note = this.el("dist-note");
+    note.textContent = n > CONTROLLER_GAMES_NOTE
+      ? `The ${this.app.deviceShort?.() || "Dial"} holds ${n} games. You can delete old ones from its games list.` : "";
+    note.classList.toggle("hidden", n <= CONTROLLER_GAMES_NOTE);
     this._setStatus(isSimple() ? "Reconnecting…" : "Waiting for the teacher hub to restart…");
     this.render();
     this.showOverlay("distribute-overlay");
@@ -308,13 +378,21 @@ export class DistributeOverlay {
     }
   }
 
-  async distribute() {
+  /** replace: the game full devices drop; undefined asks first if one is needed. */
+  async distribute(replace) {
+    if (replace === undefined && this.state.replaceOptions(this.slug).length) {
+      this.picking = true;
+      this.render();
+      return;
+    }
     const macs = this.state.startDistribute();
     if (!macs.length) return;
     this._setStatus(isSimple() ? "" : "Sending code…");
     this.render();
+    const cmd = { cmd: "fleet.distribute", slug: this.slug, macs };
+    if (replace) cmd.replace = replace;
     try {
-      await this.device.sendCmd({ cmd: "fleet.distribute", slug: this.slug, macs });
+      await this.device.sendCmd(cmd);
     } catch (e) {
       this.state.abort(e.message);
       this._setStatus(isSimple() ? "Failed." : `Distribute failed: ${e.message}`);
@@ -329,6 +407,7 @@ export class DistributeOverlay {
   }
 
   _onCardClick(e) {
+    if (this.picking) return;
     const t = e.target;
     const card = t.closest(".dcard");
     const mac = card?.dataset.mac;
@@ -410,7 +489,8 @@ export class DistributeOverlay {
       }
       const detail = r.status
         ? `<div class="dbar"><div class="dbar-fill dbar-${r.status}"></div></div>`
-        : `<span>${esc(sub)} <span class="dist-sig dist-sig-${signalLevel(r.rssi)}" title="${r.rssi ?? "?"} dBm"><i></i><i></i><i></i></span></span>`;
+        : `<span>${esc(sub)}${r.role === "splat_host" ? " · Splat host" : ""} <span class="dist-sig dist-sig-${signalLevel(r.rssi)}" title="${r.rssi ?? "?"} dBm"><i></i><i></i><i></i></span></span>`
+          + slotsLine(r, this.slug);
       card.innerHTML =
         `<input type="checkbox" class="dist-check" ${r.selected ? "checked" : ""} ${r.status ? "hidden" : ""} aria-label="Send to ${esc(name)}">`
         + `<span class="dicon" style="color:${color}">${iconSvg(kindIcon(r.kind), { size: 36, strokeWidth: 2 })}</span>`
@@ -421,10 +501,27 @@ export class DistributeOverlay {
     }
   }
 
+  /** "Which game should full devices give up?" One choice for all of them. */
+  _renderPicker() {
+    const box = this.el("dist-replace");
+    box.classList.toggle("hidden", !this.picking);
+    if (!this.picking) return;
+    const full = this.state.fullRows(this.slug).length;
+    const opts = this.state.replaceOptions(this.slug);
+    box.innerHTML = `<p>${full} ${full === 1 ? "device is" : "devices are"} full (${SLOT_MAX} games). `
+      + `Which game should ${this.pretty ? esc(this.pretty) : "the new game"} replace?</p>`
+      + opts.map((o) => `<button type="button" class="btn-secondary" data-slug="${esc(o.slug)}">`
+        + `${esc(o.slug)}${MODE_LABEL[o.mode] ? ` (${MODE_LABEL[o.mode]})` : ""}`
+        + `${full > 1 ? ` · on ${o.n}` : ""}</button>`).join("")
+      + `<button type="button" class="btn-text">Cancel</button>`
+      + (full > 1 ? `<p class="dist-replace-hint">Devices without that game drop their oldest one.</p>` : "");
+  }
+
   render() {
     if (this._editing) return; // _editName re-renders when it finishes
     const s = this.state;
     this._renderCards();
+    this._renderPicker();
     const finished = s.allFinished();
     const noun = deviceNoun(s.running || finished ? this._sentRows() : s.rows);
     this.el("dist-title").textContent = s.running
@@ -433,7 +530,8 @@ export class DistributeOverlay {
     this.el("btn-dist-rescan").disabled = s.scanning || s.running;
     const selNoun = deviceNoun(s.rows.filter((r) => r.selected));
     const send = this.el("btn-dist-send");
-    send.classList.toggle("hidden", !s.running && !finished && (s.selectedMacs().length === 0 || s.scanning));
+    send.classList.toggle("hidden", this.picking
+      || (!s.running && !finished && (s.selectedMacs().length === 0 || s.scanning)));
     send.disabled = s.running;
     send.textContent = s.running ? "Sending…" : finished ? "Done" : `Send to ${selNoun}`;
   }
