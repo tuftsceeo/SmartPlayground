@@ -3131,6 +3131,12 @@ class App {
         }
 
         dbg('app', 'send succeeded — showing success screen');
+        // Sent over the JSON link (jsonGameUpload.js): the device never
+        // restarted, so the link is still up.
+        if (result.live) {
+            this.setLinkState('live');
+            this.fetchBoxGames().catch(() => {});
+        }
         // Tag-writing to-do list is out of scope here now -- the device
         // manages that itself. The overlay's job is just to make "it worked,
         // the device is restarting" visible and unambiguous. A wand says

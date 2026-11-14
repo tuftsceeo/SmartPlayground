@@ -121,8 +121,8 @@ class BdialServer:
         # entry label -> cumulative successful writes, seeded from
         # stats_log at boot by _load_stats() and incremented in memory.
         self._written = {}
-        # slug -> wands that pulled it since boot. A new game arrives by a
-        # reset (module docstring), so this restarts with each code update.
+        # slug -> wands that pulled it since boot. Kept across games.rescan;
+        # a game sent by the raw-REPL fallback resets it.
         self._pulls = {}
         self._share_retry_at = 0
         self.fleet = None       # fleet.Fleet, built on the first fleet.* cmd
@@ -148,7 +148,13 @@ class BdialServer:
             "fleet.find": self.do_fleet_find,
             "fleet.distribute": self.do_fleet_distribute,
             "fleet.cancel": self.do_fleet_cancel,
+            "file.begin": self.do_file,
+            "file.chunk": self.do_file,
+            "file.end": self.do_file,
+            "file.abort": self.do_file,
+            "games.rescan": self.do_games_rescan,
         }
+        self._upload = None     # game_upload.Upload, built on the first file.* cmd
 
     # ─────────────────────────────────────────────
     # HARDWARE INIT
@@ -239,6 +245,8 @@ class BdialServer:
             "w": SCREEN_W, "h": SCREEN_H, "nfc": self._nfc_ok,
             # Fixed for the life of the boot (see code_link.HOST_ID).
             "host_id": HOST_ID,
+            # file.* and games.rescan: send a game with no reset (S5 step 4).
+            "upload": 1,
         }
 
     def _send_identity(self, rid=None):
@@ -365,6 +373,43 @@ class BdialServer:
         self._rebuild_entries()
         self.link.send({"type": "ok", "id": rid, "cmd": "games.clear"})
         self._set_mode(MODE_IDLE)
+
+    # file.* -- write a game over the JSON link; game_upload.py has the steps.
+    def do_file(self, cmd, rid):
+        if self._upload is None:
+            from game_upload import Upload
+            self._upload = Upload()
+        name = cmd.get("cmd")
+        err = getattr(self._upload, name[5:])(cmd)
+        if err:
+            err["type"] = "error"
+            err["id"] = rid
+            err["cmd"] = name
+            self.link.send(err)
+            return
+        reply = {"type": "ok", "id": rid, "cmd": name}
+        if name == "file.chunk":
+            reply["seq"] = cmd.get("seq")
+        self.link.send(reply)
+
+    # After file.*: rescan /flash/games as at boot, without a reset, so the
+    # radio stays up and pull counts survive. "active" picks the game just sent
+    # (a re-sent game is not new to the index, so the scan alone keeps the old one).
+    def do_games_rescan(self, cmd, rid):
+        if self.code.sender is not None:
+            self.code.sender._digest = (None, None, None)
+        self._boot_scan_games()
+        want = cmd.get("active")
+        if want and want in self._index:
+            self._set_active(want)
+            self.code.set_game(want)
+        self.link.send({"type": "ok", "id": rid, "cmd": "games.rescan",
+                        "active": self._active, "games": len(self._index)})
+        if self._payload_ready():
+            self._set_mode(MODE_WRITE)
+        else:
+            self._set_mode(MODE_IDLE)
+        self._emit_mode()
 
     def do_stats_get(self, cmd, rid):
         try:
