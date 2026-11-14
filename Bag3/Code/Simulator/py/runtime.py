@@ -30,6 +30,7 @@ _TRANSFORM_LIBS = (
     "leds",
     "buzzer",
     "actions",
+    "signals",
     "battery",
     "espnow_manager",
     # Lobby games (in import order: each imports the ones before it).

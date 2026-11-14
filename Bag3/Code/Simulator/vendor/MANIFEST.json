@@ -215,6 +215,11 @@
       "source": "Bag3/Code/Wand Module/lib/pwire.py",
       "vendor_sha256": "14a58af47870364104eb17f927dcd7ca21661406fed512c7bbb0b671ace85281"
     },
+    "lib/signals.py": {
+      "sha256": "ca9e2988accc1d026cc824a38d0e68df287be8b010254a297718839c890cd7e2",
+      "source": "Bag3/Code/Wand Module/lib/signals.py",
+      "vendor_sha256": "ca9e2988accc1d026cc824a38d0e68df287be8b010254a297718839c890cd7e2"
+    },
     "lib/splat_api.py": {
       "sha256": "09e88b00aa6b1c3d586fea2d3351f091f22fc875ea1519456730be5727c81bcf",
       "source": "Bag3/Code/Wand Module/lib/splat_api.py",

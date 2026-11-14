@@ -55,6 +55,7 @@ VERBATIM_LIBS = [
     "hubtype.py",
     "game_tags.py",
     "actions.py",
+    "signals.py",
     "battery.py",
     "espnow_manager.py",
     # Lobby games: pwire/lobby_game/splatpair run through the transform; pairing
