@@ -51,8 +51,9 @@ with `Bag3/`. The review behind this plan is
   on load. Merged; S6 does not touch that file.
 - **`Live_Page/` copies of ChatBroadcast and Simulator** were refreshed from that branch, so they
   predate the W1-W6 game modes (no `splat_host_games.md`, older `splatGameCheck.js`). The hosted
-  site deploys from `September_2026`. **Decision for the user:** volunteers use ChatBroadcast
-  served locally from `Bag3/Code/`, or the hosted copy is re-copied and deployed after S6 and S7.
+  site deploys from `September_2026` (`.github/workflows/static.yml`). **Decided 2026-11-14:**
+  teachers and volunteers use the hosted `Live_Page/` version, and the user pushes the
+  bench-tested build there. Step S9 below re-copies it; phase H6 runs against that copy.
 - **Flasher** (`Live_Page/Flasher/`) now lists the Broadcast Box, Dial, Icon Display and
   CrowPanel, and reads the wand from `Wand Module/flash_bundle/flash_manifest.json` at a chosen
   branch. S0's regenerated bundle is therefore what the Flasher installs. For H7, adding the
@@ -125,6 +126,7 @@ Hardware (only if this task needs it):
 ## Prep steps, each as a prompt
 
 Order: S0 first. S1, S2, S4, S6, S7 can run in parallel sessions. S3 follows S2. S5 needs a Dial.
+S9 runs last, before phase H6, and again if anything in ChatBroadcast or the Simulator changes after it.
 
 ### S0. Bundle and baseline (no hardware)
 
@@ -285,6 +287,27 @@ Task: write three short documents in Bag3/Code/docs_and_design/, dated today.
 Plain language, no jargon the volunteers have not been taught. Ask the user to review.
 ```
 
+### S9. Promote ChatBroadcast and the Simulator to Live_Page (after S3, S5, S6, S7)
+
+```
+Task: make the hosted copy match the bench-tested Bag3 trees. Volunteers use the hosted site.
+Read Live_Page/AGENTS.md first.
+1. Replace Live_Page/ChatBroadcast/ and Live_Page/Simulator/ with copies of
+   Bag3/Code/ChatBroadcast/ and Bag3/Code/Simulator/. Leave out bak/, REPLY_HANDLING.md, the
+   .code-workspace file, __pycache__ and test caches. The two are siblings in both places, so
+   make no path edits; if a path edit seems needed, stop and report it instead.
+2. Serve Live_Page/ locally and check in a browser with Playwright: the ChatBroadcast page
+   loads with no console errors, the practice window starts for one solo game and one host
+   game, and the example gallery loads a game. Take screenshots.
+3. Check the Flasher (Live_Page/Flasher/): confirm the wand entry reads
+   Bag3/Code/Wand Module/flash_bundle/flash_manifest.json and say which branch names it offers
+   (js/devices.js REFS). Report whether the test branch needs adding for H7.
+4. Commit on the working branch. Do not push to September_2026 or any deploy branch: the user
+   pushes the bench-tested build there. End your report with the exact commit to promote.
+Report: what was copied, the browser results with screenshots, and anything in the copy that
+cannot work when hosted (for example the firmware installer's paths to other Bag3 folders).
+```
+
 ## Hardware phases
 
 Each phase is one hands-on block of 15 to 30 minutes, with at most 3 devices on USB. The agent
@@ -298,8 +321,8 @@ flashes and sets up before the block. Splats connect over BLE and do not use a U
 | H3 Icon display | Day 2 morning | display, wand, Dial | H1 | Play Move Mixer and share a dance; pull a display game; play Picture Moves | Display shows the dance; display game runs |
 | H4 Slots and distribute | Day 2 midday | Dial, host wand, 1 player wand (others on battery) | S1, S2, S3 | Distribute a host game with the host last; send a fourth game and pick what to replace | No red X while waiting; the chosen game is replaced; scan shows slots |
 | H5 Controllers | Day 2 afternoon | Dial, CrowPanel, Box | S4, S5 | Unplug and replug the Dial mid-send; pull by card from each controller without arming | App state follows the cable; all three serve |
-| H6 Dry run | Day 3 morning | one controller, host wand, 1 wand (logs only) | all | Run one whole table as a volunteer would, from a fresh prompt to play | A generated solo game and a generated host game both play |
-| H7 Flash and freeze | Day 3 afternoon | 3 wands at a time | H6 fixes | Swap wands through three cables | Every wand and display on the frozen build |
+| H6 Dry run | Day 3 morning | one controller, host wand, 1 wand (logs only) | all, S9 | Run one whole table as a volunteer would, from a fresh prompt to play, using the `Live_Page/` copy | A generated solo game and a generated host game both play |
+| H7 Flash and freeze | Day 3 afternoon | 3 wands at a time | H6 fixes | Swap wands through three cables; then push the frozen build to the deploy branch | Every wand and display on the frozen build; hosted site serves the same build |
 
 Notes:
 
