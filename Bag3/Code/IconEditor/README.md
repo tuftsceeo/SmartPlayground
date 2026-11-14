@@ -6,7 +6,7 @@ firmware and bring-up scripts.
 
 | Path | What |
 |---|---|
-| `webapp/` | Browser icon maker. Run `python3 serve.py`, then open `http://localhost:8757/webapp/`. |
+| `webapp/` | Browser icon maker. Run `python3 serve.py`, then open `http://localhost:8757/webapp/`. Open accepts images and `rows`+`pal` JSON icons (loaded pixel-for-pixel; see `webapp/js/pipeline/jsonIcon.js`, samples in `Stations/IconDisplay/drafts/matrixicons/json16/`). |
 | `icon_editor.py`, `image_to_icon.py` | Photo (PNG/JPEG in `assets/`) to icon, driven by `maps/<name>.json`. |
 | `hand_author_icons.py` | Icons built from shapes, no source photo. A plain run is a dry run that lists which icons would change; `--write` writes, `--only NAME` limits it. 26 of its 27 recipes no longer match the committed icons, which were redrawn afterwards, so avoid a full `--write`. |
 | `draw_icon.py`, `grid_to_icon.py` | Icons from a character grid. |

@@ -43,7 +43,7 @@ export function createTopBar(
         <button type="button" id="btnSave" class="icon-btn" title="Save map" ${state.mode ? "" : "disabled"}><i data-lucide="save" class="w-[15px] h-[15px]"></i></button>
         <button type="button" id="btnRename" class="icon-btn" title="Rename"><i data-lucide="pencil-line" class="w-[14px] h-[14px]"></i></button>
         <button type="button" id="btnUndo" class="icon-btn" title="Undo" ${canUndo ? "" : "disabled"}><i data-lucide="undo-2" class="w-[15px] h-[15px]"></i></button>
-        <input type="file" id="fileOpenHidden" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml" class="hidden" />
+        <input type="file" id="fileOpenHidden" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml,application/json,.json" class="hidden" />
       </div>
     </div>
 
