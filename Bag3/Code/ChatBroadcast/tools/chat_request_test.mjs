@@ -275,6 +275,9 @@ await test("game brief parses and strips", () => {
     assert.equal(parseGameBrief(r), "- Title: Frog Hop");
     assert.equal(stripGameBrief(r), "I have what I need.");
     assert.equal(parseGameBrief("What do the frogs do?"), null);
+    const open_ = "I have what I need.\n\n[GAME_BRIEF]\n\nTitle: Memory\nWands: 2–2";
+    assert.equal(parseGameBrief(open_), "Title: Memory\nWands: 2–2");
+    assert.equal(stripGameBrief(open_), "I have what I need.");
 });
 
 console.log(`\n${passed} checks passed`);

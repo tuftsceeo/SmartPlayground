@@ -241,9 +241,10 @@ export function stripChoicesMarker(text) {
     return text.replace(/\[CHOICES:[^\]]+\]/g, "").trim();
 }
 
-/** Design brief between [GAME_BRIEF] and [/GAME_BRIEF] lines, or null. */
+/** Design brief between [GAME_BRIEF] and [/GAME_BRIEF] lines, or null. A missing closing
+ *  tag (the model sometimes drops it) takes the brief to the end of the reply. */
 export function parseGameBrief(text) {
-    const match = text.match(/\[GAME_BRIEF\]([\s\S]*?)\[\/GAME_BRIEF\]/);
+    const match = text.match(/\[GAME_BRIEF\]([\s\S]*?)(?:\[\/GAME_BRIEF\]|$)/);
     if (!match) return null;
     return match[1].trim() || null;
 }
