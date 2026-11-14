@@ -119,7 +119,7 @@ button.display-case:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(10
 :host(:not([advanced])) .display-shelf:not(.in-game) { display: none; }
 `;
 
-// LED duty -> screen color, from Stations/Icon Display Station/webapp/js/pipeline/ledGamut.js
+// LED duty -> screen color, from IconEditor/webapp/js/pipeline/ledGamut.js
 // (ledSwatchHex): WS2812B primaries as XYZ, clipped to sRGB. Same colors as the icon editor.
 const LED_PRIM = [[0.7006, 0.2993, 400], [0.0743, 0.8338, 1150], [0.1241, 0.0578, 250]]
   .map(([x, y, Iv]) => [(x / y) * Iv, Iv, ((1 - x - y) / y) * Iv]);

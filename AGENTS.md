@@ -71,8 +71,8 @@ Game tags are consumed in four places, with nothing enforcing consistency: each 
 The 16x16 icon set is the same shape of problem. `Stations/IconDisplay/icons/` is the
 source of truth, and three things copy from it by hand or by script:
 `ChatBroadcast/js/ledicons/defaultIcons.js` (generated — run
-`ChatBroadcast/tools/sync_icons.py`, and `--check` to detect drift), the station's
-`Stations/Icon Display Station/icons/`, and `ChatBroadcast/iconmaker/`, which keeps its own
+`ChatBroadcast/tools/sync_icons.py`, and `--check` to detect drift), the icon editor's working copy
+`IconEditor/icons/`, and `ChatBroadcast/iconmaker/`, which keeps its own
 `assets/`, `maps/` and `fixtures.js`. The generated list is what tells the chat model which
 icons exist — a game naming one outside it is refused at send time, so an icon added only to
 the device is unusable in a generated game. Nothing runs the check automatically.
@@ -101,7 +101,9 @@ playground component (`hubtype.txt` → `HUB_CONFIG`).
 
 ## "Station" is not one thing
 
-`Bag3/Code/Stations/` holds `Icon Display Station`, `IconDisplay` (the Broadcast icon display) and
+`Bag3/Code/Stations/` holds `IconDisplay` (the Broadcast icon display, the current firmware),
+`Icon Display Station` (its old USB-serial predecessor, no radio; firmware and bring-up scripts only —
+don't change it, and don't flash it) and
 `SplatCompanion` (historical), and the Broadcast Box and Dial are also called stations. All are beta or bench tests, not used by teachers. Always name the specific one; never
 write "the Station".
 

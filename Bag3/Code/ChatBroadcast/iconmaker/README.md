@@ -1,6 +1,6 @@
 # Icon Maker (web app), ChatBroadcast copy
 
-**This is a copy** of `Bag3/Code/Stations/Icon Display Station/webapp/`, taken so
+**This is a copy** of `Bag3/Code/IconEditor/webapp/`, taken so
 ChatBroadcast can open it. The two are hand-kept peers; a fix here is not a fix
 there.
 

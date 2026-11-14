@@ -175,7 +175,9 @@ lib/espnow_code.py.
    Compute it without importing the game (a text scan of the first lines for the declaration
    names), lazily, after the radio is up. Keep the payload under 250 bytes.
 4. Do the same in Stations/IconDisplay (its own espnow_manager.py copy and game storage). Say
-   which trees you changed. Do not touch Bag2 or the Simulator.
+   which trees you changed. Do not touch Bag2 or the Simulator. Do not touch
+   "Stations/Icon Display Station": it is the old serial predecessor of IconDisplay, has no
+   radio and is not in the test. Do not touch IconEditor/ either (icon authoring tools).
 Check: py_compile, and an off-device test of the slot list logic run with plain Python.
 Report: the file format, the eviction rule, the exact status_report shape with a sample.
 ```

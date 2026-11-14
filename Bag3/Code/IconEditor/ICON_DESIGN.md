@@ -7,16 +7,16 @@ animated sets. Commands below run from this folder.
 
 ## Where things live
 
-All paths are under `Bag3/Code/Stations/`.
+All paths are under `Bag3/Code/`.
 
 | What | Path |
 |---|---|
-| Device icon set (source of truth) | `IconDisplay/icons/<name>.py` |
-| Authoring tools, maps, drafts | `Icon Display Station/` |
-| Grid maps waiting for review | `Icon Display Station/drafts/grids/*.json` |
-| Grid → icon + preview tool | `Icon Display Station/grid_to_icon.py` |
-| Promote sequence | `Icon Display Station/drafts/README.md` |
-| LED colour model | `Icon Display Station/webapp/js/pipeline/ledGamut.js` (`ledSwatchHex`) |
+| Device icon set (source of truth) | `Stations/IconDisplay/icons/<name>.py` |
+| Authoring tools, maps, drafts | `IconEditor/` |
+| Grid maps waiting for review | `IconEditor/drafts/grids/*.json` |
+| Grid → icon + preview tool | `IconEditor/grid_to_icon.py` |
+| Promote sequence | `IconEditor/drafts/README.md` |
+| LED colour model | `IconEditor/webapp/js/pipeline/ledGamut.js` (`ledSwatchHex`) |
 
 ## The recognisability test
 
@@ -85,7 +85,7 @@ Rules that follow from the model:
 
 ## Workflow
 
-1. **Draw** a grid map in `Icon Display Station/drafts/grids/<set>.json`:
+1. **Draw** a grid map in `IconEditor/drafts/grids/<set>.json`:
 
    ```json
    {

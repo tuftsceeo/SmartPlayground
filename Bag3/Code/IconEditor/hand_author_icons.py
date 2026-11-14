@@ -13,7 +13,13 @@ maps/<name>.json alongside icons/<name>.py and previews/<name>.png exactly
 like image_to_icon.py does -- "source": "hand-authored" instead of a PNG
 path is the only difference in the map shape.
 
-Run: python3 hand_author_icons.py
+Run: python3 hand_author_icons.py                      # dry run: checks only, writes nothing
+     python3 hand_author_icons.py --write --only bus    # write the named icon(s)
+     python3 hand_author_icons.py --write               # overwrite every recipe's icon
+
+Writing is opt-in because the recipes here no longer match the committed
+icons: many were redrawn by hand afterwards, and a full --write replaces them
+with this script's output. Prefer --only.
 Add a new icon: write a draw_<name>(g) function using the primitives below,
 then add ("<name>", "<category>", draw_<name>) to RECIPES.
 
@@ -21,7 +27,7 @@ Writing icons/ here is not the last step. To reach hardware an icon has to be
 copied into Stations/IconDisplay/icons/, and to be usable in a generated
 game the chat app's list has to be regenerated from that device set:
 
-    python3 ../../ChatBroadcast/tools/sync_icons.py --check
+    python3 ../ChatBroadcast/tools/sync_icons.py --check
 
 An icon that skips it works on the device and is silently absent from
 ChatBroadcast -- a game naming it is refused at send time. The full promote
@@ -31,6 +37,7 @@ Icons from here are procedural, so they have a map but no source image: they
 cannot be reopened in either Icon Maker, and are edited by changing the
 recipe below and re-running.
 """
+import argparse
 import json
 import os
 import sys
@@ -492,11 +499,24 @@ RECIPES = [
 def main():
     os.makedirs(ICONS_DIR, exist_ok=True)
     os.makedirs(MAPS_DIR, exist_ok=True)
-    os.makedirs(PREVIEWS_DIR, exist_ok=True)
+    ap = argparse.ArgumentParser(description="Build 16x16 icons from the recipes in this file.")
+    ap.add_argument("--write", action="store_true",
+                    help="write icons/, maps/ and previews/ (default: check only, write nothing)")
+    ap.add_argument("--only", nargs="+", metavar="NAME",
+                    help="limit the run to these recipe names")
+    args = ap.parse_args()
+    known = [r[0] for r in RECIPES]
+    if args.only:
+        unknown = [n for n in args.only if n not in known]
+        if unknown:
+            print("no recipe named: %s" % ", ".join(unknown))
+            return 1
 
     icons = {}
     categories = {}
     for name, category, fn in RECIPES:
+        if args.only and name not in args.only:
+            continue
         grid = new_grid()
         fn(grid)
         icons[name] = enforce_floor(flatten(grid))
@@ -512,6 +532,30 @@ def main():
         print("fix the problems above before committing -- exiting without writing files")
         return 1
 
+    if not args.write:
+        differ = []
+        for name, pixels in icons.items():
+            path = os.path.join(ICONS_DIR, name + ".py")
+            tmp = path + ".dryrun"
+            write_icon(pixels, tmp, name_comment="Hand-authored by hand_author_icons.py -- edit maps/%s.json, not this file." % name)
+            try:
+                with open(tmp) as f:
+                    new = f.read()
+            finally:
+                os.remove(tmp)
+            try:
+                with open(path) as f:
+                    old = f.read()
+            except OSError:
+                old = None
+            if old != new:
+                differ.append(name + (" (new)" if old is None else ""))
+        print("dry run: nothing written. %d of %d icons would change: %s"
+              % (len(differ), len(icons), ", ".join(differ) or "none"))
+        print("pass --write to write them (add --only NAME ... to limit which)")
+        return 0
+
+    os.makedirs(PREVIEWS_DIR, exist_ok=True)
     for name, pixels in icons.items():
         write_icon(
             pixels,

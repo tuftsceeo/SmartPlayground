@@ -22,7 +22,7 @@ need the warm ratio: white (255,171,93), light grey (180,120,65), grey
     python3 draw_icon.py spec.json --install         # write and sync every copy
 
 --install writes:
-  - ../IconDisplay/icons/<name>.py   device icon (source of truth)
+  - ../Stations/IconDisplay/icons/<name>.py   device icon (source of truth)
   - maps/<name>.json                 full design as a 256-cell overlay, which
                                      both Icon Makers reopen as painted cells;
                                      also ChatBroadcast/iconmaker/maps/<name>.json
@@ -50,7 +50,7 @@ from preview import render_preview  # noqa: E402
 
 W = H = 16
 OFF = (0, 0, 0)
-CODE = os.path.normpath(os.path.join(HERE, "..", ".."))
+CODE = os.path.normpath(os.path.join(HERE, ".."))
 DEVICE_ICONS = os.path.join(CODE, "Stations", "IconDisplay", "icons")
 MAPS_DIR = os.path.join(HERE, "maps")
 PREVIEWS_DIR = os.path.join(HERE, "previews")

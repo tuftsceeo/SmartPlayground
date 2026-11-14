@@ -25,8 +25,9 @@ so authoring pauses for its duration.
 
 ## Relationship to `Bag3/Code/Stations/Icon Display Station/`
 
-That tree is the original station: the USB icon authoring server plus the
-host-side conversion pipeline and the browser editor. It is unchanged.
+That tree is the original station: the old USB icon server firmware and the bring-up scripts.
+Its host-side conversion pipeline, browser editor, maps and second `icons/` copy moved to
+`Bag3/Code/IconEditor/` on 2026-11-14.
 
 This tree copies the parts a game-playing device needs — `icon_matrix.py`,
 `icon_store.py`, `icons/`, and the USB server — leaving behind the bring-up
@@ -182,7 +183,7 @@ equivalent to mirror.
 
 ## Measured white
 
-The datasheet white in `Icon Display Station/webapp/js/pipeline/ledGamut.js`,
+The datasheet white in `IconEditor/webapp/js/pipeline/ledGamut.js`,
 duty (255,171,93), reads pale pink on this panel behind its dark diffuser.
 Measured 2026-10-31 by eye: calibration grids of red/green/blue duty steps,
 photographed beside a laptop showing a white page, narrowed over three rounds
@@ -195,7 +196,7 @@ photographed beside a laptop showing a white page, narrowed over three rounds
 | grey (x0.431) | (80, 110, 65) |
 | near black (x0.118) | (22, 30, 18) |
 
-Applied 2026-11-01 to `icons/` and `Icon Display Station/icons/` (72 files)
+Applied 2026-11-01 to `icons/` and `IconEditor/icons/` (72 files)
 with `drafts/remap_white.py`, which rewrites any colour on the old neutral
 ratio to WHITE at the same brightness, then `sync_icons.py` for
 ChatBroadcast. `games/halloween_frames.bin` gets the same swap from
