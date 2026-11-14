@@ -35,6 +35,7 @@ filenames). Search front matter with `grep -l '<term>' Bag3/Code/known_issues/*.
 | [2026-11-13-game-ideas-backlog.md](2026-11-13-game-ideas-backlog.md) | Game ideas not chosen as built-ins, and the gap blocking each | open | — |
 | [2026-11-11-simple-mode-large-changes.md](2026-11-11-simple-mode-large-changes.md) | Simple mode design: device minimums, Simulator minimum/Splat host role (built, hardware untested)/zones (built, left/right unconfirmed)/art, game card, versions | open | — |
 | [2026-11-14-hold-interactions-ux.md](2026-11-14-hold-interactions-ux.md) | UX: hold-to-act (Splat host start/end) needs clear progress; game text says only "hold the button" | open (concern) | — |
+| [2026-11-14-splat-host-wand-count.md](2026-11-14-splat-host-wand-count.md) | ChatBroadcast device line and brief leave out the Splat host wand (shows 2 wands, needs 3) | open | — |
 
 ## By topic
 
