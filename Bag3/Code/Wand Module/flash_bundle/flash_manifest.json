@@ -82,6 +82,30 @@
       "device": "target.py"
     },
     {
+      "repo": "Bag3/Code/Wand Module/games/echobeat.py",
+      "device": "games/echobeat.py"
+    },
+    {
+      "repo": "Bag3/Code/Wand Module/games/simonstomp.py",
+      "device": "games/simonstomp.py"
+    },
+    {
+      "repo": "Bag3/Code/Wand Module/games/movemixer.py",
+      "device": "games/movemixer.py"
+    },
+    {
+      "repo": "Bag3/Code/Wand Module/games/colorsays.py",
+      "device": "games/colorsays.py"
+    },
+    {
+      "repo": "Bag3/Code/Wand Module/games/picturemoves.py",
+      "device": "games/picturemoves.py"
+    },
+    {
+      "repo": "Bag3/Code/Wand Module/games/host_patternstomp.py",
+      "device": "games/host_patternstomp.py"
+    },
+    {
       "repo": "Bag3/Code/Wand Module/lib/actions.py",
       "device": "lib/actions.py"
     },
@@ -160,6 +184,10 @@
     {
       "repo": "Bag3/Code/Wand Module/lib/power_led.py",
       "device": "lib/power_led.py"
+    },
+    {
+      "repo": "Bag3/Code/Wand Module/lib/signals.py",
+      "device": "lib/signals.py"
     },
     {
       "repo": "Bag3/Code/Wand Module/lib/pwire.py",
