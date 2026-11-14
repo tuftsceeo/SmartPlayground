@@ -8,7 +8,7 @@ firmware and bring-up scripts.
 |---|---|
 | `webapp/` | Browser icon maker. Run `python3 serve.py`, then open `http://localhost:8757/webapp/`. |
 | `icon_editor.py`, `image_to_icon.py` | Photo (PNG/JPEG in `assets/`) to icon, driven by `maps/<name>.json`. |
-| `hand_author_icons.py` | Icons built from shapes, no source photo. Running it rewrites `icons/`, `maps/` and `previews/`, even with `--help`. |
+| `hand_author_icons.py` | Icons built from shapes, no source photo. A plain run is a dry run that lists which icons would change; `--write` writes, `--only NAME` limits it. 26 of its 27 recipes no longer match the committed icons, which were redrawn afterwards, so avoid a full `--write`. |
 | `draw_icon.py`, `grid_to_icon.py` | Icons from a character grid. |
 | `iconlib/` | Shared conversion, colour and preview code. |
 | `icons/`, `maps/`, `previews/` | The tools' output and each icon's provenance. |
