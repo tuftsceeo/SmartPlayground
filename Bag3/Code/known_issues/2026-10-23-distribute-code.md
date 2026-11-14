@@ -13,7 +13,7 @@ code:
   - Bag3/Code/Wand Module/lib/espnow_manager.py
   - Bag3/Code/Stations/IconDisplay/main.py
   - Bag3/Code/Stations/IconDisplay/lib/espnow_manager.py
-  - Bag3/Code/BroadcastCode/ChatBroadcast/js/distribute.js
+  - Bag3/Code/ChatBroadcast/js/distribute.js
   - Bag3/Code/TeacherTools/M5Paper Remote/
 open:
   - Nothing here has run on hardware
@@ -25,7 +25,7 @@ open:
   - SplatCompanion answers status_poll without kind, so pollers list it as a wand (added 2026-11-10)
 keywords: [code_push, status_poll, status_report, kind, fleet, distribute, find_device, finddevice, getcode, timeout, no_ack, not_serving, M5Paper, SplatCompanion, splat_companion, CrowPanel]
 related:
-  - Bag3/Code/BroadcastCode/docs_and_design/2026-10-23-distribute-code-plan.md
+  - Bag3/Code/docs_and_design/2026-10-23-distribute-code-plan.md
   - Bag3/Code/TeacherTools/BroadcastDial/README.md (Fleet commands)
 ---
 

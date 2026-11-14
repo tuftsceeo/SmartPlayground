@@ -18,7 +18,7 @@ open:
 keywords: [arm, disarm, armed, serve, serving, radio, code_link, no_payload, nohost, SHARE_IN_MENUS, _serve, _menu_share]
 related:
   - Bag3/Code/Experiments/CrowPanel5_Display/code_link.py (panel copy with radio_on/radio_off, commit 784d79f)
-  - Bag3/Code/BroadcastCode/docs_and_design/2026-10-20-espnow-serving/RESULTS.md
+  - Bag3/Code/docs_and_design/2026-10-20-espnow-serving/RESULTS.md
 ---
 
 # Broadcast Dial and Box: arm/disarm serving, 2026-11-02

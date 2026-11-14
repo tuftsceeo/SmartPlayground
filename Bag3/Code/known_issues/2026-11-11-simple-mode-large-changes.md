@@ -5,12 +5,12 @@ status: open
 devices: [wand, icon_display, splat]
 components: [ChatBroadcast, Simulator]
 code:
-  - Bag3/Code/BroadcastCode/ChatBroadcast/js/prompt/buildRequest.js
-  - Bag3/Code/BroadcastCode/ChatBroadcast/knowledge/policy.md
-  - Bag3/Code/BroadcastCode/ChatBroadcast/knowledge/platform.md
-  - Bag3/Code/BroadcastCode/ChatBroadcast/js/chat.js
-  - Bag3/Code/BroadcastCode/ChatBroadcast/js/hardware.js
-  - Bag3/Code/BroadcastCode/ChatBroadcast/js/library.js
+  - Bag3/Code/ChatBroadcast/js/prompt/buildRequest.js
+  - Bag3/Code/ChatBroadcast/knowledge/policy.md
+  - Bag3/Code/ChatBroadcast/knowledge/platform.md
+  - Bag3/Code/ChatBroadcast/js/chat.js
+  - Bag3/Code/ChatBroadcast/js/hardware.js
+  - Bag3/Code/ChatBroadcast/js/library.js
   - Bag3/Code/Simulator/sim-room.js
   - Bag3/Code/Simulator/js/panels/wands.js
   - Bag3/Code/Simulator/js/panels/splats.js
@@ -33,7 +33,7 @@ aliases: []
 # Simple mode design: large changes not built
 
 The design canvas is https://claude.ai/artifact/WjCoDBJYxUKwinww3s8y2E. The corrections it answers
-are in `BroadcastCode/docs_and_design/2026-11-11-simple-mode-design-corrections.md`; the sorting
+are in `docs_and_design/2026-11-11-simple-mode-design-corrections.md`; the sorting
 into quick, medium and large is in `2026-11-11-simple-mode-implementation-scope.md` (same folder).
 Quick and medium changes are on branch `simple-mode-corrections`. These are the large ones, each
 cross-cutting enough to need a decision first. They record future design intent, not defects. Line numbers are as of branch `Chat_to_Tap_Doggle`

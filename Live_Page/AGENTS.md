@@ -15,7 +15,7 @@ branch are not live regardless of correctness — serve the directory locally to
 `WebApp2/` (hub controller) and `Flasher/` (code uploader) are canonical. `ChatBroadcast/` is the
 Bag3 Wand & Station Coder (chat → MicroPython → Box/Dial); it needs the sibling `Simulator/`
 tree for the wand preview and example games. Both are copies from
-`Bag3/Code/BroadcastCode/ChatBroadcast` and `Bag3/Code/Simulator` — edit the Bag3 trees for
+`Bag3/Code/ChatBroadcast` and `Bag3/Code/Simulator` — edit the Bag3 trees for
 day-to-day work, then re-copy into Live_Page when promoting a build to Pages.
 
 `WebApp/` is the Bag1 legacy controller, `Code_Upload/` is Flasher's dead predecessor pinned to a

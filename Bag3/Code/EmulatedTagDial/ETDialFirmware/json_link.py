@@ -1,4 +1,4 @@
-# PEER: Bag3/Code/BroadcastCode/BroadcastBox/BBoxFirmware/json_link.py — keep in sync
+# PEER: Bag3/Code/TeacherTools/BroadcastBox/BBoxFirmware/json_link.py — keep in sync
 """
 json_link.py -- non-blocking newline-delimited JSON over stdin/stdout.
 See the top-level plan ("ESP32-C6 firmware / Protocol") for the full

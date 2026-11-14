@@ -72,7 +72,7 @@ Run from the repo root unless stated.
 | Device code compiles | `find Bag3/Code/Experiments/SplatAuthoringRows -name '*.py' -exec python -m py_compile {} \;` then delete `__pycache__` | no output |
 | Experiment unit tests | `cd Bag3/Code/Experiments/SplatAuthoringRows && python3 -m unittest discover -s tests` | all pass (8+ before new work) |
 | Splat game send check | `cd Bag3/Code/Experiments/SplatAuthoringRows && node js/splat_game_check_test.mjs` | `all passed`; add a case per new Splat game |
-| Icon drift (16x16) | `python3 Bag3/Code/BroadcastCode/ChatBroadcast/tools/sync_icons.py --check` | exit 0; run after adding icons |
+| Icon drift (16x16) | `python3 Bag3/Code/ChatBroadcast/tools/sync_icons.py --check` | exit 0; run after adding icons |
 | Icon readability | `python3 Bag3/Code/Experiments/SplatAuthoringRows/game_design/tools/icon_sheet_preview.py <sheet.jpg> <out.png>` | review each icon at 16x16 by eye |
 | Scope | `git diff --stat origin/ccr-e1ed35ff-24apiv` | changes only under the experiment (plus known_issues notes) |
 

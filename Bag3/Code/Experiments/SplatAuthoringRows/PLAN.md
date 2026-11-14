@@ -2,7 +2,7 @@
 
 ## Context
 
-Design: `Bag3/Code/BroadcastCode/docs_and_design/2026-11-13-game-authoring-rows.md` (commit `facdb4f0`).
+Design: `Bag3/Code/docs_and_design/2026-11-13-game-authoring-rows.md` (commit `facdb4f0`).
 Goal: the chat agent builds Splat games accurately and repeatably, and each game loads only what
 its row needs. Defaults: a solo wand game; with 1–2 Splats, a solo wand driving its own Splats
 directly (no lobby). Group Splat games go through a Splat host wand. Pooled Splats are removed.
@@ -19,7 +19,7 @@ Decisions taken (2026-11-13):
 - **Scope: everything, including station mode.**
 
 **Location (user rule): unproven code lives in a dedicated experiment.** Nothing under
-`Bag3/Code/Wand Module/`, `BroadcastCode/ChatBroadcast/`, `Simulator/` or `Live_Page/` changes.
+`Bag3/Code/Wand Module/`, `ChatBroadcast/`, `Simulator/` or `Live_Page/` changes.
 All work goes in **`Bag3/Code/Experiments/SplatAuthoringRows/`** (no spaces):
 
 ```

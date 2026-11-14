@@ -1,4 +1,4 @@
-# PEER: Bag3/Code/BroadcastCode/BroadcastBox/BBoxFirmware/boot.py — keep in sync
+# PEER: Bag3/Code/TeacherTools/BroadcastBox/BBoxFirmware/boot.py — keep in sync
 # SPDX-FileCopyrightText: 2024 M5Stack Technology CO LTD
 #
 # SPDX-License-Identifier: MIT

@@ -68,7 +68,7 @@ before any physical step. Don't retry the same command blind.
 ## Watching a running board
 
 ```bash
-python3 Bag3/Code/BroadcastCode/tools/serial_monitor.py /dev/cu.usbmodemXXXX 900 > run.log
+python3 Bag3/Code/tools/serial_monitor.py /dev/cu.usbmodemXXXX 900 > run.log
 grep -vE "^\[ *[0-9.]+s\] (0000|GC:|stack:|MEM|MEMFRAG| No\. of)" run.log
 ```
 
@@ -78,7 +78,7 @@ calling it a reset: your own capture still holding the port looks the same.
 ## Gotchas
 
 - The protocol doc says `tools/serial_monitor.py`. The real path is
-  `Bag3/Code/BroadcastCode/tools/serial_monitor.py`.
+  `Bag3/Code/tools/serial_monitor.py`.
 - `mpremote` is `python3 -m mpremote` (no binary on PATH).
 - Bash array idioms can fail silently in zsh. Print a constructed command before firing it.
 - Device-specific commands are in the device READMEs listed at the end of `HARDWARE_PROTOCOL.md`.

@@ -20,7 +20,7 @@ M5Stack) plus static web tools. Small team, weekly iteration.
   is fragmentation, not exhaustion. Adding prints (their format strings and docstrings are allocated
   at import, whether or not the code runs) to a module imported ahead of the radio has taken devices
   down twice. Diagnostics go in a separate module, imported lazily after bring-up. See
-  [Bag3/Code/BroadcastCode/docs_and_design/2026-09-23-ap-memory-order.md](Bag3/Code/BroadcastCode/docs_and_design/2026-09-23-ap-memory-order.md).
+  [Bag3/Code/docs_and_design/2026-09-23-ap-memory-order.md](Bag3/Code/docs_and_design/2026-09-23-ap-memory-order.md).
   Exception: the wand's `boot.py` may light the NeoPixel for power-on feedback; nothing else.
 
 ## Branches
@@ -107,8 +107,9 @@ write "the Station".
 
 `Bag3/Code/TeacherTools/` holds `NFC Station` (a one-off NFC tag-writing tool, not live to teachers
 or the team), the Bag3 `M5Paper Remote`, and the Broadcast Box and Dial (`BroadcastBox`,
-`BroadcastDial`). `Bag3/Code/BroadcastCode/` keeps the ChatBroadcast web app, `tools/` and
-`docs_and_design/`.
+`BroadcastDial`). The ChatBroadcast web app is `Bag3/Code/ChatBroadcast/`; Bag3's shared `tools/` and
+`docs_and_design/` sit beside it in `Bag3/Code/`. (`BroadcastCode/`, their former parent, was removed
+2026-11-14.)
 
 `Bag3/Code/Experiments/` holds non-functioning hardware experiments (`Capsule PN5180`,
 `CrowPanel5_Display`, `IPS096 Display`, `Music Board Station`, `Radar Station`,

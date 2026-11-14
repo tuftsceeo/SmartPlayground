@@ -1,4 +1,4 @@
-# Bag3/Code/BroadcastCode/docs_and_design
+# Bag3/Code/docs_and_design
 
 This folder is for test logs and plans that are in active use by agents and historical records of past sessions. 
 

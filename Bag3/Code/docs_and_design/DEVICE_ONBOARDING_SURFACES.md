@@ -226,7 +226,7 @@ device. It replaces the table that was here, which predated `roles.js`.
 
 ## Surface 4 — host devtests
 
-`Bag3/Code/BroadcastCode/tools/devtests/`.
+`Bag3/Code/tools/devtests/`.
 
 | Test | Change for a new device |
 |---|---|

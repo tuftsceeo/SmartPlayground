@@ -72,16 +72,16 @@ missing from every generated game.
 
 3. Regenerate the list the chat app sends to the model, from that device set:
 
-       python3 ../../BroadcastCode/ChatBroadcast/tools/sync_icons.py
-       python3 ../../BroadcastCode/ChatBroadcast/tools/sync_icons.py --check
+       python3 ../../ChatBroadcast/tools/sync_icons.py
+       python3 ../../ChatBroadcast/tools/sync_icons.py --check
 
    A display game may only name icons in that list; `app.js` refuses one that
    names anything else at send time. Nothing runs this check automatically.
 4. To make it editable in ChatBroadcast's Icon Maker too, copy its source and
    map into that hand-kept peer and add the name to its `fixtures.js`:
 
-       cp assets/<name>.png ../../BroadcastCode/ChatBroadcast/iconmaker/assets/
-       cp maps/<name>.json ../../BroadcastCode/ChatBroadcast/iconmaker/maps/
+       cp assets/<name>.png ../../ChatBroadcast/iconmaker/assets/
+       cp maps/<name>.json ../../ChatBroadcast/iconmaker/maps/
 
    Skip for a hand-authored icon — it has no source image, so there is
    nothing for the Maker's loadFixture() to decode.

@@ -8,7 +8,7 @@ Tools compared:
 - **M5Paper Remote:** `Bag3/Code/TeacherTools/M5Paper Remote/`. Never tested on hardware.
 - **Broadcast Dial:** `Bag3/Code/TeacherTools/BroadcastDial/BDialFirmware/`, the M5 Dial firmware.
 - **WebApp2:** `Live_Page/WebApp2/`, the browser app and its `hubCode2/` C6 hub.
-- **ChatBroadcast:** `Bag3/Code/BroadcastCode/ChatBroadcast/`, the browser app that drives a Dial over
+- **ChatBroadcast:** `Bag3/Code/ChatBroadcast/`, the browser app that drives a Dial over
   USB.
 
 The NFC Station (`TeacherTools/NFC Station/`) has the same NFC screens as the Dial, but no radio and no

@@ -1,4 +1,4 @@
-# PEER: Bag3/Code/BroadcastCode/BroadcastBox/BBoxFirmware/reset_log.py — keep in sync
+# PEER: Bag3/Code/TeacherTools/BroadcastBox/BBoxFirmware/reset_log.py — keep in sync
 """
 reset_log.py — persist machine.reset_cause() across the USB CDC drop.
 

@@ -1,6 +1,6 @@
 # SplatAuthoringRows
 
-Experiment for `../../BroadcastCode/docs_and_design/2026-11-13-game-authoring-rows.md`: one
+Experiment for `../../docs_and_design/2026-11-13-game-authoring-rows.md`: one
 authoring shape per game row, a local Splat API for solo wands, host games on one template, and
 Splat host station mode. Plan and phase status: `PLAN.md`.
 
@@ -63,7 +63,7 @@ port), `knowledge/` (drafts for ChatBroadcast), `js/` (draft send-time check), `
   scratch copy with the draft knowledge files: `chat_request_test.mjs` passes (20 checks).
 - Readers: `js/wiring/readers.patch` (applies after `wiring.patch`; `patch -p1` from `ChatBroadcast/`) covers
   `hardware.js` `isLobbyGame`, `prompt_eval.mjs` and `splat_game_check_test.mjs`. `js/wiring/devtests.patch`
-  (root `BroadcastCode/tools/devtests/`) ports `lobbysim.py`, `test_lobby_game.py`, `test_lobby_games.py` and
+  (root `tools/devtests/`) ports `lobbysim.py`, `test_lobby_game.py`, `test_lobby_games.py` and
   `test_splat_host.py`; in a scratch copy 57, 15 and 39 checks pass. Not re-applied to a fresh copy; generic
   lobby cases there still gate on non-host `SPLATS_MIN` with Splat counts, which `main.py` now refuses.
   `prompt_eval.mjs --self-test-sim` is not run (Simulator unsynced).
@@ -88,7 +88,7 @@ port), `knowledge/` (drafts for ChatBroadcast), `js/` (draft send-time check), `
 2. Copy the changed `wand/` files into `Wand Module/`.
 3. Remove the pooled tags (`splattag`, `relaycolor`, `lobbytest`) from the other game-tag consumers:
    `Live_Page/WebApp2/hubCode2/game_tags.py`, `Live_Page/WebApp2/js/utils/commands.json`,
-   `Live_Page/wand_icons.html`; also `BroadcastCode/tools/sync_game_tags.py`, `tools/devtests/test_lobby_games.py`,
+   `Live_Page/wand_icons.html`; also `tools/sync_game_tags.py`, `tools/devtests/test_lobby_games.py`,
    `boot_wand_lobby_game.py`, `test_splat_host.py`, and `ChatBroadcast` `gameName.js`, `prompt_eval.mjs`,
    `tools/splat_game_check_test.mjs`, which still name them.
 4. `Stations/IconDisplay/games/relaycolor.py` (the Relay Timer display) listens for `relay_pass`, which

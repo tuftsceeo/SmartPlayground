@@ -34,7 +34,7 @@ Paths below are relative to `Bag3/Code/`.
 
 **#13 #32 sizes** — Splats no longer in the pad (done); remove `.pad.has-extras` rules. Make `.icon-btn` (mute, Start over) `min-width/min-height: 44px`; wand button stays ≥44px.
 
-**#11 Narrow screens** — `BroadcastCode/ChatBroadcast/css/app.css` `@media (max-width:768px)`: chat keeps `flex:1 1 auto` with a min height (e.g. `min-height: 55vh`); `.preview-col` capped (`max-height: 40vh`) with the simulator scaled down (`--wand-scale` / smaller `.sim-pane-wand` clamp min, e.g. 140px) instead of a nested scroll. Chat has priority.
+**#11 Narrow screens** — `ChatBroadcast/css/app.css` `@media (max-width:768px)`: chat keeps `flex:1 1 auto` with a min height (e.g. `min-height: 55vh`); `.preview-col` capped (`max-height: 40vh`) with the simulator scaled down (`--wand-scale` / smaller `.sim-pane-wand` clamp min, e.g. 140px) instead of a nested scroll. Chat has priority.
 
 ## 3. ChatBroadcast
 **#4 Saved replay** — `js/app.js` `openSavedGame` replay (~1639): skip a user turn whose content starts with "I would like to remix" (built in `remixCurrentExample` ~2159); still kept in `chatHistory` for the model. Going forward, mark it: push `{role:'user', content, hidden:true}` in `callClaude` when called from remix, and skip `hidden` turns on replay (prefix check covers already-saved games).
@@ -56,4 +56,4 @@ Hide `#btn-station-catalog` in simple mode (toggle with the existing advanced/si
 - `python3 -m pytest -q Simulator/tests` (97 pass) and `node --check` on touched JS.
 - Simulator page http://localhost:8767/Simulator/ (start `python3 -m http.server 8767` from `Bag3/Code` if down): splattag + 4 wands + 4 displays → all cards equal, two rows fit at 1280×800; × side on Mac = left; switching games resets devices; tag picker fully visible in main view and overlay; no status line; no play cards.
 - Resize to 768 and 375 (`resize_window`): chat usable, wand visible without nested scroll.
-- ChatBroadcast http://localhost:8767/BroadcastCode/ChatBroadcast/: user types the access code; then check saved-game icons, reopened remix game hides the remix message, keyboard Tab/Enter on cards, tooltips, simple mode hides NFC Station button.
+- ChatBroadcast http://localhost:8767/ChatBroadcast/: user types the access code; then check saved-game icons, reopened remix game hides the remix message, keyboard Tab/Enter on cards, tooltips, simple mode hides NFC Station button.

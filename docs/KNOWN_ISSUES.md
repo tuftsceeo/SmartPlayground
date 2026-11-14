@@ -28,7 +28,7 @@ mark them resolved.
   2026-09-23 this left both Dials at `idf_largest=7680` and unable to arm until power-cycled, with
   `gc.mem_free()` reading a reassuring 81 KB — the failure is fragmentation, not exhaustion.
   Diagnostics belong in a separate module imported lazily after bring-up. See
-  [Bag3/Code/BroadcastCode/docs_and_design/2026-09-23-ap-memory-order.md](../Bag3/Code/BroadcastCode/docs_and_design/2026-09-23-ap-memory-order.md).
+  [Bag3/Code/docs_and_design/2026-09-23-ap-memory-order.md](../Bag3/Code/docs_and_design/2026-09-23-ap-memory-order.md).
 
 ### Verified drift
 
@@ -179,7 +179,7 @@ findings".
 ## 2026-09-26 (Splat Companion device-onboarding pass)
 
 Found while turning the bridge above into a full `Bag3/Code/Stations/SplatCompanion/`
-device tree per `Bag3/Code/BroadcastCode/docs_and_design/DEVICE_ONBOARDING_SURFACES.md`. Not
+device tree per `Bag3/Code/docs_and_design/DEVICE_ONBOARDING_SURFACES.md`. Not
 fixed in the trees they're in unless noted.
 
 ### Latent bugs
@@ -282,7 +282,7 @@ connected and held (`10_bench_3c_39209e3.txt`). `Bag2/Code/lib/ble_splat.py` sti
 ## 2026-09-30 (Splat Echo freeze investigation)
 
 Results and logs:
-[Bag3/Code/BroadcastCode/docs_and_design/2026-09-30-splatecho-freeze-results.md](../Bag3/Code/BroadcastCode/docs_and_design/2026-09-30-splatecho-freeze-results.md).
+[Bag3/Code/docs_and_design/2026-09-30-splatecho-freeze-results.md](../Bag3/Code/docs_and_design/2026-09-30-splatecho-freeze-results.md).
 
 ### Latent bugs
 
@@ -356,7 +356,7 @@ Results and logs:
 ## 2026-10-01 (Splat Companion antenna)
 
 Neither the hub nor the modem board has a u.FL antenna fitted. Measurements are in
-`Bag3/Code/BroadcastCode/docs_and_design/2026-09-30-splatecho-logs/07_*` and `08_*`.
+`Bag3/Code/docs_and_design/2026-09-30-splatecho-logs/07_*` and `08_*`.
 
 ### Fixed in `SplatCompanion/`
 

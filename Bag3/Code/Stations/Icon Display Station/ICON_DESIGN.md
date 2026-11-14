@@ -123,7 +123,7 @@ Rules that follow from the model:
    `IconDisplay/icons/`, then regenerate the chat app's list:
 
    ```bash
-   python3 ../../BroadcastCode/ChatBroadcast/tools/sync_icons.py
+   python3 ../../ChatBroadcast/tools/sync_icons.py
    ```
 
    An icon missing from that list works on the device, but a generated game

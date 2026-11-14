@@ -12,7 +12,7 @@ code:
   - Bag3/Code/Experiments/SplatAuthoringRows/wand/lib/splat_host.py
   - Bag3/Code/Experiments/SplatAuthoringRows/wand/lib/pairing.py
   - Bag3/Code/Wand Module/lib/espnow_manager.py
-  - Bag3/Code/BroadcastCode/ChatBroadcast/knowledge/accessibility.md
+  - Bag3/Code/ChatBroadcast/knowledge/accessibility.md
 open:
   - D2 dance message and D3 display station mode: built, hardware untested.
   - M1 display roles and M2 Splat host federation (needed by bonus games only).

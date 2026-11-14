@@ -1,6 +1,6 @@
 # accessibility.md changes (gap K1)
 
-DRAFT. Applies to `BroadcastCode/ChatBroadcast/knowledge/accessibility.md`. Run
+DRAFT. Applies to `ChatBroadcast/knowledge/accessibility.md`. Run
 `ChatBroadcast/tools/prompt_eval.mjs` before applying (it needs an API key).
 
 ## K2: no change

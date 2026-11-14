@@ -9,7 +9,7 @@ open:
   - stats.log counts are windowed
 keywords: [compile, MemoryError, game size, stats.log]
 related:
-  - Bag3/Code/BroadcastCode/docs_and_design/2026-10-20-espnow-serving/PLAN.md
+  - Bag3/Code/docs_and_design/2026-10-20-espnow-serving/PLAN.md
 aliases: [docs_and_design/2026-09-30-known-issues.md]
 ---
 
@@ -19,7 +19,7 @@ Scope: the wand's `compile()` check in `lib/espnow_code.py` (MockWand, IconDispl
 
 Sources:
 
-- **pull-speed:** `../BroadcastCode/docs_and_design/2026-09-30-pull-speed-results.md`
+- **pull-speed:** `../docs_and_design/2026-09-30-pull-speed-results.md`
 
 ## Open
 

@@ -6,7 +6,7 @@ status: partly outdated; open items remain
 devices: [MockWand, XIAO ESP32-C6]
 components: [ChatBroadcast, Simulator, example gallery, game send path]
 code:
-  - Bag3/Code/BroadcastCode/ChatBroadcast/js/examples.js
+  - Bag3/Code/ChatBroadcast/js/examples.js
   - Bag3/Code/Simulator/tools/sync_sources.py
 open:
   - Gallery exposes 7 of 13 vendored games
@@ -16,7 +16,7 @@ aliases: [9-4-known_issues.md]
 ---
 
 **OUTDATED — dated 9/4, kept per the user's direction rather than deleted (see
-`../BroadcastCode/docs_and_design/PHASE6_HANDOFF.md` §5.8). Entries below may already be resolved or
+`../docs_and_design/PHASE6_HANDOFF.md` §5.8). Entries below may already be resolved or
 superseded by later work; check the current tree before acting on any of
 them.**
 
@@ -77,7 +77,7 @@ XIAO ESP32-C6 (no PSRAM) that needs one contiguous block the heap does not
 always have. The limit has been hit on the WiFi pull path as well as the
 ESP-NOW one; it is a wand heap limit, not a transport limit. Measured on
 the MockWand, 2026-09-26 (see
-`../BroadcastCode/docs_and_design/2026-09-26-eum-bench-results.md`):
+`../docs_and_design/2026-09-26-eum-bench-results.md`):
 
 - 27,870 B (`gestures.py`) and 33,004 B compile, cold and warm.
 - 56,926 B fails: `compile()` asks for 41,216 B; the largest free internal

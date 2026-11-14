@@ -37,5 +37,5 @@ Current Bag3 locations:
 
 Effects: the Live_Page `sync_icons.py`, `check_tags.mjs` and Simulator `sync_sources.py` cannot
 find their sources, and the Live_Page firmware installer's Dial manifest import resolves to a
-missing folder. The working copies are under `Bag3/Code/BroadcastCode/ChatBroadcast/` and
+missing folder. The working copies are under `Bag3/Code/ChatBroadcast/` and
 `Bag3/Code/Simulator/`.

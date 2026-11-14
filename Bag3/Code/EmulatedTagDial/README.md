@@ -1,13 +1,13 @@
 # Emulated Tag Dial firmware (M5 Dial 2 / StampS3A, UIFlow2 MicroPython)
 
 The Emulated Tag Dial (ETDial) is the Broadcast Dial
-(`Bag3/Code/BroadcastCode/BroadcastDial/`) plus a MIKROE NFC Tag 2 Click
+(`Bag3/Code/TeacherTools/BroadcastDial/`) plus a MIKROE NFC Tag 2 Click
 (NXP NT3H2111) on the reader's I2C bus. On the game list and a game's tag
 list the Click holds that game's `getcode:<slug>@<host_id>` card, so a wand
 tapped on the Dial pulls the game; everywhere else it holds `stop`. All
 Broadcast Dial behaviour is kept. See "Emulated tag" below.
 
-The Broadcast Dial is a sibling of `Bag3/Code/BroadcastCode/BroadcastBox/BBoxFirmware/`. Same product — write NFC
+The Broadcast Dial is a sibling of `Bag3/Code/TeacherTools/BroadcastBox/BBoxFirmware/`. Same product — write NFC
 cards for a game, then serve that game's code to wands over ESP-NOW,
 talking to ChatBroadcast over USB serial — on better hardware: a 240×240
 round touch LCD, rotary encoder, button, and a built-in NFC reader.
@@ -68,7 +68,7 @@ Rules:
 2. Diagnostics go in a separate module imported after the radio is up.
 3. `prewarm()` stays directly after `M5.begin()`.
 
-Full note: [`docs_and_design/2026-09-23-ap-memory-order.md`](../BroadcastCode/docs_and_design/2026-09-23-ap-memory-order.md)
+Full note: [`docs_and_design/2026-09-23-ap-memory-order.md`](../docs_and_design/2026-09-23-ap-memory-order.md)
 
 ## Screens and radio
 
@@ -267,7 +267,7 @@ python3 -m mpremote connect $PORT reset
 Or ChatBroadcast's firmware installer, which loads this tree's `DIAL_FILES`
 when identity reports `emulated_tag_dial` (defaults to Box when no identity
 yet). It fetches `../../EmulatedTagDial/ETDialFirmware/` relative to
-`ChatBroadcast/index.html`, so serve `Bag3/Code/` (not only `BroadcastCode/`)
+`ChatBroadcast/index.html`, so serve `Bag3/Code/` (not only `ChatBroadcast/`)
 when installing from a local server.
 
 Every module reachable from `main.py` must be listed in `manifest.js`.
@@ -283,7 +283,7 @@ python3 tools/deploy_dial.py $PORT
 It reads the file list from `manifest.js` itself, so it can't drift from
 what the batched command or the installer deploy.
 
-`tools/deploy.py` is only for a very stale device or freshly re-flashed blank firmware; for routine updates reset, then copy the changed files in one `mpremote` call (HARDWARE_PROTOCOL.md, "Routine updates"). `python3 BroadcastCode/tools/deploy.py --type etdial --changed $PORT` does the same from the shared tool, copying only
+`tools/deploy.py` is only for a very stale device or freshly re-flashed blank firmware; for routine updates reset, then copy the changed files in one `mpremote` call (HARDWARE_PROTOCOL.md, "Routine updates"). `python3 tools/deploy.py --type etdial --changed $PORT` does the same from the shared tool, copying only
 files whose on-device sha256 differs.
 
 ## Verified vs open

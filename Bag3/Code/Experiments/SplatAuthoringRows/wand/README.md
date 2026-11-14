@@ -302,9 +302,9 @@ ignored while the host runs a type 9 game.
 
 ## Tests (off-device)
 
-From `Bag3/Code/BroadcastCode/`: `tools/devtests/compile_check.sh`, then
+From `Bag3/Code/`: `tools/devtests/compile_check.sh`, then
 `python3 tools/devtests/<name>.py` for `test_wand_copies`, `test_wand_cards`, `test_wand_pairing_store`,
-`boot_wand_pairing`, `boot_wand_idle`, `boot_wand_lobby_game`, `test_lobby_game`, `test_lobby_games`. These target the Wand Module and `BroadcastCode/tools/devtests`. The experiment's own tests, from the experiment root, are `python3 -m unittest discover -s tests` and `node js/splat_game_check_test.mjs`. `wandsim.py` is the shared
+`boot_wand_pairing`, `boot_wand_idle`, `boot_wand_lobby_game`, `test_lobby_game`, `test_lobby_games`. These target the Wand Module and `tools/devtests`. The experiment's own tests, from the experiment root, are `python3 -m unittest discover -s tests` and `node js/splat_game_check_test.mjs`. `wandsim.py` is the shared
 harness (virtual-time wand threads, fake ESP-NOW with loss / lost ACKs / duplicates, fake BLE Splats);
 `wandboot.py` boots the real `main.py` under the stubs. These do not exercise hardware.
 

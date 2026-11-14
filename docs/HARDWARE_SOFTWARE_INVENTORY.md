@@ -150,7 +150,7 @@ files (superseded code). `Bag2/AGENTS.md` calls the Narrator, Paper Remote, Spea
 
 | # | Component | Source | Notes |
 |---|---|---|---|
-| 1 | ChatBroadcast | `BroadcastCode/ChatBroadcast/`, hosted copy `Live_Page/ChatBroadcast/` | LLM game generation, sending games to the Box/Dial, card writing. Includes `iconmaker/` and the `sync_icons` / `sync_splat_actions` tools. |
+| 1 | ChatBroadcast | `ChatBroadcast/`, hosted copy `Live_Page/ChatBroadcast/` | LLM game generation, sending games to the Box/Dial, card writing. Includes `iconmaker/` and the `sync_icons` / `sync_splat_actions` tools. |
 | 2 | Wand Game Simulator | `Simulator/`, hosted copy `Live_Page/Simulator/` | Pyodide; runs unmodified wand games. |
 | 3 | Icon display web app | `Stations/Icon Display Station/webapp/` (+ `gallery.html`, `icon_editor.py`) | Goes with the Icon Display (device #4). **Possibly the same tool** as ChatBroadcast's `iconmaker/`. |
 | 4 | Deploy tool | `tools/deploy.py` | Developer-facing. |

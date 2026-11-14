@@ -5,9 +5,9 @@ status: open
 devices: [wand, icon_display]
 components: [ChatBroadcast, Wand Module]
 code:
-  - Bag3/Code/BroadcastCode/ChatBroadcast/knowledge/platform.md
-  - Bag3/Code/BroadcastCode/ChatBroadcast/js/chat.js
-  - Bag3/Code/BroadcastCode/ChatBroadcast/js/app.js
+  - Bag3/Code/ChatBroadcast/knowledge/platform.md
+  - Bag3/Code/ChatBroadcast/js/chat.js
+  - Bag3/Code/ChatBroadcast/js/app.js
   - Bag3/Code/Wand Module/main.py
 open:
   - App does not draw the signature anywhere (save, library, send-confirm)
