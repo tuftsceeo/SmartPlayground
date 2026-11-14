@@ -282,8 +282,9 @@ ALL_COMMANDS   = BASE_COMMANDS | set(game_store.slugs())
 #      start_game is received (poll enow every loop). Parameters are
 #      passed positionally up to as many as play() declares (6, 7 or 8);
 #      `batt` is the MAX17048 fuel gauge and is None when the board has
-#      none. `net` is None unless the module declares SPLATS_MIN (a lobby
-#      game, see README.md).
+#      none. The 8th argument is `net` for a lobby game (SPLAT_HOST with
+#      SPLATS_MIN, or PLAYERS_MIN alone), the wand's own Splats for a
+#      SPLATS_LOCAL game, else None (see README.md).
 #   2. Add the tag name `"yourgame"` to GAME_TAGS in lib/game_tags.py.
 #   3. Add `"yourgame": "yourgame"` to GAME_MODULES in this file --
 #      key is the tag name, value is the module's filename (no `.py`).
@@ -502,6 +503,24 @@ def _unload_game(name):
 UNLOAD_AFTER_GAME = True  # bench toggle -- see the post-unload probe
 
 
+def _too_few_splats(name, need, have):
+    """A solo game with fewer Splats connected than SPLATS_LOCAL: the needed
+    count in amber, three times with the reject sound, so it reads apart
+    from the load-failure X."""
+    from leds import SHAPE_1, SHAPE_2
+    print("  [FAIL] %s needs %d Splat(s), %d connected" % (name, need, have))
+    _emit({"type": "error", "where": "game_load", "slug": name,
+           "err": "needs %d Splat(s), %d connected" % (need, have)})
+    shape = SHAPE_1 if need == 1 else SHAPE_2
+    for _ in range(3):
+        leds.show_shape(shape, AMBER)
+        buz.reject()
+        time.sleep_ms(400)
+        leds.off()
+        time.sleep_ms(150)
+    _unload_game(name)
+
+
 def _game_load_failed(name, exc):
     """Loud, unmissable, non-fatal. Wand returns to idle and stays usable.
 
@@ -628,7 +647,10 @@ def _run_games(name, nfc, leds, buz, accel, i2c, enow, batt_ref):
             return
         if _ROLE == "splat_host" and (limits is None or not limits[2]):
             print("  Splat host: %s is not a Splat host game" % name)
+            leds.show_shape(SHAPE_X, RED)
             buz.reject()
+            time.sleep_ms(500)
+            leds.off()
             play_func = None
             _unload_game(name)
             break
@@ -640,8 +662,7 @@ def _run_games(name, nfc, leds, buz, accel, i2c, enow, batt_ref):
             if have < local:
                 if splats is not None:
                     splats.close()
-                _game_load_failed(name, ValueError(
-                    "%s needs %d Splat(s), %d connected" % (name, local, have)))
+                _too_few_splats(name, local, have)
                 return
         if limits is None or net is not None:
             _emit({"type": "game_start", "slug": name})

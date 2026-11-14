@@ -32,8 +32,9 @@ Plan the messages before writing any file, and use exactly the same names in eve
 - **Say who sent it and what happened**, in short keys:
   `{"type": "frogs", "from": "caller", "e": "go"}`,
   `{"type": "frogs", "from": "wand", "team": "green", "e": "goal"}`.
-- **Role-specific messages** name who should act on them with a `"to"` key (`"to": "players"`),
-  and each receiver ignores messages not meant for its role.
+- **Role-specific messages** name who should act on them with a `"for"` key (`"for": "players"`),
+  and each receiver ignores messages not meant for its role. Never `"to"`: it holds a device MAC
+  for the icon display.
 - **Send what the receiver needs**, as small plain values: an event name, a team name, a count, a
   color name or a short `[r, g, b]` list. About 240 bytes at most.
 - The `mac` returned by `enow.poll()` identifies the sending device, if a game needs to tell wands
@@ -63,11 +64,11 @@ elif cmd == "player":
 
 # Caller: announce, and repeat the state about once a second
 if role == "caller" and frame % 20 == 0:
-    enow.broadcast({"type": "frogs", "from": "caller", "to": "players", "e": state})
+    enow.broadcast({"type": "frogs", "from": "caller", "for": "players", "e": state})
 
 # Player: act only on messages for players
 if (msg_type == "raw" and isinstance(data, dict) and data.get("type") == "frogs"
-        and data.get("to") == "players"):
+        and data.get("for") == "players"):
     state = data.get("e")
 ```
 

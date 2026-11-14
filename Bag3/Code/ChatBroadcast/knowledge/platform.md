@@ -96,6 +96,9 @@ them:
 `stop`, `start_game`, `score`, `splat_config`, `battery`, `scan_request`, `find_device`,
 `status_poll`, `status_report`.
 
+Also never use these as a game's own type: `song`, `song_ack`, `colors`, `code_push`, `set_role`,
+`show`, `dance`, or anything starting with `pw_` (the lobby's own messages).
+
 A **list** (for example `["turnred"]`) arrives as `msg_type "colors"` (or `"stop"` / `"battery"` if
 it contains those words). Game messages are therefore always **dicts with the game's own `"type"`**,
 such as `{"type": "hit"}` or `{"type": "frogs", "from": "wand"}`. Using the game's slug as the type

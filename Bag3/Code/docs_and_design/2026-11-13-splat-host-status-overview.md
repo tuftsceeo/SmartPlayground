@@ -51,7 +51,9 @@ its color pair) and a center cross that shows the state.
 ### Hardware results
 
 - **Pairs:** all 30 ordered pairs of the six palette colors, on the Splat's left/right halves at
-  `GLOW_SCALE` 0.5, were read as distinct. The palette is still provisional (plan: six colors, not the spec's 12).
+  `GLOW_SCALE` 0.5, were read as distinct. This is an agent's reading; the user has not confirmed
+  it. The user expects 12 to 18 colors to be clear and will decide the palette (test plan phase
+  H2b). The palette is still provisional.
 - **Splat count:** the limit comes from the IDF main heap, not a connection cap.
   - v1.28.0: 4 of 4 Splats.
   - v1.29.0 bare (STEP 0): 4 of 4.
