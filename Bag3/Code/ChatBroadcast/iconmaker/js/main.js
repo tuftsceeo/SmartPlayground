@@ -24,6 +24,7 @@ import { renderPreview, previewToBlob } from "./pipeline/preview.js";
 import { W, H, WORK, DEFAULT_MAX_SEGMENTS, applyProfile } from "./pipeline/constants.js";
 import { getProfile, setProfile, profileForHello, listProfiles } from "./pipeline/profiles.js";
 import { authoredToDisplay } from "./pipeline/ledDisplay.js";
+import { parseIconJson } from "./pipeline/jsonIcon.js";
 import { ledSwatchHex, ledDeltaE, JND, isOff } from "./pipeline/ledGamut.js";
 
 import { createTopBar } from "./components/topBar.js";
@@ -819,7 +820,30 @@ class App {
     this.loadFromLibrary(name, flatToPixels(flat));
   }
 
+  /** Open a rows+pal JSON icon pixel-for-pixel (no segmentation). See pipeline/jsonIcon.js. */
+  async loadJsonFile(file) {
+    const parsed = parseIconJson(await file.text());
+    let id = null;
+    if (parsed.multi) {
+      id = window.prompt(`${file.name} holds ${parsed.ids.length} icons. Open which id?\n(${parsed.ids.slice(0, 8).join(", ")}, ...)`, parsed.ids[0]);
+      if (id === null) return;
+      id = id.trim();
+    }
+    const icon = parsed.get(id || undefined);
+    if (icon.w !== W || icon.h !== H) {
+      const target = listProfiles().find((p) => p.w === icon.w && p.h === icon.h);
+      if (!target) throw new Error(`No hardware profile is ${icon.w}x${icon.h}.`);
+      this.changeProfile(target.id);
+    }
+    releaseSource();
+    const base = file.name.replace(/\.[^.]+$/, "");
+    const name = (icon.id || base).replace(/[^a-z0-9_]+/gi, "_").toLowerCase();
+    this.loadFromLibrary(name, icon.pixels);
+    showToast(`Opened ${name} from JSON (${icon.w}x${icon.h})`, { kind: "success" });
+  }
+
   async loadFile(file) {
+    if (/\.json$/i.test(file.name) || file.type === "application/json") return this.loadJsonFile(file);
     setState({ loading: true, statusText: `loading ${file.name}…`, customPaletteColors: [] });
     releaseSource();
     const source = await loadSource(file);

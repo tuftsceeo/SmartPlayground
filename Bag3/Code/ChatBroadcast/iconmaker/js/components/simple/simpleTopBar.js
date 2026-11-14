@@ -38,7 +38,7 @@ export function createSimpleTopBar(
         <button type="button" id="btnSave" class="icon-btn" title="Save to the game library (and the device, when one is connected)" ${state.mode ? "" : "disabled"}><i data-lucide="save" class="w-[15px] h-[15px]"></i></button>
         <button type="button" id="btnRename" class="icon-btn" title="Rename this icon"><i data-lucide="pencil-line" class="w-[14px] h-[14px]"></i></button>
         <button type="button" id="btnUndo" class="icon-btn" title="Undo" ${canUndo ? "" : "disabled"}><i data-lucide="undo-2" class="w-[15px] h-[15px]"></i></button>
-        <input type="file" id="fileOpenHidden" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml" class="hidden" />
+        <input type="file" id="fileOpenHidden" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml,application/json,.json" class="hidden" />
       </div>
       <label class="flex items-center gap-2 text-[11.5px] font-semibold text-[var(--muted2)]">
         fewer

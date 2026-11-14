@@ -5,6 +5,7 @@ Writes outdir/matrixicons_16.json and matrixicons_5.json:
   {"_key": "...", "m00": {"index": 0, "rows": ["..XX..", ...], "pal": {"A": "#rrggbb"}}, ...}
 `.` = off; pal letters are per icon. Colours are the SVG's SCREEN colours (as drawn),
 not LED duty bytes. Icon ids are the Illustrator order (m00..); rename freely.
+Also writes json16/ and json5/ (one icon per file, for File > Open in the Icon Maker).
 --png also writes outdir/png16/mNN.png: 512x512, 32 px cells -- importable in the Icon Maker.
 """
 import argparse, json, os, sys
@@ -28,7 +29,10 @@ def main():
     a = ap.parse_args(); os.makedirs(a.out, exist_ok=True)
     g16 = ns["parse_grids"](a.svg16, 16); g5 = ns["parse_grids"](a.svg5, 5)
     for n, g in ((16, g16), (5, g5)):
-        json.dump(to_json(g), open(os.path.join(a.out, f"matrixicons_{n}.json"), "w"), indent=1); print(n, len(g))
+        js = to_json(g); json.dump(js, open(os.path.join(a.out, f"matrixicons_{n}.json"), "w"), indent=1); print(n, len(g))
+        one = os.path.join(a.out, f"json{n}"); os.makedirs(one, exist_ok=True)  # one file per icon: what the Icon Maker opens directly
+        for k, v in js.items():
+            if not k.startswith("_"): json.dump(v, open(os.path.join(one, k + ".json"), "w"), indent=1)
     if a.png:
         from PIL import Image
         os.makedirs(os.path.join(a.out, "png16"), exist_ok=True)

@@ -14,7 +14,7 @@ export function createImportControls(state, { onFilePicked, onOpenCrop, onLoadFi
         ? `<button type="button" id="cropBtn" class="font-bold text-[10px] text-[var(--teal)] cursor-pointer bg-transparent border-none p-0">crop &amp; scale…</button>`
         : `<span class="font-bold text-[10px] text-[var(--muted2)]">drop a photo</span>`
     }
-    <input type="file" id="fileInput" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml" class="hidden" />
+    <input type="file" id="fileInput" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml,application/json,.json" class="hidden" />
     <div id="dropZone" class="w-full text-[10px] font-semibold text-[var(--muted2)] border border-dashed border-[var(--border-soft)] rounded-lg px-1 py-1 text-center cursor-pointer">
       import
     </div>
