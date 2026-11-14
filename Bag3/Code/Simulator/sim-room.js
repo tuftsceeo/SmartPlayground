@@ -414,7 +414,7 @@ function wandGroup(lobbyGame) {
 SimRoom.registerPanel("splats", {
   slot: "strip",
   title: "Splats on this wand",
-  wants: (caps) => !!caps.lobby_game,
+  wants: (caps) => !!caps.lobby_game || !!caps.splats_local,
   create(room, box) {
     const overlay = document.createElement("div");
     overlay.className = "splat-shelf";
