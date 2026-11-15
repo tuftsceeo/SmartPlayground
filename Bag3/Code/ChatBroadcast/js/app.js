@@ -1634,7 +1634,11 @@ class App {
         for (const [key, c] of Object.entries(this.retiredRoleCode || {})) {
             if (!(key in roleCode)) roleCode[key] = c;
         }
+        // Save vs Save As: same name as the copy this workspace came from
+        // (opened or last saved) replaces it; a renamed game is a new copy.
+        const replaceId = this.savedId && this.gameName === this.savedName ? this.savedId : null;
         const entry = saveGame({
+            id: replaceId,
             name: this.gameName,
             desc: this.gameDesc,
             code,
@@ -1648,8 +1652,10 @@ class App {
             simSettings: this.simSettings,
             gameIcon: this.gameIcon,
         });
+        this.savedId = entry.id;
+        this.savedName = entry.name;
         this.dirty = false;
-        toast(`Saved “${entry.name}”`);
+        toast(replaceId ? `Updated “${entry.name}”` : `Saved “${entry.name}”`);
         dbg('app', `saved game ${entry.id}`);
     }
 
@@ -1755,6 +1761,16 @@ class App {
         });
     }
 
+    /** Gallery rename; if that copy is open in the workspace, it follows,
+     * so the next Save still replaces it rather than making a new one. */
+    renameSaved(id, name) {
+        const entry = renameSavedGame(id, name);
+        if (entry && id === this.savedId) {
+            this.gameName = this.savedName = entry.name;
+            this.syncGameName();
+        }
+    }
+
     startRenameSaved(card, g) {
         const body = card.querySelector('[data-card-body]');
         if (!body) return;
@@ -1769,7 +1785,7 @@ class App {
         input.select();
         body.querySelector('.card-rename-ok').addEventListener('click', (e) => {
             e.stopPropagation();
-            renameSavedGame(g.id, input.value);
+            this.renameSaved(g.id, input.value);
             this.renderGallery();
         });
         body.querySelector('.card-rename-cancel').addEventListener('click', (e) => {
@@ -1779,7 +1795,7 @@ class App {
         input.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
                 e.preventDefault();
-                renameSavedGame(g.id, input.value);
+                this.renameSaved(g.id, input.value);
                 this.renderGallery();
             } else if (e.key === 'Escape') {
                 this.renderGallery();
@@ -1812,6 +1828,8 @@ class App {
             return;
         }
         this.gameName = g.name;
+        this.savedId = g.id;
+        this.savedName = g.name;
         // DIAGNOSTIC (temporary -- name-field investigation, see chat).
         dbg('app', `openSavedGame(${id}): stored name=${JSON.stringify(g.name)} -> this.gameName=${JSON.stringify(this.gameName)}`);
         this.gameDesc = g.desc || '';
@@ -2313,6 +2331,8 @@ class App {
      */
     resetGameContext() {
         dbg('app', 'resetGameContext() — clearing name/tags/example');
+        this.savedId = null;
+        this.savedName = null;
         // Every role's code and history goes with the game it belonged to:
         // a display file left behind would be sent alongside the next game.
         // Edited icons go the same way, for the same reason -- and so a new
@@ -2364,6 +2384,8 @@ class App {
 
         this.currentExample = ex;
         this.gameName = remixName(ex.name);
+        this.savedId = null;
+        this.savedName = null;
         this.gameDesc = ex.description;
         this.declaredTags = [...ex.tags];
         this.simSettings = null;
@@ -2423,6 +2445,8 @@ class App {
         const ex = this.currentExample;
         dbg('app', `useExampleAsIs("${ex.name}")`);
         this.gameName = remixName(ex.name);
+        this.savedId = null;
+        this.savedName = null;
         this.gameDesc = ex.description;
         this.declaredTags = [...ex.tags];
         this.simSettings = null;
@@ -3629,7 +3653,9 @@ class App {
                 addProcessMsg('This is a code snippet — your game was not changed.');
             }
             if (games.length) {
-                if (gameName) {
+                // The agent only names an unnamed game; a name the teacher
+                // wrote (or one already set) is never overwritten.
+                if (gameName && (!this.gameName || this.gameName === 'Your game')) {
                     this.gameName = gameName;
                     dbg('chat', `game name from marker: ${gameName}`);
                 }

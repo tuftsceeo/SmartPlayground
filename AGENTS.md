@@ -3,6 +3,18 @@
 Non-production research prototype: MicroPython firmware for playground devices (ESP32-C6, ESP32-S3,
 M5Stack) plus static web tools. Small team, weekly iteration.
 
+## Summary:
+Keep diffs minimal. Device code
+is MicroPython: no type annotations, `python -m py_compile` is the only static check, only boot.py may allocate before the radio comes up.
+
+### Talking to the user:
+- The user may be building hardware and switching between several strands of work. Assume they have
+  not seen your tool calls, reasoning or opened files. Every report says: what you were asked to
+  do, what is done, what is not, what you need from them.
+- During any run of more than a few tool calls, occasionally send a one-line update messages where things stand and what you are about to do.
+- Never claim that hardware behaved a certain way unless the user told you they saw it. Say
+  "the log shows" for what you read and "you reported" for what they saw.
+
 ## Device code (MicroPython)
 
 - **Cannot be imported off-device** — `machine`, `espnow`, `neopixel`, and `ubluetooth` do not exist.
