@@ -35,7 +35,7 @@ BAT_ADC = 4         # ADC1 ch3; battery V = pin V x 3
 BAT_DIVIDER = 3
 BTN_BOOT = 0
 
-FREE_PINS = (1, 2, 3, 5, 6, 15, 16, 18, 19, 20, 38, 42, 45, 46)
+FREE_PINS = (3, 15, 16, 18, 19, 20, 38, 42, 45, 46)   # 1, 2, 5, 6 taken by the NFC reader below
 
 # NFC reader (not fitted; pins chosen 2026-11-15, never run). Own I2C bus so the
 # reader cannot stall touch or IMU on the shared bus. All four come from FREE_PINS.
