@@ -1,7 +1,7 @@
 ---
 title: Broadcast Dial and Box still gate code serving behind arm/disarm
 date: 2026-11-02
-status: Dial fixed 2026-11-14 (off-device tests only, untested on hardware); Box open
+status: Dial fixed 2026-11-14, Box fixed 2026-11-15 (off-device tests only, untested on hardware)
 devices: [BroadcastDial, BroadcastBox]
 components: [BDialFirmware/bdial_server.py, BDialFirmware/code_link.py, BBoxFirmware/bbox_server.py, BBoxFirmware/code_link.py, BBoxFirmware/bbox_ui.py]
 code:
@@ -22,6 +22,16 @@ related:
 ---
 
 # Broadcast Dial and Box: arm/disarm serving, 2026-11-02
+
+## Update 2026-11-15 (stress-test prep S12, Box)
+**Box fixed in code, not yet on hardware.** `BBoxFirmware/code_link.py` is now the Dial's copy
+(`is_on`, `radio_on()`, `radio_off()`, `poll(on_msg=)`). `bbox_server._serve()` runs every loop in
+WRITE and IDLE and brings the radio up whenever the field is off and the Box is not in `W_SCAN`,
+with or without a game (user's decision: on and answering). `_nfc_field(True)` calls
+`radio_off()` first. Unlike the Dial, `arm`/`disarm` are **removed** (user, 2026-11-15) and `info`
+reports `"radio"` instead of `"armed"`; ChatBroadcast reads neither. `SHARE_IN_MENUS` is gone.
+`bbox_ui.paint_armed` is renamed `paint_hold`. Off-device check:
+`BBoxFirmware/tools/test_box_serve.py`.
 
 ## Update 2026-11-14 (stress-test prep S4)
 **Dial fixed in code, not yet on hardware.** `BDialFirmware/code_link.py` has `is_on`,

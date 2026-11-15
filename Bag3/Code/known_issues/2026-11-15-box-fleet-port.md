@@ -1,0 +1,47 @@
+---
+title: Broadcast Box fleet scan, find and distribute (port from the Dial)
+date: 2026-11-15
+status: untested on hardware
+devices: [BroadcastBox]
+components: [BBoxFirmware/fleet.py, BBoxFirmware/bbox_server.py, BBoxFirmware/bbox_ui.py, ChatBroadcast/js/app.js]
+code:
+  - Bag3/Code/TeacherTools/BroadcastBox/BBoxFirmware/fleet.py
+  - Bag3/Code/TeacherTools/BroadcastBox/BBoxFirmware/bbox_server.py
+  - Bag3/Code/TeacherTools/BroadcastBox/BBoxFirmware/bbox_ui.py
+  - Bag3/Code/ChatBroadcast/js/app.js
+open:
+  - Not run on a Box: scan, find, distribute, NFC tap during a distribute
+  - Power earmark (below)
+keywords: [fleet, scan, find, distribute, status_report, code_push, show_progress, Box, broadcast_box, power, reset]
+related:
+  - Bag3/Code/known_issues/2026-10-23-distribute-code.md
+  - Bag3/Code/known_issues/2026-11-02-dial-box-arm-serving.md
+  - Bag3/Code/known_issues/2026-09-01-bbox-usb-reboots.md
+---
+
+# Box fleet port, 2026-11-15 (stress-test prep S12 step 3)
+
+**Status: off-device tests only. Not run on a Box.**
+
+What changed:
+- `BBoxFirmware/fleet.py` is a byte-for-byte copy of `BDialFirmware/fleet.py` (its docstring still
+  says "the Dial's radio"). It is imported on the first `fleet.*` command, after the radio is up.
+- `bbox_server.py`: `fleet.scan`, `fleet.find`, `fleet.distribute`, `fleet.cancel`, as on the Dial.
+  `_serve()` passes non-code messages to the fleet and calls `fleet.step()`. A pull result goes to
+  `fleet.on_pull()`. `_nfc_field(True)` cancels a running scan or distribute (`"radio_off"`)
+  before the radio goes down. Identity carries `"fleet": 1`.
+- `bbox_ui.show_progress(done, total)` writes "Sending 2/5" in the top line of whatever screen is
+  up; total 0 restores the list crumb or blanks the line.
+- ChatBroadcast shows Distribute for a Box only when its identity has `fleet`
+  (`app.js boxWithoutFleet()`), so a Box on older firmware still hides it.
+- The Box has no slot picker. ChatBroadcast's distribute overlay sends `replace`; the Box passes
+  it through, as the Dial does.
+
+Off-device checks: `BBoxFirmware/tools/test_box_serve.py` (server hooks),
+`BDialFirmware/tools/test_fleet.py` (the shared `fleet.py`), `ChatBroadcast/tools/distribute_test.mjs`.
+
+## Power earmark
+The 2026-09-01 USB resets were power (user, 2026-11-15). The fleet adds radio traffic (status
+polls, unicast `code_push`, up to 3 transfers at once) but never with the NFC field on. **If the
+Box resets silently during a scan or distribute, on USB or on battery, stop adding features,
+reopen `2026-09-01-bbox-usb-reboots.md` and record the `reset_log.py` lines there.**

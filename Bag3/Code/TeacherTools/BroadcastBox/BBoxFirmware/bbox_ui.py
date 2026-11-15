@@ -337,6 +337,7 @@ class BboxUI(object):
         self._row_labels = []
         self._track_dots = []
         self._crumb = None
+        self._crumb_base = None  # list-screen crumb text, for show_progress
         self._act_rect = None
         self._act_label = None
         self._next_rect = None
@@ -377,6 +378,7 @@ class BboxUI(object):
         method -- see the module docstring's "Redraw model" section for
         why this replaced the old setVisible()-based screen switching."""
         Widgets.fillScreen(PAGE_BG)
+        self._crumb_base = None
 
     # ── construction ─────────────────────────────────────────────
 
@@ -432,7 +434,7 @@ class BboxUI(object):
 
     def _build_status(self):
         """One reusable set of widgets behind every one-shot painter --
-        booting, idle, receiving, armed, scanning, writing/written/
+        booting, idle, receiving, hold, scanning, writing/written/
         write_failed/already, done, complete, error, mode_change. All
         labels are redrawn on every call (see _status()), so there is
         nothing "static" here to worry about."""
@@ -547,7 +549,7 @@ class BboxUI(object):
     def paint_receiving(self, game_name=""):
         self._status(_display_tag(game_name) if game_name else "Game")
 
-    def paint_armed(self, label, index=1, total=1):
+    def paint_hold(self, label, index=1, total=1):
         self._status('"%s"' % _display_tag(label), "Tag %d/%d" % (index, total),
                      "Hold Near Reader")
 
@@ -684,12 +686,24 @@ class BboxUI(object):
         self._srv_hint_rect.setColor(PINK, PINK)
         self._srv_hint.setText(text)
 
+    def show_progress(self, done, total):
+        """Distribute progress (fleet.py): "Sending 2/5" in the top line of
+        whatever screen is up. total 0 puts back the list crumb, or blanks
+        the line on any other screen."""
+        if total:
+            text = "Sending %d/%d" % (done, total)
+        else:
+            text = self._crumb_base or ""
+        self._set_text(self._crumb, text)
+        self._crumb.setColor(INK_3, PAGE_BG)
+
     def paint_tag_list(self, entries, cursor, pulls=0):
         """Tier 1: games + Utility Tags. `pulls` is how many wands have
         pulled the active game since boot, shown in the breadcrumb."""
         self._clear()
         self._redraw_list_chrome()
-        self._set_text(self._crumb, "Pulled by %d" % pulls if pulls else "Tag Writer")
+        self._crumb_base = "Pulled by %d" % pulls if pulls else "Tag Writer"
+        self._set_text(self._crumb, self._crumb_base)
         self._crumb.setColor(INK_3, PAGE_BG)
         self._paint_slots(entries, cursor, {})
         self._set_act_label("OPEN")
@@ -705,7 +719,8 @@ class BboxUI(object):
         """
         self._clear()
         self._redraw_list_chrome()
-        self._set_text(self._crumb, _fit("< " + title, HEADER_CHARS))
+        self._crumb_base = _fit("< " + title, HEADER_CHARS)
+        self._set_text(self._crumb, self._crumb_base)
         self._crumb.setColor(INK_3, PAGE_BG)
         code_tag, play_tag = _pickup_tags(rows)
         display_rows = []
@@ -823,7 +838,7 @@ def demo():
             "Melody", ["getcode:my_melody", "my_melody", "note_c", "< back"],
             2, {"note_c": 3}),
         lambda: ui.paint_no_pickup_hint(),
-        lambda: ui.paint_armed("getcode", 1, 1),
+        lambda: ui.paint_hold("getcode", 1, 1),
         lambda: ui.paint_scanning("getcode"),
         lambda: ui.paint_reader(),
         lambda: ui.paint_reader("getcode:my_melody", scanned=True),

@@ -2943,18 +2943,24 @@ class App {
      * overlay does not wait on it. Auto-closes on a timer as well as Done,
      * since a teacher mid-classroom may not click through every dialog.
      */
+    /** A Box on firmware from before S12, which has no fleet.* commands. */
+    boxWithoutFleet() {
+        const info = this.device.deviceInfo;
+        return info?.device === 'broadcast_box' && !(info.fleet >= 1);
+    }
+
     showSendSuccess(prettyName) {
         document.getElementById('send-confirm-form').classList.add('hidden');
         document.getElementById('send-confirm-success').classList.remove('hidden');
         document.getElementById('send-success-title').textContent = `${prettyName} is on the ${this.deviceShort()}!`;
         // "Reconnecting…" until the device is back from its restart.
         document.getElementById('send-success-note').textContent = this.link.state === 'live' ? '' : 'Reconnecting…';
-        // A Dial can push the new game to nearby wands and stations. Shown
-        // for any Box/Dial link unless identity says Box: identity is not
-        // always in hand by now, and a Box answers fleet.scan with
-        // unknown_cmd, which the overlay reports.
-        const canDistribute = this.device.kind === 'box'
-            && this.device.deviceInfo?.device !== 'broadcast_box';
+        // A Dial, or a Box whose identity says fleet (S12), can push the new
+        // game to nearby wands and stations. Shown for any Box/Dial link
+        // unless identity is a Box without fleet: identity is not always in
+        // hand by now, and old firmware answers fleet.scan with unknown_cmd,
+        // which the overlay reports.
+        const canDistribute = this.device.kind === 'box' && !this.boxWithoutFleet();
         document.getElementById('btn-send-distribute')?.classList.toggle('hidden', !canDistribute);
         // The question card holds the Distribute button.
         const nextCard = document.getElementById('send-next');
@@ -3242,14 +3248,14 @@ class App {
                 del.innerHTML = iconSvg('trash', { size: 15 });
                 del.addEventListener('click', () => this.askDeleteBoxGame(li, g));
 
-                // Dial only (see showSendSuccess): push this game to nearby
-                // wands and stations.
+                // Dial, or a Box with fleet (see showSendSuccess): push this
+                // game to nearby wands and stations.
                 const dist = document.createElement('button');
                 dist.type = 'button';
                 dist.className = 'btn-secondary btn-compact box-lib-dist';
                 dist.textContent = 'Distribute';
                 dist.title = `Send "${g.name || g.slug}" to nearby wands and stations`;
-                dist.classList.toggle('hidden', this.device.deviceInfo?.device === 'broadcast_box');
+                dist.classList.toggle('hidden', this.boxWithoutFleet());
                 dist.addEventListener('click', () => {
                     hideOverlay('box-library-overlay');
                     this.openDistribute(g.slug, g.name || g.slug);

@@ -43,7 +43,7 @@ exhaustion.
 `run()` calls `code_link.prewarm()` (ESP-NOW and STA up, then down) right after
 `M5.begin()`, before the UI and reader are built. `code_link.py` is imported at
 `bbox_server.py` module scope, so anything added to it is allocated before
-`prewarm()`. `code_sender.py` is imported inside `CodeLink.arm()`, after the
+`prewarm()`. `code_sender.py` is imported inside `CodeLink.radio_on()`, after the
 radio is up.
 
 Rules:
@@ -60,18 +60,19 @@ At most one of {radio, NFC RF field} is energized at any instant.
 
 | Mode | ESP-NOW | Reader | Entered when |
 |---|---|---|---|
-| `IDLE` | down | off | No game on flash (`/flash/payload.py` absent or empty) |
-| `WRITE` | up while the field is off | on only while scanning | Game on flash -- this is the boot state |
+| `IDLE` | up (answers "no game") | off | No game on flash |
+| `WRITE` | up while the field is off | on only while scanning or writing a card | Game on flash -- this is the boot state |
 
 There is no user-visible mode switch: the Box serves the active game from
 the menus whenever the field is off.
 
 `_set_mode()` in `bbox_server.py` is the only place modes change, and it
 de-energizes what it is leaving before energizing what it is entering.
-`_nfc_field()` disarms the radio before the field comes up; `_menu_share()`
-re-arms it from the WRITE loop once the field is down. A failed arm is
-retried after `SHARE_RETRY_MS` (2000 ms). With `SHARE_IN_MENUS = False` the
-radio stays down.
+There is no arming. `_nfc_field(True)` calls `CodeLink.radio_off()` before
+the field comes up; `_serve()`, called every loop in both modes, brings the
+radio back with `radio_on()` only when the field is off and the Box is not in
+`W_SCAN`. A failed `radio_on()` is retried after `SHARE_RETRY_MS` (2000 ms).
+`tools/test_box_serve.py` checks this off-device.
 
 ## WRITE mode
 
@@ -264,7 +265,8 @@ Change them together.
 Host sends `cmd`, device replies with `type`. See
 `Bag3/Code/Stations/serial_protocol_notes.md`.
 
-Commands: `identify`, `info`, `mode`, `arm`, `disarm`, `repl`, `reboot`,
+Commands: `identify`, `info`, `mode`, `repl`, `reboot`, `fleet.scan`,
+`fleet.find`, `fleet.distribute`, `fleet.cancel` (as on the Dial; `fleet.py`),
 `games.list`, `games.select`, `games.delete`, `games.clear`, `stats.get`,
 `stats.reset`
 
@@ -276,7 +278,7 @@ the active game as `Pulled by N`.
 lets a host show the right expected-card list for a game that host never sent.
 Empty for a game pushed without a sidecar.
 
-Events: `identity`, `info`, `mode`, `heartbeat`, `armed`, `card_present`,
+Events: `identity`, `info`, `mode`, `heartbeat`, `card_present`,
 `card_written`, `games`, `stats`, `ok`, `error`, `bye`, plus `fatal` from
 `main.py`
 
@@ -288,11 +290,11 @@ the link is up on *any* typed message and must never wait on a specific one.
 purpose:
 
 - `identify` -> `identity`: who and what this device is. `device`, `version`,
-  screen `w`/`h`, and `nfc` (the real `_init_nfc()` result, not a hardcoded
+  screen `w`/`h`, `fleet: 1` (has `fleet.*`), and `nfc` (the real `_init_nfc()` result, not a hardcoded
   `true`). Every field is fixed for the life of a boot. The Box also volunteers
   this once at boot, which is *informational only* -- it is not an introduction
   or a readiness signal, and a host that attaches later never sees it.
-- `info` -> `info`: live runtime status. `mem`, `armed`, `linked`,
+- `info` -> `info`: live runtime status. `mem`, `radio` (ESP-NOW up), `linked`,
   `payload_ready`, `written`, `up`.
 - `mode` -> `mode`: which mode the Box is in (`WRITE`/`IDLE`) plus
   `games` and `active`; `ssid` is always `null`. Emitted from `_set_mode()` on every transition,
@@ -301,10 +303,8 @@ purpose:
 Do not add changing values to `identity`, and do not use it as a handshake --
 that conflation is what this split exists to prevent.
 
-`arm` brings the radio up from the menus (its reply and `armed` carry
-`ssid: null`; error `no_payload` with no game); `disarm` replies `ok` and
-changes nothing. They are REPL/legacy entry points; the app does not call them after pushing
-code.
+`arm` and `disarm` were removed 2026-11-15 (S12); an old host that sends them
+gets `unknown_cmd`. The app has not sent them since the CrowPanel change.
 
 `repl`, a soft `reboot`, or an uncaught exception all unwind through
 `run()`'s `finally`, which calls `_shutdown_radios()` to bring the radio down

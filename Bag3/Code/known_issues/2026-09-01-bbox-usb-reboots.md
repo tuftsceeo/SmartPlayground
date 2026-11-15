@@ -1,7 +1,7 @@
 ---
 title: BroadcastBox silent reboots on USB power
 date: 2026-09-01
-status: open
+status: resolved (user, 2026-11-15: power; NFC and radio never on together, Box since S12)
 devices: [BroadcastBox, ESP32-S3]
 components: [BBoxFirmware, NFC reader (PN532 -> WS1850S), SoftAP, power/charging]
 code:
