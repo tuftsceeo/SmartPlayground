@@ -5,10 +5,9 @@ One user-facing state: the tag menus. The invariant this file holds:
 
     at most one of {radio, NFC RF field} is energized at any instant.
 
-    WRITE  The menus. ESP-NOW serves the active game to wands
+    WRITE  A game on flash.  IDLE  None.  In both, ESP-NOW serves
            (code_link.py) whenever the reader field is off; the radio goes
-           down only while a card is being scanned or written.
-    IDLE   Neither.  No game on flash, so there is nothing to do.
+           down only while a card is being scanned or written (W_SCAN).
 
 There is deliberately no RECEIVING mode: the app pushes code over the raw
 REPL, which interrupts this program and soft-resets the board
@@ -78,10 +77,9 @@ UTILITY_GROUP = "Utility Tags"
 # menu.
 READ_ENTRY = "Read Card"
 
-# WRITE serves over ESP-NOW whenever the reader field is off; the radio
-# goes down only while scanning a card.
-SHARE_IN_MENUS = True
-SHARE_RETRY_MS = 2000        # wait after a failed menu-share arm()
+# The radio serves whenever the reader field is off (_serve), in WRITE and
+# IDLE; it goes down only while scanning or writing a card.
+SHARE_RETRY_MS = 2000        # wait after a failed CodeLink.radio_on()
 # Radio TX power. Full power resets the Box on USB mid-transfer (PWRON);
 # wands are held next to it.
 TX_POWER_DBM = 8
@@ -208,8 +206,6 @@ class BboxServer:
             "identify": self.do_identify,
             "info": self.do_info,
             "mode": self.do_mode,
-            "arm": self.do_arm,
-            "disarm": self.do_disarm,
             "repl": self.do_repl,
             "reboot": self.do_reboot,
             "games.list": self.do_games_list,
@@ -255,18 +251,15 @@ class BboxServer:
     # ─────────────────────────────────────────────
 
     def _set_mode(self, new_mode, announce=True):
-        """IDLE <-> WRITE. Leaving WRITE drops the field and the radio;
-        entering it starts sharing (_menu_share)."""
+        """IDLE <-> WRITE. Leaving WRITE drops the field; the radio is
+        left to _serve(), which runs in both modes."""
         if new_mode == self._mode:
             return
         old = self._mode
         if old == MODE_WRITE:
             self._nfc_field(False)
             self._clear_reader()
-            self.code.disarm()
         self._mode = new_mode
-        if new_mode == MODE_WRITE:
-            self._menu_share()
         reset_log.note_mode(new_mode)
         self._buttons.clear()
         self._b1_was_down = self._buttons.b1_down()
@@ -338,7 +331,7 @@ class BboxServer:
 
         Every field here is fixed for the life of a boot: device kind,
         firmware version, screen size, and whether the reader initialized.
-        Live status (memory, mode, armed, counters) belongs to `info` and
+        Live status (memory, mode, radio, counters) belongs to `info` and
         `mode`; do not add changing values here.
 
         The host must never treat this as the signal that a link is up --
@@ -375,26 +368,10 @@ class BboxServer:
         self.link.send({
             "type": "info", "id": rid,
             "version": VERSION, "mem": gc.mem_free(),
-            "armed": self.code.armed, "linked": self.linked,
+            "radio": self.code.is_on, "linked": self.linked,
             "payload_ready": self._payload_ready(),
             "written": sum(self._written.values()), "up": time.ticks_ms(),
         })
-
-    def do_arm(self, cmd, rid):
-        """Sharing follows the menus (_menu_share); this only reports it.
-        Kept for hosts that still send it."""
-        if not self._payload_ready():
-            self.link.send({"type": "error", "id": rid, "code": "no_payload",
-                             "msg": "no game on device"})
-            return
-        self._menu_share()
-        self.link.send({"type": "ok", "id": rid, "cmd": "arm", "ssid": None,
-                        "armed": self.code.armed})
-
-    def do_disarm(self, cmd, rid):
-        """No-op kept for hosts that still send it: sharing is not
-        user-controlled."""
-        self.link.send({"type": "ok", "id": rid, "cmd": "disarm"})
 
     def do_repl(self, cmd, rid):
         self.link.send({"type": "bye", "id": rid, "reboot": "soft"})
@@ -756,8 +733,9 @@ class BboxServer:
         I2C writes on every loop iteration."""
         if self.nfc is None or on == self._nfc_field_on:
             return
-        if on and self.code.armed:
-            self.code.disarm()
+        # Power rule: the radio is off before the field comes on.
+        if on and self.code.is_on:
+            self.code.radio_off()
         self._nfc_field_on = on
         try:
             if on:
@@ -772,18 +750,21 @@ class BboxServer:
         except Exception as e:
             print("# NFC antenna %s FAILED: %s" % ("on" if on else "off", str(e)))
 
-    def _menu_share(self):
-        """WRITE with the field off: serve over ESP-NOW if there is a game."""
-        if (not SHARE_IN_MENUS or self._mode != MODE_WRITE
-                or self._nfc_field_on or self.code.armed
+    def _serve(self):
+        """Radio up whenever the reader field is off, game or not (with no
+        game, wands that ask are told so). Called every loop, both modes."""
+        if self.code.is_on:
+            self.code.poll(on_event=self._on_menu_share_event)
+            return
+        # Power rule: never bring the radio up while the field is on or a
+        # scan is in progress.
+        if (self._nfc_field_on or self._write_state == W_SCAN
                 or time.ticks_diff(self._share_retry_at, time.ticks_ms()) > 0):
             return
         if self._active:
             self.code.set_game(self._active)
-        elif self.code.resolve() is None:
-            return
-        if not self.code.arm():
-            print("# menu share: CodeLink.arm() failed")
+        if not self.code.radio_on():
+            print("# share: CodeLink.radio_on() failed")
             self._share_retry_at = time.ticks_add(time.ticks_ms(), SHARE_RETRY_MS)
 
     def _on_menu_share_event(self, event):
@@ -854,10 +835,6 @@ class BboxServer:
 
     def _poll_write(self):
         """WRITE mode. BtnA acts, BtnB scrolls/backs out. No holds."""
-        if self.code.armed:
-            self.code.poll(on_event=self._on_menu_share_event)
-        elif self._write_state != W_SCAN:
-            self._menu_share()
         b1 = self._b1_press_edge()
         b2 = self._buttons.b2_pressed()
         if b1 or b2:
@@ -1070,9 +1047,8 @@ class BboxServer:
                 self.link.pump(idle_ms=20, drain_ms=40)
                 self._buttons.update()
                 if self._mode == MODE_WRITE:
-                    # IDLE deliberately polls nothing: no game on flash means
-                    # there is neither a tag to write nor code to serve.
                     self._poll_write()
+                self._serve()
                 now = time.ticks_ms()
                 if time.ticks_diff(now, last_hb) > HEARTBEAT_MS:
                     self.link.send({"type": "heartbeat", "up": now, "mem": gc.mem_free()})
@@ -1093,11 +1069,11 @@ class BboxServer:
         the AP coming down.
         """
         try:
-            if self.code.armed:
-                self.code.disarm()
-                _log("shutdown: AP down")
+            if self.code.is_on:
+                self.code.radio_off()
+                _log("shutdown: radio down")
         except Exception as e:
-            print("# shutdown: AP disarm FAILED: %s" % str(e))
+            print("# shutdown: radio off FAILED: %s" % str(e))
         try:
             self._nfc_field(False)
         except Exception as e:

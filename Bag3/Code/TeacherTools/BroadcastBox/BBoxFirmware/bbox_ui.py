@@ -432,7 +432,7 @@ class BboxUI(object):
 
     def _build_status(self):
         """One reusable set of widgets behind every one-shot painter --
-        booting, idle, receiving, armed, scanning, writing/written/
+        booting, idle, receiving, hold, scanning, writing/written/
         write_failed/already, done, complete, error, mode_change. All
         labels are redrawn on every call (see _status()), so there is
         nothing "static" here to worry about."""
@@ -547,7 +547,7 @@ class BboxUI(object):
     def paint_receiving(self, game_name=""):
         self._status(_display_tag(game_name) if game_name else "Game")
 
-    def paint_armed(self, label, index=1, total=1):
+    def paint_hold(self, label, index=1, total=1):
         self._status('"%s"' % _display_tag(label), "Tag %d/%d" % (index, total),
                      "Hold Near Reader")
 
@@ -823,7 +823,7 @@ def demo():
             "Melody", ["getcode:my_melody", "my_melody", "note_c", "< back"],
             2, {"note_c": 3}),
         lambda: ui.paint_no_pickup_hint(),
-        lambda: ui.paint_armed("getcode", 1, 1),
+        lambda: ui.paint_hold("getcode", 1, 1),
         lambda: ui.paint_scanning("getcode"),
         lambda: ui.paint_reader(),
         lambda: ui.paint_reader("getcode:my_melody", scanned=True),
