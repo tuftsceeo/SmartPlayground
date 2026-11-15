@@ -265,7 +265,8 @@ Change them together.
 Host sends `cmd`, device replies with `type`. See
 `Bag3/Code/Stations/serial_protocol_notes.md`.
 
-Commands: `identify`, `info`, `mode`, `repl`, `reboot`,
+Commands: `identify`, `info`, `mode`, `repl`, `reboot`, `fleet.scan`,
+`fleet.find`, `fleet.distribute`, `fleet.cancel` (as on the Dial; `fleet.py`),
 `games.list`, `games.select`, `games.delete`, `games.clear`, `stats.get`,
 `stats.reset`
 
@@ -289,7 +290,7 @@ the link is up on *any* typed message and must never wait on a specific one.
 purpose:
 
 - `identify` -> `identity`: who and what this device is. `device`, `version`,
-  screen `w`/`h`, and `nfc` (the real `_init_nfc()` result, not a hardcoded
+  screen `w`/`h`, `fleet: 1` (has `fleet.*`), and `nfc` (the real `_init_nfc()` result, not a hardcoded
   `true`). Every field is fixed for the life of a boot. The Box also volunteers
   this once at boot, which is *informational only* -- it is not an introduction
   or a readiness signal, and a host that attaches later never sees it.

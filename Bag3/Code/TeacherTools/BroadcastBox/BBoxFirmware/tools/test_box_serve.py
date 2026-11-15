@@ -1,4 +1,4 @@
-"""Off-device check of the Box's power rule: the radio and the NFC field are
+"""Off-device check of the Box's power rule and fleet hooks: the radio and the NFC field are
 never on together, and the radio serves by default (WRITE or IDLE, game or
 not). Hardware is stubbed; this does NOT touch a Box.
 
@@ -41,6 +41,7 @@ class FakeCode:
         return True
     def radio_off(self): self.is_on = False
     def poll(self, on_event=None, on_msg=None): self.polls += 1
+    mgr = None
 
 
 class FakeNfc:
@@ -66,6 +67,7 @@ srv._share_retry_at = 0
 srv._reader_last_uid = None
 srv._written = {}
 srv._pulls = {}
+srv.fleet = None
 srv._index = {"my_jump": {"name": "My Jump", "tags": ["jump"]}}
 srv._active = "my_jump"
 srv._groups = []
@@ -111,6 +113,31 @@ srv._to_menu()
 check("menu: field off", srv._nfc_field_on, False)
 srv._serve()
 check("menu: radio back on", srv.code.is_on)
+
+# Fleet: identity advertises it; NFC cancels a running distribute.
+class FakeLink:
+    def __init__(self): self.sent = []
+    def send(self, obj): self.sent.append(obj)
+srv.link = FakeLink()
+srv.fleet = None
+srv._nfc_ok = True
+check("identity says fleet", srv._identity_payload().get("fleet"), 1)
+
+class FakeFleet:
+    def __init__(self): self.why = None; self.steps = 0
+    def cancel(self, why): self.why = why
+    def step(self): self.steps += 1
+    def on_msg(self, data, mac): pass
+srv.fleet = FakeFleet()
+srv._serve()
+check("radio on: fleet.step runs", srv.fleet.steps, 1)
+srv._to_scan()
+check("field on: distribute cancelled", srv.fleet.why, "radio_off")
+srv.fleet = None
+srv.do_fleet_scan({}, 7)
+check("fleet.scan during a scan: not_serving",
+      srv.link.sent[-1].get("code"), "not_serving")
+srv._to_menu()
 
 # arm / disarm are gone.
 srv.handlers = {}
