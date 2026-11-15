@@ -16,6 +16,13 @@ restored_from: fc25de7^:Bag3/Code/BroadcastBox/BBoxFirmware/known_issue.md
 
 # Known issue: silent reboots while on USB
 
+> **User, 2026-11-15 (recollection, not re-tested).** These resets were later traced to power:
+> USB-A current split between the screen, NFC, the radio and battery charging. The Box was more
+> stable on battery alone. This led to the rule that NFC and WiFi/ESP-NOW never run together.
+> The Dial follows that rule since 2026-11-14; the Box gets it in S12 of
+> `Bag3/STRESS_TEST_PREP_PLAN.md`. Treat the text below as history from the first prototype.
+> Reopen only if the Box resets silently again after S12; record the `reset_log.py` lines here.
+
 Opened 2026-09-01. Unresolved. This is a hypothesis document for testing, not a
 fix — nothing here has been implemented.
 

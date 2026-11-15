@@ -199,7 +199,7 @@ read its status_report shape from the code.
    sending. One choice applies to all selected devices.
 4. ChatBroadcast: when the connected controller lists more than ten games, show a one-line
    clean-up note. Never block.
-Leave the Box alone (it has no fleet commands). Check: py_compile, node --check,
+Leave the Box alone here; S12 step 3 gives it fleet commands. Check: py_compile, node --check,
 node tools/distribute_test.mjs. Report with a description of what the teacher sees.
 ```
 
@@ -291,29 +291,60 @@ Dropped by the user on 2026-11-14. Not needed at this time.
 
 ### S12. Bring the Broadcast Box level with the Dial (needs a Box)
 
-Decided by the user on 2026-11-14: update the Box before the test.
+Decided by the user on 2026-11-14: update the Box before the test. Extended 2026-11-15: fleet
+scan and distribute are in.
+
+Power, not memory (user, 2026-11-15). `known_issues/2026-09-01-bbox-usb-reboots.md` dates from
+the earliest prototype and its front matter still says open. The user recalls the resets were
+traced to power: USB-A current split between the screen, NFC, the radio and, on the Box only,
+battery charging. The Box was more stable on battery alone. That finding led to the rule that
+NFC and WiFi/ESP-NOW never run at the same time, which the Dial now follows (S4). The user
+expects the same rule to clear the Box. Earmark: if the Box resets silently again during S12
+or the test, stop adding features and reopen that note with the reset-reason lines.
 
 ```
-Task: the Broadcast Box (TeacherTools/BroadcastBox/BBoxFirmware/) is behind the Dial. Bring
-over the Dial changes that apply, smallest first. Read known_issues/2026-11-02-dial-box-arm-
-serving.md and known_issues/2026-09-01-bbox-usb-reboots.md first; state each in one sentence
-and get the user's confirmation before changing code. The Box has reset under memory pressure
-before, so keep every change small and do not add imports or prints ahead of the radio.
+Task: the Broadcast Box (TeacherTools/BroadcastBox/BBoxFirmware/) is behind the Dial. Bring it
+level, in the order below. Read known_issues/2026-11-02-dial-box-arm-serving.md and
+known_issues/2026-09-01-bbox-usb-reboots.md, and the "Power, not memory" paragraph above S12
+in the plan. State each note in one sentence and get the user's confirmation before changing
+code. The radio-first rule still holds: no imports or prints ahead of the radio. Commit after
+each numbered step so any one can be backed out.
 1. Serve without arming. Port commit cb19272 (S4, Dial) to the Box's code_link.py,
    bbox_server.py and bbox_ui.py: radio and code server on by default, paused only during an
-   NFC read or write. Keep arm and disarm as accepted no-ops. The Box differs from the Dial in
-   one case the note records: with no game on flash it has no radio at all. Decide how that
-   case behaves and say so.
+   NFC read or write. Keep arm and disarm as accepted no-ops. NFC and the radio must never be
+   on together; this is the power rule, so show in your report where the code guarantees it.
+   The Box differs from the Dial in one case the note records: with no game on flash it has no
+   radio at all. Decide how that case behaves and say so.
 2. List what else the Dial got that the Box lacks (git log for BDialFirmware since
-   2026-10-20 is a start) and report it as a table: change, would it fit the Box, size. Do
-   not port fleet scan or distribute; the Box has no screen room for the slot picker, and a
-   wand that pulls by card drops its oldest game on its own (S2).
-3. Only if S5 step 4 is already bench-proven on the Dial: port its JSON-link game upload so a
+   2026-10-20 is a start) and report it as a table: change, would it fit the Box, size.
+3. Fleet scan, find and distribute. The slot picker and device list live in ChatBroadcast
+   (js/distribute.js); the Box only relays, so it needs no new screens.
+   a. Copy BDialFirmware/fleet.py to BBoxFirmware/ unchanged if you can. It is imported on the
+      first fleet.* command, after the radio is up; keep that.
+   b. Box code_link.py: CodeLink.poll() gains the on_msg argument the Dial's has (messages
+      that are not code-transfer go to fleet).
+   c. bbox_server.py: add fleet.scan, fleet.find, fleet.distribute and fleet.cancel, the
+      fleet.step() call in the main loop, on_pull() after each pull result, and cancel when
+      the radio pauses for NFC. Follow bdial_server.py lines 128-150, 691 and 720-765.
+   d. bbox_ui.py: add show_progress(done, total), which fleet.py calls. One line of text on
+      the Box screen is enough ("Sending 2/5").
+   e. ChatBroadcast js/app.js about line 2932 hides the Distribute button when the device
+      says it is a broadcast_box. Have the Box report that it has fleet commands (a field in
+      its identity reply) and show the button when that field is present, so a Box on old
+      firmware still hides it.
+   f. Add a known_issues note for the Box fleet port: status "untested on hardware", and the
+      earmark above.
+4. Only if S5 step 4 is already bench-proven on the Dial: port its JSON-link game upload so a
    send does not restart the Box. Otherwise leave it and say so.
-Check: py_compile, and tools/devtests/game_menu_scan.py. Then one hands-on block: flash the
-Box, pull a game by card onto one wand without arming, send a second game from ChatBroadcast,
-pull again. Capture the Box's serial log in the background for the whole block and report the
-reset reason lines. Update the known-issue note.
+Check: py_compile, tools/devtests/game_menu_scan.py, node --check,
+node ChatBroadcast/tools/distribute_test.mjs. Then two hands-on blocks, both run once on USB
+and once on battery where the step allows it.
+Block A (steps 1 and 4): flash the Box, pull a game by card onto one wand without arming,
+send a second game from ChatBroadcast, pull again.
+Block B (step 3): with two wands powered, scan from ChatBroadcast, find one wand, distribute a
+game to both, then tap an NFC card on the Box during a second distribute.
+Capture the Box's serial log in the background for both blocks and report the reset-reason
+lines from reset_log.py. Update the known-issue notes.
 ```
 
 ### S13. Waveshare 1.9 "bigger box": early mockup (not part of the stress test firmware)
@@ -395,7 +426,7 @@ Notes:
 ## Not in this plan (after the test)
 
 The 13 stale checker cases, a single drift-check command, a shared game-mode record on the
-controller, a `set_role` sender on the Dial, bringing the Box level with the Dial, Simulator
+controller, a `set_role` sender on the Dial, Simulator
 host-screen polish, and the v1.29 host cause.
 
 ## Verification
