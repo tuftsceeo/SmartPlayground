@@ -35,4 +35,14 @@ BAT_ADC = 4         # ADC1 ch3; battery V = pin V x 3
 BAT_DIVIDER = 3
 BTN_BOOT = 0
 
-FREE_PINS = (1, 2, 3, 5, 6, 15, 16, 18, 19, 20, 38, 42, 45, 46)
+FREE_PINS = (3, 15, 16, 18, 19, 20, 38, 42, 45, 46)   # 1, 2, 5, 6 taken by the NFC reader below
+
+# NFC reader (not fitted; pins chosen 2026-11-15, never run). Own I2C bus so the
+# reader cannot stall touch or IMU on the shared bus. All four come from FREE_PINS.
+NFC_SDA = 1         # plain GPIO (ADC1 ch0), no strapping or boot role
+NFC_SCL = 2         # plain GPIO (ADC1 ch1), no strapping or boot role
+NFC_RST = 5         # reader reset / power-down, plain GPIO
+NFC_IRQ = 6         # reader interrupt, plain GPIO (optional, polling works without)
+NFC_I2C_HOST = 1    # host 0 is the touch/IMU bus
+# Avoided on purpose: 3, 45, 46 (strapping), 19/20 (native USB D-/D+), 42 (JTAG pad),
+# 15/16 (32 kHz crystal pads), 38 (kept spare).
