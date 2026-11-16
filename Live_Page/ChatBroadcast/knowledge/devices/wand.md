@@ -25,8 +25,8 @@ def play(nfc, leds, buz, accel, i2c, enow, batt=None):
 ```
 
 Write all seven, even if the game uses only some. A shorter signature crashes at launch with
-`TypeError`. A Splat game adds an eighth, `net=None`, after `batt=None` (see "Splat games
-(lobby games)"); write it only in a game that uses Splats. (The icon display has a different signature; never use it.)
+`TypeError`. A solo Splat game (type 2) adds an eighth, `splats=None`; a Splat host or lobby game adds
+`net=None` instead (see "Splat host group games"). Write either only when the game needs it. (The icon display has a different signature; never use it.)
 
 | Argument | What it is | Notes |
 |---|---|---|
@@ -130,7 +130,9 @@ message from another device may be used as it arrives: `leds.fill(tuple(data["rg
     SHAPE_QUESTION SHAPE_EXCLAIM SHAPE_PLUS SHAPE_HOUSE SHAPE_TREE SHAPE_FLAME SHAPE_MOON
     SHAPE_RAINDROP SHAPE_FISH SHAPE_BIRD SHAPE_PACMAN SHAPE_INVADER SHAPE_GHOST SHAPE_CHECKERS
     SHAPE_SPIRAL SHAPE_HOURGLASS SHAPE_BULLSEYE SHAPE_PLAY SHAPE_PAUSE SHAPE_POINTER SHAPE_POWER
-    SHAPE_RECTANGLE SHAPE_FASTFORWARD SHAPE_REWIND`
+    SHAPE_RECTANGLE SHAPE_FASTFORWARD SHAPE_REWIND SHAPE_BORDER SHAPE_HAND SHAPE_SNOWFLAKE`
+  - Color-table shapes (differ in outline, not only color): `SHAPE_CIRCLE` (filled), `SHAPE_TRIANGLE`,
+    `SHAPE_BORDER` (a hollow square), `SHAPE_STAR`
   - Faces: `SHAPE_HAPPY_FACE SHAPE_SAD_FACE SHAPE_ANGRY_FACE SHAPE_NEUTRAL_FACE SHAPE_SL_FACE
     SHAPE_SLEEPY_FACE`
   - Arrows: `SHAPE_ARROW_UP SHAPE_ARROW_DN SHAPE_ARROW_L SHAPE_ARROW_R SHAPE_DIAG_L SHAPE_DIAG_R`
@@ -167,6 +169,19 @@ Animations — call every loop with the frame count; bigger `frames_per_step` is
 | `buz.reject()` / `buz.warn()` / `buz.error()` | Wrong / warning / error |
 | `buz.tick()` / `buz.info()` / `buz.question()` | Small feedback sounds |
 
+### Shared signals — `import signals`
+
+The built-in games give the same light and sound for the same event, so children learn them once.
+Use these for those events instead of inventing new ones. Each pauses the game for under a second.
+
+| Call | Light + sound | Use for |
+|---|---|---|
+| `signals.turn(leds, buz)` | white pulse + `buz.info()` | your turn / watch |
+| `signals.right(leds, buz)` | green tick + `buz.confirm()` | a right answer |
+| `signals.wrong(leds, buz)` | dim amber, one soft low beep | a mistake (gentle) |
+| `signals.level_up(leds, buz)` | brief sparkle + `buz.success()` | next level |
+| `signals.win(leds, buz)` | rainbow + `buz.celebrate()` | the end or a win |
+
 ### Cards — `NfcReader`
 
 - `reader = NfcReader(nfc, COMMANDS)`; `COMMANDS` is every card value the game reacts to, always
@@ -199,7 +214,9 @@ the template) so a button held at start does not count as a press.
 
 ### Vibration motor
 
-Some teachers call this the buzzer too; it is the part you feel, not hear.
+Every Bag3 wand has a vibration motor on GPIO 21, driven as a plain pin (on/off; there is no
+driver class and no play() argument for it). It is felt, not heard, and it is **not** `buz`, the
+piezo speaker on GPIO 19 — even when a teacher calls the motor "the buzzer".
 
 ```python
 motor = Pin(21, Pin.OUT, value=0)
@@ -238,10 +255,168 @@ turn). Keep a vibration under about 4 seconds; long and short buzzes are easy to
 
 ## Splats
 
-A **Splat** is a pad children press, which lights up and plays sounds. Splats are paired to a wand
-and driven by that wand's game through the `net` parameter: see "Splat games (lobby games)".
-There is no separate Splat game file and no `[DEVICE: splat]` block. Never write a
-`def play(splat, ...)` function or code that creates Bluetooth (`ubluetooth`) itself.
+A **Splat** is a pad children press, which lights up and plays sounds. Every Splat belongs to one
+wand: a child's own wand (1-2 Splats, type 2, below) or a Splat host wand (up to 4, type 9, see
+"Splat host group games"). Splats are never shared between wands. There is no separate Splat
+game file and no `[DEVICE: splat]` block. Never write a `def play(splat, ...)` function or code
+that creates Bluetooth (`ubluetooth`) itself.
+
+### Type 2: one wand, 1-2 Splats
+
+A child plays alone with Splats paired to their own wand. No lobby, no `net`.
+
+Declare `SPLATS_LOCAL = n` (1 or 2) at the top level. `play()` takes an eighth parameter,
+`splats=None`. Do not declare `SPLATS_MIN`, `SPLAT_HOST`, and do not use `net`.
+
+```python
+def play(nfc, leds, buz, accel, i2c, enow, batt=None, splats=None):
+```
+
+The loop is the ordinary wand loop (see the canonical template): `enow.poll()` every loop and
+return on `"stop"` / `"start_game"`, cards every `NFC_EVERY`, `time.sleep_ms(...)` every loop,
+`leds.off()` in `finally`. Add one line: `ev = splats.poll()`.
+
+### The `splats` object
+
+| Member | Meaning |
+|---|---|
+| `splats.count` | Splats connected now (at least `SPLATS_LOCAL`) |
+| `splats.unit(i)` | Splat `i`: `color(name)`, `note(name)`, `sound(name)`, `play([name, ...])`, `off()` |
+| `splats.poll()` | call every loop: `("press", i)`, `("release", i)` or `None` |
+
+The wand starts the game only if at least `SPLATS_LOCAL` Splats are connected, so inside `play()`
+`splats` is never `None` and `splats.count >= SPLATS_LOCAL`. No guard is needed. Use only names from
+the SPLAT ACTION NAMES list.
+
+A Splat's lights split as **inner/outer** or **left/right**: `color(name, part)` sets only that
+part. Use one split at a time. `play()` and `off()` act on the whole Splat.
+
+| Color | Wand (`leds`) | Splat `color()` |
+|---|---|---|
+| red | `RED` | `"turnred"` |
+| green | `GREEN` | `"turngreen"` |
+| blue | `BLUE` | `"turnblue"` |
+| yellow | `YELLOW` | `"turnyellow"` |
+| purple | `PURPLE` | `"turnpurple"` |
+| white | `WHITE` | `"turnwhite"` |
+
+A Splat that stands for something stays lit in its color; after a press, flash or play a note,
+then return to the color. The wand turns the Splats off itself after the game; do not.
+
+### Example: Simon Stomp (stomp the pattern the wand shows)
+
+Each color also has a shape and a note, so color is never the only signal, and the cues come from
+`signals` (see "Shared signals").
+
+```python
+"""
+Simon Stomp -- stomp your two Splats in the order the wand shows; the pattern grows by one
+"""
+import random
+import time
+
+from nfc_reader import NfcReader
+from game_tags import exit_tags_excluding
+from leds import BLUE, YELLOW, SHAPE_CIRCLE, SHAPE_TRIANGLE
+import signals
+
+GAME_ICON = (SHAPE_TRIANGLE, YELLOW)
+SPLATS_LOCAL = 2
+_EXIT_TAGS = exit_tags_excluding("simonstomp")
+COMMANDS = _EXIT_TAGS
+NFC_EVERY = 10
+LOOP_MS = 20
+
+# Shared color table: Splat i -> (Splat color, wand color, wand shape, Splat
+# note, wand speaker Hz). Every step shows a shape and plays a note as well
+# as lighting a color.
+TABLE = (
+    ("turnblue", BLUE, SHAPE_CIRCLE, "note_c", 523),
+    ("turnyellow", YELLOW, SHAPE_TRIANGLE, "note_e", 659),
+)
+START_LEN = 2
+MAX_LEN = 8
+STEP_MS = 600
+STEP_GAP_MS = 250
+ANSWER_MS = 8000          # per press; then the pattern is shown again
+
+
+def _show_step(leds, buz, splats, i):
+    color, rgb, shape, note, hz = TABLE[i]
+    leds.show_shape(shape, rgb)
+    splats.unit(i).play([color, note])
+    buz.beep(hz, 200)
+    time.sleep_ms(STEP_MS - 200)
+    leds.off()
+
+
+def _idle_colors(splats):
+    for i in range(SPLATS_LOCAL):
+        splats.unit(i).color(TABLE[i][0])
+
+
+def _show_pattern(leds, buz, splats, pattern):
+    for i in range(SPLATS_LOCAL):
+        splats.unit(i).off()
+    time.sleep_ms(300)
+    for i in pattern:
+        _show_step(leds, buz, splats, i)
+        splats.unit(i).off()
+        time.sleep_ms(STEP_GAP_MS)
+    _idle_colors(splats)
+    signals.turn(leds, buz)
+
+
+def play(nfc, leds, buz, accel, i2c, enow, batt=None, splats=None):
+    reader = NfcReader(nfc, COMMANDS)
+    pattern = [random.randrange(SPLATS_LOCAL) for _ in range(START_LEN)]
+    pos = 0
+    frame = 0
+    try:
+        _show_pattern(leds, buz, splats, pattern)
+        at = time.ticks_ms()
+        while True:
+            msg_type, _data, _mac = enow.poll()
+            if msg_type in ("stop", "start_game"):
+                return
+            if frame % NFC_EVERY == 0:
+                cmd, _uid = reader.read_command(timeout=100)
+                if cmd in _EXIT_TAGS:
+                    return
+            frame += 1
+            ev = splats.poll()
+            if ev and ev[0] == "press":
+                i = ev[1]
+                _show_step(leds, buz, splats, i)
+                splats.unit(i).color(TABLE[i][0])
+                if i == pattern[pos]:
+                    pos += 1
+                    if pos == len(pattern):
+                        signals.right(leds, buz)
+                        if len(pattern) == MAX_LEN:
+                            signals.win(leds, buz)
+                            pattern = [random.randrange(SPLATS_LOCAL) for _ in range(START_LEN)]
+                        else:
+                            pattern.append(random.randrange(SPLATS_LOCAL))
+                        pos = 0
+                        time.sleep_ms(400)
+                        _show_pattern(leds, buz, splats, pattern)
+                else:
+                    signals.wrong(leds, buz)
+                    pos = 0
+                    _show_pattern(leds, buz, splats, pattern)
+                at = time.ticks_ms()
+            elif time.ticks_diff(time.ticks_ms(), at) > ANSWER_MS:
+                pos = 0
+                _show_pattern(leds, buz, splats, pattern)
+                at = time.ticks_ms()
+            time.sleep_ms(LOOP_MS)
+    finally:
+        leds.off()
+```
+
+After the code: `[GAME_SETTINGS: {"splats": 2, "wands": 1}]`.
+
 
 ## Limits and why
 

@@ -39,6 +39,7 @@ export const FILE_LIST = [
   "vendor/lib/splat_api.py",
   "vendor/lib/pwire.py",
   "vendor/lib/splatpair.py",
+  "vendor/lib/splat_host.py",
   "vendor/lib/lobby_game.py",
   "vendor/games/jump.py",
   "vendor/games/shake.py",
@@ -56,12 +57,10 @@ export const FILE_LIST = [
   "vendor/games/goalrace.py",
   "vendor/games/color_quest.py",
   "vendor/games/finddevice.py",
-  "vendor/games/lobbytest.py",
-  "vendor/games/splattag.py",
+  "vendor/games/colorpads.py",
   "vendor/games/host_lobbytest.py",
   "vendor/games/host_splattag.py",
   "vendor/games/host_relaycolor.py",
-  "vendor/games/relaycolor.py",
   // Not a game: color_quest.py imports SCORE_MAC from it.
   "vendor/games/target.py",
 ];

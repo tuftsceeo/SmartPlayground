@@ -19,9 +19,14 @@ Read this whenever a game involves more than one wand, or a wand plus the icon d
 - **Messages can be missed.** A device in charge that sets the state ("everyone freeze") should
   repeat that state about once a second, so a wand that missed it, or joined late, catches up.
 - **Every file exits** on `"stop"` / `"start_game"`, whatever its role.
+- **Games repeat.** Every game celebrates a win and then starts a new round, forever, until a
+  stop message (`"stop"`, `"start_game"`, an exit card, or `("end",)` in a lobby game). Never
+  return from `play()` because someone won.
+- **Hold actions fill a light.** Game text for any hold (a button held to start or to trigger)
+  says "hold until the light fills".
 - **Say how many wands it is for.** A game played on more than one wand writes
   `[GAME_SETTINGS: {"wands": N}]` after the code (platform rules), N from 2 to 4, so the practice
-  window starts with that many wands. A Splat game also gives `splat_host` (or `wand_splats` without a host; Splat games section).
+  window starts with that many wands. A Splat host game also gives `splat_host`; a solo Splat game gives `splats` (1-2) and `"wands": 1`.
 
 ## Designing the messages
 
@@ -32,8 +37,9 @@ Plan the messages before writing any file, and use exactly the same names in eve
 - **Say who sent it and what happened**, in short keys:
   `{"type": "frogs", "from": "caller", "e": "go"}`,
   `{"type": "frogs", "from": "wand", "team": "green", "e": "goal"}`.
-- **Role-specific messages** name who should act on them with a `"to"` key (`"to": "players"`),
-  and each receiver ignores messages not meant for its role.
+- **Role-specific messages** name who should act on them with a `"for"` key (`"for": "players"`),
+  and each receiver ignores messages not meant for its role. Never `"to"`: it holds a device MAC
+  for the icon display.
 - **Send what the receiver needs**, as small plain values: an event name, a team name, a count, a
   color name or a short `[r, g, b]` list. About 240 bytes at most.
 - The `mac` returned by `enow.poll()` identifies the sending device, if a game needs to tell wands
@@ -63,11 +69,11 @@ elif cmd == "player":
 
 # Caller: announce, and repeat the state about once a second
 if role == "caller" and frame % 20 == 0:
-    enow.broadcast({"type": "frogs", "from": "caller", "to": "players", "e": state})
+    enow.broadcast({"type": "frogs", "from": "caller", "for": "players", "e": state})
 
 # Player: act only on messages for players
 if (msg_type == "raw" and isinstance(data, dict) and data.get("type") == "frogs"
-        and data.get("to") == "players"):
+        and data.get("for") == "players"):
     state = data.get("e")
 ```
 

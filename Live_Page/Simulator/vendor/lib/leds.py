@@ -186,6 +186,12 @@ SHAPE_WIFI_2             = (0, 1, 2, 3, 4, 11, 12, 13, 22)
 WIFI_FRAMES              = (SHAPE_WIFI_0, SHAPE_WIFI_1, SHAPE_WIFI_2)
 SHAPE_POINTER            = (0, 5, 6, 10, 11, 12, 15, 16, 20)
 SHAPE_BULLSEYE           = (1, 2, 3, 5, 9, 10, 12, 14, 15, 19, 21, 22, 23)
+# Built-in color table: filled circle, filled triangle, hollow square
+# (SHAPE_BORDER), star -- each differs in outline, not only color.
+SHAPE_CIRCLE             = (1, 2, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 21, 22, 23)
+SHAPE_TRIANGLE           = (7, 11, 12, 13, 15, 16, 17, 18, 19)
+SHAPE_HAND               = (0, 2, 4, 5, 7, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 21, 22, 23)
+SHAPE_SNOWFLAKE          = (0, 2, 4, 6, 7, 8, 10, 11, 12, 13, 14, 16, 17, 18, 20, 22, 24)
 
 SHAPE_BATTERY_FULL  = (2, 6, 7, 8, 11, 12, 13, 16, 17, 18, 21, 22, 23)
 SHAPE_BATTERY_HALF  = (2, 6, 8, 11, 13, 16, 17, 18, 21, 22, 23)
