@@ -16,8 +16,7 @@ a game owns the loop while it runs, so step() is not called and USB
 authoring pauses until the game returns -- inherent to one device doing
 both, not a fault -- but the split itself is identical in both files.
 
-PEER: Stations/Icon Display Station/icon_server.py is the station's copy,
-hand-kept. A fix here is not a fix there.
+This is the only copy: the old Icon Display Station's was deleted 2026-11-15.
 
 Wire contract: every reply is exactly one JSON object per line. `id`, if
 present on a command, is echoed back so the browser can correlate a

@@ -142,7 +142,7 @@ files (superseded code). `Bag2/AGENTS.md` calls the Narrator, Paper Remote, Spea
 | 1 | Wand module (Mock Wand) | `Wand Module/` | C6; Bag2 layout plus a power LED on GPIO2 and PN532 | Active; pulls games from the Box/Dial |
 | 2 | Broadcast Box | `TeacherTools/BroadcastBox/` | M5 StickS3 + Grove RFID 2 (WS1850S) | Fielded prototype |
 | 3 | Broadcast Dial | `TeacherTools/BroadcastDial/` | M5 Dial 2 (StampS3A) | Sibling port; Phase 0 pins open |
-| 4 | Icon Display | `Stations/IconDisplay/` (Broadcast firmware) and `Stations/Icon Display Station/` (old firmware and bring-up; the icon pipeline is `IconEditor/`) | XIAO C6 + 16×16 WS2812B panel | One device, two firmware folders. Beta. |
+| 4 | Icon Display | `Stations/IconDisplay/` (Broadcast firmware); icon pipeline in `IconEditor/` | XIAO C6 + 16×16 WS2812B panel | One device, two firmware folders. Beta. |
 | 5 | Splat Companion | `Stations/SplatCompanion/` (`Companion/` + `ESPNowModem/`) | Two XIAO C6 + PN532 + MAX17048, BLE to stock Splats | Marked historical |
 | 6 | M5Paper Remote | `TeacherTools/M5Paper Remote/` | M5Paper | **Possibly the same** as Bag2 device #6; its README says it targets Bag2 wands. |
 

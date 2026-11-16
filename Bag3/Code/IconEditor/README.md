@@ -1,8 +1,8 @@
 # IconEditor
 
 Host-side tools for authoring 16x16 icons for the Broadcast icon display. Moved here on
-2026-11-14 from `Stations/Icon Display Station/`, which now holds only the old USB-serial
-firmware and bring-up scripts.
+2026-11-14 from `Stations/Icon Display Station/`, which was deleted on 2026-11-15. `PIPELINE_NOTES.md` keeps
+that tree's notes on the conversion tools.
 
 | Path | What |
 |---|---|

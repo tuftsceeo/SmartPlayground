@@ -23,24 +23,12 @@ drawn and saved straight to it. That link is live whenever the device is not
 in a game — there is nothing to switch on. A game owns the loop while it runs,
 so authoring pauses for its duration.
 
-## Relationship to `Bag3/Code/Stations/Icon Display Station/`
+## History: the old `Icon Display Station`
 
-That tree is the original station: the old USB icon server firmware and the bring-up scripts.
-Its host-side conversion pipeline, browser editor, maps and second `icons/` copy moved to
-`Bag3/Code/IconEditor/` on 2026-11-14.
-
-This tree copies the parts a game-playing device needs — `icon_matrix.py`,
-`icon_store.py`, `icons/`, and the USB server — leaving behind the bring-up
-scripts and the host-side tooling, and adds the wand's boot, radio,
-card-reading and code-pull machinery.
-
-`icon_server.py` differs from the station's copy in two ways: it is handed
-the `Matrix` rather than building one (this device's `main.py` already made
-the real one), and it carries `do_start_game`/`is_game`, a bench-only way to
-launch a game over USB (see Writing a game, below) that the station has
-nothing to launch for. The panel-ownership latch and the `start()` /
-`step()` / `finish()` split are ported to both copies, not a divergence.
-Both copies carry a `PEER:` note.
+This tree descends from `Stations/Icon Display Station/`, a USB-serial-only version with no
+radio, deleted on 2026-11-15 (it is in git history). Its icon tools and web editor are in
+`Bag3/Code/IconEditor/`; its hardware notes are under "Hardware bring-up notes" below.
+`icon_server.py` here is now the only copy.
 
 ## Layout
 
@@ -235,3 +223,55 @@ have all run on hardware. The card reader has not: it is fitted and
 configured, but no tap has been read on a device yet, so the `0x28` address
 and the shim in `lib/nfc_ws1850s.py` are unproven outside the host tests in
 `tools/devtests/nfc_display.py`.
+
+## Hardware bring-up notes
+
+From the old `Icon Display Station` readme. The scripts it names (`single_pixel_test.py`,
+`voltage_test.py`) were deleted with that tree and are in git history.
+
+### Status (as of the old station)
+
+Hardware bring-up complete (serpentine row-major wiring confirmed, power ceilings measured). `main.py` cycles the `icons/` folder. The image-to-icon conversion pipeline (below) is the current focus -- the six fruit icons in `assets/`/`icons/` are conversion-pipeline test fixtures, not vetted device content.
+
+### Hardware
+
+- **Board:** Seeed XIAO ESP32-C6
+- **Driver board:** [Seeed LED Driver Board](https://wiki.seeedstudio.com/led_driver_board/) -- rated 5V/3A or 12V/2A output. Has two independent data pins; confirm which one is actually wired before assuming a `DATA_PIN` value:
+  - A0 screw terminal → **GPIO0** (same pin Slide Score Station uses)
+  - D5 Grove connector → **GPIO23**
+- **Matrix:** BTF-LIGHTING WS2812B 5050 SMD, 16×16, 256 pixels
+- **Reference comparison:** Slide Score Station drives a BTF-LIGHTING WS2812B "Pebble Pixel" seed string, only 40 pixels -- roughly 6x smaller load. Code that works there doesn't guarantee this board/matrix combo behaves the same under load.
+
+### Known hardware issue
+
+One driver board tested produced no output at all -- not a pin, wiring, or power problem, just a bad unit. Swapping to a second board fixed it. If a new Icon Display unit doesn't respond even to `single_pixel_test.py`, a board swap is a real possibility, not just a wiring bug to keep chasing.
+
+### Bring-up scripts
+
+- **`single_pixel_test.py`** -- minimal one-pixel sanity check, color-cycling a single pixel. Run this first on any new board/strip pairing, before the power test -- it isolates pin/wiring/board issues from power budget entirely, at ~30mA of load.
+- **`voltage_test.py`** -- ramps the lit pixel count up one row (16px) at a time at a fixed test intensity, holding each step for a multimeter read or just watching the far end of the matrix for dimming/color shift/flicker. Rows cycle through a 6-color rainbow (same palette as Slide Score Station's `RAINBOW_ROWS`) instead of solid white, since real icon content mostly lights 1-2 channels per pixel, not all three -- white is the worst case, not the typical one.
+
+### Findings so far (2026-08-25)
+
+| Supply | Pattern | Intensity | Result |
+|---|---|---|---|
+| 5V wall adapter | solid white | 50% | Safe through 7 rows (112px, ~3.36A). Fails at 8 rows (128px, ~3.84A) -- brackets the driver board's rated 5V/3A output almost exactly. |
+| 12V battery | solid white | 50% | Safe through 12 rows (192px) -- notably more headroom than the 5V path, likely because the board's 12V input runs through a buck regulator with more current capacity than the direct 5V terminal. |
+| 12V battery | ROYGBIV rows (rainbow) | 50% | Ran the full ramp to all 256px / 16 rows with no failure. |
+
+**Takeaway:** solid-white-at-50%-everywhere is a deliberately pessimistic worst case, not representative of real icon content -- that's why it fails well before the rainbow test does. The rainbow result is the one closer to how the display will actually be used, and it clears the full matrix comfortably at 50% on the 12V supply.
+
+### Design guidance going forward
+
+- **Electrical ceiling ≠ sustainable ceiling.** Every measurement above is an instantaneous read after a few seconds of hold. It says nothing about running for minutes or hours -- heat builds in both the WS2812 dies and the driver board's regulator well after the rail has already stabilized. "Didn't sag during the test" is not the same as "safe to leave on."
+- **Static/idle content should run measurably dimmer than the tested ceiling**, not at it. Reserve higher brightness for short animations or highlight moments rather than a display that sits lit continuously at the same level -- both for headroom margin and because sustained heat is its own failure mode, separate from voltage sag.
+- Use the existing `lib/brightness.py` convention (already used by `Leds` elsewhere in this codebase) for a global intensity multiplier in the eventual `main.py`, rather than hardcoding brightness -- gives one knob to dial down for sustained/idle states vs. brief full-brightness moments.
+- If the full matrix ever needs to run bright and fully lit for extended periods, revisit power injection (a second 5V feed partway down the matrix) rather than leaning on brightness alone -- see the header of `voltage_test.py` for the injection note.
+
+### Bring-up scripts (cont'd)
+
+- **`icon_test.py`** -- tests the serpentine wiring hypothesis and previews real content. Lights each row in a rotating color first (clean bands confirm the row-major serpentine guess in its `pixel_index()`; diagonal streaks mean it's wired by column instead, like Slide Score Station's bar graph), then draws three shapes scaled 3x from the 5x5 grids in `lib/leds.py` (`HEART`, `STAR`, `ARROW_R` -- the arrow is asymmetric on purpose, so a wiring mistake is obvious). Runs dim (`ICON_INTENSITY = 0.2`) since these are static holds, not a load test. Also exposes `draw_pixels(pixels)`, which takes any flat 256-entry `(r,g,b)` tuple (row-major, top-left) and draws it through the same `pixel_index()`/intensity path -- the intended target for `image_to_icon.py`'s output.
+
+### Confirmed (2026-08-25)
+
+Physical pixel wiring is **serpentine, row-major, starting top-left** -- `icon_test.py`'s `pixel_index()` rainbow-rows check came back clean, and the scaled HEART/STAR/ARROW_R shapes rendered correctly (arrow pointed the right way, nothing mirrored/rotated). This mapping can now be relied on for real icon content instead of treated as a guess.

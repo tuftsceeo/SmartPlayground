@@ -54,8 +54,8 @@ TEAM_ICON = {
 # Below MAX_INTENSITY (0.50), which is a measured supply ceiling rather than
 # a preference: 256 pixels at full brightness exceed the driver board. Both
 # marks are a single conservative value for now, matching main.py's
-# IDLE_INTENSITY/ALERT_INTENSITY -- see Stations/Icon Display Station/
-# readme.md's voltage ramp for the bench data behind that ceiling.
+# IDLE_INTENSITY/ALERT_INTENSITY -- see Stations/IconDisplay/
+# README.md, "Hardware bring-up notes", for the bench data behind that ceiling.
 READY_INTENSITY = 0.15
 WINNER_INTENSITY = 0.15
 
