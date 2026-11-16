@@ -1,3 +1,4 @@
+// STALE (2026-11-16): imports ChatBroadcast/js/ledicons/iconPanel.js, which is in no commit on any branch; fails with ERR_MODULE_NOT_FOUND. Not fixed on purpose.
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 // Bag3/Code/, two levels up from tools/devtests/.
