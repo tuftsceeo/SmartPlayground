@@ -339,6 +339,34 @@ def _fetch(enow, sender, rid, offer, dest, stats, on_progress, verbose,
     return why
 
 
+def _fetch_safe(enow, sender, rid, offer, dest, stats, on_progress, verbose,
+                compile_check):
+    """_fetch(), with a flash write error (full store) turned into a failed
+    transfer: dest.part removed, code_done sent, '' or the reason returned."""
+    try:
+        return _fetch(enow, sender, rid, offer, dest, stats, on_progress,
+                      verbose, compile_check)
+    except OSError as e:
+        why = WRITE_FAILED + str(e)
+        print("[ENX] FAILED: %s: %s" % (dest, why))
+        try:
+            os.remove(dest + '.part')
+        except OSError:
+            pass
+        now = time.ticks_ms()
+        stats.setdefault("t_body", now)
+        stats.setdefault("t_body_end", now)
+        stats["t_done"] = now
+        for k in ("gets", "frames", "dup", "min_gc_free"):
+            stats.setdefault(k, 0)
+        enow.send_to(sender, {"type": "code_done", "id": rid, "ok": False,
+                              "why": why})
+        return why
+
+
+WRITE_FAILED = "write failed: "
+
+
 def _offer_ok(offer):
     chunk = offer.get("chunk", 0)
     return (chunk > 0 and chunk + FRAME_HDR <= 250
@@ -375,8 +403,9 @@ def _icon_names(enow, sender, offer, slug, hubtype, verbose):
 
 
 def _receive_icons(enow, sender, offer, slug, hubtype, icon_dir, verbose):
-    """Pull every icon the game's offer lists into icon_dir. Returns the
-    number promoted; a failed icon is skipped."""
+    """Pull every icon the game's offer lists into icon_dir. Returns
+    (number promoted, True if a flash write failed); a failed icon is
+    skipped, a write failure stops the leg."""
     try:
         os.mkdir(icon_dir)
     except OSError:
@@ -401,15 +430,17 @@ def _receive_icons(enow, sender, offer, slug, hubtype, icon_dir, verbose):
         if ioffer.get("name") != name or not _offer_ok(ioffer):
             print("[ENX] icon %s: bad offer %r" % (name, ioffer))
             continue
-        why = _fetch(enow, sender, rid, ioffer, icon_dir + '/' + name, st,
-                     None, False, False)
+        why = _fetch_safe(enow, sender, rid, ioffer, icon_dir + '/' + name,
+                          st, None, False, False)
+        if why.startswith(WRITE_FAILED):
+            return promoted, True
         if why:
             print("[ENX] icon FAILED: %s: %s" % (name, why))
         else:
             promoted += 1
     if verbose and names:
         print("[ENX] %d/%d icon(s) promoted" % (promoted, len(names)))
-    return promoted
+    return promoted, False
 
 
 def receive(enow, slug=None, hubtype=None, on_progress=None, verbose=True,
@@ -461,12 +492,23 @@ def receive(enow, slug=None, hubtype=None, on_progress=None, verbose=True,
     enow.add_peer(sender)
     game_store.ensure_dir()
     dest = game_store.GAMES_DIR + '/' + name
-    why = _fetch(enow, sender, rid, offer, dest, stats, on_progress, verbose,
-                 True)
+    why = _fetch_safe(enow, sender, rid, offer, dest, stats, on_progress,
+                      verbose, True)
     ok = not why
     if ok and icon_dir:
-        stats["icons"] = _receive_icons(enow, sender, offer, name[:-3],
-                                        hubtype or "", icon_dir, verbose)
+        stats["icons"], full = _receive_icons(enow, sender, offer, name[:-3],
+                                              hubtype or "", icon_dir, verbose)
+        if full:
+            # Do not keep a game whose icons did not fit: drop it and put
+            # back the copy it replaced, if any.
+            ok = False
+            why = "icon write failed (flash full?)"
+            print("[ENX] FAILED: %s: %s; game removed" % (name, why))
+            try:
+                os.remove(dest)
+                os.rename(dest + '.bak', dest)
+            except OSError:
+                pass
 
     t0 = stats["t_start"]
     stats.update({
