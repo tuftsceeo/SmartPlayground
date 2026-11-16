@@ -208,6 +208,8 @@ class BboxServer:
             "info": self.do_info,
             "mode": self.do_mode,
             "repl": self.do_repl,
+            "arm": self.do_arm,
+            "disarm": self.do_disarm,
             "fleet.scan": self.do_fleet_scan,
             "fleet.find": self.do_fleet_find,
             "fleet.distribute": self.do_fleet_distribute,
@@ -853,6 +855,15 @@ class BboxServer:
                       replace if isinstance(replace, str) and replace else None)
         self.link.send({"type": "ok", "id": rid, "cmd": "fleet.distribute",
                         "slug": slug, "total": len(macs)})
+
+    def do_arm(self, cmd, rid):
+        """No-op kept for older hosts: the radio serves by default."""
+        self.link.send({"type": "ok", "id": rid, "cmd": "arm", "ssid": None,
+                        "armed": self.code.is_on})
+
+    def do_disarm(self, cmd, rid):
+        """No-op kept for older hosts: sharing is not user-controlled."""
+        self.link.send({"type": "ok", "id": rid, "cmd": "disarm"})
 
     def do_fleet_cancel(self, cmd, rid):
         self._fleet_cancel("cancelled")
